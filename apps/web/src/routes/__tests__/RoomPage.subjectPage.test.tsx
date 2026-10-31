@@ -138,6 +138,11 @@ function routerPath() {
   return screen.getByRole("status", { name: "라우터 경로", hidden: true }).textContent;
 }
 
+/** 세션은 심플 모드로 시작해 과목 줄이 누를 수 없는 글자다. 화면을 탭해 촬영 화면으로 바꾼다. */
+async function leaveSimpleMode() {
+  await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
+}
+
 async function selectMathFromPage() {
   await userEvent.click(screen.getByRole("button", { name: "과목" }));
   await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
@@ -163,7 +168,7 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
     expect(screen.getByRole("button", { name: "공부 종료" })).toBeInTheDocument();
   });
 
-  it("오른쪽 위 열은 배경음, 과목, 타이머 순서이고 심플 모드에서는 열 전체를 숨긴다", async () => {
+  it("오른쪽 위 열은 배경음, 과목, 타이머 순서이고 심플 모드로 시작해 열 전체를 숨긴다", async () => {
     renderRoom();
     const group = screen.getByRole("group", { name: "부가 기능" });
     const names = within(group)
@@ -171,8 +176,9 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
       .map((button) => button.getAttribute("aria-label"));
 
     expect(names).toEqual(["배경음", "과목", "타이머"]);
-    await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
     expect(group).toHaveAttribute("inert");
+    await leaveSimpleMode();
+    expect(group).not.toHaveAttribute("inert");
   });
 
   it("선택한 과목이 없으면 라벨이 없다", async () => {
@@ -231,6 +237,7 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
   it("라벨로 열면 진입 경로가 label이고, 닫으면 라벨로 포커스가 돌아온다", async () => {
     listSubjects.mockResolvedValueOnce([MATH]);
     renderRoom();
+    await leaveSimpleMode();
     await selectMathFromPage();
     const label = await screen.findByRole("button", { name: /^수학.*순공/ });
 
@@ -244,6 +251,7 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
   it("라벨로 열고 과목을 해제한 뒤 닫으면 과목 버튼으로 포커스가 간다", async () => {
     listSubjects.mockResolvedValueOnce([MATH]);
     renderRoom();
+    await leaveSimpleMode();
     await selectMathFromPage();
 
     await userEvent.click(await screen.findByRole("button", { name: /^수학.*순공/ }));

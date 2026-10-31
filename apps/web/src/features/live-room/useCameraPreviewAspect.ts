@@ -6,9 +6,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
  * 박스(288×234)와 서피스는 비율이 크게 달라 cover 크롭이 다르게 잘렸다(2026-08-25).
  *
  * `open`(카메라 켜기 모달 열림)이 참인 동안 회전·리사이즈마다 다시 잰다.
+ * 잴 요소가 div가 아니면(싱글룸은 세션 루트 main) 타입 인자로 요소 타입을 넘긴다.
  */
-export function useCameraPreviewAspect(open: boolean) {
-  const selfSurfaceRef = useRef<HTMLDivElement | null>(null);
+export function useCameraPreviewAspect<T extends HTMLElement = HTMLDivElement>(open: boolean) {
+  const selfSurfaceRef = useRef<T | null>(null);
   const [previewAspect, setPreviewAspect] = useState<number | null>(null);
   const measurePreviewAspect = useCallback(() => {
     const rect = selfSurfaceRef.current?.getBoundingClientRect();

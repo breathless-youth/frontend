@@ -891,8 +891,49 @@ export function trackSessionSimpleModeToggled(on: boolean) {
   track("session_simple_mode_toggled", { on });
 }
 
+/** 싱글룸 입장 카메라 확인 창의 답. `카메라 켜기`는 camera, `심플 모드로 시작`과 Escape는 simple이다. */
+export type CameraPromptChoice = "camera" | "simple";
+
+/**
+ * 싱글룸 입장 카메라 확인 창 노출
+ *
+ * 세션 화면마다 한 번이고, 도움말이 자동으로 뜨는 계정은 도움말을 끝내거나 닫은 뒤에 뜬다.
+ */
+export function trackStudySessionCameraPromptShown(roomType: StudyRoomType) {
+  if (!initialized) return;
+  track("study_session_camera_prompt_shown", { room_type: roomType });
+}
+
+/**
+ * 싱글룸 입장 카메라 확인 창의 답
+ *
+ * 답은 표시 모드만 바꾸므로 `session_simple_mode_toggled`는 함께 보내지 않는다.
+ * 노출 대비 camera 비율이 촬영 화면을 고르는 사람의 몫이다.
+ */
+export function trackStudySessionCameraPromptAnswered(input: {
+  readonly choice: CameraPromptChoice;
+  readonly roomType: StudyRoomType;
+}) {
+  if (!initialized) return;
+  track("study_session_camera_prompt_answered", {
+    choice: input.choice,
+    room_type: input.roomType,
+  });
+}
+
 /** 세션 도움말을 연 경로. 세션 진입 때 저절로 뜬 것(auto)과 더보기의 도움말 보기(menu)다. */
 export type SessionHelpTrigger = "auto" | "menu";
+
+/** 세션 도움말 단계 id. 단계 번호와 달리 순서가 바뀌어도 뜻이 같다. */
+export type SessionHelpStepId = "away" | "measuring" | "camera" | "buttons" | "finish";
+
+/**
+ * 세션 도움말 판
+ *
+ * 2는 심플 모드로 시작하는 5단계 판이다.
+ * 이 속성이 없는 6단계 판과 단계 번호의 뜻이 달라 콘솔 차트는 이 값으로 거른다.
+ */
+const SESSION_HELP_VERSION = 2;
 
 /**
  * 세션 도움말 노출

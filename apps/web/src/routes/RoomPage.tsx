@@ -18,6 +18,9 @@ import { createAmbientUsage } from "@/features/ambient-sound/ambientUsage";
 import { AmbientSoundButton } from "@/features/ambient-sound/components/AmbientSoundButton";
 import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSoundSheet";
 import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
+import { CameraOnConfirmDialog } from "@/features/live-room/components/CameraOnConfirmDialog";
+import { ClonedTrackPreview } from "@/features/live-room/components/ClonedTrackPreview";
+import { useCameraPreviewAspect } from "@/features/live-room/useCameraPreviewAspect";
 import { ModeEntryButton } from "@/features/multi-timer/components/ModeEntryButton";
 import { MultiTimerScreen } from "@/features/multi-timer/components/MultiTimerScreen";
 import { PomodoroPanel } from "@/features/multi-timer/components/PomodoroPanel";
@@ -69,6 +72,7 @@ import { VisionPerfPanel } from "@/features/study-session/components/VisionPerfP
 import { resolveDevDetectorOverride } from "@/features/study-session/devMockDetector";
 import { SUB_MINUTE_SEC, formatElapsed } from "@/features/study-session/formatDuration";
 import {
+  CAMERA_PROMPT_COPY,
   CAMERA_TOAST_COPY,
   EXIT_CONFIRM_COPY,
   INVITE_CONFIRM_COPY,
@@ -86,6 +90,7 @@ import {
   sessionGuideState,
   shouldShowSessionGuide,
 } from "@/features/study-session/sessionGuide";
+import { SESSION_HELP_STEPS } from "@/features/study-session/sessionHelpCopy";
 import { SESSION_LAYER_INSET } from "@/features/study-session/sessionLayout";
 import { MANUAL_END_REASON } from "@/features/study-session/sessionState";
 import {
@@ -113,11 +118,13 @@ import { useActiveSessionRestore } from "@/features/study-session/useActiveSessi
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
 import { useTrackedVisionDetector } from "@/features/study-session/useVisionReadyTracking";
 import { createTimelapseRecorder } from "@/features/timelapse/timelapseRecorder";
-import type { SessionHelpTrigger } from "@/lib/amplitude";
+import type { CameraPromptChoice, SessionHelpTrigger } from "@/lib/amplitude";
 import {
   stageStudyResultExit,
   trackSessionNoticeConfirmed,
   trackSessionSimpleModeToggled,
+  trackStudySessionCameraPromptAnswered,
+  trackStudySessionCameraPromptShown,
   trackStudySessionExitCancelled,
   trackStudySessionExitRequested,
   trackStudySessionHelpCompleted,
@@ -443,7 +450,11 @@ function RoomSessionScreen({
     subjectsListRef.current = subjects.subjects;
   });
   // 심플 모드는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
-  const [simpleMode, setSimpleMode] = useState(false);
+  // 첫 화면에 얼굴이 가득 비치는 부담을 덜려고 세션마다 심플 모드로 시작하고, 촬영 화면은 입장 확인 창에서 고른다.
+  // 카메라·감지·타이머는 표시 모드와 상관없이 입장 즉시 돈다.
+  const [simpleMode, setSimpleMode] = useState(true);
+  // 확인 창이 닫힌 뒤 초점을 돌려줄 자리. 심플 모드에서는 더보기 버튼이 inert라 초점을 받지 못한다.
+  const simpleToggleRef = useRef<HTMLButtonElement>(null);
   // 더보기 메뉴는 열려도 앱 버튼을 숨기지 않아서 열린 동안 앱 버튼은 disabled로 누름을 막는다.
   // 웹 버튼은 스스로 pointer-events-auto라 메뉴의 바깥 누름 차단이 닿지 않아서 inert로 막는다.
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
@@ -532,6 +543,52 @@ function RoomSessionScreen({
     setHelpDismissed(true);
     setHelpOpen(false);
     setHelpStep(0);
+  }
+  // 입장 카메라 확인 창. 세션 화면마다 한 번 묻고, 도움말이 자동으로 뜰 계정은 도움말을 끝내거나 닫은 뒤에 묻는다.
+  // 과목 페이지 등에 가려 도움말이 잠시 숨은 동안에도 묻지 않도록 가림 여부를 빼고 판정한다.
+  // 신원이 없는 동안은 도움말과 함께 기다린다.
+  const [cameraPromptAnswered, setCameraPromptAnswered] = useState(false);
+  const helpAutoPending =
+    !helpDismissed && shouldShowSessionGuide({ state: guideState, blocked: false });
+  const cameraPromptOpen =
+    phase.name === "studying" &&
+    userId !== null &&
+    !cameraPromptAnswered &&
+    !helpOpen &&
+    !helpAutoPending;
+  // 미리보기가 촬영 화면과 같은 영역을 잘라 보이도록 세션 루트를 직접 잰다.
+  const {
+    selfSurfaceRef: sessionRootRef,
+    previewAspect,
+    measurePreviewAspect,
+  } = useCameraPreviewAspect<HTMLElement>(cameraPromptOpen);
+  const setSessionRoot = useCallback(
+    (node: HTMLElement | null) => {
+      sessionRootRef.current = node;
+      setSessionSurface(node);
+    },
+    [sessionRootRef],
+  );
+  // 창이 뜰 때 그리기 전에 비율을 재고 노출을 보낸다.
+  // StrictMode가 effect를 두 번 돌려도 노출은 한 번만 보내도록 ref로 막는다.
+  const cameraPromptShownRef = useRef(false);
+  useLayoutEffect(() => {
+    if (!cameraPromptOpen) {
+      return;
+    }
+    measurePreviewAspect();
+    if (!cameraPromptShownRef.current) {
+      cameraPromptShownRef.current = true;
+      trackStudySessionCameraPromptShown("single");
+    }
+  }, [cameraPromptOpen, measurePreviewAspect]);
+  /** 입장 카메라 확인 창의 답. 표시 모드만 바꾸고 카메라·감지·타이머는 그대로 둔다. */
+  function answerCameraPrompt(choice: CameraPromptChoice) {
+    trackStudySessionCameraPromptAnswered({ choice, roomType: "single" });
+    setCameraPromptAnswered(true);
+    if (choice === "camera") {
+      setSimpleMode(false);
+    }
   }
   /**
    * 카메라 전환이 진행 중인가 — **추론 정지 구간을 표시하는 값이지 화면 상태가 아니다.**
@@ -862,7 +919,7 @@ function RoomSessionScreen({
 
   return (
     <main
-      ref={setSessionSurface}
+      ref={setSessionRoot}
       style={{ ...sessionSurfaceStyle, ...sessionGlowStyle(sessionState.kind) }}
       data-simple-mode={simpleMode}
       // 하단 버튼 아이콘과 타이머 텍스트가 마우스/터치 드래그로 끌리는 것을
@@ -903,6 +960,7 @@ function RoomSessionScreen({
             type="button"
             aria-label="심플 모드 전환"
             aria-pressed={simpleMode}
+            ref={simpleToggleRef}
             inert={helpVisible}
             // 메뉴는 누름이 시작될 때 닫혀서 클릭 때는 이미 닫힌 상태라, 누름을 시작한 순간의 열림으로 판단한다.
             onPointerDown={() => {
@@ -1289,6 +1347,27 @@ function RoomSessionScreen({
           haptic("medium");
           void endAndSubmit(MANUAL_END_REASON);
         }}
+      />
+      {/* 입장 카메라 확인 창도 종료 확인과 같은 이유로 `phase` 삼항 밖에 둔다.
+          답에 따라 심플 모드일 수도 아닐 수도 있어서 닫히면 항상 화면 탭 전환 버튼으로 초점을 돌린다. */}
+      <CameraOnConfirmDialog
+        open={cameraPromptOpen}
+        container={sessionSurface}
+        title={CAMERA_PROMPT_COPY.title}
+        description={CAMERA_PROMPT_COPY.description}
+        notice={CAMERA_PROMPT_COPY.notice}
+        cancelLabel={CAMERA_PROMPT_COPY.cancel}
+        confirmLabel={CAMERA_PROMPT_COPY.confirm}
+        returnFocus={() => simpleToggleRef.current}
+        preview={
+          <ClonedTrackPreview
+            stream={cameraStream}
+            facing={cameraFacing}
+            targetAspect={previewAspect ?? undefined}
+          />
+        }
+        onCancel={() => answerCameraPrompt("simple")}
+        onConfirm={() => answerCameraPrompt("camera")}
       />
     </main>
   );

@@ -14,6 +14,7 @@ import {
   measureControlsNow,
   resetGlassChrome,
 } from "@/test/nativeControlStub";
+import { answerCameraPrompt } from "@/test/cameraPrompt";
 import { RoomPage } from "../RoomPage";
 
 /**
@@ -100,9 +101,9 @@ function receiveInvite(code: string) {
   });
 }
 
-/** 다음 버튼을 다섯 번 눌러 마지막 단계까지 간 뒤 순공 시작하기로 끝낸다. */
+/** 다음 버튼을 네 번 눌러 마지막 단계까지 간 뒤 순공 시작하기로 끝낸다. */
 async function finishHelp() {
-  for (let index = 0; index < 5; index += 1) {
+  for (let index = 0; index < 4; index += 1) {
     await userEvent.click(screen.getByRole("button", { name: "다음" }));
   }
   await userEvent.click(screen.getByRole("button", { name: "순공 시작하기" }));
@@ -148,6 +149,8 @@ describe("RoomPage 세션 도움말", () => {
     fireEvent.keyDown(screen.getByRole("dialog", { name: "세션 도움말" }), { key: "Escape" });
     expect(helpDialog()).not.toBeInTheDocument();
     expect(sessionGuideState(1)).toBeNull();
+    // Escape 뒤에는 입장 카메라 확인 창이 뜨니 답을 해야 아래 초대 확인 창만 남는다.
+    answerCameraPrompt("simple");
 
     // 다른 화면이 열렸다 닫혀도 다시 뜨지 않는다.
     receiveInvite("ABC123");
@@ -161,6 +164,7 @@ describe("RoomPage 세션 도움말", () => {
     renderRoom();
     fireEvent.keyDown(screen.getByRole("dialog", { name: "세션 도움말" }), { key: "Escape" });
     expect(sessionGuideState(1)).toBeNull();
+    answerCameraPrompt("camera");
 
     await userEvent.click(screen.getByRole("button", { name: "더보기" }));
     await userEvent.click(screen.getByRole("menuitem", { name: "도움말 보기" }));
@@ -180,7 +184,7 @@ describe("RoomPage 세션 도움말", () => {
 
     renderRoom();
     expect(helpDialog()).toBeInTheDocument();
-    expect(screen.getByText("1/6")).toBeInTheDocument();
+    expect(screen.getByText("1/5")).toBeInTheDocument();
   });
 
   it("이미 본 계정(seen)에는 띄우지 않는다", () => {
@@ -192,6 +196,7 @@ describe("RoomPage 세션 도움말", () => {
   it("더보기의 도움말 보기로 언제든 다시 연다", async () => {
     localStorage.setItem(KEY, "seen");
     renderRoom();
+    answerCameraPrompt("camera");
 
     await userEvent.click(screen.getByRole("button", { name: "더보기" }));
     await userEvent.click(screen.getByRole("menuitem", { name: "도움말 보기" }));
@@ -219,7 +224,7 @@ describe("RoomPage 세션 도움말", () => {
     renderRoom();
     expect(helpDialog()).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "다음" }));
-    expect(screen.getByText("2/6")).toBeInTheDocument();
+    expect(screen.getByText("2/5")).toBeInTheDocument();
 
     // jsdom은 inert를 지키지 않아 덮개 뒤 버튼을 직접 눌러 페이지를 연 상황을 만든다.
     fireEvent.click(screen.getByRole("button", { name: "과목", hidden: true }));
@@ -228,17 +233,20 @@ describe("RoomPage 세션 도움말", () => {
 
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(helpDialog()).toBeInTheDocument());
-    expect(screen.getByText("2/6")).toBeInTheDocument();
+    expect(screen.getByText("2/5")).toBeInTheDocument();
   });
 
-  it("덮개 탭으로 끝까지 넘겨도 seen을 남기고, 중간에는 남기지 않는다", () => {
+  it("덮개 탭으로 5단계까지 넘어가고, 마지막은 순공 시작하기로만 끝내며 그때 seen을 남긴다", async () => {
     renderRoom();
 
-    for (let index = 0; index < 5; index += 1) fireEvent.click(screen.getByLabelText("다음 안내"));
+    for (let index = 0; index < 4; index += 1) fireEvent.click(screen.getByLabelText("다음 안내"));
+    expect(screen.getByText("5/5")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByLabelText("다음 안내"));
     expect(helpDialog()).toBeInTheDocument();
     expect(sessionGuideState(1)).toBeNull();
 
-    fireEvent.click(screen.getByLabelText("다음 안내"));
+    await userEvent.click(screen.getByRole("button", { name: "순공 시작하기" }));
     expect(helpDialog()).not.toBeInTheDocument();
     expect(sessionGuideState(1)).toBe("seen");
   });
@@ -258,6 +266,7 @@ describe("RoomPage 세션 도움말", () => {
   it("메뉴로 열었다 닫으면 초점이 더보기 버튼으로 돌아온다", async () => {
     localStorage.setItem(KEY, "seen");
     renderRoom();
+    answerCameraPrompt("camera");
     const more = screen.getByRole("button", { name: "더보기" });
 
     await userEvent.click(more);
@@ -323,6 +332,8 @@ describe("RoomPage 세션 도움말", () => {
     await waitFor(() => expect(Object.values(faded())).toEqual([true, true, true, true, true]));
 
     fireEvent.keyDown(screen.getByRole("dialog", { name: "세션 도움말" }), { key: "Escape" });
+    // 세션은 심플 모드로 시작해서 카메라 켜기로 답해야 다섯 버튼이 모두 보인다.
+    answerCameraPrompt("camera");
     await waitFor(() =>
       expect(Object.values(faded())).toEqual([false, false, false, false, false]),
     );
@@ -386,6 +397,7 @@ describe("RoomPage 세션 도움말", () => {
     it("더보기의 도움말 보기로 열면 shown(menu)과 1단계 step_viewed를 보낸다", async () => {
       localStorage.setItem(KEY, "seen");
       renderRoom();
+      answerCameraPrompt("camera");
 
       await openHelpFromMenu();
 
@@ -420,18 +432,19 @@ describe("RoomPage 세션 도움말", () => {
       await waitFor(() => expect(helpDialog()).not.toBeInTheDocument());
       await userEvent.keyboard("{Escape}");
       await waitFor(() => expect(helpDialog()).toBeInTheDocument());
-      expect(screen.getByText("2/6")).toBeInTheDocument();
+      expect(screen.getByText("2/5")).toBeInTheDocument();
 
       expect(amplitude.trackStudySessionHelpShown).toHaveBeenCalledOnce();
       expect(viewedSteps()).toEqual([1, 2]);
     });
 
-    it("끝까지 넘기면 단계 1~6을 차례로 보내고 completed를 한 번 보낸다", async () => {
+    it("끝까지 넘기면 단계 1~5를 차례로 보내고 completed를 한 번 보낸다", async () => {
       renderRoom();
 
       await finishHelp();
 
-      expect(viewedSteps()).toEqual([1, 2, 3, 4, 5, 6]);
+      expect(viewedSteps()).toEqual([1, 2, 3, 4, 5]);
+      expect(viewedStepIds()).toEqual(["away", "measuring", "camera", "buttons", "finish"]);
       expect(amplitude.trackStudySessionHelpCompleted).toHaveBeenCalledExactlyOnceWith(
         "auto",
         "single",
@@ -458,6 +471,7 @@ describe("RoomPage 세션 도움말", () => {
       renderRoom();
       await userEvent.click(screen.getByRole("button", { name: "다음" }));
       fireEvent.keyDown(screen.getByRole("dialog", { name: "세션 도움말" }), { key: "Escape" });
+      answerCameraPrompt("camera");
       amplitude.trackStudySessionHelpShown.mockClear();
       amplitude.trackStudySessionHelpStepViewed.mockClear();
 
