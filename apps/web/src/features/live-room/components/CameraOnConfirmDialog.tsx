@@ -3,7 +3,11 @@ import { type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useDialogFocusRestore } from "@/lib/useDialogFocusRestore";
+
+import type { FaceMaskEmoji } from "../faceMaskSettings";
 
 /**
  * 카메라 켜기 확인 모달
@@ -21,6 +25,20 @@ export interface CameraOnConfirmDialogProps {
   open: boolean;
   /** 미리보기 슬롯 — 호출부가 소유한 카메라 `<video>`를 넘긴다(다이얼로그는 표시만). */
   preview: ReactNode;
+  /**
+   * 얼굴 가리기 설정
+   *
+   * 넘기면 미리보기 아래에 스위치와 이모지 선택을 그린다.
+   * 미리보기는 호출부가 이 값에 맞는 영상으로 바꾼다.
+   */
+  faceMask?: {
+    supported: boolean;
+    on: boolean;
+    onChange: (on: boolean) => void;
+    emojis: readonly FaceMaskEmoji[];
+    emojiId: string;
+    onEmojiChange: (id: string) => void;
+  };
   /** 인라인 오류(입장 재시도 실패 등). 없으면 표시하지 않는다. */
   errorMessage?: string | null;
   /**
@@ -46,6 +64,7 @@ export interface CameraOnConfirmDialogProps {
 export function CameraOnConfirmDialog({
   open,
   preview,
+  faceMask,
   errorMessage = null,
   dismissable = true,
   busy = false,
@@ -96,6 +115,54 @@ export function CameraOnConfirmDialog({
         <div className="mt-3 h-[min(234px,28dvh)] overflow-hidden rounded-[18px] bg-[#1e2632]">
           {preview}
         </div>
+        {faceMask !== undefined && (
+          <div className="mt-3">
+            <div className="flex min-h-11 items-center justify-between gap-2">
+              <label htmlFor="camera-face-mask" className="text-sm font-semibold text-foreground">
+                얼굴 가리기
+              </label>
+              <Switch
+                id="camera-face-mask"
+                checked={faceMask.on}
+                disabled={!faceMask.supported}
+                onCheckedChange={faceMask.onChange}
+              />
+            </div>
+            {!faceMask.supported && (
+              <p className="text-[13px] text-muted-foreground">
+                이 기기에서는 얼굴 가리기를 쓸 수 없어요
+              </p>
+            )}
+            {faceMask.supported && faceMask.on && (
+              <ToggleGroup
+                type="single"
+                aria-label="가림 이모지"
+                value={faceMask.emojiId}
+                // 같은 이모지를 다시 누르면 빈 값이 오는데, 가리는 동안에는 항상 하나가 골라져 있어야 해서 무시한다.
+                onValueChange={(id) => {
+                  if (id !== "") faceMask.onEmojiChange(id);
+                }}
+                className="mt-2 gap-2"
+              >
+                {faceMask.emojis.map((emoji) => (
+                  <ToggleGroupItem
+                    key={emoji.id}
+                    value={emoji.id}
+                    aria-label={emoji.label}
+                    className="size-11 justify-center rounded-md p-1.5 before:content-none data-[state=on]:border-primary data-[state=on]:bg-primary/15"
+                  >
+                    <img
+                      src={emoji.url}
+                      alt=""
+                      className="size-full object-contain"
+                      draggable={false}
+                    />
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
+            )}
+          </div>
+        )}
         <div className="mt-3 flex items-center gap-2">
           <Lock size={16} aria-hidden className="text-muted-foreground" />
           <p className="text-sm text-muted-foreground">영상은 서버에 저장되지 않아요.</p>

@@ -61,6 +61,9 @@ const vision = vi.hoisted(() => {
     subscribeStatus: () => () => {},
     subscribeRuntimeFallback: () => () => {},
     subscribeFaceStatus: () => () => {},
+    subscribeFaceSpot: () => () => {},
+    setPreviewOnly: () => {},
+    preload: () => {},
     start() {
       if (timer !== null) {
         return;

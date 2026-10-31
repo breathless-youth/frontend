@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -140,5 +140,70 @@ describe("CameraOnConfirmDialog", () => {
     const content = screen.getByRole("alertdialog");
     expect(content.className).toContain("sm:rounded-3xl");
     expect(content.className).not.toContain("sm:rounded-lg");
+  });
+});
+
+describe("CameraOnConfirmDialog 얼굴 가리기", () => {
+  const faceMask = (over = {}) => ({
+    supported: true,
+    on: true,
+    onChange: vi.fn(),
+    emojis: [
+      { id: "a", label: "고양이", url: "/a.png" },
+      { id: "b", label: "곰", url: "/b.png" },
+    ],
+    emojiId: "a",
+    onEmojiChange: vi.fn(),
+    ...over,
+  });
+
+  it("얼굴 가리기 스위치를 보여 주고 바꾸면 알린다", async () => {
+    const props = faceMask();
+    setup({ faceMask: props });
+
+    const toggle = screen.getByRole("switch", { name: "얼굴 가리기" });
+    expect(toggle).toBeChecked();
+    await userEvent.click(toggle);
+    expect(props.onChange).toHaveBeenCalledWith(false);
+  });
+
+  it("켜져 있으면 이모지를 고를 수 있다", async () => {
+    const props = faceMask();
+    setup({ faceMask: props });
+
+    const group = screen.getByRole("radiogroup", { name: "가림 이모지" });
+    expect(within(group).getByRole("radio", { name: "고양이" })).toBeChecked();
+    await userEvent.click(within(group).getByRole("radio", { name: "곰" }));
+    expect(props.onEmojiChange).toHaveBeenCalledWith("b");
+  });
+
+  it("고른 이모지를 다시 눌러도 선택을 비우지 않는다", async () => {
+    const props = faceMask();
+    setup({ faceMask: props });
+
+    await userEvent.click(screen.getByRole("radio", { name: "고양이" }));
+    expect(props.onEmojiChange).not.toHaveBeenCalled();
+  });
+
+  it("꺼져 있으면 이모지 선택을 숨긴다", () => {
+    setup({ faceMask: faceMask({ on: false }) });
+
+    expect(screen.queryByRole("radiogroup", { name: "가림 이모지" })).toBeNull();
+  });
+
+  it("합성을 쓸 수 없는 기기는 스위치를 끈 채 막고 이유를 알린다", () => {
+    setup({ faceMask: faceMask({ supported: false, on: false }) });
+
+    const toggle = screen.getByRole("switch", { name: "얼굴 가리기" });
+    expect(toggle).toBeDisabled();
+    expect(toggle).not.toBeChecked();
+    expect(screen.getByText("이 기기에서는 얼굴 가리기를 쓸 수 없어요")).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "가림 이모지" })).toBeNull();
+  });
+
+  it("faceMask를 넘기지 않으면 스위치를 그리지 않는다", () => {
+    setup();
+
+    expect(screen.queryByRole("switch", { name: "얼굴 가리기" })).toBeNull();
   });
 });

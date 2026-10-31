@@ -809,6 +809,18 @@ export function trackSocialRoomCameraToggled(on: boolean) {
   track("social_room_camera_toggled", { on });
 }
 
+/** 소셜룸 카메라 켜기 다이얼로그에서 얼굴 가리기를 바꿈. 켜고 들어가는 비율을 본다. */
+export function trackSocialRoomFaceMaskToggled(on: boolean) {
+  if (!initialized) return;
+  track("social_room_face_mask_toggled", { on });
+}
+
+/** 소셜룸 얼굴 가리기 이모지를 고름. 어떤 이모지가 많이 쓰이는지 본다. */
+export function trackSocialRoomFaceMaskEmojiSelected(emojiId: string) {
+  if (!initialized) return;
+  track("social_room_face_mask_emoji_selected", { emoji_id: emojiId });
+}
+
 /** 소셜룸 카메라 켜기 확인 다이얼로그에서 취소 — 켜기 의사를 접은 횟수. */
 export function trackSocialRoomCameraOnDismissed() {
   if (!initialized) return;
