@@ -36,6 +36,17 @@ description: 프론트엔드 팀의 한국어 문서 작성 규칙. Jira 티켓 
 - 불필요한 비유적 어휘로 일반 명사·동사를 대체하지 않는다. 다만 이미 굳어진 관용 표현은 그대로
   쓴다.
 
+영어로 쓰는 에이전트 대상 텍스트(SKILL.md·시스템 프롬프트·도구 설명·에러 메시지)는
+**asd-ste100 스킬**(https://github.com/danyuchn/asd-ste100-skill)을 반드시 사용한다.
+설치돼 있으면 반드시 invoke한다. 없으면 아래 명령으로 설치한다.
+
+```
+/plugin marketplace add danyuchn/asd-ste100-skill
+/plugin install asd-ste100@asd-ste100-skill
+```
+
+한국어 문서나 사용자에게 보여주는 자연스러운 영어 문구(마케팅·UI 카피)에는 적용하지 않는다.
+
 이 규칙은 팀 문서뿐 아니라 **세션 답변 문체, 트러블슈팅 기록, 이해도 퀴즈에도 적용한다**. AI스러운 말투를 쓰지 않고, 금지 용어 표를 지키며, 헷갈리는 표현은 사전을 참고해 자연스러운 우리말로 쓴다. 세션 답변은 매번 im-not-ai를 invoke하지는 않되 이 원칙을 지킨다.
 
 문서 작성은 반드시 opus 모델로 한다(최신 Opus, 정의는 task-workflow 모델 선정 절 참고).
