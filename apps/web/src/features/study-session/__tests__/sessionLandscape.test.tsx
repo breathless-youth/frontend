@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { RoomPage } from "@/routes/RoomPage";
 
 import { SessionTimer } from "../components/SessionTimer";
+import { markSessionGuideSeen } from "../sessionGuide";
 import { sessionSurfaceStyle } from "../sessionTheme";
 
 /** 복원 게이트는 자기 테스트가 따로 있다 — 여기서는 통과시킨다. */
@@ -29,6 +30,8 @@ vi.mock("@/features/study-session/submitStudySession", () => ({
  */
 
 function renderRoom(url = "/room/7?userId=1") {
+  // 세션 도움말이 뜨면 세션 화면을 검증할 수 없어서 이미 끝까지 본 계정으로 연다.
+  markSessionGuideSeen(1);
   return render(
     <MemoryRouter initialEntries={[url]}>
       <Routes>

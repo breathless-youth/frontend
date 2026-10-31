@@ -45,10 +45,20 @@ import {
   SessionExitButton,
   SessionPauseButton,
 } from "@/features/study-session/components/SessionControlButtons";
-import { SessionMoreMenu } from "@/features/study-session/components/SessionMoreMenu";
+import { SessionHelpScreen } from "@/features/study-session/components/SessionHelpScreen";
+import {
+  SessionMoreMenu,
+  SOLO_MORE_POSITION,
+} from "@/features/study-session/components/SessionMoreMenu";
 import { SessionPage } from "@/features/study-session/components/SessionPage";
-import { SessionSideActions } from "@/features/study-session/components/SessionSideActions";
-import { SessionStatusPill } from "@/features/study-session/components/SessionStatusPill";
+import {
+  SESSION_SIDE_POSITION,
+  SessionSideActions,
+} from "@/features/study-session/components/SessionSideActions";
+import {
+  SESSION_PILL_SIZE,
+  SessionStatusPill,
+} from "@/features/study-session/components/SessionStatusPill";
 import type { SessionStatusPillState } from "@/features/study-session/components/SessionStatusPill";
 import { SessionPageTimer, SessionTimer } from "@/features/study-session/components/SessionTimer";
 import { SimpleModeSurface } from "@/features/study-session/components/SimpleModeSurface";
@@ -71,6 +81,12 @@ import type {
   SessionEndReason,
   SessionState,
 } from "@/features/study-session/sessionState";
+import {
+  markSessionGuideSeen,
+  sessionGuideState,
+  shouldShowSessionGuide,
+} from "@/features/study-session/sessionGuide";
+import { SESSION_LAYER_INSET } from "@/features/study-session/sessionLayout";
 import { MANUAL_END_REASON } from "@/features/study-session/sessionState";
 import {
   clearSessionInvite,
@@ -82,6 +98,7 @@ import { useRotationRepaintNudge } from "@/lib/rotationRepaint";
 import { showCtaToast } from "@/lib/toast";
 import { useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
 import { useNativeControl } from "@/lib/nativeControls";
+import { useModalOverlayOpen } from "@/lib/nativeModalOverlay";
 import { useIdentityPending, useUserId } from "@/lib/userId";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
@@ -121,13 +138,8 @@ import { prefetchResultPage } from "@/routes/lazyRoutes";
  */
 const SESSION_LAYER_LAYOUT = [
   "pointer-events-none relative flex h-full w-full flex-col items-center",
-  "pt-[calc(env(safe-area-inset-top)+13px)] pb-[calc(env(safe-area-inset-bottom)+8px)]",
-  "pl-[calc(env(safe-area-inset-left)+24px)] pr-[calc(env(safe-area-inset-right)+24px)]",
-  "regular:pb-[calc(env(safe-area-inset-bottom)+24px)]",
-  "short-side-lg:pb-[calc(env(safe-area-inset-bottom)+27px)] short-side-lg:pl-[calc(env(safe-area-inset-left)+32px)] short-side-lg:pr-[calc(env(safe-area-inset-right)+32px)]",
   "landscape-compact:grid landscape-compact:grid-cols-[1fr_auto_1fr] landscape-compact:grid-rows-[auto_1fr_auto_auto] landscape-compact:items-start",
-  "landscape-compact:pt-[calc(env(safe-area-inset-top)+18px)] landscape-compact:pb-[max(env(safe-area-inset-bottom),calc((env(safe-area-inset-bottom)+14px)/2))]",
-  "landscape-compact:pl-[calc(env(safe-area-inset-left)+16px)] landscape-compact:pr-[calc(env(safe-area-inset-right)+16px)]",
+  SESSION_LAYER_INSET,
 ].join(" ");
 
 /**
@@ -446,6 +458,45 @@ function RoomSessionScreen({
   // 종료 확인 다이얼로그. 열려 있는 동안에도 **세션은 계속 진행된다**(Figma에서 딤 뒤
   // 상태 필이 `순공시간 측정 중`이고 타이머가 살아 있음을 확인).
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
+  // 세션 도움말. 끝까지 본 기록(seen)이 없으면 세션마다 띄우고, 더보기의 도움말 보기는 언제든 연다.
+  // 기록은 마운트 때 한 번 읽는다. 신원이 바뀌면 화면이 key로 다시 마운트되어 새 계정의 기록을 읽는다.
+  const [guideState, setGuideState] = useState(() =>
+    userId === null ? null : sessionGuideState(userId),
+  );
+  const [helpOpen, setHelpOpen] = useState(false);
+  // Escape로 중간에 닫으면 기록은 남기지 않고, 이번 세션 화면에서만 다시 띄우지 않는다.
+  const [helpDismissed, setHelpDismissed] = useState(false);
+  // 과목 페이지 등에 가려 내렸다가 다시 띄울 때 같은 단계로 돌아오도록 단계를 여기서 든다.
+  const [helpStep, setHelpStep] = useState(0);
+  const [moreTrigger, setMoreTrigger] = useState<HTMLButtonElement | null>(null);
+  const modalOverlayOpen = useModalOverlayOpen();
+  // 다른 화면이 떠 있는 동안은 숨겼다가 닫히면 다시 보인다.
+  const helpBlocked =
+    page !== null || modeOpen || exitDialogOpen || invite !== null || modalOverlayOpen;
+  // 떠 있는 동안 세션 본문은 inert로 막고 앱 glass 버튼은 faded로 감춘다. 덮개 위에 실제 glass 버튼이
+  // 떠서 같은 자리의 가짜 버튼과 겹치지 않게 웹 가짜 요소만 보인다. 세션·타이머는 그대로 돈다.
+  const helpVisible =
+    phase.name === "studying" &&
+    (helpOpen
+      ? !helpBlocked
+      : userId !== null &&
+        !helpDismissed &&
+        shouldShowSessionGuide({ state: guideState, blocked: helpBlocked }));
+  // 마지막 단계까지 본 계정만 기록한다.
+  // 메뉴로 다시 본 경우에도 같은 값을 남기므로 이미 seen인 계정에는 달라지는 것이 없다.
+  function completeHelp() {
+    if (userId !== null) {
+      markSessionGuideSeen(userId);
+      setGuideState("seen");
+    }
+    setHelpOpen(false);
+    setHelpStep(0);
+  }
+  function dismissHelp() {
+    setHelpDismissed(true);
+    setHelpOpen(false);
+    setHelpStep(0);
+  }
   /**
    * 카메라 전환이 진행 중인가 — **추론 정지 구간을 표시하는 값이지 화면 상태가 아니다.**
    * 전환 중에는 기존 트랙이 멈추고 새 스트림이 `<video>`에 다시 붙는데, 그 사이의 프레임은
@@ -757,7 +808,7 @@ function RoomSessionScreen({
       disabled: moreMenuOpen,
       accessibilityLabel: subjectButtonLabel,
       tone: subjectSelection === null ? "default" : "active",
-      faded: simpleMode,
+      faded: simpleMode || helpVisible,
     },
     () => {
       // 앱 누름에는 누른 웹 요소가 없어서 숨겨 둔 웹 버튼을 연 요소로 둔다.
@@ -816,6 +867,7 @@ function RoomSessionScreen({
             type="button"
             aria-label="심플 모드 전환"
             aria-pressed={simpleMode}
+            inert={helpVisible}
             // 메뉴는 누름이 시작될 때 닫혀서 클릭 때는 이미 닫힌 상태라, 누름을 시작한 순간의 열림으로 판단한다.
             onPointerDown={() => {
               pressStartedWithMenuOpenRef.current = moreMenuOpen;
@@ -832,23 +884,31 @@ function RoomSessionScreen({
             className="absolute inset-0 cursor-default"
           />
 
-          <div className={SESSION_LAYER_LAYOUT}>
+          <div inert={helpVisible} className={SESSION_LAYER_LAYOUT}>
             <SessionStatusPill
               state={pillState}
               label={statusCopy.label}
-              className="landscape-compact:col-start-2 landscape-compact:row-start-1 landscape-compact:justify-self-center regular:px-4.5 regular:py-2 regular:text-base regular:leading-5 short-side-lg:px-5.5 short-side-lg:py-2.5 short-side-lg:text-xl short-side-lg:leading-6.25"
+              className={cn(
+                "landscape-compact:col-start-2 landscape-compact:row-start-1 landscape-compact:justify-self-center",
+                SESSION_PILL_SIZE,
+              )}
             />
 
             {/* 보이는 순서대로 오른쪽 열보다 앞에 둬서 탭 순서가 위에서 아래로 이어진다. */}
             <SessionMoreMenu
               container={sessionSurface}
-              hidden={simpleMode}
+              hidden={simpleMode || helpVisible}
               onFlipCamera={() => void handleFlipCamera()}
+              onOpenHelp={() => {
+                setHelpStep(0);
+                setHelpOpen(true);
+              }}
               onOpenChange={setMoreMenuOpen}
+              className={SOLO_MORE_POSITION}
+              triggerRef={setMoreTrigger}
+              aboveSideColumn
             />
 
-            {/* 세로·가로 모두 상태 필 아래 23px에 놓는다.
-                폭 600 이상 창은 상태 필이 커진 만큼 내려 필 아래 간격을 폰과 같게 둔다. */}
             <SessionSideActions
               inert={simpleMode || moreMenuOpen}
               ambient={
@@ -858,7 +918,7 @@ function RoomSessionScreen({
                   on={ambient.isOn}
                   expanded={page === "ambient"}
                   onClick={() => openPage("ambient")}
-                  faded={simpleMode}
+                  faded={simpleMode || helpVisible}
                   inactive={moreMenuOpen}
                 />
               }
@@ -891,13 +951,13 @@ function RoomSessionScreen({
                 <ModeEntryButton
                   ref={timerButtonRef}
                   expanded={modeOpen}
-                  faded={simpleMode}
+                  faded={simpleMode || helpVisible}
                   inactive={moreMenuOpen}
                   onClick={() => multiTimer.open()}
                 />
               }
               className={cn(
-                "absolute top-[calc(env(safe-area-inset-top)+72px)] right-[calc(env(safe-area-inset-right)+16px)] landscape-compact:top-[calc(env(safe-area-inset-top)+77px)] regular:top-[calc(env(safe-area-inset-top)+75px)] regular:gap-3.5 short-side-lg:top-[calc(env(safe-area-inset-top)+84px)] short-side-lg:gap-4.5",
+                SESSION_SIDE_POSITION,
                 SIMPLE_MODE_FADE,
                 simpleMode && "invisible opacity-0",
               )}
@@ -971,6 +1031,7 @@ function RoomSessionScreen({
                 <SessionPauseButton
                   paused={paused}
                   inactive={moreMenuOpen}
+                  faded={helpVisible}
                   // 화면 꺼짐 일시정지와 과목 재생 버튼도 pause·resume을 거치므로 햅틱은 이 버튼에만 둔다.
                   onClick={() => {
                     // 두 햅틱 모두 일시정지 상태에서 울려서 진동이 기기 조작 감지 결과로 이어지지 않는다.
@@ -994,7 +1055,7 @@ function RoomSessionScreen({
               >
                 <SessionExitButton
                   onClick={handleRequestExit}
-                  faded={simpleMode}
+                  faded={simpleMode || helpVisible}
                   inactive={moreMenuOpen}
                 />
               </div>
@@ -1006,6 +1067,16 @@ function RoomSessionScreen({
               </p>
             )}
           </div>
+
+          {helpVisible && (
+            <SessionHelpScreen
+              onComplete={completeHelp}
+              onDismiss={dismissHelp}
+              returnFocus={helpOpen ? moreTrigger : null}
+              step={helpStep}
+              onStepChange={setHelpStep}
+            />
+          )}
 
           {/* 두 페이지는 Radix 포털을 타므로 여기 위치가 화면 배치를 정하지는 않는다.
               포털 자리를 `main` 으로 잡아야 `--session-*` 변수가 풀린다. */}

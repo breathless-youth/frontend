@@ -40,6 +40,32 @@ describe("SessionMoreMenu", () => {
     expect(onFlipCamera).toHaveBeenCalledTimes(1);
   });
 
+  it("도움말 보기를 넘기면 카메라 전환 다음에 보이고 누르면 연다", async () => {
+    const onOpenHelp = vi.fn();
+    renderMenu({ onOpenHelp });
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+
+    const items = screen.getAllByRole("menuitem");
+    expect(items.map((item) => item.textContent)).toEqual([
+      "카메라 전환",
+      "도움말 보기",
+      "초대코드 공유",
+    ]);
+    await userEvent.click(items[1]);
+    expect(onOpenHelp).toHaveBeenCalledTimes(1);
+  });
+
+  it("사이드 열 위 버튼이면 메뉴를 버튼 아래 끝 맞춤으로 펼친다", async () => {
+    renderMenu({ aboveSideColumn: true });
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+
+    const menu = screen.getByRole("menu");
+    expect(menu).toHaveAttribute("data-side", "bottom");
+    expect(menu).toHaveAttribute("data-align", "end");
+  });
+
   it("메뉴 안 touchmove는 document까지 올라가지 않는다", async () => {
     renderMenu();
     await userEvent.click(screen.getByRole("button", { name: "더보기" }));

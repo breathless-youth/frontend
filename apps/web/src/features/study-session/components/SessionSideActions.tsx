@@ -2,6 +2,19 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * 혼자 공부 세션의 사이드 열 자리
+ *
+ * 세로·가로 모두 상태 필 아래 23px에 놓는다.
+ * 폭 600 이상 창은 상태 필이 커진 만큼 내려 필 아래 간격을 폰과 같게 둔다.
+ * 도움말 화면의 가짜 사이드 열도 이 자리를 쓴다.
+ */
+export const SESSION_SIDE_POSITION =
+  "absolute top-[calc(env(safe-area-inset-top)+72px)] right-[calc(env(safe-area-inset-right)+16px)] landscape-compact:top-[calc(env(safe-area-inset-top)+77px)] regular:top-[calc(env(safe-area-inset-top)+75px)] short-side-lg:top-[calc(env(safe-area-inset-top)+84px)]";
+
+/** 사이드 버튼 사이 간격. 버튼 지름이 커지는 창에서 함께 넓힌다. 도움말 화면의 가짜 열도 쓴다. */
+export const SESSION_SIDE_GAP = "gap-3 regular:gap-3.5 short-side-lg:gap-4.5";
+
 export interface SessionSideActionsProps {
   ambient: ReactNode;
   subject: ReactNode;
@@ -31,7 +44,7 @@ export function SessionSideActions({
       role="group"
       aria-label="부가 기능"
       inert={inert}
-      className={cn("flex flex-col gap-3", className)}
+      className={cn("flex flex-col", SESSION_SIDE_GAP, className)}
     >
       {ambient}
       {subject}
