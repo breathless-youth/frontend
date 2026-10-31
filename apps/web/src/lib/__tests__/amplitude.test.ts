@@ -1040,10 +1040,16 @@ describe("세션 도움말 이벤트", () => {
     const m = await loadModule();
 
     m.trackStudySessionHelpShown("auto", "single");
-    m.trackStudySessionHelpStepViewed({ step: 1, trigger: "auto", roomType: "single" });
+    m.trackStudySessionHelpStepViewed({
+      step: 1,
+      stepId: "away",
+      trigger: "auto",
+      roomType: "single",
+    });
     m.trackStudySessionHelpCompleted("menu", "single");
     m.trackStudySessionHelpDismissed({
       step: 3,
+      stepId: "camera",
       trigger: "menu",
       roomType: "single",
       reason: "escape",

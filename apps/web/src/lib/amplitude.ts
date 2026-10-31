@@ -943,7 +943,11 @@ const SESSION_HELP_VERSION = 2;
  */
 export function trackStudySessionHelpShown(trigger: SessionHelpTrigger, roomType: StudyRoomType) {
   if (!initialized) return;
-  track("study_session_help_shown", { trigger, room_type: roomType });
+  track("study_session_help_shown", {
+    trigger,
+    room_type: roomType,
+    help_version: SESSION_HELP_VERSION,
+  });
 }
 
 /**
@@ -951,17 +955,21 @@ export function trackStudySessionHelpShown(trigger: SessionHelpTrigger, roomType
  *
  * `이전`으로 돌아온 단계도 보내 단계별 이탈과 되돌아감을 함께 본다.
  * 가려졌다 같은 단계로 돌아온 것은 호출부가 보내지 않는다.
+ * 단계 번호와 함께 단계 id를 보내 단계 순서가 바뀌어도 같은 단계끼리 모은다.
  */
 export function trackStudySessionHelpStepViewed(input: {
   readonly step: number;
+  readonly stepId: SessionHelpStepId;
   readonly trigger: SessionHelpTrigger;
   readonly roomType: StudyRoomType;
 }) {
   if (!initialized) return;
   track("study_session_help_step_viewed", {
     step: input.step,
+    step_id: input.stepId,
     trigger: input.trigger,
     room_type: input.roomType,
+    help_version: SESSION_HELP_VERSION,
   });
 }
 
@@ -975,12 +983,17 @@ export function trackStudySessionHelpCompleted(
   roomType: StudyRoomType,
 ) {
   if (!initialized) return;
-  track("study_session_help_completed", { trigger, room_type: roomType });
+  track("study_session_help_completed", {
+    trigger,
+    room_type: roomType,
+    help_version: SESSION_HELP_VERSION,
+  });
 }
 
 /** 세션 도움말을 중간에 닫은 것. 닫는 길은 지금 Escape뿐이라 `reason`도 그 값만 있다. */
 export function trackStudySessionHelpDismissed(input: {
   readonly step: number;
+  readonly stepId: SessionHelpStepId;
   readonly trigger: SessionHelpTrigger;
   readonly roomType: StudyRoomType;
   readonly reason: "escape";
@@ -988,9 +1001,11 @@ export function trackStudySessionHelpDismissed(input: {
   if (!initialized) return;
   track("study_session_help_dismissed", {
     step: input.step,
+    step_id: input.stepId,
     trigger: input.trigger,
     room_type: input.roomType,
     reason: input.reason,
+    help_version: SESSION_HELP_VERSION,
   });
 }
 

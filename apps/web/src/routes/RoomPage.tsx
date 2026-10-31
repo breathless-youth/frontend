@@ -514,6 +514,7 @@ function RoomSessionScreen({
     helpTrackedStepRef.current = helpStep;
     trackStudySessionHelpStepViewed({
       step: helpStep + 1,
+      stepId: SESSION_HELP_STEPS[helpStep].id,
       trigger: helpTriggerRef.current,
       roomType: "single",
     });
@@ -534,6 +535,7 @@ function RoomSessionScreen({
   function dismissHelp() {
     trackStudySessionHelpDismissed({
       step: helpStep + 1,
+      stepId: SESSION_HELP_STEPS[helpStep].id,
       trigger: helpTriggerRef.current,
       roomType: "single",
       reason: "escape",

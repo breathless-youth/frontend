@@ -37,14 +37,14 @@ import type { SessionStatusPillState } from "./SessionStatusPill";
  * 화면 좌표(`left/top`)는 베끼지 않는다 — 이 컴포넌트는 타이포·정렬만 책임지고 배치(우상단 /
  * 중앙)는 호출부가 `className`으로 넘긴다.
  */
-/** 순공 숫자의 크기. 도움말 화면의 가짜 타이머도 쓴다. */
-export const TIMER_FOCUS_SIZE =
+/** 순공 숫자의 크기 */
+const TIMER_FOCUS_SIZE =
   "text-[52px] leading-15 font-bold tracking-[-0.5px] tabular-nums regular:text-8xl regular:leading-none regular:tracking-[-0.03em] short-side-lg:text-[7.5rem]";
 /** 프리뷰 표시의 가로 순공 숫자 크기 */
-export const TIMER_FOCUS_LANDSCAPE =
+const TIMER_FOCUS_LANDSCAPE =
   "landscape-compact:text-[44px] landscape-compact:leading-11.5 landscape-compact:tracking-[-1.32px]";
 /** 총 공부 줄 */
-export const TIMER_TOTAL_TEXT =
+const TIMER_TOTAL_TEXT =
   "mt-1.75 text-center text-[15px] leading-4.5 font-medium text-white/42 tabular-nums regular:mt-2.75 regular:text-[1.375rem] regular:leading-7 short-side-lg:mt-3.5 short-side-lg:text-[1.75rem] short-side-lg:leading-8.75 landscape-compact:mt-1.5 landscape-compact:text-sm landscape-compact:leading-4.25";
 
 export interface SessionTimerProps {

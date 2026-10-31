@@ -115,6 +115,10 @@ const helpDialog = () => screen.queryByRole("dialog", { name: "세션 도움말"
 const viewedSteps = () =>
   amplitude.trackStudySessionHelpStepViewed.mock.calls.map(([input]) => input.step);
 
+/** 지금까지 찍힌 단계 노출 이벤트의 단계 id. */
+const viewedStepIds = () =>
+  amplitude.trackStudySessionHelpStepViewed.mock.calls.map(([input]) => input.stepId);
+
 async function openHelpFromMenu() {
   await userEvent.click(screen.getByRole("button", { name: "더보기" }));
   await userEvent.click(screen.getByRole("menuitem", { name: "도움말 보기" }));
@@ -381,6 +385,7 @@ describe("RoomPage 세션 도움말", () => {
       );
       expect(amplitude.trackStudySessionHelpStepViewed).toHaveBeenCalledExactlyOnceWith({
         step: 1,
+        stepId: "away",
         trigger: "auto",
         roomType: "single",
       });
@@ -407,6 +412,7 @@ describe("RoomPage 세션 도움말", () => {
       );
       expect(amplitude.trackStudySessionHelpStepViewed).toHaveBeenCalledExactlyOnceWith({
         step: 1,
+        stepId: "away",
         trigger: "menu",
         roomType: "single",
       });
@@ -460,6 +466,7 @@ describe("RoomPage 세션 도움말", () => {
 
       expect(amplitude.trackStudySessionHelpDismissed).toHaveBeenCalledExactlyOnceWith({
         step: 2,
+        stepId: "measuring",
         trigger: "auto",
         roomType: "single",
         reason: "escape",
@@ -482,9 +489,10 @@ describe("RoomPage 세션 도움말", () => {
         "menu",
         "single",
       );
-      expect(viewedSteps()).toEqual([1, 2, 3, 4, 5, 6]);
+      expect(viewedSteps()).toEqual([1, 2, 3, 4, 5]);
       expect(amplitude.trackStudySessionHelpStepViewed).toHaveBeenLastCalledWith({
-        step: 6,
+        step: 5,
+        stepId: "finish",
         trigger: "menu",
         roomType: "single",
       });
