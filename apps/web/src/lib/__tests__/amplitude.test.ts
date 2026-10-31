@@ -26,6 +26,7 @@ const mocks = vi.hoisted(() => {
     add: vi.fn(),
     sessionReplayPlugin: vi.fn((options: unknown) => ({ name: "session-replay", options })),
     engagementPlugin: vi.fn(() => ({ name: "engagement", type: "enrichment" })),
+    showToast: vi.fn(),
     FakeIdentify,
   };
 });
@@ -47,6 +48,10 @@ vi.mock("@amplitude/plugin-session-replay-browser", () => ({
 // (jsdom에서 왜 실물을 못 돌리는지는 `amplitudePipeline.test.ts`의 mock 주석 참고).
 vi.mock("@amplitude/engagement-browser", () => ({
   plugin: mocks.engagementPlugin,
+}));
+
+vi.mock("../toast", () => ({
+  showToast: mocks.showToast,
 }));
 
 // 모듈이 initialized 플래그를 들고 있어 테스트마다 새로 로드한다.
@@ -198,6 +203,26 @@ describe("initAmplitude", () => {
     expect(mocks.add.mock.invocationCallOrder[engagementIndex]).toBeLessThan(
       mocks.init.mock.invocationCallOrder[0],
     );
+  });
+
+  it("설문 버튼이 감사 콜백을 부르면 앱 토스트로 감사 문구를 띄운다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const addCallback = vi.fn();
+    // 실제 로더처럼 plugin()을 부르는 순간 전역을 만든다.
+    // 등록이 플러그인 생성보다 앞서면 전역이 없어 이 테스트가 실패한다.
+    mocks.engagementPlugin.mockImplementationOnce(() => {
+      vi.stubGlobal("engagement", { addCallback });
+      return { name: "engagement", type: "enrichment" };
+    });
+    const { initAmplitude } = await loadModule();
+
+    initAmplitude();
+
+    // 콘솔 설문 제출 버튼의 "콜백 실행"에 적은 키와 같아야 토스트가 뜬다.
+    expect(addCallback).toHaveBeenCalledWith("show-thanks-toast", expect.any(Function));
+    const [, onThanks] = addCallback.mock.calls[0] as [string, () => void];
+    onThanks();
+    expect(mocks.showToast).toHaveBeenCalledWith("소중한 의견 감사합니다!");
   });
 
   it("리플레이를 받지 못해도 init과 이벤트 수집은 그대로다", async () => {
@@ -1488,6 +1513,46 @@ describe("인터뷰 모집 이벤트", () => {
       ["interview_clicked", { source: "g3_complete", exposure: 1 }],
       ["interview_clicked", { source: "settings" }],
       ["interview_dismissed", { source: "g1_revisit", exposure: 1, action: "never_again" }],
+    ]);
+  });
+});
+
+describe("AI 측정 만족도 이벤트", () => {
+  it("미초기화 상태에서는 보내지 않는다", async () => {
+    const m = await loadModule();
+    m.trackMeasurementFeedbackShown({ roomType: "single", focusSec: 1200 });
+    m.trackMeasurementFeedbackRated({ roomType: "single", focusSec: 1200, rating: "good" });
+    m.trackMeasurementFeedbackReasonSelected({
+      roomType: "single",
+      focusSec: 1200,
+      rating: "bad",
+      reason: "under",
+    });
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("노출·만족도·이유를 룸 종류·순공시간과 함께 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    mocks.track.mockClear();
+
+    m.trackMeasurementFeedbackShown({ roomType: "social", focusSec: 900 });
+    m.trackMeasurementFeedbackRated({ roomType: "social", focusSec: 900, rating: "meh" });
+    m.trackMeasurementFeedbackReasonSelected({
+      roomType: "social",
+      focusSec: 900,
+      rating: "meh",
+      reason: "missing_info",
+    });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["measurement_feedback_shown", { room_type: "social", focus_sec: 900 }],
+      ["measurement_feedback_rated", { room_type: "social", focus_sec: 900, rating: "meh" }],
+      [
+        "measurement_feedback_reason_selected",
+        { room_type: "social", focus_sec: 900, rating: "meh", reason: "missing_info" },
+      ],
     ]);
   });
 });

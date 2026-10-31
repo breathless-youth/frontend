@@ -10,6 +10,11 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  createMemoryMeasurementFeedbackStore,
+  resetMeasurementFeedbackStore,
+  setMeasurementFeedbackStore,
+} from "@/features/measurement-feedback/measurementFeedbackStore";
+import {
   createMemoryBoardMemoryStore,
   resetBoardMemoryStore,
   setBoardMemoryStore,
@@ -65,6 +70,12 @@ beforeEach(() => {
   // 누적 공부일 23일 — 시안 스크린샷 값.
   mockedStudyDays.mockResolvedValue({ totalDays: 23 });
   getRankingSessionGains.mockResolvedValue({ weekly: null, others: [] });
+  // 만족도 카드의 3일 간격 기록이 테스트 사이에 이어지지 않게 한다.
+  setMeasurementFeedbackStore(createMemoryMeasurementFeedbackStore());
+});
+
+afterEach(() => {
+  resetMeasurementFeedbackStore();
 });
 
 // 인터뷰 카드가 실제 서버를 부르지 않게 막는다. 카드 동작은 InterviewCardHost.test가 검증한다.
@@ -583,6 +594,59 @@ describe("ResultPage — 누적 요약 카드 (BY-560)", () => {
   });
 });
 
+describe("ResultPage — AI 측정 만족도 카드 (BY-1083)", () => {
+  const QUESTION = "이번 측정 결과 어땠나요?";
+
+  function feedbackCard() {
+    return screen
+      .getByRole("heading", { name: QUESTION })
+      .closest<HTMLElement>('[data-slot="card"]')!;
+  }
+
+  it("순공 5분 이상이면 타임라인 카드와 누적 요약 카드 사이에 보인다", async () => {
+    renderResult({ sessions: [exampleSession()] });
+    const summary = (await screen.findByText("오늘 누적 순공시간")).closest('[data-slot="card"]')!;
+
+    expect(
+      timelineCard().compareDocumentPosition(feedbackCard()) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      feedbackCard().compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("자정을 넘겨 나뉜 세션은 합친 순공시간으로 판단한다", () => {
+    renderResult({
+      sessions: [exampleSession({ focusSec: 200 }), exampleSession({ id: 11, focusSec: 200 })],
+    });
+
+    expect(screen.getByRole("heading", { name: QUESTION })).toBeInTheDocument();
+  });
+
+  it("순공 5분 미만이면 보이지 않는다", () => {
+    renderResult({ sessions: [exampleSession({ focusSec: 299 })] });
+
+    expect(screen.getByText("공부 타임라인")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: QUESTION })).not.toBeInTheDocument();
+  });
+
+  it("결과가 드러나기 전에는 보이지 않는다", () => {
+    // 연출 경로의 rAF·캔버스는 "도장 연출 → 공개" 블록처럼 무동작으로 막고 타이머만 돌린다.
+    vi.useFakeTimers();
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(() => null);
+    vi.stubGlobal("requestAnimationFrame", () => 0);
+    vi.stubGlobal("cancelAnimationFrame", () => undefined);
+    renderResult({ sessions: [exampleSession()] }, "?userId=7", { reducedMotion: false });
+
+    expect(screen.queryByRole("heading", { name: QUESTION })).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS);
+    });
+    expect(screen.getByRole("heading", { name: QUESTION })).toBeInTheDocument();
+  });
+});
+
 describe("ResultPage — 확정 표기 회귀", () => {
   it("'화면 꺼짐' 라벨을 어디에도 노출하지 않는다 — 2026-07-26에 일시정지로 통합됐다", () => {
     renderResult({ sessions: [exampleSession()] });
@@ -598,6 +662,8 @@ describe("ResultPage — 확정 표기 회귀", () => {
   });
 
   it("V1.0 범위 밖 액션(공유·내보내기)을 만들지 않는다 — 액션은 CTA 둘뿐이다", () => {
+    // 만족도 카드의 응답 버튼은 화면을 떠나는 액션이 아니라서, 방금 보인 것으로 두어 이 검사에서 뺀다.
+    setMeasurementFeedbackStore(createMemoryMeasurementFeedbackStore(Date.now()));
     renderResult({ sessions: [exampleSession()] });
 
     /**
