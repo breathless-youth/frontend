@@ -44,6 +44,17 @@ vi.mock("@/routes/lazyRoutes", () => ({ prefetchResultPage: vi.fn() }));
 
 vi.mock("@/lib/haptics", () => ({ haptic: vi.fn() }));
 
+const amplitude = vi.hoisted(() => ({
+  trackStudySessionHelpShown: vi.fn(),
+  trackStudySessionHelpStepViewed: vi.fn(),
+  trackStudySessionHelpCompleted: vi.fn(),
+  trackStudySessionHelpDismissed: vi.fn(),
+}));
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  ...amplitude,
+}));
+
 const KEY = "focusmakers:session-guide:1";
 
 function renderRoom(url = "/room/7?userId=1") {
@@ -98,6 +109,15 @@ async function finishHelp() {
 }
 
 const helpDialog = () => screen.queryByRole("dialog", { name: "세션 도움말" });
+
+/** 지금까지 찍힌 단계 노출 이벤트의 단계 번호. */
+const viewedSteps = () =>
+  amplitude.trackStudySessionHelpStepViewed.mock.calls.map(([input]) => input.step);
+
+async function openHelpFromMenu() {
+  await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "도움말 보기" }));
+}
 
 describe("RoomPage 세션 도움말", () => {
   afterEach(() => {
@@ -338,5 +358,126 @@ describe("RoomPage 세션 도움말", () => {
     receiveInvite("ABC123");
 
     await waitFor(() => expect(helpDialog()).not.toBeInTheDocument());
+  });
+
+  describe("분석 이벤트", () => {
+    it("세션 진입으로 자동 노출되면 shown(auto)과 1단계 step_viewed를 한 번씩 보낸다", () => {
+      renderRoom();
+
+      expect(amplitude.trackStudySessionHelpShown).toHaveBeenCalledExactlyOnceWith(
+        "auto",
+        "single",
+      );
+      expect(amplitude.trackStudySessionHelpStepViewed).toHaveBeenCalledExactlyOnceWith({
+        step: 1,
+        trigger: "auto",
+        roomType: "single",
+      });
+    });
+
+    it("이미 본 계정은 자동 노출이 없어 아무것도 보내지 않는다", () => {
+      localStorage.setItem(KEY, "seen");
+      renderRoom();
+
+      expect(amplitude.trackStudySessionHelpShown).not.toHaveBeenCalled();
+      expect(amplitude.trackStudySessionHelpStepViewed).not.toHaveBeenCalled();
+    });
+
+    it("더보기의 도움말 보기로 열면 shown(menu)과 1단계 step_viewed를 보낸다", async () => {
+      localStorage.setItem(KEY, "seen");
+      renderRoom();
+
+      await openHelpFromMenu();
+
+      expect(amplitude.trackStudySessionHelpShown).toHaveBeenCalledExactlyOnceWith(
+        "menu",
+        "single",
+      );
+      expect(amplitude.trackStudySessionHelpStepViewed).toHaveBeenCalledExactlyOnceWith({
+        step: 1,
+        trigger: "menu",
+        roomType: "single",
+      });
+    });
+
+    it("다음과 이전으로 단계가 바뀔 때마다 step_viewed를 보낸다", async () => {
+      renderRoom();
+
+      await userEvent.click(screen.getByRole("button", { name: "다음" }));
+      await userEvent.click(screen.getByRole("button", { name: "다음" }));
+      await userEvent.click(screen.getByRole("button", { name: "이전" }));
+
+      expect(viewedSteps()).toEqual([1, 2, 3, 2]);
+      expect(amplitude.trackStudySessionHelpShown).toHaveBeenCalledOnce();
+    });
+
+    it("다른 화면에 가려졌다 같은 단계로 돌아와도 shown과 step_viewed를 다시 보내지 않는다", async () => {
+      renderRoom();
+      await userEvent.click(screen.getByRole("button", { name: "다음" }));
+
+      // jsdom은 inert를 지키지 않아 덮개 뒤 버튼을 직접 눌러 페이지를 연 상황을 만든다.
+      fireEvent.click(screen.getByRole("button", { name: "과목", hidden: true }));
+      await waitFor(() => expect(helpDialog()).not.toBeInTheDocument());
+      await userEvent.keyboard("{Escape}");
+      await waitFor(() => expect(helpDialog()).toBeInTheDocument());
+      expect(screen.getByText("2/6")).toBeInTheDocument();
+
+      expect(amplitude.trackStudySessionHelpShown).toHaveBeenCalledOnce();
+      expect(viewedSteps()).toEqual([1, 2]);
+    });
+
+    it("끝까지 넘기면 단계 1~6을 차례로 보내고 completed를 한 번 보낸다", async () => {
+      renderRoom();
+
+      await finishHelp();
+
+      expect(viewedSteps()).toEqual([1, 2, 3, 4, 5, 6]);
+      expect(amplitude.trackStudySessionHelpCompleted).toHaveBeenCalledExactlyOnceWith(
+        "auto",
+        "single",
+      );
+      expect(amplitude.trackStudySessionHelpDismissed).not.toHaveBeenCalled();
+    });
+
+    it("Escape로 닫으면 닫은 단계와 reason을 담은 dismissed를 보내고 completed는 보내지 않는다", async () => {
+      renderRoom();
+      await userEvent.click(screen.getByRole("button", { name: "다음" }));
+
+      fireEvent.keyDown(screen.getByRole("dialog", { name: "세션 도움말" }), { key: "Escape" });
+
+      expect(amplitude.trackStudySessionHelpDismissed).toHaveBeenCalledExactlyOnceWith({
+        step: 2,
+        trigger: "auto",
+        roomType: "single",
+        reason: "escape",
+      });
+      expect(amplitude.trackStudySessionHelpCompleted).not.toHaveBeenCalled();
+    });
+
+    it("닫은 뒤 메뉴로 다시 열면 새 노출로 menu 경로와 1단계부터 다시 보낸다", async () => {
+      renderRoom();
+      await userEvent.click(screen.getByRole("button", { name: "다음" }));
+      fireEvent.keyDown(screen.getByRole("dialog", { name: "세션 도움말" }), { key: "Escape" });
+      amplitude.trackStudySessionHelpShown.mockClear();
+      amplitude.trackStudySessionHelpStepViewed.mockClear();
+
+      await openHelpFromMenu();
+      await finishHelp();
+
+      expect(amplitude.trackStudySessionHelpShown).toHaveBeenCalledExactlyOnceWith(
+        "menu",
+        "single",
+      );
+      expect(viewedSteps()).toEqual([1, 2, 3, 4, 5, 6]);
+      expect(amplitude.trackStudySessionHelpStepViewed).toHaveBeenLastCalledWith({
+        step: 6,
+        trigger: "menu",
+        roomType: "single",
+      });
+      expect(amplitude.trackStudySessionHelpCompleted).toHaveBeenCalledExactlyOnceWith(
+        "menu",
+        "single",
+      );
+    });
   });
 });

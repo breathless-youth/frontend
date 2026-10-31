@@ -877,6 +877,68 @@ export function trackSessionSimpleModeToggled(on: boolean) {
   track("session_simple_mode_toggled", { on });
 }
 
+/** 세션 도움말을 연 경로. 세션 진입 때 저절로 뜬 것(auto)과 더보기의 도움말 보기(menu)다. */
+export type SessionHelpTrigger = "auto" | "menu";
+
+/**
+ * 세션 도움말 노출
+ *
+ * 가려졌다 돌아온 것은 새 노출이 아니라 호출부가 다시 보내지 않는다.
+ * `trigger`로 자동 노출과 메뉴로 다시 찾아본 경우를 나눠 센다.
+ */
+export function trackStudySessionHelpShown(trigger: SessionHelpTrigger, roomType: StudyRoomType) {
+  if (!initialized) return;
+  track("study_session_help_shown", { trigger, room_type: roomType });
+}
+
+/**
+ * 세션 도움말 단계 노출
+ *
+ * `이전`으로 돌아온 단계도 보내 단계별 이탈과 되돌아감을 함께 본다.
+ * 가려졌다 같은 단계로 돌아온 것은 호출부가 보내지 않는다.
+ */
+export function trackStudySessionHelpStepViewed(input: {
+  readonly step: number;
+  readonly trigger: SessionHelpTrigger;
+  readonly roomType: StudyRoomType;
+}) {
+  if (!initialized) return;
+  track("study_session_help_step_viewed", {
+    step: input.step,
+    trigger: input.trigger,
+    room_type: input.roomType,
+  });
+}
+
+/**
+ * 세션 도움말을 마지막 단계까지 본 것
+ *
+ * 앱 종료나 세션 이탈로 끝내지 못한 노출은 완료도 중단도 보내지 않아 다음 세션의 재노출로 센다.
+ */
+export function trackStudySessionHelpCompleted(
+  trigger: SessionHelpTrigger,
+  roomType: StudyRoomType,
+) {
+  if (!initialized) return;
+  track("study_session_help_completed", { trigger, room_type: roomType });
+}
+
+/** 세션 도움말을 중간에 닫은 것. 닫는 길은 지금 Escape뿐이라 `reason`도 그 값만 있다. */
+export function trackStudySessionHelpDismissed(input: {
+  readonly step: number;
+  readonly trigger: SessionHelpTrigger;
+  readonly roomType: StudyRoomType;
+  readonly reason: "escape";
+}) {
+  if (!initialized) return;
+  track("study_session_help_dismissed", {
+    step: input.step,
+    trigger: input.trigger,
+    room_type: input.roomType,
+    reason: input.reason,
+  });
+}
+
 /* ── 화면별 잔여 상호작용 (BY-616 확장 2차) ──────────────────────────────────
  *
  * 실기기 검증 중 "붙일 수 있는 요소는 전부 붙인다"로 범위를 넓혔다(2026-09-05). 운영에서는

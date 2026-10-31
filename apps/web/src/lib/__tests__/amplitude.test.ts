@@ -1010,6 +1010,50 @@ describe("최종 검토 추가 이벤트 (BY-616, 2026-09-05)", () => {
   });
 });
 
+describe("세션 도움말 이벤트", () => {
+  it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackStudySessionHelpShown("auto", "single");
+    m.trackStudySessionHelpStepViewed({ step: 1, trigger: "auto", roomType: "single" });
+    m.trackStudySessionHelpCompleted("menu", "single");
+    m.trackStudySessionHelpDismissed({
+      step: 3,
+      trigger: "menu",
+      roomType: "single",
+      reason: "escape",
+    });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("노출·단계·완료·닫기를 정해진 이름·속성으로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackStudySessionHelpShown("auto", "single");
+    m.trackStudySessionHelpStepViewed({ step: 2, trigger: "menu", roomType: "single" });
+    m.trackStudySessionHelpCompleted("menu", "single");
+    m.trackStudySessionHelpDismissed({
+      step: 4,
+      trigger: "auto",
+      roomType: "single",
+      reason: "escape",
+    });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["study_session_help_shown", { trigger: "auto", room_type: "single" }],
+      ["study_session_help_step_viewed", { step: 2, trigger: "menu", room_type: "single" }],
+      ["study_session_help_completed", { trigger: "menu", room_type: "single" }],
+      [
+        "study_session_help_dismissed",
+        { step: 4, trigger: "auto", room_type: "single", reason: "escape" },
+      ],
+    ]);
+  });
+});
+
 describe("배경음 이벤트", () => {
   it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
     const m = await loadModule();
