@@ -25,9 +25,12 @@ Figma 이름은 V1.4 Foundations "1. Semantic Colors"와 design-tokens의 키가
 | state/distract-text | `--state-distract-text` | `text-state-distract-text` | #b36100 | #ff9e1b |
 | text/disabled | `--text-disabled` | `text-text-disabled` | #d1d6db | #4e5968 |
 | bg/dim | `--dim` | `bg-dim` | #00000066 | #00000099 |
+| bg/coach-dim | `--coach-dim` | `bg-(--coach-dim)` | #000000b3 | #000000c2 |
+| brand/gradient-text | `--gradient-brand-text` | `bg-(image:--gradient-brand-text) bg-clip-text text-transparent` | 180deg #8cc0ff→#4593fc | 180deg #7fb3ff→#3182f6 |
 
 - `feedback/error`(#d22030 / #ff6b77), `feedback/error-subtle`, `feedback/success`(#12b76a / #32d583)는
   design-tokens에만 있고 CSS 토큰이 없다. 쓰려면 네 곳에 같이 추가한다.
+- `--coach-dim`, `--gradient-brand-text`는 `@theme inline`에 없다. 색 유틸리티 이름이 생기지 않으니 `bg-(--…)`처럼 변수를 직접 쓴다. 그라데이션은 `bg-(--…)`로 쓰면 background-color로 컴파일돼 사라지므로 `bg-(image:--gradient-brand-text)`처럼 `image:` 타입을 붙인다.
 - `--invite-surface`, `--share-tonal` 계열은 초대코드 화면 전용 원오프다. 다른 화면에 쓰지 않는다.
 - 도장 빨강 `#E5342A`(V1.4 S10 시안)는 아직 토큰이 아니다. 정식 채택 전에는 디자인 의견으로 다룬다.
 

@@ -1,0 +1,13 @@
+<svg width="50" height="68" viewBox="174 500 50 68" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g opacity="0.9">
+<path d="M221 550C221 554.243 219.315 558.313 216.314 561.313C213.314 564.314 209.244 566 205 566" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M213 544V542C213 540.939 212.579 539.921 211.829 539.171C211.079 538.421 210.061 538 209 538C207.94 538 206.922 538.421 206.172 539.171C205.422 539.921 205 540.939 205 542" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M205 542V540C205 538.939 204.578 537.922 203.828 537.172C203.078 536.422 202.06 536 201 536C199.939 536 198.921 536.422 198.171 537.172C197.421 537.922 197 538.939 197 540V542" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M197 541V530C197 528.939 196.579 527.921 195.828 527.171C195.078 526.421 194.061 526 193 526C191.939 526 190.922 526.421 190.172 527.171C189.421 527.921 189 528.939 189 530V550" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M213.001 544C213.001 542.939 213.422 541.922 214.172 541.172C214.922 540.421 215.94 540 217.001 540C218.062 540 219.079 540.421 219.829 541.172C220.579 541.922 221.001 542.939 221.001 544V550C221.001 554.243 219.315 558.313 216.314 561.314C213.314 564.314 209.244 566 205.001 566H201.001C195.401 566 192.001 564.28 189.021 561.32L181.821 554.12C181.133 553.358 180.764 552.36 180.791 551.334C180.818 550.307 181.239 549.331 181.966 548.606C182.693 547.881 183.672 547.464 184.698 547.44C185.725 547.417 186.721 547.789 187.481 548.48L191.001 552" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<path d="M181 521C181 505 205 505 205 521" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M175 512L179 516" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M211 512L207 516" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M193 502V507" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

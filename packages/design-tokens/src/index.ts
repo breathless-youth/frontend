@@ -10,6 +10,8 @@ export const colors = {
   bg: {
     base: { light: "#ffffff", dark: "#101419" },
     dim: { light: "#00000066", dark: "#00000099" },
+    /** 코치마크 뒤를 덮는 딤. 안내에 시선을 모으려고 dim보다 짙다(70%/76%). */
+    coachDim: { light: "#000000b3", dark: "#000000c2" },
     guide: { light: "#f3f8fe", dark: "#152030" },
     layer1: { light: "#f9fafb", dark: "#191f28" },
     layer2: { light: "#f2f4f6", dark: "#333d4b" },
@@ -23,6 +25,8 @@ export const colors = {
     hover: { light: "#1957c2", dark: "#4593fc" },
     subtle: { light: "#e8f3ff", dark: "#1b2b4d" },
     subtlePressed: { light: "#c9e2ff", dark: "#194aa6" },
+    /** 강조 글자에 bg-clip-text로 입히는 그라데이션의 위·아래 색(180deg, 위가 밝다). 패키지는 색만 두고 그라데이션 식은 각 앱이 만든다. */
+    gradientText: { light: ["#8cc0ff", "#4593fc"], dark: ["#7fb3ff", "#3182f6"] },
   },
   feedback: {
     error: { light: "#d22030", dark: "#ff6b77" },

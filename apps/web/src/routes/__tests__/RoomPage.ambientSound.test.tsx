@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import { trackAmbientSoundChanged } from "@/lib/amplitude";
 
 import { RoomPage } from "../RoomPage";
@@ -30,6 +31,8 @@ const CATALOG_JSON = JSON.stringify({
 });
 
 function renderRoom() {
+  // 세션 도움말이 뜨면 세션 화면을 검증할 수 없어서 이미 끝까지 본 계정으로 연다.
+  markSessionGuideSeen(1);
   return render(
     <MemoryRouter initialEntries={["/room/7?userId=1"]}>
       <Routes>
