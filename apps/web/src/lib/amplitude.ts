@@ -24,6 +24,7 @@ import type {
 import { firebaseAnalyticsForwardPlugin } from "./firebaseAnalyticsBridge";
 import type { InstallAttributionProperties } from "./installAttribution";
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
+import { showToast } from "./toast";
 import { readUserId } from "./userId";
 import { whenIdle } from "./whenIdle";
 
@@ -110,6 +111,13 @@ function sanitizeUrlPlugin(): Types.EnrichmentPlugin {
 }
 
 /**
+ * 설문 제출 버튼의 "콜백 실행" 키
+ *
+ * 콘솔 설문에 같은 키가 적혀 있어 바꾸면 양쪽을 함께 바꾼다.
+ */
+const SURVEY_THANKS_CALLBACK_KEY = "show-thanks-toast";
+
+/**
  * Amplitude 초기화. `VITE_AMPLITUDE_API_KEY`가 없으면 아무것도 하지 않는다 —
  * 로컬 개발·테스트는 키 없이 그대로 돌아간다.
  *
@@ -131,7 +139,7 @@ export function initAmplitude() {
   add(sanitizeUrlPlugin());
   /**
    * Guides & Surveys(설문) 렌더러. **설문 내용·대상 cohort·노출 빈도·페이지 타겟팅은 전부
-   * Amplitude 콘솔이 소유한다** — 코드는 이 한 줄로 끝이고, 설문 변경에 배포가 필요 없다.
+   * Amplitude 콘솔이 소유한다** — 코드는 이 등록과 아래 감사 토스트 콜백뿐이라, 콜백 키와 감사 문구 말고는 설문을 바꿔도 배포가 필요 없다.
    *
    * - 플러그인 방식이라 `init`/`boot`를 따로 부르지 않는다 — analytics의 API 키와
    *   user_id(`setAmplitudeUserId`가 붙인 서버 번호)를 그대로 물려받으므로, 콘솔 cohort
@@ -152,6 +160,12 @@ export function initAmplitude() {
    *   발생시키는 설계와 한 세트로만 할 것.
    */
   add(engagementPlugin());
+  // 설문은 감사 단계 없이 제출과 함께 닫히고, 감사 문구는 다른 화면과 같은 앱 토스트로 띄운다.
+  // 로더가 `engagementPlugin()`을 부를 때 전역을 만들어서 이 등록은 그 뒤에 둔다.
+  // 전역이 없을 때 분석 초기화까지 멈추지 않도록 옵셔널 체이닝으로 부른다.
+  window.engagement?.addCallback(SURVEY_THANKS_CALLBACK_KEY, () => {
+    showToast("소중한 의견 감사합니다!");
+  });
   // 같은 이벤트·유저 속성을 네이티브 Firebase Analytics(GA4)에도 흘린다(FCM 콘솔 타겟팅용). destination이라
   // 정제·enrichment가 끝난 값을 받고, 브라우저 단독 모드에서는 아무것도 나가지 않는다.
   add(firebaseAnalyticsForwardPlugin());
@@ -877,6 +891,68 @@ export function trackSessionSimpleModeToggled(on: boolean) {
   track("session_simple_mode_toggled", { on });
 }
 
+/** 세션 도움말을 연 경로. 세션 진입 때 저절로 뜬 것(auto)과 더보기의 도움말 보기(menu)다. */
+export type SessionHelpTrigger = "auto" | "menu";
+
+/**
+ * 세션 도움말 노출
+ *
+ * 가려졌다 돌아온 것은 새 노출이 아니라 호출부가 다시 보내지 않는다.
+ * `trigger`로 자동 노출과 메뉴로 다시 찾아본 경우를 나눠 센다.
+ */
+export function trackStudySessionHelpShown(trigger: SessionHelpTrigger, roomType: StudyRoomType) {
+  if (!initialized) return;
+  track("study_session_help_shown", { trigger, room_type: roomType });
+}
+
+/**
+ * 세션 도움말 단계 노출
+ *
+ * `이전`으로 돌아온 단계도 보내 단계별 이탈과 되돌아감을 함께 본다.
+ * 가려졌다 같은 단계로 돌아온 것은 호출부가 보내지 않는다.
+ */
+export function trackStudySessionHelpStepViewed(input: {
+  readonly step: number;
+  readonly trigger: SessionHelpTrigger;
+  readonly roomType: StudyRoomType;
+}) {
+  if (!initialized) return;
+  track("study_session_help_step_viewed", {
+    step: input.step,
+    trigger: input.trigger,
+    room_type: input.roomType,
+  });
+}
+
+/**
+ * 세션 도움말을 마지막 단계까지 본 것
+ *
+ * 앱 종료나 세션 이탈로 끝내지 못한 노출은 완료도 중단도 보내지 않아 다음 세션의 재노출로 센다.
+ */
+export function trackStudySessionHelpCompleted(
+  trigger: SessionHelpTrigger,
+  roomType: StudyRoomType,
+) {
+  if (!initialized) return;
+  track("study_session_help_completed", { trigger, room_type: roomType });
+}
+
+/** 세션 도움말을 중간에 닫은 것. 닫는 길은 지금 Escape뿐이라 `reason`도 그 값만 있다. */
+export function trackStudySessionHelpDismissed(input: {
+  readonly step: number;
+  readonly trigger: SessionHelpTrigger;
+  readonly roomType: StudyRoomType;
+  readonly reason: "escape";
+}) {
+  if (!initialized) return;
+  track("study_session_help_dismissed", {
+    step: input.step,
+    trigger: input.trigger,
+    room_type: input.roomType,
+    reason: input.reason,
+  });
+}
+
 /* ── 화면별 잔여 상호작용 (BY-616 확장 2차) ──────────────────────────────────
  *
  * 실기기 검증 중 "붙일 수 있는 요소는 전부 붙인다"로 범위를 넓혔다(2026-09-05). 운영에서는
@@ -1227,6 +1303,52 @@ export function trackInterviewDismissed(params: {
   track("interview_dismissed", params);
 }
 
+/** 결과 화면 AI 측정 만족도 카드의 선택지. lib가 features를 참조하지 않도록 같은 리터럴을 여기 둔다. */
+export type MeasurementFeedbackRating = "good" | "meh" | "bad";
+export type MeasurementFeedbackReason = "under" | "over" | "unclear" | "missing_info";
+
+interface MeasurementFeedbackContext {
+  readonly roomType: StudyRoomType;
+  readonly focusSec: number;
+}
+
+/** AI 측정 만족도 카드가 결과 화면에 보인 순간. 응답률의 분모다. */
+export function trackMeasurementFeedbackShown(input: MeasurementFeedbackContext) {
+  if (!initialized) return;
+  track("measurement_feedback_shown", {
+    room_type: input.roomType,
+    focus_sec: Number(input.focusSec),
+  });
+}
+
+/** 만족도 선택. 다시 고르면 고를 때마다 보낸다. */
+export function trackMeasurementFeedbackRated(
+  input: MeasurementFeedbackContext & { readonly rating: MeasurementFeedbackRating },
+) {
+  if (!initialized) return;
+  track("measurement_feedback_rated", {
+    room_type: input.roomType,
+    focus_sec: Number(input.focusSec),
+    rating: input.rating,
+  });
+}
+
+/** 보통이에요·아쉬워요 뒤에 고른 이유 */
+export function trackMeasurementFeedbackReasonSelected(
+  input: MeasurementFeedbackContext & {
+    readonly rating: MeasurementFeedbackRating;
+    readonly reason: MeasurementFeedbackReason;
+  },
+) {
+  if (!initialized) return;
+  track("measurement_feedback_reason_selected", {
+    room_type: input.roomType,
+    focus_sec: Number(input.focusSec),
+    rating: input.rating,
+    reason: input.reason,
+  });
+}
+
 /** 프로필 저장 제출(검증 통과 후). 어떤 필드를 바꿨는지만 — 값은 싣지 않는다. */
 export function trackProfileSaveSubmitted(input: {
   readonly nickname: boolean;
@@ -1291,6 +1413,9 @@ export function trackStudyResultConfirmed(input: {
  * 도착 화면(홈·기록)이 한다. 웹뷰끼리 같은 origin의 localStorage를 공유하는 것에 기댄다.
  * 확인·X·탭바 이탈·앱 재실행 어느 경로로 나가도 예약이 살아남고, 브라우저·소셜 플로우도 같은
  * 경로를 탄다.
+ *
+ * 순공 1분 미만 안내 화면에서 홈으로 나갈 때도 같은 예약을 남긴다(첫 세션 종료 이유 설문 트리거).
+ * 결과 화면은 순공 1분 이상만 오므로 `focus_sec`이 60 미만이면 안내 화면에서 나간 것이다.
  */
 const PENDING_EXIT_KEY = "fm_pending_result_exit";
 const PENDING_EXIT_TTL_MS = 10 * 60_000;

@@ -113,11 +113,17 @@ import { useActiveSessionRestore } from "@/features/study-session/useActiveSessi
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
 import { useTrackedVisionDetector } from "@/features/study-session/useVisionReadyTracking";
 import { createTimelapseRecorder } from "@/features/timelapse/timelapseRecorder";
+import type { SessionHelpTrigger } from "@/lib/amplitude";
 import {
+  stageStudyResultExit,
   trackSessionNoticeConfirmed,
   trackSessionSimpleModeToggled,
   trackStudySessionExitCancelled,
   trackStudySessionExitRequested,
+  trackStudySessionHelpCompleted,
+  trackStudySessionHelpDismissed,
+  trackStudySessionHelpShown,
+  trackStudySessionHelpStepViewed,
   trackSubjectItemSelected,
   trackSubjectSheetClosed,
   trackSubjectSheetOpened,
@@ -482,9 +488,31 @@ function RoomSessionScreen({
       : userId !== null &&
         !helpDismissed &&
         shouldShowSessionGuide({ state: guideState, blocked: helpBlocked }));
+  // 도움말 화면은 가려지면 언마운트되어 다시 뜰 때 효과가 또 돈다.
+  // 그래서 노출·단계 이벤트는 화면이 아니라 여기서 노출마다, 단계가 바뀔 때마다 한 번씩만 보낸다.
+  // 열린 경로(trigger)는 노출이 끝날 때까지 유지하고, 추적 단계가 null이면 이번 노출의 첫 이벤트를 아직 보내지 않은 것이다.
+  const helpTriggerRef = useRef<SessionHelpTrigger>("auto");
+  const helpTrackedStepRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!helpVisible || helpTrackedStepRef.current === helpStep) {
+      return;
+    }
+    if (helpTrackedStepRef.current === null) {
+      trackStudySessionHelpShown(helpTriggerRef.current, "single");
+    }
+    helpTrackedStepRef.current = helpStep;
+    trackStudySessionHelpStepViewed({
+      step: helpStep + 1,
+      trigger: helpTriggerRef.current,
+      roomType: "single",
+    });
+  }, [helpVisible, helpStep]);
   // 마지막 단계까지 본 계정만 기록한다.
   // 메뉴로 다시 본 경우에도 같은 값을 남기므로 이미 seen인 계정에는 달라지는 것이 없다.
   function completeHelp() {
+    trackStudySessionHelpCompleted(helpTriggerRef.current, "single");
+    helpTriggerRef.current = "auto";
+    helpTrackedStepRef.current = null;
     if (userId !== null) {
       markSessionGuideSeen(userId);
       setGuideState("seen");
@@ -493,6 +521,14 @@ function RoomSessionScreen({
     setHelpStep(0);
   }
   function dismissHelp() {
+    trackStudySessionHelpDismissed({
+      step: helpStep + 1,
+      trigger: helpTriggerRef.current,
+      roomType: "single",
+      reason: "escape",
+    });
+    helpTriggerRef.current = "auto";
+    helpTrackedStepRef.current = null;
     setHelpDismissed(true);
     setHelpOpen(false);
     setHelpStep(0);
@@ -900,6 +936,7 @@ function RoomSessionScreen({
               hidden={simpleMode || helpVisible}
               onFlipCamera={() => void handleFlipCamera()}
               onOpenHelp={() => {
+                helpTriggerRef.current = "menu";
                 setHelpStep(0);
                 setHelpOpen(true);
               }}
@@ -1180,6 +1217,8 @@ function RoomSessionScreen({
         <SubMinuteEndNotice
           onGoHome={() => {
             trackSessionNoticeConfirmed({ notice: "sub_minute", roomType: "single" });
+            // 결과 화면을 거치지 않는 종료도 홈에서 첫 세션 종료 이유 설문이 뜰 수 있게 같은 예약을 남긴다.
+            stageStudyResultExit({ roomType: "single", focusSec, consumeAt: "/home" });
             goHome();
           }}
         />
