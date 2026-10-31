@@ -276,7 +276,7 @@ describe("createFaceLandmarker — 정규화", () => {
     expect((await landmarker.detect(video, 0))?.face.eyeSkipReason).toBeNull();
   });
 
-  it("allowlist 점수만 남기고 좌표는 넘기지 않는다", async () => {
+  it("allowlist 점수와 얼굴 테두리만 남기고 원시 랜드마크는 넘기지 않는다", async () => {
     const { landmarker, handle } = await ready(faceResult(0.13, 0.55));
 
     const result = await landmarker.detect(video, 1234);
@@ -290,8 +290,9 @@ describe("createFaceLandmarker — 정규화", () => {
     });
     expect(typeof result?.durationMs).toBe("number");
 
-    // 좌표가 한 겹이라도 새 나가면 개인정보 원칙이 깨진다.
-    const serialized = JSON.stringify(result);
+    // 화면 합성에 쓰는 얼굴 테두리 네 값만 나가고, 원시 랜드마크가 새 나가면 개인정보 원칙이 깨진다.
+    expect(Object.keys(result?.bounds ?? {})).toEqual(["minX", "minY", "maxX", "maxY"]);
+    const serialized = JSON.stringify({ ...result, bounds: undefined });
     for (const key of ["faceLandmarks", "landmarks", "matrix", '"x"', '"y"', "interOcular"]) {
       expect(serialized).not.toContain(key);
     }
