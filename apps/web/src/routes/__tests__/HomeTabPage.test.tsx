@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { NoticeResponse, SessionRecoveryResponse } from "@focusmakers/types";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { useEffect } from "react";
+import { useEffect, type ComponentProps } from "react";
 import type * as ReactRouterDom from "react-router-dom";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -33,6 +33,7 @@ const analytics = vi.hoisted(() => ({
   trackFocusStartTapped: vi.fn(),
   trackHomeStartGuideShown: vi.fn(),
   trackHomeStartGuideCompleted: vi.fn(),
+  trackHomeStartGuideSkipped: vi.fn(),
   setStudyStatusUserProperties: vi.fn(),
 }));
 
@@ -41,6 +42,7 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   trackFocusStartTapped: analytics.trackFocusStartTapped,
   trackHomeStartGuideShown: analytics.trackHomeStartGuideShown,
   trackHomeStartGuideCompleted: analytics.trackHomeStartGuideCompleted,
+  trackHomeStartGuideSkipped: analytics.trackHomeStartGuideSkipped,
   setStudyStatusUserProperties: analytics.setStudyStatusUserProperties,
 }));
 
@@ -98,7 +100,7 @@ const coachMarkStub = vi.hoisted(() => ({ targetMissing: false }));
 vi.mock("@/features/home/StartCoachMark", async (importOriginal) => {
   const actual = await importOriginal<typeof StartCoachMarkModule>();
   return {
-    StartCoachMark: (props: { onVisibleChange: (visible: boolean) => void }) => {
+    StartCoachMark: (props: ComponentProps<typeof actual.StartCoachMark>) => {
       const { onVisibleChange } = props;
       useEffect(() => {
         if (coachMarkStub.targetMissing) {
@@ -1135,5 +1137,68 @@ describe("HomeTabPage — 첫 세션 코치마크", () => {
 
     await screen.findByTestId("room-stub");
     expect(analytics.trackHomeStartGuideCompleted).not.toHaveBeenCalled();
+  });
+  describe("나중에 할게요", () => {
+    it("누르면 코치마크가 사라지고 본 것으로 남기지 않으며 건너뛴 이벤트만 보낸다", async () => {
+      renderHome();
+      await screen.findByRole("dialog", COACH);
+
+      fireEvent.click(screen.getByRole("button", { name: "나중에 할게요" }));
+
+      expect(screen.queryByRole("dialog", COACH)).toBeNull();
+      expect(startGuideState(7)).toBeNull();
+      expect(analytics.trackHomeStartGuideSkipped).toHaveBeenCalledTimes(1);
+      expect(analytics.trackHomeStartGuideCompleted).not.toHaveBeenCalled();
+    });
+
+    it("본문 inert와 탭 바 차단을 풀고 초점을 집중 시작으로 돌려준다", async () => {
+      renderHome();
+      await screen.findByRole("dialog", COACH);
+      expect(coachTabBar.calls.at(-1)).toBe(true);
+
+      fireEvent.click(screen.getByRole("button", { name: "나중에 할게요" }));
+
+      expect(screen.getByText("오늘 순공시간").closest("[inert]")).toBeNull();
+      expect(
+        screen.getByRole("button", { name: /그룹 스터디하러 이동/ }).closest("[inert]"),
+      ).toBeNull();
+      expect(screen.getByRole("banner").hasAttribute("inert")).toBe(false);
+      expect(coachTabBar.calls.at(-1)).toBe(false);
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "집중 시작" }));
+    });
+
+    it("숨긴 뒤 홈에 머무는 동안은 다시 뜨지 않고 노출 이벤트도 늘지 않는다", async () => {
+      renderHome();
+      await screen.findByRole("dialog", COACH);
+      fireEvent.click(screen.getByRole("button", { name: "나중에 할게요" }));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(screen.queryByRole("dialog", COACH)).toBeNull();
+      expect(analytics.trackHomeStartGuideShown).toHaveBeenCalledTimes(1);
+    });
+
+    it("홈을 다시 마운트하면 다시 뜬다", async () => {
+      const first = renderHome();
+      await screen.findByRole("dialog", COACH);
+      fireEvent.click(screen.getByRole("button", { name: "나중에 할게요" }));
+      first.unmount();
+
+      renderHome();
+      expect(await screen.findByRole("dialog", COACH)).toBeInTheDocument();
+    });
+
+    it("건너뛴 뒤 집중 시작을 눌러도 완료 이벤트는 남기지 않는다", async () => {
+      renderHomeWithRoutes();
+      await screen.findByRole("dialog", COACH);
+      fireEvent.click(screen.getByRole("button", { name: "나중에 할게요" }));
+
+      fireEvent.click(screen.getByRole("button", { name: "집중 시작" }));
+
+      await screen.findByTestId("room-stub");
+      expect(analytics.trackHomeStartGuideCompleted).not.toHaveBeenCalled();
+      expect(startGuideState(7)).toBeNull();
+    });
   });
 });
