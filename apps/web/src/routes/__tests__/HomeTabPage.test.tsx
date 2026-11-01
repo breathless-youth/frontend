@@ -1,12 +1,15 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { NoticeResponse, SessionRecoveryResponse } from "@focusmakers/types";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useEffect } from "react";
 import type * as ReactRouterDom from "react-router-dom";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type * as StartCoachMarkModule from "@/features/home/StartCoachMark";
 import type * as Amplitude from "@/lib/amplitude";
 import type * as TokenSourceModule from "@/lib/auth/tokenSource";
+import type * as NativeTabBarModule from "@/lib/nativeTabBar";
 import type { TokenSource } from "@/lib/auth/tokenSource";
 
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
@@ -88,6 +91,38 @@ vi.mock("@/routes/lazyRoutes", () => ({ prefetchTimelapsesPage: vi.fn() }));
 vi.mock("@/features/timelapse/RecentTimelapses", () => ({
   RecentTimelapses: () => <div data-testid="recent-timelapses" />,
 }));
+
+/** 코치마크 대상을 못 찾는 경우를 만들려고 켠다. 켜면 원본 대신 "안 보인다"고만 알리고 아무것도 그리지 않는다. */
+const coachMarkStub = vi.hoisted(() => ({ targetMissing: false }));
+
+vi.mock("@/features/home/StartCoachMark", async (importOriginal) => {
+  const actual = await importOriginal<typeof StartCoachMarkModule>();
+  return {
+    StartCoachMark: (props: { onVisibleChange: (visible: boolean) => void }) => {
+      const { onVisibleChange } = props;
+      useEffect(() => {
+        if (coachMarkStub.targetMissing) {
+          onVisibleChange(false);
+        }
+      }, [onVisibleChange]);
+      return coachMarkStub.targetMissing ? null : <actual.StartCoachMark {...props} />;
+    },
+  };
+});
+
+/** 탭 바 차단 신호를 보고 싶어 실제 훅을 감싼다. 동작은 그대로다. */
+const coachTabBar = vi.hoisted(() => ({ calls: [] as boolean[] }));
+
+vi.mock("@/lib/nativeTabBar", async (importOriginal) => {
+  const actual = await importOriginal<typeof NativeTabBarModule>();
+  return {
+    ...actual,
+    useCoachMarkTabBar: (active: boolean) => {
+      coachTabBar.calls.push(active);
+      actual.useCoachMarkTabBar(active);
+    },
+  };
+});
 
 /** 기본은 출처 없음(구 앱·브라우저 단독). D-Day 블록 테스트만 가짜 출처를 끼운다. */
 const tokenSourceMock = vi.hoisted(() => ({ source: null as TokenSource | null }));
@@ -943,6 +978,7 @@ describe("HomeTabPage — 첫 세션 코치마크", () => {
 
   afterEach(() => {
     tokenSourceMock.source = null;
+    coachMarkStub.targetMissing = false;
   });
 
   it("본 적 없는 계정의 홈에는 뜨고 초점이 집중 시작 버튼에 있으며 노출 이벤트를 남긴다", async () => {
@@ -1041,6 +1077,26 @@ describe("HomeTabPage — 첫 세션 코치마크", () => {
     ).not.toBeNull();
     expect(screen.getByText("오늘 순공시간").closest("[inert]")).not.toBeNull();
     expect(screen.getByRole("banner").hasAttribute("inert")).toBe(true);
+  });
+
+  it("대상을 못 찾으면 본문을 막지 않고 탭 바 차단과 노출 이벤트도 보내지 않으며 본 것으로 남기지 않는다", async () => {
+    coachMarkStub.targetMissing = true;
+    coachTabBar.calls.length = 0;
+    renderHome();
+    await screen.findByText("오늘 순공시간");
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByRole("dialog", COACH)).toBeNull();
+    expect(screen.getByText("오늘 순공시간").closest("[inert]")).toBeNull();
+    expect(screen.getByRole("banner").hasAttribute("inert")).toBe(false);
+    expect(
+      screen.getByRole("button", { name: /그룹 스터디하러 이동/ }).closest("[inert]"),
+    ).toBeNull();
+    expect(coachTabBar.calls).not.toContain(true);
+    expect(analytics.trackHomeStartGuideShown).not.toHaveBeenCalled();
+    expect(startGuideState(7)).toBeNull();
   });
 
   it("덮개를 눌러도 닫히지 않고 기록도 남지 않는다", async () => {

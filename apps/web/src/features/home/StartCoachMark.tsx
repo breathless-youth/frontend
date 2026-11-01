@@ -84,10 +84,20 @@ function holePieces(rect: Rect): CSSProperties[] {
  * 탭 바 차단은 `useCoachMarkTabBar`가 따로 보낸다.
  * 모달이 아니라 낭독기가 뜬 것을 모르므로 뜰 때 대상 버튼에 초점을 옮긴다.
  * 대상을 못 찾으면 덮개만 남아 홈이 막히므로 아무것도 그리지 않는다.
+ * 그려졌는지는 `onVisibleChange`로 알린다. 부모는 본문을 막거나 노출 이벤트를 보내기 전에 이 값을 확인한다.
+ * 사라질 때는 `false`로 되돌려 알려서 부모가 막은 채로 남지 않게 한다.
  */
-export function StartCoachMark() {
+export function StartCoachMark({
+  onVisibleChange,
+}: {
+  onVisibleChange: (visible: boolean) => void;
+}) {
   const rect = useTargetRect();
   const placed = rect !== null;
+  useEffect(() => {
+    onVisibleChange(placed);
+    return () => onVisibleChange(false);
+  }, [placed, onVisibleChange]);
   useEffect(() => {
     if (placed) {
       document.querySelector<HTMLElement>(TARGET_SELECTOR)?.focus();

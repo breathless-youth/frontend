@@ -348,12 +348,17 @@ export function HomeTabPage() {
       popupOpen: homePopupInDoc || recoveryInDoc,
       userId,
     });
-  useCoachMarkTabBar(showGuide);
+  // 코치마크가 대상을 찾아 실제로 그린 동안만 본문과 탭 바를 막는다. 대상이 없는데 막으면 아무것도 못 누른다.
+  const [guideVisible, setGuideVisible] = useState(false);
+  useCoachMarkTabBar(guideVisible);
+  // 대상이 잠깐 사라졌다 다시 잡혀도 노출 이벤트는 한 번만 보낸다.
+  const guideShownTrackedRef = useRef(false);
   useEffect(() => {
-    if (showGuide) {
+    if (guideVisible && !guideShownTrackedRef.current) {
+      guideShownTrackedRef.current = true;
       trackHomeStartGuideShown();
     }
-  }, [showGuide]);
+  }, [guideVisible]);
 
   return (
     <main
@@ -361,7 +366,7 @@ export function HomeTabPage() {
       className="theme-soft-blue bg-soft-blue page-column min-h-dvh pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+22px)] text-foreground"
     >
       <div className="flex flex-col gap-3 px-5">
-        <header inert={showGuide} className="flex items-end justify-between pb-2">
+        <header inert={guideVisible} className="flex items-end justify-between pb-2">
           <HomeHeaderLead userId={userId} identityPending={identityPending} />
         </header>
 
@@ -378,13 +383,13 @@ export function HomeTabPage() {
         ) : (
           <HomeContent
             userId={userId}
-            guideActive={showGuide}
+            guideActive={guideVisible}
             onGuideCompleted={() => setGuideCompleted(true)}
           />
         )}
       </div>
 
-      {showGuide && <StartCoachMark />}
+      {showGuide && <StartCoachMark onVisibleChange={setGuideVisible} />}
       {userId !== null && (
         <NoticeModalHost
           userId={userId}
