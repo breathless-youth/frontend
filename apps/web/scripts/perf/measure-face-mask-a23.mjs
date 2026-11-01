@@ -50,7 +50,11 @@ function battery() {
   const level = Number(/level: (\d+)/.exec(out)?.[1]);
   const temp = Number(/temperature: (\d+)/.exec(out)?.[1]) / 10;
   const plugged = /(AC|USB|Wireless) powered: true/.test(out);
-  return { level, temp, plugged };
+  // 삼성 기기는 sysfs 전류 파일을 셸 권한으로 못 읽어서 dumpsys가 주는 값을 함께 둔다(mA, mV, µAh).
+  const currentMa = Number(/current now: (-?\d+)/.exec(out)?.[1]);
+  const voltageMv = Number(/\n\s*voltage: (\d+)/.exec(out)?.[1]);
+  const chargeUah = Number(/charge counter: (\d+)/i.exec(out)?.[1]);
+  return { level, temp, plugged, currentMa, voltageMv, chargeUah };
 }
 
 function readSys(name) {
@@ -62,9 +66,12 @@ function readSys(name) {
   }
 }
 
-function power() {
-  const currentUa = readSys("current_now");
-  const voltageUv = readSys("voltage_now");
+function power(b) {
+  const sysCurrent = readSys("current_now");
+  const sysVoltage = readSys("voltage_now");
+  const fromDumpsys = sysCurrent === null && Number.isFinite(b.currentMa) && Number.isFinite(b.voltageMv);
+  const currentUa = fromDumpsys ? b.currentMa * 1000 : sysCurrent;
+  const voltageUv = fromDumpsys ? b.voltageMv * 1000 : sysVoltage;
   // 제조사마다 방전 전류의 부호가 달라 크기만 쓴다.
   // ponytail: 단위를 µA·µV로 가정한다. 다른 기기에서 값이 1000배 어긋나면 이 식을 기기별로 나눈다.
   const powerMw =
@@ -163,7 +170,7 @@ while (Date.now() - startedAt <= durationMs) {
   const b = battery();
   const t = thermal();
   const c = cpu();
-  const p = power();
+  const p = power(b);
   const m = await maskStats();
   const row = {
     t: Math.round((tickAt - startedAt) / 1000),
@@ -199,11 +206,22 @@ const avg = (key) => {
     .filter(Number.isFinite);
   return values.length === 0 ? "-" : (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1);
 };
+// 순간 전류는 10초마다 한 번 찍은 값이라, 실제 소모량은 배터리 잔량 카운터의 차이로도 남긴다.
+function chargeLine() {
+  const end = battery();
+  const usedMah = (start.chargeUah - end.chargeUah) / 1000;
+  const hours = (Date.now() - startedAt) / 3_600_000;
+  if (!Number.isFinite(usedMah) || hours <= 0) return "잔량 카운터 -";
+  const avgMa = usedMah / hours;
+  const mw = (avgMa * (start.voltageMv + end.voltageMv)) / 2 / 1000;
+  return `잔량 카운터 ${usedMah.toFixed(0)}mAh 소모, 평균 ${avgMa.toFixed(0)}mA (약 ${mw.toFixed(0)}mW)`;
+}
 const first = rows[0];
 const last = rows.at(-1);
 const summary = [
   `라벨 ${label}, 기기 ${serial}, 표본 ${rows.length}개`,
   `평균 전력 ${avg("powerMw")}mW`,
+  chargeLine(),
   `배터리 온도 ${first.batt}° → ${last.batt}°, 잔량 ${first.level}% → ${last.level}%`,
   `AP 온도 ${first.ap}° → ${last.ap}° (최고 ${Math.max(...rows.map((r) => r.ap))}°)`,
   `표면 온도 ${first.skin}° → ${last.skin}° (최고 ${Math.max(...rows.map((r) => r.skin))}°)`,
