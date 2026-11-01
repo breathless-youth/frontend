@@ -41,9 +41,9 @@ export const HEAD_DROP_OF_PERSON_WIDTH = 0.3;
  * bbox 폭에 대한 이모지 크기. 첫 얼굴 프레임이 오기 전에만 쓴다.
  * bbox는 어깨·팔까지 잡혀 얼굴보다 훨씬 넓으므로 얼굴 크기를 측정하면 그쪽을 쓴다.
  */
-export const STICKER_OF_PERSON_WIDTH = 0.5;
+export const STICKER_OF_PERSON_WIDTH = 0.55;
 /** 랜드마크 범위의 긴 쪽에 대한 이모지 크기. 타임랩스(1.5)보다 조금 크게 잡아 움직임 여유를 둔다. */
-export const STICKER_OF_FACE = 1.6;
+export const STICKER_OF_FACE = 1.75;
 /**
  * "얼굴 없음" 판정이 이만큼 이어져야 이모지를 내린다.
  * 고개를 숙이거나 돌리면 얼굴 모델이 한 번씩 놓치는데, 그때마다 내리면 얼굴이 드러난다.
