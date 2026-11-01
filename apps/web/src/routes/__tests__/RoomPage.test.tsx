@@ -18,6 +18,7 @@ import {
   pressNative,
   resetGlassChrome,
 } from "@/test/nativeControlStub";
+import { answerCameraPrompt } from "@/test/cameraPrompt";
 import { RoomPage } from "../RoomPage";
 
 /** 복원 게이트는 이 파일의 관심사가 아니다 — 조회 없이 새 세션으로 통과시킨다. */
@@ -84,7 +85,7 @@ function HomeRouteProbe() {
 function renderRoom(url: string) {
   // 세션 도움말이 뜨면 세션 화면을 검증할 수 없어서 이미 끝까지 본 계정으로 연다.
   markSessionGuideSeen(1);
-  return render(
+  const view = render(
     <MemoryRouter initialEntries={[url]}>
       <Routes>
         <Route path="/home" element={<HomeRouteProbe />} />
@@ -93,6 +94,10 @@ function renderRoom(url: string) {
       </Routes>
     </MemoryRouter>,
   );
+  // 입장 카메라 확인 창에는 카메라 켜기로 답해 촬영 화면에서 시작한다.
+  // 심플 모드 시작 자체는 RoomPage.cameraPrompt.test.tsx가 본다.
+  answerCameraPrompt("camera");
+  return view;
 }
 
 /**
@@ -582,6 +587,8 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
           </MemoryRouter>
         </StrictMode>,
       );
+      // 앞선 테스트가 남긴 seen 기록으로 확인 창이 뜨면 배경이 가려지고, 가짜 스트림이 창 미리보기에서 던진다.
+      answerCameraPrompt("camera");
 
       await act(async () => {
         window.__focusonMockDetector!.emit({ source: "AWAY", active: true });
@@ -608,6 +615,8 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
         </MemoryRouter>
       </StrictMode>,
     );
+    // 앞선 테스트가 남긴 seen 기록으로 확인 창이 뜨면 배경이 가려지고, 가짜 스트림이 창 미리보기에서 던진다.
+    answerCameraPrompt("camera");
 
     // 카메라가 실제로 열릴 때까지 기다린다 — 스트림이 srcObject에 붙으면 열린 것이다.
     await waitFor(() => {

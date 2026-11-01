@@ -141,4 +141,34 @@ describe("CameraOnConfirmDialog", () => {
     expect(content.className).toContain("sm:rounded-3xl");
     expect(content.className).not.toContain("sm:rounded-lg");
   });
+
+  it("문구를 넘기면 제목·설명·자물쇠 줄·두 버튼을 바꾸고 초기 포커스는 취소 자리에 둔다", () => {
+    setup({
+      title: "카메라 위치를 확인해 주세요",
+      description: "얼굴과 책상이 보이게 자리를 잡아 주세요",
+      notice: "영상은 기기 밖으로 나가지 않아요",
+      cancelLabel: "심플 모드로 시작",
+      confirmLabel: "카메라 켜기",
+    });
+
+    const dialog = screen.getByRole("alertdialog");
+    expect(dialog).toHaveAccessibleName("카메라 위치를 확인해 주세요");
+    expect(dialog).toHaveAccessibleDescription("얼굴과 책상이 보이게 자리를 잡아 주세요");
+    expect(screen.getByText("영상은 기기 밖으로 나가지 않아요")).toBeInTheDocument();
+    expect(screen.queryByText("영상은 서버에 저장되지 않아요.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "심플 모드로 시작" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
+  });
+
+  // 소셜룸 호출부가 문구를 넘기지 않으므로 기본값이 바뀌지 않게 막는다.
+  it("문구를 넘기지 않으면 소셜룸 문구 그대로다", () => {
+    setup();
+
+    const dialog = screen.getByRole("alertdialog");
+    expect(dialog).toHaveAccessibleDescription(
+      "카메라를 켜면 순공시간 측정과 영상 공유가 시작돼요.",
+    );
+    expect(screen.getByText("영상은 서버에 저장되지 않아요.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
+  });
 });
