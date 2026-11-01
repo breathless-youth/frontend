@@ -829,7 +829,7 @@ export function LiveRoomSession({
                         aria-hidden
                         className="animate-spin motion-reduce:animate-none"
                       />
-                      얼굴을 찾고 있어요
+                      가릴 위치를 찾고 있어요
                     </span>
                   </div>
                 )}
