@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import { trackAmbientSoundChanged } from "@/lib/amplitude";
 
+import { answerCameraPrompt } from "@/test/cameraPrompt";
 import { RoomPage } from "../RoomPage";
 
 /**
@@ -33,13 +34,17 @@ const CATALOG_JSON = JSON.stringify({
 function renderRoom() {
   // 세션 도움말이 뜨면 세션 화면을 검증할 수 없어서 이미 끝까지 본 계정으로 연다.
   markSessionGuideSeen(1);
-  return render(
+  const view = render(
     <MemoryRouter initialEntries={["/room/7?userId=1"]}>
       <Routes>
         <Route path="/room/:id" element={<RoomPage />} />
       </Routes>
     </MemoryRouter>,
   );
+  // 입장 카메라 확인 창에는 카메라 켜기로 답해 촬영 화면에서 시작한다.
+  // 심플 모드 시작 자체는 RoomPage.cameraPrompt.test.tsx가 본다.
+  answerCameraPrompt("camera");
+  return view;
 }
 
 describe("RoomPage — 배경음 버튼·페이지", () => {
