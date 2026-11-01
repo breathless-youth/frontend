@@ -72,7 +72,8 @@ afterEach(() => {
 });
 
 describe("useFaceMaskedSend", () => {
-  it("켜져 있으면 합성 스트림을 보내고 합성을 시작한다", () => {
+  it("켜 둔 선택이 저장돼 있으면 합성 스트림을 보내고 합성을 시작한다", () => {
+    localStorage.setItem("focusmakers.socialFaceMask", "on");
     const compositor = fakeCompositor();
     const detector = fakeDetector();
     const { result } = renderHook(() =>
@@ -91,6 +92,7 @@ describe("useFaceMaskedSend", () => {
   });
 
   it("끄면 원본을 보내고 합성을 멈추며 선택을 저장한다", () => {
+    localStorage.setItem("focusmakers.socialFaceMask", "on");
     const compositor = fakeCompositor();
     const detector = fakeDetector();
     const { result } = renderHook(() =>

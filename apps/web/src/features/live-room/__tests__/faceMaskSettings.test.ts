@@ -15,17 +15,23 @@ afterEach(() => {
 });
 
 describe("얼굴 가리기 설정", () => {
-  it("처음에는 켜져 있고 첫 번째 이모지를 쓴다", () => {
-    expect(readFaceMaskOn()).toBe(true);
+  it("처음에는 꺼져 있고 첫 번째 이모지를 쓴다", () => {
+    expect(readFaceMaskOn()).toBe(false);
     expect(readFaceMaskEmojiId()).toBe(FACE_MASK_EMOJIS[0]!.id);
   });
 
-  it("끈 선택과 고른 이모지를 기억한다", () => {
+  it("켠 선택과 고른 이모지를 기억한다", () => {
     const last = FACE_MASK_EMOJIS[FACE_MASK_EMOJIS.length - 1]!;
-    writeFaceMaskOn(false);
+    writeFaceMaskOn(true);
     writeFaceMaskEmojiId(last.id);
-    expect(readFaceMaskOn()).toBe(false);
+    expect(readFaceMaskOn()).toBe(true);
     expect(readFaceMaskEmojiId()).toBe(last.id);
+  });
+
+  it("켰다가 끈 선택도 기억한다", () => {
+    writeFaceMaskOn(true);
+    writeFaceMaskOn(false);
+    expect(readFaceMaskOn()).toBe(false);
   });
 
   it("목록에서 빠진 이모지가 저장돼 있으면 첫 번째로 돌아간다", () => {
@@ -46,9 +52,9 @@ describe("얼굴 가리기 설정", () => {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("blocked");
     });
-    expect(readFaceMaskOn()).toBe(true);
+    expect(readFaceMaskOn()).toBe(false);
     expect(readFaceMaskEmojiId()).toBe(FACE_MASK_EMOJIS[0]!.id);
-    expect(() => writeFaceMaskOn(false)).not.toThrow();
+    expect(() => writeFaceMaskOn(true)).not.toThrow();
     expect(() => writeFaceMaskEmojiId("x")).not.toThrow();
   });
 });

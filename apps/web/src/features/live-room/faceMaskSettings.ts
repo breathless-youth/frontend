@@ -47,8 +47,9 @@ export function faceMaskEmojiOf(id: string): FaceMaskEmoji {
   return FACE_MASK_EMOJIS.find((emoji) => emoji.id === id) ?? FACE_MASK_EMOJIS[0]!;
 }
 
+// 오래 켜 두면 보급형 기기가 크게 뜨거워져 원하는 사람만 켜게 한다.
 export function readFaceMaskOn(): boolean {
-  return read(ON_KEY) !== "off";
+  return read(ON_KEY) === "on";
 }
 
 export function writeFaceMaskOn(on: boolean): void {
