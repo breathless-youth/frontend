@@ -29,9 +29,10 @@
 
 - 세션에 들어올 때마다 한 번 띄운다. 상태 `cameraPromptAnswered`(마운트마다 `false`)로 다시 뜨지 않게 한다.
 - 도움말이 자동으로 뜰 조건인 계정은 도움말이 끝나거나(`seen`) Escape로 닫힌(`helpDismissed`) 뒤에 띄운다. 이미 본 계정은 입장 직후 띄운다.
-- 조건: `phase.name === "studying" && userId !== null && !cameraPromptAnswered && !helpOpen && !helpAutoPending`. `helpAutoPending`은 `!helpDismissed && shouldShowSessionGuide({ state: guideState, blocked: false })`다. 신원이 없는 동안은 도움말과 같이 기다린다.
-- 모달은 `aria-modal`이라 떠 있는 동안 `useModalOverlayOpen`이 참이 되어 도움말이 숨는다. 위 조건이 도움말 뒤에만 열리게 보장하므로 둘이 동시에 뜨지 않는다. 더보기 `도움말 보기`로 연 도움말(`helpOpen`)이 떠 있는 동안도 열지 않는다.
-- 종료 확인·초대 대화상자가 먼저 열린 경우는 드물어 따로 다루지 않는다. 모달이 열려 있는 채 세션이 끝나면(`phase`가 `studying`을 벗어남) 조건이 거짓이 되어 닫힌다.
+- 조건: `phase.name === "studying" && !cameraPromptAnswered && !helpOpen && !helpAutoPending && page === null && !exitDialogOpen && invite === null && !modeOpen`. `helpAutoPending`은 `userId !== null && !helpDismissed && shouldShowSessionGuide({ state: guideState, blocked: false })`다.
+- 신원은 기다리기만 한다. 진입 게이트가 첫 토큰(`useIdentityPending`)을 기다린 뒤에 세션 화면을 만들므로 그동안은 뜨지 않는다. 기다림이 끝났는데도 신원이 없으면(`userId === null`, 기기 등록 전·브라우저 단독) 도움말이 자동으로 뜨지 않으니 입장 직후 띄운다.
+- 모달은 `aria-modal`이라 떠 있는 동안 `useModalOverlayOpen`이 참이 되어 도움말이 숨는다. 위 조건이 도움말 뒤에만 열리게 보장하므로 둘이 동시에 뜨지 않는다. 더보기 `도움말 보기`로 연 도움말(`helpOpen`)이 떠 있는 동안도 열지 않는다. 이 창 자체가 `aria-modal`이라 `modalOverlayOpen`은 조건에 넣지 않는다(뜨자마자 스스로를 닫는 순환이 된다).
+- 종료 확인·초대 대화상자, 과목 페이지, 타이머 화면이 열려 있는 동안은 띄우지 않고, 닫히면 그때 띄운다(마운트마다 한 번 규칙은 그대로). 모달이 열려 있는 채 세션이 끝나면(`phase`가 `studying`을 벗어남) 조건이 거짓이 되어 닫힌다.
 
 ### 계측
 

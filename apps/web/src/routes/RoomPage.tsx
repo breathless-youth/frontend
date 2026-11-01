@@ -548,16 +548,24 @@ function RoomSessionScreen({
   }
   // 입장 카메라 확인 창. 세션 화면마다 한 번 묻고, 도움말이 자동으로 뜰 계정은 도움말을 끝내거나 닫은 뒤에 묻는다.
   // 과목 페이지 등에 가려 도움말이 잠시 숨은 동안에도 묻지 않도록 가림 여부를 빼고 판정한다.
-  // 신원이 없는 동안은 도움말과 함께 기다린다.
+  // 신원은 진입 게이트가 첫 토큰을 기다린 뒤에야 이 화면을 만들므로 여기서 또 기다리지 않는다.
+  // 끝내 신원이 없는 기기(userId null)도 도움말은 없으니 바로 묻는다.
+  // 종료·초대·과목 페이지·타이머 화면은 먼저 열렸으면 닫힌 뒤에 묻는다. 이 창도 aria-modal이라
+  // modalOverlayOpen은 조건에 넣지 않는다(뜨자마자 스스로를 닫는 순환이 된다).
   const [cameraPromptAnswered, setCameraPromptAnswered] = useState(false);
   const helpAutoPending =
-    !helpDismissed && shouldShowSessionGuide({ state: guideState, blocked: false });
+    userId !== null &&
+    !helpDismissed &&
+    shouldShowSessionGuide({ state: guideState, blocked: false });
   const cameraPromptOpen =
     phase.name === "studying" &&
-    userId !== null &&
     !cameraPromptAnswered &&
     !helpOpen &&
-    !helpAutoPending;
+    !helpAutoPending &&
+    page === null &&
+    !exitDialogOpen &&
+    invite === null &&
+    !modeOpen;
   // 미리보기가 촬영 화면과 같은 영역을 잘라 보이도록 세션 루트를 직접 잰다.
   const {
     selfSurfaceRef: sessionRootRef,

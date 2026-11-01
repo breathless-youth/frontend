@@ -4,8 +4,10 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { markSessionGuideSeen } from "@/features/study-session/sessionGuide";
+import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import type * as tokenSourceModule from "@/lib/auth/tokenSource";
 import type { AuthSnapshot, TokenSource } from "@/lib/auth/tokenSource";
+import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { CAMERA_PROMPT_NAME } from "@/test/cameraPrompt";
 import { RoomPage } from "../RoomPage";
 
@@ -58,7 +60,7 @@ function renderRoom(url = "/room/7?userId=1") {
 }
 
 /** 아직 `auth-token`이 오지 않은 출처. `arrive`로 도착을 흉내낸다(`RoomPage.help.test.tsx`와 같다). */
-function pendingSource(): { source: TokenSource; arrive: (userId: number) => void } {
+function pendingSource(): { source: TokenSource; arrive: (userId: number | null) => void } {
   let snapshot: AuthSnapshot | null = null;
   const listeners = new Set<(snapshot: AuthSnapshot) => void>();
   return {
@@ -97,6 +99,9 @@ async function finishHelp() {
 describe("RoomPage 심플 모드 시작과 입장 카메라 확인 창", () => {
   afterEach(() => {
     cleanup();
+    act(() => {
+      clearSessionInvite();
+    });
     mocks.source = null;
     localStorage.clear();
     vi.clearAllMocks();
@@ -237,11 +242,12 @@ describe("RoomPage 심플 모드 시작과 입장 카메라 확인 창", () => {
     expect(prompt()).not.toBeInTheDocument();
   });
 
-  it("신원이 없으면 묻지 않고 심플 모드로 시작한다", () => {
+  it("브라우저 단독처럼 신원이 없어도 바로 묻는다", () => {
     renderRoom("/room/7");
 
-    expect(prompt()).not.toBeInTheDocument();
+    expect(prompt()).toBeInTheDocument();
     expect(surface()).toBe("simple");
+    expect(amplitude.trackStudySessionCameraPromptShown).toHaveBeenCalledExactlyOnceWith("single");
   });
 
   it("신원이 늦게 도착하면 그때 묻는다", () => {
@@ -256,5 +262,44 @@ describe("RoomPage 심플 모드 시작과 입장 카메라 확인 창", () => {
     });
 
     expect(prompt()).toBeInTheDocument();
+  });
+
+  it("출처가 있으면 첫 토큰을 기다리고, 신원 없이 확정돼도 그때 묻는다", () => {
+    const { source, arrive } = pendingSource();
+    mocks.source = source;
+    renderRoom("/room/7");
+    expect(prompt()).not.toBeInTheDocument();
+
+    act(() => {
+      arrive(null);
+    });
+
+    expect(prompt()).toBeInTheDocument();
+  });
+
+  it("초대 확인 창이 열린 채 마운트되면 닫힐 때까지 묻지 않는다", async () => {
+    markSessionGuideSeen(1);
+    const { source, arrive } = pendingSource();
+    mocks.source = source;
+    renderRoom("/room/7");
+    // 게이트가 세션 화면을 막는 동안 초대가 먼저 도착한 상황
+    const entry = (globalThis as unknown as Record<string, (raw: string) => void>)[
+      NATIVE_MESSAGE_ENTRY
+    ];
+    act(() => {
+      entry(JSON.stringify({ type: "session-invite", code: "4680", atMs: Date.now() }));
+    });
+
+    act(() => {
+      arrive(1);
+    });
+    const invite = await screen.findByRole("alertdialog", {
+      name: /초대에 참여할까요/,
+    });
+    expect(prompt()).not.toBeInTheDocument();
+
+    await userEvent.click(within(invite).getByRole("button", { name: "계속하기" }));
+
+    await waitFor(() => expect(prompt()).toBeInTheDocument());
   });
 });

@@ -257,6 +257,7 @@ describe("RoomPage 세션 도움말", () => {
 
   it("신원이 없어도 메뉴로 열고 닫을 수 있고 기기에 아무것도 남기지 않는다", async () => {
     renderRoom("/room/7");
+    answerCameraPrompt("camera");
 
     await userEvent.click(screen.getByRole("button", { name: "더보기" }));
     await userEvent.click(screen.getByRole("menuitem", { name: "도움말 보기" }));
