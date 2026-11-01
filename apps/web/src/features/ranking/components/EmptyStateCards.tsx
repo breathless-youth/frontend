@@ -99,7 +99,7 @@ export function PreviousResultCard({
  * 이 판에 아직 내 기록이 없을 때의 카드
  *
  * 지금 구간이 아닌 시간대 판은 지금 공부하라는 안내 대신 그 구간에 공부하라고 말한다.
- * 연속 공부는 하루 순공 10분부터 하루로 세서, 공부를 했어도 순위가 없을 수 있어 그 기준을 말한다.
+ * 연속 공부는 하루 순공 5분부터 하루로 세서, 공부를 했어도 순위가 없을 수 있어 그 기준을 말한다.
  */
 export function FirstCard({
   board,
@@ -121,7 +121,7 @@ export function FirstCard({
           <p className={HEADLINE}>{offSlotHeadline(board)}</p>
         ) : board.type === "MAX_STREAK" ? (
           <p className={HEADLINE}>
-            10분 이상 공부하면
+            5분 이상 공부하면
             <br />
             랭킹 진입
           </p>

@@ -159,7 +159,7 @@ describe("FirstCard", () => {
     expect(screen.queryByText("지금 공부하면", { exact: false })).toBeNull();
   });
 
-  it("연속 공부 판은 10분 기준을 말한다", () => {
+  it("연속 공부 판은 5분 기준을 말한다", () => {
     render(
       <FirstCard
         board={{ ...FIXTURE_FIRST, type: "MAX_STREAK", period: null, slot: null }}
@@ -169,7 +169,7 @@ describe("FirstCard", () => {
       />,
     );
 
-    expect(paragraph("10분 이상 공부하면랭킹 진입")).toBeInTheDocument();
+    expect(paragraph("5분 이상 공부하면랭킹 진입")).toBeInTheDocument();
     expect(screen.queryByText("지금 공부하면", { exact: false })).toBeNull();
   });
 });

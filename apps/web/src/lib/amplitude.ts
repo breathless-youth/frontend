@@ -859,6 +859,28 @@ export function trackFocusStartTapped(source: FocusStartSource = "home") {
 }
 
 /**
+ * 홈 첫 세션 코치마크 노출
+ *
+ * 홈에 들어올 때마다 뜰 수 있어 한 계정이 여러 번 보낼 수 있다.
+ */
+export function trackHomeStartGuideShown() {
+  if (!initialized) return;
+  track("home_start_guide_shown");
+}
+
+/** 코치마크가 뜬 채 집중 시작을 눌러 세션으로 넘어간 것. 이 계정은 다시 보지 않는다. */
+export function trackHomeStartGuideCompleted() {
+  if (!initialized) return;
+  track("home_start_guide_completed");
+}
+
+/** 코치마크에서 `나중에 할게요`를 눌러 이번 진입에서만 닫은 것. 본 것으로 남기지 않아 다음 홈 진입에 다시 뜬다. */
+export function trackHomeStartGuideSkipped() {
+  if (!initialized) return;
+  track("home_start_guide_skipped");
+}
+
+/**
  * OS 설정 열기 요청
  *
  * 설정 탭 카메라 권한 행과 타임랩스 공유 시트의 사진 권한 안내에서 보낸다.
@@ -903,8 +925,49 @@ export function trackSessionSimpleModeToggled(on: boolean) {
   track("session_simple_mode_toggled", { on });
 }
 
+/** 싱글룸 입장 카메라 확인 창의 답. `카메라 켜기`는 camera, `심플 모드로 시작`과 Escape는 simple이다. */
+export type CameraPromptChoice = "camera" | "simple";
+
+/**
+ * 싱글룸 입장 카메라 확인 창 노출
+ *
+ * 세션 화면마다 한 번이고, 도움말이 자동으로 뜨는 계정은 도움말을 끝내거나 닫은 뒤에 뜬다.
+ */
+export function trackStudySessionCameraPromptShown(roomType: StudyRoomType) {
+  if (!initialized) return;
+  track("study_session_camera_prompt_shown", { room_type: roomType });
+}
+
+/**
+ * 싱글룸 입장 카메라 확인 창의 답
+ *
+ * 답은 표시 모드만 바꾸므로 `session_simple_mode_toggled`는 함께 보내지 않는다.
+ * 노출 대비 camera 비율이 촬영 화면을 고르는 사람의 몫이다.
+ */
+export function trackStudySessionCameraPromptAnswered(input: {
+  readonly choice: CameraPromptChoice;
+  readonly roomType: StudyRoomType;
+}) {
+  if (!initialized) return;
+  track("study_session_camera_prompt_answered", {
+    choice: input.choice,
+    room_type: input.roomType,
+  });
+}
+
 /** 세션 도움말을 연 경로. 세션 진입 때 저절로 뜬 것(auto)과 더보기의 도움말 보기(menu)다. */
 export type SessionHelpTrigger = "auto" | "menu";
+
+/** 세션 도움말 단계 id. 단계 번호와 달리 순서가 바뀌어도 뜻이 같다. */
+export type SessionHelpStepId = "away" | "measuring" | "camera" | "buttons" | "finish";
+
+/**
+ * 세션 도움말 판
+ *
+ * 2는 심플 모드로 시작하는 5단계 판이다.
+ * 이 속성이 없는 6단계 판과 단계 번호의 뜻이 달라 콘솔 차트는 이 값으로 거른다.
+ */
+const SESSION_HELP_VERSION = 2;
 
 /**
  * 세션 도움말 노출
@@ -914,7 +977,11 @@ export type SessionHelpTrigger = "auto" | "menu";
  */
 export function trackStudySessionHelpShown(trigger: SessionHelpTrigger, roomType: StudyRoomType) {
   if (!initialized) return;
-  track("study_session_help_shown", { trigger, room_type: roomType });
+  track("study_session_help_shown", {
+    trigger,
+    room_type: roomType,
+    help_version: SESSION_HELP_VERSION,
+  });
 }
 
 /**
@@ -922,17 +989,21 @@ export function trackStudySessionHelpShown(trigger: SessionHelpTrigger, roomType
  *
  * `이전`으로 돌아온 단계도 보내 단계별 이탈과 되돌아감을 함께 본다.
  * 가려졌다 같은 단계로 돌아온 것은 호출부가 보내지 않는다.
+ * 단계 번호와 함께 단계 id를 보내 단계 순서가 바뀌어도 같은 단계끼리 모은다.
  */
 export function trackStudySessionHelpStepViewed(input: {
   readonly step: number;
+  readonly stepId: SessionHelpStepId;
   readonly trigger: SessionHelpTrigger;
   readonly roomType: StudyRoomType;
 }) {
   if (!initialized) return;
   track("study_session_help_step_viewed", {
     step: input.step,
+    step_id: input.stepId,
     trigger: input.trigger,
     room_type: input.roomType,
+    help_version: SESSION_HELP_VERSION,
   });
 }
 
@@ -946,12 +1017,17 @@ export function trackStudySessionHelpCompleted(
   roomType: StudyRoomType,
 ) {
   if (!initialized) return;
-  track("study_session_help_completed", { trigger, room_type: roomType });
+  track("study_session_help_completed", {
+    trigger,
+    room_type: roomType,
+    help_version: SESSION_HELP_VERSION,
+  });
 }
 
 /** 세션 도움말을 중간에 닫은 것. 닫는 길은 지금 Escape뿐이라 `reason`도 그 값만 있다. */
 export function trackStudySessionHelpDismissed(input: {
   readonly step: number;
+  readonly stepId: SessionHelpStepId;
   readonly trigger: SessionHelpTrigger;
   readonly roomType: StudyRoomType;
   readonly reason: "escape";
@@ -959,9 +1035,11 @@ export function trackStudySessionHelpDismissed(input: {
   if (!initialized) return;
   track("study_session_help_dismissed", {
     step: input.step,
+    step_id: input.stepId,
     trigger: input.trigger,
     room_type: input.roomType,
     reason: input.reason,
+    help_version: SESSION_HELP_VERSION,
   });
 }
 

@@ -16,10 +16,11 @@ import type { FaceMaskEmoji } from "../faceMaskSettings";
  * 공용 `ui/dialog.tsx`(Radix)를 쓴다. 포커스 트랩·복귀는 Radix 가 맡고, Escape 와 딤 탭만
  * 이 화면의 규칙에 맞게 막는다.
  *
- * 스타일은 Figma V2(node 5314:3767, Soft Blue) 기준. `theme-soft-blue`를 `DialogContent`에
+ * 스타일은 Figma V2(node 5315:3824, Soft Blue) 기준. `theme-soft-blue`를 `DialogContent`에
  * 직접 붙여 팔레트를 스코프한다. 세션 화면은 항상 다크라, 호출부가 `container`로 세션 루트
  * (`theme-dark`)를 넘겨야 시스템이 라이트여도 Soft Blue 다크 값으로 그려진다.
  * 구조·카피·접근성 계약은 확정분이다.
+ * 싱글룸 입장 확인 창도 같은 창을 쓰고 문구만 props로 바꾼다.
  * 미리보기 높이는 2026-08-25 BY-427 시안 B(234px) 확정.
  */
 export interface CameraOnConfirmDialogProps {
@@ -49,6 +50,19 @@ export interface CameraOnConfirmDialogProps {
   dismissable?: boolean;
   /** 확정 처리 중 — 두 버튼과 Escape를 잠가 중복 확정을 막는다. */
   busy?: boolean;
+  /** 제목. 기본은 소셜룸 문구다. */
+  title?: string;
+  /**
+   * 제목 아래 설명
+   *
+   * 없으면 자물쇠 줄이 제목 아래로 올라와 창 설명을 맡는다(소셜룸).
+   * 있으면 설명은 제목 아래, 자물쇠 줄은 버튼 위에 둔다(싱글룸).
+   */
+  description?: string;
+  /** 자물쇠 줄. 싱글룸과 소셜룸은 영상이 가는 곳이 달라 문구가 다르다. */
+  notice?: string;
+  /** 확정 버튼 글자 */
+  confirmLabel?: string;
   cancelLabel?: string;
   /** 포털이 그려질 자리 — 세션 루트를 넘긴다. 생략하면 `body`. */
   container?: HTMLElement | null;
@@ -74,6 +88,10 @@ export function CameraOnConfirmDialog({
   errorMessage = null,
   dismissable = true,
   busy = false,
+  title = "카메라를 켤까요?",
+  description,
+  notice = "같은 방에만 보이고 저장되지 않아요",
+  confirmLabel = "카메라 켜기",
   cancelLabel = "취소",
   container,
   returnFocus,
@@ -120,13 +138,19 @@ export function CameraOnConfirmDialog({
         className="theme-soft-blue max-h-[calc(100dvh-24px)] w-full max-w-[320px] gap-0 landscape-compact:max-w-[600px] landscape-compact:grid-cols-2 landscape-compact:gap-x-5 overflow-y-auto rounded-3xl border-0 bg-muted px-5.5 pt-6.5 pb-5.5 text-foreground shadow-[0_20px_25px_rgba(0,0,0,0.4)] sm:rounded-3xl"
       >
         <DialogTitle className="text-[19px] leading-5.75 font-extrabold text-foreground landscape-compact:col-start-2">
-          카메라를 켤까요?
+          {title}
         </DialogTitle>
-        {/* 누가 보는지와 남지 않는다는 것을 미리보기보다 먼저 읽게 제목 바로 아래에 둔다. */}
-        <DialogDescription className="mt-2 flex items-center gap-2 text-sm leading-5 text-muted-foreground landscape-compact:col-start-2">
-          <Lock size={16} aria-hidden className="shrink-0" />
-          같은 방에만 보이고 저장되지 않아요
-        </DialogDescription>
+        {/* 설명이 없으면 자물쇠 줄을 제목 바로 아래로 올려 창 설명으로 쓴다. 누가 보는지와 남지 않는다는 것을 미리보기보다 먼저 읽게 한다. */}
+        {description === undefined ? (
+          <DialogDescription className="mt-2 flex items-center gap-2 text-sm leading-5 text-muted-foreground landscape-compact:col-start-2">
+            <Lock size={16} aria-hidden className="shrink-0" />
+            {notice}
+          </DialogDescription>
+        ) : (
+          <DialogDescription className="mt-2 text-sm leading-5 text-muted-foreground landscape-compact:col-start-2">
+            {description}
+          </DialogDescription>
+        )}
         {/* 미리보기 높이는 화면 높이 비례(28dvh ≈ 표준 세로에서 234px) + 상한 234px —
             고정 px는 가로 회전(높이 ~390px)에서 모달을 뷰포트 밖으로 밀어 잘리게 했고,
             기기별로도 다르게 보였다(2026-08-25 피드백). 시안 B의 234px는 상한으로 유지. */}
@@ -201,6 +225,12 @@ export function CameraOnConfirmDialog({
             )}
           </div>
         )}
+        {description !== undefined && (
+          <div className="mt-3 flex items-center gap-2 landscape-compact:col-start-2">
+            <Lock size={16} aria-hidden className="text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">{notice}</p>
+          </div>
+        )}
         {errorMessage !== null && (
           <p
             role="alert"
@@ -227,7 +257,7 @@ export function CameraOnConfirmDialog({
             onClick={onConfirm}
             className="h-13 flex-1 rounded-lg text-[15px] font-semibold"
           >
-            카메라 켜기
+            {confirmLabel}
           </Button>
         </div>
       </DialogContent>

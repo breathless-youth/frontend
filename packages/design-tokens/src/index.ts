@@ -27,6 +27,8 @@ export const colors = {
     subtlePressed: { light: "#c9e2ff", dark: "#194aa6" },
     /** 강조 글자에 bg-clip-text로 입히는 그라데이션의 위·아래 색(180deg, 위가 밝다). 패키지는 색만 두고 그라데이션 식은 각 앱이 만든다. */
     gradientText: { light: ["#8cc0ff", "#4593fc"], dark: ["#7fb3ff", "#3182f6"] },
+    /** 코치마크가 가리키는 자리의 발광 테두리 선·그림자 색 */
+    coachRing: { light: "#4593fc", dark: "#5a9cff" },
   },
   feedback: {
     error: { light: "#d22030", dark: "#ff6b77" },

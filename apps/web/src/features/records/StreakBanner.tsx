@@ -22,7 +22,7 @@ type StreakBannerProps = {
   streakDays: number;
   /**
    * TODO(SCR-S5-records.md): 백엔드 계약 미확인 — 일자별 공부 여부(주간 체크 도트)와 그 판정
-   * 기준(기록 1건 이상 vs 순공 10분 이상)이 미확정이고, 월 경계 주는 한 달치 응답만으로 채울 수 없다.
+   * 기준(기록 1건 이상 vs 순공 5분 이상)이 미확정이고, 월 경계 주는 한 달치 응답만으로 채울 수 없다.
    */
   days: StreakWeekDay[];
 };
@@ -81,7 +81,7 @@ export function StreakBanner({ streakDays, days }: StreakBannerProps) {
             {streakDays}일 연속 공부 중
           </span>
           <span className="text-[13px] leading-4 text-muted-foreground">
-            내일도 10분만 하면 이어져요
+            내일도 5분만 하면 이어져요
           </span>
         </div>
       </div>
