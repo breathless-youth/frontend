@@ -847,6 +847,22 @@ export function trackFocusStartTapped(source: FocusStartSource = "home") {
 }
 
 /**
+ * 홈 첫 세션 코치마크 노출
+ *
+ * 홈에 들어올 때마다 뜰 수 있어 한 계정이 여러 번 보낼 수 있다.
+ */
+export function trackHomeStartGuideShown() {
+  if (!initialized) return;
+  track("home_start_guide_shown");
+}
+
+/** 코치마크가 뜬 채 집중 시작을 눌러 세션으로 넘어간 것. 이 계정은 다시 보지 않는다. */
+export function trackHomeStartGuideCompleted() {
+  if (!initialized) return;
+  track("home_start_guide_completed");
+}
+
+/**
  * OS 설정 열기 요청
  *
  * 설정 탭 카메라 권한 행과 타임랩스 공유 시트의 사진 권한 안내에서 보낸다.
