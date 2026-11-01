@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
 
 import { trackPageView } from "@/lib/analytics";
@@ -7,6 +7,7 @@ import {
   setAmplitudeUserId,
   trackAmplitudePageView,
 } from "@/lib/amplitude";
+import { isNativeBridgeAvailable, subscribeToNativeMessages } from "@/lib/bridge";
 import { useUserId } from "@/lib/userId";
 
 /**
@@ -35,6 +36,16 @@ import { useUserId } from "@/lib/userId";
 export function AnalyticsRouteTracker() {
   const { pathname, search } = useLocation();
   const userId = useUserId();
+  /**
+   * 앱이 공부 화면 모달로 띄운 문서인지 — 첫 경로로 한 번만 판정한다.
+   *
+   * 이 문서는 결과 화면을 거쳐 `/home`까지 옮겨 가지만 그 직후 모달과 함께 닫힌다.
+   * 지금 경로로 판정하면 `/home`에서 탭 웹뷰 몫의 예약을 가져가 이벤트째 사라진다.
+   * 브라우저 단독 모드는 공부 화면과 홈이 한 문서라 이 판정에서 빠진다.
+   */
+  const [nativeSessionDocument] = useState(
+    () => isNativeBridgeAvailable() && pathname.startsWith("/room/"),
+  );
 
   useEffect(() => {
     setAmplitudeUserId(userId);
@@ -50,17 +61,26 @@ export function AnalyticsRouteTracker() {
    * 넘기고, 그 경로 몫으로 예약된 것만 나간다.
    * 탭 5개 웹뷰가 동시에 살아 있어 경로로 거르지 않으면 서로 남의 예약을 집어간다(`lib/amplitude.ts`의 `ResultExitPath` 주석).
    *
-   * 도착 시점뿐 아니라 **다시 보이게 된 순간**에도 확인한다 — 네이티브는 세션 모달이 닫혀도 아래
-   * 탭 웹뷰를 다시 마운트하지 않으므로, 라우트 변경만으로는 모달 닫힘 경로를 놓친다.
+   * 네이티브는 세션 모달이 닫혀도 아래 탭 웹뷰를 다시 마운트하지 않고, 탭 웹뷰 문서에는
+   * `visibilitychange`도 오지 않는다(앱 전체의 포/백그라운드에만 반응한다).
+   * 그래서 모달 닫힘은 앱이 닫으면서 보내는 `session-closed`로 받는다.
+   * `visibilitychange`는 앱을 다시 켰을 때 남은 예약을 가져가는 대비책으로 둔다.
    */
   useEffect(() => {
+    if (nativeSessionDocument) return;
     consumeStudyResultExit(pathname);
     const onVisible = () => {
       if (document.visibilityState === "visible") consumeStudyResultExit(pathname);
     };
     document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [pathname]);
+    const unsubscribe = subscribeToNativeMessages((message) => {
+      if (message.type === "session-closed") consumeStudyResultExit(pathname);
+    });
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      unsubscribe();
+    };
+  }, [pathname, nativeSessionDocument]);
 
   return null;
 }
