@@ -1,11 +1,13 @@
 import { act, render } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { useEffect } from "react";
+import { MemoryRouter, useNavigate } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type * as Amplitude from "@/lib/amplitude";
 import { consumeStudyResultExit } from "@/lib/amplitude";
 import type * as tokenSourceModule from "@/lib/auth/tokenSource";
 import type { AuthSnapshot, TokenSource } from "@/lib/auth/tokenSource";
+import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 
 import { AnalyticsRouteTracker } from "../AnalyticsRouteTracker";
 
@@ -33,10 +35,38 @@ function setVisibility(state: "visible" | "hidden") {
   document.dispatchEvent(new Event("visibilitychange"));
 }
 
+/** 네이티브가 주입하는 것과 같은 경로로 신호를 흘려보낸다. mock이 아니라 실물 구독을 지난다. */
+function emit(raw: string): void {
+  const receiver = (globalThis as unknown as Record<string, ((raw: string) => void) | undefined>)[
+    NATIVE_MESSAGE_ENTRY
+  ];
+  receiver?.(raw);
+}
+
 function renderAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <AnalyticsRouteTracker />
+    </MemoryRouter>,
+  );
+}
+
+/** 같은 문서 안에서 라우트를 옮긴다. 공부 화면 문서가 결과 화면을 거쳐 `/home`으로 가는 길을 흉내낸다. */
+let navigateTo: (path: string) => void = () => undefined;
+
+function Navigator() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    navigateTo = (path) => void navigate(path);
+  }, [navigate]);
+  return null;
+}
+
+function renderWithNavigator(path: string) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <AnalyticsRouteTracker />
+      <Navigator />
     </MemoryRouter>,
   );
 }
@@ -70,6 +100,7 @@ function lateArrivingSource(): { source: TokenSource; arrive: (userId: number) =
 }
 
 afterEach(() => {
+  vi.unstubAllGlobals();
   mocks.source = null;
   vi.mocked(consumeStudyResultExit).mockClear();
   mocks.setAmplitudeUserId.mockClear();
@@ -121,7 +152,7 @@ describe("AnalyticsRouteTracker — 결과 이탈 예약 소비", () => {
     }
   });
 
-  it("이미 떠 있는 홈이 다시 보이게 되면 또 확인한다 — 네이티브 모달 닫힘 경로", () => {
+  it("앱을 다시 켜서 이미 떠 있는 홈이 보이게 되면 또 확인한다", () => {
     const { unmount } = renderAt("/home?userId=7");
     vi.mocked(consumeStudyResultExit).mockClear();
 
@@ -133,5 +164,70 @@ describe("AnalyticsRouteTracker — 결과 이탈 예약 소비", () => {
     unmount();
     setVisibility("visible");
     expect(consumeStudyResultExit).toHaveBeenCalledTimes(1);
+  });
+
+  /**
+   * 공부 화면 모달이 닫혀도 아래 탭 웹뷰에는 라우트 변경도 `visibilitychange`도 오지 않는다.
+   * 앱이 모달을 닫으며 보내는 `session-closed`가 탭 웹뷰가 받는 유일한 신호다.
+   */
+  it("공부 화면이 닫혔다는 앱 신호를 받으면 지금 경로로 다시 확인한다", () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    const { unmount } = renderAt("/home");
+    vi.mocked(consumeStudyResultExit).mockClear();
+
+    emit('{"type":"app-launched","atMs":1}');
+    expect(consumeStudyResultExit).not.toHaveBeenCalled();
+
+    emit('{"type":"session-closed","atMs":1}');
+    expect(consumeStudyResultExit).toHaveBeenCalledTimes(1);
+    expect(consumeStudyResultExit).toHaveBeenCalledWith("/home");
+
+    unmount();
+    emit('{"type":"session-closed","atMs":2}');
+    expect(consumeStudyResultExit).toHaveBeenCalledTimes(1);
+  });
+
+  /** 결과 화면의 `기록으로 가기`도 모달을 닫으며 같은 신호를 보내고, 기록 탭은 자기 경로 몫만 가져간다. */
+  it("기록 탭도 앱 신호를 받으면 자기 경로로 확인한다", () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    renderAt("/records");
+    vi.mocked(consumeStudyResultExit).mockClear();
+
+    emit('{"type":"session-closed","atMs":1}');
+
+    expect(consumeStudyResultExit).toHaveBeenCalledWith("/records");
+  });
+
+  /** 소셜 라이브룸은 소셜 탭 문서 안에서 열려 경로에 `/room/`이 들어가도 공부 화면 문서가 아니다. */
+  it("소셜 탭은 라이브룸으로 옮겨 가도 계속 확인한다", () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    renderWithNavigator("/social");
+    act(() => navigateTo("/social/room/1"));
+
+    expect(consumeStudyResultExit).toHaveBeenLastCalledWith("/social/room/1");
+  });
+
+  /**
+   * `홈으로`를 누르면 공부 화면 문서도 폴백으로 `/home`에 간다.
+   * 여기서 가져가면 곧 닫힐 웹뷰가 이벤트를 들고 사라지고, 정작 홈 탭은 보낼 것이 없다.
+   */
+  it("앱 안에서 공부 화면으로 열린 문서는 /home으로 옮겨 가도 확인하지 않는다", () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    renderWithNavigator("/room/1");
+    act(() => navigateTo("/room/1/result"));
+    act(() => navigateTo("/home"));
+
+    emit('{"type":"session-closed","atMs":1}');
+    setVisibility("visible");
+
+    expect(consumeStudyResultExit).not.toHaveBeenCalled();
+  });
+
+  /** 브라우저에서는 공부 화면과 홈이 한 문서라, 그 문서가 `/home`에 도착해 가져가는 것이 유일한 길이다. */
+  it("브라우저 단독 모드에서는 공부 화면에서 시작한 문서도 /home에 도착하면 확인한다", () => {
+    renderWithNavigator("/room/1");
+    act(() => navigateTo("/home"));
+
+    expect(consumeStudyResultExit).toHaveBeenLastCalledWith("/home");
   });
 });
