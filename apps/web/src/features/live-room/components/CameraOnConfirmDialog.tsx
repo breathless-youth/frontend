@@ -11,10 +11,11 @@ import { useDialogFocusRestore } from "@/lib/useDialogFocusRestore";
  * 공용 `ui/dialog.tsx`(Radix)를 쓴다. 포커스 트랩·복귀는 Radix 가 맡고, Escape 와 딤 탭만
  * 이 화면의 규칙에 맞게 막는다.
  *
- * 스타일은 Figma V2(node 5314:3767, Soft Blue) 기준. `theme-soft-blue`를 `DialogContent`에
+ * 스타일은 Figma V2(node 5315:3824, Soft Blue) 기준. `theme-soft-blue`를 `DialogContent`에
  * 직접 붙여 팔레트를 스코프한다. 세션 화면은 항상 다크라, 호출부가 `container`로 세션 루트
  * (`theme-dark`)를 넘겨야 시스템이 라이트여도 Soft Blue 다크 값으로 그려진다.
  * 구조·카피·접근성 계약은 확정분이다.
+ * 싱글룸 입장 확인 창도 같은 창을 쓰고 문구만 props로 바꾼다.
  * 미리보기 높이는 2026-08-25 BY-427 시안 B(234px) 확정.
  */
 export interface CameraOnConfirmDialogProps {
@@ -30,6 +31,14 @@ export interface CameraOnConfirmDialogProps {
   dismissable?: boolean;
   /** 확정 처리 중 — 두 버튼과 Escape를 잠가 중복 확정을 막는다. */
   busy?: boolean;
+  /** 제목. 기본은 소셜룸 문구다. */
+  title?: string;
+  /** 제목 아래 설명. 기본은 소셜룸 문구다. */
+  description?: string;
+  /** 자물쇠 줄. 싱글룸과 소셜룸은 영상이 가는 곳이 달라 문구가 다르다. */
+  notice?: string;
+  /** 확정 버튼 글자 */
+  confirmLabel?: string;
   cancelLabel?: string;
   /** 포털이 그려질 자리 — 세션 루트를 넘긴다. 생략하면 `body`. */
   container?: HTMLElement | null;
@@ -49,6 +58,10 @@ export function CameraOnConfirmDialog({
   errorMessage = null,
   dismissable = true,
   busy = false,
+  title = "카메라를 켤까요?",
+  description = "카메라를 켜면 순공시간 측정과 영상 공유가 시작돼요.",
+  notice = "영상은 서버에 저장되지 않아요.",
+  confirmLabel = "카메라 켜기",
   cancelLabel = "취소",
   container,
   returnFocus,
@@ -85,10 +98,10 @@ export function CameraOnConfirmDialog({
         className="theme-soft-blue max-h-[calc(100dvh-24px)] w-full max-w-[320px] gap-0 overflow-y-auto rounded-3xl border-0 bg-muted px-5.5 pt-6.5 pb-5.5 text-foreground shadow-[0_20px_25px_rgba(0,0,0,0.4)] sm:rounded-3xl"
       >
         <DialogTitle className="text-[19px] leading-5.75 font-extrabold text-foreground">
-          카메라를 켤까요?
+          {title}
         </DialogTitle>
         <DialogDescription className="mt-2 text-sm leading-5 text-muted-foreground">
-          카메라를 켜면 순공시간 측정과 영상 공유가 시작돼요.
+          {description}
         </DialogDescription>
         {/* 미리보기 높이는 화면 높이 비례(28dvh ≈ 표준 세로에서 234px) + 상한 234px —
             고정 px는 가로 회전(높이 ~390px)에서 모달을 뷰포트 밖으로 밀어 잘리게 했고,
@@ -98,7 +111,7 @@ export function CameraOnConfirmDialog({
         </div>
         <div className="mt-3 flex items-center gap-2">
           <Lock size={16} aria-hidden className="text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">영상은 서버에 저장되지 않아요.</p>
+          <p className="text-sm text-muted-foreground">{notice}</p>
         </div>
         {errorMessage !== null && (
           <p role="alert" className="mt-2 text-sm text-state-distract-text">
@@ -122,7 +135,7 @@ export function CameraOnConfirmDialog({
             onClick={onConfirm}
             className="h-13 flex-1 rounded-lg text-[15px] font-semibold"
           >
-            카메라 켜기
+            {confirmLabel}
           </Button>
         </div>
       </DialogContent>

@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { RoomPage } from "@/routes/RoomPage";
+import { answerCameraPrompt } from "@/test/cameraPrompt";
 
 import { SessionTimer } from "../components/SessionTimer";
 import { markSessionGuideSeen } from "../sessionGuide";
@@ -32,13 +33,17 @@ vi.mock("@/features/study-session/submitStudySession", () => ({
 function renderRoom(url = "/room/7?userId=1") {
   // 세션 도움말이 뜨면 세션 화면을 검증할 수 없어서 이미 끝까지 본 계정으로 연다.
   markSessionGuideSeen(1);
-  return render(
+  const view = render(
     <MemoryRouter initialEntries={[url]}>
       <Routes>
         <Route path="/room/:id" element={<RoomPage />} />
       </Routes>
     </MemoryRouter>,
   );
+  // 입장 카메라 확인 창에는 카메라 켜기로 답해 촬영 화면에서 시작한다.
+  // 심플 모드 시작 자체는 RoomPage.cameraPrompt.test.tsx가 본다.
+  answerCameraPrompt("camera");
+  return view;
 }
 
 describe("SessionTimer — 가로 타이포 (S3-5 `61:460` · S3-6 `61:531`)", () => {
