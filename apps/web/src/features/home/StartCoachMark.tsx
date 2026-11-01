@@ -3,10 +3,13 @@ import { useEffect, useLayoutEffect, useState } from "react";
 
 const TITLE = "지금 바로 시작해 보세요";
 const BODY = "집중 시작을 누르면 측정 화면으로 넘어가요";
+const SKIP = "나중에 할게요";
 /** 대상 둘레 여유(px) */
 const RING = 5;
 /** 제목 묶음 아래 끝과 링 위 끝 사이(px) */
 const TEXT_GAP = 20;
+/** 링 아래 끝과 건너뛰기 버튼 위 끝 사이(px) */
+const SKIP_GAP = 12;
 
 type Rect = { top: number; left: number; width: number; height: number };
 
@@ -83,14 +86,18 @@ function holePieces(rect: Rect): CSSProperties[] {
  * 대화상자가 아니라 오버레이다. `aria-modal`을 붙이면 `nativeModalOverlay`가 모달로 읽어 탭 바 차단 경로가 둘이 된다.
  * 탭 바 차단은 `useCoachMarkTabBar`가 따로 보낸다.
  * 모달이 아니라 낭독기가 뜬 것을 모르므로 뜰 때 대상 버튼에 초점을 옮긴다.
+ * 덮개가 홈을 막는 동안 세션을 시작하지 않고 나올 길로 링 아래에 `나중에 할게요`를 둔다. 누르면 부모가 이번 진입 동안만 숨긴다.
+ * 대상은 페이지 쪽 요소이고 이 버튼은 그 뒤에 그려, 본문이 `inert`인 동안 Tab 순서가 `집중 시작` → `나중에 할게요`가 된다.
  * 대상을 못 찾으면 덮개만 남아 홈이 막히므로 아무것도 그리지 않는다.
  * 그려졌는지는 `onVisibleChange`로 알린다. 부모는 본문을 막거나 노출 이벤트를 보내기 전에 이 값을 확인한다.
  * 사라질 때는 `false`로 되돌려 알려서 부모가 막은 채로 남지 않게 한다.
  */
 export function StartCoachMark({
   onVisibleChange,
+  onSkip,
 }: {
   onVisibleChange: (visible: boolean) => void;
+  onSkip: () => void;
 }) {
   const rect = useTargetRect();
   const placed = rect !== null;
@@ -140,6 +147,22 @@ export function StartCoachMark({
           {TITLE}
         </h2>
         <p className="mt-2.5 text-center text-[15px] leading-5.5 break-keep text-white">{BODY}</p>
+      </div>
+      <div
+        className="absolute flex justify-center"
+        style={{
+          top: rect.top + rect.height + SKIP_GAP,
+          left: rect.left + RING,
+          width: rect.width - RING * 2,
+        }}
+      >
+        <button
+          type="button"
+          onClick={onSkip}
+          className="pointer-events-auto min-h-11 min-w-30 text-[15px] font-medium text-white/70"
+        >
+          {SKIP}
+        </button>
       </div>
     </div>
   );

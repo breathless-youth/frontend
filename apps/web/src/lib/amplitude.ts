@@ -862,6 +862,12 @@ export function trackHomeStartGuideCompleted() {
   track("home_start_guide_completed");
 }
 
+/** 코치마크에서 `나중에 할게요`를 눌러 이번 진입에서만 닫은 것. 본 것으로 남기지 않아 다음 홈 진입에 다시 뜬다. */
+export function trackHomeStartGuideSkipped() {
+  if (!initialized) return;
+  track("home_start_guide_skipped");
+}
+
 /**
  * OS 설정 열기 요청
  *
