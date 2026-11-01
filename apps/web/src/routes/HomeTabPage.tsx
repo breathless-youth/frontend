@@ -29,7 +29,11 @@ import { SessionRecoveryDialog } from "@/features/study-session/components/Sessi
 import { useLaunchSessionRecovery } from "@/features/study-session/useLaunchSessionRecovery";
 import { RecentTimelapses } from "@/features/timelapse/RecentTimelapses";
 import { prefetchVisionAssets } from "@/features/study-session/vision/prefetchVisionAssets";
-import { trackHomeStartGuideCompleted, trackHomeStartGuideShown } from "@/lib/amplitude";
+import {
+  trackHomeStartGuideCompleted,
+  trackHomeStartGuideShown,
+  trackHomeStartGuideSkipped,
+} from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import { useCoachMarkTabBar } from "@/lib/nativeTabBar";
 import { useFocusStart } from "@/lib/useFocusStart";
@@ -337,12 +341,15 @@ export function HomeTabPage() {
   // 홈 팝업이 하나라도 있었던 문서에서는 다음 홈 진입으로 미룬다. 랭킹 팝업이 열려도 `homePopupInDoc`이 함께 켜진다.
   // 복구 판단이 끝나기 전에 띄우면 늦게 온 복구 창과 겹쳐 코치마크가 떴다 사라진다.
   const [guideCompleted, setGuideCompleted] = useState(false);
+  // 건너뛰면 홈을 떠나기 전까지만 숨긴다. 기록은 남기지 않아 다음 진입에 다시 뜬다.
+  const [guideDismissed, setGuideDismissed] = useState(false);
   const guideState = useMemo(() => (userId === null ? null : startGuideState(userId)), [userId]);
   const showGuide =
     !identityPending &&
     noticeSettled &&
     recoverySettled &&
     !guideCompleted &&
+    !guideDismissed &&
     shouldShowStartGuide({
       state: guideState,
       popupOpen: homePopupInDoc || recoveryInDoc,
@@ -359,6 +366,13 @@ export function HomeTabPage() {
       trackHomeStartGuideShown();
     }
   }, [guideVisible]);
+
+  const handleGuideSkip = () => {
+    trackHomeStartGuideSkipped();
+    setGuideDismissed(true);
+    // 누른 버튼이 사라지면 초점이 문서 끝으로 빠진다. 대상은 `inert`가 아니라 바로 옮길 수 있다.
+    document.querySelector<HTMLElement>('[data-coach="start"]')?.focus();
+  };
 
   return (
     <main
@@ -389,7 +403,7 @@ export function HomeTabPage() {
         )}
       </div>
 
-      {showGuide && <StartCoachMark onVisibleChange={setGuideVisible} />}
+      {showGuide && <StartCoachMark onVisibleChange={setGuideVisible} onSkip={handleGuideSkip} />}
       {userId !== null && (
         <NoticeModalHost
           userId={userId}

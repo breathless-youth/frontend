@@ -851,6 +851,7 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
     m.trackSessionRecoveryConfirmed();
     m.trackHomeStartGuideShown();
     m.trackHomeStartGuideCompleted();
+    m.trackHomeStartGuideSkipped();
 
     expect(mocks.track).not.toHaveBeenCalled();
   });
@@ -910,6 +911,7 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
     m.trackSessionRecoveryConfirmed();
     m.trackHomeStartGuideShown();
     m.trackHomeStartGuideCompleted();
+    m.trackHomeStartGuideSkipped();
 
     expect(mocks.track.mock.calls).toEqual([
       ["study_session_exit_requested", { room_type: "single" }],
@@ -923,6 +925,7 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
       ["session_recovery_confirmed"],
       ["home_start_guide_shown"],
       ["home_start_guide_completed"],
+      ["home_start_guide_skipped"],
     ]);
   });
 });

@@ -36,9 +36,16 @@
   └─ 집중 시작 탭 → seen 저장 → 세션(심플 모드) → 세션 도움말(안 본 계정) → 카메라 확인 창
 ```
 
+### 건너뛰기
+
+- `집중 시작` 링 아래 12px에 글자 버튼 `나중에 할게요`(15 Medium, 흰색 70%, 눌리는 영역 120×44 이상)를 둔다. 본문이 `inert`인 동안 Tab 순서는 `집중 시작` → `나중에 할게요`다.
+- 누르면 이번 홈 진입 동안만 코치마크를 숨긴다(`guideDismissed`, 마운트마다 거짓). `seen`은 남기지 않아 홈을 다시 마운트하면 다시 뜬다. 숨기면 본문 `inert`와 탭 바 차단이 풀리고 초점은 `집중 시작`으로 돌아간다.
+- 덮개 탭·Escape로는 여전히 닫히지 않는다. 출구는 `집중 시작`과 `나중에 할게요` 둘뿐이다.
+- 숨길 때 따로 모션을 두지 않고 언마운트한다. `home_start_guide_skipped`(속성 없음)만 보내고 `home_start_guide_completed`는 보내지 않는다.
+
 ### 계측
 
-- `home_start_guide_shown`(속성 없음), `home_start_guide_completed`(속성 없음). 완료는 코치마크에서 `집중 시작`을 누른 것이다. 분석 설계 문서 표에 행을 더한다.
+- `home_start_guide_shown`·`home_start_guide_completed`·`home_start_guide_skipped`(모두 속성 없음). 완료는 코치마크에서 `집중 시작`을 누른 것이고, 건너뜀은 `나중에 할게요`를 누른 것이다. 분석 설계 문서 표에 행을 더한다.
 
 ## 어떻게
 
@@ -48,7 +55,7 @@
 | `features/home/startGuide.ts`      | `startGuideState`(seen \| null), `markStartGuideSeen`, `shouldShowStartGuide({ state, popupOpen, userId })`. `replay`·`firstVisit`·iPad 판정은 없다        |
 | `lib/nativeTabBar.ts`              | `useCoachMarkTabBar(active)`: 켜져 있는 동안 `blockedByModal`을 보낸다                                                                                     |
 | `routes/HomeTabPage.tsx`           | `집중 시작` 버튼에 `data-coach="start"`, 노출 조건, `startFocus` 앞에 `markStartGuideSeen`·완료 이벤트                                                     |
-| `lib/amplitude.ts`                 | 이벤트 함수 2개                                                                                                                                            |
+| `lib/amplitude.ts`                 | 이벤트 함수 3개                                                                                                                                            |
 | 테스트                             | `startGuide.test.ts`, `StartCoachMark.test.tsx`, `HomeTabPage.test.tsx`(노출·팝업 미룸·신원·완료·초점·inert), `nativeTabBar.test.tsx`, `amplitude.test.ts` |
 
 ## 범위 밖
@@ -58,3 +65,4 @@
 ## 결정 기록
 
 - 2026-11-01 사용자: A/B 전에 현재 홈에 먼저 배포. 노출 규칙은 세션 도움말과 같게(모두에게, 완료 계정만 제외). 다시 보기 없음(권장안). 제목이 덮개 아래 통계 글자와 겹치는 것은 그대로 둔다.
+- 2026-11-01 사용자 결정 A: 덮개 탭·Escape는 닫지 않고, 세션 없이 나오는 길은 `seen`을 남기지 않는 `나중에 할게요` 버튼 하나로 한다.
