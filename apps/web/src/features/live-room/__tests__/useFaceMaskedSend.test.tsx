@@ -6,6 +6,7 @@ import type { VisionDetectorStatus } from "@/features/study-session/adapters/foc
 import type { FaceSpot } from "@/features/study-session/vision/faceSpot";
 
 import type { FaceMaskedStream } from "../faceMaskedStream";
+import { FACE_MASK_EMOJIS } from "../faceMaskSettings";
 import { useFaceMaskedSend, useKeepMaskSourceLive } from "../useFaceMaskedSend";
 
 const mocks = vi.hoisted(() => ({ toggled: vi.fn(), emojiSelected: vi.fn() }));
@@ -231,10 +232,11 @@ describe("useFaceMaskedSend", () => {
       }),
     );
     expect(compositor.setSticker).toHaveBeenCalledTimes(1);
-    act(() => result.current.setEmojiId("default"));
-    expect(result.current.emojiId).toBe("default");
-    expect(localStorage.getItem("focusmakers.socialFaceMaskEmoji")).toBe("default");
-    expect(mocks.emojiSelected).toHaveBeenCalledWith("default");
+    act(() => result.current.setEmojiId("cat"));
+    expect(result.current.emojiId).toBe("cat");
+    expect(compositor.setSticker).toHaveBeenLastCalledWith("/face-mask/cat.png");
+    expect(localStorage.getItem("focusmakers.socialFaceMaskEmoji")).toBe("cat");
+    expect(mocks.emojiSelected).toHaveBeenCalledWith("cat");
   });
 
   it("목록에 없는 이모지를 고르면 첫 번째 이모지로 맞춘다", () => {
@@ -248,10 +250,11 @@ describe("useFaceMaskedSend", () => {
         createCompositor: () => compositor,
       }),
     );
+    const first = FACE_MASK_EMOJIS[0]!.id;
     act(() => result.current.setEmojiId("removed-emoji"));
-    expect(result.current.emojiId).toBe("default");
-    expect(localStorage.getItem("focusmakers.socialFaceMaskEmoji")).toBe("default");
-    expect(mocks.emojiSelected).toHaveBeenCalledWith("default");
+    expect(result.current.emojiId).toBe(first);
+    expect(localStorage.getItem("focusmakers.socialFaceMaskEmoji")).toBe(first);
+    expect(mocks.emojiSelected).toHaveBeenCalledWith(first);
   });
 });
 

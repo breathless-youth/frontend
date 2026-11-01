@@ -1,5 +1,3 @@
-import { STICKER_URL } from "@/features/timelapse/photoFrame";
-
 /**
  * 소셜룸 얼굴 가리기 설정
  *
@@ -13,10 +11,17 @@ export interface FaceMaskEmoji {
   readonly url: string;
 }
 
-// ponytail: 3D 이모지 파일이 오기 전까지 기존 스티커 한 장으로 둔다.
-// 파일이 오면 public/face-mask/에 두고 이 목록만 바꾼다.
+// 이미지는 Microsoft Fluent Emoji 3D(MIT)이고, 저작권 고지는 같은 폴더의 LICENSE에 있다.
 export const FACE_MASK_EMOJIS: readonly FaceMaskEmoji[] = [
-  { id: "default", label: "기본 이모지", url: STICKER_URL },
+  { id: "dog", label: "개", url: "/face-mask/dog.png" },
+  { id: "cat", label: "고양이", url: "/face-mask/cat.png" },
+  { id: "bear", label: "곰", url: "/face-mask/bear.png" },
+  { id: "hamster", label: "햄스터", url: "/face-mask/hamster.png" },
+  { id: "monkey", label: "원숭이", url: "/face-mask/monkey.png" },
+  { id: "panda", label: "판다", url: "/face-mask/panda.png" },
+  { id: "rabbit", label: "토끼", url: "/face-mask/rabbit.png" },
+  { id: "tiger", label: "호랑이", url: "/face-mask/tiger.png" },
+  { id: "frog", label: "개구리", url: "/face-mask/frog.png" },
 ];
 
 const ON_KEY = "focusmakers.socialFaceMask";
