@@ -1645,8 +1645,11 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
 
-    const slot = screen.getByTestId("camera-dialog-preview").parentElement;
-    expect(slot).toHaveClass("h-[min(234px,28dvh)]");
+    // 미리보기는 가로 두 칸 배치용 감싸개 안에 들어가므로 가장 가까운 높이 칸을 찾는다.
+    const slot = screen
+      .getByTestId("camera-dialog-preview")
+      .closest('[class~="h-[min(234px,28dvh)]"]');
+    expect(slot).not.toBeNull();
     // 백스톱: 모달 자체도 뷰포트를 넘으면 내부 스크롤로 잘림을 막는다.
     const dialog = screen.getByRole("alertdialog");
     expect(dialog).toHaveClass("max-h-[calc(100dvh-24px)]");

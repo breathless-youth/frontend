@@ -1,7 +1,8 @@
 import { Lock } from "lucide-react";
-import { type ReactNode } from "react";
+import { type ReactNode, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -61,6 +62,11 @@ export interface CameraOnConfirmDialogProps {
   onConfirm: () => void;
 }
 
+// 이모지 줄은 옆으로 넘기는 한 줄이라, 뒤쪽 이모지를 고른 채 다시 열면 고른 칸이 줄 밖에 가려진다.
+function revealSelected(item: HTMLButtonElement | null) {
+  item?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+}
+
 export function CameraOnConfirmDialog({
   open,
   preview,
@@ -75,6 +81,9 @@ export function CameraOnConfirmDialog({
   onConfirm,
 }: CameraOnConfirmDialogProps) {
   const focusRestore = useDialogFocusRestore(returnFocus);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+  // 모달은 스크롤 영역이라 밖으로 나간 툴팁이 잘린다. 툴팁이 모달 안쪽에서 자리를 잡게 경계로 넘긴다.
+  const [contentEl, setContentEl] = useState<HTMLDivElement | null>(null);
   // 취소가 곧 하나의 선택(끄고 입장)인 자리다. 확정 중이거나 닫기를 막아 둔 동안에는
   // Escape 로 그 선택이 확정되지 않게 한다.
   const escapeAllowed = dismissable && !busy;
@@ -87,6 +96,7 @@ export function CameraOnConfirmDialog({
       }}
     >
       <DialogContent
+        ref={setContentEl}
         role="alertdialog"
         container={container}
         showCloseButton={false}
@@ -96,31 +106,54 @@ export function CameraOnConfirmDialog({
         // 딤 탭으로는 닫지 않는다. 버튼으로만 결정하게 한다.
         onPointerDownOutside={(event) => event.preventDefault()}
         onInteractOutside={(event) => event.preventDefault()}
-        onOpenAutoFocus={focusRestore.onOpenAutoFocus}
+        // Radix는 처음 누를 수 있는 요소에 포커스를 주는데, 그게 안내 아이콘이면 창이 열리자마자 툴팁이 뜬다.
+        onOpenAutoFocus={(event) => {
+          focusRestore.onOpenAutoFocus();
+          event.preventDefault();
+          cancelRef.current?.focus();
+        }}
         onCloseAutoFocus={focusRestore.onCloseAutoFocus}
         // max-h+스크롤: 어떤 화면(특히 가로 회전)에서도 모달이 뷰포트를 넘어 잘리지 않는
         // 백스톱이다 — 내용은 아래 미리보기 높이가 비례로 줄어 대부분 스크롤 없이 들어간다.
         // gap-0 으로 DialogContent 기본 grid gap 을 눌러 아래 mt-* 간격을 그대로 쓴다.
-        className="theme-soft-blue max-h-[calc(100dvh-24px)] w-full max-w-[320px] gap-0 overflow-y-auto rounded-3xl border-0 bg-muted px-5.5 pt-6.5 pb-5.5 text-foreground shadow-[0_20px_25px_rgba(0,0,0,0.4)] sm:rounded-3xl"
+        // 낮은 가로 화면은 미리보기를 왼쪽 칸에 세워 높이를 절반 가까이 줄인다. 한 줄로 쌓으면 스크롤해야 버튼이 보인다.
+        className="theme-soft-blue max-h-[calc(100dvh-24px)] w-full max-w-[320px] gap-0 landscape-compact:max-w-[600px] landscape-compact:grid-cols-2 landscape-compact:gap-x-5 overflow-y-auto rounded-3xl border-0 bg-muted px-5.5 pt-6.5 pb-5.5 text-foreground shadow-[0_20px_25px_rgba(0,0,0,0.4)] sm:rounded-3xl"
       >
-        <DialogTitle className="text-[19px] leading-5.75 font-extrabold text-foreground">
+        <DialogTitle className="text-[19px] leading-5.75 font-extrabold text-foreground landscape-compact:col-start-2">
           카메라를 켤까요?
         </DialogTitle>
-        <DialogDescription className="mt-2 text-sm leading-5 text-muted-foreground">
-          카메라를 켜면 순공시간 측정과 영상 공유가 시작돼요.
+        {/* 누가 보는지와 남지 않는다는 것을 미리보기보다 먼저 읽게 제목 바로 아래에 둔다. */}
+        <DialogDescription className="mt-2 flex items-center gap-2 text-sm leading-5 text-muted-foreground landscape-compact:col-start-2">
+          <Lock size={16} aria-hidden className="shrink-0" />
+          같은 방에만 보이고 저장되지 않아요
         </DialogDescription>
         {/* 미리보기 높이는 화면 높이 비례(28dvh ≈ 표준 세로에서 234px) + 상한 234px —
             고정 px는 가로 회전(높이 ~390px)에서 모달을 뷰포트 밖으로 밀어 잘리게 했고,
             기기별로도 다르게 보였다(2026-08-25 피드백). 시안 B의 234px는 상한으로 유지. */}
-        <div className="mt-3 h-[min(234px,28dvh)] overflow-hidden rounded-[18px] bg-[#1e2632]">
-          {preview}
+        {/* 가로 두 칸에서는 오른쪽 칸 높이에 맞춰 늘어나야 해서, 영상이 칸 높이를 밀어 올리지 않게 안쪽을 띄운다. */}
+        <div className="relative mt-3 h-[min(234px,28dvh)] overflow-hidden rounded-[18px] bg-[#1e2632] landscape-compact:col-start-1 landscape-compact:row-span-6 landscape-compact:row-start-1 landscape-compact:mt-0 landscape-compact:h-auto">
+          <div className="size-full landscape-compact:absolute landscape-compact:inset-0">
+            {preview}
+          </div>
         </div>
+        {/* grid 칸은 기본으로 내용보다 좁아지지 않아, 줄바꿈하지 않는 이모지 줄 폭만큼 창 전체가 넓어진다. */}
         {faceMask !== undefined && (
-          <div className="mt-3">
+          <div className="mt-3 min-w-0 landscape-compact:col-start-2">
             <div className="flex min-h-11 items-center justify-between gap-2">
-              <label htmlFor="camera-face-mask" className="text-sm font-semibold text-foreground">
-                얼굴 가리기
-              </label>
+              <div className="flex items-center gap-1.5">
+                <label htmlFor="camera-face-mask" className="text-sm font-semibold text-foreground">
+                  얼굴 가리기
+                </label>
+                {faceMask.supported && (
+                  <InfoTooltip
+                    label="얼굴 가리기 안내"
+                    contentClassName="bg-(--session-dialog-cancel-bg) text-white"
+                    collisionBoundary={contentEl}
+                  >
+                    빠르게 움직이면 얼굴이 잠깐 보일 수 있어요
+                  </InfoTooltip>
+                )}
+              </div>
               <Switch
                 id="camera-face-mask"
                 checked={faceMask.on}
@@ -133,23 +166,28 @@ export function CameraOnConfirmDialog({
                 이 기기에서는 얼굴 가리기를 쓸 수 없어요
               </p>
             )}
-            {faceMask.supported && faceMask.on && (
+            {/* 스위치를 꺼도 줄을 남겨 두어 켜고 끌 때 창 높이가 바뀌지 않게 한다. */}
+            {faceMask.supported && (
               <ToggleGroup
                 type="single"
                 aria-label="가림 이모지"
+                disabled={!faceMask.on}
                 value={faceMask.emojiId}
                 // 같은 이모지를 다시 누르면 빈 값이 오는데, 가리는 동안에는 항상 하나가 골라져 있어야 해서 무시한다.
                 onValueChange={(id) => {
                   if (id !== "") faceMask.onEmojiChange(id);
                 }}
-                className="mt-2 gap-2"
+                // 한 줄을 유지해 창 높이를 고정하고, 넘치는 이모지는 옆으로 넘겨 본다.
+                // 오른쪽은 창 끝까지 늘려 잘린 칸이 보이게 하고, 위아래 여백은 포커스 링이 잘리지 않게 둔다.
+                className="mt-2 -mr-5.5 flex-nowrap gap-2 overflow-x-auto py-0.5 pr-5.5 pl-0.5 -ml-0.5 [scrollbar-width:none]"
               >
                 {faceMask.emojis.map((emoji) => (
                   <ToggleGroupItem
                     key={emoji.id}
+                    ref={emoji.id === faceMask.emojiId ? revealSelected : undefined}
                     value={emoji.id}
                     aria-label={emoji.label}
-                    className="size-11 justify-center rounded-md p-1.5 before:content-none data-[state=on]:border-primary data-[state=on]:bg-primary/15"
+                    className="size-11 shrink-0 justify-center rounded-md p-1.5 before:content-none disabled:opacity-40 data-[state=on]:border-primary data-[state=on]:bg-primary/15"
                   >
                     <img
                       src={emoji.url}
@@ -163,17 +201,17 @@ export function CameraOnConfirmDialog({
             )}
           </div>
         )}
-        <div className="mt-3 flex items-center gap-2">
-          <Lock size={16} aria-hidden className="text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">영상은 서버에 저장되지 않아요.</p>
-        </div>
         {errorMessage !== null && (
-          <p role="alert" className="mt-2 text-sm text-state-distract-text">
+          <p
+            role="alert"
+            className="mt-2 text-sm text-state-distract-text landscape-compact:col-start-2"
+          >
             {errorMessage}
           </p>
         )}
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex gap-2 landscape-compact:col-start-2">
           <Button
+            ref={cancelRef}
             type="button"
             variant="ghost"
             disabled={busy}

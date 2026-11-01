@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -31,6 +31,10 @@ describe("CameraOnConfirmDialog", () => {
     setup();
 
     expect(screen.getByRole("alertdialog")).toHaveAccessibleName("카메라를 켤까요?");
+    // 영상이 같은 방에 공유된다는 사실을 창 설명으로 읽어 줘야 켜기 전에 판단할 수 있다.
+    expect(screen.getByRole("alertdialog")).toHaveAccessibleDescription(
+      "같은 방에만 보이고 저장되지 않아요",
+    );
     expect(screen.getByTestId("preview")).toBeInTheDocument();
   });
 
@@ -185,10 +189,46 @@ describe("CameraOnConfirmDialog 얼굴 가리기", () => {
     expect(props.onEmojiChange).not.toHaveBeenCalled();
   });
 
-  it("꺼져 있으면 이모지 선택을 숨긴다", () => {
+  it("꺼져 있어도 이모지 줄 자리는 남기고 고르지는 못하게 막는다", () => {
     setup({ faceMask: faceMask({ on: false }) });
 
-    expect(screen.queryByRole("radiogroup", { name: "가림 이모지" })).toBeNull();
+    const group = screen.getByRole("radiogroup", { name: "가림 이모지" });
+    for (const radio of within(group).getAllByRole("radio")) {
+      expect(radio).toBeDisabled();
+    }
+  });
+
+  it("고른 이모지가 줄 밖에 있어도 보이게 넘겨 둔다", () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    try {
+      setup({ faceMask: faceMask({ emojiId: "b" }) });
+
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+      expect(scrollIntoView.mock.contexts[0]).toBe(screen.getByRole("radio", { name: "곰" }));
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+    }
+  });
+
+  it("안내 아이콘이 앞에 있어도 초기 포커스는 취소 버튼에 놓인다", () => {
+    setup({ faceMask: faceMask() });
+
+    expect(screen.getByRole("button", { name: "취소" })).toHaveFocus();
+  });
+
+  it("빠르게 움직일 때의 한계를 안내 아이콘으로 알린다", async () => {
+    setup({ faceMask: faceMask() });
+
+    // 터치 탭 순서를 흉내 낸다. userEvent는 키보드 포커스로 먼저 열고 클릭으로 곧바로 닫는다.
+    const trigger = screen.getByRole("button", { name: "얼굴 가리기 안내" });
+    fireEvent.pointerDown(trigger);
+    fireEvent.click(trigger);
+    expect(
+      await screen.findByText("빠르게 움직이면 얼굴이 잠깐 보일 수 있어요", {
+        selector: "[data-state]",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("합성을 쓸 수 없는 기기는 스위치를 끈 채 막고 이유를 알린다", () => {
