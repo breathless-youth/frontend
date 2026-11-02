@@ -40,13 +40,14 @@
 
 ### 보내는 영상
 
-| 상황                                             | 보내는 영상        |
-| ------------------------------------------------ | ------------------ |
-| 사람을 아직 못 찾았거나 놓침                     | 전체 흐림          |
-| 얼굴이 보임                                      | 이모지를 덮은 영상 |
-| 이모지 이미지를 아직 못 불러옴                   | 전체 흐림          |
-| 얼굴 모델이 두 번 연속 얼굴을 못 찾음(몸만 보임) | 이모지 없이 선명   |
-| 스위치 꺼짐                                      | 원본, 합성 중지    |
+| 상황                                             | 보내는 영상            |
+| ------------------------------------------------ | ---------------------- |
+| 사람을 아직 못 찾았거나 놓침                     | 전체 흐림              |
+| 얼굴이 보임                                      | 이모지를 덮은 영상     |
+| 이모지 이미지를 아직 못 불러옴                   | 전체 흐림              |
+| 얼굴 모델이 두 번 연속 얼굴을 못 찾음(몸만 보임) | 이모지 없이 선명       |
+| 스위치 꺼짐                                      | 원본, 합성 중지        |
+| 카메라 꺼짐, 켜기 창 닫힘                        | 보내지 않음, 합성 중지 |
 
 - 이모지 위치는 1~2초마다 갱신되므로 매 프레임 목표 위치로 15%씩 다가가게 해서 순간이동하지 않게 한다.
 - 사라졌다 다시 나타날 때는 예전 자리에서 미끄러지지 않고 새 자리에 바로 놓는다.
@@ -96,7 +97,8 @@ interface FaceMaskedStream {
   setSticker(url: string): void;
   start(): void;
   pause(): void;
-  stats(): FaceMaskedStreamStats; // 개발 빌드 측정용
+  dispose(): void; // 송신 트랙 정지, WebGL 컨텍스트 해제
+  stats(): FaceMaskedStreamStats; // 측정용
 }
 
 /** 캔버스 송신이나 그리기 컨텍스트를 만들 수 없으면 null. 호출부는 미지원으로 처리한다. */
@@ -128,7 +130,7 @@ function createFaceMaskedStream(video: () => HTMLVideoElement | null): FaceMaske
 | 세션 중 WebGL 컨텍스트 끊김                                  | 새 프레임이 멈춰 상대에게는 마지막 가린 프레임이 남는다. `webglcontextrestored`에서 텍스처·셰이더를 다시 만들어 이어 그린다 |
 | 이모지 이미지 로딩 실패                                      | 얼굴이 보여도 흐림                                                                                                          |
 | AI 모델 로딩 실패                                            | 계속 흐림, `가릴 위치를 찾고 있어요` 유지. 원본은 사용자가 스위치를 끌 때만                                                 |
-| `localStorage` 오류                                          | 기본값(켜짐, 첫 번째 이모지)                                                                                                |
+| `localStorage` 오류                                          | 기본값(꺼짐, 첫 번째 이모지)                                                                                                |
 
 ## 5. 성능 전후 비교
 
@@ -154,7 +156,7 @@ function createFaceMaskedStream(video: () => HTMLVideoElement | null): FaceMaske
 
 ### 측정 도구
 
-- 개발 빌드 전용 `window.__faceMaskStats()`는 초당 합성 횟수, 프레임당 영상 그리기 시간과 이모지 그리기 시간, 캔버스 높이를 돌려준다.
+- `window.__faceMaskStats()`는 개발 빌드와 `VITE_FACE_MASK_STATS=1`로 만든 측정 빌드에서만 열리고, 초당 합성 횟수, 프레임당 영상 그리기 시간과 이모지 그리기 시간, 캔버스 높이를 돌려준다.
 - 받는 쪽 `inbound-rtp`의 `framesPerSecond`로 실제로 전달된 fps를 함께 기록한다.
 - A23 수집 스크립트는 adb로 온도·발열 단계·CPU·전류·전압을, Chrome DevTools로 위 통계를 주기적으로 기록한다.
 - iPhone은 설정의 Performance Trace로 기록해 Instruments로 연다.
@@ -173,7 +175,7 @@ function createFaceMaskedStream(video: () => HTMLVideoElement | null): FaceMaske
 - `focusDetector`: 추론 정지 시 자리 `null`, 미리보기 전용일 때 세션 신호 차단, `preload` 1회 준비.
 - `faceMaskSettings`: 기본값, 목록에 없는 저장값은 첫 번째 이모지, 저장소 오류.
 - `faceMaskPlan`: 그릴 내용 판단, 따라가기 계산, 재등장 시 바로 놓기.
-- `useFaceMaskedSend`: 켬·끔·미지원별 보낼 스트림, 스위치에 따른 시작·정지, 원본 트랙 재활성화.
+- `useFaceMaskedSend`: 켬·끔·미지원별 보낼 스트림, 스위치와 카메라 상태에 따른 시작·정지, 언마운트와 StrictMode 재마운트 때 해제, 원본 트랙 재활성화.
 - `CameraOnConfirmDialog`: 스위치, 켰을 때만 보이는 이모지 라디오 그룹, 미지원 안내, 접근성 이름.
 - GPU 그리기 자체는 jsdom에서 돌릴 수 없어 실기기로 확인한다.
 
