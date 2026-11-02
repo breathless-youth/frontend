@@ -62,6 +62,21 @@ describe("remoteScreenInput — 탭 파라미터를 웹뷰 입력으로", () => 
     expect(remoteScreenInput({ path: "/timelapses", at: "1" }, "/home").path).toBe("/timelapses");
   });
 
+  it("소셜 탭은 그룹 경로를 path로 받아 연다", () => {
+    expect(remoteScreenInput({ path: "/social/groups/10?x=1", at: "5" }, "/social")).toMatchObject({
+      path: "/social/groups/10",
+      extraQuery: { x: "1" },
+    });
+  });
+
+  it("소셜 탭도 공부방 경로는 열지 않고 루트를 연다", () => {
+    expect(remoteScreenInput({ path: "/social/groups/10/room", at: "5" }, "/social")).toEqual({
+      key: "/social",
+      path: "/social",
+      resetPath: "/social",
+    });
+  });
+
   it("슬래시로 시작하지 않거나 배열로 온 path는 무시하고, 배열 at은 key에 섞지 않는다", () => {
     expect(remoteScreenInput({ path: "https://evil.example/x" }, "/records")).toEqual({
       key: "/records",

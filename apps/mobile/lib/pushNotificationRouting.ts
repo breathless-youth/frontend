@@ -1,5 +1,7 @@
 import Constants from "expo-constants";
 
+import type { NativeAnalyticsEventMap } from "./nativeAnalytics";
+
 /**
  * 알림 탭 → 앱 내 경로 (BY-586).
  *
@@ -68,6 +70,7 @@ function normalizeRoute(route: string): string | null {
  *
  * 탭 웹뷰가 경로와 쿼리를 그대로 열도록 `path`·`at` 파라미터로 넘긴다(초대코드가 소셜 탭으로 가는 방식).
  * 여기 없는 웹 경로는 홈으로 간다. 세션 화면(`/room/:id`·`/social/room/:id`)은 푸시로 열면 빈 세션이 뜨므로 넣지 않는다.
+ * 공부방(`/social/groups/{id}/room`)도 같은 이유로 접두사 표에서 뺀다.
  */
 const WEB_PATH_TAB: Readonly<Record<string, string>> = {
   "/home": "/(tabs)",
@@ -82,11 +85,30 @@ const WEB_PATH_TAB: Readonly<Record<string, string>> = {
   "/profile": "/(tabs)/settings",
   "/social": "/(tabs)/social",
   "/social/code": "/(tabs)/social",
+  "/blocks": "/(tabs)/settings",
 };
 
-/** 웹 경로를 여는 탭 href. 표에 없으면 null. 탭이 딥링크 파라미터를 검증할 때도 쓴다(`lib/tabDeepLink.ts`). */
+/**
+ * 그룹 웹 경로를 담당 탭으로 보내는 접두사 표
+ *
+ * 경로에 그룹 ID가 들어가 정확한 경로 표로는 맞출 수 없다.
+ */
+const WEB_PATH_PREFIX_TAB: readonly (readonly [string, string])[] = [
+  ["/social/groups/", "/(tabs)/social"],
+  ["/social/public/", "/(tabs)/social"],
+];
+
+/** 공부방과 그 아래 결과 화면은 세션이라 접두사 표에 걸려도 탭으로 열지 않는다. */
+const GROUP_ROOM_PATH = /^\/social\/groups\/[^/]+\/room(?:\/|$)/;
+
+/** 웹 경로를 여는 탭 href. 정확한 경로 표에 없으면 접두사 표를 보고, 둘 다 없거나 공부방이면 null. 탭이 딥링크 파라미터를 검증할 때도 쓴다(`lib/tabDeepLink.ts`). */
 export function tabHrefForWebPath(pathname: string): string | null {
-  return WEB_PATH_TAB[pathname] ?? null;
+  if (GROUP_ROOM_PATH.test(pathname)) return null;
+  return (
+    WEB_PATH_TAB[pathname] ??
+    WEB_PATH_PREFIX_TAB.find(([prefix]) => pathname.startsWith(prefix))?.[1] ??
+    null
+  );
 }
 
 /** 쿼리 없이 그대로 네이티브 라우트인 경로. 초대 참여는 자기 라우트(`app/social/join.tsx`)가 있다. */
@@ -118,4 +140,45 @@ export function resolvePushRoute(
   allow: PushLinkAllowList = allowListFromConfig(),
 ): string {
   return routeFromPushLink(data[PUSH_LINK_KEY], allow) ?? PUSH_HOME_ROUTE;
+}
+
+const withoutQuery = (route: string) => route.replace(/[?#].*$/, "");
+
+/** 숫자로만 된 경로 조각을 `:id`로 바꾼다. 웹 `sanitizePagePath`와 같은 규칙이다. */
+const withoutIds = (path: string) =>
+  path
+    .split("/")
+    .map((segment) => (/^\d+$/.test(segment) ? ":id" : segment))
+    .join("/");
+
+/** link가 원래 홈을 가리키는 경로. 이리로 간 것은 빠진 게 아니다. */
+const HOME_PATHS = new Set([PUSH_HOME_ROUTE, "/home"]);
+
+/**
+ * `push_notification_opened` 속성
+ *
+ * 알림 탭은 네이티브만 아는 진입 경로다.
+ * `route`는 실제로 연 화면이고, 쿼리를 떼고 숫자 조각을 `:id`로 바꿔 초대코드와 그룹 ID를 분석 속성으로 내보내지 않는다.
+ * 앱에 없는 경로라 홈으로 갔으면 `route`는 `/`다.
+ * `fallback`은 link가 없거나 허용 밖이거나 앱에 없는 경로라 의도와 다르게 홈으로 갔는지다.
+ * `type`·`push_id`는 서버 발송이 싣는 값이라 콘솔 캠페인처럼 없으면 키를 싣지 않는다.
+ * 앱을 쓰는 중에 받은 알림 토스트를 눌렀으면 같은 이벤트에 `in_app`만 더한다.
+ * 푸시 모듈을 불러오지 않는 이 파일에 두어 브리지 핸들러도 RNFB 없이 같은 규칙을 쓴다.
+ */
+export function openedEventProperties(
+  data: Record<string, string>,
+  route: string,
+  extra: { inApp?: boolean } = {},
+): NativeAnalyticsEventMap["push_notification_opened"] {
+  const linked = routeFromPushLink(data[PUSH_LINK_KEY]);
+  const target = pushTargetForRoute(route);
+  const opened = withoutQuery(typeof target === "string" ? target : route);
+  const intendedHome = linked !== null && HOME_PATHS.has(withoutQuery(linked));
+  return {
+    route: withoutIds(opened),
+    fallback: opened === PUSH_HOME_ROUTE && !intendedHome,
+    ...(data.type ? { type: data.type } : {}),
+    ...(data.push_id ? { push_id: data.push_id } : {}),
+    ...(extra.inApp ? { in_app: true } : {}),
+  };
 }

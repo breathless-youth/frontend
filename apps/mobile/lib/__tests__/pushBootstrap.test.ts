@@ -258,6 +258,12 @@ describe("startPushMessaging — push_notification_opened", () => {
     ["허용 밖 주소", "https://evil.example/records", "/", true],
     ["원래 홈", "/", "/", false],
     ["웹 홈 경로", "/home", "/", false],
+    [
+      "그룹 ID가 든 경로",
+      "/social/groups/10/applications",
+      "/social/groups/:id/applications",
+      false,
+    ],
   ])("%s(%s)는 실제로 연 화면 %s, fallback=%s", (_, link, route, fallback) => {
     const h = createHarness();
     startPushMessaging(h.deps);

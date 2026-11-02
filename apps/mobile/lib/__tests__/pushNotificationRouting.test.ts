@@ -2,10 +2,12 @@ import { parseQueryParams } from "expo-router/build/fork/getStateFromPath-forks"
 import { resolveHref } from "expo-router/build/link/href";
 
 import {
+  openedEventProperties,
   PUSH_HOME_ROUTE,
   pushTargetForRoute,
   resolvePushRoute,
   routeFromPushLink,
+  tabHrefForWebPath,
 } from "../pushNotificationRouting";
 import { remoteScreenInput } from "../tabDeepLink";
 
@@ -160,5 +162,64 @@ describe("pushTargetForRoute — 웹 경로를 담당 탭으로", () => {
     ["/onboarding-guide"],
   ])("세션 화면·모르는 경로 %s는 홈으로", (route) => {
     expect(pushTargetForRoute(route, AT)).toBe(PUSH_HOME_ROUTE);
+  });
+});
+
+describe("그룹 푸시 경로", () => {
+  it.each([
+    ["/social/groups/10/applications", "/(tabs)/social"],
+    ["/social/groups/10", "/(tabs)/social"],
+    ["/social/public/12", "/(tabs)/social"],
+    ["/blocks", "/(tabs)/settings"],
+  ])("그룹 경로 %s는 %s 탭이 연다", (path, tab) => {
+    expect(tabHrefForWebPath(path)).toBe(tab);
+  });
+
+  it("그룹 경로는 소셜 탭의 path 파라미터로 연다", () => {
+    expect(pushTargetForRoute("/social/groups/10/applications", 5)).toEqual({
+      pathname: "/(tabs)/social",
+      params: { path: encodeURIComponent("/social/groups/10/applications"), at: "5" },
+    });
+    expect(pushTargetForRoute("/social?tab=public&category=CSAT", 5)).toEqual({
+      pathname: "/(tabs)/social",
+      params: { path: encodeURIComponent("/social?tab=public&category=CSAT"), at: "5" },
+    });
+  });
+
+  it("공부방 경로는 푸시로 열지 않는다", () => {
+    expect(tabHrefForWebPath("/social/groups/10/room")).toBeNull();
+    expect(tabHrefForWebPath("/social/groups/10/room/result")).toBeNull();
+    expect(pushTargetForRoute("/social/groups/10/room", 5)).toBe("/");
+    expect(pushTargetForRoute("/social/groups/10/room/result", 5)).toBe("/");
+  });
+});
+
+describe("openedEventProperties — 알림 열림 계측 속성", () => {
+  it("열림 계측 경로의 숫자 조각은 :id다", () => {
+    expect(
+      openedEventProperties(
+        { link: "/social/groups/10/applications", type: "group_application_received" },
+        "/social/groups/10/applications",
+      ),
+    ).toMatchObject({
+      route: "/social/groups/:id/applications",
+      type: "group_application_received",
+    });
+    expect(
+      openedEventProperties(
+        { link: "/social/groups/10/applications/55/report" },
+        "/social/groups/10/applications/55/report",
+      ).route,
+    ).toBe("/social/groups/:id/applications/:id/report");
+  });
+
+  it("앱 안 알림에서 열었을 때만 in_app을 싣는다", () => {
+    expect(
+      openedEventProperties({ link: "/social/public/12" }, "/social/public/12", { inApp: true }),
+    ).toEqual({ route: "/social/public/:id", fallback: false, in_app: true });
+    expect(openedEventProperties({ link: "/social/public/12" }, "/social/public/12")).toEqual({
+      route: "/social/public/:id",
+      fallback: false,
+    });
   });
 });
