@@ -297,6 +297,7 @@ export function HomeTabPage() {
   }
 
   // 처음 온 계정은 홈 대신 온보딩으로 보낸다. 앱은 시작 신호가 올 때까지 스플래시를 유지해서 홈이 비치지 않는다.
+  // 다른 탭이 먼저 보여도 숨은 홈 웹뷰는 온보딩으로 넘어가 있다가 홈 탭을 누르면 온보딩을 보인다. 아직 온보딩을 안 본 계정이라 의도한 동작이다.
   const onboarding = useOnboardingDecision(userId, identityPending);
   const navigate = useNavigate();
   const location = useLocation();

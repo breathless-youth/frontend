@@ -146,6 +146,25 @@ describe("OnboardingPage", () => {
     expect(heading()).toContain("준비가 끝났어요");
   });
 
+  it("권한 응답을 기다리는 동안 이전을 눌러도 4단계에 머문다 — 응답이 와서 단계를 건너뛰지 않게", async () => {
+    let answer: (value: PushPermissionResult) => void = () => {};
+    mocks.requestPushPermission.mockReturnValueOnce(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    renderOnboarding();
+    const user = await advanceTo(4);
+    const fourth = heading();
+
+    await user.click(screen.getByRole("button", { name: "알림 받기" }));
+    await user.click(screen.getByRole("button", { name: "이전" }));
+    expect(heading()).toBe(fourth);
+
+    await act(async () => answer("granted"));
+    expect(heading()).toContain("준비가 끝났어요");
+  });
+
   it("시작하기를 누르면 기록을 남기고 완료 이벤트를 보낸 뒤 쿼리를 유지한 채 홈으로 간다", async () => {
     renderOnboarding();
     const user = await advanceTo(4);

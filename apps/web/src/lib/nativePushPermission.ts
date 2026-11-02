@@ -52,7 +52,10 @@ export function requestPushPermission(): Promise<PushPermissionResult> {
       }
     });
     const timer = setTimeout(() => settle("undetermined"), RESULT_TIMEOUT_MS);
-    postToNative({ type: "request-push-permission", atMs: Date.now() });
+    // 보내지 못했으면 응답도 오지 않으니 기다리지 않는다.
+    if (!postToNative({ type: "request-push-permission", atMs: Date.now() })) {
+      settle("undetermined");
+    }
   });
   return pending;
 }

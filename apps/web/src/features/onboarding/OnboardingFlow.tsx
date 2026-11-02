@@ -443,7 +443,11 @@ export function OnboardingFlow({
           aria-label="이전"
           aria-hidden={scene === 1}
           inert={scene === 1}
-          onClick={() => go((scene - 1) as Scene)}
+          onClick={() => {
+            // 알림 권한 응답을 기다리는 동안 되돌아가면 응답이 와서 4단계를 건너뛴다.
+            if (askingRef.current) return;
+            go((scene - 1) as Scene);
+          }}
           className={cn(
             "absolute top-13.5 left-5 z-5 flex size-11 items-center justify-center transition-opacity duration-250",
             scene === 1 && "opacity-0",

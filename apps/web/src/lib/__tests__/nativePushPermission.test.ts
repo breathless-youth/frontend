@@ -69,6 +69,15 @@ it("응답이 끝내 없으면 undetermined로 끝난다 — 온보딩이 다음
   await expect(pending).resolves.toBe("undetermined");
 });
 
+it("요청을 보내지 못하면 기다리지 않고 undetermined로 끝난다", async () => {
+  withPushPermissionShell();
+  postMessage.mockImplementationOnce(() => {
+    throw new Error("webview gone");
+  });
+
+  await expect(requestPushPermission()).resolves.toBe("undetermined");
+});
+
 it("동시에 불러도 요청은 한 번만 보낸다", async () => {
   withPushPermissionShell();
 
