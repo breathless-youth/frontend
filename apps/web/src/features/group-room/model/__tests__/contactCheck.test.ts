@@ -37,6 +37,19 @@ describe("containsContactOrLink", () => {
     expect(containsContactOrLink(text)).toBe(true);
   });
 
+  it.each([
+    "카카오톡 abc123",
+    "오픈톡 room12",
+    "인스타그램 아이디는 kim123",
+    "디스코드 kim#1234",
+    "DM: kim123",
+    "텔레 kim_123",
+    "디코 kim123",
+    "카톡 아이디는 _kim",
+  ])("더한 연락 수단 말과 밑줄로 시작하는 아이디도 막는다: %s", (text) => {
+    expect(containsContactOrLink(text)).toBe(true);
+  });
+
   it.each(["010 1234 5678", "０１０ １２３４ ５６７８", "ｗｗｗ．ｎａｖｅｒ．ｃｏｍ"])(
     "전각 글자와 띄어쓰기로 피해도 막는다: %s",
     (text) => {
