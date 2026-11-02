@@ -1,10 +1,20 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { RoomFab } from "../RoomFab";
 
 describe("RoomFab", () => {
+  it("메뉴 덮개 안 touchmove는 document까지 올라가지 않는다", () => {
+    render(<RoomFab canCreate onCreate={vi.fn()} onJoinWithCode={vi.fn()} defaultOpen />);
+    const onDocumentTouchMove = vi.fn();
+    document.addEventListener("touchmove", onDocumentTouchMove);
+    fireEvent.touchMove(screen.getByRole("dialog"));
+    fireEvent.touchMove(screen.getByRole("menuitem", { name: "초대코드로 참여" }));
+    document.removeEventListener("touchmove", onDocumentTouchMove);
+    expect(onDocumentTouchMove).not.toHaveBeenCalled();
+  });
+
   it("누르면 그룹 만들기와 초대코드로 참여 메뉴가 뜨고, 고르면 닫힌다", async () => {
     const user = userEvent.setup();
     const onJoinWithCode = vi.fn();

@@ -121,7 +121,9 @@ export function RoomFab({
               setOpen(false);
             }
           }}
-          className="theme-soft-blue fixed inset-0 z-50 flex flex-col justify-end outline-none duration-200 ease-overlay data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0"
+          // Radix 스크롤 잠금이 막은 터치를 iOS는 클릭으로 만들지 않아 메뉴 탭이 씹히므로, touchmove를 잠금까지 올려 보내지 않고 끌어서 밀릴 것도 없게 터치 팬을 끈다.
+          onTouchMove={(event) => event.stopPropagation()}
+          className="theme-soft-blue fixed inset-0 z-50 flex touch-none flex-col justify-end outline-none duration-200 ease-overlay data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0"
         >
           <DialogTitle className="sr-only">그룹 메뉴</DialogTitle>
           {/* 빈 곳의 누름이 덮개까지 내려가도록 자리 상자는 누름을 받지 않고 메뉴와 버튼만 받는다. */}
