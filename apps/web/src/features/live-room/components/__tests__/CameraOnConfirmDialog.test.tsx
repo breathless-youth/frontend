@@ -246,17 +246,21 @@ describe("CameraOnConfirmDialog 얼굴 가리기", () => {
     expect(screen.getByRole("button", { name: "취소" })).toHaveFocus();
   });
 
-  it("빠르게 움직일 때의 한계를 안내 아이콘으로 알린다", async () => {
+  it("빠르게 움직일 때의 한계와 발열을 안내 아이콘으로 알린다", async () => {
     setup({ faceMask: faceMask() });
 
     // 터치 탭 순서를 흉내 낸다. userEvent는 키보드 포커스로 먼저 열고 클릭으로 곧바로 닫는다.
     const trigger = screen.getByRole("button", { name: "얼굴 가리기 안내" });
     fireEvent.pointerDown(trigger);
     fireEvent.click(trigger);
+    // Radix가 스크린 리더용 숨김 사본을 한 번 더 그리므로 보이는 본문만 고른다.
     expect(
       await screen.findByText("빠르게 움직이면 얼굴이 잠깐 보일 수 있어요", {
-        selector: "[data-state]",
+        selector: "[data-state] > p",
       }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("오래 켜 두면 기기가 뜨거워질 수 있어요", { selector: "[data-state] > p" }),
     ).toBeInTheDocument();
   });
 
