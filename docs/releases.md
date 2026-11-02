@@ -80,6 +80,74 @@ base가 `main`인 PR에서만 `ci.yml`의 `version-check` job이 `scripts/check-
 - BE 최소 버전 API 경로(BY-535·536·579)는 이 정책으로 대체됐다.
 - **권장 업데이트는 같은 프로젝트의 `latest_version`이다.** 앱 버전이 이 값보다 낮으면(막히지는 않을 때) 홈 위에 "나중에"가 있는 알림창을 최신 버전당 한 번 띄운다(`apps/mobile/lib/recommendedUpdateAlert.ts`). 출시 때마다 올리는 값이라 `min_supported_version`과 분리한다: 스토어 심사 통과 후 → `latest_version` = 새 버전 → 게시. iOS 단계적 출시 중이라 스토어에 아직 안 보이는 사용자도 있을 수 있는데 "나중에"가 있으니 무해하다. 기본값 `0.0.0`은 아무에게도 띄우지 않는다. 플랫폼별로 버전이 다르면 콘솔 조건(플랫폼·"앱 버전 <")으로 값을 갈라 준다. 문구는 `recommended_update_title`·`recommended_update_message`·`recommended_update_later_button`·`recommended_update_confirm_button`(string, 선택)으로 콘솔에서 바꿀 수 있고 없으면 앱 초안 문구다.
 
+## 그룹 공부방 출시 (BY-1123, 2026-11-03 초안)
+
+그룹 공부방은 백엔드, 웹, 앱 바이너리, 법적 문서가 함께 바뀌는 출시다. 새 흐름은 `groupRooms=1`을 붙이는 새 바이너리에서만 보이므로 백엔드와 웹은 먼저 나가도 되고, 마지막에 강제 업데이트로 모두를 새 바이너리로 올린다. 순서는 위 "최소 지원 버전 정책"과 P7 계획의 R10, R14를 따랐다. 스토어 제출과 웹 배포는 아래 "기록" 표에 평소처럼 한 행씩 남긴다.
+
+| 순서 | 할 일                                                                                                          | 누가      |
+| ---- | -------------------------------------------------------------------------------------------------------------- | --------- |
+| 1    | 백엔드 1단계부터 6단계까지가 dev에 올라올 때마다 실기기 확인표의 그 단계 항목을 같은 빌드로 다시 확인한다      | FE·BE     |
+| 2    | 백엔드가 그룹 푸시 `link`를 FE 라우트(`/social/...`)로 바꾼다                                                  | BE        |
+| 3    | 그룹 API와 공부방 메시지 11절을 운영에 배포한다                                                                | BE        |
+| 4    | P1부터 P7까지의 PR을 `dev`에 머지하고 dev → main `[release]` PR로 웹을 배포한다                                | FE        |
+| 5    | 개인정보처리방침·이용약관의 새 시행일을 정해 공지하고, 랜딩 원본과 `legalDocuments.ts`를 같은 시행일로 바꾼다  | 사용자·FE |
+| 6    | 스토어 개인정보 표시를 바꾸고 새 바이너리(`groupRooms=1`)를 심사에 올린다                                      | 사용자    |
+| 7    | 스토어에 새 버전이 보이면 Remote Config `latest_version`을 새 버전으로 게시한다                                | 사용자    |
+| 8    | 같은 날 `min_supported_version`을 새 버전으로 게시하고, 웹 `MIN_SUPPORTED_VERSION`을 같은 값으로 올려 배포한다 | 사용자·FE |
+| 9    | 강제 업데이트 뒤 옛 초대코드 방 API 호출이 0이 되면 백엔드 정리 티켓과 FE 정리 티켓을 연다                     | FE·BE     |
+
+### 백엔드 (순서 1, 2, 3)
+
+- 백엔드는 ① 만들기·내 그룹·그룹 홈 ② 공개 그룹·신청 ③ 초대·멤버 관리 ④ 공부방 STOMP ⑤ 그룹 푸시 ⑥ 신고·차단 순서로 dev에 올라온다(BY-1124).
+- 실기기 확인표는 로컬 계획 문서 `2026-11-03-group-rooms-p7-measure-release.md`의 Task 4에 있고, 결과는 밤 작업 결과 페이지에 남긴다.
+- 푸시 `link` 값은 차이 목록 `2026-11-03-swagger-gaps.md`의 G3 표를 따른다.
+- 옛 앱은 그룹 경로를 부르지 않으므로 그룹 API는 웹보다 먼저 운영에 나가도 된다.
+- 신고 Slack 채널 설정값이 비어 있으면 신고 알림이 나가지 않으므로, 운영 배포 전에 채널과 담당자를 정해 넣는다.
+
+### 웹 배포 (순서 4)
+
+- 하위 계획 PR은 `[feat] BY-1125 제목`으로 `dev`에 머지한다.
+- 웹은 `main` 머지 커밋에서 `Deploy web`이 돌아 배포되고, 그 커밋에 `web/<버전>` 태그를 단다.
+- dev → main `[release]` PR은 ruleset `protect-main-dev` 때문에 작성자가 아닌 팀원 1명의 승인이 있어야 머지된다.
+- 작성자는 자기 PR을 승인할 수 없으므로 PR을 열 때 승인할 사람을 함께 정한다.
+- `groupRooms=1`이 없는 지금 바이너리에는 지금 소셜 홈과 숫자 4자리 초대코드 흐름이 그대로 보인다.
+
+### 법적 문서 (순서 5)
+
+- 공지는 시행 7일 전부터 하고, 이용자에게 불리하거나 권리에 중대한 영향을 주는 변경이면 시행 30일 전부터 한다(개인정보처리방침 15절, 이용약관 제3조).
+- 7일 대상인지 30일 대상인지는 `privacy-policy-group-rooms.md`의 "정할 것" D22에서 정한다.
+- 시행일은 공지일에 7일 또는 30일을 더한 날이고, 순서 6의 스토어 출시와 순서 7, 8의 강제 업데이트는 시행일보다 앞설 수 없다.
+- 랜딩 원본을 먼저 고치고, 앱 사본 `legalDocuments.ts`는 시행일에 맞춰 순서 4와 같은 릴리즈 PR로 내보낸다.
+
+### 스토어 제출 (순서 6)
+
+- 스토어 개인정보 표시는 `privacy-policy-group-rooms.md` 5절의 결정대로 바꾼다.
+- 제안: 심사를 통과해도 바로 출시하지 않고 App Store는 수동 출시, Play는 관리형 게시로 두었다가 시행일 이후에 출시한다.
+- 앱 버전은 위 "버전 규칙"대로 올리고, 순서 7과 8에 넣는 값은 이 버전이다.
+
+### 강제 업데이트 (순서 7, 8)
+
+- `latest_version`을 먼저 게시하고 `min_supported_version`은 그 뒤에 게시한다.
+- 스토어에 새 버전이 보이기 전에 `min_supported_version`을 올리면 아직 받을 수 없는 버전 때문에 모두가 막힌다.
+- 한 스토어만 먼저 열리면 그 플랫폼 조건(`iOS 앱` 또는 `Android 앱`)에만 값을 올리고, 다른 스토어가 열린 날 그 플랫폼 조건을 올린다(위 "플랫폼별로 다르게 줄 때").
+- prod 프로젝트(`focusmakers-prod`)에 게시하기 전에 dev 프로젝트에서 같은 값으로 리허설한다.
+- 웹 `MIN_SUPPORTED_VERSION`은 `nativeUpdateGate=1`이 없는 BY-586 이전 바이너리만 막고, 그 뒤 바이너리는 Remote Config 값으로 막힌다.
+- 웹 상수는 출시 날에만 바꾸며, `version.test.ts`에 새 값 테스트를 먼저 더해 실패를 본 뒤 상수를 바꾸고 `pnpm --filter web exec vitest run src/features/force-update`로 확인한다.
+
+### 정리 티켓 (순서 9)
+
+- 호출이 0인지는 백엔드가 `POST /api/rooms`와 `POST /api/rooms/join` 호출 수로 확인한다.
+- FE는 옛 소셜 홈 `routes/SocialHomePage.tsx`를 삭제한다.
+- FE는 `routes/InviteCodeSharePage.tsx`를 삭제한다.
+- FE는 `routes/InviteCodeJoinPage.tsx`에서 앱 안 숫자 4자리 입력을 삭제한다.
+- FE는 `features/social-room/inviteCode.ts`와 `InviteCodeInput.tsx`를 삭제한다.
+- FE는 `lib/roomApi.ts`의 `createRoom`을 삭제한다.
+- FE는 `LiveRoomKind`에서 `invite`를 뺀다.
+- FE는 `lib/groupRoomCapability.ts`와 `hasGroupRooms()` 분기를 삭제한다.
+- 앱은 `remoteQueryParams.ts`의 `groupRooms` 표시를 삭제한다.
+- 백엔드는 `POST /api/rooms`, `POST /api/rooms/join`, 숫자 4자리 코드를 삭제한다.
+- 옛 흐름을 삭제하면 Meta `invite_shared`를 보내는 곳이 없어지므로, 그때 개인정보처리방침 9절의 "초대 공유 기록"을 빼도 되는지 본다.
+
 ## 기록
 
 | 날짜       | 컴포넌트 | 버전(빌드)  | 커밋      | 채널             | 비고                                                                             |
