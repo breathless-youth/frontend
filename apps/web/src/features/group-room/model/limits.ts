@@ -18,7 +18,7 @@ export type ApplyBlockReason =
   "kicked_recently" | "rooms_and_applications_full" | "pending_applications_full";
 
 const APPLY_BLOCK_COPY: Record<ApplyBlockReason, string> = {
-  kicked_recently: "3일 동안 이 그룹에 신청할 수 없어요",
+  kicked_recently: `${GROUP_ROOM_LIMITS.kickCooldownDays}일 동안 이 그룹에 신청할 수 없어요`,
   rooms_and_applications_full: "그룹 개수가 가득 찼어요",
   pending_applications_full: "신청은 3곳까지 보낼 수 있어요",
 };
@@ -37,7 +37,7 @@ export type JoinBlockReason =
 
 const JOIN_BLOCK_COPY: Record<JoinBlockReason, string> = {
   room_full: "자리가 다 찼어요",
-  kicked_recently: "내보내진 그룹에는 3일 동안 다시 들어갈 수 없어요",
+  kicked_recently: `내보내진 그룹에는 ${GROUP_ROOM_LIMITS.kickCooldownDays}일 동안 다시 들어갈 수 없어요`,
   rooms_and_applications_full: "이미 5개의 그룹을 가지고 있어요",
   invalid_code: "초대코드를 다시 확인해 주세요",
 };

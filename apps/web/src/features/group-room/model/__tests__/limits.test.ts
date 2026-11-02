@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   GROUP_ROOM_LIMITS,
@@ -58,9 +58,8 @@ describe("숫자 표기", () => {
 });
 
 describe("글자 수", () => {
-  it("NFC로 맞추고 앞뒤 공백을 뺀 뒤 이모지 조합을 한 글자로 센다", () => {
+  it("앞뒤 공백을 뺀 뒤 이모지 조합을 한 글자로 센다", () => {
     expect(countGroupText("  공부방  ")).toBe(3);
-    expect(countGroupText("가".normalize("NFD"))).toBe(1);
     expect(countGroupText("👩‍💻")).toBe(1);
   });
 
@@ -80,5 +79,25 @@ describe("글자 수", () => {
     expect(isApplicationMessageValid("가")).toBe(true);
     expect(isApplicationMessageValid("가".repeat(50))).toBe(true);
     expect(isApplicationMessageValid("가".repeat(51))).toBe(false);
+  });
+});
+
+// Intl.Segmenter는 풀어 쓴 한글도 한 글자로 묶어서 NFC를 뺀 차이가 코드포인트로 셀 때만 드러난다.
+describe("Intl.Segmenter가 없는 환경의 글자 수", () => {
+  // 글자 수 모듈은 불러올 때 한 번만 Intl.Segmenter를 확인하므로 스텁 뒤에 모듈을 다시 불러온다.
+  beforeEach(() => {
+    const { Segmenter: _removed, ...rest } = Intl as typeof Intl & { Segmenter?: unknown };
+    vi.stubGlobal("Intl", rest);
+    vi.resetModules();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  it("풀어 쓴 한글은 NFC로 합쳐 한 글자로 센다", async () => {
+    const { countGroupText: countWithoutSegmenter } = await import("../limits");
+    expect(countWithoutSegmenter("가".normalize("NFD"))).toBe(1);
   });
 });

@@ -65,13 +65,13 @@ describe("arrangeDesks", () => {
 
   it("같은 색과 같은 시간이면 받은 순서를 지킨다", () => {
     const slots = arrangeDesks([
+      member(9, "this_room", 600),
       member(7, "this_room", 600),
       member(8, "this_room", 600),
-      member(9, "this_room", 600),
     ]);
     expect(
       slots.slice(0, 3).map((slot) => (slot.kind === "member" ? slot.member.userId : 0)),
-    ).toEqual([7, 8, 9]);
+    ).toEqual([9, 7, 8]);
   });
 
   it("빈자리로 6자리를 채운다", () => {

@@ -42,7 +42,7 @@ function pastText(at: string, now: Date, withinHour: string): string {
   const then = new Date(at);
   const days = Math.max(0, kstDayNumber(now) - kstDayNumber(then));
   if (days === 0) {
-    const hours = Math.floor(Math.max(0, now.getTime() - then.getTime()) / HOUR_MS);
+    const hours = Math.floor((now.getTime() - then.getTime()) / HOUR_MS);
     return hours < 1 ? withinHour : `${hours}시간 전`;
   }
   return days === 1 ? "어제" : `${days}일 전`;

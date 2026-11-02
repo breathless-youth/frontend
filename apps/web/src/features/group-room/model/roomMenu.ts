@@ -1,3 +1,5 @@
+import { GROUP_ROOM_LIMITS } from "./limits";
+
 export type RoomRole = "owner" | "member";
 
 export type RoomVisibility = "public" | "private";
@@ -15,7 +17,7 @@ export interface ConfirmDialogCopy {
   description: string;
   cancelLabel: string;
   confirmLabel: string;
-  /** 내보내기와 나가기처럼 멤버가 그룹에서 빠지는 일은 빨간 버튼이다. */
+  /** 멤버가 그룹에서 빠지는 일은 되돌리기 어려워 `danger`로 경고한다. */
   confirmTone: "primary" | "danger";
 }
 
@@ -24,7 +26,7 @@ export type LeaveDialog =
   | { kind: "confirm_leave"; copy: ConfirmDialogCopy };
 
 /**
- * 그룹장이 나가기 전에 그룹장을 넘겨야 하는지
+ * 나가기 전에 그룹장을 넘겨야 하는 조건
  *
  * 혼자 남은 그룹장은 바로 나갈 수 있어서 다른 멤버가 있을 때만 넘겨야 한다.
  * 메뉴 안내와 나가기 확인 창이 같은 판단을 써야 메뉴가 말한 대로 창이 뜬다.
@@ -134,7 +136,7 @@ export function transferOwnerDialog(nickname: string): ConfirmDialogCopy {
 export function kickMemberDialog(nickname: string): ConfirmDialogCopy {
   return {
     title: `${nickname}님을 내보낼까요?`,
-    description: `${nickname}님은 3일 동안 다시 들어올 수 없어요`,
+    description: `${nickname}님은 ${GROUP_ROOM_LIMITS.kickCooldownDays}일 동안 다시 들어올 수 없어요`,
     cancelLabel: "취소",
     confirmLabel: "내보내기",
     confirmTone: "danger",
