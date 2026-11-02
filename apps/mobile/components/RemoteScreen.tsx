@@ -4,6 +4,7 @@ import { ActivityIndicator, BackHandler, View } from "react-native";
 import type { HandlerMessage, HostPassedMessage, SetTabBarMessage } from "@focusmakers/types";
 
 import { markFirstScreenLoaded } from "../lib/firstScreenLoaded";
+import { markLaunchReady } from "../lib/launchReady";
 import { handleBridgeMessage, type BridgeReply } from "../lib/nativeBridgeHandler";
 import { useRemoteQueryParams } from "../lib/remoteQueryParams";
 import { markSessionOpen } from "../lib/sessionPresence";
@@ -130,6 +131,10 @@ export function RemoteScreen({
     // 탭 웹뷰는 동시에 마운트되므로 보이지 않는 탭이 먼저 끝나도 실행 직후 오버레이를 걷지 않게 한다.
     if (!suppressTabBarMessages) {
       markFirstScreenLoaded();
+      // 실패한 문서는 신호를 보내지 못하므로 실패 화면이 스플래시에 가려지지 않게 바로 걷는다.
+      if (!ok) {
+        markLaunchReady();
+      }
     }
     setLoaded(true);
     setLoadFailed(!ok);
@@ -167,6 +172,13 @@ export function RemoteScreen({
     if (message.type === "report-screen") {
       // 셸이 소비한다(복구 스플래시 톤) — 복원 경로는 호스트가 이미 저장했다.
       setDarkScreen(message.dark);
+      return;
+    }
+    if (message.type === "launch-ready") {
+      // 탭 웹뷰는 동시에 마운트되므로 보이는 화면의 신호만 스플래시를 걷는다.
+      if (!suppressTabBarMessages) {
+        markLaunchReady();
+      }
       return;
     }
     onBridgeMessage(message, reply);

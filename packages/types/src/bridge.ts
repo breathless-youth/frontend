@@ -13,6 +13,17 @@ export type ToWebMessage =
   /** `request-camera-gate` 응답. `granted: false`면 네이티브가 권한 안내 화면을 이미 띄운 상태다. */
   | { type: "camera-gate-result"; granted: boolean; atMs: number }
   /**
+   * `request-push-permission` 응답
+   *
+   * 앱이 이미 물었던 기기는 창 없이 저장된 답을 돌려준다.
+   * 요청이 실패하거나 응답 상한을 넘기면 `undetermined`다.
+   */
+  | {
+      type: "push-permission-result";
+      status: "granted" | "denied" | "undetermined";
+      atMs: number;
+    }
+  /**
    * 시스템 테마 변경 통지 — Android 전용 발신. Android WebView는 시스템 다크를
    * `prefers-color-scheme`에 전달하지 않아 웹이 스스로 알 수 없다. 초기 테마는 웹뷰 URL의
    * `theme` 쿼리로 오고(첫 페인트 전 반영 — `apps/web/index.html`의 인라인 스크립트), 앱 실행 중
@@ -306,6 +317,20 @@ export type ToNativeMessage =
    * 차단, 없으면(이 메시지를 모르는 구버전 앱) 통과다. 상세는 `apps/web/src/lib/nativeCameraGate.ts`.
    */
   | { type: "request-camera-gate"; atMs: number }
+  /**
+   * OS 알림 권한 요청
+   *
+   * 앱이 웹뷰 주소에 `pushPermission=1`을 붙였을 때만 보내고, 앱은 `push-permission-result`로 답한다.
+   * 이 표시가 있는 앱은 실행할 때 알림 권한을 묻지 않으므로 묻는 시점은 웹이 정한다.
+   */
+  | { type: "request-push-permission"; atMs: number }
+  /**
+   * 첫 화면을 보여도 된다는 신호
+   *
+   * 앱은 이 신호가 올 때까지 스플래시를 유지한다.
+   * 홈은 온보딩으로 보낼지 판정한 뒤에 보내서 홈이 잠깐 보였다가 온보딩으로 바뀌는 일을 막는다.
+   */
+  | { type: "launch-ready"; atMs: number }
   /** 웹이 `auth-token` 구독을 걸었다 — `analytics-ready`와 같은 handshake. 네이티브는 현재 토큰으로 그 문서에 답한다. */
   | { type: "auth-ready"; atMs: number }
   /**
@@ -399,7 +424,7 @@ type HostConsumedType =
 export type HostPassedMessage = Exclude<ToNativeMessage, { type: HostConsumedType }>;
 
 /** `RemoteScreen`이 처리하고 끝내는 메시지. `report-screen`은 호스트가 경로를 저장한 뒤 넘긴다. */
-type ScreenConsumedType = "set-back-lock" | "report-screen";
+type ScreenConsumedType = "set-back-lock" | "report-screen" | "launch-ready";
 
 /**
  * 공용 핸들러(`handleBridgeMessage`)가 받는 메시지. 앞 단계가 처리한 타입을 빼 두어야

@@ -117,6 +117,18 @@ export async function registerUser(deviceId: string): Promise<UserRegisterRespon
 
 let ongoingAuth: Promise<AuthState | null> | null = null;
 
+let newUserThisLaunch = false;
+
+/**
+ * 이번 실행에서 서버에 계정이 새로 생겼는지
+ *
+ * 웹이 온보딩을 보여 줄 계정을 서버 조회 없이 알도록 웹뷰 주소의 `newUser=1`로 넘긴다(`remoteQueryParams.ts`).
+ * iOS는 앱을 지워도 키체인 토큰이 남아 다시 설치해도 같은 계정이고, Android 재설치는 새 계정이다.
+ */
+export function isNewUserThisLaunch(): boolean {
+  return newUserThisLaunch;
+}
+
 /**
  * 저장된 상태가 있으면 반환, 없으면 옛 키를 옮기거나 기기 UUID로 등록해 저장 후 반환. 실패해도
  * throw 하지 않고 null — 다음 실행에서 재시도한다(등록 API는 멱등). 진행 중인 프라미스를 공유한다:
@@ -151,6 +163,7 @@ async function loadOrRegister(): Promise<AuthState | null> {
     const deviceId = await getOrCreateDeviceId();
     const { isNew, accessToken, refreshToken } = await registerUser(deviceId);
     if (isNew) {
+      newUserThisLaunch = true;
       // 등록 응답 직후에 찍는다 — 광고 전환이 재는 것은 서버에 유저가 생겼는가이지 이 기기의 저장
       // 성공이 아니다. 아래 신원 파싱이나 저장이 실패해도 서버 유저는 남아, 다음 실행의 재등록은
       // isNew=false다 — 여기서 놓치면 이 사용자의 가입 완료는 두 번 다시 찍을 기회가 없다.

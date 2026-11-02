@@ -260,6 +260,10 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       return { type: "set-orientation", unlocked: record.unlocked, atMs: record.atMs };
     case "request-camera-gate":
       return { type: "request-camera-gate", atMs: record.atMs };
+    case "request-push-permission":
+      return { type: "request-push-permission", atMs: record.atMs };
+    case "launch-ready":
+      return { type: "launch-ready", atMs: record.atMs };
     case "auth-ready":
       return { type: "auth-ready", atMs: record.atMs };
     case "request-token-refresh":
