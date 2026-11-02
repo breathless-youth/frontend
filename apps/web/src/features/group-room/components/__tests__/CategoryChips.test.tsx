@@ -31,4 +31,12 @@ describe("CategoryChips", () => {
     await user.click(screen.getByRole("button", { name: "전체" }));
     expect(onChange).toHaveBeenCalledTimes(1);
   });
+
+  it("전체 라벨이 없으면 값이 늘 있어서 문자열만 받는 함수를 넘길 수 있다", async () => {
+    const picked: string[] = [];
+    const onChange = (value: string) => picked.push(value);
+    render(<CategoryChips options={options} value="CSAT" onChange={onChange} />);
+    await userEvent.setup().click(screen.getByRole("button", { name: "내신" }));
+    expect(picked).toEqual(["SCHOOL"]);
+  });
 });

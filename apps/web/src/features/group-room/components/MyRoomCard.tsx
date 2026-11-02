@@ -4,17 +4,11 @@ import { cn } from "@/lib/utils";
 
 import { studyingCount, studyingCountText } from "../model/desks";
 import { memberCountText } from "../model/limits";
-import type { RoomVisibility } from "../model/roomMenu";
 import type { MyRoomSummary } from "../types";
-import { VISIBILITY_TEXT } from "../visibilityText";
+import { VISIBILITY_TEXT, VISIBILITY_TONE_CLASS } from "../visibility";
 import { DeskRow } from "./DeskRow";
 import { CategoryTag } from "./RoomMeta";
 import { StudyStatus } from "./StudyStatus";
-
-const VISIBILITY_BADGE_CLASS: Record<RoomVisibility, string> = {
-  public: "bg-brand-subtle text-brand-subtle-text",
-  private: "bg-bg-layer-2 text-muted-foreground",
-};
 
 /**
  * 내 그룹 카드
@@ -59,7 +53,7 @@ export function MyRoomCard({
         <span
           className={cn(
             "flex shrink-0 items-center gap-0.75 rounded-full px-2.25 py-0.75 text-xs leading-4 font-bold",
-            VISIBILITY_BADGE_CLASS[room.visibility],
+            VISIBILITY_TONE_CLASS[room.visibility],
           )}
         >
           {room.visibility === "private" && <Lock aria-hidden="true" size={12} strokeWidth={2.4} />}

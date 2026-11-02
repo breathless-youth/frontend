@@ -52,6 +52,15 @@ describe("PublicRoomsView", () => {
     expect(onCategoryChange).toHaveBeenCalledWith("수능");
   });
 
+  it("검색 키를 누르면 검색어는 그대로이고 키보드만 내린다", async () => {
+    const onQueryChange = vi.fn();
+    renderScreen(<SearchHarness onQueryChange={onQueryChange} />);
+    const search = screen.getByRole("searchbox");
+    await userEvent.setup().type(search, "토익{Enter}");
+    expect(search).not.toHaveFocus();
+    expect(onQueryChange).toHaveBeenLastCalledWith("토익");
+  });
+
   it("검색어를 바꾸면 넘긴다", async () => {
     const onQueryChange = vi.fn();
     renderScreen(<SearchHarness onQueryChange={onQueryChange} />);

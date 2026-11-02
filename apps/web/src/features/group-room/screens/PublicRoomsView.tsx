@@ -83,12 +83,18 @@ export function PublicRoomsView({
   }
   return (
     <div className="flex flex-col px-5 pt-4">
-      <label className="flex h-12 items-center gap-2 rounded-xl border border-border bg-muted px-4 focus-within:border-primary">
+      <label className="flex h-12 items-center gap-2 rounded-xl border border-border bg-muted px-4 focus-within:ring-2 focus-within:ring-(--state-focus)">
         <Search aria-hidden="true" size={18} className="shrink-0 text-muted-foreground" />
         <input
           type="search"
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
+          // 검색어는 쓰는 대로 넘어가 목록이 바로 걸러지므로 키보드의 검색 키는 키보드만 내린다.
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.currentTarget.blur();
+            }
+          }}
           aria-label="그룹 이름으로 찾기"
           placeholder="그룹 이름으로 찾기"
           autoComplete="off"

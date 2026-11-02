@@ -4,12 +4,7 @@ import { cn } from "@/lib/utils";
 
 import { memberCountText } from "../model/limits";
 import type { RoomVisibility } from "../model/roomMenu";
-import { VISIBILITY_TEXT } from "../visibilityText";
-
-const VISIBILITY_CHIP_CLASS: Record<RoomVisibility, string> = {
-  public: "bg-brand-subtle text-brand-subtle-text",
-  private: "bg-bg-layer-2 text-muted-foreground",
-};
+import { VISIBILITY_TEXT, VISIBILITY_TONE_CLASS } from "../visibility";
 
 /** 그룹 이름 가까이에 붙는 시험·목표 칩. */
 export function CategoryTag({ label }: { label: string }) {
@@ -40,7 +35,7 @@ export function RoomMeta({
       <span
         className={cn(
           "flex shrink-0 items-center gap-0.5 rounded-full px-1.75 py-px text-[11px] leading-4 font-semibold",
-          VISIBILITY_CHIP_CLASS[visibility],
+          VISIBILITY_TONE_CLASS[visibility],
         )}
       >
         {visibility === "private" && <Lock aria-hidden="true" size={10} strokeWidth={2.4} />}
