@@ -842,7 +842,7 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
     m.trackCameraFlipped({ ok: true, facing: "back" }, "single");
     m.trackStudySessionExitRequested("single");
     m.trackStudySessionExitCancelled("single");
-    m.trackSocialRoomCameraToggled(true);
+    m.trackSocialRoomCameraToggled(true, true);
     m.trackSocialRoomCameraOnDismissed();
     m.trackSocialRoomBackgroundReturned({ hiddenSec: 5, expired: false });
     m.trackFocusStartTapped();
@@ -902,7 +902,8 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
 
     m.trackStudySessionExitRequested("single");
     m.trackStudySessionExitCancelled("social");
-    m.trackSocialRoomCameraToggled(false);
+    m.trackSocialRoomCameraToggled(false, false);
+    m.trackSocialRoomCameraToggled(true, true);
     m.trackSocialRoomCameraOnDismissed();
     m.trackSocialRoomBackgroundReturned({ hiddenSec: 31, expired: true });
     m.trackFocusStartTapped();
@@ -916,7 +917,8 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
     expect(mocks.track.mock.calls).toEqual([
       ["study_session_exit_requested", { room_type: "single" }],
       ["study_session_exit_cancelled", { room_type: "social" }],
-      ["social_room_camera_toggled", { on: false }],
+      ["social_room_camera_toggled", { on: false, face_mask: false }],
+      ["social_room_camera_toggled", { on: true, face_mask: true }],
       ["social_room_camera_on_dismissed"],
       ["social_room_background_returned", { hidden_sec: 31, expired: true }],
       ["focus_start_tapped", { destination: "session", source: "home" }],

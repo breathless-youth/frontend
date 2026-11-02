@@ -14,6 +14,8 @@ import { visionDiagnostics } from "../vision/diagnostics";
 import type { FaceDetectionResult, VisionFaceLandmarker } from "../vision/faceLandmarker";
 import { headPitchZone, pushHeadPitch } from "../vision/headPitchGate";
 import { createFaceLandmarker } from "../vision/faceLandmarker";
+import type { FaceSpot, FaceSpotState } from "../vision/faceSpot";
+import { EMPTY_FACE_SPOT, nextFaceSpot } from "../vision/faceSpot";
 import { createFrameLoop } from "../vision/frameLoop";
 import type { AssetTiming, VisionRuntimeKind } from "../vision/mediapipePort";
 import type { VisionObjectDetector } from "../vision/objectDetector";
@@ -28,6 +30,7 @@ import {
   EYE_RATIO_WINDOW_SAMPLES,
   FACE_FRAME_DIVISOR,
   FACE_SMOOTHING_SAMPLES,
+  SCORE_THRESHOLDS,
 } from "../vision/visionConfig";
 
 /**
@@ -188,6 +191,28 @@ export interface VisionFocusDetector extends FocusDetector {
   /** 얼굴 모델의 상태. 객체 검출기의 `status`와 별개다 — 한쪽이 실패해도 다른 쪽은 돈다. */
   readonly faceStatus: VisionDetectorStatus;
   subscribeFaceStatus(listener: (status: VisionDetectorStatus) => void): () => void;
+  /**
+   * 가림 이모지 자리 구독
+   *
+   * 사람이 없거나 추론이 멈추면 `null`이다.
+   * 화면에 그리거나 송신 영상을 합성하는 데만 쓴다.
+   * 좌표라서 로그·분석으로 내보내지 않는다.
+   */
+  subscribeFaceSpot(listener: (spot: FaceSpot | null) => void): () => void;
+  /**
+   * 미리보기 전용 모드
+   *
+   * 켜면 이모지 자리만 내보내고 자리 비움·휴대폰·졸음 신호는 내보내지 않는다.
+   * 세션이 일시정지인 동안 카메라 켜기 미리보기에 이모지를 그릴 때 쓴다.
+   */
+  setPreviewOnly(previewOnly: boolean): void;
+  /**
+   * 추론 없이 모델만 미리 준비하기
+   *
+   * 카메라를 끈 채 입장하는 소셜룸은 켜기 미리보기를 처음 열 때 모델 준비가 시작돼 이모지가 늦게 붙는다.
+   * 멱등이고 `close()` 전까지 한 번만 준비한다.
+   */
+  preload(): void;
   /** 보정 결과. 아직이면 null. 측정 도구가 덩어리에 싣는다. */
   readonly eyeCalibration: EyeCalibration | null;
   /**
@@ -292,6 +317,9 @@ export function createVisionFocusDetector(
   let faceStatus: VisionDetectorStatus = "idle";
   let faceLoadRequested = false;
   const faceStatusListeners = new Set<(status: VisionDetectorStatus) => void>();
+  const faceSpotListeners = new Set<(spot: FaceSpot | null) => void>();
+  let faceSpot: FaceSpotState = EMPTY_FACE_SPOT;
+  let previewOnly = false;
   let running = false;
   /**
    * 실행 세대.
@@ -396,6 +424,18 @@ export function createVisionFocusDetector(
     // 비율 창은 `dropFaceObservations`가 함께 버린다. 공백 앞의 감김은 지금 졸고 있는지를
     // 말해주지 않으므로, 창을 이어 붙이면 재개 직후에 옛 표본만으로 비율이 채워진다.
     dropFaceObservations();
+    // 추론이 멈추면 이모지가 따라가지 못하므로 화면이 다시 흐려지게 한다.
+    setFaceSpot(EMPTY_FACE_SPOT);
+  }
+
+  function setFaceSpot(next: FaceSpotState): void {
+    const changed = next.spot !== faceSpot.spot;
+    faceSpot = next;
+    if (changed) {
+      for (const listener of [...faceSpotListeners]) {
+        listener(next.spot);
+      }
+    }
   }
 
   function setFaceStatus(next: VisionDetectorStatus): void {
@@ -561,17 +601,21 @@ export function createVisionFocusDetector(
     const element = video();
     if (element === null) {
       // 카메라가 꺼져 있거나 프리뷰가 화면에서 걷혔다. 판정하지 않고 직전 신호를 유지한다.
+      // 이모지 자리는 지금 영상과 맞는다고 볼 수 없어 비운다.
+      setFaceSpot(EMPTY_FACE_SPOT);
       return;
     }
     if (element.readyState < MIN_VIDEO_READY_STATE || element.videoWidth === 0) {
       // 아직 첫 프레임을 못 그렸다(스트림 부착 직후·카메라 전환 직후). 여기서 부르면 MediaPipe가
       // 던지거나 쓰레기 결과를 낸다 — 준비될 때까지 건너뛴다.
+      setFaceSpot(EMPTY_FACE_SPOT);
       return;
     }
     if (!cameraTrackLive(element)) {
       // 트랙이 끊겨도 `<video>`는 마지막 프레임을 들고 있다.
       // 그 장면으로 판정하면 멈춘 화면이 공부 상태를 정한다. Android에서 백그라운드에 다녀오면 이렇게 된다.
       // 훅이 카메라를 다시 잡을 때까지 건너뛴다.
+      setFaceSpot(EMPTY_FACE_SPOT);
       return;
     }
     ensureLoaded();
@@ -592,6 +636,8 @@ export function createVisionFocusDetector(
       setStatus("unavailable");
       diagnostics.detectorUnavailable("unavailable");
       loop.stop();
+      // 더는 자리를 갱신하지 못하므로 송신 영상이 흐림으로 돌아가게 한다.
+      setFaceSpot(EMPTY_FACE_SPOT);
       return;
     }
     if (result === null || frameRunId !== runId) {
@@ -657,6 +703,18 @@ export function createVisionFocusDetector(
       }
     }
 
+    setFaceSpot(
+      signals.personPresent
+        ? nextFaceSpot(faceSpot, {
+            detections: result.detections,
+            minPersonScore: SCORE_THRESHOLDS.person,
+            frame: frame.frameSize,
+            face: faceRan === null ? undefined : (faceRan.bounds ?? null),
+            faceModelReady: sleepEnabled && faceStatus === "ready",
+          })
+        : EMPTY_FACE_SPOT,
+    );
+
     // 첫 창이 차기 전에는 임계가 없고, 임계가 없으면 규칙이 눈 판정을 쉰다.
     //
     // 이 사람의 뜬 눈이 몇 점인지 모르는 동안 고정값으로 판정하면 뜬 눈이 원래 높은 사람이 세션
@@ -701,7 +759,9 @@ export function createVisionFocusDetector(
               headPitchDeg: faceRan.metrics.headPitchDeg,
             },
     });
-    publish(signals, sleep);
+    if (!previewOnly) {
+      publish(signals, sleep);
+    }
     if (photo !== null && photoTap !== undefined) {
       await takePhoto(photoTap, photo, signals.personPresent, faceRan, element, frameRunId);
     }
@@ -822,6 +882,21 @@ export function createVisionFocusDetector(
       faceStatusListeners.add(listener);
       return () => {
         faceStatusListeners.delete(listener);
+      };
+    },
+
+    setPreviewOnly(next) {
+      previewOnly = next;
+    },
+
+    preload() {
+      ensureLoaded();
+    },
+
+    subscribeFaceSpot(listener) {
+      faceSpotListeners.add(listener);
+      return () => {
+        faceSpotListeners.delete(listener);
       };
     },
 

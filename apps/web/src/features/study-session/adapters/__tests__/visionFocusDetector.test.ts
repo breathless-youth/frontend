@@ -7,6 +7,7 @@ import { createVisionFocusDetector } from "../focusDetector";
 import type { Detection, DetectionFrame } from "../../vision/detectionRules";
 import { PERSON_LABEL, PHONE_LABEL } from "../../vision/detectionRules";
 import type { FaceDetectionResult, VisionFaceLandmarker } from "../../vision/faceLandmarker";
+import type { FaceSpot } from "../../vision/faceSpot";
 import type {
   DetectionResult,
   DetectorState,
@@ -696,6 +697,109 @@ describe("createVisionFocusDetector", () => {
     await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 3);
 
     expect(fallback).not.toHaveBeenCalled();
+  });
+});
+
+describe("이모지 자리", () => {
+  it("사람이 잡히면 자리를 내보내고, 멈추면 null로 돌린다", async () => {
+    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
+    const spots: (FaceSpot | null)[] = [];
+    const vision = createVisionFocusDetector({ video: () => fakeVideo(), detector });
+    vision.subscribeFaceSpot((spot) => spots.push(spot));
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS);
+    expect(spots.at(-1)).toEqual(expect.objectContaining({ visible: true }));
+
+    vision.stop();
+    expect(spots.at(-1)).toBeNull();
+  });
+
+  it("미리보기 전용이면 자리는 내보내지만 세션 신호는 내보내지 않는다", async () => {
+    const { detector } = fakeObjectDetector({ frames: [personFrame(), []] });
+    const { signals, listener } = collect();
+    const spots: (FaceSpot | null)[] = [];
+    const vision = createVisionFocusDetector({ video: () => fakeVideo(), detector });
+    vision.subscribe(listener);
+    vision.subscribeFaceSpot((spot) => spots.push(spot));
+    vision.setPreviewOnly(true);
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 2);
+    expect(spots).toContainEqual(expect.objectContaining({ visible: true }));
+    expect(signals).toEqual([]);
+
+    vision.setPreviewOnly(false);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS);
+    expect(signals).toContainEqual({ source: "AWAY", active: true });
+  });
+
+  it("객체 검출기가 도중에 포기하면 자리를 null로 돌린다", async () => {
+    const fake = fakeObjectDetector({ frames: [personFrame()] });
+    const spots: (FaceSpot | null)[] = [];
+    const vision = createVisionFocusDetector({ video: () => fakeVideo(), detector: fake.detector });
+    vision.subscribeFaceSpot((spot) => spots.push(spot));
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS);
+    expect(spots.at(-1)).not.toBeNull();
+
+    fake.setState("unavailable");
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS);
+    expect(vision.status).toBe("unavailable");
+    expect(spots.at(-1)).toBeNull();
+  });
+
+  it.each([
+    ["영상이 아직 준비되지 않으면", fakeVideo({ readyState: 0 })],
+    ["카메라 트랙이 끊기면", fakeVideo({ srcObject: endedStream() })],
+    ["영상이 사라지면", null],
+  ])("%s 세션 신호는 유지하되 자리는 null로 돌린다", async (_case, skipped) => {
+    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
+    const { signals, listener } = collect();
+    const spots: (FaceSpot | null)[] = [];
+    let element: HTMLVideoElement | null = fakeVideo();
+    const vision = createVisionFocusDetector({ video: () => element, detector });
+    vision.subscribe(listener);
+    vision.subscribeFaceSpot((spot) => spots.push(spot));
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS);
+    expect(spots.at(-1)).not.toBeNull();
+    const signalsBefore = [...signals];
+
+    element = skipped;
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS);
+    expect(spots.at(-1)).toBeNull();
+    expect(signals).toEqual(signalsBefore);
+  });
+
+  it("판정 없는 프레임(null)에는 자리를 유지한다", async () => {
+    const { detector } = fakeObjectDetector({ frames: [personFrame(), null] });
+    const spots: (FaceSpot | null)[] = [];
+    const vision = createVisionFocusDetector({ video: () => fakeVideo(), detector });
+    vision.subscribeFaceSpot((spot) => spots.push(spot));
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 4);
+    expect(spots.at(-1)).not.toBeNull();
+  });
+
+  it("preload는 모델을 한 번만 준비하고 추론은 하지 않는다", async () => {
+    const { detector, load, detect } = fakeObjectDetector({ frames: [personFrame()] });
+    const vision = createVisionFocusDetector({ video: () => fakeVideo(), detector });
+
+    vision.preload();
+    vision.preload();
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 3);
+
+    expect(load).toHaveBeenCalledTimes(1);
+    expect(detect).not.toHaveBeenCalled();
   });
 });
 

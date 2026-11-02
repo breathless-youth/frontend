@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -31,6 +31,10 @@ describe("CameraOnConfirmDialog", () => {
     setup();
 
     expect(screen.getByRole("alertdialog")).toHaveAccessibleName("카메라를 켤까요?");
+    // 영상이 같은 방에 공유된다는 사실을 창 설명으로 읽어 줘야 켜기 전에 판단할 수 있다.
+    expect(screen.getByRole("alertdialog")).toHaveAccessibleDescription(
+      "같은 방에만 보이고 저장되지 않아요",
+    );
     expect(screen.getByTestId("preview")).toBeInTheDocument();
   });
 
@@ -155,7 +159,7 @@ describe("CameraOnConfirmDialog", () => {
     expect(dialog).toHaveAccessibleName("카메라 위치를 확인해 주세요");
     expect(dialog).toHaveAccessibleDescription("얼굴과 책상이 보이게 자리를 잡아 주세요");
     expect(screen.getByText("영상은 기기 밖으로 나가지 않아요")).toBeInTheDocument();
-    expect(screen.queryByText("영상은 서버에 저장되지 않아요.")).not.toBeInTheDocument();
+    expect(screen.queryByText("같은 방에만 보이고 저장되지 않아요")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "심플 모드로 시작" })).toHaveFocus();
     expect(screen.getByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
   });
@@ -165,10 +169,110 @@ describe("CameraOnConfirmDialog", () => {
     setup();
 
     const dialog = screen.getByRole("alertdialog");
-    expect(dialog).toHaveAccessibleDescription(
-      "카메라를 켜면 순공시간 측정과 영상 공유가 시작돼요.",
-    );
-    expect(screen.getByText("영상은 서버에 저장되지 않아요.")).toBeInTheDocument();
+    // 설명을 넘기지 않으면 자물쇠 줄 하나가 제목 아래에서 창 설명을 맡는다.
+    expect(dialog).toHaveAccessibleDescription("같은 방에만 보이고 저장되지 않아요");
+    expect(screen.getAllByText("같은 방에만 보이고 저장되지 않아요")).toHaveLength(1);
     expect(screen.getByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
+  });
+});
+
+describe("CameraOnConfirmDialog 얼굴 가리기", () => {
+  const faceMask = (over = {}) => ({
+    supported: true,
+    on: true,
+    onChange: vi.fn(),
+    emojis: [
+      { id: "a", label: "고양이", url: "/a.png" },
+      { id: "b", label: "곰", url: "/b.png" },
+    ],
+    emojiId: "a",
+    onEmojiChange: vi.fn(),
+    ...over,
+  });
+
+  it("얼굴 가리기 스위치를 보여 주고 바꾸면 알린다", async () => {
+    const props = faceMask();
+    setup({ faceMask: props });
+
+    const toggle = screen.getByRole("switch", { name: "얼굴 가리기" });
+    expect(toggle).toBeChecked();
+    await userEvent.click(toggle);
+    expect(props.onChange).toHaveBeenCalledWith(false);
+  });
+
+  it("켜져 있으면 이모지를 고를 수 있다", async () => {
+    const props = faceMask();
+    setup({ faceMask: props });
+
+    const group = screen.getByRole("radiogroup", { name: "가림 이모지" });
+    expect(within(group).getByRole("radio", { name: "고양이" })).toBeChecked();
+    await userEvent.click(within(group).getByRole("radio", { name: "곰" }));
+    expect(props.onEmojiChange).toHaveBeenCalledWith("b");
+  });
+
+  it("고른 이모지를 다시 눌러도 선택을 비우지 않는다", async () => {
+    const props = faceMask();
+    setup({ faceMask: props });
+
+    await userEvent.click(screen.getByRole("radio", { name: "고양이" }));
+    expect(props.onEmojiChange).not.toHaveBeenCalled();
+  });
+
+  it("꺼져 있어도 이모지 줄 자리는 남기고 고르지는 못하게 막는다", () => {
+    setup({ faceMask: faceMask({ on: false }) });
+
+    const group = screen.getByRole("radiogroup", { name: "가림 이모지" });
+    for (const radio of within(group).getAllByRole("radio")) {
+      expect(radio).toBeDisabled();
+    }
+  });
+
+  it("고른 이모지가 줄 밖에 있어도 보이게 넘겨 둔다", () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    try {
+      setup({ faceMask: faceMask({ emojiId: "b" }) });
+
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+      expect(scrollIntoView.mock.contexts[0]).toBe(screen.getByRole("radio", { name: "곰" }));
+    } finally {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+    }
+  });
+
+  it("안내 아이콘이 앞에 있어도 초기 포커스는 취소 버튼에 놓인다", () => {
+    setup({ faceMask: faceMask() });
+
+    expect(screen.getByRole("button", { name: "취소" })).toHaveFocus();
+  });
+
+  it("빠르게 움직일 때의 한계를 안내 아이콘으로 알린다", async () => {
+    setup({ faceMask: faceMask() });
+
+    // 터치 탭 순서를 흉내 낸다. userEvent는 키보드 포커스로 먼저 열고 클릭으로 곧바로 닫는다.
+    const trigger = screen.getByRole("button", { name: "얼굴 가리기 안내" });
+    fireEvent.pointerDown(trigger);
+    fireEvent.click(trigger);
+    expect(
+      await screen.findByText("빠르게 움직이면 얼굴이 잠깐 보일 수 있어요", {
+        selector: "[data-state]",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("합성을 쓸 수 없는 기기는 스위치를 끈 채 막고 이유를 알린다", () => {
+    setup({ faceMask: faceMask({ supported: false, on: false }) });
+
+    const toggle = screen.getByRole("switch", { name: "얼굴 가리기" });
+    expect(toggle).toBeDisabled();
+    expect(toggle).not.toBeChecked();
+    expect(screen.getByText("이 기기에서는 얼굴 가리기를 쓸 수 없어요")).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "가림 이모지" })).toBeNull();
+  });
+
+  it("faceMask를 넘기지 않으면 스위치를 그리지 않는다", () => {
+    setup();
+
+    expect(screen.queryByRole("switch", { name: "얼굴 가리기" })).toBeNull();
   });
 });
