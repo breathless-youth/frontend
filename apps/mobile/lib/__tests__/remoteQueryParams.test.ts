@@ -131,6 +131,7 @@ describe("buildRemoteQueryParams", () => {
       guestAuth: "1",
       videoShare: "1",
       ranking: "1",
+      groupRooms: "1",
       alertHaptic: "1",
       pushPermission: "1",
       nativeTabBar: "1",
@@ -148,6 +149,7 @@ describe("buildRemoteQueryParams", () => {
       guestAuth: "1",
       videoShare: "1",
       ranking: "1",
+      groupRooms: "1",
       alertHaptic: "1",
       pushPermission: "1",
       nativeTabBar: "1",
@@ -165,6 +167,7 @@ describe("buildRemoteQueryParams", () => {
       guestAuth: "1",
       videoShare: "1",
       ranking: "1",
+      groupRooms: "1",
       alertHaptic: "1",
       pushPermission: "1",
       nativeTabBar: "1",
@@ -207,6 +210,10 @@ describe("buildRemoteQueryParams", () => {
     const params = await buildRemoteQueryParams();
 
     expect(params.ranking).toBe("1");
+  });
+
+  it("그룹 공부방을 싣는 바이너리라는 표시를 붙인다", async () => {
+    await expect(buildRemoteQueryParams()).resolves.toMatchObject({ groupRooms: "1" });
   });
 
   it("셸이 알림 햅틱을 낼 수 있음을 alertHaptic으로 알린다", async () => {
@@ -361,6 +368,7 @@ describe("useRemoteQueryParams", () => {
         guestAuth: "1",
         videoShare: "1",
         ranking: "1",
+        groupRooms: "1",
         alertHaptic: "1",
         pushPermission: "1",
         nativeTabBar: "1",
@@ -381,6 +389,7 @@ describe("useRemoteQueryParams", () => {
         guestAuth: "1",
         videoShare: "1",
         ranking: "1",
+        groupRooms: "1",
         alertHaptic: "1",
         pushPermission: "1",
         nativeTabBar: "1",
@@ -399,6 +408,7 @@ describe("useRemoteQueryParams", () => {
       guestAuth: "1",
       videoShare: "1",
       ranking: "1",
+      groupRooms: "1",
       alertHaptic: "1",
       pushPermission: "1",
       nativeTabBar: "1",
@@ -445,6 +455,7 @@ describe("useRemoteQueryParams", () => {
         guestAuth: "1",
         videoShare: "1",
         ranking: "1",
+        groupRooms: "1",
         alertHaptic: "1",
         pushPermission: "1",
         nativeTabBar: "1",
@@ -465,6 +476,7 @@ describe("useRemoteQueryParams", () => {
         guestAuth: "1",
         videoShare: "1",
         ranking: "1",
+        groupRooms: "1",
         alertHaptic: "1",
         pushPermission: "1",
         nativeTabBar: "1",

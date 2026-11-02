@@ -64,6 +64,10 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   // 웹은 이 표시가 있을 때만 다른 화면에서 랭킹 탭으로 보내는 진입점을 보인다(`apps/web/src/lib/rankingCapability.ts`).
   // 원격 웹은 구버전 앱에도 바로 배포되므로 브리지가 있다는 것만으로는 탭이 있는지 알 수 없다.
   params.ranking = "1";
+  // `groupRooms=1`: 이 바이너리가 그룹 공부방을 싣는다는 표시.
+  // 웹은 이 표시가 있을 때만 그룹 탭, 6자리 초대코드, 공부방을 연다(`apps/web/src/lib/groupRoomCapability.ts`).
+  // 원격 웹은 구버전 앱에도 바로 배포되므로 브리지가 있다는 것만으로는 마이크 권한과 새 푸시를 처리하는 바이너리인지 알 수 없다.
+  params.groupRooms = "1";
   // `alertHaptic=1`: 이 바이너리가 `haptic` 브리지 메시지의 `alert` 세기를 처리할 수 있다는 표시.
   // 웹은 이 표시가 있을 때만 타이머 끝 알림에 `alert`를 보낸다(`apps/web/src/lib/alertHapticCapability.ts`).
   // 구버전 앱의 파서는 모르는 세기를 통째로 버리므로 브리지가 있다는 것만으로는 보낼 수 없다.
