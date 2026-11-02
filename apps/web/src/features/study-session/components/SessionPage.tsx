@@ -104,11 +104,15 @@ export function SessionPageBackButton({ label, className }: { label: string; cla
 
 export interface SessionPageFooterProps {
   landscape: boolean;
-  /** 세로에서 아래 줄 위에 따로 두는 고정 줄. 패딩은 호출부가 정한다. */
+  /** 세로에서 아래 고정 영역에 두는 버튼 줄이고, 패딩은 호출부가 정한다. */
   actions?: ReactNode;
   /** 아래 줄의 왼쪽. */
   leading?: ReactNode;
-  /** 아래 줄 오른쪽의 순공 타이머. 과목 페이지는 시간을 머리에 두어 넘기지 않는다. */
+  /**
+   * 아래 줄 오른쪽의 순공 타이머
+   *
+   * 과목 페이지는 시간을 머리에 두어 넘기지 않는다.
+   */
   timer?: ReactNode;
 }
 
@@ -119,7 +123,7 @@ export interface SessionPageFooterProps {
  * 세로는 홈 인디케이터를 비켜 아래 여백에 안전 영역을 더하고, 가로는 페이지가 여백을 맡는다.
  * 아래 줄에 둘 것이 없으면 줄을 그리지 않는다.
  * 빈 줄을 그리면 그 여백만큼 버튼이 위로 떠 보인다.
- * 호출부는 목록을 받는 중에 왼쪽 자리로 `false`를 넘겨서 값이 있는지로 판단한다.
+ * 목록을 받는 중에는 왼쪽 자리로 `false`가 와서 `undefined`인지가 아니라 값이 있는지로 판단한다.
  */
 export function SessionPageFooter({ landscape, actions, leading, timer }: SessionPageFooterProps) {
   const open = use(SessionPageOpenContext);
