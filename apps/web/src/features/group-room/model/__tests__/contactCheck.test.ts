@@ -1,6 +1,12 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 import { describe, expect, it } from "vitest";
 
 import { CONTACT_BLOCKED_COPY, containsContactOrLink } from "../contactCheck";
+
+const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
 describe("containsContactOrLink", () => {
   it.each([
@@ -59,5 +65,11 @@ describe("containsContactOrLink", () => {
 
   it("안내 문장은 위키 명세 그대로다", () => {
     expect(CONTACT_BLOCKED_COPY).toBe("연락처나 링크는 보낼 수 없어요");
+  });
+
+  // 웹 빌드 대상에 lookbehind를 모르는 Safari 16.0~16.3이 들어 있고, 이 제약은 주석만으로 지켜져 여기서 못 박는다.
+  it("Safari 16.4 미만에서도 모듈을 불러오도록 정규식 lookbehind를 쓰지 않는다", () => {
+    const source = readFileSync(path.resolve(currentDir, "../contactCheck.ts"), "utf-8");
+    expect(source).not.toMatch(/\(\?<[!=]/);
   });
 });
