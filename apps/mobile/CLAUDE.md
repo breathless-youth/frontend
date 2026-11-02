@@ -12,7 +12,7 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 ## 원격 웹뷰 화면
 
 - `react-native-webview`로 `apps/web`을 로드하고, 모든 화면이 `extra.webBaseUrl`이 가리키는 원격 주소를 연다. 카메라 권한 문구는 `app.json`의 `ios.infoPlist.NSCameraUsageDescription` / `android.permissions`(`CAMERA`)에 유지한다(WebView 안 `getUserMedia`도 같은 네이티브 권한 필요). 마이크 권한은 추가하지 않는다(멀티룸 음성 송출 없음). Android는 `android.blockedPermissions`로 `RECORD_AUDIO`를 명시적으로 차단한다 — `expo-camera`가 plugin 없이도 넣기 때문이며, **이 항목을 지우지 말 것**(ADR 0004 "남는 위험").
-- **스플래시는 웹의 `launch-ready`를 받을 때까지 유지한다**(`lib/launchReady.ts`). 웹뷰는 그 뒤에서 이미 그려지고, 홈은 온보딩으로 보낼지 판정한 뒤에 이 신호를 보낸다. 보이는 탭의 신호만 받고, 로드가 실패하거나 3초가 지나면 신호 없이 걷는다. 시작 ATT 창은 스플래시가 걷힌 뒤에 뜬다.
+- **스플래시는 웹의 `launch-ready`를 받을 때까지 유지한다**(`lib/launchReady.ts`). 웹뷰는 그 뒤에서 이미 그려지고, 홈은 온보딩으로 보낼지 판정한 뒤에 이 신호를 보낸다. 보이는 탭의 신호만 받고, 로드가 실패하거나 보이는 탭 웹뷰가 뜬 뒤 3초가 지나면 신호 없이 걷는다. 가입 대기는 이 3초에 넣지 않고, 웹뷰가 끝내 뜨지 않아도 10초면 걷는다. 시작 ATT 창은 스플래시가 걷힌 뒤에 뜬다.
 - **Dev Client가 필요하고 Expo Go는 지원하지 않는다.** 커스텀 엔트리(`index.ts`)가 푸시 모듈을, 그 모듈이 `@react-native-firebase/*`를 정적 import하기 때문이다(Expo Go에 없는 네이티브 모듈). `app.json` `plugins`의 `expo-build-properties`·RNFB config plugin도 prebuild/Dev Client 빌드에서만 적용된다.
 
 ## 카메라 권한 (`expo-camera`, 권한 API만)

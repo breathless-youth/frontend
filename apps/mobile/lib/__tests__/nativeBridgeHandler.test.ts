@@ -424,6 +424,21 @@ describe("handleBridgeMessage", () => {
     expect(initMetaAds).toHaveBeenCalled();
   });
 
+  it("request-push-permission → 묻다가 실패하면 undetermined로 답한다 — 웹이 응답 대기 상한까지 멈추지 않게", async () => {
+    jest.mocked(ensurePushPermission).mockRejectedValue(new Error("native unavailable"));
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const reply = jest.fn();
+
+    handleBridgeMessage({ type: "request-push-permission", atMs: 1 }, reply);
+
+    await waitFor(() =>
+      expect(reply).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "push-permission-result", status: "undetermined" }),
+      ),
+    );
+    warn.mockRestore();
+  });
+
   it("request-push-permission → 거부해도 서버에 꺼짐을 알리도록 토큰 등록을 부른다", async () => {
     jest.mocked(ensurePushPermission).mockResolvedValue("denied");
     const reply = jest.fn();

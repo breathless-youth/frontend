@@ -8,7 +8,7 @@ import {
   attachNativeAnalyticsSink,
   trackNativeEvent,
 } from "../../lib/nativeAnalytics";
-import { markLaunchReady } from "../../lib/launchReady";
+import { markLaunchLoadStarted, markLaunchReady } from "../../lib/launchReady";
 import { handleBridgeMessage } from "../../lib/nativeBridgeHandler";
 import { __resetRemoteQueryParamsCacheForTests } from "../../lib/remoteQueryParams";
 import {
@@ -28,7 +28,10 @@ import { ensureUserRegistered } from "../../lib/userApi";
 
 jest.mock("../../lib/userApi", () => ({ ensureUserRegistered: jest.fn() }));
 jest.mock("../../lib/nativeBridgeHandler", () => ({ handleBridgeMessage: jest.fn() }));
-jest.mock("../../lib/launchReady", () => ({ markLaunchReady: jest.fn() }));
+jest.mock("../../lib/launchReady", () => ({
+  markLaunchReady: jest.fn(),
+  markLaunchLoadStarted: jest.fn(),
+}));
 jest.mock("expo-constants", () => ({
   __esModule: true,
   default: { expoConfig: { extra: { webBaseUrl: "https://web.test" }, version: "1.4.2" } },
@@ -313,6 +316,36 @@ describe("RemoteScreen", () => {
 
     expect(markLaunchReady).toHaveBeenCalledTimes(1);
     expect(mockedHandleBridgeMessage).not.toHaveBeenCalled();
+  });
+
+  it("보이는 탭은 가입이 끝나 웹뷰가 뜬 뒤에야 스플래시 상한을 세기 시작한다", async () => {
+    let finishRegistration: (id: number) => void = () => undefined;
+    mockedEnsureUserRegistered.mockReturnValue(
+      new Promise((resolve) => {
+        finishRegistration = resolve;
+      }),
+    );
+
+    render(<RemoteScreen testID="home-webview" path="/home" />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(markLaunchLoadStarted).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finishRegistration(7);
+    });
+    await screen.findByTestId("home-webview");
+    expect(markLaunchLoadStarted).toHaveBeenCalledTimes(1);
+  });
+
+  it("보이지 않는 탭의 웹뷰는 스플래시 상한을 세기 시작하지 않는다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    render(<RemoteScreen testID="social-webview" path="/social" suppressTabBarMessages />);
+    await screen.findByTestId("social-webview");
+
+    expect(markLaunchLoadStarted).not.toHaveBeenCalled();
   });
 
   it("보이지 않는 탭의 launch-ready는 시작 신호를 켜지 않는다", async () => {

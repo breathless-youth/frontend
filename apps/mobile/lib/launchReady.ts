@@ -3,11 +3,24 @@
  *
  * 홈은 온보딩으로 보낼지 판정한 뒤에 `launch-ready`를 보내고, 앱은 그때까지 스플래시를 유지한다.
  * 신호를 보내지 않는 이전 웹이나 로드 실패에서도 갇히지 않도록 상한이 지나면 기다림을 끝낸다.
+ * 상한은 보이는 탭의 웹뷰가 뜬 때부터 센다. 새 계정은 웹뷰가 뜨기 전에 가입 응답을 기다려서,
+ * 기다리기 시작한 때부터 세면 신호가 오기 전에 스플래시가 걷혀 홈이 비친다.
+ * 가입이 끝나지 않아 웹뷰가 뜨지 않아도 전체 상한이 지나면 걷는다.
  */
 export const LAUNCH_READY_TIMEOUT_MS = 3000;
+export const LAUNCH_READY_MAX_WAIT_MS = 10000;
 
 let ready = false;
 const listeners = new Set<() => void>();
+let loadStarted = false;
+const loadListeners = new Set<() => void>();
+
+export function markLaunchLoadStarted(): void {
+  if (loadStarted) return;
+  loadStarted = true;
+  for (const listener of [...loadListeners]) listener();
+  loadListeners.clear();
+}
 
 export function markLaunchReady(): void {
   if (ready) return;
@@ -16,16 +29,24 @@ export function markLaunchReady(): void {
   listeners.clear();
 }
 
-export function waitForLaunchReady(timeoutMs = LAUNCH_READY_TIMEOUT_MS): Promise<void> {
+export function waitForLaunchReady(): Promise<void> {
   if (ready) return Promise.resolve();
   return new Promise((resolve) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const startTimer = () => {
+      timer = setTimeout(done, LAUNCH_READY_TIMEOUT_MS);
+    };
     const done = () => {
       clearTimeout(timer);
+      clearTimeout(maxTimer);
       listeners.delete(done);
+      loadListeners.delete(startTimer);
       resolve();
     };
-    const timer = setTimeout(done, timeoutMs);
+    const maxTimer = setTimeout(done, LAUNCH_READY_MAX_WAIT_MS);
     listeners.add(done);
+    if (loadStarted) startTimer();
+    else loadListeners.add(startTimer);
   });
 }
 
@@ -53,6 +74,8 @@ export function waitForStartPrompts(): Promise<void> {
 export function __resetLaunchReadyForTests(): void {
   ready = false;
   listeners.clear();
+  loadStarted = false;
+  loadListeners.clear();
   promptsAllowed = false;
   promptListeners.clear();
 }

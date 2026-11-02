@@ -1,6 +1,8 @@
 import {
   __resetLaunchReadyForTests,
+  LAUNCH_READY_MAX_WAIT_MS,
   LAUNCH_READY_TIMEOUT_MS,
+  markLaunchLoadStarted,
   markLaunchReady,
   markStartPromptsAllowed,
   waitForLaunchReady,
@@ -38,11 +40,40 @@ describe("waitForLaunchReady", () => {
     expect(done).toHaveBeenCalledTimes(1);
   });
 
-  it("신호가 오지 않아도 상한이 지나면 끝난다", async () => {
+  it("신호가 오지 않아도 웹뷰가 뜬 뒤 상한이 지나면 끝난다", async () => {
     const done = jest.fn();
     void waitForLaunchReady().then(done);
 
+    // 가입을 기다리는 동안은 상한을 세지 않는다.
+    jest.advanceTimersByTime(LAUNCH_READY_TIMEOUT_MS * 2);
+    await Promise.resolve();
+    expect(done).not.toHaveBeenCalled();
+
+    markLaunchLoadStarted();
     jest.advanceTimersByTime(LAUNCH_READY_TIMEOUT_MS - 1);
+    await Promise.resolve();
+    expect(done).not.toHaveBeenCalled();
+
+    jest.advanceTimersByTime(1);
+    await Promise.resolve();
+    expect(done).toHaveBeenCalledTimes(1);
+  });
+
+  it("웹뷰가 먼저 떴으면 기다리기 시작한 때부터 상한을 센다", async () => {
+    markLaunchLoadStarted();
+    const done = jest.fn();
+    void waitForLaunchReady().then(done);
+
+    jest.advanceTimersByTime(LAUNCH_READY_TIMEOUT_MS);
+    await Promise.resolve();
+    expect(done).toHaveBeenCalledTimes(1);
+  });
+
+  it("웹뷰가 끝내 뜨지 않아도 전체 상한이 지나면 끝난다", async () => {
+    const done = jest.fn();
+    void waitForLaunchReady().then(done);
+
+    jest.advanceTimersByTime(LAUNCH_READY_MAX_WAIT_MS - 1);
     await Promise.resolve();
     expect(done).not.toHaveBeenCalled();
 

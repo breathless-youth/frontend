@@ -164,9 +164,13 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       });
       break;
     case "request-push-permission":
-      void askPushPermission().then((status) =>
-        reply({ type: "push-permission-result", status, atMs: Date.now() }),
-      );
+      void askPushPermission()
+        .catch((error: unknown) => {
+          // 답하지 않으면 웹 온보딩이 응답 대기 상한까지 멈춘다. 물었는지 모르니 미결정으로 답한다.
+          console.warn("[bridge] 알림 권한(request-push-permission) 처리 실패", error);
+          return "undetermined" as const;
+        })
+        .then((status) => reply({ type: "push-permission-result", status, atMs: Date.now() }));
       break;
     case "navigate-home":
       // 결과 화면 버튼과 1분 미만 종료 안내가 보낸다.

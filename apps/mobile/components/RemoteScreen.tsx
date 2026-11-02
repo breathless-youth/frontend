@@ -4,7 +4,7 @@ import { ActivityIndicator, BackHandler, View } from "react-native";
 import type { HandlerMessage, HostPassedMessage, SetTabBarMessage } from "@focusmakers/types";
 
 import { markFirstScreenLoaded } from "../lib/firstScreenLoaded";
-import { markLaunchReady } from "../lib/launchReady";
+import { markLaunchLoadStarted, markLaunchReady } from "../lib/launchReady";
 import { handleBridgeMessage, type BridgeReply } from "../lib/nativeBridgeHandler";
 import { useRemoteQueryParams } from "../lib/remoteQueryParams";
 import { markSessionOpen } from "../lib/sessionPresence";
@@ -194,6 +194,14 @@ export function RemoteScreen({
     }
     onBridgeMessage({ ...last, atMs: Date.now() }, () => undefined);
   }, [suppressTabBarMessages, onBridgeMessage]);
+
+  // 보이는 탭의 웹뷰가 뜨는 순간부터 스플래시 상한을 센다. 그 전의 가입 대기는 상한에 넣지 않는다.
+  const webViewMounted = query !== null;
+  useEffect(() => {
+    if (webViewMounted && !suppressTabBarMessages) {
+      markLaunchLoadStarted();
+    }
+  }, [webViewMounted, suppressTabBarMessages]);
 
   // 웹이 뒤로가기를 잠근 동안은 소셜룸 세션이 진행 중이라, 업데이트 알림창이 끼어들지 않게 세션 중으로 표시한다.
   // 탭 포커스와 상관없이 건다. 뒤로가기 차단과 달리 다른 탭을 보는 사이에도 세션은 이어지기 때문이다.
