@@ -1,22 +1,11 @@
 import { todayKstDateKey } from "@/lib/dateKst";
 
+// 그룹 화면이 시간 표기를 모두 이 모듈에서 가져오도록 랭킹과 함께 쓰는 시계 표기를 다시 내보낸다.
+export { formatClock } from "@/lib/formatClock";
+
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
-
-const pad2 = (value: number) => String(value).padStart(2, "0");
-
-/**
- * 순공 시계 표기
- *
- * 이번 주 순공은 100시간을 넘을 수 있어 시는 자리 수를 정하지 않고 분과 초만 두 자리로 채운다.
- */
-export function formatClock(totalSec: number): string {
-  const sec = Math.max(0, Math.floor(totalSec));
-  const hours = Math.floor(sec / 3600);
-  const minutes = Math.floor((sec % 3600) / 60);
-  return `${hours}:${pad2(minutes)}:${pad2(sec % 60)}`;
-}
 
 /**
  * 시간과 분 표기
