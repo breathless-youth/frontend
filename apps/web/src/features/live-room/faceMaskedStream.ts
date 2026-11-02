@@ -66,7 +66,12 @@ export interface FaceMaskedStream {
   setSticker(url: string): void;
   start(): void;
   pause(): void;
-  /** 개발 빌드 측정용 */
+  /**
+   * 그리기를 멈추고 송신 트랙과 GPU 연결을 놓는다.
+   * 해제한 뒤에는 다시 쓰지 않는다.
+   */
+  dispose(): void;
+  /** 측정용 */
   stats(): FaceMaskedStreamStats;
 }
 
@@ -193,18 +198,27 @@ function buildFaceMaskedStream(video: () => HTMLVideoElement | null): FaceMasked
 
   // 끊긴 동안 그리지 않으면 상대에게는 마지막 가린 프레임이 남는다.
   // 기본 동작대로 두면 복구 이벤트가 오지 않아 preventDefault로 복구를 요청한다.
-  canvas.addEventListener("webglcontextlost", (event) => {
+  function onContextLost(event: Event): void {
     event.preventDefault();
     lost = true;
-  });
-  canvas.addEventListener("webglcontextrestored", () => {
+  }
+  function onContextRestored(): void {
     gpu = setup(gl);
     lost = gpu === null;
     smallSize = { width: 0, height: 0 };
     if (gpu !== null && stickerImage !== null) {
       uploadSticker(gpu, stickerImage);
     }
-  });
+  }
+  canvas.addEventListener("webglcontextlost", onContextLost);
+  canvas.addEventListener("webglcontextrestored", onContextRestored);
+
+  function pause(): void {
+    if (timer !== null) {
+      clearInterval(timer);
+      timer = null;
+    }
+  }
 
   function average(previous: number, sample: number): number {
     return previous === 0 ? sample : previous * 0.9 + sample * 0.1;
@@ -323,11 +337,17 @@ function buildFaceMaskedStream(video: () => HTMLVideoElement | null): FaceMasked
     start() {
       timer ??= setInterval(draw, 1000 / SEND_FPS);
     },
-    pause() {
-      if (timer !== null) {
-        clearInterval(timer);
-        timer = null;
+    pause,
+    dispose() {
+      pause();
+      canvas.removeEventListener("webglcontextlost", onContextLost);
+      canvas.removeEventListener("webglcontextrestored", onContextRestored);
+      for (const track of stream.getTracks()) {
+        track.stop();
       }
+      // 웹뷰는 살아 있는 WebGL 컨텍스트 수가 적어, 가비지 컬렉션을 기다리면 다시 입장할 때 오래된 것부터 강제로 끊긴다.
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
+      gpu = null;
     },
     stats() {
       const now = performance.now();

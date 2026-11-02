@@ -7,7 +7,7 @@ import {
   trackSocialRoomFaceMaskToggled,
 } from "@/lib/amplitude";
 
-import type { FaceMaskedStreamStats } from "./faceMaskedStream";
+import type { FaceMaskedStream, FaceMaskedStreamStats } from "./faceMaskedStream";
 import { createFaceMaskedStream } from "./faceMaskedStream";
 import {
   faceMaskEmojiOf,
@@ -32,16 +32,33 @@ export interface FaceMaskedSend {
   readonly debugLine: string;
 }
 
+/** 합성기를 만들기 전에는 켜 둔 선택이면 아무것도 보내지 않아, 원본이 잠깐이라도 나가지 않게 한다. */
+function sendStreamOf(
+  cameraStream: MediaStream | null,
+  compositor: FaceMaskedStream | null | undefined,
+  preferredOn: boolean,
+): MediaStream | null {
+  if (cameraStream === null || !preferredOn) {
+    return cameraStream;
+  }
+  if (compositor === undefined) {
+    return null;
+  }
+  return compositor === null ? cameraStream : compositor.stream;
+}
+
 /**
  * 소셜룸 송신 영상의 얼굴 가리기
  *
- * 합성기를 한 번 만들고, 감지기의 이모지 자리를 넘기고, 스위치에 따라 합성을 켜고 끈다.
+ * 합성기를 만들고, 감지기의 이모지 자리를 넘기고, 스위치와 카메라 상태에 따라 합성을 켜고 끈다.
  * 보낼 스트림은 가리기가 켜져 있고 합성을 쓸 수 있을 때만 합성 스트림이다.
+ * `active`는 카메라가 켜져 있거나 켜기 확인 창이 열려 있을 때 참이고, 거짓이면 보낼 것도 보여 줄 것도 없어 그리지 않는다.
  */
 export function useFaceMaskedSend({
   sourceRef,
   visionDetector,
   cameraStream,
+  active,
   createCompositor = createFaceMaskedStream,
 }: {
   sourceRef: RefObject<HTMLVideoElement | null>;
@@ -50,11 +67,20 @@ export function useFaceMaskedSend({
     "subscribeFaceSpot" | "preload" | "faceStatus" | "subscribeFaceStatus"
   >;
   cameraStream: MediaStream | null;
+  active: boolean;
   createCompositor?: typeof createFaceMaskedStream;
 }): FaceMaskedSend {
-  // eslint-disable-next-line react-hooks/refs -- video 게터는 그리기 타이머가 부른다. 생성 중에는 부르지 않는다
-  const [compositor] = useState(() => createCompositor(() => sourceRef.current));
-  const supported = compositor !== null;
+  // undefined는 아직 만들기 전, null은 이 기기에서 쓸 수 없다는 뜻이다.
+  const [compositor, setCompositor] = useState<FaceMaskedStream | null | undefined>(undefined);
+  const [create] = useState(() => createCompositor);
+  // GPU 자원이라 effect에서 만들고 정리 함수에서 해제한다.
+  // StrictMode가 effect를 한 번 더 돌려도 해제된 합성기 대신 새로 만든 것을 쓴다.
+  useEffect(() => {
+    const created = create(() => sourceRef.current);
+    setCompositor(created);
+    return () => created?.dispose();
+  }, [create, sourceRef]);
+  const supported = compositor != null;
   const [preferredOn, setPreferredOn] = useState(readFaceMaskOn);
   const on = supported && preferredOn;
   const [emojiId, setEmojiIdState] = useState(readFaceMaskEmojiId);
@@ -79,12 +105,12 @@ export function useFaceMaskedSend({
   useEffect(() => compositor?.setSticker(faceMaskEmojiOf(emojiId).url), [compositor, emojiId]);
   // 스위치를 끄면 원본을 보내므로 그리기도 멈춘다.
   useEffect(() => {
-    if (!on || compositor === null) {
+    if (!on || !active || compositor == null) {
       return;
     }
     compositor.start();
     return () => compositor.pause();
-  }, [compositor, on]);
+  }, [compositor, on, active]);
   // 카메라를 끈 채 입장해도 켜기 미리보기에 이모지가 바로 붙도록 모델만 먼저 준비한다.
   useEffect(() => {
     if (supported && cameraStream !== null) {
@@ -95,7 +121,7 @@ export function useFaceMaskedSend({
   // 측정 스크립트가 원격 디버깅으로 통계를 읽고, 디버그 오버레이가 한 줄로 보여 준다.
   const [debugLine, setDebugLine] = useState("");
   useEffect(() => {
-    if (!import.meta.env.DEV || compositor === null) {
+    if (!import.meta.env.DEV || compositor == null) {
       return;
     }
     const target = window as unknown as { __faceMaskStats?: () => FaceMaskedStreamStats };
@@ -127,8 +153,7 @@ export function useFaceMaskedSend({
     },
     faceSpot,
     maskedStream: compositor?.stream ?? null,
-    sendStream:
-      cameraStream === null ? null : on && compositor !== null ? compositor.stream : cameraStream,
+    sendStream: sendStreamOf(cameraStream, compositor, preferredOn),
     debugLine,
   };
 }

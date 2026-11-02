@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type * as Amplitude from "@/lib/amplitude";
@@ -25,6 +26,7 @@ function fakeCompositor() {
     setSticker: vi.fn(),
     start: vi.fn(),
     pause: vi.fn(),
+    dispose: vi.fn(),
     stats: () => ({ height: 360, fps: 15, videoMs: 1, stickerMs: 0 }),
   };
   return compositor;
@@ -81,6 +83,7 @@ describe("useFaceMaskedSend", () => {
         sourceRef,
         visionDetector: detector,
         cameraStream: camera,
+        active: true,
         createCompositor: () => compositor,
       }),
     );
@@ -100,6 +103,7 @@ describe("useFaceMaskedSend", () => {
         sourceRef,
         visionDetector: detector,
         cameraStream: camera,
+        active: true,
         createCompositor: () => compositor,
       }),
     );
@@ -120,6 +124,7 @@ describe("useFaceMaskedSend", () => {
         sourceRef,
         visionDetector: detector,
         cameraStream: camera,
+        active: true,
         createCompositor: () => compositor,
       }),
     );
@@ -134,6 +139,7 @@ describe("useFaceMaskedSend", () => {
         sourceRef,
         visionDetector: detector,
         cameraStream: camera,
+        active: true,
         createCompositor: () => null,
       }),
     );
@@ -151,6 +157,7 @@ describe("useFaceMaskedSend", () => {
         sourceRef,
         visionDetector: detector,
         cameraStream: null,
+        active: true,
         createCompositor: () => fakeCompositor(),
       }),
     );
@@ -166,6 +173,7 @@ describe("useFaceMaskedSend", () => {
         sourceRef,
         visionDetector: detector,
         cameraStream: camera,
+        active: true,
         createCompositor: () => compositor,
       }),
     );
@@ -184,6 +192,7 @@ describe("useFaceMaskedSend", () => {
         sourceRef,
         visionDetector: detector,
         cameraStream: camera,
+        active: true,
         createCompositor: () => compositor,
       }),
     );
@@ -210,6 +219,7 @@ describe("useFaceMaskedSend", () => {
           sourceRef,
           visionDetector: detector,
           cameraStream: stream,
+          active: true,
           createCompositor: () => compositor,
         }),
       { initialProps: { stream: camera } },
@@ -230,6 +240,7 @@ describe("useFaceMaskedSend", () => {
         sourceRef,
         visionDetector: detector,
         cameraStream: camera,
+        active: true,
         createCompositor: () => compositor,
       }),
     );
@@ -249,6 +260,7 @@ describe("useFaceMaskedSend", () => {
         sourceRef,
         visionDetector: detector,
         cameraStream: camera,
+        active: true,
         createCompositor: () => compositor,
       }),
     );
@@ -257,6 +269,98 @@ describe("useFaceMaskedSend", () => {
     expect(result.current.emojiId).toBe(first);
     expect(localStorage.getItem("focusmakers.socialFaceMaskEmoji")).toBe(first);
     expect(mocks.emojiSelected).toHaveBeenCalledWith(first);
+  });
+
+  it("합성기를 만들기 전 첫 렌더에도 켜 둔 선택이면 원본을 보내지 않는다", () => {
+    localStorage.setItem("focusmakers.socialFaceMask", "on");
+    const compositor = fakeCompositor();
+    const detector = fakeDetector();
+    const sent: (MediaStream | null)[] = [];
+    renderHook(() => {
+      const send = useFaceMaskedSend({
+        sourceRef,
+        visionDetector: detector,
+        cameraStream: camera,
+        active: true,
+        createCompositor: () => compositor,
+      });
+      sent.push(send.sendStream);
+      return send;
+    });
+    expect(sent).not.toContain(camera);
+    expect(sent.at(-1)).toBe(compositor.stream);
+  });
+
+  it("가리는 중에 언마운트하면 그리기를 멈추고 합성기를 해제한다", () => {
+    localStorage.setItem("focusmakers.socialFaceMask", "on");
+    const compositor = fakeCompositor();
+    const detector = fakeDetector();
+    const { unmount } = renderHook(() =>
+      useFaceMaskedSend({
+        sourceRef,
+        visionDetector: detector,
+        cameraStream: camera,
+        active: true,
+        createCompositor: () => compositor,
+      }),
+    );
+    expect(compositor.start).toHaveBeenCalled();
+    expect(compositor.dispose).not.toHaveBeenCalled();
+    unmount();
+    expect(compositor.pause).toHaveBeenCalled();
+    expect(compositor.dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("StrictMode 재마운트에서도 해제되지 않은 합성기를 쓴다", () => {
+    localStorage.setItem("focusmakers.socialFaceMask", "on");
+    const created: FaceMaskedStream[] = [];
+    const detector = fakeDetector();
+    const { result } = renderHook(
+      () =>
+        useFaceMaskedSend({
+          sourceRef,
+          visionDetector: detector,
+          cameraStream: camera,
+          active: true,
+          createCompositor: () => {
+            const compositor = fakeCompositor();
+            created.push(compositor);
+            return compositor;
+          },
+        }),
+      { wrapper: StrictMode },
+    );
+    const live = created.at(-1)!;
+    expect(live.dispose).not.toHaveBeenCalled();
+    expect(result.current.sendStream).toBe(live.stream);
+    expect(live.start).toHaveBeenCalled();
+    for (const disposed of created.slice(0, -1)) {
+      expect(disposed.dispose).toHaveBeenCalled();
+    }
+  });
+
+  it("카메라도 꺼져 있고 켜기 창도 닫혀 있으면 그리지 않는다", () => {
+    localStorage.setItem("focusmakers.socialFaceMask", "on");
+    const compositor = fakeCompositor();
+    const detector = fakeDetector();
+    const { rerender } = renderHook(
+      ({ active }: { active: boolean }) =>
+        useFaceMaskedSend({
+          sourceRef,
+          visionDetector: detector,
+          cameraStream: camera,
+          active,
+          createCompositor: () => compositor,
+        }),
+      { initialProps: { active: false } },
+    );
+    expect(compositor.start).not.toHaveBeenCalled();
+
+    rerender({ active: true });
+    expect(compositor.start).toHaveBeenCalledTimes(1);
+
+    rerender({ active: false });
+    expect(compositor.pause).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -25,6 +25,7 @@ import type * as AmplitudeModule from "@/lib/amplitude";
 import type * as MetaAppEventsModule from "@/lib/metaAppEvents";
 import { renewLiveRoomSeat, leaveRoom } from "@/lib/roomApi";
 import { AUTO_HIDE_MS } from "@/features/live-room/useAutoHideControls";
+import type { FaceMaskedStream } from "@/features/live-room/faceMaskedStream";
 import type * as AmbientPlayerModule from "@/features/ambient-sound/ambientPlayer";
 import {
   DEFAULT_AMBIENT_SETTINGS,
@@ -67,6 +68,13 @@ vi.mock("@/features/study-session/submitStudySession", () => ({
 
 const haptic = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/haptics", () => ({ haptic }));
+
+// jsdom에는 캔버스 영상 송신이 없어 합성기는 늘 미지원이다.
+// 얼굴 가리기 연결을 보는 테스트만 가짜 합성기를 넣는다.
+const faceMaskCompositor = vi.hoisted(() => ({ current: null as FaceMaskedStream | null }));
+vi.mock("@/features/live-room/faceMaskedStream", () => ({
+  createFaceMaskedStream: () => faceMaskCompositor.current,
+}));
 
 const share = vi.hoisted(() => ({
   shareInvite: vi.fn(),
@@ -766,6 +774,41 @@ describe("LiveRoomPage — 그리드·타일", () => {
       });
     } finally {
       spy.mockRestore();
+    }
+  });
+
+  it("얼굴 가리기 합성은 카메라가 켜져 있거나 켜기 창이 열린 동안에만 돈다", async () => {
+    let drawing = false;
+    faceMaskCompositor.current = {
+      stream: { getVideoTracks: () => [] } as unknown as MediaStream,
+      setSpot: vi.fn(),
+      setSticker: vi.fn(),
+      start: () => {
+        drawing = true;
+      },
+      pause: () => {
+        drawing = false;
+      },
+      dispose: vi.fn(),
+      stats: () => ({ height: 360, fps: 15, videoMs: 1, stickerMs: 0 }),
+    };
+    localStorage.setItem("focusmakers.socialFaceMask", "on");
+    try {
+      renderRoom();
+      await enterRoom();
+      expect(drawing).toBe(false);
+
+      await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
+      expect(drawing).toBe(true);
+
+      await userEvent.click(screen.getByRole("button", { name: "취소" }));
+      expect(drawing).toBe(false);
+
+      await turnCameraOn();
+      expect(drawing).toBe(true);
+    } finally {
+      faceMaskCompositor.current = null;
+      localStorage.removeItem("focusmakers.socialFaceMask");
     }
   });
 

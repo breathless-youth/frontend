@@ -306,7 +306,19 @@ export function LiveRoomSession({
       }
     : undefined;
 
-  const faceMask = useFaceMaskedSend({ sourceRef: videoRef, visionDetector, cameraStream });
+  // 표시용 카메라 상태는 획득 실패(권한 거부 등)도 꺼짐으로 취급한다 — 검은 화면을
+  // 켜짐으로 그리지 않는다. 컨트롤은 일시정지 여부만 본다: 룸의 카메라 끔 = 측정
+  // 일시정지와 동일하고, 획득 실패의 온전한 처리(수동 타이머 모드)는 별도 티켓이다.
+  const paused = sessionState.kind === "PAUSE";
+  const cameraOn = !paused && isCameraRunning;
+
+  const [cameraDialogOpen, setCameraDialogOpen] = useState(false);
+  const faceMask = useFaceMaskedSend({
+    sourceRef: videoRef,
+    visionDetector,
+    cameraStream,
+    active: cameraOn || cameraDialogOpen,
+  });
   const remoteStreams = usePeerMesh({
     channel,
     roomId,
@@ -337,12 +349,6 @@ export function LiveRoomSession({
       visionDetector.close();
     };
   }, [visionDetector]);
-
-  // 표시용 카메라 상태는 획득 실패(권한 거부 등)도 꺼짐으로 취급한다 — 검은 화면을
-  // 켜짐으로 그리지 않는다. 컨트롤은 일시정지 여부만 본다: 룸의 카메라 끔 = 측정
-  // 일시정지와 동일하고, 획득 실패의 온전한 처리(수동 타이머 모드)는 별도 티켓이다.
-  const paused = sessionState.kind === "PAUSE";
-  const cameraOn = !paused && isCameraRunning;
 
   // 서버에 알리는 카메라 상태 — 사용자 의도(cameraWanted)를 함께 본다. 끄고 입장의
   // 첫 렌더는 pause가 effect로 적용되기 전이라, paused만 보면 켜짐이 먼저 새 나간다.
@@ -388,7 +394,6 @@ export function LiveRoomSession({
   });
 
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
-  const [cameraDialogOpen, setCameraDialogOpen] = useState(false);
   // 일시정지 중 카메라 켜기 미리보기가 열려 있으면 이모지 자리만 구한다.
   // 세션 판정에는 넣지 않는다.
   const previewDetection = !detectionEnabled && cameraDialogOpen && faceMask.on;
