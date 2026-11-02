@@ -1193,12 +1193,6 @@ export function trackRankingGainCardShown(input: {
   });
 }
 
-/** 공부 결과 랭킹 카드의 `랭킹 보기`. */
-export function trackRankingGainCardTapped(roomType: StudyRoomType) {
-  if (!initialized) return;
-  track("ranking_gain_card_tapped", { room_type: roomType });
-}
-
 /** 플래너 진입. `via`는 들어온 곳, `isToday`는 오늘(플래너 기준) 플래너인지. */
 export function trackPlannerOpened(input: {
   readonly via: "records" | "home" | "unknown";
@@ -1486,11 +1480,10 @@ export function trackProfileImageUploadFailed(reason: ProfileImageUploadFailure)
 /**
  * S4 결과 화면을 떠남 — 하단 CTA `홈으로`(`home`: 솔로는 앱 홈, 소셜은 소셜 홈) 또는
  * `기록으로 가기`(`records`: 기록 탭). BY-560 전에는 단일 `확인`(`cta`)과 우상단 X(`close`)였다.
- * 결과 랭킹 카드의 `랭킹 보기 ›`로 나가면 `ranking`이다.
  */
 export function trackStudyResultConfirmed(input: {
   readonly roomType: StudyRoomType;
-  readonly via: "home" | "records" | "ranking";
+  readonly via: "home" | "records";
 }) {
   if (!initialized) return;
   track("study_result_confirmed", { room_type: input.roomType, via: input.via });
@@ -1519,18 +1512,17 @@ const PENDING_EXIT_TTL_MS = 10 * 60_000;
  * 것만으로 다섯 웹뷰가 동시에 예약을 집어가 엉뚱한 탭에서 설문이 열리고(사용자는 못 보는데 노출
  * 쿨다운만 소모된다) `destination`도 먼저 실행된 탭 값으로 잘못 찍힌다.
  */
-export type ResultExitPath = "/home" | "/social" | "/records" | "/ranking";
+export type ResultExitPath = "/home" | "/social" | "/records";
 
 /**
  * 도착 화면별 `destination` 값
  *
  * 소셜 탭 복귀도 홈 복귀로 세고, 솔로와 소셜은 `room_type`이 가른다.
  */
-const EXIT_DESTINATION: Record<ResultExitPath, "home" | "record" | "ranking"> = {
+const EXIT_DESTINATION: Record<ResultExitPath, "home" | "record"> = {
   "/home": "home",
   "/social": "home",
   "/records": "record",
-  "/ranking": "ranking",
 };
 
 interface PendingResultExit {

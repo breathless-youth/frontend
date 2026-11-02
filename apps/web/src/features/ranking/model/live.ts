@@ -6,7 +6,7 @@ import type {
 } from "@focusmakers/types";
 
 import { SLOT_SUBJECT, currentSlot, isOffSlot, isTimeType } from "./board";
-import { formatGap } from "./format";
+import { formatGap, formatRank } from "./format";
 import { offSlotNotice } from "./labels";
 
 export interface LiveRow extends RankingEntry {
@@ -59,16 +59,48 @@ export function hasFocusing(board: RankingBoardResponse): boolean {
 }
 
 /**
- * 연달아 받은 두 응답 비교
+ * 기준선 대비 순위 변동
  *
- * 내 순위가 내려간 계단 수를 돌려주고, 오르거나 그대로면 0이다.
+ * 오른 계단 수는 양수, 내려간 계단 수는 음수로 돌려준다.
  * 어느 한쪽에 내 순위가 없으면 비교하지 않는다.
+ * 기간이 다르면 다른 기간 순위끼리 비교하게 되므로 신선한 판이 기준선을 다시 잡을 때까지 비워 둔다.
  */
-export function rankDrop(prev: RankingBoardResponse, next: RankingBoardResponse): number {
-  if (prev.me === null || next.me === null) {
-    return 0;
+export function rankChange(
+  baseline: Pick<RankingBoardResponse, "me" | "periodStart"> | null,
+  board: Pick<RankingBoardResponse, "me" | "periodStart">,
+): number | null {
+  if (
+    baseline === null ||
+    baseline.me === null ||
+    board.me === null ||
+    baseline.periodStart !== board.periodStart
+  ) {
+    return null;
   }
-  return Math.max(0, next.me.rank - prev.me.rank);
+  return baseline.me.rank - board.me.rank;
+}
+
+export type RankChangeTone = "rise" | "drop" | "same";
+
+/**
+ * 순위 변동 표기
+ *
+ * 기호는 화면 낭독기가 기호 이름으로 읽어 뜻이 전해지지 않아 읽을 문장을 따로 둔다.
+ * 그대로를 뜻하는 `-`는 알릴 변화가 없어 읽지 않는다.
+ */
+export function formatRankChange(change: number): {
+  text: string;
+  spoken: string | null;
+  tone: RankChangeTone;
+} {
+  const steps = formatRank(Math.abs(change));
+  if (change > 0) {
+    return { text: `▲${steps}`, spoken: `${steps}계단 올랐어요`, tone: "rise" };
+  }
+  if (change < 0) {
+    return { text: `▼${steps}`, spoken: `${steps}계단 내려갔어요`, tone: "drop" };
+  }
+  return { text: "-", spoken: null, tone: "same" };
 }
 
 /**
@@ -176,66 +208,40 @@ export function liveCapSec(
   return Math.max(0, Math.floor(cap));
 }
 
-export const DROP_BADGE_MS = 4000;
-
 export interface LiveTrackInput {
   key: string;
   visible: boolean;
   board: RankingBoardResponse | undefined;
-  updatedAt: number;
-}
-
-export interface LiveTrack {
-  key: string;
-  visible: boolean;
   /**
-   * 마지막으로 본 응답.
-   * 같은 응답을 두 번 비교하지 않으려고 둔다.
+   * 받아 둔 판이 신선한지.
+   * 내용이 같은 새 응답은 같은 객체로 남아 참조로는 새 응답을 알 수 없어 이 값으로 구분한다.
    */
-  seen: RankingBoardResponse | undefined;
-  /**
-   * 비교 기준.
-   * 판을 바꾸거나 가려지면 비우고, 그 뒤 처음 오는 새 응답으로 채운다.
-   */
-  baseline: RankingBoardResponse | null;
-  drop: { count: number; at: number } | null;
-}
-
-export function startLiveTrack(input: LiveTrackInput): LiveTrack {
-  return {
-    key: input.key,
-    visible: input.visible,
-    seen: input.board,
-    baseline: null,
-    drop: null,
-  };
+  fresh: boolean;
 }
 
 /**
- * 비교 기준 한 단계 진행
+ * 판 하나의 다음 기준선
  *
- * 판이나 보임 여부가 바뀌면 처음부터 다시 시작해 그사이 변화를 ▼N로 보여주지 않는다.
- * 기간이 새로 시작되면 새 응답을 기준으로 다시 시작한다.
- * 바뀐 게 없으면 같은 객체를 돌려준다.
+ * 기준선은 사용자가 이 판에서 처음 본 순위라 가려진 동안에는 잡지 않고, 화면이 보일 때 신선한 판이면 그 판을 처음 본 판으로 친다.
+ * 오래된 캐시로 잡으면 새 응답이 오자마자 실제로 움직이지 않은 순위가 바뀐 것처럼 보인다.
+ * 기간이 새로 시작되면 직전 기간 순위와 비교하지 않도록 새 판으로 다시 잡는다.
+ * 처음 볼 때 내 순위가 없었으면 순위가 처음 생긴 판으로 다시 잡아 그 뒤 변동을 보인다.
+ * 바뀐 게 없으면 받은 기준선을 그대로 돌려준다.
  */
-export function advanceLiveTrack(track: LiveTrack, input: LiveTrackInput): LiveTrack {
-  if (track.key !== input.key || track.visible !== input.visible) {
-    return startLiveTrack(input);
+export function nextBaseline(
+  baseline: RankingBoardResponse | undefined,
+  input: Omit<LiveTrackInput, "key">,
+): RankingBoardResponse | undefined {
+  const { board } = input;
+  if (!input.visible || !input.fresh || board === undefined) {
+    return baseline;
   }
-  if (!input.visible || input.board === undefined || input.board === track.seen) {
-    return track;
+  if (
+    baseline === undefined ||
+    board.periodStart !== baseline.periodStart ||
+    (baseline.me === null && board.me !== null)
+  ) {
+    return board;
   }
-  if (track.baseline === null) {
-    return { ...track, seen: input.board, baseline: input.board };
-  }
-  if (input.board.periodStart !== track.baseline.periodStart) {
-    return { ...startLiveTrack(input), baseline: input.board };
-  }
-  const drop = rankDrop(track.baseline, input.board);
-  return {
-    ...track,
-    seen: input.board,
-    baseline: input.board,
-    drop: drop > 0 ? { count: drop, at: input.updatedAt } : track.drop,
-  };
+  return baseline;
 }

@@ -18,6 +18,7 @@ import {
   setBoardMemoryStore,
   takeRecordsPageRequest,
 } from "@/features/ranking/model/boardMemory";
+import { __resetBoardLiveForTests } from "@/features/ranking/useBoardLive";
 import type * as Amplitude from "@/lib/amplitude";
 import {
   getRankingBoard,
@@ -26,10 +27,12 @@ import {
 } from "@/lib/rankingApi";
 import {
   FIXTURE_FOCUS_WEEKLY,
+  FIXTURE_OVERTAKEN,
   FIXTURE_RATE_WEEKLY,
   FIXTURE_RESET_DAILY,
   FIXTURE_RESET_PREVIOUS,
   FIXTURE_SLOT_DAILY,
+  FIXTURE_STREAK,
   FIXTURE_SUMMARY,
   FIXTURE_TOTAL_DAYS,
 } from "@/lib/rankingFixtures";
@@ -94,6 +97,7 @@ afterEach(() => {
   // 그대로 두면 아래 포커스 초기화가 아직 붙어 있는 화면에 기억을 다시 읽게 해 act 경고가 난다.
   cleanup();
   resetBoardMemoryStore();
+  __resetBoardLiveForTests();
   focusManager.setFocused(undefined);
   onlineManager.setOnline(true);
   vi.clearAllMocks();
@@ -377,70 +381,139 @@ describe("RankingPage", () => {
     expect(await within(sheet).findByText("모두 19번")).toBeInTheDocument();
   });
 
-  describe("누적 일수 판", () => {
-    function openTotalDays(board: RankingBoardResponse) {
+  describe("순위 변동", () => {
+    it("순공 판은 연 시점보다 내려간 순위를 내 줄에 ▼N으로 남기고 화면 낭독기에 알린다", async () => {
+      const client = renderPage();
+      const mine = await screen.findByRole("listitem", { current: true });
+      expect(mine).toHaveTextContent(/^-오오늘도출석/);
+
+      vi.mocked(getRankingBoard).mockResolvedValue({ ...FIXTURE_OVERTAKEN, period: "DAILY" });
+      await act(async () => {
+        await client.refetchQueries({ queryKey: ["ranking", "board"] });
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      expect(screen.getByRole("listitem", { current: true })).toHaveTextContent(/^▼3오오늘도출석/);
+      expect(
+        within(screen.getByRole("region", { name: "내 주변 순위" })).getByRole("status"),
+      ).toHaveTextContent("순위가 3계단 내려갔어요");
+    });
+
+    it("가려진 동안 순위가 바뀌면 다시 보일 때 처음 본 순위와 비교해 한 번만 알린다", async () => {
+      const client = renderPage();
+      expect(await screen.findByRole("listitem", { current: true })).toHaveTextContent(
+        /^-오오늘도출석/,
+      );
+      const status = within(screen.getByRole("region", { name: "내 주변 순위" })).getByRole(
+        "status",
+      );
+      // 글이 바뀐 묶음마다 그때의 글을 적어 가려진 동안과 다시 보인 뒤에 몇 번 바뀌었는지 센다.
+      const changes: string[] = [];
+      const observer = new MutationObserver(() => changes.push(status.textContent ?? ""));
+      observer.observe(status, { childList: true, characterData: true, subtree: true });
+      const takeChanges = () => {
+        if (observer.takeRecords().length > 0) {
+          changes.push(status.textContent ?? "");
+        }
+        return changes;
+      };
+      const poll = () =>
+        act(async () => {
+          await client.refetchQueries({ queryKey: ["ranking", "board"] });
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        });
+
+      act(() => focusManager.setFocused(false));
+      vi.mocked(getRankingBoard).mockResolvedValue({ ...FIXTURE_OVERTAKEN, period: "DAILY" });
+      await poll();
+      expect(takeChanges()).toEqual([]);
+
+      act(() => focusManager.setFocused(true));
+      await poll();
+      expect(screen.getByRole("listitem", { current: true })).toHaveTextContent(/^▼3오오늘도출석/);
+      expect(takeChanges()).toEqual(["순위가 3계단 내려갔어요"]);
+
+      await poll();
+      observer.disconnect();
+      expect(takeChanges()).toEqual(["순위가 3계단 내려갔어요"]);
+    });
+
+    it("집중률 판과 지금 구간이 아닌 시간대 판에는 변동 칸이 없어 내 줄이 아바타부터 시작한다", async () => {
+      /** 내 줄의 맨 앞 칸. 빈 변동 칸이 있으면 글자가 없다. */
+      const myFirstCell = () =>
+        screen.getByRole("listitem", { current: true }).firstElementChild!.firstElementChild;
+      renderPage();
+      await screen.findByRole("heading", { name: "오늘 TOP 3" });
+
+      await userEvent.click(screen.getByRole("tab", { name: "집중률" }));
+      await screen.findByRole("heading", { name: "집중률 TOP 3" });
+      expect(myFirstCell()).toHaveTextContent(/^오$/);
+
+      // 응답 시각이 점심이라 아침 판은 지금 구간이 아니다.
+      await userEvent.click(screen.getByRole("tab", { name: "시간대" }));
+      await screen.findByRole("heading", { name: "아침 구간 TOP 3" });
+      expect(myFirstCell()).toHaveTextContent(/^오$/);
+    });
+  });
+
+  describe("일수 판", () => {
+    function openHall(type: "TOTAL_DAYS" | "MAX_STREAK", board: RankingBoardResponse) {
       store.write(
         JSON.stringify({
           active: "hall",
           ranking: { type: "FOCUS_TIME", period: "WEEKLY" },
-          hall: { type: "TOTAL_DAYS" },
+          hall: { type },
         }),
       );
       vi.mocked(getRankingBoard).mockResolvedValue(board);
       renderPage();
     }
 
-    it("같은 일수 묶음 목록을 보이고 한 사람씩인 목록은 두지 않는다", async () => {
-      openTotalDays(FIXTURE_TOTAL_DAYS);
+    it("누적 일수 판은 사람마다 한 줄인 내 주변 목록을 순위 숫자와 변동 칸 없이 보인다", async () => {
+      openHall("TOTAL_DAYS", FIXTURE_TOTAL_DAYS);
 
-      const list = await screen.findByRole("region", { name: "내 주변 누적 일수 순위" });
+      const list = await screen.findByRole("region", { name: "내 주변 순위" });
       expect(within(list).getAllByRole("listitem")).toHaveLength(5);
       expect(within(list).getByRole("listitem", { current: true })).toHaveTextContent(
-        "1,530오늘도출석 외 7명64일",
+        /^오오늘도출석64일$/,
       );
-      expect(screen.queryByRole("region", { name: "내 주변 순위" })).toBeNull();
+      expect(within(list).queryByText(/1,5\d\d/)).toBeNull();
     });
 
-    it("다른 사람과 같은 일수로 공동 1위면 1위 지키는 중 카드와 내 묶음부터 3묶음을 보인다", async () => {
-      const [top, ...rest] = FIXTURE_TOTAL_DAYS.podiumGroups!;
-      const podium = [{ ...top!, nickname: "오늘도출석", me: true, myOrder: 2 }, ...rest];
-      // 서버는 내 묶음이 맨 앞이면 뒤 4묶음을 더 보낸다.
+    it("누적 일수 판 1위면 1위 지키는 중 카드와 나와 뒤 2명을 보인다", async () => {
       const around = [
-        ...podium,
-        { ...rest[1]!, days: 340, rank: 7, nickname: "형광펜", othersCount: 0 },
-        { ...rest[1]!, days: 333, rank: 8, nickname: "커피세잔", othersCount: 2 },
+        { rank: 1, nickname: "오늘도출석", value: 412, focusing: false, me: true },
+        { rank: 2, nickname: "합격기원", value: 388, focusing: false, me: false },
+        { rank: 3, nickname: "공시생J", value: 351, focusing: false, me: false },
+        { rank: 4, nickname: "형광펜", value: 340, focusing: false, me: false },
+        { rank: 5, nickname: "커피세잔", value: 333, focusing: false, me: false },
       ];
-      openTotalDays({
+      openHall("TOTAL_DAYS", {
         ...FIXTURE_TOTAL_DAYS,
+        podium: around.slice(0, 3),
         me: { rank: 1, value: 412, focusing: false, topPercent: 1 },
+        around,
         above: null,
         below: { nickname: "합격기원", gap: 24, focusing: false },
         nextTier: null,
-        podiumGroups: podium,
-        aroundGroups: around,
       });
 
-      const list = await screen.findByRole("region", { name: "내 주변 누적 일수 순위" });
+      const list = await screen.findByRole("region", { name: "내 주변 순위" });
       expect(paragraph("1위 지키는 중")).toBeInTheDocument();
       const items = within(list).getAllByRole("listitem");
       expect(items).toHaveLength(3);
       expect(items[0]).toHaveAttribute("aria-current", "true");
-      expect(items[0]).toHaveTextContent("1오늘도출석 외 2명412일");
-      expect(items[2]).toHaveTextContent("5공시생J 외 1명351일");
-      expect(screen.queryByRole("region", { name: "내 주변 순위" })).toBeNull();
+      expect(items[2]).toHaveTextContent(/^공공시생J351일$/);
     });
 
-    it("묶음이 오지 않으면 around에 사람이 있어도 한 사람씩인 목록 대신 빈 묶음 목록을 둔다", async () => {
-      openTotalDays({
-        ...FIXTURE_TOTAL_DAYS,
-        aroundGroups: null,
-        around: [{ rank: 1530, nickname: "오늘도출석", value: 64, focusing: false, me: true }],
-      });
+    it("연속 공부 판도 같은 목록을 보인다", async () => {
+      openHall("MAX_STREAK", FIXTURE_STREAK);
 
-      const list = await screen.findByRole("region", { name: "내 주변 누적 일수 순위" });
-      expect(within(list).queryAllByRole("listitem")).toHaveLength(0);
-      expect(screen.queryByRole("region", { name: "내 주변 순위" })).toBeNull();
-      expect(screen.queryByText("오늘도출석")).toBeNull();
+      const list = await screen.findByRole("region", { name: "내 주변 순위" });
+      expect(within(list).getAllByRole("listitem")).toHaveLength(5);
+      expect(within(list).getByRole("listitem", { current: true })).toHaveTextContent(
+        /^오오늘도출석13일$/,
+      );
     });
   });
 });

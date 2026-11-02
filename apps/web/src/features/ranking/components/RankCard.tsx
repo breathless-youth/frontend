@@ -4,8 +4,8 @@ import { useId, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-import { isOffSlot } from "../model/board";
-import { formatGap, formatRank } from "../model/format";
+import { SLOT_LABEL, isOffSlot } from "../model/board";
+import { formatGap } from "../model/format";
 import { cardTitle, slotName } from "../model/labels";
 import type { SubLine, SubLineTone } from "../model/live";
 
@@ -173,6 +173,7 @@ function Headline({ children }: { children: ReactNode }) {
  * 가장 큰 글자에서 한 사람을 짚으면 불편할 수 있어 이름 없이 쓴다.
  * 순공·시간대는 아랫줄 문구와 순공 시작, 집중률은 따라잡기 문구와 순공 시작, 누적은 다음 구간 상자다.
  * 지금 구간이 아닌 시간대 판은 지금 공부해도 이 판에 들어가지 않아 줄일 수 없는 차이 대신 이 판의 내 순위를 쓰고 순공 시작을 두지 않는다.
+ * 그 순위는 3위 이내일 때만 쓰고, 4위 이하면 순위 숫자 대신 구간 이름만 쓴다.
  */
 export function RankedCard({
   board,
@@ -209,8 +210,14 @@ export function RankedCard({
       headline={
         offSlot && me !== null ? (
           <Headline>
-            <span className="whitespace-pre">{`${slotName(board)} `}</span>
-            <span className="text-primary">{formatRank(me.rank)}위</span>
+            {me.rank <= 3 && board.slot !== null ? (
+              <>
+                <span className="whitespace-pre">{`${SLOT_LABEL[board.slot]} `}</span>
+                <span className="text-primary">{me.rank}위</span>
+              </>
+            ) : (
+              slotName(board)
+            )}
           </Headline>
         ) : (
           above !== null && (

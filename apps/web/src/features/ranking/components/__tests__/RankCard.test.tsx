@@ -176,7 +176,7 @@ describe("RankedCard", () => {
     expect(screen.getByRole("button", { name: "순공 시작" })).toBeInTheDocument();
   });
 
-  it("지금 구간이 아닌 시간대 판은 그 판의 내 순위와 들어가는 시각을 말하고 작은 순공 시작을 두지 않는다", () => {
+  it("지금 구간이 아닌 시간대 판에서 4위 이하면 순위 대신 구간 이름과 들어가는 시각을 말하고 작은 순공 시작을 두지 않는다", () => {
     render(
       <RankedCard
         board={FIXTURE_SLOT_DAILY}
@@ -192,11 +192,28 @@ describe("RankedCard", () => {
       />,
     );
 
-    expect(paragraph("아침 구간 4위")).toBeInTheDocument();
+    expect(paragraph("아침 구간")).toBeInTheDocument();
+    expect(screen.queryByText("4", { exact: false })).toBeNull();
     expect(screen.queryByText("다음 순위까지", { exact: false })).toBeNull();
     expect(screen.getByText("아침에 공부한 시간만 이 순위에 들어가요")).toBeInTheDocument();
     expect(screen.queryByText("끝나기 전에", { exact: false })).toBeNull();
     expect(screen.queryByRole("button", { name: "순공 시작" })).toBeNull();
+  });
+
+  it("지금 구간이 아닌 시간대 판에서 3위 이내면 구간과 순위를 쓴다", () => {
+    const board = { ...FIXTURE_SLOT_DAILY, me: { ...FIXTURE_SLOT_DAILY.me!, rank: 2 } };
+    render(
+      <RankedCard
+        board={board}
+        aboveGap={540}
+        subLine={null}
+        deadline="00시 마감"
+        serverNow={AFTERNOON_NOW}
+        onFocusStart={vi.fn()}
+      />,
+    );
+
+    expect(paragraph("아침 2위")).toBeInTheDocument();
   });
 
   it("지금 구간인 시간대 판은 작은 순공 시작을 그대로 둔다", () => {

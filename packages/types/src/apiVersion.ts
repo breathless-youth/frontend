@@ -2,8 +2,8 @@
  * `API-Version` 요청 헤더의 엔드포인트별 값.
  *
  * **버전은 서버 전체가 아니라 엔드포인트 단위다.** 각 API가 만들어질 때 `1`에서 시작하고 그
- * 엔드포인트의 계약이 바뀔 때마다 오른다. 판별 규칙은 하나다 — 구 앱(v1.2.x)이 부르던 경로만
- * 토큰 도입으로 계약이 바뀌어 `2`이고, 그 뒤 생긴 새 경로는 전부 `1`이다. 앞으로 추가되는 API도 `1`로
+ * 엔드포인트의 계약이 바뀔 때마다 오른다. 구 앱(v1.2.x)이 부르던 경로는 토큰 도입으로 명세가
+ * 바뀌어 `2`가 됐고, 그 뒤 생긴 경로도 명세가 바뀌면 `2`로 오른다. 앞으로 추가되는 API도 `1`로
  * 시작한다. 원본은 백엔드 Swagger의 각 API `API-Version` 파라미터 기본값이다(백엔드 ADR-0015·0020).
  *
  * **다른 값을 보내면 400이다.** 양방향으로 엄격해서 v2 경로에 `1`을 보내도, v1 경로에 `2`를 보내도
@@ -77,9 +77,9 @@ export const API_ENDPOINTS = {
   interview: { version: "1", parsedBy: "apps/web/src/lib/interviewApi.ts" },
   /**
    * `GET /api/rankings/board`: 랭킹판.
-   * 새 경로라 명세가 하나다.
+   * 구 앱 계약은 없고, 일수 판을 같은 일수 묶음 대신 사람 단위 순위로 주면서 2가 됐다.
    */
-  rankingBoard: { version: "1", parsedBy: "apps/web/src/lib/rankingApi.ts getRankingBoard" },
+  rankingBoard: { version: "2", parsedBy: "apps/web/src/lib/rankingApi.ts getRankingBoard" },
   /** `GET /api/rankings/records/summary`: 메달 버튼과 랭킹 기록 시트. */
   rankingRecordsSummary: {
     version: "1",

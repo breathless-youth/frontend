@@ -9,13 +9,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { cannotLoad, rankingRecordsQuery, rankingSummaryQuery } from "@/lib/rankingQueries";
 
 import { IllustMedal } from "../icons";
-import {
-  formatGapDuration,
-  recordName,
-  recordPeriod,
-  recordPeriodShort,
-  recordValue,
-} from "../model/format";
+import { formatGapDuration, recordName, recordPeriod, recordValue } from "../model/format";
 import { FocusStartButton } from "./RankCard";
 import { RankChips, type RankChip } from "./RankChips";
 
@@ -170,7 +164,7 @@ function EmptyRecords({
   summary: RankingRecordsSummary;
   onFocusStart: () => void;
 }) {
-  const { best, closest } = summary;
+  const { closest } = summary;
   return (
     <div className="flex flex-col items-center pt-6 text-center">
       <DrawerTitle className="text-xl leading-6 font-extrabold tracking-normal text-foreground">
@@ -179,28 +173,18 @@ function EmptyRecords({
       <p className="mt-2 text-[13px] leading-3.75 break-keep text-pretty text-muted-foreground">
         랭킹 마감 시 3위 내에 든 기록이 있으면 메달을 확인할 수 있어요
       </p>
-      {(best !== null || closest !== null) && (
+      {closest !== null && (
         <dl className="mt-4 w-full rounded-lg bg-bg-layer-2 px-4 text-left">
-          {best !== null && (
-            <div className="flex min-h-12.25 items-center justify-between gap-3 border-b border-border last:border-b-0">
-              <dt className="text-[13px] leading-3.75 text-muted-foreground">지금까지 최고 순위</dt>
-              <dd className="text-sm leading-4 font-extrabold text-foreground">
-                {recordName(best)} {best.rank}위 · {recordPeriodShort(best)}
-              </dd>
-            </div>
-          )}
-          {closest !== null && (
-            <div className="flex min-h-12.25 items-center justify-between gap-3">
-              <dt className="text-[13px] leading-3.75 text-muted-foreground">
-                TOP 3에 가장 가까운 판
-              </dt>
-              {/* 차이 0은 지금 30분 이상으로 3위 안이라는 뜻이라, 최소 1분으로 올린 `1분 차` 대신 TOP 3 안이라고 쓴다. */}
-              <dd className="text-sm leading-4 font-extrabold text-foreground">
-                {recordName(closest)}{" "}
-                {closest.gap === 0 ? "지금 TOP 3 안" : `${formatGapDuration(closest.gap)} 차`}
-              </dd>
-            </div>
-          )}
+          <div className="flex min-h-12.25 items-center justify-between gap-3">
+            <dt className="text-[13px] leading-3.75 text-muted-foreground">
+              TOP 3에 가장 가까운 판
+            </dt>
+            {/* 차이 0은 지금 30분 이상으로 3위 안이라는 뜻이라, 최소 1분으로 올린 `1분 차` 대신 TOP 3 안이라고 쓴다. */}
+            <dd className="text-sm leading-4 font-extrabold text-foreground">
+              {recordName(closest)}{" "}
+              {closest.gap === 0 ? "지금 TOP 3 안" : `${formatGapDuration(closest.gap)} 차`}
+            </dd>
+          </div>
         </dl>
       )}
       <div data-base-ui-swipe-ignore="" className="mt-3.5 w-full">
