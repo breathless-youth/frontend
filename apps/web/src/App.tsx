@@ -19,6 +19,7 @@ import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { reloadOnChunkError } from "@/lib/chunkReload";
 import { useNativeControlPressRelay } from "@/lib/glassChrome";
 import { useBlockForwardGestureIntoFullScreen } from "@/lib/historyGuard";
+import { useInAppNotificationRelay } from "@/lib/inAppNotification";
 import { useNativeAnalyticsRelay } from "@/lib/nativeAnalytics";
 import { toastBottomOffset, useNativeTabBarClass, useNativeTabBarSync } from "@/lib/nativeTabBar";
 import { useNativeRouteReset } from "@/lib/nativeRouteReset";
@@ -222,6 +223,9 @@ export function App() {
   useNativeRouteReset();
   // 렌더러 사망 복구용 현재 화면 보고(`lib/nativeScreenReport.ts`).
   useNativeScreenReport();
+  // 앱을 쓰는 중에 온 그룹 알림을 토스트로 보인다(`lib/inAppNotification.ts`).
+  // 앱은 준비 신호를 보낸 문서에만 알림을 보내므로 그 신호를 보내는 아래 훅보다 먼저 구독한다.
+  useInAppNotificationRelay();
   // 네이티브가 관측한 사용자 이벤트(탭 터치·권한 게이트 등)를 Amplitude로 넘긴다(`lib/nativeAnalytics.ts`).
   useNativeAnalyticsRelay();
   // 세션 모달이 닫히면 통계를 다시 받게 표시한다(lib/nativeSessionClosed.ts).

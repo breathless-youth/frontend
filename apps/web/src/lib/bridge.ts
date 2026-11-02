@@ -7,6 +7,7 @@ import type {
   VideoResultStatus,
 } from "@focusmakers/types";
 import {
+  ANALYTICS_PARAM_VALUE_PATTERN,
   INSTALL_AD_LABEL_PATTERN,
   INSTALL_REFERRER_MAX_LENGTH,
   NATIVE_CONTROL_ID_PATTERN,
@@ -334,7 +335,51 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
   if (record.type === "install-attribution") {
     return parseInstallAttribution(record);
   }
+  if (record.type === "in-app-notification") {
+    return parseInAppNotification(record);
+  }
   return null;
+}
+
+/**
+ * 앱 안 알림 링크의 길이 상한
+ *
+ * 앱이 `open-push-link`로 돌려받을 때 쓰는 상한과 같은 값이다.
+ */
+const PUSH_LINK_MAX_LENGTH = 4096;
+
+function isFilledString(value: unknown): value is string {
+  return typeof value === "string" && value !== "";
+}
+
+/**
+ * `in-app-notification`(앱을 쓰는 중에 온 그룹 알림)을 검증한다
+ *
+ * 제목·본문·링크 가운데 하나라도 비었거나 링크가 너무 길면 통째로 버린다.
+ * 알림 종류는 열림 계측에만 쓰는 선택 필드라 토큰 형식이 아니면 그 필드만 뺀다.
+ */
+function parseInAppNotification(
+  record: Record<string, unknown>,
+): Extract<ToWebMessage, { type: "in-app-notification" }> | null {
+  if (
+    !isFilledString(record.title) ||
+    !isFilledString(record.body) ||
+    !isFilledString(record.link) ||
+    record.link.length > PUSH_LINK_MAX_LENGTH ||
+    typeof record.atMs !== "number"
+  ) {
+    return null;
+  }
+  return {
+    type: "in-app-notification",
+    title: record.title,
+    body: record.body,
+    link: record.link,
+    ...(typeof record.pushType === "string" && ANALYTICS_PARAM_VALUE_PATTERN.test(record.pushType)
+      ? { pushType: record.pushType }
+      : {}),
+    atMs: record.atMs,
+  };
 }
 
 function isStringOrNull(value: unknown): value is string | null {

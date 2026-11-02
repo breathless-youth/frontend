@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 export const TOAST_PILL_CLASS =
   "inset-x-0 mx-auto w-fit! rounded-3xl border border-white/10 bg-(--session-toast-bg,rgba(78,89,104,0.96)) px-4 py-2 text-center text-[13px] leading-5 whitespace-pre-line text-white shadow-lg backdrop-blur-[7px]";
 
-/** 세션 화면 상태 필(위 13px + 높이 36px) 아래로 13px 띄운다. 위쪽 토스트는 `showTopToast`만 쓴다. */
+/** 세션 화면 상태 필(위 13px + 높이 36px) 아래로 13px 띄운다. 위쪽 토스트는 `showTopToast`와 `showNotificationToast`만 쓴다. */
 const TOP_OFFSET = "calc(env(safe-area-inset-top) + 62px)";
 
 export function Toaster({

@@ -1,4 +1,7 @@
+import { createElement } from "react";
 import { toast } from "sonner";
+
+import { NotificationToast } from "@/components/NotificationToast";
 
 export const CTA_TOASTER_ID = "cta";
 /** `showCtaToast`와 언마운트 정리가 같은 id를 써야 해서 여기 둔다. */
@@ -28,4 +31,34 @@ export function dismissToast() {
 
 export function showCtaToast(message: string) {
   toast(message, { id: CTA_TOAST_ID, toasterId: CTA_TOASTER_ID });
+}
+
+/**
+ * 앱을 쓰는 중에 온 그룹 알림 토스트
+ *
+ * 위쪽 가운데에 제목과 본문 두 줄로 띄우고, 누르면 받은 일을 한 뒤 닫는다.
+ * 전역 토스트 id를 써서 떠 있던 토스트를 대체하고 화면이 바뀌면 다른 토스트처럼 닫힌다.
+ * Sonner는 같은 id를 갱신할 때 이전 값에 합쳐서 `toast.custom`으로 그리면 다음 일반 토스트에 이 내용이 남는다.
+ * 그래서 문구 자리에 요소를 넘겨 다음 토스트의 문구가 그대로 덮어쓰게 한다.
+ */
+export function showNotificationToast({
+  title,
+  body,
+  onOpen,
+}: {
+  title: string;
+  body: string;
+  onOpen: () => void;
+}) {
+  toast(
+    createElement(NotificationToast, {
+      title,
+      body,
+      onOpen: () => {
+        onOpen();
+        dismissToast();
+      },
+    }),
+    { id: GLOBAL_TOAST_ID, position: "top-center" },
+  );
 }
