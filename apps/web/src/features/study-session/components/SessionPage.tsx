@@ -117,11 +117,13 @@ export interface SessionPageFooterProps {
  *
  * 토스트는 모달보다 아래 층이라 페이지가 열린 동안에는 이 영역 위에 따로 띄운다.
  * 세로는 홈 인디케이터를 비켜 아래 여백에 안전 영역을 더하고, 가로는 페이지가 여백을 맡는다.
- * 아래 줄에 둘 것이 없으면 줄을 그리지 않는다. 빈 줄의 여백만큼 버튼이 위로 떠 보인다.
+ * 아래 줄에 둘 것이 없으면 줄을 그리지 않는다.
+ * 빈 줄을 그리면 그 여백만큼 버튼이 위로 떠 보인다.
+ * 호출부는 목록을 받는 중에 왼쪽 자리로 `false`를 넘겨서 값이 있는지로 판단한다.
  */
 export function SessionPageFooter({ landscape, actions, leading, timer }: SessionPageFooterProps) {
   const open = use(SessionPageOpenContext);
-  const hasRow = leading !== undefined || timer !== undefined;
+  const hasRow = Boolean(leading) || Boolean(timer);
   return (
     <div
       className={cn(
@@ -141,7 +143,7 @@ export function SessionPageFooter({ landscape, actions, leading, timer }: Sessio
           )}
         >
           {leading}
-          {timer !== undefined && <div className="ml-auto">{timer}</div>}
+          {Boolean(timer) && <div className="ml-auto">{timer}</div>}
         </div>
       )}
     </div>
