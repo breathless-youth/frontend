@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { sessionStateColors } from "@focusmakers/design-tokens";
 import type { RoomMember, StudySessionListResponse, SubjectResponse } from "@focusmakers/types";
 
 import { createMockRoomChannel } from "@/features/live-room/mockRoomChannel";
@@ -2425,6 +2426,28 @@ describe("LiveRoomPage — 과목", () => {
     await userEvent.click(screen.getByRole("button", { name: "과목" }));
     await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
   }
+
+  /** 과목 페이지 머리 줄의 순공 요소 */
+  function headTime() {
+    return within(screen.getByRole("heading", { name: "과목" }).parentElement!).getByText(
+      /^순공시간 /,
+    ).parentElement!;
+  }
+
+  it("꺼짐으로 들어오면 머리 시간은 일시정지 상태 색이다", async () => {
+    renderRoom();
+    await enterRoom();
+    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    expect(headTime()).toHaveStyle({ "--session-state-color": sessionStateColors.PAUSE.dark });
+  });
+
+  it("카메라를 켜면 머리 시간은 집중 상태 색이다", async () => {
+    renderRoom();
+    await enterRoom();
+    await turnCameraOn();
+    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    expect(headTime()).toHaveStyle({ "--session-state-color": sessionStateColors.FOCUS.dark });
+  });
 
   it("과목 버튼으로 열면 세션 화면 안에 페이지가 열리고, 닫으면 버튼으로 포커스가 돌아온다", async () => {
     renderRoom();

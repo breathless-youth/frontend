@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 import { cn } from "@/lib/utils";
 
 import { formatElapsed, toKoreanDuration } from "../formatDuration";
@@ -114,12 +116,27 @@ export function SessionTimer({
  * 과목 페이지 머리 오른쪽의 순공
  *
  * 페이지가 세션 UI를 가리므로 상태는 숫자 색으로 전한다.
- * 20px에서는 발광이 글자를 흐려 빛을 넣지 않는다.
+ * 공부방 세션 루트에는 상태 색 변수가 없어 `stateColor`로 받은 색을 이 요소에 둔다.
+ * 싱글룸은 `stateColor` 없이 세션 루트의 상태 색을 따른다.
+ * 글자가 작아 발광이 글자를 흐리므로 빛을 넣지 않는다.
  * 제목보다 먼저 줄지 않게 해서 좁은 창에서는 제목이 말줄임된다.
  */
-export function SessionPageHeaderTime({ focusSec }: { focusSec: number }) {
+export function SessionPageHeaderTime({
+  focusSec,
+  stateColor,
+}: {
+  focusSec: number;
+  stateColor?: string;
+}) {
   return (
-    <p className="ml-auto shrink-0 pr-4 text-[20px] leading-6 font-extrabold tracking-[-0.3px] text-(--session-state-color) tabular-nums">
+    <p
+      className="ml-auto shrink-0 pr-4 text-[20px] leading-6 font-extrabold tracking-[-0.3px] text-(--session-state-color) tabular-nums"
+      style={
+        stateColor === undefined
+          ? undefined
+          : ({ "--session-state-color": stateColor } as CSSProperties)
+      }
+    >
       <span aria-hidden="true">{formatElapsed(focusSec)}</span>
       <span className="sr-only">순공시간 {toKoreanDuration(focusSec)}</span>
     </p>

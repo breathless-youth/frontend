@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState }
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { BookOpen, LoaderCircle } from "lucide-react";
 
+import { sessionStateColors } from "@focusmakers/design-tokens";
 import type { IceServer, ProfileResponse, RoomMember, SubjectResponse } from "@focusmakers/types";
 
 import { CtaToaster } from "@/components/ui/sonner";
@@ -880,7 +881,12 @@ export function LiveRoomSession({
         container={sessionSurface}
         returnFocus={subjectReturnFocus}
         title={SUBJECT_SHEET_COPY.title}
-        headerExtras={<SessionPageHeaderTime focusSec={focusSec} />}
+        headerExtras={
+          <SessionPageHeaderTime
+            focusSec={focusSec}
+            stateColor={sessionStateColors[sessionState.kind].dark}
+          />
+        }
         landscape={pageLandscape}
       >
         <SubjectPanel
