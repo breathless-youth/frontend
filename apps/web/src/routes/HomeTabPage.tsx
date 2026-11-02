@@ -1,5 +1,5 @@
 import { ChevronRight } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -11,12 +11,6 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { useAppLockRevokeCheck } from "@/features/app-lock/useAppLockRevokeCheck";
 import { DdaySection } from "@/features/home/DdaySection";
 import { splitHoursMinutes, todayLabel } from "@/features/home/homeFormat";
-import { StartCoachMark } from "@/features/home/StartCoachMark";
-import {
-  markStartGuideSeen,
-  shouldShowStartGuide,
-  startGuideState,
-} from "@/features/home/startGuide";
 import type { HomeSummary } from "@/features/home/homeSummary";
 import { useHomeSummary } from "@/features/home/useHomeSummary";
 import { NoticeModalHost } from "@/features/notice/NoticeModalHost";
@@ -29,13 +23,7 @@ import { SessionRecoveryDialog } from "@/features/study-session/components/Sessi
 import { useLaunchSessionRecovery } from "@/features/study-session/useLaunchSessionRecovery";
 import { RecentTimelapses } from "@/features/timelapse/RecentTimelapses";
 import { prefetchVisionAssets } from "@/features/study-session/vision/prefetchVisionAssets";
-import {
-  trackHomeStartGuideCompleted,
-  trackHomeStartGuideShown,
-  trackHomeStartGuideSkipped,
-} from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
-import { useCoachMarkTabBar } from "@/lib/nativeTabBar";
 import { useFocusStart } from "@/lib/useFocusStart";
 import { hasTokenSource, useIdentityPending, useUserId } from "@/lib/userId";
 import { cn } from "@/lib/utils";
@@ -164,22 +152,7 @@ function InviteCard({ onClick }: { onClick: () => void }) {
   );
 }
 
-/**
- * 홈 본문
- *
- * `guideActive`인 동안 코치마크가 가리키는 `집중 시작`만 남기고 나머지는 `inert`로 막는다.
- * 코치마크가 뜬 채 `집중 시작`을 누르면 세션으로 넘어가기 전에 본 것으로 남긴다.
- * `contents` 래퍼는 flex 간격을 그대로 두고 `inert`만 걸려는 것이다.
- */
-function HomeContent({
-  userId,
-  guideActive,
-  onGuideCompleted,
-}: {
-  userId: number;
-  guideActive: boolean;
-  onGuideCompleted: () => void;
-}) {
+function HomeContent({ userId }: { userId: number }) {
   const summaryState = useHomeSummary(userId);
 
   /**
@@ -227,52 +200,34 @@ function HomeContent({
     navigate({ pathname: "/social", search: location.search });
   }
 
-  const handleStart = () => {
-    if (guideActive) {
-      markStartGuideSeen(userId);
-      trackHomeStartGuideCompleted();
-      onGuideCompleted();
-    }
-    startFocus("home");
-  };
-
   return (
     <>
-      <div inert={guideActive} className="contents">
-        {summaryState.status === "pending" && (
-          <>
-            <Skeleton className="h-25.25 rounded-xl" />
-            <Skeleton className="h-63 rounded-xl" />
-          </>
-        )}
-        {summaryState.status === "error" && (
-          <ErrorState
-            message="기록을 불러오지 못했어요"
-            onRetry={summaryState.retry}
-            screen="home"
-          />
-        )}
-        {summaryState.status === "success" && (
-          <>
-            <StreakCard summary={summaryState.summary} />
-            <StatsCard summary={summaryState.summary} />
-          </>
-        )}
-      </div>
+      {summaryState.status === "pending" && (
+        <>
+          <Skeleton className="h-25.25 rounded-xl" />
+          <Skeleton className="h-63 rounded-xl" />
+        </>
+      )}
+      {summaryState.status === "error" && (
+        <ErrorState message="기록을 불러오지 못했어요" onRetry={summaryState.retry} screen="home" />
+      )}
+      {summaryState.status === "success" && (
+        <>
+          <StreakCard summary={summaryState.summary} />
+          <StatsCard summary={summaryState.summary} />
+        </>
+      )}
 
       <Button
         size="xl"
-        data-coach="start"
         className="w-full text-[18px] leading-5.25 font-bold tracking-[0.9px]"
-        onClick={handleStart}
+        onClick={() => startFocus("home")}
       >
         집중 시작
       </Button>
 
-      <div inert={guideActive} className="contents">
-        <InviteCard onClick={openSocial} />
-        <RecentTimelapses />
-      </div>
+      <InviteCard onClick={openSocial} />
+      <RecentTimelapses />
     </>
   );
 }
@@ -338,49 +293,13 @@ export function HomeTabPage() {
     setRecoveryInDoc(true);
   }
 
-  // 홈 팝업이 하나라도 있었던 문서에서는 다음 홈 진입으로 미룬다. 랭킹 팝업이 열려도 `homePopupInDoc`이 함께 켜진다.
-  // 복구 판단이 끝나기 전에 띄우면 늦게 온 복구 창과 겹쳐 코치마크가 떴다 사라진다.
-  const [guideCompleted, setGuideCompleted] = useState(false);
-  // 건너뛰면 홈을 떠나기 전까지만 숨긴다. 기록은 남기지 않아 다음 진입에 다시 뜬다.
-  const [guideDismissed, setGuideDismissed] = useState(false);
-  const guideState = useMemo(() => (userId === null ? null : startGuideState(userId)), [userId]);
-  const showGuide =
-    !identityPending &&
-    noticeSettled &&
-    recoverySettled &&
-    !guideCompleted &&
-    !guideDismissed &&
-    shouldShowStartGuide({
-      state: guideState,
-      popupOpen: homePopupInDoc || recoveryInDoc,
-      userId,
-    });
-  // 코치마크가 대상을 찾아 실제로 그린 동안만 본문과 탭 바를 막는다. 대상이 없는데 막으면 아무것도 못 누른다.
-  const [guideVisible, setGuideVisible] = useState(false);
-  useCoachMarkTabBar(guideVisible);
-  // 대상이 잠깐 사라졌다 다시 잡혀도 노출 이벤트는 한 번만 보낸다.
-  const guideShownTrackedRef = useRef(false);
-  useEffect(() => {
-    if (guideVisible && !guideShownTrackedRef.current) {
-      guideShownTrackedRef.current = true;
-      trackHomeStartGuideShown();
-    }
-  }, [guideVisible]);
-
-  const handleGuideSkip = () => {
-    trackHomeStartGuideSkipped();
-    setGuideDismissed(true);
-    // 누른 버튼이 사라지면 초점이 문서 끝으로 빠진다. 대상은 `inert`가 아니라 바로 옮길 수 있다.
-    document.querySelector<HTMLElement>('[data-coach="start"]')?.focus();
-  };
-
   return (
     <main
       data-testid="home-tab-page"
       className="theme-soft-blue bg-soft-blue page-column min-h-dvh pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+22px)] text-foreground"
     >
       <div className="flex flex-col gap-3 px-5">
-        <header inert={guideVisible} className="flex items-end justify-between pb-2">
+        <header className="flex items-end justify-between pb-2">
           <HomeHeaderLead userId={userId} identityPending={identityPending} />
         </header>
 
@@ -395,15 +314,10 @@ export function HomeTabPage() {
             기기 등록 전이에요 — 앱에서 열면 기록이 저장됩니다
           </p>
         ) : (
-          <HomeContent
-            userId={userId}
-            guideActive={guideVisible}
-            onGuideCompleted={() => setGuideCompleted(true)}
-          />
+          <HomeContent userId={userId} />
         )}
       </div>
 
-      {showGuide && <StartCoachMark onVisibleChange={setGuideVisible} onSkip={handleGuideSkip} />}
       {userId !== null && (
         <NoticeModalHost
           userId={userId}

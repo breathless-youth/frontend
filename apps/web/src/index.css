@@ -633,13 +633,6 @@
   box-shadow: 0 6px 18px 0 rgba(27, 100, 218, 0.28);
 }
 
-/* 첫 세션 코치마크 링 발광 — Figma 코치마크 시안 */
-.shadow-coach-glow {
-  /* color-mix를 모르는 iOS 16.2 미만 웹뷰용 폴백 */
-  box-shadow: 0 0 18px 0 var(--coach-ring);
-  box-shadow: 0 0 18px 0 color-mix(in srgb, var(--coach-ring) 80%, transparent);
-}
-
 /* 세션 도움말 등장. 모션 축소는 사용처의 motion-reduce:animate-none이 막는다. */
 @keyframes coach-fade-in {
   from {
