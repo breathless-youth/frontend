@@ -42,9 +42,18 @@ function clip(text: string): string {
   return text.slice(0, NATIVE_CONTROL_LABEL_MAX_LENGTH);
 }
 
+/**
+ * 오른쪽에 그릴 웹 요소가 있는지
+ *
+ * 호출부가 `trailing={isOwner && <버튼 />}`처럼 넘기면 `false`나 `null`이 오는데, 이를 요소로 세면 제목이 웹으로 넘어가고 가운데가 괜히 좁아진다.
+ */
+function hasTrailing(top: GlassChromeTopProps): boolean {
+  return Boolean(top.trailing);
+}
+
 /** 가운데나 오른쪽에 웹 요소가 있으면 앱 모드에서도 웹이 줄을 그린다. */
 function hasWebParts(top: GlassChromeTopProps): boolean {
-  return top.center !== undefined || top.trailing !== undefined;
+  return top.center !== undefined || hasTrailing(top);
 }
 
 function toChromeTop(top: GlassChromeTopProps): GlassChromeTop {
@@ -147,7 +156,7 @@ function GlassTopBar({ top, withLeading }: { top: GlassChromeTopProps; withLeadi
   const LeadingIcon = top.leading === "back" ? ChevronLeft : X;
   // 양쪽에 버튼 폭과 간격만큼 비워 제목이 화면 가운데에 온다.
   // 오른쪽 요소는 버튼 둘까지 들어가므로 그만큼 더 비워 제목이 버튼 아래로 깔리지 않게 말줄임한다.
-  const middle = cn("absolute top-0", top.trailing === undefined ? "inset-x-14" : "inset-x-24");
+  const middle = cn("absolute top-0", hasTrailing(top) ? "inset-x-24" : "inset-x-14");
   return (
     <div className="pointer-events-none fixed inset-x-0 top-0 z-30 px-5 pt-[calc(env(safe-area-inset-top)+4px)]">
       <div className="relative flex h-11 items-center">
@@ -175,7 +184,7 @@ function GlassTopBar({ top, withLeading }: { top: GlassChromeTopProps; withLeadi
             </h1>
           )
         )}
-        {top.trailing !== undefined && (
+        {hasTrailing(top) && (
           <div className="absolute top-0 right-0 flex h-11 items-center *:pointer-events-auto">
             {top.trailing}
           </div>

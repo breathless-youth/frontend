@@ -73,6 +73,19 @@ describe("buildGroupRoomFixtures", () => {
     expect(fixtures.roomHomeQuiet.newRequestCount).toBe(0);
   });
 
+  it("그룹 만들기와 그룹 설정의 입력값은 그룹 홈과 같은 그룹이고 소개가 44자다", () => {
+    expect(fixtures.roomForm).toEqual({
+      name: fixtures.roomHome.name,
+      visibility: fixtures.roomHome.visibility,
+      category: "수능",
+      intro: fixtures.roomHome.intro,
+    });
+    expect(fixtures.categories.map((category) => category.value)).toContain(
+      fixtures.roomForm.category,
+    );
+    expect(countGroupText(fixtures.roomForm.intro)).toBe(44);
+  });
+
   it("멤버 목록에는 그룹장인 나, 다른 멤버, 16일 전에 공부한 멤버가 있다", () => {
     expect(fixtures.members.some((member) => member.isOwner && member.isMe)).toBe(true);
     expect(fixtures.members.some((member) => !member.isOwner && !member.isMe)).toBe(true);

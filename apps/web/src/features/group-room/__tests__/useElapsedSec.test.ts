@@ -1,3 +1,4 @@
+import { focusManager } from "@tanstack/react-query";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -11,6 +12,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  act(() => focusManager.setFocused(undefined));
   vi.restoreAllMocks();
   vi.useRealTimers();
 });
@@ -33,6 +35,21 @@ describe("useElapsedSec", () => {
     });
     expect(result.current).toBe(0);
     expect(setInterval).not.toHaveBeenCalled();
+  });
+
+  it("화면이 가려진 동안은 타이머 없이 멈추고 다시 보이면 흐른 시간을 따라잡는다", () => {
+    act(() => focusManager.setFocused(false));
+    const setInterval = vi.spyOn(window, "setInterval");
+    const { result } = renderHook(() => useElapsedSec(FETCHED_AT_MS, true));
+    act(() => {
+      vi.advanceTimersByTime(3_000);
+    });
+    expect(result.current).toBe(0);
+    expect(setInterval).not.toHaveBeenCalled();
+
+    act(() => focusManager.setFocused(true));
+
+    expect(result.current).toBe(3);
   });
 
   it("받은 시각이 기기 시계보다 뒤여도 음수가 아니다", () => {

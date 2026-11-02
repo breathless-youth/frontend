@@ -205,6 +205,24 @@ describe("앱 모드", () => {
     });
   });
 
+  it("오른쪽 자리에 null이나 false를 넘기면 없는 것으로 보고 제목을 앱에 맡긴다", () => {
+    const postMessage = enterNativeMode();
+    const top = { leading: "back", onLeading: vi.fn(), title: "수능 D-200 밤샘반" } as const;
+    const { rerender } = render(<Harness top={{ ...top, trailing: null }} />);
+
+    expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
+    expect(lastChrome(postMessage)?.top).toEqual({
+      leading: "back",
+      leadingLabel: "뒤로 가기",
+      title: "수능 D-200 밤샘반",
+    });
+
+    rerender(<Harness top={{ ...top, trailing: false }} />);
+
+    expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
+    expect(lastChrome(postMessage)?.top?.title).toBe("수능 D-200 밤샘반");
+  });
+
   it("앱이 메시지를 통째로 버리지 않게 긴 글자는 자르고 빈 제목은 null로 보낸다", () => {
     const postMessage = enterNativeMode();
     const { rerender } = render(

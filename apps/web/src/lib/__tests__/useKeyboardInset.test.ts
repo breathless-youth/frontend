@@ -26,7 +26,7 @@ describe("useKeyboardInset", () => {
     expect(result.current).toBe(336);
   });
 
-  it("키보드가 올라온 채로 보이는 영역이 밀리면 다시 잰다", () => {
+  it("키보드가 올라온 채로 보이는 영역이 밀리면 다시 측정한다", () => {
     const viewport = fakeViewport(538);
     const { result } = renderHook(() => useKeyboardInset());
     act(() => {

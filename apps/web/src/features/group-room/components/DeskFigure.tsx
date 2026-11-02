@@ -2,6 +2,7 @@ import { cn } from "@/lib/utils";
 
 import type { DeskTone } from "../model/desks";
 
+// `--feedback-success`는 `.theme-soft-blue` 안에서만 값이 있어 그 바탕 밖에 그리면 다른 곳에서 공부 중인 초록이 빠진다.
 const PERSON_STROKE = {
   room: "stroke-primary",
   elsewhere: "stroke-feedback-success",

@@ -8,6 +8,7 @@ import type {
   PublicRoomDetail,
   PublicRoomSummary,
   RoomDeskMember,
+  RoomFormValues,
   RoomHome,
   RoomMemberRow,
   WeeklyRankRow,
@@ -72,7 +73,7 @@ export function buildGroupRoomFixtures(now: Date) {
     lastStudiedAt: ago(2 * HOUR_MS + 10 * MINUTE_MS),
   });
 
-  // 내가 그룹장인 공개 그룹이다.
+  // 그룹 홈 시안이 새 신청을 받는 그룹장의 화면이라 이 공개 그룹은 내가 그룹장이다.
   const nightOwlDesks: RoomDeskMember[] = [
     desk({
       userId: 2,
@@ -99,7 +100,7 @@ export function buildGroupRoomFixtures(now: Date) {
     desk({ userId: 5, nickname: "연필깎이", presence: "away", lastStudiedAt: ago(DAY_MS) }),
   ];
 
-  // 내가 그룹장인 비공개 그룹이고 지금은 아무도 공부하지 않는다.
+  // 멤버 관리 시안이 비공개 그룹 그룹장의 화면이고 내 그룹 카드 시안에서 이 그룹은 아무도 공부하지 않아 모두 쉬는 멤버로 둔다.
   // 쉬는 책상은 오늘 순공이 많은 순이라 시안처럼 내가 맨 앞에 오도록 수빈의 순공을 내 순공보다 적게 둔다.
   const eveningClassDesks: RoomDeskMember[] = [
     // 멤버 관리 시안이 내 마지막으로 온 날을 오늘로 그려 이 그룹에서만 그 시각을 바꾼다.
@@ -120,6 +121,7 @@ export function buildGroupRoomFixtures(now: Date) {
     ({ userId, nickname, isOwner, isMe, lastStudiedAt }) => ({
       userId,
       nickname,
+      imageUrl: null,
       isOwner,
       isMe,
       lastStudiedAt,
@@ -210,7 +212,7 @@ export function buildGroupRoomFixtures(now: Date) {
     },
   ];
 
-  // 목록은 활발한 순이고 자리가 다 찬 그룹은 맨 뒤다.
+  // 목록 화면은 순서를 바꾸지 않고 서버가 준 대로 그리므로 서버처럼 활발한 순으로 두고 자리가 다 찬 그룹을 맨 뒤에 둔다.
   const publicRooms: PublicRoomSummary[] = [
     {
       roomId: 7,
@@ -254,6 +256,7 @@ export function buildGroupRoomFixtures(now: Date) {
     intro:
       "매일 새벽 5시에 일어나서 2시간 이상 공부해요. 9급 행정직 준비생 환영해요. 아침마다 공부방에 들어와 카메라를 켜고, 오전 7시 전까지 각자 정한 과목을 끝내요. 주말에는 편할 때 들어와도 괜찮아요. 일주일에 3일 이상 나오기가 우리 그룹 약속이에요. 오래 안 나오면 그룹장이 자리를 정리할 수 있어요. 같이 꾸준히 해서 올해 꼭 붙어요.",
     ownerNickname: "옥수수라떼",
+    ownerImageUrl: null,
     weeklyAverageSec: 76_200,
     members: dawnCivilDesks,
   };
@@ -262,12 +265,14 @@ export function buildGroupRoomFixtures(now: Date) {
     {
       applicationId: 41,
       nickname: "모카번",
+      imageUrl: null,
       ...sentAgo(10 * MINUTE_MS),
       message: "9급 행정직 준비 중이에요. 새벽 5시에 꾸준히 나올게요.",
     },
     {
       applicationId: 42,
       nickname: "밤샘토끼",
+      imageUrl: null,
       ...sentAgo(DAY_MS + 3 * HOUR_MS + 30 * MINUTE_MS),
       message: "직장 다니면서 준비해요. 퇴근하고 밤에 주로 공부해요.",
     },
@@ -278,6 +283,7 @@ export function buildGroupRoomFixtures(now: Date) {
       userId: 2,
       rank: 1,
       nickname: "새벽러",
+      imageUrl: null,
       weeklyStudySec: 78_010,
       accumulating: true,
       isMe: false,
@@ -286,15 +292,24 @@ export function buildGroupRoomFixtures(now: Date) {
       userId: 3,
       rank: 2,
       nickname: "합격까지",
+      imageUrl: null,
       weeklyStudySec: 64_953,
       accumulating: true,
       isMe: false,
     },
-    { ...ME, rank: 3, weeklyStudySec: 45_600, accumulating: false, isMe: true },
+    {
+      ...ME,
+      rank: 3,
+      imageUrl: null,
+      weeklyStudySec: 45_600,
+      accumulating: false,
+      isMe: true,
+    },
     {
       userId: 4,
       rank: 4,
       nickname: "고구마맛탕",
+      imageUrl: null,
       weeklyStudySec: 33_320,
       accumulating: true,
       isMe: false,
@@ -303,6 +318,7 @@ export function buildGroupRoomFixtures(now: Date) {
       userId: 5,
       rank: 5,
       nickname: "연필깎이",
+      imageUrl: null,
       weeklyStudySec: 14_531,
       accumulating: false,
       isMe: false,
@@ -316,15 +332,24 @@ export function buildGroupRoomFixtures(now: Date) {
     visibility: "public",
     role: "owner",
     memberCount: 5,
+    intro: "매일 밤 10시부터 새벽까지 같이 달려요. 수능 D-200부터 끝까지 함께해요.",
     members: nightOwlDesks,
     weeklyRanks,
     newRequestCount: 2,
     notifyOn: false,
   };
 
+  // 그룹 만들기와 그룹 설정 시안이 모두 이 그룹을 채운 모습이라 그룹 홈의 값을 쓰고, 카테고리 값은 화면 글자와 같다.
+  const roomForm: RoomFormValues = {
+    name: roomHome.name,
+    visibility: roomHome.visibility,
+    category: roomHome.categoryLabel,
+    intro: roomHome.intro,
+  };
+
   const blocked: BlockedUser[] = [
-    { userId: 2, nickname: "새벽러" },
-    { userId: 12, nickname: "커피두잔" },
+    { userId: 2, nickname: "새벽러", imageUrl: null },
+    { userId: 12, nickname: "커피두잔", imageUrl: null },
   ];
 
   return {
@@ -336,6 +361,7 @@ export function buildGroupRoomFixtures(now: Date) {
     requests,
     roomHome,
     roomHomeQuiet: { ...roomHome, newRequestCount: 0 },
+    roomForm,
     members,
     blocked,
     // 그룹 이름 한도 20자와 닉네임 한도 12자를 넓은 한글로 채워 카드와 줄이 밀리는지 본다.

@@ -56,11 +56,22 @@ export interface PublicRoomDetail {
   memberCount: number;
   intro: string;
   ownerNickname: string;
+  /** 그룹장 아바타의 프로필 사진이고, 없거나 받지 못하면 닉네임 첫 글자를 그린다. */
+  ownerImageUrl?: string | null;
   weeklyAverageSec: number;
   members: RoomDeskMember[];
 }
 
-export interface ApplicationRequest {
+/**
+ * 아바타와 함께 그리는 사람의 프로필 사진
+ *
+ * 사진이 없거나 받지 못하면 아바타가 닉네임 첫 글자를 그린다.
+ */
+interface ProfilePhoto {
+  imageUrl?: string | null;
+}
+
+export interface ApplicationRequest extends ProfilePhoto {
   applicationId: number;
   nickname: string;
   appliedAt: string;
@@ -68,7 +79,7 @@ export interface ApplicationRequest {
   message: string;
 }
 
-export interface WeeklyRankRow {
+export interface WeeklyRankRow extends ProfilePhoto {
   userId: number;
   rank: number;
   nickname: string;
@@ -84,13 +95,15 @@ export interface RoomHome {
   visibility: RoomVisibility;
   role: RoomRole;
   memberCount: number;
+  /** 그룹 홈 메뉴에서 여는 그룹 설정을 지금 소개로 채운다. */
+  intro: string;
   members: RoomDeskMember[];
   weeklyRanks: WeeklyRankRow[];
   newRequestCount: number;
   notifyOn: boolean;
 }
 
-export interface RoomMemberRow {
+export interface RoomMemberRow extends ProfilePhoto {
   userId: number;
   nickname: string;
   isOwner: boolean;
@@ -98,7 +111,7 @@ export interface RoomMemberRow {
   lastStudiedAt: string | null;
 }
 
-export interface BlockedUser {
+export interface BlockedUser extends ProfilePhoto {
   userId: number;
   nickname: string;
 }
