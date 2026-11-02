@@ -846,6 +846,40 @@ export function trackFocusStartTapped(source: FocusStartSource = "home") {
   track("focus_start_tapped", { destination: "session", source });
 }
 
+/** 온보딩 단계. 순서대로 자동 타이머, 자동 기록, 그룹 스터디, 맞춤 알림, 준비 완료다. */
+export type OnboardingStep =
+  "auto_timer" | "auto_record" | "group_study" | "notification" | "ready";
+
+/**
+ * 온보딩 단계 노출
+ *
+ * 뒤로 갔다 다시 오면 같은 단계를 다시 보낸다.
+ * 단계별 이탈은 `onboarding_completed`까지의 퍼널로 본다.
+ */
+export function trackOnboardingStepViewed(step: OnboardingStep) {
+  if (!initialized) return;
+  track("onboarding_step_viewed", { step });
+}
+
+/**
+ * 온보딩 4단계 `알림 받기`의 결과
+ *
+ * `unsupported`는 웹이 권한을 요청할 수 없는 구버전 앱이나 브라우저다.
+ * 이미 답한 기기에서는 창 없이 저장된 답이 온다.
+ */
+export function trackOnboardingNotificationResult(
+  result: "granted" | "denied" | "undetermined" | "unsupported",
+) {
+  if (!initialized) return;
+  track("onboarding_notification_result", { result });
+}
+
+/** 온보딩 준비 완료 화면에서 `시작하기`를 눌러 홈으로 간 것. 이 계정은 다시 보지 않는다. */
+export function trackOnboardingCompleted() {
+  if (!initialized) return;
+  track("onboarding_completed");
+}
+
 /**
  * OS 설정 열기 요청
  *

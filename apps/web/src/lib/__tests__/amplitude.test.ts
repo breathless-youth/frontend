@@ -921,6 +921,34 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
   });
 });
 
+describe("온보딩 이벤트", () => {
+  it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackOnboardingStepViewed("auto_timer");
+    m.trackOnboardingNotificationResult("granted");
+    m.trackOnboardingCompleted();
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("단계 노출·알림 결과·완료를 각 속성과 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackOnboardingStepViewed("ready");
+    m.trackOnboardingNotificationResult("unsupported");
+    m.trackOnboardingCompleted();
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["onboarding_step_viewed", { step: "ready" }],
+      ["onboarding_notification_result", { result: "unsupported" }],
+      ["onboarding_completed"],
+    ]);
+  });
+});
+
 describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
   it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
     const m = await loadModule();

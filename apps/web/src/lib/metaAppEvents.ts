@@ -19,6 +19,9 @@ import { postToNative } from "./bridge";
  * no-op으로 받는다 — 여기서 분기하지 않는다.
  */
 
+/** Meta 표준 이벤트 "튜토리얼 완료". `fb_success`는 Meta 표준 파라미터(1=성공). */
+export const META_TUTORIAL_COMPLETION_EVENT = "fb_mobile_tutorial_completion";
+
 /** Meta 표준 이벤트 "성취 달성". 순공 5분 달성에만 쓴다. */
 export const META_ACHIEVEMENT_UNLOCKED_EVENT = "fb_mobile_achievement_unlocked";
 
@@ -29,6 +32,16 @@ function postMetaAppEvent(name: string, params?: MetaAppEventMessage["params"]):
     ...(params !== undefined ? { params } : {}),
     atMs: Date.now(),
   });
+}
+
+/**
+ * 첫 실행 온보딩을 끝까지 보고 `시작하기`를 누름
+ *
+ * 설치 광고가 데려온 사람이 앱 소개를 끝까지 봤는지를 광고 최적화에 쓰려고 보낸다.
+ * 온보딩에는 건너뛰기가 없어서 완료만 센다.
+ */
+export function trackMetaTutorialCompleted(): void {
+  postMetaAppEvent(META_TUTORIAL_COMPLETION_EVENT, { fb_success: 1 });
 }
 
 /**

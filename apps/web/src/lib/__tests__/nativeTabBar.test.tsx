@@ -110,6 +110,10 @@ describe("isFullScreenPath", () => {
     expect(isFullScreenPath("/onboarding-guide")).toBe(false);
   });
 
+  it("첫 실행 온보딩은 전체 화면이다", () => {
+    expect(isFullScreenPath("/onboarding")).toBe(true);
+  });
+
   it("타임랩스 설정은 전체 화면이다", () => {
     expect(isFullScreenPath("/timelapse-settings")).toBe(true);
   });

@@ -14,6 +14,7 @@ import { splitHoursMinutes, todayLabel } from "@/features/home/homeFormat";
 import type { HomeSummary } from "@/features/home/homeSummary";
 import { useHomeSummary } from "@/features/home/useHomeSummary";
 import { NoticeModalHost } from "@/features/notice/NoticeModalHost";
+import { useOnboardingDecision } from "@/features/onboarding/useOnboardingDecision";
 import { PlannerPillButton } from "@/features/planner/PlannerPillButton";
 import { HomeRankingPopupHost } from "@/features/ranking/exposure/HomeRankingPopupHost";
 import { IllustFlame } from "@/features/records/icons";
@@ -24,6 +25,8 @@ import { useLaunchSessionRecovery } from "@/features/study-session/useLaunchSess
 import { RecentTimelapses } from "@/features/timelapse/RecentTimelapses";
 import { prefetchVisionAssets } from "@/features/study-session/vision/prefetchVisionAssets";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
+import { signalLaunchReady } from "@/lib/launchReady";
+import { requestPushPermissionOnHomeArrival } from "@/lib/nativePushPermission";
 import { useFocusStart } from "@/lib/useFocusStart";
 import { hasTokenSource, useIdentityPending, useUserId } from "@/lib/userId";
 import { cn } from "@/lib/utils";
@@ -291,6 +294,25 @@ export function HomeTabPage() {
   const [recoveryInDoc, setRecoveryInDoc] = useState(false);
   if (recovered !== null && !recoveryInDoc) {
     setRecoveryInDoc(true);
+  }
+
+  // 처음 온 계정은 홈 대신 온보딩으로 보낸다. 앱은 시작 신호가 올 때까지 스플래시를 유지해서 홈이 비치지 않는다.
+  const onboarding = useOnboardingDecision(userId, identityPending);
+  const navigate = useNavigate();
+  const location = useLocation();
+  useEffect(() => {
+    if (onboarding === "onboarding") {
+      navigate({ pathname: "/onboarding", search: location.search }, { replace: true });
+      return;
+    }
+    if (onboarding === "home") {
+      signalLaunchReady();
+      requestPushPermissionOnHomeArrival();
+    }
+  }, [onboarding, navigate, location.search]);
+
+  if (onboarding !== "home") {
+    return <main data-testid="home-tab-page" className="theme-soft-blue bg-soft-blue min-h-dvh" />;
   }
 
   return (

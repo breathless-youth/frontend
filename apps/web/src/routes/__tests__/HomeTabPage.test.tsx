@@ -13,6 +13,12 @@ import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { __resetRankingTabForTests } from "@/lib/rankingCapability";
 import { FIXTURE_UNSEEN_ONE } from "@/lib/rankingFixtures";
 import { getStreak, listStudySessionStats } from "@/lib/statsApi";
+import {
+  __resetOnboardingGateForTests,
+  markOnboardingPending,
+  markOnboardingSettled,
+  onboardingRecord,
+} from "@/features/onboarding/onboardingGate";
 import { todayLabel } from "@/features/home/homeFormat";
 import { hasShownRecoveryThisLaunch } from "@/features/study-session/recoveryLaunchStore";
 import { LAUNCH_SIGNAL_WAIT_MS } from "@/features/study-session/useLaunchSessionRecovery";
@@ -39,6 +45,16 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
 vi.mock("@/lib/statsApi", () => ({
   listStudySessionStats: vi.fn(),
   getStreak: vi.fn(),
+}));
+
+/** 홈이 앱에 보내는 시작 신호와 알림 권한 요청. 동작 자체는 각자 테스트가 본다. */
+const launchSignals = vi.hoisted(() => ({
+  signalLaunchReady: vi.fn(),
+  requestPushPermissionOnHomeArrival: vi.fn(),
+}));
+vi.mock("@/lib/launchReady", () => ({ signalLaunchReady: launchSignals.signalLaunchReady }));
+vi.mock("@/lib/nativePushPermission", () => ({
+  requestPushPermissionOnHomeArrival: launchSignals.requestPushPermissionOnHomeArrival,
 }));
 
 /** 홈 공지는 자기 테스트가 따로 본다. 기본은 띄울 공지가 없게 두고 복구 창 순서 테스트만 바꾼다. */
@@ -835,7 +851,7 @@ describe("HomeTabPage — 좌상단 D-Day", () => {
     expect(screen.queryByRole("button", { name: "D-Day 설정" })).not.toBeInTheDocument();
   });
 
-  it("토큰 출처가 있는데 첫 토큰이 아직이면 구 헤더 대신 스켈레톤이다", async () => {
+  it("토큰 출처가 있는데 첫 토큰이 아직이면 구 헤더도 등록 전 안내도 그리지 않는다", async () => {
     tokenSourceMock.source = {
       getUserId: () => null,
       getAccessToken: () => null,
@@ -844,7 +860,8 @@ describe("HomeTabPage — 좌상단 D-Day", () => {
     } as unknown as TokenSource;
     renderHome("/home");
 
-    expect(await screen.findByTestId("home-header-pending")).toBeInTheDocument();
+    // 온보딩 판정을 기다리는 동안이라 배경만 그린다
+    expect(await screen.findByTestId("home-tab-page")).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { level: 1, name: "FocusMakers" }),
     ).not.toBeInTheDocument();
@@ -917,5 +934,108 @@ describe("HomeTabPage — 최근 타임랩스 (BY-895)", () => {
     const invite = screen.getByRole("button", { name: /그룹 스터디하러 이동/ });
 
     expect(invite.compareDocumentPosition(section) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
+describe("HomeTabPage — 첫 실행 온보딩", () => {
+  function tokenDocument() {
+    tokenSourceMock.source = {
+      getUserId: () => 7,
+      getAccessToken: () => "token",
+      hasSettled: () => true,
+      subscribe: () => () => {},
+    } as unknown as TokenSource;
+  }
+
+  /** 앱이 이번 실행에서 계정을 새로 만들었다는 표시(`newUser=1`)를 웹뷰 주소에 붙인다. */
+  function newUserLaunch() {
+    window.history.replaceState(null, "", "/home?newUser=1");
+    __resetOnboardingGateForTests();
+  }
+
+  function renderWithOnboardingRoute() {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/home?theme=dark"]}>
+          <Routes>
+            <Route path="/home" element={<HomeTabPage />} />
+            <Route path="/onboarding" element={<LocationProbe testId="onboarding-stub" />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    sessionStorage.clear();
+    __resetOnboardingGateForTests();
+    closeStaleSession.mockResolvedValue(null);
+    mockedStats.mockResolvedValue(statsResponse);
+    mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
+    tokenDocument();
+  });
+
+  afterEach(() => {
+    tokenSourceMock.source = null;
+    window.history.replaceState(null, "", "/");
+    __resetOnboardingGateForTests();
+  });
+
+  it("새로 가입한 계정은 쿼리를 유지한 채 온보딩으로 보내고 진행 중 기록을 남긴다", async () => {
+    newUserLaunch();
+
+    renderWithOnboardingRoute();
+
+    expect(await screen.findByTestId("onboarding-stub")).toHaveTextContent(
+      "/onboarding?theme=dark",
+    );
+    expect(onboardingRecord(7)).toBe("pending");
+    expect(launchSignals.signalLaunchReady).not.toHaveBeenCalled();
+    expect(launchSignals.requestPushPermissionOnHomeArrival).not.toHaveBeenCalled();
+  });
+
+  it("온보딩을 중간에 끈 계정은 새 계정 표시가 없어도 다시 온보딩으로 보낸다", async () => {
+    markOnboardingPending(7);
+
+    renderWithOnboardingRoute();
+
+    expect(await screen.findByTestId("onboarding-stub")).toBeInTheDocument();
+  });
+
+  it("온보딩을 끝낸 계정은 새 계정 표시가 남아 있어도 홈이다", async () => {
+    newUserLaunch();
+    markOnboardingSettled(7);
+
+    renderWithOnboardingRoute();
+
+    expect(await screen.findByRole("button", { name: "집중 시작" })).toBeInTheDocument();
+  });
+
+  it("기존 계정은 홈에 머물고 시작 신호를 보낸다", async () => {
+    renderWithOnboardingRoute();
+
+    expect(await screen.findByRole("button", { name: "집중 시작" })).toBeInTheDocument();
+    expect(launchSignals.signalLaunchReady).toHaveBeenCalled();
+    expect(onboardingRecord(7)).toBeNull();
+  });
+
+  it("홈에 머무는 계정은 홈 도착 알림 권한 요청을 부른다", async () => {
+    renderWithOnboardingRoute();
+    await screen.findByRole("button", { name: "집중 시작" });
+
+    expect(launchSignals.requestPushPermissionOnHomeArrival).toHaveBeenCalled();
+  });
+
+  it("토큰 출처가 없는 구버전 문서는 새 계정 표시와 상관없이 홈이다", async () => {
+    tokenSourceMock.source = null;
+    newUserLaunch();
+
+    renderHome();
+
+    expect(await screen.findByRole("button", { name: "집중 시작" })).toBeInTheDocument();
+    expect(launchSignals.signalLaunchReady).toHaveBeenCalled();
   });
 });
