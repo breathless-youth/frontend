@@ -74,7 +74,11 @@ function renderPanel(overrides: Partial<SubjectPanelProps> = {}, options: Render
   return { ...props, ...view };
 }
 
-/** 열린 과목 페이지로 감싼다. 아래 줄의 알림 자리는 페이지가 열린 동안에만 생긴다. */
+/**
+ * 열린 과목 페이지 래퍼
+ *
+ * 아래 줄의 알림 자리는 페이지가 열린 동안에만 생긴다.
+ */
 function openPage(landscape: boolean) {
   return function Page({ children }: { children: ReactNode }) {
     return (
