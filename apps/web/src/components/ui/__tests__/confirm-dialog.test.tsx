@@ -42,4 +42,54 @@ describe("ConfirmDialog", () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onConfirm).not.toHaveBeenCalled();
   });
+
+  it("설명이 있으면 확인 창의 설명으로 읽힌다", () => {
+    render(
+      <ConfirmDialog
+        open
+        title="민준님을 내보낼까요?"
+        description="민준님은 3일 동안 다시 들어올 수 없어요"
+        cancelLabel="취소"
+        confirmLabel="내보내기"
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("alertdialog")).toHaveAccessibleDescription(
+      "민준님은 3일 동안 다시 들어올 수 없어요",
+    );
+  });
+
+  it("확인 버튼 색을 표시로 드러낸다", () => {
+    render(
+      <ConfirmDialog
+        open
+        title="수빈님에게 그룹장을 넘길까요?"
+        cancelLabel="취소"
+        confirmLabel="넘기기"
+        confirmTone="primary"
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "넘기기" })).toHaveAttribute("data-tone", "primary");
+  });
+
+  it("넘기지 않으면 지금처럼 빨간 확인 버튼이고 설명이 없다", () => {
+    render(
+      <ConfirmDialog
+        open
+        title="삭제할까요?"
+        cancelLabel="취소"
+        confirmLabel="삭제"
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "삭제" })).toHaveAttribute("data-tone", "danger");
+    expect(screen.getByRole("alertdialog")).not.toHaveAttribute("aria-describedby");
+  });
 });
