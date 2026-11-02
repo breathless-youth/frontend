@@ -152,6 +152,24 @@ describe("useFaceMaskedSend", () => {
     expect(detector.preload).not.toHaveBeenCalled();
   });
 
+  it("켜 둔 선택이 저장돼 있어도 합성기를 만들 수 없으면 미지원으로 알리고 원본을 보낸다", () => {
+    // 켜기 창은 미지원이면 스위치를 막고 안내하므로, 사용자는 카메라를 켜기 전에 가리기를 쓸 수 없다는 것을 안다.
+    localStorage.setItem("focusmakers.socialFaceMask", "on");
+    const detector = fakeDetector();
+    const { result } = renderHook(() =>
+      useFaceMaskedSend({
+        sourceRef,
+        visionDetector: detector,
+        cameraStream: camera,
+        active: true,
+        createCompositor: () => null,
+      }),
+    );
+    expect(result.current.supported).toBe(false);
+    expect(result.current.on).toBe(false);
+    expect(result.current.sendStream).toBe(camera);
+  });
+
   it("카메라가 없으면 보낼 스트림도 없다", () => {
     const detector = fakeDetector();
     const { result } = renderHook(() =>
