@@ -174,7 +174,8 @@ export function CameraOnConfirmDialog({
                     contentClassName="bg-(--session-dialog-cancel-bg) text-white"
                     collisionBoundary={contentEl}
                   >
-                    빠르게 움직이면 얼굴이 잠깐 보일 수 있어요
+                    <p>빠르게 움직이면 얼굴이 잠깐 보일 수 있어요</p>
+                    <p>오래 켜 두면 기기가 뜨거워질 수 있어요</p>
                   </InfoTooltip>
                 )}
               </div>
