@@ -224,7 +224,7 @@ describe("그룹 푸시 경로", () => {
   });
 });
 
-describe("openedEventProperties — 알림 열림 계측 속성", () => {
+describe("openedEventProperties: 알림 열림 계측 속성", () => {
   it("열림 계측 경로의 숫자 조각은 :id다", () => {
     expect(
       openedEventProperties(

@@ -16,7 +16,11 @@ import { showToast } from "@/lib/toast";
  * 앱이 보낸 `in-app-notification`을 세션 화면 밖에서만 두 줄 토스트로 띄우고, 누르면 `open-push-link`로 돌려준다.
  */
 
-/** 브리지가 있는 웹뷰를 흉내 낸다. 반환값으로 앱에 보낸 메시지를 본다. */
+/**
+ * 브리지가 있는 웹뷰 흉내
+ *
+ * 반환값으로 앱에 보낸 메시지를 본다.
+ */
 function stubNativeBridge() {
   const postMessage = vi.fn();
   vi.stubGlobal("ReactNativeWebView", { postMessage });

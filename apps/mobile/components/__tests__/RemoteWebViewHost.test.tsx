@@ -192,6 +192,22 @@ function fireHomeReady() {
   });
 }
 
+/**
+ * 웹으로 주입된 메시지 가운데 한 종류만 골라 파싱하기
+ *
+ * 스크립트 안의 JSON 문자열 리터럴을 두 번 푼다.
+ */
+function injectedMessages(type: string): Record<string, unknown>[] {
+  return mockInjectJavaScript.mock.calls.flatMap((call) => {
+    const literal = /__focusonNativeMessage\((.*)\); \} true;$/s.exec(String(call[0]))?.[1];
+    if (literal === undefined) {
+      return [];
+    }
+    const message = JSON.parse(JSON.parse(literal) as string) as Record<string, unknown>;
+    return message.type === type ? [message] : [];
+  });
+}
+
 /** 웹으로 실제 나간 앱 실행 알림만 골라 센다. */
 function sentAppLaunched() {
   return mockInjectJavaScript.mock.calls.filter((call) => String(call[0]).includes("app-launched"));
@@ -1365,21 +1381,7 @@ describe("프로세스 종료 통보의 즉시 스플래시 (BY-436)", () => {
  * 탭 5개 웹뷰가 동시에 살아 있어 조건이 하나라도 빠지면 한 터치가 N번 찍히거나 구독자 없는 문서에 버려진다.
  */
 describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
-  /** 웹으로 주입된 track-event 메시지만 골라 파싱한다(스크립트 안의 JSON 문자열 리터럴을 두 번 푼다). */
-  function injectedTrackEvents() {
-    return mockInjectJavaScript.mock.calls
-      .map((call) => String(call[0]))
-      .filter((script) => script.includes("track-event"))
-      .map((script) => {
-        const literal = /__focusonNativeMessage\((.*)\); \} true;$/s.exec(script)?.[1] ?? '""';
-        return JSON.parse(JSON.parse(literal) as string) as {
-          type: string;
-          name: string;
-          properties?: Record<string, unknown>;
-          atMs: number;
-        };
-      });
-  }
+  const injectedTrackEvents = () => injectedMessages("track-event");
 
   function fireAnalyticsReady() {
     const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
@@ -1456,14 +1458,7 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
       });
     });
 
-    const injected = mockInjectJavaScript.mock.calls
-      .map((call) => String(call[0]))
-      .filter((script) => script.includes("install-attribution"))
-      .map((script) => {
-        const literal = /__focusonNativeMessage\((.*)\); \} true;$/s.exec(script)?.[1] ?? '""';
-        return JSON.parse(JSON.parse(literal) as string) as Record<string, unknown>;
-      });
-    expect(injected).toEqual([
+    expect(injectedMessages("install-attribution")).toEqual([
       expect.objectContaining({
         type: "install-attribution",
         platform: "android",
@@ -2102,7 +2097,7 @@ describe("RemoteWebViewHost glass 층", () => {
  * 탭 웹뷰 다섯 개가 함께 떠 있어 보이는 문서 하나만 받아야 토스트가 겹치지 않는다.
  * 웹이 준비 신호를 보내기 전의 문서는 받을 구독이 없어 알림이 버려진다.
  */
-describe("RemoteWebViewHost — 앱 안 알림", () => {
+describe("RemoteWebViewHost: 앱 안 알림", () => {
   const NOTIFICATION = {
     title: "그룹장이 됐어요",
     body: "새벽 공시반의 그룹장을 넘겨받았어요",
@@ -2110,16 +2105,7 @@ describe("RemoteWebViewHost — 앱 안 알림", () => {
     pushType: "group_owner_transferred",
   };
 
-  /** 웹으로 주입된 앱 안 알림만 골라 파싱한다(스크립트 안의 JSON 문자열 리터럴을 두 번 푼다). */
-  function injectedInAppNotifications() {
-    return mockInjectJavaScript.mock.calls
-      .map((call) => String(call[0]))
-      .filter((script) => script.includes("in-app-notification"))
-      .map((script) => {
-        const literal = /__focusonNativeMessage\((.*)\); \} true;$/s.exec(script)?.[1] ?? '""';
-        return JSON.parse(JSON.parse(literal) as string) as Record<string, unknown>;
-      });
-  }
+  const injectedInAppNotifications = () => injectedMessages("in-app-notification");
 
   function fireAnalyticsReady() {
     const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;

@@ -1071,7 +1071,7 @@ describe("handleBridgeMessage: 프로필 사진 선택기", () => {
 });
 
 /** 앱 안 알림 토스트를 누르면 웹이 `open-push-link`를 보내고 앱은 알림을 누른 것처럼 연다. */
-describe("handleBridgeMessage — 앱 안 알림 누름", () => {
+describe("handleBridgeMessage: 앱 안 알림 누름", () => {
   let received: NativeAnalyticsEvent[];
   const mockedOpenPushRoute = openPushRoute as jest.MockedFunction<typeof openPushRoute>;
 

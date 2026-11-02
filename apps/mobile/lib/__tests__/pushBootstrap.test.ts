@@ -294,7 +294,7 @@ describe("startPushMessaging — push_notification_opened", () => {
 });
 
 /** 앱을 쓰는 중에 온 그룹 알림은 세션 화면이 아닐 때만 보이는 탭 웹뷰에 넘긴다. */
-describe("startPushMessaging — 앱을 쓰는 중에 온 그룹 알림", () => {
+describe("startPushMessaging: 앱을 쓰는 중에 온 그룹 알림", () => {
   let log: jest.SpyInstance;
   beforeEach(() => {
     log = jest.spyOn(console, "log").mockImplementation(() => {});

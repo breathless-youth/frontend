@@ -555,7 +555,7 @@ describe("parseToWebMessage — install-attribution(설치 유입 정보)", () =
   });
 });
 
-describe("parseToWebMessage — in-app-notification(앱을 쓰는 중에 온 그룹 알림)", () => {
+describe("parseToWebMessage: in-app-notification(앱을 쓰는 중에 온 그룹 알림)", () => {
   const valid = {
     type: "in-app-notification",
     title: "그룹장이 됐어요",

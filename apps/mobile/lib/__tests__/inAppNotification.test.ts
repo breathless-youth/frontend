@@ -77,7 +77,7 @@ describe("inAppNotificationFrom", () => {
     expect(inAppNotificationFrom(push({ type: "group_member_kicked" }))).toBeNull();
   });
 
-  it("허용된 앱 스킴 링크는 받은 그대로 넘긴다 — 웹이 돌려주면 앱이 다시 확인한다", () => {
+  it("허용된 앱 스킴 링크는 받은 그대로 넘기고 웹이 돌려주면 앱이 다시 확인한다", () => {
     expect(
       inAppNotificationFrom(
         push({ type: "group_owner_transferred", link: "focusmakers://social/groups/10" }),
