@@ -754,7 +754,7 @@ export function LiveRoomSession({
             inactive={moreMenuOpen}
             onToggleCamera={() => {
               if (!paused) {
-                trackSocialRoomCameraToggled(false);
+                trackSocialRoomCameraToggled(false, faceMask.on);
                 setCameraWanted(false);
                 pause("MANUAL");
                 // 일시정지 상태에서 울려서 진동이 기기 조작 감지 결과로 이어지지 않는다.
@@ -862,7 +862,7 @@ export function LiveRoomSession({
         }}
         onConfirm={() => {
           haptic("medium");
-          trackSocialRoomCameraToggled(true);
+          trackSocialRoomCameraToggled(true, faceMask.on);
           setCameraDialogOpen(false);
           setCameraWanted(true);
           resume();

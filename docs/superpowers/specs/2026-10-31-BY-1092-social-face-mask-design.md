@@ -75,18 +75,18 @@ flowchart LR
   send --> modal[모달 미리보기]
 ```
 
-| 파일                                             | 역할                                                                                                                   |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
-| `vision/faceSpot.ts`                             | 사람 검출 결과와 얼굴 범위로 이모지 자리(`FaceSpot`)를 계산한다. 시험판 코드를 그대로 쓰고 BY-1069도 나중에 같이 쓴다. |
-| `vision/faceLandmarker.ts`                       | 결과에 얼굴 범위 `bounds`를 더한다.                                                                                    |
-| `adapters/focusDetector.ts`                      | `subscribeFaceSpot`, `setPreviewOnly`, `preload`를 더한다.                                                             |
-| `live-room/faceMaskedStream.ts`                  | 합성기. 커밋 2는 2D, 커밋 3은 WebGL이고 외부 인터페이스는 같다.                                                        |
-| `live-room/faceMaskPlan.ts`                      | 무엇을 그릴지(흐림·이모지·선명) 정하는 함수와 이모지 따라가기 계산. 2D와 WebGL이 같이 쓴다.                            |
-| `live-room/faceMaskSettings.ts`                  | 이모지 목록, 켬/끔과 고른 이모지의 저장.                                                                               |
-| `live-room/useFaceMaskedSend.ts`                 | 합성기 생성, 이모지 자리 구독, 시작·정지, 보낼 스트림 선택, 원본 트랙 재활성화.                                        |
-| `live-room/components/CameraOnConfirmDialog.tsx` | 스위치, 이모지 선택(라디오 그룹), 미지원 안내.                                                                         |
-| `live-room/LiveRoomSession.tsx`                  | 숨은 원본 video, 훅 연결, 내 타일과 모달 미리보기.                                                                     |
-| `lib/amplitude.ts`                               | `social_room_face_mask_toggled`(`on`), `social_room_face_mask_emoji_selected`(`emoji_id`).                             |
+| 파일                                             | 역할                                                                                                                                        |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `vision/faceSpot.ts`                             | 사람 검출 결과와 얼굴 범위로 이모지 자리(`FaceSpot`)를 계산한다. 시험판 코드를 그대로 쓰고 BY-1069도 나중에 같이 쓴다.                      |
+| `vision/faceLandmarker.ts`                       | 결과에 얼굴 범위 `bounds`를 더한다.                                                                                                         |
+| `adapters/focusDetector.ts`                      | `subscribeFaceSpot`, `setPreviewOnly`, `preload`를 더한다.                                                                                  |
+| `live-room/faceMaskedStream.ts`                  | 합성기. 커밋 2는 2D, 커밋 3은 WebGL이고 외부 인터페이스는 같다.                                                                             |
+| `live-room/faceMaskPlan.ts`                      | 무엇을 그릴지(흐림·이모지·선명) 정하는 함수와 이모지 따라가기 계산. 2D와 WebGL이 같이 쓴다.                                                 |
+| `live-room/faceMaskSettings.ts`                  | 이모지 목록, 켬/끔과 고른 이모지의 저장.                                                                                                    |
+| `live-room/useFaceMaskedSend.ts`                 | 합성기 생성, 이모지 자리 구독, 시작·정지, 보낼 스트림 선택, 원본 트랙 재활성화.                                                             |
+| `live-room/components/CameraOnConfirmDialog.tsx` | 스위치, 이모지 선택(라디오 그룹), 미지원 안내.                                                                                              |
+| `live-room/LiveRoomSession.tsx`                  | 숨은 원본 video, 훅 연결, 내 타일과 모달 미리보기.                                                                                          |
+| `lib/amplitude.ts`                               | `social_room_face_mask_toggled`(`on`), `social_room_face_mask_emoji_selected`(`emoji_id`), `social_room_camera_toggled`에 `face_mask` 추가. |
 
 ### 합성기 인터페이스
 

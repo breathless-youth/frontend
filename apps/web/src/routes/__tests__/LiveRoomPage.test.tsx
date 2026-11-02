@@ -87,6 +87,7 @@ vi.mock("@/features/social-room/shareInvite", async (importOriginal) => ({
 }));
 const trackStudySessionEnded = vi.hoisted(() => vi.fn());
 const trackAmbientSoundChanged = vi.hoisted(() => vi.fn());
+const trackSocialRoomCameraToggled = vi.hoisted(() => vi.fn());
 const subjectTracking = vi.hoisted(() => ({
   trackSubjectSheetOpened: vi.fn(),
   trackSubjectSheetClosed: vi.fn(),
@@ -97,6 +98,7 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   trackInviteShared: share.trackInviteShared,
   trackStudySessionEnded,
   trackAmbientSoundChanged,
+  trackSocialRoomCameraToggled,
   ...subjectTracking,
 }));
 // 세션에 들어오면 과목 목록을 미리 받는다.
@@ -806,6 +808,8 @@ describe("LiveRoomPage — 그리드·타일", () => {
 
       await turnCameraOn();
       expect(drawing).toBe(true);
+      // 저장된 선택으로 켠 채 들어와 스위치를 건드리지 않아도 카메라 켜기에 가리기 상태가 실린다.
+      expect(trackSocialRoomCameraToggled).toHaveBeenLastCalledWith(true, true);
     } finally {
       faceMaskCompositor.current = null;
       localStorage.removeItem("focusmakers.socialFaceMask");
