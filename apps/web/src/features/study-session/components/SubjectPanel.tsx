@@ -953,8 +953,9 @@ export function SubjectPanel({
           aria-label={`${viewed.name} 할 일`}
           data-menu-anchor=""
           inert={reorderMode}
+          // 아래 줄에 타이머가 없어 할 일 칸이 두 행에 걸쳐 화면 아래 끝까지 내려온다.
           className={cn(
-            "relative flex min-h-0 flex-col gap-0.5 rounded-[18px] bg-(--session-sheet-surface) p-1.5 shadow-[inset_0_0_0_1px_var(--session-sheet-line)] transition-opacity duration-200 motion-reduce:transition-none",
+            "relative row-span-2 flex min-h-0 flex-col gap-0.5 rounded-[18px] bg-(--session-sheet-surface) p-1.5 shadow-[inset_0_0_0_1px_var(--session-sheet-line)] transition-opacity duration-200 motion-reduce:transition-none",
             reorderMode && "opacity-40",
           )}
         >
@@ -971,8 +972,11 @@ export function SubjectPanel({
           {menu?.subjectId === viewed.id && menu.taskId !== null && subjectMenu(viewed, menu)}
           {subjectTasks(viewed, true)}
         </section>
-        <div className="flex items-end justify-end gap-2">{actions}</div>
-        <SessionPageFooter landscape />
+        {/* 페이지 알림 자리가 푸터에 있어 버튼 줄을 푸터에 담아 왼쪽 아래 칸에 둔다. */}
+        <SessionPageFooter
+          landscape
+          leading={<div className="ml-auto flex gap-2">{actions}</div>}
+        />
       </div>
     );
   }
