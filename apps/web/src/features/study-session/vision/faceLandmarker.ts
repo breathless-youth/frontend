@@ -8,6 +8,8 @@ import type {
   MediapipeFaceResult,
   VisionRuntimeKind,
 } from "./mediapipePort";
+import type { FaceBounds } from "./faceSpot";
+import { faceBoundsOf } from "./faceSpot";
 import type { DetectorState } from "./objectDetector";
 import type { EyeScores, FaceObservation } from "./sleepRules";
 import type { Delegate, EyeBlendshapeName } from "./visionConfig";
@@ -54,6 +56,13 @@ export interface FaceDetectionResult {
    */
   readonly durationMs: number;
   readonly metrics: FaceMetrics;
+  /**
+   * 얼굴이 덮는 범위
+   *
+   * 가림 이모지 자리를 정하는 데만 쓴다.
+   * 좌표라서 진단 로그·분석 이벤트로 보내지 않는다.
+   */
+  readonly bounds?: FaceBounds | null;
   /**
    * 요청한 타임랩스 사진
    *
@@ -363,10 +372,11 @@ export function createFaceLandmarker(
       consecutiveFailures = 0;
       const { face, metrics } = normalize(raw);
       const durationMs = performance.now() - startedAt;
+      const bounds = faceBoundsOf(raw.faceLandmarks[0]);
       // 사진은 판정에 쓰지 않고 호출부가 촬영 쪽으로만 넘긴다.
       return raw.photo === undefined
-        ? { face, metrics, durationMs }
-        : { face, metrics, durationMs, photo: raw.photo };
+        ? { face, metrics, durationMs, bounds }
+        : { face, metrics, durationMs, bounds, photo: raw.photo };
     },
 
     close(): void {

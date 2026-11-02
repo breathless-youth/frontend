@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { BookOpen } from "lucide-react";
+import { BookOpen, LoaderCircle } from "lucide-react";
 
 import type { IceServer, ProfileResponse, RoomMember, SubjectResponse } from "@focusmakers/types";
 
@@ -78,9 +78,11 @@ import { cn } from "@/lib/utils";
 import { useRotationRepaintNudge } from "@/lib/rotationRepaint";
 import { kickVideoPlayback, useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
 
+import { FACE_MASK_EMOJIS } from "./faceMaskSettings";
 import type { CreateChannel } from "./liveRoomEntryState";
 import { useBackgroundGraceWatch } from "./useBackgroundGraceWatch";
 import { useCameraPreviewAspect } from "./useCameraPreviewAspect";
+import { useFaceMaskedSend, useKeepMaskSourceLive } from "./useFaceMaskedSend";
 import { useRoomRejoin } from "./useRoomRejoin";
 import { useAutoHideControls } from "./useAutoHideControls";
 import { playPressPop } from "./components/playPressPop";
@@ -140,7 +142,10 @@ export function LiveRoomSession({
   // 가로 그리드 사용 여부 — 회전은 클릭이 아니라 autocapture가 못 본다.
   useSessionOrientationAnalytics("social");
 
+  // 추론과 송신 합성은 항상 붙어 있는 숨은 원본 영상을 본다.
+  // 카메라를 끄면 내 타일의 영상이 빠지는데, 그동안에도 켜기 미리보기에 이모지를 그려야 해서다.
   const videoRef = useRef<HTMLVideoElement>(null);
+  const tileVideoRef = useRef<HTMLVideoElement>(null);
   // 종료 다이얼로그의 포털 자리. `--session-dialog-*` 변수가 여기 주입돼 있어 body 로 나가면
   // 색이 빠진다.
   const [sessionSurface, setSessionSurface] = useState<HTMLElement | null>(null);
@@ -301,16 +306,30 @@ export function LiveRoomSession({
       }
     : undefined;
 
+  // 표시용 카메라 상태는 획득 실패(권한 거부 등)도 꺼짐으로 취급한다 — 검은 화면을
+  // 켜짐으로 그리지 않는다. 컨트롤은 일시정지 여부만 본다: 룸의 카메라 끔 = 측정
+  // 일시정지와 동일하고, 획득 실패의 온전한 처리(수동 타이머 모드)는 별도 티켓이다.
+  const paused = sessionState.kind === "PAUSE";
+  const cameraOn = !paused && isCameraRunning;
+
+  const [cameraDialogOpen, setCameraDialogOpen] = useState(false);
+  const faceMask = useFaceMaskedSend({
+    sourceRef: videoRef,
+    visionDetector,
+    cameraStream,
+    active: cameraOn || cameraDialogOpen,
+  });
   const remoteStreams = usePeerMesh({
     channel,
     roomId,
     myUserId: userId,
     iceServers,
-    cameraStream,
+    cameraStream: faceMask.sendStream,
     trackEnabled: sessionState.kind !== "PAUSE",
     createPeerConnection,
     onEvent: onDebugEvent,
   });
+  useKeepMaskSourceLive(cameraStream, faceMask.on);
 
   // 연결과 해제를 한 effect에 대칭으로 둔다 — StrictMode의 마운트-해제-재마운트에서도
   // 두 번째 마운트가 정상 연결된다.
@@ -324,25 +343,12 @@ export function LiveRoomSession({
 
   // 추론 수명 — 측정 중이고 일시정지가 아닐 때만 감지한다(솔로 세션과 같은 규칙).
   const detectionEnabled = phase.name === "studying" && sessionState.kind !== "PAUSE";
-  useEffect(() => {
-    if (detectionEnabled) {
-      detector.start();
-    } else {
-      detector.stop();
-    }
-  }, [detectionEnabled, detector]);
 
   useEffect(() => {
     return () => {
       visionDetector.close();
     };
   }, [visionDetector]);
-
-  // 표시용 카메라 상태는 획득 실패(권한 거부 등)도 꺼짐으로 취급한다 — 검은 화면을
-  // 켜짐으로 그리지 않는다. 컨트롤은 일시정지 여부만 본다: 룸의 카메라 끔 = 측정
-  // 일시정지와 동일하고, 획득 실패의 온전한 처리(수동 타이머 모드)는 별도 티켓이다.
-  const paused = sessionState.kind === "PAUSE";
-  const cameraOn = !paused && isCameraRunning;
 
   // 서버에 알리는 카메라 상태 — 사용자 의도(cameraWanted)를 함께 본다. 끄고 입장의
   // 첫 렌더는 pause가 effect로 적용되기 전이라, paused만 보면 켜짐이 먼저 새 나간다.
@@ -366,24 +372,42 @@ export function LiveRoomSession({
   const others = members.filter((m) => m.userId !== userId);
   const allMembers = orderedMembers([myMember, ...others], userId);
 
-  // 표시용과 ai추론용은 같은 video 엘리먼트를 본다
+  // 숨은 원본에는 카메라를, 내 타일에는 상대에게 보내는 영상을 붙인다.
+  // 보이는 것과 보내는 것이 같고, 이모지를 그리는 곳이 합성기 하나뿐이게 한다.
   useEffect(() => {
-    const video = videoRef.current;
-    if (video && video.srcObject !== cameraStream) {
-      video.srcObject = cameraStream ?? null;
-      if (cameraStream) {
-        startVideoPlayback(video);
+    for (const [video, stream] of [
+      [videoRef.current, cameraStream],
+      [tileVideoRef.current, faceMask.sendStream],
+    ] as const) {
+      if (video && video.srcObject !== stream) {
+        video.srcObject = stream ?? null;
+        if (stream) {
+          startVideoPlayback(video);
+        }
       }
-    }
-    // autoplay 속성만으로는 iOS WKWebView에서 재생이 시작되지 않을 수 있다 —
-    // 사유·재시도 규칙은 kickVideoPlayback 주석 참고.
-    if (video) {
-      kickVideoPlayback(video);
+      // autoplay 속성만으로는 iOS WKWebView에서 재생이 시작되지 않을 수 있다 —
+      // 사유·재시도 규칙은 kickVideoPlayback 주석 참고.
+      if (video) {
+        kickVideoPlayback(video);
+      }
     }
   });
 
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
-  const [cameraDialogOpen, setCameraDialogOpen] = useState(false);
+  // 일시정지 중 카메라 켜기 미리보기가 열려 있으면 이모지 자리만 구한다.
+  // 세션 판정에는 넣지 않는다.
+  const previewDetection = !detectionEnabled && cameraDialogOpen && faceMask.on;
+  useEffect(() => {
+    visionDetector.setPreviewOnly(previewDetection);
+    if (detectionEnabled) {
+      detector.start();
+    } else if (previewDetection) {
+      visionDetector.start();
+    } else {
+      detector.stop();
+      visionDetector.stop();
+    }
+  }, [detectionEnabled, previewDetection, detector, visionDetector]);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   const { selfSurfaceRef, previewAspect, measurePreviewAspect } =
     useCameraPreviewAspect(cameraDialogOpen);
@@ -500,8 +524,9 @@ export function LiveRoomSession({
   const myVideo = (
     // 셀프뷰 보정: brightness/saturate 필터는 이 <video>의 로컬 렌더링에만 적용된다
     // — P2P 송신 트랙(cameraStream)은 필터를 거치지 않고 원본 그대로 나간다.
+    // 가리는 동안에는 보내는 영상을 그대로 보여 주려고 보정을 뺀다.
     <video
-      ref={videoRef}
+      ref={tileVideoRef}
       data-testid="room-my-video"
       playsInline
       muted
@@ -512,7 +537,9 @@ export function LiveRoomSession({
       className={cn(
         // pointer-events-none: 탭이 video에 직접 닿으면 iOS가 네이티브 재생/일시정지
         // 컨트롤을 띄운다 — 탭은 아래 레이어(유휴 복귀)로 통과시킨다.
-        "amp-block sentry-block pointer-events-none size-full object-cover filter-[brightness(1.06)_saturate(1.1)]",
+        "amp-block sentry-block pointer-events-none size-full object-cover",
+        !faceMask.on && "filter-[brightness(1.06)_saturate(1.1)]",
+        // 합성 영상도 반전하지 않은 원본 방향이라 전면 카메라는 표시만 뒤집는다.
         cameraFacing === "front" && "scale-x-[-1]",
       )}
     />
@@ -624,6 +651,15 @@ export function LiveRoomSession({
       className="theme-dark relative flex h-dvh flex-col overflow-hidden bg-background"
       style={sessionSurfaceStyle}
     >
+      {/* 추론·송신 합성용 숨은 원본. display:none이면 엔진이 영상 갱신을 멈출 수 있어 투명하게만 둔다. */}
+      <video
+        ref={videoRef}
+        aria-hidden="true"
+        playsInline
+        muted
+        {...VIDEO_PLAYBACK_KICK_PROPS}
+        className="amp-block sentry-block pointer-events-none fixed top-0 left-0 size-px opacity-0"
+      />
       {debugEnabled && (
         <RoomDebugOverlay
           roomId={roomId}
@@ -632,7 +668,7 @@ export function LiveRoomSession({
           members={members}
           remoteStreams={remoteStreams}
           peerPaths={peerPaths}
-          lines={debugLines}
+          lines={faceMask.debugLine === "" ? debugLines : [faceMask.debugLine, ...debugLines]}
         />
       )}
       {/* 다이얼로그의 포커스 트랩·바깥 차단은 Radix 가 스스로 한다. inert 를 겹치면 닫힐 때
@@ -718,7 +754,7 @@ export function LiveRoomSession({
             inactive={moreMenuOpen}
             onToggleCamera={() => {
               if (!paused) {
-                trackSocialRoomCameraToggled(false);
+                trackSocialRoomCameraToggled(false, faceMask.on);
                 setCameraWanted(false);
                 pause("MANUAL");
                 // 일시정지 상태에서 울려서 진동이 기기 조작 감지 결과로 이어지지 않는다.
@@ -774,19 +810,59 @@ export function LiveRoomSession({
         container={sessionSurface}
         returnFocus={() => cameraConfirmReturnRef.current?.() ?? null}
         preview={
-          <ClonedTrackPreview
-            stream={cameraStream}
-            facing={cameraFacing}
-            targetAspect={previewAspect ?? undefined}
-          />
+          faceMask.supported ? (
+            // 원본과 가린 영상을 미리 둘 다 재생해 겹쳐 두고 스위치는 위쪽만 숨긴다.
+            // 바꿀 때마다 영상을 새로 붙이면 iOS가 첫 프레임을 꽉 채우지 않고 그려 좌우 여백이 잠깐 보인다.
+            <div className="relative size-full">
+              <ClonedTrackPreview
+                stream={cameraStream}
+                facing={cameraFacing}
+                targetAspect={previewAspect ?? undefined}
+              />
+              <div className={cn("absolute inset-0", !faceMask.on && "opacity-0")}>
+                <ClonedTrackPreview
+                  stream={cameraStream === null ? null : faceMask.maskedStream}
+                  facing={cameraFacing}
+                  targetAspect={previewAspect ?? undefined}
+                />
+                {/* 사람을 찾기 전의 흐림을 가리기 효과로 착각하지 않게 알린다. 내 화면에만 그린다. */}
+                {faceMask.on && faceMask.faceSpot === null && (
+                  <div role="status" className="absolute inset-0 flex items-center justify-center">
+                    <span className="flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-[13px] font-semibold text-white">
+                      <LoaderCircle
+                        size={14}
+                        aria-hidden
+                        className="animate-spin motion-reduce:animate-none"
+                      />
+                      가릴 위치를 찾고 있어요
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <ClonedTrackPreview
+              stream={cameraStream}
+              facing={cameraFacing}
+              targetAspect={previewAspect ?? undefined}
+            />
+          )
         }
+        faceMask={{
+          supported: faceMask.supported,
+          on: faceMask.on,
+          onChange: faceMask.setOn,
+          emojis: FACE_MASK_EMOJIS,
+          emojiId: faceMask.emojiId,
+          onEmojiChange: faceMask.setEmojiId,
+        }}
         onCancel={() => {
           trackSocialRoomCameraOnDismissed();
           setCameraDialogOpen(false);
         }}
         onConfirm={() => {
           haptic("medium");
-          trackSocialRoomCameraToggled(true);
+          trackSocialRoomCameraToggled(true, faceMask.on);
           setCameraDialogOpen(false);
           setCameraWanted(true);
           resume();

@@ -166,7 +166,7 @@ describe("ensurePushPermission", () => {
     const log = jest.spyOn(console, "log").mockImplementation(() => {});
     const deps = createDeps(false);
 
-    await ensurePushPermission(deps);
+    await expect(ensurePushPermission(deps)).resolves.toBe("granted");
 
     expect(deps.requestPermission).toHaveBeenCalledTimes(1);
     expect(deps.getToken).not.toHaveBeenCalled();
@@ -185,18 +185,18 @@ describe("ensurePushPermission", () => {
     log.mockRestore();
   });
 
-  it("요청이 실패해도 거부하지 않는다 — 뒤에 이어지는 알림창이 막히지 않게", async () => {
+  it("요청이 실패해도 거부하지 않고 미결정으로 끝난다 — 웹이 다음 화면으로 넘어가지 못하면 안 된다", async () => {
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
     const deps = createDeps(false);
     deps.requestPermission.mockRejectedValue(new Error("denied hard"));
 
-    await expect(ensurePushPermission(deps)).resolves.toBeUndefined();
+    await expect(ensurePushPermission(deps)).resolves.toBe("undetermined");
 
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("권한 요청"), expect.any(Error));
     warn.mockRestore();
   });
 
-  it("응답이 영영 안 와도 상한 뒤에는 끝난다 — 권장 업데이트 알림창이 멎지 않게", async () => {
+  it("응답이 영영 안 와도 상한 뒤에는 미결정으로 끝난다", async () => {
     jest.useFakeTimers();
     const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
     const deps = createDeps(false);
@@ -205,7 +205,7 @@ describe("ensurePushPermission", () => {
     const done = ensurePushPermission(deps);
     jest.advanceTimersByTime(PUSH_PERMISSION_TIMEOUT_MS);
 
-    await expect(done).resolves.toBeUndefined();
+    await expect(done).resolves.toBe("undetermined");
     warn.mockRestore();
     jest.useRealTimers();
   });

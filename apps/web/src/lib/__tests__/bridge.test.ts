@@ -52,6 +52,18 @@ describe("parseToWebMessage", () => {
     expect(parseToWebMessage('{"type":"camera-gate-result","granted":"no","atMs":1}')).toBeNull();
   });
 
+  it("push-permission-result를 파싱한다", () => {
+    expect(
+      parseToWebMessage('{"type":"push-permission-result","status":"denied","atMs":1}'),
+    ).toEqual({ type: "push-permission-result", status: "denied", atMs: 1 });
+  });
+
+  it("push-permission-result의 status가 모르는 값이면 null을 돌려준다", () => {
+    expect(
+      parseToWebMessage('{"type":"push-permission-result","status":"maybe","atMs":1}'),
+    ).toBeNull();
+  });
+
   it("theme을 파싱한다", () => {
     expect(parseToWebMessage('{"type":"theme","scheme":"dark","atMs":1}')).toEqual({
       type: "theme",

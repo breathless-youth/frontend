@@ -31,8 +31,6 @@ describe("gainCardView", () => {
 
   it("같은 판은 더 많이 오른 하나만 처음 나온 자리에 쓰고, 순공이 아니면 기간을 붙이지 않는다", () => {
     expect(gainCardView(FIXTURE_SESSION_GAINS)).toEqual({
-      before: 1205,
-      after: 1202,
       delta: 3,
       chips: [
         { key: "FOCUS_RATE:-", label: "집중률", delta: 208 },

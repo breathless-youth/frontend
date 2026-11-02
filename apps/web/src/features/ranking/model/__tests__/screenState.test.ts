@@ -10,17 +10,10 @@ import {
   FIXTURE_RESET_DAILY,
   FIXTURE_RESET_PREVIOUS,
   FIXTURE_STREAK,
-  FIXTURE_TOTAL_DAYS,
   FIXTURE_TOTAL_TIME,
 } from "@/lib/rankingFixtures";
 
-import {
-  aroundForScreen,
-  aroundGroupsForScreen,
-  classifyBoard,
-  needsPreviousPeriod,
-  viewStateOf,
-} from "../screenState";
+import { aroundForScreen, classifyBoard, needsPreviousPeriod, viewStateOf } from "../screenState";
 
 describe("classifyBoard", () => {
   it.each([
@@ -64,37 +57,5 @@ describe("aroundForScreen", () => {
 
   it("그 밖에는 서버가 준 대로 둔다", () => {
     expect(aroundForScreen(FIXTURE_FOCUS_WEEKLY.around, "ranked", 1205)).toHaveLength(5);
-  });
-});
-
-describe("aroundGroupsForScreen", () => {
-  // 공동 1위 묶음이 맨 앞이고 서버는 뒤 4묶음을 더 보낸다.
-  // 묶음 순위는 1·4·5·7·8이라 순위 차로 자르면 내 묶음만 남는다.
-  const tiedFirst = [
-    { ...FIXTURE_TOTAL_DAYS.aroundGroups![0]!, rank: 1, me: true, myOrder: 2, othersCount: 2 },
-    { ...FIXTURE_TOTAL_DAYS.aroundGroups![1]!, rank: 4, othersCount: 0 },
-    { ...FIXTURE_TOTAL_DAYS.aroundGroups![3]!, rank: 5, othersCount: 1 },
-    { ...FIXTURE_TOTAL_DAYS.aroundGroups![4]!, rank: 7, othersCount: 0 },
-    { ...FIXTURE_TOTAL_DAYS.aroundGroups![2]!, rank: 8, me: false, myOrder: null },
-  ];
-
-  it("1위면 순위가 아니라 순서로 세어 내 묶음과 뒤 2묶음만 남긴다", () => {
-    expect(aroundGroupsForScreen(tiedFirst, "first_place").map((group) => group.rank)).toEqual([
-      1, 4, 5,
-    ]);
-  });
-
-  it("1위여도 내 묶음이 없으면 입력을 그대로 돌려준다", () => {
-    const noMe = tiedFirst.map((group) => ({ ...group, me: false, myOrder: null }));
-
-    expect(aroundGroupsForScreen(noMe, "first_place")).toEqual(noMe);
-  });
-
-  it("그 밖에는 서버가 준 대로 둔다", () => {
-    const groups = FIXTURE_TOTAL_DAYS.aroundGroups!;
-    const result = aroundGroupsForScreen(groups, "ranked");
-
-    expect(result).toHaveLength(5);
-    expect(result).toEqual(groups);
   });
 });

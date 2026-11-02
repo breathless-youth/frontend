@@ -9,6 +9,7 @@ import { appLockNative } from "../modules/app-lock";
 import { profilePhotoPickerNative } from "../modules/profile-photo-picker";
 import { SUPPORTED_INLINE_KINDS, webGlassNative } from "../modules/web-glass";
 import { getRnda } from "./appLock/rnda";
+import { isNewUserThisLaunch } from "./auth";
 import { ensureUserRegistered } from "./userApi";
 
 // 고정 영역에 새 모양을 더하면 올리고, 웹은 이 값을 보고 그 모양을 앱에 맡길지 정한다.
@@ -22,11 +23,11 @@ const GLASS_CHROME_VERSION = 1;
  * 값이 갈라진다 — 그래서 화면이 아니라 여기 한 곳에서 만든다.
  *
  * 신원은 더 이상 URL에 싣지 않는다. 웹은 `auth-ready` handshake로 받은 `auth-token`에서
- * userId와 access 토큰을 함께 얻는다. 여기 남은 값은 전부 바이너리마다 고정된 표시라
+ * userId와 access 토큰을 함께 얻는다. 여기 남은 값은 `newUser`를 빼면 전부 바이너리마다 고정된 표시라
  * 등록 결과와 무관하다. 다만 등록을 기다리는 일 자체는 `loadRemoteQueryParams`가 계속 한다.
  *
  * - `appVersion`: 설정 화면의 버전 정보 표시용. 못 읽으면 생략한다.
- * - `isNew`는 붙이지 않는다 — 소비하는 화면이 없다(2026-07-31 검토로 범위 밖 확정).
+ * - `newUser`: 이번 실행에서 계정이 새로 생겼을 때만 붙는다. 웹 온보딩이 대상 판정에 쓴다.
  */
 export type RemoteQueryParams = Record<string, string | number>;
 
@@ -67,6 +68,15 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   // 웹은 이 표시가 있을 때만 타이머 끝 알림에 `alert`를 보낸다(`apps/web/src/lib/alertHapticCapability.ts`).
   // 구버전 앱의 파서는 모르는 세기를 통째로 버리므로 브리지가 있다는 것만으로는 보낼 수 없다.
   params.alertHaptic = "1";
+  // `pushPermission=1`: 이 바이너리는 실행할 때 알림 권한을 묻지 않고 `request-push-permission`을 기다린다는 표시.
+  // 웹은 이 표시가 있을 때만 온보딩이나 홈 도착에서 권한을 요청한다(`apps/web/src/lib/nativePushPermission.ts`).
+  // 표시 없는 구버전 앱은 실행할 때 이미 물었으므로 웹이 다시 요청하지 않는다.
+  params.pushPermission = "1";
+  // `newUser=1`: 이번 실행에서 계정이 새로 생겼다는 표시. 웹은 이 표시로 온보딩을 시작한다(`apps/web/src/features/onboarding/onboardingGate.ts`).
+  // 등록이 끝난 뒤에 파라미터를 만들어서 기다림이 늘지 않는다.
+  if (isNewUserThisLaunch()) {
+    params.newUser = "1";
+  }
   // `nativeTabBar=1`: 이 바이너리가 iOS에서 시스템 탭 바를 쓴다는 표시.
   // 시스템 탭 바는 웹뷰의 하단 안전 영역에 바 높이를 포함시키므로 웹은 플로팅 바 공식 대신 안전 영역만 쓰면 된다.
   // 원격 웹은 구버전 앱에도 즉시 배포되므로 바이너리별 표시가 필요하다.

@@ -19,8 +19,6 @@ export interface GainChip {
 }
 
 export interface GainCardView {
-  before: number;
-  after: number;
   delta: number;
   chips: GainChip[];
 }
@@ -75,8 +73,6 @@ export function gainCardView(response: RankingSessionGainsResponse): GainCardVie
     }
   }
   return {
-    before: weekly.before,
-    after: weekly.after,
     delta: weekly.delta,
     chips: chips.slice(0, MAX_GAIN_CHIPS),
   };

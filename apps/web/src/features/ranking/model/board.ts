@@ -11,8 +11,6 @@ export type BoardSelection =
 export type BoardMode = "ranking" | "hall";
 export type RankingBoardType = "FOCUS_TIME" | "FOCUS_RATE" | "TIME_SLOT";
 export type HallBoardType = "TOTAL_TIME" | "TOTAL_DAYS" | "MAX_STREAK";
-/** 같은 일수끼리 공동 순위인 판. */
-export type DayBoardType = "TOTAL_DAYS" | "MAX_STREAK";
 
 /**
  * 응답이 알려 주는 판
@@ -105,10 +103,6 @@ export function periodsOf(type: RankingType): readonly RankingPeriod[] {
 
 export function isHallType(type: RankingType): type is HallBoardType {
   return type === "TOTAL_TIME" || type === "TOTAL_DAYS" || type === "MAX_STREAK";
-}
-
-export function isDayType(type: RankingType): type is DayBoardType {
-  return type === "TOTAL_DAYS" || type === "MAX_STREAK";
 }
 
 /**

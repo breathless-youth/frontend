@@ -144,12 +144,13 @@ export type PushPermissionDeps = {
  * 띄우고 이후 호출에는 저장된 답을 돌려주므로 실행마다 불러도 된다.
  * Android 13 이상은 거부해도 한 번 더 띄울 수 있어서, 어댑터(`pushMessaging.ts`)가 물은 기록을 남겨 한 번만 묻는다.
  *
- * `app/_layout.tsx`가 ATT 프롬프트 뒤, 권장 업데이트 알림창 앞에 부른다. 실패하거나 응답이 상한을 넘겨도
- * 거부하지 않고 끝난다 — 뒤에 이어지는 알림창이 막히면 안 된다. 개발 빌드는 수신 검증용으로 토큰까지 로그에 남긴다.
+ * 묻는 시점은 웹이 정해 브리지 `request-push-permission`으로 요청한다(`nativeBridgeHandler.ts`).
+ * 실패하거나 응답이 상한을 넘겨도 거부하지 않고 `undetermined`로 끝난다 — 웹이 다음 화면으로 넘어가지 못하면 안 된다.
+ * 개발 빌드는 수신 검증용으로 토큰까지 로그에 남긴다.
  */
 export async function ensurePushPermission(
   overrides: Partial<PushPermissionDeps> = {},
-): Promise<void> {
+): Promise<PushPermissionStatus> {
   const deps: PushPermissionDeps = {
     devBuild: __DEV__,
     requestPermission: requestPushPermission,
@@ -163,7 +164,9 @@ export async function ensurePushPermission(
       // eslint-disable-next-line no-console -- 개발 빌드에서 수신·토큰 확인용 로그
       console.log(`[push] permission=${status} token=${token ?? "(없음)"}`);
     }
+    return status;
   } catch (error) {
     console.warn("[push] 권한 요청·토큰 확인 실패", error);
+    return "undetermined";
   }
 }

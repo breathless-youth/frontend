@@ -17,7 +17,7 @@ import { getCameraPermissionStatus, openAppSettings } from "../cameraPermission"
 import { runCameraPermissionGate } from "../cameraPermissionGate";
 import { triggerHaptic } from "../haptics";
 import { logAnalyticsEvent, setAnalyticsUserProperties } from "../firebaseAnalytics";
-import { logMetaAppEvent } from "../metaAds";
+import { initMetaAds, logMetaAppEvent } from "../metaAds";
 import { getMotionSensorRelay } from "../motionSensorRelay";
 import { emitSessionClosed } from "../sessionClosed";
 import { __resetSessionPresenceForTests, markSessionOpen } from "../sessionPresence";
@@ -25,6 +25,9 @@ import { appendVideoChunk, saveVideo, shareVideo } from "../videoTransfer";
 import { handleAppLockMessage } from "../appLock/appLockRelay";
 import { saveLaunchGoal } from "../launchGoal";
 import { acknowledgeInstallAttribution } from "../installAttribution";
+import { waitForStartPrompts } from "../launchReady";
+import { ensurePushPermission } from "../pushBootstrap";
+import { registerPushToken } from "../pushTokenRegistration";
 
 /**
  * 브리지 수신 공용 핸들러(BY-333) — `RemoteWebViewHost`를 쓰는 화면(탭 3개 + 세션) 전부가
@@ -63,6 +66,7 @@ jest.mock("../sessionClosed", () => ({
 
 jest.mock("../metaAds", () => ({
   logMetaAppEvent: jest.fn(),
+  initMetaAds: jest.fn(async () => undefined),
 }));
 
 jest.mock("../firebaseAnalytics", () => ({
@@ -83,6 +87,18 @@ jest.mock("../appLock/appLockRelay", () => ({
 
 jest.mock("../launchGoal", () => ({
   saveLaunchGoal: jest.fn(async () => undefined),
+}));
+
+jest.mock("../launchReady", () => ({
+  waitForStartPrompts: jest.fn(async () => undefined),
+}));
+
+jest.mock("../pushBootstrap", () => ({
+  ensurePushPermission: jest.fn(),
+}));
+
+jest.mock("../pushTokenRegistration", () => ({
+  registerPushToken: jest.fn(async () => undefined),
 }));
 
 jest.mock("../installAttribution", () => ({
@@ -356,6 +372,85 @@ describe("handleBridgeMessage", () => {
       expect.objectContaining({ type: "camera-gate-result", granted: false }),
     );
     warn.mockRestore();
+  });
+
+  it("request-push-permission → 권한을 묻고 토큰을 등록한 뒤 결과로 답한다", async () => {
+    jest.mocked(ensurePushPermission).mockResolvedValue("granted");
+    const reply = jest.fn();
+
+    handleBridgeMessage({ type: "request-push-permission", atMs: 1 }, reply);
+
+    await waitFor(() =>
+      expect(reply).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "push-permission-result", status: "granted" }),
+      ),
+    );
+    expect(ensurePushPermission).toHaveBeenCalledTimes(1);
+    expect(registerPushToken).toHaveBeenCalledTimes(1);
+  });
+
+  it("request-push-permission → 시작 ATT 창이 끝난 뒤에 묻는다 — OS 창이 겹치면 ATT가 뜨지 않는다", async () => {
+    let finishAtt: () => void = () => {};
+    jest.mocked(initMetaAds).mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finishAtt = resolve;
+      }),
+    );
+    jest.mocked(ensurePushPermission).mockResolvedValue("granted");
+
+    handleBridgeMessage({ type: "request-push-permission", atMs: 1 }, jest.fn());
+    await Promise.resolve();
+    expect(ensurePushPermission).not.toHaveBeenCalled();
+
+    finishAtt();
+    await waitFor(() => expect(ensurePushPermission).toHaveBeenCalledTimes(1));
+  });
+
+  it("request-push-permission → 앱의 시작 권한 창 차례가 오기 전에는 ATT를 시작하지 않는다 — 스플래시나 목표 문구 위에 뜨지 않게", async () => {
+    let hide: () => void = () => {};
+    jest.mocked(waitForStartPrompts).mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        hide = resolve;
+      }),
+    );
+    jest.mocked(ensurePushPermission).mockResolvedValue("granted");
+
+    handleBridgeMessage({ type: "request-push-permission", atMs: 1 }, jest.fn());
+    await Promise.resolve();
+    expect(initMetaAds).not.toHaveBeenCalled();
+
+    hide();
+    await waitFor(() => expect(ensurePushPermission).toHaveBeenCalledTimes(1));
+    expect(initMetaAds).toHaveBeenCalled();
+  });
+
+  it("request-push-permission → 묻다가 실패하면 undetermined로 답한다 — 웹이 응답 대기 상한까지 멈추지 않게", async () => {
+    jest.mocked(ensurePushPermission).mockRejectedValue(new Error("native unavailable"));
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const reply = jest.fn();
+
+    handleBridgeMessage({ type: "request-push-permission", atMs: 1 }, reply);
+
+    await waitFor(() =>
+      expect(reply).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "push-permission-result", status: "undetermined" }),
+      ),
+    );
+    warn.mockRestore();
+  });
+
+  it("request-push-permission → 거부해도 서버에 꺼짐을 알리도록 토큰 등록을 부른다", async () => {
+    jest.mocked(ensurePushPermission).mockResolvedValue("denied");
+    const reply = jest.fn();
+
+    handleBridgeMessage({ type: "request-push-permission", atMs: 1 }, reply);
+
+    await waitFor(() =>
+      expect(reply).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "push-permission-result", status: "denied" }),
+      ),
+    );
+    expect(registerPushToken).toHaveBeenCalledTimes(1);
   });
 
   it("navigate-home → 뒤로 갈 곳이 있으면 pop한다", () => {

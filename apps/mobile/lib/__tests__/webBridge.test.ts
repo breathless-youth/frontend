@@ -304,6 +304,20 @@ describe("parseToNativeMessage", () => {
       atMs: 1,
     });
   });
+
+  it("request-push-permission을 파싱한다", () => {
+    expect(parseToNativeMessage('{"type":"request-push-permission","atMs":1}')).toEqual({
+      type: "request-push-permission",
+      atMs: 1,
+    });
+  });
+
+  it("launch-ready를 파싱한다", () => {
+    expect(parseToNativeMessage('{"type":"launch-ready","atMs":1}')).toEqual({
+      type: "launch-ready",
+      atMs: 1,
+    });
+  });
 });
 
 describe("injectMessageScript", () => {

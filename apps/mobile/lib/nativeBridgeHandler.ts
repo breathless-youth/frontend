@@ -12,8 +12,12 @@ import { triggerHaptic } from "./haptics";
 import { acknowledgeInstallAttribution } from "./installAttribution";
 import { saveLaunchGoal } from "./launchGoal";
 import { logAnalyticsEvent, setAnalyticsUserProperties } from "./firebaseAnalytics";
-import { logMetaAppEvent } from "./metaAds";
+import { waitForStartPrompts } from "./launchReady";
+import { initMetaAds, logMetaAppEvent } from "./metaAds";
 import { getMotionSensorRelay } from "./motionSensorRelay";
+import type * as PushBootstrap from "./pushBootstrap";
+import type { PushPermissionStatus } from "./pushMessaging";
+import type * as PushTokenRegistration from "./pushTokenRegistration";
 import { trackNativeEvent } from "./nativeAnalytics";
 import { emitSessionClosed } from "./sessionClosed";
 import { runAfterNextSessionScreen } from "./sessionPresence";
@@ -97,6 +101,26 @@ async function pickProfilePhoto(): Promise<
  * 한다 — 어느 화면에서 메시지가 와도 동작이 갈리면 안 되므로 화면마다 복붙하지 않고
  * 한 곳에 모았다. 원래 `app/room/[id].tsx`에 있던 로직을 그대로 승격했다.
  */
+/**
+ * 웹이 요청한 OS 알림 권한 묻기
+ *
+ * 앱이 시작 권한 창 차례를 연 뒤(스플래시와 목표 문구가 걷힌 뒤), 그 ATT 창이 끝나고 묻는다.
+ * 스플래시 위에서는 ATT가 뜨지 않고, 다른 OS 창이 떠 있어도 ATT가 아예 뜨지 않는다.
+ * 거부해도 토큰 등록을 불러 서버에 알림 꺼짐을 알린다. 등록이 늦어도 웹의 다음 화면을 붙잡지 않도록 기다리지 않는다.
+ * 푸시 모듈은 불러오기만 해도 RNFB 네이티브 모듈을 찾으므로, 이 핸들러를 거치는 모든 테스트가 죽지 않게 쓸 때 불러온다.
+ */
+async function askPushPermission(): Promise<PushPermissionStatus> {
+  await waitForStartPrompts();
+  await initMetaAds();
+  /* eslint-disable @typescript-eslint/no-require-imports -- 쓸 때 동기로 불러오는 방법이 require뿐이다(jest는 동적 import를 못 돈다). */
+  const { ensurePushPermission } = require("./pushBootstrap") as typeof PushBootstrap;
+  const { registerPushToken } = require("./pushTokenRegistration") as typeof PushTokenRegistration;
+  /* eslint-enable @typescript-eslint/no-require-imports */
+  const status = await ensurePushPermission();
+  void registerPushToken();
+  return status;
+}
+
 export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply): void {
   switch (message.type) {
     case "start-session":
@@ -138,6 +162,15 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
         console.warn("[bridge] 카메라 게이트(request-camera-gate) 처리 실패", error);
         reply({ type: "camera-gate-result", granted: false, atMs: Date.now() });
       });
+      break;
+    case "request-push-permission":
+      void askPushPermission()
+        .catch((error: unknown) => {
+          // 답하지 않으면 웹 온보딩이 응답 대기 상한까지 멈춘다. 물었는지 모르니 미결정으로 답한다.
+          console.warn("[bridge] 알림 권한(request-push-permission) 처리 실패", error);
+          return "undetermined" as const;
+        })
+        .then((status) => reply({ type: "push-permission-result", status, atMs: Date.now() }));
       break;
     case "navigate-home":
       // 결과 화면 버튼과 1분 미만 종료 안내가 보낸다.

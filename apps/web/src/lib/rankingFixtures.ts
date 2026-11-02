@@ -1,6 +1,5 @@
 import type {
   RankingBoardResponse,
-  RankingDayGroup,
   RankingEntry,
   RankingRecord,
   RankingRecordsPage,
@@ -27,8 +26,6 @@ const NO_EXTRAS = {
   eligibility: null,
   nextTier: null,
   streak: null,
-  aroundGroups: null,
-  podiumGroups: null,
   goalExamples: null,
 } as const;
 
@@ -179,60 +176,39 @@ export const FIXTURE_TOTAL_TIME: RankingBoardResponse = {
 };
 
 /**
- * 일수 판 묶음 한 줄
- *
- * 서버는 내 묶음에만 같은 일수 중 몇 번째로 도달했는지를 보내므로 그 값이 있으면 내 묶음으로 둔다.
- */
-function group(
-  days: number,
-  rank: number,
-  nickname: string,
-  othersCount: number,
-  achievedDate: string,
-  myOrder: number | null = null,
-): RankingDayGroup {
-  return { days, rank, nickname, othersCount, achievedDate, me: myOrder !== null, myOrder };
-}
-
-/**
  * 명예의 전당 누적 일수.
  * 다음 구간 예상 날짜가 없는 경우.
- * 일수 판은 같은 일수끼리 공동 순위라 묶음 순위는 앞 묶음 순위에 앞 묶음 인원을 더한 값이다.
- * 시상대 1위 묶음은 세 명이 같은 일수이고 2위 묶음은 혼자다.
  */
 export const FIXTURE_TOTAL_DAYS: RankingBoardResponse = {
   ...HALL_BASE,
   type: "TOTAL_DAYS",
-  podium: [],
+  podium: [row(1, "도서관지박령", 412), row(2, "합격기원", 388), row(3, "공시생J", 351)],
   me: { rank: 1530, value: 64, focusing: false, topPercent: 22 },
-  around: [],
+  around: [
+    row(1528, "형광펜", 68),
+    row(1529, "커피세잔", 67),
+    row(1530, "오늘도출석", 64, { me: true }),
+    row(1531, "열공모드", 63),
+    row(1532, "공시생J2", 61),
+  ],
   above: { nickname: "커피세잔", gap: 3, focusing: false },
   below: { nickname: "열공모드", gap: 1, focusing: false },
   nextTier: { percent: 20, remaining: 4, etaDays: null },
-  podiumGroups: [
-    group(412, 1, "도서관지박령", 2, "2026-10-08"),
-    group(388, 4, "합격기원", 0, "2026-10-09"),
-    group(351, 5, "공시생J", 1, "2026-10-07"),
-  ],
-  aroundGroups: [
-    group(68, 1519, "형광펜", 5, "2026-10-02"),
-    group(67, 1525, "커피세잔", 4, "2026-10-05"),
-    group(64, 1530, "오늘도출석", 7, "2026-10-09", 3),
-    group(63, 1538, "열공모드", 0, "2026-10-08"),
-    group(61, 1539, "공시생J2", 3, "2026-09-30"),
-  ],
 };
 
-/**
- * 명예의 전당 연속 공부.
- * 시상대 세 묶음 모두 같은 일수인 사람이 더 있다.
- */
+/** 명예의 전당 연속 공부. */
 export const FIXTURE_STREAK: RankingBoardResponse = {
   ...HALL_BASE,
   type: "MAX_STREAK",
-  podium: [],
+  podium: [row(1, "새벽러너", 186), row(2, "합격기원", 171), row(3, "오답노트", 158)],
   me: { rank: 1742, value: 13, focusing: false, topPercent: 40 },
-  around: [],
+  around: [
+    row(1740, "수학의정석", 15),
+    row(1741, "형광펜", 14),
+    row(1742, "오늘도출석", 13, { me: true }),
+    row(1743, "공시생J", 12),
+    row(1744, "열공모드", 11),
+  ],
   above: { nickname: "형광펜", gap: 1, focusing: false },
   below: { nickname: "공시생J", gap: 1, focusing: false },
   streak: {
@@ -243,18 +219,6 @@ export const FIXTURE_STREAK: RankingBoardResponse = {
     currentIsBest: false,
     nextRankIfContinue: null,
   },
-  podiumGroups: [
-    group(186, 1, "새벽러너", 2, "2026-10-10"),
-    group(171, 4, "합격기원", 1, "2026-10-10"),
-    group(158, 6, "오답노트", 4, "2026-10-09"),
-  ],
-  aroundGroups: [
-    group(15, 1660, "수학의정석", 37, "2026-09-22"),
-    group(14, 1698, "형광펜", 43, "2026-09-30"),
-    group(13, 1742, "오늘도출석", 41, "2026-09-26", 3),
-    group(12, 1784, "공시생J", 55, "2026-08-11"),
-    group(11, 1840, "열공모드", 61, "2026-08-02"),
-  ],
 };
 
 /** 시간대 아침 일간, 내가 1위이고 2위가 5분 차로 따라오는 중. */

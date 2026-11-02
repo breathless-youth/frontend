@@ -15,6 +15,8 @@ type InfoTooltipProps = {
   align?: ComponentProps<typeof TooltipContent>["align"];
   /** 본문 색을 덮는다. 세션 화면은 전역 토큰 대신 세션 툴팁 색을 쓴다. */
   contentClassName?: string;
+  /** 넘침을 판단할 경계. 스크롤로 잘리는 모달 안에서는 모달을 넘겨 그 안쪽으로 밀어 넣는다. 생략하면 화면이다. */
+  collisionBoundary?: Element | null;
 };
 
 /**
@@ -56,6 +58,7 @@ export function InfoTooltip({
   side = "bottom",
   align = "start",
   contentClassName,
+  collisionBoundary,
 }: InfoTooltipProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -93,6 +96,8 @@ export function InfoTooltip({
         </TooltipTrigger>
         <TooltipContent
           side={side}
+          collisionBoundary={collisionBoundary}
+          collisionPadding={collisionBoundary == null ? 0 : 12}
           align={align}
           // 세션 툴팁보다 넓은 안내 툴팁 폭에 맞추고, 한글 단어 중간에서 줄이 갈리지 않게 한다.
           className={cn("bg-foreground text-background max-w-65.5 break-keep", contentClassName)}

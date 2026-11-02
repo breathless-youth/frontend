@@ -14,11 +14,6 @@ import {
   resetMeasurementFeedbackStore,
   setMeasurementFeedbackStore,
 } from "@/features/measurement-feedback/measurementFeedbackStore";
-import {
-  createMemoryBoardMemoryStore,
-  resetBoardMemoryStore,
-  setBoardMemoryStore,
-} from "@/features/ranking/model/boardMemory";
 import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import type * as Amplitude from "@/lib/amplitude";
 import { stageStudyResultExit } from "@/lib/amplitude";
@@ -172,16 +167,6 @@ function RecordsProbe() {
 }
 
 /**
- * 랭킹 도착 관측용 프로브
- *
- * 브라우저 단독 모드의 `랭킹 보기 ›`가 여기로 온다.
- */
-function RankingProbe() {
-  const { search } = useLocation();
-  return <p>랭킹 화면{search}</p>;
-}
-
-/**
  * 모션 축소 여부를 `matchMedia`로 심는다 — jsdom에는 `matchMedia`가 없어 `ResultPage`는 "축소
  * 아님"으로 본다.
  *
@@ -232,7 +217,6 @@ function renderResult(
         <Routes>
           <Route path="/home" element={<HomeProbe />} />
           <Route path="/records" element={<RecordsProbe />} />
-          <Route path="/ranking" element={<RankingProbe />} />
           <Route path="/room/:id/result" element={<ResultPage />} />
         </Routes>
       </MemoryRouter>
@@ -864,7 +848,6 @@ function renderResultAtSocial(state: unknown, search = "?userId=7") {
           <Route path="/home" element={<HomeProbe />} />
           <Route path="/social" element={<SocialProbe />} />
           <Route path="/records" element={<RecordsProbe />} />
-          <Route path="/ranking" element={<RankingProbe />} />
           <Route path="/social/room/:roomId/result" element={<ResultPage />} />
         </Routes>
       </MemoryRouter>
@@ -1127,34 +1110,15 @@ describe("ResultPage — 타임랩스 카드 (BY-894)", () => {
 
 describe("ResultPage: 랭킹 카드", () => {
   const CARD = { name: "랭킹이 올랐어요" };
-  let boardStore: ReturnType<typeof createMemoryBoardMemoryStore>;
 
   beforeEach(() => {
-    boardStore = createMemoryBoardMemoryStore();
-    setBoardMemoryStore(boardStore);
     getRankingSessionGains.mockResolvedValue(FIXTURE_SESSION_GAINS);
   });
 
   afterEach(() => {
-    resetBoardMemoryStore();
     window.history.replaceState(null, "", "/");
     __resetRankingTabForTests();
   });
-
-  /** 셸이 랭킹 탭 표시를 실은 앱 웹뷰를 흉내 낸다. */
-  function stubAppWithRankingTab() {
-    const postMessage = vi.fn();
-    vi.stubGlobal("ReactNativeWebView", { postMessage });
-    window.history.replaceState(null, "", "/?ranking=1");
-    __resetRankingTabForTests();
-    return postMessage;
-  }
-
-  function sentMessages(postMessage: ReturnType<typeof vi.fn>) {
-    return postMessage.mock.calls.map(
-      ([raw]) => JSON.parse(raw as string) as Record<string, unknown>,
-    );
-  }
 
   it("주간 순공이 오르면 히어로 아래, 타임라인 위에 카드를 보인다", async () => {
     renderResult({ sessions: [exampleSession()] });
@@ -1165,7 +1129,8 @@ describe("ResultPage: 랭킹 카드", () => {
     expect(
       card.compareDocumentPosition(timelineCard()) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
-    expect(within(card).getByText("1,205위 → 1,202위")).toBeInTheDocument();
+    expect(within(card).getByText("▲3")).toBeInTheDocument();
+    expect(within(card).queryByText(/\d위/)).toBeNull();
     expect(within(card).getAllByRole("listitem")).toHaveLength(3);
   });
 
@@ -1233,42 +1198,11 @@ describe("ResultPage: 랭킹 카드", () => {
     expect(getRankingSessionGains).not.toHaveBeenCalled();
   });
 
-  it("브라우저에서 랭킹 보기는 순공 주간 판을 넘겨주고 웹 라우트 /ranking으로 간다", async () => {
+  it("카드에서 랭킹 탭으로 가지 않는다", async () => {
     renderResult({ sessions: [exampleSession()] });
 
-    await userEvent.click(await screen.findByRole("button", { name: "랭킹 보기" }));
-
-    expect(screen.getByText("랭킹 화면?userId=7")).toBeInTheDocument();
-    expect(JSON.parse(boardStore.raw!).ranking).toEqual({ type: "FOCUS_TIME", period: "WEEKLY" });
-    expect(stageStudyResultExit).toHaveBeenCalledWith(
-      expect.objectContaining({ roomType: "single", consumeAt: "/ranking" }),
-    );
-  });
-
-  it("앱 솔로 결과에서는 모달 닫기 신호 하나에 랭킹 탭을 싣는다", async () => {
-    const postMessage = stubAppWithRankingTab();
-    renderResult({ sessions: [exampleSession()] });
-
-    await userEvent.click(await screen.findByRole("button", { name: "랭킹 보기" }));
-
-    expect(sentMessages(postMessage)).toEqual([
-      expect.objectContaining({ type: "navigate-home", tab: "ranking" }),
-    ]);
-    expect(screen.getByText(/^홈 화면/)).toBeInTheDocument();
-  });
-
-  it("앱 소셜 결과에서는 탭 전환 신호만 보내고 웹뷰는 소셜 홈으로 돌린다", async () => {
-    const postMessage = stubAppWithRankingTab();
-    renderResultAtSocial({ sessions: [exampleSession()] });
-
-    await userEvent.click(await screen.findByRole("button", { name: "랭킹 보기" }));
-
-    expect(sentMessages(postMessage)).toEqual([
-      expect.objectContaining({ type: "navigate-tab", tab: "ranking", via: "result_ranking_card" }),
-    ]);
-    expect(screen.getByText("소셜 홈?userId=7")).toBeInTheDocument();
-    expect(stageStudyResultExit).toHaveBeenCalledWith(
-      expect.objectContaining({ roomType: "social", consumeAt: "/ranking" }),
-    );
+    const card = await screen.findByRole("region", CARD);
+    expect(within(card).queryByRole("button")).toBeNull();
+    expect(screen.queryByRole("button", { name: "랭킹 보기" })).toBeNull();
   });
 });
