@@ -22,6 +22,11 @@ interface ImportMetaEnv {
    * 접히고 이 코드가 번들에서 빠진다.
    */
   readonly VITE_FAKE_CAMERA?: string;
+  /**
+   * 측정 빌드 전용.
+   * "1"이면 운영 빌드에서도 얼굴 가림 합성 통계 `__faceMaskStats`를 연다.
+   */
+  readonly VITE_FACE_MASK_STATS?: string;
 }
 
 interface ImportMeta {

@@ -71,6 +71,8 @@ const sourceRef = { current: null };
 afterEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
+  delete (window as { __faceMaskStats?: unknown }).__faceMaskStats;
 });
 
 describe("useFaceMaskedSend", () => {
@@ -361,6 +363,43 @@ describe("useFaceMaskedSend", () => {
 
     rerender({ active: false });
     expect(compositor.pause).toHaveBeenCalledTimes(1);
+  });
+
+  it("측정 플래그를 켠 운영 빌드는 통계만 열고 디버그 줄은 비워 둔다", () => {
+    vi.stubEnv("DEV", false);
+    vi.stubEnv("VITE_FACE_MASK_STATS", "1");
+    const compositor = fakeCompositor();
+    const detector = fakeDetector();
+    const { result, unmount } = renderHook(() =>
+      useFaceMaskedSend({
+        sourceRef,
+        visionDetector: detector,
+        cameraStream: camera,
+        active: true,
+        createCompositor: () => compositor,
+      }),
+    );
+    const stats = (window as { __faceMaskStats?: () => unknown }).__faceMaskStats;
+    expect(stats?.()).toEqual(compositor.stats());
+    expect(result.current.debugLine).toBe("");
+
+    unmount();
+    expect((window as { __faceMaskStats?: unknown }).__faceMaskStats).toBeUndefined();
+  });
+
+  it("측정 플래그가 없는 운영 빌드는 통계를 열지 않는다", () => {
+    vi.stubEnv("DEV", false);
+    const detector = fakeDetector();
+    renderHook(() =>
+      useFaceMaskedSend({
+        sourceRef,
+        visionDetector: detector,
+        cameraStream: camera,
+        active: true,
+        createCompositor: () => fakeCompositor(),
+      }),
+    );
+    expect((window as { __faceMaskStats?: unknown }).__faceMaskStats).toBeUndefined();
   });
 });
 

@@ -118,22 +118,30 @@ export function useFaceMaskedSend({
     }
   }, [supported, cameraStream, visionDetector]);
 
-  // 측정 스크립트가 원격 디버깅으로 통계를 읽고, 디버그 오버레이가 한 줄로 보여 준다.
+  // 측정 스크립트가 원격 디버깅으로 통계를 읽는다.
+  // 운영 빌드로 측정할 때는 VITE_FACE_MASK_STATS=1로 빌드해 연다.
+  useEffect(() => {
+    const exposed = import.meta.env.DEV || import.meta.env.VITE_FACE_MASK_STATS === "1";
+    if (!exposed || compositor == null) {
+      return;
+    }
+    const target = window as unknown as { __faceMaskStats?: () => FaceMaskedStreamStats };
+    target.__faceMaskStats = () => compositor.stats();
+    return () => {
+      delete target.__faceMaskStats;
+    };
+  }, [compositor]);
+  // 디버그 오버레이 한 줄은 개발 빌드에서만 보여 준다.
   const [debugLine, setDebugLine] = useState("");
   useEffect(() => {
     if (!import.meta.env.DEV || compositor == null) {
       return;
     }
-    const target = window as unknown as { __faceMaskStats?: () => FaceMaskedStreamStats };
-    target.__faceMaskStats = () => compositor.stats();
     const timer = setInterval(() => {
       const { height, fps, videoMs, stickerMs } = compositor.stats();
       setDebugLine(`mask h${height} ${fps}fps video ${videoMs}ms stk ${stickerMs}ms`);
     }, 1000);
-    return () => {
-      clearInterval(timer);
-      delete target.__faceMaskStats;
-    };
+    return () => clearInterval(timer);
   }, [compositor]);
 
   return {
