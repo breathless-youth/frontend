@@ -6,6 +6,7 @@ import { type ReactNode, useEffect, useEffectEvent, useId } from "react";
 import { postToNative } from "@/lib/bridge";
 import { glassChromeVersion, registerPressHandler } from "@/lib/glassChrome";
 import { useModalOverlayOpen } from "@/lib/nativeModalOverlay";
+import { cn } from "@/lib/utils";
 
 /**
  * 위쪽 뒤로 가기 줄
@@ -26,6 +27,13 @@ export type GlassChromeTopProps = {
    * 제목 역할이면 요소 안에 `h1`을 직접 둔다.
    */
   center?: ReactNode;
+  /**
+   * 오른쪽 끝에 두는 웹 요소
+   *
+   * 앱의 유리 줄은 뒤로 버튼과 제목만 그려서 오른쪽 버튼은 앱 모드에서도 웹이 그린다.
+   * 앱이 그린 가운데 제목과 웹 버튼이 겹치지 않도록 이 요소가 있으면 제목도 웹이 그린다.
+   */
+  trailing?: ReactNode;
 };
 
 const LEADING_LABELS = { back: "뒤로 가기", close: "닫기" } as const;
@@ -34,13 +42,19 @@ function clip(text: string): string {
   return text.slice(0, NATIVE_CONTROL_LABEL_MAX_LENGTH);
 }
 
+/** 가운데나 오른쪽에 웹 요소가 있으면 앱 모드에서도 웹이 줄을 그린다. */
+function hasWebParts(top: GlassChromeTopProps): boolean {
+  return top.center !== undefined || top.trailing !== undefined;
+}
+
 function toChromeTop(top: GlassChromeTopProps): GlassChromeTop {
   return {
     leading: top.leading,
     leadingLabel: clip(top.leadingLabel || LEADING_LABELS[top.leading]),
     // 앱은 빈 글자도 버리므로 제목이 비면 없는 것으로 보낸다.
     // 가운데 요소가 있으면 CSS 대체처럼 그 요소가 제목 자리를 차지한다.
-    title: top.title && top.center === undefined ? clip(top.title) : null,
+    // 오른쪽 요소가 있으면 웹이 제목을 함께 그리므로 앱에는 보내지 않는다.
+    title: top.title && !hasWebParts(top) ? clip(top.title) : null,
   };
 }
 
@@ -124,13 +138,16 @@ export function GlassChrome({ top }: { top: GlassChromeTopProps }) {
       {/* 앱이 본문 부품을 자르는 선(GLASS_TOP_ROW_CLIP)과 같은 높이라 한쪽만 바꾸지 않는다. */}
       <div aria-hidden className="h-[calc(env(safe-area-inset-top)+52px)] shrink-0" />
       <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-30 glass-fade-top" />
-      {(!native || top.center !== undefined) && <GlassTopBar top={top} withLeading={!native} />}
+      {(!native || hasWebParts(top)) && <GlassTopBar top={top} withLeading={!native} />}
     </>
   );
 }
 
 function GlassTopBar({ top, withLeading }: { top: GlassChromeTopProps; withLeading: boolean }) {
   const LeadingIcon = top.leading === "back" ? ChevronLeft : X;
+  // 양쪽에 버튼 폭과 간격만큼 비워 제목이 화면 가운데에 온다.
+  // 오른쪽 요소는 버튼 둘까지 들어가므로 그만큼 더 비워 제목이 버튼 아래로 깔리지 않게 말줄임한다.
+  const middle = cn("absolute top-0", top.trailing === undefined ? "inset-x-14" : "inset-x-24");
   return (
     <div className="pointer-events-none fixed inset-x-0 top-0 z-30 px-5 pt-[calc(env(safe-area-inset-top)+4px)]">
       <div className="relative flex h-11 items-center">
@@ -144,18 +161,24 @@ function GlassTopBar({ top, withLeading }: { top: GlassChromeTopProps; withLeadi
             <LeadingIcon size={20} aria-hidden />
           </button>
         )}
-        {/* 양쪽에 버튼 폭과 간격만큼 비워 제목이 화면 가운데에 온다. */}
         {top.center !== undefined ? (
           // 줄의 빈 곳은 아래 본문으로 누름을 넘기고 가운데 요소만 누름을 받는다.
-          <div className="absolute inset-x-14 top-0 flex h-11 items-center justify-center *:pointer-events-auto">
+          <div
+            className={cn(middle, "flex h-11 items-center justify-center *:pointer-events-auto")}
+          >
             {top.center}
           </div>
         ) : (
           top.title && (
-            <h1 className="absolute inset-x-14 top-0 truncate text-center text-[17px] leading-11 font-semibold">
+            <h1 className={cn(middle, "truncate text-center text-[17px] leading-11 font-semibold")}>
               {top.title}
             </h1>
           )
+        )}
+        {top.trailing !== undefined && (
+          <div className="absolute top-0 right-0 flex h-11 items-center *:pointer-events-auto">
+            {top.trailing}
+          </div>
         )}
       </div>
     </div>
