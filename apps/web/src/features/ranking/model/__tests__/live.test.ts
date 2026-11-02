@@ -1,3 +1,4 @@
+import type { RankingBoardResponse } from "@focusmakers/types";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -10,14 +11,14 @@ import {
 } from "@/lib/rankingFixtures";
 
 import {
-  advanceLiveTrack,
+  formatRankChange,
   hasFocusing,
   interpolateRows,
   liveCapSec,
   liveGap,
+  nextBaseline,
   rankCardSubLine,
-  rankDrop,
-  startLiveTrack,
+  rankChange,
 } from "../live";
 
 describe("보간", () => {
@@ -78,18 +79,43 @@ describe("차이", () => {
   });
 });
 
-describe("내려간 계단 수", () => {
-  it("내려간 계단 수를 센다", () => {
-    expect(rankDrop(FIXTURE_FOCUS_WEEKLY, FIXTURE_OVERTAKEN)).toBe(3);
+describe("순위 변동", () => {
+  it("기준선보다 오르면 오른 계단 수를 양수로 센다", () => {
+    expect(rankChange(FIXTURE_OVERTAKEN, FIXTURE_FOCUS_WEEKLY)).toBe(3);
   });
 
-  it("순위가 오르거나 그대로면 0이다", () => {
-    expect(rankDrop(FIXTURE_OVERTAKEN, FIXTURE_FOCUS_WEEKLY)).toBe(0);
-    expect(rankDrop(FIXTURE_OVERTAKEN, FIXTURE_OVERTAKEN)).toBe(0);
+  it("기준선보다 내려가면 내려간 계단 수를 음수로 센다", () => {
+    expect(rankChange(FIXTURE_FOCUS_WEEKLY, FIXTURE_OVERTAKEN)).toBe(-3);
   });
 
-  it("내 순위가 없으면 판정하지 않는다", () => {
-    expect(rankDrop({ ...FIXTURE_FOCUS_WEEKLY, me: null }, FIXTURE_OVERTAKEN)).toBe(0);
+  it("그대로면 0이다", () => {
+    expect(rankChange(FIXTURE_OVERTAKEN, FIXTURE_OVERTAKEN)).toBe(0);
+  });
+
+  it("기준선이 없거나 어느 한쪽에 내 순위가 없으면 null이다", () => {
+    expect(rankChange(null, FIXTURE_OVERTAKEN)).toBeNull();
+    expect(rankChange({ ...FIXTURE_FOCUS_WEEKLY, me: null }, FIXTURE_OVERTAKEN)).toBeNull();
+    expect(rankChange(FIXTURE_FOCUS_WEEKLY, { ...FIXTURE_OVERTAKEN, me: null })).toBeNull();
+  });
+
+  it("기준선과 판의 기간이 다르면 비교하지 않고 null이다", () => {
+    const nextWeek = { ...FIXTURE_OVERTAKEN, periodStart: "2026-10-12" };
+
+    expect(rankChange(FIXTURE_FOCUS_WEEKLY, nextWeek)).toBeNull();
+  });
+});
+
+describe("순위 변동 표기", () => {
+  it("오르면 ▲N과 오른 계단 수 문장이다", () => {
+    expect(formatRankChange(2)).toEqual({ text: "▲2", spoken: "2계단 올랐어요", tone: "rise" });
+  });
+
+  it("내려가면 ▼N과 내려간 계단 수 문장이다", () => {
+    expect(formatRankChange(-3)).toEqual({ text: "▼3", spoken: "3계단 내려갔어요", tone: "drop" });
+  });
+
+  it("그대로면 -이고 읽을 문장이 없다", () => {
+    expect(formatRankChange(0)).toEqual({ text: "-", spoken: null, tone: "same" });
   });
 });
 
@@ -307,69 +333,43 @@ describe("순위 카드 아랫줄", () => {
   });
 });
 
-describe("비교 기준 추적", () => {
-  const input = (
-    board = FIXTURE_FOCUS_WEEKLY,
-    extra: Partial<{ key: string; visible: boolean; updatedAt: number }> = {},
-  ) => ({
-    key: "FOCUS_TIME:WEEKLY:-",
-    visible: true,
-    board,
-    updatedAt: 1000,
-    ...extra,
+describe("기준선 고르기", () => {
+  const seen = (
+    board: RankingBoardResponse | undefined = FIXTURE_FOCUS_WEEKLY,
+    extra: Partial<{ visible: boolean; fresh: boolean }> = {},
+  ) => ({ visible: true, board, fresh: true, ...extra });
+
+  it("신선하지 않은 판은 기준선이 되지 않고, 다음에 신선해진 판이 기준선이다", () => {
+    expect(nextBaseline(undefined, seen(FIXTURE_FOCUS_WEEKLY, { fresh: false }))).toBeUndefined();
+
+    expect(nextBaseline(undefined, seen(FIXTURE_OVERTAKEN))).toBe(FIXTURE_OVERTAKEN);
   });
 
-  it("첫 응답은 기준으로만 쓴다", () => {
-    const start = startLiveTrack({ ...input(), board: undefined });
-
-    const track = advanceLiveTrack(start, input());
-
-    expect(track.baseline).toBe(FIXTURE_FOCUS_WEEKLY);
-    expect(track.drop).toBeNull();
+  it("가려진 동안 받은 판은 기준선이 되지 않는다", () => {
+    expect(nextBaseline(undefined, seen(FIXTURE_FOCUS_WEEKLY, { visible: false }))).toBeUndefined();
   });
 
-  it("내려가면 ▼N을 남긴다", () => {
-    let track = advanceLiveTrack(startLiveTrack({ ...input(), board: undefined }), input());
-
-    track = advanceLiveTrack(track, input(FIXTURE_OVERTAKEN, { updatedAt: 2000 }));
-
-    expect(track.drop).toEqual({ count: 3, at: 2000 });
+  it("같은 기간에 오는 판은 기준선을 바꾸지 않는다", () => {
+    expect(nextBaseline(FIXTURE_FOCUS_WEEKLY, seen(FIXTURE_OVERTAKEN))).toBe(FIXTURE_FOCUS_WEEKLY);
   });
 
-  it("같은 응답이면 그대로 돌려준다", () => {
-    const track = advanceLiveTrack(startLiveTrack({ ...input(), board: undefined }), input());
-
-    expect(advanceLiveTrack(track, input())).toBe(track);
-  });
-
-  it("key가 바뀌면 직전 응답과 비교하지 않는다", () => {
-    const track = advanceLiveTrack(startLiveTrack({ ...input(), board: undefined }), input());
-
-    const next = advanceLiveTrack(track, input(FIXTURE_OVERTAKEN, { key: "FOCUS_TIME:DAILY:-" }));
-
-    expect(next.drop).toBeNull();
-    expect(next.baseline).toBeNull();
-  });
-
-  it("기간이 새로 시작되면 내려가도 직전 기간과 비교하지 않는다", () => {
-    const track = advanceLiveTrack(startLiveTrack({ ...input(), board: undefined }), input());
+  it("기간이 새로 시작되면 그 판으로 기준선을 다시 잡아 변동이 0이 된다", () => {
     const nextWeek = { ...FIXTURE_OVERTAKEN, periodStart: "2026-10-12" };
 
-    const next = advanceLiveTrack(track, input(nextWeek, { updatedAt: 2000 }));
+    const baseline = nextBaseline(FIXTURE_FOCUS_WEEKLY, seen(nextWeek));
 
-    expect(next.drop).toBeNull();
-    expect(next.baseline).toBe(nextWeek);
+    expect(baseline).toBe(nextWeek);
+    expect(rankChange(baseline ?? null, nextWeek)).toBe(0);
   });
 
-  it("다시 보이면 첫 새 응답은 기준으로만 쓴다", () => {
-    let track = advanceLiveTrack(startLiveTrack({ ...input(), board: undefined }), input());
-    track = advanceLiveTrack(track, input(FIXTURE_FOCUS_WEEKLY, { visible: false }));
-    track = advanceLiveTrack(track, input(FIXTURE_FOCUS_WEEKLY, { visible: true }));
+  it("처음 본 판에 내 순위가 없었으면 순위가 처음 생긴 판으로 다시 잡고, 그 뒤 판은 기준선을 바꾸지 않는다", () => {
+    const unranked = { ...FIXTURE_FOCUS_WEEKLY, me: null };
+    expect(nextBaseline(unranked, seen({ ...FIXTURE_OVERTAKEN, me: null }))).toBe(unranked);
 
-    track = advanceLiveTrack(track, input(FIXTURE_OVERTAKEN, { updatedAt: 3000 }));
+    const ranked = nextBaseline(unranked, seen(FIXTURE_OVERTAKEN));
+    expect(ranked).toBe(FIXTURE_OVERTAKEN);
 
-    expect(track.drop).toBeNull();
-    expect(track.baseline).toBe(FIXTURE_OVERTAKEN);
+    expect(nextBaseline(ranked, seen(FIXTURE_FOCUS_WEEKLY))).toBe(FIXTURE_OVERTAKEN);
   });
 });
 

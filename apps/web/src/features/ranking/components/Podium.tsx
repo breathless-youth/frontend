@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 import { IllustMedal, IllustMedalRing } from "../icons";
 import { MEDAL_MIN_SEC, isTimeType } from "../model/board";
-import { formatRank, formatValue } from "../model/format";
+import { formatValue } from "../model/format";
 import { podiumTitle, podiumTooltip } from "../model/labels";
 import { podiumStands, type PodiumRow } from "../model/podium";
 import { Nickname } from "./Nickname";
@@ -30,7 +30,6 @@ const SPOT = {
  * 집중률·시간대 판은 왼쪽 위 툴팁으로 순위 기준을 알려 준다.
  * 메달을 받은 자리는 아바타를 그 메달 색 테로 두른다.
  * 순공·시간대 판에서 30분이 안 된 자리는 메달과 테 없이 흐린 순위 숫자만 놓는다.
- * 일수 판은 같은 일수 묶음의 대표가 서고, 이름 아래에 같은 일수인 나머지 인원을 쓴다.
  */
 export function Podium({ board, elapsedSec }: { board: RankingBoardResponse; elapsedSec: number }) {
   const titleId = useId();
@@ -56,11 +55,10 @@ export function Podium({ board, elapsedSec }: { board: RankingBoardResponse; ela
         </div>
       )}
       <ol className="grid grid-cols-[1fr_1.15fr_1fr] items-end gap-2 px-3 pt-4">
-        {stands.map(({ spot, label, row }) => (
+        {stands.map(({ spot, row }) => (
           <PodiumSpot
             key={spot}
             spot={spot}
-            label={label}
             row={row}
             type={board.type}
             medalless={medalless(row)}
@@ -73,13 +71,11 @@ export function Podium({ board, elapsedSec }: { board: RankingBoardResponse; ela
 
 function PodiumSpot({
   spot,
-  label,
   row,
   type,
   medalless,
 }: {
   spot: MedalRank;
-  label: string;
   row: PodiumRow | undefined;
   type: RankingType;
   medalless: boolean;
@@ -88,7 +84,7 @@ function PodiumSpot({
   const first = spot === 1;
   return (
     <li className={cn("flex min-w-0 flex-col items-center", look.order)}>
-      <span className="sr-only">{label}</span>
+      <span className="sr-only">{spot}위</span>
       {row === undefined ? (
         <span
           aria-hidden="true"
@@ -134,16 +130,6 @@ function PodiumSpot({
           </>
         )}
       </div>
-      {row !== undefined && row.othersCount > 0 && (
-        <p
-          className={cn(
-            "mt-0.5 font-medium whitespace-nowrap text-muted-foreground tabular-nums",
-            first ? "text-xs leading-3.5" : "text-[11px] leading-3.25",
-          )}
-        >
-          외 {formatRank(row.othersCount)}명
-        </p>
-      )}
       {row === undefined ? (
         // 세 자리가 모두 비면 가장 높은 자리에도 값 줄이 없어 카드가 낮아지므로, 값 줄만큼 빈칸을 남긴다.
         <div

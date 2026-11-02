@@ -59,6 +59,7 @@ export function ResetCard({
 /**
  * 직전 기간 최종 결과 카드
  *
+ * 순위 숫자는 참여 인원을 드러내 3위 이내일 때만 쓴다.
  * 기록 보기는 랭킹 기록 모두 보기로 간다.
  * 글자 버튼은 보이는 높이가 15px이라 누르는 영역을 위아래로 넓혀 45px로 맞춘다.
  */
@@ -81,7 +82,8 @@ export function PreviousResultCard({
       <div className="min-w-0">
         <p className="text-xs leading-3.5 text-muted-foreground">{label}</p>
         <p className="mt-1 text-base leading-4.75 font-extrabold text-foreground">
-          {formatRank(previous.me.rank)}위 · {formatDuration(previous.me.value)}
+          {previous.me.rank <= 3 && `${previous.me.rank}위 · `}
+          {formatDuration(previous.me.value)}
         </p>
       </div>
       <button

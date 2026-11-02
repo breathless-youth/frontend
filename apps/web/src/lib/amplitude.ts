@@ -803,10 +803,24 @@ export function trackStudySessionExitCancelled(roomType: StudyRoomType) {
  * 소셜룸 카메라 토글 — 끄기는 즉시(=일시정지), 켜기는 확인 다이얼로그를 거친 뒤에만 찍힌다.
  * 룸에서 카메라 끔은 측정 일시정지와 동치라 `study_session_paused/resumed`도 같이 난다 — 이쪽은
  * "카메라"라는 사용자 의도의 축이고, 저쪽은 측정 상태의 축이다.
+ * `face_mask`는 그때 얼굴 가리기가 실제로 켜져 있었는지다.
+ * 가리기 스위치 이벤트는 바꿀 때만 나가서, 저장된 선택으로 켠 채 들어온 경우는 이 값으로만 센다.
  */
-export function trackSocialRoomCameraToggled(on: boolean) {
+export function trackSocialRoomCameraToggled(on: boolean, faceMask: boolean) {
   if (!initialized) return;
-  track("social_room_camera_toggled", { on });
+  track("social_room_camera_toggled", { on, face_mask: faceMask });
+}
+
+/** 소셜룸 카메라 켜기 다이얼로그에서 얼굴 가리기를 바꿈. 켜고 들어가는 비율을 본다. */
+export function trackSocialRoomFaceMaskToggled(on: boolean) {
+  if (!initialized) return;
+  track("social_room_face_mask_toggled", { on });
+}
+
+/** 소셜룸 얼굴 가리기 이모지를 고름. 어떤 이모지가 많이 쓰이는지 본다. */
+export function trackSocialRoomFaceMaskEmojiSelected(emojiId: string) {
+  if (!initialized) return;
+  track("social_room_face_mask_emoji_selected", { emoji_id: emojiId });
 }
 
 /** 소셜룸 카메라 켜기 확인 다이얼로그에서 취소 — 켜기 의사를 접은 횟수. */
@@ -1191,12 +1205,6 @@ export function trackRankingGainCardShown(input: {
   });
 }
 
-/** 공부 결과 랭킹 카드의 `랭킹 보기`. */
-export function trackRankingGainCardTapped(roomType: StudyRoomType) {
-  if (!initialized) return;
-  track("ranking_gain_card_tapped", { room_type: roomType });
-}
-
 /** 플래너 진입. `via`는 들어온 곳, `isToday`는 오늘(플래너 기준) 플래너인지. */
 export function trackPlannerOpened(input: {
   readonly via: "records" | "home" | "unknown";
@@ -1484,11 +1492,10 @@ export function trackProfileImageUploadFailed(reason: ProfileImageUploadFailure)
 /**
  * S4 결과 화면을 떠남 — 하단 CTA `홈으로`(`home`: 솔로는 앱 홈, 소셜은 소셜 홈) 또는
  * `기록으로 가기`(`records`: 기록 탭). BY-560 전에는 단일 `확인`(`cta`)과 우상단 X(`close`)였다.
- * 결과 랭킹 카드의 `랭킹 보기 ›`로 나가면 `ranking`이다.
  */
 export function trackStudyResultConfirmed(input: {
   readonly roomType: StudyRoomType;
-  readonly via: "home" | "records" | "ranking";
+  readonly via: "home" | "records";
 }) {
   if (!initialized) return;
   track("study_result_confirmed", { room_type: input.roomType, via: input.via });
@@ -1517,18 +1524,17 @@ const PENDING_EXIT_TTL_MS = 10 * 60_000;
  * 것만으로 다섯 웹뷰가 동시에 예약을 집어가 엉뚱한 탭에서 설문이 열리고(사용자는 못 보는데 노출
  * 쿨다운만 소모된다) `destination`도 먼저 실행된 탭 값으로 잘못 찍힌다.
  */
-export type ResultExitPath = "/home" | "/social" | "/records" | "/ranking";
+export type ResultExitPath = "/home" | "/social" | "/records";
 
 /**
  * 도착 화면별 `destination` 값
  *
  * 소셜 탭 복귀도 홈 복귀로 세고, 솔로와 소셜은 `room_type`이 가른다.
  */
-const EXIT_DESTINATION: Record<ResultExitPath, "home" | "record" | "ranking"> = {
+const EXIT_DESTINATION: Record<ResultExitPath, "home" | "record"> = {
   "/home": "home",
   "/social": "home",
   "/records": "record",
-  "/ranking": "ranking",
 };
 
 interface PendingResultExit {

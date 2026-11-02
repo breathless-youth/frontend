@@ -42,7 +42,6 @@
   --color-feedback-success: var(--feedback-success);
   --color-feedback-danger: var(--feedback-danger);
   --color-rank-alert: var(--rank-alert);
-  --color-rank-alert-badge-bg: var(--rank-alert-badge-bg);
   --color-rank-alert-badge-fg: var(--rank-alert-badge-fg);
   --color-rank-live: var(--rank-live);
   --color-rank-rise: var(--rank-rise);
@@ -433,11 +432,8 @@
   /* 랭킹 아랫줄 경고 글자.
      빨강을 글자색 쪽으로 눌러 채도를 낮추고 카드 위에서 4.5:1을 넘긴다. */
   --rank-alert: color-mix(in srgb, var(--feedback-danger) 80%, var(--foreground));
-  /* ▼N 배지 바탕.
-     배지는 내 줄의 파란 채움 위에 놓여, 카드 면에 빨강을 조금만 섞은 연한 빨강으로 줄과 갈라 보이게 한다. */
-  --rank-alert-badge-bg: color-mix(in srgb, var(--feedback-danger) 10%, var(--muted));
-  /* ▼N 배지 글자.
-     연한 배지 바탕 위에서 4.5:1을 넘기도록 빨강을 글자색 쪽으로 누른다. */
+  /* ▼N 글자.
+     내 줄의 연한 파란 바탕 위에서 4.5:1을 넘기도록 빨강을 글자색 쪽으로 누른다. */
   --rank-alert-badge-fg: color-mix(in srgb, var(--feedback-danger) 75%, var(--foreground));
   /* 랭킹 목록의 집중 중 글자.
      작은 초록 글자라 글자색 쪽으로 조금 눌러 흰 카드 위에서 4.5:1을 넘긴다. */
@@ -503,11 +499,8 @@
     /* 랭킹 아랫줄 경고 글자.
        다크 빨강은 이미 밝아 어두운 카드 면에 조금만 섞는다. */
     --rank-alert: color-mix(in srgb, var(--feedback-danger) 90%, var(--muted));
-    /* ▼N 배지 바탕.
-       배지는 내 줄의 파란 채움 위에 놓여, 어두운 카드 면에 빨강을 조금 섞은 어두운 빨강으로 줄과 갈라 보이게 한다. */
-    --rank-alert-badge-bg: color-mix(in srgb, var(--feedback-danger) 14%, var(--muted));
-    /* ▼N 배지 글자.
-       다크 빨강 그대로도 배지 바탕 위에서 4.5:1을 넘긴다. */
+    /* ▼N 글자.
+       다크 빨강 그대로도 내 줄 바탕 위에서 4.5:1을 넘긴다. */
     --rank-alert-badge-fg: var(--feedback-danger);
     /* 랭킹 목록의 집중 중 글자.
        다크 초록은 이미 밝아 어두운 카드 위에서 4.5:1을 넘긴다. */
@@ -568,11 +561,8 @@
   /* 랭킹 아랫줄 경고 글자.
      다크 빨강은 이미 밝아 어두운 카드 면에 조금만 섞는다. */
   --rank-alert: color-mix(in srgb, var(--feedback-danger) 90%, var(--muted));
-  /* ▼N 배지 바탕.
-     배지는 내 줄의 파란 채움 위에 놓여, 어두운 카드 면에 빨강을 조금 섞은 어두운 빨강으로 줄과 갈라 보이게 한다. */
-  --rank-alert-badge-bg: color-mix(in srgb, var(--feedback-danger) 14%, var(--muted));
-  /* ▼N 배지 글자.
-     다크 빨강 그대로도 배지 바탕 위에서 4.5:1을 넘긴다. */
+  /* ▼N 글자.
+     다크 빨강 그대로도 내 줄 바탕 위에서 4.5:1을 넘긴다. */
   --rank-alert-badge-fg: var(--feedback-danger);
   /* 랭킹 목록의 집중 중 글자.
      다크 초록은 이미 밝아 어두운 카드 위에서 4.5:1을 넘긴다. */

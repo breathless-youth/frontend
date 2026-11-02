@@ -25,6 +25,7 @@ import type * as AmplitudeModule from "@/lib/amplitude";
 import type * as MetaAppEventsModule from "@/lib/metaAppEvents";
 import { renewLiveRoomSeat, leaveRoom } from "@/lib/roomApi";
 import { AUTO_HIDE_MS } from "@/features/live-room/useAutoHideControls";
+import type { FaceMaskedStream } from "@/features/live-room/faceMaskedStream";
 import type * as AmbientPlayerModule from "@/features/ambient-sound/ambientPlayer";
 import {
   DEFAULT_AMBIENT_SETTINGS,
@@ -68,6 +69,13 @@ vi.mock("@/features/study-session/submitStudySession", () => ({
 const haptic = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/haptics", () => ({ haptic }));
 
+// jsdom에는 캔버스 영상 송신이 없어 합성기는 늘 미지원이다.
+// 얼굴 가리기 연결을 보는 테스트만 가짜 합성기를 넣는다.
+const faceMaskCompositor = vi.hoisted(() => ({ current: null as FaceMaskedStream | null }));
+vi.mock("@/features/live-room/faceMaskedStream", () => ({
+  createFaceMaskedStream: () => faceMaskCompositor.current,
+}));
+
 const share = vi.hoisted(() => ({
   shareInvite: vi.fn(),
   trackInviteShared: vi.fn(),
@@ -79,6 +87,7 @@ vi.mock("@/features/social-room/shareInvite", async (importOriginal) => ({
 }));
 const trackStudySessionEnded = vi.hoisted(() => vi.fn());
 const trackAmbientSoundChanged = vi.hoisted(() => vi.fn());
+const trackSocialRoomCameraToggled = vi.hoisted(() => vi.fn());
 const subjectTracking = vi.hoisted(() => ({
   trackSubjectSheetOpened: vi.fn(),
   trackSubjectSheetClosed: vi.fn(),
@@ -89,6 +98,7 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   trackInviteShared: share.trackInviteShared,
   trackStudySessionEnded,
   trackAmbientSoundChanged,
+  trackSocialRoomCameraToggled,
   ...subjectTracking,
 }));
 // 세션에 들어오면 과목 목록을 미리 받는다.
@@ -766,6 +776,43 @@ describe("LiveRoomPage — 그리드·타일", () => {
       });
     } finally {
       spy.mockRestore();
+    }
+  });
+
+  it("얼굴 가리기 합성은 카메라가 켜져 있거나 켜기 창이 열린 동안에만 돈다", async () => {
+    let drawing = false;
+    faceMaskCompositor.current = {
+      stream: { getVideoTracks: () => [] } as unknown as MediaStream,
+      setSpot: vi.fn(),
+      setSticker: vi.fn(),
+      start: () => {
+        drawing = true;
+      },
+      pause: () => {
+        drawing = false;
+      },
+      dispose: vi.fn(),
+      stats: () => ({ height: 360, fps: 15, videoMs: 1, stickerMs: 0 }),
+    };
+    localStorage.setItem("focusmakers.socialFaceMask", "on");
+    try {
+      renderRoom();
+      await enterRoom();
+      expect(drawing).toBe(false);
+
+      await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
+      expect(drawing).toBe(true);
+
+      await userEvent.click(screen.getByRole("button", { name: "취소" }));
+      expect(drawing).toBe(false);
+
+      await turnCameraOn();
+      expect(drawing).toBe(true);
+      // 저장된 선택으로 켠 채 들어와 스위치를 건드리지 않아도 카메라 켜기에 가리기 상태가 실린다.
+      expect(trackSocialRoomCameraToggled).toHaveBeenLastCalledWith(true, true);
+    } finally {
+      faceMaskCompositor.current = null;
+      localStorage.removeItem("focusmakers.socialFaceMask");
     }
   });
 
@@ -1645,8 +1692,11 @@ describe("LiveRoomPage — 컨트롤 바 시안 B (BY-427)", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
 
-    const slot = screen.getByTestId("camera-dialog-preview").parentElement;
-    expect(slot).toHaveClass("h-[min(234px,28dvh)]");
+    // 미리보기는 가로 두 칸 배치용 감싸개 안에 들어가므로 가장 가까운 높이 칸을 찾는다.
+    const slot = screen
+      .getByTestId("camera-dialog-preview")
+      .closest('[class~="h-[min(234px,28dvh)]"]');
+    expect(slot).not.toBeNull();
     // 백스톱: 모달 자체도 뷰포트를 넘으면 내부 스크롤로 잘림을 막는다.
     const dialog = screen.getByRole("alertdialog");
     expect(dialog).toHaveClass("max-h-[calc(100dvh-24px)]");

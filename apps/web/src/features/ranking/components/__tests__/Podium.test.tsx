@@ -148,18 +148,18 @@ describe("Podium", () => {
   });
 
   describe("일수 판", () => {
-    it("묶음마다 대표 이름, 외 N명, 일수를 순위 순서로 두고 자리마다 메달색 테를 두른다", () => {
+    it("사람마다 한 자리로 이름과 일수를 순위 순서로 세우고 자리 번호로 읽는다", () => {
       render(<Podium board={FIXTURE_STREAK} elapsedSec={0} />);
 
       const items = within(screen.getByRole("list")).getAllByRole("listitem");
       expect(items).toHaveLength(3);
-      // 화면 낭독기는 자리 번호가 아니라 묶음의 공동 순위를 읽는다.
       expect(within(items[0]!).getByText("1위")).toBeInTheDocument();
-      expect(items[0]).toHaveTextContent("새벽러너외 2명186일");
-      expect(within(items[1]!).getByText("4위")).toBeInTheDocument();
-      expect(items[1]).toHaveTextContent("합격기원외 1명171일");
-      expect(within(items[2]!).getByText("6위")).toBeInTheDocument();
-      expect(items[2]).toHaveTextContent("오답노트외 4명158일");
+      expect(items[0]).toHaveTextContent("새벽러너186일");
+      expect(within(items[1]!).getByText("2위")).toBeInTheDocument();
+      expect(items[1]).toHaveTextContent("합격기원171일");
+      expect(within(items[2]!).getByText("3위")).toBeInTheDocument();
+      expect(items[2]).toHaveTextContent("오답노트158일");
+      expect(screen.queryByText(/외 .*명/)).toBeNull();
       items.forEach((item, index) => {
         expect(item.querySelector("[data-medal-ring]")).toHaveAttribute(
           "data-medal-ring",
@@ -168,96 +168,42 @@ describe("Podium", () => {
       });
     });
 
-    it("혼자인 묶음은 외 N명 줄을 두지 않는다", () => {
-      render(<Podium board={FIXTURE_TOTAL_DAYS} elapsedSec={0} />);
-
-      const [first, second] = within(screen.getByRole("list")).getAllByRole("listitem");
-      expect(first).toHaveTextContent("도서관지박령외 2명412일");
-      expect(second).toHaveTextContent("합격기원388일");
-      expect(second).not.toHaveTextContent(/외 .*명/);
-    });
-
-    it("내 묶음은 내 이름과 파란 내 아바타를 세우고 화면 낭독기에만 나라고 알린다", () => {
-      const [top, mine, third] = FIXTURE_STREAK.podiumGroups!;
+    it("내 자리는 내 이름과 파란 내 아바타를 세우고 화면 낭독기에만 나라고 알린다", () => {
+      const [top, mine, third] = FIXTURE_STREAK.podium;
       render(
         <Podium
           board={{
             ...FIXTURE_STREAK,
-            podiumGroups: [
-              top!,
-              { ...mine!, nickname: "오늘도출석", me: true, myOrder: 2 },
-              third!,
-            ],
+            podium: [top!, { ...mine!, nickname: "오늘도출석", me: true }, third!],
           }}
           elapsedSec={0}
         />,
       );
 
       const second = within(screen.getByRole("list")).getAllByRole("listitem")[1]!;
-      expect(second).toHaveTextContent("오늘도출석나외 1명171일");
+      expect(second).toHaveTextContent("오늘도출석나171일");
       // 시상대의 내 아바타는 나 대신 내 첫 글자를 쓰는 파란 원이고 화면 낭독기에서는 숨긴다.
       const avatar = within(second).getByText("오").closest("[aria-hidden='true']");
       expect(avatar).toHaveAttribute("data-me");
-      expect(
-        within(second).queryByText("나", {
-          selector: "[aria-hidden='true'], [aria-hidden='true'] *",
-        }),
-      ).toBeNull();
       expect(within(second).getByText("나", { ignore: "[aria-hidden='true']" })).toHaveClass(
         "sr-only",
       );
     });
 
-    it("묶음이 3개보다 적으면 빈자리는 아바타 자리에만 ?를 둔다", () => {
+    it("3명보다 적으면 빈자리는 아바타 자리에만 ?를 두고 자리 번호로 읽는다", () => {
       render(
         <Podium
-          board={{
-            ...FIXTURE_TOTAL_DAYS,
-            podiumGroups: FIXTURE_TOTAL_DAYS.podiumGroups!.slice(0, 1),
-          }}
+          board={{ ...FIXTURE_TOTAL_DAYS, podium: FIXTURE_TOTAL_DAYS.podium.slice(0, 1) }}
           elapsedSec={0}
         />,
       );
 
       expect(screen.getAllByText("?")).toHaveLength(2);
-      const [filled, ...empty] = within(screen.getByRole("list")).getAllByRole("listitem");
-      expect(filled).toHaveTextContent("도서관지박령외 2명412일");
-      for (const item of empty) {
-        expect(item.querySelector("[data-medal-ring]")).toBeNull();
-        // 공동 순위와 겹치지 않게 빈자리는 자리 번호 대신 빈자리라고 읽는다.
-        expect(within(item).getByText("빈자리")).toBeInTheDocument();
-        expect(item).not.toHaveTextContent(/\d위/);
-      }
+      const [filled, second, third] = within(screen.getByRole("list")).getAllByRole("listitem");
+      expect(filled).toHaveTextContent("도서관지박령412일");
+      expect(within(second!).getByText("2위")).toBeInTheDocument();
+      expect(within(third!).getByText("3위")).toBeInTheDocument();
     });
-
-    it.each([
-      ["undefined", undefined],
-      ["null", null],
-    ])(
-      "묶음이 오지 않으면(podiumGroups가 %s) podium에 사람이 있어도 세 자리를 모두 빈자리로 둔다",
-      (_, podiumGroups) => {
-        render(
-          <Podium
-            board={{
-              ...FIXTURE_TOTAL_DAYS,
-              podiumGroups,
-              podium: [
-                { rank: 1, nickname: "도서관지박령", value: 412, focusing: false, me: false },
-              ],
-            }}
-            elapsedSec={0}
-          />,
-        );
-
-        const items = within(screen.getByRole("list")).getAllByRole("listitem");
-        expect(items).toHaveLength(3);
-        for (const item of items) {
-          expect(within(item).getByText("빈자리")).toBeInTheDocument();
-          expect(item.querySelector("[data-medal-ring]")).toBeNull();
-        }
-        expect(screen.queryByText("도서관지박령")).toBeNull();
-      },
-    );
   });
 
   it("사진이 있는 자리는 첫 글자 대신 사진을 그린다", async () => {
@@ -280,14 +226,14 @@ describe("Podium", () => {
     expect(spot2!.querySelector("img")).toBeNull();
   });
 
-  it("일수 판도 묶음 대표의 사진을 그린다", async () => {
+  it("일수 판도 사진을 그린다", async () => {
     stubImageLoad();
-    const [first, ...rest] = FIXTURE_TOTAL_DAYS.podiumGroups ?? [];
+    const [first, ...rest] = FIXTURE_TOTAL_DAYS.podium;
     render(
       <Podium
         board={{
           ...FIXTURE_TOTAL_DAYS,
-          podiumGroups: [{ ...first!, profileImageUrl: "/avatars/2.jpg" }, ...rest],
+          podium: [{ ...first!, profileImageUrl: "/avatars/2.jpg" }, ...rest],
         }}
         elapsedSec={0}
       />,

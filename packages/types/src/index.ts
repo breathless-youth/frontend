@@ -619,7 +619,6 @@ export type {
   RankingBoardGain,
   RankingBoardResponse,
   RankingClosest,
-  RankingDayGroup,
   RankingEligibility,
   RankingEntry,
   RankingGain,

@@ -59,20 +59,3 @@ export function aroundForScreen<T extends { rank: number }>(
   }
   return rows.filter((row) => row.rank <= meRank + 2);
 }
-
-/**
- * 화면 상태에 맞춘 내 주변 묶음
- *
- * 1위는 한 사람씩인 목록처럼 내 묶음과 뒤 2묶음만 보여준다.
- * 묶음 순위는 공동 순위라 뒤 묶음까지의 순위 차가 묶음 인원만큼 벌어져, 순위가 아니라 내 묶음부터의 순서로 센다.
- */
-export function aroundGroupsForScreen<T extends { me: boolean }>(
-  groups: readonly T[],
-  screen: BoardScreen,
-): readonly T[] {
-  const mine = groups.findIndex((group) => group.me);
-  if (screen !== "first_place" || mine === -1) {
-    return groups;
-  }
-  return groups.slice(mine, mine + 3);
-}

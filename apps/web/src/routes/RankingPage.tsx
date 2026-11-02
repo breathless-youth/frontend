@@ -18,13 +18,12 @@ import { MedalButton } from "@/features/ranking/components/MedalButton";
 import { Podium } from "@/features/ranking/components/Podium";
 import { FirstPlaceCard, RankedCard } from "@/features/ranking/components/RankCard";
 import { StreakCard } from "@/features/ranking/components/StreakCard";
-import { DayGroupList } from "@/features/ranking/components/DayGroupList";
 import {
   boardKeyOf,
   boardParams,
   currentSlot,
-  isDayType,
   isLiveBoard,
+  isOffSlot,
   selectSlot,
   selectionOfRecord,
   type BoardSelection,
@@ -49,7 +48,6 @@ import {
 } from "@/features/ranking/model/live";
 import {
   aroundForScreen,
-  aroundGroupsForScreen,
   classifyBoard,
   needsPreviousPeriod,
   viewStateOf,
@@ -143,7 +141,7 @@ export function RankingPage() {
  *
  * 마지막 판을 기억에서 열고 바꿀 때마다 다시 적는다.
  * 다시 보일 때 기억을 읽어 다른 화면이 넘겨준 판을 연다.
- * 순공·시간대 판은 보이는 동안 1초 tick으로 집중 중인 값을 올리고, 폴링 사이에 내 순위가 내려갔는지 비교한다.
+ * 순공·시간대 판은 보이는 동안 1초 tick으로 집중 중인 값을 올리고, 그 판에서 처음 본 순위와 비교한 내 순위 변동을 센다.
  */
 function RankingContent({ userId }: { userId: number }) {
   const navigate = useNavigate();
@@ -227,12 +225,16 @@ function RankingContent({ userId }: { userId: number }) {
   // 첫 응답 전에는 기기 시각을 쓴다.
   const serverNow = board === undefined ? now : serverNowMs(board.asOf, boardUpdatedAt, now);
   const boardKey = boardKeyOf(selection, board?.slot ?? null);
+  // 기준선은 문서가 살아 있는 동안 남으므로 같은 웹뷰에서 계정이 바뀌어도 섞이지 않게 사용자별로 둔다.
   const tracked = useBoardLive({
-    key: boardKey,
+    key: `${userId}:${boardKey}`,
     visible,
     board: live ? board : undefined,
-    updatedAt: boardUpdatedAt,
+    fresh: !boardQuery.isStale,
   });
+  // 변동은 다시 받는 동안 값이 바뀌는 판에만 보이고, 지금 구간이 아닌 시간대 판은 값이 바뀌지 않아 칸을 두지 않는다.
+  const change =
+    live && board !== undefined && !isOffSlot(board, serverNow) ? tracked.change : undefined;
 
   const summary = useQuery(rankingSummaryQuery(userId));
   const total = summary.data?.total ?? null;
@@ -316,7 +318,7 @@ function RankingContent({ userId }: { userId: number }) {
                   belowGap: liveGap(board.below, board.me?.focusing ?? false, elapsedSec, "below"),
                   serverNow,
                 })}
-                drop={tracked.drop}
+                change={change}
                 deadline={formatDeadline(board, serverNow)}
                 serverNow={serverNow}
                 onFocusStart={startFocus}
@@ -365,7 +367,7 @@ function BoardBody({
   rows,
   aboveGap,
   subLine,
-  drop,
+  change,
   deadline,
   serverNow,
   onFocusStart,
@@ -377,7 +379,7 @@ function BoardBody({
   rows: LiveRow[];
   aboveGap: number | null;
   subLine: SubLine | null;
-  drop: number | null;
+  change: number | null | undefined;
   deadline: string | null;
   serverNow: number;
   onFocusStart: (source: FocusStartSource) => void;
@@ -396,7 +398,7 @@ function BoardBody({
             serverNow={serverNow}
             onFocusStart={fromCard}
           />
-          <NearbyList board={board} screen={screen} rows={rows} drop={drop} />
+          <NearbyList board={board} screen={screen} rows={rows} change={change} />
         </>
       );
     case "ranked":
@@ -410,14 +412,14 @@ function BoardBody({
             serverNow={serverNow}
             onFocusStart={fromCard}
           />
-          <NearbyList board={board} screen={screen} rows={rows} drop={drop} />
+          <NearbyList board={board} screen={screen} rows={rows} change={change} />
         </>
       );
     case "streak":
       return (
         <>
           <StreakCard board={board} />
-          <DayGroupList type="MAX_STREAK" groups={board.aroundGroups ?? []} />
+          <NearbyList board={board} screen={screen} rows={rows} change={change} />
         </>
       );
     case "ineligible":
@@ -465,34 +467,24 @@ function BoardBody({
 /**
  * 내 주변 목록
  *
- * 일수 판은 같은 일수끼리 공동 순위라 묶음 목록을 쓴다.
- * 일수 판의 `around`는 늘 빈 배열이라 묶음이 오지 않으면 빈 묶음으로 본다.
- * 1위 화면은 어느 목록이든 나와 뒤 2줄만 남긴다.
+ * 1위 화면은 나와 뒤 2줄만 남긴다.
  */
 function NearbyList({
   board,
   screen,
   rows,
-  drop,
+  change,
 }: {
   board: RankingBoardResponse;
   screen: BoardScreen;
   rows: LiveRow[];
-  drop: number | null;
+  change: number | null | undefined;
 }) {
-  if (isDayType(board.type)) {
-    return (
-      <DayGroupList
-        type={board.type}
-        groups={aroundGroupsForScreen(board.aroundGroups ?? [], screen)}
-      />
-    );
-  }
   return (
     <AroundList
       type={board.type}
       rows={aroundForScreen(rows, screen, board.me?.rank ?? null)}
-      drop={drop}
+      change={change}
     />
   );
 }
