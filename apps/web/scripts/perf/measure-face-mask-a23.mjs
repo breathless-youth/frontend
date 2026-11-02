@@ -69,7 +69,8 @@ function readSys(name) {
 function power(b) {
   const sysCurrent = readSys("current_now");
   const sysVoltage = readSys("voltage_now");
-  const fromDumpsys = sysCurrent === null && Number.isFinite(b.currentMa) && Number.isFinite(b.voltageMv);
+  const fromDumpsys =
+    sysCurrent === null && Number.isFinite(b.currentMa) && Number.isFinite(b.voltageMv);
   const currentUa = fromDumpsys ? b.currentMa * 1000 : sysCurrent;
   const voltageUv = fromDumpsys ? b.voltageMv * 1000 : sysVoltage;
   // 제조사마다 방전 전류의 부호가 달라 크기만 쓴다.
