@@ -186,6 +186,40 @@ describe("SubjectPanel 세로", () => {
   });
 });
 
+describe("SubjectPanel 과목 색 점", () => {
+  it("과목 이름 앞에 그 과목의 색 점을 둔다", () => {
+    renderPanel({
+      store: makeStore([
+        { ...MATH, colorIndex: 3 },
+        { ...ENGLISH, colorIndex: 7 },
+      ]),
+    });
+    for (const [name, color] of [
+      ["수학", "var(--subject-3)"],
+      ["영어", "var(--subject-7)"],
+    ] as const) {
+      const label = screen.getByText(name);
+      const dot = within(label.closest<HTMLElement>("[data-subject-id]")!).getByTestId(
+        "subject-color-dot",
+      );
+      expect(dot).toHaveStyle({ backgroundColor: color });
+      expect(label.previousElementSibling).toBe(dot);
+    }
+  });
+
+  it("20 이상인 색 번호는 팔레트를 한 바퀴 돈다", () => {
+    renderPanel({ store: makeStore([{ ...ENGLISH, colorIndex: 23 }]) });
+    expect(screen.getByTestId("subject-color-dot")).toHaveStyle({
+      backgroundColor: "var(--subject-3)",
+    });
+  });
+
+  it("점은 낭독하지 않는다", () => {
+    renderPanel({ store: makeStore([{ ...MATH, colorIndex: 3 }]) });
+    expect(screen.getByTestId("subject-color-dot")).toHaveAttribute("aria-hidden", "true");
+  });
+});
+
 describe("SubjectPanel 순서 변경 모드", () => {
   it("모드 전에는 핸들이 없다", () => {
     renderPanel();
@@ -320,6 +354,21 @@ describe("SubjectPanel 가로", () => {
     expect(screen.getByRole("region", { name: "수학 할 일", hidden: true })).toHaveAttribute(
       "inert",
     );
+  });
+
+  it("과목 줄과 할 일 칸 제목 모두 이름 앞에 색 점을 둔다", () => {
+    renderPanel({
+      landscape: true,
+      selection: 4,
+      store: makeStore([MATH, { ...ENGLISH, colorIndex: 5 }]),
+    });
+    const detail = screen.getByRole("region", { name: "영어 할 일" });
+    const row = screen.getByRole("button", { name: /^영어.*순공/ });
+    for (const place of [detail, row]) {
+      const dot = within(place).getByTestId("subject-color-dot");
+      expect(dot).toHaveStyle({ backgroundColor: "var(--subject-5)" });
+      expect(within(place).getByText("영어").previousElementSibling).toBe(dot);
+    }
   });
 
   it("과목이 없으면 두 열 없이 추천 과목을 보인다", () => {

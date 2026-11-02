@@ -30,6 +30,7 @@ import type { SubjectSelection, SubjectTotals } from "../subjectSegments";
 import { liveSubjectTime } from "../subjectSegments";
 import type { SubjectsStore } from "../useSubjects";
 import { SessionPageFooter } from "./SessionPage";
+import { SubjectColorDot } from "./SubjectColorDot";
 
 /**
  * 과목 페이지 본문
@@ -437,13 +438,16 @@ function SubjectRow({
           },
         })}
       >
-        <span
-          className={cn(
-            "truncate font-semibold",
-            layout === "card" ? "text-[17px] leading-5.5" : "text-[15px] leading-4.75",
-          )}
-        >
-          {subject.name}
+        <span className={cn("flex min-w-0 items-center", layout === "card" ? "gap-2" : "gap-1.75")}>
+          <SubjectColorDot colorIndex={subject.colorIndex} />
+          <span
+            className={cn(
+              "truncate font-semibold",
+              layout === "card" ? "text-[17px] leading-5.5" : "text-[15px] leading-4.75",
+            )}
+          >
+            {subject.name}
+          </span>
         </span>
         <span
           className={cn(
@@ -958,6 +962,7 @@ export function SubjectPanel({
           )}
         >
           <div className="flex h-12 shrink-0 items-center gap-2 px-3">
+            <SubjectColorDot colorIndex={viewed.colorIndex} />
             <span className="truncate text-[17px] leading-5.5 font-semibold text-white">
               {viewed.name}
             </span>
