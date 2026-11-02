@@ -13,9 +13,11 @@ const PERSON_STROKE = {
 /**
  * 크기마다 다른 모양
  *
- * 작은 책상은 같은 그림을 줄이므로 선이 가늘어져 흐려지지 않게 그림 좌표 기준 굵기를 따로 둔다.
+ * 같은 그림을 늘이고 줄이므로 선이 크기를 따라 굵어지거나 가늘어지지 않게 그림 좌표 기준 굵기를 크기마다 따로 둔다.
+ * 큰 크기는 빈 상태의 빈자리 그림이다.
  */
 const SIZE = {
+  lg: { box: "h-22.5 w-24", person: 2.8, dashed: 2.2, top: 3, legs: 2.4 },
   md: { box: "h-15 w-16", person: 2.8, dashed: 2.4, top: 3, legs: 2.4 },
   sm: { box: "h-8 w-8.5", person: 3.8, dashed: 3.3, top: 3.8, legs: 3 },
 } as const;
@@ -26,7 +28,7 @@ const SIZE = {
  * 나중에 커스텀 캐릭터로 갈아 끼우도록 사람과 책상을 이 부품 하나로 감싼다.
  * 상태는 칸의 이름이나 옆 글자가 알려 주므로 그림은 화면 낭독기에서 뺀다.
  */
-export function DeskFigure({ tone, size }: { tone: DeskTone | "empty"; size: "md" | "sm" }) {
+export function DeskFigure({ tone, size }: { tone: DeskTone | "empty"; size: keyof typeof SIZE }) {
   const look = SIZE[size];
   const empty = tone === "empty";
   return (
@@ -47,7 +49,7 @@ export function DeskFigure({ tone, size }: { tone: DeskTone | "empty"; size: "md
         <path d="M11 47 V58 M53 47 V58" strokeWidth={look.legs} />
       </g>
       {/* 작은 책상에서는 글자가 너무 작아 읽히지 않아 쉼 표시를 그리지 않는다. */}
-      {tone === "rest" && size === "md" && (
+      {tone === "rest" && size !== "sm" && (
         <g className="font-bold">
           <text x="44" y="11.7" fontSize="9" className="fill-state-pause">
             z

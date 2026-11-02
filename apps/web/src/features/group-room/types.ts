@@ -2,6 +2,8 @@ import type { DeskMember } from "./model/desks";
 import type { ApplyBlockReason } from "./model/limits";
 import type { RoomRole, RoomVisibility } from "./model/roomMenu";
 
+export type SocialTab = "mine" | "public";
+
 /** 시험·목표 칩 하나. 서버 값과 화면 글자가 다를 수 있어 둘을 따로 받는다. */
 export interface CategoryOption {
   value: string;

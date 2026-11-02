@@ -1,0 +1,73 @@
+import { Lock } from "lucide-react";
+
+import { cn } from "@/lib/utils";
+
+import { studyingCount, studyingCountText } from "../model/desks";
+import { memberCountText } from "../model/limits";
+import type { RoomVisibility } from "../model/roomMenu";
+import type { MyRoomSummary } from "../types";
+import { VISIBILITY_TEXT } from "../visibilityText";
+import { DeskRow } from "./DeskRow";
+import { CategoryTag } from "./RoomMeta";
+import { StudyStatus } from "./StudyStatus";
+
+const VISIBILITY_BADGE_CLASS: Record<RoomVisibility, string> = {
+  public: "bg-brand-subtle text-brand-subtle-text",
+  private: "bg-bg-layer-2 text-muted-foreground",
+};
+
+/**
+ * 내 그룹 카드
+ *
+ * 카드 전체가 그룹 홈으로 가는 버튼 하나다.
+ * 책상 줄은 화면 낭독기에서 빠지므로 카드 이름에 공개 표시, 시험·목표, 멤버 수, 공부 상태를 모두 담는다.
+ */
+export function MyRoomCard({
+  room,
+  onOpen,
+}: {
+  room: MyRoomSummary;
+  onOpen: (roomId: number) => void;
+}) {
+  const count = studyingCount(room.members);
+  const label = [
+    room.name,
+    VISIBILITY_TEXT[room.visibility],
+    room.categoryLabel,
+    memberCountText(room.memberCount),
+    studyingCountText(count),
+  ].join(", ");
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={() => onOpen(room.roomId)}
+      className="flex w-full flex-col gap-2.5 rounded-xl bg-muted p-4 text-left shadow-sb-card focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
+    >
+      <span className="flex w-full items-start gap-3">
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="truncate text-base leading-5.5 font-bold text-foreground">
+            {room.name}
+          </span>
+          <span className="flex items-center gap-1">
+            <CategoryTag label={room.categoryLabel} />
+            <span className="pl-1 text-xs leading-4 text-muted-foreground">
+              {memberCountText(room.memberCount)}
+            </span>
+          </span>
+        </span>
+        <span
+          className={cn(
+            "flex shrink-0 items-center gap-0.75 rounded-full px-2.25 py-0.75 text-xs leading-4 font-bold",
+            VISIBILITY_BADGE_CLASS[room.visibility],
+          )}
+        >
+          {room.visibility === "private" && <Lock aria-hidden="true" size={12} strokeWidth={2.4} />}
+          {VISIBILITY_TEXT[room.visibility]}
+        </span>
+      </span>
+      <StudyStatus count={count} />
+      <DeskRow members={room.members} />
+    </button>
+  );
+}
