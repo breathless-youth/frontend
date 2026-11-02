@@ -17,6 +17,8 @@ import { initMetaAds, logMetaAppEvent } from "./metaAds";
 import { getMotionSensorRelay } from "./motionSensorRelay";
 import type * as PushBootstrap from "./pushBootstrap";
 import type { PushPermissionStatus } from "./pushMessaging";
+import { openedEventProperties, resolvePushRoute } from "./pushNotificationRouting";
+import { openPushRoute } from "./pushRouteOpener";
 import type * as PushTokenRegistration from "./pushTokenRegistration";
 import { trackNativeEvent } from "./nativeAnalytics";
 import { emitSessionClosed } from "./sessionClosed";
@@ -344,6 +346,21 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
         reply({ type: "profile-photo-result", id: message.id, ...result, atMs: Date.now() });
       });
       break;
+    case "open-push-link": {
+      // 앱 안 알림 토스트를 누른 것은 알림을 누른 것과 같은 일이라 같은 허용 규칙과 이동 경로를 쓴다.
+      // 세션 중이면 닫힌 뒤에 여는 일도 알림 탭과 똑같이 `openPushRoute`가 맡는다.
+      const data = {
+        link: message.link,
+        ...(message.pushType !== undefined ? { type: message.pushType } : {}),
+      };
+      const route = resolvePushRoute(data);
+      trackNativeEvent(
+        "push_notification_opened",
+        openedEventProperties(data, route, { inApp: true }),
+      );
+      openPushRoute(route, (target) => router.push(target));
+      break;
+    }
     default: {
       // 모든 타입을 case로 처리했으면 여기 오는 타입은 never다. 새 메시지를 추가하고 처리를
       // 빠뜨리면 이 줄에서 컴파일이 깨진다. 런타임에 오는 경우는 타입과 파서가 어긋났을 때뿐이라

@@ -69,6 +69,14 @@ function isCount(value: unknown): value is number {
 }
 
 /**
+ * 앱 안 알림 누름이 돌려주는 푸시 링크의 길이 상한
+ *
+ * 웹이 `in-app-notification`을 받을 때 쓰는 상한과 같은 값이다.
+ * 링크가 열어도 되는 곳인지는 받은 뒤 푸시 허용 규칙이 다시 판단한다.
+ */
+const PUSH_LINK_MAX_LENGTH = 4096;
+
+/**
  * WebView 브리지의 네이티브 쪽 끝(세션 상태 모델 스펙 §10).
  *
  * 웹 쪽(`apps/web/src/lib/bridge.ts`)과 **대칭**이다 —
@@ -297,6 +305,20 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       return parseSetGlassChrome(record);
     case "set-inline-controls":
       return parseSetInlineControls(record);
+    case "open-push-link":
+      if (typeof record.link !== "string" || record.link.length > PUSH_LINK_MAX_LENGTH) {
+        return null;
+      }
+      // 알림 종류는 열림 계측에만 쓰는 선택 필드라 토큰 형식이 아니면 그 필드만 빼고 누름은 살린다.
+      return {
+        type: "open-push-link",
+        link: record.link,
+        ...(typeof record.pushType === "string" &&
+        ANALYTICS_PARAM_VALUE_PATTERN.test(record.pushType)
+          ? { pushType: record.pushType }
+          : {}),
+        atMs: record.atMs,
+      };
     default:
       return null;
   }

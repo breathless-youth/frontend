@@ -27,6 +27,7 @@ import { saveLaunchGoal } from "../launchGoal";
 import { acknowledgeInstallAttribution } from "../installAttribution";
 import { waitForStartPrompts } from "../launchReady";
 import { ensurePushPermission } from "../pushBootstrap";
+import { openPushRoute } from "../pushRouteOpener";
 import { registerPushToken } from "../pushTokenRegistration";
 
 /**
@@ -99,6 +100,10 @@ jest.mock("../pushBootstrap", () => ({
 
 jest.mock("../pushTokenRegistration", () => ({
   registerPushToken: jest.fn(async () => undefined),
+}));
+
+jest.mock("../pushRouteOpener", () => ({
+  openPushRoute: jest.fn(),
 }));
 
 jest.mock("../installAttribution", () => ({
@@ -1062,5 +1067,71 @@ describe("handleBridgeMessage: 프로필 사진 선택기", () => {
         expect.objectContaining({ type: "profile-photo-result", id: "r1", status: "failed" }),
       ),
     );
+  });
+});
+
+/** 앱 안 알림 토스트를 누르면 웹이 `open-push-link`를 보내고 앱은 알림을 누른 것처럼 연다. */
+describe("handleBridgeMessage — 앱 안 알림 누름", () => {
+  let received: NativeAnalyticsEvent[];
+  const mockedOpenPushRoute = openPushRoute as jest.MockedFunction<typeof openPushRoute>;
+
+  beforeEach(() => {
+    __resetNativeAnalyticsForTests();
+    received = [];
+    attachNativeAnalyticsSink((event) => received.push(event));
+  });
+
+  afterEach(() => {
+    __resetNativeAnalyticsForTests();
+  });
+
+  it("앱 안 알림을 누르면 알림을 누른 것처럼 그 경로를 연다", () => {
+    handleBridgeMessage(
+      {
+        type: "open-push-link",
+        link: "/social/groups/10/applications",
+        pushType: "group_application_received",
+        atMs: 1,
+      },
+      noopReply,
+    );
+
+    expect(mockedOpenPushRoute).toHaveBeenCalledWith(
+      "/social/groups/10/applications",
+      expect.any(Function),
+    );
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      [
+        "push_notification_opened",
+        {
+          route: "/social/groups/:id/applications",
+          fallback: false,
+          type: "group_application_received",
+          in_app: true,
+        },
+      ],
+    ]);
+  });
+
+  it("이동은 라우터 push로 맡긴다", () => {
+    handleBridgeMessage({ type: "open-push-link", link: "/social/public/12", atMs: 1 }, noopReply);
+
+    const push = mockedOpenPushRoute.mock.calls[0]?.[1];
+    const target = {
+      pathname: "/(tabs)/social",
+      params: { path: encodeURIComponent("/social/public/12"), at: "1" },
+    };
+    push?.(target);
+    expect(mockedRouter.push).toHaveBeenCalledWith(target);
+  });
+
+  it("허용 밖 링크는 열지 않고 홈으로 보낸다", () => {
+    handleBridgeMessage(
+      { type: "open-push-link", link: "https://evil.example/x", atMs: 1 },
+      noopReply,
+    );
+
+    expect(mockedOpenPushRoute).toHaveBeenCalledWith("/", expect.any(Function));
+    expect(received[0]?.properties).toEqual({ route: "/", fallback: true, in_app: true });
   });
 });

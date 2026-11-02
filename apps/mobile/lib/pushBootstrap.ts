@@ -8,16 +8,22 @@ import {
   type PushPermissionStatus,
   requestPushPermission,
 } from "./pushMessaging";
+import {
+  type InAppNotification,
+  inAppNotificationFrom,
+  publishInAppNotification,
+} from "./inAppNotification";
 import { trackNativeEvent } from "./nativeAnalytics";
 import { openedEventProperties, resolvePushRoute } from "./pushNotificationRouting";
 import { registerPushToken } from "./pushTokenRegistration";
+import { isSessionOpen } from "./sessionPresence";
 import { withTimeout } from "./withTimeout";
 
 /**
  * 푸시 알림 부팅 배선 (BY-586). `app/_layout.tsx`가 마운트 때 한 번 부르고 언마운트 때 해제한다.
  *
  * 지금 하는 일은 "코드는 갖춰 두고 나중에 쓴다"의 최소 범위다:
- * - 포그라운드 수신: 로그만. 표시하지 않는다(세션 화면 방해 금지, 정책 미정).
+ * - 포그라운드 수신: 그룹 푸시는 세션 화면이 아닐 때 보이는 탭 웹뷰에 넘기고, 그 밖은 로그만 남긴다.
  * - 알림 탭(백그라운드 `onNotificationOpened`·종료 `getInitialNotification`): data.link를 앱 경로로 바꿔 이동.
  * - 토큰 갱신: 새 토큰을 서버에 등록한다(`lib/pushTokenRegistration.ts`).
  * - 권한 요청은 여기서 하지 않는다 — 아래 `ensurePushPermission`을 `app/_layout.tsx`가 따로 부른다.
@@ -32,6 +38,10 @@ export type PushBootstrapDeps = {
   onMessage(listener: (message: PushMessage) => void): () => void;
   onNotificationOpened(listener: (message: PushMessage) => void): () => void;
   getInitialNotification(): Promise<PushMessage | null>;
+  /** 싱글룸 모달이나 소셜룸·공부방의 뒤로 잠금이 걸려 있는지 */
+  isSessionOpen(): boolean;
+  /** 앱을 쓰는 중에 온 그룹 알림을 보이는 탭 웹뷰로 넘긴다 */
+  showInApp(notification: InAppNotification): void;
 };
 
 type Overrides = Partial<PushBootstrapDeps> & Pick<PushBootstrapDeps, "navigate">;
@@ -44,6 +54,8 @@ export function startPushMessaging(overrides: Overrides): () => void {
     onMessage: onPushMessage,
     onNotificationOpened: onPushNotificationOpened,
     getInitialNotification: getInitialPushNotification,
+    isSessionOpen,
+    showInApp: publishInAppNotification,
     ...overrides,
   };
   const unsubscribers: (() => void)[] = [];
@@ -69,6 +81,11 @@ export function startPushMessaging(overrides: Overrides): () => void {
         devLog(
           `foreground message id=${message.messageId ?? "?"} title=${message.notification?.title ?? "-"} data=${JSON.stringify(message.data)}`,
         );
+        const notification = inAppNotificationFrom(message);
+        // 세션 화면 위에 토스트가 뜨면 측정과 공부를 방해하므로 알림이 온 때의 세션 여부를 본다.
+        if (active && notification !== null && !deps.isSessionOpen()) {
+          deps.showInApp(notification);
+        }
       }),
     );
     unsubscribers.push(deps.onNotificationOpened(openRoute));

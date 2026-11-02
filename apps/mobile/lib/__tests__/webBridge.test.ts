@@ -912,3 +912,56 @@ describe("parseToNativeMessage: 그 자리 부품", () => {
     expect(parse({ ...message, controls: [slider, { ...toggle, on: 1 }] })).toBeNull();
   });
 });
+
+describe("parseToNativeMessage: 앱 안 알림 누름", () => {
+  it("open-push-link는 문자열 링크와 시각이 있어야 통과한다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({ type: "open-push-link", link: "/social/groups/10", atMs: 1 }),
+      ),
+    ).toEqual({ type: "open-push-link", link: "/social/groups/10", atMs: 1 });
+    expect(
+      parseToNativeMessage(JSON.stringify({ type: "open-push-link", link: 10, atMs: 1 })),
+    ).toBeNull();
+    expect(
+      parseToNativeMessage(JSON.stringify({ type: "open-push-link", link: "/social" })),
+    ).toBeNull();
+  });
+
+  it("4096자를 넘는 링크는 버린다", () => {
+    const at = (length: number) =>
+      parseToNativeMessage(
+        JSON.stringify({ type: "open-push-link", link: `/${"a".repeat(length - 1)}`, atMs: 1 }),
+      );
+    expect(at(4096)).not.toBeNull();
+    expect(at(4097)).toBeNull();
+  });
+
+  it("알림 종류는 토큰 형식일 때만 싣고, 아니면 그 필드만 빼고 누름은 살린다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({
+          type: "open-push-link",
+          link: "/social",
+          pushType: "group_member_kicked",
+          atMs: 1,
+        }),
+      ),
+    ).toEqual({
+      type: "open-push-link",
+      link: "/social",
+      pushType: "group_member_kicked",
+      atMs: 1,
+    });
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({
+          type: "open-push-link",
+          link: "/social",
+          pushType: "내보내짐 알림",
+          atMs: 1,
+        }),
+      ),
+    ).toEqual({ type: "open-push-link", link: "/social", atMs: 1 });
+  });
+});

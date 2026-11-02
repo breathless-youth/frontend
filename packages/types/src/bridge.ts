@@ -124,6 +124,22 @@ export type ToWebMessage =
    */
   | { type: "profile-photo-result"; id: string; status: "picked"; data: string; atMs: number }
   | { type: "profile-photo-result"; id: string; status: "cancelled" | "failed"; atMs: number }
+  /**
+   * 앱을 쓰는 중에 온 그룹 알림
+   *
+   * 앱이 포그라운드에서 그룹 푸시를 받았고 세션 화면이 아닐 때 보이는 탭 웹뷰 하나에만 보낸다.
+   * 제목과 본문은 서버가 보낸 알림 문구 그대로이고 웹은 위쪽 두 줄 토스트로 그린다.
+   * `link`는 앱이 허용 규칙으로 확인한 푸시 링크이고 웹은 누르면 `open-push-link`로 그대로 돌려준다.
+   * `pushType`은 서버가 실은 알림 종류이고 열림 계측에만 쓴다.
+   */
+  | {
+      type: "in-app-notification";
+      title: string;
+      body: string;
+      link: string;
+      pushType?: string;
+      atMs: number;
+    }
   | CameraPermissionMessage
   | TrackEventMessage
   | InstallAttributionMessage
@@ -399,6 +415,14 @@ export type ToNativeMessage =
    * 앱이 웹뷰 주소에 `profilePhotoPicker=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `profile-photo-result`로 답한다.
    */
   | { type: "pick-profile-photo"; id: string; atMs: number }
+  /**
+   * 앱 안 알림 토스트를 눌렀다
+   *
+   * 앱은 알림을 누른 것과 같은 허용 규칙과 이동 경로로 `link`를 연다.
+   * 웹은 `in-app-notification`을 받은 문서에서만 보내므로 이 메시지를 모르는 옛 바이너리에는 가지 않는다.
+   * `pushType`은 받은 알림의 종류를 그대로 돌려주는 값이고 열림 계측에만 쓴다.
+   */
+  | { type: "open-push-link"; link: string; pushType?: string; atMs: number }
   | SetTabBarMessage
   | SetBackGestureMessage
   | SetBackLockMessage

@@ -1,4 +1,8 @@
 import {
+  __resetInAppNotificationsForTests,
+  subscribeInAppNotifications,
+} from "../inAppNotification";
+import {
   __resetNativeAnalyticsForTests,
   attachNativeAnalyticsSink,
   type NativeAnalyticsEvent,
@@ -9,6 +13,7 @@ import {
   startPushMessaging,
 } from "../pushBootstrap";
 import type { PushMessage } from "../pushMessaging";
+import { __resetSessionPresenceForTests, markSessionOpen } from "../sessionPresence";
 
 /**
  * 부팅 배선은 의존성을 전부 주입해 검증한다 — 알림 탭 라우팅, 초기 알림, 권한 요청, 해제.
@@ -38,6 +43,10 @@ type Listener = (message: PushMessage) => void;
 
 function message(data: Record<string, string> = {}, id = "m1"): PushMessage {
   return { messageId: id, data, notification: { title: "t", body: "b" } };
+}
+
+function groupPush(type: string, link: string): PushMessage {
+  return message({ type, link });
 }
 
 function createHarness({ devBuild = false, initial = null as PushMessage | null } = {}) {
@@ -109,7 +118,7 @@ describe("startPushMessaging (BY-586)", () => {
     expect(h.deps.navigate).toHaveBeenNthCalledWith(2, "/");
   });
 
-  it("포그라운드 수신은 이동하지 않는다 — 표시도 하지 않는다", () => {
+  it("포그라운드 수신은 이동하지 않는다", () => {
     const h = createHarness();
     startPushMessaging(h.deps);
 
@@ -281,5 +290,73 @@ describe("startPushMessaging — push_notification_opened", () => {
     h.listeners.opened?.(message({ link: "/social" }));
 
     expect(received).toHaveLength(0);
+  });
+});
+
+/** 앱을 쓰는 중에 온 그룹 알림은 세션 화면이 아닐 때만 보이는 탭 웹뷰에 넘긴다. */
+describe("startPushMessaging — 앱을 쓰는 중에 온 그룹 알림", () => {
+  let log: jest.SpyInstance;
+  beforeEach(() => {
+    log = jest.spyOn(console, "log").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    log.mockRestore();
+    __resetInAppNotificationsForTests();
+    __resetSessionPresenceForTests();
+  });
+
+  it("세션 화면이 열려 있으면 앱 안 알림을 넘기지 않는다", () => {
+    const h = createHarness();
+    const showInApp = jest.fn();
+    startPushMessaging({ ...h.deps, isSessionOpen: () => true, showInApp });
+
+    h.listeners.message?.(groupPush("group_member_started", "/social/groups/10"));
+
+    expect(showInApp).not.toHaveBeenCalled();
+  });
+
+  it("세션이 아니면 그룹 알림을 넘기고 다른 푸시는 넘기지 않는다", () => {
+    const h = createHarness();
+    const showInApp = jest.fn();
+    startPushMessaging({ ...h.deps, isSessionOpen: () => false, showInApp });
+
+    h.listeners.message?.(groupPush("group_member_started", "/social/groups/10"));
+    h.listeners.message?.(groupPush("first_session_reminder", "/home"));
+
+    expect(showInApp).toHaveBeenCalledTimes(1);
+    expect(showInApp).toHaveBeenCalledWith({
+      title: "t",
+      body: "b",
+      link: "/social/groups/10",
+      pushType: "group_member_started",
+    });
+    expect(h.deps.navigate).not.toHaveBeenCalled();
+  });
+
+  it("세션 여부는 시작할 때가 아니라 알림이 온 때에 본다", () => {
+    const h = createHarness();
+    const showInApp = jest.fn();
+    let sessionOpen = false;
+    startPushMessaging({ ...h.deps, isSessionOpen: () => sessionOpen, showInApp });
+
+    sessionOpen = true;
+    h.listeners.message?.(groupPush("group_member_kicked", "/social?tab=public"));
+
+    expect(showInApp).not.toHaveBeenCalled();
+  });
+
+  it("기본으로는 세션 화면 표시를 보고 보이는 탭 웹뷰의 구독자에게 넘긴다", () => {
+    const h = createHarness();
+    const received = jest.fn();
+    subscribeInAppNotifications(received);
+    startPushMessaging(h.deps);
+
+    const closeSession = markSessionOpen("social");
+    h.listeners.message?.(groupPush("group_application_accepted", "/social/groups/10"));
+    expect(received).not.toHaveBeenCalled();
+
+    closeSession();
+    h.listeners.message?.(groupPush("group_application_accepted", "/social/groups/10"));
+    expect(received).toHaveBeenCalledTimes(1);
   });
 });

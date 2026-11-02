@@ -190,8 +190,9 @@ function RootLayout() {
     lockPortrait();
   }, []);
 
-  // 푸시 알림 배선(BY-586) — 포그라운드 로그, 알림 탭 → 딥링크 이동, 토큰 갱신 로그. 권한 요청은 웹이
-  // 브리지로 요청할 때 한다(`lib/nativeBridgeHandler.ts`). 백그라운드 핸들러는 `index.ts`에서 컴포넌트 밖에 건다.
+  // 푸시 알림 연결: 포그라운드 그룹 알림은 앱 안 토스트로 넘기고, 알림 탭은 딥링크로 이동하고, 갱신된 토큰은 다시 등록한다.
+  // 권한 요청은 웹이 브리지로 요청할 때 한다(`lib/nativeBridgeHandler.ts`).
+  // 백그라운드 핸들러는 `index.ts`에서 컴포넌트 밖에 건다.
   useEffect(
     () =>
       startPushMessaging({

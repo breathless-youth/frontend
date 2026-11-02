@@ -24,6 +24,7 @@ import { PrimaryCtaButton } from "./PrimaryCtaButton";
 import type { BridgeReply } from "../lib/nativeBridgeHandler";
 import { consumeAppLaunchSignal } from "../lib/appLaunch";
 import { authTokenMessage, subscribeAuth } from "../lib/auth";
+import { subscribeInAppNotifications } from "../lib/inAppNotification";
 import { attachInstallAttributionSink } from "../lib/installAttribution";
 import { attachNativeAnalyticsSink, trackNativeEvent } from "../lib/nativeAnalytics";
 import { lockPortrait, unlockForSession } from "../lib/orientation";
@@ -945,6 +946,18 @@ export function RemoteWebViewHost({
     }
     return attachInstallAttributionSink((payload) => {
       sendToWeb({ type: "install-attribution", ...payload, atMs: Date.now() });
+    });
+  }, [focused, analyticsReady, sendToWeb]);
+
+  // 앱을 쓰는 중에 온 그룹 알림도 같은 조건의 문서 하나에만 넘긴다.
+  // 탭 웹뷰 다섯 개가 모두 받으면 토스트가 겹친다.
+  // 아직 로드 중인 문서가 구독하면 받을 웹 구독이 없어 알림이 버려진다.
+  useEffect(() => {
+    if (!focused || !analyticsReady) {
+      return;
+    }
+    return subscribeInAppNotifications((notification) => {
+      sendToWeb({ type: "in-app-notification", ...notification, atMs: Date.now() });
     });
   }, [focused, analyticsReady, sendToWeb]);
 

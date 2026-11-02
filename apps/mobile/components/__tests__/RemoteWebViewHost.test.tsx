@@ -8,6 +8,10 @@ import type * as ExpoUiMock from "../../jest/expoUiMock";
 import type * as AuthModule from "../../lib/auth";
 import type { WebGlassBackGestureEvent, WebGlassPressEvent } from "../../modules/web-glass";
 import { consumeAppLaunchSignal } from "../../lib/appLaunch";
+import {
+  __resetInAppNotificationsForTests,
+  publishInAppNotification,
+} from "../../lib/inAppNotification";
 import type { InstallAttribution } from "../../lib/installAttribution";
 import {
   __resetNativeAnalyticsForTests,
@@ -2089,5 +2093,76 @@ describe("RemoteWebViewHost glass 층", () => {
 
     expect(screen.queryByRole("header")).toBeNull();
     expect(mockSyncInlineControls).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * 앱을 쓰는 중에 온 그룹 알림 전달
+ *
+ * 탭 웹뷰 다섯 개가 함께 떠 있어 보이는 문서 하나만 받아야 토스트가 겹치지 않는다.
+ * 웹이 준비 신호를 보내기 전의 문서는 받을 구독이 없어 알림이 버려진다.
+ */
+describe("RemoteWebViewHost — 앱 안 알림", () => {
+  const NOTIFICATION = {
+    title: "그룹장이 됐어요",
+    body: "새벽 공시반의 그룹장을 넘겨받았어요",
+    link: "/social/groups/10",
+    pushType: "group_owner_transferred",
+  };
+
+  /** 웹으로 주입된 앱 안 알림만 골라 파싱한다(스크립트 안의 JSON 문자열 리터럴을 두 번 푼다). */
+  function injectedInAppNotifications() {
+    return mockInjectJavaScript.mock.calls
+      .map((call) => String(call[0]))
+      .filter((script) => script.includes("in-app-notification"))
+      .map((script) => {
+        const literal = /__focusonNativeMessage\((.*)\); \} true;$/s.exec(script)?.[1] ?? '""';
+        return JSON.parse(JSON.parse(literal) as string) as Record<string, unknown>;
+      });
+  }
+
+  function fireAnalyticsReady() {
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"analytics-ready","atMs":1}' } });
+    });
+  }
+
+  afterEach(() => {
+    __resetInAppNotificationsForTests();
+  });
+
+  it("보이는 웹뷰는 준비 신호 뒤에 받은 앱 안 알림을 웹으로 보낸다", () => {
+    render(<RemoteWebViewHost path="/home" testID="host" focused />);
+    fireAnalyticsReady();
+
+    act(() => {
+      publishInAppNotification(NOTIFICATION);
+    });
+
+    expect(injectedInAppNotifications()).toEqual([
+      { type: "in-app-notification", ...NOTIFICATION, atMs: expect.any(Number) },
+    ]);
+  });
+
+  it("가려진 탭 웹뷰는 준비됐어도 앱 안 알림을 받지 않는다", () => {
+    render(<RemoteWebViewHost path="/records" testID="host" focused={false} />);
+    fireAnalyticsReady();
+
+    act(() => {
+      publishInAppNotification(NOTIFICATION);
+    });
+
+    expect(injectedInAppNotifications()).toEqual([]);
+  });
+
+  it("준비 신호를 보내기 전의 문서는 앱 안 알림을 받지 않는다", () => {
+    render(<RemoteWebViewHost path="/home" testID="host" focused />);
+
+    act(() => {
+      publishInAppNotification(NOTIFICATION);
+    });
+
+    expect(injectedInAppNotifications()).toEqual([]);
   });
 });
