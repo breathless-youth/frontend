@@ -18,7 +18,7 @@ export type TabId = "home" | "social" | "record" | "ranking" | "settings";
 
 const TABS: { id: TabId; label: string; Icon: typeof IconTabHome; href: string }[] = [
   { id: "home", label: "홈", Icon: IconTabHome, href: "/" },
-  { id: "social", label: "소셜", Icon: IconTabSocial, href: "/social" },
+  { id: "social", label: "그룹", Icon: IconTabSocial, href: "/social" },
   { id: "record", label: "기록", Icon: IconTabRecord, href: "/records" },
   { id: "ranking", label: "랭킹", Icon: IconTabRanking, href: "/ranking" },
   { id: "settings", label: "설정", Icon: IconTabSettings, href: "/settings" },

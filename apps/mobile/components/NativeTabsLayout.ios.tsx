@@ -24,7 +24,7 @@ const TABS = [
   },
   {
     name: "social",
-    label: "소셜",
+    label: "그룹",
     icon: require("../assets/tabs/social.png") as number,
     iconSelected: require("../assets/tabs/social-selected.png") as number,
   },

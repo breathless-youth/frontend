@@ -15,7 +15,7 @@ import {
  * Android 하단 플로팅 탭 바
  *
  * iOS는 시스템 탭 바를 쓰므로 이 바는 Android에서만 그려진다.
- * 탭 순서(홈·소셜·기록·랭킹·설정)와 불투명 배경, 고정 알약의 활성 표시가 회귀하지 않게 고정한다.
+ * 탭 순서(홈·그룹·기록·랭킹·설정)와 불투명 배경, 고정 알약의 활성 표시가 회귀하지 않게 고정한다.
  */
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -85,20 +85,20 @@ describe("TabBar 배경", () => {
 });
 
 describe("TabBar", () => {
-  it("5탭을 홈·소셜·기록·랭킹·설정 순서로 렌더한다", () => {
+  it("5탭을 홈·그룹·기록·랭킹·설정 순서로 렌더하고 소셜 자리 탭의 이름은 그룹이다", () => {
     render(<TabBar active="home" />);
 
     const tabs = screen.getAllByRole("tab");
     expect(tabs.map((tab) => tab.props.accessibilityLabel)).toEqual([
       "홈",
-      "소셜",
+      "그룹",
       "기록",
       "랭킹",
       "설정",
     ]);
   });
 
-  it("소셜 탭 활성 시 selected 상태가 소셜에만 붙는다", () => {
+  it("그룹 탭 활성 시 selected 상태가 그룹 탭에만 붙는다", () => {
     render(<TabBar active="social" />);
 
     const tabs = screen.getAllByRole("tab");
@@ -152,7 +152,7 @@ describe("TabBar — tab_pressed 이벤트", () => {
   it("활성 탭은 비활성화돼 있어 눌러도 이벤트가 없다", () => {
     render(<TabBar active="social" />);
 
-    fireEvent.press(screen.getByRole("tab", { name: "소셜" }));
+    fireEvent.press(screen.getByRole("tab", { name: "그룹" }));
 
     expect(received).toEqual([]);
     expect(router.navigate).not.toHaveBeenCalled();
@@ -167,7 +167,7 @@ describe("TabBar — 햅틱", () => {
   it("다른 탭을 누르면 가벼운 햅틱을 한 번 울린다", () => {
     render(<TabBar active="home" />);
 
-    fireEvent.press(screen.getByRole("tab", { name: "소셜" }));
+    fireEvent.press(screen.getByRole("tab", { name: "그룹" }));
 
     expect(triggerHaptic).toHaveBeenCalledTimes(1);
     expect(triggerHaptic).toHaveBeenCalledWith("light");
@@ -176,7 +176,7 @@ describe("TabBar — 햅틱", () => {
   it("활성 탭을 다시 누르면 햅틱이 없다", () => {
     render(<TabBar active="social" />);
 
-    fireEvent.press(screen.getByRole("tab", { name: "소셜" }));
+    fireEvent.press(screen.getByRole("tab", { name: "그룹" }));
 
     expect(triggerHaptic).not.toHaveBeenCalled();
   });
