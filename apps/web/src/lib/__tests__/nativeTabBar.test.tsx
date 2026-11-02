@@ -11,7 +11,6 @@ import {
   isFullScreenPath,
   isNativeCoveredPath,
   toastBottomOffset,
-  useCoachMarkTabBar,
   useNativeTabBarClass,
   useNativeTabBarSync,
 } from "@/lib/nativeTabBar";
@@ -111,6 +110,10 @@ describe("isFullScreenPath", () => {
     expect(isFullScreenPath("/onboarding-guide")).toBe(false);
   });
 
+  it("첫 실행 온보딩은 전체 화면이다", () => {
+    expect(isFullScreenPath("/onboarding")).toBe(true);
+  });
+
   it("타임랩스 설정은 전체 화면이다", () => {
     expect(isFullScreenPath("/timelapse-settings")).toBe(true);
   });
@@ -160,82 +163,6 @@ describe("isNativeCoveredPath", () => {
     for (const path of ["/home", "/records", "/social/room/1"]) {
       expect(isNativeCoveredPath(path)).toBe(false);
     }
-  });
-});
-
-function lastTabBarMessage(postMessage: ReturnType<typeof vi.fn>): Record<string, unknown> {
-  const calls = postMessage.mock.calls
-    .map(([raw]) => JSON.parse(raw as string) as { type: string })
-    .filter((message) => message.type === "set-tab-bar");
-  const { atMs: _atMs, ...rest } = calls.at(-1) as { atMs?: number };
-  return rest;
-}
-
-describe("useCoachMarkTabBar", () => {
-  function CoachHarness({ active }: { active: boolean }) {
-    useNativeTabBarSync();
-    useCoachMarkTabBar(active);
-    return null;
-  }
-
-  function renderCoach(active: boolean) {
-    return render(
-      <MemoryRouter initialEntries={["/home"]}>
-        <CoachHarness active={active} />
-      </MemoryRouter>,
-    );
-  }
-
-  it("켜면 탭 바를 보인 채 blockedByModal을 보낸다", async () => {
-    const postMessage = vi.fn();
-    vi.stubGlobal("ReactNativeWebView", { postMessage });
-    renderCoach(true);
-    await waitFor(() =>
-      expect(lastTabBarMessage(postMessage)).toEqual({
-        type: "set-tab-bar",
-        visible: true,
-        blockedByModal: true,
-      }),
-    );
-  });
-
-  it("켜지 않으면 차단을 싣지 않는다", async () => {
-    const postMessage = vi.fn();
-    vi.stubGlobal("ReactNativeWebView", { postMessage });
-    renderCoach(false);
-    await waitFor(() =>
-      expect(lastTabBarMessage(postMessage)).toEqual({ type: "set-tab-bar", visible: true }),
-    );
-  });
-
-  it("바텀시트가 함께 열리면 시트 규칙대로 차단 없이 감춘다", async () => {
-    const postMessage = vi.fn();
-    vi.stubGlobal("ReactNativeWebView", { postMessage });
-    renderCoach(true);
-    await waitFor(() =>
-      expect(lastTabBarMessage(postMessage)).toMatchObject({ blockedByModal: true }),
-    );
-    openBottomSheet();
-    await waitFor(() =>
-      expect(lastTabBarMessage(postMessage)).toEqual({ type: "set-tab-bar", visible: false }),
-    );
-  });
-
-  it("끄면 원래 계산으로 돌아간다", async () => {
-    const postMessage = vi.fn();
-    vi.stubGlobal("ReactNativeWebView", { postMessage });
-    const { rerender } = renderCoach(true);
-    await waitFor(() =>
-      expect(lastTabBarMessage(postMessage)).toMatchObject({ blockedByModal: true }),
-    );
-    rerender(
-      <MemoryRouter initialEntries={["/home"]}>
-        <CoachHarness active={false} />
-      </MemoryRouter>,
-    );
-    await waitFor(() =>
-      expect(lastTabBarMessage(postMessage)).toEqual({ type: "set-tab-bar", visible: true }),
-    );
   });
 });
 

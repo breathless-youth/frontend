@@ -23,6 +23,7 @@ import { useNativeAnalyticsRelay } from "@/lib/nativeAnalytics";
 import { toastBottomOffset, useNativeTabBarClass, useNativeTabBarSync } from "@/lib/nativeTabBar";
 import { useNativeRouteReset } from "@/lib/nativeRouteReset";
 import { useNativeScreenReport } from "@/lib/nativeScreenReport";
+import { useLaunchReadyOutsideHome } from "@/lib/launchReady";
 import { useNativeSessionClosed } from "@/lib/nativeSessionClosed";
 import { useNativeShellClass } from "@/lib/nativeShell";
 import { usePageTransitionCommit } from "@/lib/pageTransition";
@@ -30,6 +31,7 @@ import { queryClient } from "@/lib/queryClient";
 import { dismissToast } from "@/lib/toast";
 import { HomePage } from "@/routes/HomePage";
 import { HomeTabPage } from "@/routes/HomeTabPage";
+import { OnboardingPage } from "@/routes/OnboardingPage";
 import { DownloadPage } from "@/routes/DownloadPage";
 import { InviteCodeJoinPage } from "@/routes/InviteCodeJoinPage";
 import { InviteCodeSharePage } from "@/routes/InviteCodeSharePage";
@@ -224,6 +226,8 @@ export function App() {
   useNativeAnalyticsRelay();
   // 세션 모달이 닫히면 통계를 다시 받게 표시한다(lib/nativeSessionClosed.ts).
   useNativeSessionClosed();
+  // 홈 밖의 화면으로 시작한 문서는 바로 앱 스플래시를 걷게 한다(`lib/launchReady.ts`).
+  useLaunchReadyOutsideHome();
   // 앱 버전이 최소 버전 미만이면 강제 업데이트 모달을 앱 전역에 띄운다
   const { forced: forceUpdateRequired, onUpdate: openAppStoreForUpdate } = useForceUpdateGate();
 
@@ -261,6 +265,7 @@ export function App() {
               />
               <Route path="/room/:id/result" element={<ResultPage />} />
               <Route path="/home" element={<HomeTabPage />} />
+              <Route path="/onboarding" element={<OnboardingPage />} />
               <Route path="/records" element={<RecordsPage />} />
               <Route path="/ranking" element={<RankingPage />} />
               <Route path="/ranking/records" element={<RankingRecordsPage />} />

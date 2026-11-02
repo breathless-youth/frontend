@@ -849,9 +849,6 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
     m.trackOsSettingsOpened("settings_tab");
     m.trackSessionRecoveryPrompted(120);
     m.trackSessionRecoveryConfirmed();
-    m.trackHomeStartGuideShown();
-    m.trackHomeStartGuideCompleted();
-    m.trackHomeStartGuideSkipped();
 
     expect(mocks.track).not.toHaveBeenCalled();
   });
@@ -910,9 +907,6 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
     m.trackOsSettingsOpened("settings_tab");
     m.trackSessionRecoveryPrompted(5040);
     m.trackSessionRecoveryConfirmed();
-    m.trackHomeStartGuideShown();
-    m.trackHomeStartGuideCompleted();
-    m.trackHomeStartGuideSkipped();
 
     expect(mocks.track.mock.calls).toEqual([
       ["study_session_exit_requested", { room_type: "single" }],
@@ -925,9 +919,34 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
       ["os_settings_opened", { source: "settings_tab" }],
       ["session_recovery_prompted", { focus_sec: 5040 }],
       ["session_recovery_confirmed"],
-      ["home_start_guide_shown"],
-      ["home_start_guide_completed"],
-      ["home_start_guide_skipped"],
+    ]);
+  });
+});
+
+describe("온보딩 이벤트", () => {
+  it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackOnboardingStepViewed("auto_timer");
+    m.trackOnboardingNotificationResult("granted");
+    m.trackOnboardingCompleted();
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("단계 노출·알림 결과·완료를 각 속성과 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackOnboardingStepViewed("ready");
+    m.trackOnboardingNotificationResult("unsupported");
+    m.trackOnboardingCompleted();
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["onboarding_step_viewed", { step: "ready" }],
+      ["onboarding_notification_result", { result: "unsupported" }],
+      ["onboarding_completed"],
     ]);
   });
 });

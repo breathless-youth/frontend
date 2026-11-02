@@ -1,6 +1,13 @@
 import * as SecureStore from "expo-secure-store";
 
-import { authTokenMessage, awaitAuth, ensureAuth, refreshAuth, subscribeAuth } from "../auth";
+import {
+  authTokenMessage,
+  awaitAuth,
+  ensureAuth,
+  refreshAuth,
+  subscribeAuth,
+  isNewUserThisLaunch,
+} from "../auth";
 import { logMetaRegistration } from "../metaAds";
 import { ensureUserRegistered } from "../userApi";
 
@@ -77,6 +84,7 @@ describe("ensureAuth", () => {
     store.set("focuson.auth", JSON.stringify(STORED));
     await expect(ensureAuth()).resolves.toEqual(STORED);
     expect(mockedFetch).not.toHaveBeenCalled();
+    expect(isNewUserThisLaunch()).toBe(false);
   });
 
   it("신규 등록이면 토큰 쌍을 focuson.auth 한 키에 THIS_DEVICE_ONLY로 저장하고 구독자에게 알린다", async () => {
@@ -106,6 +114,8 @@ describe("ensureAuth", () => {
     expect(headersOf(0).get("API-Version")).toBe("2");
     // 신규 등록만 Meta 가입 완료로 센다.
     expect(logMetaRegistration).toHaveBeenCalledTimes(1);
+    // 웹이 온보딩 대상을 서버 조회 없이 알도록 이번 실행이 새 계정이라는 사실을 남긴다.
+    expect(isNewUserThisLaunch()).toBe(true);
     unsubscribe();
   });
 

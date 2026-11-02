@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 import { postToNative } from "./bridge";
@@ -48,6 +48,7 @@ const FULL_SCREEN_PATHS = [
   "/app-lock-settings",
   "/timelapses",
   "/ranking/records",
+  "/onboarding",
 ];
 
 /** 동적 세그먼트를 갖는 전체 화면 라우트 — prefix로 판정한다. */
@@ -69,41 +70,6 @@ const NATIVE_COVERED_PATH_PREFIXES = ["/room/"];
  */
 export function isNativeCoveredPath(pathname: string): boolean {
   return NATIVE_COVERED_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
-}
-
-/**
- * 코치마크가 떠 있는 동안 탭 바를 막는지
- *
- * 코치마크는 `aria-modal`을 쓰지 않아 모달 감지기가 모른다.
- * 동기화가 이 값을 함께 읽어야 한다.
- * 코치마크가 직접 `set-tab-bar`를 보내면 다음 동기화가 그 차단을 덮어쓴다.
- */
-let coachMarkActive = false;
-const coachListeners = new Set<() => void>();
-
-function subscribeCoachMark(listener: () => void): () => void {
-  coachListeners.add(listener);
-  return () => coachListeners.delete(listener);
-}
-
-function setCoachMarkActive(active: boolean): void {
-  coachMarkActive = active;
-  coachListeners.forEach((listener) => listener());
-}
-
-/**
- * 코치마크가 떠 있는 동안 탭 바 차단
- *
- * 켜 있는 동안 기존 `set-tab-bar { blockedByModal: true }`를 보내므로 구버전 앱도 받는다.
- */
-export function useCoachMarkTabBar(active: boolean): void {
-  useEffect(() => {
-    if (!active) {
-      return;
-    }
-    setCoachMarkActive(true);
-    return () => setCoachMarkActive(false);
-  }, [active]);
 }
 
 const SAFE_AREA_TOAST_BOTTOM = "calc(env(safe-area-inset-bottom) + 16px)";
@@ -132,7 +98,6 @@ export function hasNativeTabBar(): boolean {
 /** 테스트마다 URL을 바꿔 판정하도록 캐시를 비운다. */
 export function __resetNativeTabBarForTests(): void {
   nativeTabBarCache = null;
-  coachMarkActive = false;
 }
 
 /**
@@ -184,22 +149,13 @@ export function useNativeTabBarSync(): void {
   const { pathname } = useLocation();
   const modalOpen = useModalOverlayOpen();
   const modalCoversTabBar = useModalOverlayCoversTabBar();
-  const coach = useSyncExternalStore(
-    subscribeCoachMark,
-    () => coachMarkActive,
-    () => false,
-  );
 
   useEffect(() => {
     const routeHidden = isFullScreenPath(pathname);
     const nativeCovered = isNativeCoveredPath(pathname);
     const visible = !routeHidden && !modalOpen;
     // 플로팅 바에서 바텀시트는 blockedByModal 없이 visible:false만 보내 네이티브가 "hidden"으로 읽게 한다.
-    // 바텀시트가 함께 열리면 시트 규칙(숨김)을 따른다. 차단을 실으면 시트 아래쪽을 딤이 가린다.
-    const blockedByModal =
-      ((modalOpen && !modalCoversTabBar) || (coach && !(modalOpen && modalCoversTabBar))) &&
-      !routeHidden &&
-      !nativeCovered;
+    const blockedByModal = modalOpen && !modalCoversTabBar && !routeHidden && !nativeCovered;
     let disposed = false;
     const post = () => {
       postToNative({
@@ -238,5 +194,5 @@ export function useNativeTabBarSync(): void {
       disposed = true;
       window.removeEventListener("pageshow", handlePageShow);
     };
-  }, [pathname, modalOpen, modalCoversTabBar, coach]);
+  }, [pathname, modalOpen, modalCoversTabBar]);
 }

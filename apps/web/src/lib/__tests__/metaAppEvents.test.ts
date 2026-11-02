@@ -6,6 +6,7 @@ import {
   trackMetaSocialRoomEntered,
   trackMetaStudySessionEnded,
   trackMetaStudySessionStarted,
+  trackMetaTutorialCompleted,
 } from "@/lib/metaAppEvents";
 
 /**
@@ -36,6 +37,19 @@ afterEach(() => {
 });
 
 describe("metaAppEvents", () => {
+  it("온보딩 완료는 Meta 표준 튜토리얼 완료로 보낸다", () => {
+    const bridge = stubBridge();
+
+    trackMetaTutorialCompleted();
+
+    expect(bridge.sent()).toEqual([
+      expect.objectContaining({
+        name: "fb_mobile_tutorial_completion",
+        params: { fb_success: 1 },
+      }),
+    ]);
+  });
+
   it("세션 시작은 룸 종류를 싣고, 복원 진입은 보내지 않는다 — 같은 세션의 두 번째 시작", () => {
     const bridge = stubBridge();
 

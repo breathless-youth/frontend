@@ -90,6 +90,13 @@ jest.mock("../lib/pushBootstrap", () => ({
   startPushMessaging: (options: { navigate: (route: string) => void }) => mockStartPush(options),
   ensurePushPermission: () => mockEnsurePushPermission(),
 }));
+// 웹의 시작 신호 기다림 — 기본은 바로 끝난다. 스플래시 시점 테스트만 붙잡는다(동작은 `lib/__tests__/launchReady.test.ts`).
+const mockWaitForLaunchReady = jest.fn(() => Promise.resolve());
+const mockMarkStartPromptsAllowed = jest.fn();
+jest.mock("../lib/launchReady", () => ({
+  waitForLaunchReady: () => mockWaitForLaunchReady(),
+  markStartPromptsAllowed: () => mockMarkStartPromptsAllowed(),
+}));
 // 서버 토큰 등록은 `lib/__tests__/pushTokenRegistration.test.ts`가 본다. 인증·네트워크를 타지 않게 막는다.
 jest.mock("../lib/pushTokenRegistration", () => ({
   registerPushToken: jest.fn(() => Promise.resolve()),
@@ -193,6 +200,9 @@ beforeEach(() => {
   mockRemoveLeftoverVideoFiles.mockClear();
   mockInitMetaAds.mockReset().mockImplementation(() => Promise.resolve());
   mockEnsurePushPermission.mockReset().mockImplementation(() => Promise.resolve());
+  mockWaitForLaunchReady.mockReset().mockImplementation(() => Promise.resolve());
+  mockMarkStartPromptsAllowed.mockClear();
+  mockHideAsync.mockImplementation(() => Promise.resolve());
   mockStartInstallAttribution.mockClear();
 });
 
@@ -283,6 +293,87 @@ describe("RootLayout 폰트 로드 게이팅", () => {
 
     await waitFor(() => expect(toJSON()).not.toBeNull());
     expect(mockHideAsync).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("RootLayout 웹의 시작 신호", () => {
+  /** 시작 신호 기다림을 붙잡아 두고, 풀어 주는 함수를 돌려준다. */
+  function holdLaunchReady() {
+    let finish: () => void = () => {};
+    mockWaitForLaunchReady.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    return () => finish();
+  }
+
+  it("화면은 스플래시 뒤에서 먼저 그리고, 스플래시는 웹의 시작 신호 뒤에 걷는다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    const finishLaunch = holdLaunchReady();
+
+    const { toJSON } = render(<RootLayout />);
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+    await act(async () => {});
+    expect(mockHideAsync).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finishLaunch();
+    });
+    expect(mockHideAsync).toHaveBeenCalledTimes(1);
+  });
+
+  it("시작 권한 창(ATT)은 스플래시가 걷힌 뒤에 띄운다 — 스플래시 위에서는 OS가 띄우지 않는다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    const finishLaunch = holdLaunchReady();
+
+    const { toJSON } = render(<RootLayout />);
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+    await act(async () => {});
+    expect(mockInitMetaAds).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finishLaunch();
+    });
+    await waitFor(() => expect(mockInitMetaAds).toHaveBeenCalledTimes(1));
+  });
+
+  it("스플래시 걷기가 끝난 뒤에야 시작 권한 창 차례를 알리고 ATT를 시작한다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    let finishHide: () => void = () => {};
+    mockHideAsync.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishHide = resolve;
+        }),
+    );
+
+    const { toJSON } = render(<RootLayout />);
+    await waitFor(() => expect(toJSON()).not.toBeNull());
+    await waitFor(() => expect(mockHideAsync).toHaveBeenCalled());
+    await act(async () => {});
+    expect(mockMarkStartPromptsAllowed).not.toHaveBeenCalled();
+    expect(mockInitMetaAds).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finishHide();
+    });
+    expect(mockMarkStartPromptsAllowed).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(mockInitMetaAds).toHaveBeenCalledTimes(1));
+  });
+
+  it("forced면 시작 신호를 기다리지 않고 스플래시를 걷는다 — 웹뷰를 그리지 않는 실행이다", async () => {
+    mockUseFonts.mockReturnValue([true, undefined]);
+    holdLaunchReady();
+    const forced = { forced: true, recommended: false, latestVersion: "1.0.4" };
+    mockResolveForceUpdate.mockResolvedValue(forced);
+    mockRefreshForceUpdate.mockResolvedValue(forced);
+
+    render(<RootLayout />);
+    await screen.findByTestId("force-update-backdrop");
+
+    await waitFor(() => expect(mockHideAsync).toHaveBeenCalledTimes(1));
   });
 });
 
@@ -488,10 +579,10 @@ describe("RootLayout 접속 시 업데이트 재판정", () => {
 });
 
 describe("RootLayout 권장 알림창 시점", () => {
-  /** 알림 권한 요청을 붙잡아 두고, 풀어 주는 함수를 돌려준다. */
-  function holdPushPermission() {
+  /** 시작 권한 창(ATT)을 붙잡아 두고, 풀어 주는 함수를 돌려준다. */
+  function holdStartPrompts() {
     let finish: () => void = () => {};
-    mockEnsurePushPermission.mockImplementation(
+    mockInitMetaAds.mockImplementation(
       () =>
         new Promise<void>((resolve) => {
           finish = resolve;
@@ -500,18 +591,18 @@ describe("RootLayout 권장 알림창 시점", () => {
     return () => finish();
   }
 
-  it("권한 요청을 기다리는 사이 세션 화면이 열리면 권장 알림창은 세션이 끝난 뒤에 뜬다", async () => {
+  it("시작 권한 창을 기다리는 사이 세션 화면이 열리면 권장 알림창은 세션이 끝난 뒤에 뜬다", async () => {
     mockUseFonts.mockReturnValue([true, undefined]);
     mockResolveForceUpdate.mockResolvedValue({
       forced: false,
       recommended: true,
       latestVersion: "1.0.3",
     });
-    const finishPermission = holdPushPermission();
+    const finishPermission = holdStartPrompts();
 
     const { toJSON } = render(<RootLayout />);
     await waitFor(() => expect(toJSON()).not.toBeNull());
-    await waitFor(() => expect(mockEnsurePushPermission).toHaveBeenCalled());
+    await waitFor(() => expect(mockInitMetaAds).toHaveBeenCalled());
     const closeSession = markSessionOpen("single");
 
     await act(async () => {
@@ -537,11 +628,11 @@ describe("RootLayout 권장 알림창 시점", () => {
       recommended: false,
       latestVersion: "0.0.0",
     });
-    const finishPermission = holdPushPermission();
+    const finishPermission = holdStartPrompts();
 
     const { toJSON } = render(<RootLayout />);
     await waitFor(() => expect(toJSON()).not.toBeNull());
-    await waitFor(() => expect(mockEnsurePushPermission).toHaveBeenCalled());
+    await waitFor(() => expect(mockInitMetaAds).toHaveBeenCalled());
     await act(async () => {});
 
     await act(async () => {
@@ -622,43 +713,15 @@ describe("RootLayout Meta SDK 초기화", () => {
     expect(mockEnsurePushPermission).not.toHaveBeenCalled();
   });
 
-  it("알림 권한은 초기화(ATT) 뒤, 권장 알림창 앞에 한 번 묻는다", async () => {
+  it("앱을 켤 때 알림 권한을 묻지 않는다 — 묻는 시점은 웹이 정한다", async () => {
     mockUseFonts.mockReturnValue([true, undefined]);
-    mockResolveForceUpdate.mockResolvedValue({
-      forced: false,
-      recommended: true,
-      latestVersion: "1.0.3",
-    });
-    let finishInit: () => void = () => {};
-    mockInitMetaAds.mockImplementation(
-      () =>
-        new Promise<void>((resolve) => {
-          finishInit = resolve;
-        }),
-    );
-    let finishPermission: () => void = () => {};
-    mockEnsurePushPermission.mockImplementation(
-      () =>
-        new Promise<void>((resolve) => {
-          finishPermission = resolve;
-        }),
-    );
 
     const { toJSON } = render(<RootLayout />);
     await waitFor(() => expect(toJSON()).not.toBeNull());
     await waitFor(() => expect(mockInitMetaAds).toHaveBeenCalled());
+    await act(async () => {});
+
     expect(mockEnsurePushPermission).not.toHaveBeenCalled();
-
-    await act(async () => {
-      finishInit();
-    });
-    await waitFor(() => expect(mockEnsurePushPermission).toHaveBeenCalledTimes(1));
-    expect(mockMaybeShow).not.toHaveBeenCalled();
-
-    await act(async () => {
-      finishPermission();
-    });
-    await waitFor(() => expect(mockMaybeShow).toHaveBeenCalledWith("1.0.3"));
   });
 
   it("권장 알림창은 초기화(ATT)가 끝난 뒤에 뜬다 — OS 알림창 두 개가 겹치지 않게", async () => {
@@ -734,10 +797,13 @@ describe("RootLayout 실행 직후 목표 문구", () => {
     const overlay = await screen.findByTestId("launch-goal-overlay");
     await act(async () => {});
     expect(mockInitMetaAds).not.toHaveBeenCalled();
+    // 웹이 요청한 알림 권한도 이 차례를 기다리므로 오버레이 위에 OS 창이 뜨지 않는다.
+    expect(mockMarkStartPromptsAllowed).not.toHaveBeenCalled();
 
     fireEvent.press(overlay);
 
     await waitFor(() => expect(mockInitMetaAds).toHaveBeenCalledTimes(1));
+    expect(mockMarkStartPromptsAllowed).toHaveBeenCalledTimes(1);
   });
 
   it("저장값이 없으면 오버레이 없이 그린다", async () => {

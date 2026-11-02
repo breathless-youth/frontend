@@ -4,6 +4,7 @@ import { ActivityIndicator, BackHandler, View } from "react-native";
 import type { HandlerMessage, HostPassedMessage, SetTabBarMessage } from "@focusmakers/types";
 
 import { markFirstScreenLoaded } from "../lib/firstScreenLoaded";
+import { markLaunchLoadStarted, markLaunchReady } from "../lib/launchReady";
 import { handleBridgeMessage, type BridgeReply } from "../lib/nativeBridgeHandler";
 import { useRemoteQueryParams } from "../lib/remoteQueryParams";
 import { markSessionOpen } from "../lib/sessionPresence";
@@ -130,6 +131,10 @@ export function RemoteScreen({
     // 탭 웹뷰는 동시에 마운트되므로 보이지 않는 탭이 먼저 끝나도 실행 직후 오버레이를 걷지 않게 한다.
     if (!suppressTabBarMessages) {
       markFirstScreenLoaded();
+      // 실패한 문서는 신호를 보내지 못하므로 실패 화면이 스플래시에 가려지지 않게 바로 걷는다.
+      if (!ok) {
+        markLaunchReady();
+      }
     }
     setLoaded(true);
     setLoadFailed(!ok);
@@ -169,6 +174,13 @@ export function RemoteScreen({
       setDarkScreen(message.dark);
       return;
     }
+    if (message.type === "launch-ready") {
+      // 탭 웹뷰는 동시에 마운트되므로 보이는 화면의 신호만 스플래시를 걷는다.
+      if (!suppressTabBarMessages) {
+        markLaunchReady();
+      }
+      return;
+    }
     onBridgeMessage(message, reply);
   };
 
@@ -182,6 +194,14 @@ export function RemoteScreen({
     }
     onBridgeMessage({ ...last, atMs: Date.now() }, () => undefined);
   }, [suppressTabBarMessages, onBridgeMessage]);
+
+  // 보이는 탭의 웹뷰가 뜨는 순간부터 스플래시 상한을 센다. 그 전의 가입 대기는 상한에 넣지 않는다.
+  const webViewMounted = query !== null;
+  useEffect(() => {
+    if (webViewMounted && !suppressTabBarMessages) {
+      markLaunchLoadStarted();
+    }
+  }, [webViewMounted, suppressTabBarMessages]);
 
   // 웹이 뒤로가기를 잠근 동안은 소셜룸 세션이 진행 중이라, 업데이트 알림창이 끼어들지 않게 세션 중으로 표시한다.
   // 탭 포커스와 상관없이 건다. 뒤로가기 차단과 달리 다른 탭을 보는 사이에도 세션은 이어지기 때문이다.

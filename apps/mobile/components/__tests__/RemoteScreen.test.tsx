@@ -8,6 +8,7 @@ import {
   attachNativeAnalyticsSink,
   trackNativeEvent,
 } from "../../lib/nativeAnalytics";
+import { markLaunchLoadStarted, markLaunchReady } from "../../lib/launchReady";
 import { handleBridgeMessage } from "../../lib/nativeBridgeHandler";
 import { __resetRemoteQueryParamsCacheForTests } from "../../lib/remoteQueryParams";
 import {
@@ -27,6 +28,10 @@ import { ensureUserRegistered } from "../../lib/userApi";
 
 jest.mock("../../lib/userApi", () => ({ ensureUserRegistered: jest.fn() }));
 jest.mock("../../lib/nativeBridgeHandler", () => ({ handleBridgeMessage: jest.fn() }));
+jest.mock("../../lib/launchReady", () => ({
+  markLaunchReady: jest.fn(),
+  markLaunchLoadStarted: jest.fn(),
+}));
 jest.mock("expo-constants", () => ({
   __esModule: true,
   default: { expoConfig: { extra: { webBaseUrl: "https://web.test" }, version: "1.4.2" } },
@@ -115,7 +120,7 @@ describe("RemoteScreen", () => {
 
     expect(await screen.findByTestId("home-webview")).toBeTruthy();
     expect(screen.getByTestId("home-webview").props.source).toEqual({
-      uri: "https://web.test/home?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&alertHaptic=1&nativeTabBar=1",
+      uri: "https://web.test/home?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&alertHaptic=1&pushPermission=1&nativeTabBar=1",
     });
   });
 
@@ -126,7 +131,7 @@ describe("RemoteScreen", () => {
 
     expect(await screen.findByTestId("home-webview")).toBeTruthy();
     expect(screen.getByTestId("home-webview").props.source).toEqual({
-      uri: "https://web.test/home?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&alertHaptic=1&nativeTabBar=1",
+      uri: "https://web.test/home?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&alertHaptic=1&pushPermission=1&nativeTabBar=1",
     });
   });
 
@@ -296,6 +301,77 @@ describe("RemoteScreen", () => {
     });
 
     expect(screen.getByTestId("social-skeleton")).toBeTruthy();
+  });
+
+  it("보이는 웹뷰의 launch-ready는 시작 신호를 켜고 공용 핸들러로 넘기지 않는다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    render(<RemoteScreen testID="home-webview" path="/home" />);
+    const webview = await screen.findByTestId("home-webview");
+    act(() => {
+      (webview.props.onMessage as (e: unknown) => void)({
+        nativeEvent: { data: JSON.stringify({ type: "launch-ready", atMs: 1 }) },
+      });
+    });
+
+    expect(markLaunchReady).toHaveBeenCalledTimes(1);
+    expect(mockedHandleBridgeMessage).not.toHaveBeenCalled();
+  });
+
+  it("보이는 탭은 가입이 끝나 웹뷰가 뜬 뒤에야 스플래시 상한을 세기 시작한다", async () => {
+    let finishRegistration: (id: number) => void = () => undefined;
+    mockedEnsureUserRegistered.mockReturnValue(
+      new Promise((resolve) => {
+        finishRegistration = resolve;
+      }),
+    );
+
+    render(<RemoteScreen testID="home-webview" path="/home" />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(markLaunchLoadStarted).not.toHaveBeenCalled();
+
+    await act(async () => {
+      finishRegistration(7);
+    });
+    await screen.findByTestId("home-webview");
+    expect(markLaunchLoadStarted).toHaveBeenCalledTimes(1);
+  });
+
+  it("보이지 않는 탭의 웹뷰는 스플래시 상한을 세기 시작하지 않는다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    render(<RemoteScreen testID="social-webview" path="/social" suppressTabBarMessages />);
+    await screen.findByTestId("social-webview");
+
+    expect(markLaunchLoadStarted).not.toHaveBeenCalled();
+  });
+
+  it("보이지 않는 탭의 launch-ready는 시작 신호를 켜지 않는다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    render(<RemoteScreen testID="social-webview" path="/social" suppressTabBarMessages />);
+    const webview = await screen.findByTestId("social-webview");
+    act(() => {
+      (webview.props.onMessage as (e: unknown) => void)({
+        nativeEvent: { data: JSON.stringify({ type: "launch-ready", atMs: 1 }) },
+      });
+    });
+
+    expect(markLaunchReady).not.toHaveBeenCalled();
+  });
+
+  it("보이는 웹뷰 로드가 실패하면 시작 신호를 켠다 — 실패 화면을 스플래시가 가리지 않도록", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    render(<RemoteScreen testID="home-webview" path="/home" />);
+    const webview = await screen.findByTestId("home-webview");
+    act(() => {
+      (webview.props.onError as () => void)();
+    });
+
+    expect(markLaunchReady).toHaveBeenCalled();
   });
 
   it("report-screen은 공용 브리지 핸들러로 넘기지 않는다 — 셸 내부 상태다", async () => {

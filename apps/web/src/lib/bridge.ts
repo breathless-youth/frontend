@@ -215,6 +215,12 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
   if (record.type === "camera-gate-result" && typeof record.granted === "boolean") {
     return { type: "camera-gate-result", granted: record.granted, atMs: record.atMs };
   }
+  if (
+    record.type === "push-permission-result" &&
+    (record.status === "granted" || record.status === "denied" || record.status === "undetermined")
+  ) {
+    return { type: "push-permission-result", status: record.status, atMs: record.atMs };
+  }
   if (record.type === "theme" && (record.scheme === "light" || record.scheme === "dark")) {
     return { type: "theme", scheme: record.scheme, atMs: record.atMs };
   }

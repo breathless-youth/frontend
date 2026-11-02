@@ -7,6 +7,7 @@ import {
   buildRemoteQueryParams,
   useRemoteQueryParams,
 } from "../remoteQueryParams";
+import { isNewUserThisLaunch } from "../auth";
 import { ensureUserRegistered } from "../userApi";
 import { getRnda } from "../appLock/rnda";
 
@@ -22,6 +23,7 @@ import { getRnda } from "../appLock/rnda";
  */
 
 jest.mock("../userApi", () => ({ ensureUserRegistered: jest.fn() }));
+jest.mock("../auth", () => ({ isNewUserThisLaunch: jest.fn(() => false) }));
 jest.mock("../appLock/rnda", () => ({ getRnda: jest.fn(() => null) }));
 const mockAppLockModule: { appLockNative: object | null } = { appLockNative: null };
 jest.mock("../../modules/app-lock", () => ({
@@ -130,6 +132,7 @@ describe("buildRemoteQueryParams", () => {
       videoShare: "1",
       ranking: "1",
       alertHaptic: "1",
+      pushPermission: "1",
       nativeTabBar: "1",
     });
   });
@@ -146,6 +149,7 @@ describe("buildRemoteQueryParams", () => {
       videoShare: "1",
       ranking: "1",
       alertHaptic: "1",
+      pushPermission: "1",
       nativeTabBar: "1",
     });
   });
@@ -162,6 +166,7 @@ describe("buildRemoteQueryParams", () => {
       videoShare: "1",
       ranking: "1",
       alertHaptic: "1",
+      pushPermission: "1",
       nativeTabBar: "1",
     });
   });
@@ -210,6 +215,22 @@ describe("buildRemoteQueryParams", () => {
     const params = await buildRemoteQueryParams();
 
     expect(params.alertHaptic).toBe("1");
+  });
+
+  it("이번 실행에서 새로 가입한 계정이면 newUser로 알리고, 아니면 붙이지 않는다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    jest.mocked(isNewUserThisLaunch).mockReturnValueOnce(true);
+
+    expect((await buildRemoteQueryParams()).newUser).toBe("1");
+    expect((await buildRemoteQueryParams()).newUser).toBeUndefined();
+  });
+
+  it("알림 권한을 웹이 요청하는 셸임을 pushPermission으로 알린다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    const params = await buildRemoteQueryParams();
+
+    expect(params.pushPermission).toBe("1");
   });
 
   it("Android에서는 시스템 테마를 theme 파라미터로 붙인다", async () => {
@@ -341,6 +362,7 @@ describe("useRemoteQueryParams", () => {
         videoShare: "1",
         ranking: "1",
         alertHaptic: "1",
+        pushPermission: "1",
         nativeTabBar: "1",
       }),
     );
@@ -360,6 +382,7 @@ describe("useRemoteQueryParams", () => {
         videoShare: "1",
         ranking: "1",
         alertHaptic: "1",
+        pushPermission: "1",
         nativeTabBar: "1",
       }),
     );
@@ -377,6 +400,7 @@ describe("useRemoteQueryParams", () => {
       videoShare: "1",
       ranking: "1",
       alertHaptic: "1",
+      pushPermission: "1",
       nativeTabBar: "1",
     });
   });
@@ -422,6 +446,7 @@ describe("useRemoteQueryParams", () => {
         videoShare: "1",
         ranking: "1",
         alertHaptic: "1",
+        pushPermission: "1",
         nativeTabBar: "1",
       }),
     );
@@ -441,6 +466,7 @@ describe("useRemoteQueryParams", () => {
         videoShare: "1",
         ranking: "1",
         alertHaptic: "1",
+        pushPermission: "1",
         nativeTabBar: "1",
       }),
     );

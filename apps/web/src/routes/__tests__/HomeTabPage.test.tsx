@@ -1,23 +1,25 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { NoticeResponse, SessionRecoveryResponse } from "@focusmakers/types";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { useEffect, type ComponentProps } from "react";
 import type * as ReactRouterDom from "react-router-dom";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type * as StartCoachMarkModule from "@/features/home/StartCoachMark";
 import type * as Amplitude from "@/lib/amplitude";
 import type * as TokenSourceModule from "@/lib/auth/tokenSource";
-import type * as NativeTabBarModule from "@/lib/nativeTabBar";
 import type { TokenSource } from "@/lib/auth/tokenSource";
 
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { __resetRankingTabForTests } from "@/lib/rankingCapability";
 import { FIXTURE_UNSEEN_ONE } from "@/lib/rankingFixtures";
 import { getStreak, listStudySessionStats } from "@/lib/statsApi";
+import {
+  __resetOnboardingGateForTests,
+  markOnboardingPending,
+  markOnboardingSettled,
+  onboardingRecord,
+} from "@/features/onboarding/onboardingGate";
 import { todayLabel } from "@/features/home/homeFormat";
-import { markStartGuideSeen, startGuideState } from "@/features/home/startGuide";
 import { hasShownRecoveryThisLaunch } from "@/features/study-session/recoveryLaunchStore";
 import { LAUNCH_SIGNAL_WAIT_MS } from "@/features/study-session/useLaunchSessionRecovery";
 import { HomeTabPage } from "@/routes/HomeTabPage";
@@ -31,24 +33,28 @@ vi.mock("@/features/study-session/closeStaleSession", () => ({ closeStaleSession
 
 const analytics = vi.hoisted(() => ({
   trackFocusStartTapped: vi.fn(),
-  trackHomeStartGuideShown: vi.fn(),
-  trackHomeStartGuideCompleted: vi.fn(),
-  trackHomeStartGuideSkipped: vi.fn(),
   setStudyStatusUserProperties: vi.fn(),
 }));
 
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof Amplitude>()),
   trackFocusStartTapped: analytics.trackFocusStartTapped,
-  trackHomeStartGuideShown: analytics.trackHomeStartGuideShown,
-  trackHomeStartGuideCompleted: analytics.trackHomeStartGuideCompleted,
-  trackHomeStartGuideSkipped: analytics.trackHomeStartGuideSkipped,
   setStudyStatusUserProperties: analytics.setStudyStatusUserProperties,
 }));
 
 vi.mock("@/lib/statsApi", () => ({
   listStudySessionStats: vi.fn(),
   getStreak: vi.fn(),
+}));
+
+/** 홈이 앱에 보내는 시작 신호와 알림 권한 요청. 동작 자체는 각자 테스트가 본다. */
+const launchSignals = vi.hoisted(() => ({
+  signalLaunchReady: vi.fn(),
+  requestPushPermissionOnHomeArrival: vi.fn(),
+}));
+vi.mock("@/lib/launchReady", () => ({ signalLaunchReady: launchSignals.signalLaunchReady }));
+vi.mock("@/lib/nativePushPermission", () => ({
+  requestPushPermissionOnHomeArrival: launchSignals.requestPushPermissionOnHomeArrival,
 }));
 
 /** 홈 공지는 자기 테스트가 따로 본다. 기본은 띄울 공지가 없게 두고 복구 창 순서 테스트만 바꾼다. */
@@ -68,9 +74,7 @@ const rankingApi = vi.hoisted(() => ({
 vi.mock("@/lib/rankingApi", () => rankingApi);
 
 // 파일의 모든 describe가 같은 기본값에서 시작하게 맨 바깥에 둔다.
-// 첫 세션 코치마크가 다른 검증을 가리지 않도록 기본은 이미 본 계정이다. 코치마크 테스트만 지운다.
 beforeEach(() => {
-  markStartGuideSeen(7);
   rankingApi.getRankingRecordsUnseen.mockResolvedValue({ total: 0, records: [] });
   rankingApi.postRankingRecordsSeen.mockResolvedValue(undefined);
 });
@@ -93,38 +97,6 @@ vi.mock("@/routes/lazyRoutes", () => ({ prefetchTimelapsesPage: vi.fn() }));
 vi.mock("@/features/timelapse/RecentTimelapses", () => ({
   RecentTimelapses: () => <div data-testid="recent-timelapses" />,
 }));
-
-/** 코치마크 대상을 못 찾는 경우를 만들려고 켠다. 켜면 원본 대신 "안 보인다"고만 알리고 아무것도 그리지 않는다. */
-const coachMarkStub = vi.hoisted(() => ({ targetMissing: false }));
-
-vi.mock("@/features/home/StartCoachMark", async (importOriginal) => {
-  const actual = await importOriginal<typeof StartCoachMarkModule>();
-  return {
-    StartCoachMark: (props: ComponentProps<typeof actual.StartCoachMark>) => {
-      const { onVisibleChange } = props;
-      useEffect(() => {
-        if (coachMarkStub.targetMissing) {
-          onVisibleChange(false);
-        }
-      }, [onVisibleChange]);
-      return coachMarkStub.targetMissing ? null : <actual.StartCoachMark {...props} />;
-    },
-  };
-});
-
-/** 탭 바 차단 신호를 보고 싶어 실제 훅을 감싼다. 동작은 그대로다. */
-const coachTabBar = vi.hoisted(() => ({ calls: [] as boolean[] }));
-
-vi.mock("@/lib/nativeTabBar", async (importOriginal) => {
-  const actual = await importOriginal<typeof NativeTabBarModule>();
-  return {
-    ...actual,
-    useCoachMarkTabBar: (active: boolean) => {
-      coachTabBar.calls.push(active);
-      actual.useCoachMarkTabBar(active);
-    },
-  };
-});
 
 /** 기본은 출처 없음(구 앱·브라우저 단독). D-Day 블록 테스트만 가짜 출처를 끼운다. */
 const tokenSourceMock = vi.hoisted(() => ({ source: null as TokenSource | null }));
@@ -238,7 +210,6 @@ describe("HomeTabPage", () => {
     closeStaleSession.mockResolvedValue(null);
     getActiveNotices.mockImplementation(() => Promise.resolve([]));
     localStorage.clear();
-    markStartGuideSeen(7);
     sessionStorage.clear();
   });
 
@@ -880,7 +851,7 @@ describe("HomeTabPage — 좌상단 D-Day", () => {
     expect(screen.queryByRole("button", { name: "D-Day 설정" })).not.toBeInTheDocument();
   });
 
-  it("토큰 출처가 있는데 첫 토큰이 아직이면 구 헤더 대신 스켈레톤이다", async () => {
+  it("토큰 출처가 있는데 첫 토큰이 아직이면 구 헤더도 등록 전 안내도 그리지 않는다", async () => {
     tokenSourceMock.source = {
       getUserId: () => null,
       getAccessToken: () => null,
@@ -889,7 +860,8 @@ describe("HomeTabPage — 좌상단 D-Day", () => {
     } as unknown as TokenSource;
     renderHome("/home");
 
-    expect(await screen.findByTestId("home-header-pending")).toBeInTheDocument();
+    // 온보딩 판정을 기다리는 동안이라 배경만 그린다
+    expect(await screen.findByTestId("home-tab-page")).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { level: 1, name: "FocusMakers" }),
     ).not.toBeInTheDocument();
@@ -965,240 +937,105 @@ describe("HomeTabPage — 최근 타임랩스 (BY-895)", () => {
   });
 });
 
-describe("HomeTabPage — 첫 세션 코치마크", () => {
-  const COACH = { name: "지금 바로 시작해 보세요" };
+describe("HomeTabPage — 첫 실행 온보딩", () => {
+  function tokenDocument() {
+    tokenSourceMock.source = {
+      getUserId: () => 7,
+      getAccessToken: () => "token",
+      hasSettled: () => true,
+      subscribe: () => () => {},
+    } as unknown as TokenSource;
+  }
+
+  /** 앱이 이번 실행에서 계정을 새로 만들었다는 표시(`newUser=1`)를 웹뷰 주소에 붙인다. */
+  function newUserLaunch() {
+    window.history.replaceState(null, "", "/home?newUser=1");
+    __resetOnboardingGateForTests();
+  }
+
+  function renderWithOnboardingRoute() {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/home?theme=dark"]}>
+          <Routes>
+            <Route path="/home" element={<HomeTabPage />} />
+            <Route path="/onboarding" element={<LocationProbe testId="onboarding-stub" />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  }
 
   beforeEach(() => {
     vi.clearAllMocks();
-    closeStaleSession.mockResolvedValue(null);
-    getActiveNotices.mockImplementation(() => Promise.resolve([]));
-    mockedStats.mockResolvedValue(statsResponse);
-    mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
     localStorage.clear();
     sessionStorage.clear();
+    __resetOnboardingGateForTests();
+    closeStaleSession.mockResolvedValue(null);
+    mockedStats.mockResolvedValue(statsResponse);
+    mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
+    tokenDocument();
   });
 
   afterEach(() => {
     tokenSourceMock.source = null;
-    coachMarkStub.targetMissing = false;
+    window.history.replaceState(null, "", "/");
+    __resetOnboardingGateForTests();
   });
 
-  it("본 적 없는 계정의 홈에는 뜨고 초점이 집중 시작 버튼에 있으며 노출 이벤트를 남긴다", async () => {
-    renderHome();
+  it("새로 가입한 계정은 쿼리를 유지한 채 온보딩으로 보내고 진행 중 기록을 남긴다", async () => {
+    newUserLaunch();
 
-    expect(await screen.findByRole("dialog", COACH)).toBeInTheDocument();
-    const cta = screen.getByRole("button", { name: "집중 시작" });
-    expect(cta).toHaveAttribute("data-coach", "start");
-    expect(document.activeElement).toBe(cta);
-    expect(analytics.trackHomeStartGuideShown).toHaveBeenCalledTimes(1);
-  });
+    renderWithOnboardingRoute();
 
-  it("이미 본 계정에는 안 뜬다", async () => {
-    markStartGuideSeen(7);
-    renderHome();
-
-    await screen.findByRole("button", { name: "집중 시작" });
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(screen.queryByRole("dialog", COACH)).toBeNull();
-    expect(analytics.trackHomeStartGuideShown).not.toHaveBeenCalled();
-  });
-
-  it("신원이 없으면 안 뜬다", async () => {
-    renderHome("/home");
-
-    await screen.findByText(/기기 등록 전이에요/);
-    expect(screen.queryByRole("dialog", COACH)).toBeNull();
-  });
-
-  it("신원을 기다리는 동안은 안 뜬다", async () => {
-    tokenSourceMock.source = {
-      getUserId: () => null,
-      getAccessToken: () => null,
-      hasSettled: () => false,
-      subscribe: () => () => {},
-    } as unknown as TokenSource;
-    renderHome("/home");
-
-    await screen.findByTestId("home-header-pending");
-    expect(screen.queryByRole("dialog", COACH)).toBeNull();
-  });
-
-  it("공지가 뜨면 안 뜨고, 공지를 닫아도 이번 홈에서는 미룬다", async () => {
-    getActiveNotices.mockImplementation(() => Promise.resolve([NOTICE]));
-    renderHome();
-
-    expect(await screen.findByRole("dialog", { name: "점검 안내" })).toBeInTheDocument();
-    expect(screen.queryByRole("dialog", COACH)).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "닫기" }));
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(screen.queryByRole("dialog", COACH)).toBeNull();
-    expect(analytics.trackHomeStartGuideShown).not.toHaveBeenCalled();
-  });
-
-  it("복구 창이 뜨면 안 뜨고, 확인해도 이번 홈에서는 미룬다", async () => {
-    closeStaleSession.mockResolvedValue(RECOVERED);
-    renderHome();
-    emitAppLaunched();
-
-    expect(await screen.findByText(RECOVERY_TITLE)).toBeInTheDocument();
-    expect(screen.queryByRole("dialog", COACH)).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "확인" }));
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(screen.queryByRole("dialog", COACH)).toBeNull();
-  });
-
-  it("랭킹 메달 팝업이 뜨면 안 뜨고, 닫아도 이번 홈에서는 미룬다", async () => {
-    rankingApi.getRankingRecordsUnseen.mockResolvedValue(FIXTURE_UNSEEN_ONE);
-    renderHome();
-
-    expect(await screen.findByRole("dialog", { name: "1위로 마감했어요" })).toBeInTheDocument();
-    expect(screen.queryByRole("dialog", COACH)).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "닫기" }));
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(screen.queryByRole("dialog", COACH)).toBeNull();
-  });
-
-  it("뜬 동안 집중 시작만 남기고 나머지 본문은 inert다", async () => {
-    renderHome();
-    await screen.findByRole("dialog", COACH);
-
-    expect(screen.getByRole("button", { name: "집중 시작" }).closest("[inert]")).toBeNull();
-    expect(
-      screen.getByRole("button", { name: /그룹 스터디하러 이동/ }).closest("[inert]"),
-    ).not.toBeNull();
-    expect(screen.getByText("오늘 순공시간").closest("[inert]")).not.toBeNull();
-    expect(screen.getByRole("banner").hasAttribute("inert")).toBe(true);
-  });
-
-  it("대상을 못 찾으면 본문을 막지 않고 탭 바 차단과 노출 이벤트도 보내지 않으며 본 것으로 남기지 않는다", async () => {
-    coachMarkStub.targetMissing = true;
-    coachTabBar.calls.length = 0;
-    renderHome();
-    await screen.findByText("오늘 순공시간");
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(screen.queryByRole("dialog", COACH)).toBeNull();
-    expect(screen.getByText("오늘 순공시간").closest("[inert]")).toBeNull();
-    expect(screen.getByRole("banner").hasAttribute("inert")).toBe(false);
-    expect(
-      screen.getByRole("button", { name: /그룹 스터디하러 이동/ }).closest("[inert]"),
-    ).toBeNull();
-    expect(coachTabBar.calls).not.toContain(true);
-    expect(analytics.trackHomeStartGuideShown).not.toHaveBeenCalled();
-    expect(startGuideState(7)).toBeNull();
-  });
-
-  it("덮개를 눌러도 닫히지 않고 기록도 남지 않는다", async () => {
-    renderHome();
-    await screen.findByRole("dialog", COACH);
-
-    screen.getAllByTestId("coach-dim").forEach((piece) => fireEvent.click(piece));
-    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
-
-    expect(screen.getByRole("dialog", COACH)).toBeInTheDocument();
-    expect(startGuideState(7)).toBeNull();
-    expect(analytics.trackHomeStartGuideCompleted).not.toHaveBeenCalled();
-  });
-
-  it("집중 시작을 누르면 본 것으로 남기고 완료 이벤트 뒤에 세션을 시작한다", async () => {
-    renderHomeWithRoutes();
-    await screen.findByRole("dialog", COACH);
-
-    fireEvent.click(screen.getByRole("button", { name: "집중 시작" }));
-
-    expect(startGuideState(7)).toBe("seen");
-    expect(analytics.trackHomeStartGuideCompleted).toHaveBeenCalledTimes(1);
-    expect(analytics.trackFocusStartTapped).toHaveBeenCalledWith("home");
-    expect(analytics.trackHomeStartGuideCompleted.mock.invocationCallOrder[0]).toBeLessThan(
-      analytics.trackFocusStartTapped.mock.invocationCallOrder[0],
+    expect(await screen.findByTestId("onboarding-stub")).toHaveTextContent(
+      "/onboarding?theme=dark",
     );
-    expect(await screen.findByTestId("room-stub")).toBeInTheDocument();
+    expect(onboardingRecord(7)).toBe("pending");
+    expect(launchSignals.signalLaunchReady).not.toHaveBeenCalled();
+    expect(launchSignals.requestPushPermissionOnHomeArrival).not.toHaveBeenCalled();
   });
 
-  it("안 뜬 홈에서 집중 시작을 눌러도 완료 이벤트는 남기지 않는다", async () => {
-    markStartGuideSeen(7);
-    renderHomeWithRoutes();
-    await screen.findByText("오늘 순공시간");
+  it("온보딩을 중간에 끈 계정은 새 계정 표시가 없어도 다시 온보딩으로 보낸다", async () => {
+    markOnboardingPending(7);
 
-    fireEvent.click(screen.getByRole("button", { name: "집중 시작" }));
+    renderWithOnboardingRoute();
 
-    await screen.findByTestId("room-stub");
-    expect(analytics.trackHomeStartGuideCompleted).not.toHaveBeenCalled();
+    expect(await screen.findByTestId("onboarding-stub")).toBeInTheDocument();
   });
-  describe("나중에 할게요", () => {
-    it("누르면 코치마크가 사라지고 본 것으로 남기지 않으며 건너뛴 이벤트만 보낸다", async () => {
-      renderHome();
-      await screen.findByRole("dialog", COACH);
 
-      fireEvent.click(screen.getByRole("button", { name: "나중에 할게요" }));
+  it("온보딩을 끝낸 계정은 새 계정 표시가 남아 있어도 홈이다", async () => {
+    newUserLaunch();
+    markOnboardingSettled(7);
 
-      expect(screen.queryByRole("dialog", COACH)).toBeNull();
-      expect(startGuideState(7)).toBeNull();
-      expect(analytics.trackHomeStartGuideSkipped).toHaveBeenCalledTimes(1);
-      expect(analytics.trackHomeStartGuideCompleted).not.toHaveBeenCalled();
-    });
+    renderWithOnboardingRoute();
 
-    it("본문 inert와 탭 바 차단을 풀고 초점을 집중 시작으로 돌려준다", async () => {
-      renderHome();
-      await screen.findByRole("dialog", COACH);
-      expect(coachTabBar.calls.at(-1)).toBe(true);
+    expect(await screen.findByRole("button", { name: "집중 시작" })).toBeInTheDocument();
+  });
 
-      fireEvent.click(screen.getByRole("button", { name: "나중에 할게요" }));
+  it("기존 계정은 홈에 머물고 시작 신호를 보낸다", async () => {
+    renderWithOnboardingRoute();
 
-      expect(screen.getByText("오늘 순공시간").closest("[inert]")).toBeNull();
-      expect(
-        screen.getByRole("button", { name: /그룹 스터디하러 이동/ }).closest("[inert]"),
-      ).toBeNull();
-      expect(screen.getByRole("banner").hasAttribute("inert")).toBe(false);
-      expect(coachTabBar.calls.at(-1)).toBe(false);
-      expect(document.activeElement).toBe(screen.getByRole("button", { name: "집중 시작" }));
-    });
+    expect(await screen.findByRole("button", { name: "집중 시작" })).toBeInTheDocument();
+    expect(launchSignals.signalLaunchReady).toHaveBeenCalled();
+    expect(onboardingRecord(7)).toBeNull();
+  });
 
-    it("숨긴 뒤 홈에 머무는 동안은 다시 뜨지 않고 노출 이벤트도 늘지 않는다", async () => {
-      renderHome();
-      await screen.findByRole("dialog", COACH);
-      fireEvent.click(screen.getByRole("button", { name: "나중에 할게요" }));
-      await act(async () => {
-        await Promise.resolve();
-      });
+  it("홈에 머무는 계정은 홈 도착 알림 권한 요청을 부른다", async () => {
+    renderWithOnboardingRoute();
+    await screen.findByRole("button", { name: "집중 시작" });
 
-      expect(screen.queryByRole("dialog", COACH)).toBeNull();
-      expect(analytics.trackHomeStartGuideShown).toHaveBeenCalledTimes(1);
-    });
+    expect(launchSignals.requestPushPermissionOnHomeArrival).toHaveBeenCalled();
+  });
 
-    it("홈을 다시 마운트하면 다시 뜬다", async () => {
-      const first = renderHome();
-      await screen.findByRole("dialog", COACH);
-      fireEvent.click(screen.getByRole("button", { name: "나중에 할게요" }));
-      first.unmount();
+  it("토큰 출처가 없는 구버전 문서는 새 계정 표시와 상관없이 홈이다", async () => {
+    tokenSourceMock.source = null;
+    newUserLaunch();
 
-      renderHome();
-      expect(await screen.findByRole("dialog", COACH)).toBeInTheDocument();
-    });
+    renderHome();
 
-    it("건너뛴 뒤 집중 시작을 눌러도 완료 이벤트는 남기지 않는다", async () => {
-      renderHomeWithRoutes();
-      await screen.findByRole("dialog", COACH);
-      fireEvent.click(screen.getByRole("button", { name: "나중에 할게요" }));
-
-      fireEvent.click(screen.getByRole("button", { name: "집중 시작" }));
-
-      await screen.findByTestId("room-stub");
-      expect(analytics.trackHomeStartGuideCompleted).not.toHaveBeenCalled();
-      expect(startGuideState(7)).toBeNull();
-    });
+    expect(await screen.findByRole("button", { name: "집중 시작" })).toBeInTheDocument();
+    expect(launchSignals.signalLaunchReady).toHaveBeenCalled();
   });
 });

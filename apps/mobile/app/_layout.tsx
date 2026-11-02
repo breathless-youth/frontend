@@ -17,10 +17,11 @@ import { FORCE_UPDATE_TITLE, forceUpdateAlert } from "../lib/forceUpdateAlert";
 import { startInstallAttribution } from "../lib/installAttribution";
 import { consumePendingInviteRoute } from "../lib/installReferrerInvite";
 import { type LaunchGoal, readLaunchGoal, refreshLaunchGoal } from "../lib/launchGoal";
+import { markStartPromptsAllowed, waitForLaunchReady } from "../lib/launchReady";
 import { initMetaAds } from "../lib/metaAds";
 import { installMetaAdsSdk } from "../lib/metaAdsSdk";
 import { lockPortrait } from "../lib/orientation";
-import { ensurePushPermission, startPushMessaging } from "../lib/pushBootstrap";
+import { startPushMessaging } from "../lib/pushBootstrap";
 import { openPushRoute } from "../lib/pushRouteOpener";
 import { registerPushToken, watchAuthForPushToken } from "../lib/pushTokenRegistration";
 import { recommendedUpdateAlert } from "../lib/recommendedUpdateAlert";
@@ -126,33 +127,43 @@ function RootLayout() {
     return forceUpdateAlert.start();
   }, [updateGate]);
 
-  // 아래 권한 요청 effect보다 먼저 선언한다.
-  // effect는 선언 순서로 돌아서 스플래시를 걷는 호출이 ATT 요청보다 앞에 나간다.
+  // 실패해도 스플래시는 걷는다 — 시스템 폰트로라도 그려야지, 안 그려질 이유가 없다.
+  // 게이트 판정도 같이 기다린다: 웹뷰가 잠깐 떴다가 안내 화면으로 바뀌는 깜빡임을 막는다.
+  // 목표 문구 읽기도 기다린다.
+  // 홈 스켈레톤이 한 프레임 보였다가 오버레이가 덮는 깜빡임을 막기 위해서다.
+  // 그다음 웹의 시작 신호를 기다린다. 화면은 스플래시 뒤에서 이미 그려지고 있어서 홈이 온보딩으로 바뀌는 순간이 가려진다.
+  // 강제 업데이트로 막힌 실행은 웹뷰를 그리지 않으니 기다리지 않는다.
+  // 판정이 나중에 바뀌어 effect가 다시 돌아도 한 번만 걷는다.
+  const [splashHidden, setSplashHidden] = useState(false);
+  const splashHideStarted = useRef(false);
   useEffect(() => {
-    // 실패해도 스플래시는 걷는다 — 시스템 폰트로라도 그려야지, 안 그려질 이유가 없다.
-    // 게이트 판정도 같이 기다린다: 웹뷰가 잠깐 떴다가 안내 화면으로 바뀌는 깜빡임을 막는다.
-    // 목표 문구 읽기도 기다린다.
-    // 홈 스켈레톤이 한 프레임 보였다가 오버레이가 덮는 깜빡임을 막기 위해서다.
-    if (fontsReady && gateReady && launchGoalReady) {
-      void SplashScreen.hideAsync();
-    }
-  }, [fontsReady, gateReady, launchGoalReady]);
+    if (!fontsReady || !gateReady || !launchGoalReady || splashHideStarted.current) return;
+    splashHideStarted.current = true;
+    const ready = updateGate === "forced" ? Promise.resolve() : waitForLaunchReady();
+    void ready
+      .then(() => SplashScreen.hideAsync())
+      // 이미 걷혀 있는 등 걷기가 실패해도 다음 단계는 진행한다.
+      .catch(() => undefined)
+      .then(() => setSplashHidden(true));
+  }, [fontsReady, gateReady, launchGoalReady, updateGate]);
 
-  // 시작 때 뜨는 OS 창 셋을 한 줄로 세운다 — Meta SDK 초기화 + iOS ATT 프롬프트 → 알림 권한 → 권장 업데이트
-  // 알림창. 전부 OS 알림창이라 겹치면 나중 것이 묻히거나 순서가 뒤집히고, ATT는 다른 창이 떠 있으면 아예 뜨지
-  // 않아 맨 앞이다. 홈이 그려진 뒤(폰트·게이트 통과)에 시작한다 — 스플래시 위에서는 OS가 프롬프트를 띄우지
+  // 시작 때 뜨는 OS 창 둘을 한 줄로 세운다 — Meta SDK 초기화 + iOS ATT 프롬프트 → 권장 업데이트 알림창.
+  // 둘 다 OS 알림창이라 겹치면 나중 것이 묻히거나 순서가 뒤집히고, ATT는 다른 창이 떠 있으면 아예 뜨지
+  // 않아 맨 앞이다. 스플래시가 걷힌 뒤에 시작한다 — 스플래시 위에서는 OS가 프롬프트를 띄우지
   // 않고, 강제 업데이트로 막힌 실행에서는 물을 이유가 없다. Meta env 없는 빌드는 첫 단계가 즉시 끝난다.
   // 앱이 active가 되기 전이면 ATT 요청은 어댑터(`lib/metaAdsSdk.ts`)가 기다렸다 보낸다.
-  // 권장 알림창을 최신 버전당 한 번만 묻는 판단은 `recommendedUpdateAlert`가 한다. 앞의 두 단계는 프라미스를
-  // 붙잡아 두어, effect가 다시 돌아도 권한 요청이 겹쳐 나가지 않는다.
+  // 알림 권한은 여기서 묻지 않는다. 웹이 온보딩이나 홈 도착에서 `request-push-permission`으로 요청한다.
+  // 권장 알림창을 최신 버전당 한 번만 묻는 판단은 `recommendedUpdateAlert`가 한다. 앞 단계는 프라미스를
+  // 붙잡아 두어, effect가 다시 돌아도 ATT 요청이 겹쳐 나가지 않는다.
   // 실행 직후 목표 문구 오버레이가 있으면 문구를 읽는 동안 OS 창이 덮지 않도록 걷힌 뒤에 시작한다.
   const permissionPrompts = useRef<Promise<void> | null>(null);
   useEffect(() => {
-    if (updateGate !== "pass" || !fontsReady || !launchGoalCleared) return;
+    if (updateGate !== "pass" || !fontsReady || !launchGoalCleared || !splashHidden) return;
     let active = true;
     if (permissionPrompts.current == null) {
-      permissionPrompts.current = initMetaAds().then(() => ensurePushPermission());
-      // 권한 응답까지 받은 뒤 실행마다 한 번 서버에 토큰을 등록한다. 알림창 순서를 붙잡지 않도록 따로 띄운다.
+      markStartPromptsAllowed();
+      permissionPrompts.current = initMetaAds();
+      // ATT 응답 뒤 실행마다 한 번 서버에 토큰을 등록한다. 알림창 순서를 붙잡지 않도록 따로 띄운다.
       void permissionPrompts.current.then(() => registerPushToken());
       // 설치 유입 정보는 추적 동의 응답 뒤에 메타 지연 딥링크를 물어야 해서 같은 초기화를 기다린다.
       void startInstallAttribution();
@@ -166,7 +177,7 @@ function RootLayout() {
     return () => {
       active = false;
     };
-  }, [updateGate, fontsReady, launchGoalCleared, recommendedVersion]);
+  }, [updateGate, fontsReady, launchGoalCleared, splashHidden, recommendedVersion]);
 
   useEffect(() => {
     // 프로필 조회에 토큰이 필요해서 등록이 끝난 뒤 다음 실행에 쓸 목표 문구를 받는다.
@@ -179,8 +190,8 @@ function RootLayout() {
     lockPortrait();
   }, []);
 
-  // 푸시 알림 배선(BY-586) — 포그라운드 로그, 알림 탭 → 딥링크 이동, 토큰 갱신 로그. 권한 요청은 위
-  // 시작 알림창 순서에서 한다. 백그라운드 핸들러는 `index.ts`에서 컴포넌트 밖에 건다.
+  // 푸시 알림 배선(BY-586) — 포그라운드 로그, 알림 탭 → 딥링크 이동, 토큰 갱신 로그. 권한 요청은 웹이
+  // 브리지로 요청할 때 한다(`lib/nativeBridgeHandler.ts`). 백그라운드 핸들러는 `index.ts`에서 컴포넌트 밖에 건다.
   useEffect(
     () =>
       startPushMessaging({

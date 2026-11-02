@@ -623,13 +623,6 @@
   box-shadow: 0 6px 18px 0 rgba(27, 100, 218, 0.28);
 }
 
-/* 첫 세션 코치마크 링 발광 — Figma 코치마크 시안 */
-.shadow-coach-glow {
-  /* color-mix를 모르는 iOS 16.2 미만 웹뷰용 폴백 */
-  box-shadow: 0 0 18px 0 var(--coach-ring);
-  box-shadow: 0 0 18px 0 color-mix(in srgb, var(--coach-ring) 80%, transparent);
-}
-
 /* 세션 도움말 등장. 모션 축소는 사용처의 motion-reduce:animate-none이 막는다. */
 @keyframes coach-fade-in {
   from {
@@ -990,4 +983,407 @@ video::-webkit-media-controls-start-playback-button,
 video::-webkit-media-controls-overlay-play-button {
   display: none !important;
   -webkit-appearance: none;
+}
+
+/* ───────── 첫 실행 온보딩 ─────────
+   폰 목업 속 화면은 앱 화면을 흉내 낸 그림이라 테마를 따르지 않는다(시안의 라이트 값 그대로).
+   iOS 알림 배너도 OS 모양을 흉내 내므로 앱 토큰 대신 시안 값을 쓴다. */
+@property --onboarding-fade {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 69px;
+}
+
+.onboarding-phone {
+  transition:
+    transform 0.9s var(--ease-drawer),
+    opacity 0.55s ease,
+    filter 0.55s ease;
+}
+
+.onboarding-clip {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0,
+    #000 calc(100% - var(--onboarding-fade)),
+    transparent 100%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0,
+    #000 calc(100% - var(--onboarding-fade)),
+    transparent 100%
+  );
+  transition:
+    height 0.9s var(--ease-drawer),
+    --onboarding-fade 0.9s var(--ease-drawer);
+}
+
+.onboarding-title {
+  transition:
+    opacity 0.45s cubic-bezier(0.23, 1, 0.32, 1),
+    transform 0.62s cubic-bezier(0.23, 1, 0.32, 1),
+    filter 0.45s ease;
+}
+
+.onboarding-cta {
+  transition:
+    background-color 0.45s ease,
+    color 0.45s ease,
+    box-shadow 0.45s ease,
+    transform 0.15s ease-out;
+}
+
+.onboarding-timer-screen {
+  background:
+    radial-gradient(100% 45% at 50% 70%, rgba(54, 113, 207, 0.34), rgba(26, 32, 41, 0) 70%), #1a2029;
+}
+
+.onboarding-pill {
+  background: rgba(16, 20, 25, 0.9);
+  box-shadow: 0 8px 20px rgba(31, 42, 61, 0.18);
+}
+
+.onboarding-notif {
+  background: rgba(246, 246, 246, 0.9);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.16);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  color: #000;
+  font-family: -apple-system, "SF Pro Text", system-ui, sans-serif;
+}
+
+.onboarding-notif-time {
+  color: rgba(60, 60, 67, 0.6);
+}
+
+/* Android 헤드업 알림(Material 3) 모양 */
+.onboarding-notif-android {
+  background: rgba(252, 252, 254, 0.98);
+  box-shadow:
+    0 14px 34px rgba(15, 23, 42, 0.16),
+    0 1px 3px rgba(15, 23, 42, 0.08);
+  color: #1d1b20;
+  font-family: Roboto, "Noto Sans KR", Pretendard, system-ui, sans-serif;
+}
+
+.onboarding-notif-android-sub {
+  color: #49454f;
+}
+
+.onboarding-press-ring {
+  border: 3px solid var(--coach-ring);
+}
+
+.onboarding-tap-ripple {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.onboarding-tap-dot {
+  border: 2px solid rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.42);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.25);
+}
+
+/* 폰 안 화면 전환: 새 화면은 흐림에서 또렷하게 위로 겹쳐 들어오고, 이전 화면은 불투명한 채 물러나 중간에 비지 않는다. */
+@keyframes onboarding-screen-in {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+    transform: scale(1.035);
+  }
+}
+
+@keyframes onboarding-screen-out {
+  to {
+    filter: blur(6px);
+    transform: scale(0.97);
+  }
+}
+
+@keyframes onboarding-pill-in {
+  from {
+    opacity: 0;
+    filter: blur(8px);
+  }
+}
+
+@keyframes onboarding-pill-echo {
+  from {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(1.55);
+  }
+}
+
+/* 플래너 칸은 왼쪽부터 늘어나며 채워지고, 6초 주기 끝에 비워졌다가 다시 채워진다. */
+@keyframes onboarding-planner-pop {
+  0% {
+    opacity: 0;
+    transform: scaleX(0.15);
+  }
+
+  3% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+
+  86% {
+    opacity: 1;
+  }
+
+  90%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* 플래너 합계는 칸이 채워진 뒤 아래에서 올라오고 같은 주기로 사라진다. */
+@keyframes onboarding-planner-late {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  3% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  86% {
+    opacity: 1;
+  }
+
+  90%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes onboarding-tile-in {
+  from {
+    opacity: 0;
+    filter: blur(8px);
+    transform: scale(0.92);
+  }
+}
+
+@keyframes onboarding-cell-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+
+@keyframes onboarding-late {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes onboarding-highlight-in {
+  from {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+}
+
+/* 맞춤 알림은 아래에서 위로 떠오르며 또렷해진다. */
+@keyframes onboarding-notif-in {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translateY(28px) scale(0.94);
+  }
+}
+
+@keyframes onboarding-highlight-pulse {
+  from {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scale(1.12);
+  }
+}
+
+/* 준비 완료 꽃가루: 솟구쳤다가(감속) 좌우로 살랑이며 떨어지고(가속) 사라진다. */
+@keyframes onboarding-confetti {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg) scale(0.4);
+    animation-timing-function: cubic-bezier(0.12, 0.75, 0.35, 1);
+  }
+
+  38% {
+    opacity: 1;
+    transform: translate(var(--dx), var(--dy)) rotate(calc(var(--rot) * 0.35)) scale(1);
+    animation-timing-function: cubic-bezier(0.45, 0, 0.75, 0.6);
+  }
+
+  68% {
+    opacity: 1;
+    transform: translate(calc(var(--dx) * 1.06 + var(--sway)), calc(var(--dy) + var(--fall) * 0.5))
+      rotate(calc(var(--rot) * 0.7)) scale(1);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.8, 0.7);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(calc(var(--dx) * 1.12 - var(--sway) * 0.6), calc(var(--dy) + var(--fall)))
+      rotate(var(--rot)) scale(0.9);
+  }
+}
+
+/* 꽃가루 조각이 3D로 뒤집히며 반짝인다. */
+@keyframes onboarding-confetti-flip {
+  from {
+    transform: rotate3d(1, 0.35, 0, 0deg);
+  }
+
+  to {
+    transform: rotate3d(1, 0.35, 0, 360deg);
+  }
+}
+
+/* 폭죽 발사 지점에서 한 번 번쩍인다. */
+@keyframes onboarding-pop-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+
+  30% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+
+.onboarding-pop-flash {
+  background: radial-gradient(
+    circle,
+    rgba(255, 226, 140, 0.95) 0%,
+    rgba(255, 170, 60, 0.4) 40%,
+    rgba(255, 170, 60, 0) 70%
+  );
+}
+
+/* 준비 완료 목업의 '집중 시작' 누르기. 2.6초마다 손가락 점이 다가와 누르고 빛 테두리가 퍼진다. */
+@keyframes onboarding-tap-dot {
+  0% {
+    opacity: 0;
+    transform: translate(34px, 46px) scale(1.4);
+  }
+
+  14% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+
+  22% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.66);
+  }
+
+  30% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1.08);
+  }
+
+  36% {
+    opacity: 1;
+    transform: translate(0, 0) scale(1);
+  }
+
+  50%,
+  100% {
+    opacity: 0;
+    transform: translate(8px, 12px) scale(1.05);
+  }
+}
+
+@keyframes onboarding-home-press {
+  0%,
+  16% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+
+  22% {
+    transform: scale(0.9);
+    filter: brightness(0.8);
+  }
+
+  30% {
+    transform: scale(1.04);
+    filter: brightness(1.06);
+  }
+
+  37%,
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes onboarding-press-ring {
+  0%,
+  20% {
+    opacity: 0;
+    transform: scale(1);
+  }
+
+  24% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  66%,
+  100% {
+    opacity: 0;
+    transform: scale(1.14, 1.7);
+  }
+}
+
+@keyframes onboarding-tap-ripple {
+  0%,
+  21% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+
+  23% {
+    opacity: 0.6;
+    transform: scale(0.6);
+  }
+
+  55%,
+  100% {
+    opacity: 0;
+    transform: scale(3.2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-phone,
+  .onboarding-clip {
+    transition: none;
+  }
+
+  .onboarding-title {
+    transition: opacity 0.2s;
+    transform: none !important;
+    filter: none !important;
+  }
 }
