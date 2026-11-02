@@ -136,4 +136,40 @@ describe("PublicRoomsView", () => {
 
     expect(screen.getByText("아직 공개 그룹이 없어요")).toBeInTheDocument();
   });
+
+  it("불러오는 중에는 검색창과 칩은 두고 빈 상태 대신 자리표시를 둔다", () => {
+    renderScreen(
+      <PublicRoomsView
+        query=""
+        onQueryChange={vi.fn()}
+        categories={fixtures.categories}
+        category={null}
+        onCategoryChange={vi.fn()}
+        rooms={[]}
+        loading
+        onOpenRoom={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("searchbox", { name: "그룹 이름으로 찾기" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "전체" })).toBeInTheDocument();
+    expect(screen.getAllByRole("status", { name: "불러오는 중" }).length).toBeGreaterThan(0);
+    expect(screen.queryByText("아직 공개 그룹이 없어요")).toBeNull();
+  });
+
+  it("오류 자리를 넘기면 목록 대신 그것을 둔다", () => {
+    renderScreen(
+      <PublicRoomsView
+        query=""
+        onQueryChange={vi.fn()}
+        categories={fixtures.categories}
+        category={null}
+        onCategoryChange={vi.fn()}
+        rooms={fixtures.publicRooms}
+        error={<p>공개 그룹을 불러오지 못했어요</p>}
+        onOpenRoom={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("공개 그룹을 불러오지 못했어요")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /새벽 5시 기상 공시반/ })).toBeNull();
+  });
 });

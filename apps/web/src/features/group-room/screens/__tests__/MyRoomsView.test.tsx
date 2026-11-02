@@ -96,4 +96,35 @@ describe("MyRoomsView", () => {
     await userEvent.setup().click(screen.getByRole("button", { name: "공개 그룹 둘러보기" }));
     expect(onBrowsePublic).toHaveBeenCalledOnce();
   });
+
+  it("불러오는 중에는 빈 상태 대신 자리표시를 둔다", () => {
+    renderScreen(
+      <MyRoomsView
+        rooms={[]}
+        pendingCount={0}
+        loading
+        onOpenRoom={vi.fn()}
+        onOpenPending={vi.fn()}
+        onBrowsePublic={vi.fn()}
+      />,
+    );
+    expect(screen.getAllByRole("status", { name: "불러오는 중" }).length).toBeGreaterThan(0);
+    expect(screen.queryByText("아직 들어간 그룹이 없어요")).toBeNull();
+    expect(screen.queryByRole("button", { name: "공개 그룹 둘러보기" })).toBeNull();
+  });
+
+  it("오류 자리를 넘기면 목록 대신 그것을 둔다", () => {
+    renderScreen(
+      <MyRoomsView
+        rooms={fixtures.myRooms}
+        pendingCount={0}
+        error={<p>그룹을 불러오지 못했어요</p>}
+        onOpenRoom={vi.fn()}
+        onOpenPending={vi.fn()}
+        onBrowsePublic={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("그룹을 불러오지 못했어요")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /수능 D-200 밤샘반/ })).toBeNull();
+  });
 });

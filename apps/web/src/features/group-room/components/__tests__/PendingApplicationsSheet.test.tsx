@@ -97,4 +97,59 @@ describe("PendingApplicationsSheet", () => {
     );
     expect(await screen.findByRole("dialog", { name: "신청 중인 공개 그룹" })).toBeInTheDocument();
   });
+
+  it("불러오는 중에는 줄 대신 자리표시를 두고, 목록이 비어 있어도 닫지 않는다", () => {
+    const onOpenChange = vi.fn();
+    render(
+      <PendingApplicationsSheet
+        open
+        loading
+        onOpenChange={onOpenChange}
+        applications={[]}
+        now={NOW}
+        cancelingId={null}
+        onCancel={vi.fn()}
+        onOpenRoom={vi.fn()}
+      />,
+    );
+    expect(screen.getAllByRole("status", { name: "불러오는 중" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "신청 취소" })).toBeNull();
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it("마지막 신청을 취소해 목록이 비면 스스로 닫는다", () => {
+    const onOpenChange = vi.fn();
+    const props = {
+      onOpenChange,
+      now: NOW,
+      cancelingId: null,
+      onCancel: vi.fn(),
+      onOpenRoom: vi.fn(),
+    };
+    const { rerender } = render(
+      <PendingApplicationsSheet open applications={[application]} {...props} />,
+    );
+    expect(onOpenChange).not.toHaveBeenCalled();
+
+    rerender(<PendingApplicationsSheet open applications={[]} {...props} />);
+
+    expect(onOpenChange).toHaveBeenCalledOnce();
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("닫혀 있을 때는 목록이 비어도 닫으라고 하지 않는다", () => {
+    const onOpenChange = vi.fn();
+    render(
+      <PendingApplicationsSheet
+        open={false}
+        onOpenChange={onOpenChange}
+        applications={[]}
+        now={NOW}
+        cancelingId={null}
+        onCancel={vi.fn()}
+        onOpenRoom={vi.fn()}
+      />,
+    );
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
 });

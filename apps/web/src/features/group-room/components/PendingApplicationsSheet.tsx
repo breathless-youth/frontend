@@ -1,6 +1,7 @@
-import { useId } from "react";
+import { useEffect, useEffectEvent, useId } from "react";
 
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
+import { Skeleton } from "@/components/ui/Skeleton";
 
 import { GROUP_ROOM_LIMITS } from "../model/limits";
 import { remainingText } from "../model/timeText";
@@ -11,6 +12,8 @@ import { CategoryTag } from "./RoomMeta";
  * 신청 중인 공개 그룹 시트
  *
  * 줄을 누르면 그 그룹의 공개 그룹 보기를 열고, 신청 취소는 확인 창 없이 바로 넘긴다.
+ * 마지막 신청을 취소해 목록이 비면 제목만 남은 시트가 떠 있지 않게 스스로 닫는다.
+ * 목록을 받는 동안의 빈 목록은 닫을 까닭이 아니어서 `loading`이면 줄 자리표시를 두고 닫지 않는다.
  * 시트는 body로 나가므로 Soft Blue 테마를 시트에도 단다.
  * 시트 안 버튼은 iOS에서 살짝 움직인 탭이 끌기로 잡혀 버려지지 않게 목록째 끌기에서 뺀다.
  */
@@ -19,6 +22,7 @@ export function PendingApplicationsSheet({
   onOpenChange,
   applications,
   now,
+  loading = false,
   cancelingId,
   onCancel,
   onOpenRoom,
@@ -27,10 +31,19 @@ export function PendingApplicationsSheet({
   onOpenChange: (open: boolean) => void;
   applications: PendingApplication[];
   now: Date;
+  loading?: boolean;
   cancelingId: number | null;
   onCancel: (applicationId: number) => void;
   onOpenRoom: (roomId: number) => void;
 }) {
+  const close = useEffectEvent(() => onOpenChange(false));
+  const emptied = open && !loading && applications.length === 0;
+  useEffect(() => {
+    if (emptied) {
+      close();
+    }
+  }, [emptied]);
+
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="theme-soft-blue">
@@ -41,16 +54,22 @@ export function PendingApplicationsSheet({
           그룹장이 {GROUP_ROOM_LIMITS.applicationTtlDays}일 안에 답하지 않으면 신청이 취소돼요
         </DrawerDescription>
         <ul data-base-ui-swipe-ignore="">
-          {applications.map((application) => (
-            <PendingRow
-              key={application.applicationId}
-              application={application}
-              now={now}
-              canceling={cancelingId === application.applicationId}
-              onCancel={onCancel}
-              onOpenRoom={onOpenRoom}
-            />
-          ))}
+          {loading
+            ? [0, 1].map((index) => (
+                <li key={index} className="flex min-h-17 items-center">
+                  <Skeleton className="h-12 w-full rounded-[14px]" />
+                </li>
+              ))
+            : applications.map((application) => (
+                <PendingRow
+                  key={application.applicationId}
+                  application={application}
+                  now={now}
+                  canceling={cancelingId === application.applicationId}
+                  onCancel={onCancel}
+                  onOpenRoom={onOpenRoom}
+                />
+              ))}
         </ul>
       </DrawerContent>
     </Drawer>
