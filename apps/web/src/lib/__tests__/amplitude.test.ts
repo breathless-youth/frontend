@@ -1529,19 +1529,19 @@ describe("결과 화면 이탈 핸드오프 (study_result_exited)", () => {
     expect(mocks.track).not.toHaveBeenCalledWith("study_result_exited", expect.anything());
   });
 
-  it("랭킹 탭 몫이면 랭킹 화면만 보내고 destination이 ranking이다", async () => {
+  it("결과 카드가 랭킹 탭으로 가던 때 남은 예약은 형식이 맞지 않아 보내지 않는다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const m = await loadModule();
     m.initAmplitude();
-    m.stageStudyResultExit({ roomType: "single", focusSec: 900, consumeAt: "/ranking" });
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({ roomType: "single", focusSec: 900, consumeAt: "/ranking", ts: Date.now() }),
+    );
     mocks.track.mockClear();
 
-    m.consumeStudyResultExit("/home");
     m.consumeStudyResultExit("/ranking");
 
-    expect(mocks.track.mock.calls).toEqual([
-      ["study_result_exited", { room_type: "single", focus_sec: 900, destination: "ranking" }],
-    ]);
+    expect(mocks.track).not.toHaveBeenCalledWith("study_result_exited", expect.anything());
   });
 });
 
@@ -1665,17 +1665,13 @@ describe("랭킹 이벤트", () => {
     m.trackRankingMedalModalShown({ count: 3, bestRank: 1, mixedPeriod: true });
     m.trackRankingMedalModalAction("records");
     m.trackRankingGainCardShown({ delta: 3, chipCount: 2, roomType: "social" });
-    m.trackRankingGainCardTapped("single");
     m.trackFocusStartTapped("ranking_records");
-    m.trackStudyResultConfirmed({ roomType: "single", via: "ranking" });
 
     expect(mocks.track.mock.calls).toEqual([
       ["ranking_medal_modal_shown", { count: 3, best_rank: 1, mixed_period: true }],
       ["ranking_medal_modal_action", { action: "records" }],
       ["ranking_gain_card_shown", { delta: 3, chip_count: 2, room_type: "social" }],
-      ["ranking_gain_card_tapped", { room_type: "single" }],
       ["focus_start_tapped", { destination: "session", source: "ranking_records" }],
-      ["study_result_confirmed", { room_type: "single", via: "ranking" }],
     ]);
   });
 
@@ -1685,7 +1681,6 @@ describe("랭킹 이벤트", () => {
     m.trackRankingMedalModalShown({ count: 1, bestRank: 2, mixedPeriod: false });
     m.trackRankingMedalModalAction("close");
     m.trackRankingGainCardShown({ delta: 1, chipCount: 0, roomType: "single" });
-    m.trackRankingGainCardTapped("social");
 
     expect(mocks.track).not.toHaveBeenCalled();
   });

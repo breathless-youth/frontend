@@ -10,7 +10,6 @@ import { InterviewCardHost } from "@/features/interview/InterviewCardHost";
 import { MeasurementFeedbackCardHost } from "@/features/measurement-feedback/MeasurementFeedbackCardHost";
 import { gainCardView } from "@/features/ranking/exposure/gainView";
 import { RankingGainCard } from "@/features/ranking/exposure/RankingGainCard";
-import { requestBoard } from "@/features/ranking/model/boardMemory";
 import { ConfettiBurst } from "@/features/study-session/components/ConfettiBurst";
 import { SessionSummaryCard } from "@/features/study-session/components/SessionSummaryCard";
 import {
@@ -213,8 +212,8 @@ export function ResultPage() {
   const totalFocusSec = sessions.reduce((sum, session) => sum + session.focusSec, 0);
 
   /**
-   * 이탈 경로는 하단 CTA **둘**(`홈으로`·`기록으로 가기`)과 랭킹이 올랐을 때 보이는 결과 랭킹 카드의 `랭킹 보기 ›`뿐이다.
-   * 시안에서 우상단 X가 빠졌고, 셋 다 공개(`revealed`) 뒤에만 있다.
+   * 이탈 경로는 하단 CTA 둘(`홈으로`·`기록으로 가기`)뿐이다.
+   * 시안에서 우상단 X가 빠졌고, 둘 다 공개(`revealed`) 뒤에만 있다.
    *
    * **네이티브 앱 안에서는 웹 라우터 이동만으로 부족하다.** 이 화면이 WebView로 로드된
    * 것이라 `navigate("/home")`는 WebView 안의 웹 홈을 열 뿐, 그 WebView를 담고 있는 네이티브
@@ -238,14 +237,11 @@ export function ResultPage() {
    *
    * `replace: true`: 세션은 이미 끝났다 — 뒤로 가기로 결과 화면에 다시 들어와도 state가 없어
    * 어차피 홈으로 튕긴다. 히스토리에 죽은 항목을 남기지 않는다.
-   *
-   * 결과 랭킹 카드의 랭킹 보기도 탭 전환이라 기록으로 가기와 같은 길로 랭킹 탭을 연다.
    */
   // 함수 선언은 호이스팅되어 위 null 가드로 `sessions`가 좁혀지지 않는다 — 화살표로 둔다.
-  const leave = (via: "home" | "records" | "ranking") => {
+  const leave = (via: "home" | "records") => {
     trackStudyResultConfirmed({ roomType, via });
-    const exitPath: ResultExitPath =
-      via === "records" ? "/records" : via === "ranking" ? "/ranking" : home;
+    const exitPath: ResultExitPath = via === "records" ? "/records" : home;
     /**
      * 설문 트리거(`study_result_exited`)는 여기서 보내지 않고 **예약**만 한다 — 이 화면은 곧
      * 닫힐 웹뷰라 이벤트를 보내도 설문이 열릴 자리가 없다(`lib/amplitude.ts` 핸드오프 주석).
@@ -265,7 +261,7 @@ export function ResultPage() {
       postToNative({
         type: "navigate-tab",
         tab: via,
-        via: via === "records" ? "study_result" : "result_ranking_card",
+        via: "study_result",
         atMs: Date.now(),
       });
     }
@@ -274,11 +270,6 @@ export function ResultPage() {
   };
 
   const gainView = gainsQuery.data === undefined ? null : gainCardView(gainsQuery.data);
-  // 카드가 보여 준 판(순공 주간)을 넘겨주고 결과 화면을 떠난다.
-  const openRanking = () => {
-    requestBoard({ type: "FOCUS_TIME", period: "WEEKLY" });
-    leave("ranking");
-  };
 
   /**
    * TODO(미정: 자정(KST) 분할 세션 표시 — 리더/사용자 확인). `submitStudySession`은
@@ -311,9 +302,7 @@ export function ResultPage() {
           <StudyCompleteHero view={view} phase={phase} />
           {revealed && (
             <div className="mt-6 flex flex-col gap-3 animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
-              {gainView !== null && (
-                <RankingGainCard view={gainView} roomType={roomType} onOpen={openRanking} />
-              )}
+              {gainView !== null && <RankingGainCard view={gainView} roomType={roomType} />}
               <StudyTimelineCard view={view} />
               <MeasurementFeedbackCardHost focusSec={totalFocusSec} roomType={roomType} />
               {userId !== null && <SessionSummaryCard userId={userId} />}
