@@ -1070,6 +1070,9 @@ export function RemoteWebViewHost({
       allowsInlineMediaPlayback
       mediaPlaybackRequiresUserAction={false}
       mediaCapturePermissionGrantType="grant"
+      // 웹의 글 입력 화면은 열리자마자 입력칸에 포커스를 준다.
+      // iOS WKWebView는 기본값이면 사용자가 누르기 전에는 키보드를 올리지 않는다.
+      keyboardDisplayRequiresUserAction={false}
       // 오리진 제한은 `originWhitelist`가 아니라 `onShouldStartLoadWithRequest`(위)로 건다.
       //
       // `react-native-webview`는 `originWhitelist`를 통과하지 못한 요청을 우리 콜백에 넘기지도

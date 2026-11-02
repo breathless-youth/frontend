@@ -277,6 +277,12 @@ describe("RemoteWebViewHost", () => {
     expect(props.mediaCapturePermissionGrantType).toBe("grant");
   });
 
+  it("열리자마자 포커스를 준 입력칸에서 iOS 키보드가 올라오도록 사용자 동작을 요구하지 않는다", () => {
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+
+    expect(screen.getByTestId("host").props.keyboardDisplayRequiresUserAction).toBe(false);
+  });
+
   it("다크 스킴이면 다크 배경 토큰을 웹뷰에 넘긴다", () => {
     mockUseColorScheme.mockReturnValue("dark");
     render(<RemoteWebViewHost path="/home" testID="host" />);
