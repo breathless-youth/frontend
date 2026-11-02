@@ -4,8 +4,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 import { cn } from "@/lib/utils";
 
-import { formatRank, formatValue } from "../model/format";
-import type { LiveRow } from "../model/live";
+import { formatValue } from "../model/format";
+import { formatRankChange, type LiveRow, type RankChangeTone } from "../model/live";
 import { Nickname } from "./Nickname";
 import { RankAvatar } from "./RankAvatar";
 
@@ -15,6 +15,12 @@ const MOTION_MS = 300;
 const FADE_MS = 150;
 /** Tailwind `ease-out`과 같은 곡선. */
 const EASE_OUT = "cubic-bezier(0, 0, 0.2, 1)";
+
+const CHANGE_TONE_CLASS: Record<RankChangeTone, string> = {
+  rise: "text-rank-rise",
+  drop: "text-rank-alert-badge-fg",
+  same: "text-text-tertiary",
+};
 
 interface Placed {
   row: LiveRow;
@@ -99,22 +105,22 @@ function useRowMotion(top: number, leaving: boolean) {
  * 내 주변 순위 목록
  *
  * 줄은 닉네임을 key로 두고 세로 위치를 transform으로 바꿔, 순서가 바뀌면 300ms 동안 미끄러진다.
- * ▼N은 보이는 배지와 별개로 status 영역에 한 번 읽히게 둔다.
- * 순위 칸은 보이는 줄 중 가장 긴 순위의 글자 수만큼 넓히고, 한 자리여도 시안처럼 24px은 둔다.
- * 나간 줄도 사라지기 전까지는 보이는 줄로 센다.
+ * 순위 숫자는 참여 인원을 드러내 쓰지 않는다.
+ * `change`가 있으면 모든 줄 앞에 같은 폭의 변동 칸을 두어 아바타 세로줄을 맞추고, 글자는 내 줄에만 쓴다.
+ * `change`가 `undefined`면 변동을 보이지 않는 판이라 칸을 두지 않고, `null`이면 기준선이 없어 칸을 비운다.
+ * 변동 글자는 보이는 글자와 별개로 status 영역에 바뀔 때 한 번 읽히게 둔다.
  */
 export function AroundList({
   type,
   rows,
-  drop,
+  change,
 }: {
   type: RankingType;
   rows: readonly LiveRow[];
-  drop: number | null;
+  change?: number | null;
 }) {
   const leaving = useLeavingRows(rows);
-  const shown = [...rows, ...leaving.map(({ row }) => row)];
-  const rankWidth = `${Math.max(1, ...shown.map((row) => formatRank(row.rank).length))}ch`;
+  const spoken = change == null ? null : formatRankChange(change).spoken;
   return (
     <section aria-label="내 주변 순위" className="rounded-xl bg-muted px-2 py-1.5 shadow-sb-card">
       <ol className="relative" style={{ height: rows.length * ROW_PX }}>
@@ -124,8 +130,7 @@ export function AroundList({
             row={row}
             type={type}
             top={index * ROW_PX}
-            rankWidth={rankWidth}
-            drop={row.me ? drop : null}
+            change={change === undefined ? undefined : row.me ? change : null}
           />
         ))}
         {leaving.map(({ row, top }) => (
@@ -134,14 +139,13 @@ export function AroundList({
             row={row}
             type={type}
             top={top}
-            rankWidth={rankWidth}
-            drop={null}
+            change={change === undefined ? undefined : null}
             leaving
           />
         ))}
       </ol>
       <p role="status" className="sr-only">
-        {drop === null ? "" : `순위가 ${drop}계단 내려갔어요`}
+        {spoken === null ? "" : `순위가 ${spoken}`}
       </p>
     </section>
   );
@@ -151,17 +155,16 @@ function AroundRow({
   row,
   type,
   top,
-  rankWidth,
-  drop,
+  change,
   leaving = false,
 }: {
   row: LiveRow;
   type: RankingType;
   top: number;
-  rankWidth: string;
-  drop: number | null;
+  change: number | null | undefined;
   leaving?: boolean;
 }) {
+  const shownChange = change == null ? null : formatRankChange(change);
   const ref = useRowMotion(top, leaving);
   return (
     <li
@@ -178,15 +181,18 @@ function AroundRow({
           row.me && "bg-brand-subtle",
         )}
       >
-        <span
-          className={cn(
-            "min-w-6 shrink-0 text-[13px] leading-3.75 font-extrabold tabular-nums",
-            !row.me && "text-text-tertiary",
-          )}
-          style={{ width: rankWidth }}
-        >
-          {formatRank(row.rank)}
-        </span>
+        {change !== undefined && (
+          // ponytail: 칸은 24px로 고정해 세 자리 계단(▲100)부터는 글자가 아바타 쪽 간격으로 넘친다.
+          <span
+            aria-hidden="true"
+            className={cn(
+              "w-6 shrink-0 text-[13px] leading-3.75 font-extrabold whitespace-nowrap tabular-nums",
+              shownChange && CHANGE_TONE_CLASS[shownChange.tone],
+            )}
+          >
+            {shownChange?.text}
+          </span>
+        )}
         <RankAvatar nickname={row.nickname} me={row.me} imageUrl={row.profileImageUrl} />
         <div className="min-w-0 flex-1">
           <Nickname
@@ -197,14 +203,6 @@ function AroundRow({
             )}
           />
         </div>
-        {drop !== null && (
-          <span
-            aria-hidden="true"
-            className="shrink-0 rounded-full bg-rank-alert-badge-bg px-1.5 py-0.5 text-[11px] leading-3.25 font-bold text-rank-alert-badge-fg"
-          >
-            ▼{drop}
-          </span>
-        )}
         <span
           className={cn(
             "flex shrink-0 items-center gap-1.5 text-[15px] leading-4.5 tracking-[0.5px] tabular-nums",

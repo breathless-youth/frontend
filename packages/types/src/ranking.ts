@@ -2,7 +2,7 @@
  * 랭킹 API 응답 타입
  *
  * 공유 타입은 백엔드 명세에 있는 모양만 두므로 dev 백엔드 Swagger(`/v3/api-docs`)와 대조해 맞췄다(2026-10-11).
- * 랭킹판과 기록 API 모두 Swagger 기준이고, dev에 배포된 일수 판 시상대 묶음(`podiumGroups`)도 여기에 든다.
+ * 랭킹판과 기록 API 모두 Swagger 기준이다.
  * 홈, 안 본 기록, 본 것 표시, 세션 뒤 오른 순위는 개발 서버 Swagger와 대조했다(2026-10-12).
  * 시각은 UTC ISO-8601, 날짜는 KST `yyyy-MM-dd`다.
  * 값과 차이의 단위는 시간 판이 초, 일수 판이 일, 집중률이 %(소수 1자리)다.
@@ -96,26 +96,6 @@ export interface RankingStreak {
   nextRankIfContinue: number | null;
 }
 
-/**
- * 일수 판의 같은 일수 묶음 한 줄
- *
- * 누적 일수·연속 공부 판은 일수가 같으면 같은 순위라 `rank`는 묶음의 공동 순위다.
- * `nickname`은 묶음의 대표로, 내가 묶음에 있으면 나이고 없으면 그 일수에 먼저 도달한 사람이다.
- * `othersCount`는 대표를 뺀 나머지 인원이다.
- * `myOrder`는 내 묶음에만 오고, 같은 일수 중 몇 번째로 도달했는지다.
- */
-export interface RankingDayGroup {
-  days: number;
-  rank: number;
-  nickname: string;
-  /** 대표의 사진 경로. 없으면 null이고, 이 필드가 배포되기 전 응답에는 없다. */
-  profileImageUrl?: string | null;
-  othersCount: number;
-  achievedDate: string;
-  me: boolean;
-  myOrder: number | null;
-}
-
 export interface RankingGoalExample {
   percent: number;
   value: number;
@@ -131,10 +111,8 @@ export interface RankingBoardResponse {
   periodStart: string | null;
   closesAt: string | null;
   asOf: string;
-  /** 일수 판은 빈 배열이고 시상대는 `podiumGroups`가 맡는다. */
   podium: RankingEntry[];
   me: RankingMe | null;
-  /** 일수 판은 빈 배열이고 내 주변은 `aroundGroups`가 맡는다. */
   around: RankingEntry[];
   above: RankingNeighbor | null;
   below: RankingNeighbor | null;
@@ -142,19 +120,6 @@ export interface RankingBoardResponse {
   eligibility?: RankingEligibility | null;
   nextTier?: RankingNextTier | null;
   streak?: RankingStreak | null;
-  /**
-   * 일수 판의 내 주변 묶음
-   *
-   * 내 묶음 앞 2개, 내 묶음, 뒤 2개이고 내 순위가 없으면 빈 배열이다.
-   * 일수 판에만 오므로 다른 판에서는 비어 있다.
-   */
-  aroundGroups?: RankingDayGroup[] | null;
-  /**
-   * 일수 판의 시상대 묶음
-   *
-   * 일수 판만 보내고, 일수가 많은 순으로 최대 3묶음이며 내 참가와 상관없이 온다.
-   */
-  podiumGroups?: RankingDayGroup[] | null;
   goalExamples?: RankingGoalExample[] | null;
 }
 

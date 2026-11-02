@@ -117,14 +117,22 @@ describe("ResetCard", () => {
 });
 
 describe("PreviousResultCard", () => {
-  it("직전 기간 최종 순위와 값을 보이고 기록 보기로 간다", async () => {
+  it("직전 기간 순위가 4위 이하면 순위 없이 값만 보이고 기록 보기로 간다", async () => {
     const onShowRecords = vi.fn();
     render(<PreviousResultCard previous={FIXTURE_RESET_PREVIOUS} onShowRecords={onShowRecords} />);
 
     const card = screen.getByRole("region", { name: "어제 최종 결과" });
-    expect(within(card).getByText("1,240위 · 7시간 12분")).toBeInTheDocument();
+    expect(within(card).getByText(/^7시간 12분$/)).toBeInTheDocument();
+    expect(within(card).queryByText(/위/)).toBeNull();
     await userEvent.click(within(card).getByRole("button", { name: "기록 보기 ›" }));
     expect(onShowRecords).toHaveBeenCalledTimes(1);
+  });
+
+  it("직전 기간 순위가 3위 이내면 순위와 값을 함께 보인다", () => {
+    const previous = { ...FIXTURE_RESET_PREVIOUS, me: { ...FIXTURE_RESET_PREVIOUS.me!, rank: 2 } };
+    render(<PreviousResultCard previous={previous} onShowRecords={vi.fn()} />);
+
+    expect(screen.getByText(/^2위 · 7시간 12분$/)).toBeInTheDocument();
   });
 });
 

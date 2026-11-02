@@ -75,8 +75,7 @@ export function formatGapDuration(sec: number): string {
 /**
  * 단위별 차이
  *
- * 일수 판은 같은 일수끼리 공동 순위이고 바로 위·아래는 일수가 다른 사람이라 차이가 0일로 오지 않는다.
- * 그래도 0이 오면 `0일`로 적지 않도록 일수 차이를 최소 1일로 막아 둔다.
+ * 일수 차이가 0으로 오면 `0일`로 적지 않도록 최소 1일로 막아 둔다.
  */
 export function formatGap(type: RankingType, gap: number): string {
   switch (type) {

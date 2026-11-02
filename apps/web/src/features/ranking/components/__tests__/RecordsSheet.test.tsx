@@ -134,7 +134,7 @@ describe("RecordsSheet", () => {
     expect(screen.getByRole("radio", { name: "전체" })).not.toHaveFocus();
   });
 
-  it("기록이 없으면 안내, 최고 순위, 가장 가까운 판, 순공 시작을 보인다", async () => {
+  it("기록이 없으면 안내, 가장 가까운 판, 순공 시작을 보이고 최고 순위는 보이지 않는다", async () => {
     vi.mocked(getRankingRecordsSummary).mockResolvedValue(FIXTURE_SUMMARY_EMPTY);
     const onFocusStart = vi.fn();
     renderSheet({ onFocusStart });
@@ -145,7 +145,8 @@ describe("RecordsSheet", () => {
     expect(
       screen.getByText("랭킹 마감 시 3위 내에 든 기록이 있으면 메달을 확인할 수 있어요"),
     ).toBeInTheDocument();
-    expect(screen.getByText("아침 구간 5위 · 10월 3일")).toBeInTheDocument();
+    expect(screen.queryByText("지금까지 최고 순위")).toBeNull();
+    expect(screen.queryByText(/5위/)).toBeNull();
     expect(screen.getByText("아침 구간 12분 차")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "순공 시작" }));
     expect(onFocusStart).toHaveBeenCalledTimes(1);
@@ -203,14 +204,17 @@ describe("RecordsSheet", () => {
     });
   });
 
-  it("없는 줄은 뺀다", async () => {
-    vi.mocked(getRankingRecordsSummary).mockResolvedValue({ ...FIXTURE_SUMMARY_EMPTY, best: null });
+  it("가장 가까운 판이 없으면 그 줄을 뺀다", async () => {
+    vi.mocked(getRankingRecordsSummary).mockResolvedValue({
+      ...FIXTURE_SUMMARY_EMPTY,
+      closest: null,
+    });
     renderSheet();
 
     await screen.findByRole("heading", { name: "아직 TOP 3 기록이 없어요" });
 
+    expect(screen.queryByText("TOP 3에 가장 가까운 판")).toBeNull();
     expect(screen.queryByText("지금까지 최고 순위")).toBeNull();
-    expect(screen.getByText("TOP 3에 가장 가까운 판")).toBeInTheDocument();
   });
 
   it("요약을 못 받으면 다시 시도를 보이고, 다시 받으면 기록을 보인다", async () => {
