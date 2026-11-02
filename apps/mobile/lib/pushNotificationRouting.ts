@@ -98,17 +98,35 @@ const WEB_PATH_PREFIX_TAB: readonly (readonly [string, string])[] = [
   ["/social/public/", "/(tabs)/social"],
 ];
 
+/**
+ * 접두사 표로 찾아도 되는 경로 모양
+ *
+ * 탭 웹뷰는 이 경로를 주소에 그대로 이어 붙여 열고, 웹뷰는 점 조각, 역슬래시, 탭과 줄바꿈, 해시를 풀어서 연다.
+ * 웹 라우터는 퍼센트 인코딩을 풀고 대소문자를 가리지 않고 화면을 고른다.
+ * 그래서 접두사만 맞으면 풀린 뒤 공부방이나 싱글룸이 되는 경로가 탭 웹뷰에 열린다.
+ * 그룹 화면 경로의 조각은 모두 소문자, 숫자, 하이픈이라 그 모양만 받는다.
+ */
+const PREFIX_PATH_SHAPE = /^(?:\/[a-z0-9-]+)+$/;
+
 /** 공부방과 그 아래 결과 화면은 세션이라 접두사 표에 걸려도 탭으로 열지 않는다. */
 const GROUP_ROOM_PATH = /^\/social\/groups\/[^/]+\/room(?:\/|$)/;
 
-/** 웹 경로를 여는 탭 href. 정확한 경로 표에 없으면 접두사 표를 보고, 둘 다 없거나 공부방이면 null. 탭이 딥링크 파라미터를 검증할 때도 쓴다(`lib/tabDeepLink.ts`). */
+/**
+ * 웹 경로를 여는 탭 href
+ *
+ * 정확한 경로 표에 없으면 접두사 표를 본다.
+ * 두 표에 없거나 모양이 어긋나거나 공부방이면 null이다.
+ * 탭이 딥링크 파라미터를 검증할 때도 쓴다(`lib/tabDeepLink.ts`).
+ */
 export function tabHrefForWebPath(pathname: string): string | null {
-  if (GROUP_ROOM_PATH.test(pathname)) return null;
-  return (
-    WEB_PATH_TAB[pathname] ??
-    WEB_PATH_PREFIX_TAB.find(([prefix]) => pathname.startsWith(prefix))?.[1] ??
-    null
-  );
+  return WEB_PATH_TAB[pathname] ?? tabHrefForPrefixPath(pathname);
+}
+
+function tabHrefForPrefixPath(pathname: string): string | null {
+  if (!PREFIX_PATH_SHAPE.test(pathname) || GROUP_ROOM_PATH.test(pathname)) {
+    return null;
+  }
+  return WEB_PATH_PREFIX_TAB.find(([prefix]) => pathname.startsWith(prefix))?.[1] ?? null;
 }
 
 /** 쿼리 없이 그대로 네이티브 라우트인 경로. 초대 참여는 자기 라우트(`app/social/join.tsx`)가 있다. */

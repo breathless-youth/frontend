@@ -192,6 +192,36 @@ describe("그룹 푸시 경로", () => {
     expect(pushTargetForRoute("/social/groups/10/room", 5)).toBe("/");
     expect(pushTargetForRoute("/social/groups/10/room/result", 5)).toBe("/");
   });
+
+  it.each([
+    "/social/groups/new",
+    "/social/groups/10",
+    "/social/groups/10/members",
+    "/social/groups/10/settings",
+    "/social/groups/10/applications",
+    "/social/groups/10/applications/55/report",
+    "/social/public/12",
+    "/social/public/12/apply",
+  ])("그룹 화면 경로 %s는 소셜 탭이 연다", (path) => {
+    expect(tabHrefForWebPath(path)).toBe("/(tabs)/social");
+  });
+
+  // 웹뷰는 이어 붙인 주소를 풀어서 열고 웹 라우터는 대소문자를 가리지 않아 이 경로들은 세션 화면이 된다.
+  it.each([
+    ["/social/groups/../../room/1", "점 조각"],
+    ["/social/groups/10/./room", "점 하나 조각"],
+    ["/social/groups/10/%72oom", "퍼센트 인코딩"],
+    ["/social/groups/10/%2e%2e/10/room", "인코딩한 점 조각"],
+    ["/social/groups/10\\room", "역슬래시"],
+    ["/social/groups//10/room", "빈 조각"],
+    ["/social/groups/10/ro\tom", "탭"],
+    ["/social/groups/10/ro\nom", "줄바꿈"],
+    ["/social/groups/10/room#x", "해시"],
+    ["/social/groups/10/ROOM", "대문자"],
+  ])("풀면 세션 화면이 되는 경로 %j(%s)는 탭으로 열지 않는다", (path) => {
+    expect(tabHrefForWebPath(path)).toBeNull();
+    expect(pushTargetForRoute(path, 5)).toBe("/");
+  });
 });
 
 describe("openedEventProperties — 알림 열림 계측 속성", () => {

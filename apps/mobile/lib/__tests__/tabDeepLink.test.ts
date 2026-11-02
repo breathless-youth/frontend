@@ -77,6 +77,21 @@ describe("remoteScreenInput — 탭 파라미터를 웹뷰 입력으로", () => 
     });
   });
 
+  it.each([
+    "/social/groups/../../room/1",
+    "/social/groups/10/./room",
+    "/social/groups/10/%72oom",
+    "/social/groups/10/room#x",
+    "/social/groups/10/ro\tom",
+    "/social/groups/10/ROOM",
+  ])("소셜 탭은 웹뷰가 풀면 세션 화면이 되는 경로 %j도 열지 않고 루트를 연다", (path) => {
+    expect(remoteScreenInput({ path, at: "5" }, "/social")).toEqual({
+      key: "/social",
+      path: "/social",
+      resetPath: "/social",
+    });
+  });
+
   it("슬래시로 시작하지 않거나 배열로 온 path는 무시하고, 배열 at은 key에 섞지 않는다", () => {
     expect(remoteScreenInput({ path: "https://evil.example/x" }, "/records")).toEqual({
       key: "/records",
