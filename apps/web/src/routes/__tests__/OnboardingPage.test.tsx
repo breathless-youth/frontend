@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -121,9 +121,10 @@ describe("OnboardingPage", () => {
 
     await user.click(screen.getByRole("button", { name: "알림 받기" }));
 
+    // 권한 응답 뒤 다음 화면으로 넘어가는 것은 비동기라 끝날 때까지 기다린다.
+    await waitFor(() => expect(heading()).toContain("준비가 끝났어요"));
     expect(mocks.requestPushPermission).toHaveBeenCalledTimes(1);
     expect(mocks.trackOnboardingNotificationResult).toHaveBeenCalledWith("denied");
-    expect(heading()).toContain("준비가 끝났어요");
     expect(mocks.trackOnboardingStepViewed).toHaveBeenLastCalledWith("ready");
   });
 

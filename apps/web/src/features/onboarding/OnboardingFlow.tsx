@@ -1,4 +1,4 @@
-import { ChevronLeft } from "lucide-react";
+import { ChevronDown, ChevronLeft } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import iphoneFrame from "@/assets/onboarding/iphone-frame.webp";
@@ -6,7 +6,7 @@ import screenHome from "@/assets/onboarding/screen-home.webp";
 import type { OnboardingStep } from "@/lib/amplitude";
 import { cn } from "@/lib/utils";
 
-import { CONFETTI } from "./confetti";
+import { CONFETTI, CONFETTI_LAUNCH_Y } from "./confetti";
 import { PlannerScreen, RecordsScreen, RoomScreen, TimerScreen } from "./MockScreens";
 import { useStageBox } from "./useStageBox";
 
@@ -53,6 +53,14 @@ const GEO: Record<Scene, { x: number; y: number; scale: number; clip: number; fa
 
 /** 실제 앱 크기(390 폭)로 그린 화면을 폰 화면 폭(312.4)에 맞추는 배율 */
 const APP_SCREEN_SCALE = 0.80103;
+
+/**
+ * Android 기기에서 열렸는지
+ *
+ * 폰 목업과 알림 배너를 사용자가 쥔 기기와 같은 모양으로 보여 주려고 가른다.
+ * 웹뷰는 userAgent에 OS를 싣고, 브라우저 단독(PC)에서는 iOS 모양을 보여 준다.
+ */
+const IS_ANDROID = /Android/i.test(navigator.userAgent);
 
 /** 이전 화면은 새 화면이 다 들어온 뒤 내린다(화면 전환 620ms보다 조금 길게). */
 const PREV_SCREEN_HOLD_MS = 660;
@@ -169,58 +177,196 @@ function DistractionPills({ away, leaving }: { away: boolean; leaving: boolean }
   );
 }
 
-function NotificationBanner({ hidden }: { hidden: boolean }) {
+const NOTIF_TITLE = "저녁 8시, 공부할 시간이에요";
+const NOTIF_BODY = "평일 이 시간에 가장 오래 집중했어요";
+const NOTIF_IN =
+  "animate-[onboarding-notif-in_0.6s_cubic-bezier(0.23,1,0.32,1)_1s_both] motion-reduce:animate-none";
+
+/** iOS 알림 배너 모양: 큰 앱 아이콘 옆에 제목·시간과 본문 */
+function IosNotification() {
+  return (
+    <div
+      className={cn(
+        "onboarding-notif absolute top-13 -left-1 flex w-89.5 items-center gap-3 rounded-[28px] px-4 py-3.75",
+        NOTIF_IN,
+      )}
+    >
+      <img src="/app-icon.png" alt="" className="size-11.5 shrink-0 rounded-[11px]" />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="flex items-baseline justify-between gap-2">
+          <span className="truncate text-[16.5px] leading-5.5 font-semibold tracking-[-0.3px]">
+            {NOTIF_TITLE}
+          </span>
+          <span className="onboarding-notif-time shrink-0 text-sm leading-4.5">지금</span>
+        </span>
+        <span className="text-base leading-5.5 tracking-[-0.3px] break-keep">{NOTIF_BODY}</span>
+      </span>
+    </div>
+  );
+}
+
+/** Android 헤드업 알림 모양(Material 3): 작은 아이콘·앱 이름·시간 줄 아래 제목·본문, 오른쪽 큰 아이콘 */
+function AndroidNotification() {
+  return (
+    <div
+      className={cn(
+        "onboarding-notif-android absolute top-13 -left-1 flex w-89.5 flex-col gap-1 rounded-[26px] px-4.5 pt-3.5 pb-4",
+        NOTIF_IN,
+      )}
+    >
+      <span className="onboarding-notif-android-sub flex items-center gap-1.75 text-[12.5px] leading-4">
+        <img src="/app-icon.png" alt="" className="size-4.5 rounded-full" />
+        <span className="font-medium">FocusMakers</span>
+        <span>·</span>
+        <span>지금</span>
+        <ChevronDown size={14} strokeWidth={2.2} className="ml-auto" aria-hidden="true" />
+      </span>
+      <span className="flex items-center gap-3 pl-6.25">
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className="truncate text-base leading-5.25 font-semibold tracking-[-0.2px]">
+            {NOTIF_TITLE}
+          </span>
+          <span className="onboarding-notif-android-sub text-[15px] leading-5 tracking-[-0.2px] break-keep">
+            {NOTIF_BODY}
+          </span>
+        </span>
+        <img src="/app-icon.png" alt="" className="size-10 shrink-0 rounded-[10px]" />
+      </span>
+    </div>
+  );
+}
+
+function NotificationBanner({ hidden, android }: { hidden: boolean; android: boolean }) {
   return (
     <div
       aria-hidden="true"
       className="pointer-events-none absolute inset-0 z-3 transition-[opacity,filter] duration-400"
       style={{ opacity: hidden ? 0 : 1, filter: `blur(${hidden ? 8 : 0}px)` }}
     >
-      <div className="onboarding-notif absolute top-13 -left-1 flex w-89.5 animate-[onboarding-notif-in_0.6s_cubic-bezier(0.23,1,0.32,1)_1s_both] items-center gap-3 rounded-[28px] px-4 py-3.75 motion-reduce:animate-none">
-        <img src="/app-icon.png" alt="" className="size-11.5 shrink-0 rounded-[11px]" />
-        <span className="flex min-w-0 flex-1 flex-col">
-          <span className="flex items-baseline justify-between gap-2">
-            <span className="truncate text-[16.5px] leading-5.5 font-semibold tracking-[-0.3px]">
-              저녁 8시, 공부할 시간이에요
-            </span>
-            <span className="onboarding-notif-time shrink-0 text-sm leading-4.5">지금</span>
-          </span>
-          <span className="text-base leading-5.5 tracking-[-0.3px] break-keep">
-            평일 이 시간에 가장 오래 집중했어요
-          </span>
-        </span>
-      </div>
+      {android ? <AndroidNotification /> : <IosNotification />}
     </div>
   );
 }
+
+/**
+ * Android 기기 프레임(픽셀·갤럭시 계열)
+ *
+ * 금속 레일, 얇은 검은 베젤, 오른쪽 전원·볼륨 버튼을 그린다.
+ * 베젤은 바깥 둥근 사각형에서 화면 자리(모서리 33)를 뚫어 만든다.
+ */
+function AndroidFrame() {
+  return (
+    <svg
+      aria-hidden="true"
+      width="350"
+      height="716"
+      viewBox="0 0 350 716"
+      className="absolute inset-0 overflow-visible"
+    >
+      <defs>
+        <linearGradient id="onboarding-android-rail" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#5d626b" />
+          <stop offset="0.08" stopColor="#c9ced6" />
+          <stop offset="0.5" stopColor="#9aa0a9" />
+          <stop offset="0.92" stopColor="#cfd3da" />
+          <stop offset="1" stopColor="#5a5f68" />
+        </linearGradient>
+        <linearGradient id="onboarding-android-button" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stopColor="#6b7079" />
+          <stop offset="0.5" stopColor="#c4c9d1" />
+          <stop offset="1" stopColor="#7b808a" />
+        </linearGradient>
+      </defs>
+      <rect
+        x="340.6"
+        y="150"
+        width="3.6"
+        height="44"
+        rx="1.6"
+        fill="url(#onboarding-android-button)"
+      />
+      <rect
+        x="340.6"
+        y="222"
+        width="3.6"
+        height="78"
+        rx="1.6"
+        fill="url(#onboarding-android-button)"
+      />
+      <path
+        fill="#0c0d10"
+        fillRule="evenodd"
+        d="M52 6H298A44 44 0 0 1 342 50V666A44 44 0 0 1 298 710H52A44 44 0 0 1 8 666V50A44 44 0 0 1 52 6Z M51.7 17.9H298.1A33 33 0 0 1 331.1 50.9V664.9A33 33 0 0 1 298.1 697.9H51.7A33 33 0 0 1 18.7 664.9V50.9A33 33 0 0 1 51.7 17.9Z"
+      />
+      <rect
+        x="9.3"
+        y="7.3"
+        width="331.4"
+        height="701.4"
+        rx="42.7"
+        fill="none"
+        stroke="url(#onboarding-android-rail)"
+        strokeWidth="2.6"
+      />
+      <rect
+        x="11.2"
+        y="9.2"
+        width="327.6"
+        height="697.6"
+        rx="40.8"
+        fill="none"
+        stroke="rgba(255, 255, 255, 0.06)"
+        strokeWidth="0.8"
+      />
+    </svg>
+  );
+}
+
+/** 꽃가루가 터지기 직전 폭죽 자리에서 번쩍이는 섬광. 양쪽 발사 지점과 같은 높이다. */
+const POP_FLASH_LEFTS = [0, 330];
 
 function Confetti() {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 z-4 overflow-hidden motion-reduce:hidden"
+      className="pointer-events-none absolute inset-0 z-4 overflow-hidden perspective-[700px] motion-reduce:hidden"
     >
+      {POP_FLASH_LEFTS.map((left) => (
+        <span
+          key={left}
+          className="onboarding-pop-flash absolute size-15 animate-[onboarding-pop-flash_0.55s_cubic-bezier(0.23,1,0.32,1)_0.2s_both] rounded-full opacity-0"
+          style={{ left, top: CONFETTI_LAUNCH_Y - 30 }}
+        />
+      ))}
       {CONFETTI.map((piece, i) => (
         <span
           key={i}
-          className="absolute animate-[onboarding-confetti_1.8s_both] opacity-0"
+          className="absolute animate-[onboarding-confetti_2s_both] opacity-0"
           style={
             {
               left: piece.x,
-              top: 712,
+              top: CONFETTI_LAUNCH_Y,
               width: piece.w,
               height: piece.h,
-              borderRadius: piece.radius,
-              background: piece.color,
               "--dx": `${piece.dx}px`,
               "--dy": `${piece.dy}px`,
               "--fall": `${piece.fall}px`,
               "--rot": `${piece.rot}deg`,
+              "--sway": `${piece.sway}px`,
               animationDuration: `${piece.duration}s`,
               animationDelay: `${piece.delay}s`,
             } as CSSProperties
           }
-        />
+        >
+          <span
+            className="absolute inset-0 animate-[onboarding-confetti-flip_0.7s_linear_infinite]"
+            style={{
+              borderRadius: piece.radius,
+              background: piece.color,
+              animationDuration: `${piece.flip}s`,
+            }}
+          />
+        </span>
       ))}
     </div>
   );
@@ -320,7 +466,10 @@ export function OnboardingFlow({
               style={{ height: geo.clip, "--onboarding-fade": `${geo.fade}px` } as CSSProperties}
             >
               <div className="absolute top-15 left-20 h-179 w-87.5 drop-shadow-[0_22px_38px_rgba(31,42,61,0.2)]">
-                <div className="absolute top-[17.9px] left-[18.7px] isolate h-170 w-[312.4px] overflow-hidden rounded-[42px] bg-[#1a2029]">
+                <div
+                  className="absolute top-[17.9px] left-[18.7px] isolate h-170 w-[312.4px] overflow-hidden bg-[#1a2029]"
+                  style={{ borderRadius: IS_ANDROID ? 33 : 42 }}
+                >
                   {screens.map((s) => (
                     <div
                       key={s}
@@ -333,17 +482,21 @@ export function OnboardingFlow({
                     </div>
                   ))}
                 </div>
-                <img
-                  src={iphoneFrame}
-                  alt=""
-                  className="absolute inset-0 h-full w-full"
-                  draggable={false}
-                />
+                {IS_ANDROID ? (
+                  <AndroidFrame />
+                ) : (
+                  <img
+                    src={iphoneFrame}
+                    alt=""
+                    className="absolute inset-0 h-full w-full"
+                    draggable={false}
+                  />
+                )}
               </div>
             </div>
           </div>
           {(scene === 4 || (scene === 5 && prevScene === 4)) && (
-            <NotificationBanner hidden={scene === 5} />
+            <NotificationBanner hidden={scene === 5} android={IS_ANDROID} />
           )}
           {(scene === 1 || prevScene === 1) && (
             <DistractionPills away={away} leaving={scene !== 1} />

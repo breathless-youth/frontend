@@ -1067,6 +1067,20 @@ video::-webkit-media-controls-overlay-play-button {
   color: rgba(60, 60, 67, 0.6);
 }
 
+/* Android 헤드업 알림(Material 3) 모양 */
+.onboarding-notif-android {
+  background: rgba(252, 252, 254, 0.98);
+  box-shadow:
+    0 14px 34px rgba(15, 23, 42, 0.16),
+    0 1px 3px rgba(15, 23, 42, 0.08);
+  color: #1d1b20;
+  font-family: Roboto, "Noto Sans KR", Pretendard, system-ui, sans-serif;
+}
+
+.onboarding-notif-android-sub {
+  color: #49454f;
+}
+
 .onboarding-press-ring {
   border: 3px solid var(--coach-ring);
 }
@@ -1210,25 +1224,69 @@ video::-webkit-media-controls-overlay-play-button {
   }
 }
 
-/* 준비 완료 꽃가루: 빠르게 솟구쳤다가(감속) 중력처럼 떨어지며(가속) 사라진다. */
+/* 준비 완료 꽃가루: 솟구쳤다가(감속) 좌우로 살랑이며 떨어지고(가속) 사라진다. */
 @keyframes onboarding-confetti {
   0% {
     opacity: 1;
-    transform: translate(0, 0) rotate(0deg) scale(0.5);
+    transform: translate(0, 0) rotate(0deg) scale(0.4);
     animation-timing-function: cubic-bezier(0.12, 0.75, 0.35, 1);
   }
 
-  42% {
+  38% {
     opacity: 1;
-    transform: translate(var(--dx), var(--dy)) rotate(calc(var(--rot) * 0.4)) scale(1);
-    animation-timing-function: cubic-bezier(0.45, 0, 0.85, 0.55);
+    transform: translate(var(--dx), var(--dy)) rotate(calc(var(--rot) * 0.35)) scale(1);
+    animation-timing-function: cubic-bezier(0.45, 0, 0.75, 0.6);
+  }
+
+  68% {
+    opacity: 1;
+    transform: translate(calc(var(--dx) * 1.06 + var(--sway)), calc(var(--dy) + var(--fall) * 0.5))
+      rotate(calc(var(--rot) * 0.7)) scale(1);
+    animation-timing-function: cubic-bezier(0.4, 0, 0.8, 0.7);
   }
 
   100% {
     opacity: 0;
-    transform: translate(calc(var(--dx) * 1.18), calc(var(--dy) + var(--fall))) rotate(var(--rot))
-      scale(1);
+    transform: translate(calc(var(--dx) * 1.12 - var(--sway) * 0.6), calc(var(--dy) + var(--fall)))
+      rotate(var(--rot)) scale(0.9);
   }
+}
+
+/* 꽃가루 조각이 3D로 뒤집히며 반짝인다. */
+@keyframes onboarding-confetti-flip {
+  from {
+    transform: rotate3d(1, 0.35, 0, 0deg);
+  }
+
+  to {
+    transform: rotate3d(1, 0.35, 0, 360deg);
+  }
+}
+
+/* 폭죽 발사 지점에서 한 번 번쩍인다. */
+@keyframes onboarding-pop-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.2);
+  }
+
+  30% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.9);
+  }
+}
+
+.onboarding-pop-flash {
+  background: radial-gradient(
+    circle,
+    rgba(255, 226, 140, 0.95) 0%,
+    rgba(255, 170, 60, 0.4) 40%,
+    rgba(255, 170, 60, 0) 70%
+  );
 }
 
 /* 준비 완료 목업의 '집중 시작' 누르기. 2.6초마다 손가락 점이 다가와 누르고 빛 테두리가 퍼진다. */
