@@ -2434,6 +2434,9 @@ describe("LiveRoomPage — 과목", () => {
 
     const dialog = screen.getByRole("dialog", { name: "과목" });
     expect(screen.getByTestId("live-room-page")).toContainElement(dialog);
+    expect(
+      within(screen.getByRole("heading", { name: "과목" }).parentElement!).getByText(/^순공시간 /),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "과목", hidden: true })).toHaveAttribute(
       "aria-expanded",
       "true",

@@ -111,7 +111,23 @@ export function SessionTimer({
 }
 
 /**
- * 과목·배경음 페이지 푸터의 순공 타이머
+ * 과목 페이지 머리 오른쪽의 순공
+ *
+ * 페이지가 세션 UI를 가리므로 상태는 숫자 색으로 전한다.
+ * 20px에서는 발광이 글자를 흐려 빛을 넣지 않는다.
+ * 제목보다 먼저 줄지 않게 해서 좁은 창에서는 제목이 말줄임된다.
+ */
+export function SessionPageHeaderTime({ focusSec }: { focusSec: number }) {
+  return (
+    <p className="ml-auto shrink-0 pr-4 text-[20px] leading-6 font-extrabold tracking-[-0.3px] text-(--session-state-color) tabular-nums">
+      <span aria-hidden="true">{formatElapsed(focusSec)}</span>
+      <span className="sr-only">순공시간 {toKoreanDuration(focusSec)}</span>
+    </p>
+  );
+}
+
+/**
+ * 배경음 페이지 푸터의 순공 타이머
  *
  * 페이지가 세션 UI를 가리므로 상태는 심플 모드처럼 숫자 색과 발광으로만 전한다.
  */

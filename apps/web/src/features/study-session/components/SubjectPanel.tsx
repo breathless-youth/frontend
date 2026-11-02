@@ -78,8 +78,6 @@ export interface SubjectPanelProps {
   liveTotals: ReadonlyMap<number, SubjectTotals>;
   /** 가로면 목록과 상세 두 열로 나눈다. */
   landscape: boolean;
-  /** 페이지 아래 순공 타이머. */
-  timer: ReactNode;
 }
 
 /** 글자 수는 한도의 80%부터 보인다. */
@@ -679,7 +677,6 @@ export function SubjectPanel({
   onNotice,
   liveTotals,
   landscape,
-  timer,
 }: SubjectPanelProps) {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
@@ -975,7 +972,7 @@ export function SubjectPanel({
           {subjectTasks(viewed, true)}
         </section>
         <div className="flex items-end justify-end gap-2">{actions}</div>
-        <SessionPageFooter landscape timer={timer} />
+        <SessionPageFooter landscape />
       </div>
     );
   }
@@ -989,7 +986,6 @@ export function SubjectPanel({
         <SessionPageFooter
           landscape
           leading={actions !== null && <div className="flex gap-2">{actions}</div>}
-          timer={timer}
         />
       ) : (
         <SessionPageFooter
@@ -999,7 +995,6 @@ export function SubjectPanel({
               <div className="flex justify-end gap-2 px-3 pt-1 pb-2">{actions}</div>
             )
           }
-          timer={timer}
         />
       )}
     </>

@@ -1,10 +1,13 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import type { RenderOptions } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { SubjectResponse } from "@focusmakers/types";
 
 import type { SubjectsStore } from "../../useSubjects";
+import { SessionPage } from "../SessionPage";
 import { SubjectPanel } from "../SubjectPanel";
 import type { SubjectPanelProps } from "../SubjectPanel";
 
@@ -55,7 +58,7 @@ function makeStore(
   } as unknown as SubjectsStore;
 }
 
-function renderPanel(overrides: Partial<SubjectPanelProps> = {}) {
+function renderPanel(overrides: Partial<SubjectPanelProps> = {}, options: RenderOptions = {}) {
   const props: SubjectPanelProps = {
     store: makeStore([MATH, ENGLISH]),
     selection: null,
@@ -65,11 +68,28 @@ function renderPanel(overrides: Partial<SubjectPanelProps> = {}) {
     onNotice: vi.fn(),
     liveTotals: new Map(),
     landscape: false,
-    timer: <span>01:24:08</span>,
     ...overrides,
   };
-  const view = render(<SubjectPanel {...props} />);
+  const view = render(<SubjectPanel {...props} />, options);
   return { ...props, ...view };
+}
+
+/** 열린 과목 페이지로 감싼다. 아래 줄의 알림 자리는 페이지가 열린 동안에만 생긴다. */
+function openPage(landscape: boolean) {
+  return function Page({ children }: { children: ReactNode }) {
+    return (
+      <SessionPage
+        open
+        onOpenChange={vi.fn()}
+        container={null}
+        returnFocus={() => null}
+        title="과목"
+        landscape={landscape}
+      >
+        {children}
+      </SessionPage>
+    );
+  };
 }
 
 describe("SubjectPanel 세로", () => {
@@ -183,6 +203,20 @@ describe("SubjectPanel 세로", () => {
     fireEvent.change(input, { target: { value: "가".repeat(12) } });
     expect(screen.getByText("12/15")).toBeInTheDocument();
     expect(input).toHaveAccessibleDescription("12/15");
+  });
+});
+
+describe("SubjectPanel 아래 줄", () => {
+  it.each([
+    { label: "세로", landscape: false },
+    { label: "가로", landscape: true },
+  ])("타이머 없이도 아래 줄의 버튼이 남는다 ($label)", ({ landscape }) => {
+    renderPanel({ landscape }, { wrapper: openPage(landscape) });
+    const page = screen.getByRole("dialog", { name: "과목" });
+    expect(within(page).getByRole("button", { name: "순서 변경" })).toBeInTheDocument();
+    expect(within(page).getByRole("button", { name: /과목 추가/ })).toBeInTheDocument();
+    expect(within(page).getByRole("region", { name: "화면 알림" })).toBeInTheDocument();
+    expect(screen.queryByText(/^순공시간 /)).toBeNull();
   });
 });
 
