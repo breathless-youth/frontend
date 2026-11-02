@@ -1,15 +1,13 @@
-import { ChevronLeft, Lock } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 import iphoneFrame from "@/assets/onboarding/iphone-frame.webp";
 import screenHome from "@/assets/onboarding/screen-home.webp";
-import screenPlanner from "@/assets/onboarding/screen-planner.webp";
-import screenRecords from "@/assets/onboarding/screen-records.webp";
-import screenRoom from "@/assets/onboarding/screen-room.webp";
 import type { OnboardingStep } from "@/lib/amplitude";
 import { cn } from "@/lib/utils";
 
 import { CONFETTI } from "./confetti";
+import { PlannerScreen, RecordsScreen, RoomScreen, TimerScreen } from "./MockScreens";
 import { useStageBox } from "./useStageBox";
 
 /** 1~4는 소개 단계, 5는 준비 완료다. */
@@ -59,9 +57,6 @@ const APP_SCREEN_SCALE = 0.80103;
 /** 이전 화면은 새 화면이 다 들어온 뒤 내린다(화면 전환 620ms보다 조금 길게). */
 const PREV_SCREEN_HOLD_MS = 660;
 
-/** 1단계 타이머: 0.7초마다 한 칸, 4칸 주기로 집중과 비집중이 바뀐다. */
-const TICK_MS = 700;
-
 const DISTRACTION_PILLS = [
   { label: "자리를 비운 것 같아요", style: { left: -28, top: -9 }, delay: "0s" },
   { label: "기기를 조작 중인 것 같아요", style: { right: -28, top: 91 }, delay: "0.04s" },
@@ -74,14 +69,19 @@ const SCREEN_OUT = "animate-[onboarding-screen-out_0.62s_cubic-bezier(0.4,0,0.2,
 
 const isAway = (tick: number) => tick % 4 >= 2;
 
-function formatClock(totalSec: number): string {
+function clock(totalSec: number): string {
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
   return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
 }
 
-/** 1단계 타이머 흉내. 집중하지 않는 상태로 측정되면 시간이 멈추고 회색이 된다. */
+/**
+ * 1단계 타이머 흉내
+ *
+ * 0.7초마다 한 칸, 4칸 주기로 집중과 비집중이 바뀐다.
+ * 비집중으로 측정되면 시간이 멈추고 회색이 되며, 폰 밖 감지 필이 켜진다.
+ */
 function useMockTimer(running: boolean) {
   const [state, setState] = useState({ tick: 0, focusSec: 1477 });
   useEffect(() => {
@@ -92,55 +92,11 @@ function useMockTimer(running: boolean) {
           const tick = s.tick + 1;
           return { tick, focusSec: isAway(tick) ? s.focusSec : s.focusSec + 1 };
         }),
-      TICK_MS,
+      700,
     );
     return () => window.clearInterval(timer);
   }, [running]);
-  return { away: isAway(state.tick), clock: formatClock(state.focusSec) };
-}
-
-function TimerScreen({ away, clock }: { away: boolean; clock: string }) {
-  return (
-    <div className="theme-dark onboarding-timer-screen absolute top-0 left-0 h-121.25 w-55.75 origin-top-left scale-[1.4009] overflow-hidden text-white">
-      <div className="absolute inset-x-0 top-10.25 flex justify-center">
-        <div
-          className="relative transition-[opacity,transform,filter] duration-300"
-          style={{
-            opacity: away ? 0.35 : 1,
-            transform: `scale(${away ? 0.98 : 1})`,
-            filter: `blur(${away ? 1 : 0}px)`,
-          }}
-        >
-          <span className="inline-flex items-center rounded-full border-[1.5px] border-primary bg-background/65 px-2.5 py-1.25 text-[11px] leading-3.5 font-medium whitespace-nowrap tabular-nums">
-            순공시간 측정 중
-          </span>
-          {!away && (
-            <>
-              <span className="absolute inset-0 animate-[onboarding-pill-echo_1.5s_ease-out_infinite] rounded-full border-[1.5px] border-primary opacity-0 motion-reduce:hidden" />
-              <span className="absolute inset-0 animate-[onboarding-pill-echo_1.5s_ease-out_0.5s_infinite] rounded-full border-[1.5px] border-primary opacity-0 motion-reduce:hidden" />
-            </>
-          )}
-        </div>
-      </div>
-      <div className="absolute inset-x-0 top-55.5 flex flex-col items-center">
-        <span className="text-[11px] leading-3.5 font-medium tracking-[0.2px] text-white/55">
-          순공시간
-        </span>
-        <p
-          className={cn(
-            "mt-1 text-[36px] leading-10.5 font-bold tracking-[-0.4px] tabular-nums transition-colors duration-300",
-            away ? "text-text-tertiary" : "text-white",
-          )}
-        >
-          {clock}
-        </p>
-        <span className="mt-1.75 inline-flex items-center gap-[2.5px] text-[8px] leading-2.5 font-medium tracking-[-0.1px] text-white/42">
-          <Lock size={7.5} strokeWidth={2.4} aria-hidden="true" />
-          영상은 저장하지 않아요
-        </span>
-      </div>
-    </div>
-  );
+  return { away: isAway(state.tick), clock: clock(state.focusSec) };
 }
 
 /** 실제 앱 크기(390 폭)로 내보낸 화면 그림. 위에 얹는 모션도 같은 좌표로 그린다. */
@@ -153,18 +109,6 @@ function AppScreen({ src, children }: { src: string; children?: ReactNode }) {
       <img src={src} alt="" className="block h-full w-full" draggable={false} />
       {children}
     </div>
-  );
-}
-
-function RecordsScreen() {
-  return (
-    <AppScreen src={screenRecords}>
-      {/* 저녁 8~10시 강조 테두리에서 맥박이 퍼진다. 테두리 자체는 그림에 있다. */}
-      <span
-        className="absolute animate-[onboarding-highlight-pulse_2s_ease-out_0.85s_infinite] rounded-[7px] border-2 border-[#3671cf] opacity-0 motion-reduce:hidden"
-        style={{ left: 238.2, top: 302, width: 43.2, height: 117 }}
-      />
-    </AppScreen>
   );
 }
 
@@ -186,9 +130,9 @@ function SceneScreen({ scene, away, clock }: { scene: Scene; away: boolean; cloc
     case 1:
       return <TimerScreen away={away} clock={clock} />;
     case 2:
-      return <img src={screenPlanner} alt="" className="block w-full" draggable={false} />;
+      return <PlannerScreen />;
     case 3:
-      return <AppScreen src={screenRoom} />;
+      return <RoomScreen />;
     case 4:
       return <RecordsScreen />;
     case 5:

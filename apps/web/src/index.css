@@ -1116,6 +1116,79 @@ video::-webkit-media-controls-overlay-play-button {
   }
 }
 
+/* 플래너 칸은 왼쪽부터 늘어나며 채워지고, 6초 주기 끝에 비워졌다가 다시 채워진다. */
+@keyframes onboarding-planner-pop {
+  0% {
+    opacity: 0;
+    transform: scaleX(0.15);
+  }
+
+  3% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+
+  86% {
+    opacity: 1;
+  }
+
+  90%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* 플래너 합계는 칸이 채워진 뒤 아래에서 올라오고 같은 주기로 사라진다. */
+@keyframes onboarding-planner-late {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  3% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  86% {
+    opacity: 1;
+  }
+
+  90%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes onboarding-tile-in {
+  from {
+    opacity: 0;
+    filter: blur(8px);
+    transform: scale(0.92);
+  }
+}
+
+@keyframes onboarding-cell-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+
+@keyframes onboarding-late {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes onboarding-highlight-in {
+  from {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+}
+
 /* 맞춤 알림은 아래에서 위로 떠오르며 또렷해진다. */
 @keyframes onboarding-notif-in {
   from {
