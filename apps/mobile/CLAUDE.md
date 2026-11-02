@@ -11,14 +11,14 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 
 ## 원격 웹뷰 화면
 
-- `react-native-webview`로 `apps/web`을 로드하고, 모든 화면이 `extra.webBaseUrl`이 가리키는 원격 주소를 연다. 카메라 권한 문구는 `app.json`의 `ios.infoPlist.NSCameraUsageDescription` / `android.permissions`(`CAMERA`)에 유지한다(WebView 안 `getUserMedia`도 같은 네이티브 권한 필요). 마이크 권한은 추가하지 않는다(멀티룸 음성 송출 없음). Android는 `android.blockedPermissions`로 `RECORD_AUDIO`를 명시적으로 차단한다 — `expo-camera`가 plugin 없이도 넣기 때문이며, **이 항목을 지우지 말 것**(ADR 0004 "남는 위험").
+- `react-native-webview`로 `apps/web`을 로드하고, 모든 화면이 `extra.webBaseUrl`이 가리키는 원격 주소를 연다. 카메라 권한 문구는 `app.json`의 `ios.infoPlist.NSCameraUsageDescription` / `android.permissions`(`CAMERA`)에 유지한다(WebView 안 `getUserMedia`도 같은 네이티브 권한 필요). 그룹 공부방 음성 때문에 `RECORD_AUDIO`와 `MODIFY_AUDIO_SETTINGS`를 선언하고, 권한은 웹이 처음 마이크를 켤 때 웹뷰가 묻는다. 사진·영상 읽기 권한은 `android.blockedPermissions`로 계속 막는다. 이 목록에 `RECORD_AUDIO`를 다시 넣으면 선언해도 빌드에서 빠져 공부방 마이크가 켜지지 않는다.
 - **스플래시는 웹의 `launch-ready`를 받을 때까지 유지한다**(`lib/launchReady.ts`). 웹뷰는 그 뒤에서 이미 그려지고, 홈은 온보딩으로 보낼지 판정한 뒤에 이 신호를 보낸다. 보이는 탭의 신호만 받고, 로드가 실패하거나 보이는 탭 웹뷰가 뜬 뒤 3초가 지나면 신호 없이 걷는다. 가입 대기는 이 3초에 넣지 않고, 웹뷰가 끝내 뜨지 않아도 10초면 걷는다. 시작 ATT 창은 스플래시가 걷힌 뒤에 뜬다.
 - **Dev Client가 필요하고 Expo Go는 지원하지 않는다.** 커스텀 엔트리(`index.ts`)가 푸시 모듈을, 그 모듈이 `@react-native-firebase/*`를 정적 import하기 때문이다(Expo Go에 없는 네이티브 모듈). `app.json` `plugins`의 `expo-build-properties`·RNFB config plugin도 prebuild/Dev Client 빌드에서만 적용된다.
 
 ## 카메라 권한 (`expo-camera`, 권한 API만)
 
 - `expo-camera`는 권한 조회·요청 목적으로만 들어 있다([ADR 0004](../../docs/adr/0004-expo-camera-for-permission-api-only.md)). **`CameraView`를 쓰지 말 것** — 카메라 스트림·Vision 추론은 `apps/web`의 WebView `getUserMedia` 소유다. 호출은 `lib/cameraPermission.ts` 어댑터 뒤에만 두고 화면·컴포넌트가 `expo-camera`를 직접 import하지 않는다.
-- **`app.json`의 `plugins`에 `expo-camera`를 추가하지 말 것.** 단, plugin을 안 넣어도 Expo가 자동 적용해 영어 기본 `NSMicrophoneUsageDescription`(iOS)·`RECORD_AUDIO`(Android)가 들어간다 — Android는 `android.blockedPermissions`가 걷어내고, iOS 문구는 아직 남아 있다(별도 결정). `permissionCopy.test.ts`는 `android.permissions` 열거만 잠그므로 실제 바이너리 권한은 운영 AAB의 merged manifest로 확인한다.
+- **`app.json`의 `plugins`에 `expo-camera`를 추가하지 말 것.** 단, plugin을 안 넣어도 Expo가 자동 적용해 `NSMicrophoneUsageDescription`(iOS)·`RECORD_AUDIO`(Android)가 들어간다. 자동 적용되는 plugin은 옵션이 없으면 이미 있는 값을 유지하므로 iOS 마이크 문구는 영어 기본값이 아니라 `app.json`의 한국어 문구다. Android `RECORD_AUDIO`는 그룹 공부방 음성에 필요해 막지 않는다. `permissionCopy.test.ts`는 `android.permissions` 열거만 잠그므로 실제 바이너리 권한은 운영 AAB의 merged manifest로 확인한다.
 
 ## 네트워크 / ATS
 

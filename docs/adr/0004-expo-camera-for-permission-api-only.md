@@ -82,7 +82,18 @@ iOS 권한 요청에 필요한 것은 `NSCameraUsageDescription` 하나뿐이다
 
   **iOS는 실기기 확보 후 다시 확인해야 한다.** iOS는 권한 처리 경로가 다르고(라우트가 `mediaCapturePermissionGrantType="grant"`를 명시적으로 준다), 시뮬레이터에는 카메라 하드웨어가 없어 이 검증 자체가 불가능했다. Apple Developer 계정 승인 대기 중이다.
 
-- **"plugin을 안 넣으면 `RECORD_AUDIO`가 안 들어간다"는 전제가 틀렸다(2026-09-10 확인)** — Expo prebuild는 `expo-camera` plugin을 자동 적용하고(`recordAudioAndroid` 기본 true) 라이브러리 매니페스트도 `RECORD_AUDIO`를 선언해서, 운영 AAB 1.0.2(8)에 `RECORD_AUDIO`와 암시 기능 `android.hardware.microphone`이 들어가 있었다. `permissionCopy.test.ts`는 `android.permissions` 열거만 보므로 잡지 못한다. `app.json`의 `android.blockedPermissions`로 차단했다(`tools:node="remove"`라 두 출처 모두 걷힌다). iOS의 영어 `NSMicrophoneUsageDescription`은 같은 자동 plugin이 넣으며 아직 남아 있다 — 지우려면 plugin을 명시하고 `microphonePermission: false`를 줘야 하는데 위 "config plugin을 추가하지 않는다"와 충돌하므로 별도 결정이 필요하다. 같은 의존성이 끌고 오는 ML Kit 바코드 액티비티(portrait 고정) 때문에 `android.hardware.screen.portrait` 기능도 암시된다.
+- **"plugin을 안 넣으면 `RECORD_AUDIO`가 안 들어간다"는 전제가 틀렸다(2026-09-10 확인)** — Expo prebuild는 `expo-camera` plugin을 자동 적용하고(`recordAudioAndroid` 기본 true) 라이브러리 매니페스트도 `RECORD_AUDIO`를 선언해서, 운영 AAB 1.0.2(8)에 `RECORD_AUDIO`와 암시 기능 `android.hardware.microphone`이 들어가 있었다. `permissionCopy.test.ts`는 `android.permissions` 열거만 보므로 잡지 못한다. `app.json`의 `android.blockedPermissions`로 차단했다(`tools:node="remove"`라 두 출처 모두 걷힌다). 2026-11에 그룹 공부방 음성 때문에 이 차단을 풀었다(아래 갱신). iOS `NSMicrophoneUsageDescription`도 같은 자동 plugin이 넣지만, 이 plugin은 옵션이 없으면 이미 있는 값을 유지하므로 지금은 영어 기본값이 아니라 `app.json`의 한국어 문구가 실린다. 같은 의존성이 끌고 오는 ML Kit 바코드 액티비티(portrait 고정) 때문에 `android.hardware.screen.portrait` 기능도 암시된다.
 - **카메라 전환이 후면 카메라를 못 볼 수 있다** — Android 에뮬레이터에서 Chromium이 `device 0`(후면)의 특성을 읽지 못한다(`cr_VideoCapture: Unable to retrieve camera characteristics for unknown device 0`). 전면 연결은 정상이므로 프리뷰에는 영향이 없으나, `enumerateDevices`가 후면을 못 보면 전환 버튼이 "전환할 카메라가 없어요"로 떨어진다. AVD 설정 문제일 가능성이 높아 실기기 확인이 필요하다.
 - **Android 권한 다이얼로그 3옵션** — "이번만 허용" 만료 시 처리 정책이 미확정이다(Figma `14:5` 페이지가 비어 있음). `canAskAgain`을 쓰게 될 가능성이 있으나 지금 어댑터는 `status`만 본다.
 - **S2-3이 막다른 안내로 남아 있다** — `ai-wiki/product/policies.md` §3은 2026-07-26에 "권한 거부 시 수동 타이머 모드 제공"으로 바뀌었고(2026-07-23 "카메라 필수" 결정을 대체), `app-review-checklist.md` 1-1이 이를 스토어 심사 최우선 액션 아이템으로 표시한다. 이번 범위 밖이며 별도 티켓으로 진행한다.
+
+## 갱신 (2026-11, 그룹 공부방 마이크)
+
+2026-11 갱신: 마이크 권한을 선언했다. `expo-camera`는 여전히 권한 API용이고 마이크 권한은 웹뷰가 요청한다.
+
+- iOS는 `app.json`의 `NSMicrophoneUsageDescription`에 한국어 문구를 둔다.
+- 자동 적용되는 `expo-camera` plugin은 옵션이 없으면 이미 있는 값을 유지하므로 영어 기본 문구로 덮이지 않는다.
+- Android는 `RECORD_AUDIO`와 `MODIFY_AUDIO_SETTINGS`를 선언하고 `android.blockedPermissions`에서 `RECORD_AUDIO`를 뺐다.
+- 사진·영상 읽기 권한은 계속 막는다.
+- 앱은 마이크 권한을 따로 묻지 않는다.
+- 웹이 처음 마이크를 켤 때 Android는 `react-native-webview`가 `RECORD_AUDIO`를 런타임에 요청하고, iOS는 WKWebView가 묻는다.
