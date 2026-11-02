@@ -1,0 +1,111 @@
+import { useId } from "react";
+
+import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
+
+import { GROUP_ROOM_LIMITS } from "../model/limits";
+import { remainingText } from "../model/timeText";
+import type { PendingApplication } from "../types";
+import { CategoryTag } from "./RoomMeta";
+
+/**
+ * 신청 중인 공개 그룹 시트
+ *
+ * 줄을 누르면 그 그룹의 공개 그룹 보기를 열고, 신청 취소는 확인 창 없이 바로 넘긴다.
+ * 시트는 body로 나가므로 Soft Blue 테마를 시트에도 단다.
+ * 시트 안 버튼은 iOS에서 살짝 움직인 탭이 끌기로 잡혀 버려지지 않게 목록째 끌기에서 뺀다.
+ */
+export function PendingApplicationsSheet({
+  open,
+  onOpenChange,
+  applications,
+  now,
+  cancelingId,
+  onCancel,
+  onOpenRoom,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  applications: PendingApplication[];
+  now: Date;
+  cancelingId: number | null;
+  onCancel: (applicationId: number) => void;
+  onOpenRoom: (roomId: number) => void;
+}) {
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent className="theme-soft-blue">
+        <DrawerTitle className="pt-4 text-lg leading-6.5 font-bold text-foreground">
+          신청 중인 공개 그룹
+        </DrawerTitle>
+        <DrawerDescription className="pt-1 pb-2 text-[13px] leading-5 text-muted-foreground">
+          그룹장이 {GROUP_ROOM_LIMITS.applicationTtlDays}일 안에 답하지 않으면 신청이 취소돼요
+        </DrawerDescription>
+        <ul data-base-ui-swipe-ignore="">
+          {applications.map((application) => (
+            <PendingRow
+              key={application.applicationId}
+              application={application}
+              now={now}
+              canceling={cancelingId === application.applicationId}
+              onCancel={onCancel}
+              onOpenRoom={onOpenRoom}
+            />
+          ))}
+        </ul>
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
+/**
+ * 신청 하나의 줄
+ *
+ * 버튼 안에 버튼이 들어가지 않도록 그룹을 여는 줄과 신청 취소를 형제로 둔다.
+ * 줄마다 같은 이름의 신청 취소가 놓이므로 어느 그룹의 신청인지 설명으로 붙인다.
+ */
+function PendingRow({
+  application,
+  now,
+  canceling,
+  onCancel,
+  onOpenRoom,
+}: {
+  application: PendingApplication;
+  now: Date;
+  canceling: boolean;
+  onCancel: (applicationId: number) => void;
+  onOpenRoom: (roomId: number) => void;
+}) {
+  const nameId = useId();
+  const remaining = `${remainingText(application.expiresAt, now)} 남음`;
+  return (
+    <li className="flex min-h-17 items-center gap-2.5">
+      <button
+        type="button"
+        aria-label={[application.roomName, application.categoryLabel, remaining].join(", ")}
+        onClick={() => onOpenRoom(application.roomId)}
+        className="flex min-h-11 min-w-0 flex-1 flex-col items-start gap-1 rounded-sm text-left focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
+      >
+        <span
+          id={nameId}
+          className="w-full truncate text-[15px] leading-5.25 font-bold text-foreground"
+        >
+          {application.roomName}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <CategoryTag label={application.categoryLabel} />
+          <span className="text-xs leading-4 text-state-pause tabular-nums">{remaining}</span>
+        </span>
+      </button>
+      <button
+        type="button"
+        aria-describedby={nameId}
+        disabled={canceling}
+        onClick={() => onCancel(application.applicationId)}
+        className="h-11 shrink-0 rounded-[14px] bg-bg-layer-2 px-3.5 text-[13px] leading-4 font-bold text-muted-foreground focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none disabled:opacity-50"
+      >
+        신청 취소
+      </button>
+    </li>
+  );
+}
