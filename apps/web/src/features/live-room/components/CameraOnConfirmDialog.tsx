@@ -90,7 +90,7 @@ export function CameraOnConfirmDialog({
   busy = false,
   title = "카메라를 켤까요?",
   description,
-  notice = "같은 방에만 보이고 저장되지 않아요",
+  notice = "영상은 같은 방에만 보이고 저장되지 않아요",
   confirmLabel = "카메라 켜기",
   cancelLabel = "취소",
   container,

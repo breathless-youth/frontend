@@ -33,7 +33,7 @@ describe("CameraOnConfirmDialog", () => {
     expect(screen.getByRole("alertdialog")).toHaveAccessibleName("카메라를 켤까요?");
     // 영상이 같은 방에 공유된다는 사실을 창 설명으로 읽어 줘야 켜기 전에 판단할 수 있다.
     expect(screen.getByRole("alertdialog")).toHaveAccessibleDescription(
-      "같은 방에만 보이고 저장되지 않아요",
+      "영상은 같은 방에만 보이고 저장되지 않아요",
     );
     expect(screen.getByTestId("preview")).toBeInTheDocument();
   });
@@ -159,7 +159,7 @@ describe("CameraOnConfirmDialog", () => {
     expect(dialog).toHaveAccessibleName("카메라 위치를 확인해 주세요");
     expect(dialog).toHaveAccessibleDescription("얼굴과 책상이 보이게 자리를 잡아 주세요");
     expect(screen.getByText("영상은 기기 밖으로 나가지 않아요")).toBeInTheDocument();
-    expect(screen.queryByText("같은 방에만 보이고 저장되지 않아요")).not.toBeInTheDocument();
+    expect(screen.queryByText("영상은 같은 방에만 보이고 저장되지 않아요")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "심플 모드로 시작" })).toHaveFocus();
     expect(screen.getByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
   });
@@ -170,8 +170,8 @@ describe("CameraOnConfirmDialog", () => {
 
     const dialog = screen.getByRole("alertdialog");
     // 설명을 넘기지 않으면 자물쇠 줄 하나가 제목 아래에서 창 설명을 맡는다.
-    expect(dialog).toHaveAccessibleDescription("같은 방에만 보이고 저장되지 않아요");
-    expect(screen.getAllByText("같은 방에만 보이고 저장되지 않아요")).toHaveLength(1);
+    expect(dialog).toHaveAccessibleDescription("영상은 같은 방에만 보이고 저장되지 않아요");
+    expect(screen.getAllByText("영상은 같은 방에만 보이고 저장되지 않아요")).toHaveLength(1);
     expect(screen.getByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
   });
 });
