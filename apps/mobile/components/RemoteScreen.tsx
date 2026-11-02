@@ -11,7 +11,7 @@ import { markSessionOpen } from "../lib/sessionPresence";
 import { RemoteWebViewHost } from "./RemoteWebViewHost";
 
 /**
- * 탭 5개(홈·소셜·기록·랭킹·설정)와 세션이 공유하는 원격 웹뷰 화면 골격.
+ * 탭 5개(홈·그룹·기록·랭킹·설정)와 세션이 공유하는 원격 웹뷰 화면 골격.
  *
  * 세 가지를 한 곳에 모은다 — 화면마다 복붙하지 않기 위해서다:
  * 1. `useRemoteQueryParams`로 모든 화면이 같은 쿼리 파라미터 세트(appVersion·capability 표시)를 붙인다.

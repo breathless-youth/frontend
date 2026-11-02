@@ -24,7 +24,11 @@ export const GROUP_PUSH_TYPES = [
 export interface InAppNotification {
   title: string;
   body: string;
-  /** 서버가 보낸 링크 그대로다. 웹이 누름으로 돌려주면 앱이 허용 규칙으로 다시 확인한다. */
+  /**
+   * 서버가 보낸 푸시 링크
+   *
+   * 웹이 누름으로 돌려주면 앱이 허용 규칙으로 다시 확인한다.
+   */
   link: string;
   /** 열림 계측에 실을 알림 종류 */
   pushType?: string;
@@ -59,7 +63,12 @@ export function inAppNotificationFrom(message: PushMessage): InAppNotification |
 
 type InAppNotificationListener = (notification: InAppNotification) => void;
 
-/** 구독한 순서대로 두고 마지막 구독자가 받는다. 최근 구독자가 풀리면 앞의 구독자가 다시 받는다. */
+/**
+ * 앱 안 알림을 받을 웹뷰 목록
+ *
+ * 구독한 순서대로 두고 마지막 구독자가 받는다.
+ * 최근 구독자가 풀리면 앞의 구독자가 다시 받는다.
+ */
 const listeners: InAppNotificationListener[] = [];
 
 /**
@@ -89,7 +98,11 @@ export function subscribeInAppNotifications(listener: InAppNotificationListener)
   };
 }
 
-/** 테스트 전용: 구독자를 비운다. 프로덕션 코드에서는 호출하지 않는다. */
+/**
+ * 테스트 전용 구독자 초기화
+ *
+ * 프로덕션 코드에서는 호출하지 않는다.
+ */
 export function __resetInAppNotificationsForTests(): void {
   listeners.length = 0;
 }

@@ -162,14 +162,22 @@ export function resolvePushRoute(
 
 const withoutQuery = (route: string) => route.replace(/[?#].*$/, "");
 
-/** 숫자로만 된 경로 조각을 `:id`로 바꾼다. 웹 `sanitizePagePath`와 같은 규칙이다. */
+/**
+ * 숫자로만 된 경로 조각을 `:id`로 바꾸기
+ *
+ * 웹 `sanitizePagePath`와 같은 규칙이다.
+ */
 const withoutIds = (path: string) =>
   path
     .split("/")
     .map((segment) => (/^\d+$/.test(segment) ? ":id" : segment))
     .join("/");
 
-/** link가 원래 홈을 가리키는 경로. 이리로 간 것은 빠진 게 아니다. */
+/**
+ * link가 원래 홈을 가리키는 경로
+ *
+ * 이리로 간 것은 빠진 게 아니다.
+ */
 const HOME_PATHS = new Set([PUSH_HOME_ROUTE, "/home"]);
 
 /**
