@@ -7,7 +7,7 @@ import {
   pauseState,
 } from "@/features/study-session/sessionState";
 
-import { roomSessionFlags, visionPreview } from "../roomSessionFlags";
+import { micHeld, roomSessionFlags, visionPreview } from "../roomSessionFlags";
 
 describe("roomSessionFlags", () => {
   it("휴식 중에는 영상을 보내고 측정만 멈춘다", () => {
@@ -82,5 +82,26 @@ describe("visionPreview", () => {
 
   it("세션이 끝나는 중에는 휴식이어도 구하지 않는다", () => {
     expect(visionPreview({ ...base, onBreak: true, studying: false })).toBe(false);
+  });
+});
+
+describe("micHeld", () => {
+  it("휴식 중에는 카메라가 켜져 있어서 마이크를 그대로 둔다", () => {
+    expect(micHeld(BREAK_STATE, "studying")).toBe(false);
+  });
+
+  it("카메라를 꺼 멈추면 마이크도 끈다", () => {
+    expect(micHeld(pauseState("MANUAL"), "studying")).toBe(true);
+    expect(micHeld(pauseState("BACKGROUND"), "studying")).toBe(true);
+  });
+
+  it("세션이 끝나기 시작하면 측정 중이었어도 마이크를 끈다", () => {
+    expect(micHeld(FOCUS_STATE, "submitting")).toBe(true);
+    expect(micHeld(BREAK_STATE, "done")).toBe(true);
+  });
+
+  it("측정 중에는 마이크를 막지 않는다", () => {
+    expect(micHeld(FOCUS_STATE, "studying")).toBe(false);
+    expect(micHeld(distractionState("PHONE"), "studying")).toBe(false);
   });
 });

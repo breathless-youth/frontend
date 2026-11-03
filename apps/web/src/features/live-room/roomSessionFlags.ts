@@ -1,5 +1,6 @@
 import type { SessionState } from "@/features/study-session/sessionState";
 import { isBreak, isSessionHeld } from "@/features/study-session/sessionState";
+import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 
 export interface RoomSessionFlags {
   /** 카메라를 꺼서 멈춘 동안이고 화면의 카메라 꺼짐 표시와 마이크 잠금이 이 값을 따른다. */
@@ -26,6 +27,16 @@ export function roomSessionFlags(state: SessionState): RoomSessionFlags {
     detecting: state.kind !== "PAUSE",
     onBreak: isBreak(state),
   };
+}
+
+/**
+ * 마이크를 끄고 켜지 못하게 막을지
+ *
+ * 카메라를 꺼 멈추면 마이크도 꺼지고, 휴식 중에는 카메라가 켜져 있어서 마이크를 그대로 둔다.
+ * 나가기나 자동 종료로 세션이 끝나기 시작하면 측정 중이었어도 소리가 더 나가지 않게 막는다.
+ */
+export function micHeld(state: SessionState, phaseName: StudyRoomPhase["name"]): boolean {
+  return isSessionHeld(state) || phaseName !== "studying";
 }
 
 /**

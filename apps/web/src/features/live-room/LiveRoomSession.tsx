@@ -113,7 +113,7 @@ import { GROUP_ROOM_ANALYTICS_MASK } from "./groupRoomAnalyticsMask";
 import type { CreateChannel } from "./liveRoomEntryState";
 import type { LiveRoomKind, RoomSeat } from "./roomKind";
 import { leaveRoomSeat, liveRoomHomePath, liveRoomResultPath, renewRoomSeat } from "./roomKind";
-import { roomSessionFlags, visionPreview } from "./roomSessionFlags";
+import { micHeld, roomSessionFlags, visionPreview } from "./roomSessionFlags";
 import { useBackgroundGraceWatch } from "./useBackgroundGraceWatch";
 import { useCameraPreviewAspect } from "./useCameraPreviewAspect";
 import { useFaceMaskedSend, useKeepMaskSourceLive } from "./useFaceMaskedSend";
@@ -422,12 +422,10 @@ export function LiveRoomSession({
     [members, userId],
   );
   // 소리는 그룹 공부방에서만 오간다.
-  // 나가기를 눌러 세션이 끝나는 동안에도 마이크가 소리를 보내지 않게 카메라를 끈 것과 같게 본다.
-  // 휴식 중에는 카메라가 켜져 있어서 마이크도 그대로 둔다.
   const audio = useRoomAudio({
     enabled: room.kind === "group",
     mesh,
-    cameraHeld: cameraHeld || phase.name !== "studying",
+    cameraHeld: micHeld(sessionState, phase.name),
     micOnUserIds,
     onNotice: showCtaToast,
     ...audioDeps,
