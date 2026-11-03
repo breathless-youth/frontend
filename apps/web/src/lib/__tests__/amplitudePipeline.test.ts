@@ -96,6 +96,12 @@ describe("Amplitude 전송 파이프라인 (실제 SDK)", () => {
       setGroupRoomCount,
       trackAmplitudePageView,
       trackGroupRoomApplicationAnswered,
+      trackGroupRoomApplicationSent,
+      trackGroupRoomCreated,
+      trackGroupRoomJoined,
+      trackGroupRoomLeft,
+      trackGroupRoomMicToggled,
+      trackGroupRoomNotificationToggled,
       trackGroupRoomReported,
       trackSocialRoomEntered,
       trackSocialRoomExited,
@@ -253,11 +259,18 @@ describe("Amplitude 전송 파이프라인 (실제 SDK)", () => {
     // 그룹 이벤트는 그룹 번호와 신청 번호가 든 화면에서 보내도 정한 속성만 나간다.
     // SDK가 화면 주소 같은 속성을 덧붙이면 그룹 번호가 함께 나가서 속성 전체를 그대로 비교한다.
     sent.length = 0;
+    window.history.replaceState({}, "", "/social/groups/10?userId=7");
+    trackGroupRoomCreated({ visibility: "private", category: "CIVIL_SERVICE" });
+    trackGroupRoomApplicationSent({ category: "CSAT" });
+    trackGroupRoomJoined({ via: "application", visibility: "public" });
+    trackGroupRoomLeft("kicked");
+    trackGroupRoomNotificationToggled(true);
     window.history.replaceState({}, "", "/social/groups/10/applications/41/report?userId=7");
     trackGroupRoomApplicationAnswered("reported");
     trackGroupRoomReported("application");
     setGroupRoomCount(2);
     window.history.replaceState({}, "", "/social/groups/10/room?userId=7");
+    trackGroupRoomMicToggled(false);
     trackSocialRoomEntered(false, { visibility: "public" });
     trackSocialRoomExited({
       memberCount: 2,
@@ -275,8 +288,14 @@ describe("Amplitude 전송 파이프라인 (실제 SDK)", () => {
         .filter((event) => /^(group_room_|social_room_)/.test(String(event.event_type)))
         .map((event) => [event.event_type, event.event_properties]),
     ).toEqual([
+      ["group_room_created", { visibility: "private", category: "CIVIL_SERVICE" }],
+      ["group_room_application_sent", { category: "CSAT" }],
+      ["group_room_joined", { via: "application", visibility: "public" }],
+      ["group_room_left", { reason: "kicked" }],
+      ["group_room_notification_toggled", { on: true }],
       ["group_room_application_answered", { result: "reported" }],
       ["group_room_reported", { target: "application" }],
+      ["group_room_mic_toggled", { on: false }],
       ["social_room_entered", { grace_rejoin: false, visibility: "public" }],
       [
         "social_room_exited",
