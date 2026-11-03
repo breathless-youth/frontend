@@ -99,6 +99,17 @@
     "notice_other": "If the owner doesn't respond within {{count}} days, your request will be canceled",
     "submit": "Send request"
   },
+  "blockListScreen": {
+    "title": "Blocked users",
+    "description": "You and people you've blocked won't see or hear each other in study rooms",
+    "empty": "You haven't blocked anyone",
+    "unblock": "Unblock"
+  },
+  "inviteCodeEntryScreen": {
+    "title": "Join with code",
+    "prompt": "Enter the invite code",
+    "submit": "Join"
+  },
   "membersScreen": {
     "titleManage": "Manage members",
     "titleView": "View members",
@@ -157,6 +168,19 @@
     "report": "Report",
     "reject": "Decline",
     "accept": "Accept"
+  },
+  "roomFormScreen": {
+    "titleCreate": "Create group",
+    "titleEdit": "Group settings",
+    "submitCreate": "Create group",
+    "submitEdit": "Save",
+    "nameLabel": "Group name",
+    "visibilityLabel": "Who can join?",
+    "publicDescription": "Listed in public groups. People send requests and the owner accepts them",
+    "privateDescription": "Only people with the invite link or code can join",
+    "fixedVisibilityNote": "Public or private can't be changed after the group is created",
+    "categoryLabel": "Studying for",
+    "introLabel": "About this group"
   },
   "roomHomeScreen": {
     "todayTitle": "Our group today",

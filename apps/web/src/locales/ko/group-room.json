@@ -94,6 +94,17 @@
     "notice": "그룹장이 {{count}}일 안에 답하지 않으면 신청이 취소돼요",
     "submit": "신청 보내기"
   },
+  "blockListScreen": {
+    "title": "차단 목록",
+    "description": "차단한 사람과는 공부방에서 화면과 소리가 오가지 않아요",
+    "empty": "차단한 사람이 없어요",
+    "unblock": "차단 해제"
+  },
+  "inviteCodeEntryScreen": {
+    "title": "초대코드로 참여",
+    "prompt": "초대코드를 입력해 주세요",
+    "submit": "참여하기"
+  },
   "membersScreen": {
     "titleManage": "멤버 관리",
     "titleView": "멤버 보기",
@@ -151,6 +162,19 @@
     "report": "신고",
     "reject": "거절",
     "accept": "수락"
+  },
+  "roomFormScreen": {
+    "titleCreate": "그룹 만들기",
+    "titleEdit": "그룹 설정",
+    "submitCreate": "그룹 만들기",
+    "submitEdit": "저장하기",
+    "nameLabel": "그룹 이름",
+    "visibilityLabel": "누가 들어올 수 있나요?",
+    "publicDescription": "공개 그룹 목록에 보이고, 신청을 받아 그룹장이 수락해요",
+    "privateDescription": "초대 링크나 코드를 받은 사람만 들어와요",
+    "fixedVisibilityNote": "공개와 비공개는 그룹을 만든 뒤에 바꿀 수 없어요",
+    "categoryLabel": "시험·목표",
+    "introLabel": "그룹 소개"
   },
   "roomHomeScreen": {
     "todayTitle": "오늘 우리 그룹",

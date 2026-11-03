@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { useTranslation } from "react-i18next";
 
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ export function InviteCodeEntryScreen({
   onSubmit: () => void;
   onBack: () => void;
 }) {
+  const { t } = useTranslation("group-room");
   const headlineId = useId();
   const errorId = useId();
   const change = (next: string) => {
@@ -47,10 +49,10 @@ export function InviteCodeEntryScreen({
   };
   return (
     <main className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground">
-      <ScreenBackHeader title="초대코드로 참여" onBack={onBack} />
+      <ScreenBackHeader title={t("inviteCodeEntryScreen.title")} onBack={onBack} />
       <div className="flex grow flex-col items-center justify-center gap-2 px-5 pb-6 text-center">
         <h2 id={headlineId} className="text-lg leading-6.5 font-bold text-foreground">
-          초대코드를 입력해 주세요
+          {t("inviteCodeEntryScreen.prompt")}
         </h2>
         <div aria-hidden="true" className="h-2" />
         <InputOTP
@@ -107,7 +109,7 @@ export function InviteCodeEntryScreen({
           }}
           className={cn(BOTTOM_CTA_CLASS, "shadow-sb-cta disabled:shadow-none")}
         >
-          참여하기
+          {t("inviteCodeEntryScreen.submit")}
         </Button>
       </div>
     </main>
