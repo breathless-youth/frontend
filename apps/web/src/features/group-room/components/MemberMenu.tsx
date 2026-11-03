@@ -1,5 +1,5 @@
 import { Crown, Ellipsis, UserMinus } from "lucide-react";
-import { useId } from "react";
+import { useId, useRef } from "react";
 
 import {
   DropdownMenu,
@@ -19,7 +19,7 @@ const KICK_NOTE = `${GROUP_ROOM_LIMITS.kickCooldownDays}일 동안 이 그룹에
  *
  * 그룹장이 다른 멤버에게 그룹장을 넘기거나 멤버를 내보낸다.
  * 내보내면 한동안 다시 들어올 수 없다는 안내를 항목 아래에 두어 항목의 설명으로 읽히게 한다.
- * 확인 창은 호출부가 띄우고 여기서는 고른 일만 넘긴다.
+ * 확인 창은 호출부가 띄우고 여기서는 메뉴를 닫은 뒤에 고른 일만 넘긴다.
  */
 export function MemberMenu({
   nickname,
@@ -34,6 +34,7 @@ export function MemberMenu({
   defaultOpen?: boolean;
 }) {
   const noteId = useId();
+  const chosen = useRef<(() => void) | null>(null);
   return (
     <DropdownMenu defaultOpen={defaultOpen}>
       <DropdownMenuTrigger
@@ -44,18 +45,32 @@ export function MemberMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
+        // 고른 항목이 확인 창을 열면 그 창이 닫힐 때 돌아갈 곳이 메뉴 버튼이어야 한다.
+        // 고른 일을 메뉴가 닫힌 뒤 이 처리기에서 넘기고 기본 동작은 막지 않아서, 메뉴가 포커스를 메뉴 버튼에 돌려준 다음에 확인 창이 그려진다.
+        onCloseAutoFocus={() => {
+          const action = chosen.current;
+          chosen.current = null;
+          action?.();
+        }}
         // Radix 스크롤 잠금이 막은 터치를 iOS는 클릭으로 만들지 않아 메뉴 탭이 씹히므로, touchmove를 잠금까지 올려 보내지 않고 끌어서 밀릴 것도 없게 터치 팬을 끈다.
         onTouchMove={(event) => event.stopPropagation()}
         className={cn(GROUP_MENU_CONTENT_CLASS, "w-59")}
       >
-        <DropdownMenuItem onSelect={onTransfer} className={GROUP_MENU_ITEM_CLASS}>
+        <DropdownMenuItem
+          onSelect={() => {
+            chosen.current = onTransfer;
+          }}
+          className={GROUP_MENU_ITEM_CLASS}
+        >
           <Crown aria-hidden="true" size={18} className="shrink-0" />
           <span className="min-w-0 flex-1">그룹장 넘기기</span>
         </DropdownMenuItem>
         <DropdownMenuItem
           aria-label="내보내기"
           aria-describedby={noteId}
-          onSelect={onKick}
+          onSelect={() => {
+            chosen.current = onKick;
+          }}
           className={cn(GROUP_MENU_ITEM_CLASS, "items-start")}
         >
           <UserMinus

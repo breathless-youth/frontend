@@ -1,6 +1,6 @@
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { Ellipsis, Inbox, LogOut, type LucideIcon, Settings, UserPlus, Users } from "lucide-react";
-import { Fragment, useId } from "react";
+import { Fragment, useId, useRef } from "react";
 
 import {
   DropdownMenu,
@@ -27,7 +27,7 @@ const ITEM_ICON: Record<Exclude<RoomMenuItem, LeaveItem>["kind"], LucideIcon> = 
  * 그룹 홈 머리 줄의 그룹 메뉴 버튼과 메뉴
  *
  * 항목과 나가기 안내는 판단 모듈이 정하고 여기서는 그리기만 한다.
- * 메뉴 밖을 누르거나 Esc를 누르면 닫히고, 항목을 고르면 닫으면서 그 종류를 넘긴다.
+ * 메뉴 밖을 누르거나 Esc를 누르면 닫히고, 항목을 고르면 닫은 뒤에 그 종류를 넘긴다.
  */
 export function RoomMenu({
   items,
@@ -39,6 +39,10 @@ export function RoomMenu({
   /** 개발용 화면 모음에서 메뉴가 열린 모습을 바로 보려고 쓴다. */
   defaultOpen?: boolean;
 }) {
+  const chosen = useRef<RoomMenuItem["kind"] | null>(null);
+  const choose = (kind: RoomMenuItem["kind"]) => {
+    chosen.current = kind;
+  };
   return (
     <DropdownMenu defaultOpen={defaultOpen}>
       <DropdownMenuTrigger
@@ -49,6 +53,13 @@ export function RoomMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
+        // 고른 항목이 확인 창을 열면 그 창이 닫힐 때 돌아갈 곳이 메뉴 버튼이어야 한다.
+        // 고른 일을 메뉴가 닫힌 뒤 이 처리기에서 넘기고 기본 동작은 막지 않아서, 메뉴가 포커스를 메뉴 버튼에 돌려준 다음에 확인 창이 그려진다.
+        onCloseAutoFocus={() => {
+          const kind = chosen.current;
+          chosen.current = null;
+          if (kind !== null) onSelect(kind);
+        }}
         // Radix 스크롤 잠금이 막은 터치를 iOS는 클릭으로 만들지 않아 메뉴 탭이 씹히므로, touchmove를 잠금까지 올려 보내지 않고 끌어서 밀릴 것도 없게 터치 팬을 끈다.
         onTouchMove={(event) => event.stopPropagation()}
         className={cn(GROUP_MENU_CONTENT_CLASS, "min-w-62")}
@@ -57,10 +68,10 @@ export function RoomMenu({
           item.kind === "leave" ? (
             <Fragment key={item.kind}>
               <DropdownMenuPrimitive.Separator className="mx-3 my-1 h-px bg-border" />
-              <LeaveMenuItem item={item} onSelect={onSelect} />
+              <LeaveMenuItem item={item} onSelect={choose} />
             </Fragment>
           ) : (
-            <MenuItem key={item.kind} item={item} onSelect={onSelect} />
+            <MenuItem key={item.kind} item={item} onSelect={choose} />
           ),
         )}
       </DropdownMenuContent>
