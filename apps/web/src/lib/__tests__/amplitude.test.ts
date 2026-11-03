@@ -991,6 +991,7 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     m.trackSettingsRowPressed("profile");
     m.trackTimelapseSettingChanged({ setting: "aspect", value: "16:9" });
     m.trackTimelapseSettingChanged({ setting: "face_mask", value: true });
+    m.trackTimelapseSettingChanged({ setting: "face_mask_emoji", value: "cat" });
     m.trackProfileSaveSubmitted({ nickname: true, goal: true, category: false });
     m.trackProfileSaveResult({ ok: false, reason: "CONFLICT" });
     m.trackProfileSaveResult({ ok: true });
@@ -1020,6 +1021,7 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
       ["settings_row_pressed", { row: "profile" }],
       ["timelapse_setting_changed", { setting: "aspect", value: "16:9" }],
       ["timelapse_setting_changed", { setting: "face_mask", value: true }],
+      ["timelapse_setting_changed", { setting: "face_mask_emoji", value: "cat" }],
       [
         "profile_save_submitted",
         { changed_nickname: true, changed_goal: true, changed_category: false },

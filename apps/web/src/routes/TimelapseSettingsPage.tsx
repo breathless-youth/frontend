@@ -4,6 +4,8 @@ import { useId } from "react";
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { daysUntil, formatDday } from "@/features/home/ddayFormat";
+import { FaceMaskEmojiPicker } from "@/features/live-room/components/FaceMaskEmojiPicker";
+import { FACE_MASK_EMOJIS, faceMaskEmojiOf } from "@/features/live-room/faceMaskSettings";
 import { SettingsSection } from "@/features/settings/SettingsSection";
 import { ROW_CLASS_NAME, ROW_LABEL_CLASS_NAME, SwitchRow } from "@/features/settings/SwitchRow";
 import { TimelapsePreview } from "@/features/timelapse/TimelapsePreview";
@@ -69,7 +71,7 @@ export function TimelapseSettingsPage() {
   const change = (
     next: TimelapseSettings,
     setting: TimelapseSettingEventKey,
-    value: boolean | TimelapseAspect,
+    value: boolean | string,
   ) => {
     update(next);
     trackTimelapseSettingChanged({ setting, value });
@@ -152,13 +154,43 @@ export function TimelapseSettingsPage() {
                     // D-Day가 없으면 영상에도 들어가지 않으므로 켜 둔 값이 남아 있어도 그리지 않는다.
                     info={{ ...settings.info, dday: settings.info.dday && !ddayMissing }}
                     ddayLabel={ddayLabel}
+                    faceMaskEmojiUrl={faceMaskEmojiOf(settings.faceMaskEmoji).url}
                   />
                 </div>
               </SettingsSection>
 
               <SettingsSection label="영상에 넣을 정보">
                 {TIMELAPSE_INFO_KEYS.map((key) =>
-                  key === "dday" && ddayMissing ? (
+                  key === "faceMask" ? (
+                    // 카드가 행 사이에 선을 긋는데, 이모지 줄은 스위치에 딸린 줄이라 한 행으로 묶는다.
+                    <div key={key} className="pb-3.5">
+                      <SwitchRow
+                        label={INFO_LABELS.faceMask}
+                        controlId="switch-info-facemask"
+                        tooltip="내 얼굴만 가려요. 함께 찍힌 다른 사람은 가려지지 않아요."
+                        checked={settings.info.faceMask}
+                        onCheckedChange={(checked) =>
+                          change(
+                            { ...settings, info: { ...settings.info, faceMask: checked } },
+                            INFO_EVENT_KEYS.faceMask,
+                            checked,
+                          )
+                        }
+                      />
+                      {/* 스위치를 꺼도 줄을 남겨 두어 켜고 끌 때 카드 높이가 바뀌지 않게 한다. */}
+                      <FaceMaskEmojiPicker
+                        emojis={FACE_MASK_EMOJIS}
+                        value={settings.faceMaskEmoji}
+                        disabled={!settings.info.faceMask}
+                        onChange={(faceMaskEmoji) => {
+                          if (faceMaskEmoji === settings.faceMaskEmoji) return;
+                          change({ ...settings, faceMaskEmoji }, "face_mask_emoji", faceMaskEmoji);
+                        }}
+                        // 오른쪽은 카드 끝까지 늘려 잘린 칸이 보이게 한다.
+                        className="-mr-4 pr-4"
+                      />
+                    </div>
+                  ) : key === "dday" && ddayMissing ? (
                     <div key={key} className={ROW_CLASS_NAME}>
                       <span className={ROW_LABEL_CLASS_NAME}>{INFO_LABELS.dday}</span>
                       <span className="text-text-tertiary text-sm leading-4.5">
@@ -171,7 +203,6 @@ export function TimelapseSettingsPage() {
                       label={INFO_LABELS[key]}
                       // 앱 id는 소문자만 받는다.
                       controlId={`switch-info-${key.toLowerCase()}`}
-                      tooltip={key === "faceMask" ? "처음 인식된 얼굴만 가려요." : undefined}
                       checked={settings.info[key]}
                       onCheckedChange={(checked) =>
                         change(
