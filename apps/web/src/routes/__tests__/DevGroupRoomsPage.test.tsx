@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -65,6 +65,15 @@ describe("DevGroupRoomsPage", () => {
       );
     }
     expect(screen.getAllByRole("link")).toHaveLength(SCREEN_IDS.length);
+  });
+
+  it.each(SCREEN_IDS)("%s 화면을 목록 대신 그린다", async (id) => {
+    renderGallery(`/dev/group-rooms?screen=${id}`);
+    // 메뉴나 창이 열린 화면은 나머지를 화면 낭독기에서 숨기므로 숨긴 제목까지 센다.
+    expect(screen.getAllByRole("heading", { hidden: true }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("heading", { name: "그룹 화면 모음", hidden: true })).toBeNull();
+    // 지연 받는 시트처럼 그린 뒤에 끝나는 일을 이 테스트 안에서 마친다.
+    await act(async () => {});
   });
 
   it("화면 번호가 있으면 그 화면을 고정 데이터로 그린다", () => {
