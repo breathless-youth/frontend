@@ -4,11 +4,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { MicAcquireResult } from "../audio/microphone";
 import type { RemoteAudioPlayer } from "../audio/remoteAudio";
+import { SPEAKING_ON_LEVEL, SPEAKING_ON_SAMPLES, SPEAKING_SAMPLE_MS } from "../audio/speaking";
 import { useRoomAudio } from "../useRoomAudio";
 
 type RemoteAudioListener = (userId: number, track: MediaStreamTrack | null) => void;
 
 const NO_MIC_ON: ReadonlySet<number> = new Set();
+
+// 말하는 중 기준을 실기기에서 다시 맞춰도 고치지 않게 기준값에서 소리 크기와 시간을 만든다.
+const VOICE_LEVEL = SPEAKING_ON_LEVEL;
+const UNTIL_SPEAKING_MS = SPEAKING_SAMPLE_MS * SPEAKING_ON_SAMPLES;
 
 afterEach(() => {
   vi.useRealTimers();
@@ -253,8 +258,8 @@ describe("useRoomAudio 상대 소리", () => {
     const { result, player, listener } = setup();
     act(() => listener()(2, fakeTrack()));
     expect(player.attach).toHaveBeenCalledWith(2, expect.anything());
-    player.level.mockReturnValue(0.1);
-    await act(() => vi.advanceTimersByTimeAsync(200));
+    player.level.mockReturnValue(VOICE_LEVEL);
+    await act(() => vi.advanceTimersByTimeAsync(UNTIL_SPEAKING_MS));
     expect(result.current.speakingUserIds.has(2)).toBe(true);
   });
 
@@ -262,11 +267,11 @@ describe("useRoomAudio 상대 소리", () => {
     vi.useFakeTimers();
     const { result, player, listener } = setup();
     act(() => listener()(2, fakeTrack()));
-    player.level.mockReturnValue(0.1);
-    await act(() => vi.advanceTimersByTimeAsync(200));
+    player.level.mockReturnValue(VOICE_LEVEL);
+    await act(() => vi.advanceTimersByTimeAsync(UNTIL_SPEAKING_MS));
 
     act(() => listener()(2, null));
-    await act(() => vi.advanceTimersByTimeAsync(100));
+    await act(() => vi.advanceTimersByTimeAsync(SPEAKING_SAMPLE_MS));
 
     expect(player.detach).toHaveBeenCalledWith(2);
     expect(result.current.speakingUserIds.has(2)).toBe(false);
@@ -276,8 +281,8 @@ describe("useRoomAudio 상대 소리", () => {
     vi.useFakeTimers();
     const { result, player, listener, renders } = setup();
     act(() => listener()(2, fakeTrack()));
-    player.level.mockReturnValue(0.1);
-    await act(() => vi.advanceTimersByTimeAsync(200));
+    player.level.mockReturnValue(VOICE_LEVEL);
+    await act(() => vi.advanceTimersByTimeAsync(UNTIL_SPEAKING_MS));
     const speaking = result.current.speakingUserIds;
     const before = renders();
 
@@ -292,8 +297,8 @@ describe("useRoomAudio 상대 소리", () => {
     const { result, player, mic } = setup();
     await act(async () => result.current.toggleMic());
     expect(player.setLocalMeter).toHaveBeenLastCalledWith(mic);
-    player.localLevel.mockReturnValue(0.1);
-    await act(() => vi.advanceTimersByTimeAsync(200));
+    player.localLevel.mockReturnValue(VOICE_LEVEL);
+    await act(() => vi.advanceTimersByTimeAsync(UNTIL_SPEAKING_MS));
     expect(result.current.selfSpeaking).toBe(true);
 
     await act(async () => result.current.toggleMic());
