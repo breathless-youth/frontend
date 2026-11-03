@@ -1388,6 +1388,27 @@ describe("GroupRoomPage 타이머", () => {
     await expectResumeAsksCamera(channel, user);
   });
 
+  it("캡슐이 떠 있는 동안 타일 격자가 캡슐 자리를 비워 멤버 메뉴 버튼을 가리지 않는다", async () => {
+    await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember(), ...[2, 3, 4, 5, 6].map((id) => otherMember(id, `멤버${id}`))],
+    });
+    await turnCameraOn();
+    const grid = screen.getByTestId("room-grid");
+    expect(grid).not.toHaveAttribute("data-capsule-reserved");
+    const { user, sheet } = await openTimerSheet();
+
+    await user.click(within(sheet).getByRole("button", { name: "30분 시작" }));
+    await screen.findByTestId("room-timer-capsule");
+    expect(grid).toHaveAttribute("data-capsule-reserved", "true");
+
+    await user.click(
+      within(screen.getByTestId("room-timer-capsule")).getByRole("button", { name: "끄기" }),
+    );
+    expect(screen.queryByTestId("room-timer-capsule")).toBeNull();
+    expect(grid).not.toHaveAttribute("data-capsule-reserved");
+  });
+
   it("타이머를 쓴 공부방을 마치면 종료 계측에 타이머 종류가 실린다", async () => {
     vi.mocked(submitStudySession).mockResolvedValue([]);
     await enterGroupRoom({ groupId: 10 });

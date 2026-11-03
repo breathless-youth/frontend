@@ -1011,6 +1011,7 @@ export function LiveRoomSession({
           selfSurfaceRef={selfSurfaceRef}
           variant={room.kind}
           tileExtras={room.kind === "group" ? groupTileExtras : undefined}
+          capsuleShown={room.kind === "group" && timerSheet.active}
         />
 
         {room.kind === "group" ? (
