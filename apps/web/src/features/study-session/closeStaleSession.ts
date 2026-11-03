@@ -37,7 +37,7 @@ async function requestRecovery(signal: AbortSignal): Promise<SessionRecoveryResp
     return null;
   }
   if (!res.ok) {
-    throw await parseApiError(res, "옛 세션 마감 실패");
+    throw await parseApiError(res, "stale session close failed");
   }
   // 여기부터 마감은 이미 성공한 상태다. 본문이 깨져 화면에 못 보여줄 뿐이면 다시 보내거나
   // 실패로 보고하지 않고 기록 없이 끝낸다 (throw하면 성공한 마감이 한 번 더 나간다).

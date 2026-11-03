@@ -88,15 +88,15 @@ function lockSafely(pick: (module: ScreenOrientationModule) => Promise<void>, la
   }
   try {
     pick(module).catch((error: unknown) => {
-      console.warn(`[orientation] ${label} 실패`, error);
+      console.warn(`[orientation] ${label} failed`, error);
     });
   } catch (error: unknown) {
-    console.warn(`[orientation] ${label} 실패(동기)`, error);
+    console.warn(`[orientation] ${label} failed (sync)`, error);
   }
 }
 
 export function lockPortrait(): void {
-  lockSafely((module) => module.lockAsync(module.OrientationLock.PORTRAIT_UP), "세로 잠금");
+  lockSafely((module) => module.lockAsync(module.OrientationLock.PORTRAIT_UP), "lock portrait");
 }
 
 /**
@@ -104,5 +104,5 @@ export function lockPortrait(): void {
  * 않는 이유는 rn-screens 시절 `"default"`를 골랐던 이유와 같다(거치대에 거꾸로는 불필요).
  */
 export function unlockForSession(): void {
-  lockSafely((module) => module.lockAsync(module.OrientationLock.DEFAULT), "세션 회전 해제");
+  lockSafely((module) => module.lockAsync(module.OrientationLock.DEFAULT), "unlock for session");
 }

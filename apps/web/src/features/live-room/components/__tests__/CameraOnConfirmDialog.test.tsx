@@ -264,6 +264,37 @@ describe("CameraOnConfirmDialog 얼굴 가리기", () => {
     ).toBeInTheDocument();
   });
 
+  it("넘긴 안내 문구와 보조 문구로 바꿔 그린다", async () => {
+    setup({
+      faceMask: faceMask({
+        tooltip: ["빠르게 움직이면 얼굴이 잠깐 보일 수 있어요"],
+        caption: "타임랩스 얼굴 가리기는 따로 설정해야 해요",
+      }),
+    });
+
+    expect(screen.getByText("타임랩스 얼굴 가리기는 따로 설정해야 해요")).toBeInTheDocument();
+    const trigger = screen.getByRole("button", { name: "얼굴 가리기 안내" });
+    fireEvent.pointerDown(trigger);
+    fireEvent.click(trigger);
+    expect(
+      await screen.findByText("빠르게 움직이면 얼굴이 잠깐 보일 수 있어요", {
+        selector: "[data-state] > p",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("오래 켜 두면 기기가 뜨거워질 수 있어요", {
+        selector: "[data-state] > p",
+      }),
+    ).toBeNull();
+  });
+
+  // 소셜룸 호출부는 문구를 넘기지 않으므로 기본값이 소셜룸 문구로 남아야 한다.
+  it("보조 문구를 넘기지 않으면 그리지 않는다", () => {
+    setup({ faceMask: faceMask() });
+
+    expect(screen.queryByText("타임랩스 얼굴 가리기는 따로 설정해야 해요")).toBeNull();
+  });
+
   it("합성을 쓸 수 없는 기기는 스위치를 끈 채 막고 이유를 알린다", () => {
     setup({ faceMask: faceMask({ supported: false, on: false }) });
 

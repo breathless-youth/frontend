@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { categoryChips } from "@/features/profile/categoryChips";
+import i18n from "@/lib/i18n";
 import {
   normalizeGoal,
   normalizeNickname,
@@ -50,7 +51,11 @@ export function makeProfileSchema(original: {
       ) {
         // 칩으로만 고르므로 화면에서는 나올 수 없다.
         // 스키마가 목록 밖 값을 흘려보내지 않게 막는다.
-        ctx.addIssue({ code: "custom", path: ["category"], message: "목록에 없는 카테고리예요" });
+        ctx.addIssue({
+          code: "custom",
+          path: ["category"],
+          message: i18n.t("profile:errors.unknownCategory"),
+        });
       }
     });
 }

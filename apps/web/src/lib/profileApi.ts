@@ -22,7 +22,7 @@ function profilePath(): string {
 export async function getProfile(): Promise<ProfileResponse> {
   const res = await apiFetch(profilePath(), { endpoint: "profile", method: "GET" });
   if (!res.ok) {
-    throw await parseApiError(res, "프로필 조회 실패");
+    throw await parseApiError(res, "profile fetch failed");
   }
   return (await res.json()) as ProfileResponse;
 }
@@ -35,7 +35,7 @@ export async function updateProfile(patch: ProfileUpdateRequest): Promise<Profil
     body: JSON.stringify(patch),
   });
   if (!res.ok) {
-    throw await parseApiError(res, "프로필 저장 실패");
+    throw await parseApiError(res, "profile save failed");
   }
   return (await res.json()) as ProfileResponse;
 }
@@ -54,7 +54,7 @@ export async function requestUploadUrl(
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    throw await parseApiError(res, "사진 업로드 주소 발급 실패");
+    throw await parseApiError(res, "profile photo upload URL request failed");
   }
   return (await res.json()) as ProfileImageUploadUrlResponse;
 }
@@ -71,7 +71,7 @@ export async function uploadPhoto(uploadUrl: string, blob: Blob): Promise<void> 
     body: blob,
   });
   if (!res.ok) {
-    throw await parseApiError(res, "사진 업로드 실패");
+    throw await parseApiError(res, "profile photo upload failed");
   }
 }
 
@@ -84,7 +84,7 @@ export async function registerProfileImage(key: string): Promise<ProfileResponse
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    throw await parseApiError(res, "프로필 사진 등록 실패");
+    throw await parseApiError(res, "profile photo register failed");
   }
   return (await res.json()) as ProfileResponse;
 }
@@ -92,7 +92,7 @@ export async function registerProfileImage(key: string): Promise<ProfileResponse
 export async function deleteProfileImage(): Promise<ProfileResponse> {
   const res = await apiFetch(PROFILE_IMAGE_PATH, { endpoint: "profileImage", method: "DELETE" });
   if (!res.ok) {
-    throw await parseApiError(res, "프로필 사진 삭제 실패");
+    throw await parseApiError(res, "profile photo delete failed");
   }
   return (await res.json()) as ProfileResponse;
 }

@@ -13,6 +13,8 @@ import { App } from "@/App";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { __resetGroupRoomsForTests } from "@/lib/groupRoomCapability";
 import { hardNavigate } from "@/lib/hardNavigation";
+import i18n from "@/lib/i18n";
+import { markProfileSaved } from "@/features/profile/profileSavedNotice";
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from "@/features/settings/legalDocuments";
 import { SettingsPage } from "@/routes/SettingsPage";
 import { resetViewTransitionStub, stubViewTransition } from "@/test/viewTransitionStub";
@@ -583,6 +585,26 @@ describe("버전 정보 복사", () => {
 describe("인터뷰 신청하기 행", () => {
   const FORM = "https://docs.google.com/forms/d/e/a/viewform?entry.1=NICKNAME";
 
+  afterEach(async () => {
+    await i18n.changeLanguage("ko");
+  });
+
+  it("영어 화면에서는 상태를 묻지 않고 행을 그리지 않는다", async () => {
+    await i18n.changeLanguage("en");
+    getInterviewStatus.mockResolvedValue({
+      cardEligible: false,
+      cardUrl: null,
+      settingsEnabled: true,
+      settingsUrl: FORM,
+    });
+    renderSettings("/settings?userId=7");
+
+    await screen.findByRole("button", { name: "Contact us" });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(getInterviewStatus).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /Sign up for an interview/ })).toBeNull();
+  });
+
   it("서버가 켜면 문의하기 아래에 배지와 함께 보인다", async () => {
     getInterviewStatus.mockResolvedValue({
       cardEligible: false,
@@ -654,5 +676,51 @@ describe("인터뷰 신청하기 행", () => {
     );
     expect(warn.mock.calls.filter(([m]) => String(m).startsWith("[interview]"))).toHaveLength(1);
     warn.mockRestore();
+  });
+});
+
+describe("프로필 저장 완료 토스트", () => {
+  afterEach(() => {
+    sessionStorage.clear();
+    vi.useRealTimers();
+  });
+
+  it("저장 표시가 있으면 탭 바가 돌아온 뒤 토스트를 띄우고, 다시 들어오면 띄우지 않는다", async () => {
+    vi.useFakeTimers();
+    markProfileSaved();
+    const { unmount } = renderAt("/settings");
+
+    // 탭 바가 다시 올라오며 웹뷰 높이가 바뀌는 동안에는 띄우지 않는다.
+    expect(screen.queryByText("프로필이 저장됐어요")).not.toBeInTheDocument();
+
+    // sonner가 우리 타이머 콜백 안에서 자기 타이머를 새로 걸어 한 번 더 비운다.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(450);
+      await vi.runOnlyPendingTimersAsync();
+    });
+    expect(screen.getByText("프로필이 저장됐어요")).toBeInTheDocument();
+
+    unmount();
+    // 토스트 상태는 언마운트로 지워지지 않아, 남겨 두면 다음 마운트가 그대로 다시 그린다.
+    act(() => {
+      toast.dismiss();
+    });
+    renderAt("/settings");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(450);
+      await vi.runOnlyPendingTimersAsync();
+    });
+    expect(screen.queryByText("프로필이 저장됐어요")).not.toBeInTheDocument();
+  });
+
+  it("저장 표시가 없으면 토스트를 띄우지 않는다", async () => {
+    vi.useFakeTimers();
+    renderAt("/settings");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(450);
+      await vi.runOnlyPendingTimersAsync();
+    });
+    expect(screen.queryByText("프로필이 저장됐어요")).not.toBeInTheDocument();
   });
 });

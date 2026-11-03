@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
@@ -7,7 +8,7 @@ import type { IceServer } from "@focusmakers/types";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { groupErrorCopy, isGroupGoneError } from "@/features/group-room/groupErrorCopy";
 import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
-import { joinErrorReason, rejoinFailure } from "@/features/social-room/joinErrorCopy";
+import { joinErrorReason, rejoinFailure } from "@/features/social-room/joinError";
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { trackSocialRoomEntered, trackSocialRoomRejoinFailed } from "@/lib/amplitude";
 import { trackMetaSocialRoomEntered } from "@/lib/metaAppEvents";
@@ -77,6 +78,7 @@ export function LiveRoomEntry({
   // 입장 준비부터 세션 종료까지 룸 전체 수명 동안 화면 회전을 연다
   // — 이 컴포넌트가 세션을 자식으로 렌더하므로 여기가 룸 라우트의 수명과 같다.
   useNativeOrientationUnlock();
+  const { t } = useTranslation("live-room");
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -236,7 +238,7 @@ export function LiveRoomEntry({
               }
               className="min-h-11 rounded-full bg-white/12 px-5 text-sm font-semibold text-white"
             >
-              {room.kind === "group" ? "그룹 홈으로" : "소셜 홈으로"}
+              {room.kind === "group" ? "그룹 홈으로" : t("entry.backToSocial")}
             </button>
           </div>
         )}

@@ -984,6 +984,9 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     m.trackRecordsWeekChanged(-1, "swipe");
     m.trackRecordsPeriodPickerOpened("daily");
     m.trackRecordsPeriodPicked({ view: "weekly", toToday: true });
+    m.trackRecordsRhythmShown({ state: "mine", studyDays: 22 });
+    m.trackRecordsRhythmShown({ state: "sample", reason: "below_threshold", studyDays: 13 });
+    m.trackRecordsRhythmShown({ state: "sample", reason: "error" });
     m.trackPlannerOpened({ via: "records", isToday: false });
     m.trackPlannerDateChanged({ delta: -1, method: "swipe" });
     m.trackSubjectItemAdded("task", false, "social");
@@ -991,6 +994,7 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     m.trackSettingsRowPressed("profile");
     m.trackTimelapseSettingChanged({ setting: "aspect", value: "16:9" });
     m.trackTimelapseSettingChanged({ setting: "face_mask", value: true });
+    m.trackTimelapseSettingChanged({ setting: "face_mask_emoji", value: "cat" });
     m.trackProfileSaveSubmitted({ nickname: true, goal: true, category: false });
     m.trackProfileSaveResult({ ok: false, reason: "CONFLICT" });
     m.trackProfileSaveResult({ ok: true });
@@ -1010,6 +1014,9 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
       ["records_week_changed", { delta: -1, method: "swipe" }],
       ["records_period_picker_opened", { view: "daily" }],
       ["records_period_picked", { view: "weekly", to_today: true }],
+      ["records_rhythm_shown", { state: "mine", study_days: 22 }],
+      ["records_rhythm_shown", { state: "sample", reason: "below_threshold", study_days: 13 }],
+      ["records_rhythm_shown", { state: "sample", reason: "error" }],
       ["planner_opened", { via: "records", is_today: false }],
       ["planner_date_changed", { delta: -1, method: "swipe" }],
       [
@@ -1020,6 +1027,7 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
       ["settings_row_pressed", { row: "profile" }],
       ["timelapse_setting_changed", { setting: "aspect", value: "16:9" }],
       ["timelapse_setting_changed", { setting: "face_mask", value: true }],
+      ["timelapse_setting_changed", { setting: "face_mask_emoji", value: "cat" }],
       [
         "profile_save_submitted",
         { changed_nickname: true, changed_goal: true, changed_category: false },
@@ -1136,7 +1144,13 @@ describe("카메라 확인 창 이벤트", () => {
     const m = await loadModule();
 
     m.trackStudySessionCameraPromptShown("single");
-    m.trackStudySessionCameraPromptAnswered({ choice: "camera", roomType: "single" });
+    m.trackStudySessionFaceMaskToggled({ on: true, roomType: "single" });
+    m.trackStudySessionFaceMaskEmojiSelected({ emojiId: "cat", roomType: "single" });
+    m.trackStudySessionCameraPromptAnswered({
+      choice: "camera",
+      roomType: "single",
+      faceMask: false,
+    });
 
     expect(mocks.track).not.toHaveBeenCalled();
   });
@@ -1147,11 +1161,22 @@ describe("카메라 확인 창 이벤트", () => {
     m.initAmplitude();
 
     m.trackStudySessionCameraPromptShown("single");
-    m.trackStudySessionCameraPromptAnswered({ choice: "simple", roomType: "single" });
+    m.trackStudySessionFaceMaskToggled({ on: true, roomType: "single" });
+    m.trackStudySessionFaceMaskEmojiSelected({ emojiId: "cat", roomType: "single" });
+    m.trackStudySessionCameraPromptAnswered({
+      choice: "simple",
+      roomType: "single",
+      faceMask: true,
+    });
 
     expect(mocks.track.mock.calls).toEqual([
       ["study_session_camera_prompt_shown", { room_type: "single" }],
-      ["study_session_camera_prompt_answered", { choice: "simple", room_type: "single" }],
+      ["study_session_face_mask_toggled", { on: true, room_type: "single" }],
+      ["study_session_face_mask_emoji_selected", { emoji_id: "cat", room_type: "single" }],
+      [
+        "study_session_camera_prompt_answered",
+        { choice: "simple", room_type: "single", face_mask: true },
+      ],
     ]);
   });
 });

@@ -1,5 +1,7 @@
 import type { RankingType, TimeSlot } from "@focusmakers/types";
 
+import { useTranslation } from "react-i18next";
+
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { SegmentedControl } from "@/features/records/SegmentedControl";
@@ -8,18 +10,18 @@ import { cn } from "@/lib/utils";
 import {
   HALL_BOARD_TYPES,
   LIVE_SLOTS,
-  PERIOD_LABEL,
   RANKING_BOARD_TYPES,
-  SLOT_HOURS,
-  SLOT_LABEL,
-  TYPE_LABEL,
   modeOf,
+  periodLabel,
   periodOf,
   periodsOf,
   selectPeriod,
   selectSlot,
   selectType,
+  slotHours,
+  slotLabel,
   slotOf,
+  typeLabel,
   type BoardMode,
   type BoardSelection,
 } from "../model/board";
@@ -80,14 +82,15 @@ export function BoardModeTabs({
   value: BoardMode;
   onChange: (mode: BoardMode) => void;
 }) {
+  const { t } = useTranslation("ranking");
   return (
     <Tabs value={value} onValueChange={(next) => onChange(next as BoardMode)}>
-      <TabsList aria-label="랭킹 종류" className="gap-2 border-b-0">
+      <TabsList aria-label={t("switcher.aria.mode")} className="gap-2 border-b-0">
         <TabsTrigger value="ranking" aria-controls={undefined} className={MODE_TRIGGER_CLASS}>
-          랭킹
+          {t("switcher.modeRanking")}
         </TabsTrigger>
         <TabsTrigger value="hall" aria-controls={undefined} className={MODE_TRIGGER_CLASS}>
-          명예의 전당
+          {t("switcher.modeHall")}
         </TabsTrigger>
       </TabsList>
     </Tabs>
@@ -120,15 +123,17 @@ export function BoardSwitcher({
   const periods = periodsOf(selection.type);
   const period = periodOf(selection);
   const slot = slotOf(selection) ?? resolvedSlot ?? nowSlot;
+  const { t } = useTranslation("ranking");
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      <div className="flex items-center justify-between gap-2">
+      {/* 영어처럼 한 줄에 다 들어가지 않으면 기간 칸이 다음 줄로 내려간다. 들어가면 지금처럼 한 줄이다. */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Tabs
           value={selection.type}
           onValueChange={(next) => onChange(selectType(selection, next as RankingType))}
         >
-          <TabsList aria-label="종목" className="gap-3 border-b-0">
+          <TabsList aria-label={t("switcher.aria.type")} className="gap-3 border-b-0">
             {types.map((value) => (
               <TabsTrigger
                 key={value}
@@ -136,16 +141,16 @@ export function BoardSwitcher({
                 aria-controls={undefined}
                 className={TYPE_TRIGGER_CLASS}
               >
-                {TYPE_LABEL[value]}
+                {typeLabel(value)}
               </TabsTrigger>
             ))}
           </TabsList>
         </Tabs>
         {period !== null && (
           <SegmentedControl
-            ariaLabel="기간"
+            ariaLabel={t("switcher.aria.period")}
             value={period}
-            options={periods.map((value) => ({ value, label: PERIOD_LABEL[value] }))}
+            options={periods.map((value) => ({ value, label: periodLabel(value) }))}
             onChange={(next) => onChange(selectPeriod(selection, next))}
             className="shrink-0 rounded-[11px] p-0.5"
             triggerClassName={PERIOD_TRIGGER_CLASS}
@@ -155,7 +160,7 @@ export function BoardSwitcher({
       {selection.type === "TIME_SLOT" && (
         <ToggleGroup
           type="single"
-          aria-label="시간대 구간"
+          aria-label={t("switcher.aria.slots")}
           value={slot}
           onValueChange={(next) => {
             if (next !== "" && next !== slot) {
@@ -169,10 +174,13 @@ export function BoardSwitcher({
             <ToggleGroupItem
               key={value}
               value={value}
-              aria-label={`${SLOT_LABEL[value]} ${SLOT_HOURS[value]}${value === nowSlot ? ", 지금 구간" : ""}`}
+              aria-label={t(value === nowSlot ? "switcher.aria.slotNow" : "switcher.aria.slot", {
+                slot: slotLabel(value),
+                hours: slotHours(value),
+              })}
               className="h-8 justify-center rounded-md border-0 bg-bg-control-track px-0 text-[13px] leading-3.75 font-semibold text-muted-foreground before:-inset-y-1.5 data-[state=on]:bg-muted data-[state=on]:font-bold data-[state=on]:text-foreground data-[state=on]:shadow-(--shadow-segment-thumb)"
             >
-              {SLOT_LABEL[value]}
+              {slotLabel(value)}
               {/* 앱 아이콘의 알림 배지처럼 칸 오른쪽 위 모서리에 걸친다. */}
               {value === nowSlot && (
                 <span

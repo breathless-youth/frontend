@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
@@ -12,6 +13,7 @@ import { postToNative } from "@/lib/bridge";
 import { copyText } from "@/lib/clipboard";
 import { hasGroupRooms } from "@/lib/groupRoomCapability";
 import { hardNavigate } from "@/lib/hardNavigation";
+import { isKoreanLocale } from "@/lib/i18n";
 import { interviewStatusQuery } from "@/lib/interviewQueries";
 import { slideNavigate } from "@/lib/pageTransition";
 import { showToast } from "@/lib/toast";
@@ -19,6 +21,7 @@ import { useUserId } from "@/lib/userId";
 import { hasAppLockCapability } from "@/features/app-lock/appLockCapability";
 import { formatAppLockRowValue } from "@/features/app-lock/appLockSummary";
 import { useAppLockSettings } from "@/features/app-lock/useAppLockSettings";
+import { consumeProfileSavedNotice } from "@/features/profile/profileSavedNotice";
 import { PermissionToggle } from "@/features/settings/PermissionToggle";
 import { SettingsRow } from "@/features/settings/SettingsRow";
 import { SettingsSection } from "@/features/settings/SettingsSection";
@@ -29,6 +32,9 @@ import { afterApplied } from "@/features/interview/interviewGate";
 import { updateInterviewState } from "@/features/interview/interviewStore";
 import { detectStorePlatform } from "@/features/social-room/storeLink";
 import { prefetchBlockListPage, prefetchSettingsSubPages } from "@/routes/lazyRoutes";
+
+/** 탭 바가 다시 올라오는 애니메이션이 끝나기를 기다리는 시간(ms) */
+const PROFILE_SAVED_TOAST_DELAY_MS = 450;
 
 /**
  * 설정
@@ -46,25 +52,46 @@ import { prefetchBlockListPage, prefetchSettingsSubPages } from "@/routes/lazyRo
  *    둘 중 하나만으로는 사용자가 무엇을 쓰고 있는지 알 수 없다.
  */
 export function SettingsPage() {
+  const { t } = useTranslation("settings");
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
   const granted = useCameraPermission();
   const appLock = useAppLockSettings();
   const userId = useUserId();
-  const interview = useQuery({ ...interviewStatusQuery(userId ?? 0), enabled: userId !== null });
+  // 보상이 국내 기프티콘이라 영어 화면에서는 상태를 묻지 않아 행이 생기지 않는다.
+  const interview = useQuery({
+    ...interviewStatusQuery(userId ?? 0),
+    enabled: userId !== null && isKoreanLocale(),
+  });
   // 다시 받기가 실패해도 쿼리는 예전 data를 들고 있다. 서버가 막 끈 행을 계속 보이지 않게 실패면 숨긴다.
   const interviewFormUrl =
     !interview.isError && interview.data?.settingsEnabled ? interview.data.settingsUrl : null;
   const interviewError = interview.error;
   useEffect(() => {
     if (interviewError !== null) {
-      console.warn("[interview] 상태를 불러오지 못해 신청 행을 숨긴다", interviewError);
+      console.warn("[interview] failed to load status, hiding the apply row", interviewError);
     }
   }, [interviewError]);
 
   // 그룹 공부방을 여는 앱에서만 차단 목록 줄을 둔다.
   const showsBlockList = hasGroupRooms();
+
+  // 프로필 저장 뒤 돌아왔을 때의 토스트다.
+  // 표시는 한 번만 읽히므로 결과를 ref에 고정해, StrictMode가 이펙트를 두 번 돌려도 두 번째 읽기가 false로 덮지 않게 한다.
+  // 프로필 화면은 탭 바를 숨겨서 돌아오는 순간 탭 바가 다시 올라오며 웹뷰 높이가 바뀐다.
+  // 그동안 하단 토스트가 따라 움직이므로 탭 바가 다 올라온 뒤에 띄운다.
+  const profileSavedRef = useRef<boolean | null>(null);
+  profileSavedRef.current ??= consumeProfileSavedNotice();
+  useEffect(() => {
+    if (!profileSavedRef.current) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      showToast(t("saved", { ns: "profile" }));
+    }, PROFILE_SAVED_TOAST_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [t]);
 
   // 하위 화면 청크를 미리 받아 첫 진입 때 전환이 청크를 기다리지 않게 한다.
   useEffect(() => {
@@ -84,7 +111,7 @@ export function SettingsPage() {
     // clipboard 는 비보안 컨텍스트·구형 웹뷰에서 없거나 거부될 수 있다. copyText 가 그 경우
     // false 를 주므로 성공·실패를 갈라 안내한다.
     const copied = await copyText(versionLabel);
-    showToast(copied ? "버전을 복사했어요" : "복사하지 못했어요");
+    showToast(copied ? t("version.copied") : t("version.copyFailed"));
   };
 
   return (
@@ -97,11 +124,11 @@ export function SettingsPage() {
       className="theme-soft-blue bg-soft-blue page-column min-h-dvh pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
     >
       <div className="px-5">
-        <h1 className="text-2xl leading-7.25 font-bold text-foreground">설정</h1>
+        <h1 className="text-2xl leading-7.25 font-bold text-foreground">{t("title")}</h1>
 
-        <SettingsSection className="mt-5.75" label="프로필">
+        <SettingsSection className="mt-5.75" label={t("sections.profile")}>
           <SettingsRow
-            label="프로필 수정"
+            label={t("rows.editProfile")}
             trailing={{ kind: "chevron" }}
             onPress={() => {
               trackSettingsRowPressed("profile");
@@ -112,7 +139,7 @@ export function SettingsPage() {
           />
         </SettingsSection>
 
-        <SettingsSection className="mt-5" label="서비스">
+        <SettingsSection className="mt-5" label={t("sections.service")}>
           {/*
             카메라 권한 행은 SettingsRow 없이 직접 조립한다.
             라벨 버튼은 OS 설정을 열고 ⓘ 툴팁도 따로 버튼이라 행 전체를 <button>으로 감싸면 버튼이 중첩된다.
@@ -120,9 +147,11 @@ export function SettingsPage() {
           */}
           <div className="flex min-h-11 flex-row items-center justify-between gap-3 py-3.5">
             <div className="flex min-w-0 items-center gap-1.5">
-              <span className="text-foreground text-base leading-4.75">카메라 권한</span>
-              <InfoTooltip label="카메라 권한 안내">
-                권한은 시스템 설정에서 바꿀 수 있어요
+              <span className="text-foreground text-base leading-4.75">
+                {t("rows.cameraPermission")}
+              </span>
+              <InfoTooltip label={t("cameraPermission.aria.tooltip")}>
+                {t("cameraPermission.tooltip")}
               </InfoTooltip>
             </div>
             {/* 상태를 모르는 동안(브라우저 단독 모드·조회 실패)은 토글을 비운다. */}
@@ -142,7 +171,7 @@ export function SettingsPage() {
             )}
           </div>
           <SettingsRow
-            label="타임랩스"
+            label={t("rows.timelapse")}
             trailing={{ kind: "chevron" }}
             onPress={() => {
               trackSettingsRowPressed("timelapse");
@@ -154,7 +183,7 @@ export function SettingsPage() {
           {/* 스크린타임 모듈이 없는 앱과 브라우저에서는 잠글 수단이 없어 숨긴다. */}
           {hasAppLockCapability() && (
             <SettingsRow
-              label="방해 앱 잠금"
+              label={t("rows.appLock")}
               trailing={{
                 kind: "valueChevron",
                 value: formatAppLockRowValue(
@@ -185,14 +214,14 @@ export function SettingsPage() {
           )}
         </SettingsSection>
 
-        <SettingsSection className="mt-5" label="지원">
+        <SettingsSection className="mt-5" label={t("sections.support")}>
           {/*
             문의 폼은 앱 안에서 iframe으로 띄운다.
             외부 브라우저로 나가지 않으므로 앱 내 이동을 뜻하는 chevron을 쓴다.
             약관·방침과 달리 텍스트로 옮길 수 없다: 응답을 제출해야 하는 인터랙티브 폼이다.
           */}
           <SettingsRow
-            label="문의하기"
+            label={t("rows.contact")}
             trailing={{ kind: "chevron" }}
             onPress={() => {
               // SPA `navigate()`가 아니라 문서 단위 이동인 `hardNavigate`를 써야 한다.
@@ -204,8 +233,8 @@ export function SettingsPage() {
           />
           {interviewFormUrl !== null && (
             <SettingsRow
-              label="인터뷰 신청하기"
-              badge="기프티콘 증정"
+              label={t("rows.interview")}
+              badge={t("rows.interviewBadge")}
               trailing={{ kind: "chevron" }}
               onPress={() => {
                 trackSettingsRowPressed("interview");
@@ -218,14 +247,14 @@ export function SettingsPage() {
           )}
         </SettingsSection>
 
-        <SettingsSection className="mt-6" label="약관 · 정보">
+        <SettingsSection className="mt-6" label={t("sections.legal")}>
           {/*
             이용약관·개인정보처리방침은 앱 안에서 직접 보여준다.
             웹에도 같은 문서가 있지만 외부 브라우저로 내보내지 않는다.
             본문은 `features/settings/legalDocuments.ts`가 소유하고 이 화면은 라우트만 안다.
           */}
           <SettingsRow
-            label="이용약관"
+            label={t("rows.terms")}
             trailing={{ kind: "chevron" }}
             onPress={() => {
               trackSettingsRowPressed("terms");
@@ -233,7 +262,7 @@ export function SettingsPage() {
             }}
           />
           <SettingsRow
-            label="개인정보처리방침"
+            label={t("rows.privacy")}
             trailing={{ kind: "chevron" }}
             onPress={() => {
               trackSettingsRowPressed("privacy");
@@ -241,7 +270,7 @@ export function SettingsPage() {
             }}
           />
           <SettingsRow
-            label="오픈소스 라이선스"
+            label={t("rows.licenses")}
             trailing={{ kind: "chevron" }}
             onPress={() => {
               trackSettingsRowPressed("licenses");
@@ -249,7 +278,7 @@ export function SettingsPage() {
             }}
           />
           <SettingsRow
-            label="버전 정보"
+            label={t("rows.version")}
             trailing={{ kind: "copy", value: versionLabel, onCopy: handleCopyVersion }}
           />
         </SettingsSection>

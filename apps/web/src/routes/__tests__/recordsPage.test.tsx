@@ -25,7 +25,7 @@ import {
   monthOfDateKey,
   shiftMonth,
 } from "@/features/records/recordsFormat";
-import { getPeriodStats, listStudySessionStats } from "@/lib/statsApi";
+import { getPeriodStats, getStudyRhythm, listStudySessionStats } from "@/lib/statsApi";
 import {
   trackRecordsMonthChanged,
   trackRecordsPeriodPicked,
@@ -55,6 +55,7 @@ if (typeof window.PointerEvent === "undefined") {
 vi.mock("@/lib/statsApi", () => ({
   listStudySessionStats: vi.fn(),
   getPeriodStats: vi.fn(),
+  getStudyRhythm: vi.fn(),
 }));
 vi.mock("@/lib/amplitude", () => ({
   trackRecordsDateSelected: vi.fn(),
@@ -62,6 +63,7 @@ vi.mock("@/lib/amplitude", () => ({
   trackRecordsSessionExpanded: vi.fn(),
   trackRecordsViewChanged: vi.fn(),
   trackRecordsWeekChanged: vi.fn(),
+  trackRecordsRhythmShown: vi.fn(),
   trackRecordsPeriodPickerOpened: vi.fn(),
   trackRecordsPeriodPicked: vi.fn(),
   trackErrorRetryPressed: vi.fn(),
@@ -74,6 +76,7 @@ vi.mock("@/lib/userId", async (importOriginal) => ({
 
 const mockedStats = vi.mocked(listStudySessionStats);
 const mockedPeriod = vi.mocked(getPeriodStats);
+const mockedRhythm = vi.mocked(getStudyRhythm);
 const mockedTrackMonthChanged = vi.mocked(trackRecordsMonthChanged);
 const mockedTrackSessionExpanded = vi.mocked(trackRecordsSessionExpanded);
 
@@ -173,6 +176,11 @@ describe("RecordsPage", () => {
     vi.clearAllMocks();
     tokenMock.has = false;
     mockedPeriod.mockResolvedValue(periodResponse());
+    // 리듬은 14일 전(샘플 카드)을 기본으로 둔다 — 주간 탭 테스트가 카드 순서만 보기 때문.
+    mockedRhythm.mockResolvedValue({
+      studyDays: 0,
+      focusSecByWeekdayHour: Array.from({ length: 7 }, () => Array<number>(24).fill(0)),
+    });
   });
 
   it("세션 행을 누르면 그 자리에서 펼쳐지고 다시 누르면 접힌다", async () => {
@@ -402,6 +410,28 @@ describe("RecordsPage", () => {
       expect(await screen.findByText("오늘 순공시간")).toBeInTheDocument();
       expect(screen.getByTestId("location")).toHaveTextContent(/^\/records\?userId=7&guestAuth=1$/);
       expect(screen.getByTestId("location")).toHaveAttribute("data-navigation", "REPLACE");
+    });
+
+    it("주소에 view=weekly가 있으면 주간으로 열고, 탭을 바꾸면 셸 쿼리는 남긴 채 view만 지운다", async () => {
+      renderRecords("/records?userId=7&guestAuth=1&view=weekly");
+
+      expect(await screen.findByRole("tab", { name: "주간", selected: true })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: "나의 공부 리듬" })).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("tab", { name: "일간" }));
+
+      await waitFor(() =>
+        expect(screen.getByTestId("location")).toHaveTextContent("/records?userId=7&guestAuth=1"),
+      );
+      expect(screen.getByTestId("location")).not.toHaveTextContent("view=");
+      expect(screen.getByTestId("location")).toHaveAttribute("data-navigation", "REPLACE");
+    });
+
+    it("기기 등록 전이면 view=weekly여도 일간으로 둔다", () => {
+      renderRecords("/records?view=weekly");
+
+      expect(screen.getByRole("tab", { name: "일간", selected: true })).toBeInTheDocument();
+      expect(screen.getByText(/기기 등록 전/)).toBeInTheDocument();
     });
 
     it("달력에 없거나 미래인 날짜는 오늘로 연다", async () => {

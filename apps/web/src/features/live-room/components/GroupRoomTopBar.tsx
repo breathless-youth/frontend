@@ -1,10 +1,10 @@
 import { ChevronRight, SwitchCamera, Volume2, VolumeOff } from "lucide-react";
 import type { PointerEvent as ReactPointerEvent } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/components/ui/badge";
 import { SubjectColorDot } from "@/features/study-session/components/SubjectColorDot";
 import { formatElapsed, toKoreanDuration } from "@/features/study-session/formatDuration";
-import { SUBJECT_SHEET_COPY } from "@/features/study-session/sessionCopy";
 import { cn } from "@/lib/utils";
 
 // 영상 위에 바탕 없이 놓이는 글자와 아이콘이라 그림자로 띄운다.
@@ -58,6 +58,7 @@ export function GroupRoomTopBar({
   onToggleOthersMuted: () => void;
   onFlipCamera: () => void;
 }) {
+  const { t } = useTranslation(["live-room", "study-session"]);
   const fadable = cn(
     "transition-opacity duration-300 motion-reduce:transition-none",
     hidden && "opacity-0",
@@ -81,11 +82,11 @@ export function GroupRoomTopBar({
           )}
         >
           {subject === null ? (
-            <span>{SUBJECT_SHEET_COPY.title}</span>
+            <span>{t("study-session:subjectSheet.title")}</span>
           ) : (
             <>
               <SubjectColorDot colorIndex={subject.colorIndex} />
-              <span className="sr-only">{SUBJECT_SHEET_COPY.title} </span>
+              <span className="sr-only">{t("study-session:subjectSheet.title")} </span>
               <span className="truncate">{subject.name}</span>
             </>
           )}

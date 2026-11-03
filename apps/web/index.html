@@ -5,12 +5,22 @@
     <!-- Android WebView는 시스템 다크를 prefers-color-scheme에 전달하지 않아 미디어쿼리가
          항상 light로 평가된다. 셸이 URL 파라미터로 넘긴 값을 첫 페인트 전에 붙여야
          라이트 화면이 한 프레임 보이는 번쩍임이 없다. -->
+    <!-- 언어도 같은 이유로 첫 페인트 전에 붙인다. 규칙은 src/lib/locale.ts의 resolveLocale과 같다. -->
     <script>
       (function () {
-        var theme = new URLSearchParams(location.search).get("theme");
+        var params = new URLSearchParams(location.search);
+        var theme = params.get("theme");
         if (theme === "dark" || theme === "light") {
           document.documentElement.dataset.theme = theme;
         }
+        var stored = null;
+        try {
+          stored = sessionStorage.getItem("fm.locale");
+        } catch (e) {}
+        var tag =
+          params.get("lang") ||
+          (stored === "ko" || stored === "en" ? stored : navigator.language || "");
+        document.documentElement.lang = tag.toLowerCase().indexOf("ko") === 0 ? "ko" : "en";
       })();
     </script>
     <meta name="color-scheme" content="light dark" />

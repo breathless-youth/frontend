@@ -50,7 +50,11 @@ describe("createTimelapseRecorder", () => {
     rec.begin(T0);
     await rec.idle();
 
-    expect(rec.photoTap.due()).toEqual({ aspect: "16:9", mask: true });
+    expect(rec.photoTap.due()).toEqual({
+      aspect: "16:9",
+      mask: true,
+      emojiUrl: "/face-mask/dog.png",
+    });
     rec.photoTap.save(PHOTO);
     nowMs += 9_999;
     expect(rec.photoTap.due()).toBeNull();
@@ -90,11 +94,34 @@ describe("createTimelapseRecorder", () => {
     const rec = recorder({ ...DEFAULT_TIMELAPSE_SETTINGS, enabled: false });
     rec.begin(T0);
     await rec.idle();
-    expect(rec.photoTap.due()).toEqual({ aspect: "16:9", mask: true });
+    expect(rec.photoTap.due()).toEqual({
+      aspect: "16:9",
+      mask: true,
+      emojiUrl: "/face-mask/dog.png",
+    });
     rec.photoTap.save(PHOTO);
     await rec.idle();
 
     expect(await store.photoSeqs(T0)).toEqual([0, 1]);
+  });
+
+  it("세션 시작 때 고른 가림 이모지의 주소를 싣는다", async () => {
+    const rec = recorder({ ...MASKED, faceMaskEmoji: "tiger" });
+    rec.begin(T0);
+    await rec.idle();
+
+    expect(rec.photoTap.due()?.emojiUrl).toBe("/face-mask/tiger.png");
+  });
+
+  it("이모지 필드가 생기기 전의 기록을 이어받으면 첫 번째 이모지를 쓴다", async () => {
+    const { faceMaskEmoji: _dropped, ...legacy } = MASKED;
+    await store.begin(T0, legacy as TimelapseSettings);
+
+    const rec = recorder({ ...MASKED, faceMaskEmoji: "cat" });
+    rec.begin(T0);
+    await rec.idle();
+
+    expect(rec.photoTap.due()?.emojiUrl).toBe("/face-mask/dog.png");
   });
 
   it("저장소가 늘린 간격을 다음 차례에 쓴다", async () => {
@@ -208,12 +235,12 @@ describe("createTimelapseRecorder 저장소 실패", () => {
     rec.begin(T0);
     await rec.idle();
 
-    rec.photoTap.fail(new Error("스티커 응답 404"));
+    rec.photoTap.fail(new Error("이모지 응답 404"));
     rec.photoTap.fail("convertToBlob 실패");
 
     expect(reportHandled).toHaveBeenCalledTimes(1);
     expect(reportHandled).toHaveBeenCalledWith(
-      expect.objectContaining({ message: "스티커 응답 404" }),
+      expect.objectContaining({ message: "이모지 응답 404" }),
       "timelapse-photo",
     );
   });

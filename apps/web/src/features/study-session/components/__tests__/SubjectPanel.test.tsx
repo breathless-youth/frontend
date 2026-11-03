@@ -2,12 +2,15 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import type { RenderOptions } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { SubjectResponse } from "@focusmakers/types";
 
+import i18n from "@/lib/i18n";
+
 import type { SubjectsStore } from "../../useSubjects";
 import { SessionPage } from "../SessionPage";
+import { SessionPageHeaderTime } from "../SessionTimer";
 import { SubjectPanel } from "../SubjectPanel";
 import type { SubjectPanelProps } from "../SubjectPanel";
 
@@ -78,8 +81,9 @@ function renderPanel(overrides: Partial<SubjectPanelProps> = {}, options: Render
  * 열린 과목 페이지 래퍼
  *
  * 아래 줄의 알림 자리는 페이지가 열린 동안에만 생긴다.
+ * 제목은 렌더할 때 카탈로그에서 읽어 언어를 바꾼 테스트에서도 화면과 같은 제목이 된다.
  */
-function openPage(landscape: boolean) {
+function openPage(landscape: boolean, headerExtras?: ReactNode) {
   return function Page({ children }: { children: ReactNode }) {
     return (
       <SessionPage
@@ -87,7 +91,8 @@ function openPage(landscape: boolean) {
         onOpenChange={vi.fn()}
         container={null}
         returnFocus={() => null}
-        title="과목"
+        title={i18n.t("study-session:subjectSheet.title")}
+        headerExtras={headerExtras}
         landscape={landscape}
       >
         {children}
@@ -422,5 +427,43 @@ describe("SubjectPanel 시안 맞춤", () => {
     await userEvent.click(screen.getAllByRole("button", { name: /할 일 추가/ })[0]!);
     // secondary 여부는 Button variant 클래스로만 드러나서 이 테스트에 한해 variant 클래스를 본다.
     expect(screen.getByRole("button", { name: "완료" })).toHaveClass("bg-bg-layer-2");
+  });
+});
+
+describe("과목 페이지 영어 화면", () => {
+  afterEach(async () => {
+    await i18n.changeLanguage("ko");
+  });
+
+  /** 화면 글자와 aria-label을 함께 모은다. 스크린리더가 읽는 이름도 영어여야 한다. */
+  function visibleText(container: HTMLElement): string {
+    const labels = [...container.querySelectorAll("[aria-label]")].map((el) =>
+      el.getAttribute("aria-label"),
+    );
+    return [container.textContent, ...labels].join("\n");
+  }
+
+  it.each([
+    { label: "세로", landscape: false },
+    { label: "가로", landscape: true },
+  ])("영어로 바꾸면 머리 시간과 과목 목록에 한글이 남지 않는다 ($label)", async ({ landscape }) => {
+    await i18n.changeLanguage("en");
+    renderPanel(
+      {
+        landscape,
+        selection: MATH.id,
+        // 과목과 할 일 이름은 사용자가 쓴 값이라 번역하지 않으므로 영어 이름을 둔다.
+        store: makeStore([
+          { ...MATH, name: "Math", tasks: [{ id: 31, name: "Chapter 3 problems", doneAt: null }] },
+          { ...ENGLISH, name: "English", tasks: [{ id: 41, name: "50 words", doneAt: null }] },
+        ]),
+      },
+      { wrapper: openPage(landscape, <SessionPageHeaderTime focusSec={2538} />) },
+    );
+    const page = screen.getByRole("dialog", { name: "Subject" });
+    expect(within(page).getByText(/^Focus time /)).toHaveTextContent(
+      "Focus time 42 minutes 18 seconds",
+    );
+    expect(visibleText(page)).not.toMatch(/[가-힣]/);
   });
 });

@@ -818,7 +818,7 @@ export function createPeerMesh({
         }
       }
       // 동시 입장 레이스 진단용 — 스냅샷을 받았는지, offer 루프가 돌았는지를 기기에서 본다.
-      debug(`snap ${message.members.length}명 offer ${started}발`);
+      debug(`snapshot ${message.members.length} members, ${started} offers`);
       return;
     }
     if (message.type === "MEMBER_JOINED") {
@@ -900,7 +900,7 @@ export function createPeerMesh({
       }
     },
     resetConnections() {
-      debug(`reset ${peers.size}연결`);
+      debug(`reset ${peers.size} peers`);
       for (const userId of [...peers.keys()]) {
         closePeer(userId);
       }

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Pause, Play, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { SegmentedControl } from "@/features/records/SegmentedControl";
@@ -14,10 +15,7 @@ import { cn } from "@/lib/utils";
 import type { ModeKind } from "../multiTimerMachine";
 import type { ModePrimaryLabel } from "../useMultiTimer";
 
-const KIND_OPTIONS = [
-  { value: "timer", label: "기본" },
-  { value: "pomodoro", label: "뽀모도로" },
-] as const;
+const KIND_OPTIONS = ["timer", "pomodoro"] as const;
 
 export interface MultiTimerScreenProps {
   open: boolean;
@@ -66,7 +64,8 @@ export function MultiTimerScreen({
   onRestart,
   children,
 }: MultiTimerScreenProps) {
-  const running = primaryLabel === "일시정지";
+  const { t } = useTranslation("multi-timer");
+  const running = primaryLabel === t("primary.pause");
   return (
     <Sheet
       open={open}
@@ -95,24 +94,25 @@ export function MultiTimerScreen({
             가운데 다이얼이 머리 줄 높이까지 올라오므로 빈 곳의 터치는 아래로 흘려보낸다. */}
         <div className="shrink-0 px-5 pt-[calc(env(safe-area-inset-top)+6px)] landscape-compact:pointer-events-none landscape-compact:absolute landscape-compact:inset-x-0 landscape-compact:top-0 landscape-compact:z-10 landscape-compact:pr-[calc(env(safe-area-inset-right)+16px)] landscape-compact:pl-[calc(env(safe-area-inset-left)+16px)]">
           {/* 토글이 지금 모드를 보여 주어 제목은 화면 낭독기에만 남긴다. */}
-          <SheetTitle className="sr-only">타이머</SheetTitle>
+          <SheetTitle className="sr-only">{t("screen.title")}</SheetTitle>
           <div className="flex min-h-11 items-center justify-between">
             {/* 아래 처음부터 버튼과 헷갈리지 않게 배경음·과목 페이지와 같은 뒤로 가기 모양을 쓴다.
                 자리도 그 페이지들의 버튼과 맞춘다. */}
             <SessionPageBackButton
-              label="타이머 끄기"
+              label={t("screen.close")}
               className="pointer-events-auto -ml-4 landscape-compact:ml-1"
             />
             {/* 시트 안 컨트롤은 앱 부품으로 등록하지 않아 웹으로만 그린다.
                 세션 화면에는 트랙 색이 없어서 다크 카드 면과 한 단 밝은 면으로 트랙과 고른 칸을 나눈다.
                 폭을 고정해 좁은 폰에서도 왼쪽 끄기 버튼과 겹치지 않고, 옆 구역이 좁은 폰 가로에서는 한 단계 줄인다. */}
             <SegmentedControl
-              ariaLabel="타이머 종류"
+              ariaLabel={t("screen.kindLabel")}
               value={kind}
               // 진행 중에도 지금 모드는 또렷이 보이도록 다른 칸만 막는다.
-              options={KIND_OPTIONS.map((option) => ({
-                ...option,
-                disabled: kindLocked && option.value !== kind,
+              options={KIND_OPTIONS.map((value) => ({
+                value,
+                label: t(`screen.kind.${value}`),
+                disabled: kindLocked && value !== kind,
               }))}
               onChange={onSwitchKind}
               nativeControlId={null}
@@ -166,7 +166,7 @@ export function MultiTimerScreen({
             </div>
             <div className="landscape-compact:relative landscape-compact:z-10 landscape-compact:col-start-2 landscape-compact:row-start-2 landscape-compact:translate-x-15 landscape-compact:self-end landscape-compact:justify-self-end">
               <ControlButton
-                label="처음부터"
+                label={t("screen.restart")}
                 icon={<X aria-hidden="true" className={CONTROL_ICON_SIZE} />}
                 onClick={onRestart}
                 disabled={restartDisabled}

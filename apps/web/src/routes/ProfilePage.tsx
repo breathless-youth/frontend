@@ -1,6 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Controller, useForm, useWatch } from "react-hook-form";
+import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 
 import type { ProfileResponse, ProfileUpdateRequest } from "@focusmakers/types";
 
@@ -15,9 +17,10 @@ import { CtaToaster } from "@/components/ui/sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { categoryChips } from "@/features/profile/categoryChips";
 import { ProfilePhotoButton } from "@/features/profile/ProfilePhotoButton";
+import { markProfileSaved } from "@/features/profile/profileSavedNotice";
 import { makeProfileSchema, type ProfileFormValues } from "@/features/profile/profileSchema";
 import {
-  NICKNAME_RULE_MESSAGE,
+  nicknameRuleMessage,
   normalizeGoal,
   normalizeNickname,
 } from "@/features/profile/profileValidation";
@@ -25,9 +28,9 @@ import { trackProfileSaveResult, trackProfileSaveSubmitted } from "@/lib/amplitu
 import { ApiError } from "@/lib/api";
 import { postToNative } from "@/lib/bridge";
 import { canSegmentGraphemes, countGraphemes, firstGrapheme } from "@/lib/graphemes";
+import { slideBack } from "@/lib/pageTransition";
 import { updateProfile } from "@/lib/profileApi";
 import { profileKeys, profileQuery } from "@/lib/profileQueries";
-import { showCtaToast } from "@/lib/toast";
 import { useUserId } from "@/lib/userId";
 
 const LABEL_CLASS = "text-[13px] font-medium text-muted-foreground";
@@ -38,6 +41,7 @@ const LABEL_CLASS = "text-[13px] font-medium text-muted-foreground";
  * 진입은 설정 > 프로필 설정이 유일하다 — 최초 가입 유도·룸 진입 시 확인이 없다(명세).
  */
 export function ProfilePage() {
+  const { t } = useTranslation("profile");
   const userId = useUserId();
   const query = useQuery({ ...profileQuery(userId ?? 0), enabled: userId !== null });
 
@@ -46,11 +50,11 @@ export function ProfilePage() {
   if (userId === null || (query.isError && !query.data)) {
     return (
       <main className="theme-soft-blue bg-soft-blue page-column min-h-dvh text-foreground">
-        <ScreenBackHeader title="프로필 수정" />
+        <ScreenBackHeader title={t("title")} />
         <div className="px-5 pt-4" data-testid="profile-error">
           <ErrorState
             screen="profile"
-            message="프로필을 불러오지 못했어요"
+            message={t("loadError")}
             onRetry={() => {
               void query.refetch();
             }}
@@ -63,7 +67,7 @@ export function ProfilePage() {
   if (!query.data) {
     return (
       <main className="theme-soft-blue bg-soft-blue page-column min-h-dvh text-foreground">
-        <ScreenBackHeader title="프로필 수정" />
+        <ScreenBackHeader title={t("title")} />
         <div className="flex flex-col gap-4 px-5 pt-4">
           <Skeleton className="h-7 w-28" />
           <Skeleton className="mx-auto size-18 rounded-full" />
@@ -103,7 +107,9 @@ function buildPatch(values: ProfileFormValues, profile: ProfileResponse): Profil
 // 서버 프로필이 도착하면 폼을 그 값으로 시작한다. 재조회로 참조가 바뀌어도 사용자가 편집 중인
 // 값을 덮지 않도록 최초 1회만 반영한다.
 function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: number }) {
+  const { t } = useTranslation("profile");
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const schema = makeProfileSchema(profile);
   const { control, handleSubmit, setError, trigger, formState } = useForm<ProfileFormValues>({
@@ -136,11 +142,6 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
         atMs: Date.now(),
       });
       trackProfileSaveResult({ ok: true });
-      showCtaToast("프로필이 저장됐어요");
-      // 키보드가 떠 있으면 저장 버튼 위 토스트를 가린다.
-      if (document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur();
-      }
     },
     onError: (error) => {
       trackProfileSaveResult({
@@ -153,14 +154,14 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
       // 필드가 틀렸는지 알려주지 않는다. 프로필 저장의 400은 목표·카테고리를 저장 전에
       // 클라이언트가 이미 막으므로(validateGoal 등) 서버까지 도달하는 400은 닉네임뿐이다.
       if (error instanceof ApiError && error.status === 409) {
-        setError("nickname", { message: "이미 사용 중인 닉네임이에요" });
+        setError("nickname", { message: t("errors.nicknameTaken") });
         return;
       }
       if (error instanceof ApiError && error.status === 400) {
-        setError("nickname", { message: NICKNAME_RULE_MESSAGE });
+        setError("nickname", { message: nicknameRuleMessage() });
         return;
       }
-      setError("root", { message: "잠시 후 다시 시도해 주세요" });
+      setError("root", { message: t("errors.retryLater", { ns: "common" }) });
     },
   });
 
@@ -181,7 +182,15 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
       goal: patch.goal !== undefined,
       category: patch.category !== undefined,
     });
-    saveMutation.mutate(patch);
+    // 이동은 호출 단위 콜백에 둔다.
+    // 옵션의 onSuccess는 응답 전에 뒤로 가기로 화면을 떠나도 실행돼, 이미 돌아간 설정 화면을 한 번 더 뒤로 보낸다.
+    saveMutation.mutate(patch, {
+      onSuccess: () => {
+        // 토스트는 돌아간 설정 화면이 띄운다. 이 화면의 토스트는 화면을 떠나며 함께 사라진다.
+        markProfileSaved();
+        slideBack(navigate);
+      },
+    });
   };
 
   return (
@@ -189,7 +198,7 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
       data-testid="profile-page"
       className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground"
     >
-      <ScreenBackHeader title="프로필 수정" />
+      <ScreenBackHeader title={t("title")} />
 
       <form noValidate onSubmit={handleSubmit(onValid)} className="flex flex-1 flex-col">
         <div className="flex flex-col gap-4.5 px-5 pt-2 pb-6">
@@ -214,7 +223,7 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
             render={({ field, fieldState }) => (
               <Field className="gap-2">
                 <FieldLabel htmlFor="profile-nickname" className={LABEL_CLASS}>
-                  닉네임
+                  {t("fields.nickname")}
                 </FieldLabel>
                 <Input
                   {...field}
@@ -251,7 +260,7 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
             render={({ field, fieldState }) => (
               <Field className="gap-2">
                 <FieldLabel htmlFor="profile-goal" className={LABEL_CLASS}>
-                  목표 문구
+                  {t("fields.goal")}
                 </FieldLabel>
                 <Input
                   {...field}
@@ -282,14 +291,14 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
           />
 
           <div className="flex flex-col gap-2">
-            <p className={LABEL_CLASS}>목표 카테고리</p>
+            <p className={LABEL_CLASS}>{t("fields.category")}</p>
             <Controller
               name="category"
               control={control}
               render={({ field }) => (
                 <ToggleGroup
                   type="single"
-                  aria-label="목표 카테고리"
+                  aria-label={t("fields.category")}
                   // Radix single 은 선택 값을 다시 누르면 빈 문자열을 준다
                   // — 카테고리는 선택 항목이라 빈 문자열을 null 로 되돌린다.
                   value={field.value ?? ""}
@@ -297,7 +306,7 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
                 >
                   {categoryChips().map((chip) => (
                     <ToggleGroupItem key={chip.value} value={chip.value}>
-                      {chip.label}
+                      {t(`categories.${chip.value}`)}
                     </ToggleGroupItem>
                   ))}
                 </ToggleGroup>
@@ -316,7 +325,7 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
             className="w-full"
             disabled={!isDirty || nicknameOver || goalOver || saveMutation.isPending}
           >
-            {saveMutation.isPending ? "저장 중..." : "저장하기"}
+            {saveMutation.isPending ? t("save.pending") : t("save.idle")}
           </Button>
         </div>
       </form>

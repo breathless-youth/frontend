@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
@@ -13,7 +14,7 @@ import { CODE_CELL_CLASS } from "@/features/social-room/codeCell";
 import { InviteCodeInput } from "@/features/social-room/InviteCodeInput";
 import { isCompleteInviteCode, sanitizeInviteCode } from "@/features/social-room/inviteCode";
 import { parseInviteParam } from "@/features/social-room/inviteParam";
-import { joinErrorMessage, joinErrorReason } from "@/features/social-room/joinErrorCopy";
+import { joinErrorMessage, joinErrorReason } from "@/features/social-room/joinError";
 import { detectStorePlatform } from "@/features/social-room/storeLink";
 import {
   trackInviteLinkOpened,
@@ -28,9 +29,6 @@ import { useUserId } from "@/lib/userId";
 
 const ERROR_ID = "invite-code-error";
 
-// 들어온 버튼 이름과 같게 하고 앱 밖 안내 화면에도 같은 제목을 쓴다.
-const SCREEN_TITLE = "초대코드로 참여";
-
 // 그룹의 6자리 코드는 4자리 칸으로 그리면 폰 폭을 넘어서 6자리 입력 화면과 같은 칸으로 그린다.
 const LINK_CODE_CELLS = {
   room: { row: "flex justify-center gap-2.5", cell: CODE_CELL_CLASS },
@@ -41,6 +39,9 @@ const LINK_CODE_CELLS = {
  * 초대코드 입력
  */
 export function InviteCodeJoinPage() {
+  const { t } = useTranslation("social-room");
+  // 들어온 버튼 이름과 같은 키를 쓰고 앱 밖 안내 화면에도 같은 제목을 쓴다.
+  const screenTitle = t("join.title");
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -130,16 +131,16 @@ export function InviteCodeJoinPage() {
         data-testid="invite-code-join-page"
         className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground"
       >
-        <ScreenBackHeader title={SCREEN_TITLE} onBack={goBack} />
+        <ScreenBackHeader title={screenTitle} onBack={goBack} />
 
         <div className="flex grow flex-col items-center justify-center gap-2 px-5">
-          <h2 className="text-lg font-bold text-foreground">그룹 스터디에 초대받았어요</h2>
+          <h2 className="text-lg font-bold text-foreground">{t("join.invited")}</h2>
           {linkInvite !== null && (
             <>
               <div className="size-2" aria-hidden="true" />
               <div
                 role="group"
-                aria-label={`초대코드 ${linkInvite.code}`}
+                aria-label={t("codeCells.aria.label", { code: linkInvite.code })}
                 className={LINK_CODE_CELLS[linkInvite.kind].row}
               >
                 {linkInvite.code.split("").map((character, index) => (
@@ -155,9 +156,7 @@ export function InviteCodeJoinPage() {
             </>
           )}
           <p className="text-sm leading-5 text-muted-foreground">
-            {handoffCode !== ""
-              ? "앱에서 이 코드로 참여할 수 있어요"
-              : "앱에서 초대코드를 입력해 참여할 수 있어요"}
+            {handoffCode !== "" ? t("join.inAppWithCode") : t("join.inAppNoCode")}
           </p>
         </div>
 
@@ -174,7 +173,7 @@ export function InviteCodeJoinPage() {
                 openInApp(storePlatform, handoffCode);
               }}
             >
-              앱에서 참여하기
+              {t("join.openApp")}
             </Button>
           </div>
         )}
@@ -187,10 +186,10 @@ export function InviteCodeJoinPage() {
       data-testid="invite-code-join-page"
       className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground"
     >
-      <ScreenBackHeader title={SCREEN_TITLE} onBack={goBack} />
+      <ScreenBackHeader title={screenTitle} onBack={goBack} />
 
       <div className="flex grow flex-col items-center justify-center gap-2 px-5">
-        <h2 className="text-lg font-bold text-foreground">초대코드를 입력해 주세요</h2>
+        <h2 className="text-lg font-bold text-foreground">{t("join.prompt")}</h2>
         <div className="size-2" aria-hidden="true" />
         <InviteCodeInput
           value={code}
@@ -206,9 +205,7 @@ export function InviteCodeJoinPage() {
             {errorMessage}
           </p>
         ) : (
-          <p className="text-sm leading-5 text-muted-foreground">
-            친구에게 받은 4자리 코드로 참여할 수 있어요
-          </p>
+          <p className="text-sm leading-5 text-muted-foreground">{t("join.hint")}</p>
         )}
       </div>
 
@@ -228,7 +225,7 @@ export function InviteCodeJoinPage() {
             joinMutation.mutate(code);
           }}
         >
-          참여하기
+          {t("join.submit")}
         </Button>
       </div>
     </main>

@@ -7,9 +7,10 @@ import {
   useRef,
   useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, LoaderCircle } from "lucide-react";
+import { BookOpen } from "lucide-react";
 
 import { sessionStateColors } from "@focusmakers/design-tokens";
 import type { IceServer, ProfileResponse, RoomMember, SubjectResponse } from "@focusmakers/types";
@@ -24,6 +25,7 @@ import { INVITE_CODE_RENEWED_COPY, kickMemberDialog } from "@/features/group-roo
 import { createMultiTimerUsage, useMultiTimer } from "@/features/multi-timer/useMultiTimer";
 import { CameraOnConfirmDialog } from "@/features/live-room/components/CameraOnConfirmDialog";
 import { ClonedTrackPreview } from "@/features/live-room/components/ClonedTrackPreview";
+import { FaceMaskSearchingBadge } from "@/features/live-room/components/FaceMaskSearchingBadge";
 import { GroupRoomTopBar } from "@/features/live-room/components/GroupRoomTopBar";
 import {
   LazyRoomTimerSheet,
@@ -65,12 +67,7 @@ import {
 } from "@/features/study-session/components/SessionTimer";
 import { SESSION_SYMBOL_SCALE } from "@/features/study-session/components/controlButtonVariants";
 import { resolveDevDetectorOverride } from "@/features/study-session/devMockDetector";
-import { SUB_MINUTE_SEC } from "@/features/study-session/formatDuration";
-import {
-  EXIT_CONFIRM_COPY,
-  SUBJECT_SHEET_COPY,
-  exitConfirmDescription,
-} from "@/features/study-session/sessionCopy";
+import { SUB_MINUTE_SEC, exitConfirmDescription } from "@/features/study-session/formatDuration";
 import { MANUAL_END_REASON, autoEndReason } from "@/features/study-session/sessionState";
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import { GROUP_ROOM_SESSION_TUNING } from "@/features/study-session/sessionTuning";
@@ -132,23 +129,6 @@ import { useRoomTimerSheet } from "./useRoomTimerSheet";
 import { useAutoHideControls } from "./useAutoHideControls";
 import { playPressPop } from "./components/playPressPop";
 
-export const GRACE_END_SAVED_MESSAGE =
-  "자리를 오래 비워서 공부를 종료했어요.\n공부 기록은 저장되었으니 안심하세요.";
-export const GRACE_END_PENDING_MESSAGE =
-  "자리를 오래 비워서 공부를 종료했어요.\n공부 기록은 저장되니 안심하세요.";
-// 두 번째 문장은 줄을 바꿔 보여준다(2026-08-26 실기기 확인 피드백) — Toast가 pre-line이다.
-export const GRACE_END_SUB_MINUTE_MESSAGE =
-  "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요";
-
-// 방에 다시 들어갈 수 없어(자리 회수) 세션을 마쳤을 때의 안내. 저장·미저장·1분 미만을
-// GRACE_END와 같은 기준으로 가른다.
-export const ROOM_UNAVAILABLE_SAVED_MESSAGE =
-  "방이 종료되어 공부를 마쳤어요.\n공부 기록은 저장되었으니 안심하세요.";
-export const ROOM_UNAVAILABLE_PENDING_MESSAGE =
-  "방이 종료되어 공부를 마쳤어요.\n공부 기록은 저장되니 안심하세요.";
-export const ROOM_UNAVAILABLE_SUB_MINUTE_MESSAGE =
-  "방이 종료되어 공부를 마쳤어요.\n1분 미만 공부는 기록에 표시되지 않아요";
-
 export function LiveRoomSession({
   roomId,
   userId,
@@ -198,6 +178,7 @@ export function LiveRoomSession({
   useRotationRepaintNudge();
   // 가로 그리드 사용 여부 — 회전은 클릭이 아니라 autocapture가 못 본다.
   useSessionOrientationAnalytics("social");
+  const { t } = useTranslation(["live-room", "study-session", "social-room"]);
 
   // 추론과 송신 합성은 항상 붙어 있는 숨은 원본 영상을 본다.
   // 카메라를 끄면 내 타일의 영상이 빠지는데, 그동안에도 켜기 미리보기에 이모지를 그려야 해서다.
@@ -623,7 +604,7 @@ export function LiveRoomSession({
     typeof serverMe?.owner === "boolean" ? serverMe.owner : groupHome.data?.myRole === "OWNER";
   const myMember: RoomMember = {
     userId,
-    nickname: profile?.nickname ?? serverMe?.nickname ?? "나",
+    nickname: profile?.nickname ?? serverMe?.nickname ?? t("me"),
     goal: profile?.goal ?? serverMe?.goal ?? null,
     profileImageUrl: profile?.profileImageUrl ?? serverMe?.profileImageUrl ?? null,
     cameraOn,
@@ -687,25 +668,28 @@ export function LiveRoomSession({
   const [enteredAtMs] = useState(() => Date.now());
 
   // 순공 1분 미만은 기록 목록·합산에 표시되지 않는다 — 저장을 약속하면 화면이 거짓말이
-  // 된다(sessionCopy.SUB_MINUTE_EXIT_DESCRIPTION과 같은 원칙). 제출은 그래도 한다.
+  // 된다(종료 확인 창의 1분 미만 문구와 같은 원칙). 제출은 그래도 한다.
+  // 두 번째 문장은 줄을 바꿔 보여준다(2026-08-26 실기기 확인 피드백). 문구는 소셜 홈이 띄운다.
   const graceEndNotice = useCallback(
     (submitted: boolean) =>
       focusSec < SUB_MINUTE_SEC
-        ? GRACE_END_SUB_MINUTE_MESSAGE
+        ? t("notice.graceEndSubMinute")
         : submitted
-          ? GRACE_END_SAVED_MESSAGE
-          : GRACE_END_PENDING_MESSAGE,
-    [focusSec],
+          ? t("notice.graceEndSaved")
+          : t("notice.graceEndPending"),
+    [focusSec, t],
   );
 
+  // 방에 다시 들어갈 수 없어(자리 회수) 세션을 마쳤을 때의 안내. 저장·미저장·1분 미만을
+  // 유예 만료와 같은 기준으로 가른다.
   const roomUnavailableNotice = useCallback(
     (submitted: boolean) =>
       focusSec < SUB_MINUTE_SEC
-        ? ROOM_UNAVAILABLE_SUB_MINUTE_MESSAGE
+        ? t("notice.roomClosedSubMinute")
         : submitted
-          ? ROOM_UNAVAILABLE_SAVED_MESSAGE
-          : ROOM_UNAVAILABLE_PENDING_MESSAGE,
-    [focusSec],
+          ? t("notice.roomClosedSaved")
+          : t("notice.roomClosedPending"),
+    [focusSec, t],
   );
 
   // 제출 성공 → 퇴장 알림은 응답을 기다리지 않는다. 백그라운드 자동 종료(유예 만료)는
@@ -886,7 +870,9 @@ export function LiveRoomSession({
   }
 
   const subjectButtonLabel =
-    subjectSelection === null ? SUBJECT_SHEET_COPY.title : `${SUBJECT_SHEET_COPY.title} 선택됨`;
+    subjectSelection === null
+      ? t("study-session:subjectSheet.title")
+      : t("study-session:controls.subjectSelected");
   const subjectNative = useNativeControl<HTMLButtonElement>(
     {
       id: "room-subject",
@@ -933,7 +919,7 @@ export function LiveRoomSession({
     subjectSelection === null
       ? null
       : {
-          name: selectedSubject?.name ?? SUBJECT_SHEET_COPY.title,
+          name: selectedSubject?.name ?? t("study-session:subjectSheet.title"),
           focusSec:
             (selectedSubject?.focusSec ?? 0) +
             liveSubjectTime(liveSubjectTotals, subjectSelection).focusSec,
@@ -1087,7 +1073,7 @@ export function LiveRoomSession({
                   trackMetaInviteShared(result);
                   // 공유 시트가 뜨거나 사용자가 닫은 경우는 OS가 이미 알려 줘서 복사만 토스트로 알린다.
                   if (result === "copied") {
-                    showCtaToast("초대코드를 복사했어요");
+                    showCtaToast(t("social-room:share.copied"));
                   }
                 });
               }}
@@ -1103,7 +1089,9 @@ export function LiveRoomSession({
           {/* 페이지가 열린 동안은 페이지 푸터의 Toaster가 받는다.
               둘이 함께 있으면 토스트가 두 번 뜬다. */}
           {page === null && <CtaToaster />}
-          {phase.name === "submitting" && <p className="text-sm text-white/80">저장 중...</p>}
+          {phase.name === "submitting" && (
+            <p className="text-sm text-white/80">{t("study-session:submit.saving")}</p>
+          )}
           {room.kind === "group" && timerSheet.active && timer.mode !== null && (
             // 세로는 바 바로 위에 두고, 바 옆에 자리가 넉넉한 가로 폰은 바와 같은 높이의 오른쪽 끝에 둔다.
             // 좁은 가로 폰은 바 옆에 두면 나가기 버튼에 겹쳐서 세로처럼 바 위에 둔다.
@@ -1125,7 +1113,7 @@ export function LiveRoomSession({
                 onClick={() => void endAndSubmit()}
                 className="min-h-11 rounded-full bg-white/12 px-5 text-sm font-semibold text-white"
               >
-                다시 제출
+                {t("study-session:submit.retry")}
               </button>
             </div>
           )}
@@ -1232,19 +1220,7 @@ export function LiveRoomSession({
                   facing={cameraFacing}
                   targetAspect={previewAspect ?? undefined}
                 />
-                {/* 사람을 찾기 전의 흐림을 가리기 효과로 착각하지 않게 알린다. 내 화면에만 그린다. */}
-                {faceMask.on && faceMask.faceSpot === null && (
-                  <div role="status" className="absolute inset-0 flex items-center justify-center">
-                    <span className="flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-[13px] font-semibold text-white">
-                      <LoaderCircle
-                        size={14}
-                        aria-hidden
-                        className="animate-spin motion-reduce:animate-none"
-                      />
-                      가릴 위치를 찾고 있어요
-                    </span>
-                  </div>
-                )}
+                {faceMask.on && faceMask.faceSpot === null && <FaceMaskSearchingBadge />}
               </div>
             </div>
           ) : (
@@ -1283,7 +1259,7 @@ export function LiveRoomSession({
         }}
         container={sessionSurface}
         returnFocus={subjectReturnFocus}
-        title={SUBJECT_SHEET_COPY.title}
+        title={t("study-session:subjectSheet.title")}
         headerExtras={
           <SessionPageHeaderTime
             focusSec={focusSec}
@@ -1337,10 +1313,10 @@ export function LiveRoomSession({
         // 걸지 않는 한 이미 끝난 세션 위에 종료 확인 다이얼로그가 남는다.
         open={exitDialogOpen && phase.name === "studying"}
         container={sessionSurface}
-        title={EXIT_CONFIRM_COPY.title}
+        title={t("study-session:exitConfirm.title")}
         description={exitConfirmDescription(focusSec)}
-        cancelLabel={EXIT_CONFIRM_COPY.cancel}
-        confirmLabel={EXIT_CONFIRM_COPY.confirm}
+        cancelLabel={t("study-session:exitConfirm.cancel")}
+        confirmLabel={t("study-session:exitConfirm.confirm")}
         onCancel={() => {
           trackStudySessionExitCancelled("social");
           setExitDialogOpen(false);

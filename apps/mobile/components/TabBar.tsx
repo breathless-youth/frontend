@@ -12,16 +12,17 @@ import {
   IconTabSocial,
 } from "./icons";
 import { triggerHaptic } from "../lib/haptics";
+import { t, type CopyKey } from "../lib/i18n";
 import { trackNativeEvent } from "../lib/nativeAnalytics";
 
 export type TabId = "home" | "social" | "record" | "ranking" | "settings";
 
-const TABS: { id: TabId; label: string; Icon: typeof IconTabHome; href: string }[] = [
-  { id: "home", label: "홈", Icon: IconTabHome, href: "/" },
-  { id: "social", label: "소셜", Icon: IconTabSocial, href: "/social" },
-  { id: "record", label: "기록", Icon: IconTabRecord, href: "/records" },
-  { id: "ranking", label: "랭킹", Icon: IconTabRanking, href: "/ranking" },
-  { id: "settings", label: "설정", Icon: IconTabSettings, href: "/settings" },
+const TABS: { id: TabId; labelKey: CopyKey; Icon: typeof IconTabHome; href: string }[] = [
+  { id: "home", labelKey: "tab.home", Icon: IconTabHome, href: "/" },
+  { id: "social", labelKey: "tab.social", Icon: IconTabSocial, href: "/social" },
+  { id: "record", labelKey: "tab.records", Icon: IconTabRecord, href: "/records" },
+  { id: "ranking", labelKey: "tab.ranking", Icon: IconTabRanking, href: "/ranking" },
+  { id: "settings", labelKey: "tab.settings", Icon: IconTabSettings, href: "/settings" },
 ];
 
 /**
@@ -98,7 +99,8 @@ export function TabBar({ active = "home", dimmed = false, hidden = false }: TabB
             style={[styles.innerHighlight, { backgroundColor: g.innerHighlight[scheme] }]}
           />
           <View style={styles.row}>
-            {TABS.map(({ id, label, Icon, href }) => {
+            {TABS.map(({ id, labelKey, Icon, href }) => {
+              const label = t(labelKey);
               const isActive = id === active;
               const labelColor = isActive
                 ? softBlue.tab.labelActive[scheme]

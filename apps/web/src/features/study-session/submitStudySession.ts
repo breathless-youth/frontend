@@ -84,7 +84,7 @@ export async function submitStudySession(input: SessionInput): Promise<StudySess
   });
   if (!res.ok) {
     // 상태코드가 있어야 호출부가 400 같은 영구 실패와 일시 실패를 가른다.
-    throw await parseApiError(res, "세션 제출 실패");
+    throw await parseApiError(res, "session submit failed");
   }
   return (await res.json()) as StudySessionResponse[];
 }

@@ -1,3 +1,4 @@
+import { copy } from "./i18n";
 import { readCopyOr } from "./remoteConfigCopy";
 
 /**
@@ -12,11 +13,11 @@ export const RECOMMENDED_UPDATE_MESSAGE_KEY = "recommended_update_message";
 export const RECOMMENDED_UPDATE_LATER_BUTTON_KEY = "recommended_update_later_button";
 export const RECOMMENDED_UPDATE_CONFIRM_BUTTON_KEY = "recommended_update_confirm_button";
 
-export const RECOMMENDED_UPDATE_TITLE = "새 버전이 나왔어요";
-export const RECOMMENDED_UPDATE_DESCRIPTION =
-  "최신 버전으로 업데이트하면 더 나아진 포메를 쓸 수 있어요.";
-export const RECOMMENDED_UPDATE_LATER_LABEL = "나중에";
-export const RECOMMENDED_UPDATE_CONFIRM_LABEL = "지금 업데이트";
+// 콘솔 기본값(`setDefaults`)은 원래 키에 들어가므로 한국어 문구다.
+export const RECOMMENDED_UPDATE_TITLE = copy.ko["recommendedUpdate.title"];
+export const RECOMMENDED_UPDATE_DESCRIPTION = copy.ko["recommendedUpdate.description"];
+export const RECOMMENDED_UPDATE_LATER_LABEL = copy.ko["recommendedUpdate.later"];
+export const RECOMMENDED_UPDATE_CONFIRM_LABEL = copy.ko["recommendedUpdate.confirm"];
 
 export const RECOMMENDED_UPDATE_COPY_DEFAULTS = {
   [RECOMMENDED_UPDATE_TITLE_KEY]: RECOMMENDED_UPDATE_TITLE,
@@ -35,12 +36,9 @@ export type RecommendedUpdateCopy = {
 /** activate가 끝난 뒤에 부른다. 항목별로 비어 있으면 기본 문구. */
 export function readRecommendedUpdateCopy(): RecommendedUpdateCopy {
   return {
-    title: readCopyOr(RECOMMENDED_UPDATE_TITLE_KEY, RECOMMENDED_UPDATE_TITLE),
-    message: readCopyOr(RECOMMENDED_UPDATE_MESSAGE_KEY, RECOMMENDED_UPDATE_DESCRIPTION),
-    laterLabel: readCopyOr(RECOMMENDED_UPDATE_LATER_BUTTON_KEY, RECOMMENDED_UPDATE_LATER_LABEL),
-    confirmLabel: readCopyOr(
-      RECOMMENDED_UPDATE_CONFIRM_BUTTON_KEY,
-      RECOMMENDED_UPDATE_CONFIRM_LABEL,
-    ),
+    title: readCopyOr(RECOMMENDED_UPDATE_TITLE_KEY, "recommendedUpdate.title"),
+    message: readCopyOr(RECOMMENDED_UPDATE_MESSAGE_KEY, "recommendedUpdate.description"),
+    laterLabel: readCopyOr(RECOMMENDED_UPDATE_LATER_BUTTON_KEY, "recommendedUpdate.later"),
+    confirmLabel: readCopyOr(RECOMMENDED_UPDATE_CONFIRM_BUTTON_KEY, "recommendedUpdate.confirm"),
   };
 }

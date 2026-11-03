@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import { trackErrorFallbackReloaded } from "@/lib/amplitude";
 
 /**
@@ -9,12 +11,11 @@ import { trackErrorFallbackReloaded } from "@/lib/amplitude";
  * 것이 안전하다 — 그래서 resetKeys류 세밀 리셋(react-error-boundary)이 없는 구성으로 충분하다.
  */
 export function ErrorFallback() {
+  const { t } = useTranslation();
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-2 px-6 text-center">
-      <h1 className="text-lg font-semibold">일시적인 문제가 생겼어요</h1>
-      <p className="text-sm text-muted-foreground">
-        화면을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.
-      </p>
+      <h1 className="text-lg font-semibold">{t("errorFallback.title")}</h1>
+      <p className="text-sm text-muted-foreground">{t("errorFallback.description")}</p>
       <button
         type="button"
         onClick={() => {
@@ -23,7 +24,7 @@ export function ErrorFallback() {
         }}
         className="mt-3 min-h-11 rounded-full bg-brand-subtle px-6 text-sm font-semibold text-primary"
       >
-        새로고침
+        {t("errorFallback.reload")}
       </button>
     </main>
   );
