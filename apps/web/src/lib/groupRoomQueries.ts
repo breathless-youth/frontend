@@ -54,8 +54,9 @@ export const PUBLIC_PAGE_SIZE = 20;
  *
  * 403과 404 같은 4xx는 다시 받아도 답이 같아서 바로 오류로 보인다.
  * 그 밖의 실패는 한 번만 다시 시도한다.
+ * TanStack Query는 이 함수가 받는 오류 타입을 조회의 오류 타입으로 삼아서 기본값과 같은 Error로 받는다.
  */
-export function groupQueryRetry(failureCount: number, error: unknown): boolean {
+export function groupQueryRetry(failureCount: number, error: Error): boolean {
   if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
     return false;
   }
@@ -211,4 +212,23 @@ export async function invalidateGroupMembership(
     );
   }
   await Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
+}
+
+/**
+ * 떠난 그룹의 조회를 캐시에서 빼기
+ *
+ * 나간 그룹의 조회를 무효화하면 화면이 남아 있는 동안 다시 받아서 멤버가 아니라는 오류와 그 안내가 뜬다.
+ * 그래서 그 그룹 화면을 벗어난 다음에 다시 받지 않고 캐시에서 뺀다.
+ * 내 그룹 탭의 목록과 숫자는 `invalidateGroupMembership`이 맡는다.
+ */
+export function forgetGroup(queryClient: QueryClient, userId: number, groupId: number): void {
+  for (const queryKey of [
+    groupKeys.publicDetail(userId, groupId),
+    groupKeys.home(userId, groupId),
+    groupKeys.members(userId, groupId),
+    groupKeys.invite(userId, groupId),
+    groupKeys.applications(userId, groupId),
+  ]) {
+    queryClient.removeQueries({ queryKey, exact: true });
+  }
 }

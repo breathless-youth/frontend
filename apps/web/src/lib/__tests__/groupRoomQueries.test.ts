@@ -1,11 +1,12 @@
 import { QueryClient } from "@tanstack/react-query";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { ApiError } from "../api";
 import * as groupRoomApi from "../groupRoomApi";
 import {
   blocksQuery,
   dedupePublicGroups,
+  forgetGroup,
   groupApplicationsQuery,
   groupHomeQuery,
   groupInviteQuery,
@@ -81,6 +82,30 @@ describe("groupRoomQueries", () => {
     expect(groupQueryRetry(0, new ApiError("x", 403, "NOT_GROUP_MEMBER"))).toBe(false);
     expect(groupQueryRetry(0, new ApiError("x", 500))).toBe(true);
     expect(groupQueryRetry(1, new TypeError("network"))).toBe(false);
+  });
+
+  // 재시도 판단이 받는 오류 타입이 조회의 오류 타입이 되어서 화면이 받는 오류도 Error로 맞춘다.
+  it("재시도 판단은 Error를 받아 조회의 오류 타입을 Error로 둔다", () => {
+    expectTypeOf(groupQueryRetry).parameter(1).toEqualTypeOf<Error>();
+  });
+
+  it("떠난 그룹은 그 그룹의 조회만 캐시에서 빼고 다른 그룹과 내 그룹 목록은 남긴다", () => {
+    const client = new QueryClient();
+    const perGroup = (groupId: number) => [
+      groupKeys.publicDetail(7, groupId),
+      groupKeys.home(7, groupId),
+      groupKeys.members(7, groupId),
+      groupKeys.invite(7, groupId),
+      groupKeys.applications(7, groupId),
+    ];
+    for (const queryKey of [...perGroup(10), ...perGroup(11), groupKeys.mine(7)]) {
+      client.setQueryData(queryKey, {});
+    }
+    forgetGroup(client, 7, 10);
+    const cached = (queryKey: readonly unknown[]) => client.getQueryData(queryKey) !== undefined;
+    expect(perGroup(10).filter(cached)).toEqual([]);
+    expect(perGroup(11).every(cached)).toBe(true);
+    expect(cached(groupKeys.mine(7))).toBe(true);
   });
 
   it("멤버 변화는 내 그룹, 내 신청, 공개 목록과 그 그룹 조회를 무효화한다", async () => {
@@ -181,5 +206,16 @@ describe("groupRoomQueries", () => {
       staleTime: 0,
       refetchOnWindowFocus: "always",
     });
+  });
+
+  it.each([
+    ["내 신청", myApplicationsQuery(7).staleTime, 30_000],
+    ["공개 그룹 목록", publicGroupsQuery(7, { query: "", category: null }).staleTime, 60_000],
+    ["공개 그룹 보기", publicGroupQuery(7, 12).staleTime, 15_000],
+    ["멤버 목록", groupMembersQuery(7, 10).staleTime, 30_000],
+    ["초대코드", groupInviteQuery(7, 11).staleTime, 60_000],
+    ["차단 목록", blocksQuery(7).staleTime, 60_000],
+  ] as const)("%s는 받은 뒤 정한 시간 동안 다시 받지 않는다", (_name, staleTime, expected) => {
+    expect(staleTime).toBe(expected);
   });
 });

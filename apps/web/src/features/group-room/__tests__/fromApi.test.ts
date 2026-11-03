@@ -67,6 +67,30 @@ describe("fromApi", () => {
     ).toEqual({ kind: "blocked", reason: "rooms_and_applications_full" });
   });
 
+  // 웹은 서버보다 먼저 배포될 수 있어 서버가 새 값을 더해도 화면이 깨지지 않아야 한다.
+  it("서버가 모르는 공부 상태를 보내면 자리를 비운 것으로 본다", () => {
+    expect(toMemberPresence("SLEEPING" as never)).toBe("away");
+    const desk = { ...seed.homes[10]!.members[1]!, status: "SLEEPING" as never };
+    expect(toRoomDeskMember(desk, 1).presence).toBe("away");
+  });
+
+  it("서버가 모르는 신청 불가 이유를 보내면 그룹 개수가 가득 찬 것으로 본다", () => {
+    expect(toApplyBlockReason("NEW_REASON" as never)).toBe("rooms_and_applications_full");
+    expect(
+      toApplyState({
+        ...seed.publicDetails[13]!,
+        applyState: "UNAVAILABLE",
+        unavailableReason: "NEW_REASON" as never,
+      }),
+    ).toEqual({ kind: "blocked", reason: "rooms_and_applications_full" });
+  });
+
+  it("서버가 모르는 신청 상태를 보내면 이유 없이 신청을 막는다", () => {
+    expect(toApplyState({ ...seed.publicDetails[13]!, applyState: "WAITLISTED" as never })).toEqual(
+      { kind: "full" },
+    );
+  });
+
   it("이번 주 순위는 이번 주 순공 순이고 같으면 같은 순위다", () => {
     const rows = weeklyRanks([desk(1, 100), desk(2, 300), desk(3, 300), desk(4, 50)], 3);
     expect(rows.map((row) => [row.userId, row.rank, row.isMe])).toEqual([

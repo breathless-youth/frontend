@@ -12,7 +12,6 @@ const CONTACT_WORD =
   /(?:카카오톡|카톡|갠톡|오픈채팅|오픈톡|인스타그램|인스타|텔레그램|텔레|디엠|(?:^|[^a-z0-9])dm|(?:^|[^가-힣])라인|디코|디스코드|(?:^|[^a-z0-9])(?:kakaotalk|instagram|insta)(?![a-z0-9]))/u
     .source;
 // 카카오는 회사 이름이기도 해서 아이디 표시와 아이디가 바로 뒤에 함께 올 때만 연락 수단으로 본다.
-// id 뒤에 영문자가 이어지면 idea 같은 다른 낱말이다.
 const KAKAO_WITH_LABEL = /(?:카카오|(?:^|[^a-z0-9])kakao(?![a-z0-9]))/u.source;
 
 const CONTACT_PATTERNS: readonly RegExp[] = [
@@ -25,6 +24,7 @@ const CONTACT_PATTERNS: readonly RegExp[] = [
   // 뒤에 영문자가 없으면 아이디가 아니라서 `@10시 출석`은 통과한다.
   /@(?=[a-z0-9._]*[a-z])[a-z0-9._]{2,}/u,
   new RegExp(`${CONTACT_WORD}${SEP}(?:(?:아이디|id)${SEP})?${ID}`, "u"),
+  // id 뒤에 영문자가 이어지면 idea 같은 다른 낱말이다.
   new RegExp(`${KAKAO_WITH_LABEL}${SEP}(?:아이디|id(?![a-z]))${SEP}${ID}`, "u"),
 ];
 

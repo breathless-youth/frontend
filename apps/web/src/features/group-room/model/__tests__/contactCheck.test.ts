@@ -8,7 +8,7 @@ import { CONTACT_BLOCKED_COPY, containsContactOrLink } from "../contactCheck";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 
-// 서버 판정 테스트와 백엔드가 넘긴 예시 표의 막는다 묶음이다.
+// 서버 판정 테스트와 백엔드가 넘긴 예시 표에서 서버가 막는 글이다.
 const SERVER_BLOCKED = [
   "https://open.kakao.com/o/abc",
   "www.studywith.me",
@@ -51,7 +51,7 @@ const SERVER_BLOCKED = [
   "2026-11-03 2027-01-01",
 ];
 
-// 서버 판정 테스트와 백엔드가 넘긴 예시 표의 통과시킨다 묶음이다.
+// 서버 판정 테스트와 백엔드가 넘긴 예시 표에서 서버가 통과시키는 글이다.
 const SERVER_PASSED = [
   "9급",
   "토익 900",
