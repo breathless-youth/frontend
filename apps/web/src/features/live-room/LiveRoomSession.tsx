@@ -20,6 +20,7 @@ import { createAmbientUsage } from "@/features/ambient-sound/ambientUsage";
 import { AmbientSoundButton } from "@/features/ambient-sound/components/AmbientSoundButton";
 import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSoundSheet";
 import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
+import { toRoomVisibility } from "@/features/group-room/fromApi";
 import { groupErrorCode, groupErrorCopy } from "@/features/group-room/groupErrorCopy";
 import { inviteCodeRenewedCopy, kickMemberDialog } from "@/features/group-room/model/roomMenu";
 import { createMultiTimerUsage, useMultiTimer } from "@/features/multi-timer/useMultiTimer";
@@ -83,6 +84,7 @@ import { useTrackedVisionDetector } from "@/features/study-session/useVisionRead
 import { shareInvite } from "@/features/social-room/shareInvite";
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import {
+  trackGroupRoomReported,
   trackInviteShared,
   trackSocialRoomCameraOnDismissed,
   trackSocialRoomCameraToggled,
@@ -126,6 +128,7 @@ import { useRoomAudio } from "./useRoomAudio";
 import type { RoomAudioDeps } from "./useRoomAudio";
 import { useRoomRejoin } from "./useRoomRejoin";
 import { useRoomTimerSheet } from "./useRoomTimerSheet";
+import { useTogetherSeconds } from "./useTogetherSeconds";
 import { useAutoHideControls } from "./useAutoHideControls";
 import { playPressPop } from "./components/playPressPop";
 
@@ -462,6 +465,8 @@ export function LiveRoomSession({
     ...GROUP_MUTATION_OPTIONS,
     mutationFn: (input: { groupId: number; userId: number; reason: string }) =>
       reportGroupMember(input.groupId, input.userId, input.reason),
+    // 계측은 화면 처리와 달리 공부방을 떠난 뒤 온 응답에도 남긴다.
+    onSuccess: () => trackGroupRoomReported("member"),
   });
 
   /**
@@ -617,6 +622,15 @@ export function LiveRoomSession({
   if (menuUserId !== null && !others.some((member) => member.userId === menuUserId)) {
     setMenuUserId(null);
   }
+  // 함께한 시간은 휴식과 카메라를 꺼 멈춘 동안을 빼고, 차단해 영상이 오가지 않는 멤버도 세지 않는다.
+  const readTogetherSec = useTogetherSeconds({
+    counting: phase.name === "studying" && sessionState.kind !== "PAUSE",
+    othersWithCamera: others.filter(
+      (member) => member.cameraOn && !blockedUserIds.has(member.userId),
+    ).length,
+  });
+  const exitVisibility =
+    groupHome.data === undefined ? undefined : toRoomVisibility(groupHome.data.visibility);
 
   // 숨은 원본에는 카메라를, 내 타일에는 상대에게 보내는 영상을 붙인다.
   // 보이는 것과 보내는 것이 같고, 이모지를 그리는 곳이 합성기 하나뿐이게 한다.
@@ -732,6 +746,8 @@ export function LiveRoomSession({
         memberCount: allMembers.length,
         exitReason: expired ? "grace_expired" : "session_end",
         durationSec: Math.round((Date.now() - enteredAtMs) / 1000),
+        togetherSec: readTogetherSec(),
+        visibility: exitVisibility,
       });
     // 방 자체가 사라진 종료는 focusSec와 무관하게 결과 화면이 아니라 소셜 홈으로 보낸다.
     // 자리가 이미 회수됐으므로 leaveRoom은 부르지 않는다.
@@ -753,6 +769,8 @@ export function LiveRoomSession({
       });
       void leaveRoomSeat(room, roomId).catch(() => undefined);
       if (nav.to === "result") {
+        // 결과 화면으로 가는 수동 종료도 공부방을 나온 것이라 함께한 시간과 함께 센다.
+        trackExit();
         navigate(
           { pathname: liveRoomResultPath(room, roomId), search: location.search },
           { replace: true, state: { sessions: nav.sessions } },
@@ -776,6 +794,7 @@ export function LiveRoomSession({
     allMembers.length,
     endReason,
     enteredAtMs,
+    exitVisibility,
     focusSec,
     graceEndNotice,
     graceExpired,
@@ -786,6 +805,7 @@ export function LiveRoomSession({
     navigate,
     phase,
     queryClient,
+    readTogetherSec,
     room,
     roomId,
     roomUnavailable,

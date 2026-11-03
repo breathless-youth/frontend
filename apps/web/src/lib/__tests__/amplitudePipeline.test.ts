@@ -97,6 +97,8 @@ describe("Amplitude 전송 파이프라인 (실제 SDK)", () => {
       trackAmplitudePageView,
       trackGroupRoomApplicationAnswered,
       trackGroupRoomReported,
+      trackSocialRoomEntered,
+      trackSocialRoomExited,
       trackStudySessionStarted,
     } = await import("../amplitude");
     const amplitude = await import("@amplitude/analytics-browser");
@@ -255,17 +257,37 @@ describe("Amplitude 전송 파이프라인 (실제 SDK)", () => {
     trackGroupRoomApplicationAnswered("reported");
     trackGroupRoomReported("application");
     setGroupRoomCount(2);
+    window.history.replaceState({}, "", "/social/groups/10/room?userId=7");
+    trackSocialRoomEntered(false, { visibility: "public" });
+    trackSocialRoomExited({
+      memberCount: 2,
+      exitReason: "session_end",
+      durationSec: 600,
+      togetherSec: 420,
+      visibility: "public",
+    });
     await amplitude.flush().promise;
     await tick();
 
     const groupEvents = sent.flatMap((batch) => batch.events);
     expect(
       groupEvents
-        .filter((event) => String(event.event_type).startsWith("group_room_"))
+        .filter((event) => /^(group_room_|social_room_)/.test(String(event.event_type)))
         .map((event) => [event.event_type, event.event_properties]),
     ).toEqual([
       ["group_room_application_answered", { result: "reported" }],
       ["group_room_reported", { target: "application" }],
+      ["social_room_entered", { grace_rejoin: false, visibility: "public" }],
+      [
+        "social_room_exited",
+        {
+          member_count: 2,
+          exit_reason: "session_end",
+          duration_sec: 600,
+          together_sec: 420,
+          visibility: "public",
+        },
+      ],
     ]);
     // 들어간 그룹 수는 이벤트가 아니라 사용자 속성으로 나간다.
     expect(groupEvents.find((event) => event.event_type === "$identify")?.user_properties).toEqual({

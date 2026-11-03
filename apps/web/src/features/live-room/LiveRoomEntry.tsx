@@ -1,11 +1,12 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { IceServer } from "@focusmakers/types";
 
 import { ErrorState } from "@/components/ui/ErrorState";
+import { toRoomVisibility } from "@/features/group-room/fromApi";
 import { groupErrorCopy, isGroupGoneError } from "@/features/group-room/groupErrorCopy";
 import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
 import { joinErrorReason, rejoinFailure } from "@/features/social-room/joinError";
@@ -17,6 +18,7 @@ import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { useNativeOrientationUnlock } from "@/lib/nativeBackGesture";
 import { requestCameraGate } from "@/lib/nativeCameraGate";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
+import { groupHomeQuery } from "@/lib/groupRoomQueries";
 import { profileQuery } from "@/lib/profileQueries";
 
 import { LiveRoomSession } from "./LiveRoomSession";
@@ -82,6 +84,7 @@ export function LiveRoomEntry({
 
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const homePath = liveRoomHomePath(room);
 
   const [entered, setEntered] = useState(false);
@@ -201,7 +204,16 @@ export function LiveRoomEntry({
     // 입장 계측(BY-472) — `!entered` 가드가 1회를 보장한다. 실제 입장(세션 마운트)
     // 시점이라 join 성공·게이트 통과까지 끝난 진짜 입장만 센다.
     // 래치는 되돌아가지 않아 entered 전환은 한 번뿐이고, 계측은 그 전환에만 반응한다.
-    trackSocialRoomEntered(graceRejoin);
+    // 그룹 공부방의 공개 여부는 들어오기 전에 연 그룹 홈이 받아 둔 응답에서 읽고, 없으면 싣지 않는다.
+    const home =
+      room.kind === "group"
+        ? queryClient.getQueryData(groupHomeQuery(userId, room.groupId).queryKey)
+        : undefined;
+    if (home === undefined) {
+      trackSocialRoomEntered(graceRejoin);
+    } else {
+      trackSocialRoomEntered(graceRejoin, { visibility: toRoomVisibility(home.visibility) });
+    }
     // Meta 광고 전환 — 유예 재입장은 새 입장이 아니라 세지 않는다.
     // 그룹 공부방 입장은 소셜룸 입장 전환으로 보내지 않아서 초대코드 방 입장만 센다.
     if (!graceRejoin && room.kind === "invite") trackMetaSocialRoomEntered();

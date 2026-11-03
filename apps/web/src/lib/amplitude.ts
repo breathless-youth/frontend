@@ -527,10 +527,19 @@ export function trackSocialRoomJoinFailed(reason: string) {
   track("social_room_join_failed", { reason });
 }
 
-/** 룸 입장(세션 마운트 직전). `grace_rejoin`은 유예 30초 내 재입장 여부다. */
-export function trackSocialRoomEntered(graceRejoin: boolean) {
+/**
+ * 룸 입장(세션 마운트 직전). `grace_rejoin`은 유예 30초 내 재입장 여부다.
+ * 그룹 공부방은 공개 여부를 알 때만 `visibility`를 싣고 초대코드 방은 싣지 않는다.
+ */
+export function trackSocialRoomEntered(
+  graceRejoin: boolean,
+  extra?: { visibility: GroupVisibilityProp },
+) {
   if (!initialized) return;
-  track("social_room_entered", { grace_rejoin: graceRejoin });
+  track("social_room_entered", {
+    grace_rejoin: graceRejoin,
+    ...(extra === undefined ? {} : { visibility: extra.visibility }),
+  });
 }
 
 export interface SocialRoomExitedInput {
@@ -543,6 +552,15 @@ export interface SocialRoomExitedInput {
   readonly exitReason: "session_end" | "grace_expired";
   /** 입장부터 퇴장까지 체류 시간 — 공부시간(`study_sec`)과 다른 축이다. */
   readonly durationSec: number;
+  /**
+   * 함께한 시간
+   *
+   * 내가 측정 중이고 나 말고 카메라를 켠 멤버가 한 명 이상 있던 초이며 그룹 공부방과 초대코드 방 모두 싣는다.
+   * 차단한 멤버, 휴식, 카메라를 꺼 멈춘 동안은 세지 않는다.
+   */
+  readonly togetherSec: number;
+  /** 그룹 공부방의 공개 여부이고 초대코드 방이거나 그룹 홈 응답이 없으면 뺀다. */
+  readonly visibility?: GroupVisibilityProp;
 }
 
 export function trackSocialRoomExited(input: SocialRoomExitedInput) {
@@ -551,6 +569,8 @@ export function trackSocialRoomExited(input: SocialRoomExitedInput) {
     member_count: input.memberCount,
     exit_reason: input.exitReason,
     duration_sec: input.durationSec,
+    together_sec: input.togetherSec,
+    ...(input.visibility === undefined ? {} : { visibility: input.visibility }),
   });
 }
 

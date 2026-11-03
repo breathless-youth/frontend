@@ -641,7 +641,12 @@ describe("소셜룸 이벤트 (BY-472)", () => {
     module.trackSocialRoomCreated();
     module.trackSocialRoomJoinFailed("ROOM_CLOSED");
     module.trackSocialRoomEntered(false);
-    module.trackSocialRoomExited({ memberCount: 2, exitReason: "session_end", durationSec: 60 });
+    module.trackSocialRoomExited({
+      memberCount: 2,
+      exitReason: "session_end",
+      durationSec: 60,
+      togetherSec: 0,
+    });
     module.trackSocialRoomRejoinFailed("leave", "ROOM_CLOSED");
     module.trackSocialRoomGraceExceeded();
 
@@ -666,14 +671,63 @@ describe("소셜룸 이벤트 (BY-472)", () => {
     initAmplitude();
 
     trackSocialRoomEntered(true);
-    trackSocialRoomExited({ memberCount: 3, exitReason: "grace_expired", durationSec: 125 });
+    trackSocialRoomExited({
+      memberCount: 3,
+      exitReason: "grace_expired",
+      durationSec: 125,
+      togetherSec: 30,
+    });
 
     expect(mocks.track).toHaveBeenCalledWith("social_room_entered", { grace_rejoin: true });
     expect(mocks.track).toHaveBeenCalledWith("social_room_exited", {
       member_count: 3,
       exit_reason: "grace_expired",
       duration_sec: 125,
+      together_sec: 30,
     });
+  });
+
+  it("공부방 입장·퇴장은 그룹 방이면 공개 여부를, 늘 함께한 시간을 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackSocialRoomEntered, trackSocialRoomExited } = await loadModule();
+    initAmplitude();
+    mocks.track.mockClear();
+
+    trackSocialRoomEntered(false, { visibility: "public" });
+    trackSocialRoomExited({
+      memberCount: 3,
+      exitReason: "session_end",
+      durationSec: 600,
+      togetherSec: 420,
+      visibility: "public",
+    });
+    trackSocialRoomExited({
+      memberCount: 2,
+      exitReason: "session_end",
+      durationSec: 60,
+      togetherSec: 0,
+    });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["social_room_entered", { grace_rejoin: false, visibility: "public" }],
+      [
+        "social_room_exited",
+        {
+          member_count: 3,
+          exit_reason: "session_end",
+          duration_sec: 600,
+          together_sec: 420,
+          visibility: "public",
+        },
+      ],
+      [
+        "social_room_exited",
+        { member_count: 2, exit_reason: "session_end", duration_sec: 60, together_sec: 0 },
+      ],
+    ]);
+    // 공개 여부가 없는 방은 빈 값도 싣지 않는다.
+    const [, inviteExit] = mocks.track.mock.calls[2] as [string, Record<string, unknown>];
+    expect(Object.keys(inviteExit)).not.toContain("visibility");
   });
 
   it("재입장 실패는 leave/retry 판정과 사유를 함께 싣는다", async () => {

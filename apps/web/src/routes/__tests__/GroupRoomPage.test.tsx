@@ -25,7 +25,13 @@ import { submitStudySession } from "@/features/study-session/submitStudySession"
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { ApiError } from "@/lib/api";
 import type * as AmplitudeModule from "@/lib/amplitude";
-import { trackStudySessionEnded } from "@/lib/amplitude";
+import {
+  trackGroupRoomMicToggled,
+  trackGroupRoomReported,
+  trackSocialRoomEntered,
+  trackSocialRoomExited,
+  trackStudySessionEnded,
+} from "@/lib/amplitude";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import {
   getGroupHome,
@@ -71,6 +77,10 @@ vi.mock("@/features/study-session/submitStudySession", () => ({
 vi.mock("@/lib/haptics", () => ({ haptic: vi.fn() }));
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof AmplitudeModule>()),
+  trackGroupRoomMicToggled: vi.fn(),
+  trackGroupRoomReported: vi.fn(),
+  trackSocialRoomEntered: vi.fn(),
+  trackSocialRoomExited: vi.fn(),
   trackStudySessionEnded: vi.fn(),
 }));
 // 세션에 들어오면 과목 목록과 오늘 기록을 미리 받는데, jsdom은 상대 주소 fetch에서 오류를 낸다.
@@ -204,10 +214,13 @@ function renderGroupRoom({
   path = "/social/groups/10/room",
   state,
   snapshot = [],
+  cachedHome,
 }: {
   path?: string;
   state?: unknown;
   snapshot?: RoomMember[];
+  /** 그룹 홈에서 들어온 것처럼 캐시에 미리 넣어 둘 그룹 홈 응답 */
+  cachedHome?: GroupHomeResponse;
 } = {}) {
   let channel: MockRoomChannel | null = null;
   let options: Parameters<CreateChannel>[0] | null = null;
@@ -217,6 +230,9 @@ function renderGroupRoom({
   const acquire = vi.fn(async (): Promise<MicAcquireResult> => ({ kind: "denied" }));
   let current: Location | null = null;
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  if (cachedHome !== undefined) {
+    client.setQueryData(groupKeys.home(7, cachedHome.groupId), cachedHome);
+  }
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[{ pathname: path, state }]}>
@@ -449,6 +465,22 @@ describe("GroupRoomPage 입장", () => {
     expect(metaEvents).not.toContain("social_room_entered");
   });
 
+  it("그룹 홈이 받아 둔 공개 여부를 입장 계측에 싣는다", async () => {
+    renderGroupRoom({ cachedHome: groupHome({ groupId: 10, visibility: "PRIVATE" }) });
+    await screen.findByRole("button", { name: "나가기" });
+
+    await waitFor(() => expect(trackSocialRoomEntered).toHaveBeenCalledOnce());
+    expect(trackSocialRoomEntered).toHaveBeenCalledWith(false, { visibility: "private" });
+  });
+
+  it("받아 둔 그룹 홈이 없으면 공개 여부 없이 입장을 계측한다", async () => {
+    renderGroupRoom();
+    await screen.findByRole("button", { name: "나가기" });
+
+    await waitFor(() => expect(trackSocialRoomEntered).toHaveBeenCalledOnce());
+    expect(vi.mocked(trackSocialRoomEntered).mock.calls[0]).toEqual([false]);
+  });
+
   it("그룹 공부방 연결은 소리와 영상을 한 전송 경로로 묶는다", async () => {
     const { pcConfigs } = renderGroupRoom({ snapshot: [member(7), member(42)] });
     await waitFor(() => expect(pcConfigs).toHaveLength(1));
@@ -552,6 +584,54 @@ describe("GroupRoomPage 나가기", () => {
     });
   });
 
+  it("결과 화면으로 가는 수동 종료도 퇴장을 계측한다", async () => {
+    vi.mocked(useActiveSessionRestore).mockReturnValue({
+      settled: true,
+      restored: {
+        startedAtMs: Date.now() - 130_000,
+        reportedAtMs: Date.now(),
+        baseStudySec: 130,
+        baseFocusSec: 120,
+        events: [],
+      },
+    });
+    vi.mocked(submitStudySession).mockResolvedValue([
+      {
+        id: 1,
+        userId: 7,
+        statDate: "2026-11-03",
+        startedAt: "2026-11-03T12:00:00.000Z",
+        endedAt: "2026-11-03T12:02:10.000Z",
+        studySec: 130,
+        focusSec: 120,
+        focusRate: 92.3,
+        events: [],
+      },
+    ]);
+    try {
+      const { location } = await enterGroupRoom({ groupId: 10 });
+      await exitRoom();
+      await waitFor(() => expect(location().pathname).toBe("/social/groups/10/room/result"));
+      expect(trackSocialRoomExited).toHaveBeenCalledExactlyOnceWith({
+        memberCount: 1,
+        exitReason: "session_end",
+        durationSec: expect.any(Number),
+        togetherSec: 0,
+        visibility: "public",
+      });
+    } finally {
+      vi.mocked(useActiveSessionRestore).mockReturnValue({ settled: true, restored: null });
+    }
+  });
+
+  it("내보내지면 맞는 퇴장 이유가 없어 퇴장을 계측하지 않는다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    const { channel, location } = await enterGroupRoom({ groupId: 10 });
+    act(() => channel.emitServerMessage({ type: "KICKED", groupId: 10 }));
+    await waitFor(() => expect(location().pathname).toBe("/social"));
+    expect(trackSocialRoomExited).not.toHaveBeenCalled();
+  });
+
   it("다른 그룹의 KICKED는 무시한다", async () => {
     const { channel, location } = await enterGroupRoom({ groupId: 10 });
     act(() => channel.emitServerMessage({ type: "KICKED", groupId: 99 }));
@@ -604,6 +684,118 @@ describe("GroupRoomPage 나가기", () => {
     await act(() => vi.advanceTimersByTimeAsync(61_000));
 
     expect(getGroupHome).not.toHaveBeenCalled();
+  });
+});
+
+describe("GroupRoomPage 함께한 시간", () => {
+  /** 나가기 뒤 퇴장 계측에 실린 값 */
+  async function exitedInput() {
+    await exitRoom();
+    await waitFor(() => expect(trackSocialRoomExited).toHaveBeenCalledOnce());
+    return vi.mocked(trackSocialRoomExited).mock.calls[0]![0];
+  }
+
+  it("카메라를 켠 다른 멤버와 있던 시간을 함께한 시간으로 싣는다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember(), otherMember(56, "선규", { cameraOn: true })],
+    });
+    await turnCameraOn();
+
+    await act(() => vi.advanceTimersByTimeAsync(60_000));
+
+    const input = await exitedInput();
+    expect(input).toMatchObject({ exitReason: "session_end", visibility: "public" });
+    expect(input.togetherSec).toBeGreaterThanOrEqual(59);
+    expect(input.togetherSec).toBeLessThanOrEqual(input.durationSec);
+  });
+
+  it("차단한 멤버는 함께한 시간에 세지 않는다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    const { channel } = await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember(), otherMember(56, "선규", { cameraOn: true })],
+    });
+    await turnCameraOn();
+    act(() => channel.emitServerMessage({ type: "PEER_BLOCKED", userId: 56 }));
+
+    await act(() => vi.advanceTimersByTimeAsync(60_000));
+
+    expect(await exitedInput()).toMatchObject({ togetherSec: 0, visibility: "public" });
+  });
+
+  it("카메라를 켠 다른 멤버가 없으면 세지 않는다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember(), otherMember(56, "선규", { cameraOn: false })],
+    });
+    await turnCameraOn();
+
+    await act(() => vi.advanceTimersByTimeAsync(60_000));
+
+    expect(await exitedInput()).toMatchObject({ togetherSec: 0 });
+  });
+
+  it("내 카메라를 꺼 멈춘 동안은 함께한 시간에 세지 않는다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember(), otherMember(56, "선규", { cameraOn: true })],
+    });
+    await turnCameraOn();
+    await act(() => vi.advanceTimersByTimeAsync(30_000));
+    await userEvent.setup().click(screen.getByRole("button", { name: "카메라 끄기" }));
+
+    await act(() => vi.advanceTimersByTimeAsync(60_000));
+
+    const input = await exitedInput();
+    expect(input.togetherSec).toBeGreaterThanOrEqual(29);
+    expect(input.togetherSec).toBeLessThanOrEqual(31);
+  });
+});
+
+describe("GroupRoomPage 마이크 계측", () => {
+  it("마이크를 켜고 끌 때 계측한다", async () => {
+    const { acquire } = await enterGroupRoom({ groupId: 10 });
+    acquire.mockResolvedValue({ kind: "ok", track: fakeMicTrack() });
+    await turnCameraOn();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "마이크 켜기" }));
+    await user.click(await screen.findByRole("button", { name: "마이크 끄기" }));
+
+    await waitFor(() => expect(trackGroupRoomMicToggled).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(trackGroupRoomMicToggled).mock.calls).toEqual([[true], [false]]);
+  });
+
+  it("카메라를 끄면 마이크 꺼짐도 계측한다", async () => {
+    const { acquire } = await enterGroupRoom({ groupId: 10 });
+    acquire.mockResolvedValue({ kind: "ok", track: fakeMicTrack() });
+    await turnCameraOn();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "마이크 켜기" }));
+    await screen.findByRole("button", { name: "마이크 끄기" });
+
+    await user.click(screen.getByRole("button", { name: "카메라 끄기" }));
+
+    await waitFor(() => expect(trackGroupRoomMicToggled).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(trackGroupRoomMicToggled).mock.calls).toEqual([[true], [false]]);
+  });
+
+  it("권한이 없어 켜지지 못한 마이크와 처음 꺼진 값은 계측하지 않는다", async () => {
+    await enterGroupRoom({ groupId: 10 });
+    await turnCameraOn();
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "마이크 켜기" }));
+
+    expect(await screen.findByText(i18n.t("live-room:roomAudio.micDenied"))).toBeInTheDocument();
+    expect(trackGroupRoomMicToggled).not.toHaveBeenCalled();
   });
 });
 
@@ -912,6 +1104,7 @@ describe("GroupRoomPage 신고와 차단", () => {
     expect(screen.queryByText("새벽러님을 신고할게요")).toBeNull();
     expect(pcs.find((pc) => pc.closed)).toBeDefined();
     expect(screen.getAllByTestId("room-tile")[1]).toHaveAttribute("data-state", "OFF");
+    expect(trackGroupRoomReported).toHaveBeenCalledExactlyOnceWith("member");
   });
 
   it("신고하면 차단 목록을 다시 받게 한다", async () => {
@@ -945,6 +1138,7 @@ describe("GroupRoomPage 신고와 차단", () => {
     expect(await within(layer).findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
     expect(within(layer).getByText("새벽러님을 신고할게요")).toBeInTheDocument();
     expect(pcs.some((pc) => pc.closed)).toBe(false);
+    expect(trackGroupRoomReported).not.toHaveBeenCalled();
   });
 
   it("그사이 그룹을 떠난 멤버를 신고하면 다시 시도 안내 없이 신고 화면을 닫는다", async () => {

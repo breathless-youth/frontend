@@ -89,6 +89,7 @@ vi.mock("@/features/social-room/shareInvite", async (importOriginal) => ({
 const trackStudySessionEnded = vi.hoisted(() => vi.fn());
 const trackAmbientSoundChanged = vi.hoisted(() => vi.fn());
 const trackSocialRoomCameraToggled = vi.hoisted(() => vi.fn());
+const trackSocialRoomExited = vi.hoisted(() => vi.fn());
 const subjectTracking = vi.hoisted(() => ({
   trackSubjectSheetOpened: vi.fn(),
   trackSubjectSheetClosed: vi.fn(),
@@ -100,6 +101,7 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   trackStudySessionEnded,
   trackAmbientSoundChanged,
   trackSocialRoomCameraToggled,
+  trackSocialRoomExited,
   ...subjectTracking,
 }));
 // 세션에 들어오면 과목 목록을 미리 받는다.
@@ -1087,6 +1089,22 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
       expect(mockedLeaveRoom).toHaveBeenCalledWith(42);
     });
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
+  });
+
+  it("초대코드 방 퇴장에는 공개 여부 없이 함께한 시간을 싣는다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    mockedLeaveRoom.mockResolvedValue(undefined);
+    trackSocialRoomExited.mockClear();
+    renderRoom();
+    await enterRoom();
+
+    await userEvent.click(screen.getByRole("button", { name: "나가기" }));
+    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+
+    await waitFor(() => expect(trackSocialRoomExited).toHaveBeenCalledOnce());
+    const input = trackSocialRoomExited.mock.calls[0]![0] as Record<string, unknown>;
+    expect(input).toMatchObject({ exitReason: "session_end", togetherSec: 0 });
+    expect(input.visibility).toBeUndefined();
   });
 
   it("수동 종료 + 순공 1분 이상이면 결과 화면으로 이동하고 leave를 부른다", async () => {

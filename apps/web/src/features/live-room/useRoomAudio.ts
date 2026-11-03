@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import { trackGroupRoomMicToggled } from "@/lib/amplitude";
 import i18n from "@/lib/i18n";
 
 import type { MicLine } from "./audio/micLine";
@@ -122,6 +123,17 @@ export function useRoomAudio({
     player?.setLocalMeter(null);
     selfRef.current = INITIAL_SPEAKING;
   }, [cameraHeld, line, player]);
+
+  // 마이크가 실제로 켜지거나 꺼질 때만 계측하고 처음 꺼진 값은 보내지 않는다.
+  // 카메라를 꺼서 따라 꺼지거나 OS가 마이크를 끊은 것도 꺼짐으로 센다.
+  const trackedMicOnRef = useRef(micOn);
+  useEffect(() => {
+    if (trackedMicOnRef.current === micOn) {
+      return;
+    }
+    trackedMicOnRef.current = micOn;
+    trackGroupRoomMicToggled(micOn);
+  }, [micOn]);
 
   function turnMicOff() {
     line?.turnOff();
