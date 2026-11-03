@@ -61,8 +61,16 @@ function isRoomMember(value: unknown): boolean {
     (member.nickname === undefined || typeof member.nickname === "string") &&
     (member.goal === undefined || member.goal === null || typeof member.goal === "string") &&
     (member.focusSec === undefined || typeof member.focusSec === "number") &&
-    (member.disconnected === undefined || typeof member.disconnected === "boolean")
+    (member.disconnected === undefined || typeof member.disconnected === "boolean") &&
+    isOptionalBoolean(member.micOn) &&
+    isOptionalBoolean(member.onBreak) &&
+    isOptionalBoolean(member.owner)
   );
+}
+
+// 그룹 공부방 필드는 초대코드 방 멤버에서 키째 빠지므로 없으면 통과시키고, 있으면 형식을 본다.
+function isOptionalBoolean(value: unknown): boolean {
+  return value === undefined || typeof value === "boolean";
 }
 
 function isFocusState(value: unknown): boolean {
@@ -95,6 +103,15 @@ function isRoomServerMessage(value: unknown): value is RoomServerMessage {
         (message.kind === "OFFER" || message.kind === "ANSWER" || message.kind === "CANDIDATE") &&
         message.payload !== undefined
       );
+    case "MIC_CHANGED":
+      return typeof message.userId === "number" && typeof message.micOn === "boolean";
+    case "BREAK_CHANGED":
+      return typeof message.userId === "number" && typeof message.onBreak === "boolean";
+    case "OWNER_CHANGED":
+    case "PEER_BLOCKED":
+      return typeof message.userId === "number";
+    case "KICKED":
+      return typeof message.groupId === "number";
     default:
       return false;
   }

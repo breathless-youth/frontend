@@ -48,6 +48,17 @@ export function roomMembersReducer(
       return upsert(members, message.userId, { focusState: message.focusState });
     case "STUDY_TIME":
       return upsert(members, message.userId, { focusSec: message.focusSec });
+    case "MIC_CHANGED":
+      return upsert(members, message.userId, { micOn: message.micOn });
+    case "BREAK_CHANGED":
+      return upsert(members, message.userId, { onBreak: message.onBreak });
+    case "OWNER_CHANGED":
+      // 새 그룹장이 방에 없어도 이전 그룹장의 표시는 내려야 해서 목록 전체를 다시 쓴다.
+      return members.map((m) => ({ ...m, owner: m.userId === message.userId }));
+    case "KICKED":
+    case "PEER_BLOCKED":
+      // 차단한 상대도 목록에는 남고, 내보내짐은 방 화면을 닫는 쪽이 처리한다.
+      return members;
     default:
       // SIGNAL 등 멤버 목록과 무관한 메시지 — peerMesh가 처리한다.
       return members;
