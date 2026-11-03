@@ -960,15 +960,36 @@ describe("GroupRoomPage 신고와 차단", () => {
     expect(screen.getByTestId("room-control-bar")).not.toHaveAttribute("inert");
   });
 
-  it("PEER_BLOCKED를 받으면 그 사람 타일이 프로필로 바뀐다", async () => {
+  it("PEER_BLOCKED를 받으면 그 사람 타일이 프로필로 바뀌고 마이크도 꺼짐으로 보인다", async () => {
     const { channel } = await enterGroupRoom({
       groupId: 10,
-      snapshot: [meMember(), otherMember(56, "선규", { cameraOn: true })],
+      snapshot: [meMember(), otherMember(56, "선규", { cameraOn: true, micOn: true })],
     });
-    expect(screen.getAllByTestId("room-tile")[1]).toHaveAttribute("data-state", "FOCUS");
+    const tile = screen.getAllByTestId("room-tile")[1]!;
+    expect(tile).toHaveAttribute("data-state", "FOCUS");
+    expect(within(tile).getByRole("img", { name: "마이크 켜짐" })).toBeInTheDocument();
 
     act(() => channel.emitServerMessage({ type: "PEER_BLOCKED", userId: 56 }));
 
     expect(screen.getAllByTestId("room-tile")[1]).toHaveAttribute("data-state", "OFF");
+    expect(
+      within(screen.getAllByTestId("room-tile")[1]!).getByRole("img", { name: "마이크 꺼짐" }),
+    ).toBeInTheDocument();
+  });
+
+  it("차단한 멤버의 타일은 차단한 순간부터 말하는 중으로 보이지 않는다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { channel, pcs, player } = await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember(), otherMember(56, "선규", { micOn: true })],
+    });
+    act(() => pcs[0]?.ontrack?.({ streams: [], track: { kind: "audio" } }));
+    player.level.mockReturnValue(1);
+    await act(() => vi.advanceTimersByTimeAsync(500));
+    expect(screen.getAllByTestId("room-tile")[1]).toHaveAttribute("data-speaking", "true");
+
+    act(() => channel.emitServerMessage({ type: "PEER_BLOCKED", userId: 56 }));
+
+    expect(screen.getAllByTestId("room-tile")[1]).not.toHaveAttribute("data-speaking");
   });
 });

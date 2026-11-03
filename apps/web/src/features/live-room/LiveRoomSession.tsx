@@ -862,16 +862,18 @@ export function LiveRoomSession({
    *
    * 내 타일은 내 마이크로 판정하고 메뉴가 없다.
    * 닉네임을 아직 받지 못한 멤버는 누구인지 보이지 않아서 메뉴를 두지 않는다.
+   * 차단한 멤버와는 소리가 오가지 않아서 카메라를 끈 사람처럼 마이크도 꺼짐으로 보이고 말하는 중이 아니다.
    */
   function groupTileExtras(member: RoomMember) {
     if (member.userId === userId) {
       return { speaking: audio.selfSpeaking, micOn: audio.micOn };
     }
     const nickname = member.nickname;
+    const blocked = blockedUserIds.has(member.userId);
     return {
-      speaking: audio.speakingUserIds.has(member.userId),
-      micOn: member.micOn === true,
-      blocked: blockedUserIds.has(member.userId),
+      speaking: !blocked && audio.speakingUserIds.has(member.userId),
+      micOn: !blocked && member.micOn === true,
+      blocked,
       menuButton:
         nickname === undefined || nickname === "" ? undefined : (
           <RoomMemberMenu
