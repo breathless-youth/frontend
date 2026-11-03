@@ -62,7 +62,7 @@ export function GroupHomePage() {
 /**
  * 그룹 홈 본문
  *
- * 스스로 나가면 먼저 그룹 탭으로 바꿔 가고 이 그룹의 조회는 다시 받지 않는다.
+ * 스스로 나가면 먼저 온 화면으로 돌아가고 이 그룹의 조회는 다시 받지 않는다.
  * 나간 그룹을 다시 받으면 서버가 멤버가 아니라고 답해 그 안내가 뜨기 때문이고, 그 조회는 화면을 벗어난 뒤 캐시에서 뺀다.
  */
 function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
@@ -130,10 +130,13 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
     setLeaveDialog(dialog);
     setLeaveOpen(true);
   };
+  // 그룹 탭에서 왔으면 그 기록으로 돌아가서 같은 탭이 기록에 두 번 쌓이지 않고 보던 탭과 검색 조건도 남는다.
+  // 앞 화면 없이 열렸으면 그룹 탭으로 바꿔 간다.
+  // 나간 그룹 홈은 앞으로 가기 기록에만 남고, 앞으로 가기로 그룹 화면에 다시 들어오면 historyGuard가 되돌린다.
   const finishLeaving = () => {
     setLeft(true);
     setLeaveOpen(false);
-    navigate({ pathname: "/social", search }, { replace: true });
+    back();
     void invalidateGroupMembership(queryClient, userId);
   };
   const leave = useMutation({

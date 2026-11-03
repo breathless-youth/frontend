@@ -8,7 +8,12 @@ import { ApiError } from "@/lib/api";
 import { groupKeys } from "@/lib/groupRoomQueries";
 import { queryClient } from "@/lib/queryClient";
 import type * as UserId from "@/lib/userId";
-import { mockGroupApi, renderGroupRoute, stubPendingIdentity } from "@/test/groupRouteHarness";
+import {
+  mockGroupApi,
+  renderGroupRoute,
+  stubHistoryIndex,
+  stubPendingIdentity,
+} from "@/test/groupRouteHarness";
 
 vi.mock("@/lib/groupRoomApi");
 vi.mock("@/lib/userId", async (importOriginal) => ({
@@ -131,6 +136,20 @@ describe("그룹 홈", () => {
     await user.click(screen.getByRole("button", { name: "나가기" }));
     expect(api.leaveGroup).toHaveBeenCalledWith(11);
     await waitFor(() => expect(router.location().pathname).toBe("/social"));
+  });
+
+  it("그룹 탭에서 연 그룹을 나가면 그 탭 화면으로 돌아가 같은 탭이 기록에 두 번 쌓이지 않는다", async () => {
+    mockGroupApi("default");
+    const { router } = renderGroupRoute("/social?groupRooms=1");
+    const user = userEvent.setup();
+    const card = await screen.findByRole("button", { name: /우리 반 저녁 스터디/ });
+    const tabKey = router.location().key;
+    await user.click(card);
+    await screen.findByRole("heading", { name: "우리 반 저녁 스터디" });
+    stubHistoryIndex(1);
+    await openMenuItem(/그룹 나가기/);
+    await user.click(screen.getByRole("button", { name: "나가기" }));
+    await waitFor(() => expect(router.location().key).toBe(tabKey));
   });
 
   it("스스로 나간 뒤에는 그 그룹을 다시 받지 않아 멤버가 아니라는 안내가 뜨지 않는다", async () => {
