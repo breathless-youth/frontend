@@ -7,6 +7,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Toaster } from "@/components/ui/sonner";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
+import i18n from "@/lib/i18n";
 import { isSessionRoute, useInAppNotificationRelay } from "@/lib/inAppNotification";
 import { showToast } from "@/lib/toast";
 
@@ -162,6 +163,38 @@ describe("useInAppNotificationRelay", () => {
 
     expect(await screen.findByText("저장했어요")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /그룹장이 됐어요/ })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * 영어 화면의 앱 안 알림 토스트
+ *
+ * 제목과 본문은 서버가 보낸 문장이라 번역하지 않고, 토스트가 직접 더하는 글자는 없다.
+ */
+describe("useInAppNotificationRelay 영어 화면", () => {
+  afterEach(async () => {
+    await i18n.changeLanguage("ko");
+  });
+
+  it("서버가 보낸 제목과 본문을 그대로 보이고 토스트 둘레에 한국어를 더하지 않는다", async () => {
+    await i18n.changeLanguage("en");
+    stubNativeBridge();
+    render(<RelayHarness path="/home" />);
+
+    act(() =>
+      sendFromNative({
+        ...NOTIFICATION,
+        title: "You're the group owner now",
+        body: "You took over Dawn Study Club",
+      }),
+    );
+    const toastButton = await screen.findByRole("button", {
+      name: "You're the group owner now. You took over Dawn Study Club",
+    });
+    const toaster = screen.getByRole("region", { name: "Notifications" });
+
+    expect(toaster).toContainElement(toastButton);
+    expect(toaster.textContent).not.toMatch(/[가-힣]/);
   });
 });
 
