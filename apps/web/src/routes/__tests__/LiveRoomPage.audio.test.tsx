@@ -155,3 +155,16 @@ describe("LiveRoomPage 초대코드 방의 소리", () => {
     );
   });
 });
+
+describe("LiveRoomPage 초대코드 방의 화면", () => {
+  it("그룹 공부방 조작 없이 지금 격자를 쓰고 클릭 분석도 그대로 둔다", async () => {
+    await enterInviteRoom();
+
+    expect(screen.queryByRole("button", { name: /마이크/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "다른 사람 소리 끄기" })).toBeNull();
+    expect(screen.queryByTestId("group-room-focus-badge")).toBeNull();
+    expect(screen.getByRole("button", { name: "더보기" })).toBeInTheDocument();
+    expect(screen.getByTestId("room-grid")).toHaveAttribute("data-variant", "invite");
+    expect(screen.getByTestId("live-room-page")).not.toHaveAttribute("data-amp-mask");
+  });
+});

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { Location } from "react-router-dom";
@@ -26,6 +26,7 @@ import { useActiveSessionRestore } from "@/features/study-session/useActiveSessi
 import { ApiError } from "@/lib/api";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { getGroupHome, joinGroupRoom, leaveGroupRoom } from "@/lib/groupRoomApi";
+import { haptic } from "@/lib/haptics";
 import { queryClient as appQueryClient } from "@/lib/queryClient";
 import type * as UserId from "@/lib/userId";
 import { LocationProbe } from "@/test/LocationProbe";
@@ -285,6 +286,26 @@ async function exitRoom() {
 
 function noticeHandoffOf(location: Location): boolean {
   return (location.state as { noticeHandoff?: boolean } | null)?.noticeHandoff === true;
+}
+
+/** 끝나는 이벤트를 받을 수 있는 가짜 마이크 트랙 */
+function fakeMicTrack() {
+  return Object.assign(new EventTarget(), {
+    kind: "audio",
+    enabled: true,
+    readyState: "live",
+    stop: vi.fn(),
+  }) as unknown as MediaStreamTrack;
+}
+
+/** 바의 카메라 버튼과 카메라 켜기 확인 창으로 카메라를 켠다. */
+async function turnCameraOn() {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "카메라 켜기" }));
+  await user.click(
+    within(screen.getByRole("alertdialog")).getByRole("button", { name: "카메라 켜기" }),
+  );
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
 }
 
 beforeEach(() => {
@@ -579,5 +600,95 @@ describe("GroupRoomPage 시간 규칙과 상태 발행", () => {
 
     await waitFor(() => expect(location().pathname).toBe("/social/groups/10"));
     expect(submitStudySession).toHaveBeenCalledOnce();
+  });
+});
+
+describe("GroupRoomPage 조작 배치", () => {
+  it("아래 바는 카메라, 마이크, 타이머, 배경음, 나가기 순서다", async () => {
+    await enterGroupRoom({ groupId: 10 });
+    const bar = screen.getByTestId("room-control-bar");
+
+    expect(
+      within(bar)
+        .getAllByRole("button")
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual([
+      "카메라 켜기",
+      "마이크 켜기",
+      "타이머",
+      expect.stringContaining("배경음"),
+      "나가기",
+    ]);
+  });
+
+  it("더보기 메뉴와 초대코드 공유, 바의 과목 버튼이 없다", async () => {
+    await enterGroupRoom({ groupId: 10 });
+
+    expect(screen.queryByRole("button", { name: /더보기/ })).toBeNull();
+    expect(screen.queryByText(/초대코드/)).toBeNull();
+    expect(
+      within(screen.getByTestId("room-control-bar")).queryByRole("button", { name: /과목/ }),
+    ).toBeNull();
+  });
+
+  it("카메라가 꺼진 동안 마이크를 누르면 안내만 하고 켜지 않는다", async () => {
+    const { acquire } = await enterGroupRoom({ groupId: 10 });
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "마이크 켜기" }));
+
+    expect(await screen.findByText("카메라를 켜면 마이크를 쓸 수 있어요")).toBeInTheDocument();
+    expect(acquire).not.toHaveBeenCalled();
+  });
+
+  it("카메라를 켜고 마이크를 켜면 켜짐을 보내고 가벼운 진동을 낸다", async () => {
+    const { channel, acquire } = await enterGroupRoom({ groupId: 10 });
+    acquire.mockResolvedValue({ kind: "ok", track: fakeMicTrack() });
+    await turnCameraOn();
+    vi.mocked(haptic).mockClear();
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "마이크 켜기" }));
+
+    expect(await screen.findByRole("button", { name: "마이크 끄기" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(channel.published).toContainEqual({ micOn: true });
+    expect(haptic).toHaveBeenCalledWith("light");
+  });
+
+  it("다른 사람 소리 끄기는 이 기기에서 모두의 소리를 끈다", async () => {
+    const { player } = await enterGroupRoom({ groupId: 10 });
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "다른 사람 소리 끄기" }));
+
+    expect(player.setAllMuted).toHaveBeenLastCalledWith(true);
+    expect(screen.getByRole("button", { name: "다른 사람 소리 끄기" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("왼쪽 위 과목 글자를 누르면 과목 화면이 열린다", async () => {
+    await enterGroupRoom({ groupId: 10 });
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "과목" }));
+
+    expect(await screen.findByRole("dialog", { name: "과목" })).toBeInTheDocument();
+  });
+
+  it("가운데 위에 내 순공과 총 시간을 두고 타일 격자는 그룹 배치다", async () => {
+    await enterGroupRoom({ groupId: 10 });
+
+    expect(screen.getByTestId("group-room-focus-badge")).toHaveTextContent("00:00:00");
+    expect(screen.getByText("총 00:00:00")).toBeInTheDocument();
+    expect(screen.getByTestId("room-grid")).toHaveAttribute("data-variant", "group");
+  });
+
+  it("닉네임과 그룹 이름이 클릭 분석에 실리지 않게 화면 전체를 가린다", async () => {
+    await enterGroupRoom({ groupId: 10 });
+    const root = screen.getByTestId("live-room-page");
+
+    expect(root).toHaveAttribute("data-amp-mask");
+    expect(root).toHaveAttribute("data-amp-mask-attributes", "aria-label");
   });
 });

@@ -18,6 +18,15 @@ const BAR_BUTTON =
  */
 export const roomBarButtonClassName = `${BAR_BUTTON} border-(--session-btn-default-border) bg-white/10 text-(--session-btn-default-fg)`;
 
+/**
+ * 바 안 꺼짐 버튼 모양
+ *
+ * 반투명 빨강이라 솔리드 빨강인 나가기 버튼과 구분되는 은은한 경고 톤이다.
+ * 색은 나가기와 같은 계열(#ff6b77 = feedback.error.dark)의 20%다.
+ * 카메라와 마이크가 꺼져 아무것도 보내지 않는 상태를 같은 모양으로 알린다.
+ */
+export const roomBarDangerButtonClassName = `${BAR_BUTTON} border-transparent bg-[#ff6b77]/20`;
+
 type RoomControlBarProps = {
   cameraOn: boolean;
   /** 제출 중처럼 조작이 안전하지 않은 구간의 잠금. 버튼을 없애면 배치가 튀므로 흐리게 남긴다. */
@@ -34,7 +43,7 @@ type RoomControlBarProps = {
    * 모달 메뉴가 열린 동안 바가 누름을 받으면 메뉴 뒤에서 버튼이 눌리고 바깥 누름으로 메뉴가 닫히지 않는다.
    */
   inactive?: boolean;
-  /** 카메라와 나가기 사이에 과목, 배경음 순서로 놓는 버튼 */
+  /** 카메라와 나가기 사이에 놓는 버튼이고 초대코드 방은 과목과 배경음, 그룹 공부방은 마이크, 타이머, 배경음 순서다. */
   children?: ReactNode;
   onToggleCamera: () => void;
   onExit: () => void;
@@ -108,11 +117,7 @@ export function RoomControlBar({
         aria-pressed={cameraOn}
         disabled={disabled}
         onClick={onToggleCamera}
-        className={
-          // 꺼짐은 반투명 레드 필(BY-435 시안 A) — 솔리드 레드인 나가기 버튼과 구분되는
-          // 은은한 경고 톤. 색은 나가기와 같은 계열(#ff6b77 = feedback.error.dark)의 20%다.
-          cameraOn ? roomBarButtonClassName : `${BAR_BUTTON} border-transparent bg-[#ff6b77]/20`
-        }
+        className={cameraOn ? roomBarButtonClassName : roomBarDangerButtonClassName}
       >
         {/* key로 상태별 재마운트를 강제해 켬↔끔마다 팝 애니메이션이 다시 돈다. */}
         <img

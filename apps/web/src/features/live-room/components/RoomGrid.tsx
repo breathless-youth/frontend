@@ -26,6 +26,7 @@ function remoteVideoOrUndefined(userId: number, streams: ReadonlyMap<number, Med
  * 타일 크기와 위치는 바 표시와 무관하다.
  * 바 표시에 따라 타일이 움직이면 영상이 흔들려 보이기 때문이다.
  * 셀프뷰 서피스 ref는 부모(미리보기 비율 측정·타일 rootRef)와 공유하므로 prop으로 받는다.
+ * 그룹 공부방 세로 폰은 좌우 16px 여백과 4px 간격으로 2열을 그려 폭 402에서 타일 한 변이 183px다.
  */
 export function RoomGrid({
   allMembers,
@@ -33,13 +34,16 @@ export function RoomGrid({
   myVideo,
   remoteStreams,
   selfSurfaceRef,
+  variant = "invite",
 }: {
   allMembers: RoomMember[];
   userId: number;
   myVideo: ReactNode;
   remoteStreams: ReadonlyMap<number, MediaStream>;
   selfSurfaceRef: RefObject<HTMLDivElement | null>;
+  variant?: "invite" | "group";
 }) {
+  const group = variant === "group";
   const gridRef = useRef<HTMLDivElement>(null);
   /** 격자 칸 크기(여백 제외). 폭 600 이상 창의 타일 한 변을 정한다. */
   const [space, setSpace] = useState<{ width: number; height: number } | null>(null);
@@ -114,8 +118,10 @@ export function RoomGrid({
     <div
       ref={gridRef}
       data-testid="room-grid"
+      data-variant={variant}
       className={cn(
-        "flex grow flex-col overflow-y-auto px-1",
+        "flex grow flex-col overflow-y-auto",
+        group ? "px-4" : "px-1",
         // 세로는 위로 시간 글자와 과목 알약, 아래로 바 자리를 늘 비워 둔다.
         // 위는 총 줄이 보일 때의 높이라 조작이 숨어 알약이 올라가도 타일이 움직이지 않는다.
         // 아래는 바 오프셋과 같은 max라 아래 안전 영역이 없는 기기에서도 바가 타일에 닿지 않는다.
@@ -163,6 +169,7 @@ export function RoomGrid({
             // 세로 크기는 비율에 맡기지 않고 두 변을 직접 정한다.
             // iOS는 가로에서 높이로 정한 타일을 세로로 돌리면 비율로 높이를 다시 계산하지 않아 높이가 0으로 남는다.
             // 폭 예산은 좌우 px-1을 뺀 100dvw-8px이고, 좌우 40px 여백은 100dvw-80px이다.
+            // 그룹 공부방은 좌우 px-4와 간격 4px을 뺀 100dvw-36px을 둘로 나눠 2열이 폭에 꼭 맞는다.
             className={cn(
               "aspect-square",
               allMembers.length <= 1
@@ -172,9 +179,13 @@ export function RoomGrid({
                   ? // 좌우 40px 폭과 위아래 띠를 둘로 나눈 높이 중 작은 쪽이라 낮은 기기에서도 띠를 넘지 않는다.
                     "size-[min(calc(100dvw-80px),calc((100dvh-env(safe-area-inset-top)-max(calc(env(safe-area-inset-bottom)+76px),86px)-100px)/2))]"
                   : allMembers.length <= 4
-                    ? "size-[calc((100dvw-8px)*0.47-2px)]"
+                    ? group
+                      ? "size-[calc((100dvw-36px)/2)]"
+                      : "size-[calc((100dvw-8px)*0.47-2px)]"
                     : // 낮은 기기에서 3행이 띠를 넘어 스크롤되지 않게 띠를 셋으로 나눈 높이로 묶는다.
-                      "size-[min(calc((100dvw-8px)*0.47-2px),calc((100dvh-env(safe-area-inset-top)-max(calc(env(safe-area-inset-bottom)+76px),86px)-104px)/3))]",
+                      group
+                      ? "size-[min(calc((100dvw-36px)/2),calc((100dvh-env(safe-area-inset-top)-max(calc(env(safe-area-inset-bottom)+76px),86px)-104px)/3))]"
+                      : "size-[min(calc((100dvw-8px)*0.47-2px),calc((100dvh-env(safe-area-inset-top)-max(calc(env(safe-area-inset-bottom)+76px),86px)-104px)/3))]",
               "landscape-compact:w-auto",
               allMembers.length <= 2
                 ? "landscape-compact:h-[min(88dvh,calc(50dvw-(env(safe-area-inset-left)+env(safe-area-inset-right))/2-18px))]"

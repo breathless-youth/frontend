@@ -22,6 +22,9 @@ import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
 import { useMultiTimer } from "@/features/multi-timer/useMultiTimer";
 import { CameraOnConfirmDialog } from "@/features/live-room/components/CameraOnConfirmDialog";
 import { ClonedTrackPreview } from "@/features/live-room/components/ClonedTrackPreview";
+import { GroupRoomTopBar } from "@/features/live-room/components/GroupRoomTopBar";
+import { MicButton } from "@/features/live-room/components/MicButton";
+import { TimerButton } from "@/features/live-room/components/TimerButton";
 import {
   RoomControlBar,
   roomBarButtonClassName,
@@ -97,6 +100,7 @@ import { useRotationRepaintNudge } from "@/lib/rotationRepaint";
 import { kickVideoPlayback, useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
 
 import { FACE_MASK_EMOJIS } from "./faceMaskSettings";
+import { GROUP_ROOM_ANALYTICS_MASK } from "./groupRoomAnalyticsMask";
 import type { CreateChannel } from "./liveRoomEntryState";
 import type { LiveRoomKind, RoomSeat } from "./roomKind";
 import { leaveRoomSeat, liveRoomHomePath, liveRoomResultPath, renewRoomSeat } from "./roomKind";
@@ -450,7 +454,7 @@ export function LiveRoomSession({
 
   // 그룹 공부방의 타이머는 싱글룸처럼 휴식을 세션 휴식으로 바꾼다.
   // 공부방에서 멈춘 세션을 다시 시작하는 일은 카메라 켜기라서 영상 공유 확인 창을 거친다.
-  useMultiTimer({
+  const timer = useMultiTimer({
     sessionState,
     studying: phase.name === "studying",
     onStartBreak: startBreak,
@@ -674,10 +678,13 @@ export function LiveRoomSession({
   );
   const dialogOpen = cameraDialogOpen || exitDialogOpen;
   const controlsLocked = phase.name !== "studying";
+  // 모달 메뉴가 열린 동안 바와 위쪽 버튼이 누름을 받으면 메뉴 뒤에서 눌리고 바깥 누름으로 메뉴가 닫히지 않는다.
+  const controlsInactive = moreMenuOpen;
 
   // 잠금(제출 중·에러)·다이얼로그 동안은 컨트롤을 강제로 보인다.
-  const controlsAlwaysVisible = controlsLocked || dialogOpen || moreMenuOpen || page !== null;
+  const controlsAlwaysVisible = controlsLocked || dialogOpen || controlsInactive || page !== null;
   const { controlsVisible, surfaceProps } = useAutoHideControls(controlsAlwaysVisible);
+  const timerOn = timer.mode?.status === "running" || timer.mode?.status === "paused";
 
   // 확인 창을 연 요소가 닫힐 때 사라져 있으면 대신 포커스를 받을 자리다.
   // 바의 카메라 버튼으로 열 때는 비워 둔다.
@@ -774,6 +781,7 @@ export function LiveRoomSession({
     <main
       ref={setSessionSurface}
       data-testid="live-room-page"
+      {...(room.kind === "group" ? GROUP_ROOM_ANALYTICS_MASK : undefined)}
       {...surfaceProps}
       // overflow-hidden: 자동 숨김으로 화면 밖까지 내려간 컨트롤 바를 잘라 문서 스크롤이 생기지 않게 한다.
       className="theme-dark relative flex h-dvh flex-col overflow-hidden bg-background"
@@ -808,56 +816,79 @@ export function LiveRoomSession({
           myVideo={myVideo}
           remoteStreams={remoteStreams}
           selfSurfaceRef={selfSurfaceRef}
+          variant={room.kind}
         />
 
-        {/* 조작이 숨어도 내 시간은 계속 보여야 해서 숨김 대상 밖에 둔다. */}
-        <div className="pointer-events-none absolute top-[calc(env(safe-area-inset-top)+6px)] right-[calc(env(safe-area-inset-right)+16px)] left-[calc(env(safe-area-inset-left)+16px)] flex flex-col items-start landscape-compact:top-[calc(env(safe-area-inset-top)+16px)] regular:top-[calc(env(safe-area-inset-top)+16px)]">
-          <RoomTimeText focusSec={focusSec} studySec={studySec} totalHidden={!controlsVisible} />
-          {/* 과목 알약
+        {room.kind === "group" ? (
+          <GroupRoomTopBar
+            subject={
+              selectedSubject === null
+                ? null
+                : { name: selectedSubject.name, colorIndex: selectedSubject.colorIndex }
+            }
+            focusSec={focusSec}
+            studySec={studySec}
+            paused={paused}
+            hidden={!controlsVisible}
+            inactive={controlsInactive}
+            subjectDisabled={controlsLocked}
+            othersMuted={audio.othersMuted}
+            flipDisabled={cameraHeld || controlsLocked}
+            onOpenSubject={(opener) => openSubjectPage("label", opener)}
+            onToggleOthersMuted={audio.toggleOthersMuted}
+            onFlipCamera={() => void flipCamera()}
+          />
+        ) : (
+          <>
+            {/* 조작이 숨어도 내 시간은 계속 보여야 해서 숨김 대상 밖에 둔다. */}
+            <div className="pointer-events-none absolute top-[calc(env(safe-area-inset-top)+6px)] right-[calc(env(safe-area-inset-right)+16px)] left-[calc(env(safe-area-inset-left)+16px)] flex flex-col items-start landscape-compact:top-[calc(env(safe-area-inset-top)+16px)] regular:top-[calc(env(safe-area-inset-top)+16px)]">
+              <RoomTimeText
+                focusSec={focusSec}
+                studySec={studySec}
+                totalHidden={!controlsVisible}
+              />
+              {/* 과목 알약
 
-              조작이 숨어도 늘 보여서 내 시간 글자 바로 아래에 둔다.
-              묶음 칸이 오른쪽에도 화면 여백을 둬서 이름이 길면 화면 안에서 잘린다.
-              흐림 배경이 사라지지 않게 transform이나 opacity가 걸린 조상 아래에 두지 않는다.
-              시간 글자의 그림자가 알약 글자에 번지지 않게 시간 글자 밖 형제로 둔다. */}
-          {subjectLabel !== null && (
-            <RoomSubjectPill
-              name={subjectLabel.name}
-              focusSec={subjectLabel.focusSec}
-              paused={paused}
-              expanded={page === "subject"}
-              inactive={moreMenuOpen}
-              // 제출 중에는 페이지를 열 수 없어서 눌리는 버튼처럼 보이지 않게 글자로 둔다.
-              onClick={
-                controlsLocked
-                  ? undefined
-                  : (event) => openSubjectPage("label", event.currentTarget)
-              }
+                  조작이 숨어도 늘 보여서 내 시간 글자 바로 아래에 둔다.
+                  묶음 칸이 오른쪽에도 화면 여백을 둬서 이름이 길면 화면 안에서 잘린다.
+                  흐림 배경이 사라지지 않게 transform이나 opacity가 걸린 조상 아래에 두지 않는다.
+                  시간 글자의 그림자가 알약 글자에 번지지 않게 시간 글자 밖 형제로 둔다. */}
+              {subjectLabel !== null && (
+                <RoomSubjectPill
+                  name={subjectLabel.name}
+                  focusSec={subjectLabel.focusSec}
+                  paused={paused}
+                  expanded={page === "subject"}
+                  inactive={moreMenuOpen}
+                  // 제출 중에는 페이지를 열 수 없어서 눌리는 버튼처럼 보이지 않게 글자로 둔다.
+                  onClick={
+                    controlsLocked
+                      ? undefined
+                      : (event) => openSubjectPage("label", event.currentTarget)
+                  }
+                />
+              )}
+            </div>
+
+            <SessionMoreMenu
+              container={sessionSurface}
+              hidden={!controlsVisible}
+              flipDisabled={cameraHeld || controlsLocked}
+              onFlipCamera={() => void flipCamera()}
+              onShareInvite={() => {
+                void shareInvite(room.inviteCode).then((result) => {
+                  trackInviteShared(result, "room_menu");
+                  trackMetaInviteShared(result);
+                  // 공유 시트가 뜨거나 사용자가 닫은 경우는 OS가 이미 알려 줘서 복사만 토스트로 알린다.
+                  if (result === "copied") {
+                    showCtaToast("초대코드를 복사했어요");
+                  }
+                });
+              }}
+              onOpenChange={setMoreMenuOpen}
             />
-          )}
-        </div>
-
-        <SessionMoreMenu
-          container={sessionSurface}
-          hidden={!controlsVisible}
-          flipDisabled={cameraHeld || controlsLocked}
-          onFlipCamera={() => void flipCamera()}
-          // 그룹 공부방은 숫자 4자리 초대코드가 없다.
-          onShareInvite={
-            room.kind === "invite"
-              ? () => {
-                  void shareInvite(room.inviteCode).then((result) => {
-                    trackInviteShared(result, "room_menu");
-                    trackMetaInviteShared(result);
-                    // 공유 시트가 뜨거나 사용자가 닫은 경우는 OS가 이미 알려 줘서 복사만 토스트로 알린다.
-                    if (result === "copied") {
-                      showCtaToast("초대코드를 복사했어요");
-                    }
-                  });
-                }
-              : undefined
-          }
-          onOpenChange={setMoreMenuOpen}
-        />
+          </>
+        )}
 
         {/* 세로 폰은 바를 아래 안전 영역에 2px 걸치되, 안전 영역이 없는 기기에서는 화면 끝에 붙지 않게 8px을 남긴다.
             가로는 세로 기준 오프셋이 높아 보여서 6px만 띄운다.
@@ -884,7 +915,7 @@ export function LiveRoomSession({
             cameraOn={!cameraHeld}
             disabled={controlsLocked}
             hidden={!controlsVisible}
-            inactive={moreMenuOpen}
+            inactive={controlsInactive}
             onToggleCamera={() => {
               // 휴식 중에 카메라를 끄면 휴식이 끝나고 카메라를 끈 일시정지가 된다.
               if (!cameraHeld) {
@@ -902,34 +933,57 @@ export function LiveRoomSession({
               setExitDialogOpen(true);
             }}
           >
-            <button
-              ref={(node) => {
-                subjectButtonRef.current = node;
-                subjectNative.ref(node);
-              }}
-              type="button"
-              // 이 버튼은 과목을 고르지 않고 페이지를 열어서, 고른 상태는 이름과 색으로 전한다.
-              aria-label={subjectButtonLabel}
-              aria-haspopup="dialog"
-              aria-expanded={page === "subject"}
-              data-on={subjectSelection !== null}
-              disabled={controlsLocked}
-              onPointerDown={playPressPop}
-              onClick={(event) => openSubjectPage("button", event.currentTarget)}
-              className={cn(roomBarButtonClassName, "data-[on=true]:text-(--state-focus)")}
-            >
-              <BookOpen
-                aria-hidden="true"
-                className="size-5.75 regular:size-6.75 short-side-lg:size-8.5"
-              />
-            </button>
+            {room.kind === "group" ? (
+              <>
+                <MicButton
+                  on={audio.micOn}
+                  disabled={controlsLocked}
+                  inactive={controlsInactive}
+                  hidden={!controlsVisible}
+                  onToggle={() => {
+                    haptic("light");
+                    audio.toggleMic();
+                  }}
+                />
+                <TimerButton
+                  on={timerOn}
+                  expanded={false}
+                  disabled={controlsLocked}
+                  inactive={controlsInactive}
+                  hidden={!controlsVisible}
+                  onOpen={() => undefined}
+                />
+              </>
+            ) : (
+              <button
+                ref={(node) => {
+                  subjectButtonRef.current = node;
+                  subjectNative.ref(node);
+                }}
+                type="button"
+                // 이 버튼은 과목을 고르지 않고 페이지를 열어서, 고른 상태는 이름과 색으로 전한다.
+                aria-label={subjectButtonLabel}
+                aria-haspopup="dialog"
+                aria-expanded={page === "subject"}
+                data-on={subjectSelection !== null}
+                disabled={controlsLocked}
+                onPointerDown={playPressPop}
+                onClick={(event) => openSubjectPage("button", event.currentTarget)}
+                className={cn(roomBarButtonClassName, "data-[on=true]:text-(--state-focus)")}
+              >
+                <BookOpen
+                  aria-hidden="true"
+                  className="size-5.75 regular:size-6.75 short-side-lg:size-8.5"
+                />
+              </button>
+            )}
             <AmbientSoundButton
               ref={ambientButtonRef}
               nativeId="room-ambient"
               className={roomBarButtonClassName}
               onPointerDown={playPressPop}
               disabled={controlsLocked}
-              inactive={moreMenuOpen}
+              inactive={controlsInactive}
               faded={!controlsVisible}
               on={ambient.isOn}
               expanded={page === "ambient"}
