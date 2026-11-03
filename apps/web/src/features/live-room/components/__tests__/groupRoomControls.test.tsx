@@ -127,6 +127,29 @@ describe("TimerButton", () => {
     });
   });
 
+  it("타이머가 도는 동안은 시트를 연다고 알리지 않고 캡슐의 남은 시간을 설명으로 단다", () => {
+    render(
+      <>
+        <TimerButton on expanded={false} describedBy="capsule-time" onOpen={vi.fn()} />
+        <span id="capsule-time">24:13</span>
+      </>,
+    );
+    const button = screen.getByRole("button", { name: "타이머" });
+
+    expect(button).not.toHaveAttribute("aria-haspopup");
+    expect(button).not.toHaveAttribute("aria-expanded");
+    expect(button).toHaveAccessibleDescription("24:13");
+  });
+
+  it("꺼져 있으면 시트를 여는 버튼으로 알린다", () => {
+    render(<TimerButton on={false} expanded={false} describedBy="capsule-time" onOpen={vi.fn()} />);
+    const button = screen.getByRole("button", { name: "타이머" });
+
+    expect(button).toHaveAttribute("aria-haspopup", "dialog");
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(button).not.toHaveAttribute("aria-describedby");
+  });
+
   it("꺼져 있으면 기본 역할이고 누르면 시트를 연다", async () => {
     const onOpen = vi.fn();
     render(<TimerButton on={false} expanded={false} onOpen={onOpen} />);

@@ -1,5 +1,6 @@
 import { Pause, Play, Timer, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import type { Ref } from "react";
 
 import { formatPomodoroRemaining } from "@/features/multi-timer/multiTimerFormat";
 import type { ModeState } from "@/features/multi-timer/multiTimerMachine";
@@ -22,6 +23,8 @@ export function RoomTimerCapsule({
   mode,
   remainingMs,
   held,
+  timerId,
+  primaryRef,
   onPrimary,
   onOff,
 }: {
@@ -29,6 +32,10 @@ export function RoomTimerCapsule({
   remainingMs: number;
   /** 카메라를 꺼 공부방이 멈춰 있어 타이머 시간도 서 있다. */
   held: boolean;
+  /** 타이머 버튼이 설명으로 읽는 남은 시간 요소의 id */
+  timerId?: string;
+  /** 타이머 버튼을 누르면 포커스가 오는 멈춤이나 계속 버튼 */
+  primaryRef?: Ref<HTMLButtonElement>;
   onPrimary: () => void;
   onOff: () => void;
 }) {
@@ -57,6 +64,7 @@ export function RoomTimerCapsule({
       )}
       {/* 1초마다 읽히지 않도록 aria-live는 걸지 않는다. */}
       <span
+        id={timerId}
         role="timer"
         aria-label={t("roomTimerCapsule.aria.remaining")}
         className="text-lg leading-6 font-extrabold tabular-nums"
@@ -64,6 +72,7 @@ export function RoomTimerCapsule({
         {formatPomodoroRemaining(remainingMs)}
       </span>
       <button
+        ref={primaryRef}
         type="button"
         aria-label={running ? t("roomTimerCapsule.aria.pause") : t("roomTimerCapsule.aria.resume")}
         onClick={onPrimary}

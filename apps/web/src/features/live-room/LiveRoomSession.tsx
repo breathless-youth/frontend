@@ -1110,6 +1110,8 @@ export function LiveRoomSession({
                 mode={timer.mode}
                 remainingMs={timer.remainingMs}
                 held={timer.held}
+                timerId={timerSheet.capsuleTimerId}
+                primaryRef={timerSheet.capsulePrimaryRef}
                 onPrimary={timer.pressPrimary}
                 onOff={timer.close}
               />
@@ -1168,7 +1170,8 @@ export function LiveRoomSession({
                   disabled={controlsLocked}
                   inactive={controlsInactive}
                   hidden={!controlsVisible}
-                  onOpen={timerSheet.openSheet}
+                  describedBy={timerSheet.capsuleTimerId}
+                  onOpen={timerSheet.pressTimerButton}
                 />
               </>
             ) : (

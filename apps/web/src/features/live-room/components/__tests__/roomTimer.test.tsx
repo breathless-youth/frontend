@@ -75,11 +75,18 @@ function TimerHarness({
           mode={timer.mode}
           remainingMs={timer.remainingMs}
           held={timer.held}
+          timerId={sheet.capsuleTimerId}
+          primaryRef={sheet.capsulePrimaryRef}
           onPrimary={timer.pressPrimary}
           onOff={timer.close}
         />
       )}
-      <TimerButton on={sheet.active} expanded={sheet.open} onOpen={sheet.openSheet} />
+      <TimerButton
+        on={sheet.active}
+        expanded={sheet.open}
+        describedBy={sheet.capsuleTimerId}
+        onOpen={sheet.pressTimerButton}
+      />
       <LazyRoomTimerSheet
         open={sheet.open}
         landscape={landscape}

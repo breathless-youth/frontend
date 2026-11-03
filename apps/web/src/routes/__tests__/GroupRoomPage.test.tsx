@@ -1298,6 +1298,28 @@ describe("GroupRoomPage 타이머", () => {
     expect(screen.getByTestId("room-timer-capsule")).toHaveTextContent("29:58");
   });
 
+  it("타이머가 도는 동안 타이머 버튼은 시트를 연다고 알리지 않고 누르면 캡슐의 멈춤 버튼으로 간다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    await enterGroupRoom({ groupId: 10 });
+    await turnCameraOn();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const { sheet } = await openTimerSheet(user);
+    await user.click(within(sheet).getByRole("button", { name: "30분 시작" }));
+    await act(() => vi.advanceTimersByTimeAsync(2_000));
+    const button = screen.getByRole("button", { name: "타이머" });
+
+    expect(button).not.toHaveAttribute("aria-haspopup");
+    expect(button).not.toHaveAttribute("aria-expanded");
+    expect(button).toHaveAccessibleDescription("29:58");
+
+    await user.click(button);
+
+    expect(
+      within(screen.getByTestId("room-timer-capsule")).getByRole("button", { name: "멈춤" }),
+    ).toHaveFocus();
+    expect(screen.queryByRole("dialog", { name: "타이머 설정" })).toBeNull();
+  });
+
   it("카메라를 끈 채 타이머를 시작하면 공부방을 다시 시작하는 카메라 켜기 확인 창을 연다", async () => {
     await enterGroupRoom({ groupId: 10 });
     const { user, sheet } = await openTimerSheet();
