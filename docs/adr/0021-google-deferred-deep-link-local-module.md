@@ -15,7 +15,8 @@
 - `plugins/withGoogleAdsMeasurement.js`가 AndroidManifest에 `google_analytics_deferred_deep_link_enabled`를 `true`로 넣는다.
 - `apps/mobile/modules/google-deferred-link`에 Android 전용 로컬 Expo 모듈 `GoogleDeferredLink`를 두고, 함수 `readDeepLink`가 위 SharedPreferences 값을 읽기만 한다.
 - JS는 `requireOptionalNativeModule`로 불러와 iOS, Jest, 모듈이 없는 옛 Dev Client에서는 null로 받는다.
-- SDK가 값을 비동기로 받아 오므로 `lib/googleDeferredLink.ts`가 1초 간격으로 여섯 번까지 다시 묻는다.
+- SDK가 값을 비동기로 받아 오므로 다시 묻는다. 플레이 설치 정보에 `gclid`가 있는 구글 광고 설치는 1초 간격으로 30번까지 기다리고, 나머지 설치는 한 번만 읽어 첫 실행 수집을 늦추지 않는다.
+- 기다리는 사이 앱이 꺼져 수집 값을 보관하지 못하면 다음 실행에서 다시 수집한다. SDK가 저장한 값은 남아 있어 그때 읽힌다.
 - 읽은 값은 메타와 같은 `focusmakers://?fm_ad=<라벨>` 모양이고, 구글 라벨은 `g_`로 시작한다. 설치 유입 수집이 이 값을 브리지 `install-attribution`의 `googleDeepLinkAd`로 웹에 넘긴다.
 - 읽기 결과(found, invalid, empty, error)는 앱 이벤트로 남겨 운영에서 실패 원인을 가린다.
 - iOS는 구현하지 않는다. 구글은 iOS에서 광고 식별자를 쓰지 않고 전환을 추정으로 집계해 사람별 광고를 알 수 없다.
