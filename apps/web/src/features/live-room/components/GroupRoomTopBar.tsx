@@ -8,7 +8,8 @@ import { SUBJECT_SHEET_COPY } from "@/features/study-session/sessionCopy";
 import { cn } from "@/lib/utils";
 
 // 영상 위에 바탕 없이 놓이는 글자와 아이콘이라 그림자로 띄운다.
-const ON_VIDEO_TEXT = "text-white text-shadow-[0_1px_3px_rgb(0_0_0/0.45)]";
+const ON_VIDEO_SHADOW = "text-shadow-[0_1px_3px_rgb(0_0_0/0.45)]";
+const ON_VIDEO_TEXT = `text-white ${ON_VIDEO_SHADOW}`;
 const ON_VIDEO_ICON = "drop-shadow-[0_1px_3px_rgb(0_0_0/0.45)]";
 
 const ICON_BUTTON =
@@ -105,7 +106,9 @@ export function GroupRoomTopBar({
         <p
           aria-hidden={hidden || undefined}
           className={cn(
-            "text-xs leading-4 font-bold text-text-tertiary tabular-nums",
+            // 태블릿에서는 옛 시간 글자처럼 총 줄도 한 단계씩 키운다.
+            "text-xs leading-4 font-bold text-text-tertiary tabular-nums regular:text-sm regular:leading-4.75 short-side-lg:text-lg short-side-lg:leading-6",
+            ON_VIDEO_SHADOW,
             "transition-opacity duration-300 motion-reduce:transition-none",
             hidden && "opacity-0",
           )}

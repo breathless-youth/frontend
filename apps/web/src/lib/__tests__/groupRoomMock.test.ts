@@ -4,6 +4,7 @@ import type * as TokenSourceModule from "@/lib/auth/tokenSource";
 import type { TokenSource } from "@/lib/auth/tokenSource";
 
 import type { GroupMockServer } from "../groupRoomMock";
+import * as roomApi from "../roomApi";
 import {
   __resetGroupMockForTests,
   activeGroupMockServer,
@@ -438,5 +439,84 @@ describe("그룹 가짜 서버", () => {
     expect(seed.publicGroups.filter((group) => group.memberCount === 6)).toHaveLength(1);
     expect(seed.blocks.blockedUsers).toHaveLength(2);
     expect(seed.mine.groups[0]).toMatchObject({ groupId: 10, owner: true });
+  });
+});
+
+describe("그룹 가짜 서버의 개발용 방 다리", () => {
+  // 같은 함수를 다시 spyOn하면 앞 테스트의 감시가 그대로 돌아와서 테스트마다 되돌린다.
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function stubRoomApi() {
+    const renew = vi.spyOn(roomApi, "renewLiveRoomSeat").mockResolvedValue({
+      roomId: 77,
+      graceRejoin: false,
+      cameraOn: null,
+      iceServers: [],
+      iceTtlSeconds: 600,
+    });
+    const leave = vi.spyOn(roomApi, "leaveRoom").mockResolvedValue(undefined);
+    return { renew, leave };
+  }
+
+  it("방 코드를 주면 실제 숫자 4자리 방 자리를 잡아 그룹 응답으로 돌려준다", async () => {
+    const { renew, leave } = stubRoomApi();
+    const api = createGroupMockServer("default", { delayMs: 0, roomCode: "3712" });
+    await expect(api.joinGroupRoom(10)).resolves.toMatchObject({
+      roomId: 77,
+      micOn: null,
+      onBreak: null,
+    });
+    expect(renew).toHaveBeenCalledWith("3712");
+    await api.leaveGroupRoom(10);
+    expect(leave).toHaveBeenCalledWith(77);
+  });
+
+  it("방 코드가 없으면 지금처럼 가짜 방 번호를 주고 실제 방은 건드리지 않는다", async () => {
+    const { renew, leave } = stubRoomApi();
+    const api = createGroupMockServer("default", { delayMs: 0 });
+    const seat = await api.joinGroupRoom(10);
+    await api.leaveGroupRoom(10);
+    expect(seat.roomId).not.toBe(77);
+    expect(renew).not.toHaveBeenCalled();
+    expect(leave).not.toHaveBeenCalled();
+  });
+
+  it("멤버가 아닌 그룹은 방 코드가 있어도 실제 방 자리를 잡지 않는다", async () => {
+    const { renew } = stubRoomApi();
+    const api = createGroupMockServer("default", { delayMs: 0, roomCode: "3712" });
+    await expect(api.joinGroupRoom(999)).rejects.toMatchObject({ code: "GROUP_NOT_FOUND" });
+    expect(renew).not.toHaveBeenCalled();
+  });
+
+  it("개발 빌드는 주소의 방 코드를 함께 읽는다", async () => {
+    const { renew } = stubRoomApi();
+    window.history.replaceState(
+      null,
+      "",
+      "/social/groups/10?groupMock=default&groupMockRoomCode=0712",
+    );
+    __resetGroupMockForTests();
+    vi.useFakeTimers();
+    const seat = activeGroupMockServer()!.joinGroupRoom(10);
+    await vi.advanceTimersByTimeAsync(300);
+    await expect(seat).resolves.toMatchObject({ roomId: 77 });
+    expect(renew).toHaveBeenCalledWith("0712");
+  });
+
+  it("숫자 4자리가 아닌 방 코드는 읽지 않는다", async () => {
+    const { renew } = stubRoomApi();
+    window.history.replaceState(
+      null,
+      "",
+      "/social/groups/10?groupMock=default&groupMockRoomCode=12a4",
+    );
+    __resetGroupMockForTests();
+    vi.useFakeTimers();
+    const seat = activeGroupMockServer()!.joinGroupRoom(10);
+    await vi.advanceTimersByTimeAsync(300);
+    await expect(seat).resolves.toMatchObject({ micOn: null });
+    expect(renew).not.toHaveBeenCalled();
   });
 });

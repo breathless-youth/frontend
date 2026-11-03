@@ -12,6 +12,7 @@ import {
   viewGroupWorld,
 } from "./groupRoomMockData";
 import type { GroupMockScene, MockGroup, MockMember } from "./groupRoomMockData";
+import { leaveRoom, renewLiveRoomSeat } from "./roomApi";
 import { readUserId } from "./userId";
 
 /**
@@ -19,6 +20,7 @@ import { readUserId } from "./userId";
  *
  * 백엔드 그룹 API가 아직 501이라 `?groupMock=<장면>`으로 켜서 화면 흐름을 먼저 돌려 본다.
  * `?groupMockError=<코드>`를 더하면 모든 변경이 그 코드로 실패해 오류 문구를 볼 수 있다.
+ * `?groupMockRoomCode=<숫자 4자리>`를 더하면 그룹 공부방 자리 잡기가 그 코드의 실제 방 자리를 잡아 두 기기가 실제로 영상과 소리를 주고받는다.
  * `groupRoomApi`가 개발 빌드에서만 동적으로 불러와 운영 빌드에는 들어가지 않는다.
  * 권한과 한도, 오류 코드와 HTTP 상태는 Swagger 설명을 따라 실제 서버처럼 답한다.
  */
@@ -38,6 +40,12 @@ export interface GroupMockOptions {
   delayMs?: number;
   /** 견본을 보는 나의 사용자 번호이고 기본은 1이다. */
   meId?: number;
+  /**
+   * 그룹 공부방 대신 들어갈 실제 숫자 4자리 방의 초대코드
+   *
+   * 서버의 그룹 공부방 자리 잡기가 나오기 전에도 두 기기가 실제 방에서 만나 소리를 확인하려는 것이다.
+   */
+  roomCode?: string | null;
 }
 
 const DEFAULT_DELAY_MS = 300;
@@ -115,6 +123,9 @@ export function createGroupMockServer(
   const now = options.now ?? Date.now;
   const delayMs = options.delayMs ?? DEFAULT_DELAY_MS;
   const injectError = options.injectError ?? null;
+  const roomCode = options.roomCode ?? null;
+  // 실제 방 자리를 잡은 그룹마다 그 방 번호를 둬서 나갈 때 같은 방을 비운다.
+  const realRoomIds = new Map<number, number>();
   const world = seedGroupWorld(scene, now(), options.meId);
   const meId = world.me.userId;
   // 새로 만드는 그룹과 신청의 번호는 견본 번호와 겹치지 않게 1001부터 쓴다.
@@ -138,7 +149,7 @@ export function createGroupMockServer(
     return work();
   }
 
-  async function change<T>(work: () => T): Promise<T> {
+  async function change<T>(work: () => T | Promise<T>): Promise<T> {
     await settle();
     if (injectError !== null) {
       throw apiError(injectError);
@@ -484,21 +495,40 @@ export function createGroupMockServer(
         world.blocks = world.blocks.filter((blocked) => blocked.userId !== userId);
       }),
     joinGroupRoom: (groupId) =>
-      change((): GroupRoomJoinResponse => {
+      change(async (): Promise<GroupRoomJoinResponse> => {
         joinedGroup(groupId);
+        if (roomCode === null) {
+          return {
+            roomId: MOCK_ROOM_ID_BASE + groupId,
+            graceRejoin: false,
+            cameraOn: null,
+            micOn: null,
+            onBreak: null,
+            iceServers: [],
+            iceTtlSeconds: ICE_TTL_SECONDS,
+          };
+        }
+        // 숫자 4자리 방은 마이크와 휴식을 모르므로 그룹 공부방처럼 처음 값이 없다고 답한다.
+        const seat = await renewLiveRoomSeat(roomCode);
+        realRoomIds.set(groupId, seat.roomId);
         return {
-          roomId: MOCK_ROOM_ID_BASE + groupId,
-          graceRejoin: false,
-          cameraOn: null,
+          roomId: seat.roomId,
+          graceRejoin: seat.graceRejoin,
+          cameraOn: seat.cameraOn,
           micOn: null,
           onBreak: null,
-          iceServers: [],
-          iceTtlSeconds: ICE_TTL_SECONDS,
+          iceServers: seat.iceServers,
+          iceTtlSeconds: seat.iceTtlSeconds,
         };
       }),
     leaveGroupRoom: (groupId) =>
-      change(() => {
+      change(async () => {
         joinedGroup(groupId);
+        const roomId = realRoomIds.get(groupId);
+        if (roomId !== undefined) {
+          realRoomIds.delete(groupId);
+          await leaveRoom(roomId);
+        }
       }),
 
     setOwnerForTests(groupId, userId) {
@@ -522,9 +552,11 @@ function readActiveServer(): GroupMockServer | null {
   }
   // 앱이 아는 지금 사용자를 견본의 나로 앉혀야 실기기에서 내 책상의 `나`와 그룹장 화면이 보인다.
   // 그룹 조회는 신원이 정해진 뒤에 나가므로 처음 부를 때 읽으면 토큰으로 받은 사용자가 있다.
+  const roomCode = params.get("groupMockRoomCode");
   return createGroupMockServer(scene, {
     injectError: params.get("groupMockError") || null,
     meId: readUserId(window.location.search) ?? undefined,
+    roomCode: roomCode !== null && /^\d{4}$/.test(roomCode) ? roomCode : null,
   });
 }
 
