@@ -74,6 +74,15 @@
     "public": "Public",
     "private": "Private"
   },
+  "applyScreen": {
+    "title": "Request to join",
+    "headline": "Send a request to {{roomName}}",
+    "description": "You'll become a member once the owner, {{nickname}}, reads your intro and accepts",
+    "label": "Intro",
+    "notice_one": "If the owner doesn't respond within {{count}} day, your request will be canceled",
+    "notice_other": "If the owner doesn't respond within {{count}} days, your request will be canceled",
+    "submit": "Send request"
+  },
   "myRoomsView": {
     "emptyTitle": "You haven't joined any groups yet",
     "emptyDescription": "Request to join a public group or create your own",
@@ -95,6 +104,22 @@
     "filteredDescription": "Try different filters or create your own group",
     "search": "Search by group name",
     "allCategories": "All"
+  },
+  "reportApplicationScreen": {
+    "title": "Report",
+    "headline": "Report {{nickname}}'s request",
+    "description": "Reporting declines this request right away"
+  },
+  "reportMemberScreen": {
+    "title": "Report",
+    "headline": "Report {{nickname}}",
+    "description": "Once you report {{nickname}}, you won't see their video anymore"
+  },
+  "reportField": {
+    "label": "Reason",
+    "placeholder": "Tell us what the problem is",
+    "notice": "False reports may lead to restrictions on your account",
+    "submit": "Report"
   },
   "roomHomeScreen": {
     "todayTitle": "Our group today",
