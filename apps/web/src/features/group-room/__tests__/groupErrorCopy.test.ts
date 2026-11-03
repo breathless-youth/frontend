@@ -9,6 +9,7 @@ import {
   groupErrorCode,
   groupErrorCopy,
   isGroupGoneError,
+  isQuietApplicationError,
   isQuietGroupConflict,
   NOT_GROUP_MEMBER_COPY,
 } from "../groupErrorCopy";
@@ -67,6 +68,15 @@ describe("groupErrorCopy", () => {
     expect(isQuietGroupConflict(api(409, "ALREADY_APPLIED"))).toBe(true);
     expect(isQuietGroupConflict(api(409, "ALREADY_MEMBER"))).toBe(true);
     expect(isQuietGroupConflict(api(409, "GROUP_FULL"))).toBe(false);
+  });
+
+  it("신청에 보낸 요청은 그사이 없어진 신청도 알리지 않는다", () => {
+    expect(isQuietApplicationError(api(404, "NOT_FOUND"))).toBe(true);
+    expect(isQuietApplicationError(api(409, "APPLICATION_NOT_PENDING"))).toBe(true);
+    expect(isQuietApplicationError(api(409, "GROUP_FULL"))).toBe(false);
+    expect(isQuietApplicationError(api(404, "GROUP_NOT_FOUND"))).toBe(false);
+    expect(isQuietApplicationError(api(500))).toBe(false);
+    expect(isQuietGroupConflict(api(404, "NOT_FOUND"))).toBe(false);
   });
 
   it("상수 문장은 정한 글자 그대로다", () => {

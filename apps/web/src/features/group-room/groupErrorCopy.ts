@@ -113,3 +113,13 @@ export function isQuietGroupConflict(error: unknown): boolean {
   const code = groupErrorCode(error);
   return code !== null && QUIET_CONFLICT_CODES.has(code);
 }
+
+/**
+ * 신청에 답하거나 신청을 취소하고 신고할 때 알릴 필요 없는 실패
+ *
+ * 그사이 처리된 신청의 충돌에 더해, 그사이 없어진 신청은 404 `NOT_FOUND`로 오고 다시 받으면 목록에서 빠져 있다.
+ * 다시 시도해도 같은 답이라 다시 시도 문구 대신 다시 받은 목록으로 알린다.
+ */
+export function isQuietApplicationError(error: unknown): boolean {
+  return isQuietGroupConflict(error) || groupErrorCode(error) === "NOT_FOUND";
+}

@@ -1,6 +1,6 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { ApiError } from "@/lib/api";
@@ -23,6 +23,10 @@ vi.mock("@/lib/userId", async (importOriginal) => ({
 beforeAll(async () => {
   await import("@/features/group-room/components/PendingApplicationsSheet");
   await import("@/routes/GroupHomePage");
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 const searchParam = (search: string, name: string) => new URLSearchParams(search).get(name);
@@ -135,6 +139,40 @@ describe("그룹 탭", () => {
     expect(api.cancelApplication).toHaveBeenCalledOnce();
     expect(await screen.findByText("신청을 취소했어요")).toBeInTheDocument();
     await waitFor(() => expect(api.getMyGroups).toHaveBeenCalledTimes(2));
+  });
+
+  it("그사이 없어진 신청을 취소하면 알리지 않고 내 그룹을 다시 받는다", async () => {
+    const api = mockGroupApi("default");
+    api.cancelApplication.mockRejectedValueOnce(new ApiError("x", 404, "NOT_FOUND"));
+    renderGroupRoute("/social?groupRooms=1");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /신청 중인 공개 그룹 1/ }));
+    await user.click(await screen.findByRole("button", { name: "신청 취소" }));
+    await waitFor(() => expect(api.getMyGroups).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText("잠시 후 다시 시도해 주세요")).toBeNull();
+    expect(screen.queryByText("신청을 취소했어요")).toBeNull();
+  });
+
+  it("다시 받다 실패해도 받아 둔 내 그룹 카드를 그대로 보인다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const api = mockGroupApi("default");
+    renderGroupRoute("/social?groupRooms=1");
+    expect(await screen.findByRole("button", { name: /새벽 5시 기상 공시반/ })).toBeInTheDocument();
+    api.getMyGroups.mockRejectedValue(new ApiError("x", 400, "BAD_REQUEST"));
+    await act(() => vi.advanceTimersByTimeAsync(30_000));
+    expect(api.getMyGroups).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("button", { name: /새벽 5시 기상 공시반/ })).toBeInTheDocument();
+    expect(screen.queryByText("잠시 후 다시 시도해 주세요")).toBeNull();
+  });
+
+  it("탭 조건을 주소에 쓸 때 앞 화면이 넘긴 이동 상태를 남긴다", async () => {
+    mockGroupApi("default");
+    const { router } = renderGroupRoute("/social?groupRooms=1", {
+      state: { noticeHandoff: true },
+    });
+    await userEvent.setup().click(await screen.findByRole("tab", { name: "공개 그룹" }));
+    await waitFor(() => expect(searchParam(router.location().search, "tab")).toBe("public"));
+    expect(router.location().state).toEqual({ noticeHandoff: true });
   });
 
   it("신청 중 시트는 신청 목록이 올 때까지 줄 자리표시를 두고 닫히지 않는다", async () => {

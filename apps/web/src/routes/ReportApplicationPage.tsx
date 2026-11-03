@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useEffectEvent, useState } from "react";
-import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Navigate, useLocation, useParams } from "react-router-dom";
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -9,10 +9,9 @@ import {
   groupErrorCode,
   groupErrorCopy,
   isGroupGoneError,
-  isQuietGroupConflict,
+  isQuietApplicationError,
 } from "@/features/group-room/groupErrorCopy";
 import { baseSearch } from "@/features/group-room/groupTabSearch";
-import { CONTACT_BLOCKED_COPY } from "@/features/group-room/model/contactCheck";
 import { parseRouteId } from "@/features/group-room/routeId";
 import { GroupScreenFrame } from "@/features/group-room/screens/GroupScreenFrame";
 import { ReportApplicationScreen } from "@/features/group-room/screens/ReportApplicationScreen";
@@ -22,7 +21,6 @@ import { reportApplication } from "@/lib/groupRoomApi";
 import {
   cannotLoadFirst,
   groupApplicationsQuery,
-  groupKeys,
   invalidateGroupMembership,
 } from "@/lib/groupRoomQueries";
 import { showToast } from "@/lib/toast";
@@ -64,8 +62,9 @@ export function ReportApplicationPage() {
  * 신청 신고 본문
  *
  * 신고할 사람의 닉네임은 신청 목록에서 찾고, 받아 둔 목록에 없으면 다시 받아 본 뒤에도 없을 때 신청 확인으로 돌아간다.
- * 보내면 그 신청은 바로 거절되어 신청 목록을 다시 받고 신청 확인으로 바꿔 간다.
- * 서버가 사유를 연락처로 막으면 입력칸 아래에 알리고 쓴 사유를 남긴 채 머문다.
+ * 보내면 그 신청은 바로 거절되어 신청 목록을 다시 받고 앞의 신청 확인으로 돌아간다.
+ * 그룹장이 바뀌었으면 신청 확인으로 돌아가고, 신청 확인이 다시 받은 역할을 보고 그룹 홈으로 데려간다.
+ * 신고 사유는 서버가 연락처를 보지 않는 글이라 입력칸 아래 서버 오류 줄을 두지 않는다.
  */
 function ReportApplication({
   userId,
@@ -76,7 +75,6 @@ function ReportApplication({
   groupId: number;
   applicationId: number;
 }) {
-  const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
   const search = baseSearch(location.search);
@@ -87,40 +85,29 @@ function ReportApplication({
     (item) => item.applicationId === applicationId,
   );
   const [reason, setReason] = useState("");
-  const [serverError, setServerError] = useState<string | null>(null);
+  // 돌아가기로 정한 뒤 다시 받은 목록에서 이 신청이 빠져도 신청 확인으로 한 번 더 이동하지 않게 기억한다.
+  const [left, setLeft] = useState(false);
 
-  const returnTo = (pathname: string) => {
+  const returnToApplications = () => {
+    setLeft(true);
     void invalidateGroupMembership(queryClient, userId, groupId);
-    navigate({ pathname, search }, { replace: true });
+    back();
   };
-  // 그룹장이 바뀐 뒤 이 화면에 남아 있으면 바뀐 역할로 그룹 홈을 다시 그리게 한다.
-  const returnToGroupHome = useEffectEvent(() => {
-    void queryClient.invalidateQueries({ queryKey: groupKeys.home(userId, groupId) });
-    navigate({ pathname: `/social/groups/${groupId}`, search }, { replace: true });
-  });
   const notOwner = groupErrorCode(applicationsQuery.error) === "NOT_GROUP_OWNER";
+  const returnAsMember = useEffectEvent(() => back());
   useEffect(() => {
     if (notOwner) {
-      returnToGroupHome();
+      returnAsMember();
     }
   }, [notOwner]);
 
   const report = useMutation({
     mutationFn: (text: string) => reportApplication(applicationId, text),
-    onSuccess: () => returnTo(applicationsPath),
+    onSuccess: returnToApplications,
     onError: (error) => {
-      const code = groupErrorCode(error);
-      if (code === "CONTACT_NOT_ALLOWED") {
-        setServerError(CONTACT_BLOCKED_COPY);
-        return;
-      }
-      if (code === "NOT_GROUP_OWNER") {
-        returnTo(`/social/groups/${groupId}`);
-        return;
-      }
-      // 그사이 답했거나 기한이 지난 신청이면 알리지 않고 지금 목록으로 돌아간다.
-      if (isQuietGroupConflict(error) || code === "NOT_FOUND") {
-        returnTo(applicationsPath);
+      // 그사이 처리되거나 없어진 신청이면 알리지 않고 지금 목록으로 돌아가고, 그룹장이 바뀐 때도 신청 확인을 거쳐 그룹 홈으로 간다.
+      if (isQuietApplicationError(error) || groupErrorCode(error) === "NOT_GROUP_OWNER") {
+        returnToApplications();
         return;
       }
       // 내보내졌거나 그룹이 사라졌으면 아래 사라진 그룹 처리가 그룹 탭으로 데려간다.
@@ -135,7 +122,7 @@ function ReportApplication({
   if (application === undefined) {
     // 받아 둔 목록에 없으면 이 화면에서 다시 받은 목록까지 보고 정한다.
     const settled = applicationsQuery.isFetchedAfterMount && !applicationsQuery.isFetching;
-    if (applicationsQuery.data !== undefined && settled) {
+    if (!left && !notOwner && applicationsQuery.data !== undefined && settled) {
       return <Navigate to={{ pathname: applicationsPath, search }} replace />;
     }
     const failed =
@@ -162,12 +149,8 @@ function ReportApplication({
     <ReportApplicationScreen
       nickname={application.nickname}
       value={reason}
-      onChange={(next) => {
-        setReason(next);
-        setServerError(null);
-      }}
+      onChange={setReason}
       pending={report.isPending}
-      serverError={serverError}
       onSubmit={() => {
         if (!report.isPending) {
           report.mutate(reason);

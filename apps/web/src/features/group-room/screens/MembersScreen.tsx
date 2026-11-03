@@ -30,6 +30,7 @@ export function MembersScreen({
   memberCount,
   members,
   invite,
+  inviteError,
   now,
   loading = false,
   error,
@@ -45,6 +46,8 @@ export function MembersScreen({
   members: RoomMemberRow[];
   /** 비공개 그룹의 초대 링크와 코드이고, 공개 그룹이거나 아직 받지 못했으면 `null`이다. */
   invite: ComponentProps<typeof InviteCard> | null;
+  /** 초대코드를 받지 못했을 때 초대 카드 자리에 둘 오류 표시이고, 다시 시도까지 호출부가 채운다. */
+  inviteError?: ReactNode;
   now: Date;
   loading?: boolean;
   /** 멤버를 받지 못했을 때 목록 자리에 둘 오류 표시이고, 다시 시도까지 호출부가 채운다. */
@@ -90,16 +93,20 @@ export function MembersScreen({
   } else {
     list = null;
   }
+  let inviteSlot: ReactNode = null;
+  if (manage && visibility === "private") {
+    if (invite !== null) {
+      inviteSlot = <InviteCard {...invite} />;
+    } else if (inviteError) {
+      inviteSlot = inviteError;
+    }
+  }
   return (
     <GroupScreenFrame title={manage ? "멤버 관리" : "멤버 보기"} onBack={onBack}>
       <p className="pt-0.5 text-[13px] leading-5 wrap-break-word break-keep text-muted-foreground">
         {`${roomName} · ${VISIBILITY_TEXT[visibility]} · ${memberCountText(memberCount)}`}
       </p>
-      {manage && visibility === "private" && invite !== null && (
-        <div className="pt-4">
-          <InviteCard {...invite} />
-        </div>
-      )}
+      {inviteSlot !== null && <div className="pt-4">{inviteSlot}</div>}
       <div className="flex items-center justify-between gap-3 pt-4.5">
         <h2 id={listTitleId} className="text-[15px] leading-5.5 font-bold text-foreground">
           멤버

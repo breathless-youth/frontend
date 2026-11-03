@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Navigate, useLocation, useParams } from "react-router-dom";
 
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -68,8 +68,6 @@ type MemberAction = { kind: "transfer" | "kick"; userId: number; nickname: strin
  * 그룹장이 바뀌어 막히면 그룹 홈으로 돌아가고, 대상이 이미 나갔으면 알리지 않고 멤버를 다시 받는다.
  */
 function GroupMembers({ userId, groupId }: { userId: number; groupId: number }) {
-  const navigate = useNavigate();
-  const location = useLocation();
   const queryClient = useQueryClient();
   const back = useBackTo(`/social/groups/${groupId}`);
   const visible = useScreenVisible();
@@ -90,15 +88,13 @@ function GroupMembers({ userId, groupId }: { userId: number; groupId: number }) 
   const [dialogOpen, setDialogOpen] = useState(false);
   const refreshMembers = () => void invalidateGroupMembership(queryClient, userId, groupId);
   // 그룹장만 할 수 있는 변경이 막히면 고르던 일을 접고 막힌 까닭에 맞는 화면으로 간다.
+  // 그룹 홈에서 왔으면 그 화면으로 돌아가서 같은 그룹 홈이 기록에 두 번 쌓이지 않는다.
   const handleOwnerActionError = (groupAction: GroupAction, error: Error) => {
     setDialogOpen(false);
     const code = groupErrorCode(error);
     if (code === "NOT_GROUP_OWNER") {
       refreshMembers();
-      navigate(
-        { pathname: `/social/groups/${groupId}`, search: baseSearch(location.search) },
-        { replace: true },
-      );
+      back();
       return;
     }
     if (code === "GROUP_MEMBER_NOT_FOUND") {
@@ -206,6 +202,16 @@ function GroupMembers({ userId, groupId }: { userId: number; groupId: number }) 
                 },
               }
             : null
+        }
+        inviteError={
+          // 초대 카드가 사라지면 코드를 받지 못했다는 것을 알 수 없어서 그 자리에 다시 시도를 둔다.
+          cannotLoadFirst(inviteQuery) && !isGroupGoneError(inviteQuery.error) ? (
+            <ErrorState
+              message={GROUP_RETRY_COPY}
+              onRetry={() => void inviteQuery.refetch()}
+              screen="group_tab"
+            />
+          ) : undefined
         }
         now={now}
         loading={membersQuery.isPending}

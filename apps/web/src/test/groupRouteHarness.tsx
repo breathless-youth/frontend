@@ -51,15 +51,21 @@ function resetGroupRoute(): void {
  *
  * 그룹 표시를 읽도록 주소를 창 기록에도 넣고, 앞 테스트가 받아 둔 조회를 비운 뒤 그린다.
  * 돌려주는 `router.location()`은 앱 안에서 이동한 지금 주소다.
+ * `state`는 앞 화면이 이동하며 넘긴 상태처럼 첫 주소에 싣는다.
  */
-export function renderGroupRoute(path: string): { router: { location(): Location } } {
+export function renderGroupRoute(
+  path: string,
+  { state }: { state?: unknown } = {},
+): { router: { location(): Location } } {
   window.history.replaceState(null, "", path);
   __resetGroupRoomsForTests();
   queryClient.clear();
   onTestFinished(resetGroupRoute);
   let current: Location | null = null;
+  const url = new URL(path, window.location.origin);
+  const entry = state === undefined ? path : { pathname: url.pathname, search: url.search, state };
   render(
-    <MemoryRouter initialEntries={[path]}>
+    <MemoryRouter initialEntries={[entry]}>
       <App />
       <LocationProbe
         onLocation={(location) => {
@@ -107,6 +113,16 @@ export function mockGroupApi(scene: GroupMockScene = "default"): MockedGroupApi 
 /** 가짜 서버에서 그 그룹의 그룹장을 테스트의 나로 바꾼다. */
 export function makeMeOwnerOf(api: MockedGroupApi, groupId: number): void {
   api.server.setOwnerForTests(groupId, GROUP_MOCK_DEFAULT_ME);
+}
+
+/**
+ * 앱 안에서 이동해 온 화면처럼 창 기록에 스택 위치를 넣기
+ *
+ * 그룹 화면의 뒤로 가기는 BrowserRouter가 창 기록에 남기는 위치로 앞 화면이 있는지 본다.
+ * MemoryRouter는 이 값을 쓰지 않아서, 앱 안에서 앞으로 간 테스트가 돌아갈 화면이 있다고 알린다.
+ */
+export function stubHistoryIndex(index: number): void {
+  window.history.replaceState({ idx: index }, "");
 }
 
 /** 앱이 첫 토큰을 아직 넘기지 않은 웹뷰처럼 신원이 정해지지 않은 상태로 둔다. */

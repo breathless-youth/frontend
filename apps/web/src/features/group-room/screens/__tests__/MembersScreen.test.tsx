@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { cleanup, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -129,6 +129,26 @@ describe("MembersScreen", () => {
     renderMembers({ members: [], error: <p>멤버를 불러오지 못했어요</p> });
     expect(screen.getByText("멤버를 불러오지 못했어요")).toBeInTheDocument();
     expect(screen.queryByRole("list", { name: "멤버" })).toBeNull();
+  });
+
+  it("초대코드를 받지 못하면 초대 카드 자리에 넘긴 오류를 둔다", () => {
+    renderMembers({ invite: null, inviteError: <p>초대코드를 불러오지 못했어요</p> });
+    expect(screen.getByText("초대코드를 불러오지 못했어요")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "초대하기" })).toBeNull();
+    expect(screen.getAllByRole("button", { name: / 메뉴$/ })).toHaveLength(4);
+  });
+
+  it("초대 카드가 있거나 멤버 보기면 초대코드 오류를 두지 않는다", () => {
+    renderMembers({ inviteError: <p>초대코드를 불러오지 못했어요</p> });
+    expect(screen.getByText("K7Q2MX")).toBeInTheDocument();
+    expect(screen.queryByText("초대코드를 불러오지 못했어요")).toBeNull();
+    cleanup();
+    renderMembers({
+      mode: "view",
+      invite: null,
+      inviteError: <p>초대코드를 불러오지 못했어요</p>,
+    });
+    expect(screen.queryByText("초대코드를 불러오지 못했어요")).toBeNull();
   });
 
   it("뒤로 가기를 누르면 넘긴다", async () => {

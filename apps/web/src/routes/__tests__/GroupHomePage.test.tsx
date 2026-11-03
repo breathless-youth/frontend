@@ -30,6 +30,16 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+/** 책상이 읽어 주는 이름에 붙은 오늘 순공을 초로 바꾼다. */
+function clockSeconds(desk: HTMLElement): number {
+  const match = /(\d+):(\d{2}):(\d{2})/.exec(desk.getAttribute("aria-label") ?? "");
+  if (match === null) {
+    throw new Error("책상에 순공 시각이 없다");
+  }
+  const [, hours, minutes, seconds] = match.map(Number);
+  return hours! * 3600 + minutes! * 60 + seconds!;
+}
+
 async function openMenuItem(name: RegExp | string) {
   const user = userEvent.setup();
   await user.click(await screen.findByRole("button", { name: "그룹 메뉴" }));
@@ -85,6 +95,21 @@ describe("그룹 홈", () => {
     await act(async () => fail(new ApiError("x", 500)));
     await waitFor(() => expect(bell).toHaveAttribute("aria-pressed", "false"));
     expect(await screen.findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
+  });
+
+  it("종을 눌러도 공부 중인 멤버의 흐르는 시간이 뒤로 가지 않는다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const api = mockGroupApi("default");
+    api.setGroupNotification.mockImplementation(() => new Promise(() => {}));
+    renderGroupRoute("/social/groups/10?groupRooms=1");
+    const desk = await screen.findByRole("listitem", { name: /^새벽공부러,/ });
+    await act(() => vi.advanceTimersByTimeAsync(20_000));
+    const before = clockSeconds(desk);
+    expect(before).toBeGreaterThan(6_330 + 10);
+    const bell = screen.getByRole("button", { name: "멤버 공부 알림" });
+    await userEvent.setup({ advanceTimers: vi.advanceTimersByTime }).click(bell);
+    await waitFor(() => expect(bell).toHaveAttribute("aria-pressed", "true"));
+    expect(clockSeconds(desk)).toBeGreaterThanOrEqual(before);
   });
 
   it("종이 켜지면 서버 값으로도 켜짐이 남는다", async () => {

@@ -16,7 +16,7 @@ import {
   APPLICATION_CANCELED_COPY,
   GROUP_RETRY_COPY,
   groupErrorCopy,
-  isQuietGroupConflict,
+  isQuietApplicationError,
 } from "@/features/group-room/groupErrorCopy";
 import {
   baseSearch,
@@ -91,10 +91,11 @@ function GroupTabContent({ userId }: { userId: number | null }) {
   // 신원이 없으면 조회를 끄므로 키에 쓰는 번호는 쓰이지 않는다.
   const queryUserId = userId ?? 0;
 
+  // 조건을 주소에 바꿔 쓸 때 세션 웹뷰가 넘긴 안내 넘김 표시가 사라지지 않게 이동 상태도 함께 넘긴다.
   const replaceSearch = (next: Partial<GroupTabSearch>) =>
     navigate(
       { pathname: location.pathname, search: writeGroupTabSearch(location.search, next) },
-      { replace: true },
+      { replace: true, state: location.state },
     );
   const leaveTab = (pathname: string) =>
     slideNavigate("forward", () => navigate({ pathname, search: baseSearch(location.search) }));
@@ -138,8 +139,8 @@ function GroupTabContent({ userId }: { userId: number | null }) {
       void invalidateGroupMembership(queryClient, queryUserId, application.roomId);
     },
     onError: (error, application) => {
-      // 다른 기기에서 이미 취소했거나 기한이 지난 신청은 알리지 않고 지금 목록을 다시 받는다.
-      if (!isQuietGroupConflict(error)) {
+      // 다른 기기에서 이미 취소했거나 기한이 지나 없어진 신청은 알리지 않고 지금 목록을 다시 받는다.
+      if (!isQuietApplicationError(error)) {
         showToast(groupErrorCopy("cancel_application", error));
       }
       void invalidateGroupMembership(queryClient, queryUserId, application.roomId);

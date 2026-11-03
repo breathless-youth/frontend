@@ -10,6 +10,7 @@ import {
   makeMeOwnerOf,
   mockGroupApi,
   renderGroupRoute,
+  stubHistoryIndex,
   stubPendingIdentity,
 } from "@/test/groupRouteHarness";
 
@@ -64,9 +65,24 @@ describe("멤버 관리와 멤버 보기", () => {
     await user.click(screen.getByRole("button", { name: "내보내기" }));
     expect(api.kickGroupMember).toHaveBeenCalledWith(11, expect.any(Number));
     expect(await screen.findByText("초대코드가 새로 바뀌었어요")).toBeInTheDocument();
-    await waitFor(() => expect(screen.queryByText(/K7Q2MX/)).toBeNull());
+    const { inviteCode } = await api.server.getGroupInvite(11);
+    expect(inviteCode).not.toBe("K7Q2MX");
+    expect(await screen.findByText(inviteCode)).toBeInTheDocument();
+    expect(screen.queryByText(/K7Q2MX/)).toBeNull();
     expect(api.getGroupInvite).toHaveBeenCalledTimes(2);
     expect(screen.queryByRole("button", { name: "민준 메뉴" })).toBeNull();
+  });
+
+  it("초대코드를 받지 못하면 카드 자리에 다시 시도를 두고 누르면 코드를 보인다", async () => {
+    const api = mockGroupApi("default");
+    makeMeOwnerOf(api, 11);
+    api.getGroupInvite.mockRejectedValueOnce(new ApiError("x", 400, "BAD_REQUEST"));
+    renderGroupRoute("/social/groups/11/members?groupRooms=1");
+    expect(await screen.findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "초대하기" })).toBeNull();
+    expect(await screen.findByRole("button", { name: "민준 메뉴" })).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: "다시 시도" }));
+    expect(await screen.findByText(/K7Q2MX/)).toBeInTheDocument();
   });
 
   it("공개 그룹에서 내보내면 토스트가 없다", async () => {
@@ -129,6 +145,22 @@ describe("멤버 관리와 멤버 보기", () => {
     await waitFor(() => expect(router.location().pathname).toBe("/social/groups/10"));
   });
 
+  it("그룹 홈에서 왔으면 그룹장이 바뀌어 막힐 때 그 그룹 홈으로 돌아간다", async () => {
+    const api = mockGroupApi("default");
+    const { router } = renderGroupRoute("/social/groups/10?groupRooms=1");
+    await screen.findByRole("heading", { name: "새벽 5시 기상 공시반" });
+    const homeKey = router.location().key;
+    stubHistoryIndex(1);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "그룹 메뉴" }));
+    await user.click(screen.getByRole("menuitem", { name: "멤버 관리" }));
+    api.transferGroupOwner.mockRejectedValueOnce(new ApiError("x", 403, "NOT_GROUP_OWNER"));
+    await user.click(await firstRowMenu());
+    await user.click(screen.getByRole("menuitem", { name: "그룹장 넘기기" }));
+    await user.click(screen.getByRole("button", { name: "넘기기" }));
+    await waitFor(() => expect(router.location().key).toBe(homeKey));
+  });
+
   it("코드 새로 만들기는 확인 없이 새 코드를 보인다", async () => {
     const api = mockGroupApi("default");
     makeMeOwnerOf(api, 11);
@@ -136,7 +168,9 @@ describe("멤버 관리와 멤버 보기", () => {
     expect(await screen.findByText(/K7Q2MX/)).toBeInTheDocument();
     await userEvent.setup().click(screen.getByRole("button", { name: "코드 새로 만들기" }));
     expect(api.regenerateGroupInvite).toHaveBeenCalledWith(11);
-    await waitFor(() => expect(screen.queryByText(/K7Q2MX/)).toBeNull());
+    const { inviteCode } = await api.server.getGroupInvite(11);
+    expect(await screen.findByText(inviteCode)).toBeInTheDocument();
+    expect(screen.queryByText(/K7Q2MX/)).toBeNull();
     expect(screen.queryByRole("alertdialog")).toBeNull();
   });
 

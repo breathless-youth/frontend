@@ -4,7 +4,12 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/lib/api";
 import type * as UserId from "@/lib/userId";
-import { mockGroupApi, renderGroupRoute, stubPendingIdentity } from "@/test/groupRouteHarness";
+import {
+  mockGroupApi,
+  renderGroupRoute,
+  stubHistoryIndex,
+  stubPendingIdentity,
+} from "@/test/groupRouteHarness";
 
 vi.mock("@/lib/groupRoomApi");
 vi.mock("@/lib/userId", async (importOriginal) => ({
@@ -45,6 +50,15 @@ describe("신청 확인", () => {
     api.declineApplication.mockRejectedValueOnce(new ApiError("x", 409, "APPLICATION_NOT_PENDING"));
     renderGroupRoute("/social/groups/10/applications?groupRooms=1");
     await userEvent.setup().click((await screen.findAllByRole("button", { name: "거절" }))[0]!);
+    await waitFor(() => expect(api.getGroupApplications).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText("잠시 후 다시 시도해 주세요")).toBeNull();
+  });
+
+  it("그사이 없어진 신청이면 알림 없이 목록을 다시 받는다", async () => {
+    const api = mockGroupApi("default");
+    api.acceptApplication.mockRejectedValueOnce(new ApiError("x", 404, "NOT_FOUND"));
+    renderGroupRoute("/social/groups/10/applications?groupRooms=1");
+    await userEvent.setup().click((await screen.findAllByRole("button", { name: "수락" }))[0]!);
     await waitFor(() => expect(api.getGroupApplications).toHaveBeenCalledTimes(2));
     expect(screen.queryByText("잠시 후 다시 시도해 주세요")).toBeNull();
   });
@@ -107,6 +121,20 @@ describe("신청 확인", () => {
     await waitFor(() => expect(router.location().pathname).toBe("/social/groups/10"));
   });
 
+  it("그룹 홈에서 왔으면 그룹장이 바뀐 것을 알고 그 그룹 홈으로 돌아간다", async () => {
+    const api = mockGroupApi("default");
+    const { router } = renderGroupRoute("/social/groups/10?groupRooms=1");
+    await screen.findByRole("heading", { name: "새벽 5시 기상 공시반" });
+    const homeKey = router.location().key;
+    stubHistoryIndex(1);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "그룹 메뉴" }));
+    await user.click(screen.getByRole("menuitem", { name: /신청 확인/ }));
+    api.acceptApplication.mockRejectedValueOnce(new ApiError("x", 403, "NOT_GROUP_OWNER"));
+    await user.click((await screen.findAllByRole("button", { name: "수락" }))[0]!);
+    await waitFor(() => expect(router.location().key).toBe(homeKey));
+  });
+
   it("멤버가 아니거나 사라진 그룹이면 그룹 탭으로 돌아간다", async () => {
     const api = mockGroupApi("default");
     api.getGroupApplications.mockRejectedValue(new ApiError("x", 404, "GROUP_NOT_FOUND"));
@@ -138,18 +166,35 @@ describe("신청 신고", () => {
     await waitFor(() => expect(router.location().pathname).toBe("/social/groups/10/applications"));
   });
 
-  it("서버가 연락처로 막으면 입력칸 아래에 같은 문구를 보이고 머문다", async () => {
+  it("신청 확인에서 왔으면 보낸 뒤 그 신청 확인으로 돌아간다", async () => {
     const api = mockGroupApi("default");
-    api.reportApplication.mockRejectedValueOnce(new ApiError("x", 400, "CONTACT_NOT_ALLOWED"));
-    const { router } = renderGroupRoute("/social/groups/10/applications/41/report?groupRooms=1");
+    const { router } = renderGroupRoute("/social/groups/10/applications?groupRooms=1");
+    const reportButtons = await screen.findAllByRole("button", { name: "신고" });
+    const applicationsKey = router.location().key;
+    stubHistoryIndex(1);
     const user = userEvent.setup();
-    const field = await screen.findByRole("textbox", { name: "신고 사유" });
-    await user.type(field, "카톡 이야기");
-    await user.click(screen.getByRole("button", { name: "신고하기" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("연락처나 링크는 보낼 수 없어요");
-    expect(router.location().pathname).toBe("/social/groups/10/applications/41/report");
-    await user.type(field, "요");
-    expect(screen.queryByRole("alert")).toBeNull();
+    await user.click(reportButtons[0]!);
+    await user.click(await screen.findByRole("button", { name: "신고하기" }));
+    expect(api.reportApplication).toHaveBeenCalledOnce();
+    await waitFor(() => expect(router.location().key).toBe(applicationsKey));
+    expect(await screen.findAllByRole("button", { name: "수락" })).toHaveLength(1);
+  });
+
+  it("신고하다 그룹장이 바뀐 것을 알면 앞 화면들을 거쳐 처음 그룹 홈으로 돌아간다", async () => {
+    const api = mockGroupApi("default");
+    const { router } = renderGroupRoute("/social/groups/10?groupRooms=1");
+    await screen.findByRole("heading", { name: "새벽 5시 기상 공시반" });
+    const homeKey = router.location().key;
+    stubHistoryIndex(2);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "그룹 메뉴" }));
+    await user.click(screen.getByRole("menuitem", { name: /신청 확인/ }));
+    await user.click((await screen.findAllByRole("button", { name: "신고" }))[0]!);
+    const submit = await screen.findByRole("button", { name: "신고하기" });
+    api.getGroupApplications.mockRejectedValue(new ApiError("x", 403, "NOT_GROUP_OWNER"));
+    api.reportApplication.mockRejectedValueOnce(new ApiError("x", 403, "NOT_GROUP_OWNER"));
+    await user.click(submit);
+    await waitFor(() => expect(router.location().key).toBe(homeKey));
   });
 
   it("이미 처리된 신청을 신고하면 알림 없이 신청 확인으로 돌아간다", async () => {
@@ -160,6 +205,24 @@ describe("신청 신고", () => {
     await user.click(await screen.findByRole("button", { name: "신고하기" }));
     await waitFor(() => expect(router.location().pathname).toBe("/social/groups/10/applications"));
     expect(screen.queryByText("잠시 후 다시 시도해 주세요")).toBeNull();
+  });
+
+  it("그사이 없어진 신청을 신고하면 알림 없이 신청 확인으로 돌아간다", async () => {
+    const api = mockGroupApi("default");
+    api.reportApplication.mockRejectedValueOnce(new ApiError("x", 404, "NOT_FOUND"));
+    const { router } = renderGroupRoute("/social/groups/10/applications/41/report?groupRooms=1");
+    await userEvent.setup().click(await screen.findByRole("button", { name: "신고하기" }));
+    await waitFor(() => expect(router.location().pathname).toBe("/social/groups/10/applications"));
+    expect(screen.queryByText("잠시 후 다시 시도해 주세요")).toBeNull();
+  });
+
+  it("신원이 정해지기 전에는 신고할 신청을 받지 않고 머문다", async () => {
+    const api = mockGroupApi("default");
+    stubPendingIdentity();
+    const { router } = renderGroupRoute("/social/groups/10/applications/41/report?groupRooms=1");
+    await act(() => Promise.resolve());
+    expect(router.location().pathname).toBe("/social/groups/10/applications/41/report");
+    expect(api.getGroupApplications).not.toHaveBeenCalled();
   });
 
   it("보내지 못하면 토스트를 띄우고 쓴 사유를 남긴 채 머문다", async () => {

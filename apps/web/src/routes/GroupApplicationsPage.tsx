@@ -10,7 +10,7 @@ import {
   groupErrorCode,
   groupErrorCopy,
   isGroupGoneError,
-  isQuietGroupConflict,
+  isQuietApplicationError,
 } from "@/features/group-room/groupErrorCopy";
 import { baseSearch } from "@/features/group-room/groupTabSearch";
 import { remainingSeats } from "@/features/group-room/model/limits";
@@ -75,9 +75,10 @@ function GroupApplications({ userId, groupId }: { userId: number; groupId: numbe
   const refresh = () => void invalidateGroupMembership(queryClient, userId, groupId);
 
   // 그룹장이 바뀐 뒤 이 화면에 남아 있으면 바뀐 역할로 그룹 홈을 다시 그리게 한다.
+  // 그룹 홈에서 왔으면 그 화면으로 돌아가서 같은 그룹 홈이 기록에 두 번 쌓이지 않는다.
   const returnToGroupHome = useEffectEvent(() => {
     void queryClient.invalidateQueries({ queryKey: groupKeys.home(userId, groupId) });
-    navigate({ pathname: `/social/groups/${groupId}`, search }, { replace: true });
+    back();
   });
   const notOwner = groupErrorCode(applicationsQuery.error) === "NOT_GROUP_OWNER";
   useEffect(() => {
@@ -93,15 +94,15 @@ function GroupApplications({ userId, groupId }: { userId: number; groupId: numbe
     onError: (error) => {
       if (groupErrorCode(error) === "NOT_GROUP_OWNER") {
         refresh();
-        navigate({ pathname: `/social/groups/${groupId}`, search }, { replace: true });
+        back();
         return;
       }
       // 내보내졌거나 그룹이 사라졌으면 아래 사라진 그룹 처리가 그룹 탭으로 데려간다.
       if (isGroupGoneError(error)) {
         return;
       }
-      // 이미 답했거나 기한이 지난 신청은 알리지 않고 다른 실패는 알린 뒤, 지금 목록과 남은 자리를 다시 받는다.
-      if (!isQuietGroupConflict(error)) {
+      // 이미 답했거나 기한이 지났거나 없어진 신청은 알리지 않고 다른 실패는 알린 뒤, 지금 목록과 남은 자리를 다시 받는다.
+      if (!isQuietApplicationError(error)) {
         showToast(groupErrorCopy("answer", error));
       }
       refresh();

@@ -95,18 +95,24 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
   const notify = useMutation({
     mutationFn: (enabled: boolean) => setGroupNotification(groupId, enabled),
     // 30초마다 다시 받는 조회가 바꾼 값을 덮지 않게 받는 중인 조회를 멈춘 뒤 바로 바꾸고, 실패하면 되돌린다.
+    // 흐르는 공부 시간은 받은 시각부터 세어서, 종만 바꿀 때 받은 시각까지 지금으로 바꾸면 시간이 뒤로 간다.
     onMutate: async (enabled) => {
       const queryKey = groupKeys.home(userId, groupId);
       await queryClient.cancelQueries({ queryKey });
       const previous = queryClient.getQueryData<GroupHomeResponse>(queryKey);
-      queryClient.setQueryData<GroupHomeResponse>(queryKey, (current) =>
-        current === undefined ? current : { ...current, notifyEnabled: enabled },
+      const updatedAt = queryClient.getQueryState(queryKey)?.dataUpdatedAt;
+      queryClient.setQueryData<GroupHomeResponse>(
+        queryKey,
+        (current) => (current === undefined ? current : { ...current, notifyEnabled: enabled }),
+        { updatedAt },
       );
-      return { previous };
+      return { previous, updatedAt };
     },
     onError: (error, _enabled, context) => {
       if (context?.previous !== undefined) {
-        queryClient.setQueryData(groupKeys.home(userId, groupId), context.previous);
+        queryClient.setQueryData(groupKeys.home(userId, groupId), context.previous, {
+          updatedAt: context.updatedAt,
+        });
       }
       // 내보내졌다면 다시 받은 그룹 홈이 그룹 탭으로 데려가며 이유를 알린다.
       if (!isGroupGoneError(error)) {
