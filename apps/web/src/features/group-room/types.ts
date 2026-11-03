@@ -124,3 +124,13 @@ export interface RoomFormValues {
   category: string;
   intro: string;
 }
+
+/**
+ * 그룹 만들기와 그룹 설정에서 서버가 받지 않은 칸과 그 이유 문장
+ *
+ * 서버의 연락처 거절은 어느 칸인지 알려 주지 않을 수 있어 어느 칸 아래에 둘지는 호출부가 정한다.
+ */
+export interface RoomFormServerError {
+  field: "name" | "intro";
+  message: string;
+}
