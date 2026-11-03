@@ -18,6 +18,7 @@ export const loadAppLockSettingsPage = () => import("./AppLockSettingsPage");
 export const loadTimelapsesPage = () => import("./TimelapsesPage");
 export const loadRankingRecordsPage = () => import("./RankingRecordsPage");
 export const loadGroupHomePage = () => import("./GroupHomePage");
+export const loadGroupMembersPage = () => import("./GroupMembersPage");
 
 /** 공부를 끝낼 때 네트워크가 끊겨도 결과 화면이 열리도록 세션 중에 미리 받는다. */
 export function prefetchResultPage(): void {
@@ -58,11 +59,11 @@ export function prefetchTimelapsesPage(): void {
 /**
  * 그룹 하위 화면 미리 받기
  *
- * 그룹 탭의 카드가 슬라이드 전환으로 그룹 화면을 연다. 전환이 청크를 기다리지 않게 그룹 탭에서 미리 받는다.
+ * 그룹 홈과 그 하위 화면은 슬라이드 전환으로 열려서, 전환이 청크를 기다리지 않게 그룹 탭에서 미리 받는다.
  */
 export function prefetchGroupPages(): void {
   whenIdle(() => {
-    for (const load of [loadGroupHomePage]) {
+    for (const load of [loadGroupHomePage, loadGroupMembersPage]) {
       void load().catch(() => {});
     }
   });

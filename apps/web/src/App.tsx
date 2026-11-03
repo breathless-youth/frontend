@@ -39,6 +39,7 @@ import {
   loadAppLockSettingsPage,
   loadContactPage,
   loadGroupHomePage,
+  loadGroupMembersPage,
   loadInterviewFormPage,
   loadLicensesPage,
   loadPrivacyPage,
@@ -133,6 +134,11 @@ const RankingRecordsPage = lazy(
 const GroupHomePage = lazy(
   reloadOnChunkError(() =>
     loadGroupHomePage().then((module) => ({ default: module.GroupHomePage })),
+  ),
+);
+const GroupMembersPage = lazy(
+  reloadOnChunkError(() =>
+    loadGroupMembersPage().then((module) => ({ default: module.GroupMembersPage })),
   ),
 );
 const WebrtcLoopbackPage = lazy(
@@ -289,6 +295,7 @@ export function App() {
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/social" element={<SocialTabRoute />} />
               <Route path="/social/groups/:groupId" element={<GroupHomePage />} />
+              <Route path="/social/groups/:groupId/members" element={<GroupMembersPage />} />
               {import.meta.env.DEV && (
                 <Route path="/dev/webrtc-loopback" element={<WebrtcLoopbackPage />} />
               )}
