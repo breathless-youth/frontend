@@ -10,7 +10,6 @@ import type { ProfileResponse } from "@focusmakers/types";
 
 import type * as PreparePhoto from "@/features/profile/prepareProfilePhoto";
 import { prepareProfilePhoto, UnusablePhotoError } from "@/features/profile/prepareProfilePhoto";
-import { NICKNAME_RULE_MESSAGE } from "@/features/profile/profileValidation";
 import { ApiError } from "@/lib/api";
 import type * as TokenSourceModule from "@/lib/auth/tokenSource";
 import type { TokenSource } from "@/lib/auth/tokenSource";
@@ -27,6 +26,9 @@ import {
 } from "@/lib/profileApi";
 import { ProfilePage } from "@/routes/ProfilePage";
 import { stubImageLoad } from "@/test/imageStub";
+
+/** 문구 상수가 카탈로그로 옮겨져 한국어 원문을 직접 둔다. */
+const NICKNAME_RULE_MESSAGE = "한글, 영문, 숫자, 이모지, 띄어쓰기로 2~12자를 쓰실 수 있어요";
 
 vi.mock("@/lib/profileApi", () => ({
   getProfile: vi.fn(),

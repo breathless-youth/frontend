@@ -10,5 +10,18 @@
     "hours": "{{hours}}h",
     "minutes": "{{minutes}}m",
     "seconds": "{{seconds}}s"
+  },
+  "aria": {
+    "loading": "Loading",
+    "toaster": "Notifications",
+    "ctaToaster": "Alerts"
+  },
+  "errorFallback": {
+    "title": "Something went wrong",
+    "description": "We couldn't load this screen. Please try again in a moment.",
+    "reload": "Reload"
+  },
+  "feedback": {
+    "thanks": "Thanks for your feedback"
   }
 }

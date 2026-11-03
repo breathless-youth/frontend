@@ -11,11 +11,18 @@ const I18N_ENFORCED = [
   "src/lib/i18n.ts",
   "src/lib/locale.ts",
   "src/lib/intl.ts",
+  "src/features/{settings,profile,app-lock,ambient-sound,force-update,measurement-feedback,onboarding}/**/*.{ts,tsx}",
+  "src/routes/{Settings,Contact,Download,Licenses,Terms,Privacy,Profile,AppLockSettings,Onboarding}Page.tsx",
+  "src/lib/{profileApi,bridge,nativeControls,useFocusStart,amplitude}.ts",
+  "src/components/{ErrorFallback,GlassChrome,LegalDocumentScreen}.tsx",
+  "src/components/ui/{ErrorState,Skeleton,sonner}.tsx",
   "src/features/{records,ranking,planner,manual-record,multi-timer,timelapse,notice,interview}/**/*.{ts,tsx}",
   "src/routes/{Records,Ranking,RankingRecords,Planner,ManualRecord,Timelapses,TimelapseSettings,InterviewForm,GoogleForm}Page.tsx",
   "src/lib/{statsApi,rankingApi,subjectApi,manualRecordApi,nativeVideo,noticeApi,interviewApi}.ts",
   "src/components/ui/calendar.tsx",
 ];
+// 약관·개인정보처리방침 본문은 영어판이 나올 때까지 한국어 원문을 쓴다.
+const I18N_EXEMPT = ["src/features/settings/legalDocuments.ts"];
 const HANGUL_MESSAGE = "사용자 문구는 src/locales/ 카탈로그에 두고 t()로 읽는다";
 
 export default [
@@ -68,7 +75,7 @@ export default [
   },
   {
     files: I18N_ENFORCED,
-    ignores: ["**/__tests__/**", "**/*.test.{ts,tsx}"],
+    ignores: ["**/__tests__/**", "**/*.test.{ts,tsx}", ...I18N_EXEMPT],
     rules: {
       "no-restricted-syntax": [
         "error",

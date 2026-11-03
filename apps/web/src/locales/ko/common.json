@@ -10,5 +10,18 @@
     "hours": "{{hours}}시간",
     "minutes": "{{minutes}}분",
     "seconds": "{{seconds}}초"
+  },
+  "aria": {
+    "loading": "불러오는 중",
+    "toaster": "알림",
+    "ctaToaster": "화면 알림"
+  },
+  "errorFallback": {
+    "title": "일시적인 문제가 생겼어요",
+    "description": "화면을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.",
+    "reload": "새로고침"
+  },
+  "feedback": {
+    "thanks": "소중한 의견 감사합니다!"
   }
 }
