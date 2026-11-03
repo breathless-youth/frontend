@@ -92,4 +92,32 @@ describe("ConfirmDialog", () => {
     expect(screen.getByRole("button", { name: "삭제" })).toHaveAttribute("data-tone", "danger");
     expect(screen.getByRole("alertdialog")).not.toHaveAttribute("aria-describedby");
   });
+
+  it("보내는 중에는 확인을 누를 수 없고 취소, Esc, 딤으로도 닫히지 않는다", () => {
+    const onCancel = vi.fn();
+    const onConfirm = vi.fn();
+    render(
+      <ConfirmDialog
+        open
+        pending
+        title="민준님을 내보낼까요?"
+        cancelLabel="취소"
+        confirmLabel="내보내기"
+        onCancel={onCancel}
+        onConfirm={onConfirm}
+      />,
+    );
+    const dialog = screen.getByRole("alertdialog", { name: "민준님을 내보낼까요?" });
+
+    expect(within(dialog).getByRole("button", { name: "내보내기" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "취소" })).toBeDisabled();
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    const dim = document.querySelector<HTMLElement>(
+      '[data-state="open"]:not([role="alertdialog"])',
+    );
+    if (dim !== null) fireEvent.pointerDown(dim);
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(screen.getByRole("alertdialog", { name: "민준님을 내보낼까요?" })).toBeInTheDocument();
+  });
 });

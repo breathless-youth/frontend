@@ -16,6 +16,7 @@ export const BOTTOM_CTA_CLASS = "w-full rounded-xl text-[17px] leading-5.25 font
  * 누를 수 없는 아래 버튼의 바탕과 글자
  *
  * 흐린 파란 버튼은 보내는 중처럼 보여서, 자리가 없거나 신청할 수 없을 때는 회색 바탕에 이유 글자를 또렷하게 둔다.
+ * 이유 글자는 누를 수 없는 까닭을 알리는 유일한 글이라 바탕 위에서 4.5:1을 넘는 글자색을 쓴다.
  */
 export const BOTTOM_CTA_UNAVAILABLE_CLASS =
-  "disabled:bg-border disabled:text-state-pause disabled:opacity-100 disabled:shadow-none";
+  "disabled:bg-border disabled:text-muted-foreground disabled:opacity-100 disabled:shadow-none";

@@ -1,6 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
+
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 import { roomMenuItems } from "../../model/roomMenu";
 import { RoomMenu } from "../RoomMenu";
@@ -11,6 +14,28 @@ const ownerPublicItems = roomMenuItems({
   newRequestCount: 2,
   otherMemberCount: 4,
 });
+
+function MenuWithLeaveDialog() {
+  const [leaving, setLeaving] = useState(false);
+  return (
+    <>
+      <RoomMenu
+        items={ownerPublicItems}
+        onSelect={(kind) => {
+          if (kind === "leave") setLeaving(true);
+        }}
+      />
+      <ConfirmDialog
+        open={leaving}
+        title="이 그룹에서 나갈까요?"
+        cancelLabel="취소"
+        confirmLabel="나가기"
+        onCancel={() => setLeaving(false)}
+        onConfirm={() => setLeaving(false)}
+      />
+    </>
+  );
+}
 
 describe("RoomMenu", () => {
   it("그룹 메뉴 버튼은 메뉴가 열렸는지 알린다", async () => {
@@ -69,6 +94,15 @@ describe("RoomMenu", () => {
     await userEvent.setup().click(screen.getByRole("menuitem", { name: "멤버 관리" }));
     expect(onSelect).toHaveBeenCalledWith("manage_members");
     expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("메뉴에서 연 확인 창을 닫으면 포커스가 그룹 메뉴 버튼으로 돌아온다", async () => {
+    const user = userEvent.setup();
+    render(<MenuWithLeaveDialog />);
+    await user.click(screen.getByRole("button", { name: "그룹 메뉴" }));
+    await user.click(screen.getByRole("menuitem", { name: "그룹 나가기" }));
+    await user.click(await screen.findByRole("button", { name: "취소" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "그룹 메뉴" })).toHaveFocus());
   });
 
   it("메뉴 안 touchmove는 document까지 올라가지 않는다", () => {

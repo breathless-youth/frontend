@@ -10,6 +10,7 @@ import {
   INVITE_CODE_RENEWED_COPY,
   kickMemberDialog,
   leaveRoomDialog,
+  otherMemberCount,
   transferOwnerDialog,
 } from "@/features/group-room/model/roomMenu";
 import { ApplyScreen } from "@/features/group-room/screens/ApplyScreen";
@@ -125,7 +126,7 @@ function RoomHomeCase({
   const leaveCopy = leaveRoomDialog({
     role: room.role,
     visibility: room.visibility,
-    otherMemberCount: Math.max(0, room.memberCount - 1),
+    otherMemberCount: otherMemberCount(room.memberCount),
   }).copy;
   return (
     <>

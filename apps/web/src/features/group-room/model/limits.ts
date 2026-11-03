@@ -90,13 +90,3 @@ export function isRoomFull(memberCount: number): boolean {
 export function countGroupText(text: string): number {
   return countGraphemes(text.normalize("NFC").trim());
 }
-
-export function isWithinLength(text: string, max: number): boolean {
-  return countGroupText(text) <= max;
-}
-
-/** 공백만 있는 신청을 막으려고 앞뒤 공백을 뺀 글자가 1자 이상이어야 한다. */
-export function isApplicationMessageValid(text: string): boolean {
-  const length = countGroupText(text);
-  return length >= 1 && length <= GROUP_ROOM_LIMITS.applicationMessageMax;
-}

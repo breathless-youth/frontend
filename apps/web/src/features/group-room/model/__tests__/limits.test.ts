@@ -1,14 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  GROUP_ROOM_LIMITS,
   applyBlockCopy,
   canCreateRoom,
   countGroupText,
   CREATE_ROOM_LIMIT_COPY,
-  isApplicationMessageValid,
   isRoomFull,
-  isWithinLength,
   joinBlockCopy,
   memberCountText,
   myRoomsTabCount,
@@ -61,24 +58,6 @@ describe("글자 수", () => {
   it("앞뒤 공백을 뺀 뒤 이모지 조합을 한 글자로 센다", () => {
     expect(countGroupText("  공부방  ")).toBe(3);
     expect(countGroupText("👩‍💻")).toBe(1);
-  });
-
-  it("그룹 이름은 20자까지이고 이모지 조합은 한 글자다", () => {
-    expect(isWithinLength("가".repeat(20), GROUP_ROOM_LIMITS.roomNameMax)).toBe(true);
-    expect(isWithinLength("가".repeat(21), GROUP_ROOM_LIMITS.roomNameMax)).toBe(false);
-    expect(isWithinLength(`${"가".repeat(19)}👩‍💻`, GROUP_ROOM_LIMITS.roomNameMax)).toBe(true);
-  });
-
-  it("끝에 붙은 공백은 세지 않아 서버가 받는 이름을 막지 않는다", () => {
-    expect(isWithinLength(`${"가".repeat(20)} `, GROUP_ROOM_LIMITS.roomNameMax)).toBe(true);
-  });
-
-  it("신청 소개 글은 공백을 뺀 1자 이상 50자까지다", () => {
-    expect(isApplicationMessageValid("")).toBe(false);
-    expect(isApplicationMessageValid("   ")).toBe(false);
-    expect(isApplicationMessageValid("가")).toBe(true);
-    expect(isApplicationMessageValid("가".repeat(50))).toBe(true);
-    expect(isApplicationMessageValid("가".repeat(51))).toBe(false);
   });
 });
 

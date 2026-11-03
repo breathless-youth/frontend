@@ -108,6 +108,14 @@ describe("RequestsScreen", () => {
     expect(screen.queryByText("수락하면 바로 멤버가 되고, 신청한 사람에게 알림이 가요")).toBeNull();
   });
 
+  it("신청을 받지 못하면 머리 줄과 남은 자리는 두고 목록 자리에 오류를 둔다", () => {
+    renderRequests({ requests: [], error: <p>신청을 불러오지 못했어요</p> });
+    expect(screen.getByRole("heading", { level: 1, name: "신청 확인" })).toBeInTheDocument();
+    expect(screen.getByText("새벽 5시 기상 공시반 · 남은 자리 2")).toBeInTheDocument();
+    expect(screen.getByText("신청을 불러오지 못했어요")).toBeInTheDocument();
+    expect(screen.queryByText("답을 기다리는 신청이 없어요")).toBeNull();
+  });
+
   it("뒤로 가기를 누르면 넘긴다", async () => {
     const { onBack } = renderRequests();
     await userEvent.setup().click(screen.getByRole("button", { name: "뒤로 가기" }));

@@ -57,7 +57,7 @@ export function RoomFormScreen({
   const visibilityName = useId();
   const introId = useId();
 
-  // 보낸 글을 고쳤다면 서버가 막은 이유는 지난 글의 것이라 그 칸에서는 지운다.
+  // 보낸 글을 고쳤다면 서버가 막은 이유는 지난 글의 것이라 그 칸 아래에 더 보이지 않는다.
   const serverMessage = (field: RoomFormServerError["field"]) =>
     serverError?.field === field && (submitted === null || submitted[field] === values[field])
       ? serverError.message
@@ -281,7 +281,11 @@ function VisibilityOption({
   );
 }
 
-/** 그룹 설정의 공개 여부 줄. 바꿀 수 없다는 안내를 같은 상자에 둔다. */
+/**
+ * 그룹 설정의 공개 여부 줄
+ *
+ * 바꿀 수 없다는 안내를 같은 상자에 둔다.
+ */
 function FixedVisibility({ visibility }: { visibility: RoomVisibility }) {
   const Icon = visibility === "public" ? Globe : Lock;
   return (
