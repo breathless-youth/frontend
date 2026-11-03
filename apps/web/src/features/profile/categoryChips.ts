@@ -8,8 +8,6 @@ import { STUDY_CATEGORY_OPTIONS } from "@/lib/studyCategory";
  *
  * 칩은 하나만 고른다.
  */
-export type ProfileCategoryValue = StudyCategory;
-
 type CategoryChip = { value: StudyCategory; label: string };
 
 const LEGACY_ORDER: readonly StudyCategory[] = [
