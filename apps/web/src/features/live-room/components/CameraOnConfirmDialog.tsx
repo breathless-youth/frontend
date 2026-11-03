@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useDialogFocusRestore } from "@/lib/useDialogFocusRestore";
 
 import type { FaceMaskEmoji } from "../faceMaskSettings";
+
+import { FaceMaskEmojiPicker } from "./FaceMaskEmojiPicker";
 
 /**
  * 카메라 켜기 확인 모달
@@ -87,10 +88,6 @@ const SOCIAL_FACE_MASK_TOOLTIP = [
 ] as const;
 
 // 이모지 줄은 옆으로 넘기는 한 줄이라, 뒤쪽 이모지를 고른 채 다시 열면 고른 칸이 줄 밖에 가려진다.
-function revealSelected(item: HTMLButtonElement | null) {
-  item?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
-}
-
 export function CameraOnConfirmDialog({
   open,
   preview,
@@ -207,36 +204,14 @@ export function CameraOnConfirmDialog({
             )}
             {/* 스위치를 꺼도 줄을 남겨 두어 켜고 끌 때 창 높이가 바뀌지 않게 한다. */}
             {faceMask.supported && (
-              <ToggleGroup
-                type="single"
-                aria-label="가림 이모지"
-                disabled={!faceMask.on}
+              <FaceMaskEmojiPicker
+                emojis={faceMask.emojis}
                 value={faceMask.emojiId}
-                // 같은 이모지를 다시 누르면 빈 값이 오는데, 가리는 동안에는 항상 하나가 골라져 있어야 해서 무시한다.
-                onValueChange={(id) => {
-                  if (id !== "") faceMask.onEmojiChange(id);
-                }}
-                // 한 줄을 유지해 창 높이를 고정하고, 넘치는 이모지는 옆으로 넘겨 본다.
-                // 오른쪽은 창 끝까지 늘려 잘린 칸이 보이게 하고, 위아래 여백은 포커스 링이 잘리지 않게 둔다.
-                className="mt-2 -mr-5.5 flex-nowrap gap-2 overflow-x-auto py-0.5 pr-5.5 pl-0.5 -ml-0.5 [scrollbar-width:none]"
-              >
-                {faceMask.emojis.map((emoji) => (
-                  <ToggleGroupItem
-                    key={emoji.id}
-                    ref={emoji.id === faceMask.emojiId ? revealSelected : undefined}
-                    value={emoji.id}
-                    aria-label={emoji.label}
-                    className="size-11 shrink-0 justify-center rounded-md p-1.5 before:content-none disabled:opacity-40 data-[state=on]:border-primary data-[state=on]:bg-primary/15"
-                  >
-                    <img
-                      src={emoji.url}
-                      alt=""
-                      className="size-full object-contain"
-                      draggable={false}
-                    />
-                  </ToggleGroupItem>
-                ))}
-              </ToggleGroup>
+                disabled={!faceMask.on}
+                onChange={faceMask.onEmojiChange}
+                // 오른쪽은 창 끝까지 늘려 잘린 칸이 보이게 한다.
+                className="mt-2 -mr-5.5 pr-5.5"
+              />
             )}
           </div>
         )}
