@@ -1,0 +1,14 @@
+{
+  "actions": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "retry": "Try again",
+    "back": "Back"
+  },
+  "duration": {
+    "hoursMinutes": "{{hours}}h {{minutes}}m",
+    "hours": "{{hours}}h",
+    "minutes": "{{minutes}}m",
+    "seconds": "{{seconds}}s"
+  }
+}

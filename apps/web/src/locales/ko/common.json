@@ -1,0 +1,14 @@
+{
+  "actions": {
+    "cancel": "취소",
+    "close": "닫기",
+    "retry": "다시 시도",
+    "back": "뒤로 가기"
+  },
+  "duration": {
+    "hoursMinutes": "{{hours}}시간 {{minutes}}분",
+    "hours": "{{hours}}시간",
+    "minutes": "{{minutes}}분",
+    "seconds": "{{seconds}}초"
+  }
+}
