@@ -4,6 +4,7 @@ import {
   INVITE_CODE_RENEWED_COPY,
   kickMemberDialog,
   leaveRoomDialog,
+  otherMemberCount,
   roomMenuItems,
   transferOwnerDialog,
 } from "../roomMenu";
@@ -81,6 +82,14 @@ describe("roomMenuItems", () => {
       otherMemberCount: 3,
     });
     expect(items.at(-1)).toEqual({ kind: "leave", label: "그룹 나가기", note: null });
+  });
+});
+
+describe("otherMemberCount", () => {
+  it("멤버 수에서 나를 빼고, 멤버 수가 비어 와도 음수가 되지 않는다", () => {
+    expect(otherMemberCount(5)).toBe(4);
+    expect(otherMemberCount(1)).toBe(0);
+    expect(otherMemberCount(0)).toBe(0);
   });
 });
 

@@ -9,7 +9,7 @@ import { RoomMenu } from "../components/RoomMenu";
 import { RoomMeta } from "../components/RoomMeta";
 import { TodayDesksCard } from "../components/TodayDesksCard";
 import { WeeklyRankCard } from "../components/WeeklyRankCard";
-import { type RoomMenuItem, roomMenuItems } from "../model/roomMenu";
+import { otherMemberCount, type RoomMenuItem, roomMenuItems } from "../model/roomMenu";
 import type { RoomHome } from "../types";
 import { useElapsedSec } from "../useElapsedSec";
 
@@ -52,7 +52,7 @@ export function RoomHomeScreen({
     role: room.role,
     visibility: room.visibility,
     newRequestCount: room.newRequestCount,
-    otherMemberCount: Math.max(0, room.memberCount - 1),
+    otherMemberCount: otherMemberCount(room.memberCount),
   });
   const showNewRequests =
     room.role === "owner" && room.visibility === "public" && room.newRequestCount > 0;

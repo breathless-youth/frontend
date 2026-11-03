@@ -36,6 +36,16 @@ function mustTransferBeforeLeave(role: RoomRole, otherMemberCount: number): bool
 }
 
 /**
+ * 나를 뺀 멤버 수
+ *
+ * 그룹 메뉴의 나가기 안내와 나가기 확인 창이 같은 수로 판단해야 메뉴가 말한 대로 창이 뜬다.
+ * 멤버 수를 받기 전에 0이 와도 음수가 되지 않게 0에서 멈춘다.
+ */
+export function otherMemberCount(memberCount: number): number {
+  return Math.max(0, memberCount - 1);
+}
+
+/**
  * 그룹 메뉴 항목
  *
  * 비공개 그룹은 멤버도 초대할 수 있어 누구에게나 초대하기가 맨 위에 온다.
