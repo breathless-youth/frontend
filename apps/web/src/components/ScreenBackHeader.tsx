@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import { GlassChrome } from "@/components/GlassChrome";
 import { trackScreenBackPressed } from "@/lib/amplitude";
-import { slideNavigate } from "@/lib/pageTransition";
+import { slideBack } from "@/lib/pageTransition";
 import { sanitizePagePath } from "@/lib/sanitizePath";
 
 /**
@@ -37,15 +37,7 @@ export function ScreenBackHeader({ title, onBack, center }: ScreenBackHeaderProp
             onBack();
             return;
           }
-          slideNavigate("back", () => {
-            const historyState = window.history.state as { idx?: number } | null;
-            if (historyState?.idx) {
-              navigate(-1);
-              return;
-            }
-            // 딥링크로 곧장 열렸을 때의 대비다. 스택이 비어 있으면 설정 탭으로 보낸다.
-            navigate("/settings", { replace: true });
-          });
+          slideBack(navigate);
         },
       }}
     />
