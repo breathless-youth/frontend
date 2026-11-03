@@ -21,16 +21,19 @@ const REJOIN_TIMEOUT_MS = 8000;
  * — 셋 중 먼저 상태를 바꾼 하나만 이기고 나머지는 무효가 되어 늦은 reconnect·중복 안내가 나지 않는다.
  * 언마운트 시에도 전부 무효화한다.
  * 다시 잡은 자리가 다른 방이면 이 세션의 채널로는 그 방에 들어갈 수 없어서 재연결하지 않고 종료 처리로 넘긴다.
+ * 그 자리는 비우지 않으면 잡힌 동안 그 방의 멤버에게 들어온 사람으로 보여서 onRoomChanged로 알린다.
  */
 export function useRoomRejoin({
   channel,
   roomId,
   renew,
+  onRoomChanged,
   onUnavailable,
 }: {
   channel: RoomChannel;
   roomId: number;
   renew: () => Promise<RoomSeat>;
+  onRoomChanged?: (seat: RoomSeat) => void;
   onUnavailable: () => void;
 }): () => void {
   const stateRef = useRef<"idle" | "rejoining" | "awaiting-recovery">("idle");
@@ -86,6 +89,7 @@ export function useRoomRejoin({
         clearTimer();
         if (seat.roomId !== roomId) {
           stateRef.current = "idle";
+          onRoomChanged?.(seat);
           onUnavailable();
           return;
         }
@@ -100,5 +104,5 @@ export function useRoomRejoin({
         stateRef.current = "idle";
         onUnavailable();
       });
-  }, [channel, onUnavailable, renew, roomId]);
+  }, [channel, onRoomChanged, onUnavailable, renew, roomId]);
 }

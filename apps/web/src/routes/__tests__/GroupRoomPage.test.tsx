@@ -520,6 +520,19 @@ describe("GroupRoomPage 나가기", () => {
     expect(notice?.message).toContain("방이 종료되어");
   });
 
+  it("다시 잡은 자리가 다른 방이면 그 자리를 비우고 공부를 마친다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    const { channel, location } = await enterGroupRoom({ groupId: 10 });
+    vi.mocked(joinGroupRoom).mockResolvedValue(seat({ roomId: 999 }));
+
+    act(() => channel.emitServerMessage({ type: "ROOM_UNAVAILABLE", roomId: 123 }));
+
+    await waitFor(() => expect(location().pathname).toBe("/social/groups/10"));
+    expect(leaveGroupRoom).toHaveBeenCalledOnce();
+    expect(leaveGroupRoom).toHaveBeenCalledWith(10);
+    expect(consumeSocialRoomNotice()?.kind).toBe("grace-end");
+  });
+
   it("PEER_BLOCKED를 받으면 그 사람과의 연결을 닫는다", async () => {
     const { channel, pcs } = await enterGroupRoom({ snapshot: [member(7), member(42)] });
     expect(pcs).toHaveLength(1);

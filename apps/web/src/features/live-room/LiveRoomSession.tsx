@@ -96,7 +96,7 @@ import { kickVideoPlayback, useGestureVideoPlaybackKick } from "@/lib/videoPlayb
 
 import { FACE_MASK_EMOJIS } from "./faceMaskSettings";
 import type { CreateChannel } from "./liveRoomEntryState";
-import type { LiveRoomKind } from "./roomKind";
+import type { LiveRoomKind, RoomSeat } from "./roomKind";
 import { leaveRoomSeat, liveRoomHomePath, liveRoomResultPath, renewRoomSeat } from "./roomKind";
 import { useBackgroundGraceWatch } from "./useBackgroundGraceWatch";
 import { useCameraPreviewAspect } from "./useCameraPreviewAspect";
@@ -308,10 +308,16 @@ export function LiveRoomSession({
     void endAndSubmit(autoEndReason("BACKGROUND"));
   }, [channel, endAndSubmit]);
   const renewSeat = useCallback(() => renewRoomSeat(room), [room]);
+  // 다른 방에 잡힌 자리는 이 세션이 쓰지 못하므로 바로 비운다.
+  const leaveMovedSeat = useCallback(
+    (seat: RoomSeat) => void leaveRoomSeat(room, seat.roomId).catch(() => undefined),
+    [room],
+  );
   const requestRejoin = useRoomRejoin({
     channel,
     roomId,
     renew: renewSeat,
+    onRoomChanged: leaveMovedSeat,
     onUnavailable: handleRoomUnavailable,
   });
   useLayoutEffect(() => {
