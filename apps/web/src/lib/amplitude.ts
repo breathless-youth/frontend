@@ -23,7 +23,6 @@ import type {
 
 import { firebaseAnalyticsForwardPlugin } from "./firebaseAnalyticsBridge";
 import i18n from "./i18n";
-import type { InstallAttributionProperties } from "./installAttribution";
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
 import { showToast } from "./toast";
 import { readUserId } from "./userId";
@@ -686,14 +685,15 @@ export function setThemeUserProperty(scheme: "light" | "dark") {
 /**
  * 설치 유입 경로 user property
  *
- * 앱이 넘긴 설치 정보로 정한 값이다(`lib/installAttribution.ts`).
- * 재설치나 재전송이 와도 처음 들어온 경로가 남도록 setOnce로 보낸다.
+ * 서버가 정한 유입 경로다(`lib/installAttribution.ts`).
+ * 서버가 사용자마다 처음 값만 돌려주므로 set으로 보낸다.
+ * setOnce를 쓰면 예전에 웹이 직접 판단해 남긴 값이 서버 값을 막는다.
  */
-export function setInstallAttributionUserProperties(properties: InstallAttributionProperties) {
+export function setInstallAttributionUserProperties(properties: Readonly<Record<string, string>>) {
   if (!initialized) return;
   const id = new Identify();
   for (const [key, value] of Object.entries(properties)) {
-    if (value !== undefined) id.setOnce(key, value);
+    id.set(key, value);
   }
   identify(id);
 }

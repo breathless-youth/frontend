@@ -102,8 +102,11 @@ SDK 설치·초기화·ATT·설치 이벤트는 네이티브가 맡고(한 번 �
 - iOS는 추적을 허용한 사용자만 지연 딥링크를 돌려받고, 업데이트 전에 설치한 사람은 다시 읽을 수 없다.
 - 읽은 값은 SecureStore에 보관하고 준비된 웹뷰에 브리지 `install-attribution`으로 넘긴다.
 - 웹이 원문을 localStorage에 보관한 뒤 `install-attribution-received`로 답하면 앱은 보관을 끝낸다.
-- 웹은 Amplitude 사용자 속성 `install_source`, `install_ad`, `install_utm_*`를 setOnce로 남긴다(`apps/web/src/lib/installAttribution.ts`).
-- 메타 암호문은 앱과 웹이 풀지 않고, 서버 API(BY-1066)가 생기면 웹이 보관한 원문을 보낸다.
+- 메타 암호문은 앱과 웹이 풀지 않는다.
+- 웹은 보관한 원문을 `POST /api/users/me/acquisition`(BY-1066)으로 보내고, 서버가 정한 유입 경로를 Amplitude 사용자 속성 `install_source`, `install_ad`, `install_meta_*`로 남긴다(BY-1137, `apps/web/src/lib/installAttribution.ts`).
+- 서버가 사용자마다 처음 값만 돌려주므로 Amplitude에는 set으로 남긴다. `install_utm_*`는 서버 응답에 없어서 웹이 원문에서 꺼낸다.
+- 400을 받으면 원문을 지우고, 그 밖의 실패는 다음 실행에서 다시 보낸다.
+- 구글 광고 유입은 [구글·메타 광고 유입 경로 설계](./2026-11-04-google-meta-install-attribution-design.md)를 따른다.
 - 광고 딥링크 형식은 `focusmakers://?fm_ad=ios_v1`이고, 앱과 웹 모두 `INSTALL_AD_LABEL_PATTERN`으로 거른다.
 
 ## 코드 밖 절차

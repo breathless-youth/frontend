@@ -478,19 +478,19 @@ describe("setInstallAttributionUserProperties", () => {
     expect(mocks.identify).not.toHaveBeenCalled();
   });
 
-  it("처음 들어온 경로만 남도록 setOnce로 보낸다", async () => {
+  it("서버가 첫 값을 지키므로 set으로 보내 웹이 먼저 남긴 값도 바로잡는다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const { initAmplitude, setInstallAttributionUserProperties } = await loadModule();
     initAmplitude();
 
-    setInstallAttributionUserProperties({ install_source: "meta_ad", install_ad: "aos_v1" });
+    setInstallAttributionUserProperties({ install_source: "google_ad", install_ad: "g_planner" });
 
     const [sent] = mocks.identify.mock.calls[0] as [InstanceType<typeof mocks.FakeIdentify>];
-    expect(sent.setOnces).toEqual([
-      ["install_source", "meta_ad"],
-      ["install_ad", "aos_v1"],
+    expect(sent.sets).toEqual([
+      ["install_source", "google_ad"],
+      ["install_ad", "g_planner"],
     ]);
-    expect(sent.sets).toEqual([]);
+    expect(sent.setOnces).toEqual([]);
   });
 });
 
