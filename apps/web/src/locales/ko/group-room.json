@@ -3,5 +3,20 @@
     "notFound": "그룹을 찾을 수 없어요",
     "notMember": "이 그룹의 멤버가 아니에요",
     "applicationCanceled": "신청을 취소했어요"
+  },
+  "applyPage": {
+    "title": "신청하기"
+  },
+  "groupApplicationsPage": {
+    "title": "신청 확인"
+  },
+  "groupFormPage": {
+    "title": {
+      "create": "그룹 만들기",
+      "edit": "그룹 설정"
+    }
+  },
+  "reportApplicationPage": {
+    "title": "신고하기"
   }
 }

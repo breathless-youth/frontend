@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useEffectEvent, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Navigate, useLocation, useParams } from "react-router-dom";
 
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -76,6 +77,7 @@ function ReportApplication({
   groupId: number;
   applicationId: number;
 }) {
+  const { t } = useTranslation("group-room");
   const location = useLocation();
   const queryClient = useQueryClient();
   const search = baseSearch(location.search);
@@ -130,7 +132,7 @@ function ReportApplication({
     const failed =
       cannotLoadFirst(applicationsQuery) && !notOwner && !isGroupGoneError(applicationsQuery.error);
     return (
-      <GroupScreenFrame title="신고하기" onBack={back}>
+      <GroupScreenFrame title={t("reportApplicationPage.title")} onBack={back}>
         {failed ? (
           <ErrorState
             message={groupRetryCopy()}

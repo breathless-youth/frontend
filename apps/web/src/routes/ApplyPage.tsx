@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Navigate, useLocation, useParams } from "react-router-dom";
 
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -67,6 +68,7 @@ export function ApplyPage() {
  * 그 밖의 실패는 쓴 소개 글을 잃지 않게 토스트로 알리고 머문다.
  */
 function Apply({ userId, groupId }: { userId: number; groupId: number }) {
+  const { t } = useTranslation("group-room");
   const queryClient = useQueryClient();
   const back = useBackTo(`/social/public/${groupId}`);
   const detailQuery = useQuery(publicGroupQuery(userId, groupId));
@@ -105,7 +107,7 @@ function Apply({ userId, groupId }: { userId: number; groupId: number }) {
   if (detail === undefined) {
     const failed = cannotLoadFirst(detailQuery) && !isGroupGoneError(detailQuery.error);
     return (
-      <GroupScreenFrame title="신청하기" onBack={back}>
+      <GroupScreenFrame title={t("applyPage.title")} onBack={back}>
         {failed ? (
           <ErrorState
             message={groupRetryCopy()}

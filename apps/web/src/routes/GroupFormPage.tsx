@@ -1,6 +1,7 @@
 import type { GroupCreateRequest, GroupUpdateRequest, StudyCategory } from "@focusmakers/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useEffectEvent, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -116,6 +117,7 @@ function useFormErrorNotice(action: FormAction) {
  * 만들면 새 그룹 홈으로 바꿔 가서 뒤로 가기가 만들기 화면으로 돌아오지 않는다.
  */
 function GroupCreate({ userId }: { userId: number }) {
+  const { t } = useTranslation("group-room");
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -138,7 +140,7 @@ function GroupCreate({ userId }: { userId: number }) {
   // 오프라인이라 멈춘 조회까지 기다리면 양식이 열리지 않아서 받는 중일 때만 기다린다.
   if (profile.isPending && !profile.isPaused) {
     return (
-      <GroupScreenFrame title="그룹 만들기" onBack={back}>
+      <GroupScreenFrame title={t("groupFormPage.title.create")} onBack={back}>
         <FormSkeleton />
       </GroupScreenFrame>
     );
@@ -181,6 +183,7 @@ function GroupCreate({ userId }: { userId: number }) {
  * 그룹장이 아니면 설정 대신 그룹 홈으로 돌아가고, 그룹 홈에서 왔으면 그 화면으로 돌아간다.
  */
 function GroupSettings({ userId, groupId }: { userId: number; groupId: number }) {
+  const { t } = useTranslation("group-room");
   const queryClient = useQueryClient();
   const back = useBackTo(`/social/groups/${groupId}`);
   // 이 화면은 처음 값만 읽어서 그룹 홈처럼 30초마다 다시 받지 않는다.
@@ -220,7 +223,7 @@ function GroupSettings({ userId, groupId }: { userId: number; groupId: number })
   if (home === undefined || notOwner) {
     const failed = cannotLoadFirst(homeQuery) && !isGroupGoneError(homeQuery.error);
     return (
-      <GroupScreenFrame title="그룹 설정" onBack={back}>
+      <GroupScreenFrame title={t("groupFormPage.title.edit")} onBack={back}>
         {failed ? (
           <ErrorState
             message={groupRetryCopy()}
