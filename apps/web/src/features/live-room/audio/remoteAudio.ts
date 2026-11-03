@@ -6,7 +6,8 @@ import { createSilentKeepAlive } from "@/features/ambient-sound/silentKeepAlive"
  * 사람마다 MediaStreamSource, AnalyserNode, GainNode를 이어 스피커로 내보낸다.
  * 음량은 미디어 요소의 volume이 아니라 GainNode로 바꾸는데, iOS WebKit에서는 volume이 바뀌지 않는다.
  * Chromium은 원격 WebRTC 트랙을 미디어 요소에 붙여야 Web Audio로 샘플이 흘러서 같은 트랙을 음소거한 보조 audio 요소에도 붙인다.
- * Apple WebKit은 Web Audio만 쓰는 페이지를 무음 스위치에 따르게 해서 상대 소리가 있는 동안 배경음과 같은 무음 keep-alive 요소를 재생한다.
+ * Apple WebKit은 Web Audio만 쓰는 페이지를 무음 스위치에 따르게 해서 배경음과 같은 무음 keep-alive 요소를 함께 재생한다.
+ * keep-alive는 소리를 내는 미디어 요소라 iOS가 사용자의 음악 앱을 멈출 수 있어서, 대부분 조용한 공부방에서는 마이크를 켠 멤버의 소리가 붙어 있을 때만 재생한다.
  * 통화나 알람이 컨텍스트를 멈추면 들을 상대가 있는 동안 다시 깨우고, 시스템이 멈춘 요소는 요소의 멈춤 상태를 보고 다시 건다.
  * 소리는 재생하고 크기만 읽으며 녹음하거나 저장하지 않는다.
  */
@@ -16,6 +17,8 @@ export interface RemoteAudioPlayer {
   setVolume(userId: number, volume: number): void;
   setMuted(userId: number, muted: boolean): void;
   setAllMuted(muted: boolean): void;
+  /** 서버가 알려 준 마이크를 켠 멤버이고, 이 중 소리가 붙은 사람이 있을 때만 keep-alive를 재생한다. */
+  setMicOnUsers(userIds: ReadonlySet<number>): void;
   /** 음량과 소리 끄기를 적용하기 전의 소리 크기라 내가 소리를 꺼도 말하는 중은 보인다. */
   level(userId: number): number;
   setLocalMeter(track: MediaStreamTrack | null): void;
@@ -111,6 +114,7 @@ export function createRemoteAudioPlayer(
   const volumes = new Map<number, number>();
   const muted = new Set<number>();
   let allMuted = false;
+  let micOnUsers: ReadonlySet<number> = new Set();
   let localMeter: LocalMeter | null = null;
   // undefined는 아직 만들지 않은 것이고, null은 Apple WebKit이 아니라 만들지 않는다는 뜻이다.
   let keepAlive: HTMLAudioElement | null | undefined;
@@ -143,7 +147,12 @@ export function createRemoteAudioPlayer(
   }
 
   function keepAliveWanted(): boolean {
-    return voices.size > 0;
+    for (const userId of voices.keys()) {
+      if (micOnUsers.has(userId)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   // 통화나 잠금 화면으로 시스템이 요소를 멈추면 따로 둔 표시로는 알 수 없어서 요소의 paused를 본다.
@@ -163,6 +172,14 @@ export function createRemoteAudioPlayer(
   function stopKeepAlive(): void {
     if (keepAlive && keepAlive.paused === false) {
       keepAlive.pause();
+    }
+  }
+
+  function syncKeepAlive(): void {
+    if (keepAliveWanted()) {
+      startKeepAlive();
+    } else {
+      stopKeepAlive();
     }
   }
 
@@ -239,13 +256,11 @@ export function createRemoteAudioPlayer(
         samples: new Float32Array(analyser.fftSize),
       });
       applyGain(userId);
-      startKeepAlive();
+      syncKeepAlive();
     },
     detach(userId) {
       removeVoice(userId);
-      if (voices.size === 0) {
-        stopKeepAlive();
-      }
+      syncKeepAlive();
     },
     setVolume(userId, volume) {
       volumes.set(userId, clampVolume(volume));
@@ -264,6 +279,10 @@ export function createRemoteAudioPlayer(
       for (const userId of voices.keys()) {
         applyGain(userId);
       }
+    },
+    setMicOnUsers(userIds) {
+      micOnUsers = new Set(userIds);
+      syncKeepAlive();
     },
     level(userId) {
       const voice = voices.get(userId);
@@ -313,6 +332,7 @@ export function createRemoteAudioPlayer(
       volumes.clear();
       muted.clear();
       allMuted = false;
+      micOnUsers = new Set();
       const closing = ctx;
       ctx = undefined;
       if (closing) {

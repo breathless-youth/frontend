@@ -7,6 +7,8 @@ import { useRoomAudio } from "../useRoomAudio";
 
 type RemoteAudioListener = (userId: number, track: MediaStreamTrack | null) => void;
 
+const NO_MIC_ON: ReadonlySet<number> = new Set();
+
 afterEach(() => {
   vi.useRealTimers();
 });
@@ -36,6 +38,7 @@ function fakePlayer() {
     setLocalMeter: vi.fn(),
     localLevel: vi.fn<() => number>().mockReturnValue(0),
     needsResume: vi.fn(() => !resumed),
+    setMicOnUsers: vi.fn(),
     resume: vi.fn(async () => {
       resumed = true;
     }),
@@ -54,13 +57,17 @@ function setup(overrides: Partial<Parameters<typeof useRoomAudio>[0]> = {}) {
   const player = fakePlayer();
   const createPlayer = vi.fn(() => player);
   let renders = 0;
-  const hook = renderHook(
-    (props: { cameraHeld: boolean }) => {
+  const hook = renderHook<
+    ReturnType<typeof useRoomAudio>,
+    { cameraHeld: boolean; micOnUserIds?: ReadonlySet<number> }
+  >(
+    (props) => {
       renders += 1;
       return useRoomAudio({
         enabled: true,
         mesh,
         cameraHeld: props.cameraHeld,
+        micOnUserIds: props.micOnUserIds ?? NO_MIC_ON,
         onNotice,
         acquire,
         createPlayer,
@@ -258,6 +265,17 @@ describe("useRoomAudio 상대 소리", () => {
 
     expect(result.current.selfSpeaking).toBe(false);
     expect(player.setLocalMeter).toHaveBeenLastCalledWith(null);
+  });
+
+  it("멤버들의 마이크 상태를 재생기에 알린다", () => {
+    const { rerender, player } = setup();
+    const talking = new Set([42]);
+
+    rerender({ cameraHeld: false, micOnUserIds: talking });
+    expect(player.setMicOnUsers).toHaveBeenLastCalledWith(talking);
+
+    rerender({ cameraHeld: false, micOnUserIds: NO_MIC_ON });
+    expect(player.setMicOnUsers).toHaveBeenLastCalledWith(NO_MIC_ON);
   });
 
   it("다른 사람 소리 끄기는 모두에게 걸고 다시 누르면 푼다", () => {

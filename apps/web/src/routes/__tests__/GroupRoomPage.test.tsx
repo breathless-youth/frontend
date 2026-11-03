@@ -129,6 +129,7 @@ function fakePlayer() {
     setLocalMeter: vi.fn(),
     localLevel: vi.fn<() => number>().mockReturnValue(0),
     needsResume: vi.fn(() => false),
+    setMicOnUsers: vi.fn(),
     resume: vi.fn(async () => undefined),
     close: vi.fn(),
   } satisfies RemoteAudioPlayer;
@@ -377,6 +378,17 @@ describe("GroupRoomPage 입장", () => {
     const { pcConfigs } = renderGroupRoom({ snapshot: [member(7), member(42)] });
     await waitFor(() => expect(pcConfigs).toHaveLength(1));
     expect(pcConfigs[0]).toMatchObject({ bundlePolicy: "max-bundle" });
+  });
+
+  it("마이크를 켠 멤버를 재생기에 알리고 마이크를 끄면 뺀다", async () => {
+    const { channel, player } = await enterGroupRoom({
+      snapshot: [member(7, { micOn: true }), member(42, { micOn: true }), member(43)],
+    });
+    expect(player.setMicOnUsers).toHaveBeenLastCalledWith(new Set([42]));
+
+    act(() => channel.emitServerMessage({ type: "MIC_CHANGED", userId: 42, micOn: false }));
+
+    expect(player.setMicOnUsers).toHaveBeenLastCalledWith(new Set());
   });
 
   it("상대 소리가 오면 공부방의 재생기에 붙인다", async () => {

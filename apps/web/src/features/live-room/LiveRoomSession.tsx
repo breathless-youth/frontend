@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BookOpen, LoaderCircle } from "lucide-react";
@@ -360,10 +368,20 @@ export function LiveRoomSession({
   useKeepMaskSourceLive(cameraStream, faceMask.on);
   // 소리는 그룹 공부방에서만 오간다.
   // 나가기를 눌러 세션이 끝나는 동안에도 마이크가 소리를 보내지 않게 카메라를 끈 것과 같게 본다.
+  const micOnUserIds = useMemo(
+    () =>
+      new Set(
+        members
+          .filter((member) => member.userId !== userId && member.micOn === true)
+          .map((member) => member.userId),
+      ),
+    [members, userId],
+  );
   useRoomAudio({
     enabled: room.kind === "group",
     mesh,
     cameraHeld: paused || phase.name !== "studying",
+    micOnUserIds,
     onNotice: showCtaToast,
     ...audioDeps,
   });

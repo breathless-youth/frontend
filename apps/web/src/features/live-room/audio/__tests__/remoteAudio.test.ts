@@ -145,16 +145,12 @@ describe("createRemoteAudioPlayer", () => {
     expect(gains[0]?.gain.value).toBe(0);
   });
 
-  it("붙이면 보조 요소를 음소거로 재생하고 처음 한 번 keep-alive를 켠다", () => {
-    const { instance, assists, keepAlive } = player();
+  it("붙이면 보조 요소를 음소거로 재생한다", () => {
+    const { instance, assists } = player();
     instance.attach(2, track());
     instance.attach(3, track());
     expect(assists.every((element) => element.muted)).toBe(true);
     expect(assists.every((element) => vi.mocked(element.play).mock.calls.length === 1)).toBe(true);
-    expect(keepAlive.play).toHaveBeenCalledOnce();
-    instance.detach(2);
-    instance.detach(3);
-    expect(keepAlive.pause).toHaveBeenCalledOnce();
   });
 
   it("떼면 그 사람의 노드를 끊고 보조 요소를 멈춘다", () => {
@@ -206,12 +202,11 @@ describe("createRemoteAudioPlayer", () => {
   });
 
   it("닫으면 모두 떼고 컨텍스트를 닫는다", () => {
-    const { instance, ctx, keepAlive } = player();
+    const { instance, ctx } = player();
     instance.attach(2, track());
     instance.setLocalMeter(track());
     instance.close();
     expect(ctx.close).toHaveBeenCalledOnce();
-    expect(keepAlive.pause).toHaveBeenCalledOnce();
     expect(instance.level(2)).toBe(0);
     expect(instance.localLevel()).toBe(0);
   });
@@ -262,6 +257,7 @@ describe("멈춘 재생 되살리기", () => {
   it("거부당한 keep-alive는 resume에서 다시 건다", async () => {
     const { instance, keepAlive } = player({ keepAliveRejects: true });
     instance.attach(2, track());
+    instance.setMicOnUsers(new Set([2]));
     await settle();
     expect(keepAlive.paused).toBe(true);
 
@@ -274,6 +270,7 @@ describe("멈춘 재생 되살리기", () => {
   it("시스템이 멈춘 keep-alive는 요소의 멈춤 상태를 보고 resume에서 다시 건다", async () => {
     const { instance, keepAlive } = player();
     instance.attach(2, track());
+    instance.setMicOnUsers(new Set([2]));
     expect(keepAlive.play).toHaveBeenCalledOnce();
 
     keepAlive.paused = true;
@@ -290,6 +287,7 @@ describe("멈춘 재생 되살리기", () => {
     expect(instance.needsResume()).toBe(false);
 
     instance.attach(2, track());
+    instance.setMicOnUsers(new Set([2]));
     expect(instance.needsResume()).toBe(false);
 
     assists[0]!.paused = true;
@@ -316,5 +314,66 @@ describe("멈춘 재생 되살리기", () => {
     await instance.resume();
 
     expect(instance.needsResume()).toBe(false);
+  });
+});
+
+describe("마이크를 켠 멤버가 있을 때만 keep-alive", () => {
+  it("모두 마이크를 끈 동안에는 소리를 붙여도 keep-alive를 멈춰 둔다", () => {
+    const { instance, keepAlive } = player();
+    instance.attach(2, track());
+    instance.attach(3, track());
+    instance.setMicOnUsers(new Set());
+
+    expect(keepAlive.play).not.toHaveBeenCalled();
+    expect(keepAlive.paused).toBe(true);
+  });
+
+  it("붙은 멤버 한 명이 마이크를 켜면 재생하고 모두 끄면 다시 멈춘다", () => {
+    const { instance, keepAlive } = player();
+    instance.attach(2, track());
+    instance.attach(3, track());
+
+    instance.setMicOnUsers(new Set([2]));
+    expect(keepAlive.play).toHaveBeenCalledOnce();
+    instance.setMicOnUsers(new Set([2, 3]));
+    expect(keepAlive.play).toHaveBeenCalledOnce();
+
+    instance.setMicOnUsers(new Set());
+    expect(keepAlive.pause).toHaveBeenCalledOnce();
+    expect(keepAlive.paused).toBe(true);
+  });
+
+  it("마이크를 켠 멤버라도 소리가 붙어야 재생한다", () => {
+    const { instance, keepAlive } = player();
+    instance.attach(2, track());
+    instance.setMicOnUsers(new Set([9]));
+    expect(keepAlive.play).not.toHaveBeenCalled();
+
+    instance.attach(9, track());
+
+    expect(keepAlive.play).toHaveBeenCalledOnce();
+  });
+
+  it("마이크를 켠 멤버의 소리가 떨어지면 멈춘다", () => {
+    const { instance, keepAlive } = player();
+    instance.attach(2, track());
+    instance.attach(3, track());
+    instance.setMicOnUsers(new Set([2]));
+
+    instance.detach(2);
+
+    expect(keepAlive.pause).toHaveBeenCalledOnce();
+    expect(keepAlive.paused).toBe(true);
+  });
+
+  it("공부방을 나가면 멈춘다", () => {
+    const { instance, keepAlive } = player();
+    instance.attach(2, track());
+    instance.setMicOnUsers(new Set([2]));
+
+    instance.close();
+
+    expect(keepAlive.pause).toHaveBeenCalledOnce();
+    expect(keepAlive.paused).toBe(true);
   });
 });

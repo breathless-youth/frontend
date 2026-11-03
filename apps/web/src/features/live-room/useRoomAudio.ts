@@ -70,6 +70,7 @@ export function useRoomAudio({
   enabled,
   mesh,
   cameraHeld,
+  micOnUserIds,
   onNotice,
   acquire = acquireMicTrack,
   createPlayer = () => createRemoteAudioPlayer(),
@@ -78,6 +79,8 @@ export function useRoomAudio({
   mesh: Pick<PeerMesh, "setLocalAudioTrack" | "subscribeRemoteAudio">;
   /** 카메라를 꺼서 측정을 멈춘 동안이다. */
   cameraHeld: boolean;
+  /** 마이크를 켠 다른 멤버이고, 멤버 목록이 바뀔 때만 새 집합을 넘긴다. */
+  micOnUserIds: ReadonlySet<number>;
   onNotice: (message: string) => void;
 } & RoomAudioDeps): RoomAudio {
   // 채널, 카메라와 같은 지연 초기화라 다시 그려도 마이크 줄과 재생기는 공부방 수명 동안 하나다.
@@ -197,6 +200,11 @@ export function useRoomAudio({
       }
     };
   }, [player]);
+
+  // 아무도 마이크를 켜지 않은 동안 재생기가 iOS 음악 앱을 멈추는 keep-alive를 켜지 않게 알린다.
+  useEffect(() => {
+    player?.setMicOnUsers(micOnUserIds);
+  }, [micOnUserIds, player]);
 
   useEffect(() => {
     if (player === null) {
