@@ -3,7 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { createModeState, pauseMode, startMode } from "@/features/multi-timer/multiTimerMachine";
 import type { ModeKind } from "@/features/multi-timer/multiTimerMachine";
+import { DEFAULT_MULTI_TIMER_SETTINGS } from "@/features/multi-timer/multiTimerSettings";
 import { useMultiTimer } from "@/features/multi-timer/useMultiTimer";
 import type { SessionState } from "@/features/study-session/sessionState";
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
@@ -72,12 +74,19 @@ function TimerHarness({
         <RoomTimerCapsule
           mode={timer.mode}
           remainingMs={timer.remainingMs}
-          primaryLabel={timer.primaryLabel}
+          held={timer.held}
+          timerId={sheet.capsuleTimerId}
+          primaryRef={sheet.capsulePrimaryRef}
           onPrimary={timer.pressPrimary}
           onOff={timer.close}
         />
       )}
-      <TimerButton on={sheet.active} expanded={sheet.open} onOpen={sheet.openSheet} />
+      <TimerButton
+        on={sheet.active}
+        expanded={sheet.open}
+        describedBy={sheet.capsuleTimerId}
+        onOpen={sheet.pressTimerButton}
+      />
       <LazyRoomTimerSheet
         open={sheet.open}
         landscape={landscape}
@@ -341,6 +350,52 @@ describe("공부방 타이머 시트와 캡슐", () => {
 
     expect(sheet).toHaveAttribute("data-amp-mask");
     expect(sheet).toHaveAttribute("data-amp-mask-attributes", "aria-label");
+  });
+});
+
+describe("공부방 타이머 캡슐의 멈춤과 계속", () => {
+  const running = () => startMode(createModeState("timer", DEFAULT_MULTI_TIMER_SETTINGS));
+
+  it("흐르는 타이머는 멈춤이고 카메라를 꺼 공부방이 멈춘 동안은 계속이다", () => {
+    const mode = running();
+    const { rerender } = render(
+      <RoomTimerCapsule
+        mode={mode}
+        remainingMs={1_800_000}
+        held={false}
+        onPrimary={vi.fn()}
+        onOff={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "멈춤" })).toBeInTheDocument();
+    expect(screen.getByTestId("icon-pause")).toBeInTheDocument();
+
+    rerender(
+      <RoomTimerCapsule
+        mode={mode}
+        remainingMs={1_800_000}
+        held
+        onPrimary={vi.fn()}
+        onOff={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "계속" })).toBeInTheDocument();
+    expect(screen.getByTestId("icon-play")).toBeInTheDocument();
+  });
+
+  it("멈춘 타이머는 계속이다", () => {
+    render(
+      <RoomTimerCapsule
+        mode={pauseMode(running(), Date.now())}
+        remainingMs={1_800_000}
+        held={false}
+        onPrimary={vi.fn()}
+        onOff={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "계속" })).toBeInTheDocument();
+    expect(screen.getByTestId("icon-play")).toBeInTheDocument();
   });
 });
 

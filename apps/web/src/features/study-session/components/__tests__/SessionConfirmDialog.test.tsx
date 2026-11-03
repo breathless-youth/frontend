@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -151,5 +151,41 @@ describe("SessionConfirmDialog", () => {
     await userEvent.click(screen.getByRole("button", { name: "계속하기" }));
 
     expect(trigger).toHaveFocus();
+  });
+
+  it("연 버튼이 그사이 사라지면 넘겨받은 자리로 포커스를 돌려준다", async () => {
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      const [opener, setOpener] = useState(true);
+      return (
+        <>
+          <button type="button">돌아갈 자리</button>
+          {opener && (
+            <button type="button" onClick={() => setOpen(true)}>
+              연 버튼
+            </button>
+          )}
+          <SessionConfirmDialog
+            open={open}
+            title="새벽러님을 내보낼까요?"
+            description="새벽러님은 3일 동안 다시 들어올 수 없어요"
+            cancelLabel="취소"
+            confirmLabel="내보내기"
+            returnFocus={() => screen.getByRole("button", { name: "돌아갈 자리", hidden: true })}
+            onCancel={() => setOpen(false)}
+            onConfirm={() => {
+              setOpener(false);
+              setOpen(false);
+            }}
+          />
+        </>
+      );
+    }
+    render(<Harness />);
+
+    await userEvent.click(screen.getByRole("button", { name: "연 버튼" }));
+    await userEvent.click(screen.getByRole("button", { name: "내보내기" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "돌아갈 자리" })).toHaveFocus());
   });
 });

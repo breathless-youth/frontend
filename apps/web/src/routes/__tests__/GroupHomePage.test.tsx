@@ -44,9 +44,15 @@ vi.mock("@/features/social-room/shareInvite", async (importOriginal) => ({
 }));
 vi.mock("@/features/study-session/closeStaleSession");
 // 이 파일은 공부방으로 넘어가는 이동까지만 본다. 진짜 공부방은 카메라와 STOMP를 열어서 자리표시로 바꾼다.
-vi.mock("@/routes/GroupRoomPage", () => ({
-  GroupRoomPage: () => <div data-testid="group-room-stub" />,
-}));
+// 자리표시는 어떤 이동으로 왔는지 함께 보인다.
+vi.mock("@/routes/GroupRoomPage", async () => {
+  const { useNavigationType } = await import("react-router-dom");
+  return {
+    GroupRoomPage: function GroupRoomStub() {
+      return <div data-testid="group-room-stub" data-navigation={useNavigationType()} />;
+    },
+  };
+});
 
 // 그룹 홈은 나눠 받는 화면이라 전체 스위트 부하에서 첫 그리기가 findBy 기본 1초를 넘지 않게 미리 받아 둔다.
 beforeAll(async () => {
@@ -402,6 +408,16 @@ describe("그룹 홈", () => {
     expect(router.location().search).toBe("?groupRooms=1");
   });
 
+  it("공부방 들어가기는 그룹 홈 기록을 공부방으로 바꿔 나온 뒤 뒤로 가기에 같은 그룹 홈이 남지 않는다", async () => {
+    mockGroupApi("default");
+    renderGroupRoute("/social/groups/10?groupRooms=1");
+    await userEvent.setup().click(await screen.findByRole("button", { name: "공부방 들어가기" }));
+    expect(await screen.findByTestId("group-room-stub")).toHaveAttribute(
+      "data-navigation",
+      "REPLACE",
+    );
+  });
+
   it("공부방 들어가기는 남은 세션을 정리하고 자리를 잡은 뒤 공부방으로 간다", async () => {
     const api = mockGroupApi("default");
     const { router } = renderGroupRoute("/social/groups/10?groupRooms=1");
@@ -415,6 +431,21 @@ describe("그룹 홈", () => {
       graceRejoin: false,
       iceServers: [],
     });
+  });
+
+  it("오프라인에서 공부방 들어가기를 눌러도 멈춰 있지 않고 바로 다시 시도하라고 알린다", async () => {
+    const api = mockGroupApi("default");
+    api.joinGroupRoom.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    renderGroupRoute("/social/groups/10?groupRooms=1");
+    const enter = await screen.findByRole("button", { name: "공부방 들어가기" });
+    act(() => onlineManager.setOnline(false));
+    onTestFinished(() => onlineManager.setOnline(true));
+
+    await userEvent.setup().click(enter);
+
+    expect(api.joinGroupRoom).toHaveBeenCalledWith(10);
+    expect(await screen.findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
+    await waitFor(() => expect(enter).toBeEnabled());
   });
 
   it("자리를 잡는 동안에는 공부방 들어가기를 다시 누를 수 없다", async () => {

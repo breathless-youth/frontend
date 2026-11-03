@@ -127,6 +127,29 @@ describe("TimerButton", () => {
     });
   });
 
+  it("타이머가 도는 동안은 시트를 연다고 알리지 않고 캡슐의 남은 시간을 설명으로 단다", () => {
+    render(
+      <>
+        <TimerButton on expanded={false} describedBy="capsule-time" onOpen={vi.fn()} />
+        <span id="capsule-time">24:13</span>
+      </>,
+    );
+    const button = screen.getByRole("button", { name: "타이머" });
+
+    expect(button).not.toHaveAttribute("aria-haspopup");
+    expect(button).not.toHaveAttribute("aria-expanded");
+    expect(button).toHaveAccessibleDescription("24:13");
+  });
+
+  it("꺼져 있으면 시트를 여는 버튼으로 알린다", () => {
+    render(<TimerButton on={false} expanded={false} describedBy="capsule-time" onOpen={vi.fn()} />);
+    const button = screen.getByRole("button", { name: "타이머" });
+
+    expect(button).toHaveAttribute("aria-haspopup", "dialog");
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(button).not.toHaveAttribute("aria-describedby");
+  });
+
   it("꺼져 있으면 기본 역할이고 누르면 시트를 연다", async () => {
     const onOpen = vi.fn();
     render(<TimerButton on={false} expanded={false} onOpen={onOpen} />);
@@ -245,7 +268,7 @@ describe("그룹 공부방 조작 영어 화면", () => {
         <RoomTimerCapsule
           mode={pomodoro}
           remainingMs={25 * 60_000}
-          primaryLabel={i18n.t("multi-timer:primary.pause")}
+          held={false}
           onPrimary={vi.fn()}
           onOff={vi.fn()}
         />
@@ -259,7 +282,7 @@ describe("그룹 공부방 조작 영어 화면", () => {
     expect(screen.getByRole("button", { name: "Switch camera" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Turn on mic" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Timer" })).toBeInTheDocument();
-    // 타이머 훅이 영어로 준 일시정지 이름을 받으면 캡슐은 흐르는 중으로 보고 멈춤 버튼을 그린다.
+    // 흐르는 뽀모도로라 캡슐은 멈춤 버튼을 그린다.
     expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Turn off timer" })).toBeInTheDocument();
     expect(visibleText(container)).not.toMatch(/[가-힣]/);

@@ -3,11 +3,12 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { Location } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import type {
   GroupHomeResponse,
   GroupRoomJoinResponse,
+  MyGroupsResponse,
   RoomMember,
   StudySessionListResponse,
   SubjectResponse,
@@ -570,6 +571,32 @@ describe("GroupRoomPage 나가기", () => {
       kind: "failure",
       message: "새벽 5시 기상 공시반에서 내보내졌어요",
     });
+  });
+
+  it("내보내지면 받아 둔 내 그룹 목록과 그 그룹의 조회에서 그 그룹을 뺀다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    const { channel, client, location } = await enterGroupRoom({ groupId: 10 });
+    const card = (groupId: number) => ({
+      groupId,
+      name: `그룹${groupId}`,
+      owner: false,
+      members: [],
+    });
+    client.setQueryData(groupKeys.mine(7), {
+      groups: [card(10), card(11)],
+      ownedGroupCount: 0,
+    } as unknown as MyGroupsResponse);
+    expect(client.getQueryData(groupKeys.home(7, 10))).toBeDefined();
+
+    act(() => channel.emitServerMessage({ type: "KICKED", groupId: 10 }));
+
+    await waitFor(() => expect(location().pathname).toBe("/social"));
+    expect(
+      client
+        .getQueryData<MyGroupsResponse>(groupKeys.mine(7))
+        ?.groups.map((group) => group.groupId),
+    ).toEqual([11]);
+    expect(client.getQueryData(groupKeys.home(7, 10))).toBeUndefined();
   });
 
   it("내보내진 뒤 기록을 보내지 못해도 그룹 탭으로 가서 안내를 본다", async () => {
@@ -1384,6 +1411,28 @@ describe("GroupRoomPage 멤버 내보내기", () => {
     expect(kickGroupMember).toHaveBeenCalledOnce();
   });
 
+  it("내보낸 멤버의 타일이 먼저 사라져도 확인 창이 닫히면 배경음 버튼으로 포커스가 간다", async () => {
+    let finishKick: () => void = () => undefined;
+    vi.mocked(kickGroupMember).mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishKick = resolve;
+        }),
+    );
+    const { channel } = await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember({ owner: true }), otherMember(42, "새벽러")],
+    });
+    const { user, dialog } = await openKick("새벽러");
+    await user.click(within(dialog).getByRole("button", { name: "내보내기" }));
+
+    act(() => channel.emitServerMessage({ type: "MEMBER_LEFT", userId: 42 }));
+    await act(async () => finishKick());
+
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await waitFor(() => expect(screen.getByRole("button", { name: /배경음/ })).toHaveFocus());
+  });
+
   it("내보내기에 실패하면 다시 시도 안내를 띄운다", async () => {
     vi.mocked(kickGroupMember).mockRejectedValue(new ApiError("x", 500));
     await enterGroupRoom({
@@ -1468,6 +1517,28 @@ describe("GroupRoomPage 타이머", () => {
     expect(screen.getByTestId("room-timer-capsule")).toHaveTextContent("29:58");
   });
 
+  it("타이머가 도는 동안 타이머 버튼은 시트를 연다고 알리지 않고 누르면 캡슐의 멈춤 버튼으로 간다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    await enterGroupRoom({ groupId: 10 });
+    await turnCameraOn();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const { sheet } = await openTimerSheet(user);
+    await user.click(within(sheet).getByRole("button", { name: "30분 시작" }));
+    await act(() => vi.advanceTimersByTimeAsync(2_000));
+    const button = screen.getByRole("button", { name: "타이머" });
+
+    expect(button).not.toHaveAttribute("aria-haspopup");
+    expect(button).not.toHaveAttribute("aria-expanded");
+    expect(button).toHaveAccessibleDescription("29:58");
+
+    await user.click(button);
+
+    expect(
+      within(screen.getByTestId("room-timer-capsule")).getByRole("button", { name: "멈춤" }),
+    ).toHaveFocus();
+    expect(screen.queryByRole("dialog", { name: "타이머 설정" })).toBeNull();
+  });
+
   it("카메라를 끈 채 타이머를 시작하면 공부방을 다시 시작하는 카메라 켜기 확인 창을 연다", async () => {
     await enterGroupRoom({ groupId: 10 });
     const { user, sheet } = await openTimerSheet();
@@ -1520,6 +1591,112 @@ describe("GroupRoomPage 타이머", () => {
       "true",
     );
     expect(screen.getByRole("button", { name: "카메라 끄기", hidden: true })).toBeInTheDocument();
+  });
+
+  /** 집중 1분 뽀모도로를 시작해 휴식에 들어간 공부방이고, 카메라와 마이크는 켜 둔다. */
+  async function enterPomodoroBreak() {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    localStorage.setItem(
+      "focuson.multiTimer.v1",
+      JSON.stringify({ timerSec: 1800, focusMin: 1, breakMin: 5 }),
+    );
+    localStorage.setItem("focuson.multiTimer.lastKind.v1", "pomodoro");
+    const entered = await enterGroupRoom({ groupId: 10 });
+    entered.acquire.mockResolvedValue({ kind: "ok", track: fakeMicTrack() });
+    await turnCameraOn();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await user.click(screen.getByRole("button", { name: "마이크 켜기" }));
+    await screen.findByRole("button", { name: "마이크 끄기" });
+    const { sheet } = await openTimerSheet(user);
+    await user.click(within(sheet).getByRole("button", { name: "1분 집중 시작" }));
+    await act(() => vi.advanceTimersByTimeAsync(61_000));
+    expect(screen.getByTestId("room-timer-capsule")).toHaveAttribute("data-phase", "break");
+    return { ...entered, user };
+  }
+
+  /** 카메라가 꺼진 휴식에서 캡슐의 계속을 누르면 확인 창이 뜨고 공부방은 그대로 멈춰 있다. */
+  async function expectResumeAsksCamera(
+    channel: MockRoomChannel,
+    user: ReturnType<typeof userEvent.setup>,
+  ) {
+    channel.published.length = 0;
+    await user.click(
+      within(screen.getByTestId("room-timer-capsule")).getByRole("button", { name: "계속" }),
+    );
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("room-control-bar")).getByRole("button", {
+        name: "카메라 켜기",
+        hidden: true,
+      }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(channel.published).not.toContainEqual({ onBreak: true });
+
+    await user.click(within(dialog).getByRole("button", { name: "취소" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await user.click(screen.getByRole("button", { name: "마이크 켜기" }));
+    expect(await screen.findByText("카메라를 켜면 마이크를 쓸 수 있어요")).toBeInTheDocument();
+    expect(channel.published).not.toContainEqual({ micOn: true });
+
+    await user.click(
+      within(screen.getByTestId("room-timer-capsule")).getByRole("button", { name: "계속" }),
+    );
+    await user.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "카메라 켜기" }),
+    );
+    await waitFor(() => expect(channel.published).toContainEqual({ onBreak: true }));
+    expect(channel.published).toContainEqual({ cameraOn: true });
+    expect(screen.getByTestId("room-timer-capsule")).toHaveAttribute("data-phase", "break");
+  }
+
+  it("카메라를 끈 뽀모도로 휴식의 계속은 카메라 켜기 확인 창을 거친다", async () => {
+    const { channel, user } = await enterPomodoroBreak();
+    // 휴식에 드는 1분 사이에 조작이 숨어서 화면을 눌러 다시 부른다.
+    await user.click(screen.getByTestId("live-room-page"));
+    await user.click(screen.getByRole("button", { name: "카메라 끄기" }));
+
+    await expectResumeAsksCamera(channel, user);
+  });
+
+  it("휴식 중 홈에 다녀온 뒤의 계속도 카메라 켜기 확인 창을 거친다", async () => {
+    onTestFinished(() => {
+      Reflect.deleteProperty(document, "visibilityState");
+    });
+    const { channel, user } = await enterPomodoroBreak();
+
+    act(() => {
+      Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    act(() => {
+      Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    await expectResumeAsksCamera(channel, user);
+  });
+
+  it("캡슐이 떠 있는 동안 타일 격자가 캡슐 자리를 비워 멤버 메뉴 버튼을 가리지 않는다", async () => {
+    await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember(), ...[2, 3, 4, 5, 6].map((id) => otherMember(id, `멤버${id}`))],
+    });
+    await turnCameraOn();
+    const grid = screen.getByTestId("room-grid");
+    expect(grid).not.toHaveAttribute("data-capsule-reserved");
+    const { user, sheet } = await openTimerSheet();
+
+    await user.click(within(sheet).getByRole("button", { name: "30분 시작" }));
+    await screen.findByTestId("room-timer-capsule");
+    expect(grid).toHaveAttribute("data-capsule-reserved", "true");
+
+    await user.click(
+      within(screen.getByTestId("room-timer-capsule")).getByRole("button", { name: "끄기" }),
+    );
+    expect(screen.queryByTestId("room-timer-capsule")).toBeNull();
+    expect(grid).not.toHaveAttribute("data-capsule-reserved");
   });
 
   it("타이머를 쓴 공부방을 마치면 종료 계측에 타이머 종류가 실린다", async () => {

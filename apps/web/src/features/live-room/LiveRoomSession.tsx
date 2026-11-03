@@ -103,6 +103,8 @@ import { useNativeControl } from "@/lib/nativeControls";
 import { kickGroupMember, reportGroupMember } from "@/lib/groupRoomApi";
 import {
   GROUP_MUTATION_OPTIONS,
+  dropFromMyGroups,
+  forgetGroup,
   groupHomeQuery,
   groupKeys,
   invalidateGroupMembership,
@@ -573,10 +575,12 @@ export function LiveRoomSession({
 
   // 그룹 공부방의 타이머는 싱글룸처럼 휴식을 세션 휴식으로 바꾼다.
   // 공부방에서 멈춘 세션을 다시 시작하는 일은 카메라 켜기라서 영상 공유 확인 창을 거친다.
+  // 카메라를 꺼 멈춘 공부방을 휴식으로 되돌리는 것도 카메라를 켜는 일이라 같은 확인 창을 거친다.
+  // 확인하면 다시 흐르는 공부방을 타이머가 휴식으로 되돌린다.
   const timer = useMultiTimer({
     sessionState,
     studying: phase.name === "studying",
-    onStartBreak: startBreak,
+    onStartBreak: () => (cameraHeld ? openCameraConfirm() : startBreak()),
     onEndBreak: endBreak,
     onResumeSession: () => openCameraConfirm(),
     usage: multiTimerUsage,
@@ -733,6 +737,11 @@ export function LiveRoomSession({
         kind: "failure",
         message: kickedNotice(groupHome.data?.name ?? null),
       });
+      // 그룹 탭이 내 그룹을 다시 받는 동안 내보내진 그룹 카드가 남지 않게 받아 둔 목록과 그 그룹의 조회에서 뺀다.
+      if (room.kind === "group") {
+        dropFromMyGroups(queryClient, userId, room.groupId);
+        forgetGroup(queryClient, userId, room.groupId);
+      }
       void invalidateGroupMembership(queryClient, userId);
       navigate({ pathname: "/social", search: location.search }, { replace: true });
       return;
@@ -1033,6 +1042,7 @@ export function LiveRoomSession({
           selfSurfaceRef={selfSurfaceRef}
           variant={room.kind}
           tileExtras={room.kind === "group" ? groupTileExtras : undefined}
+          capsuleShown={room.kind === "group" && timerSheet.active}
         />
 
         {room.kind === "group" ? (
@@ -1123,7 +1133,9 @@ export function LiveRoomSession({
               <RoomTimerCapsule
                 mode={timer.mode}
                 remainingMs={timer.remainingMs}
-                primaryLabel={timer.primaryLabel}
+                held={timer.held}
+                timerId={timerSheet.capsuleTimerId}
+                primaryRef={timerSheet.capsulePrimaryRef}
                 onPrimary={timer.pressPrimary}
                 onOff={timer.close}
               />
@@ -1182,7 +1194,8 @@ export function LiveRoomSession({
                   disabled={controlsLocked}
                   inactive={controlsInactive}
                   hidden={!controlsVisible}
-                  onOpen={timerSheet.openSheet}
+                  describedBy={timerSheet.capsuleTimerId}
+                  onOpen={timerSheet.pressTimerButton}
                 />
               </>
             ) : (
@@ -1368,6 +1381,8 @@ export function LiveRoomSession({
           pending={kick.isPending}
           // 창 제목과 설명에 멤버의 닉네임이 들어간다.
           maskFromAnalytics
+          // 내보낸 멤버의 메뉴 버튼은 그 타일과 함께 사라져서 바의 배경음 버튼으로 돌아간다.
+          returnFocus={() => ambientButtonRef.current}
           onCancel={() => setKickTarget(null)}
           onConfirm={confirmKick}
         />

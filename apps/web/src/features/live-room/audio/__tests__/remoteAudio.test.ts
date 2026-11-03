@@ -366,6 +366,47 @@ describe("마이크를 켠 멤버가 있을 때만 keep-alive", () => {
     expect(keepAlive.paused).toBe(true);
   });
 
+  it("다른 사람 소리를 모두 끄면 멈추고 다시 켜면 재생한다", () => {
+    const { instance, keepAlive } = player();
+    instance.attach(2, track());
+    instance.setMicOnUsers(new Set([2]));
+    expect(keepAlive.paused).toBe(false);
+
+    instance.setAllMuted(true);
+    expect(keepAlive.paused).toBe(true);
+
+    instance.setAllMuted(false);
+    expect(keepAlive.paused).toBe(false);
+  });
+
+  it("말하는 사람이 한 명뿐이면 그 사람 소리를 끄거나 음량을 0으로 할 때 멈춘다", () => {
+    const { instance, keepAlive } = player();
+    instance.attach(2, track());
+    instance.setMicOnUsers(new Set([2]));
+
+    instance.setMuted(2, true);
+    expect(keepAlive.paused).toBe(true);
+    instance.setMuted(2, false);
+    expect(keepAlive.paused).toBe(false);
+
+    instance.setVolume(2, 0);
+    expect(keepAlive.paused).toBe(true);
+    instance.setVolume(2, 0.4);
+    expect(keepAlive.paused).toBe(false);
+  });
+
+  it("말하는 사람 한 명의 소리만 끄면 다른 사람 소리가 들려서 계속 재생한다", () => {
+    const { instance, keepAlive } = player();
+    instance.attach(2, track());
+    instance.attach(3, track());
+    instance.setMicOnUsers(new Set([2, 3]));
+
+    instance.setMuted(2, true);
+
+    expect(keepAlive.paused).toBe(false);
+    expect(keepAlive.pause).not.toHaveBeenCalled();
+  });
+
   it("공부방을 나가면 멈춘다", () => {
     const { instance, keepAlive } = player();
     instance.attach(2, track());

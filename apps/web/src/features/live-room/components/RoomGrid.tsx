@@ -28,6 +28,8 @@ function remoteVideoOrUndefined(userId: number, streams: ReadonlyMap<number, Med
  * 바 표시에 따라 타일이 움직이면 영상이 흔들려 보이기 때문이다.
  * 셀프뷰 서피스 ref는 부모(미리보기 비율 측정·타일 rootRef)와 공유하므로 prop으로 받는다.
  * 그룹 공부방 세로 폰은 좌우 16px 여백과 4px 간격으로 2열을 그려 폭 402에서 타일 한 변이 183px다.
+ * 타이머 캡슐이 떠 있는 동안에는 바 위 캡슐 자리 60px을 아래에 더 비워 캡슐이 멤버 메뉴 버튼과 닉네임을 가리지 않는다.
+ * 폭이 좁은 가로 폰은 캡슐이 바 위에 떠도 높이가 모자라 비우지 않는다.
  */
 export function RoomGrid({
   allMembers,
@@ -37,6 +39,7 @@ export function RoomGrid({
   selfSurfaceRef,
   variant = "invite",
   tileExtras,
+  capsuleShown = false,
 }: {
   allMembers: RoomMember[];
   userId: number;
@@ -48,8 +51,11 @@ export function RoomGrid({
   tileExtras?: (
     member: RoomMember,
   ) => Pick<RoomTileProps, "menuButton" | "speaking" | "micOn" | "blocked">;
+  /** 그룹 공부방에서 바 위에 타이머 캡슐이 떠 있다. */
+  capsuleShown?: boolean;
 }) {
   const group = variant === "group";
+  const reserveCapsule = group && capsuleShown;
   const gridRef = useRef<HTMLDivElement>(null);
   /** 격자 칸 크기(여백 제외). 폭 600 이상 창의 타일 한 변을 정한다. */
   const [space, setSpace] = useState<{ width: number; height: number } | null>(null);
@@ -125,6 +131,7 @@ export function RoomGrid({
       ref={gridRef}
       data-testid="room-grid"
       data-variant={variant}
+      data-capsule-reserved={reserveCapsule || undefined}
       className={cn(
         "flex grow flex-col overflow-y-auto",
         group ? "px-4" : "px-1",
@@ -132,14 +139,19 @@ export function RoomGrid({
         // 위는 총 줄이 보일 때의 높이라 조작이 숨어 알약이 올라가도 타일이 움직이지 않는다.
         // 아래는 바 오프셋과 같은 max라 아래 안전 영역이 없는 기기에서도 바가 타일에 닿지 않는다.
         // 위아래 4px은 타일이 알약과 바에 붙어 보이지 않게 띄운 값이다.
-        "pt-[calc(env(safe-area-inset-top)+96px)] pb-[max(calc(env(safe-area-inset-bottom)+76px),86px)]",
+        "pt-[calc(env(safe-area-inset-top)+96px)]",
+        reserveCapsule
+          ? "pb-[calc(max(calc(env(safe-area-inset-bottom)+76px),86px)+60px)]"
+          : "pb-[max(calc(env(safe-area-inset-bottom)+76px),86px)]",
         "landscape-compact:pl-[calc(env(safe-area-inset-left)+16px)] landscape-compact:pr-[calc(env(safe-area-inset-right)+16px)]",
         // 가로는 높이가 모자라 시간 글자와 바가 타일 위에 겹친다.
         "landscape-compact:pt-[calc(env(safe-area-inset-top)+12px)] landscape-compact:pb-2",
         // 태블릿 가로도 시간 글자와 과목 알약이 타일에 겹치는 것을 받아들이고 바 자리만 비운다.
-        "regular:px-4 regular:pt-[calc(env(safe-area-inset-top)+16px)] regular:pb-[calc(env(safe-area-inset-bottom)+112px)]",
+        "regular:px-4 regular:pt-[calc(env(safe-area-inset-top)+16px)]",
         // 큰 태블릿은 바가 커져 그만큼 더 비운다.
-        "short-side-lg:pb-[calc(env(safe-area-inset-bottom)+136px)]",
+        reserveCapsule
+          ? "regular:pb-[calc(env(safe-area-inset-bottom)+172px)] short-side-lg:pb-[calc(env(safe-area-inset-bottom)+196px)]"
+          : "regular:pb-[calc(env(safe-area-inset-bottom)+112px)] short-side-lg:pb-[calc(env(safe-area-inset-bottom)+136px)]",
         "regular:portrait:pt-[calc(env(safe-area-inset-top)+122px)]",
         "short-side-lg:portrait:pt-[calc(env(safe-area-inset-top)+148px)]",
       )}
@@ -181,17 +193,24 @@ export function RoomGrid({
               "aspect-square",
               allMembers.length <= 1
                 ? // 좌우 40px 폭과 위아래 띠 높이 중 작은 쪽이라 낮은 기기에서도 띠를 넘지 않는다.
-                  "size-[min(calc(100dvw-80px),calc(100dvh-env(safe-area-inset-top)-max(calc(env(safe-area-inset-bottom)+76px),86px)-96px))]"
+                  // 캡슐이 뜨면 띠가 캡슐 자리 60px만큼 줄어든다.
+                  reserveCapsule
+                  ? "size-[min(calc(100dvw-80px),calc(100dvh-env(safe-area-inset-top)-max(calc(env(safe-area-inset-bottom)+76px),86px)-156px))]"
+                  : "size-[min(calc(100dvw-80px),calc(100dvh-env(safe-area-inset-top)-max(calc(env(safe-area-inset-bottom)+76px),86px)-96px))]"
                 : allMembers.length === 2
                   ? // 좌우 40px 폭과 위아래 띠를 둘로 나눈 높이 중 작은 쪽이라 낮은 기기에서도 띠를 넘지 않는다.
-                    "size-[min(calc(100dvw-80px),calc((100dvh-env(safe-area-inset-top)-max(calc(env(safe-area-inset-bottom)+76px),86px)-100px)/2))]"
+                    reserveCapsule
+                    ? "size-[min(calc(100dvw-80px),calc((100dvh-env(safe-area-inset-top)-max(calc(env(safe-area-inset-bottom)+76px),86px)-160px)/2))]"
+                    : "size-[min(calc(100dvw-80px),calc((100dvh-env(safe-area-inset-top)-max(calc(env(safe-area-inset-bottom)+76px),86px)-100px)/2))]"
                   : allMembers.length <= 4
                     ? group
                       ? "size-[calc((100dvw-36px)/2)]"
                       : "size-[calc((100dvw-8px)*0.47-2px)]"
                     : // 낮은 기기에서 3행이 띠를 넘어 스크롤되지 않게 띠를 셋으로 나눈 높이로 묶는다.
                       group
-                      ? "size-[min(calc((100dvw-36px)/2),calc((100dvh-env(safe-area-inset-top)-max(calc(env(safe-area-inset-bottom)+76px),86px)-104px)/3))]"
+                      ? reserveCapsule
+                        ? "size-[min(calc((100dvw-36px)/2),calc((100dvh-env(safe-area-inset-top)-max(calc(env(safe-area-inset-bottom)+76px),86px)-164px)/3))]"
+                        : "size-[min(calc((100dvw-36px)/2),calc((100dvh-env(safe-area-inset-top)-max(calc(env(safe-area-inset-bottom)+76px),86px)-104px)/3))]"
                       : "size-[min(calc((100dvw-8px)*0.47-2px),calc((100dvh-env(safe-area-inset-top)-max(calc(env(safe-area-inset-bottom)+76px),86px)-104px)/3))]",
               "landscape-compact:w-auto",
               allMembers.length <= 2

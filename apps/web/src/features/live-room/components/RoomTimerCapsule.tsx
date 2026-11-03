@@ -1,9 +1,9 @@
 import { Pause, Play, Timer, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import type { Ref } from "react";
 
 import { formatPomodoroRemaining } from "@/features/multi-timer/multiTimerFormat";
 import type { ModeState } from "@/features/multi-timer/multiTimerMachine";
-import type { ModePrimaryLabel } from "@/features/multi-timer/useMultiTimer";
 import { cn } from "@/lib/utils";
 
 // 보이는 원은 작아도 누르는 자리는 44px이 되게 넓힌다.
@@ -22,22 +22,27 @@ const CAPSULE_BUTTON =
 export function RoomTimerCapsule({
   mode,
   remainingMs,
-  primaryLabel,
+  held,
+  timerId,
+  primaryRef,
   onPrimary,
   onOff,
 }: {
   mode: ModeState;
   remainingMs: number;
-  /** 타이머 훅의 큰 버튼 이름이고, 흐르는 중일 때만 멈춤이다. */
-  primaryLabel: ModePrimaryLabel;
+  /** 카메라를 꺼 공부방이 멈춰 있어 타이머 시간도 서 있다. */
+  held: boolean;
+  /** 타이머 버튼이 설명으로 읽는 남은 시간 요소의 id */
+  timerId?: string;
+  /** 타이머 버튼을 누르면 포커스가 오는 멈춤이나 계속 버튼 */
+  primaryRef?: Ref<HTMLButtonElement>;
   onPrimary: () => void;
   onOff: () => void;
 }) {
-  const { t } = useTranslation(["live-room", "multi-timer"]);
+  const { t } = useTranslation("live-room");
   const pomodoro = mode.kind === "pomodoro";
   const onBreak = pomodoro && mode.phase === "break";
-  // 큰 버튼 이름은 타이머 훅이 지금 언어로 번역해 주므로 같은 언어의 일시정지 글자와 비교한다.
-  const running = primaryLabel === t("multi-timer:primary.pause");
+  const running = mode.status === "running" && !held;
   return (
     <div
       data-testid="room-timer-capsule"
@@ -59,6 +64,7 @@ export function RoomTimerCapsule({
       )}
       {/* 1초마다 읽히지 않도록 aria-live는 걸지 않는다. */}
       <span
+        id={timerId}
         role="timer"
         aria-label={t("roomTimerCapsule.aria.remaining")}
         className="text-lg leading-6 font-extrabold tabular-nums"
@@ -66,15 +72,28 @@ export function RoomTimerCapsule({
         {formatPomodoroRemaining(remainingMs)}
       </span>
       <button
+        ref={primaryRef}
         type="button"
         aria-label={running ? t("roomTimerCapsule.aria.pause") : t("roomTimerCapsule.aria.resume")}
         onClick={onPrimary}
         className={CAPSULE_BUTTON}
       >
         {running ? (
-          <Pause aria-hidden="true" fill="currentColor" strokeWidth={0} className="size-4" />
+          <Pause
+            data-testid="icon-pause"
+            aria-hidden="true"
+            fill="currentColor"
+            strokeWidth={0}
+            className="size-4"
+          />
         ) : (
-          <Play aria-hidden="true" fill="currentColor" strokeWidth={0} className="size-4" />
+          <Play
+            data-testid="icon-play"
+            aria-hidden="true"
+            fill="currentColor"
+            strokeWidth={0}
+            className="size-4"
+          />
         )}
       </button>
       <button
