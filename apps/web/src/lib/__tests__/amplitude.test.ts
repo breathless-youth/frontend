@@ -810,6 +810,17 @@ describe("그룹 공부방 이벤트", () => {
     >;
     expect(identify.sets).toEqual([["group_room_count", 3]]);
   });
+
+  it("시험·목표에는 서버 값만 받는다", async () => {
+    const module = await loadModule();
+
+    // @ts-expect-error 화면에 보이는 글자는 서버 값이 아니라서 받지 않는다.
+    module.trackGroupRoomCreated({ visibility: "public", category: "수능" });
+    // @ts-expect-error 신청 계측도 같은 서버 값만 받는다.
+    module.trackGroupRoomApplicationSent({ category: "수능" });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
 });
 
 describe("초대 루프 이벤트 (BY-472)", () => {

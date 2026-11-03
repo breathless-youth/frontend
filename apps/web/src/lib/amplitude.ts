@@ -15,6 +15,7 @@ import type {
   RankingPeriod,
   RankingRecordType,
   RankingType,
+  StudyCategory,
   StudyEventStatus,
   TimeSlot,
   TrackEventMessage,
@@ -609,14 +610,14 @@ export type GroupRoomLeaveReason = "left" | "kicked" | "room_deleted";
 /** 그룹을 만들었을 때 보내고 `category`는 서버의 시험·목표 값 그대로다. */
 export function trackGroupRoomCreated(input: {
   visibility: GroupVisibilityProp;
-  category: string;
+  category: StudyCategory;
 }) {
   if (!initialized) return;
   track("group_room_created", { visibility: input.visibility, category: input.category });
 }
 
 /** 공개 그룹에 신청을 보냈을 때 보내고 `category`는 신청한 그룹의 시험·목표다. */
-export function trackGroupRoomApplicationSent(input: { category: string }) {
+export function trackGroupRoomApplicationSent(input: { category: StudyCategory }) {
   if (!initialized) return;
   track("group_room_application_sent", { category: input.category });
 }

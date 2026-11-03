@@ -1,3 +1,4 @@
+import type { StudyCategory } from "@focusmakers/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -84,7 +85,7 @@ function Apply({ userId, groupId }: { userId: number; groupId: number }) {
   const apply = useMutation({
     ...GROUP_MUTATION_OPTIONS,
     // 시험·목표는 계측에만 쓰고 서버에는 소개 글만 보낸다.
-    mutationFn: ({ introduction }: { introduction: string; category: string }) =>
+    mutationFn: ({ introduction }: { introduction: string; category: StudyCategory }) =>
       applyToGroup(groupId, introduction),
     onSuccess: (_data, { category }) => {
       trackGroupRoomApplicationSent({ category });
