@@ -14,7 +14,8 @@ import type { MyRoomSummary } from "../types";
  * 답을 기다리는 신청은 들어간 그룹이 없어도 보여야 해서 띠를 빈 상태보다 위에 둔다.
  * 카드는 받은 순서, 곧 그룹에 들어간 순서대로 놓는다.
  * 그룹 만들기와 초대코드 참여는 `+` 버튼이 맡아서 빈 상태에는 공개 그룹으로 가는 버튼만 둔다.
- * 목록을 받기 전이나 받지 못했을 때 빈 상태가 잠깐 보이지 않도록 목록 자리에 자리표시나 오류를 먼저 둔다.
+ * 받아 둔 그룹이 있으면 다시 받는 중이거나 실패해도 그룹을 보인다.
+ * 그룹이 없을 때만 목록 자리에 오류나 자리표시를 두어 빈 상태가 잠깐 보이지 않게 한다.
  */
 export function MyRoomsView({
   rooms,
@@ -35,7 +36,17 @@ export function MyRoomsView({
   onBrowsePublic: () => void;
 }) {
   let body: ReactNode;
-  if (error) {
+  if (rooms.length > 0) {
+    body = (
+      <ul className="flex flex-col gap-3">
+        {rooms.map((room) => (
+          <li key={room.roomId}>
+            <MyRoomCard room={room} onOpen={onOpenRoom} />
+          </li>
+        ))}
+      </ul>
+    );
+  } else if (error) {
     body = error;
   } else if (loading) {
     body = (
@@ -44,7 +55,7 @@ export function MyRoomsView({
         <Skeleton className="h-41 rounded-xl" />
       </div>
     );
-  } else if (rooms.length === 0) {
+  } else {
     body = (
       <RoomsEmptyState
         title="아직 들어간 그룹이 없어요"
@@ -59,16 +70,6 @@ export function MyRoomsView({
           공개 그룹 둘러보기
         </Button>
       </RoomsEmptyState>
-    );
-  } else {
-    body = (
-      <ul className="flex flex-col gap-3">
-        {rooms.map((room) => (
-          <li key={room.roomId}>
-            <MyRoomCard room={room} onOpen={onOpenRoom} />
-          </li>
-        ))}
-      </ul>
     );
   }
   return (

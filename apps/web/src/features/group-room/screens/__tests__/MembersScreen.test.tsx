@@ -117,6 +117,20 @@ describe("MembersScreen", () => {
     expect(within(row as HTMLElement).queryByText("null")).toBeNull();
   });
 
+  it("멤버를 불러오는 중에는 그룹 정보와 초대 카드는 두고 목록 자리에 자리표시를 둔다", () => {
+    renderMembers({ members: [], loading: true });
+    expect(screen.getByText("우리 반 저녁 스터디 · 비공개 · 멤버 5/6")).toBeInTheDocument();
+    expect(screen.getByText("K7Q2MX")).toBeInTheDocument();
+    expect(screen.getAllByRole("status", { name: "불러오는 중" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("list", { name: "멤버" })).toBeNull();
+  });
+
+  it("멤버를 받지 못하면 목록 자리에 오류를 둔다", () => {
+    renderMembers({ members: [], error: <p>멤버를 불러오지 못했어요</p> });
+    expect(screen.getByText("멤버를 불러오지 못했어요")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "멤버" })).toBeNull();
+  });
+
   it("뒤로 가기를 누르면 넘긴다", async () => {
     const { onBack } = renderMembers();
     await userEvent.setup().click(screen.getByRole("button", { name: "뒤로 가기" }));

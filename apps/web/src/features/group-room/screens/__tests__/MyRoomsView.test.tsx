@@ -113,11 +113,29 @@ describe("MyRoomsView", () => {
     expect(screen.queryByRole("button", { name: "공개 그룹 둘러보기" })).toBeNull();
   });
 
-  it("오류 자리를 넘기면 목록 대신 그것을 둔다", () => {
+  it("받아 둔 그룹이 있으면 다시 받다 실패해도 오류 대신 그룹을 둔다", () => {
     renderScreen(
       <MyRoomsView
         rooms={fixtures.myRooms}
         pendingCount={0}
+        loading
+        error={<p>그룹을 불러오지 못했어요</p>}
+        onOpenRoom={vi.fn()}
+        onOpenPending={vi.fn()}
+        onBrowsePublic={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /수능 D-200 밤샘반/ })).toBeInTheDocument();
+    expect(screen.queryByText("그룹을 불러오지 못했어요")).toBeNull();
+    expect(screen.queryByRole("status", { name: "불러오는 중" })).toBeNull();
+  });
+
+  it("그룹이 없을 때 오류 자리를 넘기면 자리표시와 빈 상태 대신 그것을 둔다", () => {
+    renderScreen(
+      <MyRoomsView
+        rooms={[]}
+        pendingCount={0}
+        loading
         error={<p>그룹을 불러오지 못했어요</p>}
         onOpenRoom={vi.fn()}
         onOpenPending={vi.fn()}
@@ -125,6 +143,7 @@ describe("MyRoomsView", () => {
       />,
     );
     expect(screen.getByText("그룹을 불러오지 못했어요")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /수능 D-200 밤샘반/ })).toBeNull();
+    expect(screen.queryByRole("status", { name: "불러오는 중" })).toBeNull();
+    expect(screen.queryByText("아직 들어간 그룹이 없어요")).toBeNull();
   });
 });

@@ -67,6 +67,37 @@ describe("BlockListScreen", () => {
     expect(screen.queryByRole("button", { name: "차단 해제" })).toBeNull();
   });
 
+  it("차단 목록을 불러오는 중에는 안내 문장은 두고 빈 상태 대신 자리표시를 둔다", () => {
+    renderScreen(
+      <BlockListScreen
+        users={[]}
+        unblockingId={null}
+        loading
+        onBack={vi.fn()}
+        onUnblock={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByText("차단한 사람과는 공부방에서 화면과 소리가 오가지 않아요"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByRole("status", { name: "불러오는 중" }).length).toBeGreaterThan(0);
+    expect(screen.queryByText("차단한 사람이 없어요")).toBeNull();
+  });
+
+  it("차단 목록을 받지 못하면 빈 상태 대신 오류 자리를 둔다", () => {
+    renderScreen(
+      <BlockListScreen
+        users={[]}
+        unblockingId={null}
+        error={<p>차단 목록을 불러오지 못했어요</p>}
+        onBack={vi.fn()}
+        onUnblock={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("차단 목록을 불러오지 못했어요")).toBeInTheDocument();
+    expect(screen.queryByText("차단한 사람이 없어요")).toBeNull();
+  });
+
   it("뒤로 가기를 누르면 넘긴다", async () => {
     const onBack = vi.fn();
     renderScreen(
