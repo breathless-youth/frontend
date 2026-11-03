@@ -11,10 +11,11 @@ let groupRoomsFlagCache: boolean | null = readGroupRoomsFlag();
  *
  * 셸이 웹뷰 주소에 싣는 `groupRooms=1`로 정하고, 셸이 없는 브라우저도 같은 표시를 따른다.
  * 개발 서버는 표시가 없어도 참이다.
- * `DEV`가 아니라 `MODE`를 보는 것은 vitest에서도 `DEV`가 참이라 `<App />`을 그리는 기존 소셜 테스트가 새 흐름으로 바뀌기 때문이다.
+ * `MODE`도 보는 것은 vitest에서도 `DEV`가 참이라 `<App />`을 그리는 기존 소셜 테스트가 새 흐름으로 바뀌기 때문이다.
+ * `DEV`도 보는 것은 `vite build --mode development`처럼 `MODE`만 development인 배포 빌드에서 모든 사용자에게 켜지지 않게 하려는 것이다.
  */
 export function hasGroupRooms(): boolean {
-  if (import.meta.env.MODE === "development") {
+  if (import.meta.env.DEV && import.meta.env.MODE === "development") {
     return true;
   }
   groupRoomsFlagCache ??= readGroupRoomsFlag();

@@ -5,7 +5,6 @@ import type { GroupRoomApi } from "./groupRoomApi";
 import {
   GROUP_MOCK_APPLICATION_TTL_MS,
   GROUP_MOCK_LIMITS,
-  GROUP_MOCK_ME,
   isGroupFull,
   isMember,
   isRecentlyKicked,
@@ -13,6 +12,7 @@ import {
   viewGroupWorld,
 } from "./groupRoomMockData";
 import type { GroupMockScene, MockGroup, MockMember } from "./groupRoomMockData";
+import { readUserId } from "./userId";
 
 /**
  * 개발 빌드 전용 그룹 가짜 서버
@@ -36,6 +36,8 @@ export interface GroupMockOptions {
   injectError?: string | null;
   /** 불러오는 중 모양이 보이도록 답을 늦추는 시간이고 기본은 300ms다. */
   delayMs?: number;
+  /** 견본을 보는 나의 사용자 번호이고 기본은 1이다. */
+  meId?: number;
 }
 
 const DEFAULT_DELAY_MS = 300;
@@ -113,7 +115,8 @@ export function createGroupMockServer(
   const now = options.now ?? Date.now;
   const delayMs = options.delayMs ?? DEFAULT_DELAY_MS;
   const injectError = options.injectError ?? null;
-  const world = seedGroupWorld(scene, now());
+  const world = seedGroupWorld(scene, now(), options.meId);
+  const meId = world.me.userId;
   // 새로 만드는 그룹과 신청의 번호는 견본 번호와 겹치지 않게 1001부터 쓴다.
   let lastId = 1_000;
   let inviteSequence = 0;
@@ -153,7 +156,7 @@ export function createGroupMockServer(
 
   function joinedGroup(groupId: number): MockGroup {
     const group = findGroup(groupId);
-    if (!isMember(group, GROUP_MOCK_ME)) {
+    if (!isMember(group, meId)) {
       throw apiError("NOT_GROUP_MEMBER");
     }
     return group;
@@ -161,7 +164,7 @@ export function createGroupMockServer(
 
   function ownedGroup(groupId: number): MockGroup {
     const group = findGroup(groupId);
-    if (group.ownerId !== GROUP_MOCK_ME) {
+    if (group.ownerId !== meId) {
       throw apiError("NOT_GROUP_OWNER");
     }
     return group;
@@ -169,7 +172,7 @@ export function createGroupMockServer(
 
   /** 넘기기, 내보내기, 신고의 대상인 다른 멤버 */
   function otherMember(group: MockGroup, userId: number): MockMember {
-    if (userId === GROUP_MOCK_ME) {
+    if (userId === meId) {
       throw apiError("BAD_REQUEST");
     }
     const target = group.members.find((candidate) => candidate.userId === userId);
@@ -216,7 +219,7 @@ export function createGroupMockServer(
       }
       throw apiError("NOT_FOUND");
     }
-    if (group.ownerId !== GROUP_MOCK_ME) {
+    if (group.ownerId !== meId) {
       throw apiError("NOT_GROUP_OWNER");
     }
     const application = group.applications.find((item) => item.applicationId === applicationId)!;
@@ -303,7 +306,7 @@ export function createGroupMockServer(
           visibility: body.visibility,
           category: body.category,
           description: textOrNull(body.description),
-          ownerId: GROUP_MOCK_ME,
+          ownerId: meId,
           members: [meJoiningNow()],
           inviteCode: body.visibility === "PRIVATE" ? newInviteCode() : null,
           applications: [],
@@ -340,7 +343,7 @@ export function createGroupMockServer(
     leaveGroup: (groupId) =>
       change(() => {
         const group = joinedGroup(groupId);
-        if (group.ownerId === GROUP_MOCK_ME) {
+        if (group.ownerId === meId) {
           if (group.members.length > 1) {
             throw apiError("OWNER_CANNOT_LEAVE");
           }
@@ -349,7 +352,7 @@ export function createGroupMockServer(
           return;
         }
         // 스스로 나가면 서버가 코드를 바꾸지 않아 같은 링크로 다시 들어올 수 있다.
-        group.members = group.members.filter((candidate) => candidate.userId !== GROUP_MOCK_ME);
+        group.members = group.members.filter((candidate) => candidate.userId !== meId);
         group.notifyEnabled = false;
       }),
     regenerateGroupInvite: (groupId) =>
@@ -372,7 +375,7 @@ export function createGroupMockServer(
           throw apiError("INVITE_CODE_NOT_FOUND");
         }
         // 서버는 한도와 정원보다 이미 멤버인지를 먼저 본다.
-        if (isMember(group, GROUP_MOCK_ME)) {
+        if (isMember(group, meId)) {
           return { groupId: group.groupId, joined: false };
         }
         if (isRecentlyKicked(world, group.groupId, now())) {
@@ -517,7 +520,12 @@ function readActiveServer(): GroupMockServer | null {
   if (scene === undefined) {
     return null;
   }
-  return createGroupMockServer(scene, { injectError: params.get("groupMockError") || null });
+  // 앱이 아는 지금 사용자를 견본의 나로 앉혀야 실기기에서 내 책상의 `나`와 그룹장 화면이 보인다.
+  // 그룹 조회는 신원이 정해진 뒤에 나가므로 처음 부를 때 읽으면 토큰으로 받은 사용자가 있다.
+  return createGroupMockServer(scene, {
+    injectError: params.get("groupMockError") || null,
+    meId: readUserId(window.location.search) ?? undefined,
+  });
 }
 
 /**

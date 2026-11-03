@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "../api";
 import {
@@ -48,6 +48,10 @@ const lastCall = () => mockedFetch.mock.calls.at(-1) as [string, RequestInit];
 beforeEach(() => {
   vi.clearAllMocks();
   devServer.current = null;
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe("groupRoomApi", () => {
@@ -335,4 +339,21 @@ describe("개발용 가짜 서버로 보내기", () => {
       expect(mockedFetch).not.toHaveBeenCalled();
     },
   );
+
+  it("개발 빌드가 아니면 가짜 서버가 켜져 있어도 실제 서버로 보낸다", async () => {
+    vi.stubEnv("DEV", false);
+    const fake = vi.fn().mockResolvedValue("가짜 응답");
+    devServer.current = { getMyGroups: fake };
+    mockedFetch.mockResolvedValue(
+      response(200, {
+        groups: [],
+        pendingApplicationCount: 0,
+        ownedGroupCount: 0,
+        limits: { maxGroupsAndApplications: 5, maxPendingApplications: 3, maxOwnedGroups: 2 },
+      }),
+    );
+    await getMyGroups();
+    expect(fake).not.toHaveBeenCalled();
+    expect(lastCall()[0]).toBe("/api/groups/me");
+  });
 });

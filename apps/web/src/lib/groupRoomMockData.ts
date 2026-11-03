@@ -33,8 +33,19 @@ import type {
 
 export type GroupMockScene = "default" | "empty" | "limits";
 
-/** 견본을 보는 사람인 나 */
-export const GROUP_MOCK_ME = 1;
+/** 앱이 지금 사용자를 알려 주지 않을 때 견본을 보는 나 */
+export const GROUP_MOCK_DEFAULT_ME = 1;
+
+/**
+ * 견본의 다른 사람 번호가 시작하는 수
+ *
+ * 개발 서버 계정 번호는 하나씩 늘어나는 작은 수라서 실제 계정이 나로 들어와도 견본 멤버와 겹치지 않게 10억부터 센다.
+ */
+const SEEDED_USER_ID_BASE = 1_000_000_000;
+
+function seeded(offset: number): number {
+  return SEEDED_USER_ID_BASE + offset;
+}
 
 export const GROUP_MOCK_LIMITS: GroupLimits = {
   maxGroupsAndApplications: 5,
@@ -81,7 +92,7 @@ export interface MockApplication {
 
 /** 가짜 서버가 들고 바꾸는 원본 */
 export interface GroupMockWorld {
-  /** 그룹을 만들거나 코드로 들어갈 때 내 책상으로 쓴다. */
+  /** 견본을 보는 나이고, 그룹을 만들거나 코드로 들어갈 때 내 책상으로도 쓴다. */
   me: Omit<MockMember, "joinedAt">;
   groups: MockGroup[];
   myApplications: MockApplication[];
@@ -193,7 +204,7 @@ function applyViewOf(
   slotsUsed: number,
   pending: readonly MockApplication[],
 ): ApplyView {
-  if (isMember(group, GROUP_MOCK_ME)) {
+  if (isMember(group, world.me.userId)) {
     return { applyState: "MEMBER", unavailableReason: null, application: null };
   }
   const mine = pending.find((application) => application.groupId === group.groupId);
@@ -226,6 +237,7 @@ function applyViewOf(
  * 응답마다 새 객체를 만들어서 화면 캐시가 원본을 건드리지 못한다.
  */
 export function viewGroupWorld(world: GroupMockWorld, nowMs: number): GroupMockState {
+  const meId = world.me.userId;
   // 신청한 그룹이 사라지면 서버가 그 신청을 닫으므로 남은 그룹으로 간 신청만 센다.
   const pending = world.myApplications
     .filter(
@@ -236,16 +248,14 @@ export function viewGroupWorld(world: GroupMockWorld, nowMs: number): GroupMockS
     .sort(byAppliedAt);
   // 내 그룹 탭은 내가 들어간 순서다.
   const joined = world.groups
-    .filter((group) => isMember(group, GROUP_MOCK_ME))
+    .filter((group) => isMember(group, meId))
     .map((group) => ({
       group,
-      joinedAtMs: Date.parse(
-        group.members.find((member) => member.userId === GROUP_MOCK_ME)!.joinedAt,
-      ),
+      joinedAtMs: Date.parse(group.members.find((member) => member.userId === meId)!.joinedAt),
     }))
     .sort((a, b) => a.joinedAtMs - b.joinedAtMs)
     .map(({ group }) => group);
-  const owned = joined.filter((group) => group.ownerId === GROUP_MOCK_ME);
+  const owned = joined.filter((group) => group.ownerId === meId);
   const slotsUsed = joined.length + pending.length;
   const publicGroups = world.groups.filter((group) => group.visibility === "PUBLIC");
 
@@ -258,7 +268,7 @@ export function viewGroupWorld(world: GroupMockWorld, nowMs: number): GroupMockS
         visibility: group.visibility,
         memberCount: group.members.length,
         studyingCount: group.members.filter(isStudying).length,
-        owner: group.ownerId === GROUP_MOCK_ME,
+        owner: group.ownerId === meId,
         members: group.members.map((member) => toDesk(group, member)),
       })),
       pendingApplicationCount: pending.length,
@@ -286,7 +296,7 @@ export function viewGroupWorld(world: GroupMockWorld, nowMs: number): GroupMockS
         memberCount: group.members.length,
         weeklyAverageFocusSec: weeklyAverage(group),
         studyingCount: group.members.filter(isStudying).length,
-        member: isMember(group, GROUP_MOCK_ME),
+        member: isMember(group, meId),
       }))
       .sort(byServerOrder),
     publicDetails: Object.fromEntries(
@@ -315,7 +325,7 @@ export function viewGroupWorld(world: GroupMockWorld, nowMs: number): GroupMockS
     ),
     homes: Object.fromEntries(
       joined.map((group): [number, GroupHomeResponse] => {
-        const isOwner = group.ownerId === GROUP_MOCK_ME;
+        const isOwner = group.ownerId === meId;
         return [
           group.groupId,
           {
@@ -393,13 +403,16 @@ function member(t: Clock, spec: PersonSpec, joinedAgoMs: number): MockMember {
   return { ...profile(t, spec), joinedAt: t.ago(joinedAgoMs) };
 }
 
-const ME: PersonSpec = {
-  userId: GROUP_MOCK_ME,
-  nickname: "열공곰",
-  todayFocusSec: 4_350,
-  weekFocusSec: 45_600,
-  lastStudiedAgoMs: 2 * HOUR_MS + 10 * MINUTE_MS,
-};
+/** 번호는 앱의 지금 사용자를 따르고 나머지는 장면마다 같다. */
+function mePerson(meId: number): PersonSpec {
+  return {
+    userId: meId,
+    nickname: "열공곰",
+    todayFocusSec: 4_350,
+    weekFocusSec: 45_600,
+    lastStudiedAgoMs: 2 * HOUR_MS + 10 * MINUTE_MS,
+  };
+}
 
 function received(
   t: Clock,
@@ -429,20 +442,20 @@ function sent(
 }
 
 // 내 그룹 탭은 들어간 순서라 이 그룹에 들어간 때를 다른 그룹보다 앞에 둔다.
-function dawnCivilGroup(t: Clock): MockGroup {
+function dawnCivilGroup(t: Clock, me: PersonSpec): MockGroup {
   return {
     groupId: 10,
     name: "새벽 5시 기상 공시반",
     visibility: "PUBLIC",
     category: "CIVIL_SERVICE",
     description: "매일 새벽 5시에 일어나서 2시간 이상 공부해요. 9급 행정직 준비생 환영해요.",
-    ownerId: GROUP_MOCK_ME,
+    ownerId: me.userId,
     members: [
-      member(t, ME, 30 * DAY_MS),
+      member(t, me, 30 * DAY_MS),
       member(
         t,
         {
-          userId: 6,
+          userId: seeded(6),
           nickname: "새벽공부러",
           status: "IN_ROOM",
           todayFocusSec: 6_330,
@@ -454,7 +467,7 @@ function dawnCivilGroup(t: Clock): MockGroup {
       member(
         t,
         {
-          userId: 7,
+          userId: seeded(7),
           nickname: "공시생J",
           status: "STUDYING",
           todayFocusSec: 10_931,
@@ -466,7 +479,7 @@ function dawnCivilGroup(t: Clock): MockGroup {
       member(
         t,
         {
-          userId: 8,
+          userId: seeded(8),
           nickname: "포동s",
           status: "PAUSED",
           todayFocusSec: 3_000,
@@ -482,7 +495,7 @@ function dawnCivilGroup(t: Clock): MockGroup {
         t,
         {
           applicationId: 41,
-          userId: 11,
+          userId: seeded(11),
           nickname: "밤샘토끼",
           introduction: "직장 다니면서 준비해요. 퇴근하고 밤에 주로 공부해요.",
         },
@@ -492,7 +505,7 @@ function dawnCivilGroup(t: Clock): MockGroup {
         t,
         {
           applicationId: 42,
-          userId: 10,
+          userId: seeded(10),
           nickname: "모카번",
           introduction: "9급 행정직 준비 중이에요. 새벽 5시에 꾸준히 나올게요.",
         },
@@ -503,24 +516,29 @@ function dawnCivilGroup(t: Clock): MockGroup {
   };
 }
 
-function eveningClassGroup(t: Clock, withMe: boolean): MockGroup {
+function eveningClassGroup(t: Clock, me: PersonSpec | null): MockGroup {
   return {
     groupId: 11,
     name: "우리 반 저녁 스터디",
     visibility: "PRIVATE",
     category: "SCHOOL_EXAM",
     description: "같은 반 친구들끼리 평일 저녁 7시부터 공부해요.",
-    ownerId: 4,
+    ownerId: seeded(4),
     members: [
       member(
         t,
-        { userId: 4, nickname: "하린", weekFocusSec: 9_000, lastStudiedAgoMs: 20 * HOUR_MS },
+        {
+          userId: seeded(4),
+          nickname: "하린",
+          weekFocusSec: 9_000,
+          lastStudiedAgoMs: 20 * HOUR_MS,
+        },
         40 * DAY_MS,
       ),
       member(
         t,
         {
-          userId: 2,
+          userId: seeded(2),
           nickname: "수빈",
           todayFocusSec: 2_700,
           weekFocusSec: 14_000,
@@ -528,13 +546,17 @@ function eveningClassGroup(t: Clock, withMe: boolean): MockGroup {
         },
         35 * DAY_MS,
       ),
-      ...(withMe ? [member(t, ME, 20 * DAY_MS)] : []),
+      ...(me === null ? [] : [member(t, me, 20 * DAY_MS)]),
       member(
         t,
-        { userId: 3, nickname: "도윤", weekFocusSec: 7_200, lastStudiedAgoMs: DAY_MS },
+        { userId: seeded(3), nickname: "도윤", weekFocusSec: 7_200, lastStudiedAgoMs: DAY_MS },
         15 * DAY_MS,
       ),
-      member(t, { userId: 5, nickname: "민준", lastStudiedAgoMs: 16 * DAY_MS }, 10 * DAY_MS),
+      member(
+        t,
+        { userId: seeded(5), nickname: "민준", lastStudiedAgoMs: 16 * DAY_MS },
+        10 * DAY_MS,
+      ),
     ],
     inviteCode: "K7Q2MX",
     applications: [],
@@ -542,19 +564,19 @@ function eveningClassGroup(t: Clock, withMe: boolean): MockGroup {
   };
 }
 
-function medSchoolGroup(t: Clock, withMe: boolean): MockGroup {
+function medSchoolGroup(t: Clock, me: PersonSpec | null): MockGroup {
   return {
     groupId: 12,
     name: "의대 가자 2027",
     visibility: "PUBLIC",
     category: "CSAT",
     description: "의대 목표 재수생 모여요. 하루 10시간 이상 공부해요.",
-    ownerId: 9,
+    ownerId: seeded(9),
     members: [
       member(
         t,
         {
-          userId: 9,
+          userId: seeded(9),
           nickname: "옥수수라떼",
           status: "IN_ROOM",
           todayFocusSec: 7_805,
@@ -566,7 +588,7 @@ function medSchoolGroup(t: Clock, withMe: boolean): MockGroup {
       member(
         t,
         {
-          userId: 14,
+          userId: seeded(14),
           nickname: "의대가즈아",
           status: "STUDYING",
           todayFocusSec: 9_100,
@@ -578,7 +600,7 @@ function medSchoolGroup(t: Clock, withMe: boolean): MockGroup {
       member(
         t,
         {
-          userId: 15,
+          userId: seeded(15),
           nickname: "재수생K",
           todayFocusSec: 1_800,
           weekFocusSec: 76_000,
@@ -588,10 +610,15 @@ function medSchoolGroup(t: Clock, withMe: boolean): MockGroup {
       ),
       member(
         t,
-        { userId: 16, nickname: "수학러", weekFocusSec: 52_000, lastStudiedAgoMs: 14 * HOUR_MS },
+        {
+          userId: seeded(16),
+          nickname: "수학러",
+          weekFocusSec: 52_000,
+          lastStudiedAgoMs: 14 * HOUR_MS,
+        },
         9 * DAY_MS,
       ),
-      ...(withMe ? [member(t, ME, 6 * DAY_MS)] : []),
+      ...(me === null ? [] : [member(t, me, 6 * DAY_MS)]),
     ],
     inviteCode: null,
     applications: [],
@@ -599,27 +626,41 @@ function medSchoolGroup(t: Clock, withMe: boolean): MockGroup {
   };
 }
 
-function toeicWeekendGroup(t: Clock, withMe: boolean): MockGroup {
+function toeicWeekendGroup(t: Clock, me: PersonSpec | null): MockGroup {
   return {
     groupId: 13,
     name: "토익 900 주말반",
     visibility: "PUBLIC",
     category: "LANGUAGE",
     description: "주말마다 모의고사를 한 회씩 풀어요.",
-    ownerId: 17,
+    ownerId: seeded(17),
     members: [
       member(
         t,
-        { userId: 17, nickname: "토익만점가자", weekFocusSec: 21_000, lastStudiedAgoMs: DAY_MS },
+        {
+          userId: seeded(17),
+          nickname: "토익만점가자",
+          weekFocusSec: 21_000,
+          lastStudiedAgoMs: DAY_MS,
+        },
         28 * DAY_MS,
       ),
       member(
         t,
-        { userId: 18, nickname: "리스닝요정", weekFocusSec: 9_000, lastStudiedAgoMs: 30 * HOUR_MS },
+        {
+          userId: seeded(18),
+          nickname: "리스닝요정",
+          weekFocusSec: 9_000,
+          lastStudiedAgoMs: 30 * HOUR_MS,
+        },
         21 * DAY_MS,
       ),
-      member(t, { userId: 19, nickname: "주말러", lastStudiedAgoMs: 5 * DAY_MS }, 8 * DAY_MS),
-      ...(withMe ? [member(t, ME, 3 * DAY_MS)] : []),
+      member(
+        t,
+        { userId: seeded(19), nickname: "주말러", lastStudiedAgoMs: 5 * DAY_MS },
+        8 * DAY_MS,
+      ),
+      ...(me === null ? [] : [member(t, me, 3 * DAY_MS)]),
     ],
     inviteCode: null,
     applications: [],
@@ -627,19 +668,24 @@ function toeicWeekendGroup(t: Clock, withMe: boolean): MockGroup {
   };
 }
 
-function pastPapersGroup(t: Clock): MockGroup {
+function pastPapersGroup(t: Clock, me: PersonSpec): MockGroup {
   return {
     groupId: 14,
     name: "우리끼리 기출 스터디",
     visibility: "PRIVATE",
     category: "CERTIFICATE",
     description: null,
-    ownerId: GROUP_MOCK_ME,
+    ownerId: me.userId,
     members: [
-      member(t, ME, 25 * DAY_MS),
+      member(t, me, 25 * DAY_MS),
       member(
         t,
-        { userId: 20, nickname: "기출장인", weekFocusSec: 30_000, lastStudiedAgoMs: 5 * HOUR_MS },
+        {
+          userId: seeded(20),
+          nickname: "기출장인",
+          weekFocusSec: 30_000,
+          lastStudiedAgoMs: 5 * HOUR_MS,
+        },
         24 * DAY_MS,
       ),
     ],
@@ -687,7 +733,7 @@ const CATALOG: readonly CatalogRow[] = [
 ];
 
 const CATALOG_FIRST_GROUP_ID = 20;
-const CATALOG_FIRST_USER_ID = 200;
+const CATALOG_FIRST_USER_ID = seeded(200);
 const NICKNAME_HEADS = ["새벽", "밤샘", "합격", "열공", "꾸준", "아침", "주말", "오늘도"];
 const NICKNAME_TAILS = [
   "토끼",
@@ -754,8 +800,13 @@ function catalogGroups(t: Clock): MockGroup[] {
 
 function seedBlocks(t: Clock): BlockedUser[] {
   return [
-    { userId: 12, nickname: "새벽러", profileImageUrl: null, blockedAt: t.ago(5 * DAY_MS) },
-    { userId: 13, nickname: "커피두잔", profileImageUrl: null, blockedAt: t.ago(2 * DAY_MS) },
+    { userId: seeded(12), nickname: "새벽러", profileImageUrl: null, blockedAt: t.ago(5 * DAY_MS) },
+    {
+      userId: seeded(13),
+      nickname: "커피두잔",
+      profileImageUrl: null,
+      blockedAt: t.ago(2 * DAY_MS),
+    },
   ];
 }
 
@@ -764,15 +815,21 @@ function seedBlocks(t: Clock): BlockedUser[] {
  *
  * 시각은 모두 받은 지금에서 거꾸로 세어 언제 열어도 "2시간 전" 같은 표기가 같게 나온다.
  * 세 장면 모두 비공개 그룹 11이 있어서 `K7Q2MX`로 코드 참여를 해 볼 수 있다.
+ * 나는 받은 사용자 번호로 앉혀서 실기기에서도 내 책상이 `나`로 보인다.
  */
-export function seedGroupWorld(scene: GroupMockScene, nowMs: number): GroupMockWorld {
+export function seedGroupWorld(
+  scene: GroupMockScene,
+  nowMs: number,
+  meId: number = GROUP_MOCK_DEFAULT_ME,
+): GroupMockWorld {
   const t: Clock = { ago: (ms) => new Date(nowMs - ms).toISOString() };
-  const me = profile(t, ME);
+  const person = mePerson(meId);
+  const me = profile(t, person);
   switch (scene) {
     case "empty":
       return {
         me,
-        groups: [eveningClassGroup(t, false)],
+        groups: [eveningClassGroup(t, null)],
         myApplications: [],
         kicks: [],
         blocks: [],
@@ -781,11 +838,11 @@ export function seedGroupWorld(scene: GroupMockScene, nowMs: number): GroupMockW
       return {
         me,
         groups: [
-          dawnCivilGroup(t),
-          eveningClassGroup(t, false),
-          medSchoolGroup(t, true),
-          toeicWeekendGroup(t, true),
-          pastPapersGroup(t),
+          dawnCivilGroup(t, person),
+          eveningClassGroup(t, null),
+          medSchoolGroup(t, person),
+          toeicWeekendGroup(t, person),
+          pastPapersGroup(t, person),
           ...catalogGroups(t),
         ],
         myApplications: [sent(t, 31, CATALOG_FIRST_GROUP_ID + 1, 30 * MINUTE_MS)],
@@ -796,10 +853,10 @@ export function seedGroupWorld(scene: GroupMockScene, nowMs: number): GroupMockW
       return {
         me,
         groups: [
-          dawnCivilGroup(t),
-          eveningClassGroup(t, true),
-          medSchoolGroup(t, false),
-          toeicWeekendGroup(t, false),
+          dawnCivilGroup(t, person),
+          eveningClassGroup(t, person),
+          medSchoolGroup(t, null),
+          toeicWeekendGroup(t, null),
           ...catalogGroups(t),
         ],
         myApplications: [sent(t, 31, 12, 30 * MINUTE_MS)],
@@ -814,6 +871,10 @@ export function seedGroupWorld(scene: GroupMockScene, nowMs: number): GroupMockW
  *
  * 그룹 라우트 테스트와 응답 변환 테스트가 서버가 줄 모양 그대로의 값으로 쓴다.
  */
-export function seedGroupData(scene: GroupMockScene, nowMs: number): GroupMockState {
-  return viewGroupWorld(seedGroupWorld(scene, nowMs), nowMs);
+export function seedGroupData(
+  scene: GroupMockScene,
+  nowMs: number,
+  meId: number = GROUP_MOCK_DEFAULT_ME,
+): GroupMockState {
+  return viewGroupWorld(seedGroupWorld(scene, nowMs, meId), nowMs);
 }

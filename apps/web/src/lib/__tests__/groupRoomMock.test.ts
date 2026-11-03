@@ -1,20 +1,49 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type * as TokenSourceModule from "@/lib/auth/tokenSource";
+import type { TokenSource } from "@/lib/auth/tokenSource";
+
+import type { GroupMockServer } from "../groupRoomMock";
 import {
   __resetGroupMockForTests,
   activeGroupMockServer,
   createGroupMockServer,
 } from "../groupRoomMock";
-import { seedGroupData } from "../groupRoomMockData";
+import { seedGroupData, seedGroupWorld } from "../groupRoomMockData";
+
+const tokenSourceMock = vi.hoisted(() => ({ source: null as TokenSource | null }));
+
+vi.mock("@/lib/auth/tokenSource", async (importOriginal) => ({
+  ...(await importOriginal<typeof TokenSourceModule>()),
+  getTokenSource: () => tokenSourceMock.source,
+}));
 
 const NOW = Date.parse("2026-11-03T10:00:00+09:00");
 const DAY_MS = 24 * 60 * 60 * 1000;
 const server = (scene: "default" | "empty" | "limits") =>
   createGroupMockServer(scene, { now: () => NOW, delayMs: 0 });
 
+/** 앱이 토큰과 함께 받은 사용자 */
+function signedIn(userId: number): TokenSource {
+  return {
+    getAccessToken: () => Promise.resolve("token"),
+    getCurrentToken: () => "token",
+    refresh: () => Promise.resolve("token"),
+    getUserId: () => userId,
+    hasSettled: () => true,
+    subscribe: () => () => {},
+  };
+}
+
+async function memberId(api: GroupMockServer, groupId: number, nickname: string): Promise<number> {
+  const { members } = await api.getGroupMembers(groupId);
+  return members.find((member) => member.nickname === nickname)!.userId;
+}
+
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.useRealTimers();
+  tokenSourceMock.source = null;
   window.history.replaceState(null, "", "/");
   __resetGroupMockForTests();
 });
@@ -63,7 +92,7 @@ describe("그룹 가짜 서버", () => {
   it("그룹장이 아니면 내보낼 수 없고 코드도 그대로다", async () => {
     const api = server("default");
     const before = await api.getGroupInvite(11);
-    await expect(api.kickGroupMember(11, 2)).rejects.toMatchObject({
+    await expect(api.kickGroupMember(11, await memberId(api, 11, "수빈"))).rejects.toMatchObject({
       status: 403,
       code: "NOT_GROUP_OWNER",
     });
@@ -74,9 +103,54 @@ describe("그룹 가짜 서버", () => {
     const api = server("default");
     api.setOwnerForTests(11, 1);
     const before = await api.getGroupInvite(11);
-    await api.kickGroupMember(11, 2);
+    const subin = await memberId(api, 11, "수빈");
+    await api.kickGroupMember(11, subin);
     expect((await api.getGroupInvite(11)).inviteCode).not.toBe(before.inviteCode);
-    expect((await api.getGroupMembers(11)).members.map((member) => member.userId)).not.toContain(2);
+    expect((await api.getGroupMembers(11)).members.map((member) => member.userId)).not.toContain(
+      subin,
+    );
+  });
+
+  it("받은 사용자 번호가 견본의 나이고 예전 견본 멤버 번호여도 멤버와 겹치지 않는다", async () => {
+    // 5는 이 견본에서 민준이 쓰던 번호라 실제 개발 계정과 겹치던 자리다.
+    const api = createGroupMockServer("default", { now: () => NOW, delayMs: 0, meId: 5 });
+    expect((await api.getGroupHome(10)).members.find((member) => member.owner)?.userId).toBe(5);
+    const userIds = (await api.getGroupMembers(11)).members.map((member) => member.userId);
+    expect(userIds).toHaveLength(5);
+    expect(new Set(userIds).size).toBe(5);
+    expect(await api.getPublicGroup(12)).toMatchObject({ applyState: "APPLIED" });
+    await expect(api.kickGroupMember(10, 5)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  it("견본의 다른 사람은 실제 개발 계정이 쓰는 작은 번호를 쓰지 않는다", () => {
+    const world = seedGroupWorld("default", NOW, 5);
+    const others = [
+      ...world.groups.flatMap((group) => [
+        ...group.members.map((member) => member.userId),
+        ...group.applications.map((application) => application.userId),
+      ]),
+      ...world.blocks.map((blocked) => blocked.userId),
+    ].filter((userId) => userId !== 5);
+    expect(Math.min(...others)).toBeGreaterThanOrEqual(1_000_000_000);
+  });
+
+  it("개발 빌드의 가짜 서버는 앱이 토큰으로 아는 사용자를 견본의 나로 쓴다", async () => {
+    vi.useFakeTimers();
+    tokenSourceMock.source = signedIn(4242);
+    window.history.replaceState(null, "", "/social?groupMock=default");
+    __resetGroupMockForTests();
+    const answer = activeGroupMockServer()!.getGroupHome(10);
+    await vi.advanceTimersByTimeAsync(300);
+    expect((await answer).members.find((member) => member.owner)?.userId).toBe(4242);
+  });
+
+  it("앱이 지금 사용자를 모르면 견본의 나는 1이다", async () => {
+    vi.useFakeTimers();
+    window.history.replaceState(null, "", "/social?groupMock=default");
+    __resetGroupMockForTests();
+    const answer = activeGroupMockServer()!.getGroupHome(10);
+    await vi.advanceTimersByTimeAsync(300);
+    expect((await answer).members.find((member) => member.owner)?.userId).toBe(1);
   });
 
   it("운영 빌드에서는 장면을 읽지 않는다", () => {

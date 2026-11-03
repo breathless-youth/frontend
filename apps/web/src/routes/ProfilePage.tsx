@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { CtaToaster } from "@/components/ui/sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { CATEGORY_CHIPS } from "@/features/profile/categoryChips";
+import { categoryChips } from "@/features/profile/categoryChips";
 import { ProfilePhotoButton } from "@/features/profile/ProfilePhotoButton";
 import { makeProfileSchema, type ProfileFormValues } from "@/features/profile/profileSchema";
 import {
@@ -295,7 +295,7 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
                   value={field.value ?? ""}
                   onValueChange={(next) => field.onChange(next === "" ? null : next)}
                 >
-                  {CATEGORY_CHIPS.map((chip) => (
+                  {categoryChips().map((chip) => (
                     <ToggleGroupItem key={chip.value} value={chip.value}>
                       {chip.label}
                     </ToggleGroupItem>

@@ -42,4 +42,14 @@ describe("hasGroupRooms", () => {
     open("/social", true);
     expect(hasGroupRooms()).toBe(true);
   });
+
+  // `vite build --mode development`는 MODE만 development이고 DEV는 거짓인 배포 빌드다.
+  it("MODE가 development여도 개발 빌드가 아니면 표시를 따른다", () => {
+    vi.stubEnv("MODE", "development");
+    vi.stubEnv("DEV", false);
+    open("/social", true);
+    expect(hasGroupRooms()).toBe(false);
+    open("/social?groupRooms=1", true);
+    expect(hasGroupRooms()).toBe(true);
+  });
 });
