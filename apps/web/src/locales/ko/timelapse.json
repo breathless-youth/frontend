@@ -101,7 +101,7 @@
       "dday": "D-Day",
       "streak": "연속 공부",
       "ddayMissing": "디데이 설정 필요",
-      "faceMaskTooltip": "처음 인식된 얼굴만 가려요."
+      "faceMaskTooltip": "내 얼굴만 가려요. 함께 찍힌 다른 사람은 가려지지 않아요."
     }
   }
 }

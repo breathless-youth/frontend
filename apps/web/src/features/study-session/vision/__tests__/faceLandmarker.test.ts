@@ -459,7 +459,7 @@ describe("createFaceLandmarker 타임랩스 사진", () => {
       loadRuntime: fakeRuntime(async () => handle).loadRuntime,
     });
     await landmarker.load();
-    const spec = { aspect: "9:16" as const, mask: true };
+    const spec = { aspect: "9:16" as const, mask: true, emojiUrl: "/face-mask/dog.png" };
 
     const result = await landmarker.detect(video, 10, spec);
 

@@ -32,6 +32,13 @@ describe("parseTimelapseSettings", () => {
     });
   });
 
+  it("고른 가림 이모지를 읽고, 모르는 id나 문자열이 아닌 값은 첫 번째 이모지로 돌린다", () => {
+    expect(parseTimelapseSettings({ faceMaskEmoji: "cat" }).faceMaskEmoji).toBe("cat");
+    expect(parseTimelapseSettings({ faceMaskEmoji: "pomeranian" }).faceMaskEmoji).toBe("dog");
+    expect(parseTimelapseSettings({ faceMaskEmoji: 3 }).faceMaskEmoji).toBe("dog");
+    expect(parseTimelapseSettings({}).faceMaskEmoji).toBe("dog");
+  });
+
   it("info가 없으면 정보 항목은 모두 꺼짐", () => {
     expect(parseTimelapseSettings({ enabled: false, aspect: "16:9" })).toEqual({
       ...DEFAULT_TIMELAPSE_SETTINGS,
@@ -52,6 +59,7 @@ describe("loadTimelapseSettings", () => {
     await expect(loadTimelapseSettings()).resolves.toEqual({
       enabled: true,
       aspect: "9:16",
+      faceMaskEmoji: "dog",
       info: {
         faceMask: false,
         flowBar: false,
@@ -68,6 +76,7 @@ describe("loadTimelapseSettings", () => {
     const settings = {
       enabled: false,
       aspect: "16:9" as const,
+      faceMaskEmoji: "panda",
       info: { ...DEFAULT_TIMELAPSE_SETTINGS.info, faceMask: true, streak: true },
     };
     await saveTimelapseSettings(settings);

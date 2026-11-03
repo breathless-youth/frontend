@@ -139,7 +139,7 @@ describe("RoomPage 타임랩스 연결", () => {
   it("일시정지와 백그라운드 전환 중에는 사진을 저장하지 않고 다시 시작하면 이어 찍는다", async () => {
     vi.useFakeTimers();
     const { due, save } = recorder.photoTap;
-    due.mockReturnValue({ aspect: "9:16", mask: false });
+    due.mockReturnValue({ aspect: "9:16", mask: false, emojiUrl: "/face-mask/dog.png" });
     try {
       renderRoom();
       await tick(3_000);

@@ -1344,6 +1344,7 @@ export type TimelapseSettingEventKey =
   | "enabled"
   | "aspect"
   | "face_mask"
+  | "face_mask_emoji"
   | "flow_bar"
   | "date"
   | "focus_time"
@@ -1351,10 +1352,10 @@ export type TimelapseSettingEventKey =
   | "dday"
   | "streak";
 
-/** 설정 › 타임랩스에서 바꾼 항목과 바뀐 뒤의 값. 비율은 `9:16`·`16:9`, 나머지는 켜짐 여부다. */
+/** 설정 › 타임랩스에서 바꾼 항목과 바뀐 뒤의 값. 비율은 `9:16`·`16:9`, 가림 이모지는 이모지 id, 나머지는 켜짐 여부다. */
 export function trackTimelapseSettingChanged(input: {
   readonly setting: TimelapseSettingEventKey;
-  readonly value: boolean | "9:16" | "16:9";
+  readonly value: boolean | string;
 }) {
   if (!initialized) return;
   track("timelapse_setting_changed", { setting: input.setting, value: input.value });

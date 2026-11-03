@@ -101,7 +101,7 @@
       "dday": "D-Day",
       "streak": "Streak",
       "ddayMissing": "Set a D-Day first",
-      "faceMaskTooltip": "Only the first face it finds is hidden."
+      "faceMaskTooltip": "Only your face is hidden. Others in the shot stay visible."
     }
   }
 }

@@ -75,7 +75,7 @@ export type WorkerToMainMessage =
     }
   /**
    * 랜드마크는 지금처럼 `result`로만 나간다.
-   * `photo`는 JPEG 바이트이고 가림이면 스티커를 덮은 뒤다.
+   * `photo`는 JPEG 바이트이고 가림이면 이모지를 덮은 뒤다.
    */
   | {
       readonly type: "result";
@@ -173,7 +173,7 @@ export function createWorkerMessageHandler(
         });
       } else {
         const result = entry.model.detectForVideo(message.frame, message.timestampMs);
-        // 추론이 본 프레임 그대로 사진을 만들어야 스티커가 그 순간의 얼굴 위에 놓인다.
+        // 추론이 본 프레임 그대로 사진을 만들어야 이모지가 그 순간의 얼굴 위에 놓인다.
         // 사진이 실패해도 졸음 판정은 이어져야 하므로 결과는 사진 없이 보낸다.
         const photo =
           message.photo === undefined
