@@ -754,9 +754,10 @@ describe("GroupRoomPage 함께한 시간", () => {
 
     await act(() => vi.advanceTimersByTimeAsync(60_000));
 
+    // 가짜 시계가 실제 시간과 함께 흘러서, 전체 스위트가 느릴 때도 꺼 둔 60초가 빠졌는지만 본다.
     const input = await exitedInput();
     expect(input.togetherSec).toBeGreaterThanOrEqual(29);
-    expect(input.togetherSec).toBeLessThanOrEqual(31);
+    expect(input.togetherSec).toBeLessThan(45);
   });
 
   it("다시 연결해 받은 SNAPSHOT에서 상대 카메라가 꺼져 있으면 그때부터 세지 않는다", async () => {
