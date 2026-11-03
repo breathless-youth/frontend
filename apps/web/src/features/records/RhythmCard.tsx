@@ -1,4 +1,6 @@
-import { MONDAY_FIRST_WEEKDAY_LABELS } from "./recordsFormat";
+import { useTranslation } from "react-i18next";
+
+import { mondayFirstWeekdayLabels } from "./recordsFormat";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 
@@ -36,31 +38,31 @@ const X_TICKS = [5, 11, 17, 23, 4] as const;
  * 읽어 주지 않는다.
  */
 export function RhythmCard() {
+  const { t } = useTranslation("records");
+  const weekdays = mondayFirstWeekdayLabels("narrow");
   return (
     <section aria-labelledby="rhythm-title">
       <div className="flex items-center justify-between pt-7">
         <h2 id="rhythm-title" className="text-[17px] leading-5.25 font-bold text-foreground">
-          나의 공부 리듬
+          {t("rhythm.title")}
         </h2>
-        <Badge variant="neutral">집중 리포트 준비 중</Badge>
+        <Badge variant="neutral">{t("rhythm.badge")}</Badge>
       </div>
 
       <Card className="mt-2.5 flex flex-col gap-1 overflow-hidden rounded-xl border-0 shadow-sb-card px-4.5 pt-4.5 pb-4">
-        <p className="text-[17px] leading-6 font-bold text-foreground">기록이 쌓이면 표시돼요</p>
-        <p className="text-[13px] leading-4.5 text-muted-foreground">
-          지금은 샘플 데이터가 표시돼요
-        </p>
+        <p className="text-[17px] leading-6 font-bold text-foreground">{t("rhythm.emptyTitle")}</p>
+        <p className="text-[13px] leading-4.5 text-muted-foreground">{t("rhythm.sampleNotice")}</p>
 
         <div aria-hidden className="flex flex-col gap-1.5 pt-3.5 opacity-80 blur-[0.8px]">
           <div className="flex items-start gap-1.5">
             <div className="flex w-3 shrink-0 flex-col gap-0.75 text-[10px] leading-3.25 text-text-tertiary">
-              {MONDAY_FIRST_WEEKDAY_LABELS.map((day) => (
-                <span key={day}>{day}</span>
+              {weekdays.map((day, index) => (
+                <span key={index}>{day}</span>
               ))}
             </div>
             <div className="flex min-w-0 flex-1 flex-col gap-0.75">
               {SAMPLE_ROWS.map((row, rowIndex) => (
-                <div key={MONDAY_FIRST_WEEKDAY_LABELS[rowIndex]} className="flex gap-0.5">
+                <div key={rowIndex} className="flex gap-0.5">
                   {[...row].map((level, hourIndex) => (
                     <span
                       key={hourIndex}
@@ -77,11 +79,11 @@ export function RhythmCard() {
             ))}
           </div>
           <div className="flex items-center justify-end gap-1 text-[10px] leading-3 text-text-tertiary">
-            <span>적음</span>
+            <span>{t("rhythm.legendLow")}</span>
             {LEVEL_CLASS.slice(1).map((levelClass) => (
               <span key={levelClass} className={`size-2.5 rounded-[2px] ${levelClass}`} />
             ))}
-            <span>많음</span>
+            <span>{t("rhythm.legendHigh")}</span>
           </div>
         </div>
       </Card>

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef } from "react";
+import { useTranslation } from "react-i18next";
 
 import { trackRankingGainCardShown, type StudyRoomType } from "@/lib/amplitude";
 import { haptic } from "@/lib/haptics";
@@ -21,6 +22,7 @@ export function RankingGainCard({
   roomType: StudyRoomType;
 }) {
   const titleId = useId();
+  const { t } = useTranslation("ranking");
   // StrictMode가 effect를 두 번 돌려도 노출은 한 번만 센다.
   const shownRef = useRef(false);
   const chipCount = view.chips.length;
@@ -41,10 +43,12 @@ export function RankingGainCard({
       className="rounded-xl bg-muted px-4.5 pt-2.5 pb-3 shadow-sb-card animate-[result-fade-up_0.4s_cubic-bezier(0.22,1,0.36,1)_both] motion-reduce:animate-none"
     >
       <h2 id={titleId} className="text-[15px] leading-4.5 font-extrabold text-foreground">
-        랭킹이 올랐어요
+        {t("gainCard.title")}
       </h2>
       <p className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="text-[13px] leading-4 text-muted-foreground">주간 순공</span>
+        <span className="text-[13px] leading-4 text-muted-foreground">
+          {t("gainCard.weeklyFocus")}
+        </span>
         <span className="text-base leading-5 font-extrabold text-rank-rise">
           <span aria-hidden="true">{formatRise(view.delta)}</span>
           <span className="sr-only">{formatRiseSpoken(view.delta)}</span>

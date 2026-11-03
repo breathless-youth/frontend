@@ -9,7 +9,7 @@ import {
   monthLabel,
   monthOfDateKey,
   shiftMonth,
-  WEEKDAY_LABELS,
+  weekdayShortLabel,
 } from "@/features/records/recordsFormat";
 import { cn } from "@/lib/utils";
 
@@ -271,7 +271,7 @@ export function DdayCalendar({
           onClickCapture={handleClickCapture}
         >
           <div className="grid grid-cols-7">
-            {WEEKDAY_LABELS.map((label) => (
+            {Array.from({ length: 7 }, (_, i) => weekdayShortLabel(i)).map((label) => (
               <span
                 key={label}
                 className="pb-1 text-center text-xs leading-4 font-medium text-text-tertiary"

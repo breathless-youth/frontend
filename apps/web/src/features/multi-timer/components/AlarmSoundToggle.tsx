@@ -1,5 +1,7 @@
 import { Bell, BellOff } from "lucide-react";
 
+import { useTranslation } from "react-i18next";
+
 import { Switch } from "@/components/ui/switch";
 import { ICON_POP_CLASS } from "@/features/study-session/components/SessionControlButtons";
 import { cn } from "@/lib/utils";
@@ -20,6 +22,7 @@ export function AlarmSoundToggle({
   onChangeSoundOn: (on: boolean) => void;
   className?: string;
 }) {
+  const { t } = useTranslation("multi-timer");
   return (
     <div
       className={cn(
@@ -43,7 +46,11 @@ export function AlarmSoundToggle({
           className={cn("size-4 text-text-tertiary", ICON_POP_CLASS)}
         />
       )}
-      <Switch checked={soundOn} onCheckedChange={onChangeSoundOn} aria-label="알림음" />
+      <Switch
+        checked={soundOn}
+        onCheckedChange={onChangeSoundOn}
+        aria-label={t("alarmSound.aria.toggle")}
+      />
     </div>
   );
 }

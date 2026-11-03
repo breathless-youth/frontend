@@ -5,14 +5,13 @@ import type {
   RankingUnseenResponse,
 } from "@focusmakers/types";
 
-import {
-  WEEKDAY_LABELS,
-  formatKstClock,
-  weekdayIndexOfDateKey,
-} from "@/features/records/recordsFormat";
+import { formatMonthDay } from "@/features/records/recordsFormat";
 import { todayKstDateKey } from "@/lib/dateKst";
+import i18n from "@/lib/i18n";
+import { formatClock } from "@/lib/intl";
+import type { AppLocale } from "@/lib/locale";
 
-import { PERIOD_LABEL } from "../model/board";
+import { periodLabel } from "../model/board";
 import { recordName, recordPeriodShort, recordValue } from "../model/format";
 
 /**
@@ -70,7 +69,7 @@ export function medalPeriodLabel(record: { period: RankingPeriod; periodStart: s
   if (record.period !== "DAILY") {
     return short;
   }
-  return `${short} (${WEEKDAY_LABELS[weekdayIndexOfDateKey(record.periodStart)]})`;
+  return formatMonthDay(record.periodStart, true);
 }
 
 /**
@@ -81,8 +80,13 @@ export function medalPeriodLabel(record: { period: RankingPeriod; periodStart: s
  */
 export function closesAtLabel(closesAt: string): string {
   const dateKey = todayKstDateKey(new Date(closesAt));
-  const hour = formatKstClock(closesAt).slice(0, 2);
-  return `${medalPeriodLabel({ period: "DAILY", periodStart: dateKey })} ${hour}시`;
+  const locale = i18n.language as AppLocale;
+  const clock = formatClock(locale, new Date(closesAt));
+  // 한국어는 `00시`처럼 두 자리 시만 쓰므로 `00:00`에서 자르고, 영어는 `12:00 AM` 그대로 쓴다.
+  return i18n.t("ranking:medal.closesAt", {
+    date: medalPeriodLabel({ period: "DAILY", periodStart: dateKey }),
+    time: locale === "ko" ? clock.slice(0, 2) : clock,
+  });
 }
 
 function countByRank(records: readonly RankingRecord[]): MedalCount[] {
@@ -125,8 +129,8 @@ export function medalModalView(unseen: RankingUnseenResponse): MedalModalView | 
   if (records.length === 1) {
     return {
       ...base,
-      eyebrow: `${medalPeriodLabel(first)} · ${PERIOD_LABEL[first.period]} · ${recordName(first)}`,
-      title: `${first.rank}위로 마감했어요`,
+      eyebrow: `${medalPeriodLabel(first)} · ${periodLabel(first.period)} · ${recordName(first)}`,
+      title: i18n.t("ranking:medal.titleSingle", { rank: first.rank }),
       value: recordValue(first),
       rows: [],
       counts: null,
@@ -145,19 +149,19 @@ export function medalModalView(unseen: RankingUnseenResponse): MedalModalView | 
     first.closesAt,
   );
   const detailOf = (record: RankingRecord) => {
-    const ranked = `${record.rank}위로 마감`;
+    const ranked = i18n.t("ranking:medal.rowClosed", { rank: record.rank });
     if (samePeriod) {
       return ranked;
     }
-    return `${sameClose ? PERIOD_LABEL[record.period] : recordPeriodShort(record)} · ${ranked}`;
+    return `${sameClose ? periodLabel(record.period) : recordPeriodShort(record)} · ${ranked}`;
   };
 
   return {
     ...base,
     eyebrow: samePeriod
-      ? `${medalPeriodLabel(first)} · ${PERIOD_LABEL[first.period]}`
-      : `${closesAtLabel(latestClose)} 마감`,
-    title: `메달 ${records.length}개를 땄어요`,
+      ? `${medalPeriodLabel(first)} · ${periodLabel(first.period)}`
+      : i18n.t("ranking:medal.eyebrowClosed", { time: closesAtLabel(latestClose) }),
+    title: i18n.t("ranking:medal.titleMany", { count: records.length }),
     value: null,
     rows: front.map((record) => ({
       id: record.id,

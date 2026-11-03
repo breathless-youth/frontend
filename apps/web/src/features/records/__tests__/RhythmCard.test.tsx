@@ -1,5 +1,7 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import i18n from "@/lib/i18n";
 
 import { RhythmCard } from "../RhythmCard";
 
@@ -23,5 +25,22 @@ describe("RhythmCard — 나의 공부 리듬 예상 화면", () => {
     expect(ghost).toHaveTextContent("51117234");
     // 안내 문구는 장식 밖에 있어 읽힌다.
     expect(ghost).not.toHaveTextContent("샘플");
+  });
+});
+
+describe("RhythmCard — 영어", () => {
+  afterEach(async () => {
+    await i18n.changeLanguage("ko");
+    vi.restoreAllMocks();
+  });
+
+  it("요일 열은 한 글자(M T W T F S S)이고 같은 글자가 겹쳐도 key 경고가 없다", async () => {
+    await i18n.changeLanguage("en");
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { container } = render(<RhythmCard />);
+
+    const ghost = container.querySelector('[aria-hidden="true"]');
+    expect(ghost).toHaveTextContent(/^MTWTFSS/);
+    expect(consoleError).not.toHaveBeenCalled();
   });
 });

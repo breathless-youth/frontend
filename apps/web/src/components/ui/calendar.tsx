@@ -1,6 +1,8 @@
 import type * as React from "react";
 import { DayButton, type DayButtonProps, DayPicker } from "react-day-picker";
+import { enUS } from "react-day-picker/locale/en-US";
 import { ko } from "react-day-picker/locale/ko";
+import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
 
@@ -17,9 +19,10 @@ function Calendar({
   components,
   ...props
 }: React.ComponentProps<typeof DayPicker>) {
+  const { i18n } = useTranslation();
   return (
     <DayPicker
-      locale={ko}
+      locale={i18n.language === "en" ? enUS : ko}
       weekStartsOn={1}
       showOutsideDays={false}
       hideNavigation

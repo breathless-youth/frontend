@@ -1,0 +1,18 @@
+{
+  "card": {
+    "title": "Tell us why you keep coming back",
+    "body": "Join a 15-minute call and get a Starbucks gift card",
+    "apply": "Sign up for an interview",
+    "aria": {
+      "dismiss": "Close interview invite"
+    }
+  },
+  "form": {
+    "title": "Sign up for an interview",
+    "loading": "Loading the sign-up form",
+    "failureTitle": "Couldn't load the sign-up form"
+  },
+  "googleForm": {
+    "failureBody": "Check your connection and try again."
+  }
+}

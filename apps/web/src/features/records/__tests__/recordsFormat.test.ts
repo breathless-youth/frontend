@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+
+import i18n from "@/lib/i18n";
 
 import {
   addDaysToDateKey,
@@ -18,6 +20,7 @@ import {
   isFutureDateKey,
   isDateKeyInMonth,
   kstDateKey,
+  mondayFirstWeekdayLabels,
   mondayIndexOfDateKey,
   monthLabel,
   monthOfDateKey,
@@ -301,5 +304,23 @@ describe("buildStreakWeek — 홈·기록 공용 주간 도트", () => {
       state: "done",
     });
     expect(days[2]).toMatchObject({ dateKey: "2026-07-28", weekdayLabel: "화", dayOfMonth: 28 });
+  });
+});
+
+describe("mondayFirstWeekdayLabels — 요일 라벨 폭", () => {
+  afterEach(async () => {
+    await i18n.changeLanguage("ko");
+  });
+
+  it("한국어는 short와 narrow가 같은 한 글자다", () => {
+    const expected = ["월", "화", "수", "목", "금", "토", "일"];
+    expect(mondayFirstWeekdayLabels()).toEqual(expected);
+    expect(mondayFirstWeekdayLabels("narrow")).toEqual(expected);
+  });
+
+  it("영어는 short가 세 글자, narrow가 한 글자다", async () => {
+    await i18n.changeLanguage("en");
+    expect(mondayFirstWeekdayLabels()).toEqual(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]);
+    expect(mondayFirstWeekdayLabels("narrow")).toEqual(["M", "T", "W", "T", "F", "S", "S"]);
   });
 });

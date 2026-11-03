@@ -54,4 +54,14 @@ if (!i18n.isInitialized) {
   });
 }
 
+/**
+ * 한국어 화면인지 판정
+ *
+ * 국내 사용자 전용 기능(기프티콘 인터뷰, 카카오톡 공유)을 영어 화면에서 숨길 때 쓴다.
+ * 표시 언어는 문서를 연 뒤 바뀌지 않아 구독하지 않고 부를 때마다 읽는다.
+ */
+export function isKoreanLocale(): boolean {
+  return i18n.language === "ko";
+}
+
 export default i18n;

@@ -7,7 +7,15 @@ import { baseConfig } from "@focusmakers/config/eslint/base";
 
 // 한글 하드코딩 금지는 문구를 카탈로그로 뺀 파일에만 건다.
 // 처음부터 전체에 걸면 추출이 끝나기 전까지 lint가 실패하므로, 묶음이 끝날 때마다 폴더를 더한다.
-const I18N_ENFORCED = ["src/lib/i18n.ts", "src/lib/locale.ts", "src/lib/intl.ts"];
+const I18N_ENFORCED = [
+  "src/lib/i18n.ts",
+  "src/lib/locale.ts",
+  "src/lib/intl.ts",
+  "src/features/{records,ranking,planner,manual-record,multi-timer,timelapse,notice,interview}/**/*.{ts,tsx}",
+  "src/routes/{Records,Ranking,RankingRecords,Planner,ManualRecord,Timelapses,TimelapseSettings,InterviewForm,GoogleForm}Page.tsx",
+  "src/lib/{statsApi,rankingApi,subjectApi,manualRecordApi,nativeVideo,noticeApi,interviewApi}.ts",
+  "src/components/ui/calendar.tsx",
+];
 const HANGUL_MESSAGE = "사용자 문구는 src/locales/ 카탈로그에 두고 t()로 읽는다";
 
 export default [

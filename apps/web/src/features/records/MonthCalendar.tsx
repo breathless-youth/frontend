@@ -1,4 +1,5 @@
 import { createContext, useContext } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Calendar, CalendarDayButton, type CalendarDayButtonProps } from "@/components/ui/calendar";
 import { Card } from "@/components/ui/card";
@@ -14,6 +15,7 @@ import {
   formatHeatClock,
   type HeatLevel,
   heatLevel,
+  monthName,
 } from "./recordsFormat";
 import { useHorizontalSwipe } from "./useHorizontalSwipe";
 
@@ -72,13 +74,17 @@ const DayFocusContext = createContext<ReadonlyMap<string, number>>(new Map());
 
 /** 공용 Calendar의 날짜 칸 — 순공시간 농도 · 시간 라벨 · 오늘 칩 · 선택 테두리를 그린다. */
 function HeatDayButton({ day, modifiers, ...props }: CalendarDayButtonProps) {
+  const { t } = useTranslation("records");
   const focusSec = useContext(DayFocusContext).get(dateKeyOfDate(day.date)) ?? 0;
   const dayOfMonth = day.date.getDate();
   const isToday = Boolean(modifiers.today);
   // 아직 오지 않은 날만 고를 수 없다.
   const isFuture = Boolean(modifiers.disabled);
   const level = heatLevel(focusSec);
-  const record = focusSec > 0 ? `순공 ${formatDuration(focusSec)}` : "기록 없음";
+  const record =
+    focusSec > 0
+      ? t("calendar.aria.focus", { duration: formatDuration(focusSec) })
+      : t("calendar.aria.noRecord");
 
   // 진한 두 단계(6시간 이상)는 글자가 묻히지 않게 흰색으로 뒤집는다.
   const onStrong = level >= 4;
@@ -99,7 +105,10 @@ function HeatDayButton({ day, modifiers, ...props }: CalendarDayButtonProps) {
       {...props}
       aria-pressed={Boolean(modifiers.selected)}
       // 농도 배경만으로 뜻을 전달하지 않도록 순공시간을 라벨로도 준다.
-      aria-label={`${isToday ? "오늘, " : ""}${String(dayOfMonth)}일, ${record}`}
+      aria-label={t(isToday ? "calendar.aria.todayDay" : "calendar.aria.day", {
+        day: dayOfMonth,
+        record,
+      })}
       className="flex aspect-square w-full items-center justify-center disabled:cursor-not-allowed"
     >
       <span
@@ -129,7 +138,8 @@ function HeatDayButton({ day, modifiers, ...props }: CalendarDayButtonProps) {
 }
 
 /** 달력 아래 — 왼쪽에 농도 범례, 오른쪽에 그 달의 하루 평균과 합계. */
-function MonthStatsRow({ stats, monthLabel }: { stats: MonthStats | null; monthLabel: string }) {
+function MonthStatsRow({ stats, monthName }: { stats: MonthStats | null; monthName: string }) {
+  const { t } = useTranslation("records");
   return (
     <div className="mx-2 mt-1">
       <Separator />
@@ -137,7 +147,7 @@ function MonthStatsRow({ stats, monthLabel }: { stats: MonthStats | null; monthL
         {/* 범례 — 농도만으로 뜻을 전하지 않도록 숫자를 함께 둔다 */}
         <div
           role="group"
-          aria-label="순공시간 범례, 숫자는 그 시간 이상"
+          aria-label={t("calendar.aria.legend")}
           className="flex items-start gap-1 pt-0.5"
         >
           {HEAT_LEGEND.map((item) => (
@@ -150,7 +160,9 @@ function MonthStatsRow({ stats, monthLabel }: { stats: MonthStats | null; monthL
 
         <div className="flex items-start gap-5">
           <div className="flex flex-col items-end gap-0.5">
-            <p className="text-xs leading-3.5 text-muted-foreground">하루 평균</p>
+            <p className="text-xs leading-3.5 text-muted-foreground">
+              {t("calendar.dailyAverage")}
+            </p>
             {stats === null ? (
               <Skeleton className="h-4.5 w-16 rounded-md" />
             ) : (
@@ -160,7 +172,9 @@ function MonthStatsRow({ stats, monthLabel }: { stats: MonthStats | null; monthL
             )}
           </div>
           <div className="flex flex-col items-end gap-0.5">
-            <p className="text-xs leading-3.5 text-muted-foreground">{monthLabel} 총 시간</p>
+            <p className="text-xs leading-3.5 text-muted-foreground">
+              {t("calendar.monthTotal", { month: monthName })}
+            </p>
             {stats === null ? (
               <Skeleton className="h-4.5 w-16 rounded-md" />
             ) : (
@@ -234,7 +248,7 @@ export function MonthCalendar({
         </DayFocusContext.Provider>
       </div>
 
-      <MonthStatsRow stats={monthStats} monthLabel={`${String(month.month)}월`} />
+      <MonthStatsRow stats={monthStats} monthName={monthName(month)} />
     </Card>
   );
 }

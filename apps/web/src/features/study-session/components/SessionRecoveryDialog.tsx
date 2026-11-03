@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
-  WEEKDAY_LABELS,
+  weekdayShortLabel,
   dayOfDateKey,
   formatDuration,
   formatKstClock,
@@ -16,7 +16,7 @@ import {
 /** `2026-08-27` → `8월 27일 (목)`. statDate가 한국 기준 날짜라 시간대 변환이 필요 없다. */
 function recoveryDateLabel(dateKey: string): string {
   const { month } = monthOfDateKey(dateKey);
-  return `${month}월 ${dayOfDateKey(dateKey)}일 (${WEEKDAY_LABELS[weekdayIndexOfDateKey(dateKey)]})`;
+  return `${month}월 ${dayOfDateKey(dateKey)}일 (${weekdayShortLabel(weekdayIndexOfDateKey(dateKey))})`;
 }
 
 function InfoRow({ label, value, accent }: { label: string; value: string; accent?: boolean }) {

@@ -5,7 +5,9 @@ import type {
   TimeSlot,
 } from "@focusmakers/types";
 
-import { SLOT_SUBJECT, currentSlot, isOffSlot, isTimeType } from "./board";
+import i18n from "@/lib/i18n";
+
+import { currentSlot, isOffSlot, isTimeType, slotSubject } from "./board";
 import { formatGap, formatRank } from "./format";
 import { offSlotNotice } from "./labels";
 
@@ -95,10 +97,18 @@ export function formatRankChange(change: number): {
 } {
   const steps = formatRank(Math.abs(change));
   if (change > 0) {
-    return { text: `▲${steps}`, spoken: `${steps}계단 올랐어요`, tone: "rise" };
+    return {
+      text: `▲${steps}`,
+      spoken: i18n.t("ranking:live.rankUp", { count: Math.abs(change), steps }),
+      tone: "rise",
+    };
   }
   if (change < 0) {
-    return { text: `▼${steps}`, spoken: `${steps}계단 내려갔어요`, tone: "drop" };
+    return {
+      text: `▼${steps}`,
+      spoken: i18n.t("ranking:live.rankDown", { count: Math.abs(change), steps }),
+      tone: "drop",
+    };
   }
   return { text: "-", spoken: null, tone: "same" };
 }
@@ -145,7 +155,7 @@ export function rankCardSubLine(input: {
     return notice === null ? null : { text: notice, tone: "muted" };
   }
   if (above !== null && above.focusing) {
-    return { text: "앞 순위와 차이가 벌어지고 있어요", tone: "alert" };
+    return { text: i18n.t("ranking:live.gapWidening"), tone: "alert" };
   }
   if (
     isTimeType(board.type) &&
@@ -155,7 +165,7 @@ export function rankCardSubLine(input: {
     belowGap <= CHASE_WINDOW_SEC
   ) {
     return {
-      text: "뒤 순위와 차이가 줄어들고 있어요",
+      text: i18n.t("ranking:live.gapClosing"),
       tone: "alert",
     };
   }
@@ -167,13 +177,19 @@ export function rankCardSubLine(input: {
     // 2위와 값이 같으면 아래 목록에 같은 수가 보이므로 최소 1분·1일로 적힌 차이를 비운다.
     return gap <= 0
       ? null
-      : { text: `2위와 ${formatGap(board.type, gap)} 차이예요`, tone: "muted" };
+      : {
+          text: i18n.t("ranking:live.gapToSecond", { gap: formatGap(board.type, gap) }),
+          tone: "muted",
+        };
   }
   if (board.type === "FOCUS_TIME") {
-    return { text: "한 번 더 공부하면 따라잡을 수 있어요", tone: "muted" };
+    return { text: i18n.t("ranking:live.oneMoreSession"), tone: "muted" };
   }
   if (board.type === "TIME_SLOT" && board.slot !== null) {
-    return { text: `${SLOT_SUBJECT[board.slot]} 끝나기 전에 따라잡을 수 있어요`, tone: "muted" };
+    return {
+      text: i18n.t("ranking:live.catchUpBeforeSlotEnds", { slot: slotSubject(board.slot) }),
+      tone: "muted",
+    };
   }
   return null;
 }

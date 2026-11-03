@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useId } from "react";
+import { useTranslation } from "react-i18next";
 
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -19,16 +20,6 @@ import { ddayQuery } from "@/lib/ddayQueries";
 import { useNativeControl } from "@/lib/nativeControls";
 import { useUserId } from "@/lib/userId";
 
-const INFO_LABELS: Record<TimelapseInfoKey, string> = {
-  faceMask: "얼굴 가림",
-  flowBar: "집중 흐름 바",
-  date: "날짜",
-  focusTime: "순공 시간",
-  focusRate: "집중률",
-  dday: "D-Day",
-  streak: "연속 공부",
-};
-
 const INFO_EVENT_KEYS: Record<TimelapseInfoKey, TimelapseSettingEventKey> = {
   faceMask: "face_mask",
   flowBar: "flow_bar",
@@ -39,12 +30,10 @@ const INFO_EVENT_KEYS: Record<TimelapseInfoKey, TimelapseSettingEventKey> = {
   streak: "streak",
 };
 
-const ASPECTS: readonly { value: TimelapseAspect; label: string }[] = [
-  { value: "9:16", label: "세로 9:16" },
-  { value: "16:9", label: "가로 16:9" },
-];
-
-const ASPECT_LABEL = "영상 비율";
+const ASPECTS = [
+  { value: "9:16", labelKey: "portrait" },
+  { value: "16:9", labelKey: "landscape" },
+] as const satisfies readonly { value: TimelapseAspect; labelKey: string }[];
 
 /**
  * 설정 › 타임랩스 페이지
@@ -53,6 +42,8 @@ const ASPECT_LABEL = "영상 비율";
  * 저장을 끄면 나머지 설정은 쓰이지 않으므로 숨긴다.
  */
 export function TimelapseSettingsPage() {
+  const { t } = useTranslation("timelapse");
+  const aspectLabel = t("settings.aspect.label");
   const [settings, update] = useTimelapseSettings();
   const userId = useUserId();
   const dday = useQuery({ ...ddayQuery(userId ?? 0), enabled: userId !== null });
@@ -87,10 +78,10 @@ export function TimelapseSettingsPage() {
       ? {
           id: "segment-timelapse-ratio",
           kind: "segment",
-          labels: ASPECTS.map((aspect) => aspect.label),
+          labels: ASPECTS.map((aspect) => t(`settings.aspect.${aspect.labelKey}`)),
           selected: ASPECTS.findIndex((aspect) => aspect.value === settings.aspect),
           disabled: ASPECTS.map(() => false),
-          accessibilityLabel: ASPECT_LABEL,
+          accessibilityLabel: aspectLabel,
         }
       : null,
     (index) => {
@@ -100,15 +91,15 @@ export function TimelapseSettingsPage() {
 
   return (
     <main className="theme-soft-blue bg-soft-blue page-column min-h-dvh pb-10 text-foreground">
-      <ScreenBackHeader title="타임랩스" />
+      <ScreenBackHeader title={t("settings.title")} />
 
       {settings !== null && (
         <div className="flex flex-col gap-5 px-5 pt-3">
           <SettingsSection>
             <SwitchRow
-              label="타임랩스 저장"
+              label={t("settings.save.label")}
               controlId="switch-timelapse-save"
-              tooltip="기기 내에만 최대 7일, 7개까지 보관돼요."
+              tooltip={t("settings.save.tooltip")}
               checked={settings.enabled}
               onCheckedChange={(enabled) => change({ ...settings, enabled }, "enabled", enabled)}
             />
@@ -121,7 +112,7 @@ export function TimelapseSettingsPage() {
                   id={aspectLabelId}
                   className="text-text-tertiary mb-1.5 px-1 text-[13px] leading-3.75 font-medium"
                 >
-                  {ASPECT_LABEL}
+                  {aspectLabel}
                 </p>
                 <ToggleGroup
                   ref={aspectRef}
@@ -137,13 +128,13 @@ export function TimelapseSettingsPage() {
                       value={aspect.value}
                       className="text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground h-auto flex-1 justify-center rounded-[9px] border-0 bg-transparent px-0 py-2.25 text-sm leading-4.25 font-normal data-[state=on]:font-bold data-[state=on]:shadow-(--shadow-segment-thumb)"
                     >
-                      {aspect.label}
+                      {t(`settings.aspect.${aspect.labelKey}`)}
                     </ToggleGroupItem>
                   ))}
                 </ToggleGroup>
               </div>
 
-              <SettingsSection label="미리보기">
+              <SettingsSection label={t("settings.preview")}>
                 <div className="flex justify-center py-4">
                   {/* WebKit은 고정 크기에서 aspect-ratio로 클래스만 바뀌면 높이를 0으로 남겨서 비율이 바뀔 때 새로 그린다. */}
                   <TimelapsePreview
@@ -156,22 +147,22 @@ export function TimelapseSettingsPage() {
                 </div>
               </SettingsSection>
 
-              <SettingsSection label="영상에 넣을 정보">
+              <SettingsSection label={t("settings.info.title")}>
                 {TIMELAPSE_INFO_KEYS.map((key) =>
                   key === "dday" && ddayMissing ? (
                     <div key={key} className={ROW_CLASS_NAME}>
-                      <span className={ROW_LABEL_CLASS_NAME}>{INFO_LABELS.dday}</span>
+                      <span className={ROW_LABEL_CLASS_NAME}>{t("settings.info.dday")}</span>
                       <span className="text-text-tertiary text-sm leading-4.5">
-                        디데이 설정 필요
+                        {t("settings.info.ddayMissing")}
                       </span>
                     </div>
                   ) : (
                     <SwitchRow
                       key={key}
-                      label={INFO_LABELS[key]}
+                      label={t(`settings.info.${key}`)}
                       // 앱 id는 소문자만 받는다.
                       controlId={`switch-info-${key.toLowerCase()}`}
-                      tooltip={key === "faceMask" ? "처음 인식된 얼굴만 가려요." : undefined}
+                      tooltip={key === "faceMask" ? t("settings.info.faceMaskTooltip") : undefined}
                       checked={settings.info[key]}
                       onCheckedChange={(checked) =>
                         change(

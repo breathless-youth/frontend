@@ -1,0 +1,107 @@
+{
+  "day": {
+    "today": "Today",
+    "yesterday": "Yesterday"
+  },
+  "frame": {
+    "watermark": "FocusMakers",
+    "focusTime": "Focus {{duration}}",
+    "focusRate": "Focus rate {{rate}}%",
+    "streak": "{{count}}-day streak 🔥"
+  },
+  "recent": {
+    "title": "Recent timelapses",
+    "more": "More",
+    "focusTime": "Focus {{duration}}"
+  },
+  "empty": {
+    "body": "Finish a session and share a look at how you studied"
+  },
+  "preview": {
+    "placeholder": "Your study session"
+  },
+  "player": {
+    "aria": {
+      "play": "Play timelapse",
+      "pause": "Pause timelapse"
+    }
+  },
+  "resultCard": {
+    "title": "Timelapse",
+    "info": "You can turn off timelapse recording anytime in Settings",
+    "building": "Creating {{percent}}%",
+    "download": "Download",
+    "share": "Share",
+    "aria": {
+      "info": "About timelapse",
+      "share": "Share timelapse"
+    }
+  },
+  "share": {
+    "title": "Share",
+    "brand": "FocusMakers",
+    "openSettings": "Open settings",
+    "text": "Here's how I studied with FocusMakers\n{{url}}",
+    "status": {
+      "updateApp": "Update the app to save and share",
+      "preparing": "Creating your video…",
+      "unsupported": "This device can't create videos",
+      "buildFailed": "Couldn't create the video"
+    },
+    "target": {
+      "save": "Save",
+      "instagram": "Instagram",
+      "kakao": "KakaoTalk",
+      "more": "More"
+    },
+    "notice": {
+      "shareFailed": "Couldn't share. Please try again",
+      "saved": "Saved to Photos",
+      "denied": "Photo access is turned off",
+      "saveFailed": "Couldn't save. Please try again"
+    },
+    "aria": {
+      "progress": "Video progress"
+    }
+  },
+  "list": {
+    "title": "Recent timelapses",
+    "retention": "Up to 7 from the last 7 days are kept on this device",
+    "focusTime": "Focus {{duration}}",
+    "summary": "Total {{duration}} · Focus rate {{rate}}%",
+    "deleteFailed": "Couldn't delete",
+    "aria": {
+      "delete": "Delete timelapse from {{label}}"
+    }
+  },
+  "deleteDialog": {
+    "title": "Delete timelapse",
+    "body": "Are you sure you want to delete it?",
+    "confirm": "Delete"
+  },
+  "settings": {
+    "title": "Timelapse",
+    "preview": "Preview",
+    "save": {
+      "label": "Save timelapses",
+      "tooltip": "Kept only on this device, up to 7 for 7 days."
+    },
+    "aspect": {
+      "label": "Aspect ratio",
+      "portrait": "Portrait 9:16",
+      "landscape": "Landscape 16:9"
+    },
+    "info": {
+      "title": "Show in video",
+      "faceMask": "Hide face",
+      "flowBar": "Focus flow bar",
+      "date": "Date",
+      "focusTime": "Focus time",
+      "focusRate": "Focus rate",
+      "dday": "D-Day",
+      "streak": "Streak",
+      "ddayMissing": "Set a D-Day first",
+      "faceMaskTooltip": "Only the first face it finds is hidden."
+    }
+  }
+}

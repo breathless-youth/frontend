@@ -1,10 +1,12 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Calendar, CalendarDayButton, type CalendarDayButtonProps } from "@/components/ui/calendar";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import i18n from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 import { PeriodNav } from "./PeriodNav";
@@ -13,7 +15,9 @@ import {
   type CalendarMonth,
   dateKeyOfDate,
   dateOfDateKey,
+  formatMonthDay,
   monthLabel,
+  monthName,
   monthOfDateKey,
   shiftMonth,
 } from "./recordsFormat";
@@ -41,6 +45,7 @@ function PickerSheet({
   onToday: () => void;
   children: ReactNode;
 }) {
+  const { t } = useTranslation("records");
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       {/* 기록 탭이 `theme-soft-blue`를 서브트리에만 켠다. 포털이 body로 나가므로 시트에도 같은 테마를 단다. */}
@@ -61,7 +66,7 @@ function PickerSheet({
             onClick={onToday}
             className="h-8 rounded-full px-3.5 py-0 text-[13px] leading-4 text-brand-subtle-text"
           >
-            오늘
+            {t("picker.today")}
           </Button>
         </div>
         {children}
@@ -118,11 +123,12 @@ export function MonthPickerSheet({
   todayKey: string;
   onPick: (month: CalendarMonth, toToday: boolean) => void;
 }) {
+  const { t } = useTranslation("records");
   return (
     <PickerSheet
       open={open}
       onOpenChange={onOpenChange}
-      title="달 선택"
+      title={t("picker.monthTitle")}
       onToday={() => onPick(monthOfDateKey(todayKey), true)}
     >
       {/* 시트 내용은 열릴 때마다 새로 마운트돼, 넘겨 보던 연도가 다음에 남지 않는다. */}
@@ -140,6 +146,7 @@ function MonthGrid({
   todayKey: string;
   onPick: (month: CalendarMonth) => void;
 }) {
+  const { t } = useTranslation("records");
   const [year, setYear] = useState(month.year);
   const thisYear = monthOfDateKey(todayKey).year;
   const goPrev = () => setYear((current) => current - 1);
@@ -151,9 +158,9 @@ function MonthGrid({
   return (
     <>
       <PickerNav
-        label={`${String(year)}년`}
-        prevLabel="이전 해"
-        nextLabel="다음 해"
+        label={t("picker.year", { year })}
+        prevLabel={t("picker.aria.prevYear")}
+        nextLabel={t("picker.aria.nextYear")}
         canGoNext={year < thisYear}
         onPrev={goPrev}
         onNext={goNext}
@@ -179,7 +186,7 @@ function MonthGrid({
             // 공용 칩 모양(테두리·알약·히트 영역)을 격자 칸 모양으로 덮어쓴다.
             className="h-11 justify-center rounded-[12px] border-0 bg-bg-layer-2 px-0 text-sm leading-4.5 text-foreground tabular-nums before:hidden disabled:cursor-not-allowed disabled:opacity-35 data-[state=on]:font-bold"
           >
-            {value}월
+            {monthName({ year, month: value })}
           </ToggleGroupItem>
         ))}
       </ToggleGroup>
@@ -202,11 +209,12 @@ export function WeekPickerSheet({
   /** 고른 날짜를 넘긴다 — 그 날이 속한 주로 이동하는 것은 받는 쪽 몫이다. */
   onPick: (dateKey: string, toToday: boolean) => void;
 }) {
+  const { t } = useTranslation("records");
   return (
     <PickerSheet
       open={open}
       onOpenChange={onOpenChange}
-      title="주 선택"
+      title={t("picker.weekTitle")}
       onToday={() => onPick(todayKey, true)}
     >
       <WeekGrid
@@ -227,6 +235,7 @@ function WeekGrid({
   todayKey: string;
   onPick: (dateKey: string) => void;
 }) {
+  const { t } = useTranslation("records");
   const selectedWeek = mondayWeekDateKeys(weekAnchorKey);
   // 보는 주가 두 달에 걸치면 그 주가 시작하는 달부터 연다.
   const [viewMonth, setViewMonth] = useState(() => monthOfDateKey(selectedWeek[0]!));
@@ -240,8 +249,8 @@ function WeekGrid({
     <>
       <PickerNav
         label={monthLabel(viewMonth)}
-        prevLabel="이전 달"
-        nextLabel="다음 달"
+        prevLabel={t("picker.aria.prevMonth")}
+        nextLabel={t("picker.aria.nextMonth")}
         canGoNext={canGoNext}
         onPrev={goPrev}
         onNext={goNext}
@@ -294,7 +303,8 @@ function dateOfMonth({ year, month }: CalendarMonth): Date {
 }
 
 function dayLabel(date: Date, isToday: boolean): string {
-  return `${isToday ? "오늘, " : ""}${String(date.getMonth() + 1)}월 ${String(date.getDate())}일`;
+  const label = formatMonthDay(dateKeyOfDate(date));
+  return isToday ? i18n.t("records:picker.aria.today", { date: label }) : label;
 }
 
 function WeekGridDay({ day, modifiers, ...props }: CalendarDayButtonProps) {
@@ -342,11 +352,12 @@ export function DayPickerSheet({
   allowFuture?: boolean;
   onPick: (dateKey: string, toToday: boolean) => void;
 }) {
+  const { t } = useTranslation("records");
   return (
     <PickerSheet
       open={open}
       onOpenChange={onOpenChange}
-      title="날짜 선택"
+      title={t("picker.dayTitle")}
       onToday={() => onPick(todayKey, true)}
     >
       <DayGrid
@@ -370,6 +381,7 @@ function DayGrid({
   allowFuture: boolean;
   onPick: (dateKey: string) => void;
 }) {
+  const { t } = useTranslation("records");
   const [viewMonth, setViewMonth] = useState(() => monthOfDateKey(dateKey));
   const today = dateOfDateKey(todayKey);
   const canGoNext = allowFuture || !isFutureMonth(shiftMonth(viewMonth, 1), todayKey);
@@ -381,8 +393,8 @@ function DayGrid({
     <>
       <PickerNav
         label={monthLabel(viewMonth)}
-        prevLabel="이전 달"
-        nextLabel="다음 달"
+        prevLabel={t("picker.aria.prevMonth")}
+        nextLabel={t("picker.aria.nextMonth")}
         canGoNext={canGoNext}
         onPrev={goPrev}
         onNext={goNext}

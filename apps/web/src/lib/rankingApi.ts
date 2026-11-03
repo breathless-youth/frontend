@@ -96,7 +96,12 @@ export async function getRankingBoard(
     ["slot", params.slot],
     ["offset", params.offset === -1 ? -1 : undefined],
   ]);
-  return getJson(`/api/rankings/board${query}`, "rankingBoard", "랭킹 조회 실패", signal);
+  return getJson(
+    `/api/rankings/board${query}`,
+    "rankingBoard",
+    "ranking board fetch failed",
+    signal,
+  );
 }
 
 export async function getRankingRecordsSummary(
@@ -109,7 +114,7 @@ export async function getRankingRecordsSummary(
   return getJson(
     "/api/rankings/records/summary",
     "rankingRecordsSummary",
-    "랭킹 기록 요약 조회 실패",
+    "ranking records summary fetch failed",
     signal,
   );
 }
@@ -128,7 +133,12 @@ export async function getRankingRecords(
     ["cursor", params.cursor],
     ["size", params.size],
   ]);
-  return getJson(`/api/rankings/records${query}`, "rankingRecords", "랭킹 기록 조회 실패", signal);
+  return getJson(
+    `/api/rankings/records${query}`,
+    "rankingRecords",
+    "ranking records fetch failed",
+    signal,
+  );
 }
 
 /**
@@ -146,7 +156,7 @@ export async function getRankingRecordsUnseen(
   return getJson(
     "/api/rankings/records/unseen",
     "rankingRecordsUnseen",
-    "안 본 랭킹 기록 조회 실패",
+    "unseen ranking records fetch failed",
     signal,
   );
 }
@@ -173,7 +183,7 @@ export async function postRankingRecordsSeen(ids: readonly number[]): Promise<vo
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    throw await parseApiError(res, "랭킹 기록 본 것 표시 실패");
+    throw await parseApiError(res, "ranking records mark seen failed");
   }
 }
 
@@ -199,7 +209,7 @@ export async function getRankingSessionGains(
     return { weekly: null, others: [] };
   }
   if (!res.ok) {
-    throw await parseApiError(res, "세션 뒤 랭킹 조회 실패");
+    throw await parseApiError(res, "post-session ranking fetch failed");
   }
   return (await res.json()) as RankingSessionGainsResponse;
 }
