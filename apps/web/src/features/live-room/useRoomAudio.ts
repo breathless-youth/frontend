@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import type { MicLine } from "./audio/micLine";
 import { createMicLine } from "./audio/micLine";
@@ -114,7 +114,8 @@ export function useRoomAudio({
       setMicPending(false);
     }
   }
-  useEffect(() => {
+  // 꺼짐을 그린 커밋 안에서 떼야, 그 커밋과 다음 effect 사이에 권한 창의 응답이 도착해 마이크가 실리는 일이 없다.
+  useLayoutEffect(() => {
     if (!cameraHeld) {
       return;
     }

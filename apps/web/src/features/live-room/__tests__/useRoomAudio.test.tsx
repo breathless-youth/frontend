@@ -1,3 +1,4 @@
+import { useLayoutEffect } from "react";
 import { act, fireEvent, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -119,6 +120,40 @@ describe("useRoomAudio 마이크", () => {
     rerender({ cameraHeld: true });
     expect(result.current.micOn).toBe(false);
     expect(mesh.setLocalAudioTrack).toHaveBeenLastCalledWith(null);
+  });
+
+  it("카메라가 꺼지는 커밋 안에서 마이크를 떼서 늦게 온 트랙이 끼어들 틈이 없다", async () => {
+    const mesh = {
+      setLocalAudioTrack: vi.fn(),
+      subscribeRemoteAudio: vi.fn((_listener: RemoteAudioListener) => () => undefined),
+    };
+    const mic = fakeTrack();
+    let sentAtLayout: MediaStreamTrack | null | undefined;
+    const { result, rerender } = renderHook(
+      (props: { cameraHeld: boolean }) => {
+        const audio = useRoomAudio({
+          enabled: true,
+          mesh,
+          cameraHeld: props.cameraHeld,
+          micOnUserIds: NO_MIC_ON,
+          onNotice: vi.fn(),
+          acquire: async () => ({ kind: "ok", track: mic }),
+          createPlayer: fakePlayer,
+        });
+        // 같은 커밋의 레이아웃 단계에서 메시가 마지막으로 받은 마이크를 본다.
+        useLayoutEffect(() => {
+          sentAtLayout = mesh.setLocalAudioTrack.mock.calls.at(-1)?.[0];
+        });
+        return audio;
+      },
+      { initialProps: { cameraHeld: false } },
+    );
+    await act(async () => result.current.toggleMic());
+    expect(sentAtLayout).toBe(mic);
+
+    rerender({ cameraHeld: true });
+
+    expect(sentAtLayout).toBeNull();
   });
 
   it("카메라를 다시 켜도 마이크는 꺼진 채다", async () => {
