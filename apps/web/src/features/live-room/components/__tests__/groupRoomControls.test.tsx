@@ -3,6 +3,9 @@ import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { createModeState, startMode } from "@/features/multi-timer/multiTimerMachine";
+import { DEFAULT_MULTI_TIMER_SETTINGS } from "@/features/multi-timer/multiTimerSettings";
+import i18n from "@/lib/i18n";
 import {
   enterGlassChrome,
   lastInlineControls,
@@ -13,6 +16,9 @@ import {
 
 import { GroupRoomTopBar } from "../GroupRoomTopBar";
 import { MicButton } from "../MicButton";
+import { RoomMemberMenu } from "../RoomMemberMenu";
+import { RoomTile } from "../RoomTile";
+import { RoomTimerCapsule } from "../RoomTimerCapsule";
 import { TimerButton } from "../TimerButton";
 
 afterEach(() => {
@@ -30,6 +36,14 @@ function enterApp() {
 
 function inlineControl(postMessage: ReturnType<typeof enterApp>, id: string) {
   return lastInlineControls(postMessage).find((control) => control.id === id);
+}
+
+/** 화면 글자와 aria-label을 함께 모은다. 스크린리더가 읽는 이름도 영어여야 한다. */
+function visibleText(root: HTMLElement): string {
+  const labels = [...root.querySelectorAll("[aria-label]")].map((element) =>
+    element.getAttribute("aria-label"),
+  );
+  return [root.textContent, ...labels].join("\n");
 }
 
 function topBarProps(
@@ -212,5 +226,110 @@ describe("GroupRoomTopBar", () => {
     fireEvent.pointerDown(screen.getByRole("button", { name: "다른 사람 소리 끄기" }));
 
     expect(onSurfacePointerDown).not.toHaveBeenCalled();
+  });
+});
+
+describe("그룹 공부방 조작 영어 화면", () => {
+  afterEach(async () => {
+    await i18n.changeLanguage("ko");
+  });
+
+  it("영어로 바꾸면 위쪽 조작과 바 버튼, 타이머 캡슐에 한글이 남지 않는다", async () => {
+    await i18n.changeLanguage("en");
+    const pomodoro = startMode(createModeState("pomodoro", DEFAULT_MULTI_TIMER_SETTINGS));
+    const { container } = render(
+      <>
+        <GroupRoomTopBar {...topBarProps({ focusSec: 2538, studySec: 2730 })} />
+        <MicButton on={false} onToggle={vi.fn()} />
+        <TimerButton on expanded={false} onOpen={vi.fn()} />
+        <RoomTimerCapsule
+          mode={pomodoro}
+          remainingMs={25 * 60_000}
+          primaryLabel={i18n.t("multi-timer:primary.pause")}
+          onPrimary={vi.fn()}
+          onOff={vi.fn()}
+        />
+      </>,
+    );
+
+    expect(screen.getByRole("button", { name: "Subject" })).toBeInTheDocument();
+    expect(screen.getByText("Focus time 42 minutes 18 seconds")).toBeInTheDocument();
+    expect(screen.getByText("Total 00:45:30")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mute others" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Switch camera" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Turn on mic" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Timer" })).toBeInTheDocument();
+    // 타이머 훅이 영어로 준 일시정지 이름을 받으면 캡슐은 흐르는 중으로 보고 멈춤 버튼을 그린다.
+    expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Turn off timer" })).toBeInTheDocument();
+    expect(visibleText(container)).not.toMatch(/[가-힣]/);
+  });
+
+  it("영어로 바꾸면 앱 유리 버튼에 보내는 이름도 영어다", async () => {
+    await i18n.changeLanguage("en");
+    const postMessage = enterApp();
+    render(
+      <>
+        <MicButton on onToggle={vi.fn()} />
+        <TimerButton on={false} expanded={false} onOpen={vi.fn()} />
+      </>,
+    );
+
+    expect(inlineControl(postMessage, "room-mic")).toMatchObject({
+      accessibilityLabel: "Turn off mic",
+    });
+    expect(inlineControl(postMessage, "room-timer")).toMatchObject({ accessibilityLabel: "Timer" });
+  });
+
+  it("영어로 바꾸면 멤버 타일과 멤버 메뉴에 한글이 남지 않는다", async () => {
+    await i18n.changeLanguage("en");
+    // 닉네임과 목표는 사용자가 쓴 값이라 번역하지 않으므로 영어 값을 둔다.
+    render(
+      <RoomTile
+        member={{
+          userId: 2,
+          nickname: "Alex",
+          goal: "Finals",
+          cameraOn: true,
+          focusState: "FOCUS",
+          focusSec: 600,
+          micOn: true,
+          onBreak: true,
+          owner: false,
+        }}
+        micOn
+        speaking
+        menuButton={
+          <RoomMemberMenu
+            nickname="Alex"
+            volume={1}
+            muted={false}
+            canKick
+            placement="below"
+            open
+            container={null}
+            onOpen={vi.fn()}
+            onClose={vi.fn()}
+            onVolumeChange={vi.fn()}
+            onToggleMute={vi.fn()}
+            onReport={vi.fn()}
+            onKick={vi.fn()}
+          />
+        }
+      />,
+    );
+
+    // 메뉴가 열린 동안 메뉴 밖은 접근성 트리에서 빠져서 타일 아이콘은 숨은 요소까지 찾는다.
+    expect(screen.getByRole("img", { name: "Mic on", hidden: true })).toBeInTheDocument();
+    expect(screen.getByText("Speaking")).toBeInTheDocument();
+    expect(screen.getByText("On a break")).toBeInTheDocument();
+    expect(screen.getByRole("slider", { name: "Volume for Alex" })).toBeInTheDocument();
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
+      "Mute",
+      "Report",
+      "Remove from group",
+    ]);
+    // 메뉴는 문서 끝 포털에 떠서 타일과 메뉴를 함께 보려면 문서 전체를 본다.
+    expect(visibleText(document.body)).not.toMatch(/[가-힣]/);
   });
 });

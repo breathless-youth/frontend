@@ -8,6 +8,7 @@ import { useMultiTimer } from "@/features/multi-timer/useMultiTimer";
 import type { SessionState } from "@/features/study-session/sessionState";
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import type * as AmplitudeModule from "@/lib/amplitude";
+import i18n from "@/lib/i18n";
 
 import { useRoomTimerSheet } from "../../useRoomTimerSheet";
 import { LazyRoomTimerSheet, preloadRoomTimerSheet } from "../lazyRoomTimerSheet";
@@ -28,6 +29,14 @@ const SETTINGS_KEY = "focuson.multiTimer.v1";
 const LAST_KIND_KEY = "focuson.multiTimer.lastKind.v1";
 const FOCUS: SessionState = { kind: "FOCUS" };
 const HELD: SessionState = { kind: "PAUSE", trigger: "MANUAL" };
+
+/** 화면 글자와 aria-label을 함께 모은다. 스크린리더가 읽는 이름도 영어여야 한다. */
+function visibleText(root: HTMLElement): string {
+  const labels = [...root.querySelectorAll("[aria-label]")].map((element) =>
+    element.getAttribute("aria-label"),
+  );
+  return [root.textContent, ...labels].join("\n");
+}
 
 /**
  * 공부방이 타이머 버튼, 캡슐, 설정 시트를 잇는 방식 그대로인 하네스
@@ -332,5 +341,54 @@ describe("공부방 타이머 시트와 캡슐", () => {
 
     expect(sheet).toHaveAttribute("data-amp-mask");
     expect(sheet).toHaveAttribute("data-amp-mask-attributes", "aria-label");
+  });
+});
+
+describe("공부방 타이머 영어 화면", () => {
+  afterEach(async () => {
+    await i18n.changeLanguage("ko");
+  });
+
+  it("영어로 바꾸면 타이머 시트의 두 종류 모두 한글이 남지 않는다", async () => {
+    await i18n.changeLanguage("en");
+    const { user } = renderTimerHarness();
+    await user.click(screen.getByRole("button", { name: "Timer" }));
+    const sheet = screen.getByRole("dialog", { name: "Timer settings" });
+
+    expect(
+      within(sheet)
+        .getAllByRole("radio")
+        .map((radio) => radio.textContent),
+    ).toEqual(["Timer", "Pomodoro"]);
+    expect(within(sheet).getByRole("radiogroup", { name: "Timer type" })).toBeInTheDocument();
+    expect(within(sheet).getByRole("button", { name: "Start 30 minutes" })).toBeInTheDocument();
+    expect(within(sheet).getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+    expect(within(sheet).getByRole("switch", { name: "Alarm when the timer ends" })).toBeChecked();
+    expect(visibleText(sheet)).not.toMatch(/[가-힣]/);
+
+    await user.click(within(sheet).getByRole("radio", { name: "Pomodoro" }));
+
+    expect(
+      within(sheet).getByText("Focus for 25 minutes, then take a break for 5 minutes, and repeat"),
+    ).toBeInTheDocument();
+    expect(
+      within(sheet).getByRole("switch", { name: "Alarm when focus or break ends" }),
+    ).toBeInTheDocument();
+    expect(within(sheet).getByRole("button", { name: "Focus for 25 minutes" })).toBeInTheDocument();
+    expect(visibleText(sheet)).not.toMatch(/[가-힣]/);
+  });
+
+  it("영어로 바꿔도 흐르는 뽀모도로 캡슐은 집중 단계와 멈춤 버튼을 그린다", async () => {
+    await i18n.changeLanguage("en");
+    localStorage.setItem(LAST_KIND_KEY, "pomodoro");
+    const { user } = renderTimerHarness();
+    await user.click(screen.getByRole("button", { name: "Timer" }));
+    await user.click(screen.getByRole("button", { name: "Focus for 25 minutes" }));
+
+    const capsule = screen.getByTestId("room-timer-capsule");
+    expect(within(capsule).getByText("Focus")).toBeInTheDocument();
+    expect(within(capsule).getByRole("button", { name: "Pause" })).toBeInTheDocument();
+    expect(within(capsule).getByRole("button", { name: "Turn off timer" })).toBeInTheDocument();
+    expect(visibleText(capsule)).not.toMatch(/[가-힣]/);
   });
 });
