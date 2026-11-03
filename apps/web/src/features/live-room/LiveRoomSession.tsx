@@ -19,7 +19,7 @@ import { createAmbientUsage } from "@/features/ambient-sound/ambientUsage";
 import { AmbientSoundButton } from "@/features/ambient-sound/components/AmbientSoundButton";
 import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSoundSheet";
 import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
-import { groupErrorCopy } from "@/features/group-room/groupErrorCopy";
+import { groupErrorCode, groupErrorCopy } from "@/features/group-room/groupErrorCopy";
 import { useMultiTimer } from "@/features/multi-timer/useMultiTimer";
 import { CameraOnConfirmDialog } from "@/features/live-room/components/CameraOnConfirmDialog";
 import { ClonedTrackPreview } from "@/features/live-room/components/ClonedTrackPreview";
@@ -470,12 +470,15 @@ export function LiveRoomSession({
    * 신고하면 서버가 차단도 하지만 서버의 차단 알림을 기다리지 않고 바로 그 사람과의 연결을 닫는다.
    * 결과 처리는 이번 호출에만 걸어서 공부방을 떠난 뒤 늦게 온 응답이 다른 화면에 토스트를 띄우지 않는다.
    * 보내지 못하면 신고 화면에 남아 다시 보낼 수 있다.
+   * 그사이 그룹을 떠났거나 내보내진 멤버는 다시 보내도 같은 답이라 멤버 관리 화면처럼 안내 없이 신고 화면만 닫는다.
    */
   function submitReport(reason: string) {
     if (reportTarget === null || groupId === null || report.isPending) {
       return;
     }
     const target = reportTarget;
+    const closeTargetLayer = () =>
+      setReportTarget((current) => (current?.userId === target.userId ? null : current));
     haptic("medium");
     report.mutate(
       { groupId, userId: target.userId, reason },
@@ -486,9 +489,13 @@ export function LiveRoomSession({
           // 설정의 차단 목록이 받아 둔 목록을 보여 주지 않게 한다.
           void queryClient.invalidateQueries({ queryKey: groupKeys.blocks(userId) });
           showCtaToast(`${target.nickname}님을 신고하고 차단했어요`);
-          setReportTarget((current) => (current?.userId === target.userId ? null : current));
+          closeTargetLayer();
         },
         onError: (error) => {
+          if (groupErrorCode(error) === "GROUP_MEMBER_NOT_FOUND") {
+            closeTargetLayer();
+            return;
+          }
           showCtaToast(groupErrorCopy("report", error));
         },
       },

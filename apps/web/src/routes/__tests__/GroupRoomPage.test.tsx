@@ -910,6 +910,23 @@ describe("GroupRoomPage 신고와 차단", () => {
     expect(pcs.some((pc) => pc.closed)).toBe(false);
   });
 
+  it("그사이 그룹을 떠난 멤버를 신고하면 다시 시도 안내 없이 신고 화면을 닫는다", async () => {
+    vi.mocked(reportGroupMember).mockRejectedValue(
+      new ApiError("x", 404, "GROUP_MEMBER_NOT_FOUND"),
+    );
+    const { pcs } = await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember(), otherMember(42, "새벽러")],
+    });
+    const user = await openReport("새벽러");
+
+    await user.click(screen.getByRole("button", { name: "신고하기" }));
+
+    await waitFor(() => expect(screen.queryByText("새벽러님을 신고할게요")).toBeNull());
+    expect(screen.queryByText("잠시 후 다시 시도해 주세요")).toBeNull();
+    expect(pcs.some((pc) => pc.closed)).toBe(false);
+  });
+
   it("보내는 중에는 다시 보낼 수 없다", async () => {
     vi.mocked(reportGroupMember).mockImplementation(() => new Promise(() => {}));
     await enterGroupRoom({ groupId: 10, snapshot: [meMember(), otherMember(42, "새벽러")] });
