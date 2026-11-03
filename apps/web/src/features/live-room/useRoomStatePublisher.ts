@@ -16,6 +16,8 @@ import type { RoomChannel } from "./roomChannel";
  *   순서 경쟁으로 거짓 켜짐이 새 나간다.
  * - 집중상태: FOCUS·DISTRACTED 전이에서만 발행 (일시정지 중에는 집중상태가 무의미)
  * - 순공시간: 마운트 시 1회 즉시 발행(재입장 시 서버 보존값 잔상 제거) + 1분 주기 갱신
+ * - 마이크와 휴식: 그룹 공부방만 값을 넘기고, 넘긴 값은 카메라처럼 마운트에 한 번과 바뀔 때마다 따로 발행한다.
+ *   초대코드 방은 서버가 두 필드를 받지 않아서 넘기지 않으면 보내지 않는다.
  */
 const STUDY_TIME_INTERVAL_MS = 60_000;
 
@@ -23,7 +25,25 @@ type PublisherInput = {
   sessionState: SessionState;
   focusSec: number;
   cameraOn: boolean;
+  micOn?: boolean;
+  onBreak?: boolean;
 };
+
+/**
+ * 값이 있을 때만 처음 한 번과 바뀔 때마다 보내기
+ *
+ * 다시 그려져도 같은 값이면 보내지 않는다.
+ */
+function usePublishWhenChanged(value: boolean | undefined, publish: (value: boolean) => void) {
+  const send = useEffectEvent(publish);
+  const prevRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (value !== undefined && prevRef.current !== value) {
+      prevRef.current = value;
+      send(value);
+    }
+  }, [value]);
+}
 
 export function useRoomStatePublisher(channel: RoomChannel, input: PublisherInput): void {
   const cameraOn = input.cameraOn;
@@ -45,6 +65,8 @@ export function useRoomStatePublisher(channel: RoomChannel, input: PublisherInpu
       channel.publishState({ cameraOn });
     }
   }, [channel, cameraOn]);
+  usePublishWhenChanged(input.micOn, (micOn) => channel.publishState({ micOn }));
+  usePublishWhenChanged(input.onBreak, (onBreak) => channel.publishState({ onBreak }));
 
   const prevFocusStateRef = useRef(focusState);
   useEffect(() => {

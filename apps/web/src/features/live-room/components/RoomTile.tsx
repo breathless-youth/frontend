@@ -13,13 +13,30 @@ import { RoomAvatarFallback } from "./RoomAvatarFallback";
  * 룸 멤버 타일
  */
 
-type TileBadgeState = "FOCUS" | "DISTRACTED" | "OFF";
+type TileBadgeState = "FOCUS" | "DISTRACTED" | "OFF" | "BREAK";
 
 const TILE_BADGE_SPEC: Record<TileBadgeState, { label: string; border: string }> = {
   FOCUS: { label: "집중 중", border: "border-(--state-focus)" },
   DISTRACTED: { label: "휴식", border: "border-(--state-distract)" },
   OFF: { label: "카메라 꺼짐", border: "border-(--text-tertiary)" },
+  // 뽀모도로 휴식은 측정을 멈춘 것이라 일시정지와 같은 색으로 보인다.
+  BREAK: { label: "휴식 중", border: "border-(--text-tertiary)" },
 };
+
+/**
+ * 상대 타일 시간 뱃지 상태
+ *
+ * 휴식은 그룹 공부방에서만 오는 값이고, 휴식 중에는 카메라를 켜 둬도 측정이 멈춰 있어서 카메라보다 앞서 본다.
+ */
+function tileBadgeState(member: RoomMember): TileBadgeState {
+  if (member.onBreak === true) {
+    return "BREAK";
+  }
+  if (!member.cameraOn) {
+    return "OFF";
+  }
+  return member.focusState === "DISTRACTED" ? "DISTRACTED" : "FOCUS";
+}
 
 /**
  * 상대 타일 순공 시간 뱃지
@@ -97,9 +114,7 @@ export function RoomTile({ member, media, isSelf = false, rootRef, className }: 
       )}
       {!isSelf && (
         <TileTimeBadge
-          state={
-            member.cameraOn ? (member.focusState === "DISTRACTED" ? "DISTRACTED" : "FOCUS") : "OFF"
-          }
+          state={tileBadgeState(member)}
           focusSec={member.focusSec}
           className="absolute top-2.5 right-2.5"
         />

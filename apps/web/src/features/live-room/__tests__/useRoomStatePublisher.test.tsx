@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -26,6 +27,72 @@ function setup(initial: SessionState, initialCameraOn = true) {
   );
   return { channel, hook };
 }
+
+type GroupFields = { micOn?: boolean; onBreak?: boolean };
+
+/** 마이크와 휴식 값만 바꿔 가며 다시 그린다. 나머지 값은 고정이다. */
+function renderPublisher(initial: GroupFields) {
+  const channel = createMockRoomChannel({ snapshot: [] });
+  channel.connect();
+  channel.published.length = 0;
+  const hook = renderHook(
+    (fields: GroupFields) =>
+      useRoomStatePublisher(channel, {
+        sessionState: FOCUS_STATE,
+        focusSec: 0,
+        cameraOn: false,
+        ...fields,
+      }),
+    { initialProps: initial },
+  );
+  return { channel, rerender: (fields: GroupFields) => hook.rerender(fields) };
+}
+
+describe("useRoomStatePublisher 그룹 공부방 필드", () => {
+  it("그룹 공부방은 마이크와 휴식을 처음 한 번 보내고 바뀔 때만 보낸다", () => {
+    const { channel, rerender } = renderPublisher({ micOn: false, onBreak: false });
+    rerender({ micOn: false, onBreak: false });
+    rerender({ micOn: true, onBreak: false });
+    rerender({ micOn: true, onBreak: true });
+
+    expect(channel.published.filter((message) => "micOn" in message)).toEqual([
+      { micOn: false },
+      { micOn: true },
+    ]);
+    expect(channel.published.filter((message) => "onBreak" in message)).toEqual([
+      { onBreak: false },
+      { onBreak: true },
+    ]);
+  });
+
+  it("StrictMode가 effect를 다시 돌려도 처음 값은 한 번만 보낸다", () => {
+    const channel = createMockRoomChannel({ snapshot: [] });
+    renderHook(
+      () =>
+        useRoomStatePublisher(channel, {
+          sessionState: FOCUS_STATE,
+          focusSec: 0,
+          cameraOn: false,
+          micOn: false,
+          onBreak: false,
+        }),
+      { wrapper: StrictMode },
+    );
+
+    expect(channel.published.filter((message) => "micOn" in message)).toEqual([{ micOn: false }]);
+    expect(channel.published.filter((message) => "onBreak" in message)).toEqual([
+      { onBreak: false },
+    ]);
+  });
+
+  it("초대코드 방은 새 필드를 보내지 않는다", () => {
+    const { channel } = renderPublisher({});
+
+    expect(channel.published.some((message) => "micOn" in message || "onBreak" in message)).toBe(
+      false,
+    );
+  });
+});
 
 describe("useRoomStatePublisher", () => {
   it("마운트에 카메라 상태와 focusSec를 1회씩 즉시 발행한다", () => {

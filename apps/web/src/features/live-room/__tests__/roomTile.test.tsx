@@ -1,9 +1,48 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import type { RoomMember } from "@focusmakers/types";
+
 import { stubImageLoad } from "@/test/imageStub";
 
 import { RoomTile } from "../components/RoomTile";
+
+/** 그룹 공부방 멤버이고 카메라는 꺼져 있다. */
+function member(userId: number): RoomMember {
+  return {
+    userId,
+    nickname: `멤버${userId}`,
+    goal: null,
+    cameraOn: false,
+    focusState: "FOCUS",
+    focusSec: 600,
+    micOn: false,
+    onBreak: false,
+    owner: false,
+  };
+}
+
+describe("RoomTile 그룹 공부방 휴식", () => {
+  it("휴식 중인 멤버의 시간 뱃지는 휴식 상태로 읽힌다", () => {
+    render(<RoomTile member={{ ...member(2), cameraOn: true, onBreak: true }} />);
+
+    expect(screen.getByTestId("tile-time-badge")).toHaveAttribute("data-state", "BREAK");
+    expect(screen.getByText("휴식 중")).toBeInTheDocument();
+  });
+
+  it("카메라를 끈 멤버도 휴식 중이면 휴식으로 읽힌다", () => {
+    render(<RoomTile member={{ ...member(2), cameraOn: false, onBreak: true }} />);
+
+    expect(screen.getByTestId("tile-time-badge")).toHaveAttribute("data-state", "BREAK");
+  });
+
+  it("휴식이 끝나면 지금 집중 상태로 돌아간다", () => {
+    render(<RoomTile member={{ ...member(2), cameraOn: true, onBreak: false }} />);
+
+    expect(screen.getByTestId("tile-time-badge")).toHaveAttribute("data-state", "FOCUS");
+    expect(screen.queryByText("휴식 중")).toBeNull();
+  });
+});
 
 describe("RoomTile 폴백", () => {
   it("nickname·focusSec가 없으면 이름을 생략하고 시간은 --:--로 보여준다", () => {

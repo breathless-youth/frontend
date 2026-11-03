@@ -19,6 +19,7 @@ import { createAmbientUsage } from "@/features/ambient-sound/ambientUsage";
 import { AmbientSoundButton } from "@/features/ambient-sound/components/AmbientSoundButton";
 import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSoundSheet";
 import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
+import { useMultiTimer } from "@/features/multi-timer/useMultiTimer";
 import { CameraOnConfirmDialog } from "@/features/live-room/components/CameraOnConfirmDialog";
 import { ClonedTrackPreview } from "@/features/live-room/components/ClonedTrackPreview";
 import {
@@ -60,6 +61,7 @@ import {
 } from "@/features/study-session/sessionCopy";
 import { MANUAL_END_REASON, autoEndReason } from "@/features/study-session/sessionState";
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
+import { GROUP_ROOM_SESSION_TUNING } from "@/features/study-session/sessionTuning";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import type { SubjectSelection } from "@/features/study-session/subjectSegments";
 import { deriveSubjectTotals, liveSubjectTime } from "@/features/study-session/subjectSegments";
@@ -98,6 +100,7 @@ import { FACE_MASK_EMOJIS } from "./faceMaskSettings";
 import type { CreateChannel } from "./liveRoomEntryState";
 import type { LiveRoomKind, RoomSeat } from "./roomKind";
 import { leaveRoomSeat, liveRoomHomePath, liveRoomResultPath, renewRoomSeat } from "./roomKind";
+import { roomSessionFlags } from "./roomSessionFlags";
 import { useBackgroundGraceWatch } from "./useBackgroundGraceWatch";
 import { useCameraPreviewAspect } from "./useCameraPreviewAspect";
 import { useFaceMaskedSend, useKeepMaskSourceLive } from "./useFaceMaskedSend";
@@ -210,6 +213,8 @@ export function LiveRoomSession({
     selectSubject,
     pause,
     resume,
+    startBreak,
+    endBreak,
     flipCamera,
     endAndSubmit,
   } = useStudyRoomSession(userId, {
@@ -222,6 +227,8 @@ export function LiveRoomSession({
     ambientUsage: ambientUsage.snapshot,
     getCompletedTaskIds: (startedAtMs) =>
       completedTaskIdsSince(subjectsListRef.current, startedAtMs),
+    // 그룹 공부방은 일시정지 1시간에 나가고 초대코드 방은 싱글룸과 같은 20분이다.
+    tuning: room.kind === "group" ? GROUP_ROOM_SESSION_TUNING : undefined,
   });
   const ambient = useAmbientSound({
     sessionState,
@@ -350,8 +357,12 @@ export function LiveRoomSession({
   // 표시용 카메라 상태는 획득 실패(권한 거부 등)도 꺼짐으로 취급한다 — 검은 화면을
   // 켜짐으로 그리지 않는다. 컨트롤은 일시정지 여부만 본다: 룸의 카메라 끔 = 측정
   // 일시정지와 동일하고, 획득 실패의 온전한 처리(수동 타이머 모드)는 별도 티켓이다.
+  // 그룹 공부방의 뽀모도로 휴식은 측정만 멈추는 일시정지라 카메라와 송신은 휴식을 뺀 일시정지만 본다.
+  const flags = roomSessionFlags(sessionState);
+  const cameraHeld = flags.cameraHeld;
+  // 과목 표시처럼 측정이 멈췄는지를 보이는 곳은 휴식도 멈춘 것으로 그린다.
   const paused = sessionState.kind === "PAUSE";
-  const cameraOn = !paused && isCameraRunning;
+  const cameraOn = !cameraHeld && isCameraRunning;
 
   const [cameraDialogOpen, setCameraDialogOpen] = useState(false);
   const faceMask = useFaceMaskedSend({
@@ -366,7 +377,7 @@ export function LiveRoomSession({
     myUserId: userId,
     iceServers,
     cameraStream: faceMask.sendStream,
-    trackEnabled: sessionState.kind !== "PAUSE",
+    trackEnabled: flags.trackEnabled,
     audio: room.kind === "group",
     createPeerConnection,
     onEvent: onDebugEvent,
@@ -383,10 +394,11 @@ export function LiveRoomSession({
   );
   // 소리는 그룹 공부방에서만 오간다.
   // 나가기를 눌러 세션이 끝나는 동안에도 마이크가 소리를 보내지 않게 카메라를 끈 것과 같게 본다.
-  useRoomAudio({
+  // 휴식 중에는 카메라가 켜져 있어서 마이크도 그대로 둔다.
+  const audio = useRoomAudio({
     enabled: room.kind === "group",
     mesh,
-    cameraHeld: paused || phase.name !== "studying",
+    cameraHeld: cameraHeld || phase.name !== "studying",
     micOnUserIds,
     onNotice: showCtaToast,
     ...audioDeps,
@@ -428,7 +440,7 @@ export function LiveRoomSession({
   }, [channel, pause]);
 
   // 추론 수명 — 측정 중이고 일시정지가 아닐 때만 감지한다(솔로 세션과 같은 규칙).
-  const detectionEnabled = phase.name === "studying" && sessionState.kind !== "PAUSE";
+  const detectionEnabled = phase.name === "studying" && flags.detecting;
 
   useEffect(() => {
     return () => {
@@ -436,12 +448,25 @@ export function LiveRoomSession({
     };
   }, [visionDetector]);
 
+  // 그룹 공부방의 타이머는 싱글룸처럼 휴식을 세션 휴식으로 바꾼다.
+  // 공부방에서 멈춘 세션을 다시 시작하는 일은 카메라 켜기라서 영상 공유 확인 창을 거친다.
+  useMultiTimer({
+    sessionState,
+    studying: phase.name === "studying",
+    onStartBreak: startBreak,
+    onEndBreak: endBreak,
+    onResumeSession: () => openCameraConfirm(),
+  });
+
   // 서버에 알리는 카메라 상태 — 사용자 의도(cameraWanted)를 함께 본다. 끄고 입장의
   // 첫 렌더는 pause가 effect로 적용되기 전이라, paused만 보면 켜짐이 먼저 새 나간다.
+  // 마이크와 휴식은 그룹 공부방만 보내고 초대코드 방은 지금처럼 보내지 않는다.
   useRoomStatePublisher(channel, {
     sessionState,
     focusSec,
     cameraOn: cameraWanted && cameraOn,
+    micOn: room.kind === "group" ? audio.micOn : undefined,
+    onBreak: room.kind === "group" ? flags.onBreak : undefined,
   });
 
   // 내 타일은 로컬 세션 값 기준
@@ -814,7 +839,7 @@ export function LiveRoomSession({
         <SessionMoreMenu
           container={sessionSurface}
           hidden={!controlsVisible}
-          flipDisabled={paused || controlsLocked}
+          flipDisabled={cameraHeld || controlsLocked}
           onFlipCamera={() => void flipCamera()}
           // 그룹 공부방은 숫자 4자리 초대코드가 없다.
           onShareInvite={
@@ -856,12 +881,13 @@ export function LiveRoomSession({
           )}
           {/* "저장 중..."·"다시 제출"은 숨김 대상이 아니다 — 바만 아래로 내려간다. */}
           <RoomControlBar
-            cameraOn={!paused}
+            cameraOn={!cameraHeld}
             disabled={controlsLocked}
             hidden={!controlsVisible}
             inactive={moreMenuOpen}
             onToggleCamera={() => {
-              if (!paused) {
+              // 휴식 중에 카메라를 끄면 휴식이 끝나고 카메라를 끈 일시정지가 된다.
+              if (!cameraHeld) {
                 trackSocialRoomCameraToggled(false, faceMask.on);
                 setCameraWanted(false);
                 pause("MANUAL");
@@ -1002,7 +1028,8 @@ export function LiveRoomSession({
           onRequestClose={() => {
             closeSubjectPage("play");
             // 확인 창을 연 재생 버튼은 페이지와 함께 사라져 페이지를 연 자리로 돌아간다.
-            if (paused) {
+            // 휴식 중에는 카메라가 켜져 있어서 확인 창 없이 과목만 바꾼다.
+            if (cameraHeld) {
               openCameraConfirm(subjectReturnFocus);
             }
           }}

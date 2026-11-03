@@ -552,3 +552,32 @@ describe("GroupRoomPage 나가기", () => {
     expect(getGroupHome).not.toHaveBeenCalled();
   });
 });
+
+describe("GroupRoomPage 시간 규칙과 상태 발행", () => {
+  it("들어가면 마이크 꺼짐과 휴식 아님을 한 번씩 보낸다", async () => {
+    const { channel } = await enterGroupRoom();
+
+    expect(channel.published.filter((message) => "micOn" in message)).toEqual([{ micOn: false }]);
+    expect(channel.published.filter((message) => "onBreak" in message)).toEqual([
+      { onBreak: false },
+    ]);
+  });
+
+  it("카메라를 끈 채 20분이 지나도 남고 1시간이 되면 공부를 마치고 그룹 홈으로 간다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    const { location } = await enterGroupRoom({ groupId: 10 });
+
+    // 일시정지 감시는 벽시계로 경과를 다시 계산해서 타이머를 돌리지 않고 시계만 건너뛴다.
+    act(() => vi.setSystemTime(Date.now() + 21 * 60_000));
+    await act(() => vi.advanceTimersByTimeAsync(1_000));
+    expect(submitStudySession).not.toHaveBeenCalled();
+    expect(location().pathname).toBe("/social/groups/10/room");
+
+    act(() => vi.setSystemTime(Date.now() + 39 * 60_000));
+    await act(() => vi.advanceTimersByTimeAsync(1_000));
+
+    await waitFor(() => expect(location().pathname).toBe("/social/groups/10"));
+    expect(submitStudySession).toHaveBeenCalledOnce();
+  });
+});

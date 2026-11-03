@@ -8,6 +8,7 @@ import type { RoomMember, StudySessionListResponse, SubjectResponse } from "@foc
 import type { MicAcquireResult } from "@/features/live-room/audio/microphone";
 import type { RemoteAudioPlayer } from "@/features/live-room/audio/remoteAudio";
 import { createMockRoomChannel } from "@/features/live-room/mockRoomChannel";
+import type { MockRoomChannel } from "@/features/live-room/mockRoomChannel";
 import { EMPTY_STATS } from "@/features/planner/plannerDay";
 import { createMockCameraAdapter } from "@/features/study-session/adapters/cameraAdapter";
 import { renewLiveRoomSeat } from "@/lib/roomApi";
@@ -82,50 +83,75 @@ function createFakePc() {
   };
 }
 
+/** 상대 한 명이 있는 초대코드 방에 들어가 SNAPSHOT까지 받은 상태 */
+async function enterInviteRoom() {
+  vi.mocked(renewLiveRoomSeat).mockResolvedValue({
+    roomId: 42,
+    graceRejoin: false,
+    cameraOn: null,
+    iceServers: [],
+    iceTtlSeconds: 600,
+  });
+  const pcConfigs: RTCConfiguration[] = [];
+  const createPlayer = vi.fn<() => RemoteAudioPlayer>();
+  const acquire = vi.fn<() => Promise<MicAcquireResult>>();
+  let channel: MockRoomChannel | null = null;
+  render(
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      <MemoryRouter
+        initialEntries={[{ pathname: "/social/room/42", state: { inviteCode: "0712" } }]}
+      >
+        <Routes>
+          <Route
+            path="/social/room/:roomId"
+            element={
+              <LiveRoomPage
+                createChannel={() => {
+                  channel = createMockRoomChannel({ snapshot: [member(7), member(8)] });
+                  return channel;
+                }}
+                createCamera={() => createMockCameraAdapter()}
+                createPeerConnection={(config) => {
+                  pcConfigs.push(config);
+                  return createFakePc() as unknown as RTCPeerConnection;
+                }}
+                audioDeps={{ acquire, createPlayer }}
+              />
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  await screen.findByRole("button", { name: "나가기" });
+  await act(async () => {});
+  const opened = (): MockRoomChannel => {
+    if (channel === null) {
+      throw new Error("채널이 아직 열리지 않았다");
+    }
+    return channel;
+  };
+  return { pcConfigs, createPlayer, acquire, channel: opened() };
+}
+
 describe("LiveRoomPage 초대코드 방의 소리", () => {
   it("소리 칸을 협상하지 않고 상대 소리 재생기와 마이크를 만들지 않는다", async () => {
-    vi.mocked(renewLiveRoomSeat).mockResolvedValue({
-      roomId: 42,
-      graceRejoin: false,
-      cameraOn: null,
-      iceServers: [],
-      iceTtlSeconds: 600,
-    });
-    const pcConfigs: RTCConfiguration[] = [];
-    const createPlayer = vi.fn<() => RemoteAudioPlayer>();
-    const acquire = vi.fn<() => Promise<MicAcquireResult>>();
-    render(
-      <QueryClientProvider
-        client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-      >
-        <MemoryRouter
-          initialEntries={[{ pathname: "/social/room/42", state: { inviteCode: "0712" } }]}
-        >
-          <Routes>
-            <Route
-              path="/social/room/:roomId"
-              element={
-                <LiveRoomPage
-                  createChannel={() => createMockRoomChannel({ snapshot: [member(7), member(8)] })}
-                  createCamera={() => createMockCameraAdapter()}
-                  createPeerConnection={(config) => {
-                    pcConfigs.push(config);
-                    return createFakePc() as unknown as RTCPeerConnection;
-                  }}
-                  audioDeps={{ acquire, createPlayer }}
-                />
-              }
-            />
-          </Routes>
-        </MemoryRouter>
-      </QueryClientProvider>,
-    );
-    await screen.findByRole("button", { name: "나가기" });
-    await act(async () => {});
+    const { pcConfigs, createPlayer, acquire } = await enterInviteRoom();
 
     await waitFor(() => expect(pcConfigs).toHaveLength(1));
     expect(pcConfigs[0]).not.toHaveProperty("bundlePolicy");
     expect(createPlayer).not.toHaveBeenCalled();
     expect(acquire).not.toHaveBeenCalled();
+  });
+
+  it("마이크와 휴식 상태를 보내지 않는다", async () => {
+    const { channel } = await enterInviteRoom();
+
+    expect(channel.published).toContainEqual({ cameraOn: false });
+    expect(channel.published.some((message) => "micOn" in message || "onBreak" in message)).toBe(
+      false,
+    );
   });
 });
