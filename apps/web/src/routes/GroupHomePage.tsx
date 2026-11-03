@@ -26,6 +26,7 @@ import { useNow } from "@/features/ranking/useNow";
 import { leaveGroup, setGroupNotification } from "@/lib/groupRoomApi";
 import {
   cannotLoadFirst,
+  dropFromMyGroups,
   forgetGroup,
   groupHomeQuery,
   groupInviteQuery,
@@ -133,9 +134,11 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
   // 그룹 탭에서 왔으면 그 기록으로 돌아가서 같은 탭이 기록에 두 번 쌓이지 않고 보던 탭과 검색 조건도 남는다.
   // 앞 화면 없이 열렸으면 그룹 탭으로 바꿔 간다.
   // 나간 그룹 홈은 앞으로 가기 기록에만 남고, 앞으로 가기로 그룹 화면에 다시 들어오면 historyGuard가 되돌린다.
+  // 그룹 탭이 내 그룹을 다시 받는 동안 나간 그룹 카드가 보이지 않게 돌아가기 전에 받아 둔 목록에서 뺀다.
   const finishLeaving = () => {
     setLeft(true);
     setLeaveOpen(false);
+    dropFromMyGroups(queryClient, userId, groupId);
     back();
     void invalidateGroupMembership(queryClient, userId);
   };

@@ -152,6 +152,34 @@ describe("그룹 홈", () => {
     await waitFor(() => expect(router.location().key).toBe(tabKey));
   });
 
+  it("나간 그룹은 그룹 탭이 내 그룹을 다시 받기 전에도 탭에 남지 않는다", async () => {
+    const api = mockGroupApi("default");
+    const { router } = renderGroupRoute("/social?groupRooms=1");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /우리 반 저녁 스터디/ }));
+    await screen.findByRole("heading", { name: "우리 반 저녁 스터디" });
+    // 그룹 탭으로 돌아가 내 그룹을 다시 받는 동안의 화면을 본다.
+    api.getMyGroups.mockImplementation(() => new Promise(() => {}));
+    await openMenuItem(/그룹 나가기/);
+    await user.click(screen.getByRole("button", { name: "나가기" }));
+    await waitFor(() => expect(router.location().pathname).toBe("/social"));
+    expect(await screen.findByRole("tab", { name: /내 그룹 2\/5/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /우리 반 저녁 스터디/ })).toBeNull();
+  });
+
+  it("내보내져 돌아간 그룹도 그룹 탭이 내 그룹을 다시 받기 전에 탭에서 빠진다", async () => {
+    const api = mockGroupApi("default");
+    const { router } = renderGroupRoute("/social?groupRooms=1");
+    const card = await screen.findByRole("button", { name: /우리 반 저녁 스터디/ });
+    api.getGroupHome.mockRejectedValue(new ApiError("x", 403, "NOT_GROUP_MEMBER"));
+    api.getMyGroups.mockImplementation(() => new Promise(() => {}));
+    await userEvent.setup().click(card);
+    await waitFor(() => expect(router.location().pathname).toBe("/social"));
+    expect(await screen.findByText("이 그룹의 멤버가 아니에요")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /내 그룹 2\/5/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /우리 반 저녁 스터디/ })).toBeNull();
+  });
+
   it("스스로 나간 뒤에는 그 그룹을 다시 받지 않아 멤버가 아니라는 안내가 뜨지 않는다", async () => {
     const api = mockGroupApi("default");
     const { router } = renderGroupRoute("/social/groups/11?groupRooms=1");

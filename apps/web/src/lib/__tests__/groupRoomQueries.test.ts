@@ -1,3 +1,4 @@
+import type { MyGroupCard, MyGroupsResponse } from "@focusmakers/types";
 import { QueryClient } from "@tanstack/react-query";
 import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
@@ -7,6 +8,7 @@ import {
   blocksQuery,
   cannotLoadFirst,
   dedupePublicGroups,
+  dropFromMyGroups,
   forgetGroup,
   groupApplicationsQuery,
   groupHomeQuery,
@@ -119,6 +121,41 @@ describe("groupRoomQueries", () => {
     expect(perGroup(10).filter(cached)).toEqual([]);
     expect(perGroup(11).every(cached)).toBe(true);
     expect(cached(groupKeys.mine(7))).toBe(true);
+  });
+
+  it("떠난 그룹은 받아 둔 내 그룹 목록에서 바로 빼고 그룹장이던 그룹이면 그룹장 그룹 수도 줄인다", () => {
+    const client = new QueryClient();
+    const myCard = (groupId: number, owner: boolean): MyGroupCard => ({
+      groupId,
+      name: `그룹${groupId}`,
+      category: "CSAT",
+      visibility: "PRIVATE",
+      memberCount: 3,
+      studyingCount: 0,
+      owner,
+      members: [],
+    });
+    client.setQueryData<MyGroupsResponse>(groupKeys.mine(7), {
+      groups: [myCard(10, true), myCard(11, false), myCard(12, true)],
+      pendingApplicationCount: 1,
+      ownedGroupCount: 2,
+      limits: { maxGroupsAndApplications: 5, maxPendingApplications: 3, maxOwnedGroups: 2 },
+    });
+    const mine = () => client.getQueryData<MyGroupsResponse>(groupKeys.mine(7))!;
+
+    dropFromMyGroups(client, 7, 11);
+    expect(mine().groups.map((group) => group.groupId)).toEqual([10, 12]);
+    expect(mine().ownedGroupCount).toBe(2);
+    dropFromMyGroups(client, 7, 10);
+    expect(mine().groups.map((group) => group.groupId)).toEqual([12]);
+    expect(mine().ownedGroupCount).toBe(1);
+    expect(mine().pendingApplicationCount).toBe(1);
+  });
+
+  it("받아 둔 내 그룹 목록이 없으면 새로 만들지 않는다", () => {
+    const client = new QueryClient();
+    dropFromMyGroups(client, 7, 10);
+    expect(client.getQueryData(groupKeys.mine(7))).toBeUndefined();
   });
 
   it("멤버 변화는 내 그룹, 내 신청, 공개 목록과 그 그룹 조회를 무효화한다", async () => {

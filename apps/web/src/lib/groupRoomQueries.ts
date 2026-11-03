@@ -1,4 +1,9 @@
-import type { PublicGroupCard, PublicGroupPageResponse, StudyCategory } from "@focusmakers/types";
+import type {
+  MyGroupsResponse,
+  PublicGroupCard,
+  PublicGroupPageResponse,
+  StudyCategory,
+} from "@focusmakers/types";
 import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 import type { QueryClient, QueryKey } from "@tanstack/react-query";
 
@@ -233,7 +238,7 @@ export async function invalidateGroupMembership(
  *
  * 나간 그룹의 조회를 무효화하면 화면이 남아 있는 동안 다시 받아서 멤버가 아니라는 오류와 그 안내가 뜬다.
  * 그래서 그 그룹 화면을 벗어난 다음에 다시 받지 않고 캐시에서 뺀다.
- * 내 그룹 탭의 목록과 숫자는 `invalidateGroupMembership`이 맡는다.
+ * 내 그룹 탭의 목록과 숫자는 `dropFromMyGroups`와 `invalidateGroupMembership`이 맡는다.
  */
 export function forgetGroup(queryClient: QueryClient, userId: number, groupId: number): void {
   for (const queryKey of [
@@ -245,4 +250,30 @@ export function forgetGroup(queryClient: QueryClient, userId: number, groupId: n
   ]) {
     queryClient.removeQueries({ queryKey, exact: true });
   }
+}
+
+/**
+ * 떠난 그룹을 받아 둔 내 그룹 목록에서 빼기
+ *
+ * 그룹 탭은 내 그룹을 다시 받는 동안 받아 둔 목록을 보여서, 빼지 않으면 떠난 그룹 카드와 숫자가 응답이 올 때까지 남는다.
+ * 그 카드를 누르면 서버가 멤버가 아니라고 답해 막 떠난 그룹의 안내가 다시 뜬다.
+ * 그룹장이던 그룹이면 그룹 만들기 한도를 세는 그룹장 그룹 수도 하나 줄인다.
+ * 서버에서 새로 받은 목록이 아니라서 받은 시각은 그대로 두고, 다시 받는 일은 `invalidateGroupMembership`이 맡는다.
+ */
+export function dropFromMyGroups(queryClient: QueryClient, userId: number, groupId: number): void {
+  const queryKey = groupKeys.mine(userId);
+  const mine = queryClient.getQueryData<MyGroupsResponse>(queryKey);
+  const left = mine?.groups.find((group) => group.groupId === groupId);
+  if (mine === undefined || left === undefined) {
+    return;
+  }
+  queryClient.setQueryData<MyGroupsResponse>(
+    queryKey,
+    {
+      ...mine,
+      groups: mine.groups.filter((group) => group !== left),
+      ownedGroupCount: left.owner ? Math.max(0, mine.ownedGroupCount - 1) : mine.ownedGroupCount,
+    },
+    { updatedAt: queryClient.getQueryState(queryKey)?.dataUpdatedAt },
+  );
 }
