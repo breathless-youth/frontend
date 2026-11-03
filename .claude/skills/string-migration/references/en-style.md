@@ -17,7 +17,7 @@
 - 실패: `Couldn't load …`, `Couldn't copy`. `Failed to`, `Error:`로 시작하지 않는다.
 - 다시 시도 권유: `Please try again in a moment`. 짧은 자리(토스트)는 `Try again`.
 - 완료 토스트: 주어 없는 과거분사(`Profile saved`, `Version copied`, `Profile photo updated`). 사용자가 한 일을 시스템이 해 준 경우는 동사 과거형(`Blocked 3 distracting apps`).
-- 자동 감지 상태(추정형 "~한 것 같아요"): `Looks like you're …`로 통일한다(`Looks like you're away`, `Looks like you're on your phone`, `Looks like the device moved`, `Looks like you're dozing off`).
+- 자동 감지 상태(추정형 "~한 것 같아요"): `Looks like you're …`로 통일한다(`Looks like you're away`, `Looks like you're on your phone`, `Looks like you're moving your device`, `Looks like you're dozing off`).
 - 툴팁 버튼 접근성 라벨: `About {{label}}`(ko `{{label}} 안내`).
 - 설정 행 상태 값: `On` / `Off`.
 - 업데이트 강제: `Update required` + `Update now`.
@@ -53,11 +53,11 @@
 
 ## 세션 화면 (묶음 C1에서 정함)
 
-- 세션 제출 오류는 `Couldn't submit your session`으로 시작한다. 서버 오류는 뒤에 `Please try again in a moment`를 붙인다. 서버 `message`를 옮기지 않는다.
+- 세션 제출 오류는 `Couldn't save your session`으로 시작하고, 다시 시도하면 풀릴 수 있는 오류는 뒤에 `Please try again in a moment`를 붙인다. 이미 저장된 세션(`This session is already saved`)과 계정 확인 실패(`Couldn't verify your account`)는 이 틀을 따르지 않는다. 서버 `message`를 옮기지 않는다.
 - 도움말의 `<hl>` 태그는 ko와 개수·이름을 같게 둔다. `whitespace-pre` 자리는 고정 줄바꿈 한 줄을 25자 안팎으로 둔다.
 - 스크린리더용 시간 길이(`duration.sr*`)는 단위를 풀어 쓴다(`1 hour 24 minutes 8 seconds`). 화면 표기 `1h 24m`의 `m`을 미터로 읽지 않게 하려는 것이다.
-- 1분 미만 화면 표기는 `Under 1m`이다.
-- 토글 버튼(`aria-pressed`)의 접근성 라벨은 동작이 아니라 상태 이름으로 쓴다(`Simple mode`, `Switch to …` 아님).
+- 1분 미만 화면 표기는 `Under 1 min`이다.
+- 토글 버튼(`aria-pressed`)의 접근성 라벨은 동작이 아니라 상태 이름으로 쓴다(`Simple Mode`, `Switch to …` 아님).
 
 ## 외부로 나가는 문구 (묶음 C2에서 정함)
 
@@ -155,7 +155,7 @@
 | 목표 날짜 (D-Day) | target date | `Set target date` |
 | 빠른 이동 (D-Day 달력) | +1 month / +6 months / +1 year | 13px 알약 세 개 |
 | 나 (내 타일) | Me | |
-| 심플 모드 | simple mode | 문장 안 소문자. 토글 라벨은 `Simple mode`, 시작 버튼은 `Start in simple mode` |
+| 심플 모드 | Simple Mode | 기능 이름이라 문장 안에서도 대문자. 토글 라벨 `Simple Mode`, 시작 버튼 `Start in Simple Mode` |
 | 도움말 (세션) | guide | `Session guide`, 메뉴 `View guide`. help와 섞지 않는다 |
 | 더보기 | More | 메뉴 버튼·도움말 `the More menu` |
 | 카메라 전환 | Switch camera | 토스트 `Camera switched` |
@@ -166,5 +166,5 @@
 | 누적 공부 일 수 | Days studied | 값 `{{count}} day(s)` |
 | 오늘 공부 완료 | Session complete | 결과 히어로 |
 | 과목 추가 / 할 일 추가 | Add subject / Add task | |
-| 추천 과목 | Suggested subjects | 플래너와 같다 |
+| 추천 과목 | Suggested subjects | 플래너와 같다. 칩은 카탈로그가 아니라 `subjectSuggestions()`의 언어별 목록이다(en `Math` / `English` / `Science` / `History`) |
 | 저장되지 않은 기록 복구 | Unsaved session recovered | 복구 창 제목 |
