@@ -114,3 +114,39 @@ export function isFocusRunning(state: SessionState): boolean {
 export function isStudyRunning(state: SessionState): boolean {
   return state.kind !== "PAUSE";
 }
+
+/**
+ * 상태 필 문구 키(voice-tone.md §3). 값은 카탈로그 `study-session:status.*`에 있다.
+ *
+ * 추정형 어미("~것 같아요")를 단정형으로 바꾸지 않는다. 감지 오탐 가능성을 문구가 흡수한다(§1).
+ * 수동 일시정지·화면 꺼짐·휴식은 같은 문구를 쓴다(2026-07-26 6차 확정). `화면 꺼짐` 라벨은 UI에 없다.
+ * 졸음(SLEEP)은 오래 감김과 꾸벅거림을 한 문구로 덮는다(voice-tone 등재 전, 리더 확인 대기).
+ */
+const DISTRACTION_LABEL_KEY = {
+  AWAY: "study-session:status.away",
+  PHONE: "study-session:status.phone",
+  DEVICE: "study-session:status.device",
+  SLEEP: "study-session:status.sleep",
+} as const satisfies Record<DistractionTrigger, string>;
+
+export function statusLabelKey(state: SessionState) {
+  switch (state.kind) {
+    case "FOCUS":
+      return "study-session:status.focus";
+    case "DISTRACTION":
+      return DISTRACTION_LABEL_KEY[state.trigger];
+    case "PAUSE":
+      return "study-session:status.pause";
+  }
+}
+
+/**
+ * 자동 종료 본문 키. 트리거는 문구 선택에만 쓴다(임계값 판정에는 쓰지 않는다, SCR-S3-7·S3-8).
+ *
+ * 수동 일시정지 방치(`MANUAL`)는 voice-tone §4에 문구가 미정이라 `null`이다. 화면을 끄지 않은
+ * 사용자에게 "화면이 꺼진 동안"이라고 안내하면 사실과 달라 화면 꺼짐 문구를 재사용하지 않는다.
+ * 본문 안 `\n`은 Figma `63:591` 실측 줄바꿈이다.
+ */
+export function autoEndBodyKey(trigger: PauseTrigger) {
+  return trigger === "BACKGROUND" ? "study-session:autoEnd.backgroundBody" : null;
+}

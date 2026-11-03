@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 
@@ -29,10 +31,11 @@ export function FaceMaskEmojiPicker({
   onChange,
   className,
 }: FaceMaskEmojiPickerProps) {
+  const { t } = useTranslation("live-room");
   return (
     <ToggleGroup
       type="single"
-      aria-label="가림 이모지"
+      aria-label={t("faceMask.aria.picker")}
       disabled={disabled}
       value={value}
       // 같은 이모지를 다시 누르면 빈 값이 오는데, 가리는 동안에는 항상 하나가 골라져 있어야 해서 무시한다.

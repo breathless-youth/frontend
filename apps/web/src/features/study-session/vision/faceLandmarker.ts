@@ -358,7 +358,10 @@ export function createFaceLandmarker(
           return null;
         }
         consecutiveFailures += 1;
-        console.warn(`[vision] 얼굴 detectForVideo 실패 (${consecutiveFailures}회 연속)`, error);
+        console.warn(
+          `[vision] face detectForVideo failed (${consecutiveFailures} in a row)`,
+          error,
+        );
         if (consecutiveFailures >= MAX_CONSECUTIVE_DETECT_FAILURES) {
           reportHandled(error, "vision-face-frame-loop");
           releaseHandle();

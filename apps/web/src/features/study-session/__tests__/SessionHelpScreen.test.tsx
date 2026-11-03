@@ -2,8 +2,10 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import i18n from "@/lib/i18n";
+
 import { SessionHelpScreen } from "../components/SessionHelpScreen";
-import { SESSION_HELP_STEPS } from "../sessionHelpCopy";
+import { SESSION_HELP_STEPS } from "../sessionGuide";
 
 /** 핵심 단어를 따로 감싸서 문구가 여러 노드로 나뉜다. 문단 전체 글자로 찾는다. */
 function queryParagraph(text: string) {
@@ -15,11 +17,11 @@ function queryParagraph(text: string) {
 const next = () => fireEvent.click(screen.getByRole("button", { name: "다음" }));
 const tapOverlay = () => fireEvent.click(screen.getByLabelText("다음 안내"));
 
-/** 단계 하나의 문구 전부(설명과 정중앙 제목) */
+/** 단계 하나의 문구 전부(설명과 정중앙 제목). 문구 상수가 카탈로그로 옮겨 가 강조 태그를 뺀 글자로 비교한다. */
 const stepTexts = (index: number) => {
   const { callouts, center } = SESSION_HELP_STEPS[index];
-  return [...Object.values(callouts), ...(center === undefined ? [] : [center])].map(
-    (callout) => callout.text,
+  return [...Object.values(callouts), ...(center === undefined ? [] : [center])].map((key) =>
+    i18n.t(`study-session:${key}`).replace(/<\/?hl>/g, ""),
   );
 };
 
@@ -65,13 +67,11 @@ describe("SessionHelpScreen", () => {
       "photo",
       "photo",
     ]);
-    expect(SESSION_HELP_STEPS.map((step) => step.cta)).toEqual([
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      "순공 시작하기",
-    ]);
+    expect(
+      SESSION_HELP_STEPS.map((step) =>
+        step.cta === true ? i18n.t("study-session:help.finishCta") : undefined,
+      ),
+    ).toEqual([undefined, undefined, undefined, undefined, "순공 시작하기"]);
   });
 
   it("다섯 단계를 순서대로 보이고 단계마다 그 단계 문구만 있다", () => {

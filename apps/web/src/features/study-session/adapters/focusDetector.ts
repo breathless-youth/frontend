@@ -813,7 +813,7 @@ export function createVisionFocusDetector(
         tap.save(faceRan.photo);
       } else if (faceRan !== null) {
         // 얼굴 추론은 됐는데 사진만 빠졌으면 런타임이 사진을 만들지 못한 것이고 그 이유는 워커가 들고 있다.
-        tap.fail(new Error("얼굴 틱의 사진을 만들지 못했다"));
+        tap.fail(new Error("could not render the face tick photo"));
       }
       return;
     }

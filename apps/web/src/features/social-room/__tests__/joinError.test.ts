@@ -2,15 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import { ApiError } from "@/lib/api";
 
-import {
-  CHECK_CODE_MESSAGE,
-  JOIN_RETRY_MESSAGE,
-  ROOM_CLOSED_MESSAGE,
-  ROOM_FULL_MESSAGE,
-  USER_NOT_FOUND_MESSAGE,
-  joinErrorMessage,
-  rejoinFailure,
-} from "../joinErrorCopy";
+import { joinErrorMessage, rejoinFailure } from "../joinError";
+
+const JOIN_RETRY_MESSAGE = "잠시 후 다시 시도해 주세요";
+const CHECK_CODE_MESSAGE = "초대코드를 다시 확인해 주세요";
+const ROOM_CLOSED_MESSAGE = "방이 만료되었어요";
+const USER_NOT_FOUND_MESSAGE = "사용자 정보를 확인할 수 없어요";
+const ROOM_FULL_MESSAGE = "방이 가득 찼어요";
 
 describe("joinErrorMessage — 초대코드 입력·공유 화면", () => {
   it("INVITE_CODE_NOT_FOUND는 코드 재확인 문구다", () => {
@@ -53,7 +51,7 @@ describe("joinErrorMessage — 초대코드 입력·공유 화면", () => {
     );
   });
 
-  // 서버가 code를 누락하는 상황이 실사용에서 확인돼 추가한 4xx 폴백(BY-427, joinErrorCopy.ts 상단 주석)
+  // 서버가 code를 누락하는 상황이 실사용에서 확인돼 추가한 4xx 폴백(BY-427, joinError.ts 상단 주석)
   it.each([400, 404])("code 없는 %i도 코드 재확인 문구다 — 4xx status 폴백", (status) => {
     expect(joinErrorMessage(new ApiError("본문에 code 없음", status))).toBe(CHECK_CODE_MESSAGE);
   });

@@ -1,9 +1,12 @@
 import type { RoomJoinErrorCode } from "@focusmakers/types";
 
 import { ApiError } from "@/lib/api";
+import i18n from "@/lib/i18n";
 
 /**
  * 초대코드 입장 실패 → 화면 문구 매핑 (2026-08-25 BY-436으로 코드 체계 교체)
+ *
+ * 서버 `message`는 화면에 쓰지 않는다. 서버 `code`(없으면 status)로 `social-room:errors.*`(재시도는 `common:errors.retryLater`) 키를 고른다.
  *
  * 소비 맥락이 둘이고 같은 코드라도 맞는 안내가 다르다.
  * - `joinErrorMessage` — 초대코드 입력·공유 화면. 사용자가 코드를 고칠 수 있는 자리다.
@@ -19,30 +22,39 @@ import { ApiError } from "@/lib/api";
  * 이 티켓이 고치는 버그가 정확히 그 갇힌 상태였다.
  */
 
-export const JOIN_RETRY_MESSAGE = "잠시 후 다시 시도해 주세요";
-export const CHECK_CODE_MESSAGE = "초대코드를 다시 확인해 주세요";
-export const ROOM_CLOSED_MESSAGE = "방이 만료되었어요";
-export const USER_NOT_FOUND_MESSAGE = "사용자 정보를 확인할 수 없어요";
-export const ROOM_FULL_MESSAGE = "방이 가득 찼어요";
+type JoinErrorKey =
+  | "common:errors.retryLater"
+  | "social-room:errors.checkCode"
+  | "social-room:errors.roomClosed"
+  | "social-room:errors.userNotFound"
+  | "social-room:errors.roomFull";
+
+const JOIN_RETRY: JoinErrorKey = "common:errors.retryLater";
+const CHECK_CODE: JoinErrorKey = "social-room:errors.checkCode";
+const ROOM_CLOSED: JoinErrorKey = "social-room:errors.roomClosed";
+
+function text(key: JoinErrorKey): string {
+  return i18n.t(key);
+}
 
 /** 코드 재확인이 맞는 행동인 코드 — 입력 화면에서만 의미가 있다. */
 const CHECK_CODE_CODES: readonly RoomJoinErrorCode[] = ["INVITE_CODE_NOT_FOUND", "BAD_REQUEST"];
 
-function messageByCode(code: string | undefined): string | null {
+function messageByCode(code: string | undefined): JoinErrorKey | null {
   if (code === undefined) {
     return null;
   }
   if (CHECK_CODE_CODES.includes(code as RoomJoinErrorCode)) {
-    return CHECK_CODE_MESSAGE;
+    return CHECK_CODE;
   }
   if (code === ("ROOM_CLOSED" satisfies RoomJoinErrorCode)) {
-    return ROOM_CLOSED_MESSAGE;
+    return ROOM_CLOSED;
   }
   if (code === ("USER_NOT_FOUND" satisfies RoomJoinErrorCode)) {
-    return USER_NOT_FOUND_MESSAGE;
+    return "social-room:errors.userNotFound";
   }
   if (code === ("CONFLICT" satisfies RoomJoinErrorCode)) {
-    return ROOM_FULL_MESSAGE;
+    return "social-room:errors.roomFull";
   }
   // VALIDATION_FAILED·INTERNAL_ERROR·미지의 코드: 사용자가 고칠 수 있는 게 없다.
   return null;
@@ -56,30 +68,30 @@ function messageByCode(code: string | undefined): string | null {
  * 사용자에게는 `ROOM_CLOSED`와 같은 일이다. `BAD_REQUEST`도 코드를 고칠 칸이 없어
  * 재확인 안내가 무의미하다.
  */
-function rejoinMessageByCode(code: string | undefined): string {
+function rejoinMessageByCode(code: string | undefined): JoinErrorKey {
   if (code === ("INVITE_CODE_NOT_FOUND" satisfies RoomJoinErrorCode)) {
-    return ROOM_CLOSED_MESSAGE;
+    return ROOM_CLOSED;
   }
   if (code === ("BAD_REQUEST" satisfies RoomJoinErrorCode)) {
-    return JOIN_RETRY_MESSAGE;
+    return JOIN_RETRY;
   }
-  return messageByCode(code) ?? JOIN_RETRY_MESSAGE;
+  return messageByCode(code) ?? JOIN_RETRY;
 }
 
 /** 초대코드 입력·공유 화면의 인라인/토스트 문구. */
 export function joinErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
-    const message = messageByCode(error.code);
-    if (message !== null) {
-      return message;
+    const key = messageByCode(error.code);
+    if (key !== null) {
+      return text(key);
     }
     // code 누락 폴백(상단 주석 참고): 4xx는 요청 쪽 문제라 코드 재확인이 맞는 안내다.
     // 5xx·네트워크 실패는 코드를 고쳐도 소용없으므로 재시도 문구로 흘린다.
     if (error.code === undefined && error.status >= 400 && error.status < 500) {
-      return CHECK_CODE_MESSAGE;
+      return text(CHECK_CODE);
     }
   }
-  return JOIN_RETRY_MESSAGE;
+  return text(JOIN_RETRY);
 }
 
 /**
@@ -104,9 +116,9 @@ export type RejoinFailure = { kind: "leave" | "retry"; message: string };
 
 export function rejoinFailure(error: unknown): RejoinFailure {
   if (!(error instanceof ApiError)) {
-    return { kind: "retry", message: JOIN_RETRY_MESSAGE };
+    return { kind: "retry", message: text(JOIN_RETRY) };
   }
-  const message = rejoinMessageByCode(error.code);
+  const message = text(rejoinMessageByCode(error.code));
   // 정원 초과만은 4xx여도 남는다 — 누군가 나가면 같은 코드로 다시 들어갈 수 있다.
   if (error.status === 409) {
     return { kind: "retry", message };

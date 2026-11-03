@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from "react";
 
 import { IconChevronDown, IconChevronLeft, IconChevronRight } from "@/features/records/icons";
@@ -6,7 +7,9 @@ import {
   buildMonthGrid,
   type CalendarMonth,
   dayOfDateKey,
+  formatMonthDay,
   monthLabel,
+  monthName,
   monthOfDateKey,
   shiftMonth,
   weekdayShortLabel,
@@ -14,11 +17,11 @@ import {
 import { cn } from "@/lib/utils";
 
 /** 연/월 선택기의 빠른 이동 — 시험은 보통 몇 달 뒤라 달을 하나씩 넘기게 두지 않는다. */
-const QUICK_JUMPS: readonly { readonly months: number; readonly label: string }[] = [
-  { months: 1, label: "1개월 후" },
-  { months: 6, label: "6개월 후" },
-  { months: 12, label: "1년 후" },
-];
+const QUICK_JUMPS = [
+  { months: 1, labelKey: "ddayCalendar.jump.oneMonth" },
+  { months: 6, labelKey: "ddayCalendar.jump.sixMonths" },
+  { months: 12, labelKey: "ddayCalendar.jump.oneYear" },
+] as const;
 
 const NAV_BUTTON_CLASS = "flex size-11 items-center justify-center";
 
@@ -46,6 +49,7 @@ export function DdayCalendar({
   todayKey: string;
   onChange: (dateKey: string) => void;
 }) {
+  const { t } = useTranslation("home");
   // 지난 D-Day를 편집할 땐 그 달이 아니라 이번 달부터 연다 — 지난 달은 전부 비활성이라 고를 게 없다.
   const [month, setMonth] = useState<CalendarMonth>(() =>
     monthOfDateKey(value !== null && value >= todayKey ? value : todayKey),
@@ -129,7 +133,7 @@ export function DdayCalendar({
       <div data-base-ui-swipe-ignore="" className="flex h-11 items-center justify-between">
         <button
           type="button"
-          aria-label="이전 달"
+          aria-label={t("ddayCalendar.aria.prevMonth")}
           onClick={() => shiftBy(-1)}
           className={cn(NAV_BUTTON_CLASS, "-ml-3.5")}
         >
@@ -138,7 +142,7 @@ export function DdayCalendar({
         <button
           type="button"
           aria-expanded={picker}
-          aria-label="연도·월 바로 가기"
+          aria-label={t("ddayCalendar.aria.monthPicker")}
           onClick={() => {
             setPickYear(month.year);
             setSlideFrom(null);
@@ -153,7 +157,7 @@ export function DdayCalendar({
         </button>
         <button
           type="button"
-          aria-label="다음 달"
+          aria-label={t("ddayCalendar.aria.nextMonth")}
           onClick={() => shiftBy(1)}
           className={cn(NAV_BUTTON_CLASS, "-mr-3.5")}
         >
@@ -180,7 +184,7 @@ export function DdayCalendar({
           <div className="flex h-11 items-center justify-center gap-1">
             <button
               type="button"
-              aria-label="이전 연도"
+              aria-label={t("ddayCalendar.aria.prevYear")}
               disabled={pickYear <= thisMonth.year}
               onClick={() => shiftYearBy(-1)}
               className={cn(NAV_BUTTON_CLASS, "disabled:opacity-30")}
@@ -192,7 +196,7 @@ export function DdayCalendar({
             </span>
             <button
               type="button"
-              aria-label="다음 연도"
+              aria-label={t("ddayCalendar.aria.nextYear")}
               onClick={() => shiftYearBy(1)}
               className={NAV_BUTTON_CLASS}
             >
@@ -234,7 +238,7 @@ export function DdayCalendar({
                           : "bg-bg-layer-2 text-foreground",
                   )}
                 >
-                  {candidate.month}월
+                  {monthName(candidate)}
                 </button>
               );
             })}
@@ -247,7 +251,7 @@ export function DdayCalendar({
                 onClick={() => pickMonth(shiftMonth(thisMonth, jump.months))}
                 className="h-9 flex-1 rounded-full bg-bg-layer-2 text-[13px] leading-4 font-medium text-muted-foreground"
               >
-                {jump.label}
+                {t(jump.labelKey)}
               </button>
             ))}
           </div>
@@ -305,7 +309,7 @@ export function DdayCalendar({
                     type="button"
                     disabled={past}
                     aria-pressed={selected}
-                    aria-label={`${month.month}월 ${dayOfDateKey(dateKey)}일`}
+                    aria-label={formatMonthDay(dateKey)}
                     onClick={() => onChange(dateKey)}
                     className="flex h-11 items-center justify-center"
                   >

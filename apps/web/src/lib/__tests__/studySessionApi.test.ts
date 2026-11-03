@@ -67,7 +67,9 @@ describe("getStudySessionDetail", () => {
       },
     });
 
-    await expect(getStudySessionDetail(10)).rejects.toThrow("세션 조회 실패 (HTTP 404)");
+    await expect(getStudySessionDetail(10)).rejects.toThrow(
+      "session detail fetch failed (HTTP 404)",
+    );
   });
 });
 

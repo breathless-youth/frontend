@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "@/lib/api";
 
+import { submitErrorMessage } from "../submitErrorMessage";
 import { buildSessionRequest, submitStudySession } from "../submitStudySession";
 
 const BASE_INPUT = {
@@ -199,7 +200,9 @@ describe("submitStudySession", () => {
       }),
     );
 
-    await expect(submitStudySession(BASE_INPUT)).rejects.toThrow("세션 제출 실패 (HTTP 500)");
+    await expect(submitStudySession(BASE_INPUT)).rejects.toThrow(
+      "session submit failed (HTTP 500)",
+    );
   });
 
   it("토큰 출처 없이 URL에 userId가 있으면 본문에 userId를 싣는다(구 앱)", async () => {
@@ -223,5 +226,37 @@ describe("submitStudySession", () => {
     } finally {
       window.history.replaceState(null, "", "/");
     }
+  });
+});
+
+describe("submitErrorMessage", () => {
+  it("서버 message가 아니라 code로 문구를 고른다", () => {
+    expect(
+      submitErrorMessage(new ApiError("studySec: 0 이상이어야 합니다", 400, "VALIDATION_FAILED")),
+    ).toBe("요청 값이 올바르지 않습니다");
+    expect(submitErrorMessage(new ApiError("x", 400, "BAD_REQUEST"))).toBe(
+      "요청 값이 올바르지 않습니다",
+    );
+    expect(
+      submitErrorMessage(new ApiError("존재하지 않는 사용자입니다: 999", 404, "NOT_FOUND")),
+    ).toBe("존재하지 않는 사용자입니다");
+    expect(submitErrorMessage(new ApiError("x", 409, "CONFLICT"))).toBe(
+      "이미 같은 시각에 시작한 세션이 저장되어 있습니다",
+    );
+    expect(submitErrorMessage(new ApiError("x", 500, "INTERNAL_ERROR"))).toBe(
+      "서버 오류가 발생했습니다",
+    );
+  });
+
+  it("모르는 코드, 코드 없는 응답, 네트워크 오류는 공용 문구다", () => {
+    expect(submitErrorMessage(new ApiError("x", 401, "UNAUTHORIZED"))).toBe(
+      "세션 제출에 실패했습니다",
+    );
+    expect(submitErrorMessage(new ApiError("x", 400, "toString"))).toBe("세션 제출에 실패했습니다");
+    expect(submitErrorMessage(new ApiError("session submit failed (HTTP 502)", 502))).toBe(
+      "세션 제출에 실패했습니다",
+    );
+    expect(submitErrorMessage(new TypeError("Load failed"))).toBe("세션 제출에 실패했습니다");
+    expect(submitErrorMessage("oops")).toBe("세션 제출에 실패했습니다");
   });
 });

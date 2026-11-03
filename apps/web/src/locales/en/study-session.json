@@ -1,0 +1,167 @@
+{
+  "status": {
+    "focus": "Measuring focus time",
+    "away": "Looks like you're away",
+    "phone": "Looks like you're on your phone",
+    "device": "Looks like the device moved",
+    "sleep": "Looks like you're dozing off",
+    "pause": "Measuring paused"
+  },
+  "exitConfirm": {
+    "title": "End your session?",
+    "cancel": "Keep going",
+    "confirm": "End session"
+  },
+  "exitDescription": {
+    "saved": "The {{duration}} you've focused so far will be saved",
+    "subMinute": "Sessions under 1 minute don't appear in your records"
+  },
+  "inviteConfirm": {
+    "title": "End your session and accept the invite?",
+    "cancel": "Keep going",
+    "confirm": "Join"
+  },
+  "cameraPrompt": {
+    "title": "Check your camera position",
+    "description": "Make sure your face and desk are in view",
+    "notice": "Your camera video stays on your device",
+    "cancel": "Start in simple mode",
+    "confirm": "Turn on camera",
+    "faceMaskTooltip": "If you move quickly, your face may show for a moment",
+    "faceMaskCaption": "Hide face for timelapses is a separate setting"
+  },
+  "cameraToast": {
+    "flipped": "Camera switched",
+    "noAlternative": "No other camera to switch to",
+    "cameraOff": "Camera is off"
+  },
+  "subMinuteEnd": {
+    "title": "Session ended",
+    "cta": "Home"
+  },
+  "autoEnd": {
+    "title": "Your progress so far is saved",
+    "backgroundBody": "We can't measure while the screen is off,\nso your session ended automatically",
+    "focusLabel": "Focus time",
+    "studyLabel": "Total",
+    "cta": "View results"
+  },
+  "submit": {
+    "saving": "Saving…",
+    "retry": "Submit again",
+    "unregistered": "This device isn't registered yet, so your session won't be saved",
+    "unsaved": "Study time {{elapsed}} — not saved because this device isn't registered yet"
+  },
+  "submitError": {
+    "generic": "Couldn't submit your session",
+    "invalid": "Couldn't submit your session. Some of its data is invalid",
+    "userNotFound": "Couldn't submit your session. We couldn't verify your account",
+    "conflict": "Couldn't submit your session. A session with the same start time is already saved",
+    "server": "Couldn't submit your session. Please try again in a moment"
+  },
+  "duration": {
+    "underMinute": "Under 1m",
+    "srHours_one": "{{count}} hour",
+    "srHours_other": "{{count}} hours",
+    "srMinutes_one": "{{count}} minute",
+    "srMinutes_other": "{{count}} minutes",
+    "srSeconds_one": "{{count}} second",
+    "srSeconds_other": "{{count}} seconds"
+  },
+  "timer": {
+    "total": "Total {{elapsed}}",
+    "srFocus": "Focus time {{duration}}",
+    "srTotal": "Total study time {{duration}}",
+    "srSubjectFocus": "Focus {{duration}}"
+  },
+  "controls": {
+    "pause": "Pause",
+    "resume": "Resume",
+    "exit": "End session",
+    "simpleModeToggle": "Simple mode",
+    "sideActions": "Session tools",
+    "subjectSelected": "Subject selected"
+  },
+  "moreMenu": {
+    "trigger": "More",
+    "flipCamera": "Switch camera",
+    "help": "View guide",
+    "shareInvite": "Share invite code"
+  },
+  "subjectSheet": {
+    "title": "Subject",
+    "empty": "Add a subject to study",
+    "emptySub": "One tap creates a subject. You can change it here later",
+    "addSubject": "Add subject",
+    "addTask": "Add task",
+    "reorder": "Reorder",
+    "edit": "Edit",
+    "remove": "Remove",
+    "done": "Done",
+    "subjectLimit": "You can have up to 20 subjects",
+    "taskLimit": "Up to 30 tasks per subject",
+    "loadFailed": "Couldn't load subjects",
+    "saveFailed": "Couldn't save. Try again",
+    "duplicateName": "This subject already exists",
+    "overLimit_one": "Use up to {{count}} character",
+    "overLimit_other": "Use up to {{count}} characters",
+    "suggestions": "Suggested subjects",
+    "subjectName": "Subject name",
+    "newSubjectName": "New subject name",
+    "taskName": "Task name",
+    "newTaskName": "New task name",
+    "taskProgress": "Task progress"
+  },
+  "subjectRow": {
+    "move": "Move {{name}}",
+    "start": "Start measuring {{name}}",
+    "stop": "Stop measuring {{name}}",
+    "tasks": "Tasks for {{name}}"
+  },
+  "help": {
+    "dialog": "Session guide",
+    "nextOverlay": "Next tip",
+    "prev": "Previous",
+    "next": "Next",
+    "awayPill": "<hl>Away</hl> or <hl>dozing off</hl>?\nWe'll show it here",
+    "awayTimer": "Your <hl>focus time</hl> stops in the meantime",
+    "measuringPill": "Come back to <hl>measure again</hl>\nYour camera view stays\non <hl>your device</hl>, so rest easy😌",
+    "measuringTimer": "<hl>Focus time</hl>\nstarts counting again⏰",
+    "cameraTap": "Tap the screen to switch\nto the <hl>camera view</hl>",
+    "buttonsSide": "<hl>Ambient sound</hl>,\n<hl>subjects</hl>, and <hl>timers</hl>\nare right here",
+    "buttonsPause": "Taking a break?\nTap <hl>Pause</hl>",
+    "finishMore": "Find this guide anytime\nin the More menu",
+    "finishCenter": "You're all set\nReady to <hl>focus</hl>?",
+    "finishCta": "Start focusing"
+  },
+  "recovery": {
+    "title": "Unsaved session recovered",
+    "body": "The app closed unexpectedly.\nWe've saved your study record.",
+    "date": "Date",
+    "time": "Start · End",
+    "timeRange": "{{start}} – {{end}}",
+    "studyTime": "Total study time",
+    "focusTime": "Focus time",
+    "confirm": "OK"
+  },
+  "result": {
+    "completeTitle": "Session complete",
+    "completeDescription": "You made it to the end!",
+    "focusLabel": "Focus time",
+    "totalPrefix": "Total",
+    "focusRate": "{{percent}}% focus",
+    "timelineTitle": "Study timeline",
+    "longestFocusLabel": "Longest focus",
+    "todayFocusLabel": "Focus time today",
+    "studyDaysLabel": "Days studied",
+    "studyDays_one": "{{count}} day",
+    "studyDays_other": "{{count}} days",
+    "ctaHome": "Home",
+    "ctaRecords": "Go to Records"
+  },
+  "legend": {
+    "focus": "Focus",
+    "distract": "Auto-paused",
+    "pause": "Paused"
+  }
+}

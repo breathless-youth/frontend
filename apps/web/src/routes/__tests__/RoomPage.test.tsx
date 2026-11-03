@@ -6,10 +6,10 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { SUB_MINUTE_EXIT_DESCRIPTION } from "@/features/study-session/sessionCopy";
 import { markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import { submitStudySession } from "@/features/study-session/submitStudySession";
+import { ApiError } from "@/lib/api";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import {
   enterGlassChrome,
@@ -20,6 +20,9 @@ import {
 } from "@/test/nativeControlStub";
 import { answerCameraPrompt } from "@/test/cameraPrompt";
 import { RoomPage } from "../RoomPage";
+
+// 문구 상수가 카탈로그(study-session:exitDescription.subMinute)로 옮겨 갔다.
+const SUB_MINUTE_EXIT_DESCRIPTION = "1분 미만 공부는 기록에 표시되지 않아요";
 
 /** 복원 게이트는 이 파일의 관심사가 아니다 — 조회 없이 새 세션으로 통과시킨다. */
 vi.mock("@/features/study-session/useActiveSessionRestore", () => ({
@@ -453,14 +456,15 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
   it("제출 실패 시 메시지와 재시도 버튼을 보여준다 — S4로 넘기지 않는다", async () => {
     // S4는 저장 실패 배너를 만들지 않기로 스펙됐다(SCR-S4) — 여기서 넘겨 버리면 실패가
     // 조용히 삼켜져 사용자에게 아무 안내도 남지 않는다.
+    // 화면 문구는 서버 message가 아니라 code로 고른다(BY-809).
     vi.mocked(submitStudySession).mockRejectedValueOnce(
-      new Error("존재하지 않는 사용자입니다: 999"),
+      new ApiError("존재하지 않는 사용자입니다: 999", 404, "NOT_FOUND"),
     );
     renderRoom("/room/7?userId=999");
 
     await endSession();
 
-    expect(await screen.findByText("존재하지 않는 사용자입니다: 999")).toBeInTheDocument();
+    expect(await screen.findByText("존재하지 않는 사용자입니다")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "다시 제출" })).toBeInTheDocument();
     expect(screen.queryByText("결과 라우트")).not.toBeInTheDocument();
   });
@@ -503,7 +507,8 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     renderRoom("/room/7?userId=1");
 
     await endSessionAfterMinute();
-    expect(await screen.findByText("일시적 오류")).toBeInTheDocument();
+    // 코드 없는 오류는 공용 문구로 보인다(BY-809).
+    expect(await screen.findByText("세션 제출에 실패했습니다")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "다시 제출" }));
     expect(await screen.findByText("결과 라우트")).toBeInTheDocument();
@@ -1335,7 +1340,8 @@ describe("RoomPage — 미달 종료(순공 1분 미만)", () => {
 
     await endSession();
 
-    expect(await screen.findByText("일시적 오류")).toBeInTheDocument();
+    // 코드 없는 오류는 공용 문구로 보인다(BY-809).
+    expect(await screen.findByText("세션 제출에 실패했습니다")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "다시 제출" })).toBeInTheDocument();
     expect(screen.queryByText("1분 미만 공부는 기록에 표시되지 않아요")).not.toBeInTheDocument();
   });

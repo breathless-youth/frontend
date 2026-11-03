@@ -1,0 +1,162 @@
+{
+  "status": {
+    "focus": "순공시간 측정 중",
+    "away": "자리를 비운 것 같아요",
+    "phone": "휴대폰을 사용 중인 것 같아요",
+    "device": "기기를 조작 중인 것 같아요",
+    "sleep": "졸고 있는 것 같아요",
+    "pause": "측정을 일시정지했어요"
+  },
+  "exitConfirm": {
+    "title": "공부를 종료할까요?",
+    "cancel": "계속하기",
+    "confirm": "공부 종료"
+  },
+  "exitDescription": {
+    "saved": "지금까지 집중한 {{duration}}은 저장돼요",
+    "subMinute": "1분 미만 공부는 기록에 표시되지 않아요"
+  },
+  "inviteConfirm": {
+    "title": "진행 중인 공부를 종료하고 초대에 참여할까요?",
+    "cancel": "계속하기",
+    "confirm": "참여하기"
+  },
+  "cameraPrompt": {
+    "title": "카메라 위치를 확인해 주세요",
+    "description": "얼굴과 책상이 보이게 자리를 잡아 주세요",
+    "notice": "영상은 기기 밖으로 나가지 않아요",
+    "cancel": "심플 모드로 시작",
+    "confirm": "카메라 켜기",
+    "faceMaskTooltip": "빠르게 움직이면 얼굴이 잠깐 보일 수 있어요",
+    "faceMaskCaption": "타임랩스 얼굴 가리기는 따로 설정해야 해요"
+  },
+  "cameraToast": {
+    "flipped": "카메라를 전환했어요",
+    "noAlternative": "전환할 카메라가 없어요",
+    "cameraOff": "카메라가 꺼져 있어요"
+  },
+  "subMinuteEnd": {
+    "title": "공부를 마쳤어요",
+    "cta": "홈으로"
+  },
+  "autoEnd": {
+    "title": "여기까지 기록을 저장했어요",
+    "backgroundBody": "화면이 꺼진 동안은 측정이 어려워서\n공부가 자동으로 종료됐어요",
+    "focusLabel": "순공시간",
+    "studyLabel": "총 공부",
+    "cta": "결과 보기"
+  },
+  "submit": {
+    "saving": "저장 중...",
+    "retry": "다시 제출",
+    "unregistered": "이 기기가 아직 등록되지 않아 기록이 저장되지 않습니다",
+    "unsaved": "공부 시간 {{elapsed}} — 기기 등록 전이라 저장되지 않았습니다."
+  },
+  "submitError": {
+    "generic": "세션 제출에 실패했습니다",
+    "invalid": "요청 값이 올바르지 않습니다",
+    "userNotFound": "존재하지 않는 사용자입니다",
+    "conflict": "이미 같은 시각에 시작한 세션이 저장되어 있습니다",
+    "server": "서버 오류가 발생했습니다"
+  },
+  "duration": {
+    "underMinute": "1분 미만",
+    "srHours": "{{count}}시간",
+    "srMinutes": "{{count}}분",
+    "srSeconds": "{{count}}초"
+  },
+  "timer": {
+    "total": "총 {{elapsed}}",
+    "srFocus": "순공시간 {{duration}}",
+    "srTotal": "총 공부 시간 {{duration}}",
+    "srSubjectFocus": "순공 {{duration}}"
+  },
+  "controls": {
+    "pause": "일시정지",
+    "resume": "다시 시작",
+    "exit": "공부 종료",
+    "simpleModeToggle": "심플 모드 전환",
+    "sideActions": "부가 기능",
+    "subjectSelected": "과목 선택됨"
+  },
+  "moreMenu": {
+    "trigger": "더보기",
+    "flipCamera": "카메라 전환",
+    "help": "도움말 보기",
+    "shareInvite": "초대코드 공유"
+  },
+  "subjectSheet": {
+    "title": "과목",
+    "empty": "공부할 과목을 추가해보세요",
+    "emptySub": "탭 한 번으로 과목이 생겨요. 나중에 이 화면에서 바꿀 수 있어요",
+    "addSubject": "과목 추가",
+    "addTask": "할 일 추가",
+    "reorder": "순서 변경",
+    "edit": "수정",
+    "remove": "제거",
+    "done": "완료",
+    "subjectLimit": "과목은 최대 20개까지 만들 수 있어요",
+    "taskLimit": "할 일은 과목마다 최대 30개까지 만들 수 있어요",
+    "loadFailed": "과목을 불러오지 못했어요",
+    "saveFailed": "저장하지 못했어요. 다시 시도해주세요",
+    "duplicateName": "이미 있는 과목이에요",
+    "overLimit": "{{count}}자까지 쓸 수 있어요",
+    "suggestions": "추천 과목",
+    "subjectName": "과목 이름",
+    "newSubjectName": "새 과목 이름",
+    "taskName": "할 일 이름",
+    "newTaskName": "새 할 일 이름",
+    "taskProgress": "할 일 완료율"
+  },
+  "subjectRow": {
+    "move": "{{name}} 순서 이동",
+    "start": "{{name}} 측정 시작",
+    "stop": "{{name}} 측정 멈추기",
+    "tasks": "{{name}} 할 일"
+  },
+  "help": {
+    "dialog": "세션 도움말",
+    "nextOverlay": "다음 안내",
+    "prev": "이전",
+    "next": "다음",
+    "awayPill": "<hl>자리를 비우거나</hl> <hl>졸면</hl>\n여기에 알려줘요",
+    "awayTimer": "그동안 <hl>순공시간</hl>은 멈춰요",
+    "measuringPill": "자리로 돌아오면 <hl>다시 측정</hl>해요\n측정 화면은 <hl>기기 밖</hl>으로 나가지 않으니\n안심하세요😌",
+    "measuringTimer": "<hl>순공시간</hl>이\n다시 흘러가요⏰",
+    "cameraTap": "화면을 탭하면\n<hl>카메라 화면</hl>으로 바뀌어요",
+    "buttonsSide": "<hl>배경음</hl>, <hl>과목</hl>, <hl>타이머</hl>는\n여기서 켜요",
+    "buttonsPause": "쉴 때는\n<hl>일시정지</hl>를 눌러요",
+    "finishMore": "이 도움말은 더보기 메뉴에서\n언제든 다시 볼 수 있어요",
+    "finishCenter": "준비됐어요\n이제 <hl>집중</hl>해 볼까요?",
+    "finishCta": "순공 시작하기"
+  },
+  "recovery": {
+    "title": "저장되지 않은 기록을 복구했어요",
+    "body": "앱이 예기치 않게 종료되었어요.\n공부 기록은 저장해 두었어요.",
+    "date": "날짜",
+    "time": "시작 · 종료",
+    "timeRange": "{{start}} ~ {{end}}",
+    "studyTime": "총 공부시간",
+    "focusTime": "순공시간",
+    "confirm": "확인"
+  },
+  "result": {
+    "completeTitle": "오늘 공부 완료",
+    "completeDescription": "끝까지 해내셨네요!",
+    "focusLabel": "순공시간",
+    "totalPrefix": "총 공부시간",
+    "focusRate": "{{percent}}% 집중",
+    "timelineTitle": "공부 타임라인",
+    "longestFocusLabel": "최대 집중 시간",
+    "todayFocusLabel": "오늘 누적 순공시간",
+    "studyDaysLabel": "누적 공부 일 수",
+    "studyDays": "{{count}}일",
+    "ctaHome": "홈으로",
+    "ctaRecords": "기록으로 가기"
+  },
+  "legend": {
+    "focus": "순공",
+    "distract": "자동 멈춤",
+    "pause": "일시정지"
+  }
+}

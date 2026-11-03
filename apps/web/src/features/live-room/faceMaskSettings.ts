@@ -5,6 +5,8 @@
  * 소셜룸은 상대에게 가는 영상을, 싱글룸은 내 화면만 가려서 서로 설정을 나누지 않는다.
  * 이모지 목록이 바뀌어 저장된 id가 없어지면 첫 번째 이모지로 돌아간다.
  */
+import i18n from "@/lib/i18n";
+
 export interface FaceMaskEmoji {
   readonly id: string;
   /** 스크린 리더가 읽는 이름 */
@@ -12,18 +14,27 @@ export interface FaceMaskEmoji {
   readonly url: string;
 }
 
+const FACE_MASK_EMOJI_IDS = [
+  "dog",
+  "cat",
+  "bear",
+  "hamster",
+  "monkey",
+  "panda",
+  "rabbit",
+  "tiger",
+  "frog",
+] as const;
+
 // 이미지는 Microsoft Fluent Emoji 3D(MIT)이고, 저작권 고지는 같은 폴더의 LICENSE에 있다.
-export const FACE_MASK_EMOJIS: readonly FaceMaskEmoji[] = [
-  { id: "dog", label: "개", url: "/face-mask/dog.png" },
-  { id: "cat", label: "고양이", url: "/face-mask/cat.png" },
-  { id: "bear", label: "곰", url: "/face-mask/bear.png" },
-  { id: "hamster", label: "햄스터", url: "/face-mask/hamster.png" },
-  { id: "monkey", label: "원숭이", url: "/face-mask/monkey.png" },
-  { id: "panda", label: "판다", url: "/face-mask/panda.png" },
-  { id: "rabbit", label: "토끼", url: "/face-mask/rabbit.png" },
-  { id: "tiger", label: "호랑이", url: "/face-mask/tiger.png" },
-  { id: "frog", label: "개구리", url: "/face-mask/frog.png" },
-];
+// 이름은 모듈을 읽는 시점 언어로 굳지 않도록 읽을 때마다 카탈로그에서 가져온다.
+export const FACE_MASK_EMOJIS: readonly FaceMaskEmoji[] = FACE_MASK_EMOJI_IDS.map((id) => ({
+  id,
+  url: `/face-mask/${id}.png`,
+  get label() {
+    return i18n.t(`live-room:faceMask.emoji.${id}`);
+  },
+}));
 
 export type FaceMaskScope = "social" | "single";
 
