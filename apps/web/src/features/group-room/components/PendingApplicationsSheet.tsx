@@ -113,6 +113,8 @@ function PendingRow({
         // Amplitude 클릭 자동 수집이 싣는 그룹 이름 글자와 aria-label을 가린다.
         data-amp-mask
         data-amp-mask-attributes="aria-label"
+        // Sentry 클릭 기록은 aria-label 대신 이 이름을 적는다.
+        data-sentry-element="PendingApplicationRow"
         onClick={() => onOpenRoom(application.roomId)}
         className="flex min-h-11 min-w-0 flex-1 flex-col items-start gap-1 rounded-sm text-left focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
       >
