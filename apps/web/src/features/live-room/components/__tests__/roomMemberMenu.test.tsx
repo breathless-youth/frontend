@@ -171,6 +171,43 @@ describe("RoomMemberMenu", () => {
     expect(menu).toHaveAttribute("data-amp-mask");
     expect(menu).toHaveAttribute("data-amp-mask-attributes", "aria-label");
   });
+
+  it("키보드로 열면 음량 슬라이더부터 고를 수 있다", async () => {
+    const onVolumeChange = vi.fn();
+    const user = userEvent.setup();
+    render(<StatefulMenu onVolumeChange={onVolumeChange} />);
+    screen.getByRole("button", { name: "새벽러 메뉴" }).focus();
+
+    await user.keyboard("{Enter}");
+    const slider = screen.getByRole("slider", { name: "새벽러님 음량" });
+    expect(slider).toHaveFocus();
+
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("menuitem", { name: "소리 끄기" })).toHaveFocus();
+
+    await user.keyboard("{ArrowUp}");
+    expect(slider).toHaveFocus();
+
+    // 음량을 바꾸려고 고르는 동작은 메뉴를 닫지 않는다.
+    await user.keyboard("{Enter}");
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    fireEvent.change(slider, { target: { value: "35" } });
+    expect(onVolumeChange).toHaveBeenLastCalledWith(expect.closeTo(0.35, 2));
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
+      "소리 끄기",
+      "신고하기",
+    ]);
+  });
+
+  it("음량 슬라이더를 눌러도 메뉴가 닫히지 않는다", async () => {
+    const user = userEvent.setup();
+    render(<StatefulMenu />);
+    await user.click(screen.getByRole("button", { name: "새벽러 메뉴" }));
+
+    await user.click(screen.getByRole("slider", { name: "새벽러님 음량" }));
+
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+  });
 });
 
 describe("RoomMemberMenu의 Sentry 클릭 기록", () => {

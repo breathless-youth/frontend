@@ -1,3 +1,4 @@
+import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { Ellipsis, Volume2 } from "lucide-react";
 import { useRef } from "react";
 
@@ -112,17 +113,27 @@ export function RoomMemberMenu({
         </p>
         <div className="flex min-h-11 items-center gap-2.5 px-5">
           <Volume2 aria-hidden="true" className="size-5 shrink-0 text-white/72" />
-          <input
-            type="range"
-            min={0}
-            max={100}
-            step={VOLUME_STEP}
-            value={Math.round(volume * 100)}
-            aria-label={`${nickname}님 음량`}
-            data-sentry-element="RoomMemberVolume"
-            onChange={(event) => onVolumeChange(Number(event.currentTarget.value) / 100)}
-            className="h-11 w-full min-w-0 accent-(--state-focus)"
-          />
+          {/* 메뉴는 Tab을 막고 항목 사이만 화살표로 오가서 슬라이더도 항목으로 넣어야 키보드로 닿는다.
+              항목 모양을 입히는 공용 부품 대신 원본 항목을 써서 슬라이더 역할과 모양을 그대로 둔다. */}
+          <DropdownMenuPrimitive.Item
+            asChild
+            role="slider"
+            textValue="음량"
+            // 음량을 바꿔도 메뉴는 닫지 않는다.
+            onSelect={(event) => event.preventDefault()}
+          >
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={VOLUME_STEP}
+              value={Math.round(volume * 100)}
+              aria-label={`${nickname}님 음량`}
+              data-sentry-element="RoomMemberVolume"
+              onChange={(event) => onVolumeChange(Number(event.currentTarget.value) / 100)}
+              className="h-11 w-full min-w-0 accent-(--state-focus) focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
+            />
+          </DropdownMenuPrimitive.Item>
         </div>
         <DropdownMenuItem onSelect={onToggleMute} className={MENU_ITEM_CLASS}>
           {muted ? "소리 켜기" : "소리 끄기"}
