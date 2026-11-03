@@ -24,6 +24,7 @@ import { createMockCameraAdapter } from "@/features/study-session/adapters/camer
 import { submitStudySession } from "@/features/study-session/submitStudySession";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { ApiError } from "@/lib/api";
+import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { getGroupHome, joinGroupRoom, leaveGroupRoom } from "@/lib/groupRoomApi";
 import { queryClient as appQueryClient } from "@/lib/queryClient";
 import type * as UserId from "@/lib/userId";
@@ -352,6 +353,23 @@ describe("GroupRoomPage 입장", () => {
     await userEvent.setup().click(await screen.findByRole("button", { name: "다시 시도" }));
     await waitFor(() => expect(channelOptions()).toMatchObject({ roomId: 123 }));
     expect(joinGroupRoom).toHaveBeenCalledTimes(2);
+  });
+
+  it("카메라 권한을 거부하면 자리를 잡지 않고 그 그룹의 그룹 홈으로 돌아간다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    const { location } = renderGroupRoom();
+    await waitFor(() =>
+      expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"request-camera-gate"')),
+    );
+
+    const entry = (globalThis as unknown as Record<string, (raw: string) => void>)[
+      NATIVE_MESSAGE_ENTRY
+    ];
+    act(() => entry?.(JSON.stringify({ type: "camera-gate-result", granted: false, atMs: 1 })));
+
+    await waitFor(() => expect(location().pathname).toBe("/social/groups/10"));
+    expect(joinGroupRoom).not.toHaveBeenCalled();
   });
 
   it("그룹 공부방 연결은 소리와 영상을 한 전송 경로로 묶는다", async () => {
