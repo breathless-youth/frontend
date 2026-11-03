@@ -374,6 +374,27 @@ describe("GroupRoomPage 입장", () => {
     expect(joinGroupRoom).not.toHaveBeenCalled();
   });
 
+  it("그룹 공부방에 들어가도 소셜룸 입장 Meta 전환은 보내지 않는다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderGroupRoom();
+    await waitFor(() =>
+      expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"request-camera-gate"')),
+    );
+    const entry = (globalThis as unknown as Record<string, (raw: string) => void>)[
+      NATIVE_MESSAGE_ENTRY
+    ];
+    act(() => entry?.(JSON.stringify({ type: "camera-gate-result", granted: true, atMs: 1 })));
+    await screen.findByRole("button", { name: "나가기" });
+    await act(async () => {});
+
+    const metaEvents = postMessage.mock.calls
+      .map(([raw]) => JSON.parse(raw as string) as { type: string; name?: string })
+      .filter((message) => message.type === "meta-app-event")
+      .map((message) => message.name);
+    expect(metaEvents).not.toContain("social_room_entered");
+  });
+
   it("그룹 공부방 연결은 소리와 영상을 한 전송 경로로 묶는다", async () => {
     const { pcConfigs } = renderGroupRoom({ snapshot: [member(7), member(42)] });
     await waitFor(() => expect(pcConfigs).toHaveLength(1));
