@@ -35,6 +35,11 @@ export function MyRoomCard({
     <button
       type="button"
       aria-label={label}
+      // Amplitude 클릭 자동 수집이 싣는 그룹 이름, 닉네임 글자와 aria-label을 가린다.
+      data-amp-mask
+      data-amp-mask-attributes="aria-label"
+      // Sentry 클릭 기록은 aria-label 대신 이 이름을 적는다.
+      data-sentry-element="MyRoomCard"
       onClick={() => onOpen(room.roomId)}
       className="flex w-full flex-col gap-2.5 rounded-xl bg-muted p-4 text-left shadow-sb-card focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
     >

@@ -7,7 +7,12 @@ import { GROUP_RETRY_COPY, groupErrorCopy } from "@/features/group-room/groupErr
 import { BlockListScreen } from "@/features/group-room/screens/BlockListScreen";
 import { useBackTo } from "@/features/group-room/useBackTo";
 import { unblockUser } from "@/lib/groupRoomApi";
-import { blocksQuery, cannotLoadFirst, groupKeys } from "@/lib/groupRoomQueries";
+import {
+  GROUP_MUTATION_OPTIONS,
+  blocksQuery,
+  cannotLoadFirst,
+  groupKeys,
+} from "@/lib/groupRoomQueries";
 import { showToast } from "@/lib/toast";
 import { useIdentityPending, useUserId } from "@/lib/userId";
 
@@ -40,6 +45,7 @@ function BlockList({ userId }: { userId: number | null }) {
   const queryUserId = userId ?? 0;
   const listQuery = useQuery({ ...blocksQuery(queryUserId), enabled: userId !== null });
   const unblock = useMutation({
+    ...GROUP_MUTATION_OPTIONS,
     mutationFn: (targetId: number) => unblockUser(targetId),
     onSuccess: (_data, targetId) => {
       queryClient.setQueryData<BlockListResponse>(groupKeys.blocks(queryUserId), (current) =>

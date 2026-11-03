@@ -1,6 +1,7 @@
+import { onlineManager } from "@tanstack/react-query";
 import { act, cleanup, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { shareInvite } from "@/features/social-room/shareInvite";
 import type * as ShareInvite from "@/features/social-room/shareInvite";
@@ -97,6 +98,21 @@ describe("멤버 관리와 멤버 보기", () => {
     expect(screen.queryByText("초대코드가 새로 바뀌었어요")).toBeNull();
   });
 
+  it("오프라인에서 내보내기를 확인해도 창이 멈추지 않고 바로 다시 시도하라고 알린다", async () => {
+    const api = mockGroupApi("default");
+    api.kickGroupMember.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    renderGroupRoute("/social/groups/10/members?groupRooms=1");
+    const user = userEvent.setup();
+    await user.click(await firstRowMenu());
+    await user.click(screen.getByRole("menuitem", { name: /내보내기/ }));
+    act(() => onlineManager.setOnline(false));
+    onTestFinished(() => onlineManager.setOnline(true));
+    await user.click(screen.getByRole("button", { name: "내보내기" }));
+    expect(api.kickGroupMember).toHaveBeenCalledOnce();
+    expect(await screen.findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+  });
+
   it("확인 창의 내보내기를 두 번 눌러도 한 번만 보낸다", async () => {
     const api = mockGroupApi("default");
     api.kickGroupMember.mockImplementation(() => new Promise(() => {}));
@@ -106,6 +122,24 @@ describe("멤버 관리와 멤버 보기", () => {
     await user.click(screen.getByRole("menuitem", { name: /내보내기/ }));
     await user.dblClick(screen.getByRole("button", { name: "내보내기" }));
     expect(api.kickGroupMember).toHaveBeenCalledOnce();
+  });
+
+  it("내보내기와 그룹장 넘기기 확인 창은 닉네임이 든 문구를 클릭 분석에서 가린다", async () => {
+    mockGroupApi("default");
+    renderGroupRoute("/social/groups/10/members?groupRooms=1");
+    const user = userEvent.setup();
+    await user.click(await firstRowMenu());
+    await user.click(screen.getByRole("menuitem", { name: /내보내기/ }));
+    const kickDialog = screen.getByRole("alertdialog", { name: /님을 내보낼까요\?$/ });
+    expect(kickDialog).toHaveAttribute("data-amp-mask");
+    expect(kickDialog).toHaveAttribute("data-amp-mask-attributes", "aria-label");
+    await user.click(screen.getByRole("button", { name: "취소" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await user.click(await firstRowMenu());
+    await user.click(screen.getByRole("menuitem", { name: "그룹장 넘기기" }));
+    const transferDialog = screen.getByRole("alertdialog", { name: /그룹장을 넘길까요\?$/ });
+    expect(transferDialog).toHaveAttribute("data-amp-mask");
+    expect(transferDialog).toHaveAttribute("data-amp-mask-attributes", "aria-label");
   });
 
   it("그룹장을 넘기면 멤버 보기로 바뀐다", async () => {

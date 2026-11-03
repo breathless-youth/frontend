@@ -95,7 +95,13 @@ function MemberDesk({
     .filter((part) => part !== null)
     .join(", ");
   return (
-    <li aria-label={label} data-tone={tone} className="flex min-w-0 flex-col items-center">
+    <li
+      aria-label={label}
+      // Sentry 클릭 기록은 닉네임이 든 aria-label 대신 이 이름을 적는다.
+      data-sentry-element="MemberDesk"
+      data-tone={tone}
+      className="flex min-w-0 flex-col items-center"
+    >
       <DeskFigure tone={tone} size="md" />
       <div
         aria-hidden="true"

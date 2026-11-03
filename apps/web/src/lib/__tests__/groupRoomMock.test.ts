@@ -329,6 +329,26 @@ describe("그룹 가짜 서버", () => {
     expect(await api.getPublicGroup(kicked.groupId)).toMatchObject({ applyState: "CAN_APPLY" });
   });
 
+  it("순공이 쌓이는 멤버는 지난 시간만큼 순공이 늘어 다시 받아도 줄지 않는다", async () => {
+    let now = NOW;
+    const api = createGroupMockServer("default", { now: () => now, delayMs: 0 });
+    const desk = async (nickname: string) =>
+      (await api.getGroupHome(10)).members.find((member) => member.nickname === nickname)!;
+    const studying = await desk("새벽공부러");
+    const idle = await desk("포동s");
+    expect(studying.accumulating).toBe(true);
+    expect(idle.accumulating).toBe(false);
+    now += 30_000;
+    expect(await desk("새벽공부러")).toMatchObject({
+      todayFocusSec: studying.todayFocusSec + 30,
+      weekFocusSec: studying.weekFocusSec + 30,
+    });
+    expect(await desk("포동s")).toMatchObject({
+      todayFocusSec: idle.todayFocusSec,
+      weekFocusSec: idle.weekFocusSec,
+    });
+  });
+
   it("공개 그룹 목록은 검색어와 시험·목표로 거르고 다 찬 그룹은 맨 뒤에 둔다", async () => {
     const api = server("default");
     const first = await api.getPublicGroups({ page: 0 });

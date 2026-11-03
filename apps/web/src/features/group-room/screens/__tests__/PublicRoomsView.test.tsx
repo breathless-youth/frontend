@@ -95,6 +95,23 @@ describe("PublicRoomsView", () => {
     expect(onOpenRoom).toHaveBeenCalledWith(7);
   });
 
+  it("그룹 이름이 든 카드는 클릭 분석이 글자와 aria-label을 싣지 않게 가린다", () => {
+    renderScreen(
+      <PublicRoomsView
+        query=""
+        onQueryChange={vi.fn()}
+        categories={fixtures.categories}
+        category={null}
+        onCategoryChange={vi.fn()}
+        rooms={fixtures.publicRooms}
+        onOpenRoom={vi.fn()}
+      />,
+    );
+    const card = screen.getByRole("button", { name: /새벽 5시 기상 공시반/ });
+    expect(card).toHaveAttribute("data-amp-mask");
+    expect(card).toHaveAttribute("data-amp-mask-attributes", "aria-label");
+  });
+
   it("조건 없이 비면 아직 공개 그룹이 없어요이고, 칩 말고 다른 버튼은 없다", () => {
     renderScreen(
       <PublicRoomsView

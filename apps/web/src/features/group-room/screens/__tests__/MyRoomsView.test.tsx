@@ -51,6 +51,21 @@ describe("MyRoomsView", () => {
     expect(within(privateCard).getByText("지금은 아무도 없어요")).toBeInTheDocument();
   });
 
+  it("그룹 이름과 닉네임이 든 카드는 클릭 분석이 글자와 aria-label을 싣지 않게 가린다", () => {
+    renderScreen(
+      <MyRoomsView
+        rooms={fixtures.myRooms}
+        pendingCount={0}
+        onOpenRoom={vi.fn()}
+        onOpenPending={vi.fn()}
+        onBrowsePublic={vi.fn()}
+      />,
+    );
+    const card = screen.getByRole("button", { name: /수능 D-200 밤샘반/ });
+    expect(card).toHaveAttribute("data-amp-mask");
+    expect(card).toHaveAttribute("data-amp-mask-attributes", "aria-label");
+  });
+
   it("답을 기다리는 신청이 있으면 띠를 두고 누르면 시트를 연다", async () => {
     const onOpenPending = vi.fn();
     renderScreen(

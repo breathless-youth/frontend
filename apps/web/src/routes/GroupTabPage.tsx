@@ -24,7 +24,11 @@ import {
   writeGroupTabSearch,
 } from "@/features/group-room/groupTabSearch";
 import type { GroupTabSearch } from "@/features/group-room/groupTabSearch";
-import { canCreateRoom, myRoomsTabCount } from "@/features/group-room/model/limits";
+import {
+  canCreateRoom,
+  CREATE_ROOM_LIMIT_COPY,
+  myRoomsTabCount,
+} from "@/features/group-room/model/limits";
 import { SocialHomeScreen } from "@/features/group-room/screens/SocialHomeScreen";
 import type { CategoryOption, PendingApplication, SocialTab } from "@/features/group-room/types";
 import { useNow } from "@/features/ranking/useNow";
@@ -32,6 +36,7 @@ import { GraceEndDialog } from "@/features/social-room/GraceEndDialog";
 import { useSocialRoomNoticeHandoff } from "@/features/social-room/useSocialRoomNoticeHandoff";
 import { cancelApplication } from "@/lib/groupRoomApi";
 import {
+  GROUP_MUTATION_OPTIONS,
   cannotLoadFirst,
   dedupePublicGroups,
   invalidateGroupMembership,
@@ -133,6 +138,7 @@ function GroupTabContent({ userId }: { userId: number | null }) {
   }, [showsBand]);
 
   const cancel = useMutation({
+    ...GROUP_MUTATION_OPTIONS,
     mutationFn: (application: PendingApplication) => cancelApplication(application.applicationId),
     onSuccess: (_data, application) => {
       showToast(APPLICATION_CANCELED_COPY);
@@ -224,6 +230,8 @@ function GroupTabContent({ userId }: { userId: number | null }) {
       }}
       fab={{
         canCreate: signedIn && (mine === undefined || canCreateRoom(mine.ownedGroupCount)),
+        // 신원이 없어 막은 것은 그룹 한도 때문이 아니라서 한도 문구를 붙이지 않는다.
+        blockedReason: signedIn ? CREATE_ROOM_LIMIT_COPY : null,
         onCreate: () => leaveTab("/social/groups/new"),
         onJoinWithCode: () => leaveTab("/social/join"),
       }}
@@ -235,6 +243,15 @@ function GroupTabContent({ userId }: { userId: number | null }) {
           now={now}
           // 목록이 오기 전의 빈 목록에 시트가 스스로 닫히지 않게 목록이 올 때까지 받는 중으로 둔다.
           loading={applicationsQuery.data === undefined}
+          error={
+            cannotLoadFirst(applicationsQuery) ? (
+              <ErrorState
+                message={GROUP_RETRY_COPY}
+                onRetry={() => void applicationsQuery.refetch()}
+                screen="group_tab"
+              />
+            ) : undefined
+          }
           cancelingId={cancel.isPending ? cancel.variables.applicationId : null}
           // 마지막 신청을 취소하면 띠가 사라져서 포커스를 지금 고른 탭에 돌려준다.
           emptiedFocus={() =>

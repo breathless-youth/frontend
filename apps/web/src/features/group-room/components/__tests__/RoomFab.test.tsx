@@ -48,6 +48,26 @@ describe("RoomFab", () => {
     expect(screen.getByRole("menu")).toBeInTheDocument();
   });
 
+  it("막은 이유를 비우면 그룹 만들기를 흐리게만 두고 이유는 보이지 않는다", async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn();
+    render(
+      <RoomFab
+        canCreate={false}
+        blockedReason={null}
+        onCreate={onCreate}
+        onJoinWithCode={vi.fn()}
+        defaultOpen
+      />,
+    );
+    const create = screen.getByRole("menuitem", { name: /그룹 만들기/ });
+    expect(create).toHaveAttribute("aria-disabled", "true");
+    expect(create).not.toHaveAttribute("aria-describedby");
+    expect(screen.queryByText("그룹은 2개까지 만들 수 있어요")).toBeNull();
+    await user.click(create);
+    expect(onCreate).not.toHaveBeenCalled();
+  });
+
   it("덮개를 누르거나 Esc를 누르면 닫힌다", async () => {
     const user = userEvent.setup();
     render(<RoomFab canCreate onCreate={vi.fn()} onJoinWithCode={vi.fn()} defaultOpen />);

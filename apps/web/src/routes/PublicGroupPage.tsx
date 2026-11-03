@@ -20,6 +20,7 @@ import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
 import { useNow } from "@/features/ranking/useNow";
 import { cancelApplication } from "@/lib/groupRoomApi";
 import {
+  GROUP_MUTATION_OPTIONS,
   cannotLoadFirst,
   invalidateGroupMembership,
   publicGroupQuery,
@@ -68,6 +69,7 @@ function PublicGroup({ userId, groupId }: { userId: number; groupId: number }) {
   const detail = detailQuery.data;
   const refresh = () => void invalidateGroupMembership(queryClient, userId, groupId);
   const cancel = useMutation({
+    ...GROUP_MUTATION_OPTIONS,
     mutationFn: (applicationId: number) => cancelApplication(applicationId),
     onSuccess: () => {
       showToast(APPLICATION_CANCELED_COPY);

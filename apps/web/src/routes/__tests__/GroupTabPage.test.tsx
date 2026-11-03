@@ -1,9 +1,10 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { ApiError } from "@/lib/api";
+import { useUserId } from "@/lib/userId";
 import type * as UserId from "@/lib/userId";
 import {
   mockGroupApi,
@@ -194,16 +195,50 @@ describe("그룹 탭", () => {
     expect(await within(sheet).findByRole("button", { name: "신청 취소" })).toBeInTheDocument();
   });
 
-  it("그룹장인 그룹이 2개면 그룹 만들기가 흐려진다", async () => {
+  it("신청 목록을 받지 못하면 시트에 다시 시도를 두고 누르면 목록을 보인다", async () => {
+    const api = mockGroupApi("default");
+    api.getMyApplications.mockRejectedValue(new ApiError("x", 400, "BAD_REQUEST"));
+    renderGroupRoute("/social?groupRooms=1");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /신청 중인 공개 그룹 1/ }));
+    const sheet = await screen.findByRole("dialog", { name: "신청 중인 공개 그룹" });
+    expect(await within(sheet).findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
+    expect(within(sheet).queryAllByRole("status", { name: "불러오는 중" })).toHaveLength(0);
+    api.getMyApplications.mockImplementation((signal) => api.server.getMyApplications(signal));
+    await user.click(within(sheet).getByRole("button", { name: "다시 시도" }));
+    expect(await within(sheet).findByRole("button", { name: "신청 취소" })).toBeInTheDocument();
+  });
+
+  it("그룹장인 그룹이 2개면 그룹 만들기가 흐려지고 한도 문구를 설명으로 붙인다", async () => {
     mockGroupApi("limits");
     renderGroupRoute("/social?groupRooms=1");
     await userEvent
       .setup()
       .click(await screen.findByRole("button", { name: "그룹 만들기와 초대코드로 참여" }));
-    expect(screen.getByRole("menuitem", { name: /그룹 만들기/ })).toHaveAttribute(
+    const create = screen.getByRole("menuitem", { name: /그룹 만들기/ });
+    expect(create).toHaveAttribute("aria-disabled", "true");
+    expect(create).toHaveAccessibleDescription("그룹은 2개까지 만들 수 있어요");
+  });
+
+  it("신원이 없으면 빈 상태를 보이고 그룹 만들기는 한도 문구 없이 흐리게 둔다", async () => {
+    const api = mockGroupApi("default");
+    vi.mocked(useUserId).mockReturnValue(null);
+    onTestFinished(() => {
+      vi.mocked(useUserId).mockReset();
+    });
+    renderGroupRoute("/social?groupRooms=1");
+    expect(await screen.findByText("아직 들어간 그룹이 없어요")).toBeInTheDocument();
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "그룹 만들기와 초대코드로 참여" }));
+    const create = screen.getByRole("menuitem", { name: /그룹 만들기/ });
+    expect(create).toHaveAttribute("aria-disabled", "true");
+    expect(create).not.toHaveAttribute("aria-describedby");
+    expect(screen.queryByText("그룹은 2개까지 만들 수 있어요")).toBeNull();
+    expect(screen.getByRole("menuitem", { name: "초대코드로 참여" })).not.toHaveAttribute(
       "aria-disabled",
-      "true",
     );
+    expect(api.getMyGroups).not.toHaveBeenCalled();
   });
 
   it("초대코드로 참여는 탭 조건을 뺀 주소로 참여 화면을 연다", async () => {
@@ -254,6 +289,14 @@ describe("그룹 탭", () => {
     markSocialRoomNotice({ kind: "failure", message: "새벽 5시 기상 공시반에서 내보내졌어요" });
     renderGroupRoute("/social?groupRooms=1");
     expect(await screen.findByText("새벽 5시 기상 공시반에서 내보내졌어요")).toBeInTheDocument();
+  });
+
+  it("그룹 이름이 든 안내 토스트는 클릭 분석이 글자를 싣지 않게 가린다", async () => {
+    mockGroupApi("default");
+    markSocialRoomNotice({ kind: "failure", message: "새벽 5시 기상 공시반에서 내보내졌어요" });
+    renderGroupRoute("/social?groupRooms=1");
+    const toast = await screen.findByText("새벽 5시 기상 공시반에서 내보내졌어요");
+    expect(toast.closest("[data-amp-mask]")).not.toBeNull();
   });
 
   it("자리를 오래 비워 끝난 안내는 확인 창으로 띄운다", async () => {

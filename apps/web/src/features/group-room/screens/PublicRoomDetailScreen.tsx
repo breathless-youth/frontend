@@ -51,7 +51,12 @@ export function PublicRoomDetailScreen({
     room.members.some((member) => member.accumulating),
   );
   return (
-    <main className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground">
+    <main
+      // 그룹 이름, 닉네임, 소개가 Amplitude 클릭 이벤트에 실리지 않게 화면 안의 글자와 aria-label을 모두 가린다.
+      data-amp-mask
+      data-amp-mask-attributes="aria-label"
+      className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground"
+    >
       <ScreenBackHeader title={room.name} onBack={onBack} />
       <div className="flex flex-col px-5">
         <div className="pt-0.5">

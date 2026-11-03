@@ -29,7 +29,9 @@ import { GraceEndDialog } from "@/features/social-room/GraceEndDialog";
 import { useSocialRoomNoticeHandoff } from "@/features/social-room/useSocialRoomNoticeHandoff";
 import { leaveGroup, setGroupNotification } from "@/lib/groupRoomApi";
 import {
+  GROUP_MUTATION_OPTIONS,
   cannotLoadFirst,
+  dropFromMyGroups,
   forgetGroup,
   groupHomeQuery,
   groupInviteQuery,
@@ -73,7 +75,7 @@ export function GroupHomePage() {
 /**
  * 그룹 홈 본문
  *
- * 스스로 나가면 먼저 그룹 탭으로 바꿔 가고 이 그룹의 조회는 다시 받지 않는다.
+ * 스스로 나가면 먼저 온 화면으로 돌아가고 이 그룹의 조회는 다시 받지 않는다.
  * 나간 그룹을 다시 받으면 서버가 멤버가 아니라고 답해 그 안내가 뜨기 때문이고, 그 조회는 화면을 벗어난 뒤 캐시에서 뺀다.
  */
 function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
@@ -132,6 +134,7 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
   }, [left, queryClient, userId, groupId]);
 
   const notify = useMutation({
+    ...GROUP_MUTATION_OPTIONS,
     mutationFn: (enabled: boolean) => setGroupNotification(groupId, enabled),
     // 30초마다 다시 받는 조회가 바꾼 값을 덮지 않게 받는 중인 조회를 멈춘 뒤 바로 바꾸고, 실패하면 되돌린다.
     // 흐르는 공부 시간은 받은 시각부터 세어서, 종만 바꿀 때 받은 시각까지 지금으로 바꾸면 시간이 뒤로 간다.
@@ -169,13 +172,19 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
     setLeaveDialog(dialog);
     setLeaveOpen(true);
   };
+  // 그룹 탭에서 왔으면 그 기록으로 돌아가서 같은 탭이 기록에 두 번 쌓이지 않고 보던 탭과 검색 조건도 남는다.
+  // 앞 화면 없이 열렸으면 그룹 탭으로 바꿔 간다.
+  // 나간 그룹 홈은 앞으로 가기 기록에만 남고, 앞으로 가기로 그룹 화면에 다시 들어오면 historyGuard가 되돌린다.
+  // 그룹 탭이 내 그룹을 다시 받는 동안 나간 그룹 카드가 보이지 않게 돌아가기 전에 받아 둔 목록에서 뺀다.
   const finishLeaving = () => {
     setLeft(true);
     setLeaveOpen(false);
-    navigate({ pathname: "/social", search }, { replace: true });
+    dropFromMyGroups(queryClient, userId, groupId);
+    back();
     void invalidateGroupMembership(queryClient, userId);
   };
   const leave = useMutation({
+    ...GROUP_MUTATION_OPTIONS,
     mutationFn: () => leaveGroup(groupId),
     onSuccess: finishLeaving,
     onError: (error) => {
@@ -273,6 +282,13 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
           }
           haptic("light");
           notify.mutate(!room.notifyOn);
+        }}
+        onMenuOpen={() => {
+          // 미리 받은 코드는 그사이 그룹장이 멤버를 내보내 바뀌었을 수 있어서 메뉴를 열 때 무효로 표시하고 다시 받는다.
+          // 무효로 표시해 두면 다시 받는 중에 초대하기를 눌러도 예전 코드 대신 새 코드를 기다려 공유한다.
+          if (home.visibility === "PRIVATE") {
+            void queryClient.invalidateQueries({ queryKey: groupKeys.invite(userId, groupId) });
+          }
         }}
         onMenuSelect={selectMenu}
         onOpenRequests={() => go(`${groupPath}/applications`)}

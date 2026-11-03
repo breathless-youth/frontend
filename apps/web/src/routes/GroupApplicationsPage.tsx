@@ -22,6 +22,7 @@ import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
 import { useNow } from "@/features/ranking/useNow";
 import { acceptApplication, declineApplication } from "@/lib/groupRoomApi";
 import {
+  GROUP_MUTATION_OPTIONS,
   cannotLoadFirst,
   groupApplicationsQuery,
   groupHomeQuery,
@@ -88,6 +89,7 @@ function GroupApplications({ userId, groupId }: { userId: number; groupId: numbe
   }, [notOwner]);
 
   const answer = useMutation({
+    ...GROUP_MUTATION_OPTIONS,
     mutationFn: ({ applicationId, accept }: { applicationId: number; accept: boolean }) =>
       accept ? acceptApplication(applicationId) : declineApplication(applicationId),
     onSuccess: refresh,

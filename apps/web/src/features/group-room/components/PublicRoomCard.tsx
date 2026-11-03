@@ -31,6 +31,11 @@ export function PublicRoomCard({
     <button
       type="button"
       aria-label={label}
+      // Amplitude 클릭 자동 수집이 싣는 그룹 이름 글자와 aria-label을 가린다.
+      data-amp-mask
+      data-amp-mask-attributes="aria-label"
+      // Sentry 클릭 기록은 aria-label 대신 이 이름을 적는다.
+      data-sentry-element="PublicRoomCard"
       onClick={() => onOpen(room.roomId)}
       className="flex w-full flex-col gap-2 rounded-xl bg-muted px-4 py-3.5 text-left shadow-sb-card focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
     >

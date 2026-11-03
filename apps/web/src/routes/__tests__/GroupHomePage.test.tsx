@@ -1,7 +1,8 @@
 import type { GroupRoomJoinResponse } from "@focusmakers/types";
+import { onlineManager } from "@tanstack/react-query";
 import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { shareInvite } from "@/features/social-room/shareInvite";
@@ -11,7 +12,12 @@ import { ApiError } from "@/lib/api";
 import { groupKeys } from "@/lib/groupRoomQueries";
 import { queryClient } from "@/lib/queryClient";
 import type * as UserId from "@/lib/userId";
-import { mockGroupApi, renderGroupRoute, stubPendingIdentity } from "@/test/groupRouteHarness";
+import {
+  mockGroupApi,
+  renderGroupRoute,
+  stubHistoryIndex,
+  stubPendingIdentity,
+} from "@/test/groupRouteHarness";
 
 vi.mock("@/lib/groupRoomApi");
 vi.mock("@/lib/userId", async (importOriginal) => ({
@@ -141,6 +147,48 @@ describe("그룹 홈", () => {
     await waitFor(() => expect(router.location().pathname).toBe("/social"));
   });
 
+  it("그룹 탭에서 연 그룹을 나가면 그 탭 화면으로 돌아가 같은 탭이 기록에 두 번 쌓이지 않는다", async () => {
+    mockGroupApi("default");
+    const { router } = renderGroupRoute("/social?groupRooms=1");
+    const user = userEvent.setup();
+    const card = await screen.findByRole("button", { name: /우리 반 저녁 스터디/ });
+    const tabKey = router.location().key;
+    await user.click(card);
+    await screen.findByRole("heading", { name: "우리 반 저녁 스터디" });
+    stubHistoryIndex(1);
+    await openMenuItem(/그룹 나가기/);
+    await user.click(screen.getByRole("button", { name: "나가기" }));
+    await waitFor(() => expect(router.location().key).toBe(tabKey));
+  });
+
+  it("나간 그룹은 그룹 탭이 내 그룹을 다시 받기 전에도 탭에 남지 않는다", async () => {
+    const api = mockGroupApi("default");
+    const { router } = renderGroupRoute("/social?groupRooms=1");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /우리 반 저녁 스터디/ }));
+    await screen.findByRole("heading", { name: "우리 반 저녁 스터디" });
+    // 그룹 탭으로 돌아가 내 그룹을 다시 받는 동안의 화면을 본다.
+    api.getMyGroups.mockImplementation(() => new Promise(() => {}));
+    await openMenuItem(/그룹 나가기/);
+    await user.click(screen.getByRole("button", { name: "나가기" }));
+    await waitFor(() => expect(router.location().pathname).toBe("/social"));
+    expect(await screen.findByRole("tab", { name: /내 그룹 2\/5/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /우리 반 저녁 스터디/ })).toBeNull();
+  });
+
+  it("내보내져 돌아간 그룹도 그룹 탭이 내 그룹을 다시 받기 전에 탭에서 빠진다", async () => {
+    const api = mockGroupApi("default");
+    const { router } = renderGroupRoute("/social?groupRooms=1");
+    const card = await screen.findByRole("button", { name: /우리 반 저녁 스터디/ });
+    api.getGroupHome.mockRejectedValue(new ApiError("x", 403, "NOT_GROUP_MEMBER"));
+    api.getMyGroups.mockImplementation(() => new Promise(() => {}));
+    await userEvent.setup().click(card);
+    await waitFor(() => expect(router.location().pathname).toBe("/social"));
+    expect(await screen.findByText("이 그룹의 멤버가 아니에요")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /내 그룹 2\/5/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /우리 반 저녁 스터디/ })).toBeNull();
+  });
+
   it("스스로 나간 뒤에는 그 그룹을 다시 받지 않아 멤버가 아니라는 안내가 뜨지 않는다", async () => {
     const api = mockGroupApi("default");
     const { router } = renderGroupRoute("/social/groups/11?groupRooms=1");
@@ -151,6 +199,19 @@ describe("그룹 홈", () => {
     expect(api.getGroupHome).toHaveBeenCalledOnce();
     expect(screen.queryByText("이 그룹의 멤버가 아니에요")).toBeNull();
     expect(queryClient.getQueryData(groupKeys.home(1, 11))).toBeUndefined();
+  });
+
+  it("오프라인에서 나가기를 확인해도 창이 멈추지 않고 바로 다시 시도하라고 알린다", async () => {
+    const api = mockGroupApi("default");
+    api.leaveGroup.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    renderGroupRoute("/social/groups/11?groupRooms=1");
+    const user = await openMenuItem(/그룹 나가기/);
+    act(() => onlineManager.setOnline(false));
+    onTestFinished(() => onlineManager.setOnline(true));
+    await user.click(screen.getByRole("button", { name: "나가기" }));
+    expect(api.leaveGroup).toHaveBeenCalledWith(11);
+    expect(await screen.findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
   });
 
   it("확인 창의 나가기를 두 번 눌러도 한 번만 보낸다", async () => {
@@ -196,6 +257,40 @@ describe("그룹 홈", () => {
     renderGroupRoute("/social/groups/11?groupRooms=1");
     await openMenuItem("초대하기");
     await waitFor(() => expect(shareInvite).toHaveBeenCalledWith("K7Q2MX"));
+  });
+
+  it("메뉴를 열 때 초대코드를 다시 받아 그사이 바뀐 코드로 공유한다", async () => {
+    const api = mockGroupApi("default");
+    vi.mocked(shareInvite).mockClear();
+    renderGroupRoute("/social/groups/11?groupRooms=1");
+    await screen.findByRole("heading", { name: "우리 반 저녁 스터디" });
+    await waitFor(() => expect(api.getGroupInvite).toHaveBeenCalledOnce());
+    // 미리 받은 뒤 그룹장이 다른 멤버를 내보내 서버가 코드를 새로 만든 상황이다.
+    api.getGroupInvite.mockResolvedValue({ inviteCode: "Q4WN8T" });
+    await openMenuItem("초대하기");
+    await waitFor(() => expect(shareInvite).toHaveBeenCalledOnce());
+    expect(shareInvite).toHaveBeenCalledWith("Q4WN8T");
+  });
+
+  it("초대코드를 다시 받는 중에 초대하기를 누르면 예전 코드 대신 새 코드를 기다려 공유한다", async () => {
+    const api = mockGroupApi("default");
+    vi.mocked(shareInvite).mockClear();
+    renderGroupRoute("/social/groups/11?groupRooms=1");
+    await screen.findByRole("heading", { name: "우리 반 저녁 스터디" });
+    await waitFor(() => expect(api.getGroupInvite).toHaveBeenCalledOnce());
+    const releases: (() => void)[] = [];
+    api.getGroupInvite.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releases.push(() => resolve({ inviteCode: "Q4WN8T" }));
+        }),
+    );
+    await openMenuItem("초대하기");
+    await act(() => Promise.resolve());
+    expect(shareInvite).not.toHaveBeenCalled();
+    act(() => releases.forEach((release) => release()));
+    await waitFor(() => expect(shareInvite).toHaveBeenCalledOnce());
+    expect(shareInvite).toHaveBeenCalledWith("Q4WN8T");
   });
 
   it("공유 대신 복사했으면 복사했다고 알린다", async () => {

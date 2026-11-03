@@ -30,6 +30,13 @@ function renderDetail(
 }
 
 describe("PublicRoomDetailScreen", () => {
+  it("그룹 이름, 그룹장 닉네임, 소개가 클릭 분석에 실리지 않게 화면 전체에 가림 표시를 단다", () => {
+    renderDetail({ kind: "can_apply" });
+    const main = screen.getByRole("main");
+    expect(main).toHaveAttribute("data-amp-mask");
+    expect(main).toHaveAttribute("data-amp-mask-attributes", "aria-label");
+  });
+
   it("신청할 수 있으면 아래 줄에 신청하기만 둔다", async () => {
     const { onApply } = renderDetail({ kind: "can_apply" });
     const apply = screen.getByRole("button", { name: "신청하기" });

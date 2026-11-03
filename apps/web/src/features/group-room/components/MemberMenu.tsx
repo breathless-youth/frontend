@@ -39,6 +39,8 @@ export function MemberMenu({
     <DropdownMenu defaultOpen={defaultOpen}>
       <DropdownMenuTrigger
         aria-label={`${nickname} 메뉴`}
+        // Sentry 클릭 기록은 닉네임이 든 aria-label 대신 이 이름을 적는다.
+        data-sentry-element="MemberMenu"
         className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none data-[state=open]:bg-bg-layer-2 data-[state=open]:text-foreground"
       >
         <Ellipsis aria-hidden="true" size={20} strokeWidth={2.4} />
