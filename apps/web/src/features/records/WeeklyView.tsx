@@ -93,7 +93,8 @@ export function WeeklyView({
   const swipe = useHorizontalSwipe((delta) => changeWeek(delta, "swipe"));
 
   return (
-    <div>
+    // 마지막 카드(공부 리듬)가 떠 있는 탭바에 붙지 않게 아래를 띄운다.
+    <div className="pb-6">
       <WeekHeader
         weekAnchorKey={weekAnchorKey}
         metricsStatus={week.status}
