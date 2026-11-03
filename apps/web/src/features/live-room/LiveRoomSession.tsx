@@ -769,8 +769,11 @@ export function LiveRoomSession({
       });
       void leaveRoomSeat(room, roomId).catch(() => undefined);
       if (nav.to === "result") {
-        // 결과 화면으로 가는 수동 종료도 공부방을 나온 것이라 함께한 시간과 함께 센다.
-        trackExit();
+        // 그룹 공부방은 결과 화면으로 가는 수동 종료도 공부방을 나온 것이라 함께한 시간과 함께 센다.
+        // 초대코드 방은 이 경로에서 퇴장을 보내지 않던 지금 분석을 유지하기로 정했다.
+        if (room.kind === "group") {
+          trackExit();
+        }
         navigate(
           { pathname: liveRoomResultPath(room, roomId), search: location.search },
           { replace: true, state: { sessions: nav.sessions } },

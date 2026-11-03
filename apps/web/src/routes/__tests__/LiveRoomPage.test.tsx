@@ -1145,6 +1145,8 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
         expect(mockedLeaveRoom).toHaveBeenCalledWith(42);
       });
       expect(await screen.findByTestId("social-result-stub")).toBeInTheDocument();
+      // 초대코드 방은 결과 화면으로 가는 수동 종료에 퇴장 계측을 보내지 않는 지금 분석을 유지한다.
+      expect(trackSocialRoomExited).not.toHaveBeenCalled();
     } finally {
       // clearAllMocks는 호출 기록만 지우고 구현은 남긴다 — 다음 테스트로 새지 않게 되돌린다.
       mockedRestore.mockReturnValue({ settled: true, restored: null });
