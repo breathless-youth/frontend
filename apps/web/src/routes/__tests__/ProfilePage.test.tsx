@@ -503,6 +503,29 @@ describe("프로필 설정", () => {
     expect(consumeProfileSavedNotice()).toBe(true);
   });
 
+  it("저장 응답 전에 뒤로 가기로 떠나면 응답이 와도 다시 이동하거나 저장 완료 표시를 남기지 않는다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    let resolveSave: (value: ProfileResponse) => void = () => {};
+    mockedUpdateProfile.mockReturnValue(
+      new Promise<ProfileResponse>((resolve) => {
+        resolveSave = resolve;
+      }),
+    );
+    renderAt("/profile?userId=7");
+
+    fireEvent.change(await screen.findByLabelText("목표 문구"), { target: { value: "새 목표" } });
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+    await userEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
+    expect(await screen.findByTestId("settings-stub")).toBeInTheDocument();
+
+    await act(async () => {
+      resolveSave({ ...profile, goal: "새 목표" });
+    });
+
+    expect(screen.getByTestId("settings-stub")).toBeInTheDocument();
+    expect(consumeProfileSavedNotice()).toBe(false);
+  });
+
   it("저장에 실패하면 프로필 화면에 머물고 저장 완료 표시를 남기지 않는다", async () => {
     mockedGetProfile.mockResolvedValue({ ...profile });
     mockedUpdateProfile.mockRejectedValue(new Error("network"));

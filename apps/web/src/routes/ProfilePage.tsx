@@ -142,9 +142,6 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
         atMs: Date.now(),
       });
       trackProfileSaveResult({ ok: true });
-      // 토스트는 돌아간 설정 화면이 띄운다. 이 화면의 토스트는 화면을 떠나며 함께 사라진다.
-      markProfileSaved();
-      slideBack(navigate);
     },
     onError: (error) => {
       trackProfileSaveResult({
@@ -185,7 +182,15 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
       goal: patch.goal !== undefined,
       category: patch.category !== undefined,
     });
-    saveMutation.mutate(patch);
+    // 이동은 호출 단위 콜백에 둔다.
+    // 옵션의 onSuccess는 응답 전에 뒤로 가기로 화면을 떠나도 실행돼, 이미 돌아간 설정 화면을 한 번 더 뒤로 보낸다.
+    saveMutation.mutate(patch, {
+      onSuccess: () => {
+        // 토스트는 돌아간 설정 화면이 띄운다. 이 화면의 토스트는 화면을 떠나며 함께 사라진다.
+        markProfileSaved();
+        slideBack(navigate);
+      },
+    });
   };
 
   return (
