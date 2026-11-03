@@ -1,4 +1,5 @@
-import { STICKER_URL } from "./photoFrame";
+import { FACE_MASK_EMOJIS } from "@/features/live-room/faceMaskSettings";
+
 import type { TimelapseAspect, TimelapseInfoKey } from "./timelapseSettings";
 
 type InfoLine = { key: TimelapseInfoKey; text: string; className: string };
@@ -49,6 +50,8 @@ type TimelapsePreviewProps = {
   info: Readonly<Record<TimelapseInfoKey, boolean>>;
   /** 사용자의 D-Day. 아직 모르면 숫자 없는 `D-Day`를 쓴다. */
   ddayLabel?: string;
+  /** 얼굴 가림에 덮을 이모지 그림 주소이고, 없으면 설정 기본값인 첫 번째 이모지를 쓴다. */
+  faceMaskEmojiUrl?: string;
 };
 
 /**
@@ -63,6 +66,7 @@ export function TimelapsePreview({
   aspect,
   info,
   ddayLabel = UNKNOWN_DDAY_LABEL,
+  faceMaskEmojiUrl = FACE_MASK_EMOJIS[0]!.url,
 }: TimelapsePreviewProps) {
   const topLines = TOP_LINES.filter((line) => info[line.key]);
   const bottomLines = BOTTOM_LINES.filter((line) => info[line.key]);
@@ -84,7 +88,7 @@ export function TimelapsePreview({
       )}
       {info.faceMask && (
         <img
-          src={STICKER_URL}
+          src={faceMaskEmojiUrl}
           alt=""
           className="absolute top-[40%] left-1/2 size-16 -translate-x-1/2 -translate-y-1/2"
         />

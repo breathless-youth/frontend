@@ -433,7 +433,7 @@ describe("createObjectDetector — 비동기 추론", () => {
 
 describe("createObjectDetector 타임랩스 사진", () => {
   const PHOTO = new Uint8Array([0xff, 0xd8]).buffer;
-  const spec = { aspect: "9:16" as const, mask: false };
+  const spec = { aspect: "9:16" as const, mask: false, emojiUrl: "/face-mask/dog.png" };
 
   function handleWithCapture(capture: () => Promise<ArrayBuffer>) {
     return { ...fakeHandle(), capture: vi.fn(capture) };

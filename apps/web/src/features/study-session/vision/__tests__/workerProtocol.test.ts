@@ -254,7 +254,7 @@ describe("createWorkerMessageHandler 타임랩스 사진", () => {
   it("사진을 요청하면 추론한 프레임과 그 랜드마크로 사진을 만들어 결과에 담는다", async () => {
     const env = await readyFace();
     const frame = fakeFrame();
-    const photo = { aspect: "9:16" as const, mask: true };
+    const photo = { aspect: "9:16" as const, mask: true, emojiUrl: "/face-mask/dog.png" };
 
     await env.handle({ type: "detect", id: 2, handleId: 1, frame, timestampMs: 0, photo });
 
@@ -298,7 +298,7 @@ describe("createWorkerMessageHandler 타임랩스 사진", () => {
       handleId: 1,
       frame,
       timestampMs: 0,
-      photo: { aspect: "9:16", mask: true },
+      photo: { aspect: "9:16", mask: true, emojiUrl: "/face-mask/dog.png" },
     });
 
     expect(env.posted.at(-1)).toEqual({
@@ -316,7 +316,7 @@ describe("createWorkerMessageHandler capture", () => {
     const detector = fakeDetector();
     const env = setup(detector);
     const frame = fakeFrame();
-    const photo = { aspect: "16:9" as const, mask: false };
+    const photo = { aspect: "16:9" as const, mask: false, emojiUrl: "/face-mask/dog.png" };
 
     await env.handle({ type: "capture", id: 3, frame, photo });
 
@@ -337,7 +337,12 @@ describe("createWorkerMessageHandler capture", () => {
     });
     const frame = fakeFrame();
 
-    await env.handle({ type: "capture", id: 3, frame, photo: { aspect: "9:16", mask: false } });
+    await env.handle({
+      type: "capture",
+      id: 3,
+      frame,
+      photo: { aspect: "9:16", mask: false, emojiUrl: "/face-mask/dog.png" },
+    });
 
     expect(env.posted).toEqual([
       { type: "captureFailed", id: 3, reason: "2D 컨텍스트를 만들지 못했다" },

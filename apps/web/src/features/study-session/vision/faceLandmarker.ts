@@ -66,7 +66,7 @@ export interface FaceDetectionResult {
   /**
    * 요청한 타임랩스 사진
    *
-   * 가림이면 스티커를 덮은 뒤의 JPEG다.
+   * 가림이면 이모지를 덮은 뒤의 JPEG다.
    * 만들지 못했으면 없다.
    */
   readonly photo?: ArrayBuffer;

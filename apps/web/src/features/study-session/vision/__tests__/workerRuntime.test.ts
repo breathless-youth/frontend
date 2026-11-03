@@ -661,7 +661,7 @@ describe("createFallbackRuntime — 얼굴 모델", () => {
 const PHOTO = new Uint8Array([0xff, 0xd8]).buffer;
 
 describe("createWorkerRuntime 타임랩스 사진", () => {
-  const spec = { aspect: "9:16" as const, mask: true };
+  const spec = { aspect: "9:16" as const, mask: true, emojiUrl: "/face-mask/dog.png" };
 
   it("얼굴 추론에 사진을 요청하면 detect 메시지에 싣고 답의 사진을 결과에 붙인다", async () => {
     const frame = fakeFrame();
@@ -698,7 +698,7 @@ describe("createWorkerRuntime 타임랩스 사진", () => {
 });
 
 describe("createWorkerRuntime capture", () => {
-  const spec = { aspect: "9:16" as const, mask: true };
+  const spec = { aspect: "9:16" as const, mask: true, emojiUrl: "/face-mask/dog.png" };
 
   it("객체 검출기 핸들의 capture는 뜬 프레임을 capture로 넘기고 사진을 돌려준다", async () => {
     const frame = fakeFrame();
@@ -746,7 +746,9 @@ describe("createFallbackRuntime 타임랩스 사진", () => {
       loadFallback,
     ).createDetector(OPTIONS);
 
-    await expect(handle.capture(video, { aspect: "9:16", mask: false })).resolves.toBe(PHOTO);
+    await expect(
+      handle.capture(video, { aspect: "9:16", mask: false, emojiUrl: "/face-mask/dog.png" }),
+    ).resolves.toBe(PHOTO);
     await expect(handle.detect(video, 1)).resolves.toEqual(RESULT);
     expect(worker.close).toHaveBeenCalledTimes(1);
     expect(loadFallback).toHaveBeenCalledTimes(1);
@@ -756,7 +758,7 @@ describe("createFallbackRuntime 타임랩스 사진", () => {
 
   it("얼굴 모델은 사진 요청을 지금 핸들에 그대로 넘긴다", async () => {
     const worker = fakeFaceHandle("worker");
-    const spec = { aspect: "16:9" as const, mask: true };
+    const spec = { aspect: "16:9" as const, mask: true, emojiUrl: "/face-mask/dog.png" };
 
     const handle = await createFallbackRuntime(
       runtimeOf(
