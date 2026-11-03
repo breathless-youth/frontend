@@ -102,7 +102,9 @@ export function GroupRoomTopBar({
           className="font-bold"
         >
           <span aria-hidden="true">{formatElapsed(focusSec)}</span>
-          <span className="sr-only">순공시간 {toKoreanDuration(focusSec)}</span>
+          <span className="sr-only">
+            {t("time.aria.focus", { duration: toKoreanDuration(focusSec) })}
+          </span>
         </Badge>
         <p
           aria-hidden={hidden || undefined}
@@ -114,15 +116,17 @@ export function GroupRoomTopBar({
             hidden && "opacity-0",
           )}
         >
-          <span aria-hidden="true">{`총 ${formatElapsed(studySec)}`}</span>
-          <span className="sr-only">총 공부 시간 {toKoreanDuration(studySec)}</span>
+          <span aria-hidden="true">{`${t("time.total")} ${formatElapsed(studySec)}`}</span>
+          <span className="sr-only">
+            {t("time.aria.total", { duration: toKoreanDuration(studySec) })}
+          </span>
         </p>
       </div>
 
       <div inert={hidden} className={cn("flex justify-end", fadable)}>
         <button
           type="button"
-          aria-label="다른 사람 소리 끄기"
+          aria-label={t("groupRoomTopBar.aria.muteOthers")}
           aria-pressed={othersMuted}
           onPointerDown={stopSurfaceToggle}
           onClick={onToggleOthersMuted}
@@ -136,7 +140,7 @@ export function GroupRoomTopBar({
         </button>
         <button
           type="button"
-          aria-label="카메라 전환"
+          aria-label={t("groupRoomTopBar.aria.switchCamera")}
           disabled={flipDisabled}
           onPointerDown={stopSurfaceToggle}
           onClick={onFlipCamera}

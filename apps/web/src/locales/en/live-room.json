@@ -57,5 +57,22 @@
       "focus": "Focus time {{duration}}",
       "total": "Total study time {{duration}}"
     }
+  },
+  "groupRoomTopBar": {
+    "aria": {
+      "muteOthers": "Mute others",
+      "switchCamera": "Switch camera"
+    }
+  },
+  "micButton": {
+    "aria": {
+      "turnOff": "Turn off mic",
+      "turnOn": "Turn on mic"
+    }
+  },
+  "timerButton": {
+    "aria": {
+      "label": "Timer"
+    }
   }
 }

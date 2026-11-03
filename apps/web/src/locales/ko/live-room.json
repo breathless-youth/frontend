@@ -57,5 +57,22 @@
       "focus": "순공시간 {{duration}}",
       "total": "총 공부 시간 {{duration}}"
     }
+  },
+  "groupRoomTopBar": {
+    "aria": {
+      "muteOthers": "다른 사람 소리 끄기",
+      "switchCamera": "카메라 전환"
+    }
+  },
+  "micButton": {
+    "aria": {
+      "turnOff": "마이크 끄기",
+      "turnOn": "마이크 켜기"
+    }
+  },
+  "timerButton": {
+    "aria": {
+      "label": "타이머"
+    }
   }
 }

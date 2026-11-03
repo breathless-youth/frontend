@@ -1,4 +1,5 @@
 import { Mic, MicOff } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { SESSION_SYMBOL_SCALE } from "@/features/study-session/components/controlButtonVariants";
 import { useNativeControl } from "@/lib/nativeControls";
@@ -30,7 +31,8 @@ export function MicButton({
   hidden?: boolean;
   onToggle: () => void;
 }) {
-  const label = on ? "마이크 끄기" : "마이크 켜기";
+  const { t } = useTranslation("live-room");
+  const label = on ? t("micButton.aria.turnOff") : t("micButton.aria.turnOn");
   const { ref } = useNativeControl<HTMLButtonElement>(
     {
       id: "room-mic",

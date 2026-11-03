@@ -1,4 +1,5 @@
 import { Timer } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { SESSION_SYMBOL_SCALE } from "@/features/study-session/components/controlButtonVariants";
 import { useNativeControl } from "@/lib/nativeControls";
@@ -34,6 +35,8 @@ export function TimerButton({
   hidden?: boolean;
   onOpen: () => void;
 }) {
+  const { t } = useTranslation("live-room");
+  const label = t("timerButton.aria.label");
   const { ref } = useNativeControl<HTMLButtonElement>(
     {
       id: "room-timer",
@@ -41,7 +44,7 @@ export function TimerButton({
       title: null,
       systemImage: "timer",
       shape: "circle",
-      accessibilityLabel: "타이머",
+      accessibilityLabel: label,
       tone: on ? "prominent" : "default",
       disabled: disabled || inactive,
       faded: hidden,
@@ -53,7 +56,7 @@ export function TimerButton({
     <button
       ref={ref}
       type="button"
-      aria-label="타이머"
+      aria-label={label}
       aria-haspopup="dialog"
       aria-expanded={expanded}
       data-on={on}
