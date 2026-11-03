@@ -1,3 +1,4 @@
+import type { GroupRoomJoinResponse } from "@focusmakers/types";
 import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
@@ -243,6 +244,37 @@ describe("그룹 홈", () => {
     await userEvent.setup().click(enter);
     await waitFor(() => expect(enter).toBeDisabled());
     expect(api.joinGroupRoom).toHaveBeenCalledOnce();
+  });
+
+  it("자리를 잡는 사이 그룹 홈을 떠나면 자리를 잡은 뒤에도 공부방으로 데려가지 않는다", async () => {
+    const api = mockGroupApi("default");
+    let finishJoin: (seat: GroupRoomJoinResponse) => void = () => undefined;
+    api.joinGroupRoom.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishJoin = resolve;
+        }),
+    );
+    const { router } = renderGroupRoute("/social/groups/10?groupRooms=1");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "공부방 들어가기" }));
+    await waitFor(() => expect(api.joinGroupRoom).toHaveBeenCalled());
+    await user.click(screen.getByRole("button", { name: "뒤로 가기" }));
+    await waitFor(() => expect(router.location().pathname).toBe("/social"));
+
+    await act(async () =>
+      finishJoin({
+        roomId: 77,
+        graceRejoin: false,
+        cameraOn: null,
+        micOn: null,
+        onBreak: null,
+        iceServers: [],
+        iceTtlSeconds: 600,
+      }),
+    );
+
+    expect(router.location().pathname).toBe("/social");
   });
 
   it("자리를 잡지 못하면 그룹 홈에 남아 다시 시도하라고 알린다", async () => {

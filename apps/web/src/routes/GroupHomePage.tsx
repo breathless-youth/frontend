@@ -97,21 +97,30 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
   });
   const enterRoom = useMutation({
     mutationFn: () => enterGroupStudyRoom(userId, groupId),
-    onSuccess: (seat) => {
-      const state: GroupRoomLocationState = {
-        roomId: seat.roomId,
-        graceRejoin: seat.graceRejoin,
-        iceServers: seat.iceServers,
-      };
-      navigate({ pathname: `${groupPath}/room`, search }, { state });
-    },
-    onError: (error) => {
-      // 내보내졌거나 그룹이 사라졌으면 아래 훅이 그룹 탭으로 데려가며 이유를 알린다.
-      if (!isGroupGoneError(error)) {
-        showToast(groupErrorCopy("load", error));
-      }
-    },
   });
+  // 결과 처리는 mutate에 넘겨 그룹 홈이 화면에 있는 동안만 한다.
+  // 자리를 잡는 사이 뒤로 가면 TanStack이 이 처리를 건너뛰어 떠난 사람을 공부방으로 데려가지 않는다.
+  const enterStudyRoom = () => {
+    if (enterRoom.isPending) {
+      return;
+    }
+    enterRoom.mutate(undefined, {
+      onSuccess: (seat) => {
+        const state: GroupRoomLocationState = {
+          roomId: seat.roomId,
+          graceRejoin: seat.graceRejoin,
+          iceServers: seat.iceServers,
+        };
+        navigate({ pathname: `${groupPath}/room`, search }, { state });
+      },
+      onError: (error) => {
+        // 내보내졌거나 그룹이 사라졌으면 아래 훅이 그룹 탭으로 데려가며 이유를 알린다.
+        if (!isGroupGoneError(error)) {
+          showToast(groupErrorCopy("load", error));
+        }
+      },
+    });
+  };
   // 자리 잡기의 멤버 아님이 홈을 다시 받다 실패한 오류에 가려지면 누름이 아무 안내 없이 끝나서 먼저 본다.
   const goneError = isGroupGoneError(enterRoom.error) ? enterRoom.error : homeQuery.error;
   useLeaveWhenGone(left ? null : goneError, groupId);
@@ -267,11 +276,7 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
         }}
         onMenuSelect={selectMenu}
         onOpenRequests={() => go(`${groupPath}/applications`)}
-        onEnterStudyRoom={() => {
-          if (!enterRoom.isPending) {
-            enterRoom.mutate();
-          }
-        }}
+        onEnterStudyRoom={enterStudyRoom}
         entering={enterRoom.isPending}
       />
       {leaveDialog !== null && (
