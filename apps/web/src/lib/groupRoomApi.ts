@@ -25,6 +25,13 @@ import type {
 
 import { API_BASE_URL, apiFetch, parseApiError } from "./api";
 
+/**
+ * 그룹 공부방 API 호출
+ *
+ * 함수마다 맨 앞에서 개발 빌드 가짜 서버가 켜졌는지 먼저 본다.
+ * 백엔드 그룹 로직이 501인 동안 화면 흐름을 돌려 보려는 것이고, 운영 빌드에서는 이 분기와 동적 import가 빠진다.
+ */
+
 /** `/api/groups`와 `/api/group-applications`는 `groups`, `/api/blocks`는 `blocks`다. */
 type GroupEndpoint = "groups" | "blocks";
 
@@ -72,6 +79,20 @@ export interface GroupRoomApi {
   unblockUser: typeof unblockUser;
   joinGroupRoom: typeof joinGroupRoom;
   leaveGroupRoom: typeof leaveGroupRoom;
+}
+
+/**
+ * 개발 빌드 가짜 서버
+ *
+ * 주소에 `?groupMock=<장면>`이 있을 때만 서버를 돌려주고, 없으면 null이라 실제 서버로 보낸다.
+ * 운영 빌드에서는 `import.meta.env.DEV`가 거짓으로 바뀌어 분기 안의 동적 import가 통째로 빠진다.
+ */
+async function groupDevMock(): Promise<GroupRoomApi | null> {
+  if (import.meta.env.DEV) {
+    const { activeGroupMockServer } = await import("./groupRoomMock");
+    return activeGroupMockServer();
+  }
+  return null;
 }
 
 /**
@@ -144,10 +165,18 @@ function reportBody(reason: string): ReportRequest {
 }
 
 export async function getMyGroups(signal?: AbortSignal): Promise<MyGroupsResponse> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.getMyGroups(signal);
+  }
   return getJson("/api/groups/me", "groups", "내 그룹 조회 실패", signal);
 }
 
 export async function getMyApplications(signal?: AbortSignal): Promise<MyApplicationsResponse> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.getMyApplications(signal);
+  }
   return getJson("/api/group-applications/me", "groups", "내 신청 조회 실패", signal);
 }
 
@@ -155,6 +184,10 @@ export async function getPublicGroups(
   params: PublicGroupsParams,
   signal?: AbortSignal,
 ): Promise<PublicGroupPageResponse> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.getPublicGroups(params, signal);
+  }
   const query = toQuery([
     ["query", params.query],
     ["category", params.category],
@@ -168,6 +201,10 @@ export async function getPublicGroup(
   groupId: number,
   signal?: AbortSignal,
 ): Promise<PublicGroupDetailResponse> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.getPublicGroup(groupId, signal);
+  }
   return getJson(`/api/groups/public/${groupId}`, "groups", "공개 그룹 조회 실패", signal);
 }
 
@@ -175,6 +212,10 @@ export async function getGroupHome(
   groupId: number,
   signal?: AbortSignal,
 ): Promise<GroupHomeResponse> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.getGroupHome(groupId, signal);
+  }
   return getJson(`/api/groups/${groupId}`, "groups", "그룹 홈 조회 실패", signal);
 }
 
@@ -182,6 +223,10 @@ export async function getGroupMembers(
   groupId: number,
   signal?: AbortSignal,
 ): Promise<GroupMembersResponse> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.getGroupMembers(groupId, signal);
+  }
   return getJson(`/api/groups/${groupId}/members`, "groups", "멤버 목록 조회 실패", signal);
 }
 
@@ -190,6 +235,10 @@ export async function getGroupInvite(
   groupId: number,
   signal?: AbortSignal,
 ): Promise<GroupInviteResponse> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.getGroupInvite(groupId, signal);
+  }
   return getJson(`/api/groups/${groupId}/invite`, "groups", "초대코드 조회 실패", signal);
 }
 
@@ -197,23 +246,43 @@ export async function getGroupApplications(
   groupId: number,
   signal?: AbortSignal,
 ): Promise<GroupApplicationsResponse> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.getGroupApplications(groupId, signal);
+  }
   return getJson(`/api/groups/${groupId}/applications`, "groups", "신청 목록 조회 실패", signal);
 }
 
 export async function getBlocks(signal?: AbortSignal): Promise<BlockListResponse> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.getBlocks(signal);
+  }
   return getJson("/api/blocks", "blocks", "차단 목록 조회 실패", signal);
 }
 
 export async function createGroup(body: GroupCreateRequest): Promise<GroupCreateResponse> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.createGroup(body);
+  }
   return sendJson("/api/groups", "그룹 만들기 실패", body);
 }
 
 /** 전체 교체라 소개를 빼면 서버가 소개를 비운다. */
 export async function updateGroup(groupId: number, body: GroupUpdateRequest): Promise<void> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.updateGroup(groupId, body);
+  }
   return send(`/api/groups/${groupId}`, "PATCH", "groups", "그룹 설정 저장 실패", body);
 }
 
 export async function setGroupNotification(groupId: number, enabled: boolean): Promise<void> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.setGroupNotification(groupId, enabled);
+  }
   const body: GroupNotificationRequest = { enabled };
   return send(
     `/api/groups/${groupId}/notifications`,
@@ -225,20 +294,36 @@ export async function setGroupNotification(groupId: number, enabled: boolean): P
 }
 
 export async function transferGroupOwner(groupId: number, userId: number): Promise<void> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.transferGroupOwner(groupId, userId);
+  }
   const body: GroupOwnerTransferRequest = { userId };
   return send(`/api/groups/${groupId}/owner`, "PUT", "groups", "그룹장 넘기기 실패", body);
 }
 
 /** 비공개 그룹이면 서버가 초대코드를 새로 만들지만 응답에는 없어 초대코드를 다시 받아야 한다. */
 export async function kickGroupMember(groupId: number, userId: number): Promise<void> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.kickGroupMember(groupId, userId);
+  }
   return send(`/api/groups/${groupId}/members/${userId}`, "DELETE", "groups", "멤버 내보내기 실패");
 }
 
 export async function leaveGroup(groupId: number): Promise<void> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.leaveGroup(groupId);
+  }
   return send(`/api/groups/${groupId}/leave`, "POST", "groups", "그룹 나가기 실패");
 }
 
 export async function regenerateGroupInvite(groupId: number): Promise<GroupInviteResponse> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.regenerateGroupInvite(groupId);
+  }
   return sendJson(`/api/groups/${groupId}/invite`, "초대코드 새로 만들기 실패");
 }
 
@@ -247,6 +332,10 @@ export async function joinGroupByCode(
   inviteCode: string,
   via: GroupJoinVia,
 ): Promise<GroupJoinResponse> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.joinGroupByCode(inviteCode, via);
+  }
   const body: GroupJoinRequest = { inviteCode, via };
   return sendJson("/api/groups/join", "초대코드 참여 실패", body);
 }
@@ -255,15 +344,27 @@ export async function applyToGroup(
   groupId: number,
   introduction: string,
 ): Promise<GroupApplicationCreateResponse> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.applyToGroup(groupId, introduction);
+  }
   const body: GroupApplicationCreateRequest = { introduction };
   return sendJson(`/api/groups/${groupId}/applications`, "그룹 신청 실패", body);
 }
 
 export async function cancelApplication(applicationId: number): Promise<void> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.cancelApplication(applicationId);
+  }
   return send(`/api/group-applications/${applicationId}`, "DELETE", "groups", "신청 취소 실패");
 }
 
 export async function acceptApplication(applicationId: number): Promise<void> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.acceptApplication(applicationId);
+  }
   return send(
     `/api/group-applications/${applicationId}/accept`,
     "POST",
@@ -273,6 +374,10 @@ export async function acceptApplication(applicationId: number): Promise<void> {
 }
 
 export async function declineApplication(applicationId: number): Promise<void> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.declineApplication(applicationId);
+  }
   return send(
     `/api/group-applications/${applicationId}/decline`,
     "POST",
@@ -282,6 +387,10 @@ export async function declineApplication(applicationId: number): Promise<void> {
 }
 
 export async function reportApplication(applicationId: number, reason: string): Promise<void> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.reportApplication(applicationId, reason);
+  }
   return send(
     `/api/group-applications/${applicationId}/report`,
     "POST",
@@ -297,6 +406,10 @@ export async function reportGroupMember(
   userId: number,
   reason: string,
 ): Promise<void> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.reportGroupMember(groupId, userId, reason);
+  }
   return send(
     `/api/groups/${groupId}/members/${userId}/report`,
     "POST",
@@ -307,14 +420,26 @@ export async function reportGroupMember(
 }
 
 export async function unblockUser(userId: number): Promise<void> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.unblockUser(userId);
+  }
   return send(`/api/blocks/${userId}`, "DELETE", "blocks", "차단 해제 실패");
 }
 
 /** 자리는 30초 동안만 잡혀 있고, 그 안에 응답의 방을 구독해야 들어간 것으로 정해진다. */
 export async function joinGroupRoom(groupId: number): Promise<GroupRoomJoinResponse> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.joinGroupRoom(groupId);
+  }
   return sendJson(`/api/groups/${groupId}/room/join`, "그룹 공부방 자리 잡기 실패");
 }
 
 export async function leaveGroupRoom(groupId: number): Promise<void> {
+  const mock = await groupDevMock();
+  if (mock !== null) {
+    return mock.leaveGroupRoom(groupId);
+  }
   return send(`/api/groups/${groupId}/room/leave`, "POST", "groups", "그룹 공부방 나가기 실패");
 }

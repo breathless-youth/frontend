@@ -29,6 +29,12 @@ import {
   unblockUser,
   updateGroup,
 } from "../groupRoomApi";
+import * as groupRoomApi from "../groupRoomApi";
+import type { GroupRoomApi } from "../groupRoomApi";
+
+// 주소에 장면이 없는 평소에는 가짜 서버가 꺼져 있어 실제 fetch 경로를 탄다.
+const devServer = vi.hoisted(() => ({ current: null as unknown }));
+vi.mock("../groupRoomMock", () => ({ activeGroupMockServer: () => devServer.current }));
 
 const mockedFetch = vi.fn();
 globalThis.fetch = mockedFetch as unknown as typeof fetch;
@@ -39,7 +45,10 @@ const response = (status: number, body?: unknown) => {
 };
 const lastCall = () => mockedFetch.mock.calls.at(-1) as [string, RequestInit];
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  devServer.current = null;
+});
 
 describe("groupRoomApi", () => {
   it("내 그룹 탭은 API-Version 1로 받는다", async () => {
@@ -275,4 +284,55 @@ describe("groupRoomApi", () => {
       body === undefined ? null : "application/json",
     );
   });
+});
+
+describe("개발용 가짜 서버로 보내기", () => {
+  const signal = new AbortController().signal;
+  const calls: [keyof GroupRoomApi, unknown[]][] = [
+    ["getMyGroups", [signal]],
+    ["getMyApplications", [signal]],
+    ["getPublicGroups", [{ page: 0 }, signal]],
+    ["getPublicGroup", [12, signal]],
+    ["getGroupHome", [10, signal]],
+    ["getGroupMembers", [10, signal]],
+    ["getGroupInvite", [11, signal]],
+    ["getGroupApplications", [10, signal]],
+    ["getBlocks", [signal]],
+    ["createGroup", [{ name: "토익 900 모임", visibility: "PUBLIC", category: "LANGUAGE" }]],
+    ["updateGroup", [10, { name: "새벽 공시반", category: "CIVIL_SERVICE" }]],
+    ["setGroupNotification", [10, true]],
+    ["transferGroupOwner", [10, 42]],
+    ["kickGroupMember", [10, 42]],
+    ["leaveGroup", [10]],
+    ["regenerateGroupInvite", [11]],
+    ["joinGroupByCode", ["K7Q2MX", "LINK"]],
+    ["applyToGroup", [13, "같이 공부해요"]],
+    ["cancelApplication", [55]],
+    ["acceptApplication", [55]],
+    ["declineApplication", [55]],
+    ["reportApplication", [55, "광고 글이에요"]],
+    ["reportGroupMember", [10, 42, ""]],
+    ["unblockUser", [42]],
+    ["joinGroupRoom", [10]],
+    ["leaveGroupRoom", [10]],
+  ];
+
+  it("표가 내보낸 함수 26개를 모두 담는다", () => {
+    const exported = Object.entries(groupRoomApi)
+      .filter(([, value]) => typeof value === "function")
+      .map(([name]) => name);
+    expect(exported.sort()).toEqual(calls.map(([name]) => name).sort());
+  });
+
+  it.each(calls)(
+    "켜져 있으면 %s를 같은 이름의 가짜 함수로 보내고 서버에는 보내지 않는다",
+    async (name, args) => {
+      const fake = vi.fn().mockResolvedValue("가짜 응답");
+      devServer.current = { [name]: fake };
+      const call = groupRoomApi[name] as (...rest: unknown[]) => Promise<unknown>;
+      await expect(call(...args)).resolves.toBe("가짜 응답");
+      expect(fake).toHaveBeenCalledWith(...args);
+      expect(mockedFetch).not.toHaveBeenCalled();
+    },
+  );
 });
