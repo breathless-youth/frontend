@@ -758,6 +758,30 @@ describe("GroupRoomPage 함께한 시간", () => {
     expect(input.togetherSec).toBeGreaterThanOrEqual(29);
     expect(input.togetherSec).toBeLessThanOrEqual(31);
   });
+
+  it("다시 연결해 받은 SNAPSHOT에서 상대 카메라가 꺼져 있으면 그때부터 세지 않는다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    const { channel } = await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember(), otherMember(56, "선규", { cameraOn: true })],
+    });
+    await turnCameraOn();
+    await act(() => vi.advanceTimersByTimeAsync(30_000));
+
+    // 다시 구독하면 서버가 지금 멤버 상태를 새로 보낸다.
+    act(() =>
+      channel.emitServerMessage({
+        type: "SNAPSHOT",
+        members: [meMember(), otherMember(56, "선규", { cameraOn: false })],
+      }),
+    );
+    await act(() => vi.advanceTimersByTimeAsync(60_000));
+
+    const input = await exitedInput();
+    expect(input.togetherSec).toBeGreaterThanOrEqual(29);
+    expect(input.togetherSec).toBeLessThan(45);
+  });
 });
 
 describe("GroupRoomPage 마이크 계측", () => {
