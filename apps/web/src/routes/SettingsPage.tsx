@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
@@ -20,6 +20,7 @@ import { useUserId } from "@/lib/userId";
 import { hasAppLockCapability } from "@/features/app-lock/appLockCapability";
 import { formatAppLockRowValue } from "@/features/app-lock/appLockSummary";
 import { useAppLockSettings } from "@/features/app-lock/useAppLockSettings";
+import { consumeProfileSavedNotice } from "@/features/profile/profileSavedNotice";
 import { PermissionToggle } from "@/features/settings/PermissionToggle";
 import { SettingsRow } from "@/features/settings/SettingsRow";
 import { SettingsSection } from "@/features/settings/SettingsSection";
@@ -30,6 +31,9 @@ import { afterApplied } from "@/features/interview/interviewGate";
 import { updateInterviewState } from "@/features/interview/interviewStore";
 import { detectStorePlatform } from "@/features/social-room/storeLink";
 import { prefetchSettingsSubPages } from "@/routes/lazyRoutes";
+
+/** 탭 바가 다시 올라오는 애니메이션이 끝나기를 기다리는 시간(ms) */
+const PROFILE_SAVED_TOAST_DELAY_MS = 450;
 
 /**
  * 설정
@@ -68,6 +72,22 @@ export function SettingsPage() {
       console.warn("[interview] failed to load status, hiding the apply row", interviewError);
     }
   }, [interviewError]);
+
+  // 프로필 저장 뒤 돌아왔을 때의 토스트다.
+  // 표시는 한 번만 읽히므로 결과를 ref에 고정해, StrictMode가 이펙트를 두 번 돌려도 두 번째 읽기가 false로 덮지 않게 한다.
+  // 프로필 화면은 탭 바를 숨겨서 돌아오는 순간 탭 바가 다시 올라오며 웹뷰 높이가 바뀐다.
+  // 그동안 하단 토스트가 따라 움직이므로 탭 바가 다 올라온 뒤에 띄운다.
+  const profileSavedRef = useRef<boolean | null>(null);
+  profileSavedRef.current ??= consumeProfileSavedNotice();
+  useEffect(() => {
+    if (!profileSavedRef.current) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      showToast(t("saved", { ns: "profile" }));
+    }, PROFILE_SAVED_TOAST_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [t]);
 
   // 하위 화면 청크를 미리 받아 첫 진입 때 전환이 청크를 기다리지 않게 한다.
   useEffect(() => {
