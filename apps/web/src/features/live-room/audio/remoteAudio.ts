@@ -7,7 +7,7 @@ import { createSilentKeepAlive } from "@/features/ambient-sound/silentKeepAlive"
  * 음량은 미디어 요소의 volume이 아니라 GainNode로 바꾸는데, iOS WebKit에서는 volume이 바뀌지 않는다.
  * Chromium은 원격 WebRTC 트랙을 미디어 요소에 붙여야 Web Audio로 샘플이 흘러서 같은 트랙을 음소거한 보조 audio 요소에도 붙인다.
  * Apple WebKit은 Web Audio만 쓰는 페이지를 무음 스위치에 따르게 해서 배경음과 같은 무음 keep-alive 요소를 함께 재생한다.
- * keep-alive는 소리를 내는 미디어 요소라 iOS가 사용자의 음악 앱을 멈출 수 있어서, 대부분 말이 없는 공부방에서는 마이크를 켠 멤버의 소리가 붙어 있을 때만 재생한다.
+ * keep-alive는 소리를 내는 미디어 요소라 iOS가 사용자의 음악 앱을 멈출 수 있어서, 대부분 말이 없는 공부방에서는 마이크를 켠 멤버의 소리가 붙어 있고 이 기기에서 들릴 때만 재생한다.
  * 통화나 알람이 컨텍스트를 멈추면 들을 상대가 있는 동안 다시 깨우고, 시스템이 멈춘 요소는 요소의 멈춤 상태를 보고 다시 건다.
  * 소리는 재생하고 크기만 읽으며 녹음하거나 저장하지 않는다.
  */
@@ -146,9 +146,14 @@ export function createRemoteAudioPlayer(
     }
   }
 
+  // 다른 사람 소리 끄기, 그 사람 소리 끄기, 음량 0은 이 기기에서 들리는 소리가 없는 것과 같다.
+  function audible(userId: number): boolean {
+    return !allMuted && !muted.has(userId) && (volumes.get(userId) ?? 1) > 0;
+  }
+
   function keepAliveWanted(): boolean {
     for (const userId of voices.keys()) {
-      if (micOnUsers.has(userId)) {
+      if (micOnUsers.has(userId) && audible(userId)) {
         return true;
       }
     }
@@ -265,6 +270,7 @@ export function createRemoteAudioPlayer(
     setVolume(userId, volume) {
       volumes.set(userId, clampVolume(volume));
       applyGain(userId);
+      syncKeepAlive();
     },
     setMuted(userId, next) {
       if (next) {
@@ -273,12 +279,14 @@ export function createRemoteAudioPlayer(
         muted.delete(userId);
       }
       applyGain(userId);
+      syncKeepAlive();
     },
     setAllMuted(next) {
       allMuted = next;
       for (const userId of voices.keys()) {
         applyGain(userId);
       }
+      syncKeepAlive();
     },
     setMicOnUsers(userIds) {
       micOnUsers = new Set(userIds);
