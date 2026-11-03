@@ -941,7 +941,7 @@ describe("ResultPage — 소셜 결과의 목적지", () => {
   });
 });
 
-describe("ResultPage — 그룹 공부방 결과의 목적지", () => {
+describe("ResultPage: 그룹 공부방 결과의 목적지", () => {
   afterEach(() => {
     localStorage.clear();
     vi.unstubAllGlobals();
