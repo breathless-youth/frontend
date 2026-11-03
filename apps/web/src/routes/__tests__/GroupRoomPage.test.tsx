@@ -24,6 +24,8 @@ import { createMockCameraAdapter } from "@/features/study-session/adapters/camer
 import { submitStudySession } from "@/features/study-session/submitStudySession";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { ApiError } from "@/lib/api";
+import type * as AmplitudeModule from "@/lib/amplitude";
+import { trackStudySessionEnded } from "@/lib/amplitude";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import {
   getGroupHome,
@@ -66,6 +68,10 @@ vi.mock("@/features/study-session/submitStudySession", () => ({
   submitStudySession: vi.fn(),
 }));
 vi.mock("@/lib/haptics", () => ({ haptic: vi.fn() }));
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof AmplitudeModule>()),
+  trackStudySessionEnded: vi.fn(),
+}));
 // 세션에 들어오면 과목 목록과 오늘 기록을 미리 받는데, jsdom은 상대 주소 fetch에서 오류를 낸다.
 const listSubjects = vi.hoisted(() => vi.fn(async (): Promise<SubjectResponse[]> => []));
 vi.mock("@/lib/subjectApi", async (importOriginal) => ({
@@ -1199,5 +1205,115 @@ describe("GroupRoomPage 멤버 내보내기", () => {
 
     expect(screen.getByRole("alertdialog", { name: "새벽러님을 내보낼까요?" })).toBeInTheDocument();
     expect(screen.getByTestId("room-control-bar")).not.toHaveAttribute("inert");
+  });
+});
+
+describe("GroupRoomPage 타이머", () => {
+  /** 타이머 버튼으로 설정 시트를 연다. */
+  async function openTimerSheet(user = userEvent.setup()) {
+    await user.click(screen.getByRole("button", { name: "타이머" }));
+    return { user, sheet: await screen.findByRole("dialog", { name: "타이머 설정" }) };
+  }
+
+  it("타이머 버튼은 설정 시트를 열고 시작하면 아래 바 위에 캡슐이 뜬다", async () => {
+    await enterGroupRoom({ groupId: 10 });
+    await turnCameraOn();
+    const { user, sheet } = await openTimerSheet();
+    // 시트가 열린 동안 바깥은 화면 낭독기에서 숨겨져 있어 숨긴 요소까지 찾는다.
+    expect(screen.getByRole("button", { name: "타이머", hidden: true })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+
+    await user.click(within(sheet).getByRole("button", { name: "30분 시작" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "타이머 설정" })).toBeNull());
+    expect(screen.getByTestId("room-timer-capsule")).toHaveTextContent("30:00");
+    expect(screen.getByRole("button", { name: "타이머" })).toHaveAttribute("data-on", "true");
+  });
+
+  it("타이머가 도는 동안 타이머 버튼을 눌러도 타이머는 그대로다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    await enterGroupRoom({ groupId: 10 });
+    await turnCameraOn();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const { sheet } = await openTimerSheet(user);
+    await user.click(within(sheet).getByRole("button", { name: "30분 시작" }));
+    await act(() => vi.advanceTimersByTimeAsync(2_000));
+
+    await user.click(screen.getByRole("button", { name: "타이머" }));
+
+    expect(screen.queryByRole("dialog", { name: "타이머 설정" })).toBeNull();
+    expect(screen.getByTestId("room-timer-capsule")).toHaveTextContent("29:58");
+  });
+
+  it("카메라를 끈 채 타이머를 시작하면 공부방을 다시 시작하는 카메라 켜기 확인 창을 연다", async () => {
+    await enterGroupRoom({ groupId: 10 });
+    const { user, sheet } = await openTimerSheet();
+
+    await user.click(within(sheet).getByRole("button", { name: "30분 시작" }));
+
+    expect(await screen.findByRole("alertdialog")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("alertdialog")).getByRole("button", { name: "카메라 켜기" }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("room-timer-capsule")).toHaveTextContent("30:00");
+  });
+
+  it("타이머 시트가 열린 동안은 시간이 지나도 조작이 숨지 않는다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    await enterGroupRoom({ groupId: 10 });
+    await openTimerSheet(userEvent.setup({ advanceTimers: vi.advanceTimersByTime }));
+
+    await act(() => vi.advanceTimersByTimeAsync(6_000));
+
+    expect(screen.getByRole("dialog", { name: "타이머 설정" })).toBeInTheDocument();
+    expect(screen.getByTestId("room-control-bar")).not.toHaveAttribute("inert");
+  });
+
+  it("뽀모도로 휴식 중에도 마이크와 영상은 그대로이고 휴식만 알린다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    localStorage.setItem(
+      "focuson.multiTimer.v1",
+      JSON.stringify({ timerSec: 1800, focusMin: 1, breakMin: 5 }),
+    );
+    localStorage.setItem("focuson.multiTimer.lastKind.v1", "pomodoro");
+    const { channel, acquire } = await enterGroupRoom({ groupId: 10 });
+    acquire.mockResolvedValue({ kind: "ok", track: fakeMicTrack() });
+    await turnCameraOn();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await user.click(screen.getByRole("button", { name: "마이크 켜기" }));
+    await screen.findByRole("button", { name: "마이크 끄기" });
+    const { sheet } = await openTimerSheet(user);
+    await user.click(within(sheet).getByRole("button", { name: "1분 집중 시작" }));
+    channel.published.length = 0;
+
+    await act(() => vi.advanceTimersByTimeAsync(61_000));
+
+    expect(screen.getByTestId("room-timer-capsule")).toHaveAttribute("data-phase", "break");
+    expect(channel.published).toContainEqual({ onBreak: true });
+    expect(channel.published).not.toContainEqual({ micOn: false });
+    expect(channel.published).not.toContainEqual({ cameraOn: false });
+    expect(screen.getByRole("button", { name: "마이크 끄기", hidden: true })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "카메라 끄기", hidden: true })).toBeInTheDocument();
+  });
+
+  it("타이머를 쓴 공부방을 마치면 종료 계측에 타이머 종류가 실린다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    await enterGroupRoom({ groupId: 10 });
+    await turnCameraOn();
+    const { user, sheet } = await openTimerSheet();
+    await user.click(within(sheet).getByRole("button", { name: "30분 시작" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "타이머 설정" })).toBeNull());
+
+    await exitRoom();
+
+    await waitFor(() => expect(trackStudySessionEnded).toHaveBeenCalledOnce());
+    expect(vi.mocked(trackStudySessionEnded).mock.calls[0]?.[0]).toMatchObject({
+      multiTimer: "timer",
+    });
   });
 });

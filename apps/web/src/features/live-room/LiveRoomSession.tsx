@@ -21,13 +21,18 @@ import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSo
 import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
 import { groupErrorCode, groupErrorCopy } from "@/features/group-room/groupErrorCopy";
 import { INVITE_CODE_RENEWED_COPY, kickMemberDialog } from "@/features/group-room/model/roomMenu";
-import { useMultiTimer } from "@/features/multi-timer/useMultiTimer";
+import { createMultiTimerUsage, useMultiTimer } from "@/features/multi-timer/useMultiTimer";
 import { CameraOnConfirmDialog } from "@/features/live-room/components/CameraOnConfirmDialog";
 import { ClonedTrackPreview } from "@/features/live-room/components/ClonedTrackPreview";
 import { GroupRoomTopBar } from "@/features/live-room/components/GroupRoomTopBar";
+import {
+  LazyRoomTimerSheet,
+  preloadRoomTimerSheet,
+} from "@/features/live-room/components/lazyRoomTimerSheet";
 import { MicButton } from "@/features/live-room/components/MicButton";
 import { ReportMemberLayer } from "@/features/live-room/components/ReportMemberLayer";
 import { RoomMemberMenu } from "@/features/live-room/components/RoomMemberMenu";
+import { RoomTimerCapsule } from "@/features/live-room/components/RoomTimerCapsule";
 import { TimerButton } from "@/features/live-room/components/TimerButton";
 import {
   RoomControlBar,
@@ -108,6 +113,7 @@ import { showCtaToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { useRotationRepaintNudge } from "@/lib/rotationRepaint";
 import { kickVideoPlayback, useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
+import { whenIdle } from "@/lib/whenIdle";
 
 import { FACE_MASK_EMOJIS } from "./faceMaskSettings";
 import { GROUP_ROOM_ANALYTICS_MASK } from "./groupRoomAnalyticsMask";
@@ -122,6 +128,7 @@ import { useGroupRoomEvents } from "./useGroupRoomEvents";
 import { useRoomAudio } from "./useRoomAudio";
 import type { RoomAudioDeps } from "./useRoomAudio";
 import { useRoomRejoin } from "./useRoomRejoin";
+import { useRoomTimerSheet } from "./useRoomTimerSheet";
 import { useAutoHideControls } from "./useAutoHideControls";
 import { playPressPop } from "./components/playPressPop";
 
@@ -209,6 +216,8 @@ export function LiveRoomSession({
   // 유예 판정이 다른 이벤트 순서를 탈 수 있다(usePauseAutoEnd의 같은 원칙).
   const [systemPause] = useState(() => createSystemPauseSource());
   const [ambientUsage] = useState(() => createAmbientUsage(Date.now));
+  // 타이머 사용 기록은 세션 훅이 타이머 훅보다 먼저 생겨서 여기서 만들어 두 훅에 함께 넘긴다.
+  const [multiTimerUsage] = useState(createMultiTimerUsage);
   // 제출 시점에 읽을 과목 목록이다.
   // 목록은 아래 useSubjects가 들고 있어 커밋마다 최신 값으로 덮는다.
   const subjectsListRef = useRef<SubjectResponse[]>([]);
@@ -239,6 +248,7 @@ export function LiveRoomSession({
     // 계측용 — 없으면 study_session_* 이벤트가 개인 세션과 섞인다.
     roomType: "social",
     ambientUsage: ambientUsage.snapshot,
+    multiTimerUsage: multiTimerUsage.snapshot,
     getCompletedTaskIds: (startedAtMs) =>
       completedTaskIdsSince(subjectsListRef.current, startedAtMs),
     // 그룹 공부방은 일시정지 1시간에 나가고 초대코드 방은 싱글룸과 같은 20분이다.
@@ -583,7 +593,16 @@ export function LiveRoomSession({
     onStartBreak: startBreak,
     onEndBreak: endBreak,
     onResumeSession: () => openCameraConfirm(),
+    usage: multiTimerUsage,
   });
+  const timerSheet = useRoomTimerSheet(timer, phase.name === "studying");
+  const timerSheetLandscape = useLandscapeLayout(timerSheet.open);
+  // 타이머 시트는 따로 받아서 처음 누를 때 기다리지 않게 한가한 때 미리 받는다.
+  useEffect(() => {
+    if (room.kind === "group") {
+      whenIdle(preloadRoomTimerSheet);
+    }
+  }, [room.kind]);
 
   // 서버에 알리는 카메라 상태 — 사용자 의도(cameraWanted)를 함께 본다. 끄고 입장의
   // 첫 렌더는 pause가 effect로 적용되기 전이라, paused만 보면 켜짐이 먼저 새 나간다.
@@ -816,15 +835,18 @@ export function LiveRoomSession({
   const dialogOpen = cameraDialogOpen || exitDialogOpen;
   const controlsLocked = phase.name !== "studying";
   // 모달 메뉴가 열린 동안 바와 위쪽 버튼이 누름을 받으면 메뉴 뒤에서 눌리고 바깥 누름으로 메뉴가 닫히지 않는다.
-  // 신고 화면과 내보내기 확인 창이 열린 동안에도 조작이 숨지 않고 눌리지 않게 함께 막는다.
-  // 앱 유리 버튼은 신고 화면의 aria-modal을 보고 숨는다.
+  // 신고 화면, 내보내기 확인 창, 타이머 시트가 열린 동안에도 조작이 숨지 않고 눌리지 않게 함께 막는다.
+  // 앱 유리 버튼은 그 화면들의 aria-modal을 보고 숨는다.
   const controlsInactive =
-    moreMenuOpen || menuUserId !== null || reportTarget !== null || kickTarget !== null;
+    moreMenuOpen ||
+    menuUserId !== null ||
+    reportTarget !== null ||
+    kickTarget !== null ||
+    timerSheet.open;
 
   // 잠금(제출 중·에러)·다이얼로그 동안은 컨트롤을 강제로 보인다.
   const controlsAlwaysVisible = controlsLocked || dialogOpen || controlsInactive || page !== null;
   const { controlsVisible, surfaceProps } = useAutoHideControls(controlsAlwaysVisible);
-  const timerOn = timer.mode?.status === "running" || timer.mode?.status === "paused";
 
   // 확인 창을 연 요소가 닫힐 때 사라져 있으면 대신 포커스를 받을 자리다.
   // 바의 카메라 버튼으로 열 때는 비워 둔다.
@@ -1082,6 +1104,19 @@ export function LiveRoomSession({
               둘이 함께 있으면 토스트가 두 번 뜬다. */}
           {page === null && <CtaToaster />}
           {phase.name === "submitting" && <p className="text-sm text-white/80">저장 중...</p>}
+          {room.kind === "group" && timerSheet.active && timer.mode !== null && (
+            // 세로는 바 바로 위에 두고, 바 옆에 자리가 넉넉한 가로 폰은 바와 같은 높이의 오른쪽 끝에 둔다.
+            // 좁은 가로 폰은 바 옆에 두면 나가기 버튼에 겹쳐서 세로처럼 바 위에 둔다.
+            <div className="mb-1 flex landscape-compact:md:absolute landscape-compact:md:right-[calc(env(safe-area-inset-right)+6px)] landscape-compact:md:bottom-3.25 landscape-compact:md:mb-0">
+              <RoomTimerCapsule
+                mode={timer.mode}
+                remainingMs={timer.remainingMs}
+                primaryLabel={timer.primaryLabel}
+                onPrimary={timer.pressPrimary}
+                onOff={timer.close}
+              />
+            </div>
+          )}
           {phase.name === "error" && (
             <div className="pointer-events-auto flex flex-col items-center gap-2">
               <p className="text-sm text-(--session-exit-bg)">{phase.message}</p>
@@ -1130,12 +1165,12 @@ export function LiveRoomSession({
                   }}
                 />
                 <TimerButton
-                  on={timerOn}
-                  expanded={false}
+                  on={timerSheet.active}
+                  expanded={timerSheet.open}
                   disabled={controlsLocked}
                   inactive={controlsInactive}
                   hidden={!controlsVisible}
-                  onOpen={() => undefined}
+                  onOpen={timerSheet.openSheet}
                 />
               </>
             ) : (
@@ -1316,6 +1351,15 @@ export function LiveRoomSession({
           void endAndSubmit(MANUAL_END_REASON);
         }}
       />
+      {room.kind === "group" && (
+        <LazyRoomTimerSheet
+          open={timerSheet.open}
+          landscape={timerSheetLandscape}
+          container={sessionSurface}
+          timer={timer}
+          onClose={timerSheet.closeSheet}
+        />
+      )}
       {room.kind === "group" && (
         <SessionConfirmDialog
           open={kickTarget !== null}
