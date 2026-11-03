@@ -58,7 +58,7 @@ ADR 0003의 전환 체크리스트 2번이 "`platform/camera`를 mock에서 실�
 
 `app.json`의 `plugins` 배열에 `expo-camera`를 넣지 않는다. 네이티브 링킹은 `expo-module.config.json` 기반 autolinking으로 이루어지므로 plugin은 불필요하고, 넣으면 두 가지가 오염된다.
 
-- `NSMicrophoneUsageDescription`이 영어 기본 문구로 주입된다 — 마이크는 쓰지 않는다(멀티룸 음성 송출 없음).
+- `NSMicrophoneUsageDescription`이 영어 기본 문구로 주입된다 — ~~마이크는 쓰지 않는다(멀티룸 음성 송출 없음).~~ 2026-11부터 그룹 공부방 음성에 마이크를 쓴다(아래 갱신).
 - `recordAudioAndroid` 기본값이 `true`라 Android `RECORD_AUDIO` 권한이 추가된다 — 스토어 등재 권한 목록이 늘어난다.
 
 `lib/__tests__/permissionCopy.test.ts`가 `NSCameraUsageDescription` 문구를 문자 단위로, `android.permissions`를 `["CAMERA"]` 정확 일치로 잠그고 있어 이 오염을 자동으로 잡는다. 즉 **이 테스트가 plugin 미추가의 가드로 기능한다.**
