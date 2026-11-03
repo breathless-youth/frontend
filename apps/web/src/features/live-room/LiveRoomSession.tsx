@@ -101,6 +101,8 @@ import { useNativeControl } from "@/lib/nativeControls";
 import { kickGroupMember, reportGroupMember } from "@/lib/groupRoomApi";
 import {
   GROUP_MUTATION_OPTIONS,
+  dropFromMyGroups,
+  forgetGroup,
   groupHomeQuery,
   groupKeys,
   invalidateGroupMembership,
@@ -720,6 +722,11 @@ export function LiveRoomSession({
         kind: "failure",
         message: kickedNotice(groupHome.data?.name ?? null),
       });
+      // 그룹 탭이 내 그룹을 다시 받는 동안 내보내진 그룹 카드가 남지 않게 받아 둔 목록과 그 그룹의 조회에서 뺀다.
+      if (room.kind === "group") {
+        dropFromMyGroups(queryClient, userId, room.groupId);
+        forgetGroup(queryClient, userId, room.groupId);
+      }
       void invalidateGroupMembership(queryClient, userId);
       navigate({ pathname: "/social", search: location.search }, { replace: true });
       return;

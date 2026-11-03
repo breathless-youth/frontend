@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import type {
   GroupHomeResponse,
   GroupRoomJoinResponse,
+  MyGroupsResponse,
   RoomMember,
   StudySessionListResponse,
   SubjectResponse,
@@ -538,6 +539,32 @@ describe("GroupRoomPage 나가기", () => {
       kind: "failure",
       message: "새벽 5시 기상 공시반에서 내보내졌어요",
     });
+  });
+
+  it("내보내지면 받아 둔 내 그룹 목록과 그 그룹의 조회에서 그 그룹을 뺀다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    const { channel, client, location } = await enterGroupRoom({ groupId: 10 });
+    const card = (groupId: number) => ({
+      groupId,
+      name: `그룹${groupId}`,
+      owner: false,
+      members: [],
+    });
+    client.setQueryData(groupKeys.mine(7), {
+      groups: [card(10), card(11)],
+      ownedGroupCount: 0,
+    } as unknown as MyGroupsResponse);
+    expect(client.getQueryData(groupKeys.home(7, 10))).toBeDefined();
+
+    act(() => channel.emitServerMessage({ type: "KICKED", groupId: 10 }));
+
+    await waitFor(() => expect(location().pathname).toBe("/social"));
+    expect(
+      client
+        .getQueryData<MyGroupsResponse>(groupKeys.mine(7))
+        ?.groups.map((group) => group.groupId),
+    ).toEqual([11]);
+    expect(client.getQueryData(groupKeys.home(7, 10))).toBeUndefined();
   });
 
   it("내보내진 뒤 기록을 보내지 못해도 그룹 탭으로 가서 안내를 본다", async () => {
