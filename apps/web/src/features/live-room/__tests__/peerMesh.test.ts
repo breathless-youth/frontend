@@ -1848,3 +1848,129 @@ describe("오디오", () => {
     expect(audio?.sender.replaceTrack).not.toHaveBeenCalledWith(camera);
   });
 });
+
+describe("차단", () => {
+  afterEach(closeOpenMeshes);
+
+  function offeredTo(channel: ReturnType<typeof setupMesh>["channel"]) {
+    return channel.publishedSignals.filter((s) => s.kind === "OFFER").map((s) => s.toUserId);
+  }
+
+  it("차단한 상대와의 연결을 바로 닫고 타일과 소리를 내린다", async () => {
+    const { pcs, channel, mesh } = setupMesh({ audio: true });
+    const tile = vi.fn();
+    const audio = vi.fn();
+    mesh.subscribeRemoteStreams(tile);
+    mesh.subscribeRemoteAudio(audio);
+    channel.emitServerMessage(snapshot([member(7), member(2)]));
+    await flush();
+
+    mesh.blockPeer(2);
+    mesh.blockPeer(2);
+
+    expect(pcs[0]?.closed).toBe(true);
+    expect(tile).toHaveBeenLastCalledWith(2, null);
+    expect(audio).toHaveBeenLastCalledWith(2, null);
+  });
+
+  it("SNAPSHOT 뒤마다 다시 온 차단은 다시 알리지 않는다", async () => {
+    const { channel, mesh } = setupMesh({ audio: true });
+    const tile = vi.fn();
+    mesh.subscribeRemoteStreams(tile);
+    channel.emitServerMessage(snapshot([member(7), member(2)]));
+    await flush();
+
+    mesh.blockPeer(2);
+    channel.emitServerMessage(snapshot([member(7), member(2)]));
+    mesh.blockPeer(2);
+    mesh.blockPeer(2);
+
+    expect(tile).toHaveBeenCalledOnce();
+    expect(tile).toHaveBeenCalledWith(2, null);
+  });
+
+  it("차단한 상대에게는 SNAPSHOT이 와도 offer하지 않는다", async () => {
+    const { pcs, channel, mesh } = setupMesh({ audio: true });
+    mesh.blockPeer(2);
+
+    channel.emitServerMessage(snapshot([member(7), member(2), member(3)]));
+    await flush();
+
+    expect(offeredTo(channel)).toEqual([3]);
+    expect(pcs).toHaveLength(1);
+  });
+
+  it("차단한 상대의 offer에는 answer하지 않는다", async () => {
+    const { pcs, channel, mesh } = setupMesh({ audio: true });
+    mesh.blockPeer(2);
+
+    channel.emitServerMessage(signal(2, "OFFER", { type: "offer", sdp: "v=0 m=video" }));
+    await flush();
+
+    expect(channel.publishedSignals.some((s) => s.kind === "ANSWER")).toBe(false);
+    expect(pcs).toHaveLength(0);
+  });
+
+  it("offer를 처리하는 중에 차단하면 answer를 보내지 않는다", async () => {
+    let release = () => undefined as void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const { channel, mesh } = setupMesh({
+      audio: true,
+      patchPc: (pc) => {
+        const apply = pc.setRemoteDescription;
+        pc.setRemoteDescription = async (description) => {
+          await gate;
+          await apply(description);
+        };
+      },
+    });
+    channel.emitServerMessage(signal(2, "OFFER", OFFER_WITH_AUDIO));
+    await flush();
+
+    mesh.blockPeer(2);
+    release();
+    await flush();
+
+    expect(channel.publishedSignals.some((s) => s.kind === "ANSWER")).toBe(false);
+  });
+
+  it("차단한 상대가 들어와도 대신 offer하지 않는다", async () => {
+    vi.useFakeTimers();
+    const { channel, mesh } = setupMesh({ audio: true });
+    mesh.blockPeer(2);
+
+    channel.emitServerMessage({ type: "MEMBER_JOINED", member: member(2) });
+    await vi.advanceTimersByTimeAsync(3_000);
+
+    expect(channel.publishedSignals).toEqual([]);
+  });
+
+  it("들어온 상대의 offer를 기다리는 사이 차단하면 대신 offer하지 않는다", async () => {
+    vi.useFakeTimers();
+    const { channel, mesh } = setupMesh({ audio: true });
+
+    channel.emitServerMessage({ type: "MEMBER_JOINED", member: member(2) });
+    mesh.blockPeer(2);
+    await vi.advanceTimersByTimeAsync(3_000);
+
+    expect(channel.publishedSignals).toEqual([]);
+  });
+
+  it("연결을 모두 다시 만들어도 차단은 이어지고, 메시를 닫으면 풀린다", async () => {
+    const { channel, mesh } = setupMesh({ audio: true });
+    mesh.blockPeer(2);
+
+    mesh.resetConnections();
+    channel.emitServerMessage(snapshot([member(7), member(2), member(3)]));
+    await flush();
+    expect(offeredTo(channel)).toEqual([3]);
+
+    mesh.close();
+    mesh.start();
+    channel.emitServerMessage(snapshot([member(7), member(2)]));
+    await flush();
+    expect(offeredTo(channel)).toEqual([3, 2]);
+  });
+});

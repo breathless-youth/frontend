@@ -29,6 +29,12 @@ export interface PeerMesh {
    */
   resetConnections(): void;
   /**
+   * 차단한 상대와의 연결을 닫고 타일과 소리에 null을 알린 뒤 다시 맺지 않는다.
+   * 서버도 차단한 사이의 시그널을 버리지만 이미 맺은 연결은 끊지 못해서 여기서 닫는다.
+   * SNAPSHOT 뒤마다 같은 상대가 다시 와도 결과가 같고, 공부방을 나가 메시를 닫을 때까지 유지한다.
+   */
+  blockPeer(userId: number): void;
+  /**
    * 마이크 트랙을 모든 연결의 소리 송신기에 싣고, 나중에 생기는 연결에도 싣도록 기억한다.
    * null이면 모든 송신기에서 떼고, 소리를 협상하지 않는 방에서는 아무 일도 하지 않는다.
    */
@@ -152,6 +158,8 @@ export function createPeerMesh({
   const fallbackOfferTimers = new Map<number, ReturnType<typeof setTimeout>>();
   const listeners = new Set<(userId: number, stream: MediaStream | null) => void>();
   const audioListeners = new Set<(userId: number, track: MediaStreamTrack | null) => void>();
+  // 백그라운드 복귀 재구축(resetConnections)에도 남아야 해서 메시를 닫을 때만 비운다.
+  const blocked = new Set<number>();
   // PeerConnection당 발급하는 UUID — 보고의 연결 단위 중복 제거 키. 재수립 pc는 새 id를 받는다.
   const connectionIds = new Map<number, string>();
   // 직전 주기 샘플 — 종료 시 이 값을 isFinal로 한 번 더 흘려 종료 egress를 멱등하게 잡는다.
@@ -592,11 +600,19 @@ export function createPeerMesh({
     }
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
+    // offer를 만드는 사이에 차단됐으면 닫힌 연결의 offer를 보내지 않는다.
+    if (blocked.has(userId)) {
+      return;
+    }
     channel.publishSignal({ toUserId: userId, kind: "OFFER", payload: offer });
   }
 
   // offer 생성 실패를 삼키면 그 상대만 소리 없이 영영 안 보인다 — 아바타로 내려 정직하게 둔다.
   function startOffer(userId: number) {
+    // 대신 offer, ICE 재시작, 트랙 재실장까지 모든 offer가 여기를 지나서 차단한 상대는 여기서 막는다.
+    if (blocked.has(userId)) {
+      return;
+    }
     sendOffer(userId).catch(() => {
       debug(`offer-err→${userId}`);
       notify(userId, null);
@@ -653,6 +669,10 @@ export function createPeerMesh({
   }
 
   async function handleSignal(fromUserId: number, kind: RoomSignalKind, payload: unknown) {
+    // 차단 전에 체인에 들어온 시그널이 차단 뒤에 처리되며 연결을 다시 만들지 않게 한다.
+    if (blocked.has(fromUserId)) {
+      return;
+    }
     debug(`sig←${fromUserId} ${kind}`);
     if (kind === "OFFER") {
       if (!isSdpPayload(payload)) {
@@ -704,6 +724,10 @@ export function createPeerMesh({
       }
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
+      // offer를 적용하는 사이에 차단됐으면 닫힌 연결의 answer를 보내지 않는다.
+      if (blocked.has(fromUserId)) {
+        return;
+      }
       channel.publishSignal({ toUserId: fromUserId, kind: "ANSWER", payload: answer });
       return;
     }
@@ -745,7 +769,8 @@ export function createPeerMesh({
       const present = new Set(message.members.map((m) => m.userId));
       let started = 0;
       for (const m of message.members) {
-        if (m.userId === myUserId || peers.has(m.userId)) {
+        // 차단한 상대도 명단에는 그대로 나오므로 offer 대상에서만 뺀다.
+        if (m.userId === myUserId || peers.has(m.userId) || blocked.has(m.userId)) {
           continue;
         }
         startOffer(m.userId);
@@ -766,8 +791,9 @@ export function createPeerMesh({
       return;
     }
     if (message.type === "MEMBER_JOINED") {
-      if (message.member.userId !== myUserId && !peers.has(message.member.userId)) {
-        scheduleFallbackOffer(message.member.userId);
+      const joined = message.member.userId;
+      if (joined !== myUserId && !peers.has(joined) && !blocked.has(joined)) {
+        scheduleFallbackOffer(joined);
       }
       return;
     }
@@ -776,6 +802,10 @@ export function createPeerMesh({
       return;
     }
     if (message.type === "SIGNAL") {
+      if (blocked.has(message.fromUserId)) {
+        debug(`blocked←${message.fromUserId}`);
+        return;
+      }
       // 원격 서술 적용 실패(깨진 SDP 등)를 조용히 삼키면 그 상대만 영원히 안 보인다 —
       // 아바타로 내려 최소한 상태를 정직하게 만든다.
       const previous = signalChains.get(message.fromUserId) ?? Promise.resolve();
@@ -844,6 +874,22 @@ export function createPeerMesh({
         closePeer(userId);
       }
     },
+    blockPeer(userId) {
+      const firstTime = !blocked.has(userId);
+      blocked.add(userId);
+      clearTimeout(fallbackOfferTimers.get(userId));
+      fallbackOfferTimers.delete(userId);
+      if (peers.has(userId)) {
+        debug(`block ${userId}`);
+        closePeer(userId);
+        return;
+      }
+      // 연결이 없어도 타일과 소리를 한 번은 내려 두고, SNAPSHOT 뒤마다 다시 오는 차단에는 다시 알리지 않는다.
+      if (firstTime) {
+        notify(userId, null);
+        notifyAudio(userId, null);
+      }
+    },
     setLocalAudioTrack(track) {
       if (!audio) {
         return;
@@ -901,6 +947,7 @@ export function createPeerMesh({
       degradedPeers.clear();
       connectionIds.clear();
       lastStatsSample.clear();
+      blocked.clear();
     },
   };
 }
