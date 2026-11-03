@@ -36,6 +36,7 @@ import {
 } from "@/lib/groupRoomApi";
 import { groupKeys } from "@/lib/groupRoomQueries";
 import { haptic } from "@/lib/haptics";
+import i18n from "@/lib/i18n";
 import { queryClient as appQueryClient } from "@/lib/queryClient";
 import type * as UserId from "@/lib/userId";
 import { LocationProbe } from "@/test/LocationProbe";
@@ -301,7 +302,8 @@ async function enterGroupRoom({
     groupHome({ groupId, name: groupName, visibility, myRole }),
   );
   const rendered = renderGroupRoom({ path: `/social/groups/${groupId}/room`, snapshot, state });
-  await screen.findByRole("button", { name: "나가기" });
+  // 영어 화면 테스트도 같은 도우미로 들어오게 나가기 버튼 이름을 카탈로그에서 읽는다.
+  await screen.findByRole("button", { name: i18n.t("live-room:controls.exit") });
   await waitFor(() => expect(getGroupHome).toHaveBeenCalledWith(groupId, expect.anything()));
   // 채널 연결, 카메라 끄고 입장, SNAPSHOT 반영, 그룹 홈 응답까지 흘려보낸다.
   await act(async () => {});
@@ -1315,5 +1317,50 @@ describe("GroupRoomPage 타이머", () => {
     expect(vi.mocked(trackStudySessionEnded).mock.calls[0]?.[0]).toMatchObject({
       multiTimer: "timer",
     });
+  });
+});
+
+describe("GroupRoomPage 영어 화면", () => {
+  afterEach(async () => {
+    await i18n.changeLanguage("ko");
+  });
+
+  /** 화면 글자와 aria-label을 함께 모은다. 스크린리더가 읽는 이름도 영어여야 한다. */
+  function visibleText(root: HTMLElement): string {
+    const labels = [...root.querySelectorAll("[aria-label]")].map((element) =>
+      element.getAttribute("aria-label"),
+    );
+    return [root.textContent, ...labels].join("\n");
+  }
+
+  it("영어로 바꾸면 신고 화면과 내보내기 확인 창, 코드가 바뀌었다는 안내에 한글이 남지 않는다", async () => {
+    await i18n.changeLanguage("en");
+    vi.mocked(kickGroupMember).mockResolvedValue(undefined);
+    // 닉네임은 사용자가 쓴 값이라 번역하지 않으므로 영어 값을 둔다.
+    const { client } = await enterGroupRoom({
+      groupId: 11,
+      visibility: "PRIVATE",
+      snapshot: [meMember({ owner: true }), otherMember(42, "Alex")],
+    });
+    client.setQueryData(groupKeys.invite(7, 11), { inviteCode: "K7Q2M9" });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Options for Alex" }));
+    await user.click(screen.getByRole("menuitem", { name: "Report" }));
+    const layer = screen.getByRole("dialog", { name: "Report" });
+    expect(within(layer).getByText("Report Alex")).toBeInTheDocument();
+    expect(within(layer).getByRole("textbox", { name: "Reason" })).toBeInTheDocument();
+    expect(visibleText(layer)).not.toMatch(/[가-힣]/);
+    await user.click(within(layer).getByRole("button", { name: "Back" }));
+
+    await user.click(screen.getByRole("button", { name: "Options for Alex" }));
+    await user.click(screen.getByRole("menuitem", { name: "Remove from group" }));
+    const dialog = screen.getByRole("alertdialog", { name: "Remove Alex?" });
+    expect(dialog).toHaveAccessibleDescription("Alex can't rejoin for 3 days");
+    expect(visibleText(dialog)).not.toMatch(/[가-힣]/);
+    await user.click(within(dialog).getByRole("button", { name: "Remove" }));
+
+    // 내보내기 결과가 온 때에 문구를 읽어서 화면 언어를 따른다.
+    expect(await screen.findByText("Invite code changed")).toBeInTheDocument();
   });
 });
