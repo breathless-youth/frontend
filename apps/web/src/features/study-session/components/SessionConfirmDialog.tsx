@@ -38,6 +38,8 @@ export const dialogActionVariants = cva(
         cancel: "bg-(--session-dialog-cancel-bg)",
         /** 종료(`공부 종료`) — Dark Primary SM. */
         confirm: "bg-(--session-dialog-confirm-bg)",
+        /** 멤버 내보내기처럼 되돌리기 어려운 확인은 조작 바의 종료 버튼과 같은 빨강을 쓴다. */
+        danger: "bg-(--session-control-exit-bg)",
       },
     },
     defaultVariants: { tone: "cancel" },
@@ -57,6 +59,8 @@ export interface SessionConfirmDialogProps {
   /** 비파괴 액션 라벨. 초기 포커스가 여기에 놓인다. */
   cancelLabel: string;
   confirmLabel: string;
+  /** 확인 버튼 색이고, 되돌리기 어려운 일은 `danger`로 경고한다. */
+  confirmTone?: Exclude<SessionConfirmDialogTone, "cancel">;
   onCancel: () => void;
   onConfirm: () => void;
   className?: string;
@@ -69,6 +73,7 @@ export function SessionConfirmDialog({
   description,
   cancelLabel,
   confirmLabel,
+  confirmTone = "confirm",
   onCancel,
   onConfirm,
   className,
@@ -116,8 +121,9 @@ export function SessionConfirmDialog({
           </button>
           <button
             type="button"
+            data-tone={confirmTone}
             onClick={onConfirm}
-            className={dialogActionVariants({ tone: "confirm" })}
+            className={dialogActionVariants({ tone: confirmTone })}
           >
             {confirmLabel}
           </button>

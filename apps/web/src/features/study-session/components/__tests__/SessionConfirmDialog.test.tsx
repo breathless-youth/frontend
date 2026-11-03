@@ -64,6 +64,21 @@ describe("SessionConfirmDialog", () => {
     expect(onConfirm).not.toHaveBeenCalled();
   });
 
+  it("확인 버튼은 따로 넘기지 않으면 세션 확인 색이다", () => {
+    setup();
+
+    expect(screen.getByRole("button", { name: "공부 종료" })).toHaveAttribute(
+      "data-tone",
+      "confirm",
+    );
+  });
+
+  it("되돌리기 어려운 확인은 빨간 확인 버튼으로 드러낸다", () => {
+    setup({ confirmTone: "danger", confirmLabel: "내보내기" });
+
+    expect(screen.getByRole("button", { name: "내보내기" })).toHaveAttribute("data-tone", "danger");
+  });
+
   it("반경이 sm 이상에서도 유지된다", () => {
     // 공용 dialog 의 sm:rounded-lg 가 base rounded-xl 과 다른 modifier 라 640px 이상에서
     // 반경을 16px 로 줄인다. sm:rounded-xl 로 같은 modifier 를 맞춰 막는다.

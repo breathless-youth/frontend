@@ -140,6 +140,14 @@ const WorkerParityPage = lazy(
     import("@/routes/WorkerParityPage").then((module) => ({ default: module.WorkerParityPage })),
   ),
 );
+// 지연 받기를 만드는 일 자체를 개발 빌드로 막아야 운영 빌드에 화면 모음과 고정 데이터 묶음이 생기지 않는다.
+const DevGroupRoomsPage = import.meta.env.DEV
+  ? lazy(() =>
+      import("@/routes/DevGroupRoomsPage").then((module) => ({
+        default: module.DevGroupRoomsPage,
+      })),
+    )
+  : null;
 
 // 세션 화면의 커밋 횟수를 개발 빌드에서만 기록한다.
 // React Compiler 전후 비교의 근거다.
@@ -275,6 +283,9 @@ export function App() {
               <Route path="/social" element={<SocialHomePage />} />
               {import.meta.env.DEV && (
                 <Route path="/dev/webrtc-loopback" element={<WebrtcLoopbackPage />} />
+              )}
+              {DevGroupRoomsPage !== null && (
+                <Route path="/dev/group-rooms" element={<DevGroupRoomsPage />} />
               )}
               {import.meta.env.VITE_PERF_PANEL === "1" && (
                 <Route path="/perf/worker-parity" element={<WorkerParityPage />} />
