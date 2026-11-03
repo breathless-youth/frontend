@@ -3,7 +3,7 @@
     "focus": "Measuring focus time",
     "away": "Looks like you're away",
     "phone": "Looks like you're on your phone",
-    "device": "Looks like the device moved",
+    "device": "Looks like you're moving your device",
     "sleep": "Looks like you're dozing off",
     "pause": "Measuring paused"
   },
@@ -25,7 +25,7 @@
     "title": "Check your camera position",
     "description": "Make sure your face and desk are in view",
     "notice": "Your camera video stays on your device",
-    "cancel": "Start in simple mode",
+    "cancel": "Start in Simple Mode",
     "confirm": "Turn on camera",
     "faceMaskTooltip": "If you move quickly, your face may show for a moment",
     "faceMaskCaption": "Hide face for timelapses is a separate setting"
@@ -53,14 +53,14 @@
     "unsaved": "Study time {{elapsed}} — not saved because this device isn't registered yet"
   },
   "submitError": {
-    "generic": "Couldn't submit your session",
-    "invalid": "Couldn't submit your session. Some of its data is invalid",
-    "userNotFound": "Couldn't submit your session. We couldn't verify your account",
-    "conflict": "Couldn't submit your session. A session with the same start time is already saved",
-    "server": "Couldn't submit your session. Please try again in a moment"
+    "generic": "Couldn't save your session. Please try again in a moment",
+    "invalid": "Couldn't save your session. Some of its data is invalid",
+    "userNotFound": "Couldn't verify your account",
+    "conflict": "This session is already saved",
+    "server": "Couldn't save your session. Please try again in a moment"
   },
   "duration": {
-    "underMinute": "Under 1m",
+    "underMinute": "Under 1 min",
     "srHours_one": "{{count}} hour",
     "srHours_other": "{{count}} hours",
     "srMinutes_one": "{{count}} minute",
@@ -78,7 +78,7 @@
     "pause": "Pause",
     "resume": "Resume",
     "exit": "End session",
-    "simpleModeToggle": "Simple mode",
+    "simpleModeToggle": "Simple Mode",
     "sideActions": "Session tools",
     "subjectSelected": "Subject selected"
   },

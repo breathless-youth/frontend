@@ -464,7 +464,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
 
     await endSession();
 
-    expect(await screen.findByText("존재하지 않는 사용자입니다")).toBeInTheDocument();
+    expect(await screen.findByText("사용자 정보를 확인할 수 없어요")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "다시 제출" })).toBeInTheDocument();
     expect(screen.queryByText("결과 라우트")).not.toBeInTheDocument();
   });
@@ -508,7 +508,9 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
 
     await endSessionAfterMinute();
     // 코드 없는 오류는 공용 문구로 보인다(BY-809).
-    expect(await screen.findByText("세션 제출에 실패했습니다")).toBeInTheDocument();
+    expect(
+      await screen.findByText("세션을 저장하지 못했어요. 잠시 후 다시 시도해 주세요"),
+    ).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "다시 제출" }));
     expect(await screen.findByText("결과 라우트")).toBeInTheDocument();
@@ -1341,7 +1343,9 @@ describe("RoomPage — 미달 종료(순공 1분 미만)", () => {
     await endSession();
 
     // 코드 없는 오류는 공용 문구로 보인다(BY-809).
-    expect(await screen.findByText("세션 제출에 실패했습니다")).toBeInTheDocument();
+    expect(
+      await screen.findByText("세션을 저장하지 못했어요. 잠시 후 다시 시도해 주세요"),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "다시 제출" })).toBeInTheDocument();
     expect(screen.queryByText("1분 미만 공부는 기록에 표시되지 않아요")).not.toBeInTheDocument();
   });
