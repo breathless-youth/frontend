@@ -1192,6 +1192,28 @@ describe("GroupRoomPage 멤버 내보내기", () => {
     expect(kickGroupMember).toHaveBeenCalledOnce();
   });
 
+  it("내보낸 멤버의 타일이 먼저 사라져도 확인 창이 닫히면 배경음 버튼으로 포커스가 간다", async () => {
+    let finishKick: () => void = () => undefined;
+    vi.mocked(kickGroupMember).mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finishKick = resolve;
+        }),
+    );
+    const { channel } = await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember({ owner: true }), otherMember(42, "새벽러")],
+    });
+    const { user, dialog } = await openKick("새벽러");
+    await user.click(within(dialog).getByRole("button", { name: "내보내기" }));
+
+    act(() => channel.emitServerMessage({ type: "MEMBER_LEFT", userId: 42 }));
+    await act(async () => finishKick());
+
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await waitFor(() => expect(screen.getByRole("button", { name: /배경음/ })).toHaveFocus());
+  });
+
   it("내보내기에 실패하면 다시 시도 안내를 띄운다", async () => {
     vi.mocked(kickGroupMember).mockRejectedValue(new ApiError("x", 500));
     await enterGroupRoom({

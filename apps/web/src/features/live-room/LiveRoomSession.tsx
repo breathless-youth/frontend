@@ -1354,6 +1354,8 @@ export function LiveRoomSession({
           pending={kick.isPending}
           // 창 제목과 설명에 멤버의 닉네임이 들어간다.
           maskFromAnalytics
+          // 내보낸 멤버의 메뉴 버튼은 그 타일과 함께 사라져서 바의 배경음 버튼으로 돌아간다.
+          returnFocus={() => ambientButtonRef.current}
           onCancel={() => setKickTarget(null)}
           onConfirm={confirmKick}
         />

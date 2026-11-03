@@ -65,6 +65,8 @@ export interface SessionConfirmDialogProps {
   pending?: boolean;
   /** 켜면 Amplitude 클릭 자동 수집이 창 안의 글자와 aria-label을 싣지 않는다. */
   maskFromAnalytics?: boolean;
+  /** 창을 연 요소가 닫힐 때 사라져 있으면 대신 포커스를 받을 요소 */
+  returnFocus?: () => HTMLElement | null;
   onCancel: () => void;
   onConfirm: () => void;
   className?: string;
@@ -80,11 +82,12 @@ export function SessionConfirmDialog({
   confirmTone = "confirm",
   pending = false,
   maskFromAnalytics = false,
+  returnFocus,
   onCancel,
   onConfirm,
   className,
 }: SessionConfirmDialogProps) {
-  const focusRestore = useDialogFocusRestore();
+  const focusRestore = useDialogFocusRestore(returnFocus);
 
   return (
     <Dialog
