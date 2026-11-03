@@ -75,5 +75,9 @@
       "days": "{{count}}d",
       "daysHours": "{{days}}d {{hours}}h"
     }
+  },
+  "desks": {
+    "studyingCount": "{{count}} studying",
+    "nobodyStudying": "No one's here right now"
   }
 }

@@ -68,5 +68,9 @@
       "days": "{{count}}일",
       "daysHours": "{{days}}일 {{hours}}시간"
     }
+  },
+  "desks": {
+    "studyingCount": "{{count}}명 공부 중",
+    "nobodyStudying": "지금은 아무도 없어요"
   }
 }
