@@ -11,6 +11,8 @@ const loaded = vi.hoisted(() => ({
   groupMembers: 0,
   groupApplications: 0,
   reportApplication: 0,
+  publicGroup: 0,
+  apply: 0,
 }));
 
 vi.mock("../ResultPage", () => {
@@ -52,6 +54,14 @@ vi.mock("../GroupApplicationsPage", () => {
 vi.mock("../ReportApplicationPage", () => {
   loaded.reportApplication += 1;
   return { ReportApplicationPage: () => null };
+});
+vi.mock("../PublicGroupPage", () => {
+  loaded.publicGroup += 1;
+  return { PublicGroupPage: () => null };
+});
+vi.mock("../ApplyPage", () => {
+  loaded.apply += 1;
+  return { ApplyPage: () => null };
 });
 
 let idleCallbacks: IdleRequestCallback[] = [];
@@ -110,6 +120,8 @@ describe("lazyRoutes 미리 받기", () => {
       groupMembers: 1,
       groupApplications: 1,
       reportApplication: 1,
+      publicGroup: 1,
+      apply: 1,
     });
   });
 

@@ -37,6 +37,7 @@ import { InviteCodeJoinPage } from "@/routes/InviteCodeJoinPage";
 import { InviteCodeSharePage } from "@/routes/InviteCodeSharePage";
 import {
   loadAppLockSettingsPage,
+  loadApplyPage,
   loadContactPage,
   loadGroupApplicationsPage,
   loadGroupHomePage,
@@ -45,6 +46,7 @@ import {
   loadLicensesPage,
   loadPrivacyPage,
   loadProfilePage,
+  loadPublicGroupPage,
   loadRankingRecordsPage,
   loadReportApplicationPage,
   loadResultPage,
@@ -152,6 +154,14 @@ const ReportApplicationPage = lazy(
   reloadOnChunkError(() =>
     loadReportApplicationPage().then((module) => ({ default: module.ReportApplicationPage })),
   ),
+);
+const PublicGroupPage = lazy(
+  reloadOnChunkError(() =>
+    loadPublicGroupPage().then((module) => ({ default: module.PublicGroupPage })),
+  ),
+);
+const ApplyPage = lazy(
+  reloadOnChunkError(() => loadApplyPage().then((module) => ({ default: module.ApplyPage }))),
 );
 const WebrtcLoopbackPage = lazy(
   reloadOnChunkError(() =>
@@ -316,6 +326,8 @@ export function App() {
                 path="/social/groups/:groupId/applications/:applicationId/report"
                 element={<ReportApplicationPage />}
               />
+              <Route path="/social/public/:groupId" element={<PublicGroupPage />} />
+              <Route path="/social/public/:groupId/apply" element={<ApplyPage />} />
               {import.meta.env.DEV && (
                 <Route path="/dev/webrtc-loopback" element={<WebrtcLoopbackPage />} />
               )}
