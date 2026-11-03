@@ -25,7 +25,13 @@ import { submitStudySession } from "@/features/study-session/submitStudySession"
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { ApiError } from "@/lib/api";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
-import { getGroupHome, joinGroupRoom, leaveGroupRoom, reportGroupMember } from "@/lib/groupRoomApi";
+import {
+  getGroupHome,
+  joinGroupRoom,
+  kickGroupMember,
+  leaveGroupRoom,
+  reportGroupMember,
+} from "@/lib/groupRoomApi";
 import { groupKeys } from "@/lib/groupRoomQueries";
 import { haptic } from "@/lib/haptics";
 import { queryClient as appQueryClient } from "@/lib/queryClient";
@@ -274,16 +280,20 @@ async function enterGroupRoom({
   groupId = 10,
   groupName = GROUP_NAME,
   visibility = "PUBLIC",
+  myRole = "MEMBER",
   snapshot = [member(7)],
   state,
 }: {
   groupId?: number;
   groupName?: string;
   visibility?: GroupHomeResponse["visibility"];
+  myRole?: GroupHomeResponse["myRole"];
   snapshot?: RoomMember[];
   state?: unknown;
 } = {}) {
-  vi.mocked(getGroupHome).mockResolvedValue(groupHome({ groupId, name: groupName, visibility }));
+  vi.mocked(getGroupHome).mockResolvedValue(
+    groupHome({ groupId, name: groupName, visibility, myRole }),
+  );
   const rendered = renderGroupRoom({ path: `/social/groups/${groupId}/room`, snapshot, state });
   await screen.findByRole("button", { name: "나가기" });
   await waitFor(() => expect(getGroupHome).toHaveBeenCalledWith(groupId, expect.anything()));
@@ -1010,5 +1020,184 @@ describe("GroupRoomPage 신고와 차단", () => {
     act(() => channel.emitServerMessage({ type: "PEER_BLOCKED", userId: 56 }));
 
     expect(screen.getAllByTestId("room-tile")[1]).not.toHaveAttribute("data-speaking");
+  });
+});
+
+describe("GroupRoomPage 멤버 내보내기", () => {
+  /** 다른 멤버의 메뉴에서 그룹에서 내보내기를 골라 확인 창을 연다. */
+  async function openKick(nickname: string) {
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: `${nickname} 메뉴` }));
+    await user.click(screen.getByRole("menuitem", { name: "그룹에서 내보내기" }));
+    return {
+      user,
+      dialog: screen.getByRole("alertdialog", { name: `${nickname}님을 내보낼까요?` }),
+    };
+  }
+
+  it("그룹장만 멤버 메뉴에 내보내기가 있다", async () => {
+    await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember({ owner: false }), otherMember(42, "새벽러")],
+    });
+    await userEvent.setup().click(screen.getByRole("button", { name: "새벽러 메뉴" }));
+    expect(screen.queryByRole("menuitem", { name: "그룹에서 내보내기" })).toBeNull();
+  });
+
+  it("SNAPSHOT의 내 그룹장 값이 그룹 홈의 내 역할보다 먼저다", async () => {
+    await enterGroupRoom({
+      groupId: 10,
+      myRole: "MEMBER",
+      snapshot: [meMember({ owner: true }), otherMember(42, "새벽러")],
+    });
+    await userEvent.setup().click(screen.getByRole("button", { name: "새벽러 메뉴" }));
+    expect(screen.getByRole("menuitem", { name: "그룹에서 내보내기" })).toBeInTheDocument();
+  });
+
+  it("SNAPSHOT에 그룹장 값이 없으면 그룹 홈의 내 역할로 정한다", async () => {
+    await enterGroupRoom({
+      groupId: 10,
+      myRole: "OWNER",
+      snapshot: [meMember({ owner: undefined }), otherMember(42, "새벽러")],
+    });
+    await userEvent.setup().click(screen.getByRole("button", { name: "새벽러 메뉴" }));
+    expect(screen.getByRole("menuitem", { name: "그룹에서 내보내기" })).toBeInTheDocument();
+  });
+
+  it("내보내기는 세션 모양 확인 창을 거치고 비공개 그룹이면 코드가 바뀌었다고 알린다", async () => {
+    vi.mocked(kickGroupMember).mockResolvedValue(undefined);
+    const { client } = await enterGroupRoom({
+      groupId: 11,
+      visibility: "PRIVATE",
+      snapshot: [meMember({ owner: true }), otherMember(42, "새벽러")],
+    });
+    client.setQueryData(groupKeys.invite(7, 11), { inviteCode: "K7Q2M9" });
+    const { user, dialog } = await openKick("새벽러");
+    expect(dialog).toHaveAccessibleDescription("새벽러님은 3일 동안 다시 들어올 수 없어요");
+    expect(within(dialog).getByRole("button", { name: "내보내기" })).toHaveAttribute(
+      "data-tone",
+      "danger",
+    );
+    vi.mocked(haptic).mockClear();
+
+    await user.click(within(dialog).getByRole("button", { name: "내보내기" }));
+
+    expect(kickGroupMember).toHaveBeenCalledWith(11, 42);
+    expect(haptic).toHaveBeenCalledWith("medium");
+    expect(await screen.findByText("초대코드가 새로 바뀌었어요")).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(client.getQueryState(groupKeys.invite(7, 11))?.isInvalidated).toBe(true);
+  });
+
+  it("공개 그룹에서 내보내면 코드 안내 없이 멤버 목록을 다시 받게 한다", async () => {
+    vi.mocked(kickGroupMember).mockResolvedValue(undefined);
+    const { client } = await enterGroupRoom({
+      groupId: 10,
+      visibility: "PUBLIC",
+      snapshot: [meMember({ owner: true }), otherMember(42, "새벽러")],
+    });
+    client.setQueryData(groupKeys.members(7, 10), { members: [] });
+    const { user, dialog } = await openKick("새벽러");
+
+    await user.click(within(dialog).getByRole("button", { name: "내보내기" }));
+
+    await waitFor(() =>
+      expect(client.getQueryState(groupKeys.members(7, 10))?.isInvalidated).toBe(true),
+    );
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.queryByText("초대코드가 새로 바뀌었어요")).toBeNull();
+  });
+
+  it("내보내기 확인 창은 닉네임이 클릭 분석에 실리지 않게 가린다", async () => {
+    await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember({ owner: true }), otherMember(42, "새벽러")],
+    });
+    const { dialog } = await openKick("새벽러");
+
+    expect(dialog).toHaveAttribute("data-amp-mask");
+    expect(dialog).toHaveAttribute("data-amp-mask-attributes", "aria-label");
+  });
+
+  it("취소하면 내보내지 않는다", async () => {
+    await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember({ owner: true }), otherMember(42, "새벽러")],
+    });
+    const { user, dialog } = await openKick("새벽러");
+
+    await user.click(within(dialog).getByRole("button", { name: "취소" }));
+
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(kickGroupMember).not.toHaveBeenCalled();
+  });
+
+  it("그룹장이 바뀌면 메뉴의 내보내기가 사라진다", async () => {
+    const { channel } = await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember({ owner: true }), otherMember(42, "새벽러")],
+    });
+    act(() => channel.emitServerMessage({ type: "OWNER_CHANGED", userId: 42 }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "새벽러 메뉴" }));
+    expect(screen.queryByRole("menuitem", { name: "그룹에서 내보내기" })).toBeNull();
+  });
+
+  it("보내는 중에는 다시 내보낼 수 없다", async () => {
+    vi.mocked(kickGroupMember).mockImplementation(() => new Promise(() => {}));
+    await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember({ owner: true }), otherMember(42, "새벽러")],
+    });
+    const { user, dialog } = await openKick("새벽러");
+
+    await user.click(within(dialog).getByRole("button", { name: "내보내기" }));
+
+    expect(within(dialog).getByRole("button", { name: "내보내기" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "취소" })).toBeDisabled();
+    expect(kickGroupMember).toHaveBeenCalledOnce();
+  });
+
+  it("내보내기에 실패하면 다시 시도 안내를 띄운다", async () => {
+    vi.mocked(kickGroupMember).mockRejectedValue(new ApiError("x", 500));
+    await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember({ owner: true }), otherMember(42, "새벽러")],
+    });
+    const { user, dialog } = await openKick("새벽러");
+
+    await user.click(within(dialog).getByRole("button", { name: "내보내기" }));
+
+    expect(await screen.findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("그사이 그룹을 떠난 멤버를 내보내면 다시 시도 안내 없이 창을 닫는다", async () => {
+    vi.mocked(kickGroupMember).mockRejectedValue(new ApiError("x", 404, "GROUP_MEMBER_NOT_FOUND"));
+    await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember({ owner: true }), otherMember(42, "새벽러")],
+    });
+    const { user, dialog } = await openKick("새벽러");
+
+    await user.click(within(dialog).getByRole("button", { name: "내보내기" }));
+
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(screen.queryByText("잠시 후 다시 시도해 주세요")).toBeNull();
+  });
+
+  it("내보내기 확인 창이 열린 동안은 시간이 지나도 조작이 숨지 않는다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember({ owner: true }), otherMember(42, "새벽러")],
+    });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await user.click(screen.getByRole("button", { name: "새벽러 메뉴" }));
+    await user.click(screen.getByRole("menuitem", { name: "그룹에서 내보내기" }));
+
+    await act(() => vi.advanceTimersByTimeAsync(6_000));
+
+    expect(screen.getByRole("alertdialog", { name: "새벽러님을 내보낼까요?" })).toBeInTheDocument();
+    expect(screen.getByTestId("room-control-bar")).not.toHaveAttribute("inert");
   });
 });

@@ -79,6 +79,37 @@ describe("SessionConfirmDialog", () => {
     expect(screen.getByRole("button", { name: "내보내기" })).toHaveAttribute("data-tone", "danger");
   });
 
+  it("보내는 중에는 두 버튼을 막고 Escape와 딤으로도 닫지 않는다", async () => {
+    const { onCancel, onConfirm } = setup({ pending: true });
+
+    expect(screen.getByRole("button", { name: "계속하기" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "공부 종료" })).toBeDisabled();
+    await userEvent.keyboard("{Escape}");
+    const dim = document.querySelector<HTMLElement>(
+      '[data-state="open"]:not([role="alertdialog"])',
+    );
+    if (dim === null) throw new Error("딤을 찾지 못했다");
+    await userEvent.click(dim);
+
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+  });
+
+  it("다른 사람의 이름이 든 창은 클릭 분석이 글자와 aria-label을 싣지 않게 가린다", () => {
+    setup({ maskFromAnalytics: true });
+
+    const dialog = screen.getByRole("alertdialog");
+    expect(dialog).toHaveAttribute("data-amp-mask");
+    expect(dialog).toHaveAttribute("data-amp-mask-attributes", "aria-label");
+  });
+
+  it("가림을 넘기지 않으면 지금처럼 분석에 남긴다", () => {
+    setup();
+
+    expect(screen.getByRole("alertdialog")).not.toHaveAttribute("data-amp-mask");
+  });
+
   it("반경이 sm 이상에서도 유지된다", () => {
     // 공용 dialog 의 sm:rounded-lg 가 base rounded-xl 과 다른 modifier 라 640px 이상에서
     // 반경을 16px 로 줄인다. sm:rounded-xl 로 같은 modifier 를 맞춰 막는다.

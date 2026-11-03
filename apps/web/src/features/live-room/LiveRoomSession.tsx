@@ -20,6 +20,7 @@ import { AmbientSoundButton } from "@/features/ambient-sound/components/AmbientS
 import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSoundSheet";
 import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
 import { groupErrorCode, groupErrorCopy } from "@/features/group-room/groupErrorCopy";
+import { INVITE_CODE_RENEWED_COPY, kickMemberDialog } from "@/features/group-room/model/roomMenu";
 import { useMultiTimer } from "@/features/multi-timer/useMultiTimer";
 import { CameraOnConfirmDialog } from "@/features/live-room/components/CameraOnConfirmDialog";
 import { ClonedTrackPreview } from "@/features/live-room/components/ClonedTrackPreview";
@@ -95,7 +96,7 @@ import { haptic } from "@/lib/haptics";
 import { trackMetaInviteShared } from "@/lib/metaAppEvents";
 import { useNativeBackGestureLock, useNativeBackLock } from "@/lib/nativeBackGesture";
 import { useNativeControl } from "@/lib/nativeControls";
-import { reportGroupMember } from "@/lib/groupRoomApi";
+import { kickGroupMember, reportGroupMember } from "@/lib/groupRoomApi";
 import {
   GROUP_MUTATION_OPTIONS,
   groupHomeQuery,
@@ -273,6 +274,16 @@ export function LiveRoomSession({
   }
   // 신고 화면이 닫히면 돌아갈 그 멤버의 메뉴 버튼이다.
   const reportOpenerRef = useRef<HTMLElement | null>(null);
+  /** 내보내기 확인 창을 연 멤버이고, 멤버가 그사이 공부방을 나가도 확인은 마칠 수 있게 닉네임을 함께 든다. */
+  const [kickTarget, setKickTarget] = useState<{ userId: number; nickname: string } | null>(null);
+  if (phase.name !== "studying" && kickTarget !== null) {
+    setKickTarget(null);
+  }
+  // 닫히며 사라지는 동안에도 창 문구가 빈 닉네임으로 바뀌지 않게 마지막으로 연 멤버를 남겨 둔다.
+  const [kickShown, setKickShown] = useState(kickTarget);
+  if (kickTarget !== null && kickTarget !== kickShown) {
+    setKickShown(kickTarget);
+  }
   // 페이지를 닫은 뒤 포커스를 돌려줄 자리다.
   // Radix 는 Trigger 를 쓸 때만 스스로 되돌린다.
   const ambientButtonRef = useRef<HTMLButtonElement>(null);
@@ -500,6 +511,51 @@ export function LiveRoomSession({
     );
   }
 
+  const kick = useMutation({
+    ...GROUP_MUTATION_OPTIONS,
+    mutationFn: (input: { groupId: number; userId: number }) =>
+      kickGroupMember(input.groupId, input.userId),
+  });
+
+  /**
+   * 공부방에서 멤버 내보내기
+   *
+   * 결과가 올 때까지 확인 창을 열어 두어 같은 멤버를 두 번 내보내지 않는다.
+   * 비공개 그룹은 내보내면 서버가 초대코드를 새로 만들어서 그룹장에게 알리고 받아 둔 코드를 다시 받게 한다.
+   * 그사이 그룹을 떠났거나 이미 내보낸 멤버는 다시 보내도 같은 답이라 멤버 관리 화면처럼 안내 없이 창만 닫는다.
+   */
+  function confirmKick() {
+    if (kickTarget === null || groupId === null || kick.isPending) {
+      return;
+    }
+    const target = kickTarget;
+    const isPrivate = groupHome.data?.visibility === "PRIVATE";
+    const closeTargetDialog = () =>
+      setKickTarget((current) => (current?.userId === target.userId ? null : current));
+    haptic("medium");
+    kick.mutate(
+      { groupId, userId: target.userId },
+      {
+        onSuccess: () => {
+          closeTargetDialog();
+          if (isPrivate) {
+            showCtaToast(INVITE_CODE_RENEWED_COPY);
+            void queryClient.invalidateQueries({ queryKey: groupKeys.invite(userId, groupId) });
+          }
+          void invalidateGroupMembership(queryClient, userId, groupId);
+        },
+        onError: (error) => {
+          closeTargetDialog();
+          if (groupErrorCode(error) === "GROUP_MEMBER_NOT_FOUND") {
+            void invalidateGroupMembership(queryClient, userId, groupId);
+            return;
+          }
+          showCtaToast(groupErrorCopy("kick", error));
+        },
+      },
+    );
+  }
+
   // 연결과 해제를 한 effect에 대칭으로 둔다 — StrictMode의 마운트-해제-재마운트에서도
   // 두 번째 마운트가 정상 연결된다.
   useEffect(() => {
@@ -543,6 +599,9 @@ export function LiveRoomSession({
 
   // 내 타일은 로컬 세션 값 기준
   const serverMe = members.find((m) => m.userId === userId);
+  // 그룹장은 공부방이 알려 주는 내 값으로 정하고, 서버가 그 값을 보내지 않는 동안에는 그룹 홈의 내 역할을 본다.
+  const isOwner =
+    typeof serverMe?.owner === "boolean" ? serverMe.owner : groupHome.data?.myRole === "OWNER";
   const myMember: RoomMember = {
     userId,
     nickname: profile?.nickname ?? serverMe?.nickname ?? "나",
@@ -757,9 +816,10 @@ export function LiveRoomSession({
   const dialogOpen = cameraDialogOpen || exitDialogOpen;
   const controlsLocked = phase.name !== "studying";
   // 모달 메뉴가 열린 동안 바와 위쪽 버튼이 누름을 받으면 메뉴 뒤에서 눌리고 바깥 누름으로 메뉴가 닫히지 않는다.
-  // 신고 화면이 열린 동안에도 조작이 숨지 않고 눌리지 않게 함께 막는다.
+  // 신고 화면과 내보내기 확인 창이 열린 동안에도 조작이 숨지 않고 눌리지 않게 함께 막는다.
   // 앱 유리 버튼은 신고 화면의 aria-modal을 보고 숨는다.
-  const controlsInactive = moreMenuOpen || menuUserId !== null || reportTarget !== null;
+  const controlsInactive =
+    moreMenuOpen || menuUserId !== null || reportTarget !== null || kickTarget !== null;
 
   // 잠금(제출 중·에러)·다이얼로그 동안은 컨트롤을 강제로 보인다.
   const controlsAlwaysVisible = controlsLocked || dialogOpen || controlsInactive || page !== null;
@@ -880,7 +940,7 @@ export function LiveRoomSession({
             nickname={nickname}
             volume={audio.volumeOf(member.userId)}
             muted={audio.isMuted(member.userId)}
-            canKick={false}
+            canKick={isOwner}
             placement={menuLandscape ? "above" : "below"}
             open={menuUserId === member.userId}
             container={sessionSurface}
@@ -894,7 +954,7 @@ export function LiveRoomSession({
               reportOpenerRef.current = opener instanceof HTMLElement ? opener : null;
               setReportTarget({ userId: member.userId, nickname });
             }}
-            onKick={() => undefined}
+            onKick={() => setKickTarget({ userId: member.userId, nickname })}
           />
         ),
     };
@@ -1257,6 +1317,18 @@ export function LiveRoomSession({
         }}
       />
       {room.kind === "group" && (
+        <SessionConfirmDialog
+          open={kickTarget !== null}
+          container={sessionSurface}
+          {...kickDialogCopy(kickShown?.nickname ?? "")}
+          pending={kick.isPending}
+          // 창 제목과 설명에 멤버의 닉네임이 들어간다.
+          maskFromAnalytics
+          onCancel={() => setKickTarget(null)}
+          onConfirm={confirmKick}
+        />
+      )}
+      {room.kind === "group" && (
         <ReportMemberLayer
           open={reportTarget !== null}
           nickname={reportTarget?.nickname ?? ""}
@@ -1269,4 +1341,14 @@ export function LiveRoomSession({
       )}
     </main>
   );
+}
+
+/**
+ * 공부방 안 내보내기 확인 창 문구
+ *
+ * 멤버 관리와 같은 문구를 쓰고 창은 세션 모양이라 확인 버튼은 세션의 빨강이다.
+ */
+function kickDialogCopy(nickname: string) {
+  const { title, description, cancelLabel, confirmLabel } = kickMemberDialog(nickname);
+  return { title, description, cancelLabel, confirmLabel, confirmTone: "danger" as const };
 }
