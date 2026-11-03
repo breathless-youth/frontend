@@ -101,6 +101,13 @@ describe("RequestsScreen", () => {
     expect(screen.queryByText("수락하면 바로 멤버가 되고, 신청한 사람에게 알림이 가요")).toBeNull();
   });
 
+  it("신청을 불러오는 중에는 빈 상태 대신 자리표시를 둔다", () => {
+    renderRequests({ requests: [], loading: true });
+    expect(screen.getAllByRole("status", { name: "불러오는 중" }).length).toBeGreaterThan(0);
+    expect(screen.queryByText("답을 기다리는 신청이 없어요")).toBeNull();
+    expect(screen.queryByText("수락하면 바로 멤버가 되고, 신청한 사람에게 알림이 가요")).toBeNull();
+  });
+
   it("뒤로 가기를 누르면 넘긴다", async () => {
     const { onBack } = renderRequests();
     await userEvent.setup().click(screen.getByRole("button", { name: "뒤로 가기" }));

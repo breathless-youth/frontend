@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import type { ComponentProps } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { renderScreen } from "../../__tests__/renderScreen";
+import { IGNORE_ARIA_HIDDEN, renderScreen } from "../../__tests__/renderScreen";
 import { buildGroupRoomFixtures } from "../../fixtures";
 import type { RoomHome } from "../../types";
 import { RoomHomeScreen } from "../RoomHomeScreen";
@@ -67,10 +67,7 @@ describe("RoomHomeScreen", () => {
     renderHome();
     const weekly = screen.getByRole("region", { name: "이번 주 순위" });
     expect(within(weekly).getByText("월요일에 새로 시작해요")).toBeInTheDocument();
-    // 아바타도 나를 그리는데 숨김 표시는 아바타 바깥 상자에 있어서 그 안의 글자까지 빼고 찾는다.
-    const me = within(weekly).getByText("나", {
-      ignore: "[aria-hidden='true'], [aria-hidden='true'] *",
-    });
+    const me = within(weekly).getByText("나", { ignore: IGNORE_ARIA_HIDDEN });
     expect(me.closest("[data-me]")).toHaveAttribute("data-me", "true");
   });
 

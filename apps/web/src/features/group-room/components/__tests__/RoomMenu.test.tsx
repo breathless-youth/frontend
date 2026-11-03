@@ -34,6 +34,17 @@ describe("RoomMenu", () => {
     expect(screen.getByRole("separator")).toBeInTheDocument();
   });
 
+  it("새 신청이 없으면 신청 확인 옆에 숫자를 두지 않는다", () => {
+    const items = roomMenuItems({
+      role: "owner",
+      visibility: "public",
+      newRequestCount: 0,
+      otherMemberCount: 4,
+    });
+    render(<RoomMenu items={items} onSelect={vi.fn()} defaultOpen />);
+    expect(screen.getByRole("menuitem", { name: "신청 확인" }).textContent).toBe("신청 확인");
+  });
+
   it("비공개 그룹 멤버에게는 초대하기, 멤버 보기, 그룹 나가기를 안내 없이 둔다", () => {
     const items = roomMenuItems({
       role: "member",

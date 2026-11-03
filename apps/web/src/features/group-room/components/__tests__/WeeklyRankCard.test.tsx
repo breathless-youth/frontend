@@ -1,17 +1,15 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { IGNORE_ARIA_HIDDEN } from "../../__tests__/renderScreen";
 import { buildGroupRoomFixtures } from "../../fixtures";
 import { WeeklyRankCard } from "../WeeklyRankCard";
 
 const fixtures = buildGroupRoomFixtures(new Date("2026-11-02T10:00:00+09:00"));
 const rows = fixtures.roomHome.weeklyRanks;
 
-/** 아바타도 나를 그리는데 숨김 표시는 아바타 바깥 상자에 있어서 그 안의 글자까지 빼고 줄을 찾는다. */
 function rowOf(name: string): HTMLElement {
-  const row = screen
-    .getByText(name, { ignore: "[aria-hidden='true'], [aria-hidden='true'] *" })
-    .closest("li");
+  const row = screen.getByText(name, { ignore: IGNORE_ARIA_HIDDEN }).closest("li");
   expect(row).not.toBeNull();
   return row as HTMLElement;
 }

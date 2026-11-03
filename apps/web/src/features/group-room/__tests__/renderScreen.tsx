@@ -11,3 +11,11 @@ import { MemoryRouter } from "react-router-dom";
 export function renderScreen(ui: ReactElement) {
   return render(ui, { wrapper: MemoryRouter });
 }
+
+/**
+ * 화면 낭독기에서 숨긴 글자를 빼고 찾는 조건
+ *
+ * 아바타는 숨김 표시를 바깥 상자에만 달고 글자는 그 안에 두어서 숨긴 상자 안의 글자까지 함께 뺀다.
+ * 닉네임 대신 `나`처럼 아바타 글자와 이름이 같을 때 이름 쪽 한 곳만 찾는다.
+ */
+export const IGNORE_ARIA_HIDDEN = "[aria-hidden='true'], [aria-hidden='true'] *";

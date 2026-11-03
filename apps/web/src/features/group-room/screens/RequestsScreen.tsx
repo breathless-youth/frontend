@@ -1,7 +1,8 @@
-import { useId } from "react";
+import { type ReactNode, useId } from "react";
 
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { RankAvatar } from "@/features/ranking/components/RankAvatar";
 
 import { appliedAtText, remainingText } from "../model/timeText";
@@ -13,6 +14,7 @@ import type { ApplicationRequest } from "../types";
  * 신청마다 소개 글과 남은 시간을 보고 신고, 거절, 수락 가운데 하나로 답한다.
  * 자리가 다 차도 신청은 기한까지 남으므로 목록은 유지하고 수락만 막는다.
  * 답을 보내는 중인 신청은 버튼을 모두 막아 같은 답이 두 번 나가지 않는다.
+ * 목록을 받는 동안 신청이 없다는 문장이 잠깐 보이지 않게 목록 자리에 자리표시를 둔다.
  */
 export function RequestsScreen({
   roomName,
@@ -20,6 +22,7 @@ export function RequestsScreen({
   requests,
   now,
   busyId,
+  loading = false,
   onBack,
   onAccept,
   onReject,
@@ -31,11 +34,49 @@ export function RequestsScreen({
   now: Date;
   /** 답을 보내는 중인 신청이고, 없으면 `null`이다. */
   busyId: number | null;
+  loading?: boolean;
   onBack: () => void;
   onAccept: (applicationId: number) => void;
   onReject: (applicationId: number) => void;
   onReport: (applicationId: number) => void;
 }) {
+  let body: ReactNode;
+  if (loading) {
+    body = (
+      <div className="flex flex-col gap-3 pt-4">
+        <Skeleton className="h-50 rounded-xl" />
+        <Skeleton className="h-50 rounded-xl" />
+      </div>
+    );
+  } else if (requests.length === 0) {
+    body = (
+      <p className="pt-16 text-center text-[15px] leading-5.5 text-muted-foreground">
+        답을 기다리는 신청이 없어요
+      </p>
+    );
+  } else {
+    body = (
+      <>
+        <ul className="flex flex-col gap-3 pt-4">
+          {requests.map((request) => (
+            <RequestCard
+              key={request.applicationId}
+              request={request}
+              now={now}
+              busy={busyId === request.applicationId}
+              canAccept={remainingSeats > 0}
+              onAccept={onAccept}
+              onReject={onReject}
+              onReport={onReport}
+            />
+          ))}
+        </ul>
+        <p className="pt-4 text-center text-[13px] leading-5 break-keep text-muted-foreground">
+          수락하면 바로 멤버가 되고, 신청한 사람에게 알림이 가요
+        </p>
+      </>
+    );
+  }
   return (
     <main className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground">
       <ScreenBackHeader title="신청 확인" onBack={onBack} />
@@ -43,31 +84,7 @@ export function RequestsScreen({
         <p className="pt-0.5 text-[13px] leading-5 wrap-break-word break-keep text-muted-foreground">
           {`${roomName} · 남은 자리 ${remainingSeats}`}
         </p>
-        {requests.length === 0 ? (
-          <p className="pt-16 text-center text-[15px] leading-5.5 text-muted-foreground">
-            답을 기다리는 신청이 없어요
-          </p>
-        ) : (
-          <>
-            <ul className="flex flex-col gap-3 pt-4">
-              {requests.map((request) => (
-                <RequestCard
-                  key={request.applicationId}
-                  request={request}
-                  now={now}
-                  busy={busyId === request.applicationId}
-                  canAccept={remainingSeats > 0}
-                  onAccept={onAccept}
-                  onReject={onReject}
-                  onReport={onReport}
-                />
-              ))}
-            </ul>
-            <p className="pt-4 text-center text-[13px] leading-5 break-keep text-muted-foreground">
-              수락하면 바로 멤버가 되고, 신청한 사람에게 알림이 가요
-            </p>
-          </>
-        )}
+        {body}
       </div>
     </main>
   );
@@ -100,7 +117,7 @@ function RequestCard({
   return (
     <li className="flex flex-col gap-3 rounded-xl bg-muted p-4 shadow-sb-card">
       <div className="flex items-center gap-2.5">
-        <RankAvatar nickname={request.nickname} imageUrl={request.imageUrl} />
+        <RankAvatar nickname={request.nickname} imageUrl={request.imageUrl} size="sm-plus" />
         <p
           id={nameId}
           className="min-w-0 flex-1 truncate text-base leading-5.5 font-bold text-foreground"

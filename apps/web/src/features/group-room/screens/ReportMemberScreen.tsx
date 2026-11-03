@@ -13,6 +13,7 @@ export function ReportMemberScreen({
   value,
   onChange,
   pending,
+  serverError,
   onSubmit,
   onBack,
 }: {
@@ -20,6 +21,8 @@ export function ReportMemberScreen({
   value: string;
   onChange: (value: string) => void;
   pending: boolean;
+  /** 서버가 글을 받지 않은 이유이고, 글을 고치면 호출부가 비운다. */
+  serverError?: string | null;
   onSubmit: () => void;
   onBack: () => void;
 }) {
@@ -33,6 +36,7 @@ export function ReportMemberScreen({
       value={value}
       onChange={onChange}
       pending={pending}
+      serverError={serverError}
       onSubmit={onSubmit}
     />
   );

@@ -61,7 +61,8 @@ export function PublicRoomDetailScreen({
             memberCount={room.memberCount}
           />
         </div>
-        {room.intro !== "" && <IntroCard intro={room.intro} />}
+        {/* 공백과 줄바꿈만 있는 소개는 빈 칸으로 보여서 빈 소개처럼 칸을 그리지 않는다. */}
+        {room.intro.trim() !== "" && <IntroCard intro={room.intro.trim()} />}
         <dl className={cn(CARD_CLASS, "mt-3 px-4 py-1.5")}>
           <div className="flex min-h-11 items-center justify-between gap-3 border-b border-border">
             <dt className="shrink-0 text-sm leading-5 text-muted-foreground">그룹장</dt>
@@ -105,6 +106,7 @@ export function PublicRoomDetailScreen({
  *
  * 긴 소개는 앞부분만 보이고 더 보기로 한 번 펼친다.
  * 이모지 조합이 반으로 잘리지 않게 글자 단위로 자른다.
+ * 줄바꿈이 많은 소개는 앞부분만으로도 길어져서 접어 둔 동안에는 줄 수도 함께 막는다.
  */
 function IntroCard({ intro }: { intro: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -119,7 +121,12 @@ function IntroCard({ intro }: { intro: string }) {
       <h2 id={titleId} className="text-[13px] leading-5 font-semibold text-muted-foreground">
         그룹 소개
       </h2>
-      <p className="text-[15px] leading-5.5 wrap-break-word whitespace-pre-line text-foreground">
+      <p
+        className={cn(
+          "text-[15px] leading-5.5 wrap-break-word whitespace-pre-line text-foreground",
+          collapsed && "line-clamp-6",
+        )}
+      >
         {collapsed ? `${graphemes.slice(0, INTRO_PREVIEW_MAX).join("")}…` : intro}
       </p>
       {collapsed && (

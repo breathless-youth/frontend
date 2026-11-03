@@ -41,7 +41,7 @@ export function WeeklyRankCard({
             key={row.userId}
             data-me={row.isMe || undefined}
             className={cn(
-              "flex h-9.5 items-center gap-2.5 rounded-md px-1.5",
+              "flex min-h-9.5 items-center gap-2.5 rounded-md px-1.5",
               row.isMe && "bg-brand-subtle",
             )}
           >

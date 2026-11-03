@@ -7,8 +7,8 @@ import { useKeyboardInset } from "@/lib/useKeyboardInset";
 import { cn } from "@/lib/utils";
 
 import { BOTTOM_CTA_CLASS } from "../bottomCta";
-import { groupFieldError } from "../fieldError";
-import { countGroupText, isApplicationMessageValid } from "../model/limits";
+import { groupFieldError, isOverGroupLimit } from "../fieldError";
+import { countGroupText } from "../model/limits";
 
 const PAGE_CLASS = "theme-soft-blue page-column flex min-h-dvh flex-col text-foreground";
 
@@ -23,6 +23,7 @@ const SUBMIT_TONE_CLASS = {
  * 입력이 있는 바텀 시트는 iOS에서 키보드가 올라올 때 화면이 밀리고 흔들려서 전체 화면으로 연다.
  * 한도에서 입력을 자르면 iOS 한글 자판이 앞 글자를 덮어써서 글은 자르지 않고 보내기만 막는다.
  * 연락처·링크는 판정의 원본이 서버라 안내만 하고 보내기는 막지 않는다.
+ * 서버가 막은 문장도 같은 줄에 보이고, 글을 고치면 호출부가 비운다.
  * 공부방 위에 겹쳐 뜨는 화면은 앱의 유리 머리 줄을 띄우면 안 되어서 머리 줄은 화면마다 받는다.
  */
 export function WriteScreen({
@@ -41,6 +42,7 @@ export function WriteScreen({
   submitLabel,
   submitTone,
   pending,
+  serverError = null,
   onSubmit,
 }: {
   tone: "light" | "dark";
@@ -60,6 +62,8 @@ export function WriteScreen({
   submitTone: "primary" | "danger";
   /** 보내는 중이면 버튼을 막아 같은 글이 두 번 나가지 않는다. */
   pending: boolean;
+  /** 서버가 글을 받지 않은 이유이고, 글자 수 안내 다음이자 입력 중의 연락처 안내 대신 보인다. */
+  serverError?: string | null;
   onSubmit: () => void;
 }) {
   const inputId = useId();
@@ -67,9 +71,9 @@ export function WriteScreen({
   const errorId = useId();
   const keyboardInset = useKeyboardInset();
   const length = countGroupText(value);
-  const error = groupFieldError(value, maxLength, checkContact);
-  // 꼭 써야 하는 글은 신청 소개 글뿐이라 신청 글 판정으로 비었는지 본다.
-  const missing = required && !isApplicationMessageValid(value);
+  const error = groupFieldError(value, maxLength, checkContact, serverError);
+  // 앞뒤 공백을 뺀 글자 수로 세어 공백만 쓴 글도 비어 있는 글로 본다.
+  const missing = required && length === 0;
 
   const body = (
     <>
@@ -128,7 +132,7 @@ export function WriteScreen({
       >
         <Button
           size="xl"
-          disabled={pending || length > maxLength || missing}
+          disabled={pending || isOverGroupLimit(value, maxLength) || missing}
           onClick={onSubmit}
           className={cn(BOTTOM_CTA_CLASS, SUBMIT_TONE_CLASS[submitTone])}
         >

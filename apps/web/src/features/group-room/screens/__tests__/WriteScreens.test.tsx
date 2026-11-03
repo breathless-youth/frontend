@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type * as Graphemes from "@/lib/graphemes";
 import { useKeyboardInset } from "@/lib/useKeyboardInset";
 import { enterGlassChrome, resetGlassChrome } from "@/test/nativeControlStub";
 
@@ -13,12 +14,24 @@ import { ReportMemberScreen } from "../ReportMemberScreen";
 
 vi.mock("@/lib/useKeyboardInset", () => ({ useKeyboardInset: vi.fn(() => 0) }));
 
+const graphemes = vi.hoisted(() => ({ canSegment: true }));
+
+// 글자 단위로 셀 수 없는 구형 웹뷰를 흉내 내려고 판정 표시만 바꾸고 나머지는 실제 모듈을 쓴다.
+vi.mock("@/lib/graphemes", async (importOriginal) => ({
+  ...(await importOriginal<typeof Graphemes>()),
+  get canSegmentGraphemes() {
+    return graphemes.canSegment;
+  },
+}));
+
 function ApplyHarness({
   pending = false,
+  serverError,
   onSubmit = vi.fn(),
   onBack = vi.fn(),
 }: {
   pending?: boolean;
+  serverError?: string | null;
   onSubmit?: () => void;
   onBack?: () => void;
 }) {
@@ -30,13 +43,20 @@ function ApplyHarness({
       value={value}
       onChange={setValue}
       pending={pending}
+      serverError={serverError}
       onSubmit={onSubmit}
       onBack={onBack}
     />
   );
 }
 
-function ReportApplicationHarness({ onSubmit = vi.fn() }: { onSubmit?: () => void }) {
+function ReportApplicationHarness({
+  serverError,
+  onSubmit = vi.fn(),
+}: {
+  serverError?: string | null;
+  onSubmit?: () => void;
+}) {
   const [value, setValue] = useState("");
   return (
     <ReportApplicationScreen
@@ -44,6 +64,7 @@ function ReportApplicationHarness({ onSubmit = vi.fn() }: { onSubmit?: () => voi
       value={value}
       onChange={setValue}
       pending={false}
+      serverError={serverError}
       onSubmit={onSubmit}
       onBack={vi.fn()}
     />
@@ -52,6 +73,7 @@ function ReportApplicationHarness({ onSubmit = vi.fn() }: { onSubmit?: () => voi
 
 beforeEach(() => {
   vi.mocked(useKeyboardInset).mockReturnValue(0);
+  graphemes.canSegment = true;
 });
 
 describe("ApplyScreen", () => {
@@ -74,7 +96,10 @@ describe("ApplyScreen", () => {
   it("키보드가 올라오면 보내는 버튼이 키보드 바로 위로 간다", () => {
     vi.mocked(useKeyboardInset).mockReturnValue(336);
     renderScreen(<ApplyHarness />);
-    expect(screen.getByTestId("write-submit-bar")).toHaveAttribute("data-keyboard-inset", "336");
+    const bar = screen.getByTestId("write-submit-bar");
+    expect(bar).toHaveAttribute("data-keyboard-inset", "336");
+    // 키보드 윗면에서 12px 띄워 버튼이 키보드에 붙어 보이지 않게 한다.
+    expect(bar).toHaveStyle({ bottom: "348px" });
   });
 
   it("키보드가 없으면 보내는 버튼은 화면 아래에 남는다", () => {
@@ -111,6 +136,35 @@ describe("ApplyScreen", () => {
       .type(screen.getByRole("textbox", { name: "소개 글" }), `카톡 abc123 ${"가".repeat(45)}`);
     expect(screen.getByRole("alert")).toHaveTextContent("50자까지 쓸 수 있어요");
     expect(screen.queryByText("연락처나 링크는 보낼 수 없어요")).toBeNull();
+  });
+
+  it("서버가 막으면 입력칸 아래에 그 문장을 한 줄로 보이고 보내기는 막지 않는다", () => {
+    renderScreen(<ApplyHarness serverError="연락처나 링크는 보낼 수 없어요" />);
+    expect(screen.getByRole("alert")).toHaveTextContent("연락처나 링크는 보낼 수 없어요");
+    expect(screen.getByRole("textbox", { name: "소개 글" })).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+  });
+
+  it("서버 문장은 입력 중의 연락처 안내 대신 보이고 글자 수 안내보다는 뒤다", async () => {
+    renderScreen(<ApplyHarness serverError="서버가 막은 문장" />);
+    const user = userEvent.setup();
+    const field = screen.getByRole("textbox", { name: "소개 글" });
+    await user.type(field, "카톡 abc123");
+    expect(screen.getByRole("alert")).toHaveTextContent("서버가 막은 문장");
+    expect(screen.queryByText("연락처나 링크는 보낼 수 없어요")).toBeNull();
+    await user.clear(field);
+    await user.type(field, "가".repeat(51));
+    expect(screen.getByRole("alert")).toHaveTextContent("50자까지 쓸 수 있어요");
+  });
+
+  it("글자 단위로 셀 수 없는 환경에서는 50자를 넘어도 보낼 수 있다", async () => {
+    graphemes.canSegment = false;
+    renderScreen(<ApplyHarness />);
+    await userEvent.setup().type(screen.getByRole("textbox", { name: "소개 글" }), "가".repeat(51));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByRole("button", { name: "신청 보내기" })).toBeEnabled();
   });
 
   it("쓴 글을 보내면 넘긴다", async () => {
@@ -154,6 +208,28 @@ describe("ReportApplicationScreen", () => {
     await user.type(reason, "가".repeat(101));
     expect(screen.getByRole("alert")).toHaveTextContent("100자까지 쓸 수 있어요");
     expect(screen.getByRole("button", { name: "신고하기" })).toBeDisabled();
+  });
+});
+
+describe("신고 화면의 서버 문장", () => {
+  it("신청 신고는 서버가 막은 문장을 입력칸 아래에 보인다", () => {
+    renderScreen(<ReportApplicationHarness serverError="잠시 후 다시 시도해 주세요" />);
+    expect(screen.getByRole("alert")).toHaveTextContent("잠시 후 다시 시도해 주세요");
+  });
+
+  it("공부방 신고도 서버가 막은 문장을 입력칸 아래에 보인다", () => {
+    renderScreen(
+      <ReportMemberScreen
+        nickname="새벽러"
+        value=""
+        onChange={vi.fn()}
+        pending={false}
+        serverError="잠시 후 다시 시도해 주세요"
+        onSubmit={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("잠시 후 다시 시도해 주세요");
   });
 });
 

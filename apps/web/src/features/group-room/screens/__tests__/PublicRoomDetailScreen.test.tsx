@@ -86,6 +86,11 @@ describe("PublicRoomDetailScreen", () => {
     expect(screen.queryByText("그룹 소개")).toBeNull();
   });
 
+  it("그룹 소개가 공백과 줄바꿈뿐이어도 소개 칸을 그리지 않는다", () => {
+    renderDetail({ kind: "can_apply" }, { intro: "  \n \n  " });
+    expect(screen.queryByText("그룹 소개")).toBeNull();
+  });
+
   it("그룹장, 이번 주 멤버 평균 순공, 오늘 멤버 책상을 보인다", () => {
     renderDetail({ kind: "can_apply" });
     // 그룹장 닉네임은 그룹장 책상에도 있어서 그룹장 줄 안에서 찾는다.
