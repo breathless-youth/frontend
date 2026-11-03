@@ -252,7 +252,13 @@ function AppToaster() {
   useEffect(() => {
     dismissToast();
   }, [pathname]);
-  return <Toaster bottom={bottom} />;
+  return (
+    // 그룹 화면의 안내 토스트에는 그룹 이름이 들어가서 Amplitude 클릭 자동 수집이 토스트 글자를 싣지 않게 가린다.
+    // Sonner는 이 속성을 넘겨받지 않아서 배치에 영향이 없는 `contents` 상자로 감싸 단다.
+    <div data-amp-mask className="contents">
+      <Toaster bottom={bottom} />
+    </div>
+  );
 }
 
 export function App() {

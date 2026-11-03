@@ -1,4 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { createElement } from "react";
+import { MemoryRouter } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+
+import { buildGroupRoomFixtures } from "@/features/group-room/fixtures";
+import { RoomHomeScreen } from "@/features/group-room/screens/RoomHomeScreen";
 
 /**
  * **실제 Amplitude SDK를 mock 없이 돌려 최종 전송 payload를 검사한다.**
@@ -81,7 +87,7 @@ afterEach(() => {
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("Amplitude 전송 파이프라인 (실제 SDK)", () => {
-  it("나가는 payload 어디에도 userId가 남지 않는다", async () => {
+  it("나가는 payload 어디에도 userId와 다른 사람의 닉네임·그룹 이름이 남지 않는다", async () => {
     const { initAmplitude, trackAmplitudePageView, trackStudySessionStarted } =
       await import("../amplitude");
     const amplitude = await import("@amplitude/analytics-browser");
@@ -126,5 +132,61 @@ describe("Amplitude 전송 파이프라인 (실제 SDK)", () => {
     // 길이(5자) 미달로 user_id를 제거해, 위 단언이 통과해도 콘솔에는 전원이 익명으로 남는다.
     expect(sent.length).toBeGreaterThan(0);
     expect(sent.every((batch) => batch.options?.min_id_length === 1)).toBe(true);
+
+    // 그룹 홈의 제목, 책상, 순위에는 그룹 이름과 다른 멤버의 닉네임이 보인다.
+    // 버튼 클릭은 가까운 제목의 글자를 Parent Label로 싣는다.
+    // 버튼이 아닌 글자를 누른 뒤 화면이 바뀌면 그 글자를 Element Text로, 조상의 aria-label을 요소 계층으로 싣는다.
+    // 화면에 단 가림 표시가 실제 SDK에서도 두 경로를 모두 가리는지 전송 payload로 본다.
+    // jsdom에는 innerText가 없어 SDK가 글자를 빈 값으로 읽으므로 브라우저처럼 글자를 읽게 한다.
+    Object.defineProperty(HTMLElement.prototype, "innerText", {
+      configurable: true,
+      get(this: HTMLElement) {
+        return this.textContent;
+      },
+    });
+    onTestFinished(() => {
+      Reflect.deleteProperty(HTMLElement.prototype, "innerText");
+    });
+    sent.length = 0;
+    const now = new Date();
+    const { roomHome } = buildGroupRoomFixtures(now);
+    render(
+      createElement(
+        MemoryRouter,
+        null,
+        createElement(RoomHomeScreen, {
+          room: roomHome,
+          now,
+          fetchedAtMs: now.getTime(),
+          onBack: () => {},
+          onToggleNotify: () => {},
+          onMenuSelect: () => {},
+          onOpenRequests: () => {},
+          onEnterStudyRoom: () => {},
+        }),
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "공부방 들어가기" }));
+    fireEvent.click(within(screen.getByRole("list", { name: "멤버 책상" })).getByText("새벽러"));
+    // 순공이 쌓이는 멤버가 있으면 그룹 홈은 1초마다 다시 그려서 누른 뒤 곧 화면이 바뀐다.
+    document.body.append(document.createElement("div"));
+    await tick();
+    await amplitude.flush().promise;
+    await tick();
+
+    const groupClicks = sent
+      .flatMap((batch) => batch.events)
+      .filter((event) => event.event_type === "[Amplitude] Element Clicked")
+      .map((event) => event.event_properties as Record<string, unknown>);
+    // 두 클릭이 모두 나가야 아래의 가림 단언이 공허하지 않다.
+    expect(groupClicks.map((properties) => properties["[Amplitude] Element Tag"])).toEqual([
+      "button",
+      "span",
+    ]);
+    for (const properties of groupClicks) {
+      expect(properties["[Amplitude] Element Text"]).toBe("*****");
+    }
+    const groupNames = /수능 D-200 밤샘반|새벽러|합격까지|고구마맛탕|연필깎이|열공곰/;
+    expect(JSON.stringify(sent)).not.toMatch(groupNames);
   });
 });

@@ -57,7 +57,13 @@ export function RoomHomeScreen({
   const showNewRequests =
     room.role === "owner" && room.visibility === "public" && room.newRequestCount > 0;
   return (
-    <main className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground">
+    <main
+      // 그룹 이름과 닉네임이 Amplitude 클릭 이벤트에 실리지 않게 화면 안의 글자와 aria-label을 모두 가린다.
+      // 1초마다 다시 그리는 화면이라 버튼이 아닌 닉네임을 눌러도 그 글자가 클릭 이벤트로 나가서 이름 칸만 가려서는 막지 못한다.
+      data-amp-mask
+      data-amp-mask-attributes="aria-label"
+      className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground"
+    >
       <ScreenBackHeader
         title={room.name}
         onBack={onBack}

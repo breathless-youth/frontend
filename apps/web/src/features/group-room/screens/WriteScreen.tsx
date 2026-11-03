@@ -12,6 +12,9 @@ import { countGroupText } from "../model/limits";
 
 const PAGE_CLASS = "theme-soft-blue page-column flex min-h-dvh flex-col text-foreground";
 
+/** 그룹 이름, 닉네임, 쓰는 글이 Amplitude 클릭 이벤트에 실리지 않게 화면 안의 글자와 aria-label을 모두 가린다. */
+const ANALYTICS_MASK = { "data-amp-mask": true, "data-amp-mask-attributes": "aria-label" };
+
 const SUBMIT_TONE_CLASS = {
   primary: undefined,
   danger: "bg-feedback-danger text-white",
@@ -146,13 +149,18 @@ export function WriteScreen({
     // 공부방 화면의 main 위에 겹쳐 뜨므로 main을 또 두지 않는다.
     // 앱 테마와 상관없이 어둡게 그리되, 빨간 버튼 색이 Soft Blue 팔레트에만 있어 어두운 바탕 안에 Soft Blue를 한 겹 더 둔다.
     return (
-      <div data-testid="write-screen" data-tone="dark" className="theme-dark">
+      <div data-testid="write-screen" data-tone="dark" className="theme-dark" {...ANALYTICS_MASK}>
         <div className={cn(PAGE_CLASS, "bg-background")}>{body}</div>
       </div>
     );
   }
   return (
-    <main data-testid="write-screen" data-tone="light" className={cn(PAGE_CLASS, "bg-soft-blue")}>
+    <main
+      data-testid="write-screen"
+      data-tone="light"
+      className={cn(PAGE_CLASS, "bg-soft-blue")}
+      {...ANALYTICS_MASK}
+    >
       {body}
     </main>
   );

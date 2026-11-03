@@ -278,6 +278,14 @@ describe("그룹 탭", () => {
     expect(await screen.findByText("새벽 5시 기상 공시반에서 내보내졌어요")).toBeInTheDocument();
   });
 
+  it("그룹 이름이 든 안내 토스트는 클릭 분석이 글자를 싣지 않게 가린다", async () => {
+    mockGroupApi("default");
+    markSocialRoomNotice({ kind: "failure", message: "새벽 5시 기상 공시반에서 내보내졌어요" });
+    renderGroupRoute("/social?groupRooms=1");
+    const toast = await screen.findByText("새벽 5시 기상 공시반에서 내보내졌어요");
+    expect(toast.closest("[data-amp-mask]")).not.toBeNull();
+  });
+
   it("자리를 오래 비워 끝난 안내는 확인 창으로 띄운다", async () => {
     mockGroupApi("default");
     markSocialRoomNotice({

@@ -113,6 +113,23 @@ describe("PendingApplicationsSheet", () => {
     expect(onOpenRoom).toHaveBeenCalledWith(7);
   });
 
+  it("그룹 이름이 든 줄은 클릭 분석이 글자와 aria-label을 싣지 않게 가린다", () => {
+    render(
+      <PendingApplicationsSheet
+        open
+        onOpenChange={vi.fn()}
+        applications={[application]}
+        now={NOW}
+        cancelingId={null}
+        onCancel={vi.fn()}
+        onOpenRoom={vi.fn()}
+      />,
+    );
+    const row = screen.getByRole("button", { name: /새벽 5시 기상 공시반/ });
+    expect(row).toHaveAttribute("data-amp-mask");
+    expect(row).toHaveAttribute("data-amp-mask-attributes", "aria-label");
+  });
+
   it("나눠 받는 시트도 열면 같은 시트를 그린다", async () => {
     render(
       <LazyPendingApplicationsSheet

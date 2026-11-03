@@ -233,6 +233,8 @@ function GroupMembers({ userId, groupId }: { userId: number; groupId: number }) 
           open={dialogOpen}
           {...dialogCopy}
           pending={answering}
+          // 두 창 모두 문구에 멤버의 닉네임이 들어간다.
+          maskFromAnalytics
           onCancel={() => setDialogOpen(false)}
           onConfirm={() => {
             if (answering) {

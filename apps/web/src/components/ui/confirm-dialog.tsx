@@ -17,6 +17,7 @@ const CONFIRM_TONE_CLASS = {
  * Esc와 딤 탭은 취소다.
  * 확인한 일을 보내는 중(`pending`)에는 같은 요청이 두 번 나가지 않게 확인을 막고, 결과가 오기 전에 창이 사라지지 않게 취소와 닫기도 막는다.
  * 시트가 `open`으로만 열어 Radix가 포커스를 되돌리지 못하므로 `useDialogFocusRestore`가 맡는다.
+ * 창은 body로 나가서 화면에 단 클릭 분석 가림이 닿지 않으므로 다른 사람의 이름이 든 문구는 `maskFromAnalytics`로 창에서 가린다.
  */
 export function ConfirmDialog({
   open,
@@ -26,6 +27,7 @@ export function ConfirmDialog({
   confirmLabel,
   confirmTone = "danger",
   pending = false,
+  maskFromAnalytics = false,
   onCancel,
   onConfirm,
 }: {
@@ -36,6 +38,8 @@ export function ConfirmDialog({
   confirmLabel: string;
   confirmTone?: "danger" | "primary";
   pending?: boolean;
+  /** 켜면 Amplitude 클릭 자동 수집이 창 안의 글자와 aria-label을 싣지 않는다. */
+  maskFromAnalytics?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -52,6 +56,8 @@ export function ConfirmDialog({
         showCloseButton={false}
         onOpenAutoFocus={focusRestore.onOpenAutoFocus}
         onCloseAutoFocus={focusRestore.onCloseAutoFocus}
+        data-amp-mask={maskFromAnalytics || undefined}
+        data-amp-mask-attributes={maskFromAnalytics ? "aria-label" : undefined}
         className="theme-soft-blue w-full max-w-[320px] gap-0 rounded-3xl border-0 bg-muted px-5.5 pt-6.5 pb-5.5 text-foreground shadow-[0_20px_25px_rgba(0,0,0,0.4)] sm:rounded-3xl"
         // 설명이 없을 때 이 속성을 비워 넘기지 않으면 Radix가 설명 누락을 경고한다.
         // 설명이 있으면 Radix가 설명 줄을 가리키는 기본 동작을 유지한다.

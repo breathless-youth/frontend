@@ -88,6 +88,13 @@ describe("ApplyScreen", () => {
     expect(screen.getByTestId("write-screen")).toHaveAttribute("data-tone", "light");
   });
 
+  it("그룹 이름, 그룹장 닉네임, 쓰는 글이 클릭 분석에 실리지 않게 화면 전체에 가림 표시를 단다", () => {
+    renderScreen(<ApplyHarness />);
+    const root = screen.getByTestId("write-screen");
+    expect(root).toHaveAttribute("data-amp-mask");
+    expect(root).toHaveAttribute("data-amp-mask-attributes", "aria-label");
+  });
+
   it("열리면 입력칸에 포커스가 간다", () => {
     renderScreen(<ApplyHarness />);
     expect(screen.getByRole("textbox", { name: "소개 글" })).toHaveFocus();
@@ -254,6 +261,22 @@ describe("ReportMemberScreen", () => {
     expect(screen.getByText("신고하면 새벽러님의 화면을 볼 수 없어요")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "신고하기" })).toBeEnabled();
     expect(screen.getByTestId("write-screen")).toHaveAttribute("data-tone", "dark");
+  });
+
+  it("어두운 신고 화면도 닉네임과 사유가 클릭 분석에 실리지 않게 화면 전체에 가림 표시를 단다", () => {
+    renderScreen(
+      <ReportMemberScreen
+        nickname="새벽러"
+        value=""
+        onChange={vi.fn()}
+        pending={false}
+        onSubmit={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+    const root = screen.getByTestId("write-screen");
+    expect(root).toHaveAttribute("data-amp-mask");
+    expect(root).toHaveAttribute("data-amp-mask-attributes", "aria-label");
   });
 
   it("공부방 위에 뜨므로 앱 모드에서도 앱 머리 줄을 띄우지 않고 웹 뒤로 버튼을 쓴다", async () => {

@@ -120,4 +120,29 @@ describe("ConfirmDialog", () => {
     expect(onConfirm).not.toHaveBeenCalled();
     expect(screen.getByRole("alertdialog", { name: "민준님을 내보낼까요?" })).toBeInTheDocument();
   });
+
+  it("문구에 다른 사람의 이름이 들면 클릭 분석이 창 안의 글자와 aria-label을 싣지 않게 가린다", () => {
+    render(
+      <ConfirmDialog
+        open
+        maskFromAnalytics
+        title="민준님을 내보낼까요?"
+        cancelLabel="취소"
+        confirmLabel="내보내기"
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+    );
+    const dialog = screen.getByRole("alertdialog", { name: "민준님을 내보낼까요?" });
+
+    expect(dialog).toHaveAttribute("data-amp-mask");
+    expect(dialog).toHaveAttribute("data-amp-mask-attributes", "aria-label");
+  });
+
+  it("가리라고 하지 않으면 창 글자를 클릭 분석에 그대로 둔다", () => {
+    renderDialog();
+
+    expect(screen.getByRole("alertdialog")).not.toHaveAttribute("data-amp-mask");
+    expect(screen.getByRole("alertdialog")).not.toHaveAttribute("data-amp-mask-attributes");
+  });
 });

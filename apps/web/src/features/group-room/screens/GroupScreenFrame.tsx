@@ -19,7 +19,12 @@ export function GroupScreenFrame({
   children: ReactNode;
 }) {
   return (
-    <main className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground">
+    <main
+      // 목록의 닉네임과 소개 글, 그룹 이름이 Amplitude 클릭 이벤트에 실리지 않게 화면 안의 글자와 aria-label을 모두 가린다.
+      data-amp-mask
+      data-amp-mask-attributes="aria-label"
+      className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground"
+    >
       <ScreenBackHeader title={title} onBack={onBack} />
       <div className="flex flex-col px-5 pb-[calc(env(safe-area-inset-bottom)+24px)]">
         {children}
