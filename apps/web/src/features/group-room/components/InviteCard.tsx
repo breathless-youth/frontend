@@ -1,5 +1,6 @@
 import { LinkIcon, RefreshCw } from "lucide-react";
 import { useId } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,7 @@ export function InviteCard({
   onShareLink: () => void;
   onRegenerate: () => void;
 }) {
+  const { t } = useTranslation("group-room");
   const titleId = useId();
   return (
     <section
@@ -34,15 +36,15 @@ export function InviteCard({
     >
       <div className="flex flex-col gap-0.5">
         <h2 id={titleId} className="text-[15px] leading-5.5 font-bold text-foreground">
-          초대하기
+          {t("inviteCard.title")}
         </h2>
         <p className="text-[13px] leading-5 break-keep text-muted-foreground">
-          링크나 코드를 받은 사람은 수락 없이 바로 멤버가 돼요
+          {t("inviteCard.description")}
         </p>
       </div>
       <div className="flex items-center gap-2">
         <p className="flex h-13 min-w-0 flex-1 items-center justify-center rounded-lg bg-bg-layer-2 text-2xl leading-7.5 font-extrabold tracking-[6px] text-foreground tabular-nums @max-2xs:text-xl @max-2xs:tracking-[3px]">
-          <span className="sr-only">초대코드 </span>
+          <span className="sr-only">{t("inviteCard.codeLabel")} </span>
           {code}
         </p>
         <Button
@@ -50,7 +52,7 @@ export function InviteCard({
           className="h-13 shrink-0 gap-1.5 rounded-lg px-4 text-[15px] font-bold"
         >
           <LinkIcon aria-hidden="true" size={18} />
-          링크 보내기
+          {t("inviteCard.shareLink")}
         </Button>
       </div>
       {canRegenerate && (
@@ -61,7 +63,7 @@ export function InviteCard({
           className="-mt-1.5 flex min-h-11 items-center gap-1.5 self-start rounded-sm text-sm leading-5 font-bold text-primary focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
         >
           <RefreshCw aria-hidden="true" size={16} strokeWidth={2.2} />
-          코드 새로 만들기
+          {t("inviteCard.regenerate")}
         </button>
       )}
     </section>

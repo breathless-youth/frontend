@@ -26,7 +26,7 @@ import {
 import type { GroupTabSearch } from "@/features/group-room/groupTabSearch";
 import {
   canCreateRoom,
-  CREATE_ROOM_LIMIT_COPY,
+  createRoomLimitCopy,
   myRoomsTabCount,
 } from "@/features/group-room/model/limits";
 import { SocialHomeScreen } from "@/features/group-room/screens/SocialHomeScreen";
@@ -227,7 +227,7 @@ function GroupTabContent({ userId }: { userId: number | null }) {
       fab={{
         canCreate: signedIn && (mine === undefined || canCreateRoom(mine.ownedGroupCount)),
         // 신원이 없어 막은 것은 그룹 한도 때문이 아니라서 한도 문구를 붙이지 않는다.
-        blockedReason: signedIn ? CREATE_ROOM_LIMIT_COPY : null,
+        blockedReason: signedIn ? createRoomLimitCopy() : null,
         onCreate: () => leaveTab("/social/groups/new"),
         onJoinWithCode: () => leaveTab("/social/join"),
       }}

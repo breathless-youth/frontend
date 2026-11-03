@@ -1,8 +1,8 @@
 import { ApiError } from "@/lib/api";
 import i18n from "@/lib/i18n";
 
-import { CONTACT_BLOCKED_COPY } from "./model/contactCheck";
-import { applyBlockCopy, CREATE_ROOM_LIMIT_COPY, joinBlockCopy } from "./model/limits";
+import { contactBlockedCopy } from "./model/contactCheck";
+import { applyBlockCopy, createRoomLimitCopy, joinBlockCopy } from "./model/limits";
 
 /**
  * 그룹 API 오류를 화면 문구로 바꾸는 표
@@ -53,7 +53,6 @@ type CopyOf = () => string;
 const invalidCodeCopy: CopyOf = () => joinBlockCopy("invalid_code");
 const roomFullCopy: CopyOf = () => joinBlockCopy("room_full");
 const groupCountFullCopy: CopyOf = () => applyBlockCopy("rooms_and_applications_full");
-const contactBlockedCopy: CopyOf = () => CONTACT_BLOCKED_COPY;
 
 // 서버가 보낸 코드를 그대로 열쇠로 쓰므로 객체 속성과 겹치지 않게 Map에 둔다.
 const COPY_BY_ACTION: Partial<Record<GroupAction, ReadonlyMap<string, CopyOf>>> = {
@@ -75,7 +74,7 @@ const COPY_BY_ACTION: Partial<Record<GroupAction, ReadonlyMap<string, CopyOf>>> 
   answer: new Map([["GROUP_FULL", roomFullCopy]]),
   create: new Map([
     ["CONTACT_NOT_ALLOWED", contactBlockedCopy],
-    ["OWNED_GROUP_LIMIT", () => CREATE_ROOM_LIMIT_COPY],
+    ["OWNED_GROUP_LIMIT", createRoomLimitCopy],
     // 5개 한도는 답을 기다리는 신청도 세어서 이미 5개의 그룹이 있다는 문장은 틀릴 수 있다.
     ["GROUP_SLOT_LIMIT", groupCountFullCopy],
   ]),

@@ -1,5 +1,6 @@
 import { Crown } from "lucide-react";
 import { type ComponentProps, type ReactNode, useId } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Skeleton } from "@/components/ui/Skeleton";
 import { RankAvatar } from "@/features/ranking/components/RankAvatar";
@@ -12,7 +13,7 @@ import { memberCountText } from "../model/limits";
 import type { RoomVisibility } from "../model/roomMenu";
 import { lastStudiedText } from "../model/timeText";
 import type { RoomMemberRow } from "../types";
-import { VISIBILITY_TEXT } from "../visibility";
+import { visibilityText } from "../visibility";
 import { GroupScreenFrame } from "./GroupScreenFrame";
 
 /**
@@ -58,6 +59,7 @@ export function MembersScreen({
   onTransfer: (userId: number) => void;
   onKick: (userId: number) => void;
 }) {
+  const { t } = useTranslation("group-room");
   const listTitleId = useId();
   const manage = mode === "manage";
   let list: ReactNode;
@@ -102,20 +104,25 @@ export function MembersScreen({
     }
   }
   return (
-    <GroupScreenFrame title={manage ? "멤버 관리" : "멤버 보기"} onBack={onBack}>
+    <GroupScreenFrame
+      title={manage ? t("membersScreen.titleManage") : t("membersScreen.titleView")}
+      onBack={onBack}
+    >
       <p className="pt-0.5 text-[13px] leading-5 wrap-break-word break-keep text-muted-foreground">
-        {`${roomName} · ${VISIBILITY_TEXT[visibility]} · ${memberCountText(memberCount)}`}
+        {`${roomName} · ${visibilityText(visibility)} · ${memberCountText(memberCount)}`}
       </p>
       {inviteSlot !== null && <div className="pt-4">{inviteSlot}</div>}
       <div className="flex items-center justify-between gap-3 pt-4.5">
         <h2 id={listTitleId} className="text-[15px] leading-5.5 font-bold text-foreground">
-          멤버
+          {t("membersScreen.listTitle")}
         </h2>
-        <p className="shrink-0 text-xs leading-4 text-muted-foreground">마지막으로 온 날</p>
+        <p className="shrink-0 text-xs leading-4 text-muted-foreground">
+          {t("membersScreen.lastActive")}
+        </p>
       </div>
       {list}
       <p className="pt-4 text-center text-xs leading-4.5 break-keep text-muted-foreground">
-        그룹장은 다른 멤버에게 그룹장을 넘긴 뒤에 그룹을 나갈 수 있어요
+        {t("membersScreen.ownerLeaveNote")}
       </p>
     </GroupScreenFrame>
   );
@@ -127,6 +134,7 @@ export function MembersScreen({
  * 지금 보는 사람은 닉네임 대신 나로 쓰고, 그룹장은 이름 뒤 왕관을 글로도 읽히게 한다.
  */
 function MemberRow({ member, now, menu }: { member: RoomMemberRow; now: Date; menu: ReactNode }) {
+  const { t } = useTranslation("group-room");
   const name = memberName(member);
   const lastText = lastStudiedText(member.lastStudiedAt, now);
   return (
@@ -145,7 +153,7 @@ function MemberRow({ member, now, menu }: { member: RoomMemberRow; now: Date; me
         {member.isOwner && (
           <Crown
             role="img"
-            aria-label="그룹장"
+            aria-label={t("membersScreen.aria.owner")}
             size={16}
             strokeWidth={2.2}
             className="shrink-0 fill-brand-subtle text-primary"

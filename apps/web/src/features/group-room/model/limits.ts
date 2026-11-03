@@ -1,4 +1,5 @@
 import { countGraphemes, normalizeServerText } from "@/lib/graphemes";
+import i18n from "@/lib/i18n";
 
 /** 그룹 개수, 기간, 글자 수의 한도. */
 export const GROUP_ROOM_LIMITS = {
@@ -17,43 +18,47 @@ export const GROUP_ROOM_LIMITS = {
 export type ApplyBlockReason =
   "kicked_recently" | "rooms_and_applications_full" | "pending_applications_full";
 
-const APPLY_BLOCK_COPY: Record<ApplyBlockReason, string> = {
-  kicked_recently: `${GROUP_ROOM_LIMITS.kickCooldownDays}일 동안 이 그룹에 신청할 수 없어요`,
-  rooms_and_applications_full: "그룹 개수가 가득 찼어요",
-  pending_applications_full: "신청은 3곳까지 보낼 수 있어요",
-};
+const APPLY_BLOCK_KEYS = {
+  kicked_recently: "group-room:limits.applyBlock.kickedRecently",
+  rooms_and_applications_full: "group-room:limits.applyBlock.roomsAndApplicationsFull",
+  pending_applications_full: "group-room:limits.applyBlock.pendingApplicationsFull",
+} as const satisfies Record<ApplyBlockReason, string>;
 
 /**
  * 공개 그룹에 신청할 수 없는 이유의 문장
  *
  * 흐려진 신청 버튼의 글자를 이 문장으로 바꿔 왜 누를 수 없는지 알린다.
+ * 일수는 내보내진 경우의 문장만 쓰고 다른 문장은 넘긴 `count`를 쓰지 않는다.
  */
 export function applyBlockCopy(reason: ApplyBlockReason): string {
-  return APPLY_BLOCK_COPY[reason];
+  return i18n.t(APPLY_BLOCK_KEYS[reason], { count: GROUP_ROOM_LIMITS.kickCooldownDays });
 }
 
 export type JoinBlockReason =
   "room_full" | "kicked_recently" | "rooms_and_applications_full" | "invalid_code";
 
-const JOIN_BLOCK_COPY: Record<JoinBlockReason, string> = {
-  room_full: "자리가 다 찼어요",
-  kicked_recently: `내보내진 그룹에는 ${GROUP_ROOM_LIMITS.kickCooldownDays}일 동안 다시 들어갈 수 없어요`,
-  rooms_and_applications_full: "이미 5개의 그룹을 가지고 있어요",
-  invalid_code: "초대코드를 다시 확인해 주세요",
-};
+const JOIN_BLOCK_KEYS = {
+  room_full: "group-room:limits.joinBlock.roomFull",
+  kicked_recently: "group-room:limits.joinBlock.kickedRecently",
+  rooms_and_applications_full: "group-room:limits.joinBlock.roomsAndApplicationsFull",
+  invalid_code: "group-room:limits.joinBlock.invalidCode",
+} as const satisfies Record<JoinBlockReason, string>;
 
 /**
  * 초대코드로 들어갈 수 없는 이유의 문장
  *
  * 코드 입력칸 아래에 이 한 문장만 보여 준다.
  * 내보낸 뒤 코드가 새로 바뀌므로 예전 코드를 넣은 사람도 `invalid_code` 문장을 본다.
+ * 일수는 내보내진 경우의 문장만 쓰고 다른 문장은 넘긴 `count`를 쓰지 않는다.
  */
 export function joinBlockCopy(reason: JoinBlockReason): string {
-  return JOIN_BLOCK_COPY[reason];
+  return i18n.t(JOIN_BLOCK_KEYS[reason], { count: GROUP_ROOM_LIMITS.kickCooldownDays });
 }
 
 /** 그룹장인 그룹이 이미 2개여서 그룹 만들기가 흐려졌을 때 그 아래에 보이는 문장. */
-export const CREATE_ROOM_LIMIT_COPY = "그룹은 2개까지 만들 수 있어요";
+export function createRoomLimitCopy(): string {
+  return i18n.t("group-room:limits.createRoomLimit");
+}
 
 export function canCreateRoom(ownedRoomCount: number): boolean {
   return ownedRoomCount < GROUP_ROOM_LIMITS.maxOwnedRooms;
@@ -69,7 +74,10 @@ export function myRoomsTabCount(joinedCount: number, pendingCount: number): stri
 }
 
 export function memberCountText(memberCount: number): string {
-  return `멤버 ${memberCount}/${GROUP_ROOM_LIMITS.maxMembers}`;
+  return i18n.t("group-room:limits.memberCount", {
+    count: memberCount,
+    max: GROUP_ROOM_LIMITS.maxMembers,
+  });
 }
 
 export function remainingSeats(memberCount: number): number {

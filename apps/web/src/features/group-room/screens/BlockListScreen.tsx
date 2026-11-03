@@ -1,4 +1,5 @@
 import { type ReactNode, useId } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -31,6 +32,7 @@ export function BlockListScreen({
   onBack: () => void;
   onUnblock: (userId: number) => void;
 }) {
+  const { t } = useTranslation("group-room");
   let list: ReactNode;
   if (users.length > 0) {
     list = (
@@ -52,14 +54,14 @@ export function BlockListScreen({
   } else {
     list = (
       <p className="pt-16 text-center text-[15px] leading-5.5 text-muted-foreground">
-        차단한 사람이 없어요
+        {t("blockListScreen.empty")}
       </p>
     );
   }
   return (
-    <GroupScreenFrame title="차단 목록" onBack={onBack}>
+    <GroupScreenFrame title={t("blockListScreen.title")} onBack={onBack}>
       <p className="pt-1.5 text-[13px] leading-5 break-keep text-muted-foreground">
-        차단한 사람과는 공부방에서 화면과 소리가 오가지 않아요
+        {t("blockListScreen.description")}
       </p>
       {list}
     </GroupScreenFrame>
@@ -75,6 +77,7 @@ function BlockedRow({
   unblocking: boolean;
   onUnblock: (userId: number) => void;
 }) {
+  const { t } = useTranslation("group-room");
   const nameId = useId();
   return (
     <li className="flex min-h-15 items-center gap-2.5 border-b border-border last:border-b-0">
@@ -92,7 +95,7 @@ function BlockedRow({
         onClick={() => onUnblock(user.userId)}
         className="h-11 shrink-0 rounded-[14px] px-3.5 text-[13px] font-bold"
       >
-        차단 해제
+        {t("blockListScreen.unblock")}
       </Button>
     </li>
   );

@@ -15,7 +15,7 @@ import {
 import type { GroupAction } from "@/features/group-room/groupErrorCopy";
 import { baseSearch } from "@/features/group-room/groupTabSearch";
 import {
-  INVITE_CODE_RENEWED_COPY,
+  inviteCodeRenewedCopy,
   kickMemberDialog,
   transferOwnerDialog,
 } from "@/features/group-room/model/roomMenu";
@@ -114,7 +114,7 @@ function GroupMembers({ userId, groupId }: { userId: number; groupId: number }) 
     onSuccess: () => {
       setDialogOpen(false);
       if (isPrivate) {
-        showToast(INVITE_CODE_RENEWED_COPY);
+        showToast(inviteCodeRenewedCopy());
         void queryClient.invalidateQueries({ queryKey: groupKeys.invite(userId, groupId) });
       }
       refreshMembers();

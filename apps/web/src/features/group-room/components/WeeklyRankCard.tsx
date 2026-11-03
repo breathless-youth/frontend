@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { useTranslation } from "react-i18next";
 
 import { RankAvatar } from "@/features/ranking/components/RankAvatar";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,7 @@ export function WeeklyRankCard({
   rows: WeeklyRankRow[];
   elapsedSec: number;
 }) {
+  const { t } = useTranslation("group-room");
   const titleId = useId();
   const shownSec = liveRankSeconds(rows, elapsedSec);
   return (
@@ -31,9 +33,11 @@ export function WeeklyRankCard({
     >
       <div className="flex items-center justify-between gap-3 px-0.5 pb-1">
         <h2 id={titleId} className="text-[15px] leading-5.5 font-bold text-foreground">
-          이번 주 순위
+          {t("weeklyRankCard.title")}
         </h2>
-        <p className="shrink-0 text-xs leading-4 text-muted-foreground">월요일에 새로 시작해요</p>
+        <p className="shrink-0 text-xs leading-4 text-muted-foreground">
+          {t("weeklyRankCard.resetNote")}
+        </p>
       </div>
       <ol className="flex flex-col gap-1">
         {rows.map((row, index) => (
@@ -75,7 +79,7 @@ export function WeeklyRankCard({
                   aria-hidden="true"
                   className="size-1.5 shrink-0 rounded-full bg-feedback-success"
                 />
-                <span className="sr-only">공부 중</span>
+                <span className="sr-only">{t("weeklyRankCard.studying")}</span>
               </>
             )}
             <span className="shrink-0 text-sm leading-4.5 font-bold text-foreground tabular-nums">

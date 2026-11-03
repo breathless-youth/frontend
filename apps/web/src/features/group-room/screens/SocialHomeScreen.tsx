@@ -1,4 +1,5 @@
 import type { ComponentProps, ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 import { RoomFab } from "../components/RoomFab";
 import { SocialTabs } from "../components/SocialTabs";
@@ -29,9 +30,12 @@ export function SocialHomeScreen({
   fab: ComponentProps<typeof RoomFab>;
   pendingSheet: ReactNode;
 }) {
+  const { t } = useTranslation("group-room");
   return (
     <main className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col pt-[calc(env(safe-area-inset-top)+17px)] pb-(--tab-bar-reserve) text-foreground">
-      <h1 className="px-5 text-[24px] leading-7.5 font-bold text-foreground">그룹</h1>
+      <h1 className="px-5 text-[24px] leading-7.5 font-bold text-foreground">
+        {t("socialHomeScreen.title")}
+      </h1>
       <div className="mt-4">
         <SocialTabs tab={tab} myCountText={myCountText} onTabChange={onTabChange} />
       </div>

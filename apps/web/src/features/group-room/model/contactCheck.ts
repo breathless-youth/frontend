@@ -1,5 +1,9 @@
+import i18n from "@/lib/i18n";
+
 /** 연락처나 링크가 든 글을 쓰거나 서버가 막았을 때 입력칸 아래에 보이는 문장. */
-export const CONTACT_BLOCKED_COPY = "연락처나 링크는 보낼 수 없어요";
+export function contactBlockedCopy(): string {
+  return i18n.t("group-room:contactCheck.blocked");
+}
 
 // 서버 자바 정규식의 \s는 ASCII 공백 여섯 글자뿐이고 JS의 \s는 줄 구분 문자와 BOM까지 받아서 서버와 같은 글자만 적는다.
 // 연락 수단 말과 아이디 사이에는 이 공백과 쌍점, 하이픈을 세 글자까지 둘 수 있다.

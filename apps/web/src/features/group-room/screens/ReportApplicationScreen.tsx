@@ -1,6 +1,8 @@
+import { useTranslation } from "react-i18next";
+
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 
-import { REPORT_FIELD } from "./reportField";
+import { reportField } from "./reportField";
 import { WriteScreen } from "./WriteScreen";
 
 /**
@@ -26,13 +28,14 @@ export function ReportApplicationScreen({
   onSubmit: () => void;
   onBack: () => void;
 }) {
+  const { t } = useTranslation("group-room");
   return (
     <WriteScreen
       tone="light"
-      header={<ScreenBackHeader title="신고하기" onBack={onBack} />}
-      headline={`${nickname}님의 신청을 신고할게요`}
-      description="신고하면 이 신청은 바로 거절돼요"
-      {...REPORT_FIELD}
+      header={<ScreenBackHeader title={t("reportApplicationScreen.title")} onBack={onBack} />}
+      headline={t("reportApplicationScreen.headline", { nickname })}
+      description={t("reportApplicationScreen.description")}
+      {...reportField()}
       value={value}
       onChange={onChange}
       pending={pending}

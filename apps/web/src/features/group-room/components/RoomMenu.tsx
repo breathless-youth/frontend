@@ -1,6 +1,7 @@
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { Ellipsis, Inbox, LogOut, type LucideIcon, Settings, UserPlus, Users } from "lucide-react";
 import { Fragment, useId, useRef } from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   DropdownMenu,
@@ -42,6 +43,7 @@ export function RoomMenu({
   /** 개발용 화면 모음에서 메뉴가 열린 모습을 바로 보려고 쓴다. */
   defaultOpen?: boolean;
 }) {
+  const { t } = useTranslation("group-room");
   const chosen = useRef<RoomMenuItem["kind"] | null>(null);
   const choose = (kind: RoomMenuItem["kind"]) => {
     chosen.current = kind;
@@ -54,7 +56,7 @@ export function RoomMenu({
       }}
     >
       <DropdownMenuTrigger
-        aria-label="그룹 메뉴"
+        aria-label={t("roomMenuButton.aria.label")}
         className="flex size-11 items-center justify-center rounded-full text-muted-foreground focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none data-[state=open]:bg-border"
       >
         <Ellipsis aria-hidden="true" size={22} strokeWidth={2.4} />

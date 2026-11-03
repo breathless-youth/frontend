@@ -1,6 +1,7 @@
 import { ChevronLeft } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
-import { REPORT_FIELD } from "./reportField";
+import { reportField } from "./reportField";
 import { WriteScreen } from "./WriteScreen";
 
 /**
@@ -26,13 +27,14 @@ export function ReportMemberScreen({
   onSubmit: () => void;
   onBack: () => void;
 }) {
+  const { t } = useTranslation("group-room");
   return (
     <WriteScreen
       tone="dark"
-      header={<LayerHeader title="신고하기" onBack={onBack} />}
-      headline={`${nickname}님을 신고할게요`}
-      description={`신고하면 ${nickname}님의 화면을 볼 수 없어요`}
-      {...REPORT_FIELD}
+      header={<LayerHeader title={t("reportMemberScreen.title")} onBack={onBack} />}
+      headline={t("reportMemberScreen.headline", { nickname })}
+      description={t("reportMemberScreen.description", { nickname })}
+      {...reportField()}
       value={value}
       onChange={onChange}
       pending={pending}
@@ -48,11 +50,12 @@ export function ReportMemberScreen({
  * 공부방은 앱의 유리 머리 줄 없이 그리는 화면이라 그 위에 겹친 화면도 머리 줄을 앱에 맡기지 않고 웹이 그린다.
  */
 function LayerHeader({ title, onBack }: { title: string; onBack: () => void }) {
+  const { t } = useTranslation("common");
   return (
     <div className="flex shrink-0 items-center gap-1 px-2 pt-[calc(env(safe-area-inset-top)+4px)] pb-1">
       <button
         type="button"
-        aria-label="뒤로 가기"
+        aria-label={t("actions.back")}
         onClick={onBack}
         className="flex size-11 shrink-0 items-center justify-center rounded-full text-foreground focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
       >

@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 import type { SocialTab } from "../types";
@@ -21,17 +23,18 @@ export function SocialTabs({
   myCountText: string;
   onTabChange: (tab: SocialTab) => void;
 }) {
+  const { t } = useTranslation("group-room");
   return (
     <Tabs value={tab} onValueChange={(next) => onTabChange(next as SocialTab)}>
-      <TabsList aria-label="그룹" className="gap-5.5 border-border px-5">
+      <TabsList aria-label={t("socialTabs.aria.list")} className="gap-5.5 border-border px-5">
         <TabsTrigger value="mine" aria-controls={undefined} className={TRIGGER_CLASS}>
-          <span>내 그룹</span>{" "}
+          <span>{t("socialTabs.mine")}</span>{" "}
           <span className="font-semibold group-data-[state=active]:text-muted-foreground">
             {myCountText}
           </span>
         </TabsTrigger>
         <TabsTrigger value="public" aria-controls={undefined} className={TRIGGER_CLASS}>
-          공개 그룹
+          {t("socialTabs.public")}
         </TabsTrigger>
       </TabsList>
     </Tabs>

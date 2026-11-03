@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 
 import { GROUP_ROOM_LIMITS } from "../model/limits";
@@ -28,20 +30,21 @@ export function ApplyScreen({
   onSubmit: () => void;
   onBack: () => void;
 }) {
+  const { t } = useTranslation("group-room");
   return (
     <WriteScreen
       tone="light"
-      header={<ScreenBackHeader title="신청하기" onBack={onBack} />}
-      headline={`${roomName}에 신청할게요`}
-      description={`그룹장 ${ownerNickname}님이 소개 글을 보고 수락하면 멤버가 돼요`}
-      label="소개 글"
+      header={<ScreenBackHeader title={t("applyScreen.title")} onBack={onBack} />}
+      headline={t("applyScreen.headline", { roomName })}
+      description={t("applyScreen.description", { nickname: ownerNickname })}
+      label={t("applyScreen.label")}
       value={value}
       onChange={onChange}
       maxLength={GROUP_ROOM_LIMITS.applicationMessageMax}
       required
       checkContact
-      notice={`그룹장이 ${GROUP_ROOM_LIMITS.applicationTtlDays}일 안에 답하지 않으면 신청이 취소돼요`}
-      submitLabel="신청 보내기"
+      notice={t("applyScreen.notice", { count: GROUP_ROOM_LIMITS.applicationTtlDays })}
+      submitLabel={t("applyScreen.submit")}
       submitTone="primary"
       pending={pending}
       serverError={serverError}
