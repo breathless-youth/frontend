@@ -16,6 +16,8 @@
 
 - 공부방 소리는 영상과 같은 `RTCPeerConnection` P2P 풀메시로 보내고, 소리를 위한 미디어 서버나 별도 연결은 만들지 않는다.
 - 연결마다 오디오 트랜시버 하나를 영상 칸 뒤에 둔다.
+- 그룹 공부방은 `RTCPeerConnection`을 `bundlePolicy: "max-bundle"`로 만들어 소리가 영상과 같은 전송 경로와 TURN 할당을 쓰게 한다.
+- 숫자 4자리 초대 방은 소리를 협상하지 않으므로 연결 설정을 바꾸지 않는다.
 - 마이크 트랙은 어댑터 함수 하나가 `getUserMedia`로 얻고, 이때 `echoCancellation`, `noiseSuppression`, `autoGainControl`을 켠다.
 - UI 컴포넌트는 `getUserMedia`, `RTCPeerConnection`, Web Audio 생성자를 직접 부르지 않는다.
 
@@ -167,7 +169,7 @@ Chrome과 Galaxy S21에서 확인한 차이는 아래와 같다.
 | 끄면 보내지 않음, 마이크를 켠 사람 10% | 약 490명                    |
 
 - 끈 동안에도 보내면 동시 인원 추정이 영상만일 때의 절반 아래로 떨어져서, 끄면 아무것도 보내지 않기로 했다.
-- `RTCPeerConnection`을 `bundlePolicy: "max-bundle"` 없이 만들어서, 상대가 BUNDLE을 받아들이기 전까지는 연결을 만들 때마다 오디오용 전송 경로와 TURN 할당이 하나씩 더 생긴다.
+- `bundlePolicy: "max-bundle"` 없이 연결을 만들면 상대가 BUNDLE을 받아들이기 전까지 연결마다 오디오용 전송 경로와 TURN 할당이 하나씩 더 생겨서, 그룹 공부방은 `max-bundle`을 쓰기로 했다.
 - 스파이크는 `bundlePolicy`를 바꾸지 않았고, 늘어나는 할당의 양도 측정하지 않았다.
 
 ## 검토한 대안
@@ -229,7 +231,6 @@ Chrome과 Galaxy S21에서 확인한 차이는 아래와 같다.
 - Android 배경음 확인(4번)은 일시정지 중에는 배경음이 나지 않으므로 카메라를 켜고 얼굴 가리기를 쓴 채로 해야 한다.
 - Android `트랙 멈추기`에서 재생 스트림이 바뀔 때 들리는 끊김이 있는지 확인한다.
 - Android WebView도 Chrome처럼 음소거한 `audio` 요소 없이는 Web Audio에 소리가 들어오지 않는지 확인한다.
-- `bundlePolicy`를 `max-bundle`로 바꿀지는 정하지 않았다.
 
 ### 스파이크 브랜치
 
