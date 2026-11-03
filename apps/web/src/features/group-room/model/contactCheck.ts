@@ -27,8 +27,10 @@ const CONTACT_PATTERNS: readonly RegExp[] = [
   /\d(?:[ \t\n\v\f\r.-]?\d){8,}/u,
   // 뒤에 영문자가 없으면 아이디가 아니라서 `@10시 출석`은 통과한다.
   /@(?=[a-z0-9._]*[a-z])[a-z0-9._]{2,}/u,
+  // eslint-disable-next-line no-restricted-syntax -- 연락처 판정용 낱말
   new RegExp(`${CONTACT_WORD}${SEP}(?:(?:아이디|id)${SEP})?${ID}`, "u"),
   // id 뒤에 영문자가 이어지면 idea 같은 다른 낱말이다.
+  // eslint-disable-next-line no-restricted-syntax -- 연락처 판정용 낱말
   new RegExp(`${KAKAO_WITH_LABEL}${SEP}(?:아이디|id(?![a-z]))${SEP}${ID}`, "u"),
 ];
 
