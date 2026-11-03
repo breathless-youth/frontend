@@ -323,13 +323,14 @@ export function LiveRoomSession({
     cameraStream,
     active: cameraOn || cameraDialogOpen,
   });
-  const remoteStreams = usePeerMesh({
+  const { remoteStreams } = usePeerMesh({
     channel,
     roomId,
     myUserId: userId,
     iceServers,
     cameraStream: faceMask.sendStream,
     trackEnabled: sessionState.kind !== "PAUSE",
+    audio: false,
     createPeerConnection,
     onEvent: onDebugEvent,
   });

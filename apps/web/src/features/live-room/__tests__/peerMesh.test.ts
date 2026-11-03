@@ -1,9 +1,15 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { RoomMember, RtcStatRequest } from "@focusmakers/types";
+import type {
+  RoomMember,
+  RoomServerMessage,
+  RoomSignalKind,
+  RtcStatRequest,
+} from "@focusmakers/types";
 
 import { createMockRoomChannel } from "../mockRoomChannel";
-import { createPeerMesh } from "../peerMesh";
+import type { PeerMesh } from "../peerMesh";
+import { createPeerMesh, findAudioSender } from "../peerMesh";
 
 type FakeSender = {
   track: MediaStreamTrack | null;
@@ -12,7 +18,55 @@ type FakeSender = {
   getParameters: () => RTCRtpSendParameters;
 };
 
+type FakeTransceiver = {
+  sender: FakeSender;
+  receiver: { track: { kind: string } };
+  direction: RTCRtpTransceiverDirection;
+  currentDirection: RTCRtpTransceiverDirection | null;
+  mid: string | null;
+  setCodecPreferences: ReturnType<typeof vi.fn>;
+  // 원격 offer의 m-line은 addTrack으로 만든 칸에만 짝지어진다(JSEP 5.10).
+  madeByAddTrack: boolean;
+};
+
+/**
+ * 가짜 RTCPeerConnection
+ *
+ * 송신 칸은 실제처럼 트랜시버로 만들고, offer를 적용하면 SDP의 m-line 순서대로 칸에 mid를 준다.
+ * addTransceiver로 미리 만든 칸은 원격 offer와 짝짓지 않고 recvonly 칸을 새로 만들어, answer 쪽 소리 협상의 실제 함정을 테스트에서 재현한다.
+ */
 function createFakePc() {
+  let nextMid = 0;
+
+  function newSender(track: MediaStreamTrack | null): FakeSender {
+    return {
+      track,
+      replaceTrack: vi.fn(async () => undefined),
+      setParameters: vi.fn(async () => undefined),
+      getParameters: () => ({ encodings: [{}] }) as RTCRtpSendParameters,
+    };
+  }
+
+  function newTransceiver(
+    kind: string,
+    direction: RTCRtpTransceiverDirection,
+    track: MediaStreamTrack | null,
+    madeByAddTrack: boolean,
+  ): FakeTransceiver {
+    const transceiver: FakeTransceiver = {
+      sender: newSender(track),
+      receiver: { track: { kind } },
+      direction,
+      currentDirection: null,
+      mid: null,
+      setCodecPreferences: vi.fn(),
+      madeByAddTrack,
+    };
+    pc.senders.push(transceiver.sender);
+    pc.transceivers.push(transceiver);
+    return transceiver;
+  }
+
   const pc = {
     localDescription: null as RTCSessionDescriptionInit | null,
     remoteDescription: null as RTCSessionDescriptionInit | null,
@@ -32,41 +86,51 @@ function createFakePc() {
     },
     async setLocalDescription(d: RTCSessionDescriptionInit) {
       pc.localDescription = d;
+      if (d.type === "offer") {
+        for (const transceiver of pc.transceivers) {
+          if (transceiver.mid === null) {
+            transceiver.mid = String(nextMid);
+            nextMid += 1;
+          }
+        }
+      }
     },
     async setRemoteDescription(d: RTCSessionDescriptionInit) {
       pc.remoteDescription = d;
+      if (d.type !== "offer") {
+        return;
+      }
+      const kinds = [...(d.sdp ?? "").matchAll(/m=(audio|video)/g)].map((match) => match[1]);
+      kinds.forEach((kind, index) => {
+        const mid = String(index);
+        if (kind === undefined || pc.transceivers.some((t) => t.mid === mid)) {
+          return;
+        }
+        const matched = pc.transceivers.find(
+          (t) => t.madeByAddTrack && t.mid === null && t.receiver.track.kind === kind,
+        );
+        const transceiver = matched ?? newTransceiver(kind, "recvonly", null, false);
+        transceiver.mid = mid;
+        nextMid = Math.max(nextMid, index + 1);
+      });
     },
     async addIceCandidate(c: unknown) {
       pc.candidates.push(c);
     },
     addTrack(track: MediaStreamTrack) {
-      const sender: FakeSender = {
-        track,
-        replaceTrack: vi.fn(async () => undefined),
-        setParameters: vi.fn(async () => undefined),
-        getParameters: () => ({ encodings: [{}] }) as RTCRtpSendParameters,
-      };
-      pc.senders.push(sender);
-      return sender;
+      // 기존 테스트의 카메라 트랙에는 종류가 없어서 영상으로 본다.
+      const kind = (track as { kind?: string }).kind ?? "video";
+      return newTransceiver(kind, "sendrecv", track, true).sender;
     },
     getSenders() {
       return pc.senders;
     },
-    transceivers: [] as { sender: FakeSender; setCodecPreferences: ReturnType<typeof vi.fn> }[],
+    transceivers: [] as FakeTransceiver[],
     getTransceivers() {
       return pc.transceivers;
     },
-    addTransceiver(_kind: string) {
-      const sender: FakeSender = {
-        track: null,
-        replaceTrack: vi.fn(async () => undefined),
-        setParameters: vi.fn(async () => undefined),
-        getParameters: () => ({ encodings: [{}] }) as RTCRtpSendParameters,
-      };
-      pc.senders.push(sender);
-      const transceiver = { sender, setCodecPreferences: vi.fn() };
-      pc.transceivers.push(transceiver);
-      return transceiver;
+    addTransceiver(kind: string, init?: { direction?: RTCRtpTransceiverDirection }) {
+      return newTransceiver(kind, init?.direction ?? "sendrecv", null, false);
     },
     close() {
       pc.closed = true;
@@ -1402,5 +1466,385 @@ describe("createPeerMesh — 피어 실패 시 SNAPSHOT 재대조 (BY-668)", () 
     channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7)] });
 
     expect(pc?.closed).toBe(false);
+  });
+});
+
+// 아래 오디오·차단 테스트는 피어 메시가 만든 가짜 연결을 바로 다룬다.
+const openMeshes: PeerMesh[] = [];
+
+function setupMesh({
+  audio,
+  myUserId = 7,
+  patchPc,
+}: {
+  audio: boolean;
+  myUserId?: number;
+  patchPc?: (pc: FakePc) => void;
+}) {
+  const channel = createMockRoomChannel({ snapshot: [] });
+  const pcs: FakePc[] = [];
+  const configs: RTCConfiguration[] = [];
+  const mesh = createPeerMesh({
+    myUserId,
+    roomId: 10,
+    channel,
+    iceServers: [{ urls: ["stun:turn.example:3478"] }],
+    audio,
+    createPeerConnection: (config) => {
+      const pc = createFakePc();
+      patchPc?.(pc);
+      configs.push(config);
+      pcs.push(pc);
+      return pc as unknown as RTCPeerConnection;
+    },
+  });
+  mesh.start();
+  openMeshes.push(mesh);
+  return { channel, mesh, pcs, configs };
+}
+
+function snapshot(members: RoomMember[]): RoomServerMessage {
+  return { type: "SNAPSHOT", members };
+}
+
+function signal(fromUserId: number, kind: RoomSignalKind, payload: unknown): RoomServerMessage {
+  return { type: "SIGNAL", fromUserId, kind, payload };
+}
+
+function flush() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+function kindTrack(kind: "audio" | "video"): MediaStreamTrack {
+  return {
+    kind,
+    enabled: true,
+    muted: false,
+    readyState: "live",
+    onmute: null,
+    getSettings: () => ({}),
+  } as unknown as MediaStreamTrack;
+}
+
+function streamOf(tracks: MediaStreamTrack[]): MediaStream {
+  return {
+    getVideoTracks: () => tracks.filter((track) => track.kind === "video"),
+    getAudioTracks: () => tracks.filter((track) => track.kind === "audio"),
+    getTracks: () => tracks,
+  } as unknown as MediaStream;
+}
+
+function fakeTransceiver(kind: "audio" | "video", { mid }: { mid: string | null }) {
+  return {
+    receiver: { track: { kind } },
+    sender: { replaceTrack: vi.fn() },
+    direction: "sendrecv",
+    currentDirection: mid === null ? null : "sendrecv",
+    mid,
+  } as unknown as RTCRtpTransceiver;
+}
+
+function kindOf(transceiver: { receiver: { track: { kind: string } } }) {
+  return transceiver.receiver.track.kind;
+}
+
+function audioTransceivers(pc: FakePc) {
+  return pc.getTransceivers().filter((transceiver) => kindOf(transceiver) === "audio");
+}
+
+function stubVideoCapabilities() {
+  vi.stubGlobal("RTCRtpSender", {
+    getCapabilities: () => ({
+      codecs: [{ mimeType: "video/H264" }, { mimeType: "video/VP8" }],
+    }),
+  });
+}
+
+// jsdom에는 MediaStream이 없어서, 없으면 트랙만 온 ontrack이 타일 경로를 타지 않고 끝난다.
+class FakeMediaStream {
+  readonly tracks: MediaStreamTrack[];
+  constructor(tracks: MediaStreamTrack[]) {
+    this.tracks = tracks;
+  }
+  getVideoTracks() {
+    return this.tracks.filter((track) => track.kind === "video");
+  }
+  getAudioTracks() {
+    return this.tracks.filter((track) => track.kind === "audio");
+  }
+  getTracks() {
+    return this.tracks;
+  }
+}
+
+const OFFER_WITH_AUDIO = { type: "offer", sdp: "v=0\r\nm=video\r\nm=audio\r\n" };
+
+function closeOpenMeshes() {
+  for (const mesh of openMeshes.splice(0)) {
+    mesh.close();
+  }
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+}
+
+describe("오디오", () => {
+  beforeEach(() => {
+    vi.stubGlobal("MediaStream", FakeMediaStream);
+  });
+  afterEach(closeOpenMeshes);
+
+  it("오디오를 켜지 않은 방은 지금처럼 영상 송신 칸 하나이고 연결 설정도 그대로다", async () => {
+    const { pcs, channel, configs } = setupMesh({ audio: false });
+
+    channel.emitServerMessage(snapshot([member(7), member(2)]));
+    await flush();
+
+    expect(pcs[0]?.getTransceivers().map(kindOf)).toEqual(["video"]);
+    expect(configs[0]).toEqual({ iceServers: [{ urls: ["stun:turn.example:3478"] }] });
+  });
+
+  it("그룹 방 연결은 소리와 영상을 한 전송 경로로 묶는다", async () => {
+    const { channel, configs } = setupMesh({ audio: true });
+
+    channel.emitServerMessage(snapshot([member(7), member(2)]));
+    channel.emitServerMessage(signal(3, "OFFER", OFFER_WITH_AUDIO));
+    await flush();
+
+    expect(configs).toHaveLength(2);
+    expect(configs.every((config) => config.bundlePolicy === "max-bundle")).toBe(true);
+  });
+
+  it("offer 쪽은 영상 칸 뒤에 sendrecv 오디오 칸을 하나만 만들고 ICE 재시작 재offer에서도 늘리지 않는다", async () => {
+    const { pcs, channel } = setupMesh({ audio: true });
+
+    channel.emitServerMessage(snapshot([member(7), member(2)]));
+    await flush();
+    pcs[0]?.fireIceState("failed");
+    await flush();
+
+    expect(channel.publishedSignals.filter((s) => s.kind === "OFFER")).toHaveLength(2);
+    const transceivers = pcs[0]?.getTransceivers() ?? [];
+    expect(transceivers.map(kindOf)).toEqual(["video", "audio"]);
+    expect(transceivers[1]?.direction).toBe("sendrecv");
+    expect(transceivers[1]?.sender.replaceTrack).toHaveBeenCalledWith(null);
+  });
+
+  it("answer 쪽은 offer가 만든 오디오 칸을 sendrecv로 바꿔 지금 마이크를 싣는다", async () => {
+    const { pcs, channel, mesh } = setupMesh({ audio: true });
+    const mic = kindTrack("audio");
+    mesh.setLocalAudioTrack(mic);
+
+    channel.emitServerMessage(signal(2, "OFFER", OFFER_WITH_AUDIO));
+    await flush();
+
+    const audio = audioTransceivers(pcs[0]!);
+    expect(audio).toHaveLength(1);
+    expect(audio[0]?.mid).not.toBeNull();
+    expect(audio[0]?.direction).toBe("sendrecv");
+    expect(audio[0]?.sender.replaceTrack).toHaveBeenCalledWith(mic);
+    expect(channel.publishedSignals.map((s) => s.kind)).toEqual(["ANSWER"]);
+  });
+
+  it("같은 연결의 재offer에도 answer 쪽 오디오 칸은 하나이고 sendrecv다", async () => {
+    const { pcs, channel } = setupMesh({ audio: true });
+    const offer = {
+      type: "offer",
+      sdp: "v=0\r\na=fingerprint:sha-256 AA\r\nm=video\r\nm=audio\r\n",
+    };
+
+    channel.emitServerMessage(signal(2, "OFFER", offer));
+    channel.emitServerMessage(signal(2, "OFFER", offer));
+    await flush();
+
+    expect(pcs).toHaveLength(1);
+    expect(channel.publishedSignals.map((s) => s.kind)).toEqual(["ANSWER", "ANSWER"]);
+    const audio = audioTransceivers(pcs[0]!);
+    expect(audio).toHaveLength(1);
+    expect(audio[0]?.direction).toBe("sendrecv");
+  });
+
+  it("협상된 오디오 칸을 먼저 고른다", () => {
+    const loose = fakeTransceiver("audio", { mid: null });
+    const negotiated = fakeTransceiver("audio", { mid: "1" });
+
+    expect(findAudioSender({ getTransceivers: () => [loose, negotiated] })).toBe(negotiated.sender);
+    expect(findAudioSender({ getTransceivers: () => [loose] })).toBe(loose.sender);
+    expect(
+      findAudioSender({ getTransceivers: () => [fakeTransceiver("video", { mid: "0" })] }),
+    ).toBeNull();
+  });
+
+  it("마이크 트랙을 바꾸면 모든 피어에 싣고 나중에 생긴 피어에도 싣는다", async () => {
+    const { pcs, channel, mesh } = setupMesh({ audio: true });
+    channel.emitServerMessage(snapshot([member(7), member(2)]));
+    await flush();
+
+    const mic = kindTrack("audio");
+    mesh.setLocalAudioTrack(mic);
+    channel.emitServerMessage({ type: "MEMBER_JOINED", member: member(3) });
+    channel.emitServerMessage(signal(3, "OFFER", OFFER_WITH_AUDIO));
+    await flush();
+
+    expect(pcs).toHaveLength(2);
+    for (const pc of pcs) {
+      expect(audioTransceivers(pc)[0]?.sender.replaceTrack).toHaveBeenCalledWith(mic);
+    }
+  });
+
+  it("마이크를 끄면 모든 피어의 오디오 송신기에서 뗀다", async () => {
+    const { pcs, channel, mesh } = setupMesh({ audio: true });
+    channel.emitServerMessage(snapshot([member(7), member(2)]));
+    channel.emitServerMessage(signal(3, "OFFER", OFFER_WITH_AUDIO));
+    await flush();
+
+    mesh.setLocalAudioTrack(kindTrack("audio"));
+    mesh.setLocalAudioTrack(null);
+
+    expect(pcs).toHaveLength(2);
+    for (const pc of pcs) {
+      expect(audioTransceivers(pc)[0]?.sender.replaceTrack).toHaveBeenLastCalledWith(null);
+    }
+  });
+
+  it("상대 오디오는 영상 타일 알림과 따로 알리고 피어를 닫으면 null을 알린다", async () => {
+    const { pcs, channel, mesh } = setupMesh({ audio: true });
+    const audioListener = vi.fn();
+    const tileListener = vi.fn();
+    mesh.subscribeRemoteAudio(audioListener);
+    mesh.subscribeRemoteStreams(tileListener);
+    channel.emitServerMessage(snapshot([member(7), member(2)]));
+    await flush();
+
+    const track = kindTrack("audio");
+    pcs[0]?.ontrack?.({ track, streams: [] });
+
+    expect(audioListener).toHaveBeenCalledWith(2, track);
+    expect(tileListener).not.toHaveBeenCalled();
+
+    channel.emitServerMessage({ type: "MEMBER_LEFT", userId: 2 });
+
+    expect(audioListener).toHaveBeenLastCalledWith(2, null);
+  });
+
+  it("상대 소리가 끊겨도 영상 타일은 그대로다", async () => {
+    const { pcs, channel, mesh } = setupMesh({ audio: true });
+    const tiles: [number, MediaStream | null][] = [];
+    mesh.subscribeRemoteStreams((userId, stream) => tiles.push([userId, stream]));
+    channel.emitServerMessage(snapshot([member(7), member(2)]));
+    await flush();
+
+    const camera = kindTrack("video");
+    const remote = streamOf([camera]);
+    pcs[0]?.ontrack?.({ track: camera, streams: [remote] });
+    const voice = kindTrack("audio") as unknown as {
+      onmute: (() => void) | null;
+      onended: (() => void) | null;
+    };
+    pcs[0]?.ontrack?.({ track: voice as unknown as MediaStreamTrack, streams: [] });
+    voice.onmute?.();
+    voice.onended?.();
+
+    expect(tiles).toEqual([[2, remote]]);
+  });
+
+  it("상대 연결을 버리고 새로 맺으면 이전 소리를 내렸다가 새 소리를 알린다", async () => {
+    const { pcs, channel, mesh } = setupMesh({ audio: true });
+    const audioListener = vi.fn();
+    mesh.subscribeRemoteAudio(audioListener);
+    channel.emitServerMessage(signal(2, "OFFER", OFFER_WITH_AUDIO));
+    await flush();
+    const first = kindTrack("audio");
+    pcs[0]?.ontrack?.({ track: first, streams: [] });
+    pcs[0]?.fireIceState("failed");
+
+    channel.emitServerMessage(signal(2, "OFFER", OFFER_WITH_AUDIO));
+    await flush();
+    const second = kindTrack("audio");
+    pcs[1]?.ontrack?.({ track: second, streams: [] });
+
+    expect(audioListener.mock.calls).toEqual([
+      [2, first],
+      [2, null],
+      [2, second],
+    ]);
+  });
+
+  it("오디오를 켜지 않은 방은 상대가 보낸 소리 트랙을 타일로 넘기지 않는다", async () => {
+    const { pcs, channel, mesh } = setupMesh({ audio: false });
+    const tileListener = vi.fn();
+    const audioListener = vi.fn();
+    mesh.subscribeRemoteStreams(tileListener);
+    mesh.subscribeRemoteAudio(audioListener);
+    channel.emitServerMessage(snapshot([member(7), member(2)]));
+    await flush();
+
+    pcs[0]?.ontrack?.({ track: kindTrack("audio"), streams: [] });
+
+    expect(tileListener).not.toHaveBeenCalled();
+    expect(audioListener).not.toHaveBeenCalled();
+  });
+
+  it("오디오를 켜지 않은 방은 마이크 트랙을 받아도 어디에도 싣지 않는다", async () => {
+    const { pcs, channel, mesh } = setupMesh({ audio: false });
+    channel.emitServerMessage(snapshot([member(7), member(2)]));
+    channel.emitServerMessage(signal(3, "OFFER", OFFER_WITH_AUDIO));
+    await flush();
+    const mic = kindTrack("audio");
+
+    mesh.setLocalAudioTrack(mic);
+
+    for (const pc of pcs) {
+      for (const sender of pc.senders) {
+        expect(sender.replaceTrack).not.toHaveBeenCalledWith(mic);
+      }
+    }
+  });
+
+  it("소리 칸을 만들지 못해도 영상 offer는 나간다", async () => {
+    const { channel } = setupMesh({
+      audio: true,
+      patchPc: (pc) => {
+        const addTransceiver = pc.addTransceiver;
+        pc.addTransceiver = (kind, init) => {
+          if (kind === "audio") {
+            throw new Error("audio 미지원");
+          }
+          return addTransceiver(kind, init);
+        };
+      },
+    });
+
+    channel.emitServerMessage(snapshot([member(7), member(2)]));
+    await flush();
+
+    expect(channel.publishedSignals.map((s) => s.kind)).toEqual(["OFFER"]);
+  });
+
+  it("VP8 우선은 영상 칸에만 건다", async () => {
+    stubVideoCapabilities();
+    const { pcs, channel } = setupMesh({ audio: true });
+
+    channel.emitServerMessage(snapshot([member(7), member(2)]));
+    await flush();
+
+    const transceivers = pcs[0]?.getTransceivers() ?? [];
+    expect(transceivers.find((t) => kindOf(t) === "video")?.setCodecPreferences).toHaveBeenCalled();
+    expect(
+      transceivers.find((t) => kindOf(t) === "audio")?.setCodecPreferences,
+    ).not.toHaveBeenCalled();
+  });
+
+  it("카메라 송신기는 종류로 고른다", async () => {
+    const { pcs, channel, mesh } = setupMesh({ audio: true });
+    channel.emitServerMessage(signal(2, "OFFER", { type: "offer", sdp: "v=0 m=audio m=video" }));
+    await flush();
+
+    const camera = kindTrack("video");
+    mesh.setLocalStream(streamOf([camera]));
+
+    const video = pcs[0]?.getTransceivers().find((t) => kindOf(t) === "video" && t.mid !== null);
+    const audio = pcs[0]?.getTransceivers().find((t) => kindOf(t) === "audio");
+    expect(video?.sender.replaceTrack).toHaveBeenCalledWith(camera);
+    expect(audio?.sender.replaceTrack).not.toHaveBeenCalledWith(camera);
   });
 });
