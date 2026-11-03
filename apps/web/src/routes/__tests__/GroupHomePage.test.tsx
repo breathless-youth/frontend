@@ -237,6 +237,40 @@ describe("그룹 홈", () => {
     await waitFor(() => expect(shareInvite).toHaveBeenCalledWith("K7Q2MX"));
   });
 
+  it("메뉴를 열 때 초대코드를 다시 받아 그사이 바뀐 코드로 공유한다", async () => {
+    const api = mockGroupApi("default");
+    vi.mocked(shareInvite).mockClear();
+    renderGroupRoute("/social/groups/11?groupRooms=1");
+    await screen.findByRole("heading", { name: "우리 반 저녁 스터디" });
+    await waitFor(() => expect(api.getGroupInvite).toHaveBeenCalledOnce());
+    // 미리 받은 뒤 그룹장이 다른 멤버를 내보내 서버가 코드를 새로 만든 상황이다.
+    api.getGroupInvite.mockResolvedValue({ inviteCode: "Q4WN8T" });
+    await openMenuItem("초대하기");
+    await waitFor(() => expect(shareInvite).toHaveBeenCalledOnce());
+    expect(shareInvite).toHaveBeenCalledWith("Q4WN8T");
+  });
+
+  it("초대코드를 다시 받는 중에 초대하기를 누르면 예전 코드 대신 새 코드를 기다려 공유한다", async () => {
+    const api = mockGroupApi("default");
+    vi.mocked(shareInvite).mockClear();
+    renderGroupRoute("/social/groups/11?groupRooms=1");
+    await screen.findByRole("heading", { name: "우리 반 저녁 스터디" });
+    await waitFor(() => expect(api.getGroupInvite).toHaveBeenCalledOnce());
+    const releases: (() => void)[] = [];
+    api.getGroupInvite.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          releases.push(() => resolve({ inviteCode: "Q4WN8T" }));
+        }),
+    );
+    await openMenuItem("초대하기");
+    await act(() => Promise.resolve());
+    expect(shareInvite).not.toHaveBeenCalled();
+    act(() => releases.forEach((release) => release()));
+    await waitFor(() => expect(shareInvite).toHaveBeenCalledOnce());
+    expect(shareInvite).toHaveBeenCalledWith("Q4WN8T");
+  });
+
   it("공유 대신 복사했으면 복사했다고 알린다", async () => {
     mockGroupApi("default");
     vi.mocked(shareInvite).mockResolvedValueOnce("copied");

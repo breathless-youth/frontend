@@ -241,6 +241,13 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
           haptic("light");
           notify.mutate(!room.notifyOn);
         }}
+        onMenuOpen={() => {
+          // 미리 받은 코드는 그사이 그룹장이 멤버를 내보내 바뀌었을 수 있어서 메뉴를 열 때 무효로 표시하고 다시 받는다.
+          // 무효로 표시해 두면 다시 받는 중에 초대하기를 눌러도 예전 코드 대신 새 코드를 기다려 공유한다.
+          if (home.visibility === "PRIVATE") {
+            void queryClient.invalidateQueries({ queryKey: groupKeys.invite(userId, groupId) });
+          }
+        }}
         onMenuSelect={selectMenu}
         onOpenRequests={() => go(`${groupPath}/applications`)}
         onEnterStudyRoom={() => navigate({ pathname: `${groupPath}/room`, search })}

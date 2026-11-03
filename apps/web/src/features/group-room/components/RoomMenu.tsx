@@ -32,10 +32,13 @@ const ITEM_ICON: Record<Exclude<RoomMenuItem, LeaveItem>["kind"], LucideIcon> = 
 export function RoomMenu({
   items,
   onSelect,
+  onOpen,
   defaultOpen = false,
 }: {
   items: RoomMenuItem[];
   onSelect: (kind: RoomMenuItem["kind"]) => void;
+  /** 메뉴가 열릴 때 부르고, 항목이 쓸 값을 고르기 전에 새로 받을 때 쓴다. */
+  onOpen?: () => void;
   /** 개발용 화면 모음에서 메뉴가 열린 모습을 바로 보려고 쓴다. */
   defaultOpen?: boolean;
 }) {
@@ -44,7 +47,12 @@ export function RoomMenu({
     chosen.current = kind;
   };
   return (
-    <DropdownMenu defaultOpen={defaultOpen}>
+    <DropdownMenu
+      defaultOpen={defaultOpen}
+      onOpenChange={(open) => {
+        if (open) onOpen?.();
+      }}
+    >
       <DropdownMenuTrigger
         aria-label="그룹 메뉴"
         className="flex size-11 items-center justify-center rounded-full text-muted-foreground focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none data-[state=open]:bg-border"

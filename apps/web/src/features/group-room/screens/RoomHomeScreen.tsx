@@ -28,6 +28,7 @@ export function RoomHomeScreen({
   defaultMenuOpen = false,
   onBack,
   onToggleNotify,
+  onMenuOpen,
   onMenuSelect,
   onOpenRequests,
   onEnterStudyRoom,
@@ -39,6 +40,8 @@ export function RoomHomeScreen({
   defaultMenuOpen?: boolean;
   onBack: () => void;
   onToggleNotify: () => void;
+  /** 그룹 메뉴가 열릴 때 부른다. */
+  onMenuOpen?: () => void;
   onMenuSelect: (kind: RoomMenuItem["kind"]) => void;
   onOpenRequests: () => void;
   onEnterStudyRoom: () => void;
@@ -82,7 +85,12 @@ export function RoomHomeScreen({
                 <BellOff aria-hidden="true" size={22} />
               )}
             </button>
-            <RoomMenu items={menuItems} onSelect={onMenuSelect} defaultOpen={defaultMenuOpen} />
+            <RoomMenu
+              items={menuItems}
+              onSelect={onMenuSelect}
+              onOpen={onMenuOpen}
+              defaultOpen={defaultMenuOpen}
+            />
           </div>
         }
       />
