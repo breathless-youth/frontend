@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { Location } from "react-router-dom";
@@ -45,12 +45,13 @@ vi.mock("@/lib/userId", async (importOriginal) => ({
 vi.mock("@/features/study-session/useActiveSessionRestore", () => ({
   useActiveSessionRestore: vi.fn(() => ({ settled: true, restored: null })),
 }));
+// 내 닉네임은 다른 멤버 닉네임과 겹치지 않게 둔다.
 vi.mock("@/lib/profileApi", () => ({
   getProfile: vi.fn(async () => ({
-    nickname: "새벽러",
+    nickname: "공부하는나",
     goal: null,
     category: null,
-    initial: "새",
+    initial: "공",
     colorIndex: 0,
   })),
 }));
@@ -117,6 +118,19 @@ function member(userId: number, overrides: Partial<RoomMember> = {}): RoomMember
     owner: false,
     ...overrides,
   };
+}
+
+/** SNAPSHOT의 내 멤버 값이고 나는 7번이다. */
+function meMember(overrides: Partial<RoomMember> = {}): RoomMember {
+  return member(7, overrides);
+}
+
+function otherMember(
+  userId: number,
+  nickname: string,
+  overrides: Partial<RoomMember> = {},
+): RoomMember {
+  return member(userId, { nickname, ...overrides });
 }
 
 function fakePlayer() {
@@ -690,5 +704,112 @@ describe("GroupRoomPage 조작 배치", () => {
 
     expect(root).toHaveAttribute("data-amp-mask");
     expect(root).toHaveAttribute("data-amp-mask-attributes", "aria-label");
+  });
+});
+
+describe("GroupRoomPage 멤버 메뉴와 타일", () => {
+  it("타일을 눌러도 메뉴는 열리지 않고 메뉴 버튼으로만 열린다", async () => {
+    await enterGroupRoom({ groupId: 10, snapshot: [meMember(), otherMember(2, "새벽러")] });
+    const user = userEvent.setup();
+
+    await user.click(screen.getAllByTestId("room-tile")[1]!);
+    expect(screen.queryByRole("menu")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "새벽러 메뉴" }));
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+  });
+
+  it("내 타일에는 메뉴 버튼이 없고 내 마이크 상태를 보인다", async () => {
+    await enterGroupRoom({ groupId: 10, snapshot: [meMember(), otherMember(2, "새벽러")] });
+    const myTile = screen.getAllByTestId("room-tile")[0]!;
+
+    expect(within(myTile).queryByRole("button")).toBeNull();
+    expect(within(myTile).getByRole("img", { name: "마이크 꺼짐" })).toBeInTheDocument();
+  });
+
+  it("음량 슬라이더는 그 사람 소리만 바꾼다", async () => {
+    const { player } = await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember(), otherMember(42, "새벽러")],
+    });
+    await userEvent.setup().click(screen.getByRole("button", { name: "새벽러 메뉴" }));
+
+    fireEvent.change(screen.getByRole("slider", { name: "새벽러님 음량" }), {
+      target: { value: "0" },
+    });
+
+    expect(player.setVolume).toHaveBeenLastCalledWith(42, 0);
+  });
+
+  it("소리 끄기는 그 사람만 끄고 다시 열면 소리 켜기다", async () => {
+    const { player } = await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember(), otherMember(42, "새벽러")],
+    });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "새벽러 메뉴" }));
+    await user.click(screen.getByRole("menuitem", { name: "소리 끄기" }));
+    expect(player.setMuted).toHaveBeenLastCalledWith(42, true);
+
+    await user.click(screen.getByRole("button", { name: "새벽러 메뉴" }));
+    expect(screen.getByRole("menuitem", { name: "소리 켜기" })).toBeInTheDocument();
+  });
+
+  it("멤버의 마이크가 켜지면 그 타일의 마이크 아이콘이 켜짐이다", async () => {
+    const { channel } = await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember(), otherMember(42, "새벽러")],
+    });
+    const tile = screen.getAllByTestId("room-tile")[1]!;
+    expect(within(tile).getByRole("img", { name: "마이크 꺼짐" })).toBeInTheDocument();
+
+    act(() => channel.emitServerMessage({ type: "MIC_CHANGED", userId: 42, micOn: true }));
+
+    expect(within(tile).getByRole("img", { name: "마이크 켜짐" })).toBeInTheDocument();
+  });
+
+  it("말하는 멤버의 타일은 말하는 중으로 읽힌다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { pcs, player } = await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember(), otherMember(42, "새벽러")],
+    });
+    act(() => pcs[0]?.ontrack?.({ streams: [], track: { kind: "audio" } }));
+    player.level.mockReturnValue(1);
+
+    await act(() => vi.advanceTimersByTimeAsync(500));
+
+    expect(screen.getAllByTestId("room-tile")[1]).toHaveAttribute("data-speaking", "true");
+  });
+
+  it("메뉴가 열려 있는 동안은 시간이 지나도 조작이 숨지 않는다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    await enterGroupRoom({ groupId: 10, snapshot: [meMember(), otherMember(42, "새벽러")] });
+    await userEvent
+      .setup({ advanceTimers: vi.advanceTimersByTime })
+      .click(screen.getByRole("button", { name: "새벽러 메뉴" }));
+
+    await act(() => vi.advanceTimersByTimeAsync(6_000));
+
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    expect(screen.getByTestId("room-control-bar")).not.toHaveAttribute("inert");
+  });
+
+  it("메뉴를 연 멤버가 나가면 메뉴가 닫히고 조작이 다시 저절로 숨는다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const { channel } = await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember(), otherMember(42, "새벽러")],
+    });
+    await userEvent
+      .setup({ advanceTimers: vi.advanceTimersByTime })
+      .click(screen.getByRole("button", { name: "새벽러 메뉴" }));
+
+    act(() => channel.emitServerMessage({ type: "MEMBER_LEFT", userId: 42 }));
+    await act(() => vi.advanceTimersByTimeAsync(6_000));
+
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(screen.getByTestId("room-control-bar")).toHaveAttribute("inert");
   });
 });

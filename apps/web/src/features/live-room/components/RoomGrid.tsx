@@ -5,6 +5,7 @@ import type { RoomMember } from "@focusmakers/types";
 
 import { RemoteVideo } from "@/features/live-room/components/RemoteVideo";
 import { RoomTile } from "@/features/live-room/components/RoomTile";
+import type { RoomTileProps } from "@/features/live-room/components/RoomTile";
 import { bestSquareGrid } from "@/features/live-room/roomGrid";
 import { cn } from "@/lib/utils";
 
@@ -35,6 +36,7 @@ export function RoomGrid({
   remoteStreams,
   selfSurfaceRef,
   variant = "invite",
+  tileExtras,
 }: {
   allMembers: RoomMember[];
   userId: number;
@@ -42,6 +44,10 @@ export function RoomGrid({
   remoteStreams: ReadonlyMap<number, MediaStream>;
   selfSurfaceRef: RefObject<HTMLDivElement | null>;
   variant?: "invite" | "group";
+  /** 그룹 공부방 타일에만 더하는 메뉴 버튼, 말하는 중, 마이크, 차단 표시 */
+  tileExtras?: (
+    member: RoomMember,
+  ) => Pick<RoomTileProps, "menuButton" | "speaking" | "micOn" | "blocked">;
 }) {
   const group = variant === "group";
   const gridRef = useRef<HTMLDivElement>(null);
@@ -159,6 +165,7 @@ export function RoomGrid({
             // 크기 급이 바뀌면 재마운트 — 위 tileLayoutEpoch 주석 참고.
             key={`${tileLayoutEpoch}-${member.userId}`}
             member={member}
+            {...tileExtras?.(member)}
             rootRef={member.userId === userId ? selfSurfaceRef : undefined}
             isSelf={member.userId === userId}
             media={

@@ -24,6 +24,7 @@ import { CameraOnConfirmDialog } from "@/features/live-room/components/CameraOnC
 import { ClonedTrackPreview } from "@/features/live-room/components/ClonedTrackPreview";
 import { GroupRoomTopBar } from "@/features/live-room/components/GroupRoomTopBar";
 import { MicButton } from "@/features/live-room/components/MicButton";
+import { RoomMemberMenu } from "@/features/live-room/components/RoomMemberMenu";
 import { TimerButton } from "@/features/live-room/components/TimerButton";
 import {
   RoomControlBar,
@@ -248,6 +249,13 @@ export function LiveRoomSession({
     setPage(null);
   }
   const pageLandscape = useLandscapeLayout(page !== null);
+  /** 멤버 메뉴를 연 멤버이고 메뉴는 한 번에 하나만 열린다. */
+  const [menuUserId, setMenuUserId] = useState<number | null>(null);
+  if (phase.name !== "studying" && menuUserId !== null) {
+    setMenuUserId(null);
+  }
+  // 가로에서는 타일 아래가 화면 끝이라 메뉴를 버튼 위로 펼친다.
+  const menuLandscape = useLandscapeLayout(menuUserId !== null);
   // 페이지를 닫은 뒤 포커스를 돌려줄 자리다.
   // Radix 는 Trigger 를 쓸 때만 스스로 되돌린다.
   const ambientButtonRef = useRef<HTMLButtonElement>(null);
@@ -486,6 +494,10 @@ export function LiveRoomSession({
   };
   const others = members.filter((m) => m.userId !== userId);
   const allMembers = orderedMembers([myMember, ...others], userId);
+  // 메뉴를 연 멤버가 나가면 그 타일과 함께 메뉴도 사라지므로 열림을 거둔다.
+  if (menuUserId !== null && !others.some((member) => member.userId === menuUserId)) {
+    setMenuUserId(null);
+  }
 
   // 숨은 원본에는 카메라를, 내 타일에는 상대에게 보내는 영상을 붙인다.
   // 보이는 것과 보내는 것이 같고, 이모지를 그리는 곳이 합성기 하나뿐이게 한다.
@@ -679,7 +691,7 @@ export function LiveRoomSession({
   const dialogOpen = cameraDialogOpen || exitDialogOpen;
   const controlsLocked = phase.name !== "studying";
   // 모달 메뉴가 열린 동안 바와 위쪽 버튼이 누름을 받으면 메뉴 뒤에서 눌리고 바깥 누름으로 메뉴가 닫히지 않는다.
-  const controlsInactive = moreMenuOpen;
+  const controlsInactive = moreMenuOpen || menuUserId !== null;
 
   // 잠금(제출 중·에러)·다이얼로그 동안은 컨트롤을 강제로 보인다.
   const controlsAlwaysVisible = controlsLocked || dialogOpen || controlsInactive || page !== null;
@@ -777,6 +789,42 @@ export function LiveRoomSession({
             liveSubjectTime(liveSubjectTotals, subjectSelection).focusSec,
         };
 
+  /**
+   * 그룹 공부방 타일의 말하는 중, 마이크, 차단 표시와 멤버 메뉴
+   *
+   * 내 타일은 내 마이크로 판정하고 메뉴가 없다.
+   * 닉네임을 아직 받지 못한 멤버는 누구인지 보이지 않아서 메뉴를 두지 않는다.
+   */
+  function groupTileExtras(member: RoomMember) {
+    if (member.userId === userId) {
+      return { speaking: audio.selfSpeaking, micOn: audio.micOn };
+    }
+    const nickname = member.nickname;
+    return {
+      speaking: audio.speakingUserIds.has(member.userId),
+      micOn: member.micOn === true,
+      blocked: blockedUserIds.has(member.userId),
+      menuButton:
+        nickname === undefined || nickname === "" ? undefined : (
+          <RoomMemberMenu
+            nickname={nickname}
+            volume={audio.volumeOf(member.userId)}
+            muted={audio.isMuted(member.userId)}
+            canKick={false}
+            placement={menuLandscape ? "above" : "below"}
+            open={menuUserId === member.userId}
+            container={sessionSurface}
+            onOpen={() => setMenuUserId(member.userId)}
+            onClose={() => setMenuUserId(null)}
+            onVolumeChange={(volume) => audio.setVolume(member.userId, volume)}
+            onToggleMute={() => audio.setMuted(member.userId, !audio.isMuted(member.userId))}
+            onReport={() => undefined}
+            onKick={() => undefined}
+          />
+        ),
+    };
+  }
+
   return (
     <main
       ref={setSessionSurface}
@@ -817,6 +865,7 @@ export function LiveRoomSession({
           remoteStreams={remoteStreams}
           selfSurfaceRef={selfSurfaceRef}
           variant={room.kind}
+          tileExtras={room.kind === "group" ? groupTileExtras : undefined}
         />
 
         {room.kind === "group" ? (

@@ -44,6 +44,52 @@ describe("RoomTile 그룹 공부방 휴식", () => {
   });
 });
 
+describe("RoomTile 그룹 공부방 표시", () => {
+  it("다른 사람 타일에만 메뉴 버튼이 있다", () => {
+    const { rerender } = render(
+      <RoomTile member={member(2)} menuButton={<button type="button" aria-label="멤버2 메뉴" />} />,
+    );
+    expect(screen.getByRole("button", { name: "멤버2 메뉴" })).toBeInTheDocument();
+
+    rerender(<RoomTile member={member(7)} isSelf />);
+
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("말하는 멤버 타일은 말하는 중으로 읽히고 마이크 아이콘은 켜짐과 꺼짐이 다르다", () => {
+    const { rerender } = render(<RoomTile member={member(2)} speaking micOn />);
+    expect(screen.getByTestId("room-tile")).toHaveAttribute("data-speaking", "true");
+    expect(screen.getByText("말하는 중")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "마이크 켜짐" })).toBeInTheDocument();
+
+    rerender(<RoomTile member={member(2)} micOn={false} />);
+
+    expect(screen.getByTestId("room-tile")).not.toHaveAttribute("data-speaking");
+    expect(screen.queryByText("말하는 중")).toBeNull();
+    expect(screen.getByRole("img", { name: "마이크 꺼짐" })).toBeInTheDocument();
+  });
+
+  it("초대코드 방 타일은 마이크 아이콘을 그리지 않는다", () => {
+    render(<RoomTile member={{ userId: 8, cameraOn: true, focusState: "FOCUS" }} />);
+
+    expect(screen.queryByRole("img", { name: /마이크/ })).toBeNull();
+  });
+
+  it("차단한 멤버는 카메라를 켜 둬도 프로필로 그린다", () => {
+    render(
+      <RoomTile
+        member={{ ...member(2), cameraOn: true }}
+        media={<video data-testid="remote" />}
+        blocked
+      />,
+    );
+
+    expect(screen.queryByTestId("remote")).toBeNull();
+    expect(screen.getByTestId("room-tile")).toHaveAttribute("data-state", "OFF");
+    expect(screen.getByTestId("tile-time-badge")).toHaveAttribute("data-state", "OFF");
+  });
+});
+
 describe("RoomTile 폴백", () => {
   it("nickname·focusSec가 없으면 이름을 생략하고 시간은 --:--로 보여준다", () => {
     render(<RoomTile member={{ userId: 8, cameraOn: false, focusState: "FOCUS" }} />);

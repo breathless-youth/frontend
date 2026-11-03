@@ -5,6 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 
 import { buildGroupRoomFixtures } from "@/features/group-room/fixtures";
 import { RoomHomeScreen } from "@/features/group-room/screens/RoomHomeScreen";
+import { RoomMemberMenu } from "@/features/live-room/components/RoomMemberMenu";
+import { RoomTile } from "@/features/live-room/components/RoomTile";
+import { GROUP_ROOM_ANALYTICS_MASK } from "@/features/live-room/groupRoomAnalyticsMask";
 
 /**
  * **실제 Amplitude SDK를 mock 없이 돌려 최종 전송 payload를 검사한다.**
@@ -188,5 +191,55 @@ describe("Amplitude 전송 파이프라인 (실제 SDK)", () => {
     }
     const groupNames = /수능 D-200 밤샘반|새벽러|합격까지|고구마맛탕|연필깎이|열공곰/;
     expect(JSON.stringify(sent)).not.toMatch(groupNames);
+
+    // 그룹 공부방 타일에는 멤버 닉네임과 목표가, 멤버 메뉴 버튼의 aria-label에는 닉네임이 있다.
+    // 타일을 누르면 조작 표시가 바뀌어 글자 클릭도 이벤트로 나가서 화면 루트의 가림 표시가 두 경로를 모두 가리는지 본다.
+    sent.length = 0;
+    render(
+      createElement(
+        "main",
+        GROUP_ROOM_ANALYTICS_MASK,
+        createElement(RoomTile, {
+          member: {
+            userId: 42,
+            nickname: "책벌레곰",
+            goal: "행정학 3회독",
+            cameraOn: false,
+            focusState: "FOCUS",
+            focusSec: 600,
+            micOn: true,
+          },
+          micOn: true,
+          menuButton: createElement(RoomMemberMenu, {
+            nickname: "책벌레곰",
+            volume: 1,
+            muted: false,
+            canKick: false,
+            placement: "below",
+            open: false,
+            container: null,
+            onOpen: () => {},
+            onClose: () => {},
+            onVolumeChange: () => {},
+            onToggleMute: () => {},
+            onReport: () => {},
+            onKick: () => {},
+          }),
+        }),
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "책벌레곰 메뉴" }));
+    fireEvent.click(screen.getByText("책벌레곰"));
+    document.body.append(document.createElement("div"));
+    await tick();
+    await amplitude.flush().promise;
+    await tick();
+
+    const roomClicks = sent
+      .flatMap((batch) => batch.events)
+      .filter((event) => event.event_type === "[Amplitude] Element Clicked");
+    // 두 클릭이 모두 나가야 아래의 가림 단언이 공허하지 않다.
+    expect(roomClicks).toHaveLength(2);
+    expect(JSON.stringify(sent)).not.toMatch(/책벌레곰|행정학 3회독/);
   });
 });
