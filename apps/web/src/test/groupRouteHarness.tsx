@@ -153,11 +153,12 @@ export function seedDetail(groupId: number): PublicGroupDetailResponse {
   return detail;
 }
 
-/** 프로필 조회가 이 값을 돌려주게 한다. */
+/** 프로필 조회가 앞 테스트의 구현과 호출 기록 없이 이 값을 돌려주게 한다. */
 export function mockProfile(patch: Partial<ProfileResponse>): void {
   if (!vi.isMockFunction(getProfile)) {
     throw new Error('테스트 파일 맨 위에 vi.mock("@/lib/profileApi")를 둔다');
   }
+  getProfile.mockReset();
   getProfile.mockResolvedValue({
     nickname: "열공곰",
     goal: null,

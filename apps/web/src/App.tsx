@@ -40,6 +40,7 @@ import {
   loadApplyPage,
   loadContactPage,
   loadGroupApplicationsPage,
+  loadGroupFormPage,
   loadGroupHomePage,
   loadGroupMembersPage,
   loadInterviewFormPage,
@@ -162,6 +163,11 @@ const PublicGroupPage = lazy(
 );
 const ApplyPage = lazy(
   reloadOnChunkError(() => loadApplyPage().then((module) => ({ default: module.ApplyPage }))),
+);
+const GroupFormPage = lazy(
+  reloadOnChunkError(() =>
+    loadGroupFormPage().then((module) => ({ default: module.GroupFormPage })),
+  ),
 );
 const WebrtcLoopbackPage = lazy(
   reloadOnChunkError(() =>
@@ -316,7 +322,12 @@ export function App() {
               <Route path="/manual-record" element={<ManualRecordPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/social" element={<SocialTabRoute />} />
+              <Route path="/social/groups/new" element={<GroupFormPage mode="create" />} />
               <Route path="/social/groups/:groupId" element={<GroupHomePage />} />
+              <Route
+                path="/social/groups/:groupId/settings"
+                element={<GroupFormPage mode="edit" />}
+              />
               <Route path="/social/groups/:groupId/members" element={<GroupMembersPage />} />
               <Route
                 path="/social/groups/:groupId/applications"

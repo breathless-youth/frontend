@@ -23,6 +23,7 @@ export const loadGroupApplicationsPage = () => import("./GroupApplicationsPage")
 export const loadReportApplicationPage = () => import("./ReportApplicationPage");
 export const loadPublicGroupPage = () => import("./PublicGroupPage");
 export const loadApplyPage = () => import("./ApplyPage");
+export const loadGroupFormPage = () => import("./GroupFormPage");
 
 /** 공부를 끝낼 때 네트워크가 끊겨도 결과 화면이 열리도록 세션 중에 미리 받는다. */
 export function prefetchResultPage(): void {
@@ -74,6 +75,7 @@ export function prefetchGroupPages(): void {
       loadReportApplicationPage,
       loadPublicGroupPage,
       loadApplyPage,
+      loadGroupFormPage,
     ]) {
       void load().catch(() => {});
     }
