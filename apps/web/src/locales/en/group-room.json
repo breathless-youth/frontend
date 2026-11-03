@@ -1,4 +1,45 @@
 {
+  "categoryChips": {
+    "aria": {
+      "group": "Studying for"
+    }
+  },
+  "deskRow": {
+    "emptySeat": "Empty"
+  },
+  "pendingApplicationsSheet": {
+    "title": "Pending requests",
+    "description_one": "Requests are canceled if the owner doesn't respond within {{count}} day",
+    "description_other": "Requests are canceled if the owner doesn't respond within {{count}} days",
+    "remaining": "{{time}} left",
+    "cancel": "Cancel request"
+  },
+  "pendingBand": {
+    "label_one": "{{count}} pending request",
+    "label_other": "{{count}} pending requests"
+  },
+  "publicRoomCard": {
+    "weeklyAverage": "This week's avg <value>{{duration}}</value>",
+    "aria": {
+      "weeklyAverage": "This week's average {{duration}}"
+    }
+  },
+  "roomFab": {
+    "create": "Create group",
+    "joinWithCode": "Join with code",
+    "aria": {
+      "open": "Create a group or join with code",
+      "menu": "Group menu",
+      "close": "Close group menu"
+    }
+  },
+  "socialTabs": {
+    "mine": "My groups",
+    "public": "Public groups",
+    "aria": {
+      "list": "Groups"
+    }
+  },
   "fieldError": {
     "tooLong_one": "Use up to {{count}} character",
     "tooLong_other": "Use up to {{count}} characters"
@@ -9,5 +50,21 @@
   "visibility": {
     "public": "Public",
     "private": "Private"
+  },
+  "myRoomsView": {
+    "emptyTitle": "You haven't joined any groups yet",
+    "emptyDescription": "Request to join a public group or create your own",
+    "browsePublic": "Browse public groups"
+  },
+  "publicRoomsView": {
+    "noneTitle": "No public groups yet",
+    "noneDescription": "Create the first public group and find people to study with",
+    "filteredTitle": "No public groups match your filters",
+    "filteredDescription": "Try different filters or create your own group",
+    "search": "Search by group name",
+    "allCategories": "All"
+  },
+  "socialHomeScreen": {
+    "title": "Groups"
   }
 }

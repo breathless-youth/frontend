@@ -1,6 +1,7 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Plus, RectangleEllipsis } from "lucide-react";
 import { type KeyboardEvent, useId, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   Dialog,
@@ -64,6 +65,7 @@ export function RoomFab({
   onJoinWithCode: () => void;
   defaultOpen?: boolean;
 }) {
+  const { t } = useTranslation("group-room");
   const [open, setOpen] = useState(defaultOpen);
   const menuRef = useRef<HTMLDivElement>(null);
   const reasonId = useId();
@@ -98,7 +100,7 @@ export function RoomFab({
         )}
       >
         <DialogTrigger
-          aria-label="그룹 만들기와 초대코드로 참여"
+          aria-label={t("roomFab.aria.open")}
           className={cn(FAB_CLASS, "pointer-events-auto")}
         >
           <Plus aria-hidden="true" size={24} strokeWidth={2.4} />
@@ -125,7 +127,7 @@ export function RoomFab({
           onTouchMove={(event) => event.stopPropagation()}
           className="theme-soft-blue fixed inset-0 z-50 flex touch-none flex-col justify-end outline-none duration-200 ease-overlay data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0"
         >
-          <DialogTitle className="sr-only">그룹 메뉴</DialogTitle>
+          <DialogTitle className="sr-only">{t("roomFab.aria.menu")}</DialogTitle>
           {/* 빈 곳의 누름이 덮개까지 내려가도록 자리 상자는 누름을 받지 않고 메뉴와 버튼만 받는다. */}
           <div
             className={cn(
@@ -136,7 +138,7 @@ export function RoomFab({
             <div
               ref={menuRef}
               role="menu"
-              aria-label="그룹 메뉴"
+              aria-label={t("roomFab.aria.menu")}
               tabIndex={-1}
               onKeyDown={moveFocus}
               className="flex min-w-52 flex-col rounded-xl bg-muted p-1.5 shadow-sb-card outline-none"
@@ -144,7 +146,7 @@ export function RoomFab({
               <button
                 type="button"
                 role="menuitem"
-                aria-label="그룹 만들기"
+                aria-label={t("roomFab.create")}
                 aria-disabled={canCreate ? undefined : true}
                 aria-describedby={canCreate ? undefined : reasonId}
                 onClick={() => {
@@ -156,7 +158,7 @@ export function RoomFab({
               >
                 <Plus aria-hidden="true" size={16} strokeWidth={2.2} className="shrink-0" />
                 <span className="flex flex-col gap-0.5">
-                  그룹 만들기
+                  {t("roomFab.create")}
                   {!canCreate && (
                     <span id={reasonId} className="text-xs leading-4 font-medium text-state-pause">
                       {CREATE_ROOM_LIMIT_COPY}
@@ -171,10 +173,10 @@ export function RoomFab({
                 className={MENU_ITEM_CLASS}
               >
                 <RectangleEllipsis aria-hidden="true" size={16} className="shrink-0" />
-                초대코드로 참여
+                {t("roomFab.joinWithCode")}
               </button>
             </div>
-            <DialogClose aria-label="그룹 메뉴 닫기" className={FAB_CLASS}>
+            <DialogClose aria-label={t("roomFab.aria.close")} className={FAB_CLASS}>
               <Plus aria-hidden="true" size={24} strokeWidth={2.4} className="rotate-45" />
             </DialogClose>
           </div>

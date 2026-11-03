@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import { cn } from "@/lib/utils";
 
 import { memberName } from "../memberName";
@@ -19,6 +21,7 @@ const NAME_CLASS: Record<DeskTone | "empty", string> = {
  * 카드가 공부 상태 문장을 따로 읽어 주므로 책상 줄은 화면 낭독기에서 뺀다.
  */
 export function DeskRow({ members }: { members: readonly RoomDeskMember[] }) {
+  const { t } = useTranslation("group-room");
   // 판단 모듈이 순서를 정하며 멤버를 공통 모양으로 돌려주므로 내 자리는 아이디로 다시 찾는다.
   const myUserId = members.find((member) => member.isMe)?.userId;
   return (
@@ -27,7 +30,7 @@ export function DeskRow({ members }: { members: readonly RoomDeskMember[] }) {
         const tone = slot.kind === "empty" ? "empty" : slot.tone;
         const name =
           slot.kind === "empty"
-            ? "빈자리"
+            ? t("deskRow.emptySeat")
             : memberName({
                 nickname: slot.member.nickname,
                 isMe: slot.member.userId === myUserId,

@@ -1,5 +1,6 @@
 import { Search } from "lucide-react";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Skeleton } from "@/components/ui/Skeleton";
 
@@ -8,14 +9,14 @@ import { PublicRoomCard } from "../components/PublicRoomCard";
 import { RoomsEmptyState } from "../components/RoomsEmptyState";
 import type { CategoryOption, PublicRoomSummary } from "../types";
 
-const EMPTY_COPY = {
+const EMPTY_COPY_KEY = {
   none: {
-    title: "아직 공개 그룹이 없어요",
-    description: "첫 공개 그룹을 만들어 같이 공부할 사람을 모아 보세요",
+    title: "publicRoomsView.noneTitle",
+    description: "publicRoomsView.noneDescription",
   },
   filtered: {
-    title: "조건에 맞는 공개 그룹이 없어요",
-    description: "다른 조건을 고르거나 직접 그룹을 만들어 보세요",
+    title: "publicRoomsView.filteredTitle",
+    description: "publicRoomsView.filteredDescription",
   },
 } as const;
 
@@ -50,8 +51,9 @@ export function PublicRoomsView({
   error?: ReactNode;
   onOpenRoom: (roomId: number) => void;
 }) {
+  const { t } = useTranslation("group-room");
   const emptyCopy =
-    query.trim() === "" && category === null ? EMPTY_COPY.none : EMPTY_COPY.filtered;
+    query.trim() === "" && category === null ? EMPTY_COPY_KEY.none : EMPTY_COPY_KEY.filtered;
   let list: ReactNode;
   if (rooms.length > 0) {
     list = (
@@ -76,8 +78,8 @@ export function PublicRoomsView({
   } else {
     list = (
       <RoomsEmptyState
-        title={emptyCopy.title}
-        description={emptyCopy.description}
+        title={t(emptyCopy.title)}
+        description={t(emptyCopy.description)}
         className="pt-12"
       />
     );
@@ -96,8 +98,8 @@ export function PublicRoomsView({
               event.currentTarget.blur();
             }
           }}
-          aria-label="그룹 이름으로 찾기"
-          placeholder="그룹 이름으로 찾기"
+          aria-label={t("publicRoomsView.search")}
+          placeholder={t("publicRoomsView.search")}
           autoComplete="off"
           enterKeyHint="search"
           className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground"
@@ -108,7 +110,7 @@ export function PublicRoomsView({
           options={categories}
           value={category}
           onChange={onCategoryChange}
-          allLabel="전체"
+          allLabel={t("publicRoomsView.allCategories")}
         />
       </div>
       {list}

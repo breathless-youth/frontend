@@ -1,4 +1,43 @@
 {
+  "categoryChips": {
+    "aria": {
+      "group": "시험·목표"
+    }
+  },
+  "deskRow": {
+    "emptySeat": "빈자리"
+  },
+  "pendingApplicationsSheet": {
+    "title": "신청 중인 공개 그룹",
+    "description": "그룹장이 {{count}}일 안에 답하지 않으면 신청이 취소돼요",
+    "remaining": "{{time}} 남음",
+    "cancel": "신청 취소"
+  },
+  "pendingBand": {
+    "label": "신청 중인 공개 그룹 {{count}}"
+  },
+  "publicRoomCard": {
+    "weeklyAverage": "이번 주 평균 <value>{{duration}}</value>",
+    "aria": {
+      "weeklyAverage": "이번 주 평균 {{duration}}"
+    }
+  },
+  "roomFab": {
+    "create": "그룹 만들기",
+    "joinWithCode": "초대코드로 참여",
+    "aria": {
+      "open": "그룹 만들기와 초대코드로 참여",
+      "menu": "그룹 메뉴",
+      "close": "그룹 메뉴 닫기"
+    }
+  },
+  "socialTabs": {
+    "mine": "내 그룹",
+    "public": "공개 그룹",
+    "aria": {
+      "list": "그룹"
+    }
+  },
   "fieldError": {
     "tooLong": "{{count}}자까지 쓸 수 있어요"
   },
@@ -8,5 +47,21 @@
   "visibility": {
     "public": "공개",
     "private": "비공개"
+  },
+  "myRoomsView": {
+    "emptyTitle": "아직 들어간 그룹이 없어요",
+    "emptyDescription": "공개 그룹에 신청하거나 그룹을 만들어 보세요",
+    "browsePublic": "공개 그룹 둘러보기"
+  },
+  "publicRoomsView": {
+    "noneTitle": "아직 공개 그룹이 없어요",
+    "noneDescription": "첫 공개 그룹을 만들어 같이 공부할 사람을 모아 보세요",
+    "filteredTitle": "조건에 맞는 공개 그룹이 없어요",
+    "filteredDescription": "다른 조건을 고르거나 직접 그룹을 만들어 보세요",
+    "search": "그룹 이름으로 찾기",
+    "allCategories": "전체"
+  },
+  "socialHomeScreen": {
+    "title": "그룹"
   }
 }

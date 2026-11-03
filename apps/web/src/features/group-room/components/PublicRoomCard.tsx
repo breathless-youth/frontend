@@ -1,3 +1,5 @@
+import { Trans, useTranslation } from "react-i18next";
+
 import { studyingCountText } from "../model/desks";
 import { memberCountText } from "../model/limits";
 import { formatHoursMinutes } from "../model/timeText";
@@ -19,12 +21,13 @@ export function PublicRoomCard({
   room: PublicRoomSummary;
   onOpen: (roomId: number) => void;
 }) {
+  const { t } = useTranslation("group-room");
   const weeklyAverage = formatHoursMinutes(room.weeklyAverageSec);
   const label = [
     room.name,
     memberCountText(room.memberCount),
     room.categoryLabel,
-    `이번 주 평균 ${weeklyAverage}`,
+    t("publicRoomCard.aria.weeklyAverage", { duration: weeklyAverage }),
     studyingCountText(room.studyingCount),
   ].join(", ");
   return (
@@ -47,7 +50,12 @@ export function PublicRoomCard({
       </span>
       <span className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <span className="text-[13px] leading-5 text-muted-foreground">
-          이번 주 평균 <span className="font-bold text-foreground">{weeklyAverage}</span>
+          <Trans
+            t={t}
+            i18nKey="publicRoomCard.weeklyAverage"
+            values={{ duration: weeklyAverage }}
+            components={{ value: <span className="font-bold text-foreground" /> }}
+          />
         </span>
         <StudyStatus count={room.studyingCount} />
       </span>

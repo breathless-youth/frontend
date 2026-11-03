@@ -1,4 +1,5 @@
 import { useEffect, useEffectEvent, useId } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -36,6 +37,7 @@ export function PendingApplicationsSheet({
   onCancel: (applicationId: number) => void;
   onOpenRoom: (roomId: number) => void;
 }) {
+  const { t } = useTranslation("group-room");
   const close = useEffectEvent(() => onOpenChange(false));
   const emptied = open && !loading && applications.length === 0;
   useEffect(() => {
@@ -48,10 +50,12 @@ export function PendingApplicationsSheet({
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="theme-soft-blue">
         <DrawerTitle className="pt-4 text-lg leading-6.5 font-bold text-foreground">
-          신청 중인 공개 그룹
+          {t("pendingApplicationsSheet.title")}
         </DrawerTitle>
         <DrawerDescription className="pt-1 pb-2 text-[13px] leading-5 text-muted-foreground">
-          그룹장이 {GROUP_ROOM_LIMITS.applicationTtlDays}일 안에 답하지 않으면 신청이 취소돼요
+          {t("pendingApplicationsSheet.description", {
+            count: GROUP_ROOM_LIMITS.applicationTtlDays,
+          })}
         </DrawerDescription>
         <ul data-base-ui-swipe-ignore="">
           {loading
@@ -95,8 +99,11 @@ function PendingRow({
   onCancel: (applicationId: number) => void;
   onOpenRoom: (roomId: number) => void;
 }) {
+  const { t } = useTranslation("group-room");
   const nameId = useId();
-  const remaining = `${remainingText(application.expiresAt, now)} 남음`;
+  const remaining = t("pendingApplicationsSheet.remaining", {
+    time: remainingText(application.expiresAt, now),
+  });
   return (
     <li className="flex min-h-17 items-center gap-2.5">
       <button
@@ -123,7 +130,7 @@ function PendingRow({
         onClick={() => onCancel(application.applicationId)}
         className="h-11 shrink-0 rounded-[14px] bg-bg-layer-2 px-3.5 text-[13px] leading-4 font-bold text-muted-foreground focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none disabled:opacity-50"
       >
-        신청 취소
+        {t("pendingApplicationsSheet.cancel")}
       </button>
     </li>
   );
