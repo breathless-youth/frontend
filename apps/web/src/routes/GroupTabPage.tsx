@@ -36,6 +36,7 @@ import { GraceEndDialog } from "@/features/social-room/GraceEndDialog";
 import { useSocialRoomNoticeHandoff } from "@/features/social-room/useSocialRoomNoticeHandoff";
 import { cancelApplication } from "@/lib/groupRoomApi";
 import {
+  GROUP_MUTATION_OPTIONS,
   cannotLoadFirst,
   dedupePublicGroups,
   invalidateGroupMembership,
@@ -137,6 +138,7 @@ function GroupTabContent({ userId }: { userId: number | null }) {
   }, [showsBand]);
 
   const cancel = useMutation({
+    ...GROUP_MUTATION_OPTIONS,
     mutationFn: (application: PendingApplication) => cancelApplication(application.applicationId),
     onSuccess: (_data, application) => {
       showToast(APPLICATION_CANCELED_COPY);

@@ -1,6 +1,7 @@
+import { onlineManager } from "@tanstack/react-query";
 import { act, cleanup, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { shareInvite } from "@/features/social-room/shareInvite";
 import type * as ShareInvite from "@/features/social-room/shareInvite";
@@ -95,6 +96,21 @@ describe("멤버 관리와 멤버 보기", () => {
     await waitFor(() => expect(api.getGroupMembers).toHaveBeenCalledTimes(2));
     await act(() => Promise.resolve());
     expect(screen.queryByText("초대코드가 새로 바뀌었어요")).toBeNull();
+  });
+
+  it("오프라인에서 내보내기를 확인해도 창이 멈추지 않고 바로 다시 시도하라고 알린다", async () => {
+    const api = mockGroupApi("default");
+    api.kickGroupMember.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    renderGroupRoute("/social/groups/10/members?groupRooms=1");
+    const user = userEvent.setup();
+    await user.click(await firstRowMenu());
+    await user.click(screen.getByRole("menuitem", { name: /내보내기/ }));
+    act(() => onlineManager.setOnline(false));
+    onTestFinished(() => onlineManager.setOnline(true));
+    await user.click(screen.getByRole("button", { name: "내보내기" }));
+    expect(api.kickGroupMember).toHaveBeenCalledOnce();
+    expect(await screen.findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
   });
 
   it("확인 창의 내보내기를 두 번 눌러도 한 번만 보낸다", async () => {

@@ -19,6 +19,7 @@ import { useBackTo } from "@/features/group-room/useBackTo";
 import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
 import { applyToGroup } from "@/lib/groupRoomApi";
 import {
+  GROUP_MUTATION_OPTIONS,
   cannotLoadFirst,
   invalidateGroupMembership,
   publicGroupQuery,
@@ -78,6 +79,7 @@ function Apply({ userId, groupId }: { userId: number; groupId: number }) {
     back();
   };
   const apply = useMutation({
+    ...GROUP_MUTATION_OPTIONS,
     mutationFn: (introduction: string) => applyToGroup(groupId, introduction),
     onSuccess: returnToDetail,
     onError: (error) => {

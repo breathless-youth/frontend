@@ -28,6 +28,7 @@ import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
 import { useNow } from "@/features/ranking/useNow";
 import { kickGroupMember, regenerateGroupInvite, transferGroupOwner } from "@/lib/groupRoomApi";
 import {
+  GROUP_MUTATION_OPTIONS,
   cannotLoadFirst,
   groupHomeQuery,
   groupInviteQuery,
@@ -108,6 +109,7 @@ function GroupMembers({ userId, groupId }: { userId: number; groupId: number }) 
   };
 
   const kick = useMutation({
+    ...GROUP_MUTATION_OPTIONS,
     mutationFn: (memberId: number) => kickGroupMember(groupId, memberId),
     onSuccess: () => {
       setDialogOpen(false);
@@ -120,6 +122,7 @@ function GroupMembers({ userId, groupId }: { userId: number; groupId: number }) 
     onError: (error) => handleOwnerActionError("kick", error),
   });
   const transfer = useMutation({
+    ...GROUP_MUTATION_OPTIONS,
     mutationFn: (memberId: number) => transferGroupOwner(groupId, memberId),
     onSuccess: () => {
       setDialogOpen(false);
@@ -128,6 +131,7 @@ function GroupMembers({ userId, groupId }: { userId: number; groupId: number }) 
     onError: (error) => handleOwnerActionError("transfer", error),
   });
   const regenerate = useMutation({
+    ...GROUP_MUTATION_OPTIONS,
     mutationFn: () => regenerateGroupInvite(groupId),
     onSuccess: (invite) => {
       queryClient.setQueryData(groupKeys.invite(userId, groupId), invite);

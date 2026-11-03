@@ -19,6 +19,7 @@ import { useBackTo } from "@/features/group-room/useBackTo";
 import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
 import { reportApplication } from "@/lib/groupRoomApi";
 import {
+  GROUP_MUTATION_OPTIONS,
   cannotLoadFirst,
   groupApplicationsQuery,
   invalidateGroupMembership,
@@ -102,6 +103,7 @@ function ReportApplication({
   }, [notOwner]);
 
   const report = useMutation({
+    ...GROUP_MUTATION_OPTIONS,
     mutationFn: (text: string) => reportApplication(applicationId, text),
     onSuccess: returnToApplications,
     onError: (error) => {

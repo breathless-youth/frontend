@@ -82,6 +82,14 @@ export function cannotLoadFirst(query: {
   return query.isLoadingError || (query.isPending && query.isPaused);
 }
 
+/**
+ * 그룹 변경 요청의 공통 옵션
+ *
+ * 오프라인에서 요청을 멈춰 두면 보내는 중인 확인 창은 확인도 취소도 할 수 없고, 연결이 돌아오면 이미 떠난 화면의 요청이 뒤늦게 나간다.
+ * 그래서 연결과 상관없이 바로 보내 실패하게 하고, 화면마다 다시 시도 문구로 알린다.
+ */
+export const GROUP_MUTATION_OPTIONS = { networkMode: "always" } as const;
+
 // 멤버의 공부 상태가 보이는 두 화면은 보이는 동안 30초마다, 다시 보이면 곧바로 받는다.
 // 가려진 탭에서는 focusManager가 앱 탭 보임 신호를 따라 폴링을 멈춘다.
 const LIVE_GROUP_OPTIONS = {

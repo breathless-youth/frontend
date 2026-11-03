@@ -22,6 +22,7 @@ import { useBackTo } from "@/features/group-room/useBackTo";
 import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
 import { createGroup, updateGroup } from "@/lib/groupRoomApi";
 import {
+  GROUP_MUTATION_OPTIONS,
   cannotLoadFirst,
   groupHomeQuery,
   groupKeys,
@@ -126,6 +127,7 @@ function GroupCreate({ userId }: { userId: number }) {
   const profile = useQuery(profileQuery(userId));
   const formError = useFormErrorNotice("create");
   const create = useMutation({
+    ...GROUP_MUTATION_OPTIONS,
     mutationFn: (body: GroupCreateRequest) => createGroup(body),
     onSuccess: ({ groupId }) => {
       void invalidateGroupMembership(queryClient, userId);
@@ -190,6 +192,7 @@ function GroupSettings({ userId, groupId }: { userId: number; groupId: number })
   const home = homeQuery.data;
   const formError = useFormErrorNotice("update");
   const save = useMutation({
+    ...GROUP_MUTATION_OPTIONS,
     mutationFn: (body: GroupUpdateRequest) => updateGroup(groupId, body),
     onSuccess: () => {
       // 이름과 시험·목표는 내 그룹 카드와 공개 목록에도 보여서 이 그룹이 보이는 조회를 함께 다시 받는다.

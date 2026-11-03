@@ -25,6 +25,7 @@ import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
 import { useNow } from "@/features/ranking/useNow";
 import { leaveGroup, setGroupNotification } from "@/lib/groupRoomApi";
 import {
+  GROUP_MUTATION_OPTIONS,
   cannotLoadFirst,
   dropFromMyGroups,
   forgetGroup,
@@ -94,6 +95,7 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
   }, [left, queryClient, userId, groupId]);
 
   const notify = useMutation({
+    ...GROUP_MUTATION_OPTIONS,
     mutationFn: (enabled: boolean) => setGroupNotification(groupId, enabled),
     // 30초마다 다시 받는 조회가 바꾼 값을 덮지 않게 받는 중인 조회를 멈춘 뒤 바로 바꾸고, 실패하면 되돌린다.
     // 흐르는 공부 시간은 받은 시각부터 세어서, 종만 바꿀 때 받은 시각까지 지금으로 바꾸면 시간이 뒤로 간다.
@@ -143,6 +145,7 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
     void invalidateGroupMembership(queryClient, userId);
   };
   const leave = useMutation({
+    ...GROUP_MUTATION_OPTIONS,
     mutationFn: () => leaveGroup(groupId),
     onSuccess: finishLeaving,
     onError: (error) => {

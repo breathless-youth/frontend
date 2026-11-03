@@ -8,7 +8,7 @@ import { normalizeInviteCode } from "@/features/group-room/model/inviteCode";
 import { InviteCodeEntryScreen } from "@/features/group-room/screens/InviteCodeEntryScreen";
 import { useBackTo } from "@/features/group-room/useBackTo";
 import { joinGroupByCode } from "@/lib/groupRoomApi";
-import { invalidateGroupMembership } from "@/lib/groupRoomQueries";
+import { GROUP_MUTATION_OPTIONS, invalidateGroupMembership } from "@/lib/groupRoomQueries";
 import { haptic } from "@/lib/haptics";
 import { useIdentityPending, useUserId } from "@/lib/userId";
 
@@ -45,6 +45,7 @@ function GroupJoin({ userId }: { userId: number | null }) {
   const [error, setError] = useState<string | null>(null);
 
   const join = useMutation({
+    ...GROUP_MUTATION_OPTIONS,
     mutationFn: (submitted: string) =>
       joinGroupByCode(submitted, submitted === linkCode ? "LINK" : "CODE"),
     onSuccess: ({ groupId }) => {
