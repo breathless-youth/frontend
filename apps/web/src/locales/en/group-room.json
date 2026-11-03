@@ -53,5 +53,27 @@
       "confirm": "Remove"
     },
     "inviteCodeRenewed": "Invite code changed"
+  },
+  "timeText": {
+    "lastStudied": {
+      "withinHour": "Today",
+      "hoursAgo_one": "{{count}} hour ago",
+      "hoursAgo_other": "{{count}} hours ago",
+      "yesterday": "Yesterday",
+      "daysAgo_one": "{{count}} day ago",
+      "daysAgo_other": "{{count}} days ago"
+    },
+    "appliedAt": {
+      "withinHour": "Requested just now",
+      "hoursAgo_one": "Requested {{count}} hour ago",
+      "hoursAgo_other": "Requested {{count}} hours ago",
+      "yesterday": "Requested yesterday",
+      "daysAgo_one": "Requested {{count}} day ago",
+      "daysAgo_other": "Requested {{count}} days ago"
+    },
+    "remaining": {
+      "days": "{{count}}d",
+      "daysHours": "{{days}}d {{hours}}h"
+    }
   }
 }

@@ -50,5 +50,23 @@
       "confirm": "내보내기"
     },
     "inviteCodeRenewed": "초대코드가 새로 바뀌었어요"
+  },
+  "timeText": {
+    "lastStudied": {
+      "withinHour": "오늘",
+      "hoursAgo": "{{count}}시간 전",
+      "yesterday": "어제",
+      "daysAgo": "{{count}}일 전"
+    },
+    "appliedAt": {
+      "withinHour": "방금 신청",
+      "hoursAgo": "{{count}}시간 전 신청",
+      "yesterday": "어제 신청",
+      "daysAgo": "{{count}}일 전 신청"
+    },
+    "remaining": {
+      "days": "{{count}}일",
+      "daysHours": "{{days}}일 {{hours}}시간"
+    }
   }
 }
