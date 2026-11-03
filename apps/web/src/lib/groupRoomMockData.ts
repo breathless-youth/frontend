@@ -99,6 +99,8 @@ export interface GroupMockWorld {
   /** 내가 내보내진 그룹과 그 시각 */
   kicks: { groupId: number; atMs: number }[];
   blocks: BlockedUser[];
+  /** 견본의 순공이 맞는 시각이고, 순공이 쌓이는 멤버는 응답할 때 여기서부터 흐른 시간을 더한다. */
+  seededAtMs: number;
 }
 
 /**
@@ -147,7 +149,13 @@ function isStudying(member: MockMember): boolean {
   return member.status === "IN_ROOM" || member.status === "STUDYING";
 }
 
-function toDesk(group: MockGroup, member: MockMember): GroupMemberDesk {
+/**
+ * 응답 하나의 책상
+ *
+ * 화면은 받은 순공에 받은 뒤 흐른 시간만 더하므로, 서버처럼 응답하는 때까지 쌓인 순공을 넣어야 다시 받을 때 시계가 뒤로 가지 않는다.
+ */
+function toDesk(group: MockGroup, member: MockMember, elapsedSec: number): GroupMemberDesk {
+  const accrued = member.accumulating ? elapsedSec : 0;
   return {
     userId: member.userId,
     nickname: member.nickname,
@@ -155,8 +163,8 @@ function toDesk(group: MockGroup, member: MockMember): GroupMemberDesk {
     owner: member.userId === group.ownerId,
     status: member.status,
     accumulating: member.accumulating,
-    todayFocusSec: member.todayFocusSec,
-    weekFocusSec: member.weekFocusSec,
+    todayFocusSec: member.todayFocusSec + accrued,
+    weekFocusSec: member.weekFocusSec + accrued,
     lastStudiedAt: member.lastStudiedAt,
   };
 }
@@ -238,6 +246,7 @@ function applyViewOf(
  */
 export function viewGroupWorld(world: GroupMockWorld, nowMs: number): GroupMockState {
   const meId = world.me.userId;
+  const elapsedSec = Math.max(0, Math.floor((nowMs - world.seededAtMs) / 1000));
   // 신청한 그룹이 사라지면 서버가 그 신청을 닫으므로 남은 그룹으로 간 신청만 센다.
   const pending = world.myApplications
     .filter(
@@ -269,7 +278,7 @@ export function viewGroupWorld(world: GroupMockWorld, nowMs: number): GroupMockS
         memberCount: group.members.length,
         studyingCount: group.members.filter(isStudying).length,
         owner: group.ownerId === meId,
-        members: group.members.map((member) => toDesk(group, member)),
+        members: group.members.map((member) => toDesk(group, member, elapsedSec)),
       })),
       pendingApplicationCount: pending.length,
       ownedGroupCount: owned.length,
@@ -317,7 +326,7 @@ export function viewGroupWorld(world: GroupMockWorld, nowMs: number): GroupMockS
               profileImageUrl: owner.profileImageUrl,
             },
             weeklyAverageFocusSec: weeklyAverage(group),
-            members: group.members.map((member) => toDesk(group, member)),
+            members: group.members.map((member) => toDesk(group, member, elapsedSec)),
             ...applyViewOf(world, group, nowMs, slotsUsed, pending),
           },
         ];
@@ -342,7 +351,7 @@ export function viewGroupWorld(world: GroupMockWorld, nowMs: number): GroupMockS
                 ? liveGroupApplications(group, nowMs).length
                 : null,
             studyingCount: group.members.filter(isStudying).length,
-            members: group.members.map((member) => toDesk(group, member)),
+            members: group.members.map((member) => toDesk(group, member, elapsedSec)),
           },
         ];
       }),
@@ -833,6 +842,7 @@ export function seedGroupWorld(
         myApplications: [],
         kicks: [],
         blocks: [],
+        seededAtMs: nowMs,
       };
     case "limits":
       return {
@@ -848,6 +858,7 @@ export function seedGroupWorld(
         myApplications: [sent(t, 31, CATALOG_FIRST_GROUP_ID + 1, 30 * MINUTE_MS)],
         kicks: [],
         blocks: seedBlocks(t),
+        seededAtMs: nowMs,
       };
     case "default":
       return {
@@ -862,6 +873,7 @@ export function seedGroupWorld(
         myApplications: [sent(t, 31, 12, 30 * MINUTE_MS)],
         kicks: [{ groupId: KICKED_GROUP_ID, atMs: nowMs - DAY_MS }],
         blocks: seedBlocks(t),
+        seededAtMs: nowMs,
       };
   }
 }
