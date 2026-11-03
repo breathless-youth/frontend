@@ -253,6 +253,24 @@ describe("useRoomAudio 상대 소리", () => {
     expect(player.resume).toHaveBeenCalledTimes(4);
   });
 
+  it("나가면 누름 리스너를 모두 뗀다", () => {
+    const { player, unmount } = setup();
+    fireEvent.pointerDown(document.body);
+    expect(player.needsResume).toHaveBeenCalled();
+
+    unmount();
+    player.needsResume.mockClear();
+    player.resume.mockClear();
+    fireEvent.pointerDown(document.body);
+    fireEvent.pointerUp(document.body);
+    fireEvent.touchEnd(document.body);
+    fireEvent.click(document.body);
+    fireEvent.keyDown(document.body, { key: "Enter" });
+
+    expect(player.needsResume).not.toHaveBeenCalled();
+    expect(player.resume).not.toHaveBeenCalled();
+  });
+
   it("들어온 상대 소리를 붙이고 말하는 사람을 표시한다", async () => {
     vi.useFakeTimers();
     const { result, player, listener } = setup();

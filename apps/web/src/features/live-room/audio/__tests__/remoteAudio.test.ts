@@ -376,4 +376,22 @@ describe("마이크를 켠 멤버가 있을 때만 keep-alive", () => {
     expect(keepAlive.pause).toHaveBeenCalledOnce();
     expect(keepAlive.paused).toBe(true);
   });
+
+  it("모두 마이크를 끈 뒤에는 멈춘 재생을 되살려도 keep-alive를 다시 켜지 않는다", async () => {
+    const { instance, keepAlive, ctx } = player();
+    instance.attach(2, track());
+    instance.setMicOnUsers(new Set([2]));
+    instance.setMicOnUsers(new Set());
+    expect(keepAlive.paused).toBe(true);
+    keepAlive.play.mockClear();
+
+    await instance.resume();
+    ctx.fire("interrupted");
+    await settle();
+
+    expect(keepAlive.play).not.toHaveBeenCalled();
+    expect(keepAlive.paused).toBe(true);
+    // 일부러 멈춘 keep-alive를 다시 걸 재생으로 세면 공부방을 누를 때마다 깨우기가 헛돈다.
+    expect(instance.needsResume()).toBe(false);
+  });
 });

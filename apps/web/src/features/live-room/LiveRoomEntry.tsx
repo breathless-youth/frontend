@@ -201,7 +201,7 @@ export function LiveRoomEntry({
     // 래치는 되돌아가지 않아 entered 전환은 한 번뿐이고, 계측은 그 전환에만 반응한다.
     trackSocialRoomEntered(graceRejoin);
     // Meta 광고 전환 — 유예 재입장은 새 입장이 아니라 세지 않는다.
-    // 그룹 공부방의 이벤트는 Meta로 보내지 않아서 초대코드 방 입장만 센다.
+    // 그룹 공부방 입장은 소셜룸 입장 전환으로 보내지 않아서 초대코드 방 입장만 센다.
     if (!graceRejoin && room.kind === "invite") trackMetaSocialRoomEntered();
   });
   useEffect(() => {

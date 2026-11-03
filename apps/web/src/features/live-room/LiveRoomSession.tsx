@@ -372,8 +372,6 @@ export function LiveRoomSession({
     onEvent: onDebugEvent,
   });
   useKeepMaskSourceLive(cameraStream, faceMask.on);
-  // 소리는 그룹 공부방에서만 오간다.
-  // 나가기를 눌러 세션이 끝나는 동안에도 마이크가 소리를 보내지 않게 카메라를 끈 것과 같게 본다.
   const micOnUserIds = useMemo(
     () =>
       new Set(
@@ -383,6 +381,8 @@ export function LiveRoomSession({
       ),
     [members, userId],
   );
+  // 소리는 그룹 공부방에서만 오간다.
+  // 나가기를 눌러 세션이 끝나는 동안에도 마이크가 소리를 보내지 않게 카메라를 끈 것과 같게 본다.
   useRoomAudio({
     enabled: room.kind === "group",
     mesh,
