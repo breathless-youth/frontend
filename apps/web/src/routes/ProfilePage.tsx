@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Controller, useForm, useWatch } from "react-hook-form";
+import { useTranslation } from "react-i18next";
 
 import type { ProfileResponse, ProfileUpdateRequest } from "@focusmakers/types";
 
@@ -17,7 +18,7 @@ import { CATEGORY_CHIPS } from "@/features/profile/categoryChips";
 import { ProfilePhotoButton } from "@/features/profile/ProfilePhotoButton";
 import { makeProfileSchema, type ProfileFormValues } from "@/features/profile/profileSchema";
 import {
-  NICKNAME_RULE_MESSAGE,
+  nicknameRuleMessage,
   normalizeGoal,
   normalizeNickname,
 } from "@/features/profile/profileValidation";
@@ -38,6 +39,7 @@ const LABEL_CLASS = "text-[13px] font-medium text-muted-foreground";
  * 진입은 설정 > 프로필 설정이 유일하다 — 최초 가입 유도·룸 진입 시 확인이 없다(명세).
  */
 export function ProfilePage() {
+  const { t } = useTranslation("profile");
   const userId = useUserId();
   const query = useQuery({ ...profileQuery(userId ?? 0), enabled: userId !== null });
 
@@ -46,11 +48,11 @@ export function ProfilePage() {
   if (userId === null || (query.isError && !query.data)) {
     return (
       <main className="theme-soft-blue bg-soft-blue page-column min-h-dvh text-foreground">
-        <ScreenBackHeader title="프로필 수정" />
+        <ScreenBackHeader title={t("title")} />
         <div className="px-5 pt-4" data-testid="profile-error">
           <ErrorState
             screen="profile"
-            message="프로필을 불러오지 못했어요"
+            message={t("loadError")}
             onRetry={() => {
               void query.refetch();
             }}
@@ -63,7 +65,7 @@ export function ProfilePage() {
   if (!query.data) {
     return (
       <main className="theme-soft-blue bg-soft-blue page-column min-h-dvh text-foreground">
-        <ScreenBackHeader title="프로필 수정" />
+        <ScreenBackHeader title={t("title")} />
         <div className="flex flex-col gap-4 px-5 pt-4">
           <Skeleton className="h-7 w-28" />
           <Skeleton className="mx-auto size-18 rounded-full" />
@@ -103,6 +105,7 @@ function buildPatch(values: ProfileFormValues, profile: ProfileResponse): Profil
 // 서버 프로필이 도착하면 폼을 그 값으로 시작한다. 재조회로 참조가 바뀌어도 사용자가 편집 중인
 // 값을 덮지 않도록 최초 1회만 반영한다.
 function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: number }) {
+  const { t } = useTranslation("profile");
   const queryClient = useQueryClient();
 
   const schema = makeProfileSchema(profile);
@@ -136,7 +139,7 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
         atMs: Date.now(),
       });
       trackProfileSaveResult({ ok: true });
-      showCtaToast("프로필이 저장됐어요");
+      showCtaToast(t("saved"));
       // 키보드가 떠 있으면 저장 버튼 위 토스트를 가린다.
       if (document.activeElement instanceof HTMLElement) {
         document.activeElement.blur();
@@ -153,14 +156,14 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
       // 필드가 틀렸는지 알려주지 않는다. 프로필 저장의 400은 목표·카테고리를 저장 전에
       // 클라이언트가 이미 막으므로(validateGoal 등) 서버까지 도달하는 400은 닉네임뿐이다.
       if (error instanceof ApiError && error.status === 409) {
-        setError("nickname", { message: "이미 사용 중인 닉네임이에요" });
+        setError("nickname", { message: t("errors.nicknameTaken") });
         return;
       }
       if (error instanceof ApiError && error.status === 400) {
-        setError("nickname", { message: NICKNAME_RULE_MESSAGE });
+        setError("nickname", { message: nicknameRuleMessage() });
         return;
       }
-      setError("root", { message: "잠시 후 다시 시도해 주세요" });
+      setError("root", { message: t("errors.retryLater") });
     },
   });
 
@@ -189,7 +192,7 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
       data-testid="profile-page"
       className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground"
     >
-      <ScreenBackHeader title="프로필 수정" />
+      <ScreenBackHeader title={t("title")} />
 
       <form noValidate onSubmit={handleSubmit(onValid)} className="flex flex-1 flex-col">
         <div className="flex flex-col gap-4.5 px-5 pt-2 pb-6">
@@ -214,7 +217,7 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
             render={({ field, fieldState }) => (
               <Field className="gap-2">
                 <FieldLabel htmlFor="profile-nickname" className={LABEL_CLASS}>
-                  닉네임
+                  {t("fields.nickname")}
                 </FieldLabel>
                 <Input
                   {...field}
@@ -251,7 +254,7 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
             render={({ field, fieldState }) => (
               <Field className="gap-2">
                 <FieldLabel htmlFor="profile-goal" className={LABEL_CLASS}>
-                  목표 문구
+                  {t("fields.goal")}
                 </FieldLabel>
                 <Input
                   {...field}
@@ -282,14 +285,14 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
           />
 
           <div className="flex flex-col gap-2">
-            <p className={LABEL_CLASS}>목표 카테고리</p>
+            <p className={LABEL_CLASS}>{t("fields.category")}</p>
             <Controller
               name="category"
               control={control}
               render={({ field }) => (
                 <ToggleGroup
                   type="single"
-                  aria-label="목표 카테고리"
+                  aria-label={t("fields.category")}
                   // Radix single 은 선택 값을 다시 누르면 빈 문자열을 준다
                   // — 카테고리는 선택 항목이라 빈 문자열을 null 로 되돌린다.
                   value={field.value ?? ""}
@@ -297,7 +300,7 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
                 >
                   {CATEGORY_CHIPS.map((chip) => (
                     <ToggleGroupItem key={chip.value} value={chip.value}>
-                      {chip.label}
+                      {t(`categories.${chip.value}`)}
                     </ToggleGroupItem>
                   ))}
                 </ToggleGroup>
@@ -316,7 +319,7 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
             className="w-full"
             disabled={!isDirty || nicknameOver || goalOver || saveMutation.isPending}
           >
-            {saveMutation.isPending ? "저장 중..." : "저장하기"}
+            {saveMutation.isPending ? t("save.pending") : t("save.idle")}
           </Button>
         </div>
       </form>

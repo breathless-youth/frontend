@@ -417,7 +417,10 @@ export function useNativeControl<T extends HTMLElement>(
   useEffect(() => {
     if (import.meta.env.DEV && invalidId !== null && !warnedIds.has(invalidId)) {
       warnedIds.add(invalidId);
-      console.warn("[native-controls] 앱이 받을 수 없는 부품이라 웹으로 그린다", invalidId);
+      console.warn(
+        "[native-controls] the app cannot take this control, drawing it on the web",
+        invalidId,
+      );
     }
   }, [invalidId]);
 

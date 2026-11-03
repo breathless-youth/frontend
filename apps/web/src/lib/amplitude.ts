@@ -22,6 +22,7 @@ import type {
 } from "@focusmakers/types";
 
 import { firebaseAnalyticsForwardPlugin } from "./firebaseAnalyticsBridge";
+import i18n from "./i18n";
 import type { InstallAttributionProperties } from "./installAttribution";
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
 import { showToast } from "./toast";
@@ -164,7 +165,7 @@ export function initAmplitude() {
   // 로더가 `engagementPlugin()`을 부를 때 전역을 만들어서 이 등록은 그 뒤에 둔다.
   // 전역이 없을 때 분석 초기화까지 멈추지 않도록 옵셔널 체이닝으로 부른다.
   window.engagement?.addCallback(SURVEY_THANKS_CALLBACK_KEY, () => {
-    showToast("소중한 의견 감사합니다!");
+    showToast(i18n.t("common:feedback.thanks"));
   });
   // 같은 이벤트·유저 속성을 네이티브 Firebase Analytics(GA4)에도 흘린다(FCM 콘솔 타겟팅용). destination이라
   // 정제·enrichment가 끝난 값을 받고, 브라우저 단독 모드에서는 아무것도 나가지 않는다.

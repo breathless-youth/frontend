@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import type { StudySessionSummary } from "@focusmakers/types";
@@ -59,6 +60,7 @@ const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
  * 탭 바 없는 전체 화면 라우트다(`/planner?date=YYYY-MM-DD`, `lib/nativeTabBar.ts`).
  */
 export function PlannerPage() {
+  const { t } = useTranslation("planner");
   const userId = useUserId();
   const navigate = useNavigate();
   const location = useLocation();
@@ -209,8 +211,8 @@ export function PlannerPage() {
           // 꺾쇠(36px)와 날짜 글자가 상단 바 가운데에 온다. 날짜를 누르면 날짜 선택 시트가 열린다.
           <PeriodNav
             compact
-            prevLabel="전날"
-            nextLabel="다음 날"
+            prevLabel={t("page.prevDay")}
+            nextLabel={t("page.nextDay")}
             onPrev={() => changeDate(-1, "button")}
             onNext={() => changeDate(1, "button")}
           >
@@ -270,9 +272,7 @@ export function PlannerPage() {
 
         <div className="pt-3.5">
           {userId === null ? (
-            <p className="text-sm text-muted-foreground">
-              기기 등록 전이에요. 앱에서 열면 기록이 저장돼요
-            </p>
+            <p className="text-sm text-muted-foreground">{t("page.unregistered")}</p>
           ) : state.status === "pending" ? (
             <div className="flex gap-3.5">
               <div className="flex min-w-0 flex-1 flex-col gap-3">
@@ -283,11 +283,7 @@ export function PlannerPage() {
               <Skeleton className="h-90 w-46 rounded-lg" />
             </div>
           ) : state.status === "error" ? (
-            <ErrorState
-              message="플래너를 불러오지 못했어요"
-              onRetry={state.retry}
-              screen="planner"
-            />
+            <ErrorState message={t("page.loadFailed")} onRetry={state.retry} screen="planner" />
           ) : (
             <div className="flex items-start gap-3.5">
               <PlannerSubjects
@@ -320,7 +316,7 @@ export function PlannerPage() {
                     className="h-11 gap-1.5 px-4 text-[15px] leading-4.75"
                   >
                     <Pencil aria-hidden size={16} />
-                    시간 직접 입력
+                    {t("page.manualEntry")}
                   </Button>
                 )}
               </div>

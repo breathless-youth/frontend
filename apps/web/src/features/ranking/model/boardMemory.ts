@@ -140,7 +140,7 @@ function save(raw: string): void {
   try {
     store.write(raw);
   } catch (error) {
-    console.warn("[ranking] 마지막 판을 저장하지 못했다", error);
+    console.warn("[ranking] failed to save last board", error);
   }
 }
 
@@ -184,7 +184,7 @@ function readStoredRecord(warning: string): Record<string, unknown> | null {
  * 그 밖의 구간은 적지 않으므로 시간대 판은 지금 구간으로 열린다.
  */
 export function readBoardMemory(): BoardMemory {
-  const record = readStoredRecord("[ranking] 마지막 판을 읽지 못해 기본 판으로 연다");
+  const record = readStoredRecord("[ranking] failed to read last board, opening default");
   if (record === null) {
     return DEFAULT_BOARD_MEMORY;
   }
@@ -237,7 +237,7 @@ export function requestRecordsPage(nowMs: number = Date.now()): void {
  * 읽지 못하면 요청이 없는 것으로 본다.
  */
 export function takeRecordsPageRequest(nowMs: number = Date.now()): boolean {
-  const record = readStoredRecord("[ranking] 모두 보기 요청을 읽지 못했다");
+  const record = readStoredRecord("[ranking] failed to read show-all request");
   if (record === null || !("requestedRecordsAt" in record)) {
     return false;
   }

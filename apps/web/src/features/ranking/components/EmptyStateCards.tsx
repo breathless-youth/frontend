@@ -1,4 +1,5 @@
 import type { RankingBoardResponse, RankingGoalExample } from "@focusmakers/types";
+import { Trans, useTranslation } from "react-i18next";
 
 import { formatDuration } from "@/features/records/recordsFormat";
 
@@ -14,7 +15,8 @@ const HEADLINE =
   "text-xl leading-6.5 font-extrabold tracking-[-0.7px] break-keep text-pretty text-foreground";
 
 function FirstStudyHeadline() {
-  return <p className={HEADLINE}>지금 공부하면 랭킹 진입</p>;
+  const { t } = useTranslation("ranking");
+  return <p className={HEADLINE}>{t("firstCard.headline")}</p>;
 }
 
 /**
@@ -35,6 +37,7 @@ export function ResetCard({
   serverNow: number;
   onFocusStart: () => void;
 }) {
+  const { t } = useTranslation("ranking");
   return (
     <CardShell
       title={cardTitle(board)}
@@ -46,7 +49,12 @@ export function ResetCard({
           <FirstStudyHeadline />
         ) : (
           <p className={HEADLINE}>
-            지금 시작하면 <span className="text-primary">{formatRank(board.startNowRank)}위</span>
+            <Trans
+              t={t}
+              i18nKey="resetCard.startNow"
+              values={{ rank: formatRank(board.startNowRank) }}
+              components={{ accent: <span className="text-primary" /> }}
+            />
           </p>
         )
       }
@@ -70,6 +78,7 @@ export function PreviousResultCard({
   previous: RankingBoardResponse;
   onShowRecords: () => void;
 }) {
+  const { t } = useTranslation("ranking");
   if (previous.me === null || previous.period === null) {
     return null;
   }
@@ -82,7 +91,7 @@ export function PreviousResultCard({
       <div className="min-w-0">
         <p className="text-xs leading-3.5 text-muted-foreground">{label}</p>
         <p className="mt-1 text-base leading-4.75 font-extrabold text-foreground">
-          {previous.me.rank <= 3 && `${previous.me.rank}위 · `}
+          {previous.me.rank <= 3 && t("previousResult.rankPrefix", { rank: previous.me.rank })}
           {formatDuration(previous.me.value)}
         </p>
       </div>
@@ -91,7 +100,7 @@ export function PreviousResultCard({
         onClick={onShowRecords}
         className="relative shrink-0 text-[13px] leading-3.75 font-bold text-primary before:absolute before:-inset-x-3 before:-inset-y-3.75 before:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--state-focus)"
       >
-        기록 보기 ›
+        {t("previousResult.showRecords")}
       </button>
     </section>
   );
@@ -114,18 +123,17 @@ export function FirstCard({
   serverNow: number;
   onFocusStart: () => void;
 }) {
+  const { t } = useTranslation("ranking");
   return (
     <CardShell
-      title="아직 내 순위가 없어요"
+      title={t("firstCard.title")}
       deadline={deadline}
       headline={
         isOffSlot(board, serverNow) ? (
           <p className={HEADLINE}>{offSlotHeadline(board)}</p>
         ) : board.type === "MAX_STREAK" ? (
           <p className={HEADLINE}>
-            5분 이상 공부하면
-            <br />
-            랭킹 진입
+            <Trans t={t} i18nKey="firstCard.streakHeadline" components={{ br: <br /> }} />
           </p>
         ) : (
           <FirstStudyHeadline />
@@ -153,11 +161,12 @@ export function GoalExamplesCard({ examples }: { examples: readonly RankingGoalE
   const shown = SHOWN_PERCENTS.flatMap((percent) =>
     examples.filter((example) => example.percent === percent),
   );
+  const { t } = useTranslation("ranking");
   if (shown.length === 0) {
     return null;
   }
   return (
-    <CardShell title="이번 주에 이만큼 하면">
+    <CardShell title={t("goalExamples.title")}>
       <ul className="grid grid-cols-[auto_1fr_84px] gap-x-3 gap-y-6">
         {shown.map((example) => (
           <li
@@ -174,7 +183,7 @@ export function GoalExamplesCard({ examples }: { examples: readonly RankingGoalE
               />
             </span>
             <span className="text-right text-[13px] leading-3.75 font-bold whitespace-nowrap text-primary">
-              상위 {example.percent}%까지
+              {t("goalExamples.untilTop", { percent: example.percent })}
             </span>
           </li>
         ))}

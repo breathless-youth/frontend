@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  NICKNAME_RULE_MESSAGE,
-  normalizeGoal,
-  validateGoal,
-  validateNickname,
-} from "../profileValidation";
+import { normalizeGoal, validateGoal, validateNickname } from "../profileValidation";
+
+/** 문구 상수가 카탈로그로 옮겨져 한국어 원문을 직접 둔다. */
+const NICKNAME_RULE_MESSAGE = "한글, 영문, 숫자, 이모지, 띄어쓰기로 2~12자를 쓰실 수 있어요";
 
 describe("validateNickname", () => {
   it("한글·영문·숫자·이모지·띄어쓰기 조합을 허용한다", () => {

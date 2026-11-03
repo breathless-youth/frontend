@@ -1,0 +1,50 @@
+{
+  "page": {
+    "prevDay": "Previous day",
+    "nextDay": "Next day",
+    "unregistered": "This device isn't registered yet. Open the app to save your records",
+    "loadFailed": "Couldn't load the planner",
+    "manualEntry": "Add time manually"
+  },
+  "head": {
+    "focusTime": "Focus time",
+    "total": "Total {{duration}}"
+  },
+  "pillButton": {
+    "aria": {
+      "open": "Planner"
+    }
+  },
+  "timetable": {
+    "aria": {
+      "distribution": "Study time by hour for this day. Focus time {{duration}}"
+    }
+  },
+  "subjects": {
+    "rest": "Break",
+    "unassigned": "No subject"
+  },
+  "editor": {
+    "overLimit_one": "Use up to {{count}} character",
+    "overLimit_other": "Use up to {{count}} characters",
+    "subjectPlaceholder": "Subject name",
+    "taskPlaceholder": "Task name",
+    "aria": {
+      "subjectName": "Subject name",
+      "newSubject": "New subject name",
+      "taskName": "Task name",
+      "newTask": "New task name"
+    }
+  },
+  "rowMenu": {
+    "rename": "Rename",
+    "remove": "Delete"
+  },
+  "suggestions": {
+    "add": "+ Add",
+    "aria": {
+      "list": "Suggested subjects",
+      "add": "Add {{name}}"
+    }
+  }
+}

@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
 
@@ -10,6 +11,7 @@ import { cn } from "@/lib/utils";
  * 누르는 영역은 글자 줄 높이와 상관없이 44px로 둔다.
  */
 export function Nickname({ name, className }: { name: string; className?: string }) {
+  const { t } = useTranslation("ranking");
   const wrapRef = useRef<HTMLSpanElement>(null);
   const textRef = useRef<HTMLSpanElement>(null);
   const [truncated, setTruncated] = useState(false);
@@ -58,7 +60,7 @@ export function Nickname({ name, className }: { name: string; className?: string
       {truncated && (
         <button
           type="button"
-          aria-label={`${name} 전체 이름 보기`}
+          aria-label={t("nickname.aria.showFull", { name })}
           aria-expanded={showBubble}
           aria-describedby={showBubble ? bubbleId : undefined}
           onClick={() => setOpen((value) => !value)}

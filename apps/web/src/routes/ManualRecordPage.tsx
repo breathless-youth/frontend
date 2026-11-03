@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useEffectEvent, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
@@ -54,6 +55,7 @@ function FormSkeleton() {
  * 그날과 다음 날을 받고, 수정이면 묶음이 시작한 날과 묶음이 자정을 넘겨 이어지는 날까지 받는다.
  */
 export function ManualRecordPage() {
+  const { t } = useTranslation("manual-record");
   const userId = useUserId();
   const identityPending = useIdentityPending();
   const navigate = useNavigate();
@@ -217,18 +219,16 @@ export function ManualRecordPage() {
 
   return (
     <main className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col overflow-x-hidden text-foreground">
-      <ScreenBackHeader title={isEdit ? "기록 수정" : "시간 직접 입력"} onBack={leave} />
+      <ScreenBackHeader title={isEdit ? t("page.titleEdit") : t("page.titleAdd")} onBack={leave} />
 
       <div className="flex flex-1 flex-col px-5 pt-3">
         {identityPending ? (
           <FormSkeleton />
         ) : userId === null || !canWrite ? (
-          <p className="text-sm text-muted-foreground">
-            기기 등록 전이에요. 앱에서 열면 기록이 저장돼요
-          </p>
+          <p className="text-sm text-muted-foreground">{t("page.unregistered")}</p>
         ) : blocked ? (
           <ErrorState
-            message="기록을 불러오지 못했어요"
+            message={t("page.loadFailed")}
             onRetry={() => {
               for (const query of failed) {
                 void query.refetch();

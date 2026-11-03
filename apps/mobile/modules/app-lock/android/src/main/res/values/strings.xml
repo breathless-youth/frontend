@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_lock_channel_name">App blocking</string>
+  <plurals name="app_lock_notification_title">
+    <item quantity="one">Studying · %d distracting app blocked</item>
+    <item quantity="other">Studying · %d distracting apps blocked</item>
+  </plurals>
+  <string name="app_lock_notification_text">Your apps will be unblocked when you finish studying</string>
+  <string name="app_lock_overlay_title">It\'s time to focus on studying</string>
+  <string name="app_lock_overlay_subtitle">Finish studying in the FocusMakers app to unblock this app</string>
+  <string name="app_lock_overlay_button">Back to FocusMakers</string>
+</resources>

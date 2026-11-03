@@ -1,4 +1,5 @@
 import { ImageIcon, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 
@@ -27,6 +28,7 @@ export function ProfilePhotoSheet({
   onRemovePhoto: () => void;
   disabled: boolean;
 }) {
+  const { t } = useTranslation("profile");
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent
@@ -36,7 +38,7 @@ export function ProfilePhotoSheet({
         finalFocus={false}
       >
         <DrawerTitle className="pt-3.5 text-center text-lg leading-5.25 font-bold tracking-normal text-foreground">
-          프로필 사진
+          {t("photo.sheetTitle")}
         </DrawerTitle>
         {/* 시트 안 버튼은 끌기에서 뺀다. iOS에서 살짝 움직인 탭이 끌기로 잡혀 버려진다. */}
         <div className="mt-2 flex flex-col">
@@ -48,7 +50,7 @@ export function ProfilePhotoSheet({
             className={ACTION_CLASS}
           >
             <ImageIcon aria-hidden="true" className="size-6" />
-            사진 바꾸기
+            {t("photo.change")}
           </button>
           {hasPhoto ? (
             <button
@@ -59,7 +61,7 @@ export function ProfilePhotoSheet({
               className={ACTION_CLASS}
             >
               <Trash2 aria-hidden="true" className="size-6" />
-              사진 삭제
+              {t("photo.remove")}
             </button>
           ) : null}
         </div>

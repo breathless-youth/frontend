@@ -3,6 +3,7 @@ import type { ToNativeMessage, VideoResultStatus, VideoShareTarget } from "@focu
 import type { InstallUtm } from "@/features/social-room/storeLink";
 
 import { isNativeBridgeAvailable, postToNative, subscribeToNativeMessages } from "./bridge";
+import i18n from "./i18n";
 
 /**
  * 원본 조각 크기
@@ -56,7 +57,7 @@ export function __resetNativeVideoForTests(): void {
  */
 export function timelapseShareText(origin: string): string {
   const query = new URLSearchParams(TIMELAPSE_SHARE_UTM).toString();
-  return `포커스 메이커스와 함께한 공부 모습이에요\n${origin}/download?${query}`;
+  return i18n.t("timelapse:share.text", { url: `${origin}/download?${query}` });
 }
 
 export function saveVideoNatively(blob: Blob): Promise<VideoResultStatus> {

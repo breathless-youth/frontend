@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import i18n from "@/lib/i18n";
+
 import { TimerWheel } from "../components/TimerWheel";
 import { __resetFrameIntervalsForTests, recordFrameInterval } from "../wheelMotion";
 
@@ -391,5 +393,25 @@ describe("TimerWheel", () => {
     });
 
     expect(notPrevented).toBe(false);
+  });
+});
+
+describe("TimerWheel 영어 낭독", () => {
+  afterEach(async () => {
+    await i18n.changeLanguage("ko");
+  });
+
+  it("단위 약자(h·m·s)가 아니라 낱말로 읽힌다", async () => {
+    await i18n.changeLanguage("en");
+    render(<TimerWheel valueSec={3600 + 60 + 5} onChange={() => {}} />);
+
+    const hours = screen.getByRole("spinbutton", { name: "Hours" });
+    const minutes = screen.getByRole("spinbutton", { name: "Minutes" });
+    const seconds = screen.getByRole("spinbutton", { name: "Seconds" });
+    expect(hours).toHaveAttribute("aria-valuetext", "1 hour");
+    expect(minutes).toHaveAttribute("aria-valuetext", "1 minute");
+    expect(seconds).toHaveAttribute("aria-valuetext", "5 seconds");
+    // 화면에 보이는 단위는 칸 폭 때문에 약자 그대로다.
+    expect(within(hours).getByText("h")).toBeInTheDocument();
   });
 });

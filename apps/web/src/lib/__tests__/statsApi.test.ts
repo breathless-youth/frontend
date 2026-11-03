@@ -85,7 +85,9 @@ describe("listStudySessionStats", () => {
       },
     });
 
-    await expect(listStudySessionStats("2026-07-25")).rejects.toThrow("통계 조회 실패 (HTTP 500)");
+    await expect(listStudySessionStats("2026-07-25")).rejects.toThrow(
+      "stats fetch failed (HTTP 500)",
+    );
   });
 
   it("네트워크 오류를 호출자에게 전달한다", async () => {
@@ -133,7 +135,7 @@ describe("getStudyDays", () => {
       },
     });
 
-    await expect(getStudyDays()).rejects.toThrow("누적 공부 일 수 조회 실패 (HTTP 500)");
+    await expect(getStudyDays()).rejects.toThrow("study days fetch failed (HTTP 500)");
   });
 });
 
@@ -185,7 +187,7 @@ describe("getStreak", () => {
       },
     });
 
-    await expect(getStreak()).rejects.toThrow("스트릭 조회 실패 (HTTP 500)");
+    await expect(getStreak()).rejects.toThrow("streak fetch failed (HTTP 500)");
   });
 
   it("네트워크 오류를 호출자에게 전달한다", async () => {
@@ -324,7 +326,7 @@ describe("getPeriodStats", () => {
     });
 
     await expect(getPeriodStats({ from: "2026-08-24", to: "2026-08-30" })).rejects.toThrow(
-      "기간 집계 조회 실패 (HTTP 500)",
+      "period stats fetch failed (HTTP 500)",
     );
   });
 

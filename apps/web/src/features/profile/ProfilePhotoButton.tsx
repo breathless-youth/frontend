@@ -1,5 +1,6 @@
 import { Camera } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
 import { canUseNativeProfilePhoto } from "@/lib/nativeProfilePhoto";
@@ -49,6 +50,7 @@ export function ProfilePhotoButton(props: ProfilePhotoProps) {
 
 /** 파일 입력은 시트가 닫힌 뒤에 선택 결과를 받으므로 시트 밖인 여기에 둔다. */
 function EditablePhoto({ userId, initial, colorIndex, imageUrl }: ProfilePhotoProps) {
+  const { t } = useTranslation("profile");
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const { upload, remove, busy } = useProfilePhotoMutations(userId);
@@ -61,7 +63,7 @@ function EditablePhoto({ userId, initial, colorIndex, imageUrl }: ProfilePhotoPr
     <>
       <button
         type="button"
-        aria-label="프로필 사진 변경"
+        aria-label={t("photo.aria.change")}
         aria-busy={busy || undefined}
         disabled={busy}
         onClick={() => setOpen(true)}

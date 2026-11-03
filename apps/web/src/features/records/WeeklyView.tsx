@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   trackRecordsPeriodPicked,
@@ -63,6 +64,7 @@ export function WeeklyView({
   weekAnchorKey: string;
   setWeekAnchorKey: Dispatch<SetStateAction<string>>;
 }) {
+  const { t } = useTranslation("records");
   const queryClient = useQueryClient();
   const { week } = useWeeklyData(userId, weekAnchorKey);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -121,11 +123,7 @@ export function WeeklyView({
       <div className="mt-5">
         {week.status === "pending" && TREND_SKELETON}
         {week.status === "error" && (
-          <ErrorState
-            message="주간 추이를 불러오지 못했어요"
-            onRetry={retryPeriod}
-            screen="records"
-          />
+          <ErrorState message={t("weekly.error")} onRetry={retryPeriod} screen="records" />
         )}
         {week.status === "success" && (
           // 좌우로 밀면 주를 넘긴다(일간 달력과 같은 판정). 주가 바뀔 때마다 리마운트해 밀려 들어오는

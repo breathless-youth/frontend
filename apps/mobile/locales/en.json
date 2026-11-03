@@ -1,0 +1,7 @@
+{
+  "NSCameraUsageDescription": "FocusMakers uses the camera for AI focus analysis, study timelapses, and screen sharing in Social Rooms. Video used for AI analysis is processed only on your device, and photos stay on your device.",
+  "NSMotionUsageDescription": "FocusMakers uses motion data to notice when you pick up or touch your device while studying. Sensor data is used only on your device and is never stored.",
+  "NSUserTrackingUsageDescription": "Used to see how you found FocusMakers and how well our ads work. Your camera video and face data are never used for ads.",
+  "NSPhotoLibraryAddUsageDescription": "FocusMakers needs permission to add to your photo library so it can save your timelapse videos to the Photos app.",
+  "NSPhotoLibraryUsageDescription": "Used when you save your timelapse videos to the Photos app."
+}

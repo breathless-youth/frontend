@@ -1,13 +1,15 @@
 import type { DailyStudyStat } from "@focusmakers/types";
 
+import i18n from "@/lib/i18n";
 import type { DateRange } from "@/lib/statsApi";
 
 import {
   type CalendarMonth,
   addDaysToDateKey,
   dayOfDateKey,
+  formatMonthDay,
   isFutureDateKey,
-  MONDAY_FIRST_WEEKDAY_LABELS,
+  mondayFirstWeekdayLabels,
   mondayIndexOfDateKey,
   monthOfDateKey,
 } from "./recordsFormat";
@@ -103,12 +105,11 @@ export function weekRangeLabel(weekAnchorKey: string): string {
   const week = mondayWeekDateKeys(weekAnchorKey);
   const from = week[0]!;
   const to = week[6]!;
-  const start = `${monthOfDateKey(from).month}월 ${dayOfDateKey(from)}일`;
+  const start = formatMonthDay(from);
   const sameMonth = monthOfDateKey(from).month === monthOfDateKey(to).month;
-  const end = sameMonth
-    ? `${dayOfDateKey(to)}일`
-    : `${monthOfDateKey(to).month}월 ${dayOfDateKey(to)}일`;
-  return `${start} ~ ${end}`;
+  return sameMonth
+    ? i18n.t("records:weekRange.sameMonth", { start, day: dayOfDateKey(to) })
+    : i18n.t("records:weekRange.crossMonth", { start, end: formatMonthDay(to) });
 }
 
 /**
@@ -121,9 +122,13 @@ export function relativeWeekLabel(weekAnchorKey: string, todayKey: string, offse
   const monday = Date.parse(`${mondayWeekDateKeys(weekAnchorKey)[0]!}T00:00:00Z`);
   const viewedWeeksAgo = Math.round((thisMonday - monday) / (7 * 24 * 3600 * 1000));
   if (viewedWeeksAgo <= 0) {
-    return offset <= 0 ? "이번 주" : offset === 1 ? "지난주" : `${String(offset)}주 전`;
+    return offset <= 0
+      ? i18n.t("records:relativeWeek.thisWeek")
+      : offset === 1
+        ? i18n.t("records:relativeWeek.lastWeek")
+        : i18n.t("records:relativeWeek.weeksAgo", { count: offset });
   }
-  return `${String(viewedWeeksAgo + offset)}주 전`;
+  return i18n.t("records:relativeWeek.weeksAgo", { count: viewedWeeksAgo + offset });
 }
 
 /**
@@ -249,14 +254,10 @@ export function buildDayFocusMap(daily: readonly DailyStudyStat[]): Map<string, 
 /** 세로축 상한(시간). 8시간을 넘는 날은 상한에서 잘린다 — 달력 범례(8+)와 같은 단위다. */
 export const MAX_CHART_HOURS = 8;
 
-/** 월요일 시작 7칸. XAxis 눈금 순서이자 슬롯 인덱스다. */
-const CHART_WEEKDAY_LABELS = MONDAY_FIRST_WEEKDAY_LABELS;
-
-type ChartWeekday = (typeof CHART_WEEKDAY_LABELS)[number];
-
 /** 요일별 순공 초(월~일). 미래 요일·기록 없는 요일은 `null`이다. */
 export interface WeekTrendPoint {
-  day: ChartWeekday;
+  /** 월요일 시작 요일 라벨. XAxis 눈금 순서이자 슬롯 인덱스다. */
+  day: string;
   thisWeekSec: number | null;
   lastWeekSec: number | null;
 }
@@ -270,7 +271,7 @@ export function weekTrendPoints(
   compareDaily: readonly DailyStudyStat[],
   todayKey: string,
 ): WeekTrendPoint[] {
-  const points: WeekTrendPoint[] = CHART_WEEKDAY_LABELS.map((day) => ({
+  const points: WeekTrendPoint[] = mondayFirstWeekdayLabels().map((day) => ({
     day,
     thisWeekSec: null,
     lastWeekSec: null,

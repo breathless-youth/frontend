@@ -1,0 +1,42 @@
+{
+  "title": "프로필 수정",
+  "loadError": "프로필을 불러오지 못했어요",
+  "saved": "프로필이 저장됐어요",
+  "fields": {
+    "nickname": "닉네임",
+    "goal": "목표 문구",
+    "category": "목표 카테고리"
+  },
+  "save": {
+    "idle": "저장하기",
+    "pending": "저장 중..."
+  },
+  "errors": {
+    "nicknameTaken": "이미 사용 중인 닉네임이에요",
+    "nicknameRule": "한글, 영문, 숫자, 이모지, 띄어쓰기로 2~12자를 쓰실 수 있어요",
+    "goalTooLong": "목표는 20자까지 쓸 수 있어요",
+    "unknownCategory": "목록에 없는 카테고리예요",
+    "retryLater": "잠시 후 다시 시도해 주세요"
+  },
+  "categories": {
+    "PROFESSIONAL": "전문직",
+    "CSAT": "수능",
+    "JOB": "취업",
+    "CERTIFICATE": "자격증",
+    "CIVIL_SERVICE": "공무원",
+    "LANGUAGE": "어학",
+    "ETC": "기타"
+  },
+  "photo": {
+    "sheetTitle": "프로필 사진",
+    "change": "사진 바꾸기",
+    "remove": "사진 삭제",
+    "changed": "프로필 사진을 바꿨어요",
+    "removed": "프로필 사진을 삭제했어요",
+    "unusable": "이 사진은 쓸 수 없어요. 다른 사진을 골라 주세요",
+    "uploadFailed": "사진을 올리지 못했어요. 다시 시도해 주세요",
+    "aria": {
+      "change": "프로필 사진 변경"
+    }
+  }
+}

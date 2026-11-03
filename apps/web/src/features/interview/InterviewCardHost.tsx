@@ -8,6 +8,7 @@ import {
   trackInterviewDismissed,
   trackInterviewShown,
 } from "@/lib/amplitude";
+import { isKoreanLocale } from "@/lib/i18n";
 import { interviewStatusQuery } from "@/lib/interviewQueries";
 
 import { InterviewCard } from "./InterviewCard";
@@ -21,6 +22,7 @@ import { loadInterviewState, updateInterviewState } from "./interviewStore";
  * 결과가 드러난 뒤 마운트되어, 방금 제출한 세션까지 반영된 대상 여부를 새로 받는다.
  * 판정과 노출 기록은 응답 콜백 안에서만 한다. 화면을 떠난 뒤 도착한 응답이 보이지도 않은
  * 카드를 노출로 남기지 않게 하려는 것이다.
+ * 보상이 국내 기프티콘이라 영어 화면에서는 대상 여부도 묻지 않는다.
  */
 export function InterviewCardHost({ userId }: { userId: number }) {
   const queryClient = useQueryClient();
@@ -28,6 +30,7 @@ export function InterviewCardHost({ userId }: { userId: number }) {
   const [card, setCard] = useState<{ url: string; exposure: number } | null>(null);
 
   useEffect(() => {
+    if (!isKoreanLocale()) return;
     let cancelled = false;
     queryClient
       .fetchQuery(interviewStatusQuery(userId))
@@ -41,7 +44,7 @@ export function InterviewCardHost({ userId }: { userId: number }) {
         setCard({ url: status.cardUrl, exposure });
       })
       .catch((error: unknown) => {
-        console.warn("[interview] 카드 대상 여부를 불러오지 못해 띄우지 않는다", error);
+        console.warn("[interview] failed to load card eligibility, not showing it", error);
       });
     return () => {
       cancelled = true;

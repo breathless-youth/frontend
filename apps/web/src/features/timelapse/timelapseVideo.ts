@@ -27,7 +27,7 @@ export class TimelapseVideoError extends Error {
   readonly stage: VideoFailStage;
 
   constructor(method: VideoMethod | "none", stage: VideoFailStage, options?: ErrorOptions) {
-    super(`타임랩스 영상을 만들지 못했다: ${stage}`, options);
+    super(`failed to build timelapse video: ${stage}`, options);
     this.name = "TimelapseVideoError";
     this.method = method;
     this.stage = stage;
@@ -66,7 +66,7 @@ export async function buildTimelapseVideo(
 ): Promise<BuiltVideo> {
   const record = await store.get(startedAtMs);
   if (record?.status !== "ready") {
-    throw new Error("보관된 타임랩스가 없다");
+    throw new Error("no stored timelapse");
   }
   const seqs = await store.photoSeqs(startedAtMs);
   const overlay = savedOverlayFor(record);
