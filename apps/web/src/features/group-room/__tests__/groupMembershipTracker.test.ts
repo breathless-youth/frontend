@@ -83,6 +83,18 @@ describe("observeMyGroups", () => {
     });
   });
 
+  it("표시 없이 생긴 비공개 그룹은 신청 가입으로 세지 않고 기억은 한다", () => {
+    observeMyGroups(1, [card(10)]);
+
+    // 비공개 그룹은 링크나 코드로만 들어가서 신청으로 들어갔을 수 없다.
+    expect(observeMyGroups(1, [card(10), card(21, "PRIVATE")])).toEqual({
+      joined: [],
+      kicked: [],
+      countChanged: true,
+    });
+    expect(observeMyGroups(1, [card(10)]).kicked).toEqual([21]);
+  });
+
   it("이 기기에서 나간 그룹은 내보내짐으로 세지 않는다", () => {
     observeMyGroups(1, [card(10), card(11)]);
     markLocalMembership(1, { kind: "left", groupId: 11 });

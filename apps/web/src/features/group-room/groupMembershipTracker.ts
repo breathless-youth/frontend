@@ -19,7 +19,7 @@ export interface LocalMembershipChange {
 }
 
 export interface MembershipObservation {
-  /** 이 기기가 하지 않았는데 새로 생긴 그룹이고, 그룹장이 신청을 받아 준 것이다. */
+  /** 이 기기가 하지 않았는데 새로 생긴 공개 그룹이고, 그룹장이 신청을 받아 준 것이다. */
   joined: Array<{ groupId: number; visibility: GroupVisibility }>;
   /** 이 기기가 나가지 않았는데 사라진 그룹이고, 그룹장이 나를 내보낸 것이다. */
   kicked: number[];
@@ -124,6 +124,7 @@ export function markLocalMembership(userId: number, change: LocalMembershipChang
  * 내 그룹 목록 비교
  *
  * 지난 목록에 없던 그룹은 신청 가입, 지난 목록에서 사라진 그룹은 내보내짐으로 보고 이 기기에서 한 일의 표시가 있는 그룹은 뺀다.
+ * 신청은 공개 그룹에만 할 수 있어서 표시 없이 생긴 비공개 그룹은 가입으로 세지 않고 기억만 한다.
  * 목록에 반영된 표시는 비교에 한 번 쓰고 뺀다.
  * 받아 둔 목록이 표시보다 오래돼 아직 반영되지 않은 표시는 남겨 다음 응답에서 쓴다.
  * 처음 본 목록은 앞 목록이 없어 기억만 한다.
@@ -144,7 +145,9 @@ export function observeMyGroups(
         : groups
             .filter(
               (group) =>
-                !previous.includes(group.groupId) && pendingSide.get(group.groupId) !== "in",
+                group.visibility === "PUBLIC" &&
+                !previous.includes(group.groupId) &&
+                pendingSide.get(group.groupId) !== "in",
             )
             .map((group) => ({ groupId: group.groupId, visibility: group.visibility }));
     const kicked =
