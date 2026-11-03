@@ -759,7 +759,8 @@ export function LiveRoomSession({
   const dialogOpen = cameraDialogOpen || exitDialogOpen;
   const controlsLocked = phase.name !== "studying";
   // 모달 메뉴가 열린 동안 바와 위쪽 버튼이 누름을 받으면 메뉴 뒤에서 눌리고 바깥 누름으로 메뉴가 닫히지 않는다.
-  // 신고 화면이 덮은 동안에도 앱 유리 버튼이 그 위에 남지 않게 함께 막는다.
+  // 신고 화면이 열린 동안에도 조작이 숨지 않고 눌리지 않게 함께 막는다.
+  // 앱 유리 버튼은 신고 화면의 aria-modal을 보고 숨는다.
   const controlsInactive = moreMenuOpen || menuUserId !== null || reportTarget !== null;
 
   // 잠금(제출 중·에러)·다이얼로그 동안은 컨트롤을 강제로 보인다.
