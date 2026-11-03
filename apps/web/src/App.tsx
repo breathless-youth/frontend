@@ -33,8 +33,8 @@ import { HomePage } from "@/routes/HomePage";
 import { HomeTabPage } from "@/routes/HomeTabPage";
 import { OnboardingPage } from "@/routes/OnboardingPage";
 import { DownloadPage } from "@/routes/DownloadPage";
-import { InviteCodeJoinPage } from "@/routes/InviteCodeJoinPage";
 import { InviteCodeSharePage } from "@/routes/InviteCodeSharePage";
+import { InviteJoinRoute } from "@/routes/InviteJoinRoute";
 import {
   loadAppLockSettingsPage,
   loadApplyPage,
@@ -349,7 +349,7 @@ export function App() {
                 <Route path="/perf/worker-parity" element={<WorkerParityPage />} />
               )}
               <Route path="/social/code" element={<InviteCodeSharePage />} />
-              <Route path="/social/join" element={<InviteCodeJoinPage />} />
+              <Route path="/social/join" element={<InviteJoinRoute />} />
               {/* 공유 본문의 설치 링크. 받는 사람이 새 문서로 바로 여는 화면이라 지연 로딩하지 않는다. */}
               <Route path="/download" element={<DownloadPage />} />
               <Route path="/social/room/:roomId" element={<LiveRoomPage />} />

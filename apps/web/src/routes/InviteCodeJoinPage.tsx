@@ -4,10 +4,15 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { Button } from "@/components/ui/button";
+import {
+  INVITE_CODE_CELL_CLASS,
+  INVITE_CODE_ROW_CLASS,
+} from "@/features/group-room/inviteCodeCell";
 import { openInApp, shouldAutoOpenInApp } from "@/features/social-room/appHandoff";
 import { CODE_CELL_CLASS } from "@/features/social-room/codeCell";
 import { InviteCodeInput } from "@/features/social-room/InviteCodeInput";
 import { isCompleteInviteCode, sanitizeInviteCode } from "@/features/social-room/inviteCode";
+import { parseInviteParam } from "@/features/social-room/inviteParam";
 import { joinErrorMessage, joinErrorReason } from "@/features/social-room/joinErrorCopy";
 import { detectStorePlatform } from "@/features/social-room/storeLink";
 import {
@@ -25,6 +30,12 @@ const ERROR_ID = "invite-code-error";
 
 // 들어온 버튼 이름과 같게 하고 앱 밖 안내 화면에도 같은 제목을 쓴다.
 const SCREEN_TITLE = "초대코드로 참여";
+
+// 그룹의 6자리 코드는 4자리 칸으로 그리면 폰 폭을 넘어서 6자리 입력 화면과 같은 칸으로 그린다.
+const LINK_CODE_CELLS = {
+  room: { row: "flex justify-center gap-2.5", cell: CODE_CELL_CLASS },
+  group: { row: INVITE_CODE_ROW_CLASS, cell: INVITE_CODE_CELL_CLASS },
+} as const;
 
 /**
  * 초대코드 입력
@@ -51,8 +62,10 @@ export function InviteCodeJoinPage() {
   const storePlatform = isNativeBridgeAvailable()
     ? null
     : detectStorePlatform(navigator.userAgent, navigator.maxTouchPoints);
-  // 앱으로 넘길 코드. 4자리가 아니면 코드 없는 링크와 같게 다룬다.
-  const handoffCode = isCompleteInviteCode(code) ? code : "";
+  // 앱으로 넘길 링크의 코드이고 예전 방의 4자리와 그룹의 6자리를 모두 넘긴다.
+  // 어느 코드도 아니면 코드 없는 링크와 같게 다룬다.
+  const linkInvite = parseInviteParam(searchParams.get("code"));
+  const handoffCode = linkInvite?.code ?? "";
 
   // 인앱 브라우저는 유니버설 링크가 발동하지 않아 앱으로 못 넘어간다.
   // 코드가 실린 링크로 들어왔고 앱 밖 모바일이면, 첫 로드에 한 번 스킴으로 앱 열기를 시도한다.
@@ -117,17 +130,21 @@ export function InviteCodeJoinPage() {
 
         <div className="flex grow flex-col items-center justify-center gap-2 px-5">
           <h2 className="text-lg font-bold text-foreground">그룹 스터디에 초대받았어요</h2>
-          {handoffCode !== "" && (
+          {linkInvite !== null && (
             <>
               <div className="size-2" aria-hidden="true" />
               <div
                 role="group"
-                aria-label={`초대코드 ${handoffCode}`}
-                className="flex justify-center gap-2.5"
+                aria-label={`초대코드 ${linkInvite.code}`}
+                className={LINK_CODE_CELLS[linkInvite.kind].row}
               >
-                {handoffCode.split("").map((digit, index) => (
-                  <div key={index} aria-hidden="true" className={CODE_CELL_CLASS}>
-                    {digit}
+                {linkInvite.code.split("").map((character, index) => (
+                  <div
+                    key={index}
+                    aria-hidden="true"
+                    className={LINK_CODE_CELLS[linkInvite.kind].cell}
+                  >
+                    {character}
                   </div>
                 ))}
               </div>
