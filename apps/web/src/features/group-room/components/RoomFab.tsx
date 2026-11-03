@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
-import { CREATE_ROOM_LIMIT_COPY } from "../model/limits";
+import { createRoomLimitCopy } from "../model/limits";
 
 // 채운 파란 버튼 바로 바깥의 파란 링은 묻히므로 바탕색 틈을 두고 두른다.
 const FAB_CLASS =
@@ -161,7 +161,7 @@ export function RoomFab({
                   {t("roomFab.create")}
                   {!canCreate && (
                     <span id={reasonId} className="text-xs leading-4 font-medium text-state-pause">
-                      {CREATE_ROOM_LIMIT_COPY}
+                      {createRoomLimitCopy()}
                     </span>
                   )}
                 </span>

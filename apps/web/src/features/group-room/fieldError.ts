@@ -1,7 +1,7 @@
 import { canSegmentGraphemes } from "@/lib/graphemes";
 import i18n from "@/lib/i18n";
 
-import { CONTACT_BLOCKED_COPY, containsContactOrLink } from "./model/contactCheck";
+import { contactBlockedCopy, containsContactOrLink } from "./model/contactCheck";
 import { countGroupText } from "./model/limits";
 
 /**
@@ -32,5 +32,5 @@ export function groupFieldError(
   if (serverError) {
     return serverError;
   }
-  return checkContact && containsContactOrLink(text) ? CONTACT_BLOCKED_COPY : null;
+  return checkContact && containsContactOrLink(text) ? contactBlockedCopy() : null;
 }

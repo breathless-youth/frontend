@@ -1,5 +1,9 @@
+import i18n from "@/lib/i18n";
+
 /** 연락처나 링크가 든 글을 쓰거나 서버가 막았을 때 입력칸 아래에 보이는 문장. */
-export const CONTACT_BLOCKED_COPY = "연락처나 링크는 보낼 수 없어요";
+export function contactBlockedCopy(): string {
+  return i18n.t("group-room:contactCheck.blocked");
+}
 
 /** 명세의 `.com`, `.kr` 꼴을 흔한 단축 주소 끝말까지 넓힌 목록. */
 const DOMAIN_ENDINGS = [
@@ -29,20 +33,21 @@ const DOMAIN_ENDINGS = [
  * `dm`은 `admission` 안에, `텔레`와 `디코`는 `텔레비전`과 `디코딩` 안에 들어 있다.
  * 앞 글자는 lookbehind 대신 그 글자까지 함께 맞춰 본다.
  * Safari 16.4 미만은 lookbehind를 몰라 쓰면 이 모듈을 불러오는 순간 오류가 난다.
+ * 화면 언어와 상관없이 사용자가 쓴 한국어 글에서 찾는 말이라 카탈로그로 바꾸지 않는다.
  */
 const CONTACT_WORDS = [
-  "카톡",
-  "오픈채팅",
-  "인스타",
-  "텔레그램",
-  "디엠",
-  "카카오톡",
-  "오픈톡",
-  "인스타그램",
-  "디스코드",
+  "카톡", // eslint-disable-line no-restricted-syntax -- 연락처 판정용 낱말
+  "오픈채팅", // eslint-disable-line no-restricted-syntax -- 연락처 판정용 낱말
+  "인스타", // eslint-disable-line no-restricted-syntax -- 연락처 판정용 낱말
+  "텔레그램", // eslint-disable-line no-restricted-syntax -- 연락처 판정용 낱말
+  "디엠", // eslint-disable-line no-restricted-syntax -- 연락처 판정용 낱말
+  "카카오톡", // eslint-disable-line no-restricted-syntax -- 연락처 판정용 낱말
+  "오픈톡", // eslint-disable-line no-restricted-syntax -- 연락처 판정용 낱말
+  "인스타그램", // eslint-disable-line no-restricted-syntax -- 연락처 판정용 낱말
+  "디스코드", // eslint-disable-line no-restricted-syntax -- 연락처 판정용 낱말
   "(?:^|[^a-z])dm",
-  "텔레(?!\\p{Script=Hangul})",
-  "디코(?!\\p{Script=Hangul})",
+  "텔레(?!\\p{Script=Hangul})", // eslint-disable-line no-restricted-syntax -- 연락처 판정용 낱말
+  "디코(?!\\p{Script=Hangul})", // eslint-disable-line no-restricted-syntax -- 연락처 판정용 낱말
 ];
 
 const CONTACT_PATTERNS: readonly RegExp[] = [

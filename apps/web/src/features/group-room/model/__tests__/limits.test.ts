@@ -4,7 +4,7 @@ import {
   applyBlockCopy,
   canCreateRoom,
   countGroupText,
-  CREATE_ROOM_LIMIT_COPY,
+  createRoomLimitCopy,
   isRoomFull,
   joinBlockCopy,
   memberCountText,
@@ -36,7 +36,7 @@ describe("canCreateRoom", () => {
     expect(canCreateRoom(0)).toBe(true);
     expect(canCreateRoom(1)).toBe(true);
     expect(canCreateRoom(2)).toBe(false);
-    expect(CREATE_ROOM_LIMIT_COPY).toBe("그룹은 2개까지 만들 수 있어요");
+    expect(createRoomLimitCopy()).toBe("그룹은 2개까지 만들 수 있어요");
   });
 });
 

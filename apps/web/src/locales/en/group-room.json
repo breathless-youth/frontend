@@ -1,4 +1,85 @@
 {
+  "contactCheck": {
+    "blocked": "You can't include contact info or links"
+  },
+  "limits": {
+    "applyBlock": {
+      "kickedRecently_one": "You can't request to join this group for {{count}} day",
+      "kickedRecently_other": "You can't request to join this group for {{count}} days",
+      "roomsAndApplicationsFull": "You've reached the group limit",
+      "pendingApplicationsFull": "You can send up to 3 requests"
+    },
+    "joinBlock": {
+      "roomFull": "This group is full",
+      "kickedRecently_one": "You were removed from this group and can't rejoin for {{count}} day",
+      "kickedRecently_other": "You were removed from this group and can't rejoin for {{count}} days",
+      "roomsAndApplicationsFull": "You already have 5 groups",
+      "invalidCode": "Check the invite code and try again"
+    },
+    "createRoomLimit": "You can create up to 2 groups",
+    "memberCount": "{{count}}/{{max}} members"
+  },
+  "roomMenu": {
+    "item": {
+      "requests": "Join requests",
+      "invite": "Invite",
+      "manageMembers": "Manage members",
+      "viewMembers": "View members",
+      "settings": "Group settings",
+      "leave": "Leave group",
+      "leaveNote": "You can leave after transferring ownership"
+    },
+    "mustTransfer": {
+      "title": "You need to transfer ownership to leave",
+      "description": "Transfer ownership in Manage members first",
+      "confirm": "Manage members"
+    },
+    "confirmLeave": {
+      "title": "Leave this group?",
+      "soleOwner": "If you leave, this group will be deleted",
+      "publicMember": "To rejoin, you'll need to send a new request",
+      "privateMember": "To rejoin, you'll need a new invite",
+      "confirm": "Leave"
+    },
+    "transferOwner": {
+      "title": "Transfer ownership to {{nickname}}?",
+      "description": "You'll no longer be the group owner",
+      "confirm": "Transfer"
+    },
+    "kickMember": {
+      "title": "Remove {{nickname}}?",
+      "description_one": "{{nickname}} can't rejoin for {{count}} day",
+      "description_other": "{{nickname}} can't rejoin for {{count}} days",
+      "confirm": "Remove"
+    },
+    "inviteCodeRenewed": "Invite code changed"
+  },
+  "timeText": {
+    "lastStudied": {
+      "withinHour": "Today",
+      "hoursAgo_one": "{{count}} hour ago",
+      "hoursAgo_other": "{{count}} hours ago",
+      "yesterday": "Yesterday",
+      "daysAgo_one": "{{count}} day ago",
+      "daysAgo_other": "{{count}} days ago"
+    },
+    "appliedAt": {
+      "withinHour": "Requested just now",
+      "hoursAgo_one": "Requested {{count}} hour ago",
+      "hoursAgo_other": "Requested {{count}} hours ago",
+      "yesterday": "Requested yesterday",
+      "daysAgo_one": "Requested {{count}} day ago",
+      "daysAgo_other": "Requested {{count}} days ago"
+    },
+    "remaining": {
+      "days": "{{count}}d",
+      "daysHours": "{{days}}d {{hours}}h"
+    }
+  },
+  "desks": {
+    "studyingCount": "{{count}} studying",
+    "nobodyStudying": "No one's here right now"
+  },
   "categoryChips": {
     "aria": {
       "group": "Studying for"

@@ -1,3 +1,5 @@
+import i18n from "@/lib/i18n";
+
 import { GROUP_ROOM_LIMITS } from "./limits";
 
 /**
@@ -84,7 +86,9 @@ export function studyingCount(members: readonly DeskMember[]): number {
  * 공개 그룹 카드는 멤버 목록 없이 수만 받으므로 문장을 수에서 만든다.
  */
 export function studyingCountText(count: number): string {
-  return count > 0 ? `${count}명 공부 중` : "지금은 아무도 없어요";
+  return count > 0
+    ? i18n.t("group-room:desks.studyingCount", { count })
+    : i18n.t("group-room:desks.nobodyStudying");
 }
 
 export function roomStatusText(members: readonly DeskMember[]): string {

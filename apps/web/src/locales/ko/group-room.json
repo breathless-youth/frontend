@@ -1,4 +1,78 @@
 {
+  "contactCheck": {
+    "blocked": "연락처나 링크는 보낼 수 없어요"
+  },
+  "limits": {
+    "applyBlock": {
+      "kickedRecently": "{{count}}일 동안 이 그룹에 신청할 수 없어요",
+      "roomsAndApplicationsFull": "그룹 개수가 가득 찼어요",
+      "pendingApplicationsFull": "신청은 3곳까지 보낼 수 있어요"
+    },
+    "joinBlock": {
+      "roomFull": "자리가 다 찼어요",
+      "kickedRecently": "내보내진 그룹에는 {{count}}일 동안 다시 들어갈 수 없어요",
+      "roomsAndApplicationsFull": "이미 5개의 그룹을 가지고 있어요",
+      "invalidCode": "초대코드를 다시 확인해 주세요"
+    },
+    "createRoomLimit": "그룹은 2개까지 만들 수 있어요",
+    "memberCount": "멤버 {{count}}/{{max}}"
+  },
+  "roomMenu": {
+    "item": {
+      "requests": "신청 확인",
+      "invite": "초대하기",
+      "manageMembers": "멤버 관리",
+      "viewMembers": "멤버 보기",
+      "settings": "그룹 설정",
+      "leave": "그룹 나가기",
+      "leaveNote": "그룹장을 넘긴 뒤에 나갈 수 있어요"
+    },
+    "mustTransfer": {
+      "title": "그룹장을 넘겨야 나갈 수 있어요",
+      "description": "멤버 관리에서 그룹장을 먼저 넘겨 주세요",
+      "confirm": "멤버 관리"
+    },
+    "confirmLeave": {
+      "title": "이 그룹에서 나갈까요?",
+      "soleOwner": "그룹에서 나가게 된다면 이 그룹이 사라져요",
+      "publicMember": "그룹에 다시 들어오려면 새로 신청해야 해요",
+      "privateMember": "그룹에 다시 들어오려면 다시 초대받아야 해요",
+      "confirm": "나가기"
+    },
+    "transferOwner": {
+      "title": "{{nickname}}님에게 그룹장을 넘길까요?",
+      "description": "더 이상 그룹장 역할을 할 수 없어요",
+      "confirm": "넘기기"
+    },
+    "kickMember": {
+      "title": "{{nickname}}님을 내보낼까요?",
+      "description": "{{nickname}}님은 {{count}}일 동안 다시 들어올 수 없어요",
+      "confirm": "내보내기"
+    },
+    "inviteCodeRenewed": "초대코드가 새로 바뀌었어요"
+  },
+  "timeText": {
+    "lastStudied": {
+      "withinHour": "오늘",
+      "hoursAgo": "{{count}}시간 전",
+      "yesterday": "어제",
+      "daysAgo": "{{count}}일 전"
+    },
+    "appliedAt": {
+      "withinHour": "방금 신청",
+      "hoursAgo": "{{count}}시간 전 신청",
+      "yesterday": "어제 신청",
+      "daysAgo": "{{count}}일 전 신청"
+    },
+    "remaining": {
+      "days": "{{count}}일",
+      "daysHours": "{{days}}일 {{hours}}시간"
+    }
+  },
+  "desks": {
+    "studyingCount": "{{count}}명 공부 중",
+    "nobodyStudying": "지금은 아무도 없어요"
+  },
   "categoryChips": {
     "aria": {
       "group": "시험·목표"
