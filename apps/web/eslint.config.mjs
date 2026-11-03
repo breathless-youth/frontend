@@ -17,6 +17,9 @@ const I18N_EXEMPT = [
   "src/features/live-room/components/RoomDebugOverlay.tsx",
   "src/lib/rankingFixtures.ts",
   "src/lib/rankingMock.ts",
+  // 그룹 화면 모음(/dev/group-rooms)과 그 고정 데이터는 개발 빌드에서만 열려 사용자가 보지 않는다.
+  "src/routes/DevGroupRoomsPage.tsx",
+  "src/features/group-room/fixtures.ts",
 ];
 const HANGUL_MESSAGE = "사용자 문구는 src/locales/ 카탈로그에 두고 t()로 읽는다";
 
