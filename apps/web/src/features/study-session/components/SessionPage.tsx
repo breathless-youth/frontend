@@ -1,5 +1,6 @@
 import { ChevronLeft } from "lucide-react";
 import { createContext, use, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { CtaToaster } from "@/components/ui/sonner";
@@ -44,6 +45,7 @@ export function SessionPage({
   landscape,
   children,
 }: SessionPageProps) {
+  const { t } = useTranslation("common");
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -70,7 +72,7 @@ export function SessionPage({
         )}
       >
         <div className="flex h-[calc(52px+env(safe-area-inset-top))] shrink-0 items-center px-1 pt-[env(safe-area-inset-top)]">
-          <SessionPageBackButton label="뒤로 가기" />
+          <SessionPageBackButton label={t("actions.back")} />
           <SheetTitle className="truncate text-[17px] leading-5.25 font-bold tracking-normal text-(--session-dialog-title)">
             {title}
           </SheetTitle>

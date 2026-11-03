@@ -162,7 +162,7 @@ export function createWorkerMessageHandler(
     try {
       const entry = models.get(message.handleId);
       if (entry === undefined) {
-        throw new Error("검출기가 없다");
+        throw new Error("no detector");
       }
       if (entry.kind === "object") {
         deps.post({

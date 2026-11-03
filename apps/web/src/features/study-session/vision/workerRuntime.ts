@@ -180,7 +180,7 @@ export function createWorkerRuntime(deps: WorkerRuntimeDeps = {}): MediapipeVisi
       // 구형 엔진이라 모듈을 못 불러왔거나 워커 안에서 잡히지 않은 오류가 났다.
       // 취소하지 않으면 같은 오류가 페이지 전역으로 다시 보고돼 Sentry에 올라가므로, 이유는 `deadReason`과 reject로만 남긴다.
       event.preventDefault();
-      kill(slot, `워커 오류: ${event.message || "스크립트를 불러오지 못했다"}`);
+      kill(slot, `worker error: ${event.message || "failed to load the script"}`);
     };
     return slot;
   }
@@ -194,7 +194,7 @@ export function createWorkerRuntime(deps: WorkerRuntimeDeps = {}): MediapipeVisi
   function release(slot: WorkerSlot): void {
     slot.refs -= 1;
     if (slot.refs === 0) {
-      kill(slot, "워커가 닫혔다");
+      kill(slot, "worker closed");
     }
   }
 
@@ -215,13 +215,13 @@ export function createWorkerRuntime(deps: WorkerRuntimeDeps = {}): MediapipeVisi
         slot.pending.set(handleId, {
           kind: "create",
           resolve,
-          reject: (error) => reject(new Error(`워커 검출기 생성 실패: ${error.message}`)),
+          reject: (error) => reject(new Error(`worker detector creation failed: ${error.message}`)),
         });
         try {
           slot.worker.postMessage(send(handleId), []);
         } catch (error: unknown) {
           slot.pending.delete(handleId);
-          reject(new Error(`워커 검출기 생성 요청 실패: ${reasonOf(error)}`));
+          reject(new Error(`worker detector creation request failed: ${reasonOf(error)}`));
         }
       });
     } catch (error: unknown) {
@@ -288,7 +288,7 @@ export function createWorkerRuntime(deps: WorkerRuntimeDeps = {}): MediapipeVisi
           throw new Error(reason);
         }
         if (inFlight) {
-          throw new Error("이전 추론이 끝나지 않았다");
+          throw new Error("previous inference has not finished");
         }
         // 첫 await 전에 자리를 잡아야 겹친 호출이 뜨기 도중에 끼어들지 못한다.
         inFlight = true;
@@ -305,7 +305,7 @@ export function createWorkerRuntime(deps: WorkerRuntimeDeps = {}): MediapipeVisi
               accept(message) {
                 const result = pick(message);
                 if (result === undefined) {
-                  reject(new Error("다른 모델의 답이 왔다"));
+                  reject(new Error("reply came from a different model"));
                   return;
                 }
                 resolve(result);
@@ -332,7 +332,7 @@ export function createWorkerRuntime(deps: WorkerRuntimeDeps = {}): MediapipeVisi
         if (closedReason !== null) {
           return;
         }
-        closedReason = "워커가 닫혔다";
+        closedReason = "worker closed";
         if (slot.deadReason === null) {
           try {
             slot.worker.postMessage({ type: "close", handleId }, []);
@@ -412,7 +412,7 @@ function withFrameFallback<Handle extends { readonly runtime: VisionRuntimeKind;
   function assertOpen(): void {
     if (closed) {
       // 닫힌 뒤 도착한 추론이 닫힌 MediaPipe 모델을 부르지 않게 한다.
-      throw new Error("검출기가 닫혔다");
+      throw new Error("detector closed");
     }
   }
 
@@ -432,7 +432,10 @@ function withFrameFallback<Handle extends { readonly runtime: VisionRuntimeKind;
           if (!(error instanceof FrameCaptureError) || closed) {
             throw error;
           }
-          console.warn("[vision] 프레임을 워커로 넘기지 못해 메인 스레드로 갈아탄다", error);
+          console.warn(
+            "[vision] could not hand the frame to the worker, switching to the main thread",
+            error,
+          );
           current.close();
           switched = openFallback().then((opened) => {
             if (closed) {
@@ -473,7 +476,7 @@ export function createFallbackRuntime(
     try {
       return await openOn(primary);
     } catch (error: unknown) {
-      console.warn("[vision] 워커 모델을 만들지 못해 메인 스레드에서 돌린다", error);
+      console.warn("[vision] could not create the worker model, running on the main thread", error);
       return await openOn(await loadFallback());
     }
   }

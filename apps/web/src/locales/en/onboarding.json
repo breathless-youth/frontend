@@ -44,7 +44,7 @@
   },
   "pills": {
     "away": "Looks like you're away",
-    "device": "Looks like the device moved",
+    "device": "Looks like you're moving your device",
     "phone": "Looks like you're on your phone",
     "drowsy": "Looks like you're dozing off"
   },

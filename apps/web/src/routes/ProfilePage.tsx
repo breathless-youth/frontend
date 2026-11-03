@@ -163,7 +163,7 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
         setError("nickname", { message: nicknameRuleMessage() });
         return;
       }
-      setError("root", { message: t("errors.retryLater") });
+      setError("root", { message: t("errors.retryLater", { ns: "common" }) });
     },
   });
 

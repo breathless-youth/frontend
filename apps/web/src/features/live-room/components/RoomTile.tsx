@@ -1,4 +1,5 @@
 import type { ReactNode, Ref } from "react";
+import { useTranslation } from "react-i18next";
 
 import type { RoomMember } from "@focusmakers/types";
 
@@ -15,11 +16,11 @@ import { RoomAvatarFallback } from "./RoomAvatarFallback";
 
 type TileBadgeState = "FOCUS" | "DISTRACTED" | "OFF";
 
-const TILE_BADGE_SPEC: Record<TileBadgeState, { label: string; border: string }> = {
-  FOCUS: { label: "집중 중", border: "border-(--state-focus)" },
-  DISTRACTED: { label: "휴식", border: "border-(--state-distract)" },
-  OFF: { label: "카메라 꺼짐", border: "border-(--text-tertiary)" },
-};
+const TILE_BADGE_SPEC = {
+  FOCUS: { labelKey: "tile.focus", border: "border-(--state-focus)" },
+  DISTRACTED: { labelKey: "tile.distracted", border: "border-(--state-distract)" },
+  OFF: { labelKey: "tile.off", border: "border-(--text-tertiary)" },
+} as const satisfies Record<TileBadgeState, { labelKey: string; border: string }>;
 
 /**
  * 상대 타일 순공 시간 뱃지
@@ -36,6 +37,7 @@ function TileTimeBadge({
   focusSec: number | undefined;
   className?: string;
 }) {
+  const { t } = useTranslation("live-room");
   const spec = TILE_BADGE_SPEC[state];
   return (
     <div
@@ -50,7 +52,7 @@ function TileTimeBadge({
       <span className="text-[13px] leading-4 font-bold text-white tabular-nums regular:text-base regular:leading-5 short-side-lg:text-xl short-side-lg:leading-6.25">
         {focusSec === undefined ? "--:--" : formatStudyHhMm(focusSec)}
       </span>
-      <span className="sr-only"> {spec.label}</span>
+      <span className="sr-only"> {t(spec.labelKey)}</span>
     </div>
   );
 }

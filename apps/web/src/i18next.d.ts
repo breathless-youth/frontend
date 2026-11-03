@@ -16,6 +16,10 @@ import type ambientSound from "./locales/ko/ambient-sound.json";
 import type forceUpdate from "./locales/ko/force-update.json";
 import type measurementFeedback from "./locales/ko/measurement-feedback.json";
 import type onboarding from "./locales/ko/onboarding.json";
+import type home from "./locales/ko/home.json";
+import type liveRoom from "./locales/ko/live-room.json";
+import type socialRoom from "./locales/ko/social-room.json";
+import type studySession from "./locales/ko/study-session.json";
 
 /**
  * 카탈로그 키 타입
@@ -43,6 +47,10 @@ declare module "i18next" {
       "force-update": typeof forceUpdate;
       "measurement-feedback": typeof measurementFeedback;
       onboarding: typeof onboarding;
+      home: typeof home;
+      "live-room": typeof liveRoom;
+      "social-room": typeof socialRoom;
+      "study-session": typeof studySession;
     };
   }
 }

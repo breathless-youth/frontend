@@ -29,7 +29,7 @@ export async function createRoom(): Promise<RoomCreateResponse> {
         },
   );
   if (!res.ok) {
-    throw await parseApiError(res, "방 생성 실패");
+    throw await parseApiError(res, "room create failed");
   }
   return (await res.json()) as RoomCreateResponse;
 }
@@ -46,7 +46,7 @@ async function postJoin(inviteCode: string): Promise<RoomJoinResponse> {
     body: JSON.stringify(request),
   });
   if (!res.ok) {
-    throw await parseApiError(res, "참여 실패");
+    throw await parseApiError(res, "room join failed");
   }
   return (await res.json()) as RoomJoinResponse;
 }
@@ -80,6 +80,6 @@ export async function leaveRoom(roomId: number): Promise<void> {
     method: "POST",
   });
   if (!res.ok) {
-    throw await parseApiError(res, "퇴장 실패");
+    throw await parseApiError(res, "room leave failed");
   }
 }

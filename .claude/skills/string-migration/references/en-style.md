@@ -17,7 +17,7 @@
 - 실패: `Couldn't load …`, `Couldn't copy`. `Failed to`, `Error:`로 시작하지 않는다.
 - 다시 시도 권유: `Please try again in a moment`. 짧은 자리(토스트)는 `Try again`.
 - 완료 토스트: 주어 없는 과거분사(`Profile saved`, `Version copied`, `Profile photo updated`). 사용자가 한 일을 시스템이 해 준 경우는 동사 과거형(`Blocked 3 distracting apps`).
-- 자동 감지 상태(추정형 "~한 것 같아요"): `Looks like you're …`로 통일한다(`Looks like you're away`, `Looks like you're on your phone`, `Looks like the device moved`, `Looks like you're dozing off`).
+- 자동 감지 상태(추정형 "~한 것 같아요"): `Looks like you're …`로 통일한다(`Looks like you're away`, `Looks like you're on your phone`, `Looks like you're moving your device`, `Looks like you're dozing off`).
 - 툴팁 버튼 접근성 라벨: `About {{label}}`(ko `{{label}} 안내`).
 - 설정 행 상태 값: `On` / `Off`.
 - 업데이트 강제: `Update required` + `Update now`.
@@ -43,6 +43,25 @@
 - 남은 시간·마감은 `Ends in 3 days`, `Ends in 2h 30m`, `Ends at midnight`다.
 - 순위 변동 낭독은 `Up 2 spots` / `Down 1 spot`이다.
 - 큰 숫자 옆 작은 단위(`12` + `일`)는 en 값 앞에 공백을 둔다(`" days"`). 코드가 숫자와 단위를 붙여 그린다.
+
+## 개인정보 문구 (묶음 C2에서 정함)
+
+- 싱글룸 영상 안내와 소셜룸 영상 안내를 같은 영어로 쓰지 않는다. 소셜룸 영상은 같은 방 참여자에게 P2P로 전송된다.
+- 소셜룸 카메라 안내는 "누가 보는지"와 "녹화·저장 안 함"만 말한다(`Only people in this room can see your video. It isn't recorded or saved.`). `never leaves your device`, `isn't sent to any server`는 소셜룸에 쓰지 않는다.
+- 두 방이 같이 쓰는 화면은 AI 분석 범위로 한정한다(`Video used for AI analysis is processed only on your device`).
+- 싱글룸 카메라 안내는 `Your camera video stays on your device`다(묶음 C1). 현재형으로 쓰고 `never`·`any server` 같은 강조는 붙이지 않는다. 사용자가 직접 공유하는 타임랩스 영상까지 부정하는 말로 읽히지 않게 한다.
+
+## 세션 화면 (묶음 C1에서 정함)
+
+- 세션 제출 오류는 `Couldn't save your session`으로 시작하고, 다시 시도하면 풀릴 수 있는 오류는 뒤에 `Please try again in a moment`를 붙인다. 이미 저장된 세션(`This session is already saved`)과 계정 확인 실패(`Couldn't verify your account`)는 이 틀을 따르지 않는다. 서버 `message`를 옮기지 않는다.
+- 도움말의 `<hl>` 태그는 ko와 개수·이름을 같게 둔다. `whitespace-pre` 자리는 고정 줄바꿈 한 줄을 25자 안팎으로 둔다.
+- 스크린리더용 시간 길이(`duration.sr*`)는 단위를 풀어 쓴다(`1 hour 24 minutes 8 seconds`). 화면 표기 `1h 24m`의 `m`을 미터로 읽지 않게 하려는 것이다.
+- 1분 미만 화면 표기는 `Under 1 min`이다.
+- 토글 버튼(`aria-pressed`)의 접근성 라벨은 동작이 아니라 상태 이름으로 쓴다(`Simple Mode`, `Switch to …` 아님).
+
+## 외부로 나가는 문구 (묶음 C2에서 정함)
+
+- 초대 공유 본문(`social-room:inviteMessage.*`)은 보내는 사람이 문자·메신저로 보내는 말이다. 1인칭 권유형(`Come study with me on FocusMakers!`)으로 쓴다. 느낌표는 ko 원문을 따라 여기서만 허용한다.
 
 ## 용어 표
 
@@ -123,3 +142,29 @@
 | 이름 변경 / 삭제 (행 메뉴) | Rename / Delete | |
 | 과목 이름 / 할 일 이름 | Subject name / Task name | 플래너 입력칸 |
 | 기기 등록 전 안내 | This device isn't registered yet. Open the app to save your records | 기록·플래너·수동 기록·랭킹 공통 |
+| 소셜 (탭·화면 제목) | Social | `Back to Social` |
+| 그룹 스터디 | Social Room / study together | 기능을 가리키면 `Social Room`, 문장에서는 `study together`. `group study`는 쓰지 않는다 |
+| 초대코드 | invite code | 라벨은 `Invite code` |
+| 방 만들기 / 입장하기 / 참여하기 | Create room / Enter room / Join | |
+| 나가기 (라이브룸) | Leave | |
+| 공부를 종료할까요? / 계속하기 / 공부 종료 | End your session? / Keep going / End session | 싱글룸(study-session)과 같게 맞춘다 |
+| 1분 미만 공부 안내 | Sessions under 1 minute don't appear in your records | |
+| 카메라 켜기 / 끄기 | Turn on camera / Turn off camera | 확인 창 제목은 `Turn on your camera?` |
+| 얼굴 가리기 (소셜룸) | Hide face | 타임랩스와 같다 |
+| 집중 중 / 휴식 / 카메라 꺼짐 (타일 상태) | Focusing / On a break / Camera off | |
+| 목표 날짜 (D-Day) | target date | `Set target date` |
+| 빠른 이동 (D-Day 달력) | +1 month / +6 months / +1 year | 13px 알약 세 개 |
+| 나 (내 타일) | Me | |
+| 심플 모드 | Simple Mode | 기능 이름이라 문장 안에서도 대문자. 토글 라벨 `Simple Mode`, 시작 버튼 `Start in Simple Mode` |
+| 도움말 (세션) | guide | `Session guide`, 메뉴 `View guide`. help와 섞지 않는다 |
+| 더보기 | More | 메뉴 버튼·도움말 `the More menu` |
+| 카메라 전환 | Switch camera | 토스트 `Camera switched` |
+| 일시정지 / 다시 시작 (버튼) | Pause / Resume | 상태 필 `Measuring paused` |
+| 자동 멈춤 (범례) | Auto-paused | 범례 `Focus` / `Auto-paused` / `Paused` |
+| 공부 타임라인 | Study timeline | |
+| 오늘 누적 순공시간 | Focus time today | |
+| 누적 공부 일 수 | Days studied | 값 `{{count}} day(s)` |
+| 오늘 공부 완료 | Session complete | 결과 히어로 |
+| 과목 추가 / 할 일 추가 | Add subject / Add task | |
+| 추천 과목 | Suggested subjects | 플래너와 같다. 칩은 카탈로그가 아니라 `subjectSuggestions()`의 언어별 목록이다(en `Math` / `English` / `Science` / `History`) |
+| 저장되지 않은 기록 복구 | Unsaved session recovered | 복구 창 제목 |

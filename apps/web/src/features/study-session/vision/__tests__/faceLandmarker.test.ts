@@ -359,7 +359,7 @@ describe("createFaceLandmarker — 추론 실패", () => {
 
     const detecting = landmarker.detect(video, 0);
     landmarker.close();
-    failLate(new Error("워커가 닫혔다"));
+    failLate(new Error("worker closed"));
 
     await expect(detecting).resolves.toBeNull();
     // 실패로 셌다면 연속 실패 경고가 남는다.

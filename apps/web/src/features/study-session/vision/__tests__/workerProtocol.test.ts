@@ -157,7 +157,7 @@ describe("createWorkerMessageHandler", () => {
 
     await handle({ type: "detect", id: 5, handleId: 1, frame, timestampMs: 0 });
 
-    expect(posted).toEqual([{ type: "detectFailed", id: 5, reason: "검출기가 없다" }]);
+    expect(posted).toEqual([{ type: "detectFailed", id: 5, reason: "no detector" }]);
     expect(frame.close).toHaveBeenCalledTimes(1);
   });
 
@@ -205,7 +205,7 @@ describe("createWorkerMessageHandler", () => {
     expect(landmarker.close).toHaveBeenCalledTimes(1);
     expect(detector.close).not.toHaveBeenCalled();
     expect(posted.slice(-2)).toEqual([
-      { type: "detectFailed", id: 3, reason: "검출기가 없다" },
+      { type: "detectFailed", id: 3, reason: "no detector" },
       { type: "result", id: 4, model: "object", result: { detections: [] } },
     ]);
   });

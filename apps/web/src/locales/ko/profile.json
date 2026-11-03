@@ -15,8 +15,7 @@
     "nicknameTaken": "이미 사용 중인 닉네임이에요",
     "nicknameRule": "한글, 영문, 숫자, 이모지, 띄어쓰기로 2~12자를 쓰실 수 있어요",
     "goalTooLong": "목표는 20자까지 쓸 수 있어요",
-    "unknownCategory": "목록에 없는 카테고리예요",
-    "retryLater": "잠시 후 다시 시도해 주세요"
+    "unknownCategory": "목록에 없는 카테고리예요"
   },
   "categories": {
     "PROFESSIONAL": "전문직",

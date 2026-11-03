@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useId, useRef, useState } from "react";
 import type { SubmitEvent } from "react";
+import { useTranslation } from "react-i18next";
 
 import type { DdayRequest, DdayResponse } from "@focusmakers/types";
 
@@ -98,6 +99,7 @@ function DdayForm({
   onConfirmingDeleteChange: (confirming: boolean) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation(["home", "common"]);
   const queryClient = useQueryClient();
   const titleId = useId();
   const titleCountId = useId();
@@ -110,7 +112,9 @@ function DdayForm({
     dday !== null && dday.targetDate >= todayKey ? dday.targetDate : null,
   );
   const [titleFocused, setTitleFocused] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<
+    "ddaySheet.error.pastDate" | "common:errors.retryLater" | null
+  >(null);
 
   const saveMutation = useMutation({
     // react-query가 두 번째 인자로 컨텍스트를 넘기므로 API 함수에 그대로 물리지 않는다
@@ -128,8 +132,8 @@ function DdayForm({
       // 서버 400은 날짜뿐이다 — 제목 길이·공백은 입력에서 이미 막는다.
       setError(
         cause instanceof ApiError && cause.status === 400
-          ? "오늘 이후 날짜를 골라 주세요"
-          : "잠시 후 다시 시도해 주세요",
+          ? "ddaySheet.error.pastDate"
+          : "common:errors.retryLater",
       );
     },
   });
@@ -144,7 +148,7 @@ function DdayForm({
       onClose();
     },
     onError: () => {
-      setError("잠시 후 다시 시도해 주세요");
+      setError("common:errors.retryLater");
     },
   });
 
@@ -177,7 +181,7 @@ function DdayForm({
     >
       <div className="flex items-baseline justify-between">
         <DrawerTitle className="text-[18px] leading-5.25 font-bold text-foreground">
-          목표 날짜 설정
+          {t("ddaySheet.title")}
         </DrawerTitle>
         <span
           data-testid="dday-sheet-days"
@@ -206,7 +210,7 @@ function DdayForm({
                 targetDate === null ? "text-muted-foreground" : "text-foreground",
               )}
             >
-              {targetDate === null ? "날짜를 골라 주세요" : formatKoreanDate(targetDate)}
+              {targetDate === null ? t("ddaySheet.pickDate") : formatKoreanDate(targetDate)}
             </span>
             <IconChevronDown size={9} color="var(--color-muted-foreground)" />
           </span>
@@ -227,7 +231,7 @@ function DdayForm({
 
       <div data-base-ui-swipe-ignore="" className="flex flex-col gap-2">
         <label htmlFor={titleId} className="text-sm leading-4.25 font-bold text-muted-foreground">
-          제목
+          {t("ddaySheet.titleLabel")}
         </label>
         <div
           className={cn(
@@ -254,7 +258,7 @@ function DdayForm({
               }
             }}
             aria-describedby={titleOver ? titleCountId : undefined}
-            placeholder="예: 수능"
+            placeholder={t("ddaySheet.titlePlaceholder")}
             autoComplete="off"
             enterKeyHint="done"
             disabled={busy}
@@ -275,14 +279,14 @@ function DdayForm({
             role="alert"
             className="text-sm leading-4.25 text-state-distract-text"
           >
-            {DDAY_TITLE_MAX_LENGTH}자까지 쓸 수 있어요
+            {t("ddaySheet.titleTooLong", { max: DDAY_TITLE_MAX_LENGTH })}
           </p>
         )}
       </div>
 
       {error !== null && (
         <p role="alert" className="text-sm leading-4.25 text-state-distract-text">
-          {error}
+          {t(error)}
         </p>
       )}
 
@@ -294,7 +298,7 @@ function DdayForm({
               className="size-4 animate-spin rounded-full border-2 border-white/35 border-t-white"
             />
           )}
-          {saveMutation.isPending ? "저장 중" : "저장"}
+          {saveMutation.isPending ? t("ddaySheet.saving") : t("ddaySheet.save")}
         </Button>
         {dday !== null && (
           <Button
@@ -305,16 +309,16 @@ function DdayForm({
             disabled={busy}
             onClick={() => onConfirmingDeleteChange(true)}
           >
-            삭제
+            {t("ddaySheet.delete")}
           </Button>
         )}
       </div>
 
       <ConfirmDialog
         open={confirmingDelete}
-        title="목표 날짜를 삭제할까요?"
-        cancelLabel="취소"
-        confirmLabel="삭제"
+        title={t("ddaySheet.deleteConfirm")}
+        cancelLabel={t("common:actions.cancel")}
+        confirmLabel={t("ddaySheet.delete")}
         onCancel={() => onConfirmingDeleteChange(false)}
         onConfirm={() => {
           onConfirmingDeleteChange(false);

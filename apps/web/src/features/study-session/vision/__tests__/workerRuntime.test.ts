@@ -287,8 +287,8 @@ describe("createWorkerRuntime", () => {
     handle.close();
 
     expect(worker.terminated).toBe(true);
-    await expect(detecting).rejects.toThrow("워커가 닫혔다");
-    await expect(handle.detect(video, 1)).rejects.toThrow("워커가 닫혔다");
+    await expect(detecting).rejects.toThrow("worker closed");
+    await expect(handle.detect(video, 1)).rejects.toThrow("worker closed");
     // create, 닫히기 전 detect 하나, 그 모델을 놓으라는 close
     expect(worker.posted.map((entry) => entry.message.type)).toEqual(["create", "detect", "close"]);
   });
@@ -314,7 +314,7 @@ describe("createWorkerRuntime", () => {
     const first = handle.detect(video, 0);
     const second = handle.detect(video, 1);
 
-    await expect(second).rejects.toThrow("이전 추론이 끝나지 않았다");
+    await expect(second).rejects.toThrow("previous inference has not finished");
     await tick();
     expect(worker.posted).toHaveLength(2); // create, 첫 detect 하나
     worker.replyResult(RESULT);
@@ -464,7 +464,7 @@ describe("createFallbackRuntime", () => {
     handle.close();
     resolveMain(main);
 
-    await expect(detecting).rejects.toThrow("검출기가 닫혔다");
+    await expect(detecting).rejects.toThrow("detector closed");
     expect(main.close).toHaveBeenCalledTimes(1);
     expect(main.detect).not.toHaveBeenCalled();
   });
@@ -555,7 +555,7 @@ describe("createWorkerRuntime — 객체 검출기와 얼굴 모델이 워커 �
 
     expect(env.worker.terminated).toBe(false);
     expect(env.worker.posted.at(-1)?.message).toEqual({ type: "close", handleId: 2 });
-    await expect(landmarker.detect(video, 0)).rejects.toThrow("워커가 닫혔다");
+    await expect(landmarker.detect(video, 0)).rejects.toThrow("worker closed");
 
     detector.close();
 
@@ -569,7 +569,7 @@ describe("createWorkerRuntime — 객체 검출기와 얼굴 모델이 워커 �
     const creating = env.runtime.createFaceLandmarker(FACE_OPTIONS);
     env.worker.reply({ type: "createFailed", id: env.worker.lastId("create"), reason: "404" });
 
-    await expect(creating).rejects.toThrow("워커 검출기 생성 실패: 404");
+    await expect(creating).rejects.toThrow("worker detector creation failed: 404");
     expect(env.worker.terminated).toBe(false);
     const detecting = detector.detect(video, 0);
     await tick();

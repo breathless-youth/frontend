@@ -1,5 +1,6 @@
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import { copyText } from "@/lib/clipboard";
+import i18n from "@/lib/i18n";
 
 /**
  * 초대코드 복사·공유
@@ -19,8 +20,12 @@ export function inviteLink(inviteCode: string): string {
   return `${window.location.origin}/social/join?code=${inviteCode}`;
 }
 
+/** 카카오톡 등 앱 밖으로 나가는 공유 본문. 보내는 사람의 화면 언어로 쓴다. */
 export function inviteShareText(inviteCode: string): string {
-  return `그룹 스터디에 초대받았어요!\n\n${inviteLink(inviteCode)}\n\n초대코드: ${inviteCode}`;
+  return i18n.t("social-room:inviteMessage.body", {
+    link: inviteLink(inviteCode),
+    code: inviteCode,
+  });
 }
 
 /**
@@ -30,7 +35,9 @@ export function inviteShareText(inviteCode: string): string {
  * 필드는 빼고 `title`만 남긴다. 공유시트 자체 썸네일은 텍스트로 축소되지만, 보내진 메시지는
  * 본문 링크가 그대로 보이고 카톡이 그 링크로 프리뷰 카드도 하나 그린다.
  */
-export const INVITE_SHARE_TITLE = "포커스 메이커스 그룹 스터디";
+export function inviteShareTitle(): string {
+  return i18n.t("social-room:inviteMessage.title");
+}
 
 /** 클립보드 복사. secure context(https·localhost)가 아니거나 거부되면 false. */
 export async function copyInviteCode(inviteCode: string): Promise<boolean> {
@@ -45,9 +52,9 @@ export async function shareInvite(inviteCode: string): Promise<"shared" | "copie
   if (typeof navigator.share === "function") {
     try {
       // 링크는 text 본문에만 싣고 url 필드는 넘기지 않는다 — url으로도 보내면 카톡이 같은
-      // 링크로 프리뷰를 한 번 더 만들어 말풍선이 중복된다(BY-584, `INVITE_SHARE_TITLE` 주석).
+      // 링크로 프리뷰를 한 번 더 만들어 말풍선이 중복된다(BY-584, `inviteShareTitle` 주석).
       await navigator.share({
-        title: INVITE_SHARE_TITLE,
+        title: inviteShareTitle(),
         text: inviteShareText(inviteCode),
       });
       return "shared";
@@ -68,7 +75,7 @@ export async function shareInvite(inviteCode: string): Promise<"shared" | "copie
     postToNative({
       type: "share",
       text: inviteShareText(inviteCode),
-      title: INVITE_SHARE_TITLE,
+      title: inviteShareTitle(),
       atMs: Date.now(),
     });
     return "shared";

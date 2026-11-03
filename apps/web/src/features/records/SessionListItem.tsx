@@ -5,7 +5,6 @@ import {
   ResultBarSegment,
   ResultLegendItem,
 } from "@/features/study-session/components/ResultCardParts";
-import { LEGEND_COPY } from "@/features/study-session/resultCopy";
 import { longestFocusStretch, timelineSegments } from "@/features/study-session/sessionResult";
 
 import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -117,11 +116,12 @@ export function SessionListItem({ session, className, subjectName, onEdit }: Ses
 
 /** 타임라인 색의 뜻 — 세션 목록 맨 아래에 한 번만 둔다. 항목과 문구는 공부 결과 화면의 범례 그대로다. */
 export function SessionTimelineLegend() {
+  const { t } = useTranslation("study-session");
   return (
     <ul className="-mt-1 flex flex-wrap items-start gap-2 pb-3">
-      <ResultLegendItem tone="focus" label={LEGEND_COPY.focus} />
-      <ResultLegendItem tone="distract" label={LEGEND_COPY.distract} />
-      <ResultLegendItem tone="pause" label={LEGEND_COPY.pause} />
+      <ResultLegendItem tone="focus" label={t("legend.focus")} />
+      <ResultLegendItem tone="distract" label={t("legend.distract")} />
+      <ResultLegendItem tone="pause" label={t("legend.pause")} />
     </ul>
   );
 }

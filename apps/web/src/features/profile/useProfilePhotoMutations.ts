@@ -112,7 +112,7 @@ export function useProfilePhotoMutations(userId: number) {
           showCtaToast(t("photo.removed"));
         },
         onError: () => {
-          showCtaToast(t("errors.retryLater"));
+          showCtaToast(t("errors.retryLater", { ns: "common" }));
         },
       }),
     // 올리기와 삭제가 겹치면 응답 순서에 따라 남는 사진이 달라져 하나가 도는 동안은 둘 다 막는다.
