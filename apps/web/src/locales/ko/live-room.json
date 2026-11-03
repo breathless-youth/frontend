@@ -5,10 +5,13 @@
     "graceEndSubMinute": "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
     "roomClosedSaved": "방이 종료되어 공부를 마쳤어요.\n공부 기록은 저장되었으니 안심하세요.",
     "roomClosedPending": "방이 종료되어 공부를 마쳤어요.\n공부 기록은 저장되니 안심하세요.",
-    "roomClosedSubMinute": "방이 종료되어 공부를 마쳤어요.\n1분 미만 공부는 기록에 표시되지 않아요"
+    "roomClosedSubMinute": "방이 종료되어 공부를 마쳤어요.\n1분 미만 공부는 기록에 표시되지 않아요",
+    "kicked": "{{groupName}}에서 내보내졌어요",
+    "kickedUnnamed": "그룹에서 내보내졌어요"
   },
   "entry": {
-    "backToSocial": "소셜 홈으로"
+    "backToSocial": "소셜 홈으로",
+    "backToGroup": "그룹 홈으로"
   },
   "me": "나",
   "cameraConfirm": {
@@ -127,5 +130,10 @@
   },
   "liveRoomSession": {
     "reportedAndBlocked": "{{nickname}}님을 신고하고 차단했어요"
+  },
+  "roomAudio": {
+    "micNeedsCamera": "카메라를 켜면 마이크를 쓸 수 있어요",
+    "micDenied": "설정에서 마이크 권한을 허용해 주세요",
+    "micUnavailable": "마이크를 켤 수 없어요"
   }
 }

@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
+import i18n from "@/lib/i18n";
+
 import type { MicLine } from "./audio/micLine";
 import { createMicLine } from "./audio/micLine";
 import type { MicAcquireResult } from "./audio/microphone";
@@ -9,10 +11,6 @@ import { createRemoteAudioPlayer } from "./audio/remoteAudio";
 import type { SpeakingState } from "./audio/speaking";
 import { INITIAL_SPEAKING, nextSpeaking, SPEAKING_SAMPLE_MS } from "./audio/speaking";
 import type { PeerMesh } from "./peerMesh";
-
-export const MIC_NEEDS_CAMERA_COPY = "카메라를 켜면 마이크를 쓸 수 있어요";
-export const MIC_DENIED_COPY = "설정에서 마이크 권한을 허용해 주세요";
-export const MIC_UNAVAILABLE_COPY = "마이크를 켤 수 없어요";
 
 export interface RoomAudio {
   micOn: boolean;
@@ -157,7 +155,7 @@ export function useRoomAudio({
       return;
     }
     if (cameraHeld) {
-      onNotice(MIC_NEEDS_CAMERA_COPY);
+      onNotice(i18n.t("live-room:roomAudio.micNeedsCamera"));
       return;
     }
     setMicPending(true);
@@ -176,7 +174,11 @@ export function useRoomAudio({
         }
         return;
       }
-      onNotice(result === "denied" ? MIC_DENIED_COPY : MIC_UNAVAILABLE_COPY);
+      onNotice(
+        result === "denied"
+          ? i18n.t("live-room:roomAudio.micDenied")
+          : i18n.t("live-room:roomAudio.micUnavailable"),
+      );
     });
   }
 

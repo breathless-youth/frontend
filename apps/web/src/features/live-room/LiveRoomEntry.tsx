@@ -238,7 +238,7 @@ export function LiveRoomEntry({
               }
               className="min-h-11 rounded-full bg-white/12 px-5 text-sm font-semibold text-white"
             >
-              {room.kind === "group" ? "그룹 홈으로" : t("entry.backToSocial")}
+              {room.kind === "group" ? t("entry.backToGroup") : t("entry.backToSocial")}
             </button>
           </div>
         )}
