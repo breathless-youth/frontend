@@ -252,8 +252,8 @@ export interface StudyDaysResponse {
 }
 
 /**
- * 공부 리듬 조회(`GET /api/stats/rhythm`) 응답 — 기록 탭 '나의 공부 리듬' 히트맵. study-days처럼 토큰 신원·
- * API-Version 1 하나다. 세션 순공을 정시 경계로 잘라 이벤트를 뺀 길이 비율로 배분한 값이라 격자 합은
+ * 공부 리듬 조회(`GET /api/stats/rhythm`) 응답 — 기록 탭 '나의 공부 리듬' 히트맵. 백엔드 BY-1127(PR #126)의
+ * Swagger 기준, 2026-11-03 대조. study-days처럼 토큰 신원·API-Version 1 하나다. 세션 순공을 정시 경계로 잘라 이벤트를 뺀 길이 비율로 배분한 값이라 격자 합은
  * 1분 이상 측정 세션의 순공 합과 같다. 며칠부터 보여줄지는 앱이 정한다(`features/records/rhythm.ts`).
  */
 export interface StudyRhythmResponse {

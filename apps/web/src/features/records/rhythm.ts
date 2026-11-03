@@ -36,8 +36,12 @@ export function buildStudyRhythm(response: StudyRhythmResponse): StudyRhythm | n
     Array.from({ length: 24 }, (_, column) => row[columnToHour(column)] ?? 0),
   );
   const max = Math.max(0, ...grid.flat());
+  // 공부일은 넘었는데 격자가 비어 있으면(서버 응답 불일치) 없는 시간대를 말하지 않도록 샘플로 되돌린다.
+  if (max === 0) {
+    return null;
+  }
   const levels = grid.map((row) =>
-    row.map((sec) => (sec === 0 || max === 0 ? 0 : Math.max(1, Math.ceil((sec / max) * 5)))),
+    row.map((sec) => (sec === 0 ? 0 : Math.max(1, Math.ceil((sec / max) * 5)))),
   );
 
   const columnTotals = Array.from({ length: 24 }, (_, column) =>

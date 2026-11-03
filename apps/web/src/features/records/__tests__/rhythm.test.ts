@@ -59,11 +59,8 @@ describe("buildStudyRhythm", () => {
     expect(rhythm!.peakColumn).toBe(16);
   });
 
-  it("기록이 전혀 없어도(14일은 넘었는데 격자가 비어 있으면) 0단계 격자와 첫 칸을 돌려준다", () => {
-    const rhythm = buildStudyRhythm({ studyDays: 14, focusSecByWeekdayHour: zeroGrid() });
-
-    expect(rhythm!.levels.flat().every((level) => level === 0)).toBe(true);
-    expect(rhythm!.peakStartHour).toBe(5);
+  it("14일은 넘었는데 격자가 비어 있으면 null — 없는 시간대를 문장으로 말하지 않는다", () => {
+    expect(buildStudyRhythm({ studyDays: 14, focusSecByWeekdayHour: zeroGrid() })).toBeNull();
   });
 });
 

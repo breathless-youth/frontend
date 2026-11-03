@@ -73,7 +73,8 @@ export function RhythmCard({ rhythm }: { rhythm: RhythmState }) {
       </div>
 
       {rhythm.status === "pending" ? (
-        <Skeleton className="mt-2.5 h-56 w-full rounded-xl" />
+        // 실제 카드 높이(문장 두 줄 + 히트맵 7줄 + 눈금·범례)와 맞춰 로드 뒤 레이아웃이 튀지 않게 한다.
+        <Skeleton className="mt-2.5 h-60 w-full rounded-xl" />
       ) : mine ? (
         <MyRhythm rhythm={mine} />
       ) : (
