@@ -32,6 +32,7 @@ import { GraceEndDialog } from "@/features/social-room/GraceEndDialog";
 import { useSocialRoomNoticeHandoff } from "@/features/social-room/useSocialRoomNoticeHandoff";
 import { cancelApplication } from "@/lib/groupRoomApi";
 import {
+  cannotLoadFirst,
   dedupePublicGroups,
   invalidateGroupMembership,
   myApplicationsQuery,
@@ -44,6 +45,7 @@ import { isStudyCategory, STUDY_CATEGORY_OPTIONS } from "@/lib/studyCategory";
 import { showToast } from "@/lib/toast";
 import { useIdentityPending, useUserId } from "@/lib/userId";
 import { whenIdle } from "@/lib/whenIdle";
+import { prefetchGroupPages } from "@/routes/lazyRoutes";
 
 /** 검색어를 다 쓰기 전에 글자마다 목록을 다시 받지 않게 입력이 멈춘 뒤 이만큼 기다린다. */
 const SEARCH_DEBOUNCE_MS = 300;
@@ -96,6 +98,9 @@ function GroupTabContent({ userId }: { userId: number | null }) {
     );
   const leaveTab = (pathname: string) =>
     slideNavigate("forward", () => navigate({ pathname, search: baseSearch(location.search) }));
+  useEffect(() => {
+    prefetchGroupPages();
+  }, []);
 
   const [rawQuery, setRawQuery] = useState(search.query);
   const settledQuery = useDebouncedValue(rawQuery, SEARCH_DEBOUNCE_MS).trim();
@@ -245,20 +250,6 @@ function GroupTabContent({ userId }: { userId: number | null }) {
       }
     />
   );
-}
-
-/**
- * 첫 응답을 받지 못한 조회
- *
- * 받아 둔 목록이 있으면 다시 받다 실패해도 목록을 보이므로 첫 응답이 없을 때만 오류로 본다.
- * 오프라인이라 멈춘 첫 조회도 자리표시에 머물지 않게 오류로 본다.
- */
-function cannotLoadFirst(query: {
-  isLoadingError: boolean;
-  isPending: boolean;
-  isPaused: boolean;
-}): boolean {
-  return query.isLoadingError || (query.isPending && query.isPaused);
 }
 
 /** 값이 정한 시간 동안 바뀌지 않으면 그때의 값을 돌려준다. */

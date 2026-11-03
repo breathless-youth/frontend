@@ -5,6 +5,7 @@ import { ApiError } from "../api";
 import * as groupRoomApi from "../groupRoomApi";
 import {
   blocksQuery,
+  cannotLoadFirst,
   dedupePublicGroups,
   forgetGroup,
   groupApplicationsQuery,
@@ -82,6 +83,18 @@ describe("groupRoomQueries", () => {
     expect(groupQueryRetry(0, new ApiError("x", 403, "NOT_GROUP_MEMBER"))).toBe(false);
     expect(groupQueryRetry(0, new ApiError("x", 500))).toBe(true);
     expect(groupQueryRetry(1, new TypeError("network"))).toBe(false);
+  });
+
+  it("첫 응답 없이 실패했거나 오프라인으로 멈춘 첫 조회만 불러오지 못한 것으로 본다", () => {
+    expect(cannotLoadFirst({ isLoadingError: true, isPending: false, isPaused: false })).toBe(true);
+    expect(cannotLoadFirst({ isLoadingError: false, isPending: true, isPaused: true })).toBe(true);
+    expect(cannotLoadFirst({ isLoadingError: false, isPending: true, isPaused: false })).toBe(
+      false,
+    );
+    // 받아 둔 응답이 있는 뒤의 실패는 화면이 받아 둔 것을 그대로 보인다.
+    expect(cannotLoadFirst({ isLoadingError: false, isPending: false, isPaused: false })).toBe(
+      false,
+    );
   });
 
   // 재시도 판단이 받는 오류 타입이 조회의 오류 타입이 되어서 화면이 받는 오류도 Error로 맞춘다.

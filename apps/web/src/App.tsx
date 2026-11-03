@@ -38,6 +38,7 @@ import { InviteCodeSharePage } from "@/routes/InviteCodeSharePage";
 import {
   loadAppLockSettingsPage,
   loadContactPage,
+  loadGroupHomePage,
   loadInterviewFormPage,
   loadLicensesPage,
   loadPrivacyPage,
@@ -126,6 +127,12 @@ const TimelapsesPage = lazy(
 const RankingRecordsPage = lazy(
   reloadOnChunkError(() =>
     loadRankingRecordsPage().then((module) => ({ default: module.RankingRecordsPage })),
+  ),
+);
+// 그룹 탭과 참여 화면 말고 그룹 화면은 그룹을 쓰는 사람만 열어서 따로 받는다.
+const GroupHomePage = lazy(
+  reloadOnChunkError(() =>
+    loadGroupHomePage().then((module) => ({ default: module.GroupHomePage })),
   ),
 );
 const WebrtcLoopbackPage = lazy(
@@ -281,6 +288,7 @@ export function App() {
               <Route path="/manual-record" element={<ManualRecordPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/social" element={<SocialTabRoute />} />
+              <Route path="/social/groups/:groupId" element={<GroupHomePage />} />
               {import.meta.env.DEV && (
                 <Route path="/dev/webrtc-loopback" element={<WebrtcLoopbackPage />} />
               )}

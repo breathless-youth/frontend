@@ -63,6 +63,20 @@ export function groupQueryRetry(failureCount: number, error: Error): boolean {
   return failureCount < 1;
 }
 
+/**
+ * 첫 응답을 받지 못한 조회
+ *
+ * 받아 둔 응답이 있으면 다시 받다 실패해도 화면이 그것을 보이므로 첫 응답이 없을 때만 오류로 본다.
+ * 오프라인이라 멈춘 첫 조회도 자리표시에 머물지 않게 오류로 본다.
+ */
+export function cannotLoadFirst(query: {
+  isLoadingError: boolean;
+  isPending: boolean;
+  isPaused: boolean;
+}): boolean {
+  return query.isLoadingError || (query.isPending && query.isPaused);
+}
+
 // 멤버의 공부 상태가 보이는 두 화면은 보이는 동안 30초마다, 다시 보이면 곧바로 받는다.
 // 가려진 탭에서는 focusManager가 앱 탭 보임 신호를 따라 폴링을 멈춘다.
 const LIVE_GROUP_OPTIONS = {

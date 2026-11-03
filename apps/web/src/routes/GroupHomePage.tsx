@@ -1,0 +1,256 @@
+import type { GroupHomeResponse } from "@focusmakers/types";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
+
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ErrorState } from "@/components/ui/ErrorState";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { toRoomHome } from "@/features/group-room/fromApi";
+import {
+  GROUP_RETRY_COPY,
+  groupErrorCode,
+  groupErrorCopy,
+  isGroupGoneError,
+} from "@/features/group-room/groupErrorCopy";
+import { baseSearch } from "@/features/group-room/groupTabSearch";
+import { leaveRoomDialog, otherMemberCount } from "@/features/group-room/model/roomMenu";
+import type { LeaveDialog, RoomMenuItem } from "@/features/group-room/model/roomMenu";
+import { parseRouteId } from "@/features/group-room/routeId";
+import { GroupScreenFrame } from "@/features/group-room/screens/GroupScreenFrame";
+import { RoomHomeScreen } from "@/features/group-room/screens/RoomHomeScreen";
+import { shareGroupInvite } from "@/features/group-room/shareGroupInvite";
+import { useBackTo } from "@/features/group-room/useBackTo";
+import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
+import { useNow } from "@/features/ranking/useNow";
+import { leaveGroup, setGroupNotification } from "@/lib/groupRoomApi";
+import {
+  cannotLoadFirst,
+  forgetGroup,
+  groupHomeQuery,
+  groupInviteQuery,
+  groupKeys,
+  invalidateGroupMembership,
+} from "@/lib/groupRoomQueries";
+import { haptic } from "@/lib/haptics";
+import { useScreenVisible } from "@/lib/nativeTabFocus";
+import { slideNavigate } from "@/lib/pageTransition";
+import { showToast } from "@/lib/toast";
+import { useIdentityPending, useUserId } from "@/lib/userId";
+
+/**
+ * 그룹 홈
+ *
+ * 신원이 정해지기 전에는 그리지 않아서, 첫 렌더의 빈 신원을 멤버 아님으로 읽고 그룹 탭으로 돌려보내지 않는다.
+ * 신원 없이 열었거나 주소의 그룹 번호가 번호가 아니면 그룹 탭으로 바꿔 간다.
+ * 다른 그룹으로 바로 이동하면 확인 창과 나간 표시가 앞 그룹에 남지 않게 그룹마다 새로 그린다.
+ */
+export function GroupHomePage() {
+  const identityPending = useIdentityPending();
+  const userId = useUserId();
+  const groupId = parseRouteId(useParams().groupId);
+  const location = useLocation();
+  if (identityPending) {
+    return null;
+  }
+  if (userId === null || groupId === null) {
+    return <Navigate to={{ pathname: "/social", search: baseSearch(location.search) }} replace />;
+  }
+  return <GroupHome key={`${userId}:${groupId}`} userId={userId} groupId={groupId} />;
+}
+
+/**
+ * 그룹 홈 본문
+ *
+ * 스스로 나가면 먼저 그룹 탭으로 바꿔 가고 이 그룹의 조회는 다시 받지 않는다.
+ * 나간 그룹을 다시 받으면 서버가 멤버가 아니라고 답해 그 안내가 뜨기 때문이고, 그 조회는 화면을 벗어난 뒤 캐시에서 뺀다.
+ */
+function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const queryClient = useQueryClient();
+  const back = useBackTo("/social");
+  const visible = useScreenVisible();
+  const now = new Date(useNow(visible ? 60_000 : null));
+  const search = baseSearch(location.search);
+  const groupPath = `/social/groups/${groupId}`;
+  const go = (pathname: string) => slideNavigate("forward", () => navigate({ pathname, search }));
+
+  const [left, setLeft] = useState(false);
+  const homeQuery = useQuery({ ...groupHomeQuery(userId, groupId), enabled: !left });
+  const home = homeQuery.data;
+  // 비공개 그룹은 멤버도 초대할 수 있어, 메뉴의 초대하기가 기다리지 않고 공유 시트를 열도록 코드를 미리 받는다.
+  useQuery({
+    ...groupInviteQuery(userId, groupId),
+    enabled: !left && home?.visibility === "PRIVATE",
+  });
+  useLeaveWhenGone(left ? null : homeQuery.error, groupId);
+  useEffect(() => {
+    if (!left) {
+      return;
+    }
+    return () => forgetGroup(queryClient, userId, groupId);
+  }, [left, queryClient, userId, groupId]);
+
+  const notify = useMutation({
+    mutationFn: (enabled: boolean) => setGroupNotification(groupId, enabled),
+    // 30초마다 다시 받는 조회가 바꾼 값을 덮지 않게 받는 중인 조회를 멈춘 뒤 바로 바꾸고, 실패하면 되돌린다.
+    onMutate: async (enabled) => {
+      const queryKey = groupKeys.home(userId, groupId);
+      await queryClient.cancelQueries({ queryKey });
+      const previous = queryClient.getQueryData<GroupHomeResponse>(queryKey);
+      queryClient.setQueryData<GroupHomeResponse>(queryKey, (current) =>
+        current === undefined ? current : { ...current, notifyEnabled: enabled },
+      );
+      return { previous };
+    },
+    onError: (error, _enabled, context) => {
+      if (context?.previous !== undefined) {
+        queryClient.setQueryData(groupKeys.home(userId, groupId), context.previous);
+      }
+      // 내보내졌다면 다시 받은 그룹 홈이 그룹 탭으로 데려가며 이유를 알린다.
+      if (!isGroupGoneError(error)) {
+        showToast(GROUP_RETRY_COPY);
+      }
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: groupKeys.home(userId, groupId) });
+    },
+  });
+
+  const [leaveDialog, setLeaveDialog] = useState<LeaveDialog | null>(null);
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  const openLeaveDialog = (dialog: LeaveDialog) => {
+    setLeaveDialog(dialog);
+    setLeaveOpen(true);
+  };
+  const finishLeaving = () => {
+    setLeft(true);
+    setLeaveOpen(false);
+    navigate({ pathname: "/social", search }, { replace: true });
+    void invalidateGroupMembership(queryClient, userId);
+  };
+  const leave = useMutation({
+    mutationFn: () => leaveGroup(groupId),
+    onSuccess: finishLeaving,
+    onError: (error) => {
+      // 이미 내보내졌거나 그룹이 사라졌으면 나가려던 일은 이미 끝난 것이다.
+      if (isGroupGoneError(error)) {
+        finishLeaving();
+        return;
+      }
+      // 혼자인 줄 알았는데 그사이 멤버가 들어오면 그룹장을 먼저 넘기라는 창으로 바꾼다.
+      if (groupErrorCode(error) === "OWNER_CANNOT_LEAVE" && home !== undefined) {
+        const room = toRoomHome(home, userId);
+        openLeaveDialog(
+          leaveRoomDialog({
+            role: "owner",
+            visibility: room.visibility,
+            otherMemberCount: Math.max(1, otherMemberCount(room.memberCount)),
+          }),
+        );
+        void queryClient.invalidateQueries({ queryKey: groupKeys.home(userId, groupId) });
+        return;
+      }
+      setLeaveOpen(false);
+      showToast(groupErrorCopy("leave", error));
+    },
+  });
+
+  if (home === undefined) {
+    const failed = cannotLoadFirst(homeQuery) && !isGroupGoneError(homeQuery.error);
+    return (
+      <GroupScreenFrame onBack={back}>
+        {failed ? (
+          <ErrorState
+            message={GROUP_RETRY_COPY}
+            onRetry={() => void homeQuery.refetch()}
+            screen="group_tab"
+          />
+        ) : (
+          <div className="flex flex-col gap-3 pt-0.5">
+            <Skeleton className="h-6 w-48 rounded-md" />
+            <Skeleton className="h-56 rounded-xl" />
+            <Skeleton className="h-64 rounded-xl" />
+          </div>
+        )}
+      </GroupScreenFrame>
+    );
+  }
+
+  const room = toRoomHome(home, userId);
+  const shareInviteCode = async () => {
+    try {
+      const { inviteCode } = await queryClient.fetchQuery(groupInviteQuery(userId, groupId));
+      await shareGroupInvite(inviteCode);
+    } catch (error) {
+      showToast(groupErrorCopy("load", error));
+    }
+  };
+  const selectMenu = (kind: RoomMenuItem["kind"]) => {
+    switch (kind) {
+      case "requests":
+        go(`${groupPath}/applications`);
+        return;
+      case "invite":
+        void shareInviteCode();
+        return;
+      case "manage_members":
+      case "view_members":
+        go(`${groupPath}/members`);
+        return;
+      case "settings":
+        go(`${groupPath}/settings`);
+        return;
+      case "leave":
+        openLeaveDialog(
+          leaveRoomDialog({
+            role: room.role,
+            visibility: room.visibility,
+            otherMemberCount: otherMemberCount(room.memberCount),
+          }),
+        );
+        return;
+    }
+  };
+
+  return (
+    <>
+      <RoomHomeScreen
+        room={room}
+        now={now}
+        fetchedAtMs={homeQuery.dataUpdatedAt}
+        onBack={back}
+        onToggleNotify={() => {
+          // 알림 설정을 보내는 동안 또 누르면 앞 요청의 되돌리기가 뒤 요청의 값을 덮을 수 있어 받지 않는다.
+          if (notify.isPending) {
+            return;
+          }
+          haptic("light");
+          notify.mutate(!room.notifyOn);
+        }}
+        onMenuSelect={selectMenu}
+        onOpenRequests={() => go(`${groupPath}/applications`)}
+        onEnterStudyRoom={() => navigate({ pathname: `${groupPath}/room`, search })}
+      />
+      {leaveDialog !== null && (
+        <ConfirmDialog
+          open={leaveOpen}
+          {...leaveDialog.copy}
+          pending={leave.isPending}
+          onCancel={() => setLeaveOpen(false)}
+          onConfirm={() => {
+            if (leaveDialog.kind === "must_transfer") {
+              setLeaveOpen(false);
+              go(`${groupPath}/members`);
+              return;
+            }
+            if (!leave.isPending) {
+              leave.mutate();
+            }
+          }}
+        />
+      )}
+    </>
+  );
+}

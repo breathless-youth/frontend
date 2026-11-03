@@ -19,9 +19,10 @@ vi.mock("@/lib/userId", async (importOriginal) => ({
   useIdentityPending: vi.fn(() => false),
 }));
 
-// 신청 중 시트는 나눠 받는다. 전체 스위트 부하에서 첫 열기의 모듈 받기가 findBy 기본 1초를 넘지 않게 미리 받아 둔다.
+// 신청 중 시트와 그룹 홈은 나눠 받는 모듈이라 전체 스위트 부하에서 첫 받기가 findBy 기본 1초를 넘지 않게 미리 받아 둔다.
 beforeAll(async () => {
   await import("@/features/group-room/components/PendingApplicationsSheet");
+  await import("@/routes/GroupHomePage");
 });
 
 const searchParam = (search: string, name: string) => new URLSearchParams(search).get(name);
@@ -114,14 +115,14 @@ describe("그룹 탭", () => {
     const { router } = renderGroupRoute("/social?groupRooms=1&tab=public");
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: /새벽 5시 기상 공시반/ }));
-    expect(router.location().pathname).toBe("/social/groups/10");
+    await waitFor(() => expect(router.location().pathname).toBe("/social/groups/10"));
   });
 
   it("멤버가 아닌 공개 그룹은 탭 조건을 뺀 주소로 공개 그룹 보기를 연다", async () => {
     mockGroupApi("default");
     const { router } = renderGroupRoute("/social?groupRooms=1&tab=public&category=LANGUAGE");
     await userEvent.setup().click(await screen.findByRole("button", { name: /토익 900 주말반/ }));
-    expect(router.location().pathname).toBe("/social/public/13");
+    await waitFor(() => expect(router.location().pathname).toBe("/social/public/13"));
     expect(router.location().search).toBe("?groupRooms=1");
   });
 
