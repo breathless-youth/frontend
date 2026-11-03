@@ -628,6 +628,7 @@ export function LiveRoomSession({
     othersWithCamera: others.filter(
       (member) => member.cameraOn && !blockedUserIds.has(member.userId),
     ).length,
+    systemPause,
   });
   const exitVisibility =
     groupHome.data === undefined ? undefined : toRoomVisibility(groupHome.data.visibility);
