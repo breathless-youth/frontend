@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import { GROUP_ROOM_ANALYTICS_MASK } from "../groupRoomAnalyticsMask";
+import { memberMenuCollisionPadding } from "../memberMenuCollision";
 
 const MENU_ITEM_CLASS =
   "min-h-11 rounded-none px-5 py-0 text-[17px] leading-5.5 font-normal text-white focus:bg-white/10";
@@ -90,7 +91,7 @@ export function RoomMemberMenu({
         container={container}
         side={placement === "above" ? "top" : "bottom"}
         align="end"
-        collisionPadding={8}
+        collisionPadding={memberMenuCollisionPadding(placement)}
         data-placement={placement}
         {...GROUP_ROOM_ANALYTICS_MASK}
         onCloseAutoFocus={(event) => {
