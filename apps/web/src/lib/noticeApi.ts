@@ -13,7 +13,7 @@ export async function getActiveNotices(): Promise<NoticeResponse[]> {
     method: "GET",
   });
   if (!res.ok) {
-    throw await parseApiError(res, "공지 조회 실패");
+    throw await parseApiError(res, "notice fetch failed");
   }
   return (await res.json()) as NoticeResponse[];
 }

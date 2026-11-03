@@ -15,7 +15,7 @@ export async function getDday(): Promise<DdayResponse | null> {
     return null;
   }
   if (!res.ok) {
-    throw await parseApiError(res, "D-Day 조회 실패");
+    throw await parseApiError(res, "dday fetch failed");
   }
   return (await res.json()) as DdayResponse;
 }
@@ -29,7 +29,7 @@ export async function putDday(body: DdayRequest): Promise<DdayResponse> {
     body: JSON.stringify(body),
   });
   if (!res.ok) {
-    throw await parseApiError(res, "D-Day 저장 실패");
+    throw await parseApiError(res, "dday save failed");
   }
   return (await res.json()) as DdayResponse;
 }
@@ -38,6 +38,6 @@ export async function putDday(body: DdayRequest): Promise<DdayResponse> {
 export async function deleteDday(): Promise<void> {
   const res = await apiFetch(DDAY_URL, { endpoint: "dday", method: "DELETE" });
   if (!res.ok) {
-    throw await parseApiError(res, "D-Day 삭제 실패");
+    throw await parseApiError(res, "dday delete failed");
   }
 }

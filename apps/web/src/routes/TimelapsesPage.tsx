@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
@@ -37,6 +38,7 @@ function TimelapseRow({
   onOpen: () => void;
   onDelete: () => void;
 }) {
+  const { t } = useTranslation("timelapse");
   const studySec = record.summary?.studySec ?? 0;
   const focusSec = record.summary?.focusSec ?? 0;
   const endedAtMs = record.summary?.endedAtMs ?? record.startedAtMs;
@@ -57,11 +59,13 @@ function TimelapseRow({
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="flex flex-col gap-1.5 py-1 pr-8">
             <span className="text-foreground text-lg leading-5.25 font-bold">
-              순공 {toKoreanDurationLength(focusSec)}
+              {t("list.focusTime", { duration: toKoreanDurationLength(focusSec) })}
             </span>
             <span className="text-muted-foreground text-sm leading-4.25">
-              총 공부 {toKoreanDurationLength(studySec)} · 집중률{" "}
-              {focusRatePercent(studySec, focusSec)}%
+              {t("list.summary", {
+                duration: toKoreanDurationLength(studySec),
+                rate: focusRatePercent(studySec, focusSec),
+              })}
             </span>
           </span>
           <span className="text-muted-foreground mt-auto self-end px-1 text-xs leading-3.5">
@@ -73,7 +77,7 @@ function TimelapseRow({
       <button
         type="button"
         onClick={onDelete}
-        aria-label={`${timelapseStartLabel(record.startedAtMs)} 타임랩스 삭제`}
+        aria-label={t("list.aria.delete", { label: timelapseStartLabel(record.startedAtMs) })}
         data-delete-for={record.startedAtMs}
         className="text-feedback-danger absolute top-0.5 right-0.5 flex size-11 items-center justify-center"
       >
@@ -91,6 +95,7 @@ function TimelapseRow({
  * 줄을 누르면 공유 다이얼로그가 열린다.
  */
 export function TimelapsesPage({ store = getTimelapseStore() }: { store?: TimelapseStore }) {
+  const { t } = useTranslation(["timelapse", "common"]);
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -118,7 +123,7 @@ export function TimelapsesPage({ store = getTimelapseStore() }: { store?: Timela
       // 그 타임랩스의 레코드·사진·썸네일 캐시도 함께 버린다.
       queryClient.removeQueries({ queryKey: ["timelapse", startedAtMs] });
     },
-    onError: () => showToast("삭제하지 못했어요"),
+    onError: () => showToast(t("list.deleteFailed")),
     onSettled: () => setPending(null),
   });
 
@@ -139,11 +144,9 @@ export function TimelapsesPage({ store = getTimelapseStore() }: { store?: Timela
       ref={mainRef}
       className="theme-soft-blue bg-soft-blue page-column text-foreground min-h-dvh pb-10"
     >
-      <ScreenBackHeader title="최근 타임랩스" onBack={goBack} />
+      <ScreenBackHeader title={t("list.title")} onBack={goBack} />
       <div className="flex flex-col gap-4 px-5 pt-2">
-        <p className="text-muted-foreground text-[13px] leading-4">
-          최근 7일 동안 최대 7개까지 기기 내에 보관돼요
-        </p>
+        <p className="text-muted-foreground text-[13px] leading-4">{t("list.retention")}</p>
         {list.isSuccess &&
           (list.data.length === 0 ? (
             <TimelapsesEmpty />
@@ -201,7 +204,7 @@ export function TimelapsesPage({ store = getTimelapseStore() }: { store?: Timela
             event.preventDefault();
             const selector =
               target === "back"
-                ? 'button[aria-label="뒤로 가기"]'
+                ? `button[aria-label="${t("common:actions.back")}"]`
                 : `[data-delete-for="${target}"]`;
             mainRef.current?.querySelector<HTMLElement>(selector)?.focus();
           }}
@@ -210,10 +213,10 @@ export function TimelapsesPage({ store = getTimelapseStore() }: { store?: Timela
         >
           <DialogHeader className="gap-1.5 space-y-0 text-left sm:text-left">
             <DialogTitle className="text-foreground text-[18px] leading-5.75 font-bold tracking-normal">
-              타임랩스 삭제
+              {t("deleteDialog.title")}
             </DialogTitle>
             <DialogDescription className="text-foreground text-[16px] leading-5.75 font-medium">
-              정말 삭제하시겠어요?
+              {t("deleteDialog.body")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-5 flex-row gap-2 sm:space-x-0">
@@ -224,7 +227,7 @@ export function TimelapsesPage({ store = getTimelapseStore() }: { store?: Timela
               onClick={() => setPending(null)}
               className="bg-bg-layer-2 text-foreground h-13 flex-1 rounded-lg text-[15px] font-semibold"
             >
-              취소
+              {t("common:actions.cancel")}
             </Button>
             <Button
               disabled={remove.isPending}
@@ -234,7 +237,7 @@ export function TimelapsesPage({ store = getTimelapseStore() }: { store?: Timela
               // 되돌릴 수 없는 동작이라 확인 버튼만 위험 색이다.
               className="bg-feedback-danger hover:bg-feedback-danger/90 h-13 flex-1 rounded-lg text-[15px] font-semibold text-white"
             >
-              삭제
+              {t("deleteDialog.confirm")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,0 +1,47 @@
+{
+  "button": {
+    "on": "Ambient sound on",
+    "off": "Ambient sound"
+  },
+  "sheet": {
+    "title": "Ambient sound",
+    "tooltip": "Ambient sound is muted while paused",
+    "loadFailed": "Couldn't load sounds",
+    "blocked": "Autoplay is blocked. Turn the volume down to 0 and back up to hear it",
+    "aria": {
+      "tooltip": "About ambient sound",
+      "toggleAll": "Ambient sound"
+    }
+  },
+  "duck": {
+    "label": "Sync with focus",
+    "tooltip": "Lowers the volume when you're not focused",
+    "aria": {
+      "tooltip": "About sync with focus"
+    }
+  },
+  "row": {
+    "aria": {
+      "tooltip": "About {{label}}",
+      "volume": "{{label}} volume"
+    }
+  },
+  "groups": {
+    "noise": "Noise",
+    "ambience": "Ambience",
+    "music": "Music"
+  },
+  "notes": {
+    "binaural": "Sounds best with headphones"
+  },
+  "sounds": {
+    "white": "White noise",
+    "pink": "Pink noise",
+    "brown": "Brown noise",
+    "binaural": "Binaural beats",
+    "monaural": "Monaural beats",
+    "rain-trp": "Rain (outdoor)",
+    "rain-mm": "Rain (indoor)",
+    "cafe-vec": "Cafe"
+  }
+}

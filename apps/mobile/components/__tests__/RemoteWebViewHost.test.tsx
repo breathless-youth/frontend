@@ -24,6 +24,11 @@ import {
   requestGlobalWebViewRecovery,
 } from "../RemoteWebViewHost";
 
+let mockLanguageCode = "ko";
+jest.mock("expo-localization", () => ({
+  getLocales: () => [{ languageCode: mockLanguageCode }],
+}));
+
 jest.mock("../../lib/orientation", () => ({
   lockPortrait: jest.fn(),
   unlockForSession: jest.fn(),
@@ -221,22 +226,52 @@ afterEach(() => {
 });
 
 describe("buildRemoteWebViewUrl", () => {
-  it("경로만 있으면 쿼리 없이 붙인다", () => {
-    expect(buildRemoteWebViewUrl("https://web.test", "/home")).toBe("https://web.test/home");
+  afterEach(() => {
+    mockLanguageCode = "ko";
+  });
+
+  it("경로만 있으면 언어만 붙인다", () => {
+    expect(buildRemoteWebViewUrl("https://web.test", "/home")).toBe(
+      "https://web.test/home?lang=ko",
+    );
   });
 
   it("베이스 URL 끝의 슬래시를 정리한다", () => {
-    expect(buildRemoteWebViewUrl("https://web.test/", "/home")).toBe("https://web.test/home");
+    expect(buildRemoteWebViewUrl("https://web.test/", "/home")).toBe(
+      "https://web.test/home?lang=ko",
+    );
   });
 
   it("쿼리 파라미터를 인코딩해 붙인다", () => {
     expect(buildRemoteWebViewUrl("https://web.test", "/room/1", { appVersion: "1.4.2" })).toBe(
-      "https://web.test/room/1?appVersion=1.4.2",
+      "https://web.test/room/1?appVersion=1.4.2&lang=ko",
     );
   });
 
-  it("빈 쿼리 객체는 쿼리 없이 연다", () => {
-    expect(buildRemoteWebViewUrl("https://web.test", "/home", {})).toBe("https://web.test/home");
+  it("빈 쿼리 객체는 언어만 붙인다", () => {
+    expect(buildRemoteWebViewUrl("https://web.test", "/home", {})).toBe(
+      "https://web.test/home?lang=ko",
+    );
+  });
+
+  it("한국어가 아닌 기기는 lang=en이다", () => {
+    mockLanguageCode = "ja";
+    expect(buildRemoteWebViewUrl("https://web.test", "/home")).toBe(
+      "https://web.test/home?lang=en",
+    );
+  });
+
+  it("언어를 캐시하지 않아 기기 언어가 바뀌면 다음 URL에 반영된다", () => {
+    const query = { appVersion: "1.4.2" };
+    expect(buildRemoteWebViewUrl("https://web.test", "/home", query)).toContain("lang=ko");
+    mockLanguageCode = "en";
+    expect(buildRemoteWebViewUrl("https://web.test", "/home", query)).toContain("lang=en");
+  });
+
+  it("복원 쿼리에 lang이 섞여 와도 기기 언어가 이긴다", () => {
+    expect(buildRemoteWebViewUrl("https://web.test", "/home", { lang: "en" })).toBe(
+      "https://web.test/home?lang=ko",
+    );
   });
 });
 
@@ -255,7 +290,7 @@ describe("RemoteWebViewHost", () => {
     render(<RemoteWebViewHost path="/room/1" query={{ appVersion: "1.4.2" }} testID="host" />);
 
     expect(screen.getByTestId("host").props.source).toEqual({
-      uri: "https://web.test/room/1?appVersion=1.4.2",
+      uri: "https://web.test/room/1?appVersion=1.4.2&lang=ko",
     });
   });
 
@@ -858,7 +893,9 @@ describe("RemoteWebViewHost", () => {
     fireEvent.press(screen.getByRole("button", { name: "다시 시도" }));
 
     expect(screen.queryByText("화면을 불러오지 못했어요")).toBeNull();
-    expect(screen.getByTestId("host").props.source).toEqual({ uri: "https://web.test/home" });
+    expect(screen.getByTestId("host").props.source).toEqual({
+      uri: "https://web.test/home?lang=ko",
+    });
   });
 
   it("베이스 URL이 설정되지 않았으면 같은 실패 폴백으로 떨어진다", () => {
@@ -880,7 +917,9 @@ describe("RemoteWebViewHost", () => {
     fireEvent.press(screen.getByRole("button", { name: "다시 시도" }));
 
     expect(screen.queryByText("화면을 불러오지 못했어요")).toBeNull();
-    expect(screen.getByTestId("host").props.source).toEqual({ uri: "https://web.test/home" });
+    expect(screen.getByTestId("host").props.source).toEqual({
+      uri: "https://web.test/home?lang=ko",
+    });
   });
 
   it("개발 빌드에서는 베이스 URL 미설정 사유를 노출한다", () => {
@@ -888,14 +927,14 @@ describe("RemoteWebViewHost", () => {
 
     render(<RemoteWebViewHost path="/home" testID="host" />);
 
-    expect(screen.getByText(/WEB_BASE_URL 미설정/)).toBeTruthy();
+    expect(screen.getByText(/WEB_BASE_URL is not set/)).toBeTruthy();
   });
 
   it("로드 실패(설정은 있음)일 때는 개발 사유 문구를 보이지 않는다", () => {
     render(<RemoteWebViewHost path="/home" testID="host" />);
     fireWebViewEvent("onError");
 
-    expect(screen.queryByText(/WEB_BASE_URL 미설정/)).toBeNull();
+    expect(screen.queryByText(/WEB_BASE_URL is not set/)).toBeNull();
   });
 
   it.each(["onError", "onHttpError"] as const)(
@@ -977,7 +1016,9 @@ describe("프로세스 종료 자동 복구 (BY-374)", () => {
 
     expect(mockWebViewMounted).toHaveBeenCalledTimes(2);
     // 재마운트 후에도 같은 URL을 다시 연다.
-    expect(screen.getByTestId("host").props.source).toEqual({ uri: "https://web.test/home" });
+    expect(screen.getByTestId("host").props.source).toEqual({
+      uri: "https://web.test/home?lang=ko",
+    });
   });
 });
 

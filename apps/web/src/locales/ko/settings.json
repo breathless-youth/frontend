@@ -1,0 +1,51 @@
+{
+  "title": "설정",
+  "sections": {
+    "profile": "프로필",
+    "service": "서비스",
+    "support": "지원",
+    "legal": "약관 · 정보"
+  },
+  "rows": {
+    "editProfile": "프로필 수정",
+    "cameraPermission": "카메라 권한",
+    "timelapse": "타임랩스",
+    "appLock": "방해 앱 잠금",
+    "contact": "문의하기",
+    "interview": "인터뷰 신청하기",
+    "interviewBadge": "기프티콘 증정",
+    "terms": "이용약관",
+    "privacy": "개인정보처리방침",
+    "licenses": "오픈소스 라이선스",
+    "version": "버전 정보"
+  },
+  "cameraPermission": {
+    "tooltip": "권한은 시스템 설정에서 바꿀 수 있어요",
+    "aria": {
+      "tooltip": "카메라 권한 안내",
+      "granted": "카메라 권한, 허용됨, 시스템 설정 열기",
+      "denied": "카메라 권한, 허용 안 됨, 시스템 설정 열기"
+    }
+  },
+  "version": {
+    "copied": "버전을 복사했어요",
+    "copyFailed": "복사하지 못했어요"
+  },
+  "row": {
+    "aria": {
+      "copy": "{{value}} 복사",
+      "tooltip": "{{label}} 안내"
+    }
+  },
+  "contact": {
+    "loading": "문의 폼을 불러오는 중",
+    "failure": "문의 폼을 불러오지 못했어요"
+  },
+  "download": {
+    "redirecting": "스토어로 이동하는 중…",
+    "manual": "직접 이동하기"
+  },
+  "legal": {
+    "koreanOnly": "이 문서는 지금 한국어로만 제공돼요."
+  }
+}

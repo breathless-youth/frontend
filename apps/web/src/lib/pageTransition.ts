@@ -1,5 +1,5 @@
 import { useLayoutEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, type NavigateFunction } from "react-router-dom";
 
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 
@@ -68,6 +68,22 @@ export function slideNavigate(direction: SlideDirection, update: () => void): vo
     });
   activeFinished = finished;
   notifyTransition(true);
+}
+
+/**
+ * 이전 화면으로 슬라이드 복귀
+ *
+ * 딥링크로 곧장 열려 돌아갈 기록이 없으면 설정 탭으로 보낸다.
+ */
+export function slideBack(navigate: NavigateFunction): void {
+  slideNavigate("back", () => {
+    const historyState = window.history.state as { idx?: number } | null;
+    if (historyState?.idx) {
+      navigate(-1);
+      return;
+    }
+    navigate("/settings", { replace: true });
+  });
 }
 
 /**

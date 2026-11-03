@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   controlButtonVariants,
@@ -27,6 +28,7 @@ export interface ModeEntryButtonProps {
  */
 export const ModeEntryButton = forwardRef<HTMLButtonElement, ModeEntryButtonProps>(
   function ModeEntryButton({ expanded, faded, inactive = false, onClick }, ref) {
+    const { t } = useTranslation("multi-timer");
     const native = useNativeControl<HTMLButtonElement>(
       {
         id: "session-timer",
@@ -36,7 +38,7 @@ export const ModeEntryButton = forwardRef<HTMLButtonElement, ModeEntryButtonProp
         image: null,
         shape: "circle",
         disabled: inactive,
-        accessibilityLabel: "타이머",
+        accessibilityLabel: t("entryButton.aria.open"),
         tone: "default",
         faded,
       },
@@ -55,7 +57,7 @@ export const ModeEntryButton = forwardRef<HTMLButtonElement, ModeEntryButtonProp
           }
         }}
         type="button"
-        aria-label="타이머"
+        aria-label={t("entryButton.aria.open")}
         aria-haspopup="dialog"
         aria-expanded={expanded}
         onClick={onClick}

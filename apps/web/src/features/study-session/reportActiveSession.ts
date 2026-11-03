@@ -82,7 +82,7 @@ export async function reportActiveSession(
       signal: controller.signal,
     });
     if (!res.ok) {
-      throw await parseApiError(res, "스냅샷 보고 실패");
+      throw await parseApiError(res, "session snapshot report failed");
     }
   } finally {
     clearTimeout(timer);

@@ -1,11 +1,13 @@
 import { useId, useState } from "react";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SessionPage, SessionPageFooter } from "@/features/study-session/components/SessionPage";
 import { cn } from "@/lib/utils";
+import koAmbientSound from "@/locales/ko/ambient-sound.json";
 
 import type { AmbientSound, SoundId } from "../catalog";
 import type { Mix } from "../mix";
@@ -40,6 +42,17 @@ export interface AmbientSoundSheetProps {
   onOpenChange: (open: boolean) => void;
 }
 
+type CataloguedSoundId = keyof typeof koAmbientSound.sounds;
+
+/**
+ * 문구 카탈로그에 이름이 있는 소리인지
+ *
+ * 소리 목록은 정적 JSON에서 오므로 카탈로그 키를 더하지 않은 새 소리는 JSON의 이름을 그대로 쓴다.
+ */
+function hasCatalogLabel(id: SoundId): id is CataloguedSoundId {
+  return Object.hasOwn(koAmbientSound.sounds, id);
+}
+
 /** `InfoTooltip` 기본색은 전역 토큰이라 세션 툴팁 색으로 덮는다. */
 const SESSION_TOOLTIP_CLASS = "bg-(--session-dialog-cancel-bg) text-white";
 
@@ -61,6 +74,8 @@ function SoundRow({
   onToggle: () => void;
   onChangeLevel: (level: number) => void;
 }) {
+  const { t } = useTranslation("ambient-sound");
+  const label = hasCatalogLabel(sound.id) ? t(`sounds.${sound.id}`) : sound.label;
   const note = soundNote(sound.id);
   // 켜고 끄는 버튼은 글자 폭만 차지하고, 가상 요소로 이름 칸 전체를 눌리게 넓힌다.
   // 그래야 안내 ⓘ를 글자 바로 뒤에 붙여도 줄 전체가 버튼인 채로 남는다.
@@ -83,13 +98,13 @@ function SoundRow({
         )}
       >
         {icon}
-        <span className="truncate">{sound.label}</span>
+        <span className="truncate">{label}</span>
       </button>
       {note && (
         // 오른쪽 여백을 아이콘 폭만큼 되돌려 ⓘ가 이름 칸을 넓히거나 글자를 줄이지 않게 한다.
         <span className="ml-1 -mr-4 flex shrink-0">
           <InfoTooltip
-            label={`${sound.label} 안내`}
+            label={t("row.aria.tooltip", { label })}
             side="top"
             contentClassName={SESSION_TOOLTIP_CLASS}
           >
@@ -106,7 +121,7 @@ function SoundRow({
       min={0}
       max={100}
       value={level}
-      aria-label={`${sound.label} 음량`}
+      aria-label={t("row.aria.volume", { label })}
       onChange={(event) => onChangeLevel(Number(event.target.value))}
       className={cn(
         "relative min-h-11 accent-(--state-focus)",
@@ -158,6 +173,7 @@ export function AmbientSoundSheet({
   onToggleAll,
   onOpenChange,
 }: AmbientSoundSheetProps) {
+  const { t } = useTranslation("ambient-sound");
   const groups = soundGroups(catalog);
   const [tab, setTab] = useState<string | undefined>(undefined);
   const activeTab = tab ?? groups[0]?.id;
@@ -187,12 +203,20 @@ export function AmbientSoundSheet({
   const duckRow = (
     <div className="flex min-h-11 items-center gap-5.5">
       <span className="flex items-center gap-1 text-[15px] leading-5.5 text-(--session-dialog-title)">
-        집중 연동
-        <InfoTooltip label="집중 연동 안내" side="top" contentClassName={SESSION_TOOLTIP_CLASS}>
-          집중 상태가 아닐 때는 소리를 낮춰요
+        {t("duck.label")}
+        <InfoTooltip
+          label={t("duck.aria.tooltip")}
+          side="top"
+          contentClassName={SESSION_TOOLTIP_CLASS}
+        >
+          {t("duck.tooltip")}
         </InfoTooltip>
       </span>
-      <Switch checked={duckEnabled} onCheckedChange={onSetDuckEnabled} aria-label="집중 연동" />
+      <Switch
+        checked={duckEnabled}
+        onCheckedChange={onSetDuckEnabled}
+        aria-label={t("duck.label")}
+      />
     </div>
   );
 
@@ -202,20 +226,20 @@ export function AmbientSoundSheet({
       onOpenChange={onOpenChange}
       container={container}
       returnFocus={returnFocus}
-      title="배경음"
+      title={t("sheet.title")}
       landscape={landscape}
       headerExtras={
         // 글자와 ⓘ는 4px만 띄운다. ⓘ의 44px 터치 영역은 가상 요소라 간격을 밀지 않는다.
         // ⓘ와 스위치 사이는 두 터치 영역이 겹치지 않게 넓게 둔다.
         <div className="ml-1 flex items-center gap-5.5">
-          <InfoTooltip label="배경음 안내" contentClassName={SESSION_TOOLTIP_CLASS}>
-            일시정지 중에는 배경음이 들리지 않아요
+          <InfoTooltip label={t("sheet.aria.tooltip")} contentClassName={SESSION_TOOLTIP_CLASS}>
+            {t("sheet.tooltip")}
           </InfoTooltip>
           <Switch
             checked={allOn}
             onCheckedChange={onToggleAll}
             disabled={!allOn && !canRestore}
-            aria-label="배경음"
+            aria-label={t("sheet.aria.toggleAll")}
           />
         </div>
       }
@@ -276,7 +300,7 @@ export function AmbientSoundSheet({
             !landscape && "px-6",
           )}
         >
-          배경음 목록을 불러오지 못했어요
+          {t("sheet.loadFailed")}
         </p>
       )}
       {blocked && (
@@ -286,7 +310,7 @@ export function AmbientSoundSheet({
             !landscape && "px-6",
           )}
         >
-          자동 재생이 막혀 있어요. 음량을 0 으로 내렸다 다시 올리면 들려요
+          {t("sheet.blocked")}
         </p>
       )}
 

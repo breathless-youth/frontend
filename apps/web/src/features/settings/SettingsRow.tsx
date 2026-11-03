@@ -1,4 +1,5 @@
 import { ChevronRight, Copy, ExternalLink } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/components/ui/badge";
 
@@ -60,6 +61,7 @@ type SettingsRowProps = {
 const ROW_CLASS_NAME = "min-h-11 flex w-full flex-row items-center justify-between gap-3 py-3.5";
 
 function RowTrailing({ trailing }: { trailing: SettingsRowTrailing }) {
+  const { t } = useTranslation("settings");
   switch (trailing.kind) {
     case "toggle":
       return <PermissionToggle granted={trailing.granted} />;
@@ -89,7 +91,7 @@ function RowTrailing({ trailing }: { trailing: SettingsRowTrailing }) {
           <button
             type="button"
             onClick={trailing.onCopy}
-            aria-label={`${trailing.value} 복사`}
+            aria-label={t("row.aria.copy", { value: trailing.value })}
             // 아이콘은 16이지만 히트 영역은 44 — 세로 음수 마진으로 행 높이는 늘리지 않는다.
             className="text-text-tertiary relative mr-0.5 flex size-4 items-center justify-center rounded-full after:absolute after:-inset-3.5 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--state-focus)"
           >

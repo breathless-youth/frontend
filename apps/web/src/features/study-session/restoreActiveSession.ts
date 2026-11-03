@@ -104,7 +104,7 @@ export async function restoreActiveSession(
       return null;
     }
     if (!res.ok) {
-      throw await parseApiError(res, "진행중 세션 조회 실패");
+      throw await parseApiError(res, "active session fetch failed");
     }
     const body = (await res.json()) as ActiveSessionSnapshotResponse;
     const startedAtMs = Date.parse(body.startedAt);

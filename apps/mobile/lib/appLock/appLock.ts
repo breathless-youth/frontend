@@ -3,6 +3,7 @@ import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
 import { type AppLockNative, appLockNative } from "../../modules/app-lock";
+import { t } from "../i18n";
 import { offerBatteryGuide, requestConsent } from "./androidFlow";
 import { getRnda, type RndaApi } from "./rnda";
 
@@ -25,15 +26,16 @@ const APPROVED_BEFORE_KEY = "appLock.approvedBefore";
 // 백업으로 다른 기기에 복사되면 그 기기에서 권한을 끈 것으로 잘못 읽는다.
 const STORE_OPTIONS = { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY };
 const SELECTION = { activitySelectionId: SELECTION_ID };
-const SHIELD = {
-  title: "지금은 공부에 집중하는 시간이에요",
+// 문구는 잠글 때의 기기 언어로 정해서 함수로 만든다.
+const shield = () => ({
+  title: t("appLock.shieldTitle"),
   // 앱을 강제 종료한 사람은 공부가 끝났다고 여겨 "공부가 끝나면"으로는 우리 앱을 다시 열어야 풀린다는 걸 모른다.
-  subtitle: "포커스 메이커스 앱에서 공부를 끝내면 잠금이 풀려요",
-  primaryButtonLabel: "닫기",
+  subtitle: t("appLock.shieldSubtitle"),
+  primaryButtonLabel: t("common.close"),
   iconSystemName: "lock.fill",
   // Shield는 RGB 값 하나만 받아 다크 모드를 따라가지 못해서 라이트 값을 쓴다.
   iconTint: hexToRgb(colors.brand.primary.light),
-};
+});
 
 function hexToRgb(hex: string): { red: number; green: number; blue: number } {
   const channel = (start: number) => parseInt(hex.slice(start, start + 2), 16);
@@ -79,7 +81,7 @@ function safely(label: string, call: () => void): boolean {
     call();
     return true;
   } catch (error) {
-    console.warn(`[appLock] ${label} 실패`, error);
+    console.warn(`[appLock] ${label} failed`, error);
     return false;
   }
 }
@@ -222,20 +224,20 @@ export async function saveSelection(selection: string | null): Promise<AppLockSt
   if (native !== null) {
     const packages = selection === null ? [] : parsePackages(selection);
     if (packages !== null) {
-      safely("선택 저장", () => native.setSelectedPackages(packages));
+      safely("save selection", () => native.setSelectedPackages(packages));
     }
     return getAppLockState();
   }
   const rnda = supportedRnda();
   if (rnda !== null) {
     if (selection === null) {
-      safely("선택 지우기", () => {
+      safely("clear selection", () => {
         const { [SELECTION_ID]: _removed, ...rest } =
           rnda.userDefaultsGet<Record<string, string>>(SELECTION_IDS_KEY) ?? {};
         rnda.userDefaultsSet(SELECTION_IDS_KEY, rest);
       });
     } else {
-      safely("선택 저장", () =>
+      safely("save selection", () =>
         rnda.setFamilyActivitySelectionId({ id: SELECTION_ID, familyActivitySelection: selection }),
       );
     }
@@ -300,12 +302,12 @@ export async function startStudyLock(now: Date = new Date()): Promise<Counts | n
       actions: [{ type: "resetBlocks" }],
     });
     await rnda.startMonitoring(ACTIVITY_NAME, safetyReleaseSchedule(now), []);
-    rnda.updateShield(SHIELD, { primary: { behavior: "close" } });
+    rnda.updateShield(shield(), { primary: { behavior: "close" } });
     rnda.blockSelection(SELECTION, "study-start");
   } catch (error) {
     console.warn("[appLock] 잠금 실패", error);
     // 잠그지 못했으면 풀어 줄 잠금이 없어서 먼저 걸어 둔 안전 해제 예약도 지운다.
-    safely("실패한 시작의 예약 해제", () => rnda.stopMonitoring([ACTIVITY_NAME]));
+    safely("cancel schedule after failed start", () => rnda.stopMonitoring([ACTIVITY_NAME]));
     return null;
   }
   return counts;
@@ -341,15 +343,15 @@ function startAndroidLock(native: AppLockNative): Counts | null {
 export async function stopStudyLock(): Promise<void> {
   const native = supportedAndroid();
   if (native !== null) {
-    safely("잠금 해제", () => native.stopLock());
+    safely("unlock", () => native.stopLock());
     return;
   }
   const rnda = supportedRnda();
   if (rnda === null) {
     return;
   }
-  if (safely("잠금 해제", () => rnda.resetBlocks("study-end"))) {
-    safely("예약 해제", () => rnda.stopMonitoring([ACTIVITY_NAME]));
+  if (safely("unlock", () => rnda.resetBlocks("study-end"))) {
+    safely("cancel schedule", () => rnda.stopMonitoring([ACTIVITY_NAME]));
   }
 }
 
@@ -363,14 +365,14 @@ export async function stopStudyLock(): Promise<void> {
 export async function cleanupOnLaunch(): Promise<void> {
   const native = supportedAndroid();
   if (native !== null) {
-    safely("실행 시 잠금 정리", () => native.stopLock());
+    safely("unlock on launch", () => native.stopLock());
     return;
   }
   const rnda = supportedRnda();
   if (rnda === null) {
     return;
   }
-  if (safely("실행 시 잠금 정리", () => rnda.resetBlocks("launch-cleanup"))) {
-    safely("실행 시 예약 정리", () => rnda.stopMonitoring([ACTIVITY_NAME]));
+  if (safely("unlock on launch", () => rnda.resetBlocks("launch-cleanup"))) {
+    safely("cancel schedule on launch", () => rnda.stopMonitoring([ACTIVITY_NAME]));
   }
 }

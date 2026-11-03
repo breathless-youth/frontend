@@ -1,0 +1,60 @@
+{
+  "notice": {
+    "graceEndSaved": "자리를 오래 비워서 공부를 종료했어요.\n공부 기록은 저장되었으니 안심하세요.",
+    "graceEndPending": "자리를 오래 비워서 공부를 종료했어요.\n공부 기록은 저장되니 안심하세요.",
+    "graceEndSubMinute": "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
+    "roomClosedSaved": "방이 종료되어 공부를 마쳤어요.\n공부 기록은 저장되었으니 안심하세요.",
+    "roomClosedPending": "방이 종료되어 공부를 마쳤어요.\n공부 기록은 저장되니 안심하세요.",
+    "roomClosedSubMinute": "방이 종료되어 공부를 마쳤어요.\n1분 미만 공부는 기록에 표시되지 않아요"
+  },
+  "entry": {
+    "backToSocial": "소셜 홈으로"
+  },
+  "me": "나",
+  "cameraConfirm": {
+    "title": "카메라를 켤까요?",
+    "notice": "영상은 같은 방에만 보이고 저장되지 않아요",
+    "confirm": "카메라 켜기",
+    "faceMask": "얼굴 가리기",
+    "faceMaskUnsupported": "이 기기에서는 얼굴 가리기를 쓸 수 없어요",
+    "tooltipMotion": "빠르게 움직이면 얼굴이 잠깐 보일 수 있어요",
+    "tooltipHeat": "오래 켜 두면 기기가 뜨거워질 수 있어요",
+    "aria": {
+      "faceMaskInfo": "얼굴 가리기 안내"
+    }
+  },
+  "faceMask": {
+    "searching": "가릴 위치를 찾고 있어요",
+    "emoji": {
+      "dog": "개",
+      "cat": "고양이",
+      "bear": "곰",
+      "hamster": "햄스터",
+      "monkey": "원숭이",
+      "panda": "판다",
+      "rabbit": "토끼",
+      "tiger": "호랑이",
+      "frog": "개구리"
+    },
+    "aria": {
+      "picker": "가림 이모지"
+    }
+  },
+  "controls": {
+    "cameraOff": "카메라 끄기",
+    "cameraOn": "카메라 켜기",
+    "exit": "나가기"
+  },
+  "tile": {
+    "focus": "집중 중",
+    "distracted": "휴식",
+    "off": "카메라 꺼짐"
+  },
+  "time": {
+    "total": "총",
+    "aria": {
+      "focus": "순공시간 {{duration}}",
+      "total": "총 공부 시간 {{duration}}"
+    }
+  }
+}

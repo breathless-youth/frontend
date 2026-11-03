@@ -13,6 +13,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { onFirstScreenLoaded } from "../lib/firstScreenLoaded";
+import { t } from "../lib/i18n";
 import type { LaunchGoal } from "../lib/launchGoal";
 import { trackNativeEvent } from "../lib/nativeAnalytics";
 
@@ -169,9 +170,7 @@ export function LaunchGoalOverlay({
             <LoadingDot key={index} index={index} animate={!reduceMotion} />
           ))}
         </View>
-        <Text className="font-sans text-[13px] text-text-tertiary">
-          오늘 할 공부를 정리하고 있어요
-        </Text>
+        <Text className="font-sans text-[13px] text-text-tertiary">{t("launchGoal.loading")}</Text>
       </View>
     </Animated.View>
   );

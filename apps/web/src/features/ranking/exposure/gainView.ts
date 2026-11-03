@@ -5,7 +5,9 @@ import type {
   TimeSlot,
 } from "@focusmakers/types";
 
-import { isHallType, PERIOD_LABEL, TYPE_LABEL } from "../model/board";
+import i18n from "@/lib/i18n";
+
+import { isHallType, periodLabel, typeLabel } from "../model/board";
 import { formatRank, recordName } from "../model/format";
 
 /** 결과 카드에 보이는 칩의 최대 수. */
@@ -37,11 +39,11 @@ export function gainChipLabel(gain: {
   slot: TimeSlot | null;
 }): string {
   if (isHallType(gain.type)) {
-    return TYPE_LABEL[gain.type];
+    return typeLabel(gain.type);
   }
   const name = recordName({ type: gain.type, slot: gain.slot });
   return gain.type === "FOCUS_TIME" && gain.period !== null
-    ? `${PERIOD_LABEL[gain.period]} ${name}`
+    ? `${periodLabel(gain.period)} ${name}`
     : name;
 }
 
@@ -88,5 +90,5 @@ export function formatRise(delta: number): string {
  * ▲는 기호 이름으로 읽혀 뜻이 전해지지 않아 보이는 표기는 가리고 이 문장을 읽힌다.
  */
 export function formatRiseSpoken(delta: number): string {
-  return `${formatRank(delta)}계단 올랐어요`;
+  return i18n.t("ranking:live.rankUp", { count: delta, steps: formatRank(delta) });
 }

@@ -4,6 +4,7 @@ import { ChevronLeft, X } from "lucide-react";
 import { type ReactNode, useEffect, useEffectEvent, useId } from "react";
 
 import { postToNative } from "@/lib/bridge";
+import i18n from "@/lib/i18n";
 import { glassChromeVersion, registerPressHandler } from "@/lib/glassChrome";
 import { useModalOverlayOpen } from "@/lib/nativeModalOverlay";
 import { cn } from "@/lib/utils";
@@ -36,7 +37,12 @@ export type GlassChromeTopProps = {
   trailing?: ReactNode;
 };
 
-const LEADING_LABELS = { back: "뒤로 가기", close: "닫기" } as const;
+function leadingLabel(top: GlassChromeTopProps): string {
+  return (
+    top.leadingLabel ||
+    i18n.t(top.leading === "back" ? "common:actions.back" : "common:actions.close")
+  );
+}
 
 function clip(text: string): string {
   return text.slice(0, NATIVE_CONTROL_LABEL_MAX_LENGTH);
@@ -59,7 +65,7 @@ function hasWebParts(top: GlassChromeTopProps): boolean {
 function toChromeTop(top: GlassChromeTopProps): GlassChromeTop {
   return {
     leading: top.leading,
-    leadingLabel: clip(top.leadingLabel || LEADING_LABELS[top.leading]),
+    leadingLabel: clip(leadingLabel(top)),
     // 앱은 빈 글자도 버리므로 제목이 비면 없는 것으로 보낸다.
     // 가운데 요소가 있으면 CSS 대체처럼 그 요소가 제목 자리를 차지한다.
     // 오른쪽 요소가 있으면 웹이 제목을 함께 그리므로 앱에는 보내지 않는다.
@@ -163,7 +169,7 @@ function GlassTopBar({ top, withLeading }: { top: GlassChromeTopProps; withLeadi
         {withLeading && (
           <button
             type="button"
-            aria-label={top.leadingLabel || LEADING_LABELS[top.leading]}
+            aria-label={leadingLabel(top)}
             onClick={top.onLeading}
             className="pointer-events-auto flex size-11 items-center justify-center rounded-full glass-surface"
           >

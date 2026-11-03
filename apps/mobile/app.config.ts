@@ -3,6 +3,9 @@ import path from "node:path";
 
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
+import enLocale from "./locales/en.json";
+import koLocale from "./locales/ko.json";
+
 /**
  * 앱 설정의 환경 분기
  * Expo는 app.json을 먼저 읽어 이 함수의 `config`로 넘긴다.
@@ -326,6 +329,7 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
   );
 
   const appDisplayName = `${config.extra?.appDisplayName ?? ""}${table.nameSuffix}`;
+  const appDisplayNameEn = `${config.extra?.appDisplayNameEn ?? ""}${table.nameSuffix}`;
   const metaSdk = resolveMetaSdk(variant);
 
   const webBaseUrl = table.webBaseUrl ?? guardDevBaseUrl("WEB_BASE_URL", process.env.WEB_BASE_URL);
@@ -353,6 +357,16 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
   return {
     ...(config as ExpoConfig),
     scheme: table.schemes,
+    // 언어별 InfoPlist.strings의 앱 이름은 Info.plist 값을 덮어서 변형 접미를 여기서 붙인다.
+    // app.json에 파일 경로만 두면 STG·DEV 앱이 기기 언어에 따라 접미 없는 이름으로 보인다.
+    // Android 기본 이름은 영어(withAppDisplayName)라 한국어 이름만 values-b+ko에 넣는다.
+    locales: {
+      ko: {
+        ios: { ...koLocale, CFBundleDisplayName: appDisplayName },
+        android: { app_name: appDisplayName },
+      },
+      en: { ios: { ...enLocale, CFBundleDisplayName: appDisplayNameEn } },
+    },
     plugins: [
       ...(config.plugins ?? []),
       ["expo-dev-client", { addGeneratedScheme: variant === "development" }],
@@ -384,6 +398,7 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
       appSchemes: table.schemes,
       deepLinkHosts,
       appDisplayName,
+      appDisplayNameEn,
       apiBaseUrl: table.apiBaseUrl ?? guardDevBaseUrl("API_BASE_URL", process.env.API_BASE_URL),
       webBaseUrl,
       // 런타임 게이트(`lib/metaAdsSdk.ts`) — 비어 있으면 Meta SDK가 빌드에 없다는 뜻이다.
