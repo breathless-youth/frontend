@@ -10,7 +10,7 @@ import { useTranslation } from "react-i18next";
 
 import { formatDuration } from "@/features/records/recordsFormat";
 import { subjectColorVar } from "@/features/records/recordsTimetable";
-import { SUBJECT_SUGGESTIONS } from "@/features/study-session/useSubjects";
+import { subjectSuggestions } from "@/features/study-session/useSubjects";
 import {
   LONG_PRESS_MS,
   MAX_SUBJECTS,
@@ -817,7 +817,7 @@ function ManagedSubjects({
       {/* 과목이 없으면 자주 쓰는 과목을 있을 때의 모습 그대로 흐리게 그리고, 줄마다 `추가`를 둔다. */}
       {empty && suggestSubjects && (
         <ul className="flex flex-col gap-1" aria-label={t("suggestions.aria.list")}>
-          {SUBJECT_SUGGESTIONS.map((name, index) => (
+          {subjectSuggestions().map((name, index) => (
             <li key={name} className="flex h-9 items-center gap-2">
               <span aria-hidden className="flex min-w-0 flex-1 items-center gap-2 opacity-40">
                 <span

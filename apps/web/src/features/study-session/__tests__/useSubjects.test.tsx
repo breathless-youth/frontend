@@ -1,9 +1,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { SubjectResponse } from "@focusmakers/types";
 
 import { ApiError } from "@/lib/api";
+import i18n from "@/lib/i18n";
 import { setSubjectsUserProperties, trackSubjectItemAdded } from "@/lib/amplitude";
 import {
   createSubject,
@@ -13,7 +14,7 @@ import {
   reorderSubjects,
 } from "@/lib/subjectApi";
 
-import { useSubjects } from "../useSubjects";
+import { subjectSuggestions, useSubjects } from "../useSubjects";
 
 vi.mock("@/lib/subjectApi", () => ({
   listSubjects: vi.fn(),
@@ -323,5 +324,20 @@ describe("useSubjects 이름 중복", () => {
 
     expect(ids(hook)).toEqual([2, 1, 3, 7]);
     expect(hook.result.current.subjects.at(-1)?.studySec).toBe(600);
+  });
+});
+
+describe("subjectSuggestions", () => {
+  afterEach(async () => {
+    await i18n.changeLanguage("ko");
+  });
+
+  it("한국어 화면은 한국어 과목 이름을 추천한다", () => {
+    expect(subjectSuggestions()).toEqual(["국어", "수학", "영어", "탐구"]);
+  });
+
+  it("영어 화면은 영어 과목 이름을 추천한다", async () => {
+    await i18n.changeLanguage("en");
+    expect(subjectSuggestions()).toEqual(["Math", "English", "Science", "History"]);
   });
 });

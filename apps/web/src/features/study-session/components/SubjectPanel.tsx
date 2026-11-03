@@ -29,7 +29,7 @@ import {
 import type { SubjectSelection, SubjectTotals } from "../subjectSegments";
 import { liveSubjectTime } from "../subjectSegments";
 import type { SubjectsStore } from "../useSubjects";
-import { SUBJECT_SUGGESTIONS } from "../useSubjects";
+import { subjectSuggestions } from "../useSubjects";
 import { SessionPageFooter } from "./SessionPage";
 
 /**
@@ -649,7 +649,7 @@ function EmptyState({
         <p className="text-[13px] leading-4 text-white/50">{t("subjectSheet.emptySub")}</p>
       </div>
       <ul className="flex flex-col gap-1.5 px-2 py-1" aria-label={t("subjectSheet.suggestions")}>
-        {SUBJECT_SUGGESTIONS.map((name) => (
+        {subjectSuggestions().map((name) => (
           <li key={name}>
             <button
               type="button"

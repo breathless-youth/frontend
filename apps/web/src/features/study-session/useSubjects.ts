@@ -8,7 +8,7 @@ import {
   trackSubjectItemAdded,
 } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
-import i18n from "@/lib/i18n";
+import i18n, { isKoreanLocale } from "@/lib/i18n";
 import {
   createSubject,
   createTask,
@@ -20,12 +20,20 @@ import {
   updateTask,
 } from "@/lib/subjectApi";
 
+// eslint-disable-next-line no-restricted-syntax -- 서버에 과목 이름으로 저장되는 값
+const KO_SUBJECT_SUGGESTIONS = ["국어", "수학", "영어", "탐구"] as const;
+const EN_SUBJECT_SUGGESTIONS = ["Math", "English", "Science", "History"] as const;
+
 /**
- * 빈 상태 추천 과목. 고르면 이 글자 그대로 서버에 과목 이름으로 저장돼서 번역하지 않는다(스펙 §3).
+ * 빈 상태 추천 과목
+ *
+ * 고르면 이 글자 그대로 서버에 과목 이름으로 저장돼서, 카탈로그 번역이 아니라 언어별 목록을 따로 둔다.
+ * 이미 저장된 과목 이름은 언어를 바꿔도 그대로다.
  * 플래너 과목 영역도 같은 목록을 쓴다.
  */
-// eslint-disable-next-line no-restricted-syntax -- 서버에 과목 이름으로 저장되는 값
-export const SUBJECT_SUGGESTIONS = ["국어", "수학", "영어", "탐구"] as const;
+export function subjectSuggestions(): readonly string[] {
+  return isKoreanLocale() ? KO_SUBJECT_SUGGESTIONS : EN_SUBJECT_SUGGESTIONS;
+}
 
 export type SubjectsStatus = "idle" | "loading" | "ready" | "error";
 
