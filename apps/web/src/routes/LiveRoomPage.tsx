@@ -9,6 +9,7 @@ import { isCompleteInviteCode } from "@/features/social-room/inviteCode";
 import type { CreatePeerConnection } from "@/features/live-room/peerMesh";
 import type { LiveRoomKind } from "@/features/live-room/roomKind";
 import { createStompRoomChannel } from "@/features/live-room/stompRoomChannel";
+import type { RoomAudioDeps } from "@/features/live-room/useRoomAudio";
 import { createMediaStreamCameraAdapter } from "@/features/study-session/adapters/mediaStreamCamera";
 import { useIdentityPending, useUserId } from "@/lib/userId";
 
@@ -24,10 +25,13 @@ export function LiveRoomPage({
   createChannel,
   createCamera = createMediaStreamCameraAdapter,
   createPeerConnection,
+  audioDeps,
 }: {
   createChannel?: CreateChannel;
   createCamera?: CreateCamera;
   createPeerConnection?: CreatePeerConnection;
+  /** 초대코드 방은 소리를 쓰지 않아서, 테스트가 넣은 재생기와 마이크가 쓰이지 않는지 볼 때만 넘긴다. */
+  audioDeps?: RoomAudioDeps;
 }) {
   const { roomId: roomIdParam } = useParams();
   const [searchParams] = useSearchParams();
@@ -81,6 +85,7 @@ export function LiveRoomPage({
       createChannel={createChannel ?? ((options) => createStompRoomChannel(options))}
       createCamera={createCamera}
       createPeerConnection={createPeerConnection}
+      audioDeps={audioDeps}
     />
   );
 }
