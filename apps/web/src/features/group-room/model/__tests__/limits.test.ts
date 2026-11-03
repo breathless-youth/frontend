@@ -59,6 +59,12 @@ describe("글자 수", () => {
     expect(countGroupText("  공부방  ")).toBe(3);
     expect(countGroupText("👩‍💻")).toBe(1);
   });
+
+  // 서버는 자바 strip()으로 앞뒤를 다듬어 NBSP는 남기고 U+001C~U+001F 제어 문자는 뺀다.
+  it("앞뒤에서는 서버 strip()이 빼는 글자만 뺀다", () => {
+    expect(countGroupText("\u00a0공부\u00a0")).toBe(4);
+    expect(countGroupText("\u001f공부\u3000")).toBe(2);
+  });
 });
 
 // Intl.Segmenter는 풀어 쓴 한글도 한 글자로 묶어서 NFC를 뺀 차이가 코드포인트로 셀 때만 드러난다.

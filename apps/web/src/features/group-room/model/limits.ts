@@ -1,4 +1,4 @@
-import { countGraphemes } from "@/lib/graphemes";
+import { countGraphemes, normalizeServerText } from "@/lib/graphemes";
 
 /** 그룹 개수, 기간, 글자 수의 한도. */
 export const GROUP_ROOM_LIMITS = {
@@ -84,9 +84,9 @@ export function isRoomFull(memberCount: number): boolean {
  * 그룹 글 글자 수
  *
  * 서버와 같은 방식으로 세야 한도 끝에서 화면과 서버의 판정이 어긋나지 않는다.
- * 그래서 NFC로 맞추고 앞뒤 공백을 뺀 뒤 이모지 조합을 한 글자로 센다.
+ * 그래서 NFC로 맞추고 서버 strip()이 빼는 앞뒤 공백만 뺀 뒤 이모지 조합을 한 글자로 센다.
  * 글자 수 표시도 이 값을 써야 끝에 붙은 공백 때문에 한도를 넘은 것처럼 보이지 않는다.
  */
 export function countGroupText(text: string): number {
-  return countGraphemes(text.normalize("NFC").trim());
+  return countGraphemes(normalizeServerText(text));
 }

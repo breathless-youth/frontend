@@ -1,25 +1,12 @@
-import { canSegmentGraphemes, splitGraphemes } from "@/lib/graphemes";
+import { canSegmentGraphemes, normalizeServerText, splitGraphemes } from "@/lib/graphemes";
 
 /**
  * 프로필 입력 클라이언트 검증
  */
 
-// JS trim()은 NBSP(U+00A0)·BOM(U+FEFF)까지 지우지만 서버 Java String.strip()은
-// Character.isWhitespace 기준이라 그 둘을 남겨서 거부한다. trim()을 쓰면 화면은
-// 통과시키고 서버에서만 400이 나므로, 서버가 지우는 것과 정확히 같은 집합만 잘라낸다.
-// Character.isWhitespace는 ASCII 공백류(tab·LF·VT·FF·CR·space)·U+001C~U+001F 제어문자에
-// 더해 유니코드 공백 분리자(Zs/Zl/Zp) 대부분을 지우지만, 그중 NBSP(U+00A0)·U+2007·
-// U+202F 셋은 "줄바꿈 없는 공백"이라는 이유로 명시적으로 제외한다. BOM(U+FEFF)은 애초에
-// 공백이 아니라 서식 문자(Cf)라 대상이 아니다. 이 정규식이 그 예외 셋을 코드포인트로
-// 남겨 형식 검증이 계속 거부하게 두는 것도 같은 이유다(편집기에서 안 보이는 문자라
-// 리터럴로 적으면 실수로 지워지므로 코드포인트로 적는다).
-const TRIMMED_SPACE =
-  // eslint-disable-next-line no-control-regex -- U+001C~U+001F는 Character.isWhitespace가 지우는 제어문자다
-  /^[ \t\n\v\f\r\u001C-\u001F\u1680\u2000-\u2006\u2008-\u200A\u2028\u2029\u205F\u3000]+|[ \t\n\v\f\r\u001C-\u001F\u1680\u2000-\u2006\u2008-\u200A\u2028\u2029\u205F\u3000]+$/g;
-
 /** 서버와 같은 정규화 — 서버가 저장·중복 판정 전에 적용하는 것과 같은 형태로 맞춘다. */
 export function normalizeNickname(nickname: string): string {
-  return nickname.normalize("NFC").replace(TRIMMED_SPACE, "");
+  return normalizeServerText(nickname);
 }
 
 /** 닉네임 형식 오류 문구 — 저장 화면과 서버 400 응답이 같은 문구를 쓴다. */
