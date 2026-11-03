@@ -15,13 +15,6 @@ const { LazySheet: LazyProfilePhotoSheet, preload: preloadProfilePhotoSheet } = 
   () => import("./ProfilePhotoSheet").then((module) => module.ProfilePhotoSheet),
 );
 
-// 프로필 사진을 실은 개정 개인정보처리방침의 시행 시각이라 그 전에는 사진을 바꿀 수 없게 하고, 시행 뒤에는 이 조건을 삭제한다.
-const PHOTO_EDIT_OPENS_AT = Date.parse("2026-11-04T00:00:00+09:00");
-
-function isPhotoEditOpen() {
-  return Date.now() >= PHOTO_EDIT_OPENS_AT;
-}
-
 type ProfilePhotoProps = {
   userId: number;
   initial: string;
@@ -36,7 +29,7 @@ type ProfilePhotoProps = {
  * 토큰이 없는 문서(구 앱, 브라우저 단독)는 사진 API가 401로 막혀 버튼 없이 아바타만 보인다.
  */
 export function ProfilePhotoButton(props: ProfilePhotoProps) {
-  if (!hasTokenSource() || !isPhotoEditOpen()) {
+  if (!hasTokenSource()) {
     return (
       <ProfileAvatar
         initial={props.initial}
