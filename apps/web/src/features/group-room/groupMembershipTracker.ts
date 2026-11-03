@@ -39,6 +39,13 @@ interface MembershipMemory {
 
 const STORAGE_KEY_PREFIX = "focusmakers.groupMembership.v1.";
 
+/**
+ * 남겨 둘 표시의 최대 개수
+ *
+ * 목록에 끝내 나타나지 않는 그룹의 표시는 반영되지 않아 남는데, 그룹 한도가 작아 보통 몇 개뿐이라 넉넉하게 막아 둔다.
+ */
+const MAX_PENDING_MARKS = 20;
+
 function storageKey(userId: number): string {
   return `${STORAGE_KEY_PREFIX}${userId}`;
 }
@@ -102,18 +109,19 @@ function writeMemory(userId: number, memory: MembershipMemory): void {
  *
  * 만들기, 코드 참여, 나가기는 그 화면이 이벤트를 보내서 다음 목록 비교가 같은 일을 신청 가입이나 내보내짐으로 다시 세지 않게 표시를 남긴다.
  * 내 그룹을 다시 받기 전에 불러야 그 응답이 표시보다 먼저 비교되지 않는다.
- * 같은 그룹에 한 일이 이어지면 마지막 일만 남긴다.
+ * 같은 그룹에 한 일이 이어지면 마지막 일만 남기고, 표시는 최근 것부터 정한 개수까지만 둔다.
  */
 export function markLocalMembership(userId: number, change: LocalMembershipChange): void {
   try {
     const memory = readMemory(userId);
     const side: PendingSide = change.kind === "left" ? "out" : "in";
+    const pending: Array<[number, PendingSide]> = [
+      ...memory.pending.filter(([groupId]) => groupId !== change.groupId),
+      [change.groupId, side],
+    ];
     writeMemory(userId, {
       groupIds: memory.groupIds,
-      pending: [
-        ...memory.pending.filter(([groupId]) => groupId !== change.groupId),
-        [change.groupId, side],
-      ],
+      pending: pending.slice(-MAX_PENDING_MARKS),
     });
   } catch {
     // 저장소를 쓸 수 없으면 목록 비교도 아무것도 세지 않아서 표시가 없어도 두 번 세지 않는다.

@@ -83,6 +83,20 @@ describe("observeMyGroups", () => {
     });
   });
 
+  it("표시는 최근 20개만 남긴다", () => {
+    observeMyGroups(1, [card(10)]);
+    const groupIds = Array.from({ length: 25 }, (_, index) => 100 + index);
+    for (const groupId of groupIds) {
+      markLocalMembership(1, { kind: "created", groupId });
+    }
+
+    // 오래된 5개는 표시가 남지 않아 목록에 생기면 신청 가입으로 센다.
+    const observed = observeMyGroups(1, [card(10), ...groupIds.map((groupId) => card(groupId))]);
+    expect(observed.joined).toEqual(
+      groupIds.slice(0, 5).map((groupId) => ({ groupId, visibility: "PUBLIC" })),
+    );
+  });
+
   it("표시 없이 생긴 비공개 그룹은 신청 가입으로 세지 않고 기억은 한다", () => {
     observeMyGroups(1, [card(10)]);
 
