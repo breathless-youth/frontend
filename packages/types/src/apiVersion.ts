@@ -143,6 +143,11 @@ export const API_ENDPOINTS = {
   /** `POST /api/rooms/{roomId}/leave` — 방 퇴장 */
   roomLeave: { version: "2", legacy: "1", parsedBy: "apps/web/src/lib/roomApi.ts leaveRoom" },
 
+  /** `/api/groups`와 `/api/group-applications` 이하 전부: 그룹 공부방. 새 경로라 구 앱 명세가 없다. */
+  groups: { version: "1", parsedBy: "apps/web/src/lib/groupRoomApi.ts" },
+  /** `/api/blocks` 이하 전부: 차단 목록과 차단 해제. 새 경로라 구 앱 명세가 없다. */
+  blocks: { version: "1", parsedBy: "apps/web/src/lib/groupRoomApi.ts" },
+
   /** `POST /api/rtc-stats` — WebRTC 통계 보고 */
   rtcStats: { version: "2", legacy: "1", parsedBy: "apps/web/src/lib/rtcStatsApi.ts" },
 } as const satisfies Record<string, ApiEndpointSpec>;

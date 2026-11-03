@@ -40,6 +40,8 @@ const EXPECTED: Record<ApiEndpoint, { current: string; legacy: string }> = {
   roomCreate: { current: "2", legacy: "1" },
   roomJoin: { current: "2", legacy: "1" },
   roomLeave: { current: "2", legacy: "1" },
+  groups: { current: "1", legacy: "1" },
+  blocks: { current: "1", legacy: "1" },
   rtcStats: { current: "2", legacy: "1" },
 };
 
