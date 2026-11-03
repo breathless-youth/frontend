@@ -15,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { IconCheckSm, IconChevronLeft } from "../components/icons";
 import { notifyPickerClosed } from "../lib/appLock/appLockRelay";
+import { t } from "../lib/i18n";
 import { appLockNative, type LaunchableApp } from "../modules/app-lock";
 
 /**
@@ -90,7 +91,7 @@ export default function AppLockPickerScreen() {
         <View className="h-14 flex-row items-center px-2">
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="뒤로"
+            accessibilityLabel={t("common.back")}
             onPress={() => router.back()}
             className="min-h-11 min-w-11 items-center justify-center"
           >
@@ -100,7 +101,7 @@ export default function AppLockPickerScreen() {
             accessibilityRole="header"
             className="text-text-primary dark:text-text-primary-dark flex-1 text-[18px] font-sans-bold"
           >
-            잠긴 앱
+            {t("appLockPicker.title")}
           </Text>
           <Pressable
             accessibilityRole="button"
@@ -108,7 +109,7 @@ export default function AppLockPickerScreen() {
             className="min-h-11 min-w-11 items-center justify-center px-3"
           >
             <Text className="text-brand-primary dark:text-brand-primary-dark text-[16px] font-sans-bold">
-              완료
+              {t("common.done")}
             </Text>
           </Pressable>
         </View>
@@ -117,12 +118,12 @@ export default function AppLockPickerScreen() {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="앱 이름 검색"
+            placeholder={t("appLockPicker.search")}
             placeholderTextColor={colors.text.tertiary[scheme]}
             className="bg-bg-base dark:bg-bg-base-dark text-text-primary dark:text-text-primary-dark h-12 rounded-md px-4 font-sans text-[15px]"
           />
           <Text className="text-text-secondary dark:text-text-secondary-dark mb-2 mt-4 font-sans text-[13px]">
-            {selected.length}개 선택
+            {t("appLockPicker.selected", { count: selected.length })}
           </Text>
         </View>
 
@@ -136,7 +137,7 @@ export default function AppLockPickerScreen() {
             contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 24 }}
             ListEmptyComponent={
               <Text className="text-text-secondary dark:text-text-secondary-dark mt-10 text-center font-sans text-[15px]">
-                {failed ? "앱 목록을 불러오지 못했어요" : "찾는 앱이 없어요"}
+                {failed ? t("appLockPicker.loadFailed") : t("appLockPicker.empty")}
               </Text>
             }
             renderItem={({ item }) => {

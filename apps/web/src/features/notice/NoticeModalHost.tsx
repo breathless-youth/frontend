@@ -135,7 +135,7 @@ export function NoticeModalHost({
           }
         })
         .catch((error: unknown) => {
-          console.warn("[notice] 공지를 불러오지 못해 띄우지 않는다", error);
+          console.warn("[notice] failed to load notice, not showing it", error);
           if (!cancelled) settle();
         });
     };

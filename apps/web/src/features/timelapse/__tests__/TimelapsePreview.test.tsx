@@ -1,11 +1,11 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { STICKER_URL } from "../photoFrame";
 import { DEFAULT_TIMELAPSE_SETTINGS } from "../timelapseSettings";
 import { TimelapsePreview } from "../TimelapsePreview";
 
 const NONE = DEFAULT_TIMELAPSE_SETTINGS.info;
+const CAT = "/face-mask/cat.png";
 
 describe("TimelapsePreview", () => {
   it("켠 요소가 없으면 안내 문구와 워터마크만 있다", () => {
@@ -54,12 +54,16 @@ describe("TimelapsePreview", () => {
     expect(screen.queryByTestId("timelapse-preview-top")).toBeNull();
   });
 
-  it("얼굴 가림과 흐름 바를 켜면 스티커와 흐름 바가 나타난다", () => {
+  it("얼굴 가림과 흐름 바를 켜면 고른 이모지와 흐름 바가 나타난다", () => {
     const { container } = render(
-      <TimelapsePreview aspect="9:16" info={{ ...NONE, faceMask: true, flowBar: true }} />,
+      <TimelapsePreview
+        aspect="9:16"
+        info={{ ...NONE, faceMask: true, flowBar: true }}
+        faceMaskEmojiUrl={CAT}
+      />,
     );
 
-    expect(container.querySelector(`img[src="${STICKER_URL}"]`)).not.toBeNull();
+    expect(container.querySelector(`img[src="${CAT}"]`)).not.toBeNull();
     expect(screen.getByTestId("timelapse-preview-flow-bar")).toBeInTheDocument();
     expect(screen.queryByText("공부 중 화면")).toBeNull();
   });

@@ -16,7 +16,7 @@ export function isNoticeDismissed(id: number): boolean {
   try {
     return localStorage.getItem(`${DISMISSED_PREFIX}${id}`) === "1";
   } catch (error) {
-    console.warn("[notice] 다시 보지 않기 기록을 읽지 못해 띄우지 않는다", error);
+    console.warn("[notice] failed to read dismissed flag, not showing it", error);
     return true;
   }
 }
@@ -25,7 +25,7 @@ export function markNoticeDismissed(id: number): void {
   try {
     localStorage.setItem(`${DISMISSED_PREFIX}${id}`, "1");
   } catch (error) {
-    console.warn("[notice] 다시 보지 않기를 저장하지 못했다", error);
+    console.warn("[notice] failed to save dismissed flag", error);
   }
 }
 
@@ -33,7 +33,7 @@ export function hasShownNoticeThisLaunch(): boolean {
   try {
     return sessionStorage.getItem(SHOWN_THIS_LAUNCH_KEY) === "1";
   } catch (error) {
-    console.warn("[notice] 이번 실행 표시 여부를 읽지 못해 띄우지 않는다", error);
+    console.warn("[notice] failed to read shown-this-launch flag, not showing it", error);
     return true;
   }
 }
@@ -42,6 +42,6 @@ export function markNoticeShownThisLaunch(): void {
   try {
     sessionStorage.setItem(SHOWN_THIS_LAUNCH_KEY, "1");
   } catch (error) {
-    console.warn("[notice] 이번 실행 표시 여부를 저장하지 못했다", error);
+    console.warn("[notice] failed to save shown-this-launch flag", error);
   }
 }

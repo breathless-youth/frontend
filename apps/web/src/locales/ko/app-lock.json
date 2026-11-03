@@ -1,0 +1,29 @@
+{
+  "title": "방해 앱 잠금",
+  "switch": {
+    "label": "방해 앱 잠금",
+    "tooltip": "접근 가능 정보: 잠긴 앱 개수, 잠금 설정 활성화 여부"
+  },
+  "rows": {
+    "lockedApps": "잠긴 앱",
+    "batteryGuide": "배터리 설정 안내"
+  },
+  "description": {
+    "title": "기능 설명",
+    "lockFlow": "공부를 시작하면 잠기고, 공부를 끝내면 풀려요."
+  },
+  "summary": {
+    "apps": "앱 {{count}}개",
+    "categories": "카테고리 {{count}}개",
+    "none": "선택 안 함"
+  },
+  "rowValue": {
+    "on": "켜짐",
+    "off": "꺼짐"
+  },
+  "toast": {
+    "lockedApps": "방해 앱 {{count}}개를 잠갔어요",
+    "locked": "방해 앱을 잠갔어요",
+    "unsupported": "방해 앱 잠금은 {{minVersion}} 이상에서 쓸 수 있어요"
+  }
+}

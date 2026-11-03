@@ -1,5 +1,6 @@
 import { Camera } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
 import { canUseNativeProfilePhoto } from "@/lib/nativeProfilePhoto";
@@ -13,13 +14,6 @@ import { useProfilePhotoMutations } from "./useProfilePhotoMutations";
 const { LazySheet: LazyProfilePhotoSheet, preload: preloadProfilePhotoSheet } = lazyWithPreload(
   () => import("./ProfilePhotoSheet").then((module) => module.ProfilePhotoSheet),
 );
-
-// 프로필 사진을 실은 개정 개인정보처리방침의 시행 시각이라 그 전에는 사진을 바꿀 수 없게 하고, 시행 뒤에는 이 조건을 삭제한다.
-const PHOTO_EDIT_OPENS_AT = Date.parse("2026-11-04T00:00:00+09:00");
-
-function isPhotoEditOpen() {
-  return Date.now() >= PHOTO_EDIT_OPENS_AT;
-}
 
 type ProfilePhotoProps = {
   userId: number;
@@ -35,7 +29,7 @@ type ProfilePhotoProps = {
  * 토큰이 없는 문서(구 앱, 브라우저 단독)는 사진 API가 401로 막혀 버튼 없이 아바타만 보인다.
  */
 export function ProfilePhotoButton(props: ProfilePhotoProps) {
-  if (!hasTokenSource() || !isPhotoEditOpen()) {
+  if (!hasTokenSource()) {
     return (
       <ProfileAvatar
         initial={props.initial}
@@ -49,6 +43,7 @@ export function ProfilePhotoButton(props: ProfilePhotoProps) {
 
 /** 파일 입력은 시트가 닫힌 뒤에 선택 결과를 받으므로 시트 밖인 여기에 둔다. */
 function EditablePhoto({ userId, initial, colorIndex, imageUrl }: ProfilePhotoProps) {
+  const { t } = useTranslation("profile");
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
   const { upload, remove, busy } = useProfilePhotoMutations(userId);
@@ -61,7 +56,7 @@ function EditablePhoto({ userId, initial, colorIndex, imageUrl }: ProfilePhotoPr
     <>
       <button
         type="button"
-        aria-label="프로필 사진 변경"
+        aria-label={t("photo.aria.change")}
         aria-busy={busy || undefined}
         disabled={busy}
         onClick={() => setOpen(true)}

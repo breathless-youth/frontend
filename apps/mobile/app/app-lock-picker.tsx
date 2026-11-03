@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { SELECTION_ID } from "../lib/appLock/appLock";
 import { notifyPickerClosed } from "../lib/appLock/appLockRelay";
 import { getRnda } from "../lib/appLock/rnda";
+import { t } from "../lib/i18n";
 
 /**
  * 잠글 앱 고르기
@@ -37,7 +38,7 @@ export default function AppLockPickerScreen() {
             className="min-h-11 min-w-11 items-center justify-center px-3"
           >
             <Text className="text-text-primary dark:text-text-primary-dark text-[16px] font-sans-bold">
-              완료
+              {t("common.done")}
             </Text>
           </Pressable>
         </View>

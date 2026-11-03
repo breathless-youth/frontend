@@ -1,0 +1,160 @@
+{
+  "format": {
+    "summaryTitle": "{{date}} summary",
+    "sessionMeta": "{{start}} – {{end}} · Total {{duration}}",
+    "sessionCount_one": "{{count}} session",
+    "sessionCount_other": "{{count}} sessions",
+    "todayHeadline": "Today's focus time",
+    "dayHeadline": "Focus time on {{date}}",
+    "dayTitle": "{{weekday}}, {{date}}"
+  },
+  "unit": {
+    "hours": "h",
+    "minutes": "m",
+    "seconds": "s"
+  },
+  "eventChip": {
+    "away_one": "Away once",
+    "away_other": "Away {{count}} times",
+    "phone_one": "On phone once",
+    "phone_other": "On phone {{count}} times",
+    "device_one": "Device moved once",
+    "device_other": "Device moved {{count}} times",
+    "sleep_one": "Dozed off once",
+    "sleep_other": "Dozed off {{count}} times",
+    "pause_one": "Paused once",
+    "pause_other": "Paused {{count}} times"
+  },
+  "weekRange": {
+    "sameMonth": "{{start}} – {{day}}",
+    "crossMonth": "{{start}} – {{end}}"
+  },
+  "relativeWeek": {
+    "thisWeek": "this week",
+    "lastWeek": "last week",
+    "weeksAgo_one": "{{count}} week ago",
+    "weeksAgo_other": "{{count}} weeks ago"
+  },
+  "streak": {
+    "title": "{{count}}-day streak",
+    "subtitle": "Just 5 minutes tomorrow keeps it going",
+    "aria": {
+      "day": "{{weekday}}, {{state}}",
+      "today": "Today",
+      "done": "Studied",
+      "none": "No record"
+    }
+  },
+  "week": {
+    "headline": "Weekly focus time",
+    "aria": {
+      "prev": "Previous week",
+      "next": "Next week"
+    }
+  },
+  "headline": {
+    "total": "Total {{duration}}"
+  },
+  "rhythm": {
+    "title": "Your study rhythm",
+    "badge": "Focus report coming soon",
+    "emptyTitle": "This fills in as your records grow",
+    "sampleNotice": "Showing sample data for now",
+    "legendLow": "Less",
+    "legendHigh": "More",
+    "peakTitle": "You focused most from {{range}}",
+    "peakSubtitle": "Built from {{days}} study days",
+    "range": "{{from12}} to {{to12}} {{period}}",
+    "rangeCrossNoon": "{{from12}} to {{to12}} around noon",
+    "period": {
+      "morning": "in the morning",
+      "forenoon": "in the late morning",
+      "afternoon": "in the afternoon",
+      "evening": "in the evening",
+      "night": "at night",
+      "dawn": "in the early morning"
+    }
+  },
+  "calendar": {
+    "dailyAverage": "Daily average",
+    "monthTotal": "{{month}} total",
+    "aria": {
+      "day": "Day {{day}}, {{record}}",
+      "todayDay": "Today, day {{day}}, {{record}}",
+      "focus": "Focus time {{duration}}",
+      "noRecord": "No record",
+      "legend": "Focus time legend. Each number means at least that many hours"
+    }
+  },
+  "weekly": {
+    "error": "Couldn't load your weekly trend"
+  },
+  "sessionItem": {
+    "focusRate": "{{rate}} focus",
+    "startTime": "Start time",
+    "endTime": "End time",
+    "longestFocus": "Longest focus",
+    "underMinute": "<1m",
+    "aria": {
+      "summary": "{{start}} to {{end}}, focus time {{focus}}, {{rate}} focus"
+    }
+  },
+  "manualItem": {
+    "badge": "Manual",
+    "start": "Start",
+    "end": "End",
+    "subject": "Subject",
+    "edit": "Edit"
+  },
+  "picker": {
+    "today": "Today",
+    "monthTitle": "Choose a month",
+    "weekTitle": "Choose a week",
+    "dayTitle": "Choose a date",
+    "year": "{{year}}",
+    "aria": {
+      "prevYear": "Previous year",
+      "nextYear": "Next year",
+      "prevMonth": "Previous month",
+      "nextMonth": "Next month",
+      "today": "Today, {{date}}"
+    }
+  },
+  "trend": {
+    "dailyAverage": "Daily average",
+    "noRecord": "No record",
+    "compare": {
+      "more": "You studied <delta>{{duration}}</delta> more than last week",
+      "moreInProgress": "You're <delta>{{duration}}</delta> ahead of last week",
+      "less": "You studied <delta>{{duration}}</delta> less than last week",
+      "lessInProgress": "You're <delta>{{duration}}</delta> behind last week",
+      "onlyThisWeek": "You've studied <total>{{duration}}</total> this week",
+      "onlyViewedWeek": "You studied <total>{{duration}}</total> that week",
+      "noThisWeek": "No records this week yet",
+      "noViewedWeek": "No records that week",
+      "empty": "No records yet"
+    },
+    "caption": {
+      "untilWeekday": "Compared with last week through {{weekday}}",
+      "twoWeeks": "Comparing {{current}} with {{previous}}",
+      "noPrevious": "No records {{previous}}, so only {{current}} is shown",
+      "noCurrent": "Showing {{previous}} only",
+      "empty": "Start studying to see your pattern"
+    },
+    "aria": {
+      "chart": "Focus time by day"
+    }
+  },
+  "page": {
+    "title": "Records",
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "unregistered": "This device isn't registered yet. Open the app to save your records"
+  },
+  "daily": {
+    "error": "Couldn't load your records",
+    "manualEntry": "Add time manually",
+    "empty": "No records on this day",
+    "emptyHint": "Start focusing and your sessions will show up here"
+  }
+}

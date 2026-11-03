@@ -4,15 +4,21 @@ import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { StudyPeriodStatsResponse } from "@focusmakers/types";
-import { getPeriodStats } from "@/lib/statsApi";
+import { getPeriodStats, getStudyRhythm } from "@/lib/statsApi";
 
 import { useWeeklyData } from "../useWeeklyData";
 
 vi.mock("@/lib/statsApi", () => ({
   getPeriodStats: vi.fn(),
+  getStudyRhythm: vi.fn(),
 }));
 
 const mockedPeriod = vi.mocked(getPeriodStats);
+const mockedRhythm = vi.mocked(getStudyRhythm);
+const RHYTHM = {
+  studyDays: 0,
+  focusSecByWeekdayHour: Array.from({ length: 7 }, () => Array<number>(24).fill(0)),
+};
 
 function periodResponse(
   dailyList: StudyPeriodStatsResponse["dailyList"],
@@ -42,6 +48,7 @@ const WEEK_ANCHOR = "2026-09-18";
 describe("useWeeklyData", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedRhythm.mockResolvedValue(RHYTHM);
   });
 
   it("userId가 null이면 pending이고 조회를 내보내지 않는다(enabled false)", () => {
@@ -52,7 +59,37 @@ describe("useWeeklyData", () => {
     });
 
     expect(result.current.week.status).toBe("pending");
+    expect(result.current.rhythm.status).toBe("pending");
     expect(mockedPeriod).not.toHaveBeenCalled();
+    expect(mockedRhythm).not.toHaveBeenCalled();
+  });
+
+  it("리듬은 전체 기간 값이라 한 번만 조회하고, 주를 옮겨도 다시 부르지 않는다", async () => {
+    mockedPeriod.mockResolvedValue(periodResponse([]));
+
+    const { result, rerender } = renderHook(({ anchor }) => useWeeklyData(1, anchor), {
+      wrapper: createWrapper(),
+      initialProps: { anchor: "2026-09-18" },
+    });
+
+    await waitFor(() => expect(result.current.rhythm.status).toBe("success"));
+    expect(result.current.rhythm).toEqual({ status: "success", data: RHYTHM });
+
+    rerender({ anchor: "2026-09-11" });
+    await waitFor(() => expect(mockedPeriod).toHaveBeenCalledTimes(2));
+    expect(mockedRhythm).toHaveBeenCalledTimes(1);
+  });
+
+  it("리듬 조회가 실패해도 주 데이터와 따로 error로 떨어진다", async () => {
+    mockedPeriod.mockResolvedValue(periodResponse([]));
+    mockedRhythm.mockRejectedValue(new Error("rhythm fetch failed"));
+
+    const { result } = renderHook(() => useWeeklyData(1, WEEK_ANCHOR), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.rhythm.status).toBe("error"));
+    expect(result.current.week.status).toBe("success");
   });
 
   it("success면 그 주의 daily와 직전 주의 compareDaily를 매핑한다", async () => {

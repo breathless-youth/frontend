@@ -6,6 +6,7 @@ import {
   trackAppLockPermissionResult,
   trackAppLockToggled,
 } from "@/lib/amplitude";
+import i18n from "@/lib/i18n";
 import { showToast } from "@/lib/toast";
 
 import { hasAppLockCapability } from "./appLockCapability";
@@ -89,7 +90,9 @@ export function useAppLockSettings() {
     applyCounts(state);
     if (!state.supported) {
       // 네이티브는 지원 여부만 알려 주므로 안내할 최소 버전은 웹이 기기에 맞춰 고른다.
-      showToast(`방해 앱 잠금은 ${android ? "Android 8" : "iOS 18"} 이상에서 쓸 수 있어요`);
+      showToast(
+        i18n.t("app-lock:toast.unsupported", { minVersion: android ? "Android 8" : "iOS 18" }),
+      );
       return;
     }
     trackAppLockPermissionResult({

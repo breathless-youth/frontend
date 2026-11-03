@@ -1,5 +1,5 @@
 import type { RankingRecord } from "@focusmakers/types";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   FIXTURE_UNSEEN_FIVE,
@@ -8,6 +8,8 @@ import {
   FIXTURE_UNSEEN_THREE,
   FIXTURE_UNSEEN_WEEKLY_THIRD,
 } from "@/lib/rankingFixtures";
+
+import i18n from "@/lib/i18n";
 
 import { closesAtLabel, medalModalView, medalPeriodLabel } from "../medalView";
 
@@ -34,6 +36,22 @@ describe("표기", () => {
   it("마감 시각은 KST 날짜·요일·시로 쓴다", () => {
     expect(closesAtLabel("2026-10-11T15:00:00Z")).toBe("10월 12일 (월) 00시");
     expect(closesAtLabel("2026-10-11T19:00:00Z")).toBe("10월 12일 (월) 04시");
+  });
+});
+
+describe("표기 영어", () => {
+  afterEach(async () => {
+    await i18n.changeLanguage("ko");
+  });
+
+  it("마감 시각은 12시간제로 쓴다(자정·새벽·밤)", async () => {
+    await i18n.changeLanguage("en");
+    // en 시각의 PM 앞 공백은 U+202F라 일반 공백으로 바꿔 비교한다.
+    const label = (iso: string) => closesAtLabel(iso).replace(/\u202f/g, " ");
+    expect(label("2026-10-11T15:00:00Z")).toContain("12:00 AM");
+    expect(label("2026-10-11T19:00:00Z")).toContain("4:00 AM");
+    expect(label("2026-10-12T12:00:00Z")).toContain("9:00 PM");
+    expect(label("2026-10-12T12:00:00Z")).not.toContain("21");
   });
 });
 

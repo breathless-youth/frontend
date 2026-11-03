@@ -7,8 +7,9 @@ import { STUDY_CATEGORY_OPTIONS } from "@/lib/studyCategory";
  * 목표 카테고리 칩
  *
  * 칩은 하나만 고른다.
+ * 칩 글자는 profile 카탈로그 `categories.*`에서 서버 값으로 읽는다.
  */
-type CategoryChip = { value: StudyCategory; label: string };
+type CategoryChip = { value: StudyCategory };
 
 const LEGACY_ORDER: readonly StudyCategory[] = [
   "PROFESSIONAL",
@@ -20,9 +21,9 @@ const LEGACY_ORDER: readonly StudyCategory[] = [
   "ETC",
 ];
 
-const LEGACY_CHIPS: readonly CategoryChip[] = STUDY_CATEGORY_OPTIONS.filter((option) =>
-  LEGACY_ORDER.includes(option.value),
-).sort((a, b) => LEGACY_ORDER.indexOf(a.value) - LEGACY_ORDER.indexOf(b.value));
+const LEGACY_CHIPS: readonly CategoryChip[] = LEGACY_ORDER.map((value) => ({ value }));
+
+const GROUP_CHIPS: readonly CategoryChip[] = STUDY_CATEGORY_OPTIONS.map(({ value }) => ({ value }));
 
 /**
  * 지금 보일 목표 카테고리 칩
@@ -32,5 +33,5 @@ const LEGACY_CHIPS: readonly CategoryChip[] = STUDY_CATEGORY_OPTIONS.filter((opt
  * 운영 서버가 새 값 두 개를 받기 전이나 칩 순서를 정하기 전에 웹을 배포해도 지금 사용자의 프로필 화면이 바뀌지 않게 하려는 것이다.
  */
 export function categoryChips(): readonly CategoryChip[] {
-  return hasGroupRooms() ? STUDY_CATEGORY_OPTIONS : LEGACY_CHIPS;
+  return hasGroupRooms() ? GROUP_CHIPS : LEGACY_CHIPS;
 }

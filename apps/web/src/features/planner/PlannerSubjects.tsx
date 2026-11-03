@@ -6,10 +6,11 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
+import { useTranslation } from "react-i18next";
 
 import { formatDuration } from "@/features/records/recordsFormat";
 import { subjectColorVar } from "@/features/records/recordsTimetable";
-import { SUBJECT_SHEET_COPY, SUBJECT_SUGGESTIONS } from "@/features/study-session/sessionCopy";
+import { subjectSuggestions } from "@/features/study-session/useSubjects";
 import {
   LONG_PRESS_MS,
   MAX_SUBJECTS,
@@ -87,6 +88,7 @@ export function PlannerSubjects({
   /** 과목 목록 조회가 실패했을 때의 재시도 — 있으면 재시도 줄을 보여 준다. */
   onRetryLoad?: () => void;
 }) {
+  const { t } = useTranslation(["planner", "study-session", "common"]);
   const hasUnassigned = unassignedFocusSec > 0;
   const unassigned = hasUnassigned && <UnassignedRow focusSec={unassignedFocusSec} />;
 
@@ -111,14 +113,14 @@ export function PlannerSubjects({
           </div>
           {onRetryLoad !== undefined && (
             <p className="pt-2 text-xs leading-4 text-muted-foreground">
-              {SUBJECT_SHEET_COPY.loadFailed}{" "}
+              {t("study-session:subjectSheet.loadFailed")}{" "}
               <Button
                 variant="unstyled"
                 onClick={onRetryLoad}
                 // 문장 안의 글자 버튼이라 공용 버튼의 높이·여백·글자 크기를 문장에 맞춘다.
                 className="h-auto rounded-none p-0 text-xs leading-4 font-bold text-primary"
               >
-                {SUBJECT_SHEET_COPY.retry}
+                {t("common:actions.retry")}
               </Button>
             </p>
           )}
@@ -130,12 +132,16 @@ export function PlannerSubjects({
         <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5 pt-3.5">
           <span className="flex items-center gap-1.25">
             <span aria-hidden className="size-2.5 rounded-[2px] bg-chart-rest" />
-            <span className="text-[11px] leading-3.25 text-muted-foreground">휴식</span>
+            <span className="text-[11px] leading-3.25 text-muted-foreground">
+              {t("subjects.rest")}
+            </span>
           </span>
           {hasUnassigned && (
             <span className="flex items-center gap-1.25">
               <span aria-hidden className="size-2.5 rounded-[2px] bg-primary" />
-              <span className="text-[11px] leading-3.25 text-muted-foreground">과목 없음</span>
+              <span className="text-[11px] leading-3.25 text-muted-foreground">
+                {t("subjects.unassigned")}
+              </span>
             </span>
           )}
         </div>
@@ -165,11 +171,12 @@ function FocusTime({ focusSec }: { focusSec: number }) {
 }
 
 function UnassignedRow({ focusSec }: { focusSec: number }) {
+  const { t } = useTranslation(["planner", "study-session", "common"]);
   return (
     <section className="flex h-9 items-center gap-1">
       <span aria-hidden className="size-2 shrink-0 rounded-[2px] bg-primary" />
       <h2 className="min-w-0 flex-1 truncate pl-0.75 text-[15px] leading-5 font-semibold text-foreground">
-        과목 없음
+        {t("subjects.unassigned")}
       </h2>
       <FocusTime focusSec={focusSec} />
     </section>
@@ -268,6 +275,7 @@ function InlineEditor({
   onCommit: (name: string) => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation(["planner", "study-session", "common"]);
   const { value, setValue, commit, handleKeyDown, over } = useInlineNameEdit({
     initial,
     maxLength,
@@ -304,7 +312,7 @@ function InlineEditor({
           onClick={commit}
           className="h-8 shrink-0 rounded-sm px-2.25 py-0 text-xs leading-4 font-semibold"
         >
-          {SUBJECT_SHEET_COPY.done}
+          {t("study-session:subjectSheet.done")}
         </Button>
       </div>
       <CharCount
@@ -312,7 +320,7 @@ function InlineEditor({
         length={value.length}
         max={maxLength}
         showFrom={COUNT_SHOW_FROM}
-        overMessage={`${maxLength}자까지 쓸 수 있어요`}
+        overMessage={t("editor.overLimit", { count: maxLength })}
         className="px-0.5"
       />
     </div>
@@ -334,6 +342,7 @@ function RowMenu({
   onRemove: () => void;
   onDismiss: () => void;
 }) {
+  const { t } = useTranslation(["planner", "study-session", "common"]);
   return (
     <DropdownMenu
       open
@@ -366,14 +375,14 @@ function RowMenu({
           onSelect={onRename}
           className={ROW_MENU_ITEM_CLASS}
         >
-          이름 변경
+          {t("rowMenu.rename")}
         </DropdownMenuItem>
         <DropdownMenuItem
           onPointerUp={(event) => event.preventDefault()}
           onSelect={onRemove}
           className={cn(ROW_MENU_ITEM_CLASS, "text-feedback-danger")}
         >
-          삭제
+          {t("rowMenu.remove")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -578,6 +587,7 @@ function ManagedSubject({
   onReorderOver: (overId: number | null) => void;
   onReorderEnd: () => void;
 }) {
+  const { t } = useTranslation(["planner", "study-session", "common"]);
   const subjectId = item.subjectId;
   const {
     elementRef,
@@ -636,8 +646,8 @@ function ManagedSubject({
         <InlineEditor
           initial={item.name}
           maxLength={SUBJECT_NAME_MAX}
-          placeholder="과목 이름"
-          ariaLabel="과목 이름"
+          placeholder={t("editor.subjectPlaceholder")}
+          ariaLabel={t("editor.aria.subjectName")}
           onCommit={(name) => {
             onEditing(null);
             void store.renameSubject(subjectId, name);
@@ -683,8 +693,8 @@ function ManagedSubject({
                     <InlineEditor
                       initial={task.name}
                       maxLength={TASK_NAME_MAX}
-                      placeholder="할 일 이름"
-                      ariaLabel="할 일 이름"
+                      placeholder={t("editor.taskPlaceholder")}
+                      ariaLabel={t("editor.aria.taskName")}
                       onCommit={(name) => {
                         onEditing(null);
                         void store.renameTask(subjectId, task.id, name);
@@ -717,8 +727,8 @@ function ManagedSubject({
         {!tasksEditable ? null : addingTask ? (
           <InlineEditor
             maxLength={TASK_NAME_MAX}
-            placeholder="할 일 이름"
-            ariaLabel="새 할 일 이름"
+            placeholder={t("editor.taskPlaceholder")}
+            ariaLabel={t("editor.aria.newTask")}
             onCommit={(name) => {
               onEditing(null);
               void store.addTask(subjectId, name);
@@ -730,7 +740,7 @@ function ManagedSubject({
             variant="unstyled"
             onClick={() => {
               if (liveTaskCount >= MAX_TASKS) {
-                onNotice(SUBJECT_SHEET_COPY.taskLimit);
+                onNotice(t("study-session:subjectSheet.taskLimit"));
                 return;
               }
               onMenu(null);
@@ -741,7 +751,7 @@ function ManagedSubject({
             <span aria-hidden className="w-4.5 text-center text-base leading-4">
               +
             </span>
-            {SUBJECT_SHEET_COPY.addTask}
+            {t("study-session:subjectSheet.addTask")}
           </Button>
         )}
       </div>
@@ -764,6 +774,7 @@ function ManagedSubjects({
   onNotice: (message: string) => void;
   unassigned: ReactNode;
 }) {
+  const { t } = useTranslation(["planner", "study-session", "common"]);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
   /** 응답을 기다리는 추천 과목 — 반응이 없다고 한 번 더 누르면 같은 과목이 두 개 생긴다. */
@@ -805,8 +816,8 @@ function ManagedSubjects({
 
       {/* 과목이 없으면 자주 쓰는 과목을 있을 때의 모습 그대로 흐리게 그리고, 줄마다 `추가`를 둔다. */}
       {empty && suggestSubjects && (
-        <ul className="flex flex-col gap-1" aria-label="추천 과목">
-          {SUBJECT_SUGGESTIONS.map((name, index) => (
+        <ul className="flex flex-col gap-1" aria-label={t("suggestions.aria.list")}>
+          {subjectSuggestions().map((name, index) => (
             <li key={name} className="flex h-9 items-center gap-2">
               <span aria-hidden className="flex min-w-0 flex-1 items-center gap-2 opacity-40">
                 <span
@@ -821,7 +832,7 @@ function ManagedSubjects({
                 variant="subtle"
                 disabled={pendingPick !== null}
                 aria-busy={pendingPick === name}
-                aria-label={`${name} 추가`}
+                aria-label={t("suggestions.aria.add", { name })}
                 onClick={() => {
                   setPendingPick(name);
                   void store.addSubject(name, true).then(() => setPendingPick(null));
@@ -831,7 +842,7 @@ function ManagedSubjects({
                   pendingPick === name && "animate-pulse motion-reduce:animate-none",
                 )}
               >
-                + 추가
+                {t("suggestions.add")}
               </Button>
             </li>
           ))}
@@ -842,8 +853,8 @@ function ManagedSubjects({
         <div className="pt-1">
           <InlineEditor
             maxLength={SUBJECT_NAME_MAX}
-            placeholder="과목 이름"
-            ariaLabel="새 과목 이름"
+            placeholder={t("editor.subjectPlaceholder")}
+            ariaLabel={t("editor.aria.newSubject")}
             onCommit={(name) => {
               setEditing(null);
               void store.addSubject(name);
@@ -856,7 +867,7 @@ function ManagedSubjects({
           variant="unstyled"
           onClick={() => {
             if (store.subjects.length >= MAX_SUBJECTS) {
-              onNotice(SUBJECT_SHEET_COPY.subjectLimit);
+              onNotice(t("study-session:subjectSheet.subjectLimit"));
               return;
             }
             setMenu(null);
@@ -867,7 +878,7 @@ function ManagedSubjects({
           <span aria-hidden className="w-4.5 text-center text-lg leading-4.5 font-medium">
             +
           </span>
-          {SUBJECT_SHEET_COPY.addSubject}
+          {t("study-session:subjectSheet.addSubject")}
         </Button>
       )}
     </>

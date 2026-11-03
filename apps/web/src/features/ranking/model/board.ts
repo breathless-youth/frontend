@@ -1,5 +1,6 @@
 import type { RankingPeriod, RankingRecordType, RankingType, TimeSlot } from "@focusmakers/types";
 
+import i18n from "@/lib/i18n";
 import type { RankingBoardParams } from "@/lib/rankingApi";
 
 export type BoardSelection =
@@ -40,20 +41,28 @@ export const DEFAULT_HALL_BOARD: BoardSelection = { type: "TOTAL_TIME" };
 /** 시간 판에서 메달을 받는 최소 값(초). */
 export const MEDAL_MIN_SEC = 1800;
 
-export const TYPE_LABEL: Record<RankingType, string> = {
-  FOCUS_TIME: "순공",
-  FOCUS_RATE: "집중률",
-  TIME_SLOT: "시간대",
-  TOTAL_TIME: "누적 시간",
-  TOTAL_DAYS: "누적 일수",
-  MAX_STREAK: "연속 공부",
-};
+const TYPE_KEYS = {
+  FOCUS_TIME: "ranking:type.focusTime",
+  FOCUS_RATE: "ranking:type.focusRate",
+  TIME_SLOT: "ranking:type.timeSlot",
+  TOTAL_TIME: "ranking:type.totalTime",
+  TOTAL_DAYS: "ranking:type.totalDays",
+  MAX_STREAK: "ranking:type.maxStreak",
+} as const satisfies Record<RankingType, string>;
 
-export const PERIOD_LABEL: Record<RankingPeriod, string> = {
-  DAILY: "일간",
-  WEEKLY: "주간",
-  MONTHLY: "월간",
-};
+export function typeLabel(type: RankingType): string {
+  return i18n.t(TYPE_KEYS[type]);
+}
+
+const PERIOD_KEYS = {
+  DAILY: "ranking:period.daily",
+  WEEKLY: "ranking:period.weekly",
+  MONTHLY: "ranking:period.monthly",
+} as const satisfies Record<RankingPeriod, string>;
+
+export function periodLabel(period: RankingPeriod): string {
+  return i18n.t(PERIOD_KEYS[period]);
+}
 
 /**
  * 판이 있는 구간
@@ -63,30 +72,26 @@ export const PERIOD_LABEL: Record<RankingPeriod, string> = {
  */
 export const LIVE_SLOTS: readonly TimeSlot[] = ["NIGHT", "MORNING", "AFTERNOON", "EVENING"];
 
-export const SLOT_LABEL: Record<TimeSlot, string> = {
-  NIGHT: "새벽",
-  MORNING: "아침",
-  AFTERNOON: "점심",
-  EVENING: "저녁",
-  DAWN: "새벽",
-};
+const SLOT_KEYS = {
+  NIGHT: "night",
+  MORNING: "morning",
+  AFTERNOON: "afternoon",
+  EVENING: "evening",
+  DAWN: "dawn",
+} as const satisfies Record<TimeSlot, string>;
 
-export const SLOT_HOURS: Record<TimeSlot, string> = {
-  NIGHT: "0–6시",
-  MORNING: "6–12시",
-  AFTERNOON: "12–18시",
-  EVENING: "18–24시",
-  DAWN: "4–7시",
-};
+export function slotLabel(slot: TimeSlot): string {
+  return i18n.t(`ranking:slot.${SLOT_KEYS[slot]}`);
+}
+
+export function slotHours(slot: TimeSlot): string {
+  return i18n.t(`ranking:slotHours.${SLOT_KEYS[slot]}`);
+}
 
 /** 구간 이름에 주격 조사를 붙인 꼴. */
-export const SLOT_SUBJECT: Record<TimeSlot, string> = {
-  NIGHT: "새벽이",
-  MORNING: "아침이",
-  AFTERNOON: "점심이",
-  EVENING: "저녁이",
-  DAWN: "새벽이",
-};
+export function slotSubject(slot: TimeSlot): string {
+  return i18n.t(`ranking:slotSubject.${SLOT_KEYS[slot]}`);
+}
 
 const PERIODS: Record<RankingType, readonly RankingPeriod[]> = {
   FOCUS_TIME: ["DAILY", "WEEKLY", "MONTHLY"],

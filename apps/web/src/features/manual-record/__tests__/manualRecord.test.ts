@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import type { StudySessionSummary, SubjectRef } from "@focusmakers/types";
 
+import i18n from "@/lib/i18n";
+
 import {
-  MANUAL_RECORD_COPY,
   applyChip,
   bundleMayContinue,
   bundleOf,
@@ -260,7 +261,7 @@ describe("overlapNotice", () => {
     const requested = span(at(DAY, 9), at(DAY, 11));
     expect(overlapNotice(requested, [requested])).toBeNull();
     expect(overlapNotice(requested, [])).toBeNull();
-    expect(MANUAL_RECORD_COPY.allOverlap).toBe("이미 기록이 있는 시간이에요");
+    expect(i18n.t("manual-record:message.allOverlap")).toBe("이미 기록이 있는 시간이에요");
   });
 });
 
@@ -377,6 +378,22 @@ describe("readAloudLabel", () => {
     expect(readAloudLabel({ subjectName: "국어", span: span(at(DAY, 0), at(DAY, 0, 30)) })).toBe(
       "수동 기록, 국어, 오전 12시부터 12시 30분, 30분",
     );
+  });
+});
+
+describe("readAloudLabel 영어", () => {
+  afterEach(async () => {
+    await i18n.changeLanguage("ko");
+  });
+
+  it("분을 두 자리로 읽는다(9:05 PM)", async () => {
+    await i18n.changeLanguage("en");
+    const label = readAloudLabel({
+      subjectName: "Math",
+      span: span(at(DAY, 21, 5), at(DAY, 22, 7)),
+    });
+    expect(label).toContain("9:05 PM");
+    expect(label).toContain("10:07");
   });
 });
 

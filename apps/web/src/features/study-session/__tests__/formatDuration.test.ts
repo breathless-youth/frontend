@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  SUB_MINUTE_LABEL,
-  formatElapsed,
-  toKoreanDuration,
-  toKoreanDurationLength,
-} from "../formatDuration";
+import { formatElapsed, toKoreanDuration, toKoreanDurationLength } from "../formatDuration";
+
+// 문구 상수 SUB_MINUTE_LABEL이 카탈로그(study-session:duration.underMinute)로 옮겨 갔다.
+const SUB_MINUTE_LABEL = "1분 미만";
 
 describe("formatElapsed", () => {
   it("시(hour)에도 zero-pad해서 항상 HH:MM:SS로 만든다", () => {

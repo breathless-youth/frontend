@@ -64,7 +64,7 @@ export function createSessionTimeline(
 function lastSegment(timeline: SessionTimeline): SessionSegment {
   const segment = timeline.segments[timeline.segments.length - 1];
   if (segment === undefined) {
-    throw new Error("SessionTimeline에는 최소 한 개의 구간이 있어야 합니다");
+    throw new Error("SessionTimeline needs at least one segment");
   }
   return segment;
 }

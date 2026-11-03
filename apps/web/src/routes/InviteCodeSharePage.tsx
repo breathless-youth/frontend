@@ -1,12 +1,13 @@
 import { useMutation } from "@tanstack/react-query";
 import { Copy, Share } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { GlassChrome } from "@/components/GlassChrome";
 import { Button } from "@/components/ui/button";
 import { CtaToaster } from "@/components/ui/sonner";
 import { CODE_CELL_CLASS } from "@/features/social-room/codeCell";
-import { joinErrorMessage, joinErrorReason } from "@/features/social-room/joinErrorCopy";
+import { joinErrorMessage, joinErrorReason } from "@/features/social-room/joinError";
 import { copyInviteCode, shareInvite } from "@/features/social-room/shareInvite";
 import { trackInviteShared, trackSocialRoomJoinFailed } from "@/lib/amplitude";
 import { trackMetaInviteShared } from "@/lib/metaAppEvents";
@@ -34,6 +35,7 @@ function isShareState(state: unknown): state is ShareState {
 }
 
 export function InviteCodeSharePage() {
+  const { t } = useTranslation(["social-room", "common"]);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -75,7 +77,7 @@ export function InviteCodeSharePage() {
       <GlassChrome
         top={{
           leading: "close",
-          leadingLabel: "닫기",
+          leadingLabel: t("common:actions.close"),
           onLeading: () => {
             // PUSH로 이동하면 뒤로 가기에서 이 화면이 state 그대로 재노출된다 —
             // ScreenBackHeader와 같은 idx 가드: 스택이 있으면 pop, 딥링크 폴백은 replace.
@@ -92,11 +94,11 @@ export function InviteCodeSharePage() {
       />
 
       <div className="flex grow flex-col items-center justify-center gap-2 px-5">
-        <h1 className="text-lg font-bold text-foreground">방이 만들어졌어요</h1>
+        <h1 className="text-lg font-bold text-foreground">{t("share.title")}</h1>
         <div className="size-2" aria-hidden="true" />
         <div
           role="group"
-          aria-label={`초대코드 ${state.inviteCode}`}
+          aria-label={t("codeCells.aria.label", { code: state.inviteCode })}
           className="flex justify-center gap-2.5"
         >
           {state.inviteCode.split("").map((digit, index) => (
@@ -105,9 +107,7 @@ export function InviteCodeSharePage() {
             </div>
           ))}
         </div>
-        <p className="text-sm leading-5 text-muted-foreground">
-          모두가 나가면 방과 코드가 사라져요
-        </p>
+        <p className="text-sm leading-5 text-muted-foreground">{t("share.expiry")}</p>
         <div className="size-4" aria-hidden="true" />
         <div className="flex gap-2.5">
           <Button
@@ -118,12 +118,12 @@ export function InviteCodeSharePage() {
                 // 코드 복사 버튼도 공유 행동이다 — 시트 공유(shared)와 method로 갈린다(BY-472).
                 trackInviteShared(copied ? "copied" : "failed", "code_page");
                 trackMetaInviteShared(copied ? "copied" : "failed");
-                showCtaToast(copied ? "초대코드를 복사했어요" : "잠시 후 다시 시도해 주세요");
+                showCtaToast(copied ? t("share.copied") : t("common:errors.retryLater"));
               });
             }}
           >
             <Copy size={18} aria-hidden="true" />
-            코드 복사
+            {t("share.copy")}
           </Button>
           <Button
             variant="subtle"
@@ -135,13 +135,13 @@ export function InviteCodeSharePage() {
                 // share 미지원 폴백(복사)만 토스트로 알린다 — 시트가 뜨거나 사용자가 닫은
                 // 경우는 OS가 이미 피드백을 줬다.
                 if (result === "copied") {
-                  showCtaToast("초대코드를 복사했어요");
+                  showCtaToast(t("share.copied"));
                 }
               });
             }}
           >
             <Share size={18} aria-hidden="true" />
-            공유하기
+            {t("share.share")}
           </Button>
         </div>
       </div>
@@ -159,7 +159,7 @@ export function InviteCodeSharePage() {
             joinMutation.mutate(state.inviteCode);
           }}
         >
-          입장하기
+          {t("share.enter")}
         </Button>
       </div>
     </main>

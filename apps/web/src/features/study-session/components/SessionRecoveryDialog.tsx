@@ -1,22 +1,24 @@
 import type { SessionRecoveryResponse } from "@focusmakers/types";
 import { History } from "lucide-react";
+import { Fragment } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import {
-  WEEKDAY_LABELS,
-  dayOfDateKey,
-  formatDuration,
-  formatKstClock,
-  monthOfDateKey,
-  weekdayIndexOfDateKey,
-} from "@/features/records/recordsFormat";
+import { formatDuration, formatKstClock } from "@/features/records/recordsFormat";
+import i18n from "@/lib/i18n";
 
-/** `2026-08-27` → `8월 27일 (목)`. statDate가 한국 기준 날짜라 시간대 변환이 필요 없다. */
+/**
+ * `2026-08-27` → `8월 27일 (목)` / `Thu, Aug 27`. statDate는 한국 기준 달력 날짜라 UTC 자정으로 만들고 UTC로 읽는다.
+ */
 function recoveryDateLabel(dateKey: string): string {
-  const { month } = monthOfDateKey(dateKey);
-  return `${month}월 ${dayOfDateKey(dateKey)}일 (${WEEKDAY_LABELS[weekdayIndexOfDateKey(dateKey)]})`;
+  return new Intl.DateTimeFormat(i18n.language, {
+    timeZone: "UTC",
+    month: "short",
+    day: "numeric",
+    weekday: "short",
+  }).format(new Date(`${dateKey}T00:00:00Z`));
 }
 
 function InfoRow({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
@@ -46,6 +48,7 @@ export function SessionRecoveryDialog({
   recovered: SessionRecoveryResponse;
   onConfirm: () => void;
 }) {
+  const { t } = useTranslation("study-session");
   return (
     <Dialog open>
       <DialogContent
@@ -61,21 +64,33 @@ export function SessionRecoveryDialog({
           <History className="size-7.5" strokeWidth={2.53} aria-hidden="true" />
         </div>
         <DialogTitle className="text-center text-[19px] leading-5.75 font-extrabold text-foreground">
-          저장되지 않은 기록을 복구했어요
+          {t("recovery.title")}
         </DialogTitle>
         <DialogDescription className="text-center text-[14px] leading-[1.45] font-medium text-muted-foreground">
-          앱이 예기치 않게 종료되었어요.
-          <br />
-          공부 기록은 저장해 두었어요.
+          {t("recovery.body")
+            .split("\n")
+            .map((line, index) => (
+              <Fragment key={line}>
+                {index > 0 && <br />}
+                {line}
+              </Fragment>
+            ))}
         </DialogDescription>
         <Card className="w-full px-4 py-0.5">
-          <InfoRow label="날짜" value={recoveryDateLabel(recovered.statDate)} />
+          <InfoRow label={t("recovery.date")} value={recoveryDateLabel(recovered.statDate)} />
           <InfoRow
-            label="시작 · 종료"
-            value={`${formatKstClock(recovered.startedAt)} ~ ${formatKstClock(recovered.endedAt)}`}
+            label={t("recovery.time")}
+            value={t("recovery.timeRange", {
+              start: formatKstClock(recovered.startedAt),
+              end: formatKstClock(recovered.endedAt),
+            })}
           />
-          <InfoRow label="총 공부시간" value={formatDuration(recovered.studySec)} />
-          <InfoRow label="순공시간" value={formatDuration(recovered.focusSec)} accent />
+          <InfoRow label={t("recovery.studyTime")} value={formatDuration(recovered.studySec)} />
+          <InfoRow
+            label={t("recovery.focusTime")}
+            value={formatDuration(recovered.focusSec)}
+            accent
+          />
         </Card>
         <Button
           type="button"
@@ -83,7 +98,7 @@ export function SessionRecoveryDialog({
           onClick={onConfirm}
           className="h-13 w-full shrink-0 rounded-[14px] text-[16px] font-semibold motion-reduce:transition-none"
         >
-          확인
+          {t("recovery.confirm")}
         </Button>
       </DialogContent>
     </Dialog>

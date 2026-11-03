@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { Switch } from "@/components/ui/switch";
@@ -36,6 +37,7 @@ export function SwitchRow({
   onCheckedChange,
   controlId,
 }: SwitchRowProps) {
+  const { t } = useTranslation("settings");
   const labelId = useId();
   // 앱 스위치는 누르는 즉시 바뀐다.
   // 누름을 처리하느라 막힌 동안 이전 값을 보내면 앱 스위치가 되돌아갔다가 처리가 끝난 뒤 다시 바뀌어서 그동안은 누른 값을 보낸다.
@@ -71,7 +73,9 @@ export function SwitchRow({
         <span id={labelId} className={ROW_LABEL_CLASS_NAME}>
           {label}
         </span>
-        {tooltip !== undefined && <InfoTooltip label={`${label} 안내`}>{tooltip}</InfoTooltip>}
+        {tooltip !== undefined && (
+          <InfoTooltip label={t("row.aria.tooltip", { label })}>{tooltip}</InfoTooltip>
+        )}
       </div>
       <Switch
         ref={ref}

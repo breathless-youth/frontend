@@ -208,7 +208,10 @@ describe("RoomPage — S3-8 자동 종료 안내", () => {
     await waitPastThreshold();
 
     expect(screen.queryByText("여기까지 기록을 저장했어요")).not.toBeInTheDocument();
-    expect(screen.getByText("일시적 오류")).toBeInTheDocument();
+    // 코드 없는 오류는 공용 문구로 보인다(BY-809).
+    expect(
+      screen.getByText("세션을 저장하지 못했어요. 잠시 후 다시 시도해 주세요"),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "다시 제출" })).toBeInTheDocument();
   });
 

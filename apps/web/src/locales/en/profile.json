@@ -1,0 +1,43 @@
+{
+  "title": "Edit profile",
+  "loadError": "Couldn't load your profile",
+  "saved": "Profile saved",
+  "fields": {
+    "nickname": "Nickname",
+    "goal": "Goal",
+    "category": "Studying for"
+  },
+  "save": {
+    "idle": "Save",
+    "pending": "Saving…"
+  },
+  "errors": {
+    "nicknameTaken": "That nickname is already taken",
+    "nicknameRule": "Use 2–12 characters: letters, numbers, emoji, or spaces",
+    "goalTooLong": "Your goal can be up to 20 characters",
+    "unknownCategory": "That category isn't on the list"
+  },
+  "categories": {
+    "PROFESSIONAL": "Professional exam",
+    "CSAT": "College entrance",
+    "JOB": "Job hunting",
+    "CERTIFICATE": "Certification",
+    "CIVIL_SERVICE": "Civil service",
+    "LANGUAGE": "Language",
+    "ETC": "Other",
+    "SCHOOL_EXAM": "School exams",
+    "UNIVERSITY_EXAM": "University exams"
+  },
+  "photo": {
+    "sheetTitle": "Profile photo",
+    "change": "Change photo",
+    "remove": "Remove photo",
+    "changed": "Profile photo updated",
+    "removed": "Profile photo removed",
+    "unusable": "Can't use this photo. Try another one",
+    "uploadFailed": "Couldn't upload the photo. Try again",
+    "aria": {
+      "change": "Change profile photo"
+    }
+  }
+}

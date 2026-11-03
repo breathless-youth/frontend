@@ -3,7 +3,9 @@ import { describe, expect, it, onTestFinished } from "vitest";
 import { __resetGroupRoomsForTests } from "@/lib/groupRoomCapability";
 
 import { makeProfileSchema } from "../profileSchema";
-import { NICKNAME_RULE_MESSAGE } from "../profileValidation";
+
+/** 문구 상수가 카탈로그로 옮겨져 한국어 원문을 직접 둔다. */
+const NICKNAME_RULE_MESSAGE = "한글, 영문, 숫자, 이모지, 띄어쓰기로 2~12자를 쓰실 수 있어요";
 
 // 지금 규칙에 맞지 않는 옛 값을 가진 사용자다.
 // 이 값을 그대로 둔 저장이 막히면 안 된다.
