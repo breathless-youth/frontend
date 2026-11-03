@@ -112,7 +112,9 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
       }
     },
   });
-  useLeaveWhenGone(left ? null : (homeQuery.error ?? enterRoom.error), groupId);
+  // 자리 잡기의 멤버 아님이 홈을 다시 받다 실패한 오류에 가려지면 누름이 아무 안내 없이 끝나서 먼저 본다.
+  const goneError = isGroupGoneError(enterRoom.error) ? enterRoom.error : homeQuery.error;
+  useLeaveWhenGone(left ? null : goneError, groupId);
   useEffect(() => {
     if (!left) {
       return;

@@ -263,6 +263,26 @@ describe("그룹 홈", () => {
     expect(await screen.findByText("이 그룹의 멤버가 아니에요")).toBeInTheDocument();
   });
 
+  it("홈을 다시 받다 실패한 뒤라도 자리 잡기에서 멤버가 아니라고 하면 그룹 탭으로 돌아가 안내한다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const api = mockGroupApi("default");
+    const { router } = renderGroupRoute("/social/groups/10?groupRooms=1");
+    await screen.findByRole("heading", { name: "새벽 5시 기상 공시반" });
+    api.getGroupHome.mockRejectedValue(new ApiError("x", 400, "BAD_REQUEST"));
+    await act(() => vi.advanceTimersByTimeAsync(30_000));
+    await waitFor(() =>
+      expect(queryClient.getQueryState(groupKeys.home(1, 10))?.error).toBeInstanceOf(ApiError),
+    );
+    api.joinGroupRoom.mockRejectedValueOnce(new ApiError("x", 403, "NOT_GROUP_MEMBER"));
+
+    await userEvent
+      .setup({ advanceTimers: vi.advanceTimersByTime })
+      .click(screen.getByRole("button", { name: "공부방 들어가기" }));
+
+    await waitFor(() => expect(router.location().pathname).toBe("/social"));
+    expect(await screen.findByText("이 그룹의 멤버가 아니에요")).toBeInTheDocument();
+  });
+
   it("공부방에서 자리를 오래 비워 끝났다는 안내를 그룹 홈에서 띄운다", async () => {
     mockGroupApi("default");
     markSocialRoomNotice({
