@@ -961,10 +961,34 @@ export function trackStudySessionCameraPromptShown(roomType: StudyRoomType) {
 export function trackStudySessionCameraPromptAnswered(input: {
   readonly choice: CameraPromptChoice;
   readonly roomType: StudyRoomType;
+  /** 답할 때 얼굴 가리기가 켜져 있었는지 */
+  readonly faceMask: boolean;
 }) {
   if (!initialized) return;
   track("study_session_camera_prompt_answered", {
     choice: input.choice,
+    room_type: input.roomType,
+    face_mask: input.faceMask,
+  });
+}
+
+/** 공부 화면 얼굴 가리기를 바꿈. 소셜룸 이벤트와 나란히 켜고 들어가는 비율을 본다. */
+export function trackStudySessionFaceMaskToggled(input: {
+  readonly on: boolean;
+  readonly roomType: StudyRoomType;
+}) {
+  if (!initialized) return;
+  track("study_session_face_mask_toggled", { on: input.on, room_type: input.roomType });
+}
+
+/** 공부 화면 얼굴 가리기 이모지를 고름. 어떤 이모지가 많이 쓰이는지 본다. */
+export function trackStudySessionFaceMaskEmojiSelected(input: {
+  readonly emojiId: string;
+  readonly roomType: StudyRoomType;
+}) {
+  if (!initialized) return;
+  track("study_session_face_mask_emoji_selected", {
+    emoji_id: input.emojiId,
     room_type: input.roomType,
   });
 }

@@ -88,6 +88,10 @@ export const CAMERA_PROMPT_COPY = {
   notice: "영상은 기기 밖으로 나가지 않아요",
   cancel: "심플 모드로 시작",
   confirm: "카메라 켜기",
+  // 소셜룸의 발열 줄은 송신 합성 때문이라 싱글룸에는 근거가 없어 한 줄만 둔다.
+  faceMaskTooltip: ["빠르게 움직이면 얼굴이 잠깐 보일 수 있어요"],
+  // 공부 화면 가림이 타임랩스 사진까지 가린다고 오해하지 않게 한다.
+  faceMaskCaption: "타임랩스 얼굴 가리기는 따로 설정해야 해요",
 } as const;
 
 /**
