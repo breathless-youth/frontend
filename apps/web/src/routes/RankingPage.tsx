@@ -1,6 +1,7 @@
 import type { RankingBoardResponse } from "@focusmakers/types";
 import { focusManager, useQuery } from "@tanstack/react-query";
 import { useEffect, useEffectEvent, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -102,13 +103,14 @@ function BoardSkeleton() {
 export function RankingPage() {
   const userId = useUserId();
   const identityPending = useIdentityPending();
+  const { t } = useTranslation("ranking");
 
   return (
     <main
       data-testid="ranking-page"
       className="theme-soft-blue min-h-dvh bg-soft-blue page-column pt-[calc(env(safe-area-inset-top)+24px)] pb-(--tab-bar-reserve) text-foreground"
     >
-      <h1 className="sr-only">랭킹</h1>
+      <h1 className="sr-only">{t("page.title")}</h1>
       <div className="flex flex-col px-5">
         {identityPending ? (
           <>
@@ -125,9 +127,7 @@ export function RankingPage() {
             </div>
           </>
         ) : userId === null ? (
-          <p className="p-4 text-sm text-muted-foreground">
-            기기 등록 전이에요. 앱에서 열면 기록이 저장돼요
-          </p>
+          <p className="p-4 text-sm text-muted-foreground">{t("page.noDevice")}</p>
         ) : (
           <RankingContent userId={userId} />
         )}
@@ -146,6 +146,7 @@ export function RankingPage() {
 function RankingContent({ userId }: { userId: number }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation("ranking");
   const visible = useScreenVisible();
   const startFocus = useFocusStart(userId);
   const [memory, setMemory] = useState(readBoardMemory);
@@ -292,7 +293,7 @@ function RankingContent({ userId }: { userId: number }) {
         {board === undefined ? (
           cannotLoad(boardQuery) ? (
             <ErrorState
-              message="랭킹을 불러오지 못했어요"
+              message={t("page.loadError")}
               onRetry={() => void boardQuery.refetch()}
               screen="ranking"
             />

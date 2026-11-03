@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
 
@@ -84,6 +85,7 @@ export function SessionTimer({
   glow = false,
   className,
 }: SessionTimerProps) {
+  const { t } = useTranslation("study-session");
   return (
     <div className={cn("flex flex-col items-center", className)}>
       {/* 색·발광을 타이머 이동(SPACER_TRANSITION)과 같은 300ms ease-out으로 맞춘다 —
@@ -99,13 +101,17 @@ export function SessionTimer({
         style={{ textShadow: glow ? GLOW_TEXT_SHADOW : NO_GLOW_TEXT_SHADOW }}
       >
         <span aria-hidden="true">{formatElapsed(focusSec)}</span>
-        <span className="sr-only">순공시간 {toKoreanDuration(focusSec)}</span>
+        <span className="sr-only">
+          {t("timer.srFocus", { duration: toKoreanDuration(focusSec) })}
+        </span>
       </p>
       {/* 심플 모드는 순공 숫자 하나에 집중하게 총 공부 줄을 뺀다. */}
       {!glow && (
         <p className={TIMER_TOTAL_TEXT}>
-          <span aria-hidden="true">총 {formatElapsed(studySec)}</span>
-          <span className="sr-only">총 공부 시간 {toKoreanDuration(studySec)}</span>
+          <span aria-hidden="true">{t("timer.total", { elapsed: formatElapsed(studySec) })}</span>
+          <span className="sr-only">
+            {t("timer.srTotal", { duration: toKoreanDuration(studySec) })}
+          </span>
         </p>
       )}
     </div>
@@ -149,13 +155,16 @@ export function SessionPageHeaderTime({
  * 페이지가 세션 UI를 가리므로 상태는 심플 모드처럼 숫자 색과 발광으로만 전한다.
  */
 export function SessionPageTimer({ focusSec }: { focusSec: number }) {
+  const { t } = useTranslation("study-session");
   return (
     <p
       className="text-[28px] leading-8.25 font-bold tracking-[-0.4px] text-(--session-state-color) tabular-nums regular:text-[40px] regular:leading-12 short-side-lg:landscape:text-5xl short-side-lg:landscape:leading-14"
       style={{ textShadow: GLOW_TEXT_SHADOW }}
     >
       <span aria-hidden="true">{formatElapsed(focusSec)}</span>
-      <span className="sr-only">순공시간 {toKoreanDuration(focusSec)}</span>
+      <span className="sr-only">
+        {t("timer.srFocus", { duration: toKoreanDuration(focusSec) })}
+      </span>
     </p>
   );
 }

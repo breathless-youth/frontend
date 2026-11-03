@@ -6,6 +6,7 @@ import { type ReactNode, useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as Amplitude from "@/lib/amplitude";
+import i18n from "@/lib/i18n";
 import { trackOsSettingsOpened, trackTimelapseShareTapped } from "@/lib/amplitude";
 import type * as Bridge from "@/lib/bridge";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
@@ -214,11 +215,12 @@ beforeEach(async () => {
   vi.mocked(buildTimelapseVideo).mockResolvedValue(builtVideo());
 });
 
-afterEach(() => {
+afterEach(async () => {
   Reflect.deleteProperty(navigator, "canShare");
   Reflect.deleteProperty(navigator, "share");
   vi.restoreAllMocks();
   vi.clearAllMocks();
+  await i18n.changeLanguage("ko");
 });
 
 describe("버튼 노출", () => {
@@ -231,6 +233,18 @@ describe("버튼 노출", () => {
       expect(within(dialog).getByRole("button", { name })).toBeInTheDocument();
     }
     expect(within(dialog).getByText("포커스 메이커스")).toBeInTheDocument();
+  });
+
+  it("영어 화면에서는 카카오톡만 빼고 나머지 버튼을 보여준다", async () => {
+    await i18n.changeLanguage("en");
+    nativeApp();
+    renderDialog();
+
+    const dialog = await screen.findByRole("dialog", { name: "Share" });
+    for (const name of ["Save", "Instagram", "More"]) {
+      expect(within(dialog).getByRole("button", { name })).toBeInTheDocument();
+    }
+    expect(within(dialog).queryByRole("button", { name: "KakaoTalk" })).toBeNull();
   });
 
   it("브라우저는 파일을 공유할 수 없으면 저장하기만 보여준다", async () => {

@@ -3,6 +3,9 @@ import { join } from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
+import en from "@/locales/en/ambient-sound.json";
+import ko from "@/locales/ko/ambient-sound.json";
+
 import { loadCatalog, parseCatalog } from "../catalog";
 
 const VALID = {
@@ -114,6 +117,13 @@ describe("public/sounds/catalog.json", () => {
       "cafe-vec",
     ]);
     expect(catalog.filter((s) => s.kind === "file")).toHaveLength(3);
+  });
+
+  /** 소리를 더하면서 문구 카탈로그 이름을 빠뜨리면 영어 화면에 JSON의 한국어 이름이 그대로 나온다. */
+  it("모든 항목의 이름이 ko·en 문구 카탈로그에 있다", () => {
+    const ids = catalog.map((s) => s.id).sort();
+    expect(Object.keys(ko.sounds).sort()).toEqual(ids);
+    expect(Object.keys(en.sounds).sort()).toEqual(ids);
   });
 
   it("모든 항목이 group 을 갖는다", () => {

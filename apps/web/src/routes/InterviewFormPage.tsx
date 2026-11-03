@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router-dom";
 
 import { fillNickname, isGoogleFormUrl, readFormParam } from "@/features/interview/interviewForm";
@@ -14,6 +15,7 @@ import { GoogleFormPage } from "./GoogleFormPage";
  * 신원과 프로필을 기다리는 동안은 iframe을 띄우지 않아 빈 닉네임으로 먼저 열리지 않게 한다.
  */
 export function InterviewFormPage() {
+  const { t } = useTranslation("interview");
   const location = useLocation();
   const userId = useUserId();
   // 앱 셸은 신원을 브리지로 늦게 준다. 그 전의 null을 신원 없음으로 보면 빈 닉네임 폼이 먼저 뜬다.
@@ -28,10 +30,10 @@ export function InterviewFormPage() {
 
   return (
     <GoogleFormPage
-      title="인터뷰 신청하기"
+      title={t("form.title")}
       formUrl={formUrl === null ? null : nicknameSettled ? fillNickname(formUrl, nickname) : ""}
-      loadingText="신청 폼을 불러오는 중"
-      failureTitle="신청 폼을 불러오지 못했어요"
+      loadingText={t("form.loading")}
+      failureTitle={t("form.failureTitle")}
       fallbackPath="/home"
       retryScreen="interview_form"
     />

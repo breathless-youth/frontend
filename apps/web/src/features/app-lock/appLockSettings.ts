@@ -22,6 +22,6 @@ export function writeAppLockEnabled(enabled: boolean): void {
   try {
     localStorage.setItem(KEY, enabled ? "1" : "0");
   } catch (error) {
-    console.warn("[app-lock] 켜짐 저장 실패", error);
+    console.warn("[app-lock] failed to save the enabled flag", error);
   }
 }

@@ -126,7 +126,7 @@ export function loadInterviewState(): InterviewState | null {
   try {
     return store.read();
   } catch (error) {
-    console.warn("[interview] 노출 기록을 읽지 못해 안내를 띄우지 않는다", error);
+    console.warn("[interview] failed to read exposure record, not showing it", error);
     return null;
   }
 }
@@ -143,7 +143,7 @@ export function updateInterviewState(
   try {
     store.write(next);
   } catch (error) {
-    console.warn("[interview] 노출 기록을 저장하지 못했다", error);
+    console.warn("[interview] failed to save exposure record", error);
   }
   return next;
 }
@@ -153,7 +153,7 @@ export function loadLastHiddenAt(): number | null {
   try {
     return store.readLastHiddenAt();
   } catch (error) {
-    console.warn("[interview] 마지막으로 떠난 시각을 읽지 못했다", error);
+    console.warn("[interview] failed to read last hidden time", error);
     return null;
   }
 }
@@ -162,6 +162,6 @@ export function recordLastHiddenAt(atMs: number): void {
   try {
     store.writeLastHiddenAt(atMs);
   } catch (error) {
-    console.warn("[interview] 마지막으로 떠난 시각을 저장하지 못했다", error);
+    console.warn("[interview] failed to save last hidden time", error);
   }
 }

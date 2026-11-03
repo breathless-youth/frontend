@@ -1,0 +1,227 @@
+{
+  "page": {
+    "title": "랭킹",
+    "noDevice": "기기 등록 전이에요. 앱에서 열면 기록이 저장돼요",
+    "loadError": "랭킹을 불러오지 못했어요"
+  },
+  "type": {
+    "focusTime": "순공",
+    "focusRate": "집중률",
+    "timeSlot": "시간대",
+    "totalTime": "누적 시간",
+    "totalDays": "누적 일수",
+    "maxStreak": "연속 공부"
+  },
+  "period": {
+    "daily": "일간",
+    "weekly": "주간",
+    "monthly": "월간"
+  },
+  "periodWord": {
+    "daily": "오늘",
+    "weekly": "이번 주",
+    "monthly": "이번 달"
+  },
+  "slot": {
+    "night": "새벽",
+    "morning": "아침",
+    "afternoon": "점심",
+    "evening": "저녁",
+    "dawn": "새벽",
+    "unknown": "시간대",
+    "name": "{{slot}} 구간"
+  },
+  "slotHours": {
+    "night": "0–6시",
+    "morning": "6–12시",
+    "afternoon": "12–18시",
+    "evening": "18–24시",
+    "dawn": "4–7시"
+  },
+  "slotSubject": {
+    "night": "새벽이",
+    "morning": "아침이",
+    "afternoon": "점심이",
+    "evening": "저녁이",
+    "dawn": "새벽이"
+  },
+  "rank": {
+    "place": "{{rank}}위"
+  },
+  "row": {
+    "focusing": "집중 중"
+  },
+  "format": {
+    "days": "{{days}}일",
+    "weekOfMonth": "{{month}} {{week}}주"
+  },
+  "deadline": {
+    "midnight": "00시 마감",
+    "days": "마감 {{count}}일 전",
+    "hours": "마감 {{count}}시간 전",
+    "hoursMinutes": "마감 {{hours}}시간 {{minutes}}분 전",
+    "minutes": "마감 {{count}}분 전"
+  },
+  "podium": {
+    "titleTop3": "{{name}} TOP 3",
+    "titleFocusRate": "집중률 TOP 3",
+    "titleMaxStreak": "연속 공부 TOP 3",
+    "titleHall": "명예의 전당 TOP 3",
+    "tooltipRateMonthly": "이번 달 순공 30시간 이상 기록하면 랭킹에 진입할 수 있어요",
+    "tooltipRateWeekly": "이번 주에 순공 10시간 이상 기록하면 랭킹에 진입할 수 있어요",
+    "tooltipSlot": "{{period}} {{hours}} 순공시간 기준",
+    "me": "나",
+    "aria": {
+      "tooltip": "TOP 3 기준 안내"
+    }
+  },
+  "card": {
+    "maxStreakTitle": "최대 연속 공부"
+  },
+  "offSlot": {
+    "headline": "{{slot}}에 공부하면 랭킹 진입",
+    "notice": "{{slot}}에 공부한 시간만 이 순위에 들어가요"
+  },
+  "previousResult": {
+    "daily": "어제 최종 결과",
+    "weekly": "지난주 최종 결과",
+    "monthly": "지난달 최종 결과",
+    "rankPrefix": "{{rank}}위 · ",
+    "showRecords": "기록 보기 ›"
+  },
+  "live": {
+    "rankUp": "{{steps}}계단 올랐어요",
+    "rankDown": "{{steps}}계단 내려갔어요",
+    "gapWidening": "앞 순위와 차이가 벌어지고 있어요",
+    "gapClosing": "뒤 순위와 차이가 줄어들고 있어요",
+    "gapToSecond": "2위와 {{gap}} 차이예요",
+    "oneMoreSession": "한 번 더 공부하면 따라잡을 수 있어요",
+    "catchUpBeforeSlotEnds": "{{slot}} 끝나기 전에 따라잡을 수 있어요"
+  },
+  "around": {
+    "status": "순위가 {{change}}",
+    "aria": {
+      "label": "내 주변 순위"
+    }
+  },
+  "switcher": {
+    "modeRanking": "랭킹",
+    "modeHall": "명예의 전당",
+    "aria": {
+      "mode": "랭킹 종류",
+      "type": "종목",
+      "period": "기간",
+      "slots": "시간대 구간",
+      "slot": "{{slot}} {{hours}}",
+      "slotNow": "{{slot}} {{hours}}, 지금 구간"
+    }
+  },
+  "eligibility": {
+    "untilEntry": "랭킹 진입까지 <accent>{{gap}}</accent>",
+    "expectRank": "현재 집중률이면 {{rank}}위예요",
+    "expectTopPercent": "현재 집중률이면 상위 {{percent}}%예요"
+  },
+  "lockedList": {
+    "message": "랭킹에 진입하면 나의 앞뒤 순위가 보여요",
+    "aria": {
+      "label": "내 앞뒤 순위"
+    }
+  },
+  "firstCard": {
+    "title": "아직 내 순위가 없어요",
+    "headline": "지금 공부하면 랭킹 진입",
+    "streakHeadline": "5분 이상 공부하면<br/>랭킹 진입"
+  },
+  "resetCard": {
+    "startNow": "지금 시작하면 <accent>{{rank}}위</accent>"
+  },
+  "goalExamples": {
+    "title": "이번 주에 이만큼 하면",
+    "untilTop": "상위 {{percent}}%까지"
+  },
+  "focusStart": {
+    "label": "순공 시작"
+  },
+  "rankedCard": {
+    "topPercent": "상위 {{percent}}%",
+    "untilNext": "<pre>다음 순위까지 </pre><accent>{{gap}}</accent>",
+    "rateCatchUp": "조금만 더 집중하면 따라잡아요"
+  },
+  "nextTier": {
+    "remaining": "<b>상위 {{percent}}%</b>까지 {{gap}} 남았어요",
+    "eta": "지금 페이스면 약 {{count}}일 뒤에 역전해요"
+  },
+  "firstPlace": {
+    "headline": "<accent>1위</accent> 지키는 중"
+  },
+  "medalButton": {
+    "aria": {
+      "label": "랭킹 기록",
+      "withTotal": "랭킹 기록, 메달 {{count}}개"
+    }
+  },
+  "rankChips": {
+    "all": "전체",
+    "aria": {
+      "label": "순위"
+    }
+  },
+  "nickname": {
+    "aria": {
+      "showFull": "{{name}} 전체 이름 보기"
+    }
+  },
+  "records": {
+    "title": "랭킹 기록",
+    "loadError": "랭킹 기록을 불러오지 못했어요",
+    "empty": "조건에 맞는 기록이 없어요",
+    "aria": {
+      "item": "{{rank}}위 {{name}} {{period}} {{value}}"
+    }
+  },
+  "sheet": {
+    "totalCount": "모두 {{count}}번",
+    "showAll": "{{count}}개 모두 보기 ›",
+    "emptyTitle": "아직 TOP 3 기록이 없어요",
+    "emptyBody": "랭킹 마감 시 3위 내에 든 기록이 있으면 메달을 확인할 수 있어요",
+    "closestLabel": "TOP 3에 가장 가까운 판",
+    "closestInTop3": "지금 TOP 3 안",
+    "closestGap": "{{gap}} 차"
+  },
+  "streak": {
+    "dayUnit": "일",
+    "currentIsBest": "지금이 최고 기록",
+    "nextBest": "내일도 공부하면 최대 {{count}}일이에요",
+    "best": "최고 기록",
+    "current": "지금",
+    "startToday": "오늘 공부하면 1일째예요",
+    "beatBest": "<b>{{count}}일</b>을 이어가면 최고 기록을 넘어요"
+  },
+  "medal": {
+    "closesAt": "{{date}} {{time}}시",
+    "titleSingle": "{{rank}}위로 마감했어요",
+    "rowClosed": "{{rank}}위로 마감",
+    "eyebrowClosed": "{{time}} 마감",
+    "titleMany": "메달 {{count}}개를 땄어요",
+    "recordValue": "기록 <value>{{value}}</value>",
+    "more": "외 {{count}}개",
+    "totalSoFar": "현재까지 메달을 <b>{{total}}번</b> 얻었어요",
+    "showRecords": "랭킹 기록 보기",
+    "aria": {
+      "countByRank": "{{rank}}위 {{count}}개"
+    }
+  },
+  "gainCard": {
+    "title": "랭킹이 올랐어요",
+    "weeklyFocus": "주간 순공"
+  },
+  "recordsPage": {
+    "summaryTitle": "지금까지 TOP 3",
+    "timesUnit": "번",
+    "allTypes": "모든 종목",
+    "aria": {
+      "countByRank": "{{rank}}위 {{count}}번",
+      "typeFilter": "종목: {{label}}"
+    }
+  }
+}

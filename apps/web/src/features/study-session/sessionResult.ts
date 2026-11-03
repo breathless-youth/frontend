@@ -4,8 +4,11 @@ import type {
   StudySessionResponse,
 } from "@focusmakers/types";
 
+import i18n from "@/lib/i18n";
+import { formatClock } from "@/lib/intl";
+import type { AppLocale } from "@/lib/locale";
+
 import { SUB_MINUTE_SEC, toKoreanDurationLength } from "./formatDuration";
-import { LEGEND_COPY, RESULT_COPY } from "./resultCopy";
 
 /**
  * S4(공부 결과) **표시용 파생값** — 순수 함수만 둔다.
@@ -54,7 +57,7 @@ export const DISTRACTION_STATUSES = Object.keys(
  * (SCR-S4 Data Contract — 정렬·병합은 서버 계약이 보장한다).
  */
 export interface EventOccurrence {
-  /** `HH:MM – HH:MM` (24시간제, 로컬 타임존). */
+  /** 시각 범위, 기기 로컬 타임존. ko는 `21:03 – 22:48`, en은 `9:03 PM – 10:48 PM`. */
   clockRange: string;
   /** 이 구간의 길이(초). */
   durationSec: number;
@@ -87,7 +90,7 @@ export interface LongestFocus {
   startedAt: string;
   endedAt: string;
   durationSec: number;
-  /** `HH:MM – HH:MM` (24시간제, 로컬 타임존). */
+  /** 시각 범위, 기기 로컬 타임존. ko는 `21:03 – 22:48`, en은 `9:03 PM – 10:48 PM`. */
   clockRange: string;
   /** 타임라인 바 위 하이라이트 위치 — 세션 벽시계 구간에 대한 비율(0~1). */
   startRatio: number;
@@ -101,7 +104,7 @@ export interface SessionResultView {
   focusRatePercent: number;
   startedAt: string;
   endedAt: string;
-  /** `HH:MM – HH:MM` (24시간제, 로컬 타임존). */
+  /** 시각 범위, 기기 로컬 타임존. ko는 `21:03 – 22:48`, en은 `9:03 PM – 10:48 PM`. */
   clockRange: string;
   /** 건수 0인 유형은 빠진다 — 0회 행 시안이 Figma에 없다. 순서는 `DISTRACTION_STATUSES` 고정. */
   distractions: EventTally[];
@@ -264,22 +267,26 @@ export function toSessionResultView(session: StudySessionResponse): SessionResul
 }
 
 /**
- * UTC ISO-8601 → `HH:MM` (24시간제, **로컬 타임존**).
- *
- * `toLocaleTimeString`을 쓰지 않는 이유: 로캘·엔진에 따라 자정이 `24:00`으로 나오거나
- * 오전/오후가 붙는다. 시각 표기는 화면 계약이므로 엔진에 맡기지 않는다.
+ * UTC ISO-8601 → 시각, **기기 로컬 타임존**. ko는 24시간제 `HH:MM`(자정 `00:00`), en은 12시간제 `9:03 PM`이다.
+ * 표기는 `lib/intl.ts`의 `formatClock`이 정한다. 기록·홈 화면은 KST(`STAT_TIME_ZONE`)라 시간대가 다르고,
+ * 통일은 BY-815 몫이다. 깨진 시각은 Intl이 예외를 내므로 먼저 `--:--`로 돌려준다.
  */
 export function formatClockTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) {
     return "--:--";
   }
-  const h = String(date.getHours()).padStart(2, "0");
-  const m = String(date.getMinutes()).padStart(2, "0");
-  return `${h}:${m}`;
+  return formatClock(
+    i18n.language as AppLocale,
+    date,
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
+  );
 }
 
-/** `HH:MM – HH:MM` — 구분자는 **en dash(U+2013) 양옆 공백**(Figma `64:560` 실측). */
+/**
+ * `HH:MM – HH:MM` — 구분자는 **en dash(U+2013) 양옆 공백**(Figma `64:560` 실측).
+ * 깨진 시각을 견디려고 `lib/intl.ts`의 `formatClockRange` 대신 위 함수를 잇는다.
+ */
 export function formatClockRange(startIso: string, endIso: string): string {
   return `${formatClockTime(startIso)} – ${formatClockTime(endIso)}`;
 }
@@ -289,19 +296,21 @@ export function formatClockRange(startIso: string, endIso: string): string {
  *
  * 바는 순수 시각 요소라 그대로 두면 정보가 사라진다 — `role="img"` + 이 라벨로 요약을 준다
  * (SCR-S4 Accessibility Requirements). 일시정지·최대 집중은 **있을 때만** 읽는다. 라벨은 범례와
- * 같은 문구(`LEGEND_COPY`)를 쓴다 — 눈으로 보는 범례와 귀로 듣는 요약이 다른 말을 하면 안 된다.
+ * 같은 문구(`legend.*`)를 쓴다 — 눈으로 보는 범례와 귀로 듣는 요약이 다른 말을 하면 안 된다.
  */
 export function timelineSummaryLabel(view: SessionResultView): string {
   const parts = [
-    `${LEGEND_COPY.focus} ${toKoreanDurationLength(view.focusSec)}`,
-    `${LEGEND_COPY.distract} ${toKoreanDurationLength(view.distractionSec)}`,
+    `${i18n.t("study-session:legend.focus")} ${toKoreanDurationLength(view.focusSec)}`,
+    `${i18n.t("study-session:legend.distract")} ${toKoreanDurationLength(view.distractionSec)}`,
   ];
   if (view.pause !== null) {
-    parts.push(`${LEGEND_COPY.pause} ${toKoreanDurationLength(view.pause.durationSec)}`);
+    parts.push(
+      `${i18n.t("study-session:legend.pause")} ${toKoreanDurationLength(view.pause.durationSec)}`,
+    );
   }
   if (view.longestFocus !== null) {
     parts.push(
-      `${RESULT_COPY.longestFocusLabel} ${toKoreanDurationLength(view.longestFocus.durationSec)}`,
+      `${i18n.t("study-session:result.longestFocusLabel")} ${toKoreanDurationLength(view.longestFocus.durationSec)}`,
     );
   }
   return parts.join(", ");

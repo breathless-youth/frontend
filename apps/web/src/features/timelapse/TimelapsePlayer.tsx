@@ -1,5 +1,6 @@
 import { Pause, Play } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useInView } from "react-intersection-observer";
 
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
@@ -47,6 +48,7 @@ export function TimelapsePlayer({
   className,
   children,
 }: TimelapsePlayerProps) {
+  const { t } = useTranslation("timelapse");
   const { ref, inView } = useInView({ threshold: 0.5 });
   const [paused, setPaused] = useState(() => prefersReducedMotion());
   // 마지막으로 글꼴을 받아 둔 글자
@@ -79,7 +81,7 @@ export function TimelapsePlayer({
     decode: async (seq) => {
       const bytes = await readPhoto(seq);
       if (bytes === null) {
-        throw new Error("재생하는 동안 사진이 지워졌다");
+        throw new Error("photo was deleted during playback");
       }
       return await decodeJpeg(bytes);
     },
@@ -146,7 +148,7 @@ export function TimelapsePlayer({
       <button
         type="button"
         onClick={() => setPaused((value) => !value)}
-        aria-label={paused ? "타임랩스 재생" : "타임랩스 일시정지"}
+        aria-label={paused ? t("player.aria.play") : t("player.aria.pause")}
         className="absolute bottom-7 left-1.5 flex size-11 items-center justify-center rounded-full text-white focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
       >
         <span className="flex size-10 items-center justify-center rounded-full bg-black/35">

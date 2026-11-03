@@ -1,9 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
+import type { StudyRhythmResponse } from "@focusmakers/types";
 
-import { periodStatsQuery } from "@/lib/statsQueries";
+import { periodStatsQuery, studyRhythmQuery } from "@/lib/statsQueries";
 
 import { weekRanges } from "./recordsPeriod";
 import { derivePeriodState, type RecordsPeriodState } from "./useRecordsData";
+
+export type RhythmState =
+  { status: "pending" } | { status: "error" } | { status: "success"; data: StudyRhythmResponse };
 
 /**
  * 기록 주간탭에서 사용하는 데이터 훅
@@ -15,17 +19,29 @@ import { derivePeriodState, type RecordsPeriodState } from "./useRecordsData";
  * — 주를 넘기면 새 조회가 끝날 때까지 data가 undefined로 즉시 비워져 pending으로 떨어지고,
  * 이전 주의 막대·문장이 새 제목 아래 남지 않는다(useRecordsData.period와 동일).
  *
- * 리듬 데이터는 이번엔 없다(예상 화면 고정이라 이 훅에서 다루지 않는다).
+ * 리듬은 주를 따라가지 않는 전체 기간 값이라 `GET /api/stats/rhythm`을 한 번만 조회한다(주를 넘겨도 그대로).
  */
 export function useWeeklyData(
   userId: number | null,
   weekAnchorKey: string,
-): { week: RecordsPeriodState } {
+): { week: RecordsPeriodState; rhythm: RhythmState } {
   const weekRange = weekRanges(weekAnchorKey);
   const week = useQuery({
     ...periodStatsQuery(userId ?? 0, weekRange.range, weekRange.compareRange),
     enabled: userId != null,
   });
+  const rhythm = useQuery({
+    ...studyRhythmQuery(userId ?? 0),
+    enabled: userId != null,
+  });
 
-  return { week: derivePeriodState(week) };
+  return {
+    week: derivePeriodState(week),
+    rhythm:
+      rhythm.data !== undefined
+        ? { status: "success", data: rhythm.data }
+        : rhythm.isError
+          ? { status: "error" }
+          : { status: "pending" },
+  };
 }

@@ -1,7 +1,13 @@
 import { queryOptions } from "@tanstack/react-query";
 
 import type { DateRange } from "./statsApi";
-import { getPeriodStats, getStreak, getStudyDays, listStudySessionStats } from "./statsApi";
+import {
+  getPeriodStats,
+  getStreak,
+  getStudyDays,
+  getStudyRhythm,
+  listStudySessionStats,
+} from "./statsApi";
 import { getStudySessionDetail } from "./studySessionApi";
 import { todayKstDateKey } from "./dateKst";
 
@@ -21,6 +27,7 @@ export const statsKeys = {
   all: ["stats"] as const,
   daily: (userId: number, date: string) => ["stats", "daily", userId, date] as const,
   studyDays: (userId: number) => ["stats", "studyDays", userId] as const,
+  studyRhythm: (userId: number) => ["stats", "studyRhythm", userId] as const,
   /** 세션 단건 상세 — 일간 목록이 같은 필드를 다 실어 기록 탭은 보통 안 쓰지만, 딥링크·결과 화면용으로 둔다. */
   session: (userId: number, id: number) => ["stats", "session", userId, id] as const,
   streak: (userId: number, range?: DateRange) =>
@@ -85,6 +92,13 @@ export function studyDaysQuery(userId: number) {
   return queryOptions({
     queryKey: statsKeys.studyDays(userId),
     queryFn: () => getStudyDays(),
+  });
+}
+
+export function studyRhythmQuery(userId: number) {
+  return queryOptions({
+    queryKey: statsKeys.studyRhythm(userId),
+    queryFn: () => getStudyRhythm(),
   });
 }
 

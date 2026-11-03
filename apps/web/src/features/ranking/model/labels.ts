@@ -1,33 +1,37 @@
 import type { RankingPeriod } from "@focusmakers/types";
 
-import { PERIOD_LABEL, SLOT_HOURS, SLOT_LABEL, TYPE_LABEL, type BoardIdentity } from "./board";
+import i18n from "@/lib/i18n";
 
-const PERIOD_WORD: Record<RankingPeriod, string> = {
-  DAILY: "오늘",
-  WEEKLY: "이번 주",
-  MONTHLY: "이번 달",
-};
+import { periodLabel, slotHours, slotLabel, typeLabel, type BoardIdentity } from "./board";
+
+const PERIOD_WORD_KEYS = {
+  DAILY: "ranking:periodWord.daily",
+  WEEKLY: "ranking:periodWord.weekly",
+  MONTHLY: "ranking:periodWord.monthly",
+} as const satisfies Record<RankingPeriod, string>;
 
 export function periodWord(period: RankingPeriod): string {
-  return PERIOD_WORD[period];
+  return i18n.t(PERIOD_WORD_KEYS[period]);
 }
 
-export function slotName(board: BoardIdentity): string {
-  return board.slot === null ? "시간대" : `${SLOT_LABEL[board.slot]} 구간`;
+export function slotName(board: Pick<BoardIdentity, "slot">): string {
+  return board.slot === null
+    ? i18n.t("ranking:slot.unknown")
+    : i18n.t("ranking:slot.name", { slot: slotLabel(board.slot) });
 }
 
 export function podiumTitle(board: BoardIdentity): string {
   switch (board.type) {
     case "FOCUS_TIME":
-      return `${periodWord(board.period ?? "DAILY")} TOP 3`;
+      return i18n.t("ranking:podium.titleTop3", { name: periodWord(board.period ?? "DAILY") });
     case "FOCUS_RATE":
-      return "집중률 TOP 3";
+      return i18n.t("ranking:podium.titleFocusRate");
     case "TIME_SLOT":
-      return `${slotName(board)} TOP 3`;
+      return i18n.t("ranking:podium.titleTop3", { name: slotName(board) });
     case "MAX_STREAK":
-      return "연속 공부 TOP 3";
+      return i18n.t("ranking:podium.titleMaxStreak");
     default:
-      return "명예의 전당 TOP 3";
+      return i18n.t("ranking:podium.titleHall");
   }
 }
 
@@ -42,12 +46,15 @@ export function podiumTooltip(board: BoardIdentity): string | null {
   switch (board.type) {
     case "FOCUS_RATE":
       return board.period === "MONTHLY"
-        ? "이번 달 순공 30시간 이상 기록하면 랭킹에 진입할 수 있어요"
-        : "이번 주에 순공 10시간 이상 기록하면 랭킹에 진입할 수 있어요";
+        ? i18n.t("ranking:podium.tooltipRateMonthly")
+        : i18n.t("ranking:podium.tooltipRateWeekly");
     case "TIME_SLOT":
       return board.slot === null
         ? null
-        : `${periodWord(board.period ?? "DAILY")} ${SLOT_HOURS[board.slot]} 순공시간 기준`;
+        : i18n.t("ranking:podium.tooltipSlot", {
+            period: periodWord(board.period ?? "DAILY"),
+            hours: slotHours(board.slot),
+          });
     default:
       return null;
   }
@@ -57,19 +64,21 @@ export function cardTitle(board: BoardIdentity): string {
   switch (board.type) {
     case "FOCUS_TIME":
     case "FOCUS_RATE":
-      return `${TYPE_LABEL[board.type]} · ${PERIOD_LABEL[board.period ?? "DAILY"]}`;
+      return `${typeLabel(board.type)} · ${periodLabel(board.period ?? "DAILY")}`;
     case "TIME_SLOT":
-      return `${slotName(board)} · ${PERIOD_LABEL[board.period ?? "DAILY"]}`;
+      return `${slotName(board)} · ${periodLabel(board.period ?? "DAILY")}`;
     case "MAX_STREAK":
-      return "최대 연속 공부";
+      return i18n.t("ranking:card.maxStreakTitle");
     default:
-      return TYPE_LABEL[board.type];
+      return typeLabel(board.type);
   }
 }
 
 /** 지금 구간이 아닌 시간대 판에서 순위 대신 쓰는 큰 문구. */
 export function offSlotHeadline(board: BoardIdentity): string {
-  return `${board.slot === null ? "시간대" : SLOT_LABEL[board.slot]}에 공부하면 랭킹 진입`;
+  return i18n.t("ranking:offSlot.headline", {
+    slot: board.slot === null ? i18n.t("ranking:slot.unknown") : slotLabel(board.slot),
+  });
 }
 
 /**
@@ -81,15 +90,15 @@ export function offSlotNotice(board: BoardIdentity): string | null {
   if (board.slot === null) {
     return null;
   }
-  return `${SLOT_LABEL[board.slot]}에 공부한 시간만 이 순위에 들어가요`;
+  return i18n.t("ranking:offSlot.notice", { slot: slotLabel(board.slot) });
 }
 
-const PREVIOUS_RESULT: Record<RankingPeriod, string> = {
-  DAILY: "어제 최종 결과",
-  WEEKLY: "지난주 최종 결과",
-  MONTHLY: "지난달 최종 결과",
-};
+const PREVIOUS_RESULT_KEYS = {
+  DAILY: "ranking:previousResult.daily",
+  WEEKLY: "ranking:previousResult.weekly",
+  MONTHLY: "ranking:previousResult.monthly",
+} as const satisfies Record<RankingPeriod, string>;
 
 export function previousResultLabel(period: RankingPeriod): string {
-  return PREVIOUS_RESULT[period];
+  return i18n.t(PREVIOUS_RESULT_KEYS[period]);
 }

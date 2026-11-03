@@ -142,15 +142,15 @@ class AppLockService : Service() {
   private fun startInForeground(count: Int) {
     val manager = getSystemService(NotificationManager::class.java)
     manager.createNotificationChannel(
-      NotificationChannel(CHANNEL_ID, "방해 앱 잠금", NotificationManager.IMPORTANCE_LOW)
+      NotificationChannel(CHANNEL_ID, getString(R.string.app_lock_channel_name), NotificationManager.IMPORTANCE_LOW)
     )
     val open = packageManager.getLaunchIntentForPackage(packageName)?.let {
       PendingIntent.getActivity(this, 0, it, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
     val notification = Notification.Builder(this, CHANNEL_ID)
       .setSmallIcon(R.drawable.app_lock_ic_lock)
-      .setContentTitle("공부 중 · 방해 앱 ${count}개 잠김")
-      .setContentText("공부를 끝내면 잠금이 풀려요")
+      .setContentTitle(resources.getQuantityString(R.plurals.app_lock_notification_title, count, count))
+      .setContentText(getString(R.string.app_lock_notification_text))
       .setContentIntent(open)
       .setOngoing(true)
       .build()
@@ -254,14 +254,14 @@ class AppLockService : Service() {
       addView(icon, FrameLayout.LayoutParams(dp(36), dp(36), Gravity.CENTER))
     }
     val title = TextView(this).apply {
-      text = "지금은 공부에 집중하는 시간이에요"
+      text = getString(R.string.app_lock_overlay_title)
       setTextColor(primaryText)
       setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
       typeface = Typeface.DEFAULT_BOLD
       gravity = Gravity.CENTER
     }
     val subtitle = TextView(this).apply {
-      text = "포커스 메이커스 앱에서 공부를 끝내면 잠금이 풀려요"
+      text = getString(R.string.app_lock_overlay_subtitle)
       setTextColor(secondaryText)
       setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
       gravity = Gravity.CENTER
@@ -281,7 +281,7 @@ class AppLockService : Service() {
           info.className = Button::class.java.name
         }
       }
-      text = "포커스 메이커스로 돌아가기"
+      text = getString(R.string.app_lock_overlay_button)
       setTextColor(Color.WHITE)
       setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
       typeface = Typeface.DEFAULT_BOLD

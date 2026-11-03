@@ -116,7 +116,7 @@ export interface MediapipeFaceInference extends MediapipeFaceResult {
 /**
  * 얼굴 모델 핸들
  *
- * `photo`를 주면 추론에 쓴 프레임으로 사진을 만들고, 가림이면 그 프레임의 랜드마크에 스티커를 덮는다.
+ * `photo`를 주면 추론에 쓴 프레임으로 사진을 만들고, 가림이면 그 프레임의 랜드마크나 실려 온 어림 자리에 이모지를 덮는다.
  * 사진은 추론이 도는 곳에서 만들어지므로 랜드마크가 사진 때문에 새로 밖으로 나가지 않는다.
  */
 export interface MediapipeFaceLandmarkerHandle extends MediapipeInferenceHandle<MediapipeFaceInference> {

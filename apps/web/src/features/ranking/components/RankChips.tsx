@@ -1,4 +1,5 @@
 import type { MedalRank } from "@focusmakers/types";
+import { useTranslation } from "react-i18next";
 
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useNativeControl } from "@/lib/nativeControls";
@@ -29,16 +30,19 @@ export function RankChips({
   nativeControlId?: string;
   className?: string;
 }) {
+  const { t } = useTranslation("ranking");
   const { ref } = useNativeControl<HTMLDivElement>(
     nativeControlId === undefined
       ? null
       : {
           id: nativeControlId,
           kind: "segment",
-          labels: CHIPS.map((chip) => (chip === "all" ? "전체" : `${chip}위`)),
+          labels: CHIPS.map((chip) =>
+            chip === "all" ? t("rankChips.all") : t("rank.place", { rank: chip }),
+          ),
           selected: CHIPS.indexOf(value),
           disabled: CHIPS.map(() => false),
-          accessibilityLabel: "순위",
+          accessibilityLabel: t("rankChips.aria.label"),
         },
     (index) => {
       const chip = CHIPS[index];
@@ -51,7 +55,7 @@ export function RankChips({
     <ToggleGroup
       ref={ref}
       type="single"
-      aria-label="순위"
+      aria-label={t("rankChips.aria.label")}
       value={String(value)}
       onValueChange={(next) => {
         if (next === "" || next === String(value)) {
@@ -62,12 +66,12 @@ export function RankChips({
       className={cn("flex-nowrap gap-1.5", className)}
     >
       <ToggleGroupItem value="all" className={CHIP_CLASS}>
-        전체
+        {t("rankChips.all")}
       </ToggleGroupItem>
       {([1, 2, 3] as const).map((rank) => (
         <ToggleGroupItem key={rank} value={String(rank)} className={cn(CHIP_CLASS, "gap-1.5 pl-3")}>
           <IllustMedal rank={rank} size={14} />
-          {rank}위
+          {t("rank.place", { rank })}
         </ToggleGroupItem>
       ))}
     </ToggleGroup>

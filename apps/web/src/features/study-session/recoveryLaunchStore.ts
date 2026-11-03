@@ -13,7 +13,10 @@ export function hasShownRecoveryThisLaunch(): boolean {
   try {
     return sessionStorage.getItem(SHOWN_THIS_LAUNCH_KEY) === "1";
   } catch (error) {
-    console.warn("[recovery] 이번 실행 복구 창 기록을 읽지 못해 떴다고 본다", error);
+    console.warn(
+      "[recovery] could not read this launch's dialog record, treating it as shown",
+      error,
+    );
     return true;
   }
 }
@@ -22,6 +25,6 @@ export function markRecoveryShownThisLaunch(): void {
   try {
     sessionStorage.setItem(SHOWN_THIS_LAUNCH_KEY, "1");
   } catch (error) {
-    console.warn("[recovery] 이번 실행 복구 창 기록을 저장하지 못했다", error);
+    console.warn("[recovery] could not save this launch's dialog record", error);
   }
 }

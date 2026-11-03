@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as Amplitude from "@/lib/amplitude";
+import i18n from "@/lib/i18n";
 
 import { InterviewCardHost } from "../InterviewCardHost";
 import type * as InterviewForm from "../interviewForm";
@@ -45,9 +46,10 @@ function renderHost({ strict = false } = {}) {
 }
 
 beforeEach(() => setInterviewStore(createMemoryInterviewStore()));
-afterEach(() => {
+afterEach(async () => {
   resetInterviewStore();
   vi.clearAllMocks();
+  await i18n.changeLanguage("ko");
 });
 
 describe("InterviewCardHost", () => {
@@ -152,5 +154,16 @@ describe("InterviewCardHost", () => {
     expect(await screen.findByText("꾸준히 쓰는 이유를 들려주세요")).toBeInTheDocument();
     expect(loadInterviewState()?.cardShownCount).toBe(1);
     expect(analytics.trackInterviewShown).toHaveBeenCalledTimes(1);
+  });
+
+  it("영어 화면에서는 대상 여부를 묻지 않고 그리지 않는다", async () => {
+    await i18n.changeLanguage("en");
+    getInterviewStatus.mockResolvedValue(eligible);
+    const { container } = renderHost();
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(getInterviewStatus).not.toHaveBeenCalled();
+    expect(container).toBeEmptyDOMElement();
+    expect(analytics.trackInterviewShown).not.toHaveBeenCalled();
   });
 });

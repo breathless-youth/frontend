@@ -1,5 +1,6 @@
 import { ArrowUpDown } from "lucide-react";
 import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 import type { SubjectResponse, TaskResponse } from "@focusmakers/types";
 
@@ -14,7 +15,6 @@ import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
 import { formatElapsed, toKoreanDuration } from "../formatDuration";
-import { SUBJECT_SHEET_COPY, SUBJECT_SUGGESTIONS } from "../sessionCopy";
 import {
   MAX_SUBJECTS,
   MAX_TASKS,
@@ -29,6 +29,7 @@ import {
 import type { SubjectSelection, SubjectTotals } from "../subjectSegments";
 import { liveSubjectTime } from "../subjectSegments";
 import type { SubjectsStore } from "../useSubjects";
+import { subjectSuggestions } from "../useSubjects";
 import { SessionPageFooter } from "./SessionPage";
 import { SubjectColorDot } from "./SubjectColorDot";
 
@@ -102,6 +103,7 @@ function InlineNameEditor({
   onCommit: (name: string) => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation(["study-session", "common"]);
   const { value, setValue, commit, handleKeyDown, over } = useInlineNameEdit({
     initial,
     maxLength,
@@ -142,7 +144,7 @@ function InlineNameEditor({
           onClick={commit}
           className="h-11 shrink-0 rounded-md px-3.5 text-[14px] font-semibold"
         >
-          {SUBJECT_SHEET_COPY.done}
+          {t("subjectSheet.done")}
         </Button>
       </div>
       <CharCount
@@ -150,7 +152,7 @@ function InlineNameEditor({
         length={value.length}
         max={maxLength}
         showFrom={COUNT_SHOW_FROM}
-        overMessage={`${maxLength}자까지 쓸 수 있어요`}
+        overMessage={t("subjectSheet.overLimit", { count: maxLength })}
         className={cn("pr-3 pb-1 text-white/50", large ? "pl-3" : "pl-4")}
       />
     </div>
@@ -223,6 +225,7 @@ function ContextMenu({
   onRemove: () => void;
   onDismiss: () => void;
 }) {
+  const { t } = useTranslation(["study-session", "common"]);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     function onPointerDown(event: globalThis.PointerEvent) {
@@ -246,7 +249,7 @@ function ContextMenu({
         onClick={onEdit}
         className="h-11 w-full rounded-[10px] px-3 text-left text-[15px] font-medium text-white active:bg-white/6"
       >
-        {SUBJECT_SHEET_COPY.edit}
+        {t("subjectSheet.edit")}
       </button>
       <button
         type="button"
@@ -254,7 +257,7 @@ function ContextMenu({
         onClick={onRemove}
         className="h-11 w-full rounded-[10px] px-3 text-left text-[15px] font-medium text-(--session-exit-bg) active:bg-white/6"
       >
-        {SUBJECT_SHEET_COPY.remove}
+        {t("subjectSheet.remove")}
       </button>
     </div>
   );
@@ -265,12 +268,13 @@ const SOFT_BUTTON_CLASS =
   "flex h-11 items-center justify-center gap-1.5 rounded-md bg-(--session-sheet-surface) px-3.5 text-[14px] font-semibold text-white/70 active:bg-white/10";
 
 function AddTaskButton({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation(["study-session", "common"]);
   return (
     <button type="button" onClick={onClick} className={cn(SOFT_BUTTON_CLASS, "mt-1 w-full")}>
       <span aria-hidden="true" className="text-[18px] leading-4.5">
         +
       </span>
-      {SUBJECT_SHEET_COPY.addTask}
+      {t("subjectSheet.addTask")}
     </button>
   );
 }
@@ -286,6 +290,7 @@ function TaskRow({
   onLongPress: (element: HTMLElement) => void;
   onRemove: () => void;
 }) {
+  const { t } = useTranslation(["study-session", "common"]);
   const done = task.doneAt !== null;
   const { swipeX, pressed, handlers } = usePressGestures({
     onTap: () => onToggle(!done),
@@ -301,7 +306,7 @@ function TaskRow({
         style={{ opacity: Math.min(1, -swipeX / SWIPE_REMOVE_PX) }}
         className="absolute inset-0 flex items-center justify-end rounded-xl bg-(--session-exit-bg) pr-4.5 text-[14px] font-semibold text-white"
       >
-        {SUBJECT_SHEET_COPY.remove}
+        {t("subjectSheet.remove")}
       </div>
       <div
         role="checkbox"
@@ -391,6 +396,7 @@ function SubjectRow({
   onReorderOver: (overId: number | null) => void;
   onReorderEnd: () => void;
 }) {
+  const { t } = useTranslation(["study-session", "common"]);
   const { pressed, handlers } = usePressGestures({ onTap: () => onTap?.(), onLongPress });
   // 가로 줄은 보는 과목을 고르는 버튼이다. 재생 버튼과 겹치지 않게 이름·시간 영역에만 역할을 단다.
   const tappable = onTap !== undefined && !reorderMode;
@@ -416,7 +422,7 @@ function SubjectRow({
       {reorderMode && (
         <Grip
           subjectId={subject.id}
-          label={`${subject.name} 순서 이동`}
+          label={t("subjectRow.move", { name: subject.name })}
           onStart={onReorderStart}
           onOver={onReorderOver}
           onEnd={onReorderEnd}
@@ -455,7 +461,9 @@ function SubjectRow({
           )}
         >
           <span aria-hidden="true">{formatElapsed(focusSec)}</span>
-          <span className="sr-only">{`순공 ${toKoreanDuration(focusSec)}`}</span>
+          <span className="sr-only">
+            {t("timer.srSubjectFocus", { duration: toKoreanDuration(focusSec) })}
+          </span>
         </span>
       </span>
       {/* 재생/정지(원본 Play Button): 히트 44 · 원 36.
@@ -463,7 +471,11 @@ function SubjectRow({
       {!reorderMode && (
         <button
           type="button"
-          aria-label={running ? `${subject.name} 측정 멈추기` : `${subject.name} 측정 시작`}
+          aria-label={
+            running
+              ? t("subjectRow.stop", { name: subject.name })
+              : t("subjectRow.start", { name: subject.name })
+          }
           onPointerDown={(event) => event.stopPropagation()}
           onPointerUp={(event) => event.stopPropagation()}
           onClick={(event) => {
@@ -523,12 +535,13 @@ function SubjectTasks({
   /** 가로 상세 열은 높이가 정해져 있어 할 일 목록만 스크롤한다. */
   scrollable?: boolean;
 }) {
+  const { t } = useTranslation(["study-session", "common"]);
   const doneCount = subject.tasks.filter((task) => task.doneAt !== null).length;
   const addingTask = editing?.kind === "new-task" && editing.subjectId === subject.id;
 
   function startAddTask() {
     if (subject.tasks.length >= MAX_TASKS) {
-      onNotice(SUBJECT_SHEET_COPY.taskLimit);
+      onNotice(t("subjectSheet.taskLimit"));
       return;
     }
     onEditing({ kind: "new-task", subjectId: subject.id });
@@ -548,8 +561,8 @@ function SubjectTasks({
             <InlineNameEditor
               initial={task.name}
               maxLength={TASK_NAME_MAX}
-              placeholder={SUBJECT_SHEET_COPY.addTask}
-              ariaLabel="할 일 이름"
+              placeholder={t("subjectSheet.addTask")}
+              ariaLabel={t("subjectSheet.taskName")}
               onCommit={(name) => {
                 onEditing(null);
                 void store.renameTask(subject.id, task.id, name);
@@ -580,7 +593,7 @@ function SubjectTasks({
         <div className="px-3 pb-1.5">
           <div
             role="progressbar"
-            aria-label="할 일 완료율"
+            aria-label={t("subjectSheet.taskProgress")}
             aria-valuemin={0}
             aria-valuemax={subject.tasks.length}
             aria-valuenow={doneCount}
@@ -605,8 +618,8 @@ function SubjectTasks({
       {addingTask ? (
         <InlineNameEditor
           maxLength={TASK_NAME_MAX}
-          placeholder="할 일 이름"
-          ariaLabel="새 할 일 이름"
+          placeholder={t("subjectSheet.taskName")}
+          ariaLabel={t("subjectSheet.newTaskName")}
           onCommit={(name) => {
             onEditing(null);
             void store.addTask(subject.id, name);
@@ -628,16 +641,17 @@ function EmptyState({
   pending: string | null;
   onPick: (name: string) => void;
 }) {
+  const { t } = useTranslation(["study-session", "common"]);
   return (
     <div className="flex flex-col">
       <div className="flex flex-col items-center gap-1.5 px-2 pt-9 pb-5 text-center">
         <p className="text-[17px] leading-5.5 font-semibold text-white">
-          {SUBJECT_SHEET_COPY.empty}
+          {t("subjectSheet.empty")}
         </p>
-        <p className="text-[13px] leading-4 text-white/50">{SUBJECT_SHEET_COPY.emptySub}</p>
+        <p className="text-[13px] leading-4 text-white/50">{t("subjectSheet.emptySub")}</p>
       </div>
-      <ul className="flex flex-col gap-1.5 px-2 py-1" aria-label="추천 과목">
-        {SUBJECT_SUGGESTIONS.map((name) => (
+      <ul className="flex flex-col gap-1.5 px-2 py-1" aria-label={t("subjectSheet.suggestions")}>
+        {subjectSuggestions().map((name) => (
           <li key={name}>
             <button
               type="button"
@@ -678,6 +692,7 @@ export function SubjectPanel({
   liveTotals,
   landscape,
 }: SubjectPanelProps) {
+  const { t } = useTranslation(["study-session", "common"]);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
   const [reorderMode, setReorderMode] = useState(false);
@@ -706,7 +721,7 @@ export function SubjectPanel({
 
   function startAddSubject() {
     if (subjects.length >= MAX_SUBJECTS) {
-      onNotice(SUBJECT_SHEET_COPY.subjectLimit);
+      onNotice(t("subjectSheet.subjectLimit"));
       return;
     }
     setMenu(null);
@@ -735,8 +750,8 @@ export function SubjectPanel({
         <InlineNameEditor
           initial={subject.name}
           maxLength={SUBJECT_NAME_MAX}
-          placeholder={SUBJECT_SHEET_COPY.addSubject}
-          ariaLabel="과목 이름"
+          placeholder={t("subjectSheet.addSubject")}
+          ariaLabel={t("subjectSheet.subjectName")}
           large
           onCommit={(name) => {
             setEditing(null);
@@ -820,8 +835,8 @@ export function SubjectPanel({
     <div className="rounded-[18px] bg-(--session-sheet-surface) p-1.5 shadow-[inset_0_0_0_1px_var(--session-sheet-line)]">
       <InlineNameEditor
         maxLength={SUBJECT_NAME_MAX}
-        placeholder="과목 이름"
-        ariaLabel="새 과목 이름"
+        placeholder={t("subjectSheet.subjectName")}
+        ariaLabel={t("subjectSheet.newSubjectName")}
         large
         onCommit={(name) => {
           setEditing(null);
@@ -835,7 +850,7 @@ export function SubjectPanel({
   let body: ReactNode;
   if (status === "loading" || status === "idle") {
     body = (
-      <div className="flex flex-col gap-3.5" aria-label={SUBJECT_SHEET_COPY.loading}>
+      <div className="flex flex-col gap-3.5" aria-label={t("common:aria.loading")}>
         <Skeleton className="h-30 rounded-[18px] bg-white/6" />
         <Skeleton className="h-30 rounded-[18px] bg-white/6" />
       </div>
@@ -843,13 +858,13 @@ export function SubjectPanel({
   } else if (status === "error") {
     body = (
       <div className="flex flex-col items-center gap-3 px-3 pt-6 text-center">
-        <p className="text-[14px] text-(--session-dialog-body)">{SUBJECT_SHEET_COPY.loadFailed}</p>
+        <p className="text-[14px] text-(--session-dialog-body)">{t("subjectSheet.loadFailed")}</p>
         <button
           type="button"
           onClick={() => void store.reload()}
           className="h-11 rounded-xl bg-(--session-dialog-cancel-bg) px-5 text-[14px] font-medium text-white active:opacity-80"
         >
-          {SUBJECT_SHEET_COPY.retry}
+          {t("common:actions.retry")}
         </button>
       </div>
     );
@@ -908,21 +923,21 @@ export function SubjectPanel({
         className="h-11 rounded-md px-3.5 text-[14px] font-semibold"
         onClick={() => setReorderMode(false)}
       >
-        {SUBJECT_SHEET_COPY.done}
+        {t("subjectSheet.done")}
       </Button>
     ) : (
       <>
         {!empty && (
           <button type="button" onClick={startReorderMode} className={SOFT_BUTTON_CLASS}>
             <ArrowUpDown aria-hidden="true" className="size-4.5 opacity-70" strokeWidth={1.5} />
-            {SUBJECT_SHEET_COPY.reorder}
+            {t("subjectSheet.reorder")}
           </button>
         )}
         <button type="button" onClick={startAddSubject} className={SOFT_BUTTON_CLASS}>
           <span aria-hidden="true" className="text-[18px] leading-4.5">
             +
           </span>
-          {SUBJECT_SHEET_COPY.addSubject}
+          {t("subjectSheet.addSubject")}
         </button>
       </>
     );
@@ -950,7 +965,7 @@ export function SubjectPanel({
           {newSubjectEditor && <div className="mt-1">{newSubjectEditor}</div>}
         </div>
         <section
-          aria-label={`${viewed.name} 할 일`}
+          aria-label={t("subjectRow.tasks", { name: viewed.name })}
           data-menu-anchor=""
           inert={reorderMode}
           // 아래 줄에 타이머가 없어 할 일 칸이 두 행에 걸쳐 화면 아래 끝까지 내려온다.
@@ -966,7 +981,9 @@ export function SubjectPanel({
             </span>
             <span className="shrink-0 text-[13px] leading-4 font-bold text-white/55 tabular-nums">
               <span aria-hidden="true">{formatElapsed(viewedFocusSec)}</span>
-              <span className="sr-only">{`순공 ${toKoreanDuration(viewedFocusSec)}`}</span>
+              <span className="sr-only">
+                {t("timer.srSubjectFocus", { duration: toKoreanDuration(viewedFocusSec) })}
+              </span>
             </span>
           </div>
           {menu?.subjectId === viewed.id && menu.taskId !== null && subjectMenu(viewed, menu)}

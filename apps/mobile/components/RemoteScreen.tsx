@@ -5,6 +5,7 @@ import type { HandlerMessage, HostPassedMessage, SetTabBarMessage } from "@focus
 
 import { markFirstScreenLoaded } from "../lib/firstScreenLoaded";
 import { markLaunchLoadStarted, markLaunchReady } from "../lib/launchReady";
+import { t } from "../lib/i18n";
 import { handleBridgeMessage, type BridgeReply } from "../lib/nativeBridgeHandler";
 import { useRemoteQueryParams } from "../lib/remoteQueryParams";
 import { markSessionOpen } from "../lib/sessionPresence";
@@ -251,7 +252,7 @@ export function RemoteScreen({
       {showSplash && (
         <View
           testID={testID ? `${testID}-splash` : "remote-screen-splash"}
-          accessibilityLabel="화면을 불러오는 중"
+          accessibilityLabel={t("webview.loading")}
           // 스플래시는 가리기만 해야 한다 — pointerEvents 없이 뜨면 밑에 있는 웹뷰(또는 실패
           // 폴백의 재시도 버튼)로 가는 모든 터치를 가로챈다(BY-333 실기기 확인: 탭 전환 중
           // 뒤로가기조차 눌리지 않았다).

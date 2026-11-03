@@ -1,0 +1,72 @@
+{
+  "header": {
+    "title": "Home"
+  },
+  "dday": {
+    "remaining": "D-{{days}}",
+    "today": "D-Day",
+    "passed": "D+{{days}}"
+  },
+  "ddayBlock": {
+    "placeholder": "D-Day",
+    "emptyCaption": "Set a target date",
+    "aria": {
+      "set": "Set D-Day",
+      "edit": "{{label}} {{title}}, edit D-Day"
+    }
+  },
+  "ddaySheet": {
+    "title": "Set target date",
+    "pickDate": "Pick a date",
+    "titleLabel": "Title",
+    "titlePlaceholder": "e.g. Finals",
+    "titleTooLong": "Up to {{max}} characters",
+    "save": "Save",
+    "saving": "Saving…",
+    "delete": "Delete",
+    "deleteConfirm": "Delete your target date?",
+    "error": {
+      "pastDate": "Pick today or a later date"
+    }
+  },
+  "ddayCalendar": {
+    "jump": {
+      "oneMonth": "+1 month",
+      "sixMonths": "+6 months",
+      "oneYear": "+1 year"
+    },
+    "aria": {
+      "prevMonth": "Previous month",
+      "nextMonth": "Next month",
+      "monthPicker": "Jump to month and year",
+      "prevYear": "Previous year",
+      "nextYear": "Next year"
+    }
+  },
+  "streak": {
+    "title": "{{count}}-day streak",
+    "tooltip": "Study at least 5 minutes a day to keep your streak going",
+    "aria": {
+      "tooltip": "About streaks"
+    }
+  },
+  "stats": {
+    "todayFocus": "Today's focus time",
+    "hoursUnit": "h",
+    "minutesUnit": "m",
+    "focusRate": "Focus rate",
+    "studyTotal": "Total study time",
+    "longestFocus": "Longest focus",
+    "loadFailed": "Couldn't load your records"
+  },
+  "startFocus": "Start focusing",
+  "invite": {
+    "title": "Hard to focus alone today? <br/>Study together with others",
+    "cta": "Go to Social Room"
+  },
+  "unregistered": "This device isn't registered yet. Open the app to save your records",
+  "demo": {
+    "tagline": "Cam study that measures your focus time with AI vision",
+    "enter": "Enter study room (demo)"
+  }
+}

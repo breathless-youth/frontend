@@ -3,7 +3,9 @@ import type {
   StudyEventStatus,
   StudySessionResponse,
 } from "@focusmakers/types";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import i18n from "@/lib/i18n";
 
 import {
   DISTRACTION_STATUSES,
@@ -76,6 +78,40 @@ describe("formatClockTime / formatClockRange", () => {
     expect(range).toBe("21:03 – 22:48");
     // 하이픈(-)이나 em dash(—)로 바뀌면 표기 회귀다.
     expect(range).toContain("–");
+  });
+});
+
+describe("formatClockTime / formatClockRange — 언어와 시간대", () => {
+  /** en 시각의 PM 앞 공백은 U+202F라 일반 공백으로 바꿔 비교한다. */
+  const plain = (text: string) => text.replace(/\u202f/g, " ");
+
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    await i18n.changeLanguage("ko");
+  });
+
+  it("영어는 12시간제이고 구분자는 en dash다", async () => {
+    await i18n.changeLanguage("en");
+    expect(plain(formatClockTime(new Date(2026, 6, 25, 9, 5).toISOString()))).toBe("9:05 AM");
+    expect(plain(formatClockRange(SESSION_START.toISOString(), SESSION_END.toISOString()))).toBe(
+      "9:03 PM – 10:48 PM",
+    );
+  });
+
+  it("KST가 아니라 기기 시간대로 읽는다", async () => {
+    const real = Intl.DateTimeFormat().resolvedOptions();
+    vi.spyOn(Intl.DateTimeFormat.prototype, "resolvedOptions").mockReturnValue({
+      ...real,
+      timeZone: "America/New_York",
+    });
+    // 12:03Z는 KST 21:03, 뉴욕(서머타임) 08:03이다.
+    expect(formatClockTime("2026-07-25T12:03:00Z")).toBe("08:03");
+    await i18n.changeLanguage("en");
+    expect(plain(formatClockTime("2026-07-25T12:03:00Z"))).toBe("8:03 AM");
+  });
+
+  it("시각이 깨져 있으면 --:--다", () => {
+    expect(formatClockTime("not-a-date")).toBe("--:--");
   });
 });
 

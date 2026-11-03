@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -35,8 +36,6 @@ import { canExitViaHistoryBack, hardReplace } from "@/lib/hardNavigation";
  * 실패(네트워크 다운 등)는 여전히 잡히고, 나머지는 사용자가 "다시 시도"로 스스로 복구할 수 있다.
  */
 
-const LOAD_FAILURE_BODY = "네트워크 상태를 확인하고 다시 시도해 주세요.";
-
 type GoogleFormPageProps = {
   /** 헤더 제목이자 iframe title */
   title: string;
@@ -61,6 +60,7 @@ export function GoogleFormPage({
   fallbackPath,
   retryScreen,
 }: GoogleFormPageProps) {
+  const { t } = useTranslation(["interview", "common"]);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   // iframe을 강제로 다시 마운트해 재로드하기 위한 키 — src를 그대로 두면 브라우저가 재요청하지 않을 수 있다.
@@ -119,13 +119,13 @@ export function GoogleFormPage({
             {failureTitle}
           </h1>
           <p className="mt-2.5 text-center text-[14px] leading-5.25 text-muted-foreground">
-            {LOAD_FAILURE_BODY}
+            {t("googleForm.failureBody")}
           </p>
           {/* 열 수 있는 폼이 없으면 다시 시도해도 같은 결과라 버튼을 숨긴다. */}
           {formUrl !== null && (
             <div className="mt-6 w-full">
               <Button className="w-full" onClick={retry}>
-                다시 시도
+                {t("common:actions.retry")}
               </Button>
             </div>
           )}
