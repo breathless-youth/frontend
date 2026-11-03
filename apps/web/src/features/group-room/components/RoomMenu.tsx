@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import type { RoomMenuItem } from "../model/roomMenu";
+import { GROUP_MENU_CONTENT_CLASS, GROUP_MENU_ITEM_CLASS } from "./groupMenuClass";
 
 type LeaveItem = Extract<RoomMenuItem, { kind: "leave" }>;
 
@@ -22,15 +23,11 @@ const ITEM_ICON: Record<Exclude<RoomMenuItem, LeaveItem>["kind"], LucideIcon> = 
   settings: Settings,
 };
 
-const ITEM_CLASS =
-  "min-h-12 gap-2.5 rounded-md px-3 py-2 text-[15px] leading-4.5 font-semibold text-foreground";
-
 /**
  * 그룹 홈 머리 줄의 그룹 메뉴 버튼과 메뉴
  *
  * 항목과 나가기 안내는 판단 모듈이 정하고 여기서는 그리기만 한다.
  * 메뉴 밖을 누르거나 Esc를 누르면 닫히고, 항목을 고르면 닫으면서 그 종류를 넘긴다.
- * 메뉴는 body로 나가므로 Soft Blue 테마를 메뉴에도 단다.
  */
 export function RoomMenu({
   items,
@@ -54,7 +51,7 @@ export function RoomMenu({
         align="end"
         // Radix 스크롤 잠금이 막은 터치를 iOS는 클릭으로 만들지 않아 메뉴 탭이 씹히므로, touchmove를 잠금까지 올려 보내지 않고 끌어서 밀릴 것도 없게 터치 팬을 끈다.
         onTouchMove={(event) => event.stopPropagation()}
-        className="theme-soft-blue min-w-62 touch-none rounded-lg border-0 p-1.5 shadow-sb-card"
+        className={cn(GROUP_MENU_CONTENT_CLASS, "min-w-62")}
       >
         {items.map((item) =>
           item.kind === "leave" ? (
@@ -80,7 +77,7 @@ function MenuItem({
 }) {
   const Icon = ITEM_ICON[item.kind];
   return (
-    <DropdownMenuItem onSelect={() => onSelect(item.kind)} className={ITEM_CLASS}>
+    <DropdownMenuItem onSelect={() => onSelect(item.kind)} className={GROUP_MENU_ITEM_CLASS}>
       <Icon aria-hidden="true" size={18} className="shrink-0" />
       <span className="min-w-0 flex-1">{item.label}</span>
       {item.kind === "requests" && item.badge > 0 && (
@@ -110,7 +107,7 @@ function LeaveMenuItem({
       aria-label={item.label}
       aria-describedby={item.note === null ? undefined : noteId}
       onSelect={() => onSelect(item.kind)}
-      className={cn(ITEM_CLASS, "items-start")}
+      className={cn(GROUP_MENU_ITEM_CLASS, "items-start")}
     >
       <LogOut aria-hidden="true" size={18} className="mt-0.5 shrink-0 text-feedback-danger" />
       <span className="flex min-w-0 flex-col">
