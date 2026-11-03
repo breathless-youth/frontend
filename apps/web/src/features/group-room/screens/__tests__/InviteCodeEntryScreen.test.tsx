@@ -12,8 +12,14 @@ const TITLE = "초대코드로 참여";
 const HEADLINE = "초대코드를 입력해 주세요";
 const SUBMIT_LABEL = "참여하기";
 
-function Harness({ onSubmit = vi.fn() }: { onSubmit?: () => void }) {
-  const [code, setCode] = useState("");
+function Harness({
+  initial = "",
+  onSubmit = vi.fn(),
+}: {
+  initial?: string;
+  onSubmit?: () => void;
+}) {
+  const [code, setCode] = useState(initial);
   return (
     <InviteCodeEntryScreen
       value={code}
@@ -60,6 +66,24 @@ describe("InviteCodeEntryScreen", () => {
     await user.click(input);
     await user.paste("  초대코드: ab-12 cd ");
     expect(input).toHaveValue("AB12CD");
+  });
+
+  it("채워진 칸에 새 코드를 붙여 넣으면 섞지 않고 새 코드로 바꾼다", async () => {
+    const user = userEvent.setup();
+    renderScreen(<Harness initial="AB12CD" />);
+    const input = screen.getByRole("textbox");
+    await user.click(input);
+    await user.paste("초대코드: k7q2mx");
+    expect(input).toHaveValue("K7Q2MX");
+  });
+
+  it("6자리가 아닌 글을 붙여 넣으면 입력 자리에 이어 붙인다", async () => {
+    const user = userEvent.setup();
+    renderScreen(<Harness initial="AB" />);
+    const input = screen.getByRole("textbox");
+    await user.click(input);
+    await user.paste("1-2");
+    expect(input).toHaveValue("AB12");
   });
 
   it("6자리가 차면 키보드를 내린다", () => {

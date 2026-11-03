@@ -15,7 +15,7 @@ const SLOT_INDEXES = Array.from({ length: INVITE_CODE_LENGTH }, (_, index) => in
  * 6자리 초대코드로 그룹에 참여
  *
  * 영문과 숫자를 받으므로 숫자 자판 대신 글자 자판을 열고 대문자로 받는다.
- * 입력 부품이 붙여 넣은 글을 칸 수로 먼저 자르므로 자르기 전에 공백과 구분 기호를 빼고 대문자로 맞춘다.
+ * 입력 부품이 붙여 넣은 글을 칸 수로 먼저 자르므로 자르기 전에 공백과 구분 기호를 빼고 대문자로 맞추고, 온전한 코드를 붙여 넣으면 있던 코드를 통째로 바꾼다.
  * 참여할 수 없는 이유는 칸 아래 한 문장으로만 알리고, 오류가 없을 때는 칸 아래에 안내 줄을 두지 않는다.
  */
 export function InviteCodeEntryScreen({
@@ -37,6 +37,14 @@ export function InviteCodeEntryScreen({
 }) {
   const headlineId = useId();
   const errorId = useId();
+  const change = (next: string) => {
+    const code = normalizeInviteCode(next);
+    onChange(code);
+    // 여섯 자리가 차면 키보드를 내려 아래의 참여하기 버튼과 오류 줄이 가리지 않게 한다.
+    if (isCompleteInviteCode(code) && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+  };
   return (
     <main className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground">
       <ScreenBackHeader title="초대코드로 참여" onBack={onBack} />
@@ -58,12 +66,14 @@ export function InviteCodeEntryScreen({
           aria-describedby={error !== null ? errorId : undefined}
           pasteTransformer={normalizeInviteCode}
           containerClassName={INVITE_CODE_ROW_CLASS}
-          onChange={(next) => {
-            const code = normalizeInviteCode(next);
-            onChange(code);
-            // 여섯 자리가 차면 키보드를 내려 아래의 참여하기 버튼과 오류 줄이 가리지 않게 한다.
-            if (isCompleteInviteCode(code) && document.activeElement instanceof HTMLElement) {
-              document.activeElement.blur();
+          onChange={change}
+          // 입력 부품은 붙여 넣은 글을 커서 자리에 끼워 넣어서 채워진 칸에 새 코드를 넣으면 두 코드가 섞인다.
+          // 붙여 넣은 글이 온전한 코드면 부품이 끼워 넣은 값 대신 그 코드로 통째로 바꾼다.
+          onPaste={(event) => {
+            const pasted = normalizeInviteCode(event.clipboardData.getData("text/plain"));
+            if (isCompleteInviteCode(pasted)) {
+              event.preventDefault();
+              change(pasted);
             }
           }}
         >
