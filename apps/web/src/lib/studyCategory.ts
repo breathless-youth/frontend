@@ -1,25 +1,35 @@
 import type { StudyCategory } from "@focusmakers/types";
 
+import i18n from "@/lib/i18n";
+
+/**
+ * 시험·목표 9개
+ *
+ * 프로필과 그룹이 같은 목록을 쓰고 순서는 서버가 정한 순서다.
+ * 화면 글자는 profile 카탈로그 `categories.*`에 서버 값을 키로 둔다.
+ */
+export const STUDY_CATEGORIES: readonly StudyCategory[] = [
+  "CSAT",
+  "SCHOOL_EXAM",
+  "UNIVERSITY_EXAM",
+  "CIVIL_SERVICE",
+  "CERTIFICATE",
+  "LANGUAGE",
+  "JOB",
+  "PROFESSIONAL",
+  "ETC",
+];
+
+const STUDY_CATEGORY_SET: ReadonlySet<string> = new Set(STUDY_CATEGORIES);
+
 /**
  * 시험·목표 9개와 화면 글자
  *
- * 프로필과 그룹이 같은 목록을 쓰고 순서는 서버가 정한 순서다.
+ * 글자를 모듈 상수에 담으면 불러온 시점의 언어에서 바뀌지 않아 부를 때마다 카탈로그에서 읽는다.
  */
-export const STUDY_CATEGORY_OPTIONS: ReadonlyArray<{ value: StudyCategory; label: string }> = [
-  { value: "CSAT", label: "수능" },
-  { value: "SCHOOL_EXAM", label: "내신" },
-  { value: "UNIVERSITY_EXAM", label: "대학 시험" },
-  { value: "CIVIL_SERVICE", label: "공무원" },
-  { value: "CERTIFICATE", label: "자격증" },
-  { value: "LANGUAGE", label: "어학" },
-  { value: "JOB", label: "취업" },
-  { value: "PROFESSIONAL", label: "전문직" },
-  { value: "ETC", label: "기타" },
-];
-
-const LABEL_BY_VALUE: ReadonlyMap<string, string> = new Map(
-  STUDY_CATEGORY_OPTIONS.map((option) => [option.value, option.label]),
-);
+export function studyCategoryOptions(): { value: StudyCategory; label: string }[] {
+  return STUDY_CATEGORIES.map((value) => ({ value, label: i18n.t(`profile:categories.${value}`) }));
+}
 
 /**
  * 서버 값인지
@@ -27,7 +37,7 @@ const LABEL_BY_VALUE: ReadonlyMap<string, string> = new Map(
  * 프로필 응답의 카테고리는 아무 문자열이나 올 수 있어 9개 중 하나일 때만 시험·목표로 쓴다.
  */
 export function isStudyCategory(value: unknown): value is StudyCategory {
-  return typeof value === "string" && LABEL_BY_VALUE.has(value);
+  return typeof value === "string" && STUDY_CATEGORY_SET.has(value);
 }
 
 /**
@@ -36,5 +46,5 @@ export function isStudyCategory(value: unknown): value is StudyCategory {
  * 모르는 값이면 null이라 호출부가 빈 글을 쓸지 칩을 고르지 않을지 정한다.
  */
 export function studyCategoryLabel(value: string | null): string | null {
-  return value === null ? null : (LABEL_BY_VALUE.get(value) ?? null);
+  return isStudyCategory(value) ? i18n.t(`profile:categories.${value}`) : null;
 }

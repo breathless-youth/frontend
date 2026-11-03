@@ -30,7 +30,7 @@ import {
   myRoomsTabCount,
 } from "@/features/group-room/model/limits";
 import { SocialHomeScreen } from "@/features/group-room/screens/SocialHomeScreen";
-import type { CategoryOption, PendingApplication, SocialTab } from "@/features/group-room/types";
+import type { PendingApplication, SocialTab } from "@/features/group-room/types";
 import { useNow } from "@/features/ranking/useNow";
 import { GraceEndDialog } from "@/features/social-room/GraceEndDialog";
 import { useSocialRoomNoticeHandoff } from "@/features/social-room/useSocialRoomNoticeHandoff";
@@ -46,7 +46,7 @@ import {
 } from "@/lib/groupRoomQueries";
 import { useScreenVisible } from "@/lib/nativeTabFocus";
 import { slideNavigate } from "@/lib/pageTransition";
-import { isStudyCategory, STUDY_CATEGORY_OPTIONS } from "@/lib/studyCategory";
+import { isStudyCategory, studyCategoryOptions } from "@/lib/studyCategory";
 import { showToast } from "@/lib/toast";
 import { useIdentityPending, useUserId } from "@/lib/userId";
 import { whenIdle } from "@/lib/whenIdle";
@@ -54,10 +54,6 @@ import { prefetchGroupPages } from "@/routes/lazyRoutes";
 
 /** 검색어를 다 쓰기 전에 글자마다 목록을 다시 받지 않게 입력이 멈춘 뒤 이만큼 기다린다. */
 const SEARCH_DEBOUNCE_MS = 300;
-
-const CATEGORY_OPTIONS: CategoryOption[] = STUDY_CATEGORY_OPTIONS.map((option) => ({
-  ...option,
-}));
 
 /**
  * 그룹 탭
@@ -208,7 +204,7 @@ function GroupTabContent({ userId }: { userId: number | null }) {
       publicRooms={{
         query: rawQuery,
         onQueryChange: setRawQuery,
-        categories: CATEGORY_OPTIONS,
+        categories: studyCategoryOptions(),
         category: search.category,
         onCategoryChange: (value) =>
           replaceSearch({ category: isStudyCategory(value) ? value : null }),

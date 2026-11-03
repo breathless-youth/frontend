@@ -17,7 +17,7 @@ import { containsContactOrLink } from "@/features/group-room/model/contactCheck"
 import { parseRouteId } from "@/features/group-room/routeId";
 import { GroupScreenFrame } from "@/features/group-room/screens/GroupScreenFrame";
 import { RoomFormScreen } from "@/features/group-room/screens/RoomFormScreen";
-import type { CategoryOption, RoomFormServerError } from "@/features/group-room/types";
+import type { RoomFormServerError } from "@/features/group-room/types";
 import { useBackTo } from "@/features/group-room/useBackTo";
 import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
 import { createGroup, updateGroup } from "@/lib/groupRoomApi";
@@ -29,13 +29,9 @@ import {
   invalidateGroupMembership,
 } from "@/lib/groupRoomQueries";
 import { profileQuery } from "@/lib/profileQueries";
-import { isStudyCategory, STUDY_CATEGORY_OPTIONS } from "@/lib/studyCategory";
+import { isStudyCategory, studyCategoryOptions } from "@/lib/studyCategory";
 import { showToast } from "@/lib/toast";
 import { useIdentityPending, useUserId } from "@/lib/userId";
-
-const CATEGORY_OPTIONS: CategoryOption[] = STUDY_CATEGORY_OPTIONS.map((option) => ({
-  ...option,
-}));
 
 /** 프로필에서 시험·목표를 정하지 못할 때 처음 고르는 값이고 칩 줄의 첫 칩이다. */
 const DEFAULT_CATEGORY: StudyCategory = "CSAT";
@@ -151,7 +147,7 @@ function GroupCreate({ userId }: { userId: number }) {
   return (
     <RoomFormScreen
       mode="create"
-      categories={CATEGORY_OPTIONS}
+      categories={studyCategoryOptions()}
       initial={{
         name: "",
         visibility: "public",
@@ -241,7 +237,7 @@ function GroupSettings({ userId, groupId }: { userId: number; groupId: number })
   return (
     <RoomFormScreen
       mode="edit"
-      categories={CATEGORY_OPTIONS}
+      categories={studyCategoryOptions()}
       initial={{
         name: home.name,
         visibility: toRoomVisibility(home.visibility),

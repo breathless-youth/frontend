@@ -1,7 +1,7 @@
 import type { StudyCategory } from "@focusmakers/types";
 
 import { hasGroupRooms } from "@/lib/groupRoomCapability";
-import { STUDY_CATEGORY_OPTIONS } from "@/lib/studyCategory";
+import { STUDY_CATEGORIES } from "@/lib/studyCategory";
 
 /**
  * 목표 카테고리 칩
@@ -23,7 +23,7 @@ const LEGACY_ORDER: readonly StudyCategory[] = [
 
 const LEGACY_CHIPS: readonly CategoryChip[] = LEGACY_ORDER.map((value) => ({ value }));
 
-const GROUP_CHIPS: readonly CategoryChip[] = STUDY_CATEGORY_OPTIONS.map(({ value }) => ({ value }));
+const GROUP_CHIPS: readonly CategoryChip[] = STUDY_CATEGORIES.map((value) => ({ value }));
 
 /**
  * 지금 보일 목표 카테고리 칩
