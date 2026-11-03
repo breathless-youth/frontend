@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { IconCameraOff } from "../components/icons";
 import { PrimaryCtaButton } from "../components/PrimaryCtaButton";
 import { getCameraPermissionStatus, openAppSettings } from "../lib/cameraPermission";
+import { t } from "../lib/i18n";
 import { trackNativeEvent } from "../lib/nativeAnalytics";
 
 /**
@@ -128,22 +129,22 @@ export default function PermissionDeniedScreen() {
             accessibilityRole="header"
             className="text-text-primary dark:text-text-primary-dark mt-[39px] text-center text-[20px] font-sans-bold leading-[24px]"
           >
-            카메라 권한이 필요해요
+            {t("permissionDenied.title")}
           </Text>
 
           <Text className="text-text-secondary dark:text-text-secondary-dark mt-[10px] text-center text-[14px] font-sans leading-[21px]">
-            측정은 카메라로만 할 수 있어요.{"\n"}설정에서 허용하면 바로 시작할 수 있어요.
+            {t("permissionDenied.body")}
           </Text>
 
           <Text className="text-text-tertiary mt-[10px] text-center text-[12px] font-sans leading-[14px]">
-            AI 분석용 영상은 기기 밖으로 나가지 않아요
+            {t("permissionDenied.privacy")}
           </Text>
         </View>
       </ScrollView>
 
       <View className="px-5" style={{ paddingBottom: insets.bottom + 10 }}>
         <PrimaryCtaButton
-          label="설정 열기"
+          label={t("common.openSettings")}
           onPress={() => {
             trackNativeEvent("permission_denied_settings_opened");
             // 설정 앱으로만 이동한다 — 앱 내부 화면 전환은 없다(S2-3 그대로 유지).
@@ -157,7 +158,7 @@ export default function PermissionDeniedScreen() {
           className="mt-[12px] items-center justify-center py-[14px]"
         >
           <Text className="text-text-secondary dark:text-text-secondary-dark text-center text-[13px] font-medium font-sans leading-[16px]">
-            홈으로 돌아가기
+            {t("permissionDenied.backHome")}
           </Text>
         </Pressable>
       </View>

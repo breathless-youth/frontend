@@ -24,6 +24,7 @@
     "expo-glass-effect": "~57.0.4",
     "expo-haptics": "~57.0.3",
     "expo-linking": "~57.0.11",
+    "expo-localization": "~57.0.2",
     "expo-media-library": "~57.0.5",
     "expo-router": "~57.0.24",
     "expo-screen-orientation": "~57.0.2",

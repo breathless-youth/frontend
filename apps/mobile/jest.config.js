@@ -1,6 +1,6 @@
 module.exports = {
   preset: "jest-expo",
-  setupFiles: ["<rootDir>/jest/mockWorklets.js"],
+  setupFiles: ["<rootDir>/jest/mockWorklets.js", "<rootDir>/jest/mockLocalization.js"],
   // RN의 FlatList·Image·TextInput은 처음 쓸 때 불러와서, 화면 테스트의 첫 렌더가 그 변환 시간까지 떠안는다.
   // 캐시가 빈 CI에서는 그 첫 케이스가 기본 5초를 넘겨, 동작과 상관없이 실패한다.
   testTimeout: 15_000,

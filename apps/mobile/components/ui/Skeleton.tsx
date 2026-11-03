@@ -7,6 +7,8 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
+import { t } from "../../lib/i18n";
+
 /**
  * 로딩 자리표시 사각형 — 투명도 펄스. Figma에 로딩 상태 정의가 없어 디자인 토큰
  * 배경색만 쓰는 최소 구현이다(BY-313). 크기·모서리는 호출부가 className으로 정한다.
@@ -37,7 +39,7 @@ export function Skeleton({
 
   return (
     <Animated.View
-      accessibilityLabel="불러오는 중"
+      accessibilityLabel={t("common.loading")}
       className={`bg-bg-layer2 dark:bg-bg-layer2-dark ${className ?? ""}`}
       style={[style, pulse]}
     />
