@@ -30,6 +30,7 @@ import type { SubjectSelection, SubjectTotals } from "../subjectSegments";
 import { liveSubjectTime } from "../subjectSegments";
 import type { SubjectsStore } from "../useSubjects";
 import { SessionPageFooter } from "./SessionPage";
+import { SubjectColorDot } from "./SubjectColorDot";
 
 /**
  * 과목 페이지 본문
@@ -77,8 +78,6 @@ export interface SubjectPanelProps {
   liveTotals: ReadonlyMap<number, SubjectTotals>;
   /** 가로면 목록과 상세 두 열로 나눈다. */
   landscape: boolean;
-  /** 페이지 아래 순공 타이머. */
-  timer: ReactNode;
 }
 
 /** 글자 수는 한도의 80%부터 보인다. */
@@ -437,13 +436,16 @@ function SubjectRow({
           },
         })}
       >
-        <span
-          className={cn(
-            "truncate font-semibold",
-            layout === "card" ? "text-[17px] leading-5.5" : "text-[15px] leading-4.75",
-          )}
-        >
-          {subject.name}
+        <span className={cn("flex min-w-0 items-center", layout === "card" ? "gap-2" : "gap-1.75")}>
+          <SubjectColorDot colorIndex={subject.colorIndex} />
+          <span
+            className={cn(
+              "truncate font-semibold",
+              layout === "card" ? "text-[17px] leading-5.5" : "text-[15px] leading-4.75",
+            )}
+          >
+            {subject.name}
+          </span>
         </span>
         <span
           className={cn(
@@ -675,7 +677,6 @@ export function SubjectPanel({
   onNotice,
   liveTotals,
   landscape,
-  timer,
 }: SubjectPanelProps) {
   const [editing, setEditing] = useState<Editing | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
@@ -952,12 +953,14 @@ export function SubjectPanel({
           aria-label={`${viewed.name} 할 일`}
           data-menu-anchor=""
           inert={reorderMode}
+          // 아래 줄에 타이머가 없어 할 일 칸이 두 행에 걸쳐 화면 아래 끝까지 내려온다.
           className={cn(
-            "relative flex min-h-0 flex-col gap-0.5 rounded-[18px] bg-(--session-sheet-surface) p-1.5 shadow-[inset_0_0_0_1px_var(--session-sheet-line)] transition-opacity duration-200 motion-reduce:transition-none",
+            "relative row-span-2 flex min-h-0 flex-col gap-0.5 rounded-[18px] bg-(--session-sheet-surface) p-1.5 shadow-[inset_0_0_0_1px_var(--session-sheet-line)] transition-opacity duration-200 motion-reduce:transition-none",
             reorderMode && "opacity-40",
           )}
         >
           <div className="flex h-12 shrink-0 items-center gap-2 px-3">
+            <SubjectColorDot colorIndex={viewed.colorIndex} />
             <span className="truncate text-[17px] leading-5.5 font-semibold text-white">
               {viewed.name}
             </span>
@@ -969,8 +972,11 @@ export function SubjectPanel({
           {menu?.subjectId === viewed.id && menu.taskId !== null && subjectMenu(viewed, menu)}
           {subjectTasks(viewed, true)}
         </section>
-        <div className="flex items-end justify-end gap-2">{actions}</div>
-        <SessionPageFooter landscape timer={timer} />
+        {/* 페이지 알림 자리가 푸터에 있어 버튼 줄을 푸터에 담아 왼쪽 아래 칸에 둔다. */}
+        <SessionPageFooter
+          landscape
+          leading={<div className="ml-auto flex gap-2">{actions}</div>}
+        />
       </div>
     );
   }
@@ -984,7 +990,6 @@ export function SubjectPanel({
         <SessionPageFooter
           landscape
           leading={actions !== null && <div className="flex gap-2">{actions}</div>}
-          timer={timer}
         />
       ) : (
         <SessionPageFooter
@@ -994,7 +999,6 @@ export function SubjectPanel({
               <div className="flex justify-end gap-2 px-3 pt-1 pb-2">{actions}</div>
             )
           }
-          timer={timer}
         />
       )}
     </>

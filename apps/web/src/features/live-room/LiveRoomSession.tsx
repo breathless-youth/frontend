@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState }
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { BookOpen, LoaderCircle } from "lucide-react";
 
+import { sessionStateColors } from "@focusmakers/design-tokens";
 import type { IceServer, ProfileResponse, RoomMember, SubjectResponse } from "@focusmakers/types";
 
 import { CtaToaster } from "@/components/ui/sonner";
@@ -33,7 +34,10 @@ import { SessionMoreMenu } from "@/features/study-session/components/SessionMore
 import { SessionPage } from "@/features/study-session/components/SessionPage";
 import { SubjectPanel } from "@/features/study-session/components/SubjectPanel";
 import { completedTaskIdsSince } from "@/features/study-session/completedTasks";
-import { SessionPageTimer } from "@/features/study-session/components/SessionTimer";
+import {
+  SessionPageHeaderTime,
+  SessionPageTimer,
+} from "@/features/study-session/components/SessionTimer";
 import { SESSION_SYMBOL_SCALE } from "@/features/study-session/components/controlButtonVariants";
 import { resolveDevDetectorOverride } from "@/features/study-session/devMockDetector";
 import { SUB_MINUTE_SEC } from "@/features/study-session/formatDuration";
@@ -877,6 +881,12 @@ export function LiveRoomSession({
         container={sessionSurface}
         returnFocus={subjectReturnFocus}
         title={SUBJECT_SHEET_COPY.title}
+        headerExtras={
+          <SessionPageHeaderTime
+            focusSec={focusSec}
+            stateColor={sessionStateColors[sessionState.kind].dark}
+          />
+        }
         landscape={pageLandscape}
       >
         <SubjectPanel
@@ -896,7 +906,6 @@ export function LiveRoomSession({
           onNotice={showCtaToast}
           liveTotals={liveSubjectTotals}
           landscape={pageLandscape}
-          timer={<SessionPageTimer focusSec={focusSec} />}
         />
       </SessionPage>
       <AmbientSoundSheet

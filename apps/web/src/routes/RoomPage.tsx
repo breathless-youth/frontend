@@ -63,7 +63,11 @@ import {
   SessionStatusPill,
 } from "@/features/study-session/components/SessionStatusPill";
 import type { SessionStatusPillState } from "@/features/study-session/components/SessionStatusPill";
-import { SessionPageTimer, SessionTimer } from "@/features/study-session/components/SessionTimer";
+import {
+  SessionPageHeaderTime,
+  SessionPageTimer,
+  SessionTimer,
+} from "@/features/study-session/components/SessionTimer";
 import { SimpleModeSurface } from "@/features/study-session/components/SimpleModeSurface";
 import { SubMinuteEndNotice } from "@/features/study-session/components/SubMinuteEndNotice";
 import { SubjectPanel } from "@/features/study-session/components/SubjectPanel";
@@ -1193,6 +1197,7 @@ function RoomSessionScreen({
             container={sessionSurface}
             returnFocus={subjectReturnFocus}
             title={SUBJECT_SHEET_COPY.title}
+            headerExtras={<SessionPageHeaderTime focusSec={focusSec} />}
             landscape={pageLandscape}
           >
             <SubjectPanel
@@ -1211,7 +1216,6 @@ function RoomSessionScreen({
               onNotice={showCtaToast}
               liveTotals={liveSubjectTotals}
               landscape={pageLandscape}
-              timer={<SessionPageTimer focusSec={focusSec} />}
             />
           </SessionPage>
 
