@@ -9,6 +9,8 @@ const loaded = vi.hoisted(() => ({
   contact: 0,
   groupHome: 0,
   groupMembers: 0,
+  groupApplications: 0,
+  reportApplication: 0,
 }));
 
 vi.mock("../ResultPage", () => {
@@ -42,6 +44,14 @@ vi.mock("../GroupHomePage", () => {
 vi.mock("../GroupMembersPage", () => {
   loaded.groupMembers += 1;
   return { GroupMembersPage: () => null };
+});
+vi.mock("../GroupApplicationsPage", () => {
+  loaded.groupApplications += 1;
+  return { GroupApplicationsPage: () => null };
+});
+vi.mock("../ReportApplicationPage", () => {
+  loaded.reportApplication += 1;
+  return { ReportApplicationPage: () => null };
 });
 
 let idleCallbacks: IdleRequestCallback[] = [];
@@ -95,7 +105,12 @@ describe("lazyRoutes 미리 받기", () => {
     expect(loaded.groupHome).toBe(0);
 
     await runIdle();
-    expect(loaded).toMatchObject({ groupHome: 1, groupMembers: 1 });
+    expect(loaded).toMatchObject({
+      groupHome: 1,
+      groupMembers: 1,
+      groupApplications: 1,
+      reportApplication: 1,
+    });
   });
 
   it("청크를 받지 못해도 예외가 새지 않는다", async () => {

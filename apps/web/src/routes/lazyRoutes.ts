@@ -19,6 +19,8 @@ export const loadTimelapsesPage = () => import("./TimelapsesPage");
 export const loadRankingRecordsPage = () => import("./RankingRecordsPage");
 export const loadGroupHomePage = () => import("./GroupHomePage");
 export const loadGroupMembersPage = () => import("./GroupMembersPage");
+export const loadGroupApplicationsPage = () => import("./GroupApplicationsPage");
+export const loadReportApplicationPage = () => import("./ReportApplicationPage");
 
 /** 공부를 끝낼 때 네트워크가 끊겨도 결과 화면이 열리도록 세션 중에 미리 받는다. */
 export function prefetchResultPage(): void {
@@ -63,7 +65,12 @@ export function prefetchTimelapsesPage(): void {
  */
 export function prefetchGroupPages(): void {
   whenIdle(() => {
-    for (const load of [loadGroupHomePage, loadGroupMembersPage]) {
+    for (const load of [
+      loadGroupHomePage,
+      loadGroupMembersPage,
+      loadGroupApplicationsPage,
+      loadReportApplicationPage,
+    ]) {
       void load().catch(() => {});
     }
   });
