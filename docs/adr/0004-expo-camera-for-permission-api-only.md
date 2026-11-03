@@ -91,7 +91,7 @@ iOS 권한 요청에 필요한 것은 `NSCameraUsageDescription` 하나뿐이다
 
 2026-11 갱신: 마이크 권한을 선언했다. `expo-camera`는 여전히 권한 API용이고 마이크 권한은 웹뷰가 요청한다.
 
-- iOS는 `app.json`의 `NSMicrophoneUsageDescription`에 한국어 문구를 둔다.
+- iOS는 `app.json`의 `NSMicrophoneUsageDescription`에 한국어 문구를 두고, 영어 문구는 카메라 문구처럼 `apps/mobile/locales/en.json`에 둔다.
 - 자동 적용되는 `expo-camera` plugin은 옵션이 없으면 이미 있는 값을 유지하므로 영어 기본 문구로 덮이지 않는다.
 - Android는 `RECORD_AUDIO`와 `MODIFY_AUDIO_SETTINGS`를 선언하고 `android.blockedPermissions`에서 `RECORD_AUDIO`를 뺐다.
 - 사진·영상 읽기 권한은 계속 막는다.

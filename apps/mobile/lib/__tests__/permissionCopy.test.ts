@@ -1,4 +1,5 @@
 import appConfig from "../../app.json";
+import enLocale from "../../locales/en.json";
 
 /**
  * S2-2는 만들 커스텀 UI가 없고 앱이 통제하는 것은 목적 문구뿐이다 — 그래서 이 문자열이
@@ -58,6 +59,16 @@ describe("app.json 카메라 권한 문구 (S2-2)", () => {
    */
   it("마이크 문구는 영상이 서버로 가지 않는다고 말하지 않는다", () => {
     expect(appConfig.expo.ios.infoPlist.NSMicrophoneUsageDescription).not.toMatch(/서버/);
+  });
+
+  /**
+   * 영어 마이크 문구의 개인정보 표현
+   *
+   * 영어 기기는 `locales/en.json`의 문구를 보므로 위 규칙을 영어판에도 건다.
+   * 기기 밖으로 나가지 않는다는 말도 멤버에게 소리가 가는 공부방에는 맞지 않는다.
+   */
+  it("영어 마이크 문구도 서버나 기기 밖을 내세우지 않는다", () => {
+    expect(enLocale.NSMicrophoneUsageDescription).not.toMatch(/server|leaves? your device/i);
   });
 
   /**
