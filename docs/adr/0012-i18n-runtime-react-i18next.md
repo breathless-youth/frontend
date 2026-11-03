@@ -15,7 +15,7 @@
 웹은 react-i18next를 쓴다. 카탈로그는 `apps/web/src/locales/{ko,en}/<namespace>.json`에 기능별 네임스페이스로 두고, `declare module "i18next"`로 키에 타입을 붙여 오타가 typecheck에서 잡히게 한다.
 
 - 날짜·시각은 `Intl.DateTimeFormat`으로 만들고, 시간 길이·횟수처럼 단위가 붙는 표기는 카탈로그 복수형 키(`_one`/`_other`)로 만든다.
-- 로케일은 `lib/locale.ts`의 순수 함수 하나가 정한다. 입력은 URL `?lang`과 `navigator.language`, 규칙은 `ko`로 시작하면 `ko`, 그 밖은 `en`이다. `index.html` 인라인 스크립트가 같은 규칙으로 `<html lang>`을 첫 페인트 전에 붙인다.
+- 로케일은 `lib/locale.ts`의 순수 함수 하나가 정한다. 입력은 URL `?lang`, 이 탭에 저장한 언어, `navigator.language` 순서이고, 규칙은 `ko`로 시작하면 `ko`, 그 밖은 `en`이다. 저장값을 `navigator.language`보다 먼저 보는 이유는 Android 앱별 언어가 시스템 언어와 다를 때 웹뷰의 `navigator.language`가 시스템 언어를 돌려줄 수 있어서다. `index.html` 인라인 스크립트가 같은 규칙으로 `<html lang>`을 첫 페인트 전에 붙인다.
 - 모바일 셸은 라이브러리 없이 `lib/i18n.ts`의 ko·en 객체와 `t()` 하나로 끝낸다. 기기 언어는 `expo-localization`으로 읽고 웹뷰 URL에 `?lang=`으로 넘긴다.
 - 실행 중 언어 변경 브리지 메시지는 두지 않는다. iOS는 앱별 언어를 바꾸면 앱을 재시작하고 Android는 액티비티를 다시 만들어 웹뷰가 새 URL로 뜬다.
 - 한국어 하드코딩은 eslint `no-restricted-syntax`의 한글 정규식 셀렉터로 막는다. 새 의존성은 넣지 않는다. 적용 범위는 추출이 끝난 폴더부터 넓힌다.
