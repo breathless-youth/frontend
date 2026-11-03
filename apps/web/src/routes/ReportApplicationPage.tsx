@@ -132,7 +132,7 @@ function ReportApplication({
     const failed =
       cannotLoadFirst(applicationsQuery) && !notOwner && !isGroupGoneError(applicationsQuery.error);
     return (
-      <GroupScreenFrame title={t("reportApplicationPage.title")} onBack={back}>
+      <GroupScreenFrame title={t("reportApplicationScreen.title")} onBack={back}>
         {failed ? (
           <ErrorState
             message={groupRetryCopy()}

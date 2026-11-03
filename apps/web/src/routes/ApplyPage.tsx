@@ -107,7 +107,7 @@ function Apply({ userId, groupId }: { userId: number; groupId: number }) {
   if (detail === undefined) {
     const failed = cannotLoadFirst(detailQuery) && !isGroupGoneError(detailQuery.error);
     return (
-      <GroupScreenFrame title={t("applyPage.title")} onBack={back}>
+      <GroupScreenFrame title={t("applyScreen.title")} onBack={back}>
         {failed ? (
           <ErrorState
             message={groupRetryCopy()}

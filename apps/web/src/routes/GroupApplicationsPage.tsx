@@ -126,7 +126,7 @@ function GroupApplications({ userId, groupId }: { userId: number; groupId: numbe
   if (home === undefined) {
     const failed = cannotLoadFirst(homeQuery) && !isGroupGoneError(homeQuery.error);
     return (
-      <GroupScreenFrame title={t("groupApplicationsPage.title")} onBack={back}>
+      <GroupScreenFrame title={t("requestsScreen.title")} onBack={back}>
         {failed ? (
           <ErrorState
             message={groupRetryCopy()}

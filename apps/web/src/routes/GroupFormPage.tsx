@@ -140,7 +140,7 @@ function GroupCreate({ userId }: { userId: number }) {
   // 오프라인이라 멈춘 조회까지 기다리면 양식이 열리지 않아서 받는 중일 때만 기다린다.
   if (profile.isPending && !profile.isPaused) {
     return (
-      <GroupScreenFrame title={t("groupFormPage.title.create")} onBack={back}>
+      <GroupScreenFrame title={t("roomFormScreen.titleCreate")} onBack={back}>
         <FormSkeleton />
       </GroupScreenFrame>
     );
@@ -223,7 +223,7 @@ function GroupSettings({ userId, groupId }: { userId: number; groupId: number })
   if (home === undefined || notOwner) {
     const failed = cannotLoadFirst(homeQuery) && !isGroupGoneError(homeQuery.error);
     return (
-      <GroupScreenFrame title={t("groupFormPage.title.edit")} onBack={back}>
+      <GroupScreenFrame title={t("roomFormScreen.titleEdit")} onBack={back}>
         {failed ? (
           <ErrorState
             message={groupRetryCopy()}

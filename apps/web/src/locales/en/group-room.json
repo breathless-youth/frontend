@@ -279,21 +279,6 @@
   "groupError": {
     "notFound": "Couldn't find this group",
     "notMember": "You're not a member of this group",
-    "applicationCanceled": "Application canceled"
-  },
-  "applyPage": {
-    "title": "Apply to join"
-  },
-  "groupApplicationsPage": {
-    "title": "Applications"
-  },
-  "groupFormPage": {
-    "title": {
-      "create": "Create group",
-      "edit": "Group settings"
-    }
-  },
-  "reportApplicationPage": {
-    "title": "Report"
+    "applicationCanceled": "Request canceled"
   }
 }
