@@ -1,4 +1,5 @@
 import { Crown } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
 
@@ -10,14 +11,11 @@ import type { RoomDeskMember } from "../types";
 import { DeskFigure } from "./DeskFigure";
 
 /** 범례도 이 말을 써서 책상 색과 읽어 주는 말이 어긋나지 않는다. */
-const TONE_TEXT: Record<DeskTone, string> = {
-  room: "공부방에 있어요",
-  elsewhere: "다른 곳에서 공부 중",
-  rest: "쉬는 중",
-};
-
-const EMPTY_SEAT_TEXT = "빈자리";
-const OPEN_SEAT_TEXT = "신청을 받고 있어요";
+const TONE_TEXT_KEY = {
+  room: "deskGrid.tone.room",
+  elsewhere: "deskGrid.tone.elsewhere",
+  rest: "deskGrid.tone.rest",
+} as const satisfies Record<DeskTone, string>;
 
 /**
  * 멤버 책상 여섯 자리와 범례
@@ -36,11 +34,12 @@ export function DeskGrid({
   elapsedSec: number;
   now: Date;
 }) {
+  const { t } = useTranslation("group-room");
   // 판단 모듈이 순서를 정하며 멤버를 공통 모양으로 돌려주므로 내 자리는 아이디로 다시 찾는다.
   const myUserId = members.find((member) => member.isMe)?.userId;
   return (
     <div>
-      <ul aria-label="멤버 책상" className="grid grid-cols-3 gap-x-1.5 gap-y-3 pt-1">
+      <ul aria-label={t("deskGrid.aria.list")} className="grid grid-cols-3 gap-x-1.5 gap-y-3 pt-1">
         {arrangeDesks(members).map((slot, index) =>
           slot.kind === "empty" ? (
             <EmptyDesk key={`empty-${index}`} open={visibility === "public"} />
@@ -63,11 +62,11 @@ export function DeskGrid({
       >
         <span className="flex items-center gap-1.25">
           <span className="size-2 rounded-full bg-primary" />
-          {TONE_TEXT.room}
+          {t(TONE_TEXT_KEY.room)}
         </span>
         <span className="flex items-center gap-1.25">
           <span className="size-2 rounded-full bg-feedback-success" />
-          {TONE_TEXT.elsewhere}
+          {t(TONE_TEXT_KEY.elsewhere)}
         </span>
       </div>
     </div>
@@ -87,11 +86,18 @@ function MemberDesk({
   elapsedSec: number;
   now: Date;
 }) {
+  const { t } = useTranslation("group-room");
   const name = memberName({ nickname: member.nickname, isMe });
   const clock = formatClock(liveSeconds(member.todayStudySec, member.accumulating, elapsedSec));
   // 공부하는 멤버는 지금 공부하고 있으니 마지막으로 공부한 때는 쉬는 멤버에게만 붙인다.
   const lastStudied = tone === "rest" ? lastStudiedText(member.lastStudiedAt, now) : null;
-  const label = [name, member.isOwner ? "그룹장" : null, TONE_TEXT[tone], clock, lastStudied]
+  const label = [
+    name,
+    member.isOwner ? t("deskGrid.aria.owner") : null,
+    t(TONE_TEXT_KEY[tone]),
+    clock,
+    lastStudied,
+  ]
     .filter((part) => part !== null)
     .join(", ");
   return (
@@ -128,9 +134,12 @@ function MemberDesk({
 }
 
 function EmptyDesk({ open }: { open: boolean }) {
+  const { t } = useTranslation("group-room");
+  const emptySeat = t("deskGrid.emptySeat");
+  const openSeat = t("deskGrid.openSeat");
   return (
     <li
-      aria-label={open ? `${EMPTY_SEAT_TEXT}, ${OPEN_SEAT_TEXT}` : EMPTY_SEAT_TEXT}
+      aria-label={open ? `${emptySeat}, ${openSeat}` : emptySeat}
       data-tone="empty"
       className="flex min-w-0 flex-col items-center"
     >
@@ -139,8 +148,8 @@ function EmptyDesk({ open }: { open: boolean }) {
         aria-hidden="true"
         className="mt-1 flex flex-col items-center gap-0.5 text-center text-state-pause"
       >
-        <p className="text-xs leading-4">{EMPTY_SEAT_TEXT}</p>
-        {open && <p className="text-[10px] leading-3.5">{OPEN_SEAT_TEXT}</p>}
+        <p className="text-xs leading-4">{emptySeat}</p>
+        {open && <p className="text-[10px] leading-3.5">{openSeat}</p>}
       </div>
     </li>
   );

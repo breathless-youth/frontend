@@ -4,6 +4,19 @@
       "group": "Studying for"
     }
   },
+  "deskGrid": {
+    "tone": {
+      "room": "In the study room",
+      "elsewhere": "Studying elsewhere",
+      "rest": "On a break"
+    },
+    "emptySeat": "Empty seat",
+    "openSeat": "Accepting requests",
+    "aria": {
+      "list": "Member desks",
+      "owner": "Owner"
+    }
+  },
   "deskRow": {
     "emptySeat": "Empty"
   },
@@ -33,12 +46,22 @@
       "close": "Close group menu"
     }
   },
+  "roomMenuButton": {
+    "aria": {
+      "label": "Group menu"
+    }
+  },
   "socialTabs": {
     "mine": "My groups",
     "public": "Public groups",
     "aria": {
       "list": "Groups"
     }
+  },
+  "weeklyRankCard": {
+    "title": "This week's ranking",
+    "resetNote": "Resets every Monday",
+    "studying": "Studying now"
   },
   "fieldError": {
     "tooLong_one": "Use up to {{count}} character",
@@ -56,6 +79,15 @@
     "emptyDescription": "Request to join a public group or create your own",
     "browsePublic": "Browse public groups"
   },
+  "publicRoomDetailScreen": {
+    "owner": "Owner",
+    "weeklyAverage": "Members' avg focus time this week",
+    "todayMembers": "Members today",
+    "intro": "About this group",
+    "showMore": "Show more",
+    "apply": "Request to join",
+    "cancelApplication": "Cancel request"
+  },
   "publicRoomsView": {
     "noneTitle": "No public groups yet",
     "noneDescription": "Create the first public group and find people to study with",
@@ -63,6 +95,16 @@
     "filteredDescription": "Try different filters or create your own group",
     "search": "Search by group name",
     "allCategories": "All"
+  },
+  "roomHomeScreen": {
+    "todayTitle": "Our group today",
+    "newRequests_one": "You have {{count}} new request",
+    "newRequests_other": "You have {{count}} new requests",
+    "review": "Review",
+    "enter": "Enter study room",
+    "aria": {
+      "notify": "Member study alerts"
+    }
   },
   "socialHomeScreen": {
     "title": "Groups"

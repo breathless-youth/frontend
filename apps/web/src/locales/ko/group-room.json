@@ -4,6 +4,19 @@
       "group": "시험·목표"
     }
   },
+  "deskGrid": {
+    "tone": {
+      "room": "공부방에 있어요",
+      "elsewhere": "다른 곳에서 공부 중",
+      "rest": "쉬는 중"
+    },
+    "emptySeat": "빈자리",
+    "openSeat": "신청을 받고 있어요",
+    "aria": {
+      "list": "멤버 책상",
+      "owner": "그룹장"
+    }
+  },
   "deskRow": {
     "emptySeat": "빈자리"
   },
@@ -31,12 +44,22 @@
       "close": "그룹 메뉴 닫기"
     }
   },
+  "roomMenuButton": {
+    "aria": {
+      "label": "그룹 메뉴"
+    }
+  },
   "socialTabs": {
     "mine": "내 그룹",
     "public": "공개 그룹",
     "aria": {
       "list": "그룹"
     }
+  },
+  "weeklyRankCard": {
+    "title": "이번 주 순위",
+    "resetNote": "월요일에 새로 시작해요",
+    "studying": "공부 중"
   },
   "fieldError": {
     "tooLong": "{{count}}자까지 쓸 수 있어요"
@@ -53,6 +76,15 @@
     "emptyDescription": "공개 그룹에 신청하거나 그룹을 만들어 보세요",
     "browsePublic": "공개 그룹 둘러보기"
   },
+  "publicRoomDetailScreen": {
+    "owner": "그룹장",
+    "weeklyAverage": "이번 주 멤버 평균 순공",
+    "todayMembers": "오늘 멤버",
+    "intro": "그룹 소개",
+    "showMore": "더 보기",
+    "apply": "신청하기",
+    "cancelApplication": "신청 취소"
+  },
   "publicRoomsView": {
     "noneTitle": "아직 공개 그룹이 없어요",
     "noneDescription": "첫 공개 그룹을 만들어 같이 공부할 사람을 모아 보세요",
@@ -60,6 +92,15 @@
     "filteredDescription": "다른 조건을 고르거나 직접 그룹을 만들어 보세요",
     "search": "그룹 이름으로 찾기",
     "allCategories": "전체"
+  },
+  "roomHomeScreen": {
+    "todayTitle": "오늘 우리 그룹",
+    "newRequests": "새 신청이 {{count}}건 있어요",
+    "review": "확인하기",
+    "enter": "공부방 들어가기",
+    "aria": {
+      "notify": "멤버 공부 알림"
+    }
   },
   "socialHomeScreen": {
     "title": "그룹"
