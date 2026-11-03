@@ -1,5 +1,6 @@
 import { Crown, Ellipsis, UserMinus } from "lucide-react";
 import { useId, useRef } from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   DropdownMenu,
@@ -11,8 +12,6 @@ import { cn } from "@/lib/utils";
 
 import { GROUP_ROOM_LIMITS } from "../model/limits";
 import { GROUP_MENU_CONTENT_CLASS, GROUP_MENU_ITEM_CLASS } from "./groupMenuClass";
-
-const KICK_NOTE = `${GROUP_ROOM_LIMITS.kickCooldownDays}일 동안 이 그룹에 다시 들어올 수 없어요`;
 
 /**
  * 멤버 관리의 멤버 줄 메뉴
@@ -33,12 +32,13 @@ export function MemberMenu({
   /** 개발용 화면 모음에서 메뉴가 열린 모습을 바로 보려고 쓴다. */
   defaultOpen?: boolean;
 }) {
+  const { t } = useTranslation("group-room");
   const noteId = useId();
   const chosen = useRef<(() => void) | null>(null);
   return (
     <DropdownMenu defaultOpen={defaultOpen}>
       <DropdownMenuTrigger
-        aria-label={`${nickname} 메뉴`}
+        aria-label={t("memberMenu.aria.trigger", { nickname })}
         className="flex size-11 shrink-0 items-center justify-center rounded-md text-muted-foreground focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none data-[state=open]:bg-bg-layer-2 data-[state=open]:text-foreground"
       >
         <Ellipsis aria-hidden="true" size={20} strokeWidth={2.4} />
@@ -63,10 +63,10 @@ export function MemberMenu({
           className={GROUP_MENU_ITEM_CLASS}
         >
           <Crown aria-hidden="true" size={18} className="shrink-0" />
-          <span className="min-w-0 flex-1">그룹장 넘기기</span>
+          <span className="min-w-0 flex-1">{t("memberMenu.transfer")}</span>
         </DropdownMenuItem>
         <DropdownMenuItem
-          aria-label="내보내기"
+          aria-label={t("memberMenu.kick")}
           aria-describedby={noteId}
           onSelect={() => {
             chosen.current = onKick;
@@ -79,9 +79,9 @@ export function MemberMenu({
             className="mt-0.5 shrink-0 text-feedback-danger"
           />
           <span className="flex min-w-0 flex-col">
-            <span className="text-feedback-danger">내보내기</span>
+            <span className="text-feedback-danger">{t("memberMenu.kick")}</span>
             <span id={noteId} className="text-xs leading-4.5 font-normal text-muted-foreground">
-              {KICK_NOTE}
+              {t("memberMenu.kickNote", { count: GROUP_ROOM_LIMITS.kickCooldownDays })}
             </span>
           </span>
         </DropdownMenuItem>

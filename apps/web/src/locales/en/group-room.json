@@ -20,6 +20,22 @@
   "deskRow": {
     "emptySeat": "Empty"
   },
+  "inviteCard": {
+    "title": "Invite",
+    "description": "People with the link or code join right away, no approval needed",
+    "codeLabel": "Invite code",
+    "shareLink": "Send link",
+    "regenerate": "Create new code"
+  },
+  "memberMenu": {
+    "transfer": "Transfer ownership",
+    "kick": "Remove from group",
+    "kickNote_one": "They can't rejoin for {{count}} day",
+    "kickNote_other": "They can't rejoin for {{count}} days",
+    "aria": {
+      "trigger": "Options for {{nickname}}"
+    }
+  },
   "pendingApplicationsSheet": {
     "title": "Pending requests",
     "description_one": "Requests are canceled if the owner doesn't respond within {{count}} day",
@@ -83,6 +99,16 @@
     "notice_other": "If the owner doesn't respond within {{count}} days, your request will be canceled",
     "submit": "Send request"
   },
+  "membersScreen": {
+    "titleManage": "Manage members",
+    "titleView": "View members",
+    "listTitle": "Members",
+    "lastActive": "Last active",
+    "ownerLeaveNote": "The group owner can leave after transferring ownership to another member",
+    "aria": {
+      "owner": "Owner"
+    }
+  },
   "myRoomsView": {
     "emptyTitle": "You haven't joined any groups yet",
     "emptyDescription": "Request to join a public group or create your own",
@@ -120,6 +146,17 @@
     "placeholder": "Tell us what the problem is",
     "notice": "False reports may lead to restrictions on your account",
     "submit": "Report"
+  },
+  "requestsScreen": {
+    "title": "Join requests",
+    "remainingSeats_one": "{{count}} seat left",
+    "remainingSeats_other": "{{count}} seats left",
+    "acceptNote": "Once you accept, they become a member right away and get notified",
+    "empty": "No pending requests",
+    "expiry": "If you don't respond, this request will be canceled in {{time}}",
+    "report": "Report",
+    "reject": "Decline",
+    "accept": "Accept"
   },
   "roomHomeScreen": {
     "todayTitle": "Our group today",

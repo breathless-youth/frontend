@@ -20,6 +20,21 @@
   "deskRow": {
     "emptySeat": "빈자리"
   },
+  "inviteCard": {
+    "title": "초대하기",
+    "description": "링크나 코드를 받은 사람은 수락 없이 바로 멤버가 돼요",
+    "codeLabel": "초대코드",
+    "shareLink": "링크 보내기",
+    "regenerate": "코드 새로 만들기"
+  },
+  "memberMenu": {
+    "transfer": "그룹장 넘기기",
+    "kick": "내보내기",
+    "kickNote": "{{count}}일 동안 이 그룹에 다시 들어올 수 없어요",
+    "aria": {
+      "trigger": "{{nickname}} 메뉴"
+    }
+  },
   "pendingApplicationsSheet": {
     "title": "신청 중인 공개 그룹",
     "description": "그룹장이 {{count}}일 안에 답하지 않으면 신청이 취소돼요",
@@ -79,6 +94,16 @@
     "notice": "그룹장이 {{count}}일 안에 답하지 않으면 신청이 취소돼요",
     "submit": "신청 보내기"
   },
+  "membersScreen": {
+    "titleManage": "멤버 관리",
+    "titleView": "멤버 보기",
+    "listTitle": "멤버",
+    "lastActive": "마지막으로 온 날",
+    "ownerLeaveNote": "그룹장은 다른 멤버에게 그룹장을 넘긴 뒤에 그룹을 나갈 수 있어요",
+    "aria": {
+      "owner": "그룹장"
+    }
+  },
   "myRoomsView": {
     "emptyTitle": "아직 들어간 그룹이 없어요",
     "emptyDescription": "공개 그룹에 신청하거나 그룹을 만들어 보세요",
@@ -116,6 +141,16 @@
     "placeholder": "어떤 점이 문제인지 적어 주세요",
     "notice": "허위로 신고하면 이용이 제한될 수 있어요",
     "submit": "신고하기"
+  },
+  "requestsScreen": {
+    "title": "신청 확인",
+    "remainingSeats": "남은 자리 {{count}}",
+    "acceptNote": "수락하면 바로 멤버가 되고, 신청한 사람에게 알림이 가요",
+    "empty": "답을 기다리는 신청이 없어요",
+    "expiry": "답하지 않으면 {{time}} 뒤에 신청이 취소돼요",
+    "report": "신고",
+    "reject": "거절",
+    "accept": "수락"
   },
   "roomHomeScreen": {
     "todayTitle": "오늘 우리 그룹",
