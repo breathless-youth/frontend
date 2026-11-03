@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BookOpen, LoaderCircle } from "lucide-react";
 
 import { sessionStateColors } from "@focusmakers/design-tokens";
@@ -19,11 +19,13 @@ import { createAmbientUsage } from "@/features/ambient-sound/ambientUsage";
 import { AmbientSoundButton } from "@/features/ambient-sound/components/AmbientSoundButton";
 import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSoundSheet";
 import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
+import { groupErrorCopy } from "@/features/group-room/groupErrorCopy";
 import { useMultiTimer } from "@/features/multi-timer/useMultiTimer";
 import { CameraOnConfirmDialog } from "@/features/live-room/components/CameraOnConfirmDialog";
 import { ClonedTrackPreview } from "@/features/live-room/components/ClonedTrackPreview";
 import { GroupRoomTopBar } from "@/features/live-room/components/GroupRoomTopBar";
 import { MicButton } from "@/features/live-room/components/MicButton";
+import { ReportMemberLayer } from "@/features/live-room/components/ReportMemberLayer";
 import { RoomMemberMenu } from "@/features/live-room/components/RoomMemberMenu";
 import { TimerButton } from "@/features/live-room/components/TimerButton";
 import {
@@ -93,7 +95,13 @@ import { haptic } from "@/lib/haptics";
 import { trackMetaInviteShared } from "@/lib/metaAppEvents";
 import { useNativeBackGestureLock, useNativeBackLock } from "@/lib/nativeBackGesture";
 import { useNativeControl } from "@/lib/nativeControls";
-import { groupHomeQuery, invalidateGroupMembership } from "@/lib/groupRoomQueries";
+import { reportGroupMember } from "@/lib/groupRoomApi";
+import {
+  GROUP_MUTATION_OPTIONS,
+  groupHomeQuery,
+  groupKeys,
+  invalidateGroupMembership,
+} from "@/lib/groupRoomQueries";
 import { startVideoPlayback, VIDEO_PLAYBACK_KICK_PROPS } from "@/lib/startVideoPlayback";
 import { showCtaToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
@@ -256,6 +264,15 @@ export function LiveRoomSession({
   }
   // 가로에서는 타일 아래가 화면 끝이라 메뉴를 버튼 위로 펼친다.
   const menuLandscape = useLandscapeLayout(menuUserId !== null);
+  /** 신고 화면을 연 멤버이고, 멤버가 그사이 공부방을 나가도 신고는 마칠 수 있게 닉네임을 함께 든다. */
+  const [reportTarget, setReportTarget] = useState<{ userId: number; nickname: string } | null>(
+    null,
+  );
+  if (phase.name !== "studying" && reportTarget !== null) {
+    setReportTarget(null);
+  }
+  // 신고 화면이 닫히면 돌아갈 그 멤버의 메뉴 버튼이다.
+  const reportOpenerRef = useRef<HTMLElement | null>(null);
   // 페이지를 닫은 뒤 포커스를 돌려줄 자리다.
   // Radix 는 Trigger 를 쓸 때만 스스로 되돌린다.
   const ambientButtonRef = useRef<HTMLButtonElement>(null);
@@ -440,6 +457,43 @@ export function LiveRoomSession({
       setBlockedUserIds((previous) => new Set(previous).add(blockedUserId));
     },
   });
+
+  const report = useMutation({
+    ...GROUP_MUTATION_OPTIONS,
+    mutationFn: (input: { groupId: number; userId: number; reason: string }) =>
+      reportGroupMember(input.groupId, input.userId, input.reason),
+  });
+
+  /**
+   * 공부방 신고 보내기
+   *
+   * 신고하면 서버가 차단도 하지만 서버의 차단 알림을 기다리지 않고 바로 그 사람과의 연결을 닫는다.
+   * 결과 처리는 이번 호출에만 걸어서 공부방을 떠난 뒤 늦게 온 응답이 다른 화면에 토스트를 띄우지 않는다.
+   * 보내지 못하면 신고 화면에 남아 다시 보낼 수 있다.
+   */
+  function submitReport(reason: string) {
+    if (reportTarget === null || groupId === null || report.isPending) {
+      return;
+    }
+    const target = reportTarget;
+    haptic("medium");
+    report.mutate(
+      { groupId, userId: target.userId, reason },
+      {
+        onSuccess: () => {
+          mesh.blockPeer(target.userId);
+          setBlockedUserIds((previous) => new Set(previous).add(target.userId));
+          // 설정의 차단 목록이 받아 둔 목록을 보여 주지 않게 한다.
+          void queryClient.invalidateQueries({ queryKey: groupKeys.blocks(userId) });
+          showCtaToast(`${target.nickname}님을 신고하고 차단했어요`);
+          setReportTarget((current) => (current?.userId === target.userId ? null : current));
+        },
+        onError: (error) => {
+          showCtaToast(groupErrorCopy("report", error));
+        },
+      },
+    );
+  }
 
   // 연결과 해제를 한 effect에 대칭으로 둔다 — StrictMode의 마운트-해제-재마운트에서도
   // 두 번째 마운트가 정상 연결된다.
@@ -691,7 +745,8 @@ export function LiveRoomSession({
   const dialogOpen = cameraDialogOpen || exitDialogOpen;
   const controlsLocked = phase.name !== "studying";
   // 모달 메뉴가 열린 동안 바와 위쪽 버튼이 누름을 받으면 메뉴 뒤에서 눌리고 바깥 누름으로 메뉴가 닫히지 않는다.
-  const controlsInactive = moreMenuOpen || menuUserId !== null;
+  // 신고 화면이 덮은 동안에도 앱 유리 버튼이 그 위에 남지 않게 함께 막는다.
+  const controlsInactive = moreMenuOpen || menuUserId !== null || reportTarget !== null;
 
   // 잠금(제출 중·에러)·다이얼로그 동안은 컨트롤을 강제로 보인다.
   const controlsAlwaysVisible = controlsLocked || dialogOpen || controlsInactive || page !== null;
@@ -818,7 +873,12 @@ export function LiveRoomSession({
             onClose={() => setMenuUserId(null)}
             onVolumeChange={(volume) => audio.setVolume(member.userId, volume)}
             onToggleMute={() => audio.setMuted(member.userId, !audio.isMuted(member.userId))}
-            onReport={() => undefined}
+            onReport={() => {
+              // 메뉴가 메뉴 버튼에 포커스를 돌려준 뒤에 불러서 지금 포커스가 그 버튼이다.
+              const opener = document.activeElement;
+              reportOpenerRef.current = opener instanceof HTMLElement ? opener : null;
+              setReportTarget({ userId: member.userId, nickname });
+            }}
             onKick={() => undefined}
           />
         ),
@@ -1181,6 +1241,17 @@ export function LiveRoomSession({
           void endAndSubmit(MANUAL_END_REASON);
         }}
       />
+      {room.kind === "group" && (
+        <ReportMemberLayer
+          open={reportTarget !== null}
+          nickname={reportTarget?.nickname ?? ""}
+          container={sessionSurface}
+          pending={report.isPending}
+          onSubmit={submitReport}
+          onClose={() => setReportTarget(null)}
+          returnFocus={() => reportOpenerRef.current}
+        />
+      )}
     </main>
   );
 }

@@ -25,7 +25,8 @@ import { submitStudySession } from "@/features/study-session/submitStudySession"
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { ApiError } from "@/lib/api";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
-import { getGroupHome, joinGroupRoom, leaveGroupRoom } from "@/lib/groupRoomApi";
+import { getGroupHome, joinGroupRoom, leaveGroupRoom, reportGroupMember } from "@/lib/groupRoomApi";
+import { groupKeys } from "@/lib/groupRoomQueries";
 import { haptic } from "@/lib/haptics";
 import { queryClient as appQueryClient } from "@/lib/queryClient";
 import type * as UserId from "@/lib/userId";
@@ -811,5 +812,146 @@ describe("GroupRoomPage 멤버 메뉴와 타일", () => {
 
     expect(screen.queryByRole("menu")).toBeNull();
     expect(screen.getByTestId("room-control-bar")).toHaveAttribute("inert");
+  });
+});
+
+describe("GroupRoomPage 신고와 차단", () => {
+  /** 다른 멤버의 메뉴에서 신고하기를 골라 신고 화면을 연다. */
+  async function openReport(nickname: string) {
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: `${nickname} 메뉴` }));
+    await user.click(screen.getByRole("menuitem", { name: "신고하기" }));
+    return user;
+  }
+
+  it("신고하기는 공부방 위에 신고 화면을 열고 닫으면 공부방이 그대로다", async () => {
+    const { channel } = await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember(), otherMember(42, "새벽러")],
+    });
+    const disconnect = vi.spyOn(channel, "disconnect");
+    const user = await openReport("새벽러");
+    expect(screen.getByRole("dialog", { name: "신고하기" })).toHaveAttribute("aria-modal", "true");
+    expect(screen.getByText("새벽러님을 신고할게요")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "뒤로 가기" }));
+
+    expect(screen.queryByText("새벽러님을 신고할게요")).toBeNull();
+    expect(screen.getByTestId("live-room-page")).toBeInTheDocument();
+    expect(disconnect).not.toHaveBeenCalled();
+    expect(reportGroupMember).not.toHaveBeenCalled();
+  });
+
+  it("신고 화면을 닫으면 그 멤버의 메뉴 버튼으로 포커스가 돌아오고 다시 열면 사유가 비어 있다", async () => {
+    await enterGroupRoom({ groupId: 10, snapshot: [meMember(), otherMember(42, "새벽러")] });
+    const user = await openReport("새벽러");
+    await user.type(screen.getByRole("textbox", { name: "신고 사유" }), "불쾌한 행동");
+
+    await user.click(screen.getByRole("button", { name: "뒤로 가기" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "새벽러 메뉴" })).toHaveFocus());
+
+    await openReport("새벽러");
+    expect(screen.getByRole("textbox", { name: "신고 사유" })).toHaveValue("");
+  });
+
+  it("신고하면 그 사람과의 연결을 닫고 토스트를 띄우며 타일이 프로필로 바뀐다", async () => {
+    vi.mocked(reportGroupMember).mockResolvedValue(undefined);
+    const { pcs } = await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember(), otherMember(42, "새벽러", { cameraOn: true })],
+    });
+    expect(screen.getAllByTestId("room-tile")[1]).toHaveAttribute("data-state", "FOCUS");
+    const user = await openReport("새벽러");
+    await user.type(
+      screen.getByRole("textbox", { name: "신고 사유" }),
+      "카메라 앞에서 불쾌한 행동을 했어요",
+    );
+
+    await user.click(screen.getByRole("button", { name: "신고하기" }));
+
+    expect(reportGroupMember).toHaveBeenCalledWith(10, 42, "카메라 앞에서 불쾌한 행동을 했어요");
+    expect(haptic).toHaveBeenCalledWith("medium");
+    expect(await screen.findByText("새벽러님을 신고하고 차단했어요")).toBeInTheDocument();
+    expect(screen.queryByText("새벽러님을 신고할게요")).toBeNull();
+    expect(pcs.find((pc) => pc.closed)).toBeDefined();
+    expect(screen.getAllByTestId("room-tile")[1]).toHaveAttribute("data-state", "OFF");
+  });
+
+  it("신고하면 차단 목록을 다시 받게 한다", async () => {
+    vi.mocked(reportGroupMember).mockResolvedValue(undefined);
+    const { client } = await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember(), otherMember(42, "새벽러")],
+    });
+    client.setQueryData(groupKeys.blocks(7), { blocks: [] });
+    const user = await openReport("새벽러");
+
+    await user.click(screen.getByRole("button", { name: "신고하기" }));
+
+    await waitFor(() =>
+      expect(client.getQueryState(groupKeys.blocks(7))?.isInvalidated).toBe(true),
+    );
+  });
+
+  it("신고에 실패하면 다시 시도 안내를 띄우고 신고 화면에 남는다", async () => {
+    vi.mocked(reportGroupMember).mockRejectedValue(new ApiError("x", 500));
+    const { pcs } = await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember(), otherMember(42, "새벽러")],
+    });
+    const user = await openReport("새벽러");
+
+    await user.click(screen.getByRole("button", { name: "신고하기" }));
+
+    // 신고 화면이 공부방을 덮어서 안내는 신고 화면 안에 뜬다.
+    const layer = screen.getByRole("dialog", { name: "신고하기" });
+    expect(await within(layer).findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
+    expect(within(layer).getByText("새벽러님을 신고할게요")).toBeInTheDocument();
+    expect(pcs.some((pc) => pc.closed)).toBe(false);
+  });
+
+  it("보내는 중에는 다시 보낼 수 없다", async () => {
+    vi.mocked(reportGroupMember).mockImplementation(() => new Promise(() => {}));
+    await enterGroupRoom({ groupId: 10, snapshot: [meMember(), otherMember(42, "새벽러")] });
+    const user = await openReport("새벽러");
+
+    await user.click(screen.getByRole("button", { name: "신고하기" }));
+
+    expect(screen.getByRole("button", { name: "신고하기" })).toBeDisabled();
+    expect(reportGroupMember).toHaveBeenCalledOnce();
+  });
+
+  it("신고 화면은 닉네임과 사유가 클릭 분석에 실리지 않게 가린다", async () => {
+    await enterGroupRoom({ groupId: 10, snapshot: [meMember(), otherMember(42, "새벽러")] });
+    await openReport("새벽러");
+    const layer = screen.getByRole("dialog", { name: "신고하기" });
+
+    expect(layer).toHaveAttribute("data-amp-mask");
+    expect(layer).toHaveAttribute("data-amp-mask-attributes", "aria-label");
+  });
+
+  it("신고 화면이 열린 동안은 시간이 지나도 조작이 숨지 않는다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    await enterGroupRoom({ groupId: 10, snapshot: [meMember(), otherMember(42, "새벽러")] });
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await user.click(screen.getByRole("button", { name: "새벽러 메뉴" }));
+    await user.click(screen.getByRole("menuitem", { name: "신고하기" }));
+
+    await act(() => vi.advanceTimersByTimeAsync(6_000));
+
+    expect(screen.getByText("새벽러님을 신고할게요")).toBeInTheDocument();
+    expect(screen.getByTestId("room-control-bar")).not.toHaveAttribute("inert");
+  });
+
+  it("PEER_BLOCKED를 받으면 그 사람 타일이 프로필로 바뀐다", async () => {
+    const { channel } = await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember(), otherMember(56, "선규", { cameraOn: true })],
+    });
+    expect(screen.getAllByTestId("room-tile")[1]).toHaveAttribute("data-state", "FOCUS");
+
+    act(() => channel.emitServerMessage({ type: "PEER_BLOCKED", userId: 56 }));
+
+    expect(screen.getAllByTestId("room-tile")[1]).toHaveAttribute("data-state", "OFF");
   });
 });
