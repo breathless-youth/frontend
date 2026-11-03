@@ -272,7 +272,7 @@ describe("그룹 홈", () => {
     expect(shareInvite).toHaveBeenCalledWith("Q4WN8T");
   });
 
-  it("초대코드를 다시 받는 중에 초대하기를 누르면 예전 코드 대신 새 코드를 기다려 공유한다", async () => {
+  it("초대코드를 다시 받는 중에 초대하기를 누르면 기다리지 않고 받아 둔 코드로 바로 공유한다", async () => {
     const api = mockGroupApi("default");
     vi.mocked(shareInvite).mockClear();
     renderGroupRoute("/social/groups/11?groupRooms=1");
@@ -286,11 +286,11 @@ describe("그룹 홈", () => {
         }),
     );
     await openMenuItem("초대하기");
-    await act(() => Promise.resolve());
-    expect(shareInvite).not.toHaveBeenCalled();
-    act(() => releases.forEach((release) => release()));
     await waitFor(() => expect(shareInvite).toHaveBeenCalledOnce());
-    expect(shareInvite).toHaveBeenCalledWith("Q4WN8T");
+    expect(shareInvite).toHaveBeenCalledWith("K7Q2MX");
+    act(() => releases.forEach((release) => release()));
+    await act(() => Promise.resolve());
+    expect(shareInvite).toHaveBeenCalledOnce();
   });
 
   it("공유 대신 복사했으면 복사했다고 알린다", async () => {

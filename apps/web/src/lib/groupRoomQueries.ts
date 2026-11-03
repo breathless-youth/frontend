@@ -266,7 +266,7 @@ export function forgetGroup(queryClient: QueryClient, userId: number, groupId: n
  * 그룹 탭은 내 그룹을 다시 받는 동안 받아 둔 목록을 보여서, 빼지 않으면 떠난 그룹 카드와 숫자가 응답이 올 때까지 남는다.
  * 그 카드를 누르면 서버가 멤버가 아니라고 답해 막 떠난 그룹의 안내가 다시 뜬다.
  * 그룹장이던 그룹이면 그룹 만들기 한도를 세는 그룹장 그룹 수도 하나 줄인다.
- * 서버에서 새로 받은 목록이 아니라서 받은 시각은 그대로 두고, 다시 받는 일은 `invalidateGroupMembership`이 맡는다.
+ * 서버에서 새로 받은 목록이 아니라서 받은 시각은 유지하고, 다시 받는 일은 `invalidateGroupMembership`이 맡는다.
  */
 export function dropFromMyGroups(queryClient: QueryClient, userId: number, groupId: number): void {
   const queryKey = groupKeys.mine(userId);
