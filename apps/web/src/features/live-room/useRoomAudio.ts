@@ -37,6 +37,15 @@ export interface RoomAudioDeps {
 
 const NO_SPEAKERS: ReadonlySet<number> = new Set();
 
+// 터치는 누를 때가 아니라 손을 뗄 때 사용자 동작으로 인정하는 브라우저가 있어서 뗌과 클릭, 키보드도 듣는다.
+const USER_ACTIVATION_EVENTS = [
+  "pointerdown",
+  "pointerup",
+  "touchend",
+  "click",
+  "keydown",
+] as const;
+
 function sameMembers(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean {
   if (a.size !== b.size) {
     return false;
@@ -171,14 +180,21 @@ export function useRoomAudio({
     if (player === null) {
       return;
     }
-    // 마이크를 켜지 않는 사람도 상대 소리를 들어야 해서 공부방을 처음 누를 때 재생을 깨운다.
+    // 마이크를 켜지 않는 사람도 상대 소리를 들어야 해서 공부방을 누를 때 멈춘 재생을 깨운다.
+    // 재생이 돌고 있으면 아무것도 하지 않고, 통화 뒤처럼 다시 멈추면 다음 누름이 다시 깨운다.
     // 누름을 멈추는 버튼보다 먼저 받으려고 문서의 capture 단계에서 듣는다.
     const wake = () => {
-      void player.resume();
+      if (player.needsResume()) {
+        void player.resume();
+      }
     };
-    document.addEventListener("pointerdown", wake, { capture: true, once: true });
+    for (const type of USER_ACTIVATION_EVENTS) {
+      document.addEventListener(type, wake, { capture: true });
+    }
     return () => {
-      document.removeEventListener("pointerdown", wake, { capture: true });
+      for (const type of USER_ACTIVATION_EVENTS) {
+        document.removeEventListener(type, wake, { capture: true });
+      }
     };
   }, [player]);
 

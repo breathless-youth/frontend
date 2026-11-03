@@ -7,6 +7,7 @@ import { createSilentKeepAlive } from "@/features/ambient-sound/silentKeepAlive"
  * 음량은 미디어 요소의 volume이 아니라 GainNode로 바꾸는데, iOS WebKit에서는 volume이 바뀌지 않는다.
  * Chromium은 원격 WebRTC 트랙을 미디어 요소에 붙여야 Web Audio로 샘플이 흘러서 같은 트랙을 음소거한 보조 audio 요소에도 붙인다.
  * Apple WebKit은 Web Audio만 쓰는 페이지를 무음 스위치에 따르게 해서 상대 소리가 있는 동안 배경음과 같은 무음 keep-alive 요소를 재생한다.
+ * 통화나 알람이 컨텍스트를 멈추면 들을 상대가 있는 동안 다시 깨우고, 시스템이 멈춘 요소는 요소의 멈춤 상태를 보고 다시 건다.
  * 소리는 재생하고 크기만 읽으며 녹음하거나 저장하지 않는다.
  */
 export interface RemoteAudioPlayer {
@@ -19,7 +20,12 @@ export interface RemoteAudioPlayer {
   level(userId: number): number;
   setLocalMeter(track: MediaStreamTrack | null): void;
   localLevel(): number;
-  /** 사용자 동작 안에서 불러야 WKWebView와 브라우저가 소리를 내보낸다. */
+  /**
+   * 사용자 동작으로 다시 걸어야 할 재생이 있으면 true다.
+   * 컨텍스트를 아직 만들지 않았거나 돌고 있지 않을 때, 재생해야 할 요소가 멈춰 있을 때다.
+   */
+  needsResume(): boolean;
+  /** 사용자 동작 안에서 부르면 멈춘 요소를 다시 걸고 컨텍스트를 깨운다. */
   resume(): Promise<void>;
   /** 닫은 뒤에 다시 붙이면 새 컨텍스트로 시작해서 StrictMode의 다시 마운트에도 쓸 수 있다. */
   close(): void;
@@ -71,16 +77,17 @@ function rms(analyser: AnalyserNode, samples: Float32Array<ArrayBuffer>): number
 /**
  * 재생 시작
  *
- * 자동재생 거부는 소리를 막을 뿐 화면을 깨뜨리지 않아서 삼키고, 거부되면 알려 다음 사용자 동작에서 다시 시도하게 한다.
+ * 자동재생 거부는 소리를 막을 뿐 화면을 깨뜨리지 않아서 삼킨다.
+ * 거부된 요소는 멈춘 채로 남아 다음 resume이 다시 건다.
  */
-function playElement(element: HTMLAudioElement, onRejected?: () => void): void {
+function playElement(element: HTMLAudioElement): void {
   try {
     const played: unknown = element.play();
     if (played instanceof Promise) {
-      played.catch(() => onRejected?.());
+      played.catch(() => undefined);
     }
   } catch {
-    onRejected?.();
+    // play가 없거나 바로 실패한 환경이고, 위와 같은 이유로 넘어간다.
   }
 }
 
@@ -105,16 +112,25 @@ export function createRemoteAudioPlayer(
   const muted = new Set<number>();
   let allMuted = false;
   let localMeter: LocalMeter | null = null;
+  // undefined는 아직 만들지 않은 것이고, null은 Apple WebKit이 아니라 만들지 않는다는 뜻이다.
   let keepAlive: HTMLAudioElement | null | undefined;
-  let keepAlivePlaying = false;
 
   function context(): AudioContext | null {
     if (ctx === undefined) {
+      let created: AudioContext | null;
       try {
-        ctx = audioContextFactory();
+        created = audioContextFactory();
       } catch {
-        ctx = null;
+        created = null;
       }
+      ctx = created;
+      // 통화나 알람처럼 부르지 않았는데 멈추면 들을 상대가 있는 동안 다시 깨운다.
+      // 앱 웹뷰는 사용자 동작 없이도 재생을 허용해서 여기서 되살아나고, 브라우저는 다음 누름이 다시 부른다.
+      created?.addEventListener("statechange", () => {
+        if (ctx === created && created.state !== "running" && voices.size > 0) {
+          void resume();
+        }
+      });
     }
     return ctx;
   }
@@ -126,10 +142,12 @@ export function createRemoteAudioPlayer(
     }
   }
 
+  function keepAliveWanted(): boolean {
+    return voices.size > 0;
+  }
+
+  // 통화나 잠금 화면으로 시스템이 요소를 멈추면 따로 둔 표시로는 알 수 없어서 요소의 paused를 본다.
   function startKeepAlive(): void {
-    if (keepAlivePlaying) {
-      return;
-    }
     if (keepAlive === undefined) {
       try {
         keepAlive = keepAliveFactory();
@@ -137,21 +155,39 @@ export function createRemoteAudioPlayer(
         keepAlive = null;
       }
     }
-    if (keepAlive === null) {
-      return;
+    if (keepAlive !== null && keepAlive.paused !== false) {
+      playElement(keepAlive);
     }
-    keepAlivePlaying = true;
-    playElement(keepAlive, () => {
-      keepAlivePlaying = false;
-    });
   }
 
   function stopKeepAlive(): void {
-    if (!keepAlivePlaying) {
+    if (keepAlive && keepAlive.paused === false) {
+      keepAlive.pause();
+    }
+  }
+
+  async function resume(): Promise<void> {
+    const audioContext = context();
+    if (audioContext === null) {
       return;
     }
-    keepAlivePlaying = false;
-    keepAlive?.pause();
+    // 사용자 동작 밖에서 거부되거나 시스템이 멈춘 재생은 다시 걸어야 풀린다.
+    for (const voice of voices.values()) {
+      if (voice.assist.paused !== false) {
+        playElement(voice.assist);
+      }
+    }
+    if (keepAliveWanted()) {
+      startKeepAlive();
+    }
+    if (audioContext.state === "running") {
+      return;
+    }
+    try {
+      await audioContext.resume();
+    } catch {
+      // 사용자 동작 밖이라 거부되면 멈춘 채로 남고, 호출한 쪽이 다음 사용자 동작에서 다시 부른다.
+    }
   }
 
   function removeVoice(userId: number): void {
@@ -252,29 +288,21 @@ export function createRemoteAudioPlayer(
     localLevel() {
       return localMeter === null ? 0 : rms(localMeter.analyser, localMeter.samples);
     },
-    async resume() {
-      const audioContext = context();
-      if (audioContext === null) {
-        return;
+    needsResume() {
+      if (ctx === null) {
+        return false;
       }
-      // 사용자 동작 밖에서 거부된 재생은 이 동작 안에서 다시 걸어야 풀린다.
+      if (ctx === undefined || ctx.state !== "running") {
+        return true;
+      }
       for (const voice of voices.values()) {
-        if (voice.assist.paused) {
-          playElement(voice.assist);
+        if (voice.assist.paused !== false) {
+          return true;
         }
       }
-      if (voices.size > 0) {
-        startKeepAlive();
-      }
-      if (audioContext.state === "running") {
-        return;
-      }
-      try {
-        await audioContext.resume();
-      } catch {
-        // 사용자 동작 밖이라 거부되면 다음 누름이나 마이크 버튼이 다시 부른다.
-      }
+      return keepAliveWanted() && keepAlive != null && keepAlive.paused !== false;
     },
+    resume,
     close() {
       for (const userId of [...voices.keys()]) {
         removeVoice(userId);

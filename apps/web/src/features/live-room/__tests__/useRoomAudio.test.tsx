@@ -23,7 +23,9 @@ function fakeTrack() {
   }) as unknown as MediaStreamTrack;
 }
 
+// 한 번 깨우면 소리가 도는 재생기처럼, resume을 부르기 전까지만 다시 걸 재생이 있다고 답한다.
 function fakePlayer() {
+  let resumed = false;
   return {
     attach: vi.fn(),
     detach: vi.fn(),
@@ -33,7 +35,10 @@ function fakePlayer() {
     level: vi.fn<(userId: number) => number>().mockReturnValue(0),
     setLocalMeter: vi.fn(),
     localLevel: vi.fn<() => number>().mockReturnValue(0),
-    resume: vi.fn(async () => undefined),
+    needsResume: vi.fn(() => !resumed),
+    resume: vi.fn(async () => {
+      resumed = true;
+    }),
     close: vi.fn(),
   } satisfies RemoteAudioPlayer;
 }
@@ -181,6 +186,24 @@ describe("useRoomAudio 상대 소리", () => {
     fireEvent.pointerDown(document.body);
     fireEvent.pointerDown(document.body);
     expect(player.resume).toHaveBeenCalledOnce();
+  });
+
+  it("소리가 아직 멈춰 있으면 다음 누름에서 다시 깨운다", () => {
+    const { player } = setup();
+    player.needsResume.mockReturnValue(true);
+    fireEvent.pointerDown(document.body);
+    fireEvent.pointerDown(document.body);
+    expect(player.resume).toHaveBeenCalledTimes(2);
+  });
+
+  it("터치를 뗄 때와 키보드로 눌러도 깨운다", () => {
+    const { player } = setup();
+    player.needsResume.mockReturnValue(true);
+    fireEvent.pointerUp(document.body);
+    fireEvent.touchEnd(document.body);
+    fireEvent.click(document.body);
+    fireEvent.keyDown(document.body, { key: "Enter" });
+    expect(player.resume).toHaveBeenCalledTimes(4);
   });
 
   it("들어온 상대 소리를 붙이고 말하는 사람을 표시한다", async () => {

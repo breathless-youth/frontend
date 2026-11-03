@@ -22,11 +22,12 @@ function fakeNode() {
   return { connect: vi.fn(), disconnect: vi.fn() };
 }
 
+/** 상태 변화를 보낼 수 있는 가짜 AudioContext */
 function fakeContext() {
   const gains: { gain: { value: number }; disconnect: ReturnType<typeof vi.fn> }[] = [];
   const sources: ReturnType<typeof fakeNode>[] = [];
   const analysers: (ReturnType<typeof fakeNode> & { fftSize: number })[] = [];
-  const ctx = {
+  const ctx = Object.assign(new EventTarget(), {
     state: "suspended",
     resume: vi.fn(async () => {
       ctx.state = "running";
@@ -52,32 +53,64 @@ function fakeContext() {
       gains.push(node);
       return node;
     }),
-  };
+    /** OS가 컨텍스트를 멈추거나 되살린 것처럼 상태를 바꾸고 알린다. */
+    fire(state: string) {
+      ctx.state = state;
+      ctx.dispatchEvent(new Event("statechange"));
+    },
+  });
   return { ctx: ctx as unknown as AudioContext, raw: ctx, gains, sources, analysers };
 }
 
-function player() {
+/**
+ * 재생 상태를 가진 가짜 audio 요소
+ *
+ * rejectNext를 켜 두면 다음 재생을 자동재생 정책처럼 거부하고 멈춘 채로 남는다.
+ */
+function fakeMedia({ rejectNext = false }: { rejectNext?: boolean } = {}) {
+  const element = {
+    muted: false,
+    srcObject: null as unknown,
+    paused: true,
+    rejectNext,
+    play: vi.fn(async () => {
+      if (element.rejectNext) {
+        element.rejectNext = false;
+        throw new DOMException("x", "NotAllowedError");
+      }
+      element.paused = false;
+    }),
+    pause: vi.fn(() => {
+      element.paused = true;
+    }),
+  };
+  return element;
+}
+
+type FakeMedia = ReturnType<typeof fakeMedia>;
+
+function player({
+  assistRejects = false,
+  keepAliveRejects = false,
+}: { assistRejects?: boolean; keepAliveRejects?: boolean } = {}) {
   const { ctx, raw, gains, sources, analysers } = fakeContext();
-  const assists: HTMLAudioElement[] = [];
-  const keepAlive = {
-    play: vi.fn(async () => undefined),
-    pause: vi.fn(),
-  } as unknown as HTMLAudioElement;
+  const assists: FakeMedia[] = [];
+  const keepAlive = fakeMedia({ rejectNext: keepAliveRejects });
   const instance = createRemoteAudioPlayer({
     audioContextFactory: () => ctx,
     createAssistElement: () => {
-      const element = {
-        muted: false,
-        srcObject: null,
-        play: vi.fn(async () => undefined),
-        pause: vi.fn(),
-      } as unknown as HTMLAudioElement;
+      const element = fakeMedia({ rejectNext: assistRejects });
       assists.push(element);
-      return element;
+      return element as unknown as HTMLAudioElement;
     },
-    keepAliveFactory: () => keepAlive,
+    keepAliveFactory: () => keepAlive as unknown as HTMLAudioElement,
   });
   return { instance, gains, sources, analysers, assists, keepAlive, ctx: raw };
+}
+
+/** 거부된 재생 약속이 끝나도록 한 바퀴 흘려보낸다. */
+function settle() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
 const track = () => ({ kind: "audio" }) as unknown as MediaStreamTrack;
@@ -190,5 +223,98 @@ describe("createRemoteAudioPlayer", () => {
     });
     expect(() => instance.attach(2, track())).not.toThrow();
     expect(instance.level(2)).toBe(0);
+  });
+});
+
+describe("멈춘 재생 되살리기", () => {
+  it("부르지 않았는데 컨텍스트가 멈추면 들을 상대가 있는 동안 다시 깨운다", () => {
+    const { instance, ctx } = player();
+    instance.attach(2, track());
+
+    ctx.fire("interrupted");
+
+    expect(ctx.resume).toHaveBeenCalledOnce();
+  });
+
+  it("들을 상대가 없거나 컨텍스트가 돌고 있으면 깨우지 않는다", () => {
+    const { instance, ctx } = player();
+    instance.attach(2, track());
+    ctx.fire("running");
+    instance.detach(2);
+    ctx.fire("interrupted");
+
+    expect(ctx.resume).not.toHaveBeenCalled();
+  });
+
+  it("재생을 거부당한 보조 요소는 resume에서 다시 건다", async () => {
+    const { instance, assists } = player({ assistRejects: true });
+    instance.attach(2, track());
+    await settle();
+    expect(assists[0]?.paused).toBe(true);
+    expect(instance.needsResume()).toBe(true);
+
+    await instance.resume();
+
+    expect(assists[0]?.play).toHaveBeenCalledTimes(2);
+    expect(assists[0]?.paused).toBe(false);
+  });
+
+  it("거부당한 keep-alive는 resume에서 다시 건다", async () => {
+    const { instance, keepAlive } = player({ keepAliveRejects: true });
+    instance.attach(2, track());
+    await settle();
+    expect(keepAlive.paused).toBe(true);
+
+    await instance.resume();
+
+    expect(keepAlive.play).toHaveBeenCalledTimes(2);
+    expect(keepAlive.paused).toBe(false);
+  });
+
+  it("시스템이 멈춘 keep-alive는 요소의 멈춤 상태를 보고 resume에서 다시 건다", async () => {
+    const { instance, keepAlive } = player();
+    instance.attach(2, track());
+    expect(keepAlive.play).toHaveBeenCalledOnce();
+
+    keepAlive.paused = true;
+    await instance.resume();
+
+    expect(keepAlive.play).toHaveBeenCalledTimes(2);
+  });
+
+  it("다시 걸어야 할 재생이 있는지 알린다", async () => {
+    const { instance, ctx, assists, keepAlive } = player();
+    expect(instance.needsResume()).toBe(true);
+
+    await instance.resume();
+    expect(instance.needsResume()).toBe(false);
+
+    instance.attach(2, track());
+    expect(instance.needsResume()).toBe(false);
+
+    assists[0]!.paused = true;
+    expect(instance.needsResume()).toBe(true);
+    await instance.resume();
+    expect(instance.needsResume()).toBe(false);
+
+    keepAlive.paused = true;
+    expect(instance.needsResume()).toBe(true);
+    await instance.resume();
+    expect(instance.needsResume()).toBe(false);
+
+    ctx.state = "suspended";
+    expect(instance.needsResume()).toBe(true);
+  });
+
+  it("컨텍스트를 만들 수 없는 브라우저는 한 번 깨워 본 뒤로는 다시 걸 것이 없다", async () => {
+    const instance = createRemoteAudioPlayer({
+      audioContextFactory: () => null,
+      keepAliveFactory: () => null,
+    });
+    expect(instance.needsResume()).toBe(true);
+
+    await instance.resume();
+
+    expect(instance.needsResume()).toBe(false);
   });
 });

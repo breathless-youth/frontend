@@ -128,6 +128,7 @@ function fakePlayer() {
     level: vi.fn<(userId: number) => number>().mockReturnValue(0),
     setLocalMeter: vi.fn(),
     localLevel: vi.fn<() => number>().mockReturnValue(0),
+    needsResume: vi.fn(() => false),
     resume: vi.fn(async () => undefined),
     close: vi.fn(),
   } satisfies RemoteAudioPlayer;
