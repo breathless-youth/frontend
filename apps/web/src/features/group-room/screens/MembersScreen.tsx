@@ -12,7 +12,7 @@ import { memberCountText } from "../model/limits";
 import type { RoomVisibility } from "../model/roomMenu";
 import { lastStudiedText } from "../model/timeText";
 import type { RoomMemberRow } from "../types";
-import { VISIBILITY_TEXT } from "../visibility";
+import { visibilityText } from "../visibility";
 import { GroupScreenFrame } from "./GroupScreenFrame";
 
 /**
@@ -93,7 +93,7 @@ export function MembersScreen({
   return (
     <GroupScreenFrame title={manage ? "멤버 관리" : "멤버 보기"} onBack={onBack}>
       <p className="pt-0.5 text-[13px] leading-5 wrap-break-word break-keep text-muted-foreground">
-        {`${roomName} · ${VISIBILITY_TEXT[visibility]} · ${memberCountText(memberCount)}`}
+        {`${roomName} · ${visibilityText(visibility)} · ${memberCountText(memberCount)}`}
       </p>
       {manage && visibility === "private" && invite !== null && (
         <div className="pt-4">

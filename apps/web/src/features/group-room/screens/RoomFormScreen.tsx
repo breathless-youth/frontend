@@ -12,7 +12,7 @@ import { groupFieldError, isOverGroupLimit } from "../fieldError";
 import { GROUP_ROOM_LIMITS, countGroupText } from "../model/limits";
 import type { RoomVisibility } from "../model/roomMenu";
 import type { CategoryOption, RoomFormServerError, RoomFormValues } from "../types";
-import { VISIBILITY_TEXT } from "../visibility";
+import { visibilityText } from "../visibility";
 
 const VISIBILITY_OPTIONS: { value: RoomVisibility; description: string }[] = [
   { value: "public", description: "공개 그룹 목록에 보이고, 신청을 받아 그룹장이 수락해요" },
@@ -271,7 +271,7 @@ function VisibilityOption({
       />
       <span className="flex min-w-0 flex-col">
         <span id={titleId} className="text-[15px] leading-5.5 font-bold text-foreground">
-          {VISIBILITY_TEXT[value]}
+          {visibilityText(value)}
         </span>
         <span id={descriptionId} className="text-[13px] leading-5 break-keep text-muted-foreground">
           {description}
@@ -293,7 +293,7 @@ function FixedVisibility({ visibility }: { visibility: RoomVisibility }) {
       <Icon aria-hidden="true" size={20} className="mt-px shrink-0" />
       <span className="flex min-w-0 flex-col">
         <span className="text-[15px] leading-5.5 font-bold text-foreground">
-          {VISIBILITY_TEXT[visibility]}
+          {visibilityText(visibility)}
         </span>
         <span className="text-[13px] leading-5 break-keep">
           공개와 비공개는 그룹을 만든 뒤에 바꿀 수 없어요

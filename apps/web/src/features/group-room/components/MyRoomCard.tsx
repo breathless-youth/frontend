@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { studyingCount, studyingCountText } from "../model/desks";
 import { memberCountText } from "../model/limits";
 import type { MyRoomSummary } from "../types";
-import { VISIBILITY_TEXT, VISIBILITY_TONE_CLASS } from "../visibility";
+import { VISIBILITY_TONE_CLASS, visibilityText } from "../visibility";
 import { DeskRow } from "./DeskRow";
 import { CategoryTag } from "./RoomMeta";
 import { StudyStatus } from "./StudyStatus";
@@ -26,7 +26,7 @@ export function MyRoomCard({
   const count = studyingCount(room.members);
   const label = [
     room.name,
-    VISIBILITY_TEXT[room.visibility],
+    visibilityText(room.visibility),
     room.categoryLabel,
     memberCountText(room.memberCount),
     studyingCountText(count),
@@ -57,7 +57,7 @@ export function MyRoomCard({
           )}
         >
           {room.visibility === "private" && <Lock aria-hidden="true" size={12} strokeWidth={2.4} />}
-          {VISIBILITY_TEXT[room.visibility]}
+          {visibilityText(room.visibility)}
         </span>
       </span>
       <StudyStatus count={count} />

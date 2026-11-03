@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 import { memberCountText } from "../model/limits";
 import type { RoomVisibility } from "../model/roomMenu";
-import { VISIBILITY_TEXT, VISIBILITY_TONE_CLASS } from "../visibility";
+import { VISIBILITY_TONE_CLASS, visibilityText } from "../visibility";
 
 /** 그룹 이름 가까이에 붙는 시험·목표 칩. */
 export function CategoryTag({ label }: { label: string }) {
@@ -39,7 +39,7 @@ export function RoomMeta({
         )}
       >
         {visibility === "private" && <Lock aria-hidden="true" size={10} strokeWidth={2.4} />}
-        {VISIBILITY_TEXT[visibility]}
+        {visibilityText(visibility)}
       </span>
       <CategoryTag label={categoryLabel} />
       <span className="pl-1 text-[13px] leading-5 text-muted-foreground">

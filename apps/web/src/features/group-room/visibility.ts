@@ -1,14 +1,20 @@
+import i18n from "@/lib/i18n";
+
 import type { RoomVisibility } from "./model/roomMenu";
+
+const VISIBILITY_TEXT_KEY = {
+  public: "group-room:visibility.public",
+  private: "group-room:visibility.private",
+} as const satisfies Record<RoomVisibility, string>;
 
 /**
  * 공개 표시 글자
  *
  * 보이는 표시와 카드를 읽어 주는 이름이 같은 말을 쓰도록 한곳에 둔다.
  */
-export const VISIBILITY_TEXT: Record<RoomVisibility, string> = {
-  public: "공개",
-  private: "비공개",
-};
+export function visibilityText(visibility: RoomVisibility): string {
+  return i18n.t(VISIBILITY_TEXT_KEY[visibility]);
+}
 
 /**
  * 공개 표시의 바탕과 글자 색
