@@ -430,7 +430,7 @@ describe("GroupRoomPage 나가기", () => {
     await exitRoom();
     await waitFor(() => expect(location().pathname).toBe("/social/groups/10"));
     expect(leaveGroupRoom).toHaveBeenCalledWith(10);
-    expect(channel).toBeDefined();
+    expect(channel.status).toBe("closed");
   });
 
   it("수동 종료로 순공 1분 이상이면 그 그룹의 결과 화면으로 가고 그룹 나가기 API를 부른다", async () => {
