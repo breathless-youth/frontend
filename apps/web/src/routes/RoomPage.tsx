@@ -20,6 +20,15 @@ import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSo
 import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
 import { CameraOnConfirmDialog } from "@/features/live-room/components/CameraOnConfirmDialog";
 import { ClonedTrackPreview } from "@/features/live-room/components/ClonedTrackPreview";
+import { FaceMaskSearchingBadge } from "@/features/live-room/components/FaceMaskSearchingBadge";
+import {
+  FACE_MASK_EMOJIS,
+  faceMaskEmojiOf,
+  readFaceMaskEmojiId,
+  readFaceMaskOn,
+  writeFaceMaskEmojiId,
+  writeFaceMaskOn,
+} from "@/features/live-room/faceMaskSettings";
 import { useCameraPreviewAspect } from "@/features/live-room/useCameraPreviewAspect";
 import { ModeEntryButton } from "@/features/multi-timer/components/ModeEntryButton";
 import { MultiTimerScreen } from "@/features/multi-timer/components/MultiTimerScreen";
@@ -117,6 +126,7 @@ import { useSubjects } from "@/features/study-session/useSubjects";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
 import { useTrackedVisionDetector } from "@/features/study-session/useVisionReadyTracking";
+import type { FaceSpot } from "@/features/study-session/vision/faceSpot";
 import { createTimelapseRecorder } from "@/features/timelapse/timelapseRecorder";
 import type { CameraPromptChoice, SessionHelpTrigger } from "@/lib/amplitude";
 import {
@@ -127,6 +137,8 @@ import {
   trackStudySessionCameraPromptShown,
   trackStudySessionExitCancelled,
   trackStudySessionExitRequested,
+  trackStudySessionFaceMaskEmojiSelected,
+  trackStudySessionFaceMaskToggled,
   trackStudySessionHelpCompleted,
   trackStudySessionHelpDismissed,
   trackStudySessionHelpShown,
@@ -553,6 +565,38 @@ function RoomSessionScreen({
   // 종료·초대·과목 페이지·타이머 화면은 먼저 열렸으면 닫힌 뒤에 묻는다. 이 창도 aria-modal이라
   // modalOverlayOpen은 조건에 넣지 않는다(뜨자마자 스스로를 닫는 순환이 된다).
   const [cameraPromptAnswered, setCameraPromptAnswered] = useState(false);
+  // 내 화면에만 그리는 가림이라 소셜룸·타임랩스와 설정을 나누지 않는다.
+  const [faceMaskOn, setFaceMaskOn] = useState(() => readFaceMaskOn("single"));
+  const [faceMaskEmojiId, setFaceMaskEmojiId] = useState(() => readFaceMaskEmojiId("single"));
+  const [faceSpot, setFaceSpot] = useState<FaceSpot | null>(null);
+  // 카메라가 바뀌면 이전 영상에서 구한 위치가 새 영상과 맞지 않아 렌더 중에 비운다.
+  const [faceSpotStream, setFaceSpotStream] = useState(cameraStream);
+  if (faceSpotStream !== cameraStream) {
+    setFaceSpotStream(cameraStream);
+    setFaceSpot(null);
+  }
+  useEffect(() => {
+    if (!faceMaskOn) {
+      return;
+    }
+    return visionDetector.subscribeFaceSpot(setFaceSpot);
+  }, [faceMaskOn, visionDetector]);
+  const faceMask = faceMaskOn
+    ? { spot: faceSpot, emojiUrl: faceMaskEmojiOf(faceMaskEmojiId).url }
+    : null;
+  function changeFaceMaskOn(next: boolean) {
+    trackStudySessionFaceMaskToggled({ on: next, roomType: "single" });
+    writeFaceMaskOn("single", next);
+    setFaceMaskOn(next);
+    // 꺼 둔 동안에는 구독하지 않아 일시정지로 위치가 비워진 것도 놓친다.
+    // 다시 켰을 때 그 옛 위치에 이모지가 붙지 않게 비운다.
+    setFaceSpot(null);
+  }
+  function changeFaceMaskEmoji(id: string) {
+    trackStudySessionFaceMaskEmojiSelected({ emojiId: id, roomType: "single" });
+    writeFaceMaskEmojiId("single", id);
+    setFaceMaskEmojiId(id);
+  }
   const helpAutoPending =
     userId !== null &&
     !helpDismissed &&
@@ -594,7 +638,7 @@ function RoomSessionScreen({
   }, [cameraPromptOpen, measurePreviewAspect]);
   /** 입장 카메라 확인 창의 답. 표시 모드만 바꾸고 카메라·감지·타이머는 그대로 둔다. */
   function answerCameraPrompt(choice: CameraPromptChoice) {
-    trackStudySessionCameraPromptAnswered({ choice, roomType: "single" });
+    trackStudySessionCameraPromptAnswered({ choice, roomType: "single", faceMask: faceMaskOn });
     setCameraPromptAnswered(true);
     if (choice === "camera") {
       setSimpleMode(false);
@@ -959,6 +1003,7 @@ function RoomSessionScreen({
         videoRef={videoRef}
         hidden={simpleMode}
         rotating={!simpleMode && rotationPhase === "rotating"}
+        faceMask={faceMask}
       />
 
       {phase.name === "studying" ? (
@@ -1370,12 +1415,27 @@ function RoomSessionScreen({
         confirmLabel={CAMERA_PROMPT_COPY.confirm}
         returnFocus={() => simpleToggleRef.current}
         preview={
-          <ClonedTrackPreview
-            stream={cameraStream}
-            facing={cameraFacing}
-            targetAspect={previewAspect ?? undefined}
-          />
+          <div className="relative size-full">
+            <ClonedTrackPreview
+              stream={cameraStream}
+              facing={cameraFacing}
+              targetAspect={previewAspect ?? undefined}
+              faceMask={faceMask}
+            />
+            {faceMaskOn && faceSpot === null && <FaceMaskSearchingBadge />}
+          </div>
         }
+        // 싱글룸은 영상을 다시 합성하지 않아 어느 기기에서나 쓸 수 있다.
+        faceMask={{
+          supported: true,
+          on: faceMaskOn,
+          onChange: changeFaceMaskOn,
+          emojis: FACE_MASK_EMOJIS,
+          emojiId: faceMaskEmojiId,
+          onEmojiChange: changeFaceMaskEmoji,
+          tooltip: CAMERA_PROMPT_COPY.faceMaskTooltip,
+          caption: CAMERA_PROMPT_COPY.faceMaskCaption,
+        }}
         onCancel={() => answerCameraPrompt("simple")}
         onConfirm={() => answerCameraPrompt("camera")}
       />

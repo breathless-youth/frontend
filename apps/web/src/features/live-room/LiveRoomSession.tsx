@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-import { BookOpen, LoaderCircle } from "lucide-react";
+import { BookOpen } from "lucide-react";
 
 import type { IceServer, ProfileResponse, RoomMember, SubjectResponse } from "@focusmakers/types";
 
@@ -11,6 +11,7 @@ import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSo
 import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
 import { CameraOnConfirmDialog } from "@/features/live-room/components/CameraOnConfirmDialog";
 import { ClonedTrackPreview } from "@/features/live-room/components/ClonedTrackPreview";
+import { FaceMaskSearchingBadge } from "@/features/live-room/components/FaceMaskSearchingBadge";
 import {
   RoomControlBar,
   roomBarButtonClassName,
@@ -825,19 +826,7 @@ export function LiveRoomSession({
                   facing={cameraFacing}
                   targetAspect={previewAspect ?? undefined}
                 />
-                {/* 사람을 찾기 전의 흐림을 가리기 효과로 착각하지 않게 알린다. 내 화면에만 그린다. */}
-                {faceMask.on && faceMask.faceSpot === null && (
-                  <div role="status" className="absolute inset-0 flex items-center justify-center">
-                    <span className="flex items-center gap-1.5 rounded-full bg-black/55 px-3 py-1.5 text-[13px] font-semibold text-white">
-                      <LoaderCircle
-                        size={14}
-                        aria-hidden
-                        className="animate-spin motion-reduce:animate-none"
-                      />
-                      가릴 위치를 찾고 있어요
-                    </span>
-                  </div>
-                )}
+                {faceMask.on && faceMask.faceSpot === null && <FaceMaskSearchingBadge />}
               </div>
             </div>
           ) : (

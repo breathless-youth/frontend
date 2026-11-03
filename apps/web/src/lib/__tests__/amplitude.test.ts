@@ -1136,7 +1136,13 @@ describe("카메라 확인 창 이벤트", () => {
     const m = await loadModule();
 
     m.trackStudySessionCameraPromptShown("single");
-    m.trackStudySessionCameraPromptAnswered({ choice: "camera", roomType: "single" });
+    m.trackStudySessionFaceMaskToggled({ on: true, roomType: "single" });
+    m.trackStudySessionFaceMaskEmojiSelected({ emojiId: "cat", roomType: "single" });
+    m.trackStudySessionCameraPromptAnswered({
+      choice: "camera",
+      roomType: "single",
+      faceMask: false,
+    });
 
     expect(mocks.track).not.toHaveBeenCalled();
   });
@@ -1147,11 +1153,22 @@ describe("카메라 확인 창 이벤트", () => {
     m.initAmplitude();
 
     m.trackStudySessionCameraPromptShown("single");
-    m.trackStudySessionCameraPromptAnswered({ choice: "simple", roomType: "single" });
+    m.trackStudySessionFaceMaskToggled({ on: true, roomType: "single" });
+    m.trackStudySessionFaceMaskEmojiSelected({ emojiId: "cat", roomType: "single" });
+    m.trackStudySessionCameraPromptAnswered({
+      choice: "simple",
+      roomType: "single",
+      faceMask: true,
+    });
 
     expect(mocks.track.mock.calls).toEqual([
       ["study_session_camera_prompt_shown", { room_type: "single" }],
-      ["study_session_camera_prompt_answered", { choice: "simple", room_type: "single" }],
+      ["study_session_face_mask_toggled", { on: true, room_type: "single" }],
+      ["study_session_face_mask_emoji_selected", { emoji_id: "cat", room_type: "single" }],
+      [
+        "study_session_camera_prompt_answered",
+        { choice: "simple", room_type: "single", face_mask: true },
+      ],
     ]);
   });
 });

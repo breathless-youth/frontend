@@ -40,6 +40,10 @@ export interface CameraOnConfirmDialogProps {
     emojis: readonly FaceMaskEmoji[];
     emojiId: string;
     onEmojiChange: (id: string) => void;
+    /** 안내 아이콘 툴팁의 줄들. 기본은 소셜룸 문구다. */
+    tooltip?: readonly string[];
+    /** 스위치 아래 보조 문구. 없으면 그리지 않는다. */
+    caption?: string;
   };
   /** 인라인 오류(입장 재시도 실패 등). 없으면 표시하지 않는다. */
   errorMessage?: string | null;
@@ -75,6 +79,12 @@ export interface CameraOnConfirmDialogProps {
   onCancel: () => void;
   onConfirm: () => void;
 }
+
+// 발열 줄은 소셜룸 송신 합성 때문이라 싱글룸은 첫 줄만 넘긴다.
+const SOCIAL_FACE_MASK_TOOLTIP = [
+  "빠르게 움직이면 얼굴이 잠깐 보일 수 있어요",
+  "오래 켜 두면 기기가 뜨거워질 수 있어요",
+] as const;
 
 // 이모지 줄은 옆으로 넘기는 한 줄이라, 뒤쪽 이모지를 고른 채 다시 열면 고른 칸이 줄 밖에 가려진다.
 function revealSelected(item: HTMLButtonElement | null) {
@@ -174,8 +184,9 @@ export function CameraOnConfirmDialog({
                     contentClassName="bg-(--session-dialog-cancel-bg) text-white"
                     collisionBoundary={contentEl}
                   >
-                    <p>빠르게 움직이면 얼굴이 잠깐 보일 수 있어요</p>
-                    <p>오래 켜 두면 기기가 뜨거워질 수 있어요</p>
+                    {(faceMask.tooltip ?? SOCIAL_FACE_MASK_TOOLTIP).map((line) => (
+                      <p key={line}>{line}</p>
+                    ))}
                   </InfoTooltip>
                 )}
               </div>
@@ -190,6 +201,9 @@ export function CameraOnConfirmDialog({
               <p className="text-[13px] text-muted-foreground">
                 이 기기에서는 얼굴 가리기를 쓸 수 없어요
               </p>
+            )}
+            {faceMask.caption !== undefined && (
+              <p className="text-[13px] text-muted-foreground">{faceMask.caption}</p>
             )}
             {/* 스위치를 꺼도 줄을 남겨 두어 켜고 끌 때 창 높이가 바뀌지 않게 한다. */}
             {faceMask.supported && (
