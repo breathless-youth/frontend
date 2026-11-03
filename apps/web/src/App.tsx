@@ -54,7 +54,7 @@ import { RankingPage } from "@/routes/RankingPage";
 import { RecordsPage } from "@/routes/RecordsPage";
 import { RoomPage } from "@/routes/RoomPage";
 import { SettingsPage } from "@/routes/SettingsPage";
-import { SocialHomePage } from "@/routes/SocialHomePage";
+import { SocialTabRoute } from "@/routes/SocialTabRoute";
 
 /**
  * 탭 밖 화면 lazy 로딩
@@ -280,7 +280,7 @@ export function App() {
               <Route path="/planner" element={<PlannerPage />} />
               <Route path="/manual-record" element={<ManualRecordPage />} />
               <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/social" element={<SocialHomePage />} />
+              <Route path="/social" element={<SocialTabRoute />} />
               {import.meta.env.DEV && (
                 <Route path="/dev/webrtc-loopback" element={<WebrtcLoopbackPage />} />
               )}

@@ -1,21 +1,12 @@
-import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { GraceEndDialog } from "@/features/social-room/GraceEndDialog";
 import { IconSocialPeople } from "@/features/social-room/icons";
 import { joinErrorReason } from "@/features/social-room/joinErrorCopy";
-import { consumeSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
-import type { SocialRoomNotice } from "@/features/social-room/socialRoomNotice";
+import { useSocialRoomNoticeHandoff } from "@/features/social-room/useSocialRoomNoticeHandoff";
 import { trackSocialRoomCreateFailed, trackSocialRoomCreated } from "@/lib/amplitude";
-import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { slideNavigate } from "@/lib/pageTransition";
 import { createRoom } from "@/lib/roomApi";
 import { showToast } from "@/lib/toast";
@@ -30,35 +21,8 @@ export function SocialHomePage() {
 
   const userId = useUserId();
 
-  // 룸에서 밀려나며 남긴 사유를 여기서 알린다(BY-436). 플래그는 1회성이라 소비 결과를 ref에
-  // 고정한다 — StrictMode가 이펙트를 두 번 돌려도 두 번째 소비가 null로 굳지 않는다
-  // (`SettingsPage`의 프로필 저장 토스트와 같은 패턴).
-  // 네이티브 셸에서 세션 웹뷰가 내부 이동으로 잠깐 그리는 소셜 홈(noticeHandoff)은 소비하지
-  // 않는다 — 곧 진짜 소셜 탭 웹뷰로 전환되는데 여기서 띄우면 토스트가 전환에 잘려 깜빡인다.
-  // 안내는 localStorage에 남아 도착지 탭이 띄운다. 브라우저 단독 모드는 전환이 없으므로
-  // 여기가 곧 도착지다.
-  const handoff =
-    isNativeBridgeAvailable() &&
-    (location.state as { noticeHandoff?: boolean } | null)?.noticeHandoff === true;
-  const noticeRef = useRef<SocialRoomNotice | null | undefined>(undefined);
-  if (!handoff) {
-    if (noticeRef.current == null) {
-      noticeRef.current = consumeSocialRoomNotice();
-    }
-  }
-  // 자리비움(grace-end)만 모달로 가른다 — 입장/생성 실패(failure)는 기존대로 토스트다.
-  const [graceMessage, setGraceMessage] = useState<string | null>(null);
-  useEffect(() => {
-    const notice = noticeRef.current;
-    if (notice == null) {
-      return;
-    }
-    if (notice.kind === "grace-end") {
-      setGraceMessage(notice.message);
-    } else {
-      showToast(notice.message);
-    }
-  }, []);
+  // 룸에서 밀려나며 남긴 사유를 여기서 알린다.
+  const { graceMessage, dismissGrace } = useSocialRoomNoticeHandoff();
 
   const createMutation = useMutation({
     mutationFn: () => createRoom(),
@@ -79,9 +43,6 @@ export function SocialHomePage() {
       showToast("잠시 후 다시 시도해 주세요");
     },
   });
-
-  const [graceTitle, ...graceBodyLines] = (graceMessage ?? "").split("\n");
-  const graceBody = graceBodyLines.join("\n");
 
   return (
     <main
@@ -136,34 +97,7 @@ export function SocialHomePage() {
         </div>
       </div>
 
-      <Dialog
-        open={graceMessage !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setGraceMessage(null);
-          }
-        }}
-      >
-        <DialogContent
-          showCloseButton={false}
-          className="theme-soft-blue w-[calc(100%-2rem)] max-w-90 rounded-lg bg-muted"
-        >
-          <DialogHeader>
-            <DialogTitle>{graceTitle}</DialogTitle>
-            {graceBody.length > 0 ? (
-              <DialogDescription className="whitespace-pre-line">{graceBody}</DialogDescription>
-            ) : null}
-          </DialogHeader>
-          <Button
-            variant="default"
-            size="lg"
-            className="w-full"
-            onClick={() => setGraceMessage(null)}
-          >
-            확인
-          </Button>
-        </DialogContent>
-      </Dialog>
+      <GraceEndDialog message={graceMessage} onClose={dismissGrace} />
     </main>
   );
 }

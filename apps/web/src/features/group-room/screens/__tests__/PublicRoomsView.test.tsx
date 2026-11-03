@@ -1,7 +1,9 @@
-import { screen, within } from "@testing-library/react";
+import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
+
+import { stubIntersectionObserver } from "@/test/intersectionObserverStub";
 
 import { renderScreen } from "../../__tests__/renderScreen";
 import { buildGroupRoomFixtures } from "../../fixtures";
@@ -201,5 +203,52 @@ describe("PublicRoomsView", () => {
     expect(screen.getByText("공개 그룹을 불러오지 못했어요")).toBeInTheDocument();
     expect(screen.queryByRole("status", { name: "불러오는 중" })).toBeNull();
     expect(screen.queryByText("아직 공개 그룹이 없어요")).toBeNull();
+  });
+
+  it("다음 쪽이 있으면 목록 끝에 감지 칸을 두고 칸이 보이면 다음 쪽을 부른다", () => {
+    const observer = stubIntersectionObserver();
+    const onLoadMore = vi.fn();
+    renderScreen(
+      <PublicRoomsView
+        query=""
+        onQueryChange={vi.fn()}
+        categories={fixtures.categories}
+        category={null}
+        onCategoryChange={vi.fn()}
+        rooms={fixtures.publicRooms}
+        hasMore
+        onLoadMore={onLoadMore}
+        onOpenRoom={vi.fn()}
+      />,
+    );
+    const lastCard = screen.getAllByRole("listitem").at(-1)!;
+    // 감지 칸은 마지막 카드 뒤에 온다.
+    expect(
+      lastCard.compareDocumentPosition(screen.getByTestId("public-rooms-more")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    act(() => observer.reach());
+    expect(onLoadMore).toHaveBeenCalledOnce();
+  });
+
+  it("다음 쪽이 없거나 IntersectionObserver가 없으면 다음 쪽을 부르지 않는다", () => {
+    const props = {
+      query: "",
+      onQueryChange: vi.fn(),
+      categories: fixtures.categories,
+      category: null,
+      onCategoryChange: vi.fn(),
+      rooms: fixtures.publicRooms,
+      onLoadMore: vi.fn(),
+      onOpenRoom: vi.fn(),
+    };
+    const { rerender } = renderScreen(<PublicRoomsView {...props} hasMore={false} />);
+    expect(screen.queryByTestId("public-rooms-more")).toBeNull();
+
+    // jsdom처럼 IntersectionObserver가 없는 엔진에서도 감지 칸만 두고 오류 없이 그린다.
+    rerender(<PublicRoomsView {...props} hasMore />);
+
+    expect(screen.getByTestId("public-rooms-more")).toBeInTheDocument();
+    expect(props.onLoadMore).not.toHaveBeenCalled();
   });
 });

@@ -1,5 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { PendingApplication } from "../../types";
@@ -14,6 +15,35 @@ const application: PendingApplication = {
   categoryLabel: "공무원",
   expiresAt: "2026-11-05T09:00:00+09:00",
 };
+
+/** 띠로 시트를 열고, 마지막 신청을 취소하면 띠가 사라지는 그룹 탭의 흐름 */
+function EmptiedHarness() {
+  const [open, setOpen] = useState(false);
+  const [applications, setApplications] = useState([application]);
+  return (
+    <>
+      <button type="button" role="tab" aria-selected="true">
+        내 그룹
+      </button>
+      {applications.length > 0 && (
+        <button type="button" onClick={() => setOpen(true)}>
+          신청 중인 공개 그룹 1
+        </button>
+      )}
+      <PendingApplicationsSheet
+        open={open}
+        onOpenChange={setOpen}
+        applications={applications}
+        now={NOW}
+        cancelingId={null}
+        // 시트가 열린 동안에는 바깥 요소가 화면 낭독기에서 숨겨져 있어 숨긴 요소까지 찾는다.
+        emptiedFocus={() => screen.getByRole("tab", { name: "내 그룹", hidden: true })}
+        onCancel={() => setApplications([])}
+        onOpenRoom={vi.fn()}
+      />
+    </>
+  );
+}
 
 describe("PendingApplicationsSheet", () => {
   it("제목, 설명, 남은 시간, 신청 취소를 보인다", () => {
@@ -151,5 +181,14 @@ describe("PendingApplicationsSheet", () => {
       />,
     );
     expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it("목록이 비어 닫히면 사라진 띠 대신 정해 준 요소로 포커스를 돌려준다", async () => {
+    render(<EmptiedHarness />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "신청 중인 공개 그룹 1" }));
+    await user.click(await screen.findByRole("button", { name: "신청 취소" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(screen.getByRole("tab", { name: "내 그룹" })).toHaveFocus());
   });
 });

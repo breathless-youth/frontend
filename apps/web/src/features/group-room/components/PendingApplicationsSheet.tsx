@@ -16,6 +16,7 @@ import { CategoryTag } from "./RoomMeta";
  * 목록을 받는 동안의 빈 목록은 닫을 까닭이 아니어서 `loading`이면 줄 자리표시를 두고 닫지 않는다.
  * 시트는 body로 나가므로 Soft Blue 테마를 시트에도 단다.
  * 시트 안 버튼은 iOS에서 살짝 움직인 탭이 끌기로 잡혀 버려지지 않게 목록째 끌기에서 뺀다.
+ * 목록이 비어 닫힐 때는 시트를 연 띠도 함께 사라져 포커스가 갈 곳을 잃으므로 `emptiedFocus`가 준 요소로 돌려준다.
  */
 export function PendingApplicationsSheet({
   open,
@@ -24,6 +25,7 @@ export function PendingApplicationsSheet({
   now,
   loading = false,
   cancelingId,
+  emptiedFocus,
   onCancel,
   onOpenRoom,
 }: {
@@ -33,11 +35,14 @@ export function PendingApplicationsSheet({
   now: Date;
   loading?: boolean;
   cancelingId: number | null;
+  /** 목록이 비어 시트가 닫힐 때 포커스를 받을 요소이고, 없으면 시트를 연 요소로 돌아간다. */
+  emptiedFocus?: () => HTMLElement | null;
   onCancel: (applicationId: number) => void;
   onOpenRoom: (roomId: number) => void;
 }) {
   const close = useEffectEvent(() => onOpenChange(false));
-  const emptied = open && !loading && applications.length === 0;
+  const settledEmpty = !loading && applications.length === 0;
+  const emptied = open && settledEmpty;
   useEffect(() => {
     if (emptied) {
       close();
@@ -46,7 +51,10 @@ export function PendingApplicationsSheet({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="theme-soft-blue">
+      <DrawerContent
+        className="theme-soft-blue"
+        finalFocus={() => (settledEmpty ? (emptiedFocus?.() ?? true) : true)}
+      >
         <DrawerTitle className="pt-4 text-lg leading-6.5 font-bold text-foreground">
           신청 중인 공개 그룹
         </DrawerTitle>

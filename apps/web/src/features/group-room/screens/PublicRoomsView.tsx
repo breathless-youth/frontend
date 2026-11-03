@@ -7,6 +7,7 @@ import { CategoryChips } from "../components/CategoryChips";
 import { PublicRoomCard } from "../components/PublicRoomCard";
 import { RoomsEmptyState } from "../components/RoomsEmptyState";
 import type { CategoryOption, PublicRoomSummary } from "../types";
+import { useInfiniteSentinel } from "../useInfiniteSentinel";
 
 const EMPTY_COPY = {
   none: {
@@ -27,6 +28,7 @@ const EMPTY_COPY = {
  * 빈 상태에는 버튼을 두지 않고 그룹 만들기는 `+` 버튼이 맡는다.
  * 목록을 받는 동안에도 검색어와 칩을 바꿀 수 있게 하고, 받아 둔 목록이 있으면 다시 받는 중이거나 실패해도 그 목록을 보인다.
  * 목록이 없을 때만 목록 자리에 오류나 자리표시를 두어 빈 상태가 잠깐 보이지 않게 한다.
+ * 서버에 다음 쪽이 있으면 목록 끝에 보이지 않는 감지 칸을 두어 그 칸이 화면에 들어올 때 다음 쪽을 부른다.
  */
 export function PublicRoomsView({
   query,
@@ -37,6 +39,8 @@ export function PublicRoomsView({
   rooms,
   loading = false,
   error,
+  hasMore = false,
+  onLoadMore,
   onOpenRoom,
 }: {
   query: string;
@@ -48,20 +52,31 @@ export function PublicRoomsView({
   loading?: boolean;
   /** 목록을 받지 못했을 때 목록 자리에 둘 오류 표시이고, 다시 시도까지 호출부가 채운다. */
   error?: ReactNode;
+  /** 서버에 다음 쪽이 있는지 */
+  hasMore?: boolean;
+  /** 목록 끝이 보일 때 다음 쪽을 받고, 받는 중에 또 불려도 한 번만 받는 일은 호출부가 맡는다. */
+  onLoadMore?: () => void;
   onOpenRoom: (roomId: number) => void;
 }) {
+  const watchMore = hasMore && onLoadMore !== undefined;
+  const moreRef = useInfiniteSentinel(() => onLoadMore?.(), watchMore);
   const emptyCopy =
     query.trim() === "" && category === null ? EMPTY_COPY.none : EMPTY_COPY.filtered;
   let list: ReactNode;
   if (rooms.length > 0) {
     list = (
-      <ul className="flex flex-col gap-2.5 pt-2.5">
-        {rooms.map((room) => (
-          <li key={room.roomId}>
-            <PublicRoomCard room={room} onOpen={onOpenRoom} />
-          </li>
-        ))}
-      </ul>
+      <>
+        <ul className="flex flex-col gap-2.5 pt-2.5">
+          {rooms.map((room) => (
+            <li key={room.roomId}>
+              <PublicRoomCard room={room} onOpen={onOpenRoom} />
+            </li>
+          ))}
+        </ul>
+        {watchMore && (
+          <div ref={moreRef} aria-hidden="true" data-testid="public-rooms-more" className="h-px" />
+        )}
+      </>
     );
   } else if (error) {
     list = <div className="pt-2.5">{error}</div>;

@@ -1633,7 +1633,8 @@ export function trackErrorRetryPressed(
     | "live_room_entry"
     | "contact"
     | "interview_form"
-    | "ranking",
+    | "ranking"
+    | "group_tab",
 ) {
   if (!initialized) return;
   track("error_retry_pressed", { screen });
