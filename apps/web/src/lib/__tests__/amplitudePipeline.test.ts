@@ -1,4 +1,8 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import { createElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { NotificationToast } from "@/components/NotificationToast";
 
 /**
  * **실제 Amplitude SDK를 mock 없이 돌려 최종 전송 payload를 검사한다.**
@@ -81,7 +85,7 @@ afterEach(() => {
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("Amplitude 전송 파이프라인 (실제 SDK)", () => {
-  it("나가는 payload 어디에도 userId가 남지 않는다", async () => {
+  it("나가는 payload 어디에도 userId와 다른 사람의 닉네임·그룹 이름이 남지 않는다", async () => {
     const { initAmplitude, trackAmplitudePageView, trackStudySessionStarted } =
       await import("../amplitude");
     const amplitude = await import("@amplitude/analytics-browser");
@@ -126,5 +130,33 @@ describe("Amplitude 전송 파이프라인 (실제 SDK)", () => {
     // 길이(5자) 미달로 user_id를 제거해, 위 단언이 통과해도 콘솔에는 전원이 익명으로 남는다.
     expect(sent.length).toBeGreaterThan(0);
     expect(sent.every((batch) => batch.options?.min_id_length === 1)).toBe(true);
+
+    // 앱 안 알림 토스트의 문구에는 다른 사람의 닉네임과 그룹 이름이 들어간다.
+    // 클릭 autocapture는 누른 버튼의 글자와 aria-label을 이벤트 속성과 요소 계층에 싣는다.
+    // 버튼에 단 가림 표시가 실제 SDK에서도 그 값을 가리는지 전송 payload로 본다.
+    sent.length = 0;
+    render(
+      createElement(NotificationToast, {
+        title: "새 신청을 확인해 볼까요?",
+        body: "민준님이 새벽 공시반에 신청했어요",
+        onOpen: () => {},
+      }),
+    );
+    fireEvent.click(screen.getByRole("button"));
+    await amplitude.flush().promise;
+    await tick();
+
+    const clicked = sent
+      .flatMap((batch) => batch.events)
+      .find((event) => event.event_type === "[Amplitude] Element Clicked");
+    const clickProperties = clicked?.event_properties as Record<string, unknown> | undefined;
+    expect(clickProperties?.["[Amplitude] Element Tag"]).toBe("button");
+    expect(clickProperties?.["[Amplitude] Element Text"]).toBe("*****");
+    expect(clickProperties?.["[Amplitude] Element Aria Label"]).toBe("*****");
+    const toastNames = /민준|새벽 공시반|확인해 볼까요/;
+    expect(JSON.stringify(clickProperties?.["[Amplitude] Element Hierarchy"])).not.toMatch(
+      toastNames,
+    );
+    expect(JSON.stringify(clicked)).not.toMatch(toastNames);
   });
 });
