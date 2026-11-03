@@ -25,6 +25,8 @@ import { useBackTo } from "@/features/group-room/useBackTo";
 import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
 import type { GroupRoomLocationState } from "@/features/live-room/liveRoomEntryState";
 import { useNow } from "@/features/ranking/useNow";
+import { GraceEndDialog } from "@/features/social-room/GraceEndDialog";
+import { useSocialRoomNoticeHandoff } from "@/features/social-room/useSocialRoomNoticeHandoff";
 import { leaveGroup, setGroupNotification } from "@/lib/groupRoomApi";
 import {
   cannotLoadFirst,
@@ -46,19 +48,26 @@ import { useIdentityPending, useUserId } from "@/lib/userId";
  * 신원이 정해지기 전에는 그리지 않아서, 첫 렌더의 빈 신원을 멤버 아님으로 읽고 그룹 탭으로 돌려보내지 않는다.
  * 신원 없이 열었거나 주소의 그룹 번호가 번호가 아니면 그룹 탭으로 바꿔 간다.
  * 다른 그룹으로 바로 이동하면 확인 창과 나간 표시가 앞 그룹에 남지 않게 그룹마다 새로 그린다.
+ * 그룹 공부방에서 자리를 오래 비우거나 방이 사라져 돌아오면 남겨 둔 안내를 여기서 띄운다.
  */
 export function GroupHomePage() {
   const identityPending = useIdentityPending();
   const userId = useUserId();
   const groupId = parseRouteId(useParams().groupId);
   const location = useLocation();
+  const { graceMessage, dismissGrace } = useSocialRoomNoticeHandoff();
   if (identityPending) {
     return null;
   }
   if (userId === null || groupId === null) {
     return <Navigate to={{ pathname: "/social", search: baseSearch(location.search) }} replace />;
   }
-  return <GroupHome key={`${userId}:${groupId}`} userId={userId} groupId={groupId} />;
+  return (
+    <>
+      <GroupHome key={`${userId}:${groupId}`} userId={userId} groupId={groupId} />
+      <GraceEndDialog message={graceMessage} onClose={dismissGrace} />
+    </>
+  );
 }
 
 /**

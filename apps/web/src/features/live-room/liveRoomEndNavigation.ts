@@ -3,8 +3,9 @@ import type { StudySessionResponse } from "@focusmakers/types";
 import { SUB_MINUTE_SEC } from "@/features/study-session/formatDuration";
 import type { SessionEndReason } from "@/features/study-session/sessionState";
 
+/** `home`은 공부방을 연 홈이고, 초대코드 방은 소셜 홈, 그룹 공부방은 그 그룹의 그룹 홈이다. */
 export type LiveRoomDoneNavigation =
-  { to: "result"; sessions: StudySessionResponse[] } | { to: "social" };
+  { to: "result"; sessions: StudySessionResponse[] } | { to: "home" };
 
 // 결과 화면은 싱글룸과 같은 조건에서만 뜬다.
 // 유예 만료는 수동 종료로 잡혀도 안내가 먼저라 결과를 건너뛴다
@@ -18,5 +19,10 @@ export function resolveLiveRoomDoneNavigation(input: {
   const { expired, endReason, focusSec, sessions } = input;
   const showResult =
     !expired && endReason?.kind === "MANUAL" && focusSec >= SUB_MINUTE_SEC && sessions.length > 0;
-  return showResult ? { to: "result", sessions } : { to: "social" };
+  return showResult ? { to: "result", sessions } : { to: "home" };
+}
+
+/** 그룹장이 공부방에서 나를 내보냈을 때 그룹 탭에 남기는 안내 */
+export function kickedNotice(groupName: string | null): string {
+  return groupName ? `${groupName}에서 내보내졌어요` : "그룹에서 내보내졌어요";
 }

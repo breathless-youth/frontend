@@ -21,6 +21,8 @@ import type { MockRoomChannel } from "@/features/live-room/mockRoomChannel";
 import { EMPTY_STATS } from "@/features/planner/plannerDay";
 import { consumeSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { createMockCameraAdapter } from "@/features/study-session/adapters/cameraAdapter";
+import { submitStudySession } from "@/features/study-session/submitStudySession";
+import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { ApiError } from "@/lib/api";
 import { getGroupHome, joinGroupRoom, leaveGroupRoom } from "@/lib/groupRoomApi";
 import { queryClient as appQueryClient } from "@/lib/queryClient";
@@ -244,6 +246,44 @@ function renderGroupRoom({
   };
 }
 
+/**
+ * 그룹 공부방에 들어가 SNAPSHOT과 그룹 홈 조회까지 받은 상태
+ *
+ * 공부방은 내보내짐 안내와 그룹장 판단에 그룹 홈 캐시를 쓰므로 그 조회가 끝날 때까지 기다린다.
+ */
+async function enterGroupRoom({
+  groupId = 10,
+  groupName = GROUP_NAME,
+  visibility = "PUBLIC",
+  snapshot = [member(7)],
+  state,
+}: {
+  groupId?: number;
+  groupName?: string;
+  visibility?: GroupHomeResponse["visibility"];
+  snapshot?: RoomMember[];
+  state?: unknown;
+} = {}) {
+  vi.mocked(getGroupHome).mockResolvedValue(groupHome({ groupId, name: groupName, visibility }));
+  const rendered = renderGroupRoom({ path: `/social/groups/${groupId}/room`, snapshot, state });
+  await screen.findByRole("button", { name: "나가기" });
+  await waitFor(() => expect(getGroupHome).toHaveBeenCalledWith(groupId, expect.anything()));
+  // 채널 연결, 카메라 끄고 입장, SNAPSHOT 반영, 그룹 홈 응답까지 흘려보낸다.
+  await act(async () => {});
+  return { ...rendered, channel: rendered.channel() };
+}
+
+/** 나가기 버튼과 종료 확인 창의 확인 */
+async function exitRoom() {
+  const user = userEvent.setup();
+  await user.click(screen.getByRole("button", { name: "나가기" }));
+  await user.click(screen.getByRole("button", { name: "공부 종료" }));
+}
+
+function noticeHandoffOf(location: Location): boolean {
+  return (location.state as { noticeHandoff?: boolean } | null)?.noticeHandoff === true;
+}
+
 beforeEach(() => {
   vi.mocked(joinGroupRoom).mockResolvedValue(seat());
   vi.mocked(leaveGroupRoom).mockResolvedValue(undefined);
@@ -328,5 +368,122 @@ describe("GroupRoomPage 입장", () => {
     act(() => pcs[0]?.ontrack?.({ streams: [], track: voice }));
 
     expect(player.attach).toHaveBeenCalledWith(42, voice);
+  });
+});
+
+describe("GroupRoomPage 나가기", () => {
+  it("1분 미만이면 결과 없이 그룹 홈으로 가고 그룹 나가기 API를 부른다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    const { channel, location } = await enterGroupRoom({ groupId: 10 });
+    await exitRoom();
+    await waitFor(() => expect(location().pathname).toBe("/social/groups/10"));
+    expect(leaveGroupRoom).toHaveBeenCalledWith(10);
+    expect(channel).toBeDefined();
+  });
+
+  it("수동 종료로 순공 1분 이상이면 그 그룹의 결과 화면으로 가고 그룹 나가기 API를 부른다", async () => {
+    vi.mocked(useActiveSessionRestore).mockReturnValue({
+      settled: true,
+      restored: {
+        startedAtMs: Date.now() - 130_000,
+        reportedAtMs: Date.now(),
+        baseStudySec: 130,
+        baseFocusSec: 120,
+        events: [],
+      },
+    });
+    vi.mocked(submitStudySession).mockResolvedValue([
+      {
+        id: 1,
+        userId: 7,
+        statDate: "2026-11-03",
+        startedAt: "2026-11-03T12:00:00.000Z",
+        endedAt: "2026-11-03T12:02:10.000Z",
+        studySec: 130,
+        focusSec: 120,
+        focusRate: 92.3,
+        events: [],
+      },
+    ]);
+    try {
+      const { location } = await enterGroupRoom({ groupId: 10 });
+      await exitRoom();
+      await waitFor(() => expect(location().pathname).toBe("/social/groups/10/room/result"));
+      expect(leaveGroupRoom).toHaveBeenCalledWith(10);
+      expect(location().state).toMatchObject({ sessions: [expect.objectContaining({ id: 1 })] });
+    } finally {
+      vi.mocked(useActiveSessionRestore).mockReturnValue({ settled: true, restored: null });
+    }
+  });
+
+  it("내보내지면 기록을 보내고 그룹 탭에서 내보내졌다는 안내를 본다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    const { channel, location } = await enterGroupRoom({
+      groupId: 10,
+      groupName: "새벽 5시 기상 공시반",
+    });
+    act(() => channel.emitServerMessage({ type: "KICKED", groupId: 10 }));
+    await waitFor(() => expect(location().pathname).toBe("/social"));
+    expect(submitStudySession).toHaveBeenCalled();
+    expect(leaveGroupRoom).not.toHaveBeenCalled();
+    expect(channel.status).toBe("closed");
+    expect(noticeHandoffOf(location())).toBe(false);
+    expect(consumeSocialRoomNotice()).toEqual({
+      kind: "failure",
+      message: "새벽 5시 기상 공시반에서 내보내졌어요",
+    });
+  });
+
+  it("내보내진 뒤 기록을 보내지 못해도 그룹 탭으로 가서 안내를 본다", async () => {
+    vi.mocked(submitStudySession).mockRejectedValue(new Error("네트워크"));
+    const { channel, location } = await enterGroupRoom({ groupId: 10 });
+    act(() => channel.emitServerMessage({ type: "KICKED", groupId: 10 }));
+    await waitFor(() => expect(location().pathname).toBe("/social"));
+    expect(leaveGroupRoom).not.toHaveBeenCalled();
+    expect(consumeSocialRoomNotice()).toEqual({
+      kind: "failure",
+      message: `${GROUP_NAME}에서 내보내졌어요`,
+    });
+  });
+
+  it("다른 그룹의 KICKED는 무시한다", async () => {
+    const { channel, location } = await enterGroupRoom({ groupId: 10 });
+    act(() => channel.emitServerMessage({ type: "KICKED", groupId: 99 }));
+    await act(() => Promise.resolve());
+    expect(location().pathname).toBe("/social/groups/10/room");
+  });
+
+  it("방에 다시 들어갈 수 없으면 기록을 보내고 그룹 홈에서 안내를 본다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    const { channel, location } = await enterGroupRoom({ groupId: 10 });
+    vi.mocked(joinGroupRoom).mockRejectedValue(new ApiError("x", 409, "CONFLICT"));
+
+    act(() => channel.emitServerMessage({ type: "ROOM_UNAVAILABLE", roomId: 123 }));
+
+    await waitFor(() => expect(location().pathname).toBe("/social/groups/10"));
+    expect(noticeHandoffOf(location())).toBe(false);
+    expect(leaveGroupRoom).not.toHaveBeenCalled();
+    const notice = consumeSocialRoomNotice();
+    expect(notice?.kind).toBe("grace-end");
+    expect(notice?.message).toContain("방이 종료되어");
+  });
+
+  it("PEER_BLOCKED를 받으면 그 사람과의 연결을 닫는다", async () => {
+    const { channel, pcs } = await enterGroupRoom({ snapshot: [member(7), member(42)] });
+    expect(pcs).toHaveLength(1);
+
+    act(() => channel.emitServerMessage({ type: "PEER_BLOCKED", userId: 42 }));
+
+    expect(pcs[0]?.closed).toBe(true);
+  });
+
+  it("공부방에 있는 동안에는 그룹 홈을 주기적으로 다시 받지 않는다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    await enterGroupRoom({ groupId: 10 });
+    vi.mocked(getGroupHome).mockClear();
+
+    await act(() => vi.advanceTimersByTimeAsync(61_000));
+
+    expect(getGroupHome).not.toHaveBeenCalled();
   });
 });

@@ -2,6 +2,7 @@ import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { shareInvite } from "@/features/social-room/shareInvite";
 import type * as ShareInvite from "@/features/social-room/shareInvite";
 import { closeStaleSession } from "@/features/study-session/closeStaleSession";
@@ -260,6 +261,19 @@ describe("그룹 홈", () => {
     await userEvent.setup().click(await screen.findByRole("button", { name: "공부방 들어가기" }));
     await waitFor(() => expect(router.location().pathname).toBe("/social"));
     expect(await screen.findByText("이 그룹의 멤버가 아니에요")).toBeInTheDocument();
+  });
+
+  it("공부방에서 자리를 오래 비워 끝났다는 안내를 그룹 홈에서 띄운다", async () => {
+    mockGroupApi("default");
+    markSocialRoomNotice({
+      kind: "grace-end",
+      message: "자리를 오래 비워서 공부를 종료했어요.\n공부 기록은 저장되었으니 안심하세요.",
+    });
+    renderGroupRoute("/social/groups/10?groupRooms=1");
+    const dialog = await screen.findByRole("dialog", {
+      name: "자리를 오래 비워서 공부를 종료했어요.",
+    });
+    expect(dialog).toHaveTextContent("공부 기록은 저장되었으니 안심하세요.");
   });
 
   it("앞 화면이 없으면 뒤로 가기는 그룹 탭으로 간다", async () => {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { BookOpen, LoaderCircle } from "lucide-react";
 
 import { sessionStateColors } from "@focusmakers/design-tokens";
@@ -28,7 +29,10 @@ import type { CameraAdapter } from "@/features/study-session/adapters/cameraAdap
 import { createDeviceHandlingDetector } from "@/features/study-session/adapters/deviceHandlingDetector";
 import { createSystemPauseSource } from "@/features/study-session/adapters/systemPauseSource";
 import { combineFocusDetectors } from "@/features/study-session/adapters/focusDetector";
-import { resolveLiveRoomDoneNavigation } from "@/features/live-room/liveRoomEndNavigation";
+import {
+  kickedNotice,
+  resolveLiveRoomDoneNavigation,
+} from "@/features/live-room/liveRoomEndNavigation";
 import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
 import { SessionMoreMenu } from "@/features/study-session/components/SessionMoreMenu";
 import { SessionPage } from "@/features/study-session/components/SessionPage";
@@ -75,7 +79,7 @@ import { haptic } from "@/lib/haptics";
 import { trackMetaInviteShared } from "@/lib/metaAppEvents";
 import { useNativeBackGestureLock, useNativeBackLock } from "@/lib/nativeBackGesture";
 import { useNativeControl } from "@/lib/nativeControls";
-import { leaveRoom } from "@/lib/roomApi";
+import { groupHomeQuery, invalidateGroupMembership } from "@/lib/groupRoomQueries";
 import { startVideoPlayback, VIDEO_PLAYBACK_KICK_PROPS } from "@/lib/startVideoPlayback";
 import { showCtaToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
@@ -85,10 +89,11 @@ import { kickVideoPlayback, useGestureVideoPlaybackKick } from "@/lib/videoPlayb
 import { FACE_MASK_EMOJIS } from "./faceMaskSettings";
 import type { CreateChannel } from "./liveRoomEntryState";
 import type { LiveRoomKind } from "./roomKind";
-import { renewRoomSeat } from "./roomKind";
+import { leaveRoomSeat, liveRoomHomePath, liveRoomResultPath, renewRoomSeat } from "./roomKind";
 import { useBackgroundGraceWatch } from "./useBackgroundGraceWatch";
 import { useCameraPreviewAspect } from "./useCameraPreviewAspect";
 import { useFaceMaskedSend, useKeepMaskSourceLive } from "./useFaceMaskedSend";
+import { useGroupRoomEvents } from "./useGroupRoomEvents";
 import { useRoomAudio } from "./useRoomAudio";
 import type { RoomAudioDeps } from "./useRoomAudio";
 import { useRoomRejoin } from "./useRoomRejoin";
@@ -139,6 +144,16 @@ export function LiveRoomSession({
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+  const queryClient = useQueryClient();
+  const groupId = room.kind === "group" ? room.groupId : null;
+  // 내보내짐 안내의 그룹 이름은 그룹 홈 캐시에서 읽는다.
+  // 그룹 홈 화면과 달리 공부방에 있는 동안에는 주기 조회와 포커스 조회를 끄고, 초대코드 방은 받지 않는다.
+  const groupHome = useQuery({
+    ...groupHomeQuery(userId, groupId ?? 0),
+    enabled: groupId !== null,
+    refetchInterval: false,
+    refetchOnWindowFocus: false,
+  });
 
   // 뒤로가기로 이탈하면 제출 없이 측정이 유실되므로,
   // 세션 동안 iOS 스와이프와 Android 하드웨어 뒤로가기를 모두 잠근다.
@@ -353,6 +368,31 @@ export function LiveRoomSession({
     ...audioDeps,
   });
 
+  // 그룹장이 나를 내보내면 서버가 이미 공부방에서 나를 뺐다.
+  // 채널을 먼저 끊어 자동 재연결이 방을 다시 구독하지 않게 하고 측정분을 제출한다.
+  const [kicked, setKicked] = useState(false);
+  const kickedRef = useRef(false);
+  // 신고와 서버 차단으로 연결을 닫은 멤버이고, SNAPSHOT 뒤마다 같은 차단이 다시 온다.
+  const [blockedUserIds, setBlockedUserIds] = useState<ReadonlySet<number>>(() => new Set());
+  useGroupRoomEvents(channel, groupId, {
+    onKicked: () => {
+      if (kickedRef.current) {
+        return;
+      }
+      kickedRef.current = true;
+      setKicked(true);
+      channel.disconnect();
+      void endAndSubmit(autoEndReason("BACKGROUND"));
+    },
+    onPeerBlocked: (blockedUserId) => {
+      if (blockedUserIds.has(blockedUserId)) {
+        return;
+      }
+      mesh.blockPeer(blockedUserId);
+      setBlockedUserIds((previous) => new Set(previous).add(blockedUserId));
+    },
+  });
+
   // 연결과 해제를 한 effect에 대칭으로 둔다 — StrictMode의 마운트-해제-재마운트에서도
   // 두 번째 마운트가 정상 연결된다.
   useEffect(() => {
@@ -463,8 +503,30 @@ export function LiveRoomSession({
   // 제출이 실패해도 내보낸다. 서버가 마지막 진행 스냅샷으로 세션을 확정한다. 안내는 도착지(소셜
   // 홈)가 띄우므로 sessionStorage 1회성 플래그로 넘긴다. 실패 이탈은 leaveRoom을
   // 부르지 않는다 — 유예가 끝났으면 서버가 이미 자리를 회수했다.
+  // 그룹 공부방은 그 그룹의 그룹 홈으로 돌아가고 나가기는 그룹 공부방 나가기 API로 한다.
   useEffect(() => {
     if (leavingRef.current) {
+      return;
+    }
+    const homePath = liveRoomHomePath(room);
+    // 그룹 공부방은 소셜 탭 웹뷰 안에서 그룹 홈으로 돌아가 도착한 화면이 바로 안내를 띄워야 해서 앱 전환 표시를 싣지 않는다.
+    const goHome = () =>
+      navigate(
+        { pathname: homePath, search: location.search },
+        room.kind === "invite"
+          ? { replace: true, state: { noticeHandoff: true } }
+          : { replace: true },
+      );
+    // 내보내지면 서버가 이미 공부방에서 나를 빼서 나가기 API를 부르지 않고 결과 화면도 건너뛴다.
+    // 그룹 탭도 같은 웹뷰 안이라 앱 전환 표시 없이 가서 도착한 그룹 탭이 안내를 띄운다.
+    if (kicked && (phase.name === "done" || phase.name === "error")) {
+      leavingRef.current = true;
+      markSocialRoomNotice({
+        kind: "failure",
+        message: kickedNotice(groupHome.data?.name ?? null),
+      });
+      void invalidateGroupMembership(queryClient, userId);
+      navigate({ pathname: "/social", search: location.search }, { replace: true });
       return;
     }
     // 숨어 있는 동안 공용 20분 감시자가 먼저 종료를 끝내면 만료 콜백이 오지 않는다 —
@@ -485,10 +547,7 @@ export function LiveRoomSession({
       const submitted = phase.name === "done";
       markSocialRoomNotice({ kind: "grace-end", message: roomUnavailableNotice(submitted) });
       trackExit();
-      navigate(
-        { pathname: "/social", search: location.search },
-        { replace: true, state: { noticeHandoff: true } },
-      );
+      goHome();
       return;
     }
     if (phase.name === "done") {
@@ -499,10 +558,10 @@ export function LiveRoomSession({
         focusSec,
         sessions: phase.sessions,
       });
-      void leaveRoom(roomId).catch(() => undefined);
+      void leaveRoomSeat(room, roomId).catch(() => undefined);
       if (nav.to === "result") {
         navigate(
-          { pathname: `/social/room/${roomId}/result`, search: location.search },
+          { pathname: liveRoomResultPath(room, roomId), search: location.search },
           { replace: true, state: { sessions: nav.sessions } },
         );
         return;
@@ -511,20 +570,14 @@ export function LiveRoomSession({
         markSocialRoomNotice({ kind: "grace-end", message: graceEndNotice(true) });
       }
       trackExit();
-      navigate(
-        { pathname: "/social", search: location.search },
-        { replace: true, state: { noticeHandoff: true } },
-      );
+      goHome();
       return;
     }
     if (phase.name === "error" && expired) {
       leavingRef.current = true;
       markSocialRoomNotice({ kind: "grace-end", message: graceEndNotice(false) });
       trackExit();
-      navigate(
-        { pathname: "/social", search: location.search },
-        { replace: true, state: { noticeHandoff: true } },
-      );
+      goHome();
     }
   }, [
     allMembers.length,
@@ -533,10 +586,14 @@ export function LiveRoomSession({
     focusSec,
     graceEndNotice,
     graceExpired,
+    groupHome.data?.name,
     isExpiredNow,
+    kicked,
     location.search,
     navigate,
     phase,
+    queryClient,
+    room,
     roomId,
     roomUnavailable,
     roomUnavailableNotice,

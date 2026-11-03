@@ -1525,18 +1525,28 @@ const PENDING_EXIT_TTL_MS = 10 * 60_000;
  * 것만으로 다섯 웹뷰가 동시에 예약을 집어가 엉뚱한 탭에서 설문이 열리고(사용자는 못 보는데 노출
  * 쿨다운만 소모된다) `destination`도 먼저 실행된 탭 값으로 잘못 찍힌다.
  */
-export type ResultExitPath = "/home" | "/social" | "/records";
+export type ResultExitPath = "/home" | "/social" | "/records" | `/social/groups/${number}`;
 
 /**
  * 도착 화면별 `destination` 값
  *
  * 소셜 탭 복귀도 홈 복귀로 세고, 솔로와 소셜은 `room_type`이 가른다.
  */
-const EXIT_DESTINATION: Record<ResultExitPath, "home" | "record"> = {
+const EXIT_DESTINATION: Record<"/home" | "/social" | "/records", "home" | "record"> = {
   "/home": "home",
   "/social": "home",
   "/records": "record",
 };
+
+// 그룹 공부방 결과에서 그 그룹의 그룹 홈으로 돌아가는 것도 소셜 탭 복귀처럼 홈 복귀로 센다.
+const GROUP_HOME_PATH = /^\/social\/groups\/\d+$/;
+
+function exitDestination(path: string): "home" | "record" | null {
+  if (Object.hasOwn(EXIT_DESTINATION, path)) {
+    return EXIT_DESTINATION[path as keyof typeof EXIT_DESTINATION];
+  }
+  return GROUP_HOME_PATH.test(path) ? "home" : null;
+}
 
 interface PendingResultExit {
   readonly roomType: StudyRoomType;
@@ -1554,7 +1564,7 @@ function isPendingResultExit(value: unknown): value is PendingResultExit {
     typeof record.focusSec === "number" &&
     Number.isFinite(record.focusSec) &&
     typeof record.consumeAt === "string" &&
-    Object.hasOwn(EXIT_DESTINATION, record.consumeAt) &&
+    exitDestination(record.consumeAt) !== null &&
     typeof record.ts === "number" &&
     Number.isFinite(record.ts)
   );
@@ -1608,7 +1618,7 @@ export function consumeStudyResultExit(pathname: string) {
     track("study_result_exited", {
       room_type: pending.roomType,
       focus_sec: pending.focusSec,
-      destination: EXIT_DESTINATION[pending.consumeAt],
+      destination: exitDestination(pending.consumeAt) ?? "home",
     });
   } catch {
     // 깨진 payload·localStorage 불가 — 설문 트리거만 잃는다.

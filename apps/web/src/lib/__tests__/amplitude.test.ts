@@ -1513,6 +1513,23 @@ describe("결과 화면 이탈 핸드오프 (study_result_exited)", () => {
     ]);
   });
 
+  it("그룹 공부방 결과의 예약은 그 그룹 홈만 보내고 홈 복귀로 센다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    m.stageStudyResultExit({ roomType: "social", focusSec: 700, consumeAt: "/social/groups/10" });
+    mocks.track.mockClear();
+
+    m.consumeStudyResultExit("/social/groups/11");
+    m.consumeStudyResultExit("/social");
+    expect(mocks.track).not.toHaveBeenCalled();
+
+    m.consumeStudyResultExit("/social/groups/10");
+    expect(mocks.track.mock.calls).toEqual([
+      ["study_result_exited", { room_type: "social", focus_sec: 700, destination: "home" }],
+    ]);
+  });
+
   it("형태가 다른 예약은 보내지 않고 버린다 — 빈 객체는 TTL 가드를 우회해 NaN을 보낼 뻔했다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const m = await loadModule();
