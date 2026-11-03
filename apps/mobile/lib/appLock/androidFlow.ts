@@ -1,6 +1,8 @@
 import { router } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 
+import { t } from "../i18n";
+
 export type ConsentAction = { label: string; open: "usage" | "overlay" };
 export type BatteryGuideKind = "samsung" | "xiaomi";
 
@@ -13,9 +15,9 @@ const BATTERY_GUIDE_SHOWN_KEY = "appLock.batteryGuideShown";
  * 둘 다 없을 때만 동의 문구를 쓰고, 하나가 남으면 남은 권한 이름으로 버튼을 바꾼다.
  */
 export function consentAction(usage: boolean, overlay: boolean): ConsentAction | null {
-  if (!usage && !overlay) return { label: "동의하고 설정 열기", open: "usage" };
-  if (!overlay) return { label: "다른 앱 위에 표시 허용하기", open: "overlay" };
-  if (!usage) return { label: "사용정보 접근 허용하기", open: "usage" };
+  if (!usage && !overlay) return { label: t("appLockConsent.actionAgree"), open: "usage" };
+  if (!overlay) return { label: t("appLockConsent.actionOverlay"), open: "overlay" };
+  if (!usage) return { label: t("appLockConsent.actionUsage"), open: "usage" };
   return null;
 }
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 
 import type { DailyStudyStat } from "@focusmakers/types";
 import { Bar, BarChart, Cell, ReferenceLine, XAxis, YAxis } from "recharts";
@@ -10,7 +11,9 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 
-import { formatDuration, MONDAY_FIRST_WEEKDAY_LABELS, mondayIndexOfDateKey } from "./recordsFormat";
+import i18n from "@/lib/i18n";
+
+import { formatDuration, mondayIndexOfDateKey, weekdayLongLabel } from "./recordsFormat";
 import {
   averageFocusSecPerStudiedDay,
   MAX_CHART_HOURS,
@@ -74,6 +77,7 @@ export function WeekTrendCard({
   weekAnchorKey: string;
   todayKey: string;
 }) {
+  const { t } = useTranslation("records");
   const comparison = weekComparison(daily, compareDaily, weekAnchorKey, todayKey);
   const points = weekTrendPoints(daily, compareDaily, todayKey);
   const todayIndex = comparison.inProgress ? mondayIndexOfDateKey(todayKey) : null;
@@ -112,7 +116,7 @@ export function WeekTrendCard({
             aria-hidden
             className="w-3 border-t-[1.5px] border-dashed border-muted-foreground"
           />
-          하루 평균
+          {t("trend.dailyAverage")}
           <span>{formatDuration(averageSec ?? 0)}</span>
         </span>
       </div>
@@ -125,36 +129,45 @@ export function WeekTrendCard({
  * 덜 공부한 주는 델타를 비집중 주황으로 칠한다. 차이가 없을 때의 별도 문구는 두지 않는다.
  */
 function CompareSentence({ comparison }: { comparison: WeekComparison }) {
+  const { t } = useTranslation("records");
   switch (comparison.kind) {
     case "delta": {
       const less = comparison.deltaSec < 0;
-      const verb = comparison.inProgress ? "공부하는 중" : "공부했어요";
+      const key = less
+        ? comparison.inProgress
+          ? "trend.compare.lessInProgress"
+          : "trend.compare.less"
+        : comparison.inProgress
+          ? "trend.compare.moreInProgress"
+          : "trend.compare.more";
       return (
-        <>
-          지난주보다{" "}
-          <span className={less ? "text-state-distract" : "text-primary"}>
-            {formatDuration(Math.abs(comparison.deltaSec))}
-          </span>{" "}
-          {less ? "덜" : "더"} {verb}
-        </>
+        <Trans
+          t={t}
+          i18nKey={key}
+          values={{ duration: formatDuration(Math.abs(comparison.deltaSec)) }}
+          components={{
+            delta: <span className={less ? "text-state-distract" : "text-primary"} />,
+          }}
+        />
       );
     }
     case "no-previous":
-      return comparison.inProgress ? (
-        <>
-          이번 주 <span className="text-primary">{formatDuration(comparison.totalSec)}</span>{" "}
-          공부하는 중
-        </>
-      ) : (
-        <>
-          이 주에 <span className="text-primary">{formatDuration(comparison.totalSec)}</span>{" "}
-          공부했어요
-        </>
+      return (
+        <Trans
+          t={t}
+          i18nKey={
+            comparison.inProgress ? "trend.compare.onlyThisWeek" : "trend.compare.onlyViewedWeek"
+          }
+          values={{ duration: formatDuration(comparison.totalSec) }}
+          components={{ total: <span className="text-primary" /> }}
+        />
       );
     case "no-current":
-      return comparison.inProgress ? "이번 주 기록이 아직 없어요" : "이 주는 기록이 없어요";
+      return comparison.inProgress
+        ? t("trend.compare.noThisWeek")
+        : t("trend.compare.noViewedWeek");
     case "empty":
-      return "아직 기록이 없어요";
+      return t("trend.compare.empty");
   }
 }
 
@@ -167,16 +180,24 @@ function compareCaption(
   switch (comparison.kind) {
     case "delta":
       return comparison.inProgress
-        ? `지난주 ${MONDAY_FIRST_WEEKDAY_LABELS[mondayIndexOfDateKey(todayKey)]!}요일까지와 비교했어요`
+        ? i18n.t("records:trend.caption.untilWeekday", {
+            weekday: weekdayLongLabel((mondayIndexOfDateKey(todayKey) + 1) % 7),
+          })
         : // 과거 주는 두 주를 다 호칭으로 부른다(지난주를 보면 `1주 전과 2주 전을`) — 제목의
           // "지난주"가 어느 주인지 여기서 풀어 준다.
-          `${currentLabel}과 ${previousLabel}을 비교했어요`;
+          i18n.t("records:trend.caption.twoWeeks", {
+            current: currentLabel,
+            previous: previousLabel,
+          });
     case "no-previous":
-      return `${previousLabel} 기록이 없어 ${currentLabel} 기록만 표시했어요`;
+      return i18n.t("records:trend.caption.noPrevious", {
+        current: currentLabel,
+        previous: previousLabel,
+      });
     case "no-current":
-      return `${previousLabel} 기록만 표시했어요`;
+      return i18n.t("records:trend.caption.noCurrent", { previous: previousLabel });
     case "empty":
-      return "공부를 시작하고 패턴을 확인해보세요";
+      return i18n.t("records:trend.caption.empty");
   }
 }
 
@@ -209,6 +230,7 @@ function WeekTrendBars({
   /** 보는 주의 하루 평균 순공(초) — 점선으로 긋는다. 공부한 날이 없으면 `null`. */
   averageSec: number | null;
 }) {
+  const { t } = useTranslation("records");
   const [pickedIndex, setPickedIndex] = useState<number | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -261,7 +283,7 @@ function WeekTrendBars({
       : 0;
 
   return (
-    <div ref={chartRef} role="group" aria-label="요일별 순공시간" className="pt-2">
+    <div ref={chartRef} role="group" aria-label={t("trend.aria.chart")} className="pt-2">
       <ChartContainer
         config={config}
         // 요일 글자의 기준선이 svg 바닥선에 놓여, 시스템 글자 크기를 키운 기기에서는 기준선 아래
@@ -349,7 +371,9 @@ function WeekTrendBars({
                   payload={payload
                     ?.filter((item) => item.dataKey === "thisWeek")
                     .concat(payload.filter((item) => item.dataKey !== "thisWeek"))}
-                  labelFormatter={(day: string) => `${day}요일`}
+                  labelFormatter={(day: string) =>
+                    weekdayLongLabel((rows.findIndex((row) => row.day === day) + 1) % 7)
+                  }
                   formatter={(_value, _name, item) => {
                     const row = item.payload as TrendRow;
                     const series = item.dataKey === "lastWeek" ? "lastWeek" : "thisWeek";
@@ -417,7 +441,7 @@ function WeekTrendBars({
 
       {/* 차트는 그림이라 값을 표로도 둔다 — 화면 낭독기가 요일별 값을 읽는다. */}
       <table className="sr-only">
-        <caption>요일별 순공시간</caption>
+        <caption>{t("trend.aria.chart")}</caption>
         <thead>
           <tr>
             <td />
@@ -430,10 +454,14 @@ function WeekTrendBars({
             <tr key={row.day}>
               <th scope="row">{row.day}</th>
               {hasCurrent && (
-                <td>{row.thisWeekSec === null ? "기록 없음" : formatDuration(row.thisWeekSec)}</td>
+                <td>
+                  {row.thisWeekSec === null ? t("trend.noRecord") : formatDuration(row.thisWeekSec)}
+                </td>
               )}
               {hasPrevious && (
-                <td>{row.lastWeekSec === null ? "기록 없음" : formatDuration(row.lastWeekSec)}</td>
+                <td>
+                  {row.lastWeekSec === null ? t("trend.noRecord") : formatDuration(row.lastWeekSec)}
+                </td>
               )}
             </tr>
           ))}

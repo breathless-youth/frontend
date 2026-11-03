@@ -1,0 +1,32 @@
+{
+  "title": "App blocking",
+  "switch": {
+    "label": "App blocking",
+    "tooltip": "What we can see: how many apps are blocked and whether app blocking is on"
+  },
+  "rows": {
+    "lockedApps": "Blocked apps",
+    "batteryGuide": "Battery settings guide"
+  },
+  "description": {
+    "title": "How it works",
+    "lockFlow": "Apps are blocked when you start studying and unblocked when you finish."
+  },
+  "summary": {
+    "apps_one": "{{count}} app",
+    "apps_other": "{{count}} apps",
+    "categories_one": "{{count}} category",
+    "categories_other": "{{count}} categories",
+    "none": "None selected"
+  },
+  "rowValue": {
+    "on": "On",
+    "off": "Off"
+  },
+  "toast": {
+    "lockedApps_one": "Blocked {{count}} distracting app",
+    "lockedApps_other": "Blocked {{count}} distracting apps",
+    "locked": "Distracting apps blocked",
+    "unsupported": "App blocking requires {{minVersion}} or later"
+  }
+}

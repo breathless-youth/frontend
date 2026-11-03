@@ -1,5 +1,8 @@
 import type { StudyEventStatus, StudySessionEventCounts } from "@focusmakers/types";
 import { todayKstDateKey } from "@/lib/dateKst";
+import i18n from "@/lib/i18n";
+import { formatClock, formatMonthLabel } from "@/lib/intl";
+import type { AppLocale } from "@/lib/locale";
 
 /**
  * 기록 화면 전용 표기·달력 유틸
@@ -7,16 +10,58 @@ import { todayKstDateKey } from "@/lib/dateKst";
  * KST 날짜 키 규칙은 `@/lib/dateKst`의 `todayKstDateKey`를 그대로 쓴다.
  */
 
-/** KST(UTC+9) 고정 오프셋. 한국은 서머타임이 없어 상수로 충분하다. */
-const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
-
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** 달력 요일 헤더·주간 체크 도트 라벨 */
-export const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"] as const;
+function currentLocale(): AppLocale {
+  return i18n.language as AppLocale;
+}
 
-/** 월요일 시작 요일 라벨 — 기록 탭 달력·주간 차트처럼 주를 월요일부터 세는 곳이 쓴다. */
-export const MONDAY_FIRST_WEEKDAY_LABELS = ["월", "화", "수", "목", "금", "토", "일"] as const;
+const formatters = new Map<string, Intl.DateTimeFormat>();
+
+/** 날짜 키는 달력 칸의 연·월·일이라 UTC 자정으로 만들고 UTC로 읽는다. 기록 목록이 수백 번 부르므로 포맷터를 캐시한다. */
+function formatDateKeyParts(dateKey: string, options: Intl.DateTimeFormatOptions): string {
+  const locale = currentLocale();
+  const cacheKey = `${locale}|${JSON.stringify(options)}`;
+  let formatter = formatters.get(cacheKey);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(locale, { ...options, timeZone: "UTC" });
+    formatters.set(cacheKey, formatter);
+  }
+  return formatter.format(parseDateKey(dateKey));
+}
+
+/** 2023-01-01이 일요일이라 일=0 … 토=6 인덱스를 그대로 날짜로 옮길 수 있다. */
+const SUNDAY_KEY = "2023-01-01";
+
+/** 달력 요일 헤더·주간 체크 도트 라벨. 일=0 … 토=6 (`일`, `Sun`). */
+export function weekdayShortLabel(sundayIndex: number): string {
+  return formatDateKeyParts(addDaysToDateKey(SUNDAY_KEY, sundayIndex), { weekday: "short" });
+}
+
+/** 요일 전체 이름. 일=0 … 토=6 (`일요일`, `Sunday`). */
+export function weekdayLongLabel(sundayIndex: number): string {
+  return formatDateKeyParts(addDaysToDateKey(SUNDAY_KEY, sundayIndex), { weekday: "long" });
+}
+
+/**
+ * 월요일 시작 요일 라벨 — 기록 탭 달력·주간 차트처럼 주를 월요일부터 세는 곳이 쓴다.
+ *
+ * `narrow`는 한 글자 폭밖에 없는 자리용이다. 한국어는 short와 같고, 영어는 `M T W T F S S`라 글자가 겹친다.
+ */
+export function mondayFirstWeekdayLabels(width: "short" | "narrow" = "short"): string[] {
+  return Array.from({ length: 7 }, (_, i) =>
+    formatDateKeyParts(addDaysToDateKey(SUNDAY_KEY, (i + 1) % 7), { weekday: width }),
+  );
+}
+
+/** `M월 D일`, `withWeekday`면 `M월 D일 (요일)`. */
+export function formatMonthDay(dateKey: string, withWeekday = false): string {
+  return formatDateKeyParts(dateKey, {
+    month: "long",
+    day: "numeric",
+    ...(withWeekday ? { weekday: "short" } : {}),
+  });
+}
 
 export type CalendarMonth = {
   year: number;
@@ -26,15 +71,6 @@ export type CalendarMonth = {
 
 function pad2(value: number): string {
   return value < 10 ? `0${value}` : String(value);
-}
-
-/**
- * UTC 시각을 KST 벽시계로 옮긴 Date. 옮긴 뒤에는 반드시 `getUTC*`로 읽는다 —
- * 기기 시간대에 의존하지 않기 위해서다(서버 통계 귀속 날짜 `statDate`가 KST 기준이다).
- */
-function toKstWallClock(value: string | Date): Date {
-  const ms = typeof value === "string" ? Date.parse(value) : value.getTime();
-  return new Date(ms + KST_OFFSET_MS);
 }
 
 /** `YYYY-MM-DD`(KST 기준). 규칙은 lib/dateKst.ts의 todayKstDateKey를 참고. */
@@ -97,13 +133,17 @@ export function shiftMonth({ year, month }: CalendarMonth, delta: number): Calen
 
 /** 달력 헤더 `{YYYY}년 {M}월` (Figma `65:648`). */
 export function monthLabel({ year, month }: CalendarMonth): string {
-  return `${year}년 ${month}월`;
+  return formatMonthLabel(currentLocale(), new Date(Date.UTC(year, month - 1, 1)), "UTC");
+}
+
+/** 달 이름 `{M}월` (`October`). */
+export function monthName({ year, month }: CalendarMonth): string {
+  return formatDateKeyParts(`${year}-${pad2(month)}-01`, { month: "long" });
 }
 
 /** 요약 타이틀 `{N}월 {N}일 학습 요약` (voice-tone §2 날짜 표기). */
 export function summaryTitle(dateKey: string): string {
-  const date = parseDateKey(dateKey);
-  return `${date.getUTCMonth() + 1}월 ${date.getUTCDate()}일 학습 요약`;
+  return i18n.t("records:format.summaryTitle", { date: formatMonthDay(dateKey) });
 }
 
 /**
@@ -158,7 +198,7 @@ export function buildStreakWeek(todayKey: string, doneDates: readonly string[]):
   const done = new Set(doneDates);
   return weekDateKeys(todayKey).map((dateKey) => ({
     dateKey,
-    weekdayLabel: WEEKDAY_LABELS[weekdayIndexOfDateKey(dateKey)],
+    weekdayLabel: weekdayShortLabel(weekdayIndexOfDateKey(dateKey)),
     dayOfMonth: dayOfDateKey(dateKey),
     state: dateKey === todayKey ? "today" : done.has(dateKey) ? "done" : "none",
   }));
@@ -175,19 +215,21 @@ export function buildStreakWeek(todayKey: string, doneDates: readonly string[]):
 export function formatDuration(totalSeconds: number): string {
   const seconds = Math.max(0, Math.floor(totalSeconds));
   if (seconds === 0) {
-    return "0분";
+    return i18n.t("common:duration.minutes", { minutes: 0 });
   }
 
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
 
   if (hours > 0) {
-    return minutes === 0 ? `${hours}시간` : `${hours}시간 ${minutes}분`;
+    return minutes === 0
+      ? i18n.t("common:duration.hours", { hours })
+      : i18n.t("common:duration.hoursMinutes", { hours, minutes });
   }
   if (minutes > 0) {
-    return `${minutes}분`;
+    return i18n.t("common:duration.minutes", { minutes });
   }
-  return `${seconds}초`;
+  return i18n.t("common:duration.seconds", { seconds });
 }
 
 /**
@@ -198,24 +240,20 @@ export function durationParts(totalSeconds: number): { value: number; unit: stri
   const seconds = Math.max(0, Math.floor(totalSeconds));
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
+  const hoursPart = { value: hours, unit: i18n.t("records:unit.hours") };
+  const minutesPart = { value: minutes, unit: i18n.t("records:unit.minutes") };
   if (hours > 0) {
-    return minutes === 0
-      ? [{ value: hours, unit: "시간" }]
-      : [
-          { value: hours, unit: "시간" },
-          { value: minutes, unit: "분" },
-        ];
+    return minutes === 0 ? [hoursPart] : [hoursPart, minutesPart];
   }
   if (minutes > 0 || seconds === 0) {
-    return [{ value: minutes, unit: "분" }];
+    return [minutesPart];
   }
-  return [{ value: seconds, unit: "초" }];
+  return [{ value: seconds, unit: i18n.t("records:unit.seconds") }];
 }
 
-/** UTC ISO-8601 → KST `HH:MM`(24시간제). */
+/** UTC ISO-8601 → KST 시각. 한국어는 `HH:MM`(24시간제), 영어는 `9:03 PM`. */
 export function formatKstClock(iso: string): string {
-  const kst = toKstWallClock(iso);
-  return `${pad2(kst.getUTCHours())}:${pad2(kst.getUTCMinutes())}`;
+  return formatClock(currentLocale(), new Date(iso));
 }
 
 /**
@@ -225,7 +263,11 @@ export function formatKstClock(iso: string): string {
  * 버그가 아니다(`mvp-scope.md` 일시정지 벽시계 별도 집계).
  */
 export function formatSessionMeta(startedAt: string, endedAt: string, studySec: number): string {
-  return `${formatKstClock(startedAt)} – ${formatKstClock(endedAt)} · 총 ${formatDuration(studySec)}`;
+  return i18n.t("records:format.sessionMeta", {
+    start: formatKstClock(startedAt),
+    end: formatKstClock(endedAt),
+    duration: formatDuration(studySec),
+  });
 }
 
 /**
@@ -238,7 +280,7 @@ export function formatFocusRate(focusRate: number): string {
 
 /** 공부 횟수 표기 `N회`(glossary 노출 표기). */
 export function formatSessionCount(count: number): string {
-  return `${count}회`;
+  return i18n.t("records:format.sessionCount", { count });
 }
 
 /**
@@ -250,13 +292,13 @@ export function formatSessionCount(count: number): string {
  *
  * `화면 꺼짐`은 2026-07-26에 `일시정지`로 통합되어 삭제된 라벨이라 쓰지 않는다.
  */
-const EVENT_SHORT_LABELS: Record<StudyEventStatus, string> = {
-  AWAY: "자리 이탈",
-  PHONE: "휴대폰",
-  DEVICE: "기기 조작",
-  SLEEP: "졸음",
-  PAUSE: "일시정지",
-};
+const EVENT_CHIP_KEYS = {
+  AWAY: "records:eventChip.away",
+  PHONE: "records:eventChip.phone",
+  DEVICE: "records:eventChip.device",
+  SLEEP: "records:eventChip.sleep",
+  PAUSE: "records:eventChip.pause",
+} as const satisfies Record<StudyEventStatus, string>;
 
 /**
  * 칩 노출 순서 — Figma 예시(자리 이탈 → 휴대폰)와 스펙 매핑 표 순서를 따른다.
@@ -291,7 +333,7 @@ export type EventChipItem = {
 export function eventChipItems(eventCounts: StudySessionEventCounts): EventChipItem[] {
   return EVENT_CHIP_ORDER.filter((status) => eventCounts[status] > 0).map((status) => ({
     status,
-    label: `${EVENT_SHORT_LABELS[status]} ${eventCounts[status]}회`,
+    label: i18n.t(EVENT_CHIP_KEYS[status], { count: eventCounts[status] }),
   }));
 }
 
@@ -334,15 +376,16 @@ export function formatHeatClock(focusSec: number): string {
 /** 일간 머리 라벨 — 오늘을 골랐으면 `오늘 순공시간`, 다른 날이면 `M월 D일 순공시간`. */
 export function dayHeadlineLabel(selectedKey: string, todayKey: string): string {
   if (selectedKey === todayKey) {
-    return "오늘 순공시간";
+    return i18n.t("records:format.todayHeadline");
   }
-  return `${monthOfDateKey(selectedKey).month}월 ${dayOfDateKey(selectedKey)}일 순공시간`;
+  return i18n.t("records:format.dayHeadline", { date: formatMonthDay(selectedKey) });
 }
 
 /** 선택일 제목 `M월 D일 요일`. `short`면 요일을 한 글자(`금`)로 줄인다 — 플래너 상단 바 제목처럼 자리가 좁은 곳. */
 export function dayTitleWithWeekday(dateKey: string, short = false): string {
-  const month = monthOfDateKey(dateKey).month;
-  const day = dayOfDateKey(dateKey);
-  const weekday = WEEKDAY_LABELS[weekdayIndexOfDateKey(dateKey)];
-  return `${month}월 ${day}일 ${weekday}${short ? "" : "요일"}`;
+  const weekdayIndex = weekdayIndexOfDateKey(dateKey);
+  return i18n.t("records:format.dayTitle", {
+    date: formatMonthDay(dateKey),
+    weekday: short ? weekdayShortLabel(weekdayIndex) : weekdayLongLabel(weekdayIndex),
+  });
 }

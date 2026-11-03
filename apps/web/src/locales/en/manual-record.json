@@ -1,0 +1,41 @@
+{
+  "page": {
+    "titleAdd": "Add time",
+    "titleEdit": "Edit record",
+    "unregistered": "This device isn't registered yet. Open the app to save your records",
+    "loadFailed": "Couldn't load the record"
+  },
+  "form": {
+    "start": "Start",
+    "end": "End",
+    "nextDay": "Next day",
+    "chipMinutes": "+{{minutes}}m",
+    "chipHours": "+{{hours}}h",
+    "subjectLabel": "Subject",
+    "notReflected": "Manually added time doesn't count toward your streak or rankings",
+    "delete": "Delete",
+    "save": "Save"
+  },
+  "deleteDialog": {
+    "title": "Delete this record?",
+    "confirm": "Delete"
+  },
+  "message": {
+    "tooShort": "It needs to be at least 1 minute",
+    "future": "You can't add time that hasn't happened yet",
+    "allOverlap": "You already have a record for this time",
+    "failed": "Couldn't save. Please try again",
+    "overlapNotice": "{{removed}} ({{start}}–{{end}}) is already recorded, so we'll save {{saved}}"
+  },
+  "subject": {
+    "none": "No subject"
+  },
+  "readAloud": {
+    "label": "Manual record, {{subject}}, {{start}} to {{end}}, {{length}}",
+    "withPeriod": "{{time}} {{period}}",
+    "am": "AM",
+    "pm": "PM",
+    "hour": "{{hour}}",
+    "hourMinute": "{{hour}}:{{minute, number(minimumIntegerDigits: 2)}}"
+  }
+}

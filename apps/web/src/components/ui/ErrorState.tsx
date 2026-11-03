@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import { trackErrorRetryPressed } from "@/lib/amplitude";
 
 /**
@@ -14,6 +16,7 @@ export function ErrorState({
   /** 계측용 화면 식별자(BY-616 확장) — `error_retry_pressed.screen`. */
   screen: "home" | "records" | "planner" | "profile" | "live_room_entry" | "ranking";
 }) {
+  const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-muted px-5 py-8">
       <p className="text-sm text-muted-foreground">{message}</p>
@@ -25,7 +28,7 @@ export function ErrorState({
         }}
         className="min-h-11 rounded-full bg-brand-subtle px-5 text-sm font-semibold text-primary"
       >
-        다시 시도
+        {t("actions.retry")}
       </button>
     </div>
   );

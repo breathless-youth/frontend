@@ -25,7 +25,7 @@ export function useFocusStart(userId: number | null): (source: FocusStartSource)
     trackFocusStartTapped(source);
     requestSessionStart(userId, () => navigate({ pathname: "/room/1", search: location.search }))
       .catch((error: unknown) => {
-        console.warn("[focus-start] 집중 시작 처리 실패", error);
+        console.warn("[focus-start] failed to handle focus start", error);
       })
       .finally(() => {
         isStartingRef.current = false;

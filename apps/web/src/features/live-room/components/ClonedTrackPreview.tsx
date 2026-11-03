@@ -5,6 +5,9 @@ import { startVideoPlayback, VIDEO_PLAYBACK_KICK_PROPS } from "@/lib/startVideoP
 import { cn } from "@/lib/utils";
 import { kickVideoPlayback } from "@/lib/videoPlayback";
 
+import type { FaceMaskView } from "./FaceMaskOverlay";
+import { FaceMaskOverlay } from "./FaceMaskOverlay";
+
 /**
  * UI
  * 카메라 켜기 확인 모달 전용 미리보기
@@ -22,10 +25,13 @@ export function ClonedTrackPreview({
   stream,
   facing,
   targetAspect,
+  faceMask = null,
 }: {
   stream: MediaStream | null;
   facing: CameraAdapter["facing"];
   targetAspect?: number;
+  /** 내 화면에만 덧그리는 얼굴 가림. 레터박스 안쪽 영상에 맞춰 놓인다. */
+  faceMask?: FaceMaskView | null;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   useEffect(() => {
@@ -50,20 +56,22 @@ export function ClonedTrackPreview({
     }
   });
   const video = (
-    <video
-      ref={videoRef}
-      data-testid="camera-dialog-preview"
-      playsInline
-      muted
-      {...VIDEO_PLAYBACK_KICK_PROPS}
-      className={cn(
-        // pointer-events-none:
-        // 탭이 video에 직접 닿으면 iOS가 네이티브 재생/일시정지 컨트롤을 띄운다.
-        // 미리보기는 조작 대상이 아니다.
-        "amp-block sentry-block pointer-events-none size-full object-cover",
-        facing === "front" && "scale-x-[-1]",
-      )}
-    />
+    <FaceMaskOverlay mask={faceMask} facing={facing}>
+      <video
+        ref={videoRef}
+        data-testid="camera-dialog-preview"
+        playsInline
+        muted
+        {...VIDEO_PLAYBACK_KICK_PROPS}
+        className={cn(
+          // pointer-events-none:
+          // 탭이 video에 직접 닿으면 iOS가 네이티브 재생/일시정지 컨트롤을 띄운다.
+          // 미리보기는 조작 대상이 아니다.
+          "amp-block sentry-block pointer-events-none size-full object-cover",
+          facing === "front" && "scale-x-[-1]",
+        )}
+      />
+    </FaceMaskOverlay>
   );
   if (targetAspect === undefined) {
     return video;

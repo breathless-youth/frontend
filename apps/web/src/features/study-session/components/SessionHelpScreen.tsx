@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { BookOpen, Music, Pause } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
 
 import handTap from "@/assets/guide/hand-tap.svg";
 import helpPhoto from "@/assets/guide/session-help-photo.jpg";
@@ -17,8 +18,8 @@ import {
 import { SESSION_PILL_SIZE } from "@/features/study-session/components/SessionStatusPill";
 import { SessionTimer } from "@/features/study-session/components/SessionTimer";
 import { SimpleModeSurface } from "@/features/study-session/components/SimpleModeSurface";
-import type { SessionHelpCallout, SessionHelpStep } from "@/features/study-session/sessionHelpCopy";
-import { SESSION_HELP_NAV, SESSION_HELP_STEPS } from "@/features/study-session/sessionHelpCopy";
+import type { SessionHelpStep, SessionHelpTextKey } from "@/features/study-session/sessionGuide";
+import { SESSION_HELP_STEPS } from "@/features/study-session/sessionGuide";
 import { SESSION_LAYER_INSET } from "@/features/study-session/sessionLayout";
 import { sessionGlowStyle } from "@/features/study-session/sessionTheme";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
@@ -36,21 +37,10 @@ const RING = "pointer-events-none absolute -inset-1.25 border-[1.5px] border-pri
 /** 가짜 유리 버튼. 바탕 클래스의 pointer-events-auto를 덮어 덮개 탭이 그대로 다음 단계로 간다. */
 const FAKE_BUTTON = "pointer-events-none";
 
-/** 문구에서 핵심 단어만 그라데이션 글자로 감싼다. 단어에 정규식 특수 문자가 없다고 본다. */
-function highlight(text: string, words: readonly string[]): ReactNode[] {
-  // 빈 목록으로 정규식을 만들면 글자마다 쪼개진다.
-  if (words.length === 0) {
-    return [text];
-  }
-  return text.split(new RegExp(`(${words.join("|")})`)).map((part, index) =>
-    words.includes(part) ? (
-      <span key={index} className={GRADIENT_TEXT}>
-        {part}
-      </span>
-    ) : (
-      part
-    ),
-  );
+/** 문구의 `<hl>` 핵심 단어만 그라데이션 글자로 감싼다. */
+function HelpText({ textKey }: { textKey: SessionHelpTextKey }) {
+  const { t } = useTranslation("study-session");
+  return <Trans t={t} i18nKey={textKey} components={{ hl: <span className={GRADIENT_TEXT} /> }} />;
 }
 
 /** 흰 점선 화살표. 몸통만 점선이고 화살촉은 실선이다. */
@@ -100,10 +90,10 @@ function TapHandIcon({ className }: { className?: string }) {
 }
 
 /** 설명 문구. 핵심 단어를 칠하고 문구 안 줄바꿈은 그대로 둔다. */
-function CalloutText({ callout, className }: { callout: SessionHelpCallout; className?: string }) {
+function CalloutText({ callout, className }: { callout: SessionHelpTextKey; className?: string }) {
   return (
     <p className={cn(CALLOUT_TEXT, "whitespace-pre-line", className)}>
-      {highlight(callout.text, callout.highlight)}
+      <HelpText textKey={callout} />
     </p>
   );
 }
@@ -131,8 +121,8 @@ function FakeFocusTimer({ ticking }: { ticking: boolean }) {
 }
 
 const PILL = {
-  distract: { variant: "session-distract", label: "자리를 비운 것 같아요" },
-  focus: { variant: "session-focus", label: "순공시간 측정 중" },
+  distract: { variant: "session-distract", label: "status.away" },
+  focus: { variant: "session-focus", label: "status.focus" },
 } as const;
 
 /** 가짜 일시정지 버튼. 테두리·화살표·설명은 children으로 받는다. */
@@ -152,8 +142,9 @@ function FakePauseButton({ children }: { children?: ReactNode }) {
  * 가로는 위아래 자리가 없어 필 오른쪽에 짧은 화살표와 문구를 둔다.
  * 가로에서 세 줄 이상이면 필 높이 가운데에 맞추면 윗줄이 화면 밖으로 밀려서 필 위 끝에 맞춘다.
  */
-function PillCallout({ callout }: { callout: SessionHelpCallout }) {
-  const tall = callout.text.split("\n").length > 2;
+function PillCallout({ callout }: { callout: SessionHelpTextKey }) {
+  const { t } = useTranslation("study-session");
+  const tall = t(callout).split("\n").length > 2;
   return (
     <>
       <span aria-hidden className={cn(RING, "rounded-full")} />
@@ -188,7 +179,7 @@ function PillCallout({ callout }: { callout: SessionHelpCallout }) {
  * 세로는 숫자 아래로 곧게 내려가는 화살표 밑에 가운데 정렬로 둔다.
  * 가로는 숫자 왼쪽에 오른쪽 정렬로 두고 화살표가 숫자를 향한다.
  */
-function TimerCallout({ callout }: { callout: SessionHelpCallout }) {
+function TimerCallout({ callout }: { callout: SessionHelpTextKey }) {
   return (
     <div className="absolute top-full left-1/2 flex w-max max-w-[calc(100vw-40px)] -translate-x-1/2 flex-col items-center pt-2 landscape-compact:top-1/2 landscape-compact:right-full landscape-compact:left-auto landscape-compact:max-w-none landscape-compact:translate-x-0 landscape-compact:-translate-y-1/2 landscape-compact:flex-row-reverse landscape-compact:pt-0 landscape-compact:pr-2.5">
       <Arrow
@@ -218,7 +209,7 @@ function TimerCallout({ callout }: { callout: SessionHelpCallout }) {
  * 세로는 숫자 아래 한 줄로 두고, 가로는 숫자 왼쪽 빈 자리에 두 줄로 둔다.
  * 문구의 줄바꿈을 세로에서는 공백으로 접는다.
  */
-function TapCallout({ callout }: { callout: SessionHelpCallout }) {
+function TapCallout({ callout }: { callout: SessionHelpTextKey }) {
   return (
     <div className="absolute top-full left-1/2 mt-7 flex w-max max-w-[calc(100vw-32px)] -translate-x-1/2 flex-col items-center gap-3 landscape-compact:top-1/2 landscape-compact:right-full landscape-compact:left-auto landscape-compact:mt-0 landscape-compact:mr-12 landscape-compact:translate-x-0 landscape-compact:-translate-y-1/2">
       <CalloutText
@@ -239,6 +230,7 @@ function TapCallout({ callout }: { callout: SessionHelpCallout }) {
  * 탭 설명 단계는 덮개 대신 가짜 요소를 옅게 해서 가운데 문구만 또렷하게 둔다.
  */
 function SimpleModeBackdrop({ step }: { step: SessionHelpStep }) {
+  const { t } = useTranslation("study-session");
   const state = step.state ?? "focus";
   const { pill, timer, tap } = step.callouts;
   const dimmed = tap !== undefined && "opacity-40";
@@ -251,7 +243,7 @@ function SimpleModeBackdrop({ step }: { step: SessionHelpStep }) {
       <div className={cn("absolute inset-0 flex flex-col items-center", SESSION_LAYER_INSET)}>
         <div className={cn("relative flex", dimmed)}>
           <Badge variant={PILL[state].variant} aria-hidden className={SESSION_PILL_SIZE}>
-            {PILL[state].label}
+            {t(PILL[state].label)}
           </Badge>
           {pill && <PillCallout callout={pill} />}
         </div>
@@ -283,7 +275,7 @@ function SimpleModeBackdrop({ step }: { step: SessionHelpStep }) {
 }
 
 /** 사이드 버튼 세 개와 설명. 설명은 가운데(과목) 버튼을 가리킨다. */
-function SideCallout({ callout }: { callout: SessionHelpCallout }) {
+function SideCallout({ callout }: { callout: SessionHelpTextKey }) {
   return (
     <div className={SESSION_SIDE_POSITION}>
       <span aria-hidden className={cn(RING, "rounded-full")} />
@@ -327,7 +319,7 @@ function SideCallout({ callout }: { callout: SessionHelpCallout }) {
  * 세로는 버튼 오른쪽으로 곧게 나간 화살표 옆에 버튼 높이 가운데로 둔다.
  * 가로는 오른쪽에 내비게이션 막대가 있어 버튼 위로 올라가 오른쪽으로 꺾인다.
  */
-function PauseCallout({ callout }: { callout: SessionHelpCallout }) {
+function PauseCallout({ callout }: { callout: SessionHelpTextKey }) {
   return (
     <div className={cn("absolute inset-0 flex items-end", SESSION_LAYER_INSET)}>
       <FakePauseButton>
@@ -354,7 +346,7 @@ function PauseCallout({ callout }: { callout: SessionHelpCallout }) {
 }
 
 /** 더보기 버튼과 설명. 설명은 강조 없이 17/24 흰 글자로 줄여 정중앙 제목보다 눈에 덜 띄게 한다. */
-function MoreCallout({ callout }: { callout: SessionHelpCallout }) {
+function MoreCallout({ callout }: { callout: SessionHelpTextKey }) {
   return (
     <div className={cn(SOLO_MORE_POSITION, "flex size-11 items-center justify-center")}>
       <span
@@ -437,6 +429,7 @@ export function SessionHelpScreen({
    */
   returnFocus?: HTMLElement | null;
 }) {
+  const { t } = useTranslation("study-session");
   const [ownStep, setOwnStep] = useState(0);
   const stepIndex = controlledStep ?? ownStep;
   const setStepIndex = onStepChange ?? setOwnStep;
@@ -468,7 +461,7 @@ export function SessionHelpScreen({
     <div
       ref={rootRef}
       role="dialog"
-      aria-label="세션 도움말"
+      aria-label={t("help.dialog")}
       tabIndex={-1}
       onKeyDown={(event) => {
         if (event.key === "Escape") {
@@ -493,7 +486,7 @@ export function SessionHelpScreen({
           심플 모드 단계는 화면 자체가 설명이라 덮개를 칠하지 않는다. */}
       <button
         type="button"
-        aria-label="다음 안내"
+        aria-label={t("help.nextOverlay")}
         aria-hidden
         tabIndex={-1}
         onClick={goNext}
@@ -511,15 +504,15 @@ export function SessionHelpScreen({
         {step.center && (
           <div className="absolute inset-0 flex flex-col items-center justify-center px-6">
             <p className="text-center text-[26px] leading-8.5 font-bold break-keep whitespace-pre-line text-primary-foreground">
-              {highlight(step.center.text, step.center.highlight)}
+              <HelpText textKey={step.center} />
             </p>
-            {step.cta !== undefined && (
+            {step.cta === true && (
               <button
                 type="button"
                 onClick={onComplete}
                 className="pointer-events-auto mt-6 h-13 rounded-full bg-primary px-8 text-base leading-6 font-bold text-primary-foreground transition-[scale,opacity] duration-150 ease-out outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/70 active:scale-[0.97] active:opacity-85 motion-reduce:active:scale-100"
               >
-                {step.cta}
+                {t("help.finishCta")}
               </button>
             )}
           </div>
@@ -546,7 +539,7 @@ export function SessionHelpScreen({
           )}
         >
           <span aria-hidden>‹</span>
-          {SESSION_HELP_NAV.prev}
+          {t("help.prev")}
         </button>
         <span className="text-sm leading-5 font-medium text-primary-foreground/70 tabular-nums">
           {stepIndex + 1}/{SESSION_HELP_STEPS.length}
@@ -557,7 +550,7 @@ export function SessionHelpScreen({
             onClick={goNext}
             className={cn(NAV_BUTTON, "text-primary-foreground")}
           >
-            {SESSION_HELP_NAV.next}
+            {t("help.next")}
             <span aria-hidden>›</span>
           </button>
         )}

@@ -50,7 +50,7 @@ export async function openWebCodecsSink(canvas: HTMLCanvasElement): Promise<Vide
     async finish() {
       await output.finalize();
       if (target.buffer === null) {
-        throw new Error("mp4 버퍼가 비었다");
+        throw new Error("mp4 buffer is empty");
       }
       return { bytes: target.buffer, mimeType: MP4 };
     },
@@ -107,7 +107,7 @@ export function openRecorderSink(
       }
     };
     recorder.onstop = () => resolveStopped();
-    recorder.onerror = () => rejectStopped(new Error("녹화가 중단됐다"));
+    recorder.onerror = () => rejectStopped(new Error("recording was interrupted"));
     recorder.start();
   } catch {
     // 지원한다고 답해도 만들기나 시작에서 실패하는 기기가 있어 녹화 경로를 포기한다.
@@ -134,7 +134,7 @@ export function openRecorderSink(
       await stopped;
       const file = new Blob(chunks);
       if (file.size === 0) {
-        throw new Error("녹화 결과가 비었다");
+        throw new Error("recording result is empty");
       }
       return { bytes: await file.arrayBuffer(), mimeType: MP4 };
     },
