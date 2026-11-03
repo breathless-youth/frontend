@@ -35,6 +35,17 @@ describe("redirectSystemPath", () => {
     expect(handler).toHaveBeenCalledWith("4680");
   });
 
+  it.each([
+    "https://web.focusmakers.app/social/join?code=AB2CD3",
+    "focusmakers://social/join?code=ab2cd3",
+  ])("그룹 초대 링크 %s도 세션 화면에 정리한 코드로 넘긴다", (path) => {
+    const handler = jest.fn();
+    release = setSessionInviteHandler(handler);
+
+    expect(redirectSystemPath({ path, initial: false })).toBeNull();
+    expect(handler).toHaveBeenCalledWith("AB2CD3");
+  });
+
   it("콜드 스타트 링크는 세션 화면 여부와 상관없이 그대로 보낸다", () => {
     const handler = jest.fn();
     release = setSessionInviteHandler(handler);

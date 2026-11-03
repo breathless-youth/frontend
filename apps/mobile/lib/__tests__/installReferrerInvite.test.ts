@@ -31,13 +31,25 @@ describe("inviteRouteFromInstallReferrer", () => {
     expect(inviteRouteFromInstallReferrer("code=0007")).toBe("/social/join?code=0007");
   });
 
+  it("그룹 6자리 코드는 대문자로 맞추고 구분 글자를 버려 join 라우트를 만든다", () => {
+    expect(inviteRouteFromInstallReferrer("code=AB2CD3")).toBe("/social/join?code=AB2CD3");
+    expect(inviteRouteFromInstallReferrer("code=ab2cd3")).toBe("/social/join?code=AB2CD3");
+    expect(inviteRouteFromInstallReferrer("code=ab2%20cd3")).toBe("/social/join?code=AB2CD3");
+    expect(inviteRouteFromInstallReferrer("utm_source=x&code=AB2-CD3")).toBe(
+      "/social/join?code=AB2CD3",
+    );
+  });
+
   it("code가 없으면(오가닉 설치) null을 돌려준다", () => {
     expect(inviteRouteFromInstallReferrer("utm_source=google-play")).toBeNull();
   });
 
-  it("숫자 4자리가 아니면 null을 돌려준다", () => {
+  it("숫자 4자리 코드도 그룹 6자리 코드도 아니면 null을 돌려준다", () => {
     expect(inviteRouteFromInstallReferrer("code=12a4")).toBeNull();
     expect(inviteRouteFromInstallReferrer("code=123")).toBeNull();
+    expect(inviteRouteFromInstallReferrer("code=AB0CD3")).toBeNull();
+    expect(inviteRouteFromInstallReferrer("code=AB2CD3E")).toBeNull();
+    expect(inviteRouteFromInstallReferrer("code=%3Cscript%3E")).toBeNull();
   });
 
   it("빈 값이면 null을 돌려준다", () => {
@@ -53,6 +65,12 @@ describe("consumePendingInviteRoute", () => {
 
     await expect(consumePendingInviteRoute()).resolves.toBe("/social/join?code=0412");
     expect(mockedSet).toHaveBeenCalledWith("inviteReferrerConsumedV1", "1");
+  });
+
+  it("그룹 코드도 라우트로 돌려준다", async () => {
+    mockedReferrer.mockResolvedValue("code=ab2cd3");
+
+    await expect(consumePendingInviteRoute()).resolves.toBe("/social/join?code=AB2CD3");
   });
 
   it("이미 소비했으면 referrer를 조회하지 않고 null을 돌려준다", async () => {

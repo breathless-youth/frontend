@@ -88,6 +88,21 @@ describe("openPushRoute", () => {
     unregister();
   });
 
+  it("세션 중 그룹 초대 링크도 세션 화면에 넘기고 이동하지 않는다", async () => {
+    const push = jest.fn();
+    const invite = jest.fn();
+    const closeSession = markSessionOpen("single");
+    const unregister = setSessionInviteHandler(invite);
+
+    openPushRoute("/social/join?code=ab2cd3", push, () => AT);
+    closeSession();
+    await flush();
+
+    expect(invite).toHaveBeenCalledWith("AB2CD3");
+    expect(push).not.toHaveBeenCalled();
+    unregister();
+  });
+
   it("세션이 없을 때 초대 링크는 초대 참여 라우트로 간다", async () => {
     const push = jest.fn();
 

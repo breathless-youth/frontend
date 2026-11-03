@@ -88,16 +88,23 @@ describe("parseToNativeMessage", () => {
     });
   });
 
-  it("navigate-home의 초대코드(inviteCode)는 4자리 숫자만 통과시키고, 아니면 그 필드만 빼고 모달 닫기는 살린다", () => {
+  it("navigate-home의 초대코드(inviteCode)는 4자리 숫자 코드와 그룹 6자리 코드만 통과시키고, 아니면 그 필드만 빼고 모달 닫기는 살린다", () => {
     expect(parseToNativeMessage('{"type":"navigate-home","inviteCode":"4680","atMs":9}')).toEqual({
       type: "navigate-home",
       inviteCode: "4680",
       atMs: 9,
     });
+    // 세션 중 그룹 초대도 같은 왕복으로 돌아오므로 그룹 코드가 빠지면 기록 저장 뒤 초대 화면이 열리지 않는다.
+    expect(parseToNativeMessage('{"type":"navigate-home","inviteCode":"ab2cd3","atMs":9}')).toEqual(
+      { type: "navigate-home", inviteCode: "AB2CD3", atMs: 9 },
+    );
     expect(parseToNativeMessage('{"type":"navigate-home","inviteCode":"46a0","atMs":9}')).toEqual({
       type: "navigate-home",
       atMs: 9,
     });
+    expect(parseToNativeMessage('{"type":"navigate-home","inviteCode":"AB0CD3","atMs":9}')).toEqual(
+      { type: "navigate-home", atMs: 9 },
+    );
     expect(parseToNativeMessage('{"type":"navigate-home","inviteCode":4680,"atMs":9}')).toEqual({
       type: "navigate-home",
       atMs: 9,

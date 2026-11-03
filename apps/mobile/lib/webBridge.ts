@@ -38,7 +38,7 @@ import {
 
 import { isReservedAnalyticsName } from "./firebaseAnalytics";
 import { META_EVENT_MAX_PARAMS, META_EVENT_NAME_PATTERN } from "./metaAds";
-import { isInviteCode } from "./sessionInvite";
+import { inviteCodeFrom } from "./sessionInvite";
 
 /**
  * 웹이 설치하는 전역 수신 함수 이름 — 웹 쪽 `NATIVE_MESSAGE_ENTRY`와 **같은 값이어야 한다.**
@@ -133,15 +133,18 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
     }
     case "start-session":
       return { type: "start-session", atMs: record.atMs };
-    case "navigate-home":
+    case "navigate-home": {
       // 이어서 열 탭과 초대코드는 선택 필드다.
       // 명세 밖 값이면 그 필드만 빼고 모달 닫기는 살린다(탭이 빠지면 홈 탭에 머문다).
+      // 세션 중 받은 그룹 초대도 이 필드로 돌아오므로 링크와 같은 규칙으로 코드를 정리한다.
+      const inviteCode = inviteCodeFrom(record.inviteCode);
       return {
         type: "navigate-home",
         ...(record.tab === "records" || record.tab === "ranking" ? { tab: record.tab } : {}),
-        ...(isInviteCode(record.inviteCode) ? { inviteCode: record.inviteCode } : {}),
+        ...(inviteCode !== null ? { inviteCode } : {}),
         atMs: record.atMs,
       };
+    }
     case "records-changed":
       return { type: "records-changed", atMs: record.atMs };
     case "profile-updated":

@@ -11,21 +11,48 @@ type InviteHandler = (code: string) => void;
 
 let handler: InviteHandler | null = null;
 
-/** 초대코드 형식(4자리 숫자) 검사 */
-export function isInviteCode(value: unknown): value is string {
-  return typeof value === "string" && /^\d{4}$/.test(value);
+/** 예전 방의 숫자 4자리 초대코드 */
+const ROOM_INVITE_CODE = /^\d{4}$/;
+
+/** 그룹 초대코드 사이에 끼어 와도 버리는 구분 글자 */
+const GROUP_INVITE_CODE_SEPARATORS = /[\s-]/g;
+
+/**
+ * 정리한 그룹 초대코드
+ *
+ * 서버는 헷갈리는 0, O, 1, I, L을 뺀 영문 대문자와 숫자 6자리로 만든다.
+ */
+const GROUP_INVITE_CODE = /^[A-HJKMNP-Z2-9]{6}$/;
+
+/**
+ * 링크에 실린 초대코드 정리
+ *
+ * 예전 방의 숫자 4자리 코드는 앞자리 0까지 받은 그대로 돌려준다.
+ * 그룹의 6자리 코드는 공백과 하이픈을 버리고 대문자로 맞춘 뒤 서버가 쓰는 글자로만 되어 있을 때 돌려준다.
+ * 대문자로 바꾸면 ß처럼 영문이 아닌 글자가 영문 두 글자가 되기도 해서 영문과 숫자만 남았는지 먼저 본다.
+ * 어느 모양도 아니면 null이다.
+ * 어느 쪽 초대인지는 웹이 코드 모양으로 구분하므로 앱은 코드만 넘긴다.
+ */
+export function inviteCodeFrom(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  if (ROOM_INVITE_CODE.test(value)) return value;
+  const compact = value.replace(GROUP_INVITE_CODE_SEPARATORS, "");
+  if (!/^[A-Za-z0-9]{6}$/.test(compact)) return null;
+  const code = compact.toUpperCase();
+  return GROUP_INVITE_CODE.test(code) ? code : null;
 }
 
 /**
- * `/social/join?code=NNNN` 경로의 초대코드
+ * `/social/join?code=` 경로의 초대코드
  *
- * 초대 경로가 아니거나 코드 형식이 틀리면 null이다.
+ * 초대 경로가 아니거나 코드 모양이 틀리면 null이다.
+ * 코드 값을 디코딩하지 않는 이유는 앱의 URLSearchParams가 잘못된 퍼센트 인코딩에 예외를 내서다.
+ * 두 코드 모양 모두 인코딩이 필요 없는 글자라 디코딩하지 않아도 그대로 읽힌다.
  */
 export function inviteCodeFromRoute(route: string): string | null {
   const [path, query = ""] = route.split("?");
   if (path !== "/social/join") return null;
-  const code = /(?:^|&)code=([^&#]*)/.exec(query)?.[1];
-  return isInviteCode(code) ? code : null;
+  return inviteCodeFrom(/(?:^|&)code=([^&#]*)/.exec(query)?.[1]);
 }
 
 /**
