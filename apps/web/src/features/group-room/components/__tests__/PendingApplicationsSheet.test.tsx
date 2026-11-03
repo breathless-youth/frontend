@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -161,6 +161,27 @@ describe("PendingApplicationsSheet", () => {
     );
     expect(screen.getAllByRole("status", { name: "불러오는 중" }).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "신청 취소" })).toBeNull();
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it("목록을 받지 못했으면 자리표시 대신 넘겨받은 오류를 두고 닫지 않는다", () => {
+    const onOpenChange = vi.fn();
+    render(
+      <PendingApplicationsSheet
+        open
+        loading
+        error={<p>신청 목록을 불러오지 못했어요</p>}
+        onOpenChange={onOpenChange}
+        applications={[]}
+        now={NOW}
+        cancelingId={null}
+        onCancel={vi.fn()}
+        onOpenRoom={vi.fn()}
+      />,
+    );
+    const sheet = screen.getByRole("dialog", { name: "신청 중인 공개 그룹" });
+    expect(within(sheet).getByText("신청 목록을 불러오지 못했어요")).toBeInTheDocument();
+    expect(within(sheet).queryAllByRole("status", { name: "불러오는 중" })).toHaveLength(0);
     expect(onOpenChange).not.toHaveBeenCalled();
   });
 

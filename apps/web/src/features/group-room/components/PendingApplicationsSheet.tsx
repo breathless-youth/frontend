@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useId } from "react";
+import { type ReactNode, useEffect, useEffectEvent, useId } from "react";
 
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -14,6 +14,7 @@ import { CategoryTag } from "./RoomMeta";
  * 줄을 누르면 그 그룹의 공개 그룹 보기를 열고, 신청 취소는 확인 창 없이 바로 넘긴다.
  * 마지막 신청을 취소해 목록이 비면 제목만 남은 시트가 떠 있지 않게 스스로 닫는다.
  * 목록을 받는 동안의 빈 목록은 닫을 까닭이 아니어서 `loading`이면 줄 자리표시를 두고 닫지 않는다.
+ * 목록을 받지 못했으면 자리표시 대신 호출부가 넘긴 오류를 두어 다시 시도할 수 있게 하고, 그 빈 목록으로도 닫지 않는다.
  * 시트는 body로 나가므로 Soft Blue 테마를 시트에도 단다.
  * 시트 안 버튼은 iOS에서 살짝 움직인 탭이 끌기로 잡혀 버려지지 않게 목록째 끌기에서 뺀다.
  * 목록이 비어 닫힐 때는 시트를 연 띠도 함께 사라져 포커스가 갈 곳을 잃으므로 `emptiedFocus`가 준 요소로 돌려준다.
@@ -24,6 +25,7 @@ export function PendingApplicationsSheet({
   applications,
   now,
   loading = false,
+  error,
   cancelingId,
   emptiedFocus,
   onCancel,
@@ -34,6 +36,8 @@ export function PendingApplicationsSheet({
   applications: PendingApplication[];
   now: Date;
   loading?: boolean;
+  /** 목록을 받지 못했을 때 줄 자리에 둘 오류 표시이고, 다시 시도까지 호출부가 채운다. */
+  error?: ReactNode;
   cancelingId: number | null;
   /** 목록이 비어 시트가 닫힐 때 포커스를 받을 요소이고, 없으면 시트를 연 요소로 돌아간다. */
   emptiedFocus?: () => HTMLElement | null;
@@ -41,7 +45,7 @@ export function PendingApplicationsSheet({
   onOpenRoom: (roomId: number) => void;
 }) {
   const close = useEffectEvent(() => onOpenChange(false));
-  const settledEmpty = !loading && applications.length === 0;
+  const settledEmpty = !loading && error === undefined && applications.length === 0;
   const emptied = open && settledEmpty;
   useEffect(() => {
     if (emptied) {
@@ -61,24 +65,30 @@ export function PendingApplicationsSheet({
         <DrawerDescription className="pt-1 pb-2 text-[13px] leading-5 text-muted-foreground">
           그룹장이 {GROUP_ROOM_LIMITS.applicationTtlDays}일 안에 답하지 않으면 신청이 취소돼요
         </DrawerDescription>
-        <ul data-base-ui-swipe-ignore="">
-          {loading
-            ? [0, 1].map((index) => (
-                <li key={index} className="flex min-h-17 items-center">
-                  <Skeleton className="h-12 w-full rounded-[14px]" />
-                </li>
-              ))
-            : applications.map((application) => (
-                <PendingRow
-                  key={application.applicationId}
-                  application={application}
-                  now={now}
-                  canceling={cancelingId === application.applicationId}
-                  onCancel={onCancel}
-                  onOpenRoom={onOpenRoom}
-                />
-              ))}
-        </ul>
+        {error !== undefined ? (
+          <div data-base-ui-swipe-ignore="" className="py-2">
+            {error}
+          </div>
+        ) : (
+          <ul data-base-ui-swipe-ignore="">
+            {loading
+              ? [0, 1].map((index) => (
+                  <li key={index} className="flex min-h-17 items-center">
+                    <Skeleton className="h-12 w-full rounded-[14px]" />
+                  </li>
+                ))
+              : applications.map((application) => (
+                  <PendingRow
+                    key={application.applicationId}
+                    application={application}
+                    now={now}
+                    canceling={cancelingId === application.applicationId}
+                    onCancel={onCancel}
+                    onOpenRoom={onOpenRoom}
+                  />
+                ))}
+          </ul>
+        )}
       </DrawerContent>
     </Drawer>
   );

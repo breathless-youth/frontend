@@ -195,6 +195,20 @@ describe("그룹 탭", () => {
     expect(await within(sheet).findByRole("button", { name: "신청 취소" })).toBeInTheDocument();
   });
 
+  it("신청 목록을 받지 못하면 시트에 다시 시도를 두고 누르면 목록을 보인다", async () => {
+    const api = mockGroupApi("default");
+    api.getMyApplications.mockRejectedValue(new ApiError("x", 400, "BAD_REQUEST"));
+    renderGroupRoute("/social?groupRooms=1");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: /신청 중인 공개 그룹 1/ }));
+    const sheet = await screen.findByRole("dialog", { name: "신청 중인 공개 그룹" });
+    expect(await within(sheet).findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
+    expect(within(sheet).queryAllByRole("status", { name: "불러오는 중" })).toHaveLength(0);
+    api.getMyApplications.mockImplementation((signal) => api.server.getMyApplications(signal));
+    await user.click(within(sheet).getByRole("button", { name: "다시 시도" }));
+    expect(await within(sheet).findByRole("button", { name: "신청 취소" })).toBeInTheDocument();
+  });
+
   it("그룹장인 그룹이 2개면 그룹 만들기가 흐려진다", async () => {
     mockGroupApi("limits");
     renderGroupRoute("/social?groupRooms=1");

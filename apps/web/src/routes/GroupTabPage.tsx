@@ -243,6 +243,15 @@ function GroupTabContent({ userId }: { userId: number | null }) {
           now={now}
           // 목록이 오기 전의 빈 목록에 시트가 스스로 닫히지 않게 목록이 올 때까지 받는 중으로 둔다.
           loading={applicationsQuery.data === undefined}
+          error={
+            cannotLoadFirst(applicationsQuery) ? (
+              <ErrorState
+                message={GROUP_RETRY_COPY}
+                onRetry={() => void applicationsQuery.refetch()}
+                screen="group_tab"
+              />
+            ) : undefined
+          }
           cancelingId={cancel.isPending ? cancel.variables.applicationId : null}
           // 마지막 신청을 취소하면 띠가 사라져서 포커스를 지금 고른 탭에 돌려준다.
           emptiedFocus={() =>
