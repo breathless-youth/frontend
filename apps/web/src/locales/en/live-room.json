@@ -49,7 +49,12 @@
     "focus": "Focusing",
     "distracted": "On a break",
     "off": "Camera off",
-    "break": "On a break"
+    "break": "On a break",
+    "aria": {
+      "micOn": "Mic on",
+      "micOff": "Mic off",
+      "speaking": "Speaking"
+    }
   },
   "time": {
     "total": "Total",
@@ -105,5 +110,22 @@
       "resume": "Resume",
       "off": "Turn off timer"
     }
+  },
+  "roomMemberMenu": {
+    "volume": "Volume",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "report": "Report",
+    "kick": "Remove from group",
+    "aria": {
+      "trigger": "Options for {{nickname}}",
+      "volume": "Volume for {{nickname}}"
+    }
+  },
+  "reportMemberLayer": {
+    "title": "Report"
+  },
+  "liveRoomSession": {
+    "reportedAndBlocked": "Reported and blocked {{nickname}}"
   }
 }

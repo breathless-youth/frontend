@@ -488,7 +488,7 @@ export function LiveRoomSession({
           setBlockedUserIds((previous) => new Set(previous).add(target.userId));
           // 설정의 차단 목록이 받아 둔 목록을 보여 주지 않게 한다.
           void queryClient.invalidateQueries({ queryKey: groupKeys.blocks(userId) });
-          showCtaToast(`${target.nickname}님을 신고하고 차단했어요`);
+          showCtaToast(t("liveRoomSession.reportedAndBlocked", { nickname: target.nickname }));
           closeTargetLayer();
         },
         onError: (error) => {

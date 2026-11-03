@@ -50,11 +50,12 @@ function tileBadgeState(member: RoomMember, blocked: boolean): TileBadgeState {
  * 꺼짐과 켜짐을 모양으로 가르고 화면 낭독기에는 상태 글로 알린다.
  */
 function TileMicIcon({ on }: { on: boolean }) {
+  const { t } = useTranslation("live-room");
   const Icon = on ? Mic : MicOff;
   return (
     <span
       role="img"
-      aria-label={on ? "마이크 켜짐" : "마이크 꺼짐"}
+      aria-label={on ? t("tile.aria.micOn") : t("tile.aria.micOff")}
       className={cn("flex shrink-0", on ? "text-white" : "text-white/72")}
     >
       <Icon
@@ -130,6 +131,7 @@ export function RoomTile({
   micOn,
   blocked = false,
 }: RoomTileProps) {
+  const { t } = useTranslation("live-room");
   const cameraShown = member.cameraOn && !blocked;
   const showMedia = cameraShown && media !== undefined;
   // 지운 목표는 서버에 빈 문자열로 남으므로 빈 줄을 그리지 않게 미설정으로 맞춘다.
@@ -194,7 +196,7 @@ export function RoomTile({
             aria-hidden="true"
             className="theme-soft-blue pointer-events-none absolute inset-0 rounded-xl ring-3 ring-feedback-success ring-inset"
           />
-          <span className="sr-only">말하는 중</span>
+          <span className="sr-only">{t("tile.aria.speaking")}</span>
         </>
       )}
     </div>

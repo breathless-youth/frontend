@@ -1,6 +1,7 @@
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import { Ellipsis, Volume2 } from "lucide-react";
 import { useRef } from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   DropdownMenu,
@@ -60,6 +61,7 @@ export function RoomMemberMenu({
   onReport: () => void;
   onKick: () => void;
 }) {
+  const { t } = useTranslation("live-room");
   const triggerRef = useRef<HTMLButtonElement>(null);
   const chosen = useRef<(() => void) | null>(null);
   return (
@@ -75,7 +77,7 @@ export function RoomMemberMenu({
     >
       <DropdownMenuTrigger
         ref={triggerRef}
-        aria-label={`${nickname} 메뉴`}
+        aria-label={t("roomMemberMenu.aria.trigger", { nickname })}
         data-sentry-element="RoomMemberMenu"
         // 화면 탭은 조작을 숨기고 보이는 토글이라 메뉴 버튼 누름이 거기까지 올라가지 않게 끊는다.
         onPointerDown={(event) => event.stopPropagation()}
@@ -119,7 +121,7 @@ export function RoomMemberMenu({
           <DropdownMenuPrimitive.Item
             asChild
             role="slider"
-            textValue="음량"
+            textValue={t("roomMemberMenu.volume")}
             // 음량을 바꿔도 메뉴는 닫지 않는다.
             onSelect={(event) => event.preventDefault()}
           >
@@ -129,7 +131,7 @@ export function RoomMemberMenu({
               max={100}
               step={VOLUME_STEP}
               value={Math.round(volume * 100)}
-              aria-label={`${nickname}님 음량`}
+              aria-label={t("roomMemberMenu.aria.volume", { nickname })}
               data-sentry-element="RoomMemberVolume"
               onChange={(event) => onVolumeChange(Number(event.currentTarget.value) / 100)}
               className="h-11 w-full min-w-0 accent-(--state-focus) focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
@@ -137,7 +139,7 @@ export function RoomMemberMenu({
           </DropdownMenuPrimitive.Item>
         </div>
         <DropdownMenuItem onSelect={onToggleMute} className={MENU_ITEM_CLASS}>
-          {muted ? "소리 켜기" : "소리 끄기"}
+          {muted ? t("roomMemberMenu.unmute") : t("roomMemberMenu.mute")}
         </DropdownMenuItem>
         <DropdownMenuItem
           onSelect={() => {
@@ -145,7 +147,7 @@ export function RoomMemberMenu({
           }}
           className={cn(MENU_ITEM_CLASS, DANGER_ITEM_CLASS)}
         >
-          신고하기
+          {t("roomMemberMenu.report")}
         </DropdownMenuItem>
         {canKick && (
           <DropdownMenuItem
@@ -154,7 +156,7 @@ export function RoomMemberMenu({
             }}
             className={cn(MENU_ITEM_CLASS, DANGER_ITEM_CLASS)}
           >
-            그룹에서 내보내기
+            {t("roomMemberMenu.kick")}
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>

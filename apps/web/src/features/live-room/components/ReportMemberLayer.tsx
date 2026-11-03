@@ -1,5 +1,6 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Dialog, DialogPortal, DialogTitle } from "@/components/ui/dialog";
 import { Toaster } from "@/components/ui/sonner";
@@ -37,6 +38,7 @@ export function ReportMemberLayer({
   /** 닫힌 뒤 포커스를 받을 요소 */
   returnFocus?: () => HTMLElement | null;
 }) {
+  const { t } = useTranslation(["live-room", "common"]);
   const focusRestore = useDialogFocusRestore(returnFocus);
   return (
     <Dialog
@@ -57,7 +59,7 @@ export function ReportMemberLayer({
           {...GROUP_ROOM_ANALYTICS_MASK}
           className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-background"
         >
-          <DialogTitle className="sr-only">신고하기</DialogTitle>
+          <DialogTitle className="sr-only">{t("reportMemberLayer.title")}</DialogTitle>
           <ReportForm nickname={nickname} pending={pending} onSubmit={onSubmit} onBack={onClose} />
           {/* 레이어가 공부방의 토스트 자리를 덮어서 보내지 못한 안내는 레이어 위쪽에 띄운다.
               성공 안내는 레이어를 닫은 뒤 공부방 자리에 이어서 보여야 해서 닫힐 때 토스트를 지우지 않는다. */}
@@ -65,7 +67,7 @@ export function ReportMemberLayer({
             id={CTA_TOASTER_ID}
             position="top-center"
             className="absolute!"
-            customAriaLabel="화면 알림"
+            customAriaLabel={t("common:aria.ctaToaster")}
             toastOptions={{ classNames: { toast: "whitespace-nowrap" } }}
           />
         </DialogPrimitive.Content>
