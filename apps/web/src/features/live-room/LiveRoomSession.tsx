@@ -540,6 +540,7 @@ export function LiveRoomSession({
     cameraOn: cameraWanted && cameraOn,
     micOn: room.kind === "group" ? audio.micOn : undefined,
     onBreak: room.kind === "group" ? flags.onBreak : undefined,
+    myUserId: userId,
   });
 
   // 내 타일은 로컬 세션 값 기준

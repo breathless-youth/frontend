@@ -599,6 +599,25 @@ describe("GroupRoomPage 시간 규칙과 상태 발행", () => {
     ]);
   });
 
+  it("마이크를 켠 뒤 서버가 내 마이크를 처음 값으로 돌려 두면 켜짐을 다시 보낸다", async () => {
+    const { channel, acquire } = await enterGroupRoom();
+    acquire.mockResolvedValue({ kind: "ok", track: fakeMicTrack() });
+    await turnCameraOn();
+    await userEvent.setup().click(screen.getByRole("button", { name: "마이크 켜기" }));
+    await screen.findByRole("button", { name: "마이크 끄기" });
+    channel.published.length = 0;
+
+    // 자리를 새로 잡은 서버의 SNAPSHOT은 내 카메라와 마이크를 꺼짐으로 돌려 둔다.
+    act(() =>
+      channel.emitServerMessage({
+        type: "SNAPSHOT",
+        members: [meMember({ cameraOn: false, micOn: false, onBreak: false })],
+      }),
+    );
+
+    expect(channel.published).toEqual([{ cameraOn: true }, { micOn: true }]);
+  });
+
   it("카메라를 끈 채 20분이 지나도 남고 1시간이 되면 공부를 마치고 그룹 홈으로 간다", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.mocked(submitStudySession).mockResolvedValue([]);
