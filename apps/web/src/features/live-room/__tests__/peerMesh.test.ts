@@ -1847,6 +1847,103 @@ describe("오디오", () => {
     expect(video?.sender.replaceTrack).toHaveBeenCalledWith(camera);
     expect(audio?.sender.replaceTrack).not.toHaveBeenCalledWith(camera);
   });
+
+  it("마이크를 끈 뒤 새로 생긴 연결에는 offer와 answer 어느 쪽이든 null만 싣는다", async () => {
+    const { pcs, channel, mesh } = setupMesh({ audio: true });
+    const mic = kindTrack("audio");
+    mesh.setLocalAudioTrack(mic);
+    mesh.setLocalAudioTrack(null);
+
+    channel.emitServerMessage(signal(2, "OFFER", OFFER_WITH_AUDIO));
+    channel.emitServerMessage(snapshot([member(7), member(3)]));
+    await flush();
+
+    expect(pcs).toHaveLength(2);
+    for (const pc of pcs) {
+      const sender = audioTransceivers(pc)[0]?.sender;
+      expect(sender?.replaceTrack).toHaveBeenCalledWith(null);
+      expect(sender?.replaceTrack).not.toHaveBeenCalledWith(mic);
+    }
+  });
+
+  describe("offer를 적용하는 사이 마이크를 바꾸면", () => {
+    function setupHeldOffer() {
+      let release = () => undefined as void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const rendered = setupMesh({
+        audio: true,
+        patchPc: (pc) => {
+          const apply = pc.setRemoteDescription;
+          pc.setRemoteDescription = async (description) => {
+            await gate;
+            await apply(description);
+          };
+        },
+      });
+      return { ...rendered, release };
+    }
+
+    it("끈 마이크는 적용이 끝난 뒤에도 싣지 않는다", async () => {
+      const { pcs, channel, mesh, release } = setupHeldOffer();
+      const mic = kindTrack("audio");
+      mesh.setLocalAudioTrack(mic);
+      channel.emitServerMessage(signal(2, "OFFER", OFFER_WITH_AUDIO));
+      await flush();
+
+      mesh.setLocalAudioTrack(null);
+      release();
+      await flush();
+
+      const sender = audioTransceivers(pcs[0]!)[0]?.sender;
+      expect(sender?.replaceTrack).toHaveBeenCalledWith(null);
+      expect(sender?.replaceTrack).not.toHaveBeenCalledWith(mic);
+      expect(channel.publishedSignals.map((s) => s.kind)).toEqual(["ANSWER"]);
+    });
+
+    it("켠 마이크는 적용이 끝난 뒤 싣는다", async () => {
+      const { pcs, channel, mesh, release } = setupHeldOffer();
+      channel.emitServerMessage(signal(2, "OFFER", OFFER_WITH_AUDIO));
+      await flush();
+
+      const mic = kindTrack("audio");
+      mesh.setLocalAudioTrack(mic);
+      release();
+      await flush();
+
+      expect(audioTransceivers(pcs[0]!)[0]?.sender.replaceTrack).toHaveBeenLastCalledWith(mic);
+    });
+  });
+
+  it("나중에 구독한 쪽도 지금 받고 있는 상대 소리를 바로 받는다", async () => {
+    const { pcs, channel, mesh } = setupMesh({ audio: true });
+    channel.emitServerMessage(snapshot([member(7), member(2), member(3)]));
+    await flush();
+    const two = kindTrack("audio");
+    pcs[0]?.ontrack?.({ track: two, streams: [] });
+    pcs[1]?.ontrack?.({ track: kindTrack("audio"), streams: [] });
+    channel.emitServerMessage({ type: "MEMBER_LEFT", userId: 3 });
+
+    const late = vi.fn();
+    mesh.subscribeRemoteAudio(late);
+
+    expect(late.mock.calls).toEqual([[2, two]]);
+  });
+
+  it("메시를 닫았다 다시 열면 앞 연결의 소리를 다시 알리지 않는다", async () => {
+    const { pcs, channel, mesh } = setupMesh({ audio: true });
+    channel.emitServerMessage(snapshot([member(7), member(2)]));
+    await flush();
+    pcs[0]?.ontrack?.({ track: kindTrack("audio"), streams: [] });
+
+    mesh.close();
+    mesh.start();
+    const late = vi.fn();
+    mesh.subscribeRemoteAudio(late);
+
+    expect(late).not.toHaveBeenCalled();
+  });
 });
 
 describe("차단", () => {
@@ -1956,6 +2053,50 @@ describe("차단", () => {
     await vi.advanceTimersByTimeAsync(3_000);
 
     expect(channel.publishedSignals).toEqual([]);
+  });
+
+  it("PEER_BLOCKED를 받으면 메시가 그 자리에서 연결을 닫고 다시 offer하지 않는다", async () => {
+    const { pcs, channel } = setupMesh({ audio: true });
+
+    channel.emitServerMessage(snapshot([member(7), member(2)]));
+    channel.emitServerMessage({ type: "PEER_BLOCKED", userId: 2 });
+
+    expect(pcs[0]?.closed).toBe(true);
+    channel.emitServerMessage(snapshot([member(7), member(2)]));
+    await flush();
+    expect(offeredTo(channel)).toEqual([]);
+    expect(pcs).toHaveLength(1);
+  });
+
+  it("10초 다시 맞추기로 온 SNAPSHOT에도 차단한 상대에게는 offer하지 않는다", async () => {
+    vi.useFakeTimers();
+    const { pcs, channel, mesh } = setupMesh({ audio: true });
+    channel.emitServerMessage(snapshot([member(7), member(2), member(3)]));
+    await vi.advanceTimersByTimeAsync(0);
+    pcs[1]?.fireIceState("disconnected");
+    mesh.blockPeer(2);
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(channel.snapshotRequests).toBe(1);
+
+    channel.emitServerMessage(snapshot([member(7), member(2), member(3)]));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(offeredTo(channel)).toEqual([2, 3]);
+    expect(pcs).toHaveLength(2);
+  });
+
+  it("끊긴 상대가 하나뿐일 때 그 상대를 차단하면 10초 다시 맞추기를 멈춘다", () => {
+    vi.useFakeTimers();
+    const { pcs, channel, mesh } = setupMesh({ audio: true });
+    channel.emitServerMessage(snapshot([member(7), member(2)]));
+    pcs[0]?.fireIceState("disconnected");
+    vi.advanceTimersByTime(10_000);
+    expect(channel.snapshotRequests).toBe(1);
+
+    mesh.blockPeer(2);
+    vi.advanceTimersByTime(30_000);
+
+    expect(channel.snapshotRequests).toBe(1);
   });
 
   it("연결을 모두 다시 만들어도 차단은 이어지고, 메시를 닫으면 풀린다", async () => {

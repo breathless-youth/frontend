@@ -423,6 +423,51 @@ describe("그룹 공부방 메시지", () => {
     ]);
   });
 
+  it("그룹 필드를 null로 보낸 초대코드 방 SNAPSHOT도 받고 null 키는 뺀다", () => {
+    const { deliver, received } = connectChannel();
+
+    deliver({
+      type: "SNAPSHOT",
+      members: [
+        { userId: 1, cameraOn: true, focusState: "FOCUS", micOn: null, onBreak: null, owner: null },
+        { userId: 2, cameraOn: false, focusState: "DISTRACTED" },
+      ],
+    });
+
+    expect(received()).toStrictEqual([
+      {
+        type: "SNAPSHOT",
+        members: [
+          { userId: 1, cameraOn: true, focusState: "FOCUS" },
+          { userId: 2, cameraOn: false, focusState: "DISTRACTED" },
+        ],
+      },
+    ]);
+  });
+
+  it("들어온 멤버의 null 필드는 빼고 값이 있는 필드는 그대로 받는다", () => {
+    const { deliver, received } = connectChannel();
+
+    deliver({
+      type: "MEMBER_JOINED",
+      member: {
+        userId: 3,
+        cameraOn: false,
+        focusState: "FOCUS",
+        micOn: null,
+        onBreak: null,
+        owner: false,
+      },
+    });
+
+    expect(received()).toStrictEqual([
+      {
+        type: "MEMBER_JOINED",
+        member: { userId: 3, cameraOn: false, focusState: "FOCUS", owner: false },
+      },
+    ]);
+  });
+
   it.each([
     { type: "MIC_CHANGED", userId: 1, micOn: true },
     { type: "BREAK_CHANGED", userId: 1, onBreak: true },

@@ -1,6 +1,13 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { acquireMicTrack, MIC_CONSTRAINTS } from "../microphone";
+
+const reportHandled = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/sentry", () => ({ reportHandled }));
+
+beforeEach(() => {
+  reportHandled.mockReset();
+});
 
 function fakeTrack() {
   return {
@@ -11,10 +18,15 @@ function fakeTrack() {
   } as unknown as MediaStreamTrack;
 }
 
-function rejectWith(name: string) {
+function rejectWith(name: string, message = "x") {
   return async (): Promise<MediaStream> => {
-    throw new DOMException("x", name);
+    throw new DOMException(message, name);
   };
+}
+
+/** 보고된 오류의 이름과 태그 */
+function reports() {
+  return reportHandled.mock.calls.map(([error, tag]) => [(error as Error).name, tag]);
 }
 
 describe("acquireMicTrack", () => {
@@ -58,5 +70,30 @@ describe("acquireMicTrack", () => {
     expect(navigator.mediaDevices).toBeUndefined();
 
     await expect(acquireMicTrack()).resolves.toEqual({ kind: "unavailable" });
+  });
+
+  it("거절이 아닌 실패는 메시지 없이 오류 이름만 보고한다", async () => {
+    await acquireMicTrack(rejectWith("NotReadableError", "Built-in Microphone is busy"));
+
+    expect(reports()).toEqual([["NotReadableError", "mic-acquire"]]);
+    const [reported] = reportHandled.mock.calls[0] as [Error, string];
+    expect(reported.message).not.toContain("Built-in");
+  });
+
+  it("권한 거절은 보고하지 않는다", async () => {
+    await acquireMicTrack(rejectWith("NotAllowedError"));
+    await acquireMicTrack(rejectWith("SecurityError"));
+
+    expect(reportHandled).not.toHaveBeenCalled();
+  });
+
+  it("소리 트랙이 없거나 mediaDevices가 없어도 무엇이 없었는지 이름으로 보고한다", async () => {
+    await acquireMicTrack(async () => ({ getAudioTracks: () => [] }) as unknown as MediaStream);
+    await acquireMicTrack();
+
+    expect(reports()).toEqual([
+      ["NoAudioTrack", "mic-acquire"],
+      ["NoMediaDevices", "mic-acquire"],
+    ]);
   });
 });

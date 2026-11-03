@@ -73,6 +73,39 @@ function isOptionalBoolean(value: unknown): boolean {
   return value === undefined || typeof value === "boolean";
 }
 
+const GROUP_MEMBER_FIELDS: ReadonlySet<string> = new Set(["micOn", "onBreak", "owner"]);
+
+function withoutNullGroupFields(member: unknown): unknown {
+  if (typeof member !== "object" || member === null) {
+    return member;
+  }
+  return Object.fromEntries(
+    Object.entries(member).filter(
+      ([key, value]) => value !== null || !GROUP_MEMBER_FIELDS.has(key),
+    ),
+  );
+}
+
+/**
+ * 멤버의 null 그룹 공부방 필드 빼기
+ *
+ * 서버는 값이 없는 필드도 null로 적어 보내서, 검사 전에 키가 없는 것과 같게 만든다.
+ * null 하나로 SNAPSHOT을 통째로 버리면 멤버 목록이 비어 혼자 있는 화면이 된다.
+ */
+function normalizeMemberFields(value: unknown): unknown {
+  if (typeof value !== "object" || value === null) {
+    return value;
+  }
+  const message = value as Record<string, unknown>;
+  if (message.type === "SNAPSHOT" && Array.isArray(message.members)) {
+    return { ...message, members: message.members.map(withoutNullGroupFields) };
+  }
+  if (message.type === "MEMBER_JOINED") {
+    return { ...message, member: withoutNullGroupFields(message.member) };
+  }
+  return value;
+}
+
 function isFocusState(value: unknown): boolean {
   return value === "FOCUS" || value === "DISTRACTED";
 }
@@ -136,7 +169,7 @@ export function createStompRoomChannel({
   function handleFrame(frame: { body: string }) {
     let parsed: unknown;
     try {
-      parsed = JSON.parse(frame.body);
+      parsed = normalizeMemberFields(JSON.parse(frame.body));
     } catch {
       // 깨진 본문은 버린다
       return;

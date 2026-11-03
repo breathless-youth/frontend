@@ -32,6 +32,7 @@ export interface PeerMesh {
    * 차단한 상대와의 연결을 닫고 타일과 소리에 null을 알린 뒤 다시 맺지 않는다.
    * 서버도 차단한 사이의 시그널을 버리지만 이미 맺은 연결은 끊지 못해서 여기서 닫는다.
    * SNAPSHOT 뒤마다 같은 상대가 다시 와도 결과가 같고, 공부방을 나가 메시를 닫을 때까지 유지한다.
+   * 채널로 온 PEER_BLOCKED는 메시가 직접 처리하고, 신고처럼 화면에서 차단할 때 이 함수를 부른다.
    */
   blockPeer(userId: number): void;
   /**
@@ -45,6 +46,7 @@ export interface PeerMesh {
   /**
    * 상대 소리 트랙을 영상 타일 알림과 따로 알린다.
    * 영상이 오지 않는 상대의 소리도 들려야 해서 소리 트랙이 도착하는 즉시 알리고, 그 상대의 연결을 닫거나 버리면 null을 알린다.
+   * 구독하면 그때 받고 있는 상대 소리를 바로 한 번씩 알린다.
    */
   subscribeRemoteAudio(
     listener: (userId: number, track: MediaStreamTrack | null) => void,
@@ -158,6 +160,8 @@ export function createPeerMesh({
   const fallbackOfferTimers = new Map<number, ReturnType<typeof setTimeout>>();
   const listeners = new Set<(userId: number, stream: MediaStream | null) => void>();
   const audioListeners = new Set<(userId: number, track: MediaStreamTrack | null) => void>();
+  // 재생기가 소리 트랙이 도착한 뒤에 구독해도 지금 들리는 상대를 놓치지 않게 들고 있다가 새 구독자에게 다시 알린다.
+  const remoteAudio = new Map<number, MediaStreamTrack>();
   // 백그라운드 복귀 재구축(resetConnections)에도 남아야 해서 메시를 닫을 때만 비운다.
   const blocked = new Set<number>();
   // PeerConnection당 발급하는 UUID — 보고의 연결 단위 중복 제거 키. 재수립 pc는 새 id를 받는다.
@@ -191,6 +195,11 @@ export function createPeerMesh({
   }
 
   function notifyAudio(userId: number, track: MediaStreamTrack | null) {
+    if (track === null) {
+      remoteAudio.delete(userId);
+    } else {
+      remoteAudio.set(userId, track);
+    }
     for (const listener of audioListeners) {
       listener(userId, track);
     }
@@ -764,7 +773,29 @@ export function createPeerMesh({
     notifyAudio(userId, null);
   }
 
+  function blockPeer(userId: number) {
+    const firstTime = !blocked.has(userId);
+    blocked.add(userId);
+    clearTimeout(fallbackOfferTimers.get(userId));
+    fallbackOfferTimers.delete(userId);
+    if (peers.has(userId)) {
+      debug(`block ${userId}`);
+      closePeer(userId);
+      return;
+    }
+    // 연결이 없어도 타일과 소리를 한 번은 내려 두고, SNAPSHOT 뒤마다 다시 오는 차단에는 다시 알리지 않는다.
+    if (firstTime) {
+      notify(userId, null);
+      notifyAudio(userId, null);
+    }
+  }
+
   const handleMessage = (message: Parameters<Parameters<RoomChannel["subscribe"]>[0]>[0]) => {
+    // 서버는 SNAPSHOT 바로 뒤에 차단을 보내서, 화면을 거치지 않고 같은 메시지 처리에서 닫아야 막 시작한 연결이 오래 남지 않는다.
+    if (message.type === "PEER_BLOCKED") {
+      blockPeer(message.userId);
+      return;
+    }
     if (message.type === "SNAPSHOT") {
       const present = new Set(message.members.map((m) => m.userId));
       let started = 0;
@@ -874,22 +905,7 @@ export function createPeerMesh({
         closePeer(userId);
       }
     },
-    blockPeer(userId) {
-      const firstTime = !blocked.has(userId);
-      blocked.add(userId);
-      clearTimeout(fallbackOfferTimers.get(userId));
-      fallbackOfferTimers.delete(userId);
-      if (peers.has(userId)) {
-        debug(`block ${userId}`);
-        closePeer(userId);
-        return;
-      }
-      // 연결이 없어도 타일과 소리를 한 번은 내려 두고, SNAPSHOT 뒤마다 다시 오는 차단에는 다시 알리지 않는다.
-      if (firstTime) {
-        notify(userId, null);
-        notifyAudio(userId, null);
-      }
-    },
+    blockPeer,
     setLocalAudioTrack(track) {
       if (!audio) {
         return;
@@ -914,6 +930,9 @@ export function createPeerMesh({
     },
     subscribeRemoteAudio(listener) {
       audioListeners.add(listener);
+      for (const [userId, track] of remoteAudio) {
+        listener(userId, track);
+      }
       return () => {
         audioListeners.delete(listener);
       };
@@ -931,6 +950,7 @@ export function createPeerMesh({
       restartAttempted.clear();
       offeredByMe.clear();
       lastStreams.clear();
+      remoteAudio.clear();
       signalChains.clear();
       for (const timer of fallbackOfferTimers.values()) {
         clearTimeout(timer);
