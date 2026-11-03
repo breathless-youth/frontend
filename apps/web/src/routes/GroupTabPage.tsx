@@ -24,7 +24,11 @@ import {
   writeGroupTabSearch,
 } from "@/features/group-room/groupTabSearch";
 import type { GroupTabSearch } from "@/features/group-room/groupTabSearch";
-import { canCreateRoom, myRoomsTabCount } from "@/features/group-room/model/limits";
+import {
+  canCreateRoom,
+  CREATE_ROOM_LIMIT_COPY,
+  myRoomsTabCount,
+} from "@/features/group-room/model/limits";
 import { SocialHomeScreen } from "@/features/group-room/screens/SocialHomeScreen";
 import type { CategoryOption, PendingApplication, SocialTab } from "@/features/group-room/types";
 import { useNow } from "@/features/ranking/useNow";
@@ -224,6 +228,8 @@ function GroupTabContent({ userId }: { userId: number | null }) {
       }}
       fab={{
         canCreate: signedIn && (mine === undefined || canCreateRoom(mine.ownedGroupCount)),
+        // 신원이 없어 막은 것은 그룹 한도 때문이 아니라서 한도 문구를 붙이지 않는다.
+        blockedReason: signedIn ? CREATE_ROOM_LIMIT_COPY : null,
         onCreate: () => leaveTab("/social/groups/new"),
         onJoinWithCode: () => leaveTab("/social/join"),
       }}

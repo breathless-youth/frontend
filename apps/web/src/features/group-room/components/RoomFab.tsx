@@ -55,11 +55,14 @@ function nextItemIndex(key: string, current: number, count: number): number | nu
  */
 export function RoomFab({
   canCreate,
+  blockedReason = CREATE_ROOM_LIMIT_COPY,
   onCreate,
   onJoinWithCode,
   defaultOpen = false,
 }: {
   canCreate: boolean;
+  /** 그룹 만들기를 흐리게 둔 이유이고, 한도 때문이 아니면 null이라 문구 없이 흐리게만 둔다. */
+  blockedReason?: string | null;
   onCreate: () => void;
   onJoinWithCode: () => void;
   defaultOpen?: boolean;
@@ -67,6 +70,7 @@ export function RoomFab({
   const [open, setOpen] = useState(defaultOpen);
   const menuRef = useRef<HTMLDivElement>(null);
   const reasonId = useId();
+  const reason = canCreate ? null : blockedReason;
 
   const choose = (action: () => void) => {
     setOpen(false);
@@ -146,7 +150,7 @@ export function RoomFab({
                 role="menuitem"
                 aria-label="그룹 만들기"
                 aria-disabled={canCreate ? undefined : true}
-                aria-describedby={canCreate ? undefined : reasonId}
+                aria-describedby={reason === null ? undefined : reasonId}
                 onClick={() => {
                   if (canCreate) {
                     choose(onCreate);
@@ -157,9 +161,9 @@ export function RoomFab({
                 <Plus aria-hidden="true" size={16} strokeWidth={2.2} className="shrink-0" />
                 <span className="flex flex-col gap-0.5">
                   그룹 만들기
-                  {!canCreate && (
+                  {reason !== null && (
                     <span id={reasonId} className="text-xs leading-4 font-medium text-state-pause">
-                      {CREATE_ROOM_LIMIT_COPY}
+                      {reason}
                     </span>
                   )}
                 </span>

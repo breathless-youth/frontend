@@ -1,9 +1,10 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { ApiError } from "@/lib/api";
+import { useUserId } from "@/lib/userId";
 import type * as UserId from "@/lib/userId";
 import {
   mockGroupApi,
@@ -204,6 +205,27 @@ describe("그룹 탭", () => {
       "aria-disabled",
       "true",
     );
+  });
+
+  it("신원이 없으면 빈 상태를 보이고 그룹 만들기는 한도 문구 없이 흐리게 둔다", async () => {
+    const api = mockGroupApi("default");
+    vi.mocked(useUserId).mockReturnValue(null);
+    onTestFinished(() => {
+      vi.mocked(useUserId).mockReset();
+    });
+    renderGroupRoute("/social?groupRooms=1");
+    expect(await screen.findByText("아직 들어간 그룹이 없어요")).toBeInTheDocument();
+    await userEvent
+      .setup()
+      .click(screen.getByRole("button", { name: "그룹 만들기와 초대코드로 참여" }));
+    const create = screen.getByRole("menuitem", { name: /그룹 만들기/ });
+    expect(create).toHaveAttribute("aria-disabled", "true");
+    expect(create).not.toHaveAttribute("aria-describedby");
+    expect(screen.queryByText("그룹은 2개까지 만들 수 있어요")).toBeNull();
+    expect(screen.getByRole("menuitem", { name: "초대코드로 참여" })).not.toHaveAttribute(
+      "aria-disabled",
+    );
+    expect(api.getMyGroups).not.toHaveBeenCalled();
   });
 
   it("초대코드로 참여는 탭 조건을 뺀 주소로 참여 화면을 연다", async () => {
