@@ -10,6 +10,7 @@ import type { ProfileResponse } from "@focusmakers/types";
 
 import type * as PreparePhoto from "@/features/profile/prepareProfilePhoto";
 import { prepareProfilePhoto, UnusablePhotoError } from "@/features/profile/prepareProfilePhoto";
+import { consumeProfileSavedNotice } from "@/features/profile/profileSavedNotice";
 import { ApiError } from "@/lib/api";
 import type * as TokenSourceModule from "@/lib/auth/tokenSource";
 import type { TokenSource } from "@/lib/auth/tokenSource";
@@ -92,6 +93,7 @@ function renderAt(path: string) {
 afterEach(() => {
   vi.clearAllMocks();
   vi.restoreAllMocks();
+  sessionStorage.clear();
   // sonner 토스트 상태는 모듈 전역이라 화면 언마운트와 무관하게 다음 테스트로 샌다.
   act(() => {
     toast.dismiss();
@@ -475,51 +477,44 @@ describe("프로필 설정", () => {
     expect(screen.queryByText("포")).not.toBeInTheDocument();
   });
 
-  it("저장에 성공하면 프로필 화면에 머문 채 저장 완료 토스트를 띄우고 저장하기를 다시 막는다", async () => {
+  it("저장에 성공하면 설정 화면으로 돌아가고 설정 화면이 띄울 저장 완료 표시를 한 번 남긴다", async () => {
     mockedGetProfile.mockResolvedValue({ ...profile });
     mockedUpdateProfile.mockResolvedValue({ ...profile, goal: "새 목표" });
     renderAt("/profile?userId=7");
 
-    const goalInput = await screen.findByLabelText("목표 문구");
-    fireEvent.change(goalInput, { target: { value: "새 목표" } });
+    fireEvent.change(await screen.findByLabelText("목표 문구"), { target: { value: "새 목표" } });
     await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
 
-    expect(await screen.findByText("프로필이 저장됐어요")).toBeInTheDocument();
-    expect(screen.getByTestId("profile-page")).toBeInTheDocument();
-    expect(screen.queryByTestId("settings-stub")).not.toBeInTheDocument();
-    expect(goalInput).toHaveValue("새 목표");
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "저장하기" })).toBeDisabled();
-    });
+    expect(await screen.findByTestId("settings-stub")).toBeInTheDocument();
+    expect(screen.queryByTestId("profile-page")).not.toBeInTheDocument();
+    expect(consumeProfileSavedNotice()).toBe(true);
+    expect(consumeProfileSavedNotice()).toBe(false);
   });
 
-  it("이모지 닉네임 저장에 성공해도 프로필 화면에 머문 채 저장 완료 토스트를 띄운다", async () => {
+  it("이모지 닉네임 저장에 성공해도 설정 화면으로 돌아간다", async () => {
     mockedGetProfile.mockResolvedValue({ ...profile });
     mockedUpdateProfile.mockResolvedValue({ ...profile, nickname: "코딩🧑‍💻" });
     renderAt("/profile?userId=7");
 
-    const nicknameInput = await screen.findByLabelText("닉네임");
-    fireEvent.change(nicknameInput, { target: { value: "코딩🧑‍💻" } });
+    fireEvent.change(await screen.findByLabelText("닉네임"), { target: { value: "코딩🧑‍💻" } });
     await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
 
-    expect(await screen.findByText("프로필이 저장됐어요")).toBeInTheDocument();
-    expect(screen.getByTestId("profile-page")).toBeInTheDocument();
-    expect(screen.queryByTestId("settings-stub")).not.toBeInTheDocument();
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "저장하기" })).toBeDisabled();
-    });
+    expect(await screen.findByTestId("settings-stub")).toBeInTheDocument();
+    expect(consumeProfileSavedNotice()).toBe(true);
   });
 
-  it("저장에 성공하면 입력칸 포커스를 풀어 키보드를 내린다", async () => {
+  it("저장에 실패하면 프로필 화면에 머물고 저장 완료 표시를 남기지 않는다", async () => {
     mockedGetProfile.mockResolvedValue({ ...profile });
-    mockedUpdateProfile.mockResolvedValue({ ...profile, goal: "새 목표" });
+    mockedUpdateProfile.mockRejectedValue(new Error("network"));
     renderAt("/profile?userId=7");
 
-    const goalInput = await screen.findByLabelText("목표 문구");
-    await userEvent.type(goalInput, "새 목표{enter}");
+    fireEvent.change(await screen.findByLabelText("목표 문구"), { target: { value: "새 목표" } });
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
 
-    expect(await screen.findByText("프로필이 저장됐어요")).toBeInTheDocument();
-    expect(goalInput).not.toHaveFocus();
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.getByTestId("profile-page")).toBeInTheDocument();
+    expect(screen.queryByTestId("settings-stub")).not.toBeInTheDocument();
+    expect(consumeProfileSavedNotice()).toBe(false);
   });
 
   it("저장에 성공하면 서버가 돌려준 목표 문구와 닉네임을 앱에 한 번 알린다", async () => {
@@ -531,7 +526,7 @@ describe("프로필 설정", () => {
     fireEvent.change(goalInput, { target: { value: "새 목표" } });
     await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
 
-    expect(await screen.findByText("프로필이 저장됐어요")).toBeInTheDocument();
+    expect(await screen.findByTestId("settings-stub")).toBeInTheDocument();
     expect(vi.mocked(postToNative)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(postToNative)).toHaveBeenCalledWith({
       type: "profile-updated",
@@ -550,7 +545,7 @@ describe("프로필 설정", () => {
     fireEvent.change(goalInput, { target: { value: "" } });
     await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
 
-    expect(await screen.findByText("프로필이 저장됐어요")).toBeInTheDocument();
+    expect(await screen.findByTestId("settings-stub")).toBeInTheDocument();
     expect(vi.mocked(postToNative)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(postToNative)).toHaveBeenCalledWith({
       type: "profile-updated",
