@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { Trans, useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -28,6 +29,7 @@ export function MedalModal({
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
   const single = view.value !== null;
+  const { t } = useTranslation(["ranking", "common"]);
 
   return (
     <Dialog open={open}>
@@ -60,7 +62,12 @@ export function MedalModal({
         </DialogTitle>
         {view.value !== null && (
           <p className="mt-3 text-sm leading-4.5 text-muted-foreground">
-            기록 <span className="font-bold text-foreground tabular-nums">{view.value}</span>
+            <Trans
+              t={t}
+              i18nKey="medal.recordValue"
+              values={{ value: view.value }}
+              components={{ value: <span className="font-bold text-foreground tabular-nums" /> }}
+            />
           </p>
         )}
         {view.counts !== null && (
@@ -68,7 +75,7 @@ export function MedalModal({
             {view.counts.map(({ rank, count }) => (
               <li
                 key={rank}
-                aria-label={`${rank}위 ${count}개`}
+                aria-label={t("medal.aria.countByRank", { rank, count })}
                 className="flex items-center gap-1.5 text-[13px] leading-4 font-bold text-foreground tabular-nums"
               >
                 <IllustMedal rank={rank} size={16} />
@@ -100,7 +107,7 @@ export function MedalModal({
             </ul>
             {view.more > 0 && (
               <p className="pt-3 pb-3.5 text-center text-[13px] leading-4 text-muted-foreground">
-                외 {view.more}개
+                {t("medal.more", { count: view.more })}
               </p>
             )}
           </div>
@@ -124,11 +131,13 @@ export function MedalModal({
             ))}
           </span>
           <span>
-            현재까지 메달을{" "}
-            <strong className="font-bold text-foreground tabular-nums">
-              {formatRank(view.total)}번
-            </strong>{" "}
-            얻었어요
+            <Trans
+              t={t}
+              i18nKey="medal.totalSoFar"
+              count={view.total}
+              values={{ total: formatRank(view.total) }}
+              components={{ b: <strong className="font-bold text-foreground tabular-nums" /> }}
+            />
           </span>
         </p>
         <Button
@@ -137,7 +146,7 @@ export function MedalModal({
           onClick={onRecords}
           className="mt-4.5 h-13.5 w-full shrink-0 rounded-lg text-[17px] leading-5.25 font-bold"
         >
-          랭킹 기록 보기
+          {t("medal.showRecords")}
         </Button>
         <Button
           type="button"
@@ -145,7 +154,7 @@ export function MedalModal({
           onClick={onClose}
           className="mt-2 h-11 w-full shrink-0 text-[15px] leading-4.5 font-bold text-muted-foreground hover:bg-bg-layer-2"
         >
-          닫기
+          {t("common:actions.close")}
         </Button>
       </DialogContent>
     </Dialog>

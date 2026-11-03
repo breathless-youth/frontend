@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation } from "react-router-dom";
 
 import { detectStorePlatform, installLink, readInstallUtm } from "@/features/social-room/storeLink";
@@ -19,6 +20,7 @@ function replaceLocation(url: string) {
  * 유입 표시는 주소의 UTM이고, 이 페이지를 연 순간 Amplitude attribution이 자동으로 남긴다.
  */
 export function DownloadPage({ go = replaceLocation }: { go?: (url: string) => void }) {
+  const { t } = useTranslation("settings");
   const location = useLocation();
   const platform = detectStorePlatform(navigator.userAgent, navigator.maxTouchPoints);
   const target = installLink(platform, readInstallUtm(location.search));
@@ -41,13 +43,13 @@ export function DownloadPage({ go = replaceLocation }: { go?: (url: string) => v
     <main className="theme-soft-blue bg-soft-blue text-foreground flex min-h-dvh flex-col items-center justify-center gap-3 px-6 text-center">
       <p className="text-[28px] leading-none font-extrabold tracking-tight">FocusMakers</p>
       <p role="status" className="text-muted-foreground text-sm">
-        스토어로 이동하는 중…
+        {t("download.redirecting")}
       </p>
       <a
         href={target}
         className="text-primary inline-flex min-h-11 items-center px-3 text-sm font-semibold"
       >
-        직접 이동하기
+        {t("download.manual")}
       </a>
     </main>
   );

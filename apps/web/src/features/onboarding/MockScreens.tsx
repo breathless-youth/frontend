@@ -1,5 +1,6 @@
 import { Lock } from "lucide-react";
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { Trans, useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
 
@@ -101,6 +102,7 @@ function Scaled({
 }
 
 export function TimerScreen({ away, clock: time }: { away: boolean; clock: string }) {
+  const { t } = useTranslation("onboarding");
   return (
     <div className="theme-dark onboarding-timer-screen absolute top-0 left-0 h-121.25 w-55.75 origin-top-left scale-[1.4009] overflow-hidden text-white">
       <div className="absolute inset-x-0 top-10.25 flex justify-center">
@@ -113,7 +115,7 @@ export function TimerScreen({ away, clock: time }: { away: boolean; clock: strin
           }}
         >
           <span className="inline-flex items-center rounded-full border-[1.5px] border-primary bg-background/65 px-2.5 py-1.25 text-[11px] leading-3.5 font-medium whitespace-nowrap tabular-nums">
-            순공시간 측정 중
+            {t("timer.measuring")}
           </span>
           {!away && (
             <>
@@ -125,7 +127,7 @@ export function TimerScreen({ away, clock: time }: { away: boolean; clock: strin
       </div>
       <div className="absolute inset-x-0 top-55.5 flex flex-col items-center">
         <span className="text-[11px] leading-3.5 font-medium tracking-[0.2px] text-white/55">
-          순공시간
+          {t("timer.label")}
         </span>
         <p
           className={cn(
@@ -137,7 +139,7 @@ export function TimerScreen({ away, clock: time }: { away: boolean; clock: strin
         </p>
         <span className="mt-1.75 inline-flex items-center gap-[2.5px] text-[8px] leading-2.5 font-medium tracking-[-0.1px] text-white/42">
           <Lock size={7.5} strokeWidth={2.4} aria-hidden="true" />
-          영상은 저장하지 않아요
+          {t("timer.privacy")}
         </span>
       </div>
     </div>
@@ -258,6 +260,7 @@ function Subject({
 
 /** 2단계 플래너. 공부한 칸이 차례로 채워지고 6초마다 다시 채워진다. */
 export function PlannerScreen() {
+  const { t } = useTranslation(["onboarding", "common"]);
   return (
     <Scaled width={223} height={485} scale={MINI_SCREEN_SCALE} background={C.white}>
       <div className="absolute inset-x-0 top-9 flex h-6.5 items-center justify-center gap-2">
@@ -271,7 +274,7 @@ export function PlannerScreen() {
           className="tabular-nums"
           style={{ fontSize: 11, lineHeight: "14px", fontWeight: 700 }}
         >
-          10월 21일 (수)
+          {t("planner.date")}
         </span>
         <span style={{ color: C.sub }}>
           <Chevron size={10} dir="right" width={2.2} />
@@ -289,40 +292,54 @@ export function PlannerScreen() {
           >
             D-29
           </span>
-          <span style={{ fontSize: 7, lineHeight: "9px", color: C.sub }}>수능</span>
+          <span style={{ fontSize: 7, lineHeight: "9px", color: C.sub }}>{t("planner.dday")}</span>
         </div>
         <div className="flex flex-col items-end gap-px">
-          <span style={{ fontSize: 7, lineHeight: "9px", color: C.sub }}>순공시간</span>
+          <span style={{ fontSize: 7, lineHeight: "9px", color: C.sub }}>
+            {t("planner.focusLabel")}
+          </span>
           <span
             className={cn(LOOP_LATE, "tabular-nums")}
             style={{ fontSize: 12, lineHeight: "15px", fontWeight: 800, animationDelay: "1.8s" }}
           >
-            4시간 10분
+            {t("common:duration.hoursMinutes", { hours: 4, minutes: 10 })}
           </span>
         </div>
       </div>
 
       <div className="absolute inset-x-3 top-26.75 flex items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <Subject color={C.math} name="수학" time="2시간 10분" delay="0.8s">
-            <Task label="미적분 3단원 복습" done />
-            <Task label="기출 20문제" />
+          <Subject
+            color={C.math}
+            name={t("planner.math")}
+            time={t("common:duration.hoursMinutes", { hours: 2, minutes: 10 })}
+            delay="0.8s"
+          >
+            <Task label={t("plannerTask.calculus")} done />
+            <Task label={t("plannerTask.pastExams")} />
           </Subject>
-          <Subject color={C.english} name="영어" time="2시간" delay="1.6s">
-            <Task label="단어 100개" done />
+          <Subject
+            color={C.english}
+            name={t("planner.english")}
+            time={t("common:duration.hours", { hours: 2 })}
+            delay="1.6s"
+          >
+            <Task label={t("plannerTask.vocab")} done />
           </Subject>
-          <Subject color={C.korean} name="국어">
-            <Task label="비문학 지문 4개" />
+          <Subject color={C.korean} name={t("planner.korean")}>
+            <Task label={t("plannerTask.reading")} />
           </Subject>
           <div className="flex flex-wrap gap-x-2 gap-y-0.75 pt-1.5">
-            {[
-              { color: C.rest, label: "휴식" },
-              { color: C.primary, label: "과목 없음" },
-            ].map((legend) => (
-              <span key={legend.label} className="flex items-center gap-0.75">
+            {(
+              [
+                { color: C.rest, id: "rest" },
+                { color: C.primary, id: "noSubject" },
+              ] as const
+            ).map((legend) => (
+              <span key={legend.id} className="flex items-center gap-0.75">
                 <span className="size-1.25 rounded-[1px]" style={{ background: legend.color }} />
                 <span style={{ fontSize: 6.5, lineHeight: "8px", color: C.sub }}>
-                  {legend.label}
+                  {t(`planner.${legend.id}`)}
                 </span>
               </span>
             ))}
@@ -386,32 +403,28 @@ const feed = (a: string, b: string, glow: string) =>
 const BADGE_BORDER = { FOCUS: C.badgeFocus, DISTRACTED: C.badgeDistracted, OFF: C.gray } as const;
 
 const TILES = [
-  { name: "나", goal: "매일 6시간", bg: feed(...C.feeds[0]) },
+  { id: "me", bg: feed(...C.feeds[0]) },
   {
-    name: "민지",
-    goal: "수능 D-29",
+    id: "minji",
     state: "FOCUS",
     sec: 5047,
     bg: feed(...C.feeds[1]),
   },
   {
-    name: "현우",
-    goal: "토익 900",
+    id: "hyunwoo",
     state: "DISTRACTED",
     sec: 2230,
     bg: feed(...C.feeds[2]),
   },
   {
-    name: "수아",
-    goal: "공무원 9급",
+    id: "sua",
     state: "FOCUS",
     sec: 7540,
     bg: feed(...C.feeds[3]),
   },
-  { name: "지훈", goal: "정보처리기사", state: "OFF", sec: 3130 },
+  { id: "jihoon", state: "OFF", sec: 3130 },
   {
-    name: "준우",
-    goal: "회계사 1차",
+    id: "junwoo",
     state: "FOCUS",
     sec: 723,
     bg: feed(...C.feeds[4]),
@@ -445,6 +458,7 @@ function ControlButton({ children, danger }: { children: ReactNode; danger?: boo
 
 /** 3단계 소셜룸. 참여자 타일이 한 명씩 들어오고 내 순공·총 시간이 1초씩 흐른다. */
 export function RoomScreen() {
+  const { t } = useTranslation("onboarding");
   const sec = useTicker(1000);
   return (
     <Scaled width={390} height={848} scale={APP_SCREEN_SCALE} background={C.roomBg}>
@@ -456,7 +470,7 @@ export function RoomScreen() {
           {clock(2892 + sec)}
         </p>
         <p style={{ fontSize: 12, lineHeight: "16px", fontWeight: 700, color: C.gray }}>
-          <span style={{ fontWeight: 600 }}>총</span> {clock(3750 + sec)}
+          <span style={{ fontWeight: 600 }}>{t("room.total")}</span> {clock(3750 + sec)}
         </p>
       </div>
 
@@ -473,9 +487,10 @@ export function RoomScreen() {
       <div className="absolute top-44 left-[15.5px] flex w-89.75 flex-wrap gap-1">
         {TILES.map((tile, i) => {
           const off = "state" in tile && tile.state === "OFF";
+          const name = t(`tileName.${tile.id}`);
           return (
             <div
-              key={tile.name}
+              key={tile.id}
               className="animate-[onboarding-tile-in_0.4s_cubic-bezier(0.23,1,0.32,1)_both] motion-reduce:animate-none"
               style={{ animationDelay: `${(0.18 + i * 0.08).toFixed(2)}s` }}
             >
@@ -497,7 +512,7 @@ export function RoomScreen() {
                 {off && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <span className="flex size-14 items-center justify-center rounded-full bg-white/10 text-xl leading-7 font-bold text-white">
-                      {tile.name[0]}
+                      {name[0]}
                     </span>
                   </div>
                 )}
@@ -513,10 +528,10 @@ export function RoomScreen() {
                   </span>
                 )}
                 <div className="absolute inset-x-3 bottom-3">
-                  <p className="truncate text-[15px] leading-4.75 font-bold text-white">
-                    {tile.name}
+                  <p className="truncate text-[15px] leading-4.75 font-bold text-white">{name}</p>
+                  <p className="mt-1 truncate text-xs leading-3.75 text-white/72">
+                    {t(`tileGoal.${tile.id}`)}
                   </p>
-                  <p className="mt-1 truncate text-xs leading-3.75 text-white/72">{tile.goal}</p>
                 </div>
               </div>
             </div>
@@ -616,7 +631,7 @@ const WEEK_BARS = [
   { h: "30%", c: C.heat[1] },
   { h: "22%", c: C.heat[0] },
 ];
-const DAYS = ["월", "화", "수", "목", "금", "토", "일"];
+const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 
 const CARD: CSSProperties = {
   background: C.white,
@@ -627,11 +642,12 @@ const LATE =
 
 /** 4단계 기록 탭. 히트맵 칸이 들어온 뒤 평일 저녁 8~10시가 강조되고 맥박이 퍼진다. */
 export function RecordsScreen() {
+  const { t } = useTranslation("onboarding");
   return (
     <Scaled width={390} height={849} scale={APP_SCREEN_SCALE} background={C.soft}>
       <div className="absolute inset-x-5 top-19 flex items-center justify-between">
         <span style={{ fontSize: 24, lineHeight: "29px", fontWeight: 800, letterSpacing: -0.48 }}>
-          기록
+          {t("records.title")}
         </span>
         <span
           className="flex size-10 items-center justify-center rounded-full"
@@ -663,7 +679,7 @@ export function RecordsScreen() {
           className="flex flex-1 items-center justify-center"
           style={{ fontSize: 15, lineHeight: "20px", fontWeight: 600, color: C.sub }}
         >
-          일간
+          {t("records.daily")}
         </span>
         <span
           className="flex flex-1 items-center justify-center rounded-full"
@@ -675,7 +691,7 @@ export function RecordsScreen() {
             fontWeight: 600,
           }}
         >
-          주간
+          {t("records.weekly")}
         </span>
       </div>
 
@@ -683,7 +699,7 @@ export function RecordsScreen() {
         className="absolute inset-x-5 top-48.25"
         style={{ fontSize: 17, lineHeight: "21px", fontWeight: 700 }}
       >
-        나의 공부 리듬
+        {t("records.rhythm")}
       </div>
 
       <div
@@ -691,10 +707,14 @@ export function RecordsScreen() {
         style={CARD}
       >
         <p className={LATE} style={{ fontSize: 17, lineHeight: "24px", fontWeight: 700 }}>
-          평일 저녁 <span style={{ color: C.primary }}>8~10시</span>에 가장 오래 집중해요
+          <Trans
+            t={t}
+            i18nKey="records.insight"
+            components={{ hl: <span style={{ color: C.primary }} /> }}
+          />
         </p>
         <p className={LATE} style={{ fontSize: 13, lineHeight: "18px", color: C.sub }}>
-          최근 2주 기록을 분석했어요
+          {t("records.insightSub")}
         </p>
         <div className="flex flex-col gap-1.5 pt-3.5">
           <div className="flex items-start gap-1.5">
@@ -705,7 +725,7 @@ export function RecordsScreen() {
                   className="h-3.25"
                   style={{ fontSize: 10, lineHeight: "13px", color: C.gray }}
                 >
-                  {day}
+                  {t(`weekday.${day}`)}
                 </span>
               ))}
             </div>
@@ -749,11 +769,11 @@ export function RecordsScreen() {
             className="flex items-center justify-end gap-1"
             style={{ fontSize: 10, lineHeight: "12px", color: C.gray }}
           >
-            <span>적음</span>
+            <span>{t("records.less")}</span>
             {C.heat.slice(1).map((color) => (
               <span key={color} className="size-2.5 rounded-[2px]" style={{ background: color }} />
             ))}
-            <span>많음</span>
+            <span>{t("records.more")}</span>
           </div>
         </div>
       </div>
@@ -762,7 +782,7 @@ export function RecordsScreen() {
         className="absolute inset-x-5 top-124.75"
         style={{ fontSize: 17, lineHeight: "21px", fontWeight: 700 }}
       >
-        이번 주 순공
+        {t("records.thisWeek")}
       </div>
       <div
         className="absolute inset-x-5 top-132.5 flex h-37.5 items-end justify-between rounded-xl p-4.5"

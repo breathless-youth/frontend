@@ -9,7 +9,7 @@ export async function getInterviewStatus(): Promise<InterviewStatusResponse> {
     method: "GET",
   });
   if (!res.ok) {
-    throw await parseApiError(res, "인터뷰 상태 조회 실패");
+    throw await parseApiError(res, "interview status fetch failed");
   }
   return (await res.json()) as InterviewStatusResponse;
 }

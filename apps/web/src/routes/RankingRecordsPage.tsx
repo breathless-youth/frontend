@@ -1,6 +1,7 @@
 import type { RankingRecord, RankingRecordType, RankingRecordsSummary } from "@focusmakers/types";
 import { focusManager, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useInView } from "react-intersection-observer";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -15,7 +16,7 @@ import {
 import { Skeleton } from "@/components/ui/Skeleton";
 import { RankChips, type RankChip } from "@/features/ranking/components/RankChips";
 import { IllustMedal } from "@/features/ranking/icons";
-import { selectionOfRecord } from "@/features/ranking/model/board";
+import { selectionOfRecord, typeLabel } from "@/features/ranking/model/board";
 import { requestBoard, takeRecordsPageRequest } from "@/features/ranking/model/boardMemory";
 import { recordName, recordPeriod, recordValue } from "@/features/ranking/model/format";
 import { groupRecordsByMonth } from "@/features/ranking/model/records";
@@ -30,12 +31,7 @@ const PAGE_SIZE = 20;
 
 type TypeFilter = "all" | RankingRecordType;
 
-const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
-  { value: "all", label: "모든 종목" },
-  { value: "FOCUS_TIME", label: "순공" },
-  { value: "FOCUS_RATE", label: "집중률" },
-  { value: "TIME_SLOT", label: "시간대" },
-];
+const TYPE_FILTERS: readonly TypeFilter[] = ["all", "FOCUS_TIME", "FOCUS_RATE", "TIME_SLOT"];
 
 /**
  * 랭킹 기록 모두 보기
@@ -49,6 +45,7 @@ export function RankingRecordsPage() {
   const identityPending = useIdentityPending();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation("ranking");
 
   // 이미 모두 보기에 있으면 넘겨받은 요청을 버린다.
   // 남겨 두면 랭킹 탭으로 돌아간 뒤 모두 보기가 다시 열린다.
@@ -73,16 +70,14 @@ export function RankingRecordsPage() {
 
   return (
     <main className="theme-soft-blue min-h-dvh bg-soft-blue page-column pb-10 text-foreground">
-      <ScreenBackHeader title="랭킹 기록" onBack={goBack} />
+      <ScreenBackHeader title={t("records.title")} onBack={goBack} />
       {identityPending ? (
         <div className="flex flex-col px-5 pt-4">
           <Skeleton className="h-38.25 rounded-xl" />
           <Skeleton className="mt-3.5 h-55 rounded-xl" />
         </div>
       ) : userId === null ? (
-        <p className="p-4 text-sm text-muted-foreground">
-          기기 등록 전이에요. 앱에서 열면 기록이 저장돼요
-        </p>
+        <p className="p-4 text-sm text-muted-foreground">{t("page.noDevice")}</p>
       ) : (
         <AllRecords userId={userId} onPicked={goBack} />
       )}
@@ -91,6 +86,7 @@ export function RankingRecordsPage() {
 }
 
 function AllRecords({ userId, onPicked }: { userId: number; onPicked: () => void }) {
+  const { t } = useTranslation("ranking");
   const summary = useQuery(rankingSummaryQuery(userId));
   const [rank, setRank] = useState<RankChip>("all");
   const [type, setType] = useState<TypeFilter>("all");
@@ -154,17 +150,13 @@ function AllRecords({ userId, onPicked }: { userId: number; onPicked: () => void
       {list.data === undefined ? (
         cannotLoad(list) ? (
           <div className="mt-3.5">
-            <ErrorState
-              message="랭킹 기록을 불러오지 못했어요"
-              onRetry={retryList}
-              screen="ranking"
-            />
+            <ErrorState message={t("records.loadError")} onRetry={retryList} screen="ranking" />
           </div>
         ) : (
           <Skeleton className="mt-3.5 h-55 rounded-xl" />
         )
       ) : groups.length === 0 ? (
-        <p className="py-16 text-center text-sm text-muted-foreground">조건에 맞는 기록이 없어요</p>
+        <p className="py-16 text-center text-sm text-muted-foreground">{t("records.empty")}</p>
       ) : (
         groups.map((group) => (
           <section
@@ -194,7 +186,7 @@ function AllRecords({ userId, onPicked }: { userId: number; onPicked: () => void
       ) : isFetchNextPageError ? (
         <div className="mt-3">
           <ErrorState
-            message="랭킹 기록을 불러오지 못했어요"
+            message={t("records.loadError")}
             onRetry={() => void fetchNextPage()}
             screen="ranking"
           />
@@ -210,18 +202,26 @@ function SummaryCard({ summary }: { summary: RankingRecordsSummary }) {
     [2, summary.secondCount],
     [3, summary.thirdCount],
   ] as const;
+  const { t } = useTranslation("ranking");
   return (
-    <section aria-label="지금까지 TOP 3" className="rounded-xl bg-muted p-4.5 shadow-sb-card">
-      <p className="text-[13px] leading-3.75 font-bold text-muted-foreground">지금까지 TOP 3</p>
+    <section
+      aria-label={t("recordsPage.summaryTitle")}
+      className="rounded-xl bg-muted p-4.5 shadow-sb-card"
+    >
+      <p className="text-[13px] leading-3.75 font-bold text-muted-foreground">
+        {t("recordsPage.summaryTitle")}
+      </p>
       <p className="mt-1.5 font-extrabold tracking-[-0.8px] text-foreground">
         <span className="text-[40px] leading-11">{summary.total}</span>
-        <span className="text-xl leading-11">번</span>
+        <span className="text-xl leading-11">
+          {t("recordsPage.timesUnit", { count: summary.total })}
+        </span>
       </p>
       <ul className="mt-3 grid grid-cols-3 border-t border-bg-layer-2 pt-3">
         {counts.map(([rank, count]) => (
           <li
             key={rank}
-            aria-label={`${rank}위 ${count}번`}
+            aria-label={t("recordsPage.aria.countByRank", { rank, count })}
             className="flex items-center justify-center gap-1.5"
           >
             <IllustMedal rank={rank} size={20} />
@@ -250,13 +250,16 @@ function TypeFilterMenu({
   value: TypeFilter;
   onChange: (value: TypeFilter) => void;
 }) {
-  const label = TYPE_OPTIONS.find((option) => option.value === value)?.label ?? "모든 종목";
+  const { t } = useTranslation("ranking");
+  const labelOf = (filter: TypeFilter) =>
+    filter === "all" ? t("recordsPage.allTypes") : typeLabel(filter);
+  const label = labelOf(value);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label={`종목: ${label}`}
+          aria-label={t("recordsPage.aria.typeFilter", { label })}
           className="relative flex h-7.75 shrink-0 items-center gap-1 text-[13px] leading-3.75 font-bold text-muted-foreground before:absolute before:inset-x-0 before:-inset-y-2 before:content-['']"
         >
           {label}
@@ -265,13 +268,9 @@ function TypeFilterMenu({
       </DropdownMenuTrigger>
       {/* 메뉴는 body로 나가므로 Soft Blue 테마를 메뉴에도 단다. */}
       <DropdownMenuContent align="end" className="theme-soft-blue">
-        {TYPE_OPTIONS.map((option) => (
-          <DropdownMenuItem
-            key={option.value}
-            onSelect={() => onChange(option.value)}
-            className="min-h-11"
-          >
-            {option.label}
+        {TYPE_FILTERS.map((filter) => (
+          <DropdownMenuItem key={filter} onSelect={() => onChange(filter)} className="min-h-11">
+            {labelOf(filter)}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
@@ -291,12 +290,18 @@ function RecordRow({
   record: RankingRecord;
   onPick: (record: RankingRecord) => void;
 }) {
+  const { t } = useTranslation("ranking");
   return (
     <li className="group">
       <button
         type="button"
         onClick={() => onPick(record)}
-        aria-label={`${record.rank}위 ${recordName(record)} ${recordPeriod(record)} ${recordValue(record)}`}
+        aria-label={t("records.aria.item", {
+          rank: record.rank,
+          name: recordName(record),
+          period: recordPeriod(record),
+          value: recordValue(record),
+        })}
         className="flex min-h-13.25 w-full items-center gap-3 px-4.5 text-left"
       >
         <IllustMedal rank={record.rank} size={24} />

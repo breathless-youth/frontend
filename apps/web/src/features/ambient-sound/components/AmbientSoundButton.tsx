@@ -1,5 +1,6 @@
 import { forwardRef, type PointerEventHandler } from "react";
 import { Music } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import {
   controlButtonVariants,
@@ -61,7 +62,8 @@ export const AmbientSoundButton = forwardRef<HTMLButtonElement, AmbientSoundButt
     },
     ref,
   ) {
-    const label = on ? "배경음 켜짐" : "배경음";
+    const { t } = useTranslation("ambient-sound");
+    const label = on ? t("button.on") : t("button.off");
     const control = useNativeControl<HTMLButtonElement>(
       {
         id: nativeId,

@@ -13,7 +13,8 @@ import { cleanupOnLaunch } from "../lib/appLock/appLock";
 import { type ForceUpdateDecision, resolveForceUpdateOnLaunch } from "../lib/forceUpdate";
 import { createAppStateTracker } from "../lib/appStateAnalytics";
 import { installFirebaseAnalyticsSdk } from "../lib/firebaseAnalyticsSdk";
-import { FORCE_UPDATE_TITLE, forceUpdateAlert } from "../lib/forceUpdateAlert";
+import { forceUpdateAlert } from "../lib/forceUpdateAlert";
+import { t } from "../lib/i18n";
 import { startInstallAttribution } from "../lib/installAttribution";
 import { consumePendingInviteRoute } from "../lib/installReferrerInvite";
 import { type LaunchGoal, readLaunchGoal, refreshLaunchGoal } from "../lib/launchGoal";
@@ -244,8 +245,8 @@ function RootLayout() {
       <>
         <StatusBar style="auto" />
         <Pressable
-          accessibilityLabel={FORCE_UPDATE_TITLE}
-          accessibilityHint="업데이트 안내를 다시 표시합니다"
+          accessibilityLabel={t("forceUpdate.title")}
+          accessibilityHint={t("forceUpdate.reshowHint")}
           className="bg-bg-base dark:bg-bg-base-dark flex-1"
           onPress={() => forceUpdateAlert.reshow()}
           testID="force-update-backdrop"

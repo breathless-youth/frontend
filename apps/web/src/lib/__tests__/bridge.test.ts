@@ -508,7 +508,7 @@ describe("개발 로그", () => {
     postToNative({ type: "home-ready", atMs: 1 });
 
     expect(warn).not.toHaveBeenCalledWith(
-      "[webview-bridge] 네이티브로 보냄",
+      "[webview-bridge] sent to native",
       expect.objectContaining({ type: "home-ready" }),
     );
     expect(warn).toHaveBeenCalledWith(

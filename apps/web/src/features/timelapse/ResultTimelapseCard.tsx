@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownToLine, Share } from "lucide-react";
 import { type ReactNode, useEffect, useEffectEvent, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +52,7 @@ export function ResultTimelapseCard({
   store = getTimelapseStore(),
   onShown,
 }: ResultTimelapseCardProps) {
+  const { t } = useTranslation("timelapse");
   const record = useQuery({
     queryKey: ["timelapse", startedAtMs],
     queryFn: () => store.get(startedAtMs),
@@ -181,12 +183,12 @@ export function ResultTimelapseCard({
 
   const message: ReactNode =
     routes.save !== null && video.isError && !building ? (
-      <StatusText>영상을 만들지 못했어요</StatusText>
+      <StatusText>{t("share.status.buildFailed")}</StatusText>
     ) : notice !== null ? (
       <>
         <StatusText>{notice.text}</StatusText>
         {notice.openSettings === true && (
-          <TextButton onClick={openTimelapseSettings}>설정 열기</TextButton>
+          <TextButton onClick={openTimelapseSettings}>{t("share.openSettings")}</TextButton>
         )}
       </>
     ) : null;
@@ -213,10 +215,8 @@ export function ResultTimelapseCard({
   return (
     <Card ref={cardRef} className="shadow-sb-card pt-4 pb-4.5">
       <CardHeader className="justify-start gap-1.5">
-        <CardTitle>타임랩스</CardTitle>
-        <InfoTooltip label="타임랩스 안내">
-          타임랩스 촬영은 설정에서 언제든 끌 수 있어요
-        </InfoTooltip>
+        <CardTitle>{t("resultCard.title")}</CardTitle>
+        <InfoTooltip label={t("resultCard.aria.info")}>{t("resultCard.info")}</InfoTooltip>
       </CardHeader>
       <div className="mt-4 flex justify-center px-4">
         <TimelapsePlayer
@@ -238,19 +238,21 @@ export function ResultTimelapseCard({
             className="bg-transparent text-primary border border-primary/40 h-11 gap-1.5 rounded-full px-5 tabular-nums aria-disabled:opacity-50"
           >
             <ArrowDownToLine size={18} aria-hidden="true" />
-            {building ? `만드는 중 ${Math.round((progress.data ?? 0) * 100)}%` : "다운로드"}
+            {building
+              ? t("resultCard.building", { percent: Math.round((progress.data ?? 0) * 100) })
+              : t("resultCard.download")}
           </Button>
         )}
         <Button
           variant="subtle"
           aria-haspopup="dialog"
-          aria-label="타임랩스 공유하기"
+          aria-label={t("resultCard.aria.share")}
           disabled={!shareable}
           onClick={() => setSharing(true)}
           className="h-11 gap-1.5 rounded-full px-5"
         >
           <Share size={18} aria-hidden="true" />
-          공유하기
+          {t("resultCard.share")}
         </Button>
       </div>
       <div role="status" className="flex items-center justify-center gap-1 px-4 not-empty:mt-2">

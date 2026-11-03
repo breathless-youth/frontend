@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Toaster as Sonner, toast, type ToasterProps } from "sonner";
 
 import { CTA_TOAST_ID, CTA_TOASTER_ID } from "@/lib/toast";
@@ -26,13 +27,14 @@ export function Toaster({
   toastOptions,
   ...props
 }: Omit<ToasterProps, "offset" | "mobileOffset"> & { bottom?: string }) {
+  const { t } = useTranslation();
   return (
     <Sonner
       theme="light"
       position="bottom-center"
       duration={5000}
       visibleToasts={1}
-      customAriaLabel="알림"
+      customAriaLabel={t("aria.toaster")}
       {...props}
       offset={{ top: TOP_OFFSET, bottom }}
       // Sonner 모바일 규칙은 토스터 틀을 왼쪽 여백만큼 민 채 폭 100%로 두고 토스트 폭을 줄여 가운데를
@@ -67,13 +69,14 @@ export function CtaToaster() {
       toast.dismiss(CTA_TOAST_ID);
     };
   }, []);
+  const { t } = useTranslation();
 
   return (
     <Toaster
       id={CTA_TOASTER_ID}
       className="absolute!"
       // 전역 Toaster도 빈 알림 영역을 늘 그리므로, 스크린리더에서 이름이 겹치지 않게 한다.
-      customAriaLabel="화면 알림"
+      customAriaLabel={t("aria.ctaToaster")}
       bottom={CTA_BOTTOM}
       toastOptions={{ classNames: { toast: "whitespace-nowrap" } }}
     />

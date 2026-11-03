@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import type { ProfileResponse } from "@focusmakers/types";
 
@@ -55,6 +56,7 @@ function failureOf(error: unknown): ProfileImageUploadFailure {
  * 선택기를 닫으면 결과가 null이고 캐시와 토스트와 분석 이벤트를 건드리지 않는다.
  */
 export function useProfilePhotoMutations(userId: number) {
+  const { t } = useTranslation("profile");
   const queryClient = useQueryClient();
 
   const setPhoto = (profileImageUrl: string | null | undefined) => {
@@ -95,24 +97,22 @@ export function useProfilePhotoMutations(userId: number) {
       uploadMutation.mutate(source, {
         onSuccess: (data) => {
           if (data !== null) {
-            showCtaToast("프로필 사진을 바꿨어요");
+            showCtaToast(t("photo.changed"));
           }
         },
         onError: (error) => {
           showCtaToast(
-            failureOf(error) === "unusable"
-              ? "이 사진은 쓸 수 없어요. 다른 사진을 골라 주세요"
-              : "사진을 올리지 못했어요. 다시 시도해 주세요",
+            failureOf(error) === "unusable" ? t("photo.unusable") : t("photo.uploadFailed"),
           );
         },
       }),
     remove: () =>
       removeMutation.mutate(undefined, {
         onSuccess: () => {
-          showCtaToast("프로필 사진을 삭제했어요");
+          showCtaToast(t("photo.removed"));
         },
         onError: () => {
-          showCtaToast("잠시 후 다시 시도해 주세요");
+          showCtaToast(t("errors.retryLater", { ns: "common" }));
         },
       }),
     // 올리기와 삭제가 겹치면 응답 순서에 따라 남는 사진이 달라져 하나가 도는 동안은 둘 다 막는다.

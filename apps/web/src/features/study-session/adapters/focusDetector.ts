@@ -232,7 +232,7 @@ export interface VisionFocusDetector extends FocusDetector {
 export interface PhotoTap {
   /** 지금 찍을 차례면 촬영 요청을, 아니면 null을 돌려준다. */
   due(): PhotoSpec | null;
-  /** 가림이 켜진 세션이면 스티커를 덮은 뒤의 JPEG 바이트를 받는다. */
+  /** 가림이 켜진 세션이면 이모지를 덮은 뒤의 JPEG 바이트를 받는다. */
   save(photo: ArrayBuffer): void;
   /** 워커 안에서는 보고할 수 없어 사진을 만들지 못한 실패도 이 창구로 모은다. */
   fail(error: unknown): void;
@@ -672,7 +672,23 @@ export function createVisionFocusDetector(
       eyeGateMisses = 0;
     }
 
-    const photo = photoTap?.due() ?? null;
+    const spotInput = {
+      detections: result.detections,
+      minPersonScore: SCORE_THRESHOLDS.person,
+      frame: frame.frameSize,
+    };
+    let photo = photoTap?.due() ?? null;
+    if (photo?.mask === true && signals.personPresent) {
+      // 사진은 얼굴 추론 안에서 같은 프레임으로 만들어지므로 얼굴을 놓쳤을 때 덮을 자리를 추론 전에 구해 싣는다.
+      // 얼굴 판정 없이 구하면 "얼굴 없음" 횟수가 오르지 않아 아래 갱신과 겹쳐 세지 않는다.
+      const spot = nextFaceSpot(faceSpot, {
+        ...spotInput,
+        face: undefined,
+        faceModelReady: false,
+      }).spot;
+      // 사람은 보이는데 덮을 자리가 없으면 얼굴이 그대로 남으므로 이번 차례를 건너뛴다.
+      photo = spot === null ? null : { ...photo, spot };
+    }
     let faceRan: FaceDetectionResult | null = null;
     /** 내려다봄 게이트를 지난 관측. 게이트가 지운 눈은 진단에도 지워진 채로 나간다. */
     let faceObserved: FaceObservation | null = null;
@@ -684,7 +700,7 @@ export function createVisionFocusDetector(
         setFaceStatus("unavailable");
         dropFaceObservations();
       } else if (frameIndex % FACE_FRAME_DIVISOR === 0) {
-        // 가림이 켜진 세션은 이 추론이 본 프레임으로 찍어야 스티커가 그 얼굴 위에 놓인다.
+        // 가림이 켜진 세션은 이 추론이 본 프레임으로 찍어야 이모지가 그 얼굴 위에 놓인다.
         faceRan = await faceLandmarker.detect(
           element,
           atMs,
@@ -706,9 +722,7 @@ export function createVisionFocusDetector(
     setFaceSpot(
       signals.personPresent
         ? nextFaceSpot(faceSpot, {
-            detections: result.detections,
-            minPersonScore: SCORE_THRESHOLDS.person,
-            frame: frame.frameSize,
+            ...spotInput,
             face: faceRan === null ? undefined : (faceRan.bounds ?? null),
             faceModelReady: sleepEnabled && faceStatus === "ready",
           })
@@ -763,7 +777,13 @@ export function createVisionFocusDetector(
       publish(signals, sleep);
     }
     if (photo !== null && photoTap !== undefined) {
-      await takePhoto(photoTap, photo, signals.personPresent, faceRan, element, frameRunId);
+      await takePhoto(photoTap, photo, {
+        // 불러오는 중인 얼굴 모델은 곧 얼굴 틱이 오므로 기다리고, 받지 않거나 실패한 세션만 바로 찍는다.
+        waitFaceTick: signals.personPresent && sleepEnabled && faceStatus !== "unavailable",
+        faceRan,
+        element,
+        frameRunId,
+      });
     }
   }
 
@@ -771,25 +791,29 @@ export function createVisionFocusDetector(
    * 타임랩스 사진 한 장 남기기
    *
    * 사람이 없거나 가림이 꺼져 있으면 판정을 낸 뒤 객체 검출기 핸들로 추론 없이 찍어 신호가 압축 시간만큼 늦지 않는다.
-   * 가림이 켜진 세션에서 사람이 보이면 얼굴 모델이 같은 프레임으로 만든 사진만 쓰므로 그 틱의 신호는 압축이 끝난 뒤에 나간다.
+   * 가림이 켜진 세션에서 사람이 보이고 얼굴 모델을 쓸 수 있으면 얼굴 모델이 같은 프레임으로 만든 사진만 쓰므로 그 틱의 신호는 압축이 끝난 뒤에 나간다.
    * 그 틱에 얼굴 모델이 돌지 못했거나 사진을 만들지 못했으면 찍지 않고 다음 틱으로 미룬다.
+   * 얼굴 모델을 쓸 수 없는 세션은 얼굴 틱이 오지 않으므로 요청에 실린 어림 자리를 덮어 추론 없이 찍는다.
    * 촬영 때문에 얼굴 추론을 더 돌리지 않는다.
    * 사진을 만들지 못한 실패는 창구에 알려 메인 스레드에서 보고한다.
    */
   async function takePhoto(
     tap: PhotoTap,
     spec: PhotoSpec,
-    personPresent: boolean,
-    faceRan: FaceDetectionResult | null,
-    element: HTMLVideoElement,
-    frameRunId: number,
+    tick: {
+      readonly waitFaceTick: boolean;
+      readonly faceRan: FaceDetectionResult | null;
+      readonly element: HTMLVideoElement;
+      readonly frameRunId: number;
+    },
   ): Promise<void> {
-    if (spec.mask && personPresent) {
+    const { faceRan, element, frameRunId } = tick;
+    if (spec.mask && tick.waitFaceTick) {
       if (faceRan?.photo !== undefined) {
         tap.save(faceRan.photo);
       } else if (faceRan !== null) {
         // 얼굴 추론은 됐는데 사진만 빠졌으면 런타임이 사진을 만들지 못한 것이고 그 이유는 워커가 들고 있다.
-        tap.fail(new Error("얼굴 틱의 사진을 만들지 못했다"));
+        tap.fail(new Error("could not render the face tick photo"));
       }
       return;
     }

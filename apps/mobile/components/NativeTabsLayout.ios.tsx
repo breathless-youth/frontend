@@ -3,6 +3,7 @@ import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { DynamicColorIOS } from "react-native";
 
 import { getActiveTab, setActiveTabRoute, TAB_BY_ROUTE_NAME } from "../lib/activeTab";
+import { t } from "../lib/i18n";
 import { trackNativeEvent } from "../lib/nativeAnalytics";
 import { useTabBarState } from "../lib/tabBarVisibility";
 
@@ -18,31 +19,31 @@ import { useTabBarState } from "../lib/tabBarVisibility";
 const TABS = [
   {
     name: "index",
-    label: "홈",
+    labelKey: "tab.home",
     icon: require("../assets/tabs/home.png") as number,
     iconSelected: require("../assets/tabs/home-selected.png") as number,
   },
   {
     name: "social",
-    label: "그룹",
+    labelKey: "tab.social",
     icon: require("../assets/tabs/social.png") as number,
     iconSelected: require("../assets/tabs/social-selected.png") as number,
   },
   {
     name: "records",
-    label: "기록",
+    labelKey: "tab.records",
     icon: require("../assets/tabs/record.png") as number,
     iconSelected: require("../assets/tabs/record-selected.png") as number,
   },
   {
     name: "ranking",
-    label: "랭킹",
+    labelKey: "tab.ranking",
     icon: require("../assets/tabs/ranking.png") as number,
     iconSelected: require("../assets/tabs/ranking-selected.png") as number,
   },
   {
     name: "settings",
-    label: "설정",
+    labelKey: "tab.settings",
     icon: require("../assets/tabs/settings.png") as number,
     iconSelected: require("../assets/tabs/settings-selected.png") as number,
   },
@@ -110,7 +111,7 @@ export function NativeTabsLayout() {
             src={{ default: tab.icon, selected: tab.iconSelected }}
             renderingMode="template"
           />
-          <NativeTabs.Trigger.Label>{tab.label}</NativeTabs.Trigger.Label>
+          <NativeTabs.Trigger.Label>{t(tab.labelKey)}</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
       ))}
     </NativeTabs>

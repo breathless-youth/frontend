@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import { IconPlanner } from "@/features/records/icons";
 import { useNativeControl } from "@/lib/nativeControls";
 import { cn } from "@/lib/utils";
@@ -18,6 +20,7 @@ export function PlannerPillButton({
   dateKey?: string;
   className?: string;
 }) {
+  const { t } = useTranslation("planner");
   const openPlanner = useOpenPlanner(via);
   const open = () => {
     openPlanner(dateKey);
@@ -33,7 +36,7 @@ export function PlannerPillButton({
       image: "planner",
       shape: "circle",
       disabled: false,
-      accessibilityLabel: "플래너",
+      accessibilityLabel: t("pillButton.aria.open"),
     },
     open,
   );
@@ -41,7 +44,7 @@ export function PlannerPillButton({
     <button
       ref={ref}
       type="button"
-      aria-label="플래너"
+      aria-label={t("pillButton.aria.open")}
       onClick={open}
       className={cn(
         "flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-foreground shadow-[0_2px_10px_0_rgba(15,23,42,0.06)]",

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { Trans, useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { IconSocialPeople } from "@/features/social-room/icons";
-import { joinErrorReason } from "@/features/social-room/joinErrorCopy";
+import { joinErrorReason } from "@/features/social-room/joinError";
 import { consumeSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import type { SocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { trackSocialRoomCreateFailed, trackSocialRoomCreated } from "@/lib/amplitude";
@@ -25,6 +26,7 @@ import { useUserId } from "@/lib/userId";
  * 소셜 홈
  */
 export function SocialHomePage() {
+  const { t } = useTranslation(["social-room", "common"]);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -76,7 +78,7 @@ export function SocialHomePage() {
     onError: (error: unknown) => {
       // 실패 사유는 토스트에 없다 — 입장 실패와 같은 규칙(코드/HTTP_n/NETWORK_OR_UNKNOWN)으로 남긴다.
       trackSocialRoomCreateFailed(joinErrorReason(error));
-      showToast("잠시 후 다시 시도해 주세요");
+      showToast(t("common:errors.retryLater"));
     },
   });
 
@@ -90,7 +92,7 @@ export function SocialHomePage() {
       className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+17px)] text-foreground"
     >
       <div className="px-5">
-        <h1 className="text-[24px] leading-7.5 font-bold text-foreground">소셜</h1>
+        <h1 className="text-[24px] leading-7.5 font-bold text-foreground">{t("home.title")}</h1>
       </div>
 
       <div className="flex grow flex-col items-center justify-center gap-2 px-5">
@@ -98,11 +100,9 @@ export function SocialHomePage() {
           <IconSocialPeople size={40} />
         </div>
         <div className="size-2" aria-hidden="true" />
-        <p className="text-lg font-bold text-foreground">친구와 함께 공부해요</p>
+        <p className="text-lg font-bold text-foreground">{t("home.headline")}</p>
         <p className="text-center text-sm leading-5 text-muted-foreground">
-          방을 만들어 초대코드를 공유하거나
-          <br />
-          받은 코드로 참여하세요
+          <Trans t={t} i18nKey="home.description" components={{ br: <br /> }} />
         </p>
         <div className="size-4" aria-hidden="true" />
         <div className="flex w-full gap-2.5">
@@ -115,7 +115,7 @@ export function SocialHomePage() {
               createMutation.mutate();
             }}
           >
-            방 만들기
+            {t("home.create")}
           </Button>
           <Button
             variant="subtle"
@@ -131,7 +131,7 @@ export function SocialHomePage() {
               );
             }}
           >
-            초대코드로 참여
+            {t("join.title")}
           </Button>
         </div>
       </div>
@@ -160,7 +160,7 @@ export function SocialHomePage() {
             className="w-full"
             onClick={() => setGraceMessage(null)}
           >
-            확인
+            {t("home.noticeConfirm")}
           </Button>
         </DialogContent>
       </Dialog>

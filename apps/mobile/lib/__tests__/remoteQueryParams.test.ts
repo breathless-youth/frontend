@@ -120,6 +120,10 @@ describe("buildRemoteQueryParams", () => {
     }
   });
 
+  it("언어는 캐시되는 파라미터에 넣지 않는다", async () => {
+    await expect(buildRemoteQueryParams()).resolves.not.toHaveProperty("lang");
+  });
+
   it("신원은 URL에 싣지 않는다 — 웹은 auth-token으로 받는다", async () => {
     mockedEnsureUserRegistered.mockResolvedValue(7);
 

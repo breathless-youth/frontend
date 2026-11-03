@@ -1,0 +1,49 @@
+{
+  "page": {
+    "prevDay": "전날",
+    "nextDay": "다음 날",
+    "unregistered": "기기 등록 전이에요. 앱에서 열면 기록이 저장돼요",
+    "loadFailed": "플래너를 불러오지 못했어요",
+    "manualEntry": "시간 직접 입력"
+  },
+  "head": {
+    "focusTime": "순공시간",
+    "total": "총 {{duration}}"
+  },
+  "pillButton": {
+    "aria": {
+      "open": "플래너"
+    }
+  },
+  "timetable": {
+    "aria": {
+      "distribution": "이 날의 시간대별 공부 분포. 순공 {{duration}}"
+    }
+  },
+  "subjects": {
+    "rest": "휴식",
+    "unassigned": "과목 없음"
+  },
+  "editor": {
+    "overLimit": "{{count}}자까지 쓸 수 있어요",
+    "subjectPlaceholder": "과목 이름",
+    "taskPlaceholder": "할 일 이름",
+    "aria": {
+      "subjectName": "과목 이름",
+      "newSubject": "새 과목 이름",
+      "taskName": "할 일 이름",
+      "newTask": "새 할 일 이름"
+    }
+  },
+  "rowMenu": {
+    "rename": "이름 변경",
+    "remove": "삭제"
+  },
+  "suggestions": {
+    "add": "+ 추가",
+    "aria": {
+      "list": "추천 과목",
+      "add": "{{name}} 추가"
+    }
+  }
+}

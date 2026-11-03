@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent } from "react";
+import { useTranslation } from "react-i18next";
 
 import { haptic } from "@/lib/haptics";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
@@ -17,10 +18,14 @@ import {
 
 type Unit = "h" | "m" | "s";
 
-const COLUMNS: ReadonlyArray<{ unit: Unit; label: string; size: number }> = [
-  { unit: "h", label: "시간", size: 24 },
-  { unit: "m", label: "분", size: 60 },
-  { unit: "s", label: "초", size: 60 },
+const COLUMNS: ReadonlyArray<{
+  unit: Unit;
+  labelKey: "hours" | "minutes" | "seconds";
+  size: number;
+}> = [
+  { unit: "h", labelKey: "hours", size: 24 },
+  { unit: "m", labelKey: "minutes", size: 60 },
+  { unit: "s", labelKey: "seconds", size: 60 },
 ];
 
 /** 굴러가는 동안 가장자리로 들어오는 줄까지 그리고, 멈춰 있을 때는 위아래 두 줄만 보인다. */
@@ -60,8 +65,13 @@ function easeOutCubic(t: number): number {
   return 1 - (1 - t) ** 3;
 }
 
+type LabelKey = (typeof COLUMNS)[number]["labelKey"];
+
 interface WheelColumnProps {
+  /** 숫자 옆에 보이는 단위. 칸 폭 때문에 영어는 약자다. */
   label: string;
+  /** 낭독용 이름과 값은 약자 대신 낱말로 읽히게 따로 고른다. */
+  labelKey: LabelKey;
   size: number;
   value: number;
   onSelect: (value: number) => void;
@@ -83,7 +93,8 @@ interface DragState {
  * 손으로 칸을 넘길 때마다 가벼운 햅틱을 낸다.
  * 양 끝에서는 반대쪽 끝으로 넘어가지 않고, 끝을 넘겨 끌면 버티며 따라오다가 손을 떼면 끝 값으로 돌아온다.
  */
-function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
+function WheelColumn({ label, labelKey, size, value, onSelect }: WheelColumnProps) {
+  const { t } = useTranslation("multi-timer");
   // 굴러가는 중인 위치(칸 단위)이고, 멈춰 있으면 null이라 값 그대로 그린다.
   const [rolling, setRolling] = useState<number | null>(null);
   const rollingRef = useRef<number | null>(null);
@@ -287,11 +298,11 @@ function WheelColumn({ label, size, value, onSelect }: WheelColumnProps) {
     <div className="flex min-w-0 flex-col items-center" style={{ flex: `1 1 ${unitSlot}px` }}>
       <div
         role="spinbutton"
-        aria-label={label}
+        aria-label={t(`wheel.aria.${labelKey}`)}
         aria-valuemin={0}
         aria-valuemax={size - 1}
         aria-valuenow={value}
-        aria-valuetext={`${value}${label}`}
+        aria-valuetext={t(`wheel.aria.${labelKey}Value`, { count: value })}
         ref={wheelRef}
         tabIndex={0}
         onKeyDown={handleKeyDown}
@@ -370,6 +381,7 @@ export function TimerWheel({
   valueSec: number;
   onChange: (sec: number) => void;
 }) {
+  const { t } = useTranslation("multi-timer");
   const parts = splitTimerSec(valueSec);
 
   return (
@@ -385,10 +397,11 @@ export function TimerWheel({
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 top-29 h-17 rounded-[18px] bg-muted inset-ring-1 inset-ring-white/8"
       />
-      {COLUMNS.map(({ unit, label, size }) => (
+      {COLUMNS.map(({ unit, labelKey, size }) => (
         <WheelColumn
           key={unit}
-          label={label}
+          label={t(`wheel.unit.${labelKey}`)}
+          labelKey={labelKey}
           size={size}
           value={parts[unit]}
           onSelect={(next) => onChange(clampTimerSec(joinTimerSec({ ...parts, [unit]: next })))}

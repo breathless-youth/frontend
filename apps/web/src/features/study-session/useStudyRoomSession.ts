@@ -88,6 +88,7 @@ import {
   selectSubjectSegment,
 } from "./subjectSegments";
 import { DEFAULT_SESSION_TUNING } from "./sessionTuning";
+import { submitErrorMessage } from "./submitErrorMessage";
 import { submitStudySession } from "./submitStudySession";
 import type { PausedSnapshot } from "./usePauseAutoEnd";
 import { usePauseAutoEnd } from "./usePauseAutoEnd";
@@ -915,7 +916,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           haptic("medium");
           setPhase({
             name: "error",
-            message: error instanceof Error ? error.message : "세션 제출에 실패했습니다",
+            message: submitErrorMessage(error),
           });
         })
         .finally(() => {

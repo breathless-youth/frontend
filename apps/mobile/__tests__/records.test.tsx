@@ -56,7 +56,7 @@ describe("RecordsScreen 딥링크 파라미터", () => {
     render(<RecordsScreen />);
     expect(await screen.findByTestId("records-webview")).toBeTruthy();
     expect(screen.getByTestId("records-webview").props.source).toEqual({
-      uri: `https://web.test/records?${SHARED}`,
+      uri: `https://web.test/records?${SHARED}&lang=ko`,
     });
   });
 
@@ -66,7 +66,7 @@ describe("RecordsScreen 딥링크 파라미터", () => {
     render(<RecordsScreen />);
     expect(await screen.findByTestId("records-webview")).toBeTruthy();
     expect(screen.getByTestId("records-webview").props.source).toEqual({
-      uri: `https://web.test/planner?${SHARED}&date=2026-10-01`,
+      uri: `https://web.test/planner?${SHARED}&date=2026-10-01&lang=ko`,
     });
   });
 
@@ -76,7 +76,7 @@ describe("RecordsScreen 딥링크 파라미터", () => {
     render(<RecordsScreen />);
     expect(await screen.findByTestId("records-webview")).toBeTruthy();
     expect(screen.getByTestId("records-webview").props.source).toEqual({
-      uri: `https://web.test/planner?${SHARED}&date=2026-10-01`,
+      uri: `https://web.test/planner?${SHARED}&date=2026-10-01&lang=ko`,
     });
   });
 
@@ -98,7 +98,7 @@ describe("RecordsScreen 딥링크 파라미터", () => {
     render(<RecordsScreen />);
     expect(await screen.findByTestId("records-webview")).toBeTruthy();
     expect(screen.getByTestId("records-webview").props.source).toEqual({
-      uri: `https://web.test/records?${SHARED}`,
+      uri: `https://web.test/records?${SHARED}&lang=ko`,
     });
   });
 });

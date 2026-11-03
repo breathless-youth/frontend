@@ -1,17 +1,25 @@
 import { cva } from "class-variance-authority";
 import { Check, Frown, Meh, Smile, type LucideIcon } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Card } from "@/components/ui/card";
 import type { MeasurementFeedbackRating, MeasurementFeedbackReason } from "@/lib/amplitude";
 import { cn } from "@/lib/utils";
 
-import {
-  MEASUREMENT_FEEDBACK_COPY as COPY,
-  RATING_OPTIONS,
-  REASON_OPTIONS,
-  REASON_TITLE,
-} from "./measurementFeedbackCopy";
+/** 선택지 값은 분석 이벤트로도 나가고 문구는 measurement-feedback 카탈로그의 같은 이름 키에 있다. */
+export const RATING_VALUES = [
+  "good",
+  "meh",
+  "bad",
+] as const satisfies readonly MeasurementFeedbackRating[];
+
+export const REASON_VALUES = [
+  "under",
+  "over",
+  "unclear",
+  "missing_info",
+] as const satisfies readonly MeasurementFeedbackReason[];
 
 const RATING_ICON: Record<MeasurementFeedbackRating, LucideIcon> = {
   good: Smile,
@@ -50,6 +58,7 @@ export function MeasurementFeedbackCard({
   onRate: (rating: MeasurementFeedbackRating) => void;
   onReason: (rating: MeasurementFeedbackRating, reason: MeasurementFeedbackReason) => void;
 }) {
+  const { t } = useTranslation(["measurement-feedback", "common"]);
   const titleId = useId();
   const reasonTitleId = useId();
   const statusRef = useRef<HTMLDivElement>(null);
@@ -69,10 +78,10 @@ export function MeasurementFeedbackCard({
         {!finished && (
           <div className="flex flex-col gap-3">
             <h2 id={titleId} className="text-[15px] leading-5 font-bold text-foreground">
-              {COPY.title}
+              {t("title")}
             </h2>
             <div role="group" aria-labelledby={titleId} className="flex gap-2">
-              {RATING_OPTIONS.map(({ value, label }) => {
+              {RATING_VALUES.map((value) => {
                 const Icon = RATING_ICON[value];
                 return (
                   <button
@@ -90,7 +99,7 @@ export function MeasurementFeedbackCard({
                     className={ratingButtonVariants({ selected: rating === value })}
                   >
                     <Icon className="size-6.5" strokeWidth={1.8} aria-hidden="true" />
-                    {label}
+                    {t(`rating.${value}`)}
                   </button>
                 );
               })}
@@ -102,14 +111,15 @@ export function MeasurementFeedbackCard({
                     id={reasonTitleId}
                     className="text-[14px] leading-4.75 font-bold text-foreground"
                   >
-                    {REASON_TITLE[rating]}
+                    {/* 보통이에요는 불만이 크지 않은 답이라 이유를 묻는 말을 한 단계 누그러뜨린다. */}
+                    {t(`reasonTitle.${rating}`)}
                   </p>
                   <p className="text-[12px] leading-4.25 text-muted-foreground">
-                    {COPY.reasonDescription}
+                    {t("reasonDescription")}
                   </p>
                 </div>
                 <div role="group" aria-labelledby={reasonTitleId} className="flex flex-wrap gap-2">
-                  {REASON_OPTIONS.map(({ value, label }) => (
+                  {REASON_VALUES.map((value) => (
                     <button
                       key={value}
                       type="button"
@@ -119,7 +129,7 @@ export function MeasurementFeedbackCard({
                       }}
                       className="min-h-11 rounded-full bg-bg-layer-2 px-3.5 text-[13px] leading-4.5 font-medium text-foreground transition-opacity duration-150 active:opacity-70 motion-reduce:transition-none"
                     >
-                      {label}
+                      {t(`reason.${value}`)}
                     </button>
                   ))}
                 </div>
@@ -133,7 +143,9 @@ export function MeasurementFeedbackCard({
               <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-subtle text-primary">
                 <Check className="size-4" strokeWidth={3} aria-hidden="true" />
               </span>
-              <p className="text-[15px] leading-5.25 font-bold text-foreground">{COPY.thanks}</p>
+              <p className="text-[15px] leading-5.25 font-bold text-foreground">
+                {t("common:feedback.thanks")}
+              </p>
             </div>
           )}
         </div>

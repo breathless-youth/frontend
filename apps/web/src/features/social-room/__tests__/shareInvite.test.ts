@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { INVITE_SHARE_TITLE, inviteLink, inviteShareText, shareInvite } from "../shareInvite";
+import { inviteLink, inviteShareText, shareInvite } from "../shareInvite";
+
+const INVITE_SHARE_TITLE = "포커스 메이커스 그룹 스터디";
 
 afterEach(() => {
   delete (globalThis as { ReactNativeWebView?: unknown }).ReactNativeWebView;

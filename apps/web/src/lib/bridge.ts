@@ -76,12 +76,12 @@ export function postToNative(message: ToNativeMessage): boolean {
   try {
     bridge.postMessage(JSON.stringify(message));
     if (import.meta.env.DEV) {
-      console.warn("[webview-bridge] 네이티브로 보냄", forLog(message));
+      console.warn("[webview-bridge] sent to native", forLog(message));
     }
     return true;
   } catch (error) {
     if (import.meta.env.DEV) {
-      console.warn("[webview-bridge] 네이티브 전송 실패", forLog(message), error);
+      console.warn("[webview-bridge] failed to send to native", forLog(message), error);
     }
     /**
      * 받을 네이티브가 이미 없는 상태라 어차피 전달할 방법이 없다.
@@ -120,7 +120,7 @@ export function subscribeToNativeMessages(handler: (message: ToWebMessage) => vo
     const message = parseToWebMessage(raw);
     if (message === null) {
       if (import.meta.env.DEV) {
-        console.warn("[webview-bridge] 파싱하지 못해 버린 메시지", raw);
+        console.warn("[webview-bridge] dropped a message it could not parse", raw);
       }
       return;
     }

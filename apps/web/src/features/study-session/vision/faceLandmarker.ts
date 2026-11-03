@@ -66,7 +66,7 @@ export interface FaceDetectionResult {
   /**
    * 요청한 타임랩스 사진
    *
-   * 가림이면 스티커를 덮은 뒤의 JPEG다.
+   * 가림이면 이모지를 덮은 뒤의 JPEG다.
    * 만들지 못했으면 없다.
    */
   readonly photo?: ArrayBuffer;
@@ -358,7 +358,10 @@ export function createFaceLandmarker(
           return null;
         }
         consecutiveFailures += 1;
-        console.warn(`[vision] 얼굴 detectForVideo 실패 (${consecutiveFailures}회 연속)`, error);
+        console.warn(
+          `[vision] face detectForVideo failed (${consecutiveFailures} in a row)`,
+          error,
+        );
         if (consecutiveFailures >= MAX_CONSECUTIVE_DETECT_FAILURES) {
           reportHandled(error, "vision-face-frame-loop");
           releaseHandle();
