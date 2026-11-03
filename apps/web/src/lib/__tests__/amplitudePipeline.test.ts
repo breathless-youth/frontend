@@ -91,8 +91,14 @@ const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("Amplitude 전송 파이프라인 (실제 SDK)", () => {
   it("나가는 payload 어디에도 userId와 다른 사람의 닉네임·그룹 이름이 남지 않는다", async () => {
-    const { initAmplitude, trackAmplitudePageView, trackStudySessionStarted } =
-      await import("../amplitude");
+    const {
+      initAmplitude,
+      setGroupRoomCount,
+      trackAmplitudePageView,
+      trackGroupRoomApplicationAnswered,
+      trackGroupRoomReported,
+      trackStudySessionStarted,
+    } = await import("../amplitude");
     const amplitude = await import("@amplitude/analytics-browser");
 
     initAmplitude();
@@ -241,5 +247,29 @@ describe("Amplitude 전송 파이프라인 (실제 SDK)", () => {
     // 두 클릭이 모두 나가야 아래의 가림 단언이 공허하지 않다.
     expect(roomClicks).toHaveLength(2);
     expect(JSON.stringify(sent)).not.toMatch(/책벌레곰|행정학 3회독/);
+
+    // 그룹 이벤트는 그룹 번호와 신청 번호가 든 화면에서 보내도 정한 속성만 나간다.
+    // SDK가 화면 주소 같은 속성을 덧붙이면 그룹 번호가 함께 나가서 속성 전체를 그대로 비교한다.
+    sent.length = 0;
+    window.history.replaceState({}, "", "/social/groups/10/applications/41/report?userId=7");
+    trackGroupRoomApplicationAnswered("reported");
+    trackGroupRoomReported("application");
+    setGroupRoomCount(2);
+    await amplitude.flush().promise;
+    await tick();
+
+    const groupEvents = sent.flatMap((batch) => batch.events);
+    expect(
+      groupEvents
+        .filter((event) => String(event.event_type).startsWith("group_room_"))
+        .map((event) => [event.event_type, event.event_properties]),
+    ).toEqual([
+      ["group_room_application_answered", { result: "reported" }],
+      ["group_room_reported", { target: "application" }],
+    ]);
+    // 들어간 그룹 수는 이벤트가 아니라 사용자 속성으로 나간다.
+    expect(groupEvents.find((event) => event.event_type === "$identify")?.user_properties).toEqual({
+      $set: { group_room_count: 2 },
+    });
   });
 });

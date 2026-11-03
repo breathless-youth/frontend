@@ -3,11 +3,14 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
+import type * as Amplitude from "@/lib/amplitude";
+import { setGroupRoomCount, trackGroupRoomJoined, trackGroupRoomLeft } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import { useUserId } from "@/lib/userId";
 import type * as UserId from "@/lib/userId";
 import {
   mockGroupApi,
+  removeMeFrom,
   renderGroupRoute,
   stubIntersectionObserver,
   stubPendingIdentity,
@@ -19,6 +22,12 @@ vi.mock("@/lib/userId", async (importOriginal) => ({
   useUserId: vi.fn(() => 1),
   useIdentityPending: vi.fn(() => false),
 }));
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof Amplitude>()),
+  setGroupRoomCount: vi.fn(),
+  trackGroupRoomJoined: vi.fn(),
+  trackGroupRoomLeft: vi.fn(),
+}));
 
 // 신청 중 시트와 그룹 홈은 나눠 받는 모듈이라 전체 스위트 부하에서 첫 받기가 findBy 기본 1초를 넘지 않게 미리 받아 둔다.
 beforeAll(async () => {
@@ -28,9 +37,51 @@ beforeAll(async () => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.mocked(setGroupRoomCount).mockClear();
+  vi.mocked(trackGroupRoomJoined).mockClear();
+  vi.mocked(trackGroupRoomLeft).mockClear();
 });
 
 const searchParam = (search: string, name: string) => new URLSearchParams(search).get(name);
+
+describe("그룹 탭 가입·내보내짐 계측", () => {
+  it("내 그룹을 처음 받으면 들어간 그룹 수만 남기고 가입·내보내짐은 세지 않는다", async () => {
+    mockGroupApi("default");
+    renderGroupRoute("/social?groupRooms=1");
+    await screen.findByRole("tab", { name: /내 그룹 3\/5/ });
+    await waitFor(() => expect(setGroupRoomCount).toHaveBeenCalledExactlyOnceWith(2));
+    expect(trackGroupRoomJoined).not.toHaveBeenCalled();
+    expect(trackGroupRoomLeft).not.toHaveBeenCalled();
+  });
+
+  it("다시 받은 내 그룹에서 빠진 그룹은 내보내짐으로 세고 들어간 그룹 수를 고친다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const api = mockGroupApi("default");
+    renderGroupRoute("/social?groupRooms=1");
+    await waitFor(() => expect(setGroupRoomCount).toHaveBeenCalledWith(2));
+    // 그룹장이 이 기기 밖에서 나를 내보낸 것과 같다.
+    removeMeFrom(api, 11);
+
+    await act(() => vi.advanceTimersByTimeAsync(30_000));
+
+    await waitFor(() => expect(trackGroupRoomLeft).toHaveBeenCalledExactlyOnceWith("kicked"));
+    expect(setGroupRoomCount).toHaveBeenLastCalledWith(1);
+    expect(trackGroupRoomJoined).not.toHaveBeenCalled();
+  });
+
+  it("신원이 없으면 내 그룹을 기억하지 않는다", async () => {
+    mockGroupApi("default");
+    vi.mocked(useUserId).mockReturnValue(null);
+    onTestFinished(() => {
+      vi.mocked(useUserId).mockReset();
+    });
+    renderGroupRoute("/social?groupRooms=1");
+    expect(await screen.findByText("아직 들어간 그룹이 없어요")).toBeInTheDocument();
+    expect(setGroupRoomCount).not.toHaveBeenCalled();
+    const keys = Object.keys(localStorage);
+    expect(keys.some((key) => key.startsWith("focusmakers.groupMembership"))).toBe(false);
+  });
+});
 
 describe("그룹 탭", () => {
   it("표시가 없으면 지금 소셜 홈을 그린다", async () => {

@@ -13,6 +13,7 @@ import {
   groupErrorCopy,
   isGroupGoneError,
 } from "@/features/group-room/groupErrorCopy";
+import { markLocalMembership } from "@/features/group-room/groupMembershipTracker";
 import { baseSearch } from "@/features/group-room/groupTabSearch";
 import { containsContactOrLink } from "@/features/group-room/model/contactCheck";
 import { parseRouteId } from "@/features/group-room/routeId";
@@ -21,6 +22,7 @@ import { RoomFormScreen } from "@/features/group-room/screens/RoomFormScreen";
 import type { RoomFormServerError } from "@/features/group-room/types";
 import { useBackTo } from "@/features/group-room/useBackTo";
 import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
+import { trackGroupRoomCreated } from "@/lib/amplitude";
 import { createGroup, updateGroup } from "@/lib/groupRoomApi";
 import {
   GROUP_MUTATION_OPTIONS,
@@ -127,7 +129,13 @@ function GroupCreate({ userId }: { userId: number }) {
   const create = useMutation({
     ...GROUP_MUTATION_OPTIONS,
     mutationFn: (body: GroupCreateRequest) => createGroup(body),
-    onSuccess: ({ groupId }) => {
+    onSuccess: ({ groupId }, body) => {
+      // 그룹 탭이 다시 받은 목록이 이 그룹을 신청 가입으로 세지 않게 무효화보다 먼저 표시한다.
+      markLocalMembership(userId, { kind: "created", groupId });
+      trackGroupRoomCreated({
+        visibility: toRoomVisibility(body.visibility),
+        category: body.category,
+      });
       void invalidateGroupMembership(queryClient, userId);
       navigate(
         { pathname: `/social/groups/${groupId}`, search: baseSearch(location.search) },

@@ -30,6 +30,12 @@ export const GROUP_MOCK_SCENES: readonly GroupMockScene[] = ["default", "empty",
 export interface GroupMockServer extends GroupRoomApi {
   /** 테스트가 견본 그룹의 그룹장을 바꿔 그룹장 화면을 연다. */
   setOwnerForTests(groupId: number, userId: number): void;
+  /**
+   * 테스트가 견본 그룹에 고른 멤버만 남긴다.
+   *
+   * 내보낸 기록은 남기지 않아서 뺀 사람도 코드로 바로 다시 들어올 수 있다.
+   */
+  keepMembersForTests(groupId: number, keep: (userId: number) => boolean): void;
 }
 
 export interface GroupMockOptions {
@@ -537,6 +543,13 @@ export function createGroupMockServer(
         throw new Error(`그룹 ${groupId}에 멤버 ${userId}가 없어 그룹장으로 정할 수 없다`);
       }
       group.ownerId = userId;
+    },
+    keepMembersForTests(groupId, keep) {
+      const group = world.groups.find((candidate) => candidate.groupId === groupId);
+      if (group === undefined) {
+        throw new Error(`그룹 ${groupId}가 없어 멤버를 바꿀 수 없다`);
+      }
+      group.members = group.members.filter((member) => keep(member.userId));
     },
   };
 }

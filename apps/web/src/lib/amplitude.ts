@@ -21,6 +21,8 @@ import type {
   VideoResultStatus,
 } from "@focusmakers/types";
 
+import type { RoomVisibility } from "@/features/group-room/model/roomMenu";
+
 import { firebaseAnalyticsForwardPlugin } from "./firebaseAnalyticsBridge";
 import i18n from "./i18n";
 import type { InstallAttributionProperties } from "./installAttribution";
@@ -565,6 +567,87 @@ export function trackSocialRoomRejoinFailed(kind: "leave" | "retry", reason: str
 export function trackSocialRoomGraceExceeded() {
   if (!initialized) return;
   track("social_room_grace_exceeded");
+}
+
+/* ── 그룹 공부방 이벤트 ──────────────────────────────────────────────────────
+ *
+ * 이벤트 이름과 속성은 위키 명세 27절이 원본이다.
+ * 그룹 ID, 신청 ID, 닉네임, 그룹 이름, 소개 글, 신고 사유는 어떤 이벤트에도 싣지 않고 값은 정한 영문 토큰만 쓴다.
+ * 다른 사람이 한 일로 생기는 신청 가입과 내보내짐은 이 기기가 그 순간을 모르므로 `groupMembershipTracker.ts`가 내 그룹 목록 차이로 보낸다.
+ * Meta 광고 전환으로는 보내지 않는다.
+ */
+
+/** 그룹 이벤트의 공개 여부이고 화면이 쓰는 공개 여부와 같은 값이다. */
+export type GroupVisibilityProp = RoomVisibility;
+
+/** 멤버가 된 경로이고 신청 수락은 `application`, 초대 링크와 직접 넣은 초대코드는 따로 센다. */
+export type GroupRoomJoinVia = "application" | "invite_link" | "invite_code";
+
+/** 멤버가 아니게 된 이유이고 혼자 남은 그룹장이 나가 그룹이 사라지면 `room_deleted`다. */
+export type GroupRoomLeaveReason = "left" | "kicked" | "room_deleted";
+
+/** 그룹을 만들었을 때 보내고 `category`는 서버의 시험·목표 값 그대로다. */
+export function trackGroupRoomCreated(input: {
+  visibility: GroupVisibilityProp;
+  category: string;
+}) {
+  if (!initialized) return;
+  track("group_room_created", { visibility: input.visibility, category: input.category });
+}
+
+/** 공개 그룹에 신청을 보냈을 때 보내고 `category`는 신청한 그룹의 시험·목표다. */
+export function trackGroupRoomApplicationSent(input: { category: string }) {
+  if (!initialized) return;
+  track("group_room_application_sent", { category: input.category });
+}
+
+/** 그룹장이 받은 신청을 수락, 거절, 신고했을 때 보낸다. */
+export function trackGroupRoomApplicationAnswered(result: "accepted" | "declined" | "reported") {
+  if (!initialized) return;
+  track("group_room_application_answered", { result });
+}
+
+/** 멤버가 됐을 때 보낸다. */
+export function trackGroupRoomJoined(input: {
+  via: GroupRoomJoinVia;
+  visibility: GroupVisibilityProp;
+}) {
+  if (!initialized) return;
+  track("group_room_joined", { via: input.via, visibility: input.visibility });
+}
+
+/** 멤버가 아니게 됐을 때 보낸다. */
+export function trackGroupRoomLeft(reason: GroupRoomLeaveReason) {
+  if (!initialized) return;
+  track("group_room_left", { reason });
+}
+
+/** 그룹 홈에서 멤버 공부 알림을 켜거나 껐을 때 보낸다. */
+export function trackGroupRoomNotificationToggled(on: boolean) {
+  if (!initialized) return;
+  track("group_room_notification_toggled", { on });
+}
+
+/** 공부방의 멤버나 받은 신청을 신고했을 때 보낸다. */
+export function trackGroupRoomReported(target: "member" | "application") {
+  if (!initialized) return;
+  track("group_room_reported", { target });
+}
+
+/** 공부방에서 내 마이크가 실제로 켜지거나 꺼졌을 때 보내고 카메라를 꺼서 따라 꺼진 것도 꺼짐이다. */
+export function trackGroupRoomMicToggled(on: boolean) {
+  if (!initialized) return;
+  track("group_room_mic_toggled", { on });
+}
+
+/**
+ * 들어간 그룹 수 사용자 속성
+ *
+ * 그룹 멤버와 그룹에 들어가지 않은 사람을 Amplitude에서 나눠 비교하는 값이고 바뀔 때만 보낸다.
+ * GA 맞춤 정의 한도를 쓰지 않으려고 Firebase 사용자 속성 허용 목록에는 넣지 않는다.
+ */
+export function setGroupRoomCount(count: number) {
+  setUserProperties({ group_room_count: count });
 }
 
 /* ── 초대 루프 이벤트 (BY-472) ── */

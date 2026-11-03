@@ -690,6 +690,74 @@ describe("소셜룸 이벤트 (BY-472)", () => {
   });
 });
 
+describe("그룹 공부방 이벤트", () => {
+  it("미초기화 상태에서는 보내지 않는다", async () => {
+    const module = await loadModule();
+
+    module.trackGroupRoomCreated({ visibility: "public", category: "CSAT" });
+    module.trackGroupRoomApplicationSent({ category: "CSAT" });
+    module.trackGroupRoomApplicationAnswered("accepted");
+    module.trackGroupRoomJoined({ via: "application", visibility: "public" });
+    module.trackGroupRoomLeft("left");
+    module.trackGroupRoomNotificationToggled(true);
+    module.trackGroupRoomReported("application");
+    module.trackGroupRoomMicToggled(true);
+    module.setGroupRoomCount(2);
+
+    expect(mocks.track).not.toHaveBeenCalled();
+    expect(mocks.identify).not.toHaveBeenCalled();
+  });
+
+  it("그룹 이벤트 속성은 정한 토큰만이다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const module = await loadModule();
+    module.initAmplitude();
+    mocks.track.mockClear();
+
+    module.trackGroupRoomCreated({ visibility: "private", category: "CIVIL_SERVICE" });
+    module.trackGroupRoomApplicationSent({ category: "CSAT" });
+    module.trackGroupRoomApplicationAnswered("reported");
+    module.trackGroupRoomJoined({ via: "invite_link", visibility: "private" });
+    module.trackGroupRoomLeft("room_deleted");
+    module.trackGroupRoomNotificationToggled(true);
+    module.trackGroupRoomReported("member");
+    module.trackGroupRoomMicToggled(false);
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["group_room_created", { visibility: "private", category: "CIVIL_SERVICE" }],
+      ["group_room_application_sent", { category: "CSAT" }],
+      ["group_room_application_answered", { result: "reported" }],
+      ["group_room_joined", { via: "invite_link", visibility: "private" }],
+      ["group_room_left", { reason: "room_deleted" }],
+      ["group_room_notification_toggled", { on: true }],
+      ["group_room_reported", { target: "member" }],
+      ["group_room_mic_toggled", { on: false }],
+    ]);
+    // Firebase 사본은 토큰인 문자열만 통과시키므로 문자열 값이 모두 그 규칙에 맞아야 한다.
+    for (const [, payload] of mocks.track.mock.calls) {
+      for (const value of Object.values(payload as Record<string, unknown>)) {
+        if (typeof value === "string") {
+          expect(value).toMatch(ANALYTICS_PARAM_VALUE_PATTERN);
+        }
+      }
+    }
+  });
+
+  it("들어간 그룹 수를 사용자 속성으로 남긴다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const module = await loadModule();
+    module.initAmplitude();
+    mocks.identify.mockClear();
+
+    module.setGroupRoomCount(3);
+
+    const identify = mocks.identify.mock.calls.at(-1)?.[0] as InstanceType<
+      typeof mocks.FakeIdentify
+    >;
+    expect(identify.sets).toEqual([["group_room_count", 3]]);
+  });
+});
+
 describe("초대 루프 이벤트 (BY-472)", () => {
   it("공유·링크 진입·스토어 이동을 각 속성과 함께 보낸다 — 초대코드 값은 어디에도 없다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");

@@ -18,6 +18,7 @@ import { GroupScreenFrame } from "@/features/group-room/screens/GroupScreenFrame
 import { ReportApplicationScreen } from "@/features/group-room/screens/ReportApplicationScreen";
 import { useBackTo } from "@/features/group-room/useBackTo";
 import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
+import { trackGroupRoomApplicationAnswered, trackGroupRoomReported } from "@/lib/amplitude";
 import { reportApplication } from "@/lib/groupRoomApi";
 import {
   GROUP_MUTATION_OPTIONS,
@@ -107,7 +108,12 @@ function ReportApplication({
   const report = useMutation({
     ...GROUP_MUTATION_OPTIONS,
     mutationFn: (text: string) => reportApplication(applicationId, text),
-    onSuccess: returnToApplications,
+    // 신고한 신청은 서버가 바로 거절해서 신청에 대한 답이기도 하다.
+    onSuccess: () => {
+      trackGroupRoomApplicationAnswered("reported");
+      trackGroupRoomReported("application");
+      returnToApplications();
+    },
     onError: (error) => {
       // 그사이 처리되거나 없어진 신청이면 알리지 않고 지금 목록으로 돌아가고, 그룹장이 바뀐 때도 신청 확인을 거쳐 그룹 홈으로 간다.
       if (isQuietApplicationError(error) || groupErrorCode(error) === "NOT_GROUP_OWNER") {

@@ -1,16 +1,26 @@
+import type { GroupJoinVia } from "@focusmakers/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { groupErrorCopy } from "@/features/group-room/groupErrorCopy";
+import { markLocalMembership } from "@/features/group-room/groupMembershipTracker";
 import { baseSearch } from "@/features/group-room/groupTabSearch";
 import { normalizeInviteCode } from "@/features/group-room/model/inviteCode";
 import { InviteCodeEntryScreen } from "@/features/group-room/screens/InviteCodeEntryScreen";
 import { useBackTo } from "@/features/group-room/useBackTo";
+import { trackGroupRoomJoined } from "@/lib/amplitude";
+import type { GroupRoomJoinVia } from "@/lib/amplitude";
 import { joinGroupByCode } from "@/lib/groupRoomApi";
 import { GROUP_MUTATION_OPTIONS, invalidateGroupMembership } from "@/lib/groupRoomQueries";
 import { haptic } from "@/lib/haptics";
 import { useIdentityPending, useUserId } from "@/lib/userId";
+
+/** 서버에 알리는 참여 경로와 같은 뜻의 계측 값 */
+const JOIN_VIA_EVENT = {
+  LINK: "invite_link",
+  CODE: "invite_code",
+} as const satisfies Record<GroupJoinVia, GroupRoomJoinVia>;
 
 /**
  * 6자리 초대코드로 그룹 참여
@@ -44,12 +54,20 @@ function GroupJoin({ userId }: { userId: number | null }) {
   const [code, setCode] = useState(linkCode);
   const [error, setError] = useState<string | null>(null);
 
+  const viaOf = (submitted: string): GroupJoinVia => (submitted === linkCode ? "LINK" : "CODE");
   const join = useMutation({
     ...GROUP_MUTATION_OPTIONS,
-    mutationFn: (submitted: string) =>
-      joinGroupByCode(submitted, submitted === linkCode ? "LINK" : "CODE"),
-    onSuccess: ({ groupId }) => {
+    mutationFn: (submitted: string) => joinGroupByCode(submitted, viaOf(submitted)),
+    onSuccess: ({ groupId, joined }, submitted) => {
+      // 이미 멤버였으면 서버가 그룹만 알려 준 것이라 가입으로 세지 않고, 초대코드는 비공개 그룹에만 있다.
+      if (joined) {
+        trackGroupRoomJoined({ via: JOIN_VIA_EVENT[viaOf(submitted)], visibility: "private" });
+      }
       if (userId !== null) {
+        // 그룹 탭이 다시 받은 목록이 이 참여를 신청 가입으로 세지 않게 무효화보다 먼저 표시한다.
+        if (joined) {
+          markLocalMembership(userId, { kind: "joined_by_code", groupId });
+        }
         void invalidateGroupMembership(queryClient, userId, groupId);
       }
       navigate(

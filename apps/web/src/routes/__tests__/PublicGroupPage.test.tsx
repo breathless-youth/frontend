@@ -1,7 +1,9 @@
 import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+import type * as Amplitude from "@/lib/amplitude";
+import { trackGroupRoomApplicationSent } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import type * as UserId from "@/lib/userId";
 import {
@@ -18,12 +20,43 @@ vi.mock("@/lib/userId", async (importOriginal) => ({
   useUserId: vi.fn(() => 1),
   useIdentityPending: vi.fn(() => false),
 }));
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof Amplitude>()),
+  trackGroupRoomApplicationSent: vi.fn(),
+}));
 
 // 공개 그룹 보기, 신청하기, 그룹 홈은 나눠 받는 화면이라 전체 스위트 부하에서 첫 그리기가 findBy 기본 1초를 넘지 않게 미리 받아 둔다.
 beforeAll(async () => {
   await import("@/routes/PublicGroupPage");
   await import("@/routes/ApplyPage");
   await import("@/routes/GroupHomePage");
+});
+
+afterEach(() => {
+  vi.mocked(trackGroupRoomApplicationSent).mockClear();
+});
+
+describe("신청 계측", () => {
+  it("신청을 보내면 그 그룹의 시험·목표만 계측하고 소개 글은 싣지 않는다", async () => {
+    mockGroupApi("default");
+    const { router } = renderGroupRoute("/social/public/13/apply?groupRooms=1");
+    const user = userEvent.setup();
+    await user.type(await screen.findByRole("textbox", { name: "소개 글" }), "같이 공부해요");
+    await user.click(screen.getByRole("button", { name: "신청 보내기" }));
+    await waitFor(() => expect(router.location().pathname).toBe("/social/public/13"));
+    expect(trackGroupRoomApplicationSent).toHaveBeenCalledExactlyOnceWith({ category: "LANGUAGE" });
+  });
+
+  it("신청을 보내지 못하면 계측하지 않는다", async () => {
+    const api = mockGroupApi("default");
+    api.applyToGroup.mockRejectedValueOnce(new ApiError("x", 500));
+    renderGroupRoute("/social/public/13/apply?groupRooms=1");
+    const user = userEvent.setup();
+    await user.type(await screen.findByRole("textbox", { name: "소개 글" }), "같이 공부해요");
+    await user.click(screen.getByRole("button", { name: "신청 보내기" }));
+    expect(await screen.findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
+    expect(trackGroupRoomApplicationSent).not.toHaveBeenCalled();
+  });
 });
 
 describe("공개 그룹 보기", () => {

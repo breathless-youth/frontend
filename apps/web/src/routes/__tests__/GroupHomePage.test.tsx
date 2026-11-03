@@ -8,11 +8,18 @@ import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { shareInvite } from "@/features/social-room/shareInvite";
 import type * as ShareInvite from "@/features/social-room/shareInvite";
 import { closeStaleSession } from "@/features/study-session/closeStaleSession";
+import type * as Amplitude from "@/lib/amplitude";
+import {
+  setGroupRoomCount,
+  trackGroupRoomLeft,
+  trackGroupRoomNotificationToggled,
+} from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import { groupKeys } from "@/lib/groupRoomQueries";
 import { queryClient } from "@/lib/queryClient";
 import type * as UserId from "@/lib/userId";
 import {
+  leaveOnlyMe,
   mockGroupApi,
   renderGroupRoute,
   stubHistoryIndex,
@@ -24,6 +31,12 @@ vi.mock("@/lib/userId", async (importOriginal) => ({
   ...(await importOriginal<typeof UserId>()),
   useUserId: vi.fn(() => 1),
   useIdentityPending: vi.fn(() => false),
+}));
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof Amplitude>()),
+  setGroupRoomCount: vi.fn(),
+  trackGroupRoomLeft: vi.fn(),
+  trackGroupRoomNotificationToggled: vi.fn(),
 }));
 vi.mock("@/features/social-room/shareInvite", async (importOriginal) => ({
   ...(await importOriginal<typeof ShareInvite>()),
@@ -42,6 +55,9 @@ beforeAll(async () => {
 
 afterEach(() => {
   vi.useRealTimers();
+  vi.mocked(setGroupRoomCount).mockClear();
+  vi.mocked(trackGroupRoomLeft).mockClear();
+  vi.mocked(trackGroupRoomNotificationToggled).mockClear();
 });
 
 /** 책상이 읽어 주는 이름에 붙은 오늘 순공을 초로 바꾼다. */
@@ -60,6 +76,76 @@ async function openMenuItem(name: RegExp | string) {
   await user.click(screen.getByRole("menuitem", { name }));
   return user;
 }
+
+describe("그룹 홈 계측", () => {
+  it("멤버가 나가면 left로 계측한다", async () => {
+    const api = mockGroupApi("default");
+    const { router } = renderGroupRoute("/social/groups/11?groupRooms=1");
+    const user = await openMenuItem(/그룹 나가기/);
+    await user.click(screen.getByRole("button", { name: "나가기" }));
+    expect(api.leaveGroup).toHaveBeenCalledWith(11);
+    await waitFor(() => expect(router.location().pathname).toBe("/social"));
+    expect(trackGroupRoomLeft).toHaveBeenCalledExactlyOnceWith("left");
+  });
+
+  it("혼자 남은 그룹장이 나가면 room_deleted다", async () => {
+    const api = mockGroupApi("default");
+    leaveOnlyMe(api, 10);
+    const { router } = renderGroupRoute("/social/groups/10?groupRooms=1");
+    const user = await openMenuItem(/그룹 나가기/);
+    expect(screen.getByRole("alertdialog")).toHaveAccessibleDescription(
+      "그룹에서 나가게 된다면 이 그룹이 사라져요",
+    );
+    await user.click(screen.getByRole("button", { name: "나가기" }));
+    await waitFor(() => expect(router.location().pathname).toBe("/social"));
+    expect(trackGroupRoomLeft).toHaveBeenCalledExactlyOnceWith("room_deleted");
+  });
+
+  it("이미 내보내져 나가기가 끝난 그룹은 나가기로 세지 않는다", async () => {
+    const api = mockGroupApi("default");
+    api.leaveGroup.mockRejectedValueOnce(new ApiError("x", 403, "NOT_GROUP_MEMBER"));
+    const { router } = renderGroupRoute("/social/groups/11?groupRooms=1");
+    const user = await openMenuItem(/그룹 나가기/);
+    await user.click(screen.getByRole("button", { name: "나가기" }));
+    await waitFor(() => expect(router.location().pathname).toBe("/social"));
+    expect(trackGroupRoomLeft).not.toHaveBeenCalled();
+  });
+
+  it("그룹 탭에서 연 그룹을 나가면 탭이 내 그룹을 다시 받아도 한 번만 센다", async () => {
+    const api = mockGroupApi("default");
+    const { router } = renderGroupRoute("/social?groupRooms=1");
+    const user = userEvent.setup();
+    // 처음 받은 내 그룹 2개를 기억한 뒤에 나간다.
+    await waitFor(() => expect(setGroupRoomCount).toHaveBeenCalledWith(2));
+    await user.click(screen.getByRole("button", { name: /우리 반 저녁 스터디/ }));
+    await screen.findByRole("heading", { name: "우리 반 저녁 스터디" });
+    await openMenuItem(/그룹 나가기/);
+
+    await user.click(screen.getByRole("button", { name: "나가기" }));
+
+    await waitFor(() => expect(router.location().pathname).toBe("/social"));
+    await waitFor(() => expect(api.getMyGroups).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(setGroupRoomCount).toHaveBeenLastCalledWith(1));
+    expect(vi.mocked(trackGroupRoomLeft).mock.calls).toEqual([["left"]]);
+  });
+
+  it("종을 켜면 멤버 공부 알림 켬을 계측하고 실패하면 계측하지 않는다", async () => {
+    const api = mockGroupApi("default");
+    api.setGroupNotification.mockRejectedValueOnce(new ApiError("x", 500));
+    renderGroupRoute("/social/groups/10?groupRooms=1");
+    const bell = await screen.findByRole("button", { name: "멤버 공부 알림" });
+    const user = userEvent.setup();
+
+    await user.click(bell);
+    expect(await screen.findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
+    expect(trackGroupRoomNotificationToggled).not.toHaveBeenCalled();
+    await waitFor(() => expect(bell).toHaveAttribute("aria-pressed", "false"));
+
+    await user.click(bell);
+    await waitFor(() => expect(trackGroupRoomNotificationToggled).toHaveBeenCalledOnce());
+    expect(trackGroupRoomNotificationToggled).toHaveBeenCalledWith(true);
+  });
+});
 
 describe("그룹 홈", () => {
   it("그룹 홈을 서버 값으로 그리고 보이는 동안 30초마다 다시 받는다", async () => {

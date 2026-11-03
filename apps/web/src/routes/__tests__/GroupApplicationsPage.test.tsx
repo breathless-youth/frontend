@@ -1,7 +1,9 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+import type * as Amplitude from "@/lib/amplitude";
+import { trackGroupRoomApplicationAnswered, trackGroupRoomReported } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import type * as UserId from "@/lib/userId";
 import {
@@ -17,12 +19,73 @@ vi.mock("@/lib/userId", async (importOriginal) => ({
   useUserId: vi.fn(() => 1),
   useIdentityPending: vi.fn(() => false),
 }));
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof Amplitude>()),
+  trackGroupRoomApplicationAnswered: vi.fn(),
+  trackGroupRoomReported: vi.fn(),
+}));
 
 // 신청 확인, 신청 신고, 그룹 홈은 나눠 받는 화면이라 전체 스위트 부하에서 첫 그리기가 findBy 기본 1초를 넘지 않게 미리 받아 둔다.
 beforeAll(async () => {
   await import("@/routes/GroupApplicationsPage");
   await import("@/routes/ReportApplicationPage");
   await import("@/routes/GroupHomePage");
+});
+
+afterEach(() => {
+  vi.mocked(trackGroupRoomApplicationAnswered).mockClear();
+  vi.mocked(trackGroupRoomReported).mockClear();
+});
+
+describe("신청 답 계측", () => {
+  it("수락하면 accepted로 계측한다", async () => {
+    const api = mockGroupApi("default");
+    renderGroupRoute("/social/groups/10/applications?groupRooms=1");
+    await userEvent.setup().click((await screen.findAllByRole("button", { name: "수락" }))[0]!);
+    await waitFor(() => expect(api.getGroupApplications).toHaveBeenCalledTimes(2));
+    expect(trackGroupRoomApplicationAnswered).toHaveBeenCalledExactlyOnceWith("accepted");
+    expect(trackGroupRoomReported).not.toHaveBeenCalled();
+  });
+
+  it("거절하면 declined로 계측한다", async () => {
+    const api = mockGroupApi("default");
+    renderGroupRoute("/social/groups/10/applications?groupRooms=1");
+    await userEvent.setup().click((await screen.findAllByRole("button", { name: "거절" }))[0]!);
+    await waitFor(() => expect(api.getGroupApplications).toHaveBeenCalledTimes(2));
+    expect(api.declineApplication).toHaveBeenCalledOnce();
+    expect(trackGroupRoomApplicationAnswered).toHaveBeenCalledExactlyOnceWith("declined");
+  });
+
+  it("답하지 못하면 계측하지 않는다", async () => {
+    const api = mockGroupApi("default");
+    api.acceptApplication.mockRejectedValueOnce(new ApiError("x", 409, "GROUP_FULL"));
+    renderGroupRoute("/social/groups/10/applications?groupRooms=1");
+    await userEvent.setup().click((await screen.findAllByRole("button", { name: "수락" }))[0]!);
+    expect(await screen.findByText("자리가 다 찼어요")).toBeInTheDocument();
+    expect(trackGroupRoomApplicationAnswered).not.toHaveBeenCalled();
+  });
+
+  it("신청을 신고하면 reported 답과 신청 신고를 계측하고 사유는 싣지 않는다", async () => {
+    const api = mockGroupApi("default");
+    const { router } = renderGroupRoute("/social/groups/10/applications/41/report?groupRooms=1");
+    const user = userEvent.setup();
+    await user.type(await screen.findByRole("textbox", { name: "신고 사유" }), "광고 글이에요");
+    await user.click(screen.getByRole("button", { name: "신고하기" }));
+    expect(api.reportApplication).toHaveBeenCalledWith(41, "광고 글이에요");
+    await waitFor(() => expect(router.location().pathname).toBe("/social/groups/10/applications"));
+    expect(trackGroupRoomApplicationAnswered).toHaveBeenCalledExactlyOnceWith("reported");
+    expect(trackGroupRoomReported).toHaveBeenCalledExactlyOnceWith("application");
+  });
+
+  it("신고를 보내지 못하면 계측하지 않는다", async () => {
+    const api = mockGroupApi("default");
+    api.reportApplication.mockRejectedValueOnce(new ApiError("x", 500));
+    renderGroupRoute("/social/groups/10/applications/41/report?groupRooms=1");
+    await userEvent.setup().click(await screen.findByRole("button", { name: "신고하기" }));
+    expect(await screen.findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
+    expect(trackGroupRoomApplicationAnswered).not.toHaveBeenCalled();
+    expect(trackGroupRoomReported).not.toHaveBeenCalled();
+  });
 });
 
 describe("신청 확인", () => {

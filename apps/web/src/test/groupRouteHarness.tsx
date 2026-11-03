@@ -96,7 +96,7 @@ export function mockGroupApi(scene: GroupMockScene = "default"): MockedGroupApi 
   const server = createGroupMockServer(scene, { delayMs: 0 });
   const mocked: Record<string, unknown> = {};
   for (const name of Object.keys(server) as (keyof GroupMockServer)[]) {
-    if (name === "setOwnerForTests") {
+    if (name === "setOwnerForTests" || name === "keepMembersForTests") {
       continue;
     }
     const fn = groupRoomApi[name];
@@ -113,6 +113,16 @@ export function mockGroupApi(scene: GroupMockScene = "default"): MockedGroupApi 
 /** 가짜 서버에서 그 그룹의 그룹장을 테스트의 나로 바꾼다. */
 export function makeMeOwnerOf(api: MockedGroupApi, groupId: number): void {
   api.server.setOwnerForTests(groupId, GROUP_MOCK_DEFAULT_ME);
+}
+
+/** 가짜 서버에서 테스트의 나를 그 그룹 멤버에서 빼고, 내보낸 기록은 남기지 않아 코드로 다시 들어갈 수 있다. */
+export function removeMeFrom(api: MockedGroupApi, groupId: number): void {
+  api.server.keepMembersForTests(groupId, (userId) => userId !== GROUP_MOCK_DEFAULT_ME);
+}
+
+/** 가짜 서버에서 그 그룹의 멤버를 테스트의 나 하나로 줄인다. */
+export function leaveOnlyMe(api: MockedGroupApi, groupId: number): void {
+  api.server.keepMembersForTests(groupId, (userId) => userId === GROUP_MOCK_DEFAULT_ME);
 }
 
 /**

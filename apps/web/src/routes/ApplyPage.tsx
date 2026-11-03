@@ -18,6 +18,7 @@ import { ApplyScreen } from "@/features/group-room/screens/ApplyScreen";
 import { GroupScreenFrame } from "@/features/group-room/screens/GroupScreenFrame";
 import { useBackTo } from "@/features/group-room/useBackTo";
 import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
+import { trackGroupRoomApplicationSent } from "@/lib/amplitude";
 import { applyToGroup } from "@/lib/groupRoomApi";
 import {
   GROUP_MUTATION_OPTIONS,
@@ -82,8 +83,13 @@ function Apply({ userId, groupId }: { userId: number; groupId: number }) {
   };
   const apply = useMutation({
     ...GROUP_MUTATION_OPTIONS,
-    mutationFn: (introduction: string) => applyToGroup(groupId, introduction),
-    onSuccess: returnToDetail,
+    // 시험·목표는 계측에만 쓰고 서버에는 소개 글만 보낸다.
+    mutationFn: ({ introduction }: { introduction: string; category: string }) =>
+      applyToGroup(groupId, introduction),
+    onSuccess: (_data, { category }) => {
+      trackGroupRoomApplicationSent({ category });
+      returnToDetail();
+    },
     onError: (error) => {
       const code = groupErrorCode(error);
       if (code === "CONTACT_NOT_ALLOWED") {
@@ -138,7 +144,7 @@ function Apply({ userId, groupId }: { userId: number; groupId: number }) {
       serverError={serverError}
       onSubmit={() => {
         if (!apply.isPending) {
-          apply.mutate(intro);
+          apply.mutate({ introduction: intro, category: detail.category });
         }
       }}
       onBack={back}

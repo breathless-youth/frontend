@@ -14,6 +14,7 @@ import {
   groupErrorCopy,
   isGroupGoneError,
 } from "@/features/group-room/groupErrorCopy";
+import { markLocalMembership } from "@/features/group-room/groupMembershipTracker";
 import { baseSearch } from "@/features/group-room/groupTabSearch";
 import { leaveRoomDialog, otherMemberCount } from "@/features/group-room/model/roomMenu";
 import type { LeaveDialog, RoomMenuItem } from "@/features/group-room/model/roomMenu";
@@ -27,6 +28,8 @@ import type { GroupRoomLocationState } from "@/features/live-room/liveRoomEntryS
 import { useNow } from "@/features/ranking/useNow";
 import { GraceEndDialog } from "@/features/social-room/GraceEndDialog";
 import { useSocialRoomNoticeHandoff } from "@/features/social-room/useSocialRoomNoticeHandoff";
+import { trackGroupRoomLeft, trackGroupRoomNotificationToggled } from "@/lib/amplitude";
+import type { GroupRoomLeaveReason } from "@/lib/amplitude";
 import { leaveGroup, setGroupNotification } from "@/lib/groupRoomApi";
 import {
   GROUP_MUTATION_OPTIONS,
@@ -161,6 +164,7 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
         showToast(groupRetryCopy());
       }
     },
+    onSuccess: (_data, enabled) => trackGroupRoomNotificationToggled(enabled),
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: groupKeys.home(userId, groupId) });
     },
@@ -185,10 +189,17 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
   };
   const leave = useMutation({
     ...GROUP_MUTATION_OPTIONS,
-    mutationFn: () => leaveGroup(groupId),
-    onSuccess: finishLeaving,
+    // 나간 이유는 계측에만 쓰고 서버에는 그룹만 보낸다.
+    mutationFn: (_reason: Exclude<GroupRoomLeaveReason, "kicked">) => leaveGroup(groupId),
+    onSuccess: (_data, reason) => {
+      // 그룹 탭이 이 그룹을 내보내짐으로 세지 않게 받아 둔 목록에서 빼고 다시 받기 전에 표시한다.
+      markLocalMembership(userId, { kind: "left", groupId });
+      trackGroupRoomLeft(reason);
+      finishLeaving();
+    },
     onError: (error) => {
       // 이미 내보내졌거나 그룹이 사라졌으면 나가려던 일은 이미 끝난 것이다.
+      // 스스로 나간 것이 아니라서 표시하지 않고, 그룹 탭의 목록 비교가 내보내짐으로 센다.
       if (isGroupGoneError(error)) {
         finishLeaving();
         return;
@@ -307,8 +318,9 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
               go(`${groupPath}/members`);
               return;
             }
+            // 다른 멤버가 있는 그룹장은 넘기라는 창을 보므로 여기까지 온 그룹장은 혼자 남아 나가면 그룹이 사라진다.
             if (!leave.isPending) {
-              leave.mutate();
+              leave.mutate(room.role === "owner" ? "room_deleted" : "left");
             }
           }}
         />

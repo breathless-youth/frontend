@@ -1,7 +1,9 @@
 import { act, cleanup, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+import type * as Amplitude from "@/lib/amplitude";
+import { setGroupRoomCount, trackGroupRoomCreated, trackGroupRoomJoined } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import { getProfile } from "@/lib/profileApi";
 import type * as UserId from "@/lib/userId";
@@ -20,11 +22,78 @@ vi.mock("@/lib/userId", async (importOriginal) => ({
   useUserId: vi.fn(() => 1),
   useIdentityPending: vi.fn(() => false),
 }));
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof Amplitude>()),
+  setGroupRoomCount: vi.fn(),
+  trackGroupRoomCreated: vi.fn(),
+  trackGroupRoomJoined: vi.fn(),
+}));
 
 // 그룹 만들기·설정과 그룹 홈은 나눠 받는 화면이라 전체 스위트 부하에서 첫 그리기가 findBy 기본 1초를 넘지 않게 미리 받아 둔다.
 beforeAll(async () => {
   await import("@/routes/GroupFormPage");
   await import("@/routes/GroupHomePage");
+});
+
+afterEach(() => {
+  vi.mocked(setGroupRoomCount).mockClear();
+  vi.mocked(trackGroupRoomCreated).mockClear();
+  vi.mocked(trackGroupRoomJoined).mockClear();
+});
+
+describe("그룹 만들기 계측", () => {
+  it("그룹을 만들면 공개 여부와 시험·목표를 계측한다", async () => {
+    mockGroupApi("default");
+    mockProfile({ category: "CSAT" });
+    const { router } = renderGroupRoute("/social/groups/new?groupRooms=1");
+    const user = userEvent.setup();
+    await user.type(
+      await screen.findByRole("textbox", { name: "그룹 이름" }),
+      "우리 반 저녁 스터디",
+    );
+    await user.click(screen.getByRole("radio", { name: /^비공개/ }));
+    await user.click(screen.getByRole("button", { name: "그룹 만들기" }));
+    await waitFor(() => expect(router.location().pathname).toMatch(/^\/social\/groups\/\d+$/));
+    expect(trackGroupRoomCreated).toHaveBeenCalledExactlyOnceWith({
+      visibility: "private",
+      category: "CSAT",
+    });
+  });
+
+  it("만들지 못하면 계측하지 않는다", async () => {
+    const api = mockGroupApi("default");
+    api.createGroup.mockRejectedValueOnce(new ApiError("x", 409, "GROUP_SLOT_LIMIT"));
+    mockProfile({ category: null });
+    renderGroupRoute("/social/groups/new?groupRooms=1");
+    const user = userEvent.setup();
+    await user.type(await screen.findByRole("textbox", { name: "그룹 이름" }), "새 그룹");
+    await user.click(screen.getByRole("button", { name: "그룹 만들기" }));
+    expect(await screen.findByText("그룹 개수가 가득 찼어요")).toBeInTheDocument();
+    expect(trackGroupRoomCreated).not.toHaveBeenCalled();
+  });
+
+  it("그룹 탭에서 만든 그룹은 탭이 내 그룹을 다시 받아도 신청 가입으로 세지 않는다", async () => {
+    const api = mockGroupApi("default");
+    mockProfile({ category: "CSAT" });
+    const { router } = renderGroupRoute("/social?groupRooms=1");
+    const user = userEvent.setup();
+    // 처음 받은 내 그룹 2개를 기억한 뒤에 만든다.
+    await waitFor(() => expect(setGroupRoomCount).toHaveBeenCalledWith(2));
+    await user.click(screen.getByRole("button", { name: "그룹 만들기와 초대코드로 참여" }));
+    await user.click(screen.getByRole("menuitem", { name: /그룹 만들기/ }));
+    await user.type(await screen.findByRole("textbox", { name: "그룹 이름" }), "새 그룹");
+    await user.click(screen.getByRole("button", { name: "그룹 만들기" }));
+    await screen.findByRole("heading", { name: "새 그룹" });
+
+    await user.click(screen.getByRole("button", { name: "뒤로 가기" }));
+
+    await waitFor(() => expect(router.location().pathname).toBe("/social"));
+    expect(await screen.findByRole("button", { name: /새 그룹/ })).toBeInTheDocument();
+    await waitFor(() => expect(api.getMyGroups).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(setGroupRoomCount).toHaveBeenLastCalledWith(3));
+    expect(trackGroupRoomCreated).toHaveBeenCalledOnce();
+    expect(trackGroupRoomJoined).not.toHaveBeenCalled();
+  });
 });
 
 describe("그룹 만들기", () => {

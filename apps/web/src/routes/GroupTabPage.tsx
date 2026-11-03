@@ -18,6 +18,7 @@ import {
   groupErrorCopy,
   isQuietApplicationError,
 } from "@/features/group-room/groupErrorCopy";
+import { reportMembershipChanges } from "@/features/group-room/groupMembershipTracker";
 import {
   baseSearch,
   readGroupTabSearch,
@@ -118,6 +119,13 @@ function GroupTabContent({ userId }: { userId: number | null }) {
   const mineQuery = useQuery({ ...myGroupsQuery(queryUserId), enabled: signedIn });
   const mine = mineQuery.data;
   const pendingCount = mine?.pendingApplicationCount ?? 0;
+  // 신청 수락과 내보내기는 다른 사람이 해서 내 그룹 응답이 바뀔 때마다 지난 목록과 비교해 센다.
+  const myGroups = mine?.groups;
+  useEffect(() => {
+    if (userId !== null && myGroups !== undefined) {
+      reportMembershipChanges(userId, myGroups);
+    }
+  }, [userId, myGroups]);
 
   const [sheetOpen, setSheetOpen] = useState(false);
   // 띠가 보이면 시트를 열기 전에 목록을 받아 두어 빈 시트가 잠깐 보이지 않게 한다.

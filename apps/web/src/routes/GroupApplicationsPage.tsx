@@ -21,6 +21,7 @@ import { RequestsScreen } from "@/features/group-room/screens/RequestsScreen";
 import { useBackTo } from "@/features/group-room/useBackTo";
 import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
 import { useNow } from "@/features/ranking/useNow";
+import { trackGroupRoomApplicationAnswered } from "@/lib/amplitude";
 import { acceptApplication, declineApplication } from "@/lib/groupRoomApi";
 import {
   GROUP_MUTATION_OPTIONS,
@@ -94,7 +95,10 @@ function GroupApplications({ userId, groupId }: { userId: number; groupId: numbe
     ...GROUP_MUTATION_OPTIONS,
     mutationFn: ({ applicationId, accept }: { applicationId: number; accept: boolean }) =>
       accept ? acceptApplication(applicationId) : declineApplication(applicationId),
-    onSuccess: refresh,
+    onSuccess: (_data, { accept }) => {
+      trackGroupRoomApplicationAnswered(accept ? "accepted" : "declined");
+      refresh();
+    },
     onError: (error) => {
       if (groupErrorCode(error) === "NOT_GROUP_OWNER") {
         refresh();

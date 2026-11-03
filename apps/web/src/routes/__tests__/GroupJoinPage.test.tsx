@@ -1,13 +1,20 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { openInApp } from "@/features/social-room/appHandoff";
 import type * as AppHandoff from "@/features/social-room/appHandoff";
+import type * as Amplitude from "@/lib/amplitude";
+import { trackGroupRoomJoined } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import { haptic } from "@/lib/haptics";
 import type * as UserId from "@/lib/userId";
-import { mockGroupApi, renderGroupRoute, stubPendingIdentity } from "@/test/groupRouteHarness";
+import {
+  mockGroupApi,
+  removeMeFrom,
+  renderGroupRoute,
+  stubPendingIdentity,
+} from "@/test/groupRouteHarness";
 
 vi.mock("@/lib/groupRoomApi");
 vi.mock("@/lib/haptics", () => ({ haptic: vi.fn() }));
@@ -20,6 +27,14 @@ vi.mock("@/features/social-room/appHandoff", async (importOriginal) => ({
   ...(await importOriginal<typeof AppHandoff>()),
   openInApp: vi.fn(),
 }));
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof Amplitude>()),
+  trackGroupRoomJoined: vi.fn(),
+}));
+
+afterEach(() => {
+  vi.mocked(trackGroupRoomJoined).mockClear();
+});
 
 /** 참여 화면의 보내는 버튼이고 6자리 입력 화면 테스트의 이름과 같다. */
 const JOIN_LABEL = "참여하기";
@@ -76,6 +91,49 @@ describe("6자리 초대코드 참여", () => {
     await user.type(input, "K7Q2MX");
     await user.click(screen.getByRole("button", { name: JOIN_LABEL }));
     expect(api.joinGroupByCode).toHaveBeenCalledWith("K7Q2MX", "CODE");
+  });
+
+  it("링크로 들어가면 invite_link로 비공개 그룹 가입을 계측한다", async () => {
+    const api = mockGroupApi("default");
+    removeMeFrom(api, 11);
+    const { router } = renderGroupRoute("/social/join?groupRooms=1&code=K7Q2MX");
+    await userEvent.setup().click(await screen.findByRole("button", { name: JOIN_LABEL }));
+    await waitFor(() => expect(router.location().pathname).toBe("/social/groups/11"));
+    expect(trackGroupRoomJoined).toHaveBeenCalledExactlyOnceWith({
+      via: "invite_link",
+      visibility: "private",
+    });
+  });
+
+  it("코드를 직접 넣어 들어가면 invite_code로 계측한다", async () => {
+    const api = mockGroupApi("default");
+    removeMeFrom(api, 11);
+    const { router } = renderGroupRoute("/social/join?groupRooms=1");
+    const user = userEvent.setup();
+    await user.type(await screen.findByRole("textbox"), "K7Q2MX");
+    await user.click(screen.getByRole("button", { name: JOIN_LABEL }));
+    await waitFor(() => expect(router.location().pathname).toBe("/social/groups/11"));
+    expect(trackGroupRoomJoined).toHaveBeenCalledExactlyOnceWith({
+      via: "invite_code",
+      visibility: "private",
+    });
+  });
+
+  it("이미 멤버였으면 그룹 홈으로 가도 가입으로 세지 않는다", async () => {
+    mockGroupApi("default");
+    const { router } = renderGroupRoute("/social/join?groupRooms=1&code=K7Q2MX");
+    await userEvent.setup().click(await screen.findByRole("button", { name: JOIN_LABEL }));
+    await waitFor(() => expect(router.location().pathname).toBe("/social/groups/11"));
+    expect(trackGroupRoomJoined).not.toHaveBeenCalled();
+  });
+
+  it("들어가지 못하면 계측하지 않는다", async () => {
+    const api = mockGroupApi("default");
+    api.joinGroupByCode.mockRejectedValueOnce(new ApiError("x", 409, "GROUP_FULL"));
+    renderGroupRoute("/social/join?groupRooms=1&code=K7Q2MX");
+    await userEvent.setup().click(await screen.findByRole("button", { name: JOIN_LABEL }));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(trackGroupRoomJoined).not.toHaveBeenCalled();
   });
 
   it.each([
