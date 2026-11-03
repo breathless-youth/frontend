@@ -96,4 +96,12 @@ describe("acquireMicTrack", () => {
       ["NoMediaDevices", "mic-acquire"],
     ]);
   });
+
+  it("이미 끝난 트랙을 받으면 unavailable이고 끝났다고 보고한다", async () => {
+    const ended = { ...fakeTrack(), readyState: "ended" } as unknown as MediaStreamTrack;
+    const getUserMedia = async () => ({ getAudioTracks: () => [ended] }) as unknown as MediaStream;
+
+    await expect(acquireMicTrack(getUserMedia)).resolves.toEqual({ kind: "unavailable" });
+    expect(reports()).toEqual([["AudioTrackEnded", "mic-acquire"]]);
+  });
 });

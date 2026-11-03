@@ -58,7 +58,11 @@ export async function acquireMicTrack(getUserMedia?: GetUserMedia): Promise<MicA
   try {
     const stream = await request({ audio: MIC_CONSTRAINTS, video: false });
     const track = stream.getAudioTracks()[0];
-    return track === undefined ? unavailable("NoAudioTrack") : { kind: "ok", track };
+    if (track === undefined) {
+      return unavailable("NoAudioTrack");
+    }
+    // OS가 마이크를 내주지 않으면 이미 끝난 트랙이 올 수 있고, 그 트랙을 실으면 켜진 것처럼 보여도 소리가 가지 않는다.
+    return track.readyState === "ended" ? unavailable("AudioTrackEnded") : { kind: "ok", track };
   } catch (error: unknown) {
     const name = errorName(error);
     return DENIED_ERROR_NAMES.has(name) ? { kind: "denied" } : unavailable(name || "Error");
