@@ -20,6 +20,7 @@ function message(overrides: Partial<InstallAttributionMessage> = {}): InstallAtt
     platform: "android",
     installReferrer: null,
     deepLinkAd: null,
+    googleDeepLinkAd: null,
     capturedAtMs: 5,
     atMs: 9,
     ...overrides,

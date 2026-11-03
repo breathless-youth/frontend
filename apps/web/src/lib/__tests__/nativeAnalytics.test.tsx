@@ -92,6 +92,7 @@ describe("useNativeAnalyticsRelay", () => {
       platform: "ios",
       installReferrer: null,
       deepLinkAd: "ios_v2",
+      googleDeepLinkAd: null,
       capturedAtMs: 3,
       atMs: 4,
     };
