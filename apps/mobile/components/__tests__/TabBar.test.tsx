@@ -30,6 +30,11 @@ jest.mock("../../lib/haptics", () => ({
   triggerHaptic: jest.fn(),
 }));
 
+let mockLanguageCode = "ko";
+jest.mock("expo-localization", () => ({
+  getLocales: () => [{ languageCode: mockLanguageCode }],
+}));
+
 /**
  * useColorScheme은 react-native 진입점이 내부 모듈을 다시 내보내는 형태라, 진입점 객체에
  * spy를 걸면 컴포넌트가 이미 가져간 참조가 바뀌지 않는다. 모듈 자체를 대체한다.
@@ -46,6 +51,7 @@ const { default: mockUseColorScheme } = jest.requireMock<{ default: jest.Mock }>
 afterEach(() => {
   jest.restoreAllMocks();
   (router.navigate as jest.Mock).mockClear();
+  mockLanguageCode = "ko";
 });
 
 describe("TabBar 배경", () => {
@@ -96,6 +102,21 @@ describe("TabBar", () => {
       "랭킹",
       "설정",
     ]);
+  });
+
+  it("한국어가 아닌 기기는 탭 이름을 영어로 그리고 소셜 자리 탭의 이름은 Groups다", () => {
+    mockLanguageCode = "en";
+    render(<TabBar active="home" />);
+
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs.map((tab) => tab.props.accessibilityLabel)).toEqual([
+      "Home",
+      "Groups",
+      "Records",
+      "Ranking",
+      "Settings",
+    ]);
+    expect(screen.queryAllByText(/[가-힣]/)).toHaveLength(0);
   });
 
   it("그룹 탭 활성 시 selected 상태가 그룹 탭에만 붙는다", () => {

@@ -53,6 +53,11 @@ jest.mock("expo-router/unstable-native-tabs", () => {
   return { NativeTabs };
 });
 
+let mockLanguageCode = "ko";
+jest.mock("expo-localization", () => ({
+  getLocales: () => [{ languageCode: mockLanguageCode }],
+}));
+
 beforeEach(() => {
   captured.hidden = undefined;
   captured.triggers = [];
@@ -60,6 +65,10 @@ beforeEach(() => {
   __resetTabBarVisibilityForTests();
   __resetActiveTabForTests();
   __resetNativeAnalyticsForTests();
+});
+
+afterEach(() => {
+  mockLanguageCode = "ko";
 });
 
 it("탭 다섯 개를 홈·그룹·기록·랭킹·설정 순서로 두고 소셜 자리 탭의 이름은 그룹이다", () => {
@@ -74,6 +83,13 @@ it("탭 다섯 개를 홈·그룹·기록·랭킹·설정 순서로 두고 소�
     "settings",
   ]);
   expect(captured.labels).toEqual(["홈", "그룹", "기록", "랭킹", "설정"]);
+});
+
+it("한국어가 아닌 기기는 시스템 탭 바 이름을 영어로 넘기고 소셜 자리 탭의 이름은 Groups다", () => {
+  mockLanguageCode = "en";
+  render(<NativeTabsLayout />);
+
+  expect(captured.labels).toEqual(["Home", "Groups", "Records", "Ranking", "Settings"]);
 });
 
 it("숨김 상태면 바 전체를 hidden으로 넘긴다", () => {
