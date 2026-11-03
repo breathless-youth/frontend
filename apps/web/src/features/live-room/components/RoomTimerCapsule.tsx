@@ -1,4 +1,5 @@
 import { Pause, Play, Timer, X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { formatPomodoroRemaining } from "@/features/multi-timer/multiTimerFormat";
 import type { ModeState } from "@/features/multi-timer/multiTimerMachine";
@@ -32,9 +33,11 @@ export function RoomTimerCapsule({
   onPrimary: () => void;
   onOff: () => void;
 }) {
+  const { t } = useTranslation(["live-room", "multi-timer"]);
   const pomodoro = mode.kind === "pomodoro";
   const onBreak = pomodoro && mode.phase === "break";
-  const running = primaryLabel === "일시정지";
+  // 큰 버튼 이름은 타이머 훅이 지금 언어로 번역해 주므로 같은 언어의 일시정지 글자와 비교한다.
+  const running = primaryLabel === t("multi-timer:primary.pause");
   return (
     <div
       data-testid="room-timer-capsule"
@@ -49,7 +52,7 @@ export function RoomTimerCapsule({
             onBreak ? "text-(--session-mode-break)" : "text-(--state-focus)",
           )}
         >
-          {onBreak ? "휴식" : "집중"}
+          {onBreak ? t("roomTimerCapsule.phase.break") : t("roomTimerCapsule.phase.focus")}
         </span>
       ) : (
         <Timer aria-hidden="true" className="size-4.5 shrink-0" />
@@ -57,14 +60,14 @@ export function RoomTimerCapsule({
       {/* 1초마다 읽히지 않도록 aria-live는 걸지 않는다. */}
       <span
         role="timer"
-        aria-label="남은 시간"
+        aria-label={t("roomTimerCapsule.aria.remaining")}
         className="text-lg leading-6 font-extrabold tabular-nums"
       >
         {formatPomodoroRemaining(remainingMs)}
       </span>
       <button
         type="button"
-        aria-label={running ? "멈춤" : "계속"}
+        aria-label={running ? t("roomTimerCapsule.aria.pause") : t("roomTimerCapsule.aria.resume")}
         onClick={onPrimary}
         className={CAPSULE_BUTTON}
       >
@@ -74,7 +77,12 @@ export function RoomTimerCapsule({
           <Play aria-hidden="true" fill="currentColor" strokeWidth={0} className="size-4" />
         )}
       </button>
-      <button type="button" aria-label="끄기" onClick={onOff} className={CAPSULE_BUTTON}>
+      <button
+        type="button"
+        aria-label={t("roomTimerCapsule.aria.off")}
+        onClick={onOff}
+        className={CAPSULE_BUTTON}
+      >
         <X aria-hidden="true" strokeWidth={2.2} className="size-4" />
       </button>
     </div>

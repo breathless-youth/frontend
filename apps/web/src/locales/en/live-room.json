@@ -74,5 +74,36 @@
     "aria": {
       "label": "Timer"
     }
+  },
+  "roomTimerCopy": {
+    "startTimer": "Start {{duration}}",
+    "startPomodoro": "Focus for {{duration}}",
+    "pomodoroIntro": "Focus for {{focus}}, then take a break for {{rest}}, and repeat"
+  },
+  "roomTimerSheet": {
+    "title": "Timer settings",
+    "kind": {
+      "timer": "Timer",
+      "pomodoro": "Pomodoro"
+    },
+    "alarm": {
+      "timer": "Alarm when the timer ends",
+      "pomodoro": "Alarm when focus or break ends"
+    },
+    "aria": {
+      "kind": "Timer type"
+    }
+  },
+  "roomTimerCapsule": {
+    "phase": {
+      "focus": "Focus",
+      "break": "Break"
+    },
+    "aria": {
+      "remaining": "Time left",
+      "pause": "Pause",
+      "resume": "Resume",
+      "off": "Turn off timer"
+    }
   }
 }

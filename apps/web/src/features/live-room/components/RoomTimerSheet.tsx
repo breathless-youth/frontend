@@ -1,5 +1,6 @@
 import { useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -16,12 +17,10 @@ import { cn } from "@/lib/utils";
 import { GROUP_ROOM_ANALYTICS_MASK } from "../groupRoomAnalyticsMask";
 import { pomodoroIntro, timerStartLabel } from "../roomTimerCopy";
 
-const SHEET_TITLE = "타이머 설정";
-
-const KIND_OPTIONS: ReadonlyArray<{ value: ModeKind; label: string }> = [
-  { value: "timer", label: "기본" },
-  { value: "pomodoro", label: "뽀모도로" },
-];
+const KIND_OPTIONS = [
+  { value: "timer", labelKey: "roomTimerSheet.kind.timer" },
+  { value: "pomodoro", labelKey: "roomTimerSheet.kind.pomodoro" },
+] as const satisfies ReadonlyArray<{ value: ModeKind; labelKey: string }>;
 
 // 시트가 열린 동안에도 다른 멤버 타일이 보이게 세션 딤을 옅게 쓴다.
 const SHEET_DIM = "bg-(--session-dim)/40";
@@ -59,6 +58,7 @@ export function RoomTimerSheet({
   timer,
   onClose,
 }: RoomTimerSheetProps) {
+  const { t } = useTranslation("live-room");
   const [shownMode, setShownMode] = useState(timer.mode);
   if (timer.mode !== null && timer.mode !== shownMode) {
     setShownMode(timer.mode);
@@ -98,7 +98,7 @@ export function RoomTimerSheet({
           // 패널은 화면 오른쪽 끝에 붙어서 오른쪽 안전 영역만큼 안쪽 여백을 더 둔다.
           className="flex w-100 max-w-full touch-manipulation flex-col rounded-l-3xl border-0 bg-background pt-[calc(env(safe-area-inset-top)+20px)] pr-[calc(env(safe-area-inset-right)+20px)] pb-[calc(env(safe-area-inset-bottom)+20px)] pl-6 text-foreground sm:max-w-none"
         >
-          <SheetTitle className="sr-only">{SHEET_TITLE}</SheetTitle>
+          <SheetTitle className="sr-only">{t("roomTimerSheet.title")}</SheetTitle>
           {mode !== null && (
             <TimerSheetBody
               mode={mode}
@@ -121,7 +121,7 @@ export function RoomTimerSheet({
         {...GROUP_ROOM_ANALYTICS_MASK}
         className="flex h-[50dvh] touch-manipulation flex-col bg-background"
       >
-        <DrawerTitle className="sr-only">{SHEET_TITLE}</DrawerTitle>
+        <DrawerTitle className="sr-only">{t("roomTimerSheet.title")}</DrawerTitle>
         {mode !== null && (
           <TimerSheetBody
             mode={mode}
@@ -155,6 +155,7 @@ function TimerSheetBody({
   onStart: () => void;
   className?: string;
 }) {
+  const { t } = useTranslation(["live-room", "common"]);
   const alarmLabelId = useId();
   const { kind, settings } = mode;
   return (
@@ -200,7 +201,7 @@ function TimerSheetBody({
       )}
       <div className="flex min-h-11 shrink-0 items-center justify-between gap-3">
         <span id={alarmLabelId} className="text-[15px] leading-5.5 text-foreground">
-          {kind === "timer" ? "끝나면 알림음" : "바뀔 때마다 알림음"}
+          {kind === "timer" ? t("roomTimerSheet.alarm.timer") : t("roomTimerSheet.alarm.pomodoro")}
         </span>
         <Switch
           checked={timer.soundOn}
@@ -214,7 +215,7 @@ function TimerSheetBody({
           onClick={onCancel}
           className="h-13 w-26 shrink-0 rounded-lg bg-(--session-dialog-cancel-bg) text-base leading-5 font-bold text-foreground transition-opacity duration-200 active:opacity-80 motion-reduce:transition-none"
         >
-          취소
+          {t("common:actions.cancel")}
         </button>
         <button
           type="button"
@@ -245,6 +246,7 @@ function KindToggle({
   locked: boolean;
   onChange: (kind: ModeKind) => void;
 }) {
+  const { t } = useTranslation("live-room");
   const radios = useRef<Array<HTMLButtonElement | null>>([]);
   const choose = (index: number) => {
     const option = KIND_OPTIONS[index];
@@ -271,7 +273,7 @@ function KindToggle({
   return (
     <div
       role="radiogroup"
-      aria-label="타이머 종류"
+      aria-label={t("roomTimerSheet.aria.kind")}
       onKeyDown={handleKeyDown}
       className="grid shrink-0 grid-cols-2 rounded-full bg-(--session-sheet-surface) p-0.75"
     >
@@ -296,7 +298,7 @@ function KindToggle({
                 : "font-semibold text-white/55",
             )}
           >
-            {option.label}
+            {t(option.labelKey)}
           </button>
         );
       })}

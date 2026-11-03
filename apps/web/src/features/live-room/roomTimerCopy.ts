@@ -1,6 +1,7 @@
 import type { ModeKind } from "@/features/multi-timer/multiTimerMachine";
 import type { MultiTimerSettings } from "@/features/multi-timer/multiTimerSettings";
 import { toKoreanDuration } from "@/features/study-session/formatDuration";
+import i18n from "@/lib/i18n";
 
 /**
  * 공부방 타이머 시트의 시작 버튼 글자
@@ -10,8 +11,12 @@ import { toKoreanDuration } from "@/features/study-session/formatDuration";
  */
 export function timerStartLabel(kind: ModeKind, settings: MultiTimerSettings): string {
   return kind === "timer"
-    ? `${toKoreanDuration(settings.timerSec)} 시작`
-    : `${toKoreanDuration(settings.focusMin * 60)} 집중 시작`;
+    ? i18n.t("live-room:roomTimerCopy.startTimer", {
+        duration: toKoreanDuration(settings.timerSec),
+      })
+    : i18n.t("live-room:roomTimerCopy.startPomodoro", {
+        duration: toKoreanDuration(settings.focusMin * 60),
+      });
 }
 
 /**
@@ -20,7 +25,8 @@ export function timerStartLabel(kind: ModeKind, settings: MultiTimerSettings): s
  * 휴식 시간은 분 단위로만 고르므로 받침이 있는 `분`이나 `시간`으로 끝나 조사는 늘 `을`이다.
  */
 export function pomodoroIntro(settings: MultiTimerSettings): string {
-  const focus = toKoreanDuration(settings.focusMin * 60);
-  const rest = toKoreanDuration(settings.breakMin * 60);
-  return `집중 ${focus}, 휴식 ${rest}을 번갈아 해요`;
+  return i18n.t("live-room:roomTimerCopy.pomodoroIntro", {
+    focus: toKoreanDuration(settings.focusMin * 60),
+    rest: toKoreanDuration(settings.breakMin * 60),
+  });
 }
