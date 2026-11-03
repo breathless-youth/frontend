@@ -1,4 +1,5 @@
-import { weekdayShortLabel } from "@/features/records/recordsFormat";
+import { formatMonthDay } from "@/features/records/recordsFormat";
+import i18n from "@/lib/i18n";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -21,14 +22,14 @@ export function daysUntil(targetDate: string, now: Date = new Date()): number {
 /** `D-52` · `D-Day` · `D+3` */
 export function formatDday(daysLeft: number): string {
   if (daysLeft === 0) {
-    return "D-Day";
+    return i18n.t("home:dday.today");
   }
-  return daysLeft > 0 ? `D-${daysLeft}` : `D+${-daysLeft}`;
+  return daysLeft > 0
+    ? i18n.t("home:dday.remaining", { days: daysLeft })
+    : i18n.t("home:dday.passed", { days: -daysLeft });
 }
 
-/** 시트가 접혔을 때 칩에 보이는 날짜 — `11월 18일 (목)`. */
+/** 시트가 접혔을 때 칩에 보이는 날짜 — `11월 18일 (목)` · `Thu, November 18`. */
 export function formatKoreanDate(dateKey: string): string {
-  const [year, month, day] = dateKey.split("-").map(Number);
-  const date = localMidnight(year, month - 1, day);
-  return `${month}월 ${day}일 (${weekdayShortLabel(date.getDay())})`;
+  return formatMonthDay(dateKey, true);
 }

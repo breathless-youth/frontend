@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import { formatElapsed, toKoreanDuration } from "@/features/study-session/formatDuration";
 import { cn } from "@/lib/utils";
 
@@ -18,6 +20,7 @@ export function RoomTimeText({
   studySec: number;
   totalHidden?: boolean;
 }) {
+  const { t } = useTranslation("live-room");
   return (
     <div
       data-testid="room-time-text"
@@ -25,7 +28,9 @@ export function RoomTimeText({
     >
       <p className="text-[26px] leading-8 font-bold text-white regular:text-[31px] regular:leading-9.5 short-side-lg:text-[38px] short-side-lg:leading-12">
         <span aria-hidden="true">{formatElapsed(focusSec)}</span>
-        <span className="sr-only">순공시간 {toKoreanDuration(focusSec)}</span>
+        <span className="sr-only">
+          {t("time.aria.focus", { duration: toKoreanDuration(focusSec) })}
+        </span>
       </p>
       <div
         data-testid="room-time-total"
@@ -37,9 +42,11 @@ export function RoomTimeText({
       >
         <p className="overflow-hidden text-xs leading-4 font-bold text-text-tertiary regular:text-sm regular:leading-4.75 short-side-lg:text-lg short-side-lg:leading-6">
           <span aria-hidden="true">
-            <span className="font-semibold">총</span> {formatElapsed(studySec)}
+            <span className="font-semibold">{t("time.total")}</span> {formatElapsed(studySec)}
           </span>
-          <span className="sr-only">총 공부 시간 {toKoreanDuration(studySec)}</span>
+          <span className="sr-only">
+            {t("time.aria.total", { duration: toKoreanDuration(studySec) })}
+          </span>
         </p>
       </div>
     </div>

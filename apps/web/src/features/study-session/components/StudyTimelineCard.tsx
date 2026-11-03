@@ -1,9 +1,10 @@
+import { useTranslation } from "react-i18next";
+
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 
 import { toKoreanDurationLength } from "../formatDuration";
-import { LEGEND_COPY, RESULT_COPY } from "../resultCopy";
 import type { SessionResultView } from "../sessionResult";
 import { formatClockTime, timelineSummaryLabel } from "../sessionResult";
 import { ResultBarSegment, ResultLegendItem } from "./ResultCardParts";
@@ -17,7 +18,7 @@ import { ResultBarSegment, ResultLegendItem } from "./ResultCardParts";
  * ## BY-560 시안에서 바뀐 것
  *
  * - 범례가 바 아래에서 **카드 헤더 오른쪽**으로 올라갔다(타이틀과 같은 줄).
- * - `비집중` 표기가 `자동 멈춤`으로 바뀌었다(`LEGEND_COPY` 주석 참고).
+ * - `비집중` 표기가 `자동 멈춤`으로 바뀌었다(카탈로그 `legend.distract`, 이 화면 한정 예외).
  * - **최대 집중 시간**이 생겼다: 바 위 배지(`최대 집중 시간 42분`)가 해당 구간 가운데를 가리키고,
  *   바 안에서는 그 구간이 좌우 간격(`LONGEST_GAP_PX`)으로 **분리된 조각**(바 높이 그대로, 모서리
  *   3px)으로 보이며, 바
@@ -47,6 +48,7 @@ import { ResultBarSegment, ResultLegendItem } from "./ResultCardParts";
 const LONGEST_GAP_PX = 3;
 
 export function StudyTimelineCard({ view }: { view: SessionResultView }) {
+  const { t } = useTranslation("study-session");
   const hasDistraction = view.distractions.length > 0;
   const hasPause = view.pause !== null;
   const longest = view.longestFocus;
@@ -58,12 +60,12 @@ export function StudyTimelineCard({ view }: { view: SessionResultView }) {
   return (
     <Card className="shadow-sb-card pt-4 pb-3.5">
       <CardHeader className="flex-wrap gap-y-1">
-        <CardTitle>{RESULT_COPY.timelineTitle}</CardTitle>
+        <CardTitle>{t("result.timelineTitle")}</CardTitle>
         <ul className="flex flex-wrap items-center gap-x-3 gap-y-1">
           {/* 집중은 항상 있다 — 바탕색이 집중이므로 범례에서 뺄 수 없다. */}
-          <ResultLegendItem tone="focus" label={LEGEND_COPY.focus} />
-          {hasDistraction && <ResultLegendItem tone="distract" label={LEGEND_COPY.distract} />}
-          {hasPause && <ResultLegendItem tone="pause" label={LEGEND_COPY.pause} />}
+          <ResultLegendItem tone="focus" label={t("legend.focus")} />
+          {hasDistraction && <ResultLegendItem tone="distract" label={t("legend.distract")} />}
+          {hasPause && <ResultLegendItem tone="pause" label={t("legend.pause")} />}
         </ul>
       </CardHeader>
       <CardContent>
@@ -78,7 +80,7 @@ export function StudyTimelineCard({ view }: { view: SessionResultView }) {
                 className="absolute -top-10.5 -translate-x-1/2"
                 style={{ left: `${badgeCenterPercent}%` }}
               >
-                {`${RESULT_COPY.longestFocusLabel} ${toKoreanDurationLength(longest.durationSec)}`}
+                {`${t("result.longestFocusLabel")} ${toKoreanDurationLength(longest.durationSec)}`}
               </Badge>
               {/* 말꼬리 — 45° 돌린 정사각형의 오른쪽·아래 테두리가 V자를 만든다. 배지보다 위에(z) 그려
                 카드색 채움이 그 밑의 배지 아래 테두리를 가린다. */}
@@ -134,7 +136,7 @@ export function StudyTimelineCard({ view }: { view: SessionResultView }) {
             <Separator className="mt-3" />
             <div className="flex items-center justify-between gap-3 pt-3">
               <span className="min-w-0 text-[14px] leading-4.25 break-keep text-foreground">
-                {RESULT_COPY.longestFocusLabel}
+                {t("result.longestFocusLabel")}
               </span>
               <span className="flex shrink-0 items-baseline gap-2 tabular-nums">
                 <span className="text-[16px] leading-4.75 font-bold text-foreground">

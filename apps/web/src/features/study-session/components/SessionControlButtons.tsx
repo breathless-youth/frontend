@@ -1,5 +1,6 @@
 import type { ReactNode, Ref } from "react";
 import { LogOut, Pause, Play } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { VariantProps } from "class-variance-authority";
 
 import { Button } from "@/components/ui/button";
@@ -75,7 +76,8 @@ export function SessionPauseButton({
   /** 앱 버튼을 흐리게 감춘다. 간단 모드에서는 남는 버튼이라 도움말 화면만 쓴다. */
   faded?: boolean;
 }) {
-  const label = paused ? "다시 시작" : "일시정지";
+  const { t } = useTranslation("study-session");
+  const label = paused ? t("controls.resume") : t("controls.pause");
   const { ref } = useNativeControl<HTMLButtonElement>(
     {
       id: "session-pause",
@@ -133,6 +135,7 @@ export function SessionExitButton({
   /** 버튼을 보인 채 앱 버튼의 누름만 막는 잠금 */
   inactive?: boolean;
 }) {
+  const { t } = useTranslation("study-session");
   const { ref } = useNativeControl<HTMLButtonElement>(
     {
       id: "session-exit",
@@ -141,7 +144,7 @@ export function SessionExitButton({
       systemImage: "rectangle.portrait.and.arrow.right",
       shape: "circle",
       disabled: inactive,
-      accessibilityLabel: "공부 종료",
+      accessibilityLabel: t("controls.exit"),
       tone: "danger",
       faded,
     },
@@ -151,7 +154,7 @@ export function SessionExitButton({
   return (
     <ControlButton
       ref={ref}
-      label="공부 종료"
+      label={t("controls.exit")}
       icon={
         <LogOut
           data-testid="icon-exit"

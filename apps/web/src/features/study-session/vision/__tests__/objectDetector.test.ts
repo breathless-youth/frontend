@@ -423,7 +423,7 @@ describe("createObjectDetector — 비동기 추론", () => {
 
     const pending = detector.detect(video, 0);
     detector.close();
-    rejectDetect(new Error("워커가 닫혔다"));
+    rejectDetect(new Error("worker closed"));
 
     await expect(pending).resolves.toBeNull();
     expect(reportHandled).not.toHaveBeenCalled();

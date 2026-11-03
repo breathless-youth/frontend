@@ -27,7 +27,7 @@ import { createWorkerMessageHandler, type MainToWorkerMessage } from "./workerPr
 ) => {
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`로더 응답 ${response.status}: ${url}`);
+    throw new Error(`loader response ${response.status}: ${url}`);
   }
   globalThis.eval(await response.text());
 };

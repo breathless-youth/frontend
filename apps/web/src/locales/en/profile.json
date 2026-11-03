@@ -15,8 +15,7 @@
     "nicknameTaken": "That nickname is already taken",
     "nicknameRule": "Use 2–12 characters: letters, numbers, emoji, or spaces",
     "goalTooLong": "Your goal can be up to 20 characters",
-    "unknownCategory": "That category isn't on the list",
-    "retryLater": "Please try again in a moment"
+    "unknownCategory": "That category isn't on the list"
   },
   "categories": {
     "PROFESSIONAL": "Professional exam",

@@ -517,7 +517,7 @@ export function trackSocialRoomCreateFailed(reason: string) {
 
 /**
  * 초대코드 입장 실패. `reason`은 서버 에러 코드(`RoomJoinErrorCode`) 또는
- * `HTTP_{status}` / `NETWORK_OR_UNKNOWN` 폴백 — `joinErrorCopy.joinErrorReason`이 만든다.
+ * `HTTP_{status}` / `NETWORK_OR_UNKNOWN` 폴백 — `joinError.joinErrorReason`이 만든다.
  * 실패 사유는 페이지뷰 퍼널로는 절대 보이지 않는, 초대 전환율 개선의 핵심 데이터다.
  */
 export function trackSocialRoomJoinFailed(reason: string) {
@@ -553,7 +553,7 @@ export function trackSocialRoomExited(input: SocialRoomExitedInput) {
 }
 
 /**
- * 룸 재입장(자리 재예약) 실패 — `kind`는 `joinErrorCopy.rejoinFailure`의 leave/retry 판정
+ * 룸 재입장(자리 재예약) 실패 — `kind`는 `joinError.rejoinFailure`의 leave/retry 판정
  * 그대로다. 재입장 버그 계열(BY-437/443)의 실사용 영향을 여기서 잰다.
  */
 export function trackSocialRoomRejoinFailed(kind: "leave" | "retry", reason: string) {

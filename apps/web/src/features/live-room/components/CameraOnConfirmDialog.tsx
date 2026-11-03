@@ -1,5 +1,6 @@
 import { Lock } from "lucide-react";
 import { type ReactNode, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
@@ -81,12 +82,6 @@ export interface CameraOnConfirmDialogProps {
   onConfirm: () => void;
 }
 
-// 발열 줄은 소셜룸 송신 합성 때문이라 싱글룸은 첫 줄만 넘긴다.
-const SOCIAL_FACE_MASK_TOOLTIP = [
-  "빠르게 움직이면 얼굴이 잠깐 보일 수 있어요",
-  "오래 켜 두면 기기가 뜨거워질 수 있어요",
-] as const;
-
 // 이모지 줄은 옆으로 넘기는 한 줄이라, 뒤쪽 이모지를 고른 채 다시 열면 고른 칸이 줄 밖에 가려진다.
 export function CameraOnConfirmDialog({
   open,
@@ -95,16 +90,21 @@ export function CameraOnConfirmDialog({
   errorMessage = null,
   dismissable = true,
   busy = false,
-  title = "카메라를 켤까요?",
+  title,
   description,
-  notice = "영상은 같은 방에만 보이고 저장되지 않아요",
-  confirmLabel = "카메라 켜기",
-  cancelLabel = "취소",
+  notice,
+  confirmLabel,
+  cancelLabel,
   container,
   returnFocus,
   onCancel,
   onConfirm,
 }: CameraOnConfirmDialogProps) {
+  const { t } = useTranslation(["live-room", "common"]);
+  // 기본 문구는 소셜룸 것이다. 싱글룸은 영상이 기기 밖으로 나가지 않아 자물쇠 줄을 props로 바꿔 넘긴다.
+  const shownNotice = notice ?? t("cameraConfirm.notice");
+  // 발열 줄은 소셜룸 송신 합성 때문이라 싱글룸은 첫 줄만 넘긴다.
+  const socialFaceMaskTooltip = [t("cameraConfirm.tooltipMotion"), t("cameraConfirm.tooltipHeat")];
   const focusRestore = useDialogFocusRestore(returnFocus);
   const cancelRef = useRef<HTMLButtonElement>(null);
   // 모달은 스크롤 영역이라 밖으로 나간 툴팁이 잘린다. 툴팁이 모달 안쪽에서 자리를 잡게 경계로 넘긴다.
@@ -145,13 +145,13 @@ export function CameraOnConfirmDialog({
         className="theme-soft-blue max-h-[calc(100dvh-24px)] w-full max-w-[320px] gap-0 landscape-compact:max-w-[600px] landscape-compact:grid-cols-2 landscape-compact:gap-x-5 overflow-y-auto rounded-3xl border-0 bg-muted px-5.5 pt-6.5 pb-5.5 text-foreground shadow-[0_20px_25px_rgba(0,0,0,0.4)] sm:rounded-3xl"
       >
         <DialogTitle className="text-[19px] leading-5.75 font-extrabold text-foreground landscape-compact:col-start-2">
-          {title}
+          {title ?? t("cameraConfirm.title")}
         </DialogTitle>
         {/* 설명이 없으면 자물쇠 줄을 제목 바로 아래로 올려 창 설명으로 쓴다. 누가 보는지와 남지 않는다는 것을 미리보기보다 먼저 읽게 한다. */}
         {description === undefined ? (
           <DialogDescription className="mt-2 flex items-center gap-2 text-sm leading-5 text-muted-foreground landscape-compact:col-start-2">
             <Lock size={16} aria-hidden className="shrink-0" />
-            {notice}
+            {shownNotice}
           </DialogDescription>
         ) : (
           <DialogDescription className="mt-2 text-sm leading-5 text-muted-foreground landscape-compact:col-start-2">
@@ -173,15 +173,15 @@ export function CameraOnConfirmDialog({
             <div className="flex min-h-11 items-center justify-between gap-2">
               <div className="flex items-center gap-1.5">
                 <label htmlFor="camera-face-mask" className="text-sm font-semibold text-foreground">
-                  얼굴 가리기
+                  {t("cameraConfirm.faceMask")}
                 </label>
                 {faceMask.supported && (
                   <InfoTooltip
-                    label="얼굴 가리기 안내"
+                    label={t("cameraConfirm.aria.faceMaskInfo")}
                     contentClassName="bg-(--session-dialog-cancel-bg) text-white"
                     collisionBoundary={contentEl}
                   >
-                    {(faceMask.tooltip ?? SOCIAL_FACE_MASK_TOOLTIP).map((line) => (
+                    {(faceMask.tooltip ?? socialFaceMaskTooltip).map((line) => (
                       <p key={line}>{line}</p>
                     ))}
                   </InfoTooltip>
@@ -196,7 +196,7 @@ export function CameraOnConfirmDialog({
             </div>
             {!faceMask.supported && (
               <p className="text-[13px] text-muted-foreground">
-                이 기기에서는 얼굴 가리기를 쓸 수 없어요
+                {t("cameraConfirm.faceMaskUnsupported")}
               </p>
             )}
             {faceMask.caption !== undefined && (
@@ -218,7 +218,7 @@ export function CameraOnConfirmDialog({
         {description !== undefined && (
           <div className="mt-3 flex items-center gap-2 landscape-compact:col-start-2">
             <Lock size={16} aria-hidden className="text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">{notice}</p>
+            <p className="text-sm text-muted-foreground">{shownNotice}</p>
           </div>
         )}
         {errorMessage !== null && (
@@ -238,7 +238,7 @@ export function CameraOnConfirmDialog({
             onClick={onCancel}
             className="h-13 flex-1 rounded-lg bg-bg-layer-2 text-[15px] font-semibold text-foreground"
           >
-            {cancelLabel}
+            {cancelLabel ?? t("common:actions.cancel")}
           </Button>
           <Button
             type="button"
@@ -247,7 +247,7 @@ export function CameraOnConfirmDialog({
             onClick={onConfirm}
             className="h-13 flex-1 rounded-lg text-[15px] font-semibold"
           >
-            {confirmLabel}
+            {confirmLabel ?? t("cameraConfirm.confirm")}
           </Button>
         </div>
       </DialogContent>

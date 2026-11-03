@@ -1,0 +1,45 @@
+{
+  "home": {
+    "title": "Social",
+    "headline": "Study with friends",
+    "description": "Create a room and share the invite code,<br/>or join with a code you received",
+    "create": "Create room",
+    "noticeConfirm": "OK"
+  },
+  "codeCells": {
+    "aria": {
+      "label": "Invite code {{code}}"
+    }
+  },
+  "share": {
+    "title": "Your room is ready",
+    "expiry": "The room and code disappear once everyone leaves",
+    "copy": "Copy code",
+    "share": "Share",
+    "enter": "Enter room",
+    "copied": "Invite code copied"
+  },
+  "join": {
+    "title": "Join with code",
+    "invited": "You're invited to study together",
+    "inAppWithCode": "Join with this code in the app",
+    "inAppNoCode": "Enter the invite code in the app to join",
+    "openApp": "Join in the app",
+    "prompt": "Enter the invite code",
+    "hint": "Join with the 4-digit code a friend sent you",
+    "submit": "Join",
+    "aria": {
+      "input": "4-digit invite code"
+    }
+  },
+  "errors": {
+    "checkCode": "Check the invite code and try again",
+    "roomClosed": "This room has expired",
+    "userNotFound": "Couldn't verify your account",
+    "roomFull": "This room is full"
+  },
+  "inviteMessage": {
+    "title": "Study together on FocusMakers",
+    "body": "Come study with me on FocusMakers!\n\n{{link}}\n\nInvite code: {{code}}"
+  }
+}

@@ -23,5 +23,8 @@
   },
   "feedback": {
     "thanks": "소중한 의견 감사합니다!"
+  },
+  "errors": {
+    "retryLater": "잠시 후 다시 시도해 주세요"
   }
 }

@@ -10,7 +10,7 @@ import { useTranslation } from "react-i18next";
 
 import { formatDuration } from "@/features/records/recordsFormat";
 import { subjectColorVar } from "@/features/records/recordsTimetable";
-import { SUBJECT_SHEET_COPY, SUBJECT_SUGGESTIONS } from "@/features/study-session/sessionCopy";
+import { subjectSuggestions } from "@/features/study-session/useSubjects";
 import {
   LONG_PRESS_MS,
   MAX_SUBJECTS,
@@ -88,7 +88,7 @@ export function PlannerSubjects({
   /** 과목 목록 조회가 실패했을 때의 재시도 — 있으면 재시도 줄을 보여 준다. */
   onRetryLoad?: () => void;
 }) {
-  const { t } = useTranslation("planner");
+  const { t } = useTranslation(["planner", "study-session", "common"]);
   const hasUnassigned = unassignedFocusSec > 0;
   const unassigned = hasUnassigned && <UnassignedRow focusSec={unassignedFocusSec} />;
 
@@ -113,14 +113,14 @@ export function PlannerSubjects({
           </div>
           {onRetryLoad !== undefined && (
             <p className="pt-2 text-xs leading-4 text-muted-foreground">
-              {SUBJECT_SHEET_COPY.loadFailed}{" "}
+              {t("study-session:subjectSheet.loadFailed")}{" "}
               <Button
                 variant="unstyled"
                 onClick={onRetryLoad}
                 // 문장 안의 글자 버튼이라 공용 버튼의 높이·여백·글자 크기를 문장에 맞춘다.
                 className="h-auto rounded-none p-0 text-xs leading-4 font-bold text-primary"
               >
-                {SUBJECT_SHEET_COPY.retry}
+                {t("common:actions.retry")}
               </Button>
             </p>
           )}
@@ -171,7 +171,7 @@ function FocusTime({ focusSec }: { focusSec: number }) {
 }
 
 function UnassignedRow({ focusSec }: { focusSec: number }) {
-  const { t } = useTranslation("planner");
+  const { t } = useTranslation(["planner", "study-session", "common"]);
   return (
     <section className="flex h-9 items-center gap-1">
       <span aria-hidden className="size-2 shrink-0 rounded-[2px] bg-primary" />
@@ -275,7 +275,7 @@ function InlineEditor({
   onCommit: (name: string) => void;
   onCancel: () => void;
 }) {
-  const { t } = useTranslation("planner");
+  const { t } = useTranslation(["planner", "study-session", "common"]);
   const { value, setValue, commit, handleKeyDown, over } = useInlineNameEdit({
     initial,
     maxLength,
@@ -312,7 +312,7 @@ function InlineEditor({
           onClick={commit}
           className="h-8 shrink-0 rounded-sm px-2.25 py-0 text-xs leading-4 font-semibold"
         >
-          {SUBJECT_SHEET_COPY.done}
+          {t("study-session:subjectSheet.done")}
         </Button>
       </div>
       <CharCount
@@ -342,7 +342,7 @@ function RowMenu({
   onRemove: () => void;
   onDismiss: () => void;
 }) {
-  const { t } = useTranslation("planner");
+  const { t } = useTranslation(["planner", "study-session", "common"]);
   return (
     <DropdownMenu
       open
@@ -587,7 +587,7 @@ function ManagedSubject({
   onReorderOver: (overId: number | null) => void;
   onReorderEnd: () => void;
 }) {
-  const { t } = useTranslation("planner");
+  const { t } = useTranslation(["planner", "study-session", "common"]);
   const subjectId = item.subjectId;
   const {
     elementRef,
@@ -740,7 +740,7 @@ function ManagedSubject({
             variant="unstyled"
             onClick={() => {
               if (liveTaskCount >= MAX_TASKS) {
-                onNotice(SUBJECT_SHEET_COPY.taskLimit);
+                onNotice(t("study-session:subjectSheet.taskLimit"));
                 return;
               }
               onMenu(null);
@@ -751,7 +751,7 @@ function ManagedSubject({
             <span aria-hidden className="w-4.5 text-center text-base leading-4">
               +
             </span>
-            {SUBJECT_SHEET_COPY.addTask}
+            {t("study-session:subjectSheet.addTask")}
           </Button>
         )}
       </div>
@@ -774,7 +774,7 @@ function ManagedSubjects({
   onNotice: (message: string) => void;
   unassigned: ReactNode;
 }) {
-  const { t } = useTranslation("planner");
+  const { t } = useTranslation(["planner", "study-session", "common"]);
   const [editing, setEditing] = useState<Editing | null>(null);
   const [menu, setMenu] = useState<Menu | null>(null);
   /** 응답을 기다리는 추천 과목 — 반응이 없다고 한 번 더 누르면 같은 과목이 두 개 생긴다. */
@@ -817,7 +817,7 @@ function ManagedSubjects({
       {/* 과목이 없으면 자주 쓰는 과목을 있을 때의 모습 그대로 흐리게 그리고, 줄마다 `추가`를 둔다. */}
       {empty && suggestSubjects && (
         <ul className="flex flex-col gap-1" aria-label={t("suggestions.aria.list")}>
-          {SUBJECT_SUGGESTIONS.map((name, index) => (
+          {subjectSuggestions().map((name, index) => (
             <li key={name} className="flex h-9 items-center gap-2">
               <span aria-hidden className="flex min-w-0 flex-1 items-center gap-2 opacity-40">
                 <span
@@ -867,7 +867,7 @@ function ManagedSubjects({
           variant="unstyled"
           onClick={() => {
             if (store.subjects.length >= MAX_SUBJECTS) {
-              onNotice(SUBJECT_SHEET_COPY.subjectLimit);
+              onNotice(t("study-session:subjectSheet.subjectLimit"));
               return;
             }
             setMenu(null);
@@ -878,7 +878,7 @@ function ManagedSubjects({
           <span aria-hidden className="w-4.5 text-center text-lg leading-4.5 font-medium">
             +
           </span>
-          {SUBJECT_SHEET_COPY.addSubject}
+          {t("study-session:subjectSheet.addSubject")}
         </Button>
       )}
     </>

@@ -23,5 +23,8 @@
   },
   "feedback": {
     "thanks": "Thanks for your feedback"
+  },
+  "errors": {
+    "retryLater": "Please try again in a moment"
   }
 }
