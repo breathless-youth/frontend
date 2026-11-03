@@ -29,6 +29,12 @@ export interface RoomAudio {
   selfSpeaking: boolean;
 }
 
+/** 테스트와 개발용 화면이 마이크 얻기와 재생기를 바꿔 끼우는 자리 */
+export interface RoomAudioDeps {
+  acquire?: () => Promise<MicAcquireResult>;
+  createPlayer?: () => RemoteAudioPlayer;
+}
+
 const NO_SPEAKERS: ReadonlySet<number> = new Set();
 
 function sameMembers(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean {
@@ -64,9 +70,7 @@ export function useRoomAudio({
   /** 카메라를 꺼서 측정을 멈춘 동안이다. */
   cameraHeld: boolean;
   onNotice: (message: string) => void;
-  acquire?: () => Promise<MicAcquireResult>;
-  createPlayer?: () => RemoteAudioPlayer;
-}): RoomAudio {
+} & RoomAudioDeps): RoomAudio {
   // 채널, 카메라와 같은 지연 초기화라 다시 그려도 마이크 줄과 재생기는 공부방 수명 동안 하나다.
   const [line] = useState<MicLine | null>(() =>
     enabled ? createMicLine({ sink: mesh, acquire }) : null,

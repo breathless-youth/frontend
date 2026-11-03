@@ -6,6 +6,7 @@ import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { enterGroupStudyRoom } from "@/features/group-room/enterGroupStudyRoom";
 import { toRoomHome } from "@/features/group-room/fromApi";
 import {
   GROUP_RETRY_COPY,
@@ -22,6 +23,7 @@ import { RoomHomeScreen } from "@/features/group-room/screens/RoomHomeScreen";
 import { shareGroupInvite } from "@/features/group-room/shareGroupInvite";
 import { useBackTo } from "@/features/group-room/useBackTo";
 import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
+import type { GroupRoomLocationState } from "@/features/live-room/liveRoomEntryState";
 import { useNow } from "@/features/ranking/useNow";
 import { leaveGroup, setGroupNotification } from "@/lib/groupRoomApi";
 import {
@@ -84,7 +86,24 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
     ...groupInviteQuery(userId, groupId),
     enabled: !left && home?.visibility === "PRIVATE",
   });
-  useLeaveWhenGone(left ? null : homeQuery.error, groupId);
+  const enterRoom = useMutation({
+    mutationFn: () => enterGroupStudyRoom(userId, groupId),
+    onSuccess: (seat) => {
+      const state: GroupRoomLocationState = {
+        roomId: seat.roomId,
+        graceRejoin: seat.graceRejoin,
+        iceServers: seat.iceServers,
+      };
+      navigate({ pathname: `${groupPath}/room`, search }, { state });
+    },
+    onError: (error) => {
+      // 내보내졌거나 그룹이 사라졌으면 아래 훅이 그룹 탭으로 데려가며 이유를 알린다.
+      if (!isGroupGoneError(error)) {
+        showToast(groupErrorCopy("load", error));
+      }
+    },
+  });
+  useLeaveWhenGone(left ? null : (homeQuery.error ?? enterRoom.error), groupId);
   useEffect(() => {
     if (!left) {
       return;
@@ -237,7 +256,12 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
         }}
         onMenuSelect={selectMenu}
         onOpenRequests={() => go(`${groupPath}/applications`)}
-        onEnterStudyRoom={() => navigate({ pathname: `${groupPath}/room`, search })}
+        onEnterStudyRoom={() => {
+          if (!enterRoom.isPending) {
+            enterRoom.mutate();
+          }
+        }}
+        entering={enterRoom.isPending}
       />
       {leaveDialog !== null && (
         <ConfirmDialog

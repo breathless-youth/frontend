@@ -5,6 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import type { IceServer } from "@focusmakers/types";
 
 import { ErrorState } from "@/components/ui/ErrorState";
+import { groupErrorCopy, isGroupGoneError } from "@/features/group-room/groupErrorCopy";
+import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
 import { joinErrorReason, rejoinFailure } from "@/features/social-room/joinErrorCopy";
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { trackSocialRoomEntered, trackSocialRoomRejoinFailed } from "@/lib/amplitude";
@@ -14,12 +16,24 @@ import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { useNativeOrientationUnlock } from "@/lib/nativeBackGesture";
 import { requestCameraGate } from "@/lib/nativeCameraGate";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
-import { renewLiveRoomSeat } from "@/lib/roomApi";
 import { profileQuery } from "@/lib/profileQueries";
 
 import { LiveRoomSession } from "./LiveRoomSession";
 import type { CreatePeerConnection } from "./peerMesh";
-import type { CreateCamera, CreateChannel, LiveRoomLocationState } from "./liveRoomEntryState";
+import type { CreateCamera, CreateChannel } from "./liveRoomEntryState";
+import type { LiveRoomKind } from "./roomKind";
+import { liveRoomHomePath, renewRoomSeat } from "./roomKind";
+import type { RoomAudioDeps } from "./useRoomAudio";
+
+/**
+ * 사라진 그룹에서 그룹 탭으로 돌아가기
+ *
+ * 그룹 화면들과 같은 훅이 안내와 캐시 정리를 맡게 하려고, 그룹 공부방에서만 그리는 빈 부품에 둔다.
+ */
+function LeaveWhenGroupGone({ error, groupId }: { error: unknown; groupId: number }) {
+  useLeaveWhenGone(error, groupId);
+  return null;
+}
 
 /**
  * 입장 준비 단계 — 세션이 아직 시작되지 않은 구간.
@@ -34,21 +48,31 @@ import type { CreateCamera, CreateChannel, LiveRoomLocationState } from "./liveR
  *
  * 카메라 어댑터는 여기서 만들어 세션에 그대로 넘긴다 — 미리보기가 없어져 start 지점은
  * 세션(useStudyRoomSession) 하나뿐이다(재오픈이 없으니 iOS 해제 지연 재시도도 불필요).
+ *
+ * 세션은 자리 잡기 응답의 방 번호로 연다.
+ * 그룹 공부방은 방이 닫혔다 다시 열리면 방 번호가 바뀌고, 주소로만 다시 열면 방 번호가 없어서다.
  */
 export function LiveRoomEntry({
-  roomId,
+  room,
+  initialRoomId,
   userId,
-  entryState,
+  graceRejoin,
+  initialIceServers,
   createChannel,
   createCamera,
   createPeerConnection,
+  audioDeps,
 }: {
-  roomId: number;
+  room: LiveRoomKind;
+  /** 그룹 공부방을 주소로만 다시 열면 이 값이 없어서 자리 잡기 응답으로 받는다. */
+  initialRoomId: number | null;
   userId: number;
-  entryState: LiveRoomLocationState;
+  graceRejoin: boolean;
+  initialIceServers: IceServer[];
   createChannel: CreateChannel;
   createCamera: CreateCamera;
   createPeerConnection?: CreatePeerConnection;
+  audioDeps?: RoomAudioDeps;
 }) {
   // 입장 준비부터 세션 종료까지 룸 전체 수명 동안 화면 회전을 연다
   // — 이 컴포넌트가 세션을 자식으로 렌더하므로 여기가 룸 라우트의 수명과 같다.
@@ -56,15 +80,14 @@ export function LiveRoomEntry({
 
   const navigate = useNavigate();
   const location = useLocation();
-
-  const graceRejoin = entryState.graceRejoin === true;
+  const homePath = liveRoomHomePath(room);
 
   const [entered, setEntered] = useState(false);
   /**
    * 카메라 권한 게이트 결과 — 모든 입장 경로가 이 관문을 지난다.
    *
    * 세션이 마운트되자마자 카메라를 획득하므로 그 전에 OS 권한을 확보해야 Android 웹뷰가
-   * 묻지 않고 거부하는 경로를 피한다. 거부면 입장하지 않고 소셜 홈으로 돌아간다
+   * 묻지 않고 거부하는 경로를 피한다. 거부면 입장하지 않고 공부방을 연 홈으로 돌아간다
    * — 네이티브가 띄운 권한 안내 화면을 닫았을 때 그 아래에 이미 입장된 룸이 드러나면 안 되고,
    * 룸은 뒤로가기를 잠그고 있어 나가기 버튼 말고는 빠져나갈 수단도 없다 (유예 재입장도 예외가 아니다).
    */
@@ -74,8 +97,11 @@ export function LiveRoomEntry({
   const [gateDenied, setGateDenied] = useState(false);
   const [joined, setJoined] = useState(graceRejoin);
   const [joinError, setJoinError] = useState<string | null>(null);
+  // 그룹이 사라졌거나 멤버가 아니라는 실패는 화면에 붙잡지 않고 그룹 탭으로 돌려보낸다.
+  const [groupGoneError, setGroupGoneError] = useState<unknown>(null);
   const [joinAttempt, setJoinAttempt] = useState(0);
-  const [iceServers, setIceServers] = useState<IceServer[]>(entryState.iceServers ?? []);
+  const [iceServers, setIceServers] = useState<IceServer[]>(initialIceServers);
+  const [roomId, setRoomId] = useState(initialRoomId);
 
   const [camera] = useState(createCamera);
 
@@ -95,15 +121,24 @@ export function LiveRoomEntry({
       return;
     }
     let cancelled = false;
-    void renewLiveRoomSeat(entryState.inviteCode)
-      .then((response) => {
+    void renewRoomSeat(room)
+      .then((seat) => {
         if (!cancelled) {
-          setIceServers(response.iceServers);
+          setIceServers(seat.iceServers);
+          setRoomId(seat.roomId);
           setJoined(true);
         }
       })
       .catch((error: unknown) => {
         if (cancelled) {
+          return;
+        }
+        if (room.kind === "group") {
+          if (isGroupGoneError(error)) {
+            setGroupGoneError(error);
+          } else {
+            setJoinError(groupErrorCopy("load", error));
+          }
           return;
         }
         const failure = rejoinFailure(error);
@@ -124,15 +159,7 @@ export function LiveRoomEntry({
     return () => {
       cancelled = true;
     };
-  }, [
-    entryState.inviteCode,
-    gatePassed,
-    graceRejoin,
-    joinAttempt,
-    location.search,
-    navigate,
-    userId,
-  ]);
+  }, [gatePassed, graceRejoin, joinAttempt, location.search, navigate, room, userId]);
 
   const gateRequestedRef = useRef(false);
   useEffect(() => {
@@ -154,14 +181,15 @@ export function LiveRoomEntry({
 
   useEffect(() => {
     if (gateDenied) {
-      navigate({ pathname: "/social", search: location.search }, { replace: true });
+      navigate({ pathname: homePath, search: location.search }, { replace: true });
     }
-  }, [gateDenied, location.search, navigate]);
+  }, [gateDenied, homePath, location.search, navigate]);
 
   // 게이트를 지나고 join·프로필이 결합되면 입장
   // 유예 재입장은 join을 부르지 않으므로(위 effect) 게이트만 통과하면 바로 들어간다.
   const profileSettled = profile.isSuccess || profile.isError;
-  const ready = restoreSettled && gatePassed && (graceRejoin || (joined && profileSettled));
+  const ready =
+    restoreSettled && gatePassed && roomId !== null && (graceRejoin || (joined && profileSettled));
   // 입장은 래치다.
   // 조건이 나중에 거짓이 돼도 세션을 내리지 않는다.
   if (!entered && ready) {
@@ -180,13 +208,16 @@ export function LiveRoomEntry({
     trackEntered();
   }, [entered]);
 
-  if (!entered) {
+  if (!entered || roomId === null) {
     return (
       <main
         data-testid="live-room-page"
         className="theme-dark relative flex h-dvh flex-col bg-background"
         style={sessionSurfaceStyle}
       >
+        {room.kind === "group" && (
+          <LeaveWhenGroupGone error={groupGoneError} groupId={room.groupId} />
+        )}
         {joinError !== null && (
           <div className="flex grow flex-col items-center justify-center gap-3 px-6">
             <ErrorState
@@ -200,11 +231,11 @@ export function LiveRoomEntry({
             <button
               type="button"
               onClick={() =>
-                navigate({ pathname: "/social", search: location.search }, { replace: true })
+                navigate({ pathname: homePath, search: location.search }, { replace: true })
               }
               className="min-h-11 rounded-full bg-white/12 px-5 text-sm font-semibold text-white"
             >
-              소셜 홈으로
+              {room.kind === "group" ? "그룹 홈으로" : "소셜 홈으로"}
             </button>
           </div>
         )}
@@ -216,13 +247,14 @@ export function LiveRoomEntry({
     <LiveRoomSession
       roomId={roomId}
       userId={userId}
-      inviteCode={entryState.inviteCode}
+      room={room}
       createChannel={createChannel}
       camera={camera}
       createPeerConnection={createPeerConnection}
       iceServers={iceServers}
       profile={profile.data ?? null}
       restored={restored}
+      audioDeps={audioDeps}
     />
   );
 }

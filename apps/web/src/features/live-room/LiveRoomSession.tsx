@@ -84,9 +84,13 @@ import { kickVideoPlayback, useGestureVideoPlaybackKick } from "@/lib/videoPlayb
 
 import { FACE_MASK_EMOJIS } from "./faceMaskSettings";
 import type { CreateChannel } from "./liveRoomEntryState";
+import type { LiveRoomKind } from "./roomKind";
+import { renewRoomSeat } from "./roomKind";
 import { useBackgroundGraceWatch } from "./useBackgroundGraceWatch";
 import { useCameraPreviewAspect } from "./useCameraPreviewAspect";
 import { useFaceMaskedSend, useKeepMaskSourceLive } from "./useFaceMaskedSend";
+import { useRoomAudio } from "./useRoomAudio";
+import type { RoomAudioDeps } from "./useRoomAudio";
 import { useRoomRejoin } from "./useRoomRejoin";
 import { useAutoHideControls } from "./useAutoHideControls";
 import { playPressPop } from "./components/playPressPop";
@@ -111,17 +115,18 @@ export const ROOM_UNAVAILABLE_SUB_MINUTE_MESSAGE =
 export function LiveRoomSession({
   roomId,
   userId,
-  inviteCode,
+  room,
   createChannel,
   camera,
   createPeerConnection,
   iceServers,
   profile,
   restored,
+  audioDeps,
 }: {
   roomId: number;
   userId: number;
-  inviteCode: string;
+  room: LiveRoomKind;
   createChannel: CreateChannel;
   camera: CameraAdapter;
   createPeerConnection?: CreatePeerConnection;
@@ -129,6 +134,7 @@ export function LiveRoomSession({
   profile: ProfileResponse | null;
   /** 서버에서 받아 온 진행중 세션. 있으면 그 값에서 이어서 시작한다. */
   restored: RestoredSession | null;
+  audioDeps?: RoomAudioDeps;
 }) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -278,9 +284,11 @@ export function LiveRoomSession({
     channel.disconnect();
     void endAndSubmit(autoEndReason("BACKGROUND"));
   }, [channel, endAndSubmit]);
+  const renewSeat = useCallback(() => renewRoomSeat(room), [room]);
   const requestRejoin = useRoomRejoin({
     channel,
-    inviteCode,
+    roomId,
+    renew: renewSeat,
     onUnavailable: handleRoomUnavailable,
   });
   useLayoutEffect(() => {
@@ -323,18 +331,27 @@ export function LiveRoomSession({
     cameraStream,
     active: cameraOn || cameraDialogOpen,
   });
-  const { remoteStreams } = usePeerMesh({
+  const { remoteStreams, mesh } = usePeerMesh({
     channel,
     roomId,
     myUserId: userId,
     iceServers,
     cameraStream: faceMask.sendStream,
     trackEnabled: sessionState.kind !== "PAUSE",
-    audio: false,
+    audio: room.kind === "group",
     createPeerConnection,
     onEvent: onDebugEvent,
   });
   useKeepMaskSourceLive(cameraStream, faceMask.on);
+  // 소리는 그룹 공부방에서만 오간다.
+  // 나가기를 눌러 세션이 끝나는 동안에도 마이크가 소리를 보내지 않게 카메라를 끈 것과 같게 본다.
+  useRoomAudio({
+    enabled: room.kind === "group",
+    mesh,
+    cameraHeld: paused || phase.name !== "studying",
+    onNotice: showCtaToast,
+    ...audioDeps,
+  });
 
   // 연결과 해제를 한 effect에 대칭으로 둔다 — StrictMode의 마운트-해제-재마운트에서도
   // 두 번째 마운트가 정상 연결된다.
@@ -718,16 +735,21 @@ export function LiveRoomSession({
           hidden={!controlsVisible}
           flipDisabled={paused || controlsLocked}
           onFlipCamera={() => void flipCamera()}
-          onShareInvite={() => {
-            void shareInvite(inviteCode).then((result) => {
-              trackInviteShared(result, "room_menu");
-              trackMetaInviteShared(result);
-              // 공유 시트가 뜨거나 사용자가 닫은 경우는 OS가 이미 알려 줘서 복사만 토스트로 알린다.
-              if (result === "copied") {
-                showCtaToast("초대코드를 복사했어요");
-              }
-            });
-          }}
+          // 그룹 공부방은 숫자 4자리 초대코드가 없다.
+          onShareInvite={
+            room.kind === "invite"
+              ? () => {
+                  void shareInvite(room.inviteCode).then((result) => {
+                    trackInviteShared(result, "room_menu");
+                    trackMetaInviteShared(result);
+                    // 공유 시트가 뜨거나 사용자가 닫은 경우는 OS가 이미 알려 줘서 복사만 토스트로 알린다.
+                    if (result === "copied") {
+                      showCtaToast("초대코드를 복사했어요");
+                    }
+                  });
+                }
+              : undefined
+          }
           onOpenChange={setMoreMenuOpen}
         />
 

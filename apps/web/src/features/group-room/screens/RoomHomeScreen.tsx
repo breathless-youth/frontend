@@ -31,6 +31,7 @@ export function RoomHomeScreen({
   onMenuSelect,
   onOpenRequests,
   onEnterStudyRoom,
+  entering = false,
 }: {
   room: RoomHome;
   now: Date;
@@ -42,6 +43,8 @@ export function RoomHomeScreen({
   onMenuSelect: (kind: RoomMenuItem["kind"]) => void;
   onOpenRequests: () => void;
   onEnterStudyRoom: () => void;
+  /** 자리를 잡는 동안 다시 눌러 자리를 두 번 잡지 않게 막는다. */
+  entering?: boolean;
 }) {
   const elapsedSec = useElapsedSec(
     fetchedAtMs,
@@ -104,6 +107,7 @@ export function RoomHomeScreen({
         <Button
           size="xl"
           onClick={onEnterStudyRoom}
+          disabled={entering}
           className={cn(BOTTOM_CTA_CLASS, "shadow-sb-cta")}
         >
           공부방 들어가기

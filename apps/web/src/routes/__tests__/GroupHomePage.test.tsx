@@ -4,6 +4,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { shareInvite } from "@/features/social-room/shareInvite";
 import type * as ShareInvite from "@/features/social-room/shareInvite";
+import { closeStaleSession } from "@/features/study-session/closeStaleSession";
 import { ApiError } from "@/lib/api";
 import { groupKeys } from "@/lib/groupRoomQueries";
 import { queryClient } from "@/lib/queryClient";
@@ -19,6 +20,11 @@ vi.mock("@/lib/userId", async (importOriginal) => ({
 vi.mock("@/features/social-room/shareInvite", async (importOriginal) => ({
   ...(await importOriginal<typeof ShareInvite>()),
   shareInvite: vi.fn(async () => "shared" as const),
+}));
+vi.mock("@/features/study-session/closeStaleSession");
+// 이 파일은 공부방으로 넘어가는 이동까지만 본다. 진짜 공부방은 카메라와 STOMP를 열어서 자리표시로 바꾼다.
+vi.mock("@/routes/GroupRoomPage", () => ({
+  GroupRoomPage: () => <div data-testid="group-room-stub" />,
 }));
 
 // 그룹 홈은 나눠 받는 화면이라 전체 스위트 부하에서 첫 그리기가 findBy 기본 1초를 넘지 않게 미리 받아 둔다.
@@ -209,8 +215,51 @@ describe("그룹 홈", () => {
     mockGroupApi("default");
     const { router } = renderGroupRoute("/social/groups/10?groupRooms=1");
     await userEvent.setup().click(await screen.findByRole("button", { name: "공부방 들어가기" }));
-    expect(router.location().pathname).toBe("/social/groups/10/room");
+    await waitFor(() => expect(router.location().pathname).toBe("/social/groups/10/room"));
     expect(router.location().search).toBe("?groupRooms=1");
+  });
+
+  it("공부방 들어가기는 남은 세션을 정리하고 자리를 잡은 뒤 공부방으로 간다", async () => {
+    const api = mockGroupApi("default");
+    const { router } = renderGroupRoute("/social/groups/10?groupRooms=1");
+    await userEvent.setup().click(await screen.findByRole("button", { name: "공부방 들어가기" }));
+    expect(closeStaleSession).toHaveBeenCalledWith(1);
+    expect(api.joinGroupRoom).toHaveBeenCalledWith(10);
+    await waitFor(() => expect(router.location().pathname).toBe("/social/groups/10/room"));
+    const seat = await vi.mocked(api.joinGroupRoom).mock.results[0]?.value;
+    expect(router.location().state).toEqual({
+      roomId: seat.roomId,
+      graceRejoin: false,
+      iceServers: [],
+    });
+  });
+
+  it("자리를 잡는 동안에는 공부방 들어가기를 다시 누를 수 없다", async () => {
+    const api = mockGroupApi("default");
+    api.joinGroupRoom.mockImplementation(() => new Promise(() => {}));
+    renderGroupRoute("/social/groups/10?groupRooms=1");
+    const enter = await screen.findByRole("button", { name: "공부방 들어가기" });
+    await userEvent.setup().click(enter);
+    await waitFor(() => expect(enter).toBeDisabled());
+    expect(api.joinGroupRoom).toHaveBeenCalledOnce();
+  });
+
+  it("자리를 잡지 못하면 그룹 홈에 남아 다시 시도하라고 알린다", async () => {
+    const api = mockGroupApi("default");
+    api.joinGroupRoom.mockRejectedValueOnce(new ApiError("x", 500));
+    const { router } = renderGroupRoute("/social/groups/10?groupRooms=1");
+    await userEvent.setup().click(await screen.findByRole("button", { name: "공부방 들어가기" }));
+    expect(await screen.findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
+    expect(router.location().pathname).toBe("/social/groups/10");
+  });
+
+  it("자리를 잡을 때 멤버가 아니라고 하면 그룹 탭으로 돌아가 안내한다", async () => {
+    const api = mockGroupApi("default");
+    api.joinGroupRoom.mockRejectedValueOnce(new ApiError("x", 403, "NOT_GROUP_MEMBER"));
+    const { router } = renderGroupRoute("/social/groups/10?groupRooms=1");
+    await userEvent.setup().click(await screen.findByRole("button", { name: "공부방 들어가기" }));
+    await waitFor(() => expect(router.location().pathname).toBe("/social"));
+    expect(await screen.findByText("이 그룹의 멤버가 아니에요")).toBeInTheDocument();
   });
 
   it("앞 화면이 없으면 뒤로 가기는 그룹 탭으로 간다", async () => {

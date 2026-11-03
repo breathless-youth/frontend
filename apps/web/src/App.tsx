@@ -76,6 +76,11 @@ import { SocialTabRoute } from "@/routes/SocialTabRoute";
 const ResultPage = lazy(
   reloadOnChunkError(() => loadResultPage().then((module) => ({ default: module.ResultPage }))),
 );
+const GroupRoomPage = lazy(
+  reloadOnChunkError(() =>
+    import("@/routes/GroupRoomPage").then((module) => ({ default: module.GroupRoomPage })),
+  ),
+);
 const LiveRoomPage = lazy(
   reloadOnChunkError(() =>
     import("@/routes/LiveRoomPage").then((module) => ({ default: module.LiveRoomPage })),
@@ -335,6 +340,8 @@ export function App() {
                 element={<GroupFormPage mode="edit" />}
               />
               <Route path="/social/groups/:groupId/members" element={<GroupMembersPage />} />
+              <Route path="/social/groups/:groupId/room" element={<GroupRoomPage />} />
+              <Route path="/social/groups/:groupId/room/result" element={<ResultPage />} />
               <Route
                 path="/social/groups/:groupId/applications"
                 element={<GroupApplicationsPage />}

@@ -18,10 +18,14 @@ import { postToNative } from "./bridge";
  * 브라우저 단독 모드에서는 `postToNative`가 무동작이라 안전하다.
  */
 
-/** 어두운 전체 화면(세션 서피스) 라우트 — 싱글룸 `/room/:id`와 소셜룸. 결과 화면은 일반 테마라
+/** 어두운 전체 화면(세션 서피스) 라우트 — 싱글룸 `/room/:id`, 소셜룸, 그룹 공부방. 결과 화면은 일반 테마라
  * `/result`가 붙은 하위 경로는 제외한다(솔로 `/room/:id`와 같은 단일 세그먼트만 매칭). */
 function isDarkScreenPath(pathname: string): boolean {
-  return /^\/social\/room\/[^/]+$/.test(pathname) || /^\/room\/[^/]+$/.test(pathname);
+  return (
+    /^\/social\/room\/[^/]+$/.test(pathname) ||
+    /^\/room\/[^/]+$/.test(pathname) ||
+    /^\/social\/groups\/[^/]+\/room$/.test(pathname)
+  );
 }
 
 export function useNativeScreenReport(): void {
