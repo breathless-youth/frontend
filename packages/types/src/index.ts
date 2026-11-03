@@ -497,6 +497,55 @@ export interface TaskUpdateRequest {
 }
 
 /**
+ * 설치 유입 API(`POST /api/users/me/acquisition`)
+ *
+ * 서버가 처음 저장한 값만 남기고, 같은 요청을 다시 보내도 처음 값을 돌려준다.
+ */
+
+/** 유입 경로. 메타 광고, 구글 광고, 친구 초대, 플레이 오가닉, 그 밖의 링크, 알 수 없음이다. */
+export type AcquisitionSource =
+  "META_AD" | "GOOGLE_AD" | "INVITE" | "ORGANIC" | "OTHER_LINK" | "UNKNOWN";
+
+export interface AcquisitionRequest {
+  /** 기기 플랫폼 */
+  platform: "IOS" | "ANDROID";
+  /** Android Play 설치 정보 원문. 읽지 못했거나 iOS면 null이다. */
+  installReferrer: string | null;
+  /** 메타 지연 딥링크로 들어온 광고 라벨. 없으면 null이다. */
+  deepLinkAd: string | null;
+  /** 구글 광고 그룹 지연 딥링크의 라벨. 형식이 틀려도 서버는 구글 광고로 저장하고 라벨만 비운다. */
+  googleDeepLinkAd: string | null;
+  /** 앱이 설치 정보를 읽은 시각(오프셋 포함 ISO-8601) */
+  capturedAt: string;
+}
+
+/** 메타 광고 정보. 광고 ID는 18자리라 숫자로 다루면 값이 깨져서 문자열이다. */
+export interface AcquisitionMetaAd {
+  campaignId: string | null;
+  adsetId: string | null;
+  adId: string | null;
+  /** 앱이 보낸 딥링크 광고 라벨 */
+  label: string | null;
+}
+
+export interface AcquisitionGoogleAd {
+  /** 앱이 보낸 구글 광고 그룹 라벨. gclid만 있었거나 형식이 틀리면 null이다. */
+  label: string | null;
+}
+
+export interface AcquisitionResponse {
+  source: AcquisitionSource;
+  /** `META_AD`일 때만 있다. */
+  metaAd: AcquisitionMetaAd | null;
+  /** `GOOGLE_AD`일 때만 있다. */
+  googleAd: AcquisitionGoogleAd | null;
+  /** `INVITE`일 때만 있는 4자리 초대코드 */
+  inviteCode: string | null;
+  /** 처음 저장된 값의 설치 정보 읽은 시각(UTC) */
+  firstTouchAt: string;
+}
+
+/**
  * 프로필 API 계약
  */
 
