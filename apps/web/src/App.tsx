@@ -1,17 +1,13 @@
 import { lazy, Profiler, Suspense, useEffect } from "react";
 import type { ProfilerOnRenderCallback } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import * as Sentry from "@sentry/react";
 
 import { ErrorFallback } from "@/components/ErrorFallback";
 import { Toaster } from "@/components/ui/sonner";
 import { ForceUpdateDialog } from "@/features/force-update/components/ForceUpdateDialog";
-import {
-  FORCE_UPDATE_CONFIRM_LABEL,
-  FORCE_UPDATE_DESCRIPTION,
-  FORCE_UPDATE_TITLE,
-} from "@/features/force-update/copy";
 import { useForceUpdateGate } from "@/features/force-update/useForceUpdateGate";
 import { useRecordLastHidden } from "@/features/interview/useRecordLastHidden";
 import { trackForceUpdateStoreOpened } from "@/lib/amplitude";
@@ -201,6 +197,7 @@ function AppToaster() {
 }
 
 export function App() {
+  const { t } = useTranslation("force-update");
   useRecordLastHidden();
   // 슬라이드 전환의 갱신 콜백이 라우트 커밋 시점에 풀리게 한다. Routes의 형제로 마운트해야
   // 한다(lib/pageTransition.ts). 라우트 엘리먼트 안에 두면 이동과 함께 언마운트돼 새 위치를
@@ -245,9 +242,9 @@ export function App() {
           // 계속 렌더되며 이펙트를 돌리는 것도, 라우트 에러가 같은 바운더리에서 이 모달을
           // 대체해 버리는 것도 막는다.
           <ForceUpdateDialog
-            title={FORCE_UPDATE_TITLE}
-            description={FORCE_UPDATE_DESCRIPTION}
-            confirmLabel={FORCE_UPDATE_CONFIRM_LABEL}
+            title={t("title")}
+            description={t("description")}
+            confirmLabel={t("confirm")}
             onConfirm={() => {
               trackForceUpdateStoreOpened();
               openAppStoreForUpdate();

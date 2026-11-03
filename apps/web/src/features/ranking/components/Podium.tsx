@@ -1,5 +1,6 @@
 import type { MedalRank, RankingBoardResponse, RankingType } from "@focusmakers/types";
 import { useId } from "react";
+import { useTranslation } from "react-i18next";
 
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { cn } from "@/lib/utils";
@@ -33,6 +34,7 @@ const SPOT = {
  */
 export function Podium({ board, elapsedSec }: { board: RankingBoardResponse; elapsedSec: number }) {
   const titleId = useId();
+  const { t } = useTranslation("ranking");
   const stands = podiumStands(board, elapsedSec);
   const tooltip = podiumTooltip(board);
   const medalless = (row: PodiumRow | undefined) =>
@@ -49,7 +51,7 @@ export function Podium({ board, elapsedSec }: { board: RankingBoardResponse; ela
       {/* 툴팁이 있는 판과 없는 판의 시상대 높이가 같도록 줄을 만들지 않고 띄워 둔다. */}
       {tooltip !== null && (
         <div className="absolute top-4 left-4 z-10">
-          <InfoTooltip label="TOP 3 기준 안내" iconSize={14}>
+          <InfoTooltip label={t("podium.aria.tooltip")} iconSize={14}>
             {tooltip}
           </InfoTooltip>
         </div>
@@ -82,9 +84,10 @@ function PodiumSpot({
 }) {
   const look = SPOT[spot];
   const first = spot === 1;
+  const { t } = useTranslation("ranking");
   return (
     <li className={cn("flex min-w-0 flex-col items-center", look.order)}>
-      <span className="sr-only">{spot}위</span>
+      <span className="sr-only">{t("rank.place", { rank: spot })}</span>
       {row === undefined ? (
         <span
           aria-hidden="true"
@@ -126,7 +129,7 @@ function PodiumSpot({
               )}
             />
             {/* 눈으로는 사진이나 파란 첫 글자와 아래 내 닉네임으로 내 자리를 알아보므로 나 표시는 화면 낭독기에만 읽힌다. */}
-            {row.me && <span className="sr-only">나</span>}
+            {row.me && <span className="sr-only">{t("podium.me")}</span>}
           </>
         )}
       </div>
@@ -154,7 +157,7 @@ function PodiumSpot({
                   first ? "size-1.5" : "size-1.25",
                 )}
               />
-              <span className="sr-only">집중 중</span>
+              <span className="sr-only">{t("row.focusing")}</span>
             </>
           )}
           {formatValue(type, row.display)}

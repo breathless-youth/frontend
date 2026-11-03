@@ -1,4 +1,4 @@
-import { WEEKDAY_LABELS } from "@/features/records/recordsFormat";
+import { weekdayShortLabel } from "@/features/records/recordsFormat";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -30,5 +30,5 @@ export function formatDday(daysLeft: number): string {
 export function formatKoreanDate(dateKey: string): string {
   const [year, month, day] = dateKey.split("-").map(Number);
   const date = localMidnight(year, month - 1, day);
-  return `${month}월 ${day}일 (${WEEKDAY_LABELS[date.getDay()]})`;
+  return `${month}월 ${day}일 (${weekdayShortLabel(date.getDay())})`;
 }

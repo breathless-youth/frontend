@@ -1,6 +1,7 @@
 import { ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
+import { useTranslation } from "react-i18next";
 import { useSearchParams } from "react-router-dom";
 
 import {
@@ -79,6 +80,7 @@ function RecordsContent({
   month: CalendarMonth;
   setMonth: Dispatch<SetStateAction<CalendarMonth>>;
 }) {
+  const { t } = useTranslation("records");
   // 월 이동 방향은 순수 애니메이션용이라 로컬로 둔다(탭 왕복에 보존할 "위치"가 아니다).
   // 헤더 버튼과 MonthCalendar 내부 스와이프가 같은 changeMonth를 타야 애니메이션·계측이 갈라지지 않는다.
   const [slideFrom, setSlideFrom] = useState<"left" | "right" | null>(null);
@@ -134,8 +136,8 @@ function RecordsContent({
       {/* 월 이동 — 맨 위, 카드 밖에 둔다. MonthCalendar 안 헤더는 중복을 막기 위해 뺐고,
           카드 안 스와이프는 onSwipeMonth를 통해 같은 changeMonth 경로로 상태를 움직인다. */}
       <PeriodNav
-        prevLabel="이전 달"
-        nextLabel="다음 달"
+        prevLabel={t("picker.aria.prevMonth")}
+        nextLabel={t("picker.aria.nextMonth")}
         canGoNext={!isLatestMonth}
         onPrev={() => changeMonth(-1, "button")}
         onNext={() => changeMonth(1, "button")}
@@ -209,7 +211,7 @@ function RecordsContent({
 
       {day.status === "error" && (
         <div className="mt-6">
-          <ErrorState message="기록을 불러오지 못했어요" onRetry={day.retry} screen="records" />
+          <ErrorState message={t("daily.error")} onRetry={day.retry} screen="records" />
         </div>
       )}
 
@@ -229,7 +231,7 @@ function RecordsContent({
                 // 글자 링크라도 누르는 영역은 44px을 지키고, 음수 여백으로 줄 높이는 날짜 글자에 맞춘다.
                 className="-my-3 flex min-h-11 items-center gap-1 text-xs leading-3.75 font-bold text-primary"
               >
-                시간 직접 입력
+                {t("daily.manualEntry")}
                 <ChevronRight size={12} strokeWidth={2.2} aria-hidden="true" />
               </button>
             )}
@@ -238,12 +240,10 @@ function RecordsContent({
           <div className="mt-3">
             {sessions.length === 0 ? (
               <Card className="flex flex-col items-center gap-1 rounded-xl border-0 shadow-sb-card py-7.5">
-                <p className="text-[15px] leading-5 text-muted-foreground">이 날은 기록이 없어요</p>
+                <p className="text-[15px] leading-5 text-muted-foreground">{t("daily.empty")}</p>
                 {/* 보는 달에 기록이 하나도 없을 때만 다음 행동을 한 줄 더 알려 준다. */}
                 {monthStats?.studiedDays === 0 && (
-                  <p className="text-[13px] leading-4 text-text-tertiary">
-                    집중을 시작하면 여기에 쌓여요
-                  </p>
+                  <p className="text-[13px] leading-4 text-text-tertiary">{t("daily.emptyHint")}</p>
                 )}
               </Card>
             ) : (
@@ -290,6 +290,7 @@ function RecordsContent({
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export function RecordsPage() {
+  const { t } = useTranslation("records");
   const userId = useUserId();
   const todayKey = kstDateKey();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -333,7 +334,7 @@ export function RecordsPage() {
       <div className="px-5">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-extrabold leading-7.25 tracking-[-0.48px] text-foreground">
-            기록
+            {t("page.title")}
           </h1>
           {/* 일간·주간이 머리를 같이 쓰므로 어느 쪽에서든 달력에서 고른 날의 플래너를 연다.
               등록 전에는 플래너에도 볼 기록이 없어 숨긴다. */}
@@ -345,8 +346,8 @@ export function RecordsPage() {
         <SegmentedControl
           value={mode}
           options={[
-            { value: "daily", label: "일간" },
-            { value: "weekly", label: "주간", disabled: userId === null },
+            { value: "daily", label: t("page.daily") },
+            { value: "weekly", label: t("page.weekly"), disabled: userId === null },
           ]}
           onChange={(next) => {
             if (next !== mode) {
@@ -359,9 +360,7 @@ export function RecordsPage() {
         />
 
         {userId === null ? (
-          <p className="mt-3.25 p-4 text-sm text-muted-foreground">
-            기기 등록 전이에요. 앱에서 열면 기록이 저장돼요
-          </p>
+          <p className="mt-3.25 p-4 text-sm text-muted-foreground">{t("page.unregistered")}</p>
         ) : mode === "weekly" ? (
           <WeeklyView
             userId={userId}

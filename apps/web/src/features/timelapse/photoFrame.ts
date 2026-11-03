@@ -146,7 +146,7 @@ export type RenderPhoto = (input: PhotoInput) => Promise<ArrayBuffer>;
 async function fetchImage(url: string): Promise<CanvasImageSource> {
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`이모지 응답 ${response.status}`);
+    throw new Error(`emoji response ${response.status}`);
   }
   return await createImageBitmap(await response.blob());
 }
@@ -217,7 +217,7 @@ export async function tryRenderPhoto(
   try {
     return await render(input);
   } catch (error: unknown) {
-    console.warn("[timelapse] 사진을 만들지 못했다", error);
+    console.warn("[timelapse] failed to render photo", error);
     return undefined;
   }
 }
@@ -231,7 +231,7 @@ export function offscreenSurface(size: Size): PhotoSurface {
   const canvas = new OffscreenCanvas(size.width, size.height);
   const context = canvas.getContext("2d");
   if (context === null) {
-    throw new Error("2D 컨텍스트를 만들지 못했다");
+    throw new Error("failed to create 2D context");
   }
   return {
     context,
@@ -249,7 +249,7 @@ export function documentSurface(size: Size): PhotoSurface {
   canvas.height = size.height;
   const context = canvas.getContext("2d");
   if (context === null) {
-    throw new Error("2D 컨텍스트를 만들지 못했다");
+    throw new Error("failed to create 2D context");
   }
   return {
     context,
@@ -258,7 +258,7 @@ export function documentSurface(size: Size): PhotoSurface {
         canvas.toBlob(
           (blob) => {
             if (blob === null) {
-              reject(new Error("JPEG로 압축하지 못했다"));
+              reject(new Error("failed to encode JPEG"));
               return;
             }
             blob.arrayBuffer().then(resolve, reject);

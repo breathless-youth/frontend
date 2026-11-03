@@ -1,0 +1,74 @@
+{
+  "entryButton": {
+    "aria": {
+      "open": "Timer"
+    }
+  },
+  "screen": {
+    "title": "Timer",
+    "close": "Turn off timer",
+    "kindLabel": "Timer type",
+    "kind": {
+      "timer": "Timer",
+      "pomodoro": "Pomodoro"
+    },
+    "restart": "Restart"
+  },
+  "primary": {
+    "start": "Start",
+    "pause": "Pause",
+    "resume": "Resume"
+  },
+  "modeCard": {
+    "kind": {
+      "focus": "Focus",
+      "break": "Break"
+    },
+    "minuteUnit": "min",
+    "minuteOption": "{{count}} min",
+    "aria": {
+      "minutes": "{{label}} length"
+    }
+  },
+  "pomodoro": {
+    "phase": {
+      "focus": "Focus",
+      "break": "Break"
+    }
+  },
+  "remaining": {
+    "aria": {
+      "label": "Time left"
+    }
+  },
+  "dial": {
+    "lap": "Round {{lap}}",
+    "aria": {
+      "minutes_one": "{{count}} minute",
+      "minutes_other": "{{count}} minutes"
+    }
+  },
+  "wheel": {
+    "unit": {
+      "hours": "h",
+      "minutes": "m",
+      "seconds": "s"
+    },
+    "aria": {
+      "hours": "Hours",
+      "minutes": "Minutes",
+      "seconds": "Seconds",
+      "hoursValue_one": "{{count}} hour",
+      "hoursValue_other": "{{count}} hours",
+      "minutesValue_one": "{{count}} minute",
+      "minutesValue_other": "{{count}} minutes",
+      "secondsValue_one": "{{count}} second",
+      "secondsValue_other": "{{count}} seconds"
+    }
+  },
+  "alarmSound": {
+    "aria": {
+      "toggle": "Alarm sound"
+    }
+  }
+}

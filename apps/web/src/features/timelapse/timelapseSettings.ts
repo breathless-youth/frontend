@@ -137,7 +137,7 @@ export async function loadTimelapseSettings(): Promise<TimelapseSettings> {
   try {
     return await store.load();
   } catch (error) {
-    console.warn("[timelapse] 설정 조회 실패, 기본값을 쓴다", error);
+    console.warn("[timelapse] settings read failed, using defaults", error);
     return DEFAULT_TIMELAPSE_SETTINGS;
   }
 }
@@ -152,6 +152,6 @@ export async function saveTimelapseSettings(settings: TimelapseSettings): Promis
   try {
     await store.save(settings);
   } catch (error) {
-    console.warn("[timelapse] 설정 저장 실패, 다음 세션에 반영되지 않는다", error);
+    console.warn("[timelapse] settings save failed, next session will not reflect it", error);
   }
 }

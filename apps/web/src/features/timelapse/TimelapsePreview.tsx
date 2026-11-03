@@ -1,8 +1,11 @@
-import { FACE_MASK_EMOJIS } from "@/features/live-room/faceMaskSettings";
+import { useTranslation } from "react-i18next";
 
+import { FACE_MASK_EMOJIS } from "@/features/live-room/faceMaskSettings";
+import { formatMonthDay } from "@/features/records/recordsFormat";
+import { toKoreanDurationLength } from "@/features/study-session/formatDuration";
 import type { TimelapseAspect, TimelapseInfoKey } from "./timelapseSettings";
 
-type InfoLine = { key: TimelapseInfoKey; text: string; className: string };
+type InfoLine = { key: TimelapseInfoKey; className: string };
 
 /** 사용자의 D-Day를 아직 모를 때 쓰는 문구. 가짜 숫자가 내 D-Day로 읽히지 않게 숫자를 뺐다. */
 const UNKNOWN_DDAY_LABEL = "D-Day";
@@ -11,15 +14,15 @@ const SMALL_LINE = "text-[7.5px] font-semibold";
 
 /** 왼쪽 위 정보 줄의 표시 순서와 예시 값 */
 const TOP_LINES = [
-  { key: "dday", text: UNKNOWN_DDAY_LABEL, className: "text-[10px] font-bold" },
-  { key: "streak", text: "5일 연속 공부 🔥", className: SMALL_LINE },
+  { key: "dday", className: "text-[10px] font-bold" },
+  { key: "streak", className: SMALL_LINE },
 ] as const satisfies readonly InfoLine[];
 
 /** 오른쪽 아래 정보 줄의 표시 순서와 예시 값 */
 const BOTTOM_LINES = [
-  { key: "date", text: "10월 5일", className: SMALL_LINE },
-  { key: "focusTime", text: "순공 2시간 14분", className: "text-[13px] font-extrabold" },
-  { key: "focusRate", text: "집중률 80%", className: SMALL_LINE },
+  { key: "date", className: SMALL_LINE },
+  { key: "focusTime", className: "text-[13px] font-extrabold" },
+  { key: "focusRate", className: SMALL_LINE },
 ] as const satisfies readonly InfoLine[];
 
 const INFO_TEXT = "text-white [text-shadow:0_0.5px_2px_rgba(0,0,0,0.45)]";
@@ -68,6 +71,13 @@ export function TimelapsePreview({
   ddayLabel = UNKNOWN_DDAY_LABEL,
   faceMaskEmojiUrl = FACE_MASK_EMOJIS[0]!.url,
 }: TimelapsePreviewProps) {
+  const { t } = useTranslation("timelapse");
+  const sample = {
+    streak: t("frame.streak", { count: 5 }),
+    date: formatMonthDay("2026-10-05"),
+    focusTime: t("frame.focusTime", { duration: toKoreanDurationLength(2 * 3600 + 14 * 60) }),
+    focusRate: t("frame.focusRate", { rate: 80 }),
+  };
   const topLines = TOP_LINES.filter((line) => info[line.key]);
   const bottomLines = BOTTOM_LINES.filter((line) => info[line.key]);
   const empty =
@@ -83,7 +93,7 @@ export function TimelapsePreview({
     >
       {empty && (
         <p className="absolute inset-0 flex items-center justify-center text-xs text-white/60">
-          공부 중 화면
+          {t("preview.placeholder")}
         </p>
       )}
       {info.faceMask && (
@@ -100,7 +110,7 @@ export function TimelapsePreview({
         >
           {topLines.map((line) => (
             <p key={line.key} className={line.className}>
-              {line.key === "dday" ? ddayLabel : line.text}
+              {line.key === "dday" ? ddayLabel : sample[line.key]}
             </p>
           ))}
         </div>
@@ -110,7 +120,7 @@ export function TimelapsePreview({
           <div className={`flex flex-col items-end gap-px ${INFO_TEXT}`}>
             {bottomLines.map((line) => (
               <p key={line.key} className={line.className}>
-                {line.text}
+                {sample[line.key]}
               </p>
             ))}
           </div>
@@ -128,7 +138,7 @@ export function TimelapsePreview({
         )}
       </div>
       <span className="absolute top-3 right-3 rounded-[4px] bg-white px-1.25 py-[2.5px] text-[8px] font-extrabold text-[#3671cf]">
-        포커스 메이커스
+        {t("frame.watermark")}
       </span>
     </div>
   );

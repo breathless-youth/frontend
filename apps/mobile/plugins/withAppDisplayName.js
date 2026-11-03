@@ -9,13 +9,22 @@ const { AndroidConfig, withInfoPlist, withStringsXml } = require("expo/config-pl
  * `PRODUCT_NAME=app`으로 프로젝트가 리네임된다. 그래서 `expo.name`은 ASCII(`FocusMakers`)로
  * 두어 프로젝트 구조를 지키고, 사용자에게 보이는 이름만 여기서 덮는다.
  *
- * 값은 `expo.extra.appDisplayName` 한 곳에서만 읽는다 — 플랫폼별로 갈라져 한쪽만 바뀌는
- * 사고를 막는다.
+ * 값은 `expo.extra.appDisplayName`(한국어)·`appDisplayNameEn`(영어)에서만 읽는다 — 플랫폼별로 갈라져 한쪽만 바뀌는
+ * 사고를 막는다. 변형 접미는 `app.config.ts`가 두 값에 붙여 둔다.
+ *
+ * iOS 기본 이름은 개발 지역(ko)에 맞춰 한국어, Android 기본 이름은 모듈 문구와 같이 영어다.
+ * 언어별 이름은 `app.config.ts`의 `locales`가 넣는다(iOS ko·en, Android values-b+ko).
  */
 module.exports = function withAppDisplayName(config) {
   const displayName = config.extra?.appDisplayName;
   if (!displayName) {
     throw new Error("app.json의 expo.extra.appDisplayName이 비어 있다 — 앱 이름을 정할 수 없다");
+  }
+  const displayNameEn = config.extra?.appDisplayNameEn;
+  if (!displayNameEn) {
+    throw new Error(
+      "app.json의 expo.extra.appDisplayNameEn이 비어 있다 — 영어 앱 이름을 정할 수 없다",
+    );
   }
 
   // iOS: 홈 화면·알림·설정 등 사용자에게 보이는 자리는 CFBundleDisplayName을 쓴다.
@@ -26,14 +35,12 @@ module.exports = function withAppDisplayName(config) {
   });
 
   // Android: 런처 라벨은 strings.xml의 `app_name`이다.
+  // 기본 values를 영어로 둬야 한국어·영어가 아닌 기기에서 한국어 이름 대신 영어 이름이 보인다.
   return withStringsXml(withIos, (cfg) => {
     cfg.modResults = AndroidConfig.Strings.setStringItem(
       [
-        AndroidConfig.Resources.buildResourceItem({
-          name: "app_name",
-          value: displayName,
-          translatable: false,
-        }),
+        // translatable="false"인 문자열에 번역이 있으면 Android lint(ExtraTranslation)가 릴리스 빌드를 막을 수 있어 표시를 두지 않는다.
+        AndroidConfig.Resources.buildResourceItem({ name: "app_name", value: displayNameEn }),
       ],
       cfg.modResults,
     );

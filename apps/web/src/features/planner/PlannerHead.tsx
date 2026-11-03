@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import { formatDuration } from "@/features/records/recordsFormat";
 
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -14,6 +16,7 @@ export function PlannerHead({
   dday: { label: string; title: string } | null;
   totals: { focusSec: number; studySec: number } | "pending" | "error";
 }) {
+  const { t } = useTranslation("planner");
   return (
     <>
       <div className="flex items-start justify-between pt-1 pb-3">
@@ -27,7 +30,7 @@ export function PlannerHead({
         )}
 
         <div className="ml-auto flex shrink-0 flex-col items-end gap-0.5">
-          <p className="text-xs leading-3.5 text-muted-foreground">순공시간</p>
+          <p className="text-xs leading-3.5 text-muted-foreground">{t("head.focusTime")}</p>
           {totals === "pending" ? (
             <Skeleton className="h-6 w-24 rounded-md" />
           ) : (
@@ -36,7 +39,10 @@ export function PlannerHead({
             </p>
           )}
           <p className="text-xs leading-3.5 text-muted-foreground tabular-nums">
-            총 {totals === "pending" || totals === "error" ? "—" : formatDuration(totals.studySec)}
+            {t("head.total", {
+              duration:
+                totals === "pending" || totals === "error" ? "—" : formatDuration(totals.studySec),
+            })}
           </p>
         </div>
       </div>

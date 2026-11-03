@@ -1,7 +1,8 @@
 import { Check } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { IllustFlame } from "./icons";
-import type { StreakWeekDay } from "./recordsFormat";
+import { type StreakWeekDay, weekdayIndexOfDateKey, weekdayLongLabel } from "./recordsFormat";
 
 /**
  * S5 연속 공부 배너(Figma `streak-banner` 65:555 + `Record / Week Dot` 46:101).
@@ -28,6 +29,7 @@ type StreakBannerProps = {
 };
 
 export function WeekDot({ day }: { day: StreakWeekDay }) {
+  const { t } = useTranslation("records");
   const isToday = day.state === "today";
 
   return (
@@ -35,9 +37,14 @@ export function WeekDot({ day }: { day: StreakWeekDay }) {
     // 웹 패턴은 `role="img"` + 요약 `aria-label`이다(`StudyTimelineCard`가 세운 관례와 동일).
     <div
       role="img"
-      aria-label={`${day.weekdayLabel}요일, ${
-        isToday ? "오늘" : day.state === "done" ? "공부함" : "기록 없음"
-      }`}
+      aria-label={t("streak.aria.day", {
+        weekday: weekdayLongLabel(weekdayIndexOfDateKey(day.dateKey)),
+        state: isToday
+          ? t("streak.aria.today")
+          : day.state === "done"
+            ? t("streak.aria.done")
+            : t("streak.aria.none"),
+      })}
       className="flex flex-col items-center gap-1.25"
     >
       {isToday ? (
@@ -71,6 +78,7 @@ export function WeekDot({ day }: { day: StreakWeekDay }) {
 }
 
 export function StreakBanner({ streakDays, days }: StreakBannerProps) {
+  const { t } = useTranslation("records");
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-border bg-muted p-4.5">
       <div className="flex flex-row items-center gap-3">
@@ -78,10 +86,10 @@ export function StreakBanner({ streakDays, days }: StreakBannerProps) {
         <IllustFlame width={38} height={44} />
         <div className="flex min-w-0 shrink flex-col gap-0.75">
           <span className="text-[17px] leading-5.25 font-bold text-foreground">
-            {streakDays}일 연속 공부 중
+            {t("streak.title", { count: streakDays })}
           </span>
           <span className="text-[13px] leading-4 text-muted-foreground">
-            내일도 5분만 하면 이어져요
+            {t("streak.subtitle")}
           </span>
         </div>
       </div>

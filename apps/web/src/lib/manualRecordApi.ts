@@ -25,16 +25,20 @@ async function send<T>(path: string, init: RequestInit, fallback: string): Promi
 export function createManualRecord(
   body: ManualStudySessionRequest,
 ): Promise<StudySessionResponse[]> {
-  return send("", { method: "POST", body: JSON.stringify(body) }, "수동 기록 저장 실패");
+  return send("", { method: "POST", body: JSON.stringify(body) }, "manual record create failed");
 }
 
 export function updateManualRecord(
   id: number,
   body: ManualStudySessionRequest,
 ): Promise<StudySessionResponse[]> {
-  return send(`/${id}`, { method: "PATCH", body: JSON.stringify(body) }, "수동 기록 수정 실패");
+  return send(
+    `/${id}`,
+    { method: "PATCH", body: JSON.stringify(body) },
+    "manual record update failed",
+  );
 }
 
 export function deleteManualRecord(id: number): Promise<void> {
-  return send(`/${id}`, { method: "DELETE" }, "수동 기록 삭제 실패");
+  return send(`/${id}`, { method: "DELETE" }, "manual record delete failed");
 }

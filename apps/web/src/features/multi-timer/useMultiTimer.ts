@@ -14,6 +14,7 @@ import {
 } from "@/lib/amplitude";
 import type { MultiTimerUse } from "@/lib/amplitude";
 import { haptic } from "@/lib/haptics";
+import i18n from "@/lib/i18n";
 
 import { createAlarmSound } from "./alarmSound";
 import type { AlarmSound } from "./alarmSound";
@@ -73,7 +74,8 @@ export interface UseMultiTimerOptions {
   readonly tickMs?: number;
 }
 
-export type ModePrimaryLabel = "시작" | "일시정지" | "계속";
+/** 시작·일시정지·계속 버튼 문구. 지금 언어로 번역된 글자다. */
+export type ModePrimaryLabel = string;
 
 export interface MultiTimerControls {
   /** null 이면 모드가 꺼져 있다. */
@@ -162,11 +164,11 @@ function shownSecond(mode: ModeState | null, atMs: number): number | null {
 function primaryLabelOf(mode: ModeState | null, held: boolean): ModePrimaryLabel {
   switch (mode?.status) {
     case "running":
-      return held ? "계속" : "일시정지";
+      return i18n.t(held ? "multi-timer:primary.resume" : "multi-timer:primary.pause");
     case "paused":
-      return "계속";
+      return i18n.t("multi-timer:primary.resume");
     default:
-      return "시작";
+      return i18n.t("multi-timer:primary.start");
   }
 }
 

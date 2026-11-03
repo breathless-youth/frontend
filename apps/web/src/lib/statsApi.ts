@@ -24,7 +24,7 @@ export async function listStudySessionStats(date: string): Promise<StudySessionL
     method: "GET",
   });
   if (!res.ok) {
-    throw await parseErrorMessage(res, "통계 조회 실패");
+    throw await parseErrorMessage(res, "stats fetch failed");
   }
   return (await res.json()) as StudySessionListResponse;
 }
@@ -38,7 +38,7 @@ export async function getStreak(range?: DateRange): Promise<StudySessionStreakRe
     method: "GET",
   });
   if (!res.ok) {
-    throw await parseErrorMessage(res, "스트릭 조회 실패");
+    throw await parseErrorMessage(res, "streak fetch failed");
   }
   return (await res.json()) as StudySessionStreakResponse;
 }
@@ -54,7 +54,7 @@ export async function getStudyDays(): Promise<StudyDaysResponse> {
     method: "GET",
   });
   if (!res.ok) {
-    throw await parseErrorMessage(res, "누적 공부 일 수 조회 실패");
+    throw await parseErrorMessage(res, "study days fetch failed");
   }
   return (await res.json()) as StudyDaysResponse;
 }
@@ -72,7 +72,7 @@ export async function getPeriodStats(
     method: "GET",
   });
   if (!res.ok) {
-    throw await parseErrorMessage(res, "기간 집계 조회 실패");
+    throw await parseErrorMessage(res, "period stats fetch failed");
   }
   return (await res.json()) as StudyPeriodStatsResponse;
 }

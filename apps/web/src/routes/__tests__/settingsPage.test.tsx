@@ -12,6 +12,7 @@ import type * as LazyRoutes from "@/routes/lazyRoutes";
 import { App } from "@/App";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { hardNavigate } from "@/lib/hardNavigation";
+import i18n from "@/lib/i18n";
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from "@/features/settings/legalDocuments";
 import { SettingsPage } from "@/routes/SettingsPage";
 import { resetViewTransitionStub, stubViewTransition } from "@/test/viewTransitionStub";
@@ -516,6 +517,26 @@ describe("버전 정보 복사", () => {
 
 describe("인터뷰 신청하기 행", () => {
   const FORM = "https://docs.google.com/forms/d/e/a/viewform?entry.1=NICKNAME";
+
+  afterEach(async () => {
+    await i18n.changeLanguage("ko");
+  });
+
+  it("영어 화면에서는 상태를 묻지 않고 행을 그리지 않는다", async () => {
+    await i18n.changeLanguage("en");
+    getInterviewStatus.mockResolvedValue({
+      cardEligible: false,
+      cardUrl: null,
+      settingsEnabled: true,
+      settingsUrl: FORM,
+    });
+    renderSettings("/settings?userId=7");
+
+    await screen.findByRole("button", { name: "Contact us" });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(getInterviewStatus).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /Sign up for an interview/ })).toBeNull();
+  });
 
   it("서버가 켜면 문의하기 아래에 배지와 함께 보인다", async () => {
     getInterviewStatus.mockResolvedValue({

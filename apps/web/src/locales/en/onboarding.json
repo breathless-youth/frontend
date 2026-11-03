@@ -1,0 +1,119 @@
+{
+  "autoTimer": {
+    "titleTop": "Keep your camera on,",
+    "titleBottom": "we'll measure focus time",
+    "aria": {
+      "mock": "The focus timer runs while the camera is on and stops when you're not focused"
+    }
+  },
+  "autoRecord": {
+    "titleTop": "While you study,",
+    "titleBottom": "your planner keeps track",
+    "aria": {
+      "mock": "The planner timetable filling in block by block with focus time"
+    }
+  },
+  "groupStudy": {
+    "titleTop": "Invite friends to focus",
+    "titleBottom": "together, up to 6 of you",
+    "aria": {
+      "mock": "A Social Room with 6 people studying together"
+    }
+  },
+  "notification": {
+    "titleTop": "Get reminders at the times",
+    "titleBottom": "you focus best",
+    "aria": {
+      "mock": "Your study rhythm in Records highlights weekday evenings from 8 to 10 PM, and a personalized reminder slides in"
+    }
+  },
+  "ready": {
+    "titleTop": "You're all set",
+    "titleBottom": "Let's focus together",
+    "aria": {
+      "mock": "Tapping Start focusing on the home screen"
+    }
+  },
+  "cta": {
+    "next": "Next",
+    "allowNotification": "Allow notifications",
+    "start": "Get started"
+  },
+  "aria": {
+    "previous": "Previous"
+  },
+  "pills": {
+    "away": "Looks like you're away",
+    "device": "Looks like the device moved",
+    "phone": "Looks like you're on your phone",
+    "drowsy": "Looks like you're dozing off"
+  },
+  "banner": {
+    "title": "It's 8 PM, time to study",
+    "body": "This is when you focus longest on weekdays",
+    "now": "now"
+  },
+  "home": {
+    "focusStart": "Start focusing"
+  },
+  "timer": {
+    "measuring": "Measuring focus time",
+    "label": "Focus time",
+    "privacy": "Video is never saved"
+  },
+  "planner": {
+    "date": "Wed, Oct 21",
+    "dday": "Finals",
+    "focusLabel": "Focus time",
+    "math": "Math",
+    "english": "Spanish",
+    "korean": "Literature",
+    "rest": "Break",
+    "noSubject": "No subject"
+  },
+  "plannerTask": {
+    "calculus": "Review Calculus ch. 3",
+    "pastExams": "20 practice questions",
+    "vocab": "100 vocab words",
+    "reading": "4 reading passages"
+  },
+  "room": {
+    "total": "Total"
+  },
+  "tileName": {
+    "me": "Me",
+    "minji": "Emma",
+    "hyunwoo": "Liam",
+    "sua": "Sofia",
+    "jihoon": "Noah",
+    "junwoo": "Jack"
+  },
+  "tileGoal": {
+    "me": "6h a day",
+    "minji": "Finals D-29",
+    "hyunwoo": "IELTS 8.0",
+    "sua": "Civil service",
+    "jihoon": "IT certification",
+    "junwoo": "CPA exam"
+  },
+  "records": {
+    "title": "Records",
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "rhythm": "Your study rhythm",
+    "insight": "You focus longest on weekday evenings, <hl>8–10 PM</hl>",
+    "insightSub": "Based on your last 2 weeks",
+    "less": "Less",
+    "more": "More",
+    "thisWeek": "Focus time this week"
+  },
+  "weekday": {
+    "mon": "M",
+    "tue": "T",
+    "wed": "W",
+    "thu": "T",
+    "fri": "F",
+    "sat": "S",
+    "sun": "S"
+  }
+}

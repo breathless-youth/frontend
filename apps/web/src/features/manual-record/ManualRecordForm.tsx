@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode, SubmitEvent } from "react";
 import { ArrowRight, Info } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import type {
   ManualStudySessionRequest,
@@ -24,7 +25,6 @@ import { useNativeControl } from "@/lib/nativeControls";
 import { cn } from "@/lib/utils";
 
 import {
-  MANUAL_RECORD_COPY,
   type ManualRecordMode,
   type ManualSpan,
   applyChip,
@@ -45,13 +45,7 @@ import {
 } from "./manualRecord";
 import { useManualRecordMutations } from "./useManualRecordMutations";
 
-const CHIPS = [
-  { label: "+5분", minutes: 5 },
-  { label: "+10분", minutes: 10 },
-  { label: "+30분", minutes: 30 },
-  { label: "+45분", minutes: 45 },
-  { label: "+1시간", minutes: 60 },
-] as const;
+const CHIP_MINUTES = [5, 10, 30, 45, 60] as const;
 
 export interface ManualRecordFormProps {
   userId: number;
@@ -86,6 +80,7 @@ export function ManualRecordForm({
   nowMs: fixedNowMs,
   onDone,
 }: ManualRecordFormProps) {
+  const { t } = useTranslation(["manual-record", "common"]);
   const dateRef = useRef<HTMLParagraphElement>(null);
   const startId = useId();
   const endId = useId();
@@ -126,13 +121,13 @@ export function ManualRecordForm({
   const recordDaysAgo = daysAgo(recordDateKey, todayKey);
   const message =
     serverError === "failed"
-      ? MANUAL_RECORD_COPY.failed
+      ? t("message.failed")
       : spanError === "too-short"
-        ? MANUAL_RECORD_COPY.tooShort
+        ? t("message.tooShort")
         : spanError === "future"
-          ? MANUAL_RECORD_COPY.future
+          ? t("message.future")
           : overlapBlocked
-            ? MANUAL_RECORD_COPY.allOverlap
+            ? t("message.allOverlap")
             : overlapNotice(span, pieces);
 
   const reportedBlockRef = useRef(false);
@@ -228,7 +223,7 @@ export function ManualRecordForm({
       <div className="flex gap-3">
         <TimeField
           id={startId}
-          label="시작"
+          label={t("form.start")}
           value={clockOf(span.startMs)}
           disabled={busy}
           invalid={blocking}
@@ -240,12 +235,14 @@ export function ManualRecordForm({
         <ArrowRight aria-hidden size={16} className="mb-4.5 shrink-0 self-end text-text-tertiary" />
         <TimeField
           id={endId}
-          label="종료"
+          label={t("form.end")}
           value={clockOf(span.endMs)}
           disabled={busy}
           invalid={blocking}
           describedBy={messageId}
-          suffix={endsNextDay(span, recordDateKey) ? { id: nextDayId, text: "다음 날" } : null}
+          suffix={
+            endsNextDay(span, recordDateKey) ? { id: nextDayId, text: t("form.nextDay") } : null
+          }
           onChange={(clock) =>
             changeSpan(spanFromClocks(recordDateKey, clockOf(span.startMs), clock))
           }
@@ -253,15 +250,19 @@ export function ManualRecordForm({
       </div>
 
       <div className="grid grid-cols-5 gap-2">
-        {CHIPS.map((chip) => (
+        {CHIP_MINUTES.map((minutes) => (
           <DurationChip
-            key={chip.label}
-            minutes={chip.minutes}
-            label={chip.label}
+            key={minutes}
+            minutes={minutes}
+            label={
+              minutes % 60 === 0
+                ? t("form.chipHours", { hours: minutes / 60 })
+                : t("form.chipMinutes", { minutes })
+            }
             disabled={busy || reachedNow(span, nowMs)}
             onPress={() => {
               const now = readNow();
-              changeSpan(applyChip(span, chip.minutes, now), now);
+              changeSpan(applyChip(span, minutes, now), now);
             }}
           />
         ))}
@@ -269,7 +270,7 @@ export function ManualRecordForm({
 
       <div className="flex flex-col gap-2">
         <p id={subjectLabelId} className="text-[13px] leading-4 font-medium text-muted-foreground">
-          과목 선택
+          {t("form.subjectLabel")}
         </p>
         <div
           role="group"
@@ -281,7 +282,7 @@ export function ManualRecordForm({
             disabled={busy}
             onClick={() => setSubjectId(null)}
           >
-            {MANUAL_RECORD_COPY.noSubject}
+            {t("subject.none")}
           </SubjectChip>
           {live.map((subject) => (
             <SubjectChip
@@ -306,7 +307,7 @@ export function ManualRecordForm({
       <div className="flex flex-col gap-2">
         <p className="flex items-start gap-1 text-[13px] leading-4 text-text-tertiary">
           <Info aria-hidden size={14} className="shrink-0 text-text-tertiary" />
-          직접 추가한 기록은 연속 공부·랭킹에 반영되지 않아요
+          {t("form.notReflected")}
         </p>
         {/* 비어 있어도 aria-live 요소는 남겨 두어야 다음 안내가 낭독된다. */}
         <p
@@ -334,20 +335,20 @@ export function ManualRecordForm({
             onClick={() => setConfirmingDelete(true)}
             className="w-24 shrink-0"
           >
-            삭제
+            {t("form.delete")}
           </Button>
         )}
         <Button type="submit" size="xl" disabled={blocking || busy} className="flex-1">
-          저장
+          {t("form.save")}
         </Button>
       </div>
 
       {mode.kind === "edit" && (
         <ConfirmDialog
           open={confirmingDelete}
-          title="이 기록을 지울까요?"
-          cancelLabel="취소"
-          confirmLabel="지우기"
+          title={t("deleteDialog.title")}
+          cancelLabel={t("common:actions.cancel")}
+          confirmLabel={t("deleteDialog.confirm")}
           onCancel={() => setConfirmingDelete(false)}
           onConfirm={() => {
             setConfirmingDelete(false);

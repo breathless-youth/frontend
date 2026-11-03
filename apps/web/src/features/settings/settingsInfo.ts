@@ -1,3 +1,5 @@
+import i18n from "@/lib/i18n";
+
 /**
  * 설정 화면이 표시하는 로컬 값과 문구 헬퍼
  * (`frontend/docs/screens/SCR-S6-settings.md` Data Contract).
@@ -54,5 +56,7 @@ export function appVersionLabel(
  * 이 행이 값을 바꾸는 스위치가 아니라 시스템 설정으로 나가는 버튼임을 라벨에서 분명히 한다.
  */
 export function cameraPermissionRowLabel(granted: boolean): string {
-  return `카메라 권한, ${granted ? "허용됨" : "허용 안 됨"}, 시스템 설정 열기`;
+  return i18n.t(
+    granted ? "settings:cameraPermission.aria.granted" : "settings:cameraPermission.aria.denied",
+  );
 }
