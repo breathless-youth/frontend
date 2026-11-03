@@ -134,6 +134,7 @@ export function SessionPageHeaderTime({
   focusSec: number;
   stateColor?: string;
 }) {
+  const { t } = useTranslation("study-session");
   return (
     <p
       className="ml-auto shrink-0 pr-4 text-[20px] leading-6 font-extrabold tracking-[-0.3px] text-(--session-state-color) tabular-nums"
@@ -144,7 +145,9 @@ export function SessionPageHeaderTime({
       }
     >
       <span aria-hidden="true">{formatElapsed(focusSec)}</span>
-      <span className="sr-only">순공시간 {toKoreanDuration(focusSec)}</span>
+      <span className="sr-only">
+        {t("timer.srFocus", { duration: toKoreanDuration(focusSec) })}
+      </span>
     </p>
   );
 }
