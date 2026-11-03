@@ -63,6 +63,7 @@ vi.mock("@/lib/amplitude", () => ({
   trackRecordsSessionExpanded: vi.fn(),
   trackRecordsViewChanged: vi.fn(),
   trackRecordsWeekChanged: vi.fn(),
+  trackRecordsRhythmShown: vi.fn(),
   trackRecordsPeriodPickerOpened: vi.fn(),
   trackRecordsPeriodPicked: vi.fn(),
   trackErrorRetryPressed: vi.fn(),
@@ -409,6 +410,28 @@ describe("RecordsPage", () => {
       expect(await screen.findByText("오늘 순공시간")).toBeInTheDocument();
       expect(screen.getByTestId("location")).toHaveTextContent(/^\/records\?userId=7&guestAuth=1$/);
       expect(screen.getByTestId("location")).toHaveAttribute("data-navigation", "REPLACE");
+    });
+
+    it("주소에 view=weekly가 있으면 주간으로 열고, 탭을 바꾸면 셸 쿼리는 남긴 채 view만 지운다", async () => {
+      renderRecords("/records?userId=7&guestAuth=1&view=weekly");
+
+      expect(await screen.findByRole("tab", { name: "주간", selected: true })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: "나의 공부 리듬" })).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("tab", { name: "일간" }));
+
+      await waitFor(() =>
+        expect(screen.getByTestId("location")).toHaveTextContent("/records?userId=7&guestAuth=1"),
+      );
+      expect(screen.getByTestId("location")).not.toHaveTextContent("view=");
+      expect(screen.getByTestId("location")).toHaveAttribute("data-navigation", "REPLACE");
+    });
+
+    it("기기 등록 전이면 view=weekly여도 일간으로 둔다", () => {
+      renderRecords("/records?view=weekly");
+
+      expect(screen.getByRole("tab", { name: "일간", selected: true })).toBeInTheDocument();
+      expect(screen.getByText(/기기 등록 전/)).toBeInTheDocument();
     });
 
     it("달력에 없거나 미래인 날짜는 오늘로 연다", async () => {

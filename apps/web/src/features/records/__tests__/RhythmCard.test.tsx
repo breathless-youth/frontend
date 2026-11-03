@@ -1,10 +1,20 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type * as Amplitude from "@/lib/amplitude";
 import i18n from "@/lib/i18n";
 
 import { RhythmCard } from "../RhythmCard";
 import type { RhythmState } from "../useWeeklyData";
+
+const analytics = vi.hoisted(() => ({ trackRecordsRhythmShown: vi.fn() }));
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof Amplitude>()),
+  ...analytics,
+}));
+
+afterEach(() => vi.clearAllMocks());
 
 const zeroGrid = () => Array.from({ length: 7 }, () => Array<number>(24).fill(0));
 
@@ -90,6 +100,61 @@ describe("RhythmCard — 14일부터 내 리듬", () => {
     expect(band.style.left).toMatch(/46px/);
     expect(band.style.width).toMatch(/2 \*/);
     expect(band.style.width).toMatch(/46px/);
+  });
+});
+
+describe("RhythmCard — 노출 이벤트", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  it.each([
+    ["14일 전", BEFORE_14_DAYS, { state: "sample", reason: "below_threshold", studyDays: 3 }],
+    ["14일부터", mine(), { state: "mine", studyDays: 22 }],
+    [
+      "14일인데 격자가 빔",
+      { status: "success", data: { studyDays: 14, focusSecByWeekdayHour: zeroGrid() } },
+      { state: "sample", reason: "empty_grid", studyDays: 14 },
+    ],
+    ["조회 실패", { status: "error" }, { state: "sample", reason: "error" }],
+  ] as const)("%s — 카드가 그린 것과 이유를 한 번 남긴다", (_, rhythm, expected) => {
+    render(
+      <StrictMode>
+        <RhythmCard rhythm={rhythm as RhythmState} />
+      </StrictMode>,
+    );
+
+    expect(analytics.trackRecordsRhythmShown).toHaveBeenCalledTimes(1);
+    expect(analytics.trackRecordsRhythmShown).toHaveBeenCalledWith(expected);
+  });
+
+  it("조회 중에는 아무것도 그리지 않았으니 남기지 않는다", () => {
+    render(<RhythmCard rhythm={{ status: "pending" }} />);
+
+    expect(analytics.trackRecordsRhythmShown).not.toHaveBeenCalled();
+  });
+
+  it("카드가 화면에 들어올 때까지 기다렸다가 한 번만 남긴다", () => {
+    let notify: (entries: Partial<IntersectionObserverEntry>[]) => void = () => undefined;
+    const disconnect = vi.fn();
+    vi.stubGlobal(
+      "IntersectionObserver",
+      class {
+        constructor(callback: typeof notify) {
+          notify = callback;
+        }
+        observe() {}
+        disconnect = disconnect;
+      },
+    );
+    render(<RhythmCard rhythm={mine()} />);
+    expect(analytics.trackRecordsRhythmShown).not.toHaveBeenCalled();
+
+    act(() => notify([{ isIntersecting: false }]));
+    expect(analytics.trackRecordsRhythmShown).not.toHaveBeenCalled();
+
+    act(() => notify([{ isIntersecting: true }]));
+    act(() => notify([{ isIntersecting: true }]));
+    expect(analytics.trackRecordsRhythmShown).toHaveBeenCalledTimes(1);
+    expect(disconnect).toHaveBeenCalled();
   });
 });
 

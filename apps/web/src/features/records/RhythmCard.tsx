@@ -1,11 +1,19 @@
+import { type RefObject, useEffect, useEffectEvent, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import { mondayFirstWeekdayLabels } from "./recordsFormat";
-import { PEAK_SPAN_HOURS, buildStudyRhythm, peakRangeParts, type StudyRhythm } from "./rhythm";
+import {
+  PEAK_SPAN_HOURS,
+  RHYTHM_MIN_STUDY_DAYS,
+  buildStudyRhythm,
+  peakRangeParts,
+  type StudyRhythm,
+} from "./rhythm";
 import type { RhythmState } from "./useWeeklyData";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { type RecordsRhythmShown, trackRecordsRhythmShown } from "@/lib/amplitude";
 
 /**
  * 예시 히트맵의 농도(0~5) — 실데이터가 아니라 "이런 화면이 나온다"를 보여 주는 그림이다.
@@ -48,6 +56,53 @@ function peakBandStyle(peakColumn: number) {
   };
 }
 
+/** 카드가 그린 것과 그 이유 — 조회 중이면 아직 아무것도 그리지 않았으니 null. */
+function shownEvent(rhythm: RhythmState, mine: StudyRhythm | null): RecordsRhythmShown | null {
+  if (rhythm.status === "pending") return null;
+  if (rhythm.status === "error") return { state: "sample", reason: "error" };
+  const { studyDays } = rhythm.data;
+  if (mine) return { state: "mine", studyDays };
+  return {
+    state: "sample",
+    reason: studyDays < RHYTHM_MIN_STUDY_DAYS ? "below_threshold" : "empty_grid",
+    studyDays,
+  };
+}
+
+/**
+ * 카드가 절반 이상 화면에 들어오면 노출을 한 번 남긴다. 카드는 주간 탭 아래쪽이라 탭을 열었다고 본 것은 아니다.
+ * 주간 탭을 다시 열면(리마운트) 다시 센다. 관찰자가 없는 환경은 그리자마자 보낸다.
+ */
+function useShownOnce(ref: RefObject<HTMLElement | null>, event: RecordsRhythmShown | null) {
+  // StrictMode가 effect를 두 번 돌려도 노출은 한 번만 센다.
+  const sentRef = useRef(false);
+  const send = useEffectEvent(() => {
+    if (sentRef.current || event === null) return;
+    sentRef.current = true;
+    trackRecordsRhythmShown(event);
+  });
+  const ready = event !== null;
+  useEffect(() => {
+    const element = ref.current;
+    if (!ready || !element) return;
+    if (typeof IntersectionObserver === "undefined") {
+      send();
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          send();
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.5 },
+    );
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref, ready]);
+}
+
 const CARD_CLASS =
   "mt-2.5 flex flex-col gap-1 overflow-hidden rounded-xl border-0 shadow-sb-card px-4.5 pt-4.5 pb-4";
 
@@ -62,9 +117,11 @@ const CARD_CLASS =
 export function RhythmCard({ rhythm }: { rhythm: RhythmState }) {
   const { t } = useTranslation("records");
   const mine = rhythm.status === "success" ? buildStudyRhythm(rhythm.data) : null;
+  const sectionRef = useRef<HTMLElement>(null);
+  useShownOnce(sectionRef, shownEvent(rhythm, mine));
 
   return (
-    <section aria-labelledby="rhythm-title">
+    <section ref={sectionRef} aria-labelledby="rhythm-title">
       <div className="flex items-center justify-between pt-7">
         <h2 id="rhythm-title" className="text-[17px] leading-5.25 font-bold text-foreground">
           {t("rhythm.title")}

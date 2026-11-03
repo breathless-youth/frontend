@@ -984,6 +984,9 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     m.trackRecordsWeekChanged(-1, "swipe");
     m.trackRecordsPeriodPickerOpened("daily");
     m.trackRecordsPeriodPicked({ view: "weekly", toToday: true });
+    m.trackRecordsRhythmShown({ state: "mine", studyDays: 22 });
+    m.trackRecordsRhythmShown({ state: "sample", reason: "below_threshold", studyDays: 13 });
+    m.trackRecordsRhythmShown({ state: "sample", reason: "error" });
     m.trackPlannerOpened({ via: "records", isToday: false });
     m.trackPlannerDateChanged({ delta: -1, method: "swipe" });
     m.trackSubjectItemAdded("task", false, "social");
@@ -1011,6 +1014,9 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
       ["records_week_changed", { delta: -1, method: "swipe" }],
       ["records_period_picker_opened", { view: "daily" }],
       ["records_period_picked", { view: "weekly", to_today: true }],
+      ["records_rhythm_shown", { state: "mine", study_days: 22 }],
+      ["records_rhythm_shown", { state: "sample", reason: "below_threshold", study_days: 13 }],
+      ["records_rhythm_shown", { state: "sample", reason: "error" }],
       ["planner_opened", { via: "records", is_today: false }],
       ["planner_date_changed", { delta: -1, method: "swipe" }],
       [
