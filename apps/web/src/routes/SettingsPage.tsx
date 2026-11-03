@@ -202,7 +202,7 @@ export function SettingsPage() {
           )}
           {showsBlockList && (
             <SettingsRow
-              label="차단 목록"
+              label={t("rows.blockList")}
               trailing={{ kind: "chevron" }}
               onPress={() => {
                 trackSettingsRowPressed("block_list");

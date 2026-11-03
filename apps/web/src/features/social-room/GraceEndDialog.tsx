@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,6 +22,7 @@ export function GraceEndDialog({
   message: string | null;
   onClose: () => void;
 }) {
+  const { t } = useTranslation("social-room");
   const [title, ...bodyLines] = (message ?? "").split("\n");
   const body = bodyLines.join("\n");
   return (
@@ -42,7 +45,7 @@ export function GraceEndDialog({
           ) : null}
         </DialogHeader>
         <Button variant="default" size="lg" className="w-full" onClick={onClose}>
-          확인
+          {t("home.noticeConfirm")}
         </Button>
       </DialogContent>
     </Dialog>
