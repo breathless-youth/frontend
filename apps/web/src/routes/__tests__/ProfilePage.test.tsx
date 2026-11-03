@@ -103,7 +103,7 @@ describe("프로필 설정", () => {
 
     expect(await screen.findByLabelText("닉네임")).toHaveValue("포메3721");
     expect(screen.getByText("포")).toBeInTheDocument();
-    expect(screen.getByText("전문직")).toBeInTheDocument(); // 칩 7종 렌더 확인 대표
+    expect(screen.getByText("전문직")).toBeInTheDocument(); // 칩 9종 렌더 확인 대표
   });
 
   it("제목 프로필 수정은 상단 헤더에만 있고 본문에 중복되지 않는다", async () => {
@@ -123,6 +123,24 @@ describe("프로필 설정", () => {
     expect(chip).toHaveAttribute("aria-checked", "true");
     await userEvent.click(chip);
     expect(chip).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("카테고리 칩은 9개이고 수능, 내신, 대학 시험 순서로 시작한다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    renderAt("/profile?userId=7");
+
+    const chips = await screen.findAllByRole("radio");
+    expect(chips.map((chip) => chip.textContent)).toEqual([
+      "수능",
+      "내신",
+      "대학 시험",
+      "공무원",
+      "자격증",
+      "어학",
+      "취업",
+      "전문직",
+      "기타",
+    ]);
   });
 
   it("저장 시 변경된 필드만 PATCH로 보낸다", async () => {
