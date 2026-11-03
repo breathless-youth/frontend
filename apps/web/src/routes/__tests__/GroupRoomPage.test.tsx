@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { Location } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import type {
   GroupHomeResponse,
@@ -1301,6 +1301,91 @@ describe("GroupRoomPage 타이머", () => {
       "true",
     );
     expect(screen.getByRole("button", { name: "카메라 끄기", hidden: true })).toBeInTheDocument();
+  });
+
+  /** 집중 1분 뽀모도로를 시작해 휴식에 들어간 공부방이고, 카메라와 마이크는 켜 둔다. */
+  async function enterPomodoroBreak() {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    localStorage.setItem(
+      "focuson.multiTimer.v1",
+      JSON.stringify({ timerSec: 1800, focusMin: 1, breakMin: 5 }),
+    );
+    localStorage.setItem("focuson.multiTimer.lastKind.v1", "pomodoro");
+    const entered = await enterGroupRoom({ groupId: 10 });
+    entered.acquire.mockResolvedValue({ kind: "ok", track: fakeMicTrack() });
+    await turnCameraOn();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    await user.click(screen.getByRole("button", { name: "마이크 켜기" }));
+    await screen.findByRole("button", { name: "마이크 끄기" });
+    const { sheet } = await openTimerSheet(user);
+    await user.click(within(sheet).getByRole("button", { name: "1분 집중 시작" }));
+    await act(() => vi.advanceTimersByTimeAsync(61_000));
+    expect(screen.getByTestId("room-timer-capsule")).toHaveAttribute("data-phase", "break");
+    return { ...entered, user };
+  }
+
+  /** 카메라가 꺼진 휴식에서 캡슐의 계속을 누르면 확인 창이 뜨고 공부방은 그대로 멈춰 있다. */
+  async function expectResumeAsksCamera(
+    channel: MockRoomChannel,
+    user: ReturnType<typeof userEvent.setup>,
+  ) {
+    channel.published.length = 0;
+    await user.click(
+      within(screen.getByTestId("room-timer-capsule")).getByRole("button", { name: "계속" }),
+    );
+
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("room-control-bar")).getByRole("button", {
+        name: "카메라 켜기",
+        hidden: true,
+      }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(channel.published).not.toContainEqual({ onBreak: true });
+
+    await user.click(within(dialog).getByRole("button", { name: "취소" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await user.click(screen.getByRole("button", { name: "마이크 켜기" }));
+    expect(await screen.findByText("카메라를 켜면 마이크를 쓸 수 있어요")).toBeInTheDocument();
+    expect(channel.published).not.toContainEqual({ micOn: true });
+
+    await user.click(
+      within(screen.getByTestId("room-timer-capsule")).getByRole("button", { name: "계속" }),
+    );
+    await user.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", { name: "카메라 켜기" }),
+    );
+    await waitFor(() => expect(channel.published).toContainEqual({ onBreak: true }));
+    expect(channel.published).toContainEqual({ cameraOn: true });
+    expect(screen.getByTestId("room-timer-capsule")).toHaveAttribute("data-phase", "break");
+  }
+
+  it("카메라를 끈 뽀모도로 휴식의 계속은 카메라 켜기 확인 창을 거친다", async () => {
+    const { channel, user } = await enterPomodoroBreak();
+    // 휴식에 드는 1분 사이에 조작이 숨어서 화면을 눌러 다시 부른다.
+    await user.click(screen.getByTestId("live-room-page"));
+    await user.click(screen.getByRole("button", { name: "카메라 끄기" }));
+
+    await expectResumeAsksCamera(channel, user);
+  });
+
+  it("휴식 중 홈에 다녀온 뒤의 계속도 카메라 켜기 확인 창을 거친다", async () => {
+    onTestFinished(() => {
+      Reflect.deleteProperty(document, "visibilityState");
+    });
+    const { channel, user } = await enterPomodoroBreak();
+
+    act(() => {
+      Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    act(() => {
+      Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    await expectResumeAsksCamera(channel, user);
   });
 
   it("타이머를 쓴 공부방을 마치면 종료 계측에 타이머 종류가 실린다", async () => {

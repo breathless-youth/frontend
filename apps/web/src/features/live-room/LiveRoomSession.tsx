@@ -568,10 +568,12 @@ export function LiveRoomSession({
 
   // 그룹 공부방의 타이머는 싱글룸처럼 휴식을 세션 휴식으로 바꾼다.
   // 공부방에서 멈춘 세션을 다시 시작하는 일은 카메라 켜기라서 영상 공유 확인 창을 거친다.
+  // 카메라를 꺼 멈춘 공부방을 휴식으로 되돌리는 것도 카메라를 켜는 일이라 같은 확인 창을 거친다.
+  // 확인하면 다시 흐르는 공부방을 타이머가 휴식으로 되돌린다.
   const timer = useMultiTimer({
     sessionState,
     studying: phase.name === "studying",
-    onStartBreak: startBreak,
+    onStartBreak: () => (cameraHeld ? openCameraConfirm() : startBreak()),
     onEndBreak: endBreak,
     onResumeSession: () => openCameraConfirm(),
     usage: multiTimerUsage,
