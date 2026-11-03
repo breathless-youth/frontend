@@ -18,5 +18,40 @@
     },
     "createRoomLimit": "You can create up to 2 groups",
     "memberCount": "{{count}}/{{max}} members"
+  },
+  "roomMenu": {
+    "item": {
+      "requests": "Join requests",
+      "invite": "Invite",
+      "manageMembers": "Manage members",
+      "viewMembers": "View members",
+      "settings": "Group settings",
+      "leave": "Leave group",
+      "leaveNote": "You can leave after transferring ownership"
+    },
+    "mustTransfer": {
+      "title": "You need to transfer ownership to leave",
+      "description": "Transfer ownership in Manage members first",
+      "confirm": "Manage members"
+    },
+    "confirmLeave": {
+      "title": "Leave this group?",
+      "soleOwner": "If you leave, this group will be deleted",
+      "publicMember": "To rejoin, you'll need to send a new request",
+      "privateMember": "To rejoin, you'll need a new invite",
+      "confirm": "Leave"
+    },
+    "transferOwner": {
+      "title": "Transfer ownership to {{nickname}}?",
+      "description": "You'll no longer be the group owner",
+      "confirm": "Transfer"
+    },
+    "kickMember": {
+      "title": "Remove {{nickname}}?",
+      "description_one": "{{nickname}} can't rejoin for {{count}} day",
+      "description_other": "{{nickname}} can't rejoin for {{count}} days",
+      "confirm": "Remove"
+    },
+    "inviteCodeRenewed": "Invite code changed"
   }
 }

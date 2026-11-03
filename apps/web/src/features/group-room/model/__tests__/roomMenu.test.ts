@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  INVITE_CODE_RENEWED_COPY,
+  inviteCodeRenewedCopy,
   kickMemberDialog,
   leaveRoomDialog,
   roomMenuItems,
@@ -141,6 +141,6 @@ describe("그룹장 넘기기와 내보내기", () => {
   });
 
   it("비공개 그룹에서 내보낸 뒤 그룹장에게 초대코드가 바뀐 것을 알린다", () => {
-    expect(INVITE_CODE_RENEWED_COPY).toBe("초대코드가 새로 바뀌었어요");
+    expect(inviteCodeRenewedCopy()).toBe("초대코드가 새로 바뀌었어요");
   });
 });
