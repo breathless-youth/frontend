@@ -1304,6 +1304,7 @@ export function trackSettingsRowPressed(
     | "profile"
     | "timelapse"
     | "app_lock"
+    | "block_list"
     | "contact"
     | "interview"
     | "terms"

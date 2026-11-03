@@ -24,6 +24,7 @@ export const loadReportApplicationPage = () => import("./ReportApplicationPage")
 export const loadPublicGroupPage = () => import("./PublicGroupPage");
 export const loadApplyPage = () => import("./ApplyPage");
 export const loadGroupFormPage = () => import("./GroupFormPage");
+export const loadBlockListPage = () => import("./BlockListPage");
 
 /** 공부를 끝낼 때 네트워크가 끊겨도 결과 화면이 열리도록 세션 중에 미리 받는다. */
 export function prefetchResultPage(): void {
@@ -59,6 +60,16 @@ export function prefetchSettingsSubPages(): void {
  */
 export function prefetchTimelapsesPage(): void {
   whenIdle(() => void loadTimelapsesPage().catch(() => {}));
+}
+
+/**
+ * 차단 목록 미리 받기
+ *
+ * 설정의 차단 목록 줄이 슬라이드 전환으로 연다.
+ * 줄은 그룹 공부방을 여는 앱에만 있어서 다른 설정 하위 화면과 따로 받는다.
+ */
+export function prefetchBlockListPage(): void {
+  whenIdle(() => void loadBlockListPage().catch(() => {}));
 }
 
 /**

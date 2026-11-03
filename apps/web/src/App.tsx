@@ -38,6 +38,7 @@ import { InviteJoinRoute } from "@/routes/InviteJoinRoute";
 import {
   loadAppLockSettingsPage,
   loadApplyPage,
+  loadBlockListPage,
   loadContactPage,
   loadGroupApplicationsPage,
   loadGroupFormPage,
@@ -167,6 +168,11 @@ const ApplyPage = lazy(
 const GroupFormPage = lazy(
   reloadOnChunkError(() =>
     loadGroupFormPage().then((module) => ({ default: module.GroupFormPage })),
+  ),
+);
+const BlockListPage = lazy(
+  reloadOnChunkError(() =>
+    loadBlockListPage().then((module) => ({ default: module.BlockListPage })),
   ),
 );
 const WebrtcLoopbackPage = lazy(
@@ -363,6 +369,7 @@ export function App() {
               <Route path="/licenses" element={<LicensesPage />} />
               <Route path="/timelapse-settings" element={<TimelapseSettingsPage />} />
               <Route path="/app-lock-settings" element={<AppLockSettingsPage />} />
+              <Route path="/blocks" element={<BlockListPage />} />
               <Route path="/timelapses" element={<TimelapsesPage />} />
             </Routes>
           </Suspense>

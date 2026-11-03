@@ -10,6 +10,7 @@ import {
 } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
 import { copyText } from "@/lib/clipboard";
+import { hasGroupRooms } from "@/lib/groupRoomCapability";
 import { hardNavigate } from "@/lib/hardNavigation";
 import { interviewStatusQuery } from "@/lib/interviewQueries";
 import { slideNavigate } from "@/lib/pageTransition";
@@ -27,7 +28,7 @@ import { openInterviewForm } from "@/features/interview/interviewForm";
 import { afterApplied } from "@/features/interview/interviewGate";
 import { updateInterviewState } from "@/features/interview/interviewStore";
 import { detectStorePlatform } from "@/features/social-room/storeLink";
-import { prefetchSettingsSubPages } from "@/routes/lazyRoutes";
+import { prefetchBlockListPage, prefetchSettingsSubPages } from "@/routes/lazyRoutes";
 
 /**
  * 설정
@@ -62,10 +63,16 @@ export function SettingsPage() {
     }
   }, [interviewError]);
 
+  // 그룹 공부방을 여는 앱에서만 차단 목록 줄을 둔다.
+  const showsBlockList = hasGroupRooms();
+
   // 하위 화면 청크를 미리 받아 첫 진입 때 전환이 청크를 기다리지 않게 한다.
   useEffect(() => {
     prefetchSettingsSubPages();
-  }, []);
+    if (showsBlockList) {
+      prefetchBlockListPage();
+    }
+  }, [showsBlockList]);
 
   const versionLabel = appVersionLabel(
     searchParams.get("appVersion"),
@@ -160,6 +167,18 @@ export function SettingsPage() {
                 trackSettingsRowPressed("app_lock");
                 slideNavigate("forward", () =>
                   navigate({ pathname: "/app-lock-settings", search: location.search }),
+                );
+              }}
+            />
+          )}
+          {showsBlockList && (
+            <SettingsRow
+              label="차단 목록"
+              trailing={{ kind: "chevron" }}
+              onPress={() => {
+                trackSettingsRowPressed("block_list");
+                slideNavigate("forward", () =>
+                  navigate({ pathname: "/blocks", search: location.search }),
                 );
               }}
             />

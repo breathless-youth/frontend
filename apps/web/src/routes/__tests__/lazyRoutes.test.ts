@@ -14,6 +14,7 @@ const loaded = vi.hoisted(() => ({
   publicGroup: 0,
   apply: 0,
   groupForm: 0,
+  blockList: 0,
 }));
 
 vi.mock("../ResultPage", () => {
@@ -67,6 +68,10 @@ vi.mock("../ApplyPage", () => {
 vi.mock("../GroupFormPage", () => {
   loaded.groupForm += 1;
   return { GroupFormPage: () => null };
+});
+vi.mock("../BlockListPage", () => {
+  loaded.blockList += 1;
+  return { BlockListPage: () => null };
 });
 
 let idleCallbacks: IdleRequestCallback[] = [];
@@ -129,6 +134,17 @@ describe("lazyRoutes 미리 받기", () => {
       apply: 1,
       groupForm: 1,
     });
+    expect(loaded.blockList).toBe(0);
+  });
+
+  it("설정에서 여는 차단 목록 청크는 따로 유휴 시간에 받는다", async () => {
+    const { prefetchBlockListPage } = await import("../lazyRoutes");
+
+    prefetchBlockListPage();
+    expect(loaded.blockList).toBe(0);
+
+    await runIdle();
+    expect(loaded.blockList).toBe(1);
   });
 
   it("청크를 받지 못해도 예외가 새지 않는다", async () => {
