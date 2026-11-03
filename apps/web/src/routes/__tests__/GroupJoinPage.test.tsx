@@ -5,7 +5,7 @@ import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from "
 import { openInApp } from "@/features/social-room/appHandoff";
 import type * as AppHandoff from "@/features/social-room/appHandoff";
 import type * as Amplitude from "@/lib/amplitude";
-import { trackGroupRoomJoined } from "@/lib/amplitude";
+import { setGroupRoomCount, trackGroupRoomJoined } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import { haptic } from "@/lib/haptics";
 import type * as UserId from "@/lib/userId";
@@ -29,10 +29,12 @@ vi.mock("@/features/social-room/appHandoff", async (importOriginal) => ({
 }));
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof Amplitude>()),
+  setGroupRoomCount: vi.fn(),
   trackGroupRoomJoined: vi.fn(),
 }));
 
 afterEach(() => {
+  vi.mocked(setGroupRoomCount).mockClear();
   vi.mocked(trackGroupRoomJoined).mockClear();
 });
 
@@ -113,6 +115,30 @@ describe("6자리 초대코드 참여", () => {
     await user.type(await screen.findByRole("textbox"), "K7Q2MX");
     await user.click(screen.getByRole("button", { name: JOIN_LABEL }));
     await waitFor(() => expect(router.location().pathname).toBe("/social/groups/11"));
+    expect(trackGroupRoomJoined).toHaveBeenCalledExactlyOnceWith({
+      via: "invite_code",
+      visibility: "private",
+    });
+  });
+
+  it("그룹 탭에서 코드로 들어간 그룹은 탭이 내 그룹을 다시 받아도 한 번만 센다", async () => {
+    const api = mockGroupApi("default");
+    removeMeFrom(api, 11);
+    const { router } = renderGroupRoute("/social?groupRooms=1");
+    const user = userEvent.setup();
+    // 처음 받은 내 그룹 1개를 기억한 뒤에 들어간다.
+    await waitFor(() => expect(setGroupRoomCount).toHaveBeenCalledWith(1));
+    await user.click(screen.getByRole("button", { name: "그룹 만들기와 초대코드로 참여" }));
+    await user.click(screen.getByRole("menuitem", { name: "초대코드로 참여" }));
+    await user.type(await screen.findByRole("textbox"), "K7Q2MX");
+    await user.click(screen.getByRole("button", { name: JOIN_LABEL }));
+    await screen.findByRole("heading", { name: "우리 반 저녁 스터디" });
+
+    await user.click(screen.getByRole("button", { name: "뒤로 가기" }));
+
+    await waitFor(() => expect(router.location().pathname).toBe("/social"));
+    await waitFor(() => expect(api.getMyGroups).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(setGroupRoomCount).toHaveBeenLastCalledWith(2));
     expect(trackGroupRoomJoined).toHaveBeenCalledExactlyOnceWith({
       via: "invite_code",
       visibility: "private",
