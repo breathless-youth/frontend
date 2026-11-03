@@ -55,9 +55,8 @@ const SESSION_SURFACE_VARS = {
    * `RoomPage`/`LiveRoomSession`의 에러 문구 색이 공유해서 값을 바꿀 수 없다. */
   "--session-exit-bg": colors.feedback.error.dark,
   /**
-   * 컨트롤 바 재개·종료 버튼 전용 — `--session-exit-bg`와 값이 다르다(그 변수는 위처럼 다른
-   * 화면과 공유돼 값을 바꿀 수 없다).
-   * 종료 빨강은 세션 확인 창의 빨간 확인 버튼도 함께 쓴다.
+   * 컨트롤 바의 재개·종료 버튼과 세션 확인 창의 빨간 확인 버튼이 쓰는 색이다.
+   * `--session-exit-bg`는 위처럼 다른 화면의 오류 문구와 공유돼 바꿀 수 없어서 값이 다른 변수를 따로 둔다.
    */
   "--session-control-resume-bg": "#4593fc",
   "--session-control-exit-bg": "#f0555f",

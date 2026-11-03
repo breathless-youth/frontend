@@ -161,7 +161,7 @@ describe("RoomFormScreen", () => {
     expect(screen.getByText("44/500")).toBeInTheDocument();
   });
 
-  it("서버가 막은 칸 아래에 그 문장을 보이고 그 칸을 고치면 지운다", async () => {
+  it("서버가 막은 칸 아래에 그 문장을 보이고 그 칸을 고치면 더 보이지 않는다", async () => {
     const user = userEvent.setup();
     const filled = { ...fixtures.roomForm, intro: "같이 꾸준히 공부해요" };
     const { rerender } = renderForm({ initial: filled });

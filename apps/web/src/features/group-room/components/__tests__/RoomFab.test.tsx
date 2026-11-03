@@ -67,7 +67,7 @@ describe("RoomFab", () => {
     expect(screen.getByRole("button", { name: "그룹 만들기와 초대코드로 참여" })).toHaveFocus();
   });
 
-  it("위아래 화살표로 항목을 차례로 옮긴다", async () => {
+  it("위아래 화살표를 누르면 다음 항목과 이전 항목으로 포커스가 간다", async () => {
     const user = userEvent.setup();
     render(<RoomFab canCreate onCreate={vi.fn()} onJoinWithCode={vi.fn()} defaultOpen />);
     expect(screen.getByRole("menu")).toHaveFocus();
