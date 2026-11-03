@@ -1109,7 +1109,7 @@ export function LiveRoomSession({
               <RoomTimerCapsule
                 mode={timer.mode}
                 remainingMs={timer.remainingMs}
-                primaryLabel={timer.primaryLabel}
+                held={timer.held}
                 onPrimary={timer.pressPrimary}
                 onOff={timer.close}
               />

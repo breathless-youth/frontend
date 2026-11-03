@@ -245,7 +245,7 @@ describe("그룹 공부방 조작 영어 화면", () => {
         <RoomTimerCapsule
           mode={pomodoro}
           remainingMs={25 * 60_000}
-          primaryLabel={i18n.t("multi-timer:primary.pause")}
+          held={false}
           onPrimary={vi.fn()}
           onOff={vi.fn()}
         />
@@ -259,7 +259,7 @@ describe("그룹 공부방 조작 영어 화면", () => {
     expect(screen.getByRole("button", { name: "Switch camera" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Turn on mic" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Timer" })).toBeInTheDocument();
-    // 타이머 훅이 영어로 준 일시정지 이름을 받으면 캡슐은 흐르는 중으로 보고 멈춤 버튼을 그린다.
+    // 흐르는 뽀모도로라 캡슐은 멈춤 버튼을 그린다.
     expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Turn off timer" })).toBeInTheDocument();
     expect(visibleText(container)).not.toMatch(/[가-힣]/);
