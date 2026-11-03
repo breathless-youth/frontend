@@ -682,6 +682,27 @@ export function setThemeUserProperty(scheme: "light" | "dark") {
   identify(id);
 }
 
+const FOCUS_MILESTONE_TRACKED_KEY = "focusmakers:focus-5min-tracked";
+
+/**
+ * 순공 5분 달성
+ *
+ * 메타로 보내는 같은 판정을 Amplitude에도 남겨 광고 화면 숫자와 같은 기준으로 비교한다.
+ * Firebase 전달 플러그인을 거쳐 GA4로도 복사되고, 구글 애즈는 이 이벤트를 전환으로 가져간다.
+ * 광고 화면이 "사람 수"로 읽히도록 기기당 한 번만 보낸다.
+ * 메타와 표시를 따로 둔다. 같이 쓰면 이미 메타로 보낸 사용자는 여기 영영 남지 않는다.
+ */
+export function trackFocusMilestoneReached(roomType: StudyRoomType) {
+  if (!initialized) return;
+  try {
+    if (localStorage.getItem(FOCUS_MILESTONE_TRACKED_KEY) !== null) return;
+    localStorage.setItem(FOCUS_MILESTONE_TRACKED_KEY, "1");
+  } catch {
+    // 저장소가 막히면 표시 없이 보낸다. 핵심 지표를 잃는 것보다 드물게 두 번 세는 편이 낫다.
+  }
+  track("focus_milestone_reached", { room_type: roomType });
+}
+
 /**
  * 설치 유입 경로 user property
  *

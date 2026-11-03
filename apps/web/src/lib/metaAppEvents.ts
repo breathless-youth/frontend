@@ -13,7 +13,7 @@ import { postToNative } from "./bridge";
  * Amplitude 이벤트(`lib/amplitude.ts`)와 같은 자리에서 같은 값으로 부르되 **의도적으로 부분집합**이다 —
  * Meta는 광고 최적화에 쓸 소수의 전환만 원하고, 여기 실린 것은 전부 Meta 서버로 나간다(개인정보처리방침
  * 9조 행태정보). 파라미터는 enum·수만, boolean은 1/0으로 접는다(Meta 계약이 문자열·수만 받는다).
- * 순공 5분 달성(`trackMetaFocusMilestone`)만 Amplitude에 짝이 없다. 이유는 그 함수 주석에 있다.
+ * 순공 5분 달성은 Amplitude에도 `focus_milestone_reached`로 같은 자리에서 보낸다(`trackFocusMilestoneReached`).
  *
  * 브라우저 단독 모드와 Meta env 없는 앱 빌드(개발)에서는 `postToNative`가 조용히 버려지거나 네이티브가
  * no-op으로 받는다 — 여기서 분기하지 않는다.
@@ -89,7 +89,7 @@ const FOCUS_MILESTONE_SENT_KEY = "focusmakers:meta-focus-5min-sent";
  * 순공 5분 달성, 광고 성과의 핵심 활성화 지표
  *
  * 광고 관리자는 이벤트 단위로 열을 보여줘서 `study_session_ended`의 `focus_sec`을 값으로 걸러 셀 수 없다.
- * 그래서 300초에 닿는 순간 전용 이벤트를 따로 보내고, Amplitude에는 같은 이벤트를 두지 않는다.
+ * 그래서 300초에 닿는 순간 전용 이벤트를 따로 보낸다. Amplitude와 GA4에는 `focus_milestone_reached`가 같은 자리에서 나간다.
  * 맞춤 이벤트는 그 이벤트로 최적화 캠페인을 돌리기 전까지 광고 관리자 열에 안 나올 수 있어 표준 이벤트를 쓴다.
  * 열이 "사람 수"로 읽히도록 기기당 한 번만 보낸다.
  * 저장소를 못 쓰면 표시 없이 보낸다. 핵심 지표를 잃는 것보다 드물게 두 번 세는 편이 낫다.

@@ -1,6 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type * as Amplitude from "@/lib/amplitude";
 import type * as MetaAppEvents from "@/lib/metaAppEvents";
 
 import { useStudyRoomSession } from "../useStudyRoomSession";
@@ -12,11 +13,17 @@ import { useStudyRoomSession } from "../useStudyRoomSession";
  */
 const mocks = vi.hoisted(() => ({
   milestone: vi.fn(),
+  reached: vi.fn(),
 }));
 
 vi.mock("@/lib/metaAppEvents", async (importOriginal) => ({
   ...(await importOriginal<typeof MetaAppEvents>()),
   trackMetaFocusMilestone: mocks.milestone,
+}));
+
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof Amplitude>()),
+  trackFocusMilestoneReached: mocks.reached,
 }));
 
 beforeEach(() => {
@@ -51,6 +58,18 @@ describe("useStudyRoomSession 순공 5분 달성", () => {
       await vi.advanceTimersByTimeAsync(60_000);
     });
     expect(mocks.milestone).toHaveBeenCalledTimes(1);
+  });
+
+  it("300초에 닿으면 메타 이벤트와 focus_milestone_reached가 함께 한 번 불린다", async () => {
+    renderHook(() => useStudyRoomSession(7, { tickMs: 1_000 }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(360_000);
+    });
+
+    expect(mocks.milestone).toHaveBeenCalledTimes(1);
+    expect(mocks.reached).toHaveBeenCalledTimes(1);
+    expect(mocks.reached).toHaveBeenCalledWith("single");
   });
 
   it("복원 세션은 복원 전 순공까지 합쳐 판정한다 — 이미 300초를 넘겼으면 진입하자마자 보낸다", () => {
