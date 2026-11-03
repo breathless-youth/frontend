@@ -1136,6 +1136,31 @@ export function trackRecordsPeriodPicked(input: {
 }
 
 /**
+ * 주간 탭의 나의 공부 리듬 카드가 화면에 들어왔다(주간 탭을 열 때마다 한 번).
+ *
+ * `state`는 카드가 그린 것(`mine` 내 리듬 / `sample` 샘플)이고, 샘플이면 `reason`이 왜인지 말한다
+ * (`below_threshold` 14일 전 · `empty_grid` 공부일은 찼는데 격자가 빔 · `error` 조회 실패).
+ * `study_days`는 응답이 있을 때만 싣는다. 14일 분기 전후 사용자를 나눠 보고 푸시 대상을 고르는 데 쓴다.
+ */
+export type RecordsRhythmShown =
+  | { readonly state: "mine"; readonly studyDays: number }
+  | {
+      readonly state: "sample";
+      readonly reason: "below_threshold" | "empty_grid";
+      readonly studyDays: number;
+    }
+  | { readonly state: "sample"; readonly reason: "error" };
+
+export function trackRecordsRhythmShown(input: RecordsRhythmShown) {
+  if (!initialized) return;
+  track("records_rhythm_shown", {
+    state: input.state,
+    ...("reason" in input && { reason: input.reason }),
+    ...("studyDays" in input && { study_days: input.studyDays }),
+  });
+}
+
+/**
  * 랭킹판 보기
  *
  * 랭킹판을 그렸다.

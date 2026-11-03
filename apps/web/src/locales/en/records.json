@@ -61,7 +61,19 @@
     "emptyTitle": "This fills in as your records grow",
     "sampleNotice": "Showing sample data for now",
     "legendLow": "Less",
-    "legendHigh": "More"
+    "legendHigh": "More",
+    "peakTitle": "You focused most from {{range}}",
+    "peakSubtitle": "Built from {{days}} study days",
+    "range": "{{from12}} to {{to12}} {{period}}",
+    "rangeCrossNoon": "{{from12}} to {{to12}} around noon",
+    "period": {
+      "morning": "in the morning",
+      "forenoon": "in the late morning",
+      "afternoon": "in the afternoon",
+      "evening": "in the evening",
+      "night": "at night",
+      "dawn": "in the early morning"
+    }
   },
   "calendar": {
     "dailyAverage": "Daily average",
