@@ -7,7 +7,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { toGroupVisibility, toRoomVisibility } from "@/features/group-room/fromApi";
 import {
-  GROUP_RETRY_COPY,
+  groupRetryCopy,
   groupErrorCode,
   groupErrorCopy,
   isGroupGoneError,
@@ -227,7 +227,7 @@ function GroupSettings({ userId, groupId }: { userId: number; groupId: number })
       <GroupScreenFrame title="그룹 설정" onBack={back}>
         {failed ? (
           <ErrorState
-            message={GROUP_RETRY_COPY}
+            message={groupRetryCopy()}
             onRetry={() => void homeQuery.refetch()}
             screen="group_tab"
           />

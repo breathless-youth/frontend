@@ -3,15 +3,15 @@ import { describe, expect, it } from "vitest";
 import { ApiError } from "@/lib/api";
 
 import {
-  APPLICATION_CANCELED_COPY,
-  GROUP_NOT_FOUND_COPY,
-  GROUP_RETRY_COPY,
+  applicationCanceledCopy,
   groupErrorCode,
   groupErrorCopy,
+  groupNotFoundCopy,
+  groupRetryCopy,
   isGroupGoneError,
   isQuietApplicationError,
   isQuietGroupConflict,
-  NOT_GROUP_MEMBER_COPY,
+  notGroupMemberCopy,
 } from "../groupErrorCopy";
 
 const api = (status: number, code?: string) => new ApiError("x", status, code);
@@ -47,9 +47,9 @@ describe("groupErrorCopy", () => {
   });
 
   it("서버가 보낸 message는 화면에 쓰지 않는다", () => {
-    expect(groupErrorCopy("apply", new ApiError("서버가 보낸 문장", 409))).toBe(GROUP_RETRY_COPY);
+    expect(groupErrorCopy("apply", new ApiError("서버가 보낸 문장", 409))).toBe(groupRetryCopy());
     expect(groupErrorCopy("apply", new ApiError("서버가 보낸 문장", 409, "CONFLICT"))).toBe(
-      GROUP_RETRY_COPY,
+      groupRetryCopy(),
     );
   });
 
@@ -79,10 +79,10 @@ describe("groupErrorCopy", () => {
     expect(isQuietGroupConflict(api(404, "NOT_FOUND"))).toBe(false);
   });
 
-  it("상수 문장은 정한 글자 그대로다", () => {
-    expect(GROUP_NOT_FOUND_COPY).toBe("그룹을 찾을 수 없어요");
-    expect(NOT_GROUP_MEMBER_COPY).toBe("이 그룹의 멤버가 아니에요");
-    expect(GROUP_RETRY_COPY).toBe("잠시 후 다시 시도해 주세요");
-    expect(APPLICATION_CANCELED_COPY).toBe("신청을 취소했어요");
+  it("정한 문장은 글자 그대로다", () => {
+    expect(groupNotFoundCopy()).toBe("그룹을 찾을 수 없어요");
+    expect(notGroupMemberCopy()).toBe("이 그룹의 멤버가 아니에요");
+    expect(groupRetryCopy()).toBe("잠시 후 다시 시도해 주세요");
+    expect(applicationCanceledCopy()).toBe("신청을 취소했어요");
   });
 });

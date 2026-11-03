@@ -5,7 +5,7 @@ import { Navigate, useLocation, useParams } from "react-router-dom";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import {
-  GROUP_RETRY_COPY,
+  groupRetryCopy,
   groupErrorCode,
   groupErrorCopy,
   isGroupGoneError,
@@ -108,7 +108,7 @@ function Apply({ userId, groupId }: { userId: number; groupId: number }) {
       <GroupScreenFrame title="신청하기" onBack={back}>
         {failed ? (
           <ErrorState
-            message={GROUP_RETRY_COPY}
+            message={groupRetryCopy()}
             onRetry={() => void detailQuery.refetch()}
             screen="group_tab"
           />

@@ -8,7 +8,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { toRoomHome } from "@/features/group-room/fromApi";
 import {
-  GROUP_RETRY_COPY,
+  groupRetryCopy,
   groupErrorCode,
   groupErrorCopy,
   isGroupGoneError,
@@ -119,7 +119,7 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
       }
       // 내보내졌다면 다시 받은 그룹 홈이 그룹 탭으로 데려가며 이유를 알린다.
       if (!isGroupGoneError(error)) {
-        showToast(GROUP_RETRY_COPY);
+        showToast(groupRetryCopy());
       }
     },
     onSettled: () => {
@@ -178,7 +178,7 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
       <GroupScreenFrame onBack={back}>
         {failed ? (
           <ErrorState
-            message={GROUP_RETRY_COPY}
+            message={groupRetryCopy()}
             onRetry={() => void homeQuery.refetch()}
             screen="group_tab"
           />

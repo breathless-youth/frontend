@@ -1,0 +1,7 @@
+{
+  "groupError": {
+    "notFound": "Couldn't find this group",
+    "notMember": "You're not a member of this group",
+    "applicationCanceled": "Application canceled"
+  }
+}

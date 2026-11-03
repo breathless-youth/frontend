@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { toBlockedUserRow } from "@/features/group-room/fromApi";
-import { GROUP_RETRY_COPY, groupErrorCopy } from "@/features/group-room/groupErrorCopy";
+import { groupRetryCopy, groupErrorCopy } from "@/features/group-room/groupErrorCopy";
 import { BlockListScreen } from "@/features/group-room/screens/BlockListScreen";
 import { useBackTo } from "@/features/group-room/useBackTo";
 import { unblockUser } from "@/lib/groupRoomApi";
@@ -65,7 +65,7 @@ function BlockList({ userId }: { userId: number | null }) {
       error={
         cannotLoadFirst(listQuery) ? (
           <ErrorState
-            message={GROUP_RETRY_COPY}
+            message={groupRetryCopy()}
             onRetry={() => void listQuery.refetch()}
             screen="group_tab"
           />

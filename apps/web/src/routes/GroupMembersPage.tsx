@@ -7,7 +7,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { toRoomMemberRow, toRoomVisibility } from "@/features/group-room/fromApi";
 import {
-  GROUP_RETRY_COPY,
+  groupRetryCopy,
   groupErrorCode,
   groupErrorCopy,
   isGroupGoneError,
@@ -153,7 +153,7 @@ function GroupMembers({ userId, groupId }: { userId: number; groupId: number }) 
       <GroupScreenFrame onBack={back}>
         {failed ? (
           <ErrorState
-            message={GROUP_RETRY_COPY}
+            message={groupRetryCopy()}
             onRetry={() => void homeQuery.refetch()}
             screen="group_tab"
           />
@@ -211,7 +211,7 @@ function GroupMembers({ userId, groupId }: { userId: number; groupId: number }) 
           // 초대 카드가 사라지면 코드를 받지 못했다는 것을 알 수 없어서 그 자리에 다시 시도를 둔다.
           cannotLoadFirst(inviteQuery) && !isGroupGoneError(inviteQuery.error) ? (
             <ErrorState
-              message={GROUP_RETRY_COPY}
+              message={groupRetryCopy()}
               onRetry={() => void inviteQuery.refetch()}
               screen="group_tab"
             />
@@ -222,7 +222,7 @@ function GroupMembers({ userId, groupId }: { userId: number; groupId: number }) 
         error={
           cannotLoadFirst(membersQuery) && !isGroupGoneError(membersQuery.error) ? (
             <ErrorState
-              message={GROUP_RETRY_COPY}
+              message={groupRetryCopy()}
               onRetry={() => void membersQuery.refetch()}
               screen="group_tab"
             />

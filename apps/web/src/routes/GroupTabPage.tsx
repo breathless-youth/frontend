@@ -13,8 +13,8 @@ import {
   toPublicRoomSummary,
 } from "@/features/group-room/fromApi";
 import {
-  APPLICATION_CANCELED_COPY,
-  GROUP_RETRY_COPY,
+  applicationCanceledCopy,
+  groupRetryCopy,
   groupErrorCopy,
   isQuietApplicationError,
 } from "@/features/group-room/groupErrorCopy";
@@ -141,7 +141,7 @@ function GroupTabContent({ userId }: { userId: number | null }) {
     ...GROUP_MUTATION_OPTIONS,
     mutationFn: (application: PendingApplication) => cancelApplication(application.applicationId),
     onSuccess: (_data, application) => {
-      showToast(APPLICATION_CANCELED_COPY);
+      showToast(applicationCanceledCopy());
       void invalidateGroupMembership(queryClient, queryUserId, application.roomId);
     },
     onError: (error, application) => {
@@ -166,7 +166,7 @@ function GroupTabContent({ userId }: { userId: number | null }) {
     // 실패해도 감지 칸은 남아서, 목록을 올렸다 다시 끝에 닿으면 또 받는다.
     void publicQuery.fetchNextPage().then((result) => {
       if (result.isFetchNextPageError) {
-        showToast(GROUP_RETRY_COPY);
+        showToast(groupRetryCopy());
       }
     });
   };
@@ -191,7 +191,7 @@ function GroupTabContent({ userId }: { userId: number | null }) {
         loading: signedIn && mineQuery.isPending,
         error: cannotLoadFirst(mineQuery) ? (
           <ErrorState
-            message={GROUP_RETRY_COPY}
+            message={groupRetryCopy()}
             onRetry={() => void mineQuery.refetch()}
             screen="group_tab"
           />
@@ -216,7 +216,7 @@ function GroupTabContent({ userId }: { userId: number | null }) {
         loading: signedIn && publicQuery.isPending,
         error: cannotLoadFirst(publicQuery) ? (
           <ErrorState
-            message={GROUP_RETRY_COPY}
+            message={groupRetryCopy()}
             onRetry={() => void publicQuery.refetch()}
             screen="group_tab"
           />
@@ -246,7 +246,7 @@ function GroupTabContent({ userId }: { userId: number | null }) {
           error={
             cannotLoadFirst(applicationsQuery) ? (
               <ErrorState
-                message={GROUP_RETRY_COPY}
+                message={groupRetryCopy()}
                 onRetry={() => void applicationsQuery.refetch()}
                 screen="group_tab"
               />
