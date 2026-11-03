@@ -17,6 +17,9 @@ const I18N_EXEMPT = [
   "src/features/live-room/components/RoomDebugOverlay.tsx",
   "src/lib/rankingFixtures.ts",
   "src/lib/rankingMock.ts",
+  // `?groupMock=`로 켜는 그룹 API 개발용 가짜 서버와 그 고정 데이터는 개발 빌드에서만 불러와 운영 사용자가 보지 않는다.
+  "src/lib/groupRoomMock.ts",
+  "src/lib/groupRoomMockData.ts",
 ];
 const HANGUL_MESSAGE = "사용자 문구는 src/locales/ 카탈로그에 두고 t()로 읽는다";
 
