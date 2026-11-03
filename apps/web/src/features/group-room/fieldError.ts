@@ -1,6 +1,7 @@
 import { canSegmentGraphemes } from "@/lib/graphemes";
+import i18n from "@/lib/i18n";
 
-import { CONTACT_BLOCKED_COPY, containsContactOrLink } from "./model/contactCheck";
+import { contactBlockedCopy, containsContactOrLink } from "./model/contactCheck";
 import { countGroupText } from "./model/limits";
 
 /**
@@ -26,10 +27,10 @@ export function groupFieldError(
   serverError: string | null = null,
 ): string | null {
   if (isOverGroupLimit(text, max)) {
-    return `${max}자까지 쓸 수 있어요`;
+    return i18n.t("group-room:fieldError.tooLong", { count: max });
   }
   if (serverError) {
     return serverError;
   }
-  return checkContact && containsContactOrLink(text) ? CONTACT_BLOCKED_COPY : null;
+  return checkContact && containsContactOrLink(text) ? contactBlockedCopy() : null;
 }

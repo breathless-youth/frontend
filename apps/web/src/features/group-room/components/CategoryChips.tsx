@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import type { CategoryOption } from "../types";
 
 /**
@@ -22,6 +24,7 @@ type CategoryChipsProps = {
  * 가로로 넘기지 않고 줄을 바꿔 모든 칩이 한눈에 보이게 하고, 보이는 높이 36px에 누르는 영역을 위아래로 넓혀 44px로 맞춘다.
  */
 export function CategoryChips(props: CategoryChipsProps) {
+  const { t } = useTranslation("group-room");
   const { options, value, allLabel } = props;
   const chips: { value: string | null; label: string }[] =
     allLabel === undefined ? options : [{ value: null, label: allLabel }, ...options];
@@ -38,7 +41,7 @@ export function CategoryChips(props: CategoryChipsProps) {
   };
 
   return (
-    <div role="group" aria-label="시험·목표" className="flex flex-wrap gap-1.5">
+    <div role="group" aria-label={t("categoryChips.aria.group")} className="flex flex-wrap gap-1.5">
       {chips.map((chip) => (
         <button
           key={chip.label}

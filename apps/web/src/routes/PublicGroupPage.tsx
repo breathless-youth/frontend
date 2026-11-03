@@ -5,8 +5,8 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { toApplyState, toPublicRoomDetail } from "@/features/group-room/fromApi";
 import {
-  APPLICATION_CANCELED_COPY,
-  GROUP_RETRY_COPY,
+  applicationCanceledCopy,
+  groupRetryCopy,
   groupErrorCopy,
   isGroupGoneError,
   isQuietApplicationError,
@@ -72,7 +72,7 @@ function PublicGroup({ userId, groupId }: { userId: number; groupId: number }) {
     ...GROUP_MUTATION_OPTIONS,
     mutationFn: (applicationId: number) => cancelApplication(applicationId),
     onSuccess: () => {
-      showToast(APPLICATION_CANCELED_COPY);
+      showToast(applicationCanceledCopy());
       refresh();
     },
     onError: (error) => {
@@ -92,7 +92,7 @@ function PublicGroup({ userId, groupId }: { userId: number; groupId: number }) {
       <GroupScreenFrame onBack={back}>
         {failed ? (
           <ErrorState
-            message={GROUP_RETRY_COPY}
+            message={groupRetryCopy()}
             onRetry={() => void detailQuery.refetch()}
             screen="group_tab"
           />

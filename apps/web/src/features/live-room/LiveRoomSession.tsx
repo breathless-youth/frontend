@@ -21,7 +21,7 @@ import { AmbientSoundButton } from "@/features/ambient-sound/components/AmbientS
 import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSoundSheet";
 import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
 import { groupErrorCode, groupErrorCopy } from "@/features/group-room/groupErrorCopy";
-import { INVITE_CODE_RENEWED_COPY, kickMemberDialog } from "@/features/group-room/model/roomMenu";
+import { inviteCodeRenewedCopy, kickMemberDialog } from "@/features/group-room/model/roomMenu";
 import { createMultiTimerUsage, useMultiTimer } from "@/features/multi-timer/useMultiTimer";
 import { CameraOnConfirmDialog } from "@/features/live-room/components/CameraOnConfirmDialog";
 import { ClonedTrackPreview } from "@/features/live-room/components/ClonedTrackPreview";
@@ -530,7 +530,7 @@ export function LiveRoomSession({
         onSuccess: () => {
           closeTargetDialog();
           if (isPrivate) {
-            showCtaToast(INVITE_CODE_RENEWED_COPY);
+            showCtaToast(inviteCodeRenewedCopy());
             void queryClient.invalidateQueries({ queryKey: groupKeys.invite(userId, groupId) });
           }
           void invalidateGroupMembership(queryClient, userId, groupId);

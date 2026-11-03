@@ -1,13 +1,14 @@
 import type { GroupCreateRequest, GroupUpdateRequest, StudyCategory } from "@focusmakers/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useEffectEvent, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { toGroupVisibility, toRoomVisibility } from "@/features/group-room/fromApi";
 import {
-  GROUP_RETRY_COPY,
+  groupRetryCopy,
   groupErrorCode,
   groupErrorCopy,
   isGroupGoneError,
@@ -17,7 +18,7 @@ import { containsContactOrLink } from "@/features/group-room/model/contactCheck"
 import { parseRouteId } from "@/features/group-room/routeId";
 import { GroupScreenFrame } from "@/features/group-room/screens/GroupScreenFrame";
 import { RoomFormScreen } from "@/features/group-room/screens/RoomFormScreen";
-import type { CategoryOption, RoomFormServerError } from "@/features/group-room/types";
+import type { RoomFormServerError } from "@/features/group-room/types";
 import { useBackTo } from "@/features/group-room/useBackTo";
 import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
 import { createGroup, updateGroup } from "@/lib/groupRoomApi";
@@ -29,13 +30,9 @@ import {
   invalidateGroupMembership,
 } from "@/lib/groupRoomQueries";
 import { profileQuery } from "@/lib/profileQueries";
-import { isStudyCategory, STUDY_CATEGORY_OPTIONS } from "@/lib/studyCategory";
+import { isStudyCategory, studyCategoryOptions } from "@/lib/studyCategory";
 import { showToast } from "@/lib/toast";
 import { useIdentityPending, useUserId } from "@/lib/userId";
-
-const CATEGORY_OPTIONS: CategoryOption[] = STUDY_CATEGORY_OPTIONS.map((option) => ({
-  ...option,
-}));
 
 /** 프로필에서 시험·목표를 정하지 못할 때 처음 고르는 값이고 칩 줄의 첫 칩이다. */
 const DEFAULT_CATEGORY: StudyCategory = "CSAT";
@@ -120,6 +117,7 @@ function useFormErrorNotice(action: FormAction) {
  * 만들면 새 그룹 홈으로 바꿔 가서 뒤로 가기가 만들기 화면으로 돌아오지 않는다.
  */
 function GroupCreate({ userId }: { userId: number }) {
+  const { t } = useTranslation("group-room");
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -142,7 +140,7 @@ function GroupCreate({ userId }: { userId: number }) {
   // 오프라인이라 멈춘 조회까지 기다리면 양식이 열리지 않아서 받는 중일 때만 기다린다.
   if (profile.isPending && !profile.isPaused) {
     return (
-      <GroupScreenFrame title="그룹 만들기" onBack={back}>
+      <GroupScreenFrame title={t("roomFormScreen.titleCreate")} onBack={back}>
         <FormSkeleton />
       </GroupScreenFrame>
     );
@@ -151,7 +149,7 @@ function GroupCreate({ userId }: { userId: number }) {
   return (
     <RoomFormScreen
       mode="create"
-      categories={CATEGORY_OPTIONS}
+      categories={studyCategoryOptions()}
       initial={{
         name: "",
         visibility: "public",
@@ -185,6 +183,7 @@ function GroupCreate({ userId }: { userId: number }) {
  * 그룹장이 아니면 설정 대신 그룹 홈으로 돌아가고, 그룹 홈에서 왔으면 그 화면으로 돌아간다.
  */
 function GroupSettings({ userId, groupId }: { userId: number; groupId: number }) {
+  const { t } = useTranslation("group-room");
   const queryClient = useQueryClient();
   const back = useBackTo(`/social/groups/${groupId}`);
   // 이 화면은 처음 값만 읽어서 그룹 홈처럼 30초마다 다시 받지 않는다.
@@ -224,10 +223,10 @@ function GroupSettings({ userId, groupId }: { userId: number; groupId: number })
   if (home === undefined || notOwner) {
     const failed = cannotLoadFirst(homeQuery) && !isGroupGoneError(homeQuery.error);
     return (
-      <GroupScreenFrame title="그룹 설정" onBack={back}>
+      <GroupScreenFrame title={t("roomFormScreen.titleEdit")} onBack={back}>
         {failed ? (
           <ErrorState
-            message={GROUP_RETRY_COPY}
+            message={groupRetryCopy()}
             onRetry={() => void homeQuery.refetch()}
             screen="group_tab"
           />
@@ -241,7 +240,7 @@ function GroupSettings({ userId, groupId }: { userId: number; groupId: number })
   return (
     <RoomFormScreen
       mode="edit"
-      categories={CATEGORY_OPTIONS}
+      categories={studyCategoryOptions()}
       initial={{
         name: home.name,
         visibility: toRoomVisibility(home.visibility),

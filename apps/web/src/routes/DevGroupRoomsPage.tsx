@@ -7,7 +7,7 @@ import { buildGroupRoomFixtures } from "@/features/group-room/fixtures";
 import { joinBlockCopy, myRoomsTabCount } from "@/features/group-room/model/limits";
 import {
   type ConfirmDialogCopy,
-  INVITE_CODE_RENEWED_COPY,
+  inviteCodeRenewedCopy,
   kickMemberDialog,
   leaveRoomDialog,
   otherMemberCount,
@@ -198,7 +198,7 @@ function MembersCase({
  */
 function KickCodeChangedCase({ onBack }: CaseProps) {
   useEffect(() => {
-    showToast(INVITE_CODE_RENEWED_COPY);
+    showToast(inviteCodeRenewedCopy());
   }, []);
   const members = fixtures.members.filter((member) => member.nickname !== KICKED_NICKNAME);
   return (

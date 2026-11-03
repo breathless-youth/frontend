@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { Button } from "@/components/ui/button";
@@ -46,6 +47,7 @@ export function PublicRoomDetailScreen({
   onApply: () => void;
   onCancelApplication: () => void;
 }) {
+  const { t } = useTranslation("group-room");
   const elapsedSec = useElapsedSec(
     fetchedAtMs,
     room.members.some((member) => member.accumulating),
@@ -70,7 +72,9 @@ export function PublicRoomDetailScreen({
         {room.intro.trim() !== "" && <IntroCard intro={room.intro.trim()} />}
         <dl className={cn(CARD_CLASS, "mt-3 px-4 py-1.5")}>
           <div className="flex min-h-11 items-center justify-between gap-3 border-b border-border">
-            <dt className="shrink-0 text-sm leading-5 text-muted-foreground">그룹장</dt>
+            <dt className="shrink-0 text-sm leading-5 text-muted-foreground">
+              {t("publicRoomDetailScreen.owner")}
+            </dt>
             <dd className="flex min-w-0 items-center gap-2">
               <RankAvatar nickname={room.ownerNickname} imageUrl={room.ownerImageUrl} size="2xs" />
               <span className="truncate text-sm leading-5 font-semibold text-foreground">
@@ -79,14 +83,16 @@ export function PublicRoomDetailScreen({
             </dd>
           </div>
           <div className="flex min-h-11 items-center justify-between gap-3">
-            <dt className="text-sm leading-5 text-muted-foreground">이번 주 멤버 평균 순공</dt>
+            <dt className="text-sm leading-5 text-muted-foreground">
+              {t("publicRoomDetailScreen.weeklyAverage")}
+            </dt>
             <dd className="shrink-0 text-sm leading-5 font-bold text-foreground tabular-nums">
               {formatHoursMinutes(room.weeklyAverageSec)}
             </dd>
           </div>
         </dl>
         <TodayDesksCard
-          title="오늘 멤버"
+          title={t("publicRoomDetailScreen.todayMembers")}
           members={room.members}
           visibility="public"
           elapsedSec={elapsedSec}
@@ -114,6 +120,7 @@ export function PublicRoomDetailScreen({
  * 줄바꿈이 많은 소개는 앞부분만으로도 길어져서 접어 둔 동안에는 줄 수도 함께 막는다.
  */
 function IntroCard({ intro }: { intro: string }) {
+  const { t } = useTranslation("group-room");
   const [expanded, setExpanded] = useState(false);
   const titleId = useId();
   const graphemes = splitGraphemes(intro);
@@ -124,7 +131,7 @@ function IntroCard({ intro }: { intro: string }) {
       className={cn(CARD_CLASS, "mt-3.5 flex flex-col gap-1.5 p-4")}
     >
       <h2 id={titleId} className="text-[13px] leading-5 font-semibold text-muted-foreground">
-        그룹 소개
+        {t("publicRoomDetailScreen.intro")}
       </h2>
       <p
         className={cn(
@@ -141,7 +148,7 @@ function IntroCard({ intro }: { intro: string }) {
           onClick={() => setExpanded(true)}
           className="-my-2.5 flex h-11 min-w-11 items-center self-start rounded-sm text-sm font-semibold text-primary focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
         >
-          더 보기
+          {t("publicRoomDetailScreen.showMore")}
         </button>
       )}
     </section>
@@ -165,6 +172,7 @@ function ApplyButton({
   onApply: () => void;
   onCancel: () => void;
 }) {
+  const { t } = useTranslation("group-room");
   switch (applyState.kind) {
     case "can_apply":
       return (
@@ -174,7 +182,7 @@ function ApplyButton({
           onClick={onApply}
           className={cn(BOTTOM_CTA_CLASS, "shadow-sb-cta")}
         >
-          신청하기
+          {t("publicRoomDetailScreen.apply")}
         </Button>
       );
     case "applied":
@@ -186,13 +194,13 @@ function ApplyButton({
           onClick={onCancel}
           className={BOTTOM_CTA_CLASS}
         >
-          신청 취소
+          {t("publicRoomDetailScreen.cancelApplication")}
         </Button>
       );
     case "full":
       return (
         <Button size="xl" disabled className={cn(BOTTOM_CTA_CLASS, BOTTOM_CTA_UNAVAILABLE_CLASS)}>
-          신청하기
+          {t("publicRoomDetailScreen.apply")}
         </Button>
       );
     case "blocked":

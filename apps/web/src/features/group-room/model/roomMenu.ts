@@ -1,3 +1,5 @@
+import i18n from "@/lib/i18n";
+
 import { GROUP_ROOM_LIMITS } from "./limits";
 
 export type RoomRole = "owner" | "member";
@@ -5,12 +7,25 @@ export type RoomRole = "owner" | "member";
 export type RoomVisibility = "public" | "private";
 
 export type RoomMenuItem =
-  | { kind: "requests"; label: "신청 확인"; badge: number }
-  | { kind: "invite"; label: "초대하기" }
-  | { kind: "manage_members"; label: "멤버 관리" }
-  | { kind: "view_members"; label: "멤버 보기" }
-  | { kind: "settings"; label: "그룹 설정" }
-  | { kind: "leave"; label: "그룹 나가기"; note: string | null };
+  | { kind: "requests"; label: string; badge: number }
+  | { kind: "invite"; label: string }
+  | { kind: "manage_members"; label: string }
+  | { kind: "view_members"; label: string }
+  | { kind: "settings"; label: string }
+  | { kind: "leave"; label: string; note: string | null };
+
+const ITEM_LABEL_KEYS = {
+  requests: "group-room:roomMenu.item.requests",
+  invite: "group-room:roomMenu.item.invite",
+  manage_members: "group-room:roomMenu.item.manageMembers",
+  view_members: "group-room:roomMenu.item.viewMembers",
+  settings: "group-room:roomMenu.item.settings",
+  leave: "group-room:roomMenu.item.leave",
+} as const satisfies Record<RoomMenuItem["kind"], string>;
+
+function itemLabel(kind: RoomMenuItem["kind"]): string {
+  return i18n.t(ITEM_LABEL_KEYS[kind]);
+}
 
 export interface ConfirmDialogCopy {
   title: string;
@@ -60,26 +75,29 @@ export function roomMenuItems(input: {
   const { role, visibility, newRequestCount, otherMemberCount } = input;
   const leave: RoomMenuItem = {
     kind: "leave",
-    label: "그룹 나가기",
+    label: itemLabel("leave"),
     note: mustTransferBeforeLeave(role, otherMemberCount)
-      ? "그룹장을 넘긴 뒤에 나갈 수 있어요"
+      ? i18n.t("group-room:roomMenu.item.leaveNote")
       : null,
   };
   if (role === "owner") {
     const first: RoomMenuItem =
       visibility === "public"
-        ? { kind: "requests", label: "신청 확인", badge: newRequestCount }
-        : { kind: "invite", label: "초대하기" };
+        ? { kind: "requests", label: itemLabel("requests"), badge: newRequestCount }
+        : { kind: "invite", label: itemLabel("invite") };
     return [
       first,
-      { kind: "manage_members", label: "멤버 관리" },
-      { kind: "settings", label: "그룹 설정" },
+      { kind: "manage_members", label: itemLabel("manage_members") },
+      { kind: "settings", label: itemLabel("settings") },
       leave,
     ];
   }
-  const memberItems: RoomMenuItem[] = [{ kind: "view_members", label: "멤버 보기" }, leave];
+  const memberItems: RoomMenuItem[] = [
+    { kind: "view_members", label: itemLabel("view_members") },
+    leave,
+  ];
   return visibility === "private"
-    ? [{ kind: "invite", label: "초대하기" }, ...memberItems]
+    ? [{ kind: "invite", label: itemLabel("invite") }, ...memberItems]
     : memberItems;
 }
 
@@ -98,10 +116,10 @@ export function leaveRoomDialog(input: {
     return {
       kind: "must_transfer",
       copy: {
-        title: "그룹장을 넘겨야 나갈 수 있어요",
-        description: "멤버 관리에서 그룹장을 먼저 넘겨 주세요",
-        cancelLabel: "닫기",
-        confirmLabel: "멤버 관리",
+        title: i18n.t("group-room:roomMenu.mustTransfer.title"),
+        description: i18n.t("group-room:roomMenu.mustTransfer.description"),
+        cancelLabel: i18n.t("common:actions.close"),
+        confirmLabel: i18n.t("group-room:roomMenu.mustTransfer.confirm"),
         confirmTone: "primary",
       },
     };
@@ -109,10 +127,10 @@ export function leaveRoomDialog(input: {
   return {
     kind: "confirm_leave",
     copy: {
-      title: "이 그룹에서 나갈까요?",
+      title: i18n.t("group-room:roomMenu.confirmLeave.title"),
       description: leaveDescription(role, visibility),
-      cancelLabel: "취소",
-      confirmLabel: "나가기",
+      cancelLabel: i18n.t("common:actions.cancel"),
+      confirmLabel: i18n.t("group-room:roomMenu.confirmLeave.confirm"),
       confirmTone: "danger",
     },
   };
@@ -121,19 +139,19 @@ export function leaveRoomDialog(input: {
 function leaveDescription(role: RoomRole, visibility: RoomVisibility): string {
   // 넘기라는 창을 지나 여기까지 온 그룹장은 혼자 남은 그룹장이라 나가면 그룹이 사라진다.
   if (role === "owner") {
-    return "그룹에서 나가게 된다면 이 그룹이 사라져요";
+    return i18n.t("group-room:roomMenu.confirmLeave.soleOwner");
   }
   return visibility === "public"
-    ? "그룹에 다시 들어오려면 새로 신청해야 해요"
-    : "그룹에 다시 들어오려면 다시 초대받아야 해요";
+    ? i18n.t("group-room:roomMenu.confirmLeave.publicMember")
+    : i18n.t("group-room:roomMenu.confirmLeave.privateMember");
 }
 
 export function transferOwnerDialog(nickname: string): ConfirmDialogCopy {
   return {
-    title: `${nickname}님에게 그룹장을 넘길까요?`,
-    description: "더 이상 그룹장 역할을 할 수 없어요",
-    cancelLabel: "취소",
-    confirmLabel: "넘기기",
+    title: i18n.t("group-room:roomMenu.transferOwner.title", { nickname }),
+    description: i18n.t("group-room:roomMenu.transferOwner.description"),
+    cancelLabel: i18n.t("common:actions.cancel"),
+    confirmLabel: i18n.t("group-room:roomMenu.transferOwner.confirm"),
     confirmTone: "primary",
   };
 }
@@ -145,10 +163,13 @@ export function transferOwnerDialog(nickname: string): ConfirmDialogCopy {
  */
 export function kickMemberDialog(nickname: string): ConfirmDialogCopy {
   return {
-    title: `${nickname}님을 내보낼까요?`,
-    description: `${nickname}님은 ${GROUP_ROOM_LIMITS.kickCooldownDays}일 동안 다시 들어올 수 없어요`,
-    cancelLabel: "취소",
-    confirmLabel: "내보내기",
+    title: i18n.t("group-room:roomMenu.kickMember.title", { nickname }),
+    description: i18n.t("group-room:roomMenu.kickMember.description", {
+      nickname,
+      count: GROUP_ROOM_LIMITS.kickCooldownDays,
+    }),
+    cancelLabel: i18n.t("common:actions.cancel"),
+    confirmLabel: i18n.t("group-room:roomMenu.kickMember.confirm"),
     confirmTone: "danger",
   };
 }
@@ -159,4 +180,6 @@ export function kickMemberDialog(nickname: string): ConfirmDialogCopy {
  * 내보낼 때 서버가 초대코드와 링크를 새로 만들어 예전 코드로는 다시 들어올 수 없다.
  * 내보내기 확인 창 문구는 바꾸지 않고 내보낸 뒤 이 토스트로만 알린다.
  */
-export const INVITE_CODE_RENEWED_COPY = "초대코드가 새로 바뀌었어요";
+export function inviteCodeRenewedCopy(): string {
+  return i18n.t("group-room:roomMenu.inviteCodeRenewed");
+}

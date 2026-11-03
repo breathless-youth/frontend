@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -35,6 +36,7 @@ export function MyRoomsView({
   onOpenPending: () => void;
   onBrowsePublic: () => void;
 }) {
+  const { t } = useTranslation("group-room");
   let body: ReactNode;
   if (rooms.length > 0) {
     body = (
@@ -58,8 +60,8 @@ export function MyRoomsView({
   } else {
     body = (
       <RoomsEmptyState
-        title="아직 들어간 그룹이 없어요"
-        description="공개 그룹에 신청하거나 그룹을 만들어 보세요"
+        title={t("myRoomsView.emptyTitle")}
+        description={t("myRoomsView.emptyDescription")}
         className="pt-14.5"
       >
         <Button
@@ -67,7 +69,7 @@ export function MyRoomsView({
           onClick={onBrowsePublic}
           className="mt-6 w-full rounded-xl text-[17px] leading-5.25 font-bold shadow-sb-cta"
         >
-          공개 그룹 둘러보기
+          {t("myRoomsView.browsePublic")}
         </Button>
       </RoomsEmptyState>
     );

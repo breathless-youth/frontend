@@ -1,4 +1,5 @@
 import { type ReactNode, useId } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -44,6 +45,7 @@ export function RequestsScreen({
   onReject: (applicationId: number) => void;
   onReport: (applicationId: number) => void;
 }) {
+  const { t } = useTranslation("group-room");
   let body: ReactNode;
   if (requests.length > 0) {
     body = (
@@ -63,7 +65,7 @@ export function RequestsScreen({
           ))}
         </ul>
         <p className="pt-4 text-center text-[13px] leading-5 break-keep text-muted-foreground">
-          수락하면 바로 멤버가 되고, 신청한 사람에게 알림이 가요
+          {t("requestsScreen.acceptNote")}
         </p>
       </>
     );
@@ -79,14 +81,14 @@ export function RequestsScreen({
   } else {
     body = (
       <p className="pt-16 text-center text-[15px] leading-5.5 text-muted-foreground">
-        답을 기다리는 신청이 없어요
+        {t("requestsScreen.empty")}
       </p>
     );
   }
   return (
-    <GroupScreenFrame title="신청 확인" onBack={onBack}>
+    <GroupScreenFrame title={t("requestsScreen.title")} onBack={onBack}>
       <p className="pt-0.5 text-[13px] leading-5 wrap-break-word break-keep text-muted-foreground">
-        {`${roomName} · 남은 자리 ${remainingSeats}`}
+        {`${roomName} · ${t("requestsScreen.remainingSeats", { count: remainingSeats })}`}
       </p>
       {body}
     </GroupScreenFrame>
@@ -115,6 +117,7 @@ function RequestCard({
   onReject: (applicationId: number) => void;
   onReport: (applicationId: number) => void;
 }) {
+  const { t } = useTranslation("group-room");
   const nameId = useId();
   const { applicationId } = request;
   return (
@@ -135,7 +138,7 @@ function RequestCard({
         {`“${request.message}”`}
       </p>
       <p className="text-xs leading-4 text-muted-foreground">
-        {`답하지 않으면 ${remainingText(request.expiresAt, now)} 뒤에 신청이 취소돼요`}
+        {t("requestsScreen.expiry", { time: remainingText(request.expiresAt, now) })}
       </p>
       <div className="flex items-center gap-2">
         <button
@@ -145,7 +148,7 @@ function RequestCard({
           onClick={() => onReport(applicationId)}
           className="mr-auto flex h-11 min-w-11 items-center rounded-sm px-1 text-[13px] leading-4 font-semibold text-muted-foreground focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none disabled:opacity-50"
         >
-          신고
+          {t("requestsScreen.report")}
         </button>
         <Button
           variant="secondary"
@@ -154,7 +157,7 @@ function RequestCard({
           onClick={() => onReject(applicationId)}
           className="h-11 w-22 rounded-lg text-[15px] font-bold"
         >
-          거절
+          {t("requestsScreen.reject")}
         </Button>
         <Button
           aria-describedby={nameId}
@@ -162,7 +165,7 @@ function RequestCard({
           onClick={() => onAccept(applicationId)}
           className="h-11 w-26 rounded-lg text-[15px] font-bold"
         >
-          수락
+          {t("requestsScreen.accept")}
         </Button>
       </div>
     </li>

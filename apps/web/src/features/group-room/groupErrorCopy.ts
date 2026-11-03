@@ -1,7 +1,8 @@
 import { ApiError } from "@/lib/api";
+import i18n from "@/lib/i18n";
 
-import { CONTACT_BLOCKED_COPY } from "./model/contactCheck";
-import { applyBlockCopy, CREATE_ROOM_LIMIT_COPY, joinBlockCopy } from "./model/limits";
+import { contactBlockedCopy } from "./model/contactCheck";
+import { applyBlockCopy, createRoomLimitCopy, joinBlockCopy } from "./model/limits";
 
 /**
  * 그룹 API 오류를 화면 문구로 바꾸는 표
@@ -9,6 +10,8 @@ import { applyBlockCopy, CREATE_ROOM_LIMIT_COPY, joinBlockCopy } from "./model/l
  * 문구는 서버 `message`가 아니라 `code`로만 고른다.
  * 정한 문장은 판단 모듈의 함수에서 가져와 같은 문장을 두 곳에서 따로 쓰지 않는다.
  * 표에 없는 조합은 모두 다시 시도 문구다.
+ * 표에는 문장 대신 문장을 만드는 함수를 둔다.
+ * 문장을 모듈 상수로 만들면 불러온 시점의 언어에서 바뀌지 않기 때문이다.
  */
 
 /** 오류가 난 사용자 동작 */
@@ -28,47 +31,60 @@ export type GroupAction =
   | "notify"
   | "load";
 
-export const GROUP_RETRY_COPY = "잠시 후 다시 시도해 주세요";
-export const GROUP_NOT_FOUND_COPY = "그룹을 찾을 수 없어요";
-export const NOT_GROUP_MEMBER_COPY = "이 그룹의 멤버가 아니에요";
-/** 신청 중 시트와 공개 그룹 보기에서 신청을 취소한 뒤 띄우는 토스트 문장 */
-export const APPLICATION_CANCELED_COPY = "신청을 취소했어요";
+export function groupRetryCopy(): string {
+  return i18n.t("common:errors.retryLater");
+}
 
-const INVALID_CODE_COPY = joinBlockCopy("invalid_code");
-const ROOM_FULL_COPY = joinBlockCopy("room_full");
-const GROUP_COUNT_FULL_COPY = applyBlockCopy("rooms_and_applications_full");
+export function groupNotFoundCopy(): string {
+  return i18n.t("group-room:groupError.notFound");
+}
+
+export function notGroupMemberCopy(): string {
+  return i18n.t("group-room:groupError.notMember");
+}
+
+/** 신청 중 시트와 공개 그룹 보기에서 신청을 취소한 뒤 띄우는 토스트 문장 */
+export function applicationCanceledCopy(): string {
+  return i18n.t("group-room:groupError.applicationCanceled");
+}
+
+type CopyOf = () => string;
+
+const invalidCodeCopy: CopyOf = () => joinBlockCopy("invalid_code");
+const roomFullCopy: CopyOf = () => joinBlockCopy("room_full");
+const groupCountFullCopy: CopyOf = () => applyBlockCopy("rooms_and_applications_full");
 
 // 서버가 보낸 코드를 그대로 열쇠로 쓰므로 객체 속성과 겹치지 않게 Map에 둔다.
-const COPY_BY_ACTION: Partial<Record<GroupAction, ReadonlyMap<string, string>>> = {
+const COPY_BY_ACTION: Partial<Record<GroupAction, ReadonlyMap<string, CopyOf>>> = {
   join_code: new Map([
-    ["INVITE_CODE_NOT_FOUND", INVALID_CODE_COPY],
-    ["VALIDATION_FAILED", INVALID_CODE_COPY],
-    ["BAD_REQUEST", INVALID_CODE_COPY],
-    ["GROUP_FULL", ROOM_FULL_COPY],
-    ["RECENTLY_KICKED", joinBlockCopy("kicked_recently")],
-    ["GROUP_SLOT_LIMIT", joinBlockCopy("rooms_and_applications_full")],
+    ["INVITE_CODE_NOT_FOUND", invalidCodeCopy],
+    ["VALIDATION_FAILED", invalidCodeCopy],
+    ["BAD_REQUEST", invalidCodeCopy],
+    ["GROUP_FULL", roomFullCopy],
+    ["RECENTLY_KICKED", () => joinBlockCopy("kicked_recently")],
+    ["GROUP_SLOT_LIMIT", () => joinBlockCopy("rooms_and_applications_full")],
   ]),
   apply: new Map([
-    ["GROUP_SLOT_LIMIT", GROUP_COUNT_FULL_COPY],
-    ["APPLICATION_LIMIT", applyBlockCopy("pending_applications_full")],
-    ["RECENTLY_KICKED", applyBlockCopy("kicked_recently")],
-    ["GROUP_FULL", ROOM_FULL_COPY],
-    ["CONTACT_NOT_ALLOWED", CONTACT_BLOCKED_COPY],
+    ["GROUP_SLOT_LIMIT", groupCountFullCopy],
+    ["APPLICATION_LIMIT", () => applyBlockCopy("pending_applications_full")],
+    ["RECENTLY_KICKED", () => applyBlockCopy("kicked_recently")],
+    ["GROUP_FULL", roomFullCopy],
+    ["CONTACT_NOT_ALLOWED", contactBlockedCopy],
   ]),
-  answer: new Map([["GROUP_FULL", ROOM_FULL_COPY]]),
+  answer: new Map([["GROUP_FULL", roomFullCopy]]),
   create: new Map([
-    ["CONTACT_NOT_ALLOWED", CONTACT_BLOCKED_COPY],
-    ["OWNED_GROUP_LIMIT", CREATE_ROOM_LIMIT_COPY],
+    ["CONTACT_NOT_ALLOWED", contactBlockedCopy],
+    ["OWNED_GROUP_LIMIT", createRoomLimitCopy],
     // 5개 한도는 답을 기다리는 신청도 세어서 이미 5개의 그룹이 있다는 문장은 틀릴 수 있다.
-    ["GROUP_SLOT_LIMIT", GROUP_COUNT_FULL_COPY],
+    ["GROUP_SLOT_LIMIT", groupCountFullCopy],
   ]),
-  update: new Map([["CONTACT_NOT_ALLOWED", CONTACT_BLOCKED_COPY]]),
+  update: new Map([["CONTACT_NOT_ALLOWED", contactBlockedCopy]]),
 };
 
 // 그룹이 사라졌거나 멤버가 아니라는 답은 어느 동작에서 받아도 뜻이 같다.
-const COPY_FOR_ANY_ACTION: ReadonlyMap<string, string> = new Map([
-  ["GROUP_NOT_FOUND", GROUP_NOT_FOUND_COPY],
-  ["NOT_GROUP_MEMBER", NOT_GROUP_MEMBER_COPY],
+const COPY_FOR_ANY_ACTION: ReadonlyMap<string, CopyOf> = new Map([
+  ["GROUP_NOT_FOUND", groupNotFoundCopy],
+  ["NOT_GROUP_MEMBER", notGroupMemberCopy],
 ]);
 
 const QUIET_CONFLICT_CODES: ReadonlySet<string> = new Set([
@@ -83,10 +99,11 @@ export function groupErrorCode(error: unknown): string | null {
 
 export function groupErrorCopy(action: GroupAction, error: unknown): string {
   const code = groupErrorCode(error);
-  if (code === null) {
-    return GROUP_RETRY_COPY;
-  }
-  return COPY_BY_ACTION[action]?.get(code) ?? COPY_FOR_ANY_ACTION.get(code) ?? GROUP_RETRY_COPY;
+  const copyOf =
+    code === null
+      ? undefined
+      : (COPY_BY_ACTION[action]?.get(code) ?? COPY_FOR_ANY_ACTION.get(code));
+  return copyOf === undefined ? groupRetryCopy() : copyOf();
 }
 
 /**

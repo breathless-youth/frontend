@@ -1,5 +1,9 @@
+import i18n from "@/lib/i18n";
+
 /** 연락처나 링크가 든 글을 쓰거나 서버가 막았을 때 입력칸 아래에 보이는 문장. */
-export const CONTACT_BLOCKED_COPY = "연락처나 링크는 보낼 수 없어요";
+export function contactBlockedCopy(): string {
+  return i18n.t("group-room:contactCheck.blocked");
+}
 
 // 서버 자바 정규식의 \s는 ASCII 공백 여섯 글자뿐이고 JS의 \s는 줄 구분 문자와 BOM까지 받아서 서버와 같은 글자만 적는다.
 // 연락 수단 말과 아이디 사이에는 이 공백과 쌍점, 하이픈을 세 글자까지 둘 수 있다.
@@ -23,8 +27,10 @@ const CONTACT_PATTERNS: readonly RegExp[] = [
   /\d(?:[ \t\n\v\f\r.-]?\d){8,}/u,
   // 뒤에 영문자가 없으면 아이디가 아니라서 `@10시 출석`은 통과한다.
   /@(?=[a-z0-9._]*[a-z])[a-z0-9._]{2,}/u,
+  // eslint-disable-next-line no-restricted-syntax -- 연락처 판정용 낱말
   new RegExp(`${CONTACT_WORD}${SEP}(?:(?:아이디|id)${SEP})?${ID}`, "u"),
   // id 뒤에 영문자가 이어지면 idea 같은 다른 낱말이다.
+  // eslint-disable-next-line no-restricted-syntax -- 연락처 판정용 낱말
   new RegExp(`${KAKAO_WITH_LABEL}${SEP}(?:아이디|id(?![a-z]))${SEP}${ID}`, "u"),
 ];
 

@@ -1,4 +1,5 @@
 import { Bell, BellOff, ChevronRight } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,7 @@ export function RoomHomeScreen({
   /** 자리를 잡는 동안 다시 눌러 자리를 두 번 잡지 않게 막는다. */
   entering?: boolean;
 }) {
+  const { t } = useTranslation("group-room");
   const elapsedSec = useElapsedSec(
     fetchedAtMs,
     room.members.some((member) => member.accumulating) ||
@@ -77,7 +79,7 @@ export function RoomHomeScreen({
           <div className="flex items-center gap-1">
             <button
               type="button"
-              aria-label="멤버 공부 알림"
+              aria-label={t("roomHomeScreen.aria.notify")}
               aria-pressed={room.notifyOn}
               onClick={onToggleNotify}
               className="flex size-11 items-center justify-center rounded-full text-muted-foreground focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
@@ -109,7 +111,7 @@ export function RoomHomeScreen({
           <NewRequestsBand count={room.newRequestCount} onOpen={onOpenRequests} />
         )}
         <TodayDesksCard
-          title="오늘 우리 그룹"
+          title={t("roomHomeScreen.todayTitle")}
           members={room.members}
           visibility={room.visibility}
           elapsedSec={elapsedSec}
@@ -124,7 +126,7 @@ export function RoomHomeScreen({
           disabled={entering}
           className={cn(BOTTOM_CTA_CLASS, "shadow-sb-cta")}
         >
-          공부방 들어가기
+          {t("roomHomeScreen.enter")}
         </Button>
       </div>
     </main>
@@ -132,6 +134,7 @@ export function RoomHomeScreen({
 }
 
 function NewRequestsBand({ count, onOpen }: { count: number; onOpen: () => void }) {
+  const { t } = useTranslation("group-room");
   return (
     <button
       type="button"
@@ -139,10 +142,10 @@ function NewRequestsBand({ count, onOpen }: { count: number; onOpen: () => void 
       className="mt-0.5 flex min-h-11 w-full items-center justify-between gap-3 rounded-lg bg-brand-subtle px-4 py-3 text-left focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
     >
       <span className="text-sm leading-5 font-bold text-brand-subtle-text">
-        {`새 신청이 ${count}건 있어요`}
+        {t("roomHomeScreen.newRequests", { count })}
       </span>
       <span className="flex shrink-0 items-center gap-0.5 text-[13px] leading-5 font-bold text-primary">
-        확인하기
+        {t("roomHomeScreen.review")}
         <ChevronRight aria-hidden="true" size={14} />
       </span>
     </button>

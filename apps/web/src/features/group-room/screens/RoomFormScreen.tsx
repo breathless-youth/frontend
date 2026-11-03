@@ -1,5 +1,6 @@
 import { Globe, Lock } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { Button } from "@/components/ui/button";
@@ -12,12 +13,12 @@ import { groupFieldError, isOverGroupLimit } from "../fieldError";
 import { GROUP_ROOM_LIMITS, countGroupText } from "../model/limits";
 import type { RoomVisibility } from "../model/roomMenu";
 import type { CategoryOption, RoomFormServerError, RoomFormValues } from "../types";
-import { VISIBILITY_TEXT } from "../visibility";
+import { visibilityText } from "../visibility";
 
-const VISIBILITY_OPTIONS: { value: RoomVisibility; description: string }[] = [
-  { value: "public", description: "공개 그룹 목록에 보이고, 신청을 받아 그룹장이 수락해요" },
-  { value: "private", description: "초대 링크나 코드를 받은 사람만 들어와요" },
-];
+const VISIBILITY_OPTIONS = [
+  { value: "public", descriptionKey: "roomFormScreen.publicDescription" },
+  { value: "private", descriptionKey: "roomFormScreen.privateDescription" },
+] as const satisfies readonly { value: RoomVisibility; descriptionKey: string }[];
 
 const SECTION_LABEL_CLASS = "pb-2 text-sm leading-5 font-bold text-foreground";
 
@@ -50,6 +51,7 @@ export function RoomFormScreen({
   onBack: () => void;
   onSubmit: (values: RoomFormValues) => void;
 }) {
+  const { t } = useTranslation("group-room");
   const [values, setValues] = useState(initial);
   const [submitted, setSubmitted] = useState<RoomFormValues | null>(null);
   const nameId = useId();
@@ -79,16 +81,20 @@ export function RoomFormScreen({
     countGroupText(values.name) > 0 &&
     !isOverGroupLimit(values.name, GROUP_ROOM_LIMITS.roomNameMax) &&
     !isOverGroupLimit(values.intro, GROUP_ROOM_LIMITS.roomIntroMax);
-  const submitLabel = mode === "create" ? "그룹 만들기" : "저장하기";
+  const submitLabel =
+    mode === "create" ? t("roomFormScreen.submitCreate") : t("roomFormScreen.submitEdit");
 
   const update = (patch: Partial<RoomFormValues>) => setValues((prev) => ({ ...prev, ...patch }));
 
   return (
     <main className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground">
-      <ScreenBackHeader title={mode === "create" ? "그룹 만들기" : "그룹 설정"} onBack={onBack} />
+      <ScreenBackHeader
+        title={mode === "create" ? t("roomFormScreen.titleCreate") : t("roomFormScreen.titleEdit")}
+        onBack={onBack}
+      />
       <div className="flex flex-col px-5 pt-4">
         <label htmlFor={nameId} className={SECTION_LABEL_CLASS}>
-          그룹 이름
+          {t("roomFormScreen.nameLabel")}
         </label>
         <FieldBox
           id={nameId}
@@ -110,7 +116,7 @@ export function RoomFormScreen({
         </FieldBox>
 
         <p id={visibilityTitleId} className={cn(SECTION_LABEL_CLASS, "pt-4.5")}>
-          누가 들어올 수 있나요?
+          {t("roomFormScreen.visibilityLabel")}
         </p>
         {mode === "create" ? (
           <div
@@ -123,7 +129,7 @@ export function RoomFormScreen({
                 key={option.value}
                 name={visibilityName}
                 value={option.value}
-                description={option.description}
+                description={t(option.descriptionKey)}
                 checked={values.visibility === option.value}
                 onSelect={() => update({ visibility: option.value })}
               />
@@ -133,7 +139,7 @@ export function RoomFormScreen({
           <FixedVisibility visibility={values.visibility} />
         )}
 
-        <p className={cn(SECTION_LABEL_CLASS, "pt-4.5")}>시험·목표</p>
+        <p className={cn(SECTION_LABEL_CLASS, "pt-4.5")}>{t("roomFormScreen.categoryLabel")}</p>
         <CategoryChips
           options={categories}
           value={values.category}
@@ -141,7 +147,7 @@ export function RoomFormScreen({
         />
 
         <label htmlFor={introId} className={cn(SECTION_LABEL_CLASS, "pt-4.5")}>
-          그룹 소개
+          {t("roomFormScreen.introLabel")}
         </label>
         <FieldBox
           id={introId}
@@ -271,7 +277,7 @@ function VisibilityOption({
       />
       <span className="flex min-w-0 flex-col">
         <span id={titleId} className="text-[15px] leading-5.5 font-bold text-foreground">
-          {VISIBILITY_TEXT[value]}
+          {visibilityText(value)}
         </span>
         <span id={descriptionId} className="text-[13px] leading-5 break-keep text-muted-foreground">
           {description}
@@ -287,16 +293,17 @@ function VisibilityOption({
  * 바꿀 수 없다는 안내를 같은 상자에 둔다.
  */
 function FixedVisibility({ visibility }: { visibility: RoomVisibility }) {
+  const { t } = useTranslation("group-room");
   const Icon = visibility === "public" ? Globe : Lock;
   return (
     <div className="flex items-start gap-3 rounded-xl bg-bg-layer-2 px-4 py-3.5 text-muted-foreground">
       <Icon aria-hidden="true" size={20} className="mt-px shrink-0" />
       <span className="flex min-w-0 flex-col">
         <span className="text-[15px] leading-5.5 font-bold text-foreground">
-          {VISIBILITY_TEXT[visibility]}
+          {visibilityText(visibility)}
         </span>
         <span className="text-[13px] leading-5 break-keep">
-          공개와 비공개는 그룹을 만든 뒤에 바꿀 수 없어요
+          {t("roomFormScreen.fixedVisibilityNote")}
         </span>
       </span>
     </div>

@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useEffectEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { toApplicationRequest } from "@/features/group-room/fromApi";
 import {
-  GROUP_RETRY_COPY,
+  groupRetryCopy,
   groupErrorCode,
   groupErrorCopy,
   isGroupGoneError,
@@ -61,6 +62,7 @@ export function GroupApplicationsPage() {
  * 답한 뒤에는 멤버 변화로 바뀌는 조회를 한 번에 무효화해 신청 목록을 두 번 받지 않는다.
  */
 function GroupApplications({ userId, groupId }: { userId: number; groupId: number }) {
+  const { t } = useTranslation("group-room");
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -124,10 +126,10 @@ function GroupApplications({ userId, groupId }: { userId: number; groupId: numbe
   if (home === undefined) {
     const failed = cannotLoadFirst(homeQuery) && !isGroupGoneError(homeQuery.error);
     return (
-      <GroupScreenFrame title="신청 확인" onBack={back}>
+      <GroupScreenFrame title={t("requestsScreen.title")} onBack={back}>
         {failed ? (
           <ErrorState
-            message={GROUP_RETRY_COPY}
+            message={groupRetryCopy()}
             onRetry={() => void homeQuery.refetch()}
             screen="group_tab"
           />
@@ -155,7 +157,7 @@ function GroupApplications({ userId, groupId }: { userId: number; groupId: numbe
       error={
         listFailed ? (
           <ErrorState
-            message={GROUP_RETRY_COPY}
+            message={groupRetryCopy()}
             onRetry={() => void applicationsQuery.refetch()}
             screen="group_tab"
           />

@@ -2,9 +2,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
+import { __resetGroupRoomsForTests } from "@/lib/groupRoomCapability";
 import i18n from "@/lib/i18n";
 import { SettingsPage } from "@/routes/SettingsPage";
 import { TermsPage } from "@/routes/TermsPage";
@@ -48,6 +49,21 @@ describe("설정 영어 화면", () => {
       receive(JSON.stringify({ type: "camera-permission", granted: true, atMs: 1 }));
     });
 
+    expect(visibleText(container)).not.toMatch(HANGUL);
+  });
+
+  it("그룹 표시가 있는 앱의 차단 목록 줄도 영어로 보인다", async () => {
+    // 그룹 표시는 라우터가 아니라 문서 주소에서 읽는다.
+    window.history.replaceState(null, "", "/settings?groupRooms=1");
+    __resetGroupRoomsForTests();
+    onTestFinished(() => {
+      window.history.replaceState(null, "", "/");
+      __resetGroupRoomsForTests();
+    });
+    await i18n.changeLanguage("en");
+    const { container } = renderInRouter(<SettingsPage />);
+
+    expect(screen.getByRole("button", { name: "Blocked users" })).toBeInTheDocument();
     expect(visibleText(container)).not.toMatch(HANGUL);
   });
 

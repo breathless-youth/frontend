@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { STUDY_CATEGORY_OPTIONS, isStudyCategory, studyCategoryLabel } from "@/lib/studyCategory";
+import { isStudyCategory, studyCategoryLabel, studyCategoryOptions } from "@/lib/studyCategory";
 
 describe("studyCategory", () => {
   it("프로필과 그룹이 같은 순서의 9개를 쓴다", () => {
-    expect(STUDY_CATEGORY_OPTIONS.map((option) => `${option.value}:${option.label}`)).toEqual([
+    expect(studyCategoryOptions().map((option) => `${option.value}:${option.label}`)).toEqual([
       "CSAT:수능",
       "SCHOOL_EXAM:내신",
       "UNIVERSITY_EXAM:대학 시험",
