@@ -98,6 +98,7 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
     enabled: !left && home?.visibility === "PRIVATE",
   });
   const enterRoom = useMutation({
+    ...GROUP_MUTATION_OPTIONS,
     mutationFn: () => enterGroupStudyRoom(userId, groupId),
   });
   // 결과 처리는 mutate에 넘겨 그룹 홈이 화면에 있는 동안만 한다.

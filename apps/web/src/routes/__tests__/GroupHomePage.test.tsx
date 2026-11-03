@@ -347,6 +347,21 @@ describe("그룹 홈", () => {
     });
   });
 
+  it("오프라인에서 공부방 들어가기를 눌러도 멈춰 있지 않고 바로 다시 시도하라고 알린다", async () => {
+    const api = mockGroupApi("default");
+    api.joinGroupRoom.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    renderGroupRoute("/social/groups/10?groupRooms=1");
+    const enter = await screen.findByRole("button", { name: "공부방 들어가기" });
+    act(() => onlineManager.setOnline(false));
+    onTestFinished(() => onlineManager.setOnline(true));
+
+    await userEvent.setup().click(enter);
+
+    expect(api.joinGroupRoom).toHaveBeenCalledWith(10);
+    expect(await screen.findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
+    await waitFor(() => expect(enter).toBeEnabled());
+  });
+
   it("자리를 잡는 동안에는 공부방 들어가기를 다시 누를 수 없다", async () => {
     const api = mockGroupApi("default");
     api.joinGroupRoom.mockImplementation(() => new Promise(() => {}));
