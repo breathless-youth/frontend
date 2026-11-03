@@ -113,7 +113,7 @@ import { GROUP_ROOM_ANALYTICS_MASK } from "./groupRoomAnalyticsMask";
 import type { CreateChannel } from "./liveRoomEntryState";
 import type { LiveRoomKind, RoomSeat } from "./roomKind";
 import { leaveRoomSeat, liveRoomHomePath, liveRoomResultPath, renewRoomSeat } from "./roomKind";
-import { roomSessionFlags } from "./roomSessionFlags";
+import { roomSessionFlags, visionPreview } from "./roomSessionFlags";
 import { useBackgroundGraceWatch } from "./useBackgroundGraceWatch";
 import { useCameraPreviewAspect } from "./useCameraPreviewAspect";
 import { useFaceMaskedSend, useKeepMaskSourceLive } from "./useFaceMaskedSend";
@@ -575,9 +575,15 @@ export function LiveRoomSession({
   });
 
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
-  // 일시정지 중 카메라 켜기 미리보기가 열려 있으면 이모지 자리만 구한다.
+  // 일시정지 중 카메라 켜기 미리보기가 열려 있거나 휴식 중에 영상이 나가면 이모지 자리만 구한다.
   // 세션 판정에는 넣지 않는다.
-  const previewDetection = !detectionEnabled && cameraDialogOpen && faceMask.on;
+  const previewDetection = visionPreview({
+    detectionEnabled,
+    faceMaskOn: faceMask.on,
+    cameraDialogOpen,
+    onBreak: flags.onBreak,
+    studying: phase.name === "studying",
+  });
   useEffect(() => {
     visionDetector.setPreviewOnly(previewDetection);
     if (detectionEnabled) {

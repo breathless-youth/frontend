@@ -27,3 +27,27 @@ export function roomSessionFlags(state: SessionState): RoomSessionFlags {
     onBreak: isBreak(state),
   };
 }
+
+/**
+ * 측정 없이 얼굴 자리만 구하는 미리보기 감지를 돌릴지
+ *
+ * 얼굴 가림의 이모지는 감지가 구한 얼굴 자리에 그려서, 감지를 멈추면 보내는 영상 전체가 흐려진다.
+ * 카메라 켜기 창의 미리보기와 영상이 그대로 나가는 휴식 중에는 얼굴 자리만 계속 구한다.
+ * 이 감지는 집중 신호를 내지 않아서 측정을 멈춘 상태가 그대로다.
+ */
+export function visionPreview({
+  detectionEnabled,
+  faceMaskOn,
+  cameraDialogOpen,
+  onBreak,
+  studying,
+}: {
+  /** 측정용 전체 감지가 돌고 있으면 이모지 자리도 거기서 구한다. */
+  detectionEnabled: boolean;
+  faceMaskOn: boolean;
+  cameraDialogOpen: boolean;
+  onBreak: boolean;
+  studying: boolean;
+}): boolean {
+  return !detectionEnabled && faceMaskOn && (cameraDialogOpen || (onBreak && studying));
+}
