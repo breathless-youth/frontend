@@ -25,7 +25,7 @@ import {
   monthOfDateKey,
   shiftMonth,
 } from "@/features/records/recordsFormat";
-import { getPeriodStats, listStudySessionStats } from "@/lib/statsApi";
+import { getPeriodStats, getStudyRhythm, listStudySessionStats } from "@/lib/statsApi";
 import {
   trackRecordsMonthChanged,
   trackRecordsPeriodPicked,
@@ -55,6 +55,7 @@ if (typeof window.PointerEvent === "undefined") {
 vi.mock("@/lib/statsApi", () => ({
   listStudySessionStats: vi.fn(),
   getPeriodStats: vi.fn(),
+  getStudyRhythm: vi.fn(),
 }));
 vi.mock("@/lib/amplitude", () => ({
   trackRecordsDateSelected: vi.fn(),
@@ -74,6 +75,7 @@ vi.mock("@/lib/userId", async (importOriginal) => ({
 
 const mockedStats = vi.mocked(listStudySessionStats);
 const mockedPeriod = vi.mocked(getPeriodStats);
+const mockedRhythm = vi.mocked(getStudyRhythm);
 const mockedTrackMonthChanged = vi.mocked(trackRecordsMonthChanged);
 const mockedTrackSessionExpanded = vi.mocked(trackRecordsSessionExpanded);
 
@@ -173,6 +175,11 @@ describe("RecordsPage", () => {
     vi.clearAllMocks();
     tokenMock.has = false;
     mockedPeriod.mockResolvedValue(periodResponse());
+    // 리듬은 14일 전(샘플 카드)을 기본으로 둔다 — 주간 탭 테스트가 카드 순서만 보기 때문.
+    mockedRhythm.mockResolvedValue({
+      studyDays: 0,
+      focusSecByWeekdayHour: Array.from({ length: 7 }, () => Array<number>(24).fill(0)),
+    });
   });
 
   it("세션 행을 누르면 그 자리에서 펼쳐지고 다시 누르면 접힌다", async () => {

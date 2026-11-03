@@ -252,6 +252,18 @@ export interface StudyDaysResponse {
 }
 
 /**
+ * 공부 리듬 조회(`GET /api/stats/rhythm`) 응답 — 기록 탭 '나의 공부 리듬' 히트맵. study-days처럼 토큰 신원·
+ * API-Version 1 하나다. 세션 순공을 정시 경계로 잘라 이벤트를 뺀 길이 비율로 배분한 값이라 격자 합은
+ * 1분 이상 측정 세션의 순공 합과 같다. 며칠부터 보여줄지는 앱이 정한다(`features/records/rhythm.ts`).
+ */
+export interface StudyRhythmResponse {
+  /** 누적 공부일 — `StudyDaysResponse.totalDays`와 같은 값(1분 기준, 오늘까지) */
+  studyDays: number;
+  /** 요일(월=0 … 일=6) × 시각(KST 0~23시)별 누적 순공 초. 기록이 없으면 모두 0 */
+  focusSecByWeekdayHour: number[][];
+}
+
+/**
  * 기간 집계 조회 API 계약 (GET /api/stats/period) — Swagger 기준.
  * 총합·증감은 서버가 주지 않는다. 아래 배열을 합산해 계산한다.
  */

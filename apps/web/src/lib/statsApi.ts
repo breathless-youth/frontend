@@ -1,6 +1,7 @@
 import type {
   StudyDaysResponse,
   StudyPeriodStatsResponse,
+  StudyRhythmResponse,
   StudySessionListResponse,
   StudySessionStreakResponse,
 } from "@focusmakers/types";
@@ -57,6 +58,18 @@ export async function getStudyDays(): Promise<StudyDaysResponse> {
     throw await parseErrorMessage(res, "study days fetch failed");
   }
   return (await res.json()) as StudyDaysResponse;
+}
+
+/** study-days와 같은 토큰 전용 새 경로(버전 1) — `legacyQuery`를 붙이지 않는다. */
+export async function getStudyRhythm(): Promise<StudyRhythmResponse> {
+  const res = await apiFetch(`${API_BASE_URL}/api/stats/rhythm`, {
+    endpoint: "studyRhythm",
+    method: "GET",
+  });
+  if (!res.ok) {
+    throw await parseErrorMessage(res, "study rhythm fetch failed");
+  }
+  return (await res.json()) as StudyRhythmResponse;
 }
 
 export async function getPeriodStats(
