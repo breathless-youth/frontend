@@ -144,6 +144,27 @@ describe("ApplyScreen", () => {
     expect(field).toHaveFocus();
   });
 
+  it("iPhone에서 라벨을 눌러도 기본 동작을 막고 문서를 끌어 올리지 않게 입력칸에 포커스를 준다", () => {
+    stubUserAgent(IPHONE_UA);
+    renderScreen(<ApplyHarness />);
+    const field = screen.getByRole("textbox", { name: "소개 글" });
+    const focus = vi.spyOn(field, "focus");
+    // 라벨 누름의 기본 동작은 옵션 없는 focus()라 문서를 끌어 올릴 수 있다.
+    expect(fireEvent.mouseDown(screen.getByText("소개 글", { selector: "label" }))).toBe(false);
+    expect(focus.mock.calls).toEqual([[{ preventScroll: true }]]);
+    expect(field).toHaveFocus();
+  });
+
+  it("Android에서는 라벨 누름을 가로채지 않는다", () => {
+    stubUserAgent(ANDROID_UA);
+    renderScreen(<ApplyHarness />);
+    const field = screen.getByRole("textbox", { name: "소개 글" });
+    field.blur();
+    const focus = vi.spyOn(field, "focus");
+    expect(fireEvent.mouseDown(screen.getByText("소개 글", { selector: "label" }))).toBe(true);
+    expect(focus).not.toHaveBeenCalled();
+  });
+
   it("Android에서는 입력칸 누름을 가로채지 않는다", () => {
     stubUserAgent(ANDROID_UA);
     renderScreen(<ApplyHarness />);
