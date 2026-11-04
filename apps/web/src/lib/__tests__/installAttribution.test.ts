@@ -187,14 +187,16 @@ describe("handleInstallAttribution과 flushInstallAttribution", () => {
     expect(localStorage.getItem(INSTALL_ATTRIBUTION_PENDING_KEY)).toBeNull();
   });
 
-  it("400이면 보관을 지우고 속성은 남기지 않는다", async () => {
-    mocks.postAcquisition.mockRejectedValue(new ApiError("bad", 400, "INVALID"));
+  it("400이면 보관을 지우고 Sentry에 경고를 남긴다", async () => {
+    const error = new ApiError("bad", 400, "INVALID");
+    mocks.postAcquisition.mockRejectedValue(error);
     storePending({ platform: "ios", installReferrer: null, deepLinkAd: null, capturedAtMs: 1 });
 
     await flushInstallAttribution();
 
     expect(localStorage.getItem(INSTALL_ATTRIBUTION_PENDING_KEY)).toBeNull();
     expect(mocks.setInstallAttributionUserProperties).not.toHaveBeenCalled();
+    expect(mocks.reportHandled).toHaveBeenCalledWith(error, "install-attribution");
   });
 
   it.each([401, 500])("%i이면 보관을 남기고 속성은 남기지 않는다", async (status) => {

@@ -132,7 +132,8 @@ async function sendPending(): Promise<void> {
   } catch (error) {
     // 400은 다시 보내도 같은 결과라 원문을 지운다. 그 밖의 실패는 다음 실행에서 다시 보낸다.
     if (error instanceof ApiError && error.status === 400) {
-      console.warn("[install-attribution] server rejected acquisition", error);
+      // 이 사용자의 유입 기록을 잃는 것이라 알 수 있게 Sentry에 남긴다.
+      reportHandled(error, "install-attribution");
       removePending();
     } else {
       console.warn("[install-attribution] acquisition request failed", error);
