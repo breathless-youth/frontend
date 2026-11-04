@@ -105,7 +105,7 @@ function TileTimeBadge({
  * 목표 문구가 내려가고 올라오는 전환
  *
  * 아래 바와 한 덩어리로 보이도록 RoomControlBar의 슬라이드와 같은 시간과 곡선을 쓴다.
- * 이름과 목표 묶음이 타일 아래에 붙어 있어서 목표 줄을 없애면 닉네임이 따라 내려가므로 줄의 자리는 유지한다.
+ * 이름과 목표 묶음이 타일 아래에 붙어 있어서 목표 줄을 없애면 묶음이 줄어 닉네임이 갑자기 내려가므로 줄의 자리는 유지하고, 닉네임은 아래 `NICKNAME_DROP`으로 같이 내려보낸다.
  * 위치와 투명도만 바꾸므로 타일에 레이아웃 전환을 쓰지 않는 규칙도 지킨다.
  * 이동 거리는 문구 높이에 `bottom-3`과 같은 간격 토큰 3칸을 더해, 문구가 타일 아래 끝 밖으로 나가는 만큼이다.
  * 보일 때의 위치도 `translate-y-0`으로 적어 두 상태가 모두 값을 가진 채로 전환한다.
@@ -125,6 +125,17 @@ const GOAL_SLIDE =
  * 올리지 않았을 때의 위치도 `translate-y-0`으로 적어 두 상태가 모두 값을 가진 채로 전환한다.
  * 낮은 가로 화면의 작은 타일은 올라간 이름 줄이 오른쪽 위 시간 뱃지 높이까지 닿아서, 뱃지가 있는 타일은 올라간 동안 오른쪽 끝을 뱃지 폭만큼 비워 긴 글자를 줄임표로 줄인다.
  */
+/**
+ * 목표가 숨을 때 닉네임 줄이 목표 자리로 내려오는 전환
+ *
+ * 목표 줄이 숨은 뒤 그 자리가 빈 띠로 남지 않게 닉네임 줄을 목표 줄의 위 간격과 높이만큼 내린다.
+ * 시간과 곡선은 바와 목표 줄과 같다.
+ * 자리를 비우지 않으려는 위치 이동이라 동작 줄이기에서도 위치는 바뀌고 전환만 끈다.
+ * 내리는 거리는 목표 줄이 읽는 `--goal-line`에 위 간격 한 칸을 더한 값이라 목표 줄 높이를 바꾸면 함께 바뀐다.
+ */
+const NICKNAME_DROP =
+  "translate-y-0 transition-[translate] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none data-dropped:translate-y-[calc(var(--goal-line)+var(--spacing))]";
+
 const LABEL_LIFT =
   "translate-y-0 transition-[translate] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none landscape-compact:data-lifted:-translate-y-(--room-bar-lift)";
 
@@ -159,7 +170,7 @@ export type RoomTileProps = {
   /**
    * 아래 바가 내려간 동안 목표 문구를 바와 함께 내리며 감춘다.
    *
-   * 닉네임과 마이크 아이콘은 움직이지 않는다.
+   * 목표가 있는 타일은 닉네임과 마이크 아이콘이 든 줄이 같은 시간과 곡선으로 그 자리로 내려온다.
    * 화면 낭독기는 감춘 문구도 읽어야 해서 `aria-hidden`을 쓰지 않는다.
    */
   goalHidden?: boolean;
@@ -242,9 +253,16 @@ export function RoomTile({
           menuButton === undefined ? "right-3" : "right-12",
           LABEL_LIFT,
           !isSelf && "landscape-compact:data-lifted:right-20",
+          "[--goal-line:--spacing(3.75)] regular:[--goal-line:--spacing(4.5)] short-side-lg:[--goal-line:--spacing(5.5)]",
         )}
       >
-        <p className="flex min-w-0 items-center gap-1 text-[15px] font-bold text-white regular:text-[1.0625rem] short-side-lg:text-[1.3125rem]">
+        <p
+          data-dropped={(goal !== null && goalHidden) || undefined}
+          className={cn(
+            "flex min-w-0 items-center gap-1 text-[15px] font-bold text-white regular:text-[1.0625rem] short-side-lg:text-[1.3125rem]",
+            NICKNAME_DROP,
+          )}
+        >
           <span className="min-w-0 truncate">{member.nickname}</span>
           {micOn !== undefined && <TileMicIcon on={micOn} />}
         </p>
@@ -252,7 +270,7 @@ export function RoomTile({
           <p
             data-hidden={goalHidden || undefined}
             className={cn(
-              "mt-1 truncate text-xs leading-3.75 text-white/72 regular:text-sm regular:leading-4.5 short-side-lg:text-[1.0625rem] short-side-lg:leading-5.5",
+              "mt-1 truncate text-xs leading-(--goal-line) text-white/72 regular:text-sm short-side-lg:text-[1.0625rem]",
               GOAL_SLIDE,
             )}
           >

@@ -301,6 +301,75 @@ describe("RoomTile 목표 문구 내리기", () => {
   });
 });
 
+describe("RoomTile 목표 자리로 내려오는 닉네임", () => {
+  const withGoal = {
+    userId: 8,
+    cameraOn: true,
+    focusState: "FOCUS",
+    nickname: "포메1",
+    goal: "합격",
+  } as const;
+  const nicknameRow = () => screen.getByText("포메1").closest("p");
+
+  it("목표가 보이는 동안 닉네임 줄은 제자리다", () => {
+    render(<RoomTile member={withGoal} micOn />);
+
+    expect(nicknameRow()).not.toHaveAttribute("data-dropped");
+  });
+
+  it("목표가 숨으면 마이크 아이콘이 든 닉네임 줄이 목표 자리로 내려오고 목표는 낭독기에 남는다", () => {
+    render(<RoomTile member={withGoal} micOn goalHidden />);
+
+    const row = nicknameRow();
+    expect(row).toHaveAttribute("data-dropped", "true");
+    // 닉네임과 마이크 아이콘은 같은 줄이라 함께 내려온다.
+    expect(screen.getByRole("img", { name: "마이크 켜짐" }).closest("[data-dropped]")).toBe(row);
+    expect(isInaccessible(screen.getByText("합격"))).toBe(false);
+  });
+
+  it("목표가 없는 타일은 이미 맨 아래라 내려오지 않는다", () => {
+    render(<RoomTile member={{ ...withGoal, goal: null }} goalHidden />);
+
+    expect(nicknameRow()).not.toHaveAttribute("data-dropped");
+  });
+
+  it("다시 보이면 닉네임 줄이 올라간다", () => {
+    const { rerender } = render(<RoomTile member={withGoal} goalHidden />);
+    expect(nicknameRow()).toHaveAttribute("data-dropped", "true");
+
+    rerender(<RoomTile member={withGoal} />);
+
+    expect(nicknameRow()).not.toHaveAttribute("data-dropped");
+  });
+
+  it("내려오는 전환은 바와 목표와 같은 시간과 곡선이고 동작 줄이기에서는 전환 없이 바로 움직인다", () => {
+    render(<RoomTile member={withGoal} goalHidden />);
+
+    const row = nicknameRow();
+    expect(row).toHaveClass(
+      "translate-y-0",
+      "transition-[translate]",
+      "duration-500",
+      "ease-[cubic-bezier(0.32,0.72,0,1)]",
+      "motion-reduce:transition-none",
+      "data-dropped:translate-y-[calc(var(--goal-line)+var(--spacing))]",
+    );
+    // 목표 자리를 비우지 않으려는 위치 이동이라 동작 줄이기에서도 바뀐다.
+    expect(row?.className).not.toContain("motion-safe");
+  });
+
+  it("목표 줄 높이는 타일이 정한 한 값을 목표 줄과 닉네임 이동이 함께 읽는다", () => {
+    render(<RoomTile member={withGoal} />);
+
+    expect(screen.getByTestId("tile-info")).toHaveClass(
+      "[--goal-line:--spacing(3.75)]",
+      "regular:[--goal-line:--spacing(4.5)]",
+      "short-side-lg:[--goal-line:--spacing(5.5)]",
+    );
+    expect(screen.getByText("합격")).toHaveClass("leading-(--goal-line)");
+  });
+});
+
 describe("RoomTile 이름 줄 올리기", () => {
   const withGoal = {
     userId: 8,
