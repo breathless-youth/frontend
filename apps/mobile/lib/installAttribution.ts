@@ -4,11 +4,14 @@ import { Platform } from "react-native";
 
 import {
   INSTALL_AD_LABEL_PATTERN,
+  INSTALL_GOOGLE_AD_LABEL_PATTERN,
   INSTALL_REFERRER_MAX_LENGTH,
   type InstallAttributionMessage,
 } from "@focusmakers/types";
 
+import { type GoogleDeferredLinkRead, readGoogleDeferredDeepLink } from "./googleDeferredLink";
 import { fetchMetaDeferredAppLink } from "./metaAds";
+import { trackNativeEvent } from "./nativeAnalytics";
 
 /**
  * 설치 유입 정보 통로
@@ -43,8 +46,12 @@ function activeSink(): InstallAttributionSink | null {
  * 메타는 주소 뒤에 `al_applink_data` 같은 파라미터를 덧붙인다.
  * RN의 URLSearchParams는 그중 하나라도 인코딩이 깨지면 URIError를 throw해서 `fm_ad` 값만 직접 푼다.
  * 형식 밖 값은 분석으로 내보내지 않으려고 버린다.
+ * 메타와 구글은 같은 `fm_ad` 이름을 쓰고 형식으로 가른다.
  */
-export function deepLinkAdFromUrl(url: string | null | undefined): string | null {
+export function deepLinkAdFromUrl(
+  url: string | null | undefined,
+  pattern: RegExp = INSTALL_AD_LABEL_PATTERN,
+): string | null {
   if (!url) return null;
   const withoutFragment = url.split("#")[0] ?? "";
   const queryStart = withoutFragment.indexOf("?");
@@ -54,7 +61,7 @@ export function deepLinkAdFromUrl(url: string | null | undefined): string | null
     if (key !== "fm_ad") continue;
     try {
       const label = decodeURIComponent(value);
-      return INSTALL_AD_LABEL_PATTERN.test(label) ? label : null;
+      return pattern.test(label) ? label : null;
     } catch {
       return null;
     }
@@ -98,13 +105,51 @@ function applyReferrer(base: Stored, read: ReferrerRead): Stored {
   return next;
 }
 
+/** 구글 광고 설치(`gclid`)일 때 지연 딥링크를 묻는 횟수. GA4 SDK가 첫 실행에서 늦게 받아 와도 놓치지 않으려고 30초까지 기다린다. */
+const GOOGLE_AD_READ_ATTEMPTS = 30;
+const GOOGLE_AD_READ_INTERVAL_MS = 1000;
+
+function referrerHasGclid(read: ReferrerRead): boolean {
+  if (read.failed || read.referrer === null) return false;
+  return /(^|&)gclid=/.test(read.referrer);
+}
+
+/**
+ * 구글 광고 그룹 번호를 읽는다
+ *
+ * 구글 광고로 설치한 기기만 오래 기다리고, 나머지는 한 번만 읽어 첫 실행 수집을 늦추지 않는다.
+ * 읽기가 실패해도 설치 정보와 메타 값은 넘어가야 해서 reject를 error로 바꾼다.
+ * `has_gclid`와 함께 남겨 두면 운영에서 값이 안 올 때 구글 광고 설치였는지부터 가를 수 있다.
+ */
+async function readGoogleDeepLinkAd(hasGclid: boolean): Promise<string | null> {
+  const read = await readGoogleDeferredDeepLink({
+    attempts: hasGclid ? GOOGLE_AD_READ_ATTEMPTS : 1,
+    intervalMs: GOOGLE_AD_READ_INTERVAL_MS,
+  }).catch((): GoogleDeferredLinkRead => ({ result: "error" }));
+  if (read.result === "unsupported") return null;
+  const label =
+    read.result === "found" ? deepLinkAdFromUrl(read.url, INSTALL_GOOGLE_AD_LABEL_PATTERN) : null;
+  trackNativeEvent("google_deferred_link_read", {
+    result: read.result === "found" && label === null ? "invalid" : read.result,
+    has_gclid: hasGclid,
+  });
+  return label;
+}
+
+/**
+ * 처음 수집
+ *
+ * 구글 값을 얼마나 기다릴지 설치 정보로 정하므로 설치 정보와 메타 값을 먼저 읽는다.
+ * 기다리는 사이 앱이 꺼져 보관하지 못하면 다음 실행에서 다시 수집하고, SDK가 저장한 구글 값도 그때 읽힌다.
+ */
 async function collect(): Promise<Stored> {
   const [read, deepLink] = await Promise.all([readInstallReferrer(), fetchMetaDeferredAppLink()]);
+  const googleDeepLinkAd = await readGoogleDeepLinkAd(referrerHasGclid(read));
   const base: Stored = {
     platform: Platform.OS === "ios" ? "ios" : "android",
     installReferrer: null,
     deepLinkAd: deepLinkAdFromUrl(deepLink),
-    googleDeepLinkAd: null,
+    googleDeepLinkAd,
     capturedAtMs: Date.now(),
   };
   return applyReferrer(base, read);
