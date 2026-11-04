@@ -5,6 +5,7 @@ import { BackHandler, Platform, View } from "react-native";
 import { NativeTabsLayout } from "../../components/NativeTabsLayout";
 import { TabBar } from "../../components/TabBar";
 import { setActiveTabRoute, TAB_BY_ROUTE_NAME } from "../../lib/activeTab";
+import { t } from "../../lib/i18n";
 import { trackNativeEvent } from "../../lib/nativeAnalytics";
 import { emitTabReset, tabResetTargetForBack } from "../../lib/tabReset";
 import { useTabBarState } from "../../lib/tabBarVisibility";
@@ -90,11 +91,11 @@ function CustomTabsLayout() {
         );
       }}
     >
-      <Tabs.Screen name="index" options={{ title: "홈" }} />
-      <Tabs.Screen name="social" options={{ title: "소셜" }} />
-      <Tabs.Screen name="records" options={{ title: "기록" }} />
-      <Tabs.Screen name="ranking" options={{ title: "랭킹" }} />
-      <Tabs.Screen name="settings" options={{ title: "설정" }} />
+      <Tabs.Screen name="index" options={{ title: t("tab.home") }} />
+      <Tabs.Screen name="social" options={{ title: t("tab.social") }} />
+      <Tabs.Screen name="records" options={{ title: t("tab.records") }} />
+      <Tabs.Screen name="ranking" options={{ title: t("tab.ranking") }} />
+      <Tabs.Screen name="settings" options={{ title: t("tab.settings") }} />
     </Tabs>
   );
 }

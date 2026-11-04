@@ -194,7 +194,7 @@ describe("createPeerMesh — 연결 수립", () => {
     channel.emitServerMessage({ type: "SNAPSHOT", members: [member(7), member(8), member(9)] });
 
     await vi.waitFor(() => {
-      expect(lines).toContain("snap 3명 offer 2발");
+      expect(lines).toContain("snapshot 3 members, 2 offers");
     });
   });
 

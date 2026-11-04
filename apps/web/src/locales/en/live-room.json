@@ -1,0 +1,60 @@
+{
+  "notice": {
+    "graceEndSaved": "You were away for a while, so we ended your session.\nDon't worry, your study record has been saved.",
+    "graceEndPending": "You were away for a while, so we ended your session.\nDon't worry, your study record will be saved.",
+    "graceEndSubMinute": "You were away for a while, so we ended your session.\nSessions under 1 minute don't appear in your records",
+    "roomClosedSaved": "The room closed, so your session ended.\nDon't worry, your study record has been saved.",
+    "roomClosedPending": "The room closed, so your session ended.\nDon't worry, your study record will be saved.",
+    "roomClosedSubMinute": "The room closed, so your session ended.\nSessions under 1 minute don't appear in your records"
+  },
+  "entry": {
+    "backToSocial": "Back to Social"
+  },
+  "me": "Me",
+  "cameraConfirm": {
+    "title": "Turn on your camera?",
+    "notice": "Only people in this room can see your video. It isn't recorded or saved.",
+    "confirm": "Turn on camera",
+    "faceMask": "Hide face",
+    "faceMaskUnsupported": "Hide face isn't available on this device",
+    "tooltipMotion": "If you move quickly, your face may show for a moment",
+    "tooltipHeat": "Your device may get warm if you leave it on for a long time",
+    "aria": {
+      "faceMaskInfo": "About Hide face"
+    }
+  },
+  "faceMask": {
+    "searching": "Finding where to cover…",
+    "emoji": {
+      "dog": "Dog",
+      "cat": "Cat",
+      "bear": "Bear",
+      "hamster": "Hamster",
+      "monkey": "Monkey",
+      "panda": "Panda",
+      "rabbit": "Rabbit",
+      "tiger": "Tiger",
+      "frog": "Frog"
+    },
+    "aria": {
+      "picker": "Face cover emoji"
+    }
+  },
+  "controls": {
+    "cameraOff": "Turn off camera",
+    "cameraOn": "Turn on camera",
+    "exit": "Leave"
+  },
+  "tile": {
+    "focus": "Focusing",
+    "distracted": "On a break",
+    "off": "Camera off"
+  },
+  "time": {
+    "total": "Total",
+    "aria": {
+      "focus": "Focus time {{duration}}",
+      "total": "Total study time {{duration}}"
+    }
+  }
+}

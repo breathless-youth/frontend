@@ -1,6 +1,8 @@
 import type { RankingBoardResponse } from "@focusmakers/types";
 import { focusManager, useQuery } from "@tanstack/react-query";
+import { Globe } from "lucide-react";
 import { useEffect, useEffectEvent, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -66,6 +68,7 @@ import { slideNavigate } from "@/lib/pageTransition";
 import { cannotLoad, rankingBoardQuery, rankingSummaryQuery } from "@/lib/rankingQueries";
 import { useFocusStart } from "@/lib/useFocusStart";
 import { useIdentityPending, useUserId } from "@/lib/userId";
+import { KOREA_TIME_ZONE, deviceTimeZone } from "@/lib/dateKey";
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
 import { whenIdle } from "@/lib/whenIdle";
 
@@ -93,22 +96,50 @@ function BoardSkeleton() {
 }
 
 /**
+ * 해외 랭킹 준비 안내
+ *
+ * 랭킹은 한국 시간으로 하루를 나누고 서버도 다른 시간대 사용자를 한국 랭킹에서 빼서 판 대신 이 안내를 보인다.
+ */
+function GlobalRankingNotice() {
+  const { t } = useTranslation("ranking");
+  return (
+    <section
+      aria-labelledby="global-ranking-notice-title"
+      className="flex min-h-40.5 flex-col items-center justify-center gap-2 rounded-xl bg-muted px-6 py-6 text-center shadow-sb-card"
+    >
+      <Globe size={22} strokeWidth={1.8} aria-hidden="true" className="text-brand-subtle-text" />
+      <h2
+        id="global-ranking-notice-title"
+        className="text-base leading-5 font-bold break-keep text-foreground"
+      >
+        {t("globalNotice.title")}
+      </h2>
+      <p className="text-[13px] leading-4.5 break-keep text-pretty text-muted-foreground">
+        {t("globalNotice.body")}
+      </p>
+    </section>
+  );
+}
+
+/**
  * 랭킹 탭
  *
  * 첫 토큰을 기다리는 동안은 자리표시를, 기기 등록 전이면 안내를 보인다(기록 탭과 같은 문구).
+ * 기기 시간대가 한국이 아니면 판을 받지 않고 해외 랭킹 준비 안내를 보인다.
  * 세로 간격의 값과 이유는 랭킹 탭 본문에서 간격을 정하는 곳에 적는다.
  * 자리표시는 기본 판(순공 주간)의 간격을 따른다.
  */
 export function RankingPage() {
   const userId = useUserId();
   const identityPending = useIdentityPending();
+  const { t } = useTranslation("ranking");
 
   return (
     <main
       data-testid="ranking-page"
       className="theme-soft-blue min-h-dvh bg-soft-blue page-column pt-[calc(env(safe-area-inset-top)+24px)] pb-(--tab-bar-reserve) text-foreground"
     >
-      <h1 className="sr-only">랭킹</h1>
+      <h1 className="sr-only">{t("page.title")}</h1>
       <div className="flex flex-col px-5">
         {identityPending ? (
           <>
@@ -125,9 +156,9 @@ export function RankingPage() {
             </div>
           </>
         ) : userId === null ? (
-          <p className="p-4 text-sm text-muted-foreground">
-            기기 등록 전이에요. 앱에서 열면 기록이 저장돼요
-          </p>
+          <p className="p-4 text-sm text-muted-foreground">{t("page.noDevice")}</p>
+        ) : deviceTimeZone() !== KOREA_TIME_ZONE ? (
+          <GlobalRankingNotice />
         ) : (
           <RankingContent userId={userId} />
         )}
@@ -146,6 +177,7 @@ export function RankingPage() {
 function RankingContent({ userId }: { userId: number }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useTranslation("ranking");
   const visible = useScreenVisible();
   const startFocus = useFocusStart(userId);
   const [memory, setMemory] = useState(readBoardMemory);
@@ -292,7 +324,7 @@ function RankingContent({ userId }: { userId: number }) {
         {board === undefined ? (
           cannotLoad(boardQuery) ? (
             <ErrorState
-              message="랭킹을 불러오지 못했어요"
+              message={t("page.loadError")}
               onRetry={() => void boardQuery.refetch()}
               screen="ranking"
             />

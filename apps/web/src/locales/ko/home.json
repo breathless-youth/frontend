@@ -1,0 +1,72 @@
+{
+  "header": {
+    "title": "홈"
+  },
+  "dday": {
+    "remaining": "D-{{days}}",
+    "today": "D-Day",
+    "passed": "D+{{days}}"
+  },
+  "ddayBlock": {
+    "placeholder": "D-Day",
+    "emptyCaption": "목표 날짜를 설정하세요",
+    "aria": {
+      "set": "D-Day 설정",
+      "edit": "{{label}} {{title}}, D-Day 수정"
+    }
+  },
+  "ddaySheet": {
+    "title": "목표 날짜 설정",
+    "pickDate": "날짜를 골라 주세요",
+    "titleLabel": "제목",
+    "titlePlaceholder": "예: 수능",
+    "titleTooLong": "{{max}}자까지 쓸 수 있어요",
+    "save": "저장",
+    "saving": "저장 중",
+    "delete": "삭제",
+    "deleteConfirm": "목표 날짜를 삭제할까요?",
+    "error": {
+      "pastDate": "오늘 이후 날짜를 골라 주세요"
+    }
+  },
+  "ddayCalendar": {
+    "jump": {
+      "oneMonth": "1개월 후",
+      "sixMonths": "6개월 후",
+      "oneYear": "1년 후"
+    },
+    "aria": {
+      "prevMonth": "이전 달",
+      "nextMonth": "다음 달",
+      "monthPicker": "연도·월 바로 가기",
+      "prevYear": "이전 연도",
+      "nextYear": "다음 연도"
+    }
+  },
+  "streak": {
+    "title": "{{count}}일 연속 공부 중",
+    "tooltip": "하루 5분 이상 공부하면 연속 공부가 이어져요",
+    "aria": {
+      "tooltip": "연속 공부 기준 안내"
+    }
+  },
+  "stats": {
+    "todayFocus": "오늘 순공시간",
+    "hoursUnit": "시간",
+    "minutesUnit": "분",
+    "focusRate": "집중률",
+    "studyTotal": "총 공부시간",
+    "longestFocus": "최대 집중시간",
+    "loadFailed": "기록을 불러오지 못했어요"
+  },
+  "startFocus": "집중 시작",
+  "invite": {
+    "title": "오늘은 혼자 집중하기 힘든가요? <br/>사람들과 함께 공부해보세요",
+    "cta": "그룹 스터디하러 이동"
+  },
+  "unregistered": "기기 등록 전이에요 — 앱에서 열면 기록이 저장됩니다",
+  "demo": {
+    "tagline": "AI 비전 기반 순공 시간 측정 캠스터디",
+    "enter": "스터디룸 입장 (데모)"
+  }
+}

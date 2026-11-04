@@ -5,9 +5,10 @@ import {
   createPhotoRenderer,
   cropRect,
   documentSurface,
+  ESTIMATE_SCALE,
+  maskBox,
   offscreenSurface,
   outputSize,
-  stickerBox,
   tryRenderPhoto,
 } from "../photoFrame";
 
@@ -74,74 +75,57 @@ describe("outputSize", () => {
   });
 });
 
-/**
- * 스티커 PNG는 정사각형에 내접한 원이라 상자가 아니라 원이 랜드마크 범위의 네 모서리를 덮어야 한다.
- */
-function circleCoversLandmarks(
-  box: { x: number; y: number; width: number },
-  landmarks: readonly { x: number; y: number }[],
-  frame: Size,
-): boolean {
-  const xs = landmarks.map((point) => point.x * frame.width);
-  const ys = landmarks.map((point) => point.y * frame.height);
-  const centerX = box.x + box.width / 2;
-  const centerY = box.y + box.width / 2;
-  const radius = box.width / 2;
-  const corners = [
-    [Math.min(...xs), Math.min(...ys)],
-    [Math.min(...xs), Math.max(...ys)],
-    [Math.max(...xs), Math.min(...ys)],
-    [Math.max(...xs), Math.max(...ys)],
-  ];
-  return corners.every(([x, y]) => Math.hypot(x - centerX, y - centerY) <= radius);
-}
+const FACE = [
+  { x: 0.4, y: 0.3 },
+  { x: 0.6, y: 0.6 },
+];
+const DOG = "/face-mask/dog.png";
+const CAT = "/face-mask/cat.png";
+/** 사람 검출과 직전 얼굴로 어림한 자리. 타임랩스는 `visible`이 거짓이어도 덮는다. */
+const SPOT = { x: 0.5, y: 0.4, size: 0.2, aspect: 1, visible: false };
 
-describe("stickerBox", () => {
+describe("maskBox", () => {
   const FRAME = { width: 1000, height: 1000 };
 
-  it("랜드마크가 덮는 범위보다 넉넉한 정사각형을 얼굴 가운데에 둔다", () => {
-    const landmarks = [
-      { x: 0.4, y: 0.3 },
-      { x: 0.6, y: 0.6 },
-    ];
-    const box = stickerBox(landmarks, FRAME);
-    expect(box).toEqual({ x: 275, y: 225, width: 450, height: 450 });
-    expect(circleCoversLandmarks(box!, landmarks, FRAME)).toBe(true);
+  it("랜드마크가 있으면 소셜룸과 같은 배율의 정사각형을 얼굴 가운데에 둔다", () => {
+    expect(maskBox(FRAME, FACE, undefined)).toEqual({ x: 238, y: 187, width: 525, height: 525 });
   });
 
-  it("프레임 밖으로 나가도 얼굴 가운데에 두어 원이 랜드마크 모서리를 계속 덮는다", () => {
-    const landmarks = [
-      { x: 0, y: 0.4 },
-      { x: 0.1, y: 0.6 },
-    ];
-    const box = stickerBox(landmarks, FRAME);
-    expect(box).toEqual({ x: -100, y: 350, width: 300, height: 300 });
-    expect(circleCoversLandmarks(box!, landmarks, FRAME)).toBe(true);
+  it("랜드마크가 있으면 어림 자리보다 랜드마크 자리가 이긴다", () => {
+    expect(maskBox(FRAME, FACE, SPOT)).toEqual(maskBox(FRAME, FACE, undefined));
   });
 
-  it("프레임 구석의 얼굴도 원이 네 모서리를 덮는다", () => {
-    const landmarks = [
-      { x: 0.9, y: 0 },
-      { x: 1, y: 0.15 },
-    ];
-    expect(circleCoversLandmarks(stickerBox(landmarks, FRAME)!, landmarks, FRAME)).toBe(true);
-  });
-
-  it("프레임보다 크면 프레임 가운데에 두어 그 축을 다 덮는다", () => {
-    const landmarks = [
-      { x: 0, y: 0 },
-      { x: 1, y: 1 },
-    ];
-    expect(stickerBox(landmarks, { width: 640, height: 480 })).toEqual({
-      x: -160,
-      y: -240,
-      width: 960,
-      height: 960,
+  it("얼굴을 놓쳤으면 어림 자리를 더 크게 덮는다", () => {
+    const side = Math.round(0.2 * ESTIMATE_SCALE * 1000);
+    expect(ESTIMATE_SCALE).toBeGreaterThan(1);
+    expect(maskBox(FRAME, [], SPOT)).toEqual({
+      x: Math.round(500 - side / 2),
+      y: Math.round(400 - side / 2),
+      width: side,
+      height: side,
     });
   });
 
-  it("랜드마크가 없으면 상자도 없다", () => {
-    expect(stickerBox([], { width: 640, height: 480 })).toBeNull();
+  it("세로 범위는 프레임 폭 기준으로 바꿔 긴 쪽을 고른다", () => {
+    const tall = [
+      { x: 0.45, y: 0.2 },
+      { x: 0.55, y: 0.8 },
+    ];
+    // 세로 0.6 × 480 = 288px가 가로 64px보다 길어 288 × 1.75 = 504가 된다.
+    expect(maskBox({ width: 640, height: 480 }, tall, undefined)?.width).toBe(504);
+  });
+
+  it("프레임 밖으로 나가도 얼굴 가운데에 둔다", () => {
+    const edge = [
+      { x: 0, y: 0.4 },
+      { x: 0.1, y: 0.6 },
+    ];
+    expect(maskBox(FRAME, edge, undefined)).toEqual({ x: -125, y: 325, width: 350, height: 350 });
+  });
+
+  it("랜드마크도 어림 자리도 없으면 상자가 없다", () => {
+    expect(maskBox(FRAME, undefined, undefined)).toBeNull();
+    expect(maskBox(FRAME, [], undefined)).toBeNull();
   });
 });
 
@@ -163,112 +147,127 @@ function fakeSurfaces() {
 }
 
 const source = { tag: "frame" } as unknown as CanvasImageSource;
-const sticker = { tag: "sticker" } as unknown as CanvasImageSource;
-const FACE = [
-  { x: 0.4, y: 0.3 },
-  { x: 0.6, y: 0.6 },
-];
+const emoji = { tag: "emoji" } as unknown as CanvasImageSource;
 
 describe("createPhotoRenderer", () => {
-  it("가림이 꺼져 있으면 자른 프레임만 그리고 스티커를 받지 않는다", async () => {
+  it("가림이 꺼져 있으면 자른 프레임만 그리고 이모지를 받지 않는다", async () => {
     const surfaces = fakeSurfaces();
-    const loadSticker = vi.fn(async () => sticker);
-    const render = createPhotoRenderer(surfaces.newSurface, loadSticker);
+    const loadImage = vi.fn(async (_url: string) => emoji);
+    const render = createPhotoRenderer(surfaces.newSurface, loadImage);
 
     const bytes = await render({
       source,
       frame: { width: 1280, height: 720 },
-      spec: { aspect: "9:16", mask: false },
+      spec: { aspect: "9:16", mask: false, emojiUrl: DOG, spot: SPOT },
       landmarks: FACE,
     });
 
     expect(bytes).toBe(surfaces.encoded);
     expect(surfaces.sizes).toEqual([{ width: 405, height: 720 }]);
     expect(surfaces.draws).toEqual([[source, 438, 0, 405, 720, 0, 0, 405, 720]]);
-    expect(loadSticker).not.toHaveBeenCalled();
+    expect(loadImage).not.toHaveBeenCalled();
   });
 
-  it("가림이 켜져 있으면 같은 프레임의 얼굴 자리에 스티커를 덮는다", async () => {
+  it("가림이 켜져 있으면 같은 프레임의 얼굴 자리에 고른 이모지를 덮는다", async () => {
     const surfaces = fakeSurfaces();
-    const render = createPhotoRenderer(surfaces.newSurface, async () => sticker);
+    const loadImage = vi.fn(async (_url: string) => emoji);
+    const render = createPhotoRenderer(surfaces.newSurface, loadImage);
 
     await render({
       source,
       frame: { width: 1000, height: 1000 },
-      spec: { aspect: "16:9", mask: true },
+      spec: { aspect: "16:9", mask: true, emojiUrl: CAT },
       landmarks: FACE,
     });
 
-    // 자르기는 y 219부터 563줄이다.
-    // 그래서 스티커 상자 y 225는 출력에서 6이 된다.
+    // 자르기는 y 219부터 563줄이라 상자 y 187은 출력에서 -32가 된다.
     expect(surfaces.draws).toEqual([
       [source, 0, 219, 1000, 563, 0, 0, 1000, 563],
-      [sticker, 275, 6, 450, 450],
+      [emoji, 238, -32, 525, 525],
+    ]);
+    expect(loadImage).toHaveBeenCalledWith(CAT);
+  });
+
+  it("얼굴을 놓친 프레임은 실려 온 어림 자리에 이모지를 덮는다", async () => {
+    const surfaces = fakeSurfaces();
+    const render = createPhotoRenderer(surfaces.newSurface, async () => emoji);
+
+    await render({
+      source,
+      frame: { width: 1000, height: 1000 },
+      spec: { aspect: "16:9", mask: true, emojiUrl: DOG, spot: SPOT },
+    });
+
+    const box = maskBox({ width: 1000, height: 1000 }, undefined, SPOT)!;
+    expect(surfaces.draws).toEqual([
+      [source, 0, 219, 1000, 563, 0, 0, 1000, 563],
+      [emoji, box.x, box.y - 219, box.width, box.height],
     ]);
   });
 
-  it("얼굴이 없는 프레임은 가림이 켜져 있어도 그대로 남긴다", async () => {
+  it("얼굴도 어림 자리도 없으면 사람이 없는 장면이라 그대로 남긴다", async () => {
     const surfaces = fakeSurfaces();
-    const loadSticker = vi.fn(async () => sticker);
-    const render = createPhotoRenderer(surfaces.newSurface, loadSticker);
+    const loadImage = vi.fn(async (_url: string) => emoji);
+    const render = createPhotoRenderer(surfaces.newSurface, loadImage);
 
     await render({
       source,
       frame: { width: 1280, height: 720 },
-      spec: { aspect: "9:16", mask: true },
+      spec: { aspect: "9:16", mask: true, emojiUrl: DOG },
     });
 
     expect(surfaces.draws).toHaveLength(1);
-    expect(loadSticker).not.toHaveBeenCalled();
+    expect(loadImage).not.toHaveBeenCalled();
   });
 
-  it("스티커는 한 번만 받는다", async () => {
+  it("같은 주소의 이모지는 한 번만 받고 주소가 다르면 따로 받는다", async () => {
     const surfaces = fakeSurfaces();
-    const loadSticker = vi.fn(async () => sticker);
-    const render = createPhotoRenderer(surfaces.newSurface, loadSticker);
+    const loadImage = vi.fn(async (_url: string) => emoji);
+    const render = createPhotoRenderer(surfaces.newSurface, loadImage);
     const input = {
       source,
       frame: { width: 1000, height: 1000 },
-      spec: { aspect: "9:16" as const, mask: true },
+      spec: { aspect: "9:16" as const, mask: true, emojiUrl: DOG },
       landmarks: FACE,
     };
 
     await render(input);
     await render(input);
+    await render({ ...input, spec: { ...input.spec, emojiUrl: CAT } });
 
-    expect(loadSticker).toHaveBeenCalledTimes(1);
+    expect(loadImage.mock.calls).toEqual([[DOG], [CAT]]);
   });
 
-  it("스티커를 받지 못하면 가리지 못한 사진을 만들지 않고 실패하며 다음에 다시 받는다", async () => {
+  it("이모지를 받지 못하면 가리지 못한 사진을 만들지 않고 실패하며 다음에 다시 받는다", async () => {
     const surfaces = fakeSurfaces();
-    const loadSticker = vi
-      .fn<() => Promise<CanvasImageSource>>()
+    const loadImage = vi
+      .fn<(url: string) => Promise<CanvasImageSource>>()
       .mockRejectedValueOnce(new Error("404"))
-      .mockResolvedValue(sticker);
-    const render = createPhotoRenderer(surfaces.newSurface, loadSticker);
+      .mockResolvedValue(emoji);
+    const render = createPhotoRenderer(surfaces.newSurface, loadImage);
     const input = {
       source,
       frame: { width: 1000, height: 1000 },
-      spec: { aspect: "9:16" as const, mask: true },
+      spec: { aspect: "9:16" as const, mask: true, emojiUrl: DOG },
       landmarks: FACE,
     };
 
     await expect(render(input)).rejects.toThrow("404");
     expect(surfaces.encode).not.toHaveBeenCalled();
     await expect(render(input)).resolves.toBe(surfaces.encoded);
-    expect(loadSticker).toHaveBeenCalledTimes(2);
+    expect(loadImage).toHaveBeenCalledTimes(2);
   });
 });
 
 describe("createPhotoRenderer 그리는 순간", () => {
-  it("스티커를 기다리기 전에 프레임을 먼저 그린다", () => {
+  it("이모지를 기다리기 전에 프레임을 먼저 그린다", () => {
     const surfaces = fakeSurfaces();
     const render = createPhotoRenderer(surfaces.newSurface, () => new Promise(() => {}));
 
     void render({
       source,
       frame: { width: 1000, height: 1000 },
-      spec: { aspect: "9:16", mask: true },
+      spec: { aspect: "9:16", mask: true, emojiUrl: DOG },
       landmarks: FACE,
     });
 
@@ -329,7 +328,7 @@ describe("tryRenderPhoto", () => {
       tryRenderPhoto(render, {
         source,
         frame: { width: 1, height: 1 },
-        spec: { aspect: "9:16", mask: false },
+        spec: { aspect: "9:16", mask: false, emojiUrl: DOG },
       }),
     ).resolves.toBeUndefined();
   });

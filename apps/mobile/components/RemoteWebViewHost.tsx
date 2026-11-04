@@ -23,6 +23,7 @@ import { GLASS_TOP_ROW_CLIP, GlassChromeOverlay } from "./GlassChromeOverlay";
 import { PrimaryCtaButton } from "./PrimaryCtaButton";
 import type { BridgeReply } from "../lib/nativeBridgeHandler";
 import { consumeAppLaunchSignal } from "../lib/appLaunch";
+import { getAppLocale, t } from "../lib/i18n";
 import { authTokenMessage, subscribeAuth } from "../lib/auth";
 import { attachInstallAttributionSink } from "../lib/installAttribution";
 import { attachNativeAnalyticsSink, trackNativeEvent } from "../lib/nativeAnalytics";
@@ -67,9 +68,6 @@ type ShouldStartLoadRequest = WebViewNavigation & { isTopFrame?: boolean };
 type LoadEndNativeEvent = Omit<WebViewNavigation, "navigationType"> & {
   navigationType?: WebViewNavigation["navigationType"];
 };
-
-const LOAD_FAILURE_TITLE = "화면을 불러오지 못했어요";
-const LOAD_FAILURE_BODY = "네트워크 상태를 확인하고 다시 시도해 주세요.";
 
 /** 쿼리 파라미터를 `?a=1&b=2` 형태로 인코딩한다. 값이 없으면 빈 문자열(쿼리 없이 연다). */
 function buildQueryString(query: Record<string, string | number> | undefined): string {
@@ -227,7 +225,10 @@ export function buildRemoteWebViewUrl(
   path: string,
   query?: Record<string, string | number>,
 ): string {
-  return `${baseUrl.replace(/\/$/, "")}${path}${buildQueryString(query)}`;
+  // 언어는 캐시되는 파라미터에 넣지 않고 URL을 만들 때마다 읽는다.
+  // Android는 앱별 언어를 바꾸면 화면만 다시 만들고 JS 모듈은 남아서, 캐시에 넣으면 이전 언어가 남는다.
+  // 마지막에 펼쳐 복원 쿼리에 섞여 온 lang보다 기기 언어가 이기게 한다.
+  return `${baseUrl.replace(/\/$/, "")}${path}${buildQueryString({ ...query, lang: getAppLocale() })}`;
 }
 
 /**
@@ -1041,19 +1042,19 @@ export function RemoteWebViewHost({
           accessibilityRole="header"
           className="text-text-primary dark:text-text-primary-dark text-center text-[15px] font-sans-bold leading-[22px]"
         >
-          {LOAD_FAILURE_TITLE}
+          {t("webview.loadFailedTitle")}
         </Text>
         <Text className="text-text-secondary dark:text-text-secondary-dark mt-[10px] text-center text-[13px] font-sans leading-[19px]">
-          {LOAD_FAILURE_BODY}
+          {t("webview.loadFailedBody")}
         </Text>
         {/* 사유는 개발 빌드에서만 노출한다 — 사용자에게 설정 키 이름 같은 내부 정보를 보이지 않는다. */}
         {__DEV__ && target === null && (
           <Text className="text-text-tertiary mt-[6px] text-center text-[11px] font-sans">
-            (dev) WEB_BASE_URL 미설정 — apps/mobile/.env.local 확인
+            (dev) WEB_BASE_URL is not set. Check apps/mobile/.env.local
           </Text>
         )}
         <View className="mt-[20px] w-full max-w-[280px]">
-          <PrimaryCtaButton label="다시 시도" onPress={retry} />
+          <PrimaryCtaButton label={t("common.retry")} onPress={retry} />
         </View>
       </View>
     );

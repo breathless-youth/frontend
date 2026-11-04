@@ -20,12 +20,11 @@ import {
   addDaysToDateKey,
   dayOfDateKey,
   dayTitleWithWeekday,
-  kstDateKey,
   monthLabel,
   monthOfDateKey,
   shiftMonth,
 } from "@/features/records/recordsFormat";
-import { getPeriodStats, listStudySessionStats } from "@/lib/statsApi";
+import { getPeriodStats, getStudyRhythm, listStudySessionStats } from "@/lib/statsApi";
 import {
   trackRecordsMonthChanged,
   trackRecordsPeriodPicked,
@@ -36,6 +35,7 @@ import {
 } from "@/lib/amplitude";
 import { RecordsPage } from "@/routes/RecordsPage";
 import type * as UserIdModule from "@/lib/userId";
+import { localDateKey } from "@/lib/dateKey";
 
 /**
  * (모바일판 `__tests__/records.test.tsx`에서 케이스 이식 — BY-330, v2 조립으로 갱신 — BY-567 Task 8.
@@ -55,6 +55,7 @@ if (typeof window.PointerEvent === "undefined") {
 vi.mock("@/lib/statsApi", () => ({
   listStudySessionStats: vi.fn(),
   getPeriodStats: vi.fn(),
+  getStudyRhythm: vi.fn(),
 }));
 vi.mock("@/lib/amplitude", () => ({
   trackRecordsDateSelected: vi.fn(),
@@ -62,6 +63,7 @@ vi.mock("@/lib/amplitude", () => ({
   trackRecordsSessionExpanded: vi.fn(),
   trackRecordsViewChanged: vi.fn(),
   trackRecordsWeekChanged: vi.fn(),
+  trackRecordsRhythmShown: vi.fn(),
   trackRecordsPeriodPickerOpened: vi.fn(),
   trackRecordsPeriodPicked: vi.fn(),
   trackErrorRetryPressed: vi.fn(),
@@ -74,6 +76,7 @@ vi.mock("@/lib/userId", async (importOriginal) => ({
 
 const mockedStats = vi.mocked(listStudySessionStats);
 const mockedPeriod = vi.mocked(getPeriodStats);
+const mockedRhythm = vi.mocked(getStudyRhythm);
 const mockedTrackMonthChanged = vi.mocked(trackRecordsMonthChanged);
 const mockedTrackSessionExpanded = vi.mocked(trackRecordsSessionExpanded);
 
@@ -173,6 +176,11 @@ describe("RecordsPage", () => {
     vi.clearAllMocks();
     tokenMock.has = false;
     mockedPeriod.mockResolvedValue(periodResponse());
+    // 리듬은 14일 전(샘플 카드)을 기본으로 둔다 — 주간 탭 테스트가 카드 순서만 보기 때문.
+    mockedRhythm.mockResolvedValue({
+      studyDays: 0,
+      focusSecByWeekdayHour: Array.from({ length: 7 }, () => Array<number>(24).fill(0)),
+    });
   });
 
   it("세션 행을 누르면 그 자리에서 펼쳐지고 다시 누르면 접힌다", async () => {
@@ -281,7 +289,7 @@ describe("RecordsPage", () => {
 
     renderRecords();
 
-    const currentMonth = monthOfDateKey(kstDateKey());
+    const currentMonth = monthOfDateKey(localDateKey());
     await screen.findByText(/요일$/);
 
     await userEvent.click(screen.getByRole("button", { name: "이전 달" }));
@@ -343,7 +351,7 @@ describe("RecordsPage", () => {
     await screen.findByText("오늘 순공시간");
     // 오늘이 1일이어도 고를 수 있게 지난달로 가서 15일을 고른다.
     await userEvent.click(screen.getByRole("button", { name: "이전 달" }));
-    const prevMonth = shiftMonth(monthOfDateKey(kstDateKey()), -1);
+    const prevMonth = shiftMonth(monthOfDateKey(localDateKey()), -1);
     await userEvent.click(screen.getByRole("button", { name: "15일, 기록 없음" }));
 
     const label = `${String(prevMonth.month)}월 15일 순공시간`;
@@ -375,7 +383,7 @@ describe("RecordsPage", () => {
 
       // 오늘이 1일이어도 고를 수 있게 지난달로 가서 15일을 고른다.
       await userEvent.click(screen.getByRole("button", { name: "이전 달" }));
-      const prevMonth = shiftMonth(monthOfDateKey(kstDateKey()), -1);
+      const prevMonth = shiftMonth(monthOfDateKey(localDateKey()), -1);
       await userEvent.click(screen.getByRole("button", { name: "15일, 기록 없음" }));
 
       const picked = `${String(prevMonth.year)}-${String(prevMonth.month).padStart(2, "0")}-15`;
@@ -404,19 +412,41 @@ describe("RecordsPage", () => {
       expect(screen.getByTestId("location")).toHaveAttribute("data-navigation", "REPLACE");
     });
 
+    it("주소에 view=weekly가 있으면 주간으로 열고, 탭을 바꾸면 셸 쿼리는 남긴 채 view만 지운다", async () => {
+      renderRecords("/records?userId=7&guestAuth=1&view=weekly");
+
+      expect(await screen.findByRole("tab", { name: "주간", selected: true })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: "나의 공부 리듬" })).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole("tab", { name: "일간" }));
+
+      await waitFor(() =>
+        expect(screen.getByTestId("location")).toHaveTextContent("/records?userId=7&guestAuth=1"),
+      );
+      expect(screen.getByTestId("location")).not.toHaveTextContent("view=");
+      expect(screen.getByTestId("location")).toHaveAttribute("data-navigation", "REPLACE");
+    });
+
+    it("기기 등록 전이면 view=weekly여도 일간으로 둔다", () => {
+      renderRecords("/records?view=weekly");
+
+      expect(screen.getByRole("tab", { name: "일간", selected: true })).toBeInTheDocument();
+      expect(screen.getByText(/기기 등록 전/)).toBeInTheDocument();
+    });
+
     it("달력에 없거나 미래인 날짜는 오늘로 연다", async () => {
       const { unmount } = renderRecords("/records?userId=7&date=2025-13-45");
       expect(await screen.findByText("오늘 순공시간")).toBeInTheDocument();
       unmount();
 
-      renderRecords(`/records?userId=7&date=${addDaysToDateKey(kstDateKey(), 1)}`);
+      renderRecords(`/records?userId=7&date=${addDaysToDateKey(localDateKey(), 1)}`);
       expect(await screen.findByText("오늘 순공시간")).toBeInTheDocument();
     });
   });
 
   it("달력 아래에 그 달 합계와 공부한 날 기준 하루 평균을 보여준다", async () => {
     mockedStats.mockResolvedValue(statsResponse(false));
-    const month = monthOfDateKey(kstDateKey());
+    const month = monthOfDateKey(localDateKey());
     mockedPeriod.mockResolvedValue(
       periodResponse([
         { date: "2026-01-01", studySec: 3600, focusSec: 3600 },
@@ -461,7 +491,7 @@ describe("RecordsPage", () => {
 
     renderRecords();
 
-    const todayKey = kstDateKey();
+    const todayKey = localDateKey();
     const currentMonth = monthOfDateKey(todayKey);
     await screen.findByText(/요일$/);
 
@@ -480,7 +510,7 @@ describe("RecordsPage", () => {
 
     renderRecords();
 
-    const currentLabel = monthLabel(monthOfDateKey(kstDateKey()));
+    const currentLabel = monthLabel(monthOfDateKey(localDateKey()));
     await screen.findByText(/요일$/);
     expect(screen.getByRole("button", { name: "다음 달" })).toBeDisabled();
 
@@ -600,7 +630,7 @@ describe("RecordsPage", () => {
 
     renderRecords();
 
-    const currentMonth = monthOfDateKey(kstDateKey());
+    const currentMonth = monthOfDateKey(localDateKey());
     const currentLabel = monthLabel(currentMonth);
     await screen.findByText(/요일$/);
 
@@ -717,7 +747,7 @@ describe("RecordsPage", () => {
     mockedStats.mockResolvedValue(statsResponse(false));
     mockedPeriod.mockResolvedValue(
       periodResponse(
-        [{ date: kstDateKey(), studySec: 7200, focusSec: 3600 }],
+        [{ date: localDateKey(), studySec: 7200, focusSec: 3600 }],
         [{ date: "2026-01-01", studySec: 3600, focusSec: 1800 }],
       ),
     );
@@ -803,7 +833,7 @@ describe("RecordsPage", () => {
   });
 
   describe("수동 기록", () => {
-    const TODAY = kstDateKey();
+    const TODAY = localDateKey();
     /** KST 2026-01-01 14:00~15:30 국어 수동 기록. 기록 탭은 고른 날 응답을 그대로 그린다. */
     const manualDay: StudySessionListResponse = {
       ...statsResponse(false),

@@ -1,0 +1,47 @@
+{
+  "button": {
+    "on": "배경음 켜짐",
+    "off": "배경음"
+  },
+  "sheet": {
+    "title": "배경음",
+    "tooltip": "일시정지 중에는 배경음이 들리지 않아요",
+    "loadFailed": "배경음 목록을 불러오지 못했어요",
+    "blocked": "자동 재생이 막혀 있어요. 음량을 0 으로 내렸다 다시 올리면 들려요",
+    "aria": {
+      "tooltip": "배경음 안내",
+      "toggleAll": "배경음"
+    }
+  },
+  "duck": {
+    "label": "집중 연동",
+    "tooltip": "집중 상태가 아닐 때는 소리를 낮춰요",
+    "aria": {
+      "tooltip": "집중 연동 안내"
+    }
+  },
+  "row": {
+    "aria": {
+      "tooltip": "{{label}} 안내",
+      "volume": "{{label}} 음량"
+    }
+  },
+  "groups": {
+    "noise": "노이즈",
+    "ambience": "배경 소리",
+    "music": "음악"
+  },
+  "notes": {
+    "binaural": "이어폰을 끼면 잘 들려요"
+  },
+  "sounds": {
+    "white": "백색소음",
+    "pink": "핑크노이즈",
+    "brown": "브라운노이즈",
+    "binaural": "바이노럴 비트",
+    "monaural": "모노럴 비트",
+    "rain-trp": "빗소리 (실외)",
+    "rain-mm": "빗소리 (실내)",
+    "cafe-vec": "카페"
+  }
+}

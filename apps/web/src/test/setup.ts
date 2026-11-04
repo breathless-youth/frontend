@@ -1,5 +1,14 @@
 import "@testing-library/jest-dom/vitest";
 
+import i18n from "@/lib/i18n";
+import { LOCALE_STORAGE_KEY } from "@/lib/locale";
+
+// jsdom의 navigator.language는 en-US라 그대로 두면 영어로 뜬다.
+// 기존 테스트의 한국어 단언이 그대로 통과하도록 모든 테스트를 한국어로 시작한다.
+await i18n.changeLanguage("ko");
+// i18n 모듈이 로드될 때 정한 언어를 sessionStorage에 적는데, 저장소가 비어 있다고 보는 테스트가 있어 지운다.
+sessionStorage.removeItem(LOCALE_STORAGE_KEY);
+
 // jsdom은 HTMLMediaElement.play를 구현하지 않아 호출마다 jsdomError를 낸다.
 // 세션 영상이 마운트 직후 재생을 직접 걸고(lib/startVideoPlayback.ts), 자동재생 방어
 // (lib/videoPlayback.ts)도 매 렌더 play()를 부르므로 전역에서 무해한 구현으로 바꾼다 —

@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import stampImage from "@/assets/study-complete-stamp.png";
 import { Badge } from "@/components/ui/badge";
 import { haptic } from "@/lib/haptics";
 
 import { SUB_MINUTE_SEC, toKoreanDurationLength } from "../formatDuration";
-import { RESULT_COPY, focusRateLabel } from "../resultCopy";
 import type { SessionResultView } from "../sessionResult";
 
 /**
@@ -44,6 +44,7 @@ export function StudyCompleteHero({
   view: SessionResultView;
   phase: CompleteHeroPhase;
 }) {
+  const { t } = useTranslation("study-session");
   const collapsed = phase === "revealed";
   const animated = phase !== "static";
   const focusSec = useCountUp(view.focusSec, animated);
@@ -112,10 +113,10 @@ export function StudyCompleteHero({
           </div>
 
           <h1 className="text-[20px] leading-6 font-extrabold tracking-[-0.4px] text-foreground animate-[result-fade-up_0.5s_ease-out_0.55s_both] motion-reduce:animate-none">
-            {RESULT_COPY.completeTitle}
+            {t("result.completeTitle")}
           </h1>
           <p className="mt-1 text-[13px] leading-4 text-muted-foreground animate-[result-fade-up_0.5s_ease-out_0.66s_both] motion-reduce:animate-none">
-            {RESULT_COPY.completeDescription}
+            {t("result.completeDescription")}
           </p>
         </div>
 
@@ -124,7 +125,7 @@ export function StudyCompleteHero({
           style={{ marginTop: collapsed ? 4 : animated ? 34 : 22 }}
         >
           <p className="text-[12px] leading-3.75 font-bold text-muted-foreground">
-            {RESULT_COPY.focusLabel}
+            {t("result.focusLabel")}
           </p>
           <p className="text-[40px] leading-11.5 font-extrabold tracking-[-1.2px] text-foreground tabular-nums">
             {toKoreanDurationLength(focusSec)}
@@ -133,12 +134,12 @@ export function StudyCompleteHero({
 
         {/* 총 공부 = 일시정지를 뺀 값이라 타임라인 축의 벽시계 범위와 다를 수 있다. */}
         <p className="mt-2 text-[14px] leading-4.25 tabular-nums animate-[result-fade-up_0.5s_ease-out_0.9s_both] motion-reduce:animate-none">
-          <span className="text-muted-foreground">{`${RESULT_COPY.totalPrefix} `}</span>
+          <span className="text-muted-foreground">{`${t("result.totalPrefix")} `}</span>
           <span className="font-bold text-foreground">{toKoreanDurationLength(view.studySec)}</span>
         </p>
 
         <Badge className="mt-2.5 animate-[result-badge-pop_0.5s_cubic-bezier(0.34,1.56,0.64,1)_1s_both] motion-reduce:animate-none">
-          {focusRateLabel(view.focusRatePercent)}
+          {t("result.focusRate", { percent: view.focusRatePercent })}
         </Badge>
       </div>
     </section>

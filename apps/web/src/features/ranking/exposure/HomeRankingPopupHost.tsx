@@ -100,11 +100,11 @@ export function HomeRankingPopupHost({
       // 띄운 직후 본 것으로 적는다.
       // 실패하면 다음 실행에 같은 메달이 다시 뜬다.
       postRankingRecordsSeen(unseen.records.map((record) => record.id)).catch((error: unknown) => {
-        console.warn("[ranking] 메달을 본 것으로 적지 못했다", error);
+        console.warn("[ranking] failed to mark medals seen", error);
       });
     };
     run().catch((error: unknown) => {
-      console.warn("[ranking] 홈 랭킹 팝업을 정하지 못해 이번에는 띄우지 않는다", error);
+      console.warn("[ranking] failed to decide home ranking popup, skipping this time", error);
     });
     return () => {
       cancelled = true;

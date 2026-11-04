@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
 
@@ -39,10 +40,11 @@ export function SessionSideActions({
   inert,
   className,
 }: SessionSideActionsProps) {
+  const { t } = useTranslation("study-session");
   return (
     <div
       role="group"
-      aria-label="부가 기능"
+      aria-label={t("controls.sideActions")}
       inert={inert}
       className={cn("flex flex-col", SESSION_SIDE_GAP, className)}
     >

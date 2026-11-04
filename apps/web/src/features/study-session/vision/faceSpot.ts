@@ -42,7 +42,7 @@ export const HEAD_DROP_OF_PERSON_WIDTH = 0.3;
  * bbox는 어깨·팔까지 잡혀 얼굴보다 훨씬 넓으므로 얼굴 크기를 측정하면 그쪽을 쓴다.
  */
 export const STICKER_OF_PERSON_WIDTH = 0.55;
-/** 랜드마크 범위의 긴 쪽에 대한 이모지 크기. 타임랩스(1.5)보다 조금 크게 잡아 움직임 여유를 둔다. */
+/** 랜드마크 범위의 긴 쪽에 대한 이모지 크기. 랜드마크에는 머리카락과 귀가 없고 움직임 여유도 두어 크게 잡는다. */
 export const STICKER_OF_FACE = 1.75;
 /**
  * "얼굴 없음" 판정이 이만큼 이어져야 이모지를 내린다.
@@ -66,6 +66,16 @@ export function faceBoundsOf(landmarks: readonly NormalizedPoint[] | undefined):
     maxY = Math.max(maxY, point.y);
   }
   return { minX, minY, maxX, maxY };
+}
+
+/** 랜드마크 범위를 덮는 이모지 자리이고, 소셜룸 화면과 타임랩스 사진이 같은 크기로 덮도록 함께 쓴다. */
+export function faceSpotOf(face: FaceBounds, aspect: number): Pick<FaceSpot, "x" | "y" | "size"> {
+  return {
+    x: (face.minX + face.maxX) / 2,
+    y: (face.minY + face.maxY) / 2,
+    // 세로 범위를 프레임 폭 기준으로 바꿔 긴 쪽을 고른다.
+    size: Math.max(face.maxX - face.minX, (face.maxY - face.minY) / aspect) * STICKER_OF_FACE,
+  };
 }
 
 interface Offset {
@@ -125,14 +135,10 @@ export function nextFaceSpot(
   };
 
   if (input.face != null) {
-    const { minX, minY, maxX, maxY } = input.face;
-    const x = (minX + maxX) / 2;
-    const y = (minY + maxY) / 2;
-    // 세로 범위를 프레임 폭 기준으로 바꿔 긴 쪽을 고른다.
-    const faceSize = Math.max(maxX - minX, (maxY - minY) / aspect) * STICKER_OF_FACE;
+    const { x, y, size } = faceSpotOf(input.face, aspect);
     return {
-      spot: { x, y, size: faceSize, aspect, visible: true },
-      offset: { dx: x - estimate.x, dy: y - estimate.y, size: faceSize },
+      spot: { x, y, size, aspect, visible: true },
+      offset: { dx: x - estimate.x, dy: y - estimate.y, size },
       noFaceStreak: 0,
     };
   }

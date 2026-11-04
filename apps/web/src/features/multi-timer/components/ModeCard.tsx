@@ -1,8 +1,8 @@
+import { useTranslation } from "react-i18next";
+
 import { cn } from "@/lib/utils";
 
 type ModeCardKind = "focus" | "break";
-
-const KIND_LABEL: Record<ModeCardKind, string> = { focus: "집중", break: "휴식" };
 
 // 고른 칸은 테두리 없이 배경색으로만 가른다.
 const SELECTED_CLASS: Record<ModeCardKind, string> = {
@@ -46,7 +46,8 @@ export function ModeCard({
   onSelect: () => void;
   onChangeMinutes: (minutes: number) => void;
 }) {
-  const label = KIND_LABEL[kind];
+  const { t } = useTranslation("multi-timer");
+  const label = t(`modeCard.kind.${kind}`);
 
   return (
     <div
@@ -66,10 +67,12 @@ export function ModeCard({
         <span className="text-[22px] leading-7 font-bold text-foreground tabular-nums">
           {minutes}
         </span>
-        <span className="text-[15px] leading-5 font-medium text-muted-foreground">분</span>
+        <span className="text-[15px] leading-5 font-medium text-muted-foreground">
+          {t("modeCard.minuteUnit")}
+        </span>
       </span>
       <select
-        aria-label={`${label} 시간`}
+        aria-label={t("modeCard.aria.minutes", { label })}
         aria-current={selected ? "true" : undefined}
         value={minutes}
         onFocus={onSelect}
@@ -81,7 +84,7 @@ export function ModeCard({
       >
         {minuteOptions(minutes, max).map((value) => (
           <option key={value} value={value}>
-            {value}분
+            {t("modeCard.minuteOption", { count: value })}
           </option>
         ))}
       </select>

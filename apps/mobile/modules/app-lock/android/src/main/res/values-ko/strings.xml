@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_lock_channel_name">방해 앱 잠금</string>
+  <plurals name="app_lock_notification_title">
+    <item quantity="other">공부 중 · 방해 앱 %d개 잠김</item>
+  </plurals>
+  <string name="app_lock_notification_text">공부를 끝내면 잠금이 풀려요</string>
+  <string name="app_lock_overlay_title">지금은 공부에 집중하는 시간이에요</string>
+  <string name="app_lock_overlay_subtitle">포커스 메이커스 앱에서 공부를 끝내면 잠금이 풀려요</string>
+  <string name="app_lock_overlay_button">포커스 메이커스로 돌아가기</string>
+</resources>

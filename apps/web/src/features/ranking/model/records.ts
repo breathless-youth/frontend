@@ -1,6 +1,8 @@
 import type { RankingRecord } from "@focusmakers/types";
 
-import { recordMonthKey } from "./format";
+import { monthLabel } from "@/features/records/recordsFormat";
+
+import { monthName, recordMonthKey } from "./format";
 
 export interface RecordMonthGroup {
   key: string;
@@ -30,7 +32,7 @@ export function groupRecordsByMonth(
     const [year, month] = key.split("-").map(Number);
     groups.set(key, {
       key,
-      label: year === currentYear ? `${month}월` : `${year}년 ${month}월`,
+      label: year === currentYear ? monthName(key) : monthLabel({ year, month }),
       items: [item],
     });
   }

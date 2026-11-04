@@ -5,6 +5,21 @@ import globals from "globals";
 
 import { baseConfig } from "@focusmakers/config/eslint/base";
 
+// 사용자에게 보이는 문구는 모두 카탈로그에서 읽는다.
+const I18N_ENFORCED = ["src/**/*.{ts,tsx}"];
+// 약관·개인정보처리방침 본문은 영어판이 나올 때까지 한국어 원문을 쓰고, 개발용 화면과 랭킹 픽스처는 사용자가 보지 않는다.
+const I18N_EXEMPT = [
+  "src/features/settings/legalDocuments.ts",
+  "src/routes/WorkerParityPage.tsx",
+  "src/routes/WebrtcLoopbackPage.tsx",
+  "src/features/study-session/components/VisionPerfPanel.tsx",
+  "src/features/study-session/components/DevVisionFailureNotice.tsx",
+  "src/features/live-room/components/RoomDebugOverlay.tsx",
+  "src/lib/rankingFixtures.ts",
+  "src/lib/rankingMock.ts",
+];
+const HANGUL_MESSAGE = "사용자 문구는 src/locales/ 카탈로그에 두고 t()로 읽는다";
+
 export default [
   {
     ignores: [
@@ -51,6 +66,18 @@ export default [
     rules: {
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+    },
+  },
+  {
+    files: I18N_ENFORCED,
+    ignores: ["**/__tests__/**", "**/*.test.{ts,tsx}", "src/test/**", ...I18N_EXEMPT],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        { selector: "Literal[value=/[가-힣]/]", message: HANGUL_MESSAGE },
+        { selector: "TemplateElement[value.raw=/[가-힣]/]", message: HANGUL_MESSAGE },
+        { selector: "JSXText[value=/[가-힣]/]", message: HANGUL_MESSAGE },
+      ],
     },
   },
 ];

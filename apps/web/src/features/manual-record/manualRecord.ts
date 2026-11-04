@@ -1,29 +1,24 @@
 import type { StudySessionSummary, SubjectRef } from "@focusmakers/types";
 
-import { formatDuration, formatKstClock, kstDateKey } from "@/features/records/recordsFormat";
-import { kstDayStartMs } from "@/features/records/recordsTimetable";
+import { addDaysToDateKey, formatDuration, formatIsoClock } from "@/features/records/recordsFormat";
+import { dayStartMs, localDateKey, zonedTimeMs } from "@/lib/dateKey";
+import i18n from "@/lib/i18n";
+import { formatClock } from "@/lib/intl";
 
 /**
  * 수동 기록 입력 화면의 계산
  *
  * 기본값, 검증, 겹침 자르기 미리보기, 묶음 찾기, 낭독 문장을 화면 없이 계산한다.
  * 서버가 같은 규칙으로 최종 조각을 정하므로 여기서 자른 결과는 미리보기다.
- * 시각은 epoch ms로 다루고, 날짜와 시계 표기는 KST다.
+ * 시각은 epoch ms로 다루고, 날짜와 시계 표기는 기기 시간대다.
+ * 입력칸 시각과 구간 계산이 같은 시간대를 써야 입력한 시각 그대로 저장된다.
  */
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
-/** 지난 날에 그날 기록이 없을 때 시작 시각(KST 시). */
+/** 지난 날에 그날 기록이 없을 때 시작 시각(기기 시간대 시). */
 const PAST_DAY_START_HOUR = 9;
-
-export const MANUAL_RECORD_COPY = {
-  tooShort: "1분 이상이어야 해요",
-  future: "지금 이후 시간은 넣을 수 없어요",
-  allOverlap: "이미 기록이 있는 시간이에요",
-  failed: "저장하지 못했어요. 다시 시도해 주세요",
-  noSubject: "과목 없음",
-} as const;
 
 export interface ManualSpan {
   startMs: number;
@@ -53,18 +48,23 @@ export function isManualSession(session: Pick<StudySessionSummary, "source">): b
   return session.source === "MANUAL";
 }
 
-/** epoch ms → KST `HH:MM`. 시각 입력칸의 값과 같은 꼴이다. */
+/** epoch ms → 기기 시간대 `HH:MM`. 시각 입력칸의 값과 같은 꼴이다. */
 export function clockOf(ms: number): string {
-  return formatKstClock(new Date(ms).toISOString());
+  // 입력칸 값은 언어와 무관하게 24시간제 `HH:MM`이어야 해서 한국어 포맷을 고정해 쓴다.
+  return formatClock("ko", new Date(ms));
 }
 
 export function spanMinutes(spans: readonly ManualSpan[]): number {
   return Math.round(spans.reduce((sum, span) => sum + span.endMs - span.startMs, 0) / MINUTE_MS);
 }
 
-/** 오늘 달력 날짜에서 기록 날짜까지의 날 수(오늘 0). */
+/**
+ * 오늘 달력 날짜에서 기록 날짜까지의 날 수(오늘 0)
+ *
+ * 날짜 키끼리 UTC 자정으로 빼서 서머타임으로 하루가 23·25시간인 날에도 정수다.
+ */
 export function daysAgo(dateKey: string, todayKey: string): number {
-  return Math.round((kstDayStartMs(todayKey) - kstDayStartMs(dateKey)) / DAY_MS);
+  return (Date.parse(todayKey) - Date.parse(dateKey)) / DAY_MS;
 }
 
 /**
@@ -75,6 +75,7 @@ export function daysAgo(dateKey: string, todayKey: string): number {
  * 지난 날은 그날 마지막 기록 종료(없으면 09:00)부터 1시간이되 지금을 넘지 않는다.
  * 마지막 기록은 측정·수동을 가리지 않고, 초가 있는 측정 종료는 분 단위로 올려 겹치지 않게 한다.
  * 올린 종료가 지금이나 그날 끝을 넘을 수 있어 시작은 종료 뒤로, 날짜는 다음 날로 가지 않게 막는다.
+ * 1시간은 벽시계로 세고, 결과는 입력칸에 보일 값으로 다시 읽어 화면과 저장 구간이 같게 한다.
  */
 export function defaultSpan(input: {
   dateKey: string;
@@ -89,45 +90,84 @@ export function defaultSpan(input: {
   if (input.cellStartMs !== undefined) {
     const startMs = input.cellStartMs;
     const nextStarts = spans.map((span) => span.startMs).filter((ms) => ms > startMs);
-    return { startMs, endMs: floorMinute(Math.min(startMs + HOUR_MS, nowFloorMs, ...nextStarts)) };
+    return asShown({
+      startMs,
+      endMs: floorMinute(Math.min(laterOnClock(startMs, 60), nowFloorMs, ...nextStarts)),
+    });
   }
 
-  const dayStartMs = kstDayStartMs(input.dateKey);
-  const ends = spans
-    .map((span) => span.endMs)
-    .filter((ms) => ms > dayStartMs && ms <= dayStartMs + DAY_MS);
+  const dayStart = dayStartMs(input.dateKey);
+  const nextDayStart = nextDayStartMs(input.dateKey);
+  const ends = spans.map((span) => span.endMs).filter((ms) => ms > dayStart && ms <= nextDayStart);
   const lastEndMs = ends.length === 0 ? null : ceilMinute(Math.max(...ends));
 
   if (input.dateKey === input.todayKey) {
     const startMs = Math.min(
-      Math.max(nowFloorMs - HOUR_MS, lastEndMs ?? dayStartMs, dayStartMs),
+      Math.max(laterOnClock(nowFloorMs, -60), lastEndMs ?? dayStart, dayStart),
       nowFloorMs,
     );
-    return { startMs, endMs: nowFloorMs };
+    return asShown({ startMs, endMs: nowFloorMs });
   }
   const startMs = Math.min(
-    lastEndMs ?? dayStartMs + PAST_DAY_START_HOUR * HOUR_MS,
-    dayStartMs + DAY_MS - MINUTE_MS,
+    lastEndMs ?? zonedTimeMs(input.dateKey, PAST_DAY_START_HOUR * 60),
+    nextDayStart - MINUTE_MS,
   );
-  return { startMs, endMs: Math.min(startMs + HOUR_MS, nowFloorMs) };
+  return asShown({ startMs, endMs: Math.min(laterOnClock(startMs, 60), nowFloorMs) });
 }
 
-function clockMs(clock: string): number {
+function clockMinutes(clock: string): number {
   const [hour = 0, minute = 0] = clock.split(":").map(Number);
-  return hour * HOUR_MS + minute * MINUTE_MS;
+  return hour * 60 + minute;
 }
 
-/** 시각 입력칸 두 값 → 구간. 종료가 시작보다 이르면 다음 날 새벽으로 읽는다. */
+/**
+ * 그 시각의 벽시계에 분을 더한 시각
+ *
+ * 서머타임이 끝나는 날 01:30에 실제 1시간을 더하면 두 번째 01:30이 되어 입력칸에 길이 0으로 보인다.
+ * 입력칸에 보이는 만큼 더하려고 벽시계로 더한다.
+ */
+function laterOnClock(ms: number, minutes: number): number {
+  return zonedTimeMs(localDateKey(new Date(ms)), clockMinutes(clockOf(ms)) + minutes);
+}
+
+/**
+ * 입력칸에 보일 값으로 다시 읽은 구간
+ *
+ * 두 번 오는 시각의 두 번째는 입력칸에서 첫 번째와 같은 값이라, 그대로 두면 입력칸을 건드릴 때 구간이 바뀐다.
+ * 거꾸로 된 구간은 입력칸이 다음 날로 읽으므로 다시 읽지 않고 검증이 막게 둔다.
+ */
+function asShown(span: ManualSpan): ManualSpan {
+  if (span.endMs < span.startMs) {
+    return span;
+  }
+  const dateKey = localDateKey(new Date(span.startMs));
+  return spanFromClocks(dateKey, clockOf(span.startMs), clockOf(span.endMs));
+}
+
+/** 다음 날 자정. 서머타임 전환일은 하루가 24시간이 아니라 다음 날짜 키로 구한다. */
+function nextDayStartMs(dateKey: string): number {
+  return dayStartMs(addDaysToDateKey(dateKey, 1));
+}
+
+/**
+ * 시각 입력칸 두 값 → 구간
+ *
+ * 입력칸 값은 벽시계라 자정에 시간을 더하지 않고 그날의 벽시계 시각으로 바꾼다.
+ * 종료가 시작보다 이르면 다음 날 새벽으로 읽는다.
+ */
 export function spanFromClocks(dateKey: string, startClock: string, endClock: string): ManualSpan {
-  const dayStartMs = kstDayStartMs(dateKey);
-  const startMs = dayStartMs + clockMs(startClock);
-  const endMs = dayStartMs + clockMs(endClock);
+  const startMs = zonedTimeMs(dateKey, clockMinutes(startClock));
+  const endMs = zonedTimeMs(dateKey, clockMinutes(endClock));
   // 같으면 길이 0으로 두어 검증이 막게 한다. 24시간 기록으로 읽지 않는다.
-  return { startMs, endMs: endMs < startMs ? endMs + DAY_MS : endMs };
+  return {
+    startMs,
+    endMs:
+      endMs < startMs ? zonedTimeMs(addDaysToDateKey(dateKey, 1), clockMinutes(endClock)) : endMs,
+  };
 }
 
 export function endsNextDay(span: ManualSpan, dateKey: string): boolean {
-  return span.endMs >= kstDayStartMs(dateKey) + DAY_MS;
+  return span.endMs >= nextDayStartMs(dateKey);
 }
 
 /** 서버 검증과 같은 순서다. 미래 판정에는 측정 제출과 달리 시계 오차 여유를 두지 않는다. */
@@ -138,20 +178,27 @@ export function validateSpan(span: ManualSpan, nowMs: number): SpanError | null 
   return span.endMs > nowMs ? "future" : null;
 }
 
-/** 시각 입력칸이 24시간 기록을 만들지 않으므로 칩도 같은 상한에서 멈춘다. */
+/**
+ * 칩이 멈추는 종료
+ *
+ * 시각 입력칸은 시작과 같은 시각을 길이 0으로 읽어 다음 날 같은 벽시계 시각 직전까지만 담을 수 있다.
+ * 서머타임 전환일은 하루가 24시간이 아니라 24시간을 더하지 않고 다음 날 그 시각에서 1분을 뺀다.
+ */
 function chipCapMs(span: ManualSpan, nowMs: number): number {
-  return Math.min(floorMinute(nowMs), span.startMs + DAY_MS - MINUTE_MS);
+  const nextDayKey = addDaysToDateKey(localDateKey(new Date(span.startMs)), 1);
+  const sameClockNextDay = zonedTimeMs(nextDayKey, clockMinutes(clockOf(span.startMs)));
+  return Math.min(floorMinute(nowMs), sameClockNextDay - MINUTE_MS);
 }
 
-/** 칩 길이를 종료에 더한다. 지금이나 24시간 직전을 넘으면 거기서 멈춘다. */
+/** 칩 길이를 종료에 더한다. 지금이나 다음 날 같은 시각 직전을 넘으면 거기서 멈춘다. */
 export function applyChip(span: ManualSpan, minutes: number, nowMs: number): ManualSpan {
-  return {
+  return asShown({
     startMs: span.startMs,
-    endMs: Math.min(span.endMs + minutes * MINUTE_MS, chipCapMs(span, nowMs)),
-  };
+    endMs: Math.min(laterOnClock(span.endMs, minutes), chipCapMs(span, nowMs)),
+  });
 }
 
-/** 종료가 지금이나 24시간 직전에 닿았는가. 닿으면 칩을 끈다. */
+/** 종료가 지금이나 다음 날 같은 시각 직전에 닿았는가. 닿으면 칩을 끈다. */
 export function reachedNow(span: ManualSpan, nowMs: number): boolean {
   return span.endMs >= chipCapMs(span, nowMs);
 }
@@ -212,7 +259,12 @@ export function overlapNotice(span: ManualSpan, pieces: readonly ManualSpan[]): 
     first.startMs > span.startMs
       ? { startMs: span.startMs, endMs: first.startMs }
       : { startMs: first.endMs, endMs: pieces[1]?.startMs ?? span.endMs };
-  return `이미 기록된 ${formatDuration(removedMs / 1000)}(${clockOf(gap.startMs)}~${clockOf(gap.endMs)})은 제외하고 ${formatDuration(savedMs / 1000)}을 저장해요`;
+  return i18n.t("manual-record:message.overlapNotice", {
+    removed: formatDuration(removedMs / 1000),
+    start: formatIsoClock(new Date(gap.startMs).toISOString()),
+    end: formatIsoClock(new Date(gap.endMs).toISOString()),
+    saved: formatDuration(savedMs / 1000),
+  });
 }
 
 /**
@@ -263,8 +315,8 @@ export function bundleSpan(bundle: readonly StudySessionSummary[]): ManualSpan {
  */
 export function bundleMayContinue(bundle: readonly StudySessionSummary[]): string | null {
   const endMs = Math.max(...bundle.map((piece) => Date.parse(piece.endedAt)));
-  const key = kstDateKey(new Date(endMs));
-  return kstDayStartMs(key) === endMs ? key : null;
+  const key = localDateKey(new Date(endMs));
+  return dayStartMs(key) === endMs ? key : null;
 }
 
 export function manualBundles(sessions: readonly StudySessionSummary[]): StudySessionSummary[][] {
@@ -292,27 +344,32 @@ export function subjectNameOf(
   subjectId: number | null,
   refs: ReadonlyMap<number, SubjectRef>,
 ): string {
-  return subjectId === null
-    ? MANUAL_RECORD_COPY.noSubject
-    : (refs.get(subjectId)?.name ?? MANUAL_RECORD_COPY.noSubject);
+  const name = subjectId === null ? undefined : refs.get(subjectId)?.name;
+  return name ?? i18n.t("manual-record:subject.none");
 }
 
-function koreanClock(ms: number): { period: "오전" | "오후"; time: string } {
+function spokenClock(ms: number): { period: string; time: string } {
   const [hour = 0, minute = 0] = clockOf(ms).split(":").map(Number);
   const hour12 = hour % 12 === 0 ? 12 : hour % 12;
   return {
-    period: hour < 12 ? "오전" : "오후",
-    time: minute === 0 ? `${hour12}시` : `${hour12}시 ${minute}분`,
+    period: i18n.t(hour < 12 ? "manual-record:readAloud.am" : "manual-record:readAloud.pm"),
+    time:
+      minute === 0
+        ? i18n.t("manual-record:readAloud.hour", { hour: hour12 })
+        : i18n.t("manual-record:readAloud.hourMinute", { hour: hour12, minute }),
   };
 }
 
 /** 스크린리더 문장. 화면에서는 측정 기록과 같은 색이라 수동 기록이라는 말을 앞에 둔다. */
 export function readAloudLabel(input: { subjectName: string; span: ManualSpan }): string {
-  const start = koreanClock(input.span.startMs);
-  const end = koreanClock(input.span.endMs);
-  const endText = end.period === start.period ? end.time : `${end.period} ${end.time}`;
-  const length = formatDuration((input.span.endMs - input.span.startMs) / 1000);
-  return `수동 기록, ${input.subjectName}, ${start.period} ${start.time}부터 ${endText}, ${length}`;
+  const start = spokenClock(input.span.startMs);
+  const end = spokenClock(input.span.endMs);
+  return i18n.t("manual-record:readAloud.label", {
+    subject: input.subjectName,
+    start: i18n.t("manual-record:readAloud.withPeriod", start),
+    end: end.period === start.period ? end.time : i18n.t("manual-record:readAloud.withPeriod", end),
+    length: formatDuration((input.span.endMs - input.span.startMs) / 1000),
+  });
 }
 
 /**

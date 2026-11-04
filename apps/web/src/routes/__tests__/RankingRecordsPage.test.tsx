@@ -30,6 +30,7 @@ import {
   pressNative,
   resetGlassChrome,
 } from "@/test/nativeControlStub";
+import { mockDeviceTimeZone } from "@/test/deviceTimeZone";
 
 vi.mock("@/lib/rankingApi", () => ({
   getRankingBoard: vi.fn(),
@@ -113,6 +114,15 @@ describe("RankingRecordsPage", () => {
     expect(
       screen.getByRole("button", { name: "3위 순공 주간 · 10월 1주 41:20:00" }),
     ).toBeInTheDocument();
+  });
+
+  it("기기 시간대가 뉴욕이어도 올해는 KST로 정한다", async () => {
+    // 뉴욕은 아직 2026년 12월 31일이지만 KST는 2027년 1월 1일이라 2026년 기록에 연도를 붙인다.
+    vi.setSystemTime(new Date("2026-12-31T20:00:00-05:00"));
+    mockDeviceTimeZone("America/New_York");
+    renderPage();
+
+    expect(await screen.findByRole("heading", { name: "2026년 10월" })).toBeInTheDocument();
   });
 
   it("목록 끝에 닿으면 다음 페이지를 받는다", async () => {

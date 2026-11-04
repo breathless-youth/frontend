@@ -93,8 +93,48 @@ describe("설정 › 타임랩스", () => {
     fireEvent.click(screen.getByRole("button", { name: "얼굴 가림 안내" }));
 
     expect(
-      await screen.findByText("처음 인식된 얼굴만 가려요.", TOOLTIP_QUERY),
+      await screen.findByText(
+        "내 얼굴만 가려요. 함께 찍힌 다른 사람은 가려지지 않아요.",
+        TOOLTIP_QUERY,
+      ),
     ).toBeInTheDocument();
+  });
+
+  it("얼굴 가림이 꺼져 있으면 이모지 줄을 고를 수 없다", async () => {
+    renderPage();
+    await findSaveSwitch();
+
+    const emojis = within(screen.getByRole("radiogroup", { name: "가림 이모지" })).getAllByRole(
+      "radio",
+    );
+    expect(emojis).toHaveLength(9);
+    expect(emojis.every((emoji) => emoji.hasAttribute("disabled"))).toBe(true);
+  });
+
+  it("얼굴 가림을 켜고 이모지를 고르면 미리보기에 그리고 저장하며 이벤트를 보낸다", async () => {
+    renderPage();
+    await findSaveSwitch();
+
+    fireEvent.click(screen.getByRole("switch", { name: "얼굴 가림" }));
+    const cat = screen.getByRole("radio", { name: "고양이" });
+    fireEvent.click(cat);
+    // 고른 칸을 다시 눌러도 선택이 풀리지 않는다.
+    fireEvent.click(cat);
+
+    expect(cat).toHaveAttribute("aria-checked", "true");
+    expect(
+      screen.getByTestId("timelapse-preview").querySelector('img[src="/face-mask/cat.png"]'),
+    ).not.toBeNull();
+    expect((await store.load()).faceMaskEmoji).toBe("cat");
+    expect(analytics.trackTimelapseSettingChanged).toHaveBeenCalledWith({
+      setting: "face_mask_emoji",
+      value: "cat",
+    });
+    expect(
+      analytics.trackTimelapseSettingChanged.mock.calls.filter(
+        ([event]) => (event as { setting: string }).setting === "face_mask_emoji",
+      ),
+    ).toHaveLength(1);
   });
 
   it("정보 스위치를 켜면 미리보기에 나타나고 저장되며 이벤트를 보낸다", async () => {

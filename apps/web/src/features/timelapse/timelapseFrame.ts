@@ -1,5 +1,7 @@
 import { timelineSegments } from "@/features/study-session/sessionResult";
 import { toKoreanDurationLength } from "@/features/study-session/formatDuration";
+import { dateKeyOfDate, formatMonthDay } from "@/features/records/recordsFormat";
+import i18n from "@/lib/i18n";
 
 import type { TimelapseAspect, TimelapseInfoKey } from "./timelapseSettings";
 import type { TimelapseRecord } from "./timelapseStore";
@@ -14,7 +16,6 @@ export const FLOW_COLORS = {
   track: "rgba(255,255,255,0.25)",
 } as const;
 
-const WATERMARK_TEXT = "포커스 메이커스";
 const WATERMARK_COLOR = "#3671cf";
 const WATERMARK_BACKGROUND = "#ffffff";
 const TEXT_COLOR = "#ffffff";
@@ -57,8 +58,7 @@ export function canvasSizeFor(aspect: TimelapseAspect): { width: number; height:
 }
 
 function dateLabel(ms: number): string {
-  const date = new Date(ms);
-  return `${date.getMonth() + 1}월 ${date.getDate()}일`;
+  return formatMonthDay(dateKeyOfDate(new Date(ms)));
 }
 
 /** 영상 오버레이와 전체 목록이 같은 값을 보이도록 한 곳에서 계산한다. */
@@ -80,10 +80,15 @@ export function overlayTextFor(
   const rate = focusRatePercent(studySec, focusSec);
   return {
     date: dateLabel(record.startedAtMs),
-    focusTime: `순공 ${toKoreanDurationLength(focusSec)}`,
-    focusRate: `집중률 ${rate}%`,
+    focusTime: i18n.t("timelapse:frame.focusTime", {
+      duration: toKoreanDurationLength(focusSec),
+    }),
+    focusRate: i18n.t("timelapse:frame.focusRate", { rate }),
     dday: extra.ddayLabel,
-    streak: extra.streakDays === null ? null : `${extra.streakDays}일 연속 공부 🔥`,
+    streak:
+      extra.streakDays === null
+        ? null
+        : i18n.t("timelapse:frame.streak", { count: extra.streakDays }),
   };
 }
 
@@ -129,7 +134,14 @@ export function savedOverlayFor(
 
 /** 한 장면에 그리는 모든 글자. 글꼴 조각 파일을 미리 받을 때 쓴다. */
 export function timelapseGlyphs(text: TimelapseOverlayText): string {
-  return [text.date, text.focusTime, text.focusRate, text.dday, text.streak, WATERMARK_TEXT]
+  return [
+    text.date,
+    text.focusTime,
+    text.focusRate,
+    text.dday,
+    text.streak,
+    i18n.t("timelapse:frame.watermark"),
+  ]
     .filter((line) => line !== null)
     .join("");
 }
@@ -274,7 +286,8 @@ export function drawTimelapseFrame(ctx: CanvasRenderingContext2D, scene: Timelap
   // 오른쪽 위 워터마크는 항상 그린다.
   clearShadow(ctx);
   ctx.font = `800 ${8 * u}px ${TIMELAPSE_FONT_FAMILY}`;
-  const chipWidth = ctx.measureText(WATERMARK_TEXT).width + 10 * u;
+  const watermark = i18n.t("timelapse:frame.watermark");
+  const chipWidth = ctx.measureText(watermark).width + 10 * u;
   const chipHeight = (8 * 1.2 + 5) * u;
   const chipX = width - 12 * u - chipWidth;
   const chipY = 12 * u;
@@ -284,7 +297,7 @@ export function drawTimelapseFrame(ctx: CanvasRenderingContext2D, scene: Timelap
   ctx.fillStyle = WATERMARK_COLOR;
   ctx.textAlign = "left";
   ctx.textBaseline = "middle";
-  ctx.fillText(WATERMARK_TEXT, chipX + 5 * u, chipY + chipHeight / 2);
+  ctx.fillText(watermark, chipX + 5 * u, chipY + chipHeight / 2);
 
   ctx.restore();
 }

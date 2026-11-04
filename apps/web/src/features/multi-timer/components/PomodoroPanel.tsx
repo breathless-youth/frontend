@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { formatPomodoroRemaining } from "../multiTimerFormat";
 import type { ModeState, PomodoroPhase } from "../multiTimerMachine";
@@ -7,8 +8,6 @@ import { AlarmSoundToggle } from "./AlarmSoundToggle";
 import { ModeCard } from "./ModeCard";
 import { PomodoroDial } from "./PomodoroDial";
 import type { DialTone } from "./PomodoroDial";
-
-const PHASE_LABEL: Record<PomodoroPhase, string> = { focus: "집중 시간", break: "휴식 시간" };
 
 /**
  * 뽀모도로 모드 본문
@@ -31,6 +30,7 @@ export function PomodoroPanel({
   soundOn: boolean;
   onChangeSoundOn: (on: boolean) => void;
 }) {
+  const { t } = useTranslation("multi-timer");
   const [selected, setSelected] = useState<PomodoroPhase>("focus");
 
   const { focusMin, breakMin } = mode.settings;
@@ -54,7 +54,7 @@ export function PomodoroPanel({
           minutes={setup ? selectedMinutes : remainingMs / 60_000}
           tone={tone}
           interactive={setup}
-          label={PHASE_LABEL[phase]}
+          label={t(`pomodoro.phase.${phase}`)}
           limit={phase === "focus" ? FOCUS_MIN_LIMIT : BREAK_MIN_LIMIT}
           onChange={changeSelected}
         />
@@ -65,7 +65,11 @@ export function PomodoroPanel({
         />
         {/* 다이얼이 남은 시간을 그려서 숫자는 화면 낭독기에만 남긴다.
             1초마다 읽히지 않도록 aria-live는 걸지 않는다. */}
-        <div role="timer" aria-label={setup ? "집중 시간" : "남은 시간"} className="sr-only">
+        <div
+          role="timer"
+          aria-label={setup ? t("pomodoro.phase.focus") : t("remaining.aria.label")}
+          className="sr-only"
+        >
           {formatPomodoroRemaining(setup ? focusMin * 60_000 : remainingMs)}
         </div>
       </div>

@@ -1,5 +1,6 @@
 import { useId, useRef } from "react";
 import type { KeyboardEvent, PointerEvent } from "react";
+import { useTranslation } from "react-i18next";
 
 import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
@@ -85,6 +86,7 @@ export function PomodoroDial({
   limit: DialLimit;
   onChange?: (minutes: number) => void;
 }) {
+  const { t } = useTranslation("multi-timer");
   const drag = useRef<DialDrag | null>(null);
   const shadowId = `dial-knob-shadow-${useId().replace(/[^\w-]/g, "")}`;
   const { laps, fraction } = dialFraction(minutes);
@@ -147,7 +149,7 @@ export function PomodoroDial({
       aria-valuemin={limit.min}
       aria-valuemax={limit.max}
       aria-valuenow={reportedMinutes}
-      aria-valuetext={`${shownMinutes}분`}
+      aria-valuetext={t("dial.aria.minutes", { count: shownMinutes })}
       aria-disabled={interactive ? undefined : true}
       tabIndex={interactive ? 0 : undefined}
       onKeyDown={interactive ? handleKeyDown : undefined}
@@ -211,7 +213,7 @@ export function PomodoroDial({
       </svg>
       {laps > 0 && (
         <span className="pointer-events-none absolute -top-1.5 left-1/2 -translate-x-1/2 rounded-full bg-primary px-2.5 py-1 text-xs leading-4 font-bold whitespace-nowrap text-primary-foreground">
-          {laps + 1}바퀴째
+          {t("dial.lap", { lap: laps + 1 })}
         </span>
       )}
     </div>
