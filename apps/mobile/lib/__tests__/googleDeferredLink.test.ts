@@ -44,14 +44,18 @@ describe("readGoogleDeferredDeepLink", () => {
   it("iOS면 모듈을 부르지 않고 unsupported", async () => {
     jest.replaceProperty(Platform, "OS", "ios");
 
-    await expect(readGoogleDeferredDeepLink()).resolves.toEqual({ result: "unsupported" });
+    await expect(readGoogleDeferredDeepLink({ attempts: 3, intervalMs: 500 })).resolves.toEqual({
+      result: "unsupported",
+    });
     expect(readDeepLink).not.toHaveBeenCalled();
   });
 
   it("모듈이 없으면 unsupported", async () => {
     mockModule.current = null;
 
-    await expect(readGoogleDeferredDeepLink()).resolves.toEqual({ result: "unsupported" });
+    await expect(readGoogleDeferredDeepLink({ attempts: 3, intervalMs: 500 })).resolves.toEqual({
+      result: "unsupported",
+    });
   });
 
   it("끝까지 비어 있으면 attempts번 묻고 empty", async () => {
@@ -72,13 +76,5 @@ describe("readGoogleDeferredDeepLink", () => {
       result: "error",
     });
     expect(readDeepLink).toHaveBeenCalledTimes(1);
-  });
-
-  it("기본값은 1초 간격으로 여섯 번 묻는다", async () => {
-    const promise = readGoogleDeferredDeepLink();
-    await jest.advanceTimersByTimeAsync(5000);
-
-    await expect(promise).resolves.toEqual({ result: "empty" });
-    expect(readDeepLink).toHaveBeenCalledTimes(6);
   });
 });

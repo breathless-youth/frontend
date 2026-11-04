@@ -8,7 +8,7 @@
 
 광고 소재별로 들어온 사람이 남는지 비교하려고 사람마다 어느 광고로 들어왔는지를 서버와 Amplitude에 남기기로 했다. 메타 광고는 메타 SDK의 지연 딥링크와 플레이 설치 정보의 암호문으로 광고를 알 수 있다. 구글 앱 설치 광고는 플레이 설치 정보에 `gclid`만 들어오고, 구글 애즈 API는 앱 설치 캠페인의 `gclid`로 광고 그룹을 조회해 주지 않는다.
 
-구글 앱 설치 캠페인은 광고 그룹마다 딥링크를 넣을 수 있고, GA4 for Firebase SDK는 매니페스트 플래그가 켜져 있으면 첫 실행에서 그 딥링크를 받아 SharedPreferences `google.analytics.deferred.deeplink.prefs`의 `deeplink` 키에 저장한다. 앱에는 ADR 0010으로 `@react-native-firebase/analytics`가 이미 들어 있지만, RN Firebase에는 이 값을 읽는 API가 없다.
+구글 앱 설치 캠페인은 광고 그룹마다 딥링크를 넣을 수 있고, GA4 for Firebase SDK는 매니페스트 플래그가 켜져 있으면 첫 실행에서 그 딥링크를 받아 SharedPreferences `google.analytics.deferred.deeplink.prefs`의 `deeplink` 키에 저장한다. 이 저장소 이름과 키는 Google Ads 도움말 [측정 SDK에서 지연 딥링크 사용 설정](https://support.google.com/google-ads/answer/12373942)이 예제 코드로 안내하는 값이고, 도움말이 요구하는 최소 버전은 `firebase-analytics` 17.2.0이다. 앱에는 ADR 0010으로 `@react-native-firebase/analytics`가 이미 들어 있지만, RN Firebase에는 이 값을 읽는 API가 없다.
 
 ## 결정
 
@@ -33,3 +33,5 @@
 - 읽기가 실패해도 `null`만 넘어가고 설치 정보와 메타 값 전달은 그대로다.
 - 이 업데이트 전에 설치한 사람은 SDK가 딥링크를 받아 두지 않았으므로 광고 그룹 번호를 다시 얻을 수 없다. 그 사람들은 `gclid`로 구글 광고인지까지만 안다.
 - 재시도 횟수와 간격은 운영에서 모은 읽기 결과를 보고 고친다.
+- 이 결정을 내릴 때 앱은 RN Firebase 26.3.3과 Firebase Android BoM 34.18.0을 썼다.
+- Firebase를 올릴 때는 도움말의 저장소 이름과 키가 그대로인지 다시 확인한다.
