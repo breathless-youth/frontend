@@ -689,6 +689,9 @@ export type {
 } from "./room";
 
 export { API_ENDPOINTS, apiVersionFor } from "./apiVersion";
+
+export { APP_LOCALES, negotiateLocale } from "./locale";
+export type { AppLocale } from "./locale";
 export type { ApiEndpoint, ApiEndpointSpec } from "./apiVersion";
 
 export { RANKING_PERIODS, RANKING_TYPES, TIME_SLOTS } from "./ranking";

@@ -340,4 +340,10 @@ describe("subjectSuggestions", () => {
     await i18n.changeLanguage("en");
     expect(subjectSuggestions()).toEqual(["Math", "English", "Science", "History"]);
   });
+
+  it("목록이 없는 언어는 영어 과목 이름을 추천한다", () => {
+    // 지원 목록 밖 언어는 changeLanguage가 en으로 바꿔 버려서 값을 직접 넣는다.
+    i18n.language = "ja";
+    expect(subjectSuggestions()).toEqual(["Math", "English", "Science", "History"]);
+  });
 });

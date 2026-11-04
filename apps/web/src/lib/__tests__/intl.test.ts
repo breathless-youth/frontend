@@ -41,6 +41,9 @@ describe("intl", () => {
     ["en", "Asia/Seoul", "9:03 PM"],
     ["ko", "America/New_York", "08:03"],
     ["en", "America/New_York", "8:03 AM"],
+    ["ja", "Asia/Seoul", "21:03"],
+    ["ja", "America/New_York", "8:03"],
+    ["zh-Hant", "Asia/Seoul", "下午9:03"],
   ] as const)("시각 %s %s", (locale, tz, expected) => {
     expect(spaces(formatClock(locale, at, tz))).toBe(expected);
   });
