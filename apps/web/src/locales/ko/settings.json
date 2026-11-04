@@ -9,6 +9,7 @@
   "rows": {
     "editProfile": "프로필 수정",
     "cameraPermission": "카메라 권한",
+    "micPermission": "마이크 권한",
     "timelapse": "타임랩스",
     "appLock": "방해 앱 잠금",
     "blockList": "차단 목록",
@@ -26,6 +27,14 @@
       "tooltip": "카메라 권한 안내",
       "granted": "카메라 권한, 허용됨, 시스템 설정 열기",
       "denied": "카메라 권한, 허용 안 됨, 시스템 설정 열기"
+    }
+  },
+  "micPermission": {
+    "tooltip": "권한은 시스템 설정에서 바꿀 수 있어요",
+    "aria": {
+      "tooltip": "마이크 권한 안내",
+      "granted": "마이크 권한, 허용됨, 시스템 설정 열기",
+      "denied": "마이크 권한, 허용 안 됨, 시스템 설정 열기"
     }
   },
   "version": {

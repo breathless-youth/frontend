@@ -457,6 +457,96 @@ describe("방해 앱 잠금 행", () => {
   });
 });
 
+describe("마이크 권한 행", () => {
+  function pushPermissions(permissions: { granted: boolean; micGranted?: boolean }) {
+    const receive = (globalThis as unknown as Record<string, (raw: string) => void>)[
+      NATIVE_MESSAGE_ENTRY
+    ];
+    act(() => {
+      receive(JSON.stringify({ type: "camera-permission", atMs: 1, ...permissions }));
+    });
+  }
+
+  it("그룹 표시가 있고 앱이 알려 주면 카메라 권한 아래에 같은 모양으로 보인다", () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    renderSettings("/settings?groupRooms=1");
+
+    pushPermissions({ granted: true, micGranted: true });
+
+    expect(
+      screen.getByRole("button", { name: "마이크 권한, 허용됨, 시스템 설정 열기" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "마이크 권한 안내" })).toBeInTheDocument();
+    const camera = screen.getByText("카메라 권한");
+    const mic = screen.getByText("마이크 권한");
+    expect(camera.compareDocumentPosition(mic) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("허용 안 됨도 읽어 주고 누르면 시스템 설정을 연다", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderSettings("/settings?groupRooms=1");
+    pushPermissions({ granted: true, micGranted: false });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "마이크 권한, 허용 안 됨, 시스템 설정 열기" }),
+    );
+
+    expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"type":"open-settings"'));
+    expect(analytics.trackOsSettingsOpened).toHaveBeenCalledWith("settings_tab");
+  });
+
+  it("시스템 설정에 다녀와 답이 바뀌면 새 값을 보인다", () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    renderSettings("/settings?groupRooms=1");
+    pushPermissions({ granted: true, micGranted: false });
+
+    pushPermissions({ granted: true, micGranted: true });
+
+    expect(
+      screen.getByRole("button", { name: "마이크 권한, 허용됨, 시스템 설정 열기" }),
+    ).toBeInTheDocument();
+  });
+
+  it("그룹 표시가 없으면 앱이 알려 줘도 보이지 않는다", () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    renderSettings("/settings");
+
+    pushPermissions({ granted: true, micGranted: true });
+
+    expect(screen.queryByText("마이크 권한")).toBeNull();
+  });
+
+  it("마이크 권한을 모르는 앱에서는 보이지 않고 카메라 권한은 그대로다", () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    renderSettings("/settings?groupRooms=1");
+
+    pushPermissions({ granted: true });
+
+    expect(screen.queryByText("마이크 권한")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "카메라 권한, 허용됨, 시스템 설정 열기" }),
+    ).toBeInTheDocument();
+  });
+
+  it("앱의 답을 받기 전과 브라우저에서는 보이지 않는다", () => {
+    renderSettings("/settings?groupRooms=1");
+
+    expect(screen.queryByText("마이크 권한")).toBeNull();
+  });
+
+  it("권한을 물을 때 메시지는 하나만 나간다", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderSettings("/settings?groupRooms=1");
+
+    const asked = postMessage.mock.calls.filter(([raw]) =>
+      String(raw).includes("request-camera-permission"),
+    );
+    expect(asked).toHaveLength(1);
+  });
+});
+
 describe("차단 목록 행", () => {
   afterEach(() => {
     hasAppLockCapability.mockReturnValue(false);

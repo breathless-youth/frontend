@@ -67,6 +67,33 @@ describe("설정 영어 화면", () => {
     expect(visibleText(container)).not.toMatch(HANGUL);
   });
 
+  it("마이크 권한 행도 영어로 보인다", async () => {
+    window.history.replaceState(null, "", "/settings?groupRooms=1");
+    __resetGroupRoomsForTests();
+    onTestFinished(() => {
+      window.history.replaceState(null, "", "/");
+      __resetGroupRoomsForTests();
+    });
+    await i18n.changeLanguage("en");
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    const { container } = renderInRouter(<SettingsPage />);
+    const receive = (globalThis as unknown as Record<string, (raw: string) => void>)[
+      NATIVE_MESSAGE_ENTRY
+    ];
+    act(() => {
+      receive(
+        JSON.stringify({ type: "camera-permission", granted: true, micGranted: false, atMs: 1 }),
+      );
+    });
+
+    expect(screen.getByText("Microphone access")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Microphone access, not allowed, open system settings" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "About microphone access" })).toBeInTheDocument();
+    expect(visibleText(container)).not.toMatch(HANGUL);
+  });
+
   it("약관 화면은 영어일 때만 한국어 전용 안내를 보인다", async () => {
     const ko = renderInRouter(<TermsPage />);
     expect(

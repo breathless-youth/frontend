@@ -3,13 +3,7 @@ import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
-import { InfoTooltip } from "@/components/ui/InfoTooltip";
-import {
-  trackInterviewClicked,
-  trackOsSettingsOpened,
-  trackSettingsRowPressed,
-} from "@/lib/amplitude";
-import { postToNative } from "@/lib/bridge";
+import { trackInterviewClicked, trackSettingsRowPressed } from "@/lib/amplitude";
 import { copyText } from "@/lib/clipboard";
 import { hasGroupRooms } from "@/lib/groupRoomCapability";
 import { hardNavigate } from "@/lib/hardNavigation";
@@ -22,11 +16,15 @@ import { hasAppLockCapability } from "@/features/app-lock/appLockCapability";
 import { formatAppLockRowValue } from "@/features/app-lock/appLockSummary";
 import { useAppLockSettings } from "@/features/app-lock/useAppLockSettings";
 import { consumeProfileSavedNotice } from "@/features/profile/profileSavedNotice";
-import { PermissionToggle } from "@/features/settings/PermissionToggle";
+import { PermissionRow } from "@/features/settings/PermissionRow";
 import { SettingsRow } from "@/features/settings/SettingsRow";
 import { SettingsSection } from "@/features/settings/SettingsSection";
-import { appVersionLabel, cameraPermissionRowLabel } from "@/features/settings/settingsInfo";
-import { useCameraPermission } from "@/features/settings/useCameraPermission";
+import {
+  appVersionLabel,
+  cameraPermissionRowLabel,
+  micPermissionRowLabel,
+} from "@/features/settings/settingsInfo";
+import { useDevicePermissions } from "@/features/settings/useDevicePermissions";
 import { openInterviewForm } from "@/features/interview/interviewForm";
 import { afterApplied } from "@/features/interview/interviewGate";
 import { updateInterviewState } from "@/features/interview/interviewStore";
@@ -41,7 +39,7 @@ const PROFILE_SAVED_TOAST_DELAY_MS = 450;
  *
  * 1. 카메라 권한 행: 원본은 `expo-camera`로 OS 권한 상태를 직접 조회해 트레일링 토글에 반영한다.
  *    웹에는 그 API가 없어(Permissions API의 `camera`를 iOS WKWebView가 지원하지 않는다)
- *    한동안 토글 없이 고정 렌더했지만, 지금은 `useCameraPermission`이 브리지로 네이티브에 물어
+ *    한동안 토글 없이 고정 렌더했지만, 지금은 `useDevicePermissions`가 브리지로 네이티브에 물어
  *    같은 토글을 되살린다. 값을 모르는 동안(브라우저 단독 모드·조회 실패)은 원본의
  *    `granted === null` 분기 그대로 트레일링을 비운다. `onPress`는 `Linking.openSettings()`
  *    대신 `postToNative({ type: "open-settings", atMs: Date.now() })`로 네이티브에 요청만
@@ -56,7 +54,7 @@ export function SettingsPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const granted = useCameraPermission();
+  const permissions = useDevicePermissions();
   const appLock = useAppLockSettings();
   const userId = useUserId();
   // 보상이 국내 기프티콘이라 영어 화면에서는 상태를 묻지 않아 행이 생기지 않는다.
@@ -140,36 +138,24 @@ export function SettingsPage() {
         </SettingsSection>
 
         <SettingsSection className="mt-5" label={t("sections.service")}>
-          {/*
-            카메라 권한 행은 SettingsRow 없이 직접 조립한다.
-            라벨 버튼은 OS 설정을 열고 ⓘ 툴팁도 따로 버튼이라 행 전체를 <button>으로 감싸면 버튼이 중첩된다.
-            토글은 표시 전용이다.
-          */}
-          <div className="flex min-h-11 flex-row items-center justify-between gap-3 py-3.5">
-            <div className="flex min-w-0 items-center gap-1.5">
-              <span className="text-foreground text-base leading-4.75">
-                {t("rows.cameraPermission")}
-              </span>
-              <InfoTooltip label={t("cameraPermission.aria.tooltip")}>
-                {t("cameraPermission.tooltip")}
-              </InfoTooltip>
-            </div>
-            {/* 상태를 모르는 동안(브라우저 단독 모드·조회 실패)은 토글을 비운다. */}
-            {granted !== null && (
-              <button
-                type="button"
-                aria-label={cameraPermissionRowLabel(granted)}
-                onClick={() => {
-                  trackOsSettingsOpened("settings_tab");
-                  postToNative({ type: "open-settings", atMs: Date.now() });
-                }}
-                // 텍스트만으로는 높이가 19px라 세로 음수 마진으로 행 높이는 그대로 두고 버튼만 44px로 만든다.
-                className="my-[-6.5px] flex min-h-11 shrink-0 items-center rounded-full focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
-              >
-                <PermissionToggle granted={granted} />
-              </button>
-            )}
-          </div>
+          <PermissionRow
+            label={t("rows.cameraPermission")}
+            tooltip={t("cameraPermission.tooltip")}
+            tooltipLabel={t("cameraPermission.aria.tooltip")}
+            granted={permissions.camera}
+            rowLabel={cameraPermissionRowLabel}
+          />
+          {/* 마이크는 그룹 공부방에서만 쓰고, 값을 알려 주지 않는 앱과 브라우저에서는 열 수단이 없어 숨긴다. */}
+          {hasGroupRooms() && permissions.microphone !== null && (
+            <PermissionRow
+              label={t("rows.micPermission")}
+              tooltip={t("micPermission.tooltip")}
+              tooltipLabel={t("micPermission.aria.tooltip")}
+              granted={permissions.microphone}
+              rowLabel={micPermissionRowLabel}
+              permission="mic"
+            />
+          )}
           <SettingsRow
             label={t("rows.timelapse")}
             trailing={{ kind: "chevron" }}

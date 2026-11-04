@@ -185,6 +185,14 @@ export interface InstallAttributionMessage {
 export interface CameraPermissionMessage {
   type: "camera-permission";
   granted: boolean;
+  /**
+   * OS 마이크 권한 허용 여부
+   *
+   * 설정의 권한 행들이 같은 때에 묻는 값이라 새 메시지를 더하지 않고 이 답에 함께 싣는다.
+   * 이 값을 싣지 않는 옛 앱에서는 비어 있고, 웹은 그때 마이크 권한 행을 숨긴다.
+   * 조회에 실패해도 비워 두고, `granted`처럼 아직 묻지 않은 상태는 false로 좁힌다.
+   */
+  micGranted?: boolean;
   atMs: number;
 }
 

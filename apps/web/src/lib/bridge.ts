@@ -211,7 +211,13 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
     return { type: "device-handling", active: record.active, atMs: record.atMs };
   }
   if (record.type === "camera-permission" && typeof record.granted === "boolean") {
-    return { type: "camera-permission", granted: record.granted, atMs: record.atMs };
+    return {
+      type: "camera-permission",
+      granted: record.granted,
+      // 모르는 값을 허용으로 읽지 않게 boolean이 아니면 이 값만 버린다.
+      ...(typeof record.micGranted === "boolean" ? { micGranted: record.micGranted } : {}),
+      atMs: record.atMs,
+    };
   }
   if (record.type === "camera-gate-result" && typeof record.granted === "boolean") {
     return { type: "camera-gate-result", granted: record.granted, atMs: record.atMs };
