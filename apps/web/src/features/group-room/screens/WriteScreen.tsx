@@ -1,5 +1,5 @@
 import { Info } from "lucide-react";
-import { type ReactNode, useId } from "react";
+import { type ReactNode, useEffect, useId, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
 import { CharCount } from "@/components/ui/char-count";
@@ -72,11 +72,18 @@ export function WriteScreen({
   const inputId = useId();
   const countId = useId();
   const errorId = useId();
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const keyboardInset = useKeyboardInset();
   const length = countGroupText(value);
   const error = groupFieldError(value, maxLength, checkContact, serverError);
   // 앞뒤 공백을 뺀 글자 수로 세어 공백만 쓴 글도 비어 있는 글로 본다.
   const missing = required && length === 0;
+
+  // 쓰려고 연 화면이라 열리자마자 입력칸에 커서를 둔다.
+  // iOS는 키보드를 올리며 포커스를 받은 입력칸 쪽으로 문서를 끌어 올려서 머리 제목이 앱의 머리 줄 밑으로 들어가므로 문서는 움직이지 않게 한다.
+  useEffect(() => {
+    inputRef.current?.focus({ preventScroll: true });
+  }, []);
 
   const body = (
     <>
@@ -89,9 +96,8 @@ export function WriteScreen({
         </label>
         <div className="mt-2 flex flex-col items-end gap-1.5 rounded-lg border border-border bg-muted px-3.5 pt-3 pb-2.5 focus-within:ring-2 focus-within:ring-(--state-focus)">
           <textarea
+            ref={inputRef}
             id={inputId}
-            // 쓰려고 연 화면이라 열리자마자 입력칸에 커서를 둔다.
-            autoFocus
             rows={3}
             value={value}
             onChange={(event) => onChange(event.target.value)}
