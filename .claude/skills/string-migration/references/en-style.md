@@ -82,7 +82,7 @@
 | 과목 없음 | No subject | |
 | 타임랩스 | timelapse | 설정 행 `Timelapse` |
 | D-Day | D-Day | 영어권에서도 통하지만 사용자 확인 필요 |
-| 집중 시작 (홈 버튼) | Start focusing | |
+| 집중 시작 (홈 버튼) | Start Focus | 버튼 라벨이라 두 단어 모두 대문자 |
 | 측정 (카메라 동작 동사) | measure | track·detect·monitor는 쓰지 않는다(감시 뉘앙스) |
 | 설정 (탭·화면) | Settings | |
 | 카메라 권한 | Camera access | permission이 아니라 access |
@@ -127,7 +127,7 @@
 | 상위 N% | Top N% | |
 | 마감 | Ends / Closed | 남은 시간 `Ends in …`, 지난 마감 `Closed …` |
 | 메달 | medal | `You won 2 medals` |
-| 순공 시작 (랭킹 버튼) | Start focusing | 홈 버튼과 같다 |
+| 순공 시작 (랭킹 버튼) | Start Focus | 홈 버튼과 같다 |
 | 타이머 / 뽀모도로 (토글) | Timer / Pomodoro | ko 토글의 `기본`은 `Timer` |
 | 집중 / 휴식 (뽀모도로 구간) | Focus / Break | `Focus time`이라 쓰지 않는다(순공과 섞인다) |
 | N바퀴째 | Round N | 서수를 피했다 |
@@ -155,7 +155,7 @@
 | 목표 날짜 (D-Day) | target date | `Set target date` |
 | 빠른 이동 (D-Day 달력) | +1 month / +6 months / +1 year | 13px 알약 세 개 |
 | 나 (내 타일) | Me | |
-| 심플 모드 | Simple Mode | 기능 이름이라 문장 안에서도 대문자. 토글 라벨 `Simple Mode`, 시작 버튼 `Start in Simple Mode` |
+| 심플 모드 | Simple Mode | 기능 이름이라 문장 안에서도 대문자. 토글 라벨 `Simple Mode`, 시작 버튼은 `Start in` 뒤에서 줄을 바꾼다(`Start in\nSimple Mode`, 버튼 폭에 한 줄로 들어가지 않는다) |
 | 도움말 (세션) | guide | `Session guide`, 메뉴 `View guide`. help와 섞지 않는다 |
 | 더보기 | More | 메뉴 버튼·도움말 `the More menu` |
 | 카메라 전환 | Switch camera | 토스트 `Camera switched` |
