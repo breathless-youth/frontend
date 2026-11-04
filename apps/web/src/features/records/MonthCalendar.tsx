@@ -35,7 +35,7 @@ export type MonthStats = {
  */
 type MonthCalendarProps = {
   month: CalendarMonth;
-  /** KST 기준 오늘 `YYYY-MM-DD` */
+  /** 기기 시간대 기준 오늘 `YYYY-MM-DD` */
   todayKey: string;
   selectedKey: string;
   /** 날짜 키 → 순공시간(초). 셀 농도·시간 라벨을 여기서 찾는다(`recordsPeriod.buildDayFocusMap`). */

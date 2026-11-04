@@ -3,10 +3,10 @@ import { useEffect } from "react";
 
 import { weekDateKeys } from "@/features/records/recordsFormat";
 import { setStudyStatusUserProperties } from "@/lib/amplitude";
-import { todayKstDateKey } from "@/lib/dateKst";
 import { dailyStatsQuery, streakQuery } from "@/lib/statsQueries";
 
 import { buildHomeSummary, type HomeSummary } from "./homeSummary";
+import { localDateKey } from "@/lib/dateKey";
 
 export type HomeSummaryState =
   | { status: "pending" }
@@ -25,7 +25,7 @@ export type HomeSummaryState =
  * - BY-316(미전송 로컬 세션 합산)이 이 훅에 얹힐 예정이라는 계획은 동일하다.
  */
 export function useHomeSummary(userId: number): HomeSummaryState {
-  const dateKey = todayKstDateKey();
+  const dateKey = localDateKey();
 
   // 자정을 넘기면 날짜 키가 바뀐다. 오늘 통계에는 직전 응답을 placeholder로 두지 않는다. 어제
   // 합계가 새 날짜 아래 "오늘 순공시간"으로 보이면 안 되므로 새 응답까지 스켈레톤이 맞다.

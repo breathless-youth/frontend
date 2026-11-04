@@ -100,7 +100,7 @@ describe("metaAppEvents", () => {
     ]);
   });
 
-  it("순공 5분 달성은 표준 이벤트 성취 달성으로 나간다", () => {
+  it("순공 1분 달성은 표준 이벤트 성취 달성으로 나간다", () => {
     const bridge = stubBridge();
 
     trackMetaFocusMilestone();
@@ -109,13 +109,13 @@ describe("metaAppEvents", () => {
       {
         type: "meta-app-event",
         name: "fb_mobile_achievement_unlocked",
-        params: { fb_description: "focus_5min" },
+        params: { fb_description: "focus_1min" },
         atMs: expect.any(Number),
       },
     ]);
   });
 
-  it("순공 5분 달성은 기기당 한 번만 나간다 — 두 번째 세션에서는 보내지 않는다", () => {
+  it("순공 1분 달성은 기기당 한 번만 나간다 — 두 번째 세션에서는 보내지 않는다", () => {
     const bridge = stubBridge();
 
     trackMetaFocusMilestone();
@@ -124,7 +124,7 @@ describe("metaAppEvents", () => {
     expect(bridge.sent()).toHaveLength(1);
   });
 
-  it("저장소를 못 쓰는 환경에서도 순공 5분 달성을 보낸다 — 전환을 잃는 것보다 드문 중복이 낫다", () => {
+  it("저장소를 못 쓰는 환경에서도 순공 1분 달성을 보낸다 — 전환을 잃는 것보다 드문 중복이 낫다", () => {
     const bridge = stubBridge();
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new DOMException("denied", "SecurityError");

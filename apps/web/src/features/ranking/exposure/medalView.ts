@@ -6,7 +6,7 @@ import type {
 } from "@focusmakers/types";
 
 import { formatMonthDay } from "@/features/records/recordsFormat";
-import { todayKstDateKey } from "@/lib/dateKst";
+import { KOREA_TIME_ZONE, localDateKey } from "@/lib/dateKey";
 import i18n from "@/lib/i18n";
 import { formatClock } from "@/lib/intl";
 import type { AppLocale } from "@/lib/locale";
@@ -76,12 +76,13 @@ export function medalPeriodLabel(record: { period: RankingPeriod; periodStart: s
  * 마감 시각 표기
  *
  * 서버 시각은 UTC라 KST 날짜로 바꿔 일간 기간 표기와 같은 모양으로 쓴다.
+ * 랭킹은 한국 시간 기준이라 기기 시간대와 상관없이 KST로 쓴다.
  * 마감은 늘 정시라 분은 빼고 시만 쓴다.
  */
 export function closesAtLabel(closesAt: string): string {
-  const dateKey = todayKstDateKey(new Date(closesAt));
+  const dateKey = localDateKey(new Date(closesAt), KOREA_TIME_ZONE);
   const locale = i18n.language as AppLocale;
-  const clock = formatClock(locale, new Date(closesAt));
+  const clock = formatClock(locale, new Date(closesAt), KOREA_TIME_ZONE);
   // 한국어는 `00시`처럼 두 자리 시만 쓰므로 `00:00`에서 자르고, 영어는 `12:00 AM` 그대로 쓴다.
   return i18n.t("ranking:medal.closesAt", {
     date: medalPeriodLabel({ period: "DAILY", periodStart: dateKey }),

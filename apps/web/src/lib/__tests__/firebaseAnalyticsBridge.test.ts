@@ -219,3 +219,19 @@ describe("firebaseAnalyticsForwardPlugin", () => {
     expect(postMessage).not.toHaveBeenCalled();
   });
 });
+
+describe("toFirebaseAnalyticsMessage — 순공 1분 달성", () => {
+  it("focus_milestone_reached와 room_type이 GA4 메시지로 그대로 바뀐다", () => {
+    expect(
+      toFirebaseAnalyticsMessage(
+        event("focus_milestone_reached", { event_properties: { room_type: "single" } }),
+        5,
+      ),
+    ).toEqual({
+      type: "analytics-event",
+      name: "focus_milestone_reached",
+      params: { room_type: "single" },
+      atMs: 5,
+    });
+  });
+});

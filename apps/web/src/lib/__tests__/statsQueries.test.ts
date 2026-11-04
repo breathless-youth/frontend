@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { mockDeviceTimeZone } from "@/test/deviceTimeZone";
+
 import { dailyStatsQuery, isSettledStatsDate, periodStatsQuery, statsKeys } from "../statsQueries";
 
 describe("statsKeys.period", () => {
@@ -95,6 +97,20 @@ describe("isSettledStatsDate", () => {
     const firstDay = new Date("2026-09-01T03:00:00+09:00");
     expect(isSettledStatsDate("2026-08-15", firstDay)).toBe(false);
     expect(isSettledStatsDate("2026-07-31", firstDay)).toBe(true);
+  });
+
+  it("기기 시간대의 오늘과 어제로 판단한다", () => {
+    mockDeviceTimeZone("America/New_York");
+    // 서울은 10월 2일이지만 뉴욕은 10월 1일 저녁이라 어제가 9월 30일이고 9월은 아직 정착하지 않았다.
+    expect(isSettledStatsDate("2026-09-15", new Date("2026-10-01T20:00:00-04:00"))).toBe(false);
+  });
+
+  it("서머타임이 시작한 다음 날 자정 직후의 어제는 서머타임이 시작한 날이다", () => {
+    mockDeviceTimeZone("America/New_York");
+    // 3월 8일은 23시간이라 3월 9일 00:30에서 24시간을 빼면 3월 7일이 된다. 어제는 3월 8일이다.
+    const now = new Date("2026-03-09T00:30:00-04:00");
+    expect(isSettledStatsDate("2026-03-08", now)).toBe(false);
+    expect(isSettledStatsDate("2026-02-28", now)).toBe(true);
   });
 });
 

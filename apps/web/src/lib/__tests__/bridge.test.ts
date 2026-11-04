@@ -532,11 +532,18 @@ describe("parseToWebMessage — install-attribution(설치 유입 정보)", () =
   };
 
   it("앱이 읽은 값을 그대로 파싱한다", () => {
-    expect(parseToWebMessage(JSON.stringify(valid))).toEqual(valid);
+    const withGoogle = { ...valid, googleDeepLinkAd: "g_group" };
+    expect(parseToWebMessage(JSON.stringify(withGoogle))).toEqual(withGoogle);
   });
 
   it("값이 없는 항목은 null로 받는다", () => {
-    const empty = { ...valid, platform: "ios", installReferrer: null, deepLinkAd: null };
+    const empty = {
+      ...valid,
+      platform: "ios",
+      installReferrer: null,
+      deepLinkAd: null,
+      googleDeepLinkAd: null,
+    };
     expect(parseToWebMessage(JSON.stringify(empty))).toEqual(empty);
   });
 
@@ -551,6 +558,29 @@ describe("parseToWebMessage — install-attribution(설치 유입 정보)", () =
       parseToWebMessage(
         JSON.stringify({ ...valid, deepLinkAd: "web_v1", installReferrer: "a".repeat(5000) }),
       ),
-    ).toEqual({ ...valid, deepLinkAd: null, installReferrer: null });
+    ).toEqual({ ...valid, deepLinkAd: null, installReferrer: null, googleDeepLinkAd: null });
+  });
+
+  it("구글 광고 그룹 번호를 받는다", () => {
+    expect(
+      parseToWebMessage(JSON.stringify({ ...valid, googleDeepLinkAd: "g_planner" })),
+    ).toMatchObject({ googleDeepLinkAd: "g_planner" });
+  });
+
+  it("구버전 앱이 구글 광고 그룹 번호를 보내지 않으면 null로 본다", () => {
+    expect(parseToWebMessage(JSON.stringify(valid))).toMatchObject({ googleDeepLinkAd: null });
+  });
+
+  it.each(["ios_v1", "G_planner", "g_", "g_한글"])(
+    "형식 밖 구글 광고 그룹 번호 %s는 그 항목만 비운다",
+    (value) => {
+      expect(
+        parseToWebMessage(JSON.stringify({ ...valid, googleDeepLinkAd: value })),
+      ).toMatchObject({ googleDeepLinkAd: null, platform: "android", deepLinkAd: "aos_v3" });
+    },
+  );
+
+  it("구글 광고 그룹 번호가 문자열도 null도 아니면 통째로 버린다", () => {
+    expect(parseToWebMessage(JSON.stringify({ ...valid, googleDeepLinkAd: 3 }))).toBeNull();
   });
 });
