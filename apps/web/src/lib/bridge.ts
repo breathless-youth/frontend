@@ -11,6 +11,7 @@ import {
   INSTALL_GOOGLE_AD_LABEL_PATTERN,
   INSTALL_REFERRER_MAX_LENGTH,
   NATIVE_CONTROL_ID_PATTERN,
+  SOCIAL_LOGIN_FAILURE_CODES,
   VIDEO_RESULT_STATUSES,
 } from "@focusmakers/types";
 
@@ -316,6 +317,33 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
         type: "profile-photo-result",
         id: record.id,
         status: record.status,
+        atMs: record.atMs,
+      };
+    }
+  }
+  if (record.type === "social-login-result" && typeof record.id === "string" && record.id !== "") {
+    if (record.status === "success" && typeof record.isNewUser === "boolean") {
+      return {
+        type: "social-login-result",
+        id: record.id,
+        status: "success",
+        isNewUser: record.isNewUser,
+        atMs: record.atMs,
+      };
+    }
+    if (record.status === "cancelled") {
+      return { type: "social-login-result", id: record.id, status: "cancelled", atMs: record.atMs };
+    }
+    if (record.status === "failed") {
+      // 앱이 새 코드를 더해도 응답을 버리면 기다리는 쪽이 끝나지 않으므로 모르는 코드는 UNKNOWN으로 받는다.
+      const code = (SOCIAL_LOGIN_FAILURE_CODES as readonly unknown[]).includes(record.code)
+        ? (record.code as (typeof SOCIAL_LOGIN_FAILURE_CODES)[number])
+        : "UNKNOWN";
+      return {
+        type: "social-login-result",
+        id: record.id,
+        status: "failed",
+        code,
         atMs: record.atMs,
       };
     }

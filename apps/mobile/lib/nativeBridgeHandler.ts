@@ -21,6 +21,7 @@ import type * as PushTokenRegistration from "./pushTokenRegistration";
 import { trackNativeEvent } from "./nativeAnalytics";
 import { emitSessionClosed } from "./sessionClosed";
 import { runAfterNextSessionScreen } from "./sessionPresence";
+import { socialLogin } from "./socialLogin";
 import { setTabBarState } from "./tabBarVisibility";
 import { appendVideoChunk, saveVideo, shareVideo } from "./videoTransfer";
 import { profilePhotoPickerNative } from "../modules/profile-photo-picker";
@@ -342,6 +343,12 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
     case "pick-profile-photo":
       void pickProfilePhoto().then((result) => {
         reply({ type: "profile-photo-result", id: message.id, ...result, atMs: Date.now() });
+      });
+      break;
+    case "social-login":
+      // 성공이면 새 토큰의 `auth-token`이 저장 구독으로 먼저 나간 뒤에 결과가 나간다.
+      void socialLogin(message.provider).then((result) => {
+        reply({ type: "social-login-result", id: message.id, ...result, atMs: Date.now() });
       });
       break;
     default: {

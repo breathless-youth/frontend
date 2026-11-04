@@ -10,6 +10,7 @@ import { profilePhotoPickerNative } from "../modules/profile-photo-picker";
 import { SUPPORTED_INLINE_KINDS, webGlassNative } from "../modules/web-glass";
 import { getRnda } from "./appLock/rnda";
 import { isNewUserThisLaunch } from "./auth";
+import { supportedSocialLoginProviders } from "./socialLogin";
 import { ensureUserRegistered } from "./userApi";
 
 // 고정 영역에 새 모양을 더하면 올리고, 웹은 이 값을 보고 그 모양을 앱에 맡길지 정한다.
@@ -95,6 +96,13 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   // Android 웹뷰의 파일 입력이 큰 카메라 사진을 읽지 못해 Android에만 붙이고, 모듈이 없는 옛 Dev Client에는 붙이지 않는다.
   if (Platform.OS === "android" && profilePhotoPickerNative !== null) {
     params.profilePhotoPicker = "1";
+  }
+  // `socialLogin`: 이 바이너리가 `social-login`으로 로그인할 수 있는 공급자 목록이다.
+  // 웹은 목록 안의 공급자 버튼만 보이고, 목록이 없는 구버전 앱에서는 로그인을 앱에 맡기지 않는다(`apps/web/src/lib/nativeSocialLogin.ts`).
+  // 앱 종류별 키가 없는 공급자는 빠지고, SDK 네이티브 모듈이 없는 이전 Dev Client에는 붙지 않는다.
+  const socialLoginProviders = supportedSocialLoginProviders();
+  if (socialLoginProviders.length > 0) {
+    params.socialLogin = socialLoginProviders.join(",");
   }
   // `glassChrome`: 이 바이너리가 위쪽 고정 영역을 네이티브 Liquid Glass로 그린다는 표시이고 값은 그릴 수 있는 크롬 모양의 버전이다.
   // `glassControls`: 이 바이너리의 Swift가 그리는 본문 부품 종류 목록이고, 버튼 모양을 그리면 `button-style`이 뒤에 붙는다.
