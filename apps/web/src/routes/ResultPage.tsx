@@ -400,10 +400,15 @@ function isStudySession(value: unknown): value is StudySessionResponse {
 }
 
 /**
- * CTA가 돌아갈 홈을 현재 경로에서 정한다. 목적지는 솔로의 `/home`과 소셜의 `/social`
- * 둘뿐이고, 소셜 결과 라우트(`/social/room/:id/result`)만 `/social`로 보낸다. 경로는 state와
+ * CTA가 돌아갈 홈을 현재 경로에서 정한다. 목적지는 솔로의 `/home`과 소셜의 `/social`,
+ * 그룹 공부방의 그룹 홈이다. 소셜 결과 라우트(`/social/room/:id/result`)는 `/social`로,
+ * 그룹 공부방 결과 라우트(`/social/groups/:id/room/result`)는 그 그룹 홈으로 보낸다. 경로는 state와
  * 달리 새로고침·복원에서도 사라지지 않아 단일 원천으로 삼는다.
  */
-function resolveHome(pathname: string): "/home" | "/social" {
+function resolveHome(pathname: string): "/home" | "/social" | `/social/groups/${number}` {
+  const group = /^\/social\/groups\/(\d+)\/room\/result$/.exec(pathname);
+  if (group !== null) {
+    return `/social/groups/${Number(group[1])}`;
+  }
   return pathname.startsWith("/social/") ? "/social" : "/home";
 }

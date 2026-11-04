@@ -1,5 +1,5 @@
 import { StrictMode } from "react";
-import { renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { RoomServerMessage } from "@focusmakers/types";
@@ -51,7 +51,12 @@ describe("useRoomRejoin", () => {
     const channel = fakeChannel();
     const onUnavailable = vi.fn();
     const { result } = renderHook(() =>
-      useRoomRejoin({ channel, inviteCode: "0712", onUnavailable }),
+      useRoomRejoin({
+        channel,
+        roomId: 42,
+        renew: () => roomApi.renewLiveRoomSeat("0712"),
+        onUnavailable,
+      }),
     );
 
     result.current();
@@ -66,7 +71,12 @@ describe("useRoomRejoin", () => {
     const channel = fakeChannel();
     const onUnavailable = vi.fn();
     const { result } = renderHook(() =>
-      useRoomRejoin({ channel, inviteCode: "0712", onUnavailable }),
+      useRoomRejoin({
+        channel,
+        roomId: 42,
+        renew: () => roomApi.renewLiveRoomSeat("0712"),
+        onUnavailable,
+      }),
     );
 
     result.current();
@@ -80,7 +90,12 @@ describe("useRoomRejoin", () => {
     const channel = fakeChannel();
     const onUnavailable = vi.fn();
     const { result } = renderHook(() =>
-      useRoomRejoin({ channel, inviteCode: "0712", onUnavailable }),
+      useRoomRejoin({
+        channel,
+        roomId: 42,
+        renew: () => roomApi.renewLiveRoomSeat("0712"),
+        onUnavailable,
+      }),
     );
 
     result.current();
@@ -100,7 +115,12 @@ describe("useRoomRejoin", () => {
     const channel = fakeChannel();
     const onUnavailable = vi.fn();
     const { result } = renderHook(() =>
-      useRoomRejoin({ channel, inviteCode: "0712", onUnavailable }),
+      useRoomRejoin({
+        channel,
+        roomId: 42,
+        renew: () => roomApi.renewLiveRoomSeat("0712"),
+        onUnavailable,
+      }),
     );
 
     result.current();
@@ -119,7 +139,12 @@ describe("useRoomRejoin", () => {
       const channel = fakeChannel();
       const onUnavailable = vi.fn();
       const { result } = renderHook(() =>
-        useRoomRejoin({ channel, inviteCode: "0712", onUnavailable }),
+        useRoomRejoin({
+          channel,
+          roomId: 42,
+          renew: () => roomApi.renewLiveRoomSeat("0712"),
+          onUnavailable,
+        }),
       );
 
       result.current();
@@ -143,7 +168,12 @@ describe("useRoomRejoin", () => {
       const channel = fakeChannel();
       const onUnavailable = vi.fn();
       const { result } = renderHook(() =>
-        useRoomRejoin({ channel, inviteCode: "0712", onUnavailable }),
+        useRoomRejoin({
+          channel,
+          roomId: 42,
+          renew: () => roomApi.renewLiveRoomSeat("0712"),
+          onUnavailable,
+        }),
       );
 
       result.current();
@@ -165,7 +195,12 @@ describe("useRoomRejoin", () => {
     const channel = fakeChannel();
     const onUnavailable = vi.fn();
     const { result } = renderHook(() =>
-      useRoomRejoin({ channel, inviteCode: "0712", onUnavailable }),
+      useRoomRejoin({
+        channel,
+        roomId: 42,
+        renew: () => roomApi.renewLiveRoomSeat("0712"),
+        onUnavailable,
+      }),
     );
 
     result.current();
@@ -178,12 +213,83 @@ describe("useRoomRejoin", () => {
     expect(onUnavailable).not.toHaveBeenCalled();
   });
 
+  it("넘겨받은 자리 잡기 함수로 다시 잡는다", async () => {
+    const channel = fakeChannel();
+    const renew = vi.fn(async () => ({ roomId: 42, graceRejoin: false, iceServers: [] }));
+    const { result } = renderHook(() =>
+      useRoomRejoin({ channel, roomId: 42, renew, onUnavailable: vi.fn() }),
+    );
+
+    act(() => result.current());
+
+    await waitFor(() => expect(channel.reconnect).toHaveBeenCalled());
+    expect(renew).toHaveBeenCalledOnce();
+  });
+
+  it("다시 잡은 자리가 다른 방이면 재연결하지 않고 종료 처리로 넘긴다", async () => {
+    const channel = fakeChannel();
+    const onUnavailable = vi.fn();
+    const renew = vi.fn(async () => ({ roomId: 77, graceRejoin: false, iceServers: [] }));
+    const { result } = renderHook(() =>
+      useRoomRejoin({ channel, roomId: 42, renew, onUnavailable }),
+    );
+
+    act(() => result.current());
+
+    await waitFor(() => expect(onUnavailable).toHaveBeenCalledOnce());
+    expect(channel.reconnect).not.toHaveBeenCalled();
+  });
+
+  it("다시 잡은 자리가 다른 방이면 그 자리를 비우도록 알린다", async () => {
+    const channel = fakeChannel();
+    const onRoomChanged = vi.fn();
+    const seat = { roomId: 77, graceRejoin: false, iceServers: [] };
+    const { result } = renderHook(() =>
+      useRoomRejoin({
+        channel,
+        roomId: 42,
+        renew: async () => seat,
+        onRoomChanged,
+        onUnavailable: vi.fn(),
+      }),
+    );
+
+    act(() => result.current());
+
+    await waitFor(() => expect(onRoomChanged).toHaveBeenCalledWith(seat));
+  });
+
+  it("같은 방을 다시 잡으면 자리를 비우지 않는다", async () => {
+    const channel = fakeChannel();
+    const onRoomChanged = vi.fn();
+    const { result } = renderHook(() =>
+      useRoomRejoin({
+        channel,
+        roomId: 42,
+        renew: async () => ({ roomId: 42, graceRejoin: false, iceServers: [] }),
+        onRoomChanged,
+        onUnavailable: vi.fn(),
+      }),
+    );
+
+    act(() => result.current());
+
+    await waitFor(() => expect(channel.reconnect).toHaveBeenCalled());
+    expect(onRoomChanged).not.toHaveBeenCalled();
+  });
+
   it("StrictMode 이중 마운트 뒤에도 재호출이 무력화되지 않는다", async () => {
     vi.spyOn(roomApi, "renewLiveRoomSeat").mockResolvedValue(joinResponse);
     const channel = fakeChannel();
     const onUnavailable = vi.fn();
     const { result } = renderHook(
-      () => useRoomRejoin({ channel, inviteCode: "0712", onUnavailable }),
+      () =>
+        useRoomRejoin({
+          channel,
+          roomId: 42,
+          renew: () => roomApi.renewLiveRoomSeat("0712"),
+          onUnavailable,
+        }),
       { wrapper: StrictMode },
     );
 

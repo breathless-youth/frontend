@@ -641,7 +641,12 @@ describe("소셜룸 이벤트 (BY-472)", () => {
     module.trackSocialRoomCreated();
     module.trackSocialRoomJoinFailed("ROOM_CLOSED");
     module.trackSocialRoomEntered(false);
-    module.trackSocialRoomExited({ memberCount: 2, exitReason: "session_end", durationSec: 60 });
+    module.trackSocialRoomExited({
+      memberCount: 2,
+      exitReason: "session_end",
+      durationSec: 60,
+      togetherSec: 0,
+    });
     module.trackSocialRoomRejoinFailed("leave", "ROOM_CLOSED");
     module.trackSocialRoomGraceExceeded();
 
@@ -666,14 +671,63 @@ describe("소셜룸 이벤트 (BY-472)", () => {
     initAmplitude();
 
     trackSocialRoomEntered(true);
-    trackSocialRoomExited({ memberCount: 3, exitReason: "grace_expired", durationSec: 125 });
+    trackSocialRoomExited({
+      memberCount: 3,
+      exitReason: "grace_expired",
+      durationSec: 125,
+      togetherSec: 30,
+    });
 
     expect(mocks.track).toHaveBeenCalledWith("social_room_entered", { grace_rejoin: true });
     expect(mocks.track).toHaveBeenCalledWith("social_room_exited", {
       member_count: 3,
       exit_reason: "grace_expired",
       duration_sec: 125,
+      together_sec: 30,
     });
+  });
+
+  it("공부방 입장·퇴장은 그룹 방이면 공개 여부를, 늘 함께한 시간을 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackSocialRoomEntered, trackSocialRoomExited } = await loadModule();
+    initAmplitude();
+    mocks.track.mockClear();
+
+    trackSocialRoomEntered(false, { visibility: "public" });
+    trackSocialRoomExited({
+      memberCount: 3,
+      exitReason: "session_end",
+      durationSec: 600,
+      togetherSec: 420,
+      visibility: "public",
+    });
+    trackSocialRoomExited({
+      memberCount: 2,
+      exitReason: "session_end",
+      durationSec: 60,
+      togetherSec: 0,
+    });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["social_room_entered", { grace_rejoin: false, visibility: "public" }],
+      [
+        "social_room_exited",
+        {
+          member_count: 3,
+          exit_reason: "session_end",
+          duration_sec: 600,
+          together_sec: 420,
+          visibility: "public",
+        },
+      ],
+      [
+        "social_room_exited",
+        { member_count: 2, exit_reason: "session_end", duration_sec: 60, together_sec: 0 },
+      ],
+    ]);
+    // 공개 여부가 없는 방은 빈 값도 싣지 않는다.
+    const [, inviteExit] = mocks.track.mock.calls[2] as [string, Record<string, unknown>];
+    expect(Object.keys(inviteExit)).not.toContain("visibility");
   });
 
   it("재입장 실패는 leave/retry 판정과 사유를 함께 싣는다", async () => {
@@ -687,6 +741,85 @@ describe("소셜룸 이벤트 (BY-472)", () => {
       kind: "retry",
       reason: "HTTP_500",
     });
+  });
+});
+
+describe("그룹 공부방 이벤트", () => {
+  it("미초기화 상태에서는 보내지 않는다", async () => {
+    const module = await loadModule();
+
+    module.trackGroupRoomCreated({ visibility: "public", category: "CSAT" });
+    module.trackGroupRoomApplicationSent({ category: "CSAT" });
+    module.trackGroupRoomApplicationAnswered("accepted");
+    module.trackGroupRoomJoined({ via: "application", visibility: "public" });
+    module.trackGroupRoomLeft("left");
+    module.trackGroupRoomNotificationToggled(true);
+    module.trackGroupRoomReported("application");
+    module.trackGroupRoomMicToggled(true);
+    module.setGroupRoomCount(2);
+
+    expect(mocks.track).not.toHaveBeenCalled();
+    expect(mocks.identify).not.toHaveBeenCalled();
+  });
+
+  it("그룹 이벤트 속성은 정한 토큰만이다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const module = await loadModule();
+    module.initAmplitude();
+    mocks.track.mockClear();
+
+    module.trackGroupRoomCreated({ visibility: "private", category: "CIVIL_SERVICE" });
+    module.trackGroupRoomApplicationSent({ category: "CSAT" });
+    module.trackGroupRoomApplicationAnswered("reported");
+    module.trackGroupRoomJoined({ via: "invite_link", visibility: "private" });
+    module.trackGroupRoomLeft("room_deleted");
+    module.trackGroupRoomNotificationToggled(true);
+    module.trackGroupRoomReported("member");
+    module.trackGroupRoomMicToggled(false);
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["group_room_created", { visibility: "private", category: "CIVIL_SERVICE" }],
+      ["group_room_application_sent", { category: "CSAT" }],
+      ["group_room_application_answered", { result: "reported" }],
+      ["group_room_joined", { via: "invite_link", visibility: "private" }],
+      ["group_room_left", { reason: "room_deleted" }],
+      ["group_room_notification_toggled", { on: true }],
+      ["group_room_reported", { target: "member" }],
+      ["group_room_mic_toggled", { on: false }],
+    ]);
+    // Firebase 사본은 토큰인 문자열만 통과시키므로 문자열 값이 모두 그 규칙에 맞아야 한다.
+    for (const [, payload] of mocks.track.mock.calls) {
+      for (const value of Object.values(payload as Record<string, unknown>)) {
+        if (typeof value === "string") {
+          expect(value).toMatch(ANALYTICS_PARAM_VALUE_PATTERN);
+        }
+      }
+    }
+  });
+
+  it("들어간 그룹 수를 사용자 속성으로 남긴다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const module = await loadModule();
+    module.initAmplitude();
+    mocks.identify.mockClear();
+
+    module.setGroupRoomCount(3);
+
+    const identify = mocks.identify.mock.calls.at(-1)?.[0] as InstanceType<
+      typeof mocks.FakeIdentify
+    >;
+    expect(identify.sets).toEqual([["group_room_count", 3]]);
+  });
+
+  it("시험·목표에는 서버 값만 받는다", async () => {
+    const module = await loadModule();
+
+    // @ts-expect-error 화면에 보이는 글자는 서버 값이 아니라서 받지 않는다.
+    module.trackGroupRoomCreated({ visibility: "public", category: "수능" });
+    // @ts-expect-error 신청 계측도 같은 서버 값만 받는다.
+    module.trackGroupRoomApplicationSent({ category: "수능" });
+
+    expect(mocks.track).not.toHaveBeenCalled();
   });
 });
 
@@ -1535,6 +1668,23 @@ describe("결과 화면 이탈 핸드오프 (study_result_exited)", () => {
     expect(mocks.track.mock.calls).toEqual([
       ["study_result_exited", { room_type: "single", focus_sec: 900, destination: "record" }],
       ["study_result_exited", { room_type: "social", focus_sec: 800, destination: "home" }],
+    ]);
+  });
+
+  it("그룹 공부방 결과의 예약은 그 그룹 홈만 보내고 홈 복귀로 센다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    m.stageStudyResultExit({ roomType: "social", focusSec: 700, consumeAt: "/social/groups/10" });
+    mocks.track.mockClear();
+
+    m.consumeStudyResultExit("/social/groups/11");
+    m.consumeStudyResultExit("/social");
+    expect(mocks.track).not.toHaveBeenCalled();
+
+    m.consumeStudyResultExit("/social/groups/10");
+    expect(mocks.track.mock.calls).toEqual([
+      ["study_result_exited", { room_type: "social", focus_sec: 700, destination: "home" }],
     ]);
   });
 

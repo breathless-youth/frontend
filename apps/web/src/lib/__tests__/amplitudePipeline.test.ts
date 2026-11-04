@@ -1,6 +1,13 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { createElement } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+
+import { buildGroupRoomFixtures } from "@/features/group-room/fixtures";
+import { RoomHomeScreen } from "@/features/group-room/screens/RoomHomeScreen";
+import { RoomMemberMenu } from "@/features/live-room/components/RoomMemberMenu";
+import { RoomTile } from "@/features/live-room/components/RoomTile";
+import { GROUP_ROOM_ANALYTICS_MASK } from "@/features/live-room/groupRoomAnalyticsMask";
 
 import { NotificationToast } from "@/components/NotificationToast";
 
@@ -86,8 +93,22 @@ const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("Amplitude 전송 파이프라인 (실제 SDK)", () => {
   it("나가는 payload 어디에도 userId와 다른 사람의 닉네임·그룹 이름이 남지 않는다", async () => {
-    const { initAmplitude, trackAmplitudePageView, trackStudySessionStarted } =
-      await import("../amplitude");
+    const {
+      initAmplitude,
+      setGroupRoomCount,
+      trackAmplitudePageView,
+      trackGroupRoomApplicationAnswered,
+      trackGroupRoomApplicationSent,
+      trackGroupRoomCreated,
+      trackGroupRoomJoined,
+      trackGroupRoomLeft,
+      trackGroupRoomMicToggled,
+      trackGroupRoomNotificationToggled,
+      trackGroupRoomReported,
+      trackSocialRoomEntered,
+      trackSocialRoomExited,
+      trackStudySessionStarted,
+    } = await import("../amplitude");
     const amplitude = await import("@amplitude/analytics-browser");
 
     initAmplitude();
@@ -131,18 +152,124 @@ describe("Amplitude 전송 파이프라인 (실제 SDK)", () => {
     expect(sent.length).toBeGreaterThan(0);
     expect(sent.every((batch) => batch.options?.min_id_length === 1)).toBe(true);
 
+    // 그룹 홈의 제목, 책상, 순위에는 그룹 이름과 다른 멤버의 닉네임이 보인다.
+    // 버튼 클릭은 가까운 제목의 글자를 Parent Label로 싣는다.
+    // 버튼이 아닌 글자를 누른 뒤 화면이 바뀌면 그 글자를 Element Text로, 조상의 aria-label을 요소 계층으로 싣는다.
+    // 화면에 단 가림 표시가 실제 SDK에서도 두 경로를 모두 가리는지 전송 payload로 본다.
+    // jsdom에는 innerText가 없어 SDK가 글자를 빈 값으로 읽으므로 브라우저처럼 글자를 읽게 한다.
+    Object.defineProperty(HTMLElement.prototype, "innerText", {
+      configurable: true,
+      get(this: HTMLElement) {
+        return this.textContent;
+      },
+    });
+    onTestFinished(() => {
+      Reflect.deleteProperty(HTMLElement.prototype, "innerText");
+    });
+    sent.length = 0;
+    const now = new Date();
+    const { roomHome } = buildGroupRoomFixtures(now);
+    render(
+      createElement(
+        MemoryRouter,
+        null,
+        createElement(RoomHomeScreen, {
+          room: roomHome,
+          fetchedAtMs: now.getTime(),
+          onBack: () => {},
+          onToggleNotify: () => {},
+          onMenuSelect: () => {},
+          onOpenRequests: () => {},
+          onEnterStudyRoom: () => {},
+        }),
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "공부방 들어가기" }));
+    fireEvent.click(within(screen.getByRole("list", { name: "멤버 책상" })).getByText("새벽러"));
+    // 순공이 쌓이는 멤버가 있으면 그룹 홈은 1초마다 다시 그려서 누른 뒤 곧 화면이 바뀐다.
+    document.body.append(document.createElement("div"));
+    await tick();
+    await amplitude.flush().promise;
+    await tick();
+
+    const groupClicks = sent
+      .flatMap((batch) => batch.events)
+      .filter((event) => event.event_type === "[Amplitude] Element Clicked")
+      .map((event) => event.event_properties as Record<string, unknown>);
+    // 두 클릭이 모두 나가야 아래의 가림 단언이 공허하지 않다.
+    expect(groupClicks.map((properties) => properties["[Amplitude] Element Tag"])).toEqual([
+      "button",
+      "span",
+    ]);
+    for (const properties of groupClicks) {
+      expect(properties["[Amplitude] Element Text"]).toBe("*****");
+    }
+    const groupNames = /수능 D-200 밤샘반|새벽러|합격까지|고구마맛탕|연필깎이|열공곰/;
+    expect(JSON.stringify(sent)).not.toMatch(groupNames);
+
+    // 그룹 공부방 타일에는 멤버 닉네임과 목표가, 멤버 메뉴 버튼의 aria-label에는 닉네임이 있다.
+    // 타일을 누르면 조작 표시가 바뀌어 글자 클릭도 이벤트로 나가서 화면 루트의 가림 표시가 두 경로를 모두 가리는지 본다.
+    sent.length = 0;
+    render(
+      createElement(
+        "main",
+        GROUP_ROOM_ANALYTICS_MASK,
+        createElement(RoomTile, {
+          member: {
+            userId: 42,
+            nickname: "책벌레곰",
+            goal: "행정학 3회독",
+            cameraOn: false,
+            focusState: "FOCUS",
+            focusSec: 600,
+            micOn: true,
+          },
+          micOn: true,
+          menuButton: createElement(RoomMemberMenu, {
+            nickname: "책벌레곰",
+            volume: 1,
+            muted: false,
+            canKick: false,
+            placement: "below",
+            open: false,
+            container: null,
+            onOpen: () => {},
+            onClose: () => {},
+            onVolumeChange: () => {},
+            onToggleMute: () => {},
+            onReport: () => {},
+            onKick: () => {},
+          }),
+        }),
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "책벌레곰 메뉴" }));
+    fireEvent.click(screen.getByText("책벌레곰"));
+    document.body.append(document.createElement("div"));
+    await tick();
+    await amplitude.flush().promise;
+    await tick();
+
+    const roomClicks = sent
+      .flatMap((batch) => batch.events)
+      .filter((event) => event.event_type === "[Amplitude] Element Clicked");
+    // 두 클릭이 모두 나가야 아래의 가림 단언이 공허하지 않다.
+    expect(roomClicks).toHaveLength(2);
+    expect(JSON.stringify(sent)).not.toMatch(/책벌레곰|행정학 3회독/);
+
     // 앱 안 알림 토스트의 문구에는 다른 사람의 닉네임과 그룹 이름이 들어간다.
     // 클릭 autocapture는 누른 버튼의 글자와 aria-label을 이벤트 속성과 요소 계층에 싣는다.
     // 버튼에 단 가림 표시가 실제 SDK에서도 그 값을 가리는지 전송 payload로 본다.
     sent.length = 0;
-    render(
+    // 앞 단계의 그룹 화면이 아직 그려져 있어서 토스트 안의 버튼만 고른다.
+    const toast = render(
       createElement(NotificationToast, {
         title: "새 신청을 확인해 볼까요?",
         body: "민준님이 새벽 공시반에 신청했어요",
         onOpen: () => {},
       }),
     );
-    fireEvent.click(screen.getByRole("button"));
+    fireEvent.click(within(toast.container).getByRole("button"));
     await amplitude.flush().promise;
     await tick();
 
@@ -158,5 +285,62 @@ describe("Amplitude 전송 파이프라인 (실제 SDK)", () => {
       toastNames,
     );
     expect(JSON.stringify(clicked)).not.toMatch(toastNames);
+
+    // 그룹 이벤트는 그룹 번호와 신청 번호가 든 화면에서 보내도 정한 속성만 나간다.
+    // SDK가 화면 주소 같은 속성을 덧붙이면 그룹 번호가 함께 나가서 속성 전체를 그대로 비교한다.
+    sent.length = 0;
+    window.history.replaceState({}, "", "/social/groups/10?userId=7");
+    trackGroupRoomCreated({ visibility: "private", category: "CIVIL_SERVICE" });
+    trackGroupRoomApplicationSent({ category: "CSAT" });
+    trackGroupRoomJoined({ via: "application", visibility: "public" });
+    trackGroupRoomLeft("kicked");
+    trackGroupRoomNotificationToggled(true);
+    window.history.replaceState({}, "", "/social/groups/10/applications/41/report?userId=7");
+    trackGroupRoomApplicationAnswered("reported");
+    trackGroupRoomReported("application");
+    setGroupRoomCount(2);
+    window.history.replaceState({}, "", "/social/groups/10/room?userId=7");
+    trackGroupRoomMicToggled(false);
+    trackSocialRoomEntered(false, { visibility: "public" });
+    trackSocialRoomExited({
+      memberCount: 2,
+      exitReason: "session_end",
+      durationSec: 600,
+      togetherSec: 420,
+      visibility: "public",
+    });
+    await amplitude.flush().promise;
+    await tick();
+
+    const groupEvents = sent.flatMap((batch) => batch.events);
+    expect(
+      groupEvents
+        .filter((event) => /^(group_room_|social_room_)/.test(String(event.event_type)))
+        .map((event) => [event.event_type, event.event_properties]),
+    ).toEqual([
+      ["group_room_created", { visibility: "private", category: "CIVIL_SERVICE" }],
+      ["group_room_application_sent", { category: "CSAT" }],
+      ["group_room_joined", { via: "application", visibility: "public" }],
+      ["group_room_left", { reason: "kicked" }],
+      ["group_room_notification_toggled", { on: true }],
+      ["group_room_application_answered", { result: "reported" }],
+      ["group_room_reported", { target: "application" }],
+      ["group_room_mic_toggled", { on: false }],
+      ["social_room_entered", { grace_rejoin: false, visibility: "public" }],
+      [
+        "social_room_exited",
+        {
+          member_count: 2,
+          exit_reason: "session_end",
+          duration_sec: 600,
+          together_sec: 420,
+          visibility: "public",
+        },
+      ],
+    ]);
+    // 들어간 그룹 수는 이벤트가 아니라 사용자 속성으로 나간다.
+    expect(groupEvents.find((event) => event.event_type === "$identify")?.user_properties).toEqual({
+      $set: { group_room_count: 2 },
+    });
   });
 });

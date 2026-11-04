@@ -38,6 +38,8 @@ export const dialogActionVariants = cva(
         cancel: "bg-(--session-dialog-cancel-bg)",
         /** 종료(`공부 종료`) — Dark Primary SM. */
         confirm: "bg-(--session-dialog-confirm-bg)",
+        /** 멤버 내보내기처럼 되돌리기 어려운 확인은 조작 바의 종료 버튼과 같은 빨강을 쓴다. */
+        danger: "bg-(--session-control-exit-bg)",
       },
     },
     defaultVariants: { tone: "cancel" },
@@ -57,6 +59,14 @@ export interface SessionConfirmDialogProps {
   /** 비파괴 액션 라벨. 초기 포커스가 여기에 놓인다. */
   cancelLabel: string;
   confirmLabel: string;
+  /** 확인 버튼 색이고, 되돌리기 어려운 일은 `danger`로 경고한다. */
+  confirmTone?: Exclude<SessionConfirmDialogTone, "cancel">;
+  /** 확인한 일을 보내는 중이면 같은 요청이 두 번 나가지 않고 결과 전에 창이 닫히지 않게 두 버튼과 닫기를 막는다. */
+  pending?: boolean;
+  /** 켜면 Amplitude 클릭 자동 수집이 창 안의 글자와 aria-label을 싣지 않는다. */
+  maskFromAnalytics?: boolean;
+  /** 창을 연 요소가 닫힐 때 사라져 있으면 대신 포커스를 받을 요소 */
+  returnFocus?: () => HTMLElement | null;
   onCancel: () => void;
   onConfirm: () => void;
   className?: string;
@@ -69,18 +79,22 @@ export function SessionConfirmDialog({
   description,
   cancelLabel,
   confirmLabel,
+  confirmTone = "confirm",
+  pending = false,
+  maskFromAnalytics = false,
+  returnFocus,
   onCancel,
   onConfirm,
   className,
 }: SessionConfirmDialogProps) {
-  const focusRestore = useDialogFocusRestore();
+  const focusRestore = useDialogFocusRestore(returnFocus);
 
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
         // 종료는 되돌릴 수 없으므로 Escape 와 딤 탭은 **비파괴 기본값**(= `계속하기`)으로 보낸다.
-        if (!next) onCancel();
+        if (!next && !pending) onCancel();
       }}
     >
       <DialogContent
@@ -90,6 +104,9 @@ export function SessionConfirmDialog({
         showCloseButton={false}
         onOpenAutoFocus={focusRestore.onOpenAutoFocus}
         onCloseAutoFocus={focusRestore.onCloseAutoFocus}
+        // 포털 자리가 세션 화면 밖이어도 가려지게 창에 직접 단다.
+        data-amp-mask={maskFromAnalytics || undefined}
+        data-amp-mask-attributes={maskFromAnalytics ? "aria-label" : undefined}
         // 폰트 확대에서 본문이 잘리지 않도록 높이를 고정하지 않는다. 그림자는 Figma 실측값.
         className={cn(
           // sm:rounded-xl 로 공용 클래스의 sm:rounded-lg 를 덮는다. 안 그러면 640px 이상에서
@@ -109,15 +126,18 @@ export function SessionConfirmDialog({
         <div className="flex gap-2.5">
           <button
             type="button"
+            disabled={pending}
             onClick={onCancel}
-            className={dialogActionVariants({ tone: "cancel" })}
+            className={cn(dialogActionVariants({ tone: "cancel" }), "disabled:opacity-40")}
           >
             {cancelLabel}
           </button>
           <button
             type="button"
+            data-tone={confirmTone}
+            disabled={pending}
             onClick={onConfirm}
-            className={dialogActionVariants({ tone: "confirm" })}
+            className={cn(dialogActionVariants({ tone: confirmTone }), "disabled:opacity-40")}
           >
             {confirmLabel}
           </button>

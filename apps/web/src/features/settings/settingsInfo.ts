@@ -60,3 +60,10 @@ export function cameraPermissionRowLabel(granted: boolean): string {
     granted ? "settings:cameraPermission.aria.granted" : "settings:cameraPermission.aria.denied",
   );
 }
+
+/** 마이크 권한 행의 접근성 라벨이고, 상태를 텍스트로 함께 읽어 주는 이유는 카메라 권한 행과 같다. */
+export function micPermissionRowLabel(granted: boolean): string {
+  return i18n.t(
+    granted ? "settings:micPermission.aria.granted" : "settings:micPermission.aria.denied",
+  );
+}

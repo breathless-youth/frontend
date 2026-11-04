@@ -12,12 +12,15 @@ import { Button } from "@/components/ui/button";
 import { CharCount, isCharCountVisible } from "@/components/ui/char-count";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { haptic } from "@/lib/haptics";
+import { focusWithoutScrollOnPress, isIosWeb, revealAboveKeyboard } from "@/lib/iosInputFocus";
+import { useKeyboardInset } from "@/lib/useKeyboardInset";
 import { cn } from "@/lib/utils";
 
 import { formatElapsed, toKoreanDuration } from "../formatDuration";
 import {
   MAX_SUBJECTS,
   MAX_TASKS,
+  revealInScrollList,
   SUBJECT_NAME_MAX,
   subjectIdUnderPoint,
   SWIPE_REMOVE_PX,
@@ -31,6 +34,7 @@ import { liveSubjectTime } from "../subjectSegments";
 import type { SubjectsStore } from "../useSubjects";
 import { subjectSuggestions } from "../useSubjects";
 import { SessionPageFooter } from "./SessionPage";
+import { SubjectColorDot } from "./SubjectColorDot";
 
 /**
  * 과목 페이지 본문
@@ -78,8 +82,6 @@ export interface SubjectPanelProps {
   liveTotals: ReadonlyMap<number, SubjectTotals>;
   /** 가로면 목록과 상세 두 열로 나눈다. */
   landscape: boolean;
-  /** 페이지 아래 순공 타이머. */
-  timer: ReactNode;
 }
 
 /** 글자 수는 한도의 80%부터 보인다. */
@@ -112,18 +114,49 @@ function InlineNameEditor({
     onCancel,
   });
   const countId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const countVisible = isCharCountVisible(value.length, maxLength, COUNT_SHOW_FROM);
+  const keyboardInset = useKeyboardInset();
+  const ios = isIosWeb();
+
+  // 사용자가 방금 누른 자리에 열리는 입력이라 열리자마자 커서를 둔다.
+  // iOS는 `과목 추가` 누름 안에서 준 포커스에도 키보드를 올리므로 입력칸만 보이고 입력칸을 눌러야 키보드가 뜨게 한다.
+  // autoFocus는 옵션 없이 포커스를 주어 iOS가 키보드를 올리며 문서를 끌어 올리고, 그러면 머리 줄이 상태 막대와 뒤로 가기 버튼 밑으로 들어간다.
+  // 처음 그린 뒤 preventScroll로 직접 포커스를 주어 문서가 움직이지 않게 한다.
+  useEffect(() => {
+    if (isIosWeb()) return;
+    inputRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  // preventScroll이면 브라우저가 가려진 입력칸을 올려 주지 않아서 목록 안에서만 직접 올린다.
+  // 글자 수 줄이 생기거나 사라지면 입력칸 높이가 달라지므로 그때도 다시 맞춘다.
+  useEffect(() => {
+    if (rootRef.current !== null) revealInScrollList(rootRef.current);
+  }, [countVisible]);
+
+  // iOS 목록 상자는 키보드가 떠도 화면 끝까지라 목록 기준으로는 키보드 뒤의 입력칸을 올리지 못해서 키보드가 다 오른 뒤 다시 올린다.
+  useEffect(() => {
+    if (rowRef.current !== null) revealAboveKeyboard(rowRef.current, keyboardInset);
+  }, [keyboardInset]);
+
   return (
-    <div className="flex w-full flex-col" onPointerDown={(event) => event.stopPropagation()}>
+    <div
+      ref={rootRef}
+      className="flex w-full flex-col"
+      onPointerDown={(event) => event.stopPropagation()}
+    >
       <div
+        ref={rowRef}
         className={cn(
           "flex w-full items-center gap-2 pr-3",
           large ? "min-h-14 pl-3" : "min-h-12 pl-4",
         )}
       >
         <input
-          // 사용자가 방금 누른 자리에 열리는 입력이라 autoFocus가 흐름을 끊지 않는다.
-          autoFocus
+          ref={inputRef}
+          onMouseDown={ios ? focusWithoutScrollOnPress : undefined}
           aria-label={ariaLabel}
           aria-describedby={countVisible ? countId : undefined}
           value={value}
@@ -156,6 +189,8 @@ function InlineNameEditor({
         overMessage={t("subjectSheet.overLimit", { count: maxLength })}
         className={cn("pr-3 pb-1 text-white/50", large ? "pl-3" : "pl-4")}
       />
+      {/* 목록 끝의 입력칸도 키보드 위로 올릴 수 있게 키보드가 떠 있는 동안 그 높이만큼 비운다. */}
+      {keyboardInset > 0 && <div aria-hidden="true" style={{ height: keyboardInset }} />}
     </div>
   );
 }
@@ -443,13 +478,16 @@ function SubjectRow({
           },
         })}
       >
-        <span
-          className={cn(
-            "truncate font-semibold",
-            layout === "card" ? "text-[17px] leading-5.5" : "text-[15px] leading-4.75",
-          )}
-        >
-          {subject.name}
+        <span className={cn("flex min-w-0 items-center", layout === "card" ? "gap-2" : "gap-1.75")}>
+          <SubjectColorDot colorIndex={subject.colorIndex} />
+          <span
+            className={cn(
+              "truncate font-semibold",
+              layout === "card" ? "text-[17px] leading-5.5" : "text-[15px] leading-4.75",
+            )}
+          >
+            {subject.name}
+          </span>
         </span>
         <span
           className={cn(
@@ -606,7 +644,10 @@ function SubjectTasks({
       )}
 
       {scrollable ? (
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-none">
+        <div
+          data-scroll-list=""
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-none"
+        >
           {taskList}
         </div>
       ) : (
@@ -689,7 +730,6 @@ export function SubjectPanel({
   onNotice,
   liveTotals,
   landscape,
-  timer,
 }: SubjectPanelProps) {
   const { t } = useTranslation(["study-session", "common"]);
   const [editing, setEditing] = useState<Editing | null>(null);
@@ -945,7 +985,10 @@ export function SubjectPanel({
   if (landscape && status === "ready" && viewed !== null) {
     return (
       <div className="grid min-h-0 flex-1 grid-cols-[17.5rem_minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 regular:grid-cols-[22.5rem_minmax(0,1fr)] regular:gap-x-6 short-side-lg:grid-cols-[26.25rem_minmax(0,1fr)] short-side-lg:gap-x-8">
-        <div className="min-h-0 overflow-y-auto overscroll-contain scrollbar-none">
+        <div
+          data-scroll-list=""
+          className="min-h-0 overflow-y-auto overscroll-contain scrollbar-none"
+        >
           <ul className="flex flex-col gap-1">
             {subjects.map((subject) => (
               <li
@@ -967,12 +1010,14 @@ export function SubjectPanel({
           aria-label={t("subjectRow.tasks", { name: viewed.name })}
           data-menu-anchor=""
           inert={reorderMode}
+          // 아래 줄에 타이머가 없어 할 일 칸이 두 행에 걸쳐 화면 아래 끝까지 내려온다.
           className={cn(
-            "relative flex min-h-0 flex-col gap-0.5 rounded-[18px] bg-(--session-sheet-surface) p-1.5 shadow-[inset_0_0_0_1px_var(--session-sheet-line)] transition-opacity duration-200 motion-reduce:transition-none",
+            "relative row-span-2 flex min-h-0 flex-col gap-0.5 rounded-[18px] bg-(--session-sheet-surface) p-1.5 shadow-[inset_0_0_0_1px_var(--session-sheet-line)] transition-opacity duration-200 motion-reduce:transition-none",
             reorderMode && "opacity-40",
           )}
         >
           <div className="flex h-12 shrink-0 items-center gap-2 px-3">
+            <SubjectColorDot colorIndex={viewed.colorIndex} />
             <span className="truncate text-[17px] leading-5.5 font-semibold text-white">
               {viewed.name}
             </span>
@@ -986,22 +1031,27 @@ export function SubjectPanel({
           {menu?.subjectId === viewed.id && menu.taskId !== null && subjectMenu(viewed, menu)}
           {subjectTasks(viewed, true)}
         </section>
-        <div className="flex items-end justify-end gap-2">{actions}</div>
-        <SessionPageFooter landscape timer={timer} />
+        {/* 페이지 알림 자리가 푸터에 있어 버튼 줄을 푸터에 담아 왼쪽 아래 칸에 둔다. */}
+        <SessionPageFooter
+          landscape
+          leading={<div className="ml-auto flex gap-2">{actions}</div>}
+        />
       </div>
     );
   }
 
   return (
     <>
-      <div className="min-h-0 w-full flex-1 overflow-y-auto overscroll-contain px-3 pt-2 pb-4 scrollbar-none">
+      <div
+        data-scroll-list=""
+        className="min-h-0 w-full flex-1 overflow-y-auto overscroll-contain px-3 pt-2 pb-4 scrollbar-none"
+      >
         {body}
       </div>
       {landscape ? (
         <SessionPageFooter
           landscape
           leading={actions !== null && <div className="flex gap-2">{actions}</div>}
-          timer={timer}
         />
       ) : (
         <SessionPageFooter
@@ -1011,7 +1061,6 @@ export function SubjectPanel({
               <div className="flex justify-end gap-2 px-3 pt-1 pb-2">{actions}</div>
             )
           }
-          timer={timer}
         />
       )}
     </>

@@ -64,9 +64,11 @@ function renderEntry() {
             path="/social/room/:roomId"
             element={
               <LiveRoomEntry
-                roomId={1}
+                room={{ kind: "invite", inviteCode: "1234" }}
+                initialRoomId={1}
                 userId={7}
-                entryState={{ inviteCode: "1234" }}
+                graceRejoin={false}
+                initialIceServers={[]}
                 createChannel={() => {
                   throw new Error("세션 stub에서는 채널을 만들지 않는다");
                 }}

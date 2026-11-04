@@ -375,6 +375,29 @@
   --glass-border: rgba(255, 255, 255, 0.18);
   --glass-highlight: rgba(255, 255, 255, 0.25);
   --glass-shadow: rgba(0, 0, 0, 0.35);
+  /* 세션 화면은 .theme-soft-blue 밖이라 과목 점에 쓸 과목 색을 여기에도 둔다.
+     세 다크 블록의 과목 색은 같이 고친다.
+     세 블록은 이 블록과 .theme-soft-blue의 다크 두 블록이고 subjectPaletteSync.test.ts가 값을 맞춰 본다. */
+  --subject-0: #ff716f;
+  --subject-1: #fc7840;
+  --subject-2: #f5a623;
+  --subject-3: #e8c500;
+  --subject-4: #9bbb2e;
+  --subject-5: #5dbd6d;
+  --subject-6: #40be8e;
+  --subject-7: #3abcaa;
+  --subject-8: #fb63c0;
+  --subject-9: #fe699d;
+  --subject-10: #da77e9;
+  --subject-11: #c182fe;
+  --subject-12: #c99a72;
+  --subject-13: #be9c8e;
+  --subject-14: #9da5b4;
+  --subject-15: #fb7090;
+  --subject-16: #91b354;
+  --subject-17: #cc9a4f;
+  --subject-18: #68b5a7;
+  --subject-19: #e5848d;
 }
 
 /* Soft Blue 팔레트 — V2 스코프 리스킨. 소셜 세 화면 루트에 이 클래스를 붙여

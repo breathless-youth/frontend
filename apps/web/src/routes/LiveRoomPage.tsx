@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Navigate, useLocation, useParams, useSearchParams } from "react-router-dom";
 
 import { LiveRoomEntry } from "@/features/live-room/LiveRoomEntry";
@@ -6,7 +7,9 @@ import type { LiveRoomLocationState } from "@/features/live-room/liveRoomEntrySt
 import { isLiveRoomState } from "@/features/live-room/liveRoomEntryState";
 import { isCompleteInviteCode } from "@/features/social-room/inviteCode";
 import type { CreatePeerConnection } from "@/features/live-room/peerMesh";
+import type { LiveRoomKind } from "@/features/live-room/roomKind";
 import { createStompRoomChannel } from "@/features/live-room/stompRoomChannel";
+import type { RoomAudioDeps } from "@/features/live-room/useRoomAudio";
 import { createMediaStreamCameraAdapter } from "@/features/study-session/adapters/mediaStreamCamera";
 import { useIdentityPending, useUserId } from "@/lib/userId";
 
@@ -22,10 +25,13 @@ export function LiveRoomPage({
   createChannel,
   createCamera = createMediaStreamCameraAdapter,
   createPeerConnection,
+  audioDeps,
 }: {
   createChannel?: CreateChannel;
   createCamera?: CreateCamera;
   createPeerConnection?: CreatePeerConnection;
+  /** 초대코드 방은 소리를 쓰지 않아서, 테스트가 넣은 재생기와 마이크가 쓰이지 않는지 볼 때만 넘긴다. */
+  audioDeps?: RoomAudioDeps;
 }) {
   const { roomId: roomIdParam } = useParams();
   const [searchParams] = useSearchParams();
@@ -44,6 +50,12 @@ export function LiveRoomPage({
     // 복원 입장은 일반 입장과 같다 — 마운트 join이 새로 자리를 예약하고 iceServers를 받는다.
     entryState = { inviteCode: restoreCode };
   }
+  const inviteCode = entryState?.inviteCode ?? null;
+  // 입장 화면의 자리 잡기 effect가 이 값을 보므로 렌더마다 새 객체를 만들지 않는다.
+  const room = useMemo<LiveRoomKind | null>(
+    () => (inviteCode === null ? null : { kind: "invite", inviteCode }),
+    [inviteCode],
+  );
 
   /**
    * 신원이 오기 전에는 아무것도 판정하지 않는다. BY-528이 웹뷰 URL에서 `?userId=N`을 빼면서
@@ -56,7 +68,7 @@ export function LiveRoomPage({
     return null;
   }
 
-  if (userId === null || !Number.isInteger(roomId) || entryState === null) {
+  if (userId === null || !Number.isInteger(roomId) || entryState === null || room === null) {
     return <Navigate to={{ pathname: "/social", search: location.search }} replace />;
   }
 
@@ -65,12 +77,15 @@ export function LiveRoomPage({
       // 사용자가 바뀌면 통째로 새로 만든다. 입장 결착과 복원값은 마운트 시점에 한 번만 정해져,
       // 같은 인스턴스를 유지하면 새 사용자가 앞 사용자의 세션을 그대로 이어받는다.
       key={userId}
-      roomId={roomId}
+      room={room}
+      initialRoomId={roomId}
       userId={userId}
-      entryState={entryState}
+      graceRejoin={entryState.graceRejoin === true}
+      initialIceServers={entryState.iceServers ?? []}
       createChannel={createChannel ?? ((options) => createStompRoomChannel(options))}
       createCamera={createCamera}
       createPeerConnection={createPeerConnection}
+      audioDeps={audioDeps}
     />
   );
 }

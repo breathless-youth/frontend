@@ -32,6 +32,18 @@ describe("parseToWebMessage", () => {
     expect(parseToWebMessage('{"type":"camera-permission","granted":"yes","atMs":1}')).toBeNull();
   });
 
+  it("camera-permission에 실린 마이크 권한도 함께 읽는다", () => {
+    expect(
+      parseToWebMessage('{"type":"camera-permission","granted":true,"micGranted":false,"atMs":1}'),
+    ).toEqual({ type: "camera-permission", granted: true, micGranted: false, atMs: 1 });
+  });
+
+  it("마이크 권한이 boolean이 아니면 그 값만 버린다 — 모름을 허용으로 읽으면 안 된다", () => {
+    expect(
+      parseToWebMessage('{"type":"camera-permission","granted":true,"micGranted":"yes","atMs":1}'),
+    ).toEqual({ type: "camera-permission", granted: true, atMs: 1 });
+  });
+
   it("JSON이 아니면 null을 돌려준다", () => {
     expect(parseToWebMessage("not json")).toBeNull();
   });

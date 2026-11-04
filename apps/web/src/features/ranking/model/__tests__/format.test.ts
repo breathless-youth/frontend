@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  formatClock,
   formatDeadline,
   formatGap,
   formatGapDuration,
@@ -22,13 +21,6 @@ describe("순위와 값", () => {
     expect(formatRank(1205)).toBe("1,205");
     expect(formatRank(12345)).toBe("12,345");
     expect(formatRank(3)).toBe("3");
-  });
-
-  it("시간 판 값은 H:MM:SS이고 시는 자르지 않는다", () => {
-    expect(formatClock(47460)).toBe("13:11:00");
-    expect(formatClock(148800)).toBe("41:20:00");
-    expect(formatClock(11060.9)).toBe("3:04:20");
-    expect(formatClock(-5)).toBe("0:00:00");
   });
 
   it("종목마다 단위가 다르다", () => {

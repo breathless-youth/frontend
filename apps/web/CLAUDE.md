@@ -44,6 +44,7 @@ Amplitude만 수집 범위가 넓다(서버 `user_id` 연결, autocapture, UTM, 
 - 네이티브 셸 이벤트(`source: "native"`)는 `useNativeAnalyticsRelay`가 받고 카탈로그는 `apps/mobile/lib/nativeAnalytics.ts`가 소유한다(웹은 형식만 검증). 룸 내부 상태 전이 이벤트는 **실제 전이가 일어났을 때만** 찍고(핸들러마다 찍으면 전이 없이도 난다), 권한 상태는 이벤트가 아니라 user property(`camera_permission`), autocapture `Element Clicked`는 SDK 소유 안전망으로만 본다. 구독을 건 뒤 `analytics-ready`를 보내는 순서를 바꾸지 말 것(그 사이 도착한 이벤트가 버려진다). 목록·규칙은 [native-analytics 설계 문서](../../docs/superpowers/specs/2026-09-04-native-analytics-bridge-design.md).
 - **설치 유입 경로는 `lib/installAttribution.ts`가 남긴다.** 앱이 보낸 `install-attribution`을 `useNativeAnalyticsRelay`가 받아 `install_source`·`install_ad`·`install_utm_*`를 setOnce로 남기고, 원문은 서버로 보낼 때까지 localStorage에 보관한 뒤에만 앱에 받았다고 답한다. 초대코드는 사용자 속성에 싣지 않는다. 메타 암호문은 웹에서 풀지 말 것(복호화 키는 서버에만 둔다).
 - **분석 도구를 더하거나 보내는 항목을 늘리면 개인정보처리방침도 고친다.** Amplitude·Google·Sentry는 7조 처리 위탁과 8조 국외 이전, Meta 앱 이벤트는 9조 행태정보에 있다(2026-11-04 시행). 원본은 랜딩이고 앱 사본은 `legalDocuments.ts`라 둘을 같이 고친다. 경위는 [privacy-policy-analytics-sync.md](../../docs/privacy-policy-analytics-sync.md).
+- 그룹 공부방 이벤트(`group_room_*`)는 위키 27절이 원본이고, 다른 사람이 한 일로 생기는 가입·내보내짐은 `groupMembershipTracker.ts`가 내 그룹 목록 차이로 보낸다.
 
 ### Meta 광고 전환 (`lib/metaAppEvents.ts`)
 

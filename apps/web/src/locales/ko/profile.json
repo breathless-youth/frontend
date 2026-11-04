@@ -24,7 +24,9 @@
     "CERTIFICATE": "자격증",
     "CIVIL_SERVICE": "공무원",
     "LANGUAGE": "어학",
-    "ETC": "기타"
+    "ETC": "기타",
+    "SCHOOL_EXAM": "내신",
+    "UNIVERSITY_EXAM": "대학 시험"
   },
   "photo": {
     "sheetTitle": "프로필 사진",
