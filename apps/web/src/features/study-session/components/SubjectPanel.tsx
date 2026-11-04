@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { CharCount, isCharCountVisible } from "@/components/ui/char-count";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { haptic } from "@/lib/haptics";
+import { focusWithoutScrollOnPress, isIosWeb, revealAboveKeyboard } from "@/lib/iosInputFocus";
+import { useKeyboardInset } from "@/lib/useKeyboardInset";
 import { cn } from "@/lib/utils";
 
 import { formatElapsed, toKoreanDuration } from "../formatDuration";
@@ -113,13 +115,18 @@ function InlineNameEditor({
   });
   const countId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
+  const rowRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const countVisible = isCharCountVisible(value.length, maxLength, COUNT_SHOW_FROM);
+  const keyboardInset = useKeyboardInset();
+  const ios = isIosWeb();
 
   // 사용자가 방금 누른 자리에 열리는 입력이라 열리자마자 커서를 둔다.
+  // iOS는 `과목 추가` 누름 안에서 준 포커스에도 키보드를 올리므로 입력칸만 보이고 입력칸을 눌러야 키보드가 뜨게 한다.
   // autoFocus는 옵션 없이 포커스를 주어 iOS가 키보드를 올리며 문서를 끌어 올리고, 그러면 머리 줄이 상태 막대와 뒤로 가기 버튼 밑으로 들어간다.
   // 처음 그린 뒤 preventScroll로 직접 포커스를 주어 문서가 움직이지 않게 한다.
   useEffect(() => {
+    if (isIosWeb()) return;
     inputRef.current?.focus({ preventScroll: true });
   }, []);
 
@@ -129,6 +136,11 @@ function InlineNameEditor({
     if (rootRef.current !== null) revealInScrollList(rootRef.current);
   }, [countVisible]);
 
+  // iOS 목록 상자는 키보드가 떠도 화면 끝까지라 목록 기준으로는 키보드 뒤의 입력칸을 올리지 못해서 키보드가 다 오른 뒤 다시 올린다.
+  useEffect(() => {
+    if (rowRef.current !== null) revealAboveKeyboard(rowRef.current, keyboardInset);
+  }, [keyboardInset]);
+
   return (
     <div
       ref={rootRef}
@@ -136,6 +148,7 @@ function InlineNameEditor({
       onPointerDown={(event) => event.stopPropagation()}
     >
       <div
+        ref={rowRef}
         className={cn(
           "flex w-full items-center gap-2 pr-3",
           large ? "min-h-14 pl-3" : "min-h-12 pl-4",
@@ -143,6 +156,7 @@ function InlineNameEditor({
       >
         <input
           ref={inputRef}
+          onMouseDown={ios ? focusWithoutScrollOnPress : undefined}
           aria-label={ariaLabel}
           aria-describedby={countVisible ? countId : undefined}
           value={value}
@@ -175,6 +189,8 @@ function InlineNameEditor({
         overMessage={t("subjectSheet.overLimit", { count: maxLength })}
         className={cn("pr-3 pb-1 text-white/50", large ? "pl-3" : "pl-4")}
       />
+      {/* 목록 끝의 입력칸도 키보드 위로 올릴 수 있게 키보드가 떠 있는 동안 그 높이만큼 비운다. */}
+      {keyboardInset > 0 && <div aria-hidden="true" style={{ height: keyboardInset }} />}
     </div>
   );
 }
