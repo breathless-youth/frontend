@@ -1,4 +1,4 @@
-import { cleanup, screen } from "@testing-library/react";
+import { cleanup, fireEvent, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
@@ -13,6 +13,16 @@ import { ReportApplicationScreen } from "../ReportApplicationScreen";
 import { ReportMemberScreen } from "../ReportMemberScreen";
 
 vi.mock("@/lib/useKeyboardInset", () => ({ useKeyboardInset: vi.fn(() => 0) }));
+
+const IPHONE_UA =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148";
+const ANDROID_UA =
+  "Mozilla/5.0 (Linux; Android 14; SM-A235N; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0 Mobile Safari/537.36";
+
+function stubUserAgent(userAgent: string) {
+  const spy = vi.spyOn(navigator, "userAgent", "get").mockReturnValue(userAgent);
+  onTestFinished(() => spy.mockRestore());
+}
 
 const graphemes = vi.hoisted(() => ({ canSegment: true }));
 
@@ -106,6 +116,42 @@ describe("ApplyScreen", () => {
     renderScreen(<ApplyHarness />);
     // iOS는 키보드를 올리며 포커스를 받은 입력칸 쪽으로 문서를 끌어 올려서 머리 제목이 앱의 머리 줄 밑으로 들어간다.
     expect(focus.mock.calls).toEqual([[{ preventScroll: true }]]);
+  });
+
+  it("iPhone에서는 열려도 입력칸에 포커스를 주지 않아 입력칸을 눌러야 키보드가 뜬다", () => {
+    stubUserAgent(IPHONE_UA);
+    const focus = vi.spyOn(HTMLTextAreaElement.prototype, "focus");
+    onTestFinished(() => focus.mockRestore());
+    renderScreen(<ApplyHarness />);
+    expect(screen.getByRole("textbox", { name: "소개 글" })).not.toHaveFocus();
+    expect(focus).not.toHaveBeenCalled();
+  });
+
+  it("Android에서는 열리자마자 입력칸에 포커스를 준다", () => {
+    stubUserAgent(ANDROID_UA);
+    renderScreen(<ApplyHarness />);
+    expect(screen.getByRole("textbox", { name: "소개 글" })).toHaveFocus();
+  });
+
+  it("iPhone에서 입력칸을 누르면 기본 동작을 막고 문서를 끌어 올리지 않게 포커스를 준다", () => {
+    stubUserAgent(IPHONE_UA);
+    renderScreen(<ApplyHarness />);
+    const field = screen.getByRole("textbox", { name: "소개 글" });
+    const focus = vi.spyOn(field, "focus");
+    // fireEvent는 누름의 기본 동작이 막혔을 때 false를 돌려준다.
+    expect(fireEvent.mouseDown(field)).toBe(false);
+    expect(focus.mock.calls).toEqual([[{ preventScroll: true }]]);
+    expect(field).toHaveFocus();
+  });
+
+  it("Android에서는 입력칸 누름을 가로채지 않는다", () => {
+    stubUserAgent(ANDROID_UA);
+    renderScreen(<ApplyHarness />);
+    const field = screen.getByRole("textbox", { name: "소개 글" });
+    field.blur();
+    const focus = vi.spyOn(field, "focus");
+    expect(fireEvent.mouseDown(field)).toBe(true);
+    expect(focus).not.toHaveBeenCalled();
   });
 
   it("키보드가 올라오면 보내는 버튼이 키보드 바로 위로 간다", () => {
