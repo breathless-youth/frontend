@@ -48,6 +48,32 @@ describe("useTimeZoneSync", () => {
     expect(updateProfile).not.toHaveBeenCalled();
   });
 
+  it("보내지 못했으면 다음 홈 진입에서 다시 보낸다", async () => {
+    vi.mocked(updateProfile).mockRejectedValueOnce(new Error("network"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderHook(() => useTimeZoneSync(7, false)).unmount();
+    await waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
+
+    renderHook(() => useTimeZoneSync(7, false));
+
+    await waitFor(() => expect(updateProfile).toHaveBeenCalledTimes(2));
+    warn.mockRestore();
+  });
+
+  it("보내는 중에 홈이 다시 열려도 한 번만 보낸다", async () => {
+    let resolve = () => {};
+    vi.mocked(updateProfile).mockReturnValueOnce(
+      new Promise((done) => {
+        resolve = () => done({} as Awaited<ReturnType<typeof updateProfile>>);
+      }),
+    );
+    renderHook(() => useTimeZoneSync(7, false)).unmount();
+    renderHook(() => useTimeZoneSync(7, false));
+    resolve();
+
+    await waitFor(() => expect(updateProfile).toHaveBeenCalledTimes(1));
+  });
+
   it("보내지 못해도 예외를 밖으로 내지 않는다", async () => {
     vi.mocked(updateProfile).mockRejectedValue(new Error("network"));
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
