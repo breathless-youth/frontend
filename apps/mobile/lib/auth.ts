@@ -1,17 +1,26 @@
 import * as SecureStore from "expo-secure-store";
 
-import type { AuthRefreshResponse, ToWebMessage, UserRegisterResponse } from "@focusmakers/types";
+import type {
+  AuthRefreshResponse,
+  SocialLoginFailureCode,
+  SocialLoginProvider,
+  ToWebMessage,
+  UserRegisterResponse,
+} from "@focusmakers/types";
 import { readUserIdFromAccessToken } from "./jwt";
 
 import { apiFetch, parseErrorMessage } from "./api";
 import { apiBaseUrl } from "./apiBaseUrl";
 import { getOrCreateDeviceId } from "./deviceId";
+import { getAppLocale } from "./i18n";
 import { logMetaRegistration } from "./metaAds";
 
 /**
- * 토큰의 유일한 소유자. SecureStore 키 하나에 JSON으로 묶어 저장한다 — 회전 도중 앱이 죽어도
- * access·refresh 쌍이 어긋나지 않는다. refresh 토큰은 이 모듈 밖으로 나가되 웹뷰에는 절대
- * 전달하지 않는다(`authTokenMessage`가 거른다).
+ * 토큰의 유일한 소유자
+ *
+ * SecureStore 키 하나에 JSON으로 묶어 저장한다
+ * — 로테이션 도중 앱이 죽어도 access·refresh 쌍이 어긋나지 않는다.
+ * - refresh 토큰은 이 모듈 밖으로 나가되 웹뷰에는 절대 전달하지 않는다(`authTokenMessage`가 거른다).
  */
 export type AuthState = {
   userId: number;
@@ -107,7 +116,8 @@ export async function registerUser(deviceId: string): Promise<UserRegisterRespon
     endpoint: "register",
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ deviceId }),
+    // 서버가 자동 닉네임 단어를 이 언어로 고른다.
+    body: JSON.stringify({ deviceId, locale: getAppLocale() }),
   });
   if (!res.ok) {
     throw await parseErrorMessage(res, "유저 등록 실패");
@@ -192,10 +202,20 @@ let ongoingRefresh: Promise<AuthState | null> | null = null;
  * 저장을 지우고 재등록한다 — 지연 이관된 설치가 토큰을 얻는 유일한 경로다.
  */
 export function refreshAuth(): Promise<AuthState | null> {
+  if (ongoingLink !== null) {
+    // link가 성공하면 지금 저장된 refresh는 서버에서 무효가 된다.
+    // 그 refresh로 갱신하면 401을 받아 저장을 비우고 새 비회원으로 가입하므로 link가 끝난 뒤의 저장으로 갱신한다.
+    // link가 가입을 기다리는 중에도 가입 결과는 link 전 토큰이라 가입 검사보다 먼저 본다.
+    return ongoingLink.then(() => refreshAuth());
+  }
   if (ongoingAuth !== null) {
     // 등록이 곧 새 쌍이다 — 갱신을 겹쳐 회전을 낭비하지 않는다.
     return ongoingAuth;
   }
+  return startRefresh();
+}
+
+function startRefresh(): Promise<AuthState | null> {
   ongoingRefresh ??= refreshOnce().finally(() => {
     ongoingRefresh = null;
   });
@@ -233,4 +253,111 @@ async function refreshOnce(): Promise<AuthState | null> {
 /** `auth-ready` 응답용: 갱신이 진행 중이면 그 결과를, 아니면 저장 상태를 돌려준다. */
 export function awaitAuth(): Promise<AuthState | null> {
   return ongoingRefresh ?? ensureAuth();
+}
+
+export type LinkSocialResult =
+  { status: "success"; isNewUser: boolean } | { status: "failed"; code: SocialLoginFailureCode };
+
+/** `POST /api/auth/link` 응답. 백엔드 Swagger가 dev에 들어오면 `packages/types`로 올린다. */
+type AuthLinkResponse = { accessToken: string; refreshToken: string; isNewUser: boolean };
+
+// `API_ENDPOINTS`에 link가 없어 `apiFetch` 대신 버전 헤더를 직접 붙인다.
+// 백엔드 Swagger가 dev에 들어와 `packages/types`에 link를 넣으면 `apiFetch`로 바꾼다.
+async function postLink(state: AuthState, body: string): Promise<Response> {
+  return fetch(`${apiBaseUrl()}/api/auth/link`, {
+    method: "POST",
+    headers: {
+      "API-Version": "1",
+      Authorization: `Bearer ${state.accessToken}`,
+      "Content-Type": "application/json",
+    },
+    body,
+  });
+}
+
+/**
+ * 실패 응답의 코드
+ *
+ * 404·409·503은 게이트웨이가 본문 없이 줄 수도 있어 상태 코드로 가른다.
+ * 400은 ID 토큰 거부만 웹에 알리고 나머지는 앱 버그라 UNKNOWN이다.
+ */
+async function linkFailureCode(res: Response): Promise<SocialLoginFailureCode> {
+  switch (res.status) {
+    case 404:
+      return "USER_NOT_FOUND";
+    case 409:
+      return "ALREADY_LINKED";
+    case 503:
+      return "SOCIAL_PROVIDER_UNAVAILABLE";
+    case 400: {
+      const body = (await res.json().catch(() => null)) as { code?: unknown } | null;
+      return body?.code === "INVALID_SOCIAL_TOKEN" ? "INVALID_SOCIAL_TOKEN" : "UNKNOWN";
+    }
+    default:
+      return "UNKNOWN";
+  }
+}
+
+let ongoingLink: Promise<LinkSocialResult> | null = null;
+
+/**
+ * `POST /api/auth/link`
+ * 소셜 ID 토큰으로 지금 비회원 계정을 연결
+ *
+ * 성공하면 응답 토큰으로 저장을 바꾸고 구독자(웹뷰·애널리틱스·푸시 등록)에 알린다.
+ * 기존 계정에 합쳐지면 userId가 바뀌므로 저장된 userId를 쓰지 않고 새 access 토큰의 `sub`를 다시 읽는다.
+ * 401: 갱신
+ * 404: 저장을 비우고 다시 가입한 뒤 같은 ID 토큰으로 한 번만 다시 보낸다.
+ * 400·409·503: 서버가 토큰을 소비하지 않아 저장을 그대로 두고 코드만 돌려준다.
+ * 진행 중인 link는 `refreshAuth`가 기다리고, link는 시작할 때 진행 중인 갱신을 기다린다.
+ * 실패해도 throw하지 않는다.
+ */
+export function linkSocial(
+  provider: SocialLoginProvider,
+  idToken: string,
+  nonce: string,
+): Promise<LinkSocialResult> {
+  ongoingLink = linkOnce(provider, idToken, nonce).finally(() => {
+    ongoingLink = null;
+  });
+  return ongoingLink;
+}
+
+async function linkOnce(
+  provider: SocialLoginProvider,
+  idToken: string,
+  nonce: string,
+): Promise<LinkSocialResult> {
+  const body = JSON.stringify({ provider, idToken, nonce });
+  try {
+    let state = await awaitAuth();
+    if (state === null) {
+      return { status: "failed", code: "UNKNOWN" };
+    }
+    let res = await postLink(state, body);
+    if (res.status === 401 || res.status === 404) {
+      if (res.status === 404) {
+        await SecureStore.deleteItemAsync(AUTH_KEY, STORE_OPTIONS);
+      }
+      // link 안의 갱신은 `refreshAuth`를 거치지 않는다. 그 함수는 진행 중인 link, 곧 자기 자신을 기다린다.
+      state = res.status === 401 ? await startRefresh() : await ensureAuth();
+      if (state === null) {
+        return { status: "failed", code: "UNKNOWN" };
+      }
+      res = await postLink(state, body);
+    }
+    if (!res.ok) {
+      return { status: "failed", code: await linkFailureCode(res) };
+    }
+    const { accessToken, refreshToken, isNewUser } = (await res.json()) as AuthLinkResponse;
+    const userId = readUserIdFromAccessToken(accessToken);
+    if (userId === null) {
+      return { status: "failed", code: "UNKNOWN" };
+    }
+    await writeAuth({ userId, accessToken, refreshToken });
+    return { status: "success", isNewUser };
+  } catch (error) {
+    console.warn("[auth] 소셜 계정 연결 실패", error);
+    return { status: "failed", code: "UNKNOWN" };
+  }
 }
