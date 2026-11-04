@@ -57,4 +57,29 @@ describe("DeskRow", () => {
     expect(seats()[0].textContent).toBe("열공곰");
     expect(screen.queryByText("나")).toBeNull();
   });
+
+  it("내 자리에만 작은 바탕과 테두리를 두고 닉네임을 굵게 쓴다", () => {
+    render(
+      <DeskRow
+        members={[
+          ...members,
+          { ...base, userId: 9, nickname: "아주아주긴닉네임열공곰", presence: "away", isMe: true },
+        ]}
+      />,
+    );
+    const marked = seats().filter((seat) => seat.hasAttribute("data-me"));
+    expect(marked).toHaveLength(1);
+    expect(marked[0]).toHaveClass(
+      "bg-brand-subtle",
+      "rounded-sm",
+      "border",
+      "border-primary/40",
+      "-m-0.5",
+      "p-px",
+    );
+    const name = screen.getByText("아주아주긴닉네임열공곰");
+    expect(name).toHaveClass("font-bold", "text-foreground", "truncate");
+    expect(name).not.toHaveClass("text-muted-foreground");
+    expect(screen.getByText("연필깎이")).toHaveClass("text-muted-foreground");
+  });
 });

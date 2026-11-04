@@ -33,6 +33,8 @@ export function DeskGrid({
   elapsedSec: number;
 }) {
   const { t } = useTranslation("group-room");
+  // 판단 모듈이 순서를 정하며 멤버를 공통 모양으로 돌려주므로 내 자리는 아이디로 다시 찾는다.
+  const myUserId = members.find((member) => member.isMe)?.userId;
   return (
     <div>
       <ul aria-label={t("deskGrid.aria.list")} className="grid grid-cols-3 gap-x-1.5 gap-y-3 pt-1">
@@ -44,6 +46,7 @@ export function DeskGrid({
               key={slot.member.userId}
               member={slot.member}
               tone={slot.tone}
+              isMe={slot.member.userId === myUserId}
               elapsedSec={elapsedSec}
             />
           ),
@@ -70,10 +73,12 @@ export function DeskGrid({
 function MemberDesk({
   member,
   tone,
+  isMe,
   elapsedSec,
 }: {
   member: DeskMember;
   tone: DeskTone;
+  isMe: boolean;
   elapsedSec: number;
 }) {
   const { t } = useTranslation("group-room");
@@ -93,7 +98,13 @@ function MemberDesk({
       // Sentry 클릭 기록은 닉네임이 든 aria-label 대신 이 이름을 적는다.
       data-sentry-element="MemberDesk"
       data-tone={tone}
-      className="flex min-w-0 flex-col items-center"
+      data-me={isMe || undefined}
+      className={cn(
+        "flex min-w-0 flex-col items-center",
+        // 음수 여백을 안쪽 여백과 테두리로 되돌려 칸이 넓어져도 책상과 글자 자리는 그대로다.
+        // 바탕만으로는 다크에서 흐려 테두리를 함께 두고, 상태를 뜻하는 책상 색은 건드리지 않는다.
+        isMe && "-m-1 rounded-md border border-primary/40 bg-brand-subtle p-[3px]",
+      )}
     >
       <DeskFigure tone={tone} size="md" />
       <div
@@ -108,12 +119,20 @@ function MemberDesk({
               className="shrink-0 fill-brand-subtle text-primary"
             />
           )}
-          <span className="truncate text-xs leading-4 font-semibold text-foreground">{name}</span>
+          <span
+            className={cn(
+              "truncate text-xs leading-4 text-foreground",
+              isMe ? "font-bold" : "font-semibold",
+            )}
+          >
+            {name}
+          </span>
         </p>
         <p
           className={cn(
             "text-[13px] leading-4.5 font-bold tabular-nums",
-            tone === "rest" ? "text-muted-foreground" : "text-foreground",
+            // 흐린 글자는 라이트의 내 칸 바탕 위에서 대비가 4.1:1이라 내 칸에서는 쓰지 않는다.
+            tone === "rest" && !isMe ? "text-muted-foreground" : "text-foreground",
           )}
         >
           {clock}
