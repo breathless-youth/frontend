@@ -139,8 +139,11 @@ export function RoomGrid({
             ? "quad"
             : "hex";
 
-  // 가로 폰에서 아래 바가 덮는 것은 맨 아랫줄이고, 5~6명은 3열 2줄이라 윗줄은 바에 닿지 않는다.
-  const lastRowStart = allMembers.length > 4 ? 3 : 0;
+  // 가로 폰에서 아래 바가 덮는 것은 맨 아랫줄이다.
+  // 5~6명은 3열 2줄이라 윗줄은 바에 닿지 않는다.
+  // 4명은 타일이 작아 한 줄 아래 끝이 바 윗변보다 위라 바가 닿지 않으므로 올리지 않는다.
+  const firstLiftedIndex =
+    allMembers.length === 4 ? Number.POSITIVE_INFINITY : allMembers.length > 4 ? 3 : 0;
 
   return (
     <div
@@ -206,7 +209,7 @@ export function RoomGrid({
             {...tileExtras?.(member)}
             goalHidden={barHidden}
             // 캡슐 띠를 비운 격자는 타일이 바 위에서 끝나서 올릴 일이 없다.
-            lifted={!barHidden && !reserveCapsule && index >= lastRowStart}
+            lifted={!barHidden && !reserveCapsule && index >= firstLiftedIndex}
             rootRef={member.userId === userId ? selfSurfaceRef : undefined}
             isSelf={member.userId === userId}
             media={
