@@ -1,10 +1,11 @@
-import { useEffect, useEffectEvent, useRef } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import {
   pageEntryOnTop,
   useSessionPageHistory,
 } from "@/features/study-session/useSessionPageHistory";
 import type { PageCloseReason } from "@/features/study-session/useSessionPageHistory";
+import { isNativeBridgeAvailable } from "@/lib/bridge";
 
 /**
  * 방 항목 위에 두는 지킴 항목의 키
@@ -15,6 +16,10 @@ const GUARD_HISTORY_KEY = "roomHistoryGuard";
 
 // 같은 문서 안 이동이라 금방 오지만, popstate가 끝내 오지 않아도 방을 나가는 길이 막히면 안 된다.
 const POP_STATE_TIMEOUT_MS = 1000;
+
+// 앱이 켜짐 신호를 받아 웹뷰 속성까지 바꾸는 데 걸리는 시간이고, 사람이 창을 기다린다고 느끼기 전까지만 둔다.
+// 늦게 적용돼도 미리보기만 비고 지킴 항목이 방을 지킨다.
+const GESTURE_APPLY_MS = 100;
 
 function guardEntryOnTop(): boolean {
   const state: unknown = window.history.state;
@@ -78,6 +83,10 @@ async function clearEntriesAboveRoom(closeInFlight: boolean, homeUrl: string) {
  * 지킴 항목은 창을 열 때가 아니라 방이 그려진 뒤에 쌓는다.
  * 창을 열 때 항목을 하나만 쌓아야 싱글룸처럼 그 아래 항목의 미리보기가 방 화면으로 남는다.
  * 같은 순간에 둘을 쌓았을 때 실기기 스와이프 미리보기가 흰 화면이었다.
+ *
+ * 창을 열 때는 제스처를 먼저 켜고 잠깐 기다린 뒤에 항목을 쌓는다.
+ * WebKit은 제스처가 꺼진 동안 미리보기를 찍지 않는 것으로 보여서, 항목을 쌓는 순간에 제스처가 켜져 있어야 아래 항목의 미리보기가 남는다.
+ * 켜 두는 동안의 스와이프도 지킴 항목이 받으므로 앱의 적용이 늦어도 잃는 것은 미리보기뿐이다.
  */
 export function useRoomSheetHistory<Page extends string>({
   page,
@@ -101,6 +110,12 @@ export function useRoomSheetHistory<Page extends string>({
     }
   }
 
+  /** 제스처를 켜 놓고 항목을 쌓기를 기다리는 창. */
+  const [opening, setOpening] = useState<Page | null>(null);
+  if (!studying && opening !== null) {
+    setOpening(null);
+  }
+
   const { openPage, closePage, closeInFlight } = useSessionPageHistory({
     page,
     setPage,
@@ -109,6 +124,34 @@ export function useRoomSheetHistory<Page extends string>({
     // 앱이 가려진 채 입장하면 프레임이 돌지 않아 지킴 항목보다 창이 먼저 열릴 수 있다.
     beforePush: armGuard,
   });
+
+  function requestPage(next: Page) {
+    // 창이 열려 있으면 제스처가 켜져 있고 항목도 있어서 기다릴 것이 없다.
+    if (page !== null || !isNativeBridgeAvailable()) {
+      openPage(next);
+      return;
+    }
+    if (opening !== null) {
+      return;
+    }
+    // 제스처가 켜지기 전에 지킴 항목이 있어야 한다.
+    armGuard();
+    setOpening(next);
+  }
+
+  const onGestureApplied = useEffectEvent((next: Page) => {
+    setOpening(null);
+    if (!leavingRef.current) {
+      openPage(next);
+    }
+  });
+  useEffect(() => {
+    if (opening === null) {
+      return;
+    }
+    const timer = window.setTimeout(() => onGestureApplied(opening), GESTURE_APPLY_MS);
+    return () => window.clearTimeout(timer);
+  }, [opening]);
 
   const onFirstPaint = useEffectEvent(() => {
     if (!leavingRef.current) {
@@ -165,5 +208,12 @@ export function useRoomSheetHistory<Page extends string>({
       .then(leave);
   }
 
-  return { openPage, closePage, leaveThen };
+  return {
+    /** 창 열기. 앱에서는 제스처를 켠 뒤에 열린다. */
+    requestPage,
+    closePage,
+    leaveThen,
+    /** 앱의 뒤로 가기 제스처를 켜 둘 때인가. */
+    gestureReleased: page !== null || opening !== null,
+  };
 }

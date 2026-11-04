@@ -1154,8 +1154,8 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
       expect(gesture().at(-1)).toBe(false);
 
       await userEvent.click(screen.getByRole("button", { name }));
-      expect(sheetEntryOnTop()).toBe(true);
-      await waitFor(() => expect(gesture().at(-1)).toBe(true));
+      await waitFor(() => expect(sheetEntryOnTop()).toBe(true));
+      expect(gesture().at(-1)).toBe(true);
 
       await swipeBack();
       await waitFor(() => {
@@ -1166,9 +1166,24 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
       expect(screen.getByTestId("live-room-page")).toBeInTheDocument();
     });
 
+    it("제스처를 켜는 신호를 보낸 뒤에 창 항목을 쌓는다", async () => {
+      const gesture = await enterBrowserRoom();
+      const push = vi.spyOn(window.history, "pushState");
+      const released = gesture().length;
+
+      await userEvent.click(screen.getByRole("button", { name }));
+      expect(gesture().slice(released)).toEqual([true]);
+
+      await screen.findByRole("dialog", { name });
+      expect(push).toHaveBeenCalledOnce();
+      expect(sheetEntryOnTop()).toBe(true);
+      push.mockRestore();
+    });
+
     it("닫은 직후 잠금이 닿기 전의 두 번째 스와이프에도 방에 남는다", async () => {
       await enterBrowserRoom();
       await userEvent.click(screen.getByRole("button", { name }));
+      await screen.findByRole("dialog", { name });
 
       await swipeBack();
       await swipeBack();
@@ -1183,6 +1198,7 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
     it("뒤로 버튼과 Escape도 같은 길로 닫아 history가 어긋나지 않는다", async () => {
       await enterBrowserRoom();
       await userEvent.click(screen.getByRole("button", { name }));
+      await screen.findByRole("dialog", { name });
       const length = window.history.length;
 
       await userEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
@@ -1192,6 +1208,7 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
       });
 
       await userEvent.click(screen.getByRole("button", { name }));
+      await screen.findByRole("dialog", { name });
       expect(window.history.length).toBe(length);
       await userEvent.keyboard("{Escape}");
       await waitFor(() => expect(sheetEntryOnTop()).toBe(false));
@@ -1203,6 +1220,7 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
       vi.mocked(submitStudySession).mockResolvedValue([]);
       const gesture = await enterBrowserRoom();
       await userEvent.click(screen.getByRole("button", { name }));
+      await screen.findByRole("dialog", { name });
       await swipeBack();
       await waitFor(() => {
         expect(screen.queryByRole("dialog", { name })).not.toBeInTheDocument();
@@ -1237,6 +1255,7 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
       await waitFor(() => expect(window.history.state).toHaveProperty("roomHistoryGuard"));
       mockedRenewSeat.mockRejectedValue(new ApiError("자리 회수", 409, "CONFLICT"));
       await userEvent.click(screen.getByRole("button", { name }));
+      await screen.findByRole("dialog", { name });
 
       act(() => channel.emitServerMessage({ type: "ROOM_UNAVAILABLE", roomId: 42 }));
 
@@ -3005,7 +3024,7 @@ describe("LiveRoomPage — 과목", () => {
     expect(control("room-subject")).toMatchObject({ systemImage: "book", tone: "default" });
 
     pressNative("room-subject", 0);
-    expect(screen.getByRole("dialog", { name: "과목" })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "과목" })).toBeInTheDocument();
     await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
     const confirm = await screen.findByRole("alertdialog");
     await userEvent.click(within(confirm).getByRole("button", { name: "취소" }));

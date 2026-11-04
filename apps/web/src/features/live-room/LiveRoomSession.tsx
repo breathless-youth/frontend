@@ -255,9 +255,6 @@ export function LiveRoomSession({
     setPage(null);
   }
   useRoomDocumentBackground();
-  // 창이 열린 동안의 스와이프는 싱글룸과 같이 창만 닫는다.
-  // 닫은 직후 잠금 신호가 앱에 닿기 전의 스와이프는 `useRoomSheetHistory`의 지킴 항목이 받는다.
-  useNativeBackGestureLock(page !== null);
   const pageLandscape = useLandscapeLayout(page !== null);
   /** 멤버 메뉴를 연 멤버이고 메뉴는 한 번에 하나만 열린다. */
   const [menuUserId, setMenuUserId] = useState<number | null>(null);
@@ -293,7 +290,7 @@ export function LiveRoomSession({
   // 닫을 때 포커스를 돌려주고 열려 있던 시간을 계측한다.
   const subjectOpenerRef = useRef<HTMLElement | null>(null);
   const subjectOpenedAtRef = useRef(0);
-  const { openPage, closePage, leaveThen } = useRoomSheetHistory({
+  const { requestPage, closePage, leaveThen, gestureReleased } = useRoomSheetHistory({
     page,
     setPage,
     studying: phase.name === "studying",
@@ -307,6 +304,9 @@ export function LiveRoomSession({
       }
     },
   });
+  // 창이 열린 동안의 스와이프는 싱글룸과 같이 창만 닫는다.
+  // 닫은 직후 잠금 신호가 앱에 닿기 전의 스와이프는 `useRoomSheetHistory`의 지킴 항목이 받는다.
+  useNativeBackGestureLock(gestureReleased);
   // 과목 페이지가 닫혀 있을 때의 미리 받기 실패는 알리지 않는다.
   // 사용자가 과목을 건드린 적이 없다.
   // 과목 시간은 플래너 하루 기준 오늘 값으로 바꿔 받는다(`loadSessionSubjects`).
@@ -922,7 +922,7 @@ export function LiveRoomSession({
     if (subjects.status === "error") {
       void subjects.reload();
     }
-    openPage("subject");
+    requestPage("subject");
   }
 
   // 알약으로 열었는데 페이지에서 과목을 해제하면 알약이 사라지므로 과목 버튼으로 돌아간다.
@@ -1264,7 +1264,7 @@ export function LiveRoomSession({
               faded={!controlsVisible}
               on={ambient.isOn}
               expanded={page === "ambient"}
-              onClick={() => openPage("ambient")}
+              onClick={() => requestPage("ambient")}
             />
           </RoomControlBar>
         </div>
