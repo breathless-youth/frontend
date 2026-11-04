@@ -9,6 +9,8 @@ import { RoomMemberMenu } from "@/features/live-room/components/RoomMemberMenu";
 import { RoomTile } from "@/features/live-room/components/RoomTile";
 import { GROUP_ROOM_ANALYTICS_MASK } from "@/features/live-room/groupRoomAnalyticsMask";
 
+import { NotificationToast } from "@/components/NotificationToast";
+
 /**
  * **실제 Amplitude SDK를 mock 없이 돌려 최종 전송 payload를 검사한다.**
  *
@@ -254,6 +256,35 @@ describe("Amplitude 전송 파이프라인 (실제 SDK)", () => {
     // 두 클릭이 모두 나가야 아래의 가림 단언이 공허하지 않다.
     expect(roomClicks).toHaveLength(2);
     expect(JSON.stringify(sent)).not.toMatch(/책벌레곰|행정학 3회독/);
+
+    // 앱 안 알림 토스트의 문구에는 다른 사람의 닉네임과 그룹 이름이 들어간다.
+    // 클릭 autocapture는 누른 버튼의 글자와 aria-label을 이벤트 속성과 요소 계층에 싣는다.
+    // 버튼에 단 가림 표시가 실제 SDK에서도 그 값을 가리는지 전송 payload로 본다.
+    sent.length = 0;
+    // 앞 단계의 그룹 화면이 아직 그려져 있어서 토스트 안의 버튼만 고른다.
+    const toast = render(
+      createElement(NotificationToast, {
+        title: "새 신청을 확인해 볼까요?",
+        body: "민준님이 새벽 공시반에 신청했어요",
+        onOpen: () => {},
+      }),
+    );
+    fireEvent.click(within(toast.container).getByRole("button"));
+    await amplitude.flush().promise;
+    await tick();
+
+    const clicked = sent
+      .flatMap((batch) => batch.events)
+      .find((event) => event.event_type === "[Amplitude] Element Clicked");
+    const clickProperties = clicked?.event_properties as Record<string, unknown> | undefined;
+    expect(clickProperties?.["[Amplitude] Element Tag"]).toBe("button");
+    expect(clickProperties?.["[Amplitude] Element Text"]).toBe("*****");
+    expect(clickProperties?.["[Amplitude] Element Aria Label"]).toBe("*****");
+    const toastNames = /민준|새벽 공시반|확인해 볼까요/;
+    expect(JSON.stringify(clickProperties?.["[Amplitude] Element Hierarchy"])).not.toMatch(
+      toastNames,
+    );
+    expect(JSON.stringify(clicked)).not.toMatch(toastNames);
 
     // 그룹 이벤트는 그룹 번호와 신청 번호가 든 화면에서 보내도 정한 속성만 나간다.
     // SDK가 화면 주소 같은 속성을 덧붙이면 그룹 번호가 함께 나가서 속성 전체를 그대로 비교한다.

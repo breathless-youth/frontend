@@ -276,14 +276,14 @@ describe("RootLayout 폰트 로드 게이팅", () => {
     await waitFor(() => expect(toJSON()).not.toBeNull());
     const { navigate } = mockStartPush.mock.calls[0][0];
 
-    navigate("/social/join?code=4680");
-    expect(handler).toHaveBeenCalledWith("4680");
+    navigate("/social/join?code=AB2CD3");
+    expect(handler).toHaveBeenCalledWith("AB2CD3");
     expect(mockRouter.push).not.toHaveBeenCalled();
 
     release();
-    navigate("/social/join?code=4680");
+    navigate("/social/join?code=AB2CD3");
     // 이동은 한 틱 미뤄 실행된다(세션 종료 cleanup과 스택 pop이 겹치지 않게).
-    await waitFor(() => expect(mockRouter.push).toHaveBeenCalledWith("/social/join?code=4680"));
+    await waitFor(() => expect(mockRouter.push).toHaveBeenCalledWith("/social/join?code=AB2CD3"));
   });
 
   it("실패([false, Error])해도 시스템 폰트로 그리고 스플래시를 걷는다 — 벽돌 방지", async () => {

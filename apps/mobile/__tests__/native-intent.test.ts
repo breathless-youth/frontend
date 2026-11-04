@@ -25,14 +25,25 @@ describe("redirectSystemPath", () => {
   });
 
   it.each([
-    "https://web.focusmakers.app/social/join?code=4680",
-    "focusmakers://social/join?code=4680",
-  ])("세션 화면이 열려 있으면 %s의 이동을 멈추고 코드를 세션 화면에 넘긴다", (path) => {
+    "https://web.focusmakers.app/social/join?code=AB2CD3",
+    "focusmakers://social/join?code=ab2cd3",
+  ])("세션 화면이 열려 있으면 %s의 이동을 멈추고 정리한 코드를 넘긴다", (path) => {
     const handler = jest.fn();
     release = setSessionInviteHandler(handler);
 
     expect(redirectSystemPath({ path, initial: false })).toBeNull();
-    expect(handler).toHaveBeenCalledWith("4680");
+    expect(handler).toHaveBeenCalledWith("AB2CD3");
+  });
+
+  it.each([
+    "https://web.focusmakers.app/social/join?code=4680",
+    "focusmakers://social/join?code=4680",
+  ])("세션 화면이 열려 있어도 4자리 링크 %s는 이동만 멈추고 넘기지 않는다", (path) => {
+    const handler = jest.fn();
+    release = setSessionInviteHandler(handler);
+
+    expect(redirectSystemPath({ path, initial: false })).toBeNull();
+    expect(handler).not.toHaveBeenCalled();
   });
 
   it("콜드 스타트 링크는 세션 화면 여부와 상관없이 그대로 보낸다", () => {
@@ -61,7 +72,7 @@ describe("redirectSystemPath", () => {
     release = setSessionInviteHandler(() => {
       throw new Error("boom");
     });
-    const path = "focusmakers://social/join?code=4680";
+    const path = "focusmakers://social/join?code=AB2CD3";
 
     expect(redirectSystemPath({ path, initial: false })).toBe(path);
     warn.mockRestore();

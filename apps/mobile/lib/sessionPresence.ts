@@ -36,6 +36,16 @@ export function markSessionOpen(kind: "single" | "social"): () => void {
 }
 
 /**
+ * 세션 화면이 떠 있는지
+ *
+ * 앱을 쓰는 중에 온 그룹 알림을 세션 화면 위에 띄우지 않으려고 알림이 온 때에 묻는다.
+ * 그룹 공부방도 소셜룸과 같은 뒤로 잠금을 걸어 여기서 세션으로 보인다.
+ */
+export function isSessionOpen(): boolean {
+  return openCount > 0;
+}
+
+/**
  * 세션이 끝난 뒤 실행
  *
  * 세션 화면이 없으면 바로 실행하고, 떠 있으면 마지막 세션 화면이 닫힐 때 실행한다.

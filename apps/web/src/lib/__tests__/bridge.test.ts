@@ -596,3 +596,53 @@ describe("parseToWebMessage — install-attribution(설치 유입 정보)", () =
     expect(parseToWebMessage(JSON.stringify({ ...valid, googleDeepLinkAd: 3 }))).toBeNull();
   });
 });
+
+describe("parseToWebMessage: in-app-notification(앱을 쓰는 중에 온 그룹 알림)", () => {
+  const valid = {
+    type: "in-app-notification",
+    title: "그룹장이 됐어요",
+    body: "새벽 공시반의 그룹장을 넘겨받았어요",
+    link: "/social/groups/10",
+    pushType: "group_owner_transferred",
+    atMs: 1,
+  };
+
+  it("앱이 넘긴 제목·본문·링크·알림 종류를 그대로 파싱한다", () => {
+    expect(parseToWebMessage(JSON.stringify(valid))).toEqual(valid);
+  });
+
+  it("알림 종류가 없어도 받는다", () => {
+    const withoutType = { ...valid, pushType: undefined };
+    expect(parseToWebMessage(JSON.stringify(withoutType))).toEqual({
+      type: "in-app-notification",
+      title: valid.title,
+      body: valid.body,
+      link: valid.link,
+      atMs: 1,
+    });
+  });
+
+  it("제목·본문·링크가 비었거나 문자열이 아니면 통째로 버린다", () => {
+    expect(parseToWebMessage(JSON.stringify({ ...valid, title: 1 }))).toBeNull();
+    expect(parseToWebMessage(JSON.stringify({ ...valid, body: "" }))).toBeNull();
+    expect(parseToWebMessage(JSON.stringify({ ...valid, link: null }))).toBeNull();
+    expect(parseToWebMessage(JSON.stringify({ ...valid, atMs: "1" }))).toBeNull();
+  });
+
+  it("4096자를 넘는 링크는 버린다", () => {
+    const at = (length: number) =>
+      parseToWebMessage(JSON.stringify({ ...valid, link: `/${"a".repeat(length - 1)}` }));
+    expect(at(4096)).not.toBeNull();
+    expect(at(4097)).toBeNull();
+  });
+
+  it("알림 종류가 토큰 형식이 아니면 그 필드만 빼고 알림은 살린다", () => {
+    expect(parseToWebMessage(JSON.stringify({ ...valid, pushType: "그룹장 넘김" }))).toEqual({
+      type: "in-app-notification",
+      title: valid.title,
+      body: valid.body,
+      link: valid.link,
+      atMs: 1,
+    });
+  });
+});

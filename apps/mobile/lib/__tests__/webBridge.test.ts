@@ -107,16 +107,23 @@ describe("parseToNativeMessage", () => {
     });
   });
 
-  it("navigate-home의 초대코드(inviteCode)는 4자리 숫자만 통과시키고, 아니면 그 필드만 빼고 모달 닫기는 살린다", () => {
+  it("navigate-home의 초대코드(inviteCode)는 4자리 숫자 코드와 그룹 6자리 코드만 통과시키고, 아니면 그 필드만 빼고 모달 닫기는 살린다", () => {
     expect(parseToNativeMessage('{"type":"navigate-home","inviteCode":"4680","atMs":9}')).toEqual({
       type: "navigate-home",
       inviteCode: "4680",
       atMs: 9,
     });
+    // 세션 중 그룹 초대도 같은 왕복으로 돌아오므로 그룹 코드가 빠지면 기록 저장 뒤 초대 화면이 열리지 않는다.
+    expect(parseToNativeMessage('{"type":"navigate-home","inviteCode":"ab2cd3","atMs":9}')).toEqual(
+      { type: "navigate-home", inviteCode: "AB2CD3", atMs: 9 },
+    );
     expect(parseToNativeMessage('{"type":"navigate-home","inviteCode":"46a0","atMs":9}')).toEqual({
       type: "navigate-home",
       atMs: 9,
     });
+    expect(parseToNativeMessage('{"type":"navigate-home","inviteCode":"AB0CD3","atMs":9}')).toEqual(
+      { type: "navigate-home", atMs: 9 },
+    );
     expect(parseToNativeMessage('{"type":"navigate-home","inviteCode":4680,"atMs":9}')).toEqual({
       type: "navigate-home",
       atMs: 9,
@@ -929,5 +936,58 @@ describe("parseToNativeMessage: 그 자리 부품", () => {
   it("모르는 kind를 빼도 아는 부품이 틀렸으면 메시지 전체를 버린다", () => {
     const slider = { ...button, id: "volume", kind: "slider" };
     expect(parse({ ...message, controls: [slider, { ...toggle, on: 1 }] })).toBeNull();
+  });
+});
+
+describe("parseToNativeMessage: 앱 안 알림 누름", () => {
+  it("open-push-link는 문자열 링크와 시각이 있어야 통과한다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({ type: "open-push-link", link: "/social/groups/10", atMs: 1 }),
+      ),
+    ).toEqual({ type: "open-push-link", link: "/social/groups/10", atMs: 1 });
+    expect(
+      parseToNativeMessage(JSON.stringify({ type: "open-push-link", link: 10, atMs: 1 })),
+    ).toBeNull();
+    expect(
+      parseToNativeMessage(JSON.stringify({ type: "open-push-link", link: "/social" })),
+    ).toBeNull();
+  });
+
+  it("4096자를 넘는 링크는 버린다", () => {
+    const at = (length: number) =>
+      parseToNativeMessage(
+        JSON.stringify({ type: "open-push-link", link: `/${"a".repeat(length - 1)}`, atMs: 1 }),
+      );
+    expect(at(4096)).not.toBeNull();
+    expect(at(4097)).toBeNull();
+  });
+
+  it("알림 종류는 토큰 형식일 때만 싣고, 아니면 그 필드만 빼고 누름은 살린다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({
+          type: "open-push-link",
+          link: "/social",
+          pushType: "group_member_kicked",
+          atMs: 1,
+        }),
+      ),
+    ).toEqual({
+      type: "open-push-link",
+      link: "/social",
+      pushType: "group_member_kicked",
+      atMs: 1,
+    });
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({
+          type: "open-push-link",
+          link: "/social",
+          pushType: "내보내짐 알림",
+          atMs: 1,
+        }),
+      ),
+    ).toEqual({ type: "open-push-link", link: "/social", atMs: 1 });
   });
 });
