@@ -1,7 +1,7 @@
 import { cleanup, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import type * as Graphemes from "@/lib/graphemes";
 import { useKeyboardInset } from "@/lib/useKeyboardInset";
@@ -98,6 +98,14 @@ describe("ApplyScreen", () => {
   it("열리면 입력칸에 포커스가 간다", () => {
     renderScreen(<ApplyHarness />);
     expect(screen.getByRole("textbox", { name: "소개 글" })).toHaveFocus();
+  });
+
+  it("열리며 입력칸에 포커스를 줄 때 문서를 끌어 올리지 않는다", () => {
+    const focus = vi.spyOn(HTMLTextAreaElement.prototype, "focus");
+    onTestFinished(() => focus.mockRestore());
+    renderScreen(<ApplyHarness />);
+    // iOS는 키보드를 올리며 포커스를 받은 입력칸 쪽으로 문서를 끌어 올려서 머리 제목이 앱의 머리 줄 밑으로 들어간다.
+    expect(focus.mock.calls).toEqual([[{ preventScroll: true }]]);
   });
 
   it("키보드가 올라오면 보내는 버튼이 키보드 바로 위로 간다", () => {
