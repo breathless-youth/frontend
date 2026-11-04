@@ -1,4 +1,4 @@
-import { todayKstDateKey } from "@/lib/dateKst";
+import { KOREA_TIME_ZONE, localDateKey } from "@/lib/dateKey";
 import i18n from "@/lib/i18n";
 
 // 그룹 화면이 시간 표기를 모두 이 모듈에서 가져오도록 랭킹과 함께 쓰는 시계 표기를 다시 내보낸다.
@@ -28,10 +28,10 @@ export function formatHoursMinutes(totalSec: number): string {
 /**
  * 한국 시간 달력의 날짜 번호
  *
- * 기록 탭과 같은 날짜 경계를 쓰려고 기기 시간대 대신 한국 시간 날짜로 센다.
+ * 랭킹과 같은 날짜 경계를 쓰려고 기기 시간대 대신 한국 시간 날짜로 센다.
  */
 function kstDayNumber(at: Date): number {
-  return Date.parse(`${todayKstDateKey(at)}T00:00:00Z`) / DAY_MS;
+  return Date.parse(`${localDateKey(at, KOREA_TIME_ZONE)}T00:00:00Z`) / DAY_MS;
 }
 
 /**

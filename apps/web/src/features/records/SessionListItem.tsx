@@ -13,7 +13,7 @@ import { isManualSession, readAloudLabel, spanOf } from "@/features/manual-recor
 import { cn } from "@/lib/utils";
 
 import { IconChevronDown } from "./icons";
-import { durationParts, formatDuration, formatFocusRate, formatKstClock } from "./recordsFormat";
+import { durationParts, formatDuration, formatFocusRate, formatIsoClock } from "./recordsFormat";
 import { Badge } from "@/components/ui/badge";
 
 type SessionListItemProps = {
@@ -47,8 +47,8 @@ export function SessionListItem({ session, className, subjectName, onEdit }: Ses
       />
     );
   }
-  const startClock = formatKstClock(session.startedAt);
-  const endClock = formatKstClock(session.endedAt);
+  const startClock = formatIsoClock(session.startedAt);
+  const endClock = formatIsoClock(session.endedAt);
 
   // 공부 결과 화면의 타임라인과 같은 계산·같은 조각이다 — 순공색 바탕 위에 순공이 아닌 구간만 얹는다.
   const segments = timelineSegments({
@@ -137,8 +137,8 @@ function SessionExpansion({ session }: { session: StudySessionSummary }) {
   // 세 칸을 같은 폭으로 나누고 가운데에 맞춘다 — 왼쪽 정렬은 값이 짧아 한쪽으로 쏠려 보인다.
   return (
     <dl className="flex items-start gap-2 rounded-[14px] bg-bg-layer-2 px-3.5 py-3">
-      <ExpansionStat label={t("sessionItem.startTime")} value={formatKstClock(session.startedAt)} />
-      <ExpansionStat label={t("sessionItem.endTime")} value={formatKstClock(session.endedAt)} />
+      <ExpansionStat label={t("sessionItem.startTime")} value={formatIsoClock(session.startedAt)} />
+      <ExpansionStat label={t("sessionItem.endTime")} value={formatIsoClock(session.endedAt)} />
       <ExpansionStat
         label={t("sessionItem.longestFocus")}
         // 끊기지 않은 구간이 1분에 못 미치면 구간을 내세우지 않고 `1분 미만`으로 적는다.
@@ -149,7 +149,7 @@ function SessionExpansion({ session }: { session: StudySessionSummary }) {
         caption={
           longest === null
             ? undefined
-            : `${formatKstClock(longest.startedAt)} ~ ${formatKstClock(longest.endedAt)}`
+            : `${formatIsoClock(longest.startedAt)} ~ ${formatIsoClock(longest.endedAt)}`
         }
       />
     </dl>
@@ -214,8 +214,8 @@ function ManualSessionListItem({
   onEdit?: (session: StudySessionSummary) => void;
 }) {
   const { t } = useTranslation("records");
-  const startClock = formatKstClock(session.startedAt);
-  const endClock = formatKstClock(session.endedAt);
+  const startClock = formatIsoClock(session.startedAt);
+  const endClock = formatIsoClock(session.endedAt);
 
   return (
     <AccordionItem value={String(session.id)} asChild className={cn("border-b-0", className)}>

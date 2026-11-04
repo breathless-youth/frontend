@@ -87,33 +87,67 @@ describe("index.html 테마 선반영", () => {
 
 describe("index.html 언어 선반영", () => {
   it.each([
-    ["/?lang=en", "ko-KR", null],
-    ["/?lang=ko", "en-US", null],
-    ["/?lang=xx", "ko-KR", null],
-    ["/", "ko-KR", null],
-    ["/", "en-US", null],
-    ["/", "ja-JP", null],
-    ["/", "en-US", "ko"],
-    ["/", "ko-KR", "en"],
-    ["/", "ko-KR", "fr"],
-    ["/?theme=dark&lang=en", "ko-KR", null],
+    ["/?lang=en", ["ko-KR"], null],
+    ["/?lang=ko", ["en-US"], null],
+    ["/?lang=xx", ["ko-KR"], null],
+    ["/?lang=ja", ["ko-KR"], null],
+    ["/", ["ko-KR"], null],
+    ["/", ["en-US"], null],
+    ["/", ["ja-JP"], null],
+    ["/", ["ja"], null],
+    ["/", ["zh-HK"], null],
+    ["/", ["zh-Hans"], null],
+    ["/", ["fr", "ja"], null],
+    ["/", ["fr", "ko"], null],
+    ["/", ["fr-FR", "ko-KR"], null],
+    ["/?lang=ZH-hant", ["ko-KR"], null],
+    ["/?lang=JA-jp", ["ko-KR"], null],
+    ["/", ["KO-kr"], null],
+    ["/", ["zh_TW"], null],
+    ["/", ["ko_KR"], null],
+    ["/?lang=", ["ko-KR"], null],
+    ["/", [""], null],
+    ["/", [], null],
+    ["/?lang=kok", ["ko-KR"], null],
+    ["/", ["kok"], null],
+    ["/", ["zh"], null],
+    ["/", ["zh-TW"], null],
+    ["/", ["zh-MO"], null],
+    ["/", ["zh-CN"], null],
+    ["/", ["zh-SG"], null],
+    ["/", ["zh-Hant-TW"], null],
+    ["/", ["zh-Hans-HK"], null],
+    ["/", ["en-US"], "ko"],
+    ["/", ["ko-KR"], "en"],
+    ["/", ["ko-KR"], "fr"],
+    ["/", ["ko-KR"], "ja"],
+    ["/?theme=dark&lang=en", ["ko-KR"], null],
   ] as const)(
-    "search=%s nav=%s stored=%s 이면 resolveLocale과 같은 lang을 붙인다",
-    (search, nav, stored) => {
-      vi.spyOn(navigator, "language", "get").mockReturnValue(nav);
+    "search=%s languages=%j stored=%s 이면 resolveLocale과 같은 lang을 붙인다",
+    (search, languages, stored) => {
+      vi.spyOn(navigator, "languages", "get").mockReturnValue(languages);
       if (stored) sessionStorage.setItem(LOCALE_STORAGE_KEY, stored);
 
       runInlineScript(search);
 
-      expect(document.documentElement.lang).toBe(resolveLocale(search.slice(1), nav, stored));
+      expect(document.documentElement.lang).toBe(resolveLocale(search.slice(1), languages, stored));
     },
   );
+
+  it("navigator.languages가 비어 있으면 navigator.language를 본다", () => {
+    vi.spyOn(navigator, "languages", "get").mockReturnValue([]);
+    vi.spyOn(navigator, "language", "get").mockReturnValue("ko-KR");
+
+    runInlineScript("/");
+
+    expect(document.documentElement.lang).toBe("ko");
+  });
 
   it("저장소 접근이 막혀도 스크립트가 멈추지 않는다", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("blocked");
     });
-    vi.spyOn(navigator, "language", "get").mockReturnValue("en-US");
+    vi.spyOn(navigator, "languages", "get").mockReturnValue(["en-US"]);
 
     expect(() => runInlineScript("/?theme=dark")).not.toThrow();
     expect(document.documentElement.lang).toBe("en");

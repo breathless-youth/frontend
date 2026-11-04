@@ -11,11 +11,7 @@ import type {
   SubjectResponse,
 } from "@focusmakers/types";
 
-import {
-  addDaysToDateKey,
-  dayTitleWithWeekday,
-  kstDateKey,
-} from "@/features/records/recordsFormat";
+import { addDaysToDateKey, dayTitleWithWeekday } from "@/features/records/recordsFormat";
 import { LONG_PRESS_MS } from "@/features/study-session/subjectInteractions";
 import {
   trackPlannerDateChanged,
@@ -38,6 +34,7 @@ import { showToast } from "@/lib/toast";
 import type * as UserIdModule from "@/lib/userId";
 import { PlannerPage } from "@/routes/PlannerPage";
 import { enterGlassChrome, pressNative, resetGlassChrome } from "@/test/nativeControlStub";
+import { localDateKey } from "@/lib/dateKey";
 
 vi.mock("@/lib/statsApi", () => ({ listStudySessionStats: vi.fn(), getPeriodStats: vi.fn() }));
 vi.mock("@/lib/subjectApi", () => ({
@@ -82,7 +79,7 @@ const mockedStats = vi.mocked(listStudySessionStats);
 const mockedSubjects = vi.mocked(listSubjects);
 const mockedDday = vi.mocked(getDday);
 
-const TODAY = kstDateKey();
+const TODAY = localDateKey();
 const YESTERDAY = addDaysToDateKey(TODAY, -1);
 const kst = (day: string, hour: number, minute = 0) =>
   new Date(

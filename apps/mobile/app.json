@@ -75,6 +75,7 @@
         }
       ],
       "./plugins/withAppDisplayName",
+      "./plugins/withGoogleAdsMeasurement",
       [
         "expo-build-properties",
         {

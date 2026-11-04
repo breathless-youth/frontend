@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
+import { localDateKey } from "@/lib/dateKey";
 import i18n from "@/lib/i18n";
 
 import {
@@ -13,13 +14,12 @@ import {
   formatDuration,
   formatFocusRate,
   formatHeatClock,
-  formatKstClock,
+  formatIsoClock,
   formatSessionCount,
   formatSessionMeta,
   heatLevel,
   isFutureDateKey,
   isDateKeyInMonth,
-  kstDateKey,
   mondayFirstWeekdayLabels,
   mondayIndexOfDateKey,
   monthLabel,
@@ -60,18 +60,18 @@ describe("formatDuration — voice-tone §2 시간 길이 표기", () => {
   });
 });
 
-describe("KST 변환 — 서버는 UTC ISO-8601로 내려준다", () => {
-  it("UTC를 KST HH:MM(24시간제)로 바꾼다", () => {
-    expect(formatKstClock("2026-07-25T23:55:00.000Z")).toBe("08:55");
+describe("기기 시간대 변환(테스트 기기는 서울) — 서버는 UTC ISO-8601로 내려준다", () => {
+  it("UTC를 기기 시간대 HH:MM(24시간제)로 바꾼다", () => {
+    expect(formatIsoClock("2026-07-25T23:55:00.000Z")).toBe("08:55");
   });
 
-  it("자정을 넘는 경우도 KST 벽시계로 읽는다", () => {
-    expect(formatKstClock("2026-07-26T16:20:00.000Z")).toBe("01:20");
+  it("자정을 넘는 경우도 기기 시간대 벽시계로 읽는다", () => {
+    expect(formatIsoClock("2026-07-26T16:20:00.000Z")).toBe("01:20");
   });
 
-  it("기기 시간대와 무관하게 KST 날짜 키를 만든다", () => {
-    // UTC 2026-07-25T15:30Z = KST 2026-07-26 00:30 → 통계 귀속 날짜는 26일이다.
-    expect(kstDateKey(new Date("2026-07-25T15:30:00.000Z"))).toBe("2026-07-26");
+  it("기기 시간대(서울)의 날짜 키를 만든다", () => {
+    // UTC 2026-07-25T15:30Z = 서울 2026-07-26 00:30 → 통계 귀속 날짜는 26일이다.
+    expect(localDateKey(new Date("2026-07-25T15:30:00.000Z"))).toBe("2026-07-26");
   });
 });
 

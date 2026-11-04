@@ -359,5 +359,7 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     globals: true,
+    // 날짜 함수의 기본값이 기기 시간대라 CI(UTC)와 로컬의 결과가 달라지지 않게 서울로 고정한다.
+    env: { TZ: "Asia/Seoul" },
   },
 });

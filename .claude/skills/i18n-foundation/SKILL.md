@@ -13,10 +13,10 @@ description: "FocusMakers 국제화 기반을 만드는 방법. 웹은 react-i18
 
 | 파일 | 역할 |
 |---|---|
-| `apps/web/src/lib/locale.ts` | `resolveLocale(search, navigatorLanguage, stored?)`와 `AppLocale` 타입, `sessionStorage` 키 상수 |
+| `apps/web/src/lib/locale.ts` | `resolveLocale(search, languages, stored?)`와 `SUPPORTED_LOCALES`, `sessionStorage` 키 상수. `AppLocale`과 언어 협상 `negotiateLocale`은 `packages/types/src/locale.ts`에 있고 앱 셸과 같이 쓴다 |
 | `apps/web/src/lib/i18n.ts` | i18next 초기화, 네임스페이스 리소스 등록, 결정한 언어를 `sessionStorage`에 기록 |
 | `apps/web/src/i18next.d.ts` | `CustomTypeOptions`에 `defaultNS: "common"`, `resources`에 ko JSON |
-| `apps/web/src/lib/intl.ts` | `STAT_TIME_ZONE`, 날짜 라벨·월 라벨·시각 범위 포맷 함수 |
+| `apps/web/src/lib/intl.ts` | 날짜 라벨·월 라벨·시각 범위 포맷 함수(기본 시간대는 기기 시간대) |
 | `apps/web/src/locales/{ko,en}/common.json` | 공용 버튼·오류·단위 |
 | `apps/web/src/locales/__tests__/catalog.test.ts` | ko·en 키 집합·빈 값·보간 변수 가드. `import.meta.glob`으로 네임스페이스를 자동으로 찾아 묶음이 늘어도 고치지 않게 한다 |
 
@@ -56,10 +56,10 @@ description: "FocusMakers 국제화 기반을 만드는 방법. 웹은 react-i18
 ### 순서
 
 1. `pnpm --filter mobile exec expo install expo-localization`. SDK 57에 맞는 버전이 들어온다.
-2. `apps/mobile/lib/i18n.ts`: `getAppLocale()`이 부를 때마다 `getLocales()[0]?.languageCode === "ko" ? "ko" : "en"`을 읽고, `t(key, vars?)`를 내보낸다. 모듈 로드 때 한 번 정하면 Android 앱별 언어 변경 뒤에 이전 언어가 남는다. `expo-localization` 플러그인의 `allowDynamicLocaleChangesAndroid`는 `false`로 둔다. 문구 객체는 `as const`로 두고 en 객체 타입을 ko 키에 맞춘다(`satisfies Record<keyof typeof ko, string>`).
+2. `apps/mobile/lib/i18n.ts`: `getAppLocale()`이 부를 때마다 `getLocales()`의 `languageTag` 목록 전체를 `negotiateLocale`에 넘겨 ko·en·ja·zh-Hant 가운데 처음 맞는 언어를 고르고(없으면 en), `t(key, vars?)`를 내보낸다. 모듈 로드 때 한 번 정하면 Android 앱별 언어 변경 뒤에 이전 언어가 남는다. `expo-localization` 플러그인의 `allowDynamicLocaleChangesAndroid`는 `false`로 둔다. 문구 객체는 `as const`로 두고 en 객체 타입을 ko 키에 맞춘다(`satisfies Record<keyof typeof ko, string>`).
 3. `RemoteWebViewHost.tsx`의 `buildRemoteWebViewUrl`에서 `lang`을 붙인다. `cachedParams`에 넣지 않는다.
 4. 셸 노출 문구를 `t()`로 바꾼다. 대상은 설계서 모바일 셸 절의 목록이고, 착수 때 grep으로 다시 확인한다. 로그·`throw`·`app.config.ts` 빌드 오류는 제외한다.
-5. `remoteConfigCopy.ts`: 영어일 때 `<key>_en` 먼저.
+5. `remoteConfigCopy.ts`: 한국어가 아니면 `<key>_<언어>`(`_en`·`_ja`·`_zh_hant`) 먼저, 비면 그 언어 기본 문구, 그다음 영어 기본 문구. 운영자가 Firebase 콘솔에서 강제·권장 업데이트 문구를 바꿀 때는 `_ja`·`_zh_hant` 키도 함께 채운다. 그 언어 기기는 `_en` 키가 아니라 자기 언어 키를 읽고, 비면 앱 기본 문구로 넘어가기 때문이다.
 6. Android 네이티브 모듈: Kotlin의 사용자 노출 한글 문자열을 `modules/<모듈>/android/src/main/res/values/strings.xml`(영어)과 `values-ko/strings.xml`(한국어)로 바꾸고 `context.getString(R.string.x)`로 읽는다. 기본(`values/`)을 ko로 두면 ko가 아닌 기기에서 영어 대신 한국어가 보인다. 리소스 이름은 모듈 접두사를 붙여 앱 리소스와 겹치지 않게 한다(`app_lock_notification_title`).
 7. 스토어 메타: `app.json`의 `CFBundleLocalizations`, `expo.locales`, `apps/mobile/locales/{ko,en}.json`, `expo-localization` 플러그인 `supportedLocales`, 앱 이름은 `app.config.ts`가 만드는 `locales`(변형 접미 포함). `plugins/withAppDisplayName.js`는 기본 `app_name`의 `translatable="false"`만 지운다.
 8. `apps/mobile/CLAUDE.md`의 "영어 문구를 넣기 전에는 `en`을 추가하지 말 것" 문장을 지금 상태에 맞게 고친다. `lib/__tests__/appStoreLocalization.test.ts`를 갱신한다.

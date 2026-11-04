@@ -268,19 +268,15 @@ export function toSessionResultView(session: StudySessionResponse): SessionResul
 
 /**
  * UTC ISO-8601 → 시각, **기기 로컬 타임존**. ko는 24시간제 `HH:MM`(자정 `00:00`), en은 12시간제 `9:03 PM`이다.
- * 표기는 `lib/intl.ts`의 `formatClock`이 정한다. 기록·홈 화면은 KST(`STAT_TIME_ZONE`)라 시간대가 다르고,
- * 통일은 BY-815 몫이다. 깨진 시각은 Intl이 예외를 내므로 먼저 `--:--`로 돌려준다.
+ * 표기와 시간대는 `lib/intl.ts`의 `formatClock`이 정해 기록·홈 화면과 같다.
+ * 깨진 시각은 Intl이 예외를 내므로 먼저 `--:--`로 돌려준다.
  */
 export function formatClockTime(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) {
     return "--:--";
   }
-  return formatClock(
-    i18n.language as AppLocale,
-    date,
-    Intl.DateTimeFormat().resolvedOptions().timeZone,
-  );
+  return formatClock(i18n.language as AppLocale, date);
 }
 
 /**

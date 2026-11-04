@@ -10,7 +10,9 @@ import {
   type InstallAttribution,
   startInstallAttribution,
 } from "../installAttribution";
+import { readGoogleDeferredDeepLink } from "../googleDeferredLink";
 import { fetchMetaDeferredAppLink } from "../metaAds";
+import { trackNativeEvent } from "../nativeAnalytics";
 
 jest.mock("expo-application", () => ({ getInstallReferrerAsync: jest.fn() }));
 jest.mock("expo-secure-store", () => ({
@@ -18,11 +20,15 @@ jest.mock("expo-secure-store", () => ({
   setItemAsync: jest.fn(),
 }));
 jest.mock("../metaAds", () => ({ fetchMetaDeferredAppLink: jest.fn() }));
+jest.mock("../googleDeferredLink", () => ({ readGoogleDeferredDeepLink: jest.fn() }));
+jest.mock("../nativeAnalytics", () => ({ trackNativeEvent: jest.fn() }));
 
 const mockedReferrer = Application.getInstallReferrerAsync as jest.Mock;
 const mockedGet = SecureStore.getItemAsync as jest.Mock;
 const mockedSet = SecureStore.setItemAsync as jest.Mock;
 const mockedDeferred = fetchMetaDeferredAppLink as jest.Mock;
+const mockedGoogle = readGoogleDeferredDeepLink as jest.Mock;
+const mockedTrack = trackNativeEvent as jest.Mock;
 
 const STORAGE_KEY = "installAttributionV1";
 const NOW = 1_761_700_000_000;
@@ -38,6 +44,7 @@ beforeEach(() => {
   mockedSet.mockResolvedValue(undefined);
   mockedReferrer.mockResolvedValue(null);
   mockedDeferred.mockResolvedValue(null);
+  mockedGoogle.mockResolvedValue({ result: "unsupported" });
 });
 
 afterEach(() => {
@@ -100,6 +107,7 @@ describe("startInstallAttribution 수집", () => {
       platform: "android",
       installReferrer: "utm_source=apps.facebook.com&utm_content=%7B%7D",
       deepLinkAd: "aos_v3",
+      googleDeepLinkAd: null,
       capturedAtMs: NOW,
     };
     expect(mockedSet).toHaveBeenCalledWith(STORAGE_KEY, JSON.stringify(expected));
@@ -114,7 +122,13 @@ describe("startInstallAttribution 수집", () => {
 
     expect(mockedReferrer).not.toHaveBeenCalled();
     expect(collect()).toEqual([
-      { platform: "ios", installReferrer: null, deepLinkAd: "ios_v2", capturedAtMs: NOW },
+      {
+        platform: "ios",
+        installReferrer: null,
+        deepLinkAd: "ios_v2",
+        googleDeepLinkAd: null,
+        capturedAtMs: NOW,
+      },
     ]);
   });
 
@@ -124,7 +138,13 @@ describe("startInstallAttribution 수집", () => {
     await startInstallAttribution();
 
     expect(collect()).toEqual([
-      { platform: "ios", installReferrer: null, deepLinkAd: null, capturedAtMs: NOW },
+      {
+        platform: "ios",
+        installReferrer: null,
+        deepLinkAd: null,
+        googleDeepLinkAd: null,
+        capturedAtMs: NOW,
+      },
     ]);
   });
 
@@ -149,6 +169,7 @@ describe("startInstallAttribution 수집", () => {
         platform: "android",
         installReferrer: "code=0412",
         deepLinkAd: "aos_v1",
+        googleDeepLinkAd: null,
         capturedAtMs: NOW,
       },
     ]);
@@ -156,6 +177,7 @@ describe("startInstallAttribution 수집", () => {
       platform: "android",
       installReferrer: "code=0412",
       deepLinkAd: "aos_v1",
+      googleDeepLinkAd: null,
       capturedAtMs: NOW,
     });
   });
@@ -176,7 +198,13 @@ describe("startInstallAttribution 수집", () => {
     await startInstallAttribution();
 
     expect(collect()).toEqual([
-      { platform: "android", installReferrer: null, deepLinkAd: null, capturedAtMs: 1 },
+      {
+        platform: "android",
+        installReferrer: null,
+        deepLinkAd: null,
+        googleDeepLinkAd: null,
+        capturedAtMs: 1,
+      },
     ]);
   });
 
@@ -189,7 +217,13 @@ describe("startInstallAttribution 수집", () => {
 
     expect(mockedDeferred).toHaveBeenCalledTimes(1);
     expect(collect()).toEqual([
-      { platform: "ios", installReferrer: null, deepLinkAd: "ios_v2", capturedAtMs: NOW },
+      {
+        platform: "ios",
+        installReferrer: null,
+        deepLinkAd: "ios_v2",
+        googleDeepLinkAd: null,
+        capturedAtMs: NOW,
+      },
     ]);
   });
 
@@ -207,6 +241,7 @@ describe("startInstallAttribution 수집", () => {
       platform: "android",
       installReferrer: "code=0412",
       deepLinkAd: null,
+      googleDeepLinkAd: null,
       capturedAtMs: 1,
     };
     mockedGet.mockResolvedValue(JSON.stringify(stored));
@@ -244,6 +279,143 @@ describe("startInstallAttribution 수집", () => {
     await startInstallAttribution();
 
     expect(collect()).toHaveLength(1);
+  });
+});
+
+describe("구글 광고 그룹 번호 필드", () => {
+  it("새로 읽은 값에는 googleDeepLinkAd가 null로 실린다", async () => {
+    jest.replaceProperty(Platform, "OS", "android");
+
+    await startInstallAttribution();
+
+    expect(collect()[0]).toMatchObject({ googleDeepLinkAd: null });
+  });
+
+  it("구버전 앱이 보관한 값에 googleDeepLinkAd가 없으면 null로 읽고 다시 수집하지 않는다", async () => {
+    mockedGet.mockResolvedValue(
+      JSON.stringify({
+        platform: "android",
+        installReferrer: "r",
+        deepLinkAd: null,
+        capturedAtMs: 1,
+      }),
+    );
+
+    await startInstallAttribution();
+
+    expect(mockedDeferred).not.toHaveBeenCalled();
+    expect(collect()[0]).toMatchObject({ installReferrer: "r", googleDeepLinkAd: null });
+  });
+});
+
+describe("구글 광고 그룹 번호 읽기", () => {
+  beforeEach(() => {
+    jest.replaceProperty(Platform, "OS", "android");
+  });
+
+  it("구글 지연 딥링크의 g_ 라벨을 싣고 found를 기록한다", async () => {
+    mockedGoogle.mockResolvedValue({ result: "found", url: "focusmakers://?fm_ad=g_planner" });
+
+    await startInstallAttribution();
+
+    expect(collect()[0]).toMatchObject({ googleDeepLinkAd: "g_planner", deepLinkAd: null });
+    expect(mockedTrack).toHaveBeenCalledWith("google_deferred_link_read", {
+      result: "found",
+      has_gclid: false,
+    });
+  });
+
+  it("메타 라벨 패턴으로는 g_ 값을 받지 않는다", () => {
+    expect(deepLinkAdFromUrl("focusmakers://?fm_ad=g_planner")).toBeNull();
+  });
+
+  it("형식 밖 라벨이면 null을 싣고 invalid를 기록한다", async () => {
+    mockedGoogle.mockResolvedValue({ result: "found", url: "focusmakers://?fm_ad=ios_v1" });
+
+    await startInstallAttribution();
+
+    expect(collect()[0]).toMatchObject({ googleDeepLinkAd: null });
+    expect(mockedTrack).toHaveBeenCalledWith("google_deferred_link_read", {
+      result: "invalid",
+      has_gclid: false,
+    });
+  });
+
+  it.each(["empty", "error"] as const)("%s면 null을 싣고 그 결과를 기록한다", async (result) => {
+    mockedGoogle.mockResolvedValue({ result });
+
+    await startInstallAttribution();
+
+    expect(collect()[0]).toMatchObject({ googleDeepLinkAd: null });
+    expect(mockedTrack).toHaveBeenCalledWith("google_deferred_link_read", {
+      result,
+      has_gclid: false,
+    });
+  });
+
+  it("설치 정보에 gclid가 있으면 구글 값을 1초 간격으로 30번까지 묻고 그 사실을 기록한다", async () => {
+    mockedReferrer.mockResolvedValue("gclid=Cj0KCQ&gbraid=x");
+    mockedGoogle.mockResolvedValue({ result: "found", url: "focusmakers://?fm_ad=g_group" });
+
+    await startInstallAttribution();
+
+    expect(mockedGoogle).toHaveBeenCalledWith({ attempts: 30, intervalMs: 1000 });
+    expect(mockedTrack).toHaveBeenCalledWith("google_deferred_link_read", {
+      result: "found",
+      has_gclid: true,
+    });
+    expect(collect()[0]).toMatchObject({ googleDeepLinkAd: "g_group" });
+  });
+
+  it("gclid가 없으면 구글 값을 한 번만 묻는다 — 구글과 상관없는 설치가 기다리지 않는다", async () => {
+    mockedReferrer.mockResolvedValue("utm_source=google-play&utm_medium=organic");
+
+    await startInstallAttribution();
+
+    expect(mockedGoogle).toHaveBeenCalledWith({ attempts: 1, intervalMs: 1000 });
+  });
+
+  it("unsupported면 기록하지 않는다", async () => {
+    await startInstallAttribution();
+
+    expect(mockedTrack).not.toHaveBeenCalled();
+  });
+
+  it("구글 읽기가 reject해도 설치 정보와 메타 값은 그대로 넘긴다", async () => {
+    mockedGoogle.mockRejectedValue(new Error("boom"));
+    mockedReferrer.mockResolvedValue("code=0412");
+    mockedDeferred.mockResolvedValue("focusmakers://?fm_ad=aos_v2");
+
+    await startInstallAttribution();
+
+    expect(collect()[0]).toMatchObject({
+      installReferrer: "code=0412",
+      deepLinkAd: "aos_v2",
+      googleDeepLinkAd: null,
+    });
+    expect(mockedTrack).toHaveBeenCalledWith("google_deferred_link_read", {
+      result: "error",
+      has_gclid: false,
+    });
+  });
+
+  it("설치 정보만 다시 읽는 실행에서는 구글 값을 다시 묻지 않는다", async () => {
+    mockedGet.mockResolvedValue(
+      JSON.stringify({
+        platform: "android",
+        installReferrer: null,
+        deepLinkAd: null,
+        googleDeepLinkAd: "g_group",
+        capturedAtMs: 1,
+        referrerFailures: 1,
+      }),
+    );
+    mockedReferrer.mockResolvedValue("r");
+
+    await startInstallAttribution();
+
+    expect(mockedGoogle).not.toHaveBeenCalled();
+    expect(collect()[0]).toMatchObject({ installReferrer: "r", googleDeepLinkAd: "g_group" });
   });
 });
 

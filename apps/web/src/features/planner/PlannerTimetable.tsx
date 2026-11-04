@@ -14,16 +14,15 @@ import { subjectColorVar } from "@/features/records/recordsTimetable";
 import { cn } from "@/lib/utils";
 
 import {
-  PLANNER_CELL_MINUTES,
   PLANNER_CELLS_PER_ROW,
   plannerCellFills,
+  plannerCellStartMs,
   plannerHours,
   type PlannerCellFill,
   type PlannerDay,
 } from "./plannerDay";
 
 const HOURS = plannerHours();
-const CELL_MS = PLANNER_CELL_MINUTES * 60_000;
 
 function fillStyle(fill: PlannerCellFill, subjects: ReadonlyMap<number, SubjectRef>) {
   const position = { left: `${String(fill.left * 100)}%`, width: `${String(fill.width * 100)}%` };
@@ -78,7 +77,7 @@ export function PlannerTimetable({
             : (event) => {
                 const cell = (event.target as Element).closest<HTMLElement>("[data-cell]");
                 if (cell !== null) {
-                  onCellTap(day.startMs + Number(cell.dataset.cell) * CELL_MS);
+                  onCellTap(plannerCellStartMs(day.dateKey, Number(cell.dataset.cell)));
                 }
               }
         }
