@@ -39,4 +39,13 @@ describe("CategoryChips", () => {
     await userEvent.setup().click(screen.getByRole("button", { name: "내신" }));
     expect(picked).toEqual(["SCHOOL"]);
   });
+
+  it("묶음 폭이 345px보다 좁으면 모든 칩의 좌우 여백을 줄이는 클래스를 둔다", () => {
+    render(<CategoryChips options={options} value={null} onChange={vi.fn()} allLabel="전체" />);
+    // jsdom에는 레이아웃이 없어 줄 수를 측정할 수 없으므로, 폭 360px 화면에서 칩을 두 줄에 모으는 클래스가 삭제되지 않게 고정한다.
+    expect(screen.getByRole("group")).toHaveClass("@container");
+    for (const chip of screen.getAllByRole("button")) {
+      expect(chip).toHaveClass("px-3.5", "@max-[345px]:px-2.75", "min-w-11");
+    }
+  });
 });
