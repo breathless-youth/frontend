@@ -105,7 +105,7 @@ export function RoomControlBar({
       // 300ms는 올라올 때 '확' 나타나는 인상이 있었다(2026-08-26 피드백, 디스코드 참조).
       // 타일 쪽은 레이아웃 트랜지션 금지(랙·페인트 사고 이력)라 타일 크기와 배치는 움직이지 않는다.
       // 토글의 부드러움은 바의 정착감이 맡고, 타일 안 이름 줄과 목표 문구는 같은 숨김 신호를 받아 이 바와 같은 시간과 곡선으로 위치와 투명도만 바꾼다.
-      // 높이는 룸 화면이 화면 크기별로 정한 `--room-bar-height`를 읽어서, 가로에서 이름 줄이 바 위로 올라가는 거리와 같은 값에서 나온다.
+      // 높이는 룸 화면이 화면 크기별로 정한 `--room-bar-height`를 읽는다.
       className={`flex h-(--room-bar-height) items-center gap-3.5 rounded-full bg-(--session-bar-glass-bg) px-2.5 shadow-[0px_10px_15px_var(--session-bar-glass-shadow),inset_0px_1px_0px_var(--session-bar-glass-highlight)] backdrop-blur-[11px] transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none regular:gap-4 regular:px-3 short-side-lg:gap-5 short-side-lg:px-3.75 ${
         // 이동량은 바 높이에 가장 큰 래퍼 오프셋(태블릿 safe-area+17px)을 더해 어느 배치에서도 화면 밖까지 나간다.
         // 부모 main의 overflow-hidden이 내려간 바를 잘라 문서 스크롤을 막는다.
