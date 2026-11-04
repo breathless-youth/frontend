@@ -68,13 +68,6 @@ describe("6자리 초대코드 참여", () => {
     expect(screen.getByRole("textbox")).toHaveValue("K7Q2MX");
   });
 
-  it("표시가 있어도 숫자 4자리 링크는 예전 방 참여다", async () => {
-    mockGroupApi("default");
-    renderGroupRoute("/social/join?groupRooms=1&code=3712");
-    expect(await screen.findByTestId("invite-code-join-page")).toBeInTheDocument();
-    expect(screen.getByRole("textbox")).toHaveValue("3712");
-  });
-
   it("링크로 연 6자리 코드는 LINK로 보내고 초대코드를 뺀 주소로 그룹 홈에 간다", async () => {
     const api = mockGroupApi("default");
     const { router } = renderGroupRoute("/social/join?groupRooms=1&code=K7Q2MX");
@@ -230,5 +223,37 @@ describe("6자리 초대코드 참여", () => {
     await screen.findByRole("group", { name: "초대코드 K7Q2MX" });
     expect(openInApp).toHaveBeenCalledOnce();
     expect(openInApp).toHaveBeenCalledWith("ios", "K7Q2MX");
+  });
+});
+
+// 예전 방의 숫자 4자리 코드는 푸시, 설치 뒤 첫 실행, 공부 중 초대 어디로 와도 앱이 이 링크로 웹을 열어서 링크만 본다.
+describe("숫자 4자리 초대코드", () => {
+  it("표시가 있으면 숫자 4자리 링크는 참여 화면 없이 초대코드를 뺀 주소로 그룹 탭을 열고 오류를 보이지 않는다", async () => {
+    const api = mockGroupApi("default");
+    const { router } = renderGroupRoute("/social/join?groupRooms=1&code=3712");
+    expect(await screen.findByRole("tab", { name: /내 그룹/ })).toBeInTheDocument();
+    expect(router.location().pathname).toBe("/social");
+    expect(router.location().search).toBe("?groupRooms=1");
+    // 예전 참여 화면과 6자리 입력 화면은 같은 제목을 쓴다.
+    expect(screen.queryByRole("heading", { name: "초대코드로 참여" })).toBeNull();
+    expect(screen.queryByTestId("invite-code-join-page")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(api.joinGroupByCode).not.toHaveBeenCalled();
+  });
+
+  it("표시가 있으면 6자리 입력에 숫자 4자리를 쳐도 참여하기가 꺼진 채 오류를 보이지 않는다", async () => {
+    const api = mockGroupApi("default");
+    renderGroupRoute("/social/join?groupRooms=1");
+    await userEvent.setup().type(await screen.findByRole("textbox"), "3712");
+    expect(screen.getByRole("textbox")).toHaveValue("3712");
+    expect(screen.getByRole("button", { name: JOIN_LABEL })).toBeDisabled();
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(api.joinGroupByCode).not.toHaveBeenCalled();
+  });
+
+  it("표시가 없으면 숫자 4자리 링크는 지금처럼 예전 방 참여다", async () => {
+    renderGroupRoute("/social/join?code=3712");
+    expect(await screen.findByTestId("invite-code-join-page")).toBeInTheDocument();
+    expect(screen.getByRole("textbox")).toHaveValue("3712");
   });
 });
