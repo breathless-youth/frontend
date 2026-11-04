@@ -46,7 +46,7 @@ describe("app.json 카메라 권한 문구 (S2-2)", () => {
    */
   it("마이크 권한을 공부방 문구로 요청한다", () => {
     expect(appConfig.expo.ios.infoPlist.NSMicrophoneUsageDescription).toBe(
-      "공부방에서 그룹 멤버와 이야기할 때 사용해요. 목소리는 멤버에게만 전해지고 녹음하거나 저장하지 않아요.",
+      "공부방에서 그룹 멤버와 이야기할 때 사용해요. 목소리는 멤버만 들을 수 있고 녹음하거나 저장하지 않아요.",
     );
     expect(appConfig.expo.android.permissions).toContain("RECORD_AUDIO");
   });
