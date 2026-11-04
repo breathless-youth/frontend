@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import type {
   DayTaskItem,
@@ -919,6 +919,38 @@ describe("PlannerPage — 과목·할 일 관리", () => {
     expect(createSubject).toHaveBeenCalledWith({ name: "한국사" });
     expect(await screen.findByRole("heading", { name: "한국사" })).toBeInTheDocument();
     expect(vi.mocked(trackSubjectItemAdded)).toHaveBeenCalledWith("subject", false, "planner");
+  });
+
+  it("과목 추가로 열린 입력칸에 포커스를 줄 때 문서를 끌어 올리지 않는다", async () => {
+    const focus = vi.spyOn(HTMLInputElement.prototype, "focus");
+    onTestFinished(() => focus.mockRestore());
+    renderPlanner("?userId=7");
+    await screen.findByRole("heading", { name: "영어" });
+
+    await userEvent.click(screen.getByRole("button", { name: "과목 추가" }));
+
+    expect(screen.getByRole("textbox", { name: "새 과목 이름" })).toHaveFocus();
+    // iOS는 키보드를 올리며 포커스를 받은 입력칸 쪽으로 문서를 끌어 올려서 머리 줄이 앱의 상태 막대와 뒤로 가기 밑으로 들어간다.
+    // autoFocus는 옵션 없이 focus()를 부르므로 옵션을 준 호출 하나만 있어야 한다.
+    expect(focus.mock.calls).toEqual([[{ preventScroll: true }]]);
+  });
+
+  it("이름 변경으로 열린 입력칸도 문서를 끌어 올리지 않고 포커스를 받는다", async () => {
+    const focus = vi.spyOn(HTMLInputElement.prototype, "focus");
+    onTestFinished(() => focus.mockRestore());
+    renderPlanner("?userId=7");
+    const head = (await screen.findByRole("heading", { name: "영어" })).closest(
+      '[role="button"]',
+    ) as HTMLElement;
+
+    await hold(head);
+    fireEvent.pointerUp(head, { clientX: 40, clientY: 100 });
+    await userEvent.click(screen.getByRole("menuitem", { name: "이름 변경" }));
+    // 닫히는 메뉴가 포커스를 되돌리는 타이머가 지난 뒤에도 포커스가 입력칸에 있어야 한다.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+
+    expect(screen.getByRole("textbox", { name: "과목 이름" })).toHaveFocus();
+    expect(focus.mock.calls).toEqual([[{ preventScroll: true }]]);
   });
 
   it("과목이 없으면 자주 쓰는 과목을 흐린 줄로 보여주고, 줄의 추가 한 번으로 과목을 만든다", async () => {

@@ -283,7 +283,16 @@ function InlineEditor({
     onCancel,
   });
   const countId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
   const countVisible = isCharCountVisible(value.length, maxLength, COUNT_SHOW_FROM);
+
+  // 사용자가 방금 누른 자리에 열리는 입력이라 열리자마자 커서를 둔다.
+  // iOS는 키보드를 올리며 포커스를 받은 입력칸 쪽으로 문서를 끌어 올려서 머리 줄이 앱의 상태 막대와 뒤로 가기 버튼 밑으로 들어간다.
+  // autoFocus는 옵션 없이 포커스를 주므로 처음 그린 뒤 preventScroll로 직접 주어 문서를 움직이지 않게 한다.
+  useEffect(() => {
+    inputRef.current?.focus({ preventScroll: true });
+  }, []);
+
   return (
     <div
       className="flex w-full flex-col gap-1 py-0.5"
@@ -292,8 +301,7 @@ function InlineEditor({
     >
       <div className="flex w-full items-center gap-1.5">
         <Input
-          // 사용자가 방금 누른 자리에 열리는 입력이라 autoFocus가 흐름을 끊지 않는다.
-          autoFocus
+          ref={inputRef}
           aria-label={ariaLabel}
           aria-describedby={countVisible ? countId : undefined}
           value={value}
