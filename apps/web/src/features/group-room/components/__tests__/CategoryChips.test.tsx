@@ -49,6 +49,19 @@ describe("CategoryChips", () => {
     }
   });
 
+  it("묶음 폭이 305px보다 좁으면 글자와 좌우 여백, 최소 폭을 한 번 더 줄이는 클래스를 둔다", () => {
+    render(<CategoryChips options={options} value={null} onChange={vi.fn()} allLabel="전체" />);
+    // jsdom에는 레이아웃이 없어 줄 수를 측정할 수 없으므로, 폭 320px 화면에서 칩을 두 줄에 모으는 클래스가 삭제되지 않게 고정한다.
+    for (const chip of screen.getAllByRole("button")) {
+      expect(chip).toHaveClass(
+        "text-sm",
+        "@max-[305px]:text-[13px]",
+        "@max-[305px]:px-2",
+        "@max-[305px]:min-w-10",
+      );
+    }
+  });
+
   it("보이는 높이 36px 칩의 누르는 영역을 위아래 5px씩 넓혀 44px로 맞춘다", () => {
     render(<CategoryChips options={options} value={null} onChange={vi.fn()} allLabel="전체" />);
     // jsdom에는 레이아웃이 없어 영역 높이를 측정할 수 없으므로, 36px 칩이 44px 영역이 되는 클래스를 고정한다.
