@@ -9,6 +9,7 @@ import { postAcquisition } from "./acquisitionApi";
 import { setInstallAttributionUserProperties } from "./amplitude";
 import { ApiError } from "./api";
 import { postToNative } from "./bridge";
+import { reportHandled } from "./sentry";
 
 /**
  * 설치 유입 경로 기록
@@ -125,19 +126,28 @@ async function sendPending(): Promise<void> {
     removePending();
     return;
   }
+  let response: AcquisitionResponse;
   try {
-    const response = await postAcquisition(toAcquisitionRequest(pending));
-    setInstallAttributionUserProperties({
-      ...installUtmProperties(pending.installReferrer),
-      ...acquisitionUserProperties(response),
-    });
-    removePending();
+    response = await postAcquisition(toAcquisitionRequest(pending));
   } catch (error) {
     // 400은 다시 보내도 같은 결과라 원문을 지운다. 그 밖의 실패는 다음 실행에서 다시 보낸다.
     if (error instanceof ApiError && error.status === 400) {
       console.warn("[install-attribution] server rejected acquisition", error);
       removePending();
+    } else {
+      console.warn("[install-attribution] acquisition request failed", error);
     }
+    return;
+  }
+  // 서버에는 이미 저장됐으니 원문을 먼저 지운다. 남겨 두면 응답 모양이 어긋날 때 열 때마다 같은 실패를 되풀이한다.
+  removePending();
+  try {
+    setInstallAttributionUserProperties({
+      ...installUtmProperties(pending.installReferrer),
+      ...acquisitionUserProperties(response),
+    });
+  } catch (error) {
+    reportHandled(error, "install-attribution");
   }
 }
 
@@ -147,6 +157,7 @@ let inFlight: Promise<void> | null = null;
  * 보관한 원문을 서버로 보낸다
  *
  * 앱은 웹이 답할 때까지 같은 값을 여러 번 넘기므로, 보내는 중이면 새로 보내지 않고 그 전송을 기다린다.
+ * 로그인을 따로 기다리지 않는 것은 앱이 게스트 등록을 마친 뒤 웹뷰를 열고, `apiFetch`가 앱의 첫 토큰을 기다렸다가 보내기 때문이다.
  */
 export function flushInstallAttribution(): Promise<void> {
   inFlight ??= sendPending().finally(() => {

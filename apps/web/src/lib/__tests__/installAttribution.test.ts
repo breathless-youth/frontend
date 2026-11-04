@@ -19,6 +19,7 @@ import {
 const mocks = vi.hoisted(() => ({
   setInstallAttributionUserProperties: vi.fn(),
   postAcquisition: vi.fn(),
+  reportHandled: vi.fn(),
 }));
 
 vi.mock("@/lib/amplitude", () => ({
@@ -27,6 +28,10 @@ vi.mock("@/lib/amplitude", () => ({
 
 vi.mock("@/lib/acquisitionApi", () => ({
   postAcquisition: mocks.postAcquisition,
+}));
+
+vi.mock("@/lib/sentry", () => ({
+  reportHandled: mocks.reportHandled,
 }));
 
 function message(overrides: Partial<InstallAttributionMessage> = {}): InstallAttributionMessage {
@@ -200,6 +205,31 @@ describe("handleInstallAttribution과 flushInstallAttribution", () => {
 
     expect(localStorage.getItem(INSTALL_ATTRIBUTION_PENDING_KEY)).not.toBeNull();
     expect(mocks.setInstallAttributionUserProperties).not.toHaveBeenCalled();
+  });
+
+  it("응답 모양이 어긋나 속성을 남기지 못해도 보관을 지우고 Sentry에 경고를 남긴다", async () => {
+    mocks.postAcquisition.mockResolvedValue({} as AcquisitionResponse);
+    storePending({ platform: "ios", installReferrer: null, deepLinkAd: null, capturedAtMs: 1 });
+
+    await flushInstallAttribution();
+
+    expect(localStorage.getItem(INSTALL_ATTRIBUTION_PENDING_KEY)).toBeNull();
+    expect(mocks.reportHandled).toHaveBeenCalledTimes(1);
+    expect(mocks.reportHandled).toHaveBeenCalledWith(expect.any(TypeError), "install-attribution");
+  });
+
+  it("400이 아닌 실패는 경고 로그만 남기고 Sentry에는 보내지 않는다", async () => {
+    const error = new TypeError("Failed to fetch");
+    mocks.postAcquisition.mockRejectedValue(error);
+    storePending({ platform: "ios", installReferrer: null, deepLinkAd: null, capturedAtMs: 1 });
+
+    await flushInstallAttribution();
+
+    expect(console.warn).toHaveBeenCalledWith(
+      "[install-attribution] acquisition request failed",
+      error,
+    );
+    expect(mocks.reportHandled).not.toHaveBeenCalled();
   });
 
   it("네트워크 실패면 보관을 남긴다", async () => {
