@@ -356,28 +356,6 @@ describe("RemoteWebViewHost", () => {
     });
   });
 
-  it("어두운 전체 화면을 보고하는 동안에는 라이트 스킴이어도 다크 배경을 넘기고 나오면 되돌린다", () => {
-    mockUseColorScheme.mockReturnValue("light");
-    render(<RemoteWebViewHost path="/social" testID="host" />);
-
-    const report = (dark: boolean) => {
-      const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
-      act(() => {
-        onMessage({
-          nativeEvent: {
-            data: JSON.stringify({ type: "report-screen", path: "/social", dark, atMs: 1 }),
-          },
-        });
-      });
-    };
-
-    report(true);
-    expect(screen.getByTestId("host").props.style.backgroundColor).toBe("#101419");
-
-    report(false);
-    expect(screen.getByTestId("host").props.style.backgroundColor).toBe("#ffffff");
-  });
-
   it("라이트 스킴이면 라이트 배경 토큰을 웹뷰에 넘긴다", () => {
     mockUseColorScheme.mockReturnValue("light");
     render(<RemoteWebViewHost path="/home" testID="host" />);

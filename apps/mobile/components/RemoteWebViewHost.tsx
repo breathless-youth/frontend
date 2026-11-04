@@ -346,10 +346,7 @@ export function RemoteWebViewHost({
    * 있어야 한다. Fabric 래퍼는 배경색을 안쪽 뷰에 전달하지 않는다.
    */
   const scheme = useColorScheme() === "dark" ? "dark" : "light";
-  // 탭 웹뷰 안의 공부방은 라이트 스킴에서도 어두운 화면이라, 스와이프 미리보기가 없을 때 흰 바탕이 비치지 않게 맞춘다.
-  const [reportedDarkScreen, setReportedDarkScreen] = useState(false);
-  const webViewBackgroundColor =
-    backgroundColor ?? colors.bg.base[reportedDarkScreen ? "dark" : scheme];
+  const webViewBackgroundColor = backgroundColor ?? colors.bg.base[scheme];
   const webViewRef = useRef<WebView>(null);
   const [loadFailed, setLoadFailed] = useState(false);
   /**
@@ -815,7 +812,6 @@ export function RemoteWebViewHost({
         path: message.path,
         ...(message.restoreQuery ? { query: message.restoreQuery } : {}),
       };
-      setReportedDarkScreen(message.dark);
       // 소비하지 않고 위로도 넘긴다 — 복구 스플래시 톤(dark)은 RemoteScreen이 쓴다.
     }
     // iOS 탭은 앱을 켤 때 모두 로드되고, 웹은 로드가 끝나야 가려진 줄 안다.
