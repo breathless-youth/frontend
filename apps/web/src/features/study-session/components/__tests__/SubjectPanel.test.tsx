@@ -402,6 +402,103 @@ describe("SubjectPanel 이름 입력칸 포커스", () => {
   });
 });
 
+const IPHONE_UA =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148";
+const ANDROID_UA =
+  "Mozilla/5.0 (Linux; Android 14; SM-A235N; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/120.0 Mobile Safari/537.36";
+
+function stubUserAgent(userAgent: string) {
+  const spy = vi.spyOn(navigator, "userAgent", "get").mockReturnValue(userAgent);
+  onTestFinished(() => spy.mockRestore());
+}
+
+type FakeViewport = EventTarget & { height: number; offsetTop: number };
+
+/**
+ * 가상 키보드가 보이는 영역을 줄이는 화면
+ *
+ * 키보드 높이를 재는 훅이 입력칸이 열릴 때 구독하므로 입력칸을 열기 전에 만든다.
+ */
+function fakeViewport(windowHeight: number, visibleHeight: number): FakeViewport {
+  const viewport = new EventTarget() as FakeViewport;
+  viewport.height = visibleHeight;
+  viewport.offsetTop = 0;
+  vi.stubGlobal("visualViewport", viewport);
+  vi.stubGlobal("innerHeight", windowHeight);
+  onTestFinished(() => {
+    vi.unstubAllGlobals();
+  });
+  return viewport;
+}
+
+/** 키보드가 오르내려 보이는 영역의 높이가 바뀐 것을 알린다. */
+function resizeViewport(viewport: FakeViewport, visibleHeight: number) {
+  act(() => {
+    viewport.height = visibleHeight;
+    viewport.dispatchEvent(new Event("resize"));
+  });
+}
+
+describe("SubjectPanel iPhone 이름 입력칸", () => {
+  async function openNewSubjectEditor() {
+    await userEvent.click(screen.getByRole("button", { name: /과목 추가/ }));
+    return screen.getByRole("textbox", { name: "새 과목 이름" });
+  }
+
+  it("iPhone은 과목 추가를 눌러도 입력칸에 포커스를 주지 않아 입력칸을 눌러야 키보드가 뜬다", async () => {
+    stubUserAgent(IPHONE_UA);
+    const focus = vi.spyOn(HTMLInputElement.prototype, "focus");
+    onTestFinished(() => focus.mockRestore());
+    renderPanel();
+
+    const input = await openNewSubjectEditor();
+
+    expect(input).not.toHaveFocus();
+    expect(focus).not.toHaveBeenCalled();
+  });
+
+  it("iPhone에서 입력칸을 누르면 기본 동작을 막고 문서를 끌어 올리지 않게 포커스를 준다", async () => {
+    stubUserAgent(IPHONE_UA);
+    renderPanel();
+    const input = await openNewSubjectEditor();
+    const focus = vi.spyOn(input, "focus");
+
+    // fireEvent는 누름의 기본 동작이 막혔을 때 false를 돌려준다.
+    expect(fireEvent.mouseDown(input)).toBe(false);
+
+    expect(focus.mock.calls).toEqual([[{ preventScroll: true }]]);
+    expect(input).toHaveFocus();
+  });
+
+  it("Android는 과목 추가를 누르면 입력칸에 바로 포커스를 준다", async () => {
+    stubUserAgent(ANDROID_UA);
+    const focus = vi.spyOn(HTMLInputElement.prototype, "focus");
+    onTestFinished(() => focus.mockRestore());
+    renderPanel();
+
+    const input = await openNewSubjectEditor();
+
+    expect(input).toHaveFocus();
+    expect(focus.mock.calls).toEqual([[{ preventScroll: true }]]);
+  });
+
+  it("키보드가 올라와 있는 동안만 그 높이만큼 목록 끝을 비운다", async () => {
+    const viewport = fakeViewport(874, 874);
+    renderPanel();
+    const input = await openNewSubjectEditor();
+    // 입력칸을 감싼 줄의 바깥 상자가 입력칸 줄, 글자 수, 빈 칸을 차례로 담는다.
+    const editor = input.parentElement!.parentElement!;
+    const spacer = () => editor.querySelector<HTMLElement>(":scope > [aria-hidden='true']");
+    expect(spacer()).toBeNull();
+
+    resizeViewport(viewport, 538);
+    expect(spacer()).toHaveStyle({ height: "336px" });
+
+    resizeViewport(viewport, 874);
+    expect(spacer()).toBeNull();
+  });
+});
+
 describe("SubjectPanel 가려진 입력칸", () => {
   const LIST = { top: 100, bottom: 500 };
   const EDITOR_HEIGHT = 80;
@@ -542,6 +639,26 @@ describe("SubjectPanel 가려진 입력칸", () => {
 
     expect(taskList!.scrollTop).toBeGreaterThan(0);
     expect(subjectList!.scrollTop).toBe(0);
+  });
+
+  it("키보드가 올라오면 목록 안에서는 보이던 입력칸도 키보드 위로 올려 문서는 밀지 않는다", async () => {
+    const viewport = fakeViewport(600, 600);
+    const scrollBy = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
+    onTestFinished(() => scrollBy.mockRestore());
+    renderPanel();
+    const [list] = scrollLists();
+    // 목록(100~500px) 안에서는 다 보이지만 키보드가 오르면 윗면이 300px인 키보드에 가리는 자리다.
+    layOut({ list: list!, editor: NEW_SUBJECT, editorTop: 250, scrolled: 0 });
+    await openNewSubject();
+    expect(list!.scrollTop).toBe(0);
+
+    resizeViewport(viewport, 300);
+
+    // 입력칸 아랫변은 330px이라 여백 8px을 더하면 키보드 윗면보다 38px 아래다.
+    expect(list!.scrollTop).toBe(38);
+    const input = screen.getByRole("textbox", { name: "새 과목 이름" });
+    expect(input.getBoundingClientRect().bottom + 8).toBeLessThanOrEqual(300);
+    expect(scrollBy).not.toHaveBeenCalled();
   });
 });
 

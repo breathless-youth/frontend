@@ -3,6 +3,7 @@ import { type ReactNode, useEffect, useId, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
 import { CharCount } from "@/components/ui/char-count";
+import { focusWithoutScrollOnPress, isIosWeb } from "@/lib/iosInputFocus";
 import { useKeyboardInset } from "@/lib/useKeyboardInset";
 import { cn } from "@/lib/utils";
 
@@ -81,7 +82,9 @@ export function WriteScreen({
 
   // 쓰려고 연 화면이라 열리자마자 입력칸에 커서를 둔다.
   // iOS는 키보드를 올리며 포커스를 받은 입력칸 쪽으로 문서를 끌어 올려서 머리 제목이 앱의 머리 줄 밑으로 들어가므로 문서는 움직이지 않게 한다.
+  // iOS는 연 순간의 포커스로 키보드를 올리지 않고 그 포커스가 남으면 입력칸 누름이 문서를 끌어 올리는 길로 가서 주지 않는다.
   useEffect(() => {
+    if (isIosWeb()) return;
     inputRef.current?.focus({ preventScroll: true });
   }, []);
 
@@ -97,6 +100,7 @@ export function WriteScreen({
         <div className="mt-2 flex flex-col items-end gap-1.5 rounded-lg border border-border bg-muted px-3.5 pt-3 pb-2.5 focus-within:ring-2 focus-within:ring-(--state-focus)">
           <textarea
             ref={inputRef}
+            onMouseDown={isIosWeb() ? focusWithoutScrollOnPress : undefined}
             id={inputId}
             rows={3}
             value={value}
