@@ -196,8 +196,10 @@ describe("신청하기", () => {
     });
     await user.click(screen.getByRole("button", { name: "신청 보내기" }));
     await waitFor(() => expect(router.location().pathname).toBe("/social/public/13"));
-    expect(await screen.findByRole("button", { name: "그룹 개수가 가득 찼어요" })).toBeDisabled();
-    expect(screen.getAllByText("그룹 개수가 가득 찼어요")).toHaveLength(1);
+    expect(
+      await screen.findByRole("button", { name: "그룹과 신청을 합쳐 5개까지예요" }),
+    ).toBeDisabled();
+    expect(screen.getAllByText("그룹과 신청을 합쳐 5개까지예요")).toHaveLength(1);
   });
 
   it("이미 신청한 그룹이면 알리지 않고 공개 그룹 보기로 돌아간다", async () => {

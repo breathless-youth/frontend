@@ -5,13 +5,13 @@
   "limits": {
     "applyBlock": {
       "kickedRecently": "{{count}}일 동안 이 그룹에 신청할 수 없어요",
-      "roomsAndApplicationsFull": "그룹 개수가 가득 찼어요",
+      "roomsAndApplicationsFull": "그룹과 신청을 합쳐 5개까지예요",
       "pendingApplicationsFull": "신청은 3곳까지 보낼 수 있어요"
     },
     "joinBlock": {
       "roomFull": "자리가 다 찼어요",
       "kickedRecently": "내보내진 그룹에는 {{count}}일 동안 다시 들어갈 수 없어요",
-      "roomsAndApplicationsFull": "이미 5개의 그룹을 가지고 있어요",
+      "roomsAndApplicationsFull": "그룹과 신청을 합쳐 5개까지예요",
       "invalidCode": "초대코드를 다시 확인해 주세요"
     },
     "createRoomLimit": "그룹은 2개까지 만들 수 있어요",

@@ -154,7 +154,7 @@ describe("그룹 만들기", () => {
     expect(await screen.findByText("그룹은 2개까지 만들 수 있어요")).toBeInTheDocument();
   });
 
-  it("들어간 그룹과 신청이 이미 5개면 그룹 개수가 가득 찼다고 알린다", async () => {
+  it("들어간 그룹과 신청이 이미 5개면 그룹과 신청을 합쳐 5개까지라고 알린다", async () => {
     const api = mockGroupApi("default");
     api.createGroup.mockRejectedValueOnce(new ApiError("x", 409, "GROUP_SLOT_LIMIT"));
     mockProfile({ category: null });
@@ -162,7 +162,7 @@ describe("그룹 만들기", () => {
     const user = userEvent.setup();
     await user.type(await screen.findByRole("textbox", { name: "그룹 이름" }), "새 그룹");
     await user.click(screen.getByRole("button", { name: "그룹 만들기" }));
-    expect(await screen.findByText("그룹 개수가 가득 찼어요")).toBeInTheDocument();
+    expect(await screen.findByText("그룹과 신청을 합쳐 5개까지예요")).toBeInTheDocument();
   });
 
   it("서버가 연락처로 막으면 연락처가 있는 칸 아래에 알린다", async () => {
