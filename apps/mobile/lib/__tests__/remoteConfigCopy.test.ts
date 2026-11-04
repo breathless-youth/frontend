@@ -1,3 +1,4 @@
+import { setDeviceLanguages } from "../../jest/deviceLanguages";
 import { readForceUpdateCopy } from "../forceUpdateCopy";
 import { readRecommendedUpdateCopy } from "../recommendedUpdateCopy";
 import { getRemoteConfigString } from "../remoteConfig";
@@ -7,11 +8,6 @@ jest.mock("../remoteConfig", () => ({
   getRemoteConfigString: jest.fn(() => ""),
 }));
 
-let mockLanguageCode = "ko";
-jest.mock("expo-localization", () => ({
-  getLocales: () => [{ languageCode: mockLanguageCode }],
-}));
-
 const mockedGetString = getRemoteConfigString as jest.Mock;
 
 function remoteValues(values: Record<string, string>) {
@@ -19,7 +15,7 @@ function remoteValues(values: Record<string, string>) {
 }
 
 beforeEach(() => {
-  mockLanguageCode = "ko";
+  setDeviceLanguages(["ko-KR"]);
   mockedGetString.mockReset().mockImplementation(() => "");
 });
 
@@ -33,22 +29,44 @@ describe("readCopyOr", () => {
   });
 
   it("영어 기기는 _en 키를 읽는다", () => {
-    mockLanguageCode = "en";
+    setDeviceLanguages(["en-US"]);
     remoteValues({ force_update_title: "콘솔 제목", force_update_title_en: "Console title" });
 
     expect(readCopyOr("force_update_title", "forceUpdate.title")).toBe("Console title");
   });
 
   it("영어 기기에서 _en 키가 없으면 한국어 키가 아니라 영어 기본 문구다", () => {
-    mockLanguageCode = "en";
+    setDeviceLanguages(["en-US"]);
     remoteValues({ force_update_title: "콘솔 제목" });
 
     expect(readCopyOr("force_update_title", "forceUpdate.title")).toBe("Update required");
     expect(mockedGetString).not.toHaveBeenCalledWith("force_update_title");
   });
 
+  it.each([
+    ["ja-JP", "force_update_title_ja"],
+    ["zh-Hant-TW", "force_update_title_zh_hant"],
+  ])("%s 기기는 %s 키를 읽는다", (tag, key) => {
+    setDeviceLanguages([tag]);
+    remoteValues({ force_update_title: "콘솔 제목", [key]: "Console title" });
+
+    expect(readCopyOr("force_update_title", "forceUpdate.title")).toBe("Console title");
+  });
+
+  it("셸 문구가 없는 언어에서 키가 비어 있으면 한국어 키가 아니라 영어 기본 문구다", () => {
+    setDeviceLanguages(["ja-JP"]);
+    remoteValues({ force_update_title: "콘솔 제목" });
+
+    expect(readCopyOr("force_update_title", "forceUpdate.title")).toBe("Update required");
+    expect(mockedGetString).not.toHaveBeenCalledWith("force_update_title");
+  });
+
+  it("한국어 기기에서 키가 비어 있으면 한국어 기본 문구다", () => {
+    expect(readCopyOr("force_update_title", "forceUpdate.title")).toBe("업데이트가 필요해요");
+  });
+
   it("영어 기기에서 _en 값이 공백뿐이거나 읽기가 실패하면 영어 기본 문구다", () => {
-    mockLanguageCode = "en";
+    setDeviceLanguages(["en-US"]);
     remoteValues({ force_update_title_en: "   " });
     expect(readCopyOr("force_update_title", "forceUpdate.title")).toBe("Update required");
 
@@ -61,7 +79,7 @@ describe("readCopyOr", () => {
 
 describe("업데이트 알림창 문구의 영어 경로", () => {
   it("강제 업데이트는 영어 기본 문구와 _en 키를 쓴다", () => {
-    mockLanguageCode = "en";
+    setDeviceLanguages(["en-US"]);
     remoteValues({ force_update_button_en: "Get the update" });
 
     expect(readForceUpdateCopy()).toEqual({
@@ -72,7 +90,7 @@ describe("업데이트 알림창 문구의 영어 경로", () => {
   });
 
   it("권장 업데이트는 영어 기본 문구와 _en 키를 쓴다", () => {
-    mockLanguageCode = "en";
+    setDeviceLanguages(["en-US"]);
     remoteValues({ recommended_update_title_en: "Version 2 is here" });
 
     expect(readRecommendedUpdateCopy()).toEqual({

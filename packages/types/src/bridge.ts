@@ -152,6 +152,13 @@ export type ToWebMessage =
  * 앱과 웹이 같은 값으로 거르므로 형식 밖 값은 분석으로 나가지 않는다.
  */
 export const INSTALL_AD_LABEL_PATTERN = /^(ios|aos)_v\d{1,2}$/;
+/**
+ * 구글 광고 지연 딥링크의 `fm_ad` 값 형식
+ *
+ * 구글 광고 그룹마다 `focusmakers://?fm_ad=g_planner`처럼 `g_`로 시작하는 소재 이름을 넣기로 했다.
+ * 메타 형식과 겹치지 않아 서버가 두 광고를 섞지 않는다.
+ */
+export const INSTALL_GOOGLE_AD_LABEL_PATTERN = /^g_[a-z0-9_]{1,30}$/;
 /** 플레이 설치 정보 원문의 최대 길이. 메타 암호문이 붙어도 1천 자 안팎이라 넉넉히 잡았다. */
 export const INSTALL_REFERRER_MAX_LENGTH = 4096;
 
@@ -169,6 +176,8 @@ export interface InstallAttributionMessage {
   installReferrer: string | null;
   /** 메타 지연 딥링크의 `fm_ad` 값이다. 없거나 형식에 맞지 않으면 null이다. */
   deepLinkAd: string | null;
+  /** 구글 지연 딥링크의 `fm_ad` 값이다. Android만 읽고, 없거나 형식에 맞지 않으면 null이다. */
+  googleDeepLinkAd: string | null;
   /** 앱이 값을 읽은 시각이다. 웹뷰가 늦게 떠도 이 시각을 기준으로 삼는다. */
   capturedAtMs: number;
   atMs: number;

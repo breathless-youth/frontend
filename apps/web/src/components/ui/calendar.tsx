@@ -1,10 +1,20 @@
 import type * as React from "react";
-import { DayButton, type DayButtonProps, DayPicker } from "react-day-picker";
+import { DayButton, type DayButtonProps, DayPicker, type DayPickerLocale } from "react-day-picker";
 import { enUS } from "react-day-picker/locale/en-US";
+import { ja } from "react-day-picker/locale/ja";
 import { ko } from "react-day-picker/locale/ko";
+import { zhTW } from "react-day-picker/locale/zh-TW";
 import { useTranslation } from "react-i18next";
 
+import type { AppLocale } from "@/lib/locale";
 import { cn } from "@/lib/utils";
+
+const DAY_PICKER_LOCALES: Record<AppLocale, DayPickerLocale> = {
+  ko,
+  en: enUS,
+  ja,
+  "zh-Hant": zhTW,
+};
 
 /**
  * 공용 달력 격자 — react-day-picker에 프로젝트 기본(한국어 · 월요일 시작 · 요일 줄 모양)을 입힌
@@ -22,7 +32,7 @@ function Calendar({
   const { i18n } = useTranslation();
   return (
     <DayPicker
-      locale={i18n.language === "en" ? enUS : ko}
+      locale={DAY_PICKER_LOCALES[i18n.language as AppLocale] ?? enUS}
       weekStartsOn={1}
       showOutsideDays={false}
       hideNavigation

@@ -32,7 +32,7 @@ jest.mock("../../lib/haptics", () => ({
 
 let mockLanguageCode = "ko";
 jest.mock("expo-localization", () => ({
-  getLocales: () => [{ languageCode: mockLanguageCode }],
+  getLocales: () => [{ languageTag: mockLanguageCode }],
 }));
 
 /**

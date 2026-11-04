@@ -110,6 +110,14 @@ export type NativeAnalyticsEventMap = AssertNativeAnalyticsCatalog<{
    * 허용하고 돌아와 자동 복귀, 그 외(하드웨어 백·스와이프 백)는 `back`.
    */
   permission_denied_left: { reason: "back_home" | "permission_granted" | "back" };
+  /**
+   * 설치 후 첫 수집에서 구글 지연 딥링크를 읽은 결과(`lib/installAttribution.ts`). Android만 보낸다.
+   * `invalid`는 값은 왔지만 `g_` 라벨 형식이 아닌 경우다. `has_gclid`는 플레이 설치 정보가 구글 광고 클릭이었는지다.
+   */
+  google_deferred_link_read: {
+    result: "found" | "invalid" | "empty" | "error";
+    has_gclid: boolean;
+  };
   /** 권장 업데이트 알림창(BY-608, `lib/recommendedUpdateAlert.ts`) 노출. 값은 Remote Config `latest_version`. */
   recommended_update_prompted: { latest_version: string };
   /** 권장 업데이트 알림창 응답. `dismissed`는 Android 뒤로가기·바깥 터치(iOS에는 없는 경로). */

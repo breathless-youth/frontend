@@ -152,10 +152,10 @@ iOS 26 Liquid Glass를 웹 화면에 입히는 구조이고, 결정과 실측은
 
 ## 언어 (셸 문구·권한 문구·앱 이름)
 
-- 셸이 직접 그리는 문구는 `lib/i18n.ts`의 ko·en 객체에 두고 `t()`로 읽는다. 기기 첫 언어가 `ko`면 한국어, 그 밖은 영어다. 린트가 `lib/i18n.ts` 밖의 한글 문자열을 막고, `console` 호출·`throw`·`new Error` 안의 로그 문구는 건너뛴다.
+- 셸이 직접 그리는 문구는 `lib/i18n.ts`의 ko·en 객체에 두고 `t()`로 읽는다. 언어는 `getAppLocale()`이 기기 선호 언어 목록을 위에서부터 훑어 ko·en·ja·zh-Hant 가운데 처음 맞는 것으로 정하고(`packages/types`의 `negotiateLocale`), 맞는 것이 없으면 영어다. 문구 객체가 없는 언어는 `t()`가 영어 문구를 쓴다. 린트가 `lib/i18n.ts` 밖의 한글 문자열을 막고, `console` 호출·`throw`·`new Error` 안의 로그 문구는 건너뛴다.
 - 언어는 `getAppLocale()`이 부를 때마다 읽는다. Android는 앱별 언어를 바꾸면 액티비티만 다시 만들고 JS 모듈은 남기 때문이다. 같은 이유로 `expo-localization`의 `allowDynamicLocaleChangesAndroid`를 `false`로 둔다(켜면 액티비티를 다시 만들지 않아 웹뷰가 이전 언어로 남는다).
 - 웹뷰 URL의 `lang`은 `buildRemoteWebViewUrl`이 URL을 만들 때마다 붙인다. 캐시되는 `buildRemoteQueryParams()`에 넣지 말 것. 실행 중 언어 변경 브리지 메시지는 두지 않는다.
-- Remote Config 문구(강제·권장 업데이트)는 영어 기기에서 `<key>_en`을 읽고, 없으면 원래 키가 아니라 앱의 영어 기본 문구를 쓴다.
+- Remote Config 문구(강제·권장 업데이트)는 한국어가 아닌 기기에서 `<key>_<언어>`(`_en`·`_ja`·`_zh_hant`)를 읽고, 없으면 원래 키가 아니라 그 언어의 기본 문구를, 그것도 없으면 영어 기본 문구를 쓴다.
 - iOS 권한 문구는 `infoPlist`(한국어 원문)와 `locales/{ko,en}.json`에 함께 둔다. 권한 키를 더하면 두 파일에도 넣는다. 앱 이름은 `extra.appDisplayName`(한국어)·`appDisplayNameEn`(영어)에 `app.config.ts`가 변형 접미를 붙인다. iOS는 기본이 한국어(개발 지역 ko)이고 `locales`가 ko·en `CFBundleDisplayName`을 넣는다. Android는 기본 `values`가 영어(`withAppDisplayName.js`)이고 한국어 이름은 `locales`의 ko `android.app_name`이 `values-b+ko`에 넣는다(`resourceConfigurations`의 `b+ko`와 같은 한정자).
 - Android 네이티브 모듈의 사용자 문구는 모듈 `res/values/strings.xml`(영어 기본)과 `res/values-ko/strings.xml`에 둔다. 기본을 한국어로 두면 한국어가 아닌 기기에서 한국어가 보인다. 이름에 모듈 접두(`app_lock_`)를 붙인다.
 - `expo-localization`은 네이티브 모듈이라 Dev Client를 다시 빌드해야 언어가 바뀐다.

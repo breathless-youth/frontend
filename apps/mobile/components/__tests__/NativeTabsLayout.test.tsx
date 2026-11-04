@@ -55,7 +55,7 @@ jest.mock("expo-router/unstable-native-tabs", () => {
 
 let mockLanguageCode = "ko";
 jest.mock("expo-localization", () => ({
-  getLocales: () => [{ languageCode: mockLanguageCode }],
+  getLocales: () => [{ languageTag: mockLanguageCode }],
 }));
 
 beforeEach(() => {

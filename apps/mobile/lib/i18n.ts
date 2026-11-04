@@ -1,5 +1,7 @@
 import { getLocales } from "expo-localization";
 
+import { APP_LOCALES, type AppLocale, negotiateLocale } from "@focusmakers/types";
+
 /**
  * 셸 문구 카탈로그
  *
@@ -7,8 +9,6 @@ import { getLocales } from "expo-localization";
  * 웹 카탈로그와 같은 용어를 쓴다(`apps/web/src/locales/en`).
  * 키를 더하면 ko와 en에 함께 넣는다(en 객체 타입이 ko 키를 강제한다).
  */
-export type AppLocale = "ko" | "en";
-
 const ko = {
   "tab.home": "홈",
   // 탭 키는 경로 이름을 따른다.
@@ -148,20 +148,30 @@ const en = {
 
 export type CopyKey = keyof typeof ko;
 
-export const copy: Record<AppLocale, Record<CopyKey, string>> = { ko, en };
+/**
+ * 언어별 셸 문구
+ *
+ * ja·zh-Hant 객체를 넣기 전까지 그 언어 기기는 영어 문구를 본다.
+ */
+export const copy: Record<"ko" | "en", Record<CopyKey, string>> &
+  Partial<Record<AppLocale, Record<CopyKey, string>>> = { ko, en };
 
 /**
- * 기기 첫 언어가 한국어면 ko, 그 밖은 en
+ * 기기 선호 언어 목록에서 고른 셸 언어
  *
+ * 웹뷰 주소의 lang 파라미터에도 같은 값을 넘기므로 셸 문구가 없는 언어도 그대로 돌려준다.
  * 모듈 로드 때 한 번 정하지 않고 부를 때마다 읽는다.
  * Android는 앱별 언어를 바꾸면 화면만 다시 만들고 JS 모듈은 그대로 남기 때문이다.
  */
 export function getAppLocale(): AppLocale {
-  return getLocales()[0]?.languageCode === "ko" ? "ko" : "en";
+  return negotiateLocale(
+    getLocales().map((locale) => locale.languageTag),
+    APP_LOCALES,
+  );
 }
 
 /** 기기 언어의 문구를 읽고 `{{이름}}` 자리를 채운다. */
 export function t(key: CopyKey, vars?: Record<string, string | number>): string {
-  const text = copy[getAppLocale()][key];
+  const text = (copy[getAppLocale()] ?? copy.en)[key];
   return vars ? text.replace(/\{\{(\w+)\}\}/g, (_, name: string) => String(vars[name])) : text;
 }
