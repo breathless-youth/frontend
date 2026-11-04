@@ -2,11 +2,13 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDownToLine, Ellipsis } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import instagramIcon from "@/assets/icons/brand-instagram.svg";
 import kakaotalkIcon from "@/assets/icons/brand-kakaotalk.svg";
 import { Dialog, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog";
 import { haptic } from "@/lib/haptics";
+import { isKoreanLocale } from "@/lib/i18n";
 import { COVERS_TAB_BAR_ATTR } from "@/lib/nativeModalOverlay";
 import { showCtaToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
@@ -162,6 +164,7 @@ function ShareDialogBody({
    */
   onSaved: (toast: string | null) => void;
 }) {
+  const { t } = useTranslation(["timelapse", "common"]);
   const sheetOnly = entry === "result";
   const startedAtMs = record.startedAtMs;
   const aspect = record.settings.aspect;
@@ -220,25 +223,25 @@ function ShareDialogBody({
   const retry = () => void video.refetch();
 
   const message: ReactNode = !available ? (
-    <StatusText>앱을 업데이트하면 저장하고 공유할 수 있어요</StatusText>
+    <StatusText>{t("share.status.updateApp")}</StatusText>
   ) : sheetOnly && preparing ? (
     // 문구와 막대를 합쳐도 안내 줄 자리 높이를 넘지 않아 시트 높이가 바뀌지 않는다.
     <div className="flex w-full flex-col items-center gap-2">
-      <StatusText>공유할 영상을 생성하고 있어요</StatusText>
+      <StatusText>{t("share.status.preparing")}</StatusText>
       <ProgressBar progress={progress.data ?? 0} className="bg-border" />
     </div>
   ) : unsupported ? (
-    <StatusText>이 기기에서는 영상을 만들 수 없어요</StatusText>
+    <StatusText>{t("share.status.unsupported")}</StatusText>
   ) : failed ? (
     <>
-      <StatusText>영상을 만들지 못했어요</StatusText>
-      <TextButton onClick={retry}>다시 시도</TextButton>
+      <StatusText>{t("share.status.buildFailed")}</StatusText>
+      <TextButton onClick={retry}>{t("common:actions.retry")}</TextButton>
     </>
   ) : notice !== null ? (
     <>
       <StatusText>{notice.text}</StatusText>
       {notice.openSettings === true && (
-        <TextButton onClick={openTimelapseSettings}>설정 열기</TextButton>
+        <TextButton onClick={openTimelapseSettings}>{t("share.openSettings")}</TextButton>
       )}
     </>
   ) : null;
@@ -263,7 +266,7 @@ function ShareDialogBody({
                 {preparing && <PreparingCover progress={progress.data ?? 0} />}
               </TimelapsePlayer>
             </div>
-            <p className="text-primary text-base leading-4.75 font-extrabold">포커스 메이커스</p>
+            <p className="text-primary text-base leading-4.75 font-extrabold">{t("share.brand")}</p>
           </div>
         )}
       </div>
@@ -271,13 +274,13 @@ function ShareDialogBody({
       {/* 공용 바닥 시트(ui/sheet.tsx)와 같은 폭이어야 태블릿에서 다른 시트와 어긋나 보이지 않는다. */}
       <section className="bg-muted rounded-t-3xl px-5 pt-7 pb-[max(34px,calc(env(safe-area-inset-bottom)+8px))] page-width duration-300 ease-overlay motion-safe:group-data-[state=open]:animate-in motion-safe:group-data-[state=open]:slide-in-from-bottom motion-safe:group-data-[state=closed]:animate-out motion-safe:group-data-[state=closed]:slide-out-to-bottom shadow-[0_-12px_40px_rgba(0,0,0,0.18)]">
         <DialogTitle className="text-foreground text-center text-[17px] leading-5 font-bold tracking-normal">
-          공유하기
+          {t("share.title")}
         </DialogTitle>
         {available && (
           <ul className="mt-4 flex justify-around">
             {routes.save !== null && (
               <ShareButton
-                label="저장하기"
+                label={t("share.target.save")}
                 icon={
                   <GlyphCircle>
                     <ArrowDownToLine size={24} aria-hidden="true" />
@@ -290,19 +293,23 @@ function ShareDialogBody({
             {routes.share !== null && (
               <>
                 <ShareButton
-                  label="인스타그램"
+                  label={t("share.target.instagram")}
                   icon={<img src={instagramIcon} alt="" className="size-14" />}
                   disabled={locked}
                   onClick={() => void run("instagram")}
                 />
+                {/* 카카오톡은 국내 메신저라 영어 화면에서는 뺀다. */}
+                {/* 버튼 줄이 justify-around라 세 개여도 고르게 퍼진다. */}
+                {isKoreanLocale() && (
+                  <ShareButton
+                    label={t("share.target.kakao")}
+                    icon={<img src={kakaotalkIcon} alt="" className="size-14" />}
+                    disabled={locked}
+                    onClick={() => void run("kakao")}
+                  />
+                )}
                 <ShareButton
-                  label="카카오톡"
-                  icon={<img src={kakaotalkIcon} alt="" className="size-14" />}
-                  disabled={locked}
-                  onClick={() => void run("kakao")}
-                />
-                <ShareButton
-                  label="더 보기"
+                  label={t("share.target.more")}
                   icon={
                     <GlyphCircle>
                       <Ellipsis size={24} aria-hidden="true" />
@@ -325,11 +332,12 @@ function ShareDialogBody({
 }
 
 function PreparingCover({ progress }: { progress: number }) {
+  const { t } = useTranslation("timelapse");
   return (
     // z-index를 주지 않아 뒤에 그리는 일시정지 버튼이 이 덮개 위층에 남는다.
     <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/55 px-6 text-white">
       <p className="text-center text-sm leading-4.25 font-semibold break-keep">
-        공유할 영상을 생성하고 있어요
+        {t("share.status.preparing")}
       </p>
       <ProgressBar progress={progress} className="bg-white/30" />
     </div>
@@ -337,10 +345,11 @@ function PreparingCover({ progress }: { progress: number }) {
 }
 
 function ProgressBar({ progress, className }: { progress: number; className: string }) {
+  const { t } = useTranslation("timelapse");
   return (
     <div
       role="progressbar"
-      aria-label="영상 생성 진행률"
+      aria-label={t("share.aria.progress")}
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(progress * 100)}

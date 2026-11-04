@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import { InputOTP, InputOTPSlot } from "@/components/ui/input-otp";
 
 import { CODE_CELL_CLASS } from "./codeCell";
@@ -15,13 +17,14 @@ type InviteCodeInputProps = {
 };
 
 export function InviteCodeInput({ value, onChange, errorId }: InviteCodeInputProps) {
+  const { t } = useTranslation("social-room");
   return (
     <InputOTP
       maxLength={4}
       value={value}
       inputMode="numeric"
       autoComplete="one-time-code"
-      aria-label="초대코드 4자리"
+      aria-label={t("join.aria.input")}
       aria-invalid={errorId !== undefined || undefined}
       aria-describedby={errorId}
       // input-otp가 maxLength=4를 붙여넣기 원문에 먼저 적용해 sanitize 전에 잘라버린다

@@ -131,6 +131,7 @@ describe("RoomPage 심플 모드 시작과 입장 카메라 확인 창", () => {
     expect(amplitude.trackStudySessionCameraPromptAnswered).toHaveBeenCalledExactlyOnceWith({
       choice: "camera",
       roomType: "single",
+      faceMask: false,
     });
     expect(amplitude.trackSessionSimpleModeToggled).not.toHaveBeenCalled();
   });
@@ -160,6 +161,7 @@ describe("RoomPage 심플 모드 시작과 입장 카메라 확인 창", () => {
     expect(amplitude.trackStudySessionCameraPromptAnswered).toHaveBeenCalledExactlyOnceWith({
       choice: "simple",
       roomType: "single",
+      faceMask: false,
     });
 
     await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
@@ -178,6 +180,7 @@ describe("RoomPage 심플 모드 시작과 입장 카메라 확인 창", () => {
     expect(amplitude.trackStudySessionCameraPromptAnswered).toHaveBeenCalledExactlyOnceWith({
       choice: "simple",
       roomType: "single",
+      faceMask: false,
     });
   });
 

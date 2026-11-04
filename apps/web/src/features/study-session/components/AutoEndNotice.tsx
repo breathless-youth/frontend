@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useId, useRef } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -6,8 +7,8 @@ import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
 import { toKoreanDurationLength } from "../formatDuration";
-import { AUTO_END_COPY, autoEndBodyLinesFor } from "../sessionCopy";
 import type { PauseTrigger } from "../sessionState";
+import { autoEndBodyKey } from "../sessionState";
 import { CheckCircle } from "./CheckCircle";
 
 /**
@@ -36,8 +37,10 @@ export function AutoEndNotice({
   onSeeResult,
   className,
 }: AutoEndNoticeProps) {
+  const { t } = useTranslation(["study-session"]);
   const titleId = useId();
-  const bodyLines = autoEndBodyLinesFor(trigger);
+  const bodyKey = autoEndBodyKey(trigger);
+  const bodyLines = bodyKey === null ? null : t(bodyKey).split("\n");
   // StrictMode가 effect를 두 번 돌려도 햅틱은 한 번만 울린다.
   const buzzedRef = useRef(false);
 
@@ -74,7 +77,7 @@ export function AutoEndNotice({
           id={titleId}
           className="mt-6 text-center text-[20px] leading-6 font-bold text-foreground"
         >
-          {AUTO_END_COPY.title}
+          {t("autoEnd.title")}
         </h1>
         {bodyLines !== null && (
           <p className="mt-2.5 text-center text-[14px] leading-5.25 text-muted-foreground">
@@ -89,8 +92,8 @@ export function AutoEndNotice({
         <SummaryRowCard
           className="mt-8"
           rows={[
-            { label: AUTO_END_COPY.summaryLabels.focusSec, value: focusSec, emphasis: true },
-            { label: AUTO_END_COPY.summaryLabels.studySec, value: studySec },
+            { label: t("autoEnd.focusLabel"), value: focusSec, emphasis: true },
+            { label: t("autoEnd.studyLabel"), value: studySec },
           ]}
         />
       </div>
@@ -100,7 +103,7 @@ export function AutoEndNotice({
         onClick={onSeeResult}
         className="mt-auto h-14 w-full shrink-0 rounded-2xl text-[17px] leading-5 font-bold motion-reduce:transition-none"
       >
-        {AUTO_END_COPY.cta}
+        {t("autoEnd.cta")}
       </Button>
     </section>
   );

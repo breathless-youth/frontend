@@ -423,7 +423,7 @@ describe("createObjectDetector — 비동기 추론", () => {
 
     const pending = detector.detect(video, 0);
     detector.close();
-    rejectDetect(new Error("워커가 닫혔다"));
+    rejectDetect(new Error("worker closed"));
 
     await expect(pending).resolves.toBeNull();
     expect(reportHandled).not.toHaveBeenCalled();
@@ -433,7 +433,7 @@ describe("createObjectDetector — 비동기 추론", () => {
 
 describe("createObjectDetector 타임랩스 사진", () => {
   const PHOTO = new Uint8Array([0xff, 0xd8]).buffer;
-  const spec = { aspect: "9:16" as const, mask: false };
+  const spec = { aspect: "9:16" as const, mask: false, emojiUrl: "/face-mask/dog.png" };
 
   function handleWithCapture(capture: () => Promise<ArrayBuffer>) {
     return { ...fakeHandle(), capture: vi.fn(capture) };

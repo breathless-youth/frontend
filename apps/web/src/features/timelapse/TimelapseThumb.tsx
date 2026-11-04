@@ -9,7 +9,7 @@ function toDataUrl(bytes: ArrayBuffer): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error ?? new Error("썸네일을 읽지 못했어요"));
+    reader.onerror = () => reject(reader.error ?? new Error("failed to read thumbnail"));
     reader.readAsDataURL(new Blob([bytes], { type: "image/jpeg" }));
   });
 }

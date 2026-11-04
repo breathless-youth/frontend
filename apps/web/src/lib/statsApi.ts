@@ -1,6 +1,7 @@
 import type {
   StudyDaysResponse,
   StudyPeriodStatsResponse,
+  StudyRhythmResponse,
   StudySessionListResponse,
   StudySessionStreakResponse,
 } from "@focusmakers/types";
@@ -24,7 +25,7 @@ export async function listStudySessionStats(date: string): Promise<StudySessionL
     method: "GET",
   });
   if (!res.ok) {
-    throw await parseErrorMessage(res, "통계 조회 실패");
+    throw await parseErrorMessage(res, "stats fetch failed");
   }
   return (await res.json()) as StudySessionListResponse;
 }
@@ -38,7 +39,7 @@ export async function getStreak(range?: DateRange): Promise<StudySessionStreakRe
     method: "GET",
   });
   if (!res.ok) {
-    throw await parseErrorMessage(res, "스트릭 조회 실패");
+    throw await parseErrorMessage(res, "streak fetch failed");
   }
   return (await res.json()) as StudySessionStreakResponse;
 }
@@ -54,9 +55,21 @@ export async function getStudyDays(): Promise<StudyDaysResponse> {
     method: "GET",
   });
   if (!res.ok) {
-    throw await parseErrorMessage(res, "누적 공부 일 수 조회 실패");
+    throw await parseErrorMessage(res, "study days fetch failed");
   }
   return (await res.json()) as StudyDaysResponse;
+}
+
+/** study-days와 같은 토큰 전용 새 경로(버전 1) — `legacyQuery`를 붙이지 않는다. */
+export async function getStudyRhythm(): Promise<StudyRhythmResponse> {
+  const res = await apiFetch(`${API_BASE_URL}/api/stats/rhythm`, {
+    endpoint: "studyRhythm",
+    method: "GET",
+  });
+  if (!res.ok) {
+    throw await parseErrorMessage(res, "study rhythm fetch failed");
+  }
+  return (await res.json()) as StudyRhythmResponse;
 }
 
 export async function getPeriodStats(
@@ -72,7 +85,7 @@ export async function getPeriodStats(
     method: "GET",
   });
   if (!res.ok) {
-    throw await parseErrorMessage(res, "기간 집계 조회 실패");
+    throw await parseErrorMessage(res, "period stats fetch failed");
   }
   return (await res.json()) as StudyPeriodStatsResponse;
 }

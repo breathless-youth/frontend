@@ -4,7 +4,6 @@ import {
   DEFAULT_HALL_BOARD,
   DEFAULT_RANKING_BOARD,
   LIVE_SLOTS,
-  SLOT_SUBJECT,
   boardKeyOf,
   boardParams,
   currentSlot,
@@ -17,6 +16,7 @@ import {
   selectSlot,
   selectType,
   selectionOfRecord,
+  slotSubject,
 } from "../board";
 
 /** KST 시각을 UTC ms로 바꾼다. */
@@ -205,7 +205,8 @@ describe("기록에서 판 만들기", () => {
 
 describe("구간 이름 조사", () => {
   it("구간 이름에 주격 조사를 붙인다", () => {
-    expect(SLOT_SUBJECT).toEqual({
+    const slots = ["NIGHT", "MORNING", "AFTERNOON", "EVENING", "DAWN"] as const;
+    expect(Object.fromEntries(slots.map((slot) => [slot, slotSubject(slot)]))).toEqual({
       NIGHT: "새벽이",
       MORNING: "아침이",
       AFTERNOON: "점심이",

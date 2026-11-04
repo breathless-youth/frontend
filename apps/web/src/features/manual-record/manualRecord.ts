@@ -2,6 +2,8 @@ import type { StudySessionSummary, SubjectRef } from "@focusmakers/types";
 
 import { formatDuration, formatKstClock, kstDateKey } from "@/features/records/recordsFormat";
 import { kstDayStartMs } from "@/features/records/recordsTimetable";
+import i18n from "@/lib/i18n";
+import { formatClock } from "@/lib/intl";
 
 /**
  * 수동 기록 입력 화면의 계산
@@ -16,14 +18,6 @@ const HOUR_MS = 60 * MINUTE_MS;
 const DAY_MS = 24 * HOUR_MS;
 /** 지난 날에 그날 기록이 없을 때 시작 시각(KST 시). */
 const PAST_DAY_START_HOUR = 9;
-
-export const MANUAL_RECORD_COPY = {
-  tooShort: "1분 이상이어야 해요",
-  future: "지금 이후 시간은 넣을 수 없어요",
-  allOverlap: "이미 기록이 있는 시간이에요",
-  failed: "저장하지 못했어요. 다시 시도해 주세요",
-  noSubject: "과목 없음",
-} as const;
 
 export interface ManualSpan {
   startMs: number;
@@ -55,7 +49,8 @@ export function isManualSession(session: Pick<StudySessionSummary, "source">): b
 
 /** epoch ms → KST `HH:MM`. 시각 입력칸의 값과 같은 꼴이다. */
 export function clockOf(ms: number): string {
-  return formatKstClock(new Date(ms).toISOString());
+  // 입력칸 값은 언어와 무관하게 24시간제 `HH:MM`이어야 해서 한국어 포맷을 고정해 쓴다.
+  return formatClock("ko", new Date(ms));
 }
 
 export function spanMinutes(spans: readonly ManualSpan[]): number {
@@ -212,7 +207,12 @@ export function overlapNotice(span: ManualSpan, pieces: readonly ManualSpan[]): 
     first.startMs > span.startMs
       ? { startMs: span.startMs, endMs: first.startMs }
       : { startMs: first.endMs, endMs: pieces[1]?.startMs ?? span.endMs };
-  return `이미 기록된 ${formatDuration(removedMs / 1000)}(${clockOf(gap.startMs)}~${clockOf(gap.endMs)})은 제외하고 ${formatDuration(savedMs / 1000)}을 저장해요`;
+  return i18n.t("manual-record:message.overlapNotice", {
+    removed: formatDuration(removedMs / 1000),
+    start: formatKstClock(new Date(gap.startMs).toISOString()),
+    end: formatKstClock(new Date(gap.endMs).toISOString()),
+    saved: formatDuration(savedMs / 1000),
+  });
 }
 
 /**
@@ -292,27 +292,32 @@ export function subjectNameOf(
   subjectId: number | null,
   refs: ReadonlyMap<number, SubjectRef>,
 ): string {
-  return subjectId === null
-    ? MANUAL_RECORD_COPY.noSubject
-    : (refs.get(subjectId)?.name ?? MANUAL_RECORD_COPY.noSubject);
+  const name = subjectId === null ? undefined : refs.get(subjectId)?.name;
+  return name ?? i18n.t("manual-record:subject.none");
 }
 
-function koreanClock(ms: number): { period: "오전" | "오후"; time: string } {
+function spokenClock(ms: number): { period: string; time: string } {
   const [hour = 0, minute = 0] = clockOf(ms).split(":").map(Number);
   const hour12 = hour % 12 === 0 ? 12 : hour % 12;
   return {
-    period: hour < 12 ? "오전" : "오후",
-    time: minute === 0 ? `${hour12}시` : `${hour12}시 ${minute}분`,
+    period: i18n.t(hour < 12 ? "manual-record:readAloud.am" : "manual-record:readAloud.pm"),
+    time:
+      minute === 0
+        ? i18n.t("manual-record:readAloud.hour", { hour: hour12 })
+        : i18n.t("manual-record:readAloud.hourMinute", { hour: hour12, minute }),
   };
 }
 
 /** 스크린리더 문장. 화면에서는 측정 기록과 같은 색이라 수동 기록이라는 말을 앞에 둔다. */
 export function readAloudLabel(input: { subjectName: string; span: ManualSpan }): string {
-  const start = koreanClock(input.span.startMs);
-  const end = koreanClock(input.span.endMs);
-  const endText = end.period === start.period ? end.time : `${end.period} ${end.time}`;
-  const length = formatDuration((input.span.endMs - input.span.startMs) / 1000);
-  return `수동 기록, ${input.subjectName}, ${start.period} ${start.time}부터 ${endText}, ${length}`;
+  const start = spokenClock(input.span.startMs);
+  const end = spokenClock(input.span.endMs);
+  return i18n.t("manual-record:readAloud.label", {
+    subject: input.subjectName,
+    start: i18n.t("manual-record:readAloud.withPeriod", start),
+    end: end.period === start.period ? end.time : i18n.t("manual-record:readAloud.withPeriod", end),
+    length: formatDuration((input.span.endMs - input.span.startMs) / 1000),
+  });
 }
 
 /**

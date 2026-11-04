@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import {
   effectiveDateLabel,
   type LegalBlock,
@@ -52,11 +54,18 @@ function BlockView({ block }: { block: LegalBlock }) {
 }
 
 export function LegalDocumentScreen({ document }: { document: LegalDocument }) {
+  const { t, i18n } = useTranslation("settings");
   return (
     <div className="page-column min-h-dvh bg-background">
       <ScreenBackHeader title={document.title} />
 
       <div className="px-5 pt-2 pb-10">
+        {/* 본문은 한국어판뿐이라(영어판은 BY-1117) 한국어가 아닌 화면에서만 안내를 한 줄 둔다. */}
+        {i18n.language !== "ko" && (
+          <p className="mb-3 text-[13px] leading-4.75 text-muted-foreground">
+            {t("legal.koreanOnly")}
+          </p>
+        )}
         <p className="text-[12px] leading-3.75 text-text-tertiary">
           {effectiveDateLabel(document)}
         </p>

@@ -1,5 +1,6 @@
 import type { RankingBoardResponse } from "@focusmakers/types";
 import { Lock } from "lucide-react";
+import { Trans, useTranslation } from "react-i18next";
 
 import { formatGapDuration } from "../model/format";
 import { cardTitle } from "../model/labels";
@@ -33,11 +34,12 @@ export function IneligibleCard({
   const focusSec = eligibility?.focusSec ?? 0;
   const topPercent = eligibility?.expectedTopPercent ?? null;
   const expectedRank = eligibility?.expectedRank ?? null;
+  const { t } = useTranslation("ranking");
   const expectation =
     expectedRank !== null && expectedRank >= 1 && expectedRank <= 3
-      ? `${expectedRank}위예요`
+      ? t("eligibility.expectRank", { rank: expectedRank })
       : topPercent !== null
-        ? `상위 ${topPercent}%예요`
+        ? t("eligibility.expectTopPercent", { percent: topPercent })
         : null;
 
   return (
@@ -47,17 +49,19 @@ export function IneligibleCard({
       headline={
         // 좁은 화면에서 줄이 넘어갈 때 남은 시간이 숫자와 단위 사이에서 끊기지 않게 통째로 넘긴다.
         <p className="text-xl leading-6.5 font-extrabold tracking-[-0.7px] break-keep text-foreground">
-          랭킹 진입까지{" "}
-          <span className="whitespace-nowrap text-primary">
-            {formatGapDuration(Math.max(0, required - focusSec))}
-          </span>
+          <Trans
+            t={t}
+            i18nKey="eligibility.untilEntry"
+            values={{ gap: formatGapDuration(Math.max(0, required - focusSec)) }}
+            components={{ accent: <span className="whitespace-nowrap text-primary" /> }}
+          />
         </p>
       }
     >
       <FocusStartRow onFocusStart={onFocusStart}>
         {expectation !== null && (
           <p className="text-[13px] leading-3.75 font-semibold break-keep text-pretty text-muted-foreground">
-            현재 집중률이면 {expectation}
+            {expectation}
           </p>
         )}
       </FocusStartRow>
@@ -67,14 +71,15 @@ export function IneligibleCard({
 
 /** 랭킹 진입 전에는 내 앞뒤 순위 대신 보이는 잠긴 카드. */
 export function LockedListCard() {
+  const { t } = useTranslation("ranking");
   return (
     <section
-      aria-label="내 앞뒤 순위"
+      aria-label={t("lockedList.aria.label")}
       className="flex min-h-40.5 flex-col items-center justify-center gap-2 rounded-xl bg-muted shadow-sb-card"
     >
       <Lock size={22} strokeWidth={1.8} aria-hidden="true" className="text-brand-subtle-text" />
       <p className="text-sm leading-4 font-bold text-brand-subtle-text">
-        랭킹에 진입하면 나의 앞뒤 순위가 보여요
+        {t("lockedList.message")}
       </p>
     </section>
   );

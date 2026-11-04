@@ -1,4 +1,5 @@
 import { canSegmentGraphemes, splitGraphemes } from "@/lib/graphemes";
+import i18n from "@/lib/i18n";
 
 /**
  * 프로필 입력 클라이언트 검증
@@ -23,7 +24,9 @@ export function normalizeNickname(nickname: string): string {
 }
 
 /** 닉네임 형식 오류 문구 — 저장 화면과 서버 400 응답이 같은 문구를 쓴다. */
-export const NICKNAME_RULE_MESSAGE = "한글, 영문, 숫자, 이모지, 띄어쓰기로 2~12자를 쓰실 수 있어요";
+export function nicknameRuleMessage(): string {
+  return i18n.t("profile:errors.nicknameRule");
+}
 
 const PLAIN_CHAR = /^[가-힣A-Za-z0-9 ]$/;
 // 키캡은 숫자·#·*에 키캡 기호가 붙은 조합이라 부품 목록으로 판정할 수 없다.
@@ -53,7 +56,7 @@ export function validateNickname(nickname: string): string | null {
   }
   const graphemes = splitGraphemes(normalizeNickname(nickname));
   if (graphemes.length < 2 || graphemes.length > 12) {
-    return NICKNAME_RULE_MESSAGE;
+    return nicknameRuleMessage();
   }
   const allValid = graphemes.every(
     (char) =>
@@ -62,7 +65,7 @@ export function validateNickname(nickname: string): string | null {
       (EMOJI_BASE.test(char) && EMOJI_CHAR.test(char)),
   );
   if (!allValid) {
-    return NICKNAME_RULE_MESSAGE;
+    return nicknameRuleMessage();
   }
   return null;
 }
@@ -85,7 +88,7 @@ export function normalizeGoal(goal: string | null | undefined): string | null {
  */
 export function validateGoal(goal: string): string | null {
   if (goal.length > 20) {
-    return "목표는 20자까지 쓸 수 있어요";
+    return i18n.t("profile:errors.goalTooLong");
   }
   return null;
 }

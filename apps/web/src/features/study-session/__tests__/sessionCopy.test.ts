@@ -1,14 +1,38 @@
 import { describe, expect, it } from "vitest";
 
+import i18n from "@/lib/i18n";
+
+import { exitConfirmDescription } from "../formatDuration";
+import type { PauseTrigger, SessionState } from "../sessionState";
 import {
-  AUTO_END_COPY,
-  EXIT_CONFIRM_COPY,
-  SUB_MINUTE_EXIT_DESCRIPTION,
-  autoEndBodyLinesFor,
-  exitConfirmDescription,
-  statusCopyFor,
-} from "../sessionCopy";
-import { FOCUS_STATE, distractionState, pauseState, toEventStatus } from "../sessionState";
+  FOCUS_STATE,
+  autoEndBodyKey,
+  distractionState,
+  pauseState,
+  statusLabelKey,
+  toEventStatus,
+} from "../sessionState";
+
+// 문구 상수 파일(sessionCopy.ts)이 카탈로그로 바뀌어, 예전 상수와 같은 모양을 호출 시점에 만들어 단언한다.
+const statusCopyFor = (state: SessionState) => ({ label: i18n.t(statusLabelKey(state)) });
+const exitConfirmCopy = () => ({
+  title: i18n.t("study-session:exitConfirm.title"),
+  cancel: i18n.t("study-session:exitConfirm.cancel"),
+  confirm: i18n.t("study-session:exitConfirm.confirm"),
+});
+const SUB_MINUTE_EXIT_DESCRIPTION = "1분 미만 공부는 기록에 표시되지 않아요";
+const autoEndBodyLinesFor = (trigger: PauseTrigger) => {
+  const key = autoEndBodyKey(trigger);
+  return key === null ? null : i18n.t(key).split("\n");
+};
+const autoEndCopy = () => ({
+  title: i18n.t("study-session:autoEnd.title"),
+  summaryLabels: {
+    focusSec: i18n.t("study-session:autoEnd.focusLabel"),
+    studySec: i18n.t("study-session:autoEnd.studyLabel"),
+  },
+  cta: i18n.t("study-session:autoEnd.cta"),
+});
 
 describe("statusCopyFor — voice-tone.md §3 상태 문구", () => {
   it("집중 문구를 낸다", () => {
@@ -61,7 +85,7 @@ describe("toEventStatus — 화면 상태 ↔ StudyEventStatus 매핑", () => {
 
 describe("EXIT_CONFIRM_COPY — S3-7 종료 확인 (voice-tone.md §4)", () => {
   it("확정 문구를 그대로 쓴다", () => {
-    expect(EXIT_CONFIRM_COPY).toEqual({
+    expect(exitConfirmCopy()).toEqual({
       title: "공부를 종료할까요?",
       cancel: "계속하기",
       confirm: "공부 종료",
@@ -69,7 +93,7 @@ describe("EXIT_CONFIRM_COPY — S3-7 종료 확인 (voice-tone.md §4)", () => {
   });
 
   it("파괴적 액션 라벨을 '종료'로 축약하지 않는다 — 색만으로는 파괴성이 구분되지 않는다", () => {
-    expect(EXIT_CONFIRM_COPY.confirm).toBe("공부 종료");
+    expect(exitConfirmCopy().confirm).toBe("공부 종료");
   });
 });
 
@@ -118,14 +142,14 @@ describe("자동 종료 안내 문구 — S3-8 (voice-tone.md §4)", () => {
   });
 
   it("타이틀·요약 라벨·CTA는 트리거와 무관하게 하나다", () => {
-    expect(AUTO_END_COPY.title).toBe("여기까지 기록을 저장했어요");
-    expect(AUTO_END_COPY.summaryLabels).toEqual({ focusSec: "순공시간", studySec: "총 공부" });
-    expect(AUTO_END_COPY.cta).toBe("결과 보기");
+    expect(autoEndCopy().title).toBe("여기까지 기록을 저장했어요");
+    expect(autoEndCopy().summaryLabels).toEqual({ focusSec: "순공시간", studySec: "총 공부" });
+    expect(autoEndCopy().cta).toBe("결과 보기");
   });
 
   it("통계 라벨로서의 '화면 꺼짐'은 어디에도 없다 — 2026-07-26에 일시정지로 통합됐다", () => {
     // 단, S3-8 **본문**의 "화면이 꺼진 동안은…"은 종료 사유를 설명하는 확정 문장이라 남는다.
     // 라벨(요약 카드의 항목명)에 '화면 꺼짐'이 끼어드는 것만 막는다.
-    expect(Object.values(AUTO_END_COPY.summaryLabels).join(" ")).not.toContain("화면");
+    expect(Object.values(autoEndCopy().summaryLabels).join(" ")).not.toContain("화면");
   });
 });

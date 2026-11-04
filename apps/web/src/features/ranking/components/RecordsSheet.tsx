@@ -1,6 +1,7 @@
 import type { RankingRecord, RankingRecordsSummary } from "@focusmakers/types";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
@@ -37,6 +38,7 @@ export function RecordsSheet({
   onShowAll: () => void;
   onFocusStart: () => void;
 }) {
+  const { t } = useTranslation("ranking");
   const summary = useQuery(rankingSummaryQuery(userId));
   const [rank, setRank] = useState<RankChip>("all");
   const list = useInfiniteQuery({
@@ -54,12 +56,12 @@ export function RecordsSheet({
             <>
               {/* 받기 전에는 시트 이름만 달고 제목 요소는 내용과 함께 그린다. */}
               <DrawerTitle render={<span />} className="sr-only">
-                랭킹 기록
+                {t("records.title")}
               </DrawerTitle>
               {cannotLoad(summary) ? (
                 <div data-base-ui-swipe-ignore="" className="mt-5">
                   <ErrorState
-                    message="랭킹 기록을 불러오지 못했어요"
+                    message={t("records.loadError")}
                     onRetry={() => void summary.refetch()}
                     screen="ranking"
                   />
@@ -74,10 +76,10 @@ export function RecordsSheet({
             <>
               <div className="flex items-baseline justify-between pt-3.5">
                 <DrawerTitle className="text-xl leading-6 font-extrabold tracking-normal text-foreground">
-                  랭킹 기록
+                  {t("records.title")}
                 </DrawerTitle>
                 <p className="text-[13px] leading-3.75 text-muted-foreground">
-                  모두 {summary.data.total}번
+                  {t("sheet.totalCount", { count: summary.data.total })}
                 </p>
               </div>
               {/* 시트 안 버튼은 끌기에서 뺀다. Base UI는 스크롤 없는 곳에서 손가락이 조금만 움직여도 바로 끌기로 잡아
@@ -92,7 +94,7 @@ export function RecordsSheet({
               ) : cannotLoad(list) ? (
                 <div data-base-ui-swipe-ignore="" className="mt-3.5">
                   <ErrorState
-                    message="랭킹 기록을 불러오지 못했어요"
+                    message={t("records.loadError")}
                     onRetry={() => void list.refetch()}
                     screen="ranking"
                   />
@@ -106,7 +108,7 @@ export function RecordsSheet({
                 onClick={onShowAll}
                 className="mt-3.5 h-13 w-full rounded-lg text-[15px] leading-4.5 font-bold"
               >
-                {summary.data.total}개 모두 보기 ›
+                {t("sheet.showAll", { count: summary.data.total })}
               </Button>
             </>
           )}
@@ -123,11 +125,10 @@ function RecordGrid({
   items: readonly RankingRecord[];
   onPick: (record: RankingRecord) => void;
 }) {
+  const { t } = useTranslation("ranking");
   if (items.length === 0) {
     return (
-      <p className="mt-3.5 py-10 text-center text-sm text-muted-foreground">
-        조건에 맞는 기록이 없어요
-      </p>
+      <p className="mt-3.5 py-10 text-center text-sm text-muted-foreground">{t("records.empty")}</p>
     );
   }
   return (
@@ -137,7 +138,12 @@ function RecordGrid({
           <button
             type="button"
             onClick={() => onPick(record)}
-            aria-label={`${record.rank}위 ${recordName(record)} ${recordPeriod(record)} ${recordValue(record)}`}
+            aria-label={t("records.aria.item", {
+              rank: record.rank,
+              name: recordName(record),
+              period: recordPeriod(record),
+              value: recordValue(record),
+            })}
             className="flex min-h-27 w-full flex-col items-center rounded-lg bg-muted px-1 pt-3 pb-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--state-focus)"
           >
             <IllustMedal rank={record.rank} size={30} />
@@ -165,24 +171,27 @@ function EmptyRecords({
   onFocusStart: () => void;
 }) {
   const { closest } = summary;
+  const { t } = useTranslation("ranking");
   return (
     <div className="flex flex-col items-center pt-6 text-center">
       <DrawerTitle className="text-xl leading-6 font-extrabold tracking-normal text-foreground">
-        아직 TOP 3 기록이 없어요
+        {t("sheet.emptyTitle")}
       </DrawerTitle>
       <p className="mt-2 text-[13px] leading-3.75 break-keep text-pretty text-muted-foreground">
-        랭킹 마감 시 3위 내에 든 기록이 있으면 메달을 확인할 수 있어요
+        {t("sheet.emptyBody")}
       </p>
       {closest !== null && (
         <dl className="mt-4 w-full rounded-lg bg-bg-layer-2 px-4 text-left">
           <div className="flex min-h-12.25 items-center justify-between gap-3">
             <dt className="text-[13px] leading-3.75 text-muted-foreground">
-              TOP 3에 가장 가까운 판
+              {t("sheet.closestLabel")}
             </dt>
             {/* 차이 0은 지금 30분 이상으로 3위 안이라는 뜻이라, 최소 1분으로 올린 `1분 차` 대신 TOP 3 안이라고 쓴다. */}
             <dd className="text-sm leading-4 font-extrabold text-foreground">
               {recordName(closest)}{" "}
-              {closest.gap === 0 ? "지금 TOP 3 안" : `${formatGapDuration(closest.gap)} 차`}
+              {closest.gap === 0
+                ? t("sheet.closestInTop3")
+                : t("sheet.closestGap", { gap: formatGapDuration(closest.gap) })}
             </dd>
           </div>
         </dl>

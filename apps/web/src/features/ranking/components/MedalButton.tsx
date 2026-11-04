@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import { useNativeControl } from "@/lib/nativeControls";
 import { cn } from "@/lib/utils";
 
@@ -13,7 +15,11 @@ import { IllustMedal } from "../icons";
  * 앱 모드의 네이티브 버튼은 위아래를 같게 넓혀 가운데 기준 44px을 받는다.
  */
 export function MedalButton({ total, onClick }: { total: number | null; onClick: () => void }) {
-  const label = total === null ? "랭킹 기록" : `랭킹 기록, 메달 ${total}개`;
+  const { t } = useTranslation("ranking");
+  const label =
+    total === null
+      ? t("medalButton.aria.label")
+      : t("medalButton.aria.withTotal", { count: total });
   const { ref } = useNativeControl<HTMLButtonElement>(
     {
       id: "button-medal",

@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import type { StudySessionResponse, SubjectResponse } from "@focusmakers/types";
@@ -20,6 +21,15 @@ import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSo
 import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
 import { CameraOnConfirmDialog } from "@/features/live-room/components/CameraOnConfirmDialog";
 import { ClonedTrackPreview } from "@/features/live-room/components/ClonedTrackPreview";
+import { FaceMaskSearchingBadge } from "@/features/live-room/components/FaceMaskSearchingBadge";
+import {
+  FACE_MASK_EMOJIS,
+  faceMaskEmojiOf,
+  readFaceMaskEmojiId,
+  readFaceMaskOn,
+  writeFaceMaskEmojiId,
+  writeFaceMaskOn,
+} from "@/features/live-room/faceMaskSettings";
 import { useCameraPreviewAspect } from "@/features/live-room/useCameraPreviewAspect";
 import { ModeEntryButton } from "@/features/multi-timer/components/ModeEntryButton";
 import { MultiTimerScreen } from "@/features/multi-timer/components/MultiTimerScreen";
@@ -70,29 +80,24 @@ import { SubjectPanel } from "@/features/study-session/components/SubjectPanel";
 import { SubjectLabel } from "@/features/study-session/components/SubjectLabel";
 import { VisionPerfPanel } from "@/features/study-session/components/VisionPerfPanel";
 import { resolveDevDetectorOverride } from "@/features/study-session/devMockDetector";
-import { SUB_MINUTE_SEC, formatElapsed } from "@/features/study-session/formatDuration";
 import {
-  CAMERA_PROMPT_COPY,
-  CAMERA_TOAST_COPY,
-  EXIT_CONFIRM_COPY,
-  INVITE_CONFIRM_COPY,
-  SUBJECT_SHEET_COPY,
+  SUB_MINUTE_SEC,
   exitConfirmDescription,
-  statusCopyFor,
-} from "@/features/study-session/sessionCopy";
+  formatElapsed,
+} from "@/features/study-session/formatDuration";
 import type {
   PauseTrigger,
   SessionEndReason,
   SessionState,
 } from "@/features/study-session/sessionState";
 import {
+  SESSION_HELP_STEPS,
   markSessionGuideSeen,
   sessionGuideState,
   shouldShowSessionGuide,
 } from "@/features/study-session/sessionGuide";
-import { SESSION_HELP_STEPS } from "@/features/study-session/sessionHelpCopy";
 import { SESSION_LAYER_INSET } from "@/features/study-session/sessionLayout";
-import { MANUAL_END_REASON } from "@/features/study-session/sessionState";
+import { MANUAL_END_REASON, statusLabelKey } from "@/features/study-session/sessionState";
 import {
   clearSessionInvite,
   leaveSessionForInvite,
@@ -117,6 +122,7 @@ import { useSubjects } from "@/features/study-session/useSubjects";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
 import { useTrackedVisionDetector } from "@/features/study-session/useVisionReadyTracking";
+import type { FaceSpot } from "@/features/study-session/vision/faceSpot";
 import { createTimelapseRecorder } from "@/features/timelapse/timelapseRecorder";
 import type { CameraPromptChoice, SessionHelpTrigger } from "@/lib/amplitude";
 import {
@@ -127,6 +133,8 @@ import {
   trackStudySessionCameraPromptShown,
   trackStudySessionExitCancelled,
   trackStudySessionExitRequested,
+  trackStudySessionFaceMaskEmojiSelected,
+  trackStudySessionFaceMaskToggled,
   trackStudySessionHelpCompleted,
   trackStudySessionHelpDismissed,
   trackStudySessionHelpShown,
@@ -296,6 +304,7 @@ function RoomSessionScreen({
   restored: RestoredSession | null;
   invite: string | null;
 }) {
+  const { t } = useTranslation(["study-session", "common"]);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [camera] = useState(createMediaStreamCameraAdapter);
@@ -375,7 +384,7 @@ function RoomSessionScreen({
     ambientUsage: ambientUsage.snapshot,
     multiTimerUsage: multiTimerUsage.snapshot,
     onEnded: timelapse.finish,
-    onCameraLost: () => showCtaToast(CAMERA_TOAST_COPY.cameraOff),
+    onCameraLost: () => showCtaToast(t("cameraToast.cameraOff")),
   });
   // 이어받은 세션은 같은 시작 시각이라 같은 타임랩스에 이어 찍는다.
   useEffect(() => {
@@ -553,6 +562,38 @@ function RoomSessionScreen({
   // 종료·초대·과목 페이지·타이머 화면은 먼저 열렸으면 닫힌 뒤에 묻는다. 이 창도 aria-modal이라
   // modalOverlayOpen은 조건에 넣지 않는다(뜨자마자 스스로를 닫는 순환이 된다).
   const [cameraPromptAnswered, setCameraPromptAnswered] = useState(false);
+  // 내 화면에만 그리는 가림이라 소셜룸·타임랩스와 설정을 나누지 않는다.
+  const [faceMaskOn, setFaceMaskOn] = useState(() => readFaceMaskOn("single"));
+  const [faceMaskEmojiId, setFaceMaskEmojiId] = useState(() => readFaceMaskEmojiId("single"));
+  const [faceSpot, setFaceSpot] = useState<FaceSpot | null>(null);
+  // 카메라가 바뀌면 이전 영상에서 구한 위치가 새 영상과 맞지 않아 렌더 중에 비운다.
+  const [faceSpotStream, setFaceSpotStream] = useState(cameraStream);
+  if (faceSpotStream !== cameraStream) {
+    setFaceSpotStream(cameraStream);
+    setFaceSpot(null);
+  }
+  useEffect(() => {
+    if (!faceMaskOn) {
+      return;
+    }
+    return visionDetector.subscribeFaceSpot(setFaceSpot);
+  }, [faceMaskOn, visionDetector]);
+  const faceMask = faceMaskOn
+    ? { spot: faceSpot, emojiUrl: faceMaskEmojiOf(faceMaskEmojiId).url }
+    : null;
+  function changeFaceMaskOn(next: boolean) {
+    trackStudySessionFaceMaskToggled({ on: next, roomType: "single" });
+    writeFaceMaskOn("single", next);
+    setFaceMaskOn(next);
+    // 꺼 둔 동안에는 구독하지 않아 일시정지로 위치가 비워진 것도 놓친다.
+    // 다시 켰을 때 그 옛 위치에 이모지가 붙지 않게 비운다.
+    setFaceSpot(null);
+  }
+  function changeFaceMaskEmoji(id: string) {
+    trackStudySessionFaceMaskEmojiSelected({ emojiId: id, roomType: "single" });
+    writeFaceMaskEmojiId("single", id);
+    setFaceMaskEmojiId(id);
+  }
   const helpAutoPending =
     userId !== null &&
     !helpDismissed &&
@@ -594,7 +635,7 @@ function RoomSessionScreen({
   }, [cameraPromptOpen, measurePreviewAspect]);
   /** 입장 카메라 확인 창의 답. 표시 모드만 바꾸고 카메라·감지·타이머는 그대로 둔다. */
   function answerCameraPrompt(choice: CameraPromptChoice) {
-    trackStudySessionCameraPromptAnswered({ choice, roomType: "single" });
+    trackStudySessionCameraPromptAnswered({ choice, roomType: "single", faceMask: faceMaskOn });
     setCameraPromptAnswered(true);
     if (choice === "camera") {
       setSimpleMode(false);
@@ -609,7 +650,7 @@ function RoomSessionScreen({
   const rotationPhase = useRotationPhase();
 
   const paused = sessionState.kind === "PAUSE";
-  const statusCopy = statusCopyFor(sessionState);
+  const statusLabel = t(statusLabelKey(sessionState));
   const pillState = toPillState(sessionState);
   /**
    * 공부 상태의 식별 키 — 심플 모드 엣지 글로우 **잔향**(SimpleModeSurface)이 상태 전환을
@@ -756,13 +797,13 @@ function RoomSessionScreen({
     return flipCamera()
       .then((result) => {
         if (result.ok) {
-          showCtaToast(CAMERA_TOAST_COPY.flipped);
+          showCtaToast(t("cameraToast.flipped"));
           return;
         }
         showCtaToast(
           result.reason === "camera-off"
-            ? CAMERA_TOAST_COPY.cameraOff
-            : CAMERA_TOAST_COPY.noAlternative,
+            ? t("cameraToast.cameraOff")
+            : t("cameraToast.noAlternative"),
         );
       })
       .finally(() => {
@@ -873,7 +914,7 @@ function RoomSessionScreen({
     subjectSelection === null
       ? null
       : {
-          name: selectedSubject?.name ?? SUBJECT_SHEET_COPY.title,
+          name: selectedSubject?.name ?? t("subjectSheet.title"),
           paused,
           focusSec:
             (selectedSubject?.focusSec ?? 0) +
@@ -900,7 +941,7 @@ function RoomSessionScreen({
   }
 
   const subjectButtonLabel =
-    subjectSelection === null ? SUBJECT_SHEET_COPY.title : `${SUBJECT_SHEET_COPY.title} 선택됨`;
+    subjectSelection === null ? t("subjectSheet.title") : t("controls.subjectSelected");
   const subjectNative = useNativeControl<HTMLButtonElement>(
     {
       id: "session-subject",
@@ -959,6 +1000,7 @@ function RoomSessionScreen({
         videoRef={videoRef}
         hidden={simpleMode}
         rotating={!simpleMode && rotationPhase === "rotating"}
+        faceMask={faceMask}
       />
 
       {phase.name === "studying" ? (
@@ -968,7 +1010,7 @@ function RoomSessionScreen({
               다이얼로그가 떠 있는 동안 딤 뒤 탭은 Radix 가 바깥 포인터를 막아 토글되지 않는다. */}
           <button
             type="button"
-            aria-label="심플 모드 전환"
+            aria-label={t("controls.simpleModeToggle")}
             aria-pressed={simpleMode}
             ref={simpleToggleRef}
             inert={helpVisible}
@@ -991,7 +1033,7 @@ function RoomSessionScreen({
           <div inert={helpVisible} className={SESSION_LAYER_LAYOUT}>
             <SessionStatusPill
               state={pillState}
-              label={statusCopy.label}
+              label={statusLabel}
               className={cn(
                 "landscape-compact:col-start-2 landscape-compact:row-start-1 landscape-compact:justify-self-center",
                 SESSION_PILL_SIZE,
@@ -1168,7 +1210,7 @@ function RoomSessionScreen({
 
             {userId === null && (
               <p className="mt-3 text-center text-[12px] leading-4 text-white/55 landscape-compact:col-span-full landscape-compact:row-start-4 landscape-compact:justify-self-center">
-                이 기기가 아직 등록되지 않아 기록이 저장되지 않습니다
+                {t("submit.unregistered")}
               </p>
             )}
           </div>
@@ -1192,7 +1234,7 @@ function RoomSessionScreen({
             }}
             container={sessionSurface}
             returnFocus={subjectReturnFocus}
-            title={SUBJECT_SHEET_COPY.title}
+            title={t("subjectSheet.title")}
             landscape={pageLandscape}
           >
             <SubjectPanel
@@ -1334,10 +1376,10 @@ function RoomSessionScreen({
         // 재생하고 걷힌다. 수동 확정·취소는 exitDialogOpen 이 false로 가며 같은 경로를 탄다.
         open={exitDialogOpen && phase.name === "studying" && invite === null}
         container={sessionSurface}
-        title={EXIT_CONFIRM_COPY.title}
+        title={t("exitConfirm.title")}
         description={exitConfirmDescription(focusSec)}
-        cancelLabel={EXIT_CONFIRM_COPY.cancel}
-        confirmLabel={EXIT_CONFIRM_COPY.confirm}
+        cancelLabel={t("exitConfirm.cancel")}
+        confirmLabel={t("exitConfirm.confirm")}
         onCancel={handleCancelExit}
         onConfirm={handleConfirmExit}
       />
@@ -1348,10 +1390,10 @@ function RoomSessionScreen({
       <SessionConfirmDialog
         open={invite !== null && phase.name === "studying"}
         container={sessionSurface}
-        title={INVITE_CONFIRM_COPY.title}
+        title={t("inviteConfirm.title")}
         description={exitConfirmDescription(focusSec)}
-        cancelLabel={INVITE_CONFIRM_COPY.cancel}
-        confirmLabel={INVITE_CONFIRM_COPY.confirm}
+        cancelLabel={t("inviteConfirm.cancel")}
+        confirmLabel={t("inviteConfirm.confirm")}
         onCancel={clearSessionInvite}
         onConfirm={() => {
           haptic("medium");
@@ -1363,19 +1405,34 @@ function RoomSessionScreen({
       <CameraOnConfirmDialog
         open={cameraPromptOpen}
         container={sessionSurface}
-        title={CAMERA_PROMPT_COPY.title}
-        description={CAMERA_PROMPT_COPY.description}
-        notice={CAMERA_PROMPT_COPY.notice}
-        cancelLabel={CAMERA_PROMPT_COPY.cancel}
-        confirmLabel={CAMERA_PROMPT_COPY.confirm}
+        title={t("cameraPrompt.title")}
+        description={t("cameraPrompt.description")}
+        notice={t("cameraPrompt.notice")}
+        cancelLabel={t("cameraPrompt.cancel")}
+        confirmLabel={t("cameraPrompt.confirm")}
         returnFocus={() => simpleToggleRef.current}
         preview={
-          <ClonedTrackPreview
-            stream={cameraStream}
-            facing={cameraFacing}
-            targetAspect={previewAspect ?? undefined}
-          />
+          <div className="relative size-full">
+            <ClonedTrackPreview
+              stream={cameraStream}
+              facing={cameraFacing}
+              targetAspect={previewAspect ?? undefined}
+              faceMask={faceMask}
+            />
+            {faceMaskOn && faceSpot === null && <FaceMaskSearchingBadge />}
+          </div>
         }
+        // 싱글룸은 영상을 다시 합성하지 않아 어느 기기에서나 쓸 수 있다.
+        faceMask={{
+          supported: true,
+          on: faceMaskOn,
+          onChange: changeFaceMaskOn,
+          emojis: FACE_MASK_EMOJIS,
+          emojiId: faceMaskEmojiId,
+          onEmojiChange: changeFaceMaskEmoji,
+          tooltip: [t("cameraPrompt.faceMaskTooltip")],
+          caption: t("cameraPrompt.faceMaskCaption"),
+        }}
         onCancel={() => answerCameraPrompt("simple")}
         onConfirm={() => answerCameraPrompt("camera")}
       />
@@ -1423,9 +1480,10 @@ function SessionResultFallback({
   phase: Exclude<StudyRoomPhase, { name: "studying" }>;
   onRetry: () => void;
 }) {
+  const { t } = useTranslation("study-session");
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center gap-4 px-6">
-      {phase.name === "submitting" && <p className="text-sm text-white/80">저장 중...</p>}
+      {phase.name === "submitting" && <p className="text-sm text-white/80">{t("submit.saving")}</p>}
 
       {phase.name === "error" && (
         <>
@@ -1435,14 +1493,14 @@ function SessionResultFallback({
             onClick={onRetry}
             className="rounded-full bg-white/12 px-6 py-3 text-white"
           >
-            다시 제출
+            {t("submit.retry")}
           </button>
         </>
       )}
 
       {phase.name === "unsaved" && (
         <p className="text-center text-sm text-white/80">
-          공부 시간 {formatElapsed(phase.studySec)} — 기기 등록 전이라 저장되지 않았습니다.
+          {t("submit.unsaved", { elapsed: formatElapsed(phase.studySec) })}
         </p>
       )}
     </div>

@@ -65,6 +65,8 @@ export const API_ENDPOINTS = {
   },
   /** `GET /api/stats/study-days` — 구 앱 계약이 없다. 구 앱 문서가 부르면 실패하고 화면에 `—`가 남는다. */
   studyDays: { version: "1", parsedBy: "apps/web/src/lib/statsApi.ts getStudyDays" },
+  /** `GET /api/stats/rhythm` — study-days와 같은 새 경로. 구 앱 문서는 부르지 않는다(주간 탭이 없다). */
+  studyRhythm: { version: "1", parsedBy: "apps/web/src/lib/statsApi.ts getStudyRhythm" },
 
   /** `GET`·`PUT`·`DELETE /api/dday` — 홈 D-Day. 구 앱 계약이 없는 새 경로다(Swagger `API-Version` 기본값 1, 2026-09-24 대조). */
   dday: { version: "1", parsedBy: "apps/web/src/lib/ddayApi.ts" },

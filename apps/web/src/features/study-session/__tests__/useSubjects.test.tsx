@@ -1,9 +1,10 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { SubjectResponse } from "@focusmakers/types";
 
 import { ApiError } from "@/lib/api";
+import i18n from "@/lib/i18n";
 import { setSubjectsUserProperties, trackSubjectItemAdded } from "@/lib/amplitude";
 import {
   createSubject,
@@ -13,8 +14,7 @@ import {
   reorderSubjects,
 } from "@/lib/subjectApi";
 
-import { SUBJECT_SHEET_COPY } from "../sessionCopy";
-import { useSubjects } from "../useSubjects";
+import { subjectSuggestions, useSubjects } from "../useSubjects";
 
 vi.mock("@/lib/subjectApi", () => ({
   listSubjects: vi.fn(),
@@ -234,7 +234,7 @@ describe("useSubjects 순서 (BY-725)", () => {
       await hook.result.current.commitReorder();
     });
 
-    expect(onError).toHaveBeenCalledWith(SUBJECT_SHEET_COPY.saveFailed);
+    expect(onError).toHaveBeenCalledWith("저장하지 못했어요. 다시 시도해주세요");
     await waitFor(() => {
       expect(listSubjects).toHaveBeenCalledTimes(2);
     });
@@ -262,7 +262,7 @@ describe("useSubjects 이름 중복", () => {
 
     expect(created).toBeNull();
     expect(createSubject).not.toHaveBeenCalled();
-    expect(onError).toHaveBeenCalledWith(SUBJECT_SHEET_COPY.duplicateName);
+    expect(onError).toHaveBeenCalledWith("이미 있는 과목이에요");
   });
 
   it("다른 과목이 쓰는 이름으로는 바꾸지 않고, 서버가 409로 거절해도 같은 안내를 한다", async () => {
@@ -272,7 +272,7 @@ describe("useSubjects 이름 중복", () => {
       await hook.result.current.renameSubject(2, "과목1");
     });
     expect(renameSubject).not.toHaveBeenCalled();
-    expect(onError).toHaveBeenLastCalledWith(SUBJECT_SHEET_COPY.duplicateName);
+    expect(onError).toHaveBeenLastCalledWith("이미 있는 과목이에요");
 
     // 목록이 낡아 화면 검사를 지나친 경우 — 서버 거절을 같은 문구로 알린다.
     onError.mockClear();
@@ -282,7 +282,7 @@ describe("useSubjects 이름 중복", () => {
     await act(async () => {
       await hook.result.current.renameSubject(2, "새 이름");
     });
-    expect(onError).toHaveBeenCalledWith(SUBJECT_SHEET_COPY.duplicateName);
+    expect(onError).toHaveBeenCalledWith("이미 있는 과목이에요");
   });
 
   it("같은 이름이 이미 둘인 과목도 지금 이름 그대로는 서버에 보낸다", async () => {
@@ -324,5 +324,20 @@ describe("useSubjects 이름 중복", () => {
 
     expect(ids(hook)).toEqual([2, 1, 3, 7]);
     expect(hook.result.current.subjects.at(-1)?.studySec).toBe(600);
+  });
+});
+
+describe("subjectSuggestions", () => {
+  afterEach(async () => {
+    await i18n.changeLanguage("ko");
+  });
+
+  it("한국어 화면은 한국어 과목 이름을 추천한다", () => {
+    expect(subjectSuggestions()).toEqual(["국어", "수학", "영어", "탐구"]);
+  });
+
+  it("영어 화면은 영어 과목 이름을 추천한다", async () => {
+    await i18n.changeLanguage("en");
+    expect(subjectSuggestions()).toEqual(["Math", "English", "Science", "History"]);
   });
 });

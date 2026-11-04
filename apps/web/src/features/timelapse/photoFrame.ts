@@ -1,3 +1,6 @@
+import type { FaceSpot } from "@/features/study-session/vision/faceSpot";
+import { faceBoundsOf, faceSpotOf } from "@/features/study-session/vision/faceSpot";
+
 import type { TimelapseAspect } from "./timelapseSettings";
 
 /**
@@ -11,8 +14,17 @@ import type { TimelapseAspect } from "./timelapseSettings";
 /** 세션을 시작할 때의 설정에서 온 촬영 요청 */
 export interface PhotoSpec {
   readonly aspect: TimelapseAspect;
-  /** 얼굴 모델이 찾은 얼굴 하나에 스티커를 덮을지 */
+  /** 내 얼굴에 이모지를 덮을지 */
   readonly mask: boolean;
+  /** 덮을 이모지 그림 주소이고, 워커는 설정 저장소를 읽을 수 없어 요청에 실어 보낸다. */
+  readonly emojiUrl: string;
+  /**
+   * 얼굴을 놓친 프레임에 덮을 어림 자리
+   *
+   * 감지기가 사람이 보일 때만 사람 검출과 직전 얼굴 위치로 구해 싣는다.
+   * 타임랩스는 공유되는 결과물이라 `visible`이 거짓이어도 덮는다.
+   */
+  readonly spot?: FaceSpot;
 }
 
 export interface Size {
@@ -38,13 +50,15 @@ export const PHOTO_MAX_LONG_EDGE = 1280;
  * 실제 사진을 품질별로 나란히 비교했을 때 0.5에서도 화질 차이가 눈에 띄지 않았고, 장당 크기는 0.8의 절반 가까이로 준다.
  */
 export const PHOTO_JPEG_QUALITY = 0.5;
-export const STICKER_URL = "/timelapse/face-sticker.png";
 
 /**
- * 랜드마크에는 머리카락과 귀가 없어 그 범위보다 크게 덮는다.
- * 스티커는 정사각형에 내접한 원이라 반지름이 범위 긴 변의 0.75배가 되어 가장 먼 모서리(긴 변의 약 0.71배)까지 들어온다.
+ * 얼굴을 놓친 프레임의 어림 자리를 얼굴로 찾은 자리보다 크게 덮는 배율
+ *
+ * 어림 자리는 최대 2초 전 얼굴 틱에서 잰 위치를 사람 검출로 따라간 값이라 그사이 고개를 숙이거나 돌린 만큼 어긋난다.
+ * 1.75배 자리는 얼굴 긴 변의 0.375배까지 어긋나도 덮고, 1.3배를 더하면 약 0.64배까지 덮는다.
  */
-const STICKER_SCALE = 1.5;
+// ponytail: 초기값이라 실기기에서 고개를 숙이고 돌린 사진을 보고 조정한다.
+export const ESTIMATE_SCALE = 1.3;
 
 const ASPECT_RATIO: Record<TimelapseAspect, number> = { "9:16": 9 / 16, "16:9": 16 / 9 };
 
@@ -76,32 +90,32 @@ export function outputSize(crop: Size): Size {
 }
 
 /**
- * 얼굴 랜드마크를 덮는 스티커 자리
+ * 이모지를 덮을 자리
  *
- * 랜드마크가 덮는 범위의 긴 쪽에 여유를 둔 정사각형을 얼굴 가운데에 둔다.
+ * 같은 프레임에서 찾은 랜드마크가 있으면 그 자리를, 없으면 어림 자리를 더 크게 덮는다.
+ * 이모지 크기는 `FaceSpot`처럼 프레임 폭 기준 정사각형이다.
  * 프레임 밖으로 나가도 안쪽으로 밀지 않는다.
- * 밀면 원의 중심이 얼굴에서 벗어나 범위 모서리가 드러나고, 밖으로 나간 부분은 캔버스가 잘라낸다.
+ * 밀면 이모지 가운데가 얼굴에서 벗어나고, 밖으로 나간 부분은 캔버스가 잘라낸다.
  */
-export function stickerBox(landmarks: readonly NormalizedPoint[], frame: Size): Rect | null {
-  if (landmarks.length === 0) {
+export function maskBox(
+  frame: Size,
+  landmarks: readonly NormalizedPoint[] | undefined,
+  spot: Pick<FaceSpot, "x" | "y" | "size"> | undefined,
+): Rect | null {
+  const face = faceBoundsOf(landmarks);
+  const area =
+    face !== null
+      ? faceSpotOf(face, frame.width / frame.height)
+      : spot === undefined
+        ? null
+        : { x: spot.x, y: spot.y, size: spot.size * ESTIMATE_SCALE };
+  if (area === null) {
     return null;
   }
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
-  for (const point of landmarks) {
-    minX = Math.min(minX, point.x);
-    minY = Math.min(minY, point.y);
-    maxX = Math.max(maxX, point.x);
-    maxY = Math.max(maxY, point.y);
-  }
-  const side = Math.round(
-    Math.max((maxX - minX) * frame.width, (maxY - minY) * frame.height) * STICKER_SCALE,
-  );
+  const side = Math.round(area.size * frame.width);
   return {
-    x: Math.round(((minX + maxX) / 2) * frame.width - side / 2),
-    y: Math.round(((minY + maxY) / 2) * frame.height - side / 2),
+    x: Math.round(area.x * frame.width - side / 2),
+    y: Math.round(area.y * frame.height - side / 2),
     width: side,
     height: side,
   };
@@ -129,10 +143,10 @@ export interface PhotoInput {
 
 export type RenderPhoto = (input: PhotoInput) => Promise<ArrayBuffer>;
 
-async function fetchSticker(): Promise<CanvasImageSource> {
-  const response = await fetch(STICKER_URL);
+async function fetchImage(url: string): Promise<CanvasImageSource> {
+  const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`스티커 응답 ${response.status}`);
+    throw new Error(`emoji response ${response.status}`);
   }
   return await createImageBitmap(await response.blob());
 }
@@ -141,23 +155,27 @@ async function fetchSticker(): Promise<CanvasImageSource> {
  * 프레임 한 장을 잘라 JPEG로 만드는 함수
  *
  * 프레임은 첫 await 전에 그린다.
- * 메인 스레드 경로는 `<video>`를 그리므로 추론과 같은 동기 구간에서 그려야 스티커가 추론한 얼굴 위에 놓인다.
- * 스티커는 첫 가림 요청 때 한 번 받아 둔다.
- * 가리지 못한 얼굴 사진을 남기지 않도록 스티커를 받지 못하면 압축하지 않고 실패한다.
+ * 메인 스레드 경로는 `<video>`를 그리므로 추론과 같은 동기 구간에서 그려야 이모지가 추론한 얼굴 위에 놓인다.
+ * 렌더러는 문서가 살아 있는 동안 남아 세션마다 다른 이모지를 받을 수 있어 주소별로 한 번씩 받아 둔다.
+ * 가리지 못한 얼굴 사진을 남기지 않도록 이모지를 받지 못하면 압축하지 않고 실패한다.
  */
 export function createPhotoRenderer(
   newSurface: (size: Size) => PhotoSurface,
-  loadSticker: () => Promise<CanvasImageSource> = fetchSticker,
+  loadImage: (url: string) => Promise<CanvasImageSource> = fetchImage,
 ): RenderPhoto {
-  let sticker: Promise<CanvasImageSource> | null = null;
+  const images = new Map<string, Promise<CanvasImageSource>>();
 
-  function stickerImage(): Promise<CanvasImageSource> {
-    // 실패한 promise를 들고 있으면 다음 사진도 같은 실패를 받는다.
-    sticker ??= loadSticker().catch((error: unknown) => {
-      sticker = null;
-      throw error;
-    });
-    return sticker;
+  function emojiImage(url: string): Promise<CanvasImageSource> {
+    let image = images.get(url);
+    if (image === undefined) {
+      // 실패한 promise를 들고 있으면 다음 사진도 같은 실패를 받는다.
+      image = loadImage(url).catch((error: unknown) => {
+        images.delete(url);
+        throw error;
+      });
+      images.set(url, image);
+    }
+    return image;
   }
 
   return async ({ source, frame, spec, landmarks }) => {
@@ -175,9 +193,9 @@ export function createPhotoRenderer(
       size.width,
       size.height,
     );
-    const box = spec.mask && landmarks !== undefined ? stickerBox(landmarks, frame) : null;
+    const box = spec.mask ? maskBox(frame, landmarks, spec.spot) : null;
     if (box !== null) {
-      const image = await stickerImage();
+      const image = await emojiImage(spec.emojiUrl);
       const scale = size.width / crop.width;
       surface.context.drawImage(
         image,
@@ -199,7 +217,7 @@ export async function tryRenderPhoto(
   try {
     return await render(input);
   } catch (error: unknown) {
-    console.warn("[timelapse] 사진을 만들지 못했다", error);
+    console.warn("[timelapse] failed to render photo", error);
     return undefined;
   }
 }
@@ -213,7 +231,7 @@ export function offscreenSurface(size: Size): PhotoSurface {
   const canvas = new OffscreenCanvas(size.width, size.height);
   const context = canvas.getContext("2d");
   if (context === null) {
-    throw new Error("2D 컨텍스트를 만들지 못했다");
+    throw new Error("failed to create 2D context");
   }
   return {
     context,
@@ -231,7 +249,7 @@ export function documentSurface(size: Size): PhotoSurface {
   canvas.height = size.height;
   const context = canvas.getContext("2d");
   if (context === null) {
-    throw new Error("2D 컨텍스트를 만들지 못했다");
+    throw new Error("failed to create 2D context");
   }
   return {
     context,
@@ -240,7 +258,7 @@ export function documentSurface(size: Size): PhotoSurface {
         canvas.toBlob(
           (blob) => {
             if (blob === null) {
-              reject(new Error("JPEG로 압축하지 못했다"));
+              reject(new Error("failed to encode JPEG"));
               return;
             }
             blob.arrayBuffer().then(resolve, reject);

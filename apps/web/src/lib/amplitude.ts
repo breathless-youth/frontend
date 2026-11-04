@@ -22,6 +22,7 @@ import type {
 } from "@focusmakers/types";
 
 import { firebaseAnalyticsForwardPlugin } from "./firebaseAnalyticsBridge";
+import i18n from "./i18n";
 import type { InstallAttributionProperties } from "./installAttribution";
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
 import { showToast } from "./toast";
@@ -164,7 +165,7 @@ export function initAmplitude() {
   // 로더가 `engagementPlugin()`을 부를 때 전역을 만들어서 이 등록은 그 뒤에 둔다.
   // 전역이 없을 때 분석 초기화까지 멈추지 않도록 옵셔널 체이닝으로 부른다.
   window.engagement?.addCallback(SURVEY_THANKS_CALLBACK_KEY, () => {
-    showToast("소중한 의견 감사합니다!");
+    showToast(i18n.t("common:feedback.thanks"));
   });
   // 같은 이벤트·유저 속성을 네이티브 Firebase Analytics(GA4)에도 흘린다(FCM 콘솔 타겟팅용). destination이라
   // 정제·enrichment가 끝난 값을 받고, 브라우저 단독 모드에서는 아무것도 나가지 않는다.
@@ -516,7 +517,7 @@ export function trackSocialRoomCreateFailed(reason: string) {
 
 /**
  * 초대코드 입장 실패. `reason`은 서버 에러 코드(`RoomJoinErrorCode`) 또는
- * `HTTP_{status}` / `NETWORK_OR_UNKNOWN` 폴백 — `joinErrorCopy.joinErrorReason`이 만든다.
+ * `HTTP_{status}` / `NETWORK_OR_UNKNOWN` 폴백 — `joinError.joinErrorReason`이 만든다.
  * 실패 사유는 페이지뷰 퍼널로는 절대 보이지 않는, 초대 전환율 개선의 핵심 데이터다.
  */
 export function trackSocialRoomJoinFailed(reason: string) {
@@ -552,7 +553,7 @@ export function trackSocialRoomExited(input: SocialRoomExitedInput) {
 }
 
 /**
- * 룸 재입장(자리 재예약) 실패 — `kind`는 `joinErrorCopy.rejoinFailure`의 leave/retry 판정
+ * 룸 재입장(자리 재예약) 실패 — `kind`는 `joinError.rejoinFailure`의 leave/retry 판정
  * 그대로다. 재입장 버그 계열(BY-437/443)의 실사용 영향을 여기서 잰다.
  */
 export function trackSocialRoomRejoinFailed(kind: "leave" | "retry", reason: string) {
@@ -961,10 +962,34 @@ export function trackStudySessionCameraPromptShown(roomType: StudyRoomType) {
 export function trackStudySessionCameraPromptAnswered(input: {
   readonly choice: CameraPromptChoice;
   readonly roomType: StudyRoomType;
+  /** 답할 때 얼굴 가리기가 켜져 있었는지 */
+  readonly faceMask: boolean;
 }) {
   if (!initialized) return;
   track("study_session_camera_prompt_answered", {
     choice: input.choice,
+    room_type: input.roomType,
+    face_mask: input.faceMask,
+  });
+}
+
+/** 공부 화면 얼굴 가리기를 바꿈. 소셜룸 이벤트와 나란히 켜고 들어가는 비율을 본다. */
+export function trackStudySessionFaceMaskToggled(input: {
+  readonly on: boolean;
+  readonly roomType: StudyRoomType;
+}) {
+  if (!initialized) return;
+  track("study_session_face_mask_toggled", { on: input.on, room_type: input.roomType });
+}
+
+/** 공부 화면 얼굴 가리기 이모지를 고름. 어떤 이모지가 많이 쓰이는지 본다. */
+export function trackStudySessionFaceMaskEmojiSelected(input: {
+  readonly emojiId: string;
+  readonly roomType: StudyRoomType;
+}) {
+  if (!initialized) return;
+  track("study_session_face_mask_emoji_selected", {
+    emoji_id: input.emojiId,
     room_type: input.roomType,
   });
 }
@@ -1108,6 +1133,31 @@ export function trackRecordsPeriodPicked(input: {
 }) {
   if (!initialized) return;
   track("records_period_picked", { view: input.view, to_today: input.toToday });
+}
+
+/**
+ * 주간 탭의 나의 공부 리듬 카드가 화면에 들어왔다(주간 탭을 열 때마다 한 번).
+ *
+ * `state`는 카드가 그린 것(`mine` 내 리듬 / `sample` 샘플)이고, 샘플이면 `reason`이 왜인지 말한다
+ * (`below_threshold` 14일 전 · `empty_grid` 공부일은 찼는데 격자가 빔 · `error` 조회 실패).
+ * `study_days`는 응답이 있을 때만 싣는다. 14일 분기 전후 사용자를 나눠 보고 푸시 대상을 고르는 데 쓴다.
+ */
+export type RecordsRhythmShown =
+  | { readonly state: "mine"; readonly studyDays: number }
+  | {
+      readonly state: "sample";
+      readonly reason: "below_threshold" | "empty_grid";
+      readonly studyDays: number;
+    }
+  | { readonly state: "sample"; readonly reason: "error" };
+
+export function trackRecordsRhythmShown(input: RecordsRhythmShown) {
+  if (!initialized) return;
+  track("records_rhythm_shown", {
+    state: input.state,
+    ...("reason" in input && { reason: input.reason }),
+    ...("studyDays" in input && { study_days: input.studyDays }),
+  });
 }
 
 /**
@@ -1319,6 +1369,7 @@ export type TimelapseSettingEventKey =
   | "enabled"
   | "aspect"
   | "face_mask"
+  | "face_mask_emoji"
   | "flow_bar"
   | "date"
   | "focus_time"
@@ -1326,10 +1377,10 @@ export type TimelapseSettingEventKey =
   | "dday"
   | "streak";
 
-/** 설정 › 타임랩스에서 바꾼 항목과 바뀐 뒤의 값. 비율은 `9:16`·`16:9`, 나머지는 켜짐 여부다. */
+/** 설정 › 타임랩스에서 바꾼 항목과 바뀐 뒤의 값. 비율은 `9:16`·`16:9`, 가림 이모지는 이모지 id, 나머지는 켜짐 여부다. */
 export function trackTimelapseSettingChanged(input: {
   readonly setting: TimelapseSettingEventKey;
-  readonly value: boolean | "9:16" | "16:9";
+  readonly value: boolean | string;
 }) {
   if (!initialized) return;
   track("timelapse_setting_changed", { setting: input.setting, value: input.value });
