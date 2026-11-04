@@ -144,7 +144,7 @@
     "untilTop": "Top {{percent}}%"
   },
   "focusStart": {
-    "label": "Start focusing"
+    "label": "Start Focus"
   },
   "rankedCard": {
     "topPercent": "Top {{percent}}%",
