@@ -18,6 +18,7 @@ import { formatElapsed, toKoreanDuration } from "../formatDuration";
 import {
   MAX_SUBJECTS,
   MAX_TASKS,
+  revealInScrollList,
   SUBJECT_NAME_MAX,
   subjectIdUnderPoint,
   SWIPE_REMOVE_PX,
@@ -111,9 +112,29 @@ function InlineNameEditor({
     onCancel,
   });
   const countId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const countVisible = isCharCountVisible(value.length, maxLength, COUNT_SHOW_FROM);
+
+  // 사용자가 방금 누른 자리에 열리는 입력이라 열리자마자 커서를 둔다.
+  // autoFocus는 옵션 없이 포커스를 주어 iOS가 키보드를 올리며 문서를 끌어 올리고, 그러면 머리 줄이 상태 막대와 뒤로 가기 버튼 밑으로 들어간다.
+  // 처음 그린 뒤 preventScroll로 직접 포커스를 주어 문서가 움직이지 않게 한다.
+  useEffect(() => {
+    inputRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  // preventScroll이면 브라우저가 가려진 입력칸을 올려 주지 않아서 목록 안에서만 직접 올린다.
+  // 글자 수 줄이 생기거나 사라지면 입력칸 높이가 달라지므로 그때도 다시 맞춘다.
+  useEffect(() => {
+    if (rootRef.current !== null) revealInScrollList(rootRef.current);
+  }, [countVisible]);
+
   return (
-    <div className="flex w-full flex-col" onPointerDown={(event) => event.stopPropagation()}>
+    <div
+      ref={rootRef}
+      className="flex w-full flex-col"
+      onPointerDown={(event) => event.stopPropagation()}
+    >
       <div
         className={cn(
           "flex w-full items-center gap-2 pr-3",
@@ -121,8 +142,7 @@ function InlineNameEditor({
         )}
       >
         <input
-          // 사용자가 방금 누른 자리에 열리는 입력이라 autoFocus가 흐름을 끊지 않는다.
-          autoFocus
+          ref={inputRef}
           aria-label={ariaLabel}
           aria-describedby={countVisible ? countId : undefined}
           value={value}
@@ -608,7 +628,10 @@ function SubjectTasks({
       )}
 
       {scrollable ? (
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-none">
+        <div
+          data-scroll-list=""
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain scrollbar-none"
+        >
           {taskList}
         </div>
       ) : (
@@ -946,7 +969,10 @@ export function SubjectPanel({
   if (landscape && status === "ready" && viewed !== null) {
     return (
       <div className="grid min-h-0 flex-1 grid-cols-[17.5rem_minmax(0,1fr)] grid-rows-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 regular:grid-cols-[22.5rem_minmax(0,1fr)] regular:gap-x-6 short-side-lg:grid-cols-[26.25rem_minmax(0,1fr)] short-side-lg:gap-x-8">
-        <div className="min-h-0 overflow-y-auto overscroll-contain scrollbar-none">
+        <div
+          data-scroll-list=""
+          className="min-h-0 overflow-y-auto overscroll-contain scrollbar-none"
+        >
           <ul className="flex flex-col gap-1">
             {subjects.map((subject) => (
               <li
@@ -1000,7 +1026,10 @@ export function SubjectPanel({
 
   return (
     <>
-      <div className="min-h-0 w-full flex-1 overflow-y-auto overscroll-contain px-3 pt-2 pb-4 scrollbar-none">
+      <div
+        data-scroll-list=""
+        className="min-h-0 w-full flex-1 overflow-y-auto overscroll-contain px-3 pt-2 pb-4 scrollbar-none"
+      >
         {body}
       </div>
       {landscape ? (
