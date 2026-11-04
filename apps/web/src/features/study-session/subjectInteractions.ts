@@ -194,6 +194,36 @@ export function subjectIdUnderPoint(x: number, y: number, selfId: number): numbe
 }
 
 /**
+ * 입력칸 위아래로 더 보이게 할 여백
+ *
+ * 입력칸을 감싼 카드의 안쪽 여백까지 잘리지 않게 한다.
+ */
+const REVEAL_MARGIN_PX = 12;
+
+/**
+ * 입력칸을 가까운 스크롤 목록 안에서 보이게 하는 함수
+ *
+ * 목록은 `data-scroll-list`를 단 요소이고, 그 요소의 scrollTop만 바꾼다.
+ * scrollIntoView는 바깥 문서까지 스크롤할 수 있어서 쓰지 않는다.
+ * iOS에서 문서가 올라가면 머리 줄이 상태 막대와 뒤로 가기 버튼 밑으로 들어간다.
+ * 이미 보이면 건드리지 않고, 가려졌으면 가까운 가장자리에 맞춘다.
+ */
+export function revealInScrollList(target: HTMLElement): void {
+  const list = target.closest<HTMLElement>("[data-scroll-list]");
+  if (list === null) return;
+  const listRect = list.getBoundingClientRect();
+  const rect = target.getBoundingClientRect();
+  const topGap = rect.top - REVEAL_MARGIN_PX - listRect.top;
+  const bottomOverflow = rect.bottom + REVEAL_MARGIN_PX - listRect.bottom;
+  if (topGap < 0) {
+    list.scrollTop += topGap;
+  } else if (bottomOverflow > 0) {
+    // 입력칸이 목록보다 크면 윗변이 먼저 보이도록 윗변 쪽 여백이 남은 만큼만 내린다.
+    list.scrollTop += Math.min(bottomOverflow, topGap);
+  }
+}
+
+/**
  * 과목 순서 끌기 — 끄는 동안 지나는 과목과 자리를 바꾸고(화면에만), 놓을 때 순서가 달라졌으면 저장한다.
  */
 export function useSubjectReorder(store: SubjectsStore) {
