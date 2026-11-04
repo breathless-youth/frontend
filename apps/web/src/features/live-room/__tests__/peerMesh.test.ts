@@ -1645,6 +1645,72 @@ describe("오디오", () => {
     expect(channel.publishedSignals.map((s) => s.kind)).toEqual(["ANSWER"]);
   });
 
+  it("카메라가 없는 offer 쪽도 소리 칸을 협상하고, 켠 마이크를 다시 협상 없이 싣는다", async () => {
+    const { pcs, channel, mesh } = setupMesh({ audio: true });
+
+    channel.emitServerMessage(snapshot([member(7), member(2)]));
+    await flush();
+    const offers = channel.publishedSignals.filter((s) => s.kind === "OFFER");
+    expect(offers).toHaveLength(1);
+    const audio = audioTransceivers(pcs[0]!);
+    expect(audio[0]?.direction).toBe("sendrecv");
+
+    const mic = kindTrack("audio");
+    mesh.setLocalAudioTrack(mic);
+
+    expect(audio[0]?.sender.replaceTrack).toHaveBeenLastCalledWith(mic);
+    expect(channel.publishedSignals.filter((s) => s.kind === "OFFER")).toHaveLength(1);
+  });
+
+  it("카메라가 없는 answer 쪽도 나중에 켠 마이크를 협상된 소리 칸에 싣는다", async () => {
+    const { pcs, channel, mesh } = setupMesh({ audio: true });
+
+    channel.emitServerMessage(signal(2, "OFFER", OFFER_WITH_AUDIO));
+    await flush();
+    const mic = kindTrack("audio");
+    mesh.setLocalAudioTrack(mic);
+
+    const audio = audioTransceivers(pcs[0]!);
+    expect(audio).toHaveLength(1);
+    expect(audio[0]?.mid).not.toBeNull();
+    expect(audio[0]?.direction).toBe("sendrecv");
+    expect(audio[0]?.sender.replaceTrack).toHaveBeenLastCalledWith(mic);
+    expect(channel.publishedSignals.map((s) => s.kind)).toEqual(["ANSWER"]);
+  });
+
+  it("카메라를 빼도 소리 칸의 마이크는 건드리지 않는다", async () => {
+    const { pcs, channel, mesh } = setupMesh({ audio: true });
+    const camera = new FakeMediaStream([kindTrack("video")]);
+    mesh.setLocalStream(camera as unknown as MediaStream);
+    const mic = kindTrack("audio");
+    mesh.setLocalAudioTrack(mic);
+    channel.emitServerMessage(snapshot([member(7), member(2)]));
+    await flush();
+    const audio = audioTransceivers(pcs[0]!);
+    const replaced = vi.mocked(audio[0]!.sender.replaceTrack).mock.calls.length;
+
+    mesh.setLocalStream(null);
+
+    expect(vi.mocked(audio[0]!.sender.replaceTrack).mock.calls).toHaveLength(replaced);
+    expect(audio[0]?.sender.replaceTrack).toHaveBeenLastCalledWith(mic);
+  });
+
+  it("영상이 오지 않는 상대의 소리도 타일과 따로 알린다", async () => {
+    const { pcs, channel, mesh } = setupMesh({ audio: true });
+    const voices = vi.fn();
+    const tiles = vi.fn();
+    mesh.subscribeRemoteAudio(voices);
+    mesh.subscribeRemoteStreams(tiles);
+    channel.emitServerMessage(snapshot([member(7), member(2)]));
+    await flush();
+
+    const voice = kindTrack("audio");
+    pcs[0]?.ontrack?.({ track: voice, streams: [] });
+
+    expect(voices).toHaveBeenCalledWith(2, voice);
+    expect(tiles).not.toHaveBeenCalled();
+  });
+
   it("같은 연결의 재offer에도 answer 쪽 오디오 칸은 하나이고 sendrecv다", async () => {
     const { pcs, channel } = setupMesh({ audio: true });
     const offer = {

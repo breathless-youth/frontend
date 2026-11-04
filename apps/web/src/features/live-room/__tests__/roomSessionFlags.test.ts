@@ -86,22 +86,16 @@ describe("visionPreview", () => {
 });
 
 describe("micHeld", () => {
-  it("휴식 중에는 카메라가 켜져 있어서 마이크를 그대로 둔다", () => {
-    expect(micHeld(BREAK_STATE, "studying")).toBe(false);
+  it("공부방에 있는 동안에는 카메라를 꺼도 막지 않는다", () => {
+    expect(micHeld(false, "studying")).toBe(false);
   });
 
-  it("카메라를 꺼 멈추면 마이크도 끈다", () => {
-    expect(micHeld(pauseState("MANUAL"), "studying")).toBe(true);
-    expect(micHeld(pauseState("BACKGROUND"), "studying")).toBe(true);
+  it("앱을 떠나면 마이크를 끈다", () => {
+    expect(micHeld(true, "studying")).toBe(true);
   });
 
-  it("세션이 끝나기 시작하면 측정 중이었어도 마이크를 끈다", () => {
-    expect(micHeld(FOCUS_STATE, "submitting")).toBe(true);
-    expect(micHeld(BREAK_STATE, "done")).toBe(true);
-  });
-
-  it("측정 중에는 마이크를 막지 않는다", () => {
-    expect(micHeld(FOCUS_STATE, "studying")).toBe(false);
-    expect(micHeld(distractionState("PHONE"), "studying")).toBe(false);
+  it("세션이 끝나기 시작하면 마이크를 끈다", () => {
+    expect(micHeld(false, "submitting")).toBe(true);
+    expect(micHeld(false, "done")).toBe(true);
   });
 });

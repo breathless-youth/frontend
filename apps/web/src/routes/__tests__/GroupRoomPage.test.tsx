@@ -841,7 +841,10 @@ describe("GroupRoomPage 마이크 계측", () => {
     expect(vi.mocked(trackGroupRoomMicToggled).mock.calls).toEqual([[true], [false]]);
   });
 
-  it("카메라를 끄면 마이크 꺼짐도 계측한다", async () => {
+  it("카메라를 꺼도 마이크 꺼짐을 계측하지 않고 앱을 떠나 꺼지면 계측한다", async () => {
+    onTestFinished(() => {
+      Reflect.deleteProperty(document, "visibilityState");
+    });
     const { acquire } = await enterGroupRoom({ groupId: 10 });
     acquire.mockResolvedValue({ kind: "ok", track: fakeMicTrack() });
     await turnCameraOn();
@@ -850,6 +853,12 @@ describe("GroupRoomPage 마이크 계측", () => {
     await screen.findByRole("button", { name: "마이크 끄기" });
 
     await user.click(screen.getByRole("button", { name: "카메라 끄기" }));
+    expect(vi.mocked(trackGroupRoomMicToggled).mock.calls).toEqual([[true]]);
+
+    act(() => {
+      Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
 
     await waitFor(() => expect(trackGroupRoomMicToggled).toHaveBeenCalledTimes(2));
     expect(vi.mocked(trackGroupRoomMicToggled).mock.calls).toEqual([[true], [false]]);
@@ -942,13 +951,90 @@ describe("GroupRoomPage 조작 배치", () => {
     ).toBeNull();
   });
 
-  it("카메라가 꺼진 동안 마이크를 누르면 안내만 하고 켜지 않는다", async () => {
-    const { acquire } = await enterGroupRoom({ groupId: 10 });
+  it("카메라를 켜지 않아도 마이크만 켜서 멤버에게 켜짐을 알린다", async () => {
+    const { channel, acquire } = await enterGroupRoom({ groupId: 10 });
+    acquire.mockResolvedValue({ kind: "ok", track: fakeMicTrack() });
 
     await userEvent.setup().click(screen.getByRole("button", { name: "마이크 켜기" }));
 
-    expect(await screen.findByText("카메라를 켜면 마이크를 쓸 수 있어요")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "마이크 끄기" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(acquire).toHaveBeenCalledOnce();
+    expect(channel.published).toContainEqual({ micOn: true });
+    // 마이크 버튼이 카메라 켜기 확인 창을 열거나 카메라를 켜면 동의 없이 영상이 나간다.
+    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(screen.getByRole("button", { name: "카메라 켜기" })).toBeInTheDocument();
+    expect(channel.published).not.toContainEqual({ cameraOn: true });
+  });
+
+  it("카메라를 켜지 않은 채 마이크 권한을 거절하면 마이크 권한 안내만 한다", async () => {
+    const { channel } = await enterGroupRoom({ groupId: 10 });
+
+    await userEvent.setup().click(screen.getByRole("button", { name: "마이크 켜기" }));
+
+    expect(await screen.findByText(i18n.t("live-room:roomAudio.micDenied"))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "마이크 켜기" })).toBeInTheDocument();
+    expect(channel.published).not.toContainEqual({ micOn: true });
+  });
+
+  it("카메라를 끄고 켜도 켜 둔 마이크는 그대로다", async () => {
+    const { channel, acquire } = await enterGroupRoom({ groupId: 10 });
+    acquire.mockResolvedValue({ kind: "ok", track: fakeMicTrack() });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "마이크 켜기" }));
+    await screen.findByRole("button", { name: "마이크 끄기" });
+
+    await turnCameraOn();
+    expect(screen.getByRole("button", { name: "마이크 끄기" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "카메라 끄기" }));
+    expect(screen.getByRole("button", { name: "마이크 끄기" })).toBeInTheDocument();
+    // 들어갈 때 한 번 보낸 꺼짐 뒤로는 켜짐만 나가서 상대 타일의 마이크 아이콘도 켜진 채다.
+    expect(channel.published.filter((message) => "micOn" in message)).toEqual([
+      { micOn: false },
+      { micOn: true },
+    ]);
+    expect(acquire).toHaveBeenCalledOnce();
+  });
+
+  it("카메라를 켜도 꺼 둔 마이크는 따라 켜지지 않는다", async () => {
+    const { channel, acquire } = await enterGroupRoom({ groupId: 10 });
+
+    await turnCameraOn();
+
+    expect(screen.getByRole("button", { name: "마이크 켜기" })).toBeInTheDocument();
     expect(acquire).not.toHaveBeenCalled();
+    expect(channel.published).not.toContainEqual({ micOn: true });
+  });
+
+  it("카메라가 꺼진 채 앱을 떠나도 마이크를 끄고 돌아와도 꺼진 채다", async () => {
+    onTestFinished(() => {
+      Reflect.deleteProperty(document, "visibilityState");
+    });
+    const { channel, acquire } = await enterGroupRoom({ groupId: 10 });
+    acquire.mockResolvedValue({ kind: "ok", track: fakeMicTrack() });
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "마이크 켜기" }));
+    await screen.findByRole("button", { name: "마이크 끄기" });
+
+    act(() => {
+      Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(screen.getByRole("button", { name: "마이크 켜기" })).toBeInTheDocument();
+    expect(channel.published).toContainEqual({ micOn: false });
+
+    act(() => {
+      Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(screen.getByRole("button", { name: "마이크 켜기" })).toBeInTheDocument();
+
+    // 돌아온 뒤에는 카메라 없이 다시 켤 수 있다.
+    await user.click(screen.getByRole("button", { name: "마이크 켜기" }));
+    expect(await screen.findByRole("button", { name: "마이크 끄기" })).toBeInTheDocument();
   });
 
   it("카메라를 켜고 마이크를 켜면 켜짐을 보내고 가벼운 진동을 낸다", async () => {
@@ -1721,9 +1807,6 @@ describe("GroupRoomPage 타이머", () => {
 
     await user.click(within(dialog).getByRole("button", { name: "취소" }));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
-    await user.click(screen.getByRole("button", { name: "마이크 켜기" }));
-    expect(await screen.findByText("카메라를 켜면 마이크를 쓸 수 있어요")).toBeInTheDocument();
-    expect(channel.published).not.toContainEqual({ micOn: true });
 
     await user.click(
       within(screen.getByTestId("room-timer-capsule")).getByRole("button", { name: "계속" }),
@@ -1741,6 +1824,7 @@ describe("GroupRoomPage 타이머", () => {
     // 휴식에 드는 1분 사이에 조작이 숨어서 화면을 눌러 다시 부른다.
     await user.click(screen.getByTestId("live-room-page"));
     await user.click(screen.getByRole("button", { name: "카메라 끄기" }));
+    expect(screen.getByRole("button", { name: "마이크 끄기" })).toBeInTheDocument();
 
     await expectResumeAsksCamera(channel, user);
   });

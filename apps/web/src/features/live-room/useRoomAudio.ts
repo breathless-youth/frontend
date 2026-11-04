@@ -72,8 +72,8 @@ function micFailureNotice(result: Exclude<MicTurnOnResult, "on" | "cancelled">):
 /**
  * 공부방 소리 상태
  *
- * 마이크는 꺼진 채 시작하고, 카메라가 꺼진 동안에는 켜지지 않으며 카메라가 꺼지면 함께 꺼진다.
- * 카메라를 다시 켜도 마이크는 따라 켜지지 않아서 사용자가 켜지 않은 소리는 나가지 않는다.
+ * 마이크는 꺼진 채 시작하고 카메라와 상관없이 켜고 끈다.
+ * 앱을 떠나거나 세션이 끝나기 시작하면 꺼지고, 돌아와도 따라 켜지지 않아서 사용자가 켜지 않은 소리는 나가지 않는다.
  * 켜 둔 마이크의 트랙이 끊기거나 무음인 채로 남거나 통화가 끝나면 새 트랙을 얻어 모든 연결의 트랙을 바꾼다.
  * 사람별 음량과 소리 끄기는 이 기기에서만 먹히고 공부방을 나가면 사라진다.
  * 초대코드 방은 소리를 쓰지 않아서 마이크와 재생기를 만들지 않고, enabled는 처음 그릴 때 한 번만 읽는다.
@@ -81,7 +81,7 @@ function micFailureNotice(result: Exclude<MicTurnOnResult, "on" | "cancelled">):
 export function useRoomAudio({
   enabled,
   mesh,
-  cameraHeld,
+  held,
   micOnUserIds,
   onNotice,
   acquire = acquireMicTrack,
@@ -89,8 +89,8 @@ export function useRoomAudio({
 }: {
   enabled: boolean;
   mesh: Pick<PeerMesh, "setLocalAudioTrack" | "subscribeRemoteAudio">;
-  /** 카메라를 꺼서 측정을 멈춘 동안이다. */
-  cameraHeld: boolean;
+  /** 앱을 떠났거나 세션이 끝나기 시작해서 마이크를 끄고 켜지 못하게 막는 동안이다. */
+  held: boolean;
   /** 마이크를 켠 다른 멤버이고, 멤버 목록이 바뀔 때만 새 집합을 넘긴다. */
   micOnUserIds: ReadonlySet<number>;
   onNotice: (message: string) => void;
@@ -120,11 +120,11 @@ export function useRoomAudio({
   // 마지막으로 새 트랙을 얻기 시작한 시각이다.
   const renewedAtRef = useRef<number | null>(null);
 
-  // 카메라가 꺼지는 렌더에서 바로 꺼짐으로 그려야 카메라를 다시 켤 때 마이크가 켜짐으로 돌아오지 않는다.
-  const [heldBefore, setHeldBefore] = useState(cameraHeld);
-  if (cameraHeld !== heldBefore) {
-    setHeldBefore(cameraHeld);
-    if (cameraHeld) {
+  // 막히는 렌더에서 바로 꺼짐으로 그려야 막힘이 풀릴 때 마이크가 켜짐으로 돌아오지 않는다.
+  const [heldBefore, setHeldBefore] = useState(held);
+  if (held !== heldBefore) {
+    setHeldBefore(held);
+    if (held) {
       setMicOn(false);
       setMicPending(false);
       setSentTrack(null);
@@ -132,17 +132,17 @@ export function useRoomAudio({
   }
   // 꺼짐을 그린 커밋 안에서 떼야, 그 커밋과 다음 effect 사이에 권한 창의 응답이 도착해 마이크가 실리는 일이 없다.
   useLayoutEffect(() => {
-    if (!cameraHeld) {
+    if (!held) {
       return;
     }
-    // 켜는 중이던 요청도 함께 취소돼서 카메라가 꺼진 뒤에 도착한 트랙은 실리지 않는다.
+    // 켜는 중이던 요청도 함께 취소돼서 막힌 뒤에 도착한 트랙은 실리지 않는다.
     line?.turnOff();
     player?.setLocalMeter(null);
     selfRef.current = INITIAL_SPEAKING;
-  }, [cameraHeld, line, player]);
+  }, [held, line, player]);
 
   // 마이크가 실제로 켜지거나 꺼질 때만 계측하고 처음 꺼진 값은 보내지 않는다.
-  // 카메라를 꺼서 따라 꺼지거나 OS가 마이크를 끊은 것도 꺼짐으로 센다.
+  // 앱을 떠나 따라 꺼지거나 OS가 마이크를 끊은 것도 꺼짐으로 센다.
   const trackedMicOnRef = useRef(micOn);
   useEffect(() => {
     if (trackedMicOnRef.current === micOn) {
@@ -177,7 +177,7 @@ export function useRoomAudio({
     }
     renewedAtRef.current = Date.now();
     void line.renew().then((result) => {
-      // 끄기나 카메라 꺼짐, 나가기, 뒤이은 바꾸기가 앞선 경우라 그쪽이 상태를 이미 정했다.
+      // 끄기나 앱 떠남, 나가기, 뒤이은 바꾸기가 앞선 경우라 그쪽이 상태를 이미 정했다.
       if (result === "cancelled") {
         return;
       }
@@ -234,13 +234,12 @@ export function useRoomAudio({
       turnMicOff();
       return;
     }
-    if (cameraHeld) {
-      onNotice(i18n.t("live-room:roomAudio.micNeedsCamera"));
+    if (held) {
       return;
     }
     setMicPending(true);
     void line.turnOn().then((result) => {
-      // 끄기나 카메라 꺼짐, 나가기가 앞선 요청은 그쪽이 상태를 이미 정했다.
+      // 끄기나 앱 떠남, 나가기가 앞선 요청은 그쪽이 상태를 이미 정했다.
       if (result === "cancelled") {
         return;
       }

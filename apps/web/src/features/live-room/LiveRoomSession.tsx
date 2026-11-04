@@ -429,11 +429,21 @@ export function LiveRoomSession({
       ),
     [members, userId],
   );
+  // 카메라를 끈 채 떠나면 일시정지 사유가 바뀌지 않아서 앱을 떠났는지는 신호원에서 따로 읽는다.
+  const [appHidden, setAppHidden] = useState(false);
+  useEffect(
+    () =>
+      systemPause.subscribe({
+        onLeave: () => setAppHidden(true),
+        onReturn: () => setAppHidden(false),
+      }),
+    [systemPause],
+  );
   // 소리는 그룹 공부방에서만 오간다.
   const audio = useRoomAudio({
     enabled: room.kind === "group",
     mesh,
-    cameraHeld: micHeld(sessionState, phase.name),
+    held: micHeld(appHidden, phase.name),
     micOnUserIds,
     onNotice: showCtaToast,
     ...audioDeps,
@@ -964,7 +974,7 @@ export function LiveRoomSession({
    *
    * 내 타일은 내 마이크로 판정하고 메뉴가 없다.
    * 닉네임을 아직 받지 못한 멤버는 누구인지 보이지 않아서 메뉴를 두지 않는다.
-   * 차단한 멤버와는 소리가 오가지 않아서 카메라를 끈 사람처럼 마이크도 꺼짐으로 보이고 말하는 중이 아니다.
+   * 차단한 멤버와는 소리가 오가지 않아서 마이크도 꺼짐으로 보이고 말하는 중이 아니다.
    */
   function groupTileExtras(member: RoomMember) {
     if (member.userId === userId) {

@@ -141,14 +141,14 @@ function setup(overrides: Partial<Parameters<typeof useRoomAudio>[0]> = {}) {
   let renders = 0;
   const hook = renderHook<
     ReturnType<typeof useRoomAudio>,
-    { cameraHeld: boolean; micOnUserIds?: ReadonlySet<number> }
+    { held: boolean; micOnUserIds?: ReadonlySet<number> }
   >(
     (props) => {
       renders += 1;
       return useRoomAudio({
         enabled: true,
         mesh,
-        cameraHeld: props.cameraHeld,
+        held: props.held,
         micOnUserIds: props.micOnUserIds ?? NO_MIC_ON,
         onNotice,
         acquire,
@@ -156,7 +156,7 @@ function setup(overrides: Partial<Parameters<typeof useRoomAudio>[0]> = {}) {
         ...overrides,
       });
     },
-    { initialProps: { cameraHeld: false } },
+    { initialProps: { held: false } },
   );
   const listener = () => mesh.subscribeRemoteAudio.mock.calls.at(-1)?.[0] as RemoteAudioListener;
   return {
@@ -185,25 +185,25 @@ describe("useRoomAudio 마이크", () => {
     expect(mesh.setLocalAudioTrack).toHaveBeenLastCalledWith(mic);
   });
 
-  it("카메라가 꺼진 동안 누르면 켜지지 않고 안내만 한다", async () => {
+  it("막힌 동안 누르면 켜지지 않고 안내도 하지 않는다", async () => {
     const { result, rerender, acquire, onNotice } = setup();
-    rerender({ cameraHeld: true });
+    rerender({ held: true });
     await act(async () => result.current.toggleMic());
     expect(result.current.micOn).toBe(false);
     expect(acquire).not.toHaveBeenCalled();
-    expect(onNotice).toHaveBeenCalledWith("카메라를 켜면 마이크를 쓸 수 있어요");
+    expect(onNotice).not.toHaveBeenCalled();
   });
 
-  it("카메라가 꺼지면 마이크도 끈다", async () => {
+  it("막히면 마이크를 끈다", async () => {
     const { result, rerender, mesh, mic } = setup();
     await act(async () => result.current.toggleMic());
     expect(mesh.setLocalAudioTrack).toHaveBeenLastCalledWith(mic);
-    rerender({ cameraHeld: true });
+    rerender({ held: true });
     expect(result.current.micOn).toBe(false);
     expect(mesh.setLocalAudioTrack).toHaveBeenLastCalledWith(null);
   });
 
-  it("카메라가 꺼지는 커밋 안에서 마이크를 떼서 늦게 온 트랙이 끼어들 틈이 없다", async () => {
+  it("막히는 커밋 안에서 마이크를 떼서 늦게 온 트랙이 끼어들 틈이 없다", async () => {
     const mesh = {
       setLocalAudioTrack: vi.fn(),
       subscribeRemoteAudio: vi.fn((_listener: RemoteAudioListener) => () => undefined),
@@ -211,11 +211,11 @@ describe("useRoomAudio 마이크", () => {
     const mic = fakeTrack();
     let sentAtLayout: MediaStreamTrack | null | undefined;
     const { result, rerender } = renderHook(
-      (props: { cameraHeld: boolean }) => {
+      (props: { held: boolean }) => {
         const audio = useRoomAudio({
           enabled: true,
           mesh,
-          cameraHeld: props.cameraHeld,
+          held: props.held,
           micOnUserIds: NO_MIC_ON,
           onNotice: vi.fn(),
           acquire: async () => ({ kind: "ok", track: mic }),
@@ -227,25 +227,25 @@ describe("useRoomAudio 마이크", () => {
         });
         return audio;
       },
-      { initialProps: { cameraHeld: false } },
+      { initialProps: { held: false } },
     );
     await act(async () => result.current.toggleMic());
     expect(sentAtLayout).toBe(mic);
 
-    rerender({ cameraHeld: true });
+    rerender({ held: true });
 
     expect(sentAtLayout).toBeNull();
   });
 
-  it("카메라를 다시 켜도 마이크는 꺼진 채다", async () => {
+  it("막힘이 풀려도 마이크는 꺼진 채다", async () => {
     const { result, rerender } = setup();
     await act(async () => result.current.toggleMic());
-    rerender({ cameraHeld: true });
-    rerender({ cameraHeld: false });
+    rerender({ held: true });
+    rerender({ held: false });
     expect(result.current.micOn).toBe(false);
   });
 
-  it("켜는 중에 카메라를 끄면 마이크는 꺼진 채다", async () => {
+  it("켜는 중에 막히면 마이크는 꺼진 채다", async () => {
     let resolve: (result: MicAcquireResult) => void = () => undefined;
     const acquire = vi.fn(
       () =>
@@ -257,7 +257,7 @@ describe("useRoomAudio 마이크", () => {
     act(() => result.current.toggleMic());
     expect(result.current.micPending).toBe(true);
 
-    rerender({ cameraHeld: true });
+    rerender({ held: true });
     await act(async () => resolve({ kind: "ok", track: mic }));
 
     expect(result.current.micOn).toBe(false);
@@ -550,10 +550,10 @@ describe("useRoomAudio 상대 소리", () => {
     const { rerender, player } = setup();
     const talking = new Set([42]);
 
-    rerender({ cameraHeld: false, micOnUserIds: talking });
+    rerender({ held: false, micOnUserIds: talking });
     expect(player.setMicOnUsers).toHaveBeenLastCalledWith(talking);
 
-    rerender({ cameraHeld: false, micOnUserIds: NO_MIC_ON });
+    rerender({ held: false, micOnUserIds: NO_MIC_ON });
     expect(player.setMicOnUsers).toHaveBeenLastCalledWith(NO_MIC_ON);
   });
 

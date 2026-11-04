@@ -654,7 +654,7 @@ export function trackGroupRoomReported(target: "member" | "application") {
   track("group_room_reported", { target });
 }
 
-/** 공부방에서 내 마이크가 실제로 켜지거나 꺼졌을 때 보내고 카메라를 꺼서 따라 꺼진 것도 꺼짐이다. */
+/** 공부방에서 내 마이크가 실제로 켜지거나 꺼졌을 때 보내고 앱을 떠나 따라 꺼진 것도 꺼짐이다. */
 export function trackGroupRoomMicToggled(on: boolean) {
   if (!initialized) return;
   track("group_room_mic_toggled", { on });

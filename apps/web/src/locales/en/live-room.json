@@ -128,7 +128,6 @@
     "reportedAndBlocked": "Reported and blocked {{nickname}}"
   },
   "roomAudio": {
-    "micNeedsCamera": "Turn on your camera to use the mic",
     "micDenied": "Allow microphone access in system settings",
     "micUnavailable": "Couldn't turn on the mic"
   }

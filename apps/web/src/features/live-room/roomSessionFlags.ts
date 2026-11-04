@@ -3,7 +3,7 @@ import { isBreak, isSessionHeld } from "@/features/study-session/sessionState";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 
 export interface RoomSessionFlags {
-  /** 카메라를 꺼서 멈춘 동안이고 화면의 카메라 꺼짐 표시와 마이크 잠금이 이 값을 따른다. */
+  /** 카메라를 꺼서 멈춘 동안이고 화면의 카메라 꺼짐 표시가 이 값을 따른다. */
   cameraHeld: boolean;
   /** 상대에게 보내는 영상 트랙을 켜 둘지 */
   trackEnabled: boolean;
@@ -16,7 +16,7 @@ export interface RoomSessionFlags {
 /**
  * 공부방 세션 상태에서 카메라, 송신, 감지, 휴식 값 고르기
  *
- * 뽀모도로 휴식은 측정만 멈추고 카메라와 마이크는 그대로 두어서 카메라를 끈 일시정지와 따로 본다.
+ * 뽀모도로 휴식은 측정만 멈추고 카메라는 그대로 두어서 카메라를 끈 일시정지와 따로 본다.
  * 초대코드 방에는 휴식이 없어서 두 값 모두 지금처럼 일시정지 여부와 같다.
  */
 export function roomSessionFlags(state: SessionState): RoomSessionFlags {
@@ -32,11 +32,12 @@ export function roomSessionFlags(state: SessionState): RoomSessionFlags {
 /**
  * 마이크를 끄고 켜지 못하게 막을지
  *
- * 카메라를 꺼 멈추면 마이크도 꺼지고, 휴식 중에는 카메라가 켜져 있어서 마이크를 그대로 둔다.
+ * 카메라와 측정 상태는 보지 않아서 카메라를 끈 일시정지와 휴식에도 켜 둔 마이크는 그대로다.
+ * 앱을 떠난 동안에는 사용자가 듣지도 보지도 못해서, 카메라를 끈 채 떠나 일시정지 사유가 바뀌지 않아도 소리가 나가지 않게 막는다.
  * 나가기나 자동 종료로 세션이 끝나기 시작하면 측정 중이었어도 소리가 더 나가지 않게 막는다.
  */
-export function micHeld(state: SessionState, phaseName: StudyRoomPhase["name"]): boolean {
-  return isSessionHeld(state) || phaseName !== "studying";
+export function micHeld(appHidden: boolean, phaseName: StudyRoomPhase["name"]): boolean {
+  return appHidden || phaseName !== "studying";
 }
 
 /**
