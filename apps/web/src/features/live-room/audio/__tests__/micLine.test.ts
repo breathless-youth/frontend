@@ -8,6 +8,7 @@ function fakeTrack() {
   return {
     kind: "audio",
     enabled: true,
+    muted: false,
     readyState: "live",
     stop: vi.fn(function (this: { readyState: string }) {
       this.readyState = "ended";
@@ -254,5 +255,138 @@ describe("createMicLine 닫기", () => {
 
     expect(acquire).toHaveBeenCalledTimes(2);
     expect(sink.setLocalAudioTrack).toHaveBeenLastCalledWith(tracks[1]);
+  });
+});
+
+describe("createMicLine 새 트랙으로 바꾸기", () => {
+  it("켜져 있으면 새 트랙을 모든 송신기에 먼저 싣고 앞 트랙을 멈춘다", async () => {
+    const { line, sink, acquire, tracks } = setup("detach");
+    await line.turnOn();
+
+    await expect(line.renew()).resolves.toBe("on");
+
+    expect(acquire).toHaveBeenCalledTimes(2);
+    expect(sink.setLocalAudioTrack).toHaveBeenLastCalledWith(tracks[1]);
+    expect(tracks[0]?.stop).toHaveBeenCalled();
+    // 새 트랙을 실은 뒤에 앞 트랙을 멈춰서 소리가 비는 틈이 없다.
+    const attachedAt = sink.setLocalAudioTrack.mock.invocationCallOrder.at(-1) ?? 0;
+    const stoppedAt = vi.mocked(tracks[0]!.stop).mock.invocationCallOrder[0] ?? 0;
+    expect(attachedAt).toBeLessThan(stoppedAt);
+    expect(line.isOn).toBe(true);
+    expect(line.localTrack()).toBe(tracks[1]);
+  });
+
+  it("새 트랙을 기다리는 동안 앞 트랙을 떼지 않는다", async () => {
+    const { acquire, resolve } = deferredAcquire();
+    const sink = { setLocalAudioTrack: vi.fn() };
+    const line = createMicLine({ sink, acquire, mode: "detach" });
+    const first = fakeTrack();
+    const fresh = fakeTrack();
+    const on = line.turnOn();
+    resolve(0, { kind: "ok", track: first });
+    await on;
+
+    const renewed = line.renew();
+
+    expect(sink.setLocalAudioTrack).not.toHaveBeenCalledWith(null);
+    expect(line.localTrack()).toBe(first);
+    resolve(1, { kind: "ok", track: fresh });
+    await expect(renewed).resolves.toBe("on");
+    expect(sink.setLocalAudioTrack.mock.calls).toEqual([[first], [fresh]]);
+  });
+
+  it("새 트랙을 얻지 못하면 앞 트랙을 떼고 멈춰 꺼진 상태로 끝난다", async () => {
+    const sink = { setLocalAudioTrack: vi.fn() };
+    const first = fakeTrack();
+    const acquire = vi
+      .fn<() => Promise<MicAcquireResult>>()
+      .mockResolvedValueOnce({ kind: "ok", track: first })
+      .mockResolvedValueOnce({ kind: "unavailable" });
+    const line = createMicLine({ sink, acquire, mode: "detach" });
+    await line.turnOn();
+
+    await expect(line.renew()).resolves.toBe("unavailable");
+
+    expect(line.isOn).toBe(false);
+    expect(line.localTrack()).toBeNull();
+    expect(sink.setLocalAudioTrack).toHaveBeenLastCalledWith(null);
+    expect(first.stop).toHaveBeenCalled();
+  });
+
+  it("바꾸는 중에 끄면 늦게 온 트랙을 싣지 않고 다음 켜기에서 새로 얻는다", async () => {
+    const { acquire, resolve } = deferredAcquire();
+    const sink = { setLocalAudioTrack: vi.fn() };
+    const line = createMicLine({ sink, acquire, mode: "detach" });
+    const first = fakeTrack();
+    const late = fakeTrack();
+    const next = fakeTrack();
+    const on = line.turnOn();
+    resolve(0, { kind: "ok", track: first });
+    await on;
+
+    const renewed = line.renew();
+    line.turnOff();
+    resolve(1, { kind: "ok", track: late });
+
+    await expect(renewed).resolves.toBe("cancelled");
+    expect(sink.setLocalAudioTrack).not.toHaveBeenCalledWith(late);
+    expect(late.stop).toHaveBeenCalled();
+
+    const again = line.turnOn();
+    resolve(2, { kind: "ok", track: next });
+    await expect(again).resolves.toBe("on");
+    expect(acquire).toHaveBeenCalledTimes(3);
+    expect(sink.setLocalAudioTrack).toHaveBeenLastCalledWith(next);
+    expect(first.stop).toHaveBeenCalled();
+  });
+
+  it("거듭 바꾸면 마지막에 얻은 트랙만 싣는다", async () => {
+    const { acquire, resolve } = deferredAcquire();
+    const sink = { setLocalAudioTrack: vi.fn() };
+    const line = createMicLine({ sink, acquire, mode: "detach" });
+    const first = fakeTrack();
+    const stale = fakeTrack();
+    const fresh = fakeTrack();
+    const on = line.turnOn();
+    resolve(0, { kind: "ok", track: first });
+    await on;
+
+    const earlier = line.renew();
+    const later = line.renew();
+    resolve(1, { kind: "ok", track: stale });
+    resolve(2, { kind: "ok", track: fresh });
+
+    await expect(earlier).resolves.toBe("cancelled");
+    await expect(later).resolves.toBe("on");
+    expect(stale.stop).toHaveBeenCalled();
+    expect(sink.setLocalAudioTrack).not.toHaveBeenCalledWith(stale);
+    expect(line.localTrack()).toBe(fresh);
+  });
+
+  it("꺼진 동안 바꾸라는 신호를 받으면 들고 있던 트랙을 다시 켤 때 쓰지 않는다", async () => {
+    const { line, sink, acquire, tracks } = setup("detach");
+    await line.turnOn();
+    line.turnOff();
+
+    await expect(line.renew()).resolves.toBe("cancelled");
+    expect(acquire).toHaveBeenCalledOnce();
+
+    await line.turnOn();
+    expect(acquire).toHaveBeenCalledTimes(2);
+    expect(sink.setLocalAudioTrack).toHaveBeenLastCalledWith(tracks[1]);
+    expect(tracks[0]?.stop).toHaveBeenCalled();
+  });
+
+  it("무음이 된 트랙은 다시 켤 때 새로 얻는다", async () => {
+    const { line, sink, acquire, tracks } = setup("detach");
+    await line.turnOn();
+    line.turnOff();
+    (tracks[0] as unknown as { muted: boolean }).muted = true;
+
+    await line.turnOn();
+
+    expect(acquire).toHaveBeenCalledTimes(2);
+    expect(sink.setLocalAudioTrack).toHaveBeenLastCalledWith(tracks[1]);
+    expect(tracks[0]?.stop).toHaveBeenCalled();
   });
 });

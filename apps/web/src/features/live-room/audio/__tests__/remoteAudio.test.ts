@@ -436,3 +436,73 @@ describe("마이크를 켠 멤버가 있을 때만 keep-alive", () => {
     expect(instance.needsResume()).toBe(false);
   });
 });
+
+describe("통화나 알람이 끝난 신호", () => {
+  it("중단된 컨텍스트가 다시 돌기 시작하면 한 번 알린다", () => {
+    const { instance, ctx } = player();
+    instance.setLocalMeter(track());
+    const ended = vi.fn();
+    instance.onInterruptionEnd(ended);
+
+    ctx.fire("interrupted");
+    expect(instance.interrupted()).toBe(true);
+    expect(ended).not.toHaveBeenCalled();
+
+    ctx.fire("running");
+    expect(ended).toHaveBeenCalledOnce();
+    expect(instance.interrupted()).toBe(false);
+
+    ctx.fire("running");
+    expect(ended).toHaveBeenCalledOnce();
+  });
+
+  it("중단 뒤 멈춤을 거쳐 돌아도 돌기 시작할 때 알린다", () => {
+    const { instance, ctx } = player();
+    instance.setLocalMeter(track());
+    const ended = vi.fn();
+    instance.onInterruptionEnd(ended);
+
+    ctx.fire("interrupted");
+    ctx.fire("suspended");
+    expect(ended).not.toHaveBeenCalled();
+    ctx.fire("running");
+
+    expect(ended).toHaveBeenCalledOnce();
+  });
+
+  it("중단 없이 멈췄다 도는 것은 알리지 않는다", () => {
+    const { instance, ctx } = player();
+    instance.setLocalMeter(track());
+    const ended = vi.fn();
+    instance.onInterruptionEnd(ended);
+
+    ctx.fire("suspended");
+    ctx.fire("running");
+
+    expect(ended).not.toHaveBeenCalled();
+    expect(instance.interrupted()).toBe(false);
+  });
+
+  it("구독을 풀면 알리지 않는다", () => {
+    const { instance, ctx } = player();
+    instance.setLocalMeter(track());
+    const ended = vi.fn();
+    const unsubscribe = instance.onInterruptionEnd(ended);
+
+    unsubscribe();
+    ctx.fire("interrupted");
+    ctx.fire("running");
+
+    expect(ended).not.toHaveBeenCalled();
+  });
+
+  it("닫으면 중단 상태를 잊는다", () => {
+    const { instance, ctx } = player();
+    instance.setLocalMeter(track());
+    ctx.fire("interrupted");
+
+    instance.close();
+
+    expect(instance.interrupted()).toBe(false);
+  });
+});

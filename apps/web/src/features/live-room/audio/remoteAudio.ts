@@ -30,6 +30,15 @@ export interface RemoteAudioPlayer {
   needsResume(): boolean;
   /** 사용자 동작 안에서 부르면 멈춘 요소를 다시 걸고 컨텍스트를 깨운다. */
   resume(): Promise<void>;
+  /** 통화나 알람이 컨텍스트를 멈춘 뒤 아직 다시 돌지 않았다. */
+  interrupted(): boolean;
+  /**
+   * 통화나 알람으로 멈췄던 컨텍스트가 다시 돌기 시작할 때 부를 함수 등록
+   *
+   * 중단을 지난 마이크 캡처는 켜져 보여도 무음을 낼 수 있어서 마이크 쪽이 새 트랙을 얻는 신호로 쓴다.
+   * 돌려받은 함수를 부르면 등록을 푼다.
+   */
+  onInterruptionEnd(listener: () => void): () => void;
   /** 닫은 뒤에 다시 붙이면 새 컨텍스트로 시작해서 StrictMode의 다시 마운트에도 쓸 수 있다. */
   close(): void;
 }
@@ -118,6 +127,9 @@ export function createRemoteAudioPlayer(
   let localMeter: LocalMeter | null = null;
   // undefined는 아직 만들지 않은 것이고, null은 Apple WebKit이 아니라 만들지 않는다는 뜻이다.
   let keepAlive: HTMLAudioElement | null | undefined;
+  // 통화나 알람이 컨텍스트를 멈춘 뒤 아직 다시 돌지 않았다.
+  let interruptedNow = false;
+  const interruptionEndListeners = new Set<() => void>();
 
   function context(): AudioContext | null {
     if (ctx === undefined) {
@@ -128,10 +140,23 @@ export function createRemoteAudioPlayer(
         created = null;
       }
       ctx = created;
-      // 통화나 알람처럼 부르지 않았는데 멈추면 들을 상대가 있는 동안 다시 깨운다.
-      // 앱 웹뷰는 사용자 동작 없이도 재생을 허용해서 여기서 되살아나고, 브라우저는 다음 누름이 다시 부른다.
       created?.addEventListener("statechange", () => {
-        if (ctx === created && created.state !== "running" && voices.size > 0) {
+        if (ctx !== created) {
+          return;
+        }
+        // lib.dom의 상태 타입에는 WebKit이 통화와 알람에 쓰는 interrupted가 없어서 문자열로 본다.
+        const state: string = created.state;
+        if (state === "interrupted") {
+          interruptedNow = true;
+        } else if (state === "running" && interruptedNow) {
+          interruptedNow = false;
+          for (const listener of [...interruptionEndListeners]) {
+            listener();
+          }
+        }
+        // 통화나 알람처럼 부르지 않았는데 멈추면 들을 상대가 있는 동안 다시 깨운다.
+        // 앱 웹뷰는 사용자 동작 없이도 재생을 허용해서 여기서 되살아나고, 브라우저는 다음 누름이 다시 부른다.
+        if (state !== "running" && voices.size > 0) {
           void resume();
         }
       });
@@ -330,6 +355,15 @@ export function createRemoteAudioPlayer(
       return keepAliveWanted() && keepAlive != null && keepAlive.paused !== false;
     },
     resume,
+    interrupted() {
+      return interruptedNow;
+    },
+    onInterruptionEnd(listener) {
+      interruptionEndListeners.add(listener);
+      return () => {
+        interruptionEndListeners.delete(listener);
+      };
+    },
     close() {
       for (const userId of [...voices.keys()]) {
         removeVoice(userId);
@@ -341,6 +375,7 @@ export function createRemoteAudioPlayer(
       muted.clear();
       allMuted = false;
       micOnUsers = new Set();
+      interruptedNow = false;
       const closing = ctx;
       ctx = undefined;
       if (closing) {
