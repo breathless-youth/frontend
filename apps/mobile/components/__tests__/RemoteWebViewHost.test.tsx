@@ -338,10 +338,12 @@ describe("RemoteWebViewHost", () => {
     expect(props.mediaCapturePermissionGrantType).toBe("grant");
   });
 
-  it("열리자마자 포커스를 준 입력칸에서 iOS 키보드가 올라오도록 사용자 동작을 요구하지 않는다", () => {
+  it("iOS 키보드는 입력칸을 눌러야 올라오는 기본 동작을 유지한다", () => {
+    // 이 값을 false로 바꾸면 열릴 때 포커스를 주는 화면(플래너 할 일 추가, 과목 시트)에서 키보드가 저절로 올라온다.
+    // 그러면 입력칸이 키보드 뒤로 가거나 화면이 튄다.
     render(<RemoteWebViewHost path="/home" testID="host" />);
 
-    expect(screen.getByTestId("host").props.keyboardDisplayRequiresUserAction).toBe(false);
+    expect(screen.getByTestId("host").props.keyboardDisplayRequiresUserAction).not.toBe(false);
   });
 
   it("다크 스킴이면 다크 배경 토큰을 웹뷰에 넘긴다", () => {
