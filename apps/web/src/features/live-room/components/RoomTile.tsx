@@ -115,17 +115,6 @@ const GOAL_SLIDE =
   "translate-y-0 transition-[translate,opacity] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none data-hidden:opacity-0 motion-safe:data-hidden:translate-y-[calc(100%+var(--spacing)*3)]";
 
 /**
- * 이름 줄이 바 위로 올라가고 내려오는 전환
- *
- * 가로 폰은 아래 바가 맨 아랫줄 타일의 이름 줄을 덮어서, 바가 떠 있는 동안 바 위로 올린다.
- * 올리는 거리는 룸 화면이 바 높이에 작은 간격을 더해 정한 `--room-bar-lift`라 바가 달라지면 함께 바뀐다.
- * 시간과 곡선은 바와 같다.
- * 올리는 일은 바에 가리지 않으려는 것이라 동작 줄이기에서도 위치는 바뀌고 전환만 끈다.
- * 가로가 아니면 격자가 바 자리를 비워 두므로 `landscape-compact` 안에서만 올린다.
- * 올리지 않았을 때의 위치도 `translate-y-0`으로 적어 두 상태가 모두 값을 가진 채로 전환한다.
- * 낮은 가로 화면의 작은 타일은 올라간 이름 줄이 오른쪽 위 시간 뱃지 높이까지 닿아서, 뱃지가 있는 타일은 올라간 동안 오른쪽 끝을 뱃지 폭만큼 비워 긴 글자를 줄임표로 줄인다.
- */
-/**
  * 목표가 숨을 때 닉네임 줄이 목표 자리로 내려오는 전환
  *
  * 목표 줄이 숨은 뒤 그 자리가 빈 띠로 남지 않게 닉네임 줄을 목표 줄의 위 간격과 높이만큼 내린다.
@@ -136,6 +125,17 @@ const GOAL_SLIDE =
 const NICKNAME_DROP =
   "translate-y-0 transition-[translate] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none data-dropped:translate-y-[calc(var(--goal-line)+var(--spacing))]";
 
+/**
+ * 이름 줄이 바 위로 올라가고 내려오는 전환
+ *
+ * 가로 폰은 아래 바가 맨 아랫줄 타일의 이름 줄을 덮어서, 바가 떠 있는 동안 바 위로 올린다.
+ * 올리는 거리는 룸 화면이 바 높이에 작은 간격을 더해 정한 `--room-bar-lift`라 바가 달라지면 함께 바뀐다.
+ * 시간과 곡선은 바와 같다.
+ * 올리는 일은 바에 가리지 않으려는 것이라 동작 줄이기에서도 위치는 바뀌고 전환만 끈다.
+ * 가로가 아니면 격자가 바 자리를 비워 두므로 `landscape-compact` 안에서만 올린다.
+ * 올리지 않았을 때의 위치도 `translate-y-0`으로 적어 두 상태가 모두 값을 가진 채로 전환한다.
+ * 낮은 가로 화면의 작은 타일은 올라간 이름 줄이 오른쪽 위 시간 뱃지 높이까지 닿아서, 뱃지가 있는 타일은 올라간 동안 오른쪽 끝을 뱃지 폭만큼 비워 긴 글자를 줄임표로 줄인다.
+ */
 const LABEL_LIFT =
   "translate-y-0 transition-[translate] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none landscape-compact:data-lifted:-translate-y-(--room-bar-lift)";
 
