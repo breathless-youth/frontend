@@ -13,7 +13,11 @@ import {
   type NativeAnalyticsEvent,
 } from "../nativeAnalytics";
 import { __resetStartSessionInFlightForTests, handleBridgeMessage } from "../nativeBridgeHandler";
-import { getCameraPermissionStatus, openAppSettings } from "../cameraPermission";
+import {
+  getCameraPermissionStatus,
+  isMicrophonePermissionGranted,
+  openAppSettings,
+} from "../cameraPermission";
 import { runCameraPermissionGate } from "../cameraPermissionGate";
 import { triggerHaptic } from "../haptics";
 import { logAnalyticsEvent, setAnalyticsUserProperties } from "../firebaseAnalytics";
@@ -55,6 +59,7 @@ jest.mock("../cameraPermissionGate", () => ({
 jest.mock("../cameraPermission", () => ({
   openAppSettings: jest.fn(async () => undefined),
   getCameraPermissionStatus: jest.fn(),
+  isMicrophonePermissionGranted: jest.fn(),
 }));
 
 jest.mock("../motionSensorRelay", () => ({
@@ -574,13 +579,52 @@ describe("handleBridgeMessage", () => {
   });
 
   describe("request-camera-permission", () => {
+    const flushPromises = () => new Promise((resolve) => setImmediate(resolve));
+    const mockedMicGranted = isMicrophonePermissionGranted as jest.MockedFunction<
+      typeof isMicrophonePermissionGranted
+    >;
+
+    beforeEach(() => {
+      mockedMicGranted.mockReset();
+      mockedMicGranted.mockResolvedValue(true);
+    });
+
+    it.each([true, false])("마이크 권한 %s도 같은 답에 싣는다", async (micGranted) => {
+      mockedGetCameraPermissionStatus.mockResolvedValue("granted");
+      mockedMicGranted.mockResolvedValue(micGranted);
+      const reply = jest.fn();
+
+      handleBridgeMessage({ type: "request-camera-permission", atMs: 1 }, reply);
+      await flushPromises();
+
+      expect(reply).toHaveBeenCalledTimes(1);
+      expect(reply).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "camera-permission", granted: true, micGranted }),
+      );
+    });
+
+    it("마이크 조회에 실패하면 마이크 값만 비우고 카메라 값은 답한다", async () => {
+      mockedGetCameraPermissionStatus.mockResolvedValue("denied");
+      mockedMicGranted.mockRejectedValue(new Error("boom"));
+      const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+      const reply = jest.fn();
+
+      handleBridgeMessage({ type: "request-camera-permission", atMs: 1 }, reply);
+      await flushPromises();
+
+      expect(reply).toHaveBeenCalledTimes(1);
+      const message = reply.mock.calls[0]?.[0] as Record<string, unknown>;
+      expect(message).toMatchObject({ type: "camera-permission", granted: false });
+      expect(message).not.toHaveProperty("micGranted");
+      warn.mockRestore();
+    });
+
     it("granted면 granted: true로 답한다", async () => {
       mockedGetCameraPermissionStatus.mockResolvedValue("granted");
       const reply = jest.fn();
 
       handleBridgeMessage({ type: "request-camera-permission", atMs: 1 }, reply);
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushPromises();
 
       expect(reply).toHaveBeenCalledWith(
         expect.objectContaining({ type: "camera-permission", granted: true }),
@@ -593,8 +637,7 @@ describe("handleBridgeMessage", () => {
         const reply = jest.fn();
 
         handleBridgeMessage({ type: "request-camera-permission", atMs: 1 }, reply);
-        await Promise.resolve();
-        await Promise.resolve();
+        await flushPromises();
 
         expect(reply).toHaveBeenCalledWith(
           expect.objectContaining({ type: "camera-permission", granted: false }),
@@ -608,8 +651,7 @@ describe("handleBridgeMessage", () => {
       const reply = jest.fn();
 
       handleBridgeMessage({ type: "request-camera-permission", atMs: 1 }, reply);
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushPromises();
 
       expect(reply).not.toHaveBeenCalled();
       warn.mockRestore();
@@ -619,7 +661,7 @@ describe("handleBridgeMessage", () => {
       mockedGetCameraPermissionStatus.mockResolvedValue("granted");
 
       handleBridgeMessage({ type: "request-camera-permission", atMs: 1 }, jest.fn());
-      await Promise.resolve();
+      await flushPromises();
 
       expect(mockedGetCameraPermissionStatus).toHaveBeenCalledTimes(1);
       expect(mockedRunCameraPermissionGate).not.toHaveBeenCalled();

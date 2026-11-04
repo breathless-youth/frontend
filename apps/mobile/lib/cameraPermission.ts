@@ -77,8 +77,19 @@ export function requestCameraPermission(): Promise<CameraPermissionStatus> {
 }
 
 /**
+ * OS 마이크 권한이 허용돼 있는지 조회한다.
+ *
+ * 설정의 마이크 권한 행이 쓰고, 설정 화면을 열었다는 이유로 OS 권한 창이 뜨면 안 돼서 묻지 않고 조회만 한다.
+ * 실제 권한 요청은 공부방에서 웹뷰의 getUserMedia가 맡아서 요청 함수는 두지 않는다.
+ * 이미 들어 있는 `expo-camera` 모듈로 조회해서 새 네이티브 의존성이 없다.
+ */
+export async function isMicrophonePermissionGranted(): Promise<boolean> {
+  return (await Camera.getMicrophonePermissionsAsync()).status === "granted";
+}
+
+/**
  * OS 설정 앱의 이 앱 설정 화면으로 이동한다. iOS/Android 동일 API.
- * S6 설정의 "카메라 권한" 행에서도 이 함수를 쓴다 — 중복 구현하지 않는다.
+ * S6 설정의 "카메라 권한"과 "마이크 권한" 행에서도 이 함수를 쓴다 — 중복 구현하지 않는다.
  */
 export async function openAppSettings(): Promise<void> {
   try {

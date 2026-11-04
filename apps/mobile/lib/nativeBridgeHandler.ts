@@ -6,7 +6,11 @@ import type { HandlerMessage, NavigateTabMessage, ToWebMessage } from "@focusmak
 import { getActiveTab } from "./activeTab";
 import { handleAppLockMessage } from "./appLock/appLockRelay";
 import { authTokenMessage, awaitAuth, ensureAuth, refreshAuth } from "./auth";
-import { getCameraPermissionStatus, openAppSettings } from "./cameraPermission";
+import {
+  getCameraPermissionStatus,
+  isMicrophonePermissionGranted,
+  openAppSettings,
+} from "./cameraPermission";
 import { runCameraPermissionGate } from "./cameraPermissionGate";
 import { triggerHaptic } from "./haptics";
 import { acknowledgeInstallAttribution } from "./installAttribution";
@@ -228,9 +232,22 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       //
       // `getCameraPermissionStatus`는 권한을 **요청하지 않고 조회만** 한다(`requestCameraPermission`과
       // 다른 함수다) — 설정 화면을 열었다는 이유로 OS 권한 팝업이 뜨면 안 된다.
-      void getCameraPermissionStatus()
-        .then((status) => {
-          reply({ type: "camera-permission", granted: status === "granted", atMs: Date.now() });
+      //
+      // 마이크 권한도 같은 답에 싣고, 마이크 조회만 실패하면 그 값을 비워 웹이 그 행만 숨기게 한다.
+      void Promise.all([
+        getCameraPermissionStatus(),
+        isMicrophonePermissionGranted().catch((error: unknown) => {
+          console.warn("[bridge] 마이크 권한 조회 실패 — 웹에는 알리지 않는다", error);
+          return null;
+        }),
+      ])
+        .then(([status, micGranted]) => {
+          reply({
+            type: "camera-permission",
+            granted: status === "granted",
+            ...(micGranted !== null ? { micGranted } : {}),
+            atMs: Date.now(),
+          });
         })
         .catch((error: unknown) => {
           console.warn("[bridge] 카메라 권한 조회 실패 — 웹에는 알리지 않는다", error);
