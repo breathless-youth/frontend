@@ -173,7 +173,6 @@ describe("Amplitude 전송 파이프라인 (실제 SDK)", () => {
         null,
         createElement(RoomHomeScreen, {
           room: roomHome,
-          now,
           fetchedAtMs: now.getTime(),
           onBack: () => {},
           onToggleNotify: () => {},

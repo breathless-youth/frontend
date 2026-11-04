@@ -47,7 +47,6 @@ describe("그룹 홈 영어 화면", () => {
     renderScreen(
       <RoomHomeScreen
         room={ROOM}
-        now={NOW}
         fetchedAtMs={NOW.getTime()}
         defaultMenuOpen
         onBack={vi.fn()}

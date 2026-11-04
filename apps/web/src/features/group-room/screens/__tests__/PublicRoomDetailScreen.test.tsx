@@ -20,7 +20,6 @@ function renderDetail(
     <PublicRoomDetailScreen
       room={{ ...fixtures.publicDetail, ...overrides }}
       applyState={applyState}
-      now={NOW}
       fetchedAtMs={NOW.getTime()}
       pending={pending}
       {...props}
