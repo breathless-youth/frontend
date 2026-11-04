@@ -29,7 +29,7 @@ function remoteVideoOrUndefined(userId: number, streams: ReadonlyMap<number, Med
  * 셀프뷰 서피스 ref는 부모(미리보기 비율 측정·타일 rootRef)와 공유하므로 prop으로 받는다.
  * 그룹 공부방 세로 폰은 좌우 16px 여백과 4px 간격으로 2열을 그려 폭 402에서 타일 한 변이 183px다.
  * 타이머 캡슐이 떠 있는 동안에는 바 위 캡슐 자리 60px을 아래에 더 비워 캡슐이 멤버 메뉴 버튼과 닉네임을 가리지 않는다.
- * 폭이 좁은 가로 폰은 캡슐이 바 위에 떠도 높이가 모자라 비우지 않는다.
+ * 가로 폰도 바와 달리 캡슐은 숨지 않아서 캡슐 띠를 비우고, 그만큼 타일이 작아진다.
  */
 export function RoomGrid({
   allMembers,
@@ -94,10 +94,12 @@ export function RoomGrid({
       const target = entry.target.getBoundingClientRect();
       measure(target.width, target.height);
     });
-    // 여백은 회전할 때만 바뀌고 그때는 바깥 상자도 함께 바뀐다.
+    // 여백은 회전할 때와 캡슐 띠가 생기거나 없어질 때 바뀐다.
+    // 회전은 바깥 상자도 함께 바뀌어 측정기가 알린다.
+    // 캡슐 띠는 바깥 상자가 그대로라 측정기가 알리지 않아서 띠가 바뀔 때마다 이 effect를 다시 돌려 직접 측정한다.
     observer.observe(element, { box: "border-box" });
     return () => observer.disconnect();
-  }, []);
+  }, [reserveCapsule]);
 
   const fit =
     space !== null
@@ -145,7 +147,14 @@ export function RoomGrid({
           : "pb-[max(calc(env(safe-area-inset-bottom)+76px),86px)]",
         "landscape-compact:pl-[calc(env(safe-area-inset-left)+16px)] landscape-compact:pr-[calc(env(safe-area-inset-right)+16px)]",
         // 가로는 높이가 모자라 시간 글자와 바가 타일 위에 겹친다.
-        "landscape-compact:pt-[calc(env(safe-area-inset-top)+12px)] landscape-compact:pb-2",
+        "landscape-compact:pt-[calc(env(safe-area-inset-top)+12px)]",
+        // 캡슐이 떠 있으면 가로도 캡슐 윗변까지 비우고 4px을 더 띄운다.
+        // 띠 높이는 공부방 화면의 캡슐 자리에서 나온 값이라 캡슐 자리를 바꾸면 함께 바꾼다.
+        // 좁은 가로 폰은 캡슐이 바 위에 떠서 바 아래 여백 6px, 바 74px, 바와 캡슐 사이 12px, 캡슐 48px을 더한다.
+        // 넓은 가로 폰은 캡슐이 바 옆 가운데에 붙어서 바 아래 여백 6px, 바와 캡슐의 높이 차 절반 13px, 캡슐 48px을 더한다.
+        reserveCapsule
+          ? "landscape-compact:pb-(--room-capsule-band) landscape-compact:[--room-capsule-band:calc(env(safe-area-inset-bottom)+144px)] landscape-compact:md:[--room-capsule-band:calc(env(safe-area-inset-bottom)+71px)]"
+          : "landscape-compact:pb-2",
         // 태블릿 가로도 시간 글자와 과목 알약이 타일에 겹치는 것을 받아들이고 바 자리만 비운다.
         "regular:px-4 regular:pt-[calc(env(safe-area-inset-top)+16px)]",
         // 큰 태블릿은 바가 커져 그만큼 더 비운다.
@@ -166,8 +175,11 @@ export function RoomGrid({
           // 가로 5~6명은 3열 강제(디스코드 참조: 5명 3+2, 6명 3+3) — 44dvh 정사각은
           // 넓은 기기에서 한 행에 4장이 들어가 4+1로 감기므로, 3장+간격 폭으로 줄을
           // 자른다. mx-auto가 좁아진 래퍼를 가운데 놓는다.
+          // 캡슐 띠로 타일이 작아지면 줄 폭도 작아진 타일 세 장과 간격 폭으로 자른다.
           allMembers.length > 4 &&
-            "landscape-compact:mx-auto landscape-compact:max-w-[calc(132dvh+8px)]",
+            (reserveCapsule
+              ? "landscape-compact:mx-auto landscape-compact:max-w-[calc(min(44dvh,calc((100dvh-env(safe-area-inset-top)-16px-var(--room-capsule-band))/2))*3+8px)]"
+              : "landscape-compact:mx-auto landscape-compact:max-w-[calc(132dvh+8px)]"),
           // 한 줄 폭을 열 수만큼으로 묶어 justify-center가 마지막 줄을 가운데 놓는다.
           fit !== null && "regular:mx-auto regular:w-(--room-grid-width) regular:gap-2",
         )}
@@ -213,13 +225,23 @@ export function RoomGrid({
                         : "size-[min(calc((100dvw-36px)/2),calc((100dvh-env(safe-area-inset-top)-max(calc(env(safe-area-inset-bottom)+76px),86px)-104px)/3))]"
                       : "size-[min(calc((100dvw-8px)*0.47-2px),calc((100dvh-env(safe-area-inset-top)-max(calc(env(safe-area-inset-bottom)+76px),86px)-104px)/3))]",
               "landscape-compact:w-auto",
+              // 가로에서 캡슐이 뜨면 위 여백 12px과 캡슐 띠를 뺀 높이도 넘지 않는다.
               allMembers.length <= 2
-                ? "landscape-compact:h-[min(88dvh,calc(50dvw-(env(safe-area-inset-left)+env(safe-area-inset-right))/2-18px))]"
+                ? reserveCapsule
+                  ? "landscape-compact:h-[min(88dvh,calc(50dvw-(env(safe-area-inset-left)+env(safe-area-inset-right))/2-18px),calc(100dvh-env(safe-area-inset-top)-12px-var(--room-capsule-band)))]"
+                  : "landscape-compact:h-[min(88dvh,calc(50dvw-(env(safe-area-inset-left)+env(safe-area-inset-right))/2-18px))]"
                 : allMembers.length === 3
-                  ? "landscape-compact:h-[min(84dvh,calc((100dvw-env(safe-area-inset-left)-env(safe-area-inset-right)-40px)/3))]"
+                  ? reserveCapsule
+                    ? "landscape-compact:h-[min(84dvh,calc((100dvw-env(safe-area-inset-left)-env(safe-area-inset-right)-40px)/3),calc(100dvh-env(safe-area-inset-top)-12px-var(--room-capsule-band)))]"
+                    : "landscape-compact:h-[min(84dvh,calc((100dvw-env(safe-area-inset-left)-env(safe-area-inset-right)-40px)/3))]"
                   : allMembers.length === 4
-                    ? "landscape-compact:h-[min(84dvh,calc((100dvw-env(safe-area-inset-left)-env(safe-area-inset-right)-44px)/4))]"
-                    : "landscape-compact:h-[44dvh]",
+                    ? reserveCapsule
+                      ? "landscape-compact:h-[min(84dvh,calc((100dvw-env(safe-area-inset-left)-env(safe-area-inset-right)-44px)/4),calc(100dvh-env(safe-area-inset-top)-12px-var(--room-capsule-band)))]"
+                      : "landscape-compact:h-[min(84dvh,calc((100dvw-env(safe-area-inset-left)-env(safe-area-inset-right)-44px)/4))]"
+                    : // 5~6명은 2행이라 행 사이 4px을 더 빼고 둘로 나눈다.
+                      reserveCapsule
+                      ? "landscape-compact:h-[min(44dvh,calc((100dvh-env(safe-area-inset-top)-16px-var(--room-capsule-band))/2))]"
+                      : "landscape-compact:h-[44dvh]",
               fit !== null && "regular:size-(--room-tile-size)",
             )}
           />
