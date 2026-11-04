@@ -4,12 +4,15 @@ import type { StudySessionSummary, SubjectRef } from "@focusmakers/types";
 
 import i18n from "@/lib/i18n";
 
+import { mockDeviceTimeZone } from "@/test/deviceTimeZone";
+
 import {
   applyChip,
   bundleMayContinue,
   bundleOf,
   bundleSpan,
   cellTapTarget,
+  clockOf,
   daysAgo,
   defaultSpan,
   endsNextDay,
@@ -171,6 +174,124 @@ describe("spanFromClocks", () => {
   });
 });
 
+describe("기기 시간대가 뉴욕일 때", () => {
+  it("서머타임이 시작하는 날의 입력칸 시각은 현지 벽시계다", () => {
+    mockDeviceTimeZone("America/New_York");
+    // 02:00 EST가 03:00 EDT로 건너뛰어 01:00~04:00은 2시간이다.
+    expect(spanFromClocks("2026-03-08", "01:00", "04:00")).toEqual(
+      span(Date.parse("2026-03-08T01:00:00-05:00"), Date.parse("2026-03-08T04:00:00-04:00")),
+    );
+  });
+
+  it("없는 시각을 넣으면 앞으로 민 시각으로 저장하고 다시 열어도 그 시각이다", () => {
+    mockDeviceTimeZone("America/New_York");
+    const stored = spanFromClocks("2026-03-08", "02:30", "04:00");
+    expect(stored).toEqual(
+      span(Date.parse("2026-03-08T03:30:00-04:00"), Date.parse("2026-03-08T04:00:00-04:00")),
+    );
+    expect([clockOf(stored.startMs), clockOf(stored.endMs)]).toEqual(["03:30", "04:00"]);
+    expect(spanFromClocks("2026-03-08", clockOf(stored.startMs), clockOf(stored.endMs))).toEqual(
+      stored,
+    );
+  });
+
+  it("두 번 오는 시각은 먼저 오는 쪽으로 저장하고 다시 열어도 그 시각이다", () => {
+    mockDeviceTimeZone("America/New_York");
+    const stored = spanFromClocks("2026-11-01", "01:30", "03:00");
+    expect(stored).toEqual(
+      span(Date.parse("2026-11-01T01:30:00-04:00"), Date.parse("2026-11-01T03:00:00-05:00")),
+    );
+    expect([clockOf(stored.startMs), clockOf(stored.endMs)]).toEqual(["01:30", "03:00"]);
+    expect(spanFromClocks("2026-11-01", clockOf(stored.startMs), clockOf(stored.endMs))).toEqual(
+      stored,
+    );
+  });
+
+  describe("두 번 오는 1시대에도 입력칸 값으로 다시 읽으면 같은 구간이다", () => {
+    const KEY = "2026-11-01";
+    const reread = (value: { startMs: number; endMs: number }) =>
+      spanFromClocks(KEY, clockOf(value.startMs), clockOf(value.endMs));
+
+    it("칸에서 연 기본 구간은 벽시계로 1시간이다", () => {
+      mockDeviceTimeZone("America/New_York");
+      const value = defaultSpan({
+        dateKey: KEY,
+        todayKey: "2026-11-02",
+        nowMs: Date.parse("2026-11-02T12:00:00-05:00"),
+        sessions: [],
+        cellStartMs: Date.parse("2026-11-01T01:30:00-04:00"),
+      });
+      expect(value).toEqual(
+        span(Date.parse("2026-11-01T01:30:00-04:00"), Date.parse("2026-11-01T02:30:00-05:00")),
+      );
+      expect(reread(value)).toEqual(value);
+    });
+
+    it("지금이 두 번째 1시대여도 오늘 기본 구간은 입력칸 값 그대로다", () => {
+      mockDeviceTimeZone("America/New_York");
+      const value = defaultSpan({
+        dateKey: KEY,
+        todayKey: KEY,
+        nowMs: Date.parse("2026-11-01T01:20:00-05:00"),
+        sessions: [],
+      });
+      expect([clockOf(value.startMs), clockOf(value.endMs)]).toEqual(["00:20", "01:20"]);
+      expect(reread(value)).toEqual(value);
+    });
+
+    it("길이 칩은 벽시계로 더한다", () => {
+      mockDeviceTimeZone("America/New_York");
+      const value = applyChip(
+        span(Date.parse("2026-11-01T01:00:00-04:00"), Date.parse("2026-11-01T01:30:00-04:00")),
+        30,
+        Date.parse("2026-11-02T12:00:00-05:00"),
+      );
+      expect([clockOf(value.startMs), clockOf(value.endMs)]).toEqual(["01:00", "02:00"]);
+      expect(reread(value)).toEqual(value);
+    });
+  });
+
+  it("서머타임이 끝나는 날 밤을 넘기면 다음 날 현지 새벽으로 읽는다", () => {
+    mockDeviceTimeZone("America/New_York");
+    const crossed = spanFromClocks("2026-11-01", "23:00", "01:00");
+    expect(crossed).toEqual(
+      span(Date.parse("2026-11-01T23:00:00-05:00"), Date.parse("2026-11-02T01:00:00-05:00")),
+    );
+    expect(endsNextDay(crossed, "2026-11-01")).toBe(true);
+  });
+
+  it("23시간인 날은 다음 날 현지 자정부터 다음 날이다", () => {
+    mockDeviceTimeZone("America/New_York");
+    const start = Date.parse("2026-03-08T22:00:00-04:00");
+    expect(endsNextDay(span(start, Date.parse("2026-03-08T23:30:00-04:00")), "2026-03-08")).toBe(
+      false,
+    );
+    expect(endsNextDay(span(start, Date.parse("2026-03-09T00:30:00-04:00")), "2026-03-08")).toBe(
+      true,
+    );
+  });
+
+  it("지난 날에 기록이 없으면 현지 09:00부터 1시간이다", () => {
+    mockDeviceTimeZone("America/New_York");
+    expect(
+      defaultSpan({
+        dateKey: "2026-03-08",
+        todayKey: "2026-03-10",
+        nowMs: Date.parse("2026-03-10T12:00:00-04:00"),
+        sessions: [],
+      }),
+    ).toEqual(
+      span(Date.parse("2026-03-08T09:00:00-04:00"), Date.parse("2026-03-08T10:00:00-04:00")),
+    );
+  });
+
+  it("오늘 날 수는 서머타임을 넘어도 정수다", () => {
+    mockDeviceTimeZone("America/New_York");
+    expect(daysAgo("2026-03-07", "2026-03-09")).toBe(2);
+    expect(daysAgo("2026-10-31", "2026-11-02")).toBe(2);
+  });
+});
+
 describe("applyChip", () => {
   it("누를 때마다 종료에 더하고, 지금을 넘으면 지금(분 단위 내림)에서 멈춘다", () => {
     const nowMs = at(DAY, 10, 40, 30);
@@ -194,6 +315,28 @@ describe("applyChip", () => {
     const nowMs = at("2026-10-20", 12);
     expect(reachedNow(span(at(DAY, 9), at(NEXT, 8, 58)), nowMs)).toBe(false);
     expect(reachedNow(span(at(DAY, 9), at(NEXT, 8, 59)), nowMs)).toBe(true);
+  });
+
+  it("23시간인 날을 넘기면 다음 날 같은 벽시계 시각 직전에서 멈춘다", () => {
+    mockDeviceTimeZone("America/New_York");
+    const startMs = Date.parse("2026-03-07T09:00:00-05:00");
+    const capped = applyChip(
+      span(startMs, Date.parse("2026-03-08T08:00:00-04:00")),
+      120,
+      Date.parse("2026-03-20T12:00:00-04:00"),
+    );
+    // 고정 24시간이면 다음 날 09:59 EDT까지 가서 입력칸에서 같은 날 기록으로 읽힌다.
+    expect(capped).toEqual(span(startMs, Date.parse("2026-03-08T08:59:00-04:00")));
+    expect(clockOf(capped.endMs)).toBe("08:59");
+  });
+
+  it("25시간인 날을 넘기면 다음 날 같은 벽시계 시각 직전까지 간다", () => {
+    mockDeviceTimeZone("America/New_York");
+    const startMs = Date.parse("2026-10-31T09:00:00-04:00");
+    const nowMs = Date.parse("2026-11-20T12:00:00-05:00");
+    const capped = applyChip(span(startMs, Date.parse("2026-11-01T08:00:00-05:00")), 120, nowMs);
+    expect(capped).toEqual(span(startMs, Date.parse("2026-11-01T08:59:00-05:00")));
+    expect(reachedNow(capped, nowMs)).toBe(true);
   });
 });
 

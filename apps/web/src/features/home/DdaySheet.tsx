@@ -12,12 +12,12 @@ import { IconChevronDown } from "@/features/records/icons";
 import { trackDdayDeleted, trackDdaySaved } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import { deleteDday, putDday } from "@/lib/ddayApi";
-import { todayKstDateKey } from "@/lib/dateKst";
 import { ddayKeys } from "@/lib/ddayQueries";
 import { cn } from "@/lib/utils";
 
 import { DdayCalendar } from "./DdayCalendar";
 import { daysUntil, formatDday, formatKoreanDate } from "./ddayFormat";
+import { localDateKey } from "@/lib/dateKey";
 
 /** 서버와 같은 상한. 넘으면 저장을 막고 서버는 최종 판정만 한다. */
 const DDAY_TITLE_MAX_LENGTH = 15;
@@ -104,8 +104,8 @@ function DdayForm({
   const titleId = useId();
   const titleCountId = useId();
   const titleRef = useRef<HTMLInputElement>(null);
-  // 달력의 하한은 서버 판정과 같은 KST 오늘이다(오늘 포함). 남은 일수 표시만 기기 날짜를 쓴다.
-  const todayKey = todayKstDateKey();
+  // 달력의 하한은 기기 시간대의 오늘이다(오늘 포함). 서버도 사용자 시간대로 지난 날을 판정한다.
+  const todayKey = localDateKey();
   const [title, setTitle] = useState(dday?.title ?? "");
   // 지난 D-Day를 열면 날짜를 비운다 — 서버가 지난 날을 받지 않으니 새 목표일부터 고르게 한다.
   const [targetDate, setTargetDate] = useState<string | null>(

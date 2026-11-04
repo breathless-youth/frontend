@@ -7,19 +7,20 @@ import type {
 } from "@focusmakers/types";
 
 import { isManualSession } from "@/features/manual-record/manualRecord";
-import { kstDateKey } from "@/features/records/recordsFormat";
-import { kstDayStartMs, subjectRefMap } from "@/features/records/recordsTimetable";
+import { addDaysToDateKey } from "@/features/records/recordsFormat";
+import { subjectRefMap } from "@/features/records/recordsTimetable";
+import { localDateKey, localTimeOfDayMs, zonedTimeMs } from "@/lib/dateKey";
 
 /**
  * 플래너의 하루 — 순수 함수.
  *
- * 플래너의 하루는 05:00부터 다음 날 05:00까지다(KST). 밤 11시~새벽 1시에 공부하면 전부 전날
+ * 플래너의 하루는 05:00부터 다음 날 05:00까지다(기기 시간대). 밤 11시~새벽 1시에 공부하면 전부 전날
  * 플래너에 이어서 보인다. 서버의 날짜는 자정 기준 그대로라, 앱이 일간 조회를 그 날짜와 다음 날짜
  * 두 번 받아 05:00~다음 날 05:00 구간만 남긴다. 완료한 할 일도 이틀치를 받아 완료 시각으로 가른다.
  * 그래서 새벽 0~5시에 공부한 날은 플래너의 순공과 기록 탭 달력 칸의 순공이 다를 수 있다.
  */
 
-/** 플래너의 하루가 시작하는 시각(KST 시). */
+/** 플래너의 하루가 시작하는 시각(기기 시간대 시). */
 export const PLANNER_DAY_START_HOUR = 5;
 
 /** 아직 오지 않은 날짜의 조회를 대신하는 빈 응답 — 오늘 플래너의 "다음 날"과 미래 날짜의 플래너가 여기에 해당한다. */
@@ -35,13 +36,20 @@ export const EMPTY_STATS: StudySessionListResponse = {
   subjects: [],
 };
 
-const HOUR_MS = 3600_000;
-const DAY_MS = 24 * HOUR_MS;
+function plannerDayStartMs(dateKey: string): number {
+  return zonedTimeMs(dateKey, PLANNER_DAY_START_HOUR * 60);
+}
 
-/** 플래너 날짜 키의 하루 구간 `[start, end)` — 그날 05:00부터 다음 날 05:00. */
+/**
+ * 플래너 날짜 키의 하루 구간 `[start, end)` — 그날 05:00부터 다음 날 05:00.
+ *
+ * 서머타임 전환이 든 날은 23시간이나 25시간이라 끝은 다음 날짜의 05:00으로 구한다.
+ */
 export function plannerDayWindow(dateKey: string): { startMs: number; endMs: number } {
-  const startMs = kstDayStartMs(dateKey) + PLANNER_DAY_START_HOUR * HOUR_MS;
-  return { startMs, endMs: startMs + DAY_MS };
+  return {
+    startMs: plannerDayStartMs(dateKey),
+    endMs: plannerDayStartMs(addDaysToDateKey(dateKey, 1)),
+  };
 }
 
 /**
@@ -49,7 +57,8 @@ export function plannerDayWindow(dateKey: string): { startMs: number; endMs: num
  * 플래너를 열 때의 "오늘"은 이 값이 아니라 달력 날짜(자정 기준)다. 05시 기준은 한 장에 담는 구간에만 쓴다.
  */
 export function plannerDateKeyOf(at: Date): string {
-  return kstDateKey(new Date(at.getTime() - PLANNER_DAY_START_HOUR * HOUR_MS));
+  const dateKey = localDateKey(at);
+  return at.getTime() < plannerDayStartMs(dateKey) ? addDaysToDateKey(dateKey, -1) : dateKey;
 }
 
 /** 타임테이블이 한 구간을 무엇으로 칠할지. */
@@ -315,33 +324,46 @@ export interface PlannerCellFill {
 /**
  * 하루 144칸(24행 × 6칸) 각각이 칠할 조각. 2분 쉬었다고 10분 칸 전체가 휴식색이 되지 않게
  * 칸 안을 실제 시작·종료 시각대로 나눈다.
+ *
+ * 칸은 기기 시간대의 벽시계 시각으로 고른다. 서머타임이 시작하는 날은 없는 2시대 칸이 비고,
+ * 끝나는 날은 두 번 오는 1시대가 같은 칸에 겹쳐 칠해진다.
+ * 서머타임 전환은 정시에 일어나 칸 경계와 겹치므로 한 칸 안에서는 벽시계와 실제 시각이 같이 흐른다.
  */
-export function plannerCellFills(day: Pick<PlannerDay, "startMs" | "paints">): PlannerCellFill[][] {
+export function plannerCellFills(day: Pick<PlannerDay, "paints">): PlannerCellFill[][] {
   const cellMs = PLANNER_CELL_MINUTES * 60_000;
   const cells: PlannerCellFill[][] = Array.from({ length: 24 * PLANNER_CELLS_PER_ROW }, () => []);
+  const firstCellOfDay = (PLANNER_DAY_START_HOUR * 60) / PLANNER_CELL_MINUTES;
   for (const paint of day.paints) {
-    const first = Math.max(0, Math.floor((paint.startMs - day.startMs) / cellMs));
-    const last = Math.min(cells.length - 1, Math.floor((paint.endMs - 1 - day.startMs) / cellMs));
-    for (let index = first; index <= last; index += 1) {
-      const cellStart = day.startMs + index * cellMs;
-      const from = Math.max(paint.startMs, cellStart);
-      const to = Math.min(paint.endMs, cellStart + cellMs);
-      if (to <= from) {
-        continue;
-      }
-      const fill: PlannerPaintKind =
-        paint.kind === "subject"
-          ? { kind: "subject", subjectId: paint.subjectId }
-          : { kind: paint.kind };
+    const fill: PlannerPaintKind =
+      paint.kind === "subject"
+        ? { kind: "subject", subjectId: paint.subjectId }
+        : { kind: paint.kind };
+    let from = paint.startMs;
+    while (from < paint.endMs) {
+      const timeOfDay = localTimeOfDayMs(from);
+      const offset = timeOfDay % cellMs;
+      const to = Math.min(paint.endMs, from - offset + cellMs);
+      const index = (Math.floor(timeOfDay / cellMs) - firstCellOfDay + cells.length) % cells.length;
       cells[index]!.push({
-        left: (from - cellStart) / cellMs,
+        left: offset / cellMs,
         width: (to - from) / cellMs,
         paint: fill,
         manual: paint.manual,
       });
+      from = to;
     }
   }
   return cells;
+}
+
+/**
+ * 칸을 눌렀을 때의 시작 시각
+ *
+ * 칸 번호를 그 플래너 날짜의 벽시계 시각으로 바꾼다.
+ * 없는 시각의 칸은 수동 기록 입력과 같이 건너뛴 만큼 늦은 시각이고, 두 번 오는 시각은 먼저 오는 쪽이다.
+ */
+export function plannerCellStartMs(dateKey: string, index: number): number {
+  return zonedTimeMs(dateKey, PLANNER_DAY_START_HOUR * 60 + index * PLANNER_CELL_MINUTES);
 }
 
 /**

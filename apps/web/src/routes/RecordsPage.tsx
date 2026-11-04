@@ -26,7 +26,6 @@ import {
   dayHeadlineLabel,
   dayTitleWithWeekday,
   isFutureDateKey,
-  kstDateKey,
   monthLabel,
   monthOfDateKey,
   shiftMonth,
@@ -48,6 +47,7 @@ import { lazyWithPreload } from "@/lib/lazyWithPreload";
 import { whenIdle } from "@/lib/whenIdle";
 import { Card } from "@/components/ui/card";
 import { Accordion } from "@/components/ui/accordion";
+import { localDateKey } from "@/lib/dateKey";
 
 /**
  * 달 선택 시트는 시트 부품(Base UI)과 함께 따로 받는다.
@@ -292,7 +292,7 @@ const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 export function RecordsPage() {
   const { t } = useTranslation("records");
   const userId = useUserId();
-  const todayKey = kstDateKey();
+  const todayKey = localDateKey();
   const [searchParams, setSearchParams] = useSearchParams();
   // 일간/주간 모드는 여기서 소유한다(SegmentedControl이 이 헤더에 있으므로). 푸시 알림처럼 주간으로 바로 열어야 하는
   // 링크는 `view=weekly`를 붙인다 — 처음 열 때만 읽고, 탭을 바꾸면 주소에서 지운다(돌아왔을 때 다시 주간으로 열리지 않게).
