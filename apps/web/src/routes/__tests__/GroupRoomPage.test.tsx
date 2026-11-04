@@ -588,26 +588,6 @@ describe("GroupRoomPage 나가기", () => {
     });
   });
 
-  it("배경음 창이 열린 채 내보내져도 창을 닫고 쌓은 항목을 걷은 뒤 그룹 탭으로 간다", async () => {
-    vi.mocked(submitStudySession).mockResolvedValue([]);
-    window.history.pushState({ idx: 1, key: "room" }, "", "/social/groups/10/room");
-    const { channel, location } = await enterGroupRoom({
-      groupId: 10,
-      groupName: GROUP_NAME,
-    });
-    await userEvent.click(screen.getByRole("button", { name: "배경음" }));
-    expect(window.history.state).toMatchObject({ sessionPage: "ambient", roomHistoryGuard: true });
-
-    act(() => channel.emitServerMessage({ type: "KICKED", groupId: 10 }));
-
-    await waitFor(() => expect(location().pathname).toBe("/social"));
-    expect(screen.queryByRole("dialog", { name: "배경음" })).not.toBeInTheDocument();
-    expect(window.history.state).toMatchObject({ key: "room" });
-    expect(window.history.state).not.toHaveProperty("sessionPage");
-    expect(window.history.state).not.toHaveProperty("roomHistoryGuard");
-    window.history.replaceState(null, "", "/");
-  });
-
   it("내보내지면 받아 둔 내 그룹 목록과 그 그룹의 조회에서 그 그룹을 뺀다", async () => {
     vi.mocked(submitStudySession).mockResolvedValue([]);
     const { channel, client, location } = await enterGroupRoom({ groupId: 10 });

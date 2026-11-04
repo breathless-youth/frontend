@@ -10,8 +10,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { BrowserRouter, MemoryRouter, Route, Routes } from "react-router-dom";
-import type { ReactNode } from "react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { sessionStateColors } from "@focusmakers/design-tokens";
@@ -230,35 +229,21 @@ function renderRoom({
   scenario = { snapshot: [] },
   camera = createMockCameraAdapter(),
   createCamera,
-  browserRouter = false,
 }: {
   state?: unknown;
   search?: string;
   scenario?: MockRoomScenario;
   camera?: CameraAdapter;
   createCamera?: () => CameraAdapter;
-  /** 실제 `window.history`를 읽는 라우터로 띄운다. 뒤로 가기로 방을 벗어나면 화면까지 바뀐다. */
-  browserRouter?: boolean;
 } = {}) {
   const channel = createMockRoomChannel(scenario);
   const pcs: FakePc[] = [];
   const pcConfigs: RTCConfiguration[] = [];
   let onSnapshotUnrecovered: (() => void) | undefined;
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  if (browserRouter) {
-    window.history.pushState({ idx: 1, key: "room", usr: state }, "", `/social/room/42${search}`);
-  }
-  const Router = ({ children }: { children: ReactNode }) =>
-    browserRouter ? (
-      <BrowserRouter>{children}</BrowserRouter>
-    ) : (
-      <MemoryRouter initialEntries={[{ pathname: "/social/room/42", search, state }]}>
-        {children}
-      </MemoryRouter>
-    );
   render(
     <QueryClientProvider client={queryClient}>
-      <Router>
+      <MemoryRouter initialEntries={[{ pathname: "/social/room/42", search, state }]}>
         <Routes>
           <Route
             path="/social/room/:roomId"
@@ -284,7 +269,7 @@ function renderRoom({
             element={<div data-testid="social-result-stub" />}
           />
         </Routes>
-      </Router>
+      </MemoryRouter>
     </QueryClientProvider>,
   );
   return { channel, pcs, pcConfigs, getOnSnapshotUnrecovered: () => onSnapshotUnrecovered };
@@ -329,13 +314,6 @@ async function enterRoom() {
   await act(async () => {});
 }
 
-/** 가짜 타이머 위에서 방을 떠나는 history 이동을 끝까지 흘려 보낸다. */
-async function flushRoomLeave() {
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(100);
-  });
-}
-
 /** 화면 탭 = 바 토글. 드래그(스크롤)와 구분되므로 down+up 쌍으로 보낸다(BY-435). */
 function tapSurface() {
   const surface = screen.getByTestId("live-room-page");
@@ -376,14 +354,7 @@ async function enterAppRoom(controls = "segment,switch,button,button-style") {
   return { postMessage, control };
 }
 
-beforeEach(async () => {
-  // 앞 테스트가 방을 떠나던 중에 끝났으면 그 history 이동이 다 끝난 뒤에 항목을 지운다.
-  // 이동은 타이머 한 번에 한 칸씩 가므로 가장 긴 네 칸만큼 타이머 차례를 넘긴다.
-  // 늦게 닿으면 이 테스트가 정한 주소를 덮고, 항목이 남으면 방이 항목을 쌓은 방으로 시작한다.
-  for (let turn = 0; turn < 5; turn += 1) {
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  }
-  window.history.replaceState(null, "", "/");
+beforeEach(() => {
   // 일반 입장이 마운트 시 join을 재호출하므로 기본 응답을 렌더 전에 깔아 둔다.
   // 실패·지연을 검증하는 테스트는 renderRoom 전에 이 mock을 덮어쓴다.
   mockedRenewSeat.mockResolvedValue(joinResponse);
@@ -1114,181 +1085,43 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
     );
   });
 
-  describe.each(["과목", "배경음"])("%s 창의 뒤로 가기 스와이프", (name) => {
-    function stubBridge() {
+  it.each(["과목", "배경음"])(
+    "%s 창은 왼쪽 가장자리 스와이프로 닫히고 방은 그대로이며 뒤로가기 잠금도 풀리지 않는다",
+    async (name) => {
       const postMessage = vi.fn();
       vi.stubGlobal("ReactNativeWebView", { postMessage });
-      return () =>
-        postMessage.mock.calls
-          .map(([raw]) => JSON.parse(raw as string) as { type: string; enabled?: boolean })
-          .filter((message) => message.type === "set-back-gesture")
-          .map((message) => message.enabled);
-    }
-
-    async function enterBrowserRoom() {
-      window.history.replaceState({ idx: 0, key: "home" }, "", "/social?userId=7");
-      const gesture = stubBridge();
-      renderRoom({ browserRouter: true });
+      const bridgeSent = () =>
+        postMessage.mock.calls.map(([raw]) => JSON.parse(raw as string) as Record<string, unknown>);
+      renderRoom();
       grantCameraGate();
       await enterRoom();
-      // 지킴 항목은 방이 그려진 뒤에 쌓인다.
-      await waitFor(() => expect(window.history.state).toHaveProperty("roomHistoryGuard"));
-      return gesture;
-    }
-
-    async function swipeBack() {
-      await act(async () => {
-        await new Promise<void>((resolve) => {
-          window.addEventListener("popstate", () => resolve(), { once: true });
-          window.history.back();
-        });
-      });
-    }
-
-    function sheetEntryOnTop() {
-      return "sessionPage" in ((window.history.state ?? {}) as object);
-    }
-
-    it("여는 동안만 제스처를 켜고, 스와이프로 닫으면 다시 잠근다", async () => {
-      const gesture = await enterBrowserRoom();
-      expect(gesture().at(-1)).toBe(false);
+      const historyBack = vi.spyOn(window.history, "back");
+      const historyGo = vi.spyOn(window.history, "go");
+      const historyPush = vi.spyOn(window.history, "pushState");
 
       await userEvent.click(screen.getByRole("button", { name }));
-      await waitFor(() => expect(sheetEntryOnTop()).toBe(true));
-      expect(gesture().at(-1)).toBe(true);
+      const dialog = screen.getByRole("dialog", { name });
+      const from = { clientX: 8, clientY: 300 };
+      const to = { clientX: 80, clientY: 304 };
+      fireEvent.touchStart(dialog, { touches: [from], changedTouches: [from] });
+      fireEvent.touchMove(dialog, { touches: [to], changedTouches: [to] });
 
-      await swipeBack();
       await waitFor(() => {
         expect(screen.queryByRole("dialog", { name })).not.toBeInTheDocument();
       });
-      expect(gesture().at(-1)).toBe(false);
-      expect(sheetEntryOnTop()).toBe(false);
       expect(screen.getByTestId("live-room-page")).toBeInTheDocument();
-    });
-
-    it("제스처를 켜는 신호를 보낸 뒤에 창 항목을 쌓는다", async () => {
-      const gesture = await enterBrowserRoom();
-      const push = vi.spyOn(window.history, "pushState");
-      const released = gesture().length;
-
-      await userEvent.click(screen.getByRole("button", { name }));
-      expect(gesture().slice(released)).toEqual([true]);
-
-      await screen.findByRole("dialog", { name });
-      expect(push).toHaveBeenCalledOnce();
-      expect(sheetEntryOnTop()).toBe(true);
-      push.mockRestore();
-    });
-
-    it("닫은 직후 잠금이 닿기 전의 두 번째 스와이프에도 방에 남는다", async () => {
-      await enterBrowserRoom();
-      await userEvent.click(screen.getByRole("button", { name }));
-      await screen.findByRole("dialog", { name });
-
-      await swipeBack();
-      await swipeBack();
-      await swipeBack();
-
-      expect(window.location.pathname).toBe("/social/room/42");
-      expect(screen.getByTestId("live-room-page")).toBeInTheDocument();
-      expect(screen.queryByTestId("social-home-stub")).not.toBeInTheDocument();
-      expect(mockedLeaveRoom).not.toHaveBeenCalled();
-    });
-
-    it("뒤로 버튼과 Escape도 같은 길로 닫아 history가 어긋나지 않는다", async () => {
-      await enterBrowserRoom();
-      await userEvent.click(screen.getByRole("button", { name }));
-      await screen.findByRole("dialog", { name });
-      const length = window.history.length;
-
-      await userEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
-      await waitFor(() => expect(sheetEntryOnTop()).toBe(false));
-      await waitFor(() => {
-        expect(screen.queryByRole("dialog", { name })).not.toBeInTheDocument();
-      });
-
-      await userEvent.click(screen.getByRole("button", { name }));
-      await screen.findByRole("dialog", { name });
-      expect(window.history.length).toBe(length);
-      await userEvent.keyboard("{Escape}");
-      await waitFor(() => expect(sheetEntryOnTop()).toBe(false));
-      expect(window.history.length).toBe(length);
-      expect(screen.getByTestId("live-room-page")).toBeInTheDocument();
-    });
-
-    it("창을 쓴 뒤 나가면 홈 아래로 끝난 방 항목이 남지 않는다", async () => {
-      vi.mocked(submitStudySession).mockResolvedValue([]);
-      const gesture = await enterBrowserRoom();
-      await userEvent.click(screen.getByRole("button", { name }));
-      await screen.findByRole("dialog", { name });
-      await swipeBack();
-      await waitFor(() => {
-        expect(screen.queryByRole("dialog", { name })).not.toBeInTheDocument();
-      });
-
-      await userEvent.click(screen.getByRole("button", { name: "나가기" }));
-      await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
-
-      expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
-      expect(window.location.pathname).toBe("/social");
-      expect(sheetEntryOnTop()).toBe(false);
-      expect(gesture().at(-1)).toBe(true);
-      // 앞으로 가도 방이 아니라 홈이다.
-      await act(async () => {
-        await new Promise<void>((resolve) => {
-          window.addEventListener("popstate", () => resolve(), { once: true });
-          window.history.forward();
-        });
-      });
-      expect(window.location.pathname).toBe("/social");
-      expect(screen.getByTestId("social-home-stub")).toBeInTheDocument();
-      expect(mockedLeaveRoom).toHaveBeenCalledOnce();
-    });
-
-    it("창이 열린 채 방이 끝나도 창을 닫고 잠근 뒤 홈으로 나가 항목을 남기지 않는다", async () => {
-      vi.mocked(submitStudySession).mockResolvedValue([]);
-      window.history.replaceState({ idx: 0, key: "home" }, "", "/social?userId=7");
-      const gesture = stubBridge();
-      const { channel } = renderRoom({ browserRouter: true });
-      grantCameraGate();
-      await enterRoom();
-      await waitFor(() => expect(window.history.state).toHaveProperty("roomHistoryGuard"));
-      mockedRenewSeat.mockRejectedValue(new ApiError("자리 회수", 409, "CONFLICT"));
-      await userEvent.click(screen.getByRole("button", { name }));
-      await screen.findByRole("dialog", { name });
-
-      act(() => channel.emitServerMessage({ type: "ROOM_UNAVAILABLE", roomId: 42 }));
-
-      expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
-      expect(screen.queryByRole("dialog", { name })).not.toBeInTheDocument();
-      expect(sheetEntryOnTop()).toBe(false);
-      expect(gesture().at(-1)).toBe(true);
-      expect(gesture().at(-2)).toBe(false);
-      await swipeBack();
-      expect((window.history.state as { key: string }).key).toBe("home");
-    });
-  });
-
-  it("창을 열지 않은 방도 입장 뒤 지킴 항목을 두고, 나가면 끝난 방 항목이 남지 않는다", async () => {
-    vi.mocked(submitStudySession).mockResolvedValue([]);
-    window.history.replaceState({ idx: 0, key: "home" }, "", "/social?userId=7");
-    renderRoom({ browserRouter: true });
-    await enterRoom();
-    await waitFor(() => expect(window.history.state).toHaveProperty("roomHistoryGuard"));
-
-    await userEvent.click(screen.getByRole("button", { name: "나가기" }));
-    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
-
-    expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
-    expect(window.history.state).not.toHaveProperty("roomHistoryGuard");
-    await act(async () => {
-      await new Promise<void>((resolve) => {
-        window.addEventListener("popstate", () => resolve(), { once: true });
-        window.history.back();
-      });
-    });
-    expect((window.history.state as { key: string }).key).toBe("home");
-  });
+      // 방을 나가는 길이 될 수 있는 history 이동과 네이티브 제스처 해제가 하나도 없어야 한다.
+      expect(historyBack).not.toHaveBeenCalled();
+      expect(historyGo).not.toHaveBeenCalled();
+      expect(historyPush).not.toHaveBeenCalled();
+      expect(bridgeSent()).not.toContainEqual(
+        expect.objectContaining({ type: "set-back-gesture", enabled: true }),
+      );
+      expect(bridgeSent()).not.toContainEqual(
+        expect.objectContaining({ type: "set-back-lock", locked: false }),
+      );
+    },
+  );
 
   it("나가기는 종료 확인 후 제출하고 leave를 부른 뒤 소셜 홈으로 복귀한다", async () => {
     vi.mocked(submitStudySession).mockResolvedValue([]);
@@ -2320,7 +2153,6 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
     await act(async () => {
       await vi.runOnlyPendingTimersAsync();
     });
-    await flushRoomLeave();
     vi.useRealTimers();
   }
 
@@ -2405,7 +2237,6 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
     await act(async () => {
       await vi.runOnlyPendingTimersAsync();
     });
-    await flushRoomLeave();
     vi.useRealTimers();
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
@@ -2430,7 +2261,6 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
     await act(async () => {
       await vi.runOnlyPendingTimersAsync();
     });
-    await flushRoomLeave();
     vi.useRealTimers();
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
@@ -2453,7 +2283,6 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
     await act(async () => {
       await vi.runOnlyPendingTimersAsync();
     });
-    await flushRoomLeave();
     vi.useRealTimers();
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
@@ -2653,8 +2482,6 @@ describe("LiveRoomPage — 배경음", () => {
     expect(trackAmbientSoundChanged).toHaveBeenCalledWith(
       expect.objectContaining({ roomType: "social" }),
     );
-    // 창을 쓴 방은 항목을 걷고 떠나서, 다 떠나기 전에 끝내면 그 이동이 다음 테스트의 주소를 덮는다.
-    expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
   });
 
   it("바의 배경음 앱 버튼은 누르면 페이지를 열고, 소리를 켜면 active 색으로 바뀐다", async () => {
@@ -3024,7 +2851,7 @@ describe("LiveRoomPage — 과목", () => {
     expect(control("room-subject")).toMatchObject({ systemImage: "book", tone: "default" });
 
     pressNative("room-subject", 0);
-    expect(await screen.findByRole("dialog", { name: "과목" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "과목" })).toBeInTheDocument();
     await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
     const confirm = await screen.findByRole("alertdialog");
     await userEvent.click(within(confirm).getByRole("button", { name: "취소" }));

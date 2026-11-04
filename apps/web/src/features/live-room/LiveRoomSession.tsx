@@ -129,8 +129,6 @@ import { useGroupRoomEvents } from "./useGroupRoomEvents";
 import { useRoomAudio } from "./useRoomAudio";
 import type { RoomAudioDeps } from "./useRoomAudio";
 import { useRoomRejoin } from "./useRoomRejoin";
-import { useRoomDocumentBackground } from "./useRoomDocumentBackground";
-import { useRoomSheetHistory } from "./useRoomSheetHistory";
 import { useRoomTimerSheet } from "./useRoomTimerSheet";
 import { useTogetherSeconds } from "./useTogetherSeconds";
 import { useAutoHideControls } from "./useAutoHideControls";
@@ -177,7 +175,8 @@ export function LiveRoomSession({
   // 뒤로가기로 이탈하면 제출 없이 측정이 유실되므로,
   // 세션 동안 iOS 스와이프와 Android 하드웨어 뒤로가기를 모두 잠근다.
   // (세션 종료는 나가기 버튼으로만 가능하다)
-  // iOS 스와이프 잠금은 과목과 배경음 창이 열린 동안만 풀려서 창 상태 아래에서 건다.
+  // 과목과 배경음 창은 이 잠금을 풀지 않고 웹이 스와이프를 직접 받아 닫는다.
+  useNativeBackGestureLock();
   useNativeBackLock();
   // 저전력 모드에서 멈춘 영상을 탭 제스처로 되살린다 — lib/videoPlayback.ts 주석 참고.
   useGestureVideoPlaybackKick();
@@ -248,13 +247,13 @@ export function LiveRoomSession({
     usage: ambientUsage,
     roomType: "social",
   });
+  // 소셜룸은 뒤로 가기를 잠가 두어 싱글룸과 달리 페이지를 history 항목 없이 연다.
   /** 세션 위에 열린 전체 페이지. 둘은 동시에 열리지 않는다. */
   const [page, setPage] = useState<"subject" | "ambient" | null>(null);
   // 자동 종료 뒤에도 이 화면은 저장 중·다시 제출 안내로 남으므로 페이지가 그 안내를 가리지 않게 닫는다.
   if (phase.name !== "studying" && page !== null) {
     setPage(null);
   }
-  useRoomDocumentBackground();
   const pageLandscape = useLandscapeLayout(page !== null);
   /** 멤버 메뉴를 연 멤버이고 메뉴는 한 번에 하나만 열린다. */
   const [menuUserId, setMenuUserId] = useState<number | null>(null);
@@ -290,23 +289,6 @@ export function LiveRoomSession({
   // 닫을 때 포커스를 돌려주고 열려 있던 시간을 계측한다.
   const subjectOpenerRef = useRef<HTMLElement | null>(null);
   const subjectOpenedAtRef = useRef(0);
-  const { requestPage, closePage, leaveThen, gestureReleased } = useRoomSheetHistory({
-    page,
-    setPage,
-    studying: phase.name === "studying",
-    onClosed: (closed, closedBy) => {
-      if (closed === "subject") {
-        trackSubjectSheetClosed({
-          openSec: Math.round((Date.now() - subjectOpenedAtRef.current) / 1000),
-          closedBy,
-          roomType: "social",
-        });
-      }
-    },
-  });
-  // 창이 열린 동안의 스와이프는 싱글룸과 같이 창만 닫는다.
-  // 닫은 직후 잠금 신호가 앱에 닿기 전의 스와이프는 `useRoomSheetHistory`의 지킴 항목이 받는다.
-  useNativeBackGestureLock(gestureReleased);
   // 과목 페이지가 닫혀 있을 때의 미리 받기 실패는 알리지 않는다.
   // 사용자가 과목을 건드린 적이 없다.
   // 과목 시간은 플래너 하루 기준 오늘 값으로 바꿔 받는다(`loadSessionSubjects`).
@@ -750,17 +732,14 @@ export function LiveRoomSession({
       return;
     }
     const homePath = liveRoomHomePath(room);
-    const homeUrl = `${homePath}${location.search}`;
     // 그룹 공부방은 소셜 탭 웹뷰 안에서 그룹 홈으로 돌아가 도착한 화면이 바로 안내를 띄워야 해서 앱 전환 표시를 싣지 않는다.
     const goHome = () =>
-      leaveThen(homeUrl, () => {
-        navigate(
-          { pathname: homePath, search: location.search },
-          room.kind === "invite"
-            ? { replace: true, state: { noticeHandoff: true } }
-            : { replace: true },
-        );
-      });
+      navigate(
+        { pathname: homePath, search: location.search },
+        room.kind === "invite"
+          ? { replace: true, state: { noticeHandoff: true } }
+          : { replace: true },
+      );
     // 내보내지면 서버가 이미 공부방에서 나를 빼서 나가기 API를 부르지 않고 결과 화면도 건너뛴다.
     // 그룹 탭도 같은 웹뷰 안이라 앱 전환 표시 없이 가서 도착한 그룹 탭이 안내를 띄운다.
     if (kicked && (phase.name === "done" || phase.name === "error")) {
@@ -775,10 +754,7 @@ export function LiveRoomSession({
         forgetGroup(queryClient, userId, room.groupId);
       }
       void invalidateGroupMembership(queryClient, userId);
-      // 내보내진 그룹의 홈은 더 열 수 없어서 앞쪽 항목도 소셜 홈으로 지운다.
-      leaveThen(`/social${location.search}`, () => {
-        navigate({ pathname: "/social", search: location.search }, { replace: true });
-      });
+      navigate({ pathname: "/social", search: location.search }, { replace: true });
       return;
     }
     // 숨어 있는 동안 공용 20분 감시자가 먼저 종료를 끝내면 만료 콜백이 오지 않는다 —
@@ -819,12 +795,10 @@ export function LiveRoomSession({
         if (room.kind === "group") {
           trackExit();
         }
-        leaveThen(homeUrl, () => {
-          navigate(
-            { pathname: liveRoomResultPath(room, roomId), search: location.search },
-            { replace: true, state: { sessions: nav.sessions } },
-          );
-        });
+        navigate(
+          { pathname: liveRoomResultPath(room, roomId), search: location.search },
+          { replace: true, state: { sessions: nav.sessions } },
+        );
         return;
       }
       if (expired) {
@@ -851,7 +825,6 @@ export function LiveRoomSession({
     groupHome.data?.name,
     isExpiredNow,
     kicked,
-    leaveThen,
     location.search,
     navigate,
     phase,
@@ -922,7 +895,16 @@ export function LiveRoomSession({
     if (subjects.status === "error") {
       void subjects.reload();
     }
-    requestPage("subject");
+    setPage("subject");
+  }
+
+  function closeSubjectPage(closedBy: "back" | "play") {
+    trackSubjectSheetClosed({
+      openSec: Math.round((Date.now() - subjectOpenedAtRef.current) / 1000),
+      closedBy,
+      roomType: "social",
+    });
+    setPage(null);
   }
 
   // 알약으로 열었는데 페이지에서 과목을 해제하면 알약이 사라지므로 과목 버튼으로 돌아간다.
@@ -1264,7 +1246,7 @@ export function LiveRoomSession({
               faded={!controlsVisible}
               on={ambient.isOn}
               expanded={page === "ambient"}
-              onClick={() => requestPage("ambient")}
+              onClick={() => setPage("ambient")}
             />
           </RoomControlBar>
         </div>
@@ -1325,7 +1307,7 @@ export function LiveRoomSession({
       <SessionPage
         open={page === "subject"}
         onOpenChange={(open) => {
-          if (!open) closePage("back");
+          if (!open) closeSubjectPage("back");
         }}
         container={sessionSurface}
         returnFocus={subjectReturnFocus}
@@ -1337,6 +1319,7 @@ export function LiveRoomSession({
           />
         }
         landscape={pageLandscape}
+        closeOnEdgeSwipe
       >
         <SubjectPanel
           store={subjects}
@@ -1345,7 +1328,7 @@ export function LiveRoomSession({
           // 룸에서 재개는 카메라 켜기라 영상 공유 동의를 거쳐야 한다.
           // 그래서 일시정지 중의 재생은 바로 재개하지 않고 카메라 켜기 확인 창으로 넘긴다.
           onRequestClose={() => {
-            closePage("play");
+            closeSubjectPage("play");
             // 확인 창을 연 재생 버튼은 페이지와 함께 사라져 페이지를 연 자리로 돌아간다.
             // 휴식 중에는 카메라가 켜져 있어서 확인 창 없이 과목만 바꾼다.
             if (cameraHeld) {
@@ -1363,6 +1346,7 @@ export function LiveRoomSession({
         container={sessionSurface}
         returnFocus={() => ambientButtonRef.current}
         landscape={pageLandscape}
+        closeOnEdgeSwipe
         timer={<SessionPageTimer focusSec={focusSec} />}
         catalog={ambient.catalog}
         mix={ambient.mix}
@@ -1374,7 +1358,7 @@ export function LiveRoomSession({
         onSetDuckEnabled={ambient.setDuckEnabled}
         onToggleAll={ambient.toggleAll}
         onOpenChange={(open) => {
-          if (!open) closePage("back");
+          if (!open) setPage(null);
         }}
       />
       <SessionConfirmDialog

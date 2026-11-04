@@ -27,6 +27,8 @@ export interface AmbientSoundSheetProps {
    */
   returnFocus: () => HTMLElement | null;
   landscape: boolean;
+  /** 앱의 뒤로 가기 제스처를 꺼 둔 화면에서 왼쪽 가장자리 스와이프로 닫는다. */
+  closeOnEdgeSwipe?: boolean;
   /** 페이지 아래 순공 타이머. */
   timer: ReactNode;
   catalog: readonly AmbientSound[];
@@ -161,6 +163,7 @@ export function AmbientSoundSheet({
   container,
   returnFocus,
   landscape,
+  closeOnEdgeSwipe,
   timer,
   catalog,
   mix,
@@ -228,6 +231,7 @@ export function AmbientSoundSheet({
       returnFocus={returnFocus}
       title={t("sheet.title")}
       landscape={landscape}
+      closeOnEdgeSwipe={closeOnEdgeSwipe}
       headerExtras={
         // 글자와 ⓘ는 4px만 띄운다. ⓘ의 44px 터치 영역은 가상 요소라 간격을 밀지 않는다.
         // ⓘ와 스위치 사이는 두 터치 영역이 겹치지 않게 넓게 둔다.
