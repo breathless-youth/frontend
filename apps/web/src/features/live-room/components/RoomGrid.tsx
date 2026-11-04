@@ -26,6 +26,7 @@ function remoteVideoOrUndefined(userId: number, streams: ReadonlyMap<number, Med
  * 1명도 타일 한 장으로 그린다.
  * 타일 크기와 위치는 바 표시와 무관하다.
  * 바 표시에 따라 타일이 움직이면 영상이 흔들려 보이기 때문이다.
+ * 바가 내려가면 타일 안의 목표 문구만 함께 내려가고 닉네임과 마이크 아이콘은 그 자리에 남는다.
  * 셀프뷰 서피스 ref는 부모(미리보기 비율 측정·타일 rootRef)와 공유하므로 prop으로 받는다.
  * 그룹 공부방 세로 폰은 좌우 16px 여백과 4px 간격으로 2열을 그려 폭 402에서 타일 한 변이 183px다.
  * 타이머 캡슐이 떠 있는 동안에는 바 위 캡슐 자리 60px을 아래에 더 비워 캡슐이 멤버 메뉴 버튼과 닉네임을 가리지 않는다.
@@ -40,6 +41,7 @@ export function RoomGrid({
   variant = "invite",
   tileExtras,
   capsuleShown = false,
+  goalHidden = false,
 }: {
   allMembers: RoomMember[];
   userId: number;
@@ -53,6 +55,8 @@ export function RoomGrid({
   ) => Pick<RoomTileProps, "menuButton" | "speaking" | "micOn" | "blocked">;
   /** 그룹 공부방에서 바 위에 타이머 캡슐이 떠 있다. */
   capsuleShown?: boolean;
+  /** 아래 바가 내려간 동안 모든 타일의 목표 문구를 함께 내린다. 초대코드 방과 그룹 공부방 모두에 적용한다. */
+  goalHidden?: boolean;
 }) {
   const group = variant === "group";
   const reserveCapsule = group && capsuleShown;
@@ -190,6 +194,7 @@ export function RoomGrid({
             key={`${tileLayoutEpoch}-${member.userId}`}
             member={member}
             {...tileExtras?.(member)}
+            goalHidden={goalHidden}
             rootRef={member.userId === userId ? selfSurfaceRef : undefined}
             isSelf={member.userId === userId}
             media={

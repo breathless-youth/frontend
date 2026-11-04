@@ -1,5 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  isInaccessible,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { Location } from "react-router-dom";
@@ -1095,6 +1103,59 @@ describe("GroupRoomPage 멤버 메뉴와 타일", () => {
 
     expect(screen.queryByRole("menu")).toBeNull();
     expect(screen.getByTestId("room-control-bar")).toHaveAttribute("inert");
+  });
+
+  it("조작이 저절로 숨으면 타일의 목표 문구가 함께 내려가고 닉네임은 남는다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember(), otherMember(42, "새벽러", { goal: "444" })],
+    });
+    expect(screen.getByText("444")).not.toHaveAttribute("data-hidden");
+
+    await act(() => vi.advanceTimersByTimeAsync(6_000));
+
+    expect(screen.getByTestId("room-control-bar")).toHaveAttribute("inert");
+    const goal = screen.getByText("444");
+    expect(goal).toHaveAttribute("data-hidden", "true");
+    // 내려가도 낭독기는 목표를 읽는다.
+    expect(isInaccessible(goal)).toBe(false);
+    const nickname = screen.getByText("새벽러");
+    expect(nickname).toBeVisible();
+    expect(nickname.closest("[data-hidden]")).toBeNull();
+  });
+
+  it("숨은 조작을 화면 탭으로 다시 부르면 목표 문구도 바와 함께 올라온다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember(), otherMember(42, "새벽러", { goal: "444" })],
+    });
+    await act(() => vi.advanceTimersByTimeAsync(6_000));
+    expect(screen.getByText("444")).toHaveAttribute("data-hidden", "true");
+
+    await userEvent
+      .setup({ advanceTimers: vi.advanceTimersByTime })
+      .click(screen.getByTestId("live-room-page"));
+
+    expect(screen.getByTestId("room-control-bar")).not.toHaveAttribute("inert");
+    expect(screen.getByText("444")).not.toHaveAttribute("data-hidden");
+  });
+
+  it("메뉴가 열려 있는 동안은 시간이 지나도 목표 문구가 내려가지 않는다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    await enterGroupRoom({
+      groupId: 10,
+      snapshot: [meMember(), otherMember(42, "새벽러", { goal: "444" })],
+    });
+    await userEvent
+      .setup({ advanceTimers: vi.advanceTimersByTime })
+      .click(screen.getByRole("button", { name: "새벽러 메뉴" }));
+
+    await act(() => vi.advanceTimersByTimeAsync(6_000));
+
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    expect(screen.getByText("444")).not.toHaveAttribute("data-hidden");
   });
 });
 

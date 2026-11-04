@@ -1043,6 +1043,7 @@ export function LiveRoomSession({
           variant={room.kind}
           tileExtras={room.kind === "group" ? groupTileExtras : undefined}
           capsuleShown={room.kind === "group" && timerSheet.active}
+          goalHidden={!controlsVisible}
         />
 
         {room.kind === "group" ? (
