@@ -16,7 +16,7 @@ description: "FocusMakers 국제화 기반을 만드는 방법. 웹은 react-i18
 | `apps/web/src/lib/locale.ts` | `resolveLocale(search, navigatorLanguage, stored?)`와 `AppLocale` 타입, `sessionStorage` 키 상수 |
 | `apps/web/src/lib/i18n.ts` | i18next 초기화, 네임스페이스 리소스 등록, 결정한 언어를 `sessionStorage`에 기록 |
 | `apps/web/src/i18next.d.ts` | `CustomTypeOptions`에 `defaultNS: "common"`, `resources`에 ko JSON |
-| `apps/web/src/lib/intl.ts` | `STAT_TIME_ZONE`, 날짜 라벨·월 라벨·시각 범위 포맷 함수 |
+| `apps/web/src/lib/intl.ts` | 날짜 라벨·월 라벨·시각 범위 포맷 함수(기본 시간대는 기기 시간대) |
 | `apps/web/src/locales/{ko,en}/common.json` | 공용 버튼·오류·단위 |
 | `apps/web/src/locales/__tests__/catalog.test.ts` | ko·en 키 집합·빈 값·보간 변수 가드. `import.meta.glob`으로 네임스페이스를 자동으로 찾아 묶음이 늘어도 고치지 않게 한다 |
 

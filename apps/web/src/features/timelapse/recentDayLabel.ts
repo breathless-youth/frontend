@@ -19,8 +19,7 @@ export function recentDayLabel(startedAtMs: number, nowMs: number): string {
 }
 
 function clock(ms: number): string {
-  const deviceTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  return formatClock(i18n.language as AppLocale, new Date(ms), deviceTimeZone);
+  return formatClock(i18n.language as AppLocale, new Date(ms));
 }
 
 /** 전체 목록 한 줄의 날짜와 시각. 기록·결과 화면과 같은 엔대시로 잇는다. */

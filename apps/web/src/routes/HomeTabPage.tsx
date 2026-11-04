@@ -17,6 +17,7 @@ import { useHomeSummary } from "@/features/home/useHomeSummary";
 import { NoticeModalHost } from "@/features/notice/NoticeModalHost";
 import { useOnboardingDecision } from "@/features/onboarding/useOnboardingDecision";
 import { PlannerPillButton } from "@/features/planner/PlannerPillButton";
+import { useTimeZoneSync } from "@/features/profile/useTimeZoneSync";
 import { HomeRankingPopupHost } from "@/features/ranking/exposure/HomeRankingPopupHost";
 import { IllustFlame } from "@/features/records/icons";
 import { formatDuration } from "@/features/records/recordsFormat";
@@ -293,6 +294,7 @@ export function HomeTabPage() {
   const userId = useUserId();
   const identityPending = useIdentityPending();
   const { recovered, settled: recoverySettled, dismiss } = useLaunchSessionRecovery(userId);
+  useTimeZoneSync(userId, identityPending);
   useAppLockRevokeCheck();
   // 공지가 복구 창보다 먼저다. 공지 판단이 끝나야 복구 창을 띄운다. 공지 호스트가 없으면 기다릴 것도 없다.
   const [noticeSettled, setNoticeSettled] = useState(false);
