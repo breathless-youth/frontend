@@ -15,7 +15,7 @@ import {
 describe("applyBlockCopy", () => {
   it("이유마다 정한 안내 문장을 준다", () => {
     expect(applyBlockCopy("kicked_recently")).toBe("3일 동안 이 그룹에 신청할 수 없어요");
-    expect(applyBlockCopy("rooms_and_applications_full")).toBe("그룹 개수가 가득 찼어요");
+    expect(applyBlockCopy("rooms_and_applications_full")).toBe("그룹과 신청을 합쳐 5개까지예요");
     expect(applyBlockCopy("pending_applications_full")).toBe("신청은 3곳까지 보낼 수 있어요");
   });
 });
@@ -26,7 +26,7 @@ describe("joinBlockCopy", () => {
     expect(joinBlockCopy("kicked_recently")).toBe(
       "내보내진 그룹에는 3일 동안 다시 들어갈 수 없어요",
     );
-    expect(joinBlockCopy("rooms_and_applications_full")).toBe("이미 5개의 그룹을 가지고 있어요");
+    expect(joinBlockCopy("rooms_and_applications_full")).toBe("그룹과 신청을 합쳐 5개까지예요");
     expect(joinBlockCopy("invalid_code")).toBe("초대코드를 다시 확인해 주세요");
   });
 });

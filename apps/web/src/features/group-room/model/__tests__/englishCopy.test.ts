@@ -106,6 +106,11 @@ describe("영어 화면의 그룹 모델 문구", () => {
     }
   });
 
+  it("그룹과 신청을 합친 5개 한도는 신청과 코드 참여가 같은 영어 문장을 쓴다", () => {
+    expect(applyBlockCopy("rooms_and_applications_full")).toBe("Up to 5 groups and requests");
+    expect(joinBlockCopy("rooms_and_applications_full")).toBe("Up to 5 groups and requests");
+  });
+
   it("시간 길이는 영어 단위로 적는다", () => {
     expect(formatHoursMinutes(76_200)).toBe("21h 10m");
     expect(formatHoursMinutes(3_600)).toBe("1h");
