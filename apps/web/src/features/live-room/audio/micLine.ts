@@ -8,7 +8,7 @@ import type { MicAcquireResult } from "./microphone";
  * detach는 모든 송신기에서 트랙을 떼어 패킷이 나가지 않고 같은 트랙을 바로 다시 붙이지만, 캡처가 열려 있어 OS 마이크 표시가 남는다.
  * stop은 떼어 낸 트랙을 멈춰 OS 마이크 표시까지 꺼지지만, 다시 켤 때마다 새 트랙을 얻느라 기기에 따라 수백 ms가 걸린다.
  * TURN 서버의 한계가 초당 패킷 수라서 끄면 아무것도 보내지 않기로 했고, 근거와 측정값은 ADR 0020에 있다.
- * detach와 stop 중 무엇을 쓸지는 iPhone 실기기 결과가 나오면 이 상수만 바꿔 정한다.
+ * detach와 stop 중에서는 다시 켜기가 빠른 detach로 정했고, 끈 동안 OS 마이크 표시가 남는 것은 디스코드 같은 앱처럼 받아들인다.
  */
 export type MicOffMode = "disable" | "detach" | "stop";
 export const MIC_OFF_MODE: MicOffMode = "detach";
