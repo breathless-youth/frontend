@@ -6,11 +6,11 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { formatDuration, formatKstClock } from "@/features/records/recordsFormat";
+import { formatDuration, formatIsoClock } from "@/features/records/recordsFormat";
 import i18n from "@/lib/i18n";
 
 /**
- * `2026-08-27` → `8월 27일 (목)` / `Thu, Aug 27`. statDate는 한국 기준 달력 날짜라 UTC 자정으로 만들고 UTC로 읽는다.
+ * `2026-08-27` → `8월 27일 (목)` / `Thu, Aug 27`. statDate는 사용자 시간대의 달력 날짜라 UTC 자정으로 만들고 UTC로 읽는다.
  */
 function recoveryDateLabel(dateKey: string): string {
   return new Intl.DateTimeFormat(i18n.language, {
@@ -81,8 +81,8 @@ export function SessionRecoveryDialog({
           <InfoRow
             label={t("recovery.time")}
             value={t("recovery.timeRange", {
-              start: formatKstClock(recovered.startedAt),
-              end: formatKstClock(recovered.endedAt),
+              start: formatIsoClock(recovered.startedAt),
+              end: formatIsoClock(recovered.endedAt),
             })}
           />
           <InfoRow label={t("recovery.studyTime")} value={formatDuration(recovered.studySec)} />

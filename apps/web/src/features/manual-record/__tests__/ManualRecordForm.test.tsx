@@ -12,7 +12,7 @@ import type {
   SubjectResponse,
 } from "@focusmakers/types";
 
-import { addDaysToDateKey, kstDateKey } from "@/features/records/recordsFormat";
+import { addDaysToDateKey } from "@/features/records/recordsFormat";
 import {
   trackManualRecordAdd,
   trackManualRecordDelete,
@@ -22,6 +22,7 @@ import {
 import { ApiError } from "@/lib/api";
 import { postToNative } from "@/lib/bridge";
 import { createManualRecord, deleteManualRecord, updateManualRecord } from "@/lib/manualRecordApi";
+import { mockDeviceTimeZone } from "@/test/deviceTimeZone";
 import { statsKeys } from "@/lib/statsQueries";
 import {
   enterGlassChrome,
@@ -32,6 +33,7 @@ import {
 
 import { ManualRecordForm, type ManualRecordFormProps } from "../ManualRecordForm";
 import { daysAgo } from "../manualRecord";
+import { localDateKey } from "@/lib/dateKey";
 
 vi.mock("@/lib/manualRecordApi", () => ({
   createManualRecord: vi.fn(),
@@ -59,7 +61,7 @@ vi.mock("@/lib/haptics", () => ({ haptic }));
 /** 이미 지난 화요일. 시계에 의존하는 기본값(오늘)은 순수 모듈 테스트가 고정 시각으로 본다. */
 const DAY = "2025-03-04";
 const NEXT = addDaysToDateKey(DAY, 1);
-const DAYS_AGO = daysAgo(DAY, kstDateKey());
+const DAYS_AGO = daysAgo(DAY, localDateKey());
 const pad = (value: number) => String(value).padStart(2, "0");
 const iso = (day: string, hour: number, minute = 0) =>
   new Date(`${day}T${pad(hour)}:${pad(minute)}:00+09:00`).toISOString();
@@ -263,6 +265,52 @@ describe("ManualRecordForm", () => {
     expect(blocked).toHaveBeenCalledTimes(2);
   });
 
+  it("기기 시간대가 뉴욕이면 추가 요청에 뉴욕 시간대를 싣는다", async () => {
+    mockDeviceTimeZone("America/New_York");
+    vi.mocked(createManualRecord).mockResolvedValue([saved(41, iso(DAY, 9), iso(DAY, 10))]);
+    const { onDone } = renderForm();
+
+    fireEvent.click(saveButton());
+
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+    // 지난 날 기본값 09:00~10:00은 뉴욕 벽시계(EST)다.
+    expect(vi.mocked(createManualRecord)).toHaveBeenCalledWith({
+      startedAt: "2025-03-04T14:00:00.000Z",
+      endedAt: "2025-03-04T15:00:00.000Z",
+      timeZone: "America/New_York",
+    });
+  });
+
+  it("두 번 오는 1시 반 칸으로 열면 입력칸 값과 저장하는 구간이 같다", async () => {
+    mockDeviceTimeZone("America/New_York");
+    vi.mocked(createManualRecord).mockResolvedValue([]);
+    const { onDone } = renderForm({
+      dateKey: "2026-11-01",
+      mode: {
+        kind: "add",
+        entry: "planner_cell",
+        startMs: Date.parse("2026-11-01T01:30:00-04:00"),
+      },
+      nowMs: Date.parse("2026-11-02T12:00:00-05:00"),
+    });
+
+    // 실제 시각으로 1시간 뒤는 두 번째 01:30이라 01:30~01:30으로 보인다. 벽시계로 1시간 뒤인 02:30이어야 한다.
+    expect(startInput()).toHaveValue("01:30");
+    expect(endInput()).toHaveValue("02:30");
+
+    fireEvent.change(startInput(), { target: { value: "01:30" } });
+    expect(endInput()).toHaveValue("02:30");
+    fireEvent.change(endInput(), { target: { value: "02:40" } });
+    fireEvent.click(saveButton());
+
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(createManualRecord)).toHaveBeenCalledWith({
+      startedAt: "2026-11-01T05:30:00.000Z",
+      endedAt: "2026-11-01T07:40:00.000Z",
+      timeZone: "America/New_York",
+    });
+  });
+
   it("저장하면 캐시를 비우고 다른 탭에 알리고 이벤트를 남긴 뒤 onDone을 한 번 부른다", async () => {
     vi.mocked(createManualRecord).mockResolvedValue([saved(41, iso(DAY, 9), iso(DAY, 10))]);
     const { onDone, invalidate } = renderForm();
@@ -276,6 +324,7 @@ describe("ManualRecordForm", () => {
       startedAt: iso(DAY, 9),
       endedAt: iso(DAY, 10),
       subjectId: 3,
+      timeZone: "Asia/Seoul",
     });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: statsKeys.all });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["subjects"] });
@@ -372,6 +421,24 @@ describe("ManualRecordForm", () => {
       expect(screen.getByText("다음 날")).toBeInTheDocument();
     });
 
+    it("기기 시간대가 뉴욕이면 수정 요청에 뉴욕 시간대를 싣는다", async () => {
+      mockDeviceTimeZone("America/New_York");
+      vi.mocked(updateManualRecord).mockResolvedValue([saved(61, iso(DAY, 23), iso(NEXT, 1))]);
+      const { onDone } = renderForm({
+        mode: { kind: "edit", entry: "planner_cell", bundle: [before, after] },
+        sessions: [before, after],
+      });
+
+      fireEvent.click(saveButton());
+
+      await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+      expect(vi.mocked(updateManualRecord)).toHaveBeenCalledWith(51, {
+        startedAt: iso(DAY, 23),
+        endedAt: iso(NEXT, 1),
+        timeZone: "America/New_York",
+      });
+    });
+
     it("저장은 묶음 첫 조각 id로 PATCH하고 자기 묶음과는 겹침으로 보지 않는다", async () => {
       vi.mocked(updateManualRecord).mockResolvedValue([
         saved(61, iso(DAY, 23), iso(NEXT, 0)),
@@ -389,6 +456,7 @@ describe("ManualRecordForm", () => {
       expect(vi.mocked(updateManualRecord)).toHaveBeenCalledWith(51, {
         startedAt: iso(DAY, 23),
         endedAt: iso(NEXT, 1),
+        timeZone: "Asia/Seoul",
       });
       expect(vi.mocked(trackManualRecordEdit)).toHaveBeenCalledWith({
         entry: "planner_cell",

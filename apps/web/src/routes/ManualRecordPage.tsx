@@ -15,12 +15,13 @@ import {
 } from "@/features/manual-record/manualRecord";
 import { MANUAL_RECORD_PARAMS } from "@/features/manual-record/useOpenManualRecord";
 import { plannerDateKeyOf } from "@/features/planner/plannerDay";
-import { addDaysToDateKey, isFutureDateKey, kstDateKey } from "@/features/records/recordsFormat";
+import { addDaysToDateKey, isFutureDateKey } from "@/features/records/recordsFormat";
 import { subjectRefMap } from "@/features/records/recordsTimetable";
 import { slideNavigate } from "@/lib/pageTransition";
 import { dailyStatsQuery } from "@/lib/statsQueries";
 import { listSubjects } from "@/lib/subjectApi";
 import { hasTokenSource, useIdentityPending, useUserId } from "@/lib/userId";
+import { localDateKey } from "@/lib/dateKey";
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -62,7 +63,7 @@ export function ManualRecordPage() {
   const location = useLocation();
   const [searchParams] = useSearchParams();
 
-  const todayKey = kstDateKey();
+  const todayKey = localDateKey();
   // 입구는 미래 날짜로 열지 않는다. 주소로 미래가 오면 기본 구간의 종료가 시작보다 일러 저장할 수 없는 화면이 되므로 오늘로 연다.
   const dateParam = dateKeyOf(searchParams.get("date"));
   const dateKey = dateParam !== null && dateParam <= todayKey ? dateParam : todayKey;
@@ -75,7 +76,7 @@ export function ManualRecordPage() {
   const startMs =
     rawStart !== null &&
     Number.isFinite(new Date(rawStart).getTime()) &&
-    kstDateKey(new Date(rawStart)) === dateKey
+    localDateKey(new Date(rawStart)) === dateKey
       ? rawStart
       : undefined;
   const isEdit = editId !== null;
@@ -99,7 +100,7 @@ export function ManualRecordPage() {
   const startKey =
     edited?.submissionStartedAt === undefined
       ? null
-      : kstDateKey(new Date(edited.submissionStartedAt));
+      : localDateKey(new Date(edited.submissionStartedAt));
   const prevKey = startKey !== null && startKey < dateKey ? startKey : null;
   const prev = useQuery({
     ...dailyStatsQuery(userId ?? 0, prevKey ?? ""),

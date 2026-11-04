@@ -10,6 +10,8 @@ import {
   FIXTURE_TOTAL_DAYS,
 } from "@/lib/rankingFixtures";
 
+import { mockDeviceTimeZone } from "@/test/deviceTimeZone";
+
 import {
   formatRankChange,
   hasFocusing,
@@ -454,5 +456,17 @@ describe("보간 상한", () => {
         closesAt: kstIso("2026-10-12T00:00:00"),
       }),
     ).toBe(9000);
+  });
+
+  it("기기 시간대가 뉴욕이어도 KST 구간 끝에서 멈춘다", () => {
+    mockDeviceTimeZone("America/New_York");
+    expect(
+      liveCapSec({
+        type: "TIME_SLOT",
+        slot: "MORNING",
+        asOf: kstIso("2026-10-10T11:59:00"),
+        closesAt: kstIso("2026-10-11T00:00:00"),
+      }),
+    ).toBe(60);
   });
 });

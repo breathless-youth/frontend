@@ -15,11 +15,6 @@ export interface TimetableSession {
   readonly subjectSegments?: readonly SubjectSegmentResponse[];
 }
 
-/** KST 날짜 키(`YYYY-MM-DD`)의 자정 epoch ms. */
-export function kstDayStartMs(dateKey: string): number {
-  return Date.parse(`${dateKey}T00:00:00+09:00`);
-}
-
 /**
  * 과목 id → 이름·색. 지운 과목도 들어 있다(`deleted`). 응답에 `subjects`가 없으면 빈 맵.
  *

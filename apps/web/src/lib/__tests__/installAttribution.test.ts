@@ -1,17 +1,37 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { InstallAttributionMessage } from "@focusmakers/types";
+import type {
+  AcquisitionResponse,
+  AcquisitionSource,
+  InstallAttributionMessage,
+} from "@focusmakers/types";
 
+import { ApiError } from "@/lib/api";
 import {
   INSTALL_ATTRIBUTION_PENDING_KEY,
+  acquisitionUserProperties,
+  flushInstallAttribution,
   handleInstallAttribution,
-  installAttributionProperties,
+  installUtmProperties,
+  toAcquisitionRequest,
 } from "@/lib/installAttribution";
 
-const mocks = vi.hoisted(() => ({ setInstallAttributionUserProperties: vi.fn() }));
+const mocks = vi.hoisted(() => ({
+  setInstallAttributionUserProperties: vi.fn(),
+  postAcquisition: vi.fn(),
+  reportHandled: vi.fn(),
+}));
 
 vi.mock("@/lib/amplitude", () => ({
   setInstallAttributionUserProperties: mocks.setInstallAttributionUserProperties,
+}));
+
+vi.mock("@/lib/acquisitionApi", () => ({
+  postAcquisition: mocks.postAcquisition,
+}));
+
+vi.mock("@/lib/sentry", () => ({
+  reportHandled: mocks.reportHandled,
 }));
 
 function message(overrides: Partial<InstallAttributionMessage> = {}): InstallAttributionMessage {
@@ -20,92 +40,108 @@ function message(overrides: Partial<InstallAttributionMessage> = {}): InstallAtt
     platform: "android",
     installReferrer: null,
     deepLinkAd: null,
+    googleDeepLinkAd: null,
     capturedAtMs: 5,
     atMs: 9,
     ...overrides,
   };
 }
 
-describe("installAttributionProperties", () => {
-  it("딥링크 광고 번호가 있으면 메타 광고와 그 번호를 남긴다", () => {
-    expect(installAttributionProperties(message({ deepLinkAd: "ios_v1" }))).toEqual({
-      install_source: "meta_ad",
-      install_ad: "ios_v1",
-    });
-  });
+function response(overrides: Partial<AcquisitionResponse> = {}): AcquisitionResponse {
+  return {
+    source: "UNKNOWN",
+    metaAd: null,
+    googleAd: null,
+    inviteCode: null,
+    firstTouchAt: "2026-11-04T00:00:00Z",
+    ...overrides,
+  };
+}
 
-  it("딥링크 광고 번호를 설치 정보보다 먼저 본다", () => {
+describe("toAcquisitionRequest", () => {
+  it("플랫폼을 대문자로, 읽은 시각을 ISO 문자열로 바꾼다", () => {
     expect(
-      installAttributionProperties(
-        message({
-          deepLinkAd: "aos_v2",
-          installReferrer: "utm_source=google-play&utm_medium=organic",
-        }),
-      ),
-    ).toEqual({ install_source: "meta_ad", install_ad: "aos_v2" });
-  });
-
-  it.each(["apps.facebook.com", "apps.instagram.com"])(
-    "설치 정보 출처가 %s면 광고 번호 없이 메타 광고로 남긴다 — 번호는 서버가 암호문을 풀어 채운다",
-    (source) => {
-      expect(
-        installAttributionProperties(
-          message({
-            installReferrer: `utm_source=${source}&utm_content=%7B%22source%22%3A%7B%7D%7D`,
-          }),
-        ),
-      ).toEqual({ install_source: "meta_ad" });
-    },
-  );
-
-  it("초대코드가 있으면 친구 초대로 남기고 코드는 싣지 않는다", () => {
-    expect(installAttributionProperties(message({ installReferrer: "code=0412" }))).toEqual({
-      install_source: "invite",
-    });
-  });
-
-  it("플레이 오가닉 설치를 구분한다", () => {
-    expect(
-      installAttributionProperties(
-        message({ installReferrer: "utm_source=google-play&utm_medium=organic" }),
-      ),
-    ).toEqual({ install_source: "organic" });
-  });
-
-  it("그 밖의 링크는 UTM 값을 토큰일 때만 남긴다", () => {
-    expect(
-      installAttributionProperties(
-        message({
-          installReferrer:
-            "utm_source=invite_share&utm_medium=kakao&utm_campaign=%ED%95%9C%EA%B8%80",
-        }),
-      ),
+      toAcquisitionRequest({
+        platform: "android",
+        installReferrer: "r",
+        deepLinkAd: null,
+        googleDeepLinkAd: "g_planner",
+        capturedAtMs: 0,
+      }),
     ).toEqual({
-      install_source: "other_link",
-      install_utm_source: "invite_share",
-      install_utm_medium: "kakao",
-    });
-  });
-
-  it("출처 없이 UTM만 있어도 그 밖의 링크로 남긴다", () => {
-    expect(
-      installAttributionProperties(message({ installReferrer: "utm_campaign=fall_promo" })),
-    ).toEqual({ install_source: "other_link", install_utm_campaign: "fall_promo" });
-  });
-
-  it("읽은 값이 없으면 알 수 없음으로 남긴다", () => {
-    expect(installAttributionProperties(message({ platform: "ios" }))).toEqual({
-      install_source: "unknown",
+      platform: "ANDROID",
+      installReferrer: "r",
+      deepLinkAd: null,
+      googleDeepLinkAd: "g_planner",
+      capturedAt: "1970-01-01T00:00:00.000Z",
     });
   });
 });
 
-describe("handleInstallAttribution", () => {
+describe("acquisitionUserProperties", () => {
+  it("메타 광고는 광고 번호와 아는 광고 ID만 남긴다", () => {
+    expect(
+      acquisitionUserProperties(
+        response({
+          source: "META_AD",
+          metaAd: {
+            campaignId: "120200000000000001",
+            adsetId: "120200000000000002",
+            adId: null,
+            label: "aos_v3",
+          },
+          inviteCode: "0412",
+        }),
+      ),
+    ).toEqual({
+      install_source: "meta_ad",
+      install_ad: "aos_v3",
+      install_meta_campaign_id: "120200000000000001",
+      install_meta_adset_id: "120200000000000002",
+    });
+  });
+
+  it("구글 광고는 광고 그룹 번호를 광고 번호로 남긴다", () => {
+    expect(
+      acquisitionUserProperties(response({ source: "GOOGLE_AD", googleAd: { label: "g_group" } })),
+    ).toEqual({ install_source: "google_ad", install_ad: "g_group" });
+  });
+
+  it("초대코드는 사용자 속성에 싣지 않는다", () => {
+    expect(acquisitionUserProperties(response({ source: "INVITE", inviteCode: "0412" }))).toEqual({
+      install_source: "invite",
+    });
+  });
+
+  it("모르는 유입 경로도 소문자로 그대로 남긴다", () => {
+    expect(
+      acquisitionUserProperties(response({ source: "TIKTOK_AD" as AcquisitionSource })),
+    ).toEqual({ install_source: "tiktok_ad" });
+  });
+});
+
+describe("installUtmProperties", () => {
+  it("UTM 값은 토큰 형식일 때만 남긴다", () => {
+    expect(
+      installUtmProperties(
+        "utm_source=invite_share&utm_medium=kakao&utm_campaign=%ED%95%9C%EA%B8%80",
+      ),
+    ).toEqual({ install_utm_source: "invite_share", install_utm_medium: "kakao" });
+  });
+
+  it("설치 정보가 없으면 아무것도 남기지 않는다", () => {
+    expect(installUtmProperties(null)).toEqual({});
+  });
+});
+
+describe("handleInstallAttribution과 flushInstallAttribution", () => {
   const postMessage = vi.fn();
 
   beforeEach(() => {
     localStorage.clear();
     vi.stubGlobal("ReactNativeWebView", { postMessage });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    mocks.postAcquisition.mockResolvedValue(response());
   });
 
   afterEach(() => {
@@ -120,31 +156,147 @@ describe("handleInstallAttribution", () => {
     );
   }
 
-  it("원문을 기기에 보관하고 user property를 남긴 뒤 앱에 받았다고 답한다", () => {
-    const received = message({ installReferrer: "code=0412" });
+  function storePending(value: unknown) {
+    localStorage.setItem(INSTALL_ATTRIBUTION_PENDING_KEY, JSON.stringify(value));
+  }
 
-    handleInstallAttribution(received);
+  it("앱 메시지를 보관하고 답신한 뒤 서버로 보내고, 성공하면 속성을 남기고 보관을 지운다", async () => {
+    mocks.postAcquisition.mockResolvedValue(
+      response({ source: "GOOGLE_AD", googleAd: { label: "g_planner" } }),
+    );
 
-    expect(JSON.parse(localStorage.getItem(INSTALL_ATTRIBUTION_PENDING_KEY)!)).toEqual({
-      platform: "android",
-      installReferrer: "code=0412",
+    handleInstallAttribution(
+      message({ installReferrer: "gclid=abc&utm_source=google", googleDeepLinkAd: "g_planner" }),
+    );
+    expect(sentTypes()).toEqual(["install-attribution-received"]);
+    await flushInstallAttribution();
+
+    expect(mocks.postAcquisition).toHaveBeenCalledTimes(1);
+    expect(mocks.postAcquisition).toHaveBeenCalledWith({
+      platform: "ANDROID",
+      installReferrer: "gclid=abc&utm_source=google",
       deepLinkAd: null,
-      capturedAtMs: 5,
+      googleDeepLinkAd: "g_planner",
+      capturedAt: "1970-01-01T00:00:00.005Z",
     });
     expect(mocks.setInstallAttributionUserProperties).toHaveBeenCalledWith({
-      install_source: "invite",
+      install_utm_source: "google",
+      install_source: "google_ad",
+      install_ad: "g_planner",
     });
-    expect(sentTypes()).toEqual(["install-attribution-received"]);
+    expect(localStorage.getItem(INSTALL_ATTRIBUTION_PENDING_KEY)).toBeNull();
   });
 
-  it("보관에 실패하면 답하지 않는다 — 앱이 다음 준비 신호에서 다시 보낸다", () => {
+  it("400이면 보관을 지우고 Sentry에 경고를 남긴다", async () => {
+    const error = new ApiError("bad", 400, "INVALID");
+    mocks.postAcquisition.mockRejectedValue(error);
+    storePending({ platform: "ios", installReferrer: null, deepLinkAd: null, capturedAtMs: 1 });
+
+    await flushInstallAttribution();
+
+    expect(localStorage.getItem(INSTALL_ATTRIBUTION_PENDING_KEY)).toBeNull();
+    expect(mocks.setInstallAttributionUserProperties).not.toHaveBeenCalled();
+    expect(mocks.reportHandled).toHaveBeenCalledWith(error, "install-attribution");
+  });
+
+  it.each([401, 500])("%i이면 보관을 남기고 속성은 남기지 않는다", async (status) => {
+    mocks.postAcquisition.mockRejectedValue(new ApiError("fail", status));
+    storePending({ platform: "ios", installReferrer: null, deepLinkAd: null, capturedAtMs: 1 });
+
+    await flushInstallAttribution();
+
+    expect(localStorage.getItem(INSTALL_ATTRIBUTION_PENDING_KEY)).not.toBeNull();
+    expect(mocks.setInstallAttributionUserProperties).not.toHaveBeenCalled();
+  });
+
+  it("응답 모양이 어긋나 속성을 남기지 못해도 보관을 지우고 Sentry에 경고를 남긴다", async () => {
+    mocks.postAcquisition.mockResolvedValue({} as AcquisitionResponse);
+    storePending({ platform: "ios", installReferrer: null, deepLinkAd: null, capturedAtMs: 1 });
+
+    await flushInstallAttribution();
+
+    expect(localStorage.getItem(INSTALL_ATTRIBUTION_PENDING_KEY)).toBeNull();
+    expect(mocks.reportHandled).toHaveBeenCalledTimes(1);
+    expect(mocks.reportHandled).toHaveBeenCalledWith(expect.any(TypeError), "install-attribution");
+  });
+
+  it("400이 아닌 실패는 경고 로그만 남기고 Sentry에는 보내지 않는다", async () => {
+    const error = new TypeError("Failed to fetch");
+    mocks.postAcquisition.mockRejectedValue(error);
+    storePending({ platform: "ios", installReferrer: null, deepLinkAd: null, capturedAtMs: 1 });
+
+    await flushInstallAttribution();
+
+    expect(console.warn).toHaveBeenCalledWith(
+      "[install-attribution] acquisition request failed",
+      error,
+    );
+    expect(mocks.reportHandled).not.toHaveBeenCalled();
+  });
+
+  it("네트워크 실패면 보관을 남긴다", async () => {
+    mocks.postAcquisition.mockRejectedValue(new TypeError("Failed to fetch"));
+    storePending({ platform: "ios", installReferrer: null, deepLinkAd: null, capturedAtMs: 1 });
+
+    await flushInstallAttribution();
+
+    expect(localStorage.getItem(INSTALL_ATTRIBUTION_PENDING_KEY)).not.toBeNull();
+  });
+
+  it("전송 중에 다시 불려도 서버로는 한 번만 보낸다", async () => {
+    let resolve: (value: AcquisitionResponse) => void = () => {};
+    mocks.postAcquisition.mockReturnValue(
+      new Promise<AcquisitionResponse>((r) => {
+        resolve = r;
+      }),
+    );
+    storePending({ platform: "ios", installReferrer: null, deepLinkAd: null, capturedAtMs: 1 });
+
+    const first = flushInstallAttribution();
+    const second = flushInstallAttribution();
+    resolve(response());
+    await Promise.all([first, second]);
+
+    expect(mocks.postAcquisition).toHaveBeenCalledTimes(1);
+  });
+
+  it("보관 원문에 googleDeepLinkAd가 없으면 null로 보낸다", async () => {
+    storePending({ platform: "android", installReferrer: "r", deepLinkAd: null, capturedAtMs: 1 });
+
+    await flushInstallAttribution();
+
+    expect(mocks.postAcquisition).toHaveBeenCalledWith(
+      expect.objectContaining({ googleDeepLinkAd: null }),
+    );
+  });
+
+  it("localStorage가 throw하면 서버를 부르지 않고 답신도 보내지 않는다", async () => {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new DOMException("quota", "QuotaExceededError");
     });
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("denied", "SecurityError");
+    });
 
     expect(() => handleInstallAttribution(message({ deepLinkAd: "ios_v1" }))).not.toThrow();
+    await flushInstallAttribution();
 
-    expect(mocks.setInstallAttributionUserProperties).toHaveBeenCalledTimes(1);
     expect(sentTypes()).toEqual([]);
+    expect(mocks.postAcquisition).not.toHaveBeenCalled();
+  });
+
+  it("보관한 값이 없으면 서버를 부르지 않는다", async () => {
+    await flushInstallAttribution();
+
+    expect(mocks.postAcquisition).not.toHaveBeenCalled();
+  });
+
+  it("보관 값 모양이 깨졌으면 지우고 서버를 부르지 않는다", async () => {
+    storePending({ platform: "web", installReferrer: 1 });
+
+    await flushInstallAttribution();
+
+    expect(mocks.postAcquisition).not.toHaveBeenCalled();
+    expect(localStorage.getItem(INSTALL_ATTRIBUTION_PENDING_KEY)).toBeNull();
   });
 });
