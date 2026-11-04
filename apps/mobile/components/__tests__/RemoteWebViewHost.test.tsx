@@ -1483,6 +1483,7 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
         platform: "android",
         installReferrer: "code=0412",
         deepLinkAd: null,
+        googleDeepLinkAd: null,
         capturedAtMs: 7,
       });
     });
