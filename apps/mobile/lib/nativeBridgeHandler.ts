@@ -27,6 +27,7 @@ import type * as PushTokenRegistration from "./pushTokenRegistration";
 import { trackNativeEvent } from "./nativeAnalytics";
 import { emitSessionClosed } from "./sessionClosed";
 import { runAfterNextSessionScreen } from "./sessionPresence";
+import { socialLogin } from "./socialLogin";
 import { setTabBarState } from "./tabBarVisibility";
 import { appendVideoChunk, saveVideo, shareVideo } from "./videoTransfer";
 import { profilePhotoPickerNative } from "../modules/profile-photo-picker";
@@ -378,6 +379,12 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       openPushRoute(route, (target) => router.push(target));
       break;
     }
+    case "social-login":
+      // 성공이면 새 토큰의 `auth-token`이 저장 구독으로 먼저 나간 뒤에 결과가 나간다.
+      void socialLogin(message.provider).then((result) => {
+        reply({ type: "social-login-result", id: message.id, ...result, atMs: Date.now() });
+      });
+      break;
     default: {
       // 모든 타입을 case로 처리했으면 여기 오는 타입은 never다. 새 메시지를 추가하고 처리를
       // 빠뜨리면 이 줄에서 컴파일이 깨진다. 런타임에 오는 경우는 타입과 파서가 어긋났을 때뿐이라

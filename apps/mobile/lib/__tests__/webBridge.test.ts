@@ -32,6 +32,25 @@ describe("parseToNativeMessage", () => {
     },
   );
 
+  it("social-login은 공급자와 요청 id를 함께 파싱한다", () => {
+    for (const provider of ["GOOGLE", "KAKAO", "APPLE"]) {
+      expect(
+        parseToNativeMessage(`{"type":"social-login","id":"r1","provider":"${provider}","atMs":5}`),
+      ).toEqual({ type: "social-login", id: "r1", provider, atMs: 5 });
+    }
+  });
+
+  it.each([
+    ["모르는 공급자", '{"type":"social-login","id":"r1","provider":"NAVER","atMs":5}'],
+    ["소문자 공급자", '{"type":"social-login","id":"r1","provider":"google","atMs":5}'],
+    ["공급자 없음", '{"type":"social-login","id":"r1","atMs":5}'],
+    ["빈 id", '{"type":"social-login","id":"","provider":"KAKAO","atMs":5}'],
+    ["숫자 id", '{"type":"social-login","id":1,"provider":"KAKAO","atMs":5}'],
+    ["id 없음", '{"type":"social-login","provider":"KAKAO","atMs":5}'],
+  ])("social-login은 %s이면 버린다", (_label, raw) => {
+    expect(parseToNativeMessage(raw)).toBeNull();
+  });
+
   it("app-lock-* 메시지는 모르는 필드를 버린다", () => {
     expect(parseToNativeMessage('{"type":"app-lock-start","selection":"x","atMs":5}')).toEqual({
       type: "app-lock-start",

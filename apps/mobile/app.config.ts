@@ -267,10 +267,49 @@ function resolveAppVariant(raw: string | undefined): AppVariant {
   );
 }
 
+/**
+ * 소셜 로그인 설정
+ *
+ * 카카오 네이티브 앱 키와 구글 iOS 클라이언트 ID는 앱 종류마다 따로 발급하고, 지금은 운영 값만 있다.
+ * 값이 없는 앱 종류는 그 공급자의 config plugin을 넣지 않고 런타임도 초기화하지 않으며 웹에 알리지 않는다(`lib/socialLogin.ts`).
+ * 구글 Android는 모든 앱 종류가 같은 웹 클라이언트 ID를 쓴다.
+ * 셋 다 바이너리에 그대로 실리는 공개 값이다.
+ */
+const GOOGLE_WEB_CLIENT_ID =
+  "320200622450-5bqjf3j6lu8akp20p4oikiio7t8brjtd.apps.googleusercontent.com";
+
+function socialLoginPlugins(
+  kakaoNativeAppKey: string,
+  googleIosClientId: string,
+): NonNullable<ExpoConfig["plugins"]> {
+  const plugins: NonNullable<ExpoConfig["plugins"]> = [];
+  if (kakaoNativeAppKey) {
+    plugins.push([
+      "@react-native-kakao/core",
+      {
+        nativeAppKey: kakaoNativeAppKey,
+        // Android는 카카오톡 로그인 복귀를 받는 액티비티를, iOS는 복귀 URL 처리를 넣는다.
+        android: { authCodeHandlerActivity: true },
+        ios: { handleKakaoOpenUrl: true },
+      },
+    ]);
+  }
+  if (googleIosClientId) {
+    // Firebase 파일의 REVERSED_CLIENT_ID가 아니라 앱 종류의 iOS 클라이언트 ID로 scheme을 만든다.
+    const clientId = googleIosClientId.replace(".apps.googleusercontent.com", "");
+    plugins.push([
+      "react-native-nitro-google-signin",
+      { iosUrlScheme: `com.googleusercontent.apps.${clientId}` },
+    ]);
+    plugins.push("./plugins/withGoogleSignInOpenUrl");
+  }
+  return plugins;
+}
+
 // 접미사는 app.json의 base 값에 붙인다. 값을 여기 다시 적으면 app.json과 이중 관리가 된다.
 // 같은 스킴이나 App Link 호스트를 두 아이덴티티가 등록하면 함께 설치된 기기에서 어느 앱이
 // 열릴지 OS가 보장하지 않는다. 그래서 변형마다 스킴을 다르게 둔다.
-const VARIANT_TABLE: Record<
+export const VARIANT_TABLE: Record<
   AppVariant,
   {
     idSuffix: string;
@@ -279,6 +318,8 @@ const VARIANT_TABLE: Record<
     webBaseUrl?: string;
     schemes: string[];
     legacyHosts: string[];
+    kakaoNativeAppKey?: string;
+    googleIosClientId?: string;
   }
 > = {
   production: {
@@ -290,6 +331,8 @@ const VARIANT_TABLE: Record<
     // 그 링크를 여는 구 스토어 빌드가 사라지면 focuson과 web.sunqstudio.kr을 지운다.
     schemes: ["focusmakers", "focuson"],
     legacyHosts: ["web.sunqstudio.kr"],
+    kakaoNativeAppKey: "31b5a6b5a878defcff1e99d69391649e",
+    googleIosClientId: "320200622450-npt1a7o4bpd6ois9tkld1qnn3l2sdi9u.apps.googleusercontent.com",
   },
   staging: {
     idSuffix: ".staging",
@@ -331,6 +374,8 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
   const appDisplayName = `${config.extra?.appDisplayName ?? ""}${table.nameSuffix}`;
   const appDisplayNameEn = `${config.extra?.appDisplayNameEn ?? ""}${table.nameSuffix}`;
   const metaSdk = resolveMetaSdk(variant);
+  const kakaoNativeAppKey = table.kakaoNativeAppKey ?? "";
+  const googleIosClientId = table.googleIosClientId ?? "";
 
   const webBaseUrl = table.webBaseUrl ?? guardDevBaseUrl("WEB_BASE_URL", process.env.WEB_BASE_URL);
   // development는 웹이 로컬 주소라 App Link를 걸 host가 없고, staging과 같은 host를 두 앱이
@@ -377,6 +422,7 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
         { appleTeamId: "9BCSD3ZRDQ", appGroup: `group.${bundleIdentifier}` },
       ],
       ...metaSdkPlugins(metaSdk, appDisplayName),
+      ...socialLoginPlugins(kakaoNativeAppKey, googleIosClientId),
     ],
     ios: {
       ...config.ios,
@@ -403,6 +449,12 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
       webBaseUrl,
       // 런타임 게이트(`lib/metaAdsSdk.ts`) — 비어 있으면 Meta SDK가 빌드에 없다는 뜻이다.
       metaAppId: metaSdk?.appId ?? "",
+      // 런타임 게이트(`lib/socialLogin.ts`)이고, 빈 값은 그 공급자를 이 앱 종류에서 쓰지 않는다는 뜻이다.
+      socialLogin: {
+        kakaoNativeAppKey,
+        googleIosClientId,
+        googleWebClientId: GOOGLE_WEB_CLIENT_ID,
+      },
       // 같은 기기에서 CSS 대체 화면과 비교하려고 개발 빌드만 네이티브 glass를 끌 수 있게 한다(`lib/remoteQueryParams.ts`).
       glassChromeOff: variant === "development" && process.env.GLASS_CHROME_OFF === "1",
     },

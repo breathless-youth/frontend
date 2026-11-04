@@ -53,11 +53,22 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 - **설치 유입 정보는 `lib/installAttribution.ts`가 설치당 한 번 읽는다.** Android 플레이 설치 정보 원문과 메타 지연 딥링크의 `fm_ad` 값을 SecureStore에 보관하고, 준비된 웹뷰에 브리지 `install-attribution`으로 넘긴 뒤 웹의 `install-attribution-received`를 받아야 보관을 끝낸다. 지연 딥링크는 설치 뒤 처음 물을 때만 돌아오므로 보관소를 읽지 못한 실행에서 다시 묻지 말 것. 초대코드 복원(`installReferrerInvite.ts`)과는 따로 읽는다.
 - `autoLogAppEventsEnabled`·`isAutoInitEnabled`를 끄지 말 것(설치 어트리뷰션의 근거 이벤트가 사라진다). 로그인·공유 기능은 쓰지 않는다 — plugin의 `scheme`·`displayName`은 필수값일 뿐이다.
 
+## 소셜 로그인 (`lib/socialLogin.ts` · `lib/socialLoginSdk.ts`)
+
+`@react-native-kakao/core`·`@react-native-kakao/user`·`react-native-nitro-google-signin`·`expo-apple-authentication`. 웹이 브리지 `social-login`을 보내면 셸이 SDK 로그인과 `POST /api/auth/link`를 처리하고, 새 토큰의 `auth-token`을 먼저 보낸 뒤 `social-login-result`로 답한다.
+
+- SDK는 `lib/socialLoginSdk.ts`만 import한다. 루트 import가 네이티브 없이(jest) 죽는 것은 Meta SDK와 같고, 이 파일 안에서도 쓰는 공급자의 SDK만 `require`한다. 테스트는 세 공급자의 네 패키지를 mock한다.
+- 어떤 공급자를 쓰는지는 `socialLoginProvidersFor` 한 곳이 정한다. SDK 초기화와 웹뷰 주소의 `socialLogin` 목록이 이 함수를 같이 본다. 카카오는 앱 종류별 네이티브 앱 키가, 구글 iOS는 앱 종류별 iOS 클라이언트 ID가 있어야 들어가고, 구글 Android와 애플(iOS)은 모든 앱 종류에 들어간다.
+- 키는 `app.config.ts`의 `VARIANT_TABLE`(`kakaoNativeAppKey`·`googleIosClientId`)에 있고 지금은 production만 채웠다. dev·staging 값을 채우면 config plugin, URL scheme, 구글 로그인 복귀 처리(`plugins/withGoogleSignInOpenUrl.js`), `extra.socialLogin`, 웹 목록이 함께 따라온다. 네이티브 설정이 바뀌므로 그 앱 종류를 다시 빌드해야 한다. `socialLoginConfig.test.ts`가 고정한다.
+- SDK 네이티브 모듈이 없는 이전 Dev Client에서는 그 공급자만 목록에서 빠진다. 애플 SDK는 모듈이 없어도 가짜 모듈로 불러와져서 `requireOptionalNativeModule`로 따로 확인한다.
+- link가 성공하면 서버가 이전 refresh를 바로 무효로 만든다. 그래서 진행 중인 link가 있으면 `refreshAuth`가 그 결과를 기다린 뒤 새 refresh로 갱신하고, link는 시작할 때 진행 중인 갱신을 기다린다. 이 대기를 빼면 무효가 된 refresh로 갱신해 401을 받고, 저장을 비운 뒤 새 비회원으로 가입된다.
+- ID 토큰과 nonce는 로그와 브리지로 내보내지 않는다.
+
 ## 에러 모니터링 (Sentry, `lib/sentry.ts`)
 
 - **프로젝트는 `focusmakers-app`이다**(웹 `focusmakers-web`과 분리). **웹 DSN을 복사해 오지 말 것** — `sentryConfig.test.ts`가 프로젝트 ID를 못 박는다. **DSN은 `app.json`의 `extra.sentryDsn`에 둔다**(전송 여부는 런타임 `enabled: !__DEV__`가 가른다). 소스맵용 `SENTRY_AUTH_TOKEN`은 비밀이라 EAS Secret에 넣는다(커밋 금지).
 - **Session Replay(`mobileReplayIntegration`)를 추가하지 말 것.** WebView 셸이라 마스킹된 사각형만 남고, 마스킹을 풀면 카메라 프리뷰가 녹화돼 개인정보 원칙과 충돌한다. `sendDefaultPii`는 `false`로 못 박았다. 성능 추적(`tracesSampleRate`)도 켜지 않는다(웹뷰 셸이라 잴 구간이 없고 화면 로딩은 웹이 본다).
-- **웹과 달리 스크러빙 콜백이 없다** — 네이티브에는 `?userId=N`이 새는 경로가 없기 때문이다(근거는 [ADR 0008](../../docs/adr/0008-observability-identifier-scrubbing.md)). 네이티브 `fetch`는 `lib/auth.ts`(`POST /api/users`, `POST /api/auth/refresh`), `lib/launchGoal.ts`(`GET /api/users/me/profile`), `lib/pushTokenRegistration.ts`(`PUT /api/push-tokens`) 세 곳뿐이다. 네 요청 모두 쿼리스트링이 없고, 토큰은 본문이나 `Authorization` 헤더에 실린다. **쿼리스트링 붙은 요청을 추가하거나 URL을 로그에 남기면 이 전제가 깨지므로 웹과 같은 정제를 여기에도 넣는다.**
+- **웹과 달리 스크러빙 콜백이 없다** — 네이티브에는 `?userId=N`이 새는 경로가 없기 때문이다(근거는 [ADR 0008](../../docs/adr/0008-observability-identifier-scrubbing.md)). 네이티브 `fetch`는 `lib/auth.ts`(`POST /api/users`, `POST /api/auth/refresh`, `POST /api/auth/link`), `lib/launchGoal.ts`(`GET /api/users/me/profile`), `lib/pushTokenRegistration.ts`(`PUT /api/push-tokens`) 세 곳뿐이다. 다섯 요청 모두 쿼리스트링이 없고, 토큰은 본문이나 `Authorization` 헤더에 실린다. **쿼리스트링 붙은 요청을 추가하거나 URL을 로그에 남기면 이 전제가 깨지므로 웹과 같은 정제를 여기에도 넣는다.**
 - **Android release는 R8로 난독화된다**(`expo-build-properties`의 `enableMinifyInReleaseBuilds`·`enableShrinkResourcesInReleaseBuilds`, Play 2027-02 최적화 요건). 매핑은 Sentry plugin의 `experimental_android.enableAndroidGradlePlugin`이 올린다 — **둘 중 하나만 끄지 말 것**(끄면 빌드는 성공하고 네이티브 스택만 `a.b.c`로 남는다). 옵션은 `experimental_android` 아래에 두어야 읽힌다. `sentryConfig.test.ts`가 짝을 잠근다.
 - **`metro.config.js`를 `getDefaultConfig`로 되돌리지 말 것.** `getSentryExpoConfig`가 번들·소스맵에 같은 debug ID를 심는다. 되돌리면 스택트레이스만 압축된 채 남는다. 동작 확인은 EAS staging/production 빌드로만 된다.
 

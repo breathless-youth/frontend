@@ -24,6 +24,7 @@
         "CFBundleAllowMixedLocalizations": true
       },
       "bundleIdentifier": "com.breathlessyouth.mobile",
+      "usesAppleSignIn": true,
       "entitlements": {
         "aps-environment": "development"
       }
@@ -86,7 +87,8 @@
         {
           "android": {
             "enableMinifyInReleaseBuilds": true,
-            "enableShrinkResourcesInReleaseBuilds": true
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "extraMavenRepos": ["https://devrepo.kakao.com/nexus/content/groups/public/"]
           },
           "ios": {
             "useFrameworks": "dynamic",
@@ -104,6 +106,7 @@
       ],
       "@react-native-firebase/app",
       "@react-native-firebase/messaging",
+      "expo-apple-authentication",
       [
         "expo-media-library",
         {

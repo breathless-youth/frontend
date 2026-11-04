@@ -33,6 +33,7 @@ import {
   NATIVE_SEGMENT_MIN_OPTIONS,
   NAVIGATE_TAB_SOURCES,
   NAVIGATE_TAB_TARGETS,
+  SOCIAL_LOGIN_PROVIDERS,
   VIDEO_SHARE_TARGETS,
 } from "@focusmakers/types";
 
@@ -171,6 +172,15 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         return null;
       }
       return { type: record.type, id: record.id, atMs: record.atMs };
+    case "social-login":
+      if (
+        typeof record.id !== "string" ||
+        record.id === "" ||
+        !isOneOf(SOCIAL_LOGIN_PROVIDERS, record.provider)
+      ) {
+        return null;
+      }
+      return { type: "social-login", id: record.id, provider: record.provider, atMs: record.atMs };
     case "app-lock-start":
     case "app-lock-stop":
     case "app-lock-battery-guide":
