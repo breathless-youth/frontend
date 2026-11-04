@@ -30,7 +30,6 @@ const CARD_CLASS = "rounded-xl bg-muted shadow-sb-card";
 export function PublicRoomDetailScreen({
   room,
   applyState,
-  now,
   fetchedAtMs,
   pending,
   onBack,
@@ -39,7 +38,6 @@ export function PublicRoomDetailScreen({
 }: {
   room: PublicRoomDetail;
   applyState: ApplyState;
-  now: Date;
   fetchedAtMs: number;
   /** 신청이나 신청 취소를 보내는 중이면 두 번 나가지 않게 버튼을 막는다. */
   pending: boolean;
@@ -96,7 +94,6 @@ export function PublicRoomDetailScreen({
           members={room.members}
           visibility="public"
           elapsedSec={elapsedSec}
-          now={now}
           className="mt-3"
         />
       </div>

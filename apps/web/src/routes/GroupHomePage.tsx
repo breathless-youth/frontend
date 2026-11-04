@@ -22,7 +22,6 @@ import { RoomHomeScreen } from "@/features/group-room/screens/RoomHomeScreen";
 import { shareGroupInvite } from "@/features/group-room/shareGroupInvite";
 import { useBackTo } from "@/features/group-room/useBackTo";
 import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
-import { useNow } from "@/features/ranking/useNow";
 import { leaveGroup, setGroupNotification } from "@/lib/groupRoomApi";
 import {
   GROUP_MUTATION_OPTIONS,
@@ -35,7 +34,6 @@ import {
   invalidateGroupMembership,
 } from "@/lib/groupRoomQueries";
 import { haptic } from "@/lib/haptics";
-import { useScreenVisible } from "@/lib/nativeTabFocus";
 import { slideNavigate } from "@/lib/pageTransition";
 import { showToast } from "@/lib/toast";
 import { useIdentityPending, useUserId } from "@/lib/userId";
@@ -72,8 +70,6 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
   const location = useLocation();
   const queryClient = useQueryClient();
   const back = useBackTo("/social");
-  const visible = useScreenVisible();
-  const now = new Date(useNow(visible ? 60_000 : null));
   const search = baseSearch(location.search);
   const groupPath = `/social/groups/${groupId}`;
   const go = (pathname: string) => slideNavigate("forward", () => navigate({ pathname, search }));
@@ -233,7 +229,6 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
     <>
       <RoomHomeScreen
         room={room}
-        now={now}
         fetchedAtMs={homeQuery.dataUpdatedAt}
         onBack={back}
         onToggleNotify={() => {

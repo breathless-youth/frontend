@@ -24,7 +24,6 @@ import { useElapsedSec } from "../useElapsedSec";
  */
 export function RoomHomeScreen({
   room,
-  now,
   fetchedAtMs,
   defaultMenuOpen = false,
   onBack,
@@ -35,7 +34,6 @@ export function RoomHomeScreen({
   onEnterStudyRoom,
 }: {
   room: RoomHome;
-  now: Date;
   fetchedAtMs: number;
   /** 개발용 화면 모음에서 그룹 메뉴가 열린 모습을 바로 보려고 쓴다. */
   defaultMenuOpen?: boolean;
@@ -112,7 +110,6 @@ export function RoomHomeScreen({
           members={room.members}
           visibility={room.visibility}
           elapsedSec={elapsedSec}
-          now={now}
         />
         <WeeklyRankCard rows={room.weeklyRanks} elapsedSec={elapsedSec} />
       </div>
