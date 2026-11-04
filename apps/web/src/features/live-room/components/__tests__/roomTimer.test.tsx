@@ -173,7 +173,28 @@ describe("공부방 타이머 시트와 캡슐", () => {
     expect(within(sheet).getByRole("radiogroup", { name: "타이머 종류" })).toBeInTheDocument();
     expect(within(sheet).getByRole("button", { name: "30분 시작" })).toBeInTheDocument();
     expect(within(sheet).getByRole("button", { name: "취소" })).toBeInTheDocument();
-    expect(within(sheet).getByRole("switch", { name: "끝나면 알림음" })).toBeChecked();
+    expect(within(sheet).getByRole("switch", { name: "알림음" })).toBeChecked();
+    expect(within(sheet).queryByText("끝나면 알림음")).not.toBeInTheDocument();
+  });
+
+  it("알림음은 글자 줄 없이 싱글룸처럼 토글 옆 종 아이콘으로 보이고 폰 가로에서도 시트 안에 머문다", async () => {
+    const { user } = renderTimerHarness({ landscape: true });
+    await user.click(screen.getByRole("button", { name: "타이머" }));
+    const sheet = screen.getByRole("dialog", { name: "타이머 설정" });
+    const toggle = within(sheet).getByRole("switch", { name: "알림음" });
+
+    expect(within(sheet).getByTestId("icon-bell")).toBeInTheDocument();
+    expect(toggle.parentElement).toContainElement(within(sheet).getByTestId("icon-bell"));
+    // 싱글룸의 폰 가로 자리(화면 오른쪽 아래)를 따라가면 시트의 시작 버튼 위로 겹친다.
+    expect(toggle.parentElement?.className).not.toContain("landscape-compact:absolute");
+
+    await user.click(toggle);
+
+    expect(toggle).not.toBeChecked();
+    expect(within(sheet).getByTestId("icon-bell-off")).toBeInTheDocument();
+    expect(within(sheet).queryByTestId("icon-bell")).not.toBeInTheDocument();
+    // 싱글룸과 같은 설정을 함께 쓴다.
+    expect(localStorage.getItem("focuson.multiTimer.alarmSound.v1")).toBe("off");
   });
 
   it("세로에서는 아래에서 올라오는 시트로 연다", async () => {
@@ -194,7 +215,7 @@ describe("공부방 타이머 시트와 캡슐", () => {
     );
   });
 
-  it("뽀모도로를 고르면 집중과 휴식 시간, 설명, 바뀔 때마다 알림음이 보인다", async () => {
+  it("뽀모도로를 고르면 집중과 휴식 시간, 설명, 알림음 토글이 보인다", async () => {
     const { user } = renderTimerHarness();
     await user.click(screen.getByRole("button", { name: "타이머" }));
     const sheet = screen.getByRole("dialog", { name: "타이머 설정" });
@@ -206,7 +227,8 @@ describe("공부방 타이머 시트와 캡슐", () => {
       "true",
     );
     expect(within(sheet).getByText("집중 25분, 휴식 5분을 번갈아 해요")).toBeInTheDocument();
-    expect(within(sheet).getByRole("switch", { name: "바뀔 때마다 알림음" })).toBeInTheDocument();
+    expect(within(sheet).getByRole("switch", { name: "알림음" })).toBeInTheDocument();
+    expect(within(sheet).queryByText("바뀔 때마다 알림음")).not.toBeInTheDocument();
     fireEvent.change(within(sheet).getByRole("combobox", { name: "집중 시간" }), {
       target: { value: "50" },
     });
@@ -418,7 +440,7 @@ describe("공부방 타이머 영어 화면", () => {
     expect(within(sheet).getByRole("radiogroup", { name: "Timer type" })).toBeInTheDocument();
     expect(within(sheet).getByRole("button", { name: "Start 30 minutes" })).toBeInTheDocument();
     expect(within(sheet).getByRole("button", { name: "Cancel" })).toBeInTheDocument();
-    expect(within(sheet).getByRole("switch", { name: "Alarm when the timer ends" })).toBeChecked();
+    expect(within(sheet).getByRole("switch", { name: "Alarm sound" })).toBeChecked();
     expect(visibleText(sheet)).not.toMatch(/[가-힣]/);
 
     await user.click(within(sheet).getByRole("radio", { name: "Pomodoro" }));
@@ -426,9 +448,7 @@ describe("공부방 타이머 영어 화면", () => {
     expect(
       within(sheet).getByText("Focus for 25 minutes, then take a break for 5 minutes, and repeat"),
     ).toBeInTheDocument();
-    expect(
-      within(sheet).getByRole("switch", { name: "Alarm when focus or break ends" }),
-    ).toBeInTheDocument();
+    expect(within(sheet).getByRole("switch", { name: "Alarm sound" })).toBeInTheDocument();
     expect(within(sheet).getByRole("button", { name: "Focus for 25 minutes" })).toBeInTheDocument();
     expect(visibleText(sheet)).not.toMatch(/[가-힣]/);
   });

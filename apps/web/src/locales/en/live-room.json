@@ -94,10 +94,6 @@
       "timer": "Timer",
       "pomodoro": "Pomodoro"
     },
-    "alarm": {
-      "timer": "Alarm when the timer ends",
-      "pomodoro": "Alarm when focus or break ends"
-    },
     "aria": {
       "kind": "Timer type"
     }

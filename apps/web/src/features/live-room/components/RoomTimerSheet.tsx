@@ -1,10 +1,10 @@
-import { useId, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { Switch } from "@/components/ui/switch";
+import { AlarmSoundToggle } from "@/features/multi-timer/components/AlarmSoundToggle";
 import { ModeCard } from "@/features/multi-timer/components/ModeCard";
 import { TimerWheel } from "@/features/multi-timer/components/TimerWheel";
 import type { ModeKind, ModeState } from "@/features/multi-timer/multiTimerMachine";
@@ -139,7 +139,7 @@ export function RoomTimerSheet({
 /**
  * 시트 본문
  *
- * 맨 위 종류 토글, 고르는 부품, 알림음 줄, 취소와 시작 버튼 순서다.
+ * 맨 위 종류 토글, 고르는 부품, 알림음 토글, 취소와 시작 버튼 순서다.
  * 시트를 끌어 닫는 것은 손잡이에서만 받아서, 휠을 굴리거나 칸을 누르다 살짝 움직인 손가락이 시트를 닫지 않는다.
  */
 function TimerSheetBody({
@@ -155,8 +155,7 @@ function TimerSheetBody({
   onStart: () => void;
   className?: string;
 }) {
-  const { t } = useTranslation(["live-room", "common"]);
-  const alarmLabelId = useId();
+  const { t } = useTranslation("common");
   const { kind, settings } = mode;
   return (
     <div data-base-ui-swipe-ignore="" className={cn("flex min-h-0 flex-1 flex-col", className)}>
@@ -199,23 +198,19 @@ function TimerSheetBody({
           {pomodoroIntro(settings)}
         </p>
       )}
-      <div className="flex min-h-11 shrink-0 items-center justify-between gap-3">
-        <span id={alarmLabelId} className="text-[15px] leading-5.5 text-foreground">
-          {kind === "timer" ? t("roomTimerSheet.alarm.timer") : t("roomTimerSheet.alarm.pomodoro")}
-        </span>
-        <Switch
-          checked={timer.soundOn}
-          onCheckedChange={timer.setSoundOn}
-          aria-labelledby={alarmLabelId}
-        />
-      </div>
+      <AlarmSoundToggle
+        soundOn={timer.soundOn}
+        onChangeSoundOn={timer.setSoundOn}
+        inline
+        className="min-h-11 shrink-0 justify-end"
+      />
       <div className="flex shrink-0 gap-2">
         <button
           type="button"
           onClick={onCancel}
           className="h-13 w-26 shrink-0 rounded-lg bg-(--session-dialog-cancel-bg) text-base leading-5 font-bold text-foreground transition-opacity duration-200 active:opacity-80 motion-reduce:transition-none"
         >
-          {t("common:actions.cancel")}
+          {t("actions.cancel")}
         </button>
         <button
           type="button"
