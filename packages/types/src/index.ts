@@ -790,6 +790,9 @@ export type {
   AnalyticsEventParamValue,
   AnalyticsUserPropertiesMessage,
   NativeAnalyticsPropertyValue,
+  SocialLoginFailureCode,
+  SocialLoginProvider,
+  SocialLoginResultMessage,
   VideoResultStatus,
   VideoShareTarget,
 } from "./bridge";
@@ -817,6 +820,8 @@ export {
   NATIVE_SEGMENT_MIN_OPTIONS,
   NAVIGATE_TAB_SOURCES,
   NAVIGATE_TAB_TARGETS,
+  SOCIAL_LOGIN_FAILURE_CODES,
+  SOCIAL_LOGIN_PROVIDERS,
   VIDEO_RESULT_STATUSES,
   VIDEO_SHARE_TARGETS,
 } from "./bridge";

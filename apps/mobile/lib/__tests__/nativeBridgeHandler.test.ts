@@ -28,6 +28,7 @@ import { acknowledgeInstallAttribution } from "../installAttribution";
 import { waitForStartPrompts } from "../launchReady";
 import { ensurePushPermission } from "../pushBootstrap";
 import { registerPushToken } from "../pushTokenRegistration";
+import { socialLogin } from "../socialLogin";
 
 /**
  * 브리지 수신 공용 핸들러(BY-333) — `RemoteWebViewHost`를 쓰는 화면(탭 3개 + 세션) 전부가
@@ -101,6 +102,7 @@ jest.mock("../pushTokenRegistration", () => ({
   registerPushToken: jest.fn(async () => undefined),
 }));
 
+jest.mock("../socialLogin", () => ({ socialLogin: jest.fn() }));
 jest.mock("../installAttribution", () => ({
   acknowledgeInstallAttribution: jest.fn(async () => undefined),
 }));
@@ -1062,5 +1064,29 @@ describe("handleBridgeMessage: 프로필 사진 선택기", () => {
         expect.objectContaining({ type: "profile-photo-result", id: "r1", status: "failed" }),
       ),
     );
+  });
+});
+
+describe("social-login", () => {
+  it.each([
+    [{ status: "success", isNewUser: true }],
+    [{ status: "cancelled" }],
+    [{ status: "failed", code: "ALREADY_LINKED" }],
+  ])("결과 %o를 같은 id의 social-login-result로 답한다", async (result) => {
+    (socialLogin as jest.Mock).mockResolvedValue(result);
+    const reply = jest.fn();
+
+    handleBridgeMessage({ type: "social-login", id: "r7", provider: "KAKAO", atMs: 1 }, reply);
+
+    await waitFor(() =>
+      expect(reply).toHaveBeenCalledWith({
+        type: "social-login-result",
+        id: "r7",
+        ...result,
+        atMs: expect.any(Number),
+      }),
+    );
+    expect(socialLogin).toHaveBeenCalledWith("KAKAO");
+    expect(reply).toHaveBeenCalledTimes(1);
   });
 });
