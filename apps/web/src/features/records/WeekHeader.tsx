@@ -1,4 +1,5 @@
 import type { DailyStudyStat } from "@focusmakers/types";
+import { useTranslation } from "react-i18next";
 
 import { PeriodHeadline } from "./PeriodHeadline";
 import { PeriodNav, PeriodNavPickerButton } from "./PeriodNav";
@@ -30,11 +31,12 @@ export function WeekHeader({
   /** 주 범위 라벨을 탭했다 — 기간 선택 시트를 연다. */
   onOpenPicker: () => void;
 }) {
+  const { t } = useTranslation("records");
   return (
     <div className="flex flex-col items-center">
       <PeriodNav
-        prevLabel="이전 주"
-        nextLabel="다음 주"
+        prevLabel={t("week.aria.prev")}
+        nextLabel={t("week.aria.next")}
         canGoNext={canGoNext}
         onPrev={onPrevWeek}
         onNext={onNextWeek}
@@ -48,7 +50,7 @@ export function WeekHeader({
       {/* 오류 시 확정값처럼 보일 숫자를 아예 안 그린다(범위·네비만 남는다). */}
       {metricsStatus !== "error" && (
         <PeriodHeadline
-          label="주간 순공시간"
+          label={t("week.headline")}
           totals={
             metricsStatus === "success"
               ? { focusSec: sumFocusSec(daily ?? []), studySec: sumStudySec(daily ?? []) }

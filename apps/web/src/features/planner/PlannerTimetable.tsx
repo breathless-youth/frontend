@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import type { StudySessionSummary, SubjectRef } from "@focusmakers/types";
 
 import {
@@ -12,16 +14,15 @@ import { subjectColorVar } from "@/features/records/recordsTimetable";
 import { cn } from "@/lib/utils";
 
 import {
-  PLANNER_CELL_MINUTES,
   PLANNER_CELLS_PER_ROW,
   plannerCellFills,
+  plannerCellStartMs,
   plannerHours,
   type PlannerCellFill,
   type PlannerDay,
 } from "./plannerDay";
 
 const HOURS = plannerHours();
-const CELL_MS = PLANNER_CELL_MINUTES * 60_000;
 
 function fillStyle(fill: PlannerCellFill, subjects: ReadonlyMap<number, SubjectRef>) {
   const position = { left: `${String(fill.left * 100)}%`, width: `${String(fill.width * 100)}%` };
@@ -54,6 +55,7 @@ export function PlannerTimetable({
   /** 숨은 수정 버튼을 눌렀을 때. 없으면 버튼을 두지 않는다. */
   onEditBundle?: (bundle: StudySessionSummary[]) => void;
 }) {
+  const { t } = useTranslation("planner");
   const cells = plannerCellFills(day);
   const bundles =
     onEditBundle === undefined
@@ -67,7 +69,7 @@ export function PlannerTimetable({
     <>
       <div
         role="img"
-        aria-label={`이 날의 시간대별 공부 분포. 순공 ${formatDuration(day.focusSec)}`}
+        aria-label={t("timetable.aria.distribution", { duration: formatDuration(day.focusSec) })}
         className="flex w-46 shrink-0 flex-col gap-0.5 pt-0.5"
         onClick={
           onCellTap === undefined
@@ -75,7 +77,7 @@ export function PlannerTimetable({
             : (event) => {
                 const cell = (event.target as Element).closest<HTMLElement>("[data-cell]");
                 if (cell !== null) {
-                  onCellTap(day.startMs + Number(cell.dataset.cell) * CELL_MS);
+                  onCellTap(plannerCellStartMs(day.dateKey, Number(cell.dataset.cell)));
                 }
               }
         }

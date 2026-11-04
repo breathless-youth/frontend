@@ -1,0 +1,41 @@
+{
+  "page": {
+    "titleAdd": "시간 직접 입력",
+    "titleEdit": "기록 수정",
+    "unregistered": "기기 등록 전이에요. 앱에서 열면 기록이 저장돼요",
+    "loadFailed": "기록을 불러오지 못했어요"
+  },
+  "form": {
+    "start": "시작",
+    "end": "종료",
+    "nextDay": "다음 날",
+    "chipMinutes": "+{{minutes}}분",
+    "chipHours": "+{{hours}}시간",
+    "subjectLabel": "과목 선택",
+    "notReflected": "직접 추가한 기록은 연속 공부·랭킹에 반영되지 않아요",
+    "delete": "삭제",
+    "save": "저장"
+  },
+  "deleteDialog": {
+    "title": "이 기록을 지울까요?",
+    "confirm": "지우기"
+  },
+  "message": {
+    "tooShort": "1분 이상이어야 해요",
+    "future": "지금 이후 시간은 넣을 수 없어요",
+    "allOverlap": "이미 기록이 있는 시간이에요",
+    "failed": "저장하지 못했어요. 다시 시도해 주세요",
+    "overlapNotice": "이미 기록된 {{removed}}({{start}}~{{end}})은 제외하고 {{saved}}을 저장해요"
+  },
+  "subject": {
+    "none": "과목 없음"
+  },
+  "readAloud": {
+    "label": "수동 기록, {{subject}}, {{start}}부터 {{end}}, {{length}}",
+    "withPeriod": "{{period}} {{time}}",
+    "am": "오전",
+    "pm": "오후",
+    "hour": "{{hour}}시",
+    "hourMinute": "{{hour}}시 {{minute}}분"
+  }
+}

@@ -1,24 +1,19 @@
 import type { StudySessionSummary } from "@focusmakers/types";
+import { useTranslation } from "react-i18next";
 
 import {
   ResultBarSegment,
   ResultLegendItem,
 } from "@/features/study-session/components/ResultCardParts";
-import { LEGEND_COPY } from "@/features/study-session/resultCopy";
 import { longestFocusStretch, timelineSegments } from "@/features/study-session/sessionResult";
 
 import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import {
-  MANUAL_RECORD_COPY,
-  isManualSession,
-  readAloudLabel,
-  spanOf,
-} from "@/features/manual-record/manualRecord";
+import { isManualSession, readAloudLabel, spanOf } from "@/features/manual-record/manualRecord";
 import { cn } from "@/lib/utils";
 
 import { IconChevronDown } from "./icons";
-import { durationParts, formatDuration, formatFocusRate, formatKstClock } from "./recordsFormat";
+import { durationParts, formatDuration, formatFocusRate, formatIsoClock } from "./recordsFormat";
 import { Badge } from "@/components/ui/badge";
 
 type SessionListItemProps = {
@@ -40,24 +35,20 @@ type SessionListItemProps = {
  * 더하지 않기로 해서 펼침 애니메이션은 끈다.
  * 타임라인 색의 뜻은 목록 맨 아래의 범례(`SessionTimelineLegend`)가 한 번 알려 준다.
  */
-export function SessionListItem({
-  session,
-  className,
-  subjectName = MANUAL_RECORD_COPY.noSubject,
-  onEdit,
-}: SessionListItemProps) {
+export function SessionListItem({ session, className, subjectName, onEdit }: SessionListItemProps) {
+  const { t } = useTranslation(["records", "manual-record"]);
   if (isManualSession(session)) {
     return (
       <ManualSessionListItem
         session={session}
         className={className}
-        subjectName={subjectName}
+        subjectName={subjectName ?? t("manual-record:subject.none")}
         onEdit={onEdit}
       />
     );
   }
-  const startClock = formatKstClock(session.startedAt);
-  const endClock = formatKstClock(session.endedAt);
+  const startClock = formatIsoClock(session.startedAt);
+  const endClock = formatIsoClock(session.endedAt);
 
   // 공부 결과 화면의 타임라인과 같은 계산·같은 조각이다 — 순공색 바탕 위에 순공이 아닌 구간만 얹는다.
   const segments = timelineSegments({
@@ -72,19 +63,24 @@ export function SessionListItem({
         <AccordionTrigger
           // 꺾쇠는 집중률 알약 옆 제자리에 따로 둔다.
           hideChevron
-          aria-label={`${startClock}부터 ${endClock}까지, 순공 ${formatDuration(session.focusSec)}, 집중 ${formatFocusRate(session.focusRate)}`}
+          aria-label={t("sessionItem.aria.summary", {
+            start: startClock,
+            end: endClock,
+            focus: formatDuration(session.focusSec),
+            rate: formatFocusRate(session.focusRate),
+          })}
           className="group flex-col items-stretch gap-2.5 py-3.5 font-normal"
         >
           <span className="flex w-full items-start justify-between">
             <span className="flex min-w-0 flex-col gap-0.75">
               <FocusDuration focusSec={session.focusSec} />
               <span className="text-[13px] leading-4 text-muted-foreground tabular-nums">
-                총 {formatDuration(session.studySec)}
+                {t("headline.total", { duration: formatDuration(session.studySec) })}
               </span>
             </span>
             <span className="flex shrink-0 items-center gap-2 pt-0.5">
               <Badge className="h-6 px-2.25 py-0 text-xs leading-4 font-semibold">
-                집중 {formatFocusRate(session.focusRate)}
+                {t("sessionItem.focusRate", { rate: formatFocusRate(session.focusRate) })}
               </Badge>
               <IconChevronDown size={10} className="group-data-[state=open]:rotate-180" />
             </span>
@@ -120,16 +116,18 @@ export function SessionListItem({
 
 /** 타임라인 색의 뜻 — 세션 목록 맨 아래에 한 번만 둔다. 항목과 문구는 공부 결과 화면의 범례 그대로다. */
 export function SessionTimelineLegend() {
+  const { t } = useTranslation("study-session");
   return (
     <ul className="-mt-1 flex flex-wrap items-start gap-2 pb-3">
-      <ResultLegendItem tone="focus" label={LEGEND_COPY.focus} />
-      <ResultLegendItem tone="distract" label={LEGEND_COPY.distract} />
-      <ResultLegendItem tone="pause" label={LEGEND_COPY.pause} />
+      <ResultLegendItem tone="focus" label={t("legend.focus")} />
+      <ResultLegendItem tone="distract" label={t("legend.distract")} />
+      <ResultLegendItem tone="pause" label={t("legend.pause")} />
     </ul>
   );
 }
 
 function SessionExpansion({ session }: { session: StudySessionSummary }) {
+  const { t } = useTranslation("records");
   const longest = longestFocusStretch({
     startedAt: session.startedAt,
     endedAt: session.endedAt,
@@ -139,17 +137,19 @@ function SessionExpansion({ session }: { session: StudySessionSummary }) {
   // 세 칸을 같은 폭으로 나누고 가운데에 맞춘다 — 왼쪽 정렬은 값이 짧아 한쪽으로 쏠려 보인다.
   return (
     <dl className="flex items-start gap-2 rounded-[14px] bg-bg-layer-2 px-3.5 py-3">
-      <ExpansionStat label="시작 시간" value={formatKstClock(session.startedAt)} />
-      <ExpansionStat label="종료 시간" value={formatKstClock(session.endedAt)} />
+      <ExpansionStat label={t("sessionItem.startTime")} value={formatIsoClock(session.startedAt)} />
+      <ExpansionStat label={t("sessionItem.endTime")} value={formatIsoClock(session.endedAt)} />
       <ExpansionStat
-        label="최대 집중 시간"
+        label={t("sessionItem.longestFocus")}
         // 끊기지 않은 구간이 1분에 못 미치면 구간을 내세우지 않고 `1분 미만`으로 적는다.
-        value={longest === null ? "1분 미만" : formatDuration(longest.durationSec)}
+        value={
+          longest === null ? t("sessionItem.underMinute") : formatDuration(longest.durationSec)
+        }
         valueClassName="text-chart-peak"
         caption={
           longest === null
             ? undefined
-            : `${formatKstClock(longest.startedAt)} ~ ${formatKstClock(longest.endedAt)}`
+            : `${formatIsoClock(longest.startedAt)} ~ ${formatIsoClock(longest.endedAt)}`
         }
       />
     </dl>
@@ -213,8 +213,9 @@ function ManualSessionListItem({
   subjectName: string;
   onEdit?: (session: StudySessionSummary) => void;
 }) {
-  const startClock = formatKstClock(session.startedAt);
-  const endClock = formatKstClock(session.endedAt);
+  const { t } = useTranslation("records");
+  const startClock = formatIsoClock(session.startedAt);
+  const endClock = formatIsoClock(session.endedAt);
 
   return (
     <AccordionItem value={String(session.id)} asChild className={cn("border-b-0", className)}>
@@ -228,7 +229,7 @@ function ManualSessionListItem({
             <FocusDuration focusSec={session.focusSec} />
             <span className="flex shrink-0 items-center gap-2 pt-0.5">
               <Badge variant="neutral" className="h-6 px-2.25 py-0 text-xs leading-4 font-semibold">
-                직접 입력
+                {t("manualItem.badge")}
               </Badge>
               <IconChevronDown size={10} className="group-data-[state=open]:rotate-180" />
             </span>
@@ -243,9 +244,9 @@ function ManualSessionListItem({
         </AccordionTrigger>
         <AccordionContent animated={false} className="pb-3.5">
           <dl className="flex items-start gap-2 rounded-[14px] bg-bg-layer-2 px-3.5 py-3">
-            <ExpansionStat label="시작" value={startClock} />
-            <ExpansionStat label="종료" value={endClock} />
-            <ExpansionStat label="과목" value={subjectName} />
+            <ExpansionStat label={t("manualItem.start")} value={startClock} />
+            <ExpansionStat label={t("manualItem.end")} value={endClock} />
+            <ExpansionStat label={t("manualItem.subject")} value={subjectName} />
           </dl>
           {onEdit !== undefined && (
             <div className="flex justify-end pt-2">
@@ -254,7 +255,7 @@ function ManualSessionListItem({
                 onClick={() => onEdit(session)}
                 className="h-11 px-4 text-[15px] leading-4.75"
               >
-                수정
+                {t("manualItem.edit")}
               </Button>
             </div>
           )}

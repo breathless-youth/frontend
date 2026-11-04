@@ -8,6 +8,8 @@ import {
   trackSubjectItemAdded,
 } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
+import i18n from "@/lib/i18n";
+import type { AppLocale } from "@/lib/locale";
 import {
   createSubject,
   createTask,
@@ -19,15 +21,32 @@ import {
   updateTask,
 } from "@/lib/subjectApi";
 
-import { SUBJECT_SHEET_COPY } from "./sessionCopy";
+const SUBJECT_SUGGESTIONS: Partial<Record<AppLocale, readonly string[]>> & {
+  en: readonly string[];
+} = {
+  // eslint-disable-next-line no-restricted-syntax -- 서버에 과목 이름으로 저장되는 값
+  ko: ["국어", "수학", "영어", "탐구"],
+  en: ["Math", "English", "Science", "History"],
+};
+
+/**
+ * 빈 상태 추천 과목
+ *
+ * 고르면 이 글자 그대로 서버에 과목 이름으로 저장돼서, 카탈로그 번역이 아니라 언어별 목록을 따로 둔다.
+ * 이미 저장된 과목 이름은 언어를 바꿔도 그대로다.
+ * 플래너 과목 영역도 같은 목록을 쓴다.
+ */
+export function subjectSuggestions(): readonly string[] {
+  return SUBJECT_SUGGESTIONS[i18n.language as AppLocale] ?? SUBJECT_SUGGESTIONS.en;
+}
 
 export type SubjectsStatus = "idle" | "loading" | "ready" | "error";
 
 /** 저장 실패 문구. 서버가 이름 중복(409)으로 거절한 것은 따로 알린다 — 목록이 낡아 화면 검사를 지나친 경우다. */
 function saveErrorMessage(error: unknown): string {
   return error instanceof ApiError && error.status === 409
-    ? SUBJECT_SHEET_COPY.duplicateName
-    : SUBJECT_SHEET_COPY.saveFailed;
+    ? i18n.t("study-session:subjectSheet.duplicateName")
+    : i18n.t("study-session:subjectSheet.saveFailed");
 }
 
 /**
@@ -83,7 +102,7 @@ export function useSubjects(
       setConfirmedCount((count) => count + 1);
     } catch {
       setStatus("error");
-      onErrorRef.current(SUBJECT_SHEET_COPY.loadFailed);
+      onErrorRef.current(i18n.t("study-session:subjectSheet.loadFailed"));
     }
   }, []);
 
@@ -142,7 +161,7 @@ export function useSubjects(
     // 과목 이름은 하나만 둔다. 서버도 막지만 요청 전에 걸러 바로 알린다.
     const trimmed = name.trim();
     if (subjectsRef.current.some((subject) => subject.name === trimmed)) {
-      onErrorRef.current(SUBJECT_SHEET_COPY.duplicateName);
+      onErrorRef.current(i18n.t("study-session:subjectSheet.duplicateName"));
       return null;
     }
     try {
@@ -169,7 +188,7 @@ export function useSubjects(
       setConfirmedCount((count) => count + 1);
       trackSubjectItemAdded("task", false, surface);
     } catch {
-      onErrorRef.current(SUBJECT_SHEET_COPY.saveFailed);
+      onErrorRef.current(i18n.t("study-session:subjectSheet.saveFailed"));
     }
   };
 
@@ -225,7 +244,7 @@ export function useSubjects(
       const current = subjectsRef.current;
       const unchanged = current.some((subject) => subject.id === id && subject.name === trimmed);
       if (!unchanged && current.some((subject) => subject.name === trimmed)) {
-        onErrorRef.current(SUBJECT_SHEET_COPY.duplicateName);
+        onErrorRef.current(i18n.t("study-session:subjectSheet.duplicateName"));
         return Promise.resolve();
       }
       return mutate(

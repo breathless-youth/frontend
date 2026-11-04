@@ -81,9 +81,9 @@ export function useFaceMaskedSend({
     return () => created?.dispose();
   }, [create, sourceRef]);
   const supported = compositor != null;
-  const [preferredOn, setPreferredOn] = useState(readFaceMaskOn);
+  const [preferredOn, setPreferredOn] = useState(() => readFaceMaskOn("social"));
   const on = supported && preferredOn;
-  const [emojiId, setEmojiIdState] = useState(readFaceMaskEmojiId);
+  const [emojiId, setEmojiIdState] = useState(() => readFaceMaskEmojiId("social"));
   const [detectedSpot, setDetectedSpot] = useState<FaceSpot | null>(null);
   // 카메라가 바뀌면 이전 영상에서 구한 자리는 새 영상과 맞지 않는다.
   // 렌더 중에 비워서, 새 스트림을 숨은 원본에 붙이는 호출부 효과보다 이 훅의 합성기 효과가 먼저 null을 넘기게 한다.
@@ -149,14 +149,14 @@ export function useFaceMaskedSend({
     on,
     setOn(next) {
       trackSocialRoomFaceMaskToggled(next);
-      writeFaceMaskOn(next);
+      writeFaceMaskOn("social", next);
       setPreferredOn(next);
     },
     emojiId,
     setEmojiId(next) {
       const id = faceMaskEmojiOf(next).id;
       trackSocialRoomFaceMaskEmojiSelected(id);
-      writeFaceMaskEmojiId(id);
+      writeFaceMaskEmojiId("social", id);
       setEmojiIdState(id);
     },
     faceSpot,

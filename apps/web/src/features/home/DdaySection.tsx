@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import type { DdayResponse } from "@focusmakers/types";
 
@@ -95,13 +96,18 @@ function DdayBlock({
   expanded: boolean;
   onOpen: () => void;
 }) {
+  const { t } = useTranslation("home");
   const daysLeft = dday === null ? null : daysUntil(dday.targetDate);
-  const label = daysLeft === null ? "D-Day" : formatDday(daysLeft);
-  const caption = dday === null ? "목표 날짜를 설정하세요" : dday.title;
+  const label = daysLeft === null ? t("ddayBlock.placeholder") : formatDday(daysLeft);
+  const caption = dday === null ? t("ddayBlock.emptyCaption") : dday.title;
   return (
     <button
       type="button"
-      aria-label={dday === null ? "D-Day 설정" : `${label} ${dday.title}, D-Day 수정`}
+      aria-label={
+        dday === null
+          ? t("ddayBlock.aria.set")
+          : t("ddayBlock.aria.edit", { label, title: dday.title })
+      }
       // 시트를 나눠 받아 시트 부품의 트리거를 쓸 수 없다. 트리거가 달던 팝업 표시를 직접 단다.
       aria-haspopup="dialog"
       aria-expanded={expanded}

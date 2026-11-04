@@ -56,7 +56,7 @@ describe("createMediapipeRuntime 타임랩스 사진", () => {
   it("얼굴 추론에 사진을 요청하면 `<video>`와 그 랜드마크로 만든 사진을 붙인다", async () => {
     const renderPhoto = vi.fn(async (_input: PhotoInput) => PHOTO);
     const handle = await createMediapipeRuntime(renderPhoto).createFaceLandmarker(FACE_OPTIONS);
-    const spec = { aspect: "9:16" as const, mask: true };
+    const spec = { aspect: "9:16" as const, mask: true, emojiUrl: "/face-mask/dog.png" };
 
     await expect(handle.detect(video, 0, spec)).resolves.toEqual({ ...FACE, photo: PHOTO });
     expect(renderPhoto).toHaveBeenCalledWith({
@@ -81,13 +81,15 @@ describe("createMediapipeRuntime 타임랩스 사진", () => {
       throw new Error("toBlob 실패");
     }).createFaceLandmarker(FACE_OPTIONS);
 
-    await expect(handle.detect(video, 0, { aspect: "9:16", mask: true })).resolves.toEqual(FACE);
+    await expect(
+      handle.detect(video, 0, { aspect: "9:16", mask: true, emojiUrl: "/face-mask/dog.png" }),
+    ).resolves.toEqual(FACE);
   });
 
   it("객체 검출기 핸들의 capture는 랜드마크 없이 `<video>`로 사진을 만든다", async () => {
     const renderPhoto = vi.fn(async (_input: PhotoInput) => PHOTO);
     const handle = await createMediapipeRuntime(renderPhoto).createDetector(OBJECT_OPTIONS);
-    const spec = { aspect: "16:9" as const, mask: false };
+    const spec = { aspect: "16:9" as const, mask: false, emojiUrl: "/face-mask/dog.png" };
 
     await expect(handle.capture(video, spec)).resolves.toBe(PHOTO);
     expect(renderPhoto).toHaveBeenCalledWith({

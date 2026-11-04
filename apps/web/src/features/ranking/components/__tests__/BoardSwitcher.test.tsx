@@ -205,3 +205,24 @@ describe("BoardSwitcher, 앱 모드", () => {
     expect(lastInlineControls(postMessage)).toEqual([]);
   });
 });
+
+describe("BoardSwitcher 줄바꿈", () => {
+  it("종목 탭과 기간 칸이 한 줄에 다 들어가지 않으면 기간 칸이 다음 줄로 내려간다", () => {
+    render(
+      <BoardSwitcher
+        resolvedSlot={null}
+        nowSlot="MORNING"
+        selection={{ type: "FOCUS_TIME", period: "DAILY" }}
+        onChange={vi.fn()}
+      />,
+    );
+
+    const types = screen.getByRole("tablist", { name: "종목" });
+    let row = screen.getByRole("tablist", { name: "기간" }).parentElement;
+    while (row !== null && !row.contains(types)) {
+      row = row.parentElement;
+    }
+    // 들어가는 폭에서는 한 줄이고(양 끝 정렬은 그대로), 넘칠 때만 기간 칸이 아래 줄로 간다.
+    expect(row).toHaveClass("flex", "flex-wrap", "justify-between");
+  });
+});

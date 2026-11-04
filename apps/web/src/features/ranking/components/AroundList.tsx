@@ -1,5 +1,6 @@
 import type { RankingType } from "@focusmakers/types";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 import { cn } from "@/lib/utils";
@@ -120,9 +121,13 @@ export function AroundList({
   change?: number | null;
 }) {
   const leaving = useLeavingRows(rows);
+  const { t } = useTranslation("ranking");
   const spoken = change == null ? null : formatRankChange(change).spoken;
   return (
-    <section aria-label="내 주변 순위" className="rounded-xl bg-muted px-2 py-1.5 shadow-sb-card">
+    <section
+      aria-label={t("around.aria.label")}
+      className="rounded-xl bg-muted px-2 py-1.5 shadow-sb-card"
+    >
       <ol className="relative" style={{ height: rows.length * ROW_PX }}>
         {rows.map((row, index) => (
           <AroundRow
@@ -145,7 +150,7 @@ export function AroundList({
         ))}
       </ol>
       <p role="status" className="sr-only">
-        {spoken === null ? "" : `순위가 ${spoken}`}
+        {spoken === null ? "" : t("around.status", { change: spoken })}
       </p>
     </section>
   );
@@ -166,6 +171,7 @@ function AroundRow({
 }) {
   const shownChange = change == null ? null : formatRankChange(change);
   const ref = useRowMotion(top, leaving);
+  const { t } = useTranslation("ranking");
   return (
     <li
       ref={ref}
@@ -215,7 +221,7 @@ function AroundRow({
                 aria-hidden="true"
                 className="size-1.5 animate-pulse rounded-full bg-feedback-success motion-reduce:animate-none"
               />
-              <span className="sr-only">집중 중</span>
+              <span className="sr-only">{t("row.focusing")}</span>
             </>
           )}
           {formatValue(type, row.display)}

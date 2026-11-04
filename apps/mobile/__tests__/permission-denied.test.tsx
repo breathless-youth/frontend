@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 
 import PermissionDeniedScreen from "../app/permission-denied";
+import { setDeviceLanguages } from "../jest/deviceLanguages";
 import {
   __resetNativeAnalyticsForTests,
   attachNativeAnalyticsSink,
@@ -30,6 +31,10 @@ jest.mock("expo-router", () => ({
   }),
 }));
 
+afterEach(() => {
+  setDeviceLanguages(["ko-KR"]);
+});
+
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
 }));
@@ -53,6 +58,15 @@ describe("S2-3 · 권한 거부 안내", () => {
     expect(screen.getByText("AI 분석용 영상은 기기 밖으로 나가지 않아요")).toBeTruthy();
     expect(screen.getByText("설정 열기")).toBeTruthy();
     expect(screen.getByText("홈으로 돌아가기")).toBeTruthy();
+  });
+
+  it("한국어가 아닌 기기는 영어로 그리고 한글이 남지 않는다", () => {
+    setDeviceLanguages(["en-US"]);
+    render(<PermissionDeniedScreen />);
+
+    expect(screen.getByText("Camera access needed")).toBeTruthy();
+    expect(screen.getByText("Open settings")).toBeTruthy();
+    expect(screen.queryAllByText(/[가-힣]/)).toHaveLength(0);
   });
 
   it("버튼 두 개가 button role로 노출된다", () => {

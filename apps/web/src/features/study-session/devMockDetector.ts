@@ -78,12 +78,12 @@ export function resolveDevDetectorOverride(
     return undefined;
   }
   if (requested !== DEV_MOCK_DETECTOR_QUERY) {
-    logDetectorChoice("실제 Vision 추론을 사용합니다 (mock으로 바꾸려면 ?detector=mock)");
+    logDetectorChoice("Using real Vision inference (add ?detector=mock to switch to the mock)");
     return undefined;
   }
   const detector = createDevMockDetector();
   logDetectorChoice(
-    "?detector=mock — 콘솔 mock이 Vision 추론을 대신합니다. " +
+    "?detector=mock — the console mock replaces Vision inference. " +
       'window.__focusonMockDetector.emit({ source: "PHONE", active: true })',
   );
   return detector;

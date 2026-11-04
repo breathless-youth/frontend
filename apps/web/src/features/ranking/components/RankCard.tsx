@@ -1,10 +1,11 @@
 import type { RankingBoardResponse } from "@focusmakers/types";
 import { useId, type ReactNode } from "react";
+import { Trans, useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-import { SLOT_LABEL, isOffSlot } from "../model/board";
+import { isOffSlot, slotLabel } from "../model/board";
 import { formatGap } from "../model/format";
 import { cardTitle, slotName } from "../model/labels";
 import type { SubLine, SubLineTone } from "../model/live";
@@ -78,6 +79,7 @@ export function CardShell({
  * 보이는 높이는 36px이고 누르는 영역은 위아래로 4px씩 넓혀 44px로 맞춘다.
  */
 export function FocusStartPill({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation("ranking");
   return (
     <Button
       size="sm"
@@ -87,7 +89,7 @@ export function FocusStartPill({ onClick }: { onClick: () => void }) {
         FILLED_FOCUS_RING,
       )}
     >
-      순공 시작
+      {t("focusStart.label")}
     </Button>
   );
 }
@@ -99,6 +101,7 @@ export function FocusStartButton({
   onClick: () => void;
   className?: string;
 }) {
+  const { t } = useTranslation("ranking");
   return (
     <Button
       size="xl"
@@ -109,7 +112,7 @@ export function FocusStartButton({
         className,
       )}
     >
-      순공 시작
+      {t("focusStart.label")}
     </Button>
   );
 }
@@ -194,6 +197,7 @@ export function RankedCard({
   const gap = aboveGap ?? above?.gap ?? 0;
   const cumulative = board.type === "TOTAL_TIME" || board.type === "TOTAL_DAYS";
   const offSlot = isOffSlot(board, serverNow);
+  const { t } = useTranslation("ranking");
 
   return (
     <CardShell
@@ -203,7 +207,7 @@ export function RankedCard({
         cumulative &&
         me !== null && (
           <p className="shrink-0 text-[13px] leading-3.75 font-extrabold text-primary">
-            상위 {me.topPercent}%
+            {t("rankedCard.topPercent", { percent: me.topPercent })}
           </p>
         )
       }
@@ -212,8 +216,8 @@ export function RankedCard({
           <Headline>
             {me.rank <= 3 && board.slot !== null ? (
               <>
-                <span className="whitespace-pre">{`${SLOT_LABEL[board.slot]} `}</span>
-                <span className="text-primary">{me.rank}위</span>
+                <span className="whitespace-pre">{`${slotLabel(board.slot)} `}</span>
+                <span className="text-primary">{t("rank.place", { rank: me.rank })}</span>
               </>
             ) : (
               slotName(board)
@@ -222,8 +226,15 @@ export function RankedCard({
         ) : (
           above !== null && (
             <Headline>
-              <span className="whitespace-pre">다음 순위까지 </span>
-              <span className="text-primary">{formatGap(board.type, gap)}</span>
+              <Trans
+                t={t}
+                i18nKey="rankedCard.untilNext"
+                values={{ gap: formatGap(board.type, gap) }}
+                components={{
+                  pre: <span className="whitespace-pre" />,
+                  accent: <span className="text-primary" />,
+                }}
+              />
             </Headline>
           )
         )
@@ -252,31 +263,35 @@ export function RankedCard({
  * 서버 값은 총공부 시간이 그대로라고 보고 센 순공이라 분으로 적으면 실제로 더 해야 할 공부보다 훨씬 적어 보여 숫자를 쓰지 않는다.
  */
 function RateCatchUp({ board }: { board: RankingBoardResponse }) {
+  const { t } = useTranslation("ranking");
   if (board.above?.catchUpFocusSec == null) {
     return null;
   }
   return (
     <p className="text-[13px] leading-3.75 break-keep text-pretty text-muted-foreground">
-      조금만 더 집중하면 따라잡아요
+      {t("rankedCard.rateCatchUp")}
     </p>
   );
 }
 
 function NextTierNote({ board }: { board: RankingBoardResponse }) {
   const tier = board.nextTier;
+  const { t } = useTranslation("ranking");
   if (tier === null || tier === undefined) {
     return null;
   }
   return (
     <div className="mt-2 text-[13px] leading-3.75 break-keep text-pretty">
       <p className="text-foreground">
-        <strong className="font-bold">상위 {tier.percent}%</strong>까지{" "}
-        {formatGap(board.type, tier.remaining)} 남았어요
+        <Trans
+          t={t}
+          i18nKey="nextTier.remaining"
+          values={{ percent: tier.percent, gap: formatGap(board.type, tier.remaining) }}
+          components={{ b: <strong className="font-bold" /> }}
+        />
       </p>
       {tier.etaDays !== null && (
-        <p className="mt-1 text-muted-foreground">
-          지금 페이스면 약 {tier.etaDays}일 뒤에 역전해요
-        </p>
+        <p className="mt-1 text-muted-foreground">{t("nextTier.eta", { count: tier.etaDays })}</p>
       )}
     </div>
   );
@@ -301,13 +316,18 @@ export function FirstPlaceCard({
   serverNow: number;
   onFocusStart: () => void;
 }) {
+  const { t } = useTranslation("ranking");
   return (
     <CardShell
       title={cardTitle(board)}
       deadline={deadline}
       headline={
         <p className="text-xl leading-6.5 font-extrabold tracking-[-0.7px] text-foreground">
-          <span className="text-primary">1위</span> 지키는 중
+          <Trans
+            t={t}
+            i18nKey="firstPlace.headline"
+            components={{ accent: <span className="text-primary" /> }}
+          />
         </p>
       }
     >

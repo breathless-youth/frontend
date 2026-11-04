@@ -1,3 +1,5 @@
+import i18n from "@/lib/i18n";
+
 import type { AmbientSound, SoundGroupId } from "../catalog";
 
 export type { SoundGroupId };
@@ -6,12 +8,6 @@ export type SoundGroup = {
   readonly id: SoundGroupId;
   readonly label: string;
   readonly sounds: readonly AmbientSound[];
-};
-
-const LABELS: Record<SoundGroupId, string> = {
-  noise: "노이즈",
-  ambience: "배경 소리",
-  music: "음악",
 };
 
 const ORDER: readonly SoundGroupId[] = ["noise", "ambience", "music"];
@@ -29,7 +25,7 @@ function groupOf(sound: AmbientSound): SoundGroupId {
 export function soundGroups(catalog: readonly AmbientSound[]): SoundGroup[] {
   return ORDER.map((id) => ({
     id,
-    label: LABELS[id],
+    label: i18n.t(`ambient-sound:groups.${id}`),
     sounds: catalog.filter((sound) => groupOf(sound) === id),
   })).filter((group) => group.sounds.length > 0);
 }

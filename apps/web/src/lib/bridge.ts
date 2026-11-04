@@ -8,6 +8,7 @@ import type {
 } from "@focusmakers/types";
 import {
   INSTALL_AD_LABEL_PATTERN,
+  INSTALL_GOOGLE_AD_LABEL_PATTERN,
   INSTALL_REFERRER_MAX_LENGTH,
   NATIVE_CONTROL_ID_PATTERN,
   VIDEO_RESULT_STATUSES,
@@ -75,12 +76,12 @@ export function postToNative(message: ToNativeMessage): boolean {
   try {
     bridge.postMessage(JSON.stringify(message));
     if (import.meta.env.DEV) {
-      console.warn("[webview-bridge] 네이티브로 보냄", forLog(message));
+      console.warn("[webview-bridge] sent to native", forLog(message));
     }
     return true;
   } catch (error) {
     if (import.meta.env.DEV) {
-      console.warn("[webview-bridge] 네이티브 전송 실패", forLog(message), error);
+      console.warn("[webview-bridge] failed to send to native", forLog(message), error);
     }
     /**
      * 받을 네이티브가 이미 없는 상태라 어차피 전달할 방법이 없다.
@@ -119,7 +120,7 @@ export function subscribeToNativeMessages(handler: (message: ToWebMessage) => vo
     const message = parseToWebMessage(raw);
     if (message === null) {
       if (import.meta.env.DEV) {
-        console.warn("[webview-bridge] 파싱하지 못해 버린 메시지", raw);
+        console.warn("[webview-bridge] dropped a message it could not parse", raw);
       }
       return;
     }
@@ -346,16 +347,19 @@ function isStringOrNull(value: unknown): value is string | null {
  *
  * 플랫폼과 읽은 시각이 이상하면 통째로 버린다.
  * 형식 밖 광고 번호와 너무 긴 설치 정보는 그 항목만 비운다. 통째로 버리면 남은 유입 기록까지 사라진다.
+ * 구글 광고 그룹 번호를 모르는 구버전 앱은 필드를 보내지 않으므로 없으면 null로 본다.
  */
 function parseInstallAttribution(
   record: Record<string, unknown>,
 ): InstallAttributionMessage | null {
+  const googleDeepLinkAd = record.googleDeepLinkAd === undefined ? null : record.googleDeepLinkAd;
   if (
     (record.platform !== "ios" && record.platform !== "android") ||
     typeof record.capturedAtMs !== "number" ||
     typeof record.atMs !== "number" ||
     !isStringOrNull(record.installReferrer) ||
-    !isStringOrNull(record.deepLinkAd)
+    !isStringOrNull(record.deepLinkAd) ||
+    !isStringOrNull(googleDeepLinkAd)
   ) {
     return null;
   }
@@ -369,6 +373,10 @@ function parseInstallAttribution(
         : null,
     deepLinkAd:
       deepLinkAd !== null && INSTALL_AD_LABEL_PATTERN.test(deepLinkAd) ? deepLinkAd : null,
+    googleDeepLinkAd:
+      googleDeepLinkAd !== null && INSTALL_GOOGLE_AD_LABEL_PATTERN.test(googleDeepLinkAd)
+        ? googleDeepLinkAd
+        : null,
     capturedAtMs: record.capturedAtMs,
     atMs: record.atMs,
   };

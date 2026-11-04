@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import { Skeleton } from "@/components/ui/Skeleton";
 
 import { durationParts, formatDuration } from "./recordsFormat";
@@ -18,6 +20,7 @@ export function PeriodHeadline({
   /** 그 기간의 순공·총 공부(초). 조회 중이면 `"pending"`, 실패면 `"error"`. */
   totals: { focusSec: number; studySec: number } | "pending" | "error";
 }) {
+  const { t } = useTranslation("records");
   return (
     <div className="flex flex-col items-center gap-1 pt-2">
       <p className="text-[13px] leading-4 text-muted-foreground">{label}</p>
@@ -45,7 +48,9 @@ export function PeriodHeadline({
             )}
           </p>
           <p className="text-[13px] leading-4 text-muted-foreground tabular-nums">
-            총 {totals === "error" ? "—" : formatDuration(totals.studySec)}
+            {t("headline.total", {
+              duration: totals === "error" ? "—" : formatDuration(totals.studySec),
+            })}
           </p>
         </>
       )}

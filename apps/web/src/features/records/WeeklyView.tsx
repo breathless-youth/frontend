@@ -1,6 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
+import { useTranslation } from "react-i18next";
 
 import {
   trackRecordsPeriodPicked,
@@ -25,7 +26,7 @@ import { useWeeklyData } from "./useWeeklyData";
 /**
  * 기록 주간 탭
  *
- * 위에서부터 주 이동 → 주 요약 → 추이 카드 → 나의 공부 리듬(예상 화면).
+ * 위에서부터 주 이동 → 주 요약 → 추이 카드 → 나의 공부 리듬(14일 전엔 예상 화면, 그 뒤엔 내 히트맵).
  *
  * 데이터 배선은 `useWeeklyData`가 소유하고 여기서는 상태만 분리해 그린다.
  * - 주 이동은 `weekAnchorKey`(초기 오늘)를 ±7일씩 옮긴다. 오늘이 속한 주가 끝이다.
@@ -63,8 +64,9 @@ export function WeeklyView({
   weekAnchorKey: string;
   setWeekAnchorKey: Dispatch<SetStateAction<string>>;
 }) {
+  const { t } = useTranslation("records");
   const queryClient = useQueryClient();
-  const { week } = useWeeklyData(userId, weekAnchorKey);
+  const { week, rhythm } = useWeeklyData(userId, weekAnchorKey);
   const [pickerOpen, setPickerOpen] = useState(false);
   useEffect(() => {
     whenIdle(preloadWeekPickerSheet);
@@ -91,7 +93,8 @@ export function WeeklyView({
   const swipe = useHorizontalSwipe((delta) => changeWeek(delta, "swipe"));
 
   return (
-    <div>
+    // 마지막 카드(공부 리듬)가 떠 있는 탭바에 붙지 않게 아래를 띄운다.
+    <div className="pb-6">
       <WeekHeader
         weekAnchorKey={weekAnchorKey}
         metricsStatus={week.status}
@@ -121,11 +124,7 @@ export function WeeklyView({
       <div className="mt-5">
         {week.status === "pending" && TREND_SKELETON}
         {week.status === "error" && (
-          <ErrorState
-            message="주간 추이를 불러오지 못했어요"
-            onRetry={retryPeriod}
-            screen="records"
-          />
+          <ErrorState message={t("weekly.error")} onRetry={retryPeriod} screen="records" />
         )}
         {week.status === "success" && (
           // 좌우로 밀면 주를 넘긴다(일간 달력과 같은 판정). 주가 바뀔 때마다 리마운트해 밀려 들어오는
@@ -154,7 +153,7 @@ export function WeeklyView({
         )}
       </div>
 
-      <RhythmCard />
+      <RhythmCard rhythm={rhythm} />
     </div>
   );
 }

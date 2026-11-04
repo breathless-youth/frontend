@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
@@ -17,7 +18,6 @@ import {
   StudyCompleteHero,
 } from "@/features/study-session/components/StudyCompleteHero";
 import { StudyTimelineCard } from "@/features/study-session/components/StudyTimelineCard";
-import { RESULT_COPY } from "@/features/study-session/resultCopy";
 import { readResultIntroSeen } from "@/features/study-session/resultIntroSeen";
 import { leaveSessionForInvite, useSessionInvite } from "@/features/study-session/sessionInvite";
 import { toSessionResultView } from "@/features/study-session/sessionResult";
@@ -84,6 +84,7 @@ const USER_SCROLL_EVENTS = ["pointerdown", "wheel", "keydown"] as const;
  * `?userId`가 없는 미저장 모드에서는 두 카드 모두 그리지 않는다.
  */
 export function ResultPage() {
+  const { t } = useTranslation("study-session");
   const location = useLocation();
   const navigate = useNavigate();
   const sessions = readSessions(location.state);
@@ -272,7 +273,7 @@ export function ResultPage() {
   const gainView = gainsQuery.data === undefined ? null : gainCardView(gainsQuery.data);
 
   /**
-   * TODO(미정: 자정(KST) 분할 세션 표시 — 리더/사용자 확인). `submitStudySession`은
+   * TODO(미정: 자정 분할 세션 표시 — 리더/사용자 확인). `submitStudySession`은
    * `StudySessionResponse[]`를 반환하고 자정을 넘긴 세션은 날짜별 2건으로 분할된다. 이때 S4가
    * 무엇을 보여줄지(합산 1화면 / 2개 카드 / 첫 세션만) 어느 문서에도 없다.
    *
@@ -337,7 +338,7 @@ export function ResultPage() {
             onClick={() => leave("home")}
             className="flex-1 active:scale-[0.99] motion-reduce:transition-none"
           >
-            {RESULT_COPY.ctaHome}
+            {t("result.ctaHome")}
           </Button>
           <Button
             type="button"
@@ -345,7 +346,7 @@ export function ResultPage() {
             onClick={() => leave("records")}
             className="shadow-sb-cta flex-[1.5] active:scale-[0.99] motion-reduce:transition-none"
           >
-            {RESULT_COPY.ctaRecords}
+            {t("result.ctaRecords")}
           </Button>
         </div>
       )}

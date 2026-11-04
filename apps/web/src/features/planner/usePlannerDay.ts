@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 
-import { addDaysToDateKey, kstDateKey } from "@/features/records/recordsFormat";
+import { addDaysToDateKey } from "@/features/records/recordsFormat";
 import { dailyStatsQuery } from "@/lib/statsQueries";
 
 import { EMPTY_STATS, assemblePlannerDay, type PlannerDay } from "./plannerDay";
+import { localDateKey } from "@/lib/dateKey";
 
 export type PlannerDayState =
   | { status: "pending" }
@@ -24,7 +25,7 @@ export type PlannerDayState =
 export function usePlannerDay(userId: number | null, dateKey: string): PlannerDayState {
   const nextKey = addDaysToDateKey(dateKey, 1);
   // 아직 오지 않은 날짜는 조회하지 않는다 — 기록이 있을 수 없다. 미래 날짜의 플래너는 둘 다 건너뛴다.
-  const todayKey = kstDateKey();
+  const todayKey = localDateKey();
   const dayIsFuture = dateKey > todayKey;
   const nextIsFuture = nextKey > todayKey;
 

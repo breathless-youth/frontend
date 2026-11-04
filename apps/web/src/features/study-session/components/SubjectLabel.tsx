@@ -1,5 +1,6 @@
 import { ChevronRight } from "lucide-react";
 import type { MouseEvent } from "react";
+import { useTranslation } from "react-i18next";
 
 import dotIcon from "@/assets/icons/sheet-dot.svg";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,7 @@ export function SubjectLabel({
   expanded = false,
   className,
 }: SubjectLabelProps) {
+  const { t } = useTranslation("study-session");
   const content = (
     <>
       <img
@@ -49,7 +51,9 @@ export function SubjectLabel({
       <span className="truncate text-white/85">{name}</span>
       <span className="font-bold text-white/92 tabular-nums">
         <span aria-hidden="true">{formatElapsed(focusSec)}</span>
-        <span className="sr-only">{`순공 ${toKoreanDuration(focusSec)}`}</span>
+        <span className="sr-only">
+          {t("timer.srSubjectFocus", { duration: toKoreanDuration(focusSec) })}
+        </span>
       </span>
     </>
   );

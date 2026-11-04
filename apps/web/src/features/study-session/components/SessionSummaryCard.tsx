@@ -1,9 +1,10 @@
+import { useTranslation } from "react-i18next";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
 import { toKoreanDurationLength } from "../formatDuration";
-import { RESULT_COPY, studyDaysLabel } from "../resultCopy";
 import type { SummaryValueState } from "../useResultSummary";
 import { useResultSummary } from "../useResultSummary";
 
@@ -20,22 +21,23 @@ import { useResultSummary } from "../useResultSummary";
  * 않은 세션의 "누적"은 성립하지 않는다.
  */
 export function SessionSummaryCard({ userId }: { userId: number }) {
+  const { t } = useTranslation("study-session");
   const summary = useResultSummary(userId);
 
   return (
     <Card className="shadow-sb-card">
       <CardContent>
         <SummaryRow
-          label={RESULT_COPY.todayFocusLabel}
+          label={t("result.todayFocusLabel")}
           state={summary.todayFocusSec}
           format={toKoreanDurationLength}
           accent
         />
         <Separator />
         <SummaryRow
-          label={RESULT_COPY.studyDaysLabel}
+          label={t("result.studyDaysLabel")}
           state={summary.studyDays}
-          format={studyDaysLabel}
+          format={(days) => t("result.studyDays", { count: days })}
         />
       </CardContent>
     </Card>
@@ -65,7 +67,7 @@ function SummaryRow({
           accent ? "text-primary" : "text-foreground",
         )}
       >
-        {state.status === "success" ? format(state.value) : RESULT_COPY.summaryUnavailable}
+        {state.status === "success" ? format(state.value) : "—"}
       </span>
     </div>
   );

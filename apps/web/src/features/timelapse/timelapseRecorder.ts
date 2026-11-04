@@ -3,6 +3,7 @@ import type { SessionRecoveryResponse } from "@focusmakers/types";
 import type { PhotoTap } from "@/features/study-session/adapters/focusDetector";
 import { SUB_MINUTE_SEC } from "@/features/study-session/formatDuration";
 import type { EndedSession } from "@/features/study-session/useStudyRoomSession";
+import { faceMaskEmojiOf } from "@/features/live-room/faceMaskSettings";
 import { reportHandled } from "@/lib/sentry";
 
 import { isCaptureDue, nextAnchorMs } from "./captureSchedule";
@@ -186,7 +187,12 @@ export function createTimelapseRecorder(deps: TimelapseRecorderDeps = {}): Timel
         }
         active = {
           startedAtMs,
-          spec: { aspect: record.settings.aspect, mask: record.settings.info.faceMask },
+          spec: {
+            aspect: record.settings.aspect,
+            mask: record.settings.info.faceMask,
+            // 기록에 남은 설정 사본은 파서를 거치지 않아 이모지 필드가 생기기 전 기록이면 값이 없다.
+            emojiUrl: faceMaskEmojiOf(record.settings.faceMaskEmoji).url,
+          },
           intervalMs: record.intervalMs,
           lastShotAtMs: null,
         };

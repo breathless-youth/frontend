@@ -1,6 +1,8 @@
 import { useEffect } from "react";
 import type { RefObject } from "react";
 
+import type { FaceMaskView } from "@/features/live-room/components/FaceMaskOverlay";
+import { FaceMaskOverlay } from "@/features/live-room/components/FaceMaskOverlay";
 import { startVideoPlayback, VIDEO_PLAYBACK_KICK_PROPS } from "@/lib/startVideoPlayback";
 import { cn } from "@/lib/utils";
 import { kickVideoPlayback } from "@/lib/videoPlayback";
@@ -57,6 +59,13 @@ export interface CameraPreviewSurfaceProps {
    * 자리를 덮는다 — 회전 구간에만 걸리므로 정지 상태의 화각은 그대로다.
    */
   rotating?: boolean;
+  /**
+   * 얼굴 가리기
+   *
+   * 없으면 영상을 그대로 보인다.
+   * 심플 모드에서는 이 서피스가 통째로 투명해져 가림 층도 함께 보이지 않는다.
+   */
+  faceMask?: FaceMaskView | null;
   className?: string;
 }
 
@@ -66,6 +75,7 @@ export function CameraPreviewSurface({
   videoRef,
   hidden = false,
   rotating = false,
+  faceMask = null,
   className,
 }: CameraPreviewSurfaceProps) {
   useEffect(() => {
@@ -110,67 +120,69 @@ export function CameraPreviewSurface({
         className,
       )}
     >
-      <video
-        ref={videoRef}
-        muted
-        playsInline
-        {...VIDEO_PLAYBACK_KICK_PROPS}
-        // 전면 카메라는 거울처럼 보여야 자연스럽다 — 반대로 후면은 반전하면 안 된다
-        // (사용자가 보고 있는 실제 장면과 좌우가 뒤집힌다). 추론은 원본 프레임을 쓰므로
-        // 이 변환은 표시에만 영향을 준다.
-        //
-        // 표시 방식은 `previewFit.ts`의 `PREVIEW_OBJECT_FIT` 하나로 정한다 —
-        // 진단 오버레이가 같은 값을 읽어 여백/잘림을 계산하므로 여기서만 바꿀 수 없다.
-        //
-        // 카메라 프레임의 긴 축이 항상 화면의 짧은 축과 만난다:
-        //
-        // | 기기 방향 | 뷰포트          | 스트림           | 어긋남 |
-        // | --------- | --------------- | ---------------- | ------ |
-        // | 세로      | 402×874 (0.46)  | 1280×720 (1.78)  | 74%    |
-        // | 가로      | 874×402 (2.17)  | 720×1280 (0.56)  | 74%    |
-        //
-        // 회전으로는 못 고친다 — **두 방향 모두 내용은 이미 똑바로 서 있다.** 카메라가 방향
-        // 처리를 올바르게 하고 있어서, 여기서 90° 돌리면 오히려 눕는다.
-        //
-        // ## 세 선택지와 각각의 대가
-        //
-        // | 방식      | 화면          | 원본 화각        | 배율   |
-        // | --------- | ------------- | ---------------- | ------ |
-        // | `cover`   | 꽉 참         | 32%만 보임       | 0.99   |
-        // | `contain` | 68~74% 남음   | 100% 보임        | 0.31   |
-        // | `fill`    | 꽉 참         | 100% 보임        | 왜곡   |
-        //
-        // **`cover`를 골랐다.** `contain`은 프레임 전체를 보여주지만 영상이 화면의 1/3로
-        // 줄어 실기기에서 확인 후 되돌렸고(2026-07-30), `fill`은 얼굴 비율이 3.9배 늘어나
-        // 논외다.
-        //
-        // ⚠️ **`cover`의 대가는 "확대돼 보인다"는 인상이다.** 배율은 0.99로 등배인데 원본
-        // 가로 화각의 32%만 화면에 들어와서, 전체를 보다가 가운데 1/3만 보는 셈이라 3배
-        // 당긴 것처럼 느껴진다. 확대가 아니라 잘라낸 결과다 — **줌아웃으로는 못 고친다.**
-        // 줌아웃은 곧 `contain`이고, 그러면 영상이 작아진다. 화면을 채우면서 화각을 다
-        // 보여주는 방법은 프레임 비율이 화면과 같아지지 않는 한 존재하지 않는다.
-        //
-        // 남는 조정 여지는 **중간값**이다 — 프리뷰 영역을 화면보다 낮게 잡으면 잘림이 74%와
-        // 0% 사이 어디로든 간다(예: 높이 60%면 잘림 47%, 남는 40%는 UI 자리).
-        //
-        // ⚠️ 또 하나의 대가: **모델이 보는 화각이 사용자가 보는 화각보다 넓다.** 화면 밖
-        // 물체가 `cell phone`으로 잡힐 수 있고 사용자는 이유를 알 수 없다. `contain`이면
-        // 해소되는 문제라 맞바꿈 관계다.
-        //
-        // 비율 계산은 CSS가 컨테이너 기준으로 하므로 세로·가로가 자동으로 함께 처리된다.
-        className={cn(
-          // 탭이 video에 직접 닿으면 iOS가 네이티브 재생/일시정지 컨트롤을 띄운다 —
-          // 이 영상은 조작 대상이 아니므로 탭을 아래 레이어로 통과시킨다.
-          "pointer-events-none h-full w-full",
-          // amp-block은 Amplitude, sentry-block은 Sentry의 Session Replay 차단 표식이다.
-          // 전역 설정인 blockSelector("video")와 blockAllMedia가 1차 방어지만, 그 설정이
-          // 바뀌어도 카메라 요소만은 남도록 요소에도 직접 태깅한다. lib/amplitude.ts와
-          // lib/sentry.ts 참고.
-          "amp-block sentry-block",
-          PREVIEW_OBJECT_FIT === "contain" ? "object-contain object-top" : "object-cover",
-          facing === "front" && "scale-x-[-1]",
-        )}
-      />
+      <FaceMaskOverlay mask={faceMask} facing={facing}>
+        <video
+          ref={videoRef}
+          muted
+          playsInline
+          {...VIDEO_PLAYBACK_KICK_PROPS}
+          // 전면 카메라는 거울처럼 보여야 자연스럽다 — 반대로 후면은 반전하면 안 된다
+          // (사용자가 보고 있는 실제 장면과 좌우가 뒤집힌다). 추론은 원본 프레임을 쓰므로
+          // 이 변환은 표시에만 영향을 준다.
+          //
+          // 표시 방식은 `previewFit.ts`의 `PREVIEW_OBJECT_FIT` 하나로 정한다 —
+          // 진단 오버레이가 같은 값을 읽어 여백/잘림을 계산하므로 여기서만 바꿀 수 없다.
+          //
+          // 카메라 프레임의 긴 축이 항상 화면의 짧은 축과 만난다:
+          //
+          // | 기기 방향 | 뷰포트          | 스트림           | 어긋남 |
+          // | --------- | --------------- | ---------------- | ------ |
+          // | 세로      | 402×874 (0.46)  | 1280×720 (1.78)  | 74%    |
+          // | 가로      | 874×402 (2.17)  | 720×1280 (0.56)  | 74%    |
+          //
+          // 회전으로는 못 고친다 — **두 방향 모두 내용은 이미 똑바로 서 있다.** 카메라가 방향
+          // 처리를 올바르게 하고 있어서, 여기서 90° 돌리면 오히려 눕는다.
+          //
+          // ## 세 선택지와 각각의 대가
+          //
+          // | 방식      | 화면          | 원본 화각        | 배율   |
+          // | --------- | ------------- | ---------------- | ------ |
+          // | `cover`   | 꽉 참         | 32%만 보임       | 0.99   |
+          // | `contain` | 68~74% 남음   | 100% 보임        | 0.31   |
+          // | `fill`    | 꽉 참         | 100% 보임        | 왜곡   |
+          //
+          // **`cover`를 골랐다.** `contain`은 프레임 전체를 보여주지만 영상이 화면의 1/3로
+          // 줄어 실기기에서 확인 후 되돌렸고(2026-07-30), `fill`은 얼굴 비율이 3.9배 늘어나
+          // 논외다.
+          //
+          // ⚠️ **`cover`의 대가는 "확대돼 보인다"는 인상이다.** 배율은 0.99로 등배인데 원본
+          // 가로 화각의 32%만 화면에 들어와서, 전체를 보다가 가운데 1/3만 보는 셈이라 3배
+          // 당긴 것처럼 느껴진다. 확대가 아니라 잘라낸 결과다 — **줌아웃으로는 못 고친다.**
+          // 줌아웃은 곧 `contain`이고, 그러면 영상이 작아진다. 화면을 채우면서 화각을 다
+          // 보여주는 방법은 프레임 비율이 화면과 같아지지 않는 한 존재하지 않는다.
+          //
+          // 남는 조정 여지는 **중간값**이다 — 프리뷰 영역을 화면보다 낮게 잡으면 잘림이 74%와
+          // 0% 사이 어디로든 간다(예: 높이 60%면 잘림 47%, 남는 40%는 UI 자리).
+          //
+          // ⚠️ 또 하나의 대가: **모델이 보는 화각이 사용자가 보는 화각보다 넓다.** 화면 밖
+          // 물체가 `cell phone`으로 잡힐 수 있고 사용자는 이유를 알 수 없다. `contain`이면
+          // 해소되는 문제라 맞바꿈 관계다.
+          //
+          // 비율 계산은 CSS가 컨테이너 기준으로 하므로 세로·가로가 자동으로 함께 처리된다.
+          className={cn(
+            // 탭이 video에 직접 닿으면 iOS가 네이티브 재생/일시정지 컨트롤을 띄운다 —
+            // 이 영상은 조작 대상이 아니므로 탭을 아래 레이어로 통과시킨다.
+            "pointer-events-none h-full w-full",
+            // amp-block은 Amplitude, sentry-block은 Sentry의 Session Replay 차단 표식이다.
+            // 전역 설정인 blockSelector("video")와 blockAllMedia가 1차 방어지만, 그 설정이
+            // 바뀌어도 카메라 요소만은 남도록 요소에도 직접 태깅한다. lib/amplitude.ts와
+            // lib/sentry.ts 참고.
+            "amp-block sentry-block",
+            PREVIEW_OBJECT_FIT === "contain" ? "object-contain object-top" : "object-cover",
+            facing === "front" && "scale-x-[-1]",
+          )}
+        />
+      </FaceMaskOverlay>
     </div>
   );
 }

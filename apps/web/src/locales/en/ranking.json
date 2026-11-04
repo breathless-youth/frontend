@@ -1,0 +1,246 @@
+{
+  "page": {
+    "title": "Rankings",
+    "noDevice": "This device isn't registered yet. Open the app to save your records",
+    "loadError": "Couldn't load rankings"
+  },
+  "globalNotice": {
+    "title": "Global rankings are coming soon",
+    "body": "For now, rankings are only open in Korea's time zone"
+  },
+  "type": {
+    "focusTime": "Focus time",
+    "focusRate": "Focus rate",
+    "timeSlot": "Time slot",
+    "totalTime": "Total time",
+    "totalDays": "Total days",
+    "maxStreak": "Streak"
+  },
+  "period": {
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "monthly": "Monthly"
+  },
+  "periodWord": {
+    "daily": "Today",
+    "weekly": "This week",
+    "monthly": "This month"
+  },
+  "slot": {
+    "night": "Night",
+    "morning": "Morning",
+    "afternoon": "Afternoon",
+    "evening": "Evening",
+    "dawn": "Night",
+    "unknown": "Time slot",
+    "name": "{{slot}} slot"
+  },
+  "slotHours": {
+    "night": "12–6 AM",
+    "morning": "6 AM–12 PM",
+    "afternoon": "12–6 PM",
+    "evening": "6 PM–12 AM",
+    "dawn": "4–7 AM"
+  },
+  "slotSubject": {
+    "night": "the night slot",
+    "morning": "the morning slot",
+    "afternoon": "the afternoon slot",
+    "evening": "the evening slot",
+    "dawn": "the night slot"
+  },
+  "rank": {
+    "place": "#{{rank}}"
+  },
+  "row": {
+    "focusing": "Focusing now"
+  },
+  "format": {
+    "days_one": "{{days}} day",
+    "days_other": "{{days}} days",
+    "weekOfMonth": "Week {{week}} of {{month}}"
+  },
+  "deadline": {
+    "midnight": "Ends at midnight",
+    "days_one": "Ends in {{count}} day",
+    "days_other": "Ends in {{count}} days",
+    "hours": "Ends in {{count}}h",
+    "hoursMinutes": "Ends in {{hours}}h {{minutes}}m",
+    "minutes": "Ends in {{count}}m"
+  },
+  "podium": {
+    "titleTop3": "Top 3 · {{name}}",
+    "titleFocusRate": "Top 3 · Focus rate",
+    "titleMaxStreak": "Top 3 · Streak",
+    "titleHall": "Top 3 · Hall of Fame",
+    "tooltipRateMonthly": "Get 30+ hours of focus time this month to enter the rankings",
+    "tooltipRateWeekly": "Get 10+ hours of focus time this week to enter the rankings",
+    "tooltipSlot": "{{period}}'s focus time from {{hours}}",
+    "me": "You",
+    "aria": {
+      "tooltip": "About the top 3"
+    }
+  },
+  "card": {
+    "maxStreakTitle": "Longest streak"
+  },
+  "offSlot": {
+    "headline": "Study in the {{slot}} slot to get ranked",
+    "notice": "Only time studied in the {{slot}} slot counts here"
+  },
+  "previousResult": {
+    "daily": "Yesterday's final result",
+    "weekly": "Last week's final result",
+    "monthly": "Last month's final result",
+    "rankPrefix": "#{{rank}} · ",
+    "showRecords": "View records ›"
+  },
+  "live": {
+    "rankUp_one": "Up {{steps}} spot",
+    "rankUp_other": "Up {{steps}} spots",
+    "rankDown_one": "Down {{steps}} spot",
+    "rankDown_other": "Down {{steps}} spots",
+    "gapWidening": "The gap to the spot above is growing",
+    "gapClosing": "The spot below is closing in",
+    "gapToSecond": "{{gap}} ahead of #2",
+    "oneMoreSession": "One more session and you can catch up",
+    "catchUpBeforeSlotEnds": "You can catch up before {{slot}} ends"
+  },
+  "around": {
+    "status": "Rank change: {{change}}",
+    "aria": {
+      "label": "Ranks around you"
+    }
+  },
+  "switcher": {
+    "modeRanking": "Rankings",
+    "modeHall": "Hall of Fame",
+    "aria": {
+      "mode": "Ranking type",
+      "type": "Category",
+      "period": "Period",
+      "slots": "Time slots",
+      "slot": "{{slot}}, {{hours}}",
+      "slotNow": "{{slot}}, {{hours}}, current slot"
+    }
+  },
+  "eligibility": {
+    "untilEntry": "<accent>{{gap}}</accent> to get ranked",
+    "expectRank": "At this focus rate, you'd be #{{rank}}",
+    "expectTopPercent": "At this focus rate, you'd be in the top {{percent}}%"
+  },
+  "lockedList": {
+    "message": "Get ranked to see who's just above and below you",
+    "aria": {
+      "label": "Ranks above and below you"
+    }
+  },
+  "firstCard": {
+    "title": "No rank yet",
+    "headline": "Study now to get ranked",
+    "streakHeadline": "Study 5+ minutes<br/>to get ranked"
+  },
+  "resetCard": {
+    "startNow": "Start now to be <accent>#{{rank}}</accent>"
+  },
+  "goalExamples": {
+    "title": "What it takes this week",
+    "untilTop": "Top {{percent}}%"
+  },
+  "focusStart": {
+    "label": "Start focusing"
+  },
+  "rankedCard": {
+    "topPercent": "Top {{percent}}%",
+    "untilNext": "<accent>{{gap}}</accent><pre> to the next rank</pre>",
+    "rateCatchUp": "Focus a little more to catch up"
+  },
+  "nextTier": {
+    "remaining": "{{gap}} to go until <b>top {{percent}}%</b>",
+    "eta_one": "At this pace, you'll get there in about {{count}} day",
+    "eta_other": "At this pace, you'll get there in about {{count}} days"
+  },
+  "firstPlace": {
+    "headline": "Holding the <accent>#1</accent> spot"
+  },
+  "medalButton": {
+    "aria": {
+      "label": "Ranking records",
+      "withTotal_one": "Ranking records, {{count}} medal",
+      "withTotal_other": "Ranking records, {{count}} medals"
+    }
+  },
+  "rankChips": {
+    "all": "All",
+    "aria": {
+      "label": "Rank"
+    }
+  },
+  "nickname": {
+    "aria": {
+      "showFull": "Show full name: {{name}}"
+    }
+  },
+  "records": {
+    "title": "Ranking records",
+    "loadError": "Couldn't load ranking records",
+    "empty": "No records match",
+    "aria": {
+      "item": "#{{rank}}, {{name}}, {{period}}, {{value}}"
+    }
+  },
+  "sheet": {
+    "totalCount": "{{count}} total",
+    "showAll_one": "View {{count}} record ›",
+    "showAll_other": "View all {{count}} ›",
+    "emptyTitle": "No top 3 finishes yet",
+    "emptyBody": "Finish in the top 3 when a ranking closes and your medal shows up here",
+    "closestLabel": "Your closest to the top 3",
+    "closestInTop3": "In the top 3 now",
+    "closestGap": "{{gap}} away"
+  },
+  "streak": {
+    "dayUnit_one": " day",
+    "dayUnit_other": " days",
+    "currentIsBest": "This is your best streak yet",
+    "nextBest_one": "Study tomorrow too for a new best of {{count}} day",
+    "nextBest_other": "Study tomorrow too for a new best of {{count}} days",
+    "best": "Best",
+    "current": "Now",
+    "startToday": "Study today to start day 1",
+    "beatBest_one": "Keep it up for <b>{{count}} day</b> to beat your best",
+    "beatBest_other": "Keep it up for <b>{{count}} days</b> to beat your best"
+  },
+  "medal": {
+    "closesAt": "{{date}}, {{time}}",
+    "titleSingle": "You finished #{{rank}}",
+    "rowClosed": "Finished #{{rank}}",
+    "eyebrowClosed": "Closed {{time}}",
+    "titleMany_one": "You won {{count}} medal",
+    "titleMany_other": "You won {{count}} medals",
+    "recordValue": "Your record <value>{{value}}</value>",
+    "more": "+{{count}} more",
+    "totalSoFar_one": "You've earned <b>{{total}} medal</b> so far",
+    "totalSoFar_other": "You've earned <b>{{total}} medals</b> so far",
+    "showRecords": "View ranking records",
+    "aria": {
+      "countByRank_one": "{{count}} medal for #{{rank}}",
+      "countByRank_other": "{{count}} medals for #{{rank}}"
+    }
+  },
+  "gainCard": {
+    "title": "Your rank went up",
+    "weeklyFocus": "Weekly focus time"
+  },
+  "recordsPage": {
+    "summaryTitle": "Top 3 finishes so far",
+    "timesUnit_one": " time",
+    "timesUnit_other": " times",
+    "allTypes": "All categories",
+    "aria": {
+      "countByRank_one": "#{{rank}}, once",
+      "countByRank_other": "#{{rank}}, {{count}} times",
+      "typeFilter": "Category: {{label}}"
+    }
+  }
+}

@@ -62,7 +62,10 @@ export function loadMeasurementFeedbackState(): MeasurementFeedbackState | null 
   try {
     return { lastShownAt: store.readLastShownAt() };
   } catch (error) {
-    console.warn("[measurement-feedback] 노출 기록을 읽지 못해 카드를 띄우지 않는다", error);
+    console.warn(
+      "[measurement-feedback] failed to read the exposure record, not showing the card",
+      error,
+    );
     return null;
   }
 }
@@ -76,6 +79,6 @@ export function recordMeasurementFeedbackShown(atMs: number): void {
   try {
     store.writeLastShownAt(atMs);
   } catch (error) {
-    console.warn("[measurement-feedback] 노출 시각을 저장하지 못했다", error);
+    console.warn("[measurement-feedback] failed to save the exposure time", error);
   }
 }

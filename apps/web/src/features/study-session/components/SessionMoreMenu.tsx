@@ -4,6 +4,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type Ref,
 } from "react";
+import { useTranslation } from "react-i18next";
 
 import moreIcon from "@/assets/icons/session-more.svg";
 import {
@@ -94,6 +95,7 @@ export function SessionMoreMenu({
   triggerRef,
   aboveSideColumn = false,
 }: SessionMoreMenuProps) {
+  const { t } = useTranslation("study-session");
   // 메뉴가 버튼 자리를 덮으며 열려서 버튼을 짧게 누르면 손을 뗀 곳이 첫 항목이 된다.
   // Radix 항목은 그 손 뗌만으로도 선택되므로 메뉴 안에서 시작한 누름일 때만 손 뗌 선택을 허용한다.
   const pressStartedInMenuRef = useRef(false);
@@ -119,7 +121,7 @@ export function SessionMoreMenu({
     >
       <DropdownMenuTrigger
         ref={triggerRef}
-        aria-label="더보기"
+        aria-label={t("moreMenu.trigger")}
         data-room-controls=""
         inert={hidden}
         onPointerDown={stopSurfaceToggle}
@@ -158,7 +160,7 @@ export function SessionMoreMenu({
           onSelect={onFlipCamera}
           className={MENU_ITEM_CLASS}
         >
-          카메라 전환
+          {t("moreMenu.flipCamera")}
         </DropdownMenuItem>
         {onOpenHelp && (
           <DropdownMenuItem
@@ -167,7 +169,7 @@ export function SessionMoreMenu({
             onSelect={onOpenHelp}
             className={MENU_ITEM_CLASS}
           >
-            도움말 보기
+            {t("moreMenu.help")}
           </DropdownMenuItem>
         )}
         {onShareInvite && (
@@ -177,7 +179,7 @@ export function SessionMoreMenu({
             onSelect={onShareInvite}
             className={MENU_ITEM_CLASS}
           >
-            초대코드 공유
+            {t("moreMenu.shareInvite")}
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>

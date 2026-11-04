@@ -114,7 +114,7 @@ export function createFrameLoop(options: FrameLoopOptions): FrameLoop {
       } catch (error: unknown) {
         // 프레임 하나가 실패해도 루프는 계속 돈다. 감지가 실제로 불가능해졌는지는
         // 검출기가 자기 상태로 표현하고(`objectDetector.ts`), 호출부가 그걸 보고 판단한다.
-        console.warn("[vision] 프레임 처리 실패", error);
+        console.warn("[vision] frame processing failed", error);
       } finally {
         if (id === generation) {
           busy = false;

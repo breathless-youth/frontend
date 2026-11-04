@@ -13,7 +13,7 @@ export async function getStudySessionDetail(id: number): Promise<StudySessionRes
     method: "GET",
   });
   if (!res.ok) {
-    throw await parseApiError(res, "세션 조회 실패");
+    throw await parseApiError(res, "session detail fetch failed");
   }
   return (await res.json()) as StudySessionResponse;
 }

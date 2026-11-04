@@ -1,5 +1,6 @@
 import type { NoticeResponse } from "@focusmakers/types";
 import { useRef } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ export function NoticeModal({
   onNeverAgain: () => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation(["notice", "common"]);
   const contentRef = useRef<HTMLDivElement>(null);
   return (
     <Dialog open>
@@ -77,7 +79,7 @@ export function NoticeModal({
             onClick={onNeverAgain}
             className="h-11 flex-1 text-[15px] hover:bg-bg-layer-2 leading-4.5 font-bold text-muted-foreground"
           >
-            다시 보지 않기
+            {t("modal.neverAgain")}
           </Button>
           <span aria-hidden="true" className="h-3.5 w-px shrink-0 bg-border" />
           <Button
@@ -86,7 +88,7 @@ export function NoticeModal({
             onClick={onClose}
             className="h-11 flex-1 text-[15px] hover:bg-bg-layer-2 leading-4.5 font-bold text-foreground"
           >
-            닫기
+            {t("common:actions.close")}
           </Button>
         </div>
       </DialogContent>

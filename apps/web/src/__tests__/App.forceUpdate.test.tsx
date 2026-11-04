@@ -3,7 +3,6 @@ import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "@/App";
-import { FORCE_UPDATE_CONFIRM_LABEL, FORCE_UPDATE_TITLE } from "@/features/force-update/copy";
 import { MIN_SUPPORTED_VERSION } from "@/features/force-update/version";
 import type * as AmplitudeModule from "@/lib/amplitude";
 
@@ -57,21 +56,21 @@ describe("App 강제 업데이트 게이트(BY-537)", () => {
   it("appVersion이 최소 버전 미만이면 강제 업데이트 모달만 뜨고 라우트는 마운트하지 않는다", () => {
     renderAt("/?appVersion=0.9.0");
 
-    expect(screen.getByText(FORCE_UPDATE_TITLE)).toBeInTheDocument();
+    expect(screen.getByText("업데이트가 필요해요")).toBeInTheDocument();
     expect(screen.queryByText(HOME_TEXT)).not.toBeInTheDocument();
   });
 
   it("appVersion 쿼리가 없으면(브라우저 단독 접속) 모달 없이 라우트가 렌더된다", () => {
     renderAt("/");
 
-    expect(screen.queryByText(FORCE_UPDATE_TITLE)).not.toBeInTheDocument();
+    expect(screen.queryByText("업데이트가 필요해요")).not.toBeInTheDocument();
     expect(screen.getByText(HOME_TEXT)).toBeInTheDocument();
   });
 
   it("appVersion이 최소 버전 이상이면 모달 없이 라우트가 렌더된다", () => {
     renderAt("/?appVersion=1.0.1");
 
-    expect(screen.queryByText(FORCE_UPDATE_TITLE)).not.toBeInTheDocument();
+    expect(screen.queryByText("업데이트가 필요해요")).not.toBeInTheDocument();
     expect(screen.getByText(HOME_TEXT)).toBeInTheDocument();
   });
 });
@@ -84,7 +83,7 @@ describe("App 강제 업데이트 게이트 — 계측 (BY-616 최종 검토)", 
       [{ appVersion: "0.9.0", minVersion: MIN_SUPPORTED_VERSION }],
     ]);
 
-    fireEvent.click(screen.getByRole("button", { name: FORCE_UPDATE_CONFIRM_LABEL }));
+    fireEvent.click(screen.getByRole("button", { name: "지금 업데이트" }));
 
     expect(analytics.trackForceUpdateStoreOpened).toHaveBeenCalledTimes(1);
     expect(analytics.trackForceUpdatePrompted).toHaveBeenCalledTimes(1);

@@ -65,6 +65,8 @@ export const API_ENDPOINTS = {
   },
   /** `GET /api/stats/study-days` — 구 앱 계약이 없다. 구 앱 문서가 부르면 실패하고 화면에 `—`가 남는다. */
   studyDays: { version: "1", parsedBy: "apps/web/src/lib/statsApi.ts getStudyDays" },
+  /** `GET /api/stats/rhythm` — study-days와 같은 새 경로. 구 앱 문서는 부르지 않는다(주간 탭이 없다). */
+  studyRhythm: { version: "1", parsedBy: "apps/web/src/lib/statsApi.ts getStudyRhythm" },
 
   /** `GET`·`PUT`·`DELETE /api/dday` — 홈 D-Day. 구 앱 계약이 없는 새 경로다(Swagger `API-Version` 기본값 1, 2026-09-24 대조). */
   dday: { version: "1", parsedBy: "apps/web/src/lib/ddayApi.ts" },
@@ -75,6 +77,8 @@ export const API_ENDPOINTS = {
   notices: { version: "1", parsedBy: "apps/web/src/lib/noticeApi.ts" },
   /** `GET /api/interview/status` — 완료 화면 카드·설정 행. 새 경로다. */
   interview: { version: "1", parsedBy: "apps/web/src/lib/interviewApi.ts" },
+  /** `POST /api/users/me/acquisition` — 설치 유입 경로 저장. 새 경로다(Swagger 기본값 1, 2026-11-04 대조). */
+  acquisition: { version: "1", parsedBy: "apps/web/src/lib/acquisitionApi.ts postAcquisition" },
   /**
    * `GET /api/rankings/board`: 랭킹판.
    * 구 앱 계약은 없고, 일수 판을 같은 일수 묶음 대신 사람 단위 순위로 주면서 2가 됐다.

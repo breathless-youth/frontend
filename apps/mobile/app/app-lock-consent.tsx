@@ -5,6 +5,7 @@ import { AppState, Text, View } from "react-native";
 import { AppLockSheet } from "../components/AppLockSheet";
 import { IconCheckSm } from "../components/icons";
 import { consentAction, notifyConsentClosed } from "../lib/appLock/androidFlow";
+import { t } from "../lib/i18n";
 import { appLockNative } from "../modules/app-lock";
 
 function readGrants() {
@@ -50,25 +51,24 @@ export default function AppLockConsentScreen() {
 
   return (
     <AppLockSheet
-      title={"방해 앱 잠금을 켜려면\n권한 두 가지가 필요해요"}
-      primary={{ label: action?.label ?? "완료", onPress: open }}
+      title={t("appLockConsent.title")}
+      primary={{ label: action?.label ?? t("common.done"), onPress: open }}
     >
       <PermissionItem
         step={1}
         done={grants.usage}
-        title="사용정보 접근"
-        body="지금 열린 앱이 잠긴 앱인지 확인할 때만 써요."
+        title={t("appLockConsent.usageTitle")}
+        body={t("appLockConsent.usageBody")}
       />
       <PermissionItem
         step={2}
         done={grants.overlay}
-        title="다른 앱 위에 표시"
-        body="공부 중에 잠긴 앱을 열면 잠금 화면을 띄워요."
+        title={t("appLockConsent.overlayTitle")}
+        body={t("appLockConsent.overlayBody")}
       />
       {/* Play 사용자 데이터 정책상 설치된 앱 목록은 권한 요청 전에 앱 안에서 알려야 한다. */}
       <Text className="text-text-secondary dark:text-text-secondary-dark mt-2 font-sans text-[13px] leading-[19px]">
-        잠그고 싶은 앱을 고를 수 있게 기기에 설치된 앱 목록을 조회해요. 조회된 정보는 기기 밖으로
-        전송되지 않아요.
+        {t("appLockConsent.installedApps")}
       </Text>
     </AppLockSheet>
   );
@@ -109,7 +109,7 @@ function PermissionItem({
           </Text>
           {done && (
             <Text className="text-feedback-success dark:text-feedback-success-dark ml-1.5 font-sans text-[12px]">
-              허용됨
+              {t("appLockConsent.granted")}
             </Text>
           )}
         </View>
