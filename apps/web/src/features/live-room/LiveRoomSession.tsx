@@ -172,6 +172,7 @@ export function LiveRoomSession({
   // 뒤로가기로 이탈하면 제출 없이 측정이 유실되므로,
   // 세션 동안 iOS 스와이프와 Android 하드웨어 뒤로가기를 모두 잠근다.
   // (세션 종료는 나가기 버튼으로만 가능하다)
+  // 과목과 배경음 창은 이 잠금을 풀지 않고 웹이 스와이프를 직접 받아 닫는다.
   useNativeBackGestureLock();
   useNativeBackLock();
   // 저전력 모드에서 멈춘 영상을 탭 제스처로 되살린다 — lib/videoPlayback.ts 주석 참고.
@@ -1284,6 +1285,7 @@ export function LiveRoomSession({
           />
         }
         landscape={pageLandscape}
+        closeOnEdgeSwipe
       >
         <SubjectPanel
           store={subjects}
@@ -1310,6 +1312,7 @@ export function LiveRoomSession({
         container={sessionSurface}
         returnFocus={() => ambientButtonRef.current}
         landscape={pageLandscape}
+        closeOnEdgeSwipe
         timer={<SessionPageTimer focusSec={focusSec} />}
         catalog={ambient.catalog}
         mix={ambient.mix}
