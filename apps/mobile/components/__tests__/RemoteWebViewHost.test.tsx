@@ -20,6 +20,7 @@ import {
 } from "../../lib/nativeAnalytics";
 import { lockPortrait, unlockForSession } from "../../lib/orientation";
 import { emitSessionClosed } from "../../lib/sessionClosed";
+import { attachTabBackHandler, handleTabBack } from "../../lib/tabBack";
 import { emitTabReset } from "../../lib/tabReset";
 import {
   RemoteWebViewHost,
@@ -136,6 +137,9 @@ const mockInjectJavaScript = jest.fn();
 /** iOS 프로세스 종료 복구(`reload`)의 관찰점 — BY-374 검증에 쓴다. */
 const mockReload = jest.fn();
 
+/** Android 시스템 뒤로 가기가 웹뷰 기록으로 돌아갔는지 보는 관찰점 */
+const mockGoBack = jest.fn();
+
 /** WebView 마운트 횟수 관찰점 — Android 렌더러 사망 시 재마운트(BY-374) 검증에 쓴다. */
 const mockWebViewMounted = jest.fn();
 
@@ -179,6 +183,7 @@ jest.mock("react-native-webview", () => {
       ReactModule.useImperativeHandle(ref, () => ({
         reload: mockReload,
         injectJavaScript: mockInjectJavaScript,
+        goBack: mockGoBack,
       }));
       // 마운트 1회당 1호출 — `key` 교체로 인스턴스가 새로 만들어졌는지를 세는 관찰점.
       ReactModule.useEffect(() => {
@@ -229,6 +234,7 @@ function fireWebViewEvent(name: "onError" | "onHttpError", value?: unknown) {
 beforeEach(() => {
   mockWebBaseUrl = "https://web.test";
   mockReload.mockClear();
+  mockGoBack.mockClear();
   mockWebViewMounted.mockClear();
   mockInjectJavaScript.mockClear();
   (lockPortrait as jest.Mock).mockClear();
@@ -1256,6 +1262,119 @@ describe("report-screen 복원 (BY-436)", () => {
   });
 });
 
+/**
+ * Android 시스템 뒤로 가기
+ *
+ * 탭 첫 화면이 아닌 곳에서 누른 뒤로 가기는 탭을 떠나지 않고 보이는 웹뷰의 기록에서 한 칸 돌아간다.
+ * 탭 레이아웃이 `handleTabBack`으로 먼저 묻고, 웹뷰가 처리하지 않으면 홈 탭 이동과 탭 초기화를 한다.
+ */
+describe("Android 시스템 뒤로 가기", () => {
+  beforeEach(() => {
+    jest.replaceProperty(Platform, "OS", "android");
+    // 개발 빌드의 로드 로그를 가린다.
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  /** 웹이 보고한 화면과 Android 웹뷰의 기록 상태를 흉내 낸다. */
+  function showScreen(path: string, canGoBack: boolean) {
+    const props = screen.getByTestId("host").props as {
+      onMessage: (e: unknown) => void;
+      onNavigationStateChange: (e: unknown) => void;
+    };
+    act(() => {
+      props.onNavigationStateChange({ url: `https://web.test${path}`, loading: false, canGoBack });
+      props.onMessage({
+        nativeEvent: {
+          data: JSON.stringify({ type: "report-screen", path, dark: false, atMs: 1 }),
+        },
+      });
+    });
+  }
+
+  it("탭 첫 화면이 아니고 돌아갈 기록이 있으면 이 웹뷰에서 한 칸 돌아가고 처리했다고 알린다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+    showScreen("/blocks", true);
+
+    expect(handleTabBack()).toBe(true);
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
+  });
+
+  it("탭 첫 화면에서는 처리하지 않아 홈 탭 이동과 탭 초기화에 맡긴다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+    showScreen("/settings", true);
+
+    expect(handleTabBack()).toBe(false);
+    expect(mockGoBack).not.toHaveBeenCalled();
+  });
+
+  it("알림 링크로 하위 화면을 연 탭은 탭 루트를 첫 화면으로 보고, 돌아갈 기록이 생긴 뒤에만 처리한다", () => {
+    render(<RemoteWebViewHost path="/social/groups/42" resetPath="/social" testID="host" />);
+
+    showScreen("/social/groups/42", false);
+    expect(handleTabBack()).toBe(false);
+
+    showScreen("/social/groups/42/members", true);
+    expect(handleTabBack()).toBe(true);
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
+  });
+
+  it("가려진 탭의 웹뷰는 받지 않는다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" focused={false} />);
+    showScreen("/blocks", true);
+
+    expect(handleTabBack()).toBe(false);
+    expect(mockGoBack).not.toHaveBeenCalled();
+  });
+
+  it("웹이 화면을 보고하기 전에는 받지 않는다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+    const onNavigationStateChange = screen.getByTestId("host").props.onNavigationStateChange as (
+      e: unknown,
+    ) => void;
+    act(() => {
+      onNavigationStateChange({ url: "https://web.test/blocks", loading: false, canGoBack: true });
+    });
+
+    expect(handleTabBack()).toBe(false);
+    expect(mockGoBack).not.toHaveBeenCalled();
+  });
+
+  it("문서를 새로 띄우면 새 웹뷰에는 기록이 없어 돌아갈 기록을 비운다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+    showScreen("/blocks", true);
+
+    act(() => {
+      (screen.getByTestId("host").props.onRenderProcessGone as () => void)();
+    });
+
+    expect(handleTabBack()).toBe(false);
+    expect(mockGoBack).not.toHaveBeenCalled();
+  });
+
+  it("로드 실패 화면에서는 돌아갈 웹뷰가 없어 받지 않는다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+    showScreen("/blocks", true);
+    fireWebViewEvent("onError");
+
+    expect(handleTabBack()).toBe(false);
+  });
+
+  it("iOS에는 시스템 뒤로 가기가 없어 붙지 않는다", () => {
+    jest.replaceProperty(Platform, "OS", "ios");
+    const earlier = jest.fn(() => false);
+    const detach = attachTabBackHandler(earlier);
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+    showScreen("/blocks", true);
+
+    handleTabBack();
+
+    // 호스트가 붙었다면 마지막에 붙은 호스트가 받아 먼저 붙은 처리기에는 오지 않는다.
+    expect(earlier).toHaveBeenCalledTimes(1);
+    expect(mockGoBack).not.toHaveBeenCalled();
+    detach();
+  });
+});
+
 describe("SPA 라우팅과 스플래시 (BY-436)", () => {
   // RNCWebViewClient.doUpdateVisitedHistory가 History API 내비게이션마다
   // TopLoadingStartEvent(onLoadStart)를 쏘는데 onLoadEnd 짝은 없다. 스플래시 복귀는
@@ -1315,16 +1434,29 @@ describe("SPA 라우팅과 스플래시 (BY-436)", () => {
     warn.mockRestore();
   });
 
-  it("Android 운영 빌드에서는 onLoadStart·onLoadProgress·onNavigationStateChange 어느 것도 연결하지 않는다", () => {
+  it("Android 운영 빌드에서는 onLoadStart·onLoadProgress를 연결하지 않고, onNavigationStateChange는 돌아갈 기록만 담아 복구·회전을 건드리지 않는다", () => {
     jest.replaceProperty(Platform, "OS", "android");
     const original = (globalThis as unknown as { __DEV__: boolean }).__DEV__;
     (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
     try {
-      render(<RemoteWebViewHost path="/social" testID="host" onRecoveryStart={jest.fn()} />);
+      const onRecoveryStart = jest.fn();
+      render(<RemoteWebViewHost path="/social" testID="host" onRecoveryStart={onRecoveryStart} />);
       const props = screen.getByTestId("host").props;
       expect(props.onLoadStart).toBeUndefined();
       expect(props.onLoadProgress).toBeUndefined();
-      expect(props.onNavigationStateChange).toBeUndefined();
+
+      const onNavigationStateChange = props.onNavigationStateChange as (e: unknown) => void;
+      act(() => {
+        onNavigationStateChange({
+          url: "https://web.test/blocks",
+          loading: false,
+          canGoBack: true,
+        });
+      });
+
+      expect(onRecoveryStart).not.toHaveBeenCalled();
+      expect(mockReload).not.toHaveBeenCalled();
+      expect(lockPortrait).not.toHaveBeenCalled();
     } finally {
       (globalThis as unknown as { __DEV__: boolean }).__DEV__ = original;
     }
