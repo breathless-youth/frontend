@@ -137,11 +137,12 @@ export function SettingsTabSkeleton() {
  * 화면 바닥에서 탭 바 윗변 8 위까지의 거리
  *
  * 웹 `--tab-bar-reserve`와 같은 식이고, 웹은 떠 있는 버튼을 여기서 16 더 위에 둔다.
- * iOS 시스템 탭 바의 높이 49는 웹뷰의 아래쪽 안전영역에 들어 있어 웹은 안전영역만 쓴다.
+ * iOS 시스템 탭 바는 탭 화면의 아래쪽 안전영역에 자기 높이 49를 넣어서 웹뷰와 이 스켈레톤이 읽는 안전영역 모두 탭 바를 이미 담고 있다.
+ * 여기서 49를 한 번 더 더하면 웹이 뜰 때 + 버튼이 49만큼 아래로 뛴다.
  * Android 탭 바는 높이 70이고 바닥에서 안전영역과 24 가운데 큰 값만큼 떠 있다.
  */
 function tabBarReserve(bottomInset: number): number {
-  return Platform.OS === "ios" ? bottomInset + 49 + 8 : 70 + Math.max(bottomInset, 24) + 8;
+  return Platform.OS === "ios" ? bottomInset + 8 : 70 + Math.max(bottomInset, 24) + 8;
 }
 
 /**

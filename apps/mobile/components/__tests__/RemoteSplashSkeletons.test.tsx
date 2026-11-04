@@ -10,11 +10,13 @@ import { SocialTabSkeleton } from "../RemoteSplashSkeletons";
  */
 
 // 스켈레톤이 위아래 안전영역을 읽는다(탭 화면 테스트와 같은 값).
+const mockInsets = { top: 59, bottom: 34, left: 0, right: 0 };
 jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
+  useSafeAreaInsets: () => mockInsets,
 }));
 
 afterEach(() => {
+  mockInsets.bottom = 34;
   jest.restoreAllMocks();
 });
 
@@ -29,12 +31,14 @@ describe("SocialTabSkeleton", () => {
     expect(screen.getByTestId("social-skeleton-create")).toBeTruthy();
   });
 
-  // 안전영역 아래쪽 34에서 iOS는 34 + 탭 바 49 + 8 + 16, Android는 탭 바 70 + 34 + 8 + 16이다.
+  // iOS 탭 화면의 아래쪽 안전영역은 시스템 탭 바 49까지 담은 83이라(실기기 측정) 83 + 8 + 16이다.
+  // Android 커스텀 탭 바는 안전영역에 들지 않아 안전영역 34에서 탭 바 70 + 34 + 8 + 16이다.
   it.each([
-    ["ios", 107],
-    ["android", 128],
-  ] as const)("%s에서 + 버튼을 웹처럼 탭 바 윗변보다 24 위에 둔다", (os, bottom) => {
+    ["ios", 83, 107],
+    ["android", 34, 128],
+  ] as const)("%s에서 + 버튼을 웹처럼 탭 바 윗변보다 24 위에 둔다", (os, bottomInset, bottom) => {
     jest.replaceProperty(Platform, "OS", os);
+    mockInsets.bottom = bottomInset;
     render(<SocialTabSkeleton />);
 
     expect(
