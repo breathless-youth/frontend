@@ -363,6 +363,29 @@ describe("RoomTile 이름 줄 올리기", () => {
     }
   });
 
+  it("스크림 높이는 타일이 정한 한 값을 기존 스크림과 올라간 스크림이 함께 읽는다", () => {
+    render(<RoomTile member={withGoal} media={<div />} lifted />);
+
+    expect(screen.getByTestId("room-tile")).toHaveClass("[--tile-scrim-height:--spacing(19)]");
+    expect(screen.getByTestId("tile-scrim")).toHaveClass("h-(--tile-scrim-height)");
+    expect(screen.getByTestId("tile-scrim-lifted").className).toContain(
+      "rgba(0,0,0,0.55)_var(--tile-scrim-height)",
+    );
+  });
+
+  it("올라간 동안 다른 사람 타일의 이름 줄은 오른쪽 위 시간 뱃지를 피해 오른쪽 끝을 비우고 내 타일은 비우지 않는다", () => {
+    const { rerender } = render(<RoomTile member={withGoal} lifted />);
+    expect(screen.getByTestId("tile-info")).toHaveClass("landscape-compact:data-lifted:right-20");
+
+    rerender(
+      <RoomTile member={withGoal} lifted menuButton={<button type="button">메뉴</button>} />,
+    );
+    expect(screen.getByTestId("tile-info")).toHaveClass("landscape-compact:data-lifted:right-20");
+
+    rerender(<RoomTile member={withGoal} lifted isSelf />);
+    expect(screen.getByTestId("tile-info").className).not.toContain("data-lifted:right-");
+  });
+
   it("영상이 켜진 타일은 올라간 이름 줄 뒤에도 스크림을 깔고 영상이 없으면 그리지 않는다", () => {
     const { rerender } = render(
       <RoomTile member={withGoal} media={<div data-testid="media" />} lifted />,
@@ -393,7 +416,7 @@ describe("RoomTile 이름 줄 올리기", () => {
       "ease-[cubic-bezier(0.32,0.72,0,1)]",
       "motion-reduce:transition-none",
       "landscape-compact:data-lifted:opacity-100",
-      "h-[calc(var(--room-bar-lift)+var(--spacing)*19)]",
+      "h-[calc(var(--room-bar-lift)+var(--tile-scrim-height))]",
     );
     // 가로가 아니면 격자가 바 자리를 비워 두므로 이름 줄이 스크림 안에 그대로 있다.
     for (const name of [...scrim.classList].filter((name) => name.includes("opacity-100"))) {
