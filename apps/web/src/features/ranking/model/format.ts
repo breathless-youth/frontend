@@ -1,6 +1,7 @@
 import type { RankingPeriod, RankingRecordType, RankingType, TimeSlot } from "@focusmakers/types";
 
 import { addDaysToDateKey, dayOfDateKey, formatMonthDay } from "@/features/records/recordsFormat";
+import { formatClock } from "@/lib/formatClock";
 import i18n from "@/lib/i18n";
 
 import { periodLabel, typeLabel, type BoardIdentity } from "./board";
@@ -14,20 +15,6 @@ const DAY_MS = 24 * HOUR_MS;
 
 export function formatRank(rank: number): string {
   return rank.toLocaleString("ko-KR");
-}
-
-const pad2 = (value: number) => String(value).padStart(2, "0");
-
-/**
- * 시간 판 값
- *
- * 시는 자르지 않는다(`41:20:00`).
- */
-export function formatClock(totalSec: number): string {
-  const sec = Math.max(0, Math.floor(totalSec));
-  const hours = Math.floor(sec / 3600);
-  const minutes = Math.floor((sec % 3600) / 60);
-  return `${hours}:${pad2(minutes)}:${pad2(sec % 60)}`;
 }
 
 /**

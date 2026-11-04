@@ -151,6 +151,15 @@ describe("isFullScreenPath", () => {
     expect(isFullScreenPath("/room/1")).toBe(false);
     expect(isFullScreenPath("/room/1/result")).toBe(false);
   });
+
+  // 그룹 홈의 메뉴처럼 모달 표시가 없는 겹침 위에서도 탭 바가 눌리지 않게 하위 화면 전체에서 탭 바를 감춘다.
+  it("그룹 하위 화면과 차단 목록은 탭 바를 감춘다", () => {
+    expect(isFullScreenPath("/social/groups/10")).toBe(true);
+    expect(isFullScreenPath("/social/groups/10/members")).toBe(true);
+    expect(isFullScreenPath("/social/public/12/apply")).toBe(true);
+    expect(isFullScreenPath("/blocks")).toBe(true);
+    expect(isFullScreenPath("/social")).toBe(false);
+  });
 });
 
 describe("isNativeCoveredPath", () => {

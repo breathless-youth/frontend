@@ -5,10 +5,15 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { Button } from "@/components/ui/button";
+import {
+  INVITE_CODE_CELL_CLASS,
+  INVITE_CODE_ROW_CLASS,
+} from "@/features/group-room/inviteCodeCell";
 import { openInApp, shouldAutoOpenInApp } from "@/features/social-room/appHandoff";
 import { CODE_CELL_CLASS } from "@/features/social-room/codeCell";
 import { InviteCodeInput } from "@/features/social-room/InviteCodeInput";
 import { isCompleteInviteCode, sanitizeInviteCode } from "@/features/social-room/inviteCode";
+import { parseInviteParam } from "@/features/social-room/inviteParam";
 import { joinErrorMessage, joinErrorReason } from "@/features/social-room/joinError";
 import { detectStorePlatform } from "@/features/social-room/storeLink";
 import {
@@ -23,6 +28,12 @@ import { enterLiveRoom } from "@/lib/roomApi";
 import { useUserId } from "@/lib/userId";
 
 const ERROR_ID = "invite-code-error";
+
+// 그룹의 6자리 코드는 4자리 칸으로 그리면 폰 폭을 넘어서 6자리 입력 화면과 같은 칸으로 그린다.
+const LINK_CODE_CELLS = {
+  room: { row: "flex justify-center gap-2.5", cell: CODE_CELL_CLASS },
+  group: { row: INVITE_CODE_ROW_CLASS, cell: INVITE_CODE_CELL_CLASS },
+} as const;
 
 /**
  * 초대코드 입력
@@ -49,11 +60,16 @@ export function InviteCodeJoinPage() {
 
   // 앱 밖 모바일 브라우저에게만 스토어를 권한다.
   // 설치 여부는 웹이 알 수 없지만, 설치자는 링크 클릭 시 유니버설 링크·App Links로 앱이 직행하므로 이 화면에 오는 것은 대부분 미설치자다.
-  const storePlatform = isNativeBridgeAvailable()
+  const inApp = isNativeBridgeAvailable();
+  const storePlatform = inApp
     ? null
     : detectStorePlatform(navigator.userAgent, navigator.maxTouchPoints);
-  // 앱으로 넘길 코드. 4자리가 아니면 코드 없는 링크와 같게 다룬다.
-  const handoffCode = isCompleteInviteCode(code) ? code : "";
+  // 앱으로 넘길 링크의 코드이고 예전 방의 4자리와 그룹의 6자리를 모두 넘긴다.
+  // 어느 코드도 아니면 코드 없는 링크와 같게 다룬다.
+  const linkInvite = parseInviteParam(searchParams.get("code"));
+  const handoffCode = linkInvite?.code ?? "";
+  // 그룹의 6자리 코드는 4자리 입력칸에 담기지 않아서 컴퓨터 브라우저에도 입력 화면 대신 코드 안내를 보인다.
+  const showsGuidance = storePlatform !== null || (!inApp && linkInvite?.kind === "group");
 
   // 인앱 브라우저는 유니버설 링크가 발동하지 않아 앱으로 못 넘어간다.
   // 코드가 실린 링크로 들어왔고 앱 밖 모바일이면, 첫 로드에 한 번 스킴으로 앱 열기를 시도한다.
@@ -108,7 +124,8 @@ export function InviteCodeJoinPage() {
   // 브라우저에는 신원이 없어 코드를 입력해도 참여할 수 없다.
   // 입력칸 대신 코드를 보여 주고 앱으로 넘기는 버튼 하나만 둔다.
   // iOS는 스토어를 거치면 코드가 앱에 전달되지 않아, 설치 뒤 입력할 코드를 화면에 남긴다.
-  if (storePlatform !== null) {
+  // 컴퓨터 브라우저는 열 앱도 보낼 스토어도 없어서 버튼 없이 코드만 보여 준다.
+  if (showsGuidance) {
     return (
       <main
         data-testid="invite-code-join-page"
@@ -118,17 +135,21 @@ export function InviteCodeJoinPage() {
 
         <div className="flex grow flex-col items-center justify-center gap-2 px-5">
           <h2 className="text-lg font-bold text-foreground">{t("join.invited")}</h2>
-          {handoffCode !== "" && (
+          {linkInvite !== null && (
             <>
               <div className="size-2" aria-hidden="true" />
               <div
                 role="group"
-                aria-label={t("codeCells.aria.label", { code: handoffCode })}
-                className="flex justify-center gap-2.5"
+                aria-label={t("codeCells.aria.label", { code: linkInvite.code })}
+                className={LINK_CODE_CELLS[linkInvite.kind].row}
               >
-                {handoffCode.split("").map((digit, index) => (
-                  <div key={index} aria-hidden="true" className={CODE_CELL_CLASS}>
-                    {digit}
+                {linkInvite.code.split("").map((character, index) => (
+                  <div
+                    key={index}
+                    aria-hidden="true"
+                    className={LINK_CODE_CELLS[linkInvite.kind].cell}
+                  >
+                    {character}
                   </div>
                 ))}
               </div>
@@ -139,21 +160,23 @@ export function InviteCodeJoinPage() {
           </p>
         </div>
 
-        <div className="px-5 pb-[calc(env(safe-area-inset-bottom)+24px)]">
-          <Button
-            variant="default"
-            size="xl"
-            className="shadow-sb-cta w-full"
-            onClick={() => {
-              // 초대발 신규 설치 근사
-              // — 이동 전 전송이 베스트 에포트인 사유는 trackStoreLinkRedirected 주석 참고
-              trackStoreLinkRedirected(storePlatform);
-              openInApp(storePlatform, handoffCode);
-            }}
-          >
-            {t("join.openApp")}
-          </Button>
-        </div>
+        {storePlatform !== null && (
+          <div className="px-5 pb-[calc(env(safe-area-inset-bottom)+24px)]">
+            <Button
+              variant="default"
+              size="xl"
+              className="shadow-sb-cta w-full"
+              onClick={() => {
+                // 초대발 신규 설치 근사
+                // — 이동 전 전송이 베스트 에포트인 사유는 trackStoreLinkRedirected 주석 참고
+                trackStoreLinkRedirected(storePlatform);
+                openInApp(storePlatform, handoffCode);
+              }}
+            >
+              {t("join.openApp")}
+            </Button>
+          </div>
+        )}
       </main>
     );
   }

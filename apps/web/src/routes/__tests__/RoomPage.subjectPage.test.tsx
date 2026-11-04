@@ -199,6 +199,9 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
     const dialog = screen.getByRole("dialog", { name: "과목" });
     expect(amplitude.trackSubjectSheetOpened).toHaveBeenCalledWith("button", "single");
     expect(within(dialog).getByText("00:00:00")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("heading", { name: "과목" }).parentElement!).getByText(/^순공시간 /),
+    ).toBeInTheDocument();
 
     act(() => {
       vi.advanceTimersByTime(3_000);

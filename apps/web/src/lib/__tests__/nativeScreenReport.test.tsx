@@ -58,6 +58,18 @@ describe("useNativeScreenReport", () => {
     expect(report.restoreQuery).toEqual({ code: "0712" });
   });
 
+  it("그룹 공부방은 어두운 화면으로 보고하고 결과 화면은 아니다", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+    renderAt({ pathname: "/social/groups/10/room" });
+    expect(lastReport(postMessage)).toMatchObject({ path: "/social/groups/10/room", dark: true });
+    expect(lastReport(postMessage).restoreQuery).toBeUndefined();
+
+    renderAt({ pathname: "/social/groups/10/room/result" });
+    expect(lastReport(postMessage)).toMatchObject({ dark: false });
+  });
+
   it("소셜룸에 state가 없으면 ?code 쿼리를 복원 쿼리로 쓴다 — 복원된 문서의 재보고", () => {
     const postMessage = vi.fn();
     vi.stubGlobal("ReactNativeWebView", { postMessage });

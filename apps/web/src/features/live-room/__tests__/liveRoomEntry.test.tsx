@@ -75,9 +75,11 @@ function renderEntry(entryState: LiveRoomLocationState, camera = fakeCamera()) {
             path="/social/room/:roomId"
             element={
               <LiveRoomEntry
-                roomId={1}
+                room={{ kind: "invite", inviteCode: entryState.inviteCode }}
+                initialRoomId={1}
                 userId={7}
-                entryState={entryState}
+                graceRejoin={entryState.graceRejoin === true}
+                initialIceServers={entryState.iceServers ?? []}
                 createChannel={() => {
                   throw new Error("세션 stub에서는 채널을 만들지 않는다");
                 }}

@@ -1,9 +1,9 @@
 import { useNativeControl } from "@/lib/nativeControls";
 
-import { cameraPermissionRowLabel } from "./settingsInfo";
+import { cameraPermissionRowLabel, micPermissionRowLabel } from "./settingsInfo";
 
 /**
- * S6 설정의 카메라 권한 **표시 전용** 토글 (Figma `Control / Toggle` 43:89 — 51×31,
+ * S6 설정의 카메라와 마이크 권한 **표시 전용** 토글 (Figma `Control / Toggle` 43:89 — 51×31,
  * On=brand/primary, Off=#E9E9EA, 노브 27 white + 그림자).
  *
  * **네이티브 `<input type="checkbox">` 토글을 쓰지 않는다**(`SCR-S6-settings.md` Components):
@@ -21,18 +21,21 @@ const KNOB_INSET = 2;
 type PermissionToggleProps = {
   /** OS 권한 허용 여부. 이 컴포넌트는 값을 바꾸지 않는다. */
   granted: boolean;
+  /** 한 화면에 두 행이 나란히 있어서 앱 부품을 권한마다 따로 등록한다. */
+  permission?: "camera" | "mic";
 };
 
-export function PermissionToggle({ granted }: PermissionToggleProps) {
+export function PermissionToggle({ granted, permission = "camera" }: PermissionToggleProps) {
   // 앱 스위치도 모양만 그리고 누름은 웹의 행 버튼으로 통과시킨다.
   const { ref } = useNativeControl<HTMLDivElement>(
     {
-      id: "switch-camera-permission",
+      id: `switch-${permission}-permission`,
       kind: "switch",
       on: granted,
       disabled: false,
       interactive: false,
-      accessibilityLabel: cameraPermissionRowLabel(granted),
+      accessibilityLabel:
+        permission === "mic" ? micPermissionRowLabel(granted) : cameraPermissionRowLabel(granted),
     },
     () => {},
   );

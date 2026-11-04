@@ -18,6 +18,25 @@ export function isLiveRoomState(state: unknown): state is LiveRoomLocationState 
   );
 }
 
+/** 그룹 홈이 자리를 잡고 공부방 라우트로 넘기는 입장 정보 */
+export type GroupRoomLocationState = {
+  roomId: number;
+  graceRejoin: boolean;
+  iceServers: IceServer[];
+};
+
+export function isGroupRoomState(state: unknown): state is GroupRoomLocationState {
+  if (typeof state !== "object" || state === null) {
+    return false;
+  }
+  const value = state as Record<string, unknown>;
+  return (
+    typeof value.roomId === "number" &&
+    typeof value.graceRejoin === "boolean" &&
+    Array.isArray(value.iceServers)
+  );
+}
+
 export type CreateChannel = (options: {
   roomId: number;
   userId: number;

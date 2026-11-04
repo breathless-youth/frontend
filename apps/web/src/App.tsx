@@ -29,16 +29,24 @@ import { HomePage } from "@/routes/HomePage";
 import { HomeTabPage } from "@/routes/HomeTabPage";
 import { OnboardingPage } from "@/routes/OnboardingPage";
 import { DownloadPage } from "@/routes/DownloadPage";
-import { InviteCodeJoinPage } from "@/routes/InviteCodeJoinPage";
 import { InviteCodeSharePage } from "@/routes/InviteCodeSharePage";
+import { InviteJoinRoute } from "@/routes/InviteJoinRoute";
 import {
   loadAppLockSettingsPage,
+  loadApplyPage,
+  loadBlockListPage,
   loadContactPage,
+  loadGroupApplicationsPage,
+  loadGroupFormPage,
+  loadGroupHomePage,
+  loadGroupMembersPage,
   loadInterviewFormPage,
   loadLicensesPage,
   loadPrivacyPage,
   loadProfilePage,
+  loadPublicGroupPage,
   loadRankingRecordsPage,
+  loadReportApplicationPage,
   loadResultPage,
   loadTermsPage,
   loadTimelapseSettingsPage,
@@ -50,7 +58,7 @@ import { RankingPage } from "@/routes/RankingPage";
 import { RecordsPage } from "@/routes/RecordsPage";
 import { RoomPage } from "@/routes/RoomPage";
 import { SettingsPage } from "@/routes/SettingsPage";
-import { SocialHomePage } from "@/routes/SocialHomePage";
+import { SocialTabRoute } from "@/routes/SocialTabRoute";
 
 /**
  * 탭 밖 화면 lazy 로딩
@@ -63,6 +71,11 @@ import { SocialHomePage } from "@/routes/SocialHomePage";
  */
 const ResultPage = lazy(
   reloadOnChunkError(() => loadResultPage().then((module) => ({ default: module.ResultPage }))),
+);
+const GroupRoomPage = lazy(
+  reloadOnChunkError(() =>
+    import("@/routes/GroupRoomPage").then((module) => ({ default: module.GroupRoomPage })),
+  ),
 );
 const LiveRoomPage = lazy(
   reloadOnChunkError(() =>
@@ -124,6 +137,45 @@ const RankingRecordsPage = lazy(
     loadRankingRecordsPage().then((module) => ({ default: module.RankingRecordsPage })),
   ),
 );
+// 그룹 탭과 참여 화면 말고 그룹 화면은 그룹을 쓰는 사람만 열어서 따로 받는다.
+const GroupHomePage = lazy(
+  reloadOnChunkError(() =>
+    loadGroupHomePage().then((module) => ({ default: module.GroupHomePage })),
+  ),
+);
+const GroupMembersPage = lazy(
+  reloadOnChunkError(() =>
+    loadGroupMembersPage().then((module) => ({ default: module.GroupMembersPage })),
+  ),
+);
+const GroupApplicationsPage = lazy(
+  reloadOnChunkError(() =>
+    loadGroupApplicationsPage().then((module) => ({ default: module.GroupApplicationsPage })),
+  ),
+);
+const ReportApplicationPage = lazy(
+  reloadOnChunkError(() =>
+    loadReportApplicationPage().then((module) => ({ default: module.ReportApplicationPage })),
+  ),
+);
+const PublicGroupPage = lazy(
+  reloadOnChunkError(() =>
+    loadPublicGroupPage().then((module) => ({ default: module.PublicGroupPage })),
+  ),
+);
+const ApplyPage = lazy(
+  reloadOnChunkError(() => loadApplyPage().then((module) => ({ default: module.ApplyPage }))),
+);
+const GroupFormPage = lazy(
+  reloadOnChunkError(() =>
+    loadGroupFormPage().then((module) => ({ default: module.GroupFormPage })),
+  ),
+);
+const BlockListPage = lazy(
+  reloadOnChunkError(() =>
+    loadBlockListPage().then((module) => ({ default: module.BlockListPage })),
+  ),
+);
 const WebrtcLoopbackPage = lazy(
   reloadOnChunkError(() =>
     import("@/routes/WebrtcLoopbackPage").then((module) => ({
@@ -136,6 +188,14 @@ const WorkerParityPage = lazy(
     import("@/routes/WorkerParityPage").then((module) => ({ default: module.WorkerParityPage })),
   ),
 );
+// 지연 받기를 만드는 일 자체를 개발 빌드로 막아야 운영 빌드에 화면 모음과 고정 데이터 묶음이 생기지 않는다.
+const DevGroupRoomsPage = import.meta.env.DEV
+  ? lazy(() =>
+      import("@/routes/DevGroupRoomsPage").then((module) => ({
+        default: module.DevGroupRoomsPage,
+      })),
+    )
+  : null;
 
 // 세션 화면의 커밋 횟수를 개발 빌드에서만 기록한다.
 // React Compiler 전후 비교의 근거다.
@@ -193,7 +253,13 @@ function AppToaster() {
   useEffect(() => {
     dismissToast();
   }, [pathname]);
-  return <Toaster bottom={bottom} />;
+  return (
+    // 그룹 화면의 안내 토스트에는 그룹 이름이 들어가서 Amplitude 클릭 자동 수집이 토스트 글자를 싣지 않게 가린다.
+    // Sonner는 이 속성을 넘겨받지 않아서 배치에 영향이 없는 `contents` 상자로 감싸 단다.
+    <div data-amp-mask className="contents">
+      <Toaster bottom={bottom} />
+    </div>
+  );
 }
 
 export function App() {
@@ -269,15 +335,37 @@ export function App() {
               <Route path="/planner" element={<PlannerPage />} />
               <Route path="/manual-record" element={<ManualRecordPage />} />
               <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/social" element={<SocialHomePage />} />
+              <Route path="/social" element={<SocialTabRoute />} />
+              <Route path="/social/groups/new" element={<GroupFormPage mode="create" />} />
+              <Route path="/social/groups/:groupId" element={<GroupHomePage />} />
+              <Route
+                path="/social/groups/:groupId/settings"
+                element={<GroupFormPage mode="edit" />}
+              />
+              <Route path="/social/groups/:groupId/members" element={<GroupMembersPage />} />
+              <Route path="/social/groups/:groupId/room" element={<GroupRoomPage />} />
+              <Route path="/social/groups/:groupId/room/result" element={<ResultPage />} />
+              <Route
+                path="/social/groups/:groupId/applications"
+                element={<GroupApplicationsPage />}
+              />
+              <Route
+                path="/social/groups/:groupId/applications/:applicationId/report"
+                element={<ReportApplicationPage />}
+              />
+              <Route path="/social/public/:groupId" element={<PublicGroupPage />} />
+              <Route path="/social/public/:groupId/apply" element={<ApplyPage />} />
               {import.meta.env.DEV && (
                 <Route path="/dev/webrtc-loopback" element={<WebrtcLoopbackPage />} />
+              )}
+              {DevGroupRoomsPage !== null && (
+                <Route path="/dev/group-rooms" element={<DevGroupRoomsPage />} />
               )}
               {import.meta.env.VITE_PERF_PANEL === "1" && (
                 <Route path="/perf/worker-parity" element={<WorkerParityPage />} />
               )}
               <Route path="/social/code" element={<InviteCodeSharePage />} />
-              <Route path="/social/join" element={<InviteCodeJoinPage />} />
+              <Route path="/social/join" element={<InviteJoinRoute />} />
               {/* 공유 본문의 설치 링크. 받는 사람이 새 문서로 바로 여는 화면이라 지연 로딩하지 않는다. */}
               <Route path="/download" element={<DownloadPage />} />
               <Route path="/social/room/:roomId" element={<LiveRoomPage />} />
@@ -291,6 +379,7 @@ export function App() {
               <Route path="/licenses" element={<LicensesPage />} />
               <Route path="/timelapse-settings" element={<TimelapseSettingsPage />} />
               <Route path="/app-lock-settings" element={<AppLockSettingsPage />} />
+              <Route path="/blocks" element={<BlockListPage />} />
               <Route path="/timelapses" element={<TimelapsesPage />} />
             </Routes>
           </Suspense>
