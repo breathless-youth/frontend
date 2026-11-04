@@ -4,6 +4,7 @@ import { Appearance, AppState, Platform } from "react-native";
 import { colors } from "@focusmakers/design-tokens";
 import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
+import { setDeviceLanguages } from "../../jest/deviceLanguages";
 import type * as ExpoUiMock from "../../jest/expoUiMock";
 import type * as AuthModule from "../../lib/auth";
 import type { WebGlassBackGestureEvent, WebGlassPressEvent } from "../../modules/web-glass";
@@ -23,11 +24,6 @@ import {
   originOf,
   requestGlobalWebViewRecovery,
 } from "../RemoteWebViewHost";
-
-let mockLanguageCode = "ko";
-jest.mock("expo-localization", () => ({
-  getLocales: () => [{ languageCode: mockLanguageCode }],
-}));
 
 jest.mock("../../lib/orientation", () => ({
   lockPortrait: jest.fn(),
@@ -227,7 +223,7 @@ afterEach(() => {
 
 describe("buildRemoteWebViewUrl", () => {
   afterEach(() => {
-    mockLanguageCode = "ko";
+    setDeviceLanguages(["ko-KR"]);
   });
 
   it("경로만 있으면 언어만 붙인다", () => {
@@ -254,17 +250,21 @@ describe("buildRemoteWebViewUrl", () => {
     );
   });
 
-  it("한국어가 아닌 기기는 lang=en이다", () => {
-    mockLanguageCode = "ja";
+  it.each([
+    [["ja-JP"], "ja"],
+    [["zh-Hant-TW"], "zh-Hant"],
+    [["fr-FR"], "en"],
+  ])("기기 선호 언어가 %j면 lang=%s다", (tags, lang) => {
+    setDeviceLanguages(tags);
     expect(buildRemoteWebViewUrl("https://web.test", "/home")).toBe(
-      "https://web.test/home?lang=en",
+      `https://web.test/home?lang=${lang}`,
     );
   });
 
   it("언어를 캐시하지 않아 기기 언어가 바뀌면 다음 URL에 반영된다", () => {
     const query = { appVersion: "1.4.2" };
     expect(buildRemoteWebViewUrl("https://web.test", "/home", query)).toContain("lang=ko");
-    mockLanguageCode = "en";
+    setDeviceLanguages(["en-US"]);
     expect(buildRemoteWebViewUrl("https://web.test", "/home", query)).toContain("lang=en");
   });
 
