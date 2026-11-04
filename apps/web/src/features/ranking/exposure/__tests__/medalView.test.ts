@@ -11,6 +11,8 @@ import {
 
 import i18n from "@/lib/i18n";
 
+import { mockDeviceTimeZone } from "@/test/deviceTimeZone";
+
 import { closesAtLabel, medalModalView, medalPeriodLabel } from "../medalView";
 
 function daily(id: number, periodStart: string, rank: 1 | 2 | 3, closesAt: string): RankingRecord {
@@ -36,6 +38,11 @@ describe("표기", () => {
   it("마감 시각은 KST 날짜·요일·시로 쓴다", () => {
     expect(closesAtLabel("2026-10-11T15:00:00Z")).toBe("10월 12일 (월) 00시");
     expect(closesAtLabel("2026-10-11T19:00:00Z")).toBe("10월 12일 (월) 04시");
+  });
+
+  it("기기 시간대가 뉴욕이어도 마감은 KST로 쓴다", () => {
+    mockDeviceTimeZone("America/New_York");
+    expect(closesAtLabel("2026-10-11T15:00:00Z")).toBe("10월 12일 (월) 00시");
   });
 });
 

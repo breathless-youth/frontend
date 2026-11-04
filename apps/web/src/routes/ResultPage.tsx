@@ -273,7 +273,7 @@ export function ResultPage() {
   const gainView = gainsQuery.data === undefined ? null : gainCardView(gainsQuery.data);
 
   /**
-   * TODO(미정: 자정(KST) 분할 세션 표시 — 리더/사용자 확인). `submitStudySession`은
+   * TODO(미정: 자정 분할 세션 표시 — 리더/사용자 확인). `submitStudySession`은
    * `StudySessionResponse[]`를 반환하고 자정을 넘긴 세션은 날짜별 2건으로 분할된다. 이때 S4가
    * 무엇을 보여줄지(합산 1화면 / 2개 카드 / 첫 세션만) 어느 문서에도 없다.
    *

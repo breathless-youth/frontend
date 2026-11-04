@@ -30,11 +30,13 @@ export function decideInitialLocale(): AppLocale {
   } catch {
     // 저장소를 막은 브라우저에서는 저장값 없이 정한다.
   }
-  const lng = resolveLocale(location.search, navigator.language, stored);
+  // navigator.languages를 비워 두는 브라우저가 있어 그때는 첫 언어 하나로 정한다.
+  const languages = navigator.languages?.length ? navigator.languages : [navigator.language];
+  const lng = resolveLocale(location.search, languages, stored);
   try {
     sessionStorage.setItem(LOCALE_STORAGE_KEY, lng);
   } catch {
-    // 저장하지 못하면 문서를 새로 열 때 navigator.language로 다시 정한다.
+    // 저장하지 못하면 문서를 새로 열 때 navigator.languages로 다시 정한다.
   }
   return lng;
 }
