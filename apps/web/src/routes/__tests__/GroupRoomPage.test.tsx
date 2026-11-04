@@ -368,6 +368,11 @@ async function turnCameraOn() {
   await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
 }
 
+/** 타일마다 이름 줄이 바 위로 올라가 있는지를 순서대로 모은다. 가로에서만 실제로 움직인다. */
+function liftedTiles() {
+  return screen.getAllByTestId("tile-info").map((info) => info.hasAttribute("data-lifted"));
+}
+
 beforeEach(() => {
   vi.mocked(joinGroupRoom).mockResolvedValue(seat());
   vi.mocked(leaveGroupRoom).mockResolvedValue(undefined);
@@ -1105,17 +1110,19 @@ describe("GroupRoomPage 멤버 메뉴와 타일", () => {
     expect(screen.getByTestId("room-control-bar")).toHaveAttribute("inert");
   });
 
-  it("조작이 저절로 숨으면 타일의 목표 문구가 함께 내려가고 닉네임은 남는다", async () => {
+  it("조작이 저절로 숨으면 타일의 목표 문구가 함께 내려가고 이름 줄은 제자리로 내려오며 닉네임은 남는다", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     await enterGroupRoom({
       groupId: 10,
       snapshot: [meMember(), otherMember(42, "새벽러", { goal: "444" })],
     });
     expect(screen.getByText("444")).not.toHaveAttribute("data-hidden");
+    expect(liftedTiles()).toEqual([true, true]);
 
     await act(() => vi.advanceTimersByTimeAsync(6_000));
 
     expect(screen.getByTestId("room-control-bar")).toHaveAttribute("inert");
+    expect(liftedTiles()).toEqual([false, false]);
     const goal = screen.getByText("444");
     expect(goal).toHaveAttribute("data-hidden", "true");
     // 내려가도 낭독기는 목표를 읽는다.
@@ -1124,7 +1131,7 @@ describe("GroupRoomPage 멤버 메뉴와 타일", () => {
     expect(screen.getByText("새벽러").closest("[data-hidden]")).toBeNull();
   });
 
-  it("숨은 조작을 화면 탭으로 다시 부르면 목표 문구도 바와 함께 올라온다", async () => {
+  it("숨은 조작을 화면 탭으로 다시 부르면 목표 문구도 이름 줄과 함께 바와 올라온다", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     await enterGroupRoom({
       groupId: 10,
@@ -1132,6 +1139,7 @@ describe("GroupRoomPage 멤버 메뉴와 타일", () => {
     });
     await act(() => vi.advanceTimersByTimeAsync(6_000));
     expect(screen.getByText("444")).toHaveAttribute("data-hidden", "true");
+    expect(liftedTiles()).toEqual([false, false]);
 
     await userEvent
       .setup({ advanceTimers: vi.advanceTimersByTime })
@@ -1139,9 +1147,10 @@ describe("GroupRoomPage 멤버 메뉴와 타일", () => {
 
     expect(screen.getByTestId("room-control-bar")).not.toHaveAttribute("inert");
     expect(screen.getByText("444")).not.toHaveAttribute("data-hidden");
+    expect(liftedTiles()).toEqual([true, true]);
   });
 
-  it("메뉴가 열려 있는 동안은 시간이 지나도 목표 문구가 내려가지 않는다", async () => {
+  it("메뉴가 열려 있는 동안은 시간이 지나도 목표 문구가 내려가지 않고 이름 줄도 올라가 있다", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     await enterGroupRoom({
       groupId: 10,
@@ -1155,6 +1164,7 @@ describe("GroupRoomPage 멤버 메뉴와 타일", () => {
 
     expect(screen.getByRole("menu")).toBeInTheDocument();
     expect(screen.getByText("444")).not.toHaveAttribute("data-hidden");
+    expect(liftedTiles()).toEqual([true, true]);
   });
 });
 
@@ -1562,6 +1572,19 @@ describe("GroupRoomPage 타이머", () => {
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "타이머 설정" })).toBeNull());
     expect(screen.getByTestId("room-timer-capsule")).toHaveTextContent("30:00");
     expect(screen.getByRole("button", { name: "타이머" })).toHaveAttribute("data-on", "true");
+  });
+
+  it("캡슐이 떠서 격자가 캡슐 띠를 비우면 타일이 바 위에서 끝나므로 이름 줄을 올리지 않는다", async () => {
+    await enterGroupRoom({ groupId: 10, snapshot: [meMember(), otherMember(42, "새벽러")] });
+    expect(liftedTiles()).toEqual([true, true]);
+    await turnCameraOn();
+    const { user, sheet } = await openTimerSheet();
+
+    await user.click(within(sheet).getByRole("button", { name: "30분 시작" }));
+
+    await waitFor(() => expect(screen.getByTestId("room-timer-capsule")).toBeInTheDocument());
+    expect(screen.getByTestId("room-control-bar")).not.toHaveAttribute("inert");
+    expect(liftedTiles()).toEqual([false, false]);
   });
 
   it("타이머가 도는 동안 타이머 버튼을 눌러도 타이머는 그대로다", async () => {

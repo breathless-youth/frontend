@@ -1033,7 +1033,9 @@ export function LiveRoomSession({
       )}
       {/* 다이얼로그의 포커스 트랩·바깥 차단은 Radix 가 스스로 한다. inert 를 겹치면 닫힐 때
           포커스를 돌려줄 요소가 이미 inert 라 복귀가 실패한다. */}
-      <div className="contents">
+      {/* 아래 바 높이는 바와 타일 이름 줄 올리기가 같은 값을 읽도록 둘의 공통 부모가 화면 크기별로 정한다.
+          가로에서 이름 줄이 바 위로 올라가는 거리는 그 바 높이에 작은 간격을 더한 값이라 바 높이를 바꾸면 함께 바뀐다. */}
+      <div className="contents [--room-bar-height:--spacing(18.5)] regular:[--room-bar-height:--spacing(22)] short-side-lg:[--room-bar-height:--spacing(27.5)] [--room-bar-lift:calc(var(--room-bar-height)+var(--spacing)*2)]">
         <RoomGrid
           allMembers={allMembers}
           userId={userId}
@@ -1043,7 +1045,7 @@ export function LiveRoomSession({
           variant={room.kind}
           tileExtras={room.kind === "group" ? groupTileExtras : undefined}
           capsuleShown={room.kind === "group" && timerSheet.active}
-          goalHidden={!controlsVisible}
+          barHidden={!controlsVisible}
         />
 
         {room.kind === "group" ? (
