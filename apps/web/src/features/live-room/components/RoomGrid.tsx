@@ -27,6 +27,7 @@ function remoteVideoOrUndefined(userId: number, streams: ReadonlyMap<number, Med
  * 타일 크기와 위치는 바 표시와 무관하다.
  * 바 표시에 따라 타일이 움직이면 영상이 흔들려 보이기 때문이다.
  * 바가 내려가면 타일 안의 목표 문구만 함께 내려가고 닉네임과 마이크 아이콘은 그 자리에 남는다.
+ * 가로 폰은 바가 맨 아랫줄 타일의 이름 줄을 덮어서, 바가 떠 있는 동안에는 그 줄의 이름 묶음을 바 위로 올린다.
  * 셀프뷰 서피스 ref는 부모(미리보기 비율 측정·타일 rootRef)와 공유하므로 prop으로 받는다.
  * 그룹 공부방 세로 폰은 좌우 16px 여백과 4px 간격으로 2열을 그려 폭 402에서 타일 한 변이 183px다.
  * 타이머 캡슐이 떠 있는 동안에는 바 위 캡슐 자리 60px을 아래에 더 비워 캡슐이 멤버 메뉴 버튼과 닉네임을 가리지 않는다.
@@ -41,7 +42,7 @@ export function RoomGrid({
   variant = "invite",
   tileExtras,
   capsuleShown = false,
-  goalHidden = false,
+  barHidden = false,
 }: {
   allMembers: RoomMember[];
   userId: number;
@@ -56,10 +57,13 @@ export function RoomGrid({
   /** 그룹 공부방에서 바 위에 타이머 캡슐이 떠 있다. */
   capsuleShown?: boolean;
   /**
-   * 아래 바가 내려간 동안 모든 타일의 목표 문구를 함께 내린다.
+   * 아래 바가 내려가 있다.
+   *
+   * 내려가 있는 동안 모든 타일의 목표 문구를 함께 내린다.
+   * 떠 있는 동안에는 가로 폰에서 바가 덮는 타일의 이름 줄을 바 위로 올린다.
    * 초대코드 방과 그룹 공부방 모두에 적용한다.
    */
-  goalHidden?: boolean;
+  barHidden?: boolean;
 }) {
   const group = variant === "group";
   const reserveCapsule = group && capsuleShown;
@@ -135,6 +139,9 @@ export function RoomGrid({
             ? "quad"
             : "hex";
 
+  // 가로 폰에서 아래 바가 덮는 것은 맨 아랫줄이고, 5~6명은 3열 2줄이라 윗줄은 바에 닿지 않는다.
+  const lastRowStart = allMembers.length > 4 ? 3 : 0;
+
   return (
     <div
       ref={gridRef}
@@ -191,13 +198,15 @@ export function RoomGrid({
           fit !== null && "regular:mx-auto regular:w-(--room-grid-width) regular:gap-2",
         )}
       >
-        {allMembers.map((member) => (
+        {allMembers.map((member, index) => (
           <RoomTile
             // 크기 급이 바뀌면 재마운트 — 위 tileLayoutEpoch 주석 참고.
             key={`${tileLayoutEpoch}-${member.userId}`}
             member={member}
             {...tileExtras?.(member)}
-            goalHidden={goalHidden}
+            goalHidden={barHidden}
+            // 캡슐 띠를 비운 격자는 타일이 바 위에서 끝나서 올릴 일이 없다.
+            lifted={!barHidden && !reserveCapsule && index >= lastRowStart}
             rootRef={member.userId === userId ? selfSurfaceRef : undefined}
             isSelf={member.userId === userId}
             media={
