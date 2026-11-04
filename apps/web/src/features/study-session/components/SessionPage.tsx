@@ -6,7 +6,6 @@ import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/she
 import { CtaToaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 
-import { useEdgeSwipeClose } from "../useEdgeSwipeClose";
 import { isTextEntry } from "../useLandscapeLayout";
 
 export interface SessionPageProps {
@@ -19,13 +18,6 @@ export interface SessionPageProps {
   title: string;
   headerExtras?: ReactNode;
   landscape: boolean;
-  /**
-   * 왼쪽 가장자리 스와이프를 웹이 직접 받아 닫는다.
-   *
-   * 앱의 뒤로 가기 제스처를 꺼 둔 화면만 켠다.
-   * 제스처가 켜진 화면은 history로 닫으므로 켜면 닫기를 두 길로 받게 된다.
-   */
-  closeOnEdgeSwipe?: boolean;
   children: ReactNode;
 }
 
@@ -51,12 +43,9 @@ export function SessionPage({
   title,
   headerExtras,
   landscape,
-  closeOnEdgeSwipe = false,
   children,
 }: SessionPageProps) {
   const { t } = useTranslation("common");
-  // 닫히며 밀려 나가는 동안의 터치로 한 번 더 닫지 않게 열려 있을 때만 받는다.
-  const edgeSwipe = useEdgeSwipeClose(closeOnEdgeSwipe && open, () => onOpenChange(false));
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -73,13 +62,7 @@ export function SessionPage({
           if (isTextEntry(event.target)) event.preventDefault();
         }}
         // Radix 스크롤 잠금이 막은 터치를 iOS는 클릭으로 만들지 않아 페이지 안 탭이 씹힌다.
-        onTouchMove={(event) => {
-          event.stopPropagation();
-          edgeSwipe.onTouchMove(event);
-        }}
-        onTouchStart={edgeSwipe.onTouchStart}
-        onTouchEnd={edgeSwipe.onTouchEnd}
-        onTouchCancel={edgeSwipe.onTouchCancel}
+        onTouchMove={(event) => event.stopPropagation()}
         // touch-manipulation은 웹뷰의 더블탭 줌 인식기가 빠른 연속 탭을 삼키지 않게 한다.
         className={cn(
           "flex w-full touch-manipulation flex-col border-0 bg-(--session-dialog-bg) p-0 text-white shadow-none sm:max-w-none",
