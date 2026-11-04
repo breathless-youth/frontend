@@ -398,6 +398,52 @@ describe("앱 모드", () => {
       expect(tablist).toHaveAttribute("aria-hidden", "true");
     });
 
+    it("웹 원본이 원래 낭독기에서 빠져 있었으면 겹치는 동안에도 그대로 둔다", async () => {
+      const postMessage = enterGlassChrome("/records");
+      function HiddenGraphic() {
+        const { ref } = useNativeControl<HTMLDivElement>(
+          {
+            id: "segment-daily-weekly",
+            kind: "segment",
+            labels: ["일간", "주간"],
+            selected: 0,
+            disabled: [false, false],
+            accessibilityLabel: null,
+          },
+          () => {},
+        );
+        return <div ref={ref} data-testid="graphic" aria-hidden="true" />;
+      }
+      render(<HiddenGraphic />);
+
+      placeToast(90);
+
+      await waitFor(() => {
+        expect(lastInline(postMessage)?.controls).toEqual([]);
+      });
+      const graphic = screen.getByTestId("graphic");
+      expect(graphic.style.visibility).toBe("");
+      expect(graphic).toHaveAttribute("aria-hidden", "true");
+    });
+
+    it("모달로 앱 부품 층을 숨긴 동안에는 겹쳐도 웹 원본을 꺼내지 않는다", async () => {
+      const postMessage = enterGlassChrome("/records");
+      render(<Segment />);
+      const tablist = screen.getByRole("tablist", { hidden: true });
+      const modal = document.createElement("div");
+      modal.setAttribute("aria-modal", "true");
+      document.body.appendChild(modal);
+      await waitFor(() => {
+        expect(lastInline(postMessage)?.hidden).toBe(true);
+      });
+
+      placeToast(90);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(tablist).toHaveStyle({ visibility: "hidden" });
+      expect(lastInline(postMessage)?.controls).toHaveLength(1);
+    });
+
     it("겹치지 않는 부품은 앱에 그대로 둔다", async () => {
       const postMessage = enterGlassChrome("/records");
       render(<Segment />);
