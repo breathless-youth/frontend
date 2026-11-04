@@ -65,7 +65,6 @@ describe("RoomControlBar 높이", () => {
   it("높이는 룸 화면이 정한 바 높이 값을 읽는다", () => {
     const bar = renderBar();
 
-    // 타일 이름 줄이 바 위로 올라가는 거리도 같은 값에서 나오므로 바 안에 높이를 따로 적지 않는다.
     expect(bar).toHaveClass("h-(--room-bar-height)");
     expect(bar.className).not.toMatch(/(^|\s)(regular:|short-side-lg:)?h-\d/);
   });
