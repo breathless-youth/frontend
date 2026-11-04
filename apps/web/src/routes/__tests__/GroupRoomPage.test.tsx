@@ -903,9 +903,8 @@ describe("GroupRoomPage 멤버 메뉴와 타일", () => {
     expect(goal).toHaveAttribute("data-hidden", "true");
     // 내려가도 낭독기는 목표를 읽는다.
     expect(isInaccessible(goal)).toBe(false);
-    const nickname = screen.getByText("새벽러");
-    expect(nickname).toBeVisible();
-    expect(nickname.closest("[data-hidden]")).toBeNull();
+    // 숨김 표시는 목표 줄에만 붙고 닉네임 줄과 그 위 묶음에는 붙지 않는다.
+    expect(screen.getByText("새벽러").closest("[data-hidden]")).toBeNull();
   });
 
   it("숨은 조작을 화면 탭으로 다시 부르면 목표 문구도 바와 함께 올라온다", async () => {

@@ -55,7 +55,10 @@ export function RoomGrid({
   ) => Pick<RoomTileProps, "menuButton" | "speaking" | "micOn" | "blocked">;
   /** 그룹 공부방에서 바 위에 타이머 캡슐이 떠 있다. */
   capsuleShown?: boolean;
-  /** 아래 바가 내려간 동안 모든 타일의 목표 문구를 함께 내린다. 초대코드 방과 그룹 공부방 모두에 적용한다. */
+  /**
+   * 아래 바가 내려간 동안 모든 타일의 목표 문구를 함께 내린다.
+   * 초대코드 방과 그룹 공부방 모두에 적용한다.
+   */
   goalHidden?: boolean;
 }) {
   const group = variant === "group";

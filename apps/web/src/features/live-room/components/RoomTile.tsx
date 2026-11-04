@@ -107,12 +107,12 @@ function TileTimeBadge({
  * 아래 바와 한 덩어리로 보이도록 RoomControlBar의 슬라이드와 같은 시간과 곡선을 쓴다.
  * 이름과 목표 묶음이 타일 아래에 붙어 있어서 목표 줄을 없애면 닉네임이 따라 내려가므로 줄의 자리는 유지한다.
  * 위치와 투명도만 바꾸므로 타일에 레이아웃 전환을 쓰지 않는 규칙도 지킨다.
- * 이동 거리는 문구 높이에 `bottom-3`으로 띄운 타일 아래 여백을 더해, 문구가 타일 아래 끝 밖으로 나가는 만큼이다.
+ * 이동 거리는 문구 높이에 `bottom-3`과 같은 간격 토큰 3칸을 더해, 문구가 타일 아래 끝 밖으로 나가는 만큼이다.
  * 보일 때의 위치도 `translate-y-0`으로 적어 두 상태가 모두 값을 가진 채로 전환한다.
  * 동작 줄이기에서는 위치를 바꾸지 않고 바로 감춘다.
  */
 const GOAL_SLIDE =
-  "translate-y-0 transition-[translate,opacity] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none data-hidden:opacity-0 motion-safe:data-hidden:translate-y-[calc(100%+0.75rem)]";
+  "translate-y-0 transition-[translate,opacity] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none data-hidden:opacity-0 motion-safe:data-hidden:translate-y-[calc(100%+var(--spacing)*3)]";
 
 export type RoomTileProps = {
   member: RoomMember;

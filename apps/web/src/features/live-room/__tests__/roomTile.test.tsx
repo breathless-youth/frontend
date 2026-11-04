@@ -261,12 +261,25 @@ describe("RoomTile 목표 문구 내리기", () => {
   it("목표 문구만 내려가고 닉네임과 마이크 아이콘은 그대로 보인다", () => {
     render(<RoomTile member={withGoal} micOn goalHidden />);
 
+    // 숨김 표시는 목표 줄에만 붙고 닉네임과 마이크 아이콘, 그 위 묶음에는 붙지 않는다.
     expect(screen.getByText("합격")).toHaveAttribute("data-hidden", "true");
-    const nickname = screen.getByText("포메1");
-    expect(nickname).toBeVisible();
-    expect(nickname.closest("[data-hidden]")).toBeNull();
-    const mic = screen.getByRole("img", { name: "마이크 켜짐" });
-    expect(mic.closest("[data-hidden]")).toBeNull();
+    expect(screen.getByText("포메1").closest("[data-hidden]")).toBeNull();
+    expect(screen.getByRole("img", { name: "마이크 켜짐" }).closest("[data-hidden]")).toBeNull();
+  });
+
+  it("목표 문구는 바와 같은 시간과 곡선으로 내려가고 동작 줄이기에서는 위치를 바꾸지 않는다", () => {
+    render(<RoomTile member={withGoal} goalHidden />);
+
+    // jsdom은 Tailwind를 적용하지 않아서 숨김 효과를 내는 클래스가 빠지지 않았는지 이름으로 확인한다.
+    expect(screen.getByText("합격")).toHaveClass(
+      "transition-[translate,opacity]",
+      "duration-500",
+      "ease-[cubic-bezier(0.32,0.72,0,1)]",
+      "motion-reduce:transition-none",
+      "translate-y-0",
+      "data-hidden:opacity-0",
+      "motion-safe:data-hidden:translate-y-[calc(100%+var(--spacing)*3)]",
+    );
   });
 
   it("내려간 목표 줄도 자리를 지켜 닉네임이 따라 내려가지 않고, 낭독기는 목표를 읽는다", () => {

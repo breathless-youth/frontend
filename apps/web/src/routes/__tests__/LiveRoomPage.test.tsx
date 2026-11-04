@@ -1819,9 +1819,8 @@ describe("LiveRoomPage — 조작 자동 숨김", () => {
       expect(info).not.toHaveClass("opacity-0");
       expect(info).not.toHaveAttribute("aria-hidden");
     });
-    const nickname = screen.getByText("멤버8");
-    expect(nickname).toBeVisible();
-    expect(nickname.closest("[data-hidden]")).toBeNull();
+    // 숨김 표시는 목표 줄에만 붙고 닉네임 줄과 그 위 묶음에는 붙지 않는다.
+    expect(screen.getByText("멤버8").closest("[data-hidden]")).toBeNull();
     expect(screen.getByTestId("tile-time-badge")).toBeInTheDocument();
     const goal = screen.getByText("합격");
     expect(goal).toHaveAttribute("data-hidden", "true");
