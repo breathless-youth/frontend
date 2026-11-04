@@ -26,6 +26,7 @@ describe("i18n", () => {
   it("지원하지 않는 언어는 영어로 떨어진다", async () => {
     await i18n.changeLanguage("ja");
 
+    expect(i18n.language).toBe("en");
     expect(i18n.t("actions.close")).toBe(en.actions.close);
   });
 
@@ -68,17 +69,30 @@ describe("decideInitialLocale", () => {
     expect(sessionStorage.getItem(LOCALE_STORAGE_KEY)).toBe("en");
   });
 
-  it("?lang이 없으면 저장값을 navigator.language보다 먼저 본다", () => {
-    vi.spyOn(navigator, "language", "get").mockReturnValue("en-US");
+  it("?lang이 없으면 저장값을 navigator.languages보다 먼저 본다", () => {
+    vi.spyOn(navigator, "languages", "get").mockReturnValue(["en-US"]);
     sessionStorage.setItem(LOCALE_STORAGE_KEY, "ko");
 
     expect(decideInitialLocale()).toBe("ko");
   });
 
-  it("저장소 읽기가 막히면 navigator.language로 정한다", () => {
+  it("저장소 읽기가 막히면 navigator.languages로 정한다", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("blocked");
     });
+    vi.spyOn(navigator, "languages", "get").mockReturnValue(["ko-KR"]);
+
+    expect(decideInitialLocale()).toBe("ko");
+  });
+
+  it("navigator.languages를 위에서부터 훑는다", () => {
+    vi.spyOn(navigator, "languages", "get").mockReturnValue(["fr-FR", "ko-KR"]);
+
+    expect(decideInitialLocale()).toBe("ko");
+  });
+
+  it("navigator.languages가 비어 있으면 navigator.language를 본다", () => {
+    vi.spyOn(navigator, "languages", "get").mockReturnValue([]);
     vi.spyOn(navigator, "language", "get").mockReturnValue("ko-KR");
 
     expect(decideInitialLocale()).toBe("ko");
