@@ -114,6 +114,30 @@ function TileTimeBadge({
 const GOAL_SLIDE =
   "translate-y-0 transition-[translate,opacity] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none data-hidden:opacity-0 motion-safe:data-hidden:translate-y-[calc(100%+var(--spacing)*3)]";
 
+/**
+ * 이름 줄이 바 위로 올라가고 내려오는 전환
+ *
+ * 가로 폰은 아래 바가 맨 아랫줄 타일의 이름 줄을 덮어서, 바가 떠 있는 동안 바 위로 올린다.
+ * 올리는 거리는 룸 화면이 바 높이에 작은 간격을 더해 정한 `--room-bar-lift`라 바가 달라지면 함께 바뀐다.
+ * 시간과 곡선은 바와 같다.
+ * 올리는 일은 바에 가리지 않으려는 것이라 동작 줄이기에서도 위치는 바뀌고 전환만 끈다.
+ * 가로가 아니면 격자가 바 자리를 비워 두므로 `landscape-compact` 안에서만 올린다.
+ * 올리지 않았을 때의 위치도 `translate-y-0`으로 적어 두 상태가 모두 값을 가진 채로 전환한다.
+ */
+const LABEL_LIFT =
+  "translate-y-0 transition-[translate] duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none landscape-compact:data-lifted:-translate-y-(--room-bar-lift)";
+
+/**
+ * 올라간 이름 줄 뒤에 깔리는 스크림
+ *
+ * 영상 위 글자는 하단 스크림 위에서만 읽히는데, 이름 줄이 바 위로 올라가면 그 밖으로 나가 밝은 영상에 묻힌다.
+ * 그래서 올라간 거리만큼 스크림을 더 이어서, 기존 스크림처럼 서서히 짙어지다가 아래는 같은 짙기로 바 자리까지 채운다.
+ * 서서히 짙어지는 구간은 기존 스크림 높이와 같은 19칸이다.
+ * 이름 줄과 같은 시간과 곡선으로 나타나고 가로 폰에서만 보인다.
+ */
+const SCRIM_LIFT =
+  "pointer-events-none absolute inset-x-0 bottom-0 h-[calc(var(--room-bar-lift)+var(--spacing)*19)] bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.55)_--spacing(19),rgba(0,0,0,0.55)_100%)] opacity-0 transition-opacity duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none landscape-compact:data-lifted:opacity-100";
+
 export type RoomTileProps = {
   member: RoomMember;
   /** 배경 미디어(내 타일의 로컬 카메라). 없거나 카메라 끔이면 아바타를 그린다. */
@@ -138,6 +162,13 @@ export type RoomTileProps = {
    * 화면 낭독기는 감춘 문구도 읽어야 해서 `aria-hidden`을 쓰지 않는다.
    */
   goalHidden?: boolean;
+  /**
+   * 아래 바가 떠 있는 동안 이름 줄을 바 위로 올린다.
+   *
+   * 닉네임, 마이크 아이콘, 목표 문구가 한 묶음으로 함께 움직인다.
+   * 가로 폰에서만 움직이고 세로와 태블릿은 격자가 바 자리를 비워 두므로 이 값과 상관없이 제자리다.
+   */
+  lifted?: boolean;
 };
 
 export function RoomTile({
@@ -151,6 +182,7 @@ export function RoomTile({
   micOn,
   blocked = false,
   goalHidden = false,
+  lifted = false,
 }: RoomTileProps) {
   const { t } = useTranslation("live-room");
   const cameraShown = member.cameraOn && !blocked;
@@ -176,12 +208,21 @@ export function RoomTile({
         />
       )}
       {showMedia && (
-        /* 영상 위 텍스트 가독성용 하단 스크림 */
-        <div
-          aria-hidden="true"
-          data-testid="tile-scrim"
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-19 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.55)_100%)]"
-        />
+        <>
+          {/* 영상 위 텍스트 가독성용 하단 스크림 */}
+          <div
+            aria-hidden="true"
+            data-testid="tile-scrim"
+            className="pointer-events-none absolute inset-x-0 bottom-0 h-19 bg-[linear-gradient(180deg,rgba(0,0,0,0)_0%,rgba(0,0,0,0.55)_100%)]"
+          />
+          {/* 가로에서 이름 줄이 바 위로 올라간 동안 그 글자 뒤에 깔리는 스크림 */}
+          <div
+            aria-hidden="true"
+            data-testid="tile-scrim-lifted"
+            data-lifted={lifted || undefined}
+            className={SCRIM_LIFT}
+          />
+        </>
       )}
       {!isSelf && (
         <TileTimeBadge
@@ -194,9 +235,11 @@ export function RoomTile({
           메뉴 버튼이 있으면 이름이 버튼 아래로 들어가지 않게 그만큼 오른쪽을 비운다. */}
       <div
         data-testid="tile-info"
+        data-lifted={lifted || undefined}
         className={cn(
           "absolute bottom-3 left-3",
           menuButton === undefined ? "right-3" : "right-12",
+          LABEL_LIFT,
         )}
       >
         <p className="flex min-w-0 items-center gap-1 text-[15px] font-bold text-white regular:text-[1.0625rem] short-side-lg:text-[1.3125rem]">
