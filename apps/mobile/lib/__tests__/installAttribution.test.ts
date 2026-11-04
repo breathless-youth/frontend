@@ -100,6 +100,7 @@ describe("startInstallAttribution 수집", () => {
       platform: "android",
       installReferrer: "utm_source=apps.facebook.com&utm_content=%7B%7D",
       deepLinkAd: "aos_v3",
+      googleDeepLinkAd: null,
       capturedAtMs: NOW,
     };
     expect(mockedSet).toHaveBeenCalledWith(STORAGE_KEY, JSON.stringify(expected));
@@ -114,7 +115,13 @@ describe("startInstallAttribution 수집", () => {
 
     expect(mockedReferrer).not.toHaveBeenCalled();
     expect(collect()).toEqual([
-      { platform: "ios", installReferrer: null, deepLinkAd: "ios_v2", capturedAtMs: NOW },
+      {
+        platform: "ios",
+        installReferrer: null,
+        deepLinkAd: "ios_v2",
+        googleDeepLinkAd: null,
+        capturedAtMs: NOW,
+      },
     ]);
   });
 
@@ -124,7 +131,13 @@ describe("startInstallAttribution 수집", () => {
     await startInstallAttribution();
 
     expect(collect()).toEqual([
-      { platform: "ios", installReferrer: null, deepLinkAd: null, capturedAtMs: NOW },
+      {
+        platform: "ios",
+        installReferrer: null,
+        deepLinkAd: null,
+        googleDeepLinkAd: null,
+        capturedAtMs: NOW,
+      },
     ]);
   });
 
@@ -149,6 +162,7 @@ describe("startInstallAttribution 수집", () => {
         platform: "android",
         installReferrer: "code=0412",
         deepLinkAd: "aos_v1",
+        googleDeepLinkAd: null,
         capturedAtMs: NOW,
       },
     ]);
@@ -156,6 +170,7 @@ describe("startInstallAttribution 수집", () => {
       platform: "android",
       installReferrer: "code=0412",
       deepLinkAd: "aos_v1",
+      googleDeepLinkAd: null,
       capturedAtMs: NOW,
     });
   });
@@ -176,7 +191,13 @@ describe("startInstallAttribution 수집", () => {
     await startInstallAttribution();
 
     expect(collect()).toEqual([
-      { platform: "android", installReferrer: null, deepLinkAd: null, capturedAtMs: 1 },
+      {
+        platform: "android",
+        installReferrer: null,
+        deepLinkAd: null,
+        googleDeepLinkAd: null,
+        capturedAtMs: 1,
+      },
     ]);
   });
 
@@ -189,7 +210,13 @@ describe("startInstallAttribution 수집", () => {
 
     expect(mockedDeferred).toHaveBeenCalledTimes(1);
     expect(collect()).toEqual([
-      { platform: "ios", installReferrer: null, deepLinkAd: "ios_v2", capturedAtMs: NOW },
+      {
+        platform: "ios",
+        installReferrer: null,
+        deepLinkAd: "ios_v2",
+        googleDeepLinkAd: null,
+        capturedAtMs: NOW,
+      },
     ]);
   });
 
@@ -207,6 +234,7 @@ describe("startInstallAttribution 수집", () => {
       platform: "android",
       installReferrer: "code=0412",
       deepLinkAd: null,
+      googleDeepLinkAd: null,
       capturedAtMs: 1,
     };
     mockedGet.mockResolvedValue(JSON.stringify(stored));
@@ -244,6 +272,32 @@ describe("startInstallAttribution 수집", () => {
     await startInstallAttribution();
 
     expect(collect()).toHaveLength(1);
+  });
+});
+
+describe("구글 광고 그룹 번호 필드", () => {
+  it("새로 읽은 값에는 googleDeepLinkAd가 null로 실린다", async () => {
+    jest.replaceProperty(Platform, "OS", "android");
+
+    await startInstallAttribution();
+
+    expect(collect()[0]).toMatchObject({ googleDeepLinkAd: null });
+  });
+
+  it("구버전 앱이 보관한 값에 googleDeepLinkAd가 없으면 null로 읽고 다시 수집하지 않는다", async () => {
+    mockedGet.mockResolvedValue(
+      JSON.stringify({
+        platform: "android",
+        installReferrer: "r",
+        deepLinkAd: null,
+        capturedAtMs: 1,
+      }),
+    );
+
+    await startInstallAttribution();
+
+    expect(mockedDeferred).not.toHaveBeenCalled();
+    expect(collect()[0]).toMatchObject({ installReferrer: "r", googleDeepLinkAd: null });
   });
 });
 

@@ -104,6 +104,7 @@ async function collect(): Promise<Stored> {
     platform: Platform.OS === "ios" ? "ios" : "android",
     installReferrer: null,
     deepLinkAd: deepLinkAdFromUrl(deepLink),
+    googleDeepLinkAd: null,
     capturedAtMs: Date.now(),
   };
   return applyReferrer(base, read);
@@ -123,10 +124,13 @@ function parseStored(raw: string): Stored | null {
   }
   if (typeof value !== "object" || value === null) return null;
   const record = value as Record<string, unknown>;
+  // 구글 광고 그룹 번호가 생기기 전 앱이 보관한 값에는 이 필드가 없다. 깨진 값으로 보면 지연 딥링크를 다시 물어 첫 값이 사라진다.
+  const googleDeepLinkAd = record.googleDeepLinkAd === undefined ? null : record.googleDeepLinkAd;
   if (
     (record.platform !== "ios" && record.platform !== "android") ||
     !isStringOrNull(record.installReferrer) ||
     !isStringOrNull(record.deepLinkAd) ||
+    !isStringOrNull(googleDeepLinkAd) ||
     typeof record.capturedAtMs !== "number" ||
     (record.referrerFailures !== undefined && typeof record.referrerFailures !== "number")
   ) {
@@ -136,6 +140,7 @@ function parseStored(raw: string): Stored | null {
     platform: record.platform,
     installReferrer: record.installReferrer,
     deepLinkAd: record.deepLinkAd,
+    googleDeepLinkAd,
     capturedAtMs: record.capturedAtMs,
     ...(record.referrerFailures !== undefined ? { referrerFailures: record.referrerFailures } : {}),
   };
