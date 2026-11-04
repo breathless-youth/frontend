@@ -1,5 +1,5 @@
 import { Info } from "lucide-react";
-import { type ReactNode, useEffect, useId, useRef } from "react";
+import { type MouseEvent, type ReactNode, useEffect, useId, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
 import { CharCount } from "@/components/ui/char-count";
@@ -82,11 +82,19 @@ export function WriteScreen({
 
   // 쓰려고 연 화면이라 열리자마자 입력칸에 커서를 둔다.
   // iOS는 키보드를 올리며 포커스를 받은 입력칸 쪽으로 문서를 끌어 올려서 머리 제목이 앱의 머리 줄 밑으로 들어가므로 문서는 움직이지 않게 한다.
-  // iOS는 연 순간의 포커스로 키보드를 올리지 않고 그 포커스가 남으면 입력칸 누름이 문서를 끌어 올리는 길로 가서 주지 않는다.
+  // iOS는 연 순간에 준 포커스로도 키보드를 올리고 그 포커스가 남으면 입력칸을 누를 때 문서가 끌어 올려지므로, iOS에서는 연 순간에 포커스를 주지 않는다.
   useEffect(() => {
     if (isIosWeb()) return;
     inputRef.current?.focus({ preventScroll: true });
   }, []);
+
+  // 라벨을 누르면 브라우저가 옵션 없이 입력칸에 포커스를 주어 iOS에서 문서가 끌어 올려지므로 같은 누름 안에서 먼저 준다.
+  // 이미 포커스가 있으면 커서 옮기기라 그대로 둔다.
+  const focusInputFromLabel = (event: MouseEvent<HTMLLabelElement>) => {
+    if (document.activeElement === inputRef.current) return;
+    event.preventDefault();
+    inputRef.current?.focus({ preventScroll: true });
+  };
 
   const body = (
     <>
@@ -94,7 +102,11 @@ export function WriteScreen({
       <div className="flex flex-col px-5">
         <h2 className="pt-4.5 text-xl leading-7 font-bold text-foreground">{headline}</h2>
         <p className="pt-1.5 text-sm leading-5 break-keep text-muted-foreground">{description}</p>
-        <label htmlFor={inputId} className="pt-5.5 text-sm leading-5 font-bold text-foreground">
+        <label
+          htmlFor={inputId}
+          onMouseDown={isIosWeb() ? focusInputFromLabel : undefined}
+          className="pt-5.5 text-sm leading-5 font-bold text-foreground"
+        >
           {label}
         </label>
         <div className="mt-2 flex flex-col items-end gap-1.5 rounded-lg border border-border bg-muted px-3.5 pt-3 pb-2.5 focus-within:ring-2 focus-within:ring-(--state-focus)">
