@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { mockDeviceTimeZone } from "@/test/deviceTimeZone";
 
@@ -23,6 +23,22 @@ describe("deviceTimeZone", () => {
   it("값이 없으면 서울이다", () => {
     mockDeviceTimeZone(undefined);
     expect(deviceTimeZone()).toBe(SEOUL);
+  });
+
+  it("문서를 연 뒤 시간대가 바뀌어도 부를 때마다 새로 읽는다", () => {
+    // 엔진은 포맷터를 만들 때의 시간대를 고정하므로, 앱을 켜 둔 채 기기 시간대가 바뀐 상황을 새 포맷터로만 흉내 낸다
+    const RealFormat = Intl.DateTimeFormat;
+    const spy = vi.spyOn(Intl, "DateTimeFormat").mockImplementation(function (
+      ...args: ConstructorParameters<typeof Intl.DateTimeFormat>
+    ) {
+      const format = new RealFormat(...args);
+      const options = format.resolvedOptions();
+      format.resolvedOptions = () => ({ ...options, timeZone: NEW_YORK });
+      return format;
+    } as unknown as typeof Intl.DateTimeFormat);
+    onTestFinished(() => spy.mockRestore());
+
+    expect(deviceTimeZone()).toBe(NEW_YORK);
   });
 });
 

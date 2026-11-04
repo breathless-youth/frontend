@@ -11,12 +11,15 @@ export const KOREA_TIME_ZONE = "Asia/Seoul";
 const MINUTE_MS = 60_000;
 const DAY_MS = 24 * 60 * MINUTE_MS;
 
-// 문서를 연 뒤에는 시간대가 바뀌지 않는다고 보고 기본 포맷터 하나에서 읽는다.
-const deviceFormat = new Intl.DateTimeFormat();
-
-/** 기기 시간대 IANA 이름. 엔진이 값을 주지 않으면 서울이다. */
+/**
+ * 기기 시간대 IANA 이름
+ *
+ * 엔진은 포맷터를 만들 때의 시간대를 고정해서, 앱을 켜 둔 채 해외로 이동하면 미리 만든 포맷터는 이전 시간대를 돌려준다.
+ * 그래서 부를 때마다 새로 만들어 읽는다.
+ * 엔진이 값을 주지 않으면 서울이다.
+ */
 export function deviceTimeZone(): string {
-  return deviceFormat.resolvedOptions().timeZone || KOREA_TIME_ZONE;
+  return new Intl.DateTimeFormat().resolvedOptions().timeZone || KOREA_TIME_ZONE;
 }
 
 const partFormats = new Map<string, Intl.DateTimeFormat>();
