@@ -13,14 +13,20 @@ import { postToNative } from "@/lib/bridge";
  * 수단이다 — 집합이 다른데 같은 목록에 섞으면 한쪽을 고칠 때 다른 쪽이 알리지 않고 깨진다.
  *
  * 브라우저 단독 모드에서는 `postToNative`가 조용히 무동작이라 어디서든 안전하다.
+ *
+ * `released`인 동안은 제스처를 켜 둔다.
+ * 잠금과 풀림을 이 훅 하나가 보내서, 효과 정리 순서가 어떻든 언마운트의 마지막 신호는 켜짐이고 화면이 살아 있는 동안에는 `released`만 따른다.
  */
-export function useNativeBackGestureLock(): void {
+export function useNativeBackGestureLock(released = false): void {
   useEffect(() => {
-    postToNative({ type: "set-back-gesture", enabled: false, atMs: Date.now() });
-    return () => {
+    postToNative({ type: "set-back-gesture", enabled: released, atMs: Date.now() });
+  }, [released]);
+  useEffect(
+    () => () => {
       postToNative({ type: "set-back-gesture", enabled: true, atMs: Date.now() });
-    };
-  }, []);
+    },
+    [],
+  );
 }
 
 /**
