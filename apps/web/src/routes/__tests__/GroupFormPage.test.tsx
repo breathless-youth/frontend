@@ -68,7 +68,7 @@ describe("그룹 만들기 계측", () => {
     const user = userEvent.setup();
     await user.type(await screen.findByRole("textbox", { name: "그룹 이름" }), "새 그룹");
     await user.click(screen.getByRole("button", { name: "그룹 만들기" }));
-    expect(await screen.findByText("그룹 개수가 가득 찼어요")).toBeInTheDocument();
+    expect(await screen.findByText("그룹과 신청을 합쳐 5개까지예요")).toBeInTheDocument();
     expect(trackGroupRoomCreated).not.toHaveBeenCalled();
   });
 
