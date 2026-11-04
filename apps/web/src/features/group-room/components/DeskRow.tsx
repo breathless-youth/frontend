@@ -34,18 +34,14 @@ export function DeskRow({ members }: { members: readonly RoomDeskMember[] }) {
             key={slot.kind === "empty" ? `empty-${index}` : slot.member.userId}
             data-tone={tone}
             data-me={isMe || undefined}
-            className={cn(
-              "flex min-w-0 flex-col items-center",
-              // 음수 여백을 안쪽 여백과 테두리로 되돌려 자리가 밀리지 않는다.
-              isMe && "-m-0.5 rounded-sm border border-primary/40 bg-brand-subtle p-px",
-            )}
+            className="flex min-w-0 flex-col items-center"
           >
             <DeskFigure tone={tone} size="sm" />
             <span
               className={cn(
                 "block w-full truncate pt-0.5 text-center text-[10px] leading-3.5",
-                // 흐린 글자는 라이트의 내 자리 바탕 위에서 대비가 4.1:1이라 내 자리에서는 쓰지 않는다.
-                isMe ? "font-bold text-foreground" : NAME_CLASS[tone],
+                // 상태를 뜻하는 책상 색은 그대로 두고 닉네임 글자로만 내 자리를 알린다.
+                isMe ? "font-bold text-primary" : NAME_CLASS[tone],
               )}
             >
               {name}

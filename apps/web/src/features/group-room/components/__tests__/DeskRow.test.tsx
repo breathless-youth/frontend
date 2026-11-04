@@ -69,16 +69,10 @@ describe("DeskRow", () => {
     );
     const marked = seats().filter((seat) => seat.hasAttribute("data-me"));
     expect(marked).toHaveLength(1);
-    expect(marked[0]).toHaveClass(
-      "bg-brand-subtle",
-      "rounded-sm",
-      "border",
-      "border-primary/40",
-      "-m-0.5",
-      "p-px",
-    );
+    expect(marked[0]).not.toHaveClass("bg-brand-subtle");
+    expect(marked[0]).not.toHaveClass("border");
     const name = screen.getByText("아주아주긴닉네임열공곰");
-    expect(name).toHaveClass("font-bold", "text-foreground", "truncate");
+    expect(name).toHaveClass("font-bold", "text-primary", "truncate");
     expect(name).not.toHaveClass("text-muted-foreground");
     expect(screen.getByText("연필깎이")).toHaveClass("text-muted-foreground");
   });

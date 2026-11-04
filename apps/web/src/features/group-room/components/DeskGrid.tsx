@@ -99,12 +99,7 @@ function MemberDesk({
       data-sentry-element="MemberDesk"
       data-tone={tone}
       data-me={isMe || undefined}
-      className={cn(
-        "flex min-w-0 flex-col items-center",
-        // 음수 여백을 안쪽 여백과 테두리로 되돌려 칸이 넓어져도 책상과 글자 자리는 그대로다.
-        // 바탕만으로는 다크에서 흐려 테두리를 함께 두고, 상태를 뜻하는 책상 색은 건드리지 않는다.
-        isMe && "-m-1 rounded-md border border-primary/40 bg-brand-subtle p-[3px]",
-      )}
+      className="flex min-w-0 flex-col items-center"
     >
       <DeskFigure tone={tone} size="md" />
       <div
@@ -121,8 +116,9 @@ function MemberDesk({
           )}
           <span
             className={cn(
-              "truncate text-xs leading-4 text-foreground",
-              isMe ? "font-bold" : "font-semibold",
+              "truncate text-xs leading-4",
+              // 상태를 뜻하는 책상 색은 그대로 두고 닉네임 글자로만 내 자리를 알린다.
+              isMe ? "font-bold text-primary" : "font-semibold text-foreground",
             )}
           >
             {name}
@@ -131,8 +127,7 @@ function MemberDesk({
         <p
           className={cn(
             "text-[13px] leading-4.5 font-bold tabular-nums",
-            // 흐린 글자는 라이트의 내 칸 바탕 위에서 대비가 4.1:1이라 내 칸에서는 쓰지 않는다.
-            tone === "rest" && !isMe ? "text-muted-foreground" : "text-foreground",
+            tone === "rest" ? "text-muted-foreground" : "text-foreground",
           )}
         >
           {clock}

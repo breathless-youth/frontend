@@ -108,36 +108,28 @@ describe("DeskGrid", () => {
     };
     const other: RoomDeskMember = { ...base, userId: 1, nickname: "새벽러", presence: "away" };
 
-    it("내 칸에만 바탕과 테두리를 두고 그리드가 밀리지 않게 여백으로 되돌린다", () => {
+    it("내 칸에는 바탕과 테두리를 두지 않는다", () => {
       render(<DeskGrid members={[other, mine]} visibility="private" elapsedSec={0} />);
       const marked = desks().filter((desk) => desk.hasAttribute("data-me"));
       expect(marked).toHaveLength(1);
       expect(marked[0]).toHaveAccessibleName(/아주아주아주긴닉네임을가진열공곰/);
-      expect(marked[0]).toHaveClass(
-        "bg-brand-subtle",
-        "rounded-md",
-        "border",
-        "border-primary/40",
-        "-m-1",
-        "p-[3px]",
-      );
-      const others = desks().filter((desk) => !desk.hasAttribute("data-me"));
-      for (const desk of others) {
-        expect(desk).not.toHaveClass("bg-brand-subtle");
-      }
+      expect(marked[0]).not.toHaveClass("bg-brand-subtle");
+      expect(marked[0]).not.toHaveClass("border");
     });
 
-    it("내 닉네임은 굵고, 긴 이름은 칸 안에서 말줄임한다", () => {
+    it("내 닉네임만 파란색으로 굵고, 긴 이름은 칸 안에서 말줄임한다", () => {
       render(<DeskGrid members={[other, mine]} visibility="private" elapsedSec={0} />);
       const name = screen.getByText("아주아주아주긴닉네임을가진열공곰");
-      expect(name).toHaveClass("font-bold", "truncate");
-      expect(screen.getByText("새벽러")).toHaveClass("font-semibold");
+      expect(name).toHaveClass("font-bold", "text-primary", "truncate");
+      expect(screen.getByText("새벽러")).toHaveClass("font-semibold", "text-foreground");
     });
 
-    it("쉬는 중이어도 내 칸의 시간은 바탕 위에서 읽히는 글자색이다", () => {
+    it("쉬는 중인 내 시간은 다른 멤버와 같은 흐린 글자색이다", () => {
       render(<DeskGrid members={[mine]} visibility="private" elapsedSec={0} />);
       const myDesk = desks().find((desk) => desk.hasAttribute("data-me"));
-      expect(within(myDesk as HTMLElement).getByText("0:00:00")).toHaveClass("text-foreground");
+      expect(within(myDesk as HTMLElement).getByText("0:00:00")).toHaveClass(
+        "text-muted-foreground",
+      );
     });
 
     it("책상 그림의 상태 색은 그대로 둔다", () => {
