@@ -61,10 +61,17 @@ describe.each(["invite", "group"] as const)("RoomGrid %s 아래 바 상태", (va
     }
   });
 
-  it.each([1, 2, 3, 4])("바가 떠 있는 동안 %i명은 모든 타일의 이름 줄을 올린다", (count) => {
+  it.each([1, 2, 3])("바가 떠 있는 동안 %i명은 모든 타일의 이름 줄을 올린다", (count) => {
     renderGrid(variant, count);
 
     expect(liftedTileIndexes()).toEqual(Array.from({ length: count }, (_, index) => index));
+  });
+
+  // 4명은 타일이 작아 한 줄 아래 끝이 일반 가로 폰의 바 윗변보다 위에서 끝나 바가 닿지 않는다.
+  it("바가 떠 있어도 4명은 바가 닿지 않으므로 이름 줄을 올리지 않는다", () => {
+    renderGrid(variant, 4);
+
+    expect(liftedTileIndexes()).toEqual([]);
   });
 
   // 가로에서 5~6명은 3열 2줄이고 아래 바는 맨 아랫줄만 덮는다.
