@@ -1,9 +1,9 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 
 import { trackGroupRoomMicToggled } from "@/lib/amplitude";
 import i18n from "@/lib/i18n";
 
-import type { MicLine } from "./audio/micLine";
+import type { MicLine, MicTurnOnResult } from "./audio/micLine";
 import { createMicLine } from "./audio/micLine";
 import type { MicAcquireResult } from "./audio/microphone";
 import { acquireMicTrack } from "./audio/microphone";
@@ -34,6 +34,12 @@ export interface RoomAudioDeps {
   createPlayer?: () => RemoteAudioPlayer;
 }
 
+/** 보내던 마이크 트랙이 무음이 된 뒤 스스로 풀리기를 기다리는 시간 */
+export const MIC_MUTE_SETTLE_MS = 1_000;
+
+// 새로 얻은 트랙도 이 시간 안에 다시 끊기거나 무음이 되면 되풀이해 얻지 않고 마이크를 끈다.
+const MIC_RENEW_RETRY_MS = 5_000;
+
 const NO_SPEAKERS: ReadonlySet<number> = new Set();
 
 // 터치는 누를 때가 아니라 손을 뗄 때 사용자 동작으로 인정하는 브라우저가 있어서 뗌과 클릭, 키보드도 듣는다.
@@ -57,11 +63,18 @@ function sameMembers(a: ReadonlySet<number>, b: ReadonlySet<number>): boolean {
   return true;
 }
 
+function micFailureNotice(result: Exclude<MicTurnOnResult, "on" | "cancelled">): string {
+  return result === "denied"
+    ? i18n.t("live-room:roomAudio.micDenied")
+    : i18n.t("live-room:roomAudio.micUnavailable");
+}
+
 /**
  * 공부방 소리 상태
  *
  * 마이크는 꺼진 채 시작하고, 카메라가 꺼진 동안에는 켜지지 않으며 카메라가 꺼지면 함께 꺼진다.
  * 카메라를 다시 켜도 마이크는 따라 켜지지 않아서 사용자가 켜지 않은 소리는 나가지 않는다.
+ * 켜 둔 마이크의 트랙이 끊기거나 무음인 채로 남거나 통화가 끝나면 새 트랙을 얻어 모든 연결의 트랙을 바꾼다.
  * 사람별 음량과 소리 끄기는 이 기기에서만 먹히고 공부방을 나가면 사라진다.
  * 초대코드 방은 소리를 쓰지 않아서 마이크와 재생기를 만들지 않고, enabled는 처음 그릴 때 한 번만 읽는다.
  */
@@ -102,7 +115,10 @@ export function useRoomAudio({
     speakers: NO_SPEAKERS,
     self: false,
   });
-  const watchedRef = useRef(new WeakSet<MediaStreamTrack>());
+  // 지금 보내는 마이크 트랙이고, 이 트랙이 끊기거나 무음이 되는 신호를 듣는다.
+  const [sentTrack, setSentTrack] = useState<MediaStreamTrack | null>(null);
+  // 마지막으로 새 트랙을 얻기 시작한 시각이다.
+  const renewedAtRef = useRef<number | null>(null);
 
   // 카메라가 꺼지는 렌더에서 바로 꺼짐으로 그려야 카메라를 다시 켤 때 마이크가 켜짐으로 돌아오지 않는다.
   const [heldBefore, setHeldBefore] = useState(cameraHeld);
@@ -111,6 +127,7 @@ export function useRoomAudio({
     if (cameraHeld) {
       setMicOn(false);
       setMicPending(false);
+      setSentTrack(null);
     }
   }
   // 꺼짐을 그린 커밋 안에서 떼야, 그 커밋과 다음 effect 사이에 권한 창의 응답이 도착해 마이크가 실리는 일이 없다.
@@ -135,26 +152,77 @@ export function useRoomAudio({
     trackGroupRoomMicToggled(micOn);
   }, [micOn]);
 
-  function turnMicOff() {
-    line?.turnOff();
+  function showMicOff() {
     player?.setLocalMeter(null);
     selfRef.current = INITIAL_SPEAKING;
     setMicOn(false);
     setMicPending(false);
+    setSentTrack(null);
   }
 
-  // 통화처럼 OS가 마이크를 끊으면 트랙이 끝나는데, 켜짐으로 남기면 아무 소리도 가지 않는 마이크가 켜져 보인다.
-  function watchEnded(track: MediaStreamTrack) {
-    if (watchedRef.current.has(track)) {
+  function turnMicOff() {
+    line?.turnOff();
+    showMicOff();
+  }
+
+  /**
+   * 켜 둔 마이크를 새 트랙으로 바꾸기
+   *
+   * 새 트랙을 기다리는 동안에는 앞 트랙을 그대로 보낸다.
+   * 새 트랙을 얻지 못하면 마이크 줄이 이미 꺼져 있어서 꺼짐으로 그리고 이유를 알린다.
+   */
+  function renewMic() {
+    if (line === null || player === null) {
       return;
     }
-    watchedRef.current.add(track);
-    track.addEventListener("ended", () => {
-      if (line?.localTrack() === track) {
-        turnMicOff();
+    renewedAtRef.current = Date.now();
+    void line.renew().then((result) => {
+      // 끄기나 카메라 꺼짐, 나가기, 뒤이은 바꾸기가 앞선 경우라 그쪽이 상태를 이미 정했다.
+      if (result === "cancelled") {
+        return;
       }
+      if (result === "on") {
+        const track = line.localTrack();
+        player.setLocalMeter(track);
+        setSentTrack(track);
+        return;
+      }
+      showMicOff();
+      onNotice(micFailureNotice(result));
     });
   }
+
+  // 통화처럼 OS가 캡처를 끊거나 무음으로 만들면 켜짐으로 보여도 아무 소리도 가지 않아서 새 트랙으로 바꾼다.
+  // 막 바꾼 트랙도 곧 같은 일을 겪으면 쓸 수 있는 마이크가 없는 것이라 되풀이하지 않고 끈 뒤 알린다.
+  const onSentTrackLost = useEffectEvent((track: MediaStreamTrack, cause: "mute" | "ended") => {
+    if (line === null || line.localTrack() !== track) {
+      return;
+    }
+    // 통화 중에 얻은 트랙도 무음이라 통화가 끝나는 신호에서 바꾼다.
+    if (cause === "mute" && player?.interrupted() === true) {
+      return;
+    }
+    const renewedAt = renewedAtRef.current;
+    if (renewedAt !== null && Date.now() - renewedAt < MIC_RENEW_RETRY_MS) {
+      turnMicOff();
+      onNotice(micFailureNotice("unavailable"));
+      return;
+    }
+    renewMic();
+  });
+
+  // 통화나 알람을 지난 캡처는 끊김이나 무음 신호 없이 무음을 낼 수 있어서 켜 둔 마이크는 새 트랙으로 바꾼다.
+  // 꺼 둔 마이크는 들고 있던 트랙을 다음 켜기에서 쓰지 않게만 한다.
+  const onInterruptionEnd = useEffectEvent(() => {
+    if (line === null) {
+      return;
+    }
+    if (line.isOn) {
+      renewMic();
+      return;
+    }
+    void line.renew();
+  });
 
   function toggleMic() {
     if (line === null || player === null) {
@@ -181,18 +249,60 @@ export function useRoomAudio({
         const track = line.localTrack();
         setMicOn(true);
         player.setLocalMeter(track);
-        if (track !== null) {
-          watchEnded(track);
-        }
+        setSentTrack(track);
         return;
       }
-      onNotice(
-        result === "denied"
-          ? i18n.t("live-room:roomAudio.micDenied")
-          : i18n.t("live-room:roomAudio.micUnavailable"),
-      );
+      onNotice(micFailureNotice(result));
     });
   }
+
+  useEffect(() => {
+    if (player === null) {
+      return;
+    }
+    return player.onInterruptionEnd(() => onInterruptionEnd());
+  }, [player]);
+
+  useEffect(() => {
+    if (sentTrack === null) {
+      return;
+    }
+    const track = sentTrack;
+    let settle: ReturnType<typeof setTimeout> | null = null;
+    const cancelSettle = () => {
+      if (settle !== null) {
+        clearTimeout(settle);
+        settle = null;
+      }
+    };
+    // 장치를 바꿀 때처럼 잠깐 무음이 됐다가 바로 풀리는 트랙은 기다린 뒤 다시 보고 바꾸지 않는다.
+    const onMute = () => {
+      cancelSettle();
+      settle = setTimeout(() => {
+        settle = null;
+        if (track.muted) {
+          onSentTrackLost(track, "mute");
+        }
+      }, MIC_MUTE_SETTLE_MS);
+    };
+    const onEnded = () => {
+      cancelSettle();
+      onSentTrackLost(track, "ended");
+    };
+    track.addEventListener("mute", onMute);
+    track.addEventListener("ended", onEnded);
+    // 듣기 시작하기 전에 이미 무음이 됐거나 끊긴 트랙도 같은 길로 보낸다.
+    if (track.readyState === "ended") {
+      onEnded();
+    } else if (track.muted) {
+      onMute();
+    }
+    return () => {
+      cancelSettle();
+      track.removeEventListener("mute", onMute);
+      track.removeEventListener("ended", onEnded);
+    };
+  }, [sentTrack]);
 
   useEffect(() => {
     if (player === null) {

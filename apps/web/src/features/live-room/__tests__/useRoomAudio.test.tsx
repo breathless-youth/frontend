@@ -1,11 +1,12 @@
 import { useLayoutEffect } from "react";
 import { act, fireEvent, renderHook } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import type { MicAcquireResult } from "../audio/microphone";
 import type { RemoteAudioPlayer } from "../audio/remoteAudio";
+import { createRemoteAudioPlayer } from "../audio/remoteAudio";
 import { SPEAKING_ON_LEVEL, SPEAKING_ON_SAMPLES, SPEAKING_SAMPLE_MS } from "../audio/speaking";
-import { useRoomAudio } from "../useRoomAudio";
+import { MIC_MUTE_SETTLE_MS, useRoomAudio } from "../useRoomAudio";
 
 type RemoteAudioListener = (userId: number, track: MediaStreamTrack | null) => void;
 
@@ -24,11 +25,84 @@ function fakeTrack() {
   return Object.assign(new EventTarget(), {
     kind: "audio",
     enabled: true,
+    muted: false,
     readyState: "live",
     stop: vi.fn(function (this: { readyState: string }) {
       this.readyState = "ended";
     }),
   }) as unknown as MediaStreamTrack;
+}
+
+/** OS가 캡처를 끊은 것처럼 트랙을 끝내고 알린다. */
+function endTrack(track: MediaStreamTrack) {
+  (track as unknown as { readyState: string }).readyState = "ended";
+  track.dispatchEvent(new Event("ended"));
+}
+
+/** OS가 캡처를 무음으로 만든 것처럼 트랙을 음소거하고 알린다. */
+function muteTrack(track: MediaStreamTrack) {
+  (track as unknown as { muted: boolean }).muted = true;
+  track.dispatchEvent(new Event("mute"));
+}
+
+function unmuteTrack(track: MediaStreamTrack) {
+  (track as unknown as { muted: boolean }).muted = false;
+  track.dispatchEvent(new Event("unmute"));
+}
+
+/** 부를 때마다 새 트랙을 주는 마이크 얻기 */
+function freshTracks() {
+  const tracks: MediaStreamTrack[] = [];
+  const acquire = vi.fn(async (): Promise<MicAcquireResult> => {
+    const track = fakeTrack();
+    tracks.push(track);
+    return { kind: "ok", track };
+  });
+  return { acquire, tracks };
+}
+
+// jsdom에는 MediaStream이 없어서 트랙을 담기만 하는 가짜를 둔다.
+class FakeMediaStream {
+  readonly tracks: unknown[];
+  constructor(tracks: unknown[]) {
+    this.tracks = tracks;
+  }
+}
+
+/** 통화로 멈췄다가 다시 도는 것처럼 상태를 바꿔 알릴 수 있는 가짜 AudioContext */
+function fakeAudioContext() {
+  const node = () => ({ connect: vi.fn(), disconnect: vi.fn() });
+  const ctx = Object.assign(new EventTarget(), {
+    state: "running",
+    resume: vi.fn(async () => undefined),
+    close: vi.fn(async () => undefined),
+    destination: {},
+    createMediaStreamSource: vi.fn(node),
+    createAnalyser: vi.fn(() => ({
+      ...node(),
+      fftSize: 0,
+      getFloatTimeDomainData: (data: Float32Array) => data.fill(0),
+    })),
+    createGain: vi.fn(() => ({ ...node(), gain: { value: 1 } })),
+    fire(state: string) {
+      ctx.state = state;
+      ctx.dispatchEvent(new Event("statechange"));
+    },
+  });
+  return ctx;
+}
+
+/** 가짜 컨텍스트 위에서 도는 실제 재생기 */
+function playerOn(ctx: ReturnType<typeof fakeAudioContext>) {
+  vi.stubGlobal("MediaStream", FakeMediaStream);
+  onTestFinished(() => {
+    vi.unstubAllGlobals();
+  });
+  return () =>
+    createRemoteAudioPlayer({
+      audioContextFactory: () => ctx as unknown as AudioContext,
+      keepAliveFactory: () => null,
+    });
 }
 
 // 한 번 깨우면 소리가 도는 재생기처럼, resume을 부르기 전까지만 다시 걸 재생이 있다고 답한다.
@@ -48,6 +122,8 @@ function fakePlayer() {
     resume: vi.fn(async () => {
       resumed = true;
     }),
+    interrupted: vi.fn(() => false),
+    onInterruptionEnd: vi.fn((_listener: () => void) => () => undefined),
     close: vi.fn(),
   } satisfies RemoteAudioPlayer;
 }
@@ -212,18 +288,163 @@ describe("useRoomAudio 마이크", () => {
     expect(result.current.micOn).toBe(false);
     expect(onNotice).toHaveBeenCalledWith("마이크를 켤 수 없어요");
   });
+});
 
-  it("OS가 마이크 트랙을 끊으면 마이크를 끈 것으로 보인다", async () => {
-    const { result, mesh, mic } = setup();
+describe("useRoomAudio 마이크 되살리기", () => {
+  it("OS가 보내던 트랙을 끊으면 새 트랙을 얻어 모든 연결에 싣고 끊긴 트랙은 멈춘다", async () => {
+    const { acquire, tracks } = freshTracks();
+    const { result, mesh, player } = setup({ acquire });
     await act(async () => result.current.toggleMic());
 
-    act(() => {
-      (mic as unknown as { readyState: string }).readyState = "ended";
-      mic.dispatchEvent(new Event("ended"));
-    });
+    await act(async () => endTrack(tracks[0]!));
+
+    expect(acquire).toHaveBeenCalledTimes(2);
+    expect(mesh.setLocalAudioTrack).toHaveBeenLastCalledWith(tracks[1]);
+    expect(tracks[0]?.stop).toHaveBeenCalled();
+    expect(player.setLocalMeter).toHaveBeenLastCalledWith(tracks[1]);
+    expect(result.current.micOn).toBe(true);
+  });
+
+  it("보내던 트랙이 무음이 된 채 풀리지 않으면 새 트랙으로 바꾼다", async () => {
+    vi.useFakeTimers();
+    const { acquire, tracks } = freshTracks();
+    const { result, mesh } = setup({ acquire });
+    await act(async () => result.current.toggleMic());
+
+    act(() => muteTrack(tracks[0]!));
+    expect(acquire).toHaveBeenCalledOnce();
+    await act(() => vi.advanceTimersByTimeAsync(MIC_MUTE_SETTLE_MS));
+
+    expect(acquire).toHaveBeenCalledTimes(2);
+    expect(mesh.setLocalAudioTrack).toHaveBeenLastCalledWith(tracks[1]);
+    expect(tracks[0]?.stop).toHaveBeenCalled();
+    expect(result.current.micOn).toBe(true);
+  });
+
+  it("무음이 곧 풀리면 트랙을 바꾸지 않는다", async () => {
+    vi.useFakeTimers();
+    const { acquire, tracks } = freshTracks();
+    const { result, mesh } = setup({ acquire });
+    await act(async () => result.current.toggleMic());
+
+    act(() => muteTrack(tracks[0]!));
+    act(() => unmuteTrack(tracks[0]!));
+    await act(() => vi.advanceTimersByTimeAsync(MIC_MUTE_SETTLE_MS));
+
+    expect(acquire).toHaveBeenCalledOnce();
+    expect(mesh.setLocalAudioTrack).toHaveBeenLastCalledWith(tracks[0]);
+  });
+
+  it("통화가 끝나 컨텍스트가 다시 돌면 켜 둔 마이크를 새 트랙으로 바꾼다", async () => {
+    const ctx = fakeAudioContext();
+    const { acquire, tracks } = freshTracks();
+    const { result, mesh } = setup({ acquire, createPlayer: playerOn(ctx) });
+    await act(async () => result.current.toggleMic());
+
+    act(() => ctx.fire("interrupted"));
+    expect(acquire).toHaveBeenCalledOnce();
+    await act(async () => ctx.fire("running"));
+
+    expect(acquire).toHaveBeenCalledTimes(2);
+    expect(mesh.setLocalAudioTrack).toHaveBeenLastCalledWith(tracks[1]);
+    expect(tracks[0]?.stop).toHaveBeenCalled();
+    expect(result.current.micOn).toBe(true);
+  });
+
+  it("통화 중에 무음이 되면 바로 얻지 않고 통화가 끝날 때 한 번 얻는다", async () => {
+    vi.useFakeTimers();
+    const ctx = fakeAudioContext();
+    const { acquire, tracks } = freshTracks();
+    const { result, mesh } = setup({ acquire, createPlayer: playerOn(ctx) });
+    await act(async () => result.current.toggleMic());
+
+    act(() => ctx.fire("interrupted"));
+    act(() => muteTrack(tracks[0]!));
+    await act(() => vi.advanceTimersByTimeAsync(MIC_MUTE_SETTLE_MS));
+    expect(acquire).toHaveBeenCalledOnce();
+
+    await act(async () => ctx.fire("running"));
+
+    expect(acquire).toHaveBeenCalledTimes(2);
+    expect(mesh.setLocalAudioTrack).toHaveBeenLastCalledWith(tracks[1]);
+    expect(tracks[0]?.stop).toHaveBeenCalled();
+  });
+
+  it("꺼 둔 동안 통화가 끝나면 다시 켤 때 들고 있던 트랙을 쓰지 않는다", async () => {
+    const ctx = fakeAudioContext();
+    const { acquire, tracks } = freshTracks();
+    const { result, mesh } = setup({ acquire, createPlayer: playerOn(ctx) });
+    await act(async () => result.current.toggleMic());
+    await act(async () => result.current.toggleMic());
+
+    act(() => ctx.fire("interrupted"));
+    await act(async () => ctx.fire("running"));
+    expect(acquire).toHaveBeenCalledOnce();
+    expect(mesh.setLocalAudioTrack).toHaveBeenLastCalledWith(null);
+
+    await act(async () => result.current.toggleMic());
+
+    expect(acquire).toHaveBeenCalledTimes(2);
+    expect(mesh.setLocalAudioTrack).toHaveBeenLastCalledWith(tracks[1]);
+    expect(tracks[0]?.stop).toHaveBeenCalled();
+  });
+
+  it("새 트랙을 얻지 못하면 마이크를 끈 것으로 보이고 안내한다", async () => {
+    const mic = fakeTrack();
+    const acquire = vi
+      .fn<() => Promise<MicAcquireResult>>()
+      .mockResolvedValueOnce({ kind: "ok", track: mic })
+      .mockResolvedValueOnce({ kind: "unavailable" });
+    const { result, mesh, player, onNotice } = setup({ acquire });
+    await act(async () => result.current.toggleMic());
+
+    await act(async () => endTrack(mic));
 
     expect(result.current.micOn).toBe(false);
     expect(mesh.setLocalAudioTrack).toHaveBeenLastCalledWith(null);
+    expect(mic.stop).toHaveBeenCalled();
+    expect(player.setLocalMeter).toHaveBeenLastCalledWith(null);
+    expect(onNotice).toHaveBeenCalledWith("마이크를 켤 수 없어요");
+  });
+
+  it("새로 얻은 트랙도 곧 끊기면 되풀이하지 않고 끈 뒤 안내한다", async () => {
+    const { acquire, tracks } = freshTracks();
+    const { result, mesh, onNotice } = setup({ acquire });
+    await act(async () => result.current.toggleMic());
+    await act(async () => endTrack(tracks[0]!));
+
+    await act(async () => endTrack(tracks[1]!));
+
+    expect(acquire).toHaveBeenCalledTimes(2);
+    expect(result.current.micOn).toBe(false);
+    expect(mesh.setLocalAudioTrack).toHaveBeenLastCalledWith(null);
+    expect(onNotice).toHaveBeenCalledWith("마이크를 켤 수 없어요");
+  });
+
+  it("바꾸는 중에 마이크를 끄면 늦게 온 트랙을 싣지 않는다", async () => {
+    const first = fakeTrack();
+    const late = fakeTrack();
+    let resolveLate: (result: MicAcquireResult) => void = () => undefined;
+    const acquire = vi
+      .fn<() => Promise<MicAcquireResult>>()
+      .mockResolvedValueOnce({ kind: "ok", track: first })
+      .mockImplementationOnce(
+        () =>
+          new Promise<MicAcquireResult>((done) => {
+            resolveLate = done;
+          }),
+      );
+    const { result, mesh, onNotice } = setup({ acquire });
+    await act(async () => result.current.toggleMic());
+    act(() => endTrack(first));
+
+    await act(async () => result.current.toggleMic());
+    await act(async () => resolveLate({ kind: "ok", track: late }));
+
+    expect(result.current.micOn).toBe(false);
+    expect(mesh.setLocalAudioTrack).not.toHaveBeenCalledWith(late);
+    expect(late.stop).toHaveBeenCalled();
+    expect(onNotice).not.toHaveBeenCalled();
   });
 });
 

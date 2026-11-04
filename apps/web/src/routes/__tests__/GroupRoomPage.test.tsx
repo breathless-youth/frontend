@@ -171,6 +171,8 @@ function fakePlayer() {
     needsResume: vi.fn(() => false),
     setMicOnUsers: vi.fn(),
     resume: vi.fn(async () => undefined),
+    interrupted: vi.fn(() => false),
+    onInterruptionEnd: vi.fn((_listener: () => void) => () => undefined),
     close: vi.fn(),
   } satisfies RemoteAudioPlayer;
 }

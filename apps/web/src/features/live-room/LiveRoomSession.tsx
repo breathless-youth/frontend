@@ -1129,6 +1129,7 @@ export function LiveRoomSession({
           {room.kind === "group" && timerSheet.active && timer.mode !== null && (
             // 세로는 바 바로 위에 두고, 바 옆에 자리가 넉넉한 가로 폰은 바와 같은 높이의 오른쪽 끝에 둔다.
             // 좁은 가로 폰은 바 옆에 두면 나가기 버튼에 겹쳐서 세로처럼 바 위에 둔다.
+            // 타일 격자가 이 자리에서 나온 캡슐 띠를 비우므로 자리를 바꾸면 RoomGrid의 띠도 함께 바꾼다.
             <div className="mb-1 flex landscape-compact:md:absolute landscape-compact:md:right-[calc(env(safe-area-inset-right)+6px)] landscape-compact:md:bottom-3.25 landscape-compact:md:mb-0">
               <RoomTimerCapsule
                 mode={timer.mode}
