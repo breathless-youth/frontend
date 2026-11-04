@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import type { StudySessionListResponse, StudySessionSummary } from "@focusmakers/types";
 
+import { mockDeviceTimeZone } from "@/test/deviceTimeZone";
+
 import {
   assemblePlannerDay,
   liveSubjectsOf,
   plannerCellFills,
+  plannerCellStartMs,
   plannerDayWindow,
   plannerHours,
   plannerDateKeyOf,
@@ -55,7 +58,7 @@ function stats(
 }
 
 describe("플래너의 하루 구간", () => {
-  it("05:00에 시작해 다음 날 05:00에 끝난다(KST)", () => {
+  it("05:00에 시작해 다음 날 05:00에 끝난다(서울)", () => {
     const window = plannerDayWindow(DAY);
     expect(new Date(window.startMs).toISOString()).toBe(kst(DAY, 5));
     expect(new Date(window.endMs).toISOString()).toBe(kst(NEXT, 5));
@@ -65,6 +68,39 @@ describe("플래너의 하루 구간", () => {
     expect(plannerDateKeyOf(new Date(kst(NEXT, 4, 59)))).toBe(DAY);
     expect(plannerDateKeyOf(new Date(kst(NEXT, 5)))).toBe(NEXT);
     expect(plannerDateKeyOf(new Date(kst(DAY, 23, 30)))).toBe(DAY);
+  });
+
+  describe("기기 시간대가 뉴욕일 때", () => {
+    const HOUR_MS = 3_600_000;
+    it("구간은 현지 05:00부터 다음 날 현지 05:00까지다", () => {
+      mockDeviceTimeZone("America/New_York");
+      const window = plannerDayWindow("2026-07-25");
+      expect(window.startMs).toBe(Date.parse("2026-07-25T05:00:00-04:00"));
+      expect(window.endMs).toBe(Date.parse("2026-07-26T05:00:00-04:00"));
+    });
+
+    it("서머타임이 시작하는 밤을 품은 하루는 23시간이다", () => {
+      mockDeviceTimeZone("America/New_York");
+      const window = plannerDayWindow("2026-03-07");
+      expect(window.startMs).toBe(Date.parse("2026-03-07T05:00:00-05:00"));
+      expect(window.endMs).toBe(Date.parse("2026-03-08T05:00:00-04:00"));
+      expect(window.endMs - window.startMs).toBe(23 * HOUR_MS);
+    });
+
+    it("서머타임이 끝나는 밤을 품은 하루는 25시간이다", () => {
+      mockDeviceTimeZone("America/New_York");
+      const window = plannerDayWindow("2026-10-31");
+      expect(window.endMs).toBe(Date.parse("2026-11-01T05:00:00-05:00"));
+      expect(window.endMs - window.startMs).toBe(25 * HOUR_MS);
+    });
+
+    it("새벽 0~5시는 현지 시각으로 판단한다", () => {
+      mockDeviceTimeZone("America/New_York");
+      expect(plannerDateKeyOf(new Date("2026-03-08T04:59:00-04:00"))).toBe("2026-03-07");
+      expect(plannerDateKeyOf(new Date("2026-03-08T05:00:00-04:00"))).toBe("2026-03-08");
+      expect(plannerDateKeyOf(new Date("2026-11-01T04:59:00-05:00"))).toBe("2026-10-31");
+      expect(plannerDateKeyOf(new Date("2026-11-01T05:00:00-05:00"))).toBe("2026-11-01");
+    });
   });
 
   it("시 라벨은 5에서 시작해 다음 날 4에서 끝난다", () => {
@@ -377,6 +413,89 @@ describe("plannerCellFills — 10분 칸 안을 실제 시각대로 나눈다", 
     expect(cells[nineOClock + 2]).toEqual([
       { left: 0, width: 0.5, paint: { kind: "focus" }, manual: false },
     ]);
+  });
+
+  describe("서머타임 전환일(뉴욕)은 칸을 현지 벽시계로 나눈다", () => {
+    /** 시(다음 날 0~4시 포함)·분 → 칸 번호. 5시가 0번이다. */
+    const cellIndex = (hour: number, minute = 0) => (((hour + 24 - 5) % 24) * 60 + minute) / 10;
+    const full = { left: 0, width: 1, paint: { kind: "focus" }, manual: false };
+
+    it("23시간인 날은 없는 2시대 칸을 비우고 3시 공부를 3시 칸에 칠한다", () => {
+      mockDeviceTimeZone("America/New_York");
+      const studied = session({
+        startedAt: "2026-03-08T01:30:00-05:00",
+        endedAt: "2026-03-08T03:30:00-04:00",
+        studySec: 3600,
+        focusSec: 3600,
+      });
+      const cells = plannerCellFills(assemblePlannerDay("2026-03-07", stats([studied]), stats([])));
+
+      for (const [hour, minute] of [
+        [1, 30],
+        [1, 40],
+        [1, 50],
+        [3, 0],
+        [3, 10],
+        [3, 20],
+      ]) {
+        expect(cells[cellIndex(hour!, minute)]).toEqual([full]);
+      }
+      for (let minute = 0; minute < 60; minute += 10) {
+        expect(cells[cellIndex(2, minute)]).toEqual([]);
+      }
+      expect(cells[cellIndex(3, 30)]).toEqual([]);
+    });
+
+    it("23시간인 날 칸을 누르면 그 벽시계 시각이고, 없는 2시대 칸은 3시대로 민다", () => {
+      mockDeviceTimeZone("America/New_York");
+      expect(plannerCellStartMs("2026-03-07", 0)).toBe(Date.parse("2026-03-07T05:00:00-05:00"));
+      expect(plannerCellStartMs("2026-03-07", cellIndex(3))).toBe(
+        Date.parse("2026-03-08T03:00:00-04:00"),
+      );
+      expect(plannerCellStartMs("2026-03-07", cellIndex(2, 30))).toBe(
+        Date.parse("2026-03-08T03:30:00-04:00"),
+      );
+      expect(plannerCellStartMs("2026-03-07", cellIndex(4, 50))).toBe(
+        Date.parse("2026-03-08T04:50:00-04:00"),
+      );
+    });
+
+    it("25시간인 날은 두 번 온 1시대를 같은 칸에 칠하고 마지막 4시대도 칠한다", () => {
+      mockDeviceTimeZone("America/New_York");
+      const repeated = session({
+        id: 1,
+        startedAt: "2026-11-01T01:30:00-04:00",
+        endedAt: "2026-11-01T01:30:00-05:00",
+        studySec: 3600,
+        focusSec: 3600,
+      });
+      const lastHour = session({
+        id: 2,
+        startedAt: "2026-11-01T04:00:00-05:00",
+        endedAt: "2026-11-01T04:10:00-05:00",
+        studySec: 600,
+        focusSec: 600,
+      });
+      const cells = plannerCellFills(
+        assemblePlannerDay("2026-10-31", stats([repeated, lastHour]), stats([])),
+      );
+
+      for (let minute = 0; minute < 60; minute += 10) {
+        expect(cells[cellIndex(1, minute)]).toEqual([full]);
+      }
+      expect(cells[cellIndex(2)]).toEqual([]);
+      expect(cells[cellIndex(4)]).toEqual([full]);
+    });
+
+    it("25시간인 날 두 번 오는 시각의 칸을 누르면 먼저 오는 시각이다", () => {
+      mockDeviceTimeZone("America/New_York");
+      expect(plannerCellStartMs("2026-10-31", cellIndex(1, 30))).toBe(
+        Date.parse("2026-11-01T01:30:00-04:00"),
+      );
+      expect(plannerCellStartMs("2026-10-31", cellIndex(4))).toBe(
+        Date.parse("2026-11-01T04:00:00-05:00"),
+      );
+    });
   });
 
   it("수동 기록은 휴식 없이 과목 없는 순공으로 칠하고 수동 표시를 단다", () => {

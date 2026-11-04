@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useEffectEvent, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
@@ -14,12 +15,13 @@ import {
 } from "@/features/manual-record/manualRecord";
 import { MANUAL_RECORD_PARAMS } from "@/features/manual-record/useOpenManualRecord";
 import { plannerDateKeyOf } from "@/features/planner/plannerDay";
-import { addDaysToDateKey, isFutureDateKey, kstDateKey } from "@/features/records/recordsFormat";
+import { addDaysToDateKey, isFutureDateKey } from "@/features/records/recordsFormat";
 import { subjectRefMap } from "@/features/records/recordsTimetable";
 import { slideNavigate } from "@/lib/pageTransition";
 import { dailyStatsQuery } from "@/lib/statsQueries";
 import { listSubjects } from "@/lib/subjectApi";
 import { hasTokenSource, useIdentityPending, useUserId } from "@/lib/userId";
+import { localDateKey } from "@/lib/dateKey";
 
 const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -54,13 +56,14 @@ function FormSkeleton() {
  * 그날과 다음 날을 받고, 수정이면 묶음이 시작한 날과 묶음이 자정을 넘겨 이어지는 날까지 받는다.
  */
 export function ManualRecordPage() {
+  const { t } = useTranslation("manual-record");
   const userId = useUserId();
   const identityPending = useIdentityPending();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
 
-  const todayKey = kstDateKey();
+  const todayKey = localDateKey();
   // 입구는 미래 날짜로 열지 않는다. 주소로 미래가 오면 기본 구간의 종료가 시작보다 일러 저장할 수 없는 화면이 되므로 오늘로 연다.
   const dateParam = dateKeyOf(searchParams.get("date"));
   const dateKey = dateParam !== null && dateParam <= todayKey ? dateParam : todayKey;
@@ -73,7 +76,7 @@ export function ManualRecordPage() {
   const startMs =
     rawStart !== null &&
     Number.isFinite(new Date(rawStart).getTime()) &&
-    kstDateKey(new Date(rawStart)) === dateKey
+    localDateKey(new Date(rawStart)) === dateKey
       ? rawStart
       : undefined;
   const isEdit = editId !== null;
@@ -97,7 +100,7 @@ export function ManualRecordPage() {
   const startKey =
     edited?.submissionStartedAt === undefined
       ? null
-      : kstDateKey(new Date(edited.submissionStartedAt));
+      : localDateKey(new Date(edited.submissionStartedAt));
   const prevKey = startKey !== null && startKey < dateKey ? startKey : null;
   const prev = useQuery({
     ...dailyStatsQuery(userId ?? 0, prevKey ?? ""),
@@ -217,18 +220,16 @@ export function ManualRecordPage() {
 
   return (
     <main className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col overflow-x-hidden text-foreground">
-      <ScreenBackHeader title={isEdit ? "기록 수정" : "시간 직접 입력"} onBack={leave} />
+      <ScreenBackHeader title={isEdit ? t("page.titleEdit") : t("page.titleAdd")} onBack={leave} />
 
       <div className="flex flex-1 flex-col px-5 pt-3">
         {identityPending ? (
           <FormSkeleton />
         ) : userId === null || !canWrite ? (
-          <p className="text-sm text-muted-foreground">
-            기기 등록 전이에요. 앱에서 열면 기록이 저장돼요
-          </p>
+          <p className="text-sm text-muted-foreground">{t("page.unregistered")}</p>
         ) : blocked ? (
           <ErrorState
-            message="기록을 불러오지 못했어요"
+            message={t("page.loadFailed")}
             onRetry={() => {
               for (const query of failed) {
                 void query.refetch();

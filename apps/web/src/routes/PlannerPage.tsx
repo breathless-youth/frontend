@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import type { StudySessionSummary } from "@focusmakers/types";
@@ -20,11 +21,7 @@ import { PlannerTimetable } from "@/features/planner/PlannerTimetable";
 import { plannerEntryOf } from "@/features/planner/useOpenPlanner";
 import { usePlannerDay } from "@/features/planner/usePlannerDay";
 import { PeriodNav, PeriodNavPickerButton } from "@/features/records/PeriodNav";
-import {
-  addDaysToDateKey,
-  dayTitleWithWeekday,
-  kstDateKey,
-} from "@/features/records/recordsFormat";
+import { addDaysToDateKey, dayTitleWithWeekday } from "@/features/records/recordsFormat";
 import { useHorizontalSwipe } from "@/features/records/useHorizontalSwipe";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { trackPlannerDateChanged, trackPlannerOpened } from "@/lib/amplitude";
@@ -36,6 +33,7 @@ import { listSubjects } from "@/lib/subjectApi";
 import { showToast } from "@/lib/toast";
 import { hasTokenSource, useUserId } from "@/lib/userId";
 import { whenIdle } from "@/lib/whenIdle";
+import { localDateKey } from "@/lib/dateKey";
 
 /**
  * 날짜 선택 시트는 시트 부품(Base UI)과 함께 따로 받는다.
@@ -59,12 +57,13 @@ const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
  * 탭 바 없는 전체 화면 라우트다(`/planner?date=YYYY-MM-DD`, `lib/nativeTabBar.ts`).
  */
 export function PlannerPage() {
+  const { t } = useTranslation("planner");
   const userId = useUserId();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const todayKey = kstDateKey();
+  const todayKey = localDateKey();
   const requested = searchParams.get("date");
   // 날짜가 없거나 형식이 틀리면 오늘 플래너를 연다. 모양만 맞고 달력에 없는 날짜(2020-13-45)는
   // 날짜 계산을 한 바퀴 돌리면 다른 날짜가 되므로 그것으로 걸러 낸다.
@@ -115,7 +114,7 @@ export function PlannerPage() {
     if (first !== undefined) {
       openManualRecord({
         kind: "edit",
-        dateKey: kstDateKey(new Date(first.startedAt)),
+        dateKey: localDateKey(new Date(first.startedAt)),
         entry: "planner_cell",
         id: first.id,
       });
@@ -138,7 +137,7 @@ export function PlannerPage() {
     // 한 장이 05시~다음 날 05시라 새벽 줄은 다음 달력 날짜의 기록이다.
     openManualRecord({
       kind: "add",
-      dateKey: kstDateKey(new Date(cellStartMs)),
+      dateKey: localDateKey(new Date(cellStartMs)),
       entry: "planner_cell",
       startMs: cellStartMs,
     });
@@ -209,8 +208,8 @@ export function PlannerPage() {
           // 꺾쇠(36px)와 날짜 글자가 상단 바 가운데에 온다. 날짜를 누르면 날짜 선택 시트가 열린다.
           <PeriodNav
             compact
-            prevLabel="전날"
-            nextLabel="다음 날"
+            prevLabel={t("page.prevDay")}
+            nextLabel={t("page.nextDay")}
             onPrev={() => changeDate(-1, "button")}
             onNext={() => changeDate(1, "button")}
           >
@@ -270,9 +269,7 @@ export function PlannerPage() {
 
         <div className="pt-3.5">
           {userId === null ? (
-            <p className="text-sm text-muted-foreground">
-              기기 등록 전이에요. 앱에서 열면 기록이 저장돼요
-            </p>
+            <p className="text-sm text-muted-foreground">{t("page.unregistered")}</p>
           ) : state.status === "pending" ? (
             <div className="flex gap-3.5">
               <div className="flex min-w-0 flex-1 flex-col gap-3">
@@ -283,11 +280,7 @@ export function PlannerPage() {
               <Skeleton className="h-90 w-46 rounded-lg" />
             </div>
           ) : state.status === "error" ? (
-            <ErrorState
-              message="플래너를 불러오지 못했어요"
-              onRetry={state.retry}
-              screen="planner"
-            />
+            <ErrorState message={t("page.loadFailed")} onRetry={state.retry} screen="planner" />
           ) : (
             <div className="flex items-start gap-3.5">
               <PlannerSubjects
@@ -320,7 +313,7 @@ export function PlannerPage() {
                     className="h-11 gap-1.5 px-4 text-[15px] leading-4.75"
                   >
                     <Pencil aria-hidden size={16} />
-                    시간 직접 입력
+                    {t("page.manualEntry")}
                   </Button>
                 )}
               </div>

@@ -1,0 +1,107 @@
+{
+  "day": {
+    "today": "오늘",
+    "yesterday": "어제"
+  },
+  "frame": {
+    "watermark": "포커스 메이커스",
+    "focusTime": "순공 {{duration}}",
+    "focusRate": "집중률 {{rate}}%",
+    "streak": "{{count}}일 연속 공부 🔥"
+  },
+  "recent": {
+    "title": "최근 타임랩스",
+    "more": "더보기",
+    "focusTime": "순공 {{duration}}"
+  },
+  "empty": {
+    "body": "공부를 완료하고 공부한 모습을 공유해보세요"
+  },
+  "preview": {
+    "placeholder": "공부 중 화면"
+  },
+  "player": {
+    "aria": {
+      "play": "타임랩스 재생",
+      "pause": "타임랩스 일시정지"
+    }
+  },
+  "resultCard": {
+    "title": "타임랩스",
+    "info": "타임랩스 촬영은 설정에서 언제든 끌 수 있어요",
+    "building": "만드는 중 {{percent}}%",
+    "download": "다운로드",
+    "share": "공유하기",
+    "aria": {
+      "info": "타임랩스 안내",
+      "share": "타임랩스 공유하기"
+    }
+  },
+  "share": {
+    "title": "공유하기",
+    "brand": "포커스 메이커스",
+    "openSettings": "설정 열기",
+    "text": "포커스 메이커스와 함께한 공부 모습이에요\n{{url}}",
+    "status": {
+      "updateApp": "앱을 업데이트하면 저장하고 공유할 수 있어요",
+      "preparing": "공유할 영상을 생성하고 있어요",
+      "unsupported": "이 기기에서는 영상을 만들 수 없어요",
+      "buildFailed": "영상을 만들지 못했어요"
+    },
+    "target": {
+      "save": "저장하기",
+      "instagram": "인스타그램",
+      "kakao": "카카오톡",
+      "more": "더 보기"
+    },
+    "notice": {
+      "shareFailed": "공유하지 못했어요. 다시 시도해 주세요",
+      "saved": "사진 앱에 저장했어요",
+      "denied": "사진 접근 권한이 꺼져 있어요",
+      "saveFailed": "저장하지 못했어요. 다시 시도해 주세요"
+    },
+    "aria": {
+      "progress": "영상 생성 진행률"
+    }
+  },
+  "list": {
+    "title": "최근 타임랩스",
+    "retention": "최근 7일 동안 최대 7개까지 기기 내에 보관돼요",
+    "focusTime": "순공 {{duration}}",
+    "summary": "총 공부 {{duration}} · 집중률 {{rate}}%",
+    "deleteFailed": "삭제하지 못했어요",
+    "aria": {
+      "delete": "{{label}} 타임랩스 삭제"
+    }
+  },
+  "deleteDialog": {
+    "title": "타임랩스 삭제",
+    "body": "정말 삭제하시겠어요?",
+    "confirm": "삭제"
+  },
+  "settings": {
+    "title": "타임랩스",
+    "preview": "미리보기",
+    "save": {
+      "label": "타임랩스 저장",
+      "tooltip": "기기 내에만 최대 7일, 7개까지 보관돼요."
+    },
+    "aspect": {
+      "label": "영상 비율",
+      "portrait": "세로 9:16",
+      "landscape": "가로 16:9"
+    },
+    "info": {
+      "title": "영상에 넣을 정보",
+      "faceMask": "얼굴 가림",
+      "flowBar": "집중 흐름 바",
+      "date": "날짜",
+      "focusTime": "순공 시간",
+      "focusRate": "집중률",
+      "dday": "D-Day",
+      "streak": "연속 공부",
+      "ddayMissing": "디데이 설정 필요",
+      "faceMaskTooltip": "내 얼굴만 가려요. 함께 찍힌 다른 사람은 가려지지 않아요."
+    }
+  }
+}

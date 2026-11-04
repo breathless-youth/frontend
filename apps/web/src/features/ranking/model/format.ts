@@ -1,8 +1,12 @@
 import type { RankingPeriod, RankingRecordType, RankingType, TimeSlot } from "@focusmakers/types";
 
-import { addDaysToDateKey, dayOfDateKey, monthOfDateKey } from "@/features/records/recordsFormat";
+import { addDaysToDateKey, dayOfDateKey, formatMonthDay } from "@/features/records/recordsFormat";
+import i18n from "@/lib/i18n";
 
-import { PERIOD_LABEL, SLOT_LABEL, type BoardIdentity } from "./board";
+import { periodLabel, typeLabel, type BoardIdentity } from "./board";
+import { slotName } from "./labels";
+
+export { formatMonthDay };
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -36,11 +40,13 @@ export function formatClock(totalSec: number): string {
 function formatTotalTime(sec: number): string {
   const totalMinutes = Math.max(1, Math.floor(sec / 60));
   if (totalMinutes < 60) {
-    return `${totalMinutes}분`;
+    return i18n.t("common:duration.minutes", { minutes: totalMinutes });
   }
-  const hours = `${formatRank(Math.floor(totalMinutes / 60))}시간`;
+  const hours = formatRank(Math.floor(totalMinutes / 60));
   const minutes = totalMinutes % 60;
-  return minutes === 0 ? hours : `${hours} ${minutes}분`;
+  return minutes === 0
+    ? i18n.t("common:duration.hours", { hours })
+    : i18n.t("common:duration.hoursMinutes", { hours, minutes });
 }
 
 export function formatValue(type: RankingType, value: number): string {
@@ -53,7 +59,7 @@ export function formatValue(type: RankingType, value: number): string {
     case "FOCUS_RATE":
       return `${value.toFixed(1)}%`;
     default:
-      return `${formatRank(value)}일`;
+      return i18n.t("ranking:format.days", { count: value, days: formatRank(value) });
   }
 }
 
@@ -65,11 +71,13 @@ export function formatValue(type: RankingType, value: number): string {
 export function formatGapDuration(sec: number): string {
   const totalMinutes = Math.max(1, Math.ceil(sec / 60));
   if (totalMinutes < 60) {
-    return `${totalMinutes}분`;
+    return i18n.t("common:duration.minutes", { minutes: totalMinutes });
   }
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
-  return minutes === 0 ? `${hours}시간` : `${hours}시간 ${minutes}분`;
+  return minutes === 0
+    ? i18n.t("common:duration.hours", { hours })
+    : i18n.t("common:duration.hoursMinutes", { hours, minutes });
 }
 
 /**
@@ -83,7 +91,10 @@ export function formatGap(type: RankingType, gap: number): string {
       return `${gap.toFixed(1)}%`;
     case "TOTAL_DAYS":
     case "MAX_STREAK":
-      return `${formatRank(Math.max(1, gap))}일`;
+      return i18n.t("ranking:format.days", {
+        count: Math.max(1, gap),
+        days: formatRank(Math.max(1, gap)),
+      });
     default:
       return formatGapDuration(gap);
   }
@@ -102,7 +113,7 @@ export function formatDeadline(
     return null;
   }
   if (board.period === "DAILY") {
-    return "00시 마감";
+    return i18n.t("ranking:deadline.midnight");
   }
   const remain = Math.max(0, Date.parse(board.closesAt) - serverNow);
   const days = Math.floor(remain / DAY_MS);
@@ -110,17 +121,29 @@ export function formatDeadline(
   const minutes = Math.floor((remain % HOUR_MS) / MINUTE_MS);
   if (days > 0) {
     // 올리면 남은 시간이 실제보다 길어 보여 마감을 놓치게 하므로 일 단위는 내린다.
-    return `마감 ${days}일 전`;
+    return i18n.t("ranking:deadline.days", { count: days });
   }
   if (hours > 0) {
-    return minutes === 0 ? `마감 ${hours}시간 전` : `마감 ${hours}시간 ${minutes}분 전`;
+    return minutes === 0
+      ? i18n.t("ranking:deadline.hours", { count: hours })
+      : i18n.t("ranking:deadline.hoursMinutes", { hours, minutes });
   }
   const roundedMinutes = Math.max(1, Math.ceil(remain / MINUTE_MS));
-  return roundedMinutes < 60 ? `마감 ${roundedMinutes}분 전` : "마감 1시간 전";
+  return roundedMinutes < 60
+    ? i18n.t("ranking:deadline.minutes", { count: roundedMinutes })
+    : i18n.t("ranking:deadline.hours", { count: 1 });
 }
 
-export function formatMonthDay(dateKey: string): string {
-  return `${monthOfDateKey(dateKey).month}월 ${dayOfDateKey(dateKey)}일`;
+const monthFormatters = new Map<string, Intl.DateTimeFormat>();
+
+/** 달 이름(`10월`, `October`). `dateKey`는 `yyyy-MM`이나 `yyyy-MM-dd`. */
+export function monthName(dateKey: string): string {
+  let formatter = monthFormatters.get(i18n.language);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(i18n.language, { month: "long", timeZone: "UTC" });
+    monthFormatters.set(i18n.language, formatter);
+  }
+  return formatter.format(new Date(`${dateKey.slice(0, 7)}-01T00:00:00Z`));
 }
 
 /**
@@ -131,7 +154,10 @@ export function formatMonthDay(dateKey: string): string {
  */
 export function weekOfMonthLabel(mondayKey: string): string {
   const thursday = addDaysToDateKey(mondayKey, 3);
-  return `${monthOfDateKey(thursday).month}월 ${Math.ceil(dayOfDateKey(thursday) / 7)}주`;
+  return i18n.t("ranking:format.weekOfMonth", {
+    month: monthName(thursday),
+    week: Math.ceil(dayOfDateKey(thursday) / 7),
+  });
 }
 
 /**
@@ -147,9 +173,9 @@ export function recordMonthKey(record: { period: RankingPeriod; periodStart: str
 
 export function recordName(record: { type: RankingRecordType; slot: TimeSlot | null }): string {
   if (record.type === "TIME_SLOT") {
-    return record.slot === null ? "시간대" : `${SLOT_LABEL[record.slot]} 구간`;
+    return slotName(record);
   }
-  return record.type === "FOCUS_RATE" ? "집중률" : "순공";
+  return typeLabel(record.type === "FOCUS_RATE" ? "FOCUS_RATE" : "FOCUS_TIME");
 }
 
 export function recordPeriodShort(record: { period: RankingPeriod; periodStart: string }): string {
@@ -159,12 +185,12 @@ export function recordPeriodShort(record: { period: RankingPeriod; periodStart: 
     case "WEEKLY":
       return weekOfMonthLabel(record.periodStart);
     case "MONTHLY":
-      return `${monthOfDateKey(record.periodStart).month}월`;
+      return monthName(record.periodStart);
   }
 }
 
 export function recordPeriod(record: { period: RankingPeriod; periodStart: string }): string {
-  return `${PERIOD_LABEL[record.period]} · ${recordPeriodShort(record)}`;
+  return `${periodLabel(record.period)} · ${recordPeriodShort(record)}`;
 }
 
 export function recordValue(record: { type: RankingRecordType; value: number }): string {

@@ -340,7 +340,7 @@ export function createObjectDetector(
           return null;
         }
         consecutiveFailures += 1;
-        console.warn(`[vision] 추론 실패 (${consecutiveFailures}회 연속)`, error);
+        console.warn(`[vision] inference failed (${consecutiveFailures} in a row)`, error);
         if (consecutiveFailures >= MAX_CONSECUTIVE_DETECT_FAILURES) {
           // 포기가 확정되는 이 시점에만 전송한다 — 프레임마다 보내면 한 세션이 수백 건을 만든다.
           reportHandled(error, "vision-frame-loop");

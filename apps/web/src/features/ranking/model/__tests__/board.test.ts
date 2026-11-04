@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import { mockDeviceTimeZone } from "@/test/deviceTimeZone";
+
 import {
   DEFAULT_HALL_BOARD,
   DEFAULT_RANKING_BOARD,
   LIVE_SLOTS,
-  SLOT_SUBJECT,
   boardKeyOf,
   boardParams,
   currentSlot,
@@ -17,6 +18,7 @@ import {
   selectSlot,
   selectType,
   selectionOfRecord,
+  slotSubject,
 } from "../board";
 
 /** KST 시각을 UTC ms로 바꾼다. */
@@ -144,6 +146,12 @@ describe("지금 구간 (KST)", () => {
   it("시각을 읽지 못하면 새벽으로 본다", () => {
     expect(currentSlot(Number.NaN)).toBe("NIGHT");
   });
+
+  it("기기 시간대가 뉴욕이어도 KST 시로 고른다", () => {
+    mockDeviceTimeZone("America/New_York");
+    // KST 10월 10일 06:00은 뉴욕 10월 9일 17:00이다.
+    expect(currentSlot(kst("2026-10-10T06:00:00"))).toBe("MORNING");
+  });
 });
 
 describe("지금 구간이 아닌 시간대 판", () => {
@@ -205,7 +213,8 @@ describe("기록에서 판 만들기", () => {
 
 describe("구간 이름 조사", () => {
   it("구간 이름에 주격 조사를 붙인다", () => {
-    expect(SLOT_SUBJECT).toEqual({
+    const slots = ["NIGHT", "MORNING", "AFTERNOON", "EVENING", "DAWN"] as const;
+    expect(Object.fromEntries(slots.map((slot) => [slot, slotSubject(slot)]))).toEqual({
       NIGHT: "새벽이",
       MORNING: "아침이",
       AFTERNOON: "점심이",

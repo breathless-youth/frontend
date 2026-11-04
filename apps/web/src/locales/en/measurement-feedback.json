@@ -1,0 +1,19 @@
+{
+  "title": "How was this measurement?",
+  "reasonDescription": "Pick one",
+  "rating": {
+    "good": "Good",
+    "meh": "Okay",
+    "bad": "Not great"
+  },
+  "reasonTitle": {
+    "meh": "Anything that felt a bit off?",
+    "bad": "What felt off?"
+  },
+  "reason": {
+    "under": "It counted less than I studied",
+    "over": "It counted more than I studied",
+    "unclear": "I don't understand the result",
+    "missing_info": "Info I want isn't shown"
+  }
+}

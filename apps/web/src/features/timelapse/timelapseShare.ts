@@ -2,6 +2,7 @@ import type { VideoResultStatus, VideoShareTarget } from "@focusmakers/types";
 
 import { trackOsSettingsOpened, trackTimelapseShareTapped } from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
+import i18n from "@/lib/i18n";
 import {
   canUseNativeVideo,
   saveVideoNatively,
@@ -170,18 +171,18 @@ export function shareResultNotice(
   if (action === "share") {
     return result === "shared" || result === "dismissed"
       ? null
-      : { text: "공유하지 못했어요. 다시 시도해 주세요" };
+      : { text: i18n.t("timelapse:share.notice.shareFailed") };
   }
   if (route === "browser" && result === "saved") {
     return null;
   }
   switch (result) {
     case "saved":
-      return { text: "사진 앱에 저장했어요" };
+      return { text: i18n.t("timelapse:share.notice.saved") };
     case "denied":
-      return { text: "사진 접근 권한이 꺼져 있어요", openSettings: true };
+      return { text: i18n.t("timelapse:share.notice.denied"), openSettings: true };
     case "failed":
-      return { text: "저장하지 못했어요. 다시 시도해 주세요" };
+      return { text: i18n.t("timelapse:share.notice.saveFailed") };
     default:
       return null;
   }

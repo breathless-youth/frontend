@@ -478,19 +478,19 @@ describe("setInstallAttributionUserProperties", () => {
     expect(mocks.identify).not.toHaveBeenCalled();
   });
 
-  it("처음 들어온 경로만 남도록 setOnce로 보낸다", async () => {
+  it("서버가 첫 값을 지키므로 set으로 보내 웹이 먼저 남긴 값도 바로잡는다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const { initAmplitude, setInstallAttributionUserProperties } = await loadModule();
     initAmplitude();
 
-    setInstallAttributionUserProperties({ install_source: "meta_ad", install_ad: "aos_v1" });
+    setInstallAttributionUserProperties({ install_source: "google_ad", install_ad: "g_planner" });
 
     const [sent] = mocks.identify.mock.calls[0] as [InstanceType<typeof mocks.FakeIdentify>];
-    expect(sent.setOnces).toEqual([
-      ["install_source", "meta_ad"],
-      ["install_ad", "aos_v1"],
+    expect(sent.sets).toEqual([
+      ["install_source", "google_ad"],
+      ["install_ad", "g_planner"],
     ]);
-    expect(sent.sets).toEqual([]);
+    expect(sent.setOnces).toEqual([]);
   });
 });
 
@@ -984,6 +984,9 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     m.trackRecordsWeekChanged(-1, "swipe");
     m.trackRecordsPeriodPickerOpened("daily");
     m.trackRecordsPeriodPicked({ view: "weekly", toToday: true });
+    m.trackRecordsRhythmShown({ state: "mine", studyDays: 22 });
+    m.trackRecordsRhythmShown({ state: "sample", reason: "below_threshold", studyDays: 13 });
+    m.trackRecordsRhythmShown({ state: "sample", reason: "error" });
     m.trackPlannerOpened({ via: "records", isToday: false });
     m.trackPlannerDateChanged({ delta: -1, method: "swipe" });
     m.trackSubjectItemAdded("task", false, "social");
@@ -991,6 +994,7 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     m.trackSettingsRowPressed("profile");
     m.trackTimelapseSettingChanged({ setting: "aspect", value: "16:9" });
     m.trackTimelapseSettingChanged({ setting: "face_mask", value: true });
+    m.trackTimelapseSettingChanged({ setting: "face_mask_emoji", value: "cat" });
     m.trackProfileSaveSubmitted({ nickname: true, goal: true, category: false });
     m.trackProfileSaveResult({ ok: false, reason: "CONFLICT" });
     m.trackProfileSaveResult({ ok: true });
@@ -1010,6 +1014,9 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
       ["records_week_changed", { delta: -1, method: "swipe" }],
       ["records_period_picker_opened", { view: "daily" }],
       ["records_period_picked", { view: "weekly", to_today: true }],
+      ["records_rhythm_shown", { state: "mine", study_days: 22 }],
+      ["records_rhythm_shown", { state: "sample", reason: "below_threshold", study_days: 13 }],
+      ["records_rhythm_shown", { state: "sample", reason: "error" }],
       ["planner_opened", { via: "records", is_today: false }],
       ["planner_date_changed", { delta: -1, method: "swipe" }],
       [
@@ -1020,6 +1027,7 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
       ["settings_row_pressed", { row: "profile" }],
       ["timelapse_setting_changed", { setting: "aspect", value: "16:9" }],
       ["timelapse_setting_changed", { setting: "face_mask", value: true }],
+      ["timelapse_setting_changed", { setting: "face_mask_emoji", value: "cat" }],
       [
         "profile_save_submitted",
         { changed_nickname: true, changed_goal: true, changed_category: false },
@@ -1136,7 +1144,13 @@ describe("카메라 확인 창 이벤트", () => {
     const m = await loadModule();
 
     m.trackStudySessionCameraPromptShown("single");
-    m.trackStudySessionCameraPromptAnswered({ choice: "camera", roomType: "single" });
+    m.trackStudySessionFaceMaskToggled({ on: true, roomType: "single" });
+    m.trackStudySessionFaceMaskEmojiSelected({ emojiId: "cat", roomType: "single" });
+    m.trackStudySessionCameraPromptAnswered({
+      choice: "camera",
+      roomType: "single",
+      faceMask: false,
+    });
 
     expect(mocks.track).not.toHaveBeenCalled();
   });
@@ -1147,11 +1161,22 @@ describe("카메라 확인 창 이벤트", () => {
     m.initAmplitude();
 
     m.trackStudySessionCameraPromptShown("single");
-    m.trackStudySessionCameraPromptAnswered({ choice: "simple", roomType: "single" });
+    m.trackStudySessionFaceMaskToggled({ on: true, roomType: "single" });
+    m.trackStudySessionFaceMaskEmojiSelected({ emojiId: "cat", roomType: "single" });
+    m.trackStudySessionCameraPromptAnswered({
+      choice: "simple",
+      roomType: "single",
+      faceMask: true,
+    });
 
     expect(mocks.track.mock.calls).toEqual([
       ["study_session_camera_prompt_shown", { room_type: "single" }],
-      ["study_session_camera_prompt_answered", { choice: "simple", room_type: "single" }],
+      ["study_session_face_mask_toggled", { on: true, room_type: "single" }],
+      ["study_session_face_mask_emoji_selected", { emoji_id: "cat", room_type: "single" }],
+      [
+        "study_session_camera_prompt_answered",
+        { choice: "simple", room_type: "single", face_mask: true },
+      ],
     ]);
   });
 });
@@ -2089,5 +2114,48 @@ describe("프로필 사진 이벤트", () => {
         expect(value).toMatch(ANALYTICS_PARAM_VALUE_PATTERN);
       }
     }
+  });
+});
+
+describe("순공 1분 달성 (focus_milestone_reached)", () => {
+  afterEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it("처음 한 번만 focus_milestone_reached를 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackFocusMilestoneReached } = await loadModule();
+    initAmplitude();
+    mocks.track.mockClear();
+
+    trackFocusMilestoneReached("single");
+    trackFocusMilestoneReached("social");
+
+    expect(mocks.track).toHaveBeenCalledTimes(1);
+    expect(mocks.track).toHaveBeenCalledWith("focus_milestone_reached", { room_type: "single" });
+  });
+
+  it("저장소를 못 쓰면 표시 없이 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackFocusMilestoneReached } = await loadModule();
+    initAmplitude();
+    mocks.track.mockClear();
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("denied", "SecurityError");
+    });
+
+    trackFocusMilestoneReached("single");
+
+    expect(mocks.track).toHaveBeenCalledWith("focus_milestone_reached", { room_type: "single" });
+  });
+
+  it("미초기화 상태에서는 보내지도 표시하지도 않는다", async () => {
+    const { trackFocusMilestoneReached } = await loadModule();
+
+    trackFocusMilestoneReached("single");
+
+    expect(mocks.track).not.toHaveBeenCalled();
+    expect(localStorage.getItem("focusmakers:focus-milestone-tracked")).toBeNull();
   });
 });

@@ -1,0 +1,153 @@
+{
+  "format": {
+    "summaryTitle": "{{date}} 학습 요약",
+    "sessionMeta": "{{start}} – {{end}} · 총 {{duration}}",
+    "sessionCount": "{{count}}회",
+    "todayHeadline": "오늘 순공시간",
+    "dayHeadline": "{{date}} 순공시간",
+    "dayTitle": "{{date}} {{weekday}}"
+  },
+  "unit": {
+    "hours": "시간",
+    "minutes": "분",
+    "seconds": "초"
+  },
+  "eventChip": {
+    "away": "자리 이탈 {{count}}회",
+    "phone": "휴대폰 {{count}}회",
+    "device": "기기 조작 {{count}}회",
+    "sleep": "졸음 {{count}}회",
+    "pause": "일시정지 {{count}}회"
+  },
+  "weekRange": {
+    "sameMonth": "{{start}} ~ {{day}}일",
+    "crossMonth": "{{start}} ~ {{end}}"
+  },
+  "relativeWeek": {
+    "thisWeek": "이번 주",
+    "lastWeek": "지난주",
+    "weeksAgo": "{{count}}주 전"
+  },
+  "streak": {
+    "title": "{{count}}일 연속 공부 중",
+    "subtitle": "내일도 5분만 하면 이어져요",
+    "aria": {
+      "day": "{{weekday}}, {{state}}",
+      "today": "오늘",
+      "done": "공부함",
+      "none": "기록 없음"
+    }
+  },
+  "week": {
+    "headline": "주간 순공시간",
+    "aria": {
+      "prev": "이전 주",
+      "next": "다음 주"
+    }
+  },
+  "headline": {
+    "total": "총 {{duration}}"
+  },
+  "rhythm": {
+    "title": "나의 공부 리듬",
+    "badge": "집중 리포트 준비 중",
+    "emptyTitle": "기록이 쌓이면 표시돼요",
+    "sampleNotice": "지금은 샘플 데이터가 표시돼요",
+    "legendLow": "적음",
+    "legendHigh": "많음",
+    "peakTitle": "{{range}}에 집중했어요",
+    "peakSubtitle": "{{days}}일 동안 집중한 시간을 모았어요",
+    "range": "{{period}} {{from12}}~{{to12}}시",
+    "rangeCrossNoon": "오전 {{from12}}시~오후 {{to12}}시",
+    "period": {
+      "morning": "아침",
+      "forenoon": "오전",
+      "afternoon": "오후",
+      "evening": "저녁",
+      "night": "밤",
+      "dawn": "새벽"
+    }
+  },
+  "calendar": {
+    "dailyAverage": "하루 평균",
+    "monthTotal": "{{month}} 총 시간",
+    "aria": {
+      "day": "{{day}}일, {{record}}",
+      "todayDay": "오늘, {{day}}일, {{record}}",
+      "focus": "순공 {{duration}}",
+      "noRecord": "기록 없음",
+      "legend": "순공시간 범례, 숫자는 그 시간 이상"
+    }
+  },
+  "weekly": {
+    "error": "주간 추이를 불러오지 못했어요"
+  },
+  "sessionItem": {
+    "focusRate": "집중 {{rate}}",
+    "startTime": "시작 시간",
+    "endTime": "종료 시간",
+    "longestFocus": "최대 집중 시간",
+    "underMinute": "1분 미만",
+    "aria": {
+      "summary": "{{start}}부터 {{end}}까지, 순공 {{focus}}, 집중 {{rate}}"
+    }
+  },
+  "manualItem": {
+    "badge": "직접 입력",
+    "start": "시작",
+    "end": "종료",
+    "subject": "과목",
+    "edit": "수정"
+  },
+  "picker": {
+    "today": "오늘",
+    "monthTitle": "달 선택",
+    "weekTitle": "주 선택",
+    "dayTitle": "날짜 선택",
+    "year": "{{year}}년",
+    "aria": {
+      "prevYear": "이전 해",
+      "nextYear": "다음 해",
+      "prevMonth": "이전 달",
+      "nextMonth": "다음 달",
+      "today": "오늘, {{date}}"
+    }
+  },
+  "trend": {
+    "dailyAverage": "하루 평균",
+    "noRecord": "기록 없음",
+    "compare": {
+      "more": "지난주보다 <delta>{{duration}}</delta> 더 공부했어요",
+      "moreInProgress": "지난주보다 <delta>{{duration}}</delta> 더 공부하는 중",
+      "less": "지난주보다 <delta>{{duration}}</delta> 덜 공부했어요",
+      "lessInProgress": "지난주보다 <delta>{{duration}}</delta> 덜 공부하는 중",
+      "onlyThisWeek": "이번 주 <total>{{duration}}</total> 공부하는 중",
+      "onlyViewedWeek": "이 주에 <total>{{duration}}</total> 공부했어요",
+      "noThisWeek": "이번 주 기록이 아직 없어요",
+      "noViewedWeek": "이 주는 기록이 없어요",
+      "empty": "아직 기록이 없어요"
+    },
+    "caption": {
+      "untilWeekday": "지난주 {{weekday}}까지와 비교했어요",
+      "twoWeeks": "{{current}}과 {{previous}}을 비교했어요",
+      "noPrevious": "{{previous}} 기록이 없어 {{current}} 기록만 표시했어요",
+      "noCurrent": "{{previous}} 기록만 표시했어요",
+      "empty": "공부를 시작하고 패턴을 확인해보세요"
+    },
+    "aria": {
+      "chart": "요일별 순공시간"
+    }
+  },
+  "page": {
+    "title": "기록",
+    "daily": "일간",
+    "weekly": "주간",
+    "unregistered": "기기 등록 전이에요. 앱에서 열면 기록이 저장돼요"
+  },
+  "daily": {
+    "error": "기록을 불러오지 못했어요",
+    "manualEntry": "시간 직접 입력",
+    "empty": "이 날은 기록이 없어요",
+    "emptyHint": "집중을 시작하면 여기에 쌓여요"
+  }
+}

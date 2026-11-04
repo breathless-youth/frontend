@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 import cameraIcon from "@/assets/icons/session-camera.svg";
 import cameraOffIcon from "@/assets/icons/session-camera-off.svg";
@@ -50,7 +51,8 @@ export function RoomControlBar({
   onToggleCamera,
   onExit,
 }: RoomControlBarProps) {
-  const cameraLabel = cameraOn ? "카메라 끄기" : "카메라 켜기";
+  const { t } = useTranslation("live-room");
+  const cameraLabel = cameraOn ? t("controls.cameraOff") : t("controls.cameraOn");
   // 앱 버튼은 바 밖 층에 그려져 바의 이동과 누름 잠금이 닿지 않아서 숨김은 흐림으로, 잠금은 비활성으로 보낸다.
   const nativeLock = { disabled: disabled || inactive, faded: hidden };
   const { ref: cameraRef } = useNativeControl<HTMLButtonElement>(
@@ -74,7 +76,7 @@ export function RoomControlBar({
       title: null,
       systemImage: "rectangle.portrait.and.arrow.right",
       shape: "circle",
-      accessibilityLabel: "나가기",
+      accessibilityLabel: t("controls.exit"),
       tone: "danger",
       ...nativeLock,
     },
@@ -126,7 +128,7 @@ export function RoomControlBar({
       <button
         ref={exitRef}
         type="button"
-        aria-label="나가기"
+        aria-label={t("controls.exit")}
         onPointerDown={playPressPop}
         disabled={disabled}
         onClick={onExit}

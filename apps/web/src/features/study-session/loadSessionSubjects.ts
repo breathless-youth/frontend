@@ -2,11 +2,12 @@ import type { StudySessionListResponse, SubjectResponse } from "@focusmakers/typ
 
 import { EMPTY_STATS, assemblePlannerDay, plannerDateKeyOf } from "@/features/planner/plannerDay";
 import { plannerSubjectItems } from "@/features/planner/subjectItems";
-import { addDaysToDateKey, kstDateKey } from "@/features/records/recordsFormat";
+import { addDaysToDateKey } from "@/features/records/recordsFormat";
 import { queryClient } from "@/lib/queryClient";
 import { reportHandled } from "@/lib/sentry";
 import { dailyStatsQuery } from "@/lib/statsQueries";
 import { listSubjects } from "@/lib/subjectApi";
+import { localDateKey } from "@/lib/dateKey";
 
 /**
  * 세션 화면의 과목 목록
@@ -29,7 +30,7 @@ export async function loadSessionSubjects(
     listSubjects(),
     fetchDay(userId, dateKey),
     // 아직 오지 않은 날짜는 기록이 있을 수 없어 조회하지 않는다.
-    nextKey > kstDateKey(now) ? EMPTY_STATS : fetchDay(userId, nextKey),
+    nextKey > localDateKey(now) ? EMPTY_STATS : fetchDay(userId, nextKey),
   ]);
   const todayFocus = todayFocusBySubject(dateKey, day, next, subjects);
   return subjects.map((subject) => ({ ...subject, focusSec: todayFocus.get(subject.id) ?? 0 }));

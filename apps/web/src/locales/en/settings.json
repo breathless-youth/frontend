@@ -1,0 +1,51 @@
+{
+  "title": "Settings",
+  "sections": {
+    "profile": "Profile",
+    "service": "General",
+    "support": "Support",
+    "legal": "About"
+  },
+  "rows": {
+    "editProfile": "Edit profile",
+    "cameraPermission": "Camera access",
+    "timelapse": "Timelapse",
+    "appLock": "App blocking",
+    "contact": "Contact us",
+    "interview": "Sign up for an interview",
+    "interviewBadge": "Gift card",
+    "terms": "Terms of service",
+    "privacy": "Privacy policy",
+    "licenses": "Open-source licenses",
+    "version": "Version"
+  },
+  "cameraPermission": {
+    "tooltip": "You can change this in system settings",
+    "aria": {
+      "tooltip": "About camera access",
+      "granted": "Camera access, allowed, open system settings",
+      "denied": "Camera access, not allowed, open system settings"
+    }
+  },
+  "version": {
+    "copied": "Version copied",
+    "copyFailed": "Couldn't copy"
+  },
+  "row": {
+    "aria": {
+      "copy": "Copy {{value}}",
+      "tooltip": "About {{label}}"
+    }
+  },
+  "contact": {
+    "loading": "Loading the contact form",
+    "failure": "Couldn't load the contact form"
+  },
+  "download": {
+    "redirecting": "Taking you to the store…",
+    "manual": "Go to the store"
+  },
+  "legal": {
+    "koreanOnly": "This document is currently available in Korean only."
+  }
+}

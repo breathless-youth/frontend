@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import { cn } from "@/lib/utils";
 
 import { formatTimerRemaining } from "../multiTimerFormat";
@@ -20,6 +22,7 @@ export function TimerPanel({
   soundOn: boolean;
   onChangeSoundOn: (on: boolean) => void;
 }) {
+  const { t } = useTranslation("multi-timer");
   return (
     <div className="flex flex-1 items-center justify-center landscape-compact:contents">
       {/* 휠 높이의 상자에 스위치를 붙여 휠이 남은 시간으로 바뀌어도 스위치는 같은 자리에 있다.
@@ -45,7 +48,7 @@ export function TimerPanel({
               // 1초마다 읽히지 않도록 aria-live는 걸지 않는다.
               <div
                 role="timer"
-                aria-label="남은 시간"
+                aria-label={t("remaining.aria.label")}
                 className={cn(
                   "text-[52px] leading-15 font-bold tracking-[-0.5px] tabular-nums",
                   distracted ? "text-state-distract" : "text-(--session-mode-focus)",

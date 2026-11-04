@@ -99,7 +99,7 @@ export async function loadAmbientSoundSettings(): Promise<AmbientSoundSettings> 
   try {
     return await store.load();
   } catch (error) {
-    console.warn("[ambient-sound] 설정 조회 실패 — 기본값을 쓴다", error);
+    console.warn("[ambient-sound] failed to read settings, using defaults", error);
     return DEFAULT_AMBIENT_SETTINGS;
   }
 }
@@ -109,6 +109,9 @@ export async function saveAmbientSoundSettings(settings: AmbientSoundSettings): 
   try {
     await store.save(settings);
   } catch (error) {
-    console.warn("[ambient-sound] 설정 저장 실패 — 다음 세션에 기억되지 않는다", error);
+    console.warn(
+      "[ambient-sound] failed to save settings, the next session will not remember them",
+      error,
+    );
   }
 }

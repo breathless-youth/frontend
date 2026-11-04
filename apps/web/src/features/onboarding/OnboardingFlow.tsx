@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronLeft } from "lucide-react";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 import iphoneFrame from "@/assets/onboarding/iphone-frame.webp";
 import screenHome from "@/assets/onboarding/screen-home.webp";
@@ -21,21 +22,14 @@ const STEP_OF: Record<Scene, OnboardingStep> = {
   5: "ready",
 };
 
-const TITLES: Record<Scene, [string, string]> = {
-  1: ["카메라만 켜 두면", "순공 시간을 자동으로 측정해요"],
-  2: ["공부하는 동안", "플래너에 자동으로 기록돼요"],
-  3: ["친구를 초대해 6명까지", "함께 집중할 수 있어요"],
-  4: ["집중이 잘 되는 시간에", "맞춤 알림을 보내줄게요"],
-  5: ["준비가 끝났어요", "이제 함께 집중해 볼까요"],
-};
-
-const MOCK_LABELS: Record<Scene, string> = {
-  1: "카메라를 켜 두면 순공 타이머가 흐르고, 집중하지 않으면 멈추는 화면",
-  2: "플래너 타임테이블에 순공이 칸 단위로 채워지는 화면",
-  3: "참여자 6명이 함께 공부하는 소셜룸 화면",
-  4: "기록 탭의 공부 리듬에서 평일 저녁 8~10시가 강조되고 맞춤 알림이 내려오는 화면",
-  5: "홈 화면에서 집중 시작을 누르는 모습",
-};
+/** 단계별 제목 두 줄과 폰 목업 설명은 onboarding 카탈로그의 이 이름 아래에 있다. */
+const COPY_KEY = {
+  1: "autoTimer",
+  2: "autoRecord",
+  3: "groupStudy",
+  4: "notification",
+  5: "ready",
+} as const satisfies Record<Scene, string>;
 
 /**
  * 단계별 폰 자리
@@ -66,10 +60,10 @@ const IS_ANDROID = /Android/i.test(navigator.userAgent);
 const PREV_SCREEN_HOLD_MS = 660;
 
 const DISTRACTION_PILLS = [
-  { label: "자리를 비운 것 같아요", style: { left: -28, top: -9 }, delay: "0s" },
-  { label: "기기를 조작 중인 것 같아요", style: { right: -28, top: 91 }, delay: "0.04s" },
-  { label: "휴대폰을 사용 중인 것 같아요", style: { left: -28, top: 131 }, delay: "0.08s" },
-  { label: "졸고 있는 것 같아요", style: { right: -28, top: 173 }, delay: "0.12s" },
+  { id: "away", style: { left: -28, top: -9 }, delay: "0s" },
+  { id: "device", style: { right: -28, top: 91 }, delay: "0.04s" },
+  { id: "phone", style: { left: -28, top: 131 }, delay: "0.08s" },
+  { id: "drowsy", style: { right: -28, top: 173 }, delay: "0.12s" },
 ] as const;
 
 const SCREEN_IN = "animate-[onboarding-screen-in_0.62s_cubic-bezier(0.23,1,0.32,1)_both]";
@@ -121,11 +115,12 @@ function AppScreen({ src, children }: { src: string; children?: ReactNode }) {
 }
 
 function HomeScreen() {
+  const { t } = useTranslation("onboarding");
   return (
     <AppScreen src={screenHome}>
       <span className="onboarding-press-ring absolute top-133 left-5 h-14 w-87.5 animate-[onboarding-press-ring_2.6s_cubic-bezier(0.23,1,0.32,1)_0.9s_infinite] rounded-2xl opacity-0 motion-reduce:hidden" />
       <span className="absolute top-133 left-5 flex h-14 w-87.5 animate-[onboarding-home-press_2.6s_cubic-bezier(0.4,0,0.2,1)_0.9s_infinite] items-center justify-center rounded-2xl bg-[#3671cf] text-[18px] leading-5.25 font-bold tracking-[0.9px] text-white shadow-sb-cta motion-reduce:animate-none">
-        집중 시작
+        {t("home.focusStart")}
       </span>
       <span className="onboarding-tap-ripple absolute top-133.5 left-61.75 size-13 animate-[onboarding-tap-ripple_2.6s_cubic-bezier(0.23,1,0.32,1)_0.9s_infinite] rounded-full opacity-0 motion-reduce:hidden" />
       <span className="onboarding-tap-dot absolute top-133.5 left-61.75 size-13 animate-[onboarding-tap-dot_2.6s_cubic-bezier(0.4,0,0.2,1)_0.9s_infinite] rounded-full opacity-0 motion-reduce:hidden" />
@@ -149,6 +144,7 @@ function SceneScreen({ scene, away, clock }: { scene: Scene; away: boolean; cloc
 }
 
 function DistractionPills({ away, leaving }: { away: boolean; leaving: boolean }) {
+  const { t } = useTranslation("onboarding");
   return (
     <div
       aria-hidden="true"
@@ -161,7 +157,7 @@ function DistractionPills({ away, leaving }: { away: boolean; leaving: boolean }
     >
       {DISTRACTION_PILLS.map((pill) => (
         <span
-          key={pill.label}
+          key={pill.id}
           className="onboarding-pill absolute inline-flex items-center rounded-full border-[1.5px] border-state-distract px-3 py-1.5 text-xs leading-4 font-medium whitespace-nowrap text-white transition-[opacity,transform] duration-300 motion-reduce:transition-opacity"
           style={{
             ...pill.style,
@@ -170,20 +166,19 @@ function DistractionPills({ away, leaving }: { away: boolean; leaving: boolean }
             transitionDelay: pill.delay,
           }}
         >
-          {pill.label}
+          {t(`pills.${pill.id}`)}
         </span>
       ))}
     </div>
   );
 }
 
-const NOTIF_TITLE = "저녁 8시, 공부할 시간이에요";
-const NOTIF_BODY = "평일 이 시간에 가장 오래 집중했어요";
 const NOTIF_IN =
   "animate-[onboarding-notif-in_0.6s_cubic-bezier(0.23,1,0.32,1)_1s_both] motion-reduce:animate-none";
 
 /** iOS 알림 배너 모양: 큰 앱 아이콘 옆에 제목·시간과 본문 */
 function IosNotification() {
+  const { t } = useTranslation("onboarding");
   return (
     <div
       className={cn(
@@ -195,11 +190,15 @@ function IosNotification() {
       <span className="flex min-w-0 flex-1 flex-col">
         <span className="flex items-baseline justify-between gap-2">
           <span className="truncate text-[16.5px] leading-5.5 font-semibold tracking-[-0.3px]">
-            {NOTIF_TITLE}
+            {t("banner.title")}
           </span>
-          <span className="onboarding-notif-time shrink-0 text-sm leading-4.5">지금</span>
+          <span className="onboarding-notif-time shrink-0 text-sm leading-4.5">
+            {t("banner.now")}
+          </span>
         </span>
-        <span className="text-base leading-5.5 tracking-[-0.3px] break-keep">{NOTIF_BODY}</span>
+        <span className="text-base leading-5.5 tracking-[-0.3px] break-keep">
+          {t("banner.body")}
+        </span>
       </span>
     </div>
   );
@@ -207,6 +206,7 @@ function IosNotification() {
 
 /** Android 헤드업 알림 모양(Material 3): 작은 아이콘·앱 이름·시간 줄 아래 제목·본문, 오른쪽 큰 아이콘 */
 function AndroidNotification() {
+  const { t } = useTranslation("onboarding");
   return (
     <div
       className={cn(
@@ -218,16 +218,16 @@ function AndroidNotification() {
         <img src="/app-icon.png" alt="" className="size-4.5 rounded-full" />
         <span className="font-medium">FocusMakers</span>
         <span>·</span>
-        <span>지금</span>
+        <span>{t("banner.now")}</span>
         <ChevronDown size={14} strokeWidth={2.2} className="ml-auto" aria-hidden="true" />
       </span>
       <span className="flex items-center gap-3 pl-6.25">
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="truncate text-base leading-5.25 font-semibold tracking-[-0.2px]">
-            {NOTIF_TITLE}
+            {t("banner.title")}
           </span>
           <span className="onboarding-notif-android-sub text-[15px] leading-5 tracking-[-0.2px] break-keep">
-            {NOTIF_BODY}
+            {t("banner.body")}
           </span>
         </span>
         <img src="/app-icon.png" alt="" className="size-10 shrink-0 rounded-[10px]" />
@@ -388,6 +388,7 @@ export function OnboardingFlow({
   onAskNotification: () => Promise<void>;
   onFinish: () => void;
 }) {
+  const { t } = useTranslation("onboarding");
   const [scene, setScene] = useState<Scene>(1);
   const [prevScene, setPrevScene] = useState<Scene | null>(null);
   const askingRef = useRef(false);
@@ -429,7 +430,8 @@ export function OnboardingFlow({
 
   const geo = GEO[scene];
   const primaryCta = scene >= 4;
-  const ctaLabel = scene < 4 ? "다음" : scene === 4 ? "알림 받기" : "시작하기";
+  const ctaLabel =
+    scene < 4 ? t("cta.next") : scene === 4 ? t("cta.allowNotification") : t("cta.start");
   const screens = ([1, 2, 3, 4, 5] as const).filter((s) => s === scene || s === prevScene);
 
   return (
@@ -440,7 +442,7 @@ export function OnboardingFlow({
       >
         <button
           type="button"
-          aria-label="이전"
+          aria-label={t("aria.previous")}
           aria-hidden={scene === 1}
           inert={scene === 1}
           onClick={() => {
@@ -462,7 +464,7 @@ export function OnboardingFlow({
         >
           <div
             role="img"
-            aria-label={MOCK_LABELS[scene]}
+            aria-label={t(`${COPY_KEY[scene]}.aria.mock`)}
             className="relative h-179 w-87.5 animate-[onboarding-screen-in_0.5s_cubic-bezier(0.23,1,0.32,1)_both]"
           >
             <div
@@ -523,9 +525,9 @@ export function OnboardingFlow({
                 transitionDelay: active ? "0.12s" : "0s",
               }}
             >
-              {TITLES[s][0]}
+              {t(`${COPY_KEY[s]}.titleTop`)}
               <br />
-              {TITLES[s][1]}
+              {t(`${COPY_KEY[s]}.titleBottom`)}
             </h1>
           );
         })}
@@ -547,7 +549,7 @@ export function OnboardingFlow({
       </div>
       {/* 제목이 바뀐 것을 화면 읽기 프로그램에 알린다. */}
       <p className="sr-only" aria-live="polite">
-        {TITLES[scene].join(" ")}
+        {`${t(`${COPY_KEY[scene]}.titleTop`)} ${t(`${COPY_KEY[scene]}.titleBottom`)}`}
       </p>
     </div>
   );

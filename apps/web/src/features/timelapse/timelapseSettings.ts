@@ -6,6 +6,8 @@
  * 세션은 시작할 때 한 번 읽어 그 타임랩스에 스냅샷으로 남긴다.
  */
 
+import { FACE_MASK_EMOJIS, faceMaskEmojiOf } from "@/features/live-room/faceMaskSettings";
+
 const KEY = "focuson.timelapse.v1";
 
 export type TimelapseAspect = "9:16" | "16:9";
@@ -30,12 +32,15 @@ export type TimelapseInfoKey = (typeof TIMELAPSE_INFO_KEYS)[number];
 export interface TimelapseSettings {
   readonly enabled: boolean;
   readonly aspect: TimelapseAspect;
+  /** 얼굴 가림에 덮을 이모지 id이고, 싱글룸·소셜룸 설정과 따로 둔다. */
+  readonly faceMaskEmoji: string;
   readonly info: Readonly<Record<TimelapseInfoKey, boolean>>;
 }
 
 export const DEFAULT_TIMELAPSE_SETTINGS: TimelapseSettings = {
   enabled: true,
   aspect: "9:16",
+  faceMaskEmoji: FACE_MASK_EMOJIS[0]!.id,
   info: {
     faceMask: false,
     flowBar: false,
@@ -75,6 +80,8 @@ export function parseTimelapseSettings(raw: unknown): TimelapseSettings {
       raw.aspect === "9:16" || raw.aspect === "16:9"
         ? raw.aspect
         : DEFAULT_TIMELAPSE_SETTINGS.aspect,
+    faceMaskEmoji: faceMaskEmojiOf(typeof raw.faceMaskEmoji === "string" ? raw.faceMaskEmoji : "")
+      .id,
     info,
   };
 }
@@ -130,7 +137,7 @@ export async function loadTimelapseSettings(): Promise<TimelapseSettings> {
   try {
     return await store.load();
   } catch (error) {
-    console.warn("[timelapse] 설정 조회 실패, 기본값을 쓴다", error);
+    console.warn("[timelapse] settings read failed, using defaults", error);
     return DEFAULT_TIMELAPSE_SETTINGS;
   }
 }
@@ -145,6 +152,6 @@ export async function saveTimelapseSettings(settings: TimelapseSettings): Promis
   try {
     await store.save(settings);
   } catch (error) {
-    console.warn("[timelapse] 설정 저장 실패, 다음 세션에 반영되지 않는다", error);
+    console.warn("[timelapse] settings save failed, next session will not reflect it", error);
   }
 }

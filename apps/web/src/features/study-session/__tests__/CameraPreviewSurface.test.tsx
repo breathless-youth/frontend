@@ -159,4 +159,25 @@ describe("CameraPreviewSurface", () => {
 
     expect(container.querySelector("video")?.className).not.toContain("scale-x-[-1]");
   });
+
+  it("가리기가 켜져 있으면 같은 video 위에 가림 층을 덧그리고, 꺼도 video를 다시 만들지 않는다", () => {
+    const ref = videoRef();
+    const { rerender } = render(
+      <CameraPreviewSurface
+        stream={null}
+        facing="front"
+        videoRef={ref}
+        faceMask={{ spot: null, emojiUrl: "/face-mask/dog.png" }}
+      />,
+    );
+    const video = ref.current;
+    expect(document.querySelector("[data-face-mask]")).toHaveAttribute("data-face-mask", "blur");
+    expect(screen.getByTestId("face-mask-emoji")).toBeInTheDocument();
+
+    rerender(<CameraPreviewSurface stream={null} facing="front" videoRef={ref} faceMask={null} />);
+
+    expect(ref.current).toBe(video);
+    expect(document.querySelector("[data-face-mask]")).toHaveAttribute("data-face-mask", "plain");
+    expect(screen.queryByTestId("face-mask-emoji")).toBeNull();
+  });
 });

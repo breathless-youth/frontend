@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { toKoreanDurationLength } from "@/features/study-session/formatDuration";
@@ -23,6 +24,7 @@ function TimelapseThumbCard({
   store: TimelapseStore;
   nowMs: number;
 }) {
+  const { t } = useTranslation("timelapse");
   return (
     <li className="relative h-64 w-36 shrink-0 snap-start overflow-hidden rounded-[14px] bg-black">
       <TimelapseThumb record={record} store={store} className="absolute inset-0" />
@@ -32,7 +34,9 @@ function TimelapseThumbCard({
           {recentDayLabel(record.startedAtMs, nowMs)}
         </span>
         <span className="text-[13px] leading-4 text-white/85">
-          순공 {toKoreanDurationLength(record.summary?.focusSec ?? 0)}
+          {t("recent.focusTime", {
+            duration: toKoreanDurationLength(record.summary?.focusSec ?? 0),
+          })}
         </span>
       </p>
     </li>
@@ -47,6 +51,7 @@ function TimelapseThumbCard({
  * 세션은 다른 웹뷰에서 끝나므로 홈 탭으로 돌아올 때 react-query 기본값으로 다시 읽는다.
  */
 export function RecentTimelapses({ store = getTimelapseStore() }: { store?: TimelapseStore }) {
+  const { t } = useTranslation("timelapse");
   const navigate = useNavigate();
   const location = useLocation();
   // react-router navigate()는 항상 push라 빠른 이중 탭에 목록이 두 장 쌓인다.
@@ -76,14 +81,14 @@ export function RecentTimelapses({ store = getTimelapseStore() }: { store?: Time
     <section aria-labelledby="recent-timelapses-title" className="flex flex-col gap-3 py-3">
       <div className="flex items-center justify-between px-0.5">
         <h2 id="recent-timelapses-title" className="text-foreground text-lg leading-5.25 font-bold">
-          최근 타임랩스
+          {t("recent.title")}
         </h2>
         <button
           type="button"
           onClick={openList}
           className="text-muted-foreground -my-3 -mr-2 flex min-h-11 items-center gap-1.5 px-2 text-sm"
         >
-          더보기
+          {t("recent.more")}
           <ChevronRight size={12} aria-hidden="true" />
         </button>
       </div>

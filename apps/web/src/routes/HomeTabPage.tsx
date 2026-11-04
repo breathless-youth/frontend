@@ -1,5 +1,6 @@
 import { ChevronRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import { useHomeSummary } from "@/features/home/useHomeSummary";
 import { NoticeModalHost } from "@/features/notice/NoticeModalHost";
 import { useOnboardingDecision } from "@/features/onboarding/useOnboardingDecision";
 import { PlannerPillButton } from "@/features/planner/PlannerPillButton";
+import { useTimeZoneSync } from "@/features/profile/useTimeZoneSync";
 import { HomeRankingPopupHost } from "@/features/ranking/exposure/HomeRankingPopupHost";
 import { IllustFlame } from "@/features/records/icons";
 import { formatDuration } from "@/features/records/recordsFormat";
@@ -48,16 +50,17 @@ const SOCIAL_TAP_GUARD_MS = 500;
 const CARD_CLASS = "rounded-xl border-0 shadow-sb-card";
 
 function StreakCard({ summary }: { summary: HomeSummary }) {
+  const { t } = useTranslation("home");
   return (
     <Card className={cn(CARD_CLASS, "flex items-center gap-4 px-4 pt-4 pb-3")}>
       <IllustFlame width={38} height={44} />
       <div className="flex min-w-0 flex-1 flex-col gap-3">
         <div className="flex items-center gap-1">
           <h2 className="text-[15px] leading-4.75 font-bold text-foreground">
-            {summary.streakDays}일 연속 공부 중
+            {t("streak.title", { count: summary.streakDays })}
           </h2>
-          <InfoTooltip label="연속 공부 기준 안내" iconSize={14}>
-            하루 5분 이상 공부하면 연속 공부가 이어져요
+          <InfoTooltip label={t("streak.aria.tooltip")} iconSize={14}>
+            {t("streak.tooltip")}
           </InfoTooltip>
         </div>
         <div className="flex justify-between">
@@ -91,6 +94,7 @@ function Stat({ label, value, className }: { label: string; value: string; class
 }
 
 function StatsCard({ summary }: { summary: HomeSummary }) {
+  const { t } = useTranslation("home");
   const { hours, minutes } = splitHoursMinutes(summary.focusSec);
   const focusPercent = Math.round(Math.min(100, Math.max(0, summary.focusRate)));
 
@@ -98,25 +102,29 @@ function StatsCard({ summary }: { summary: HomeSummary }) {
     <Card className={cn(CARD_CLASS, "flex flex-col gap-4.5 px-5.5 pt-5.5 pb-5")}>
       <div className="flex flex-col gap-3">
         <div>
-          <p className="text-sm leading-4.25 font-bold text-muted-foreground">오늘 순공시간</p>
+          <p className="text-sm leading-4.25 font-bold text-muted-foreground">
+            {t("stats.todayFocus")}
+          </p>
           <p className="flex items-baseline pt-1.5 pb-2 text-foreground tabular-nums">
             <span className="text-[40px] leading-12 font-extrabold tracking-[2px]">{hours}</span>
-            <span className="text-[21px] font-bold">시간</span>
+            <span className="text-[21px] font-bold">{t("stats.hoursUnit")}</span>
             <span className="ml-1.5 text-[40px] leading-12 font-extrabold tracking-[2px]">
               {minutes}
             </span>
-            <span className="text-[21px] font-bold">분</span>
+            <span className="text-[21px] font-bold">{t("stats.minutesUnit")}</span>
           </p>
         </div>
 
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <p className="text-sm leading-4.25 font-bold text-muted-foreground">집중률</p>
+            <p className="text-sm leading-4.25 font-bold text-muted-foreground">
+              {t("stats.focusRate")}
+            </p>
             <p className="text-[15px] leading-4.5 font-extrabold text-primary tabular-nums">
               {focusPercent}%
             </p>
           </div>
-          <Progress value={focusPercent} aria-label="집중률" />
+          <Progress value={focusPercent} aria-label={t("stats.focusRate")} />
         </div>
       </div>
 
@@ -124,17 +132,18 @@ function StatsCard({ summary }: { summary: HomeSummary }) {
 
       <div className="flex gap-3">
         <Stat
-          label="총 공부시간"
+          label={t("stats.studyTotal")}
           value={formatDuration(summary.studySec)}
           className="border-r border-border pr-3"
         />
-        <Stat label="최대 집중시간" value={formatDuration(summary.longestFocusSec)} />
+        <Stat label={t("stats.longestFocus")} value={formatDuration(summary.longestFocusSec)} />
       </div>
     </Card>
   );
 }
 
 function InviteCard({ onClick }: { onClick: () => void }) {
+  const { t } = useTranslation("home");
   return (
     <button
       type="button"
@@ -143,11 +152,10 @@ function InviteCard({ onClick }: { onClick: () => void }) {
     >
       <span className="flex min-w-0 flex-1 flex-col gap-1 text-primary">
         <span className="text-base leading-5.5 font-semibold">
-          오늘은 혼자 집중하기 힘든가요? <br />
-          사람들과 함께 공부해보세요
+          <Trans t={t} i18nKey="invite.title" components={{ br: <br /> }} />
         </span>{" "}
         <span className="flex items-center gap-1 self-end pt-3.5 text-xs leading-3.75 font-bold">
-          그룹 스터디하러 이동
+          {t("invite.cta")}
           <ChevronRight size={12} strokeWidth={2.2} aria-hidden="true" />
         </span>
       </span>
@@ -156,6 +164,7 @@ function InviteCard({ onClick }: { onClick: () => void }) {
 }
 
 function HomeContent({ userId }: { userId: number }) {
+  const { t } = useTranslation("home");
   const summaryState = useHomeSummary(userId);
 
   /**
@@ -212,7 +221,7 @@ function HomeContent({ userId }: { userId: number }) {
         </>
       )}
       {summaryState.status === "error" && (
-        <ErrorState message="기록을 불러오지 못했어요" onRetry={summaryState.retry} screen="home" />
+        <ErrorState message={t("stats.loadFailed")} onRetry={summaryState.retry} screen="home" />
       )}
       {summaryState.status === "success" && (
         <>
@@ -226,7 +235,7 @@ function HomeContent({ userId }: { userId: number }) {
         className="w-full text-[18px] leading-5.25 font-bold tracking-[0.9px]"
         onClick={() => startFocus("home")}
       >
-        집중 시작
+        {t("startFocus")}
       </Button>
 
       <InviteCard onClick={openSocial} />
@@ -250,9 +259,10 @@ function HomeHeaderLead({
   userId: number | null;
   identityPending: boolean;
 }) {
+  const { t } = useTranslation("home");
   if (hasTokenSource()) {
     // D-Day 블록은 버튼이라 페이지 제목이 없어진다 — 스크린리더용 h1을 숨겨 둔다.
-    const hiddenTitle = <h1 className="sr-only">홈</h1>;
+    const hiddenTitle = <h1 className="sr-only">{t("header.title")}</h1>;
     if (identityPending) {
       return (
         <>
@@ -280,9 +290,11 @@ function HomeHeaderLead({
 }
 
 export function HomeTabPage() {
+  const { t } = useTranslation("home");
   const userId = useUserId();
   const identityPending = useIdentityPending();
   const { recovered, settled: recoverySettled, dismiss } = useLaunchSessionRecovery(userId);
+  useTimeZoneSync(userId, identityPending);
   useAppLockRevokeCheck();
   // 공지가 복구 창보다 먼저다. 공지 판단이 끝나야 복구 창을 띄운다. 공지 호스트가 없으면 기다릴 것도 없다.
   const [noticeSettled, setNoticeSettled] = useState(false);
@@ -333,9 +345,7 @@ export function HomeTabPage() {
             <Skeleton className="h-63 rounded-xl" />
           </>
         ) : userId === null ? (
-          <p className="p-4 text-sm text-muted-foreground">
-            기기 등록 전이에요 — 앱에서 열면 기록이 저장됩니다
-          </p>
+          <p className="p-4 text-sm text-muted-foreground">{t("unregistered")}</p>
         ) : (
           <HomeContent userId={userId} />
         )}
