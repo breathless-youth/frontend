@@ -129,6 +129,7 @@ import { useGroupRoomEvents } from "./useGroupRoomEvents";
 import { useRoomAudio } from "./useRoomAudio";
 import type { RoomAudioDeps } from "./useRoomAudio";
 import { useRoomRejoin } from "./useRoomRejoin";
+import { useRoomDocumentBackground } from "./useRoomDocumentBackground";
 import { useRoomSheetHistory } from "./useRoomSheetHistory";
 import { useRoomTimerSheet } from "./useRoomTimerSheet";
 import { useTogetherSeconds } from "./useTogetherSeconds";
@@ -253,6 +254,7 @@ export function LiveRoomSession({
   if (phase.name !== "studying" && page !== null) {
     setPage(null);
   }
+  useRoomDocumentBackground();
   // 창이 열린 동안의 스와이프는 싱글룸과 같이 창만 닫는다.
   // 닫은 직후 잠금 신호가 앱에 닿기 전의 스와이프는 `useRoomSheetHistory`의 지킴 항목이 받는다.
   useNativeBackGestureLock(page !== null);

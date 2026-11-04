@@ -30,7 +30,7 @@ function historyFlags() {
   return { sheet: state.sessionPage ?? null, guard: "roomHistoryGuard" in state };
 }
 
-/** 앞으로 쌓인 항목 없이 뒤로 한 칸 갔다가 popstate가 끝날 때까지 기다린다. */
+/** history를 `delta`만큼 옮기고 popstate가 끝날 때까지 기다린다. */
 async function traverse(delta: number) {
   await act(async () => {
     await new Promise<void>((resolve) => {
@@ -59,6 +59,13 @@ function renderSheets(studying = true) {
   };
 }
 
+/** 방이 그려져 지킴 항목이 쌓일 때까지 기다린다. */
+async function renderPaintedRoom(studying = true) {
+  const rendered = renderSheets(studying);
+  await waitFor(() => expect(historyFlags().guard).toBe(true));
+  return rendered;
+}
+
 beforeEach(() => {
   seedRoomEntry();
   onClosed.mockClear();
@@ -70,12 +77,17 @@ afterEach(() => {
 });
 
 describe("useRoomSheetHistory", () => {
-  it("처음 열 때 지킴 항목과 창 항목을 쌓고, 닫고 다시 열 때는 창 항목만 쌓는다", async () => {
-    const { controls } = renderSheets();
+  it("방이 그려진 뒤에 지킴 항목을 쌓고, 창은 언제나 항목을 하나만 쌓는다", async () => {
     const push = vi.spyOn(window.history, "pushState");
+    const { controls } = renderSheets();
+    // 그리기 전에 쌓으면 그 항목의 미리보기가 빈다.
+    expect(push).not.toHaveBeenCalled();
+    await waitFor(() => expect(historyFlags().guard).toBe(true));
+    expect(push).toHaveBeenCalledOnce();
+    push.mockClear();
 
     act(() => controls.current.openPage("subject"));
-    expect(push).toHaveBeenCalledTimes(2);
+    expect(push).toHaveBeenCalledOnce();
     expect(historyFlags()).toEqual({ sheet: "subject", guard: true });
     expect(controls.current.page).toBe("subject");
 
@@ -85,12 +97,33 @@ describe("useRoomSheetHistory", () => {
 
     push.mockClear();
     act(() => controls.current.openPage("ambient"));
-    expect(push).toHaveBeenCalledTimes(1);
+    expect(push).toHaveBeenCalledOnce();
     expect(historyFlags()).toEqual({ sheet: "ambient", guard: true });
   });
 
-  it("창에서 다른 창을 열면 항목을 더 쌓지 않아 뒤로 가기 한 번에 닫힌다", async () => {
+  it("지킴 항목 위에서 시작한 방은 항목을 더 쌓지 않는다", async () => {
+    window.history.pushState({ ...(window.history.state as object), roomHistoryGuard: true }, "");
+    const push = vi.spyOn(window.history, "pushState");
     const { controls } = renderSheets();
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(push).not.toHaveBeenCalled();
+    expect(controls.current.page).toBeNull();
+  });
+
+  it("지킴 항목이 쌓이기 전에 창을 열어도 지킴 항목이 아래에 놓이고 더 쌓이지 않는다", async () => {
+    const { controls } = renderSheets();
+    const push = vi.spyOn(window.history, "pushState");
+
+    act(() => controls.current.openPage("subject"));
+    expect(push).toHaveBeenCalledTimes(2);
+    expect(historyFlags()).toEqual({ sheet: "subject", guard: true });
+
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(push).toHaveBeenCalledTimes(2);
+  });
+
+  it("창에서 다른 창을 열면 항목을 더 쌓지 않아 뒤로 가기 한 번에 닫힌다", async () => {
+    const { controls } = await renderPaintedRoom();
     act(() => controls.current.openPage("subject"));
     const push = vi.spyOn(window.history, "pushState");
 
@@ -103,7 +136,7 @@ describe("useRoomSheetHistory", () => {
   });
 
   it("창을 닫은 직후의 스와이프가 거듭 와도 방 항목 아래로 내려가지 않는다", async () => {
-    const { controls } = renderSheets();
+    const { controls } = await renderPaintedRoom();
     act(() => controls.current.openPage("subject"));
     await traverse(-1);
 
@@ -116,22 +149,46 @@ describe("useRoomSheetHistory", () => {
     expect(onClosed).toHaveBeenCalledOnce();
   });
 
-  it("창을 한 번도 열지 않은 방은 popstate에 항목을 쌓지 않고 바로 떠난다", async () => {
+  it("창을 열지 않은 방도 스와이프로 방 항목 아래로 내려가지 않는다", async () => {
+    const { controls } = await renderPaintedRoom();
+    await traverse(-1);
+    expect(currentUrl()).toBe(ROOM_URL);
+    expect(historyFlags().guard).toBe(true);
+    expect(controls.current.page).toBeNull();
+  });
+
+  it("지킴 항목이 쌓이기 전에 떠나면 history를 건드리지 않고 그 뒤로도 쌓지 않는다", async () => {
     const { controls } = renderSheets();
     const push = vi.spyOn(window.history, "pushState");
     const go = vi.spyOn(window.history, "go");
     const leave = vi.fn();
 
-    act(() => window.dispatchEvent(new PopStateEvent("popstate")));
     controls.current.leaveThen(HOME_URL, leave);
-
     expect(leave).toHaveBeenCalledOnce();
+
+    await new Promise((resolve) => setTimeout(resolve, 60));
     expect(push).not.toHaveBeenCalled();
     expect(go).not.toHaveBeenCalled();
   });
 
+  it("창을 열지 않은 방을 떠나도 방 항목이 모두 사라진다", async () => {
+    const { controls } = await renderPaintedRoom();
+    const leave = vi.fn(() => {
+      window.history.replaceState({ idx: 1, key: "home-again" }, "", HOME_URL);
+    });
+
+    controls.current.leaveThen(HOME_URL, leave);
+    await waitFor(() => expect(leave).toHaveBeenCalledOnce());
+
+    await traverse(1);
+    expect(currentUrl()).toBe(HOME_URL);
+    expect(historyFlags().guard).toBe(false);
+    await traverse(-2);
+    expect((window.history.state as { key: string }).key).toBe("home");
+  });
+
   it("앞으로 가기로 닫힌 창의 항목에 오면 창을 열지 않고 되돌아간다", async () => {
-    const { controls } = renderSheets();
+    const { controls } = await renderPaintedRoom();
     act(() => controls.current.openPage("subject"));
     await traverse(-1);
 
@@ -142,7 +199,7 @@ describe("useRoomSheetHistory", () => {
   });
 
   it("창을 쓴 방을 떠나면 방 항목이 모두 사라지고 앞뒤 어디로 가도 방으로 돌아오지 않는다", async () => {
-    const { controls } = renderSheets();
+    const { controls } = await renderPaintedRoom();
     act(() => controls.current.openPage("subject"));
     await traverse(-1);
     const leave = vi.fn(() => {
@@ -163,7 +220,7 @@ describe("useRoomSheetHistory", () => {
   });
 
   it("창이 열린 채 공부가 끝나면 창 항목을 걷고, 되돌리는 중에 떠나도 방 밖으로 더 나가지 않는다", async () => {
-    const { controls, setStudying } = renderSheets();
+    const { controls, setStudying } = await renderPaintedRoom();
     act(() => controls.current.openPage("ambient"));
     const leave = vi.fn(() => {
       window.history.replaceState({ idx: 1, key: "home-again" }, "", HOME_URL);
@@ -181,7 +238,7 @@ describe("useRoomSheetHistory", () => {
   });
 
   it("창이 열린 채 공부가 끝나고 떠나기 전까지는 지킴 항목이 남아 방에 머문다", async () => {
-    const { controls, setStudying } = renderSheets();
+    const { controls, setStudying } = await renderPaintedRoom();
     act(() => controls.current.openPage("subject"));
 
     setStudying(false);
@@ -193,8 +250,22 @@ describe("useRoomSheetHistory", () => {
     expect(historyFlags().guard).toBe(true);
   });
 
+  it("항목을 걷다가 History API가 예외를 던져도 방을 떠난다", async () => {
+    const { controls } = await renderPaintedRoom();
+    await traverse(-1);
+    await waitFor(() => expect(historyFlags().guard).toBe(true));
+    const leave = vi.fn();
+    vi.spyOn(window.history, "pushState").mockImplementation(() => {
+      throw new DOMException("too many calls", "SecurityError");
+    });
+
+    controls.current.leaveThen(HOME_URL, leave);
+
+    await waitFor(() => expect(leave).toHaveBeenCalledOnce());
+  });
+
   it("떠나는 길은 한 번만 움직이고 두 번째 요청은 처음 이동을 다시 부르지 않는다", async () => {
-    const { controls } = renderSheets();
+    const { controls } = await renderPaintedRoom();
     act(() => controls.current.openPage("subject"));
     await traverse(-1);
     const leave = vi.fn();

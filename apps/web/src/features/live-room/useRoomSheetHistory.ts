@@ -71,10 +71,13 @@ async function clearEntriesAboveRoom(closeInFlight: boolean, homeUrl: string) {
  *
  * 싱글룸과 같이 창을 history 항목으로 열어 앱의 뒤로 가기 스와이프로 닫는다.
  * 다만 공부방은 뒤로 가기로 방을 나가면 제출하지 않은 측정이 사라진다.
- * 창이 닫힌 뒤 제스처를 끄는 신호가 앱에 닿기까지 틈이 있어서, 그 틈의 스와이프가 방 밖으로 나가지 않게 창을 처음 열 때 창 항목 아래에 지킴 항목을 둔다.
+ * 창이 닫힌 뒤 제스처를 끄는 신호가 앱에 닿기까지 틈이 있어서, 그 틈의 스와이프가 방 밖으로 나가지 않게 방 항목 위에 지킴 항목을 둔다.
  * 지킴 항목을 떠나 방 항목에 닿으면 바로 다시 쌓으므로 스와이프를 몇 번 거듭해도 방 항목 아래로 내려가지 않는다.
  * 지킴 항목은 방을 떠날 때까지 남고, 떠날 때는 `leaveThen`이 걷는다.
- * 창을 열지 않은 방은 쌓은 항목이 없어 지금까지와 똑같이 곧바로 떠난다.
+ *
+ * 지킴 항목은 창을 열 때가 아니라 방이 그려진 뒤에 쌓는다.
+ * 창을 열 때 항목을 하나만 쌓아야 싱글룸처럼 그 아래 항목의 미리보기가 방 화면으로 남는다.
+ * 같은 순간에 둘을 쌓았을 때 실기기 스와이프 미리보기가 흰 화면이었다.
  */
 export function useRoomSheetHistory<Page extends string>({
   page,
@@ -87,22 +90,39 @@ export function useRoomSheetHistory<Page extends string>({
   studying: boolean;
   onClosed: (closed: Page | null, closedBy: PageCloseReason) => void;
 }) {
-  // 새로고침으로 지킴 항목 위에서 시작한 방도 이미 항목을 쌓은 방이다.
+  // 새로고침으로 지킴 항목 위에서 시작한 방은 이미 항목을 쌓은 방이다.
   const armedRef = useRef(guardEntryOnTop());
   const leavingRef = useRef(false);
+
+  function armGuard() {
+    armedRef.current = true;
+    if (!guardEntryOnTop()) {
+      pushGuardEntry();
+    }
+  }
 
   const { openPage, closePage, closeInFlight } = useSessionPageHistory({
     page,
     setPage,
     studying,
     onClosed,
-    beforePush: () => {
-      armedRef.current = true;
-      if (!guardEntryOnTop()) {
-        pushGuardEntry();
-      }
-    },
+    // 앱이 가려진 채 입장하면 프레임이 돌지 않아 지킴 항목보다 창이 먼저 열릴 수 있다.
+    beforePush: armGuard,
   });
+
+  const onFirstPaint = useEffectEvent(() => {
+    if (!leavingRef.current) {
+      armGuard();
+    }
+  });
+  useEffect(() => {
+    // 앞 프레임 콜백은 그리기 전에 돌아서 한 번 더 넘겨야 방이 그려진 뒤다.
+    let frame = 0;
+    frame = window.requestAnimationFrame(() => {
+      frame = window.requestAnimationFrame(() => onFirstPaint());
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   const onGuardPopState = useEffectEvent(() => {
     if (leavingRef.current || !armedRef.current) {
@@ -127,6 +147,7 @@ export function useRoomSheetHistory<Page extends string>({
    * 방을 떠나기
    *
    * `homeUrl`은 앞쪽 항목을 지울 때 쓰는 경로라 어디로 떠나든 그 방의 홈을 넘긴다.
+   * 지킴 항목을 쌓기 전이면 걷을 것이 없어 곧바로 떠난다.
    */
   function leaveThen(homeUrl: string, leave: () => void) {
     if (leavingRef.current) {
@@ -137,7 +158,11 @@ export function useRoomSheetHistory<Page extends string>({
       leave();
       return;
     }
-    void clearEntriesAboveRoom(closeInFlight(), homeUrl).then(leave);
+    // WebKit은 History API를 짧은 동안 너무 많이 부르면 예외를 던진다.
+    // 항목이 남더라도 방을 못 나가는 것보다 낫다.
+    void clearEntriesAboveRoom(closeInFlight(), homeUrl)
+      .catch(() => undefined)
+      .then(leave);
   }
 
   return { openPage, closePage, leaveThen };

@@ -329,6 +329,13 @@ async function enterRoom() {
   await act(async () => {});
 }
 
+/** 가짜 타이머 위에서 방을 떠나는 history 이동을 끝까지 흘려 보낸다. */
+async function flushRoomLeave() {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(100);
+  });
+}
+
 /** 화면 탭 = 바 토글. 드래그(스크롤)와 구분되므로 down+up 쌍으로 보낸다(BY-435). */
 function tapSurface() {
   const surface = screen.getByTestId("live-room-page");
@@ -370,13 +377,11 @@ async function enterAppRoom(controls = "segment,switch,button,button-style") {
 }
 
 beforeEach(async () => {
-  // 앞 테스트가 창을 연 채 끝났으면 언마운트의 되돌리기가 끝난 뒤 표시 항목을 지운다.
-  // 되돌리기가 늦게 닿으면 이 테스트가 정한 주소를 덮고, 항목이 남으면 방이 항목을 쌓은 방으로 시작한다.
-  if ("sessionPage" in ((window.history.state ?? {}) as object)) {
-    await new Promise((resolve) => {
-      window.addEventListener("popstate", resolve, { once: true });
-      setTimeout(resolve, 100);
-    });
+  // 앞 테스트가 방을 떠나던 중에 끝났으면 그 history 이동이 다 끝난 뒤에 항목을 지운다.
+  // 이동은 타이머 한 번에 한 칸씩 가므로 가장 긴 네 칸만큼 타이머 차례를 넘긴다.
+  // 늦게 닿으면 이 테스트가 정한 주소를 덮고, 항목이 남으면 방이 항목을 쌓은 방으로 시작한다.
+  for (let turn = 0; turn < 5; turn += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 0));
   }
   window.history.replaceState(null, "", "/");
   // 일반 입장이 마운트 시 join을 재호출하므로 기본 응답을 렌더 전에 깔아 둔다.
@@ -1126,6 +1131,8 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
       renderRoom({ browserRouter: true });
       grantCameraGate();
       await enterRoom();
+      // 지킴 항목은 방이 그려진 뒤에 쌓인다.
+      await waitFor(() => expect(window.history.state).toHaveProperty("roomHistoryGuard"));
       return gesture;
     }
 
@@ -1227,6 +1234,7 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
       const { channel } = renderRoom({ browserRouter: true });
       grantCameraGate();
       await enterRoom();
+      await waitFor(() => expect(window.history.state).toHaveProperty("roomHistoryGuard"));
       mockedRenewSeat.mockRejectedValue(new ApiError("자리 회수", 409, "CONFLICT"));
       await userEvent.click(screen.getByRole("button", { name }));
 
@@ -1242,21 +1250,25 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
     });
   });
 
-  it("창을 열지 않은 방은 나갈 때까지 history 항목을 쌓지 않는다", async () => {
+  it("창을 열지 않은 방도 입장 뒤 지킴 항목을 두고, 나가면 끝난 방 항목이 남지 않는다", async () => {
     vi.mocked(submitStudySession).mockResolvedValue([]);
-    const push = vi.spyOn(window.history, "pushState");
-    const go = vi.spyOn(window.history, "go");
-    renderRoom();
+    window.history.replaceState({ idx: 0, key: "home" }, "", "/social?userId=7");
+    renderRoom({ browserRouter: true });
     await enterRoom();
+    await waitFor(() => expect(window.history.state).toHaveProperty("roomHistoryGuard"));
 
     await userEvent.click(screen.getByRole("button", { name: "나가기" }));
     await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
-    expect(push).not.toHaveBeenCalled();
-    expect(go).not.toHaveBeenCalled();
-    push.mockRestore();
-    go.mockRestore();
+    expect(window.history.state).not.toHaveProperty("roomHistoryGuard");
+    await act(async () => {
+      await new Promise<void>((resolve) => {
+        window.addEventListener("popstate", () => resolve(), { once: true });
+        window.history.back();
+      });
+    });
+    expect((window.history.state as { key: string }).key).toBe("home");
   });
 
   it("나가기는 종료 확인 후 제출하고 leave를 부른 뒤 소셜 홈으로 복귀한다", async () => {
@@ -2289,6 +2301,7 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
     await act(async () => {
       await vi.runOnlyPendingTimersAsync();
     });
+    await flushRoomLeave();
     vi.useRealTimers();
   }
 
@@ -2373,6 +2386,7 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
     await act(async () => {
       await vi.runOnlyPendingTimersAsync();
     });
+    await flushRoomLeave();
     vi.useRealTimers();
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
@@ -2397,6 +2411,7 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
     await act(async () => {
       await vi.runOnlyPendingTimersAsync();
     });
+    await flushRoomLeave();
     vi.useRealTimers();
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
@@ -2419,6 +2434,7 @@ describe("LiveRoomPage — 유예 만료 복귀", () => {
     await act(async () => {
       await vi.runOnlyPendingTimersAsync();
     });
+    await flushRoomLeave();
     vi.useRealTimers();
 
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
