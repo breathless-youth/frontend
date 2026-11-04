@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import type { RenderOptions } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import type { SubjectResponse } from "@focusmakers/types";
 
@@ -352,6 +352,196 @@ describe("SubjectPanel 할 일", () => {
     await userEvent.type(screen.getByRole("textbox", { name: "새 할 일 이름" }), "오답 정리");
     await userEvent.click(screen.getByRole("button", { name: "완료" }));
     expect(store.addTask).toHaveBeenCalledWith(3, "오답 정리");
+  });
+});
+
+/** 길게 눌러 수정·제거 메뉴를 연다. */
+function longPress(element: HTMLElement) {
+  vi.useFakeTimers();
+  try {
+    fireEvent.pointerDown(element);
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
+  } finally {
+    vi.useRealTimers();
+  }
+}
+
+describe("SubjectPanel 이름 입력칸 포커스", () => {
+  it.each([
+    {
+      label: "과목 추가",
+      name: "새 과목 이름",
+      open: () => userEvent.click(screen.getByRole("button", { name: /과목 추가/ })),
+    },
+    {
+      label: "할 일 추가",
+      name: "새 할 일 이름",
+      open: () => userEvent.click(screen.getAllByRole("button", { name: /할 일 추가/ })[0]!),
+    },
+    {
+      label: "이름 수정",
+      name: "과목 이름",
+      open: async () => {
+        longPress(screen.getByText("수학"));
+        await userEvent.click(screen.getByRole("menuitem", { name: "수정" }));
+      },
+    },
+  ])("$label: 열린 입력칸은 문서를 끌어 올리지 않고 포커스를 받는다", async ({ name, open }) => {
+    const focus = vi.spyOn(HTMLInputElement.prototype, "focus");
+    onTestFinished(() => focus.mockRestore());
+    renderPanel();
+
+    await open();
+
+    expect(screen.getByRole("textbox", { name })).toHaveFocus();
+    // iOS는 키보드를 올리며 포커스를 받은 입력칸 쪽으로 문서를 끌어 올려서 머리 줄이 앱의 상태 막대와 뒤로 가기 밑으로 들어간다.
+    // autoFocus는 옵션 없이 focus()를 부르므로 옵션을 준 호출 하나만 있어야 한다.
+    expect(focus.mock.calls).toEqual([[{ preventScroll: true }]]);
+  });
+});
+
+describe("SubjectPanel 가려진 입력칸", () => {
+  const LIST = { top: 100, bottom: 500 };
+  const EDITOR_HEIGHT = 80;
+  const COUNT_ROW_HEIGHT = 24;
+  const NEW_SUBJECT = '[aria-label="새 과목 이름"]';
+
+  function rectOf(top: number, bottom: number): DOMRect {
+    return {
+      top,
+      bottom,
+      y: top,
+      height: bottom - top,
+      left: 0,
+      right: 320,
+      x: 0,
+      width: 320,
+      toJSON: () => ({}),
+    };
+  }
+
+  const scrollLists = () => [...document.querySelectorAll<HTMLElement>("[data-scroll-list]")];
+
+  /**
+   * 스크롤 목록과 입력칸의 가짜 배치
+   *
+   * jsdom에는 배치가 없어 모든 요소의 자리가 0이라 두 요소의 자리를 직접 정해 준다.
+   * 목록을 스크롤하면 입력칸이 그만큼 움직이게 해서, 맞춘 뒤 입력칸이 목록 안에 들어왔는지 볼 수 있다.
+   */
+  function layOut({
+    list,
+    editor,
+    editorTop,
+    scrolled,
+  }: {
+    list: HTMLElement;
+    /** 입력칸의 aria-label을 고르는 선택자. */
+    editor: string;
+    /** 목록이 `scrolled`만큼 스크롤된 때의 입력칸 윗변. */
+    editorTop: number;
+    scrolled: number;
+  }) {
+    list.scrollTop = scrolled;
+    const layout = vi
+      .spyOn(Element.prototype, "getBoundingClientRect")
+      .mockImplementation(function (this: Element) {
+        if (this === list) return rectOf(LIST.top, LIST.bottom);
+        if (this.matches(editor) || this.querySelector(editor) !== null) {
+          const top = editorTop - (list.scrollTop - scrolled);
+          const countRow =
+            document.querySelector('[data-slot="char-count"]') === null ? 0 : COUNT_ROW_HEIGHT;
+          return rectOf(top, top + EDITOR_HEIGHT + countRow);
+        }
+        return rectOf(0, 0);
+      });
+    onTestFinished(() => layout.mockRestore());
+  }
+
+  async function openNewSubject() {
+    await userEvent.click(screen.getByRole("button", { name: /과목 추가/ }));
+    return screen.getByRole("textbox", { name: "새 과목 이름" }).getBoundingClientRect();
+  }
+
+  it.each([
+    { label: "세로", landscape: false },
+    { label: "가로", landscape: true },
+  ])("목록 아래로 가려졌으면 그 목록만 스크롤해 보이게 한다 ($label)", async ({ landscape }) => {
+    // 문서까지 스크롤할 수 있는 두 호출은 쓰지 않아야 한다.
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    onTestFinished(() => {
+      delete (Element.prototype as Partial<Element>).scrollIntoView;
+      scrollTo.mockRestore();
+    });
+    renderPanel({ landscape });
+    const [list] = scrollLists();
+    layOut({ list: list!, editor: NEW_SUBJECT, editorTop: 520, scrolled: 0 });
+
+    const editor = await openNewSubject();
+
+    expect(list!.scrollTop).toBeGreaterThan(0);
+    expect(editor.top).toBeGreaterThanOrEqual(LIST.top);
+    expect(editor.bottom).toBeLessThanOrEqual(LIST.bottom);
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("목록 위로 가려졌으면 목록을 올려 보이게 한다", async () => {
+    renderPanel();
+    const [list] = scrollLists();
+    layOut({ list: list!, editor: NEW_SUBJECT, editorTop: 80, scrolled: 300 });
+
+    const editor = await openNewSubject();
+
+    expect(list!.scrollTop).toBeLessThan(300);
+    expect(editor.top).toBeGreaterThanOrEqual(LIST.top);
+    expect(editor.bottom).toBeLessThanOrEqual(LIST.bottom);
+  });
+
+  it("이미 보이면 목록을 스크롤하지 않는다", async () => {
+    renderPanel();
+    const [list] = scrollLists();
+    layOut({ list: list!, editor: NEW_SUBJECT, editorTop: 200, scrolled: 0 });
+
+    await openNewSubject();
+
+    expect(list!.scrollTop).toBe(0);
+  });
+
+  it("글자 수 줄이 생겨 입력칸이 길어지면 다시 맞춰서 아래가 잘리지 않게 한다", async () => {
+    renderPanel();
+    const [list] = scrollLists();
+    // 열릴 때는 목록 아래 끝에 맞는 자리라 스크롤이 필요 없다.
+    layOut({ list: list!, editor: NEW_SUBJECT, editorTop: 408, scrolled: 0 });
+    await openNewSubject();
+    expect(list!.scrollTop).toBe(0);
+
+    const input = screen.getByRole("textbox", { name: "새 과목 이름" });
+    fireEvent.change(input, { target: { value: "가".repeat(10) } });
+
+    expect(screen.getByText("10/12")).toBeInTheDocument();
+    expect(list!.scrollTop).toBeGreaterThan(0);
+    expect(input.getBoundingClientRect().bottom).toBeLessThanOrEqual(LIST.bottom);
+  });
+
+  it("가로에서 할 일 이름을 고치면 과목 목록이 아니라 할 일 목록이 스크롤한다", async () => {
+    renderPanel({ landscape: true });
+    const [subjectList, taskList] = scrollLists();
+    layOut({
+      list: taskList!,
+      editor: '[aria-label="할 일 이름"]',
+      editorTop: 520,
+      scrolled: 0,
+    });
+
+    longPress(screen.getByText("3단원 문제풀기"));
+    await userEvent.click(screen.getByRole("menuitem", { name: "수정" }));
+
+    expect(taskList!.scrollTop).toBeGreaterThan(0);
+    expect(subjectList!.scrollTop).toBe(0);
   });
 });
 
