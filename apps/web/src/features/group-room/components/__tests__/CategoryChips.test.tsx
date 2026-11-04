@@ -48,4 +48,13 @@ describe("CategoryChips", () => {
       expect(chip).toHaveClass("px-3.5", "@max-[345px]:px-2.75", "min-w-11");
     }
   });
+
+  it("보이는 높이 36px 칩의 누르는 영역을 위아래 5px씩 넓혀 44px로 맞춘다", () => {
+    render(<CategoryChips options={options} value={null} onChange={vi.fn()} allLabel="전체" />);
+    // jsdom에는 레이아웃이 없어 영역 높이를 측정할 수 없으므로, 36px 칩이 44px 영역이 되는 클래스를 고정한다.
+    // 영역은 1px 테두리 안쪽에서 시작해서 4px 대신 5px씩 넓혀야 칩 밖으로 4px씩 나간다.
+    for (const chip of screen.getAllByRole("button")) {
+      expect(chip).toHaveClass("h-9", "border", "before:absolute", "before:-inset-y-1.25");
+    }
+  });
 });
