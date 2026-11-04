@@ -120,8 +120,6 @@ function InlineNameEditor({
   const countVisible = isCharCountVisible(value.length, maxLength, COUNT_SHOW_FROM);
   const keyboardInset = useKeyboardInset();
   const ios = isIosWeb();
-  // 안드로이드와 데스크톱 브라우저도 키보드가 오르면 보이는 영역이 줄지만 지금 동작을 그대로 두려고 키보드 높이는 iOS에서만 쓴다.
-  const liftInset = ios ? keyboardInset : 0;
 
   // 사용자가 방금 누른 자리에 열리는 입력이라 열리자마자 커서를 둔다.
   // iOS는 `과목 추가` 누름 안에서 준 포커스에도 키보드를 올리므로 입력칸만 보이고 입력칸을 눌러야 키보드가 뜨게 한다.
@@ -140,8 +138,8 @@ function InlineNameEditor({
 
   // iOS 목록 상자는 키보드가 떠도 화면 끝까지라 목록 기준으로는 키보드 뒤의 입력칸을 올리지 못해서 키보드가 다 오른 뒤 다시 올린다.
   useEffect(() => {
-    if (rowRef.current !== null) revealAboveKeyboard(rowRef.current, liftInset);
-  }, [liftInset]);
+    if (rowRef.current !== null) revealAboveKeyboard(rowRef.current, keyboardInset);
+  }, [keyboardInset]);
 
   return (
     <div
@@ -192,7 +190,7 @@ function InlineNameEditor({
         className={cn("pr-3 pb-1 text-white/50", large ? "pl-3" : "pl-4")}
       />
       {/* 목록 끝의 입력칸도 키보드 위로 올릴 수 있게 키보드가 떠 있는 동안 그 높이만큼 비운다. */}
-      {liftInset > 0 && <div aria-hidden="true" style={{ height: liftInset }} />}
+      {keyboardInset > 0 && <div aria-hidden="true" style={{ height: keyboardInset }} />}
     </div>
   );
 }
