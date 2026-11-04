@@ -75,7 +75,7 @@ const COPY_BY_ACTION: Partial<Record<GroupAction, ReadonlyMap<string, CopyOf>>> 
   create: new Map([
     ["CONTACT_NOT_ALLOWED", contactBlockedCopy],
     ["OWNED_GROUP_LIMIT", createRoomLimitCopy],
-    // 5개 한도는 답을 기다리는 신청도 세어서 이미 5개의 그룹이 있다는 문장은 틀릴 수 있다.
+    // 5개 한도는 답을 기다리는 신청도 세므로 신청하기와 같은 문장을 쓴다.
     ["GROUP_SLOT_LIMIT", groupCountFullCopy],
   ]),
   update: new Map([["CONTACT_NOT_ALLOWED", contactBlockedCopy]]),

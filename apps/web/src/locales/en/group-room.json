@@ -6,14 +6,14 @@
     "applyBlock": {
       "kickedRecently_one": "You can't request to join this group for {{count}} day",
       "kickedRecently_other": "You can't request to join this group for {{count}} days",
-      "roomsAndApplicationsFull": "You've reached the group limit",
+      "roomsAndApplicationsFull": "Up to 5 groups and requests",
       "pendingApplicationsFull": "You can send up to 3 requests"
     },
     "joinBlock": {
       "roomFull": "This group is full",
       "kickedRecently_one": "You were removed from this group and can't rejoin for {{count}} day",
       "kickedRecently_other": "You were removed from this group and can't rejoin for {{count}} days",
-      "roomsAndApplicationsFull": "You already have 5 groups",
+      "roomsAndApplicationsFull": "Up to 5 groups and requests",
       "invalidCode": "Check the invite code and try again"
     },
     "createRoomLimit": "You can create up to 2 groups",

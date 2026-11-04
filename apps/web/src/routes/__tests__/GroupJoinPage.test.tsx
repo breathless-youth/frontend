@@ -75,7 +75,7 @@ describe("6자리 초대코드 참여", () => {
     ["INVITE_CODE_NOT_FOUND", 404, "초대코드를 다시 확인해 주세요"],
     ["GROUP_FULL", 409, "자리가 다 찼어요"],
     ["RECENTLY_KICKED", 409, "내보내진 그룹에는 3일 동안 다시 들어갈 수 없어요"],
-    ["GROUP_SLOT_LIMIT", 409, "이미 5개의 그룹을 가지고 있어요"],
+    ["GROUP_SLOT_LIMIT", 409, "그룹과 신청을 합쳐 5개까지예요"],
   ] as const)("%s면 진동과 함께 입력칸 아래에 한 문장을 보인다", async (code, status, copy) => {
     const api = mockGroupApi("default");
     api.joinGroupByCode.mockRejectedValueOnce(new ApiError("x", status, code));
