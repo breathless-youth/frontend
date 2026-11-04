@@ -3,11 +3,12 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { buildStreakWeek, kstDateKey, weekDateKeys } from "@/features/records/recordsFormat";
+import { buildStreakWeek, weekDateKeys } from "@/features/records/recordsFormat";
 import { setStudyStatusUserProperties } from "@/lib/amplitude";
 import { getStreak, listStudySessionStats } from "@/lib/statsApi";
 
 import { useHomeSummary } from "../useHomeSummary";
+import { localDateKey } from "@/lib/dateKey";
 
 /**
  * (모바일판 `components/home/__tests__/useHomeSummary.test.tsx`에서 이식 — BY-329.
@@ -63,7 +64,7 @@ describe("useHomeSummary", () => {
         focusRate: 50,
         streakDays: 3,
         longestFocusSec: 1800,
-        weekDays: buildStreakWeek(kstDateKey(), []),
+        weekDays: buildStreakWeek(localDateKey(), []),
       },
     });
     expect(mockedStats).toHaveBeenCalledWith(expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/));
@@ -76,7 +77,7 @@ describe("useHomeSummary", () => {
     const { result } = renderHook(() => useHomeSummary(7), { wrapper: createWrapper() });
 
     await waitFor(() => expect(result.current.status).toBe("success"));
-    const todayKey = kstDateKey();
+    const todayKey = localDateKey();
     expect(mockedStreak).toHaveBeenCalledWith({ from: weekDateKeys(todayKey)[0], to: todayKey });
   });
 
@@ -92,7 +93,7 @@ describe("useHomeSummary", () => {
 
     await waitFor(() => expect(result.current.status).toBe("success"));
     expect(result.current.status === "success" && result.current.summary.weekDays).toEqual(
-      buildStreakWeek(kstDateKey(), ["2026-07-26", "2026-07-27"]),
+      buildStreakWeek(localDateKey(), ["2026-07-26", "2026-07-27"]),
     );
 
     mockedStreak.mockResolvedValueOnce({

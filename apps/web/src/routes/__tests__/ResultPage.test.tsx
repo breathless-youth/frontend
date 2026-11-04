@@ -18,7 +18,6 @@ import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import type * as Amplitude from "@/lib/amplitude";
 import { stageStudyResultExit } from "@/lib/amplitude";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
-import { todayKstDateKey } from "@/lib/dateKst";
 import { __resetRankingTabForTests } from "@/lib/rankingCapability";
 import {
   FIXTURE_SESSION_GAINS,
@@ -28,6 +27,7 @@ import {
 import { getStudyDays, listStudySessionStats } from "@/lib/statsApi";
 
 import { RESULT_REVEAL_DELAY_MS, ResultPage } from "../ResultPage";
+import { localDateKey } from "@/lib/dateKey";
 
 /**
  * 요약 카드(BY-560)가 읽는 통계 API만 막는다 — 세션 자체는 여전히 라우터 state로 들어온다.
@@ -554,12 +554,12 @@ describe("ResultPage — 타임라인 카드", () => {
 });
 
 describe("ResultPage — 누적 요약 카드 (BY-560)", () => {
-  it("오늘 누적 순공시간은 오늘(KST) 서버 합계로 채운다", async () => {
+  it("오늘 누적 순공시간은 기기 시간대 오늘의 서버 합계로 채운다", async () => {
     renderResult({ sessions: [exampleSession()] }, "?userId=7");
 
     expect(screen.getByText("오늘 누적 순공시간")).toBeInTheDocument();
     expect(await screen.findByText("3시간 36분")).toBeInTheDocument();
-    expect(mockedStats).toHaveBeenCalledWith(todayKstDateKey());
+    expect(mockedStats).toHaveBeenCalledWith(localDateKey());
   });
 
   it("누적 공부 일 수는 서버 totalDays 값이다", async () => {
@@ -820,7 +820,7 @@ describe("ResultPage — state 없는 진입", () => {
   });
 });
 
-describe("ResultPage — 자정(KST) 분할 세션", () => {
+describe("ResultPage — 자정(세션 시간대) 분할 세션", () => {
   it("배열이 여러 건이면 첫 항목만 그린다 — 합산하지 않는다(미정, 보수적 처리)", () => {
     const first = exampleSession();
     const second = exampleSession({

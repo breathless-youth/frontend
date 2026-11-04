@@ -26,7 +26,6 @@ import type { RoomVisibility } from "@/features/group-room/model/roomMenu";
 
 import { firebaseAnalyticsForwardPlugin } from "./firebaseAnalyticsBridge";
 import i18n from "./i18n";
-import type { InstallAttributionProperties } from "./installAttribution";
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
 import { showToast } from "./toast";
 import { readUserId } from "./userId";
@@ -787,17 +786,39 @@ export function setThemeUserProperty(scheme: "light" | "dark") {
   identify(id);
 }
 
+const FOCUS_MILESTONE_TRACKED_KEY = "focusmakers:focus-milestone-tracked";
+
+/**
+ * 순공 1분 달성
+ *
+ * 메타로 보내는 같은 판정을 Amplitude에도 남겨 광고 화면 숫자와 같은 기준으로 비교한다.
+ * Firebase 전달 플러그인을 거쳐 GA4로도 복사되고, 구글 애즈는 이 이벤트를 전환으로 가져간다.
+ * 광고 화면이 "사람 수"로 읽히도록 기기당 한 번만 보낸다.
+ * 메타와 표시를 따로 둔다. 같이 쓰면 이미 메타로 보낸 사용자는 여기 영영 남지 않는다.
+ */
+export function trackFocusMilestoneReached(roomType: StudyRoomType) {
+  if (!initialized) return;
+  try {
+    if (localStorage.getItem(FOCUS_MILESTONE_TRACKED_KEY) !== null) return;
+    localStorage.setItem(FOCUS_MILESTONE_TRACKED_KEY, "1");
+  } catch {
+    // 저장소가 막히면 표시 없이 보낸다. 핵심 지표를 잃는 것보다 드물게 두 번 세는 편이 낫다.
+  }
+  track("focus_milestone_reached", { room_type: roomType });
+}
+
 /**
  * 설치 유입 경로 user property
  *
- * 앱이 넘긴 설치 정보로 정한 값이다(`lib/installAttribution.ts`).
- * 재설치나 재전송이 와도 처음 들어온 경로가 남도록 setOnce로 보낸다.
+ * 서버가 정한 유입 경로다(`lib/installAttribution.ts`).
+ * 서버가 사용자마다 처음 값만 돌려주므로 set으로 보낸다.
+ * setOnce를 쓰면 예전에 웹이 직접 판단해 남긴 값이 서버 값을 막는다.
  */
-export function setInstallAttributionUserProperties(properties: InstallAttributionProperties) {
+export function setInstallAttributionUserProperties(properties: Readonly<Record<string, string>>) {
   if (!initialized) return;
   const id = new Identify();
   for (const [key, value] of Object.entries(properties)) {
-    if (value !== undefined) id.setOnce(key, value);
+    id.set(key, value);
   }
   identify(id);
 }

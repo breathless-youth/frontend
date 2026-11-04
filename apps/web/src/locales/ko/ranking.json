@@ -4,6 +4,10 @@
     "noDevice": "기기 등록 전이에요. 앱에서 열면 기록이 저장돼요",
     "loadError": "랭킹을 불러오지 못했어요"
   },
+  "globalNotice": {
+    "title": "해외 랭킹은 준비 중이에요",
+    "body": "지금은 한국 시간대에서만 랭킹에 참여할 수 있어요"
+  },
   "type": {
     "focusTime": "순공",
     "focusRate": "집중률",

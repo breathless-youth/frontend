@@ -478,19 +478,19 @@ describe("setInstallAttributionUserProperties", () => {
     expect(mocks.identify).not.toHaveBeenCalled();
   });
 
-  it("처음 들어온 경로만 남도록 setOnce로 보낸다", async () => {
+  it("서버가 첫 값을 지키므로 set으로 보내 웹이 먼저 남긴 값도 바로잡는다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const { initAmplitude, setInstallAttributionUserProperties } = await loadModule();
     initAmplitude();
 
-    setInstallAttributionUserProperties({ install_source: "meta_ad", install_ad: "aos_v1" });
+    setInstallAttributionUserProperties({ install_source: "google_ad", install_ad: "g_planner" });
 
     const [sent] = mocks.identify.mock.calls[0] as [InstanceType<typeof mocks.FakeIdentify>];
-    expect(sent.setOnces).toEqual([
-      ["install_source", "meta_ad"],
-      ["install_ad", "aos_v1"],
+    expect(sent.sets).toEqual([
+      ["install_source", "google_ad"],
+      ["install_ad", "g_planner"],
     ]);
-    expect(sent.sets).toEqual([]);
+    expect(sent.setOnces).toEqual([]);
   });
 });
 
@@ -2264,5 +2264,48 @@ describe("프로필 사진 이벤트", () => {
         expect(value).toMatch(ANALYTICS_PARAM_VALUE_PATTERN);
       }
     }
+  });
+});
+
+describe("순공 1분 달성 (focus_milestone_reached)", () => {
+  afterEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it("처음 한 번만 focus_milestone_reached를 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackFocusMilestoneReached } = await loadModule();
+    initAmplitude();
+    mocks.track.mockClear();
+
+    trackFocusMilestoneReached("single");
+    trackFocusMilestoneReached("social");
+
+    expect(mocks.track).toHaveBeenCalledTimes(1);
+    expect(mocks.track).toHaveBeenCalledWith("focus_milestone_reached", { room_type: "single" });
+  });
+
+  it("저장소를 못 쓰면 표시 없이 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackFocusMilestoneReached } = await loadModule();
+    initAmplitude();
+    mocks.track.mockClear();
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("denied", "SecurityError");
+    });
+
+    trackFocusMilestoneReached("single");
+
+    expect(mocks.track).toHaveBeenCalledWith("focus_milestone_reached", { room_type: "single" });
+  });
+
+  it("미초기화 상태에서는 보내지도 표시하지도 않는다", async () => {
+    const { trackFocusMilestoneReached } = await loadModule();
+
+    trackFocusMilestoneReached("single");
+
+    expect(mocks.track).not.toHaveBeenCalled();
+    expect(localStorage.getItem("focusmakers:focus-milestone-tracked")).toBeNull();
   });
 });

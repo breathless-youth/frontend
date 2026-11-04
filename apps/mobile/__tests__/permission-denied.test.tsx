@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 
 import PermissionDeniedScreen from "../app/permission-denied";
+import { setDeviceLanguages } from "../jest/deviceLanguages";
 import {
   __resetNativeAnalyticsForTests,
   attachNativeAnalyticsSink,
@@ -30,13 +31,8 @@ jest.mock("expo-router", () => ({
   }),
 }));
 
-let mockLanguageCode = "ko";
-jest.mock("expo-localization", () => ({
-  getLocales: () => [{ languageCode: mockLanguageCode }],
-}));
-
 afterEach(() => {
-  mockLanguageCode = "ko";
+  setDeviceLanguages(["ko-KR"]);
 });
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -65,7 +61,7 @@ describe("S2-3 · 권한 거부 안내", () => {
   });
 
   it("한국어가 아닌 기기는 영어로 그리고 한글이 남지 않는다", () => {
-    mockLanguageCode = "en";
+    setDeviceLanguages(["en-US"]);
     render(<PermissionDeniedScreen />);
 
     expect(screen.getByText("Camera access needed")).toBeTruthy();

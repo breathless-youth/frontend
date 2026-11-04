@@ -20,7 +20,6 @@ import {
   addDaysToDateKey,
   dayOfDateKey,
   dayTitleWithWeekday,
-  kstDateKey,
   monthLabel,
   monthOfDateKey,
   shiftMonth,
@@ -36,6 +35,7 @@ import {
 } from "@/lib/amplitude";
 import { RecordsPage } from "@/routes/RecordsPage";
 import type * as UserIdModule from "@/lib/userId";
+import { localDateKey } from "@/lib/dateKey";
 
 /**
  * (모바일판 `__tests__/records.test.tsx`에서 케이스 이식 — BY-330, v2 조립으로 갱신 — BY-567 Task 8.
@@ -289,7 +289,7 @@ describe("RecordsPage", () => {
 
     renderRecords();
 
-    const currentMonth = monthOfDateKey(kstDateKey());
+    const currentMonth = monthOfDateKey(localDateKey());
     await screen.findByText(/요일$/);
 
     await userEvent.click(screen.getByRole("button", { name: "이전 달" }));
@@ -351,7 +351,7 @@ describe("RecordsPage", () => {
     await screen.findByText("오늘 순공시간");
     // 오늘이 1일이어도 고를 수 있게 지난달로 가서 15일을 고른다.
     await userEvent.click(screen.getByRole("button", { name: "이전 달" }));
-    const prevMonth = shiftMonth(monthOfDateKey(kstDateKey()), -1);
+    const prevMonth = shiftMonth(monthOfDateKey(localDateKey()), -1);
     await userEvent.click(screen.getByRole("button", { name: "15일, 기록 없음" }));
 
     const label = `${String(prevMonth.month)}월 15일 순공시간`;
@@ -383,7 +383,7 @@ describe("RecordsPage", () => {
 
       // 오늘이 1일이어도 고를 수 있게 지난달로 가서 15일을 고른다.
       await userEvent.click(screen.getByRole("button", { name: "이전 달" }));
-      const prevMonth = shiftMonth(monthOfDateKey(kstDateKey()), -1);
+      const prevMonth = shiftMonth(monthOfDateKey(localDateKey()), -1);
       await userEvent.click(screen.getByRole("button", { name: "15일, 기록 없음" }));
 
       const picked = `${String(prevMonth.year)}-${String(prevMonth.month).padStart(2, "0")}-15`;
@@ -439,14 +439,14 @@ describe("RecordsPage", () => {
       expect(await screen.findByText("오늘 순공시간")).toBeInTheDocument();
       unmount();
 
-      renderRecords(`/records?userId=7&date=${addDaysToDateKey(kstDateKey(), 1)}`);
+      renderRecords(`/records?userId=7&date=${addDaysToDateKey(localDateKey(), 1)}`);
       expect(await screen.findByText("오늘 순공시간")).toBeInTheDocument();
     });
   });
 
   it("달력 아래에 그 달 합계와 공부한 날 기준 하루 평균을 보여준다", async () => {
     mockedStats.mockResolvedValue(statsResponse(false));
-    const month = monthOfDateKey(kstDateKey());
+    const month = monthOfDateKey(localDateKey());
     mockedPeriod.mockResolvedValue(
       periodResponse([
         { date: "2026-01-01", studySec: 3600, focusSec: 3600 },
@@ -491,7 +491,7 @@ describe("RecordsPage", () => {
 
     renderRecords();
 
-    const todayKey = kstDateKey();
+    const todayKey = localDateKey();
     const currentMonth = monthOfDateKey(todayKey);
     await screen.findByText(/요일$/);
 
@@ -510,7 +510,7 @@ describe("RecordsPage", () => {
 
     renderRecords();
 
-    const currentLabel = monthLabel(monthOfDateKey(kstDateKey()));
+    const currentLabel = monthLabel(monthOfDateKey(localDateKey()));
     await screen.findByText(/요일$/);
     expect(screen.getByRole("button", { name: "다음 달" })).toBeDisabled();
 
@@ -630,7 +630,7 @@ describe("RecordsPage", () => {
 
     renderRecords();
 
-    const currentMonth = monthOfDateKey(kstDateKey());
+    const currentMonth = monthOfDateKey(localDateKey());
     const currentLabel = monthLabel(currentMonth);
     await screen.findByText(/요일$/);
 
@@ -747,7 +747,7 @@ describe("RecordsPage", () => {
     mockedStats.mockResolvedValue(statsResponse(false));
     mockedPeriod.mockResolvedValue(
       periodResponse(
-        [{ date: kstDateKey(), studySec: 7200, focusSec: 3600 }],
+        [{ date: localDateKey(), studySec: 7200, focusSec: 3600 }],
         [{ date: "2026-01-01", studySec: 3600, focusSec: 1800 }],
       ),
     );
@@ -833,7 +833,7 @@ describe("RecordsPage", () => {
   });
 
   describe("수동 기록", () => {
-    const TODAY = kstDateKey();
+    const TODAY = localDateKey();
     /** KST 2026-01-01 14:00~15:30 국어 수동 기록. 기록 탭은 고른 날 응답을 그대로 그린다. */
     const manualDay: StudySessionListResponse = {
       ...statsResponse(false),
