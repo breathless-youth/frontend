@@ -682,10 +682,10 @@ export function setThemeUserProperty(scheme: "light" | "dark") {
   identify(id);
 }
 
-const FOCUS_MILESTONE_TRACKED_KEY = "focusmakers:focus-5min-tracked";
+const FOCUS_MILESTONE_TRACKED_KEY = "focusmakers:focus-milestone-tracked";
 
 /**
- * 순공 5분 달성
+ * 순공 1분 달성
  *
  * 메타로 보내는 같은 판정을 Amplitude에도 남겨 광고 화면 숫자와 같은 기준으로 비교한다.
  * Firebase 전달 플러그인을 거쳐 GA4로도 복사되고, 구글 애즈는 이 이벤트를 전환으로 가져간다.

@@ -220,7 +220,7 @@ describe("firebaseAnalyticsForwardPlugin", () => {
   });
 });
 
-describe("toFirebaseAnalyticsMessage — 순공 5분 달성", () => {
+describe("toFirebaseAnalyticsMessage — 순공 1분 달성", () => {
   it("focus_milestone_reached와 room_type이 GA4 메시지로 그대로 바뀐다", () => {
     expect(
       toFirebaseAnalyticsMessage(

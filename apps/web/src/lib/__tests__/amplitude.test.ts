@@ -2117,7 +2117,7 @@ describe("프로필 사진 이벤트", () => {
   });
 });
 
-describe("순공 5분 달성 (focus_milestone_reached)", () => {
+describe("순공 1분 달성 (focus_milestone_reached)", () => {
   afterEach(() => {
     localStorage.clear();
     vi.restoreAllMocks();
@@ -2156,6 +2156,6 @@ describe("순공 5분 달성 (focus_milestone_reached)", () => {
     trackFocusMilestoneReached("single");
 
     expect(mocks.track).not.toHaveBeenCalled();
-    expect(localStorage.getItem("focusmakers:focus-5min-tracked")).toBeNull();
+    expect(localStorage.getItem("focusmakers:focus-milestone-tracked")).toBeNull();
   });
 });
