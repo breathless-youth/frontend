@@ -128,7 +128,7 @@ describe("openAppSettings", () => {
 });
 
 describe("isMicrophonePermissionGranted", () => {
-  it("허용이면 true이고 거부와 아직 묻지 않은 상태는 false다", async () => {
+  it("허용이면 true, 거부면 false, 아직 묻지 않았으면 null이다", async () => {
     const mockedGet = Camera.getMicrophonePermissionsAsync as jest.Mock;
 
     mockedGet.mockResolvedValue({ status: "granted", canAskAgain: true });
@@ -138,7 +138,7 @@ describe("isMicrophonePermissionGranted", () => {
     await expect(isMicrophonePermissionGranted()).resolves.toBe(false);
 
     mockedGet.mockResolvedValue({ status: "undetermined", canAskAgain: true });
-    await expect(isMicrophonePermissionGranted()).resolves.toBe(false);
+    await expect(isMicrophonePermissionGranted()).resolves.toBeNull();
   });
 
   it("조회만 하고 OS 권한 창을 띄우지 않는다", async () => {
