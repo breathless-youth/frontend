@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { kstDayStartMs, subjectColorVar, subjectRefMap } from "../recordsTimetable";
+import { subjectColorVar, subjectRefMap } from "../recordsTimetable";
 
 describe("subjectRefMap — 과목 id로 이름·색을 찾는다", () => {
   it("지운 과목도 이름·색을 찾을 수 있고, 없으면 빈 맵이다", () => {
@@ -29,13 +29,5 @@ describe("subjectColorVar", () => {
     expect(subjectColorVar(19)).toBe("var(--subject-19)");
     expect(subjectColorVar(20)).toBe("var(--subject-0)");
     expect(subjectColorVar(-1)).toBe("var(--subject-19)");
-  });
-});
-
-describe("kstDayStartMs — KST 자정 경계", () => {
-  it("KST 날짜의 자정을 절대 UTC 시각으로 잡는다", () => {
-    // KST는 UTC+9라 2026-09-21 00:00(KST) = 2026-09-20T15:00:00Z. 절대 시각으로 못 박아
-    // kstDayStartMs를 그 자신으로 되짚는 순환 검증을 피한다.
-    expect(kstDayStartMs("2026-09-21")).toBe(Date.parse("2026-09-20T15:00:00Z"));
   });
 });

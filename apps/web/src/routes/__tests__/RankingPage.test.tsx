@@ -40,6 +40,7 @@ import { rankingKeys } from "@/lib/rankingQueries";
 import { useUserId } from "@/lib/userId";
 import type * as UserId from "@/lib/userId";
 import { RankingPage } from "@/routes/RankingPage";
+import { mockDeviceTimeZone } from "@/test/deviceTimeZone";
 
 vi.mock("@/lib/rankingApi", () => ({
   getRankingBoard: vi.fn(),
@@ -335,6 +336,20 @@ describe("RankingPage", () => {
 
     expect(screen.getByText("기기 등록 전이에요. 앱에서 열면 기록이 저장돼요")).toBeInTheDocument();
     expect(getRankingBoard).not.toHaveBeenCalled();
+  });
+
+  it("기기 시간대가 한국이 아니면 해외 랭킹 준비 안내만 보이고 랭킹을 받지 않는다", async () => {
+    mockDeviceTimeZone("America/New_York");
+    renderPage();
+
+    expect(screen.getByRole("heading", { name: "해외 랭킹은 준비 중이에요" })).toBeInTheDocument();
+    expect(
+      screen.getByText("지금은 한국 시간대에서만 랭킹에 참여할 수 있어요"),
+    ).toBeInTheDocument();
+    // 받는 요청은 렌더 뒤 effect에서 나가므로 한 틱 기다린 뒤 센다.
+    await act(async () => {});
+    expect(getRankingBoard).not.toHaveBeenCalled();
+    expect(getRankingRecordsSummary).not.toHaveBeenCalled();
   });
 
   it("메달 버튼으로 기록 시트를 열고, 메달을 누르면 그 판으로 바꾸고 닫는다", async () => {

@@ -1,12 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  formatClock,
-  formatClockRange,
-  formatDateLabel,
-  formatMonthLabel,
-  STAT_TIME_ZONE,
-} from "../intl";
+import { mockDeviceTimeZone } from "@/test/deviceTimeZone";
+
+import { formatClock, formatClockRange, formatDateLabel, formatMonthLabel } from "../intl";
 
 const spaces = (s: string) => s.replace(/\u202f/g, " ");
 // 2026-10-01 21:03 KST = 2026-10-01 08:03 뉴욕(EDT)
@@ -14,8 +10,10 @@ const at = new Date("2026-10-01T12:03:00Z");
 const end = new Date("2026-10-01T13:48:00Z");
 
 describe("intl", () => {
-  it("통계 시간대는 KST다", () => {
-    expect(STAT_TIME_ZONE).toBe("Asia/Seoul");
+  it("시간대를 넘기지 않으면 기기 시간대로 쓴다", () => {
+    mockDeviceTimeZone("America/New_York");
+    expect(formatClock("ko", at)).toBe("08:03");
+    expect(formatClock("ko", at, "Asia/Seoul")).toBe("21:03");
   });
 
   it.each([
@@ -39,8 +37,8 @@ describe("intl", () => {
   });
 
   it.each([
-    ["ko", STAT_TIME_ZONE, "21:03"],
-    ["en", STAT_TIME_ZONE, "9:03 PM"],
+    ["ko", "Asia/Seoul", "21:03"],
+    ["en", "Asia/Seoul", "9:03 PM"],
     ["ko", "America/New_York", "08:03"],
     ["en", "America/New_York", "8:03 AM"],
   ] as const)("시각 %s %s", (locale, tz, expected) => {
