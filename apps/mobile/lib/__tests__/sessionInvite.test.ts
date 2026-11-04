@@ -101,15 +101,16 @@ describe("inviteCodeFrom", () => {
 describe("offerRouteToSession", () => {
   it("세션 화면이 없으면 넘기지 않는다", () => {
     expect(offerRouteToSession("/social/join?code=4680")).toBe(false);
+    expect(offerRouteToSession("/social/join?code=AB2CD3")).toBe(false);
     expect(received).toEqual([]);
   });
 
-  it("세션 화면이 있으면 코드를 넘기고 초대 진입 이벤트를 남긴다", () => {
+  it("세션 화면이 있으면 그룹 코드를 넘기고 초대 진입 이벤트를 남긴다", () => {
     const handler = jest.fn();
     release = setSessionInviteHandler(handler);
 
-    expect(offerRouteToSession("/social/join?code=4680")).toBe(true);
-    expect(handler).toHaveBeenCalledWith("4680");
+    expect(offerRouteToSession("/social/join?code=AB2CD3")).toBe(true);
+    expect(handler).toHaveBeenCalledWith("AB2CD3");
     expect(received.map((event) => [event.name, event.properties])).toEqual([
       ["invite_deep_link_opened", { has_code: true }],
     ]);
@@ -121,6 +122,28 @@ describe("offerRouteToSession", () => {
 
     expect(offerRouteToSession("/social/join?code=ab2cd3")).toBe(true);
     expect(handler).toHaveBeenCalledWith("AB2CD3");
+  });
+
+  it.each(["4680", "0712"])(
+    "예전 방의 숫자 4자리 링크 %s는 세션 화면에 넘기지 않고 가로채기만 한다",
+    (code) => {
+      const handler = jest.fn();
+      release = setSessionInviteHandler(handler);
+
+      // true를 돌려줘야 호출부가 화면을 이동하지 않아 세션 위에 시트가 쌓이지 않는다.
+      expect(offerRouteToSession(`/social/join?code=${code}`)).toBe(true);
+      expect(handler).not.toHaveBeenCalled();
+    },
+  );
+
+  it("가로챈 숫자 4자리 링크도 초대 진입 이벤트는 남긴다", () => {
+    release = setSessionInviteHandler(jest.fn());
+
+    offerRouteToSession("/social/join?code=4680");
+
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      ["invite_deep_link_opened", { has_code: true }],
+    ]);
   });
 
   it("초대 경로가 아니면 세션 화면이 있어도 넘기지 않는다", () => {
@@ -135,7 +158,7 @@ describe("offerRouteToSession", () => {
     const releaseHandler = setSessionInviteHandler(jest.fn());
     releaseHandler();
 
-    expect(offerRouteToSession("/social/join?code=4680")).toBe(false);
+    expect(offerRouteToSession("/social/join?code=AB2CD3")).toBe(false);
   });
 
   it("늦게 온 해제가 그사이 등록된 새 핸들러를 지우지 않는다", () => {
@@ -145,7 +168,7 @@ describe("offerRouteToSession", () => {
 
     releaseOld();
 
-    expect(offerRouteToSession("/social/join?code=4680")).toBe(true);
-    expect(next).toHaveBeenCalledWith("4680");
+    expect(offerRouteToSession("/social/join?code=AB2CD3")).toBe(true);
+    expect(next).toHaveBeenCalledWith("AB2CD3");
   });
 });

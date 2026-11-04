@@ -28,6 +28,8 @@ const GROUP_INVITE_CODE = /^[A-HJKMNP-Z2-9]{6}$/;
  * 링크에 실린 초대코드 정리
  *
  * 예전 방의 숫자 4자리 코드는 앞자리 0까지 받은 그대로 돌려준다.
+ * 설치 유입과 일반 링크는 코드를 웹에 넘기고 웹이 4자리 코드를 그룹 탭으로 보내므로 앱은 이 코드를 막지 않는다.
+ * 세션 중에 받은 4자리 코드를 거르는 곳은 `offerRouteToSession`이다.
  * 그룹의 6자리 코드는 공백과 하이픈을 버리고 대문자로 맞춘 뒤 서버가 쓰는 글자로만 되어 있을 때 돌려준다.
  * 대문자로 바꾸면 ß처럼 영문이 아닌 글자가 영문 두 글자가 되기도 해서 영문과 숫자만 남았는지 먼저 본다.
  * 어느 모양도 아니면 null이다.
@@ -71,13 +73,17 @@ export function setSessionInviteHandler(next: InviteHandler): () => void {
 /**
  * 초대 경로를 열려 있는 세션 화면에 넘기기
  *
- * 넘겼으면 true를 돌려주고, 호출부는 화면 이동을 하지 않는다.
- * 가로채면 `social/join` 화면이 그려지지 않으므로 그 화면이 남기던 진입 이벤트를 여기서 남긴다.
+ * 가로챘으면 true를 돌려주고, 호출부는 화면 이동을 하지 않는다.
+ * 세션 화면에는 그룹의 6자리 코드만 넘긴다.
+ * 예전 방의 숫자 4자리 코드는 새 앱에서 쓰지 않으므로 확인 창도 공부 종료도 없이 링크만 가로챈다.
+ * 링크를 평소대로 보내면 소셜 탭이 세션 위에 시트로 쌓이기 때문이다.
+ * 가로채면 `social/join` 화면이 그려지지 않으므로 그 화면이 남기던 진입 이벤트를 코드 모양과 상관없이 여기서 남긴다.
  */
 export function offerRouteToSession(route: string): boolean {
   const code = inviteCodeFromRoute(route);
   if (code === null || handler === null) return false;
   trackNativeEvent("invite_deep_link_opened", { has_code: true });
+  if (ROOM_INVITE_CODE.test(code)) return true;
   handler(code);
   return true;
 }

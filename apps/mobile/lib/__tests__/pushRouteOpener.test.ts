@@ -64,11 +64,11 @@ describe("openPushRoute", () => {
     const unregister = setSessionInviteHandler(invite);
 
     openPushRoute("/planner", push, () => AT);
-    openPushRoute("/social/join?code=1234", push, () => AT + 1);
+    openPushRoute("/social/join?code=AB2CD3", push, () => AT + 1);
     closeSession();
     await flush();
 
-    expect(invite).toHaveBeenCalledWith("1234");
+    expect(invite).toHaveBeenCalledWith("AB2CD3");
     expect(push).not.toHaveBeenCalled();
     unregister();
   });
@@ -79,16 +79,16 @@ describe("openPushRoute", () => {
     const closeSession = markSessionOpen("single");
     const unregister = setSessionInviteHandler(invite);
 
-    openPushRoute("/social/join?code=1234", push, () => AT);
+    openPushRoute("/social/join?code=AB2CD3", push, () => AT);
     closeSession();
     await flush();
 
-    expect(invite).toHaveBeenCalledWith("1234");
+    expect(invite).toHaveBeenCalledWith("AB2CD3");
     expect(push).not.toHaveBeenCalled();
     unregister();
   });
 
-  it("세션 중 그룹 초대 링크도 세션 화면에 넘기고 이동하지 않는다", async () => {
+  it("세션 중 그룹 초대 링크는 정리한 코드로 세션 화면에 넘긴다", async () => {
     const push = jest.fn();
     const invite = jest.fn();
     const closeSession = markSessionOpen("single");
@@ -99,6 +99,21 @@ describe("openPushRoute", () => {
     await flush();
 
     expect(invite).toHaveBeenCalledWith("AB2CD3");
+    expect(push).not.toHaveBeenCalled();
+    unregister();
+  });
+
+  it("세션 중 숫자 4자리 초대 링크는 세션 화면에 넘기지도 이동하지도 않는다", async () => {
+    const push = jest.fn();
+    const invite = jest.fn();
+    const closeSession = markSessionOpen("single");
+    const unregister = setSessionInviteHandler(invite);
+
+    openPushRoute("/social/join?code=1234", push, () => AT);
+    closeSession();
+    await flush();
+
+    expect(invite).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();
     unregister();
   });

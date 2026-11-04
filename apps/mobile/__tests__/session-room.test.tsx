@@ -187,7 +187,7 @@ describe("SessionRoomScreen: 세션 중 초대", () => {
 
     let offered = false;
     act(() => {
-      offered = offerRouteToSession("/social/join?code=4680");
+      offered = offerRouteToSession("/social/join?code=AB2CD3");
     });
 
     expect(offered).toBe(true);
@@ -195,7 +195,7 @@ describe("SessionRoomScreen: 세션 중 초대", () => {
       .map((call) => String(call[0]))
       .filter((script) => script.includes("session-invite"));
     expect(scripts).toHaveLength(1);
-    expect(scripts[0]).toContain('\\"code\\":\\"4680\\"');
+    expect(scripts[0]).toContain('\\"code\\":\\"AB2CD3\\"');
     expect(router.navigate).not.toHaveBeenCalled();
   });
 
@@ -204,24 +204,62 @@ describe("SessionRoomScreen: 세션 중 초대", () => {
     await screen.findByTestId("session-webview");
 
     act(() => {
-      offerRouteToSession("/social/join?code=4680");
+      offerRouteToSession("/social/join?code=AB2CD3");
     });
 
     expect(router.back).toHaveBeenCalledTimes(1);
     expect(router.navigate).toHaveBeenCalledWith({
       pathname: "/(tabs)/social",
-      params: { code: "4680", at: expect.any(String) },
+      params: { code: "AB2CD3", at: expect.any(String) },
     });
+  });
+
+  it("숫자 4자리 초대는 웹에 넘기지 않아 확인 창 없이 공부가 이어진다", async () => {
+    render(<SessionRoomScreen />);
+    const webview = await screen.findByTestId("session-webview");
+    act(() => {
+      (webview.props.onLoadEnd as () => void)();
+    });
+    act(() => {
+      (webview.props.onMessage as (event: unknown) => void)({
+        nativeEvent: { data: '{"type":"motion-sensor","enabled":false,"atMs":1}' },
+      });
+    });
+
+    let offered = false;
+    act(() => {
+      offered = offerRouteToSession("/social/join?code=4680");
+    });
+
+    expect(offered).toBe(true);
+    const scripts = mockInjectJavaScript.mock.calls
+      .map((call) => String(call[0]))
+      .filter((script) => script.includes("session-invite"));
+    expect(scripts).toEqual([]);
+    expect(router.back).not.toHaveBeenCalled();
+    expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  it("웹이 아직 아무 메시지도 보내지 않았어도 숫자 4자리 초대로는 세션 화면을 닫지 않는다", async () => {
+    render(<SessionRoomScreen />);
+    await screen.findByTestId("session-webview");
+
+    act(() => {
+      offerRouteToSession("/social/join?code=4680");
+    });
+
+    expect(router.back).not.toHaveBeenCalled();
+    expect(router.navigate).not.toHaveBeenCalled();
   });
 
   it("세션 화면이 사라지면 초대를 받지 않는다", async () => {
     const { unmount } = render(<SessionRoomScreen />);
     await screen.findByTestId("session-webview");
-    expect(offerRouteToSession("/social/join?code=4680")).toBe(true);
+    expect(offerRouteToSession("/social/join?code=AB2CD3")).toBe(true);
 
     unmount();
 
-    expect(offerRouteToSession("/social/join?code=4680")).toBe(false);
+    expect(offerRouteToSession("/social/join?code=AB2CD3")).toBe(false);
   });
 });
 
