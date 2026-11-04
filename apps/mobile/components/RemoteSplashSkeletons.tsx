@@ -1,4 +1,4 @@
-import { View } from "react-native";
+import { Platform, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Skeleton } from "./ui/Skeleton";
@@ -134,24 +134,50 @@ export function SettingsTabSkeleton() {
 }
 
 /**
- * 소셜
+ * 화면 바닥에서 탭 바 윗변 8 위까지의 거리
+ *
+ * 웹 `--tab-bar-reserve`와 같은 식이고, 웹은 떠 있는 버튼을 여기서 16 더 위에 둔다.
+ * iOS 시스템 탭 바는 탭 화면의 아래쪽 안전영역에 자기 높이 49를 넣어서 웹뷰와 이 스켈레톤이 읽는 안전영역 모두 탭 바를 이미 담고 있다.
+ * 여기서 49를 한 번 더 더하면 웹이 뜰 때 + 버튼이 49만큼 아래로 뛴다.
+ * Android 탭 바는 높이 70이고 바닥에서 안전영역과 24 가운데 큰 값만큼 떠 있다.
+ */
+function tabBarReserve(bottomInset: number): number {
+  return Platform.OS === "ios" ? bottomInset + 8 : 70 + Math.max(bottomInset, 24) + 8;
+}
+
+/**
+ * 그룹
+ *
+ * 이 앱은 웹을 `groupRooms=1`로 열어서 이 탭은 언제나 그룹 탭 목록으로 열린다.
+ * 웹 그룹 탭이 내 그룹을 받는 동안 그리는 자리표시와 같은 모양이라 카드도 두 장이다.
+ * 앱의 rem은 14px이라 Tailwind 간격 단계 대신 웹과 같은 px 값을 쓴다.
  */
 export function SocialTabSkeleton() {
   const insets = useSafeAreaInsets();
 
   return (
-    <View className="flex-1 px-5" style={{ paddingTop: insets.top + 17 }}>
-      <Skeleton className="h-[34px] w-14 rounded-md" />
-      <View className="flex-1 items-center justify-center gap-2">
-        <Skeleton className="h-[88px] w-[88px] rounded-full" />
-        <View className="h-2" />
-        <Skeleton className="h-[22px] w-[158px] rounded-md" />
-        <Skeleton className="h-10 w-[205px] rounded-md" />
-        <View className="h-4" />
-        <View className="flex-row gap-2.5">
-          <Skeleton className="h-12 w-[99px] rounded-[14px]" />
-          <Skeleton className="h-12 w-[141px] rounded-[14px]" />
-        </View>
+    <View className="flex-1" style={{ paddingTop: insets.top + 17 }}>
+      <View className="px-[20px]">
+        <Skeleton className="h-[30px] w-[48px] rounded-md" />
+      </View>
+      {/* 탭 줄 아래 경계선까지 그려야 웹이 뜰 때 선이 새로 생기지 않는다. */}
+      <View
+        testID="social-skeleton-tabs"
+        className="border-border-default dark:border-border-default-dark mt-[16px] h-[46px] flex-row items-center gap-[22px] border-b px-[20px]"
+      >
+        <Skeleton className="h-[20px] w-[52px] rounded-md" />
+        <Skeleton className="h-[20px] w-[68px] rounded-md" />
+      </View>
+      <View testID="social-skeleton-groups" className="gap-[12px] px-[20px] pt-[14px]">
+        <Skeleton className="h-[164px] rounded-xl" />
+        <Skeleton className="h-[164px] rounded-xl" />
+      </View>
+      <View
+        testID="social-skeleton-create"
+        className="absolute right-[20px]"
+        style={{ bottom: tabBarReserve(insets.bottom) + 16 }}
+      >
+        <Skeleton className="h-[56px] w-[56px] rounded-full" />
       </View>
     </View>
   );

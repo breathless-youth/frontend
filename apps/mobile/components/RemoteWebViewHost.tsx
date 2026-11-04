@@ -25,10 +25,12 @@ import type { BridgeReply } from "../lib/nativeBridgeHandler";
 import { consumeAppLaunchSignal } from "../lib/appLaunch";
 import { getAppLocale, t } from "../lib/i18n";
 import { authTokenMessage, subscribeAuth } from "../lib/auth";
+import { subscribeInAppNotifications } from "../lib/inAppNotification";
 import { attachInstallAttributionSink } from "../lib/installAttribution";
 import { attachNativeAnalyticsSink, trackNativeEvent } from "../lib/nativeAnalytics";
 import { lockPortrait, unlockForSession } from "../lib/orientation";
 import { subscribeSessionClosed } from "../lib/sessionClosed";
+import { attachTabBackHandler } from "../lib/tabBack";
 import { subscribeTabReset } from "../lib/tabReset";
 import { getWebBaseUrl } from "../lib/webBaseUrl";
 import { injectMessageScript, parseToNativeMessage } from "../lib/webBridge";
@@ -249,6 +251,13 @@ export type RemoteWebViewHostProps = {
    * 탭이 루트를 따로 알려 준다. 생략하면 `path`다.
    */
   resetPath?: string;
+  /**
+   * 시스템 뒤로 가기가 탭 첫 화면으로 보는 탭 루트
+   *
+   * 초대 참여 화면처럼 `resetPath`를 비우고 연 탭도 첫 화면은 탭 루트라서 따로 받는다.
+   * 생략하면 `resetPath`, 그것도 없으면 `path`를 첫 화면으로 본다.
+   */
+  tabRootPath?: string;
   /** 쿼리 파라미터. 생략하면 쿼리 없이 연다. */
   query?: Record<string, string | number>;
   /**
@@ -317,6 +326,7 @@ export function requestGlobalWebViewRecovery(): boolean {
 export function RemoteWebViewHost({
   path,
   resetPath,
+  tabRootPath,
   query,
   onBridgeMessage,
   backgroundColor,
@@ -448,6 +458,13 @@ export function RemoteWebViewHost({
   const restoreRef = useRef<RestoreTarget | null>(null);
   /** 사망 복구(재마운트·재로드) 진행 중 — 전역 복구 요청이 겹쳐도 재마운트를 반복하지 않는다. */
   const recoveringRef = useRef(false);
+  /**
+   * 웹뷰 기록에 돌아갈 항목이 있는지
+   *
+   * Android 시스템 뒤로 가기를 이 웹뷰가 받을지 고르는 데 쓴다.
+   * 문서 세대가 바뀌면 새 웹뷰는 기록이 비어 있어 거짓으로 되돌린다.
+   */
+  const canGoBackRef = useRef(false);
 
   /**
    * 다음 문서 세대로 넘어간다.
@@ -458,6 +475,7 @@ export function RemoteWebViewHost({
   const nextGeneration = useCallback(() => {
     const restore = restoreRef.current;
     const baseUrl = readWebBaseUrl();
+    canGoBackRef.current = false;
     setDoc((current) => ({ key: current.key + 1, baseUrl, restore }));
     resetGlass();
   }, [resetGlass]);
@@ -895,6 +913,32 @@ export function RemoteWebViewHost({
     });
   }, [path, resetPath, sendToWeb]);
 
+  // 보이는 동안 Android 시스템 뒤로 가기를 탭 레이아웃보다 먼저 받는다(`lib/tabBack.ts`).
+  // 탭 첫 화면이 아니고 돌아갈 기록이 있을 때만 이 웹뷰에서 한 칸 돌아가고, 그 밖에는 처리하지 않아 탭 레이아웃의 탭 이동 규칙에 맡긴다.
+  // 알림 링크로 하위 화면을 곧장 열어 기록이 없으면 웹뷰 안에 돌아갈 곳이 없어 탭 규칙을 따른다.
+  // 첫 화면은 연 경로가 아니라 탭 루트다.
+  // 초대 링크로 연 참여 화면을 첫 화면으로 보면 방을 나와 탭 루트에 돌아온 뒤에도 뒤로 가기가 그 참여 화면으로 돌아간다.
+  useEffect(() => {
+    if (Platform.OS !== "android" || !focused) {
+      return;
+    }
+    const firstScreenPath = tabRootPath ?? resetPath ?? path;
+    return attachTabBackHandler(() => {
+      const screenPath = restoreRef.current?.path;
+      const webView = webViewRef.current;
+      if (
+        screenPath === undefined ||
+        screenPath === firstScreenPath ||
+        !canGoBackRef.current ||
+        webView === null
+      ) {
+        return false;
+      }
+      webView.goBack();
+      return true;
+    });
+  }, [focused, path, resetPath, tabRootPath]);
+
   // 세션이 끝나 모달이 닫히면 모든 탭 웹뷰에 알린다. 어느 탭이 드러날지 모르고, 탭들은 자기
   // 문서 밖에서 끝난 세션을 알 수 없어 통계 캐시가 낡은 채로 남는다(`lib/sessionClosed.ts`).
   useEffect(() => {
@@ -946,6 +990,18 @@ export function RemoteWebViewHost({
     }
     return attachInstallAttributionSink((payload) => {
       sendToWeb({ type: "install-attribution", ...payload, atMs: Date.now() });
+    });
+  }, [focused, analyticsReady, sendToWeb]);
+
+  // 앱을 쓰는 중에 온 그룹 알림도 같은 조건의 문서 하나에만 넘긴다.
+  // 탭 웹뷰 다섯 개가 모두 받으면 토스트가 겹친다.
+  // 아직 로드 중인 문서가 구독하면 받을 웹 구독이 없어 알림이 버려진다.
+  useEffect(() => {
+    if (!focused || !analyticsReady) {
+      return;
+    }
+    return subscribeInAppNotifications((notification) => {
+      sendToWeb({ type: "in-app-notification", ...notification, atMs: Date.now() });
     });
   }, [focused, analyticsReady, sendToWeb]);
 
@@ -1031,6 +1087,21 @@ export function RemoteWebViewHost({
     settleBackSwipe();
   }, [devOnLoadStart, resetGlass, settleBackSwipe]);
 
+  /**
+   * Android 내비게이션 상태 기록
+   *
+   * SPA 이동마다 와서 시스템 뒤로 가기가 쓸 기록 여부만 ref에 담는다.
+   * 위 onRecoveryStart 주석과 같은 이유로 복구·스플래시·회전은 여기에 묶지 않는다.
+   */
+  const devOnNavigationStateChange = devLoadLog.onNavigationStateChange;
+  const handleNavigationStateChange = useCallback(
+    (state: WebViewNavigation) => {
+      devOnNavigationStateChange?.(state);
+      canGoBackRef.current = state.canGoBack;
+    },
+    [devOnNavigationStateChange],
+  );
+
   if (showFailureFallback) {
     return (
       <View
@@ -1114,6 +1185,9 @@ export function RemoteWebViewHost({
       onRenderProcessGone={handleRenderProcessGone}
       {...devLoadLog}
       onLoadStart={Platform.OS === "ios" ? handleLoadStart : devOnLoadStart}
+      onNavigationStateChange={
+        Platform.OS === "android" ? handleNavigationStateChange : devOnNavigationStateChange
+      }
     />
   );
 

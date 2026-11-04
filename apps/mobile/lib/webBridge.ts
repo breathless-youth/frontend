@@ -33,12 +33,13 @@ import {
   NATIVE_SEGMENT_MIN_OPTIONS,
   NAVIGATE_TAB_SOURCES,
   NAVIGATE_TAB_TARGETS,
+  SOCIAL_LOGIN_PROVIDERS,
   VIDEO_SHARE_TARGETS,
 } from "@focusmakers/types";
 
 import { isReservedAnalyticsName } from "./firebaseAnalytics";
 import { META_EVENT_MAX_PARAMS, META_EVENT_NAME_PATTERN } from "./metaAds";
-import { isInviteCode } from "./sessionInvite";
+import { inviteCodeFrom } from "./sessionInvite";
 
 /**
  * 웹이 설치하는 전역 수신 함수 이름 — 웹 쪽 `NATIVE_MESSAGE_ENTRY`와 **같은 값이어야 한다.**
@@ -67,6 +68,14 @@ function isVideoId(value: unknown): value is string {
 function isCount(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
+
+/**
+ * 앱 안 알림 누름이 돌려주는 푸시 링크의 길이 상한
+ *
+ * 웹이 `in-app-notification`을 받을 때 쓰는 상한과 같은 값이다.
+ * 링크가 열어도 되는 곳인지는 받은 뒤 푸시 허용 규칙이 다시 판단한다.
+ */
+const PUSH_LINK_MAX_LENGTH = 4096;
 
 /**
  * WebView 브리지의 네이티브 쪽 끝(세션 상태 모델 스펙 §10).
@@ -125,15 +134,18 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
     }
     case "start-session":
       return { type: "start-session", atMs: record.atMs };
-    case "navigate-home":
+    case "navigate-home": {
       // 이어서 열 탭과 초대코드는 선택 필드다.
       // 명세 밖 값이면 그 필드만 빼고 모달 닫기는 살린다(탭이 빠지면 홈 탭에 머문다).
+      // 세션 중 받은 그룹 초대도 이 필드로 돌아오므로 링크와 같은 규칙으로 코드를 정리한다.
+      const inviteCode = inviteCodeFrom(record.inviteCode);
       return {
         type: "navigate-home",
         ...(record.tab === "records" || record.tab === "ranking" ? { tab: record.tab } : {}),
-        ...(isInviteCode(record.inviteCode) ? { inviteCode: record.inviteCode } : {}),
+        ...(inviteCode !== null ? { inviteCode } : {}),
         atMs: record.atMs,
       };
+    }
     case "records-changed":
       return { type: "records-changed", atMs: record.atMs };
     case "profile-updated":
@@ -160,6 +172,15 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         return null;
       }
       return { type: record.type, id: record.id, atMs: record.atMs };
+    case "social-login":
+      if (
+        typeof record.id !== "string" ||
+        record.id === "" ||
+        !isOneOf(SOCIAL_LOGIN_PROVIDERS, record.provider)
+      ) {
+        return null;
+      }
+      return { type: "social-login", id: record.id, provider: record.provider, atMs: record.atMs };
     case "app-lock-start":
     case "app-lock-stop":
     case "app-lock-battery-guide":
@@ -297,6 +318,20 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       return parseSetGlassChrome(record);
     case "set-inline-controls":
       return parseSetInlineControls(record);
+    case "open-push-link":
+      if (typeof record.link !== "string" || record.link.length > PUSH_LINK_MAX_LENGTH) {
+        return null;
+      }
+      // 알림 종류는 열림 계측에만 쓰는 선택 필드라 토큰 형식이 아니면 그 필드만 빼고 누름은 살린다.
+      return {
+        type: "open-push-link",
+        link: record.link,
+        ...(typeof record.pushType === "string" &&
+        ANALYTICS_PARAM_VALUE_PATTERN.test(record.pushType)
+          ? { pushType: record.pushType }
+          : {}),
+        atMs: record.atMs,
+      };
     default:
       return null;
   }

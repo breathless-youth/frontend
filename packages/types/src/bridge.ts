@@ -124,6 +124,23 @@ export type ToWebMessage =
    */
   | { type: "profile-photo-result"; id: string; status: "picked"; data: string; atMs: number }
   | { type: "profile-photo-result"; id: string; status: "cancelled" | "failed"; atMs: number }
+  /**
+   * 앱을 쓰는 중에 온 그룹 알림
+   *
+   * 앱이 포그라운드에서 그룹 푸시를 받았고 세션 화면이 아닐 때 보이는 탭 웹뷰 하나에만 보낸다.
+   * 제목과 본문은 서버가 보낸 알림 문구 그대로이고 웹은 위쪽 두 줄 토스트로 그린다.
+   * `link`는 앱이 허용 규칙으로 확인한 푸시 링크이고 웹은 누르면 `open-push-link`로 그대로 돌려준다.
+   * `pushType`은 서버가 실은 알림 종류이고 열림 계측에만 쓴다.
+   */
+  | {
+      type: "in-app-notification";
+      title: string;
+      body: string;
+      link: string;
+      pushType?: string;
+      atMs: number;
+    }
+  | SocialLoginResultMessage
   | CameraPermissionMessage
   | TrackEventMessage
   | InstallAttributionMessage
@@ -185,6 +202,14 @@ export interface InstallAttributionMessage {
 export interface CameraPermissionMessage {
   type: "camera-permission";
   granted: boolean;
+  /**
+   * OS 마이크 권한 허용 여부
+   *
+   * 설정의 권한 행들이 같은 때에 묻는 값이라 새 메시지를 더하지 않고 이 답에 함께 싣는다.
+   * 이 값을 싣지 않는 옛 앱에서는 비어 있고, 웹은 그때 마이크 권한 행을 숨긴다.
+   * 조회에 실패하거나 아직 묻지 않았어도 비워 둔다.
+   */
+  micGranted?: boolean;
   atMs: number;
 }
 
@@ -199,6 +224,39 @@ export type VideoResultStatus = (typeof VIDEO_RESULT_STATUSES)[number];
  */
 export const VIDEO_SHARE_TARGETS = ["instagram", "kakao"] as const;
 export type VideoShareTarget = (typeof VIDEO_SHARE_TARGETS)[number];
+
+/** 소셜 로그인 공급자. 셸 파서가 이 목록으로 검사하므로 유니온과 목록이 어긋나지 않는다. */
+export const SOCIAL_LOGIN_PROVIDERS = ["GOOGLE", "KAKAO", "APPLE"] as const;
+export type SocialLoginProvider = (typeof SOCIAL_LOGIN_PROVIDERS)[number];
+
+/** 소셜 로그인 실패 코드. 웹 파서가 이 목록으로 검사한다. */
+export const SOCIAL_LOGIN_FAILURE_CODES = [
+  "INVALID_SOCIAL_TOKEN",
+  "ALREADY_LINKED",
+  "SOCIAL_PROVIDER_UNAVAILABLE",
+  "USER_NOT_FOUND",
+  "UNKNOWN",
+] as const;
+export type SocialLoginFailureCode = (typeof SOCIAL_LOGIN_FAILURE_CODES)[number];
+
+/**
+ * 소셜 로그인 결과
+ *
+ * `social-login`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+ * 성공이면 앱이 새 토큰의 `auth-token`을 먼저 보낸 뒤에 이 결과를 보낸다.
+ * `cancelled`는 사용자가 로그인 창을 닫았거나 앞선 요청이 아직 진행 중인 경우다.
+ * ID 토큰과 nonce는 싣지 않는다.
+ */
+export type SocialLoginResultMessage =
+  | { type: "social-login-result"; id: string; status: "success"; isNewUser: boolean; atMs: number }
+  | { type: "social-login-result"; id: string; status: "cancelled"; atMs: number }
+  | {
+      type: "social-login-result";
+      id: string;
+      status: "failed";
+      code: SocialLoginFailureCode;
+      atMs: number;
+    };
 
 /** 웹 → 네이티브. */
 /**
@@ -408,6 +466,20 @@ export type ToNativeMessage =
    * 앱이 웹뷰 주소에 `profilePhotoPicker=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `profile-photo-result`로 답한다.
    */
   | { type: "pick-profile-photo"; id: string; atMs: number }
+  /**
+   * 앱 안 알림 토스트를 눌렀다
+   *
+   * 앱은 알림을 누른 것과 같은 허용 규칙과 이동 경로로 `link`를 연다.
+   * 웹은 `in-app-notification`을 받은 문서에서만 보내므로 이 메시지를 모르는 옛 바이너리에는 가지 않는다.
+   * `pushType`은 받은 알림의 종류를 그대로 돌려주는 값이고 열림 계측에만 쓴다.
+   */
+  | { type: "open-push-link"; link: string; pushType?: string; atMs: number }
+  /**
+   * 소셜 로그인 요청
+   *
+   * 앱이 웹뷰 주소의 `socialLogin`에 넣은 공급자만 보내고, 앱은 같은 `id`의 `social-login-result`로 답한다.
+   */
+  | { type: "social-login"; id: string; provider: SocialLoginProvider; atMs: number }
   | SetTabBarMessage
   | SetBackGestureMessage
   | SetBackLockMessage

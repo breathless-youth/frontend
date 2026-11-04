@@ -4,10 +4,15 @@ import { Appearance, AppState, Platform } from "react-native";
 import { colors } from "@focusmakers/design-tokens";
 import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
+import { setDeviceLanguages } from "../../jest/deviceLanguages";
 import type * as ExpoUiMock from "../../jest/expoUiMock";
 import type * as AuthModule from "../../lib/auth";
 import type { WebGlassBackGestureEvent, WebGlassPressEvent } from "../../modules/web-glass";
 import { consumeAppLaunchSignal } from "../../lib/appLaunch";
+import {
+  __resetInAppNotificationsForTests,
+  publishInAppNotification,
+} from "../../lib/inAppNotification";
 import type { InstallAttribution } from "../../lib/installAttribution";
 import {
   __resetNativeAnalyticsForTests,
@@ -16,6 +21,7 @@ import {
 } from "../../lib/nativeAnalytics";
 import { lockPortrait, unlockForSession } from "../../lib/orientation";
 import { emitSessionClosed } from "../../lib/sessionClosed";
+import { attachTabBackHandler, handleTabBack } from "../../lib/tabBack";
 import { emitTabReset } from "../../lib/tabReset";
 import {
   RemoteWebViewHost,
@@ -23,11 +29,6 @@ import {
   originOf,
   requestGlobalWebViewRecovery,
 } from "../RemoteWebViewHost";
-
-let mockLanguageCode = "ko";
-jest.mock("expo-localization", () => ({
-  getLocales: () => [{ languageCode: mockLanguageCode }],
-}));
 
 jest.mock("../../lib/orientation", () => ({
   lockPortrait: jest.fn(),
@@ -132,6 +133,9 @@ const mockInjectJavaScript = jest.fn();
 /** iOS 프로세스 종료 복구(`reload`)의 관찰점 — BY-374 검증에 쓴다. */
 const mockReload = jest.fn();
 
+/** Android 시스템 뒤로 가기가 웹뷰 기록으로 돌아갔는지 보는 관찰점 */
+const mockGoBack = jest.fn();
+
 /** WebView 마운트 횟수 관찰점 — Android 렌더러 사망 시 재마운트(BY-374) 검증에 쓴다. */
 const mockWebViewMounted = jest.fn();
 
@@ -175,6 +179,7 @@ jest.mock("react-native-webview", () => {
       ReactModule.useImperativeHandle(ref, () => ({
         reload: mockReload,
         injectJavaScript: mockInjectJavaScript,
+        goBack: mockGoBack,
       }));
       // 마운트 1회당 1호출 — `key` 교체로 인스턴스가 새로 만들어졌는지를 세는 관찰점.
       ReactModule.useEffect(() => {
@@ -190,6 +195,22 @@ function fireHomeReady() {
   const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
   act(() => {
     onMessage({ nativeEvent: { data: '{"type":"home-ready","atMs":1}' } });
+  });
+}
+
+/**
+ * 웹으로 주입된 메시지 가운데 한 종류만 골라 파싱하기
+ *
+ * 스크립트 안의 JSON 문자열 리터럴을 두 번 푼다.
+ */
+function injectedMessages(type: string): Record<string, unknown>[] {
+  return mockInjectJavaScript.mock.calls.flatMap((call) => {
+    const literal = /__focusonNativeMessage\((.*)\); \} true;$/s.exec(String(call[0]))?.[1];
+    if (literal === undefined) {
+      return [];
+    }
+    const message = JSON.parse(JSON.parse(literal) as string) as Record<string, unknown>;
+    return message.type === type ? [message] : [];
   });
 }
 
@@ -209,6 +230,7 @@ function fireWebViewEvent(name: "onError" | "onHttpError", value?: unknown) {
 beforeEach(() => {
   mockWebBaseUrl = "https://web.test";
   mockReload.mockClear();
+  mockGoBack.mockClear();
   mockWebViewMounted.mockClear();
   mockInjectJavaScript.mockClear();
   (lockPortrait as jest.Mock).mockClear();
@@ -227,7 +249,7 @@ afterEach(() => {
 
 describe("buildRemoteWebViewUrl", () => {
   afterEach(() => {
-    mockLanguageCode = "ko";
+    setDeviceLanguages(["ko-KR"]);
   });
 
   it("경로만 있으면 언어만 붙인다", () => {
@@ -254,17 +276,21 @@ describe("buildRemoteWebViewUrl", () => {
     );
   });
 
-  it("한국어가 아닌 기기는 lang=en이다", () => {
-    mockLanguageCode = "ja";
+  it.each([
+    [["ja-JP"], "ja"],
+    [["zh-Hant-TW"], "zh-Hant"],
+    [["fr-FR"], "en"],
+  ])("기기 선호 언어가 %j면 lang=%s다", (tags, lang) => {
+    setDeviceLanguages(tags);
     expect(buildRemoteWebViewUrl("https://web.test", "/home")).toBe(
-      "https://web.test/home?lang=en",
+      `https://web.test/home?lang=${lang}`,
     );
   });
 
   it("언어를 캐시하지 않아 기기 언어가 바뀌면 다음 URL에 반영된다", () => {
     const query = { appVersion: "1.4.2" };
     expect(buildRemoteWebViewUrl("https://web.test", "/home", query)).toContain("lang=ko");
-    mockLanguageCode = "en";
+    setDeviceLanguages(["en-US"]);
     expect(buildRemoteWebViewUrl("https://web.test", "/home", query)).toContain("lang=en");
   });
 
@@ -310,6 +336,14 @@ describe("RemoteWebViewHost", () => {
     expect(props.allowsInlineMediaPlayback).toBe(true);
     expect(props.mediaPlaybackRequiresUserAction).toBe(false);
     expect(props.mediaCapturePermissionGrantType).toBe("grant");
+  });
+
+  it("iOS 키보드는 입력칸을 눌러야 올라오는 기본 동작을 유지한다", () => {
+    // 이 값을 false로 바꾸면 열릴 때 포커스를 주는 화면(플래너 할 일 추가, 과목 시트)에서 키보드가 저절로 올라온다.
+    // 그러면 입력칸이 키보드 뒤로 가거나 화면이 튄다.
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+
+    expect(screen.getByTestId("host").props.keyboardDisplayRequiresUserAction).not.toBe(false);
   });
 
   it("다크 스킴이면 다크 배경 토큰을 웹뷰에 넘긴다", () => {
@@ -1230,6 +1264,136 @@ describe("report-screen 복원 (BY-436)", () => {
   });
 });
 
+/**
+ * Android 시스템 뒤로 가기
+ *
+ * 탭 첫 화면이 아닌 곳에서 누른 뒤로 가기는 탭을 떠나지 않고 보이는 웹뷰의 기록에서 한 칸 돌아간다.
+ * 탭 레이아웃이 `handleTabBack`으로 먼저 묻고, 웹뷰가 처리하지 않으면 홈 탭 이동과 탭 초기화를 한다.
+ */
+describe("Android 시스템 뒤로 가기", () => {
+  beforeEach(() => {
+    jest.replaceProperty(Platform, "OS", "android");
+    // 개발 빌드의 로드 로그를 가린다.
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  /** 웹이 보고한 화면과 Android 웹뷰의 기록 상태를 흉내 낸다. */
+  function showScreen(path: string, canGoBack: boolean) {
+    const props = screen.getByTestId("host").props as {
+      onMessage: (e: unknown) => void;
+      onNavigationStateChange: (e: unknown) => void;
+    };
+    act(() => {
+      props.onNavigationStateChange({ url: `https://web.test${path}`, loading: false, canGoBack });
+      props.onMessage({
+        nativeEvent: {
+          data: JSON.stringify({ type: "report-screen", path, dark: false, atMs: 1 }),
+        },
+      });
+    });
+  }
+
+  it("탭 첫 화면이 아니고 돌아갈 기록이 있으면 이 웹뷰에서 한 칸 돌아가고 처리했다고 알린다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+    showScreen("/blocks", true);
+
+    expect(handleTabBack()).toBe(true);
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
+  });
+
+  it("탭 첫 화면에서는 처리하지 않아 홈 탭 이동과 탭 초기화에 맡긴다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+    showScreen("/settings", true);
+
+    expect(handleTabBack()).toBe(false);
+    expect(mockGoBack).not.toHaveBeenCalled();
+  });
+
+  it("알림 링크로 하위 화면을 연 탭은 탭 루트를 첫 화면으로 보고, 돌아갈 기록이 생긴 뒤에만 처리한다", () => {
+    render(<RemoteWebViewHost path="/social/groups/42" resetPath="/social" testID="host" />);
+
+    showScreen("/social/groups/42", false);
+    expect(handleTabBack()).toBe(false);
+
+    showScreen("/social/groups/42/members", true);
+    expect(handleTabBack()).toBe(true);
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
+  });
+
+  it("탭 루트를 따로 받으면 탭 초기화 대상이 아닌 화면으로 열었어도 탭 루트를 첫 화면으로 본다", () => {
+    render(<RemoteWebViewHost path="/social/join" tabRootPath="/social" testID="host" />);
+
+    showScreen("/social/join", false);
+    expect(handleTabBack()).toBe(false);
+
+    // 참여 화면에서 방을 거쳐 탭 루트로 돌아오면 기록이 남아 있어도 탭을 떠난다.
+    showScreen("/social", true);
+    expect(handleTabBack()).toBe(false);
+    expect(mockGoBack).not.toHaveBeenCalled();
+
+    // 탭 루트에서 다시 연 참여 화면은 하위 화면이라 탭 루트로 돌아간다.
+    showScreen("/social/join", true);
+    expect(handleTabBack()).toBe(true);
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
+  });
+
+  it("가려진 탭의 웹뷰는 받지 않는다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" focused={false} />);
+    showScreen("/blocks", true);
+
+    expect(handleTabBack()).toBe(false);
+    expect(mockGoBack).not.toHaveBeenCalled();
+  });
+
+  it("웹이 화면을 보고하기 전에는 받지 않는다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+    const onNavigationStateChange = screen.getByTestId("host").props.onNavigationStateChange as (
+      e: unknown,
+    ) => void;
+    act(() => {
+      onNavigationStateChange({ url: "https://web.test/blocks", loading: false, canGoBack: true });
+    });
+
+    expect(handleTabBack()).toBe(false);
+    expect(mockGoBack).not.toHaveBeenCalled();
+  });
+
+  it("문서를 새로 띄우면 새 웹뷰에는 기록이 없어 돌아갈 기록을 비운다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+    showScreen("/blocks", true);
+
+    act(() => {
+      (screen.getByTestId("host").props.onRenderProcessGone as () => void)();
+    });
+
+    expect(handleTabBack()).toBe(false);
+    expect(mockGoBack).not.toHaveBeenCalled();
+  });
+
+  it("로드 실패 화면에서는 돌아갈 웹뷰가 없어 받지 않는다", () => {
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+    showScreen("/blocks", true);
+    fireWebViewEvent("onError");
+
+    expect(handleTabBack()).toBe(false);
+  });
+
+  it("iOS에는 시스템 뒤로 가기가 없어 붙지 않는다", () => {
+    jest.replaceProperty(Platform, "OS", "ios");
+    const earlier = jest.fn(() => false);
+    const detach = attachTabBackHandler(earlier);
+    render(<RemoteWebViewHost path="/settings" testID="host" />);
+    showScreen("/blocks", true);
+
+    handleTabBack();
+
+    // 호스트가 붙었다면 마지막에 붙은 호스트가 받아 먼저 붙은 처리기에는 오지 않는다.
+    expect(earlier).toHaveBeenCalledTimes(1);
+    expect(mockGoBack).not.toHaveBeenCalled();
+    detach();
+  });
+});
+
 describe("SPA 라우팅과 스플래시 (BY-436)", () => {
   // RNCWebViewClient.doUpdateVisitedHistory가 History API 내비게이션마다
   // TopLoadingStartEvent(onLoadStart)를 쏘는데 onLoadEnd 짝은 없다. 스플래시 복귀는
@@ -1289,16 +1453,29 @@ describe("SPA 라우팅과 스플래시 (BY-436)", () => {
     warn.mockRestore();
   });
 
-  it("Android 운영 빌드에서는 onLoadStart·onLoadProgress·onNavigationStateChange 어느 것도 연결하지 않는다", () => {
+  it("Android 운영 빌드에서는 onLoadStart·onLoadProgress를 연결하지 않고, onNavigationStateChange는 돌아갈 기록만 담아 복구·회전을 건드리지 않는다", () => {
     jest.replaceProperty(Platform, "OS", "android");
     const original = (globalThis as unknown as { __DEV__: boolean }).__DEV__;
     (globalThis as unknown as { __DEV__: boolean }).__DEV__ = false;
     try {
-      render(<RemoteWebViewHost path="/social" testID="host" onRecoveryStart={jest.fn()} />);
+      const onRecoveryStart = jest.fn();
+      render(<RemoteWebViewHost path="/social" testID="host" onRecoveryStart={onRecoveryStart} />);
       const props = screen.getByTestId("host").props;
       expect(props.onLoadStart).toBeUndefined();
       expect(props.onLoadProgress).toBeUndefined();
-      expect(props.onNavigationStateChange).toBeUndefined();
+
+      const onNavigationStateChange = props.onNavigationStateChange as (e: unknown) => void;
+      act(() => {
+        onNavigationStateChange({
+          url: "https://web.test/blocks",
+          loading: false,
+          canGoBack: true,
+        });
+      });
+
+      expect(onRecoveryStart).not.toHaveBeenCalled();
+      expect(mockReload).not.toHaveBeenCalled();
+      expect(lockPortrait).not.toHaveBeenCalled();
     } finally {
       (globalThis as unknown as { __DEV__: boolean }).__DEV__ = original;
     }
@@ -1396,21 +1573,7 @@ describe("프로세스 종료 통보의 즉시 스플래시 (BY-436)", () => {
  * 탭 5개 웹뷰가 동시에 살아 있어 조건이 하나라도 빠지면 한 터치가 N번 찍히거나 구독자 없는 문서에 버려진다.
  */
 describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
-  /** 웹으로 주입된 track-event 메시지만 골라 파싱한다(스크립트 안의 JSON 문자열 리터럴을 두 번 푼다). */
-  function injectedTrackEvents() {
-    return mockInjectJavaScript.mock.calls
-      .map((call) => String(call[0]))
-      .filter((script) => script.includes("track-event"))
-      .map((script) => {
-        const literal = /__focusonNativeMessage\((.*)\); \} true;$/s.exec(script)?.[1] ?? '""';
-        return JSON.parse(JSON.parse(literal) as string) as {
-          type: string;
-          name: string;
-          properties?: Record<string, unknown>;
-          atMs: number;
-        };
-      });
-  }
+  const injectedTrackEvents = () => injectedMessages("track-event");
 
   function fireAnalyticsReady() {
     const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
@@ -1488,14 +1651,7 @@ describe("RemoteWebViewHost — 네이티브 사용자 이벤트 sink", () => {
       });
     });
 
-    const injected = mockInjectJavaScript.mock.calls
-      .map((call) => String(call[0]))
-      .filter((script) => script.includes("install-attribution"))
-      .map((script) => {
-        const literal = /__focusonNativeMessage\((.*)\); \} true;$/s.exec(script)?.[1] ?? '""';
-        return JSON.parse(JSON.parse(literal) as string) as Record<string, unknown>;
-      });
-    expect(injected).toEqual([
+    expect(injectedMessages("install-attribution")).toEqual([
       expect.objectContaining({
         type: "install-attribution",
         platform: "android",
@@ -2125,5 +2281,67 @@ describe("RemoteWebViewHost glass 층", () => {
 
     expect(screen.queryByRole("header")).toBeNull();
     expect(mockSyncInlineControls).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * 앱을 쓰는 중에 온 그룹 알림 전달
+ *
+ * 탭 웹뷰 다섯 개가 함께 떠 있어 보이는 문서 하나만 받아야 토스트가 겹치지 않는다.
+ * 웹이 준비 신호를 보내기 전의 문서는 받을 구독이 없어 알림이 버려진다.
+ */
+describe("RemoteWebViewHost: 앱 안 알림", () => {
+  const NOTIFICATION = {
+    title: "그룹장이 됐어요",
+    body: "새벽 공시반의 그룹장을 넘겨받았어요",
+    link: "/social/groups/10",
+    pushType: "group_owner_transferred",
+  };
+
+  const injectedInAppNotifications = () => injectedMessages("in-app-notification");
+
+  function fireAnalyticsReady() {
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({ nativeEvent: { data: '{"type":"analytics-ready","atMs":1}' } });
+    });
+  }
+
+  afterEach(() => {
+    __resetInAppNotificationsForTests();
+  });
+
+  it("보이는 웹뷰는 준비 신호 뒤에 받은 앱 안 알림을 웹으로 보낸다", () => {
+    render(<RemoteWebViewHost path="/home" testID="host" focused />);
+    fireAnalyticsReady();
+
+    act(() => {
+      publishInAppNotification(NOTIFICATION);
+    });
+
+    expect(injectedInAppNotifications()).toEqual([
+      { type: "in-app-notification", ...NOTIFICATION, atMs: expect.any(Number) },
+    ]);
+  });
+
+  it("가려진 탭 웹뷰는 준비됐어도 앱 안 알림을 받지 않는다", () => {
+    render(<RemoteWebViewHost path="/records" testID="host" focused={false} />);
+    fireAnalyticsReady();
+
+    act(() => {
+      publishInAppNotification(NOTIFICATION);
+    });
+
+    expect(injectedInAppNotifications()).toEqual([]);
+  });
+
+  it("준비 신호를 보내기 전의 문서는 앱 안 알림을 받지 않는다", () => {
+    render(<RemoteWebViewHost path="/home" testID="host" focused />);
+
+    act(() => {
+      publishInAppNotification(NOTIFICATION);
+    });
+
+    expect(injectedInAppNotifications()).toEqual([]);
   });
 });

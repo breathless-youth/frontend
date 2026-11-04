@@ -8,22 +8,22 @@ import {
   type PushPermissionStatus,
   requestPushPermission,
 } from "./pushMessaging";
-import { trackNativeEvent } from "./nativeAnalytics";
 import {
-  PUSH_HOME_ROUTE,
-  PUSH_LINK_KEY,
-  pushTargetForRoute,
-  resolvePushRoute,
-  routeFromPushLink,
-} from "./pushNotificationRouting";
+  type InAppNotification,
+  inAppNotificationFrom,
+  publishInAppNotification,
+} from "./inAppNotification";
+import { trackNativeEvent } from "./nativeAnalytics";
+import { openedEventProperties, resolvePushRoute } from "./pushNotificationRouting";
 import { registerPushToken } from "./pushTokenRegistration";
+import { isSessionOpen } from "./sessionPresence";
 import { withTimeout } from "./withTimeout";
 
 /**
  * 푸시 알림 부팅 배선 (BY-586). `app/_layout.tsx`가 마운트 때 한 번 부르고 언마운트 때 해제한다.
  *
  * 지금 하는 일은 "코드는 갖춰 두고 나중에 쓴다"의 최소 범위다:
- * - 포그라운드 수신: 로그만. 표시하지 않는다(세션 화면 방해 금지, 정책 미정).
+ * - 포그라운드 수신: 그룹 푸시는 세션 화면이 아닐 때 보이는 탭 웹뷰에 넘기고, 그 밖은 로그만 남긴다.
  * - 알림 탭(백그라운드 `onNotificationOpened`·종료 `getInitialNotification`): data.link를 앱 경로로 바꿔 이동.
  * - 토큰 갱신: 새 토큰을 서버에 등록한다(`lib/pushTokenRegistration.ts`).
  * - 권한 요청은 여기서 하지 않는다 — 아래 `ensurePushPermission`을 `app/_layout.tsx`가 따로 부른다.
@@ -38,6 +38,10 @@ export type PushBootstrapDeps = {
   onMessage(listener: (message: PushMessage) => void): () => void;
   onNotificationOpened(listener: (message: PushMessage) => void): () => void;
   getInitialNotification(): Promise<PushMessage | null>;
+  /** 싱글룸 모달이나 소셜룸·공부방의 뒤로 잠금이 걸려 있는지 */
+  isSessionOpen(): boolean;
+  /** 앱을 쓰는 중에 온 그룹 알림을 보이는 탭 웹뷰로 넘긴다 */
+  showInApp(notification: InAppNotification): void;
 };
 
 type Overrides = Partial<PushBootstrapDeps> & Pick<PushBootstrapDeps, "navigate">;
@@ -50,6 +54,8 @@ export function startPushMessaging(overrides: Overrides): () => void {
     onMessage: onPushMessage,
     onNotificationOpened: onPushNotificationOpened,
     getInitialNotification: getInitialPushNotification,
+    isSessionOpen,
+    showInApp: publishInAppNotification,
     ...overrides,
   };
   const unsubscribers: (() => void)[] = [];
@@ -75,6 +81,11 @@ export function startPushMessaging(overrides: Overrides): () => void {
         devLog(
           `foreground message id=${message.messageId ?? "?"} title=${message.notification?.title ?? "-"} data=${JSON.stringify(message.data)}`,
         );
+        const notification = inAppNotificationFrom(message);
+        // 세션 화면 위에 토스트가 뜨면 측정과 공부를 방해하므로 알림이 온 때의 세션 여부를 본다.
+        if (active && notification !== null && !deps.isSessionOpen()) {
+          deps.showInApp(notification);
+        }
       }),
     );
     unsubscribers.push(deps.onNotificationOpened(openRoute));
@@ -98,31 +109,6 @@ export function startPushMessaging(overrides: Overrides): () => void {
   return () => {
     active = false;
     for (const unsubscribe of unsubscribers) unsubscribe();
-  };
-}
-
-const withoutQuery = (route: string) => route.replace(/[?#].*$/, "");
-
-/** link가 원래 홈을 가리키는 경로. 이리로 간 것은 빠진 게 아니다. */
-const HOME_PATHS = new Set([PUSH_HOME_ROUTE, "/home"]);
-
-/**
- * `push_notification_opened` 속성. 알림 탭은 네이티브만 아는 진입 경로다.
- *
- * - `route`: 실제로 연 화면. 쿼리(초대코드 등)는 뗀다. 앱에 없는 경로라 홈으로 갔으면 `/`다.
- * - `fallback`: link가 없거나 허용 밖이거나 앱에 없는 경로라 의도와 다르게 홈으로 갔는지.
- * - `type`·`push_id`: 서버 발송이 싣는 값. 콘솔 캠페인처럼 없으면 키를 싣지 않는다.
- */
-function openedEventProperties(data: Record<string, string>, route: string) {
-  const linked = routeFromPushLink(data[PUSH_LINK_KEY]);
-  const target = pushTargetForRoute(route);
-  const opened = withoutQuery(typeof target === "string" ? target : route);
-  const intendedHome = linked !== null && HOME_PATHS.has(withoutQuery(linked));
-  return {
-    route: opened,
-    fallback: opened === PUSH_HOME_ROUTE && !intendedHome,
-    ...(data.type ? { type: data.type } : {}),
-    ...(data.push_id ? { push_id: data.push_id } : {}),
   };
 }
 

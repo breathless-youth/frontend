@@ -6,6 +6,7 @@ import type {
 } from "@focusmakers/types";
 
 import { API_BASE_URL, apiFetch, parseApiError } from "@/lib/api";
+import { deviceTimeZone } from "@/lib/dateKey";
 import { legacyUserId } from "@/lib/userId";
 
 import { clampSessionSeconds, clampSubjectSegments } from "./sessionRequestClamp";
@@ -51,6 +52,8 @@ export function buildSessionRequest(input: SessionInput): StudySessionCreateRequ
     studySec,
     focusSec,
     events,
+    // 서버가 이 시간대의 자정으로 세션을 나누고 사용자 시간대도 이 값으로 맞춘다.
+    timeZone: deviceTimeZone(),
   };
   // 선택 필드 — 없으면 구 계약과 바이트 단위로 같은 요청이다(기존 테스트가 정확히 그 모양을 본다).
   const subjectSegments = clampSubjectSegments(
@@ -68,7 +71,7 @@ export function buildSessionRequest(input: SessionInput): StudySessionCreateRequ
 }
 
 /**
- * 응답은 항상 배열 — KST 자정을 넘는 세션은 날짜별 2개로 분할되어 내려온다.
+ * 응답은 항상 배열 — 기기 시간대 자정을 넘는 세션은 날짜별 2개로 분할되어 내려온다.
  *
  * 앱 WebView와 브라우저가 같은 경로를 탄다. dev는 Vite `/api` 프록시가 백엔드로 전달한다.
  */

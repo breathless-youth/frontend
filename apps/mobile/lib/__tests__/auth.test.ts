@@ -4,7 +4,9 @@ import {
   authTokenMessage,
   awaitAuth,
   ensureAuth,
+  linkSocial,
   refreshAuth,
+  registerUser,
   subscribeAuth,
   isNewUserThisLaunch,
 } from "../auth";
@@ -40,6 +42,7 @@ globalThis.fetch = mockedFetch as unknown as typeof fetch;
 function jsonResponse(status: number, body: unknown) {
   return { ok: status >= 200 && status < 300, status, json: async () => body };
 }
+const flush = () => new Promise((resolve) => setTimeout(resolve, 0));
 const saved = () => JSON.parse(store.get("focuson.auth") ?? "null") as unknown;
 const headersOf = (call: number) =>
   new Headers((mockedFetch.mock.calls[call] as [string, RequestInit])[1].headers);
@@ -103,7 +106,7 @@ describe("ensureAuth", () => {
       "http://api.test/api/users",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ deviceId: "0f8fad5b-d9cb-469f-a165-70867728950e" }),
+        body: JSON.stringify({ deviceId: "0f8fad5b-d9cb-469f-a165-70867728950e", locale: "ko" }),
       }),
     );
     expect(mockedSet).toHaveBeenCalledWith("focuson.auth", expect.any(String), {
@@ -198,6 +201,20 @@ describe("ensureAuth", () => {
       JSON.stringify({ userId: 42, accessToken: null, refreshToken: null }),
     );
     await expect(ensureUserRegistered()).resolves.toBe(42);
+  });
+});
+
+describe("registerUser", () => {
+  it("가입 요청 본문에 자동 닉네임 언어로 쓸 locale을 싣는다", async () => {
+    mockedFetch.mockResolvedValue(
+      jsonResponse(201, { isNew: true, accessToken: accessTokenFor(7), refreshToken: "r1" }),
+    );
+
+    await registerUser("0f8fad5b-d9cb-469f-a165-70867728950e");
+
+    expect((mockedFetch.mock.calls[0] as [string, RequestInit])[1].body).toBe(
+      JSON.stringify({ deviceId: "0f8fad5b-d9cb-469f-a165-70867728950e", locale: "ko" }),
+    );
   });
 });
 
@@ -316,6 +333,212 @@ describe("awaitAuth", () => {
   it("갱신 중이 아니면 저장 상태를 돌려준다", async () => {
     store.set("focuson.auth", JSON.stringify(STORED));
     await expect(awaitAuth()).resolves.toEqual(STORED);
+  });
+});
+
+describe("linkSocial", () => {
+  const GUEST = { userId: 7, accessToken: "a1", refreshToken: "r1" };
+  const linkBody = JSON.stringify({ provider: "KAKAO", idToken: "id-token", nonce: "raw-nonce" });
+
+  beforeEach(() => {
+    store.set("focuson.auth", JSON.stringify(GUEST));
+  });
+
+  it("200 병합이면 새 토큰의 sub로 userId를 바꿔 저장하고 구독자에게 알린다", async () => {
+    mockedFetch.mockResolvedValue(
+      jsonResponse(200, { accessToken: accessTokenFor(42), refreshToken: "r9", isNewUser: false }),
+    );
+    const listener = jest.fn();
+    const unsubscribe = subscribeAuth(listener);
+
+    await expect(linkSocial("KAKAO", "id-token", "raw-nonce")).resolves.toEqual({
+      status: "success",
+      isNewUser: false,
+    });
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "http://api.test/api/auth/link",
+      expect.objectContaining({ method: "POST", body: linkBody }),
+    );
+    expect(headersOf(0).get("Authorization")).toBe("Bearer a1");
+    const linked = { userId: 42, accessToken: accessTokenFor(42), refreshToken: "r9" };
+    expect(saved()).toEqual(linked);
+    expect(listener).toHaveBeenCalledWith(linked);
+    unsubscribe();
+  });
+
+  it("link 요청에 서버가 정한 API-Version 1을 싣는다", async () => {
+    mockedFetch.mockResolvedValue(
+      jsonResponse(200, { accessToken: accessTokenFor(7), refreshToken: "r9", isNewUser: true }),
+    );
+
+    await linkSocial("KAKAO", "id-token", "raw-nonce");
+
+    expect(headersOf(0).get("API-Version")).toBe("1");
+  });
+
+  it("성공하면 구독자(웹뷰의 auth-token)에 먼저 알린 뒤 결과를 돌려준다", async () => {
+    mockedFetch.mockResolvedValue(
+      jsonResponse(200, { accessToken: accessTokenFor(42), refreshToken: "r9", isNewUser: false }),
+    );
+    const order: string[] = [];
+    const unsubscribe = subscribeAuth(() => order.push("auth-token"));
+
+    await linkSocial("KAKAO", "id-token", "raw-nonce").then(() => order.push("result"));
+
+    // 웹은 결과를 받자마자 새 토큰으로 다시 불러오므로 토큰이 먼저 도착해야 한다.
+    expect(order).toEqual(["auth-token", "result"]);
+    unsubscribe();
+  });
+
+  it("401이면 토큰을 갱신하고 같은 ID 토큰으로 한 번 다시 보낸다", async () => {
+    mockedFetch
+      .mockResolvedValueOnce(jsonResponse(401, { message: "만료" }))
+      .mockResolvedValueOnce(jsonResponse(200, { accessToken: "a2", refreshToken: "r2" }))
+      .mockResolvedValueOnce(
+        jsonResponse(200, { accessToken: accessTokenFor(7), refreshToken: "r3", isNewUser: true }),
+      );
+
+    await expect(linkSocial("KAKAO", "id-token", "raw-nonce")).resolves.toEqual({
+      status: "success",
+      isNewUser: true,
+    });
+    expect(mockedFetch.mock.calls.map((call) => call[0])).toEqual([
+      "http://api.test/api/auth/link",
+      "http://api.test/api/auth/refresh",
+      "http://api.test/api/auth/link",
+    ]);
+    expect((mockedFetch.mock.calls[2] as [string, RequestInit])[1].body).toBe(linkBody);
+    expect(headersOf(2).get("Authorization")).toBe("Bearer a2");
+  });
+
+  it("404면 저장을 비우고 비회원으로 다시 가입한 뒤 같은 ID 토큰으로 한 번 다시 보낸다", async () => {
+    mockedFetch
+      .mockResolvedValueOnce(jsonResponse(404, { code: "USER_NOT_FOUND" }))
+      .mockResolvedValueOnce(
+        jsonResponse(201, { isNew: true, accessToken: accessTokenFor(8), refreshToken: "r8" }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(200, { accessToken: accessTokenFor(8), refreshToken: "r9", isNewUser: true }),
+      );
+
+    await expect(linkSocial("KAKAO", "id-token", "raw-nonce")).resolves.toEqual({
+      status: "success",
+      isNewUser: true,
+    });
+    expect(mockedDelete).toHaveBeenCalledWith("focuson.auth", { keychainAccessible: 1 });
+    expect(mockedFetch.mock.calls.map((call) => call[0])).toEqual([
+      "http://api.test/api/auth/link",
+      "http://api.test/api/users",
+      "http://api.test/api/auth/link",
+    ]);
+    expect((mockedFetch.mock.calls[2] as [string, RequestInit])[1].body).toBe(linkBody);
+    expect(headersOf(2).get("Authorization")).toBe(`Bearer ${accessTokenFor(8)}`);
+  });
+
+  it.each([
+    [400, "INVALID_SOCIAL_TOKEN", "INVALID_SOCIAL_TOKEN"],
+    [400, "VALIDATION_FAILED", "UNKNOWN"],
+    [409, "ALREADY_LINKED", "ALREADY_LINKED"],
+    [503, "SOCIAL_PROVIDER_UNAVAILABLE", "SOCIAL_PROVIDER_UNAVAILABLE"],
+  ])("%i %s면 토큰을 유지하고 코드 %s만 돌려준다", async (status, code, expected) => {
+    mockedFetch.mockResolvedValue(jsonResponse(status, { code }));
+
+    await expect(linkSocial("KAKAO", "id-token", "raw-nonce")).resolves.toEqual({
+      status: "failed",
+      code: expected,
+    });
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+    expect(mockedSet).not.toHaveBeenCalled();
+    expect(mockedDelete).not.toHaveBeenCalled();
+    expect(saved()).toEqual(GUEST);
+  });
+
+  it("link 중에 들어온 갱신은 link 결과를 기다렸다가 새 refresh로 갱신한다", async () => {
+    let finishLink: (value: unknown) => void = () => {};
+    mockedFetch
+      .mockReturnValueOnce(new Promise((resolve) => (finishLink = resolve)))
+      .mockResolvedValueOnce(jsonResponse(200, { accessToken: "a10", refreshToken: "r10" }));
+
+    const linking = linkSocial("KAKAO", "id-token", "raw-nonce");
+    await flush();
+    const refreshing = refreshAuth();
+    await flush();
+    // link가 끝나기 전에 옛 refresh로 갱신하면 서버가 무효로 보고 새 비회원이 가입된다.
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+
+    finishLink(
+      jsonResponse(200, { accessToken: accessTokenFor(42), refreshToken: "r9", isNewUser: false }),
+    );
+    await linking;
+    await expect(refreshing).resolves.toEqual({
+      userId: 42,
+      accessToken: "a10",
+      refreshToken: "r10",
+    });
+    expect((mockedFetch.mock.calls[1] as [string, RequestInit])[1].body).toBe(
+      JSON.stringify({ refreshToken: "r9" }),
+    );
+    expect(mockedFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("가입이 진행 중일 때 link와 같은 차례에 들어온 갱신도 link 결과를 기다린다", async () => {
+    store.clear();
+    mockedFetch
+      .mockResolvedValueOnce(
+        jsonResponse(201, { isNew: true, accessToken: accessTokenFor(7), refreshToken: "r1" }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse(200, {
+          accessToken: accessTokenFor(42),
+          refreshToken: "r9",
+          isNewUser: false,
+        }),
+      )
+      .mockResolvedValueOnce(jsonResponse(200, { accessToken: "a10", refreshToken: "r10" }));
+
+    // link가 가입을 기다리는 동안 갱신이 가입 결과를 그대로 받으면 link 전 토큰이 웹으로 간다.
+    const linking = linkSocial("KAKAO", "id-token", "raw-nonce");
+    const refreshing = refreshAuth();
+
+    await expect(linking).resolves.toEqual({ status: "success", isNewUser: false });
+    await expect(refreshing).resolves.toEqual({
+      userId: 42,
+      accessToken: "a10",
+      refreshToken: "r10",
+    });
+    expect((mockedFetch.mock.calls[2] as [string, RequestInit])[1].body).toBe(
+      JSON.stringify({ refreshToken: "r9" }),
+    );
+  });
+
+  it("갱신 중에 들어온 link는 갱신이 끝난 토큰으로 보낸다", async () => {
+    let finishRefresh: (value: unknown) => void = () => {};
+    mockedFetch
+      .mockReturnValueOnce(new Promise((resolve) => (finishRefresh = resolve)))
+      .mockResolvedValueOnce(
+        jsonResponse(200, { accessToken: accessTokenFor(7), refreshToken: "r9", isNewUser: true }),
+      );
+
+    const refreshing = refreshAuth();
+    const linking = linkSocial("KAKAO", "id-token", "raw-nonce");
+    await flush();
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+
+    finishRefresh(jsonResponse(200, { accessToken: "a2", refreshToken: "r2" }));
+    await refreshing;
+    await expect(linking).resolves.toEqual({ status: "success", isNewUser: true });
+    expect(mockedFetch.mock.calls[1]?.[0]).toBe("http://api.test/api/auth/link");
+    expect(headersOf(1).get("Authorization")).toBe("Bearer a2");
+  });
+
+  it("네트워크 오류면 토큰을 유지하고 UNKNOWN을 돌려준다", async () => {
+    mockedFetch.mockRejectedValue(new TypeError("Network request failed"));
+
+    await expect(linkSocial("KAKAO", "id-token", "raw-nonce")).resolves.toEqual({
+      status: "failed",
+      code: "UNKNOWN",
+    });
+    expect(saved()).toEqual(GUEST);
   });
 });
 

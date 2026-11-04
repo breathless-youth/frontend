@@ -61,8 +61,49 @@ function isRoomMember(value: unknown): boolean {
     (member.nickname === undefined || typeof member.nickname === "string") &&
     (member.goal === undefined || member.goal === null || typeof member.goal === "string") &&
     (member.focusSec === undefined || typeof member.focusSec === "number") &&
-    (member.disconnected === undefined || typeof member.disconnected === "boolean")
+    (member.disconnected === undefined || typeof member.disconnected === "boolean") &&
+    isOptionalBoolean(member.micOn) &&
+    isOptionalBoolean(member.onBreak) &&
+    isOptionalBoolean(member.owner)
   );
+}
+
+// 그룹 공부방 필드는 초대코드 방 멤버에서 키째 빠지므로 없으면 통과시키고, 있으면 형식을 본다.
+function isOptionalBoolean(value: unknown): boolean {
+  return value === undefined || typeof value === "boolean";
+}
+
+const GROUP_MEMBER_FIELDS: ReadonlySet<string> = new Set(["micOn", "onBreak", "owner"]);
+
+function withoutNullGroupFields(member: unknown): unknown {
+  if (typeof member !== "object" || member === null) {
+    return member;
+  }
+  return Object.fromEntries(
+    Object.entries(member).filter(
+      ([key, value]) => value !== null || !GROUP_MEMBER_FIELDS.has(key),
+    ),
+  );
+}
+
+/**
+ * 멤버의 null 그룹 공부방 필드 빼기
+ *
+ * 서버는 값이 없는 필드도 null로 적어 보내서, 검사 전에 키가 없는 것과 같게 만든다.
+ * null 하나로 SNAPSHOT을 통째로 버리면 멤버 목록이 비어 혼자 있는 화면이 된다.
+ */
+function normalizeMemberFields(value: unknown): unknown {
+  if (typeof value !== "object" || value === null) {
+    return value;
+  }
+  const message = value as Record<string, unknown>;
+  if (message.type === "SNAPSHOT" && Array.isArray(message.members)) {
+    return { ...message, members: message.members.map(withoutNullGroupFields) };
+  }
+  if (message.type === "MEMBER_JOINED") {
+    return { ...message, member: withoutNullGroupFields(message.member) };
+  }
+  return value;
 }
 
 function isFocusState(value: unknown): boolean {
@@ -95,6 +136,15 @@ function isRoomServerMessage(value: unknown): value is RoomServerMessage {
         (message.kind === "OFFER" || message.kind === "ANSWER" || message.kind === "CANDIDATE") &&
         message.payload !== undefined
       );
+    case "MIC_CHANGED":
+      return typeof message.userId === "number" && typeof message.micOn === "boolean";
+    case "BREAK_CHANGED":
+      return typeof message.userId === "number" && typeof message.onBreak === "boolean";
+    case "OWNER_CHANGED":
+    case "PEER_BLOCKED":
+      return typeof message.userId === "number";
+    case "KICKED":
+      return typeof message.groupId === "number";
     default:
       return false;
   }
@@ -119,7 +169,7 @@ export function createStompRoomChannel({
   function handleFrame(frame: { body: string }) {
     let parsed: unknown;
     try {
-      parsed = JSON.parse(frame.body);
+      parsed = normalizeMemberFields(JSON.parse(frame.body));
     } catch {
       // 깨진 본문은 버린다
       return;

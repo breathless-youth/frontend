@@ -86,6 +86,12 @@ export interface StudySessionCreateRequest {
    * 세션 중 지운 할 일은 허용. 자정을 넘는 세션은 각 할 일이 완료 시각(doneAt)이 속한 조각 하나에만 붙는다.
    */
   completedTaskIds?: number[];
+  /**
+   * 기기 시간대(IANA, 예 `America/New_York`). 선택 필드.
+   * 서버는 이 시간대의 자정으로 기록을 나누고 사용자 시간대로 저장한다.
+   * 없거나 잘못된 값이면 400 없이 저장된 사용자 시간대(기본 Asia/Seoul)를 쓴다.
+   */
+  timeZone?: string;
 }
 
 /** 진행중 세션 스냅샷 보고 요청 (PUT /api/study-sessions/active) */
@@ -109,7 +115,7 @@ export interface ActiveSessionSnapshotRequest {
 /** 진행중 세션 복구 조회 응답 (GET /api/study-sessions/active) */
 /** 세션 복구 판별·확인 응답 (POST /api/study-sessions/recovery) — 서버가 확정한 기록 요약 */
 export interface SessionRecoveryResponse {
-  /** 통계 귀속 날짜 — 한국 시간 기준 시작 날짜 (yyyy-MM-dd) */
+  /** 통계 귀속 날짜 — 사용자 시간대 기준 시작 날짜 (yyyy-MM-dd) */
   statDate: string;
   /** 세션 시작 시각 (UTC ISO-8601) */
   startedAt: string;
@@ -141,7 +147,7 @@ export type StudySessionSource = "MEASURED" | "MANUAL";
 
 /**
  * 수동 기록 저장·수정 요청 (`POST /api/study-sessions/manual`, `PATCH /api/study-sessions/manual/{id}`).
- * 서버가 초 이하를 버리고, 다른 기록과 겹치는 구간을 빼고, KST 자정에서 나눠 조각 배열로 돌려준다.
+ * 서버가 초 이하를 버리고, 다른 기록과 겹치는 구간을 빼고, 사용자 시간대 자정에서 나눠 조각 배열로 돌려준다.
  */
 export interface ManualStudySessionRequest {
   /** 시작 시각(UTC ISO-8601) */
@@ -150,13 +156,19 @@ export interface ManualStudySessionRequest {
   endedAt: string;
   /** 과목 id. 없으면 과목 없는 기록이다. 지운 과목은 수정에서 묶음의 지금 과목을 다시 보낼 때만 받는다 */
   subjectId?: number;
+  /**
+   * 기기 시간대(IANA, 예 `America/New_York`). 선택 필드.
+   * 서버는 이 시간대의 자정으로 기록을 나누고 사용자 시간대로 저장한다.
+   * 없거나 잘못된 값이면 400 없이 저장된 사용자 시간대(기본 Asia/Seoul)를 쓴다.
+   */
+  timeZone?: string;
 }
 
-/** 저장 결과 세션 1건 — 자정(KST)을 넘는 제출은 날짜별로 분할되어 배열로 내려온다. */
+/** 저장 결과 세션 1건 — 사용자 시간대 자정을 넘는 제출은 날짜별로 분할되어 배열로 내려온다. */
 export interface StudySessionResponse {
   id: number;
   userId: number;
-  /** 통계 귀속 날짜 (KST 기준, YYYY-MM-DD) */
+  /** 통계 귀속 날짜 (사용자 시간대 기준, YYYY-MM-DD) */
   statDate: string;
   startedAt: string;
   endedAt: string;
@@ -425,7 +437,7 @@ export interface CompletedTaskResponse {
  */
 export interface DaySubject extends SubjectRef {
   /**
-   * 그 날짜(KST)의 할 일 — 그날이 끝나기 전에 만들어졌고, 그날 시작 전에 완료되거나 지워지지 않은 것.
+   * 그 날짜(사용자 시간대)의 할 일 — 그날이 끝나기 전에 만들어졌고, 그날 시작 전에 완료되거나 지워지지 않은 것.
    * 세션 없이 체크한 것과 미완료도 들어 있다. `sessions[].completedTasks`는 제출 당시의 기록이라 뜻이 다르다
    */
   tasks?: DayTaskItem[];
@@ -446,7 +458,7 @@ export interface DayTaskItem {
 export interface TaskResponse {
   id: number;
   name: string;
-  /** 완료 시각(UTC ISO-8601) — 미완료면 null. 완료한 날(KST)이 지나면 목록에서 빠진다 */
+  /** 완료 시각(UTC ISO-8601) — 미완료면 null. 완료한 날(사용자 시간대)이 지나면 목록에서 빠진다 */
   doneAt: string | null;
 }
 
@@ -462,7 +474,7 @@ export interface SubjectResponse {
   /** 이 과목에서 잰 누적 총 공부 시간(초) */
   studySec: number;
   focusSec: number;
-  /** 보이는 할 일 — 미완료 전부 + 오늘(KST) 완료한 것, id 오름차순 */
+  /** 보이는 할 일 — 미완료 전부 + 오늘(사용자 시간대) 완료한 것, id 오름차순 */
   tasks: TaskResponse[];
 }
 
@@ -560,9 +572,10 @@ export interface ProfileResponse {
    */
   goal: string | null;
   /**
-   * 목표 카테고리 enum — 미설정이면 null. 명세에 확정된 값이 `JOB`(취업)뿐이라 공유 계약은
-   * string으로 둔다(상상 계약 금지). 잠정 7종 union은 `apps/web`의 categoryChips가 소유하고,
-   * 백엔드 Swagger 확정 후 여기로 승격해 좁힌다.
+   * 목표 카테고리이고 미설정이면 null이다.
+   *
+   * Swagger 응답 스키마가 enum이 아닌 문자열이라 문자열로 받는다.
+   * 수정 요청과 그룹은 `StudyCategory` 9개 값을 쓰고, 화면은 그중 하나일 때만 칩을 고른다.
    */
   category: string | null;
   /** 아바타 표시용 닉네임 첫 글자 단위(그래핌) — 서버 산출, 닉네임 변경 시 갱신 */
@@ -582,6 +595,12 @@ export interface ProfileUpdateRequest {
   nickname?: string;
   goal?: string | null;
   category?: string | null;
+  /**
+   * 기기 시간대(IANA). 선택 필드이고 이것만 보내도 된다.
+   * 프로필 응답에는 실리지 않는다.
+   * 없거나 잘못된 값이면 400 없이 무시한다.
+   */
+  timeZone?: string;
 }
 
 /** `POST /api/users/me/profile-image/upload-url` — 서버는 1 이상 1,048,576 이하만 받는다. */
@@ -671,6 +690,9 @@ export type {
 } from "./room";
 
 export { API_ENDPOINTS, apiVersionFor } from "./apiVersion";
+
+export { APP_LOCALES, negotiateLocale } from "./locale";
+export type { AppLocale } from "./locale";
 export type { ApiEndpoint, ApiEndpointSpec } from "./apiVersion";
 
 export { RANKING_PERIODS, RANKING_TYPES, TIME_SLOTS } from "./ranking";
@@ -701,6 +723,46 @@ export type {
 } from "./ranking";
 
 export type {
+  BlockListResponse,
+  BlockedUser,
+  GroupApplicationCreateRequest,
+  GroupApplicationCreateResponse,
+  GroupApplicationItem,
+  GroupApplicationsResponse,
+  GroupApplyState,
+  GroupCreateRequest,
+  GroupCreateResponse,
+  GroupHomeResponse,
+  GroupInviteResponse,
+  GroupJoinRequest,
+  GroupJoinResponse,
+  GroupJoinVia,
+  GroupLimits,
+  GroupMemberDesk,
+  GroupMemberItem,
+  GroupMemberStatus,
+  GroupMembersResponse,
+  GroupNotificationRequest,
+  GroupOwnerProfile,
+  GroupOwnerTransferRequest,
+  GroupRole,
+  GroupRoomJoinResponse,
+  GroupUnavailableReason,
+  GroupUpdateRequest,
+  GroupVisibility,
+  MyApplicationItem,
+  MyApplicationsResponse,
+  MyGroupCard,
+  MyGroupsResponse,
+  PendingApplicationRef,
+  PublicGroupCard,
+  PublicGroupDetailResponse,
+  PublicGroupPageResponse,
+  ReportRequest,
+  StudyCategory,
+} from "./group";
+
+export type {
   CameraPermissionMessage,
   ControlFrame,
   GlassChromeLeading,
@@ -728,6 +790,9 @@ export type {
   AnalyticsEventParamValue,
   AnalyticsUserPropertiesMessage,
   NativeAnalyticsPropertyValue,
+  SocialLoginFailureCode,
+  SocialLoginProvider,
+  SocialLoginResultMessage,
   VideoResultStatus,
   VideoShareTarget,
 } from "./bridge";
@@ -755,6 +820,8 @@ export {
   NATIVE_SEGMENT_MIN_OPTIONS,
   NAVIGATE_TAB_SOURCES,
   NAVIGATE_TAB_TARGETS,
+  SOCIAL_LOGIN_FAILURE_CODES,
+  SOCIAL_LOGIN_PROVIDERS,
   VIDEO_RESULT_STATUSES,
   VIDEO_SHARE_TARGETS,
 } from "./bridge";

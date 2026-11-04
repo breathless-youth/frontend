@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { mockDeviceTimeZone } from "@/test/deviceTimeZone";
+
 import {
   DEFAULT_HALL_BOARD,
   DEFAULT_RANKING_BOARD,
@@ -143,6 +145,12 @@ describe("지금 구간 (KST)", () => {
 
   it("시각을 읽지 못하면 새벽으로 본다", () => {
     expect(currentSlot(Number.NaN)).toBe("NIGHT");
+  });
+
+  it("기기 시간대가 뉴욕이어도 KST 시로 고른다", () => {
+    mockDeviceTimeZone("America/New_York");
+    // KST 10월 10일 06:00은 뉴욕 10월 9일 17:00이다.
+    expect(currentSlot(kst("2026-10-10T06:00:00"))).toBe("MORNING");
   });
 });
 

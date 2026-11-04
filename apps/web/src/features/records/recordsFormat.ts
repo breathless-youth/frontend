@@ -1,13 +1,10 @@
 import type { StudyEventStatus, StudySessionEventCounts } from "@focusmakers/types";
-import { todayKstDateKey } from "@/lib/dateKst";
 import i18n from "@/lib/i18n";
 import { formatClock, formatMonthLabel } from "@/lib/intl";
 import type { AppLocale } from "@/lib/locale";
 
 /**
  * 기록 화면 전용 표기·달력 유틸
- *
- * KST 날짜 키 규칙은 `@/lib/dateKst`의 `todayKstDateKey`를 그대로 쓴다.
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -72,9 +69,6 @@ export type CalendarMonth = {
 function pad2(value: number): string {
   return value < 10 ? `0${value}` : String(value);
 }
-
-/** `YYYY-MM-DD`(KST 기준). 규칙은 lib/dateKst.ts의 todayKstDateKey를 참고. */
-export const kstDateKey = todayKstDateKey;
 
 function parseDateKey(dateKey: string): Date {
   const [year, month, day] = dateKey.split("-").map(Number);
@@ -251,8 +245,8 @@ export function durationParts(totalSeconds: number): { value: number; unit: stri
   return [{ value: seconds, unit: i18n.t("records:unit.seconds") }];
 }
 
-/** UTC ISO-8601 → KST 시각. 한국어는 `HH:MM`(24시간제), 영어는 `9:03 PM`. */
-export function formatKstClock(iso: string): string {
+/** UTC ISO-8601 → 기기 시간대 시각. 한국어는 `HH:MM`(24시간제), 영어는 `9:03 PM`. */
+export function formatIsoClock(iso: string): string {
   return formatClock(currentLocale(), new Date(iso));
 }
 
@@ -264,8 +258,8 @@ export function formatKstClock(iso: string): string {
  */
 export function formatSessionMeta(startedAt: string, endedAt: string, studySec: number): string {
   return i18n.t("records:format.sessionMeta", {
-    start: formatKstClock(startedAt),
-    end: formatKstClock(endedAt),
+    start: formatIsoClock(startedAt),
+    end: formatIsoClock(endedAt),
     duration: formatDuration(studySec),
   });
 }

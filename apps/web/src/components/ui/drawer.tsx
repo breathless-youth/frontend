@@ -28,6 +28,8 @@ type DrawerContentProps = Omit<DrawerPrimitive.Popup.Props, "className"> & {
    * 세션 화면처럼 CSS 변수를 서브트리에만 주입하는 곳은 그 서브트리의 요소를 넘겨야 색이 풀린다.
    */
   container?: HTMLElement | null;
+  /** 딤에 덧붙일 클래스이고, 시트가 열린 동안에도 뒤 화면이 보여야 하는 곳이 딤을 옅게 덮어쓴다. */
+  backdropClassName?: string;
 };
 
 /**
@@ -37,7 +39,13 @@ type DrawerContentProps = Omit<DrawerPrimitive.Popup.Props, "className"> & {
  * 끄는 동안 Base UI가 transform을 인라인으로 쓰고, 놓으면 `--drawer-swipe-movement-y`로 돌아온다.
  * 모션 축소는 움직임 대신 페이드만 남긴다. 전역 tw-animate 덮기(`index.css`)는 Base UI 전환에 닿지 않는다.
  */
-function DrawerContent({ className, container, children, ...props }: DrawerContentProps) {
+function DrawerContent({
+  className,
+  container,
+  backdropClassName,
+  children,
+  ...props
+}: DrawerContentProps) {
   return (
     // Base UI는 null을 "자리가 정해질 때까지 기다림"으로 읽어 시트를 그리지 않으므로 body 기본값으로 바꿔 넘긴다.
     <DrawerPrimitive.Portal container={container ?? undefined}>
@@ -45,6 +53,7 @@ function DrawerContent({ className, container, children, ...props }: DrawerConte
         className={cn(
           "fixed inset-0 z-50 bg-dim opacity-[calc(1-var(--drawer-swipe-progress,0))] transition-opacity duration-300 data-starting-style:opacity-0 data-ending-style:opacity-0 data-ending-style:duration-[calc(var(--drawer-swipe-strength,1)*300ms)] data-swiping:duration-0",
           DRAWER_EASE,
+          backdropClassName,
         )}
       />
       <DrawerPrimitive.Viewport className="fixed inset-0 z-50 flex items-end justify-center">

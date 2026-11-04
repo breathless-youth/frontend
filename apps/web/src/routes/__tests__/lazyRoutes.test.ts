@@ -7,6 +7,14 @@ const loaded = vi.hoisted(() => ({
   privacy: 0,
   licenses: 0,
   contact: 0,
+  groupHome: 0,
+  groupMembers: 0,
+  groupApplications: 0,
+  reportApplication: 0,
+  publicGroup: 0,
+  apply: 0,
+  groupForm: 0,
+  blockList: 0,
 }));
 
 vi.mock("../ResultPage", () => {
@@ -32,6 +40,38 @@ vi.mock("../LicensesPage", () => {
 vi.mock("../ContactPage", () => {
   loaded.contact += 1;
   return { ContactPage: () => null };
+});
+vi.mock("../GroupHomePage", () => {
+  loaded.groupHome += 1;
+  return { GroupHomePage: () => null };
+});
+vi.mock("../GroupMembersPage", () => {
+  loaded.groupMembers += 1;
+  return { GroupMembersPage: () => null };
+});
+vi.mock("../GroupApplicationsPage", () => {
+  loaded.groupApplications += 1;
+  return { GroupApplicationsPage: () => null };
+});
+vi.mock("../ReportApplicationPage", () => {
+  loaded.reportApplication += 1;
+  return { ReportApplicationPage: () => null };
+});
+vi.mock("../PublicGroupPage", () => {
+  loaded.publicGroup += 1;
+  return { PublicGroupPage: () => null };
+});
+vi.mock("../ApplyPage", () => {
+  loaded.apply += 1;
+  return { ApplyPage: () => null };
+});
+vi.mock("../GroupFormPage", () => {
+  loaded.groupForm += 1;
+  return { GroupFormPage: () => null };
+});
+vi.mock("../BlockListPage", () => {
+  loaded.blockList += 1;
+  return { BlockListPage: () => null };
 });
 
 let idleCallbacks: IdleRequestCallback[] = [];
@@ -76,6 +116,35 @@ describe("lazyRoutes 미리 받기", () => {
 
     await runIdle();
     expect(loaded).toMatchObject({ profile: 1, terms: 1, privacy: 1, licenses: 1, contact: 1 });
+  });
+
+  it("그룹 하위 화면 청크를 유휴 시간에 받는다", async () => {
+    const { prefetchGroupPages } = await import("../lazyRoutes");
+
+    prefetchGroupPages();
+    expect(loaded.groupHome).toBe(0);
+
+    await runIdle();
+    expect(loaded).toMatchObject({
+      groupHome: 1,
+      groupMembers: 1,
+      groupApplications: 1,
+      reportApplication: 1,
+      publicGroup: 1,
+      apply: 1,
+      groupForm: 1,
+    });
+    expect(loaded.blockList).toBe(0);
+  });
+
+  it("설정에서 여는 차단 목록 청크는 따로 유휴 시간에 받는다", async () => {
+    const { prefetchBlockListPage } = await import("../lazyRoutes");
+
+    prefetchBlockListPage();
+    expect(loaded.blockList).toBe(0);
+
+    await runIdle();
+    expect(loaded.blockList).toBe(1);
   });
 
   it("청크를 받지 못해도 예외가 새지 않는다", async () => {

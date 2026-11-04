@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api";
 
 import { submitErrorMessage } from "../submitErrorMessage";
+import { mockDeviceTimeZone } from "@/test/deviceTimeZone";
+
 import { buildSessionRequest, submitStudySession } from "../submitStudySession";
 
 const BASE_INPUT = {
@@ -22,7 +24,13 @@ describe("buildSessionRequest", () => {
       studySec: 3600,
       focusSec: 3600,
       events: [],
+      timeZone: "Asia/Seoul",
     });
+  });
+
+  it("기기 시간대를 싣는다", () => {
+    mockDeviceTimeZone("America/New_York");
+    expect(buildSessionRequest(BASE_INPUT).timeZone).toBe("America/New_York");
   });
 
   it("완료 할 일이 비어 있으면 필드를 싣지 않는다 — 구 계약과 바이트 단위로 같은 요청", () => {

@@ -24,7 +24,9 @@
     "CERTIFICATE": "Certification",
     "CIVIL_SERVICE": "Civil service",
     "LANGUAGE": "Language",
-    "ETC": "Other"
+    "ETC": "Other",
+    "SCHOOL_EXAM": "School exams",
+    "UNIVERSITY_EXAM": "University exams"
   },
   "photo": {
     "sheetTitle": "Profile photo",

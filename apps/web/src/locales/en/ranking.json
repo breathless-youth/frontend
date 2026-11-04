@@ -4,6 +4,10 @@
     "noDevice": "This device isn't registered yet. Open the app to save your records",
     "loadError": "Couldn't load rankings"
   },
+  "globalNotice": {
+    "title": "Global rankings are coming soon",
+    "body": "For now, rankings are only open in Korea's time zone"
+  },
   "type": {
     "focusTime": "Focus time",
     "focusRate": "Focus rate",

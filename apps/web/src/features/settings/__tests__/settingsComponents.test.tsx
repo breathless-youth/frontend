@@ -125,6 +125,38 @@ describe("PermissionToggle", () => {
   });
 });
 
+describe("PermissionToggle 앱 부품", () => {
+  afterEach(() => {
+    cleanup();
+    resetGlassChrome();
+  });
+
+  it("권한마다 다른 부품으로 등록해 한 화면에 나란히 그려도 겹치지 않는다", () => {
+    const postMessage = enterGlassChrome("/settings");
+    measureControlsNow();
+    render(
+      <>
+        <PermissionToggle granted />
+        <PermissionToggle granted={false} permission="mic" />
+      </>,
+    );
+    measureControlsNow();
+
+    expect(lastInlineControls(postMessage)).toMatchObject([
+      {
+        id: "switch-camera-permission",
+        on: true,
+        accessibilityLabel: "카메라 권한, 허용됨, 시스템 설정 열기",
+      },
+      {
+        id: "switch-mic-permission",
+        on: false,
+        accessibilityLabel: "마이크 권한, 허용 안 됨, 시스템 설정 열기",
+      },
+    ]);
+  });
+});
+
 describe("SwitchRow", () => {
   afterEach(() => {
     cleanup();
