@@ -1085,6 +1085,44 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
     );
   });
 
+  it.each(["과목", "배경음"])(
+    "%s 창은 왼쪽 가장자리 스와이프로 닫히고 방은 그대로이며 뒤로가기 잠금도 풀리지 않는다",
+    async (name) => {
+      const postMessage = vi.fn();
+      vi.stubGlobal("ReactNativeWebView", { postMessage });
+      const bridgeSent = () =>
+        postMessage.mock.calls.map(([raw]) => JSON.parse(raw as string) as Record<string, unknown>);
+      renderRoom();
+      grantCameraGate();
+      await enterRoom();
+      const historyBack = vi.spyOn(window.history, "back");
+      const historyGo = vi.spyOn(window.history, "go");
+      const historyPush = vi.spyOn(window.history, "pushState");
+
+      await userEvent.click(screen.getByRole("button", { name }));
+      const dialog = screen.getByRole("dialog", { name });
+      const from = { clientX: 8, clientY: 300 };
+      const to = { clientX: 80, clientY: 304 };
+      fireEvent.touchStart(dialog, { touches: [from], changedTouches: [from] });
+      fireEvent.touchMove(dialog, { touches: [to], changedTouches: [to] });
+
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog", { name })).not.toBeInTheDocument();
+      });
+      expect(screen.getByTestId("live-room-page")).toBeInTheDocument();
+      // 방을 나가는 길이 될 수 있는 history 이동과 네이티브 제스처 해제가 하나도 없어야 한다.
+      expect(historyBack).not.toHaveBeenCalled();
+      expect(historyGo).not.toHaveBeenCalled();
+      expect(historyPush).not.toHaveBeenCalled();
+      expect(bridgeSent()).not.toContainEqual(
+        expect.objectContaining({ type: "set-back-gesture", enabled: true }),
+      );
+      expect(bridgeSent()).not.toContainEqual(
+        expect.objectContaining({ type: "set-back-lock", locked: false }),
+      );
+    },
+  );
+
   it("나가기는 종료 확인 후 제출하고 leave를 부른 뒤 소셜 홈으로 복귀한다", async () => {
     vi.mocked(submitStudySession).mockResolvedValue([]);
     mockedLeaveRoom.mockResolvedValue(undefined);

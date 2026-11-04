@@ -94,10 +94,6 @@
       "timer": "기본",
       "pomodoro": "뽀모도로"
     },
-    "alarm": {
-      "timer": "끝나면 알림음",
-      "pomodoro": "바뀔 때마다 알림음"
-    },
     "aria": {
       "kind": "타이머 종류"
     }
