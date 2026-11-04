@@ -347,6 +347,97 @@ describe("앱 모드", () => {
     expect(lastInline(postMessage)?.controls).toMatchObject([{ selected: 0 }]);
   });
 
+  describe("토스트와 겹칠 때", () => {
+    /** 부품은 (20, 100)부터 200×36에 있고 토스트 자리만 인자로 정한다. */
+    function placeToast(top: number): HTMLElement {
+      const toast = document.createElement("li");
+      toast.setAttribute("data-sonner-toast", "");
+      toast.setAttribute("data-visible", "true");
+      moveToast(toast, top);
+      document.body.appendChild(toast);
+      return toast;
+    }
+
+    // 원형에 걸린 스파이를 건드리지 않도록 이 요소에만 측정값을 단다.
+    function moveToast(toast: HTMLElement, top: number): void {
+      Object.defineProperty(toast, "getBoundingClientRect", {
+        configurable: true,
+        value: () => new DOMRect(60, top, 240, 52),
+      });
+    }
+
+    it("겹치는 부품은 앱에서 빼고 웹 원본을 보여 토스트 아래에 둔다", async () => {
+      const postMessage = enterGlassChrome("/records");
+      render(<Segment />);
+      const tablist = screen.getByRole("tablist", { hidden: true });
+
+      placeToast(90);
+
+      await waitFor(() => {
+        expect(lastInline(postMessage)?.controls).toEqual([]);
+      });
+      expect(tablist.style.visibility).toBe("");
+      expect(tablist).not.toHaveAttribute("aria-hidden");
+    });
+
+    it("토스트가 사라지면 부품을 앱으로 돌려주고 웹 원본을 다시 숨긴다", async () => {
+      const postMessage = enterGlassChrome("/records");
+      render(<Segment />);
+      const tablist = screen.getByRole("tablist", { hidden: true });
+      const toast = placeToast(90);
+      await waitFor(() => {
+        expect(lastInline(postMessage)?.controls).toEqual([]);
+      });
+
+      toast.remove();
+
+      await waitFor(() => {
+        expect(lastInline(postMessage)?.controls).toHaveLength(1);
+      });
+      expect(tablist).toHaveStyle({ visibility: "hidden" });
+      expect(tablist).toHaveAttribute("aria-hidden", "true");
+    });
+
+    it("겹치지 않는 부품은 앱에 그대로 둔다", async () => {
+      const postMessage = enterGlassChrome("/records");
+      render(<Segment />);
+      const tablist = screen.getByRole("tablist", { hidden: true });
+      const sentBefore = sentInline(postMessage).length;
+
+      placeToast(20);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(sentInline(postMessage)).toHaveLength(sentBefore);
+      expect(tablist).toHaveStyle({ visibility: "hidden" });
+    });
+
+    it("visibleToasts에 밀려 보이지 않는 토스트는 세지 않는다", async () => {
+      const postMessage = enterGlassChrome("/records");
+      render(<Segment />);
+      const sentBefore = sentInline(postMessage).length;
+
+      placeToast(90).setAttribute("data-visible", "false");
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(sentInline(postMessage)).toHaveLength(sentBefore);
+    });
+
+    it("토스트가 떠 있는 동안 스크롤로 부품이 밀려 들어오면 앱에서 뺀다", async () => {
+      const postMessage = enterGlassChrome("/records");
+      render(<Segment />);
+      const toast = placeToast(20);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(lastInline(postMessage)?.controls).toHaveLength(1);
+
+      moveToast(toast, 90);
+      window.dispatchEvent(new Event("scroll"));
+
+      await waitFor(() => {
+        expect(lastInline(postMessage)?.controls).toEqual([]);
+      });
+    });
+  });
+
   it("웹 모달이 열리면 hidden: true를 보낸다", async () => {
     const postMessage = enterGlassChrome("/records");
     render(<Segment />);

@@ -28,6 +28,7 @@ interface Entry {
   spec: ControlSpec;
   measureIcon: boolean;
   iconScale: number;
+  covered?: boolean;
 }
 
 // 등록할 때는 아직 좌표를 몰라서 범위 안의 아무 좌표를 넣고 부품 값만 본다.
@@ -151,13 +152,47 @@ function toInlineControl(spec: ControlSpec, frame: ControlFrame): InlineControl 
   }
 }
 
+const VISIBLE_TOAST_SELECTOR = '[data-sonner-toast][data-visible="true"]';
+
+function overlaps(a: DOMRect, b: DOMRect): boolean {
+  return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+}
+
+/**
+ * 토스트와 겹치는 부품의 웹 원본 표시
+ *
+ * 앱 부품은 웹뷰 위에 그려져 z-index로는 토스트를 그 위로 올릴 수 없다.
+ * 그래서 겹치는 동안만 앱에서 빼고 웹 원본을 보여 토스트 아래에 둔다.
+ */
+function showWebOriginal(element: HTMLElement, show: boolean): void {
+  element.style.visibility = show ? "" : "hidden";
+  if (show) {
+    element.removeAttribute("aria-hidden");
+  } else {
+    element.setAttribute("aria-hidden", "true");
+  }
+}
+
 function flush(): void {
   flushScheduled = false;
   const controls: InlineControl[] = [];
-  for (const { element, spec, measureIcon, iconScale } of entries.values()) {
+  const toasts = [...document.querySelectorAll(VISIBLE_TOAST_SELECTOR)].map((toast) =>
+    toast.getBoundingClientRect(),
+  );
+  for (const entry of entries.values()) {
+    const { element, spec, measureIcon, iconScale } = entry;
     const rect = element.getBoundingClientRect();
     // 자신이나 조상이 display: none이면 크기가 0이라 함께 빠진다.
     if (rect.width === 0 || rect.height === 0) {
+      continue;
+    }
+    const covered = toasts.some((toast) => overlaps(toast, rect));
+    // 겹침이 바뀔 때만 건드려서 등록 직후 `hide`가 저장할 원래 값을 흐리지 않는다.
+    if (covered !== (entry.covered ?? false)) {
+      entry.covered = covered;
+      showWebOriginal(element, covered);
+    }
+    if (covered) {
       continue;
     }
     const measured =
@@ -247,6 +282,13 @@ function startFollowing(): void {
   }
 }
 
+// 앱 부품은 문서 좌표에 붙어 스크롤만으로는 다시 재지 않지만, 토스트는 제자리에 있어 겹침이 달라진다.
+function flushWhileToastVisible(): void {
+  if (document.querySelector(VISIBLE_TOAST_SELECTOR) !== null) {
+    scheduleFlush();
+  }
+}
+
 function startWatching(): void {
   const observer = new ResizeObserver(scheduleFlush);
   // 위쪽 내용이 늘어 부품이 밀려나도 부품 자신의 크기는 그대로라 문서 높이 변화도 본다.
@@ -256,6 +298,7 @@ function startWatching(): void {
   mutations.observe(document.body, { childList: true, subtree: true });
   window.addEventListener("resize", scheduleFlush);
   window.addEventListener("pageshow", flushOnRestore);
+  window.addEventListener("scroll", flushWhileToastVisible, { capture: true, passive: true });
   document.addEventListener("transitionrun", startFollowing, true);
   document.addEventListener("transitionstart", startFollowing, true);
   document.addEventListener("transitionend", scheduleFlush, true);
@@ -270,6 +313,7 @@ function startWatching(): void {
     mutations.disconnect();
     window.removeEventListener("resize", scheduleFlush);
     window.removeEventListener("pageshow", flushOnRestore);
+    window.removeEventListener("scroll", flushWhileToastVisible, { capture: true });
     document.removeEventListener("transitionrun", startFollowing, true);
     document.removeEventListener("transitionstart", startFollowing, true);
     document.removeEventListener("transitionend", scheduleFlush, true);
