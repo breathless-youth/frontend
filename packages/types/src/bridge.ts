@@ -124,6 +124,7 @@ export type ToWebMessage =
    */
   | { type: "profile-photo-result"; id: string; status: "picked"; data: string; atMs: number }
   | { type: "profile-photo-result"; id: string; status: "cancelled" | "failed"; atMs: number }
+  | SocialLoginResultMessage
   | CameraPermissionMessage
   | TrackEventMessage
   | InstallAttributionMessage
@@ -199,6 +200,39 @@ export type VideoResultStatus = (typeof VIDEO_RESULT_STATUSES)[number];
  */
 export const VIDEO_SHARE_TARGETS = ["instagram", "kakao"] as const;
 export type VideoShareTarget = (typeof VIDEO_SHARE_TARGETS)[number];
+
+/** 소셜 로그인 공급자. 셸 파서가 이 목록으로 검사하므로 유니온과 목록이 어긋나지 않는다. */
+export const SOCIAL_LOGIN_PROVIDERS = ["GOOGLE", "KAKAO", "APPLE"] as const;
+export type SocialLoginProvider = (typeof SOCIAL_LOGIN_PROVIDERS)[number];
+
+/** 소셜 로그인 실패 코드. 웹 파서가 이 목록으로 검사한다. */
+export const SOCIAL_LOGIN_FAILURE_CODES = [
+  "INVALID_SOCIAL_TOKEN",
+  "ALREADY_LINKED",
+  "SOCIAL_PROVIDER_UNAVAILABLE",
+  "USER_NOT_FOUND",
+  "UNKNOWN",
+] as const;
+export type SocialLoginFailureCode = (typeof SOCIAL_LOGIN_FAILURE_CODES)[number];
+
+/**
+ * 소셜 로그인 결과
+ *
+ * `social-login`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+ * 성공이면 앱이 새 토큰의 `auth-token`을 먼저 보낸 뒤에 이 결과를 보낸다.
+ * `cancelled`는 사용자가 로그인 창을 닫았거나 앞선 요청이 아직 진행 중인 경우다.
+ * ID 토큰과 nonce는 싣지 않는다.
+ */
+export type SocialLoginResultMessage =
+  | { type: "social-login-result"; id: string; status: "success"; isNewUser: boolean; atMs: number }
+  | { type: "social-login-result"; id: string; status: "cancelled"; atMs: number }
+  | {
+      type: "social-login-result";
+      id: string;
+      status: "failed";
+      code: SocialLoginFailureCode;
+      atMs: number;
+    };
 
 /** 웹 → 네이티브. */
 /**
@@ -408,6 +442,12 @@ export type ToNativeMessage =
    * 앱이 웹뷰 주소에 `profilePhotoPicker=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `profile-photo-result`로 답한다.
    */
   | { type: "pick-profile-photo"; id: string; atMs: number }
+  /**
+   * 소셜 로그인 요청
+   *
+   * 앱이 웹뷰 주소의 `socialLogin`에 넣은 공급자만 보내고, 앱은 같은 `id`의 `social-login-result`로 답한다.
+   */
+  | { type: "social-login"; id: string; provider: SocialLoginProvider; atMs: number }
   | SetTabBarMessage
   | SetBackGestureMessage
   | SetBackLockMessage
