@@ -1,5 +1,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  isInaccessible,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -1798,9 +1807,10 @@ describe("LiveRoomPage — 조작 자동 숨김", () => {
     expectControlsHidden();
   });
 
-  it("조작이 숨어도 타일의 이름·목표와 시간 뱃지는 남는다", async () => {
+  it("조작이 숨으면 타일의 이름과 시간 뱃지는 남고 목표 문구만 바와 함께 내려간다", async () => {
     renderRoom({ scenario: { snapshot: [member(8, { goal: "합격" })] } });
     await enterRoom();
+    expect(screen.getByText("합격")).not.toHaveAttribute("data-hidden");
 
     restartHideTimerOnFakeClock();
     advance(AUTO_HIDE_MS);
@@ -1809,8 +1819,30 @@ describe("LiveRoomPage — 조작 자동 숨김", () => {
       expect(info).not.toHaveClass("opacity-0");
       expect(info).not.toHaveAttribute("aria-hidden");
     });
-    expect(screen.getByText("합격")).toBeVisible();
+    const nickname = screen.getByText("멤버8");
+    expect(nickname).toBeVisible();
+    expect(nickname.closest("[data-hidden]")).toBeNull();
     expect(screen.getByTestId("tile-time-badge")).toBeInTheDocument();
+    const goal = screen.getByText("합격");
+    expect(goal).toHaveAttribute("data-hidden", "true");
+    // 내려가도 낭독기는 목표를 읽는다.
+    expect(isInaccessible(goal)).toBe(false);
+  });
+
+  it("숨은 조작을 화면 탭으로 다시 부르면 목표 문구도 바와 함께 올라온다", async () => {
+    renderRoom({ scenario: { snapshot: [member(8, { goal: "합격" })] } });
+    await enterRoom();
+    restartHideTimerOnFakeClock();
+    advance(AUTO_HIDE_MS);
+    expect(screen.getByText("합격")).toHaveAttribute("data-hidden", "true");
+
+    tapSurface();
+    expectControlsShown();
+    expect(screen.getByText("합격")).not.toHaveAttribute("data-hidden");
+
+    tapSurface();
+    expectControlsHidden();
+    expect(screen.getByText("합격")).toHaveAttribute("data-hidden", "true");
   });
 
   it("왼쪽 위 내 시간 글자는 조작이 숨어도 남는다", async () => {
@@ -1885,6 +1917,19 @@ describe("LiveRoomPage — 조작 자동 숨김", () => {
     tapSurface();
     expectControlsShown();
     expect(screen.getByTestId("room-control-bar")).toHaveClass("pointer-events-auto");
+  });
+
+  it("조작이 강제로 보이는 동안은 시간이 지나도 목표 문구가 내려가지 않는다", async () => {
+    renderRoom({ scenario: { snapshot: [member(8, { goal: "합격" })] } });
+    await enterRoom();
+
+    restartHideTimerOnFakeClock();
+    fireEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+
+    advance(AUTO_HIDE_MS * 3);
+    expectControlsShown();
+    expect(screen.getByText("합격")).not.toHaveAttribute("data-hidden");
   });
 
   it("더보기 메뉴가 열려 있는 동안은 시간이 지나도 숨지 않는다", async () => {

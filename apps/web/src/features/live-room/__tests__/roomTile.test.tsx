@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { isInaccessible, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import type { RoomMember } from "@focusmakers/types";
@@ -240,6 +240,51 @@ describe("RoomTile 이름·목표", () => {
 
     expect(screen.getByTestId("tile-info").querySelectorAll("p")).toHaveLength(2);
     expect(screen.getByText("합격")).toBeInTheDocument();
+  });
+});
+
+describe("RoomTile 목표 문구 내리기", () => {
+  const withGoal = {
+    userId: 8,
+    cameraOn: true,
+    focusState: "FOCUS",
+    nickname: "포메1",
+    goal: "합격",
+  } as const;
+
+  it("기본은 목표 문구가 올라와 있다", () => {
+    render(<RoomTile member={withGoal} />);
+
+    expect(screen.getByText("합격")).not.toHaveAttribute("data-hidden");
+  });
+
+  it("목표 문구만 내려가고 닉네임과 마이크 아이콘은 그대로 보인다", () => {
+    render(<RoomTile member={withGoal} micOn goalHidden />);
+
+    expect(screen.getByText("합격")).toHaveAttribute("data-hidden", "true");
+    const nickname = screen.getByText("포메1");
+    expect(nickname).toBeVisible();
+    expect(nickname.closest("[data-hidden]")).toBeNull();
+    const mic = screen.getByRole("img", { name: "마이크 켜짐" });
+    expect(mic.closest("[data-hidden]")).toBeNull();
+  });
+
+  it("내려간 목표 줄도 자리를 지켜 닉네임이 따라 내려가지 않고, 낭독기는 목표를 읽는다", () => {
+    render(<RoomTile member={withGoal} goalHidden />);
+
+    const goal = screen.getByText("합격");
+    expect(screen.getByTestId("tile-info").querySelectorAll("p")).toHaveLength(2);
+    expect(goal).not.toHaveAttribute("aria-hidden");
+    expect(isInaccessible(goal)).toBe(false);
+  });
+
+  it("다시 올라오면 목표 문구가 원래 상태로 돌아온다", () => {
+    const { rerender } = render(<RoomTile member={withGoal} goalHidden />);
+    expect(screen.getByText("합격")).toHaveAttribute("data-hidden", "true");
+
+    rerender(<RoomTile member={withGoal} goalHidden={false} />);
+
+    expect(screen.getByText("합격")).not.toHaveAttribute("data-hidden");
   });
 });
 
