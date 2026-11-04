@@ -2,7 +2,7 @@
 
 - 티켓: BY-1134 (상위 스토리 BY-1132, 짝 BY-1133 BE)
 - 날짜: 2026-11-04
-- 서버 결정: backend `docs/adr/0041-user-time-zone.md`
+- 서버 결정: backend `docs/adr/0042-user-time-zone.md`
 
 ## 목표
 
