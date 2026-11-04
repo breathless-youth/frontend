@@ -24,15 +24,15 @@ describe("WeeklyRankCard", () => {
     expect(within(items[0]!).getByText("1")).toBeInTheDocument();
     expect(within(items[0]!).getByText("새벽러")).toBeInTheDocument();
     expect(within(items[0]!).getByText("21:40:10")).toBeInTheDocument();
-    expect(items.filter((item) => item.hasAttribute("data-me"))).toEqual([rowOf("나")]);
-    expect(within(rowOf("나")).getByText("12:40:00")).toBeInTheDocument();
+    expect(items.filter((item) => item.hasAttribute("data-me"))).toEqual([rowOf("열공곰")]);
+    expect(within(rowOf("열공곰")).getByText("12:40:00")).toBeInTheDocument();
   });
 
   it("순공이 쌓이는 줄은 흐른 시간만큼 올리되 바로 위 줄을 넘지 않는다", () => {
     render(<WeeklyRankCard rows={rows} elapsedSec={5 * 3600} />);
     expect(within(rowOf("새벽러")).getByText("26:40:10")).toBeInTheDocument();
     expect(within(rowOf("합격까지")).getByText("23:02:33")).toBeInTheDocument();
-    expect(within(rowOf("나")).getByText("12:40:00")).toBeInTheDocument();
+    expect(within(rowOf("열공곰")).getByText("12:40:00")).toBeInTheDocument();
     // 고구마맛탕은 올리면 14:15:20이지만 순위는 다시 받을 때만 바뀌어 바로 위 줄에서 멈춘다.
     expect(within(rowOf("고구마맛탕")).getByText("12:40:00")).toBeInTheDocument();
     expect(within(rowOf("연필깎이")).getByText("4:02:11")).toBeInTheDocument();

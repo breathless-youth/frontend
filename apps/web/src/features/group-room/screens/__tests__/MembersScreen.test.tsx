@@ -78,13 +78,13 @@ describe("MembersScreen", () => {
     ]);
   });
 
-  it("나는 닉네임 대신 나로 쓰고 그룹장 표시를 붙인다", () => {
+  it("나도 닉네임으로 쓰고 그룹장 표시를 붙인다", () => {
     renderMembers();
-    const me = screen.getByText("나", { ignore: IGNORE_ARIA_HIDDEN }).closest("li");
+    const me = screen.getByText("열공곰", { ignore: IGNORE_ARIA_HIDDEN }).closest("li");
     expect(me).not.toBeNull();
     expect(within(me as HTMLElement).getByRole("img", { name: "그룹장" })).toBeInTheDocument();
     expect(within(me as HTMLElement).getByText("오늘")).toBeInTheDocument();
-    expect(screen.queryByText("열공곰")).toBeNull();
+    expect(screen.queryByText("나")).toBeNull();
   });
 
   it("멤버 보기는 초대 카드와 멤버별 메뉴가 없다", () => {

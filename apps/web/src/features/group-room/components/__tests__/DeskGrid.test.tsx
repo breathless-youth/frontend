@@ -81,7 +81,7 @@ describe("DeskGrid", () => {
     expect(screen.getAllByText("다른 곳에서 공부 중")).toHaveLength(1);
   });
 
-  it("내 책상은 닉네임 대신 나로 보이고 나로 읽는다", () => {
+  it("내 책상도 닉네임으로 보이고 닉네임으로 읽는다", () => {
     const mine: RoomDeskMember = {
       ...base,
       userId: 9,
@@ -93,8 +93,8 @@ describe("DeskGrid", () => {
       isMe: true,
     };
     render(<DeskGrid members={[mine]} visibility="private" elapsedSec={0} />);
-    expect(desks()[0]).toHaveAccessibleName("나, 그룹장, 쉬는 중, 1:12:30");
-    expect(screen.getByText("나")).toBeInTheDocument();
-    expect(screen.queryByText("열공곰")).toBeNull();
+    expect(desks()[0]).toHaveAccessibleName("열공곰, 그룹장, 쉬는 중, 1:12:30");
+    expect(screen.getByText("열공곰")).toBeInTheDocument();
+    expect(screen.queryByText("나")).toBeNull();
   });
 });

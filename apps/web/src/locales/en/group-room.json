@@ -164,9 +164,6 @@
     "tooLong_one": "Use up to {{count}} character",
     "tooLong_other": "Use up to {{count}} characters"
   },
-  "memberName": {
-    "me": "You"
-  },
   "visibility": {
     "public": "Public",
     "private": "Private"

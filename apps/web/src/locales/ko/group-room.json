@@ -153,9 +153,6 @@
   "fieldError": {
     "tooLong": "{{count}}자까지 쓸 수 있어요"
   },
-  "memberName": {
-    "me": "나"
-  },
   "visibility": {
     "public": "공개",
     "private": "비공개"

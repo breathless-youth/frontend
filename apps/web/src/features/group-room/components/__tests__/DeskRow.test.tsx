@@ -48,13 +48,13 @@ describe("DeskRow", () => {
     ]);
   });
 
-  it("내 책상은 닉네임 대신 나다", () => {
+  it("내 책상도 닉네임으로 쓴다", () => {
     render(
       <DeskRow
         members={[{ ...base, userId: 9, nickname: "열공곰", presence: "away", isMe: true }]}
       />,
     );
-    expect(seats()[0].textContent).toBe("나");
-    expect(screen.queryByText("열공곰")).toBeNull();
+    expect(seats()[0].textContent).toBe("열공곰");
+    expect(screen.queryByText("나")).toBeNull();
   });
 });

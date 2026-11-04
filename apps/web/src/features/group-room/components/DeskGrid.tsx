@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
 
-import { memberName } from "../memberName";
 import { type DeskMember, type DeskTone, arrangeDesks, liveSeconds } from "../model/desks";
 import type { RoomVisibility } from "../model/roomMenu";
 import { formatClock } from "../model/timeText";
@@ -34,8 +33,6 @@ export function DeskGrid({
   elapsedSec: number;
 }) {
   const { t } = useTranslation("group-room");
-  // 판단 모듈이 순서를 정하며 멤버를 공통 모양으로 돌려주므로 내 자리는 아이디로 다시 찾는다.
-  const myUserId = members.find((member) => member.isMe)?.userId;
   return (
     <div>
       <ul aria-label={t("deskGrid.aria.list")} className="grid grid-cols-3 gap-x-1.5 gap-y-3 pt-1">
@@ -47,7 +44,6 @@ export function DeskGrid({
               key={slot.member.userId}
               member={slot.member}
               tone={slot.tone}
-              isMe={slot.member.userId === myUserId}
               elapsedSec={elapsedSec}
             />
           ),
@@ -74,16 +70,14 @@ export function DeskGrid({
 function MemberDesk({
   member,
   tone,
-  isMe,
   elapsedSec,
 }: {
   member: DeskMember;
   tone: DeskTone;
-  isMe: boolean;
   elapsedSec: number;
 }) {
   const { t } = useTranslation("group-room");
-  const name = memberName({ nickname: member.nickname, isMe });
+  const name = member.nickname;
   const clock = formatClock(liveSeconds(member.todayStudySec, member.accumulating, elapsedSec));
   const label = [
     name,

@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils";
 
 import { InviteCard } from "../components/InviteCard";
 import { MemberMenu } from "../components/MemberMenu";
-import { memberName } from "../memberName";
 import { memberCountText } from "../model/limits";
 import type { RoomVisibility } from "../model/roomMenu";
 import { lastStudiedText } from "../model/timeText";
@@ -131,15 +130,14 @@ export function MembersScreen({
 /**
  * 멤버 한 줄
  *
- * 지금 보는 사람은 닉네임 대신 나로 쓰고, 그룹장은 이름 뒤 왕관을 글로도 읽히게 한다.
+ * 그룹장은 이름 뒤 왕관을 글로도 읽히게 한다.
  */
 function MemberRow({ member, now, menu }: { member: RoomMemberRow; now: Date; menu: ReactNode }) {
   const { t } = useTranslation("group-room");
-  const name = memberName(member);
   const lastText = lastStudiedText(member.lastStudiedAt, now);
   return (
     <li className="flex min-h-14 items-center gap-2.5 border-b border-border last:border-b-0">
-      <RankAvatar nickname={name} me={member.isMe} imageUrl={member.imageUrl} />
+      <RankAvatar nickname={member.nickname} me={member.isMe} imageUrl={member.imageUrl} />
       <p className="flex min-w-0 flex-1 items-center gap-1.5">
         <span
           className={cn(
@@ -148,7 +146,7 @@ function MemberRow({ member, now, menu }: { member: RoomMemberRow; now: Date; me
             !member.isMe && "font-semibold",
           )}
         >
-          {name}
+          {member.nickname}
         </span>
         {member.isOwner && (
           <Crown

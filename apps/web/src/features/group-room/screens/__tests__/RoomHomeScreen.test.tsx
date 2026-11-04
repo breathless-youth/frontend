@@ -65,7 +65,7 @@ describe("RoomHomeScreen", () => {
     renderHome();
     const weekly = screen.getByRole("region", { name: "이번 주 순위" });
     expect(within(weekly).getByText("월요일에 새로 시작해요")).toBeInTheDocument();
-    const me = within(weekly).getByText("나", { ignore: IGNORE_ARIA_HIDDEN });
+    const me = within(weekly).getByText("열공곰", { ignore: IGNORE_ARIA_HIDDEN });
     expect(me.closest("[data-me]")).toHaveAttribute("data-me", "true");
   });
 

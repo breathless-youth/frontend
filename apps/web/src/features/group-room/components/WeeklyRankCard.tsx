@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { RankAvatar } from "@/features/ranking/components/RankAvatar";
 import { cn } from "@/lib/utils";
 
-import { memberName } from "../memberName";
 import { liveRankSeconds } from "../model/desks";
 import { formatClock } from "../model/timeText";
 import type { WeeklyRankRow } from "../types";
@@ -13,7 +12,7 @@ import type { WeeklyRankRow } from "../types";
  * 그룹 홈의 이번 주 순위 카드
  *
  * 순위는 다시 받을 때만 바뀌어서 순공을 올려 보여도 바로 위 줄을 넘지 않게 멈춘다.
- * 내 줄은 닉네임 대신 나로 쓰고 바탕을 칠해 바로 찾게 한다.
+ * 내 줄은 바탕을 칠해 바로 찾게 한다.
  * 공부 중인 줄의 점은 색만으로 알리지 않도록 화면 낭독기에 글로 읽힌다.
  */
 export function WeeklyRankCard({
@@ -58,12 +57,7 @@ export function WeeklyRankCard({
             >
               {row.rank}
             </span>
-            <RankAvatar
-              nickname={memberName(row)}
-              me={row.isMe}
-              size="xs"
-              imageUrl={row.imageUrl}
-            />
+            <RankAvatar nickname={row.nickname} me={row.isMe} size="xs" imageUrl={row.imageUrl} />
             <span
               className={cn(
                 "min-w-0 flex-1 truncate text-sm leading-4.5 text-foreground",
@@ -71,7 +65,7 @@ export function WeeklyRankCard({
                 !row.isMe && "font-semibold",
               )}
             >
-              {memberName(row)}
+              {row.nickname}
             </span>
             {row.accumulating && (
               <>

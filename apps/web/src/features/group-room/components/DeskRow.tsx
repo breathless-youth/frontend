@@ -2,7 +2,6 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
 
-import { memberName } from "../memberName";
 import { type DeskTone, arrangeDesks } from "../model/desks";
 import type { RoomDeskMember } from "../types";
 import { DeskFigure } from "./DeskFigure";
@@ -22,19 +21,11 @@ const NAME_CLASS: Record<DeskTone | "empty", string> = {
  */
 export function DeskRow({ members }: { members: readonly RoomDeskMember[] }) {
   const { t } = useTranslation("group-room");
-  // 판단 모듈이 순서를 정하며 멤버를 공통 모양으로 돌려주므로 내 자리는 아이디로 다시 찾는다.
-  const myUserId = members.find((member) => member.isMe)?.userId;
   return (
     <span aria-hidden="true" data-testid="desk-row" className="grid grid-cols-6 gap-0.5">
       {arrangeDesks(members).map((slot, index) => {
         const tone = slot.kind === "empty" ? "empty" : slot.tone;
-        const name =
-          slot.kind === "empty"
-            ? t("deskRow.emptySeat")
-            : memberName({
-                nickname: slot.member.nickname,
-                isMe: slot.member.userId === myUserId,
-              });
+        const name = slot.kind === "empty" ? t("deskRow.emptySeat") : slot.member.nickname;
         return (
           <span
             key={slot.kind === "empty" ? `empty-${index}` : slot.member.userId}
