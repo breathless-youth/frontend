@@ -482,7 +482,8 @@ describe("SubjectPanel iPhone 이름 입력칸", () => {
     expect(focus.mock.calls).toEqual([[{ preventScroll: true }]]);
   });
 
-  it("키보드가 올라와 있는 동안만 그 높이만큼 목록 끝을 비운다", async () => {
+  it("iPhone은 키보드가 올라와 있는 동안만 그 높이만큼 목록 끝을 비운다", async () => {
+    stubUserAgent(IPHONE_UA);
     const viewport = fakeViewport(874, 874);
     renderPanel();
     const input = await openNewSubjectEditor();
@@ -491,7 +492,8 @@ describe("SubjectPanel iPhone 이름 입력칸", () => {
     const spacer = () => editor.querySelector<HTMLElement>(":scope > [aria-hidden='true']");
     expect(spacer()).toBeNull();
 
-    resizeViewport(viewport, 538);
+    // iPhone은 떠 있는 입력 보조 막대 몫 24px이 더해져 보이는 영역 562px이 336px이 된다.
+    resizeViewport(viewport, 562);
     expect(spacer()).toHaveStyle({ height: "336px" });
 
     resizeViewport(viewport, 874);
@@ -641,7 +643,8 @@ describe("SubjectPanel 가려진 입력칸", () => {
     expect(subjectList!.scrollTop).toBe(0);
   });
 
-  it("키보드가 올라오면 목록 안에서는 보이던 입력칸도 키보드 위로 올려 문서는 밀지 않는다", async () => {
+  it("iPhone은 키보드가 올라오면 목록 안에서는 보이던 입력칸도 키보드 위로 올려 문서는 밀지 않는다", async () => {
+    stubUserAgent(IPHONE_UA);
     const viewport = fakeViewport(600, 600);
     const scrollBy = vi.spyOn(window, "scrollBy").mockImplementation(() => {});
     onTestFinished(() => scrollBy.mockRestore());
@@ -652,13 +655,31 @@ describe("SubjectPanel 가려진 입력칸", () => {
     await openNewSubject();
     expect(list!.scrollTop).toBe(0);
 
-    resizeViewport(viewport, 300);
+    // 입력 보조 막대 몫 24px이 더해지므로 보이는 영역 324px이 윗면 300px의 키보드가 된다.
+    resizeViewport(viewport, 324);
 
     // 입력칸 아랫변은 330px이라 여백 8px을 더하면 키보드 윗면보다 38px 아래다.
     expect(list!.scrollTop).toBe(38);
     const input = screen.getByRole("textbox", { name: "새 과목 이름" });
     expect(input.getBoundingClientRect().bottom + 8).toBeLessThanOrEqual(300);
     expect(scrollBy).not.toHaveBeenCalled();
+  });
+
+  it("Android는 키보드 높이가 있어도 목록 끝을 비우지 않고 목록을 밀지 않는다", async () => {
+    stubUserAgent(ANDROID_UA);
+    const viewport = fakeViewport(600, 600);
+    renderPanel();
+    const [list] = scrollLists();
+    // iPhone 테스트와 같은 자리라 키보드가 오르면 윗면 300px의 키보드에 입력칸 아랫변 330px이 가린다.
+    layOut({ list: list!, editor: NEW_SUBJECT, editorTop: 250, scrolled: 0 });
+    await openNewSubject();
+    const input = screen.getByRole("textbox", { name: "새 과목 이름" });
+
+    resizeViewport(viewport, 300);
+
+    const editor = input.parentElement!.parentElement!;
+    expect(editor.querySelector(":scope > [aria-hidden='true']")).toBeNull();
+    expect(list!.scrollTop).toBe(0);
   });
 });
 
