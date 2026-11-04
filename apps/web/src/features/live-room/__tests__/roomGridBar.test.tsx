@@ -53,6 +53,22 @@ describe.each(["invite", "group"] as const)("RoomGrid %s 아래 바 상태", (va
     }
   });
 
+  it("바가 내려가 있으면 모든 타일의 닉네임 줄이 목표 자리로 내려오고 아니면 제자리다", () => {
+    const { unmount } = renderGrid(variant, 3, { barHidden: true });
+    for (const userId of [1, 2, 3]) {
+      expect(screen.getByText(`멤버${userId}`).closest("p")).toHaveAttribute(
+        "data-dropped",
+        "true",
+      );
+    }
+    unmount();
+
+    renderGrid(variant, 3);
+    for (const userId of [1, 2, 3]) {
+      expect(screen.getByText(`멤버${userId}`).closest("p")).not.toHaveAttribute("data-dropped");
+    }
+  });
+
   it("바가 내려가 있지 않으면 모든 타일의 목표 문구가 올라와 있다", () => {
     renderGrid(variant, 3);
 
