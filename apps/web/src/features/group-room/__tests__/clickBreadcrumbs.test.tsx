@@ -111,9 +111,7 @@ describe("그룹 화면의 Sentry 클릭 기록", () => {
   });
 
   it("멤버 책상은 어디를 눌러도 닉네임 대신 컴포넌트 이름이 남는다", () => {
-    render(
-      <DeskGrid members={fixtures.roomHome.members} visibility="public" elapsedSec={0} now={NOW} />,
-    );
+    render(<DeskGrid members={fixtures.roomHome.members} visibility="public" elapsedSec={0} />);
     const desk = screen.getByRole("listitem", { name: /^새벽러,/ });
     const figure = desk.querySelector("svg");
     if (figure === null) {

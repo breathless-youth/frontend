@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { memberName } from "../memberName";
 import { type DeskMember, type DeskTone, arrangeDesks, liveSeconds } from "../model/desks";
 import type { RoomVisibility } from "../model/roomMenu";
-import { formatClock, lastStudiedText } from "../model/timeText";
+import { formatClock } from "../model/timeText";
 import type { RoomDeskMember } from "../types";
 import { DeskFigure } from "./DeskFigure";
 
@@ -22,17 +22,16 @@ const TONE_TEXT_KEY = {
  *
  * 색만으로 상태를 알리지 않도록 칸마다 닉네임, 상태 말, 시간을 이름으로 묶어 한 번에 읽힌다.
  * 보이는 글자는 그 이름과 겹쳐 두 번 읽히지 않게 화면 낭독기에서 뺀다.
+ * 마지막으로 공부한 때는 오래 오지 않은 멤버를 찾는 멤버 화면에서만 보이고 책상에는 붙이지 않는다.
  */
 export function DeskGrid({
   members,
   visibility,
   elapsedSec,
-  now,
 }: {
   members: readonly RoomDeskMember[];
   visibility: RoomVisibility;
   elapsedSec: number;
-  now: Date;
 }) {
   const { t } = useTranslation("group-room");
   // 판단 모듈이 순서를 정하며 멤버를 공통 모양으로 돌려주므로 내 자리는 아이디로 다시 찾는다.
@@ -50,7 +49,6 @@ export function DeskGrid({
               tone={slot.tone}
               isMe={slot.member.userId === myUserId}
               elapsedSec={elapsedSec}
-              now={now}
             />
           ),
         )}
@@ -78,25 +76,20 @@ function MemberDesk({
   tone,
   isMe,
   elapsedSec,
-  now,
 }: {
   member: DeskMember;
   tone: DeskTone;
   isMe: boolean;
   elapsedSec: number;
-  now: Date;
 }) {
   const { t } = useTranslation("group-room");
   const name = memberName({ nickname: member.nickname, isMe });
   const clock = formatClock(liveSeconds(member.todayStudySec, member.accumulating, elapsedSec));
-  // 공부하는 멤버는 지금 공부하고 있으니 마지막으로 공부한 때는 쉬는 멤버에게만 붙인다.
-  const lastStudied = tone === "rest" ? lastStudiedText(member.lastStudiedAt, now) : null;
   const label = [
     name,
     member.isOwner ? t("deskGrid.aria.owner") : null,
     t(TONE_TEXT_KEY[tone]),
     clock,
-    lastStudied,
   ]
     .filter((part) => part !== null)
     .join(", ");
@@ -131,9 +124,6 @@ function MemberDesk({
         >
           {clock}
         </p>
-        {lastStudied !== null && (
-          <p className="text-[10px] leading-3.5 text-muted-foreground">{lastStudied}</p>
-        )}
       </div>
     </li>
   );

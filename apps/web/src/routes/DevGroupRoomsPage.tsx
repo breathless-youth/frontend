@@ -132,7 +132,6 @@ function RoomHomeCase({
     <>
       <RoomHomeScreen
         room={{ ...room, notifyOn }}
-        now={GALLERY_NOW}
         fetchedAtMs={fetchedAtMs}
         defaultMenuOpen={defaultMenuOpen}
         onBack={onBack}
@@ -250,7 +249,6 @@ function PublicDetailCase({ initialState, onBack }: CaseProps & { initialState: 
     <PublicRoomDetailScreen
       room={fixtures.publicDetail}
       applyState={applyState}
-      now={GALLERY_NOW}
       fetchedAtMs={fetchedAtMs}
       pending={false}
       onBack={onBack}

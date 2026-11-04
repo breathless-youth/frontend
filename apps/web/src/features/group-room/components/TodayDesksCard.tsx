@@ -18,14 +18,12 @@ export function TodayDesksCard({
   members,
   visibility,
   elapsedSec,
-  now,
   className,
 }: {
   title: string;
   members: readonly RoomDeskMember[];
   visibility: RoomVisibility;
   elapsedSec: number;
-  now: Date;
   className?: string;
 }) {
   const titleId = useId();
@@ -43,7 +41,7 @@ export function TodayDesksCard({
         </h2>
         <p className="shrink-0 text-[13px] leading-5 text-foreground">{roomStatusText(members)}</p>
       </div>
-      <DeskGrid members={members} visibility={visibility} elapsedSec={elapsedSec} now={now} />
+      <DeskGrid members={members} visibility={visibility} elapsedSec={elapsedSec} />
     </section>
   );
 }

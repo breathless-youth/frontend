@@ -22,9 +22,7 @@ function renderHome(
     onOpenRequests: vi.fn(),
     onEnterStudyRoom: vi.fn(),
   };
-  renderScreen(
-    <RoomHomeScreen room={room} now={NOW} fetchedAtMs={NOW.getTime()} {...props} {...extra} />,
-  );
+  renderScreen(<RoomHomeScreen room={room} fetchedAtMs={NOW.getTime()} {...props} {...extra} />);
   return props;
 }
 

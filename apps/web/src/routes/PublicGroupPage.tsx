@@ -17,7 +17,6 @@ import { GroupScreenFrame } from "@/features/group-room/screens/GroupScreenFrame
 import { PublicRoomDetailScreen } from "@/features/group-room/screens/PublicRoomDetailScreen";
 import { useBackTo } from "@/features/group-room/useBackTo";
 import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
-import { useNow } from "@/features/ranking/useNow";
 import { cancelApplication } from "@/lib/groupRoomApi";
 import {
   GROUP_MUTATION_OPTIONS,
@@ -25,7 +24,6 @@ import {
   invalidateGroupMembership,
   publicGroupQuery,
 } from "@/lib/groupRoomQueries";
-import { useScreenVisible } from "@/lib/nativeTabFocus";
 import { slideNavigate } from "@/lib/pageTransition";
 import { showToast } from "@/lib/toast";
 import { useIdentityPending, useUserId } from "@/lib/userId";
@@ -61,8 +59,6 @@ function PublicGroup({ userId, groupId }: { userId: number; groupId: number }) {
   const location = useLocation();
   const queryClient = useQueryClient();
   const back = useBackTo("/social");
-  const visible = useScreenVisible();
-  const now = new Date(useNow(visible ? 60_000 : null));
   const search = baseSearch(location.search);
 
   const detailQuery = useQuery(publicGroupQuery(userId, groupId));
@@ -118,7 +114,6 @@ function PublicGroup({ userId, groupId }: { userId: number; groupId: number }) {
     <PublicRoomDetailScreen
       room={toPublicRoomDetail(detail, userId)}
       applyState={applyState}
-      now={now}
       fetchedAtMs={detailQuery.dataUpdatedAt}
       pending={cancel.isPending}
       onBack={back}
