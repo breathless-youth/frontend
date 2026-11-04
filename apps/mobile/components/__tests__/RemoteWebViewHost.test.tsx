@@ -1318,6 +1318,23 @@ describe("Android 시스템 뒤로 가기", () => {
     expect(mockGoBack).toHaveBeenCalledTimes(1);
   });
 
+  it("탭 루트를 따로 받으면 탭 초기화 대상이 아닌 화면으로 열었어도 탭 루트를 첫 화면으로 본다", () => {
+    render(<RemoteWebViewHost path="/social/join" tabRootPath="/social" testID="host" />);
+
+    showScreen("/social/join", false);
+    expect(handleTabBack()).toBe(false);
+
+    // 참여 화면에서 방을 거쳐 탭 루트로 돌아오면 기록이 남아 있어도 탭을 떠난다.
+    showScreen("/social", true);
+    expect(handleTabBack()).toBe(false);
+    expect(mockGoBack).not.toHaveBeenCalled();
+
+    // 탭 루트에서 다시 연 참여 화면은 하위 화면이라 탭 루트로 돌아간다.
+    showScreen("/social/join", true);
+    expect(handleTabBack()).toBe(true);
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
+  });
+
   it("가려진 탭의 웹뷰는 받지 않는다", () => {
     render(<RemoteWebViewHost path="/settings" testID="host" focused={false} />);
     showScreen("/blocks", true);

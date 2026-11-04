@@ -251,6 +251,13 @@ export type RemoteWebViewHostProps = {
    * 탭이 루트를 따로 알려 준다. 생략하면 `path`다.
    */
   resetPath?: string;
+  /**
+   * 시스템 뒤로 가기가 탭 첫 화면으로 보는 탭 루트
+   *
+   * 초대 참여 화면처럼 `resetPath`를 비우고 연 탭도 첫 화면은 탭 루트라서 따로 받는다.
+   * 생략하면 `resetPath`, 그것도 없으면 `path`를 첫 화면으로 본다.
+   */
+  tabRootPath?: string;
   /** 쿼리 파라미터. 생략하면 쿼리 없이 연다. */
   query?: Record<string, string | number>;
   /**
@@ -319,6 +326,7 @@ export function requestGlobalWebViewRecovery(): boolean {
 export function RemoteWebViewHost({
   path,
   resetPath,
+  tabRootPath,
   query,
   onBridgeMessage,
   backgroundColor,
@@ -908,11 +916,13 @@ export function RemoteWebViewHost({
   // 보이는 동안 Android 시스템 뒤로 가기를 탭 레이아웃보다 먼저 받는다(`lib/tabBack.ts`).
   // 탭 첫 화면이 아니고 돌아갈 기록이 있을 때만 이 웹뷰에서 한 칸 돌아가고, 그 밖에는 처리하지 않아 탭 레이아웃의 탭 이동 규칙에 맡긴다.
   // 알림 링크로 하위 화면을 곧장 열어 기록이 없으면 웹뷰 안에 돌아갈 곳이 없어 탭 규칙을 따른다.
+  // 첫 화면은 연 경로가 아니라 탭 루트다.
+  // 초대 링크로 연 참여 화면을 첫 화면으로 보면 방을 나와 탭 루트에 돌아온 뒤에도 뒤로 가기가 그 참여 화면으로 돌아간다.
   useEffect(() => {
     if (Platform.OS !== "android" || !focused) {
       return;
     }
-    const firstScreenPath = resetPath ?? path;
+    const firstScreenPath = tabRootPath ?? resetPath ?? path;
     return attachTabBackHandler(() => {
       const screenPath = restoreRef.current?.path;
       const webView = webViewRef.current;
@@ -927,7 +937,7 @@ export function RemoteWebViewHost({
       webView.goBack();
       return true;
     });
-  }, [focused, path, resetPath]);
+  }, [focused, path, resetPath, tabRootPath]);
 
   // 세션이 끝나 모달이 닫히면 모든 탭 웹뷰에 알린다. 어느 탭이 드러날지 모르고, 탭들은 자기
   // 문서 밖에서 끝난 세션을 알 수 없어 통계 캐시가 낡은 채로 남는다(`lib/sessionClosed.ts`).

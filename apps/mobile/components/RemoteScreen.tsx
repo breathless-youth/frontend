@@ -33,6 +33,13 @@ export type RemoteScreenProps = {
   extraQuery?: Record<string, string>;
   /** 뒤로가기 탭 초기화의 기준 경로(탭 루트). 딥링크로 하위 경로를 열 때 탭이 넘긴다. 생략하면 `path`. */
   resetPath?: string;
+  /**
+   * 시스템 뒤로 가기가 탭 첫 화면으로 보는 탭 루트
+   *
+   * 초대 참여 화면처럼 `resetPath`를 비우고 연 탭도 첫 화면은 탭 루트라서 따로 받는다.
+   * 생략하면 `resetPath`, 그것도 없으면 `path`를 첫 화면으로 본다.
+   */
+  tabRootPath?: string;
   /** WebView·스플래시에 강제할 배경색(세션 화면처럼 테마 무관 고정 배경이 필요할 때만). */
   backgroundColor?: string;
   /**
@@ -73,6 +80,7 @@ export function RemoteScreen({
   path,
   extraQuery,
   resetPath,
+  tabRootPath,
   backgroundColor,
   blockHardwareBack = false,
   splash,
@@ -239,6 +247,7 @@ export function RemoteScreen({
           testID={testID}
           path={path}
           resetPath={resetPath}
+          tabRootPath={tabRootPath}
           query={query}
           backgroundColor={backgroundColor}
           onBridgeMessage={filteredBridgeMessage}

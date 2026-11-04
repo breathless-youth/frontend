@@ -1,6 +1,8 @@
-import { render, screen } from "@testing-library/react-native";
+import { act, render, screen } from "@testing-library/react-native";
+import { Platform } from "react-native";
 
 import SocialScreen from "../app/(tabs)/social";
+import { handleTabBack } from "../lib/tabBack";
 
 /**
  * 소셜 홈
@@ -23,6 +25,9 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
 }));
 
+/** Android 시스템 뒤로 가기가 웹뷰 기록으로 돌아갔는지 보는 관찰점 */
+const mockGoBack = jest.fn();
+
 jest.mock("react-native-webview", () => {
   /*
     eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports --
@@ -37,7 +42,7 @@ jest.mock("react-native-webview", () => {
       props: Record<string, unknown>,
       ref: React.Ref<{ reload: () => void }>,
     ) {
-      ReactModule.useImperativeHandle(ref, () => ({ reload: jest.fn() }));
+      ReactModule.useImperativeHandle(ref, () => ({ reload: jest.fn(), goBack: mockGoBack }));
       return ReactModule.createElement(View, props);
     }),
   };
@@ -117,5 +122,103 @@ describe("SocialScreen", () => {
     rerender(<SocialScreen />);
 
     expect(await screen.findByTestId("social-webview")).not.toBe(first);
+  });
+});
+
+/**
+ * Android 시스템 뒤로 가기
+ *
+ * 어떤 링크로 열었든 이 탭의 첫 화면은 그룹 탭 루트다.
+ * 탭 루트에서는 웹뷰 기록이 남아 있어도 처리하지 않아 홈 탭 이동에 맡기고, 그 밖의 화면은 기록을 한 칸 거슬러 간다.
+ */
+describe("SocialScreen Android 시스템 뒤로 가기", () => {
+  beforeEach(() => {
+    mockGoBack.mockClear();
+    jest.replaceProperty(Platform, "OS", "android");
+    // 개발 빌드의 브리지 로그를 가린다.
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    delete mockParams.code;
+    delete mockParams.at;
+    delete mockParams.path;
+    jest.restoreAllMocks();
+  });
+
+  /** 웹이 보고한 화면과 Android 웹뷰의 기록 상태를 흉내 낸다. */
+  function showScreen(path: string, canGoBack: boolean) {
+    const props = screen.getByTestId("social-webview").props as {
+      onMessage: (e: unknown) => void;
+      onNavigationStateChange: (e: unknown) => void;
+    };
+    act(() => {
+      props.onNavigationStateChange({ url: `https://web.test${path}`, loading: false, canGoBack });
+      props.onMessage({
+        nativeEvent: {
+          data: JSON.stringify({ type: "report-screen", path, dark: false, atMs: 1 }),
+        },
+      });
+    });
+  }
+
+  it("초대 링크로 연 탭은 방을 나와 돌아온 탭 루트에서 지난 참여 화면으로 돌아가지 않는다", async () => {
+    mockParams.code = "5298";
+    render(<SocialScreen />);
+    await screen.findByTestId("social-webview");
+
+    // 링크로 연 참여 화면에는 돌아갈 기록이 없다.
+    showScreen("/social/join", false);
+    expect(handleTabBack()).toBe(false);
+
+    // 참여 화면에서 방에 들어갔다 나오면 기록은 남고 화면은 탭 루트다.
+    showScreen("/social", true);
+    expect(handleTabBack()).toBe(false);
+    expect(mockGoBack).not.toHaveBeenCalled();
+  });
+
+  it("초대 링크로 연 탭도 탭 루트가 아닌 화면은 기록이 있으면 한 칸 돌아간다", async () => {
+    mockParams.code = "5298";
+    render(<SocialScreen />);
+    await screen.findByTestId("social-webview");
+
+    showScreen("/social/groups/42", true);
+    expect(handleTabBack()).toBe(true);
+
+    // 탭 루트에서 다시 연 참여 화면은 하위 화면이다.
+    showScreen("/social/join", true);
+    expect(handleTabBack()).toBe(true);
+    expect(mockGoBack).toHaveBeenCalledTimes(2);
+  });
+
+  it("링크 없이 연 탭은 탭 루트가 첫 화면이다", async () => {
+    render(<SocialScreen />);
+    await screen.findByTestId("social-webview");
+
+    showScreen("/social/groups/42", true);
+    expect(handleTabBack()).toBe(true);
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
+
+    showScreen("/social", true);
+    expect(handleTabBack()).toBe(false);
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
+  });
+
+  it("알림 링크로 하위 화면을 연 탭은 탭 루트가 첫 화면이고, 돌아갈 기록이 생긴 뒤에만 처리한다", async () => {
+    mockParams.path = "/social/groups/42";
+    mockParams.at = "1";
+    render(<SocialScreen />);
+    await screen.findByTestId("social-webview");
+
+    showScreen("/social/groups/42", false);
+    expect(handleTabBack()).toBe(false);
+
+    showScreen("/social/groups/42/members", true);
+    expect(handleTabBack()).toBe(true);
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
+
+    showScreen("/social", true);
+    expect(handleTabBack()).toBe(false);
+    expect(mockGoBack).toHaveBeenCalledTimes(1);
   });
 });
