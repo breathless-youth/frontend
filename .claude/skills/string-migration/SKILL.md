@@ -42,7 +42,7 @@ const { t } = useTranslation("records");
 
 - 지금 헬퍼(`recordsFormat.ts` 등)가 한국어 단위를 손으로 붙이면 `lib/intl.ts` 함수나 `common` 단위 키로 바꾼다. 함수 이름·인자는 기반 보고서 "사용법" 절에 있다.
 - ko 출력이 바뀌면 안 된다. 기존 테스트가 기준이다. `Intl` 출력이 기존 ko 표기와 다르면 카탈로그 키로 만든다.
-- KST 날짜 키(`todayKstDateKey`)와 `STAT_TIME_ZONE`은 건드리지 않는다. 시간대 전환은 BY-815다.
+- 날짜 키(`lib/dateKey.ts`의 `localDateKey`)와 표기 함수의 기본 시간대는 기기 시간대다. 랭킹만 `KOREA_TIME_ZONE`을 넘긴다.
 
 ## 번역하지 않는 것
 
