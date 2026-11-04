@@ -201,7 +201,6 @@ export function RoomGrid({
             member={member}
             {...tileExtras?.(member)}
             goalHidden={barHidden}
-            // 캡슐 띠를 비운 격자는 타일이 바 위에서 끝나서 올릴 일이 없다.
             rootRef={member.userId === userId ? selfSurfaceRef : undefined}
             isSelf={member.userId === userId}
             media={

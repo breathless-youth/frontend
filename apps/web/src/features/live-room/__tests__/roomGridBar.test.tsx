@@ -20,7 +20,7 @@ function members(count: number): RoomMember[] {
 function renderGrid(
   variant: "invite" | "group",
   count: number,
-  props: { barHidden?: boolean; capsuleShown?: boolean } = {},
+  props: { barHidden?: boolean } = {},
 ) {
   return render(
     <RoomGrid

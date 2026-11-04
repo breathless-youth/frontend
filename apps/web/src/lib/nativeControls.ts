@@ -28,7 +28,14 @@ interface Entry {
   spec: ControlSpec;
   measureIcon: boolean;
   iconScale: number;
+  webOriginal: WebOriginal;
   covered?: boolean;
+}
+
+/** 앱 부품으로 바꾸기 전 웹 원본의 표시 값 */
+interface WebOriginal {
+  visibility: string;
+  ariaHidden: string | null;
 }
 
 // 등록할 때는 아직 좌표를 몰라서 범위 안의 아무 좌표를 넣고 부품 값만 본다.
@@ -159,23 +166,35 @@ function overlaps(a: DOMRect, b: DOMRect): boolean {
 }
 
 /**
- * 토스트와 겹치는 부품의 웹 원본 표시
+ * 웹 원본 보이기
  *
- * 앱 부품은 웹뷰 위에 그려져 z-index로는 토스트를 그 위로 올릴 수 없다.
- * 그래서 겹치는 동안만 앱에서 빼고 웹 원본을 보여 토스트 아래에 둔다.
+ * 등록을 풀 때와, 앱 부품이 웹뷰 위에 그려져 토스트를 가리는 동안 쓴다.
+ * 토스트는 z-index로 앱 부품 위로 올릴 수 없어서, 겹치는 동안만 앱에서 빼고 웹 원본을 토스트 아래에 둔다.
  */
-function showWebOriginal(element: HTMLElement, show: boolean): void {
-  element.style.visibility = show ? "" : "hidden";
-  if (show) {
+function showWebOriginal(element: HTMLElement, { visibility, ariaHidden }: WebOriginal): void {
+  element.style.visibility = visibility;
+  if (ariaHidden === null) {
     element.removeAttribute("aria-hidden");
   } else {
-    element.setAttribute("aria-hidden", "true");
+    element.setAttribute("aria-hidden", ariaHidden);
   }
+}
+
+/**
+ * 웹 원본 숨김
+ *
+ * 자리는 남겨야 앱이 같은 좌표에 부품을 놓을 수 있어서 `display` 대신 `visibility`를 쓴다.
+ * 스크린리더에서도 빼서 앱 부품만 읽히게 한다.
+ */
+function hideWebOriginal(element: HTMLElement): void {
+  element.style.visibility = "hidden";
+  element.setAttribute("aria-hidden", "true");
 }
 
 function flush(): void {
   flushScheduled = false;
   const controls: InlineControl[] = [];
+  const hidden = isModalOverlayOpen() || pageTransitionFinished() !== null;
   const toasts = [...document.querySelectorAll(VISIBLE_TOAST_SELECTOR)].map((toast) =>
     toast.getBoundingClientRect(),
   );
@@ -186,11 +205,15 @@ function flush(): void {
     if (rect.width === 0 || rect.height === 0) {
       continue;
     }
-    const covered = toasts.some((toast) => overlaps(toast, rect));
-    // 겹침이 바뀔 때만 건드려서 등록 직후 `hide`가 저장할 원래 값을 흐리지 않는다.
+    // 앱 부품 층을 통째로 숨기는 동안에는 가릴 부품이 없어 웹 원본도 꺼내지 않는다.
+    const covered = !hidden && toasts.some((toast) => overlaps(toast, rect));
     if (covered !== (entry.covered ?? false)) {
       entry.covered = covered;
-      showWebOriginal(element, covered);
+      if (covered) {
+        showWebOriginal(element, entry.webOriginal);
+      } else {
+        hideWebOriginal(element);
+      }
     }
     if (covered) {
       continue;
@@ -209,7 +232,6 @@ function flush(): void {
       controls.push(control);
     }
   }
-  const hidden = isModalOverlayOpen() || pageTransitionFinished() !== null;
   // 세션처럼 시스템 테마와 무관하게 `theme-dark`로 고정한 화면은 앱 부품 층도 다크로 그린다.
   const colorScheme = [...entries.values()].some(
     ({ element }) => element.closest(".theme-dark") !== null,
@@ -365,27 +387,6 @@ function unregister(id: string, entry: Entry): void {
   scheduleFlush();
 }
 
-/**
- * 웹 원본 숨김
- *
- * 자리는 남겨야 앱이 같은 좌표에 부품을 놓을 수 있어서 `display` 대신 `visibility`를 쓴다.
- * 스크린리더에서도 빼서 앱 부품만 읽히게 한다.
- */
-function hide(element: HTMLElement): () => void {
-  const { visibility } = element.style;
-  const ariaHidden = element.getAttribute("aria-hidden");
-  element.style.visibility = "hidden";
-  element.setAttribute("aria-hidden", "true");
-  return () => {
-    element.style.visibility = visibility;
-    if (ariaHidden === null) {
-      element.removeAttribute("aria-hidden");
-    } else {
-      element.setAttribute("aria-hidden", ariaHidden);
-    }
-  };
-}
-
 function ignoreElement(): void {}
 
 /**
@@ -430,6 +431,10 @@ export function useNativeControl<T extends HTMLElement>(
       spec: JSON.parse(specKey) as ControlSpec,
       measureIcon,
       iconScale,
+      webOriginal: {
+        visibility: element.style.visibility,
+        ariaHidden: element.getAttribute("aria-hidden"),
+      },
     };
     const { id } = entry.spec;
     const accepted = register(id, entry);
@@ -438,7 +443,7 @@ export function useNativeControl<T extends HTMLElement>(
     if (!accepted) {
       return;
     }
-    const restore = hide(element);
+    hideWebOriginal(element);
     const unregisterPress = registerPressHandler(id, (value) => {
       press(value);
       setPressCount((count) => count + 1);
@@ -446,7 +451,7 @@ export function useNativeControl<T extends HTMLElement>(
     return () => {
       unregisterPress();
       unregister(id, entry);
-      restore();
+      showWebOriginal(element, entry.webOriginal);
     };
   }, [specKey, element, measureIcon, iconScale]);
 
