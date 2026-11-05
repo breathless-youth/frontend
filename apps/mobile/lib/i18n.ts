@@ -235,7 +235,7 @@ const zhHant = {
   "webview.loading": "正在載入畫面",
 
   "permissionDenied.title": "需要相機取用權限",
-  "permissionDenied.body": "只能透過相機測量專注度。\n在「設定」中允許取用相機，就能馬上開始。",
+  "permissionDenied.body": "專注狀態只能透過相機測量。\n在「設定」中允許取用相機，就能馬上開始。",
   "permissionDenied.privacy": "AI 分析用的影像不會離開你的裝置",
   "permissionDenied.backHome": "返回首頁",
 

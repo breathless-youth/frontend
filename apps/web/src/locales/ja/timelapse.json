@@ -99,7 +99,7 @@
       "focusTime": "集中時間",
       "focusRate": "集中率",
       "dday": "カウントダウン",
-      "streak": "連続記録",
+      "streak": "連続学習日数",
       "ddayMissing": "カウントダウンの設定が必要",
       "faceMaskTooltip": "隠れるのは自分の顔だけです。一緒に写っているほかの人は隠れません。"
     }

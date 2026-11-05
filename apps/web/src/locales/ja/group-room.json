@@ -10,7 +10,7 @@
     },
     "joinBlock": {
       "roomFull": "定員に達しています",
-      "kickedRecently": "削除されたグループには{{count}}日間再参加できません",
+      "kickedRecently": "グループから削除された場合、{{count}}日間は再参加できません",
       "roomsAndApplicationsFull": "グループと参加リクエストは合わせて5件までです",
       "invalidCode": "招待コードをもう一度確認してください"
     },
