@@ -10,6 +10,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { ForceUpdateDialog } from "@/features/force-update/components/ForceUpdateDialog";
 import { useForceUpdateGate } from "@/features/force-update/useForceUpdateGate";
 import { useRecordLastHidden } from "@/features/interview/useRecordLastHidden";
+import { GroupLoginGate } from "@/features/login/GroupLoginGate";
 import { trackForceUpdateStoreOpened } from "@/lib/amplitude";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { reloadOnChunkError } from "@/lib/chunkReload";
@@ -340,25 +341,27 @@ export function App() {
               <Route path="/manual-record" element={<ManualRecordPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/social" element={<SocialTabRoute />} />
-              <Route path="/social/groups/new" element={<GroupFormPage mode="create" />} />
-              <Route path="/social/groups/:groupId" element={<GroupHomePage />} />
-              <Route
-                path="/social/groups/:groupId/settings"
-                element={<GroupFormPage mode="edit" />}
-              />
-              <Route path="/social/groups/:groupId/members" element={<GroupMembersPage />} />
-              <Route path="/social/groups/:groupId/room" element={<GroupRoomPage />} />
-              <Route path="/social/groups/:groupId/room/result" element={<ResultPage />} />
-              <Route
-                path="/social/groups/:groupId/applications"
-                element={<GroupApplicationsPage />}
-              />
-              <Route
-                path="/social/groups/:groupId/applications/:applicationId/report"
-                element={<ReportApplicationPage />}
-              />
-              <Route path="/social/public/:groupId" element={<PublicGroupPage />} />
-              <Route path="/social/public/:groupId/apply" element={<ApplyPage />} />
+              <Route element={<GroupLoginGate entry="group" />}>
+                <Route path="/social/groups/new" element={<GroupFormPage mode="create" />} />
+                <Route path="/social/groups/:groupId" element={<GroupHomePage />} />
+                <Route
+                  path="/social/groups/:groupId/settings"
+                  element={<GroupFormPage mode="edit" />}
+                />
+                <Route path="/social/groups/:groupId/members" element={<GroupMembersPage />} />
+                <Route path="/social/groups/:groupId/room" element={<GroupRoomPage />} />
+                <Route path="/social/groups/:groupId/room/result" element={<ResultPage />} />
+                <Route
+                  path="/social/groups/:groupId/applications"
+                  element={<GroupApplicationsPage />}
+                />
+                <Route
+                  path="/social/groups/:groupId/applications/:applicationId/report"
+                  element={<ReportApplicationPage />}
+                />
+                <Route path="/social/public/:groupId" element={<PublicGroupPage />} />
+                <Route path="/social/public/:groupId/apply" element={<ApplyPage />} />
+              </Route>
               {import.meta.env.DEV && (
                 <Route path="/dev/webrtc-loopback" element={<WebrtcLoopbackPage />} />
               )}

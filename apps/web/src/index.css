@@ -1410,3 +1410,21 @@ video::-webkit-media-controls-overlay-play-button {
     filter: none !important;
   }
 }
+
+/*
+  앱 스플래시와 같은 서비스 로고다.
+  로고는 그림이라 색 토큰으로 바꿀 수 없어서 다크 토큰 블록과 같은 조건으로 다크 그림을 고른다.
+*/
+@utility splash-logo {
+  background: url("./assets/splash-logo.png") center / contain no-repeat;
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) & {
+      background-image: url("./assets/splash-logo-dark.png");
+    }
+  }
+  .theme-dark &,
+  :root[data-theme="dark"] & {
+    background-image: url("./assets/splash-logo-dark.png");
+  }
+}

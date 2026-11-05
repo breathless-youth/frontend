@@ -15,6 +15,8 @@ import type {
   RankingPeriod,
   RankingRecordType,
   RankingType,
+  SocialLoginFailureCode,
+  SocialLoginProvider,
   StudyCategory,
   StudyEventStatus,
   TimeSlot,
@@ -668,6 +670,35 @@ export function trackGroupRoomMicToggled(on: boolean) {
  */
 export function setGroupRoomCount(count: number) {
   setUserProperties({ group_room_count: count });
+}
+
+/* ── 소셜 로그인 이벤트 ──────────────────────────────────────────────────────
+ *
+ * 사용자가 로그인 창을 닫은 취소는 실패가 아니라 보내지 않는다.
+ */
+
+export type LoginEntry = "tab" | "invite" | "group";
+
+export function trackLoginScreenViewed(entry: LoginEntry) {
+  if (!initialized) return;
+  track("login_screen_viewed", { entry });
+}
+
+/** `is_new_user`가 거짓이면 이 기기의 기록이 기존 계정에 합쳐진 것이다. */
+export function trackSocialLoginSucceeded(input: {
+  provider: SocialLoginProvider;
+  isNewUser: boolean;
+}) {
+  if (!initialized) return;
+  track("social_login_succeeded", { provider: input.provider, is_new_user: input.isNewUser });
+}
+
+export function trackSocialLoginFailed(input: {
+  provider: SocialLoginProvider;
+  reason: SocialLoginFailureCode;
+}) {
+  if (!initialized) return;
+  track("social_login_failed", { provider: input.provider, reason: input.reason });
 }
 
 /* ── 초대 루프 이벤트 (BY-472) ── */
