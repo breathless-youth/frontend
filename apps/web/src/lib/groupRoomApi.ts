@@ -48,7 +48,7 @@ export interface PublicGroupsParams {
 }
 
 /**
- * 그룹 API 26개
+ * 그룹 API 27개
  *
  * 개발 빌드 가짜 서버가 같은 모양을 구현하고, 라우트 테스트가 이 이름으로 함수를 바꿔 끼운다.
  */
@@ -70,6 +70,7 @@ export interface GroupRoomApi {
   leaveGroup: typeof leaveGroup;
   regenerateGroupInvite: typeof regenerateGroupInvite;
   joinGroupByCode: typeof joinGroupByCode;
+  joinPublicGroup: typeof joinPublicGroup;
   applyToGroup: typeof applyToGroup;
   cancelApplication: typeof cancelApplication;
   acceptApplication: typeof acceptApplication;
@@ -162,6 +163,13 @@ async function send(
 function reportBody(reason: string): ReportRequest {
   const trimmed = reason.trim();
   return trimmed === "" ? {} : { reason: trimmed };
+}
+
+/** Bodyless direct membership entry for OPEN public groups. */
+export async function joinPublicGroup(groupId: number): Promise<GroupJoinResponse> {
+  const mock = await groupDevMock();
+  if (mock !== null) return mock.joinPublicGroup(groupId);
+  return sendJson(`/api/groups/${groupId}/members`, "public group join failed");
 }
 
 export async function getMyGroups(signal?: AbortSignal): Promise<MyGroupsResponse> {

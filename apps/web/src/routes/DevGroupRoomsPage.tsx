@@ -4,6 +4,8 @@ import { Link, useSearchParams } from "react-router-dom";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { LazyPendingApplicationsSheet } from "@/features/group-room/components/lazyPendingApplicationsSheet";
 import { buildGroupRoomFixtures } from "@/features/group-room/fixtures";
+import { joinPolicyText } from "@/features/group-room/model/joinPolicy";
+import type { RoomJoinPolicy } from "@/features/group-room/model/joinPolicy";
 import { joinBlockCopy, myRoomsTabCount } from "@/features/group-room/model/limits";
 import {
   type ConfirmDialogCopy,
@@ -243,17 +245,21 @@ function KickInSessionCase() {
   );
 }
 
-function PublicDetailCase({ initialState, onBack }: CaseProps & { initialState: ApplyState }) {
+function PublicDetailCase({
+  initialState,
+  onBack,
+  joinPolicy = "approval",
+}: CaseProps & { initialState: ApplyState; joinPolicy?: RoomJoinPolicy }) {
   const [fetchedAtMs] = useState(() => Date.now());
   const [applyState, setApplyState] = useState(initialState);
   return (
     <PublicRoomDetailScreen
-      room={fixtures.publicDetail}
+      room={{ ...fixtures.publicDetail, joinPolicy }}
       applyState={applyState}
       fetchedAtMs={fetchedAtMs}
       pending={false}
       onBack={onBack}
-      onApply={() => setApplyState({ kind: "applied" })}
+      onApply={() => (joinPolicy === "open" ? onBack() : setApplyState({ kind: "applied" }))}
       onCancelApplication={() => setApplyState({ kind: "can_apply" })}
     />
   );
@@ -324,6 +330,7 @@ function RoomFormCase({ mode, onBack }: CaseProps & { mode: "create" | "edit" })
       mode={mode}
       categories={fixtures.categories}
       initial={fixtures.roomForm}
+      newRequestCount={fixtures.roomHome.newRequestCount}
       pending={false}
       onBack={onBack}
       onSubmit={noop}
@@ -395,6 +402,20 @@ const soloOwnerHome: RoomHome = {
 const minjunId = fixtures.members.find((member) => member.nickname === KICKED_NICKNAME)?.userId;
 
 const CASES: { id: string; title: string; Screen: ComponentType<CaseProps> }[] = [
+  {
+    id: "open-detail",
+    title: joinPolicyText("open"),
+    Screen: (props) => (
+      <PublicDetailCase initialState={{ kind: "can_apply" }} joinPolicy="open" {...props} />
+    ),
+  },
+  {
+    id: "open-home",
+    title: joinPolicyText("open"),
+    Screen: (props) => (
+      <RoomHomeCase room={{ ...fixtures.roomHome, joinPolicy: "open" }} {...props} />
+    ),
+  },
   { id: "1-1", title: "내 그룹 탭", Screen: () => <SocialHomeCase /> },
   {
     id: "1-2",

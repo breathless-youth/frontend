@@ -125,6 +125,7 @@ function groupHome(overrides: Partial<GroupHomeResponse> = {}): GroupHomeRespons
   return {
     groupId: 10,
     name: GROUP_NAME,
+    joinPolicy: "APPROVAL",
     visibility: "PUBLIC",
     category: "CSAT",
     description: null,

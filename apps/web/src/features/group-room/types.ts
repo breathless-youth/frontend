@@ -1,3 +1,4 @@
+import type { RoomJoinPolicy } from "./model/joinPolicy";
 import type { DeskMember } from "./model/desks";
 import type { ApplyBlockReason } from "./model/limits";
 import type { RoomRole, RoomVisibility } from "./model/roomMenu";
@@ -24,6 +25,7 @@ export interface RoomDeskMember extends DeskMember {
 }
 
 export interface MyRoomSummary {
+  joinPolicy: RoomJoinPolicy;
   roomId: number;
   name: string;
   categoryLabel: string;
@@ -43,6 +45,7 @@ export interface PendingApplication {
 }
 
 export interface PublicRoomSummary {
+  joinPolicy: RoomJoinPolicy;
   roomId: number;
   name: string;
   categoryLabel: string;
@@ -60,6 +63,7 @@ export type ApplyState =
   | { kind: "blocked"; reason: ApplyBlockReason };
 
 export interface PublicRoomDetail {
+  joinPolicy: RoomJoinPolicy;
   roomId: number;
   name: string;
   categoryLabel: string;
@@ -99,6 +103,7 @@ export interface WeeklyRankRow extends ProfilePhoto {
 }
 
 export interface RoomHome {
+  joinPolicy: RoomJoinPolicy;
   roomId: number;
   name: string;
   categoryLabel: string;
@@ -127,6 +132,7 @@ export interface BlockedUser extends ProfilePhoto {
 }
 
 export interface RoomFormValues {
+  joinPolicy: RoomJoinPolicy;
   name: string;
   visibility: RoomVisibility;
   category: string;

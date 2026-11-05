@@ -738,6 +738,7 @@ export type {
   GroupInviteResponse,
   GroupJoinRequest,
   GroupJoinResponse,
+  GroupJoinPolicy,
   GroupJoinVia,
   GroupLimits,
   GroupMemberDesk,

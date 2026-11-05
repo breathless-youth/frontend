@@ -269,5 +269,16 @@
     "notFound": "グループが見つかりません",
     "notMember": "このグループのメンバーではありません",
     "applicationCanceled": "参加リクエストをキャンセルしました"
+  },
+  "joinPolicy": {
+    "approval": "承認後に参加",
+    "open": "すぐに参加",
+    "whoCanJoin": "誰が参加できますか？",
+    "settingsLabel": "参加方法",
+    "pendingLoss": "変更すると、残っている申請{{count}}件が削除されます",
+    "join": "参加する",
+    "full": "満員です",
+    "openError": "申請せずにすぐ参加できます",
+    "approvalRequiredError": "参加には申請と承認が必要です"
   }
 }

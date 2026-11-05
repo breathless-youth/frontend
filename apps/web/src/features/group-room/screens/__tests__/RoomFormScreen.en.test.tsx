@@ -46,6 +46,7 @@ describe("그룹 만들기 영어 화면", () => {
     await i18n.changeLanguage("en");
     const { container } = renderForm("create", {
       name: "a".repeat(GROUP_ROOM_LIMITS.roomNameMax + 1),
+      joinPolicy: "approval",
       visibility: "public",
       category: "college",
       intro: "",
@@ -62,6 +63,7 @@ describe("그룹 만들기 영어 화면", () => {
     await i18n.changeLanguage("en");
     const { container } = renderForm("edit", {
       name: "Night owls",
+      joinPolicy: "approval",
       visibility: "private",
       category: "civil",
       intro: "",

@@ -1,4 +1,4 @@
-import { Globe, Lock } from "lucide-react";
+import { Check, Globe, Info, Lock, Send, Zap } from "lucide-react";
 import { type ReactNode, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -10,15 +10,12 @@ import { cn } from "@/lib/utils";
 import { BOTTOM_CTA_BAR_CLASS, BOTTOM_CTA_CLASS } from "../bottomCta";
 import { CategoryChips } from "../components/CategoryChips";
 import { groupFieldError, isOverGroupLimit } from "../fieldError";
+import { closesPendingRequests, joinPolicyText } from "../model/joinPolicy";
+import type { RoomJoinPolicy } from "../model/joinPolicy";
 import { GROUP_ROOM_LIMITS, countGroupText } from "../model/limits";
 import type { RoomVisibility } from "../model/roomMenu";
 import type { CategoryOption, RoomFormServerError, RoomFormValues } from "../types";
 import { visibilityText } from "../visibility";
-
-const VISIBILITY_OPTIONS = [
-  { value: "public", descriptionKey: "roomFormScreen.publicDescription" },
-  { value: "private", descriptionKey: "roomFormScreen.privateDescription" },
-] as const satisfies readonly { value: RoomVisibility; descriptionKey: string }[];
 
 const SECTION_LABEL_CLASS = "pb-2 text-sm leading-5 font-bold text-foreground";
 
@@ -37,6 +34,7 @@ export function RoomFormScreen({
   initial,
   pending,
   serverError = null,
+  newRequestCount = 0,
   onBack,
   onSubmit,
 }: {
@@ -48,11 +46,15 @@ export function RoomFormScreen({
   pending: boolean;
   /** 서버가 받지 않은 칸이 있으면 그 칸의 오류 줄에 이유를 보인다. */
   serverError?: RoomFormServerError | null;
+  newRequestCount?: number;
   onBack: () => void;
   onSubmit: (values: RoomFormValues) => void;
 }) {
   const { t } = useTranslation("group-room");
-  const [values, setValues] = useState(initial);
+  const [values, setValues] = useState({
+    ...initial,
+    joinPolicy: initial.joinPolicy ?? "approval",
+  });
   const [submitted, setSubmitted] = useState<RoomFormValues | null>(null);
   const nameId = useId();
   const visibilityTitleId = useId();
@@ -116,25 +118,62 @@ export function RoomFormScreen({
         </FieldBox>
 
         <p id={visibilityTitleId} className={cn(SECTION_LABEL_CLASS, "pt-4.5")}>
-          {t("roomFormScreen.visibilityLabel")}
+          {t(
+            mode === "create"
+              ? "joinPolicy.whoCanJoin"
+              : values.visibility === "public"
+                ? "joinPolicy.settingsLabel"
+                : "roomFormScreen.visibilityLabel",
+          )}
         </p>
-        {mode === "create" ? (
-          <div
-            role="radiogroup"
-            aria-labelledby={visibilityTitleId}
-            className="flex flex-col gap-2"
-          >
-            {VISIBILITY_OPTIONS.map((option) => (
-              <VisibilityOption
-                key={option.value}
-                name={visibilityName}
-                value={option.value}
-                description={t(option.descriptionKey)}
-                checked={values.visibility === option.value}
-                onSelect={() => update({ visibility: option.value })}
-              />
-            ))}
-          </div>
+        {mode === "create" || values.visibility === "public" ? (
+          <>
+            <div
+              role="radiogroup"
+              aria-labelledby={visibilityTitleId}
+              className={cn("grid gap-2", mode === "create" ? "grid-cols-3" : "grid-cols-2")}
+            >
+              {(
+                ["approval", "open", ...(mode === "create" ? (["private"] as const) : [])] as const
+              ).map((choice) => (
+                <EntryOption
+                  key={choice}
+                  name={visibilityName}
+                  value={choice}
+                  checked={
+                    choice === "private"
+                      ? values.visibility === "private"
+                      : values.visibility === "public" && values.joinPolicy === choice
+                  }
+                  disabled={pending}
+                  onSelect={() =>
+                    update({
+                      visibility: choice === "private" ? "private" : "public",
+                      joinPolicy: choice === "open" ? "open" : "approval",
+                    })
+                  }
+                />
+              ))}
+            </div>
+            {mode === "edit" &&
+              closesPendingRequests(
+                initial.joinPolicy ?? "approval",
+                values.joinPolicy,
+                newRequestCount,
+              ) && (
+                <p
+                  role="status"
+                  className="mt-2.5 flex items-start gap-2 rounded-lg bg-bg-layer-2 px-3 py-2.5 text-[13px] leading-5 font-semibold text-foreground"
+                >
+                  <Info
+                    aria-hidden="true"
+                    size={16}
+                    className="mt-0.5 shrink-0 text-brand-subtle-text"
+                  />
+                  {t("joinPolicy.pendingLoss", { count: newRequestCount })}
+                </p>
+              )}
+          </>
         ) : (
           <FixedVisibility visibility={values.visibility} />
         )}
@@ -238,51 +277,50 @@ function FieldBox({
   );
 }
 
-/**
- * 공개와 비공개 고르기 카드
- *
- * 카드 전체를 눌러 고르고, 이름은 공개 여부만 읽히고 설명은 설명으로 따로 읽힌다.
- */
-function VisibilityOption({
+/** One radio tile for a public entry policy or private visibility. */
+function EntryOption({
   name,
   value,
-  description,
   checked,
+  disabled,
   onSelect,
 }: {
-  /** 같은 화면의 두 카드가 한 라디오 묶음이 되게 하는 이름. */
   name: string;
-  value: RoomVisibility;
-  description: string;
+  value: RoomJoinPolicy | "private";
   checked: boolean;
+  disabled: boolean;
   onSelect: () => void;
 }) {
-  const titleId = useId();
-  const descriptionId = useId();
+  const Icon = value === "private" ? Lock : value === "open" ? Zap : Send;
+  const title = value === "private" ? visibilityText("private") : joinPolicyText(value);
   return (
-    <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-muted px-4 py-3.5 has-checked:border-[1.5px] has-checked:border-primary has-focus-visible:ring-2 has-focus-visible:ring-(--state-focus)">
+    <label
+      className={cn(
+        "relative flex min-h-21 min-w-0 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-lg border bg-muted px-1.5 pt-3 pb-2.5 text-center has-focus-visible:ring-2 has-focus-visible:ring-(--state-focus)",
+        checked
+          ? "border-[1.5px] border-primary bg-brand-subtle text-brand-subtle-text"
+          : "border-border text-muted-foreground",
+      )}
+    >
       <input
         type="radio"
         name={name}
         value={value}
         checked={checked}
+        disabled={disabled}
         onChange={onSelect}
-        aria-labelledby={titleId}
-        aria-describedby={descriptionId}
-        className="peer sr-only"
+        className="sr-only"
       />
-      <span
-        aria-hidden="true"
-        className="mt-px size-5 shrink-0 rounded-full border-2 border-border-strong peer-checked:border-6 peer-checked:border-primary"
-      />
-      <span className="flex min-w-0 flex-col">
-        <span id={titleId} className="text-[15px] leading-5.5 font-bold text-foreground">
-          {visibilityText(value)}
+      {checked && (
+        <span
+          aria-hidden="true"
+          className="absolute top-1.5 right-1.5 flex size-4.5 items-center justify-center rounded-full bg-primary text-primary-foreground"
+        >
+          <Check size={11} strokeWidth={3} />
         </span>
-        <span id={descriptionId} className="text-[13px] leading-5 break-keep text-muted-foreground">
-          {description}
-        </span>
-      </span>
+      )}
+      <Icon aria-hidden="true" size={22} />
+      <span className="text-sm leading-5 font-bold text-foreground">{title}</span>
     </label>
   );
 }

@@ -269,5 +269,16 @@
     "notFound": "그룹을 찾을 수 없어요",
     "notMember": "이 그룹의 멤버가 아니에요",
     "applicationCanceled": "신청을 취소했어요"
+  },
+  "joinPolicy": {
+    "approval": "신청 후 입장",
+    "open": "바로 입장",
+    "whoCanJoin": "누가 들어올 수 있나요?",
+    "settingsLabel": "입장 방식",
+    "pendingLoss": "바꾸면 남은 신청 {{count}}건이 없어져요",
+    "join": "입장하기",
+    "full": "자리가 다 찼어요",
+    "openError": "신청 없이 바로 입장할 수 있어요",
+    "approvalRequiredError": "신청 후 수락이 필요한 그룹이에요"
   }
 }

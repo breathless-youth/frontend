@@ -2,6 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import i18n from "@/lib/i18n";
 
+import { joinPolicyText } from "../joinPolicy";
+import { ApiError } from "@/lib/api";
+import { groupErrorCopy } from "../../groupErrorCopy";
 import { contactBlockedCopy } from "../contactCheck";
 import { nameTakenCopy } from "../nameCheck";
 import { studyingCountText } from "../desks";
@@ -48,6 +51,21 @@ const dialogTexts = (copy: ConfirmDialogCopy) => [
 function everyCopy(): string[] {
   const texts: (string | null)[] = [
     contactBlockedCopy(),
+    joinPolicyText("approval"),
+    joinPolicyText("open"),
+    ...(
+      [
+        "whoCanJoin",
+        "settingsLabel",
+        "pendingLoss",
+        "join",
+        "full",
+        "openError",
+        "approvalRequiredError",
+      ] as const
+    ).map((key) => i18n.t(`group-room:joinPolicy.${key}`, { count: 3 })),
+    groupErrorCopy("apply", new ApiError("x", 409, "GROUP_JOIN_OPEN")),
+    groupErrorCopy("join_public", new ApiError("x", 409, "GROUP_JOIN_APPROVAL_REQUIRED")),
     nameTakenCopy(),
     createRoomLimitCopy(),
     inviteCodeRenewedCopy(),

@@ -97,6 +97,27 @@ describe("그룹 만들기 계측", () => {
 });
 
 describe("그룹 만들기", () => {
+  it.each([
+    ["신청 후 입장", "PUBLIC", "APPROVAL"],
+    ["바로 입장", "PUBLIC", "OPEN"],
+    ["비공개", "PRIVATE", undefined],
+  ] as const)("maps %s to the create request", async (label, visibility, joinPolicy) => {
+    const api = mockGroupApi("default");
+    mockProfile({ category: "CSAT" });
+    renderGroupRoute("/social/groups/new?groupRooms=1");
+    const user = userEvent.setup();
+    await user.type(await screen.findByRole("textbox", { name: "그룹 이름" }), "New group");
+    await user.click(screen.getByRole("radio", { name: label }));
+    await user.click(screen.getByRole("button", { name: "그룹 만들기" }));
+    expect(api.createGroup).toHaveBeenCalledWith({
+      name: "New group",
+      visibility,
+      ...(joinPolicy === undefined ? {} : { joinPolicy }),
+      category: "CSAT",
+      description: "",
+    });
+  });
+
   it("그룹 만들기는 프로필 카테고리로 시작하고 없거나 모르는 값이면 수능이다", async () => {
     mockGroupApi("default");
     mockProfile({ category: "JOB" });
@@ -240,6 +261,23 @@ describe("그룹 만들기", () => {
 });
 
 describe("그룹 설정", () => {
+  it("saves OPEN without confirmation and closes requests in the refreshed home", async () => {
+    const api = mockGroupApi("default");
+    const { router } = renderGroupRoute("/social/groups/10/settings?groupRooms=1");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("radio", { name: "바로 입장" }));
+    expect(screen.getByRole("status")).toHaveTextContent("바꾸면 남은 신청 2건이 없어져요");
+    await user.click(screen.getByRole("button", { name: "저장하기" }));
+    expect(api.updateGroup).toHaveBeenCalledWith(
+      10,
+      expect.objectContaining({ joinPolicy: "OPEN" }),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(router.location().pathname).toBe("/social/groups/10"));
+    expect((await api.server.getGroupApplications(10)).applications).toEqual([]);
+    expect(screen.queryByText(/새 신청이/)).toBeNull();
+  });
+
   it("그룹 설정은 지금 값으로 채우고 저장하면 그룹 홈으로 돌아간다", async () => {
     const api = mockGroupApi("default");
     const { router } = renderGroupRoute("/social/groups/10/settings?groupRooms=1");
@@ -269,6 +307,7 @@ describe("그룹 설정", () => {
     await user.click(screen.getByRole("button", { name: "저장하기" }));
     expect(api.updateGroup).toHaveBeenCalledWith(10, {
       name: "새벽 5시 기상 공시반",
+      joinPolicy: "APPROVAL",
       category: "CIVIL_SERVICE",
       description: "",
     });

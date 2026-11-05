@@ -24,6 +24,9 @@ export type StudyCategory =
 /** 공개 여부: `visibility`, 만든 뒤에는 바꿀 수 없다. */
 export type GroupVisibility = "PUBLIC" | "PRIVATE";
 
+/** Public group membership policy from the backend Swagger. */
+export type GroupJoinPolicy = "APPROVAL" | "OPEN";
+
 /** 내 역할: `GroupHomeResponse.myRole` */
 export type GroupRole = "OWNER" | "MEMBER";
 
@@ -69,6 +72,7 @@ export interface GroupLimits {
 
 /** `MyGroupCard`: `GET /api/groups/me`의 그룹 카드 */
 export interface MyGroupCard {
+  joinPolicy: GroupJoinPolicy;
   groupId: number;
   name: string;
   category: StudyCategory;
@@ -78,7 +82,7 @@ export interface MyGroupCard {
   studyingCount: number;
   /** 내가 이 그룹의 그룹장이면 true */
   owner: boolean;
-  /** 답을 기다리는 새 신청 수이고 공개 그룹 그룹장에게만 값이 있다. */
+  /** 답을 기다리는 새 신청 수이고 APPROVAL 공개 그룹 그룹장에게만 값이 있다. */
   newApplicationCount: number | null;
   /**
    * 들어간 순서다.
@@ -99,6 +103,7 @@ export interface MyGroupsResponse {
 
 /** `GroupHomeResponse`: `GET /api/groups/{groupId}` */
 export interface GroupHomeResponse {
+  joinPolicy: GroupJoinPolicy;
   groupId: number;
   name: string;
   visibility: GroupVisibility;
@@ -107,7 +112,7 @@ export interface GroupHomeResponse {
   memberCount: number;
   myRole: GroupRole;
   notifyEnabled: boolean;
-  /** 공개 그룹의 그룹장에게만 값이 있다. */
+  /** APPROVAL 공개 그룹의 그룹장에게만 값이 있다. */
   newApplicationCount: number | null;
   studyingCount: number;
   /** 들어간 순서 */
@@ -116,6 +121,7 @@ export interface GroupHomeResponse {
 
 /** `PublicGroupCard`: `GET /api/groups/public`의 그룹 카드 */
 export interface PublicGroupCard {
+  joinPolicy: GroupJoinPolicy;
   groupId: number;
   name: string;
   category: StudyCategory;
@@ -151,6 +157,7 @@ export interface PendingApplicationRef {
 
 /** `PublicGroupDetailResponse`: `GET /api/groups/public/{groupId}` */
 export interface PublicGroupDetailResponse {
+  joinPolicy: GroupJoinPolicy;
   groupId: number;
   name: string;
   category: StudyCategory;
@@ -169,6 +176,7 @@ export interface PublicGroupDetailResponse {
 
 /** `GroupCreateRequest`: `POST /api/groups` */
 export interface GroupCreateRequest {
+  joinPolicy?: GroupJoinPolicy | null;
   name: string;
   visibility: GroupVisibility;
   category: StudyCategory;
@@ -182,6 +190,7 @@ export interface GroupCreateResponse {
 
 /** `GroupUpdateRequest`: `PATCH /api/groups/{groupId}` */
 export interface GroupUpdateRequest {
+  joinPolicy?: GroupJoinPolicy | null;
   name: string;
   category: StudyCategory;
   /** 전체 교체라 빼거나 비우면 소개가 없어진다. */
@@ -225,7 +234,7 @@ export interface GroupJoinRequest {
   via: GroupJoinVia;
 }
 
-/** `GroupJoinResponse`: `POST /api/groups/join` */
+/** `GroupJoinResponse`: `POST /api/groups/join`, `POST /api/groups/{groupId}/members` */
 export interface GroupJoinResponse {
   groupId: number;
   /** 이미 멤버였으면 false이고 이때도 응답은 200이다. */

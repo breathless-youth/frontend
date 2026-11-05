@@ -27,10 +27,12 @@ export function DeskGrid({
   members,
   visibility,
   elapsedSec,
+  hideEmptySeatCopy = false,
 }: {
   members: readonly RoomDeskMember[];
   visibility: RoomVisibility;
   elapsedSec: number;
+  hideEmptySeatCopy?: boolean;
 }) {
   const { t } = useTranslation("group-room");
   // 판단 모듈이 순서를 정하며 멤버를 공통 모양으로 돌려주므로 내 자리는 아이디로 다시 찾는다.
@@ -40,7 +42,11 @@ export function DeskGrid({
       <ul aria-label={t("deskGrid.aria.list")} className="grid grid-cols-3 gap-x-1.5 gap-y-3 pt-1">
         {arrangeDesks(members).map((slot, index) =>
           slot.kind === "empty" ? (
-            <EmptyDesk key={`empty-${index}`} open={visibility === "public"} />
+            <EmptyDesk
+              key={`empty-${index}`}
+              open={visibility === "public"}
+              hideCopy={hideEmptySeatCopy}
+            />
           ) : (
             <MemberDesk
               key={slot.member.userId}
@@ -137,13 +143,14 @@ function MemberDesk({
   );
 }
 
-function EmptyDesk({ open }: { open: boolean }) {
+function EmptyDesk({ open, hideCopy }: { open: boolean; hideCopy: boolean }) {
   const { t } = useTranslation("group-room");
   const emptySeat = t("deskGrid.emptySeat");
   const openSeat = t("deskGrid.openSeat");
   return (
     <li
-      aria-label={open ? `${emptySeat}, ${openSeat}` : emptySeat}
+      aria-hidden={hideCopy || undefined}
+      aria-label={hideCopy ? undefined : open ? `${emptySeat}, ${openSeat}` : emptySeat}
       data-tone="empty"
       className="flex min-w-0 flex-col items-center"
     >
@@ -152,8 +159,8 @@ function EmptyDesk({ open }: { open: boolean }) {
         aria-hidden="true"
         className="mt-1 flex flex-col items-center gap-0.5 text-center text-state-pause"
       >
-        <p className="text-xs leading-4">{emptySeat}</p>
-        {open && <p className="text-[10px] leading-3.5">{openSeat}</p>}
+        {!hideCopy && <p className="text-xs leading-4">{emptySeat}</p>}
+        {!hideCopy && open && <p className="text-[10px] leading-3.5">{openSeat}</p>}
       </div>
     </li>
   );
