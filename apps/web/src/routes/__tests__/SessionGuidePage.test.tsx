@@ -12,6 +12,11 @@ import { SessionGuidePage } from "@/routes/SessionGuidePage";
 vi.mock("@/lib/sessionStart", () => ({ requestSessionStart: vi.fn() }));
 vi.mock("@/lib/haptics", () => ({ haptic: vi.fn() }));
 
+const capability = vi.hoisted(() => ({ tabFocus: true }));
+vi.mock("@/lib/rankingCapability", () => ({
+  hasRankingTab: () => capability.tabFocus,
+}));
+
 const analytics = vi.hoisted(() => ({
   trackFocusStartTapped: vi.fn(),
   trackStudySessionHelpShown: vi.fn(),
@@ -57,11 +62,15 @@ async function goToLastStep() {
 
 /** 앱이 탭 위에 세션 화면이나 거부 안내를 덮었다는 신호를 흉내낸다. */
 function coverTab() {
+  sendNative({ type: "tab-focus", focused: false, atMs: Date.now() });
+}
+
+function sendNative(message: Record<string, unknown>) {
   const entry = (globalThis as unknown as Record<string, (raw: string) => void>)[
     NATIVE_MESSAGE_ENTRY
   ];
   act(() => {
-    entry(JSON.stringify({ type: "tab-focus", focused: false, atMs: Date.now() }));
+    entry(JSON.stringify(message));
   });
 }
 
@@ -69,6 +78,7 @@ const startButton = () => screen.getByRole("button", { name: "순공 시작하�
 const laterButton = () => screen.getByRole("button", { name: "나중에 시작할게요" });
 
 afterEach(() => {
+  capability.tabFocus = true;
   localStorage.clear();
   vi.clearAllMocks();
 });
@@ -122,7 +132,7 @@ describe("SessionGuidePage", () => {
     expect(await screen.findByTestId("ranking")).toHaveTextContent("/ranking?userId=7");
   });
 
-  it("덮었다는 신호가 없는 구버전 앱에서는 10초 뒤 이전 화면으로 돌아간다", async () => {
+  it("권한 창에 오래 답하지 않아도 덮기 전까지 가이드를 닫지 않는다", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       vi.mocked(requestSessionStart).mockResolvedValue("native");
@@ -134,50 +144,79 @@ describe("SessionGuidePage", () => {
       await user.click(startButton());
 
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(9_000);
+        await vi.advanceTimersByTimeAsync(5 * 60_000);
       });
-      expect(screen.queryByTestId("ranking")).not.toBeInTheDocument();
 
-      await act(async () => {
-        await vi.advanceTimersByTimeAsync(1_500);
-      });
-      expect(screen.getByTestId("ranking")).toBeInTheDocument();
+      expect(screen.queryByTestId("ranking")).not.toBeInTheDocument();
+      expect(screen.getByRole("dialog", { name: "세션 도움말" })).toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it("시작 요청이 끝나기 전에 화면을 떠나면 늦게 끝나도 닫기 타이머를 만들지 않는다", async () => {
-    let finish: (route: "native") => void = () => {};
-    vi.mocked(requestSessionStart).mockReturnValue(
-      new Promise((resolve) => {
-        finish = resolve;
-      }),
-    );
-    const view = render(
-      <MemoryRouter
-        initialEntries={[
-          "/ranking?userId=7",
-          { pathname: "/session-guide", search: "?userId=7", state: { source: "home" } },
-        ]}
-        initialIndex={1}
-      >
-        <Routes>
-          <Route path="/session-guide" element={<SessionGuidePage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
+  it("tab-focus가 없는 구버전 앱은 권한 결과가 올 때까지 가이드를 유지하고, 결과가 오면 이전 화면으로 돌아간다", async () => {
+    capability.tabFocus = false;
+    vi.mocked(requestSessionStart).mockResolvedValue("native");
+    renderFromRanking();
+    await goToLastStep();
+
+    await userEvent.click(startButton());
+    await act(async () => {});
+
+    expect(screen.getByRole("dialog", { name: "세션 도움말" })).toBeInTheDocument();
+    expect(screen.queryByTestId("ranking")).not.toBeInTheDocument();
+
+    sendNative({
+      type: "track-event",
+      name: "focus_other_event",
+      atMs: Date.now(),
+    });
+    expect(screen.queryByTestId("ranking")).not.toBeInTheDocument();
+
+    sendNative({
+      type: "track-event",
+      name: "camera_permission_gate_resolved",
+      properties: { result: "denied", prompted: true, room_type: "single" },
+      atMs: Date.now(),
+    });
+
+    expect(await screen.findByTestId("ranking")).toHaveTextContent("/ranking?userId=7");
+  });
+
+  it("최신 앱은 권한 결과만으로 닫지 않고 화면이 덮여야 돌아간다", async () => {
+    vi.mocked(requestSessionStart).mockResolvedValue("native");
+    renderFromRanking();
     await goToLastStep();
     await userEvent.click(startButton());
-    view.unmount();
+    await act(async () => {});
 
-    vi.useFakeTimers();
-    try {
-      await act(async () => finish("native"));
-      expect(vi.getTimerCount()).toBe(0);
-    } finally {
-      vi.useRealTimers();
-    }
+    sendNative({
+      type: "track-event",
+      name: "camera_permission_gate_resolved",
+      properties: { result: "granted", prompted: true, room_type: "single" },
+      atMs: Date.now(),
+    });
+
+    expect(screen.queryByTestId("ranking")).not.toBeInTheDocument();
+  });
+
+  it("권한 결과를 받은 뒤 화면을 떠나면 구독을 풀어 다시 반응하지 않는다", async () => {
+    capability.tabFocus = false;
+    vi.mocked(requestSessionStart).mockResolvedValue("native");
+    renderFromRanking();
+    await goToLastStep();
+    await userEvent.click(startButton());
+    await act(async () => {});
+    sendNative({
+      type: "track-event",
+      name: "camera_permission_gate_resolved",
+      properties: { result: "granted", prompted: false, room_type: "single" },
+      atMs: Date.now(),
+    });
+    await screen.findByTestId("ranking");
+
+    expect(() => coverTab()).not.toThrow();
+    expect(screen.getByTestId("ranking")).toBeInTheDocument();
   });
 
   it("세션 시작을 기다리는 동안에는 나중에 시작할게요가 듣지 않는다", async () => {
