@@ -13,7 +13,9 @@
   },
   "errors": {
     "nicknameTaken": "這個暱稱已經有人使用",
-    "nicknameRule": "可使用韓文、英文字母、數字、表情符號和空格，長度為 2～12 個字",
+    "nicknameLength": "最多 40 個字元，中文、日文、韓文和表情符號每個字算 2 個字元。",
+    "nicknameChars": "只能使用中文、日文、韓文、英文字母、數字、表情符號、空格及 _ . -",
+    "nicknameNotAllowed": "無法使用這個暱稱，請換一個",
     "goalTooLong": "目標最多可輸入 20 個字",
     "unknownCategory": "清單中沒有這個類別"
   },
