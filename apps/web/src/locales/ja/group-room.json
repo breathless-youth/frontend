@@ -246,6 +246,9 @@
     "categoryLabel": "目指している試験",
     "introLabel": "グループ紹介"
   },
+  "myRoomCard": {
+    "newRequests": "新しい参加リクエスト {{count}}件"
+  },
   "roomHomeScreen": {
     "todayTitle": "今日のグループ",
     "newRequests": "新しい参加リクエストが{{count}}件あります",

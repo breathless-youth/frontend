@@ -201,6 +201,7 @@ function GroupTabContent({ userId }: { userId: number | null }) {
           />
         ) : undefined,
         onOpenRoom: (roomId) => leaveTab(`/social/groups/${roomId}`),
+        onOpenRequests: (roomId) => leaveTab(`/social/groups/${roomId}/applications`),
         onOpenPending: () => {
           setSheetOpen(true);
           if (applicationsQuery.isError) {

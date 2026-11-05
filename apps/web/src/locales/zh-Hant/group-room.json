@@ -246,6 +246,9 @@
     "categoryLabel": "準備的考試",
     "introLabel": "群組介紹"
   },
+  "myRoomCard": {
+    "newRequests": "{{count}} 個新的加入申請"
+  },
   "roomHomeScreen": {
     "todayTitle": "今天的群組",
     "newRequests": "有 {{count}} 個新的加入申請",

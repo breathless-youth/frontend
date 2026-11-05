@@ -77,6 +77,8 @@ export interface MyGroupCard {
   studyingCount: number;
   /** 내가 이 그룹의 그룹장이면 true */
   owner: boolean;
+  /** 답을 기다리는 새 신청 수이고 공개 그룹 그룹장에게만 값이 있다. */
+  newApplicationCount: number | null;
   /**
    * 들어간 순서다.
    * 책상 순서는 FE가 정한다.

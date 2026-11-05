@@ -246,6 +246,9 @@
     "categoryLabel": "시험·목표",
     "introLabel": "그룹 소개"
   },
+  "myRoomCard": {
+    "newRequests": "새 신청 {{count}}건"
+  },
   "roomHomeScreen": {
     "todayTitle": "오늘 우리 그룹",
     "newRequests": "새 신청이 {{count}}건 있어요",

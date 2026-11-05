@@ -24,6 +24,7 @@ export function MyRoomsView({
   loading = false,
   error,
   onOpenRoom,
+  onOpenRequests,
   onOpenPending,
   onBrowsePublic,
 }: {
@@ -33,6 +34,7 @@ export function MyRoomsView({
   /** 목록을 받지 못했을 때 목록 자리에 둘 오류 표시이고, 다시 시도까지 호출부가 채운다. */
   error?: ReactNode;
   onOpenRoom: (roomId: number) => void;
+  onOpenRequests: (roomId: number) => void;
   onOpenPending: () => void;
   onBrowsePublic: () => void;
 }) {
@@ -43,7 +45,7 @@ export function MyRoomsView({
       <ul className="flex flex-col gap-3">
         {rooms.map((room) => (
           <li key={room.roomId}>
-            <MyRoomCard room={room} onOpen={onOpenRoom} />
+            <MyRoomCard room={room} onOpen={onOpenRoom} onOpenRequests={onOpenRequests} />
           </li>
         ))}
       </ul>
