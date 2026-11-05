@@ -10,7 +10,7 @@ export type SoundGroup = {
   readonly sounds: readonly AmbientSound[];
 };
 
-const ORDER: readonly SoundGroupId[] = ["noise", "ambience", "music"];
+const ORDER: readonly SoundGroupId[] = ["music", "ambience", "noise"];
 
 /**
  * 분류를 카탈로그가 들고 있지 않을 때의 대체 경로.

@@ -153,7 +153,9 @@ function SoundRow({
  * `--session-*` 변수가 `main` 에만 주입돼 `document.body` 로 나가면 색이 통째로 빠지기 때문이다.
  * 카메라 위에 뜨므로 라이트·다크 테마를 따르지 않고 항상 `--session-*` 를 읽는다.
  * 켜진 소리는 집중 색으로 물든다.
- * 목록은 방향과 관계없이 묶음별 탭으로 나누고, 가로에서는 소리 한 줄에 이름과 슬라이더를 나란히 둔다.
+ * 목록은 방향과 관계없이 묶음별 탭으로 나눈다.
+ * 가로에서는 폭이 남아 소리 줄을 두 열로 채우고, 한 줄에 이름과 슬라이더를 나란히 둔다.
+ * 두 열은 행 단위로 채워 읽는 순서와 포커스 순서가 같다.
  * 묶는 기준은 `soundGroups.ts` 에 있다.
  */
 export function AmbientSoundSheet({
@@ -180,7 +182,13 @@ export function AmbientSoundSheet({
   const allOn = Object.keys(mix).length > 0;
 
   const rows = (sounds: readonly AmbientSound[]) => (
-    <ul className={cn("flex flex-col", landscape && "gap-0.75 regular:gap-1")}>
+    <ul
+      className={
+        landscape
+          ? "grid grid-cols-2 gap-x-6 gap-y-0.75 regular:gap-x-10 regular:gap-y-1"
+          : "flex flex-col"
+      }
+    >
       {sounds.map((sound) => {
         const Icon = soundIcon(sound.id);
         return (
