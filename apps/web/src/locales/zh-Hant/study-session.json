@@ -25,7 +25,7 @@
     "title": "請確認相機位置",
     "description": "請調整位置，讓臉和書桌都入鏡",
     "notice": "影像不會離開你的裝置",
-    "cancel": "以簡潔模式開始",
+    "cancel": "以極簡模式開始",
     "confirm": "開啟相機",
     "faceMaskTooltip": "快速移動時，臉部可能會短暫露出",
     "faceMaskCaption": "縮時攝影的「遮住臉部」需要另外設定"
@@ -75,7 +75,7 @@
     "pause": "暫停",
     "resume": "繼續",
     "exit": "結束讀書",
-    "simpleModeToggle": "切換為簡潔模式",
+    "simpleModeToggle": "切換為極簡模式",
     "sideActions": "工具",
     "subjectSelected": "已選取科目"
   },
@@ -121,13 +121,13 @@
     "next": "下一步",
     "awayPill": "<hl>離開座位</hl>或<hl>打瞌睡</hl>時\n會在這裡提醒你",
     "awayTimer": "這段時間<hl>專注時間</hl>會暫停",
-    "measuringPill": "回到座位就會<hl>重新測量</hl>\n測量畫面不會離開<hl>你的裝置</hl>\n請放心😌",
+    "measuringPill": "回到座位就會<hl>重新測量</hl>\n用於測量的影像不會離開<hl>你的裝置</hl>\n請放心😌",
     "measuringTimer": "<hl>專注時間</hl>\n又開始計時了⏰",
     "cameraTap": "點一下畫面\n就會切換成<hl>相機畫面</hl>",
     "buttonsSide": "<hl>背景聲音</hl>、<hl>科目</hl>和<hl>計時器</hl>\n都在這裡開啟",
     "buttonsPause": "想休息時\n請點<hl>暫停</hl>",
     "finishMore": "隨時可以在「更多」選單\n再次查看這份說明",
-    "finishCenter": "準備好了\n開始<hl>專注</hl>吧？",
+    "finishCenter": "準備好了\n一起來<hl>專注</hl>吧！",
     "finishCta": "開始專注"
   },
   "recovery": {
@@ -141,7 +141,7 @@
     "confirm": "好"
   },
   "result": {
-    "completeTitle": "完成今天的讀書",
+    "completeTitle": "今天的讀書完成了",
     "completeDescription": "你堅持到最後了！",
     "focusLabel": "專注時間",
     "totalPrefix": "總讀書時間",

@@ -14,7 +14,7 @@
     "timeSlot": "時段",
     "totalTime": "總讀書時間",
     "totalDays": "讀書天數",
-    "maxStreak": "連續讀書"
+    "maxStreak": "連續讀書天數"
   },
   "period": {
     "daily": "每日",
@@ -69,7 +69,7 @@
   "podium": {
     "titleTop3": "{{name}}前 3 名",
     "titleFocusRate": "專注率前 3 名",
-    "titleMaxStreak": "連續讀書前 3 名",
+    "titleMaxStreak": "連續讀書天數前 3 名",
     "titleHall": "名人堂前 3 名",
     "tooltipRateMonthly": "本月專注時間達 30 小時以上，就能進入排行榜",
     "tooltipRateWeekly": "本週專注時間達 10 小時以上，就能進入排行榜",
@@ -80,7 +80,7 @@
     }
   },
   "card": {
-    "maxStreakTitle": "最長連續天數"
+    "maxStreakTitle": "最長連續讀書天數"
   },
   "offSlot": {
     "headline": "在{{slot}}時段讀書，就能進入排行榜",
@@ -209,7 +209,7 @@
     "titleMany": "你獲得了 {{count}} 面獎牌",
     "recordValue": "紀錄：<value>{{value}}</value>",
     "more": "另外 {{count}} 面",
-    "totalSoFar": "目前為止共獲得 <b>{{total}} 次</b>獎牌",
+    "totalSoFar": "目前為止共獲得 <b>{{total}} 面</b>獎牌",
     "showRecords": "查看排行榜紀錄",
     "aria": {
       "countByRank": "第 {{rank}} 名，{{count}} 面"

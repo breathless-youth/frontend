@@ -25,7 +25,7 @@
     "future": "無法新增現在之後的時間",
     "allOverlap": "這段時間已經有紀錄了",
     "failed": "無法儲存，請再試一次",
-    "overlapNotice": "已排除重複紀錄的 {{removed}}（{{start}}～{{end}}），將儲存 {{saved}}"
+    "overlapNotice": "已排除已有紀錄的 {{removed}}（{{start}}～{{end}}），將儲存 {{saved}}"
   },
   "subject": {
     "none": "無科目"

@@ -55,7 +55,7 @@
     "sampleNotice": "現在はサンプルデータを表示しています",
     "legendLow": "少ない",
     "legendHigh": "多い",
-    "peakTitle": "{{range}}によく集中しています",
+    "peakTitle": "{{range}}に最も長く集中しています",
     "peakSubtitle": "{{days}}日間の集中時間をまとめました",
     "range": "{{period}}{{from12}}〜{{to12}}時",
     "rangeCrossNoon": "午前{{from12}}時〜午後{{to12}}時",

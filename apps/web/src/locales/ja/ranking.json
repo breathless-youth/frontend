@@ -14,7 +14,7 @@
     "timeSlot": "時間帯",
     "totalTime": "総勉強時間",
     "totalDays": "勉強日数",
-    "maxStreak": "連続記録"
+    "maxStreak": "連続学習日数"
   },
   "period": {
     "daily": "日間",
@@ -29,7 +29,7 @@
   "slot": {
     "night": "深夜",
     "morning": "朝",
-    "afternoon": "昼",
+    "afternoon": "午後",
     "evening": "夜",
     "dawn": "深夜",
     "unknown": "時間帯",
@@ -45,7 +45,7 @@
   "slotSubject": {
     "night": "深夜",
     "morning": "朝",
-    "afternoon": "昼",
+    "afternoon": "午後",
     "evening": "夜",
     "dawn": "深夜"
   },
@@ -53,7 +53,7 @@
     "place": "{{rank}}位"
   },
   "row": {
-    "focusing": "集中中"
+    "focusing": "集中しています"
   },
   "format": {
     "days": "{{days}}日",
@@ -69,7 +69,7 @@
   "podium": {
     "titleTop3": "{{name}}のTOP3",
     "titleFocusRate": "集中率TOP3",
-    "titleMaxStreak": "連続記録TOP3",
+    "titleMaxStreak": "連続学習日数TOP3",
     "titleHall": "殿堂入りTOP3",
     "tooltipRateMonthly": "今月の集中時間が30時間以上になると、ランキングに参加できます",
     "tooltipRateWeekly": "今週の集中時間が10時間以上になると、ランキングに参加できます",
@@ -80,10 +80,10 @@
     }
   },
   "card": {
-    "maxStreakTitle": "最長連続記録"
+    "maxStreakTitle": "最長連続学習日数"
   },
   "offSlot": {
-    "headline": "{{slot}}の時間帯に勉強してランキング入り",
+    "headline": "{{slot}}に勉強してランクイン",
     "notice": "この順位には{{slot}}の時間帯に勉強した時間だけが入ります"
   },
   "previousResult": {
@@ -94,8 +94,8 @@
     "showRecords": "記録を見る ›"
   },
   "live": {
-    "rankUp": "{{steps}}つ上がりました",
-    "rankDown": "{{steps}}つ下がりました",
+    "rankUp": "{{steps}}位上がりました",
+    "rankDown": "{{steps}}位下がりました",
     "gapWidening": "上の順位との差が広がっています",
     "gapClosing": "下の順位との差が縮まっています",
     "gapToSecond": "2位と{{gap}}差です",
@@ -121,20 +121,20 @@
     }
   },
   "eligibility": {
-    "untilEntry": "ランキング入りまで<accent>{{gap}}</accent>",
+    "untilEntry": "ランクインまで<accent>{{gap}}</accent>",
     "expectRank": "今の集中率なら{{rank}}位です",
     "expectTopPercent": "今の集中率なら上位{{percent}}%です"
   },
   "lockedList": {
-    "message": "ランキング入りすると、自分の前後の順位が見られます",
+    "message": "ランクインすると、自分の前後の順位が見られます",
     "aria": {
       "label": "自分の前後の順位"
     }
   },
   "firstCard": {
     "title": "まだ順位がありません",
-    "headline": "今勉強してランキング入り",
-    "streakHeadline": "5分以上勉強すると<br/>ランキング入り"
+    "headline": "今勉強してランクイン",
+    "streakHeadline": "5分以上勉強すると<br/>ランクイン"
   },
   "resetCard": {
     "startNow": "今始めれば<accent>{{rank}}位</accent>"

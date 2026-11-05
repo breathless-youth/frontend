@@ -25,11 +25,11 @@
       "viewMembers": "查看成員",
       "settings": "群組設定",
       "leave": "離開群組",
-      "leaveNote": "轉讓管理員後才能離開"
+      "leaveNote": "移交群組管理權後才能離開"
     },
     "mustTransfer": {
-      "title": "必須先轉讓管理員才能離開",
-      "description": "請先在「管理成員」中轉讓管理員",
+      "title": "必須先移交群組管理權才能離開",
+      "description": "請先在「管理成員」中移交群組管理權",
       "confirm": "管理成員"
     },
     "confirmLeave": {
@@ -40,9 +40,9 @@
       "confirm": "離開"
     },
     "transferOwner": {
-      "title": "要將管理員轉讓給 {{nickname}} 嗎？",
+      "title": "要將群組管理權移交給 {{nickname}} 嗎？",
       "description": "你將不再擔任管理員",
-      "confirm": "轉讓"
+      "confirm": "移交"
     },
     "kickMember": {
       "title": "要將 {{nickname}} 從群組移除嗎？",
@@ -96,13 +96,13 @@
   },
   "inviteCard": {
     "title": "邀請",
-    "description": "收到連結或邀請碼的人，不需接受就會直接成為成員",
+    "description": "收到連結或邀請碼的人，不需審核就能直接成為成員",
     "codeLabel": "邀請碼",
     "shareLink": "傳送連結",
     "regenerate": "重新產生邀請碼"
   },
   "memberMenu": {
-    "transfer": "轉讓管理員",
+    "transfer": "移交群組管理權",
     "kick": "從群組移除",
     "kickNote": "{{count}} 天內無法重新加入這個群組",
     "aria": {
@@ -181,7 +181,7 @@
     "titleView": "查看成員",
     "listTitle": "成員",
     "lastActive": "最後到訪日",
-    "ownerLeaveNote": "管理員必須把管理員轉讓給其他成員，才能離開群組",
+    "ownerLeaveNote": "管理員必須將群組管理權移交給其他成員，才能離開群組",
     "aria": {
       "owner": "管理員"
     }

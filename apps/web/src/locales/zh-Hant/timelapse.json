@@ -99,7 +99,7 @@
       "focusTime": "專注時間",
       "focusRate": "專注率",
       "dday": "倒數日",
-      "streak": "連續讀書",
+      "streak": "連續讀書天數",
       "ddayMissing": "需要設定倒數日",
       "faceMaskTooltip": "只會遮住你的臉，同一個畫面中的其他人不會被遮住。"
     }
