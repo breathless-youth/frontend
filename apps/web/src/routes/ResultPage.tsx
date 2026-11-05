@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 
 import type { StudySessionResponse } from "@focusmakers/types";
 
@@ -9,8 +8,6 @@ import { Button } from "@/components/ui/button";
 import { CtaToaster } from "@/components/ui/sonner";
 import { InterviewCardHost } from "@/features/interview/InterviewCardHost";
 import { MeasurementFeedbackCardHost } from "@/features/measurement-feedback/MeasurementFeedbackCardHost";
-import { gainCardView } from "@/features/ranking/exposure/gainView";
-import { RankingGainCard } from "@/features/ranking/exposure/RankingGainCard";
 import { ConfettiBurst } from "@/features/study-session/components/ConfettiBurst";
 import { SessionSummaryCard } from "@/features/study-session/components/SessionSummaryCard";
 import {
@@ -30,8 +27,6 @@ import {
 } from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
-import { hasRankingTab } from "@/lib/rankingCapability";
-import { rankingSessionGainsQuery } from "@/lib/rankingQueries";
 import { useUserId } from "@/lib/userId";
 
 /**
@@ -63,8 +58,7 @@ const USER_SCROLL_EVENTS = ["pointerdown", "wheel", "keydown"] as const;
  * 2. `RESULT_REVEAL_DELAY_MS` 뒤 `revealed`: 인주·타이틀이 접혀 올라가고 순공시간 아래로
  *    타임라인(최대 집중 시간 포함)·누적 요약 카드가, 하단에 CTA 둘(`홈으로`·`기록으로 가기`)이
  *    드러난다.
- *    주간 순공 순위가 올랐으면 `session-gains` 응답이 온 뒤 결과 랭킹 카드(`RankingGainCard`)가 타임라인 위에 나타난다.
- *
+ * *
  * 모션 축소(`prefers-reduced-motion`)에서는 연출 없이 처음부터 전부 보여준다(`static`).
  * 인터뷰 폼에서 뒤로 돌아온 결과도 연출을 이미 봤으니 같은 `static`으로 시작한다.
  * 시안의 명언 인트로와 연속 공부(스트릭) 화면은 이 티켓 범위 밖이라 없다.
@@ -80,8 +74,7 @@ const USER_SCROLL_EVENTS = ["pointerdown", "wheel", "keydown"] as const;
  *
  * 예외적으로 누적 요약 카드(`SessionSummaryCard`)는 저장된 통계를 서버에서 읽는다
  * — 세션이 아니라 오늘 합계·학습 일 수라 라우터 state에 실을 수 없는 값이다.
- * 결과 랭킹 카드(`RankingGainCard`)도 이번 세션으로 오른 순위를 서버(`session-gains`)에서 읽는다.
- * `?userId`가 없는 미저장 모드에서는 두 카드 모두 그리지 않는다.
+ * `?userId`가 없는 미저장 모드에서는 그리지 않는다.
  */
 export function ResultPage() {
   const { t } = useTranslation("study-session");
@@ -93,12 +86,6 @@ export function ResultPage() {
   // 튕기던 문제를 막는다.
   const home = resolveHome(location.pathname);
   const userId = useUserId();
-  // 랭킹 탭을 열 수 있을 때 저장된 세션만 오른 순위를 묻는다.
-  // 결과를 드러내기 전에 받아 두어 카드가 늦게 끼어드는 일을 줄인다.
-  const gainsQuery = useQuery({
-    ...rankingSessionGainsQuery(userId ?? 0, sessions?.[0].startedAt ?? ""),
-    enabled: userId !== null && sessions !== null && hasRankingTab(),
-  });
   // 마운트 시 한 번만 판정한다 — 연출 도중 설정이 바뀌어도 단계가 섞이지 않게.
   const [skipIntro] = useState(() => prefersReducedMotion() || readResultIntroSeen(location.state));
   const [revealed, setRevealed] = useState(skipIntro);
@@ -270,8 +257,6 @@ export function ResultPage() {
     navigate({ pathname: webTarget, search: location.search }, { replace: true });
   };
 
-  const gainView = gainsQuery.data === undefined ? null : gainCardView(gainsQuery.data);
-
   /**
    * TODO(미정: 자정 분할 세션 표시 — 리더/사용자 확인). `submitStudySession`은
    * `StudySessionResponse[]`를 반환하고 자정을 넘긴 세션은 날짜별 2건으로 분할된다. 이때 S4가
@@ -303,7 +288,6 @@ export function ResultPage() {
           <StudyCompleteHero view={view} phase={phase} />
           {revealed && (
             <div className="mt-6 flex flex-col gap-3 animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
-              {gainView !== null && <RankingGainCard view={gainView} roomType={roomType} />}
               <StudyTimelineCard view={view} />
               <MeasurementFeedbackCardHost focusSec={totalFocusSec} roomType={roomType} />
               {userId !== null && <SessionSummaryCard userId={userId} />}

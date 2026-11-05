@@ -4,7 +4,6 @@ import type {
   RankingRecord,
   RankingRecordsPage,
   RankingRecordsSummary,
-  RankingSessionGainsResponse,
   RankingUnseenResponse,
 } from "@focusmakers/types";
 
@@ -607,37 +606,4 @@ export const FIXTURE_UNSEEN_MIXED: RankingUnseenResponse = {
       "2026-10-11T15:00:00Z",
     ),
   ],
-};
-
-/**
- * 주간 순공과 다른 판 넷이 오른 결과
- *
- * 저녁 구간은 일간과 주간이 함께 올랐다.
- */
-export const FIXTURE_SESSION_GAINS: RankingSessionGainsResponse = {
-  weekly: { before: 1205, after: 1202, delta: 3 },
-  others: [
-    { type: "FOCUS_RATE", period: "WEEKLY", slot: null, before: 3410, after: 3202, delta: 208 },
-    { type: "TIME_SLOT", period: "DAILY", slot: "EVENING", before: 52, after: 43, delta: 9 },
-    { type: "TIME_SLOT", period: "WEEKLY", slot: "EVENING", before: 230, after: 226, delta: 4 },
-    { type: "TOTAL_TIME", period: null, slot: null, before: 2911, after: 2870, delta: 41 },
-  ],
-};
-
-/** 주간 순공은 오르지 않고 다른 판만 오른 결과. */
-export const FIXTURE_SESSION_GAINS_NO_WEEKLY: RankingSessionGainsResponse = {
-  weekly: null,
-  others: [
-    { type: "FOCUS_RATE", period: "WEEKLY", slot: null, before: 3410, after: 3202, delta: 208 },
-  ],
-};
-
-/**
- * 오른 판이 없는 결과
- *
- * 그 시각의 세션이 없다는 404도 이 모양으로 바뀐다.
- */
-export const FIXTURE_SESSION_GAINS_EMPTY: RankingSessionGainsResponse = {
-  weekly: null,
-  others: [],
 };

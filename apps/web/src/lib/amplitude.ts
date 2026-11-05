@@ -1403,24 +1403,6 @@ export function trackRankingMedalModalAction(action: "records" | "close") {
   track("ranking_medal_modal_action", { action });
 }
 
-/**
- * 공부 결과 랭킹 카드 노출
- *
- * 방 구분은 `study_result_confirmed`와 같은 `room_type`으로 실어 결과 화면 이벤트끼리 묶어 볼 수 있게 한다.
- */
-export function trackRankingGainCardShown(input: {
-  readonly delta: number;
-  readonly chipCount: number;
-  readonly roomType: StudyRoomType;
-}) {
-  if (!initialized) return;
-  track("ranking_gain_card_shown", {
-    delta: input.delta,
-    chip_count: input.chipCount,
-    room_type: input.roomType,
-  });
-}
-
 /** 플래너 진입. `via`는 들어온 곳, `isToday`는 오늘(플래너 기준) 플래너인지. */
 export function trackPlannerOpened(input: {
   readonly via: "records" | "home" | "unknown";

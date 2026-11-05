@@ -1919,13 +1919,11 @@ describe("랭킹 이벤트", () => {
 
     m.trackRankingMedalModalShown({ count: 3, bestRank: 1, mixedPeriod: true });
     m.trackRankingMedalModalAction("records");
-    m.trackRankingGainCardShown({ delta: 3, chipCount: 2, roomType: "social" });
     m.trackFocusStartTapped("ranking_records");
 
     expect(mocks.track.mock.calls).toEqual([
       ["ranking_medal_modal_shown", { count: 3, best_rank: 1, mixed_period: true }],
       ["ranking_medal_modal_action", { action: "records" }],
-      ["ranking_gain_card_shown", { delta: 3, chip_count: 2, room_type: "social" }],
       ["focus_start_tapped", { destination: "session", source: "ranking_records" }],
     ]);
   });
@@ -1935,7 +1933,6 @@ describe("랭킹 이벤트", () => {
 
     m.trackRankingMedalModalShown({ count: 1, bestRank: 2, mixedPeriod: false });
     m.trackRankingMedalModalAction("close");
-    m.trackRankingGainCardShown({ delta: 1, chipCount: 0, roomType: "single" });
 
     expect(mocks.track).not.toHaveBeenCalled();
   });

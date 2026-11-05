@@ -18,12 +18,6 @@ import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import type * as Amplitude from "@/lib/amplitude";
 import { stageStudyResultExit } from "@/lib/amplitude";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
-import { __resetRankingTabForTests } from "@/lib/rankingCapability";
-import {
-  FIXTURE_SESSION_GAINS,
-  FIXTURE_SESSION_GAINS_EMPTY,
-  FIXTURE_SESSION_GAINS_NO_WEEKLY,
-} from "@/lib/rankingFixtures";
 import { getStudyDays, listStudySessionStats } from "@/lib/statsApi";
 
 import { RESULT_REVEAL_DELAY_MS, ResultPage } from "../ResultPage";
@@ -39,14 +33,6 @@ vi.mock("@/lib/statsApi", () => ({
 }));
 const mockedStats = vi.mocked(listStudySessionStats);
 const mockedStudyDays = vi.mocked(getStudyDays);
-
-/**
- * 랭킹 카드가 묻는 오른 순위
- *
- * 기본은 오른 판이 없어 카드가 없다.
- */
-const getRankingSessionGains = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/rankingApi", () => ({ getRankingSessionGains }));
 
 /** 오늘 합계 3시간 36분(12960초) — 시안 스크린샷 값. */
 const statsResponse = {
@@ -64,7 +50,6 @@ beforeEach(() => {
   mockedStats.mockResolvedValue(statsResponse);
   // 누적 공부일 23일 — 시안 스크린샷 값.
   mockedStudyDays.mockResolvedValue({ totalDays: 23 });
-  getRankingSessionGains.mockResolvedValue({ weekly: null, others: [] });
   // 만족도 카드의 3일 간격 기록이 테스트 사이에 이어지지 않게 한다.
   setMeasurementFeedbackStore(createMemoryMeasurementFeedbackStore());
 });
@@ -1154,101 +1139,22 @@ describe("ResultPage — 타임랩스 카드 (BY-894)", () => {
   });
 });
 
-describe("ResultPage: 랭킹 카드", () => {
-  const CARD = { name: "랭킹이 올랐어요" };
-
-  beforeEach(() => {
-    getRankingSessionGains.mockResolvedValue(FIXTURE_SESSION_GAINS);
-  });
-
+describe("ResultPage: 랭킹 변화 카드", () => {
   afterEach(() => {
-    window.history.replaceState(null, "", "/");
-    __resetRankingTabForTests();
+    vi.unstubAllGlobals();
   });
 
-  it("주간 순공이 오르면 히어로 아래, 타임라인 위에 카드를 보인다", async () => {
-    renderResult({ sessions: [exampleSession()] });
-
-    const card = await screen.findByRole("region", CARD);
-    const heroTitle = screen.getByRole("heading", { level: 1 });
-    expect(heroTitle.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(
-      card.compareDocumentPosition(timelineCard()) & Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-    expect(within(card).getByText("▲3")).toBeInTheDocument();
-    expect(within(card).queryByText(/\d위/)).toBeNull();
-    expect(within(card).getAllByRole("listitem")).toHaveLength(3);
-  });
-
-  it("제출한 세션의 시작 시각으로 묻는다", async () => {
-    renderResult({ sessions: [exampleSession()] });
-
-    await screen.findByRole("region", CARD);
-    expect(getRankingSessionGains).toHaveBeenCalledWith(
-      SESSION_START.toISOString(),
-      expect.any(AbortSignal),
-    );
-  });
-
-  it("응답이 오기 전에는 자리를 잡지 않는다", () => {
-    getRankingSessionGains.mockReturnValue(new Promise(() => {}));
+  it("랭킹 변화 카드를 그리지 않고 session-gains도 요청하지 않는다", async () => {
+    const fetchSpy = vi.fn().mockRejectedValue(new Error("network"));
+    vi.stubGlobal("fetch", fetchSpy);
 
     renderResult({ sessions: [exampleSession()] });
-
-    expect(screen.queryByRole("region", CARD)).toBeNull();
-    expect(timelineCard()).toBeInTheDocument();
-  });
-
-  it.each([
-    ["주간 순공이 오르지 않았으면", FIXTURE_SESSION_GAINS_NO_WEEKLY],
-    ["오른 판이 없거나 세션이 없다는 404였으면", FIXTURE_SESSION_GAINS_EMPTY],
-  ])("%s 카드를 숨긴다", async (_, response) => {
-    getRankingSessionGains.mockResolvedValue(response);
-
-    renderResult({ sessions: [exampleSession()] });
-    await waitFor(() => expect(getRankingSessionGains).toHaveBeenCalled());
     await act(async () => {
       await Promise.resolve();
     });
 
-    expect(screen.queryByRole("region", CARD)).toBeNull();
-  });
-
-  it("요청이 실패해도 오류 없이 카드만 숨긴다", async () => {
-    getRankingSessionGains.mockRejectedValue(new Error("network"));
-
-    renderResult({ sessions: [exampleSession()] });
-    await waitFor(() => expect(getRankingSessionGains).toHaveBeenCalled());
-    await act(async () => {
-      await Promise.resolve();
-    });
-
-    expect(screen.queryByRole("region", CARD)).toBeNull();
-    expect(screen.queryByRole("button", { name: "다시 시도" })).toBeNull();
-    expect(timelineCard()).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "기록으로 가기" })).toBeInTheDocument();
-  });
-
-  it("미저장 모드에서는 묻지 않는다", () => {
-    renderResult({ sessions: [exampleSession()] }, "");
-
-    expect(getRankingSessionGains).not.toHaveBeenCalled();
-  });
-
-  it("랭킹 탭이 없는 앱에서는 묻지 않는다", () => {
-    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
-    __resetRankingTabForTests();
-
-    renderResult({ sessions: [exampleSession()] });
-
-    expect(getRankingSessionGains).not.toHaveBeenCalled();
-  });
-
-  it("카드에서 랭킹 탭으로 가지 않는다", async () => {
-    renderResult({ sessions: [exampleSession()] });
-
-    const card = await screen.findByRole("region", CARD);
-    expect(within(card).queryByRole("button")).toBeNull();
-    expect(screen.queryByRole("button", { name: "랭킹 보기" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "랭킹이 올랐어요" })).toBeNull();
+    const urls = fetchSpy.mock.calls.map(([input]) => String(input));
+    expect(urls.some((url) => url.includes("session-gains"))).toBe(false);
   });
 });

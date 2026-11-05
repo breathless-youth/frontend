@@ -215,10 +215,6 @@
       "countByRank": "第 {{rank}} 名，{{count}} 面"
     }
   },
-  "gainCard": {
-    "title": "你的排名上升了",
-    "weeklyFocus": "每週專注時間"
-  },
   "recordsPage": {
     "summaryTitle": "目前為止的前 3 名",
     "timesUnit": " 次",

@@ -228,10 +228,6 @@
       "countByRank_other": "{{count}} medals for #{{rank}}"
     }
   },
-  "gainCard": {
-    "title": "Your rank went up",
-    "weeklyFocus": "Weekly focus time"
-  },
   "recordsPage": {
     "summaryTitle": "Top 3 finishes so far",
     "timesUnit_one": " time",
