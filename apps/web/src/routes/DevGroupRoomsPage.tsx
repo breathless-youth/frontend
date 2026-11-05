@@ -86,6 +86,7 @@ function SocialHomeCase({
         rooms,
         pendingCount: pending.length,
         onOpenRoom: noop,
+        onOpenRequests: noop,
         onOpenPending: () => setOpen(true),
         onBrowsePublic: () => setTab("public"),
       }}
