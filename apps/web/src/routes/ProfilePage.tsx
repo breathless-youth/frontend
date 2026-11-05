@@ -38,7 +38,7 @@ const LABEL_CLASS = "text-[13px] font-medium text-muted-foreground";
 /**
  * 프로필 설정
  *
- * 진입은 설정 > 프로필 설정과 소셜 로그인으로 처음 가입한 직후 두 곳이다 — 룸 진입 시 확인은 없다(명세).
+ * 진입은 설정 > 프로필 설정이 유일하다 — 최초 가입 유도·룸 진입 시 확인이 없다(명세).
  */
 export function ProfilePage() {
   const { t } = useTranslation("profile");
