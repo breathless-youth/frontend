@@ -13,7 +13,8 @@ import { apiFetch, parseErrorMessage } from "./api";
 import { apiBaseUrl } from "./apiBaseUrl";
 import { getOrCreateDeviceId } from "./deviceId";
 import { getAppLocale } from "./i18n";
-import { logMetaRegistration } from "./metaAds";
+import { trackAirbridgeConversion } from "./airbridge";
+import { META_EVENT_COMPLETED_REGISTRATION, logMetaRegistration } from "./metaAds";
 
 /**
  * 토큰의 유일한 소유자
@@ -178,6 +179,7 @@ async function loadOrRegister(): Promise<AuthState | null> {
       // 성공이 아니다. 아래 신원 파싱이나 저장이 실패해도 서버 유저는 남아, 다음 실행의 재등록은
       // isNew=false다 — 여기서 놓치면 이 사용자의 가입 완료는 두 번 다시 찍을 기회가 없다.
       logMetaRegistration();
+      trackAirbridgeConversion(META_EVENT_COMPLETED_REGISTRATION);
     }
     // 등록 응답에 userId가 없다 — 신원은 access 토큰의 `sub`뿐이다(BY-723).
     // 못 읽으면 저장을 만들지 않는다. 신원 없는 저장은 웹을 조용히 브라우저 단독 모드로 떨어뜨린다.

@@ -253,6 +253,35 @@ function metaSdkPlugins(
   ];
 }
 
+/**
+ * Airbridge(MMP) SDK 설정 주입.
+ *
+ * SDK 토큰은 Meta 클라이언트 토큰처럼 바이너리에 박히는 값이지만 공개 저장소라 env(`AIRBRIDGE_APP_TOKEN`)로
+ * 받는다. 없으면 plugin을 넣지 않고 런타임(`extra.airbridgeEnabled`)도 꺼진다. production만 EAS 빌더에서
+ * 누락을 끊는다(Meta와 같은 이유). SDK 동작 옵션은 `airbridge.json`에 있다.
+ */
+const AIRBRIDGE_APP_NAME = "focusmakers";
+
+function resolveAirbridgeToken(variant: AppVariant): string | null {
+  const token = process.env.AIRBRIDGE_APP_TOKEN ?? "";
+  if (token !== "") {
+    return token;
+  }
+  if (variant === "production" && isEasBuilder()) {
+    throw new Error(
+      "AIRBRIDGE_APP_TOKEN이 비어 있습니다. production 빌드에는 EAS production environment에 " +
+        "Airbridge 대시보드 > Settings > Tokens의 App SDK Token을 주입하세요.",
+    );
+  }
+  return null;
+}
+
+function airbridgePlugins(token: string | null): NonNullable<ExpoConfig["plugins"]> {
+  return token === null
+    ? []
+    : [["airbridge-expo-sdk", { appName: AIRBRIDGE_APP_NAME, appToken: token }]];
+}
+
 // 미설정만 development다. 오타가 development로 떨어지면 빈 주소 빌드가 아무 표시 없이
 // 나가므로, 세 값 밖의 문자열은 여기서 끊는다.
 function resolveAppVariant(raw: string | undefined): AppVariant {
@@ -374,6 +403,7 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
   const appDisplayName = `${config.extra?.appDisplayName ?? ""}${table.nameSuffix}`;
   const appDisplayNameEn = `${config.extra?.appDisplayNameEn ?? ""}${table.nameSuffix}`;
   const metaSdk = resolveMetaSdk(variant);
+  const airbridgeToken = resolveAirbridgeToken(variant);
   const kakaoNativeAppKey = table.kakaoNativeAppKey ?? "";
   const googleIosClientId = table.googleIosClientId ?? "";
 
@@ -422,6 +452,7 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
         { appleTeamId: "9BCSD3ZRDQ", appGroup: `group.${bundleIdentifier}` },
       ],
       ...metaSdkPlugins(metaSdk, appDisplayName),
+      ...airbridgePlugins(airbridgeToken),
       ...socialLoginPlugins(kakaoNativeAppKey, googleIosClientId),
     ],
     ios: {
@@ -449,6 +480,8 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
       webBaseUrl,
       // 런타임 게이트(`lib/metaAdsSdk.ts`) — 비어 있으면 Meta SDK가 빌드에 없다는 뜻이다.
       metaAppId: metaSdk?.appId ?? "",
+      // 런타임 게이트(`lib/airbridge.ts`) — false면 Airbridge plugin이 빌드에 없다는 뜻이다.
+      airbridgeEnabled: airbridgeToken !== null,
       // 런타임 게이트(`lib/socialLogin.ts`)이고, 빈 값은 그 공급자를 이 앱 종류에서 쓰지 않는다는 뜻이다.
       socialLogin: {
         kakaoNativeAppKey,
