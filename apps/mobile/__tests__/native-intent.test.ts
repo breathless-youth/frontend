@@ -18,6 +18,18 @@ afterEach(() => {
 });
 
 describe("redirectSystemPath", () => {
+  it.each([
+    ["카카오", "kakaobff73043eb717b1be9775b230fdb5470://oauth?code=abc&state=xyz", false],
+    ["카카오 콜드 스타트", "kakaobff73043eb717b1be9775b230fdb5470://oauth?code=abc", true],
+    [
+      "구글",
+      "com.googleusercontent.apps.320200622450-7n4tsnasdc036knt49sgs66pigb2o2sg:/oauth2redirect?code=abc",
+      false,
+    ],
+  ])("%s 로그인 복귀 주소는 화면을 이동하지 않는다", (_name, path, initial) => {
+    expect(redirectSystemPath({ path, initial })).toBeNull();
+  });
+
   it("세션 화면이 없으면 받은 경로를 그대로 돌려준다", () => {
     const path = "https://web.focusmakers.app/social/join?code=4680";
 
