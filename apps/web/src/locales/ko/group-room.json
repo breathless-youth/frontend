@@ -118,6 +118,7 @@
     "label": "신청 중인 공개 그룹 {{count}}"
   },
   "publicRoomCard": {
+    "joined": "참여 중",
     "weeklyAverage": "이번 주 평균 <value>{{duration}}</value>",
     "aria": {
       "weeklyAverage": "이번 주 평균 {{duration}}"

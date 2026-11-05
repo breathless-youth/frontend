@@ -49,6 +49,8 @@ export interface PublicRoomSummary {
   memberCount: number;
   weeklyAverageSec: number;
   studyingCount: number;
+  /** 내가 이미 들어간 그룹이다. */
+  member: boolean;
 }
 
 export type ApplyState =

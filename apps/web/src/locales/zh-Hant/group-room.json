@@ -118,6 +118,7 @@
     "label": "申請中的公開群組 {{count}} 個"
   },
   "publicRoomCard": {
+    "joined": "已加入",
     "weeklyAverage": "本週平均 <value>{{duration}}</value>",
     "aria": {
       "weeklyAverage": "本週平均 {{duration}}"
