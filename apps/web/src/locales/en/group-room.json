@@ -128,6 +128,7 @@
     "label_other": "{{count}} pending requests"
   },
   "publicRoomCard": {
+    "joined": "Joined",
     "weeklyAverage": "This week's avg <value>{{duration}}</value>",
     "aria": {
       "weeklyAverage": "This week's average {{duration}}"

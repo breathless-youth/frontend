@@ -1,3 +1,4 @@
+import { Check } from "lucide-react";
 import { Trans, useTranslation } from "react-i18next";
 
 import { studyingCountText } from "../model/desks";
@@ -12,6 +13,7 @@ import { StudyStatus } from "./StudyStatus";
  *
  * 카드 전체가 공개 그룹 보기로 가는 버튼 하나다.
  * 여러 글 조각이 붙어 읽히지 않도록 카드 이름은 보이는 글을 쉼표로 이어 따로 만든다.
+ * 내가 들어간 그룹은 시험·목표 태그 옆에 표시를 두고, 색만으로 구분되지 않게 글자도 함께 쓴다.
  * 좁은 화면에서 이번 주 평균과 공부 상태가 한 줄에 들어가지 않으면 공부 상태가 다음 줄로 내려간다.
  */
 export function PublicRoomCard({
@@ -25,6 +27,7 @@ export function PublicRoomCard({
   const weeklyAverage = formatHoursMinutes(room.weeklyAverageSec);
   const label = [
     room.name,
+    ...(room.member ? [t("publicRoomCard.joined")] : []),
     memberCountText(room.memberCount),
     room.categoryLabel,
     t("publicRoomCard.aria.weeklyAverage", { duration: weeklyAverage }),
@@ -50,8 +53,14 @@ export function PublicRoomCard({
           {memberCountText(room.memberCount)}
         </span>
       </span>
-      <span className="flex">
+      <span className="flex items-center gap-1">
         <CategoryTag label={room.categoryLabel} />
+        {room.member && (
+          <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-brand-subtle py-px pr-1.75 pl-1.25 text-[11px] leading-4 font-bold text-brand-subtle-text">
+            <Check aria-hidden="true" size={11} strokeWidth={3} className="shrink-0" />
+            {t("publicRoomCard.joined")}
+          </span>
+        )}
       </span>
       <span className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <span className="text-[13px] leading-5 text-muted-foreground">

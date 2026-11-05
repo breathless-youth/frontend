@@ -166,6 +166,7 @@ export function toPublicRoomSummary(card: PublicGroupCard): PublicRoomSummary {
     memberCount: card.memberCount,
     weeklyAverageSec: card.weeklyAverageFocusSec,
     studyingCount: card.studyingCount,
+    member: card.member,
   };
 }
 
