@@ -7,7 +7,7 @@ import { type AppLocale, LOCALE_STORAGE_KEY, resolveLocale, SUPPORTED_LOCALES } 
  * 문구 카탈로그와 i18next 초기화
  *
  * 카탈로그 JSON은 `locales/<언어>/<네임스페이스>.json`을 두기만 하면 자동으로 실린다.
- * 두 언어를 합쳐도 수십 KB라 지연 로딩하지 않고 첫 렌더 전에 동기로 초기화한다.
+ * 네 언어를 합쳐도 압축하면 60KB 안팎이라 지연 로딩하지 않고 첫 렌더 전에 동기로 초기화한다.
  */
 type CatalogModules = Record<string, { default: ResourceKey }>;
 
@@ -59,7 +59,7 @@ if (!i18n.isInitialized) {
 /**
  * 한국어 화면인지 판정
  *
- * 국내 사용자 전용 기능(기프티콘 인터뷰, 카카오톡 공유)을 영어 화면에서 숨길 때 쓴다.
+ * 국내 사용자 전용 기능(기프티콘 인터뷰, 카카오톡 공유)을 한국어가 아닌 화면에서 숨길 때 쓴다.
  * 표시 언어는 문서를 연 뒤 바뀌지 않아 구독하지 않고 부를 때마다 읽는다.
  */
 export function isKoreanLocale(): boolean {

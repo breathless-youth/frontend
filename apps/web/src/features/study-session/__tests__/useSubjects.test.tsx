@@ -341,9 +341,17 @@ describe("subjectSuggestions", () => {
     expect(subjectSuggestions()).toEqual(["Math", "English", "Science", "History"]);
   });
 
+  it.each([
+    ["ja", ["国語", "数学", "英語", "理科"]],
+    ["zh-Hant", ["國文", "數學", "英文", "自然"]],
+  ])("%s 화면은 그 나라 학교 과목 이름을 추천한다", async (lng, expected) => {
+    await i18n.changeLanguage(lng);
+    expect(subjectSuggestions()).toEqual(expected);
+  });
+
   it("목록이 없는 언어는 영어 과목 이름을 추천한다", () => {
     // 지원 목록 밖 언어는 changeLanguage가 en으로 바꿔 버려서 값을 직접 넣는다.
-    i18n.language = "ja";
+    i18n.language = "fr";
     expect(subjectSuggestions()).toEqual(["Math", "English", "Science", "History"]);
   });
 });

@@ -121,6 +121,8 @@ describe("index.html 언어 선반영", () => {
     ["/", ["ko-KR"], "en"],
     ["/", ["ko-KR"], "fr"],
     ["/", ["ko-KR"], "ja"],
+    ["/", ["ko-KR"], "zh-Hant"],
+    ["/?lang=zh-Hant", ["ko-KR"], null],
     ["/?theme=dark&lang=en", ["ko-KR"], null],
   ] as const)(
     "search=%s languages=%j stored=%s 이면 resolveLocale과 같은 lang을 붙인다",
