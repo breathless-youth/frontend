@@ -19,7 +19,21 @@ import { subscribeToNativeMessages } from "@/lib/bridge";
 import { haptic } from "@/lib/haptics";
 import { hasRankingTab } from "@/lib/rankingCapability";
 import { requestSessionStart } from "@/lib/sessionStart";
-import { useUserId } from "@/lib/userId";
+import { useIdentityPending, useUserId } from "@/lib/userId";
+
+const FOCUS_START_SOURCES = [
+  "home",
+  "ranking_card",
+  "ranking_empty",
+  "ranking_records",
+] as const satisfies readonly FocusStartSource[];
+
+/** 집중 시작이 넘긴 누른 자리. 그 경로로 오지 않았으면 null이다. */
+function focusStartSourceOf(state: unknown): FocusStartSource | null {
+  const source =
+    typeof state === "object" && state !== null ? (state as { source?: unknown }).source : null;
+  return FOCUS_START_SOURCES.find((known) => known === source) ?? null;
+}
 
 /**
  * 첫 세션 가이드
@@ -31,32 +45,40 @@ import { useUserId } from "@/lib/userId";
  * `tab-focus`는 `ranking=1`과 같은 바이너리(26.42.0)부터 온다.
  * 그 표시가 없는 구버전 앱은 세션이나 거부 안내를 열기 직전에 보내는 권한 결과(`camera_permission_gate_resolved`, 1.0.2(8)부터)로 판단한다.
  * 집중 시작 이벤트(`focus_start_tapped`)는 카메라 권한 결과의 분모라 실제로 시작할 때 누른 자리와 함께 보낸다.
+ * 신호가 끝내 오지 않아도 갇히지 않게, 시작 요청을 보낸 뒤에는 `나중에 시작할게요`와 Escape로 나갈 수 있다.
  */
 export function SessionGuidePage() {
+  // 신원은 브리지 왕복 뒤에 오므로 정해진 뒤에 판정한다. 그 전에 판정하면 안 본 계정도 홈으로 튕긴다.
+  const identityPending = useIdentityPending();
+  const userId = useUserId();
+  if (identityPending) {
+    return <main className="theme-dark relative h-svh bg-background" />;
+  }
+  return <SessionGuide key={userId} userId={userId} />;
+}
+
+function SessionGuide({ userId }: { userId: number | null }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const userId = useUserId();
+  const source = focusStartSourceOf(location.state);
   // 끝까지 보면 기록이 남아도 이 화면이 다시 판정해 튕기지 않도록 들어올 때 한 번만 읽는다.
-  const [guideNeeded] = useState(() => userId !== null && sessionGuideState(userId) !== "seen");
+  const [guideNeeded] = useState(
+    () => source !== null && userId !== null && sessionGuideState(userId) !== "seen",
+  );
   const [step, setStep] = useState(0);
   const startingRef = useRef(false);
+  const requestPendingRef = useRef(false);
   const completedRef = useRef(false);
   const stopWaitingRef = useRef<() => void>(() => {});
   useSessionHelpFunnel(guideNeeded, step, "auto");
   useEffect(() => () => stopWaitingRef.current(), []);
 
-  if (!guideNeeded || userId === null) {
+  // 돌아갈 화면과 누른 자리는 집중 시작으로 왔을 때만 있다. 주소로 직접 열면 홈으로 보낸다.
+  if (!guideNeeded || userId === null || source === null) {
     return <Navigate to={{ pathname: "/home", search: location.search }} replace />;
   }
 
-  const state = location.state as { source?: FocusStartSource } | null;
-
-  // 집중 시작으로 온 경우에만 돌아갈 화면이 있다. 주소로 직접 열면 홈으로 보낸다.
   const leave = () => {
-    if (state?.source === undefined) {
-      void navigate({ pathname: "/home", search: location.search }, { replace: true });
-      return;
-    }
     void navigate(-1);
   };
 
@@ -75,8 +97,12 @@ export function SessionGuidePage() {
     }
     startingRef.current = true;
     haptic("medium");
+    // 요청이 실패해 다시 누른 것은 새 시작이 아니라 분모에 다시 세지 않는다.
+    if (!completedRef.current) {
+      trackFocusStartTapped(source);
+    }
     complete("start");
-    trackFocusStartTapped(state?.source ?? "home");
+    requestPendingRef.current = true;
     const tabFocusSupported = hasRankingTab();
     // 신호를 놓치지 않게 시작을 요청하기 전에 구독한다.
     const stopWaiting = subscribeToNativeMessages((message) => {
@@ -92,11 +118,15 @@ export function SessionGuidePage() {
     requestSessionStart(
       userId,
       () => void navigate({ pathname: "/room/1", search: location.search }, { replace: true }),
-    ).catch((error: unknown) => {
-      console.warn("[session-guide] failed to start session", error);
-      stopWaiting();
-      startingRef.current = false;
-    });
+    )
+      .catch((error: unknown) => {
+        console.warn("[session-guide] failed to start session", error);
+        stopWaiting();
+        startingRef.current = false;
+      })
+      .finally(() => {
+        requestPendingRef.current = false;
+      });
   };
 
   return (
@@ -106,23 +136,26 @@ export function SessionGuidePage() {
         onStepChange={setStep}
         onComplete={start}
         onLater={() => {
-          if (startingRef.current) {
+          if (requestPendingRef.current) {
             return;
           }
           complete("later");
           leave();
         }}
         onDismiss={() => {
-          if (startingRef.current) {
+          if (requestPendingRef.current) {
             return;
           }
-          trackStudySessionHelpDismissed({
-            step: step + 1,
-            stepId: SESSION_HELP_STEPS[step].id,
-            trigger: "auto",
-            roomType: "single",
-            reason: "escape",
-          });
+          // 이미 끝까지 본 노출은 중단으로 세지 않는다.
+          if (!completedRef.current) {
+            trackStudySessionHelpDismissed({
+              step: step + 1,
+              stepId: SESSION_HELP_STEPS[step].id,
+              trigger: "auto",
+              roomType: "single",
+              reason: "escape",
+            });
+          }
           leave();
         }}
       />

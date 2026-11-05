@@ -5,12 +5,20 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { markSessionGuideSeen, sessionGuideState } from "@/features/study-session/sessionGuide";
 import type * as Amplitude from "@/lib/amplitude";
+import type * as tokenSourceModule from "@/lib/auth/tokenSource";
+import type { AuthSnapshot, TokenSource } from "@/lib/auth/tokenSource";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { requestSessionStart } from "@/lib/sessionStart";
 import { SessionGuidePage } from "@/routes/SessionGuidePage";
 
 vi.mock("@/lib/sessionStart", () => ({ requestSessionStart: vi.fn() }));
 vi.mock("@/lib/haptics", () => ({ haptic: vi.fn() }));
+
+const identity = vi.hoisted(() => ({ source: null as TokenSource | null }));
+vi.mock("@/lib/auth/tokenSource", async (importOriginal) => ({
+  ...(await importOriginal<typeof tokenSourceModule>()),
+  getTokenSource: () => identity.source,
+}));
 
 const capability = vi.hoisted(() => ({ tabFocus: true }));
 vi.mock("@/lib/rankingCapability", () => ({
@@ -78,6 +86,7 @@ const startButton = () => screen.getByRole("button", { name: "순공 시작하�
 const laterButton = () => screen.getByRole("button", { name: "나중에 시작할게요" });
 
 afterEach(() => {
+  identity.source = null;
   capability.tabFocus = true;
   localStorage.clear();
   vi.clearAllMocks();
@@ -219,22 +228,6 @@ describe("SessionGuidePage", () => {
     expect(screen.getByTestId("ranking")).toBeInTheDocument();
   });
 
-  it("세션 시작을 기다리는 동안에는 나중에 시작할게요가 듣지 않는다", async () => {
-    vi.mocked(requestSessionStart).mockResolvedValue("native");
-    renderFromRanking();
-    await goToLastStep();
-
-    await userEvent.click(startButton());
-    await userEvent.click(laterButton());
-
-    expect(analytics.trackStudySessionHelpCompleted).toHaveBeenCalledExactlyOnceWith(
-      "auto",
-      "single",
-      "start",
-    );
-    expect(screen.queryByTestId("ranking")).not.toBeInTheDocument();
-  });
-
   it("브라우저에서는 쿼리를 지킨 채 세션 화면으로 바꿔 간다", async () => {
     vi.mocked(requestSessionStart).mockImplementation(async (_userId, navigateToRoom) => {
       navigateToRoom();
@@ -273,6 +266,7 @@ describe("SessionGuidePage", () => {
 
     expect(requestSessionStart).toHaveBeenCalledTimes(2);
     expect(analytics.trackStudySessionHelpCompleted).toHaveBeenCalledTimes(1);
+    expect(analytics.trackFocusStartTapped).toHaveBeenCalledTimes(1);
   });
 
   it("나중에 시작할게요는 세션 없이 이전 화면으로 가고 완료로 남긴다", async () => {
@@ -310,8 +304,62 @@ describe("SessionGuidePage", () => {
     expect(requestSessionStart).not.toHaveBeenCalled();
   });
 
-  it("이미 본 계정이 직접 열면 쿼리를 지킨 채 홈으로 바꿔 간다", async () => {
-    markSessionGuideSeen(7);
+  it("시작 요청을 보내는 동안에는 나중에 시작할게요와 Escape가 듣지 않는다", async () => {
+    vi.mocked(requestSessionStart).mockReturnValue(new Promise(() => {}));
+    renderFromRanking();
+    await goToLastStep();
+
+    await userEvent.click(startButton());
+    await userEvent.click(laterButton());
+    fireEvent.keyDown(screen.getByRole("dialog", { name: "세션 도움말" }), { key: "Escape" });
+
+    expect(screen.queryByTestId("ranking")).not.toBeInTheDocument();
+    expect(analytics.trackStudySessionHelpDismissed).not.toHaveBeenCalled();
+  });
+
+  it("시작 요청이 끝났는데 신호가 오지 않으면 나중에 시작할게요로 나갈 수 있고 완료는 한 번만 남는다", async () => {
+    vi.mocked(requestSessionStart).mockResolvedValue("native");
+    renderFromRanking();
+    await goToLastStep();
+    await userEvent.click(startButton());
+    await act(async () => {});
+
+    await userEvent.click(laterButton());
+
+    expect(await screen.findByTestId("ranking")).toBeInTheDocument();
+    expect(analytics.trackStudySessionHelpCompleted).toHaveBeenCalledExactlyOnceWith(
+      "auto",
+      "single",
+      "start",
+    );
+  });
+
+  it("시작 요청이 끝났는데 신호가 오지 않으면 Escape로 나갈 수 있다", async () => {
+    vi.mocked(requestSessionStart).mockResolvedValue("native");
+    renderFromRanking();
+    await goToLastStep();
+    await userEvent.click(startButton());
+    await act(async () => {});
+
+    fireEvent.keyDown(screen.getByRole("dialog", { name: "세션 도움말" }), { key: "Escape" });
+
+    expect(await screen.findByTestId("ranking")).toBeInTheDocument();
+    expect(analytics.trackStudySessionHelpDismissed).not.toHaveBeenCalled();
+  });
+
+  it("시작 요청이 끝난 뒤 순공 시작하기를 다시 눌러도 세션 시작을 또 요청하지 않는다", async () => {
+    vi.mocked(requestSessionStart).mockResolvedValue("native");
+    renderFromRanking();
+    await goToLastStep();
+    await userEvent.click(startButton());
+    await act(async () => {});
+
+    await userEvent.click(startButton());
+
+    expect(requestSessionStart).toHaveBeenCalledTimes(1);
+  });
+
+  it("집중 시작으로 오지 않고 직접 열면 가이드 없이 쿼리를 지킨 채 홈으로 바꿔 간다", async () => {
     render(
       <MemoryRouter initialEntries={["/session-guide?userId=7"]}>
         <Routes>
@@ -325,7 +373,61 @@ describe("SessionGuidePage", () => {
     expect(analytics.trackStudySessionHelpShown).not.toHaveBeenCalled();
   });
 
-  it("직접 열어 돌아갈 화면이 없으면 나중에 시작할게요가 홈으로 간다", async () => {
+  it("누른 자리가 알 수 없는 값이면 가이드 없이 홈으로 바꿔 간다", async () => {
+    render(
+      <MemoryRouter
+        initialEntries={[
+          { pathname: "/session-guide", search: "?userId=7", state: { source: "unknown" } },
+        ]}
+      >
+        <Routes>
+          <Route path="/session-guide" element={<SessionGuidePage />} />
+          <Route path="/home" element={<Probe testId="home" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByTestId("home")).toBeInTheDocument();
+  });
+
+  it("신원이 늦게 와도 홈으로 튕기지 않고 도착한 뒤 가이드를 띄운다", async () => {
+    let snapshot: AuthSnapshot | null = null;
+    const listeners = new Set<(next: AuthSnapshot) => void>();
+    identity.source = {
+      getAccessToken: vi.fn(),
+      getCurrentToken: vi.fn(),
+      refresh: vi.fn(),
+      getUserId: () => snapshot?.userId ?? null,
+      hasSettled: () => snapshot !== null,
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+    };
+    render(
+      <MemoryRouter
+        initialEntries={[{ pathname: "/session-guide", search: "", state: { source: "home" } }]}
+      >
+        <Routes>
+          <Route path="/session-guide" element={<SessionGuidePage />} />
+          <Route path="/home" element={<Probe testId="home" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.queryByTestId("home")).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "세션 도움말" })).not.toBeInTheDocument();
+
+    act(() => {
+      snapshot = { userId: 7, accessToken: "t" };
+      for (const listener of listeners) listener(snapshot);
+    });
+
+    expect(await screen.findByRole("dialog", { name: "세션 도움말" })).toBeInTheDocument();
+    expect(screen.queryByTestId("home")).not.toBeInTheDocument();
+  });
+
+  it("이미 본 계정이 직접 열면 쿼리를 지킨 채 홈으로 바꿔 간다", async () => {
+    markSessionGuideSeen(7);
     render(
       <MemoryRouter initialEntries={["/session-guide?userId=7"]}>
         <Routes>
@@ -334,10 +436,8 @@ describe("SessionGuidePage", () => {
         </Routes>
       </MemoryRouter>,
     );
-    await goToLastStep();
-
-    await userEvent.click(laterButton());
 
     expect(await screen.findByTestId("home")).toHaveTextContent("/home?userId=7");
+    expect(analytics.trackStudySessionHelpShown).not.toHaveBeenCalled();
   });
 });
