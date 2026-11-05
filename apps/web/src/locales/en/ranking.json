@@ -12,8 +12,8 @@
     "focusTime": "Focus time",
     "focusRate": "Focus rate",
     "timeSlot": "Time slot",
-    "totalTime": "Total time",
-    "totalDays": "Total days",
+    "totalTime": "Total study time",
+    "totalDays": "Days studied",
     "maxStreak": "Streak"
   },
   "period": {
@@ -93,7 +93,7 @@
     "weekly": "Last week's final result",
     "monthly": "Last month's final result",
     "rankPrefix": "#{{rank}} · ",
-    "showRecords": "View records ›"
+    "showRecords": "View history ›"
   },
   "live": {
     "rankUp_one": "Up {{steps}} spot",
@@ -165,9 +165,9 @@
   },
   "medalButton": {
     "aria": {
-      "label": "Ranking records",
-      "withTotal_one": "Ranking records, {{count}} medal",
-      "withTotal_other": "Ranking records, {{count}} medals"
+      "label": "Ranking history",
+      "withTotal_one": "Ranking history, {{count}} medal",
+      "withTotal_other": "Ranking history, {{count}} medals"
     }
   },
   "rankChips": {
@@ -182,8 +182,8 @@
     }
   },
   "records": {
-    "title": "Ranking records",
-    "loadError": "Couldn't load ranking records",
+    "title": "Ranking history",
+    "loadError": "Couldn't load ranking history",
     "empty": "No records match",
     "aria": {
       "item": "#{{rank}}, {{name}}, {{period}}, {{value}}"
@@ -222,7 +222,7 @@
     "more": "+{{count}} more",
     "totalSoFar_one": "You've earned <b>{{total}} medal</b> so far",
     "totalSoFar_other": "You've earned <b>{{total}} medals</b> so far",
-    "showRecords": "View ranking records",
+    "showRecords": "View ranking history",
     "aria": {
       "countByRank_one": "{{count}} medal for #{{rank}}",
       "countByRank_other": "{{count}} medals for #{{rank}}"

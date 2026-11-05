@@ -3,16 +3,18 @@
     "title": "Home"
   },
   "dday": {
-    "remaining": "D-{{days}}",
-    "today": "D-Day",
-    "passed": "D+{{days}}"
+    "remaining_one": "{{days}} day left",
+    "remaining_other": "{{days}} days left",
+    "today": "Today",
+    "passed_one": "{{days}} day ago",
+    "passed_other": "{{days}} days ago"
   },
   "ddayBlock": {
-    "placeholder": "D-Day",
+    "placeholder": "Countdown",
     "emptyCaption": "Set a target date",
     "aria": {
-      "set": "Set D-Day",
-      "edit": "{{label}} {{title}}, edit D-Day"
+      "set": "Set countdown",
+      "edit": "{{label}} {{title}}, edit countdown"
     }
   },
   "ddaySheet": {
