@@ -10,6 +10,11 @@
 export interface UserRegisterRequest {
   /** 앱이 첫 실행 때 생성해 기기 보안 저장소에 보관하는 UUID. 서버가 소문자로 정규화한다. */
   deviceId: string;
+  /**
+   * 휴대폰 언어 태그 원문(BCP 47, 예: `zh-Hant-HK`). 서버가 기본 닉네임 목록을 고른다.
+   * 없으면 서버는 한국어 목록을 쓴다. 근거는 백엔드 ADR-0044다.
+   */
+  language?: string;
 }
 
 export interface UserRegisterResponse {
