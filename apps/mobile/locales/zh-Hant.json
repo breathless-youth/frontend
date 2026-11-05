@@ -1,5 +1,5 @@
 {
-  "NSCameraUsageDescription": "用於 AI 分析、縮時攝影，以及與其他成員分享相機畫面。AI 分析用的影像只會在裝置上處理，照片也只會留在你的裝置上。",
+  "NSCameraUsageDescription": "需要存取相機，才能測量專注時間、記錄縮時攝影及使用視訊共讀。讀書畫面不會儲存在伺服器。",
   "NSMotionUsageDescription": "用於偵測你是否拿起或觸碰裝置。感測器資料只會在裝置上使用，不會儲存。",
   "NSUserTrackingUsageDescription": "用於了解你從哪裡安裝 App，以及廣告成效。相機影像和臉部資料不會用於廣告。",
   "NSPhotoLibraryAddUsageDescription": "需要加入照片的權限，才能將縮時影片儲存到「照片」App。",
