@@ -29,6 +29,24 @@ test("꺼진 빌드는 SDK를 부르지 않는다", () => {
   expect(mockTrackEvent).not.toHaveBeenCalled();
 });
 
+test("SDK 로드가 던져도 호출부로 새지 않고 그 실행에서는 꺼진다 — 네이티브 모듈 없는 바이너리", () => {
+  mockExtra.airbridgeEnabled = true;
+  const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+  let mod!: typeof AirbridgeModule;
+  jest.isolateModules(() => {
+    jest.doMock("airbridge-react-native-sdk", () => {
+      throw new Error("native module missing");
+    });
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- isolateModules 안의 재로드는 require뿐이다.
+    mod = require("../airbridge");
+  });
+  expect(() => mod.trackAirbridgeConversion("fb_mobile_complete_registration")).not.toThrow();
+  expect(() => mod.trackAirbridgeAnalyticsEvent("tab_pressed", { tab: "home" })).not.toThrow();
+  expect(warn).toHaveBeenCalledTimes(1);
+  warn.mockRestore();
+  jest.doMock("airbridge-react-native-sdk", () => ({ Airbridge: { trackEvent: mockTrackEvent } }));
+});
+
 test("Amplitude 사본은 커스텀 이벤트, Meta 전환은 표준 이벤트로 간다", () => {
   const ab = load(true);
   ab.trackAirbridgeAnalyticsEvent("study_session_ended", { room_type: "single", focus_sec: 61 });

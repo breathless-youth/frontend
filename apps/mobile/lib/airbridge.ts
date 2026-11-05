@@ -22,24 +22,28 @@ type Attributes = Record<string, string | number | boolean>;
 let sdk: typeof AirbridgeSdk.Airbridge | null | undefined;
 
 function airbridge(): typeof AirbridgeSdk.Airbridge | null {
-  if (sdk === undefined) {
-    sdk =
-      Constants.expoConfig?.extra?.airbridgeEnabled === true
-        ? // eslint-disable-next-line @typescript-eslint/no-require-imports -- 조건부 동기 로드는 require뿐이다.
-          (require("airbridge-react-native-sdk") as typeof AirbridgeSdk).Airbridge
-        : null;
+  if (sdk !== undefined) return sdk;
+  sdk = null;
+  if (Constants.expoConfig?.extra?.airbridgeEnabled !== true) return sdk;
+  // SDK는 불러오는 순간 네이티브 모듈로 이벤트 emitter를 만들어, 모듈이 없는 바이너리(토큰 든 Metro에 붙인
+  // 이전 Dev Client)에서는 여기서 던진다. 분석 실패가 가입·브리지 처리를 끊지 않도록 꺼진 채로 둔다.
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- 조건부 동기 로드는 require뿐이다.
+    sdk = (require("airbridge-react-native-sdk") as typeof AirbridgeSdk).Airbridge;
+  } catch (error) {
+    console.warn("[airbridge] SDK 로드 실패 — 이 실행에서는 끈다", error);
   }
   return sdk;
 }
 
 function track(category: string, semantic: Attributes = {}, custom: Attributes = {}): void {
-  const ab = airbridge();
-  if (ab === null) return;
+  const client = airbridge();
+  if (client === null) return;
   if (__DEV__) {
     console.warn("[airbridge] → SDK", category, semantic, custom);
   }
   try {
-    ab.trackEvent(category, semantic, custom);
+    client.trackEvent(category, semantic, custom);
   } catch (error) {
     console.warn("[airbridge] 이벤트 기록 실패", category, error);
   }
@@ -78,6 +82,6 @@ export function trackAirbridgeConversion(
 ): void {
   const toStandard = STANDARD_CONVERSIONS[metaName];
   if (toStandard === undefined) return;
-  const [category, semantic] = toStandard(params);
-  track(category, semantic);
+  const [category, attributes] = toStandard(params);
+  track(category, attributes);
 }
