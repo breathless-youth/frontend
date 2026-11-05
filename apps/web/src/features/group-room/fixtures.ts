@@ -371,10 +371,10 @@ export function buildGroupRoomFixtures(now: Date) {
     roomForm,
     members,
     blocked,
-    // 그룹 이름 한도 20자와 닉네임 한도 12자를 넓은 한글로 채워 카드와 줄이 밀리는지 본다.
+    // 그룹 이름 한도 20자와 닉네임 한도 40칸을 넓은 한글로 채워 카드와 줄이 밀리는지 본다.
     longest: {
       roomName: "수능만점을향해달리는새벽다섯시기상스터디",
-      nickname: "합격할때까지밤새는수험생",
+      nickname: "합격할때까지밤새는수험생포기는없다화이팅",
     },
   };
 }
