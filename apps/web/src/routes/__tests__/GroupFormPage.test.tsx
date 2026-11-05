@@ -144,16 +144,6 @@ describe("그룹 만들기", () => {
     expect(await screen.findByRole("heading", { name: "우리 반 저녁 스터디" })).toBeInTheDocument();
   });
 
-  it("그룹장인 그룹이 이미 2개면 토스트로 알린다", async () => {
-    mockGroupApi("limits");
-    mockProfile({ category: null });
-    renderGroupRoute("/social/groups/new?groupRooms=1");
-    const user = userEvent.setup();
-    await user.type(await screen.findByRole("textbox", { name: "그룹 이름" }), "세 번째 그룹");
-    await user.click(screen.getByRole("button", { name: "그룹 만들기" }));
-    expect(await screen.findByText("그룹은 2개까지 만들 수 있어요")).toBeInTheDocument();
-  });
-
   it("들어간 그룹과 신청이 이미 5개면 그룹과 신청을 합쳐 5개까지라고 알린다", async () => {
     const api = mockGroupApi("default");
     api.createGroup.mockRejectedValueOnce(new ApiError("x", 409, "GROUP_SLOT_LIMIT"));

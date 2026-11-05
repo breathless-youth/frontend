@@ -416,7 +416,7 @@ const CASES: { id: string; title: string; Screen: ComponentType<CaseProps> }[] =
   { id: "1-15", title: "신청 중인 공개 그룹 시트", Screen: () => <SocialHomeCase sheetOpen /> },
   {
     id: "1-16",
-    title: "그룹장인 그룹이 2개일 때 + 메뉴",
+    title: "그룹과 신청이 합쳐 5개일 때 + 메뉴",
     Screen: () => <SocialHomeCase canCreate={false} fabOpen />,
   },
   { id: "2-1", title: "공개 그룹 탭", Screen: () => <SocialHomeCase initialTab="public" /> },
