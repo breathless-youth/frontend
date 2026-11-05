@@ -65,6 +65,13 @@ describe("LaunchGoalOverlay", () => {
     expect(screen.getByTestId("launch-goal-divider")).toBeTruthy();
   });
 
+  it("긴 닉네임은 한 줄에서 말줄임한다", () => {
+    const nickname = "합격할때까지밤새는수험생포기는없다화이팅";
+    render(<LaunchGoalOverlay launchGoal={{ ...GOAL, nickname }} onDone={jest.fn()} />);
+
+    expect(screen.getByText(nickname).props.numberOfLines).toBe(1);
+  });
+
   it("닉네임이 없으면 닉네임과 구분선을 그리지 않는다", () => {
     render(
       <LaunchGoalOverlay launchGoal={{ goal: "하루 6시간", nickname: null }} onDone={jest.fn()} />,
