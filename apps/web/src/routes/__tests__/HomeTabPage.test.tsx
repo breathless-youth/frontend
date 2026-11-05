@@ -21,6 +21,7 @@ import {
 } from "@/features/onboarding/onboardingGate";
 import { todayLabel } from "@/features/home/homeFormat";
 import { hasShownRecoveryThisLaunch } from "@/features/study-session/recoveryLaunchStore";
+import { markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import { LAUNCH_SIGNAL_WAIT_MS } from "@/features/study-session/useLaunchSessionRecovery";
 import { HomeTabPage } from "@/routes/HomeTabPage";
 
@@ -617,6 +618,8 @@ describe("HomeTabPage", () => {
   });
 
   describe("집중 시작 CTA", () => {
+    beforeEach(() => markSessionGuideSeen(7));
+
     it("쿼리를 승계해 세션 라우트로 바로 이동하고 출처를 남긴다", async () => {
       mockedStats.mockResolvedValue(statsResponse);
       mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });

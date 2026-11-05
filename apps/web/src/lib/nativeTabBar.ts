@@ -49,6 +49,7 @@ const FULL_SCREEN_PATHS = [
   "/timelapses",
   "/ranking/records",
   "/onboarding",
+  "/session-guide",
   "/blocks",
 ];
 

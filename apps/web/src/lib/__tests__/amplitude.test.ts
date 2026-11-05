@@ -1292,7 +1292,10 @@ describe("세션 도움말 이벤트", () => {
         "study_session_help_step_viewed",
         { step: 2, step_id: "measuring", trigger: "menu", room_type: "single", help_version: 2 },
       ],
-      ["study_session_help_completed", { trigger: "menu", room_type: "single", help_version: 2 }],
+      [
+        "study_session_help_completed",
+        { trigger: "menu", cta: "start", room_type: "single", help_version: 2 },
+      ],
       [
         "study_session_help_dismissed",
         {
