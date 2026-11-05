@@ -1,5 +1,6 @@
 import { Navigate, useSearchParams } from "react-router-dom";
 
+import { GroupLoginGate } from "@/features/login/GroupLoginGate";
 import { parseInviteParam } from "@/features/social-room/inviteParam";
 import { hasGroupRooms } from "@/lib/groupRoomCapability";
 import { GroupJoinPage } from "@/routes/GroupJoinPage";
@@ -26,5 +27,9 @@ export function InviteJoinRoute() {
     kept.delete("code");
     return <Navigate to={{ pathname: "/social", search: kept.toString() }} replace />;
   }
-  return <GroupJoinPage key={rawCode ?? ""} />;
+  return (
+    <GroupLoginGate entry="invite">
+      <GroupJoinPage key={rawCode ?? ""} />
+    </GroupLoginGate>
+  );
 }
