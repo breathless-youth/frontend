@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { countGraphemes } from "@/lib/graphemes";
+import { NICKNAME_MAX_WIDTH, nicknameWidth } from "@/features/profile/profileValidation";
 
 import { buildGroupRoomFixtures } from "../fixtures";
 import { roomStatusText, studyingCountText } from "../model/desks";
@@ -97,7 +97,6 @@ describe("buildGroupRoomFixtures", () => {
 
   it("가장 긴 이름은 그룹 이름 한도와 닉네임 한도를 채운다", () => {
     expect(countGroupText(fixtures.longest.roomName)).toBe(GROUP_ROOM_LIMITS.roomNameMax);
-    // 프로필 닉네임은 12자까지 쓸 수 있다.
-    expect(countGraphemes(fixtures.longest.nickname)).toBe(12);
+    expect(nicknameWidth(fixtures.longest.nickname)).toBe(NICKNAME_MAX_WIDTH);
   });
 });
