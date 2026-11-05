@@ -1,0 +1,43 @@
+{
+  "title": "編輯個人檔案",
+  "loadError": "無法載入個人檔案",
+  "saved": "已儲存個人檔案",
+  "fields": {
+    "nickname": "暱稱",
+    "goal": "目標",
+    "category": "準備的考試"
+  },
+  "save": {
+    "idle": "儲存",
+    "pending": "儲存中…"
+  },
+  "errors": {
+    "nicknameTaken": "這個暱稱已經有人使用",
+    "nicknameRule": "可使用韓文、英文字母、數字、表情符號和空格，長度為 2～12 個字",
+    "goalTooLong": "目標最多可輸入 20 個字",
+    "unknownCategory": "清單中沒有這個類別"
+  },
+  "categories": {
+    "PROFESSIONAL": "專技考試",
+    "CSAT": "學測",
+    "JOB": "求職",
+    "CERTIFICATE": "證照",
+    "CIVIL_SERVICE": "公職考試",
+    "LANGUAGE": "語言",
+    "ETC": "其他",
+    "SCHOOL_EXAM": "段考",
+    "UNIVERSITY_EXAM": "大學考試"
+  },
+  "photo": {
+    "sheetTitle": "大頭貼",
+    "change": "更換大頭貼",
+    "remove": "移除大頭貼",
+    "changed": "已更換大頭貼",
+    "removed": "已移除大頭貼",
+    "unusable": "無法使用這張照片，請選擇其他照片",
+    "uploadFailed": "無法上傳照片，請再試一次",
+    "aria": {
+      "change": "更換大頭貼"
+    }
+  }
+}

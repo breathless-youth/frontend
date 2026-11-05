@@ -1,0 +1,72 @@
+{
+  "header": {
+    "title": "ホーム"
+  },
+  "dday": {
+    "remaining": "あと{{days}}日",
+    "today": "当日",
+    "passed": "{{days}}日経過"
+  },
+  "ddayBlock": {
+    "placeholder": "カウントダウン",
+    "emptyCaption": "目標日を設定しましょう",
+    "aria": {
+      "set": "カウントダウンを設定",
+      "edit": "{{label}}、{{title}}、カウントダウンを編集"
+    }
+  },
+  "ddaySheet": {
+    "title": "目標日を設定",
+    "pickDate": "日付を選んでください",
+    "titleLabel": "タイトル",
+    "titlePlaceholder": "例：期末テスト",
+    "titleTooLong": "{{max}}文字まで入力できます",
+    "save": "保存",
+    "saving": "保存中",
+    "delete": "削除",
+    "deleteConfirm": "目標日を削除しますか？",
+    "error": {
+      "pastDate": "今日以降の日付を選んでください"
+    }
+  },
+  "ddayCalendar": {
+    "jump": {
+      "oneMonth": "1か月後",
+      "sixMonths": "6か月後",
+      "oneYear": "1年後"
+    },
+    "aria": {
+      "prevMonth": "前の月",
+      "nextMonth": "次の月",
+      "monthPicker": "年と月を選ぶ",
+      "prevYear": "前の年",
+      "nextYear": "次の年"
+    }
+  },
+  "streak": {
+    "title": "{{count}}日連続で勉強中",
+    "tooltip": "1日5分以上勉強すると、連続記録が続きます",
+    "aria": {
+      "tooltip": "連続記録の条件について"
+    }
+  },
+  "stats": {
+    "todayFocus": "今日の集中時間",
+    "hoursUnit": "時間",
+    "minutesUnit": "分",
+    "focusRate": "集中率",
+    "studyTotal": "総勉強時間",
+    "longestFocus": "最長集中時間",
+    "loadFailed": "記録を読み込めませんでした"
+  },
+  "startFocus": "集中をはじめる",
+  "invite": {
+    "title": "今日はひとりで集中するのが難しいですか？<br/>みんなと一緒に勉強してみましょう",
+    "cta": "ソーシャルルームへ"
+  },
+  "unregistered": "このデバイスはまだ登録されていません。アプリで開くと記録が保存されます",
+  "demo": {
+    "tagline": "AIビジョンで集中時間を測定するカメラスタディ",
+    "enter": "勉強ルームに入る（デモ）"
+  }
+}

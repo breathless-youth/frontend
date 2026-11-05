@@ -1,0 +1,162 @@
+{
+  "status": {
+    "focus": "正在測量專注時間",
+    "away": "你好像離開座位了",
+    "phone": "你好像在使用手機",
+    "device": "你好像在操作裝置",
+    "sleep": "你好像在打瞌睡",
+    "pause": "已暫停測量"
+  },
+  "exitConfirm": {
+    "title": "要結束讀書嗎？",
+    "cancel": "繼續讀書",
+    "confirm": "結束讀書"
+  },
+  "exitDescription": {
+    "saved": "目前專注的 {{duration}} 會儲存下來",
+    "subMinute": "不到 1 分鐘的讀書不會顯示在紀錄中"
+  },
+  "inviteConfirm": {
+    "title": "要結束目前的讀書並接受邀請嗎？",
+    "cancel": "繼續讀書",
+    "confirm": "加入"
+  },
+  "cameraPrompt": {
+    "title": "請確認相機位置",
+    "description": "請調整位置，讓臉和書桌都入鏡",
+    "notice": "影像不會離開你的裝置",
+    "cancel": "以簡潔模式開始",
+    "confirm": "開啟相機",
+    "faceMaskTooltip": "快速移動時，臉部可能會短暫露出",
+    "faceMaskCaption": "縮時攝影的「遮住臉部」需要另外設定"
+  },
+  "cameraToast": {
+    "flipped": "已切換相機",
+    "noAlternative": "沒有可切換的相機",
+    "cameraOff": "相機已關閉"
+  },
+  "subMinuteEnd": {
+    "title": "讀書結束了",
+    "cta": "返回首頁"
+  },
+  "autoEnd": {
+    "title": "已儲存目前為止的紀錄",
+    "backgroundBody": "螢幕關閉時無法測量，\n所以已自動結束讀書",
+    "focusLabel": "專注時間",
+    "studyLabel": "總讀書時間",
+    "cta": "查看結果"
+  },
+  "submit": {
+    "saving": "儲存中…",
+    "retry": "重新提交",
+    "unregistered": "這部裝置尚未註冊，因此不會儲存紀錄",
+    "unsaved": "讀書時間 {{elapsed}} — 裝置尚未註冊，因此沒有儲存。"
+  },
+  "submitError": {
+    "generic": "無法儲存讀書紀錄，請稍後再試",
+    "invalid": "無法儲存讀書紀錄，紀錄中有錯誤的值",
+    "userNotFound": "無法確認使用者資訊",
+    "conflict": "這筆讀書紀錄已經儲存過了",
+    "server": "無法儲存讀書紀錄，請稍後再試"
+  },
+  "duration": {
+    "underMinute": "不到 1 分鐘",
+    "srHours": "{{count}} 小時",
+    "srMinutes": "{{count}} 分鐘",
+    "srSeconds": "{{count}} 秒"
+  },
+  "timer": {
+    "total": "總計 {{elapsed}}",
+    "srFocus": "專注時間 {{duration}}",
+    "srTotal": "總讀書時間 {{duration}}",
+    "srSubjectFocus": "專注 {{duration}}"
+  },
+  "controls": {
+    "pause": "暫停",
+    "resume": "繼續",
+    "exit": "結束讀書",
+    "simpleModeToggle": "切換為簡潔模式",
+    "sideActions": "工具",
+    "subjectSelected": "已選取科目"
+  },
+  "moreMenu": {
+    "trigger": "更多",
+    "flipCamera": "切換相機",
+    "help": "查看說明",
+    "shareInvite": "分享邀請碼"
+  },
+  "subjectSheet": {
+    "title": "科目",
+    "empty": "新增要讀的科目吧",
+    "emptySub": "點一下就能建立科目，之後也能在這個畫面修改",
+    "addSubject": "新增科目",
+    "addTask": "新增待辦事項",
+    "reorder": "重新排序",
+    "edit": "編輯",
+    "remove": "移除",
+    "done": "完成",
+    "subjectLimit": "最多可以建立 20 個科目",
+    "taskLimit": "每個科目最多可以建立 30 個待辦事項",
+    "loadFailed": "無法載入科目",
+    "saveFailed": "無法儲存，請再試一次",
+    "duplicateName": "這個科目已經存在",
+    "overLimit": "最多可輸入 {{count}} 個字",
+    "suggestions": "推薦科目",
+    "subjectName": "科目名稱",
+    "newSubjectName": "新科目名稱",
+    "taskName": "待辦事項名稱",
+    "newTaskName": "新待辦事項名稱",
+    "taskProgress": "待辦事項完成率"
+  },
+  "subjectRow": {
+    "move": "調整「{{name}}」的順序",
+    "start": "開始測量「{{name}}」",
+    "stop": "停止測量「{{name}}」",
+    "tasks": "「{{name}}」的待辦事項"
+  },
+  "help": {
+    "dialog": "讀書畫面說明",
+    "nextOverlay": "下一則說明",
+    "prev": "上一步",
+    "next": "下一步",
+    "awayPill": "<hl>離開座位</hl>或<hl>打瞌睡</hl>時\n會在這裡提醒你",
+    "awayTimer": "這段時間<hl>專注時間</hl>會暫停",
+    "measuringPill": "回到座位就會<hl>重新測量</hl>\n測量畫面不會離開<hl>你的裝置</hl>\n請放心😌",
+    "measuringTimer": "<hl>專注時間</hl>\n又開始計時了⏰",
+    "cameraTap": "點一下畫面\n就會切換成<hl>相機畫面</hl>",
+    "buttonsSide": "<hl>背景聲音</hl>、<hl>科目</hl>和<hl>計時器</hl>\n都在這裡開啟",
+    "buttonsPause": "想休息時\n請點<hl>暫停</hl>",
+    "finishMore": "隨時可以在「更多」選單\n再次查看這份說明",
+    "finishCenter": "準備好了\n開始<hl>專注</hl>吧？",
+    "finishCta": "開始專注"
+  },
+  "recovery": {
+    "title": "已復原未儲存的紀錄",
+    "body": "應用程式意外關閉了。\n已為你儲存讀書紀錄。",
+    "date": "日期",
+    "time": "開始 · 結束",
+    "timeRange": "{{start}}～{{end}}",
+    "studyTime": "總讀書時間",
+    "focusTime": "專注時間",
+    "confirm": "好"
+  },
+  "result": {
+    "completeTitle": "完成今天的讀書",
+    "completeDescription": "你堅持到最後了！",
+    "focusLabel": "專注時間",
+    "totalPrefix": "總讀書時間",
+    "focusRate": "專注率 {{percent}}%",
+    "timelineTitle": "讀書時間軸",
+    "longestFocusLabel": "最長專注時間",
+    "todayFocusLabel": "今天累計專注時間",
+    "studyDaysLabel": "讀書天數",
+    "studyDays": "{{count}} 天",
+    "ctaHome": "返回首頁",
+    "ctaRecords": "前往紀錄"
+  },
+  "legend": {
+    "focus": "專注",
+    "distract": "自動暫停",
+    "pause": "暫停"
+  }
+}

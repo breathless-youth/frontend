@@ -1,0 +1,41 @@
+{
+  "page": {
+    "titleAdd": "手動で追加",
+    "titleEdit": "記録を編集",
+    "unregistered": "このデバイスはまだ登録されていません。アプリで開くと記録が保存されます",
+    "loadFailed": "記録を読み込めませんでした"
+  },
+  "form": {
+    "start": "開始",
+    "end": "終了",
+    "nextDay": "翌日",
+    "chipMinutes": "+{{minutes}}分",
+    "chipHours": "+{{hours}}時間",
+    "subjectLabel": "科目を選択",
+    "notReflected": "手動で追加した記録は、連続記録・ランキングには反映されません",
+    "delete": "削除",
+    "save": "保存"
+  },
+  "deleteDialog": {
+    "title": "この記録を削除しますか？",
+    "confirm": "削除"
+  },
+  "message": {
+    "tooShort": "1分以上にしてください",
+    "future": "現在より後の時間は追加できません",
+    "allOverlap": "すでに記録がある時間です",
+    "failed": "保存できませんでした。もう一度お試しください",
+    "overlapNotice": "すでに記録されている{{removed}}（{{start}}〜{{end}}）を除いて、{{saved}}を保存します"
+  },
+  "subject": {
+    "none": "科目なし"
+  },
+  "readAloud": {
+    "label": "手動の記録、{{subject}}、{{start}}から{{end}}、{{length}}",
+    "withPeriod": "{{period}}{{time}}",
+    "am": "午前",
+    "pm": "午後",
+    "hour": "{{hour}}時",
+    "hourMinute": "{{hour}}時{{minute}}分"
+  }
+}
