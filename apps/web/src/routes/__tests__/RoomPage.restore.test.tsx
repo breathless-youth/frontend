@@ -62,11 +62,6 @@ function renderRoom() {
   );
 }
 
-// 첫 도움말이 떠 있는 동안에는 세션 화면이 없어서 이미 끝까지 본 계정으로 연다.
-beforeEach(() => {
-  localStorage.setItem("focusmakers:session-guide:7", "seen");
-});
-
 describe("RoomPage 복원 게이트", () => {
   beforeEach(() => {
     useActiveSessionRestore.mockReset();

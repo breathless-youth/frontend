@@ -3,28 +3,34 @@ import type { SessionHelpStepId } from "@/lib/amplitude";
 /**
  * 세션 도움말의 기기 기록
  *
- * 세션 도움말은 모든 사용자에게 세션을 시작하기 전에 뜬다.
+ * 처음 보는 계정이 집중 시작을 누르면 세션과 카메라 권한 요청보다 먼저 가이드 화면(`SessionGuidePage`)이 뜬다.
  * 마지막 단계의 `순공 시작하기`나 `나중에 시작할게요`까지 끝낸 계정은 다시 뜨지 않는다.
- * 앱을 끄거나 Escape로 닫아 끝까지 보지 못한 계정은 다음 세션에 다시 뜬다.
- * 기록은 기기 저장소에 계정별로 남기므로 기기를 바꾸거나 저장소를 쓸 수 없는 기기에서는 다시 뜬다.
+ * 앱을 끄거나 뒤로 가거나 Escape로 닫아 끝까지 보지 못한 계정은 다음 집중 시작에 다시 뜬다.
+ * 기록은 기기 저장소에 계정별로 남기므로 기기를 바꾸면 다시 뜨고, 저장소를 쓸 수 없는 기기에서는 앱을 다시 켜면 다시 뜬다.
  */
 export type SessionGuideState = "seen" | null;
 
 const keyOf = (userId: number) => `focusmakers:session-guide:${userId}`;
 
+/** 저장소에 남기지 못한 계정. 집중 시작을 누를 때마다 가이드가 또 뜨지 않게 이 문서가 살아 있는 동안 기억한다. */
+const seenWithoutStorage = new Set<number>();
+
 export function sessionGuideState(userId: number): SessionGuideState {
   try {
-    return localStorage.getItem(keyOf(userId)) === "seen" ? "seen" : null;
+    if (localStorage.getItem(keyOf(userId)) === "seen") {
+      return "seen";
+    }
   } catch {
-    return null;
+    // 읽지 못하면 아래 기억으로 판정한다.
   }
+  return seenWithoutStorage.has(userId) ? "seen" : null;
 }
 
 export function markSessionGuideSeen(userId: number): void {
   try {
     localStorage.setItem(keyOf(userId), "seen");
   } catch {
-    // 남기지 못하면 다음 세션에 한 번 더 보일 뿐이다.
+    seenWithoutStorage.add(userId);
   }
 }
 

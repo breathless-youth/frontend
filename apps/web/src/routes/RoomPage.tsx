@@ -94,11 +94,7 @@ import type {
   SessionEndReason,
   SessionState,
 } from "@/features/study-session/sessionState";
-import {
-  SESSION_HELP_STEPS,
-  markSessionGuideSeen,
-  sessionGuideState,
-} from "@/features/study-session/sessionGuide";
+import { SESSION_HELP_STEPS, markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import { SESSION_LAYER_INSET } from "@/features/study-session/sessionLayout";
 import { MANUAL_END_REASON, statusLabelKey } from "@/features/study-session/sessionState";
 import {
@@ -115,6 +111,7 @@ import { useModalOverlayOpen } from "@/lib/nativeModalOverlay";
 import { useIdentityPending, useUserId } from "@/lib/userId";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
+import { useSessionHelpFunnel } from "@/features/study-session/useSessionHelpFunnel";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import type { SubjectSelection } from "@/features/study-session/subjectSegments";
 import { deriveSubjectTotals, liveSubjectTime } from "@/features/study-session/subjectSegments";
@@ -127,7 +124,7 @@ import { useSessionOrientationAnalytics } from "@/features/study-session/useSess
 import { useTrackedVisionDetector } from "@/features/study-session/useVisionReadyTracking";
 import type { FaceSpot } from "@/features/study-session/vision/faceSpot";
 import { createTimelapseRecorder } from "@/features/timelapse/timelapseRecorder";
-import type { CameraPromptChoice, SessionHelpTrigger } from "@/lib/amplitude";
+import type { CameraPromptChoice } from "@/lib/amplitude";
 import {
   stageStudyResultExit,
   trackSessionNoticeConfirmed,
@@ -140,8 +137,6 @@ import {
   trackStudySessionFaceMaskToggled,
   trackStudySessionHelpCompleted,
   trackStudySessionHelpDismissed,
-  trackStudySessionHelpShown,
-  trackStudySessionHelpStepViewed,
   trackSubjectItemSelected,
   trackSubjectSheetClosed,
   trackSubjectSheetOpened,
@@ -298,129 +293,6 @@ function useRotationPhase(): RotationPhase {
  * 두 축은 서로를 리셋하지 않는다 — 심플 모드에서 일시정지했다가 다시 시작하면 심플 모드로
  * 돌아온다. 그래서 `simpleMode`는 `SessionState`에 넣지 않고 별도 토글로 둔다.
  */
-function useGoHome(): () => void {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  return () => {
-    postToNative({ type: "navigate-home", atMs: Date.now() });
-    navigate({ pathname: "/home", search: searchParams.toString() }, { replace: true });
-  };
-}
-
-/**
- * 세션 도움말의 노출·단계 이벤트
- *
- * 메뉴로 연 도움말은 가려지면 언마운트되어 다시 뜰 때 효과가 또 돈다.
- * 그래서 화면이 아니라 호출부에서 노출마다, 단계가 바뀔 때마다 한 번씩만 보낸다.
- * 추적 단계가 null이면 이번 노출의 첫 이벤트를 아직 보내지 않은 것이다. 돌려주는 함수로 노출을 끝낸다.
- */
-function useSessionHelpFunnel(
-  visible: boolean,
-  step: number,
-  trigger: SessionHelpTrigger,
-): () => void {
-  const trackedStepRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (!visible || trackedStepRef.current === step) {
-      return;
-    }
-    if (trackedStepRef.current === null) {
-      trackStudySessionHelpShown(trigger, "single");
-    }
-    trackedStepRef.current = step;
-    trackStudySessionHelpStepViewed({
-      step: step + 1,
-      stepId: SESSION_HELP_STEPS[step].id,
-      trigger,
-      roomType: "single",
-    });
-  }, [visible, step, trigger]);
-  return () => {
-    trackedStepRef.current = null;
-  };
-}
-
-/**
- * 세션을 시작하기 전에 보여 주는 첫 도움말
- *
- * 이 화면이 떠 있는 동안에는 세션 화면이 마운트되지 않아 카메라·타이머·서버 보고가 돌지 않는다.
- * 그래서 `나중에 시작할게요`는 끝낼 세션 없이 바로 홈으로 가고, 온 초대도 확인 없이 바로 따라간다.
- * Escape로 닫으면 기록 없이 세션을 시작하고 다음 세션에 다시 뜬다.
- */
-function SessionStartHelp({
-  userId,
-  invite,
-  onStart,
-}: {
-  userId: number;
-  invite: string | null;
-  onStart: () => void;
-}) {
-  const goHome = useGoHome();
-  const [step, setStep] = useState(0);
-  useRotationRepaintNudge();
-  useSessionHelpFunnel(true, step, "auto");
-  useEffect(() => {
-    if (invite !== null) {
-      leaveSessionForInvite(invite);
-    }
-  }, [invite]);
-  return (
-    <main className="theme-dark relative h-svh bg-background" style={sessionSurfaceStyle}>
-      <SessionHelpScreen
-        step={step}
-        onStepChange={setStep}
-        onComplete={() => {
-          trackStudySessionHelpCompleted("auto", "single");
-          markSessionGuideSeen(userId);
-          onStart();
-        }}
-        onLater={() => {
-          trackStudySessionHelpCompleted("auto", "single", "later");
-          markSessionGuideSeen(userId);
-          goHome();
-        }}
-        onDismiss={() => {
-          trackStudySessionHelpDismissed({
-            step: step + 1,
-            stepId: SESSION_HELP_STEPS[step].id,
-            trigger: "auto",
-            roomType: "single",
-            reason: "escape",
-          });
-          onStart();
-        }}
-      />
-    </main>
-  );
-}
-
-/**
- * 첫 도움말과 세션 화면을 가른다
- *
- * 기록은 마운트 때 한 번 읽는다. 호출부가 신원별 key를 달아 계정이 바뀌면 새 계정의 기록을 읽는다.
- * 복원된 세션은 이미 공부 중이라 도움말로 막지 않는다.
- */
-function RoomEntry({
-  userId,
-  restored,
-  invite,
-}: {
-  userId: number | null;
-  restored: RestoredSession | null;
-  invite: string | null;
-}) {
-  const [helpPending, setHelpPending] = useState(
-    () => userId !== null && restored === null && sessionGuideState(userId) !== "seen",
-  );
-  if (helpPending && userId !== null) {
-    return (
-      <SessionStartHelp userId={userId} invite={invite} onStart={() => setHelpPending(false)} />
-    );
-  }
-  return <RoomSessionScreen userId={userId} restored={restored} invite={invite} />;
-}
-
 function RoomSessionScreen({
   userId,
   restored,
@@ -610,7 +482,7 @@ function RoomSessionScreen({
   // 종료 확인 다이얼로그. 열려 있는 동안에도 **세션은 계속 진행된다**(Figma에서 딤 뒤
   // 상태 필이 `순공시간 측정 중`이고 타이머가 살아 있음을 확인).
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
-  // 더보기의 도움말 보기로 세션 중에 다시 여는 도움말. 처음 보는 도움말은 세션 앞의 `SessionStartHelp`가 띄운다.
+  // 더보기의 도움말 보기로 세션 중에 다시 여는 도움말. 처음 보는 가이드는 세션 앞의 `SessionGuidePage`가 띄운다.
   const [helpOpen, setHelpOpen] = useState(false);
   // 과목 페이지 등에 가려 내렸다가 다시 띄울 때 같은 단계로 돌아오도록 단계를 여기서 든다.
   const [helpStep, setHelpStep] = useState(0);
@@ -806,7 +678,20 @@ function RoomSessionScreen({
     [navigate, searchParams, startedAtMs],
   );
 
-  const goHome = useGoHome();
+  /**
+   * 홈으로 이탈 — 미달 종료(순공 1분 미만)의 출구
+   *
+   * 네이티브 앱 안에서는 웹 라우터 이동만으로 부족하다. 이 화면이 WebView로 로드된
+   * 것이라 `navigate("/home")`는 WebView 안의 웹 홈을 열 뿐, 그 WebView를 담고 있는 네이티브
+   * `fullScreenModal`을 닫아 탭 화면으로 돌아가지는 못한다. 그래서 네이티브에
+   * `navigate-home`을 먼저 보낸다 — 네이티브가 모달을 닫으면 이 화면 전체가 사라지므로
+   * 아래 웹 라우터 이동은 그 사이 잠깐이라도 화면이 있을 브라우저 단독 모드를 위한
+   * 폴백이다.
+   */
+  const goHome = () => {
+    postToNative({ type: "navigate-home", atMs: Date.now() });
+    navigate({ pathname: "/home", search: searchParams.toString() }, { replace: true });
+  };
 
   /**
    * 순공 1분 미만으로 끝났는가
@@ -1610,5 +1495,5 @@ export function RoomPage() {
   }
   // 사용자가 바뀌면 통째로 새로 만든다. 복원값은 마운트 시점에 한 번만 읽히므로, 같은
   // 인스턴스를 유지하면 새 사용자가 앞 사용자의 세션을 그대로 이어받는다.
-  return <RoomEntry key={userId} userId={userId} restored={restored} invite={invite} />;
+  return <RoomSessionScreen key={userId} userId={userId} restored={restored} invite={invite} />;
 }

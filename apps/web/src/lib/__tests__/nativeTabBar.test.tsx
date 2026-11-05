@@ -100,6 +100,10 @@ afterEach(() => {
 });
 
 describe("isFullScreenPath", () => {
+  it("세션 가이드는 탭 바를 가린다", () => {
+    expect(isFullScreenPath("/session-guide")).toBe(true);
+  });
+
   it("탭 바 없는 전체 화면 라우트 3종을 가린다", () => {
     for (const path of ["/contact", "/terms", "/privacy"]) {
       expect(isFullScreenPath(path)).toBe(true);

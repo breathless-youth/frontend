@@ -85,11 +85,6 @@ async function focusPastMinute() {
   });
 }
 
-// 첫 도움말이 떠 있는 동안에는 세션 화면이 없어서 이미 끝까지 본 계정으로 연다.
-beforeEach(() => {
-  localStorage.setItem("focusmakers:session-guide:1", "seen");
-});
-
 describe("RoomPage — S3-8 자동 종료 안내", () => {
   beforeEach(() => {
     vi.useFakeTimers();

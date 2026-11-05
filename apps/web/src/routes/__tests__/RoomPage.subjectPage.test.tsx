@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { BrowserRouter, MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { toast } from "sonner";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
@@ -152,11 +152,6 @@ async function selectMathFromPage() {
   await userEvent.click(screen.getByRole("button", { name: "과목" }));
   await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
 }
-
-// 첫 도움말이 떠 있는 동안에는 세션 화면이 없어서 이미 끝까지 본 계정으로 연다.
-beforeEach(() => {
-  localStorage.setItem("focusmakers:session-guide:1", "seen");
-});
 
 describe("RoomPage 과목 페이지와 하단 버튼", () => {
   afterEach(() => {

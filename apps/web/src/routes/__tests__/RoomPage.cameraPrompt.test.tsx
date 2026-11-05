@@ -1,9 +1,8 @@
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import type * as tokenSourceModule from "@/lib/auth/tokenSource";
 import type { AuthSnapshot, TokenSource } from "@/lib/auth/tokenSource";
@@ -83,7 +82,6 @@ function pendingSource(): { source: TokenSource; arrive: (userId: number | null)
 }
 
 const prompt = () => screen.queryByRole("alertdialog", { name: CAMERA_PROMPT_NAME });
-const helpDialog = () => screen.queryByRole("dialog", { name: "세션 도움말" });
 /** 지금 보이는 세션 배경. 숨은 쪽은 표식을 떼므로 하나만 남는다. */
 const surface = () =>
   document.querySelector("[data-session-surface]")?.getAttribute("data-session-surface");
@@ -107,8 +105,7 @@ describe("RoomPage 심플 모드 시작과 입장 카메라 확인 창", () => {
     vi.clearAllMocks();
   });
 
-  it("도움말을 끝까지 본 계정은 심플 모드로 들어오자마자 확인 창을 본다", () => {
-    markSessionGuideSeen(1);
+  it("심플 모드로 들어오자마자 확인 창을 본다", () => {
     renderRoom();
 
     const dialog = prompt();
@@ -121,7 +118,6 @@ describe("RoomPage 심플 모드 시작과 입장 카메라 확인 창", () => {
   });
 
   it("카메라 켜기를 누르면 촬영 화면으로 바꾸고 camera로 답한 것을 보낸다", async () => {
-    markSessionGuideSeen(1);
     renderRoom();
 
     await userEvent.click(within(prompt()!).getByRole("button", { name: "카메라 켜기" }));
@@ -140,7 +136,6 @@ describe("RoomPage 심플 모드 시작과 입장 카메라 확인 창", () => {
   it.each(["카메라 켜기", "심플 모드로 시작"])(
     "닫히면 초점이 화면 탭 전환 버튼으로 간다(%s)",
     async (name) => {
-      markSessionGuideSeen(1);
       renderRoom();
 
       await userEvent.click(within(prompt()!).getByRole("button", { name }));
@@ -152,7 +147,6 @@ describe("RoomPage 심플 모드 시작과 입장 카메라 확인 창", () => {
   );
 
   it("심플 모드로 시작을 누르면 심플 모드를 지키고, 화면을 탭하면 촬영 화면으로 바뀐다", async () => {
-    markSessionGuideSeen(1);
     renderRoom();
 
     await userEvent.click(within(prompt()!).getByRole("button", { name: "심플 모드로 시작" }));
@@ -170,7 +164,6 @@ describe("RoomPage 심플 모드 시작과 입장 카메라 확인 창", () => {
   });
 
   it("Escape는 심플 모드로 시작과 같다", async () => {
-    markSessionGuideSeen(1);
     renderRoom();
 
     await userEvent.keyboard("{Escape}");
@@ -185,7 +178,6 @@ describe("RoomPage 심플 모드 시작과 입장 카메라 확인 창", () => {
   });
 
   it("딤을 눌러도 닫히지 않는다", async () => {
-    markSessionGuideSeen(1);
     renderRoom();
     const dim = document.querySelector<HTMLElement>(
       '[data-state="open"]:not([role="alertdialog"])',
@@ -199,7 +191,6 @@ describe("RoomPage 심플 모드 시작과 입장 카메라 확인 창", () => {
   });
 
   it("세션 화면마다 한 번만 묻는다", async () => {
-    markSessionGuideSeen(1);
     renderRoom();
     await userEvent.click(within(prompt()!).getByRole("button", { name: "심플 모드로 시작" }));
 
@@ -213,28 +204,6 @@ describe("RoomPage 심플 모드 시작과 입장 카메라 확인 창", () => {
     expect(amplitude.trackStudySessionCameraPromptShown).toHaveBeenCalledOnce();
   });
 
-  it("도움말을 처음 보는 계정은 도움말을 끝낸 뒤에 묻는다", async () => {
-    renderRoom();
-    expect(helpDialog()).toBeInTheDocument();
-    expect(prompt()).not.toBeInTheDocument();
-    expect(amplitude.trackStudySessionCameraPromptShown).not.toHaveBeenCalled();
-
-    await finishHelp();
-
-    expect(helpDialog()).not.toBeInTheDocument();
-    expect(prompt()).toBeInTheDocument();
-    expect(amplitude.trackStudySessionCameraPromptShown).toHaveBeenCalledOnce();
-  });
-
-  it("도움말을 Escape로 닫아도 그 뒤에 묻고, 그 Escape로 창이 닫히지 않는다", () => {
-    renderRoom();
-
-    fireEvent.keyDown(screen.getByRole("dialog", { name: "세션 도움말" }), { key: "Escape" });
-
-    expect(prompt()).toBeInTheDocument();
-    expect(amplitude.trackStudySessionCameraPromptAnswered).not.toHaveBeenCalled();
-  });
-
   it("브라우저 단독처럼 신원이 없어도 바로 묻는다", () => {
     renderRoom("/room/7");
 
@@ -244,7 +213,6 @@ describe("RoomPage 심플 모드 시작과 입장 카메라 확인 창", () => {
   });
 
   it("신원이 늦게 도착하면 그때 묻는다", () => {
-    markSessionGuideSeen(1);
     const { source, arrive } = pendingSource();
     mocks.source = source;
     renderRoom("/room/7");
@@ -271,7 +239,6 @@ describe("RoomPage 심플 모드 시작과 입장 카메라 확인 창", () => {
   });
 
   it("초대 확인 창이 열린 채 마운트되면 닫힐 때까지 묻지 않는다", async () => {
-    markSessionGuideSeen(1);
     const { source, arrive } = pendingSource();
     mocks.source = source;
     renderRoom("/room/7");

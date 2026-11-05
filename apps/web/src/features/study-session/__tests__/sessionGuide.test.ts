@@ -35,4 +35,18 @@ describe("sessionGuide 저장 — 저장소를 쓸 수 없는 기기", () => {
     expect(sessionGuideState(7)).toBeNull();
     expect(() => markSessionGuideSeen(7)).not.toThrow();
   });
+
+  it("저장하지 못해도 이 문서가 살아 있는 동안은 본 것으로 기억한다", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+
+    markSessionGuideSeen(99);
+
+    expect(sessionGuideState(99)).toBe("seen");
+    expect(sessionGuideState(98)).toBeNull();
+  });
 });
