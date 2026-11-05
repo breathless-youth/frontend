@@ -52,8 +52,6 @@
   },
   "stats": {
     "todayFocus": "오늘 순공시간",
-    "hoursUnit": "시간",
-    "minutesUnit": "분",
     "focusRate": "집중률",
     "studyTotal": "총 공부시간",
     "longestFocus": "최대 집중시간",

@@ -228,6 +228,27 @@ describe("HomeTabPage", () => {
     expect(screen.getByText("3일 연속 공부 중")).toBeInTheDocument();
   });
 
+  it("오늘 순공시간은 시:분:초로 적고 화면 낭독기에는 한국어 길이로 읽힌다", async () => {
+    mockedStats.mockResolvedValue(statsResponse);
+    mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+
+    renderHome();
+
+    await waitFor(() => expect(screen.getByText("77%")).toBeInTheDocument());
+    expect(screen.getByText("1:32:00")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByText("1시간 32분")).toHaveClass("sr-only");
+  });
+
+  it("1분 미만 순공도 초까지 적는다", async () => {
+    mockedStats.mockResolvedValue({ ...statsResponse, totalFocusSec: 4 });
+    mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
+
+    renderHome();
+
+    await waitFor(() => expect(screen.getByText("77%")).toBeInTheDocument());
+    expect(screen.getByText("0:00:04")).toBeInTheDocument();
+  });
+
   it("시간과 분이 함께 있는 스탯 값도 한 문장으로 읽힌다", async () => {
     mockedStats.mockResolvedValue({ ...statsResponse, totalStudySec: 14520 });
     mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });

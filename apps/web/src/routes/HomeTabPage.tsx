@@ -11,7 +11,9 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { useAppLockRevokeCheck } from "@/features/app-lock/useAppLockRevokeCheck";
 import { DdaySection } from "@/features/home/DdaySection";
-import { splitHoursMinutes, todayLabel } from "@/features/home/homeFormat";
+import { todayLabel } from "@/features/home/homeFormat";
+import { toKoreanDuration } from "@/features/study-session/formatDuration";
+import { formatClock } from "@/lib/formatClock";
 import type { HomeSummary } from "@/features/home/homeSummary";
 import { useHomeSummary } from "@/features/home/useHomeSummary";
 import { NoticeModalHost } from "@/features/notice/NoticeModalHost";
@@ -95,7 +97,6 @@ function Stat({ label, value, className }: { label: string; value: string; class
 
 function StatsCard({ summary }: { summary: HomeSummary }) {
   const { t } = useTranslation("home");
-  const { hours, minutes } = splitHoursMinutes(summary.focusSec);
   const focusPercent = Math.round(Math.min(100, Math.max(0, summary.focusRate)));
 
   return (
@@ -105,13 +106,9 @@ function StatsCard({ summary }: { summary: HomeSummary }) {
           <p className="text-sm leading-4.25 font-bold text-muted-foreground">
             {t("stats.todayFocus")}
           </p>
-          <p className="flex items-baseline pt-1.5 pb-2 text-foreground tabular-nums">
-            <span className="text-[40px] leading-12 font-extrabold tracking-[2px]">{hours}</span>
-            <span className="text-[21px] font-bold">{t("stats.hoursUnit")}</span>
-            <span className="ml-1.5 text-[40px] leading-12 font-extrabold tracking-[2px]">
-              {minutes}
-            </span>
-            <span className="text-[21px] font-bold">{t("stats.minutesUnit")}</span>
+          <p className="pt-1.5 pb-2 text-[40px] leading-12 font-extrabold tracking-[2px] text-foreground tabular-nums">
+            <span aria-hidden="true">{formatClock(summary.focusSec)}</span>
+            <span className="sr-only">{toKoreanDuration(summary.focusSec)}</span>
           </p>
         </div>
 

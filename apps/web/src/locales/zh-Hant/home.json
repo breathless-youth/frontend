@@ -52,8 +52,6 @@
   },
   "stats": {
     "todayFocus": "今天的專注時間",
-    "hoursUnit": "小時",
-    "minutesUnit": "分",
     "focusRate": "專注率",
     "studyTotal": "總讀書時間",
     "longestFocus": "最長專注時間",
