@@ -1,0 +1,19 @@
+{
+  "title": "這次的測量結果如何？",
+  "reasonDescription": "請選擇一項",
+  "rating": {
+    "good": "滿意",
+    "meh": "普通",
+    "bad": "不太滿意"
+  },
+  "reasonTitle": {
+    "meh": "有哪裡不太理想嗎？",
+    "bad": "哪裡讓你不滿意？"
+  },
+  "reason": {
+    "under": "比實際讀書時間少",
+    "over": "比實際讀書時間多",
+    "unclear": "看了結果還是不太懂",
+    "missing_info": "沒有我想看的資訊"
+  }
+}

@@ -1,0 +1,119 @@
+{
+  "autoTimer": {
+    "titleTop": "カメラをオンにしておくだけで",
+    "titleBottom": "集中時間を自動で測定します",
+    "aria": {
+      "mock": "カメラをオンにしておくと集中タイマーが進み、集中していないと止まる画面"
+    }
+  },
+  "autoRecord": {
+    "titleTop": "勉強しているあいだ",
+    "titleBottom": "プランナーに自動で記録されます",
+    "aria": {
+      "mock": "プランナーのタイムテーブルに集中時間が1マスずつ埋まっていく画面"
+    }
+  },
+  "groupStudy": {
+    "titleTop": "友達を招待して最大6人で",
+    "titleBottom": "一緒に集中できます",
+    "aria": {
+      "mock": "6人の参加者が一緒に勉強しているソーシャルルームの画面"
+    }
+  },
+  "notification": {
+    "titleTop": "集中しやすい時間に",
+    "titleBottom": "あなたに合わせた通知を送ります",
+    "aria": {
+      "mock": "記録タブの勉強リズムで平日の夜8〜10時が強調され、あなたに合わせた通知が届く画面"
+    }
+  },
+  "ready": {
+    "titleTop": "準備ができました",
+    "titleBottom": "さあ、一緒に集中しましょう",
+    "aria": {
+      "mock": "ホーム画面で「集中をはじめる」をタップする様子"
+    }
+  },
+  "cta": {
+    "next": "次へ",
+    "allowNotification": "通知を受け取る",
+    "start": "はじめる"
+  },
+  "aria": {
+    "previous": "前へ"
+  },
+  "pills": {
+    "away": "席を離れているようです",
+    "device": "端末を操作しているようです",
+    "phone": "スマホを使っているようです",
+    "drowsy": "居眠りしているようです"
+  },
+  "banner": {
+    "title": "夜8時、勉強の時間です",
+    "body": "平日はこの時間にいちばん長く集中しています",
+    "now": "今"
+  },
+  "home": {
+    "focusStart": "集中をはじめる"
+  },
+  "timer": {
+    "measuring": "集中時間を測定中",
+    "label": "集中時間",
+    "privacy": "映像は保存しません"
+  },
+  "planner": {
+    "date": "10月21日（水）",
+    "dday": "期末テスト",
+    "focusLabel": "集中時間",
+    "math": "数学",
+    "english": "英語",
+    "korean": "国語",
+    "rest": "休憩",
+    "noSubject": "科目なし"
+  },
+  "plannerTask": {
+    "calculus": "微積分 第3章の復習",
+    "pastExams": "過去問20問",
+    "vocab": "英単語100個",
+    "reading": "長文読解4題"
+  },
+  "room": {
+    "total": "合計"
+  },
+  "tileName": {
+    "me": "自分",
+    "minji": "Emma",
+    "hyunwoo": "Liam",
+    "sua": "Sofia",
+    "jihoon": "Noah",
+    "junwoo": "Jack"
+  },
+  "tileGoal": {
+    "me": "毎日6時間",
+    "minji": "期末まであと29日",
+    "hyunwoo": "IELTS 8.0",
+    "sua": "公務員試験",
+    "jihoon": "IT資格",
+    "junwoo": "公認会計士試験"
+  },
+  "records": {
+    "title": "記録",
+    "daily": "日間",
+    "weekly": "週間",
+    "rhythm": "勉強リズム",
+    "insight": "平日の夜<hl>8〜10時</hl>にいちばん長く集中しています",
+    "insightSub": "直近2週間の記録を分析しました",
+    "less": "少ない",
+    "more": "多い",
+    "thisWeek": "今週の集中時間"
+  },
+  "weekday": {
+    "mon": "月",
+    "tue": "火",
+    "wed": "水",
+    "thu": "木",
+    "fri": "金",
+    "sat": "土",
+    "sun": "日"
+  }
+}

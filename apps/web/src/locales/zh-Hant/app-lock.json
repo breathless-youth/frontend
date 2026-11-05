@@ -1,0 +1,29 @@
+{
+  "title": "應用程式封鎖",
+  "switch": {
+    "label": "應用程式封鎖",
+    "tooltip": "可取得的資訊：已封鎖的應用程式數量、是否開啟應用程式封鎖"
+  },
+  "rows": {
+    "lockedApps": "已封鎖的應用程式",
+    "batteryGuide": "電池設定說明"
+  },
+  "description": {
+    "title": "功能說明",
+    "lockFlow": "開始讀書時會封鎖，結束讀書後就會解除。"
+  },
+  "summary": {
+    "apps": "{{count}} 個應用程式",
+    "categories": "{{count}} 個類別",
+    "none": "未選取"
+  },
+  "rowValue": {
+    "on": "開啟",
+    "off": "關閉"
+  },
+  "toast": {
+    "lockedApps": "已封鎖 {{count}} 個讓你分心的應用程式",
+    "locked": "已封鎖讓你分心的應用程式",
+    "unsupported": "應用程式封鎖需要 {{minVersion}} 以上版本"
+  }
+}

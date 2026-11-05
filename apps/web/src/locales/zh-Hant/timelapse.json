@@ -1,0 +1,107 @@
+{
+  "day": {
+    "today": "今天",
+    "yesterday": "昨天"
+  },
+  "frame": {
+    "watermark": "FocusMakers",
+    "focusTime": "專注 {{duration}}",
+    "focusRate": "專注率 {{rate}}%",
+    "streak": "連續讀書 {{count}} 天 🔥"
+  },
+  "recent": {
+    "title": "最近的縮時影片",
+    "more": "查看更多",
+    "focusTime": "專注 {{duration}}"
+  },
+  "empty": {
+    "body": "完成讀書後，分享你讀書的樣子吧"
+  },
+  "preview": {
+    "placeholder": "讀書中畫面"
+  },
+  "player": {
+    "aria": {
+      "play": "播放縮時影片",
+      "pause": "暫停縮時影片"
+    }
+  },
+  "resultCard": {
+    "title": "縮時影片",
+    "info": "隨時可以在設定中關閉縮時攝影",
+    "building": "製作中 {{percent}}%",
+    "download": "下載",
+    "share": "分享",
+    "aria": {
+      "info": "關於縮時攝影",
+      "share": "分享縮時影片"
+    }
+  },
+  "share": {
+    "title": "分享",
+    "brand": "FocusMakers",
+    "openSettings": "開啟設定",
+    "text": "這是我用 FocusMakers 讀書的樣子\n{{url}}",
+    "status": {
+      "updateApp": "更新應用程式後即可儲存和分享",
+      "preparing": "正在製作要分享的影片",
+      "unsupported": "這部裝置無法製作影片",
+      "buildFailed": "無法製作影片"
+    },
+    "target": {
+      "save": "儲存",
+      "instagram": "Instagram",
+      "kakao": "KakaoTalk",
+      "more": "更多"
+    },
+    "notice": {
+      "shareFailed": "無法分享，請再試一次",
+      "saved": "已儲存到「照片」",
+      "denied": "照片取用權限已關閉",
+      "saveFailed": "無法儲存，請再試一次"
+    },
+    "aria": {
+      "progress": "影片製作進度"
+    }
+  },
+  "list": {
+    "title": "最近的縮時影片",
+    "retention": "最近 7 天內最多 7 部影片會保存在這部裝置上",
+    "focusTime": "專注 {{duration}}",
+    "summary": "總讀書時間 {{duration}} · 專注率 {{rate}}%",
+    "deleteFailed": "無法刪除",
+    "aria": {
+      "delete": "刪除{{label}}的縮時影片"
+    }
+  },
+  "deleteDialog": {
+    "title": "刪除縮時影片",
+    "body": "確定要刪除嗎？",
+    "confirm": "刪除"
+  },
+  "settings": {
+    "title": "縮時攝影",
+    "preview": "預覽",
+    "save": {
+      "label": "儲存縮時影片",
+      "tooltip": "只會保存在這部裝置上，最多 7 天、7 部。"
+    },
+    "aspect": {
+      "label": "影片比例",
+      "portrait": "直式 9:16",
+      "landscape": "橫式 16:9"
+    },
+    "info": {
+      "title": "影片中顯示的資訊",
+      "faceMask": "遮住臉部",
+      "flowBar": "專注變化條",
+      "date": "日期",
+      "focusTime": "專注時間",
+      "focusRate": "專注率",
+      "dday": "倒數日",
+      "streak": "連續讀書",
+      "ddayMissing": "需要設定倒數日",
+      "faceMaskTooltip": "只會遮住你的臉，同一個畫面中的其他人不會被遮住。"
+    }
+  }
+}

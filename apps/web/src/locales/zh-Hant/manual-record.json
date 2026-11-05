@@ -1,0 +1,41 @@
+{
+  "page": {
+    "titleAdd": "手動新增",
+    "titleEdit": "編輯紀錄",
+    "unregistered": "這部裝置尚未註冊。在應用程式中開啟，就會儲存紀錄",
+    "loadFailed": "無法載入紀錄"
+  },
+  "form": {
+    "start": "開始",
+    "end": "結束",
+    "nextDay": "隔天",
+    "chipMinutes": "+{{minutes}} 分鐘",
+    "chipHours": "+{{hours}} 小時",
+    "subjectLabel": "選擇科目",
+    "notReflected": "手動新增的紀錄不會計入連續讀書和排行榜",
+    "delete": "刪除",
+    "save": "儲存"
+  },
+  "deleteDialog": {
+    "title": "要刪除這筆紀錄嗎？",
+    "confirm": "刪除"
+  },
+  "message": {
+    "tooShort": "至少需要 1 分鐘",
+    "future": "無法新增現在之後的時間",
+    "allOverlap": "這段時間已經有紀錄了",
+    "failed": "無法儲存，請再試一次",
+    "overlapNotice": "已排除重複紀錄的 {{removed}}（{{start}}～{{end}}），將儲存 {{saved}}"
+  },
+  "subject": {
+    "none": "無科目"
+  },
+  "readAloud": {
+    "label": "手動紀錄，{{subject}}，{{start}}到{{end}}，{{length}}",
+    "withPeriod": "{{period}} {{time}}",
+    "am": "上午",
+    "pm": "下午",
+    "hour": "{{hour}} 點",
+    "hourMinute": "{{hour}} 點 {{minute}} 分"
+  }
+}

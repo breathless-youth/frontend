@@ -1,0 +1,45 @@
+{
+  "home": {
+    "title": "ソーシャルルーム",
+    "headline": "友達と一緒に勉強しましょう",
+    "description": "ルームを作って招待コードを共有するか、<br/>受け取ったコードで参加しましょう",
+    "create": "ルームを作成",
+    "noticeConfirm": "OK"
+  },
+  "codeCells": {
+    "aria": {
+      "label": "招待コード{{code}}"
+    }
+  },
+  "share": {
+    "title": "ルームを作成しました",
+    "expiry": "全員が退出すると、ルームとコードは消えます",
+    "copy": "コードをコピー",
+    "share": "共有",
+    "enter": "入室",
+    "copied": "招待コードをコピーしました"
+  },
+  "join": {
+    "title": "招待コードで参加",
+    "invited": "一緒に勉強しようと招待されました",
+    "inAppWithCode": "アプリでこのコードを使って参加できます",
+    "inAppNoCode": "アプリで招待コードを入力して参加できます",
+    "openApp": "アプリで参加",
+    "prompt": "招待コードを入力してください",
+    "hint": "友達から受け取った4桁のコードで参加できます",
+    "submit": "参加する",
+    "aria": {
+      "input": "4桁の招待コード"
+    }
+  },
+  "errors": {
+    "checkCode": "招待コードをもう一度確認してください",
+    "roomClosed": "このルームは期限切れです",
+    "userNotFound": "ユーザー情報を確認できません",
+    "roomFull": "ルームが満員です"
+  },
+  "inviteMessage": {
+    "title": "FocusMakersで一緒に勉強しよう",
+    "body": "FocusMakersで一緒に勉強しましょう！\n\n{{link}}\n\n招待コード：{{code}}"
+  }
+}

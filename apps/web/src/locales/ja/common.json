@@ -1,0 +1,30 @@
+{
+  "actions": {
+    "cancel": "キャンセル",
+    "close": "閉じる",
+    "retry": "再試行",
+    "back": "戻る"
+  },
+  "duration": {
+    "hoursMinutes": "{{hours}}時間{{minutes}}分",
+    "hours": "{{hours}}時間",
+    "minutes": "{{minutes}}分",
+    "seconds": "{{seconds}}秒"
+  },
+  "aria": {
+    "loading": "読み込み中",
+    "toaster": "通知",
+    "ctaToaster": "画面のお知らせ"
+  },
+  "errorFallback": {
+    "title": "一時的な問題が発生しました",
+    "description": "画面を読み込めませんでした。しばらくしてからもう一度お試しください。",
+    "reload": "再読み込み"
+  },
+  "feedback": {
+    "thanks": "貴重なご意見ありがとうございます！"
+  },
+  "errors": {
+    "retryLater": "しばらくしてからもう一度お試しください"
+  }
+}
