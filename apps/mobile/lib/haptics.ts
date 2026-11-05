@@ -12,6 +12,16 @@ function loadHaptics(): Promise<typeof Haptics> {
   );
 }
 
+export function triggerTabHaptic(): void {
+  if (Platform.OS === "android") {
+    // Expo Android의 Light·Soft·selection은 모두 50ms/진폭 30이라 서로 바꿔도 약해지지 않는다.
+    // 탭만 기본 세기의 20ms로 짧게 울린다. 약한 진동기의 기동을 고려해 지나치게 짧은 펄스는 피한다.
+    Vibration.vibrate(20);
+    return;
+  }
+  triggerHaptic("light");
+}
+
 /**
  * 웹 `haptic` 브리지의 네이티브 반응 — expo-haptics 임팩트.
  *
