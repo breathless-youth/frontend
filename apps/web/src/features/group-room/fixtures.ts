@@ -182,6 +182,7 @@ export function buildGroupRoomFixtures(now: Date) {
       categoryLabel: "수능",
       visibility: "public",
       memberCount: 5,
+      newRequestCount: 0,
       members: nightOwlDesks,
     },
     {
@@ -190,6 +191,7 @@ export function buildGroupRoomFixtures(now: Date) {
       categoryLabel: "내신",
       visibility: "private",
       memberCount: 5,
+      newRequestCount: 0,
       members: eveningClassDesks,
     },
     {
@@ -198,6 +200,7 @@ export function buildGroupRoomFixtures(now: Date) {
       categoryLabel: "공무원",
       visibility: "public",
       memberCount: 4,
+      newRequestCount: 0,
       members: morningRollDesks,
     },
   ];
