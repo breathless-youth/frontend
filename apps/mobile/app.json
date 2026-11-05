@@ -19,8 +19,8 @@
         "NSPhotoLibraryAddUsageDescription": "타임랩스 영상을 사진 앱에 저장하려면 사진 추가 권한이 필요해요",
         "NSPhotoLibraryUsageDescription": "타임랩스 영상을 사진 앱에 저장할 때 사용해요",
         "ITSAppUsesNonExemptEncryption": false,
-        "CFBundleDevelopmentRegion": "ko",
-        "CFBundleLocalizations": ["ko", "en"],
+        "CFBundleDevelopmentRegion": "en",
+        "CFBundleLocalizations": ["ko", "en", "ja", "zh-Hant"],
         "CFBundleAllowMixedLocalizations": true
       },
       "bundleIdentifier": "com.breathlessyouth.mobile",
@@ -54,7 +54,7 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store",
+      ["expo-secure-store", { "faceIDPermission": false }],
       [
         "expo-splash-screen",
         {
@@ -100,7 +100,7 @@
       [
         "expo-localization",
         {
-          "supportedLocales": ["ko", "en"],
+          "supportedLocales": ["ko", "en", "ja", "zh-Hant"],
           "allowDynamicLocaleChangesAndroid": false
         }
       ],

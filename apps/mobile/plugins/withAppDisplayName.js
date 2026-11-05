@@ -12,8 +12,9 @@ const { AndroidConfig, withInfoPlist, withStringsXml } = require("expo/config-pl
  * 값은 `expo.extra.appDisplayName`(한국어)·`appDisplayNameEn`(영어)에서만 읽는다 — 플랫폼별로 갈라져 한쪽만 바뀌는
  * 사고를 막는다. 변형 접미는 `app.config.ts`가 두 값에 붙여 둔다.
  *
- * iOS 기본 이름은 개발 지역(ko)에 맞춰 한국어, Android 기본 이름은 모듈 문구와 같이 영어다.
- * 언어별 이름은 `app.config.ts`의 `locales`가 넣는다(iOS ko·en, Android values-b+ko).
+ * iOS 기본 이름은 한국어지만 지원 언어마다 InfoPlist.strings가 덮고, 그 밖의 언어는 개발 지역(en) 이름을 본다.
+ * Android 기본 이름은 모듈 문구와 같이 영어다.
+ * 언어별 이름은 `app.config.ts`의 `locales`가 넣는다(iOS ko·en·ja·zh-Hant, Android values-b+ko).
  */
 module.exports = function withAppDisplayName(config) {
   const displayName = config.extra?.appDisplayName;

@@ -4,7 +4,9 @@ import path from "node:path";
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
 import enLocale from "./locales/en.json";
+import jaLocale from "./locales/ja.json";
 import koLocale from "./locales/ko.json";
+import zhHantLocale from "./locales/zh-Hant.json";
 
 /**
  * 앱 설정의 환경 분기
@@ -411,6 +413,9 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
         android: { app_name: appDisplayName },
       },
       en: { ios: { ...enLocale, CFBundleDisplayName: appDisplayNameEn } },
+      // 일본어·번체 중국어 이름은 따로 정하지 않아 영어 이름을 쓴다.
+      ja: { ios: { ...jaLocale, CFBundleDisplayName: appDisplayNameEn } },
+      "zh-Hant": { ios: { ...zhHantLocale, CFBundleDisplayName: appDisplayNameEn } },
     },
     plugins: [
       ...(config.plugins ?? []),
