@@ -29,7 +29,7 @@
   "groups": {
     "noise": "噪音",
     "ambience": "環境音",
-    "music": "音樂"
+    "music": "Lo-fi"
   },
   "notes": {
     "binaural": "戴上耳機聽效果更好"
@@ -42,6 +42,14 @@
     "monaural": "單耳節拍",
     "rain-trp": "雨聲（戶外）",
     "rain-mm": "雨聲（室內）",
-    "cafe-vec": "咖啡廳"
+    "cafe-vec": "咖啡廳",
+    "exam-g39": "考場",
+    "bonfire-kyles": "篝火",
+    "waves-esh": "輕柔海浪",
+    "birds-squashy": "鳥鳴",
+    "airplane-courter": "飛機機艙",
+    "lofi-breeze": "Morning Breeze",
+    "lofi-stars": "Lost Stars",
+    "lofi-vanilla": "Vanilla"
   }
 }

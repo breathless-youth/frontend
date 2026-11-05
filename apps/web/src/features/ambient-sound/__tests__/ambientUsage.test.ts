@@ -58,4 +58,76 @@ describe("createAmbientUsage", () => {
     usage.stop();
     expect(usage.snapshot()).toEqual({ used: true, sec: 1 });
   });
+
+  describe("소리별 재생 시간", () => {
+    const white = { id: "white", group: "noise" } as const;
+    const rain = { id: "rain-trp", group: "ambience" } as const;
+
+    it("재생 중인 동안 켜진 소리마다 시간이 쌓인다", () => {
+      const clock = fakeClock();
+      const usage = createAmbientUsage(clock.now);
+      usage.setSounds([white, rain]);
+      usage.start();
+      clock.advance(10_000);
+
+      expect(usage.soundSeconds()).toEqual([
+        { id: "white", group: "noise", sec: 10 },
+        { id: "rain-trp", group: "ambience", sec: 10 },
+      ]);
+    });
+
+    it("소리를 바꾸면 그 시점부터 새 소리에 쌓인다", () => {
+      const clock = fakeClock();
+      const usage = createAmbientUsage(clock.now);
+      usage.setSounds([white]);
+      usage.start();
+      clock.advance(5_000);
+      usage.setSounds([rain]);
+      clock.advance(7_000);
+
+      expect(usage.soundSeconds()).toEqual([
+        { id: "white", group: "noise", sec: 5 },
+        { id: "rain-trp", group: "ambience", sec: 7 },
+      ]);
+    });
+
+    it("멈춘 동안은 쌓지 않는다", () => {
+      const clock = fakeClock();
+      const usage = createAmbientUsage(clock.now);
+      usage.setSounds([white]);
+      usage.start();
+      clock.advance(3_000);
+      usage.stop();
+      clock.advance(60_000);
+      // 일시정지 상태로 세션이 끝나면 멈춘 채로 읽는다.
+      expect(usage.soundSeconds()).toEqual([{ id: "white", group: "noise", sec: 3 }]);
+      usage.start();
+      clock.advance(2_000);
+
+      expect(usage.soundSeconds()).toEqual([{ id: "white", group: "noise", sec: 5 }]);
+    });
+
+    it("재생 중이 아닐 때 소리를 바꿔도 시간이 생기지 않는다", () => {
+      const clock = fakeClock();
+      const usage = createAmbientUsage(clock.now);
+      usage.setSounds([white]);
+      clock.advance(10_000);
+      usage.setSounds([rain]);
+      clock.advance(10_000);
+
+      expect(usage.soundSeconds()).toEqual([]);
+    });
+
+    it("1초 미만은 버리고, 0초인 소리는 목록에 없다", () => {
+      const clock = fakeClock();
+      const usage = createAmbientUsage(clock.now);
+      usage.setSounds([white]);
+      usage.start();
+      clock.advance(900);
+      usage.setSounds([rain]);
+      clock.advance(2_300);
+
+      expect(usage.soundSeconds()).toEqual([{ id: "rain-trp", group: "ambience", sec: 2 }]);
+    });
+  });
 });
