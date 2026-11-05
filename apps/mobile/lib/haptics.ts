@@ -12,6 +12,23 @@ function loadHaptics(): Promise<typeof Haptics> {
   );
 }
 
+export function triggerTabHaptic(): void {
+  if (Platform.OS === "android") {
+    // Segment_Frequent_Tick은 Expo 소스에서 반복해도 편안한 가장 부드러운 틱으로 명시한다.
+    // View.performHapticFeedback으로 시스템 햅틱 설정을 따르며, 부드럽게 울릴 수 없으면 생략한다.
+    // API 34 미만의 미지원 상수·모듈 누락·호출 실패는 짧은 10ms 진동으로 폴백한다.
+    void loadHaptics()
+      .then((haptics) =>
+        haptics.performAndroidHapticsAsync(haptics.AndroidHaptics.Segment_Frequent_Tick),
+      )
+      .catch(() => {
+        Vibration.vibrate(10);
+      });
+    return;
+  }
+  triggerHaptic("light");
+}
+
 /**
  * 웹 `haptic` 브리지의 네이티브 반응 — expo-haptics 임팩트.
  *
