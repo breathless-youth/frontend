@@ -1,3 +1,4 @@
+import { getLocales } from "expo-localization";
 import * as SecureStore from "expo-secure-store";
 
 import type {
@@ -5,6 +6,7 @@ import type {
   SocialLoginFailureCode,
   SocialLoginProvider,
   ToWebMessage,
+  UserRegisterRequest,
   UserRegisterResponse,
 } from "@focusmakers/types";
 import { readUserIdFromAccessToken } from "./jwt";
@@ -12,7 +14,6 @@ import { readUserIdFromAccessToken } from "./jwt";
 import { apiFetch, parseErrorMessage } from "./api";
 import { apiBaseUrl } from "./apiBaseUrl";
 import { getOrCreateDeviceId } from "./deviceId";
-import { getAppLocale } from "./i18n";
 import { logMetaRegistration } from "./metaAds";
 
 /**
@@ -106,6 +107,18 @@ async function writeAuth(state: AuthState): Promise<AuthState> {
 }
 
 /**
+ * 가입 요청 본문
+ *
+ * 서버가 기본 닉네임 목록을 고르려면 앱 화면 언어가 아니라 휴대폰 언어 태그 원문이 필요하다.
+ * 앱 화면 언어는 간체·홍콩을 구분하지 못하지만 닉네임 목록은 따로 있기 때문이다.
+ * 언어를 읽지 못하면 필드를 빼서 서버가 기본 목록을 쓰게 한다.
+ */
+function registerRequest(deviceId: string): UserRegisterRequest {
+  const language = getLocales()[0]?.languageTag;
+  return language ? { deviceId, language } : { deviceId };
+}
+
+/**
  * 등록 API 원본 호출. `Authorization`을 붙이지 않는다.
  *
  * 응답의 `isNew`는 Meta 가입 완료 이벤트(`logMetaRegistration`)만 소비한다 — 광고로 설치한 사용자가 실제
@@ -116,8 +129,7 @@ export async function registerUser(deviceId: string): Promise<UserRegisterRespon
     endpoint: "register",
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    // 서버가 자동 닉네임 단어를 이 언어로 고른다.
-    body: JSON.stringify({ deviceId, locale: getAppLocale() }),
+    body: JSON.stringify(registerRequest(deviceId)),
   });
   if (!res.ok) {
     throw await parseErrorMessage(res, "유저 등록 실패");

@@ -10,6 +10,7 @@ import {
   subscribeAuth,
   isNewUserThisLaunch,
 } from "../auth";
+import { setDeviceLanguages } from "../../jest/deviceLanguages";
 import { logMetaRegistration } from "../metaAds";
 import { ensureUserRegistered } from "../userApi";
 
@@ -106,7 +107,10 @@ describe("ensureAuth", () => {
       "http://api.test/api/users",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ deviceId: "0f8fad5b-d9cb-469f-a165-70867728950e", locale: "ko" }),
+        body: JSON.stringify({
+          deviceId: "0f8fad5b-d9cb-469f-a165-70867728950e",
+          language: "ko-KR",
+        }),
       }),
     );
     expect(mockedSet).toHaveBeenCalledWith("focuson.auth", expect.any(String), {
@@ -205,16 +209,37 @@ describe("ensureAuth", () => {
 });
 
 describe("registerUser", () => {
-  it("가입 요청 본문에 자동 닉네임 언어로 쓸 locale을 싣는다", async () => {
+  const DEVICE_ID = "0f8fad5b-d9cb-469f-a165-70867728950e";
+
+  async function registerBody(): Promise<unknown> {
     mockedFetch.mockResolvedValue(
       jsonResponse(201, { isNew: true, accessToken: accessTokenFor(7), refreshToken: "r1" }),
     );
+    await registerUser(DEVICE_ID);
+    return JSON.parse(String((mockedFetch.mock.calls[0] as [string, RequestInit])[1].body));
+  }
 
-    await registerUser("0f8fad5b-d9cb-469f-a165-70867728950e");
+  afterEach(() => {
+    setDeviceLanguages(["ko-KR"]);
+  });
 
-    expect((mockedFetch.mock.calls[0] as [string, RequestInit])[1].body).toBe(
-      JSON.stringify({ deviceId: "0f8fad5b-d9cb-469f-a165-70867728950e", locale: "ko" }),
-    );
+  it("휴대폰 언어 태그를 language로 싣고 locale은 보내지 않는다", async () => {
+    await expect(registerBody()).resolves.toEqual({ deviceId: DEVICE_ID, language: "ko-KR" });
+  });
+
+  it("앱 화면 언어로 바꾸지 않고 태그 원문을 보낸다", async () => {
+    setDeviceLanguages(["zh-Hans-CN"]);
+    await expect(registerBody()).resolves.toEqual({ deviceId: DEVICE_ID, language: "zh-Hans-CN" });
+  });
+
+  it("선호 언어가 여럿이면 첫 번째만 보낸다", async () => {
+    setDeviceLanguages(["ja-JP", "en-US"]);
+    await expect(registerBody()).resolves.toEqual({ deviceId: DEVICE_ID, language: "ja-JP" });
+  });
+
+  it("휴대폰 언어를 읽지 못하면 language를 빼고 보낸다", async () => {
+    setDeviceLanguages([]);
+    await expect(registerBody()).resolves.toEqual({ deviceId: DEVICE_ID });
   });
 });
 
