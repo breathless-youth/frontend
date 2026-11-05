@@ -121,7 +121,7 @@
     "next": "次へ",
     "awayPill": "<hl>席を離れたり</hl>、<hl>居眠りしたり</hl>すると\nここでお知らせします",
     "awayTimer": "その間、<hl>集中時間</hl>は止まります",
-    "measuringPill": "席に戻ると<hl>測定を再開</hl>します\n測定画面は<hl>デバイスの外</hl>に\n出ないので安心してください😌",
+    "measuringPill": "席に戻ると<hl>測定を再開</hl>します\n映像は<hl>デバイスの外</hl>に\n出ないので安心してください😌",
     "measuringTimer": "<hl>集中時間</hl>が\nまた進みはじめます⏰",
     "cameraTap": "画面をタップすると\n<hl>カメラ画面</hl>に切り替わります",
     "buttonsSide": "<hl>バックグラウンド\nサウンド</hl>、<hl>科目</hl>、\n<hl>タイマー</hl>は\nここからオンにします",
