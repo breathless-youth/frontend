@@ -266,7 +266,9 @@ describe("그룹 설정", () => {
     const { router } = renderGroupRoute("/social/groups/10/settings?groupRooms=1");
     const user = userEvent.setup();
     await user.click(await screen.findByRole("radio", { name: "바로 입장" }));
-    expect(screen.getByRole("status")).toHaveTextContent("바꾸면 남은 신청 2건이 없어져요");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "\uc785\uc7a5 \ubc29\uc2dd\uc744 \ubcc0\uacbd\ud558\uba74 \ub0a8\uc740 \uc2e0\uccad 2\uac74\uc774 \uc5c6\uc5b4\uc838\uc694",
+    );
     await user.click(screen.getByRole("button", { name: "저장하기" }));
     expect(api.updateGroup).toHaveBeenCalledWith(
       10,

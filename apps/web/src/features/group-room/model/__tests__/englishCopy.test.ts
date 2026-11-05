@@ -50,19 +50,12 @@ const dialogTexts = (copy: ConfirmDialogCopy) => [
 /** 그룹 모델이 만드는 문장을 경우마다 하나씩 모은다. */
 function everyCopy(): string[] {
   const texts: (string | null)[] = [
+    ...[1, 3].map((count) => i18n.t("group-room:joinPolicy.pendingLoss", { count })),
     contactBlockedCopy(),
     joinPolicyText("approval"),
     joinPolicyText("open"),
     ...(
-      [
-        "whoCanJoin",
-        "settingsLabel",
-        "pendingLoss",
-        "join",
-        "full",
-        "openError",
-        "approvalRequiredError",
-      ] as const
+      ["whoCanJoin", "settingsLabel", "join", "full", "openError", "approvalRequiredError"] as const
     ).map((key) => i18n.t(`group-room:joinPolicy.${key}`, { count: 3 })),
     groupErrorCopy("apply", new ApiError("x", 409, "GROUP_JOIN_OPEN")),
     groupErrorCopy("join_public", new ApiError("x", 409, "GROUP_JOIN_APPROVAL_REQUIRED")),

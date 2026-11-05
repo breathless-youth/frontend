@@ -275,7 +275,7 @@
     "open": "すぐに参加",
     "whoCanJoin": "誰が参加できますか？",
     "settingsLabel": "参加方法",
-    "pendingLoss": "変更すると、残っている申請{{count}}件が削除されます",
+    "pendingLoss": "入室方法を変更すると、残っている申請{{count}}件が削除されます",
     "join": "参加する",
     "full": "満員です",
     "openError": "申請せずにすぐ参加できます",

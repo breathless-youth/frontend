@@ -275,7 +275,7 @@
     "open": "바로 입장",
     "whoCanJoin": "누가 들어올 수 있나요?",
     "settingsLabel": "입장 방식",
-    "pendingLoss": "바꾸면 남은 신청 {{count}}건이 없어져요",
+    "pendingLoss": "입장 방식을 변경하면 남은 신청 {{count}}건이 없어져요",
     "join": "입장하기",
     "full": "자리가 다 찼어요",
     "openError": "신청 없이 바로 입장할 수 있어요",

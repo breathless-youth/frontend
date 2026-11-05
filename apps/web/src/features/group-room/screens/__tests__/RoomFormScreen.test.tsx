@@ -71,15 +71,28 @@ describe("RoomFormScreen", () => {
 
   it.each([0, 3])("shows pending loss only when switching with %i requests", async (count) => {
     renderForm({ mode: "edit", initial: fixtures.roomForm, newRequestCount: count });
-    expect(screen.queryByText(/바꾸면 남은 신청/)).toBeNull();
+    expect(
+      screen.queryByText(
+        /\uc785\uc7a5 \ubc29\uc2dd\uc744 \ubcc0\uacbd\ud558\uba74 \ub0a8\uc740 \uc2e0\uccad/,
+      ),
+    ).toBeNull();
     await userEvent.setup().click(screen.getByRole("radio", { name: "바로 입장" }));
     if (count > 0)
       expect(screen.getByRole("status")).toHaveTextContent(
-        `바꾸면 남은 신청 ${count}건이 없어져요`,
+        `\uc785\uc7a5 \ubc29\uc2dd\uc744 \ubcc0\uacbd\ud558\uba74 \ub0a8\uc740 \uc2e0\uccad ${count}\uac74\uc774 \uc5c6\uc5b4\uc838\uc694`,
       );
-    else expect(screen.queryByText(/바꾸면 남은 신청/)).toBeNull();
+    else
+      expect(
+        screen.queryByText(
+          /\uc785\uc7a5 \ubc29\uc2dd\uc744 \ubcc0\uacbd\ud558\uba74 \ub0a8\uc740 \uc2e0\uccad/,
+        ),
+      ).toBeNull();
     await userEvent.setup().click(screen.getByRole("radio", { name: "신청 후 입장" }));
-    expect(screen.queryByText(/바꾸면 남은 신청/)).toBeNull();
+    expect(
+      screen.queryByText(
+        /\uc785\uc7a5 \ubc29\uc2dd\uc744 \ubcc0\uacbd\ud558\uba74 \ub0a8\uc740 \uc2e0\uccad/,
+      ),
+    ).toBeNull();
   });
 
   it("처음에는 공개와 프로필 카테고리가 골라져 있고 이름이 비면 만들 수 없다", () => {

@@ -294,7 +294,7 @@
     "full": "This group is full",
     "openError": "You can join this group without a request",
     "approvalRequiredError": "This group requires approval to join",
-    "pendingLoss_one": "Changing this will remove {{count}} pending request",
-    "pendingLoss_other": "Changing this will remove {{count}} pending requests"
+    "pendingLoss_one": "Changing the entry method will remove {{count}} pending request",
+    "pendingLoss_other": "Changing the entry method will remove {{count}} pending requests"
   }
 }

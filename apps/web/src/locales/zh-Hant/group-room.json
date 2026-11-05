@@ -275,7 +275,7 @@
     "open": "立即加入",
     "whoCanJoin": "誰可以加入？",
     "settingsLabel": "加入方式",
-    "pendingLoss": "變更後，剩餘的 {{count}} 筆申請將會被移除",
+    "pendingLoss": "變更加入方式後，剩餘的 {{count}} 筆申請將會被移除",
     "join": "加入群組",
     "full": "名額已滿",
     "openError": "無須申請即可立即加入",
