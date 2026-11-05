@@ -27,23 +27,19 @@ export function GroupNotificationPrompt({
 }) {
   const online = useSyncExternalStore(subscribeOnline, isOnline);
   const checked = useRef(false);
+  const storageReadFailed = useRef(false);
   const [open, setOpen] = useState(false);
+  const key = `group-notification-asked:${userId}:${groupId}`;
   const askOnce = useEffectEvent(() => {
     if (checked.current) return;
     checked.current = true;
     if (notifyEnabled) return;
-    const key = `group-notification-asked:${userId}:${groupId}`;
     if (unpersistedAnswers.has(key)) return;
     try {
       if (localStorage.getItem(key) === "1") return;
     } catch {
       // A blocked read must not prevent the prompt from rendering.
-      unpersistedAnswers.add(key);
-    }
-    try {
-      localStorage.setItem(key, "1");
-    } catch {
-      unpersistedAnswers.add(key);
+      storageReadFailed.current = true;
     }
     setOpen(true);
   });
@@ -63,6 +59,15 @@ export function GroupNotificationPrompt({
     <LazySheet
       open={open}
       onOpenChange={setOpen}
+      onShown={() => {
+        // A failed chunk download must leave both storage and the session fallback untouched.
+        if (storageReadFailed.current) unpersistedAnswers.add(key);
+        try {
+          localStorage.setItem(key, "1");
+        } catch {
+          unpersistedAnswers.add(key);
+        }
+      }}
       onAccept={() => {
         setOpen(false);
         onAccept();

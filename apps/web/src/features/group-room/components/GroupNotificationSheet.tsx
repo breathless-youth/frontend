@@ -8,15 +8,22 @@ export function GroupNotificationSheet({
   open,
   onOpenChange,
   onAccept,
+  onShown,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAccept: () => void;
+  onShown: () => void;
 }) {
   const { t } = useTranslation("group-room");
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="theme-soft-blue">
+      <DrawerContent
+        className="theme-soft-blue"
+        ref={(node) => {
+          if (node !== null && open) onShown();
+        }}
+      >
         <div
           aria-hidden="true"
           className="mt-4.5 flex size-11 items-center justify-center rounded-full bg-brand-subtle text-primary"
