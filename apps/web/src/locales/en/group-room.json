@@ -259,6 +259,10 @@
     "categoryLabel": "Studying for",
     "introLabel": "About this group"
   },
+  "myRoomCard": {
+    "newRequests_one": "{{count}} new request",
+    "newRequests_other": "{{count}} new requests"
+  },
   "roomHomeScreen": {
     "todayTitle": "Our group today",
     "newRequests_one": "You have {{count}} new request",
