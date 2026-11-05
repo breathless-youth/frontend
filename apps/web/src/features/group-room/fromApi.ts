@@ -142,7 +142,7 @@ export function toMyRoomSummary(card: MyGroupCard, myUserId: number): MyRoomSumm
     categoryLabel: categoryLabel(card.category),
     visibility: toRoomVisibility(card.visibility),
     memberCount: card.memberCount,
-    // 서버가 이 값을 주기 전에 웹이 먼저 나가도 줄만 안 보이게 없는 값도 0으로 읽는다.
+    // 공개 그룹 그룹장이 아니면 서버가 null을 준다.
     newRequestCount: card.newApplicationCount ?? 0,
     members: card.members.map((desk) => toRoomDeskMember(desk, myUserId)),
   };

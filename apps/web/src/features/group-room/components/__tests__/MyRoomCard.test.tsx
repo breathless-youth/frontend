@@ -36,7 +36,7 @@ describe("MyRoomCard 새 신청 줄", () => {
       />,
     );
 
-    expect(screen.queryByText(/확인하기/)).toBeNull();
+    expect(screen.getByText("새 신청 2건")).toBeInTheDocument();
     await userEvent.setup().click(screen.getByRole("button", { name: "새벽 공시반, 새 신청 2건" }));
     expect(onOpenRequests).toHaveBeenCalledWith(7);
     expect(onOpen).not.toHaveBeenCalled();

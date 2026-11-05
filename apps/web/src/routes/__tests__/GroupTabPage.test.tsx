@@ -298,7 +298,7 @@ describe("그룹 탭", () => {
     const create = screen.getByRole("menuitem", { name: /그룹 만들기/ });
     expect(create).toHaveAttribute("aria-disabled", "true");
     expect(create).not.toHaveAttribute("aria-describedby");
-    expect(screen.queryByText("그룹은 2개까지 만들 수 있어요")).toBeNull();
+    expect(screen.queryByText("그룹과 신청을 합쳐 5개까지예요")).toBeNull();
     expect(screen.getByRole("menuitem", { name: "초대코드로 참여" })).not.toHaveAttribute(
       "aria-disabled",
     );
