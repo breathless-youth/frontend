@@ -30,6 +30,8 @@ describe("groupErrorCopy", () => {
     ["apply", api(409, "GROUP_FULL"), "자리가 다 찼어요"],
     ["apply", api(400, "CONTACT_NOT_ALLOWED"), "연락처나 링크는 보낼 수 없어요"],
     ["create", api(400, "CONTACT_NOT_ALLOWED"), "연락처나 링크는 보낼 수 없어요"],
+    ["create", api(409, "GROUP_NAME_TAKEN"), "이미 있는 공개 그룹 이름이에요"],
+    ["update", api(409, "GROUP_NAME_TAKEN"), "이미 있는 공개 그룹 이름이에요"],
     ["update", api(400, "CONTACT_NOT_ALLOWED"), "연락처나 링크는 보낼 수 없어요"],
     // 5개 한도는 답을 기다리는 신청도 세어서 신청하기와 같은 문장을 쓴다.
     ["create", api(409, "GROUP_SLOT_LIMIT"), "그룹과 신청을 합쳐 5개까지예요"],

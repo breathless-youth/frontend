@@ -1,4 +1,7 @@
 {
+  "nameCheck": {
+    "taken": "A public group with this name already exists"
+  },
   "contactCheck": {
     "blocked": "You can't include contact info or links"
   },

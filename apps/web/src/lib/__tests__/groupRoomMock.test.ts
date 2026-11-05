@@ -84,6 +84,34 @@ describe("그룹 가짜 서버", () => {
     ).rejects.toMatchObject({ status: 409, code: "GROUP_SLOT_LIMIT" });
   });
 
+  it("같은 이름의 공개 그룹을 만들거나 그 이름으로 바꾸면 GROUP_NAME_TAKEN으로 막는다", async () => {
+    const api = server("default");
+    const taken = "새벽 5시 기상 공시반";
+    await expect(
+      api.createGroup({
+        name: ` ${taken.replace(/ /g, "")} `,
+        visibility: "PUBLIC",
+        category: "ETC",
+      }),
+    ).rejects.toMatchObject({ status: 409, code: "GROUP_NAME_TAKEN" });
+    await expect(
+      api.createGroup({ name: taken, visibility: "PRIVATE", category: "ETC" }),
+    ).resolves.toMatchObject({ groupId: expect.any(Number) });
+
+    const { groupId } = await api.createGroup({
+      name: "내 공개 그룹",
+      visibility: "PUBLIC",
+      category: "ETC",
+    });
+    await expect(api.updateGroup(groupId, { name: taken, category: "ETC" })).rejects.toMatchObject({
+      status: 409,
+      code: "GROUP_NAME_TAKEN",
+    });
+    await expect(
+      api.updateGroup(groupId, { name: "내  공개 그룹", category: "ETC", description: "새 소개" }),
+    ).resolves.toBeUndefined();
+  });
+
   it("공개 그룹 목록은 20개씩 나누고 마지막 쪽은 다음 쪽이 없다", async () => {
     const api = server("default");
     expect((await api.getPublicGroups({ page: 0 })).groups).toHaveLength(20);

@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import i18n from "@/lib/i18n";
 
 import { contactBlockedCopy } from "../contactCheck";
+import { nameTakenCopy } from "../nameCheck";
 import { studyingCountText } from "../desks";
 import type { ApplyBlockReason, JoinBlockReason } from "../limits";
 import { applyBlockCopy, createRoomLimitCopy, joinBlockCopy, memberCountText } from "../limits";
@@ -47,6 +48,7 @@ const dialogTexts = (copy: ConfirmDialogCopy) => [
 function everyCopy(): string[] {
   const texts: (string | null)[] = [
     contactBlockedCopy(),
+    nameTakenCopy(),
     createRoomLimitCopy(),
     inviteCodeRenewedCopy(),
     memberCountText(4),

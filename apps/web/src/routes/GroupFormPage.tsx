@@ -94,15 +94,23 @@ function contactServerError(
   return null;
 }
 
+/** 같은 이름의 공개 그룹이 있다는 서버 답은 이름 칸 아래에 둔다. */
+function nameTakenServerError(action: FormAction, error: Error): RoomFormServerError | null {
+  return groupErrorCode(error) === "GROUP_NAME_TAKEN"
+    ? { field: "name", message: groupErrorCopy(action, error) }
+    : null;
+}
+
 /**
  * 양식 오류 알리기
  *
- * 연락처로 걸린 칸을 찾으면 그 칸 아래에, 그 밖에는 토스트로 알린다.
+ * 연락처로 걸린 칸을 찾거나 이름이 겹치면 그 칸 아래에, 그 밖에는 토스트로 알린다.
  */
 function useFormErrorNotice(action: FormAction) {
   const [serverError, setServerError] = useState<RoomFormServerError | null>(null);
   const notice = (error: Error, name: string, intro: string) => {
-    const fieldError = contactServerError(action, error, name, intro);
+    const fieldError =
+      nameTakenServerError(action, error) ?? contactServerError(action, error, name, intro);
     if (fieldError === null) {
       showToast(groupErrorCopy(action, error));
     }

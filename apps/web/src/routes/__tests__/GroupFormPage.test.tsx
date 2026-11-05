@@ -170,6 +170,20 @@ describe("그룹 만들기", () => {
     expect(screen.getAllByText("연락처나 링크는 보낼 수 없어요")).toHaveLength(1);
   });
 
+  it("서버가 공개 그룹 이름 중복으로 막으면 이름 칸 아래에 알린다", async () => {
+    const api = mockGroupApi("default");
+    api.createGroup.mockRejectedValueOnce(new ApiError("x", 409, "GROUP_NAME_TAKEN"));
+    mockProfile({ category: null });
+    renderGroupRoute("/social/groups/new?groupRooms=1");
+    const user = userEvent.setup();
+    const name = await screen.findByRole("textbox", { name: "그룹 이름" });
+    await user.type(name, "새벽 5시 기상 공시반");
+    await user.click(screen.getByRole("button", { name: "그룹 만들기" }));
+    await waitFor(() => expect(api.createGroup).toHaveBeenCalledOnce());
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getAllByText("이미 있는 공개 그룹 이름이에요")).toHaveLength(1);
+  });
+
   it("서버가 연락처로 막았는데 화면의 판정에 걸린 칸이 없으면 토스트로 알린다", async () => {
     const api = mockGroupApi("default");
     api.createGroup.mockRejectedValueOnce(new ApiError("x", 400, "CONTACT_NOT_ALLOWED"));
