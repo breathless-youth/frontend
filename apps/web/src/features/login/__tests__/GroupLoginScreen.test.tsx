@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, QueryObserver } from "@tanstack/react-query";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -185,6 +185,16 @@ describe("그룹 로그인 결과", () => {
     await userEvent.setup().click(screen.getByRole("button", { name }));
   }
 
+  /** 게이트가 보고 있는 것처럼 비회원 프로필을 켜 두고, 다시 받기는 `load`에 맡긴다 */
+  function watchProfile(client: QueryClient, load: () => Promise<never>) {
+    client.setQueryData(profileKeys.detail(1), { loginProvider: null });
+    new QueryObserver(client, {
+      queryKey: profileKeys.detail(1),
+      queryFn: load,
+      retry: false,
+    }).subscribe(() => {});
+  }
+
   it("앱이 답하기 전에는 모든 버튼을 막는다", async () => {
     vi.mocked(getStudyDays).mockReturnValue(new Promise(() => {}));
     vi.mocked(requestNativeSocialLogin).mockReturnValue(new Promise(() => {}));
@@ -196,14 +206,67 @@ describe("그룹 로그인 결과", () => {
     }
   });
 
+  it("앱이 답하기 전에는 누른 버튼만 진행 중이고 나머지는 막기만 한다", async () => {
+    vi.mocked(getStudyDays).mockReturnValue(new Promise(() => {}));
+    vi.mocked(requestNativeSocialLogin).mockReturnValue(new Promise(() => {}));
+    renderScreen();
+    await press("카카오로 계속하기");
+    expect(screen.getByRole("button", { name: "카카오로 계속하기" })).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+    for (const name of ["Google로 계속하기", "Apple로 계속하기"]) {
+      const other = screen.getByRole("button", { name });
+      expect(other).toBeDisabled();
+      expect(other).not.toHaveAttribute("aria-busy", "true");
+    }
+  });
+
+  it.each<NativeSocialLoginResult>([
+    { status: "cancelled" },
+    { status: "failed", code: "INVALID_SOCIAL_TOKEN" },
+  ])("$status 답을 받으면 진행 표시를 거둔다", async (result) => {
+    answerWith(result);
+    renderScreen();
+    await press("카카오로 계속하기");
+    const button = screen.getByRole("button", { name: "카카오로 계속하기" });
+    await waitFor(() => expect(button).toBeEnabled());
+    expect(button).not.toHaveAttribute("aria-busy", "true");
+  });
+
+  it("로그인에 성공하면 프로필을 다시 받는 동안 진행 표시를 유지한다", async () => {
+    answerWith({ status: "success", isNewUser: false });
+    const { client } = renderScreen();
+    const load = vi.fn(() => new Promise<never>(() => {}));
+    watchProfile(client, load);
+    await press("Google로 계속하기");
+    await waitFor(() => expect(trackSocialLoginSucceeded).toHaveBeenCalled());
+    const button = screen.getByRole("button", { name: "Google로 계속하기" });
+    expect(button).toHaveAttribute("aria-busy", "true");
+    expect(button).toBeDisabled();
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+
+  it("로그인에 성공했는데 프로필을 다시 받지 못하면 버튼을 다시 연다", async () => {
+    answerWith({ status: "success", isNewUser: false });
+    const { client } = renderScreen();
+    watchProfile(client, () => Promise.reject(new Error("network")));
+    await press("Google로 계속하기");
+    const button = screen.getByRole("button", { name: "Google로 계속하기" });
+    await waitFor(() => expect(button).toBeEnabled());
+    expect(button).not.toHaveAttribute("aria-busy", "true");
+  });
+
   it("새로 가입해도 이 화면에 남아 게이트가 바뀌기를 기다린다", async () => {
     answerWith({ status: "success", isNewUser: true });
     const { location } = renderScreen();
     await press("Google로 계속하기");
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Google로 계속하기" })).toBeEnabled(),
+      expect(trackSocialLoginSucceeded).toHaveBeenCalledWith({
+        provider: "GOOGLE",
+        isNewUser: true,
+      }),
     );
-    expect(trackSocialLoginSucceeded).toHaveBeenCalledWith({ provider: "GOOGLE", isNewUser: true });
     expect(screen.queryByText("프로필 화면")).not.toBeInTheDocument();
     expect(location()?.pathname).toBe("/social");
   });

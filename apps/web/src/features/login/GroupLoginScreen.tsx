@@ -1,5 +1,6 @@
 import type { SocialLoginProvider } from "@focusmakers/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { LoaderCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router-dom";
@@ -65,7 +66,7 @@ export function GroupLoginScreen({ entry }: { entry: LoginEntry }) {
   const back = useBackTo("/social");
   const userId = useUserId();
   const studyDays = useQuery({ ...studyDaysQuery(userId ?? 0), enabled: userId !== null });
-  const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState<SocialLoginProvider | null>(null);
   const viewedRef = useRef(false);
   // 버튼 비활성은 다음 렌더에 붙어서, 같은 순간의 두 번째 누름은 이 값으로 막는다.
   const inFlightRef = useRef(false);
@@ -95,7 +96,7 @@ export function GroupLoginScreen({ entry }: { entry: LoginEntry }) {
       return;
     }
     inFlightRef.current = true;
-    setBusy(true);
+    setPending(provider);
     const result = await requestNativeSocialLogin(provider);
     inFlightRef.current = false;
     // 로그인으로 신원이 바뀌면 게이트가 이 화면을 먼저 내릴 수 있어 계측은 화면이 남았는지와 상관없이 한다.
@@ -107,7 +108,19 @@ export function GroupLoginScreen({ entry }: { entry: LoginEntry }) {
     if (!mountedRef.current) {
       return;
     }
-    setBusy(false);
+    // 성공하면 게이트가 회원으로 바꿔 이 화면을 내릴 때까지 프로필을 다시 받는 동안에도 진행 중으로 둔다.
+    // 다시 받지 못해 화면이 남으면 버튼을 다시 연다. 앱 응답 때 시작한 재조회를 기다리기만 하고 새로 보내지 않는다.
+    if (result.status === "success") {
+      await queryClient.refetchQueries(
+        { queryKey: profileKeys.all, type: "active" },
+        { cancelRefetch: false },
+      );
+      if (mountedRef.current) {
+        setPending(null);
+      }
+      return;
+    }
+    setPending(null);
     if (result.status !== "failed") {
       return;
     }
@@ -150,11 +163,24 @@ export function GroupLoginScreen({ entry }: { entry: LoginEntry }) {
                 key={provider}
                 variant="unstyled"
                 size="xl"
-                className={cn("relative w-full", className)}
-                disabled={busy}
+                className={cn(
+                  "relative w-full",
+                  className,
+                  pending === provider && "disabled:opacity-100",
+                )}
+                disabled={pending !== null}
+                aria-busy={pending === provider}
                 onClick={() => void login(provider)}
               >
-                <img src={icon} alt="" className="absolute left-5" />
+                {pending === provider ? (
+                  <LoaderCircle
+                    size={22}
+                    aria-hidden
+                    className="absolute left-5 animate-spin motion-reduce:animate-none"
+                  />
+                ) : (
+                  <img src={icon} alt="" className="absolute left-5" />
+                )}
                 {t(`providers.${provider}`)}
               </Button>
             ),
