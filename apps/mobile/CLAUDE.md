@@ -59,7 +59,7 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 
 - SDK는 `lib/socialLoginSdk.ts`만 import한다. 루트 import가 네이티브 없이(jest) 죽는 것은 Meta SDK와 같고, 이 파일 안에서도 쓰는 공급자의 SDK만 `require`한다. 테스트는 세 공급자의 네 패키지를 mock한다.
 - 어떤 공급자를 쓰는지는 `socialLoginProvidersFor` 한 곳이 정한다. SDK 초기화와 웹뷰 주소의 `socialLogin` 목록이 이 함수를 같이 본다. 카카오는 앱 종류별 네이티브 앱 키가, 구글 iOS는 앱 종류별 iOS 클라이언트 ID가 있어야 들어가고, 구글 Android와 애플(iOS)은 모든 앱 종류에 들어간다.
-- 키는 `app.config.ts`의 `VARIANT_TABLE`(`kakaoNativeAppKey`·`googleIosClientId`)에 있고 지금은 production만 채웠다. dev·staging 값을 채우면 config plugin, URL scheme, 구글 로그인 복귀 처리(`plugins/withGoogleSignInOpenUrl.js`), `extra.socialLogin`, 웹 목록이 함께 따라온다. 네이티브 설정이 바뀌므로 그 앱 종류를 다시 빌드해야 한다. `socialLoginConfig.test.ts`가 고정한다.
+- 키는 `app.config.ts`의 `VARIANT_TABLE`(`kakaoNativeAppKey`·`googleIosClientId`)에 있고 세 앱 종류 모두 채웠다. 값을 비우면 그 앱 종류에서 config plugin, URL scheme, 구글 로그인 복귀 처리(`plugins/withGoogleSignInOpenUrl.js`), `extra.socialLogin`, 웹 목록이 함께 빠진다. 네이티브 설정이 바뀌므로 그 앱 종류를 다시 빌드해야 한다. `socialLoginConfig.test.ts`가 고정한다.
 - SDK 네이티브 모듈이 없는 이전 Dev Client에서는 그 공급자만 목록에서 빠진다. 애플 SDK는 모듈이 없어도 가짜 모듈로 불러와져서 `requireOptionalNativeModule`로 따로 확인한다.
 - link가 성공하면 서버가 이전 refresh를 바로 무효로 만든다. 그래서 진행 중인 link가 있으면 `refreshAuth`가 그 결과를 기다린 뒤 새 refresh로 갱신하고, link는 시작할 때 진행 중인 갱신을 기다린다. 이 대기를 빼면 무효가 된 refresh로 갱신해 401을 받고, 저장을 비운 뒤 새 비회원으로 가입된다.
 - ID 토큰과 nonce는 로그와 브리지로 내보내지 않는다.

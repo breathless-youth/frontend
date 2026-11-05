@@ -223,7 +223,7 @@ describe("socialLogin", () => {
 });
 
 describe("installSocialLoginSdk", () => {
-  /** dev·staging처럼 앱 종류별 키가 없는 빌드. 구글 웹 클라이언트 ID는 모든 앱 종류가 같다. */
+  /** 앱 종류별 키가 비어 있는 빌드. 구글 웹 클라이언트 ID는 모든 앱 종류가 같다. */
   const NO_KEYS = {
     kakaoNativeAppKey: "",
     googleIosClientId: "",
