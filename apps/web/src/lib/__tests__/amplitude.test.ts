@@ -823,6 +823,42 @@ describe("그룹 공부방 이벤트", () => {
   });
 });
 
+describe("소셜 로그인 이벤트", () => {
+  it("미초기화 상태에서는 보내지 않는다", async () => {
+    const module = await loadModule();
+
+    module.trackLoginScreenViewed("tab");
+    module.trackSocialLoginSucceeded({ provider: "GOOGLE", isNewUser: true });
+    module.trackSocialLoginFailed({ provider: "KAKAO", reason: "UNKNOWN" });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("들어온 곳, 공급자, 신규 여부, 실패 코드를 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const module = await loadModule();
+    module.initAmplitude();
+    mocks.track.mockClear();
+
+    module.trackLoginScreenViewed("invite");
+    module.trackSocialLoginSucceeded({ provider: "APPLE", isNewUser: false });
+    module.trackSocialLoginFailed({ provider: "KAKAO", reason: "SOCIAL_PROVIDER_UNAVAILABLE" });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["login_screen_viewed", { entry: "invite" }],
+      ["social_login_succeeded", { provider: "APPLE", is_new_user: false }],
+      ["social_login_failed", { provider: "KAKAO", reason: "SOCIAL_PROVIDER_UNAVAILABLE" }],
+    ]);
+    for (const [, payload] of mocks.track.mock.calls) {
+      for (const value of Object.values(payload as Record<string, unknown>)) {
+        if (typeof value === "string") {
+          expect(value).toMatch(ANALYTICS_PARAM_VALUE_PATTERN);
+        }
+      }
+    }
+  });
+});
+
 describe("초대 루프 이벤트 (BY-472)", () => {
   it("공유·링크 진입·스토어 이동을 각 속성과 함께 보낸다 — 초대코드 값은 어디에도 없다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
