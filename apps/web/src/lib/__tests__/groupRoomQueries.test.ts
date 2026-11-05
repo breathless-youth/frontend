@@ -1,0 +1,272 @@
+import type { MyGroupCard, MyGroupsResponse } from "@focusmakers/types";
+import { QueryClient } from "@tanstack/react-query";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
+
+import { ApiError } from "../api";
+import * as groupRoomApi from "../groupRoomApi";
+import {
+  blocksQuery,
+  cannotLoadFirst,
+  dedupePublicGroups,
+  dropFromMyGroups,
+  forgetGroup,
+  groupApplicationsQuery,
+  groupHomeQuery,
+  groupInviteQuery,
+  groupKeys,
+  groupMembersQuery,
+  groupQueryRetry,
+  invalidateGroupMembership,
+  myApplicationsQuery,
+  myGroupsQuery,
+  publicGroupQuery,
+  publicGroupsQuery,
+} from "../groupRoomQueries";
+
+vi.mock("../groupRoomApi");
+
+const card = (groupId: number) => ({
+  groupId,
+  name: `그룹${groupId}`,
+  category: "CSAT" as const,
+  memberCount: 3,
+  weeklyAverageFocusSec: 0,
+  studyingCount: 0,
+  member: false,
+});
+
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+describe("groupRoomQueries", () => {
+  it("모든 키에 사용자 번호가 들어간다", () => {
+    expect(groupKeys.home(7, 10)).toEqual(["groups", 7, "home", 10]);
+    expect(groupKeys.publicList(7, { query: "공시", category: null })).toEqual([
+      "groups",
+      7,
+      "public-list",
+      "공시",
+      "all",
+    ]);
+    expect(groupKeys.blocks(7)).toEqual(["blocks", 7]);
+  });
+
+  it("내 그룹 탭과 그룹 홈은 보이는 동안 30초마다 다시 받는다", () => {
+    for (const options of [myGroupsQuery(7), groupHomeQuery(7, 10)]) {
+      expect(options).toMatchObject({
+        staleTime: 10_000,
+        refetchInterval: 30_000,
+        refetchIntervalInBackground: false,
+        refetchOnWindowFocus: "always",
+      });
+    }
+  });
+
+  it("다음 쪽은 서버가 있다고 할 때만 받는다", () => {
+    const options = publicGroupsQuery(7, { query: "", category: null });
+    const page = { groups: [card(1)], hasNext: true };
+    expect(options.getNextPageParam(page, [page], 0, [0])).toBe(1);
+    expect(
+      options.getNextPageParam({ ...page, hasNext: false }, [page, page], 1, [0, 1]),
+    ).toBeUndefined();
+  });
+
+  it("쪽을 합칠 때 같은 그룹은 먼저 받은 것만 남긴다", () => {
+    expect(
+      dedupePublicGroups([
+        { groups: [card(1), card(2)], hasNext: true },
+        { groups: [card(2), card(3)], hasNext: false },
+      ]).map((group) => group.groupId),
+    ).toEqual([1, 2, 3]);
+  });
+
+  it("4xx는 다시 시도하지 않는다", () => {
+    expect(groupQueryRetry(0, new ApiError("x", 403, "NOT_GROUP_MEMBER"))).toBe(false);
+    expect(groupQueryRetry(0, new ApiError("x", 500))).toBe(true);
+    expect(groupQueryRetry(1, new TypeError("network"))).toBe(false);
+  });
+
+  it("첫 응답 없이 실패했거나 오프라인으로 멈춘 첫 조회만 불러오지 못한 것으로 본다", () => {
+    expect(cannotLoadFirst({ isLoadingError: true, isPending: false, isPaused: false })).toBe(true);
+    expect(cannotLoadFirst({ isLoadingError: false, isPending: true, isPaused: true })).toBe(true);
+    expect(cannotLoadFirst({ isLoadingError: false, isPending: true, isPaused: false })).toBe(
+      false,
+    );
+    // 받아 둔 응답이 있는 뒤의 실패는 화면이 받아 둔 것을 그대로 보인다.
+    expect(cannotLoadFirst({ isLoadingError: false, isPending: false, isPaused: false })).toBe(
+      false,
+    );
+  });
+
+  // 재시도 판단이 받는 오류 타입이 조회의 오류 타입이 되어서 화면이 받는 오류도 Error로 맞춘다.
+  it("재시도 판단은 Error를 받아 조회의 오류 타입을 Error로 둔다", () => {
+    expectTypeOf(groupQueryRetry).parameter(1).toEqualTypeOf<Error>();
+  });
+
+  it("떠난 그룹은 그 그룹의 조회만 캐시에서 빼고 다른 그룹과 내 그룹 목록은 남긴다", () => {
+    const client = new QueryClient();
+    const perGroup = (groupId: number) => [
+      groupKeys.publicDetail(7, groupId),
+      groupKeys.home(7, groupId),
+      groupKeys.members(7, groupId),
+      groupKeys.invite(7, groupId),
+      groupKeys.applications(7, groupId),
+    ];
+    for (const queryKey of [...perGroup(10), ...perGroup(11), groupKeys.mine(7)]) {
+      client.setQueryData(queryKey, {});
+    }
+    forgetGroup(client, 7, 10);
+    const cached = (queryKey: readonly unknown[]) => client.getQueryData(queryKey) !== undefined;
+    expect(perGroup(10).filter(cached)).toEqual([]);
+    expect(perGroup(11).every(cached)).toBe(true);
+    expect(cached(groupKeys.mine(7))).toBe(true);
+  });
+
+  it("떠난 그룹은 받아 둔 내 그룹 목록에서 바로 빼고 그룹장이던 그룹이면 그룹장 그룹 수도 줄인다", () => {
+    const client = new QueryClient();
+    const myCard = (groupId: number, owner: boolean): MyGroupCard => ({
+      groupId,
+      name: `그룹${groupId}`,
+      category: "CSAT",
+      visibility: "PRIVATE",
+      memberCount: 3,
+      studyingCount: 0,
+      owner,
+      newApplicationCount: null,
+      members: [],
+    });
+    client.setQueryData<MyGroupsResponse>(groupKeys.mine(7), {
+      groups: [myCard(10, true), myCard(11, false), myCard(12, true)],
+      pendingApplicationCount: 1,
+      ownedGroupCount: 2,
+      limits: { maxGroupsAndApplications: 5, maxPendingApplications: 3, maxOwnedGroups: 2 },
+    });
+    const mine = () => client.getQueryData<MyGroupsResponse>(groupKeys.mine(7))!;
+
+    dropFromMyGroups(client, 7, 11);
+    expect(mine().groups.map((group) => group.groupId)).toEqual([10, 12]);
+    expect(mine().ownedGroupCount).toBe(2);
+    dropFromMyGroups(client, 7, 10);
+    expect(mine().groups.map((group) => group.groupId)).toEqual([12]);
+    expect(mine().ownedGroupCount).toBe(1);
+    expect(mine().pendingApplicationCount).toBe(1);
+  });
+
+  it("받아 둔 내 그룹 목록이 없으면 새로 만들지 않는다", () => {
+    const client = new QueryClient();
+    dropFromMyGroups(client, 7, 10);
+    expect(client.getQueryData(groupKeys.mine(7))).toBeUndefined();
+  });
+
+  it("멤버 변화는 내 그룹, 내 신청, 공개 목록과 그 그룹 조회를 무효화한다", async () => {
+    const client = new QueryClient();
+    const spy = vi.spyOn(client, "invalidateQueries");
+    await invalidateGroupMembership(client, 7, 10);
+    const keys = spy.mock.calls.map(([filters]) => filters?.queryKey);
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        groupKeys.mine(7),
+        groupKeys.myApplications(7),
+        groupKeys.publicLists(7),
+        groupKeys.home(7, 10),
+        groupKeys.publicDetail(7, 10),
+      ]),
+    );
+  });
+
+  it("그룹을 정하지 않은 멤버 변화는 그룹마다 받는 조회를 건드리지 않는다", async () => {
+    const client = new QueryClient();
+    const spy = vi.spyOn(client, "invalidateQueries");
+    await invalidateGroupMembership(client, 7);
+    expect(spy.mock.calls.map(([filters]) => filters?.queryKey)).toEqual([
+      groupKeys.mine(7),
+      groupKeys.myApplications(7),
+      groupKeys.publicLists(7),
+    ]);
+  });
+
+  it("공개 목록 무효화는 검색어와 시험·목표가 다른 목록까지 모두 닿는다", async () => {
+    const client = new QueryClient();
+    client.setQueryData(groupKeys.publicList(7, { query: "공시", category: "CSAT" }), {});
+    client.setQueryData(groupKeys.publicList(7, { query: "", category: null }), {});
+    await invalidateGroupMembership(client, 7);
+    const lists = client.getQueryCache().findAll({ queryKey: groupKeys.publicLists(7) });
+    expect(lists).toHaveLength(2);
+    expect(lists.every((query) => query.state.isInvalidated)).toBe(true);
+  });
+
+  it.each([
+    ["내 그룹", (c: QueryClient) => c.fetchQuery(myGroupsQuery(7)), "getMyGroups", []],
+    ["내 신청", (c: QueryClient) => c.fetchQuery(myApplicationsQuery(7)), "getMyApplications", []],
+    [
+      "공개 그룹 보기",
+      (c: QueryClient) => c.fetchQuery(publicGroupQuery(7, 12)),
+      "getPublicGroup",
+      [12],
+    ],
+    ["그룹 홈", (c: QueryClient) => c.fetchQuery(groupHomeQuery(7, 10)), "getGroupHome", [10]],
+    [
+      "멤버 목록",
+      (c: QueryClient) => c.fetchQuery(groupMembersQuery(7, 10)),
+      "getGroupMembers",
+      [10],
+    ],
+    ["초대코드", (c: QueryClient) => c.fetchQuery(groupInviteQuery(7, 11)), "getGroupInvite", [11]],
+    [
+      "신청 목록",
+      (c: QueryClient) => c.fetchQuery(groupApplicationsQuery(7, 10)),
+      "getGroupApplications",
+      [10],
+    ],
+    ["차단 목록", (c: QueryClient) => c.fetchQuery(blocksQuery(7)), "getBlocks", []],
+  ] as const)("%s 조회는 그 API에 취소 신호를 함께 넘긴다", async (_name, fetch, api, args) => {
+    vi.mocked(groupRoomApi[api]).mockResolvedValue({} as never);
+    await fetch(new QueryClient());
+    expect(groupRoomApi[api]).toHaveBeenCalledWith(...args, expect.any(AbortSignal));
+  });
+
+  it("공개 목록은 검색 조건과 쪽 번호, 20개 크기로 받는다", async () => {
+    vi.mocked(groupRoomApi.getPublicGroups).mockResolvedValue({ groups: [], hasNext: false });
+    await new QueryClient().fetchInfiniteQuery(
+      publicGroupsQuery(7, { query: "공시", category: "CIVIL_SERVICE" }),
+    );
+    expect(groupRoomApi.getPublicGroups).toHaveBeenCalledWith(
+      { query: "공시", category: "CIVIL_SERVICE", page: 0, size: 20 },
+      expect.any(AbortSignal),
+    );
+  });
+
+  it("그룹 조회는 모두 같은 재시도 규칙을 쓴다", () => {
+    const all = [
+      myGroupsQuery(7),
+      myApplicationsQuery(7),
+      publicGroupsQuery(7, { query: "", category: null }),
+      publicGroupQuery(7, 12),
+      groupHomeQuery(7, 10),
+      groupMembersQuery(7, 10),
+      groupInviteQuery(7, 11),
+      groupApplicationsQuery(7, 10),
+      blocksQuery(7),
+    ];
+    expect(all.every((options) => options.retry === groupQueryRetry)).toBe(true);
+  });
+
+  it("신청 목록은 늘 오래된 것으로 보고 돌아오면 바로 다시 받는다", () => {
+    expect(groupApplicationsQuery(7, 10)).toMatchObject({
+      staleTime: 0,
+      refetchOnWindowFocus: "always",
+    });
+  });
+
+  it.each([
+    ["내 신청", myApplicationsQuery(7).staleTime, 30_000],
+    ["공개 그룹 목록", publicGroupsQuery(7, { query: "", category: null }).staleTime, 60_000],
+    ["공개 그룹 보기", publicGroupQuery(7, 12).staleTime, 15_000],
+    ["멤버 목록", groupMembersQuery(7, 10).staleTime, 30_000],
+    ["초대코드", groupInviteQuery(7, 11).staleTime, 60_000],
+    ["차단 목록", blocksQuery(7).staleTime, 60_000],
+  ] as const)("%s는 받은 뒤 정한 시간 동안 다시 받지 않는다", (_name, staleTime, expected) => {
+    expect(staleTime).toBe(expected);
+  });
+});

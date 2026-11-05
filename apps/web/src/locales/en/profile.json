@@ -13,7 +13,9 @@
   },
   "errors": {
     "nicknameTaken": "That nickname is already taken",
-    "nicknameRule": "Use 2–12 characters: letters, numbers, emoji, or spaces",
+    "nicknameLength": "Up to 40 characters. Korean, Japanese, Chinese characters, and emoji count as 2.",
+    "nicknameChars": "You can only use letters, numbers, Korean, Japanese, Chinese characters, emoji, spaces, and _ . -",
+    "nicknameNotAllowed": "This nickname isn't allowed. Try a different one",
     "goalTooLong": "Your goal can be up to 20 characters",
     "unknownCategory": "That category isn't on the list"
   },
@@ -24,7 +26,9 @@
     "CERTIFICATE": "Certification",
     "CIVIL_SERVICE": "Civil service",
     "LANGUAGE": "Language",
-    "ETC": "Other"
+    "ETC": "Other",
+    "SCHOOL_EXAM": "School exams",
+    "UNIVERSITY_EXAM": "University exams"
   },
   "photo": {
     "sheetTitle": "Profile photo",

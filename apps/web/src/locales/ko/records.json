@@ -54,7 +54,19 @@
     "emptyTitle": "기록이 쌓이면 표시돼요",
     "sampleNotice": "지금은 샘플 데이터가 표시돼요",
     "legendLow": "적음",
-    "legendHigh": "많음"
+    "legendHigh": "많음",
+    "peakTitle": "{{range}}에 집중했어요",
+    "peakSubtitle": "{{days}}일 동안 집중한 시간을 모았어요",
+    "range": "{{period}} {{from12}}~{{to12}}시",
+    "rangeCrossNoon": "오전 {{from12}}시~오후 {{to12}}시",
+    "period": {
+      "morning": "아침",
+      "forenoon": "오전",
+      "afternoon": "오후",
+      "evening": "저녁",
+      "night": "밤",
+      "dawn": "새벽"
+    }
   },
   "calendar": {
     "dailyAverage": "하루 평균",

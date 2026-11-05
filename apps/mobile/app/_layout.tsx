@@ -28,6 +28,7 @@ import { registerPushToken, watchAuthForPushToken } from "../lib/pushTokenRegist
 import { recommendedUpdateAlert } from "../lib/recommendedUpdateAlert";
 import { initSentry, wrapRoot } from "../lib/sentry";
 import { runAfterSession } from "../lib/sessionPresence";
+import { installSocialLoginSdk } from "../lib/socialLoginSdk";
 import { checkUpdateOnConnect, createReconnectListener } from "../lib/updateOnConnect";
 import { ensureUserRegistered } from "../lib/userApi";
 import { removeLeftoverVideoFiles } from "../lib/videoTransfer";
@@ -46,6 +47,9 @@ installMetaAdsSdk();
 // Firebase Analytics(GA4) 어댑터 — 웹뷰가 뜨자마자 브리지로 오는 이벤트를 받을 통로가 먼저 있어야 한다.
 // GA user_id를 백엔드 userId로 맞추는 구독도 여기서 건다.
 installFirebaseAnalyticsSdk();
+
+// 웹뷰 주소의 공급자 목록이 SDK가 붙었는지를 보므로 첫 웹뷰 주소를 만들기 전에 붙인다.
+installSocialLoginSdk();
 
 // 지난 프로세스가 남긴 방해 앱 잠금과 안전 해제 예약을 지운다.
 // 새 프로세스에는 진행 중인 공부가 없고, 웹뷰가 잠금을 요청하기 전에 끝나야 해서 모듈 스코프에서 한 번만 부른다.
@@ -191,8 +195,9 @@ function RootLayout() {
     lockPortrait();
   }, []);
 
-  // 푸시 알림 배선(BY-586) — 포그라운드 로그, 알림 탭 → 딥링크 이동, 토큰 갱신 로그. 권한 요청은 웹이
-  // 브리지로 요청할 때 한다(`lib/nativeBridgeHandler.ts`). 백그라운드 핸들러는 `index.ts`에서 컴포넌트 밖에 건다.
+  // 푸시 알림 연결: 포그라운드 그룹 알림은 앱 안 토스트로 넘기고, 알림 탭은 딥링크로 이동하고, 갱신된 토큰은 다시 등록한다.
+  // 권한 요청은 웹이 브리지로 요청할 때 한다(`lib/nativeBridgeHandler.ts`).
+  // 백그라운드 핸들러는 `index.ts`에서 컴포넌트 밖에 건다.
   useEffect(
     () =>
       startPushMessaging({

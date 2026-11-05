@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 
-import { renewLiveRoomSeat } from "@/lib/roomApi";
-
 import type { RoomChannel } from "./roomChannel";
+import type { RoomSeat } from "./roomKind";
 
 // renew가 dangling되면 재호출이 영원히 끝나지 않아 재연결·종료·안내가 모두 멈춘다.
 // 이 시간이 지나면 응답을 못 받은 것으로 보고 fail-closed로 종료 처리로 넘긴다.
@@ -21,14 +20,20 @@ const REJOIN_TIMEOUT_MS = 8000;
  * renew의 성공·실패·타임아웃 콜백은 상태가 아직 rejoining일 때만 동작한다
  * — 셋 중 먼저 상태를 바꾼 하나만 이기고 나머지는 무효가 되어 늦은 reconnect·중복 안내가 나지 않는다.
  * 언마운트 시에도 전부 무효화한다.
+ * 다시 잡은 자리가 다른 방이면 이 세션의 채널로는 그 방에 들어갈 수 없어서 재연결하지 않고 종료 처리로 넘긴다.
+ * 그 자리는 비우지 않으면 잡힌 동안 그 방의 멤버에게 들어온 사람으로 보여서 onRoomChanged로 알린다.
  */
 export function useRoomRejoin({
   channel,
-  inviteCode,
+  roomId,
+  renew,
+  onRoomChanged,
   onUnavailable,
 }: {
   channel: RoomChannel;
-  inviteCode: string;
+  roomId: number;
+  renew: () => Promise<RoomSeat>;
+  onRoomChanged?: (seat: RoomSeat) => void;
   onUnavailable: () => void;
 }): () => void {
   const stateRef = useRef<"idle" | "rejoining" | "awaiting-recovery">("idle");
@@ -76,12 +81,18 @@ export function useRoomRejoin({
       stateRef.current = "idle";
       onUnavailable();
     }, REJOIN_TIMEOUT_MS);
-    void renewLiveRoomSeat(inviteCode)
-      .then(() => {
+    void renew()
+      .then((seat) => {
         if (cancelledRef.current || stateRef.current !== "rejoining") {
           return;
         }
         clearTimer();
+        if (seat.roomId !== roomId) {
+          stateRef.current = "idle";
+          onRoomChanged?.(seat);
+          onUnavailable();
+          return;
+        }
         stateRef.current = "awaiting-recovery";
         channel.reconnect();
       })
@@ -93,5 +104,5 @@ export function useRoomRejoin({
         stateRef.current = "idle";
         onUnavailable();
       });
-  }, [channel, inviteCode, onUnavailable]);
+  }, [channel, onRoomChanged, onUnavailable, renew, roomId]);
 }

@@ -10,11 +10,13 @@ import type { ProfileResponse } from "@focusmakers/types";
 
 import type * as PreparePhoto from "@/features/profile/prepareProfilePhoto";
 import { prepareProfilePhoto, UnusablePhotoError } from "@/features/profile/prepareProfilePhoto";
+import { consumeProfileSavedNotice } from "@/features/profile/profileSavedNotice";
 import { ApiError } from "@/lib/api";
 import type * as TokenSourceModule from "@/lib/auth/tokenSource";
 import type { TokenSource } from "@/lib/auth/tokenSource";
 import type * as Bridge from "@/lib/bridge";
 import { postToNative } from "@/lib/bridge";
+import { __resetGroupRoomsForTests } from "@/lib/groupRoomCapability";
 import { canUseNativeProfilePhoto, pickNativeProfilePhoto } from "@/lib/nativeProfilePhoto";
 import {
   deleteProfileImage,
@@ -28,7 +30,9 @@ import { ProfilePage } from "@/routes/ProfilePage";
 import { stubImageLoad } from "@/test/imageStub";
 
 /** 문구 상수가 카탈로그로 옮겨져 한국어 원문을 직접 둔다. */
-const NICKNAME_RULE_MESSAGE = "한글, 영문, 숫자, 이모지, 띄어쓰기로 2~12자를 쓰실 수 있어요";
+const NICKNAME_LENGTH_MESSAGE =
+  "40칸까지 쓸 수 있어요. 한글·일본어·한자·이모지는 한 글자에 2칸이에요.";
+const NICKNAME_CHARS_MESSAGE = "한글·영문·일본어·한자·숫자·이모지·띄어쓰기·_·.·- 만 쓸 수 있어요";
 
 vi.mock("@/lib/profileApi", () => ({
   getProfile: vi.fn(),
@@ -89,9 +93,24 @@ function renderAt(path: string) {
   return { ...view, queryClient };
 }
 
+/** 토큰으로 받은 사용자라 주소에 사용자 번호를 싣지 않고도 프로필을 연다. */
+function signInWithToken(userId: number): void {
+  tokenSourceMock.source = {
+    getUserId: () => userId,
+    getAccessToken: async () => "token",
+    getCurrentToken: () => "token",
+    hasSettled: () => true,
+    subscribe: () => () => {},
+  } as unknown as TokenSource;
+  onTestFinished(() => {
+    tokenSourceMock.source = null;
+  });
+}
+
 afterEach(() => {
   vi.clearAllMocks();
   vi.restoreAllMocks();
+  sessionStorage.clear();
   // sonner 토스트 상태는 모듈 전역이라 화면 언마운트와 무관하게 다음 테스트로 샌다.
   act(() => {
     toast.dismiss();
@@ -105,7 +124,7 @@ describe("프로필 설정", () => {
 
     expect(await screen.findByLabelText("닉네임")).toHaveValue("포메3721");
     expect(screen.getByText("포")).toBeInTheDocument();
-    expect(screen.getByText("전문직")).toBeInTheDocument(); // 칩 7종 렌더 확인 대표
+    expect(screen.getByText("전문직")).toBeInTheDocument(); // 칩 렌더 확인 대표
   });
 
   it("제목 프로필 수정은 상단 헤더에만 있고 본문에 중복되지 않는다", async () => {
@@ -125,6 +144,49 @@ describe("프로필 설정", () => {
     expect(chip).toHaveAttribute("aria-checked", "true");
     await userEvent.click(chip);
     expect(chip).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("그룹 흐름이 없으면 카테고리 칩은 예전 7개를 예전 순서로 보인다", async () => {
+    signInWithToken(7);
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    renderAt("/profile");
+
+    const chips = await screen.findAllByRole("radio");
+    expect(chips.map((chip) => chip.textContent)).toEqual([
+      "전문직",
+      "수능",
+      "취업",
+      "자격증",
+      "공무원",
+      "어학",
+      "기타",
+    ]);
+  });
+
+  it("그룹 흐름이 켜지면 카테고리 칩은 9개이고 수능, 내신, 대학 시험 순서로 시작한다", async () => {
+    // 그룹 표시는 라우터가 아니라 문서 주소에서 읽는다.
+    window.history.replaceState(null, "", "/profile?groupRooms=1");
+    __resetGroupRoomsForTests();
+    onTestFinished(() => {
+      window.history.replaceState(null, "", "/");
+      __resetGroupRoomsForTests();
+    });
+    signInWithToken(7);
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    renderAt("/profile");
+
+    const chips = await screen.findAllByRole("radio");
+    expect(chips.map((chip) => chip.textContent)).toEqual([
+      "수능",
+      "내신",
+      "대학 시험",
+      "공무원",
+      "자격증",
+      "어학",
+      "취업",
+      "전문직",
+      "기타",
+    ]);
   });
 
   it("저장 시 변경된 필드만 PATCH로 보낸다", async () => {
@@ -238,7 +300,7 @@ describe("프로필 설정", () => {
     renderAt("/profile?userId=7");
 
     const nicknameInput = await screen.findByLabelText("닉네임");
-    fireEvent.change(nicknameInput, { target: { value: "포" } });
+    fireEvent.change(nicknameInput, { target: { value: "포!" } });
     await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
 
     expect(await screen.findByRole("alert")).toBeInTheDocument();
@@ -257,18 +319,27 @@ describe("프로필 설정", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("이미 사용 중인 닉네임이에요");
   });
 
-  it("400 응답은 닉네임 인라인에 형식 규칙 문구를 보여준다", async () => {
-    mockedGetProfile.mockResolvedValue({ ...profile });
-    mockedUpdateProfile.mockRejectedValue(
+  it.each([
+    [
+      "금칙어 400은 다른 닉네임을 쓰라는 문구를",
+      new ApiError("nickname: not allowed", 400, "NICKNAME_NOT_ALLOWED"),
+      "사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요",
+    ],
+    [
+      "그 밖의 400은 형식 규칙 문구를",
       new ApiError("nickname: invalid", 400, "VALIDATION_FAILED"),
-    );
+      NICKNAME_CHARS_MESSAGE,
+    ],
+  ])("%s 닉네임 인라인에 보여준다", async (_, error, message) => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    mockedUpdateProfile.mockRejectedValue(error);
     renderAt("/profile?userId=7");
 
     const nicknameInput = await screen.findByLabelText("닉네임");
     fireEvent.change(nicknameInput, { target: { value: "숨벅찬청년들" } });
     await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(NICKNAME_RULE_MESSAGE);
+    expect(await screen.findByRole("alert")).toHaveTextContent(message);
   });
 
   it.each([
@@ -276,7 +347,7 @@ describe("프로필 설정", () => {
     [
       "400 형식",
       new ApiError("nickname: invalid", 400, "VALIDATION_FAILED"),
-      NICKNAME_RULE_MESSAGE,
+      NICKNAME_CHARS_MESSAGE,
     ],
   ])(
     "%s 저장 오류가 뜬 닉네임을 고치면 입력칸을 떠나지 않아도 오류가 사라진다",
@@ -339,22 +410,26 @@ describe("프로필 설정", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("닉네임은 12자를 넘어도 입력을 받고, 보이는 글자로 세며 저장을 막는다", async () => {
+  it("닉네임은 40칸을 넘어도 입력을 받고, 한글·이모지를 2칸으로 세며 저장을 막는다", async () => {
     mockedGetProfile.mockResolvedValue({ ...profile });
     renderAt("/profile?userId=7");
 
     const nicknameInput = await screen.findByLabelText("닉네임");
     expect(nicknameInput).not.toHaveAttribute("maxlength");
-    expect(screen.getByText("6/12")).toBeInTheDocument();
+    expect(screen.getByText("8/40")).toBeInTheDocument();
 
-    fireEvent.change(nicknameInput, { target: { value: "가나다라마바사아자차카타파" } });
-    expect(nicknameInput).toHaveValue("가나다라마바사아자차카타파");
-    expect(screen.getByText("13/12")).toHaveClass("text-state-distract-text");
-    expect(await screen.findByRole("alert")).toHaveTextContent(NICKNAME_RULE_MESSAGE);
+    fireEvent.change(nicknameInput, { target: { value: "가나다" } });
+    expect(screen.getByText("6/40")).toBeInTheDocument();
+
+    fireEvent.change(nicknameInput, { target: { value: "a".repeat(41) } });
+    expect(nicknameInput).toHaveValue("a".repeat(41));
+    expect(screen.getByText("41/40")).toHaveClass("text-state-distract-text");
+    expect(await screen.findByRole("alert")).toHaveTextContent(NICKNAME_LENGTH_MESSAGE);
     expect(screen.getByRole("button", { name: "저장하기" })).toBeDisabled();
 
-    fireEvent.change(nicknameInput, { target: { value: "🇰🇷".repeat(12) } });
-    expect(screen.getByText("12/12")).toBeInTheDocument();
+    fireEvent.change(nicknameInput, { target: { value: "🇰🇷".repeat(20) } });
+    expect(screen.getByText("40/40")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "저장하기" })).toBeEnabled();
   });
 
   it("입력 중에는 형식·최소 길이 안내가 없고 입력칸을 떠나면 뜬다", async () => {
@@ -364,11 +439,9 @@ describe("프로필 설정", () => {
     const nicknameInput = await screen.findByLabelText("닉네임");
     fireEvent.change(nicknameInput, { target: { value: "ㅍ" } });
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    fireEvent.change(nicknameInput, { target: { value: "포" } });
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 
     fireEvent.blur(nicknameInput);
-    expect(await screen.findByRole("alert")).toHaveTextContent(NICKNAME_RULE_MESSAGE);
+    expect(await screen.findByRole("alert")).toHaveTextContent(NICKNAME_CHARS_MESSAGE);
   });
 
   it("blur 오류가 뜬 닉네임을 올바르게 고치면 입력 중에 오류가 사라진다", async () => {
@@ -376,7 +449,7 @@ describe("프로필 설정", () => {
     renderAt("/profile?userId=7");
 
     const nicknameInput = await screen.findByLabelText("닉네임");
-    fireEvent.change(nicknameInput, { target: { value: "포" } });
+    fireEvent.change(nicknameInput, { target: { value: "ㅍ" } });
     fireEvent.blur(nicknameInput);
     expect(await screen.findByRole("alert")).toBeInTheDocument();
 
@@ -396,19 +469,19 @@ describe("프로필 설정", () => {
     expect(await screen.findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
 
     const nicknameInput = screen.getByLabelText("닉네임");
-    fireEvent.change(nicknameInput, { target: { value: "포" } });
+    fireEvent.change(nicknameInput, { target: { value: "ㅍ" } });
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
-    expect(screen.queryByText(NICKNAME_RULE_MESSAGE)).not.toBeInTheDocument();
+    expect(screen.queryByText(NICKNAME_CHARS_MESSAGE)).not.toBeInTheDocument();
 
     fireEvent.blur(nicknameInput);
-    expect(await screen.findByText(NICKNAME_RULE_MESSAGE)).toBeInTheDocument();
+    expect(await screen.findByText(NICKNAME_CHARS_MESSAGE)).toBeInTheDocument();
   });
 
   it("규칙에 맞지 않는 옛 닉네임을 바꾸지 않으면 blur 오류 없이 목표만 저장된다", async () => {
-    mockedGetProfile.mockResolvedValue({ ...profile, nickname: "옛_닉네임" });
-    mockedUpdateProfile.mockResolvedValue({ ...profile, nickname: "옛_닉네임", goal: "새 목표" });
+    mockedGetProfile.mockResolvedValue({ ...profile, nickname: "옛!닉네임" });
+    mockedUpdateProfile.mockResolvedValue({ ...profile, nickname: "옛!닉네임", goal: "새 목표" });
     renderAt("/profile?userId=7");
 
     const nicknameInput = await screen.findByLabelText("닉네임");
@@ -458,9 +531,9 @@ describe("프로필 설정", () => {
     const nicknameInput = await screen.findByLabelText("닉네임");
     expect(screen.getByText("포")).toBeInTheDocument();
 
-    // NBSP(U+00A0) 하나 — 서버 String.strip()은 지우지 않아 정규화 후에도 남지만
+    // BOM(U+FEFF) 하나 — NFKC도 서버 String.strip()도 지우지 않아 정규화 후에도 남지만
     // 눈에 보이는 글자가 아니므로, 아바타는 그 보이지 않는 문자 대신 서버 이니셜을 보여줘야 한다.
-    fireEvent.change(nicknameInput, { target: { value: " " } });
+    fireEvent.change(nicknameInput, { target: { value: "\uFEFF" } });
     expect(screen.getByText("포")).toBeInTheDocument();
   });
 
@@ -475,51 +548,67 @@ describe("프로필 설정", () => {
     expect(screen.queryByText("포")).not.toBeInTheDocument();
   });
 
-  it("저장에 성공하면 프로필 화면에 머문 채 저장 완료 토스트를 띄우고 저장하기를 다시 막는다", async () => {
+  it("저장에 성공하면 설정 화면으로 돌아가고 설정 화면이 띄울 저장 완료 표시를 한 번 남긴다", async () => {
     mockedGetProfile.mockResolvedValue({ ...profile });
     mockedUpdateProfile.mockResolvedValue({ ...profile, goal: "새 목표" });
     renderAt("/profile?userId=7");
 
-    const goalInput = await screen.findByLabelText("목표 문구");
-    fireEvent.change(goalInput, { target: { value: "새 목표" } });
+    fireEvent.change(await screen.findByLabelText("목표 문구"), { target: { value: "새 목표" } });
     await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
 
-    expect(await screen.findByText("프로필이 저장됐어요")).toBeInTheDocument();
-    expect(screen.getByTestId("profile-page")).toBeInTheDocument();
-    expect(screen.queryByTestId("settings-stub")).not.toBeInTheDocument();
-    expect(goalInput).toHaveValue("새 목표");
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "저장하기" })).toBeDisabled();
-    });
+    expect(await screen.findByTestId("settings-stub")).toBeInTheDocument();
+    expect(screen.queryByTestId("profile-page")).not.toBeInTheDocument();
+    expect(consumeProfileSavedNotice()).toBe(true);
+    expect(consumeProfileSavedNotice()).toBe(false);
   });
 
-  it("이모지 닉네임 저장에 성공해도 프로필 화면에 머문 채 저장 완료 토스트를 띄운다", async () => {
+  it("이모지 닉네임 저장에 성공해도 설정 화면으로 돌아간다", async () => {
     mockedGetProfile.mockResolvedValue({ ...profile });
     mockedUpdateProfile.mockResolvedValue({ ...profile, nickname: "코딩🧑‍💻" });
     renderAt("/profile?userId=7");
 
-    const nicknameInput = await screen.findByLabelText("닉네임");
-    fireEvent.change(nicknameInput, { target: { value: "코딩🧑‍💻" } });
+    fireEvent.change(await screen.findByLabelText("닉네임"), { target: { value: "코딩🧑‍💻" } });
     await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
 
-    expect(await screen.findByText("프로필이 저장됐어요")).toBeInTheDocument();
-    expect(screen.getByTestId("profile-page")).toBeInTheDocument();
-    expect(screen.queryByTestId("settings-stub")).not.toBeInTheDocument();
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: "저장하기" })).toBeDisabled();
-    });
+    expect(await screen.findByTestId("settings-stub")).toBeInTheDocument();
+    expect(consumeProfileSavedNotice()).toBe(true);
   });
 
-  it("저장에 성공하면 입력칸 포커스를 풀어 키보드를 내린다", async () => {
+  it("저장 응답 전에 뒤로 가기로 떠나면 응답이 와도 다시 이동하거나 저장 완료 표시를 남기지 않는다", async () => {
     mockedGetProfile.mockResolvedValue({ ...profile });
-    mockedUpdateProfile.mockResolvedValue({ ...profile, goal: "새 목표" });
+    let resolveSave: (value: ProfileResponse) => void = () => {};
+    mockedUpdateProfile.mockReturnValue(
+      new Promise<ProfileResponse>((resolve) => {
+        resolveSave = resolve;
+      }),
+    );
     renderAt("/profile?userId=7");
 
-    const goalInput = await screen.findByLabelText("목표 문구");
-    await userEvent.type(goalInput, "새 목표{enter}");
+    fireEvent.change(await screen.findByLabelText("목표 문구"), { target: { value: "새 목표" } });
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+    await userEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
+    expect(await screen.findByTestId("settings-stub")).toBeInTheDocument();
 
-    expect(await screen.findByText("프로필이 저장됐어요")).toBeInTheDocument();
-    expect(goalInput).not.toHaveFocus();
+    await act(async () => {
+      resolveSave({ ...profile, goal: "새 목표" });
+    });
+
+    expect(screen.getByTestId("settings-stub")).toBeInTheDocument();
+    expect(consumeProfileSavedNotice()).toBe(false);
+  });
+
+  it("저장에 실패하면 프로필 화면에 머물고 저장 완료 표시를 남기지 않는다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    mockedUpdateProfile.mockRejectedValue(new Error("network"));
+    renderAt("/profile?userId=7");
+
+    fireEvent.change(await screen.findByLabelText("목표 문구"), { target: { value: "새 목표" } });
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.getByTestId("profile-page")).toBeInTheDocument();
+    expect(screen.queryByTestId("settings-stub")).not.toBeInTheDocument();
+    expect(consumeProfileSavedNotice()).toBe(false);
   });
 
   it("저장에 성공하면 서버가 돌려준 목표 문구와 닉네임을 앱에 한 번 알린다", async () => {
@@ -531,7 +620,7 @@ describe("프로필 설정", () => {
     fireEvent.change(goalInput, { target: { value: "새 목표" } });
     await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
 
-    expect(await screen.findByText("프로필이 저장됐어요")).toBeInTheDocument();
+    expect(await screen.findByTestId("settings-stub")).toBeInTheDocument();
     expect(vi.mocked(postToNative)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(postToNative)).toHaveBeenCalledWith({
       type: "profile-updated",
@@ -550,7 +639,7 @@ describe("프로필 설정", () => {
     fireEvent.change(goalInput, { target: { value: "" } });
     await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
 
-    expect(await screen.findByText("프로필이 저장됐어요")).toBeInTheDocument();
+    expect(await screen.findByTestId("settings-stub")).toBeInTheDocument();
     expect(vi.mocked(postToNative)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(postToNative)).toHaveBeenCalledWith({
       type: "profile-updated",
@@ -627,9 +716,6 @@ function fileInput(container: HTMLElement): HTMLInputElement {
 describe("프로필 사진", () => {
   // 사진 API는 토큰으로만 부를 수 있어 토큰을 받은 앱 문서로 연다.
   beforeEach(() => {
-    // 사진 변경은 개정 방침이 시행되는 순간부터 열린다. 타이머는 실제로 둔다.
-    vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date("2026-11-04T00:00:00+09:00"));
     tokenSourceMock.source = {
       getUserId: () => 7,
       getAccessToken: async () => "token",
@@ -641,26 +727,6 @@ describe("프로필 사진", () => {
 
   afterEach(() => {
     tokenSourceMock.source = null;
-    vi.useRealTimers();
-  });
-
-  it("개정 방침 시행 전에는 토큰이 있어도 사진만 보이고 누를 곳이 없다", async () => {
-    vi.setSystemTime(new Date("2026-11-03T23:59:59+09:00"));
-    stubImageLoad();
-    mockedGetProfile.mockResolvedValue({ ...profile, profileImageUrl: PHOTO });
-    const { container } = renderAt("/profile?userId=7");
-
-    await screen.findByLabelText("닉네임");
-    await waitFor(() => expect(container.querySelector(`img[src="${PHOTO}"]`)).not.toBeNull());
-    expect(screen.queryByRole("button", { name: "프로필 사진 변경" })).toBeNull();
-    expect(fileInput(container)).toBeNull();
-  });
-
-  it("개정 방침 시행 시각부터는 사진 변경 버튼이 보인다", async () => {
-    mockedGetProfile.mockResolvedValue({ ...profile });
-    renderAt("/profile?userId=7");
-
-    expect(await screen.findByRole("button", { name: "프로필 사진 변경" })).toBeInTheDocument();
   });
 
   it("토큰이 없는 문서(구 앱, 브라우저 단독)에서는 바꿀 수 없어 사진만 보이고 누를 곳이 없다", async () => {

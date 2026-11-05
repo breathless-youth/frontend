@@ -70,7 +70,7 @@
 | 순공 시간 | focus time | 측정된 실제 공부 시간. study time과 섞어 쓰지 않는다. 라벨은 `Focus time` |
 | 순공시간 측정 중 | Measuring focus time | 세션 상태 필 |
 | 이번 주 순공 | Focus time this week | |
-| 총 공부시간 | total study time | 세션 화면의 "총 HH:MM:SS"는 `Total` |
+| 총 공부시간 | total study time | 라벨은 `Total study time`(결과 화면·랭킹 합계 공통). 세션 화면의 "총 HH:MM:SS"는 `Total` |
 | 집중률 | focus rate | |
 | 소셜룸 | Social Room | 기능 이름이라 대문자 |
 | 싱글룸 | Solo Room | 사용자 확인 필요 |
@@ -80,8 +80,8 @@
 | 플래너 | Planner | |
 | 휴식 (플래너 범례·뽀모도로) | Break | rest가 아니다 |
 | 과목 없음 | No subject | |
-| 타임랩스 | timelapse | 설정 행 `Timelapse` |
-| D-Day | D-Day | 영어권에서도 통하지만 사용자 확인 필요 |
+| 타임랩스 | time-lapse | 하이픈을 넣는다. 설정 행·화면 제목은 `Time-lapse` |
+| D-Day | Countdown | 사용자 확정. 라벨 `Countdown`, 값은 `N days left` / `Today` / `N days ago`(`_one`·`_other`) |
 | 집중 시작 (홈 버튼) | Start Focus | 버튼 라벨이라 두 단어 모두 대문자 |
 | 측정 (카메라 동작 동사) | measure | track·detect·monitor는 쓰지 않는다(감시 뉘앙스) |
 | 설정 (탭·화면) | Settings | |
@@ -116,7 +116,7 @@
 | 이번 주 / 지난주 / N주 전 (추이 범례) | this week / last week / N weeks ago | 문장 안에 끼워 쓰므로 소문자 |
 | 연속 공부 | streak | 라벨 `Streak`, 값 `12 days`, 배너 `12-day streak`, 최대 `Longest streak` |
 | 최고 기록 / 지금 (연속 공부 카드) | Best / Now | |
-| 랭킹 | Rankings | 화면 제목·모드 탭. 기록은 `Ranking records` |
+| 랭킹 | Rankings | 화면 제목·모드 탭. 기록은 `Ranking history` |
 | 명예의 전당 | Hall of Fame | 기능 이름이라 대문자 |
 | 종목 | category | 랭킹 종목 필터 `Category: …`, `All categories` |
 | 일간 / 주간 / 월간 (랭킹 기간) | Daily / Weekly / Monthly | 기록 탭 토글과 같다 |
@@ -133,7 +133,7 @@
 | N바퀴째 | Round N | 서수를 피했다 |
 | 처음부터 | Restart | |
 | 시간 단위 (휠·큰 숫자 옆) | h / m / s | |
-| 타임랩스 목록·카드 | Recent timelapses | 복수형은 timelapses |
+| 타임랩스 목록·카드 | Recent time-lapses | 복수형은 time-lapses |
 | 얼굴 가림 | Hide face | 타임랩스 설정 |
 | 영상 비율 | Aspect ratio | `Portrait 9:16` / `Landscape 16:9` |
 | 사진 앱에 저장 | Saved to Photos | |
@@ -142,7 +142,7 @@
 | 이름 변경 / 삭제 (행 메뉴) | Rename / Delete | |
 | 과목 이름 / 할 일 이름 | Subject name / Task name | 플래너 입력칸 |
 | 기기 등록 전 안내 | This device isn't registered yet. Open the app to save your records | 기록·플래너·수동 기록·랭킹 공통 |
-| 소셜 (탭·화면 제목) | Social | `Back to Social` |
+| 소셜 (탭·화면 제목) | Groups | 탭 이름은 `Groups`(`Back to Groups`), 기능 이름은 `Social Room`이다 |
 | 그룹 스터디 | Social Room / study together | 기능을 가리키면 `Social Room`, 문장에서는 `study together`. `group study`는 쓰지 않는다 |
 | 초대코드 | invite code | 라벨은 `Invite code` |
 | 방 만들기 / 입장하기 / 참여하기 | Create room / Enter room / Join | |
@@ -163,7 +163,7 @@
 | 자동 멈춤 (범례) | Auto-paused | 범례 `Focus` / `Auto-paused` / `Paused` |
 | 공부 타임라인 | Study timeline | |
 | 오늘 누적 순공시간 | Focus time today | |
-| 누적 공부 일 수 | Days studied | 값 `{{count}} day(s)` |
+| 누적 공부 일 수 | Days studied | 결과 화면·랭킹 합계 공통. 값 `{{count}} day(s)` |
 | 오늘 공부 완료 | Session complete | 결과 히어로 |
 | 과목 추가 / 할 일 추가 | Add subject / Add task | |
 | 추천 과목 | Suggested subjects | 플래너와 같다. 칩은 카탈로그가 아니라 `subjectSuggestions()`의 언어별 목록이다(en `Math` / `English` / `Science` / `History`) |

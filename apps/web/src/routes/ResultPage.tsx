@@ -273,7 +273,7 @@ export function ResultPage() {
   const gainView = gainsQuery.data === undefined ? null : gainCardView(gainsQuery.data);
 
   /**
-   * TODO(미정: 자정(KST) 분할 세션 표시 — 리더/사용자 확인). `submitStudySession`은
+   * TODO(미정: 자정 분할 세션 표시 — 리더/사용자 확인). `submitStudySession`은
    * `StudySessionResponse[]`를 반환하고 자정을 넘긴 세션은 날짜별 2건으로 분할된다. 이때 S4가
    * 무엇을 보여줄지(합산 1화면 / 2개 카드 / 첫 세션만) 어느 문서에도 없다.
    *
@@ -400,10 +400,15 @@ function isStudySession(value: unknown): value is StudySessionResponse {
 }
 
 /**
- * CTA가 돌아갈 홈을 현재 경로에서 정한다. 목적지는 솔로의 `/home`과 소셜의 `/social`
- * 둘뿐이고, 소셜 결과 라우트(`/social/room/:id/result`)만 `/social`로 보낸다. 경로는 state와
+ * CTA가 돌아갈 홈을 현재 경로에서 정한다. 목적지는 솔로의 `/home`과 소셜의 `/social`,
+ * 그룹 공부방의 그룹 홈이다. 소셜 결과 라우트(`/social/room/:id/result`)는 `/social`로,
+ * 그룹 공부방 결과 라우트(`/social/groups/:id/room/result`)는 그 그룹 홈으로 보낸다. 경로는 state와
  * 달리 새로고침·복원에서도 사라지지 않아 단일 원천으로 삼는다.
  */
-function resolveHome(pathname: string): "/home" | "/social" {
+function resolveHome(pathname: string): "/home" | "/social" | `/social/groups/${number}` {
+  const group = /^\/social\/groups\/(\d+)\/room\/result$/.exec(pathname);
+  if (group !== null) {
+    return `/social/groups/${Number(group[1])}`;
+  }
   return pathname.startsWith("/social/") ? "/social" : "/home";
 }

@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 
+import { setDeviceLanguages } from "../../jest/deviceLanguages";
 import { ensureAuth, refreshAuth, subscribeAuth } from "../auth";
 import { getPushPermissionStatus, getPushToken } from "../pushMessaging";
 import {
@@ -61,10 +62,11 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.restoreAllMocks();
+  setDeviceLanguages(["ko-KR"]);
 });
 
 describe("registerPushToken", () => {
-  it("토큰·플랫폼·알림 권한을 PUT /api/push-tokens로 보낸다", async () => {
+  it("토큰·플랫폼·알림 권한·앱 언어를 PUT /api/push-tokens로 보낸다", async () => {
     await registerPushToken();
 
     expect(mockedFetch).toHaveBeenCalledTimes(1);
@@ -74,7 +76,12 @@ describe("registerPushToken", () => {
     expect(headersOf(0).get("API-Version")).toBe("1");
     expect(headersOf(0).get("Authorization")).toBe("Bearer a");
     expect(headersOf(0).get("Content-Type")).toBe("application/json");
-    expect(bodyOf(0)).toEqual({ token: FCM_TOKEN, platform: "IOS", notificationsEnabled: true });
+    expect(bodyOf(0)).toEqual({
+      token: FCM_TOKEN,
+      platform: "IOS",
+      notificationsEnabled: true,
+      locale: "ko",
+    });
   });
 
   it("알림 권한을 거부한 기기도 notificationsEnabled=false로 등록한다", async () => {
@@ -98,6 +105,27 @@ describe("registerPushToken", () => {
     await registerPushToken();
     expect(mockedFetch).toHaveBeenCalledTimes(2);
     expect(bodyOf(1)).toMatchObject({ notificationsEnabled: false });
+  });
+
+  it("일본어·번체 중국어 기기는 그 언어를 그대로 싣는다", async () => {
+    setDeviceLanguages(["ja-JP"]);
+    await registerPushToken();
+    expect(bodyOf(0)).toMatchObject({ locale: "ja" });
+
+    setDeviceLanguages(["zh-Hant-TW"]);
+    await registerPushToken();
+    expect(bodyOf(1)).toMatchObject({ locale: "zh-Hant" });
+  });
+
+  it("사용자·토큰·권한이 같아도 앱 언어가 바뀌면 다시 보내고, 언어까지 같으면 보내지 않는다", async () => {
+    await registerPushToken();
+    setDeviceLanguages(["en-US"]);
+    await registerPushToken();
+    expect(mockedFetch).toHaveBeenCalledTimes(2);
+    expect(bodyOf(1)).toMatchObject({ locale: "en" });
+
+    await registerPushToken();
+    expect(mockedFetch).toHaveBeenCalledTimes(2);
   });
 
   it("동시에 불려도 같은 조합은 한 번만 보내고, 그사이 바뀐 토큰은 이어서 보낸다", async () => {

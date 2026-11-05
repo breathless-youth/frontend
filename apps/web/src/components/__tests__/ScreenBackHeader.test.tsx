@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -13,7 +14,7 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   trackScreenBackPressed: vi.fn(),
 }));
 
-function renderHeader(props: { title?: string; onBack?: () => void }) {
+function renderHeader(props: { title?: string; onBack?: () => void; trailing?: ReactNode }) {
   return render(
     <MemoryRouter initialEntries={["/terms"]}>
       <ScreenBackHeader {...props} />
@@ -58,5 +59,33 @@ describe("ScreenBackHeader", () => {
 
     expect(onBack).toHaveBeenCalledTimes(1);
     expect(vi.mocked(trackScreenBackPressed)).toHaveBeenCalledWith("/terms");
+  });
+
+  it("오른쪽 요소는 웹 모드에서 제목과 함께 그린다", () => {
+    renderHeader({
+      title: "수능 D-200 밤샘반",
+      trailing: <button type="button">그룹 메뉴</button>,
+    });
+
+    expect(screen.getByRole("heading", { name: "수능 D-200 밤샘반" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "그룹 메뉴" })).toBeInTheDocument();
+  });
+
+  it("앱 모드에서도 오른쪽 요소와 제목은 웹이 그리고 앱에는 제목을 보내지 않는다", () => {
+    const postMessage = enterGlassChrome("/social/rooms/1");
+    renderHeader({
+      title: "수능 D-200 밤샘반",
+      trailing: <button type="button">그룹 메뉴</button>,
+    });
+
+    const sent = postMessage.mock.calls
+      .map(
+        ([raw]) =>
+          JSON.parse(raw as string) as { type: string; top?: { title: string | null } | null },
+      )
+      .filter((message) => message.type === "set-glass-chrome");
+    expect(sent.at(-1)?.top?.title).toBeNull();
+    expect(screen.getByRole("heading", { name: "수능 D-200 밤샘반" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "그룹 메뉴" })).toBeInTheDocument();
   });
 });

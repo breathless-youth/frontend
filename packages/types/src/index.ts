@@ -10,6 +10,11 @@
 export interface UserRegisterRequest {
   /** 앱이 첫 실행 때 생성해 기기 보안 저장소에 보관하는 UUID. 서버가 소문자로 정규화한다. */
   deviceId: string;
+  /**
+   * 휴대폰 언어 태그 원문(BCP 47, 예: `zh-Hant-HK`). 서버가 기본 닉네임 목록을 고른다.
+   * 없으면 서버는 한국어 목록을 쓴다. 근거는 백엔드 ADR-0044다.
+   */
+  language?: string;
 }
 
 export interface UserRegisterResponse {
@@ -42,6 +47,8 @@ export interface PushTokenRegisterRequest {
   platform: "IOS" | "ANDROID";
   /** 등록 때의 OS 알림 권한. 서버는 꺼진 기기에도 보내고, 이 값은 클릭률의 분모로만 쓴다. */
   notificationsEnabled: boolean;
+  /** 앱 언어(`ko`·`en`·`ja`·`zh-Hant`). 서버는 35자까지 받고, 없거나 비면 ko로 보고 푸시 문구를 고른다. */
+  locale?: string;
 }
 
 /**
@@ -86,6 +93,12 @@ export interface StudySessionCreateRequest {
    * 세션 중 지운 할 일은 허용. 자정을 넘는 세션은 각 할 일이 완료 시각(doneAt)이 속한 조각 하나에만 붙는다.
    */
   completedTaskIds?: number[];
+  /**
+   * 기기 시간대(IANA, 예 `America/New_York`). 선택 필드.
+   * 서버는 이 시간대의 자정으로 기록을 나누고 사용자 시간대로 저장한다.
+   * 없거나 잘못된 값이면 400 없이 저장된 사용자 시간대(기본 Asia/Seoul)를 쓴다.
+   */
+  timeZone?: string;
 }
 
 /** 진행중 세션 스냅샷 보고 요청 (PUT /api/study-sessions/active) */
@@ -109,7 +122,7 @@ export interface ActiveSessionSnapshotRequest {
 /** 진행중 세션 복구 조회 응답 (GET /api/study-sessions/active) */
 /** 세션 복구 판별·확인 응답 (POST /api/study-sessions/recovery) — 서버가 확정한 기록 요약 */
 export interface SessionRecoveryResponse {
-  /** 통계 귀속 날짜 — 한국 시간 기준 시작 날짜 (yyyy-MM-dd) */
+  /** 통계 귀속 날짜 — 사용자 시간대 기준 시작 날짜 (yyyy-MM-dd) */
   statDate: string;
   /** 세션 시작 시각 (UTC ISO-8601) */
   startedAt: string;
@@ -141,7 +154,7 @@ export type StudySessionSource = "MEASURED" | "MANUAL";
 
 /**
  * 수동 기록 저장·수정 요청 (`POST /api/study-sessions/manual`, `PATCH /api/study-sessions/manual/{id}`).
- * 서버가 초 이하를 버리고, 다른 기록과 겹치는 구간을 빼고, KST 자정에서 나눠 조각 배열로 돌려준다.
+ * 서버가 초 이하를 버리고, 다른 기록과 겹치는 구간을 빼고, 사용자 시간대 자정에서 나눠 조각 배열로 돌려준다.
  */
 export interface ManualStudySessionRequest {
   /** 시작 시각(UTC ISO-8601) */
@@ -150,13 +163,19 @@ export interface ManualStudySessionRequest {
   endedAt: string;
   /** 과목 id. 없으면 과목 없는 기록이다. 지운 과목은 수정에서 묶음의 지금 과목을 다시 보낼 때만 받는다 */
   subjectId?: number;
+  /**
+   * 기기 시간대(IANA, 예 `America/New_York`). 선택 필드.
+   * 서버는 이 시간대의 자정으로 기록을 나누고 사용자 시간대로 저장한다.
+   * 없거나 잘못된 값이면 400 없이 저장된 사용자 시간대(기본 Asia/Seoul)를 쓴다.
+   */
+  timeZone?: string;
 }
 
-/** 저장 결과 세션 1건 — 자정(KST)을 넘는 제출은 날짜별로 분할되어 배열로 내려온다. */
+/** 저장 결과 세션 1건 — 사용자 시간대 자정을 넘는 제출은 날짜별로 분할되어 배열로 내려온다. */
 export interface StudySessionResponse {
   id: number;
   userId: number;
-  /** 통계 귀속 날짜 (KST 기준, YYYY-MM-DD) */
+  /** 통계 귀속 날짜 (사용자 시간대 기준, YYYY-MM-DD) */
   statDate: string;
   startedAt: string;
   endedAt: string;
@@ -249,6 +268,18 @@ export interface StudySessionStreakResponse {
 export interface StudyDaysResponse {
   /** 지금까지 공부 기록이 있는 날 수 */
   totalDays: number;
+}
+
+/**
+ * 공부 리듬 조회(`GET /api/stats/rhythm`) 응답 — 기록 탭 '나의 공부 리듬' 히트맵. 백엔드 BY-1127(PR #126)의
+ * Swagger 기준, 2026-11-03 대조. study-days처럼 토큰 신원·API-Version 1 하나다. 세션 순공을 정시 경계로 잘라 이벤트를 뺀 길이 비율로 배분한 값이라 격자 합은
+ * 1분 이상 측정 세션의 순공 합과 같다. 며칠부터 보여줄지는 앱이 정한다(`features/records/rhythm.ts`).
+ */
+export interface StudyRhythmResponse {
+  /** 누적 공부일 — `StudyDaysResponse.totalDays`와 같은 값(1분 기준, 오늘까지) */
+  studyDays: number;
+  /** 요일(월=0 … 일=6) × 시각(KST 0~23시)별 누적 순공 초. 기록이 없으면 모두 0 */
+  focusSecByWeekdayHour: number[][];
 }
 
 /**
@@ -413,7 +444,7 @@ export interface CompletedTaskResponse {
  */
 export interface DaySubject extends SubjectRef {
   /**
-   * 그 날짜(KST)의 할 일 — 그날이 끝나기 전에 만들어졌고, 그날 시작 전에 완료되거나 지워지지 않은 것.
+   * 그 날짜(사용자 시간대)의 할 일 — 그날이 끝나기 전에 만들어졌고, 그날 시작 전에 완료되거나 지워지지 않은 것.
    * 세션 없이 체크한 것과 미완료도 들어 있다. `sessions[].completedTasks`는 제출 당시의 기록이라 뜻이 다르다
    */
   tasks?: DayTaskItem[];
@@ -434,7 +465,7 @@ export interface DayTaskItem {
 export interface TaskResponse {
   id: number;
   name: string;
-  /** 완료 시각(UTC ISO-8601) — 미완료면 null. 완료한 날(KST)이 지나면 목록에서 빠진다 */
+  /** 완료 시각(UTC ISO-8601) — 미완료면 null. 완료한 날(사용자 시간대)이 지나면 목록에서 빠진다 */
   doneAt: string | null;
 }
 
@@ -450,7 +481,7 @@ export interface SubjectResponse {
   /** 이 과목에서 잰 누적 총 공부 시간(초) */
   studySec: number;
   focusSec: number;
-  /** 보이는 할 일 — 미완료 전부 + 오늘(KST) 완료한 것, id 오름차순 */
+  /** 보이는 할 일 — 미완료 전부 + 오늘(사용자 시간대) 완료한 것, id 오름차순 */
   tasks: TaskResponse[];
 }
 
@@ -485,11 +516,65 @@ export interface TaskUpdateRequest {
 }
 
 /**
+ * 설치 유입 API(`POST /api/users/me/acquisition`)
+ *
+ * 서버가 처음 저장한 값만 남기고, 같은 요청을 다시 보내도 처음 값을 돌려준다.
+ */
+
+/** 유입 경로. 메타 광고, 구글 광고, 친구 초대, 플레이 오가닉, 그 밖의 링크, 알 수 없음이다. */
+export type AcquisitionSource =
+  "META_AD" | "GOOGLE_AD" | "INVITE" | "ORGANIC" | "OTHER_LINK" | "UNKNOWN";
+
+export interface AcquisitionRequest {
+  /** 기기 플랫폼 */
+  platform: "IOS" | "ANDROID";
+  /** Android Play 설치 정보 원문. 읽지 못했거나 iOS면 null이다. */
+  installReferrer: string | null;
+  /** 메타 지연 딥링크로 들어온 광고 라벨. 없으면 null이다. */
+  deepLinkAd: string | null;
+  /** 구글 광고 그룹 지연 딥링크의 라벨. 형식이 틀려도 서버는 구글 광고로 저장하고 라벨만 비운다. */
+  googleDeepLinkAd: string | null;
+  /** 앱이 설치 정보를 읽은 시각(오프셋 포함 ISO-8601) */
+  capturedAt: string;
+}
+
+/** 메타 광고 정보. 광고 ID는 18자리라 숫자로 다루면 값이 깨져서 문자열이다. */
+export interface AcquisitionMetaAd {
+  campaignId: string | null;
+  adsetId: string | null;
+  adId: string | null;
+  /** 앱이 보낸 딥링크 광고 라벨 */
+  label: string | null;
+}
+
+export interface AcquisitionGoogleAd {
+  /** 앱이 보낸 구글 광고 그룹 라벨. gclid만 있었거나 형식이 틀리면 null이다. */
+  label: string | null;
+}
+
+export interface AcquisitionResponse {
+  source: AcquisitionSource;
+  /** `META_AD`일 때만 있다. */
+  metaAd: AcquisitionMetaAd | null;
+  /** `GOOGLE_AD`일 때만 있다. */
+  googleAd: AcquisitionGoogleAd | null;
+  /** `INVITE`일 때만 있는 4자리 초대코드 */
+  inviteCode: string | null;
+  /** 처음 저장된 값의 설치 정보 읽은 시각(UTC) */
+  firstTouchAt: string;
+}
+
+/**
  * 프로필 API 계약
  */
 
 export interface ProfileResponse {
-  /** 한글·영문·숫자·이모지·띄어쓰기, 앞뒤 공백을 제외한 글자 단위 2~12자, 전역 유니크 */
+  /**
+   * 한글·영문(악센트 포함)·일본어·한자·숫자·이모지·띄어쓰기·`_ . -`
+   *
+   * 서버가 NFKC로 맞추고 앞뒤 공백을 뺀 값이 1글자 이상 40칸 이하다(한글·가나·한자·이모지는 2칸).
+   * 대소문자를 가리지 않고 전역 유니크다.
+   */
   nickname: string;
   /**
    * 한 줄 목표, 공백 포함 최대 20자
@@ -499,9 +584,10 @@ export interface ProfileResponse {
    */
   goal: string | null;
   /**
-   * 목표 카테고리 enum — 미설정이면 null. 명세에 확정된 값이 `JOB`(취업)뿐이라 공유 계약은
-   * string으로 둔다(상상 계약 금지). 잠정 7종 union은 `apps/web`의 categoryChips가 소유하고,
-   * 백엔드 Swagger 확정 후 여기로 승격해 좁힌다.
+   * 목표 카테고리이고 미설정이면 null이다.
+   *
+   * Swagger 응답 스키마가 enum이 아닌 문자열이라 문자열로 받는다.
+   * 수정 요청과 그룹은 `StudyCategory` 9개 값을 쓰고, 화면은 그중 하나일 때만 칩을 고른다.
    */
   category: string | null;
   /** 아바타 표시용 닉네임 첫 글자 단위(그래핌) — 서버 산출, 닉네임 변경 시 갱신 */
@@ -521,6 +607,12 @@ export interface ProfileUpdateRequest {
   nickname?: string;
   goal?: string | null;
   category?: string | null;
+  /**
+   * 기기 시간대(IANA). 선택 필드이고 이것만 보내도 된다.
+   * 프로필 응답에는 실리지 않는다.
+   * 없거나 잘못된 값이면 400 없이 무시한다.
+   */
+  timeZone?: string;
 }
 
 /** `POST /api/users/me/profile-image/upload-url` — 서버는 1 이상 1,048,576 이하만 받는다. */
@@ -610,6 +702,9 @@ export type {
 } from "./room";
 
 export { API_ENDPOINTS, apiVersionFor } from "./apiVersion";
+
+export { APP_LOCALES, negotiateLocale } from "./locale";
+export type { AppLocale } from "./locale";
 export type { ApiEndpoint, ApiEndpointSpec } from "./apiVersion";
 
 export { RANKING_PERIODS, RANKING_TYPES, TIME_SLOTS } from "./ranking";
@@ -640,6 +735,46 @@ export type {
 } from "./ranking";
 
 export type {
+  BlockListResponse,
+  BlockedUser,
+  GroupApplicationCreateRequest,
+  GroupApplicationCreateResponse,
+  GroupApplicationItem,
+  GroupApplicationsResponse,
+  GroupApplyState,
+  GroupCreateRequest,
+  GroupCreateResponse,
+  GroupHomeResponse,
+  GroupInviteResponse,
+  GroupJoinRequest,
+  GroupJoinResponse,
+  GroupJoinVia,
+  GroupLimits,
+  GroupMemberDesk,
+  GroupMemberItem,
+  GroupMemberStatus,
+  GroupMembersResponse,
+  GroupNotificationRequest,
+  GroupOwnerProfile,
+  GroupOwnerTransferRequest,
+  GroupRole,
+  GroupRoomJoinResponse,
+  GroupUnavailableReason,
+  GroupUpdateRequest,
+  GroupVisibility,
+  MyApplicationItem,
+  MyApplicationsResponse,
+  MyGroupCard,
+  MyGroupsResponse,
+  PendingApplicationRef,
+  PublicGroupCard,
+  PublicGroupDetailResponse,
+  PublicGroupPageResponse,
+  ReportRequest,
+  StudyCategory,
+} from "./group";
+
+export type {
   CameraPermissionMessage,
   ControlFrame,
   GlassChromeLeading,
@@ -667,6 +802,9 @@ export type {
   AnalyticsEventParamValue,
   AnalyticsUserPropertiesMessage,
   NativeAnalyticsPropertyValue,
+  SocialLoginFailureCode,
+  SocialLoginProvider,
+  SocialLoginResultMessage,
   VideoResultStatus,
   VideoShareTarget,
 } from "./bridge";
@@ -679,6 +817,7 @@ export {
   GLASS_CONTROLS_BUTTON_STYLE,
   GLASS_CHROME_LEADING,
   INSTALL_AD_LABEL_PATTERN,
+  INSTALL_GOOGLE_AD_LABEL_PATTERN,
   INSTALL_REFERRER_MAX_LENGTH,
   NATIVE_BUTTON_TONES,
   NATIVE_CONTROL_COORDINATE_MAX,
@@ -693,6 +832,8 @@ export {
   NATIVE_SEGMENT_MIN_OPTIONS,
   NAVIGATE_TAB_SOURCES,
   NAVIGATE_TAB_TARGETS,
+  SOCIAL_LOGIN_FAILURE_CODES,
+  SOCIAL_LOGIN_PROVIDERS,
   VIDEO_RESULT_STATUSES,
   VIDEO_SHARE_TARGETS,
 } from "./bridge";

@@ -1,0 +1,270 @@
+{
+  "contactCheck": {
+    "blocked": "連絡先やリンクは送信できません"
+  },
+  "limits": {
+    "applyBlock": {
+      "kickedRecently": "{{count}}日間、このグループには参加をリクエストできません",
+      "roomsAndApplicationsFull": "グループと参加リクエストは合わせて5件までです",
+      "pendingApplicationsFull": "参加リクエストは3件まで送れます"
+    },
+    "joinBlock": {
+      "roomFull": "定員に達しています",
+      "kickedRecently": "グループから削除された場合、{{count}}日間は再参加できません",
+      "roomsAndApplicationsFull": "グループと参加リクエストは合わせて5件までです",
+      "invalidCode": "招待コードをもう一度確認してください"
+    },
+    "memberCount": "メンバー{{count}}/{{max}}"
+  },
+  "roomMenu": {
+    "item": {
+      "requests": "参加リクエスト",
+      "invite": "招待",
+      "manageMembers": "メンバー管理",
+      "viewMembers": "メンバーを見る",
+      "settings": "グループ設定",
+      "leave": "グループを退出",
+      "leaveNote": "オーナーを譲渡すると退出できます"
+    },
+    "mustTransfer": {
+      "title": "退出するにはオーナーの譲渡が必要です",
+      "description": "先にメンバー管理でオーナーを譲渡してください",
+      "confirm": "メンバー管理"
+    },
+    "confirmLeave": {
+      "title": "このグループを退出しますか？",
+      "soleOwner": "退出すると、このグループは削除されます",
+      "publicMember": "再参加するには、もう一度参加をリクエストする必要があります",
+      "privateMember": "再参加するには、もう一度招待を受ける必要があります",
+      "confirm": "退出"
+    },
+    "transferOwner": {
+      "title": "{{nickname}}さんにオーナーを譲渡しますか？",
+      "description": "今後、オーナーとしての操作はできなくなります",
+      "confirm": "譲渡"
+    },
+    "kickMember": {
+      "title": "{{nickname}}さんをグループから削除しますか？",
+      "description": "{{nickname}}さんは{{count}}日間再参加できません",
+      "confirm": "削除"
+    },
+    "inviteCodeRenewed": "招待コードを新しくしました"
+  },
+  "timeText": {
+    "lastStudied": {
+      "withinHour": "今日",
+      "hoursAgo": "{{count}}時間前",
+      "yesterday": "昨日",
+      "daysAgo": "{{count}}日前"
+    },
+    "appliedAt": {
+      "withinHour": "たった今リクエスト",
+      "hoursAgo": "{{count}}時間前にリクエスト",
+      "yesterday": "昨日リクエスト",
+      "daysAgo": "{{count}}日前にリクエスト"
+    },
+    "remaining": {
+      "days": "{{count}}日",
+      "daysHours": "{{days}}日{{hours}}時間"
+    }
+  },
+  "desks": {
+    "studyingCount": "{{count}}人が勉強中",
+    "nobodyStudying": "今は誰もいません"
+  },
+  "categoryChips": {
+    "aria": {
+      "group": "目指している試験"
+    }
+  },
+  "deskGrid": {
+    "tone": {
+      "room": "スタディルームにいます",
+      "elsewhere": "別の場所で勉強中",
+      "rest": "休憩中"
+    },
+    "emptySeat": "空席",
+    "openSeat": "参加リクエスト受付中",
+    "aria": {
+      "list": "メンバーのデスク",
+      "owner": "オーナー"
+    }
+  },
+  "deskRow": {
+    "emptySeat": "空席"
+  },
+  "inviteCard": {
+    "title": "招待",
+    "description": "リンクやコードを受け取った人は、承認なしですぐにメンバーになります",
+    "codeLabel": "招待コード",
+    "shareLink": "リンクを送る",
+    "regenerate": "コードを再発行"
+  },
+  "memberMenu": {
+    "transfer": "オーナーを譲渡",
+    "kick": "グループから削除",
+    "kickNote": "{{count}}日間、このグループに再参加できなくなります",
+    "aria": {
+      "trigger": "{{nickname}}さんのメニュー"
+    }
+  },
+  "pendingApplicationsSheet": {
+    "title": "リクエスト中の公開グループ",
+    "description": "オーナーが{{count}}日以内に応答しないと、参加リクエストはキャンセルされます",
+    "remaining": "残り{{time}}",
+    "cancel": "リクエストをキャンセル"
+  },
+  "pendingBand": {
+    "label": "リクエスト中の公開グループ{{count}}件"
+  },
+  "publicRoomCard": {
+    "joined": "参加中",
+    "weeklyAverage": "今週の平均<value>{{duration}}</value>",
+    "aria": {
+      "weeklyAverage": "今週の平均{{duration}}"
+    }
+  },
+  "roomFab": {
+    "create": "グループを作成",
+    "joinWithCode": "招待コードで参加",
+    "aria": {
+      "open": "グループを作成、または招待コードで参加",
+      "menu": "グループメニュー",
+      "close": "グループメニューを閉じる"
+    }
+  },
+  "roomMenuButton": {
+    "aria": {
+      "label": "グループメニュー"
+    }
+  },
+  "socialTabs": {
+    "mine": "マイグループ",
+    "public": "公開グループ",
+    "aria": {
+      "list": "グループ"
+    }
+  },
+  "weeklyRankCard": {
+    "title": "今週の順位",
+    "resetNote": "毎週月曜日にリセットされます",
+    "studying": "勉強中"
+  },
+  "fieldError": {
+    "tooLong": "{{count}}文字まで入力できます"
+  },
+  "visibility": {
+    "public": "公開",
+    "private": "非公開"
+  },
+  "applyScreen": {
+    "title": "参加をリクエスト",
+    "headline": "{{roomName}}に参加をリクエストします",
+    "description": "オーナーの{{nickname}}さんが自己紹介を読んで承認すると、メンバーになります",
+    "label": "自己紹介",
+    "notice": "オーナーが{{count}}日以内に応答しないと、参加リクエストはキャンセルされます",
+    "submit": "リクエストを送信"
+  },
+  "blockListScreen": {
+    "title": "ブロックリスト",
+    "description": "ブロックした人とは、スタディルームでお互いの映像と音声が届かなくなります",
+    "empty": "ブロックしている人はいません",
+    "unblock": "ブロック解除"
+  },
+  "inviteCodeEntryScreen": {
+    "title": "招待コードで参加",
+    "prompt": "招待コードを入力してください",
+    "submit": "参加する"
+  },
+  "membersScreen": {
+    "titleManage": "メンバー管理",
+    "titleView": "メンバーを見る",
+    "listTitle": "メンバー",
+    "lastActive": "最後に来た日",
+    "ownerLeaveNote": "オーナーは、ほかのメンバーにオーナーを譲渡するとグループを退出できます",
+    "aria": {
+      "owner": "オーナー"
+    }
+  },
+  "myRoomsView": {
+    "emptyTitle": "まだ参加しているグループがありません",
+    "emptyDescription": "公開グループに参加をリクエストするか、グループを作成してみましょう",
+    "browsePublic": "公開グループを見る"
+  },
+  "publicRoomDetailScreen": {
+    "owner": "オーナー",
+    "weeklyAverage": "今週のメンバー平均集中時間",
+    "todayMembers": "今日のメンバー",
+    "intro": "グループ紹介",
+    "showMore": "もっと見る",
+    "apply": "参加をリクエスト",
+    "cancelApplication": "リクエストをキャンセル"
+  },
+  "publicRoomsView": {
+    "noneTitle": "まだ公開グループがありません",
+    "noneDescription": "最初の公開グループを作って、一緒に勉強する仲間を集めましょう",
+    "filteredTitle": "条件に合う公開グループがありません",
+    "filteredDescription": "別の条件を選ぶか、グループを作成してみましょう",
+    "search": "グループ名で検索",
+    "allCategories": "すべて"
+  },
+  "reportApplicationScreen": {
+    "title": "通報",
+    "headline": "{{nickname}}さんの参加リクエストを通報します",
+    "description": "通報すると、この参加リクエストはすぐに拒否されます"
+  },
+  "reportMemberScreen": {
+    "title": "通報",
+    "headline": "{{nickname}}さんを通報します",
+    "description": "通報すると、{{nickname}}さんの映像は表示されなくなります"
+  },
+  "reportField": {
+    "label": "通報の理由",
+    "placeholder": "どのような問題があるか入力してください",
+    "notice": "虚偽の通報をすると、利用が制限されることがあります",
+    "submit": "通報"
+  },
+  "requestsScreen": {
+    "title": "参加リクエスト",
+    "remainingSeats": "残り{{count}}席",
+    "acceptNote": "承認するとすぐにメンバーになり、リクエストした人に通知が届きます",
+    "empty": "応答待ちの参加リクエストはありません",
+    "expiry": "応答しない場合、{{time}}後に参加リクエストはキャンセルされます",
+    "report": "通報",
+    "reject": "拒否",
+    "accept": "承認"
+  },
+  "roomFormScreen": {
+    "titleCreate": "グループを作成",
+    "titleEdit": "グループ設定",
+    "submitCreate": "グループを作成",
+    "submitEdit": "保存",
+    "nameLabel": "グループ名",
+    "visibilityLabel": "誰が参加できますか？",
+    "publicDescription": "公開グループの一覧に表示され、届いた参加リクエストをオーナーが承認します",
+    "privateDescription": "招待リンクやコードを受け取った人だけが参加できます",
+    "fixedVisibilityNote": "公開・非公開はグループを作成した後に変更できません",
+    "categoryLabel": "目指している試験",
+    "introLabel": "グループ紹介"
+  },
+  "myRoomCard": {
+    "newRequests": "新しい参加リクエスト {{count}}件"
+  },
+  "roomHomeScreen": {
+    "todayTitle": "今日のグループ",
+    "newRequests": "新しい参加リクエストが{{count}}件あります",
+    "review": "確認",
+    "enter": "スタディルームに入室",
+    "aria": {
+      "notify": "メンバーの勉強通知"
+    }
+  },
+  "socialHomeScreen": {
+    "title": "グループ"
+  },
+  "groupError": {
+    "notFound": "グループが見つかりません",
+    "notMember": "このグループのメンバーではありません",
+    "applicationCanceled": "参加リクエストをキャンセルしました"
+  }
+}

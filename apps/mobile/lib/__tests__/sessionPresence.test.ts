@@ -1,5 +1,6 @@
 import {
   __resetSessionPresenceForTests,
+  isSessionOpen,
   markSessionOpen,
   runAfterNextSessionScreen,
   runAfterSession,
@@ -10,6 +11,19 @@ beforeEach(() => {
 });
 
 describe("sessionPresence", () => {
+  it("세션 화면이 하나라도 떠 있는 동안만 열려 있다고 답한다", () => {
+    expect(isSessionOpen()).toBe(false);
+
+    const closeSingle = markSessionOpen("single");
+    expect(isSessionOpen()).toBe(true);
+    const closeSocial = markSessionOpen("social");
+    closeSingle();
+    expect(isSessionOpen()).toBe(true);
+
+    closeSocial();
+    expect(isSessionOpen()).toBe(false);
+  });
+
   it("세션 화면이 없으면 바로 실행한다", () => {
     const run = jest.fn();
 

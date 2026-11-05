@@ -13,7 +13,7 @@ import type { AmbientSoundSettings } from "./ambientSoundStore";
 import { loadAmbientSoundSettings, saveAmbientSoundSettings } from "./ambientSoundStore";
 import type { AmbientUsage } from "./ambientUsage";
 import type { AmbientSound, SoundId } from "./catalog";
-import { DEFAULT_LEVEL, loadCatalog } from "./catalog";
+import { DEFAULT_LEVEL, loadCatalog, soundGroupOf } from "./catalog";
 import type { Mix } from "./mix";
 import { activeIds, setLevel } from "./mix";
 
@@ -65,6 +65,7 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
   // 아이콘으로 껐다 켤 때 돌려줄 음량. 세션 안에서만 기억하면 되므로 저장하지 않는다.
   const lastLevelRef = useRef<Record<SoundId, number>>({});
   const studyingRef = useRef(studying);
+  const catalogRef = useRef(catalog);
   const pausedRef = useRef(paused);
 
   const syncAfterCommand = useCallback(
@@ -84,6 +85,7 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
   // 레이아웃 효과라 아래 일반 효과들이 돌기 전에 이미 최신값이 들어가 있다.
   useLayoutEffect(() => {
     studyingRef.current = studying;
+    catalogRef.current = catalog;
     pausedRef.current = paused;
     syncRef.current = syncAfterCommand;
   });
@@ -104,6 +106,12 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
       if (pausedRef.current && player.getState() !== "suspended") await player.suspend();
       const { failed } = await player.applyMix(mix);
       if (!studyingRef.current) return;
+      // 소리별 재생 시간은 플레이어가 실제로 건 소리만 센다. 불러오지 못한 소리는 들리지 않았다.
+      usage.setSounds(
+        catalogRef.current
+          .filter((sound) => sound.id in mix && !failed.includes(sound.id))
+          .map((sound) => ({ id: sound.id, group: soundGroupOf(sound) })),
+      );
       // 믹스를 거는 사이 일시정지가 들어오면 여기서 멈춘다.
       if (pausedRef.current && player.getState() !== "suspended") await player.suspend();
       syncAfterCommand(player);
@@ -118,7 +126,7 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
         }
       }
     },
-    [commit, syncAfterCommand],
+    [commit, syncAfterCommand, usage],
   );
 
   /** 믹스 변경의 단일 통로 — 켜고 끄는 변화만 이벤트로 남기고 레벨만 바뀌면 보내지 않는다. */

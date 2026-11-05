@@ -1,0 +1,72 @@
+{
+  "header": {
+    "title": "首頁"
+  },
+  "dday": {
+    "remaining": "倒數 {{days}} 天",
+    "today": "就是今天",
+    "passed": "已過 {{days}} 天"
+  },
+  "ddayBlock": {
+    "placeholder": "倒數日",
+    "emptyCaption": "設定目標日期",
+    "aria": {
+      "set": "設定倒數日",
+      "edit": "{{label}}，{{title}}，編輯倒數日"
+    }
+  },
+  "ddaySheet": {
+    "title": "設定目標日期",
+    "pickDate": "請選擇日期",
+    "titleLabel": "標題",
+    "titlePlaceholder": "例如：期末考",
+    "titleTooLong": "最多可輸入 {{max}} 個字",
+    "save": "儲存",
+    "saving": "儲存中",
+    "delete": "刪除",
+    "deleteConfirm": "要刪除目標日期嗎？",
+    "error": {
+      "pastDate": "請選擇今天或之後的日期"
+    }
+  },
+  "ddayCalendar": {
+    "jump": {
+      "oneMonth": "1 個月後",
+      "sixMonths": "6 個月後",
+      "oneYear": "1 年後"
+    },
+    "aria": {
+      "prevMonth": "上個月",
+      "nextMonth": "下個月",
+      "monthPicker": "選擇年份和月份",
+      "prevYear": "上一年",
+      "nextYear": "下一年"
+    }
+  },
+  "streak": {
+    "title": "連續讀書 {{count}} 天",
+    "tooltip": "每天讀書 5 分鐘以上，就能延續連續讀書天數",
+    "aria": {
+      "tooltip": "關於連續讀書的條件"
+    }
+  },
+  "stats": {
+    "todayFocus": "今天的專注時間",
+    "hoursUnit": "小時",
+    "minutesUnit": "分",
+    "focusRate": "專注率",
+    "studyTotal": "總讀書時間",
+    "longestFocus": "最長專注時間",
+    "loadFailed": "無法載入紀錄"
+  },
+  "startFocus": "開始專注",
+  "invite": {
+    "title": "今天很難一個人專心嗎？<br/>和大家一起讀書吧",
+    "cta": "和群組一起讀書"
+  },
+  "unregistered": "這部裝置尚未註冊。在應用程式中開啟，就會儲存紀錄",
+  "demo": {
+    "tagline": "用 AI 視覺測量專注時間的視訊讀書",
+    "enter": "進入個人讀書室（示範）"
+  }
+}

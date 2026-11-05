@@ -1,6 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getPeriodStats, getStreak, getStudyDays, listStudySessionStats } from "../statsApi";
+import {
+  getPeriodStats,
+  getStreak,
+  getStudyDays,
+  getStudyRhythm,
+  listStudySessionStats,
+} from "../statsApi";
 
 /**
  * 기본 base URL은 same-origin(빈 문자열) — dev의 vite 프록시 환경과 같다.
@@ -105,6 +111,31 @@ describe("listStudySessionStats", () => {
       "/api/stats?date=2026-07-25%26userId%3D9",
       expect.objectContaining({ method: "GET" }),
     );
+  });
+});
+
+describe("getStudyRhythm", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("study-days처럼 토큰 신원·API-Version 1로 격자를 조회한다", async () => {
+    const body = { studyDays: 14, focusSecByWeekdayHour: [[0, 60]] };
+    mockedFetch.mockResolvedValue(jsonResponse(200, body));
+
+    await expect(getStudyRhythm()).resolves.toEqual(body);
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "/api/stats/rhythm",
+      expect.objectContaining({ method: "GET" }),
+    );
+    const [, init] = mockedFetch.mock.calls[0]!;
+    expect(new Headers((init as RequestInit).headers).get("API-Version")).toBe("1");
+  });
+
+  it("실패하면 서버 메시지로 거절한다", async () => {
+    mockedFetch.mockResolvedValue(jsonResponse(500, { message: "boom" }));
+
+    await expect(getStudyRhythm()).rejects.toThrow("boom");
   });
 });
 

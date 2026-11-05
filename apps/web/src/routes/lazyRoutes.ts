@@ -17,6 +17,14 @@ export const loadTimelapseSettingsPage = () => import("./TimelapseSettingsPage")
 export const loadAppLockSettingsPage = () => import("./AppLockSettingsPage");
 export const loadTimelapsesPage = () => import("./TimelapsesPage");
 export const loadRankingRecordsPage = () => import("./RankingRecordsPage");
+export const loadGroupHomePage = () => import("./GroupHomePage");
+export const loadGroupMembersPage = () => import("./GroupMembersPage");
+export const loadGroupApplicationsPage = () => import("./GroupApplicationsPage");
+export const loadReportApplicationPage = () => import("./ReportApplicationPage");
+export const loadPublicGroupPage = () => import("./PublicGroupPage");
+export const loadApplyPage = () => import("./ApplyPage");
+export const loadGroupFormPage = () => import("./GroupFormPage");
+export const loadBlockListPage = () => import("./BlockListPage");
 
 /** 공부를 끝낼 때 네트워크가 끊겨도 결과 화면이 열리도록 세션 중에 미리 받는다. */
 export function prefetchResultPage(): void {
@@ -52,4 +60,35 @@ export function prefetchSettingsSubPages(): void {
  */
 export function prefetchTimelapsesPage(): void {
   whenIdle(() => void loadTimelapsesPage().catch(() => {}));
+}
+
+/**
+ * 차단 목록 미리 받기
+ *
+ * 설정의 차단 목록 줄이 슬라이드 전환으로 연다.
+ * 줄은 그룹 공부방을 여는 앱에만 있어서 다른 설정 하위 화면과 따로 받는다.
+ */
+export function prefetchBlockListPage(): void {
+  whenIdle(() => void loadBlockListPage().catch(() => {}));
+}
+
+/**
+ * 그룹 하위 화면 미리 받기
+ *
+ * 그룹 홈과 그 하위 화면은 슬라이드 전환으로 열려서, 전환이 청크를 기다리지 않게 그룹 탭에서 미리 받는다.
+ */
+export function prefetchGroupPages(): void {
+  whenIdle(() => {
+    for (const load of [
+      loadGroupHomePage,
+      loadGroupMembersPage,
+      loadGroupApplicationsPage,
+      loadReportApplicationPage,
+      loadPublicGroupPage,
+      loadApplyPage,
+      loadGroupFormPage,
+    ]) {
+      void load().catch(() => {});
+    }
+  });
 }

@@ -27,6 +27,7 @@ vi.mock("@/lib/amplitude", () => ({
   trackRecordsSessionExpanded: vi.fn(),
   trackRecordsViewChanged: vi.fn(),
   trackRecordsWeekChanged: vi.fn(),
+  trackRecordsRhythmShown: vi.fn(),
   trackRecordsPeriodPickerOpened: vi.fn(),
   trackRecordsPeriodPicked: vi.fn(),
   trackErrorRetryPressed: vi.fn(),

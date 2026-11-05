@@ -26,6 +26,62 @@
       "group": "ambience",
       "label": "카페",
       "file": "cafe-vec-a7724e1d.mp3"
+    },
+    {
+      "id": "exam-g39",
+      "kind": "file",
+      "group": "ambience",
+      "label": "시험장 고사실",
+      "file": "exam-g39-e6f9ea58.mp3"
+    },
+    {
+      "id": "bonfire-kyles",
+      "kind": "file",
+      "group": "ambience",
+      "label": "모닥불",
+      "file": "bonfire-kyles-e27d8e32.mp3"
+    },
+    {
+      "id": "waves-esh",
+      "kind": "file",
+      "group": "ambience",
+      "label": "잔잔한 파도",
+      "file": "waves-esh-c2a8fe7a.mp3"
+    },
+    {
+      "id": "birds-squashy",
+      "kind": "file",
+      "group": "ambience",
+      "label": "새소리",
+      "file": "birds-squashy-2111924c.mp3"
+    },
+    {
+      "id": "airplane-courter",
+      "kind": "file",
+      "group": "ambience",
+      "label": "비행기 기내",
+      "file": "airplane-courter-3baacf51.mp3"
+    },
+    {
+      "id": "lofi-breeze",
+      "kind": "file",
+      "group": "music",
+      "label": "Morning Breeze",
+      "file": "lofi-breeze-d2de34a9.mp3"
+    },
+    {
+      "id": "lofi-stars",
+      "kind": "file",
+      "group": "music",
+      "label": "Lost Stars",
+      "file": "lofi-stars-bea9a9f5.mp3"
+    },
+    {
+      "id": "lofi-vanilla",
+      "kind": "file",
+      "group": "music",
+      "label": "Vanilla",
+      "file": "lofi-vanilla-ba317c0a.mp3"
     }
   ]
 }

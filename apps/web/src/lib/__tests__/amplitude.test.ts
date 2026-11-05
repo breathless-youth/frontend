@@ -478,19 +478,19 @@ describe("setInstallAttributionUserProperties", () => {
     expect(mocks.identify).not.toHaveBeenCalled();
   });
 
-  it("처음 들어온 경로만 남도록 setOnce로 보낸다", async () => {
+  it("서버가 첫 값을 지키므로 set으로 보내 웹이 먼저 남긴 값도 바로잡는다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const { initAmplitude, setInstallAttributionUserProperties } = await loadModule();
     initAmplitude();
 
-    setInstallAttributionUserProperties({ install_source: "meta_ad", install_ad: "aos_v1" });
+    setInstallAttributionUserProperties({ install_source: "google_ad", install_ad: "g_planner" });
 
     const [sent] = mocks.identify.mock.calls[0] as [InstanceType<typeof mocks.FakeIdentify>];
-    expect(sent.setOnces).toEqual([
-      ["install_source", "meta_ad"],
-      ["install_ad", "aos_v1"],
+    expect(sent.sets).toEqual([
+      ["install_source", "google_ad"],
+      ["install_ad", "g_planner"],
     ]);
-    expect(sent.sets).toEqual([]);
+    expect(sent.setOnces).toEqual([]);
   });
 });
 
@@ -641,7 +641,12 @@ describe("소셜룸 이벤트 (BY-472)", () => {
     module.trackSocialRoomCreated();
     module.trackSocialRoomJoinFailed("ROOM_CLOSED");
     module.trackSocialRoomEntered(false);
-    module.trackSocialRoomExited({ memberCount: 2, exitReason: "session_end", durationSec: 60 });
+    module.trackSocialRoomExited({
+      memberCount: 2,
+      exitReason: "session_end",
+      durationSec: 60,
+      togetherSec: 0,
+    });
     module.trackSocialRoomRejoinFailed("leave", "ROOM_CLOSED");
     module.trackSocialRoomGraceExceeded();
 
@@ -666,14 +671,63 @@ describe("소셜룸 이벤트 (BY-472)", () => {
     initAmplitude();
 
     trackSocialRoomEntered(true);
-    trackSocialRoomExited({ memberCount: 3, exitReason: "grace_expired", durationSec: 125 });
+    trackSocialRoomExited({
+      memberCount: 3,
+      exitReason: "grace_expired",
+      durationSec: 125,
+      togetherSec: 30,
+    });
 
     expect(mocks.track).toHaveBeenCalledWith("social_room_entered", { grace_rejoin: true });
     expect(mocks.track).toHaveBeenCalledWith("social_room_exited", {
       member_count: 3,
       exit_reason: "grace_expired",
       duration_sec: 125,
+      together_sec: 30,
     });
+  });
+
+  it("공부방 입장·퇴장은 그룹 방이면 공개 여부를, 늘 함께한 시간을 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackSocialRoomEntered, trackSocialRoomExited } = await loadModule();
+    initAmplitude();
+    mocks.track.mockClear();
+
+    trackSocialRoomEntered(false, { visibility: "public" });
+    trackSocialRoomExited({
+      memberCount: 3,
+      exitReason: "session_end",
+      durationSec: 600,
+      togetherSec: 420,
+      visibility: "public",
+    });
+    trackSocialRoomExited({
+      memberCount: 2,
+      exitReason: "session_end",
+      durationSec: 60,
+      togetherSec: 0,
+    });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["social_room_entered", { grace_rejoin: false, visibility: "public" }],
+      [
+        "social_room_exited",
+        {
+          member_count: 3,
+          exit_reason: "session_end",
+          duration_sec: 600,
+          together_sec: 420,
+          visibility: "public",
+        },
+      ],
+      [
+        "social_room_exited",
+        { member_count: 2, exit_reason: "session_end", duration_sec: 60, together_sec: 0 },
+      ],
+    ]);
+    // 공개 여부가 없는 방은 빈 값도 싣지 않는다.
+    const [, inviteExit] = mocks.track.mock.calls[2] as [string, Record<string, unknown>];
+    expect(Object.keys(inviteExit)).not.toContain("visibility");
   });
 
   it("재입장 실패는 leave/retry 판정과 사유를 함께 싣는다", async () => {
@@ -687,6 +741,121 @@ describe("소셜룸 이벤트 (BY-472)", () => {
       kind: "retry",
       reason: "HTTP_500",
     });
+  });
+});
+
+describe("그룹 공부방 이벤트", () => {
+  it("미초기화 상태에서는 보내지 않는다", async () => {
+    const module = await loadModule();
+
+    module.trackGroupRoomCreated({ visibility: "public", category: "CSAT" });
+    module.trackGroupRoomApplicationSent({ category: "CSAT" });
+    module.trackGroupRoomApplicationAnswered("accepted");
+    module.trackGroupRoomJoined({ via: "application", visibility: "public" });
+    module.trackGroupRoomLeft("left");
+    module.trackGroupRoomNotificationToggled(true);
+    module.trackGroupRoomReported("application");
+    module.trackGroupRoomMicToggled(true);
+    module.setGroupRoomCount(2);
+
+    expect(mocks.track).not.toHaveBeenCalled();
+    expect(mocks.identify).not.toHaveBeenCalled();
+  });
+
+  it("그룹 이벤트 속성은 정한 토큰만이다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const module = await loadModule();
+    module.initAmplitude();
+    mocks.track.mockClear();
+
+    module.trackGroupRoomCreated({ visibility: "private", category: "CIVIL_SERVICE" });
+    module.trackGroupRoomApplicationSent({ category: "CSAT" });
+    module.trackGroupRoomApplicationAnswered("reported");
+    module.trackGroupRoomJoined({ via: "invite_link", visibility: "private" });
+    module.trackGroupRoomLeft("room_deleted");
+    module.trackGroupRoomNotificationToggled(true);
+    module.trackGroupRoomReported("member");
+    module.trackGroupRoomMicToggled(false);
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["group_room_created", { visibility: "private", category: "CIVIL_SERVICE" }],
+      ["group_room_application_sent", { category: "CSAT" }],
+      ["group_room_application_answered", { result: "reported" }],
+      ["group_room_joined", { via: "invite_link", visibility: "private" }],
+      ["group_room_left", { reason: "room_deleted" }],
+      ["group_room_notification_toggled", { on: true }],
+      ["group_room_reported", { target: "member" }],
+      ["group_room_mic_toggled", { on: false }],
+    ]);
+    // Firebase 사본은 토큰인 문자열만 통과시키므로 문자열 값이 모두 그 규칙에 맞아야 한다.
+    for (const [, payload] of mocks.track.mock.calls) {
+      for (const value of Object.values(payload as Record<string, unknown>)) {
+        if (typeof value === "string") {
+          expect(value).toMatch(ANALYTICS_PARAM_VALUE_PATTERN);
+        }
+      }
+    }
+  });
+
+  it("들어간 그룹 수를 사용자 속성으로 남긴다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const module = await loadModule();
+    module.initAmplitude();
+    mocks.identify.mockClear();
+
+    module.setGroupRoomCount(3);
+
+    const identify = mocks.identify.mock.calls.at(-1)?.[0] as InstanceType<
+      typeof mocks.FakeIdentify
+    >;
+    expect(identify.sets).toEqual([["group_room_count", 3]]);
+  });
+
+  it("시험·목표에는 서버 값만 받는다", async () => {
+    const module = await loadModule();
+
+    // @ts-expect-error 화면에 보이는 글자는 서버 값이 아니라서 받지 않는다.
+    module.trackGroupRoomCreated({ visibility: "public", category: "수능" });
+    // @ts-expect-error 신청 계측도 같은 서버 값만 받는다.
+    module.trackGroupRoomApplicationSent({ category: "수능" });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+});
+
+describe("소셜 로그인 이벤트", () => {
+  it("미초기화 상태에서는 보내지 않는다", async () => {
+    const module = await loadModule();
+
+    module.trackLoginScreenViewed("tab");
+    module.trackSocialLoginSucceeded({ provider: "GOOGLE", isNewUser: true });
+    module.trackSocialLoginFailed({ provider: "KAKAO", reason: "UNKNOWN" });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("들어온 곳, 공급자, 신규 여부, 실패 코드를 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const module = await loadModule();
+    module.initAmplitude();
+    mocks.track.mockClear();
+
+    module.trackLoginScreenViewed("invite");
+    module.trackSocialLoginSucceeded({ provider: "APPLE", isNewUser: false });
+    module.trackSocialLoginFailed({ provider: "KAKAO", reason: "SOCIAL_PROVIDER_UNAVAILABLE" });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["login_screen_viewed", { entry: "invite" }],
+      ["social_login_succeeded", { provider: "APPLE", is_new_user: false }],
+      ["social_login_failed", { provider: "KAKAO", reason: "SOCIAL_PROVIDER_UNAVAILABLE" }],
+    ]);
+    for (const [, payload] of mocks.track.mock.calls) {
+      for (const value of Object.values(payload as Record<string, unknown>)) {
+        if (typeof value === "string") {
+          expect(value).toMatch(ANALYTICS_PARAM_VALUE_PATTERN);
+        }
+      }
+    }
   });
 });
 
@@ -984,6 +1153,9 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
     m.trackRecordsWeekChanged(-1, "swipe");
     m.trackRecordsPeriodPickerOpened("daily");
     m.trackRecordsPeriodPicked({ view: "weekly", toToday: true });
+    m.trackRecordsRhythmShown({ state: "mine", studyDays: 22 });
+    m.trackRecordsRhythmShown({ state: "sample", reason: "below_threshold", studyDays: 13 });
+    m.trackRecordsRhythmShown({ state: "sample", reason: "error" });
     m.trackPlannerOpened({ via: "records", isToday: false });
     m.trackPlannerDateChanged({ delta: -1, method: "swipe" });
     m.trackSubjectItemAdded("task", false, "social");
@@ -1011,6 +1183,9 @@ describe("화면별 잔여 상호작용 이벤트 (BY-616 확장 2차)", () => {
       ["records_week_changed", { delta: -1, method: "swipe" }],
       ["records_period_picker_opened", { view: "daily" }],
       ["records_period_picked", { view: "weekly", to_today: true }],
+      ["records_rhythm_shown", { state: "mine", study_days: 22 }],
+      ["records_rhythm_shown", { state: "sample", reason: "below_threshold", study_days: 13 }],
+      ["records_rhythm_shown", { state: "sample", reason: "error" }],
       ["planner_opened", { via: "records", is_today: false }],
       ["planner_date_changed", { delta: -1, method: "swipe" }],
       [
@@ -1208,6 +1383,26 @@ describe("배경음 이벤트", () => {
         { sounds: "", sound_count: 0, source: "dialog", room_type: "social" },
       ],
       ["ambient_sound_duck_toggled", { enabled: true, room_type: "social" }],
+    ]);
+  });
+
+  it("소리별 재생 시간을 정해진 이름·속성으로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackAmbientSoundPlayed({
+      soundId: "lofi-breeze",
+      group: "music",
+      playSec: 1530,
+      roomType: "single",
+    });
+
+    expect(mocks.track.mock.calls).toEqual([
+      [
+        "ambient_sound_played",
+        { sound_id: "lofi-breeze", group: "music", play_sec: 1530, room_type: "single" },
+      ],
     ]);
   });
 
@@ -1529,6 +1724,23 @@ describe("결과 화면 이탈 핸드오프 (study_result_exited)", () => {
     expect(mocks.track.mock.calls).toEqual([
       ["study_result_exited", { room_type: "single", focus_sec: 900, destination: "record" }],
       ["study_result_exited", { room_type: "social", focus_sec: 800, destination: "home" }],
+    ]);
+  });
+
+  it("그룹 공부방 결과의 예약은 그 그룹 홈만 보내고 홈 복귀로 센다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    m.stageStudyResultExit({ roomType: "social", focusSec: 700, consumeAt: "/social/groups/10" });
+    mocks.track.mockClear();
+
+    m.consumeStudyResultExit("/social/groups/11");
+    m.consumeStudyResultExit("/social");
+    expect(mocks.track).not.toHaveBeenCalled();
+
+    m.consumeStudyResultExit("/social/groups/10");
+    expect(mocks.track.mock.calls).toEqual([
+      ["study_result_exited", { room_type: "social", focus_sec: 700, destination: "home" }],
     ]);
   });
 
@@ -2108,5 +2320,48 @@ describe("프로필 사진 이벤트", () => {
         expect(value).toMatch(ANALYTICS_PARAM_VALUE_PATTERN);
       }
     }
+  });
+});
+
+describe("순공 1분 달성 (focus_milestone_reached)", () => {
+  afterEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it("처음 한 번만 focus_milestone_reached를 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackFocusMilestoneReached } = await loadModule();
+    initAmplitude();
+    mocks.track.mockClear();
+
+    trackFocusMilestoneReached("single");
+    trackFocusMilestoneReached("social");
+
+    expect(mocks.track).toHaveBeenCalledTimes(1);
+    expect(mocks.track).toHaveBeenCalledWith("focus_milestone_reached", { room_type: "single" });
+  });
+
+  it("저장소를 못 쓰면 표시 없이 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackFocusMilestoneReached } = await loadModule();
+    initAmplitude();
+    mocks.track.mockClear();
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("denied", "SecurityError");
+    });
+
+    trackFocusMilestoneReached("single");
+
+    expect(mocks.track).toHaveBeenCalledWith("focus_milestone_reached", { room_type: "single" });
+  });
+
+  it("미초기화 상태에서는 보내지도 표시하지도 않는다", async () => {
+    const { trackFocusMilestoneReached } = await loadModule();
+
+    trackFocusMilestoneReached("single");
+
+    expect(mocks.track).not.toHaveBeenCalled();
+    expect(localStorage.getItem("focusmakers:focus-milestone-tracked")).toBeNull();
   });
 });

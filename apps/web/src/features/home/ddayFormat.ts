@@ -19,14 +19,20 @@ export function daysUntil(targetDate: string, now: Date = new Date()): number {
   return Math.round((target.getTime() - today.getTime()) / DAY_MS);
 }
 
-/** `D-52` · `D-Day` · `D+3` */
+/**
+ * 목표일 표기
+ *
+ * 한국어는 `D-52` · `D-Day` · `D+3`, 영어는 `52 days left` · `Today` · `3 days ago`다.
+ * 영어는 날 수에 따라 단수·복수가 갈려서 count를 같이 넘긴다.
+ */
 export function formatDday(daysLeft: number): string {
   if (daysLeft === 0) {
     return i18n.t("home:dday.today");
   }
+  const days = Math.abs(daysLeft);
   return daysLeft > 0
-    ? i18n.t("home:dday.remaining", { days: daysLeft })
-    : i18n.t("home:dday.passed", { days: -daysLeft });
+    ? i18n.t("home:dday.remaining", { days, count: days })
+    : i18n.t("home:dday.passed", { days, count: days });
 }
 
 /** 시트가 접혔을 때 칩에 보이는 날짜 — `11월 18일 (목)` · `Thu, November 18`. */

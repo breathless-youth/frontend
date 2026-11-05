@@ -7,6 +7,7 @@ import { useNativeAnalyticsRelay } from "@/lib/nativeAnalytics";
 const mocks = vi.hoisted(() => ({
   trackNativeShellEvent: vi.fn(),
   handleInstallAttribution: vi.fn(),
+  flushInstallAttribution: vi.fn(() => Promise.resolve()),
 }));
 
 vi.mock("@/lib/amplitude", () => ({
@@ -15,6 +16,7 @@ vi.mock("@/lib/amplitude", () => ({
 
 vi.mock("@/lib/installAttribution", () => ({
   handleInstallAttribution: mocks.handleInstallAttribution,
+  flushInstallAttribution: mocks.flushInstallAttribution,
 }));
 
 function Harness() {
@@ -85,6 +87,19 @@ describe("useNativeAnalyticsRelay", () => {
     });
   });
 
+  it("마운트하면 analytics-ready 뒤에 보관한 설치 유입 정보를 서버로 한 번 보낸다", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+    render(<Harness />);
+
+    expect(postMessage).toHaveBeenCalledTimes(1);
+    expect(mocks.flushInstallAttribution).toHaveBeenCalledTimes(1);
+    expect(postMessage.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.flushInstallAttribution.mock.invocationCallOrder[0]!,
+    );
+  });
+
   it("install-attribution을 받으면 설치 유입 처리로 넘긴다 — 같은 준비 신호로 받는다", () => {
     vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
     const message = {
@@ -92,6 +107,7 @@ describe("useNativeAnalyticsRelay", () => {
       platform: "ios",
       installReferrer: null,
       deepLinkAd: "ios_v2",
+      googleDeepLinkAd: null,
       capturedAtMs: 3,
       atMs: 4,
     };

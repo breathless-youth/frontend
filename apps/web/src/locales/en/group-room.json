@@ -1,0 +1,285 @@
+{
+  "contactCheck": {
+    "blocked": "You can't include contact info or links"
+  },
+  "limits": {
+    "applyBlock": {
+      "kickedRecently_one": "You can't request to join this group for {{count}} day",
+      "kickedRecently_other": "You can't request to join this group for {{count}} days",
+      "roomsAndApplicationsFull": "Up to 5 groups and requests",
+      "pendingApplicationsFull": "You can send up to 3 requests"
+    },
+    "joinBlock": {
+      "roomFull": "This group is full",
+      "kickedRecently_one": "You were removed from this group and can't rejoin for {{count}} day",
+      "kickedRecently_other": "You were removed from this group and can't rejoin for {{count}} days",
+      "roomsAndApplicationsFull": "Up to 5 groups and requests",
+      "invalidCode": "Check the invite code and try again"
+    },
+    "memberCount": "{{count}}/{{max}} members"
+  },
+  "roomMenu": {
+    "item": {
+      "requests": "Join requests",
+      "invite": "Invite",
+      "manageMembers": "Manage members",
+      "viewMembers": "View members",
+      "settings": "Group settings",
+      "leave": "Leave group",
+      "leaveNote": "You can leave after transferring ownership"
+    },
+    "mustTransfer": {
+      "title": "You need to transfer ownership to leave",
+      "description": "Transfer ownership in Manage members first",
+      "confirm": "Manage members"
+    },
+    "confirmLeave": {
+      "title": "Leave this group?",
+      "soleOwner": "If you leave, this group will be deleted",
+      "publicMember": "To rejoin, you'll need to send a new request",
+      "privateMember": "To rejoin, you'll need a new invite",
+      "confirm": "Leave"
+    },
+    "transferOwner": {
+      "title": "Transfer ownership to {{nickname}}?",
+      "description": "You'll no longer be the group owner",
+      "confirm": "Transfer"
+    },
+    "kickMember": {
+      "title": "Remove {{nickname}}?",
+      "description_one": "{{nickname}} can't rejoin for {{count}} day",
+      "description_other": "{{nickname}} can't rejoin for {{count}} days",
+      "confirm": "Remove"
+    },
+    "inviteCodeRenewed": "Invite code changed"
+  },
+  "timeText": {
+    "lastStudied": {
+      "withinHour": "Today",
+      "hoursAgo_one": "{{count}} hour ago",
+      "hoursAgo_other": "{{count}} hours ago",
+      "yesterday": "Yesterday",
+      "daysAgo_one": "{{count}} day ago",
+      "daysAgo_other": "{{count}} days ago"
+    },
+    "appliedAt": {
+      "withinHour": "Requested just now",
+      "hoursAgo_one": "Requested {{count}} hour ago",
+      "hoursAgo_other": "Requested {{count}} hours ago",
+      "yesterday": "Requested yesterday",
+      "daysAgo_one": "Requested {{count}} day ago",
+      "daysAgo_other": "Requested {{count}} days ago"
+    },
+    "remaining": {
+      "days": "{{count}}d",
+      "daysHours": "{{days}}d {{hours}}h"
+    }
+  },
+  "desks": {
+    "studyingCount": "{{count}} studying",
+    "nobodyStudying": "No one's here right now"
+  },
+  "categoryChips": {
+    "aria": {
+      "group": "Studying for"
+    }
+  },
+  "deskGrid": {
+    "tone": {
+      "room": "In the study room",
+      "elsewhere": "Studying elsewhere",
+      "rest": "On a break"
+    },
+    "emptySeat": "Empty seat",
+    "openSeat": "Accepting requests",
+    "aria": {
+      "list": "Member desks",
+      "owner": "Owner"
+    }
+  },
+  "deskRow": {
+    "emptySeat": "Empty"
+  },
+  "inviteCard": {
+    "title": "Invite",
+    "description": "People with the link or code join right away, no approval needed",
+    "codeLabel": "Invite code",
+    "shareLink": "Send link",
+    "regenerate": "Create new code"
+  },
+  "memberMenu": {
+    "transfer": "Transfer ownership",
+    "kick": "Remove from group",
+    "kickNote_one": "They can't rejoin for {{count}} day",
+    "kickNote_other": "They can't rejoin for {{count}} days",
+    "aria": {
+      "trigger": "Options for {{nickname}}"
+    }
+  },
+  "pendingApplicationsSheet": {
+    "title": "Pending requests",
+    "description_one": "Requests are canceled if the owner doesn't respond within {{count}} day",
+    "description_other": "Requests are canceled if the owner doesn't respond within {{count}} days",
+    "remaining": "{{time}} left",
+    "cancel": "Cancel request"
+  },
+  "pendingBand": {
+    "label_one": "{{count}} pending request",
+    "label_other": "{{count}} pending requests"
+  },
+  "publicRoomCard": {
+    "joined": "Joined",
+    "weeklyAverage": "This week's avg <value>{{duration}}</value>",
+    "aria": {
+      "weeklyAverage": "This week's average {{duration}}"
+    }
+  },
+  "roomFab": {
+    "create": "Create group",
+    "joinWithCode": "Join with code",
+    "aria": {
+      "open": "Create a group or join with code",
+      "menu": "Group menu",
+      "close": "Close group menu"
+    }
+  },
+  "roomMenuButton": {
+    "aria": {
+      "label": "Group menu"
+    }
+  },
+  "socialTabs": {
+    "mine": "My groups",
+    "public": "Public groups",
+    "aria": {
+      "list": "Groups"
+    }
+  },
+  "weeklyRankCard": {
+    "title": "This week's ranking",
+    "resetNote": "Resets every Monday",
+    "studying": "Studying now"
+  },
+  "fieldError": {
+    "tooLong_one": "Use up to {{count}} character",
+    "tooLong_other": "Use up to {{count}} characters"
+  },
+  "visibility": {
+    "public": "Public",
+    "private": "Private"
+  },
+  "applyScreen": {
+    "title": "Request to join",
+    "headline": "Send a request to {{roomName}}",
+    "description": "You'll become a member once the owner, {{nickname}}, reads your intro and accepts",
+    "label": "Intro",
+    "notice_one": "If the owner doesn't respond within {{count}} day, your request will be canceled",
+    "notice_other": "If the owner doesn't respond within {{count}} days, your request will be canceled",
+    "submit": "Send request"
+  },
+  "blockListScreen": {
+    "title": "Blocked users",
+    "description": "You and people you've blocked won't see or hear each other in study rooms",
+    "empty": "You haven't blocked anyone",
+    "unblock": "Unblock"
+  },
+  "inviteCodeEntryScreen": {
+    "title": "Join with code",
+    "prompt": "Enter the invite code",
+    "submit": "Join"
+  },
+  "membersScreen": {
+    "titleManage": "Manage members",
+    "titleView": "View members",
+    "listTitle": "Members",
+    "lastActive": "Last active",
+    "ownerLeaveNote": "The group owner can leave after transferring ownership to another member",
+    "aria": {
+      "owner": "Owner"
+    }
+  },
+  "myRoomsView": {
+    "emptyTitle": "You haven't joined any groups yet",
+    "emptyDescription": "Request to join a public group or create your own",
+    "browsePublic": "Browse public groups"
+  },
+  "publicRoomDetailScreen": {
+    "owner": "Owner",
+    "weeklyAverage": "Members' avg focus time this week",
+    "todayMembers": "Members today",
+    "intro": "About this group",
+    "showMore": "Show more",
+    "apply": "Request to join",
+    "cancelApplication": "Cancel request"
+  },
+  "publicRoomsView": {
+    "noneTitle": "No public groups yet",
+    "noneDescription": "Create the first public group and find people to study with",
+    "filteredTitle": "No public groups match your filters",
+    "filteredDescription": "Try different filters or create your own group",
+    "search": "Search by group name",
+    "allCategories": "All"
+  },
+  "reportApplicationScreen": {
+    "title": "Report",
+    "headline": "Report {{nickname}}'s request",
+    "description": "Reporting declines this request right away"
+  },
+  "reportMemberScreen": {
+    "title": "Report",
+    "headline": "Report {{nickname}}",
+    "description": "Once you report {{nickname}}, you won't see their video anymore"
+  },
+  "reportField": {
+    "label": "Reason",
+    "placeholder": "Tell us what the problem is",
+    "notice": "False reports may lead to restrictions on your account",
+    "submit": "Report"
+  },
+  "requestsScreen": {
+    "title": "Join requests",
+    "remainingSeats_one": "{{count}} seat left",
+    "remainingSeats_other": "{{count}} seats left",
+    "acceptNote": "Once you accept, they become a member right away and get notified",
+    "empty": "No pending requests",
+    "expiry": "If you don't respond, this request will be canceled in {{time}}",
+    "report": "Report",
+    "reject": "Decline",
+    "accept": "Accept"
+  },
+  "roomFormScreen": {
+    "titleCreate": "Create group",
+    "titleEdit": "Group settings",
+    "submitCreate": "Create group",
+    "submitEdit": "Save",
+    "nameLabel": "Group name",
+    "visibilityLabel": "Who can join?",
+    "publicDescription": "Listed in public groups. People send requests and the owner accepts them",
+    "privateDescription": "Only people with the invite link or code can join",
+    "fixedVisibilityNote": "Public or private can't be changed after the group is created",
+    "categoryLabel": "Studying for",
+    "introLabel": "About this group"
+  },
+  "myRoomCard": {
+    "newRequests_one": "{{count}} new request",
+    "newRequests_other": "{{count}} new requests"
+  },
+  "roomHomeScreen": {
+    "todayTitle": "Our group today",
+    "newRequests_one": "You have {{count}} new request",
+    "newRequests_other": "You have {{count}} new requests",
+    "review": "Review",
+    "enter": "Enter study room",
+    "aria": {
+      "notify": "Member study alerts"
+    }
+  },
+  "socialHomeScreen": {
+    "title": "Groups"
+  },
+  "groupError": {
+    "notFound": "Couldn't find this group",
+    "notMember": "You're not a member of this group",
+    "applicationCanceled": "Request canceled"
+  }
+}

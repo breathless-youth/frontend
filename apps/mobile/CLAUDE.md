@@ -11,14 +11,14 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 
 ## 원격 웹뷰 화면
 
-- `react-native-webview`로 `apps/web`을 로드하고, 모든 화면이 `extra.webBaseUrl`이 가리키는 원격 주소를 연다. 카메라 권한 문구는 `app.json`의 `ios.infoPlist.NSCameraUsageDescription` / `android.permissions`(`CAMERA`)에 유지한다(WebView 안 `getUserMedia`도 같은 네이티브 권한 필요). 마이크 권한은 추가하지 않는다(멀티룸 음성 송출 없음). Android는 `android.blockedPermissions`로 `RECORD_AUDIO`를 명시적으로 차단한다 — `expo-camera`가 plugin 없이도 넣기 때문이며, **이 항목을 지우지 말 것**(ADR 0004 "남는 위험").
+- `react-native-webview`로 `apps/web`을 로드하고, 모든 화면이 `extra.webBaseUrl`이 가리키는 원격 주소를 연다. 카메라 권한 문구는 `app.json`의 `ios.infoPlist.NSCameraUsageDescription` / `android.permissions`(`CAMERA`)에 유지한다(WebView 안 `getUserMedia`도 같은 네이티브 권한 필요). 그룹 공부방 음성 때문에 `RECORD_AUDIO`와 `MODIFY_AUDIO_SETTINGS`를 선언하고, 권한은 웹이 처음 마이크를 켤 때 웹뷰가 묻는다. 사진·영상 읽기 권한은 `android.blockedPermissions`로 계속 막는다. 이 목록에 `RECORD_AUDIO`를 다시 넣으면 선언해도 빌드에서 빠져 공부방 마이크가 켜지지 않는다.
 - **스플래시는 웹의 `launch-ready`를 받을 때까지 유지한다**(`lib/launchReady.ts`). 웹뷰는 그 뒤에서 이미 그려지고, 홈은 온보딩으로 보낼지 판정한 뒤에 이 신호를 보낸다. 보이는 탭의 신호만 받고, 로드가 실패하거나 보이는 탭 웹뷰가 뜬 뒤 3초가 지나면 신호 없이 걷는다. 가입 대기는 이 3초에 넣지 않고, 웹뷰가 끝내 뜨지 않아도 10초면 걷는다. 시작 ATT 창은 스플래시가 걷힌 뒤에 뜬다.
 - **Dev Client가 필요하고 Expo Go는 지원하지 않는다.** 커스텀 엔트리(`index.ts`)가 푸시 모듈을, 그 모듈이 `@react-native-firebase/*`를 정적 import하기 때문이다(Expo Go에 없는 네이티브 모듈). `app.json` `plugins`의 `expo-build-properties`·RNFB config plugin도 prebuild/Dev Client 빌드에서만 적용된다.
 
 ## 카메라 권한 (`expo-camera`, 권한 API만)
 
 - `expo-camera`는 권한 조회·요청 목적으로만 들어 있다([ADR 0004](../../docs/adr/0004-expo-camera-for-permission-api-only.md)). **`CameraView`를 쓰지 말 것** — 카메라 스트림·Vision 추론은 `apps/web`의 WebView `getUserMedia` 소유다. 호출은 `lib/cameraPermission.ts` 어댑터 뒤에만 두고 화면·컴포넌트가 `expo-camera`를 직접 import하지 않는다.
-- **`app.json`의 `plugins`에 `expo-camera`를 추가하지 말 것.** 단, plugin을 안 넣어도 Expo가 자동 적용해 영어 기본 `NSMicrophoneUsageDescription`(iOS)·`RECORD_AUDIO`(Android)가 들어간다 — Android는 `android.blockedPermissions`가 걷어내고, iOS 문구는 아직 남아 있다(별도 결정). `permissionCopy.test.ts`는 `android.permissions` 열거만 잠그므로 실제 바이너리 권한은 운영 AAB의 merged manifest로 확인한다.
+- **`app.json`의 `plugins`에 `expo-camera`를 추가하지 말 것.** 단, plugin을 안 넣어도 Expo가 자동 적용해 `NSMicrophoneUsageDescription`(iOS)·`RECORD_AUDIO`(Android)가 들어간다. 자동 적용되는 plugin은 옵션이 없으면 이미 있는 값을 유지하므로 iOS 마이크 문구는 Expo 영어 기본값이 아니라 `app.json`의 한국어 문구이고, 영어 기기에는 `locales/en.json`의 영어 문구가 보인다. Android `RECORD_AUDIO`는 그룹 공부방 음성에 필요해 막지 않는다. `permissionCopy.test.ts`는 `android.permissions` 열거만 잠그므로 실제 바이너리 권한은 운영 AAB의 merged manifest로 확인한다.
 
 ## 네트워크 / ATS
 
@@ -38,7 +38,8 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
   - `package.json`에 `expo.autolinking.exclude`를 되살리지 말 것 — 이벤트가 조용히 사라진다. SDK의 자동 화면 보고(`screen_view`)는 `firebase.json`으로 껐다 — 웹뷰 셸이라 RN 화면 하나만 반복 보고돼 잡음뿐이다. `firebaseConfig.test.ts`가 둘 다 고정한다.
 - **화면·컴포넌트는 `@react-native-firebase/*`를 직접 import하지 않는다.** `lib/remoteConfig.ts`·`lib/pushMessaging.ts` 어댑터만 거친다. **`messaging`은 pnpm patch가 걸려 있다**(iOS APNs 등록 후 `getToken` 실패 우회) — 올릴 때 패치가 깨지면 업스트림 수정 여부를 먼저 확인하고, `isDeviceRegisteredForRemoteMessages` 대신 APNs 토큰 유무로 판단한다.
 - **강제 업데이트는 네이티브가 판정한다.** `lib/forceUpdate.ts`가 Remote Config `min_supported_version`을 앱 버전과 비교한다. 기본값은 `UPDATE_CONFIG_DEFAULTS` 한 곳에서 한 번의 `setDefaults`로 등록한다(다른 곳에서 또 부르면 서로 지운다). 권장 업데이트는 `recommendedUpdateAlert.ts`가 최신 버전당 한 번 띄운다.
-- **푸시 백그라운드 핸들러는 `index.ts`(커스텀 엔트리)에 있어야 Android headless에서 불린다.** `package.json` `main`을 `expo-router/entry`로 되돌리지 말 것. 알림 권한은 운영 빌드에서도 묻는다(iOS는 권한이 없으면 알림을 표시하지 않는다). 앱을 켤 때는 묻지 않고, 웹이 온보딩 4단계나 홈 도착에서 브리지 `request-push-permission`으로 요청하면 `ensurePushPermission`(`lib/pushBootstrap.ts`)이 앱의 시작 권한 창 차례(`waitForStartPrompts`)와 ATT 창이 끝난 뒤에 묻는다. 웹뷰 URL의 `pushPermission=1`이 이 바이너리라는 표시라서, 표시 없는 구버전 앱은 예전처럼 시작할 때 묻는다. `aps-environment`는 `development`로 둔다(배포 export에서 Xcode가 바꾼다). Android `POST_NOTIFICATIONS`는 `app.json`에 없지만 firebase-messaging이 매니페스트에 넣는다. RNFB `requestPermission`은 Android에서 창을 띄우지 않고 허용으로 답하므로, Android 13 이상은 어댑터(`lib/pushMessaging.ts`)가 `PermissionsAndroid`로 직접 묻는다. iOS처럼 한 번만 묻고, 물었다는 기록은 SecureStore에 남긴다. 알림 탭 경로는 `lib/pushNotificationRouting.ts`의 `WEB_PATH_TAB`이 담당 탭으로 바꾸고 탭이 `path`·`at` 파라미터로 그 웹 경로를 연다(`lib/tabDeepLink.ts`) — 표에 없는 경로와 세션 화면은 홈으로 간다. 세션 중에는 `lib/pushRouteOpener.ts`가 세션이 닫힌 뒤 이동한다.
+- **푸시 백그라운드 핸들러는 `index.ts`(커스텀 엔트리)에 있어야 Android headless에서 불린다.** `package.json` `main`을 `expo-router/entry`로 되돌리지 말 것. 알림 권한은 운영 빌드에서도 묻는다(iOS는 권한이 없으면 알림을 표시하지 않는다). 앱을 켤 때는 묻지 않고, 웹이 온보딩 4단계나 홈 도착에서 브리지 `request-push-permission`으로 요청하면 `ensurePushPermission`(`lib/pushBootstrap.ts`)이 앱의 시작 권한 창 차례(`waitForStartPrompts`)와 ATT 창이 끝난 뒤에 묻는다. 웹뷰 URL의 `pushPermission=1`이 이 바이너리라는 표시라서, 표시 없는 구버전 앱은 예전처럼 시작할 때 묻는다. `aps-environment`는 `development`로 둔다(배포 export에서 Xcode가 바꾼다). Android `POST_NOTIFICATIONS`는 `app.json`에 없지만 firebase-messaging이 매니페스트에 넣는다. RNFB `requestPermission`은 Android에서 창을 띄우지 않고 허용으로 답하므로, Android 13 이상은 어댑터(`lib/pushMessaging.ts`)가 `PermissionsAndroid`로 직접 묻는다. iOS처럼 한 번만 묻고, 물었다는 기록은 SecureStore에 남긴다. 알림 탭 경로는 `lib/pushNotificationRouting.ts`가 담당 탭으로 바꾸고 탭이 `path`·`at` 파라미터로 그 웹 경로를 연다(`lib/tabDeepLink.ts`). 정확한 경로 표 `WEB_PATH_TAB`(`/blocks`는 설정 탭)을 먼저 보고, 그룹 ID가 든 `/social/groups/`·`/social/public/` 경로는 접두사 표 `WEB_PATH_PREFIX_TAB`이 소셜 탭으로 보낸다. 접두사 표는 조각마다 소문자·숫자·하이픈인 경로만 받는다. 웹뷰가 점 조각·역슬래시·탭·해시를 풀고 웹 라우터가 인코딩과 대소문자를 풀면 공부방이나 싱글룸이 되는 경로가 탭 웹뷰에 열리기 때문이다. 표에 없는 경로와 세션 화면(공부방 `/social/groups/{id}/room` 포함)은 홈으로 간다. 세션 중에는 `lib/pushRouteOpener.ts`가 세션이 닫힌 뒤 이동한다. 열림 계측 `push_notification_opened`의 `route`는 숫자 조각을 `:id`로 바꿔 싣는다.
+- **앱을 쓰는 중에 온 그룹 푸시는 웹 토스트로 보인다.** 포그라운드 푸시는 OS가 띄우지 않으므로, `lib/inAppNotification.ts`가 그룹 푸시 8종 가운데 제목·본문·허용된 `link`가 있는 것만 골라 세션 화면(싱글룸 모달, 소셜룸·공부방의 뒤로 잠금)이 아닐 때 `in-app-notification`으로 넘긴다. 받는 웹뷰는 분석 이벤트와 같은 규칙으로 하나다(`focused`이면서 `analytics-ready`를 보낸 문서 가운데 가장 최근에 구독한 것). 받을 웹뷰가 없으면 큐에 두지 않고 버린다. 웹 토스트를 누르면 웹이 `open-push-link`를 보내고, `nativeBridgeHandler`가 알림 탭과 같은 `resolvePushRoute`·`openPushRoute`로 열며 `push_notification_opened`에 `in_app: true`를 싣는다. 웹은 `in-app-notification`을 받은 문서에서만 `open-push-link`를 보내므로 옛 바이너리에는 가지 않는다.
 
 ## Meta 광고 SDK (`lib/metaAds.ts` · `lib/metaAdsSdk.ts`)
 
@@ -52,11 +53,22 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 - **설치 유입 정보는 `lib/installAttribution.ts`가 설치당 한 번 읽는다.** Android 플레이 설치 정보 원문과 메타 지연 딥링크의 `fm_ad` 값을 SecureStore에 보관하고, 준비된 웹뷰에 브리지 `install-attribution`으로 넘긴 뒤 웹의 `install-attribution-received`를 받아야 보관을 끝낸다. 지연 딥링크는 설치 뒤 처음 물을 때만 돌아오므로 보관소를 읽지 못한 실행에서 다시 묻지 말 것. 초대코드 복원(`installReferrerInvite.ts`)과는 따로 읽는다.
 - `autoLogAppEventsEnabled`·`isAutoInitEnabled`를 끄지 말 것(설치 어트리뷰션의 근거 이벤트가 사라진다). 로그인·공유 기능은 쓰지 않는다 — plugin의 `scheme`·`displayName`은 필수값일 뿐이다.
 
+## 소셜 로그인 (`lib/socialLogin.ts` · `lib/socialLoginSdk.ts`)
+
+`@react-native-kakao/core`·`@react-native-kakao/user`·`react-native-nitro-google-signin`·`expo-apple-authentication`. 웹이 브리지 `social-login`을 보내면 셸이 SDK 로그인과 `POST /api/auth/link`를 처리하고, 새 토큰의 `auth-token`을 먼저 보낸 뒤 `social-login-result`로 답한다.
+
+- SDK는 `lib/socialLoginSdk.ts`만 import한다. 루트 import가 네이티브 없이(jest) 죽는 것은 Meta SDK와 같고, 이 파일 안에서도 쓰는 공급자의 SDK만 `require`한다. 테스트는 세 공급자의 네 패키지를 mock한다.
+- 어떤 공급자를 쓰는지는 `socialLoginProvidersFor` 한 곳이 정한다. SDK 초기화와 웹뷰 주소의 `socialLogin` 목록이 이 함수를 같이 본다. 카카오는 앱 종류별 네이티브 앱 키가, 구글 iOS는 앱 종류별 iOS 클라이언트 ID가 있어야 들어가고, 구글 Android와 애플(iOS)은 모든 앱 종류에 들어간다.
+- 키는 `app.config.ts`의 `VARIANT_TABLE`(`kakaoNativeAppKey`·`googleIosClientId`)에 있고 세 앱 종류 모두 채웠다. 값을 비우면 그 앱 종류에서 config plugin, URL scheme, 구글 로그인 복귀 처리(`plugins/withGoogleSignInOpenUrl.js`), `extra.socialLogin`, 웹 목록이 함께 빠진다. 네이티브 설정이 바뀌므로 그 앱 종류를 다시 빌드해야 한다. `socialLoginConfig.test.ts`가 고정한다.
+- SDK 네이티브 모듈이 없는 이전 Dev Client에서는 그 공급자만 목록에서 빠진다. 애플 SDK는 모듈이 없어도 가짜 모듈로 불러와져서 `requireOptionalNativeModule`로 따로 확인한다.
+- link가 성공하면 서버가 이전 refresh를 바로 무효로 만든다. 그래서 진행 중인 link가 있으면 `refreshAuth`가 그 결과를 기다린 뒤 새 refresh로 갱신하고, link는 시작할 때 진행 중인 갱신을 기다린다. 이 대기를 빼면 무효가 된 refresh로 갱신해 401을 받고, 저장을 비운 뒤 새 비회원으로 가입된다.
+- ID 토큰과 nonce는 로그와 브리지로 내보내지 않는다.
+
 ## 에러 모니터링 (Sentry, `lib/sentry.ts`)
 
 - **프로젝트는 `focusmakers-app`이다**(웹 `focusmakers-web`과 분리). **웹 DSN을 복사해 오지 말 것** — `sentryConfig.test.ts`가 프로젝트 ID를 못 박는다. **DSN은 `app.json`의 `extra.sentryDsn`에 둔다**(전송 여부는 런타임 `enabled: !__DEV__`가 가른다). 소스맵용 `SENTRY_AUTH_TOKEN`은 비밀이라 EAS Secret에 넣는다(커밋 금지).
 - **Session Replay(`mobileReplayIntegration`)를 추가하지 말 것.** WebView 셸이라 마스킹된 사각형만 남고, 마스킹을 풀면 카메라 프리뷰가 녹화돼 개인정보 원칙과 충돌한다. `sendDefaultPii`는 `false`로 못 박았다. 성능 추적(`tracesSampleRate`)도 켜지 않는다(웹뷰 셸이라 잴 구간이 없고 화면 로딩은 웹이 본다).
-- **웹과 달리 스크러빙 콜백이 없다** — 네이티브에는 `?userId=N`이 새는 경로가 없기 때문이다(근거는 [ADR 0008](../../docs/adr/0008-observability-identifier-scrubbing.md)). 네이티브 `fetch`는 `lib/auth.ts`(`POST /api/users`, `POST /api/auth/refresh`), `lib/launchGoal.ts`(`GET /api/users/me/profile`), `lib/pushTokenRegistration.ts`(`PUT /api/push-tokens`) 세 곳뿐이다. 네 요청 모두 쿼리스트링이 없고, 토큰은 본문이나 `Authorization` 헤더에 실린다. **쿼리스트링 붙은 요청을 추가하거나 URL을 로그에 남기면 이 전제가 깨지므로 웹과 같은 정제를 여기에도 넣는다.**
+- **웹과 달리 스크러빙 콜백이 없다** — 네이티브에는 `?userId=N`이 새는 경로가 없기 때문이다(근거는 [ADR 0008](../../docs/adr/0008-observability-identifier-scrubbing.md)). 네이티브 `fetch`는 `lib/auth.ts`(`POST /api/users`, `POST /api/auth/refresh`, `POST /api/auth/link`), `lib/launchGoal.ts`(`GET /api/users/me/profile`), `lib/pushTokenRegistration.ts`(`PUT /api/push-tokens`) 세 곳뿐이다. 다섯 요청 모두 쿼리스트링이 없고, 토큰은 본문이나 `Authorization` 헤더에 실린다. **쿼리스트링 붙은 요청을 추가하거나 URL을 로그에 남기면 이 전제가 깨지므로 웹과 같은 정제를 여기에도 넣는다.**
 - **Android release는 R8로 난독화된다**(`expo-build-properties`의 `enableMinifyInReleaseBuilds`·`enableShrinkResourcesInReleaseBuilds`, Play 2027-02 최적화 요건). 매핑은 Sentry plugin의 `experimental_android.enableAndroidGradlePlugin`이 올린다 — **둘 중 하나만 끄지 말 것**(끄면 빌드는 성공하고 네이티브 스택만 `a.b.c`로 남는다). 옵션은 `experimental_android` 아래에 두어야 읽힌다. `sentryConfig.test.ts`가 짝을 잠근다.
 - **`metro.config.js`를 `getDefaultConfig`로 되돌리지 말 것.** `getSentryExpoConfig`가 번들·소스맵에 같은 debug ID를 심는다. 되돌리면 스택트레이스만 압축된 채 남는다. 동작 확인은 EAS staging/production 빌드로만 된다.
 
@@ -146,17 +158,18 @@ iOS 26 Liquid Glass를 웹 화면에 입히는 구조이고, 결정과 실측은
 ## 그 밖
 
 - **Expo SDK 57 고정이다(의도적).** 다음 업그레이드는 Jira 티켓으로 범위를 정한 뒤에만 하고, 낡아 보인다는 이유로 제안하거나 실행하지 말 것. 참조 문서는 https://docs.expo.dev/versions/v57.0.0/.
-- **App Store 제품 페이지 언어는 바이너리 Info.plist의 `CFBundleLocalizations`·`CFBundleDevelopmentRegion`에서 정해진다.** `app.json` `ios.infoPlist`에 `CFBundleDevelopmentRegion: "ko"`·`CFBundleLocalizations: ["ko", "en"]`·`CFBundleAllowMixedLocalizations: true`를 둔다. `expo-localization` 플러그인의 `supportedLocales`도 같은 목록이어야 한다(그 값이 `CFBundleLocalizations`를 덮는다). 언어를 더하면 셸 문구·권한 문구·앱 이름의 그 언어판을 모두 넣은 뒤 두 곳에 함께 더한다(스토어에 지원 언어로 표시된다). `appStoreLocalization.test.ts`가 고정한다.
+- **App Store 제품 페이지 언어는 바이너리 Info.plist의 `CFBundleLocalizations`·`CFBundleDevelopmentRegion`에서 정해진다.** `app.json` `ios.infoPlist`에 `CFBundleDevelopmentRegion: "en"`·`CFBundleLocalizations: ["ko", "en", "ja", "zh-Hant"]`(`APP_LOCALES`와 같은 순서)·`CFBundleAllowMixedLocalizations: true`를 둔다. 개발 지역을 영어로 두어 지원하지 않는 언어의 기기는 한국어 대신 영어를 본다. `expo-localization` 플러그인의 `supportedLocales`도 같은 목록이어야 한다(그 값이 `CFBundleLocalizations`를 덮는다). 언어를 더하면 셸 문구·권한 문구·앱 이름의 그 언어판을 모두 넣은 뒤 두 곳에 함께 더한다(스토어에 지원 언어로 표시된다). `appStoreLocalization.test.ts`가 고정한다.
 - 네이티브 전환 시 할 일은 [ADR 0003의 전환 체크리스트](../../docs/adr/0003-phased-rollout-webview-mvp-then-native.md#전환-체크리스트-실제로-되돌릴-때)를 따르고, `platform/*`의 mock을 실제 라이브러리로 바꾸기 전에 전환 트리거를 확인할 것.
 
 ## 언어 (셸 문구·권한 문구·앱 이름)
 
-- 셸이 직접 그리는 문구는 `lib/i18n.ts`의 ko·en 객체에 두고 `t()`로 읽는다. 기기 첫 언어가 `ko`면 한국어, 그 밖은 영어다. 린트가 `lib/i18n.ts` 밖의 한글 문자열을 막고, `console` 호출·`throw`·`new Error` 안의 로그 문구는 건너뛴다.
+- 셸이 직접 그리는 문구는 `lib/i18n.ts`의 ko·en·ja·zh-Hant 객체에 네 언어 모두 같은 키로 두고 `t()`로 읽는다. 언어는 `getAppLocale()`이 기기 선호 언어 목록을 위에서부터 훑어 ko·en·ja·zh-Hant 가운데 처음 맞는 것으로 정하고(`packages/types`의 `negotiateLocale`), 맞는 것이 없으면 영어다. 린트가 `lib/i18n.ts` 밖의 한글 문자열을 막고, `console` 호출·`throw`·`new Error` 안의 로그 문구는 건너뛴다.
 - 언어는 `getAppLocale()`이 부를 때마다 읽는다. Android는 앱별 언어를 바꾸면 액티비티만 다시 만들고 JS 모듈은 남기 때문이다. 같은 이유로 `expo-localization`의 `allowDynamicLocaleChangesAndroid`를 `false`로 둔다(켜면 액티비티를 다시 만들지 않아 웹뷰가 이전 언어로 남는다).
 - 웹뷰 URL의 `lang`은 `buildRemoteWebViewUrl`이 URL을 만들 때마다 붙인다. 캐시되는 `buildRemoteQueryParams()`에 넣지 말 것. 실행 중 언어 변경 브리지 메시지는 두지 않는다.
-- Remote Config 문구(강제·권장 업데이트)는 영어 기기에서 `<key>_en`을 읽고, 없으면 원래 키가 아니라 앱의 영어 기본 문구를 쓴다.
-- iOS 권한 문구는 `infoPlist`(한국어 원문)와 `locales/{ko,en}.json`에 함께 둔다. 권한 키를 더하면 두 파일에도 넣는다. 앱 이름은 `extra.appDisplayName`(한국어)·`appDisplayNameEn`(영어)에 `app.config.ts`가 변형 접미를 붙인다. iOS는 기본이 한국어(개발 지역 ko)이고 `locales`가 ko·en `CFBundleDisplayName`을 넣는다. Android는 기본 `values`가 영어(`withAppDisplayName.js`)이고 한국어 이름은 `locales`의 ko `android.app_name`이 `values-b+ko`에 넣는다(`resourceConfigurations`의 `b+ko`와 같은 한정자).
-- Android 네이티브 모듈의 사용자 문구는 모듈 `res/values/strings.xml`(영어 기본)과 `res/values-ko/strings.xml`에 둔다. 기본을 한국어로 두면 한국어가 아닌 기기에서 한국어가 보인다. 이름에 모듈 접두(`app_lock_`)를 붙인다.
+- Remote Config 문구(강제·권장 업데이트)는 한국어가 아닌 기기에서 `<key>_<언어>`(`_en`·`_ja`·`_zh_hant`)를 읽고, 없으면 원래 키가 아니라 그 언어의 기본 문구를 쓴다.
+- iOS 권한 문구는 `infoPlist`(한국어 원문)와 `locales/{ko,en,ja,zh-Hant}.json`에 함께 둔다. 권한 키를 더하면 네 파일에도 넣는다. 문구에 ASCII 큰따옴표를 쓰지 않는다. 앱 이름은 `extra.appDisplayName`(한국어)·`appDisplayNameEn`(영어)에 `app.config.ts`가 변형 접미를 붙인다. iOS는 `locales`가 언어마다 `CFBundleDisplayName`을 넣고, ja·zh-Hant는 영어 이름을 쓴다. Android는 기본 `values`가 영어(`withAppDisplayName.js`)이고 한국어 이름은 `locales`의 ko `android.app_name`이 `values-b+ko`에 넣는다(`resourceConfigurations`의 `b+ko`와 같은 한정자).
+- Android 네이티브 모듈의 사용자 문구는 모듈 `res/values/strings.xml`(영어 기본)과 `values-ko`·`values-ja`·`values-b+zh+Hant`에 둔다. 폴더마다 리소스 이름이 같아야 한다(`appLockConfig.test.ts`). 기본을 한국어로 두면 한국어가 아닌 기기에서 한국어가 보인다. 이름에 모듈 접두(`app_lock_`)를 붙인다.
+- `expo-secure-store`는 `faceIDPermission: false`로 둔다. 생체 인증을 쓰지 않는데 옵션이 없으면 플러그인이 영어 Face ID 문구를 넣는다.
 - `expo-localization`은 네이티브 모듈이라 Dev Client를 다시 빌드해야 언어가 바뀐다.
 
 ## 명령·컨벤션

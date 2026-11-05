@@ -26,7 +26,6 @@ import {
   dayHeadlineLabel,
   dayTitleWithWeekday,
   isFutureDateKey,
-  kstDateKey,
   monthLabel,
   monthOfDateKey,
   shiftMonth,
@@ -48,6 +47,7 @@ import { lazyWithPreload } from "@/lib/lazyWithPreload";
 import { whenIdle } from "@/lib/whenIdle";
 import { Card } from "@/components/ui/card";
 import { Accordion } from "@/components/ui/accordion";
+import { localDateKey } from "@/lib/dateKey";
 
 /**
  * 달 선택 시트는 시트 부품(Base UI)과 함께 따로 받는다.
@@ -292,10 +292,15 @@ const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 export function RecordsPage() {
   const { t } = useTranslation("records");
   const userId = useUserId();
-  const todayKey = kstDateKey();
+  const todayKey = localDateKey();
   const [searchParams, setSearchParams] = useSearchParams();
-  // 일간/주간 모드는 여기서 소유한다(SegmentedControl이 이 헤더에 있으므로)
-  const [mode, setMode] = useState<RecordsView>("daily");
+  // 일간/주간 모드는 여기서 소유한다(SegmentedControl이 이 헤더에 있으므로). 푸시 알림처럼 주간으로 바로 열어야 하는
+  // 링크는 `view=weekly`를 붙인다 — 처음 열 때만 읽고, 탭을 바꾸면 주소에서 지운다(돌아왔을 때 다시 주간으로 열리지 않게).
+  const [chosenMode, setMode] = useState<RecordsView>(() =>
+    searchParams.get("view") === "weekly" ? "weekly" : "daily",
+  );
+  // 기기 등록 전에는 주간 탭이 막혀 있으니 주소가 주간이어도 일간으로 둔다(탭과 내용이 어긋나지 않게).
+  const mode: RecordsView = userId === null ? "daily" : chosenMode;
   // 고른 날은 주소의 `date`가 단일 출처다. 입력 화면이나 플래너에서 돌아오면 이 화면이 다시 마운트되는데,
   // state에 두면 오늘로 돌아가 방금 고친 날이 사라진다.
   // 모양만 맞고 달력에 없는 날짜(2020-13-45)는 날짜 계산을 한 바퀴 돌리면 다른 날짜가 되어 걸러지고, 미래는 볼 기록이 없어 오늘로 연다.
@@ -354,6 +359,16 @@ export function RecordsPage() {
               trackRecordsViewChanged(next);
             }
             setMode(next);
+            if (searchParams.has("view")) {
+              setSearchParams(
+                (previous) => {
+                  const params = new URLSearchParams(previous);
+                  params.delete("view");
+                  return params;
+                },
+                { replace: true },
+              );
+            }
           }}
           className="mt-4 flex w-full"
           triggerClassName="flex-1 justify-center"

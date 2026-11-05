@@ -13,6 +13,8 @@ const catalog: AmbientSound[] = [
   { id: "brown", kind: "synth", label: "브라운노이즈" },
   { id: "rain", kind: "file", label: "빗소리", file: "rain.mp3" },
 ];
+/** 탭이 하나뿐이라 열린 탭 순서와 무관하게 소리 줄을 바로 볼 수 있는 카탈로그. */
+const noiseOnly = catalog.filter((s) => s.kind === "synth");
 
 function renderSheet(overrides: Partial<AmbientSoundSheetProps> = {}) {
   const props: AmbientSoundSheetProps = {
@@ -73,12 +75,12 @@ describe("AmbientSoundSheet — 음량 조절", () => {
   });
 
   it("아무것도 켜지지 않았으면 열린 탭의 슬라이더가 전부 0 이다", () => {
-    renderSheet();
+    renderSheet({ catalog: noiseOnly });
 
     const sliders = screen.getAllByRole("slider");
     expect(sliders).toHaveLength(3);
     for (const slider of sliders) expect(slider).toHaveValue("0");
-    for (const sound of catalog.filter((s) => s.kind === "synth")) {
+    for (const sound of noiseOnly) {
       expect(screen.getByRole("button", { name: sound.label })).toHaveAttribute(
         "aria-pressed",
         "false",
@@ -90,38 +92,38 @@ describe("AmbientSoundSheet — 음량 조절", () => {
    * 합성 노이즈와 녹음된 장면 소리를 한 목록에 쏟으면 성격이 다른 것이 섞여 고르기 어렵다.
    * 개수는 탭을 열어 보지 않고도 뭐가 몇 개인지 알려 준다.
    */
-  it("노이즈와 배경 소리 탭으로 나뉘고 각 탭에 개수가 붙는다", () => {
+  it("배경 소리와 노이즈 탭으로 나뉘고 각 탭에 개수가 붙는다", () => {
     renderSheet();
 
     const tabs = screen.getAllByRole("tab");
-    expect(tabs.map((t) => t.textContent)).toEqual(["노이즈3", "배경 소리1"]);
+    expect(tabs.map((t) => t.textContent)).toEqual(["배경 소리1", "노이즈3"]);
     expect(tabs[0]).toHaveAttribute("aria-selected", "true");
   });
 
   it("탭을 바꾸면 그 갈래의 소리만 보인다", async () => {
     renderSheet();
 
-    expect(screen.getByRole("button", { name: "백색소음" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "빗소리" })).not.toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("tab", { name: /배경 소리/ }));
-
     expect(screen.getByRole("button", { name: "빗소리" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "백색소음" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: /노이즈/ }));
+
+    expect(screen.getByRole("button", { name: "백색소음" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "빗소리" })).not.toBeInTheDocument();
   });
 
   /** 카탈로그를 한쪽만 받았을 때 누를 것이 없는 빈 탭이 남으면 안 된다. */
   it("소리가 없는 갈래는 탭도 만들지 않는다", () => {
-    renderSheet({ catalog: catalog.filter((s) => s.kind === "synth") });
+    renderSheet({ catalog: noiseOnly });
 
     expect(screen.getAllByRole("tab")).toHaveLength(1);
     expect(screen.getByRole("tab")).toHaveTextContent("노이즈3");
   });
 
   it("소리마다 아이콘과 이름이 한 줄에 나란히 놓인다", () => {
-    renderSheet();
+    renderSheet({ catalog: noiseOnly });
 
-    for (const sound of catalog.filter((s) => s.kind === "synth")) {
+    for (const sound of noiseOnly) {
       const row = screen.getByRole("button", { name: sound.label });
       expect(row).toHaveTextContent(sound.label);
       expect(row.querySelector("svg")).not.toBeNull();
@@ -138,7 +140,7 @@ describe("AmbientSoundSheet — 음량 조절", () => {
   });
 
   it("이름 줄을 누르면 onToggleSound(id) 를 부른다", async () => {
-    const props = renderSheet({ mix: { white: 60 } });
+    const props = renderSheet({ catalog: noiseOnly, mix: { white: 60 } });
 
     await userEvent.click(screen.getByRole("button", { name: "백색소음" }));
 
@@ -146,7 +148,7 @@ describe("AmbientSoundSheet — 음량 조절", () => {
   });
 
   it("슬라이더를 움직이면 onChangeLevel(id, 숫자) 를 부른다", () => {
-    const props = renderSheet();
+    const props = renderSheet({ catalog: noiseOnly });
 
     fireEvent.change(screen.getByRole("slider", { name: "백색소음 음량" }), {
       target: { value: "25" },
@@ -393,14 +395,16 @@ describe("AmbientSoundSheet — 방향별 배치", () => {
     expect(screen.getByRole("tablist")).toBeInTheDocument();
   });
 
-  it("가로는 탭 없이 두 묶음을 모두 보인다", () => {
+  it("가로도 세로처럼 탭으로 나눈다", async () => {
     renderSheet({ landscape: true });
 
-    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "노이즈" })).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "배경 소리" })).toBeInTheDocument();
+    expect(screen.getByRole("tablist")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /노이즈/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /배경 소리/ })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "노이즈" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: /배경 소리/ }));
     expect(screen.getByRole("button", { name: "빗소리" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "백색소음" })).toBeInTheDocument();
   });
 
   it("페이지 아래에 순공 타이머를 보인다", () => {

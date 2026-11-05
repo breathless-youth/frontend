@@ -375,6 +375,29 @@
   --glass-border: rgba(255, 255, 255, 0.18);
   --glass-highlight: rgba(255, 255, 255, 0.25);
   --glass-shadow: rgba(0, 0, 0, 0.35);
+  /* 세션 화면은 .theme-soft-blue 밖이라 과목 점에 쓸 과목 색을 여기에도 둔다.
+     세 다크 블록의 과목 색은 같이 고친다.
+     세 블록은 이 블록과 .theme-soft-blue의 다크 두 블록이고 subjectPaletteSync.test.ts가 값을 맞춰 본다. */
+  --subject-0: #ff716f;
+  --subject-1: #fc7840;
+  --subject-2: #f5a623;
+  --subject-3: #e8c500;
+  --subject-4: #9bbb2e;
+  --subject-5: #5dbd6d;
+  --subject-6: #40be8e;
+  --subject-7: #3abcaa;
+  --subject-8: #fb63c0;
+  --subject-9: #fe699d;
+  --subject-10: #da77e9;
+  --subject-11: #c182fe;
+  --subject-12: #c99a72;
+  --subject-13: #be9c8e;
+  --subject-14: #9da5b4;
+  --subject-15: #fb7090;
+  --subject-16: #91b354;
+  --subject-17: #cc9a4f;
+  --subject-18: #68b5a7;
+  --subject-19: #e5848d;
 }
 
 /* Soft Blue 팔레트 — V2 스코프 리스킨. 소셜 세 화면 루트에 이 클래스를 붙여
@@ -651,6 +674,13 @@
 
 .animate-caret-blink {
   animation: caret-blink 1.2s ease-out infinite;
+}
+
+/* break-keep은 한국어 어절을 지키려고 쓴다. 일본어·중국어는 띄어 쓰지 않아 문장 전체가
+   한 덩어리가 되고 줄이 바뀌지 않은 채 옆 글자 위로 넘친다. 영어는 keep-all이어도 같게
+   끊기므로 한국어가 아닐 때만 기본 줄바꿈으로 되돌린다. */
+.break-keep:not(:lang(ko)) {
+  word-break: normal;
 }
 
 /* 오버스크롤(고무줄) 영역은 `body`가 아니라 **`html`(캔버스)** 배경으로 칠해진다 —
@@ -1385,5 +1415,23 @@ video::-webkit-media-controls-overlay-play-button {
     transition: opacity 0.2s;
     transform: none !important;
     filter: none !important;
+  }
+}
+
+/*
+  앱 스플래시와 같은 서비스 로고다.
+  로고는 그림이라 색 토큰으로 바꿀 수 없어서 다크 토큰 블록과 같은 조건으로 다크 그림을 고른다.
+*/
+@utility splash-logo {
+  background: url("./assets/splash-logo.png") center / contain no-repeat;
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) & {
+      background-image: url("./assets/splash-logo-dark.png");
+    }
+  }
+  .theme-dark &,
+  :root[data-theme="dark"] & {
+    background-image: url("./assets/splash-logo-dark.png");
   }
 }

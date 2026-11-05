@@ -8,7 +8,8 @@ import {
   trackSubjectItemAdded,
 } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
-import i18n, { isKoreanLocale } from "@/lib/i18n";
+import i18n from "@/lib/i18n";
+import type { AppLocale } from "@/lib/locale";
 import {
   createSubject,
   createTask,
@@ -20,9 +21,16 @@ import {
   updateTask,
 } from "@/lib/subjectApi";
 
-// eslint-disable-next-line no-restricted-syntax -- 서버에 과목 이름으로 저장되는 값
-const KO_SUBJECT_SUGGESTIONS = ["국어", "수학", "영어", "탐구"] as const;
-const EN_SUBJECT_SUGGESTIONS = ["Math", "English", "Science", "History"] as const;
+const SUBJECT_SUGGESTIONS: Partial<Record<AppLocale, readonly string[]>> & {
+  en: readonly string[];
+} = {
+  // eslint-disable-next-line no-restricted-syntax -- 서버에 과목 이름으로 저장되는 값
+  ko: ["국어", "수학", "영어", "탐구"],
+  en: ["Math", "English", "Science", "History"],
+  // 한국어 목록과 같은 순서로 그 나라 학교 과목 이름을 둔다.
+  ja: ["国語", "数学", "英語", "理科"],
+  "zh-Hant": ["國文", "數學", "英文", "自然"],
+};
 
 /**
  * 빈 상태 추천 과목
@@ -32,7 +40,7 @@ const EN_SUBJECT_SUGGESTIONS = ["Math", "English", "Science", "History"] as cons
  * 플래너 과목 영역도 같은 목록을 쓴다.
  */
 export function subjectSuggestions(): readonly string[] {
-  return isKoreanLocale() ? KO_SUBJECT_SUGGESTIONS : EN_SUBJECT_SUGGESTIONS;
+  return SUBJECT_SUGGESTIONS[i18n.language as AppLocale] ?? SUBJECT_SUGGESTIONS.en;
 }
 
 export type SubjectsStatus = "idle" | "loading" | "ready" | "error";

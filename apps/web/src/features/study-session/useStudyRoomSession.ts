@@ -5,7 +5,9 @@ import type { StatusEventPayload, StudySessionResponse } from "@focusmakers/type
 import * as Sentry from "@sentry/react";
 
 import {
+  trackAmbientSoundPlayed,
   trackCameraFlipped,
+  trackFocusMilestoneReached,
   trackStudySessionDistracted,
   trackStudySessionEnded,
   trackStudySessionPaused,
@@ -142,6 +144,16 @@ export interface StudyRoomSessionOptions {
    */
   readonly ambientUsage?: () => { used: boolean; sec: number };
   /**
+   * 계측용 소리별 배경음 재생 시간 조회
+   *
+   * 종료 시점에 한 번 읽어 소리마다 `ambient_sound_played`로 보낸다.
+   */
+  readonly ambientSoundPlays?: () => readonly {
+    readonly id: string;
+    readonly group: "noise" | "ambience" | "music";
+    readonly sec: number;
+  }[];
+  /**
    * 계측용 멀티 타이머 사용 기록 조회
    *
    * 종료 시점에 한 번 읽어 `study_session_ended`에 싣는다.
@@ -211,9 +223,11 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const roomType: StudyRoomType = options.roomType ?? "single";
   // 계측 전용 — 호출부가 렌더마다 새 함수를 줄 수 있어 최신 것을 들고 있다가 종료 시점에 읽는다.
   const ambientUsageRef = useRef(options.ambientUsage);
+  const ambientSoundPlaysRef = useRef(options.ambientSoundPlays);
   const multiTimerUsageRef = useRef(options.multiTimerUsage);
   useLayoutEffect(() => {
     ambientUsageRef.current = options.ambientUsage;
+    ambientSoundPlaysRef.current = options.ambientSoundPlays;
     multiTimerUsageRef.current = options.multiTimerUsage;
   });
   const onEndedRef = useRef(options.onEnded);
@@ -463,11 +477,11 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   }, [roomType, initial.restored]);
 
   /**
-   * 순공 5분 달성 이벤트
+   * 순공 1분 달성 이벤트
    *
-   * 세션 종료가 아니라 300초에 닿는 순간 보내야 세션을 끝내지 않고 앱을 끈 사람도 집계된다.
+   * 세션 종료가 아니라 60초에 닿는 순간 보내야 세션을 끝내지 않고 앱을 끈 사람도 집계된다.
    * 화면 집계에는 복원 전 순공이 이미 들어 있어서 복원 세션은 진입하자마자 판정된다.
-   * 기기당 한 번 보장은 `trackMetaFocusMilestone`이 맡고, 여기서는 같은 세션에서 다시 부르지 않게만 막는다.
+   * 기기당 한 번 보장은 메타와 Amplitude 함수가 각각 맡고, 여기서는 같은 세션에서 다시 부르지 않게만 막는다.
    */
   const displayFocusSec = display.totals.focusSec;
   useEffect(() => {
@@ -476,7 +490,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     }
     focusMilestoneTrackedRef.current = true;
     trackMetaFocusMilestone();
-  }, [displayFocusSec]);
+    trackFocusMilestoneReached(roomType);
+  }, [displayFocusSec, roomType]);
 
   /**
    * 방해 앱 잠금
@@ -863,6 +878,15 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           breakSec,
           multiTimer: multiTimerUsageRef.current?.() ?? "none",
         });
+        for (const play of ambientSoundPlaysRef.current?.() ?? []) {
+          if (play.sec <= 0) continue;
+          trackAmbientSoundPlayed({
+            soundId: play.id,
+            group: play.group,
+            playSec: play.sec,
+            roomType,
+          });
+        }
         // Meta 광고 전환 — 같은 "세션당 한 번" 가드 안에서 같은 집계를 보낸다.
         trackMetaStudySessionEnded({
           roomType,

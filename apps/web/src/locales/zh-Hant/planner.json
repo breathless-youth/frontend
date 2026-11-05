@@ -1,0 +1,49 @@
+{
+  "page": {
+    "prevDay": "前一天",
+    "nextDay": "後一天",
+    "unregistered": "這部裝置尚未註冊。在應用程式中開啟，就會儲存紀錄",
+    "loadFailed": "無法載入讀書計畫",
+    "manualEntry": "手動新增"
+  },
+  "head": {
+    "focusTime": "專注時間",
+    "total": "總計 {{duration}}"
+  },
+  "pillButton": {
+    "aria": {
+      "open": "讀書計畫"
+    }
+  },
+  "timetable": {
+    "aria": {
+      "distribution": "這天各時段的讀書分布。專注時間 {{duration}}"
+    }
+  },
+  "subjects": {
+    "rest": "休息",
+    "unassigned": "無科目"
+  },
+  "editor": {
+    "overLimit": "最多可輸入 {{count}} 個字",
+    "subjectPlaceholder": "科目名稱",
+    "taskPlaceholder": "待辦事項名稱",
+    "aria": {
+      "subjectName": "科目名稱",
+      "newSubject": "新科目名稱",
+      "taskName": "待辦事項名稱",
+      "newTask": "新待辦事項名稱"
+    }
+  },
+  "rowMenu": {
+    "rename": "重新命名",
+    "remove": "刪除"
+  },
+  "suggestions": {
+    "add": "+ 新增",
+    "aria": {
+      "list": "推薦科目",
+      "add": "新增{{name}}"
+    }
+  }
+}

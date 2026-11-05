@@ -11,17 +11,14 @@ import type {
   SubjectResponse,
 } from "@focusmakers/types";
 
-import {
-  addDaysToDateKey,
-  dayTitleWithWeekday,
-  kstDateKey,
-} from "@/features/records/recordsFormat";
+import { addDaysToDateKey, dayTitleWithWeekday } from "@/features/records/recordsFormat";
 import { trackManualRecordAdd } from "@/lib/amplitude";
 import { createManualRecord, updateManualRecord } from "@/lib/manualRecordApi";
 import { listStudySessionStats } from "@/lib/statsApi";
 import { listSubjects } from "@/lib/subjectApi";
 import type * as UserIdModule from "@/lib/userId";
 import { ManualRecordPage } from "@/routes/ManualRecordPage";
+import { localDateKey } from "@/lib/dateKey";
 
 vi.mock("@/lib/statsApi", () => ({ listStudySessionStats: vi.fn(), getPeriodStats: vi.fn() }));
 vi.mock("@/lib/subjectApi", () => ({ listSubjects: vi.fn() }));
@@ -344,7 +341,7 @@ describe("ManualRecordPage", () => {
   });
 
   it("주소의 날짜와 칸 시각이 미래면 칸 시각을 버리고 오늘 화면을 저장할 수 있게 연다", async () => {
-    const today = kstDateKey();
+    const today = localDateKey();
     const future = addDaysToDateKey(today, 3);
     renderPage(
       `?userId=7&date=${future}&entry=planner_cell&start=${String(Date.parse(kst(future, 9)))}`,
@@ -355,7 +352,7 @@ describe("ManualRecordPage", () => {
   });
 
   it("주소의 날짜가 미래면 오늘로 연다", async () => {
-    const today = kstDateKey();
+    const today = localDateKey();
     renderPage(`?userId=7&date=${addDaysToDateKey(today, 3)}&entry=planner_button`);
 
     expect(await screen.findByText(dayTitleWithWeekday(today))).toBeInTheDocument();
@@ -406,6 +403,7 @@ describe("ManualRecordPage", () => {
       expect(vi.mocked(updateManualRecord)).toHaveBeenCalledWith(8, {
         startedAt: kst(PREV, 23, 30),
         endedAt: kst(DAY, 0, 30),
+        timeZone: "Asia/Seoul",
       });
     });
 

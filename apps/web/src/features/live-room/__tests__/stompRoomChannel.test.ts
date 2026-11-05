@@ -78,6 +78,21 @@ function setup() {
   return { client, channel };
 }
 
+/** 연결을 마친 채널에 서버 메시지를 넣고 구독자가 받은 메시지를 읽는 도우미 */
+function connectChannel() {
+  const { client, channel } = setup();
+  const messages: RoomServerMessage[] = [];
+  channel.subscribe((message) => messages.push(message));
+  channel.connect();
+  client.fireConnect();
+  return {
+    deliver(message: unknown) {
+      client.subscriptions[0]?.callback({ body: JSON.stringify(message) });
+    },
+    received: () => messages,
+  };
+}
+
 /** 연결마다 자동 발신되는 SNAPSHOT 재요청(BY-442)을 걷어낸 발행 목록 — 발행 API 검증용. */
 function appPublishes(client: ReturnType<typeof createFakeClient>) {
   return client.publishes.filter((p) => !p.destination.endsWith("/snapshot"));
@@ -355,6 +370,128 @@ describe("createStompRoomChannel", () => {
 
     expect(snapshotRequests(client).length).toBe(before + 1);
     expect(snapshotRequests(client).at(-1)?.body).toBe("");
+  });
+});
+
+describe("그룹 공부방 메시지", () => {
+  it("그룹 공부방 멤버 필드는 있으면 형식을 검사하고 없으면 그대로 받는다", () => {
+    const { deliver, received } = connectChannel();
+
+    deliver({
+      type: "SNAPSHOT",
+      members: [
+        {
+          userId: 1,
+          cameraOn: true,
+          focusState: "FOCUS",
+          micOn: true,
+          onBreak: false,
+          owner: true,
+        },
+      ],
+    });
+    deliver({
+      type: "SNAPSHOT",
+      members: [{ userId: 1, cameraOn: true, focusState: "FOCUS", micOn: "yes" }],
+    });
+    deliver({ type: "SNAPSHOT", members: [{ userId: 2, cameraOn: false, focusState: "FOCUS" }] });
+
+    expect(received().map((message) => message.type)).toEqual(["SNAPSHOT", "SNAPSHOT"]);
+  });
+
+  it("들어온 멤버의 휴식·그룹장 값도 형식이 틀리면 메시지를 버린다", () => {
+    const { deliver, received } = connectChannel();
+
+    deliver({
+      type: "MEMBER_JOINED",
+      member: { userId: 3, cameraOn: false, focusState: "FOCUS", onBreak: "no" },
+    });
+    deliver({
+      type: "MEMBER_JOINED",
+      member: { userId: 3, cameraOn: false, focusState: "FOCUS", owner: 1 },
+    });
+    deliver({
+      type: "MEMBER_JOINED",
+      member: { userId: 3, cameraOn: false, focusState: "FOCUS", micOn: false, owner: false },
+    });
+
+    expect(received()).toEqual([
+      {
+        type: "MEMBER_JOINED",
+        member: { userId: 3, cameraOn: false, focusState: "FOCUS", micOn: false, owner: false },
+      },
+    ]);
+  });
+
+  it("그룹 필드를 null로 보낸 초대코드 방 SNAPSHOT도 받고 null 키는 뺀다", () => {
+    const { deliver, received } = connectChannel();
+
+    deliver({
+      type: "SNAPSHOT",
+      members: [
+        { userId: 1, cameraOn: true, focusState: "FOCUS", micOn: null, onBreak: null, owner: null },
+        { userId: 2, cameraOn: false, focusState: "DISTRACTED" },
+      ],
+    });
+
+    expect(received()).toStrictEqual([
+      {
+        type: "SNAPSHOT",
+        members: [
+          { userId: 1, cameraOn: true, focusState: "FOCUS" },
+          { userId: 2, cameraOn: false, focusState: "DISTRACTED" },
+        ],
+      },
+    ]);
+  });
+
+  it("들어온 멤버의 null 필드는 빼고 값이 있는 필드는 그대로 받는다", () => {
+    const { deliver, received } = connectChannel();
+
+    deliver({
+      type: "MEMBER_JOINED",
+      member: {
+        userId: 3,
+        cameraOn: false,
+        focusState: "FOCUS",
+        micOn: null,
+        onBreak: null,
+        owner: false,
+      },
+    });
+
+    expect(received()).toStrictEqual([
+      {
+        type: "MEMBER_JOINED",
+        member: { userId: 3, cameraOn: false, focusState: "FOCUS", owner: false },
+      },
+    ]);
+  });
+
+  it.each([
+    { type: "MIC_CHANGED", userId: 1, micOn: true },
+    { type: "BREAK_CHANGED", userId: 1, onBreak: true },
+    { type: "OWNER_CHANGED", userId: 3 },
+    { type: "KICKED", groupId: 10 },
+    { type: "PEER_BLOCKED", userId: 4 },
+  ])("새 메시지 %o를 받는다", (message) => {
+    const { deliver, received } = connectChannel();
+
+    deliver(message);
+
+    expect(received()).toEqual([message]);
+  });
+
+  it("새 메시지라도 필드 형식이 틀리면 버린다", () => {
+    const { deliver, received } = connectChannel();
+
+    deliver({ type: "MIC_CHANGED", userId: 1, micOn: "on" });
+    deliver({ type: "BREAK_CHANGED", userId: 1 });
+    deliver({ type: "OWNER_CHANGED", userId: "3" });
+    deliver({ type: "KICKED", groupId: "10" });
+    deliver({ type: "PEER_BLOCKED" });
+
+    expect(received()).toEqual([]);
   });
 });
 

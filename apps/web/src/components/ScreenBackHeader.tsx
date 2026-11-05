@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import { GlassChrome } from "@/components/GlassChrome";
 import { trackScreenBackPressed } from "@/lib/amplitude";
-import { slideNavigate } from "@/lib/pageTransition";
+import { slideBack } from "@/lib/pageTransition";
 import { sanitizePagePath } from "@/lib/sanitizePath";
 
 /**
@@ -19,9 +19,16 @@ type ScreenBackHeaderProps = {
    * `title`과 함께 쓰지 않는다.
    */
   center?: ReactNode;
+  /**
+   * 오른쪽 끝에 두는 웹 요소
+   *
+   * 제목 줄에서 바로 누르는 알림이나 메뉴 버튼이고 `title`과 함께 쓴다.
+   * 있으면 앱 모드에서도 제목을 웹이 그려 앱이 그린 제목과 겹치지 않는다.
+   */
+  trailing?: ReactNode;
 };
 
-export function ScreenBackHeader({ title, onBack, center }: ScreenBackHeaderProps) {
+export function ScreenBackHeader({ title, onBack, center, trailing }: ScreenBackHeaderProps) {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -31,21 +38,14 @@ export function ScreenBackHeader({ title, onBack, center }: ScreenBackHeaderProp
         leading: "back",
         title,
         center,
+        trailing,
         onLeading: () => {
           trackScreenBackPressed(sanitizePagePath(location.pathname, ""));
           if (onBack) {
             onBack();
             return;
           }
-          slideNavigate("back", () => {
-            const historyState = window.history.state as { idx?: number } | null;
-            if (historyState?.idx) {
-              navigate(-1);
-              return;
-            }
-            // 딥링크로 곧장 열렸을 때의 대비다. 스택이 비어 있으면 설정 탭으로 보낸다.
-            navigate("/settings", { replace: true });
-          });
+          slideBack(navigate);
         },
       }}
     />

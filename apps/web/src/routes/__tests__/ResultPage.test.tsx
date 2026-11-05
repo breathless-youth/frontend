@@ -18,7 +18,6 @@ import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import type * as Amplitude from "@/lib/amplitude";
 import { stageStudyResultExit } from "@/lib/amplitude";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
-import { todayKstDateKey } from "@/lib/dateKst";
 import { __resetRankingTabForTests } from "@/lib/rankingCapability";
 import {
   FIXTURE_SESSION_GAINS,
@@ -28,6 +27,7 @@ import {
 import { getStudyDays, listStudySessionStats } from "@/lib/statsApi";
 
 import { RESULT_REVEAL_DELAY_MS, ResultPage } from "../ResultPage";
+import { localDateKey } from "@/lib/dateKey";
 
 /**
  * 요약 카드(BY-560)가 읽는 통계 API만 막는다 — 세션 자체는 여전히 라우터 state로 들어온다.
@@ -208,20 +208,31 @@ afterEach(() => {
 function renderResult(
   state: unknown,
   search = "?userId=7",
-  { reducedMotion = true }: { reducedMotion?: boolean } = {},
+  {
+    reducedMotion = true,
+    path = "/room/7/result",
+  }: { reducedMotion?: boolean; path?: string } = {},
 ) {
   stubReducedMotion(reducedMotion);
   return render(
     <QueryClientProvider client={newQueryClient()}>
-      <MemoryRouter initialEntries={[{ pathname: "/room/7/result", search, state }]}>
+      <MemoryRouter initialEntries={[{ pathname: path, search, state }]}>
         <Routes>
           <Route path="/home" element={<HomeProbe />} />
           <Route path="/records" element={<RecordsProbe />} />
           <Route path="/room/:id/result" element={<ResultPage />} />
+          <Route path="/social/groups/:groupId" element={<GroupHomeProbe />} />
+          <Route path="/social/groups/:groupId/room/result" element={<ResultPage />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
+}
+
+/** 그룹 공부방 결과에서 돌아간 그룹 홈 관측용 */
+function GroupHomeProbe() {
+  const { pathname } = useLocation();
+  return <p>그룹 홈 {pathname}</p>;
 }
 
 /** 테스트마다 새 캐시 — 재시도를 꺼서 실패가 바로 드러나게 한다. */
@@ -543,12 +554,12 @@ describe("ResultPage — 타임라인 카드", () => {
 });
 
 describe("ResultPage — 누적 요약 카드 (BY-560)", () => {
-  it("오늘 누적 순공시간은 오늘(KST) 서버 합계로 채운다", async () => {
+  it("오늘 누적 순공시간은 기기 시간대 오늘의 서버 합계로 채운다", async () => {
     renderResult({ sessions: [exampleSession()] }, "?userId=7");
 
     expect(screen.getByText("오늘 누적 순공시간")).toBeInTheDocument();
     expect(await screen.findByText("3시간 36분")).toBeInTheDocument();
-    expect(mockedStats).toHaveBeenCalledWith(todayKstDateKey());
+    expect(mockedStats).toHaveBeenCalledWith(localDateKey());
   });
 
   it("누적 공부 일 수는 서버 totalDays 값이다", async () => {
@@ -809,7 +820,7 @@ describe("ResultPage — state 없는 진입", () => {
   });
 });
 
-describe("ResultPage — 자정(KST) 분할 세션", () => {
+describe("ResultPage — 자정(세션 시간대) 분할 세션", () => {
   it("배열이 여러 건이면 첫 항목만 그린다 — 합산하지 않는다(미정, 보수적 처리)", () => {
     const first = exampleSession();
     const second = exampleSession({
@@ -927,6 +938,41 @@ describe("ResultPage — 소셜 결과의 목적지", () => {
 
     expect(screen.getByText(/^홈 화면/)).toBeInTheDocument();
     expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"type":"navigate-home"'));
+  });
+});
+
+describe("ResultPage: 그룹 공부방 결과의 목적지", () => {
+  afterEach(() => {
+    localStorage.clear();
+    vi.unstubAllGlobals();
+  });
+
+  it("공부방 결과 화면의 홈으로는 그 그룹의 그룹 홈이다", async () => {
+    renderResult({ sessions: [exampleSession()] }, "", { path: "/social/groups/10/room/result" });
+
+    await userEvent.setup().click(await screen.findByRole("button", { name: "홈으로" }));
+
+    expect(screen.getByText("그룹 홈 /social/groups/10")).toBeInTheDocument();
+  });
+
+  it("그룹 홈으로 돌아가면 결과 화면 이탈 예약을 그 그룹 홈 몫으로 남기고 앱 홈 신호는 보내지 않는다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    vi.mocked(stageStudyResultExit).mockClear();
+    renderResult({ sessions: [exampleSession()] }, "", { path: "/social/groups/10/room/result" });
+
+    await userEvent.setup().click(await screen.findByRole("button", { name: "홈으로" }));
+
+    expect(stageStudyResultExit).toHaveBeenCalledWith(
+      expect.objectContaining({ roomType: "social", consumeAt: "/social/groups/10" }),
+    );
+    expect(postMessage).not.toHaveBeenCalledWith(expect.stringContaining('"type":"navigate-home"'));
+  });
+
+  it("state가 유실된 그룹 공부방 결과는 그 그룹 홈으로 돌아간다", () => {
+    renderResult(undefined, "", { path: "/social/groups/10/room/result" });
+
+    expect(screen.getByText("그룹 홈 /social/groups/10")).toBeInTheDocument();
   });
 });
 

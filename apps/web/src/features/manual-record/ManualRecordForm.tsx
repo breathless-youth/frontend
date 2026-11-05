@@ -12,7 +12,7 @@ import type {
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { dayTitleWithWeekday, kstDateKey } from "@/features/records/recordsFormat";
+import { dayTitleWithWeekday } from "@/features/records/recordsFormat";
 import { subjectColorVar } from "@/features/records/recordsTimetable";
 import {
   trackManualRecordAdd,
@@ -44,6 +44,7 @@ import {
   validateSpan,
 } from "./manualRecord";
 import { useManualRecordMutations } from "./useManualRecordMutations";
+import { deviceTimeZone, localDateKey } from "@/lib/dateKey";
 
 const CHIP_MINUTES = [5, 10, 30, 45, 60] as const;
 
@@ -90,9 +91,9 @@ export function ManualRecordForm({
   // 화면을 열어 둔 채 시간이 흘러도 바꾸는 순간의 시각으로 미래를 판정해, 연 뒤에 지난 시각이 막히지 않는다.
   const readNow = () => fixedNowMs ?? Date.now();
   const [nowMs, setNowMs] = useState(readNow);
-  const todayKey = kstDateKey(new Date(nowMs));
+  const todayKey = localDateKey(new Date(nowMs));
   const recordDateKey =
-    mode.kind === "edit" ? kstDateKey(new Date(bundleSpan(mode.bundle).startMs)) : dateKey;
+    mode.kind === "edit" ? localDateKey(new Date(bundleSpan(mode.bundle).startMs)) : dateKey;
 
   const [span, setSpan] = useState<ManualSpan>(() =>
     mode.kind === "edit"
@@ -193,6 +194,8 @@ export function ManualRecordForm({
       startedAt: new Date(span.startMs).toISOString(),
       endedAt: new Date(span.endMs).toISOString(),
       ...(subjectId === null ? {} : { subjectId }),
+      // 서버가 입력칸 시각과 같은 시간대의 자정으로 기록을 나눈다.
+      timeZone: deviceTimeZone(),
     };
     // 묶음의 어느 조각 id로 불러도 서버가 묶음 전체를 바꾼다.
     mutation.mutate(

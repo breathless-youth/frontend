@@ -103,4 +103,9 @@ describe("SessionPageFooter · SessionPageTimer", () => {
     expect(screen.getByText("01:24:08")).toBeInTheDocument();
     expect(screen.getByText(/순공시간/)).toBeInTheDocument();
   });
+
+  it("왼쪽에 둘 것이 false뿐이면 빈 아래 줄을 그리지 않는다", () => {
+    const { container } = render(<SessionPageFooter landscape leading={false} />);
+    expect(container.firstElementChild).toBeEmptyDOMElement();
+  });
 });

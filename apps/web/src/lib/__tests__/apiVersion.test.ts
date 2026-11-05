@@ -21,10 +21,12 @@ const EXPECTED: Record<ApiEndpoint, { current: string; legacy: string }> = {
   statsStreak: { current: "2", legacy: "1" },
   statsPeriod: { current: "2", legacy: "1" },
   studyDays: { current: "1", legacy: "1" },
+  studyRhythm: { current: "1", legacy: "1" },
   dday: { current: "1", legacy: "1" },
   subjects: { current: "1", legacy: "1" },
   notices: { current: "1", legacy: "1" },
   interview: { current: "1", legacy: "1" },
+  acquisition: { current: "1", legacy: "1" },
   rankingBoard: { current: "2", legacy: "2" },
   rankingRecordsSummary: { current: "1", legacy: "1" },
   rankingRecords: { current: "1", legacy: "1" },
@@ -40,6 +42,8 @@ const EXPECTED: Record<ApiEndpoint, { current: string; legacy: string }> = {
   roomCreate: { current: "2", legacy: "1" },
   roomJoin: { current: "2", legacy: "1" },
   roomLeave: { current: "2", legacy: "1" },
+  groups: { current: "1", legacy: "1" },
+  blocks: { current: "1", legacy: "1" },
   rtcStats: { current: "2", legacy: "1" },
 };
 

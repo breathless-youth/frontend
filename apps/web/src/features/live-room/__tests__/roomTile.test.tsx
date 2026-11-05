@@ -1,9 +1,94 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { isInaccessible, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+
+import type { RoomMember } from "@focusmakers/types";
 
 import { stubImageLoad } from "@/test/imageStub";
 
 import { RoomTile } from "../components/RoomTile";
+
+/** 그룹 공부방 멤버이고 카메라는 꺼져 있다. */
+function member(userId: number): RoomMember {
+  return {
+    userId,
+    nickname: `멤버${userId}`,
+    goal: null,
+    cameraOn: false,
+    focusState: "FOCUS",
+    focusSec: 600,
+    micOn: false,
+    onBreak: false,
+    owner: false,
+  };
+}
+
+describe("RoomTile 그룹 공부방 휴식", () => {
+  it("휴식 중인 멤버의 시간 뱃지는 휴식 상태로 읽힌다", () => {
+    render(<RoomTile member={{ ...member(2), cameraOn: true, onBreak: true }} />);
+
+    expect(screen.getByTestId("tile-time-badge")).toHaveAttribute("data-state", "BREAK");
+    expect(screen.getByText("휴식 중")).toBeInTheDocument();
+  });
+
+  it("카메라를 끈 멤버도 휴식 중이면 휴식으로 읽힌다", () => {
+    render(<RoomTile member={{ ...member(2), cameraOn: false, onBreak: true }} />);
+
+    expect(screen.getByTestId("tile-time-badge")).toHaveAttribute("data-state", "BREAK");
+  });
+
+  it("휴식이 끝나면 지금 집중 상태로 돌아간다", () => {
+    render(<RoomTile member={{ ...member(2), cameraOn: true, onBreak: false }} />);
+
+    expect(screen.getByTestId("tile-time-badge")).toHaveAttribute("data-state", "FOCUS");
+    expect(screen.queryByText("휴식 중")).toBeNull();
+  });
+});
+
+describe("RoomTile 그룹 공부방 표시", () => {
+  it("다른 사람 타일에만 메뉴 버튼이 있다", () => {
+    const { rerender } = render(
+      <RoomTile member={member(2)} menuButton={<button type="button" aria-label="멤버2 메뉴" />} />,
+    );
+    expect(screen.getByRole("button", { name: "멤버2 메뉴" })).toBeInTheDocument();
+
+    rerender(<RoomTile member={member(7)} isSelf />);
+
+    expect(screen.queryByRole("button")).toBeNull();
+  });
+
+  it("말하는 멤버 타일은 말하는 중으로 읽히고 마이크 아이콘은 켜짐과 꺼짐이 다르다", () => {
+    const { rerender } = render(<RoomTile member={member(2)} speaking micOn />);
+    expect(screen.getByTestId("room-tile")).toHaveAttribute("data-speaking", "true");
+    expect(screen.getByText("말하는 중")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "마이크 켜짐" })).toBeInTheDocument();
+
+    rerender(<RoomTile member={member(2)} micOn={false} />);
+
+    expect(screen.getByTestId("room-tile")).not.toHaveAttribute("data-speaking");
+    expect(screen.queryByText("말하는 중")).toBeNull();
+    expect(screen.getByRole("img", { name: "마이크 꺼짐" })).toBeInTheDocument();
+  });
+
+  it("초대코드 방 타일은 마이크 아이콘을 그리지 않는다", () => {
+    render(<RoomTile member={{ userId: 8, cameraOn: true, focusState: "FOCUS" }} />);
+
+    expect(screen.queryByRole("img", { name: /마이크/ })).toBeNull();
+  });
+
+  it("차단한 멤버는 카메라를 켜 둬도 프로필로 그린다", () => {
+    render(
+      <RoomTile
+        member={{ ...member(2), cameraOn: true }}
+        media={<video data-testid="remote" />}
+        blocked
+      />,
+    );
+
+    expect(screen.queryByTestId("remote")).toBeNull();
+    expect(screen.getByTestId("room-tile")).toHaveAttribute("data-state", "OFF");
+    expect(screen.getByTestId("tile-time-badge")).toHaveAttribute("data-state", "OFF");
+  });
+});
 
 describe("RoomTile 폴백", () => {
   it("nickname·focusSec가 없으면 이름을 생략하고 시간은 --:--로 보여준다", () => {
@@ -155,6 +240,156 @@ describe("RoomTile 이름·목표", () => {
 
     expect(screen.getByTestId("tile-info").querySelectorAll("p")).toHaveLength(2);
     expect(screen.getByText("합격")).toBeInTheDocument();
+  });
+});
+
+describe("RoomTile 목표 문구 내리기", () => {
+  const withGoal = {
+    userId: 8,
+    cameraOn: true,
+    focusState: "FOCUS",
+    nickname: "포메1",
+    goal: "합격",
+  } as const;
+
+  it("기본은 목표 문구가 올라와 있다", () => {
+    render(<RoomTile member={withGoal} />);
+
+    expect(screen.getByText("합격")).not.toHaveAttribute("data-hidden");
+  });
+
+  it("목표 문구만 내려가고 닉네임과 마이크 아이콘은 그대로 보인다", () => {
+    render(<RoomTile member={withGoal} micOn goalHidden />);
+
+    // 숨김 표시는 목표 줄에만 붙고 닉네임과 마이크 아이콘, 그 위 묶음에는 붙지 않는다.
+    expect(screen.getByText("합격")).toHaveAttribute("data-hidden", "true");
+    expect(screen.getByText("포메1").closest("[data-hidden]")).toBeNull();
+    expect(screen.getByRole("img", { name: "마이크 켜짐" }).closest("[data-hidden]")).toBeNull();
+  });
+
+  it("목표 문구는 바와 같은 시간과 곡선으로 내려가고 동작 줄이기에서는 위치를 바꾸지 않는다", () => {
+    render(<RoomTile member={withGoal} goalHidden />);
+
+    // jsdom은 Tailwind를 적용하지 않아서 숨김 효과를 내는 클래스가 빠지지 않았는지 이름으로 확인한다.
+    expect(screen.getByText("합격")).toHaveClass(
+      "transition-[translate,opacity]",
+      "duration-500",
+      "ease-[cubic-bezier(0.32,0.72,0,1)]",
+      "motion-reduce:transition-none",
+      "translate-y-0",
+      "data-hidden:opacity-0",
+      "motion-safe:data-hidden:translate-y-[calc(100%+var(--spacing)*3)]",
+    );
+  });
+
+  it("내려간 목표 줄도 자리를 지켜 닉네임이 따라 내려가지 않고, 낭독기는 목표를 읽는다", () => {
+    render(<RoomTile member={withGoal} goalHidden />);
+
+    const goal = screen.getByText("합격");
+    expect(screen.getByTestId("tile-info").querySelectorAll("p")).toHaveLength(2);
+    expect(goal).not.toHaveAttribute("aria-hidden");
+    expect(isInaccessible(goal)).toBe(false);
+  });
+
+  it("다시 올라오면 목표 문구가 원래 상태로 돌아온다", () => {
+    const { rerender } = render(<RoomTile member={withGoal} goalHidden />);
+    expect(screen.getByText("합격")).toHaveAttribute("data-hidden", "true");
+
+    rerender(<RoomTile member={withGoal} goalHidden={false} />);
+
+    expect(screen.getByText("합격")).not.toHaveAttribute("data-hidden");
+  });
+});
+
+describe("RoomTile 목표 자리로 내려오는 닉네임", () => {
+  const withGoal = {
+    userId: 8,
+    cameraOn: true,
+    focusState: "FOCUS",
+    nickname: "포메1",
+    goal: "합격",
+  } as const;
+  const nicknameRow = () => screen.getByText("포메1").closest("p");
+
+  it("목표가 보이는 동안 닉네임 줄은 제자리다", () => {
+    render(<RoomTile member={withGoal} micOn />);
+
+    expect(nicknameRow()).not.toHaveAttribute("data-dropped");
+  });
+
+  it("목표가 숨으면 마이크 아이콘이 든 닉네임 줄이 목표 자리로 내려오고 목표는 낭독기에 남는다", () => {
+    render(<RoomTile member={withGoal} micOn goalHidden />);
+
+    const row = nicknameRow();
+    expect(row).toHaveAttribute("data-dropped", "true");
+    // 닉네임과 마이크 아이콘은 같은 줄이라 함께 내려온다.
+    expect(screen.getByRole("img", { name: "마이크 켜짐" }).closest("[data-dropped]")).toBe(row);
+    expect(isInaccessible(screen.getByText("합격"))).toBe(false);
+  });
+
+  it("목표가 없는 타일은 이미 맨 아래라 내려오지 않는다", () => {
+    render(<RoomTile member={{ ...withGoal, goal: null }} goalHidden />);
+
+    expect(nicknameRow()).not.toHaveAttribute("data-dropped");
+  });
+
+  it("다시 보이면 닉네임 줄이 올라간다", () => {
+    const { rerender } = render(<RoomTile member={withGoal} goalHidden />);
+    expect(nicknameRow()).toHaveAttribute("data-dropped", "true");
+
+    rerender(<RoomTile member={withGoal} />);
+
+    expect(nicknameRow()).not.toHaveAttribute("data-dropped");
+  });
+
+  it("내려오는 전환은 바와 목표와 같은 시간과 곡선이고 동작 줄이기에서는 전환 없이 바로 움직인다", () => {
+    render(<RoomTile member={withGoal} goalHidden />);
+
+    const row = nicknameRow();
+    expect(row).toHaveClass(
+      "translate-y-0",
+      "transition-[translate]",
+      "duration-500",
+      "ease-[cubic-bezier(0.32,0.72,0,1)]",
+      "motion-reduce:transition-none",
+      "data-dropped:translate-y-[calc(var(--goal-line)+var(--spacing))]",
+    );
+    // 목표 자리를 비우지 않으려는 위치 이동이라 동작 줄이기에서도 바뀐다.
+    expect(row?.className).not.toContain("motion-safe");
+  });
+
+  it("목표 줄 높이는 타일이 정한 한 값을 목표 줄과 닉네임 이동이 함께 읽는다", () => {
+    render(<RoomTile member={withGoal} />);
+
+    expect(screen.getByTestId("tile-info")).toHaveClass(
+      "[--goal-line:--spacing(3.75)]",
+      "regular:[--goal-line:--spacing(4.5)]",
+      "short-side-lg:[--goal-line:--spacing(5.5)]",
+    );
+    expect(screen.getByText("합격")).toHaveClass("leading-(--goal-line)");
+  });
+});
+
+describe("RoomTile 이름 줄 올리기", () => {
+  const withGoal = {
+    userId: 8,
+    cameraOn: true,
+    focusState: "FOCUS",
+    nickname: "포메1",
+    goal: "합격",
+  } as const;
+
+  it("바가 내려가면 목표 문구만 숨는다", () => {
+    render(<RoomTile member={withGoal} goalHidden />);
+
+    expect(screen.getByText("합격")).toHaveAttribute("data-hidden", "true");
+  });
+
+  it("스크림 높이는 타일이 정한 값을 읽는다", () => {
+    render(<RoomTile member={withGoal} media={<div />} />);
+
+    expect(screen.getByTestId("room-tile")).toHaveClass("[--tile-scrim-height:--spacing(19)]");
+    expect(screen.getByTestId("tile-scrim")).toHaveClass("h-(--tile-scrim-height)");
   });
 });
 

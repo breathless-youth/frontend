@@ -1,0 +1,55 @@
+{
+  "button": {
+    "on": "バックグラウンドサウンドオン",
+    "off": "バックグラウンドサウンド"
+  },
+  "sheet": {
+    "title": "バックグラウンドサウンド",
+    "tooltip": "一時停止中はバックグラウンドサウンドが聞こえません",
+    "loadFailed": "サウンドの一覧を読み込めませんでした",
+    "blocked": "自動再生がブロックされています。音量を0まで下げてから上げ直すと聞こえます",
+    "aria": {
+      "tooltip": "バックグラウンドサウンドについて",
+      "toggleAll": "バックグラウンドサウンド"
+    }
+  },
+  "duck": {
+    "label": "集中と連動",
+    "tooltip": "集中していないときは音量を下げます",
+    "aria": {
+      "tooltip": "「集中と連動」について"
+    }
+  },
+  "row": {
+    "aria": {
+      "tooltip": "{{label}}について",
+      "volume": "{{label}}の音量"
+    }
+  },
+  "groups": {
+    "noise": "ノイズ",
+    "ambience": "環境音",
+    "music": "ローファイ"
+  },
+  "notes": {
+    "binaural": "イヤホンをつけるとよく聞こえます"
+  },
+  "sounds": {
+    "white": "ホワイトノイズ",
+    "pink": "ピンクノイズ",
+    "brown": "ブラウンノイズ",
+    "binaural": "バイノーラルビート",
+    "monaural": "モノラルビート",
+    "rain-trp": "雨音（屋外）",
+    "rain-mm": "雨音（屋内）",
+    "cafe-vec": "カフェ",
+    "exam-g39": "試験会場",
+    "bonfire-kyles": "焚き火",
+    "waves-esh": "穏やかな波",
+    "birds-squashy": "鳥のさえずり",
+    "airplane-courter": "飛行機の機内",
+    "lofi-breeze": "Morning Breeze",
+    "lofi-stars": "Lost Stars",
+    "lofi-vanilla": "Vanilla"
+  }
+}
