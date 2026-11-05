@@ -59,4 +59,21 @@ describe("그룹 로그인 영어 화면", () => {
     expect(screen.getByRole("img", { name: "FocusMakers" })).toBeInTheDocument();
     expect(visibleText()).not.toMatch(HANGUL);
   });
+
+  it("동의 문구는 한국어와 같이 약관 동의 앞에서 줄을 나눈다", async () => {
+    await i18n.changeLanguage("en");
+    vi.mocked(getStudyDays).mockReturnValue(new Promise(() => {}));
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <MemoryRouter initialEntries={["/social"]}>
+          <GroupLoginScreen entry="tab" />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByText(/^By signing in/).textContent?.split("\n")).toEqual([
+      "By signing in, you confirm that you're 14 or older",
+      "and agree to the Terms of Service and Privacy Policy.",
+    ]);
+  });
 });

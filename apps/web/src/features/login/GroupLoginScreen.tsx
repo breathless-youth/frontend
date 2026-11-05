@@ -2,7 +2,7 @@ import type { SocialLoginProvider } from "@focusmakers/types";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import appleIcon from "@/assets/icons/login-apple.svg";
 import googleIcon from "@/assets/icons/login-google.svg";
@@ -55,12 +55,11 @@ const LEGAL_LINK_CLASS =
  *
  * 앱이 알린 공급자 버튼만 보이고, 로그인은 앱에 맡긴 뒤 결과만 받아 처리한다.
  * 로그인에 성공하면 앱이 모든 조회를 다시 불러와 게이트가 회원으로 바뀌고, 같은 주소가 그대로 그룹 화면을 그린다.
- * 새로 가입한 사람만 프로필을 정하러 보낸다.
+ * 새로 가입한 사람도 프로필 설정으로 보내지 않는다.
  * 이 기기에 공부 기록이 있을 때만 그 기록이 계정으로 이어진다는 안내를 보인다.
  */
 export function GroupLoginScreen({ entry }: { entry: LoginEntry }) {
   const { t } = useTranslation("login");
-  const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
   const back = useBackTo("/social");
@@ -99,12 +98,9 @@ export function GroupLoginScreen({ entry }: { entry: LoginEntry }) {
     setBusy(true);
     const result = await requestNativeSocialLogin(provider);
     inFlightRef.current = false;
-    // 로그인으로 신원이 바뀌면 게이트가 이 화면을 먼저 내릴 수 있어 성공 처리는 화면이 남았는지와 상관없이 한다.
+    // 로그인으로 신원이 바뀌면 게이트가 이 화면을 먼저 내릴 수 있어 계측은 화면이 남았는지와 상관없이 한다.
     if (result.status === "success") {
       trackSocialLoginSucceeded({ provider, isNewUser: result.isNewUser });
-      if (result.isNewUser) {
-        navigate({ pathname: "/profile", search }, { replace: true });
-      }
     } else if (result.status === "failed") {
       trackSocialLoginFailed({ provider, reason: result.code });
     }
@@ -164,7 +160,7 @@ export function GroupLoginScreen({ entry }: { entry: LoginEntry }) {
             ),
           )}
         </div>
-        <p className="mt-4 text-center text-xs leading-4.5 break-keep text-muted-foreground">
+        <p className="mt-4 text-center text-xs leading-4.5 break-keep whitespace-pre-line text-muted-foreground">
           <Trans
             t={t}
             i18nKey="consent"
