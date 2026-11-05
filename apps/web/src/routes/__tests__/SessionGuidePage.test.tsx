@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { markSessionGuideSeen, sessionGuideState } from "@/features/study-session/sessionGuide";
 import type * as Amplitude from "@/lib/amplitude";
+import { FOCUS_START_SOURCES } from "@/lib/amplitude";
 import type * as tokenSourceModule from "@/lib/auth/tokenSource";
 import type { AuthSnapshot, TokenSource } from "@/lib/auth/tokenSource";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
@@ -371,6 +372,20 @@ describe("SessionGuidePage", () => {
 
     expect(await screen.findByTestId("home")).toHaveTextContent("/home?userId=7");
     expect(analytics.trackStudySessionHelpShown).not.toHaveBeenCalled();
+  });
+
+  it.each(FOCUS_START_SOURCES)("누른 자리 %s로 오면 가이드를 띄운다", (source) => {
+    render(
+      <MemoryRouter
+        initialEntries={[{ pathname: "/session-guide", search: "?userId=7", state: { source } }]}
+      >
+        <Routes>
+          <Route path="/session-guide" element={<SessionGuidePage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole("dialog", { name: "세션 도움말" })).toBeInTheDocument();
   });
 
   it("누른 자리가 알 수 없는 값이면 가이드 없이 홈으로 바꿔 간다", async () => {
