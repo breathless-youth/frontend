@@ -42,6 +42,8 @@ export interface PushTokenRegisterRequest {
   platform: "IOS" | "ANDROID";
   /** 등록 때의 OS 알림 권한. 서버는 꺼진 기기에도 보내고, 이 값은 클릭률의 분모로만 쓴다. */
   notificationsEnabled: boolean;
+  /** 앱 언어(`ko`·`en`·`ja`·`zh-Hant`). 서버는 35자까지 받고, 없거나 비면 ko로 보고 푸시 문구를 고른다. */
+  locale?: string;
 }
 
 /**
