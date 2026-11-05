@@ -14,7 +14,8 @@
   },
   "exitDescription": {
     "saved": "目前專注的 {{duration}} 會儲存下來",
-    "subMinute": "不到 1 分鐘的讀書不會顯示在紀錄中"
+    "savedSeconds": "目前專注的 {{duration}} 會儲存下來",
+    "noFocus": "不到 1 分鐘的讀書不會顯示在紀錄中"
   },
   "inviteConfirm": {
     "title": "要結束目前的讀書並接受邀請嗎？",
@@ -35,7 +36,7 @@
     "noAlternative": "沒有可切換的相機",
     "cameraOff": "相機已關閉"
   },
-  "subMinuteEnd": {
+  "noFocusEnd": {
     "title": "讀書結束了",
     "cta": "返回首頁"
   },
@@ -60,7 +61,6 @@
     "server": "無法儲存讀書紀錄，請稍後再試"
   },
   "duration": {
-    "underMinute": "不到 1 分鐘",
     "srHours": "{{count}} 小時",
     "srMinutes": "{{count}} 分鐘",
     "srSeconds": "{{count}} 秒"

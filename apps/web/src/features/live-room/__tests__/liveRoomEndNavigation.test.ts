@@ -19,21 +19,21 @@ const sessions: StudySessionResponse[] = [
 ];
 
 describe("resolveLiveRoomDoneNavigation", () => {
-  it("수동 종료 + 순공 1분 이상이면 결과 화면으로 보낸다", () => {
+  it("수동 종료 + 순공 1초 이상이면 결과 화면으로 보낸다", () => {
     const nav = resolveLiveRoomDoneNavigation({
       expired: false,
       endReason: { kind: "MANUAL" },
-      focusSec: 60,
+      focusSec: 1,
       sessions,
     });
     expect(nav).toEqual({ to: "result", sessions });
   });
 
-  it("순공 1분 미만이면 소셜 홈으로 보낸다", () => {
+  it("순공이 0초면 소셜 홈으로 보낸다", () => {
     const nav = resolveLiveRoomDoneNavigation({
       expired: false,
       endReason: { kind: "MANUAL" },
-      focusSec: 59,
+      focusSec: 0,
       sessions,
     });
     expect(nav).toEqual({ to: "home" });

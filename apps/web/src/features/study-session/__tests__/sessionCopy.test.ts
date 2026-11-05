@@ -20,7 +20,7 @@ const exitConfirmCopy = () => ({
   cancel: i18n.t("study-session:exitConfirm.cancel"),
   confirm: i18n.t("study-session:exitConfirm.confirm"),
 });
-const SUB_MINUTE_EXIT_DESCRIPTION = "1분 미만 공부는 기록에 표시되지 않아요";
+const NO_FOCUS_EXIT_DESCRIPTION = "1분 미만 공부는 기록에 표시되지 않아요";
 const autoEndBodyLinesFor = (trigger: PauseTrigger) => {
   const key = autoEndBodyKey(trigger);
   return key === null ? null : i18n.t(key).split("\n");
@@ -104,26 +104,21 @@ describe("exitConfirmDescription — 한글 시간 길이 + 미달 분기", () =
     expect(exitConfirmDescription(60)).toBe("지금까지 집중한 1분은 저장돼요");
   });
 
-  /**
-   * 순공 1분 미만 세션은 기록 목록·합산에서 제외된다(2026-07-27 확정). 기본 문구를 그대로
-   * 쓰면 저장된다고 말하고는 기록 어디에도 안 남아 **화면이 거짓말을 한다.**
-   */
-  it("1분 미만이면 저장을 약속하지 않고 미달을 알린다", () => {
-    expect(exitConfirmDescription(59)).toBe(SUB_MINUTE_EXIT_DESCRIPTION);
-    expect(exitConfirmDescription(40)).toBe("1분 미만 공부는 기록에 표시되지 않아요");
-    expect(exitConfirmDescription(0)).toBe(SUB_MINUTE_EXIT_DESCRIPTION);
+  it("1분 미만이면 초 단위로 저장을 약속한다", () => {
+    expect(exitConfirmDescription(59)).toBe("지금까지 집중한 59초는 저장돼요");
+    expect(exitConfirmDescription(30)).toBe("지금까지 집중한 30초는 저장돼요");
+    expect(exitConfirmDescription(1)).toBe("지금까지 집중한 1초는 저장돼요");
   });
 
-  it("미달 문구는 '저장'을 약속하지 않는다", () => {
-    expect(exitConfirmDescription(40)).not.toContain("저장돼요");
+  it("순공이 0초면 저장을 약속하지 않는다", () => {
+    expect(exitConfirmDescription(0)).toBe(NO_FOCUS_EXIT_DESCRIPTION);
+    expect(exitConfirmDescription(0)).not.toContain("저장돼요");
   });
 
-  it("어떤 값에도 초 숫자나 HH:MM:SS를 노출하지 않는다", () => {
+  it("어떤 값에도 HH:MM:SS를 노출하지 않는다", () => {
     for (const seconds of [0, 40, 59, 60, 90, 3120, 5048]) {
       expect(exitConfirmDescription(seconds)).not.toContain(":");
     }
-    expect(exitConfirmDescription(40)).not.toMatch(/\d+초/);
-    expect(exitConfirmDescription(5048)).not.toMatch(/\d+초/);
   });
 });
 

@@ -2,10 +2,10 @@
   "notice": {
     "graceEndSaved": "你離開座位太久，所以已結束讀書。\n讀書紀錄已儲存，請放心。",
     "graceEndPending": "你離開座位太久，所以已結束讀書。\n讀書紀錄會儲存下來，請放心。",
-    "graceEndSubMinute": "你離開座位太久，所以已結束讀書。\n不到 1 分鐘的讀書不會顯示在紀錄中",
+    "graceEndNoFocus": "你離開座位太久，所以已結束讀書。\n不到 1 分鐘的讀書不會顯示在紀錄中",
     "roomClosedSaved": "房間已關閉，因此已結束讀書。\n讀書紀錄已儲存，請放心。",
     "roomClosedPending": "房間已關閉，因此已結束讀書。\n讀書紀錄會儲存下來，請放心。",
-    "roomClosedSubMinute": "房間已關閉，因此已結束讀書。\n不到 1 分鐘的讀書不會顯示在紀錄中",
+    "roomClosedNoFocus": "房間已關閉，因此已結束讀書。\n不到 1 分鐘的讀書不會顯示在紀錄中",
     "kicked": "你已被移出「{{groupName}}」",
     "kickedUnnamed": "你已被移出群組"
   },

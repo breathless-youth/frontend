@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
  * 세션 종료 안내 공용 체크 아이콘 원형 (Figma `check-circle` 63:587 + `icon/check` 63:588).
  *
  * 두 종료 안내가 같은 시각 언어를 공유한다 — S3-8 자동 종료(`AutoEndNotice`, Figma 원본)와
- * 1분 미만 종료(`SubMinuteEndNotice`, 2026-08-01 사용자 확인으로 동일 아이콘 추가 — BY-336).
+ * 순공 없음 종료(`NoFocusEndNotice`, 2026-08-01 사용자 확인으로 동일 아이콘 추가 — BY-336).
  * 원래 AutoEndNotice의 비공개 컴포넌트였고 공유가 생기면서 파일로 분리했다.
  *
  * 아이콘은 lucide `Check`다 — `stroke`는 `currentColor`를 따른다: 두 화면 모두 테마

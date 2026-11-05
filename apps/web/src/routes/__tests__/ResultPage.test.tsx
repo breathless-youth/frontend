@@ -491,11 +491,11 @@ describe("ResultPage — 타임라인 카드", () => {
     expect(within(timelineCard()).queryByText(/최대 집중 시간/)).not.toBeInTheDocument();
   });
 
-  it("가장 긴 집중 구간이 1분 미만이면 최대 집중 시간을 배지·행·요약 어디에도 그리지 않는다", () => {
+  it("가장 긴 집중 구간이 1분 미만이어도 최대 집중 시간을 그린다", () => {
     renderResult({ sessions: [exampleSession({ events: [event("PAUSE", 0, 6241)] })] });
 
-    expect(within(timelineCard()).queryByText(/최대 집중 시간/)).not.toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /^순공/ })).not.toHaveAccessibleName(/최대 집중/);
+    expect(within(timelineCard()).getAllByText(/최대 집중 시간/).length).toBeGreaterThanOrEqual(2);
+    expect(within(timelineCard()).getAllByText(/59초/).length).toBeGreaterThan(0);
   });
 
   it("축 라벨은 세션 시작·종료 벽시계다", () => {
