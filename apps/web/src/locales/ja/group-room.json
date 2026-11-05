@@ -1,4 +1,7 @@
 {
+  "nameCheck": {
+    "taken": "同じ名前の公開グループがすでにあります"
+  },
   "contactCheck": {
     "blocked": "連絡先やリンクは送信できません"
   },

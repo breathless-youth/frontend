@@ -3,6 +3,7 @@ import i18n from "@/lib/i18n";
 
 import { contactBlockedCopy } from "./model/contactCheck";
 import { applyBlockCopy, joinBlockCopy } from "./model/limits";
+import { nameTakenCopy } from "./model/nameCheck";
 
 /**
  * 그룹 API 오류를 화면 문구로 바꾸는 표
@@ -74,10 +75,14 @@ const COPY_BY_ACTION: Partial<Record<GroupAction, ReadonlyMap<string, CopyOf>>> 
   answer: new Map([["GROUP_FULL", roomFullCopy]]),
   create: new Map([
     ["CONTACT_NOT_ALLOWED", contactBlockedCopy],
+    ["GROUP_NAME_TAKEN", nameTakenCopy],
     // 5개 한도는 답을 기다리는 신청도 세므로 신청하기와 같은 문장을 쓴다.
     ["GROUP_SLOT_LIMIT", groupCountFullCopy],
   ]),
-  update: new Map([["CONTACT_NOT_ALLOWED", contactBlockedCopy]]),
+  update: new Map([
+    ["CONTACT_NOT_ALLOWED", contactBlockedCopy],
+    ["GROUP_NAME_TAKEN", nameTakenCopy],
+  ]),
 };
 
 // 그룹이 사라졌거나 멤버가 아니라는 답은 어느 동작에서 받아도 뜻이 같다.

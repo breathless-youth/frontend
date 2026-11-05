@@ -1,4 +1,7 @@
 {
+  "nameCheck": {
+    "taken": "已有同名的公開群組"
+  },
   "contactCheck": {
     "blocked": "無法傳送聯絡方式或連結"
   },

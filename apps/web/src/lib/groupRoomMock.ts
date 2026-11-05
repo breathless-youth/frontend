@@ -179,6 +179,20 @@ export function createGroupMockServer(
     return group;
   }
 
+  /** 서버와 같게 공백을 모두 지우고 소문자로 맞춘 이름 키. */
+  function nameKey(name: string): string {
+    return name.replace(/\s+/g, "").toLowerCase();
+  }
+
+  function isPublicNameTaken(name: string, exceptGroupId = 0): boolean {
+    return world.groups.some(
+      (group) =>
+        group.visibility === "PUBLIC" &&
+        group.groupId !== exceptGroupId &&
+        nameKey(group.name) === nameKey(name),
+    );
+  }
+
   function ownedGroup(groupId: number): MockGroup {
     const group = findGroup(groupId);
     if (group.ownerId !== meId) {
@@ -312,6 +326,9 @@ export function createGroupMockServer(
         if (slotsUsed() >= GROUP_MOCK_LIMITS.maxGroupsAndApplications) {
           throw apiError("GROUP_SLOT_LIMIT");
         }
+        if (body.visibility === "PUBLIC" && isPublicNameTaken(body.name)) {
+          throw apiError("GROUP_NAME_TAKEN");
+        }
         const groupId = nextId();
         world.groups.push({
           groupId,
@@ -330,6 +347,13 @@ export function createGroupMockServer(
     updateGroup: (groupId, body) =>
       change(() => {
         const group = ownedGroup(groupId);
+        if (
+          group.visibility === "PUBLIC" &&
+          nameKey(body.name) !== nameKey(group.name) &&
+          isPublicNameTaken(body.name, groupId)
+        ) {
+          throw apiError("GROUP_NAME_TAKEN");
+        }
         group.name = body.name.trim();
         group.category = body.category;
         group.description = textOrNull(body.description);

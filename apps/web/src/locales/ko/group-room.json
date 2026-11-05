@@ -1,4 +1,7 @@
 {
+  "nameCheck": {
+    "taken": "이미 있는 공개 그룹 이름이에요"
+  },
   "contactCheck": {
     "blocked": "연락처나 링크는 보낼 수 없어요"
   },
