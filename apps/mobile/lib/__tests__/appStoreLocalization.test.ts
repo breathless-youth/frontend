@@ -84,8 +84,7 @@ describe("권한 문구와 앱 이름의 언어별 파일", () => {
     "zh-Hant": zhHantLocale,
   };
 
-  // 마이크 키는 다른 브랜치가 app.json에 넣으므로 그 브랜치가 먼저 머지되지 않아도 언어 파일에는 미리 둔다.
-  const localeKeys = [...new Set([...usageKeys, "NSMicrophoneUsageDescription"])].sort();
+  const localeKeys = usageKeys;
 
   it("네 언어 파일에 infoPlist의 권한 문구 키가 전부 있다", () => {
     expect(usageKeys.length).toBeGreaterThan(0);
