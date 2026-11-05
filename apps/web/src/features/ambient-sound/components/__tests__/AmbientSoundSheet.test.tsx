@@ -393,14 +393,16 @@ describe("AmbientSoundSheet — 방향별 배치", () => {
     expect(screen.getByRole("tablist")).toBeInTheDocument();
   });
 
-  it("가로는 탭 없이 두 묶음을 모두 보인다", () => {
+  it("가로도 세로처럼 탭으로 나눈다", async () => {
     renderSheet({ landscape: true });
 
-    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "노이즈" })).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "배경 소리" })).toBeInTheDocument();
+    expect(screen.getByRole("tablist")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /노이즈/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /배경 소리/ })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "노이즈" })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: /배경 소리/ }));
     expect(screen.getByRole("button", { name: "빗소리" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "백색소음" })).toBeInTheDocument();
   });
 
   it("페이지 아래에 순공 타이머를 보인다", () => {

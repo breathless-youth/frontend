@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -153,7 +153,7 @@ function SoundRow({
  * `--session-*` 변수가 `main` 에만 주입돼 `document.body` 로 나가면 색이 통째로 빠지기 때문이다.
  * 카메라 위에 뜨므로 라이트·다크 테마를 따르지 않고 항상 `--session-*` 를 읽는다.
  * 켜진 소리는 집중 색으로 물든다.
- * 세로는 목록을 탭으로 나누고, 가로는 폭이 남아 탭 없이 묶음을 나란히 둔다.
+ * 목록은 방향과 관계없이 묶음별 탭으로 나누고, 가로에서는 소리 한 줄에 이름과 슬라이더를 나란히 둔다.
  * 묶는 기준은 `soundGroups.ts` 에 있다.
  */
 export function AmbientSoundSheet({
@@ -178,7 +178,6 @@ export function AmbientSoundSheet({
   const [tab, setTab] = useState<string | undefined>(undefined);
   const activeTab = tab ?? groups[0]?.id;
   const allOn = Object.keys(mix).length > 0;
-  const groupTitleId = useId();
 
   const rows = (sounds: readonly AmbientSound[]) => (
     <ul className={cn("flex flex-col", landscape && "gap-0.75 regular:gap-1")}>
@@ -244,55 +243,34 @@ export function AmbientSoundSheet({
         </div>
       }
     >
-      {landscape ? (
-        <div className="grid min-h-0 flex-1 grid-cols-2 content-start gap-6 overflow-y-auto overscroll-contain regular:gap-10">
+      <Tabs
+        value={activeTab}
+        onValueChange={setTab}
+        className={cn("flex min-h-0 flex-1 flex-col gap-4 pt-2", !landscape && "px-6")}
+      >
+        <TabsList className="shrink-0">
           {groups.map((group) => (
-            <div
-              key={group.id}
-              role="group"
-              aria-labelledby={`${groupTitleId}-${group.id}`}
-              className="flex min-w-0 flex-col gap-0.75 regular:gap-1"
-            >
-              <p
-                id={`${groupTitleId}-${group.id}`}
-                className="text-[13px] leading-5 text-(--session-dialog-body)"
-              >
-                {group.label}
-              </p>
-              {rows(group.sounds)}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <Tabs
-          value={activeTab}
-          onValueChange={setTab}
-          className="flex min-h-0 flex-1 flex-col gap-4 px-6 pt-2"
-        >
-          <TabsList className="shrink-0">
-            {groups.map((group) => (
-              <TabsTrigger
-                key={group.id}
-                value={group.id}
-                className="flex-1 justify-center text-white/40 data-[state=active]:border-(--state-focus) data-[state=active]:text-(--session-dialog-title)"
-              >
-                {group.label}
-                <span className="text-[13px] tabular-nums opacity-60">{group.sounds.length}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          {groups.map((group) => (
-            <TabsContent
+            <TabsTrigger
               key={group.id}
               value={group.id}
-              className="mt-0 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-2"
+              className="flex-1 justify-center text-white/40 data-[state=active]:border-(--state-focus) data-[state=active]:text-(--session-dialog-title)"
             >
-              {rows(group.sounds)}
-            </TabsContent>
+              {group.label}
+              <span className="text-[13px] tabular-nums opacity-60">{group.sounds.length}</span>
+            </TabsTrigger>
           ))}
-        </Tabs>
-      )}
+        </TabsList>
+
+        {groups.map((group) => (
+          <TabsContent
+            key={group.id}
+            value={group.id}
+            className="mt-0 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-2"
+          >
+            {rows(group.sounds)}
+          </TabsContent>
+        ))}
+      </Tabs>
       {catalog.length === 0 && (
         <p
           className={cn(
