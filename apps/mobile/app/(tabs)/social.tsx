@@ -28,6 +28,8 @@ export default function SocialScreen() {
       path={inviteCode !== undefined ? "/social/join" : target.path}
       // 초대 참여 화면은 예전처럼 뒤로가기 탭 초기화 대상이 아니다.
       resetPath={inviteCode !== undefined ? undefined : target.resetPath}
+      // 초대 링크로 열어도 시스템 뒤로 가기가 보는 탭 첫 화면은 그룹 탭 루트다.
+      tabRootPath={target.resetPath}
       extraQuery={inviteCode !== undefined ? { code: inviteCode } : target.extraQuery}
       splash={<SocialTabSkeleton />}
     />

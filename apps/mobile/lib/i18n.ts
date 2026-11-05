@@ -11,7 +11,9 @@ import { APP_LOCALES, type AppLocale, negotiateLocale } from "@focusmakers/types
  */
 const ko = {
   "tab.home": "홈",
-  "tab.social": "소셜",
+  // 탭 키는 경로 이름을 따른다.
+  // 소셜 자리 탭은 경로가 social 그대로이고 보이는 이름만 그룹이다.
+  "tab.social": "그룹",
   "tab.records": "기록",
   "tab.ranking": "랭킹",
   "tab.settings": "설정",
@@ -78,7 +80,7 @@ const ko = {
 
 const en = {
   "tab.home": "Home",
-  "tab.social": "Social",
+  "tab.social": "Groups",
   "tab.records": "Records",
   "tab.ranking": "Ranking",
   "tab.settings": "Settings",

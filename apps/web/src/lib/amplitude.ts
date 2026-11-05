@@ -15,11 +15,14 @@ import type {
   RankingPeriod,
   RankingRecordType,
   RankingType,
+  StudyCategory,
   StudyEventStatus,
   TimeSlot,
   TrackEventMessage,
   VideoResultStatus,
 } from "@focusmakers/types";
+
+import type { RoomVisibility } from "@/features/group-room/model/roomMenu";
 
 import { firebaseAnalyticsForwardPlugin } from "./firebaseAnalyticsBridge";
 import i18n from "./i18n";
@@ -524,10 +527,19 @@ export function trackSocialRoomJoinFailed(reason: string) {
   track("social_room_join_failed", { reason });
 }
 
-/** 룸 입장(세션 마운트 직전). `grace_rejoin`은 유예 30초 내 재입장 여부다. */
-export function trackSocialRoomEntered(graceRejoin: boolean) {
+/**
+ * 룸 입장(세션 마운트 직전). `grace_rejoin`은 유예 30초 내 재입장 여부다.
+ * 그룹 공부방은 공개 여부를 알 때만 `visibility`를 싣고 초대코드 방은 싣지 않는다.
+ */
+export function trackSocialRoomEntered(
+  graceRejoin: boolean,
+  extra?: { visibility: GroupVisibilityProp },
+) {
   if (!initialized) return;
-  track("social_room_entered", { grace_rejoin: graceRejoin });
+  track("social_room_entered", {
+    grace_rejoin: graceRejoin,
+    ...(extra === undefined ? {} : { visibility: extra.visibility }),
+  });
 }
 
 export interface SocialRoomExitedInput {
@@ -540,6 +552,15 @@ export interface SocialRoomExitedInput {
   readonly exitReason: "session_end" | "grace_expired";
   /** 입장부터 퇴장까지 체류 시간 — 공부시간(`study_sec`)과 다른 축이다. */
   readonly durationSec: number;
+  /**
+   * 함께한 시간
+   *
+   * 내가 측정 중이고 나 말고 카메라를 켠 멤버가 한 명 이상 있던 초이며 그룹 공부방과 초대코드 방 모두 싣는다.
+   * 차단한 멤버, 휴식, 카메라를 꺼 멈춘 동안은 세지 않는다.
+   */
+  readonly togetherSec: number;
+  /** 그룹 공부방의 공개 여부이고 초대코드 방이거나 그룹 홈 응답이 없으면 뺀다. */
+  readonly visibility?: GroupVisibilityProp;
 }
 
 export function trackSocialRoomExited(input: SocialRoomExitedInput) {
@@ -548,6 +569,8 @@ export function trackSocialRoomExited(input: SocialRoomExitedInput) {
     member_count: input.memberCount,
     exit_reason: input.exitReason,
     duration_sec: input.durationSec,
+    together_sec: input.togetherSec,
+    ...(input.visibility === undefined ? {} : { visibility: input.visibility }),
   });
 }
 
@@ -564,6 +587,87 @@ export function trackSocialRoomRejoinFailed(kind: "leave" | "retry", reason: str
 export function trackSocialRoomGraceExceeded() {
   if (!initialized) return;
   track("social_room_grace_exceeded");
+}
+
+/* ── 그룹 공부방 이벤트 ──────────────────────────────────────────────────────
+ *
+ * 이벤트 이름과 속성은 위키 명세 27절이 원본이다.
+ * 그룹 ID, 신청 ID, 닉네임, 그룹 이름, 소개 글, 신고 사유는 어떤 이벤트에도 싣지 않고 값은 정한 영문 토큰만 쓴다.
+ * 다른 사람이 한 일로 생기는 신청 가입과 내보내짐은 이 기기가 그 순간을 모르므로 `groupMembershipTracker.ts`가 내 그룹 목록 차이로 보낸다.
+ * Meta 광고 전환으로는 보내지 않는다.
+ */
+
+/** 그룹 이벤트의 공개 여부이고 화면이 쓰는 공개 여부와 같은 값이다. */
+export type GroupVisibilityProp = RoomVisibility;
+
+/** 멤버가 된 경로이고 신청 수락은 `application`, 초대 링크와 직접 넣은 초대코드는 따로 센다. */
+export type GroupRoomJoinVia = "application" | "invite_link" | "invite_code";
+
+/** 멤버가 아니게 된 이유이고 혼자 남은 그룹장이 나가 그룹이 사라지면 `room_deleted`다. */
+export type GroupRoomLeaveReason = "left" | "kicked" | "room_deleted";
+
+/** 그룹을 만들었을 때 보내고 `category`는 서버의 시험·목표 값 그대로다. */
+export function trackGroupRoomCreated(input: {
+  visibility: GroupVisibilityProp;
+  category: StudyCategory;
+}) {
+  if (!initialized) return;
+  track("group_room_created", { visibility: input.visibility, category: input.category });
+}
+
+/** 공개 그룹에 신청을 보냈을 때 보내고 `category`는 신청한 그룹의 시험·목표다. */
+export function trackGroupRoomApplicationSent(input: { category: StudyCategory }) {
+  if (!initialized) return;
+  track("group_room_application_sent", { category: input.category });
+}
+
+/** 그룹장이 받은 신청을 수락, 거절, 신고했을 때 보낸다. */
+export function trackGroupRoomApplicationAnswered(result: "accepted" | "declined" | "reported") {
+  if (!initialized) return;
+  track("group_room_application_answered", { result });
+}
+
+/** 멤버가 됐을 때 보낸다. */
+export function trackGroupRoomJoined(input: {
+  via: GroupRoomJoinVia;
+  visibility: GroupVisibilityProp;
+}) {
+  if (!initialized) return;
+  track("group_room_joined", { via: input.via, visibility: input.visibility });
+}
+
+/** 멤버가 아니게 됐을 때 보낸다. */
+export function trackGroupRoomLeft(reason: GroupRoomLeaveReason) {
+  if (!initialized) return;
+  track("group_room_left", { reason });
+}
+
+/** 그룹 홈에서 멤버 공부 알림을 켜거나 껐을 때 보낸다. */
+export function trackGroupRoomNotificationToggled(on: boolean) {
+  if (!initialized) return;
+  track("group_room_notification_toggled", { on });
+}
+
+/** 공부방의 멤버나 받은 신청을 신고했을 때 보낸다. */
+export function trackGroupRoomReported(target: "member" | "application") {
+  if (!initialized) return;
+  track("group_room_reported", { target });
+}
+
+/** 공부방에서 내 마이크가 실제로 켜지거나 꺼졌을 때 보내고 앱을 떠나 따라 꺼진 것도 꺼짐이다. */
+export function trackGroupRoomMicToggled(on: boolean) {
+  if (!initialized) return;
+  track("group_room_mic_toggled", { on });
+}
+
+/**
+ * 들어간 그룹 수 사용자 속성
+ *
+ * 그룹 멤버와 그룹에 들어가지 않은 사람을 Amplitude에서 나눠 비교하는 값이고 바뀔 때만 보낸다.
+ * GA 맞춤 정의 한도를 쓰지 않으려고 Firebase 사용자 속성 허용 목록에는 넣지 않는다.
+ */
+export function setGroupRoomCount(count: number) {
+  setUserProperties({ group_room_count: count });
 }
 
 /* ── 초대 루프 이벤트 (BY-472) ── */
@@ -1375,6 +1479,7 @@ export function trackSettingsRowPressed(
     | "profile"
     | "timelapse"
     | "app_lock"
+    | "block_list"
     | "contact"
     | "interview"
     | "terms"
@@ -1596,18 +1701,28 @@ const PENDING_EXIT_TTL_MS = 10 * 60_000;
  * 것만으로 다섯 웹뷰가 동시에 예약을 집어가 엉뚱한 탭에서 설문이 열리고(사용자는 못 보는데 노출
  * 쿨다운만 소모된다) `destination`도 먼저 실행된 탭 값으로 잘못 찍힌다.
  */
-export type ResultExitPath = "/home" | "/social" | "/records";
+export type ResultExitPath = "/home" | "/social" | "/records" | `/social/groups/${number}`;
 
 /**
  * 도착 화면별 `destination` 값
  *
  * 소셜 탭 복귀도 홈 복귀로 세고, 솔로와 소셜은 `room_type`이 가른다.
  */
-const EXIT_DESTINATION: Record<ResultExitPath, "home" | "record"> = {
+const EXIT_DESTINATION: Record<"/home" | "/social" | "/records", "home" | "record"> = {
   "/home": "home",
   "/social": "home",
   "/records": "record",
 };
+
+// 그룹 공부방 결과에서 그 그룹의 그룹 홈으로 돌아가는 것도 소셜 탭 복귀처럼 홈 복귀로 센다.
+const GROUP_HOME_PATH = /^\/social\/groups\/\d+$/;
+
+function exitDestination(path: string): "home" | "record" | null {
+  if (Object.hasOwn(EXIT_DESTINATION, path)) {
+    return EXIT_DESTINATION[path as keyof typeof EXIT_DESTINATION];
+  }
+  return GROUP_HOME_PATH.test(path) ? "home" : null;
+}
 
 interface PendingResultExit {
   readonly roomType: StudyRoomType;
@@ -1625,7 +1740,7 @@ function isPendingResultExit(value: unknown): value is PendingResultExit {
     typeof record.focusSec === "number" &&
     Number.isFinite(record.focusSec) &&
     typeof record.consumeAt === "string" &&
-    Object.hasOwn(EXIT_DESTINATION, record.consumeAt) &&
+    exitDestination(record.consumeAt) !== null &&
     typeof record.ts === "number" &&
     Number.isFinite(record.ts)
   );
@@ -1679,7 +1794,7 @@ export function consumeStudyResultExit(pathname: string) {
     track("study_result_exited", {
       room_type: pending.roomType,
       focus_sec: pending.focusSec,
-      destination: EXIT_DESTINATION[pending.consumeAt],
+      destination: exitDestination(pending.consumeAt) ?? "home",
     });
   } catch {
     // 깨진 payload·localStorage 불가 — 설문 트리거만 잃는다.
@@ -1705,7 +1820,8 @@ export function trackErrorRetryPressed(
     | "live_room_entry"
     | "contact"
     | "interview_form"
-    | "ranking",
+    | "ranking"
+    | "group_tab",
 ) {
   if (!initialized) return;
   track("error_retry_pressed", { screen });

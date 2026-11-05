@@ -1,9 +1,19 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  isInaccessible,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { sessionStateColors } from "@focusmakers/design-tokens";
 import type { RoomMember, StudySessionListResponse, SubjectResponse } from "@focusmakers/types";
 
 import { createMockRoomChannel } from "@/features/live-room/mockRoomChannel";
@@ -88,6 +98,7 @@ vi.mock("@/features/social-room/shareInvite", async (importOriginal) => ({
 const trackStudySessionEnded = vi.hoisted(() => vi.fn());
 const trackAmbientSoundChanged = vi.hoisted(() => vi.fn());
 const trackSocialRoomCameraToggled = vi.hoisted(() => vi.fn());
+const trackSocialRoomExited = vi.hoisted(() => vi.fn());
 const subjectTracking = vi.hoisted(() => ({
   trackSubjectSheetOpened: vi.fn(),
   trackSubjectSheetClosed: vi.fn(),
@@ -99,6 +110,7 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   trackStudySessionEnded,
   trackAmbientSoundChanged,
   trackSocialRoomCameraToggled,
+  trackSocialRoomExited,
   ...subjectTracking,
 }));
 // 세션에 들어오면 과목 목록을 미리 받는다.
@@ -1088,6 +1100,22 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
     expect(await screen.findByTestId("social-home-stub")).toBeInTheDocument();
   });
 
+  it("초대코드 방 퇴장에는 공개 여부 없이 함께한 시간을 싣는다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    mockedLeaveRoom.mockResolvedValue(undefined);
+    trackSocialRoomExited.mockClear();
+    renderRoom();
+    await enterRoom();
+
+    await userEvent.click(screen.getByRole("button", { name: "나가기" }));
+    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+
+    await waitFor(() => expect(trackSocialRoomExited).toHaveBeenCalledOnce());
+    const input = trackSocialRoomExited.mock.calls[0]![0] as Record<string, unknown>;
+    expect(input).toMatchObject({ exitReason: "session_end", togetherSec: 0 });
+    expect(input.visibility).toBeUndefined();
+  });
+
   it("수동 종료 + 순공 1분 이상이면 결과 화면으로 이동하고 leave를 부른다", async () => {
     // 순공 1분 이상을 실시간으로 쌓는 대신, 이미 순공이 쌓인 세션을 복원해 들어간다 —
     // 재입장 직후 바로 나가는 실제 경로이고, 타이머 조작 없이 종료 집계가 1분을 넘는다.
@@ -1126,6 +1154,8 @@ describe("LiveRoomPage — 카메라 토글·나가기", () => {
         expect(mockedLeaveRoom).toHaveBeenCalledWith(42);
       });
       expect(await screen.findByTestId("social-result-stub")).toBeInTheDocument();
+      // 초대코드 방은 결과 화면으로 가는 수동 종료에 퇴장 계측을 보내지 않는 지금 분석을 유지한다.
+      expect(trackSocialRoomExited).not.toHaveBeenCalled();
     } finally {
       // clearAllMocks는 호출 기록만 지우고 구현은 남긴다 — 다음 테스트로 새지 않게 되돌린다.
       mockedRestore.mockReturnValue({ settled: true, restored: null });
@@ -1797,9 +1827,45 @@ describe("LiveRoomPage — 조작 자동 숨김", () => {
     expectControlsHidden();
   });
 
-  it("조작이 숨어도 타일의 이름·목표와 시간 뱃지는 남는다", async () => {
+  /** 타일마다 이름 줄이 바 위로 올라가 있는지를 순서대로 모은다. 가로에서만 실제로 움직인다. */
+  function liftedTiles() {
+    return screen.getAllByTestId("tile-info").map((info) => info.hasAttribute("data-lifted"));
+  }
+
+  it("바가 떠 있는 동안 타일의 이름 줄을 올리고 숨으면 제자리로 내린다", async () => {
     renderRoom({ scenario: { snapshot: [member(8, { goal: "합격" })] } });
     await enterRoom();
+    expect(liftedTiles()).toEqual([true, true]);
+
+    restartHideTimerOnFakeClock();
+    advance(AUTO_HIDE_MS);
+    expectControlsHidden();
+    expect(liftedTiles()).toEqual([false, false]);
+
+    tapSurface();
+    expectControlsShown();
+    expect(liftedTiles()).toEqual([true, true]);
+  });
+
+  it("바와 이름 줄 올리기가 같은 바 높이 값을 읽도록 공통 부모가 화면 크기별로 정한다", async () => {
+    renderRoom();
+    await enterRoom();
+
+    const owner = screen.getByTestId("room-grid").parentElement;
+    expect(owner).toContainElement(screen.getByTestId("room-control-bar"));
+    expect(owner).toHaveClass(
+      "[--room-bar-height:--spacing(18.5)]",
+      "regular:[--room-bar-height:--spacing(22)]",
+      "short-side-lg:[--room-bar-height:--spacing(27.5)]",
+      // 올리는 거리는 화면 크기별 바 높이에 작은 간격을 더한 값이라 같은 부모가 함께 정한다.
+      "[--room-bar-lift:calc(var(--room-bar-height)+var(--spacing)*2)]",
+    );
+  });
+
+  it("조작이 숨으면 타일의 이름과 시간 뱃지는 남고 목표 문구만 바와 함께 내려간다", async () => {
+    renderRoom({ scenario: { snapshot: [member(8, { goal: "합격" })] } });
+    await enterRoom();
+    expect(screen.getByText("합격")).not.toHaveAttribute("data-hidden");
 
     restartHideTimerOnFakeClock();
     advance(AUTO_HIDE_MS);
@@ -1808,8 +1874,29 @@ describe("LiveRoomPage — 조작 자동 숨김", () => {
       expect(info).not.toHaveClass("opacity-0");
       expect(info).not.toHaveAttribute("aria-hidden");
     });
-    expect(screen.getByText("합격")).toBeVisible();
+    // 숨김 표시는 목표 줄에만 붙고 닉네임 줄과 그 위 묶음에는 붙지 않는다.
+    expect(screen.getByText("멤버8").closest("[data-hidden]")).toBeNull();
     expect(screen.getByTestId("tile-time-badge")).toBeInTheDocument();
+    const goal = screen.getByText("합격");
+    expect(goal).toHaveAttribute("data-hidden", "true");
+    // 내려가도 낭독기는 목표를 읽는다.
+    expect(isInaccessible(goal)).toBe(false);
+  });
+
+  it("숨은 조작을 화면 탭으로 다시 부르면 목표 문구도 바와 함께 올라온다", async () => {
+    renderRoom({ scenario: { snapshot: [member(8, { goal: "합격" })] } });
+    await enterRoom();
+    restartHideTimerOnFakeClock();
+    advance(AUTO_HIDE_MS);
+    expect(screen.getByText("합격")).toHaveAttribute("data-hidden", "true");
+
+    tapSurface();
+    expectControlsShown();
+    expect(screen.getByText("합격")).not.toHaveAttribute("data-hidden");
+
+    tapSurface();
+    expectControlsHidden();
+    expect(screen.getByText("합격")).toHaveAttribute("data-hidden", "true");
   });
 
   it("왼쪽 위 내 시간 글자는 조작이 숨어도 남는다", async () => {
@@ -1884,6 +1971,20 @@ describe("LiveRoomPage — 조작 자동 숨김", () => {
     tapSurface();
     expectControlsShown();
     expect(screen.getByTestId("room-control-bar")).toHaveClass("pointer-events-auto");
+  });
+
+  it("조작이 강제로 보이는 동안은 시간이 지나도 목표 문구가 내려가지 않고 이름 줄도 올라가 있다", async () => {
+    renderRoom({ scenario: { snapshot: [member(8, { goal: "합격" })] } });
+    await enterRoom();
+
+    restartHideTimerOnFakeClock();
+    fireEvent.click(screen.getByRole("button", { name: "카메라 켜기" }));
+    expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+
+    advance(AUTO_HIDE_MS * 3);
+    expectControlsShown();
+    expect(screen.getByText("합격")).not.toHaveAttribute("data-hidden");
+    expect(liftedTiles()).toEqual([true, true]);
   });
 
   it("더보기 메뉴가 열려 있는 동안은 시간이 지나도 숨지 않는다", async () => {
@@ -2426,6 +2527,28 @@ describe("LiveRoomPage — 과목", () => {
     await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
   }
 
+  /** 과목 페이지 머리 줄의 순공 요소 */
+  function headTime() {
+    return within(screen.getByRole("heading", { name: "과목" }).parentElement!).getByText(
+      /^순공시간 /,
+    ).parentElement!;
+  }
+
+  it("꺼짐으로 들어오면 머리 시간은 일시정지 상태 색이다", async () => {
+    renderRoom();
+    await enterRoom();
+    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    expect(headTime()).toHaveStyle({ "--session-state-color": sessionStateColors.PAUSE.dark });
+  });
+
+  it("카메라를 켜면 머리 시간은 집중 상태 색이다", async () => {
+    renderRoom();
+    await enterRoom();
+    await turnCameraOn();
+    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    expect(headTime()).toHaveStyle({ "--session-state-color": sessionStateColors.FOCUS.dark });
+  });
+
   it("과목 버튼으로 열면 세션 화면 안에 페이지가 열리고, 닫으면 버튼으로 포커스가 돌아온다", async () => {
     renderRoom();
     await enterRoom();
@@ -2434,6 +2557,9 @@ describe("LiveRoomPage — 과목", () => {
 
     const dialog = screen.getByRole("dialog", { name: "과목" });
     expect(screen.getByTestId("live-room-page")).toContainElement(dialog);
+    expect(
+      within(screen.getByRole("heading", { name: "과목" }).parentElement!).getByText(/^순공시간 /),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "과목", hidden: true })).toHaveAttribute(
       "aria-expanded",
       "true",

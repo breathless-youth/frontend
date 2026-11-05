@@ -7,10 +7,12 @@ import type {
   VideoResultStatus,
 } from "@focusmakers/types";
 import {
+  ANALYTICS_PARAM_VALUE_PATTERN,
   INSTALL_AD_LABEL_PATTERN,
   INSTALL_GOOGLE_AD_LABEL_PATTERN,
   INSTALL_REFERRER_MAX_LENGTH,
   NATIVE_CONTROL_ID_PATTERN,
+  SOCIAL_LOGIN_FAILURE_CODES,
   VIDEO_RESULT_STATUSES,
 } from "@focusmakers/types";
 
@@ -211,7 +213,13 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
     return { type: "device-handling", active: record.active, atMs: record.atMs };
   }
   if (record.type === "camera-permission" && typeof record.granted === "boolean") {
-    return { type: "camera-permission", granted: record.granted, atMs: record.atMs };
+    return {
+      type: "camera-permission",
+      granted: record.granted,
+      // 모르는 값을 허용으로 읽지 않게 boolean이 아니면 이 값만 버린다.
+      ...(typeof record.micGranted === "boolean" ? { micGranted: record.micGranted } : {}),
+      atMs: record.atMs,
+    };
   }
   if (record.type === "camera-gate-result" && typeof record.granted === "boolean") {
     return { type: "camera-gate-result", granted: record.granted, atMs: record.atMs };
@@ -320,6 +328,33 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
       };
     }
   }
+  if (record.type === "social-login-result" && typeof record.id === "string" && record.id !== "") {
+    if (record.status === "success" && typeof record.isNewUser === "boolean") {
+      return {
+        type: "social-login-result",
+        id: record.id,
+        status: "success",
+        isNewUser: record.isNewUser,
+        atMs: record.atMs,
+      };
+    }
+    if (record.status === "cancelled") {
+      return { type: "social-login-result", id: record.id, status: "cancelled", atMs: record.atMs };
+    }
+    if (record.status === "failed") {
+      // 앱이 새 코드를 더해도 응답을 버리면 기다리는 쪽이 끝나지 않으므로 모르는 코드는 UNKNOWN으로 받는다.
+      const code = (SOCIAL_LOGIN_FAILURE_CODES as readonly unknown[]).includes(record.code)
+        ? (record.code as (typeof SOCIAL_LOGIN_FAILURE_CODES)[number])
+        : "UNKNOWN";
+      return {
+        type: "social-login-result",
+        id: record.id,
+        status: "failed",
+        code,
+        atMs: record.atMs,
+      };
+    }
+  }
   if (
     record.type === "native-control-press" &&
     typeof record.id === "string" &&
@@ -335,7 +370,51 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
   if (record.type === "install-attribution") {
     return parseInstallAttribution(record);
   }
+  if (record.type === "in-app-notification") {
+    return parseInAppNotification(record);
+  }
   return null;
+}
+
+/**
+ * 앱 안 알림 링크의 길이 상한
+ *
+ * 앱이 `open-push-link`로 돌려받을 때 쓰는 상한과 같은 값이다.
+ */
+const PUSH_LINK_MAX_LENGTH = 4096;
+
+function isFilledString(value: unknown): value is string {
+  return typeof value === "string" && value !== "";
+}
+
+/**
+ * `in-app-notification`(앱을 쓰는 중에 온 그룹 알림)을 검증한다
+ *
+ * 제목·본문·링크 가운데 하나라도 비었거나 링크가 너무 길면 통째로 버린다.
+ * 알림 종류는 열림 계측에만 쓰는 선택 필드라 토큰 형식이 아니면 그 필드만 뺀다.
+ */
+function parseInAppNotification(
+  record: Record<string, unknown>,
+): Extract<ToWebMessage, { type: "in-app-notification" }> | null {
+  if (
+    !isFilledString(record.title) ||
+    !isFilledString(record.body) ||
+    !isFilledString(record.link) ||
+    record.link.length > PUSH_LINK_MAX_LENGTH ||
+    typeof record.atMs !== "number"
+  ) {
+    return null;
+  }
+  return {
+    type: "in-app-notification",
+    title: record.title,
+    body: record.body,
+    link: record.link,
+    ...(typeof record.pushType === "string" && ANALYTICS_PARAM_VALUE_PATTERN.test(record.pushType)
+      ? { pushType: record.pushType }
+      : {}),
+    atMs: record.atMs,
+  };
 }
 
 function isStringOrNull(value: unknown): value is string | null {

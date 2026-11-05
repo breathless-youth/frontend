@@ -1,4 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
+
+import { __resetGroupRoomsForTests } from "@/lib/groupRoomCapability";
 
 import { makeProfileSchema } from "../profileSchema";
 
@@ -72,5 +74,24 @@ describe("makeProfileSchema", () => {
   it("카테고리를 목록 밖 값으로 바꾸면 거부한다", () => {
     const result = schema.safeParse({ ...unchanged, category: "UNKNOWN" });
     expect(result.error?.issues[0]).toMatchObject({ path: ["category"] });
+  });
+
+  it("그룹 흐름이 없으면 칩에 없는 내신과 대학 시험도 목록 밖 값이다", () => {
+    expect(schema.safeParse({ ...unchanged, category: "SCHOOL_EXAM" }).success).toBe(false);
+    expect(schema.safeParse({ ...unchanged, category: "UNIVERSITY_EXAM" }).success).toBe(false);
+  });
+
+  it("그룹 흐름이 켜지면 내신과 대학 시험도 목록 값이다", () => {
+    window.history.replaceState(null, "", "/profile?groupRooms=1");
+    __resetGroupRoomsForTests();
+    onTestFinished(() => {
+      window.history.replaceState(null, "", "/");
+      __resetGroupRoomsForTests();
+    });
+    const withGroupRooms = makeProfileSchema(original);
+    expect(withGroupRooms.safeParse({ ...unchanged, category: "SCHOOL_EXAM" }).success).toBe(true);
+    expect(withGroupRooms.safeParse({ ...unchanged, category: "UNIVERSITY_EXAM" }).success).toBe(
+      true,
+    );
   });
 });

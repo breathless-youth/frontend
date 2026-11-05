@@ -572,9 +572,10 @@ export interface ProfileResponse {
    */
   goal: string | null;
   /**
-   * 목표 카테고리 enum — 미설정이면 null. 명세에 확정된 값이 `JOB`(취업)뿐이라 공유 계약은
-   * string으로 둔다(상상 계약 금지). 잠정 7종 union은 `apps/web`의 categoryChips가 소유하고,
-   * 백엔드 Swagger 확정 후 여기로 승격해 좁힌다.
+   * 목표 카테고리이고 미설정이면 null이다.
+   *
+   * Swagger 응답 스키마가 enum이 아닌 문자열이라 문자열로 받는다.
+   * 수정 요청과 그룹은 `StudyCategory` 9개 값을 쓰고, 화면은 그중 하나일 때만 칩을 고른다.
    */
   category: string | null;
   /** 아바타 표시용 닉네임 첫 글자 단위(그래핌) — 서버 산출, 닉네임 변경 시 갱신 */
@@ -722,6 +723,46 @@ export type {
 } from "./ranking";
 
 export type {
+  BlockListResponse,
+  BlockedUser,
+  GroupApplicationCreateRequest,
+  GroupApplicationCreateResponse,
+  GroupApplicationItem,
+  GroupApplicationsResponse,
+  GroupApplyState,
+  GroupCreateRequest,
+  GroupCreateResponse,
+  GroupHomeResponse,
+  GroupInviteResponse,
+  GroupJoinRequest,
+  GroupJoinResponse,
+  GroupJoinVia,
+  GroupLimits,
+  GroupMemberDesk,
+  GroupMemberItem,
+  GroupMemberStatus,
+  GroupMembersResponse,
+  GroupNotificationRequest,
+  GroupOwnerProfile,
+  GroupOwnerTransferRequest,
+  GroupRole,
+  GroupRoomJoinResponse,
+  GroupUnavailableReason,
+  GroupUpdateRequest,
+  GroupVisibility,
+  MyApplicationItem,
+  MyApplicationsResponse,
+  MyGroupCard,
+  MyGroupsResponse,
+  PendingApplicationRef,
+  PublicGroupCard,
+  PublicGroupDetailResponse,
+  PublicGroupPageResponse,
+  ReportRequest,
+  StudyCategory,
+} from "./group";
+
+export type {
   CameraPermissionMessage,
   ControlFrame,
   GlassChromeLeading,
@@ -749,6 +790,9 @@ export type {
   AnalyticsEventParamValue,
   AnalyticsUserPropertiesMessage,
   NativeAnalyticsPropertyValue,
+  SocialLoginFailureCode,
+  SocialLoginProvider,
+  SocialLoginResultMessage,
   VideoResultStatus,
   VideoShareTarget,
 } from "./bridge";
@@ -776,6 +820,8 @@ export {
   NATIVE_SEGMENT_MIN_OPTIONS,
   NAVIGATE_TAB_SOURCES,
   NAVIGATE_TAB_TARGETS,
+  SOCIAL_LOGIN_FAILURE_CODES,
+  SOCIAL_LOGIN_PROVIDERS,
   VIDEO_RESULT_STATUSES,
   VIDEO_SHARE_TARGETS,
 } from "./bridge";

@@ -13,7 +13,11 @@ import {
   type NativeAnalyticsEvent,
 } from "../nativeAnalytics";
 import { __resetStartSessionInFlightForTests, handleBridgeMessage } from "../nativeBridgeHandler";
-import { getCameraPermissionStatus, openAppSettings } from "../cameraPermission";
+import {
+  getCameraPermissionStatus,
+  isMicrophonePermissionGranted,
+  openAppSettings,
+} from "../cameraPermission";
 import { runCameraPermissionGate } from "../cameraPermissionGate";
 import { triggerHaptic } from "../haptics";
 import { logAnalyticsEvent, setAnalyticsUserProperties } from "../firebaseAnalytics";
@@ -27,7 +31,9 @@ import { saveLaunchGoal } from "../launchGoal";
 import { acknowledgeInstallAttribution } from "../installAttribution";
 import { waitForStartPrompts } from "../launchReady";
 import { ensurePushPermission } from "../pushBootstrap";
+import { openPushRoute } from "../pushRouteOpener";
 import { registerPushToken } from "../pushTokenRegistration";
+import { socialLogin } from "../socialLogin";
 
 /**
  * 브리지 수신 공용 핸들러(BY-333) — `RemoteWebViewHost`를 쓰는 화면(탭 3개 + 세션) 전부가
@@ -54,6 +60,7 @@ jest.mock("../cameraPermissionGate", () => ({
 jest.mock("../cameraPermission", () => ({
   openAppSettings: jest.fn(async () => undefined),
   getCameraPermissionStatus: jest.fn(),
+  isMicrophonePermissionGranted: jest.fn(),
 }));
 
 jest.mock("../motionSensorRelay", () => ({
@@ -101,6 +108,11 @@ jest.mock("../pushTokenRegistration", () => ({
   registerPushToken: jest.fn(async () => undefined),
 }));
 
+jest.mock("../pushRouteOpener", () => ({
+  openPushRoute: jest.fn(),
+}));
+
+jest.mock("../socialLogin", () => ({ socialLogin: jest.fn() }));
 jest.mock("../installAttribution", () => ({
   acknowledgeInstallAttribution: jest.fn(async () => undefined),
 }));
@@ -569,13 +581,52 @@ describe("handleBridgeMessage", () => {
   });
 
   describe("request-camera-permission", () => {
+    const flushPromises = () => new Promise((resolve) => setImmediate(resolve));
+    const mockedMicGranted = isMicrophonePermissionGranted as jest.MockedFunction<
+      typeof isMicrophonePermissionGranted
+    >;
+
+    beforeEach(() => {
+      mockedMicGranted.mockReset();
+      mockedMicGranted.mockResolvedValue(true);
+    });
+
+    it.each([true, false])("마이크 권한 %s도 같은 답에 싣는다", async (micGranted) => {
+      mockedGetCameraPermissionStatus.mockResolvedValue("granted");
+      mockedMicGranted.mockResolvedValue(micGranted);
+      const reply = jest.fn();
+
+      handleBridgeMessage({ type: "request-camera-permission", atMs: 1 }, reply);
+      await flushPromises();
+
+      expect(reply).toHaveBeenCalledTimes(1);
+      expect(reply).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "camera-permission", granted: true, micGranted }),
+      );
+    });
+
+    it("마이크 조회에 실패하면 마이크 값만 비우고 카메라 값은 답한다", async () => {
+      mockedGetCameraPermissionStatus.mockResolvedValue("denied");
+      mockedMicGranted.mockRejectedValue(new Error("boom"));
+      const warn = jest.spyOn(console, "warn").mockImplementation(() => undefined);
+      const reply = jest.fn();
+
+      handleBridgeMessage({ type: "request-camera-permission", atMs: 1 }, reply);
+      await flushPromises();
+
+      expect(reply).toHaveBeenCalledTimes(1);
+      const message = reply.mock.calls[0]?.[0] as Record<string, unknown>;
+      expect(message).toMatchObject({ type: "camera-permission", granted: false });
+      expect(message).not.toHaveProperty("micGranted");
+      warn.mockRestore();
+    });
+
     it("granted면 granted: true로 답한다", async () => {
       mockedGetCameraPermissionStatus.mockResolvedValue("granted");
       const reply = jest.fn();
 
       handleBridgeMessage({ type: "request-camera-permission", atMs: 1 }, reply);
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushPromises();
 
       expect(reply).toHaveBeenCalledWith(
         expect.objectContaining({ type: "camera-permission", granted: true }),
@@ -588,8 +639,7 @@ describe("handleBridgeMessage", () => {
         const reply = jest.fn();
 
         handleBridgeMessage({ type: "request-camera-permission", atMs: 1 }, reply);
-        await Promise.resolve();
-        await Promise.resolve();
+        await flushPromises();
 
         expect(reply).toHaveBeenCalledWith(
           expect.objectContaining({ type: "camera-permission", granted: false }),
@@ -603,8 +653,7 @@ describe("handleBridgeMessage", () => {
       const reply = jest.fn();
 
       handleBridgeMessage({ type: "request-camera-permission", atMs: 1 }, reply);
-      await Promise.resolve();
-      await Promise.resolve();
+      await flushPromises();
 
       expect(reply).not.toHaveBeenCalled();
       warn.mockRestore();
@@ -614,7 +663,7 @@ describe("handleBridgeMessage", () => {
       mockedGetCameraPermissionStatus.mockResolvedValue("granted");
 
       handleBridgeMessage({ type: "request-camera-permission", atMs: 1 }, jest.fn());
-      await Promise.resolve();
+      await flushPromises();
 
       expect(mockedGetCameraPermissionStatus).toHaveBeenCalledTimes(1);
       expect(mockedRunCameraPermissionGate).not.toHaveBeenCalled();
@@ -1062,5 +1111,95 @@ describe("handleBridgeMessage: 프로필 사진 선택기", () => {
         expect.objectContaining({ type: "profile-photo-result", id: "r1", status: "failed" }),
       ),
     );
+  });
+});
+
+/** 앱 안 알림 토스트를 누르면 웹이 `open-push-link`를 보내고 앱은 알림을 누른 것처럼 연다. */
+describe("handleBridgeMessage: 앱 안 알림 누름", () => {
+  let received: NativeAnalyticsEvent[];
+  const mockedOpenPushRoute = openPushRoute as jest.MockedFunction<typeof openPushRoute>;
+
+  beforeEach(() => {
+    __resetNativeAnalyticsForTests();
+    received = [];
+    attachNativeAnalyticsSink((event) => received.push(event));
+  });
+
+  afterEach(() => {
+    __resetNativeAnalyticsForTests();
+  });
+
+  it("앱 안 알림을 누르면 알림을 누른 것처럼 그 경로를 연다", () => {
+    handleBridgeMessage(
+      {
+        type: "open-push-link",
+        link: "/social/groups/10/applications",
+        pushType: "group_application_received",
+        atMs: 1,
+      },
+      noopReply,
+    );
+
+    expect(mockedOpenPushRoute).toHaveBeenCalledWith(
+      "/social/groups/10/applications",
+      expect.any(Function),
+    );
+    expect(received.map((event) => [event.name, event.properties])).toEqual([
+      [
+        "push_notification_opened",
+        {
+          route: "/social/groups/:id/applications",
+          fallback: false,
+          type: "group_application_received",
+          in_app: true,
+        },
+      ],
+    ]);
+  });
+
+  it("이동은 라우터 push로 맡긴다", () => {
+    handleBridgeMessage({ type: "open-push-link", link: "/social/public/12", atMs: 1 }, noopReply);
+
+    const push = mockedOpenPushRoute.mock.calls[0]?.[1];
+    const target = {
+      pathname: "/(tabs)/social",
+      params: { path: encodeURIComponent("/social/public/12"), at: "1" },
+    };
+    push?.(target);
+    expect(mockedRouter.push).toHaveBeenCalledWith(target);
+  });
+
+  it("허용 밖 링크는 열지 않고 홈으로 보낸다", () => {
+    handleBridgeMessage(
+      { type: "open-push-link", link: "https://evil.example/x", atMs: 1 },
+      noopReply,
+    );
+
+    expect(mockedOpenPushRoute).toHaveBeenCalledWith("/", expect.any(Function));
+    expect(received[0]?.properties).toEqual({ route: "/", fallback: true, in_app: true });
+  });
+});
+
+describe("social-login", () => {
+  it.each([
+    [{ status: "success", isNewUser: true }],
+    [{ status: "cancelled" }],
+    [{ status: "failed", code: "ALREADY_LINKED" }],
+  ])("결과 %o를 같은 id의 social-login-result로 답한다", async (result) => {
+    (socialLogin as jest.Mock).mockResolvedValue(result);
+    const reply = jest.fn();
+
+    handleBridgeMessage({ type: "social-login", id: "r7", provider: "KAKAO", atMs: 1 }, reply);
+
+    await waitFor(() =>
+      expect(reply).toHaveBeenCalledWith({
+        type: "social-login-result",
+        id: "r7",
+        ...result,
+        atMs: expect.any(Number),
+      }),
+    );
+    expect(socialLogin).toHaveBeenCalledWith("KAKAO");
+    expect(reply).toHaveBeenCalledTimes(1);
   });
 });

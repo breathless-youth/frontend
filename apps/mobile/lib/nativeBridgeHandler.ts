@@ -6,7 +6,11 @@ import type { HandlerMessage, NavigateTabMessage, ToWebMessage } from "@focusmak
 import { getActiveTab } from "./activeTab";
 import { handleAppLockMessage } from "./appLock/appLockRelay";
 import { authTokenMessage, awaitAuth, ensureAuth, refreshAuth } from "./auth";
-import { getCameraPermissionStatus, openAppSettings } from "./cameraPermission";
+import {
+  getCameraPermissionStatus,
+  isMicrophonePermissionGranted,
+  openAppSettings,
+} from "./cameraPermission";
 import { runCameraPermissionGate } from "./cameraPermissionGate";
 import { triggerHaptic } from "./haptics";
 import { acknowledgeInstallAttribution } from "./installAttribution";
@@ -17,10 +21,13 @@ import { initMetaAds, logMetaAppEvent } from "./metaAds";
 import { getMotionSensorRelay } from "./motionSensorRelay";
 import type * as PushBootstrap from "./pushBootstrap";
 import type { PushPermissionStatus } from "./pushMessaging";
+import { openedEventProperties, resolvePushRoute } from "./pushNotificationRouting";
+import { openPushRoute } from "./pushRouteOpener";
 import type * as PushTokenRegistration from "./pushTokenRegistration";
 import { trackNativeEvent } from "./nativeAnalytics";
 import { emitSessionClosed } from "./sessionClosed";
 import { runAfterNextSessionScreen } from "./sessionPresence";
+import { socialLogin } from "./socialLogin";
 import { setTabBarState } from "./tabBarVisibility";
 import { appendVideoChunk, saveVideo, shareVideo } from "./videoTransfer";
 import { profilePhotoPickerNative } from "../modules/profile-photo-picker";
@@ -226,9 +233,22 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       //
       // `getCameraPermissionStatus`는 권한을 **요청하지 않고 조회만** 한다(`requestCameraPermission`과
       // 다른 함수다) — 설정 화면을 열었다는 이유로 OS 권한 팝업이 뜨면 안 된다.
-      void getCameraPermissionStatus()
-        .then((status) => {
-          reply({ type: "camera-permission", granted: status === "granted", atMs: Date.now() });
+      //
+      // 마이크 권한도 같은 답에 싣고, 마이크 조회만 실패하면 그 값을 비워 웹이 그 행만 숨기게 한다.
+      void Promise.all([
+        getCameraPermissionStatus(),
+        isMicrophonePermissionGranted().catch((error: unknown) => {
+          console.warn("[bridge] 마이크 권한 조회 실패 — 웹에는 알리지 않는다", error);
+          return null;
+        }),
+      ])
+        .then(([status, micGranted]) => {
+          reply({
+            type: "camera-permission",
+            granted: status === "granted",
+            ...(micGranted !== null ? { micGranted } : {}),
+            atMs: Date.now(),
+          });
         })
         .catch((error: unknown) => {
           console.warn("[bridge] 카메라 권한 조회 실패 — 웹에는 알리지 않는다", error);
@@ -342,6 +362,27 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
     case "pick-profile-photo":
       void pickProfilePhoto().then((result) => {
         reply({ type: "profile-photo-result", id: message.id, ...result, atMs: Date.now() });
+      });
+      break;
+    case "open-push-link": {
+      // 앱 안 알림 토스트를 누른 것은 알림을 누른 것과 같은 일이라 같은 허용 규칙과 이동 경로를 쓴다.
+      // 세션 중이면 닫힌 뒤에 여는 일도 알림 탭과 똑같이 `openPushRoute`가 맡는다.
+      const data = {
+        link: message.link,
+        ...(message.pushType !== undefined ? { type: message.pushType } : {}),
+      };
+      const route = resolvePushRoute(data);
+      trackNativeEvent(
+        "push_notification_opened",
+        openedEventProperties(data, route, { inApp: true }),
+      );
+      openPushRoute(route, (target) => router.push(target));
+      break;
+    }
+    case "social-login":
+      // 성공이면 새 토큰의 `auth-token`이 저장 구독으로 먼저 나간 뒤에 결과가 나간다.
+      void socialLogin(message.provider).then((result) => {
+        reply({ type: "social-login-result", id: message.id, ...result, atMs: Date.now() });
       });
       break;
     default: {

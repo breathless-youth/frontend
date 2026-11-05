@@ -28,14 +28,86 @@ export interface PeerMesh {
    * 판정(handleSignal의 new-pc 분기)이 폐기시켜 그쪽도 새 연결로 answer한다.
    */
   resetConnections(): void;
+  /**
+   * 차단한 상대와의 연결을 닫고 타일과 소리에 null을 알린 뒤 다시 맺지 않는다.
+   * 서버도 차단한 사이의 시그널을 버리지만 이미 맺은 연결은 끊지 못해서 여기서 닫는다.
+   * SNAPSHOT 뒤마다 같은 상대가 다시 와도 결과가 같고, 공부방을 나가 메시를 닫을 때까지 유지한다.
+   * 채널로 온 PEER_BLOCKED는 메시가 직접 처리하고, 신고처럼 화면에서 차단할 때 이 함수를 부른다.
+   */
+  blockPeer(userId: number): void;
+  /**
+   * 마이크 트랙을 모든 연결의 소리 송신기에 싣고, 나중에 생기는 연결에도 싣도록 기억한다.
+   * null이면 모든 송신기에서 떼고, 소리를 협상하지 않는 방에서는 아무 일도 하지 않는다.
+   */
+  setLocalAudioTrack(track: MediaStreamTrack | null): void;
   subscribeRemoteStreams(
     listener: (userId: number, stream: MediaStream | null) => void,
+  ): () => void;
+  /**
+   * 상대 소리 트랙을 영상 타일 알림과 따로 알린다.
+   * 영상이 오지 않는 상대의 소리도 들려야 해서 소리 트랙이 도착하는 즉시 알리고, 그 상대의 연결을 닫거나 버리면 null을 알린다.
+   * 구독하면 그때 받고 있는 상대 소리를 바로 한 번씩 알린다.
+   */
+  subscribeRemoteAudio(
+    listener: (userId: number, track: MediaStreamTrack | null) => void,
   ): () => void;
   close(): void;
 }
 
 function defaultCreatePeerConnection(config: RTCConfiguration): RTCPeerConnection {
   return new RTCPeerConnection(config);
+}
+
+type MediaKind = "audio" | "video";
+
+// 송신 트랙은 비어 있을 수 있어서 종류는 늘 있는 수신 트랙에서 읽는다.
+function transceiverKind(transceiver: RTCRtpTransceiver): string {
+  return transceiver.receiver.track.kind;
+}
+
+function isNegotiated(transceiver: RTCRtpTransceiver): boolean {
+  return (
+    transceiver.mid !== null &&
+    transceiver.currentDirection !== "stopped" &&
+    transceiver.direction !== "stopped"
+  );
+}
+
+/**
+ * 종류가 맞는 트랜시버
+ *
+ * 협상되지 않은 칸에 실은 트랙은 상대에게 가지 않아서, 협상된 칸이 있으면 그 칸을 먼저 고른다.
+ * 협상된 칸이 없으면 offer를 만들기 전의 첫 칸을 고른다.
+ */
+function findTransceiver(
+  pc: Pick<RTCPeerConnection, "getTransceivers">,
+  kind: MediaKind,
+): RTCRtpTransceiver | null {
+  let first: RTCRtpTransceiver | null = null;
+  for (const transceiver of pc.getTransceivers()) {
+    if (transceiverKind(transceiver) !== kind) {
+      continue;
+    }
+    if (isNegotiated(transceiver)) {
+      return transceiver;
+    }
+    first ??= transceiver;
+  }
+  return first;
+}
+
+export function findAudioSender(
+  pc: Pick<RTCPeerConnection, "getTransceivers">,
+): RTCRtpSender | null {
+  return findTransceiver(pc, "audio")?.sender ?? null;
+}
+
+// 소리 칸이 생긴 뒤에도 카메라 트랙은 카메라 송신기에 실려야 해서 종류로 찾는다.
+function findVideoSender(pc: RTCPeerConnection): RTCRtpSender | null {
+  if (typeof pc.getTransceivers !== "function") {
+    return pc.getSenders()[0] ?? null;
+  }
+  return findTransceiver(pc, "video")?.sender ?? null;
 }
 
 function newConnectionId(): string {
@@ -51,6 +123,7 @@ export function createPeerMesh({
   roomId,
   channel,
   iceServers,
+  audio = false,
   createPeerConnection = defaultCreatePeerConnection,
   onEvent,
   reportStats,
@@ -59,6 +132,11 @@ export function createPeerMesh({
   roomId: number;
   channel: RoomChannel;
   iceServers: RTCIceServer[];
+  /**
+   * 그룹 공부방에서만 켠다.
+   * 초대코드 방은 소리 칸을 협상하지 않아서, 소리를 모르는 이전 웹과 섞여도 상대 타일이 소리 트랙에 흔들리지 않는다.
+   */
+  audio?: boolean;
   createPeerConnection?: CreatePeerConnection;
   onEvent?: (line: string) => void;
   reportStats?: (payload: RtcStatRequest) => void;
@@ -81,6 +159,11 @@ export function createPeerMesh({
   // SNAPSHOT을 유실하면(실서버 로그로 확인된 실사례) 기존 멤버 쪽에서 역방향 offer를 낸다.
   const fallbackOfferTimers = new Map<number, ReturnType<typeof setTimeout>>();
   const listeners = new Set<(userId: number, stream: MediaStream | null) => void>();
+  const audioListeners = new Set<(userId: number, track: MediaStreamTrack | null) => void>();
+  // 재생기가 소리 트랙이 도착한 뒤에 구독해도 지금 들리는 상대를 놓치지 않게 들고 있다가 새 구독자에게 다시 알린다.
+  const remoteAudio = new Map<number, MediaStreamTrack>();
+  // 백그라운드 복귀 재구축(resetConnections)에도 남아야 해서 메시를 닫을 때만 비운다.
+  const blocked = new Set<number>();
   // PeerConnection당 발급하는 UUID — 보고의 연결 단위 중복 제거 키. 재수립 pc는 새 id를 받는다.
   const connectionIds = new Map<number, string>();
   // 직전 주기 샘플 — 종료 시 이 값을 isFinal로 한 번 더 흘려 종료 egress를 멱등하게 잡는다.
@@ -95,6 +178,8 @@ export function createPeerMesh({
   const SNAPSHOT_RECONCILE_MS = 10_000;
   let snapshotReconcileTimer: ReturnType<typeof setInterval> | null = null;
   let localStream: MediaStream | null = null;
+  // 마이크가 꺼져 있으면 null이고, 나중에 생기는 연결도 offer와 answer 어느 쪽이든 이 값을 싣는다.
+  let localAudioTrack: MediaStreamTrack | null = null;
   let trackEnabled = true;
   let unsubscribe: (() => void) | null = null;
 
@@ -106,6 +191,17 @@ export function createPeerMesh({
     }
     for (const listener of listeners) {
       listener(userId, stream);
+    }
+  }
+
+  function notifyAudio(userId: number, track: MediaStreamTrack | null) {
+    if (track === null) {
+      remoteAudio.delete(userId);
+    } else {
+      remoteAudio.set(userId, track);
+    }
+    for (const listener of audioListeners) {
+      listener(userId, track);
     }
   }
 
@@ -295,7 +391,10 @@ export function createPeerMesh({
         Number(a.mimeType.toLowerCase() === "video/vp8"),
     );
     for (const transceiver of pc.getTransceivers()) {
-      transceiver.setCodecPreferences?.(vp8First);
+      // 소리 칸에 영상 코덱을 걸면 브라우저가 InvalidModificationError로 거부한다.
+      if (transceiverKind(transceiver) === "video") {
+        transceiver.setCodecPreferences?.(vp8First);
+      }
     }
   }
 
@@ -314,12 +413,71 @@ export function createPeerMesh({
     applySendQuality(sender, track);
   }
 
+  /**
+   * 상대 소리 트랙 받기
+   *
+   * 타일에는 영상만 담아야 해서 소리 트랙의 mute·ended를 듣지 않고 타일 알림과 lastStreams도 건드리지 않는다.
+   * 소리를 협상하지 않는 방에 섞여 들어온 소리 트랙을 타일 경로로 넘기면 상대 타일이 비거나 바뀌어서 버린다.
+   */
+  function receiveRemoteAudio(userId: number, track: MediaStreamTrack) {
+    if (!audio) {
+      debug(`audio-skip←${userId}`);
+      return;
+    }
+    debug(`audio←${userId}`);
+    notifyAudio(userId, track);
+  }
+
+  // 한 상대의 replaceTrack 실패가 다른 상대나 영상 연결로 번지지 않게 상대 단위로 삼킨다.
+  function attachLocalAudio(userId: number, sender: RTCRtpSender) {
+    sender.replaceTrack(localAudioTrack).catch(() => debug(`audio-err→${userId}`));
+  }
+
+  /**
+   * offer 쪽 소리 칸 준비
+   *
+   * 영상 칸 뒤에 sendrecv 소리 칸 하나만 두고, ICE 재시작 재offer에서는 이미 협상한 칸을 다시 써서 칸이 늘지 않는다.
+   * 소리 준비가 실패해도 영상 offer는 나가도록 오류는 디버그 줄로만 남긴다.
+   */
+  function prepareOfferAudio(userId: number, pc: RTCPeerConnection) {
+    try {
+      const transceiver =
+        findTransceiver(pc, "audio") ?? pc.addTransceiver("audio", { direction: "sendrecv" });
+      transceiver.direction = "sendrecv";
+      attachLocalAudio(userId, transceiver.sender);
+    } catch {
+      debug(`audio-err→${userId}`);
+    }
+  }
+
+  /**
+   * answer 쪽 소리 칸 준비
+   *
+   * addTransceiver로 미리 만든 칸은 원격 offer의 소리 줄과 짝지어지지 않아서(JSEP 5.10) 미리 만들지 않는다.
+   * offer를 적용한 뒤 그 offer가 만든 소리 칸을 sendrecv로 바꾸고 마이크를 실어야 내 소리가 상대에게 간다.
+   */
+  function prepareAnswerAudio(userId: number, pc: RTCPeerConnection) {
+    try {
+      const transceiver = findTransceiver(pc, "audio");
+      if (transceiver === null || transceiver.mid === null) {
+        return;
+      }
+      transceiver.direction = "sendrecv";
+      attachLocalAudio(userId, transceiver.sender);
+    } catch {
+      debug(`audio-err→${userId}`);
+    }
+  }
+
   function getOrCreatePeer(userId: number): RTCPeerConnection {
     const existing = peers.get(userId);
     if (existing) {
       return existing;
     }
-    const pc = createPeerConnection({ iceServers });
+    // 소리 칸이 더해지면 BUNDLE이 받아들여지기 전까지 칸마다 전송 경로와 TURN 할당이 따로 생겨서, 그룹 방은 처음부터 하나로 묶는다.
+    const pc = createPeerConnection(
+      audio ? { iceServers, bundlePolicy: "max-bundle" } : { iceServers },
+    );
     peers.set(userId, pc);
     connectionIds.set(userId, newConnectionId());
     pc.onicecandidate = (event) => {
@@ -329,6 +487,10 @@ export function createPeerMesh({
       }
     };
     pc.ontrack = (event) => {
+      if (event.track?.kind === "audio") {
+        receiveRemoteAudio(userId, event.track);
+        return;
+      }
       debug(`track←${userId}`);
       // 송신측이 슬롯 예약(addTransceiver) 뒤 replaceTrack으로 트랙을 실으면 스트림 묶음
       // 정보가 없어 streams가 빈 배열로 온다 — 트랙만으로 스트림을 만들어 쓴다.
@@ -442,13 +604,24 @@ export function createPeerMesh({
     debug(`offer→${userId}`);
     offeredByMe.add(userId);
     const pc = getOrCreatePeer(userId);
+    if (audio) {
+      prepareOfferAudio(userId, pc);
+    }
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
+    // offer를 만드는 사이에 차단됐으면 닫힌 연결의 offer를 보내지 않는다.
+    if (blocked.has(userId)) {
+      return;
+    }
     channel.publishSignal({ toUserId: userId, kind: "OFFER", payload: offer });
   }
 
   // offer 생성 실패를 삼키면 그 상대만 소리 없이 영영 안 보인다 — 아바타로 내려 정직하게 둔다.
   function startOffer(userId: number) {
+    // 대신 offer, ICE 재시작, 트랙 재실장까지 모든 offer가 여기를 지나서 차단한 상대는 여기서 막는다.
+    if (blocked.has(userId)) {
+      return;
+    }
     sendOffer(userId).catch(() => {
       debug(`offer-err→${userId}`);
       notify(userId, null);
@@ -500,9 +673,15 @@ export function createPeerMesh({
     restartAttempted.delete(userId);
     offeredByMe.delete(userId);
     lastStreams.delete(userId);
+    // 버린 연결의 소리 트랙은 끝나므로, 새 연결의 소리가 올 때까지 재생기가 붙잡지 않게 알린다.
+    notifyAudio(userId, null);
   }
 
   async function handleSignal(fromUserId: number, kind: RoomSignalKind, payload: unknown) {
+    // 차단 전에 체인에 들어온 시그널이 차단 뒤에 처리되며 연결을 다시 만들지 않게 한다.
+    if (blocked.has(fromUserId)) {
+      return;
+    }
     debug(`sig←${fromUserId} ${kind}`);
     if (kind === "OFFER") {
       if (!isSdpPayload(payload)) {
@@ -549,8 +728,15 @@ export function createPeerMesh({
       }
       const pc = getOrCreatePeer(fromUserId);
       await pc.setRemoteDescription(payload);
+      if (audio) {
+        prepareAnswerAudio(fromUserId, pc);
+      }
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
+      // offer를 적용하는 사이에 차단됐으면 닫힌 연결의 answer를 보내지 않는다.
+      if (blocked.has(fromUserId)) {
+        return;
+      }
       channel.publishSignal({ toUserId: fromUserId, kind: "ANSWER", payload: answer });
       return;
     }
@@ -584,14 +770,38 @@ export function createPeerMesh({
     clearTimeout(fallbackOfferTimers.get(userId));
     fallbackOfferTimers.delete(userId);
     notify(userId, null);
+    notifyAudio(userId, null);
+  }
+
+  function blockPeer(userId: number) {
+    const firstTime = !blocked.has(userId);
+    blocked.add(userId);
+    clearTimeout(fallbackOfferTimers.get(userId));
+    fallbackOfferTimers.delete(userId);
+    if (peers.has(userId)) {
+      debug(`block ${userId}`);
+      closePeer(userId);
+      return;
+    }
+    // 연결이 없어도 타일과 소리를 한 번은 내려 두고, SNAPSHOT 뒤마다 다시 오는 차단에는 다시 알리지 않는다.
+    if (firstTime) {
+      notify(userId, null);
+      notifyAudio(userId, null);
+    }
   }
 
   const handleMessage = (message: Parameters<Parameters<RoomChannel["subscribe"]>[0]>[0]) => {
+    // 서버는 SNAPSHOT 바로 뒤에 차단을 보내서, 화면을 거치지 않고 같은 메시지 처리에서 닫아야 막 시작한 연결이 오래 남지 않는다.
+    if (message.type === "PEER_BLOCKED") {
+      blockPeer(message.userId);
+      return;
+    }
     if (message.type === "SNAPSHOT") {
       const present = new Set(message.members.map((m) => m.userId));
       let started = 0;
       for (const m of message.members) {
-        if (m.userId === myUserId || peers.has(m.userId)) {
+        // 차단한 상대도 명단에는 그대로 나오므로 offer 대상에서만 뺀다.
+        if (m.userId === myUserId || peers.has(m.userId) || blocked.has(m.userId)) {
           continue;
         }
         startOffer(m.userId);
@@ -612,8 +822,9 @@ export function createPeerMesh({
       return;
     }
     if (message.type === "MEMBER_JOINED") {
-      if (message.member.userId !== myUserId && !peers.has(message.member.userId)) {
-        scheduleFallbackOffer(message.member.userId);
+      const joined = message.member.userId;
+      if (joined !== myUserId && !peers.has(joined) && !blocked.has(joined)) {
+        scheduleFallbackOffer(joined);
       }
       return;
     }
@@ -622,6 +833,10 @@ export function createPeerMesh({
       return;
     }
     if (message.type === "SIGNAL") {
+      if (blocked.has(message.fromUserId)) {
+        debug(`blocked←${message.fromUserId}`);
+        return;
+      }
       // 원격 서술 적용 실패(깨진 SDP 등)를 조용히 삼키면 그 상대만 영원히 안 보인다 —
       // 아바타로 내려 최소한 상태를 정직하게 만든다.
       const previous = signalChains.get(message.fromUserId) ?? Promise.resolve();
@@ -648,7 +863,7 @@ export function createPeerMesh({
         track.enabled = trackEnabled;
       }
       for (const [userId, pc] of peers) {
-        const sender = pc.getSenders()[0];
+        const sender = findVideoSender(pc);
         if (sender) {
           // 한 상대의 replaceTrack 실패(전환 직후 등)가 미처리 rejection으로 남거나
           // 나머지 상대 갱신을 막지 않게 상대 단위로 격리한다.
@@ -690,10 +905,36 @@ export function createPeerMesh({
         closePeer(userId);
       }
     },
+    blockPeer,
+    setLocalAudioTrack(track) {
+      if (!audio) {
+        return;
+      }
+      localAudioTrack = track;
+      for (const [userId, pc] of peers) {
+        try {
+          const sender = findAudioSender(pc);
+          if (sender !== null) {
+            attachLocalAudio(userId, sender);
+          }
+        } catch {
+          debug(`audio-err→${userId}`);
+        }
+      }
+    },
     subscribeRemoteStreams(listener) {
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
+      };
+    },
+    subscribeRemoteAudio(listener) {
+      audioListeners.add(listener);
+      for (const [userId, track] of remoteAudio) {
+        listener(userId, track);
+      }
+      return () => {
+        audioListeners.delete(listener);
       };
     },
     close() {
@@ -709,6 +950,7 @@ export function createPeerMesh({
       restartAttempted.clear();
       offeredByMe.clear();
       lastStreams.clear();
+      remoteAudio.clear();
       signalChains.clear();
       for (const timer of fallbackOfferTimers.values()) {
         clearTimeout(timer);
@@ -725,6 +967,7 @@ export function createPeerMesh({
       degradedPeers.clear();
       connectionIds.clear();
       lastStatsSample.clear();
+      blocked.clear();
     },
   };
 }

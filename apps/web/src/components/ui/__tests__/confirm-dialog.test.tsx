@@ -42,4 +42,107 @@ describe("ConfirmDialog", () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
     expect(onConfirm).not.toHaveBeenCalled();
   });
+
+  it("설명이 있으면 확인 창의 설명으로 읽힌다", () => {
+    render(
+      <ConfirmDialog
+        open
+        title="민준님을 내보낼까요?"
+        description="민준님은 3일 동안 다시 들어올 수 없어요"
+        cancelLabel="취소"
+        confirmLabel="내보내기"
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("alertdialog")).toHaveAccessibleDescription(
+      "민준님은 3일 동안 다시 들어올 수 없어요",
+    );
+  });
+
+  it("확인 버튼 색을 표시로 드러낸다", () => {
+    render(
+      <ConfirmDialog
+        open
+        title="수빈님에게 그룹장을 넘길까요?"
+        cancelLabel="취소"
+        confirmLabel="넘기기"
+        confirmTone="primary"
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "넘기기" })).toHaveAttribute("data-tone", "primary");
+  });
+
+  it("넘기지 않으면 지금처럼 빨간 확인 버튼이고 설명이 없다", () => {
+    render(
+      <ConfirmDialog
+        open
+        title="삭제할까요?"
+        cancelLabel="취소"
+        confirmLabel="삭제"
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "삭제" })).toHaveAttribute("data-tone", "danger");
+    expect(screen.getByRole("alertdialog")).not.toHaveAttribute("aria-describedby");
+  });
+
+  it("보내는 중에는 확인을 누를 수 없고 취소, Esc, 딤으로도 닫히지 않는다", () => {
+    const onCancel = vi.fn();
+    const onConfirm = vi.fn();
+    render(
+      <ConfirmDialog
+        open
+        pending
+        title="민준님을 내보낼까요?"
+        cancelLabel="취소"
+        confirmLabel="내보내기"
+        onCancel={onCancel}
+        onConfirm={onConfirm}
+      />,
+    );
+    const dialog = screen.getByRole("alertdialog", { name: "민준님을 내보낼까요?" });
+
+    expect(within(dialog).getByRole("button", { name: "내보내기" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "취소" })).toBeDisabled();
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    const dim = document.querySelector<HTMLElement>(
+      '[data-state="open"]:not([role="alertdialog"])',
+    );
+    if (dim !== null) fireEvent.pointerDown(dim);
+    expect(onCancel).not.toHaveBeenCalled();
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(screen.getByRole("alertdialog", { name: "민준님을 내보낼까요?" })).toBeInTheDocument();
+  });
+
+  it("문구에 다른 사람의 이름이 들면 클릭 분석이 창 안의 글자와 aria-label을 싣지 않게 가린다", () => {
+    render(
+      <ConfirmDialog
+        open
+        maskFromAnalytics
+        title="민준님을 내보낼까요?"
+        cancelLabel="취소"
+        confirmLabel="내보내기"
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+    );
+    const dialog = screen.getByRole("alertdialog", { name: "민준님을 내보낼까요?" });
+
+    expect(dialog).toHaveAttribute("data-amp-mask");
+    expect(dialog).toHaveAttribute("data-amp-mask-attributes", "aria-label");
+  });
+
+  it("가리라고 하지 않으면 창 글자를 클릭 분석에 그대로 둔다", () => {
+    renderDialog();
+
+    expect(screen.getByRole("alertdialog")).not.toHaveAttribute("data-amp-mask");
+    expect(screen.getByRole("alertdialog")).not.toHaveAttribute("data-amp-mask-attributes");
+  });
 });

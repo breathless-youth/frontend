@@ -18,6 +18,16 @@ export const DEFAULT_SESSION_TUNING: SessionTuningConfig = {
 };
 
 /**
+ * 그룹 공부방의 일시정지 자동 종료
+ *
+ * 다른 멤버와 함께 쉬는 동안 잠깐 카메라를 끄는 일이 잦아서 싱글룸보다 길게 1시간을 둔다.
+ * 휴식은 일시정지 감시에 들지 않아서 휴식 시간은 이 1시간에 세지 않는다.
+ */
+export const GROUP_ROOM_SESSION_TUNING: SessionTuningConfig = {
+  autoEndPauseMinutes: 60,
+};
+
+/**
  * 감시 임계값(ms) — `usePauseAutoEnd`가 보는 **유일한** 값. `null`이면 감시하지 않는다.
  *
  * SCR-S3-7·S3-8 Interaction Contract가 `autoEndAfterPauseMs`라는 이름으로 요구한 값이다.

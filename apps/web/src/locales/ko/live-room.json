@@ -5,10 +5,13 @@
     "graceEndSubMinute": "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
     "roomClosedSaved": "방이 종료되어 공부를 마쳤어요.\n공부 기록은 저장되었으니 안심하세요.",
     "roomClosedPending": "방이 종료되어 공부를 마쳤어요.\n공부 기록은 저장되니 안심하세요.",
-    "roomClosedSubMinute": "방이 종료되어 공부를 마쳤어요.\n1분 미만 공부는 기록에 표시되지 않아요"
+    "roomClosedSubMinute": "방이 종료되어 공부를 마쳤어요.\n1분 미만 공부는 기록에 표시되지 않아요",
+    "kicked": "{{groupName}}에서 내보내졌어요",
+    "kickedUnnamed": "그룹에서 내보내졌어요"
   },
   "entry": {
-    "backToSocial": "소셜 홈으로"
+    "backToSocial": "소셜 홈으로",
+    "backToGroup": "그룹 홈으로"
   },
   "me": "나",
   "cameraConfirm": {
@@ -48,7 +51,13 @@
   "tile": {
     "focus": "집중 중",
     "distracted": "휴식",
-    "off": "카메라 꺼짐"
+    "off": "카메라 꺼짐",
+    "break": "휴식 중",
+    "aria": {
+      "micOn": "마이크 켜짐",
+      "micOff": "마이크 꺼짐",
+      "speaking": "말하는 중"
+    }
   },
   "time": {
     "total": "총",
@@ -56,5 +65,70 @@
       "focus": "순공시간 {{duration}}",
       "total": "총 공부 시간 {{duration}}"
     }
+  },
+  "groupRoomTopBar": {
+    "aria": {
+      "muteOthers": "다른 사람 소리 끄기",
+      "switchCamera": "카메라 전환"
+    }
+  },
+  "micButton": {
+    "aria": {
+      "turnOff": "마이크 끄기",
+      "turnOn": "마이크 켜기"
+    }
+  },
+  "timerButton": {
+    "aria": {
+      "label": "타이머"
+    }
+  },
+  "roomTimerCopy": {
+    "startTimer": "{{duration}} 시작",
+    "startPomodoro": "{{duration}} 집중 시작",
+    "pomodoroIntro": "집중 {{focus}}, 휴식 {{rest}}을 번갈아 해요"
+  },
+  "roomTimerSheet": {
+    "title": "타이머 설정",
+    "kind": {
+      "timer": "기본",
+      "pomodoro": "뽀모도로"
+    },
+    "aria": {
+      "kind": "타이머 종류"
+    }
+  },
+  "roomTimerCapsule": {
+    "phase": {
+      "focus": "집중",
+      "break": "휴식"
+    },
+    "aria": {
+      "remaining": "남은 시간",
+      "pause": "멈춤",
+      "resume": "계속",
+      "off": "끄기"
+    }
+  },
+  "roomMemberMenu": {
+    "volume": "음량",
+    "mute": "소리 끄기",
+    "unmute": "소리 켜기",
+    "report": "신고하기",
+    "kick": "그룹에서 내보내기",
+    "aria": {
+      "trigger": "{{nickname}} 메뉴",
+      "volume": "{{nickname}}님 음량"
+    }
+  },
+  "reportMemberLayer": {
+    "title": "신고하기"
+  },
+  "liveRoomSession": {
+    "reportedAndBlocked": "{{nickname}}님을 신고하고 차단했어요"
+  },
+  "roomAudio": {
+    "micDenied": "설정에서 마이크 권한을 허용해 주세요",
+    "micUnavailable": "마이크를 켤 수 없어요"
   }
 }

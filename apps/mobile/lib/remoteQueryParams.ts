@@ -10,6 +10,7 @@ import { profilePhotoPickerNative } from "../modules/profile-photo-picker";
 import { SUPPORTED_INLINE_KINDS, webGlassNative } from "../modules/web-glass";
 import { getRnda } from "./appLock/rnda";
 import { isNewUserThisLaunch } from "./auth";
+import { supportedSocialLoginProviders } from "./socialLogin";
 import { ensureUserRegistered } from "./userApi";
 
 // 고정 영역에 새 모양을 더하면 올리고, 웹은 이 값을 보고 그 모양을 앱에 맡길지 정한다.
@@ -18,7 +19,7 @@ const GLASS_CHROME_VERSION = 1;
 /**
  * 원격 웹뷰 URL에 붙일 쿼리 파라미터
  *
- * 탭 5개(홈·소셜·기록·랭킹·설정)와 세션 화면이 전부 같은
+ * 탭 5개(홈·그룹·기록·랭킹·설정)와 세션 화면이 전부 같은
  * 파라미터 세트를 쓴다(통합 검토 확정, BY-333). 화면마다 따로 조립하면 화면 간 이동에서
  * 값이 갈라진다 — 그래서 화면이 아니라 여기 한 곳에서 만든다.
  *
@@ -64,6 +65,10 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   // 웹은 이 표시가 있을 때만 다른 화면에서 랭킹 탭으로 보내는 진입점을 보인다(`apps/web/src/lib/rankingCapability.ts`).
   // 원격 웹은 구버전 앱에도 바로 배포되므로 브리지가 있다는 것만으로는 탭이 있는지 알 수 없다.
   params.ranking = "1";
+  // `groupRooms=1`: 이 바이너리가 그룹 공부방을 싣는다는 표시.
+  // 웹은 이 표시가 있을 때만 그룹 탭, 6자리 초대코드, 공부방을 연다(`apps/web/src/lib/groupRoomCapability.ts`).
+  // 원격 웹은 구버전 앱에도 바로 배포되므로 브리지가 있다는 것만으로는 마이크 권한과 새 푸시를 처리하는 바이너리인지 알 수 없다.
+  params.groupRooms = "1";
   // `alertHaptic=1`: 이 바이너리가 `haptic` 브리지 메시지의 `alert` 세기를 처리할 수 있다는 표시.
   // 웹은 이 표시가 있을 때만 타이머 끝 알림에 `alert`를 보낸다(`apps/web/src/lib/alertHapticCapability.ts`).
   // 구버전 앱의 파서는 모르는 세기를 통째로 버리므로 브리지가 있다는 것만으로는 보낼 수 없다.
@@ -95,6 +100,13 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   // Android 웹뷰의 파일 입력이 큰 카메라 사진을 읽지 못해 Android에만 붙이고, 모듈이 없는 옛 Dev Client에는 붙이지 않는다.
   if (Platform.OS === "android" && profilePhotoPickerNative !== null) {
     params.profilePhotoPicker = "1";
+  }
+  // `socialLogin`: 이 바이너리가 `social-login`으로 로그인할 수 있는 공급자 목록이다.
+  // 웹은 목록 안의 공급자 버튼만 보이고, 목록이 없는 구버전 앱에서는 로그인을 앱에 맡기지 않는다(`apps/web/src/lib/nativeSocialLogin.ts`).
+  // 앱 종류별 키가 없는 공급자는 빠지고, SDK 네이티브 모듈이 없는 이전 Dev Client에는 붙지 않는다.
+  const socialLoginProviders = supportedSocialLoginProviders();
+  if (socialLoginProviders.length > 0) {
+    params.socialLogin = socialLoginProviders.join(",");
   }
   // `glassChrome`: 이 바이너리가 위쪽 고정 영역을 네이티브 Liquid Glass로 그린다는 표시이고 값은 그릴 수 있는 크롬 모양의 버전이다.
   // `glassControls`: 이 바이너리의 Swift가 그리는 본문 부품 종류 목록이고, 버튼 모양을 그리면 `button-style`이 뒤에 붙는다.

@@ -1,4 +1,5 @@
 import appConfig from "../../app.json";
+import enLocale from "../../locales/en.json";
 
 /**
  * S2-2는 만들 커스텀 UI가 없고 앱이 통제하는 것은 목적 문구뿐이다 — 그래서 이 문자열이
@@ -36,9 +37,38 @@ describe("app.json 카메라 권한 문구 (S2-2)", () => {
     );
   });
 
-  it("마이크 권한을 요청하지 않는다 (멀티룸 음성 송출 없음)", () => {
-    expect(appConfig.expo.ios.infoPlist).not.toHaveProperty("NSMicrophoneUsageDescription");
-    expect(appConfig.expo.android.permissions).not.toContain("RECORD_AUDIO");
+  /**
+   * 그룹 공부방 마이크 권한 문구
+   *
+   * 웹뷰 안 getUserMedia도 앱의 네이티브 마이크 권한이 있어야 소리를 받는다.
+   * 문구를 비워 두면 prebuild가 자동으로 적용하는 expo-camera 플러그인이 영어 기본 문구를 넣으므로 값을 고정한다.
+   * 그 플러그인은 옵션이 없으면 이미 있는 값을 유지해서 여기 문구가 바이너리에 실린다.
+   */
+  it("마이크 권한을 공부방 문구로 요청한다", () => {
+    expect(appConfig.expo.ios.infoPlist.NSMicrophoneUsageDescription).toBe(
+      "공부방에서 그룹 멤버와 이야기할 때 사용해요. 목소리는 멤버만 들을 수 있고 녹음하거나 저장하지 않아요.",
+    );
+    expect(appConfig.expo.android.permissions).toContain("RECORD_AUDIO");
+  });
+
+  /**
+   * 마이크 문구의 개인정보 표현
+   *
+   * 공부방 소리는 P2P로 멤버에게 바로 가므로 서버를 내세운 안내는 사실과 다르게 읽힌다.
+   * 위 단언은 문구를 바꿀 때 함께 바뀌므로 이 규칙은 따로 남긴다.
+   */
+  it("마이크 문구는 영상이 서버로 가지 않는다고 말하지 않는다", () => {
+    expect(appConfig.expo.ios.infoPlist.NSMicrophoneUsageDescription).not.toMatch(/서버/);
+  });
+
+  /**
+   * 영어 마이크 문구의 개인정보 표현
+   *
+   * 영어 기기는 `locales/en.json`의 문구를 보므로 위 규칙을 영어판에도 건다.
+   * 기기 밖으로 나가지 않는다는 말도 멤버에게 소리가 가는 공부방에는 맞지 않는다.
+   */
+  it("영어 마이크 문구도 서버나 기기 밖을 내세우지 않는다", () => {
+    expect(enLocale.NSMicrophoneUsageDescription).not.toMatch(/server|leaves? your device/i);
   });
 
   /**
@@ -56,17 +86,22 @@ describe("app.json 카메라 권한 문구 (S2-2)", () => {
   });
 
   /**
-   * 권한을 **열거로** 고정한다. `expo-camera` plugin을 `plugins`에 넣으면 `RECORD_AUDIO`가
-   * 조용히 주입되는데(`apps/mobile/CLAUDE.md`), 위 부정 단언만으로는 그 외의 오염을 못 잡는다.
-   * 권한이 늘어날 때 이 배열을 고치면서 "정말 필요한가"를 한 번 되묻게 하는 것이 목적이다.
+   * Android 권한 열거 고정
+   *
+   * 권한이 늘어날 때 이 배열을 고치면서 정말 필요한지 한 번 되묻게 하려는 것이다.
    */
-  it("선언된 Android 권한은 두 개뿐이다", () => {
+  it("선언된 Android 권한은 카메라·센서·마이크 권한뿐이다", () => {
     expect(appConfig.expo.android.permissions).toEqual([
       "CAMERA",
       // 가속도 20Hz 샘플링(설계 §5). Android 12+는 이게 없으면 센서 주기가 200ms로 묶여
       // 300ms 창에 표본이 2개만 들어가고 표준편차 판정이 성립하지 않는다.
       // normal 권한이라 런타임 다이얼로그는 뜨지 않는다.
       "HIGH_SAMPLING_RATE_SENSORS",
+      // 런타임 요청은 웹이 처음 마이크를 켤 때 웹뷰가 한다.
+      "RECORD_AUDIO",
+      // 웹뷰 안 WebRTC가 오디오를 통화 모드로 바꿀 때 필요하다.
+      // normal 권한이라 런타임 다이얼로그는 뜨지 않는다.
+      "MODIFY_AUDIO_SETTINGS",
     ]);
   });
 
@@ -104,10 +139,10 @@ describe("app.json 카메라 권한 문구 (S2-2)", () => {
    *
    * 저장에는 쓰기 권한만 필요하고 사진·영상을 읽는 기능은 없다.
    * 읽기 권한이 남으면 스토어 심사에서 사진 접근 사유를 따로 소명해야 한다.
+   * 마이크 권한은 이 목록에 있으면 선언해도 빌드에서 빠지므로 넣지 않는다.
    */
-  it("플러그인이 넣는 사진·영상 읽기 권한을 막는다", () => {
+  it("플러그인이 넣는 사진·영상 읽기 권한은 계속 막는다", () => {
     expect(appConfig.expo.android.blockedPermissions).toEqual([
-      "android.permission.RECORD_AUDIO",
       "android.permission.READ_EXTERNAL_STORAGE",
       "android.permission.READ_MEDIA_IMAGES",
       "android.permission.READ_MEDIA_VIDEO",
