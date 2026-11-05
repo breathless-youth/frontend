@@ -200,7 +200,9 @@ describe("fromApi", () => {
       memberCount: card.memberCount,
       weeklyAverageSec: card.weeklyAverageFocusSec,
       studyingCount: card.studyingCount,
+      member: card.member,
     });
+    expect(toPublicRoomSummary({ ...card, member: true }).member).toBe(true);
     expect(toPublicRoomSummary({ ...card, category: "UNKNOWN" as never }).categoryLabel).toBe("");
   });
 
