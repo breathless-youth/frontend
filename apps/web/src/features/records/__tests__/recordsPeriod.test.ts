@@ -193,6 +193,11 @@ describe("averageFocusSecPerStudiedDay — 공부한 날만 센 하루 평균", 
     expect(averageFocusSecPerStudiedDay([day("2026-09-01", 3600 + 29)])).toBe(3600);
   });
 
+  it("1분 미만 평균은 반올림하지 않고 초 그대로 둔다 — 4초가 0분으로 보이지 않게", () => {
+    expect(averageFocusSecPerStudiedDay([day("2026-09-01", 4)])).toBe(4);
+    expect(averageFocusSecPerStudiedDay([day("2026-09-01", 59), day("2026-09-02", 60)])).toBe(59);
+  });
+
   it("공부한 날이 없으면 null이다", () => {
     expect(averageFocusSecPerStudiedDay([day("2026-09-01", 0)])).toBeNull();
     expect(averageFocusSecPerStudiedDay([])).toBeNull();
@@ -221,6 +226,8 @@ describe("주간 평균 — 공부시간과 집중률", () => {
     expect(averageStudySecPerStudiedDay([stat("2026-09-14", 3600, 2 * 3600 + 31)])).toBe(
       2 * 3600 + 60,
     );
+    // 1분 미만은 순공처럼 초 그대로 둔다.
+    expect(averageStudySecPerStudiedDay([stat("2026-09-14", 4, 40)])).toBe(40);
     expect(averageStudySecPerStudiedDay([stat("2026-09-14", 0, 0)])).toBeNull();
   });
 
