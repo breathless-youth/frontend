@@ -180,6 +180,7 @@ export function buildGroupRoomFixtures(now: Date) {
       roomId: 1,
       name: "수능 D-200 밤샘반",
       categoryLabel: "수능",
+      joinPolicy: "approval",
       visibility: "public",
       memberCount: 5,
       newRequestCount: 0,
@@ -189,6 +190,7 @@ export function buildGroupRoomFixtures(now: Date) {
       roomId: 2,
       name: "우리 반 저녁 스터디",
       categoryLabel: "내신",
+      joinPolicy: "approval",
       visibility: "private",
       memberCount: 5,
       newRequestCount: 0,
@@ -198,6 +200,7 @@ export function buildGroupRoomFixtures(now: Date) {
       roomId: 3,
       name: "공시 아침 7시 출석",
       categoryLabel: "공무원",
+      joinPolicy: "approval",
       visibility: "public",
       memberCount: 4,
       newRequestCount: 0,
@@ -218,6 +221,7 @@ export function buildGroupRoomFixtures(now: Date) {
   // 목록 화면은 순서를 바꾸지 않고 서버가 준 대로 그리므로 서버처럼 활발한 순으로 두고 자리가 다 찬 그룹을 맨 뒤에 둔다.
   const publicRooms: PublicRoomSummary[] = [
     {
+      joinPolicy: "approval",
       roomId: 7,
       name: "새벽 5시 기상 공시반",
       categoryLabel: "공무원",
@@ -227,6 +231,7 @@ export function buildGroupRoomFixtures(now: Date) {
       member: false,
     },
     {
+      joinPolicy: "approval",
       roomId: 8,
       name: "의대 가자 2027",
       categoryLabel: "수능",
@@ -236,6 +241,7 @@ export function buildGroupRoomFixtures(now: Date) {
       member: false,
     },
     {
+      joinPolicy: "open",
       roomId: 9,
       name: "토익 900 주말반",
       categoryLabel: "어학",
@@ -245,6 +251,7 @@ export function buildGroupRoomFixtures(now: Date) {
       member: false,
     },
     {
+      joinPolicy: "approval",
       roomId: 10,
       name: "한국사 1급 같이 따요",
       categoryLabel: "자격증",
@@ -256,6 +263,7 @@ export function buildGroupRoomFixtures(now: Date) {
   ];
 
   const publicDetail: PublicRoomDetail = {
+    joinPolicy: "approval",
     roomId: 7,
     name: "새벽 5시 기상 공시반",
     categoryLabel: "공무원",
@@ -333,6 +341,7 @@ export function buildGroupRoomFixtures(now: Date) {
   ];
 
   const roomHome: RoomHome = {
+    joinPolicy: "approval",
     roomId: 1,
     name: "수능 D-200 밤샘반",
     categoryLabel: "수능",
@@ -348,6 +357,7 @@ export function buildGroupRoomFixtures(now: Date) {
 
   // 그룹 만들기와 그룹 설정 시안이 모두 이 그룹을 채운 모습이라 그룹 홈의 값을 쓰고, 카테고리 값은 화면 글자와 같다.
   const roomForm: RoomFormValues = {
+    joinPolicy: "approval",
     name: roomHome.name,
     visibility: roomHome.visibility,
     category: roomHome.categoryLabel,

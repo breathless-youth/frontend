@@ -1,7 +1,23 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import i18n from "@/lib/i18n";
+import ko from "@/locales/ko/group-room.json";
+import en from "@/locales/en/group-room.json";
+import ja from "@/locales/ja/group-room.json";
+import zhHant from "@/locales/zh-Hant/group-room.json";
 
+const notificationKeys = [
+  "title",
+  "description",
+  "accept",
+  "later",
+  "enabled",
+  "disabled",
+] as const;
+
+import { joinPolicyText } from "../joinPolicy";
+import { ApiError } from "@/lib/api";
+import { groupErrorCopy } from "../../groupErrorCopy";
 import { contactBlockedCopy } from "../contactCheck";
 import { nameTakenCopy } from "../nameCheck";
 import { studyingCountText } from "../desks";
@@ -47,7 +63,16 @@ const dialogTexts = (copy: ConfirmDialogCopy) => [
 /** 그룹 모델이 만드는 문장을 경우마다 하나씩 모은다. */
 function everyCopy(): string[] {
   const texts: (string | null)[] = [
+    ...[1, 3].map((count) => i18n.t("group-room:joinPolicy.pendingLoss", { count })),
+    ...notificationKeys.map((key) => i18n.t(`group-room:notificationPrompt.${key}`)),
     contactBlockedCopy(),
+    joinPolicyText("approval"),
+    joinPolicyText("open"),
+    ...(
+      ["whoCanJoin", "settingsLabel", "join", "full", "openError", "approvalRequiredError"] as const
+    ).map((key) => i18n.t(`group-room:joinPolicy.${key}`, { count: 3 })),
+    groupErrorCopy("apply", new ApiError("x", 409, "GROUP_JOIN_OPEN")),
+    groupErrorCopy("join_public", new ApiError("x", 409, "GROUP_JOIN_APPROVAL_REQUIRED")),
     nameTakenCopy(),
     createRoomLimitCopy(),
     inviteCodeRenewedCopy(),
@@ -136,5 +161,13 @@ describe("영어 화면의 그룹 모델 문구", () => {
       confirmLabel: "Remove",
       confirmTone: "danger",
     });
+  });
+});
+
+describe("notification translations", () => {
+  it.each([ko, en, ja, zhHant])("provides all prompt and toast messages", (catalog) => {
+    for (const key of notificationKeys) {
+      expect(catalog.notificationPrompt[key].trim().length).toBeGreaterThan(0);
+    }
   });
 });

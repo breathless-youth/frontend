@@ -18,6 +18,7 @@ import { nameTakenCopy } from "./model/nameCheck";
 /** 오류가 난 사용자 동작 */
 export type GroupAction =
   | "join_code"
+  | "join_public"
   | "apply"
   | "create"
   | "update"
@@ -65,7 +66,14 @@ const COPY_BY_ACTION: Partial<Record<GroupAction, ReadonlyMap<string, CopyOf>>> 
     ["RECENTLY_KICKED", () => joinBlockCopy("kicked_recently")],
     ["GROUP_SLOT_LIMIT", () => joinBlockCopy("rooms_and_applications_full")],
   ]),
+  join_public: new Map([
+    ["GROUP_FULL", roomFullCopy],
+    ["RECENTLY_KICKED", () => joinBlockCopy("kicked_recently")],
+    ["GROUP_SLOT_LIMIT", groupCountFullCopy],
+    ["GROUP_JOIN_APPROVAL_REQUIRED", () => i18n.t("group-room:joinPolicy.approvalRequiredError")],
+  ]),
   apply: new Map([
+    ["GROUP_JOIN_OPEN", () => i18n.t("group-room:joinPolicy.openError")],
     ["GROUP_SLOT_LIMIT", groupCountFullCopy],
     ["APPLICATION_LIMIT", () => applyBlockCopy("pending_applications_full")],
     ["RECENTLY_KICKED", () => applyBlockCopy("kicked_recently")],

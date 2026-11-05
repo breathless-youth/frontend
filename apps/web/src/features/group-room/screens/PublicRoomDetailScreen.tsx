@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { BOTTOM_CTA_BAR_CLASS, BOTTOM_CTA_CLASS, BOTTOM_CTA_UNAVAILABLE_CLASS } from "../bottomCta";
 import { RoomMeta } from "../components/RoomMeta";
 import { TodayDesksCard } from "../components/TodayDesksCard";
+import type { RoomJoinPolicy } from "../model/joinPolicy";
 import { applyBlockCopy } from "../model/limits";
 import { formatHoursMinutes } from "../model/timeText";
 import type { ApplyState, PublicRoomDetail } from "../types";
@@ -62,6 +63,7 @@ export function PublicRoomDetailScreen({
         <div className="pt-0.5">
           <RoomMeta
             visibility="public"
+            joinPolicy={room.joinPolicy ?? "approval"}
             categoryLabel={room.categoryLabel}
             memberCount={room.memberCount}
           />
@@ -100,6 +102,7 @@ export function PublicRoomDetailScreen({
       <div className={BOTTOM_CTA_BAR_CLASS}>
         <ApplyButton
           applyState={applyState}
+          joinPolicy={room.joinPolicy ?? "approval"}
           pending={pending}
           onApply={onApply}
           onCancel={onCancelApplication}
@@ -160,11 +163,13 @@ function IntroCard({ intro }: { intro: string }) {
  */
 function ApplyButton({
   applyState,
+  joinPolicy,
   pending,
   onApply,
   onCancel,
 }: {
   applyState: ApplyState;
+  joinPolicy: RoomJoinPolicy;
   pending: boolean;
   onApply: () => void;
   onCancel: () => void;
@@ -179,7 +184,7 @@ function ApplyButton({
           onClick={onApply}
           className={cn(BOTTOM_CTA_CLASS, "shadow-sb-cta")}
         >
-          {t("publicRoomDetailScreen.apply")}
+          {t(joinPolicy === "open" ? "joinPolicy.join" : "publicRoomDetailScreen.apply")}
         </Button>
       );
     case "applied":
@@ -197,7 +202,7 @@ function ApplyButton({
     case "full":
       return (
         <Button size="xl" disabled className={cn(BOTTOM_CTA_CLASS, BOTTOM_CTA_UNAVAILABLE_CLASS)}>
-          {t("publicRoomDetailScreen.apply")}
+          {t("joinPolicy.full")}
         </Button>
       );
     case "blocked":

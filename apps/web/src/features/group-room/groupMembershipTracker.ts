@@ -14,7 +14,7 @@ import { toRoomVisibility } from "./fromApi";
 
 /** 이 기기에서 바꾼 내 멤버 상태 */
 export interface LocalMembershipChange {
-  kind: "created" | "joined_by_code" | "left";
+  kind: "created" | "joined_by_code" | "joined_directly" | "left";
   groupId: number;
 }
 

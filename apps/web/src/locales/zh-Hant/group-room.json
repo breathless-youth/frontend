@@ -269,5 +269,24 @@
     "notFound": "找不到群組",
     "notMember": "你不是這個群組的成員",
     "applicationCanceled": "已取消申請"
+  },
+  "joinPolicy": {
+    "approval": "申請後加入",
+    "open": "立即加入",
+    "whoCanJoin": "誰可以加入？",
+    "settingsLabel": "加入方式",
+    "pendingLoss": "變更加入方式後，剩餘的 {{count}} 筆申請將會被移除",
+    "join": "加入群組",
+    "full": "名額已滿",
+    "openError": "無須申請即可立即加入",
+    "approvalRequiredError": "加入此群組需要先申請並獲得核准"
+  },
+  "notificationPrompt": {
+    "title": "要接收成員讀書通知嗎？",
+    "description": "成員開始讀書時會通知你",
+    "accept": "接收通知",
+    "later": "稍後再說",
+    "enabled": "已開啟成員讀書通知",
+    "disabled": "已關閉成員讀書通知"
   }
 }

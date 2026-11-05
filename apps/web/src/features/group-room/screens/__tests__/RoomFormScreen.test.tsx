@@ -25,7 +25,13 @@ afterEach(() => {
 });
 
 const fixtures = buildGroupRoomFixtures(new Date("2026-11-02T10:00:00+09:00"));
-const initial: RoomFormValues = { name: "", visibility: "public", category: "수능", intro: "" };
+const initial: RoomFormValues = {
+  joinPolicy: "approval",
+  name: "",
+  visibility: "public",
+  category: "수능",
+  intro: "",
+};
 
 type FormProps = ComponentProps<typeof RoomFormScreen>;
 
@@ -51,16 +57,51 @@ const nameField = () => screen.getByRole("textbox", { name: "그룹 이름" });
 const introField = () => screen.getByRole("textbox", { name: "그룹 소개" });
 
 describe("RoomFormScreen", () => {
+  it("offers three entry choices and submits OPEN", async () => {
+    const onSubmit = vi.fn();
+    renderForm({ initial: { ...initial, name: "Study" }, onSubmit });
+    expect(screen.getAllByRole("radio")).toHaveLength(3);
+    expect(screen.getByRole("radio", { name: "신청 후 입장" })).toBeChecked();
+    await userEvent.setup().click(screen.getByRole("radio", { name: "바로 입장" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "그룹 만들기" }));
+    expect(onSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ visibility: "public", joinPolicy: "open" }),
+    );
+  });
+
+  it.each([0, 3])("shows pending loss only when switching with %i requests", async (count) => {
+    renderForm({ mode: "edit", initial: fixtures.roomForm, newRequestCount: count });
+    expect(
+      screen.queryByText(
+        /\uc785\uc7a5 \ubc29\uc2dd\uc744 \ubcc0\uacbd\ud558\uba74 \ub0a8\uc740 \uc2e0\uccad/,
+      ),
+    ).toBeNull();
+    await userEvent.setup().click(screen.getByRole("radio", { name: "바로 입장" }));
+    if (count > 0)
+      expect(screen.getByRole("status")).toHaveTextContent(
+        `\uc785\uc7a5 \ubc29\uc2dd\uc744 \ubcc0\uacbd\ud558\uba74 \ub0a8\uc740 \uc2e0\uccad ${count}\uac74\uc774 \uc5c6\uc5b4\uc838\uc694`,
+      );
+    else
+      expect(
+        screen.queryByText(
+          /\uc785\uc7a5 \ubc29\uc2dd\uc744 \ubcc0\uacbd\ud558\uba74 \ub0a8\uc740 \uc2e0\uccad/,
+        ),
+      ).toBeNull();
+    await userEvent.setup().click(screen.getByRole("radio", { name: "신청 후 입장" }));
+    expect(
+      screen.queryByText(
+        /\uc785\uc7a5 \ubc29\uc2dd\uc744 \ubcc0\uacbd\ud558\uba74 \ub0a8\uc740 \uc2e0\uccad/,
+      ),
+    ).toBeNull();
+  });
+
   it("처음에는 공개와 프로필 카테고리가 골라져 있고 이름이 비면 만들 수 없다", () => {
     renderForm();
     expect(screen.getByRole("heading", { level: 1, name: "그룹 만들기" })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: /^공개/ })).toBeChecked();
-    expect(screen.getByRole("radio", { name: /^공개/ })).toHaveAccessibleDescription(
-      "공개 그룹 목록에 보이고, 신청을 받아 그룹장이 수락해요",
-    );
-    expect(screen.getByRole("radio", { name: /^비공개/ })).toHaveAccessibleDescription(
-      "초대 링크나 코드를 받은 사람만 들어와요",
-    );
+    expect(screen.getByRole("radio", { name: "신청 후 입장" })).toBeChecked();
+    expect(screen.getAllByRole("radio")).toHaveLength(3);
+    expect(screen.queryByText("공개")).toBeNull();
+    expect(screen.getByRole("radio", { name: "비공개" })).not.toHaveAccessibleDescription();
     expect(screen.getByRole("button", { name: "수능" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: "그룹 만들기" })).toBeDisabled();
   });
@@ -123,6 +164,7 @@ describe("RoomFormScreen", () => {
     expect(onSubmit).toHaveBeenCalledWith({
       name: "우리 반 저녁 스터디",
       visibility: "private",
+      joinPolicy: "approval",
       category: "수능",
       intro: "",
     });
@@ -145,10 +187,10 @@ describe("RoomFormScreen", () => {
   });
 
   it("그룹 설정은 공개·비공개를 보여 주기만 하고 바꿀 수 없다고 알린다", () => {
-    renderForm({ mode: "edit", initial: fixtures.roomForm });
+    renderForm({ mode: "edit", initial: { ...fixtures.roomForm, visibility: "private" } });
     expect(screen.getByRole("heading", { level: 1, name: "그룹 설정" })).toBeInTheDocument();
     expect(screen.queryByRole("radio")).toBeNull();
-    expect(screen.getByText("공개")).toBeInTheDocument();
+    expect(screen.getByText("비공개")).toBeInTheDocument();
     expect(screen.getByText("공개와 비공개는 그룹을 만든 뒤에 바꿀 수 없어요")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "저장하기" })).toBeEnabled();
   });

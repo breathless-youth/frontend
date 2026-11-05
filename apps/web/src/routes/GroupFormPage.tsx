@@ -6,7 +6,12 @@ import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom"
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { toGroupVisibility, toRoomVisibility } from "@/features/group-room/fromApi";
+import {
+  toGroupVisibility,
+  toRoomVisibility,
+  toGroupJoinPolicy,
+  toRoomJoinPolicy,
+} from "@/features/group-room/fromApi";
 import {
   groupRetryCopy,
   groupErrorCode,
@@ -169,6 +174,7 @@ function GroupCreate({ userId }: { userId: number }) {
       initial={{
         name: "",
         visibility: "public",
+        joinPolicy: "approval",
         category: isStudyCategory(profileCategory) ? profileCategory : DEFAULT_CATEGORY,
         intro: "",
       }}
@@ -183,6 +189,9 @@ function GroupCreate({ userId }: { userId: number }) {
         create.mutate({
           name: values.name,
           visibility: toGroupVisibility(values.visibility),
+          ...(values.visibility === "public"
+            ? { joinPolicy: toGroupJoinPolicy(values.joinPolicy) }
+            : {}),
           category: isStudyCategory(values.category) ? values.category : DEFAULT_CATEGORY,
           description: values.intro,
         });
@@ -260,9 +269,11 @@ function GroupSettings({ userId, groupId }: { userId: number; groupId: number })
       initial={{
         name: home.name,
         visibility: toRoomVisibility(home.visibility),
+        joinPolicy: toRoomJoinPolicy(home.joinPolicy),
         category: home.category,
         intro: home.description ?? "",
       }}
+      newRequestCount={home.newApplicationCount ?? 0}
       pending={save.isPending}
       serverError={formError.serverError}
       onBack={back}
@@ -275,6 +286,9 @@ function GroupSettings({ userId, groupId }: { userId: number; groupId: number })
           name: values.name,
           // 이 웹이 모르는 시험·목표는 고를 칩이 없어서 그룹이 가진 값을 바꾸지 않고 다시 보낸다.
           category: isStudyCategory(values.category) ? values.category : home.category,
+          ...(home.visibility === "PUBLIC"
+            ? { joinPolicy: toGroupJoinPolicy(values.joinPolicy) }
+            : {}),
           description: values.intro,
         });
       }}

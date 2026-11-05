@@ -2,7 +2,7 @@ import type { GroupRoomJoinResponse } from "@focusmakers/types";
 import { onlineManager } from "@tanstack/react-query";
 import { act, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
 import { shareInvite } from "@/features/social-room/shareInvite";
@@ -57,6 +57,12 @@ vi.mock("@/routes/GroupRoomPage", async () => {
 // 그룹 홈은 나눠 받는 화면이라 전체 스위트 부하에서 첫 그리기가 findBy 기본 1초를 넘지 않게 미리 받아 둔다.
 beforeAll(async () => {
   await import("@/routes/GroupHomePage");
+});
+
+// These tests exercise the home after its first-visit question has been answered.
+beforeEach(() => {
+  localStorage.setItem("group-notification-asked:1:10", "1");
+  localStorage.setItem("group-notification-asked:1:11", "1");
 });
 
 afterEach(() => {

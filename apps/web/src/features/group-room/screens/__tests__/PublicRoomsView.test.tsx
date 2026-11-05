@@ -85,7 +85,7 @@ describe("PublicRoomsView", () => {
     );
     const card = screen.getByRole("button", { name: /새벽 5시 기상 공시반/ });
     expect(card).toHaveAccessibleName(
-      "새벽 5시 기상 공시반, 멤버 4/6, 공무원, 이번 주 평균 21시간 10분, 2명 공부 중",
+      "새벽 5시 기상 공시반, 신청 후 입장, 멤버 4/6, 공무원, 이번 주 평균 21시간 10분, 2명 공부 중",
     );
     expect(within(card).getByText("멤버 4/6")).toBeInTheDocument();
     expect(within(card).getByText("공무원")).toBeInTheDocument();

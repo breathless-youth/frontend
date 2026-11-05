@@ -129,3 +129,11 @@ describe("RoomHomeScreen", () => {
     expect(onEnterStudyRoom).toHaveBeenCalledOnce();
   });
 });
+
+it("hides approval UI for OPEN owners even with stale request counts", () => {
+  renderHome({ ...fixtures.roomHome, joinPolicy: "open" }, { defaultMenuOpen: true });
+  expect(screen.queryByText(/새 신청이/)).toBeNull();
+  expect(screen.queryByText("신청 확인")).toBeNull();
+  expect(screen.queryByText("신청을 받고 있어요")).toBeNull();
+  expect(screen.queryByText("빈자리")).toBeNull();
+});

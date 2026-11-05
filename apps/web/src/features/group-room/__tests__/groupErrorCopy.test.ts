@@ -18,6 +18,15 @@ const api = (status: number, code?: string) => new ApiError("x", status, code);
 
 describe("groupErrorCopy", () => {
   it.each([
+    ["join_public", api(409, "GROUP_JOIN_APPROVAL_REQUIRED"), "신청 후 수락이 필요한 그룹이에요"],
+    ["apply", api(409, "GROUP_JOIN_OPEN"), "신청 없이 바로 입장할 수 있어요"],
+    ["join_public", api(409, "GROUP_FULL"), "자리가 다 찼어요"],
+    ["join_public", api(409, "GROUP_SLOT_LIMIT"), "그룹과 신청을 합쳐 5개까지예요"],
+    [
+      "join_public",
+      api(409, "RECENTLY_KICKED"),
+      "내보내진 그룹에는 3일 동안 다시 들어갈 수 없어요",
+    ],
     ["join_code", api(404, "INVITE_CODE_NOT_FOUND"), "초대코드를 다시 확인해 주세요"],
     ["join_code", api(400, "VALIDATION_FAILED"), "초대코드를 다시 확인해 주세요"],
     ["join_code", api(400, "BAD_REQUEST"), "초대코드를 다시 확인해 주세요"],

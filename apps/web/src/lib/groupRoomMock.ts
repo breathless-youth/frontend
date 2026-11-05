@@ -329,11 +329,14 @@ export function createGroupMockServer(
         if (body.visibility === "PUBLIC" && isPublicNameTaken(body.name)) {
           throw apiError("GROUP_NAME_TAKEN");
         }
+        if (body.visibility === "PRIVATE" && body.joinPolicy === "OPEN")
+          throw apiError("VALIDATION_FAILED");
         const groupId = nextId();
         world.groups.push({
           groupId,
           name: body.name.trim(),
           visibility: body.visibility,
+          joinPolicy: body.joinPolicy ?? "APPROVAL",
           category: body.category,
           description: textOrNull(body.description),
           ownerId: meId,
@@ -354,6 +357,18 @@ export function createGroupMockServer(
         ) {
           throw apiError("GROUP_NAME_TAKEN");
         }
+        const nextPolicy = body.joinPolicy ?? group.joinPolicy;
+        if (group.visibility === "PRIVATE" && nextPolicy === "OPEN")
+          throw apiError("VALIDATION_FAILED");
+        if (group.joinPolicy === "APPROVAL" && nextPolicy === "OPEN") {
+          for (const application of [...group.applications]) closeApplication(group, application);
+          world.myApplications = world.myApplications.filter((application) => {
+            if (application.groupId !== groupId) return true;
+            closedApplicationIds.add(application.applicationId);
+            return false;
+          });
+        }
+        group.joinPolicy = nextPolicy;
         group.name = body.name.trim();
         group.category = body.category;
         group.description = textOrNull(body.description);
@@ -427,25 +442,36 @@ export function createGroupMockServer(
         group.members.push(meJoiningNow());
         return { groupId: group.groupId, joined: true };
       }),
+    joinPublicGroup: (groupId) =>
+      change(() => {
+        const group = findGroup(groupId);
+        if (group.visibility !== "PUBLIC" || group.joinPolicy !== "OPEN")
+          throw apiError("GROUP_JOIN_APPROVAL_REQUIRED");
+        if (isMember(group, meId)) return { groupId, joined: false };
+        if (isRecentlyKicked(world, groupId, now())) throw apiError("RECENTLY_KICKED");
+        if (isGroupFull(group)) throw apiError("GROUP_FULL");
+        if (slotsUsed() >= GROUP_MOCK_LIMITS.maxGroupsAndApplications)
+          throw apiError("GROUP_SLOT_LIMIT");
+        group.members.push(meJoiningNow());
+        return { groupId, joined: true };
+      }),
     applyToGroup: (groupId) =>
       change(() => {
         const detail = view().publicDetails[groupId];
         if (detail === undefined) {
           throw apiError("GROUP_NOT_FOUND");
         }
-        // 공개 그룹 보기의 상태 순서가 서버가 신청을 막는 순서와 같다.
-        switch (detail.applyState) {
-          case "MEMBER":
-            throw apiError("ALREADY_MEMBER");
-          case "APPLIED":
-            throw apiError("ALREADY_APPLIED");
-          case "FULL":
-            throw apiError("GROUP_FULL");
-          case "UNAVAILABLE":
-            throw apiError(detail.unavailableReason ?? "GROUP_SLOT_LIMIT");
-          case "CAN_APPLY":
-            break;
-        }
+        if (detail.joinPolicy === "OPEN") throw apiError("GROUP_JOIN_OPEN");
+        // Mutation conflict precedence follows GroupApplicationService, independently of display state.
+        const group = findGroup(groupId);
+        if (isMember(group, meId)) throw apiError("ALREADY_MEMBER");
+        if (detail.application !== null) throw apiError("ALREADY_APPLIED");
+        if (isRecentlyKicked(world, groupId, now())) throw apiError("RECENTLY_KICKED");
+        if (isGroupFull(group)) throw apiError("GROUP_FULL");
+        if (slotsUsed() >= GROUP_MOCK_LIMITS.maxGroupsAndApplications)
+          throw apiError("GROUP_SLOT_LIMIT");
+        if (view().mine.pendingApplicationCount >= GROUP_MOCK_LIMITS.maxPendingApplications)
+          throw apiError("APPLICATION_LIMIT");
         const appliedAtMs = now();
         const application = {
           applicationId: nextId(),

@@ -136,6 +136,10 @@ export function toastBottomOffset(
   hasNativeBridge: boolean,
   nativeTabBar: boolean = hasNativeTabBar(),
 ): string {
+  // Group home CTA: 24px bottom padding + 56px button + 12px toast gap.
+  if (/^\/social\/groups\/[1-9]\d*\/?$/.test(pathname)) {
+    return "calc(env(safe-area-inset-bottom) + 92px)";
+  }
   // 시스템 탭 바는 안전 영역에 자기 높이를 넣으므로 안전 영역 식 하나로 보이는 바와 숨긴 바를 모두 피한다.
   if (
     !hasNativeBridge ||

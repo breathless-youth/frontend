@@ -316,7 +316,11 @@ describe("그룹 가짜 서버", () => {
     });
     const applied = (await api.getMyApplications()).applications.map((item) => item.groupId);
     const target = (await api.getPublicGroups({ page: 0 })).groups.find(
-      (group) => !group.member && group.memberCount < 6 && !applied.includes(group.groupId),
+      (group) =>
+        !group.member &&
+        group.memberCount < 6 &&
+        group.joinPolicy === "APPROVAL" &&
+        !applied.includes(group.groupId),
     )!;
     expect(await api.getPublicGroup(target.groupId)).toMatchObject({
       applyState: "UNAVAILABLE",
@@ -546,5 +550,96 @@ describe("그룹 가짜 서버의 개발용 방 다리", () => {
     await vi.advanceTimersByTimeAsync(300);
     await expect(seat).resolves.toMatchObject({ micOn: null });
     expect(renew).not.toHaveBeenCalled();
+  });
+});
+
+describe("public join policies", () => {
+  it("ignores the three-request limit for OPEN but respects the combined limit", async () => {
+    const api = server("default");
+    await api.leaveGroup(11);
+    const { groups } = await api.getPublicGroups({ page: 0, size: 50 });
+    const approval = groups.filter(
+      (group) =>
+        group.joinPolicy === "APPROVAL" &&
+        !group.member &&
+        group.memberCount < 6 &&
+        group.groupId !== 12 &&
+        group.groupId !== 20,
+    );
+    await api.applyToGroup(approval[0]!.groupId, "Hello");
+    await api.applyToGroup(approval[1]!.groupId, "Hello");
+    const open = groups.filter((group) => group.joinPolicy === "OPEN" && group.memberCount < 6);
+    expect((await api.getMyGroups()).pendingApplicationCount).toBe(3);
+    expect((await api.getPublicGroup(open[0]!.groupId)).applyState).toBe("CAN_APPLY");
+    await expect(api.joinPublicGroup(open[0]!.groupId)).resolves.toMatchObject({ joined: true });
+    await expect(api.joinPublicGroup(open[1]!.groupId)).rejects.toMatchObject({
+      code: "GROUP_SLOT_LIMIT",
+    });
+  });
+
+  it("rejects OPEN policy on private creation or settings without applying other changes", async () => {
+    const api = server("default");
+    await expect(
+      api.createGroup({
+        name: "Private",
+        category: "CSAT",
+        visibility: "PRIVATE",
+        joinPolicy: "OPEN",
+      }),
+    ).rejects.toMatchObject({ code: "VALIDATION_FAILED" });
+    const { groupId } = await api.createGroup({
+      name: "Private",
+      category: "CSAT",
+      visibility: "PRIVATE",
+    });
+    await expect(
+      api.updateGroup(groupId, { name: "Changed", category: "CSAT", joinPolicy: "OPEN" }),
+    ).rejects.toMatchObject({ code: "VALIDATION_FAILED" });
+    expect((await api.getGroupHome(groupId)).name).toBe("Private");
+  });
+
+  it("seeds OPEN, joins without applying, and repeats idempotently", async () => {
+    const api = server("default");
+    const { groups } = await api.getPublicGroups({ page: 0, size: 50 });
+    const open = groups.find((group) => group.joinPolicy === "OPEN")!;
+    expect(open).toBeDefined();
+    await expect(api.applyToGroup(open.groupId, "Hello")).rejects.toMatchObject({
+      code: "GROUP_JOIN_OPEN",
+    });
+    await expect(api.joinPublicGroup(open.groupId)).resolves.toEqual({
+      groupId: open.groupId,
+      joined: true,
+    });
+    await expect(api.joinPublicGroup(open.groupId)).resolves.toEqual({
+      groupId: open.groupId,
+      joined: false,
+    });
+    expect((await api.getGroupHome(open.groupId)).joinPolicy).toBe("OPEN");
+  });
+
+  it("rejects direct entry to approval and private groups", async () => {
+    const api = server("default");
+    for (const id of [10, 11])
+      await expect(api.joinPublicGroup(id)).rejects.toMatchObject({
+        code: "GROUP_JOIN_APPROVAL_REQUIRED",
+      });
+  });
+
+  it("closes pending requests when changing to OPEN and never restores them", async () => {
+    const api = server("default");
+    const home = await api.getGroupHome(10);
+    const pending = (await api.getGroupApplications(10)).applications;
+    expect(pending.length).toBeGreaterThan(0);
+    await api.updateGroup(10, { name: home.name, category: home.category, joinPolicy: "OPEN" });
+    expect((await api.getGroupApplications(10)).applications).toEqual([]);
+    expect((await api.getGroupHome(10)).newApplicationCount).toBeNull();
+    expect(
+      (await api.getMyGroups()).groups.find((group) => group.groupId === 10)?.newApplicationCount,
+    ).toBeNull();
+    await expect(api.acceptApplication(pending[0]!.applicationId)).rejects.toMatchObject({
+      code: "APPLICATION_NOT_PENDING",
+    });
+    await api.updateGroup(10, { name: home.name, category: home.category, joinPolicy: "APPROVAL" });
+    expect((await api.getGroupApplications(10)).applications).toEqual([]);
   });
 });

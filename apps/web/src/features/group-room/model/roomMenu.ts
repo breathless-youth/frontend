@@ -1,5 +1,6 @@
 import i18n from "@/lib/i18n";
 
+import type { RoomJoinPolicy } from "./joinPolicy";
 import { GROUP_ROOM_LIMITS } from "./limits";
 
 export type RoomRole = "owner" | "member";
@@ -70,9 +71,10 @@ export function roomMenuItems(input: {
   role: RoomRole;
   visibility: RoomVisibility;
   newRequestCount: number;
+  joinPolicy?: RoomJoinPolicy;
   otherMemberCount: number;
 }): RoomMenuItem[] {
-  const { role, visibility, newRequestCount, otherMemberCount } = input;
+  const { role, visibility, newRequestCount, otherMemberCount, joinPolicy } = input;
   const leave: RoomMenuItem = {
     kind: "leave",
     label: itemLabel("leave"),
@@ -81,12 +83,14 @@ export function roomMenuItems(input: {
       : null,
   };
   if (role === "owner") {
-    const first: RoomMenuItem =
-      visibility === "public"
-        ? { kind: "requests", label: itemLabel("requests"), badge: newRequestCount }
-        : { kind: "invite", label: itemLabel("invite") };
+    const first: RoomMenuItem[] =
+      visibility === "private"
+        ? [{ kind: "invite", label: itemLabel("invite") }]
+        : joinPolicy === "open"
+          ? []
+          : [{ kind: "requests", label: itemLabel("requests"), badge: newRequestCount }];
     return [
-      first,
+      ...first,
       { kind: "manage_members", label: itemLabel("manage_members") },
       { kind: "settings", label: itemLabel("settings") },
       leave,

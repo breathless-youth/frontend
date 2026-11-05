@@ -522,6 +522,20 @@ describe("useNativeTabBarSync — 페이지 전환", () => {
 describe("toastBottomOffset", () => {
   const SAFE = "calc(env(safe-area-inset-bottom) + 16px)";
 
+  it("clears the group home CTA by 12px in browsers and both native shells", () => {
+    for (const [bridge, nativeBar] of [
+      [false, false],
+      [true, false],
+      [true, true],
+    ]) {
+      expect(toastBottomOffset("/social/groups/10", bridge, nativeBar)).toBe(
+        "calc(env(safe-area-inset-bottom) + 92px)",
+      );
+      expect(toastBottomOffset("/social/groups/10/members", bridge, nativeBar)).toBe(SAFE);
+      expect(toastBottomOffset("/social/groups/10/room", bridge, nativeBar)).toBe(SAFE);
+    }
+  });
+
   it("웹뷰의 탭 라우트는 탭 바 위로 띄운다", () => {
     expect(toastBottomOffset("/settings", true)).toBe("var(--tab-bar-reserve)");
     expect(toastBottomOffset("/social", true)).toBe("var(--tab-bar-reserve)");

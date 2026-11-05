@@ -186,6 +186,7 @@ describe("신청 확인", () => {
 
   it("그룹 홈에서 왔으면 그룹장이 바뀐 것을 알고 그 그룹 홈으로 돌아간다", async () => {
     const api = mockGroupApi("default");
+    localStorage.setItem("group-notification-asked:1:10", "1");
     const { router } = renderGroupRoute("/social/groups/10?groupRooms=1");
     await screen.findByRole("heading", { name: "새벽 5시 기상 공시반" });
     const homeKey = router.location().key;
@@ -245,6 +246,7 @@ describe("신청 신고", () => {
 
   it("신고하다 그룹장이 바뀐 것을 알면 앞 화면들을 거쳐 처음 그룹 홈으로 돌아간다", async () => {
     const api = mockGroupApi("default");
+    localStorage.setItem("group-notification-asked:1:10", "1");
     const { router } = renderGroupRoute("/social/groups/10?groupRooms=1");
     await screen.findByRole("heading", { name: "새벽 5시 기상 공시반" });
     const homeKey = router.location().key;

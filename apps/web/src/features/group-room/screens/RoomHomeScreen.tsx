@@ -57,11 +57,15 @@ export function RoomHomeScreen({
   const menuItems = roomMenuItems({
     role: room.role,
     visibility: room.visibility,
+    joinPolicy: room.joinPolicy,
     newRequestCount: room.newRequestCount,
     otherMemberCount: otherMemberCount(room.memberCount),
   });
   const showNewRequests =
-    room.role === "owner" && room.visibility === "public" && room.newRequestCount > 0;
+    room.role === "owner" &&
+    room.visibility === "public" &&
+    room.joinPolicy !== "open" &&
+    room.newRequestCount > 0;
   return (
     <main
       // 그룹 이름과 닉네임이 Amplitude 클릭 이벤트에 실리지 않게 화면 안의 글자와 aria-label을 모두 가린다.
@@ -113,6 +117,7 @@ export function RoomHomeScreen({
           members={room.members}
           visibility={room.visibility}
           elapsedSec={elapsedSec}
+          hideEmptySeatCopy={room.joinPolicy === "open"}
         />
         <WeeklyRankCard rows={room.weeklyRanks} elapsedSec={elapsedSec} />
       </div>
