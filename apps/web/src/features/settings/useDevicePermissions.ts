@@ -2,8 +2,13 @@ import { useEffect, useState } from "react";
 
 import { isNativeBridgeAvailable, postToNative, subscribeToNativeMessages } from "@/lib/bridge";
 
+export type DevicePermissions = {
+  camera: boolean | null;
+  microphone: boolean | null;
+};
+
 /**
- * OS 카메라 권한 허용 여부 — 설정(S6)의 권한 행 토글이 쓴다.
+ * OS 카메라와 마이크 권한 허용 여부 — 설정(S6)의 권한 행 토글이 쓴다.
  *
  * 웹은 이 값을 스스로 알 수 없다. `navigator.permissions.query({ name: "camera" })`는
  * iOS WKWebView가 지원하지 않아 앱 안에서 플랫폼별로 갈리므로, 네이티브에 물어보는 브리지
@@ -22,8 +27,11 @@ import { isNativeBridgeAvailable, postToNative, subscribeToNativeMessages } from
  * 웹뷰 재노출 = `visibilitychange`로 알 수 있어, 네이티브에 앱 생명주기 배선을 새로 넣지 않고
  * 웹 안에서 닫힌다(react-query의 `refetchOnWindowFocus`가 이미 같은 신호를 쓰고 있다).
  */
-export function useCameraPermission(): boolean | null {
-  const [granted, setGranted] = useState<boolean | null>(null);
+export function useDevicePermissions(): DevicePermissions {
+  const [permissions, setPermissions] = useState<DevicePermissions>({
+    camera: null,
+    microphone: null,
+  });
 
   useEffect(() => {
     // 브라우저 단독 모드에서는 물어볼 상대가 없다 — 리스너도 달지 않고 `null`로 남긴다.
@@ -33,7 +41,8 @@ export function useCameraPermission(): boolean | null {
 
     const unsubscribe = subscribeToNativeMessages((message) => {
       if (message.type === "camera-permission") {
-        setGranted(message.granted);
+        // 마이크 값을 싣지 않는 옛 앱은 답이 와도 모름으로 남겨 화면이 그 행을 숨기게 한다.
+        setPermissions({ camera: message.granted, microphone: message.micGranted ?? null });
       }
     });
 
@@ -56,5 +65,5 @@ export function useCameraPermission(): boolean | null {
     };
   }, []);
 
-  return granted;
+  return permissions;
 }

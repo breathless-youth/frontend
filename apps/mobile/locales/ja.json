@@ -1,0 +1,8 @@
+{
+  "NSCameraUsageDescription": "AI分析、タイムラプス、ほかのメンバーとの映像共有に使います。AI分析用の映像はデバイス上でのみ処理され、写真はお使いのデバイスにだけ残ります。",
+  "NSMotionUsageDescription": "デバイスを手に取ったり触れたりしたことを検知します。センサーの値はデバイス上でのみ使われ、保存されません。",
+  "NSUserTrackingUsageDescription": "どこからインストールしたかと広告の効果を確認するために使います。カメラの映像と顔データは広告には使われません。",
+  "NSPhotoLibraryAddUsageDescription": "タイムラプス動画を「写真」アプリに保存するには、写真を追加する許可が必要です。",
+  "NSPhotoLibraryUsageDescription": "タイムラプス動画を「写真」アプリに保存するときに使います。",
+  "NSMicrophoneUsageDescription": "スタディルームでグループのメンバーと話すときに使います。声を聞けるのはメンバーだけで、録音や保存はされません。"
+}

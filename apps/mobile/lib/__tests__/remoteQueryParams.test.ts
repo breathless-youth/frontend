@@ -10,6 +10,7 @@ import {
 import { isNewUserThisLaunch } from "../auth";
 import { ensureUserRegistered } from "../userApi";
 import { getRnda } from "../appLock/rnda";
+import { __resetSocialLoginForTests, setSocialLoginAdapter } from "../socialLogin";
 
 /**
  * 원격 웹뷰 쿼리 파라미터 조립(BY-333) — 탭 3개 + 세션이 공유하는 단일 조립처.
@@ -72,6 +73,7 @@ beforeEach(() => {
   mockGlass.webGlassNative = null;
   mockGlass.available = false;
   __resetRemoteQueryParamsCacheForTests();
+  __resetSocialLoginForTests();
 });
 
 describe("buildRemoteQueryParams", () => {
@@ -135,6 +137,7 @@ describe("buildRemoteQueryParams", () => {
       guestAuth: "1",
       videoShare: "1",
       ranking: "1",
+      groupRooms: "1",
       alertHaptic: "1",
       pushPermission: "1",
       nativeTabBar: "1",
@@ -152,6 +155,7 @@ describe("buildRemoteQueryParams", () => {
       guestAuth: "1",
       videoShare: "1",
       ranking: "1",
+      groupRooms: "1",
       alertHaptic: "1",
       pushPermission: "1",
       nativeTabBar: "1",
@@ -169,6 +173,7 @@ describe("buildRemoteQueryParams", () => {
       guestAuth: "1",
       videoShare: "1",
       ranking: "1",
+      groupRooms: "1",
       alertHaptic: "1",
       pushPermission: "1",
       nativeTabBar: "1",
@@ -213,6 +218,10 @@ describe("buildRemoteQueryParams", () => {
     expect(params.ranking).toBe("1");
   });
 
+  it("그룹 공부방을 싣는 바이너리라는 표시를 붙인다", async () => {
+    await expect(buildRemoteQueryParams()).resolves.toMatchObject({ groupRooms: "1" });
+  });
+
   it("셸이 알림 햅틱을 낼 수 있음을 alertHaptic으로 알린다", async () => {
     mockedEnsureUserRegistered.mockResolvedValue(7);
 
@@ -235,6 +244,36 @@ describe("buildRemoteQueryParams", () => {
     const params = await buildRemoteQueryParams();
 
     expect(params.pushPermission).toBe("1");
+  });
+
+  it.each([
+    ["ios", "GOOGLE,KAKAO,APPLE"],
+    ["android", "GOOGLE,KAKAO"],
+  ] as const)("%s 운영 앱은 socialLogin에 %s를 붙인다", async (os, expected) => {
+    jest.replaceProperty(Platform, "OS", os);
+    mockedConstants.expoConfig = {
+      version: "1.4.2",
+      extra: {
+        socialLogin: {
+          kakaoNativeAppKey: "kakao-key",
+          googleIosClientId: "ios-client.apps.googleusercontent.com",
+          googleWebClientId: "web-client.apps.googleusercontent.com",
+        },
+      },
+    };
+    setSocialLoginAdapter({ providers: ["GOOGLE", "KAKAO", "APPLE"], signIn: jest.fn() });
+
+    const params = await buildRemoteQueryParams();
+
+    expect(params.socialLogin).toBe(expected);
+  });
+
+  it("SDK가 붙지 않은 바이너리는 socialLogin을 붙이지 않는다", async () => {
+    jest.replaceProperty(Platform, "OS", "ios");
+
+    const params = await buildRemoteQueryParams();
+
+    expect(params).not.toHaveProperty("socialLogin");
   });
 
   it("Android에서는 시스템 테마를 theme 파라미터로 붙인다", async () => {
@@ -365,6 +404,7 @@ describe("useRemoteQueryParams", () => {
         guestAuth: "1",
         videoShare: "1",
         ranking: "1",
+        groupRooms: "1",
         alertHaptic: "1",
         pushPermission: "1",
         nativeTabBar: "1",
@@ -385,6 +425,7 @@ describe("useRemoteQueryParams", () => {
         guestAuth: "1",
         videoShare: "1",
         ranking: "1",
+        groupRooms: "1",
         alertHaptic: "1",
         pushPermission: "1",
         nativeTabBar: "1",
@@ -403,6 +444,7 @@ describe("useRemoteQueryParams", () => {
       guestAuth: "1",
       videoShare: "1",
       ranking: "1",
+      groupRooms: "1",
       alertHaptic: "1",
       pushPermission: "1",
       nativeTabBar: "1",
@@ -449,6 +491,7 @@ describe("useRemoteQueryParams", () => {
         guestAuth: "1",
         videoShare: "1",
         ranking: "1",
+        groupRooms: "1",
         alertHaptic: "1",
         pushPermission: "1",
         nativeTabBar: "1",
@@ -469,6 +512,7 @@ describe("useRemoteQueryParams", () => {
         guestAuth: "1",
         videoShare: "1",
         ranking: "1",
+        groupRooms: "1",
         alertHaptic: "1",
         pushPermission: "1",
         nativeTabBar: "1",

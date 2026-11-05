@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { appVersionLabel, cameraPermissionRowLabel, CONTACT_FORM_URL } from "../settingsInfo";
+import {
+  appVersionLabel,
+  cameraPermissionRowLabel,
+  CONTACT_FORM_URL,
+  micPermissionRowLabel,
+} from "../settingsInfo";
 
 describe("appVersionLabel", () => {
   it("같은 주차의 Android는 한 표기로 합친다", () => {
@@ -56,5 +61,12 @@ describe("cameraPermissionRowLabel", () => {
 
   it("값을 바꾸는 스위치가 아니라 시스템 설정으로 나가는 버튼임을 알린다", () => {
     expect(cameraPermissionRowLabel(true)).toContain("시스템 설정 열기");
+  });
+});
+
+describe("micPermissionRowLabel", () => {
+  it("허용 여부를 텍스트로 읽어준다", () => {
+    expect(micPermissionRowLabel(true)).toBe("마이크 권한, 허용됨, 시스템 설정 열기");
+    expect(micPermissionRowLabel(false)).toBe("마이크 권한, 허용 안 됨, 시스템 설정 열기");
   });
 });

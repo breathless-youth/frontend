@@ -126,6 +126,18 @@ describe("InviteCodeJoinPage 모바일 브라우저 안내", () => {
     expect(screen.getByRole("button", { name: "참여하기" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "앱에서 참여하기" })).not.toBeInTheDocument();
   });
+
+  it("PC 브라우저로 연 6자리 그룹 링크는 4자리 입력 대신 그 코드와 앱 안내를 보인다", () => {
+    setUserAgent(WINDOWS_UA, 0);
+    renderAt("?code=K7Q2MX");
+    expect(screen.getByRole("heading", { name: "그룹 스터디에 초대받았어요" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "초대코드 K7Q2MX" })).toBeInTheDocument();
+    expect(screen.getByText("앱에서 이 코드로 참여할 수 있어요")).toBeInTheDocument();
+    expect(screen.queryByLabelText("초대코드 4자리")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "참여하기" })).not.toBeInTheDocument();
+    // 컴퓨터에는 열 앱도 보낼 스토어도 없어서 앱으로 넘기는 버튼을 두지 않는다.
+    expect(screen.queryByRole("button", { name: "앱에서 참여하기" })).not.toBeInTheDocument();
+  });
 });
 
 describe("InviteCodeJoinPage 상단 제목", () => {

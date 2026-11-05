@@ -1,7 +1,8 @@
 import type { StudySessionResponse } from "@focusmakers/types";
 import { describe, expect, it } from "vitest";
 
-import { resolveLiveRoomDoneNavigation } from "../liveRoomEndNavigation";
+import { kickedNotice, resolveLiveRoomDoneNavigation } from "../liveRoomEndNavigation";
+import { liveRoomHomePath, liveRoomResultPath } from "../roomKind";
 
 const sessions: StudySessionResponse[] = [
   {
@@ -35,7 +36,7 @@ describe("resolveLiveRoomDoneNavigation", () => {
       focusSec: 59,
       sessions,
     });
-    expect(nav).toEqual({ to: "social" });
+    expect(nav).toEqual({ to: "home" });
   });
 
   it("자동 종료면 순공이 길어도 소셜 홈으로 보낸다", () => {
@@ -45,7 +46,7 @@ describe("resolveLiveRoomDoneNavigation", () => {
       focusSec: 3000,
       sessions,
     });
-    expect(nav).toEqual({ to: "social" });
+    expect(nav).toEqual({ to: "home" });
   });
 
   it("유예 만료면 수동이라도 소셜 홈으로 보낸다", () => {
@@ -55,7 +56,7 @@ describe("resolveLiveRoomDoneNavigation", () => {
       focusSec: 3000,
       sessions,
     });
-    expect(nav).toEqual({ to: "social" });
+    expect(nav).toEqual({ to: "home" });
   });
 
   it("제출 결과가 비어 있으면 소셜 홈으로 보낸다 — 그릴 세션이 없다", () => {
@@ -65,6 +66,21 @@ describe("resolveLiveRoomDoneNavigation", () => {
       focusSec: 3000,
       sessions: [],
     });
-    expect(nav).toEqual({ to: "social" });
+    expect(nav).toEqual({ to: "home" });
+  });
+});
+
+describe("공부방을 나간 뒤의 경로와 안내", () => {
+  it("공부방 경로는 그룹 홈과 그룹 결과 화면이다", () => {
+    expect(liveRoomHomePath({ kind: "group", groupId: 10 })).toBe("/social/groups/10");
+    expect(liveRoomResultPath({ kind: "group", groupId: 10 }, 123)).toBe(
+      "/social/groups/10/room/result",
+    );
+    expect(liveRoomHomePath({ kind: "invite", inviteCode: "0712" })).toBe("/social");
+    expect(liveRoomResultPath({ kind: "invite", inviteCode: "0712" }, 42)).toBe(
+      "/social/room/42/result",
+    );
+    expect(kickedNotice("새벽 5시 기상 공시반")).toBe("새벽 5시 기상 공시반에서 내보내졌어요");
+    expect(kickedNotice(null)).toBe("그룹에서 내보내졌어요");
   });
 });

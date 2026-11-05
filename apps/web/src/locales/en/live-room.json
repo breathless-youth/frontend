@@ -5,10 +5,13 @@
     "graceEndSubMinute": "You were away for a while, so we ended your session.\nSessions under 1 minute don't appear in your records",
     "roomClosedSaved": "The room closed, so your session ended.\nDon't worry, your study record has been saved.",
     "roomClosedPending": "The room closed, so your session ended.\nDon't worry, your study record will be saved.",
-    "roomClosedSubMinute": "The room closed, so your session ended.\nSessions under 1 minute don't appear in your records"
+    "roomClosedSubMinute": "The room closed, so your session ended.\nSessions under 1 minute don't appear in your records",
+    "kicked": "You were removed from {{groupName}}",
+    "kickedUnnamed": "You were removed from the group"
   },
   "entry": {
-    "backToSocial": "Back to Social"
+    "backToSocial": "Back to Groups",
+    "backToGroup": "Back to group"
   },
   "me": "Me",
   "cameraConfirm": {
@@ -48,7 +51,13 @@
   "tile": {
     "focus": "Focusing",
     "distracted": "On a break",
-    "off": "Camera off"
+    "off": "Camera off",
+    "break": "On a break",
+    "aria": {
+      "micOn": "Mic on",
+      "micOff": "Mic off",
+      "speaking": "Speaking"
+    }
   },
   "time": {
     "total": "Total",
@@ -56,5 +65,70 @@
       "focus": "Focus time {{duration}}",
       "total": "Total study time {{duration}}"
     }
+  },
+  "groupRoomTopBar": {
+    "aria": {
+      "muteOthers": "Mute others",
+      "switchCamera": "Switch camera"
+    }
+  },
+  "micButton": {
+    "aria": {
+      "turnOff": "Turn off mic",
+      "turnOn": "Turn on mic"
+    }
+  },
+  "timerButton": {
+    "aria": {
+      "label": "Timer"
+    }
+  },
+  "roomTimerCopy": {
+    "startTimer": "Start {{duration}}",
+    "startPomodoro": "Focus for {{duration}}",
+    "pomodoroIntro": "Focus for {{focus}}, then take a break for {{rest}}, and repeat"
+  },
+  "roomTimerSheet": {
+    "title": "Timer settings",
+    "kind": {
+      "timer": "Timer",
+      "pomodoro": "Pomodoro"
+    },
+    "aria": {
+      "kind": "Timer type"
+    }
+  },
+  "roomTimerCapsule": {
+    "phase": {
+      "focus": "Focus",
+      "break": "Break"
+    },
+    "aria": {
+      "remaining": "Time left",
+      "pause": "Pause",
+      "resume": "Resume",
+      "off": "Turn off timer"
+    }
+  },
+  "roomMemberMenu": {
+    "volume": "Volume",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "report": "Report",
+    "kick": "Remove from group",
+    "aria": {
+      "trigger": "Options for {{nickname}}",
+      "volume": "Volume for {{nickname}}"
+    }
+  },
+  "reportMemberLayer": {
+    "title": "Report"
+  },
+  "liveRoomSession": {
+    "reportedAndBlocked": "Reported and blocked {{nickname}}"
+  },
+  "roomAudio": {
+    "micDenied": "Allow microphone access in system settings",
+    "micUnavailable": "Couldn't turn on the mic"
   }
 }

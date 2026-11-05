@@ -9,8 +9,10 @@
   "rows": {
     "editProfile": "Edit profile",
     "cameraPermission": "Camera access",
-    "timelapse": "Timelapse",
+    "micPermission": "Microphone access",
+    "timelapse": "Time-lapse",
     "appLock": "App blocking",
+    "blockList": "Blocked users",
     "contact": "Contact us",
     "interview": "Sign up for an interview",
     "interviewBadge": "Gift card",
@@ -25,6 +27,14 @@
       "tooltip": "About camera access",
       "granted": "Camera access, allowed, open system settings",
       "denied": "Camera access, not allowed, open system settings"
+    }
+  },
+  "micPermission": {
+    "tooltip": "You can change this in system settings",
+    "aria": {
+      "tooltip": "About microphone access",
+      "granted": "Microphone access, allowed, open system settings",
+      "denied": "Microphone access, not allowed, open system settings"
     }
   },
   "version": {

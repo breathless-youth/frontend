@@ -9,7 +9,7 @@ import {
   listStudySessionStats,
 } from "./statsApi";
 import { getStudySessionDetail } from "./studySessionApi";
-import { todayKstDateKey } from "./dateKst";
+import { dayStartMs, localDateKey } from "./dateKey";
 
 /**
  * 통계 queryOptions 모음
@@ -50,7 +50,6 @@ export const statsKeys = {
       : (["stats", "period", userId, range.from, range.to] as const),
 };
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 /** 정착된 날짜는 달력을 넘나드는 동안 캐시가 살아 있어야 한다. */
 const SETTLED_GC_TIME_MS = 30 * 60 * 1000;
 
@@ -65,8 +64,9 @@ const SETTLED_GC_TIME_MS = 30 * 60 * 1000;
  * 달의 도트 목록을 바꾸고, 그 목록은 그 달 모든 날짜의 응답에 실려 오기 때문이다.
  */
 export function isSettledStatsDate(date: string, now: Date = new Date()): boolean {
-  const todayKey = todayKstDateKey(now);
-  const yesterdayKey = todayKstDateKey(new Date(now.getTime() - DAY_MS));
+  const todayKey = localDateKey(now);
+  // 서머타임 전환일은 하루가 24시간이 아니라 오늘 자정 직전의 날짜를 어제로 쓴다.
+  const yesterdayKey = localDateKey(new Date(dayStartMs(todayKey) - 1));
   const month = date.slice(0, 7);
   return (
     date < yesterdayKey && month !== todayKey.slice(0, 7) && month !== yesterdayKey.slice(0, 7)

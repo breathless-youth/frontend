@@ -94,6 +94,33 @@ describe("CSS 대체 모드", () => {
     expect(bar).toContainElement(screen.getByRole("heading", { level: 1 }));
   });
 
+  it("오른쪽 요소를 제목과 함께 뒤로 버튼과 같은 줄에 그린다", () => {
+    const onTrailing = vi.fn();
+    render(
+      <GlassChrome
+        top={{
+          leading: "back",
+          onLeading: vi.fn(),
+          title: "수능 D-200 밤샘반",
+          trailing: (
+            <button type="button" onClick={onTrailing}>
+              그룹 메뉴
+            </button>
+          ),
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "그룹 메뉴" }));
+
+    expect(onTrailing).toHaveBeenCalledTimes(1);
+    const bar = screen.getByRole("button", { name: "뒤로 가기" }).parentElement!;
+    expect(bar).toContainElement(
+      screen.getByRole("heading", { level: 1, name: "수능 D-200 밤샘반" }),
+    );
+    expect(bar).toContainElement(screen.getByRole("button", { name: "그룹 메뉴" }));
+  });
+
   it("앱에 아무것도 보내지 않는다", () => {
     const postMessage = vi.fn();
     vi.stubGlobal("ReactNativeWebView", { postMessage });
@@ -151,6 +178,49 @@ describe("앱 모드", () => {
     press("chrome:leading");
 
     expect(onLeading).toHaveBeenCalledTimes(1);
+  });
+
+  it("오른쪽 요소가 있으면 제목도 웹이 그리고 앱에는 뒤로 가기만 맡긴다", () => {
+    const postMessage = enterNativeMode();
+    render(
+      <Harness
+        top={{
+          leading: "back",
+          onLeading: vi.fn(),
+          title: "수능 D-200 밤샘반",
+          trailing: <button type="button">그룹 메뉴</button>,
+        }}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "뒤로 가기" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "수능 D-200 밤샘반" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "그룹 메뉴" })).toBeInTheDocument();
+    expect(lastChrome(postMessage)?.top).toEqual({
+      leading: "back",
+      leadingLabel: "뒤로 가기",
+      title: null,
+    });
+  });
+
+  it("오른쪽 자리에 null이나 false를 넘기면 없는 것으로 보고 제목을 앱에 맡긴다", () => {
+    const postMessage = enterNativeMode();
+    const top = { leading: "back", onLeading: vi.fn(), title: "수능 D-200 밤샘반" } as const;
+    const { rerender } = render(<Harness top={{ ...top, trailing: null }} />);
+
+    expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
+    expect(lastChrome(postMessage)?.top).toEqual({
+      leading: "back",
+      leadingLabel: "뒤로 가기",
+      title: "수능 D-200 밤샘반",
+    });
+
+    rerender(<Harness top={{ ...top, trailing: false }} />);
+
+    expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
+    expect(lastChrome(postMessage)?.top?.title).toBe("수능 D-200 밤샘반");
   });
 
   it("앱이 메시지를 통째로 버리지 않게 긴 글자는 자르고 빈 제목은 null로 보낸다", () => {

@@ -7,6 +7,7 @@ import * as Sentry from "@sentry/react";
 import {
   trackAmbientSoundPlayed,
   trackCameraFlipped,
+  trackFocusMilestoneReached,
   trackStudySessionDistracted,
   trackStudySessionEnded,
   trackStudySessionPaused,
@@ -476,11 +477,11 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   }, [roomType, initial.restored]);
 
   /**
-   * 순공 5분 달성 이벤트
+   * 순공 1분 달성 이벤트
    *
-   * 세션 종료가 아니라 300초에 닿는 순간 보내야 세션을 끝내지 않고 앱을 끈 사람도 집계된다.
+   * 세션 종료가 아니라 60초에 닿는 순간 보내야 세션을 끝내지 않고 앱을 끈 사람도 집계된다.
    * 화면 집계에는 복원 전 순공이 이미 들어 있어서 복원 세션은 진입하자마자 판정된다.
-   * 기기당 한 번 보장은 `trackMetaFocusMilestone`이 맡고, 여기서는 같은 세션에서 다시 부르지 않게만 막는다.
+   * 기기당 한 번 보장은 메타와 Amplitude 함수가 각각 맡고, 여기서는 같은 세션에서 다시 부르지 않게만 막는다.
    */
   const displayFocusSec = display.totals.focusSec;
   useEffect(() => {
@@ -489,7 +490,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     }
     focusMilestoneTrackedRef.current = true;
     trackMetaFocusMilestone();
-  }, [displayFocusSec]);
+    trackFocusMilestoneReached(roomType);
+  }, [displayFocusSec, roomType]);
 
   /**
    * 방해 앱 잠금

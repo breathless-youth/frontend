@@ -19,8 +19,9 @@ type Listeners = {
 const captured: {
   hidden?: boolean;
   triggers: { name: string; disabled?: boolean }[];
+  labels: string[];
   listeners: (route: { name: string; key: string }) => Listeners;
-} = { triggers: [], listeners: () => ({}) };
+} = { triggers: [], labels: [], listeners: () => ({}) };
 
 jest.mock("expo-router/unstable-native-tabs", () => {
   /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/consistent-type-imports */
@@ -38,27 +39,39 @@ jest.mock("expo-router/unstable-native-tabs", () => {
   }
   function Trigger(props: { name: string; disabled?: boolean; children?: React.ReactNode }) {
     captured.triggers.push({ name: props.name, disabled: props.disabled });
-    return ReactModule.createElement(View, { testID: `trigger-${props.name}` });
+    return ReactModule.createElement(View, { testID: `trigger-${props.name}` }, props.children);
   }
   Trigger.Icon = function TriggerIcon() {
     return null;
   };
-  Trigger.Label = function TriggerLabel() {
+  // 시스템 탭 바에 그려질 이름을 렌더 순서대로 남긴다.
+  Trigger.Label = function TriggerLabel(props: { children?: React.ReactNode }) {
+    captured.labels.push(String(props.children));
     return null;
   };
   NativeTabs.Trigger = Trigger;
   return { NativeTabs };
 });
 
+let mockLanguageCode = "ko";
+jest.mock("expo-localization", () => ({
+  getLocales: () => [{ languageTag: mockLanguageCode }],
+}));
+
 beforeEach(() => {
   captured.hidden = undefined;
   captured.triggers = [];
+  captured.labels = [];
   __resetTabBarVisibilityForTests();
   __resetActiveTabForTests();
   __resetNativeAnalyticsForTests();
 });
 
-it("탭 다섯 개를 홈·소셜·기록·랭킹·설정 순서로 둔다", () => {
+afterEach(() => {
+  mockLanguageCode = "ko";
+});
+
+it("탭 다섯 개를 홈·그룹·기록·랭킹·설정 순서로 두고 소셜 자리 탭의 이름은 그룹이다", () => {
   captured.triggers = [];
   render(<NativeTabsLayout />);
 
@@ -69,6 +82,14 @@ it("탭 다섯 개를 홈·소셜·기록·랭킹·설정 순서로 둔다", () 
     "ranking",
     "settings",
   ]);
+  expect(captured.labels).toEqual(["홈", "그룹", "기록", "랭킹", "설정"]);
+});
+
+it("한국어가 아닌 기기는 시스템 탭 바 이름을 영어로 넘기고 소셜 자리 탭의 이름은 Groups다", () => {
+  mockLanguageCode = "en";
+  render(<NativeTabsLayout />);
+
+  expect(captured.labels).toEqual(["Home", "Groups", "Records", "Ranking", "Settings"]);
 });
 
 it("숨김 상태면 바 전체를 hidden으로 넘긴다", () => {

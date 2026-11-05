@@ -158,6 +158,49 @@ describe("roomMembersReducer 자가복구 — 모르는 userId 상태 메시지 
   });
 });
 
+describe("roomMembersReducer 그룹 공부방 메시지", () => {
+  it("마이크와 휴식 변화를 멤버에 반영한다", () => {
+    const start = [member(1), member(2)];
+    const afterMic = roomMembersReducer(start, { type: "MIC_CHANGED", userId: 2, micOn: true });
+    const afterBreak = roomMembersReducer(afterMic, {
+      type: "BREAK_CHANGED",
+      userId: 2,
+      onBreak: true,
+    });
+
+    expect(afterBreak.find((m) => m.userId === 2)).toMatchObject({ micOn: true, onBreak: true });
+    expect(afterBreak.find((m) => m.userId === 1)?.micOn).toBeUndefined();
+  });
+
+  it("모르는 사람의 마이크·휴식 변화는 임시 멤버로 더한다", () => {
+    const afterMic = roomMembersReducer([], { type: "MIC_CHANGED", userId: 8, micOn: true });
+    const afterBreak = roomMembersReducer([], { type: "BREAK_CHANGED", userId: 9, onBreak: true });
+
+    expect(afterMic).toEqual([{ userId: 8, cameraOn: false, focusState: "FOCUS", micOn: true }]);
+    expect(afterBreak).toEqual([
+      { userId: 9, cameraOn: false, focusState: "FOCUS", onBreak: true },
+    ]);
+  });
+
+  it("그룹장이 바뀌면 새 그룹장만 owner이고 방에 없으면 모두 내린다", () => {
+    const start = [member(1, { owner: true }), member(2, { owner: false })];
+
+    expect(
+      roomMembersReducer(start, { type: "OWNER_CHANGED", userId: 2 }).map((m) => m.owner),
+    ).toEqual([false, true]);
+    expect(
+      roomMembersReducer(start, { type: "OWNER_CHANGED", userId: 9 }).map((m) => m.owner),
+    ).toEqual([false, false]);
+  });
+
+  it("KICKED와 PEER_BLOCKED는 멤버 목록을 바꾸지 않는다", () => {
+    const before = [member(7), member(8)];
+
+    expect(roomMembersReducer(before, { type: "KICKED", groupId: 10 })).toBe(before);
+    expect(roomMembersReducer(before, { type: "PEER_BLOCKED", userId: 8 })).toBe(before);
+  });
+});
+
 describe("orderedMembers", () => {
   it("내 타일을 항상 첫 번째로 정렬한다", () => {
     const ordered = orderedMembers([member(7), member(8), member(9)], 8);

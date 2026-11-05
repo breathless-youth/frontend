@@ -1,0 +1,173 @@
+import { type ReactNode, useId } from "react";
+import { useTranslation } from "react-i18next";
+
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { RankAvatar } from "@/features/ranking/components/RankAvatar";
+
+import { appliedAtText, remainingText } from "../model/timeText";
+import type { ApplicationRequest } from "../types";
+import { GroupScreenFrame } from "./GroupScreenFrame";
+
+/**
+ * 그룹장의 신청 확인
+ *
+ * 신청마다 소개 글과 남은 시간을 보고 신고, 거절, 수락 가운데 하나로 답한다.
+ * 자리가 다 차도 신청은 기한까지 남으므로 목록은 유지하고 수락만 막는다.
+ * 답을 보내는 중인 신청은 버튼을 모두 막아 같은 답이 두 번 나가지 않는다.
+ * 받아 둔 신청이 있으면 다시 받는 중이거나 실패해도 신청을 보이고, 없을 때만 목록 자리에 오류나 자리표시를 둔다.
+ * 그래서 목록을 받는 동안 신청이 없다는 문장이 잠깐 보이지 않는다.
+ */
+export function RequestsScreen({
+  roomName,
+  remainingSeats,
+  requests,
+  now,
+  busyId,
+  loading = false,
+  error,
+  onBack,
+  onAccept,
+  onReject,
+  onReport,
+}: {
+  roomName: string;
+  remainingSeats: number;
+  requests: ApplicationRequest[];
+  now: Date;
+  /** 답을 보내는 중인 신청이고, 없으면 `null`이다. */
+  busyId: number | null;
+  loading?: boolean;
+  /** 신청을 받지 못했을 때 목록 자리에 둘 오류 표시이고, 다시 시도까지 호출부가 채운다. */
+  error?: ReactNode;
+  onBack: () => void;
+  onAccept: (applicationId: number) => void;
+  onReject: (applicationId: number) => void;
+  onReport: (applicationId: number) => void;
+}) {
+  const { t } = useTranslation("group-room");
+  let body: ReactNode;
+  if (requests.length > 0) {
+    body = (
+      <>
+        <ul className="flex flex-col gap-3 pt-4">
+          {requests.map((request) => (
+            <RequestCard
+              key={request.applicationId}
+              request={request}
+              now={now}
+              busy={busyId === request.applicationId}
+              canAccept={remainingSeats > 0}
+              onAccept={onAccept}
+              onReject={onReject}
+              onReport={onReport}
+            />
+          ))}
+        </ul>
+        <p className="pt-4 text-center text-[13px] leading-5 break-keep text-muted-foreground">
+          {t("requestsScreen.acceptNote")}
+        </p>
+      </>
+    );
+  } else if (error) {
+    body = <div className="pt-4">{error}</div>;
+  } else if (loading) {
+    body = (
+      <div className="flex flex-col gap-3 pt-4">
+        <Skeleton className="h-50 rounded-xl" />
+        <Skeleton className="h-50 rounded-xl" />
+      </div>
+    );
+  } else {
+    body = (
+      <p className="pt-16 text-center text-[15px] leading-5.5 text-muted-foreground">
+        {t("requestsScreen.empty")}
+      </p>
+    );
+  }
+  return (
+    <GroupScreenFrame title={t("requestsScreen.title")} onBack={onBack}>
+      <p className="pt-0.5 text-[13px] leading-5 wrap-break-word break-keep text-muted-foreground">
+        {`${roomName} · ${t("requestsScreen.remainingSeats", { count: remainingSeats })}`}
+      </p>
+      {body}
+    </GroupScreenFrame>
+  );
+}
+
+/**
+ * 신청 하나의 카드
+ *
+ * 카드마다 같은 이름의 버튼 셋이 놓이므로 누구의 신청인지 닉네임을 설명으로 붙인다.
+ */
+function RequestCard({
+  request,
+  now,
+  busy,
+  canAccept,
+  onAccept,
+  onReject,
+  onReport,
+}: {
+  request: ApplicationRequest;
+  now: Date;
+  busy: boolean;
+  canAccept: boolean;
+  onAccept: (applicationId: number) => void;
+  onReject: (applicationId: number) => void;
+  onReport: (applicationId: number) => void;
+}) {
+  const { t } = useTranslation("group-room");
+  const nameId = useId();
+  const { applicationId } = request;
+  return (
+    <li className="flex flex-col gap-3 rounded-xl bg-muted p-4 shadow-sb-card">
+      <div className="flex items-center gap-2.5">
+        <RankAvatar nickname={request.nickname} imageUrl={request.imageUrl} size="sm-plus" />
+        <p
+          id={nameId}
+          className="min-w-0 flex-1 truncate text-base leading-5.5 font-bold text-foreground"
+        >
+          {request.nickname}
+        </p>
+        <p className="shrink-0 text-xs leading-4 text-muted-foreground">
+          {appliedAtText(request.appliedAt, now)}
+        </p>
+      </div>
+      <p className="text-[15px] leading-5.5 wrap-break-word whitespace-pre-line text-foreground">
+        {`“${request.message}”`}
+      </p>
+      <p className="text-xs leading-4 text-muted-foreground">
+        {t("requestsScreen.expiry", { time: remainingText(request.expiresAt, now) })}
+      </p>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          aria-describedby={nameId}
+          disabled={busy}
+          onClick={() => onReport(applicationId)}
+          className="mr-auto flex h-11 min-w-11 items-center rounded-sm px-1 text-[13px] leading-4 font-semibold text-muted-foreground focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none disabled:opacity-50"
+        >
+          {t("requestsScreen.report")}
+        </button>
+        <Button
+          variant="secondary"
+          aria-describedby={nameId}
+          disabled={busy}
+          onClick={() => onReject(applicationId)}
+          className="h-11 w-22 rounded-lg text-[15px] font-bold"
+        >
+          {t("requestsScreen.reject")}
+        </Button>
+        <Button
+          aria-describedby={nameId}
+          disabled={busy || !canAccept}
+          onClick={() => onAccept(applicationId)}
+          className="h-11 w-26 rounded-lg text-[15px] font-bold"
+        >
+          {t("requestsScreen.accept")}
+        </Button>
+      </div>
+    </li>
+  );
+}

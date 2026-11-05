@@ -61,6 +61,15 @@ describe("RoomControlBar 가운데 자리", () => {
   });
 });
 
+describe("RoomControlBar 높이", () => {
+  it("높이는 룸 화면이 정한 바 높이 값을 읽는다", () => {
+    const bar = renderBar();
+
+    expect(bar).toHaveClass("h-(--room-bar-height)");
+    expect(bar.className).not.toMatch(/(^|\s)(regular:|short-side-lg:)?h-\d/);
+  });
+});
+
 describe("RoomControlBar 앱 glass 버튼", () => {
   function enterApp(controls = "segment,switch,button,button-style") {
     const postMessage = enterGlassChrome("/social/room/42", controls);

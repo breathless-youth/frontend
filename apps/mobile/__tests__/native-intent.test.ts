@@ -18,6 +18,18 @@ afterEach(() => {
 });
 
 describe("redirectSystemPath", () => {
+  it.each([
+    ["카카오", "kakaobff73043eb717b1be9775b230fdb5470://oauth?code=abc&state=xyz", false],
+    ["카카오 콜드 스타트", "kakaobff73043eb717b1be9775b230fdb5470://oauth?code=abc", true],
+    [
+      "구글",
+      "com.googleusercontent.apps.320200622450-7n4tsnasdc036knt49sgs66pigb2o2sg:/oauth2redirect?code=abc",
+      false,
+    ],
+  ])("%s 로그인 복귀 주소는 화면을 이동하지 않는다", (_name, path, initial) => {
+    expect(redirectSystemPath({ path, initial })).toBeNull();
+  });
+
   it("세션 화면이 없으면 받은 경로를 그대로 돌려준다", () => {
     const path = "https://web.focusmakers.app/social/join?code=4680";
 
@@ -25,14 +37,25 @@ describe("redirectSystemPath", () => {
   });
 
   it.each([
-    "https://web.focusmakers.app/social/join?code=4680",
-    "focusmakers://social/join?code=4680",
-  ])("세션 화면이 열려 있으면 %s의 이동을 멈추고 코드를 세션 화면에 넘긴다", (path) => {
+    "https://web.focusmakers.app/social/join?code=AB2CD3",
+    "focusmakers://social/join?code=ab2cd3",
+  ])("세션 화면이 열려 있으면 %s의 이동을 멈추고 정리한 코드를 넘긴다", (path) => {
     const handler = jest.fn();
     release = setSessionInviteHandler(handler);
 
     expect(redirectSystemPath({ path, initial: false })).toBeNull();
-    expect(handler).toHaveBeenCalledWith("4680");
+    expect(handler).toHaveBeenCalledWith("AB2CD3");
+  });
+
+  it.each([
+    "https://web.focusmakers.app/social/join?code=4680",
+    "focusmakers://social/join?code=4680",
+  ])("세션 화면이 열려 있어도 4자리 링크 %s는 이동만 멈추고 넘기지 않는다", (path) => {
+    const handler = jest.fn();
+    release = setSessionInviteHandler(handler);
+
+    expect(redirectSystemPath({ path, initial: false })).toBeNull();
+    expect(handler).not.toHaveBeenCalled();
   });
 
   it("콜드 스타트 링크는 세션 화면 여부와 상관없이 그대로 보낸다", () => {
@@ -61,7 +84,7 @@ describe("redirectSystemPath", () => {
     release = setSessionInviteHandler(() => {
       throw new Error("boom");
     });
-    const path = "focusmakers://social/join?code=4680";
+    const path = "focusmakers://social/join?code=AB2CD3";
 
     expect(redirectSystemPath({ path, initial: false })).toBe(path);
     warn.mockRestore();

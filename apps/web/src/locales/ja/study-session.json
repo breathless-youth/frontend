@@ -1,0 +1,162 @@
+{
+  "status": {
+    "focus": "集中時間を測定中",
+    "away": "席を離れているようです",
+    "phone": "スマホを使っているようです",
+    "device": "端末を操作しているようです",
+    "sleep": "居眠りしているようです",
+    "pause": "測定を一時停止しました"
+  },
+  "exitConfirm": {
+    "title": "勉強を終了しますか？",
+    "cancel": "続ける",
+    "confirm": "勉強を終了"
+  },
+  "exitDescription": {
+    "saved": "ここまで集中した{{duration}}は保存されます",
+    "subMinute": "1分未満の勉強は記録に表示されません"
+  },
+  "inviteConfirm": {
+    "title": "進行中の勉強を終了して、招待に参加しますか？",
+    "cancel": "続ける",
+    "confirm": "参加する"
+  },
+  "cameraPrompt": {
+    "title": "カメラの位置を確認してください",
+    "description": "顔と机が映るように位置を調整してください",
+    "notice": "映像がデバイスの外に出ることはありません",
+    "cancel": "シンプルモードで始める",
+    "confirm": "カメラをオン",
+    "faceMaskTooltip": "すばやく動くと、顔が一瞬見えることがあります",
+    "faceMaskCaption": "タイムラプスの「顔を隠す」は別に設定が必要です"
+  },
+  "cameraToast": {
+    "flipped": "カメラを切り替えました",
+    "noAlternative": "切り替えられるカメラがありません",
+    "cameraOff": "カメラがオフになっています"
+  },
+  "subMinuteEnd": {
+    "title": "勉強を終えました",
+    "cta": "ホームへ"
+  },
+  "autoEnd": {
+    "title": "ここまでの記録を保存しました",
+    "backgroundBody": "画面がオフの間は測定できないため、\n勉強を自動で終了しました",
+    "focusLabel": "集中時間",
+    "studyLabel": "総勉強時間",
+    "cta": "結果を見る"
+  },
+  "submit": {
+    "saving": "保存中…",
+    "retry": "もう一度送信",
+    "unregistered": "このデバイスはまだ登録されていないため、記録は保存されません",
+    "unsaved": "勉強時間{{elapsed}} — デバイスの登録前のため保存されませんでした。"
+  },
+  "submitError": {
+    "generic": "勉強の記録を保存できませんでした。しばらくしてからもう一度お試しください",
+    "invalid": "勉強の記録を保存できませんでした。記録に正しくない値があります",
+    "userNotFound": "ユーザー情報を確認できませんでした",
+    "conflict": "この勉強の記録はすでに保存されています",
+    "server": "勉強の記録を保存できませんでした。しばらくしてからもう一度お試しください"
+  },
+  "duration": {
+    "underMinute": "1分未満",
+    "srHours": "{{count}}時間",
+    "srMinutes": "{{count}}分",
+    "srSeconds": "{{count}}秒"
+  },
+  "timer": {
+    "total": "合計{{elapsed}}",
+    "srFocus": "集中時間{{duration}}",
+    "srTotal": "総勉強時間{{duration}}",
+    "srSubjectFocus": "集中{{duration}}"
+  },
+  "controls": {
+    "pause": "一時停止",
+    "resume": "再開",
+    "exit": "勉強を終了",
+    "simpleModeToggle": "シンプルモードに切り替え",
+    "sideActions": "ツール",
+    "subjectSelected": "科目を選択中"
+  },
+  "moreMenu": {
+    "trigger": "その他",
+    "flipCamera": "カメラを切り替え",
+    "help": "ヘルプを見る",
+    "shareInvite": "招待コードを共有"
+  },
+  "subjectSheet": {
+    "title": "科目",
+    "empty": "勉強する科目を追加しましょう",
+    "emptySub": "タップするだけで科目が追加されます。あとからこの画面で変更できます",
+    "addSubject": "科目を追加",
+    "addTask": "タスクを追加",
+    "reorder": "並べ替え",
+    "edit": "編集",
+    "remove": "削除",
+    "done": "完了",
+    "subjectLimit": "科目は20個まで作成できます",
+    "taskLimit": "タスクは1科目につき30個まで作成できます",
+    "loadFailed": "科目を読み込めませんでした",
+    "saveFailed": "保存できませんでした。もう一度お試しください",
+    "duplicateName": "この科目はすでにあります",
+    "overLimit": "{{count}}文字まで入力できます",
+    "suggestions": "おすすめの科目",
+    "subjectName": "科目名",
+    "newSubjectName": "新しい科目名",
+    "taskName": "タスク名",
+    "newTaskName": "新しいタスク名",
+    "taskProgress": "タスクの完了率"
+  },
+  "subjectRow": {
+    "move": "{{name}}を並べ替え",
+    "start": "{{name}}の測定を開始",
+    "stop": "{{name}}の測定を停止",
+    "tasks": "{{name}}のタスク"
+  },
+  "help": {
+    "dialog": "勉強画面のヘルプ",
+    "nextOverlay": "次の案内",
+    "prev": "前へ",
+    "next": "次へ",
+    "awayPill": "<hl>席を離れたり</hl>、<hl>居眠りしたり</hl>すると\nここでお知らせします",
+    "awayTimer": "その間、<hl>集中時間</hl>は止まります",
+    "measuringPill": "席に戻ると<hl>測定を再開</hl>します\n映像は<hl>デバイスの外</hl>に\n出ないので安心してください😌",
+    "measuringTimer": "<hl>集中時間</hl>が\nまた進みはじめます⏰",
+    "cameraTap": "画面をタップすると\n<hl>カメラ画面</hl>に切り替わります",
+    "buttonsSide": "<hl>バックグラウンド\nサウンド</hl>、<hl>科目</hl>、\n<hl>タイマー</hl>は\nここからオンにします",
+    "buttonsPause": "休憩するときは\n<hl>一時停止</hl>を\nタップします",
+    "finishMore": "このヘルプは\n「その他」メニューから\nいつでも見られます",
+    "finishCenter": "準備ができました\nさあ、<hl>集中</hl>しましょう",
+    "finishCta": "集中をはじめる"
+  },
+  "recovery": {
+    "title": "保存されていなかった記録を復元しました",
+    "body": "アプリが予期せず終了しました。\n勉強の記録は保存してあります。",
+    "date": "日付",
+    "time": "開始 · 終了",
+    "timeRange": "{{start}}〜{{end}}",
+    "studyTime": "総勉強時間",
+    "focusTime": "集中時間",
+    "confirm": "OK"
+  },
+  "result": {
+    "completeTitle": "今日の勉強が終わりました",
+    "completeDescription": "最後までやり遂げましたね！",
+    "focusLabel": "集中時間",
+    "totalPrefix": "総勉強時間",
+    "focusRate": "集中率{{percent}}%",
+    "timelineTitle": "勉強タイムライン",
+    "longestFocusLabel": "最長集中時間",
+    "todayFocusLabel": "今日の累計集中時間",
+    "studyDaysLabel": "勉強日数",
+    "studyDays": "{{count}}日",
+    "ctaHome": "ホームへ",
+    "ctaRecords": "記録を見る"
+  },
+  "legend": {
+    "focus": "集中",
+    "distract": "自動一時停止",
+    "pause": "一時停止"
+  }
+}

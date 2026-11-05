@@ -16,6 +16,7 @@ import type * as TokenSourceModule from "@/lib/auth/tokenSource";
 import type { TokenSource } from "@/lib/auth/tokenSource";
 import type * as Bridge from "@/lib/bridge";
 import { postToNative } from "@/lib/bridge";
+import { __resetGroupRoomsForTests } from "@/lib/groupRoomCapability";
 import { canUseNativeProfilePhoto, pickNativeProfilePhoto } from "@/lib/nativeProfilePhoto";
 import {
   deleteProfileImage,
@@ -90,6 +91,20 @@ function renderAt(path: string) {
   return { ...view, queryClient };
 }
 
+/** 토큰으로 받은 사용자라 주소에 사용자 번호를 싣지 않고도 프로필을 연다. */
+function signInWithToken(userId: number): void {
+  tokenSourceMock.source = {
+    getUserId: () => userId,
+    getAccessToken: async () => "token",
+    getCurrentToken: () => "token",
+    hasSettled: () => true,
+    subscribe: () => () => {},
+  } as unknown as TokenSource;
+  onTestFinished(() => {
+    tokenSourceMock.source = null;
+  });
+}
+
 afterEach(() => {
   vi.clearAllMocks();
   vi.restoreAllMocks();
@@ -107,7 +122,7 @@ describe("프로필 설정", () => {
 
     expect(await screen.findByLabelText("닉네임")).toHaveValue("포메3721");
     expect(screen.getByText("포")).toBeInTheDocument();
-    expect(screen.getByText("전문직")).toBeInTheDocument(); // 칩 7종 렌더 확인 대표
+    expect(screen.getByText("전문직")).toBeInTheDocument(); // 칩 렌더 확인 대표
   });
 
   it("제목 프로필 수정은 상단 헤더에만 있고 본문에 중복되지 않는다", async () => {
@@ -127,6 +142,49 @@ describe("프로필 설정", () => {
     expect(chip).toHaveAttribute("aria-checked", "true");
     await userEvent.click(chip);
     expect(chip).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("그룹 흐름이 없으면 카테고리 칩은 예전 7개를 예전 순서로 보인다", async () => {
+    signInWithToken(7);
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    renderAt("/profile");
+
+    const chips = await screen.findAllByRole("radio");
+    expect(chips.map((chip) => chip.textContent)).toEqual([
+      "전문직",
+      "수능",
+      "취업",
+      "자격증",
+      "공무원",
+      "어학",
+      "기타",
+    ]);
+  });
+
+  it("그룹 흐름이 켜지면 카테고리 칩은 9개이고 수능, 내신, 대학 시험 순서로 시작한다", async () => {
+    // 그룹 표시는 라우터가 아니라 문서 주소에서 읽는다.
+    window.history.replaceState(null, "", "/profile?groupRooms=1");
+    __resetGroupRoomsForTests();
+    onTestFinished(() => {
+      window.history.replaceState(null, "", "/");
+      __resetGroupRoomsForTests();
+    });
+    signInWithToken(7);
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    renderAt("/profile");
+
+    const chips = await screen.findAllByRole("radio");
+    expect(chips.map((chip) => chip.textContent)).toEqual([
+      "수능",
+      "내신",
+      "대학 시험",
+      "공무원",
+      "자격증",
+      "어학",
+      "취업",
+      "전문직",
+      "기타",
+    ]);
   });
 
   it("저장 시 변경된 필드만 PATCH로 보낸다", async () => {

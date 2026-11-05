@@ -1,0 +1,55 @@
+{
+  "button": {
+    "on": "背景聲音已開啟",
+    "off": "背景聲音"
+  },
+  "sheet": {
+    "title": "背景聲音",
+    "tooltip": "暫停時不會播放背景聲音",
+    "loadFailed": "無法載入背景聲音清單",
+    "blocked": "自動播放已被封鎖。把音量調到 0 再調回來，就能聽到聲音",
+    "aria": {
+      "tooltip": "關於背景聲音",
+      "toggleAll": "背景聲音"
+    }
+  },
+  "duck": {
+    "label": "與專注連動",
+    "tooltip": "沒有專注時會降低音量",
+    "aria": {
+      "tooltip": "關於「與專注連動」"
+    }
+  },
+  "row": {
+    "aria": {
+      "tooltip": "關於{{label}}",
+      "volume": "{{label}}音量"
+    }
+  },
+  "groups": {
+    "noise": "噪音",
+    "ambience": "環境音",
+    "music": "Lo-fi"
+  },
+  "notes": {
+    "binaural": "戴上耳機聽效果更好"
+  },
+  "sounds": {
+    "white": "白噪音",
+    "pink": "粉紅噪音",
+    "brown": "棕色噪音",
+    "binaural": "雙耳節拍",
+    "monaural": "單耳節拍",
+    "rain-trp": "雨聲（戶外）",
+    "rain-mm": "雨聲（室內）",
+    "cafe-vec": "咖啡廳",
+    "exam-g39": "考場",
+    "bonfire-kyles": "篝火",
+    "waves-esh": "輕柔海浪",
+    "birds-squashy": "鳥鳴",
+    "airplane-courter": "飛機機艙",
+    "lofi-breeze": "Morning Breeze",
+    "lofi-stars": "Lost Stars",
+    "lofi-vanilla": "Vanilla"
+  }
+}

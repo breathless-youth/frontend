@@ -7,6 +7,7 @@ import { TabBar } from "../../components/TabBar";
 import { setActiveTabRoute, TAB_BY_ROUTE_NAME } from "../../lib/activeTab";
 import { t } from "../../lib/i18n";
 import { trackNativeEvent } from "../../lib/nativeAnalytics";
+import { handleTabBack } from "../../lib/tabBack";
 import { emitTabReset, tabResetTargetForBack } from "../../lib/tabReset";
 import { useTabBarState } from "../../lib/tabBarVisibility";
 
@@ -41,14 +42,17 @@ function CustomTabsLayout() {
   // 그때 초기화 신호를 보내면 보이지도 않는 탭 웹뷰가 리셋된다.
   const isFocused = useIsFocused();
 
-  // 시스템 뒤로가기로 탭을 떠날 때 그 탭 웹뷰를 탭 루트로 초기화한다(`lib/tabReset.ts`).
-  // 기본 동작(홈 탭 이동, 홈에서는 앱 종료)은 그대로 둔다 — false 반환. 소셜룸 세션 중에는
-  // RemoteScreen의 잠금 핸들러가 나중에 등록되어 먼저 소비하므로 여기까지 오지 않는다.
+  // 보이는 탭 웹뷰가 탭 첫 화면이 아니면 그 웹뷰에서 한 칸 돌아가고 탭은 떠나지 않는다(`lib/tabBack.ts`).
+  // 웹뷰가 처리하지 않으면 탭을 떠나며 그 탭 웹뷰를 탭 루트로 초기화하고(`lib/tabReset.ts`), 기본 동작(홈 탭 이동, 홈에서는 앱 종료)을 유지하려고 false를 돌려준다.
+  // 소셜룸·공부방 세션 중에는 RemoteScreen의 잠금 핸들러가 나중에 등록되어 먼저 소비하므로 여기까지 오지 않는다.
   useEffect(() => {
     if (Platform.OS !== "android" || !isFocused) {
       return;
     }
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (handleTabBack()) {
+        return true;
+      }
       const target = tabResetTargetForBack(activeRouteRef.current);
       if (target !== null) {
         // 홈이 아닌 탭에서의 뒤로가기는 홈 탭 이동이다 — 탭 바 터치와 같은 사건이라 `tab_pressed`로

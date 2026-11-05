@@ -5,9 +5,10 @@ import type { PushTokenRegisterRequest } from "@focusmakers/types";
 import { apiFetch } from "./api";
 import { apiBaseUrl } from "./apiBaseUrl";
 import { ensureAuth, refreshAuth, subscribeAuth } from "./auth";
+import { getAppLocale } from "./i18n";
 import { getPushPermissionStatus, getPushToken } from "./pushMessaging";
 
-/** 이 프로세스에서 마지막으로 등록에 성공한 사용자·토큰·권한. 같으면 다시 보내지 않는다. */
+/** 이 프로세스에서 마지막으로 등록에 성공한 사용자·토큰·권한·언어. 같으면 다시 보내지 않는다. */
 let lastRegistered: string | null = null;
 /** 마지막으로 등록 요청을 보낸 사용자. 성공 여부와 무관하게 남겨, 등록이 부른 토큰 갱신이 등록을 다시 부르지 않게 한다. */
 let lastRequestedUserId: number | null = null;
@@ -40,8 +41,10 @@ async function registerOnce(): Promise<void> {
     token,
     platform: Platform.OS === "ios" ? "IOS" : "ANDROID",
     notificationsEnabled: (await getPushPermissionStatus()) === "granted",
+    locale: getAppLocale(),
   };
-  const key = `${auth.userId}|${token}|${body.notificationsEnabled}`;
+  // Android는 앱별 언어를 바꿔도 JS 모듈이 남으므로, 언어도 키에 넣어야 다음 등록 때 서버에 새 언어가 간다.
+  const key = `${auth.userId}|${token}|${body.notificationsEnabled}|${body.locale}`;
   if (key === lastRegistered) return;
   lastRequestedUserId = auth.userId;
   let res = await requestRegister(accessToken, body);

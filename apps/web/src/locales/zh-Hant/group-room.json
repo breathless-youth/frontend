@@ -1,0 +1,270 @@
+{
+  "contactCheck": {
+    "blocked": "無法傳送聯絡方式或連結"
+  },
+  "limits": {
+    "applyBlock": {
+      "kickedRecently": "{{count}} 天內無法申請加入這個群組",
+      "roomsAndApplicationsFull": "群組和加入申請合計最多 5 個",
+      "pendingApplicationsFull": "最多可以送出 3 個加入申請"
+    },
+    "joinBlock": {
+      "roomFull": "名額已滿",
+      "kickedRecently": "你已被移出這個群組，{{count}} 天內無法重新加入",
+      "roomsAndApplicationsFull": "群組和加入申請合計最多 5 個",
+      "invalidCode": "請再次確認邀請碼"
+    },
+    "memberCount": "成員 {{count}}/{{max}}"
+  },
+  "roomMenu": {
+    "item": {
+      "requests": "加入申請",
+      "invite": "邀請",
+      "manageMembers": "管理成員",
+      "viewMembers": "查看成員",
+      "settings": "群組設定",
+      "leave": "離開群組",
+      "leaveNote": "移交群組管理權後才能離開"
+    },
+    "mustTransfer": {
+      "title": "必須先移交群組管理權才能離開",
+      "description": "請先在「管理成員」中移交群組管理權",
+      "confirm": "管理成員"
+    },
+    "confirmLeave": {
+      "title": "要離開這個群組嗎？",
+      "soleOwner": "你離開後，這個群組就會消失",
+      "publicMember": "若要重新加入，必須再次申請",
+      "privateMember": "若要重新加入，必須再次獲得邀請",
+      "confirm": "離開"
+    },
+    "transferOwner": {
+      "title": "要將群組管理權移交給 {{nickname}} 嗎？",
+      "description": "你將不再擔任管理員",
+      "confirm": "移交"
+    },
+    "kickMember": {
+      "title": "要將 {{nickname}} 從群組移除嗎？",
+      "description": "{{nickname}} 在 {{count}} 天內無法重新加入",
+      "confirm": "移除"
+    },
+    "inviteCodeRenewed": "邀請碼已更新"
+  },
+  "timeText": {
+    "lastStudied": {
+      "withinHour": "今天",
+      "hoursAgo": "{{count}} 小時前",
+      "yesterday": "昨天",
+      "daysAgo": "{{count}} 天前"
+    },
+    "appliedAt": {
+      "withinHour": "剛剛申請",
+      "hoursAgo": "{{count}} 小時前申請",
+      "yesterday": "昨天申請",
+      "daysAgo": "{{count}} 天前申請"
+    },
+    "remaining": {
+      "days": "{{count}} 天",
+      "daysHours": "{{days}} 天 {{hours}} 小時"
+    }
+  },
+  "desks": {
+    "studyingCount": "{{count}} 人讀書中",
+    "nobodyStudying": "目前沒有人"
+  },
+  "categoryChips": {
+    "aria": {
+      "group": "準備的考試"
+    }
+  },
+  "deskGrid": {
+    "tone": {
+      "room": "在讀書室",
+      "elsewhere": "在其他地方讀書",
+      "rest": "休息中"
+    },
+    "emptySeat": "空位",
+    "openSeat": "開放申請中",
+    "aria": {
+      "list": "成員書桌",
+      "owner": "管理員"
+    }
+  },
+  "deskRow": {
+    "emptySeat": "空位"
+  },
+  "inviteCard": {
+    "title": "邀請",
+    "description": "收到連結或邀請碼的人，不需審核就能直接成為成員",
+    "codeLabel": "邀請碼",
+    "shareLink": "傳送連結",
+    "regenerate": "重新產生邀請碼"
+  },
+  "memberMenu": {
+    "transfer": "移交群組管理權",
+    "kick": "從群組移除",
+    "kickNote": "{{count}} 天內無法重新加入這個群組",
+    "aria": {
+      "trigger": "{{nickname}} 的選單"
+    }
+  },
+  "pendingApplicationsSheet": {
+    "title": "申請中的公開群組",
+    "description": "如果管理員在 {{count}} 天內沒有回覆，申請就會取消",
+    "remaining": "剩下 {{time}}",
+    "cancel": "取消申請"
+  },
+  "pendingBand": {
+    "label": "申請中的公開群組 {{count}} 個"
+  },
+  "publicRoomCard": {
+    "joined": "已加入",
+    "weeklyAverage": "本週平均 <value>{{duration}}</value>",
+    "aria": {
+      "weeklyAverage": "本週平均 {{duration}}"
+    }
+  },
+  "roomFab": {
+    "create": "建立群組",
+    "joinWithCode": "用邀請碼加入",
+    "aria": {
+      "open": "建立群組或用邀請碼加入",
+      "menu": "群組選單",
+      "close": "關閉群組選單"
+    }
+  },
+  "roomMenuButton": {
+    "aria": {
+      "label": "群組選單"
+    }
+  },
+  "socialTabs": {
+    "mine": "我的群組",
+    "public": "公開群組",
+    "aria": {
+      "list": "群組"
+    }
+  },
+  "weeklyRankCard": {
+    "title": "本週排名",
+    "resetNote": "每週一重新開始",
+    "studying": "讀書中"
+  },
+  "fieldError": {
+    "tooLong": "最多可輸入 {{count}} 個字"
+  },
+  "visibility": {
+    "public": "公開",
+    "private": "私密"
+  },
+  "applyScreen": {
+    "title": "申請加入",
+    "headline": "向 {{roomName}} 送出加入申請",
+    "description": "管理員 {{nickname}} 看過你的自我介紹並接受後，你就會成為成員",
+    "label": "自我介紹",
+    "notice": "如果管理員在 {{count}} 天內沒有回覆，申請就會取消",
+    "submit": "送出申請"
+  },
+  "blockListScreen": {
+    "title": "封鎖名單",
+    "description": "你和封鎖的人在讀書室裡不會看到或聽到彼此",
+    "empty": "你沒有封鎖任何人",
+    "unblock": "解除封鎖"
+  },
+  "inviteCodeEntryScreen": {
+    "title": "用邀請碼加入",
+    "prompt": "請輸入邀請碼",
+    "submit": "加入"
+  },
+  "membersScreen": {
+    "titleManage": "管理成員",
+    "titleView": "查看成員",
+    "listTitle": "成員",
+    "lastActive": "最後到訪日",
+    "ownerLeaveNote": "管理員必須將群組管理權移交給其他成員，才能離開群組",
+    "aria": {
+      "owner": "管理員"
+    }
+  },
+  "myRoomsView": {
+    "emptyTitle": "你還沒有加入任何群組",
+    "emptyDescription": "申請加入公開群組，或自己建立一個群組吧",
+    "browsePublic": "瀏覽公開群組"
+  },
+  "publicRoomDetailScreen": {
+    "owner": "管理員",
+    "weeklyAverage": "本週成員平均專注時間",
+    "todayMembers": "今天的成員",
+    "intro": "群組介紹",
+    "showMore": "顯示更多",
+    "apply": "申請加入",
+    "cancelApplication": "取消申請"
+  },
+  "publicRoomsView": {
+    "noneTitle": "還沒有公開群組",
+    "noneDescription": "建立第一個公開群組，找人一起讀書吧",
+    "filteredTitle": "沒有符合條件的公開群組",
+    "filteredDescription": "換個條件，或自己建立群組吧",
+    "search": "用群組名稱搜尋",
+    "allCategories": "全部"
+  },
+  "reportApplicationScreen": {
+    "title": "檢舉",
+    "headline": "檢舉 {{nickname}} 的加入申請",
+    "description": "檢舉後，這個申請會立即被拒絕"
+  },
+  "reportMemberScreen": {
+    "title": "檢舉",
+    "headline": "檢舉 {{nickname}}",
+    "description": "檢舉後，你就不會再看到 {{nickname}} 的畫面"
+  },
+  "reportField": {
+    "label": "檢舉原因",
+    "placeholder": "請說明發生了什麼問題",
+    "notice": "不實檢舉可能會導致你的帳號被限制使用",
+    "submit": "檢舉"
+  },
+  "requestsScreen": {
+    "title": "加入申請",
+    "remainingSeats": "剩餘 {{count}} 個名額",
+    "acceptNote": "接受後對方會立即成為成員，並收到通知",
+    "empty": "沒有待回覆的申請",
+    "expiry": "如果沒有回覆，申請會在 {{time}}後取消",
+    "report": "檢舉",
+    "reject": "拒絕",
+    "accept": "接受"
+  },
+  "roomFormScreen": {
+    "titleCreate": "建立群組",
+    "titleEdit": "群組設定",
+    "submitCreate": "建立群組",
+    "submitEdit": "儲存",
+    "nameLabel": "群組名稱",
+    "visibilityLabel": "誰可以加入？",
+    "publicDescription": "會顯示在公開群組列表中，由管理員接受加入申請",
+    "privateDescription": "只有收到邀請連結或邀請碼的人可以加入",
+    "fixedVisibilityNote": "群組建立後，就無法變更公開或私密",
+    "categoryLabel": "準備的考試",
+    "introLabel": "群組介紹"
+  },
+  "myRoomCard": {
+    "newRequests": "{{count}} 個新的加入申請"
+  },
+  "roomHomeScreen": {
+    "todayTitle": "今天的群組",
+    "newRequests": "有 {{count}} 個新的加入申請",
+    "review": "查看",
+    "enter": "進入讀書室",
+    "aria": {
+      "notify": "成員讀書通知"
+    }
+  },
+  "socialHomeScreen": {
+    "title": "群組"
+  },
+  "groupError": {
+    "notFound": "找不到群組",
+    "notMember": "你不是這個群組的成員",
+    "applicationCanceled": "已取消申請"
+  }
+}

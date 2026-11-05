@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import en from "../../locales/en/common.json";
-import i18n, { buildResources, decideInitialLocale } from "../i18n";
+import ja from "../../locales/ja/common.json";
+import zhHant from "../../locales/zh-Hant/common.json";
+import i18n, { buildResources, decideInitialLocale, isKoreanLocale } from "../i18n";
 import { LOCALE_STORAGE_KEY } from "../locale";
 
 afterEach(async () => {
@@ -23,9 +25,20 @@ describe("i18n", () => {
     expect(i18n.t("actions.close")).toBe(en.actions.close);
   });
 
-  it("지원하지 않는 언어는 영어로 떨어진다", async () => {
-    await i18n.changeLanguage("ja");
+  it.each([
+    ["ja", ja.actions.close],
+    ["zh-Hant", zhHant.actions.close],
+  ])("%s로 바꾸면 그 언어 카탈로그를 읽는다", async (lng, close) => {
+    await i18n.changeLanguage(lng);
 
+    expect(i18n.language).toBe(lng);
+    expect(i18n.t("actions.close")).toBe(close);
+  });
+
+  it("지원하지 않는 언어는 영어로 떨어진다", async () => {
+    await i18n.changeLanguage("fr");
+
+    expect(i18n.language).toBe("en");
     expect(i18n.t("actions.close")).toBe(en.actions.close);
   });
 
@@ -49,6 +62,19 @@ describe("i18n", () => {
   });
 });
 
+describe("isKoreanLocale", () => {
+  it.each([
+    ["ko", true],
+    ["en", false],
+    ["ja", false],
+    ["zh-Hant", false],
+  ])("%s 화면이면 %s", async (lng, expected) => {
+    await i18n.changeLanguage(lng);
+
+    expect(isKoreanLocale()).toBe(expected);
+  });
+});
+
 describe("i18n 모듈 재평가", () => {
   it("모듈을 다시 평가해도 언어와 저장값을 바꾸지 않는다", async () => {
     vi.resetModules();
@@ -68,17 +94,30 @@ describe("decideInitialLocale", () => {
     expect(sessionStorage.getItem(LOCALE_STORAGE_KEY)).toBe("en");
   });
 
-  it("?lang이 없으면 저장값을 navigator.language보다 먼저 본다", () => {
-    vi.spyOn(navigator, "language", "get").mockReturnValue("en-US");
+  it("?lang이 없으면 저장값을 navigator.languages보다 먼저 본다", () => {
+    vi.spyOn(navigator, "languages", "get").mockReturnValue(["en-US"]);
     sessionStorage.setItem(LOCALE_STORAGE_KEY, "ko");
 
     expect(decideInitialLocale()).toBe("ko");
   });
 
-  it("저장소 읽기가 막히면 navigator.language로 정한다", () => {
+  it("저장소 읽기가 막히면 navigator.languages로 정한다", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("blocked");
     });
+    vi.spyOn(navigator, "languages", "get").mockReturnValue(["ko-KR"]);
+
+    expect(decideInitialLocale()).toBe("ko");
+  });
+
+  it("navigator.languages를 위에서부터 훑는다", () => {
+    vi.spyOn(navigator, "languages", "get").mockReturnValue(["fr-FR", "ko-KR"]);
+
+    expect(decideInitialLocale()).toBe("ko");
+  });
+
+  it("navigator.languages가 비어 있으면 navigator.language를 본다", () => {
+    vi.spyOn(navigator, "languages", "get").mockReturnValue([]);
     vi.spyOn(navigator, "language", "get").mockReturnValue("ko-KR");
 
     expect(decideInitialLocale()).toBe("ko");

@@ -14,7 +14,7 @@ export function ErrorState({
   message: string;
   onRetry: () => void;
   /** 계측용 화면 식별자(BY-616 확장) — `error_retry_pressed.screen`. */
-  screen: "home" | "records" | "planner" | "profile" | "live_room_entry" | "ranking";
+  screen: "home" | "records" | "planner" | "profile" | "live_room_entry" | "ranking" | "group_tab";
 }) {
   const { t } = useTranslation();
   return (

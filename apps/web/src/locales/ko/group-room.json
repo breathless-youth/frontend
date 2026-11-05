@@ -1,0 +1,270 @@
+{
+  "contactCheck": {
+    "blocked": "연락처나 링크는 보낼 수 없어요"
+  },
+  "limits": {
+    "applyBlock": {
+      "kickedRecently": "{{count}}일 동안 이 그룹에 신청할 수 없어요",
+      "roomsAndApplicationsFull": "그룹과 신청을 합쳐 5개까지예요",
+      "pendingApplicationsFull": "신청은 3곳까지 보낼 수 있어요"
+    },
+    "joinBlock": {
+      "roomFull": "자리가 다 찼어요",
+      "kickedRecently": "내보내진 그룹에는 {{count}}일 동안 다시 들어갈 수 없어요",
+      "roomsAndApplicationsFull": "그룹과 신청을 합쳐 5개까지예요",
+      "invalidCode": "초대코드를 다시 확인해 주세요"
+    },
+    "memberCount": "멤버 {{count}}/{{max}}"
+  },
+  "roomMenu": {
+    "item": {
+      "requests": "신청 확인",
+      "invite": "초대하기",
+      "manageMembers": "멤버 관리",
+      "viewMembers": "멤버 보기",
+      "settings": "그룹 설정",
+      "leave": "그룹 나가기",
+      "leaveNote": "그룹장을 넘긴 뒤에 나갈 수 있어요"
+    },
+    "mustTransfer": {
+      "title": "그룹장을 넘겨야 나갈 수 있어요",
+      "description": "멤버 관리에서 그룹장을 먼저 넘겨 주세요",
+      "confirm": "멤버 관리"
+    },
+    "confirmLeave": {
+      "title": "이 그룹에서 나갈까요?",
+      "soleOwner": "그룹에서 나가게 된다면 이 그룹이 사라져요",
+      "publicMember": "그룹에 다시 들어오려면 새로 신청해야 해요",
+      "privateMember": "그룹에 다시 들어오려면 다시 초대받아야 해요",
+      "confirm": "나가기"
+    },
+    "transferOwner": {
+      "title": "{{nickname}}님에게 그룹장을 넘길까요?",
+      "description": "더 이상 그룹장 역할을 할 수 없어요",
+      "confirm": "넘기기"
+    },
+    "kickMember": {
+      "title": "{{nickname}}님을 내보낼까요?",
+      "description": "{{nickname}}님은 {{count}}일 동안 다시 들어올 수 없어요",
+      "confirm": "내보내기"
+    },
+    "inviteCodeRenewed": "초대코드가 새로 바뀌었어요"
+  },
+  "timeText": {
+    "lastStudied": {
+      "withinHour": "오늘",
+      "hoursAgo": "{{count}}시간 전",
+      "yesterday": "어제",
+      "daysAgo": "{{count}}일 전"
+    },
+    "appliedAt": {
+      "withinHour": "방금 신청",
+      "hoursAgo": "{{count}}시간 전 신청",
+      "yesterday": "어제 신청",
+      "daysAgo": "{{count}}일 전 신청"
+    },
+    "remaining": {
+      "days": "{{count}}일",
+      "daysHours": "{{days}}일 {{hours}}시간"
+    }
+  },
+  "desks": {
+    "studyingCount": "{{count}}명 공부 중",
+    "nobodyStudying": "지금은 아무도 없어요"
+  },
+  "categoryChips": {
+    "aria": {
+      "group": "시험·목표"
+    }
+  },
+  "deskGrid": {
+    "tone": {
+      "room": "공부방에 있어요",
+      "elsewhere": "다른 곳에서 공부 중",
+      "rest": "쉬는 중"
+    },
+    "emptySeat": "빈자리",
+    "openSeat": "신청을 받고 있어요",
+    "aria": {
+      "list": "멤버 책상",
+      "owner": "그룹장"
+    }
+  },
+  "deskRow": {
+    "emptySeat": "빈자리"
+  },
+  "inviteCard": {
+    "title": "초대하기",
+    "description": "링크나 코드를 받은 사람은 수락 없이 바로 멤버가 돼요",
+    "codeLabel": "초대코드",
+    "shareLink": "링크 보내기",
+    "regenerate": "코드 새로 만들기"
+  },
+  "memberMenu": {
+    "transfer": "그룹장 넘기기",
+    "kick": "내보내기",
+    "kickNote": "{{count}}일 동안 이 그룹에 다시 들어올 수 없어요",
+    "aria": {
+      "trigger": "{{nickname}} 메뉴"
+    }
+  },
+  "pendingApplicationsSheet": {
+    "title": "신청 중인 공개 그룹",
+    "description": "그룹장이 {{count}}일 안에 답하지 않으면 신청이 취소돼요",
+    "remaining": "{{time}} 남음",
+    "cancel": "신청 취소"
+  },
+  "pendingBand": {
+    "label": "신청 중인 공개 그룹 {{count}}"
+  },
+  "publicRoomCard": {
+    "joined": "참여 중",
+    "weeklyAverage": "이번 주 평균 <value>{{duration}}</value>",
+    "aria": {
+      "weeklyAverage": "이번 주 평균 {{duration}}"
+    }
+  },
+  "roomFab": {
+    "create": "그룹 만들기",
+    "joinWithCode": "초대코드로 참여",
+    "aria": {
+      "open": "그룹 만들기와 초대코드로 참여",
+      "menu": "그룹 메뉴",
+      "close": "그룹 메뉴 닫기"
+    }
+  },
+  "roomMenuButton": {
+    "aria": {
+      "label": "그룹 메뉴"
+    }
+  },
+  "socialTabs": {
+    "mine": "내 그룹",
+    "public": "공개 그룹",
+    "aria": {
+      "list": "그룹"
+    }
+  },
+  "weeklyRankCard": {
+    "title": "이번 주 순위",
+    "resetNote": "월요일에 새로 시작해요",
+    "studying": "공부 중"
+  },
+  "fieldError": {
+    "tooLong": "{{count}}자까지 쓸 수 있어요"
+  },
+  "visibility": {
+    "public": "공개",
+    "private": "비공개"
+  },
+  "applyScreen": {
+    "title": "신청하기",
+    "headline": "{{roomName}}에 신청할게요",
+    "description": "그룹장 {{nickname}}님이 소개 글을 보고 수락하면 멤버가 돼요",
+    "label": "소개 글",
+    "notice": "그룹장이 {{count}}일 안에 답하지 않으면 신청이 취소돼요",
+    "submit": "신청 보내기"
+  },
+  "blockListScreen": {
+    "title": "차단 목록",
+    "description": "차단한 사람과는 공부방에서 화면과 소리가 오가지 않아요",
+    "empty": "차단한 사람이 없어요",
+    "unblock": "차단 해제"
+  },
+  "inviteCodeEntryScreen": {
+    "title": "초대코드로 참여",
+    "prompt": "초대코드를 입력해 주세요",
+    "submit": "참여하기"
+  },
+  "membersScreen": {
+    "titleManage": "멤버 관리",
+    "titleView": "멤버 보기",
+    "listTitle": "멤버",
+    "lastActive": "마지막으로 온 날",
+    "ownerLeaveNote": "그룹장은 다른 멤버에게 그룹장을 넘긴 뒤에 그룹을 나갈 수 있어요",
+    "aria": {
+      "owner": "그룹장"
+    }
+  },
+  "myRoomsView": {
+    "emptyTitle": "아직 들어간 그룹이 없어요",
+    "emptyDescription": "공개 그룹에 신청하거나 그룹을 만들어 보세요",
+    "browsePublic": "공개 그룹 둘러보기"
+  },
+  "publicRoomDetailScreen": {
+    "owner": "그룹장",
+    "weeklyAverage": "이번 주 멤버 평균 순공",
+    "todayMembers": "오늘 멤버",
+    "intro": "그룹 소개",
+    "showMore": "더 보기",
+    "apply": "신청하기",
+    "cancelApplication": "신청 취소"
+  },
+  "publicRoomsView": {
+    "noneTitle": "아직 공개 그룹이 없어요",
+    "noneDescription": "첫 공개 그룹을 만들어 같이 공부할 사람을 모아 보세요",
+    "filteredTitle": "조건에 맞는 공개 그룹이 없어요",
+    "filteredDescription": "다른 조건을 고르거나 직접 그룹을 만들어 보세요",
+    "search": "그룹 이름으로 찾기",
+    "allCategories": "전체"
+  },
+  "reportApplicationScreen": {
+    "title": "신고하기",
+    "headline": "{{nickname}}님의 신청을 신고할게요",
+    "description": "신고하면 이 신청은 바로 거절돼요"
+  },
+  "reportMemberScreen": {
+    "title": "신고하기",
+    "headline": "{{nickname}}님을 신고할게요",
+    "description": "신고하면 {{nickname}}님의 화면을 볼 수 없어요"
+  },
+  "reportField": {
+    "label": "신고 사유",
+    "placeholder": "어떤 점이 문제인지 적어 주세요",
+    "notice": "허위로 신고하면 이용이 제한될 수 있어요",
+    "submit": "신고하기"
+  },
+  "requestsScreen": {
+    "title": "신청 확인",
+    "remainingSeats": "남은 자리 {{count}}",
+    "acceptNote": "수락하면 바로 멤버가 되고, 신청한 사람에게 알림이 가요",
+    "empty": "답을 기다리는 신청이 없어요",
+    "expiry": "답하지 않으면 {{time}} 뒤에 신청이 취소돼요",
+    "report": "신고",
+    "reject": "거절",
+    "accept": "수락"
+  },
+  "roomFormScreen": {
+    "titleCreate": "그룹 만들기",
+    "titleEdit": "그룹 설정",
+    "submitCreate": "그룹 만들기",
+    "submitEdit": "저장하기",
+    "nameLabel": "그룹 이름",
+    "visibilityLabel": "누가 들어올 수 있나요?",
+    "publicDescription": "공개 그룹 목록에 보이고, 신청을 받아 그룹장이 수락해요",
+    "privateDescription": "초대 링크나 코드를 받은 사람만 들어와요",
+    "fixedVisibilityNote": "공개와 비공개는 그룹을 만든 뒤에 바꿀 수 없어요",
+    "categoryLabel": "시험·목표",
+    "introLabel": "그룹 소개"
+  },
+  "myRoomCard": {
+    "newRequests": "새 신청 {{count}}건"
+  },
+  "roomHomeScreen": {
+    "todayTitle": "오늘 우리 그룹",
+    "newRequests": "새 신청이 {{count}}건 있어요",
+    "review": "확인하기",
+    "enter": "공부방 들어가기",
+    "aria": {
+      "notify": "멤버 공부 알림"
+    }
+  },
+  "socialHomeScreen": {
+    "title": "그룹"
+  },
+  "groupError": {
+    "notFound": "그룹을 찾을 수 없어요",
+    "notMember": "이 그룹의 멤버가 아니에요",
+    "applicationCanceled": "신청을 취소했어요"
+  }
+}

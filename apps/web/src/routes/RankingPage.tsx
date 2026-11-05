@@ -1,5 +1,6 @@
 import type { RankingBoardResponse } from "@focusmakers/types";
 import { focusManager, useQuery } from "@tanstack/react-query";
+import { Globe } from "lucide-react";
 import { useEffect, useEffectEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -67,6 +68,7 @@ import { slideNavigate } from "@/lib/pageTransition";
 import { cannotLoad, rankingBoardQuery, rankingSummaryQuery } from "@/lib/rankingQueries";
 import { useFocusStart } from "@/lib/useFocusStart";
 import { useIdentityPending, useUserId } from "@/lib/userId";
+import { KOREA_TIME_ZONE, deviceTimeZone } from "@/lib/dateKey";
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
 import { whenIdle } from "@/lib/whenIdle";
 
@@ -94,9 +96,36 @@ function BoardSkeleton() {
 }
 
 /**
+ * 해외 랭킹 준비 안내
+ *
+ * 랭킹은 한국 시간으로 하루를 나누고 서버도 다른 시간대 사용자를 한국 랭킹에서 빼서 판 대신 이 안내를 보인다.
+ */
+function GlobalRankingNotice() {
+  const { t } = useTranslation("ranking");
+  return (
+    <section
+      aria-labelledby="global-ranking-notice-title"
+      className="flex min-h-40.5 flex-col items-center justify-center gap-2 rounded-xl bg-muted px-6 py-6 text-center shadow-sb-card"
+    >
+      <Globe size={22} strokeWidth={1.8} aria-hidden="true" className="text-brand-subtle-text" />
+      <h2
+        id="global-ranking-notice-title"
+        className="text-base leading-5 font-bold break-keep text-foreground"
+      >
+        {t("globalNotice.title")}
+      </h2>
+      <p className="text-[13px] leading-4.5 break-keep text-pretty text-muted-foreground">
+        {t("globalNotice.body")}
+      </p>
+    </section>
+  );
+}
+
+/**
  * 랭킹 탭
  *
  * 첫 토큰을 기다리는 동안은 자리표시를, 기기 등록 전이면 안내를 보인다(기록 탭과 같은 문구).
+ * 기기 시간대가 한국이 아니면 판을 받지 않고 해외 랭킹 준비 안내를 보인다.
  * 세로 간격의 값과 이유는 랭킹 탭 본문에서 간격을 정하는 곳에 적는다.
  * 자리표시는 기본 판(순공 주간)의 간격을 따른다.
  */
@@ -128,6 +157,8 @@ export function RankingPage() {
           </>
         ) : userId === null ? (
           <p className="p-4 text-sm text-muted-foreground">{t("page.noDevice")}</p>
+        ) : deviceTimeZone() !== KOREA_TIME_ZONE ? (
+          <GlobalRankingNotice />
         ) : (
           <RankingContent userId={userId} />
         )}

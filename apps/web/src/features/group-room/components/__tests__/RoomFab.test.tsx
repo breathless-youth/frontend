@@ -1,0 +1,103 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
+
+import { RoomFab } from "../RoomFab";
+
+describe("RoomFab", () => {
+  it("메뉴 덮개 안 touchmove는 document까지 올라가지 않는다", () => {
+    render(<RoomFab canCreate onCreate={vi.fn()} onJoinWithCode={vi.fn()} defaultOpen />);
+    const onDocumentTouchMove = vi.fn();
+    document.addEventListener("touchmove", onDocumentTouchMove);
+    fireEvent.touchMove(screen.getByRole("dialog"));
+    fireEvent.touchMove(screen.getByRole("menuitem", { name: "초대코드로 참여" }));
+    document.removeEventListener("touchmove", onDocumentTouchMove);
+    expect(onDocumentTouchMove).not.toHaveBeenCalled();
+  });
+
+  it("누르면 그룹 만들기와 초대코드로 참여 메뉴가 뜨고, 고르면 닫힌다", async () => {
+    const user = userEvent.setup();
+    const onJoinWithCode = vi.fn();
+    render(<RoomFab canCreate onCreate={vi.fn()} onJoinWithCode={onJoinWithCode} />);
+    await user.click(screen.getByRole("button", { name: "그룹 만들기와 초대코드로 참여" }));
+    expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
+    await user.click(screen.getByRole("menuitem", { name: "초대코드로 참여" }));
+    expect(onJoinWithCode).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("그룹 만들기를 고르면 넘기고 닫힌다", async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn();
+    render(<RoomFab canCreate onCreate={onCreate} onJoinWithCode={vi.fn()} defaultOpen />);
+    await user.click(screen.getByRole("menuitem", { name: "그룹 만들기" }));
+    expect(onCreate).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("그룹과 신청이 5개면 그룹 만들기가 흐려지고 이유를 보인다", async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn();
+    render(<RoomFab canCreate={false} onCreate={onCreate} onJoinWithCode={vi.fn()} defaultOpen />);
+    const create = screen.getByRole("menuitem", { name: /그룹 만들기/ });
+    expect(create).toHaveAttribute("aria-disabled", "true");
+    expect(create).toHaveAccessibleDescription("그룹과 신청을 합쳐 5개까지예요");
+    expect(screen.getByText("그룹과 신청을 합쳐 5개까지예요")).toBeInTheDocument();
+    await user.click(create);
+    expect(onCreate).not.toHaveBeenCalled();
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+  });
+
+  it("막은 이유를 비우면 그룹 만들기를 흐리게만 두고 이유는 보이지 않는다", async () => {
+    const user = userEvent.setup();
+    const onCreate = vi.fn();
+    render(
+      <RoomFab
+        canCreate={false}
+        blockedReason={null}
+        onCreate={onCreate}
+        onJoinWithCode={vi.fn()}
+        defaultOpen
+      />,
+    );
+    const create = screen.getByRole("menuitem", { name: /그룹 만들기/ });
+    expect(create).toHaveAttribute("aria-disabled", "true");
+    expect(create).not.toHaveAttribute("aria-describedby");
+    expect(screen.queryByText("그룹과 신청을 합쳐 5개까지예요")).toBeNull();
+    await user.click(create);
+    expect(onCreate).not.toHaveBeenCalled();
+  });
+
+  it("덮개를 누르거나 Esc를 누르면 닫힌다", async () => {
+    const user = userEvent.setup();
+    render(<RoomFab canCreate onCreate={vi.fn()} onJoinWithCode={vi.fn()} defaultOpen />);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("menu")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "그룹 만들기와 초대코드로 참여" }));
+    await user.click(screen.getByRole("dialog", { name: "그룹 메뉴" }));
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  it("열린 동안에는 같은 자리의 닫기 버튼으로 닫는다", async () => {
+    const user = userEvent.setup();
+    render(<RoomFab canCreate onCreate={vi.fn()} onJoinWithCode={vi.fn()} defaultOpen />);
+    await user.click(screen.getByRole("button", { name: "그룹 메뉴 닫기" }));
+    expect(screen.queryByRole("menu")).toBeNull();
+    expect(screen.getByRole("button", { name: "그룹 만들기와 초대코드로 참여" })).toHaveFocus();
+  });
+
+  it("위아래 화살표를 누르면 다음 항목과 이전 항목으로 포커스가 간다", async () => {
+    const user = userEvent.setup();
+    render(<RoomFab canCreate onCreate={vi.fn()} onJoinWithCode={vi.fn()} defaultOpen />);
+    expect(screen.getByRole("menu")).toHaveFocus();
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("menuitem", { name: "그룹 만들기" })).toHaveFocus();
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("menuitem", { name: "초대코드로 참여" })).toHaveFocus();
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("menuitem", { name: "그룹 만들기" })).toHaveFocus();
+    await user.keyboard("{ArrowUp}");
+    expect(screen.getByRole("menuitem", { name: "초대코드로 참여" })).toHaveFocus();
+  });
+});

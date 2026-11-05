@@ -13,7 +13,12 @@ import { cn } from "@/lib/utils";
 export const TOAST_PILL_CLASS =
   "inset-x-0 mx-auto w-fit! rounded-3xl border border-white/10 bg-(--session-toast-bg,rgba(78,89,104,0.96)) px-4 py-2 text-center text-[13px] leading-5 whitespace-pre-line text-white shadow-lg backdrop-blur-[7px]";
 
-/** 세션 화면 상태 필(위 13px + 높이 36px) 아래로 13px 띄운다. 위쪽 토스트는 `showTopToast`만 쓴다. */
+/**
+ * 위쪽 토스트 자리
+ *
+ * 세션 화면 상태 필(위 13px + 높이 36px) 아래로 13px 띄운다.
+ * 위쪽 토스트는 `showTopToast`와 `showNotificationToast`만 쓴다.
+ */
 const TOP_OFFSET = "calc(env(safe-area-inset-top) + 62px)";
 
 export function Toaster({
@@ -73,7 +78,13 @@ export function CtaToaster() {
       // 전역 Toaster도 빈 알림 영역을 늘 그리므로, 스크린리더에서 이름이 겹치지 않게 한다.
       customAriaLabel={t("aria.ctaToaster")}
       bottom={CTA_BOTTOM}
-      toastOptions={{ classNames: { toast: "whitespace-nowrap" } }}
+      // 부모가 버튼 사이처럼 좁아도 짧은 문구는 한 줄로 두고, 화면보다 긴 문구만 좌우 16px 안에서 줄을 바꾼다.
+      // 부모보다 넓어진 토스트는 왼쪽 끝에 붙어 오른쪽으로 밀리므로, 양쪽 끝 기준과 auto 여백을 풀고 부모 가운데를 기준으로 둔다.
+      toastOptions={{
+        classNames: {
+          toast: "right-auto! left-1/2! mx-0! w-max! max-w-[calc(100vw-32px)] -translate-x-1/2",
+        },
+      }}
     />
   );
 }

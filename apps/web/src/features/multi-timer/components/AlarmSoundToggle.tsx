@@ -16,10 +16,17 @@ import { cn } from "@/lib/utils";
 export function AlarmSoundToggle({
   soundOn,
   onChangeSoundOn,
+  inline = false,
   className,
 }: {
   soundOn: boolean;
   onChangeSoundOn: (on: boolean) => void;
+  /**
+   * 폰 가로에서도 놓인 자리에 그대로 둔다.
+   *
+   * 공부방 타이머 시트는 화면 오른쪽 패널이라 오른쪽 아래로 옮기면 시작 버튼 위에 겹친다.
+   */
+  inline?: boolean;
   className?: string;
 }) {
   const { t } = useTranslation("multi-timer");
@@ -28,7 +35,8 @@ export function AlarmSoundToggle({
       className={cn(
         "flex items-center gap-2",
         className,
-        "landscape-compact:absolute landscape-compact:right-[calc(env(safe-area-inset-right)+16px)] landscape-compact:bottom-[max(env(safe-area-inset-bottom),calc((env(safe-area-inset-bottom)+14px)/2))]",
+        !inline &&
+          "landscape-compact:absolute landscape-compact:right-[calc(env(safe-area-inset-right)+16px)] landscape-compact:bottom-[max(env(safe-area-inset-bottom),calc((env(safe-area-inset-bottom)+14px)/2))]",
       )}
     >
       {soundOn ? (

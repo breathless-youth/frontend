@@ -2,9 +2,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, render, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
+import { __resetGroupRoomsForTests } from "@/lib/groupRoomCapability";
 import i18n from "@/lib/i18n";
 import { SettingsPage } from "@/routes/SettingsPage";
 import { TermsPage } from "@/routes/TermsPage";
@@ -48,6 +49,48 @@ describe("설정 영어 화면", () => {
       receive(JSON.stringify({ type: "camera-permission", granted: true, atMs: 1 }));
     });
 
+    expect(visibleText(container)).not.toMatch(HANGUL);
+  });
+
+  it("그룹 표시가 있는 앱의 차단 목록 줄도 영어로 보인다", async () => {
+    // 그룹 표시는 라우터가 아니라 문서 주소에서 읽는다.
+    window.history.replaceState(null, "", "/settings?groupRooms=1");
+    __resetGroupRoomsForTests();
+    onTestFinished(() => {
+      window.history.replaceState(null, "", "/");
+      __resetGroupRoomsForTests();
+    });
+    await i18n.changeLanguage("en");
+    const { container } = renderInRouter(<SettingsPage />);
+
+    expect(screen.getByRole("button", { name: "Blocked users" })).toBeInTheDocument();
+    expect(visibleText(container)).not.toMatch(HANGUL);
+  });
+
+  it("마이크 권한 행도 영어로 보인다", async () => {
+    window.history.replaceState(null, "", "/settings?groupRooms=1");
+    __resetGroupRoomsForTests();
+    onTestFinished(() => {
+      window.history.replaceState(null, "", "/");
+      __resetGroupRoomsForTests();
+    });
+    await i18n.changeLanguage("en");
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    const { container } = renderInRouter(<SettingsPage />);
+    const receive = (globalThis as unknown as Record<string, (raw: string) => void>)[
+      NATIVE_MESSAGE_ENTRY
+    ];
+    act(() => {
+      receive(
+        JSON.stringify({ type: "camera-permission", granted: true, micGranted: false, atMs: 1 }),
+      );
+    });
+
+    expect(screen.getByText("Microphone access")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Microphone access, not allowed, open system settings" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "About microphone access" })).toBeInTheDocument();
     expect(visibleText(container)).not.toMatch(HANGUL);
   });
 

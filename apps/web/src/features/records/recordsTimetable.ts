@@ -15,11 +15,6 @@ export interface TimetableSession {
   readonly subjectSegments?: readonly SubjectSegmentResponse[];
 }
 
-/** KST 날짜 키(`YYYY-MM-DD`)의 자정 epoch ms. */
-export function kstDayStartMs(dateKey: string): number {
-  return Date.parse(`${dateKey}T00:00:00+09:00`);
-}
-
 /**
  * 과목 id → 이름·색. 지운 과목도 들어 있다(`deleted`). 응답에 `subjects`가 없으면 빈 맵.
  *
@@ -43,9 +38,9 @@ export function subjectRefMap(
 
 /**
  * 과목 색 토큰 참조. colorIndex 0~19를 20색 팔레트에 순환 인덱싱한다(음수·초과 방어).
- * `.theme-soft-blue` 스코프의 원천 변수(`--subject-N`)를 직접 참조한다 — `@theme inline`은
- * 값을 유틸리티에 인라인만 하고 `--color-subject-N`을 CSS 변수로 방출하지 않아, 인라인
- * style에서 `var(--color-subject-N)`을 쓰면 미정의로 비어 버린다.
+ * 원천 변수 `--subject-N`을 직접 참조한다.
+ * `@theme inline`은 값을 유틸리티에 인라인만 하고 `--color-subject-N`을 CSS 변수로 방출하지 않아 인라인 style에서 `var(--color-subject-N)`을 쓰면 미정의로 비어 버린다.
+ * `--subject-N`은 `.theme-soft-blue`와 `.theme-dark` 안에만 있어 그 밖에서는 색이 비어 보인다.
  */
 export function subjectColorVar(colorIndex: number): string {
   const i = ((Math.trunc(colorIndex) % 20) + 20) % 20;

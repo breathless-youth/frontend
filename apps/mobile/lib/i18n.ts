@@ -1,17 +1,19 @@
 import { getLocales } from "expo-localization";
 
+import { APP_LOCALES, type AppLocale, negotiateLocale } from "@focusmakers/types";
+
 /**
  * 셸 문구 카탈로그
  *
- * 화면은 웹이 그리고 셸이 직접 보이는 문구는 탭·권한 안내·앱 잠금 시트 정도라 라이브러리 없이 객체 두 개로 둔다.
+ * 화면은 웹이 그리고 셸이 직접 보이는 문구는 탭·권한 안내·앱 잠금 시트 정도라 라이브러리 없이 언어별 객체로 둔다.
  * 웹 카탈로그와 같은 용어를 쓴다(`apps/web/src/locales/en`).
- * 키를 더하면 ko와 en에 함께 넣는다(en 객체 타입이 ko 키를 강제한다).
+ * 키를 더하면 네 언어에 함께 넣는다(ko 밖의 객체 타입이 ko 키를 강제한다).
  */
-export type AppLocale = "ko" | "en";
-
 const ko = {
   "tab.home": "홈",
-  "tab.social": "소셜",
+  // 탭 키는 경로 이름을 따른다.
+  // 소셜 자리 탭은 경로가 social 그대로이고 보이는 이름만 그룹이다.
+  "tab.social": "그룹",
   "tab.records": "기록",
   "tab.ranking": "랭킹",
   "tab.settings": "설정",
@@ -78,7 +80,7 @@ const ko = {
 
 const en = {
   "tab.home": "Home",
-  "tab.social": "Social",
+  "tab.social": "Groups",
   "tab.records": "Records",
   "tab.ranking": "Ranking",
   "tab.settings": "Settings",
@@ -144,18 +146,159 @@ const en = {
   "appLockPicker.empty": "No apps found",
 } satisfies Record<keyof typeof ko, string>;
 
+const ja = {
+  "tab.home": "ホーム",
+  "tab.social": "グループ",
+  "tab.records": "記録",
+  "tab.ranking": "ランキング",
+  "tab.settings": "設定",
+
+  "common.done": "完了",
+  "common.back": "戻る",
+  "common.close": "閉じる",
+  "common.retry": "再試行",
+  "common.loading": "読み込み中",
+  "common.openSettings": "設定を開く",
+
+  "webview.loadFailedTitle": "画面を読み込めませんでした",
+  "webview.loadFailedBody": "ネットワーク接続を確認して、もう一度お試しください。",
+  "webview.loading": "画面を読み込み中",
+
+  "permissionDenied.title": "カメラへのアクセスが必要です",
+  "permissionDenied.body":
+    "集中の測定にはカメラが必要です。\n「設定」でカメラへのアクセスを許可すると、すぐに始められます。",
+  "permissionDenied.privacy": "AI分析用の映像がデバイスの外に出ることはありません",
+  "permissionDenied.backHome": "ホームに戻る",
+
+  "launchGoal.loading": "今日の勉強を準備しています",
+
+  "forceUpdate.title": "アップデートが必要です",
+  "forceUpdate.description":
+    "FocusMakersを引き続きご利用いただくには、最新バージョンにアップデートしてください。",
+  "forceUpdate.confirm": "今すぐアップデート",
+  "forceUpdate.reshowHint": "アップデートのお知らせをもう一度表示します",
+
+  "recommendedUpdate.title": "新しいバージョンがあります",
+  "recommendedUpdate.description":
+    "最新バージョンにアップデートすると、さらに使いやすくなったFocusMakersをご利用いただけます。",
+  "recommendedUpdate.later": "後で",
+  "recommendedUpdate.confirm": "今すぐアップデート",
+
+  "appLock.shieldTitle": "今は勉強に集中する時間です",
+  "appLock.shieldSubtitle": "FocusMakersアプリで勉強を終えると、このアプリのブロックが解除されます",
+
+  "appLockConsent.title": "アプリブロックをオンにするには\n2つの権限が必要です",
+  "appLockConsent.usageTitle": "使用状況へのアクセス",
+  "appLockConsent.usageBody": "開いたアプリがブロック対象かどうかの確認にだけ使います。",
+  "appLockConsent.overlayTitle": "他のアプリの上に重ねて表示",
+  "appLockConsent.overlayBody": "勉強中にブロック対象のアプリを開くと、ブロック画面を表示します。",
+  "appLockConsent.installedApps":
+    "ブロックするアプリを選べるように、デバイスにインストールされているアプリの一覧を読み取ります。この一覧がデバイスの外に送信されることはありません。",
+  "appLockConsent.granted": "許可済み",
+  "appLockConsent.actionAgree": "同意して設定を開く",
+  "appLockConsent.actionOverlay": "他のアプリの上に重ねて表示を許可",
+  "appLockConsent.actionUsage": "使用状況へのアクセスを許可",
+
+  "appLockBattery.title": "勉強中にブロックが\n解除されないようにしましょう",
+  "appLockBattery.body":
+    "スマートフォンがバッテリーを節約するために、ブロックを解除することがあります。",
+  "appLockBattery.stepBattery": "バッテリー",
+  "appLockBattery.stepBatterySaver": "バッテリーセーバー",
+  "appLockBattery.stepBatteryUsage": "アプリのバッテリー使用量",
+  "appLockBattery.stepUnrestricted": "「制限なし」を選択",
+  "appLockBattery.stepNoRestrictions": "「制限なし」を選択",
+  "appLockBattery.stepAutostart": "「自動起動」をオン",
+
+  "appLockPicker.title": "ブロックするアプリ",
+  "appLockPicker.search": "アプリを検索",
+  "appLockPicker.selected": "{{count}}個を選択中",
+  "appLockPicker.loadFailed": "アプリの一覧を読み込めませんでした",
+  "appLockPicker.empty": "アプリが見つかりません",
+} satisfies Record<keyof typeof ko, string>;
+
+const zhHant = {
+  "tab.home": "首頁",
+  "tab.social": "群組",
+  "tab.records": "紀錄",
+  "tab.ranking": "排行榜",
+  "tab.settings": "設定",
+
+  "common.done": "完成",
+  "common.back": "返回",
+  "common.close": "關閉",
+  "common.retry": "重試",
+  "common.loading": "載入中",
+  "common.openSettings": "開啟設定",
+
+  "webview.loadFailedTitle": "無法載入畫面",
+  "webview.loadFailedBody": "請檢查網路連線，然後再試一次。",
+  "webview.loading": "正在載入畫面",
+
+  "permissionDenied.title": "需要相機取用權限",
+  "permissionDenied.body": "專注狀態只能透過相機測量。\n在「設定」中允許取用相機，就能馬上開始。",
+  "permissionDenied.privacy": "AI 分析用的影像不會離開你的裝置",
+  "permissionDenied.backHome": "返回首頁",
+
+  "launchGoal.loading": "正在整理今天要讀的內容",
+
+  "forceUpdate.title": "需要更新",
+  "forceUpdate.description": "請更新至最新版本，以繼續使用 FocusMakers。",
+  "forceUpdate.confirm": "立即更新",
+  "forceUpdate.reshowHint": "再次顯示更新通知",
+
+  "recommendedUpdate.title": "有新版本可用",
+  "recommendedUpdate.description": "更新至最新版本，就能使用更好用的 FocusMakers。",
+  "recommendedUpdate.later": "稍後",
+  "recommendedUpdate.confirm": "立即更新",
+
+  "appLock.shieldTitle": "現在是專心讀書的時間",
+  "appLock.shieldSubtitle": "在 FocusMakers 完成讀書後，就會解除這個應用程式的封鎖",
+
+  "appLockConsent.title": "若要開啟應用程式封鎖，\n需要兩項權限",
+  "appLockConsent.usageTitle": "使用情況存取權",
+  "appLockConsent.usageBody": "只會用來確認目前開啟的應用程式是否已封鎖。",
+  "appLockConsent.overlayTitle": "在其他應用程式上層顯示",
+  "appLockConsent.overlayBody": "讀書時開啟已封鎖的應用程式，就會顯示封鎖畫面。",
+  "appLockConsent.installedApps":
+    "為了讓你選擇要封鎖的應用程式，FocusMakers 會讀取裝置上已安裝的應用程式清單。這份清單不會傳送到裝置以外。",
+  "appLockConsent.granted": "已允許",
+  "appLockConsent.actionAgree": "同意並開啟設定",
+  "appLockConsent.actionOverlay": "允許在其他應用程式上層顯示",
+  "appLockConsent.actionUsage": "允許存取使用情況",
+
+  "appLockBattery.title": "讓封鎖在讀書時\n保持有效",
+  "appLockBattery.body": "手機可能會為了節省電力而解除封鎖。",
+  "appLockBattery.stepBattery": "電池",
+  "appLockBattery.stepBatterySaver": "省電策略",
+  "appLockBattery.stepBatteryUsage": "應用程式電池用量",
+  "appLockBattery.stepUnrestricted": "選取「不受限制」",
+  "appLockBattery.stepNoRestrictions": "選取「無限制」",
+  "appLockBattery.stepAutostart": "開啟「自動啟動」",
+
+  "appLockPicker.title": "封鎖的應用程式",
+  "appLockPicker.search": "搜尋應用程式",
+  "appLockPicker.selected": "已選取 {{count}} 個",
+  "appLockPicker.loadFailed": "無法載入應用程式清單",
+  "appLockPicker.empty": "找不到應用程式",
+} satisfies Record<keyof typeof ko, string>;
+
 export type CopyKey = keyof typeof ko;
 
-export const copy: Record<AppLocale, Record<CopyKey, string>> = { ko, en };
+/** 언어별 셸 문구 */
+export const copy: Record<AppLocale, Record<CopyKey, string>> = { ko, en, ja, "zh-Hant": zhHant };
 
 /**
- * 기기 첫 언어가 한국어면 ko, 그 밖은 en
+ * 기기 선호 언어 목록에서 고른 셸 언어
  *
+ * 웹뷰 주소의 lang 파라미터에도 같은 값을 넘긴다.
  * 모듈 로드 때 한 번 정하지 않고 부를 때마다 읽는다.
  * Android는 앱별 언어를 바꾸면 화면만 다시 만들고 JS 모듈은 그대로 남기 때문이다.
  */
 export function getAppLocale(): AppLocale {
-  return getLocales()[0]?.languageCode === "ko" ? "ko" : "en";
+  return negotiateLocale(
+    getLocales().map((locale) => locale.languageTag),
+    APP_LOCALES,
+  );
 }
 
 /** 기기 언어의 문구를 읽고 `{{이름}}` 자리를 채운다. */

@@ -147,10 +147,13 @@ class AppLockService : Service() {
     val open = packageManager.getLaunchIntentForPackage(packageName)?.let {
       PendingIntent.getActivity(this, 0, it, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
+    val text = getString(R.string.app_lock_notification_text)
     val notification = Notification.Builder(this, CHANNEL_ID)
       .setSmallIcon(R.drawable.app_lock_ic_lock)
       .setContentTitle(resources.getQuantityString(R.plurals.app_lock_notification_title, count, count))
-      .setContentText(getString(R.string.app_lock_notification_text))
+      .setContentText(text)
+      // 접힌 알림은 한 줄이라 영어·일본어 본문이 잘려서, 펼치면 본문 전체가 보이게 한다.
+      .setStyle(Notification.BigTextStyle().bigText(text))
       .setContentIntent(open)
       .setOngoing(true)
       .build()

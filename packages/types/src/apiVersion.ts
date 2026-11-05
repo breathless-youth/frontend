@@ -77,6 +77,8 @@ export const API_ENDPOINTS = {
   notices: { version: "1", parsedBy: "apps/web/src/lib/noticeApi.ts" },
   /** `GET /api/interview/status` — 완료 화면 카드·설정 행. 새 경로다. */
   interview: { version: "1", parsedBy: "apps/web/src/lib/interviewApi.ts" },
+  /** `POST /api/users/me/acquisition` — 설치 유입 경로 저장. 새 경로다(Swagger 기본값 1, 2026-11-04 대조). */
+  acquisition: { version: "1", parsedBy: "apps/web/src/lib/acquisitionApi.ts postAcquisition" },
   /**
    * `GET /api/rankings/board`: 랭킹판.
    * 구 앱 계약은 없고, 일수 판을 같은 일수 묶음 대신 사람 단위 순위로 주면서 2가 됐다.
@@ -144,6 +146,11 @@ export const API_ENDPOINTS = {
   roomJoin: { version: "2", legacy: "1", parsedBy: "apps/web/src/lib/roomApi.ts joinRoom" },
   /** `POST /api/rooms/{roomId}/leave` — 방 퇴장 */
   roomLeave: { version: "2", legacy: "1", parsedBy: "apps/web/src/lib/roomApi.ts leaveRoom" },
+
+  /** `/api/groups`와 `/api/group-applications` 이하 전부: 그룹 공부방. 새 경로라 구 앱 명세가 없다. */
+  groups: { version: "1", parsedBy: "apps/web/src/lib/groupRoomApi.ts" },
+  /** `/api/blocks` 이하 전부: 차단 목록과 차단 해제. 새 경로라 구 앱 명세가 없다. */
+  blocks: { version: "1", parsedBy: "apps/web/src/lib/groupRoomApi.ts" },
 
   /** `POST /api/rtc-stats` — WebRTC 통계 보고 */
   rtcStats: { version: "2", legacy: "1", parsedBy: "apps/web/src/lib/rtcStatsApi.ts" },

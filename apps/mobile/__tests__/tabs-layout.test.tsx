@@ -5,6 +5,7 @@ import TabsLayout from "../app/(tabs)/_layout";
 
 import { __resetActiveTabForTests, getActiveTab } from "../lib/activeTab";
 import { __resetNativeAnalyticsForTests, attachNativeAnalyticsSink } from "../lib/nativeAnalytics";
+import { attachTabBackHandler } from "../lib/tabBack";
 import { __resetTabBarVisibilityForTests, setTabBarState } from "../lib/tabBarVisibility";
 import { subscribeTabReset } from "../lib/tabReset";
 
@@ -104,6 +105,50 @@ it("Android에서 홈이 아닌 탭에 있을 때 뒤로가기를 누르면 그 
   expect(listener).toHaveBeenCalledWith("/settings");
   // 기본 동작(홈 탭 이동)은 그대로 둔다 — 신호만 보내고 이벤트를 삼키지 않는다.
   expect(handled).toBe(false);
+  unsubscribe();
+});
+
+// 그룹 홈에서 멤버 관리로 들어간 뒤의 뒤로 가기는 그룹 홈으로 가고, 홈 탭의 하위 화면에서도 앱을 닫지 않고 홈 화면으로 돌아간다.
+it.each(["social", "index"])(
+  "Android %s 탭의 웹뷰가 탭 첫 화면이 아니라서 뒤로 가기를 처리하면 이벤트를 삼키고 탭을 떠나지 않는다",
+  (routeName) => {
+    jest.replaceProperty(Platform, "OS", "android");
+    mockTabBarState.routes = [{ name: routeName }];
+    __resetNativeAnalyticsForTests();
+    const received: unknown[] = [];
+    attachNativeAnalyticsSink((event) => received.push(event.name));
+    const resetListener = jest.fn();
+    const unsubscribe = subscribeTabReset(resetListener);
+    const webViewBack = jest.fn(() => true);
+    const detach = attachTabBackHandler(webViewBack);
+
+    render(<TabsLayout />);
+    const handled = pressHardwareBack();
+
+    expect(webViewBack).toHaveBeenCalledTimes(1);
+    expect(handled).toBe(true);
+    expect(resetListener).not.toHaveBeenCalled();
+    expect(received).toEqual([]);
+    detach();
+    unsubscribe();
+    __resetNativeAnalyticsForTests();
+  },
+);
+
+it("탭 첫 화면이라 웹뷰가 처리하지 않으면 지금처럼 초기화 신호를 보내고 홈 탭 이동은 기본 동작에 맡긴다", () => {
+  jest.replaceProperty(Platform, "OS", "android");
+  mockTabBarState.routes = [{ name: "index" }, { name: "settings" }];
+  mockTabBarState.index = 1;
+  const resetListener = jest.fn();
+  const unsubscribe = subscribeTabReset(resetListener);
+  const detach = attachTabBackHandler(() => false);
+
+  render(<TabsLayout />);
+  const handled = pressHardwareBack();
+
+  expect(resetListener).toHaveBeenCalledWith("/settings");
+  expect(handled).toBe(false);
+  detach();
   unsubscribe();
 });
 

@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 
 import { reportRtcStats } from "@/lib/rtcStatsApi";
 
-import type { CreatePeerConnection } from "./peerMesh";
+import type { CreatePeerConnection, PeerMesh } from "./peerMesh";
 import { createPeerMesh } from "./peerMesh";
 import type { RoomChannel } from "./roomChannel";
 
 /**
  * peerMesh의 React 수명 결합 — 메시는 세션 수명 동안 하나다(채널·카메라와 같은
  * 지연 초기화 규칙). 수신 스트림 맵만 상태로 승격해 타일 렌더를 갱신한다.
+ * 소리와 차단은 상태가 아니라 메시를 직접 받아 쓰는 쪽이 다룬다.
  */
 export function usePeerMesh({
   channel,
@@ -17,6 +18,7 @@ export function usePeerMesh({
   iceServers,
   cameraStream,
   trackEnabled,
+  audio = false,
   createPeerConnection,
   onEvent,
 }: {
@@ -26,15 +28,18 @@ export function usePeerMesh({
   iceServers: RTCIceServer[];
   cameraStream: MediaStream | null;
   trackEnabled: boolean;
+  /** 메시를 처음 만들 때 한 번만 읽는다. */
+  audio?: boolean;
   createPeerConnection?: CreatePeerConnection;
   onEvent?: (line: string) => void;
-}): ReadonlyMap<number, MediaStream> {
+}): { remoteStreams: ReadonlyMap<number, MediaStream>; mesh: PeerMesh } {
   const [mesh] = useState(() =>
     createPeerMesh({
       myUserId,
       roomId,
       channel,
       iceServers,
+      audio,
       createPeerConnection,
       onEvent,
       reportStats: reportRtcStats,
@@ -97,5 +102,5 @@ export function usePeerMesh({
     return () => document.removeEventListener("visibilitychange", onVisibility);
   }, [mesh, channel]);
 
-  return remoteStreams;
+  return { remoteStreams, mesh };
 }

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import type * as LazyRoutes from "@/routes/lazyRoutes";
 
 import { App } from "@/App";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
+import { __resetGroupRoomsForTests } from "@/lib/groupRoomCapability";
 import { hardNavigate } from "@/lib/hardNavigation";
 import i18n from "@/lib/i18n";
 import { markProfileSaved } from "@/features/profile/profileSavedNotice";
@@ -51,10 +52,12 @@ vi.mock("@/features/interview/interviewForm", async (importOriginal) => ({
 }));
 
 const prefetchSettingsSubPages = vi.hoisted(() => vi.fn());
+const prefetchBlockListPage = vi.hoisted(() => vi.fn());
 
 vi.mock("@/routes/lazyRoutes", async (importOriginal) => ({
   ...(await importOriginal<typeof LazyRoutes>()),
   prefetchSettingsSubPages,
+  prefetchBlockListPage,
 }));
 
 /**
@@ -82,8 +85,13 @@ function withQueryClient(ui: ReactElement) {
   return <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>;
 }
 
-/** App 라우팅 없이 SettingsPage만 그린다. */
+/**
+ * App 라우팅 없이 SettingsPage만 그린다.
+ * 그룹 표시는 라우터가 아니라 창 주소에서 읽어서 주소를 창 기록에도 넣고 기억한 판정을 비운다.
+ */
 function renderSettings(path: string) {
+  window.history.replaceState(null, "", path);
+  __resetGroupRoomsForTests();
   return render(
     withQueryClient(
       <MemoryRouter initialEntries={[path]}>
@@ -113,6 +121,9 @@ afterEach(() => {
   act(() => {
     toast.dismiss();
   });
+  // 그룹 표시는 창 주소에서 읽어 기억하므로 다음 테스트가 표시 없이 시작하게 처음 주소로 돌린다.
+  window.history.replaceState(null, "", "/");
+  __resetGroupRoomsForTests();
 });
 
 /** 네이티브가 `injectJavaScript`로 호출하는 전역을 테스트에서 대신 부른다. */
@@ -443,6 +454,151 @@ describe("방해 앱 잠금 행", () => {
     localStorage.setItem("focusmakers.appLock.enabled", "1");
     renderAt("/settings");
     expect(screen.getByRole("button", { name: "방해 앱 잠금, 켜짐" })).toBeTruthy();
+  });
+});
+
+describe("마이크 권한 행", () => {
+  function pushPermissions(permissions: { granted: boolean; micGranted?: boolean }) {
+    const receive = (globalThis as unknown as Record<string, (raw: string) => void>)[
+      NATIVE_MESSAGE_ENTRY
+    ];
+    act(() => {
+      receive(JSON.stringify({ type: "camera-permission", atMs: 1, ...permissions }));
+    });
+  }
+
+  it("그룹 표시가 있고 앱이 알려 주면 카메라 권한 아래에 같은 모양으로 보인다", () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    renderSettings("/settings?groupRooms=1");
+
+    pushPermissions({ granted: true, micGranted: true });
+
+    expect(
+      screen.getByRole("button", { name: "마이크 권한, 허용됨, 시스템 설정 열기" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "마이크 권한 안내" })).toBeInTheDocument();
+    const camera = screen.getByText("카메라 권한");
+    const mic = screen.getByText("마이크 권한");
+    expect(camera.compareDocumentPosition(mic) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("허용 안 됨도 읽어 주고 누르면 시스템 설정을 연다", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderSettings("/settings?groupRooms=1");
+    pushPermissions({ granted: true, micGranted: false });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "마이크 권한, 허용 안 됨, 시스템 설정 열기" }),
+    );
+
+    expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"type":"open-settings"'));
+    expect(analytics.trackOsSettingsOpened).toHaveBeenCalledWith("settings_tab");
+  });
+
+  it("시스템 설정에 다녀와 답이 바뀌면 새 값을 보인다", () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    renderSettings("/settings?groupRooms=1");
+    pushPermissions({ granted: true, micGranted: false });
+
+    pushPermissions({ granted: true, micGranted: true });
+
+    expect(
+      screen.getByRole("button", { name: "마이크 권한, 허용됨, 시스템 설정 열기" }),
+    ).toBeInTheDocument();
+  });
+
+  it("그룹 표시가 없으면 앱이 알려 줘도 보이지 않는다", () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    renderSettings("/settings");
+
+    pushPermissions({ granted: true, micGranted: true });
+
+    expect(screen.queryByText("마이크 권한")).toBeNull();
+  });
+
+  it("마이크 권한을 모르는 앱에서는 보이지 않고 카메라 권한은 그대로다", () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    renderSettings("/settings?groupRooms=1");
+
+    pushPermissions({ granted: true });
+
+    expect(screen.queryByText("마이크 권한")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "카메라 권한, 허용됨, 시스템 설정 열기" }),
+    ).toBeInTheDocument();
+  });
+
+  it("앱의 답을 받기 전과 브라우저에서는 보이지 않는다", () => {
+    renderSettings("/settings?groupRooms=1");
+
+    expect(screen.queryByText("마이크 권한")).toBeNull();
+  });
+
+  it("권한을 물을 때 메시지는 하나만 나간다", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderSettings("/settings?groupRooms=1");
+
+    const asked = postMessage.mock.calls.filter(([raw]) =>
+      String(raw).includes("request-camera-permission"),
+    );
+    expect(asked).toHaveLength(1);
+  });
+});
+
+describe("차단 목록 행", () => {
+  afterEach(() => {
+    hasAppLockCapability.mockReturnValue(false);
+  });
+
+  it("그룹 표시가 있으면 서비스 절에 차단 목록 줄이 있고 없으면 없다", async () => {
+    renderSettings("/settings?groupRooms=1");
+    expect(await screen.findByRole("button", { name: "차단 목록" })).toBeInTheDocument();
+    cleanup();
+    renderSettings("/settings");
+    expect(screen.queryByRole("button", { name: "차단 목록" })).toBeNull();
+  });
+
+  it("그룹 표시가 있을 때만 차단 목록 화면 청크를 미리 받는다", () => {
+    renderSettings("/settings");
+    expect(prefetchBlockListPage).not.toHaveBeenCalled();
+    cleanup();
+    renderSettings("/settings?groupRooms=1");
+    expect(prefetchBlockListPage).toHaveBeenCalledOnce();
+  });
+
+  it("방해 앱 잠금 아래에 있고, 누르면 쿼리를 이어받아 차단 목록으로 가고 행 터치를 남긴다", () => {
+    hasAppLockCapability.mockReturnValue(true);
+    const path = "/settings?groupRooms=1&appVersion=1.4.2";
+    window.history.replaceState(null, "", path);
+    __resetGroupRoomsForTests();
+    render(
+      withQueryClient(
+        <MemoryRouter initialEntries={[path]}>
+          <Routes>
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/blocks" element={<LocationProbe testId="blocks-stub" />} />
+          </Routes>
+        </MemoryRouter>,
+      ),
+    );
+
+    const row = screen.getByRole("button", { name: "차단 목록" });
+    expect(
+      screen.getByRole("button", { name: "방해 앱 잠금, 꺼짐" }).compareDocumentPosition(row) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      row.compareDocumentPosition(screen.getByRole("button", { name: "문의하기" })) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    fireEvent.click(row);
+    expect(analytics.trackSettingsRowPressed).toHaveBeenCalledWith("block_list");
+    expect(screen.getByTestId("blocks-stub").textContent).toBe(
+      "/blocks?groupRooms=1&appVersion=1.4.2",
+    );
   });
 });
 

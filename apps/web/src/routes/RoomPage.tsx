@@ -73,7 +73,11 @@ import {
   SessionStatusPill,
 } from "@/features/study-session/components/SessionStatusPill";
 import type { SessionStatusPillState } from "@/features/study-session/components/SessionStatusPill";
-import { SessionPageTimer, SessionTimer } from "@/features/study-session/components/SessionTimer";
+import {
+  SessionPageHeaderTime,
+  SessionPageTimer,
+  SessionTimer,
+} from "@/features/study-session/components/SessionTimer";
 import { SimpleModeSurface } from "@/features/study-session/components/SimpleModeSurface";
 import { SubMinuteEndNotice } from "@/features/study-session/components/SubMinuteEndNotice";
 import { SubjectPanel } from "@/features/study-session/components/SubjectPanel";
@@ -742,7 +746,7 @@ function RoomSessionScreen({
    * 순공 1분 미만으로 끝났는가
    *
    * 판정에 서버 응답(`phase.sessions`)이 아니라 클라이언트가 잰 `focusSec`을 쓴다.
-   * 자정(KST)을 넘는 세션은 서버가 날짜별로 쪼개서 내려주므로, 응답 한 건씩 보면 둘 다 1분 미만인데
+   * 자정을 넘는 세션은 서버가 날짜별로 쪼개서 내려주므로, 응답 한 건씩 보면 둘 다 1분 미만인데
    * 세션 전체로는 1분을 넘는 경우가 생긴다.
    * 사용자가 한 번 공부한 것을 두 조각으로 판정하면 안 된다.
    *
@@ -1236,6 +1240,7 @@ function RoomSessionScreen({
             container={sessionSurface}
             returnFocus={subjectReturnFocus}
             title={t("subjectSheet.title")}
+            headerExtras={<SessionPageHeaderTime focusSec={focusSec} />}
             landscape={pageLandscape}
           >
             <SubjectPanel
@@ -1254,7 +1259,6 @@ function RoomSessionScreen({
               onNotice={showCtaToast}
               liveTotals={liveSubjectTotals}
               landscape={pageLandscape}
-              timer={<SessionPageTimer focusSec={focusSec} />}
             />
           </SessionPage>
 

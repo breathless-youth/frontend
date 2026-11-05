@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { canSegmentGraphemes, countGraphemes, firstGrapheme } from "@/lib/graphemes";
+import {
+  canSegmentGraphemes,
+  countGraphemes,
+  firstGrapheme,
+  normalizeServerText,
+} from "@/lib/graphemes";
 
 describe("canSegmentGraphemes", () => {
   it("이 환경(Node/vitest)은 Intl.Segmenter를 지원한다", () => {
@@ -31,5 +36,15 @@ describe("firstGrapheme", () => {
   it("일반 글자의 첫 글자, 빈 문자열은 빈 문자열이다", () => {
     expect(firstGrapheme("포메")).toBe("포");
     expect(firstGrapheme("")).toBe("");
+  });
+});
+
+describe("normalizeServerText", () => {
+  it("서버처럼 NFC로 맞추고 앞뒤에서 자바 strip()이 빼는 글자만 뺀다", () => {
+    expect(normalizeServerText("  가\u3000")).toBe("가");
+    expect(normalizeServerText("\u001f가\t")).toBe("가");
+    expect(normalizeServerText("\u00a0가\u00a0")).toBe("\u00a0가\u00a0");
+    expect(normalizeServerText("\ufeff가")).toBe("\ufeff가");
+    expect(normalizeServerText("가".normalize("NFD"))).toBe("가");
   });
 });
