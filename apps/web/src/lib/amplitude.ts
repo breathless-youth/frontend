@@ -1001,8 +1001,14 @@ export function trackSocialRoomBackgroundReturned(input: {
   });
 }
 
-/** 집중 시작을 누른 자리. */
-export type FocusStartSource = "home" | "ranking_card" | "ranking_empty" | "ranking_records";
+/** 집중 시작을 누른 자리. 가이드 화면이 넘겨받은 값을 이 목록으로 확인한다. */
+export const FOCUS_START_SOURCES = [
+  "home",
+  "ranking_card",
+  "ranking_empty",
+  "ranking_records",
+] as const;
+export type FocusStartSource = (typeof FOCUS_START_SOURCES)[number];
 
 /**
  * 홈과 랭킹의 "집중 시작" 탭
@@ -1010,8 +1016,8 @@ export type FocusStartSource = "home" | "ranking_card" | "ranking_empty" | "rank
  * F1 퍼널의 첫 행동이자 `camera_permission_gate_resolved`의 분모다.
  * 가이드를 처음 보는 계정은 가이드의 `순공 시작하기`를 누른 뒤에 보낸다.
  * `source`는 누른 자리다.
- * `destination`은 온보딩 가이드가 있던 때 가이드와 세션을 구분하던 속성이다.
- * 가이드를 삭제한 뒤에도 기존 차트가 이 값으로 거르므로 `"session"`으로 고정해 보낸다.
+ * `destination`은 예전 온보딩 가이드와 세션을 구분하던 속성이다.
+ * 지금은 세션 시작 요청 때만 보내고, 기존 차트가 이 값으로 거르므로 `"session"`으로 고정해 보낸다.
  */
 export function trackFocusStartTapped(source: FocusStartSource = "home") {
   if (!initialized) return;
