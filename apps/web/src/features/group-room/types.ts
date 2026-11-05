@@ -29,6 +29,8 @@ export interface MyRoomSummary {
   categoryLabel: string;
   visibility: RoomVisibility;
   memberCount: number;
+  /** 답을 기다리는 새 신청 수이고 공개 그룹 그룹장이 아니면 0이다. */
+  newRequestCount: number;
   members: RoomDeskMember[];
 }
 

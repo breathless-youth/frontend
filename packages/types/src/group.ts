@@ -63,6 +63,7 @@ export interface GroupLimits {
   /** 들어간 그룹과 답을 기다리는 신청이 함께 쓰는 한도 */
   maxGroupsAndApplications: number;
   maxPendingApplications: number;
+  /** 쓰지 않는다. 그룹장 한도가 없어졌고 이미 배포된 웹을 위해 서버가 남겨 둔 값이다. */
   maxOwnedGroups: number;
 }
 
@@ -77,6 +78,8 @@ export interface MyGroupCard {
   studyingCount: number;
   /** 내가 이 그룹의 그룹장이면 true */
   owner: boolean;
+  /** 답을 기다리는 새 신청 수이고 공개 그룹 그룹장에게만 값이 있다. */
+  newApplicationCount: number | null;
   /**
    * 들어간 순서다.
    * 책상 순서는 FE가 정한다.
@@ -89,6 +92,7 @@ export interface MyGroupsResponse {
   /** 들어간 순서 */
   groups: MyGroupCard[];
   pendingApplicationCount: number;
+  /** 한도 판단에 쓰지 않는다. 이미 배포된 웹이 읽어서 서버가 남겨 둔 값이다. */
   ownedGroupCount: number;
   limits: GroupLimits;
 }

@@ -16,6 +16,7 @@ describe("MyRoomsView", () => {
         rooms={fixtures.myRooms}
         pendingCount={1}
         onOpenRoom={onOpenRoom}
+        onOpenRequests={vi.fn()}
         onOpenPending={vi.fn()}
         onBrowsePublic={vi.fn()}
       />,
@@ -36,6 +37,7 @@ describe("MyRoomsView", () => {
         rooms={fixtures.myRooms}
         pendingCount={0}
         onOpenRoom={vi.fn()}
+        onOpenRequests={vi.fn()}
         onOpenPending={vi.fn()}
         onBrowsePublic={vi.fn()}
       />,
@@ -57,6 +59,7 @@ describe("MyRoomsView", () => {
         rooms={fixtures.myRooms}
         pendingCount={0}
         onOpenRoom={vi.fn()}
+        onOpenRequests={vi.fn()}
         onOpenPending={vi.fn()}
         onBrowsePublic={vi.fn()}
       />,
@@ -73,6 +76,7 @@ describe("MyRoomsView", () => {
         rooms={fixtures.myRooms}
         pendingCount={1}
         onOpenRoom={vi.fn()}
+        onOpenRequests={vi.fn()}
         onOpenPending={onOpenPending}
         onBrowsePublic={vi.fn()}
       />,
@@ -87,6 +91,7 @@ describe("MyRoomsView", () => {
         rooms={fixtures.myRooms}
         pendingCount={0}
         onOpenRoom={vi.fn()}
+        onOpenRequests={vi.fn()}
         onOpenPending={vi.fn()}
         onBrowsePublic={vi.fn()}
       />,
@@ -101,6 +106,7 @@ describe("MyRoomsView", () => {
         rooms={[]}
         pendingCount={1}
         onOpenRoom={vi.fn()}
+        onOpenRequests={vi.fn()}
         onOpenPending={vi.fn()}
         onBrowsePublic={onBrowsePublic}
       />,
@@ -119,6 +125,7 @@ describe("MyRoomsView", () => {
         pendingCount={0}
         loading
         onOpenRoom={vi.fn()}
+        onOpenRequests={vi.fn()}
         onOpenPending={vi.fn()}
         onBrowsePublic={vi.fn()}
       />,
@@ -136,6 +143,7 @@ describe("MyRoomsView", () => {
         loading
         error={<p>그룹을 불러오지 못했어요</p>}
         onOpenRoom={vi.fn()}
+        onOpenRequests={vi.fn()}
         onOpenPending={vi.fn()}
         onBrowsePublic={vi.fn()}
       />,
@@ -153,6 +161,7 @@ describe("MyRoomsView", () => {
         loading
         error={<p>그룹을 불러오지 못했어요</p>}
         onOpenRoom={vi.fn()}
+        onOpenRequests={vi.fn()}
         onOpenPending={vi.fn()}
         onBrowsePublic={vi.fn()}
       />,

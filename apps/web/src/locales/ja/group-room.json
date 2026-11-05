@@ -14,7 +14,6 @@
       "roomsAndApplicationsFull": "グループと参加リクエストは合わせて5件までです",
       "invalidCode": "招待コードをもう一度確認してください"
     },
-    "createRoomLimit": "グループは2つまで作成できます",
     "memberCount": "メンバー{{count}}/{{max}}"
   },
   "roomMenu": {
@@ -246,6 +245,9 @@
     "fixedVisibilityNote": "公開・非公開はグループを作成した後に変更できません",
     "categoryLabel": "目指している試験",
     "introLabel": "グループ紹介"
+  },
+  "myRoomCard": {
+    "newRequests": "新しい参加リクエスト {{count}}件"
   },
   "roomHomeScreen": {
     "todayTitle": "今日のグループ",

@@ -2,7 +2,7 @@ import { ApiError } from "@/lib/api";
 import i18n from "@/lib/i18n";
 
 import { contactBlockedCopy } from "./model/contactCheck";
-import { applyBlockCopy, createRoomLimitCopy, joinBlockCopy } from "./model/limits";
+import { applyBlockCopy, joinBlockCopy } from "./model/limits";
 
 /**
  * 그룹 API 오류를 화면 문구로 바꾸는 표
@@ -74,7 +74,6 @@ const COPY_BY_ACTION: Partial<Record<GroupAction, ReadonlyMap<string, CopyOf>>> 
   answer: new Map([["GROUP_FULL", roomFullCopy]]),
   create: new Map([
     ["CONTACT_NOT_ALLOWED", contactBlockedCopy],
-    ["OWNED_GROUP_LIMIT", createRoomLimitCopy],
     // 5개 한도는 답을 기다리는 신청도 세므로 신청하기와 같은 문장을 쓴다.
     ["GROUP_SLOT_LIMIT", groupCountFullCopy],
   ]),

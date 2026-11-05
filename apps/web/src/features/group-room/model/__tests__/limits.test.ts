@@ -32,11 +32,13 @@ describe("joinBlockCopy", () => {
 });
 
 describe("canCreateRoom", () => {
-  it("그룹장인 그룹이 2개보다 적을 때만 만들 수 있다", () => {
-    expect(canCreateRoom(0)).toBe(true);
-    expect(canCreateRoom(1)).toBe(true);
-    expect(canCreateRoom(2)).toBe(false);
-    expect(createRoomLimitCopy()).toBe("그룹은 2개까지 만들 수 있어요");
+  it("들어간 그룹과 답을 기다리는 신청을 합쳐 5개보다 적을 때만 만들 수 있다", () => {
+    expect(canCreateRoom(0, 0)).toBe(true);
+    expect(canCreateRoom(4, 0)).toBe(true);
+    expect(canCreateRoom(2, 2)).toBe(true);
+    expect(canCreateRoom(5, 0)).toBe(false);
+    expect(canCreateRoom(2, 3)).toBe(false);
+    expect(createRoomLimitCopy()).toBe("그룹과 신청을 합쳐 5개까지예요");
   });
 });
 
