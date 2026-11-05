@@ -88,6 +88,7 @@ function HomeRouteProbe() {
 function renderRoom(url: string) {
   // 세션 도움말이 뜨면 세션 화면을 검증할 수 없어서 이미 끝까지 본 계정으로 연다.
   markSessionGuideSeen(1);
+  markSessionGuideSeen(999);
   const view = render(
     <MemoryRouter initialEntries={[url]}>
       <Routes>

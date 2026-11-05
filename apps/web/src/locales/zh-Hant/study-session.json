@@ -128,7 +128,8 @@
     "buttonsPause": "想休息時\n請點<hl>暫停</hl>",
     "finishMore": "隨時可以在「更多」選單\n再次查看這份說明",
     "finishCenter": "準備好了\n一起來<hl>專注</hl>吧！",
-    "finishCta": "開始專注"
+    "finishCta": "開始專注",
+    "finishLater": "稍後再開始"
   },
   "recovery": {
     "title": "已復原未儲存的紀錄",

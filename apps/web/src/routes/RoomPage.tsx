@@ -98,7 +98,6 @@ import {
   SESSION_HELP_STEPS,
   markSessionGuideSeen,
   sessionGuideState,
-  shouldShowSessionGuide,
 } from "@/features/study-session/sessionGuide";
 import { SESSION_LAYER_INSET } from "@/features/study-session/sessionLayout";
 import { MANUAL_END_REASON, statusLabelKey } from "@/features/study-session/sessionState";
@@ -299,6 +298,129 @@ function useRotationPhase(): RotationPhase {
  * 두 축은 서로를 리셋하지 않는다 — 심플 모드에서 일시정지했다가 다시 시작하면 심플 모드로
  * 돌아온다. 그래서 `simpleMode`는 `SessionState`에 넣지 않고 별도 토글로 둔다.
  */
+function useGoHome(): () => void {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  return () => {
+    postToNative({ type: "navigate-home", atMs: Date.now() });
+    navigate({ pathname: "/home", search: searchParams.toString() }, { replace: true });
+  };
+}
+
+/**
+ * 세션 도움말의 노출·단계 이벤트
+ *
+ * 메뉴로 연 도움말은 가려지면 언마운트되어 다시 뜰 때 효과가 또 돈다.
+ * 그래서 화면이 아니라 호출부에서 노출마다, 단계가 바뀔 때마다 한 번씩만 보낸다.
+ * 추적 단계가 null이면 이번 노출의 첫 이벤트를 아직 보내지 않은 것이다. 돌려주는 함수로 노출을 끝낸다.
+ */
+function useSessionHelpFunnel(
+  visible: boolean,
+  step: number,
+  trigger: SessionHelpTrigger,
+): () => void {
+  const trackedStepRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!visible || trackedStepRef.current === step) {
+      return;
+    }
+    if (trackedStepRef.current === null) {
+      trackStudySessionHelpShown(trigger, "single");
+    }
+    trackedStepRef.current = step;
+    trackStudySessionHelpStepViewed({
+      step: step + 1,
+      stepId: SESSION_HELP_STEPS[step].id,
+      trigger,
+      roomType: "single",
+    });
+  }, [visible, step, trigger]);
+  return () => {
+    trackedStepRef.current = null;
+  };
+}
+
+/**
+ * 세션을 시작하기 전에 보여 주는 첫 도움말
+ *
+ * 이 화면이 떠 있는 동안에는 세션 화면이 마운트되지 않아 카메라·타이머·서버 보고가 돌지 않는다.
+ * 그래서 `나중에 시작할게요`는 끝낼 세션 없이 바로 홈으로 가고, 온 초대도 확인 없이 바로 따라간다.
+ * Escape로 닫으면 기록 없이 세션을 시작하고 다음 세션에 다시 뜬다.
+ */
+function SessionStartHelp({
+  userId,
+  invite,
+  onStart,
+}: {
+  userId: number;
+  invite: string | null;
+  onStart: () => void;
+}) {
+  const goHome = useGoHome();
+  const [step, setStep] = useState(0);
+  useRotationRepaintNudge();
+  useSessionHelpFunnel(true, step, "auto");
+  useEffect(() => {
+    if (invite !== null) {
+      leaveSessionForInvite(invite);
+    }
+  }, [invite]);
+  return (
+    <main className="theme-dark relative h-svh bg-background" style={sessionSurfaceStyle}>
+      <SessionHelpScreen
+        step={step}
+        onStepChange={setStep}
+        onComplete={() => {
+          trackStudySessionHelpCompleted("auto", "single");
+          markSessionGuideSeen(userId);
+          onStart();
+        }}
+        onLater={() => {
+          trackStudySessionHelpCompleted("auto", "single", "later");
+          markSessionGuideSeen(userId);
+          goHome();
+        }}
+        onDismiss={() => {
+          trackStudySessionHelpDismissed({
+            step: step + 1,
+            stepId: SESSION_HELP_STEPS[step].id,
+            trigger: "auto",
+            roomType: "single",
+            reason: "escape",
+          });
+          onStart();
+        }}
+      />
+    </main>
+  );
+}
+
+/**
+ * 첫 도움말과 세션 화면을 가른다
+ *
+ * 기록은 마운트 때 한 번 읽는다. 호출부가 신원별 key를 달아 계정이 바뀌면 새 계정의 기록을 읽는다.
+ * 복원된 세션은 이미 공부 중이라 도움말로 막지 않는다.
+ */
+function RoomEntry({
+  userId,
+  restored,
+  invite,
+}: {
+  userId: number | null;
+  restored: RestoredSession | null;
+  invite: string | null;
+}) {
+  const [helpPending, setHelpPending] = useState(
+    () => userId !== null && restored === null && sessionGuideState(userId) !== "seen",
+  );
+  if (helpPending && userId !== null) {
+    return (
+      <SessionStartHelp userId={userId} invite={invite} onStart={() => setHelpPending(false)} />
+    );
+  }
+  return <RoomSessionScreen userId={userId} restored={restored} invite={invite} />;
+}
+
 function RoomSessionScreen({
   userId,
   restored,
@@ -488,14 +610,8 @@ function RoomSessionScreen({
   // 종료 확인 다이얼로그. 열려 있는 동안에도 **세션은 계속 진행된다**(Figma에서 딤 뒤
   // 상태 필이 `순공시간 측정 중`이고 타이머가 살아 있음을 확인).
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
-  // 세션 도움말. 끝까지 본 기록(seen)이 없으면 세션마다 띄우고, 더보기의 도움말 보기는 언제든 연다.
-  // 기록은 마운트 때 한 번 읽는다. 신원이 바뀌면 화면이 key로 다시 마운트되어 새 계정의 기록을 읽는다.
-  const [guideState, setGuideState] = useState(() =>
-    userId === null ? null : sessionGuideState(userId),
-  );
+  // 더보기의 도움말 보기로 세션 중에 다시 여는 도움말. 처음 보는 도움말은 세션 앞의 `SessionStartHelp`가 띄운다.
   const [helpOpen, setHelpOpen] = useState(false);
-  // Escape로 중간에 닫으면 기록은 남기지 않고, 이번 세션 화면에서만 다시 띄우지 않는다.
-  const [helpDismissed, setHelpDismissed] = useState(false);
   // 과목 페이지 등에 가려 내렸다가 다시 띄울 때 같은 단계로 돌아오도록 단계를 여기서 든다.
   const [helpStep, setHelpStep] = useState(0);
   const [moreTrigger, setMoreTrigger] = useState<HTMLButtonElement | null>(null);
@@ -505,42 +621,14 @@ function RoomSessionScreen({
     page !== null || modeOpen || exitDialogOpen || invite !== null || modalOverlayOpen;
   // 떠 있는 동안 세션 본문은 inert로 막고 앱 glass 버튼은 faded로 감춘다. 덮개 위에 실제 glass 버튼이
   // 떠서 같은 자리의 가짜 버튼과 겹치지 않게 웹 가짜 요소만 보인다. 세션·타이머는 그대로 돈다.
-  const helpVisible =
-    phase.name === "studying" &&
-    (helpOpen
-      ? !helpBlocked
-      : userId !== null &&
-        !helpDismissed &&
-        shouldShowSessionGuide({ state: guideState, blocked: helpBlocked }));
-  // 도움말 화면은 가려지면 언마운트되어 다시 뜰 때 효과가 또 돈다.
-  // 그래서 노출·단계 이벤트는 화면이 아니라 여기서 노출마다, 단계가 바뀔 때마다 한 번씩만 보낸다.
-  // 열린 경로(trigger)는 노출이 끝날 때까지 유지하고, 추적 단계가 null이면 이번 노출의 첫 이벤트를 아직 보내지 않은 것이다.
-  const helpTriggerRef = useRef<SessionHelpTrigger>("auto");
-  const helpTrackedStepRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (!helpVisible || helpTrackedStepRef.current === helpStep) {
-      return;
-    }
-    if (helpTrackedStepRef.current === null) {
-      trackStudySessionHelpShown(helpTriggerRef.current, "single");
-    }
-    helpTrackedStepRef.current = helpStep;
-    trackStudySessionHelpStepViewed({
-      step: helpStep + 1,
-      stepId: SESSION_HELP_STEPS[helpStep].id,
-      trigger: helpTriggerRef.current,
-      roomType: "single",
-    });
-  }, [helpVisible, helpStep]);
-  // 마지막 단계까지 본 계정만 기록한다.
-  // 메뉴로 다시 본 경우에도 같은 값을 남기므로 이미 seen인 계정에는 달라지는 것이 없다.
+  const helpVisible = phase.name === "studying" && helpOpen && !helpBlocked;
+  const endHelpExposure = useSessionHelpFunnel(helpVisible, helpStep, "menu");
+  // 끝까지 본 계정만 기록한다. 처음 도움말을 Escape로 닫은 계정이 메뉴로 다시 봐도 여기서 남는다.
   function completeHelp() {
-    trackStudySessionHelpCompleted(helpTriggerRef.current, "single");
-    helpTriggerRef.current = "auto";
-    helpTrackedStepRef.current = null;
+    trackStudySessionHelpCompleted("menu", "single");
+    endHelpExposure();
     if (userId !== null) {
       markSessionGuideSeen(userId);
-      setGuideState("seen");
     }
     setHelpOpen(false);
     setHelpStep(0);
@@ -549,20 +637,17 @@ function RoomSessionScreen({
     trackStudySessionHelpDismissed({
       step: helpStep + 1,
       stepId: SESSION_HELP_STEPS[helpStep].id,
-      trigger: helpTriggerRef.current,
+      trigger: "menu",
       roomType: "single",
       reason: "escape",
     });
-    helpTriggerRef.current = "auto";
-    helpTrackedStepRef.current = null;
-    setHelpDismissed(true);
+    endHelpExposure();
     setHelpOpen(false);
     setHelpStep(0);
   }
-  // 입장 카메라 확인 창. 세션 화면마다 한 번 묻고, 도움말이 자동으로 뜰 계정은 도움말을 끝내거나 닫은 뒤에 묻는다.
+  // 입장 카메라 확인 창. 세션 화면마다 한 번 묻는다.
   // 과목 페이지 등에 가려 도움말이 잠시 숨은 동안에도 묻지 않도록 가림 여부를 빼고 판정한다.
   // 신원은 진입 게이트가 첫 토큰을 기다린 뒤에야 이 화면을 만들므로 여기서 또 기다리지 않는다.
-  // 끝내 신원이 없는 기기(userId null)도 도움말은 없으니 바로 묻는다.
   // 종료·초대·과목 페이지·타이머 화면은 먼저 열렸으면 닫힌 뒤에 묻는다. 이 창도 aria-modal이라
   // modalOverlayOpen은 조건에 넣지 않는다(뜨자마자 스스로를 닫는 순환이 된다).
   const [cameraPromptAnswered, setCameraPromptAnswered] = useState(false);
@@ -598,15 +683,10 @@ function RoomSessionScreen({
     writeFaceMaskEmojiId("single", id);
     setFaceMaskEmojiId(id);
   }
-  const helpAutoPending =
-    userId !== null &&
-    !helpDismissed &&
-    shouldShowSessionGuide({ state: guideState, blocked: false });
   const cameraPromptOpen =
     phase.name === "studying" &&
     !cameraPromptAnswered &&
     !helpOpen &&
-    !helpAutoPending &&
     page === null &&
     !exitDialogOpen &&
     invite === null &&
@@ -726,20 +806,7 @@ function RoomSessionScreen({
     [navigate, searchParams, startedAtMs],
   );
 
-  /**
-   * 홈으로 이탈 — 미달 종료(순공 1분 미만)의 출구
-   *
-   * 네이티브 앱 안에서는 웹 라우터 이동만으로 부족하다. 이 화면이 WebView로 로드된
-   * 것이라 `navigate("/home")`는 WebView 안의 웹 홈을 열 뿐, 그 WebView를 담고 있는 네이티브
-   * `fullScreenModal`을 닫아 탭 화면으로 돌아가지는 못한다. 그래서 네이티브에
-   * `navigate-home`을 먼저 보낸다 — 네이티브가 모달을 닫으면 이 화면 전체가 사라지므로
-   * 아래 웹 라우터 이동은 그 사이 잠깐이라도 화면이 있을 브라우저 단독 모드를 위한
-   * 폴백이다.
-   */
-  const goHome = () => {
-    postToNative({ type: "navigate-home", atMs: Date.now() });
-    navigate({ pathname: "/home", search: searchParams.toString() }, { replace: true });
-  };
+  const goHome = useGoHome();
 
   /**
    * 순공 1분 미만으로 끝났는가
@@ -1050,7 +1117,6 @@ function RoomSessionScreen({
               hidden={simpleMode || helpVisible}
               onFlipCamera={() => void handleFlipCamera()}
               onOpenHelp={() => {
-                helpTriggerRef.current = "menu";
                 setHelpStep(0);
                 setHelpOpen(true);
               }}
@@ -1544,5 +1610,5 @@ export function RoomPage() {
   }
   // 사용자가 바뀌면 통째로 새로 만든다. 복원값은 마운트 시점에 한 번만 읽히므로, 같은
   // 인스턴스를 유지하면 새 사용자가 앞 사용자의 세션을 그대로 이어받는다.
-  return <RoomSessionScreen key={userId} userId={userId} restored={restored} invite={invite} />;
+  return <RoomEntry key={userId} userId={userId} restored={restored} invite={invite} />;
 }

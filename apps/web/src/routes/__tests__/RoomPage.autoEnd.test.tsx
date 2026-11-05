@@ -52,7 +52,7 @@ function ResultRouteProbe() {
 }
 
 function renderRoom(url: string) {
-  return render(
+  const view = render(
     <MemoryRouter initialEntries={[url]}>
       <Routes>
         <Route path="/room/:id" element={<RoomPage />} />
@@ -60,6 +60,8 @@ function renderRoom(url: string) {
       </Routes>
     </MemoryRouter>,
   );
+  answerCameraPrompt("camera");
+  return view;
 }
 
 /** 일시정지 임계값을 넘길 만큼 시간을 흘린다. */
@@ -82,6 +84,11 @@ async function focusPastMinute() {
     await vi.advanceTimersByTimeAsync(60_000);
   });
 }
+
+// 첫 도움말이 떠 있는 동안에는 세션 화면이 없어서 이미 끝까지 본 계정으로 연다.
+beforeEach(() => {
+  localStorage.setItem("focusmakers:session-guide:1", "seen");
+});
 
 describe("RoomPage — S3-8 자동 종료 안내", () => {
   beforeEach(() => {

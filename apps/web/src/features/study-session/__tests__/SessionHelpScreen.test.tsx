@@ -119,6 +119,25 @@ describe("SessionHelpScreen", () => {
     expect(onComplete).toHaveBeenCalledTimes(1);
   });
 
+  it("onLater를 넘기면 5단계에만 나중에 시작할게요가 있고, 넘기지 않으면 없다", async () => {
+    const onLater = vi.fn();
+    const onComplete = vi.fn();
+    const view = render(
+      <SessionHelpScreen onComplete={onComplete} onLater={onLater} onDismiss={vi.fn()} />,
+    );
+    expect(screen.queryByRole("button", { name: "나중에 시작할게요" })).not.toBeInTheDocument();
+
+    goToStep(5);
+    await userEvent.click(screen.getByRole("button", { name: "나중에 시작할게요" }));
+    expect(onLater).toHaveBeenCalledTimes(1);
+    expect(onComplete).not.toHaveBeenCalled();
+    view.unmount();
+
+    renderHelp();
+    goToStep(5);
+    expect(screen.queryByRole("button", { name: "나중에 시작할게요" })).not.toBeInTheDocument();
+  });
+
   it("덮개를 탭하면 1~4단계는 다음으로 가고, 5단계에서는 아무 일도 없다", () => {
     const { onComplete } = renderHelp();
 

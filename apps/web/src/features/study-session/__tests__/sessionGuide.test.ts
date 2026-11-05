@@ -1,10 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  markSessionGuideSeen,
-  sessionGuideState,
-  shouldShowSessionGuide,
-} from "@/features/study-session/sessionGuide";
+import { markSessionGuideSeen, sessionGuideState } from "@/features/study-session/sessionGuide";
 
 describe("sessionGuide 저장", () => {
   afterEach(() => localStorage.clear());
@@ -38,17 +34,5 @@ describe("sessionGuide 저장 — 저장소를 쓸 수 없는 기기", () => {
     });
     expect(sessionGuideState(7)).toBeNull();
     expect(() => markSessionGuideSeen(7)).not.toThrow();
-  });
-});
-
-describe("shouldShowSessionGuide", () => {
-  it("기록이 없으면 띄운다", () => {
-    expect(shouldShowSessionGuide({ state: null, blocked: false })).toBe(true);
-  });
-  it("끝까지 본 계정이면 안 띄운다", () => {
-    expect(shouldShowSessionGuide({ state: "seen", blocked: false })).toBe(false);
-  });
-  it("다른 화면이 열려 있으면 안 띄운다", () => {
-    expect(shouldShowSessionGuide({ state: null, blocked: true })).toBe(false);
   });
 });

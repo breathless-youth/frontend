@@ -235,16 +235,6 @@ describe("RoomPage 심플 모드 시작과 입장 카메라 확인 창", () => {
     expect(amplitude.trackStudySessionCameraPromptAnswered).not.toHaveBeenCalled();
   });
 
-  it("도움말이 다른 화면에 가려 잠시 숨은 동안에도 묻지 않는다", async () => {
-    renderRoom();
-
-    // jsdom은 inert를 지키지 않아 덮개 뒤 과목 버튼을 직접 눌러 페이지를 연 상황을 만든다.
-    fireEvent.click(screen.getByRole("button", { name: "과목", hidden: true }));
-    await waitFor(() => expect(helpDialog()).not.toBeInTheDocument());
-
-    expect(prompt()).not.toBeInTheDocument();
-  });
-
   it("브라우저 단독처럼 신원이 없어도 바로 묻는다", () => {
     renderRoom("/room/7");
 

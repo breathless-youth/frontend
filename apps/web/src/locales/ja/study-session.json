@@ -128,7 +128,8 @@
     "buttonsPause": "休憩するときは\n<hl>一時停止</hl>を\nタップします",
     "finishMore": "このヘルプは\n「その他」メニューから\nいつでも見られます",
     "finishCenter": "準備ができました\nさあ、<hl>集中</hl>しましょう",
-    "finishCta": "集中をはじめる"
+    "finishCta": "集中をはじめる",
+    "finishLater": "あとではじめる"
   },
   "recovery": {
     "title": "保存されていなかった記録を復元しました",

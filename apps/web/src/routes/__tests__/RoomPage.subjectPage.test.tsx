@@ -2,10 +2,11 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import userEvent from "@testing-library/user-event";
 import { BrowserRouter, MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { toast } from "sonner";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
+import { answerCameraPrompt } from "@/test/cameraPrompt";
 import { RoomPage } from "../RoomPage";
 
 /**
@@ -42,13 +43,15 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
 const MATH = { id: 3, name: "수학", colorIndex: 0, studySec: 0, focusSec: 0, tasks: [] };
 
 function renderRoom() {
-  return render(
+  const view = render(
     <MemoryRouter initialEntries={["/room/7?userId=1"]}>
       <Routes>
         <Route path="/room/:id" element={<RoomPage />} />
       </Routes>
     </MemoryRouter>,
   );
+  answerCameraPrompt("simple");
+  return view;
 }
 
 /** 네이티브가 세션 웹뷰에 초대를 넘긴 상황을 재현한다. */
@@ -123,7 +126,7 @@ function RouterPath() {
 /** `main.tsx`와 같은 BrowserRouter로 띄운다. popstate를 받으면 라우터도 위치를 다시 읽는다. */
 function renderRoomInBrowserRouter() {
   window.history.pushState(null, "", "/room/7?userId=1");
-  return render(
+  const view = render(
     <BrowserRouter>
       <RouterPath />
       <Routes>
@@ -132,6 +135,8 @@ function renderRoomInBrowserRouter() {
       </Routes>
     </BrowserRouter>,
   );
+  answerCameraPrompt("simple");
+  return view;
 }
 
 function routerPath() {
@@ -147,6 +152,11 @@ async function selectMathFromPage() {
   await userEvent.click(screen.getByRole("button", { name: "과목" }));
   await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
 }
+
+// 첫 도움말이 떠 있는 동안에는 세션 화면이 없어서 이미 끝까지 본 계정으로 연다.
+beforeEach(() => {
+  localStorage.setItem("focusmakers:session-guide:1", "seen");
+});
 
 describe("RoomPage 과목 페이지와 하단 버튼", () => {
   afterEach(() => {

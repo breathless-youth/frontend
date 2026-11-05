@@ -1,12 +1,13 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
   PhotoTap,
   VisionFocusDetector,
 } from "@/features/study-session/adapters/focusDetector";
+import { answerCameraPrompt } from "@/test/cameraPrompt";
 import { RoomPage } from "../RoomPage";
 
 /**
@@ -93,13 +94,15 @@ vi.mock("@/features/study-session/useVisionReadyTracking", () => ({
 }));
 
 function renderRoom() {
-  return render(
+  const view = render(
     <MemoryRouter initialEntries={["/room/7?userId=1"]}>
       <Routes>
         <Route path="/room/:id" element={<RoomPage />} />
       </Routes>
     </MemoryRouter>,
   );
+  answerCameraPrompt("camera");
+  return view;
 }
 
 /** 화면 꺼짐·백그라운드 전환을 jsdom에서 재현한다(Page Visibility API). */
@@ -116,6 +119,11 @@ async function tick(ms: number) {
 
 afterEach(() => {
   vi.clearAllMocks();
+});
+
+// 첫 도움말이 떠 있는 동안에는 세션 화면이 없어서 이미 끝까지 본 계정으로 연다.
+beforeEach(() => {
+  localStorage.setItem("focusmakers:session-guide:1", "seen");
 });
 
 describe("RoomPage 타임랩스 연결", () => {

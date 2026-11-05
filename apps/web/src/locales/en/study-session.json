@@ -132,7 +132,8 @@
     "buttonsPause": "Taking a break?\nTap <hl>Pause</hl>",
     "finishMore": "Find this guide anytime\nin the More menu",
     "finishCenter": "You're all set\nReady to <hl>focus</hl>?",
-    "finishCta": "Start focusing"
+    "finishCta": "Start focusing",
+    "finishLater": "I'll start later"
   },
   "recovery": {
     "title": "Unsaved session recovered",
