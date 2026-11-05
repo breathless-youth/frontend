@@ -148,7 +148,7 @@ const en = {
 
 const ja = {
   "tab.home": "ホーム",
-  "tab.social": "ソーシャル",
+  "tab.social": "グループ",
   "tab.records": "記録",
   "tab.ranking": "ランキング",
   "tab.settings": "設定",
@@ -218,7 +218,7 @@ const ja = {
 
 const zhHant = {
   "tab.home": "首頁",
-  "tab.social": "社交",
+  "tab.social": "群組",
   "tab.records": "紀錄",
   "tab.ranking": "排行榜",
   "tab.settings": "設定",
