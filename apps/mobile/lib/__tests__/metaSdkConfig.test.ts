@@ -45,6 +45,7 @@ describe("Meta SDK 설정", () => {
       "GOOGLE_SERVICES_PLIST",
       "META_APP_ID",
       "META_CLIENT_TOKEN",
+      "AIRBRIDGE_APP_TOKEN",
       "EAS_BUILD",
     ]) {
       delete process.env[key];

@@ -53,6 +53,17 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 - **설치 유입 정보는 `lib/installAttribution.ts`가 설치당 한 번 읽는다.** Android 플레이 설치 정보 원문과 메타 지연 딥링크의 `fm_ad` 값을 SecureStore에 보관하고, 준비된 웹뷰에 브리지 `install-attribution`으로 넘긴 뒤 웹의 `install-attribution-received`를 받아야 보관을 끝낸다. 지연 딥링크는 설치 뒤 처음 물을 때만 돌아오므로 보관소를 읽지 못한 실행에서 다시 묻지 말 것. 초대코드 복원(`installReferrerInvite.ts`)과는 따로 읽는다.
 - `autoLogAppEventsEnabled`·`isAutoInitEnabled`를 끄지 말 것(설치 어트리뷰션의 근거 이벤트가 사라진다). 로그인·공유 기능은 쓰지 않는다 — plugin의 `scheme`·`displayName`은 필수값일 뿐이다.
 
+## Airbridge MMP SDK (`lib/airbridge.ts`)
+
+`airbridge-expo-sdk`·`airbridge-react-native-sdk`. 광고 채널별 설치·전환 측정용이다. 구글 애즈 입찰의 기본 전환은 GA4이고 Airbridge 전환은 보조다(유입 경로 설계 문서 `docs/superpowers/specs/2026-11-04-google-meta-install-attribution-design.md`).
+
+- **토큰은 env `AIRBRIDGE_APP_TOKEN` 하나다.** 있을 때만 `app.config.ts`가 plugin과 `extra.airbridgeEnabled`를 켜고, production은 EAS 빌더에서 없으면 throw한다. EAS에는 production 환경에만 넣는다 — 개발용 Airbridge 앱이 없어 개발·staging 빌드에 넣으면 운영 데이터에 섞인다. `airbridgeConfig.test.ts`가 고정한다. SDK 동작 옵션은 `airbridge.json`(ATT 응답 대기 120초)이다.
+- **SDK는 `extra.airbridgeEnabled`를 본 뒤 `try` 안에서 `require`한다.** 불러오는 순간 네이티브 이벤트 emitter를 만들어 모듈 없는 바이너리에서 던지는데, 이 통로를 `auth.ts` 가입 처리와 `nativeBridgeHandler`가 부르므로 밖으로 새면 가입·브리지가 끊긴다.
+- **보내는 것**: 브리지 `analytics-event`(웹 Amplitude 사본, Firebase와 같은 것) 전부를 커스텀 이벤트로, Meta 전환 중 가입·튜토리얼 완료·업적·공유 4종만 표준 이벤트로. 이름을 화이트리스트하지 않는다(목록은 웹이 소유). 설치·실행은 SDK가 네이티브에서 직접 잡는다.
+- ATT 창은 Airbridge가 아니라 `initMetaAds`가 띄운다. Meta env 없는 빌드는 ATT 창이 없어 iOS 설치 전송이 120초 늦다.
+- ⚠️ **릴리즈 게이트**: 개인정보 처리방침·App Store 개인정보 라벨·Play 데이터 보안에 Airbridge(IDFA/GAID)를 넣기 전에는 이 SDK가 든 빌드를 스토어에 내지 않는다.
+- Airbridge 딥링크는 쓰지 않는다. Expo SDK 57 이하에서는 딥링크 수집이 안 될 수 있다(Airbridge 문서, SDK 58부터 지원). `airbridge-expo-sdk`가 옛 `@expo/config-plugins`를 따로 끌어오므로 Expo SDK를 올릴 때 이 plugin 호환을 먼저 본다.
+
 ## 소셜 로그인 (`lib/socialLogin.ts` · `lib/socialLoginSdk.ts`)
 
 `@react-native-kakao/core`·`@react-native-kakao/user`·`react-native-nitro-google-signin`·`expo-apple-authentication`. 웹이 브리지 `social-login`을 보내면 셸이 SDK 로그인과 `POST /api/auth/link`를 처리하고, 새 토큰의 `auth-token`을 먼저 보낸 뒤 `social-login-result`로 답한다.
