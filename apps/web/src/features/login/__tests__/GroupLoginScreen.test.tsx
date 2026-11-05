@@ -112,6 +112,16 @@ describe("그룹 로그인 화면", () => {
     );
   });
 
+  it("동의 문구는 화면 폭과 상관없이 14세 확인 다음 줄에서 약관 동의가 시작된다", () => {
+    vi.mocked(getStudyDays).mockReturnValue(new Promise(() => {}));
+    renderScreen();
+    const consent = screen.getByText(/로그인하면 만 14세 이상임을 확인하고/);
+    expect(consent.textContent?.split("\n")).toEqual([
+      "로그인하면 만 14세 이상임을 확인하고,",
+      "이용약관과 개인정보 처리방침에 동의하게 돼요",
+    ]);
+  });
+
   it("공부한 날이 있으면 기록 이어가기 안내를 보인다", async () => {
     vi.mocked(getStudyDays).mockResolvedValue({ totalDays: 3 });
     renderScreen();
@@ -186,23 +196,16 @@ describe("그룹 로그인 결과", () => {
     }
   });
 
-  it("새로 가입했으면 프로필을 정하러 간다", async () => {
+  it("새로 가입해도 이 화면에 남아 게이트가 바뀌기를 기다린다", async () => {
     answerWith({ status: "success", isNewUser: true });
-    renderScreen();
+    const { location } = renderScreen();
     await press("Google로 계속하기");
-    expect(await screen.findByText("프로필 화면")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Google로 계속하기" })).toBeEnabled(),
+    );
     expect(trackSocialLoginSucceeded).toHaveBeenCalledWith({ provider: "GOOGLE", isNewUser: true });
-  });
-
-  it("프로필로 갈 때 앱 기능 표시는 남기고 초대코드는 뺀다", async () => {
-    answerWith({ status: "success", isNewUser: true });
-    const { location } = renderScreen({
-      path: "/social/join?groupRooms=1&profilePhotoPicker=1&code=K7Q2MX",
-      entry: "invite",
-    });
-    await press("Google로 계속하기");
-    expect(await screen.findByText("프로필 화면")).toBeInTheDocument();
-    expect(location()?.search).toBe("?groupRooms=1&profilePhotoPicker=1");
+    expect(screen.queryByText("프로필 화면")).not.toBeInTheDocument();
+    expect(location()?.pathname).toBe("/social");
   });
 
   it("기존 계정으로 로그인했으면 이 화면에 남아 게이트가 바뀌기를 기다린다", async () => {
@@ -296,23 +299,5 @@ describe("그룹 로그인 결과", () => {
       answer({ status: "failed", code: "INVALID_SOCIAL_TOKEN" });
     });
     expect(showToast).not.toHaveBeenCalled();
-  });
-
-  it("신원이 바뀌어 화면이 먼저 내려가도 새로 가입했으면 프로필을 정하러 간다", async () => {
-    vi.mocked(getStudyDays).mockReturnValue(new Promise(() => {}));
-    let answer: (result: NativeSocialLoginResult) => void = () => {};
-    vi.mocked(requestNativeSocialLogin).mockReturnValue(
-      new Promise((resolve) => {
-        answer = resolve;
-      }),
-    );
-    const { leave } = renderScreen();
-    await press("Google로 계속하기");
-    leave();
-    await act(async () => {
-      answer({ status: "success", isNewUser: true });
-    });
-    expect(await screen.findByText("프로필 화면")).toBeInTheDocument();
-    expect(trackSocialLoginSucceeded).toHaveBeenCalledWith({ provider: "GOOGLE", isNewUser: true });
   });
 });
