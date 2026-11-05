@@ -309,10 +309,6 @@ export function createGroupMockServer(
 
     createGroup: (body) =>
       change(() => {
-        const { mine } = view();
-        if (mine.ownedGroupCount >= GROUP_MOCK_LIMITS.maxOwnedGroups) {
-          throw apiError("OWNED_GROUP_LIMIT");
-        }
         if (slotsUsed() >= GROUP_MOCK_LIMITS.maxGroupsAndApplications) {
           throw apiError("GROUP_SLOT_LIMIT");
         }

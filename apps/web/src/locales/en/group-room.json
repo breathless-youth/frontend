@@ -16,7 +16,6 @@
       "roomsAndApplicationsFull": "Up to 5 groups and requests",
       "invalidCode": "Check the invite code and try again"
     },
-    "createRoomLimit": "You can create up to 2 groups",
     "memberCount": "{{count}}/{{max}} members"
   },
   "roomMenu": {

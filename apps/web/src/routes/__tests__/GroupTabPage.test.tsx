@@ -260,7 +260,7 @@ describe("그룹 탭", () => {
     expect(await within(sheet).findByRole("button", { name: "신청 취소" })).toBeInTheDocument();
   });
 
-  it("그룹장인 그룹이 2개면 그룹 만들기가 흐려지고 한도 문구를 설명으로 붙인다", async () => {
+  it("그룹과 신청이 합쳐 5개면 그룹 만들기가 흐려지고 한도 문구를 설명으로 붙인다", async () => {
     mockGroupApi("limits");
     renderGroupRoute("/social?groupRooms=1");
     await userEvent
@@ -268,7 +268,7 @@ describe("그룹 탭", () => {
       .click(await screen.findByRole("button", { name: "그룹 만들기와 초대코드로 참여" }));
     const create = screen.getByRole("menuitem", { name: /그룹 만들기/ });
     expect(create).toHaveAttribute("aria-disabled", "true");
-    expect(create).toHaveAccessibleDescription("그룹은 2개까지 만들 수 있어요");
+    expect(create).toHaveAccessibleDescription("그룹과 신청을 합쳐 5개까지예요");
   });
 
   it("신원이 없으면 빈 상태를 보이고 그룹 만들기는 한도 문구 없이 흐리게 둔다", async () => {

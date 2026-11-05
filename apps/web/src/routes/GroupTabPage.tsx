@@ -233,7 +233,9 @@ function GroupTabContent({ userId }: { userId: number | null }) {
         },
       }}
       fab={{
-        canCreate: signedIn && (mine === undefined || canCreateRoom(mine.ownedGroupCount)),
+        canCreate:
+          signedIn &&
+          (mine === undefined || canCreateRoom(mine.groups.length, mine.pendingApplicationCount)),
         // 신원이 없어 막은 것은 그룹 한도 때문이 아니라서 한도 문구를 붙이지 않는다.
         blockedReason: signedIn ? createRoomLimitCopy() : null,
         onCreate: () => leaveTab("/social/groups/new"),

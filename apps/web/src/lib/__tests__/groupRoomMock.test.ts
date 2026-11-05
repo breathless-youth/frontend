@@ -78,10 +78,10 @@ describe("그룹 가짜 서버", () => {
     });
   });
 
-  it("한도 장면은 그룹 만들기를 OWNED_GROUP_LIMIT로 막는다", async () => {
+  it("한도 장면은 그룹 만들기를 GROUP_SLOT_LIMIT로 막는다", async () => {
     await expect(
       server("limits").createGroup({ name: "새 그룹", visibility: "PRIVATE", category: "ETC" }),
-    ).rejects.toMatchObject({ status: 409, code: "OWNED_GROUP_LIMIT" });
+    ).rejects.toMatchObject({ status: 409, code: "GROUP_SLOT_LIMIT" });
   });
 
   it("공개 그룹 목록은 20개씩 나누고 마지막 쪽은 다음 쪽이 없다", async () => {
