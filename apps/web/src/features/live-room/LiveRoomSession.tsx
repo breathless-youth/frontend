@@ -168,6 +168,7 @@ export function LiveRoomSession({
     // 계측용 — 없으면 study_session_* 이벤트가 개인 세션과 섞인다.
     roomType: "social",
     ambientUsage: ambientUsage.snapshot,
+    ambientSoundPlays: ambientUsage.soundSeconds,
     getCompletedTaskIds: (startedAtMs) =>
       completedTaskIdsSince(subjectsListRef.current, startedAtMs),
   });

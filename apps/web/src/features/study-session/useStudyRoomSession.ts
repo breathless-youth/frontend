@@ -5,6 +5,7 @@ import type { StatusEventPayload, StudySessionResponse } from "@focusmakers/type
 import * as Sentry from "@sentry/react";
 
 import {
+  trackAmbientSoundPlayed,
   trackCameraFlipped,
   trackStudySessionDistracted,
   trackStudySessionEnded,
@@ -142,6 +143,16 @@ export interface StudyRoomSessionOptions {
    */
   readonly ambientUsage?: () => { used: boolean; sec: number };
   /**
+   * 계측용 소리별 배경음 재생 시간 조회
+   *
+   * 종료 시점에 한 번 읽어 소리마다 `ambient_sound_played`로 보낸다.
+   */
+  readonly ambientSoundPlays?: () => readonly {
+    readonly id: string;
+    readonly group: "noise" | "ambience" | "music";
+    readonly sec: number;
+  }[];
+  /**
    * 계측용 멀티 타이머 사용 기록 조회
    *
    * 종료 시점에 한 번 읽어 `study_session_ended`에 싣는다.
@@ -211,9 +222,11 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const roomType: StudyRoomType = options.roomType ?? "single";
   // 계측 전용 — 호출부가 렌더마다 새 함수를 줄 수 있어 최신 것을 들고 있다가 종료 시점에 읽는다.
   const ambientUsageRef = useRef(options.ambientUsage);
+  const ambientSoundPlaysRef = useRef(options.ambientSoundPlays);
   const multiTimerUsageRef = useRef(options.multiTimerUsage);
   useLayoutEffect(() => {
     ambientUsageRef.current = options.ambientUsage;
+    ambientSoundPlaysRef.current = options.ambientSoundPlays;
     multiTimerUsageRef.current = options.multiTimerUsage;
   });
   const onEndedRef = useRef(options.onEnded);
@@ -863,6 +876,15 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           breakSec,
           multiTimer: multiTimerUsageRef.current?.() ?? "none",
         });
+        for (const play of ambientSoundPlaysRef.current?.() ?? []) {
+          if (play.sec <= 0) continue;
+          trackAmbientSoundPlayed({
+            soundId: play.id,
+            group: play.group,
+            playSec: play.sec,
+            roomType,
+          });
+        }
         // Meta 광고 전환 — 같은 "세션당 한 번" 가드 안에서 같은 집계를 보낸다.
         trackMetaStudySessionEnded({
           roomType,

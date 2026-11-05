@@ -1217,6 +1217,26 @@ describe("배경음 이벤트", () => {
     ]);
   });
 
+  it("소리별 재생 시간을 정해진 이름·속성으로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackAmbientSoundPlayed({
+      soundId: "lofi-breeze",
+      group: "music",
+      playSec: 1530,
+      roomType: "single",
+    });
+
+    expect(mocks.track.mock.calls).toEqual([
+      [
+        "ambient_sound_played",
+        { sound_id: "lofi-breeze", group: "music", play_sec: 1530, room_type: "single" },
+      ],
+    ]);
+  });
+
   it("세션 종료 이벤트에 배경음 사용 여부·시간을 싣고, 없으면 false/0 이다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const { initAmplitude, trackStudySessionEnded } = await loadModule();

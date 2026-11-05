@@ -1,5 +1,6 @@
 import i18n from "@/lib/i18n";
 
+import { soundGroupOf } from "../catalog";
 import type { AmbientSound, SoundGroupId } from "../catalog";
 
 export type { SoundGroupId };
@@ -12,20 +13,10 @@ export type SoundGroup = {
 
 const ORDER: readonly SoundGroupId[] = ["music", "ambience", "noise"];
 
-/**
- * 분류를 카탈로그가 들고 있지 않을 때의 대체 경로.
- *
- * 배포 순서가 어긋나 예전 카탈로그가 잡히면 모든 항목의 group 이 비는데, 그때 항목을
- * 버리면 화면에 소리가 하나도 안 남는다. 예전 기준인 합성 여부로 떨어뜨린다.
- */
-function groupOf(sound: AmbientSound): SoundGroupId {
-  return sound.group ?? (sound.kind === "synth" ? "noise" : "ambience");
-}
-
 export function soundGroups(catalog: readonly AmbientSound[]): SoundGroup[] {
   return ORDER.map((id) => ({
     id,
     label: i18n.t(`ambient-sound:groups.${id}`),
-    sounds: catalog.filter((sound) => groupOf(sound) === id),
+    sounds: catalog.filter((sound) => soundGroupOf(sound) === id),
   })).filter((group) => group.sounds.length > 0);
 }
