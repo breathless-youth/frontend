@@ -280,5 +280,13 @@
     "full": "満員です",
     "openError": "申請せずにすぐ参加できます",
     "approvalRequiredError": "参加には申請と承認が必要です"
+  },
+  "notificationPrompt": {
+    "title": "メンバーの勉強通知を受け取りますか？",
+    "description": "メンバーが勉強を始めたらお知らせします",
+    "accept": "受け取る",
+    "later": "あとで",
+    "enabled": "メンバーの勉強通知オン",
+    "disabled": "メンバーの勉強通知オフ"
   }
 }

@@ -5,6 +5,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type * as Amplitude from "@/lib/amplitude";
 import { setGroupRoomCount, trackGroupRoomCreated, trackGroupRoomJoined } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
+import i18n from "@/lib/i18n";
 import { getProfile } from "@/lib/profileApi";
 import type * as UserId from "@/lib/userId";
 import {
@@ -162,6 +163,10 @@ describe("그룹 만들기", () => {
       description: "",
     });
     await waitFor(() => expect(router.location().pathname).toMatch(/^\/social\/groups\/\d+$/));
+    await user.click(
+      await screen.findByRole("button", { name: i18n.t("group-room:notificationPrompt.later") }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(await screen.findByRole("heading", { name: "우리 반 저녁 스터디" })).toBeInTheDocument();
   });
 
@@ -294,6 +299,10 @@ describe("그룹 설정", () => {
       expect.objectContaining({ name: "새벽 공시반", category: "CIVIL_SERVICE" }),
     );
     await waitFor(() => expect(router.location().pathname).toBe("/social/groups/10"));
+    await user.click(
+      await screen.findByRole("button", { name: i18n.t("group-room:notificationPrompt.later") }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(await screen.findByRole("heading", { name: "새벽 공시반" })).toBeInTheDocument();
   });
 
@@ -318,6 +327,10 @@ describe("그룹 설정", () => {
   it("그룹 홈에서 왔으면 저장한 뒤 그 그룹 홈으로 돌아간다", async () => {
     mockGroupApi("default");
     const { router } = renderGroupRoute("/social/groups/10?groupRooms=1");
+    await userEvent.click(
+      await screen.findByRole("button", { name: i18n.t("group-room:notificationPrompt.later") }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     await screen.findByRole("heading", { name: "새벽 5시 기상 공시반" });
     const homeKey = router.location().key;
     stubHistoryIndex(1);

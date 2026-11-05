@@ -296,5 +296,13 @@
     "approvalRequiredError": "This group requires approval to join",
     "pendingLoss_one": "Changing the entry method will remove {{count}} pending request",
     "pendingLoss_other": "Changing the entry method will remove {{count}} pending requests"
+  },
+  "notificationPrompt": {
+    "title": "Get member study notifications?",
+    "description": "We’ll let you know when a member starts studying",
+    "accept": "Notify me",
+    "later": "Later",
+    "enabled": "Member study notifications on",
+    "disabled": "Member study notifications off"
   }
 }

@@ -280,5 +280,13 @@
     "full": "자리가 다 찼어요",
     "openError": "신청 없이 바로 입장할 수 있어요",
     "approvalRequiredError": "신청 후 수락이 필요한 그룹이에요"
+  },
+  "notificationPrompt": {
+    "title": "멤버 공부 알림을 받을까요?",
+    "description": "멤버가 공부를 시작하면 알려 드려요",
+    "accept": "받을래요",
+    "later": "나중에",
+    "enabled": "멤버 공부 알림 켜짐",
+    "disabled": "멤버 공부 알림 꺼짐"
   }
 }

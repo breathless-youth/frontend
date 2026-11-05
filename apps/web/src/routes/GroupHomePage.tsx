@@ -1,11 +1,14 @@
 import type { GroupHomeResponse } from "@focusmakers/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Bell, BellOff } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { GroupNotificationPrompt } from "@/features/group-room/components/GroupNotificationPrompt";
 import { enterGroupStudyRoom } from "@/features/group-room/enterGroupStudyRoom";
 import { toRoomHome } from "@/features/group-room/fromApi";
 import {
@@ -42,7 +45,7 @@ import {
 } from "@/lib/groupRoomQueries";
 import { haptic } from "@/lib/haptics";
 import { slideNavigate } from "@/lib/pageTransition";
-import { showToast } from "@/lib/toast";
+import { showIconToast, showToast } from "@/lib/toast";
 import { useIdentityPending, useUserId } from "@/lib/userId";
 
 /**
@@ -80,6 +83,7 @@ export function GroupHomePage() {
  * 나간 그룹을 다시 받으면 서버가 멤버가 아니라고 답해 그 안내가 뜨기 때문이고, 그 조회는 화면을 벗어난 뒤 캐시에서 뺀다.
  */
 function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
+  const { t } = useTranslation("group-room");
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -167,6 +171,23 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
       void queryClient.invalidateQueries({ queryKey: groupKeys.home(userId, groupId) });
     },
   });
+
+  const changeNotification = (enabled: boolean) => {
+    if (notify.isPending) return;
+    haptic("light");
+    notify.mutate(enabled, {
+      onSuccess: () => {
+        showIconToast(
+          t(enabled ? "notificationPrompt.enabled" : "notificationPrompt.disabled"),
+          enabled ? (
+            <Bell aria-hidden="true" size={16} className="shrink-0 fill-current" />
+          ) : (
+            <BellOff aria-hidden="true" size={16} className="shrink-0" />
+          ),
+        );
+      },
+    });
+  };
 
   const [leaveDialog, setLeaveDialog] = useState<LeaveDialog | null>(null);
   const [leaveOpen, setLeaveOpen] = useState(false);
@@ -288,8 +309,7 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
           if (notify.isPending) {
             return;
           }
-          haptic("light");
-          notify.mutate(!room.notifyOn);
+          changeNotification(!room.notifyOn);
         }}
         onMenuOpen={() => {
           // 미리 받은 코드는 그사이 그룹장이 멤버를 내보내 바뀌었을 수 있어서 메뉴를 열 때 무효로 표시하고 다시 받는다.
@@ -302,6 +322,13 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
         onOpenRequests={() => go(`${groupPath}/applications`)}
         onEnterStudyRoom={enterStudyRoom}
         entering={enterRoom.isPending}
+      />
+      <GroupNotificationPrompt
+        userId={userId}
+        groupId={groupId}
+        ready={!left && !homeQuery.isError && !notify.isPending}
+        notifyEnabled={home.notifyEnabled}
+        onAccept={() => changeNotification(true)}
       />
       {leaveDialog !== null && (
         <ConfirmDialog

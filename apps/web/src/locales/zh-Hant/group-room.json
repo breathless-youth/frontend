@@ -280,5 +280,13 @@
     "full": "名額已滿",
     "openError": "無須申請即可立即加入",
     "approvalRequiredError": "加入此群組需要先申請並獲得核准"
+  },
+  "notificationPrompt": {
+    "title": "要接收成員讀書通知嗎？",
+    "description": "成員開始讀書時會通知你",
+    "accept": "接收通知",
+    "later": "稍後再說",
+    "enabled": "已開啟成員讀書通知",
+    "disabled": "已關閉成員讀書通知"
   }
 }

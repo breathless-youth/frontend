@@ -181,6 +181,8 @@ describe("멤버 관리와 멤버 보기", () => {
 
   it("그룹 홈에서 왔으면 그룹장이 바뀌어 막힐 때 그 그룹 홈으로 돌아간다", async () => {
     const api = mockGroupApi("default");
+    // 처음 입장 알림 시트 대신 멤버 관리에서 돌아오는 흐름에 집중하도록 알림을 켜 둔다.
+    await api.server.setGroupNotification(10, true);
     const { router } = renderGroupRoute("/social/groups/10?groupRooms=1");
     await screen.findByRole("heading", { name: "새벽 5시 기상 공시반" });
     const homeKey = router.location().key;
