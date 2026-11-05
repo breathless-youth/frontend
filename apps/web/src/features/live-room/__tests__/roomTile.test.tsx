@@ -379,119 +379,17 @@ describe("RoomTile 이름 줄 올리기", () => {
     goal: "합격",
   } as const;
 
-  it("기본은 이름 줄을 올리지 않는다", () => {
-    render(<RoomTile member={withGoal} />);
-
-    expect(screen.getByTestId("tile-info")).not.toHaveAttribute("data-lifted");
-  });
-
-  it("바가 떠 있는 동안은 닉네임, 마이크 아이콘, 목표 문구가 한 묶음으로 올라가고 목표는 보인다", () => {
-    render(<RoomTile member={withGoal} micOn lifted />);
-
-    // 올라가는 요소는 묶음 하나라서 세 가지가 같은 거리만큼 함께 움직인다.
-    const info = screen.getByTestId("tile-info");
-    expect(info).toHaveAttribute("data-lifted", "true");
-    expect(screen.getByText("포메1").closest("[data-lifted]")).toBe(info);
-    expect(screen.getByRole("img", { name: "마이크 켜짐" }).closest("[data-lifted]")).toBe(info);
-    expect(screen.getByText("합격").closest("[data-lifted]")).toBe(info);
-    expect(screen.getByText("합격")).not.toHaveAttribute("data-hidden");
-  });
-
-  it("바가 내려가면 이름 줄은 올리지 않은 제자리고 목표 문구만 숨는다", () => {
+  it("바가 내려가면 목표 문구만 숨는다", () => {
     render(<RoomTile member={withGoal} goalHidden />);
 
-    expect(screen.getByTestId("tile-info")).not.toHaveAttribute("data-lifted");
     expect(screen.getByText("합격")).toHaveAttribute("data-hidden", "true");
   });
 
-  it("올리고 내리는 전환은 바와 같은 시간과 곡선이고 동작 줄이기에서는 전환 없이 바로 움직인다", () => {
-    render(<RoomTile member={withGoal} lifted />);
-
-    // jsdom은 Tailwind를 적용하지 않아서 올리는 효과를 내는 클래스가 빠지지 않았는지 이름으로 확인한다.
-    expect(screen.getByTestId("tile-info")).toHaveClass(
-      "translate-y-0",
-      "transition-[translate]",
-      "duration-500",
-      "ease-[cubic-bezier(0.32,0.72,0,1)]",
-      "motion-reduce:transition-none",
-      "landscape-compact:data-lifted:-translate-y-(--room-bar-lift)",
-    );
-  });
-
-  it("올리는 클래스는 가로 폰 안에만 걸려 세로에서는 올라가지 않고 동작 줄이기로 막히지도 않는다", () => {
-    render(<RoomTile member={withGoal} lifted />);
-
-    const liftClasses = [...screen.getByTestId("tile-info").classList].filter((name) =>
-      name.includes("data-lifted"),
-    );
-    expect(liftClasses).not.toHaveLength(0);
-    for (const name of liftClasses) {
-      expect(name.startsWith("landscape-compact:")).toBe(true);
-      // 올리는 일은 바에 가리지 않으려는 것이라 동작 줄이기에서도 위치는 바뀐다.
-      expect(name).not.toContain("motion-safe");
-    }
-  });
-
-  it("스크림 높이는 타일이 정한 한 값을 기존 스크림과 올라간 스크림이 함께 읽는다", () => {
-    render(<RoomTile member={withGoal} media={<div />} lifted />);
+  it("스크림 높이는 타일이 정한 값을 읽는다", () => {
+    render(<RoomTile member={withGoal} media={<div />} />);
 
     expect(screen.getByTestId("room-tile")).toHaveClass("[--tile-scrim-height:--spacing(19)]");
     expect(screen.getByTestId("tile-scrim")).toHaveClass("h-(--tile-scrim-height)");
-    expect(screen.getByTestId("tile-scrim-lifted").className).toContain(
-      "rgba(0,0,0,0.55)_var(--tile-scrim-height)",
-    );
-  });
-
-  it("올라간 동안 다른 사람 타일의 이름 줄은 오른쪽 위 시간 뱃지를 피해 오른쪽 끝을 비우고 내 타일은 비우지 않는다", () => {
-    const { rerender } = render(<RoomTile member={withGoal} lifted />);
-    expect(screen.getByTestId("tile-info")).toHaveClass("landscape-compact:data-lifted:right-20");
-
-    rerender(
-      <RoomTile member={withGoal} lifted menuButton={<button type="button">메뉴</button>} />,
-    );
-    expect(screen.getByTestId("tile-info")).toHaveClass("landscape-compact:data-lifted:right-20");
-
-    rerender(<RoomTile member={withGoal} lifted isSelf />);
-    expect(screen.getByTestId("tile-info").className).not.toContain("data-lifted:right-");
-  });
-
-  it("영상이 켜진 타일은 올라간 이름 줄 뒤에도 스크림을 깔고 영상이 없으면 그리지 않는다", () => {
-    const { rerender } = render(
-      <RoomTile member={withGoal} media={<div data-testid="media" />} lifted />,
-    );
-    expect(screen.getByTestId("tile-scrim-lifted")).toHaveAttribute("data-lifted", "true");
-
-    rerender(<RoomTile member={withGoal} media={<div data-testid="media" />} />);
-    expect(screen.getByTestId("tile-scrim-lifted")).not.toHaveAttribute("data-lifted");
-
-    rerender(
-      <RoomTile
-        member={{ ...withGoal, cameraOn: false }}
-        media={<div data-testid="media" />}
-        lifted
-      />,
-    );
-    expect(screen.queryByTestId("tile-scrim-lifted")).toBeNull();
-  });
-
-  it("올라간 이름 줄 뒤 스크림은 이름 줄과 같은 시간과 곡선으로 나타나고 가로 폰에서만 보인다", () => {
-    render(<RoomTile member={withGoal} media={<div />} lifted />);
-
-    const scrim = screen.getByTestId("tile-scrim-lifted");
-    expect(scrim).toHaveClass(
-      "opacity-0",
-      "transition-opacity",
-      "duration-500",
-      "ease-[cubic-bezier(0.32,0.72,0,1)]",
-      "motion-reduce:transition-none",
-      "landscape-compact:data-lifted:opacity-100",
-      "h-[calc(var(--room-bar-lift)+var(--tile-scrim-height))]",
-    );
-    // 가로가 아니면 격자가 바 자리를 비워 두므로 이름 줄이 스크림 안에 그대로 있다.
-    for (const name of [...scrim.classList].filter((name) => name.includes("opacity-100"))) {
-      expect(name.startsWith("landscape-compact:")).toBe(true);
-    }
-    expect(scrim).toHaveAttribute("aria-hidden", "true");
   });
 });
 
