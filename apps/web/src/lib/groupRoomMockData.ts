@@ -278,6 +278,10 @@ export function viewGroupWorld(world: GroupMockWorld, nowMs: number): GroupMockS
         memberCount: group.members.length,
         studyingCount: group.members.filter(isStudying).length,
         owner: group.ownerId === meId,
+        newApplicationCount:
+          group.ownerId === meId && group.visibility === "PUBLIC"
+            ? liveGroupApplications(group, nowMs).length
+            : null,
         members: group.members.map((member) => toDesk(group, member, elapsedSec)),
       })),
       pendingApplicationCount: pending.length,

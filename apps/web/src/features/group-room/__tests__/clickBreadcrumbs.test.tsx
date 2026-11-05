@@ -58,7 +58,7 @@ const clicks = () => breadcrumbs.filter((breadcrumb) => breadcrumb.category === 
 
 describe("그룹 화면의 Sentry 클릭 기록", () => {
   it("내 그룹 카드는 어디를 눌러도 그룹 이름과 닉네임 대신 컴포넌트 이름이 남는다", () => {
-    render(<MyRoomCard room={fixtures.myRooms[0]!} onOpen={vi.fn()} />);
+    render(<MyRoomCard room={fixtures.myRooms[0]!} onOpen={vi.fn()} onOpenRequests={vi.fn()} />);
     const card = screen.getByRole("button", { name: /수능 D-200 밤샘반/ });
     fireEvent.click(card);
     // 실제로 누르는 곳은 카드 안의 그룹 이름이나 책상 닉네임 글자일 때가 많다.

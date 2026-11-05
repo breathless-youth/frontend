@@ -18,6 +18,7 @@ function renderHome(tab: SocialTab) {
         rooms: fixtures.myRooms,
         pendingCount: fixtures.pending.length,
         onOpenRoom: vi.fn(),
+        onOpenRequests: vi.fn(),
         onOpenPending: vi.fn(),
         onBrowsePublic: vi.fn(),
       }}

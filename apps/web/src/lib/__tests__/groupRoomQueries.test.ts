@@ -133,6 +133,7 @@ describe("groupRoomQueries", () => {
       memberCount: 3,
       studyingCount: 0,
       owner,
+      newApplicationCount: null,
       members: [],
     });
     client.setQueryData<MyGroupsResponse>(groupKeys.mine(7), {

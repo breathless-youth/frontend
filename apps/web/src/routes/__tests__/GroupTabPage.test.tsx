@@ -97,8 +97,17 @@ describe("그룹 탭", () => {
       "aria-selected",
       "true",
     );
-    expect(screen.getByRole("button", { name: /새벽 5시 기상 공시반/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /새벽 5시 기상 공시반, 공개/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /신청 중인 공개 그룹 1/ })).toBeInTheDocument();
+  });
+
+  it("내 그룹 카드의 새 신청 줄을 누르면 그 그룹의 신청 확인으로 간다", async () => {
+    mockGroupApi("default");
+    const { router } = renderGroupRoute("/social?groupRooms=1");
+    await userEvent
+      .setup()
+      .click(await screen.findByRole("button", { name: /새벽 5시 기상 공시반, 새 신청 \d+건/ }));
+    await waitFor(() => expect(router.location().pathname).toBe("/social/groups/10/applications"));
   });
 
   it("신원이 정해지기 전에는 아무것도 그리지 않고 그룹을 받지 않는다", async () => {
@@ -117,7 +126,9 @@ describe("그룹 탭", () => {
     renderGroupRoute("/social?groupRooms=1");
     expect(await screen.findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
     await userEvent.setup().click(screen.getByRole("button", { name: "다시 시도" }));
-    expect(await screen.findByRole("button", { name: /새벽 5시 기상 공시반/ })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: /새벽 5시 기상 공시반, 공개/ }),
+    ).toBeInTheDocument();
     expect(api.getMyGroups).toHaveBeenCalledTimes(2);
   });
 
@@ -209,11 +220,13 @@ describe("그룹 탭", () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const api = mockGroupApi("default");
     renderGroupRoute("/social?groupRooms=1");
-    expect(await screen.findByRole("button", { name: /새벽 5시 기상 공시반/ })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: /새벽 5시 기상 공시반, 공개/ }),
+    ).toBeInTheDocument();
     api.getMyGroups.mockRejectedValue(new ApiError("x", 400, "BAD_REQUEST"));
     await act(() => vi.advanceTimersByTimeAsync(30_000));
     expect(api.getMyGroups).toHaveBeenCalledTimes(2);
-    expect(screen.getByRole("button", { name: /새벽 5시 기상 공시반/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /새벽 5시 기상 공시반, 공개/ })).toBeInTheDocument();
     expect(screen.queryByText("잠시 후 다시 시도해 주세요")).toBeNull();
   });
 
@@ -260,7 +273,7 @@ describe("그룹 탭", () => {
     expect(await within(sheet).findByRole("button", { name: "신청 취소" })).toBeInTheDocument();
   });
 
-  it("그룹장인 그룹이 2개면 그룹 만들기가 흐려지고 한도 문구를 설명으로 붙인다", async () => {
+  it("그룹과 신청이 합쳐 5개면 그룹 만들기가 흐려지고 한도 문구를 설명으로 붙인다", async () => {
     mockGroupApi("limits");
     renderGroupRoute("/social?groupRooms=1");
     await userEvent
@@ -268,7 +281,7 @@ describe("그룹 탭", () => {
       .click(await screen.findByRole("button", { name: "그룹 만들기와 초대코드로 참여" }));
     const create = screen.getByRole("menuitem", { name: /그룹 만들기/ });
     expect(create).toHaveAttribute("aria-disabled", "true");
-    expect(create).toHaveAccessibleDescription("그룹은 2개까지 만들 수 있어요");
+    expect(create).toHaveAccessibleDescription("그룹과 신청을 합쳐 5개까지예요");
   });
 
   it("신원이 없으면 빈 상태를 보이고 그룹 만들기는 한도 문구 없이 흐리게 둔다", async () => {
@@ -285,7 +298,7 @@ describe("그룹 탭", () => {
     const create = screen.getByRole("menuitem", { name: /그룹 만들기/ });
     expect(create).toHaveAttribute("aria-disabled", "true");
     expect(create).not.toHaveAttribute("aria-describedby");
-    expect(screen.queryByText("그룹은 2개까지 만들 수 있어요")).toBeNull();
+    expect(screen.queryByText("그룹과 신청을 합쳐 5개까지예요")).toBeNull();
     expect(screen.getByRole("menuitem", { name: "초대코드로 참여" })).not.toHaveAttribute(
       "aria-disabled",
     );

@@ -142,6 +142,8 @@ export function toMyRoomSummary(card: MyGroupCard, myUserId: number): MyRoomSumm
     categoryLabel: categoryLabel(card.category),
     visibility: toRoomVisibility(card.visibility),
     memberCount: card.memberCount,
+    // 공개 그룹 그룹장이 아니면 서버가 null을 준다.
+    newRequestCount: card.newApplicationCount ?? 0,
     members: card.members.map((desk) => toRoomDeskMember(desk, myUserId)),
   };
 }
@@ -164,6 +166,7 @@ export function toPublicRoomSummary(card: PublicGroupCard): PublicRoomSummary {
     memberCount: card.memberCount,
     weeklyAverageSec: card.weeklyAverageFocusSec,
     studyingCount: card.studyingCount,
+    member: card.member,
   };
 }
 

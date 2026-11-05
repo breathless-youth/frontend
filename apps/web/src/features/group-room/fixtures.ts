@@ -182,6 +182,7 @@ export function buildGroupRoomFixtures(now: Date) {
       categoryLabel: "수능",
       visibility: "public",
       memberCount: 5,
+      newRequestCount: 0,
       members: nightOwlDesks,
     },
     {
@@ -190,6 +191,7 @@ export function buildGroupRoomFixtures(now: Date) {
       categoryLabel: "내신",
       visibility: "private",
       memberCount: 5,
+      newRequestCount: 0,
       members: eveningClassDesks,
     },
     {
@@ -198,6 +200,7 @@ export function buildGroupRoomFixtures(now: Date) {
       categoryLabel: "공무원",
       visibility: "public",
       memberCount: 4,
+      newRequestCount: 0,
       members: morningRollDesks,
     },
   ];
@@ -221,6 +224,7 @@ export function buildGroupRoomFixtures(now: Date) {
       memberCount: 4,
       weeklyAverageSec: 76_200,
       studyingCount: 2,
+      member: false,
     },
     {
       roomId: 8,
@@ -229,6 +233,7 @@ export function buildGroupRoomFixtures(now: Date) {
       memberCount: 5,
       weeklyAverageSec: 68_520,
       studyingCount: 3,
+      member: false,
     },
     {
       roomId: 9,
@@ -237,6 +242,7 @@ export function buildGroupRoomFixtures(now: Date) {
       memberCount: 3,
       weeklyAverageSec: 34_800,
       studyingCount: 0,
+      member: false,
     },
     {
       roomId: 10,
@@ -245,6 +251,7 @@ export function buildGroupRoomFixtures(now: Date) {
       memberCount: 6,
       weeklyAverageSec: 54_300,
       studyingCount: 1,
+      member: false,
     },
   ];
 

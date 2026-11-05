@@ -6,7 +6,6 @@ export const GROUP_ROOM_LIMITS = {
   maxMembers: 6,
   maxRoomsAndApplications: 5,
   maxPendingApplications: 3,
-  maxOwnedRooms: 2,
   kickCooldownDays: 3,
   applicationTtlDays: 3,
   roomNameMax: 20,
@@ -55,13 +54,13 @@ export function joinBlockCopy(reason: JoinBlockReason): string {
   return i18n.t(JOIN_BLOCK_KEYS[reason], { count: GROUP_ROOM_LIMITS.kickCooldownDays });
 }
 
-/** 그룹장인 그룹이 이미 2개여서 그룹 만들기가 흐려졌을 때 그 아래에 보이는 문장. */
+/** 그룹과 신청이 이미 5개여서 그룹 만들기가 흐려졌을 때 그 아래에 보이는 문장. */
 export function createRoomLimitCopy(): string {
-  return i18n.t("group-room:limits.createRoomLimit");
+  return joinBlockCopy("rooms_and_applications_full");
 }
 
-export function canCreateRoom(ownedRoomCount: number): boolean {
-  return ownedRoomCount < GROUP_ROOM_LIMITS.maxOwnedRooms;
+export function canCreateRoom(joinedCount: number, pendingCount: number): boolean {
+  return joinedCount + pendingCount < GROUP_ROOM_LIMITS.maxRoomsAndApplications;
 }
 
 /**

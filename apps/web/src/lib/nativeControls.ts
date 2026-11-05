@@ -28,6 +28,14 @@ interface Entry {
   spec: ControlSpec;
   measureIcon: boolean;
   iconScale: number;
+  webOriginal: WebOriginal;
+  covered?: boolean;
+}
+
+/** 앱 부품으로 바꾸기 전 웹 원본의 표시 값 */
+interface WebOriginal {
+  visibility: string;
+  ariaHidden: string | null;
 }
 
 // 등록할 때는 아직 좌표를 몰라서 범위 안의 아무 좌표를 넣고 부품 값만 본다.
@@ -151,13 +159,63 @@ function toInlineControl(spec: ControlSpec, frame: ControlFrame): InlineControl 
   }
 }
 
+const VISIBLE_TOAST_SELECTOR = '[data-sonner-toast][data-visible="true"]';
+
+function overlaps(a: DOMRect, b: DOMRect): boolean {
+  return a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
+}
+
+/**
+ * 웹 원본 보이기
+ *
+ * 등록을 풀 때와, 앱 부품이 웹뷰 위에 그려져 토스트를 가리는 동안 쓴다.
+ * 토스트는 z-index로 앱 부품 위로 올릴 수 없어서, 겹치는 동안만 앱에서 빼고 웹 원본을 토스트 아래에 둔다.
+ */
+function showWebOriginal(element: HTMLElement, { visibility, ariaHidden }: WebOriginal): void {
+  element.style.visibility = visibility;
+  if (ariaHidden === null) {
+    element.removeAttribute("aria-hidden");
+  } else {
+    element.setAttribute("aria-hidden", ariaHidden);
+  }
+}
+
+/**
+ * 웹 원본 숨김
+ *
+ * 자리는 남겨야 앱이 같은 좌표에 부품을 놓을 수 있어서 `display` 대신 `visibility`를 쓴다.
+ * 스크린리더에서도 빼서 앱 부품만 읽히게 한다.
+ */
+function hideWebOriginal(element: HTMLElement): void {
+  element.style.visibility = "hidden";
+  element.setAttribute("aria-hidden", "true");
+}
+
 function flush(): void {
   flushScheduled = false;
   const controls: InlineControl[] = [];
-  for (const { element, spec, measureIcon, iconScale } of entries.values()) {
+  const hidden = isModalOverlayOpen() || pageTransitionFinished() !== null;
+  const toasts = [...document.querySelectorAll(VISIBLE_TOAST_SELECTOR)].map((toast) =>
+    toast.getBoundingClientRect(),
+  );
+  for (const entry of entries.values()) {
+    const { element, spec, measureIcon, iconScale } = entry;
     const rect = element.getBoundingClientRect();
     // 자신이나 조상이 display: none이면 크기가 0이라 함께 빠진다.
     if (rect.width === 0 || rect.height === 0) {
+      continue;
+    }
+    // 앱 부품 층을 통째로 숨기는 동안에는 가릴 부품이 없어 웹 원본도 꺼내지 않는다.
+    const covered = !hidden && toasts.some((toast) => overlaps(toast, rect));
+    if (covered !== (entry.covered ?? false)) {
+      entry.covered = covered;
+      if (covered) {
+        showWebOriginal(element, entry.webOriginal);
+      } else {
+        hideWebOriginal(element);
+      }
+    }
+    if (covered) {
       continue;
     }
     const measured =
@@ -174,7 +232,6 @@ function flush(): void {
       controls.push(control);
     }
   }
-  const hidden = isModalOverlayOpen() || pageTransitionFinished() !== null;
   // 세션처럼 시스템 테마와 무관하게 `theme-dark`로 고정한 화면은 앱 부품 층도 다크로 그린다.
   const colorScheme = [...entries.values()].some(
     ({ element }) => element.closest(".theme-dark") !== null,
@@ -247,6 +304,13 @@ function startFollowing(): void {
   }
 }
 
+// 앱 부품은 문서 좌표에 붙어 스크롤만으로는 다시 재지 않지만, 토스트는 제자리에 있어 겹침이 달라진다.
+function flushWhileToastVisible(): void {
+  if (document.querySelector(VISIBLE_TOAST_SELECTOR) !== null) {
+    scheduleFlush();
+  }
+}
+
 function startWatching(): void {
   const observer = new ResizeObserver(scheduleFlush);
   // 위쪽 내용이 늘어 부품이 밀려나도 부품 자신의 크기는 그대로라 문서 높이 변화도 본다.
@@ -256,6 +320,7 @@ function startWatching(): void {
   mutations.observe(document.body, { childList: true, subtree: true });
   window.addEventListener("resize", scheduleFlush);
   window.addEventListener("pageshow", flushOnRestore);
+  window.addEventListener("scroll", flushWhileToastVisible, { capture: true, passive: true });
   document.addEventListener("transitionrun", startFollowing, true);
   document.addEventListener("transitionstart", startFollowing, true);
   document.addEventListener("transitionend", scheduleFlush, true);
@@ -270,6 +335,7 @@ function startWatching(): void {
     mutations.disconnect();
     window.removeEventListener("resize", scheduleFlush);
     window.removeEventListener("pageshow", flushOnRestore);
+    window.removeEventListener("scroll", flushWhileToastVisible, { capture: true });
     document.removeEventListener("transitionrun", startFollowing, true);
     document.removeEventListener("transitionstart", startFollowing, true);
     document.removeEventListener("transitionend", scheduleFlush, true);
@@ -321,27 +387,6 @@ function unregister(id: string, entry: Entry): void {
   scheduleFlush();
 }
 
-/**
- * 웹 원본 숨김
- *
- * 자리는 남겨야 앱이 같은 좌표에 부품을 놓을 수 있어서 `display` 대신 `visibility`를 쓴다.
- * 스크린리더에서도 빼서 앱 부품만 읽히게 한다.
- */
-function hide(element: HTMLElement): () => void {
-  const { visibility } = element.style;
-  const ariaHidden = element.getAttribute("aria-hidden");
-  element.style.visibility = "hidden";
-  element.setAttribute("aria-hidden", "true");
-  return () => {
-    element.style.visibility = visibility;
-    if (ariaHidden === null) {
-      element.removeAttribute("aria-hidden");
-    } else {
-      element.setAttribute("aria-hidden", ariaHidden);
-    }
-  };
-}
-
 function ignoreElement(): void {}
 
 /**
@@ -386,6 +431,10 @@ export function useNativeControl<T extends HTMLElement>(
       spec: JSON.parse(specKey) as ControlSpec,
       measureIcon,
       iconScale,
+      webOriginal: {
+        visibility: element.style.visibility,
+        ariaHidden: element.getAttribute("aria-hidden"),
+      },
     };
     const { id } = entry.spec;
     const accepted = register(id, entry);
@@ -394,7 +443,7 @@ export function useNativeControl<T extends HTMLElement>(
     if (!accepted) {
       return;
     }
-    const restore = hide(element);
+    hideWebOriginal(element);
     const unregisterPress = registerPressHandler(id, (value) => {
       press(value);
       setPressCount((count) => count + 1);
@@ -402,7 +451,7 @@ export function useNativeControl<T extends HTMLElement>(
     return () => {
       unregisterPress();
       unregister(id, entry);
-      restore();
+      showWebOriginal(element, entry.webOriginal);
     };
   }, [specKey, element, measureIcon, iconScale]);
 
