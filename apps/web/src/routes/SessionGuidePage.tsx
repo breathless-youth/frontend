@@ -10,6 +10,7 @@ import {
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import { useSessionHelpFunnel } from "@/features/study-session/useSessionHelpFunnel";
 import {
+  FOCUS_START_SOURCES,
   trackFocusStartTapped,
   trackStudySessionHelpCompleted,
   trackStudySessionHelpDismissed,
@@ -20,13 +21,6 @@ import { haptic } from "@/lib/haptics";
 import { hasRankingTab } from "@/lib/rankingCapability";
 import { requestSessionStart } from "@/lib/sessionStart";
 import { useIdentityPending, useUserId } from "@/lib/userId";
-
-const FOCUS_START_SOURCES = [
-  "home",
-  "ranking_card",
-  "ranking_empty",
-  "ranking_records",
-] as const satisfies readonly FocusStartSource[];
 
 /** 집중 시작이 넘긴 누른 자리. 그 경로로 오지 않았으면 null이다. */
 function focusStartSourceOf(state: unknown): FocusStartSource | null {
