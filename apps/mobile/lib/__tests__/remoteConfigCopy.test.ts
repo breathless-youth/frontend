@@ -53,11 +53,11 @@ describe("readCopyOr", () => {
     expect(readCopyOr("force_update_title", "forceUpdate.title")).toBe("Console title");
   });
 
-  it("셸 문구가 없는 언어에서 키가 비어 있으면 한국어 키가 아니라 영어 기본 문구다", () => {
+  it("일본어 기기에서 _ja 키가 없으면 한국어 키가 아니라 일본어 기본 문구다", () => {
     setDeviceLanguages(["ja-JP"]);
     remoteValues({ force_update_title: "콘솔 제목" });
 
-    expect(readCopyOr("force_update_title", "forceUpdate.title")).toBe("Update required");
+    expect(readCopyOr("force_update_title", "forceUpdate.title")).toBe("アップデートが必要です");
     expect(mockedGetString).not.toHaveBeenCalledWith("force_update_title");
   });
 

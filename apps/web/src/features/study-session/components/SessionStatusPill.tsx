@@ -10,8 +10,12 @@ import { Badge } from "@/components/ui/badge";
  * 스크린리더에 알린다.
  */
 
-/** 폭 600 이상 창과 큰 태블릿에서 키우는 상태 필 크기. 도움말 화면의 가짜 필도 쓴다. */
+/**
+ * 폭 600 이상 창과 큰 태블릿에서 키우는 상태 필 크기. 도움말 화면의 가짜 필도 쓴다.
+ * 필은 가운데에 있고 오른쪽 위 더보기 원(오른쪽 끝에서 59px)과 겹치면 안 되므로, 양쪽 63px을 비운 폭을 넘으면 두 줄로 나눈다.
+ */
 export const SESSION_PILL_SIZE =
+  "max-w-[calc(100vw-126px)] justify-center text-center text-balance break-keep whitespace-normal " +
   "regular:px-4.5 regular:py-2 regular:text-base regular:leading-5 short-side-lg:px-5.5 short-side-lg:py-2.5 short-side-lg:text-xl short-side-lg:leading-6.25";
 
 export type SessionStatusPillState = "focus" | "distract" | "paused";

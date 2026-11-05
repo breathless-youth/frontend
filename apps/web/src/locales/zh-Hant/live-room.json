@@ -1,0 +1,134 @@
+{
+  "notice": {
+    "graceEndSaved": "你離開座位太久，所以已結束讀書。\n讀書紀錄已儲存，請放心。",
+    "graceEndPending": "你離開座位太久，所以已結束讀書。\n讀書紀錄會儲存下來，請放心。",
+    "graceEndSubMinute": "你離開座位太久，所以已結束讀書。\n不到 1 分鐘的讀書不會顯示在紀錄中",
+    "roomClosedSaved": "房間已關閉，因此已結束讀書。\n讀書紀錄已儲存，請放心。",
+    "roomClosedPending": "房間已關閉，因此已結束讀書。\n讀書紀錄會儲存下來，請放心。",
+    "roomClosedSubMinute": "房間已關閉，因此已結束讀書。\n不到 1 分鐘的讀書不會顯示在紀錄中",
+    "kicked": "你已被移出「{{groupName}}」",
+    "kickedUnnamed": "你已被移出群組"
+  },
+  "entry": {
+    "backToSocial": "返回社交房間",
+    "backToGroup": "返回群組"
+  },
+  "me": "我",
+  "cameraConfirm": {
+    "title": "要開啟相機嗎？",
+    "notice": "只有同一個房間的人看得到你的影像，也不會儲存",
+    "confirm": "開啟相機",
+    "faceMask": "遮住臉部",
+    "faceMaskUnsupported": "這部裝置無法使用「遮住臉部」",
+    "tooltipMotion": "快速移動時，臉部可能會短暫露出",
+    "tooltipHeat": "長時間開啟可能會讓裝置發燙",
+    "aria": {
+      "faceMaskInfo": "關於「遮住臉部」"
+    }
+  },
+  "faceMask": {
+    "searching": "正在尋找要遮住的位置",
+    "emoji": {
+      "dog": "狗",
+      "cat": "貓",
+      "bear": "熊",
+      "hamster": "倉鼠",
+      "monkey": "猴子",
+      "panda": "熊貓",
+      "rabbit": "兔子",
+      "tiger": "老虎",
+      "frog": "青蛙"
+    },
+    "aria": {
+      "picker": "遮臉表情符號"
+    }
+  },
+  "controls": {
+    "cameraOff": "關閉相機",
+    "cameraOn": "開啟相機",
+    "exit": "離開"
+  },
+  "tile": {
+    "focus": "專注中",
+    "distracted": "休息",
+    "off": "相機已關閉",
+    "break": "休息中",
+    "aria": {
+      "micOn": "麥克風已開啟",
+      "micOff": "麥克風已關閉",
+      "speaking": "正在說話"
+    }
+  },
+  "time": {
+    "total": "總計",
+    "aria": {
+      "focus": "專注時間 {{duration}}",
+      "total": "總讀書時間 {{duration}}"
+    }
+  },
+  "groupRoomTopBar": {
+    "aria": {
+      "muteOthers": "將其他人靜音",
+      "switchCamera": "切換相機"
+    }
+  },
+  "micButton": {
+    "aria": {
+      "turnOff": "關閉麥克風",
+      "turnOn": "開啟麥克風"
+    }
+  },
+  "timerButton": {
+    "aria": {
+      "label": "計時器"
+    }
+  },
+  "roomTimerCopy": {
+    "startTimer": "開始 {{duration}}",
+    "startPomodoro": "開始專注 {{duration}}",
+    "pomodoroIntro": "專注 {{focus}}、休息 {{rest}}，交替進行"
+  },
+  "roomTimerSheet": {
+    "title": "計時器設定",
+    "kind": {
+      "timer": "一般",
+      "pomodoro": "番茄鐘"
+    },
+    "aria": {
+      "kind": "計時器類型"
+    }
+  },
+  "roomTimerCapsule": {
+    "phase": {
+      "focus": "專注",
+      "break": "休息"
+    },
+    "aria": {
+      "remaining": "剩餘時間",
+      "pause": "暫停",
+      "resume": "繼續",
+      "off": "關閉計時器"
+    }
+  },
+  "roomMemberMenu": {
+    "volume": "音量",
+    "mute": "靜音",
+    "unmute": "取消靜音",
+    "report": "檢舉",
+    "kick": "從群組移除",
+    "aria": {
+      "trigger": "{{nickname}} 的選單",
+      "volume": "{{nickname}} 的音量"
+    }
+  },
+  "reportMemberLayer": {
+    "title": "檢舉"
+  },
+  "liveRoomSession": {
+    "reportedAndBlocked": "已檢舉並封鎖 {{nickname}}"
+  },
+  "roomAudio": {
+    "micDenied": "請在設定中允許取用麥克風",
+    "micUnavailable": "無法開啟麥克風"
+  }
+}

@@ -182,6 +182,7 @@ export function buildGroupRoomFixtures(now: Date) {
       categoryLabel: "수능",
       visibility: "public",
       memberCount: 5,
+      newRequestCount: 0,
       members: nightOwlDesks,
     },
     {
@@ -190,6 +191,7 @@ export function buildGroupRoomFixtures(now: Date) {
       categoryLabel: "내신",
       visibility: "private",
       memberCount: 5,
+      newRequestCount: 0,
       members: eveningClassDesks,
     },
     {
@@ -198,6 +200,7 @@ export function buildGroupRoomFixtures(now: Date) {
       categoryLabel: "공무원",
       visibility: "public",
       memberCount: 4,
+      newRequestCount: 0,
       members: morningRollDesks,
     },
   ];
@@ -221,6 +224,7 @@ export function buildGroupRoomFixtures(now: Date) {
       memberCount: 4,
       weeklyAverageSec: 76_200,
       studyingCount: 2,
+      member: false,
     },
     {
       roomId: 8,
@@ -229,6 +233,7 @@ export function buildGroupRoomFixtures(now: Date) {
       memberCount: 5,
       weeklyAverageSec: 68_520,
       studyingCount: 3,
+      member: false,
     },
     {
       roomId: 9,
@@ -237,6 +242,7 @@ export function buildGroupRoomFixtures(now: Date) {
       memberCount: 3,
       weeklyAverageSec: 34_800,
       studyingCount: 0,
+      member: false,
     },
     {
       roomId: 10,
@@ -245,6 +251,7 @@ export function buildGroupRoomFixtures(now: Date) {
       memberCount: 6,
       weeklyAverageSec: 54_300,
       studyingCount: 1,
+      member: false,
     },
   ];
 
@@ -364,10 +371,10 @@ export function buildGroupRoomFixtures(now: Date) {
     roomForm,
     members,
     blocked,
-    // 그룹 이름 한도 20자와 닉네임 한도 12자를 넓은 한글로 채워 카드와 줄이 밀리는지 본다.
+    // 그룹 이름 한도 20자와 닉네임 한도 40칸을 넓은 한글로 채워 카드와 줄이 밀리는지 본다.
     longest: {
       roomName: "수능만점을향해달리는새벽다섯시기상스터디",
-      nickname: "합격할때까지밤새는수험생",
+      nickname: "합격할때까지밤새는수험생포기는없다화이팅",
     },
   };
 }

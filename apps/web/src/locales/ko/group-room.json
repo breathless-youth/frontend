@@ -14,7 +14,6 @@
       "roomsAndApplicationsFull": "그룹과 신청을 합쳐 5개까지예요",
       "invalidCode": "초대코드를 다시 확인해 주세요"
     },
-    "createRoomLimit": "그룹은 2개까지 만들 수 있어요",
     "memberCount": "멤버 {{count}}/{{max}}"
   },
   "roomMenu": {
@@ -119,6 +118,7 @@
     "label": "신청 중인 공개 그룹 {{count}}"
   },
   "publicRoomCard": {
+    "joined": "참여 중",
     "weeklyAverage": "이번 주 평균 <value>{{duration}}</value>",
     "aria": {
       "weeklyAverage": "이번 주 평균 {{duration}}"
@@ -246,6 +246,9 @@
     "fixedVisibilityNote": "공개와 비공개는 그룹을 만든 뒤에 바꿀 수 없어요",
     "categoryLabel": "시험·목표",
     "introLabel": "그룹 소개"
+  },
+  "myRoomCard": {
+    "newRequests": "새 신청 {{count}}건"
   },
   "roomHomeScreen": {
     "todayTitle": "오늘 우리 그룹",

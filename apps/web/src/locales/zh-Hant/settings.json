@@ -1,0 +1,61 @@
+{
+  "title": "設定",
+  "sections": {
+    "profile": "個人檔案",
+    "service": "一般",
+    "support": "支援",
+    "legal": "條款與資訊"
+  },
+  "rows": {
+    "editProfile": "編輯個人檔案",
+    "cameraPermission": "相機取用權限",
+    "micPermission": "麥克風取用權限",
+    "timelapse": "縮時攝影",
+    "appLock": "應用程式封鎖",
+    "blockList": "封鎖名單",
+    "contact": "聯絡我們",
+    "interview": "報名訪談",
+    "interviewBadge": "送禮券",
+    "terms": "服務條款",
+    "privacy": "隱私權政策",
+    "licenses": "開放原始碼授權",
+    "version": "版本資訊"
+  },
+  "cameraPermission": {
+    "tooltip": "可以在系統設定中變更權限",
+    "aria": {
+      "tooltip": "相機取用權限說明",
+      "granted": "相機取用權限，已允許，開啟系統設定",
+      "denied": "相機取用權限，未允許，開啟系統設定"
+    }
+  },
+  "micPermission": {
+    "tooltip": "可以在系統設定中變更權限",
+    "aria": {
+      "tooltip": "麥克風取用權限說明",
+      "granted": "麥克風取用權限，已允許，開啟系統設定",
+      "denied": "麥克風取用權限，未允許，開啟系統設定"
+    }
+  },
+  "version": {
+    "copied": "已拷貝版本資訊",
+    "copyFailed": "無法拷貝"
+  },
+  "row": {
+    "aria": {
+      "copy": "拷貝 {{value}}",
+      "tooltip": "關於{{label}}"
+    }
+  },
+  "contact": {
+    "loading": "正在載入聯絡表單",
+    "failure": "無法載入聯絡表單"
+  },
+  "download": {
+    "redirecting": "正在前往商店…",
+    "manual": "前往商店"
+  },
+  "legal": {
+    "koreanOnly": "這份文件目前僅提供韓文版本。"
+  }
+}

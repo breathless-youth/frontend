@@ -320,6 +320,9 @@ function SideCallout({ callout }: { callout: SessionHelpTextKey }) {
  * 가로는 오른쪽에 내비게이션 막대가 있어 버튼 위로 올라가 오른쪽으로 꺾인다.
  */
 function PauseCallout({ callout }: { callout: SessionHelpTextKey }) {
+  const { t } = useTranslation("study-session");
+  // 버튼이 화면 아래 끝에 붙어 있어서 세 줄 이상을 버튼 높이 가운데에 맞추면 아랫줄이 화면 끝에 닿으므로 버튼 아래 끝에 맞춘다.
+  const tall = t(callout).split("\n").length > 2;
   return (
     <div className={cn("absolute inset-0 flex items-end", SESSION_LAYER_INSET)}>
       <FakePauseButton>
@@ -338,7 +341,10 @@ function PauseCallout({ callout }: { callout: SessionHelpTextKey }) {
         />
         <CalloutText
           callout={callout}
-          className="absolute top-1/2 left-[calc(100%+42px)] w-max -translate-y-1/2 whitespace-pre landscape-compact:top-auto landscape-compact:bottom-[calc(100%+8px)] landscape-compact:left-[calc(100%+28px)] landscape-compact:translate-y-0"
+          className={cn(
+            "absolute left-[calc(100%+42px)] w-max whitespace-pre landscape-compact:top-auto landscape-compact:bottom-[calc(100%+8px)] landscape-compact:left-[calc(100%+28px)] landscape-compact:translate-y-0",
+            tall ? "bottom-0" : "top-1/2 -translate-y-1/2",
+          )}
         />
       </FakePauseButton>
     </div>
@@ -347,6 +353,9 @@ function PauseCallout({ callout }: { callout: SessionHelpTextKey }) {
 
 /** 더보기 버튼과 설명. 설명은 강조 없이 17/24 흰 글자로 줄여 정중앙 제목보다 눈에 덜 띄게 한다. */
 function MoreCallout({ callout }: { callout: SessionHelpTextKey }) {
+  const { t } = useTranslation("study-session");
+  // 버튼이 화면 위 끝에 붙어 있어서 세 줄 이상을 버튼 높이 가운데에 맞추면 윗줄이 화면 밖으로 밀리므로 버튼 위 끝에 맞춘다.
+  const tall = t(callout).split("\n").length > 2;
   return (
     <div className={cn(SOLO_MORE_POSITION, "flex size-11 items-center justify-center")}>
       <span
@@ -366,7 +375,10 @@ function MoreCallout({ callout }: { callout: SessionHelpTextKey }) {
       />
       <CalloutText
         callout={callout}
-        className="absolute top-1/2 right-[calc(100%+23px)] -translate-y-1/2 text-right text-[17px] leading-6 whitespace-pre text-primary-foreground"
+        className={cn(
+          "absolute right-[calc(100%+23px)] text-right text-[17px] leading-6 whitespace-pre text-primary-foreground",
+          tall ? "top-0" : "top-1/2 -translate-y-1/2",
+        )}
       />
     </div>
   );
@@ -521,10 +533,11 @@ export function SessionHelpScreen({
 
       {/* 이동 막대. 세로는 일시정지 버튼 위 68px(버튼 높이와 하단 여백은 실제 세션 레이어와 같다), 가로는 바닥 40px 위 가운데에 둔다.
           안전 영역을 더해서 홈 인디케이터가 있는 기기에서도 버튼과의 간격이 같다.
-          1단계 이전은 자리를 지키되 누를 수 없고, 마지막 단계에는 다음이 없다. 화살표 기호는 낭독기에서 뺀다. */}
+          1단계 이전은 자리를 지키되 누를 수 없고, 마지막 단계에는 다음이 없다. 화살표 기호는 낭독기에서 뺀다.
+          left-1/2로 두면 폭이 화면 절반으로 묶여 긴 언어에서 글자가 줄바꿈되므로 w-max로 내용 폭을 쓴다. */}
       <div
         className={cn(
-          "absolute left-1/2 flex h-12 -translate-x-1/2 items-center gap-5 rounded-full border border-primary-foreground/15 bg-primary-foreground/12 px-5 backdrop-blur-md",
+          "absolute left-1/2 flex h-12 w-max -translate-x-1/2 items-center gap-5 rounded-full border border-primary-foreground/15 bg-primary-foreground/12 px-5 backdrop-blur-md",
           NAV_BAR_BOTTOM,
         )}
       >

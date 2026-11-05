@@ -1,0 +1,16 @@
+{
+  "logo": "FocusMakers",
+  "providers": {
+    "GOOGLE": "使用 Google 帳戶繼續",
+    "APPLE": "透過 Apple 繼續",
+    "KAKAO": "透過 Kakao 繼續"
+  },
+  "consent": "登入即表示你確認自己已年滿 14 歲，\n並同意<terms>服務條款</terms>和<privacy>隱私權政策</privacy>",
+  "carryOver": {
+    "title": "目前為止的紀錄會完整保留在你登入的帳號中",
+    "body": "如果用已經在使用的帳號登入，紀錄會合併。合併後的紀錄無法復原"
+  },
+  "errors": {
+    "failed": "無法登入，請再試一次"
+  }
+}

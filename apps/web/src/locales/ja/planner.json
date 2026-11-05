@@ -1,0 +1,49 @@
+{
+  "page": {
+    "prevDay": "前日",
+    "nextDay": "翌日",
+    "unregistered": "このデバイスはまだ登録されていません。アプリで開くと記録が保存されます",
+    "loadFailed": "プランナーを読み込めませんでした",
+    "manualEntry": "手動で追加"
+  },
+  "head": {
+    "focusTime": "集中時間",
+    "total": "合計{{duration}}"
+  },
+  "pillButton": {
+    "aria": {
+      "open": "プランナー"
+    }
+  },
+  "timetable": {
+    "aria": {
+      "distribution": "この日の時間帯別の勉強の分布。集中時間{{duration}}"
+    }
+  },
+  "subjects": {
+    "rest": "休憩",
+    "unassigned": "科目なし"
+  },
+  "editor": {
+    "overLimit": "{{count}}文字まで入力できます",
+    "subjectPlaceholder": "科目名",
+    "taskPlaceholder": "タスク名",
+    "aria": {
+      "subjectName": "科目名",
+      "newSubject": "新しい科目名",
+      "taskName": "タスク名",
+      "newTask": "新しいタスク名"
+    }
+  },
+  "rowMenu": {
+    "rename": "名前を変更",
+    "remove": "削除"
+  },
+  "suggestions": {
+    "add": "+ 追加",
+    "aria": {
+      "list": "おすすめの科目",
+      "add": "{{name}}を追加"
+    }
+  }
+}

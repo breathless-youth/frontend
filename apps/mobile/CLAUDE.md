@@ -59,7 +59,7 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 
 - SDK는 `lib/socialLoginSdk.ts`만 import한다. 루트 import가 네이티브 없이(jest) 죽는 것은 Meta SDK와 같고, 이 파일 안에서도 쓰는 공급자의 SDK만 `require`한다. 테스트는 세 공급자의 네 패키지를 mock한다.
 - 어떤 공급자를 쓰는지는 `socialLoginProvidersFor` 한 곳이 정한다. SDK 초기화와 웹뷰 주소의 `socialLogin` 목록이 이 함수를 같이 본다. 카카오는 앱 종류별 네이티브 앱 키가, 구글 iOS는 앱 종류별 iOS 클라이언트 ID가 있어야 들어가고, 구글 Android와 애플(iOS)은 모든 앱 종류에 들어간다.
-- 키는 `app.config.ts`의 `VARIANT_TABLE`(`kakaoNativeAppKey`·`googleIosClientId`)에 있고 지금은 production만 채웠다. dev·staging 값을 채우면 config plugin, URL scheme, 구글 로그인 복귀 처리(`plugins/withGoogleSignInOpenUrl.js`), `extra.socialLogin`, 웹 목록이 함께 따라온다. 네이티브 설정이 바뀌므로 그 앱 종류를 다시 빌드해야 한다. `socialLoginConfig.test.ts`가 고정한다.
+- 키는 `app.config.ts`의 `VARIANT_TABLE`(`kakaoNativeAppKey`·`googleIosClientId`)에 있고 세 앱 종류 모두 채웠다. 값을 비우면 그 앱 종류에서 config plugin, URL scheme, 구글 로그인 복귀 처리(`plugins/withGoogleSignInOpenUrl.js`), `extra.socialLogin`, 웹 목록이 함께 빠진다. 네이티브 설정이 바뀌므로 그 앱 종류를 다시 빌드해야 한다. `socialLoginConfig.test.ts`가 고정한다.
 - SDK 네이티브 모듈이 없는 이전 Dev Client에서는 그 공급자만 목록에서 빠진다. 애플 SDK는 모듈이 없어도 가짜 모듈로 불러와져서 `requireOptionalNativeModule`로 따로 확인한다.
 - link가 성공하면 서버가 이전 refresh를 바로 무효로 만든다. 그래서 진행 중인 link가 있으면 `refreshAuth`가 그 결과를 기다린 뒤 새 refresh로 갱신하고, link는 시작할 때 진행 중인 갱신을 기다린다. 이 대기를 빼면 무효가 된 refresh로 갱신해 401을 받고, 저장을 비운 뒤 새 비회원으로 가입된다.
 - ID 토큰과 nonce는 로그와 브리지로 내보내지 않는다.
@@ -158,17 +158,18 @@ iOS 26 Liquid Glass를 웹 화면에 입히는 구조이고, 결정과 실측은
 ## 그 밖
 
 - **Expo SDK 57 고정이다(의도적).** 다음 업그레이드는 Jira 티켓으로 범위를 정한 뒤에만 하고, 낡아 보인다는 이유로 제안하거나 실행하지 말 것. 참조 문서는 https://docs.expo.dev/versions/v57.0.0/.
-- **App Store 제품 페이지 언어는 바이너리 Info.plist의 `CFBundleLocalizations`·`CFBundleDevelopmentRegion`에서 정해진다.** `app.json` `ios.infoPlist`에 `CFBundleDevelopmentRegion: "ko"`·`CFBundleLocalizations: ["ko", "en"]`·`CFBundleAllowMixedLocalizations: true`를 둔다. `expo-localization` 플러그인의 `supportedLocales`도 같은 목록이어야 한다(그 값이 `CFBundleLocalizations`를 덮는다). 언어를 더하면 셸 문구·권한 문구·앱 이름의 그 언어판을 모두 넣은 뒤 두 곳에 함께 더한다(스토어에 지원 언어로 표시된다). `appStoreLocalization.test.ts`가 고정한다.
+- **App Store 제품 페이지 언어는 바이너리 Info.plist의 `CFBundleLocalizations`·`CFBundleDevelopmentRegion`에서 정해진다.** `app.json` `ios.infoPlist`에 `CFBundleDevelopmentRegion: "en"`·`CFBundleLocalizations: ["ko", "en", "ja", "zh-Hant"]`(`APP_LOCALES`와 같은 순서)·`CFBundleAllowMixedLocalizations: true`를 둔다. 개발 지역을 영어로 두어 지원하지 않는 언어의 기기는 한국어 대신 영어를 본다. `expo-localization` 플러그인의 `supportedLocales`도 같은 목록이어야 한다(그 값이 `CFBundleLocalizations`를 덮는다). 언어를 더하면 셸 문구·권한 문구·앱 이름의 그 언어판을 모두 넣은 뒤 두 곳에 함께 더한다(스토어에 지원 언어로 표시된다). `appStoreLocalization.test.ts`가 고정한다.
 - 네이티브 전환 시 할 일은 [ADR 0003의 전환 체크리스트](../../docs/adr/0003-phased-rollout-webview-mvp-then-native.md#전환-체크리스트-실제로-되돌릴-때)를 따르고, `platform/*`의 mock을 실제 라이브러리로 바꾸기 전에 전환 트리거를 확인할 것.
 
 ## 언어 (셸 문구·권한 문구·앱 이름)
 
-- 셸이 직접 그리는 문구는 `lib/i18n.ts`의 ko·en 객체에 두고 `t()`로 읽는다. 언어는 `getAppLocale()`이 기기 선호 언어 목록을 위에서부터 훑어 ko·en·ja·zh-Hant 가운데 처음 맞는 것으로 정하고(`packages/types`의 `negotiateLocale`), 맞는 것이 없으면 영어다. 문구 객체가 없는 언어는 `t()`가 영어 문구를 쓴다. 린트가 `lib/i18n.ts` 밖의 한글 문자열을 막고, `console` 호출·`throw`·`new Error` 안의 로그 문구는 건너뛴다.
+- 셸이 직접 그리는 문구는 `lib/i18n.ts`의 ko·en·ja·zh-Hant 객체에 네 언어 모두 같은 키로 두고 `t()`로 읽는다. 언어는 `getAppLocale()`이 기기 선호 언어 목록을 위에서부터 훑어 ko·en·ja·zh-Hant 가운데 처음 맞는 것으로 정하고(`packages/types`의 `negotiateLocale`), 맞는 것이 없으면 영어다. 린트가 `lib/i18n.ts` 밖의 한글 문자열을 막고, `console` 호출·`throw`·`new Error` 안의 로그 문구는 건너뛴다.
 - 언어는 `getAppLocale()`이 부를 때마다 읽는다. Android는 앱별 언어를 바꾸면 액티비티만 다시 만들고 JS 모듈은 남기 때문이다. 같은 이유로 `expo-localization`의 `allowDynamicLocaleChangesAndroid`를 `false`로 둔다(켜면 액티비티를 다시 만들지 않아 웹뷰가 이전 언어로 남는다).
 - 웹뷰 URL의 `lang`은 `buildRemoteWebViewUrl`이 URL을 만들 때마다 붙인다. 캐시되는 `buildRemoteQueryParams()`에 넣지 말 것. 실행 중 언어 변경 브리지 메시지는 두지 않는다.
-- Remote Config 문구(강제·권장 업데이트)는 한국어가 아닌 기기에서 `<key>_<언어>`(`_en`·`_ja`·`_zh_hant`)를 읽고, 없으면 원래 키가 아니라 그 언어의 기본 문구를, 그것도 없으면 영어 기본 문구를 쓴다.
-- iOS 권한 문구는 `infoPlist`(한국어 원문)와 `locales/{ko,en}.json`에 함께 둔다. 권한 키를 더하면 두 파일에도 넣는다. 앱 이름은 `extra.appDisplayName`(한국어)·`appDisplayNameEn`(영어)에 `app.config.ts`가 변형 접미를 붙인다. iOS는 기본이 한국어(개발 지역 ko)이고 `locales`가 ko·en `CFBundleDisplayName`을 넣는다. Android는 기본 `values`가 영어(`withAppDisplayName.js`)이고 한국어 이름은 `locales`의 ko `android.app_name`이 `values-b+ko`에 넣는다(`resourceConfigurations`의 `b+ko`와 같은 한정자).
-- Android 네이티브 모듈의 사용자 문구는 모듈 `res/values/strings.xml`(영어 기본)과 `res/values-ko/strings.xml`에 둔다. 기본을 한국어로 두면 한국어가 아닌 기기에서 한국어가 보인다. 이름에 모듈 접두(`app_lock_`)를 붙인다.
+- Remote Config 문구(강제·권장 업데이트)는 한국어가 아닌 기기에서 `<key>_<언어>`(`_en`·`_ja`·`_zh_hant`)를 읽고, 없으면 원래 키가 아니라 그 언어의 기본 문구를 쓴다.
+- iOS 권한 문구는 `infoPlist`(한국어 원문)와 `locales/{ko,en,ja,zh-Hant}.json`에 함께 둔다. 권한 키를 더하면 네 파일에도 넣는다. 문구에 ASCII 큰따옴표를 쓰지 않는다. 앱 이름은 `extra.appDisplayName`(한국어)·`appDisplayNameEn`(영어)에 `app.config.ts`가 변형 접미를 붙인다. iOS는 `locales`가 언어마다 `CFBundleDisplayName`을 넣고, ja·zh-Hant는 영어 이름을 쓴다. Android는 기본 `values`가 영어(`withAppDisplayName.js`)이고 한국어 이름은 `locales`의 ko `android.app_name`이 `values-b+ko`에 넣는다(`resourceConfigurations`의 `b+ko`와 같은 한정자).
+- Android 네이티브 모듈의 사용자 문구는 모듈 `res/values/strings.xml`(영어 기본)과 `values-ko`·`values-ja`·`values-b+zh+Hant`에 둔다. 폴더마다 리소스 이름이 같아야 한다(`appLockConfig.test.ts`). 기본을 한국어로 두면 한국어가 아닌 기기에서 한국어가 보인다. 이름에 모듈 접두(`app_lock_`)를 붙인다.
+- `expo-secure-store`는 `faceIDPermission: false`로 둔다. 생체 인증을 쓰지 않는데 옵션이 없으면 플러그인이 영어 Face ID 문구를 넣는다.
 - `expo-localization`은 네이티브 모듈이라 Dev Client를 다시 빌드해야 언어가 바뀐다.
 
 ## 명령·컨벤션

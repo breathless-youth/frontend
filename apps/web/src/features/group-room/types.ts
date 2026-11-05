@@ -29,6 +29,8 @@ export interface MyRoomSummary {
   categoryLabel: string;
   visibility: RoomVisibility;
   memberCount: number;
+  /** 답을 기다리는 새 신청 수이고 공개 그룹 그룹장이 아니면 0이다. */
+  newRequestCount: number;
   members: RoomDeskMember[];
 }
 
@@ -47,6 +49,8 @@ export interface PublicRoomSummary {
   memberCount: number;
   weeklyAverageSec: number;
   studyingCount: number;
+  /** 내가 이미 들어간 그룹이다. */
+  member: boolean;
 }
 
 export type ApplyState =

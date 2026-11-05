@@ -276,6 +276,33 @@ describe("useAmbientSound — 세션 전이", () => {
 });
 
 describe("useAmbientSound — 사용 시간", () => {
+  it("재생하는 동안 켜진 소리마다 group 과 함께 시간을 세고, 불러오지 못한 소리는 뺀다", async () => {
+    const player = createMemoryPlayer();
+    const apply = player.applyMix.bind(player);
+    player.applyMix = async (mix) => {
+      await apply(mix);
+      return { failed: ["cafe"] };
+    };
+    setAmbientSoundStore(
+      createMemoryAmbientSoundStore({
+        ...DEFAULT_AMBIENT_SETTINGS,
+        mix: { white: 60, rain: 70, cafe: 50 },
+      }),
+    );
+    let nowMs = 0;
+    const usage = createAmbientUsage(() => nowMs);
+    renderHook(() =>
+      useAmbientSound({ ...defaultProps(), roomType: "single", usage, player, catalog }),
+    );
+    await flush();
+    nowMs += 4_000;
+
+    expect(usage.soundSeconds()).toEqual([
+      { id: "white", group: "noise", sec: 4 },
+      { id: "rain", group: "ambience", sec: 4 },
+    ]);
+  });
+
   it("재생 중에만 누적하고 일시정지·종료에 멈춘다 — 재개는 컨텍스트가 살아난 뒤부터 센다", async () => {
     const { rerender, usage, advance } = setup({ mix: { white: 60 } });
     await flush();

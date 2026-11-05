@@ -25,10 +25,10 @@
     "title": "Check your camera position",
     "description": "Make sure your face and desk are in view",
     "notice": "Your camera video stays on your device",
-    "cancel": "Start in Simple Mode",
+    "cancel": "Start in\nSimple Mode",
     "confirm": "Turn on camera",
     "faceMaskTooltip": "If you move quickly, your face may show for a moment",
-    "faceMaskCaption": "Hide face for timelapses is a separate setting"
+    "faceMaskCaption": "Hide face for time-lapses is a separate setting"
   },
   "cameraToast": {
     "flipped": "Camera switched",

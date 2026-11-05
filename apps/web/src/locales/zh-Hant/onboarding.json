@@ -1,0 +1,119 @@
+{
+  "autoTimer": {
+    "titleTop": "只要開著相機",
+    "titleBottom": "就能自動測量專注時間",
+    "aria": {
+      "mock": "開著相機時專注計時器持續計時，沒有專注時就會停止的畫面"
+    }
+  },
+  "autoRecord": {
+    "titleTop": "在你讀書的同時",
+    "titleBottom": "自動記錄到讀書計畫",
+    "aria": {
+      "mock": "讀書計畫的時間表依專注時間逐格填滿的畫面"
+    }
+  },
+  "groupStudy": {
+    "titleTop": "邀請朋友，最多 6 人",
+    "titleBottom": "一起專注",
+    "aria": {
+      "mock": "6 位參與者一起讀書的社交房間畫面"
+    }
+  },
+  "notification": {
+    "titleTop": "在你最容易專注的時段",
+    "titleBottom": "傳送專屬提醒",
+    "aria": {
+      "mock": "紀錄分頁的讀書節奏中，平日晚上 8～10 點被標示出來，並跳出專屬提醒的畫面"
+    }
+  },
+  "ready": {
+    "titleTop": "準備好了",
+    "titleBottom": "一起來專注吧",
+    "aria": {
+      "mock": "在首頁點按「開始專注」的畫面"
+    }
+  },
+  "cta": {
+    "next": "下一步",
+    "allowNotification": "接收通知",
+    "start": "開始使用"
+  },
+  "aria": {
+    "previous": "上一步"
+  },
+  "pills": {
+    "away": "你好像離開座位了",
+    "device": "你好像在操作裝置",
+    "phone": "你好像在使用手機",
+    "drowsy": "你好像在打瞌睡"
+  },
+  "banner": {
+    "title": "晚上 8 點，該讀書了",
+    "body": "平日的這個時段，你專注得最久",
+    "now": "現在"
+  },
+  "home": {
+    "focusStart": "開始專注"
+  },
+  "timer": {
+    "measuring": "正在測量專注時間",
+    "label": "專注時間",
+    "privacy": "不會儲存影像"
+  },
+  "planner": {
+    "date": "10月21日 週三",
+    "dday": "期末考",
+    "focusLabel": "專注時間",
+    "math": "數學",
+    "english": "英文",
+    "korean": "國文",
+    "rest": "休息",
+    "noSubject": "無科目"
+  },
+  "plannerTask": {
+    "calculus": "複習微積分第 3 章",
+    "pastExams": "考古題 20 題",
+    "vocab": "單字 100 個",
+    "reading": "閱讀測驗 4 篇"
+  },
+  "room": {
+    "total": "總計"
+  },
+  "tileName": {
+    "me": "我",
+    "minji": "怡君",
+    "hyunwoo": "家豪",
+    "sua": "雅婷",
+    "jihoon": "冠宇",
+    "junwoo": "承恩"
+  },
+  "tileGoal": {
+    "me": "每天 6 小時",
+    "minji": "期末考倒數 29 天",
+    "hyunwoo": "IELTS 8.0",
+    "sua": "公職考試",
+    "jihoon": "IT 證照",
+    "junwoo": "會計師考試"
+  },
+  "records": {
+    "title": "紀錄",
+    "daily": "每日",
+    "weekly": "每週",
+    "rhythm": "讀書節奏",
+    "insight": "你在平日晚上 <hl>8～10 點</hl>專注最久",
+    "insightSub": "已分析最近 2 週的紀錄",
+    "less": "少",
+    "more": "多",
+    "thisWeek": "本週專注時間"
+  },
+  "weekday": {
+    "mon": "一",
+    "tue": "二",
+    "wed": "三",
+    "thu": "四",
+    "fri": "五",
+    "sat": "六",
+    "sun": "日"
+  }
+}

@@ -1827,27 +1827,7 @@ describe("LiveRoomPage — 조작 자동 숨김", () => {
     expectControlsHidden();
   });
 
-  /** 타일마다 이름 줄이 바 위로 올라가 있는지를 순서대로 모은다. 가로에서만 실제로 움직인다. */
-  function liftedTiles() {
-    return screen.getAllByTestId("tile-info").map((info) => info.hasAttribute("data-lifted"));
-  }
-
-  it("바가 떠 있는 동안 타일의 이름 줄을 올리고 숨으면 제자리로 내린다", async () => {
-    renderRoom({ scenario: { snapshot: [member(8, { goal: "합격" })] } });
-    await enterRoom();
-    expect(liftedTiles()).toEqual([true, true]);
-
-    restartHideTimerOnFakeClock();
-    advance(AUTO_HIDE_MS);
-    expectControlsHidden();
-    expect(liftedTiles()).toEqual([false, false]);
-
-    tapSurface();
-    expectControlsShown();
-    expect(liftedTiles()).toEqual([true, true]);
-  });
-
-  it("바와 이름 줄 올리기가 같은 바 높이 값을 읽도록 공통 부모가 화면 크기별로 정한다", async () => {
+  it("바 높이 값을 공통 부모가 화면 크기별로 정한다", async () => {
     renderRoom();
     await enterRoom();
 
@@ -1857,8 +1837,6 @@ describe("LiveRoomPage — 조작 자동 숨김", () => {
       "[--room-bar-height:--spacing(18.5)]",
       "regular:[--room-bar-height:--spacing(22)]",
       "short-side-lg:[--room-bar-height:--spacing(27.5)]",
-      // 올리는 거리는 화면 크기별 바 높이에 작은 간격을 더한 값이라 같은 부모가 함께 정한다.
-      "[--room-bar-lift:calc(var(--room-bar-height)+var(--spacing)*2)]",
     );
   });
 
@@ -1973,7 +1951,7 @@ describe("LiveRoomPage — 조작 자동 숨김", () => {
     expect(screen.getByTestId("room-control-bar")).toHaveClass("pointer-events-auto");
   });
 
-  it("조작이 강제로 보이는 동안은 시간이 지나도 목표 문구가 내려가지 않고 이름 줄도 올라가 있다", async () => {
+  it("조작이 강제로 보이는 동안은 시간이 지나도 목표 문구가 내려가지 않는다", async () => {
     renderRoom({ scenario: { snapshot: [member(8, { goal: "합격" })] } });
     await enterRoom();
 
@@ -1984,7 +1962,6 @@ describe("LiveRoomPage — 조작 자동 숨김", () => {
     advance(AUTO_HIDE_MS * 3);
     expectControlsShown();
     expect(screen.getByText("합격")).not.toHaveAttribute("data-hidden");
-    expect(liftedTiles()).toEqual([true, true]);
   });
 
   it("더보기 메뉴가 열려 있는 동안은 시간이 지나도 숨지 않는다", async () => {

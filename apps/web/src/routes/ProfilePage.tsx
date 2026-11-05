@@ -20,14 +20,16 @@ import { ProfilePhotoButton } from "@/features/profile/ProfilePhotoButton";
 import { markProfileSaved } from "@/features/profile/profileSavedNotice";
 import { makeProfileSchema, type ProfileFormValues } from "@/features/profile/profileSchema";
 import {
-  nicknameRuleMessage,
+  NICKNAME_MAX_WIDTH,
+  nicknameWidth,
   normalizeGoal,
   normalizeNickname,
+  validateNickname,
 } from "@/features/profile/profileValidation";
 import { trackProfileSaveResult, trackProfileSaveSubmitted } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import { postToNative } from "@/lib/bridge";
-import { canSegmentGraphemes, countGraphemes, firstGrapheme } from "@/lib/graphemes";
+import { canSegmentGraphemes, firstGrapheme } from "@/lib/graphemes";
 import { slideBack } from "@/lib/pageTransition";
 import { updateProfile } from "@/lib/profileApi";
 import { profileKeys, profileQuery } from "@/lib/profileQueries";
@@ -143,7 +145,7 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
       });
       trackProfileSaveResult({ ok: true });
     },
-    onError: (error) => {
+    onError: (error, patch) => {
       trackProfileSaveResult({
         ok: false,
         // 서버 코드 또는 HTTP 상태만 — 문구는 싣지 않는다(joinErrorReason과 같은 규칙).
@@ -153,12 +155,17 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
       // code가 아니라 HTTP 상태로 가른다 — 서버 공통 코드(CONFLICT·VALIDATION_FAILED)는 어느
       // 필드가 틀렸는지 알려주지 않는다. 프로필 저장의 400은 목표·카테고리를 저장 전에
       // 클라이언트가 이미 막으므로(validateGoal 등) 서버까지 도달하는 400은 닉네임뿐이다.
+      // 금칙어만 전용 코드가 있고, 나머지 400은 보낸 값을 다시 검사해 길이와 글자 중 맞는 문구를 고른다.
       if (error instanceof ApiError && error.status === 409) {
         setError("nickname", { message: t("errors.nicknameTaken") });
         return;
       }
       if (error instanceof ApiError && error.status === 400) {
-        setError("nickname", { message: nicknameRuleMessage() });
+        const message =
+          error.code === "NICKNAME_NOT_ALLOWED"
+            ? t("errors.nicknameNotAllowed")
+            : (validateNickname(patch.nickname ?? "") ?? t("errors.nicknameChars"));
+        setError("nickname", { message });
         return;
       }
       setError("root", { message: t("errors.retryLater", { ns: "common" }) });
@@ -168,9 +175,11 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
   const isDirty = Object.keys(buildPatch({ nickname, goal, category }, profile)).length > 0;
   // 스키마처럼 원래 값에서 바뀐 경우만 막는다.
   // 지금 규칙 이전의 긴 값을 둔 채 다른 필드만 저장하는 길은 열어 둔다.
-  const nicknameLength = countGraphemes(normalizeNickname(nickname));
+  const nicknameLength = nicknameWidth(nickname);
   const nicknameOver =
-    canSegmentGraphemes && nicknameLength > 12 && normalizeNickname(nickname) !== profile.nickname;
+    canSegmentGraphemes &&
+    nicknameLength > NICKNAME_MAX_WIDTH &&
+    normalizeNickname(nickname) !== profile.nickname;
   // 공백뿐인 문구는 빈 문자열로 보내므로 표시와 판정 모두 보낼 값으로 센다.
   const goalLength = (normalizeGoal(goal) ?? "").length;
   const goalOver = goalLength > 20 && normalizeGoal(goal) !== normalizeGoal(profile.goal);
@@ -205,10 +214,10 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
           <div className="flex justify-center py-1">
             {/* 이니셜은 입력 중 닉네임에서 즉시 파생한다(2026-08-25 피드백) — 저장 후에야
                 바뀌면 아바타가 낡은 글자를 들고 있다. 빈 입력은 서버 이니셜로 폴백.
-                firstGrapheme은 정규화 후 남은 문자를 그대로 주므로, NBSP·BOM처럼 서버
-                String.strip()이 지우지 않는 공백류만 입력했을 때는 그 보이지 않는 문자를
+                firstGrapheme은 정규화 후 남은 문자를 그대로 주므로, BOM처럼 NFKC가 바꾸지 않고
+                서버 String.strip()도 지우지 않는 공백류만 입력했을 때는 그 보이지 않는 문자를
                 돌려준다 — trim()을 한 번 더 걸어 그런 공백류뿐이면 서버 이니셜로 폴백시킨다
-                (trim()은 NBSP·BOM도 지우므로 여기서는 안전하다). */}
+                (trim()은 BOM도 지우므로 여기서는 안전하다). */}
             <ProfilePhotoButton
               userId={userId}
               initial={firstGrapheme(normalizeNickname(nickname)).trim() || profile.initial}
@@ -234,7 +243,7 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
                     // 첫 오류는 blur에서만 띄우지만, 한도를 넘는 순간은 저장이 막히는 이유를 바로 알린다.
                     if (
                       fieldState.invalid ||
-                      countGraphemes(normalizeNickname(event.target.value)) > 12
+                      nicknameWidth(event.target.value) > NICKNAME_MAX_WIDTH
                     ) {
                       void trigger("nickname");
                     }
@@ -248,7 +257,11 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
                 />
                 <div className="flex flex-col gap-1">
                   <FieldError id="profile-nickname-error" errors={[fieldState.error]} />
-                  <CharCount id="profile-nickname-count" length={nicknameLength} max={12} />
+                  <CharCount
+                    id="profile-nickname-count"
+                    length={nicknameLength}
+                    max={NICKNAME_MAX_WIDTH}
+                  />
                 </div>
               </Field>
             )}

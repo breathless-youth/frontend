@@ -386,6 +386,7 @@ function RoomSessionScreen({
     getCompletedTaskIds: (startedAtMs) =>
       completedTaskIdsSince(subjectsListRef.current, startedAtMs),
     ambientUsage: ambientUsage.snapshot,
+    ambientSoundPlays: ambientUsage.soundSeconds,
     multiTimerUsage: multiTimerUsage.snapshot,
     onEnded: timelapse.finish,
     onCameraLost: () => showCtaToast(t("cameraToast.cameraOff")),

@@ -16,7 +16,6 @@
       "roomsAndApplicationsFull": "Up to 5 groups and requests",
       "invalidCode": "Check the invite code and try again"
     },
-    "createRoomLimit": "You can create up to 2 groups",
     "memberCount": "{{count}}/{{max}} members"
   },
   "roomMenu": {
@@ -129,6 +128,7 @@
     "label_other": "{{count}} pending requests"
   },
   "publicRoomCard": {
+    "joined": "Joined",
     "weeklyAverage": "This week's avg <value>{{duration}}</value>",
     "aria": {
       "weeklyAverage": "This week's average {{duration}}"
@@ -259,6 +259,10 @@
     "fixedVisibilityNote": "Public or private can't be changed after the group is created",
     "categoryLabel": "Studying for",
     "introLabel": "About this group"
+  },
+  "myRoomCard": {
+    "newRequests_one": "{{count}} new request",
+    "newRequests_other": "{{count}} new requests"
   },
   "roomHomeScreen": {
     "todayTitle": "Our group today",

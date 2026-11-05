@@ -415,7 +415,7 @@ private func updateButton(
   // 색은 테마를 스스로 따르는 고정 팔레트 색이라 입력에 넣지 않는다.
   let input = [
     title, systemImage, imageName, circle ? "circle" : "capsule", disabled ? "disabled" : "enabled",
-    tone, iconSize.map { "\($0)" },
+    tone, iconSize.map { "\($0)" }, "\(Int(rect.width))",
   ]
   if button.drawnInput != input {
     button.drawnInput = input
@@ -427,7 +427,8 @@ private func updateButton(
     // glass 설정은 막힌 상태에서도 글자와 아이콘을 흐리게 하지 않아서 막힌 색을 직접 넣는다.
     button.configuration = buttonConfiguration(
       title: title, systemImage: systemImage, imageName: imageName, circle: circle,
-      foreground: disabled ? colors.disabled : toneForeground, fill: fill, iconSize: iconSize)
+      foreground: disabled ? colors.disabled : toneForeground, fill: fill, iconSize: iconSize,
+      width: rect.width)
     // 강조 glass는 바탕색 대신 버튼 tintColor를 읽는 경우가 있어서 같은 색을 함께 건다.
     button.tintColor = fill
     // 폭은 웹 글꼴로 잰 값이라 네이티브 글자가 조금 더 넓으면 자르지 않고 줄인다.
@@ -452,8 +453,9 @@ private func updateButton(
 
 private func buttonConfiguration(
   title: String?, systemImage: String?, imageName: String?, circle: Bool, foreground: UIColor,
-  fill: UIColor?, iconSize: CGFloat?
+  fill: UIColor?, iconSize: CGFloat?, width: CGFloat
 ) -> UIButton.Configuration {
+  let titleFont = pretendard("Pretendard-Bold", size: 13, weight: .bold)
   var config: UIButton.Configuration
   if #available(iOS 26.0, *) {
     // 강조 채움은 웹의 파란 다시 시작 버튼처럼 색으로 채운 glass다.
@@ -468,7 +470,7 @@ private func buttonConfiguration(
   }
   if let title {
     config.attributedTitle = AttributedString(
-      title, attributes: AttributeContainer([.font: pretendard("Pretendard-Bold", size: 13, weight: .bold)]))
+      title, attributes: AttributeContainer([.font: titleFont]))
   }
   // 버튼 폭은 웹 원본이 정해서 글자가 넘치면 줄을 바꾸지 않고 끝을 자른다.
   config.titleLineBreakMode = .byTruncatingTail
@@ -482,11 +484,14 @@ private func buttonConfiguration(
   config.cornerStyle = .capsule
   config.baseForegroundColor = foreground
   // 원형 버튼은 작아서 안쪽 여백을 두면 아이콘이 밀려난다.
+  // 글자만 있는 버튼은 웹이 여백 없이 폭을 잡은 경우가 있어서, 글자가 들어가지 않으면 남는 만큼만 여백을 둔다.
+  let textWidth = ceil(((title ?? "") as NSString).size(withAttributes: [.font: titleFont]).width)
+  let textInset = max(0, min(12, floor((width - textWidth) / 2)))
   config.contentInsets =
     circle
     ? .zero
     : NSDirectionalEdgeInsets(
-      top: 0, leading: image == nil ? 12 : 8, bottom: 0, trailing: image == nil ? 12 : 10)
+      top: 0, leading: image == nil ? textInset : 8, bottom: 0, trailing: image == nil ? textInset : 10)
   return config
 }
 

@@ -15,6 +15,8 @@ import type {
   RankingPeriod,
   RankingRecordType,
   RankingType,
+  SocialLoginFailureCode,
+  SocialLoginProvider,
   StudyCategory,
   StudyEventStatus,
   TimeSlot,
@@ -668,6 +670,35 @@ export function trackGroupRoomMicToggled(on: boolean) {
  */
 export function setGroupRoomCount(count: number) {
   setUserProperties({ group_room_count: count });
+}
+
+/* ── 소셜 로그인 이벤트 ──────────────────────────────────────────────────────
+ *
+ * 사용자가 로그인 창을 닫은 취소는 실패가 아니라 보내지 않는다.
+ */
+
+export type LoginEntry = "tab" | "invite" | "group";
+
+export function trackLoginScreenViewed(entry: LoginEntry) {
+  if (!initialized) return;
+  track("login_screen_viewed", { entry });
+}
+
+/** `is_new_user`가 거짓이면 이 기기의 기록이 기존 계정에 합쳐진 것이다. */
+export function trackSocialLoginSucceeded(input: {
+  provider: SocialLoginProvider;
+  isNewUser: boolean;
+}) {
+  if (!initialized) return;
+  track("social_login_succeeded", { provider: input.provider, is_new_user: input.isNewUser });
+}
+
+export function trackSocialLoginFailed(input: {
+  provider: SocialLoginProvider;
+  reason: SocialLoginFailureCode;
+}) {
+  if (!initialized) return;
+  track("social_login_failed", { provider: input.provider, reason: input.reason });
 }
 
 /* ── 초대 루프 이벤트 (BY-472) ── */
@@ -1919,8 +1950,8 @@ export function trackSubjectItemSelected(kind: "subject" | "none", roomType: Stu
 
 /* ── 배경음(백색소음·앰비언트) ───────────────────────────────────────────────
  *
- * 속성은 소리 id 와 개수뿐이다. 세션 종료 집계의 `ambient_sound_used`·`ambient_sound_sec`는
- * `trackStudySessionEnded`가 싣는다.
+ * 조합 변경 이벤트의 속성은 소리 id 와 개수뿐이다. 세션 종료 집계의 `ambient_sound_used`·`ambient_sound_sec`는
+ * `trackStudySessionEnded`가, 소리별 재생 시간은 같은 시점에 `ambient_sound_played`가 싣는다.
  */
 
 /**
@@ -1940,6 +1971,26 @@ export function trackAmbientSoundChanged(input: {
     room_type: input.roomType,
   });
   if (input.sounds.length > 0) setFlagOnce("ambient_sound_used");
+}
+
+/**
+ * 세션 하나에서 소리 하나가 실제로 재생된 시간. 세션이 끝날 때 재생 시간이 0보다 큰 소리마다 한 번씩 보낸다.
+ * 음량을 0 으로 내리면 믹스에서 빠지므로 "음량 0 초과로 들린 시간"이고, 일시정지 구간은 빠진다.
+ * 소리마다 이벤트를 나눠 Amplitude 에서 `play_sec` 합계를 `sound_id` 별로 바로 볼 수 있게 한다.
+ */
+export function trackAmbientSoundPlayed(input: {
+  readonly soundId: string;
+  readonly group: "noise" | "ambience" | "music";
+  readonly playSec: number;
+  readonly roomType: StudyRoomType;
+}) {
+  if (!initialized) return;
+  track("ambient_sound_played", {
+    sound_id: input.soundId,
+    group: input.group,
+    play_sec: input.playSec,
+    room_type: input.roomType,
+  });
 }
 
 /** 비집중 음량 낮춤 연동 토글. `enabled`는 전환 후 상태. */

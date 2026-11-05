@@ -146,6 +146,12 @@ describe("fromApi", () => {
     expect(toRoomDeskMember(me, 2).isMe).toBe(false);
   });
 
+  it("내 그룹 카드의 새 신청 수는 값이 없으면 0으로 읽는다", () => {
+    const card = seed.mine.groups[0]!;
+    expect(toMyRoomSummary({ ...card, newApplicationCount: 2 }, 1).newRequestCount).toBe(2);
+    expect(toMyRoomSummary({ ...card, newApplicationCount: null }, 1).newRequestCount).toBe(0);
+  });
+
   it("내 그룹 카드와 신청 중 목록을 화면 값으로 바꾼다", () => {
     const room = toMyRoomSummary(seed.mine.groups[1]!, 1);
     expect(room).toMatchObject({
@@ -194,7 +200,9 @@ describe("fromApi", () => {
       memberCount: card.memberCount,
       weeklyAverageSec: card.weeklyAverageFocusSec,
       studyingCount: card.studyingCount,
+      member: card.member,
     });
+    expect(toPublicRoomSummary({ ...card, member: true }).member).toBe(true);
     expect(toPublicRoomSummary({ ...card, category: "UNKNOWN" as never }).categoryLabel).toBe("");
   });
 

@@ -155,7 +155,11 @@ export function LaunchGoalOverlay({
               className="mt-7 h-[2px] w-5 rounded-[1px] bg-brand-subtlePressed dark:bg-brand-subtlePressed-dark"
               testID="launch-goal-divider"
             />
-            <Text className="mt-[10px] font-sans-bold text-[15px] text-text-secondary dark:text-text-secondary-dark">
+            {/* 닉네임은 40칸(한글 20자)까지 길어질 수 있어 목표 문구와 같은 폭에서 한 줄로 자른다. */}
+            <Text
+              className="mt-[10px] w-[300px] text-center font-sans-bold text-[15px] text-text-secondary dark:text-text-secondary-dark"
+              numberOfLines={1}
+            >
               {launchGoal.nickname}
             </Text>
           </>

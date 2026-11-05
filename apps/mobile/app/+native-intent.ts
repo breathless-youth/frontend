@@ -1,6 +1,10 @@
 import { routeFromPushLink } from "../lib/pushNotificationRouting";
 import { offerRouteToSession } from "../lib/sessionInvite";
 
+// 카카오(kakao{앱 키}://)와 구글(역순 클라이언트 ID) 로그인 SDK가 앱으로 돌아올 때 쓰는 주소다.
+// SDK가 AppDelegate에서 먼저 처리하므로 라우터가 이동하면 없는 화면(Unmatched Route)이 뜬다.
+const SOCIAL_LOGIN_RETURN = /^(kakao[0-9a-f]{32}|com\.googleusercontent\.apps\.[\w-]+):/;
+
 /**
  * 시스템 링크 진입 전처리
  *
@@ -16,6 +20,7 @@ export function redirectSystemPath({
   path: string;
   initial: boolean;
 }): string | null {
+  if (SOCIAL_LOGIN_RETURN.test(path)) return null;
   if (initial) return path;
   try {
     const route = routeFromPushLink(path);

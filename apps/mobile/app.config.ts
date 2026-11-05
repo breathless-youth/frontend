@@ -4,7 +4,9 @@ import path from "node:path";
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
 import enLocale from "./locales/en.json";
+import jaLocale from "./locales/ja.json";
 import koLocale from "./locales/ko.json";
+import zhHantLocale from "./locales/zh-Hant.json";
 
 /**
  * 앱 설정의 환경 분기
@@ -299,7 +301,7 @@ function resolveAppVariant(raw: string | undefined): AppVariant {
 /**
  * 소셜 로그인 설정
  *
- * 카카오 네이티브 앱 키와 구글 iOS 클라이언트 ID는 앱 종류마다 따로 발급하고, 지금은 운영 값만 있다.
+ * 카카오 네이티브 앱 키와 구글 iOS 클라이언트 ID는 앱 종류마다 따로 발급한다.
  * 값이 없는 앱 종류는 그 공급자의 config plugin을 넣지 않고 런타임도 초기화하지 않으며 웹에 알리지 않는다(`lib/socialLogin.ts`).
  * 구글 Android는 모든 앱 종류가 같은 웹 클라이언트 ID를 쓴다.
  * 셋 다 바이너리에 그대로 실리는 공개 값이다.
@@ -370,12 +372,16 @@ export const VARIANT_TABLE: Record<
     webBaseUrl: "https://web-dev.focusmakers.app",
     schemes: ["focusmakers-staging"],
     legacyHosts: [],
+    kakaoNativeAppKey: "142548c8a85d8e92f38505ab48bd7490",
+    googleIosClientId: "320200622450-1cbim0i0qvvk94msh2hqc20milaqpckn.apps.googleusercontent.com",
   },
   development: {
     idSuffix: ".dev",
     nameSuffix: " DEV",
     schemes: ["focusmakers-dev"],
     legacyHosts: [],
+    kakaoNativeAppKey: "bff73043eb717b1be9775b230fdb5470",
+    googleIosClientId: "320200622450-7n4tsnasdc036knt49sgs66pigb2o2sg.apps.googleusercontent.com",
   },
 };
 
@@ -441,6 +447,9 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
         android: { app_name: appDisplayName },
       },
       en: { ios: { ...enLocale, CFBundleDisplayName: appDisplayNameEn } },
+      // 일본어·번체 중국어 이름은 따로 정하지 않아 영어 이름을 쓴다.
+      ja: { ios: { ...jaLocale, CFBundleDisplayName: appDisplayNameEn } },
+      "zh-Hant": { ios: { ...zhHantLocale, CFBundleDisplayName: appDisplayNameEn } },
     },
     plugins: [
       ...(config.plugins ?? []),

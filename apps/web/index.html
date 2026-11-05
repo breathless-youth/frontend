@@ -17,7 +17,7 @@
         try {
           stored = sessionStorage.getItem("fm.locale");
         } catch (e) {}
-        var supported = ["ko", "en"];
+        var supported = ["ko", "en", "ja", "zh-Hant"];
         var requested = params.get("lang");
         var tags = requested
           ? [requested]

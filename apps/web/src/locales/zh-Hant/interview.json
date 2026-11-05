@@ -1,0 +1,18 @@
+{
+  "card": {
+    "title": "告訴我們你持續使用的理由",
+    "body": "參加 15 分鐘通話，每個人都能獲得星巴克禮券",
+    "apply": "報名訪談",
+    "aria": {
+      "dismiss": "關閉訪談邀請"
+    }
+  },
+  "form": {
+    "title": "報名訪談",
+    "loading": "正在載入報名表單",
+    "failureTitle": "無法載入報名表單"
+  },
+  "googleForm": {
+    "failureBody": "請檢查網路連線，然後再試一次。"
+  }
+}

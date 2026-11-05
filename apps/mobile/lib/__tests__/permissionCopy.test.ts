@@ -72,6 +72,20 @@ describe("app.json 카메라 권한 문구 (S2-2)", () => {
   });
 
   /**
+   * Face ID 권한 문구 제거
+   *
+   * 보안 저장소를 생체 인증 없이 쓰는데 플러그인은 옵션이 없으면 영어 Face ID 문구를 넣는다.
+   * false를 주면 플러그인이 Info.plist에서 그 키를 지운다.
+   */
+  it("Face ID 권한 문구를 넣지 않는다", () => {
+    expect(appConfig.expo.plugins).toContainEqual([
+      "expo-secure-store",
+      { faceIDPermission: false },
+    ]);
+    expect(appConfig.expo.ios.infoPlist).not.toHaveProperty("NSFaceIDUsageDescription");
+  });
+
+  /**
    * Android 권한 열거 고정
    *
    * 권한이 늘어날 때 이 배열을 고치면서 정말 필요한지 한 번 되묻게 하려는 것이다.

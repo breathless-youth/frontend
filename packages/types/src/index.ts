@@ -10,6 +10,11 @@
 export interface UserRegisterRequest {
   /** 앱이 첫 실행 때 생성해 기기 보안 저장소에 보관하는 UUID. 서버가 소문자로 정규화한다. */
   deviceId: string;
+  /**
+   * 휴대폰 언어 태그 원문(BCP 47, 예: `zh-Hant-HK`). 서버가 기본 닉네임 목록을 고른다.
+   * 없으면 서버는 한국어 목록을 쓴다. 근거는 백엔드 ADR-0044다.
+   */
+  language?: string;
 }
 
 export interface UserRegisterResponse {
@@ -42,6 +47,8 @@ export interface PushTokenRegisterRequest {
   platform: "IOS" | "ANDROID";
   /** 등록 때의 OS 알림 권한. 서버는 꺼진 기기에도 보내고, 이 값은 클릭률의 분모로만 쓴다. */
   notificationsEnabled: boolean;
+  /** 앱 언어(`ko`·`en`·`ja`·`zh-Hant`). 서버는 35자까지 받고, 없거나 비면 ko로 보고 푸시 문구를 고른다. */
+  locale?: string;
 }
 
 /**
@@ -562,7 +569,12 @@ export interface AcquisitionResponse {
  */
 
 export interface ProfileResponse {
-  /** 한글·영문·숫자·이모지·띄어쓰기, 앞뒤 공백을 제외한 글자 단위 2~12자, 전역 유니크 */
+  /**
+   * 한글·영문(악센트 포함)·일본어·한자·숫자·이모지·띄어쓰기·`_ . -`
+   *
+   * 서버가 NFKC로 맞추고 앞뒤 공백을 뺀 값이 1글자 이상 40칸 이하다(한글·가나·한자·이모지는 2칸).
+   * 대소문자를 가리지 않고 전역 유니크다.
+   */
   nickname: string;
   /**
    * 한 줄 목표, 공백 포함 최대 20자

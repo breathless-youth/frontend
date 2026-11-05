@@ -27,6 +27,9 @@ const SUBJECT_SUGGESTIONS: Partial<Record<AppLocale, readonly string[]>> & {
   // eslint-disable-next-line no-restricted-syntax -- 서버에 과목 이름으로 저장되는 값
   ko: ["국어", "수학", "영어", "탐구"],
   en: ["Math", "English", "Science", "History"],
+  // 한국어 목록과 같은 순서로 그 나라 학교 과목 이름을 둔다.
+  ja: ["国語", "数学", "英語", "理科"],
+  "zh-Hant": ["國文", "數學", "英文", "自然"],
 };
 
 /**

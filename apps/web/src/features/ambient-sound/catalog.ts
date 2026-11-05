@@ -13,6 +13,16 @@ export type AmbientSound = {
   group?: SoundGroupId;
 };
 
+/**
+ * 소리가 속한 묶음
+ *
+ * 배포 순서가 어긋나 예전 카탈로그가 잡히면 모든 항목의 group 이 비는데, 그때 항목을 버리면 화면에 소리가 하나도 안 남는다.
+ * 예전 기준인 합성 여부로 떨어뜨린다.
+ */
+export function soundGroupOf(sound: AmbientSound): SoundGroupId {
+  return sound.group ?? (sound.kind === "synth" ? "noise" : "ambience");
+}
+
 /** 꺼져 있던 소리를 아이콘으로 다시 켤 때 쓰는 값. 직전에 듣던 음량이 있으면 해당 음량을 사용한다. */
 export const DEFAULT_LEVEL = 60;
 
