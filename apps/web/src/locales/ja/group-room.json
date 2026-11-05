@@ -14,7 +14,6 @@
       "roomsAndApplicationsFull": "グループと参加リクエストは合わせて5件までです",
       "invalidCode": "招待コードをもう一度確認してください"
     },
-    "createRoomLimit": "グループは2つまで作成できます",
     "memberCount": "メンバー{{count}}/{{max}}"
   },
   "roomMenu": {

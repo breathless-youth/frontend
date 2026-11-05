@@ -35,14 +35,14 @@ describe("RoomFab", () => {
     expect(screen.queryByRole("menu")).toBeNull();
   });
 
-  it("그룹장인 그룹이 2개면 그룹 만들기가 흐려지고 이유를 보인다", async () => {
+  it("그룹과 신청이 5개면 그룹 만들기가 흐려지고 이유를 보인다", async () => {
     const user = userEvent.setup();
     const onCreate = vi.fn();
     render(<RoomFab canCreate={false} onCreate={onCreate} onJoinWithCode={vi.fn()} defaultOpen />);
     const create = screen.getByRole("menuitem", { name: /그룹 만들기/ });
     expect(create).toHaveAttribute("aria-disabled", "true");
-    expect(create).toHaveAccessibleDescription("그룹은 2개까지 만들 수 있어요");
-    expect(screen.getByText("그룹은 2개까지 만들 수 있어요")).toBeInTheDocument();
+    expect(create).toHaveAccessibleDescription("그룹과 신청을 합쳐 5개까지예요");
+    expect(screen.getByText("그룹과 신청을 합쳐 5개까지예요")).toBeInTheDocument();
     await user.click(create);
     expect(onCreate).not.toHaveBeenCalled();
     expect(screen.getByRole("menu")).toBeInTheDocument();
@@ -63,7 +63,7 @@ describe("RoomFab", () => {
     const create = screen.getByRole("menuitem", { name: /그룹 만들기/ });
     expect(create).toHaveAttribute("aria-disabled", "true");
     expect(create).not.toHaveAttribute("aria-describedby");
-    expect(screen.queryByText("그룹은 2개까지 만들 수 있어요")).toBeNull();
+    expect(screen.queryByText("그룹과 신청을 합쳐 5개까지예요")).toBeNull();
     await user.click(create);
     expect(onCreate).not.toHaveBeenCalled();
   });
