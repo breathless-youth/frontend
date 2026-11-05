@@ -7,6 +7,8 @@ import { triggerHaptic, triggerTabHaptic } from "../haptics";
 jest.mock("expo-haptics", () => ({
   ImpactFeedbackStyle: { Light: "light", Medium: "medium", Heavy: "heavy", Rigid: "rigid" },
   NotificationFeedbackType: { Success: "success", Warning: "warning", Error: "error" },
+  AndroidHaptics: { Segment_Frequent_Tick: "segment-frequent-tick" },
+  performAndroidHapticsAsync: jest.fn(() => Promise.resolve()),
   impactAsync: jest.fn(() => Promise.resolve()),
   notificationAsync: jest.fn(() => Promise.resolve()),
 }));
@@ -23,6 +25,10 @@ afterEach(() => {
 });
 
 describe("triggerHaptic", () => {
+  afterEach(() => {
+    expect(Haptics.performAndroidHapticsAsync).not.toHaveBeenCalled();
+  });
+
   it.each(["android", "ios"] as const)(
     "%s의 탭 외 light는 기존 Light 임팩트를 유지한다",
     async (os) => {
@@ -33,6 +39,21 @@ describe("triggerHaptic", () => {
 
       await waitFor(() =>
         expect(Haptics.impactAsync).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Light),
+      );
+      expect(vibrate).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["android", "ios"] as const)(
+    "%s의 탭 외 medium은 기존 Medium 임팩트를 유지한다",
+    async (os) => {
+      jest.replaceProperty(Platform, "OS", os);
+      const vibrate = jest.spyOn(Vibration, "vibrate").mockImplementation(() => {});
+
+      triggerHaptic("medium");
+
+      await waitFor(() =>
+        expect(Haptics.impactAsync).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Medium),
       );
       expect(vibrate).not.toHaveBeenCalled();
     },
@@ -105,18 +126,47 @@ describe("triggerHaptic", () => {
 });
 
 describe("triggerTabHaptic", () => {
-  it("Android 탭은 20ms 진동을 한 번 내고 expo 임팩트를 겹치지 않는다", async () => {
+  it("Android 탭은 가장 부드러운 시스템 틱을 한 번 내고 진동이나 임팩트를 겹치지 않는다", async () => {
     jest.replaceProperty(Platform, "OS", "android");
     const vibrate = jest.spyOn(Vibration, "vibrate").mockImplementation(() => {});
 
     triggerTabHaptic();
-    await Promise.resolve();
 
-    expect(vibrate).toHaveBeenCalledTimes(1);
-    expect(vibrate).toHaveBeenCalledWith(20);
+    await waitFor(() =>
+      expect(Haptics.performAndroidHapticsAsync).toHaveBeenCalledWith(
+        Haptics.AndroidHaptics.Segment_Frequent_Tick,
+      ),
+    );
+    expect(Haptics.performAndroidHapticsAsync).toHaveBeenCalledTimes(1);
+    expect(vibrate).not.toHaveBeenCalled();
     expect(Haptics.impactAsync).not.toHaveBeenCalled();
     expect(Haptics.notificationAsync).not.toHaveBeenCalled();
   });
+
+  it.each(["reject", "throw"] as const)(
+    "Android 시스템 틱 호출이 %s하면 10ms 진동으로 한 번 폴백한다",
+    async (failure) => {
+      jest.replaceProperty(Platform, "OS", "android");
+      const vibrate = jest.spyOn(Vibration, "vibrate").mockImplementation(() => {});
+      const performHaptics = Haptics.performAndroidHapticsAsync as jest.Mock;
+      const error = new Error("Android haptics unavailable");
+      if (failure === "reject") {
+        performHaptics.mockRejectedValueOnce(error);
+      } else {
+        performHaptics.mockImplementationOnce(() => {
+          throw error;
+        });
+      }
+
+      triggerTabHaptic();
+
+      await waitFor(() => expect(vibrate).toHaveBeenCalledWith(10));
+      expect(vibrate).toHaveBeenCalledTimes(1);
+      expect(performHaptics).toHaveBeenCalledTimes(1);
+      expect(Haptics.impactAsync).not.toHaveBeenCalled();
+      expect(Haptics.notificationAsync).not.toHaveBeenCalled();
+    },
+  );
 
   it("iOS에서는 기존 Light 임팩트를 유지한다", async () => {
     jest.replaceProperty(Platform, "OS", "ios");
@@ -128,6 +178,7 @@ describe("triggerTabHaptic", () => {
       expect(Haptics.impactAsync).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Light),
     );
     expect(Haptics.impactAsync).toHaveBeenCalledTimes(1);
+    expect(Haptics.performAndroidHapticsAsync).not.toHaveBeenCalled();
     expect(vibrate).not.toHaveBeenCalled();
   });
 });

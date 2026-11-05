@@ -16,15 +16,14 @@ afterEach(() => {
 });
 
 describe("expo-haptics 없는 개발 빌드", () => {
-  it("Android 탭은 네이티브 모듈 없이도 20ms 진동을 한 번 낸다", async () => {
+  it("Android 탭은 네이티브 모듈이 없으면 10ms 진동으로 한 번 폴백한다", async () => {
     jest.replaceProperty(Platform, "OS", "android");
     const vibrate = jest.spyOn(Vibration, "vibrate").mockImplementation(() => {});
 
     triggerTabHaptic();
-    await Promise.resolve();
 
+    await waitFor(() => expect(vibrate).toHaveBeenCalledWith(10));
     expect(vibrate).toHaveBeenCalledTimes(1);
-    expect(vibrate).toHaveBeenCalledWith(20);
   });
 
   it("iOS 탭은 기존 10ms Vibration 폴백을 유지한다", async () => {
