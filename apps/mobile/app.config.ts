@@ -263,6 +263,9 @@ function metaSdkPlugins(
  * 누락을 끊는다(Meta와 같은 이유). SDK 동작 옵션은 `airbridge.json`에 있다.
  */
 const AIRBRIDGE_APP_NAME = "focusmakers";
+// 추적 링크가 앱을 여는 주소. 운영 앱 하나만 Airbridge 대시보드에 등록돼 있어 SDK가 든 빌드만 선언한다.
+// 런타임 판별은 `lib/airbridge.ts`의 `isAirbridgeLink`가 같은 호스트로 한다.
+const AIRBRIDGE_LINK_HOSTS = [`${AIRBRIDGE_APP_NAME}.airbridge.io`, `${AIRBRIDGE_APP_NAME}.abr.ge`];
 
 function resolveAirbridgeToken(variant: AppVariant): string | null {
   const token = process.env.AIRBRIDGE_APP_TOKEN ?? "";
@@ -419,9 +422,13 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
   const deepLinkHosts = table.webBaseUrl
     ? [new URL(table.webBaseUrl).hostname, ...table.legacyHosts]
     : [];
-  const intentFilters =
-    deepLinkHosts.length === 0
-      ? undefined
+  // Airbridge 호스트는 `deepLinkHosts`에 넣지 않는다. 그 목록은 경로를 그대로 여는 허용 목록이고,
+  // 추적 링크는 SDK가 원래 딥링크로 바꿔 넘긴다.
+  const airbridgeHosts = airbridgeToken === null ? [] : AIRBRIDGE_LINK_HOSTS;
+  const associatedDomains = [...deepLinkHosts, ...airbridgeHosts].map((host) => `applinks:${host}`);
+  const intentFilters = [
+    ...(deepLinkHosts.length === 0
+      ? []
       : [
           {
             action: "VIEW",
@@ -433,7 +440,21 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
             })),
             category: ["BROWSABLE", "DEFAULT"],
           },
-        ];
+        ]),
+    ...(airbridgeHosts.length === 0
+      ? []
+      : [
+          {
+            action: "VIEW",
+            autoVerify: true,
+            data: airbridgeHosts.flatMap((host) => [
+              { scheme: "https", host },
+              { scheme: "http", host },
+            ]),
+            category: ["BROWSABLE", "DEFAULT"],
+          },
+        ]),
+  ];
 
   return {
     ...(config as ExpoConfig),
@@ -467,15 +488,13 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
     ios: {
       ...config.ios,
       bundleIdentifier,
-      ...(deepLinkHosts.length > 0
-        ? { associatedDomains: deepLinkHosts.map((host) => `applinks:${host}`) }
-        : null),
+      ...(associatedDomains.length > 0 ? { associatedDomains } : null),
       ...(iosGoogleServicesFile ? { googleServicesFile: iosGoogleServicesFile } : null),
     },
     android: {
       ...config.android,
       package: androidPackage,
-      ...(intentFilters ? { intentFilters } : null),
+      ...(intentFilters.length > 0 ? { intentFilters } : null),
       ...(androidGoogleServicesFile ? { googleServicesFile: androidGoogleServicesFile } : null),
     },
     extra: {
