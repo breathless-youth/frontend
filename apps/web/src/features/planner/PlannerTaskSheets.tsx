@@ -197,7 +197,7 @@ export function PlannerTaskSheets({
   if (panel === "repeat" || panel === "repeatEnd")
     return (
       <PlannerRepeatSheet
-        key={`${task?.key ?? "new"}:${task?.date ?? date}:${task?.seriesId != null && repeatQuery.isSuccess && !repeatQuery.isFetching ? "loaded" : "waiting"}`}
+        key={`${userId}:${task?.key ?? "new"}:${task?.date ?? date}:${timeZone}`}
         theme={theme}
         open={open}
         onOpenChange={() => (task ? onOpenChange(false) : setPanel("create"))}

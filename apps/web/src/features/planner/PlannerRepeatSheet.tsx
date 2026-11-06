@@ -137,6 +137,12 @@ export function PlannerRepeatSheet({
   const [value, setValue] = useState<PlannerRepeatRequest>(
     initial ?? { weekdays: [], endDate: null },
   );
+  const [initialized, setInitialized] = useState(initial !== undefined);
+  // 최초 조회만 초안으로 받는다. 충돌 후 재조회가 편집값과 실패 안내를 지우면 안 된다.
+  if (!initialized && initial !== undefined) {
+    setValue(initial ?? { weekdays: [], endDate: null });
+    setInitialized(true);
+  }
   const [panel, setPanel] = useState<"rule" | "end" | "date">(initialPanel);
   const [pending, setPending] = useState(false),
     [failed, setFailed] = useState(false);
@@ -146,7 +152,7 @@ export function PlannerRepeatSheet({
   const invalidEnd =
     value.endDate !== null && value.endDate !== undefined && value.endDate < dateKey;
   async function saveRule() {
-    if (pending || invalidEnd) return;
+    if (!initialized || pending || invalidEnd) return;
     setPending(true);
     setFailed(false);
     try {
@@ -241,7 +247,7 @@ export function PlannerRepeatSheet({
               )}
             </div>
           )}
-          {initial === undefined ? (
+          {!initialized ? (
             <div className="flex flex-col gap-3">
               {loading ? (
                 <p role="status" className="text-sm text-muted-foreground">

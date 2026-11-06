@@ -150,6 +150,17 @@ describe("useLaunchSessionRecovery", () => {
     });
   });
 
+  it("계정 전환으로 복구가 취소되면 기록 없이 판단을 끝낸다", async () => {
+    closeStaleSession.mockRejectedValue(new DOMException("account changed", "AbortError"));
+    const { result } = renderWithClient(7);
+
+    act(() => emit(LAUNCHED));
+
+    await waitFor(() => expect(result.current.settled).toBe(true));
+    expect(result.current.recovered).toBeNull();
+    expect(analytics.prompted).not.toHaveBeenCalled();
+  });
+
   it("마감이 끝나기 전에는 통계를 다시 조회하지 않는다", async () => {
     let finish: (() => void) | undefined;
     closeStaleSession.mockReturnValue(

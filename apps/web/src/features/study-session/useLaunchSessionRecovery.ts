@@ -77,23 +77,29 @@ export function useLaunchSessionRecovery(userId: number | null): {
         return;
       }
       launched = true;
-      void closeStaleSession(userId).then((result) => {
-        if (cancelled) {
-          return;
-        }
-        // 마감으로 오늘 집계와 연속일이 달라진다.
-        // 홈을 벗어나지 않고 갱신해야 해서 직접 무효화한다.
-        void queryClient.invalidateQueries({ queryKey: statsKeys.all });
-        if (result !== null && result.focusSec >= 60) {
-          trackSessionRecoveryPrompted(result.focusSec);
-          // 판단이 끝났다고 알리기 전에 적어야 랭킹 팝업이 이 복구 창 앞에 끼어들지 않는다.
-          markRecoveryShownThisLaunch();
-          // 늦게 끝난 요청은 사용자 변경이 커밋된 뒤에 처리될 수 있어 state가 아직 같은 사용자 것일 때만 쓴다.
-          setState((prev) => (prev.userId === userId ? { userId, result, settled: true } : prev));
-          return;
-        }
-        markSettled();
-      });
+      void closeStaleSession(userId).then(
+        (result) => {
+          if (cancelled) {
+            return;
+          }
+          // 마감으로 오늘 집계와 연속일이 달라진다.
+          // 홈을 벗어나지 않고 갱신해야 해서 직접 무효화한다.
+          void queryClient.invalidateQueries({ queryKey: statsKeys.all });
+          if (result !== null && result.focusSec >= 60) {
+            trackSessionRecoveryPrompted(result.focusSec);
+            // 판단이 끝났다고 알리기 전에 적어야 랭킹 팝업이 이 복구 창 앞에 끼어들지 않는다.
+            markRecoveryShownThisLaunch();
+            // 늦게 끝난 요청은 사용자 변경이 커밋된 뒤에 처리될 수 있어 state가 아직 같은 사용자 것일 때만 쓴다.
+            setState((prev) => (prev.userId === userId ? { userId, result, settled: true } : prev));
+            return;
+          }
+          markSettled();
+        },
+        () => {
+          // 계정 변경 취소는 복구 기록을 노출하지 않고 이번 판단만 끝낸다.
+          if (!cancelled) markSettled();
+        },
+      );
     });
     // 구독을 건 다음에 보낸다.
     // 네이티브는 이 신호를 받은 순간에만 응답하므로 순서가 바뀌면 응답을 놓친다.

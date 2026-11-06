@@ -867,3 +867,75 @@ it.each(["종료일 정정", "반복 해제"])(
     );
   },
 );
+
+it("409 뒤 반복 규칙 재조회가 끝나도 편집값과 오류를 보존해 재시도하고 다른 할 일은 초기화한다", async () => {
+  let puts = 0;
+  let gets = 0;
+  let finishRefresh!: () => void;
+  const bodies: unknown[] = [];
+  request.mockImplementation(async (input, init) => {
+    if (String(input).includes("/repeat")) {
+      if (init?.method === "PUT") {
+        bodies.push(JSON.parse(String(init.body)));
+        return ++puts === 1 ? Response.json({}, { status: 409 }) : Response.json(plannerTask());
+      }
+      gets++;
+      const response = () =>
+        Response.json({ seriesId: 4, startDate: null, weekdays: ["MONDAY"], endDate: null });
+      if (gets === 2)
+        return new Promise<Response>((resolve) => {
+          finishRefresh = () => resolve(response());
+        });
+      return response();
+    }
+    return Response.json(String(input).includes("/summary?") ? [] : plannerTask());
+  });
+  const close = vi.fn();
+  const view = (key: string) => (
+    <QueryClientProvider client={client}>
+      <PlannerTaskSheets
+        open
+        onOpenChange={close}
+        userId={7}
+        dateKey="2026-11-06"
+        todayKey="2026-11-05"
+        task={plannerTask({ seriesId: 4, key })}
+        subjectId={3}
+        subjects={[plannerSubject()]}
+        onStudyStart={() => {}}
+      />
+    </QueryClientProvider>
+  );
+  const { rerender } = render(view("r:4:2026-11-06"));
+  await userEvent.click(screen.getByRole("button", { name: "반복" }));
+  await userEvent.click(await screen.findByRole("button", { name: "월" }));
+  await userEvent.click(screen.getByRole("button", { name: "화" }));
+  await userEvent.click(screen.getByRole("button", { name: "반복 종료일" }));
+  await userEvent.click(screen.getByRole("radio", { name: /날짜 정하기/ }));
+  await userEvent.click(screen.getByRole("button", { name: /11월 30일/ }));
+  await userEvent.click(screen.getByRole("button", { name: "저장" }));
+  await userEvent.click(screen.getByRole("button", { name: "저장" }));
+  await waitFor(() => expect(finishRefresh).toBeDefined());
+  expect(await screen.findByRole("alert")).toBeVisible();
+  expect(screen.getByRole("button", { name: "화" })).toHaveAttribute("aria-pressed", "true");
+  await act(async () => {
+    finishRefresh();
+  });
+  await waitFor(() => expect(client.isFetching()).toBe(0));
+  expect(screen.getByRole("alert")).toBeVisible();
+  expect(screen.getByRole("button", { name: "월" })).toHaveAttribute("aria-pressed", "false");
+  expect(screen.getByRole("button", { name: "화" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "반복 종료일" })).toHaveTextContent("11월 30일");
+  expect(close).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole("button", { name: "저장" }));
+  await waitFor(() => expect(close).toHaveBeenCalledWith(false));
+  expect(bodies).toEqual([
+    { weekdays: ["TUESDAY"], endDate: "2026-11-30" },
+    { weekdays: ["TUESDAY"], endDate: "2026-11-30" },
+  ]);
+  rerender(view("r:5:2026-11-06"));
+  expect(await screen.findByRole("button", { name: "월" })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("button", { name: "화" })).toHaveAttribute("aria-pressed", "false");
+  expect(screen.getByRole("button", { name: "반복 종료일" })).toHaveTextContent("정하지 않음");
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
