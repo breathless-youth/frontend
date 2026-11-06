@@ -8,6 +8,7 @@ import type * as Amplitude from "@/lib/amplitude";
 import { setGroupRoomCount, trackGroupRoomJoined } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import { haptic } from "@/lib/haptics";
+import i18n from "@/lib/i18n";
 import type * as UserId from "@/lib/userId";
 import {
   mockGroupApi,
@@ -125,6 +126,10 @@ describe("6자리 초대코드 참여", () => {
     await user.click(screen.getByRole("menuitem", { name: "초대코드로 참여" }));
     await user.type(await screen.findByRole("textbox"), "K7Q2MX");
     await user.click(screen.getByRole("button", { name: JOIN_LABEL }));
+    await user.click(
+      await screen.findByRole("button", { name: i18n.t("group-room:notificationPrompt.later") }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     await screen.findByRole("heading", { name: "우리 반 저녁 스터디" });
 
     await user.click(screen.getByRole("button", { name: "뒤로 가기" }));

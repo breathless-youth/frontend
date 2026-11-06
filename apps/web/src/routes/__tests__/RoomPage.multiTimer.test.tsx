@@ -8,6 +8,7 @@ import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import { trackMultiTimerClosed, trackStudySessionEnded } from "@/lib/amplitude";
 import { NATIVE_MESSAGE_ENTRY, postToNative } from "@/lib/bridge";
 import type * as BridgeModule from "@/lib/bridge";
+import { answerCameraPrompt } from "@/test/cameraPrompt";
 import { RoomPage } from "../RoomPage";
 
 /**
@@ -66,7 +67,7 @@ function RouterPath() {
 /** `main.tsx`와 같은 BrowserRouter로 띄운다. popstate를 받으면 라우터도 위치를 다시 읽는다. */
 function renderRoom() {
   window.history.pushState(null, "", "/room/7?userId=1");
-  return render(
+  const view = render(
     <BrowserRouter>
       <RouterPath />
       <Routes>
@@ -75,6 +76,8 @@ function renderRoom() {
       </Routes>
     </BrowserRouter>,
   );
+  answerCameraPrompt("camera");
+  return view;
 }
 
 // 모드 화면이 열리면 뒤 화면이 aria-hidden이라 역할 이름을 계산하지 않아서 라벨로 찾는다.

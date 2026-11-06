@@ -413,6 +413,7 @@ const NAV_BUTTON =
  * 마지막 단계의 덮개 탭은 아무 일도 하지 않는다. 덮개를 잘못 눌러 바로 세션으로 넘어가지 않게 한다.
  * 키보드 사용자를 위해 Escape는 바로 닫는다.
  * 끝까지 본 것(`onComplete`)과 중간에 닫은 것(`onDismiss`)을 나눠 알린다. 호출부는 끝까지 본 계정에만 다시 띄우지 않는다.
+ * `onLater`를 넘기면 마지막 단계의 `순공 시작하기` 아래에 `나중에 시작할게요`를 둔다. 세션 중에 메뉴로 다시 볼 때는 넘기지 않는다.
  *
  * `aria-modal`을 붙이지 않는다. 붙이면 `nativeModalOverlay`가 모달로 읽어 glass 층 전체를 숨긴다.
  * 덮개 뒤 실제 버튼은 호출부가 `inert`로 막는다. 모달이 아니라 낭독기가 뜬 것을 모르므로 뜰 때와 단계를 넘길 때 루트에 초점을 두고,
@@ -420,6 +421,7 @@ const NAV_BUTTON =
  */
 export function SessionHelpScreen({
   onComplete,
+  onLater,
   onDismiss,
   returnFocus = null,
   step: controlledStep,
@@ -427,6 +429,8 @@ export function SessionHelpScreen({
 }: {
   /** 마지막 단계에서 `순공 시작하기`로 끝까지 봤다. */
   onComplete: () => void;
+  /** 마지막 단계에서 `나중에 시작할게요`를 눌렀다. */
+  onLater?: () => void;
   /** Escape로 중간에 닫았다. */
   onDismiss: () => void;
   /**
@@ -514,7 +518,13 @@ export function SessionHelpScreen({
         {callouts.pause && <PauseCallout callout={callouts.pause} />}
         {callouts.more && <MoreCallout callout={callouts.more} />}
         {step.center && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center px-6">
+          // 가로는 세로 폭이 좁아 버튼이 하나 늘면 이동 막대와 닿으므로 묶음을 위로 올린다.
+          <div
+            className={cn(
+              "absolute inset-0 flex flex-col items-center justify-center px-6",
+              onLater !== undefined && "landscape-compact:pb-14",
+            )}
+          >
             <p className="text-center text-[26px] leading-8.5 font-bold break-keep whitespace-pre-line text-primary-foreground">
               <HelpText textKey={step.center} />
             </p>
@@ -525,6 +535,15 @@ export function SessionHelpScreen({
                 className="pointer-events-auto mt-6 h-13 rounded-full bg-primary px-8 text-base leading-6 font-bold text-primary-foreground transition-[scale,opacity] duration-150 ease-out outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/70 active:scale-[0.97] active:opacity-85 motion-reduce:active:scale-100"
               >
                 {t("help.finishCta")}
+              </button>
+            )}
+            {step.cta === true && onLater !== undefined && (
+              <button
+                type="button"
+                onClick={onLater}
+                className="pointer-events-auto mt-2 min-h-11 px-4 text-sm leading-5 font-medium text-primary-foreground/80 underline underline-offset-4 outline-none focus-visible:rounded-md focus-visible:ring-2 focus-visible:ring-primary-foreground/70"
+              >
+                {t("help.finishLater")}
               </button>
             )}
           </div>

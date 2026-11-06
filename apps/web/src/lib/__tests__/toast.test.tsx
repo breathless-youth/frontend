@@ -1,9 +1,10 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { Bell } from "lucide-react";
 import { toast } from "sonner";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { CtaToaster, Toaster } from "@/components/ui/sonner";
-import { showCtaToast, showToast, showTopToast } from "@/lib/toast";
+import { showCtaToast, showIconToast, showToast, showTopToast } from "@/lib/toast";
 
 afterEach(() => {
   act(() => {
@@ -129,5 +130,24 @@ describe("showCtaToast", () => {
     });
 
     expect(screen.queryByText("A")).not.toBeInTheDocument();
+  });
+});
+
+describe("showIconToast", () => {
+  it("replaces top toasts and removes the icon when replaced by a string toast", async () => {
+    render(<Toaster />);
+    act(() => showTopToast("Before"));
+    await screen.findByText("Before");
+    act(() =>
+      showIconToast("Enabled", <Bell aria-hidden="true" size={16} className="fill-current" />),
+    );
+    const message = await screen.findByText("Enabled");
+    expect(message.closest("[data-sonner-toaster]")).toHaveAttribute("data-y-position", "bottom");
+    expect(message.parentElement?.querySelector("svg")).toHaveAttribute("width", "16");
+    expect(screen.queryByText("Before")).not.toBeInTheDocument();
+    act(() => showToast("After"));
+    const after = await screen.findByText("After");
+    expect(after.closest("[data-sonner-toast]")?.querySelector("svg")).toBeNull();
+    expect(screen.queryByText("Enabled")).not.toBeInTheDocument();
   });
 });

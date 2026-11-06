@@ -1,5 +1,8 @@
 import appConfig from "../../app.json";
 import enLocale from "../../locales/en.json";
+import jaLocale from "../../locales/ja.json";
+import koLocale from "../../locales/ko.json";
+import zhHantLocale from "../../locales/zh-Hant.json";
 
 /**
  * S2-2는 만들 커스텀 UI가 없고 앱이 통제하는 것은 목적 문구뿐이다 — 그래서 이 문자열이
@@ -7,12 +10,39 @@ import enLocale from "../../locales/en.json";
  * Figma `52:155` 세 곳과 문자 단위로 일치해야 한다(의역·줄임·문장부호 변경 금지).
  */
 const CONFIRMED_CAMERA_USAGE_COPY =
-  "AI 분석, 타임랩스, 화면 공유에 사용해요. AI 분석용 영상은 기기 안에서만 처리되고, 사진은 내 기기에만 남아요.";
+  "순공 시간 측정, 타임랩스 기록, 캠스터디 이용을 위해 카메라 접근이 필요해요. 공부 화면은 서버에 저장하지 않아요.";
+
+/** 언어별 카메라 권한 문구. 캠스터디 영상은 다른 참여자에게 전달되므로 서버 저장만 부정하고 기기 밖 전송을 부정하지 않는다. */
+const CAMERA_USAGE_COPY_BY_LOCALE = [
+  ["ko", koLocale, CONFIRMED_CAMERA_USAGE_COPY],
+  [
+    "en",
+    enLocale,
+    "FocusMakers needs camera access to measure focus time, record time-lapses, and join cam study. Your study video isn't stored on our servers.",
+  ],
+  [
+    "ja",
+    jaLocale,
+    "集中時間の測定、タイムラプスの記録、カムスタディの利用のためにカメラへのアクセスが必要です。学習中の映像はサーバーに保存しません。",
+  ],
+  [
+    "zh-Hant",
+    zhHantLocale,
+    "需要存取相機，才能測量專注時間、記錄縮時攝影及使用視訊共讀。讀書畫面不會儲存在伺服器。",
+  ],
+] as const;
 
 describe("app.json 카메라 권한 문구 (S2-2)", () => {
   it("확정 카피와 문자 단위로 일치한다", () => {
     expect(appConfig.expo.ios.infoPlist.NSCameraUsageDescription).toBe(CONFIRMED_CAMERA_USAGE_COPY);
   });
+
+  it.each(CAMERA_USAGE_COPY_BY_LOCALE)(
+    "%s 카메라 문구가 확정 번역과 일치한다",
+    (_locale, locale, copy) => {
+      expect(locale.NSCameraUsageDescription).toBe(copy);
+    },
+  );
 
   /**
    * `expo-sensors`는 prebuild에서 **영어 기본 문구**를 주입한다

@@ -77,6 +77,7 @@ describe("buildGroupRoomFixtures", () => {
     expect(fixtures.roomForm).toEqual({
       name: fixtures.roomHome.name,
       visibility: fixtures.roomHome.visibility,
+      joinPolicy: "approval",
       category: "수능",
       intro: fixtures.roomHome.intro,
     });

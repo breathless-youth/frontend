@@ -10,6 +10,7 @@ import type {
 
 import { emitAccountReset } from "./accountReset";
 import { getActiveTab } from "./activeTab";
+import { trackAirbridgeAnalyticsEvent, trackAirbridgeConversion } from "./airbridge";
 import { handleAppLockMessage } from "./appLock/appLockRelay";
 import { authTokenMessage, awaitAuth, ensureAuth, logout, refreshAuth } from "./auth";
 import {
@@ -361,11 +362,13 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       // 형식은 `parseToNativeMessage`가 이미 걸렀고, Meta env 없는 빌드에서는 `logMetaAppEvent`가 no-op이다.
       // 응답은 없다 — 분석 유실이 화면 동작을 막으면 안 된다.
       logMetaAppEvent(message.name, message.params, message.valueToSum);
+      trackAirbridgeConversion(message.name, message.params);
       break;
     case "analytics-event":
       // 웹 Amplitude 이벤트의 사본을 네이티브 Firebase Analytics(GA4)에 남긴다 — FCM 콘솔 타겟팅용. 형식은
       // `parseToNativeMessage`가 걸렀고 어댑터가 없으면 no-op이다. 응답은 없다.
       logAnalyticsEvent(message.name, message.params);
+      trackAirbridgeAnalyticsEvent(message.name, message.params);
       break;
     case "analytics-user-properties":
       setAnalyticsUserProperties(message.properties);

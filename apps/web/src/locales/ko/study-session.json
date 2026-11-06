@@ -128,7 +128,8 @@
     "buttonsPause": "쉴 때는\n<hl>일시정지</hl>를 눌러요",
     "finishMore": "이 도움말은 더보기 메뉴에서\n언제든 다시 볼 수 있어요",
     "finishCenter": "준비됐어요\n이제 <hl>집중</hl>해 볼까요?",
-    "finishCta": "순공 시작하기"
+    "finishCta": "순공 시작하기",
+    "finishLater": "나중에 시작할게요"
   },
   "recovery": {
     "title": "저장되지 않은 기록을 복구했어요",

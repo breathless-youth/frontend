@@ -40,6 +40,8 @@ const SHOWN_ON_DETAIL_CODES: ReadonlySet<string> = new Set([
   "APPLICATION_LIMIT",
   "RECENTLY_KICKED",
   "GROUP_FULL",
+  "GROUP_JOIN_OPEN",
+  "GROUP_JOIN_APPROVAL_REQUIRED",
 ]);
 
 /**
@@ -129,6 +131,15 @@ function Apply({ userId, groupId }: { userId: number; groupId: number }) {
           </div>
         )}
       </GroupScreenFrame>
+    );
+  }
+
+  if (detail.joinPolicy === "OPEN") {
+    return (
+      <Navigate
+        to={{ pathname: `/social/public/${groupId}`, search: baseSearch(location.search) }}
+        replace
+      />
     );
   }
 

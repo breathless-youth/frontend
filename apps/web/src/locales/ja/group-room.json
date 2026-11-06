@@ -1,4 +1,7 @@
 {
+  "nameCheck": {
+    "taken": "同じ名前の公開グループがすでにあります"
+  },
   "contactCheck": {
     "blocked": "連絡先やリンクは送信できません"
   },
@@ -266,5 +269,24 @@
     "notFound": "グループが見つかりません",
     "notMember": "このグループのメンバーではありません",
     "applicationCanceled": "参加リクエストをキャンセルしました"
+  },
+  "joinPolicy": {
+    "approval": "承認後に参加",
+    "open": "すぐに参加",
+    "whoCanJoin": "誰が参加できますか？",
+    "settingsLabel": "参加方法",
+    "pendingLoss": "入室方法を変更すると、残っている申請{{count}}件が削除されます",
+    "join": "参加する",
+    "full": "満員です",
+    "openError": "申請せずにすぐ参加できます",
+    "approvalRequiredError": "参加には申請と承認が必要です"
+  },
+  "notificationPrompt": {
+    "title": "メンバーの勉強通知を受け取りますか？",
+    "description": "メンバーが勉強を始めたらお知らせします",
+    "accept": "受け取る",
+    "later": "あとで",
+    "enabled": "メンバーの勉強通知オン",
+    "disabled": "メンバーの勉強通知オフ"
   }
 }

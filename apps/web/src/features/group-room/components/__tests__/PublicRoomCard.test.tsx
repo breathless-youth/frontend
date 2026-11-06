@@ -1,11 +1,14 @@
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { PublicRoomSummary } from "../../types";
 import { PublicRoomCard } from "../PublicRoomCard";
 
+afterEach(cleanup);
+
 const room: PublicRoomSummary = {
+  joinPolicy: "approval",
   roomId: 7,
   name: "새벽 공시반",
   categoryLabel: "공무원",
@@ -32,4 +35,13 @@ describe("PublicRoomCard 참여 표시", () => {
     await userEvent.setup().click(card);
     expect(onOpen).toHaveBeenCalledWith(7);
   });
+});
+
+it.each([
+  ["approval", "신청 후 입장"],
+  ["open", "바로 입장"],
+] as const)("shows the %s policy chip", (joinPolicy, label) => {
+  render(<PublicRoomCard room={{ ...room, joinPolicy }} onOpen={vi.fn()} />);
+  expect(screen.getByText(label)).toBeInTheDocument();
+  expect(screen.getByRole("button")).toHaveAccessibleName(new RegExp(label));
 });

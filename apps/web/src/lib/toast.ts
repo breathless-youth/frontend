@@ -1,4 +1,4 @@
-import { createElement } from "react";
+import { createElement, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { NotificationToast } from "@/components/NotificationToast";
@@ -17,6 +17,19 @@ const GLOBAL_TOAST_ID = "focusmakers-toast";
 export function showToast(message: string) {
   // 같은 id로 갱신하면 Sonner가 이전 옵션에 덮어 합친다. 위치를 빼면 떠 있던 위쪽 토스트 자리를 물려받는다.
   toast(message, { id: GLOBAL_TOAST_ID, position: "bottom-center" });
+}
+
+/** Render the icon inside the message so subsequent string toasts replace it completely. */
+export function showIconToast(message: string, icon: ReactNode) {
+  toast(
+    createElement(
+      "span",
+      { className: "inline-flex items-center gap-1.5" },
+      icon,
+      createElement("span", null, message),
+    ),
+    { id: GLOBAL_TOAST_ID, position: "bottom-center" },
+  );
 }
 
 /** 세션 화면은 아래에 컨트롤 바가 떠 있어서, 위쪽 상태 필 바로 아래에 띄운다. */

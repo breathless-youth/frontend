@@ -1015,16 +1015,23 @@ export function trackSocialRoomBackgroundReturned(input: {
   });
 }
 
-/** 집중 시작을 누른 자리. */
-export type FocusStartSource = "home" | "ranking_card" | "ranking_empty" | "ranking_records";
+/** 집중 시작을 누른 자리. 가이드 화면이 넘겨받은 값을 이 목록으로 확인한다. */
+export const FOCUS_START_SOURCES = [
+  "home",
+  "ranking_card",
+  "ranking_empty",
+  "ranking_records",
+] as const;
+export type FocusStartSource = (typeof FOCUS_START_SOURCES)[number];
 
 /**
  * 홈과 랭킹의 "집중 시작" 탭
  *
  * F1 퍼널의 첫 행동이자 `camera_permission_gate_resolved`의 분모다.
+ * 가이드를 처음 보는 계정은 가이드의 `순공 시작하기`를 누른 뒤에 보낸다.
  * `source`는 누른 자리다.
- * `destination`은 온보딩 가이드가 있던 때 가이드와 세션을 구분하던 속성이다.
- * 가이드를 삭제한 뒤에도 기존 차트가 이 값으로 거르므로 `"session"`으로 고정해 보낸다.
+ * `destination`은 예전 온보딩 가이드와 세션을 구분하던 속성이다.
+ * 지금은 세션 시작 요청 때만 보내고, 기존 차트가 이 값으로 거르므로 `"session"`으로 고정해 보낸다.
  */
 export function trackFocusStartTapped(source: FocusStartSource = "home") {
   if (!initialized) return;
@@ -1116,7 +1123,7 @@ export type CameraPromptChoice = "camera" | "simple";
 /**
  * 싱글룸 입장 카메라 확인 창 노출
  *
- * 세션 화면마다 한 번이고, 도움말이 자동으로 뜨는 계정은 도움말을 끝내거나 닫은 뒤에 뜬다.
+ * 세션 화면마다 한 번 뜬다.
  */
 export function trackStudySessionCameraPromptShown(roomType: StudyRoomType) {
   if (!initialized) return;
@@ -1220,14 +1227,17 @@ export function trackStudySessionHelpStepViewed(input: {
  * 세션 도움말을 마지막 단계까지 본 것
  *
  * 앱 종료나 세션 이탈로 끝내지 못한 노출은 완료도 중단도 보내지 않아 다음 세션의 재노출로 센다.
+ * `cta`는 마지막 단계에서 누른 버튼이다. `later`는 `나중에 시작할게요`라 세션이 시작되지 않는다.
  */
 export function trackStudySessionHelpCompleted(
   trigger: SessionHelpTrigger,
   roomType: StudyRoomType,
+  cta: "start" | "later" = "start",
 ) {
   if (!initialized) return;
   track("study_session_help_completed", {
     trigger,
+    cta,
     room_type: roomType,
     help_version: SESSION_HELP_VERSION,
   });

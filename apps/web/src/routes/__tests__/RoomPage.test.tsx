@@ -6,7 +6,6 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import { submitStudySession } from "@/features/study-session/submitStudySession";
 import { ApiError } from "@/lib/api";
@@ -86,8 +85,6 @@ function HomeRouteProbe() {
 }
 
 function renderRoom(url: string) {
-  // 세션 도움말이 뜨면 세션 화면을 검증할 수 없어서 이미 끝까지 본 계정으로 연다.
-  markSessionGuideSeen(1);
   const view = render(
     <MemoryRouter initialEntries={[url]}>
       <Routes>
