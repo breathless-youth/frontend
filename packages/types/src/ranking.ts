@@ -188,35 +188,3 @@ export interface RankingUnseenResponse {
 export interface RankingRecordSeenRequest {
   ids: number[];
 }
-
-/**
- * 판 하나의 순위 변화
- *
- * `before`는 이번 제출을 뺀 내 값의 순위다.
- */
-export interface RankingGain {
-  before: number;
-  after: number;
-  delta: number;
-}
-
-/** 주간 순공 밖에서 오른 판. */
-export interface RankingBoardGain extends RankingGain {
-  type: RankingType;
-  /** 명예의 전당은 null이다. */
-  period: RankingPeriod | null;
-  /** 시간대 판만 값이 있다. */
-  slot: TimeSlot | null;
-}
-
-/**
- * `GET /api/rankings/session-gains`
- *
- * 오른 판만 온다.
- * `others`는 순공 일·월, 집중률 주·월, 시간대 일·주, 명예의 전당 순이다.
- */
-export interface RankingSessionGainsResponse {
-  /** 주간 순공이 오르지 않았으면 null이다. */
-  weekly: RankingGain | null;
-  others: RankingBoardGain[];
-}

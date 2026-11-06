@@ -301,8 +301,16 @@ describe("longestFocusStretch", () => {
     ).toBeNull();
   });
 
-  it("가장 긴 구간이 59초면 1분 미만이라 null이다", () => {
-    expect(longestFocusStretch(exampleSession({ events: [event("PAUSE", 0, 6241)] }))).toBeNull();
+  it("가장 긴 구간이 59초여도 그 구간을 돌려준다", () => {
+    const longest = longestFocusStretch(exampleSession({ events: [event("PAUSE", 0, 6241)] }));
+
+    expect(longest?.durationSec).toBe(59);
+  });
+
+  it("가장 긴 구간이 1초 미만이면 null이다", () => {
+    const endedAt = new Date(SESSION_START.getTime() + 500).toISOString();
+
+    expect(longestFocusStretch(exampleSession({ endedAt, events: [] }))).toBeNull();
   });
 
   it("가장 긴 구간이 딱 60초면 그 구간을 돌려준다", () => {

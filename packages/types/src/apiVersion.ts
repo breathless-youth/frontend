@@ -101,11 +101,6 @@ export const API_ENDPOINTS = {
     version: "1",
     parsedBy: "apps/web/src/lib/rankingApi.ts postRankingRecordsSeen",
   },
-  /** `GET /api/rankings/session-gains`: 공부 결과 랭킹 카드. */
-  rankingSessionGains: {
-    version: "1",
-    parsedBy: "apps/web/src/lib/rankingApi.ts getRankingSessionGains",
-  },
 
   /** `POST /api/study-sessions` — 세션 제출 */
   studySessionSubmit: {

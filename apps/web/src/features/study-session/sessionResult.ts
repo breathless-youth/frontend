@@ -8,7 +8,7 @@ import i18n from "@/lib/i18n";
 import { formatClock } from "@/lib/intl";
 import type { AppLocale } from "@/lib/locale";
 
-import { SUB_MINUTE_SEC, toKoreanDurationLength } from "./formatDuration";
+import { MIN_RECORDED_FOCUS_SEC, toKoreanDurationLength } from "./formatDuration";
 
 /**
  * S4(공부 결과) **표시용 파생값** — 순수 함수만 둔다.
@@ -221,9 +221,9 @@ export function longestFocusStretch(
     best = { start: cursor, end: endMs };
   }
   const ms = best.end - best.start;
-  // 순공 1분 미만을 기록에서 빼는 경계와 같은 값을 써야, 기록에 남지 않을 만큼 짧은 구간을
-  // "최대 집중"으로 내세우지 않는다.
-  if (ms < SUB_MINUTE_SEC * 1000) {
+  // 기록에서 빼는 경계와 같은 값을 써야, 기록에 남지 않을 만큼 짧은 구간을 "최대 집중"으로
+  // 내세우지 않는다.
+  if (ms < MIN_RECORDED_FOCUS_SEC * 1000) {
     return null;
   }
   const startedAt = new Date(best.start).toISOString();

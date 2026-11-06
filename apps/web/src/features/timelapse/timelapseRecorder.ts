@@ -1,7 +1,6 @@
 import type { SessionRecoveryResponse } from "@focusmakers/types";
 
 import type { PhotoTap } from "@/features/study-session/adapters/focusDetector";
-import { SUB_MINUTE_SEC } from "@/features/study-session/formatDuration";
 import type { EndedSession } from "@/features/study-session/useStudyRoomSession";
 import { faceMaskEmojiOf } from "@/features/live-room/faceMaskSettings";
 import { reportHandled } from "@/lib/sentry";
@@ -12,6 +11,9 @@ import type { TimelapseSettings } from "./timelapseSettings";
 import { loadTimelapseSettings } from "./timelapseSettings";
 import type { TimelapseStore, TimelapseSummary } from "./timelapseStore";
 import { getTimelapseStore } from "./timelapseStore";
+
+// 개인정보처리방침이 1분 미만 세션의 사진을 바로 지운다고 약속한다. 기록 최소 기준과 따로 둔다.
+const TIMELAPSE_MIN_FOCUS_SEC = 60;
 
 /**
  * 싱글룸 세션 하나의 타임랩스 촬영
@@ -63,7 +65,7 @@ function plainError(error: unknown): Error {
  * 끝난 세션의 타임랩스 정리
  *
  * 기기가 잰 순공 시간이 1분 이상이면 남기고 아니면 지운다.
- * 1분 미만 세션은 결과 화면이 없어 다시 볼 곳이 없다.
+ * 1분 미만 세션의 사진은 개인정보처리방침대로 바로 지운다.
  * 제출에 실패한 세션은 기기 요약으로 먼저 목록에 오르고 다음 실행의 복구 응답이 더 짧은 순공을 줄 수 있어 촬영 중 기록만 지운다.
  */
 export async function settleTimelapse(
@@ -72,7 +74,7 @@ export async function settleTimelapse(
   summary: TimelapseSummary,
   nowMs: number,
 ): Promise<void> {
-  if (summary.focusSec >= SUB_MINUTE_SEC) {
+  if (summary.focusSec >= TIMELAPSE_MIN_FOCUS_SEC) {
     await store.finalize(startedAtMs, summary);
   } else {
     await store.discard(startedAtMs);

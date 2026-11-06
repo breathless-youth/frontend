@@ -7,13 +7,6 @@ import i18n from "@/lib/i18n";
 import { formatDateLabel } from "@/lib/intl";
 import type { AppLocale } from "@/lib/locale";
 
-export function splitHoursMinutes(totalSeconds: number) {
-  return {
-    hours: Math.floor(totalSeconds / 3600),
-    minutes: Math.floor((totalSeconds % 3600) / 60),
-  };
-}
-
 /**
  * 예: "7월 26일 일요일". `now`를 주입 가능하게 해 테스트 가능하게 한다(기본값은 현재 시각).
  * 날짜는 기기 로컬 기준이라 로컬 연·월·일을 UTC 자정으로 옮겨 UTC로 읽는다.

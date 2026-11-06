@@ -32,7 +32,6 @@ const EXPECTED: Record<ApiEndpoint, { current: string; legacy: string }> = {
   rankingRecords: { current: "1", legacy: "1" },
   rankingRecordsUnseen: { current: "1", legacy: "1" },
   rankingRecordsSeen: { current: "1", legacy: "1" },
-  rankingSessionGains: { current: "1", legacy: "1" },
   studySessionSubmit: { current: "2", legacy: "1" },
   studySessionDetail: { current: "2", legacy: "1" },
   activeSessionReport: { current: "2", legacy: "1" },

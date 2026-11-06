@@ -3,7 +3,6 @@ import type {
   RankingPeriod,
   RankingRecordsPage,
   RankingRecordsSummary,
-  RankingSessionGainsResponse,
   RankingUnseenResponse,
 } from "@focusmakers/types";
 
@@ -19,9 +18,6 @@ import {
   FIXTURE_RECORDS_PAGE,
   FIXTURE_RESET_DAILY,
   FIXTURE_RESET_PREVIOUS,
-  FIXTURE_SESSION_GAINS,
-  FIXTURE_SESSION_GAINS_EMPTY,
-  FIXTURE_SESSION_GAINS_NO_WEEKLY,
   FIXTURE_SLOT_DAILY,
   FIXTURE_STREAK,
   FIXTURE_SUMMARY,
@@ -53,8 +49,6 @@ export const RANKING_MOCK_SCENES = [
   "medal-3",
   "medal-5",
   "medal-mixed",
-  "gain",
-  "gain-none",
 ] as const;
 export type RankingMockScene = (typeof RANKING_MOCK_SCENES)[number];
 
@@ -179,19 +173,4 @@ const UNSEEN_BY_SCENE: Partial<Record<RankingMockScene, RankingUnseenResponse>> 
  */
 export function mockUnseen(scene: RankingMockScene): RankingUnseenResponse {
   return UNSEEN_BY_SCENE[scene] ?? FIXTURE_UNSEEN_NONE;
-}
-
-/**
- * 세션 뒤 오른 순위
- *
- * `gain`은 칩 넷(같은 판 둘), `gain-none`은 주간 순공 없음이다.
- */
-export function mockSessionGains(scene: RankingMockScene): RankingSessionGainsResponse {
-  if (scene === "gain") {
-    return FIXTURE_SESSION_GAINS;
-  }
-  if (scene === "gain-none") {
-    return FIXTURE_SESSION_GAINS_NO_WEEKLY;
-  }
-  return FIXTURE_SESSION_GAINS_EMPTY;
 }

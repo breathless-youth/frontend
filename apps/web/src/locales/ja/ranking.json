@@ -215,10 +215,6 @@
       "countByRank": "{{rank}}位、{{count}}個"
     }
   },
-  "gainCard": {
-    "title": "順位が上がりました",
-    "weeklyFocus": "週間集中時間"
-  },
   "recordsPage": {
     "summaryTitle": "これまでのTOP3",
     "timesUnit": "回",

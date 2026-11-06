@@ -54,8 +54,6 @@
   },
   "stats": {
     "todayFocus": "Today's focus time",
-    "hoursUnit": "h",
-    "minutesUnit": "m",
     "focusRate": "Focus rate",
     "studyTotal": "Total study time",
     "longestFocus": "Longest focus",

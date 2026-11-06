@@ -79,13 +79,13 @@ import {
   SessionTimer,
 } from "@/features/study-session/components/SessionTimer";
 import { SimpleModeSurface } from "@/features/study-session/components/SimpleModeSurface";
-import { SubMinuteEndNotice } from "@/features/study-session/components/SubMinuteEndNotice";
+import { NoFocusEndNotice } from "@/features/study-session/components/NoFocusEndNotice";
 import { SubjectPanel } from "@/features/study-session/components/SubjectPanel";
 import { SubjectLabel } from "@/features/study-session/components/SubjectLabel";
 import { VisionPerfPanel } from "@/features/study-session/components/VisionPerfPanel";
 import { resolveDevDetectorOverride } from "@/features/study-session/devMockDetector";
 import {
-  SUB_MINUTE_SEC,
+  MIN_RECORDED_FOCUS_SEC,
   exitConfirmDescription,
   formatElapsed,
 } from "@/features/study-session/formatDuration";
@@ -698,13 +698,13 @@ function RoomSessionScreen({
    * 순공 1분 미만으로 끝났는가
    *
    * 판정에 서버 응답(`phase.sessions`)이 아니라 클라이언트가 잰 `focusSec`을 쓴다.
-   * 자정을 넘는 세션은 서버가 날짜별로 쪼개서 내려주므로, 응답 한 건씩 보면 둘 다 1분 미만인데
-   * 세션 전체로는 1분을 넘는 경우가 생긴다.
+   * 자정을 넘는 세션은 서버가 날짜별로 쪼개서 내려주므로, 응답 한 건씩 보면 둘 다 순공이 짧은데
+   * 세션 전체로는 기준을 넘는 경우가 생긴다.
    * 사용자가 한 번 공부한 것을 두 조각으로 판정하면 안 된다.
    *
    * `endAndSubmit`이 제출 전에 최종 집계를 `setTotals`로 반영하므로 이 값은 이미 확정값이다.
    */
-  const endedBelowMinute = focusSec < SUB_MINUTE_SEC;
+  const endedWithoutFocus = focusSec < MIN_RECORDED_FOCUS_SEC;
 
   /**
    * `공부 종료` 경로
@@ -717,12 +717,12 @@ function RoomSessionScreen({
     if (
       phase.name === "done" &&
       invite === null &&
-      !endedBelowMinute &&
+      !endedWithoutFocus &&
       endReason?.kind !== "AUTO"
     ) {
       goToResult(phase.sessions);
     }
-  }, [endReason, endedBelowMinute, goToResult, invite, phase]);
+  }, [endReason, endedWithoutFocus, goToResult, invite, phase]);
 
   /**
    * 초대를 받은 채 끝난 세션의 이동
@@ -923,7 +923,7 @@ function RoomSessionScreen({
   // 종료 안내(1분 미만·자동 종료)는 세션이 끝난 뒤의 화면이라 결과 화면처럼 시스템 테마를 따른다.
   // 그 밖의 세션 화면은 항상 다크다.
   const endNoticeVisible =
-    phase.name === "done" && (endedBelowMinute || autoEndNoticeVisible(phase, endReason));
+    phase.name === "done" && (endedWithoutFocus || autoEndNoticeVisible(phase, endReason));
 
   return (
     <main
@@ -1279,8 +1279,8 @@ function RoomSessionScreen({
              `phase === "done"`을 요구하는 이유 — 제출 중·실패·미저장 상태에서는
              아래 폴백의 재시도 경로로 가야 한다. 저장 자체는 1분 미만이어도 정상적으로 하고,
              걸러내는 것은 표시·합산 단계다. */
-      phase.name === "done" && endedBelowMinute && invite === null ? (
-        <SubMinuteEndNotice
+      phase.name === "done" && endedWithoutFocus && invite === null ? (
+        <NoFocusEndNotice
           onGoHome={() => {
             trackSessionNoticeConfirmed({ notice: "sub_minute", roomType: "single" });
             // 결과 화면을 거치지 않는 종료도 홈에서 첫 세션 종료 이유 설문이 뜰 수 있게 같은 예약을 남긴다.

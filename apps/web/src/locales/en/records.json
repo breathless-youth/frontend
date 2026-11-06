@@ -94,7 +94,7 @@
     "startTime": "Start time",
     "endTime": "End time",
     "longestFocus": "Longest focus",
-    "underMinute": "<1m",
+    "underSecond": "<1s",
     "aria": {
       "summary": "{{start}} to {{end}}, focus time {{focus}}, {{rate}} focus"
     }

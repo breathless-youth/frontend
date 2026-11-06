@@ -52,8 +52,6 @@
   },
   "stats": {
     "todayFocus": "今日の集中時間",
-    "hoursUnit": "時間",
-    "minutesUnit": "分",
     "focusRate": "集中率",
     "studyTotal": "総勉強時間",
     "longestFocus": "最長集中時間",

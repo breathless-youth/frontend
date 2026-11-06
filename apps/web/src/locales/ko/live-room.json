@@ -2,10 +2,10 @@
   "notice": {
     "graceEndSaved": "자리를 오래 비워서 공부를 종료했어요.\n공부 기록은 저장되었으니 안심하세요.",
     "graceEndPending": "자리를 오래 비워서 공부를 종료했어요.\n공부 기록은 저장되니 안심하세요.",
-    "graceEndSubMinute": "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
+    "graceEndNoFocus": "자리를 오래 비워서 공부를 종료했어요.\n1분 미만 공부는 기록에 표시되지 않아요",
     "roomClosedSaved": "방이 종료되어 공부를 마쳤어요.\n공부 기록은 저장되었으니 안심하세요.",
     "roomClosedPending": "방이 종료되어 공부를 마쳤어요.\n공부 기록은 저장되니 안심하세요.",
-    "roomClosedSubMinute": "방이 종료되어 공부를 마쳤어요.\n1분 미만 공부는 기록에 표시되지 않아요",
+    "roomClosedNoFocus": "방이 종료되어 공부를 마쳤어요.\n1분 미만 공부는 기록에 표시되지 않아요",
     "kicked": "{{groupName}}에서 내보내졌어요",
     "kickedUnnamed": "그룹에서 내보내졌어요"
   },
