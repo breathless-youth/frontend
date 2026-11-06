@@ -119,3 +119,19 @@ test("응답 전 큐는 50건을 넘으면 오래된 것부터 버린다", () =>
   expect(mockTrackEvent).toHaveBeenCalledTimes(50);
   expect(mockTrackEvent.mock.calls[0]).toEqual(["tab_pressed", {}, { i: 1 }]);
 });
+
+test("수집 켜기가 실패하면 큐를 지키고, 같은 응답이 다시 오면 그때 보낸다", () => {
+  const ab = load(true);
+  const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+  ab.trackAirbridgeConversion("fb_mobile_complete_registration");
+  mockStartTracking.mockImplementationOnce(() => {
+    throw new Error("native");
+  });
+
+  ab.setAirbridgeTrackingAllowed(true);
+  expect(mockTrackEvent).not.toHaveBeenCalled();
+
+  ab.setAirbridgeTrackingAllowed(true);
+  expect(mockTrackEvent.mock.calls).toEqual([["airbridge.user.signup", {}, {}]]);
+  warn.mockRestore();
+});

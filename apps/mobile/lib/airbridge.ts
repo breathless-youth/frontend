@@ -79,13 +79,16 @@ function send(
 export function setAirbridgeTrackingAllowed(granted: boolean): void {
   const client = airbridge();
   if (client === null) return;
-  allowed = granted;
   try {
     if (granted) client.startTracking();
     else client.stopTracking();
   } catch (error) {
     console.warn("[airbridge] 수집 상태 변경 실패", granted, error);
+    // 켜기에 실패하면 응답 전 상태로 남겨 큐를 지킨다 — 같은 응답이 한 번 더 오면 그때 다시 켠다.
+    // 끄기는 실패해도 거부로 확정한다. 자동 시작이 꺼져 있어 이 실행에서 켠 적이 없다.
+    if (granted) return;
   }
+  allowed = granted;
   const queued = pending.splice(0);
   if (granted) {
     for (const [category, semantic, custom] of queued) send(client, category, semantic, custom);
