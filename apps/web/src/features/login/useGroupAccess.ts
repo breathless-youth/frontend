@@ -1,4 +1,3 @@
-import type { ProfileResponse, SocialLoginProvider } from "@focusmakers/types";
 import { useQuery } from "@tanstack/react-query";
 
 import { nativeSocialLoginProviders } from "@/lib/nativeSocialLogin";
@@ -6,14 +5,6 @@ import { profileQuery } from "@/lib/profileQueries";
 import { useIdentityPending, useUserId } from "@/lib/userId";
 
 export type GroupAccess = "ungated" | "pending" | "member" | "guest";
-
-/**
- * 로그인한 공급자가 실린 프로필 응답
- *
- * 백엔드 Swagger에 아직 없는 필드라 공유 타입에 넣지 않고 이 판정에서만 쓴다.
- * 비회원이면 null이고, 이 필드를 배포하기 전 서버의 응답에는 아예 없다.
- */
-type ProfileWithLogin = ProfileResponse & { loginProvider?: SocialLoginProvider | null };
 
 /**
  * 그룹 화면을 열어도 되는지 판정
@@ -43,7 +34,5 @@ export function useGroupAccess(): GroupAccess {
   if (profile.isPending) {
     return "pending";
   }
-  return (profile.data as ProfileWithLogin | undefined)?.loginProvider === null
-    ? "guest"
-    : "member";
+  return profile.data?.loginProvider === null ? "guest" : "member";
 }

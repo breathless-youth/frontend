@@ -4,7 +4,8 @@
     "profile": "プロフィール",
     "service": "一般",
     "support": "サポート",
-    "legal": "規約・情報"
+    "legal": "規約・情報",
+    "account": "アカウント"
   },
   "rows": {
     "editProfile": "プロフィールを編集",
@@ -19,7 +20,9 @@
     "terms": "利用規約",
     "privacy": "プライバシーポリシー",
     "licenses": "オープンソースライセンス",
-    "version": "バージョン情報"
+    "version": "バージョン情報",
+    "logout": "ログアウト",
+    "deleteAccount": "アカウント削除"
   },
   "cameraPermission": {
     "tooltip": "権限はシステム設定で変更できます",
@@ -57,5 +60,18 @@
   },
   "legal": {
     "koreanOnly": "この文書は現在、韓国語でのみ提供しています。"
+  },
+  "account": {
+    "logout": {
+      "title": "ログアウトしますか？",
+      "description": "記録は連携したアカウントにそのまま残ります",
+      "confirm": "ログアウト"
+    },
+    "delete": {
+      "title": "アカウントを削除しますか？",
+      "description": "すべての記録がすぐに削除され、元に戻せません",
+      "confirm": "削除",
+      "failed": "アカウントを削除できませんでした。しばらくしてからもう一度お試しください"
+    }
   }
 }

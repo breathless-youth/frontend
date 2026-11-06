@@ -3,6 +3,8 @@
  * 실제 백엔드 Swagger 계약을 기준으로만 정의한다
  */
 
+import type { SocialLoginProvider } from "./bridge";
+
 /**
  * 익명 기기 유저 등록 API
  * 로그인 없는 V1.0에서 기기 UUID로 사용자를 식별한다
@@ -601,6 +603,12 @@ export interface ProfileResponse {
    * 이 필드가 배포되기 전 응답에는 없다.
    */
   profileImageUrl?: string | null;
+  /**
+   * 로그인한 소셜 계정이고 비회원이면 null이다.
+   *
+   * 이 필드가 배포되기 전 응답에는 없다.
+   */
+  loginProvider?: SocialLoginProvider | null;
 }
 
 export interface ProfileUpdateRequest {
@@ -806,6 +814,9 @@ export type {
   SocialLoginFailureCode,
   SocialLoginProvider,
   SocialLoginResultMessage,
+  LogoutResultMessage,
+  DeleteAccountFailureCode,
+  DeleteAccountResultMessage,
   VideoResultStatus,
   VideoShareTarget,
 } from "./bridge";
@@ -834,6 +845,7 @@ export {
   NAVIGATE_TAB_SOURCES,
   NAVIGATE_TAB_TARGETS,
   SOCIAL_LOGIN_FAILURE_CODES,
+  DELETE_ACCOUNT_FAILURE_CODES,
   SOCIAL_LOGIN_PROVIDERS,
   VIDEO_RESULT_STATUSES,
   VIDEO_SHARE_TARGETS,

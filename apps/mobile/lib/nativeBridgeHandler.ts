@@ -1,12 +1,18 @@
 import { router } from "expo-router";
 import { Share } from "react-native";
 
-import type { HandlerMessage, NavigateTabMessage, ToWebMessage } from "@focusmakers/types";
+import type {
+  HandlerMessage,
+  NavigateTabMessage,
+  SocialLoginProvider,
+  ToWebMessage,
+} from "@focusmakers/types";
 
+import { emitAccountReset } from "./accountReset";
 import { getActiveTab } from "./activeTab";
 import { trackAirbridgeAnalyticsEvent, trackAirbridgeConversion } from "./airbridge";
 import { handleAppLockMessage } from "./appLock/appLockRelay";
-import { authTokenMessage, awaitAuth, ensureAuth, refreshAuth } from "./auth";
+import { authTokenMessage, awaitAuth, ensureAuth, logout, refreshAuth } from "./auth";
 import {
   getCameraPermissionStatus,
   isMicrophonePermissionGranted,
@@ -15,7 +21,7 @@ import {
 import { runCameraPermissionGate } from "./cameraPermissionGate";
 import { triggerHaptic } from "./haptics";
 import { acknowledgeInstallAttribution } from "./installAttribution";
-import { saveLaunchGoal } from "./launchGoal";
+import { clearLaunchGoal, saveLaunchGoal } from "./launchGoal";
 import { logAnalyticsEvent, setAnalyticsUserProperties } from "./firebaseAnalytics";
 import { waitForStartPrompts } from "./launchReady";
 import { initMetaAds, logMetaAppEvent } from "./metaAds";
@@ -25,13 +31,32 @@ import type { PushPermissionStatus } from "./pushMessaging";
 import { openedEventProperties, resolvePushRoute } from "./pushNotificationRouting";
 import { openPushRoute } from "./pushRouteOpener";
 import type * as PushTokenRegistration from "./pushTokenRegistration";
-import { trackNativeEvent } from "./nativeAnalytics";
+import { detachAllNativeAnalyticsSinks, trackNativeEvent } from "./nativeAnalytics";
 import { emitSessionClosed } from "./sessionClosed";
 import { runAfterNextSessionScreen } from "./sessionPresence";
-import { socialLogin } from "./socialLogin";
+import { deleteAccountWithReauth, socialLogin } from "./socialLogin";
 import { setTabBarState } from "./tabBarVisibility";
 import { appendVideoChunk, saveVideo, shareVideo } from "./videoTransfer";
 import { profilePhotoPickerNative } from "../modules/profile-photo-picker";
+
+/**
+ * 계정이 바뀐 뒤 처음 화면으로
+ *
+ * 탭 웹뷰마다 이전 계정의 조회 캐시가 남아 있어 모든 웹뷰를 탭 첫 화면으로 다시 띄우고 홈 탭으로 옮긴다.
+ * 완료 이벤트는 sink를 먼저 떼고 남겨, 사라질 문서가 아니라 새로 준비되는 문서가 받게 한다.
+ * 다음 실행의 시작 오버레이도 이전 계정의 목표 문구를 보이지 않게 지운다.
+ * 다 지운 뒤에 다시 띄워야 새 계정의 첫 프로필 조회가 저장한 목표 문구를 늦게 끝난 지우기가 없애지 않는다.
+ */
+async function restartAsNewAccount(
+  event: "logout_completed" | "account_deleted",
+  provider: SocialLoginProvider,
+): Promise<void> {
+  detachAllNativeAnalyticsSinks();
+  trackNativeEvent(event, { provider });
+  await clearLaunchGoal();
+  emitAccountReset();
+  router.navigate("/");
+}
 
 /** 웹으로 응답을 되돌려 보내는 통로 — `RemoteWebViewHost`의 `injectJavaScript`가 구현한다. */
 export type BridgeReply = (message: ToWebMessage) => void;
@@ -386,6 +411,21 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       // 성공이면 새 토큰의 `auth-token`이 저장 구독으로 먼저 나간 뒤에 결과가 나간다.
       void socialLogin(message.provider).then((result) => {
         reply({ type: "social-login-result", id: message.id, ...result, atMs: Date.now() });
+      });
+      break;
+    case "logout":
+      // 저장을 지우고 새 비회원으로 가입하면 새 토큰의 `auth-token`이 먼저 나간다.
+      void logout().then(() => {
+        reply({ type: "logout-result", id: message.id, atMs: Date.now() });
+        return restartAsNewAccount("logout_completed", message.provider);
+      });
+      break;
+    case "delete-account":
+      void deleteAccountWithReauth(message.provider).then((result) => {
+        reply({ type: "delete-account-result", id: message.id, ...result, atMs: Date.now() });
+        if (result.status === "success") {
+          return restartAsNewAccount("account_deleted", message.provider);
+        }
       });
       break;
     default: {

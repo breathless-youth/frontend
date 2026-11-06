@@ -51,6 +51,29 @@ describe("parseToNativeMessage", () => {
     expect(parseToNativeMessage(raw)).toBeNull();
   });
 
+  it("logout은 요청 id를, delete-account는 id와 공급자를 파싱한다", () => {
+    expect(parseToNativeMessage('{"type":"logout","id":"o1","provider":"KAKAO","atMs":5}')).toEqual(
+      { type: "logout", id: "o1", provider: "KAKAO", atMs: 5 },
+    );
+    expect(
+      parseToNativeMessage('{"type":"delete-account","id":"d1","provider":"APPLE","atMs":5}'),
+    ).toEqual({ type: "delete-account", id: "d1", provider: "APPLE", atMs: 5 });
+  });
+
+  it.each([
+    ["logout 빈 id", '{"type":"logout","id":"","provider":"KAKAO","atMs":5}'],
+    ["logout id 없음", '{"type":"logout","provider":"KAKAO","atMs":5}'],
+    ["logout 공급자 없음", '{"type":"logout","id":"o1","atMs":5}'],
+    [
+      "delete-account 모르는 공급자",
+      '{"type":"delete-account","id":"d1","provider":"NAVER","atMs":5}',
+    ],
+    ["delete-account 공급자 없음", '{"type":"delete-account","id":"d1","atMs":5}'],
+    ["delete-account 빈 id", '{"type":"delete-account","id":"","provider":"KAKAO","atMs":5}'],
+  ])("%s이면 버린다", (_label, raw) => {
+    expect(parseToNativeMessage(raw)).toBeNull();
+  });
+
   it("app-lock-* 메시지는 모르는 필드를 버린다", () => {
     expect(parseToNativeMessage('{"type":"app-lock-start","selection":"x","atMs":5}')).toEqual({
       type: "app-lock-start",

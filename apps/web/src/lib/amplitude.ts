@@ -11,6 +11,7 @@ import type { Types } from "@amplitude/analytics-browser";
 import { plugin as engagementPlugin } from "@amplitude/engagement-browser";
 
 import type {
+  DeleteAccountFailureCode,
   MedalRank,
   RankingPeriod,
   RankingRecordType,
@@ -699,6 +700,19 @@ export function trackSocialLoginFailed(input: {
 }) {
   if (!initialized) return;
   track("social_login_failed", { provider: input.provider, reason: input.reason });
+}
+
+/**
+ * 계정을 지우지 못해 로그인 상태로 남았다.
+ *
+ * 로그아웃 완료와 삭제 성공은 곧 웹뷰가 다시 마운트되어 앱이 `logout_completed`·`account_deleted`로 남긴다.
+ */
+export function trackAccountDeletionFailed(input: {
+  provider: SocialLoginProvider;
+  reason: DeleteAccountFailureCode;
+}) {
+  if (!initialized) return;
+  track("account_deletion_failed", { provider: input.provider, reason: input.reason });
 }
 
 /* ── 초대 루프 이벤트 (BY-472) ── */
@@ -1525,7 +1539,9 @@ export function trackSettingsRowPressed(
     | "interview"
     | "terms"
     | "privacy"
-    | "licenses",
+    | "licenses"
+    | "logout"
+    | "delete_account",
 ) {
   if (!initialized) return;
   track("settings_row_pressed", { row });
