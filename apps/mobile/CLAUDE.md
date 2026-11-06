@@ -57,10 +57,10 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 
 `airbridge-expo-sdk`·`airbridge-react-native-sdk`. 광고 채널별 설치·전환 측정용이다. 구글 애즈 입찰의 기본 전환은 GA4이고 Airbridge 전환은 보조다(유입 경로 설계 문서 `docs/superpowers/specs/2026-11-04-google-meta-install-attribution-design.md`).
 
-- **토큰은 env `AIRBRIDGE_APP_TOKEN` 하나다.** 있을 때만 `app.config.ts`가 plugin과 `extra.airbridgeEnabled`를 켜고, production은 EAS 빌더에서 없으면 throw한다. EAS에는 production 환경에만 넣는다 — 개발용 Airbridge 앱이 없어 개발·staging 빌드에 넣으면 운영 데이터에 섞인다. `airbridgeConfig.test.ts`가 고정한다. SDK 동작 옵션은 `airbridge.json`(ATT 응답 대기 120초)이다.
+- **토큰은 env `AIRBRIDGE_APP_TOKEN` 하나다.** 있을 때만 `app.config.ts`가 plugin과 `extra.airbridgeEnabled`를 켜고, production은 EAS 빌더에서 없으면 throw한다. EAS에는 production 환경에만 넣는다 — 개발용 Airbridge 앱이 없어 개발·staging 빌드에 넣으면 운영 데이터에 섞인다. `airbridgeConfig.test.ts`가 고정한다. SDK 동작 옵션은 `airbridge.json`이다.
 - **SDK는 `extra.airbridgeEnabled`를 본 뒤 `try` 안에서 `require`한다.** 불러오는 순간 네이티브 이벤트 emitter를 만들어 모듈 없는 바이너리에서 던지는데, 이 통로를 `auth.ts` 가입 처리와 `nativeBridgeHandler`가 부르므로 밖으로 새면 가입·브리지가 끊긴다.
 - **보내는 것**: 브리지 `analytics-event`(웹 Amplitude 사본, Firebase와 같은 것) 전부를 커스텀 이벤트로, Meta 전환 중 가입·튜토리얼 완료·업적·공유 4종만 표준 이벤트로. 이름을 화이트리스트하지 않는다(목록은 웹이 소유). 설치·실행은 SDK가 네이티브에서 직접 잡는다.
-- ATT 창은 Airbridge가 아니라 `initMetaAds`가 띄운다. Meta env 없는 빌드는 ATT 창이 없어 iOS 설치 전송이 120초 늦다.
+- **iOS는 앱 추적(ATT)을 허용해야만 보낸다.** `airbridge.json`의 `autoStartTrackingEnabled: false`로 꺼진 채 시작하고, ATT 창을 띄우는 `initMetaAds`의 응답이 `setAirbridgeTrackingAllowed`로 `startTracking`/`stopTracking`을 부른다. 응답 전 이벤트(첫 실행의 가입 등)는 쌓아 뒀다가 허용이면 보내고 거부면 버린다. 개인정보 처리방침이 이 약속을 적고 있으니 자동 시작을 다시 켜지 말 것. Android는 응답이 늘 허용이다. Meta env 없는 빌드는 ATT 흐름이 없어 Airbridge가 아예 켜지지 않는다.
 - ⚠️ **릴리즈 게이트**: 개인정보 처리방침·App Store 개인정보 라벨·Play 데이터 보안에 Airbridge(IDFA/GAID)를 넣기 전에는 이 SDK가 든 빌드를 스토어에 내지 않는다.
 - Airbridge 딥링크는 쓰지 않는다. Expo SDK 57 이하에서는 딥링크 수집이 안 될 수 있다(Airbridge 문서, SDK 58부터 지원). `airbridge-expo-sdk`가 옛 `@expo/config-plugins`를 따로 끌어오므로 Expo SDK를 올릴 때 이 plugin 호환을 먼저 본다.
 

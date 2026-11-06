@@ -6,8 +6,10 @@ import type { AnalyticsEventParamValue, MetaAppEventParamValue } from "@focusmak
 /**
  * Airbridge(MMP) 인앱 이벤트 통로.
  *
- * 설치·앱 실행은 SDK가 네이티브에서 스스로 잡고(초기화는 `airbridge-expo-sdk` config plugin), ATT 응답은
- * `initMetaAds`가 띄운 프롬프트를 SDK가 기다렸다 읽는다(`airbridge.json`의 대기 상한). 이 모듈은 이벤트만 나른다.
+ * SDK는 꺼진 채로 시작하고(`airbridge.json`의 `autoStartTrackingEnabled: false`), `initMetaAds`가 받은 앱 추적(ATT)
+ * 응답이 `setAirbridgeTrackingAllowed`로 들어온 뒤에야 수집을 켠다. iOS에서 추적을 거부하면 설치·실행·이벤트
+ * 무엇도 Airbridge로 가지 않는다(개인정보 처리방침과 같은 약속). Android는 ATT가 없어 응답이 늘 허용이다.
+ * 설치·실행은 수집이 켜질 때 SDK가 네이티브에서 스스로 잡는다.
  *
  * - Amplitude 카탈로그 전체: 브리지 `analytics-event`(Firebase로 가는 것과 같은 사본, 값은 이미 토큰만) → 커스텀 이벤트.
  * - 광고 전환: Meta 표준 전환 중 Airbridge 표준 이벤트가 있는 것만 → 표준 이벤트. 나머지 Meta 전환
@@ -20,6 +22,13 @@ import type { AnalyticsEventParamValue, MetaAppEventParamValue } from "@focusmak
 type Attributes = Record<string, string | number | boolean>;
 
 let sdk: typeof AirbridgeSdk.Airbridge | null | undefined;
+
+/** null = 아직 ATT 응답 전. 그동안의 이벤트는 쌓아 뒀다가 허용이면 보내고 거부면 버린다. */
+let allowed: boolean | null = null;
+type Pending = [category: string, semantic: Attributes, custom: Attributes];
+let pending: Pending[] = [];
+/** 응답 전 이벤트 상한 — 첫 실행의 가입·온보딩 몇 건이면 넉넉하다. 넘치면 오래된 것부터 버린다. */
+const MAX_PENDING = 50;
 
 function airbridge(): typeof AirbridgeSdk.Airbridge | null {
   if (sdk !== undefined) return sdk;
@@ -38,7 +47,21 @@ function airbridge(): typeof AirbridgeSdk.Airbridge | null {
 
 function track(category: string, semantic: Attributes = {}, custom: Attributes = {}): void {
   const client = airbridge();
-  if (client === null) return;
+  if (client === null || allowed === false) return;
+  if (allowed === null) {
+    pending.push([category, semantic, custom]);
+    if (pending.length > MAX_PENDING) pending.shift();
+    return;
+  }
+  send(client, category, semantic, custom);
+}
+
+function send(
+  client: typeof AirbridgeSdk.Airbridge,
+  category: string,
+  semantic: Attributes,
+  custom: Attributes,
+): void {
   if (__DEV__) {
     console.warn("[airbridge] → SDK", category, semantic, custom);
   }
@@ -46,6 +69,26 @@ function track(category: string, semantic: Attributes = {}, custom: Attributes =
     client.trackEvent(category, semantic, custom);
   } catch (error) {
     console.warn("[airbridge] 이벤트 기록 실패", category, error);
+  }
+}
+
+/**
+ * ATT 응답을 받아 수집을 켜거나 끈다. `initMetaAds`가 응답마다 부른다(제때 온 응답과 상한 뒤 늦게 온 응답 —
+ * 같은 값이 두 번 올 수 있고 SDK 호출은 멱등이다). 거부면 `stopTracking`도 불러 이전 실행의 상태가 남지 않게 한다.
+ */
+export function setAirbridgeTrackingAllowed(granted: boolean): void {
+  const client = airbridge();
+  if (client === null) return;
+  allowed = granted;
+  try {
+    if (granted) client.startTracking();
+    else client.stopTracking();
+  } catch (error) {
+    console.warn("[airbridge] 수집 상태 변경 실패", granted, error);
+  }
+  const queued = pending.splice(0);
+  if (granted) {
+    for (const [category, semantic, custom] of queued) send(client, category, semantic, custom);
   }
 }
 
