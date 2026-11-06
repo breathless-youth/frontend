@@ -528,7 +528,8 @@ async function deleteOnce(apple?: AppleDeletionProof): Promise<DeleteAccountResu
         startRefresh({ resetOnReject: false }),
         ACCOUNT_STEP_TIMEOUT_MS,
       );
-      if (refreshed === null) {
+      // 이미 돌던 갱신에 합류하면 그 갱신이 거부돼 저장이 새 비회원으로 바뀌었을 수 있어 같은 사용자일 때만 다시 보낸다.
+      if (refreshed === null || refreshed.userId !== current.userId) {
         return { status: "failed", code: "SERVER" };
       }
       res = await send(refreshed);

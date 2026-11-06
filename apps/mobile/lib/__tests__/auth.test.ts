@@ -915,6 +915,27 @@ describe("deleteAccount", () => {
     ]);
   });
 
+  it("401 뒤 갱신 결과가 다른 사용자면 그 사용자에게 DELETE를 다시 보내지 않는다", async () => {
+    let finishDelete: (value: unknown) => void = () => {};
+    mockedFetch
+      .mockReturnValueOnce(new Promise((resolve) => (finishDelete = resolve)))
+      .mockResolvedValueOnce(jsonResponse(200, { accessToken: "a9", refreshToken: "r9" }))
+      .mockResolvedValueOnce(jsonResponse(204, null))
+      .mockResolvedValueOnce(jsonResponse(201, NEW_GUEST));
+
+    const deleting = deleteAccount();
+    await flush();
+    // 첫 DELETE가 도는 사이 저장이 새 비회원으로 바뀐 상태를 흉내 낸다.
+    store.set("focuson.auth", JSON.stringify({ userId: 8, accessToken: "a8", refreshToken: "r8" }));
+    finishDelete(jsonResponse(401, { code: "UNAUTHORIZED" }));
+
+    await expect(deleting).resolves.toEqual({ status: "failed", code: "SERVER" });
+    expect(mockedFetch.mock.calls.map((call) => call[0])).toEqual([
+      "http://api.test/api/users/me",
+      "http://api.test/api/auth/refresh",
+    ]);
+  });
+
   describe("끝나지 않는 요청은 10초 뒤 NETWORK 실패로 끝내고 토큰을 그대로 둔다", () => {
     // 끝나지 않는 요청은 테스트 끝에 실패로 풀어, 남은 갱신이 다음 테스트로 새지 않게 한다.
     const hanging: ((value: unknown) => void)[] = [];
