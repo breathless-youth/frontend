@@ -105,7 +105,11 @@
         }
       ],
       "@react-native-firebase/app",
-      "@react-native-firebase/messaging",
+      [
+        "@react-native-firebase/messaging",
+        { "android": { "notificationIcon": "./assets/notification-icon.png" } }
+      ],
+      "./plugins/withNotificationIcon",
       "expo-apple-authentication",
       [
         "expo-media-library",
