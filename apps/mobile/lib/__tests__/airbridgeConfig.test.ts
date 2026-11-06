@@ -1,6 +1,7 @@
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
 import buildConfig from "../../app.config";
+import airbridgeJson from "../../airbridge.json";
 import appJson from "../../app.json";
 import mobilePackageJson from "../../package.json";
 
@@ -86,6 +87,10 @@ describe("Airbridge SDK 설정", () => {
       const cfg = resolveConfig({ APP_VARIANT: variant, EAS_BUILD: "true" });
       expect(findPlugin(cfg)).toBeUndefined();
     }
+  });
+
+  it("SDK는 꺼진 채 시작한다 — iOS는 앱 추적을 허용한 뒤에만 켠다(개인정보 처리방침의 약속)", () => {
+    expect(airbridgeJson).toEqual({ autoStartTrackingEnabled: false });
   });
 
   it("두 SDK는 정확한 버전으로 고정한다 — config plugin과 네이티브 SDK 버전이 함께 묶인다", () => {
