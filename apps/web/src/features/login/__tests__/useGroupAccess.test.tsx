@@ -89,25 +89,25 @@ describe("useGroupAccess", () => {
 
   it("로그인한 공급자가 있으면 회원이다", async () => {
     gated();
-    vi.mocked(getProfile).mockResolvedValue({ ...PROFILE, loginProvider: "KAKAO" } as never);
+    vi.mocked(getProfile).mockResolvedValue({ ...PROFILE, loginProvider: "KAKAO" });
     const { result } = renderHook(() => useGroupAccess(), { wrapper: Wrapper });
     await waitFor(() => expect(result.current).toBe("member"));
   });
 
   it("로그인한 공급자가 null이면 비회원이다", async () => {
     gated();
-    vi.mocked(getProfile).mockResolvedValue({ ...PROFILE, loginProvider: null } as never);
+    vi.mocked(getProfile).mockResolvedValue({ ...PROFILE, loginProvider: null });
     const { result } = renderHook(() => useGroupAccess(), { wrapper: Wrapper });
     await waitFor(() => expect(result.current).toBe("guest"));
   });
 
   it("로그인으로 기록이 합쳐져 신원이 바뀌면 새 신원의 프로필로 다시 판정한다", async () => {
     gated();
-    vi.mocked(getProfile).mockResolvedValueOnce({ ...PROFILE, loginProvider: null } as never);
+    vi.mocked(getProfile).mockResolvedValueOnce({ ...PROFILE, loginProvider: null });
     const { result, rerender } = renderHook(() => useGroupAccess(), { wrapper: Wrapper });
     await waitFor(() => expect(result.current).toBe("guest"));
 
-    vi.mocked(getProfile).mockResolvedValueOnce({ ...PROFILE, loginProvider: "GOOGLE" } as never);
+    vi.mocked(getProfile).mockResolvedValueOnce({ ...PROFILE, loginProvider: "GOOGLE" });
     vi.mocked(useUserId).mockReturnValue(2);
     rerender();
 

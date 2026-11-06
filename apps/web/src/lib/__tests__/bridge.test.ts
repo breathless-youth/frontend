@@ -272,6 +272,66 @@ describe("parseToWebMessage: profile-photo-result", () => {
   });
 });
 
+describe("parseToWebMessage: logout-result · delete-account-result", () => {
+  const parse = (message: Record<string, unknown>) => parseToWebMessage(JSON.stringify(message));
+
+  it("logout-result는 요청 id만 파싱한다", () => {
+    expect(parse({ type: "logout-result", id: "o1", status: "success", atMs: 1 })).toEqual({
+      type: "logout-result",
+      id: "o1",
+      atMs: 1,
+    });
+  });
+
+  it.each(["success", "cancelled"])("delete-account-result %s를 파싱한다", (status) => {
+    expect(parse({ type: "delete-account-result", id: "d1", status, atMs: 1 })).toEqual({
+      type: "delete-account-result",
+      id: "d1",
+      status,
+      atMs: 1,
+    });
+  });
+
+  it("delete-account-result failed는 코드를 싣고, 모르는 코드는 UNKNOWN으로 받는다", () => {
+    expect(
+      parse({
+        type: "delete-account-result",
+        id: "d1",
+        status: "failed",
+        code: "NETWORK",
+        atMs: 1,
+      }),
+    ).toEqual({
+      type: "delete-account-result",
+      id: "d1",
+      status: "failed",
+      code: "NETWORK",
+      atMs: 1,
+    });
+    expect(
+      parse({ type: "delete-account-result", id: "d1", status: "failed", code: "NEW", atMs: 1 }),
+    ).toEqual({
+      type: "delete-account-result",
+      id: "d1",
+      status: "failed",
+      code: "UNKNOWN",
+      atMs: 1,
+    });
+  });
+
+  it.each([
+    { type: "logout-result", id: "", atMs: 1 },
+    { type: "logout-result", atMs: 1 },
+    { type: "logout-result", id: "o1" },
+    { type: "delete-account-result", id: "d1", status: "unknown", atMs: 1 },
+    { type: "delete-account-result", id: "", status: "success", atMs: 1 },
+    { type: "delete-account-result", id: 1, status: "success", atMs: 1 },
+    { type: "delete-account-result", id: "d1", atMs: 1 },
+  ])("모양이 틀리면 버린다: %o", (message) => {
+    expect(parse(message)).toBeNull();
+  });
+});
+
 describe("parseToWebMessage — track-event(네이티브 사용자 이벤트)", () => {
   it("이름과 원시값 속성을 파싱한다", () => {
     expect(
