@@ -195,6 +195,17 @@ describe("그룹 로그인 결과", () => {
     }).subscribe(() => {});
   }
 
+  it("설정에서 로그인하면 홈 이동을 요청하고 설정으로 돌아간다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    answerWith({ status: "success", isNewUser: false });
+    const view = renderScreen({ path: "/settings/login", entry: "settings" });
+    await press("Google로 계속하기");
+    await waitFor(() => expect(view.location()?.pathname).toBe("/settings"));
+    expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"type":"navigate-home"'));
+    vi.unstubAllGlobals();
+  });
+
   it("앱이 답하기 전에는 모든 버튼을 막는다", async () => {
     vi.mocked(getStudyDays).mockReturnValue(new Promise(() => {}));
     vi.mocked(requestNativeSocialLogin).mockReturnValue(new Promise(() => {}));

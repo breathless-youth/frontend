@@ -59,6 +59,7 @@ import { RankingPage } from "@/routes/RankingPage";
 import { RecordsPage } from "@/routes/RecordsPage";
 import { RoomPage } from "@/routes/RoomPage";
 import { SessionGuidePage } from "@/routes/SessionGuidePage";
+import { GroupLoginScreen } from "@/features/login/GroupLoginScreen";
 import { SettingsPage } from "@/routes/SettingsPage";
 import { SocialTabRoute } from "@/routes/SocialTabRoute";
 
@@ -341,6 +342,7 @@ export function App() {
               <Route path="/planner" element={<PlannerPage />} />
               <Route path="/manual-record" element={<ManualRecordPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/settings/login" element={<GroupLoginScreen entry="settings" />} />
               <Route path="/social" element={<SocialTabRoute />} />
               <Route path="/social/groups/new" element={<GroupFormPage mode="create" />} />
               <Route path="/social/groups/:groupId" element={<GroupHomePage />} />

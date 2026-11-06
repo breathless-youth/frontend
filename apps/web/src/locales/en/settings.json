@@ -21,6 +21,7 @@
     "privacy": "Privacy policy",
     "licenses": "Open-source licenses",
     "version": "Version",
+    "login": "Log in",
     "logout": "Sign out",
     "deleteAccount": "Delete account"
   },

@@ -2,6 +2,7 @@ import { SOCIAL_LOGIN_PROVIDERS } from "@focusmakers/types";
 import type { SocialLoginProvider } from "@focusmakers/types";
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -11,6 +12,7 @@ import {
   requestNativeDeleteAccount,
   requestNativeLogout,
 } from "@/lib/nativeAccount";
+import { nativeSocialLoginProviders } from "@/lib/nativeSocialLogin";
 import { profileQuery } from "@/lib/profileQueries";
 import { showToast } from "@/lib/toast";
 import { useUserId } from "@/lib/userId";
@@ -25,17 +27,19 @@ function isSocialLoginProvider(value: unknown): value is SocialLoginProvider {
 /**
  * 설정 맨 아래 계정 섹션
  *
- * 로그인한 사람에게만, 앱이 `accountActions=1`로 로그아웃과 탈퇴를 처리한다고 알렸을 때만 보인다.
+ * 로그인 지원 앱의 비회원에게 로그인 입구를, 로그인한 사람에게 지원되는 계정 작업을 보인다.
  * 확인을 누르면 앱에 맡기고, 성공하면 앱이 완료 이벤트를 남기고 모든 탭 웹뷰를 새 비회원으로 다시 띄우므로 이 화면은 진행 중인 채로 둔다.
  * 애플 계정의 다시 로그인 창을 닫으면 아무것도 하지 않고 설정에 머문다.
  */
 export function AccountSection() {
   const { t } = useTranslation("settings");
   const supported = hasNativeAccountActions();
+  const canLogin = nativeSocialLoginProviders().length > 0;
+  const navigate = useNavigate();
   const userId = useUserId();
   const profile = useQuery({
     ...profileQuery(userId ?? 0),
-    enabled: supported && userId !== null,
+    enabled: (supported || canLogin) && userId !== null,
   });
   const [dialog, setDialog] = useState<"logout" | "delete" | null>(null);
   const [pending, setPending] = useState(false);
@@ -43,6 +47,17 @@ export function AccountSection() {
   const inFlightRef = useRef(false);
 
   const loginProvider = profile.data?.loginProvider;
+  if (canLogin && loginProvider === null) {
+    return (
+      <SettingsSection className="mt-6" label={t("sections.account")}>
+        <SettingsRow
+          label={t("rows.login")}
+          trailing={{ kind: "chevron" }}
+          onPress={() => navigate("/settings/login")}
+        />
+      </SettingsSection>
+    );
+  }
   if (!supported || !isSocialLoginProvider(loginProvider)) {
     return null;
   }
