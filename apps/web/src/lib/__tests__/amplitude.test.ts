@@ -823,6 +823,42 @@ describe("그룹 공부방 이벤트", () => {
   });
 });
 
+describe("소셜 로그인 이벤트", () => {
+  it("미초기화 상태에서는 보내지 않는다", async () => {
+    const module = await loadModule();
+
+    module.trackLoginScreenViewed("tab");
+    module.trackSocialLoginSucceeded({ provider: "GOOGLE", isNewUser: true });
+    module.trackSocialLoginFailed({ provider: "KAKAO", reason: "UNKNOWN" });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("들어온 곳, 공급자, 신규 여부, 실패 코드를 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const module = await loadModule();
+    module.initAmplitude();
+    mocks.track.mockClear();
+
+    module.trackLoginScreenViewed("invite");
+    module.trackSocialLoginSucceeded({ provider: "APPLE", isNewUser: false });
+    module.trackSocialLoginFailed({ provider: "KAKAO", reason: "SOCIAL_PROVIDER_UNAVAILABLE" });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["login_screen_viewed", { entry: "invite" }],
+      ["social_login_succeeded", { provider: "APPLE", is_new_user: false }],
+      ["social_login_failed", { provider: "KAKAO", reason: "SOCIAL_PROVIDER_UNAVAILABLE" }],
+    ]);
+    for (const [, payload] of mocks.track.mock.calls) {
+      for (const value of Object.values(payload as Record<string, unknown>)) {
+        if (typeof value === "string") {
+          expect(value).toMatch(ANALYTICS_PARAM_VALUE_PATTERN);
+        }
+      }
+    }
+  });
+});
+
 describe("초대 루프 이벤트 (BY-472)", () => {
   it("공유·링크 진입·스토어 이동을 각 속성과 함께 보낸다 — 초대코드 값은 어디에도 없다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
@@ -1256,7 +1292,10 @@ describe("세션 도움말 이벤트", () => {
         "study_session_help_step_viewed",
         { step: 2, step_id: "measuring", trigger: "menu", room_type: "single", help_version: 2 },
       ],
-      ["study_session_help_completed", { trigger: "menu", room_type: "single", help_version: 2 }],
+      [
+        "study_session_help_completed",
+        { trigger: "menu", cta: "start", room_type: "single", help_version: 2 },
+      ],
       [
         "study_session_help_dismissed",
         {
@@ -1347,6 +1386,26 @@ describe("배경음 이벤트", () => {
         { sounds: "", sound_count: 0, source: "dialog", room_type: "social" },
       ],
       ["ambient_sound_duck_toggled", { enabled: true, room_type: "social" }],
+    ]);
+  });
+
+  it("소리별 재생 시간을 정해진 이름·속성으로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackAmbientSoundPlayed({
+      soundId: "lofi-breeze",
+      group: "music",
+      playSec: 1530,
+      roomType: "single",
+    });
+
+    expect(mocks.track.mock.calls).toEqual([
+      [
+        "ambient_sound_played",
+        { sound_id: "lofi-breeze", group: "music", play_sec: 1530, room_type: "single" },
+      ],
     ]);
   });
 

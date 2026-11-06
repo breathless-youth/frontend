@@ -7,17 +7,21 @@ import { toApplyState, toPublicRoomDetail } from "@/features/group-room/fromApi"
 import {
   applicationCanceledCopy,
   groupRetryCopy,
+  groupErrorCode,
+  isQuietGroupConflict,
   groupErrorCopy,
   isGroupGoneError,
   isQuietApplicationError,
 } from "@/features/group-room/groupErrorCopy";
+import { markLocalMembership } from "@/features/group-room/groupMembershipTracker";
+import { trackGroupRoomJoined } from "@/lib/amplitude";
 import { baseSearch } from "@/features/group-room/groupTabSearch";
 import { parseRouteId } from "@/features/group-room/routeId";
 import { GroupScreenFrame } from "@/features/group-room/screens/GroupScreenFrame";
 import { PublicRoomDetailScreen } from "@/features/group-room/screens/PublicRoomDetailScreen";
 import { useBackTo } from "@/features/group-room/useBackTo";
 import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
-import { cancelApplication } from "@/lib/groupRoomApi";
+import { cancelApplication, joinPublicGroup } from "@/lib/groupRoomApi";
 import {
   GROUP_MUTATION_OPTIONS,
   cannotLoadFirst,
@@ -80,7 +84,31 @@ function PublicGroup({ userId, groupId }: { userId: number; groupId: number }) {
     },
   });
 
-  useLeaveWhenGone(detailQuery.error, groupId);
+  const join = useMutation({
+    ...GROUP_MUTATION_OPTIONS,
+    mutationFn: () => joinPublicGroup(groupId),
+    onSuccess: ({ groupId: joinedId, joined }) => {
+      if (joined) {
+        markLocalMembership(userId, { kind: "joined_directly", groupId: joinedId });
+        trackGroupRoomJoined({ via: "application", visibility: "public" });
+      }
+      void invalidateGroupMembership(queryClient, userId, joinedId);
+    },
+    onError: (error) => {
+      const code = groupErrorCode(error);
+      if (
+        !isQuietGroupConflict(error) &&
+        code !== "GROUP_JOIN_APPROVAL_REQUIRED" &&
+        code !== "GROUP_JOIN_OPEN" &&
+        !isGroupGoneError(error)
+      ) {
+        showToast(groupErrorCopy("join_public", error));
+      }
+      refresh();
+    },
+  });
+
+  useLeaveWhenGone([detailQuery.error, join.error].find(isGroupGoneError) ?? null, groupId);
 
   if (detail === undefined) {
     const failed = cannotLoadFirst(detailQuery) && !isGroupGoneError(detailQuery.error);
@@ -115,13 +143,21 @@ function PublicGroup({ userId, groupId }: { userId: number; groupId: number }) {
       room={toPublicRoomDetail(detail, userId)}
       applyState={applyState}
       fetchedAtMs={detailQuery.dataUpdatedAt}
-      pending={cancel.isPending}
+      pending={cancel.isPending || join.isPending}
       onBack={back}
-      onApply={() =>
+      onApply={() => {
+        if (join.isPending) return;
+        if (detail.joinPolicy === "OPEN") {
+          join.mutate(undefined, {
+            onSuccess: ({ groupId: joinedId }) =>
+              navigate({ pathname: `/social/groups/${joinedId}`, search }, { replace: true }),
+          });
+          return;
+        }
         slideNavigate("forward", () =>
           navigate({ pathname: `/social/public/${groupId}/apply`, search }),
-        )
-      }
+        );
+      }}
       onCancelApplication={() => {
         if (pendingApplication !== null && !cancel.isPending) {
           cancel.mutate(pendingApplication.applicationId);

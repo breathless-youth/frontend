@@ -11,10 +11,13 @@ import type { Types } from "@amplitude/analytics-browser";
 import { plugin as engagementPlugin } from "@amplitude/engagement-browser";
 
 import type {
+  DeleteAccountFailureCode,
   MedalRank,
   RankingPeriod,
   RankingRecordType,
   RankingType,
+  SocialLoginFailureCode,
+  SocialLoginProvider,
   StudyCategory,
   StudyEventStatus,
   TimeSlot,
@@ -670,6 +673,48 @@ export function setGroupRoomCount(count: number) {
   setUserProperties({ group_room_count: count });
 }
 
+/* ── 소셜 로그인 이벤트 ──────────────────────────────────────────────────────
+ *
+ * 사용자가 로그인 창을 닫은 취소는 실패가 아니라 보내지 않는다.
+ */
+
+export type LoginEntry = "tab" | "invite" | "group";
+
+export function trackLoginScreenViewed(entry: LoginEntry) {
+  if (!initialized) return;
+  track("login_screen_viewed", { entry });
+}
+
+/** `is_new_user`가 거짓이면 이 기기의 기록이 기존 계정에 합쳐진 것이다. */
+export function trackSocialLoginSucceeded(input: {
+  provider: SocialLoginProvider;
+  isNewUser: boolean;
+}) {
+  if (!initialized) return;
+  track("social_login_succeeded", { provider: input.provider, is_new_user: input.isNewUser });
+}
+
+export function trackSocialLoginFailed(input: {
+  provider: SocialLoginProvider;
+  reason: SocialLoginFailureCode;
+}) {
+  if (!initialized) return;
+  track("social_login_failed", { provider: input.provider, reason: input.reason });
+}
+
+/**
+ * 계정을 지우지 못해 로그인 상태로 남았다.
+ *
+ * 로그아웃 완료와 삭제 성공은 곧 웹뷰가 다시 마운트되어 앱이 `logout_completed`·`account_deleted`로 남긴다.
+ */
+export function trackAccountDeletionFailed(input: {
+  provider: SocialLoginProvider;
+  reason: DeleteAccountFailureCode;
+}) {
+  if (!initialized) return;
+  track("account_deletion_failed", { provider: input.provider, reason: input.reason });
+}
+
 /* ── 초대 루프 이벤트 (BY-472) ── */
 
 /**
@@ -970,16 +1015,23 @@ export function trackSocialRoomBackgroundReturned(input: {
   });
 }
 
-/** 집중 시작을 누른 자리. */
-export type FocusStartSource = "home" | "ranking_card" | "ranking_empty" | "ranking_records";
+/** 집중 시작을 누른 자리. 가이드 화면이 넘겨받은 값을 이 목록으로 확인한다. */
+export const FOCUS_START_SOURCES = [
+  "home",
+  "ranking_card",
+  "ranking_empty",
+  "ranking_records",
+] as const;
+export type FocusStartSource = (typeof FOCUS_START_SOURCES)[number];
 
 /**
  * 홈과 랭킹의 "집중 시작" 탭
  *
  * F1 퍼널의 첫 행동이자 `camera_permission_gate_resolved`의 분모다.
+ * 가이드를 처음 보는 계정은 가이드의 `순공 시작하기`를 누른 뒤에 보낸다.
  * `source`는 누른 자리다.
- * `destination`은 온보딩 가이드가 있던 때 가이드와 세션을 구분하던 속성이다.
- * 가이드를 삭제한 뒤에도 기존 차트가 이 값으로 거르므로 `"session"`으로 고정해 보낸다.
+ * `destination`은 예전 온보딩 가이드와 세션을 구분하던 속성이다.
+ * 지금은 세션 시작 요청 때만 보내고, 기존 차트가 이 값으로 거르므로 `"session"`으로 고정해 보낸다.
  */
 export function trackFocusStartTapped(source: FocusStartSource = "home") {
   if (!initialized) return;
@@ -1071,7 +1123,7 @@ export type CameraPromptChoice = "camera" | "simple";
 /**
  * 싱글룸 입장 카메라 확인 창 노출
  *
- * 세션 화면마다 한 번이고, 도움말이 자동으로 뜨는 계정은 도움말을 끝내거나 닫은 뒤에 뜬다.
+ * 세션 화면마다 한 번 뜬다.
  */
 export function trackStudySessionCameraPromptShown(roomType: StudyRoomType) {
   if (!initialized) return;
@@ -1175,14 +1227,17 @@ export function trackStudySessionHelpStepViewed(input: {
  * 세션 도움말을 마지막 단계까지 본 것
  *
  * 앱 종료나 세션 이탈로 끝내지 못한 노출은 완료도 중단도 보내지 않아 다음 세션의 재노출로 센다.
+ * `cta`는 마지막 단계에서 누른 버튼이다. `later`는 `나중에 시작할게요`라 세션이 시작되지 않는다.
  */
 export function trackStudySessionHelpCompleted(
   trigger: SessionHelpTrigger,
   roomType: StudyRoomType,
+  cta: "start" | "later" = "start",
 ) {
   if (!initialized) return;
   track("study_session_help_completed", {
     trigger,
+    cta,
     room_type: roomType,
     help_version: SESSION_HELP_VERSION,
   });
@@ -1484,7 +1539,9 @@ export function trackSettingsRowPressed(
     | "interview"
     | "terms"
     | "privacy"
-    | "licenses",
+    | "licenses"
+    | "logout"
+    | "delete_account",
 ) {
   if (!initialized) return;
   track("settings_row_pressed", { row });
@@ -1919,8 +1976,8 @@ export function trackSubjectItemSelected(kind: "subject" | "none", roomType: Stu
 
 /* ── 배경음(백색소음·앰비언트) ───────────────────────────────────────────────
  *
- * 속성은 소리 id 와 개수뿐이다. 세션 종료 집계의 `ambient_sound_used`·`ambient_sound_sec`는
- * `trackStudySessionEnded`가 싣는다.
+ * 조합 변경 이벤트의 속성은 소리 id 와 개수뿐이다. 세션 종료 집계의 `ambient_sound_used`·`ambient_sound_sec`는
+ * `trackStudySessionEnded`가, 소리별 재생 시간은 같은 시점에 `ambient_sound_played`가 싣는다.
  */
 
 /**
@@ -1940,6 +1997,26 @@ export function trackAmbientSoundChanged(input: {
     room_type: input.roomType,
   });
   if (input.sounds.length > 0) setFlagOnce("ambient_sound_used");
+}
+
+/**
+ * 세션 하나에서 소리 하나가 실제로 재생된 시간. 세션이 끝날 때 재생 시간이 0보다 큰 소리마다 한 번씩 보낸다.
+ * 음량을 0 으로 내리면 믹스에서 빠지므로 "음량 0 초과로 들린 시간"이고, 일시정지 구간은 빠진다.
+ * 소리마다 이벤트를 나눠 Amplitude 에서 `play_sec` 합계를 `sound_id` 별로 바로 볼 수 있게 한다.
+ */
+export function trackAmbientSoundPlayed(input: {
+  readonly soundId: string;
+  readonly group: "noise" | "ambience" | "music";
+  readonly playSec: number;
+  readonly roomType: StudyRoomType;
+}) {
+  if (!initialized) return;
+  track("ambient_sound_played", {
+    sound_id: input.soundId,
+    group: input.group,
+    play_sec: input.playSec,
+    room_type: input.roomType,
+  });
 }
 
 /** 비집중 음량 낮춤 연동 토글. `enabled`는 전환 후 상태. */

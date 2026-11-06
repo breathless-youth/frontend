@@ -7,6 +7,7 @@ import type {
   PhotoTap,
   VisionFocusDetector,
 } from "@/features/study-session/adapters/focusDetector";
+import { answerCameraPrompt } from "@/test/cameraPrompt";
 import { RoomPage } from "../RoomPage";
 
 /**
@@ -93,13 +94,15 @@ vi.mock("@/features/study-session/useVisionReadyTracking", () => ({
 }));
 
 function renderRoom() {
-  return render(
+  const view = render(
     <MemoryRouter initialEntries={["/room/7?userId=1"]}>
       <Routes>
         <Route path="/room/:id" element={<RoomPage />} />
       </Routes>
     </MemoryRouter>,
   );
+  answerCameraPrompt("camera");
+  return view;
 }
 
 /** 화면 꺼짐·백그라운드 전환을 jsdom에서 재현한다(Page Visibility API). */

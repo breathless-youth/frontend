@@ -1,6 +1,8 @@
 import { Check } from "lucide-react";
 import { Trans, useTranslation } from "react-i18next";
 
+import { joinPolicyText } from "../model/joinPolicy";
+import { JoinPolicyChip } from "./JoinPolicyChip";
 import { studyingCountText } from "../model/desks";
 import { memberCountText } from "../model/limits";
 import { formatHoursMinutes } from "../model/timeText";
@@ -28,6 +30,7 @@ export function PublicRoomCard({
   const label = [
     room.name,
     ...(room.member ? [t("publicRoomCard.joined")] : []),
+    joinPolicyText(room.joinPolicy ?? "approval"),
     memberCountText(room.memberCount),
     room.categoryLabel,
     t("publicRoomCard.aria.weeklyAverage", { duration: weeklyAverage }),
@@ -53,7 +56,7 @@ export function PublicRoomCard({
           {memberCountText(room.memberCount)}
         </span>
       </span>
-      <span className="flex items-center gap-1">
+      <span className="flex w-full flex-wrap items-center gap-1">
         <CategoryTag label={room.categoryLabel} />
         {room.member && (
           <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-brand-subtle py-px pr-1.75 pl-1.25 text-[11px] leading-4 font-bold text-brand-subtle-text">
@@ -61,6 +64,7 @@ export function PublicRoomCard({
             {t("publicRoomCard.joined")}
           </span>
         )}
+        <JoinPolicyChip policy={room.joinPolicy} />
       </span>
       <span className="flex w-full flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <span className="text-[13px] leading-5 text-muted-foreground">

@@ -16,6 +16,7 @@ import { hasAppLockCapability } from "@/features/app-lock/appLockCapability";
 import { formatAppLockRowValue } from "@/features/app-lock/appLockSummary";
 import { useAppLockSettings } from "@/features/app-lock/useAppLockSettings";
 import { consumeProfileSavedNotice } from "@/features/profile/profileSavedNotice";
+import { AccountSection } from "@/features/settings/AccountSection";
 import { PermissionRow } from "@/features/settings/PermissionRow";
 import { SettingsRow } from "@/features/settings/SettingsRow";
 import { SettingsSection } from "@/features/settings/SettingsSection";
@@ -268,6 +269,8 @@ export function SettingsPage() {
             trailing={{ kind: "copy", value: versionLabel, onCopy: handleCopyVersion }}
           />
         </SettingsSection>
+
+        <AccountSection />
       </div>
     </main>
   );

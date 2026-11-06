@@ -45,6 +45,7 @@ describe("Meta SDK 설정", () => {
       "GOOGLE_SERVICES_PLIST",
       "META_APP_ID",
       "META_CLIENT_TOKEN",
+      "AIRBRIDGE_APP_TOKEN",
       "EAS_BUILD",
     ]) {
       delete process.env[key];
@@ -122,7 +123,13 @@ describe("Meta SDK 설정", () => {
       expect(names.slice(0, appJson.expo.plugins.length)).toEqual(
         (appJson.expo.plugins as unknown[]).map(pluginName),
       );
-      expect(names.slice(-2)).toEqual(["react-native-fbsdk-next", "expo-tracking-transparency"]);
+      // 소셜 로그인 plugin이 그 뒤에 붙으므로 맨 끝이 아니라 Meta 두 개가 붙어 있는 자리를 본다.
+      const metaAt = names.indexOf("react-native-fbsdk-next");
+      expect(metaAt).toBeGreaterThanOrEqual(appJson.expo.plugins.length);
+      expect(names.slice(metaAt, metaAt + 2)).toEqual([
+        "react-native-fbsdk-next",
+        "expo-tracking-transparency",
+      ]);
     });
 
     it.each([

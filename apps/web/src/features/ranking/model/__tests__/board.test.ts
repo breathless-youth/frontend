@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
+import i18n from "@/lib/i18n";
 import { mockDeviceTimeZone } from "@/test/deviceTimeZone";
 
 import {
@@ -18,6 +19,7 @@ import {
   selectSlot,
   selectType,
   selectionOfRecord,
+  slotLabel,
   slotSubject,
 } from "../board";
 
@@ -220,6 +222,18 @@ describe("구간 이름 조사", () => {
       AFTERNOON: "점심이",
       EVENING: "저녁이",
       DAWN: "새벽이",
+    });
+  });
+
+  describe("옛 새벽 구간은 0–6시 구간과 같은 이름이다", () => {
+    afterEach(async () => {
+      await i18n.changeLanguage("ko");
+    });
+
+    it.each(["ko", "en", "ja", "zh-Hant"])("%s", async (lng) => {
+      await i18n.changeLanguage(lng);
+      expect(slotLabel("DAWN")).toBe(slotLabel("NIGHT"));
+      expect(slotSubject("DAWN")).toBe(slotSubject("NIGHT"));
     });
   });
 });

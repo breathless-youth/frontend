@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import en from "../../locales/en/common.json";
-import i18n, { buildResources, decideInitialLocale } from "../i18n";
+import ja from "../../locales/ja/common.json";
+import zhHant from "../../locales/zh-Hant/common.json";
+import i18n, { buildResources, decideInitialLocale, isKoreanLocale } from "../i18n";
 import { LOCALE_STORAGE_KEY } from "../locale";
 
 afterEach(async () => {
@@ -23,8 +25,18 @@ describe("i18n", () => {
     expect(i18n.t("actions.close")).toBe(en.actions.close);
   });
 
+  it.each([
+    ["ja", ja.actions.close],
+    ["zh-Hant", zhHant.actions.close],
+  ])("%s로 바꾸면 그 언어 카탈로그를 읽는다", async (lng, close) => {
+    await i18n.changeLanguage(lng);
+
+    expect(i18n.language).toBe(lng);
+    expect(i18n.t("actions.close")).toBe(close);
+  });
+
   it("지원하지 않는 언어는 영어로 떨어진다", async () => {
-    await i18n.changeLanguage("ja");
+    await i18n.changeLanguage("fr");
 
     expect(i18n.language).toBe("en");
     expect(i18n.t("actions.close")).toBe(en.actions.close);
@@ -47,6 +59,19 @@ describe("i18n", () => {
     const resources = buildResources({ "../ko/common.json": { default: { a: "가" } } });
 
     expect(resources).toEqual({ ko: { common: { a: "가" } } });
+  });
+});
+
+describe("isKoreanLocale", () => {
+  it.each([
+    ["ko", true],
+    ["en", false],
+    ["ja", false],
+    ["zh-Hant", false],
+  ])("%s 화면이면 %s", async (lng, expected) => {
+    await i18n.changeLanguage(lng);
+
+    expect(isKoreanLocale()).toBe(expected);
   });
 });
 

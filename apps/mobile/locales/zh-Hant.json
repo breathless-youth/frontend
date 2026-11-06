@@ -1,0 +1,8 @@
+{
+  "NSCameraUsageDescription": "需要存取相機，才能測量專注時間、記錄縮時攝影及使用視訊共讀。讀書畫面不會儲存在伺服器。",
+  "NSMotionUsageDescription": "用於偵測你是否拿起或觸碰裝置。感測器資料只會在裝置上使用，不會儲存。",
+  "NSUserTrackingUsageDescription": "用於了解你從哪裡安裝 App，以及廣告成效。相機影像和臉部資料不會用於廣告。",
+  "NSPhotoLibraryAddUsageDescription": "需要加入照片的權限，才能將縮時影片儲存到「照片」App。",
+  "NSPhotoLibraryUsageDescription": "將縮時影片儲存到「照片」App 時使用。",
+  "NSMicrophoneUsageDescription": "在讀書室與群組成員交談時使用。只有成員聽得到你的聲音，也不會錄音或儲存。"
+}

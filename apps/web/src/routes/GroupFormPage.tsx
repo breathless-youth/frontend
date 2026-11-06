@@ -6,7 +6,12 @@ import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom"
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { toGroupVisibility, toRoomVisibility } from "@/features/group-room/fromApi";
+import {
+  toGroupVisibility,
+  toRoomVisibility,
+  toGroupJoinPolicy,
+  toRoomJoinPolicy,
+} from "@/features/group-room/fromApi";
 import {
   groupRetryCopy,
   groupErrorCode,
@@ -94,15 +99,23 @@ function contactServerError(
   return null;
 }
 
+/** 같은 이름의 공개 그룹이 있다는 서버 답은 이름 칸 아래에 둔다. */
+function nameTakenServerError(action: FormAction, error: Error): RoomFormServerError | null {
+  return groupErrorCode(error) === "GROUP_NAME_TAKEN"
+    ? { field: "name", message: groupErrorCopy(action, error) }
+    : null;
+}
+
 /**
  * 양식 오류 알리기
  *
- * 연락처로 걸린 칸을 찾으면 그 칸 아래에, 그 밖에는 토스트로 알린다.
+ * 연락처로 걸린 칸을 찾거나 이름이 겹치면 그 칸 아래에, 그 밖에는 토스트로 알린다.
  */
 function useFormErrorNotice(action: FormAction) {
   const [serverError, setServerError] = useState<RoomFormServerError | null>(null);
   const notice = (error: Error, name: string, intro: string) => {
-    const fieldError = contactServerError(action, error, name, intro);
+    const fieldError =
+      nameTakenServerError(action, error) ?? contactServerError(action, error, name, intro);
     if (fieldError === null) {
       showToast(groupErrorCopy(action, error));
     }
@@ -161,6 +174,7 @@ function GroupCreate({ userId }: { userId: number }) {
       initial={{
         name: "",
         visibility: "public",
+        joinPolicy: "approval",
         category: isStudyCategory(profileCategory) ? profileCategory : DEFAULT_CATEGORY,
         intro: "",
       }}
@@ -175,6 +189,9 @@ function GroupCreate({ userId }: { userId: number }) {
         create.mutate({
           name: values.name,
           visibility: toGroupVisibility(values.visibility),
+          ...(values.visibility === "public"
+            ? { joinPolicy: toGroupJoinPolicy(values.joinPolicy) }
+            : {}),
           category: isStudyCategory(values.category) ? values.category : DEFAULT_CATEGORY,
           description: values.intro,
         });
@@ -252,9 +269,11 @@ function GroupSettings({ userId, groupId }: { userId: number; groupId: number })
       initial={{
         name: home.name,
         visibility: toRoomVisibility(home.visibility),
+        joinPolicy: toRoomJoinPolicy(home.joinPolicy),
         category: home.category,
         intro: home.description ?? "",
       }}
+      newRequestCount={home.newApplicationCount ?? 0}
       pending={save.isPending}
       serverError={formError.serverError}
       onBack={back}
@@ -267,6 +286,9 @@ function GroupSettings({ userId, groupId }: { userId: number; groupId: number })
           name: values.name,
           // 이 웹이 모르는 시험·목표는 고를 칩이 없어서 그룹이 가진 값을 바꾸지 않고 다시 보낸다.
           category: isStudyCategory(values.category) ? values.category : home.category,
+          ...(home.visibility === "PUBLIC"
+            ? { joinPolicy: toGroupJoinPolicy(values.joinPolicy) }
+            : {}),
           description: values.intro,
         });
       }}

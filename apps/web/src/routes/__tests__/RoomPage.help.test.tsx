@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import { sessionGuideState } from "@/features/study-session/sessionGuide";
 import type * as tokenSourceModule from "@/lib/auth/tokenSource";
-import type { AuthSnapshot, TokenSource } from "@/lib/auth/tokenSource";
+import type { TokenSource } from "@/lib/auth/tokenSource";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import {
   enterGlassChrome,
@@ -50,6 +50,7 @@ const amplitude = vi.hoisted(() => ({
   trackStudySessionHelpStepViewed: vi.fn(),
   trackStudySessionHelpCompleted: vi.fn(),
   trackStudySessionHelpDismissed: vi.fn(),
+  trackStudySessionStarted: vi.fn(),
 }));
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -66,29 +67,6 @@ function renderRoom(url = "/room/7?userId=1") {
       </Routes>
     </MemoryRouter>,
   );
-}
-
-/** 아직 `auth-token`이 오지 않은 출처. `arrive`로 도착을 흉내낸다(`RoomPage.identity.test.tsx`와 같다). */
-function pendingSource(): { source: TokenSource; arrive: (userId: number) => void } {
-  let snapshot: AuthSnapshot | null = null;
-  const listeners = new Set<(snapshot: AuthSnapshot) => void>();
-  return {
-    source: {
-      getAccessToken: vi.fn(),
-      getCurrentToken: vi.fn(),
-      refresh: vi.fn(),
-      getUserId: () => snapshot?.userId ?? null,
-      hasSettled: () => snapshot !== null,
-      subscribe: (listener) => {
-        listeners.add(listener);
-        return () => listeners.delete(listener);
-      },
-    },
-    arrive: (userId) => {
-      snapshot = { userId, accessToken: "t" };
-      for (const listener of listeners) listener(snapshot);
-    },
-  };
 }
 
 /** 네이티브가 세션 웹뷰에 초대를 넘긴 상황을 재현한다. */
@@ -124,6 +102,21 @@ async function openHelpFromMenu() {
   await userEvent.click(screen.getByRole("menuitem", { name: "도움말 보기" }));
 }
 
+/** 이미 본 계정이 세션 중에 메뉴로 도움말을 연 상태까지 간다. */
+async function renderWithMenuHelp() {
+  localStorage.setItem(KEY, "seen");
+  renderRoom();
+  answerCameraPrompt("camera");
+  await openHelpFromMenu();
+}
+
+/** 다음 단계까지 넘겨 마지막 단계에 둔다. */
+async function goToLastStep() {
+  for (let index = 0; index < 4; index += 1) {
+    await userEvent.click(screen.getByRole("button", { name: "다음" }));
+  }
+}
+
 describe("RoomPage 세션 도움말", () => {
   afterEach(() => {
     cleanup();
@@ -135,66 +128,32 @@ describe("RoomPage 세션 도움말", () => {
     vi.restoreAllMocks();
   });
 
-  it("저장 기록이 없으면 띄우고 마지막 단계를 끝내면 seen을 남긴다", async () => {
+  it("가이드를 안 본 계정도 방에서는 도움말 없이 세션을 바로 시작한다", () => {
     renderRoom();
 
-    expect(helpDialog()).toBeInTheDocument();
-    expect(sessionGuideState(1)).toBeNull();
-    await finishHelp();
-
     expect(helpDialog()).not.toBeInTheDocument();
-    expect(sessionGuideState(1)).toBe("seen");
+    expect(amplitude.trackStudySessionStarted).toHaveBeenCalledOnce();
+    expect(amplitude.trackStudySessionHelpShown).not.toHaveBeenCalled();
   });
 
-  it("Escape로 닫으면 seen을 남기지 않고 같은 화면에서는 다시 띄우지 않는다", async () => {
+  it("안 본 계정이 메뉴로 끝까지 보면 seen을 남긴다", async () => {
     renderRoom();
-    await userEvent.click(screen.getByRole("button", { name: "다음" }));
-
-    fireEvent.keyDown(screen.getByRole("dialog", { name: "세션 도움말" }), { key: "Escape" });
-    expect(helpDialog()).not.toBeInTheDocument();
-    expect(sessionGuideState(1)).toBeNull();
-    // Escape 뒤에는 입장 카메라 확인 창이 뜨니 답을 해야 아래 초대 확인 창만 남는다.
-    answerCameraPrompt("simple");
-
-    // 다른 화면이 열렸다 닫혀도 다시 뜨지 않는다.
-    receiveInvite("ABC123");
-    const invite = await screen.findByRole("alertdialog");
-    await userEvent.click(within(invite).getByRole("button", { name: "계속하기" }));
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
-    expect(helpDialog()).not.toBeInTheDocument();
-  });
-
-  it("Escape로 닫은 뒤 더보기로 다시 열어 끝까지 보면 seen을 남긴다", async () => {
-    renderRoom();
-    fireEvent.keyDown(screen.getByRole("dialog", { name: "세션 도움말" }), { key: "Escape" });
-    expect(sessionGuideState(1)).toBeNull();
     answerCameraPrompt("camera");
+    expect(sessionGuideState(1)).toBeNull();
 
-    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
-    await userEvent.click(screen.getByRole("menuitem", { name: "도움말 보기" }));
-    expect(helpDialog()).toBeInTheDocument();
+    await openHelpFromMenu();
     await finishHelp();
 
     expect(helpDialog()).not.toBeInTheDocument();
     expect(sessionGuideState(1)).toBe("seen");
   });
 
-  it("끝까지 보지 않고 닫은 계정은 화면을 다시 열면 1단계부터 다시 뜬다", async () => {
-    const first = renderRoom();
-    await userEvent.click(screen.getByRole("button", { name: "다음" }));
-    fireEvent.keyDown(screen.getByRole("dialog", { name: "세션 도움말" }), { key: "Escape" });
-    expect(helpDialog()).not.toBeInTheDocument();
-    first.unmount();
+  it("세션 중에 메뉴로 다시 본 도움말에는 나중에 시작할게요가 없다", async () => {
+    await renderWithMenuHelp();
+    await goToLastStep();
 
-    renderRoom();
-    expect(helpDialog()).toBeInTheDocument();
-    expect(screen.getByText("1/5")).toBeInTheDocument();
-  });
-
-  it("이미 본 계정(seen)에는 띄우지 않는다", () => {
-    localStorage.setItem(KEY, "seen");
-    renderRoom();
-    expect(helpDialog()).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "순공 시작하기" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "나중에 시작할게요" })).not.toBeInTheDocument();
   });
 
   it("더보기의 도움말 보기로 언제든 다시 연다", async () => {
@@ -211,8 +170,8 @@ describe("RoomPage 세션 도움말", () => {
     expect(sessionGuideState(1)).toBe("seen");
   });
 
-  it("떠 있는 동안 덮개 뒤 실제 버튼과 화면 탭은 inert로 막고, 닫으면 풀린다", async () => {
-    renderRoom();
+  it("메뉴로 연 도움말이 떠 있는 동안 덮개 뒤 실제 버튼과 화면 탭은 inert로 막고, 닫으면 풀린다", async () => {
+    await renderWithMenuHelp();
 
     const pause = screen.getByRole("button", { name: "일시정지", hidden: true });
     const surface = screen.getByRole("button", { name: "심플 모드 전환", hidden: true });
@@ -224,8 +183,8 @@ describe("RoomPage 세션 도움말", () => {
     expect(surface).not.toHaveAttribute("inert");
   });
 
-  it("과목 페이지가 열려 있는 동안은 숨기고 닫히면 같은 단계로 다시 보인다", async () => {
-    renderRoom();
+  it("메뉴로 연 도움말은 과목 페이지가 열려 있는 동안 숨기고 닫히면 같은 단계로 다시 보인다", async () => {
+    await renderWithMenuHelp();
     expect(helpDialog()).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "다음" }));
     expect(screen.getByText("2/5")).toBeInTheDocument();
@@ -233,26 +192,10 @@ describe("RoomPage 세션 도움말", () => {
     // jsdom은 inert를 지키지 않아 덮개 뒤 버튼을 직접 눌러 페이지를 연 상황을 만든다.
     fireEvent.click(screen.getByRole("button", { name: "과목", hidden: true }));
     await waitFor(() => expect(helpDialog()).not.toBeInTheDocument());
-    expect(sessionGuideState(1)).toBeNull();
 
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(helpDialog()).toBeInTheDocument());
     expect(screen.getByText("2/5")).toBeInTheDocument();
-  });
-
-  it("덮개 탭으로 5단계까지 넘어가고, 마지막은 순공 시작하기로만 끝내며 그때 seen을 남긴다", async () => {
-    renderRoom();
-
-    for (let index = 0; index < 4; index += 1) fireEvent.click(screen.getByLabelText("다음 안내"));
-    expect(screen.getByText("5/5")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByLabelText("다음 안내"));
-    expect(helpDialog()).toBeInTheDocument();
-    expect(sessionGuideState(1)).toBeNull();
-
-    await userEvent.click(screen.getByRole("button", { name: "순공 시작하기" }));
-    expect(helpDialog()).not.toBeInTheDocument();
-    expect(sessionGuideState(1)).toBe("seen");
   });
 
   it("신원이 없어도 메뉴로 열고 닫을 수 있고 기기에 아무것도 남기지 않는다", async () => {
@@ -281,8 +224,8 @@ describe("RoomPage 세션 도움말", () => {
     expect(document.activeElement).toBe(more);
   });
 
-  it("종료 확인 대화상자가 열린 동안은 숨기고 닫히면 다시 보인다", async () => {
-    renderRoom();
+  it("메뉴로 연 도움말은 종료 확인 대화상자가 열린 동안 숨기고 닫히면 다시 보인다", async () => {
+    await renderWithMenuHelp();
 
     // jsdom은 inert를 지키지 않아 덮개 뒤 종료 버튼을 직접 누른다.
     fireEvent.click(screen.getByRole("button", { name: "공부 종료", hidden: true }));
@@ -293,8 +236,8 @@ describe("RoomPage 세션 도움말", () => {
     await waitFor(() => expect(helpDialog()).toBeInTheDocument());
   });
 
-  it("다른 웹 모달(aria-modal)이 떠 있는 동안은 숨긴다", async () => {
-    renderRoom();
+  it("메뉴로 연 도움말은 다른 웹 모달(aria-modal)이 떠 있는 동안 숨긴다", async () => {
+    await renderWithMenuHelp();
     const modal = document.createElement("div");
     modal.setAttribute("aria-modal", "true");
 
@@ -309,7 +252,7 @@ describe("RoomPage 세션 도움말", () => {
     await waitFor(() => expect(helpDialog()).toBeInTheDocument());
   });
 
-  it("떠 있는 동안 앱 glass 버튼 다섯 개를 faded로 감추고 닫으면 되돌린다", async () => {
+  it("메뉴로 연 도움말이 떠 있는 동안 앱 glass 버튼 다섯 개를 faded로 감추고 닫으면 되돌린다", async () => {
     const postMessage = enterGlassChrome("/room/7", "segment,switch,button,button-style");
     measureControlsNow();
     // jsdom은 CSS를 계산하지 않아서 아이콘 svg의 CSS 폭만 돌려준다(RoomPage.test와 같은 방식).
@@ -319,7 +262,7 @@ describe("RoomPage 세션 도움말", () => {
         ? ({ width: "23px" } as CSSStyleDeclaration)
         : computedStyle(element, pseudo),
     );
-    renderRoom();
+    await renderWithMenuHelp();
     const ids = [
       "session-ambient",
       "session-subject",
@@ -337,38 +280,22 @@ describe("RoomPage 세션 도움말", () => {
     await waitFor(() => expect(Object.values(faded())).toEqual([true, true, true, true, true]));
 
     fireEvent.keyDown(screen.getByRole("dialog", { name: "세션 도움말" }), { key: "Escape" });
-    // 세션은 심플 모드로 시작해서 카메라 켜기로 답해야 다섯 버튼이 모두 보인다.
-    answerCameraPrompt("camera");
     await waitFor(() =>
       expect(Object.values(faded())).toEqual([false, false, false, false, false]),
     );
   });
 
-  it("신원이 늦게 도착해도 도움말을 띄운다", () => {
-    const { source, arrive } = pendingSource();
-    mocks.source = source;
-    renderRoom("/room/7");
-    expect(helpDialog()).not.toBeInTheDocument();
-
-    act(() => {
-      arrive(1);
-    });
-
-    expect(helpDialog()).toBeInTheDocument();
-  });
-
-  it("타이머 화면이 열린 동안은 숨긴다", async () => {
-    renderRoom();
+  it("메뉴로 연 도움말은 타이머 화면이 열린 동안 숨긴다", async () => {
+    await renderWithMenuHelp();
 
     // jsdom은 inert를 지키지 않아 덮개 뒤 타이머 버튼을 직접 누른다.
     fireEvent.click(screen.getByRole("button", { name: "타이머", hidden: true }));
 
     await waitFor(() => expect(helpDialog()).not.toBeInTheDocument());
-    expect(sessionGuideState(1)).toBeNull();
   });
 
-  it("초대 대화상자가 열린 동안은 숨긴다", async () => {
-    renderRoom();
+  it("메뉴로 연 도움말은 초대 대화상자가 열린 동안 숨긴다", async () => {
+    await renderWithMenuHelp();
     expect(helpDialog()).toBeInTheDocument();
 
     receiveInvite("ABC123");
@@ -377,29 +304,6 @@ describe("RoomPage 세션 도움말", () => {
   });
 
   describe("분석 이벤트", () => {
-    it("세션 진입으로 자동 노출되면 shown(auto)과 1단계 step_viewed를 한 번씩 보낸다", () => {
-      renderRoom();
-
-      expect(amplitude.trackStudySessionHelpShown).toHaveBeenCalledExactlyOnceWith(
-        "auto",
-        "single",
-      );
-      expect(amplitude.trackStudySessionHelpStepViewed).toHaveBeenCalledExactlyOnceWith({
-        step: 1,
-        stepId: "away",
-        trigger: "auto",
-        roomType: "single",
-      });
-    });
-
-    it("이미 본 계정은 자동 노출이 없어 아무것도 보내지 않는다", () => {
-      localStorage.setItem(KEY, "seen");
-      renderRoom();
-
-      expect(amplitude.trackStudySessionHelpShown).not.toHaveBeenCalled();
-      expect(amplitude.trackStudySessionHelpStepViewed).not.toHaveBeenCalled();
-    });
-
     it("더보기의 도움말 보기로 열면 shown(menu)과 1단계 step_viewed를 보낸다", async () => {
       localStorage.setItem(KEY, "seen");
       renderRoom();
@@ -419,19 +323,37 @@ describe("RoomPage 세션 도움말", () => {
       });
     });
 
-    it("다음과 이전으로 단계가 바뀔 때마다 step_viewed를 보낸다", async () => {
-      renderRoom();
+    it("메뉴로 끝까지 보면 단계 1~5를 차례로 보내고 completed를 한 번 보낸다", async () => {
+      await renderWithMenuHelp();
 
-      await userEvent.click(screen.getByRole("button", { name: "다음" }));
-      await userEvent.click(screen.getByRole("button", { name: "다음" }));
-      await userEvent.click(screen.getByRole("button", { name: "이전" }));
+      await finishHelp();
 
-      expect(viewedSteps()).toEqual([1, 2, 3, 2]);
-      expect(amplitude.trackStudySessionHelpShown).toHaveBeenCalledOnce();
+      expect(viewedSteps()).toEqual([1, 2, 3, 4, 5]);
+      expect(viewedStepIds()).toEqual(["away", "measuring", "camera", "buttons", "finish"]);
+      expect(amplitude.trackStudySessionHelpCompleted).toHaveBeenCalledExactlyOnceWith(
+        "menu",
+        "single",
+      );
+    });
+
+    it("메뉴로 연 도움말을 Escape로 닫으면 dismissed를 보낸다", async () => {
+      await renderWithMenuHelp();
+      await userEvent.click(screen.getByRole("button", { name: "다음" }));
+
+      fireEvent.keyDown(screen.getByRole("dialog", { name: "세션 도움말" }), { key: "Escape" });
+
+      expect(amplitude.trackStudySessionHelpDismissed).toHaveBeenCalledExactlyOnceWith({
+        step: 2,
+        stepId: "measuring",
+        trigger: "menu",
+        roomType: "single",
+        reason: "escape",
+      });
+      expect(amplitude.trackStudySessionHelpCompleted).not.toHaveBeenCalled();
     });
 
     it("다른 화면에 가려졌다 같은 단계로 돌아와도 shown과 step_viewed를 다시 보내지 않는다", async () => {
-      renderRoom();
+      await renderWithMenuHelp();
       await userEvent.click(screen.getByRole("button", { name: "다음" }));
 
       // jsdom은 inert를 지키지 않아 덮개 뒤 버튼을 직접 눌러 페이지를 연 상황을 만든다.
@@ -443,64 +365,6 @@ describe("RoomPage 세션 도움말", () => {
 
       expect(amplitude.trackStudySessionHelpShown).toHaveBeenCalledOnce();
       expect(viewedSteps()).toEqual([1, 2]);
-    });
-
-    it("끝까지 넘기면 단계 1~5를 차례로 보내고 completed를 한 번 보낸다", async () => {
-      renderRoom();
-
-      await finishHelp();
-
-      expect(viewedSteps()).toEqual([1, 2, 3, 4, 5]);
-      expect(viewedStepIds()).toEqual(["away", "measuring", "camera", "buttons", "finish"]);
-      expect(amplitude.trackStudySessionHelpCompleted).toHaveBeenCalledExactlyOnceWith(
-        "auto",
-        "single",
-      );
-      expect(amplitude.trackStudySessionHelpDismissed).not.toHaveBeenCalled();
-    });
-
-    it("Escape로 닫으면 닫은 단계와 reason을 담은 dismissed를 보내고 completed는 보내지 않는다", async () => {
-      renderRoom();
-      await userEvent.click(screen.getByRole("button", { name: "다음" }));
-
-      fireEvent.keyDown(screen.getByRole("dialog", { name: "세션 도움말" }), { key: "Escape" });
-
-      expect(amplitude.trackStudySessionHelpDismissed).toHaveBeenCalledExactlyOnceWith({
-        step: 2,
-        stepId: "measuring",
-        trigger: "auto",
-        roomType: "single",
-        reason: "escape",
-      });
-      expect(amplitude.trackStudySessionHelpCompleted).not.toHaveBeenCalled();
-    });
-
-    it("닫은 뒤 메뉴로 다시 열면 새 노출로 menu 경로와 1단계부터 다시 보낸다", async () => {
-      renderRoom();
-      await userEvent.click(screen.getByRole("button", { name: "다음" }));
-      fireEvent.keyDown(screen.getByRole("dialog", { name: "세션 도움말" }), { key: "Escape" });
-      answerCameraPrompt("camera");
-      amplitude.trackStudySessionHelpShown.mockClear();
-      amplitude.trackStudySessionHelpStepViewed.mockClear();
-
-      await openHelpFromMenu();
-      await finishHelp();
-
-      expect(amplitude.trackStudySessionHelpShown).toHaveBeenCalledExactlyOnceWith(
-        "menu",
-        "single",
-      );
-      expect(viewedSteps()).toEqual([1, 2, 3, 4, 5]);
-      expect(amplitude.trackStudySessionHelpStepViewed).toHaveBeenLastCalledWith({
-        step: 5,
-        stepId: "finish",
-        trigger: "menu",
-        roomType: "single",
-      });
-      expect(amplitude.trackStudySessionHelpCompleted).toHaveBeenCalledExactlyOnceWith(
-        "menu",
-        "single",
-      );
     });
   });
 });

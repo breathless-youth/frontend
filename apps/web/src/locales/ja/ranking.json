@@ -1,0 +1,231 @@
+{
+  "page": {
+    "title": "ランキング",
+    "noDevice": "このデバイスはまだ登録されていません。アプリで開くと記録が保存されます",
+    "loadError": "ランキングを読み込めませんでした"
+  },
+  "globalNotice": {
+    "title": "海外ランキングは準備中です",
+    "body": "現在、ランキングに参加できるのは韓国の時間帯のみです"
+  },
+  "type": {
+    "focusTime": "集中時間",
+    "focusRate": "集中率",
+    "timeSlot": "時間帯",
+    "totalTime": "総勉強時間",
+    "totalDays": "勉強日数",
+    "maxStreak": "連続学習日数"
+  },
+  "period": {
+    "daily": "日間",
+    "weekly": "週間",
+    "monthly": "月間"
+  },
+  "periodWord": {
+    "daily": "今日",
+    "weekly": "今週",
+    "monthly": "今月"
+  },
+  "slot": {
+    "night": "深夜",
+    "morning": "朝",
+    "afternoon": "午後",
+    "evening": "夜",
+    "dawn": "深夜",
+    "unknown": "時間帯",
+    "name": "{{slot}}の時間帯"
+  },
+  "slotHours": {
+    "night": "0〜6時",
+    "morning": "6〜12時",
+    "afternoon": "12〜18時",
+    "evening": "18〜24時",
+    "dawn": "4〜7時"
+  },
+  "slotSubject": {
+    "night": "深夜",
+    "morning": "朝",
+    "afternoon": "午後",
+    "evening": "夜",
+    "dawn": "深夜"
+  },
+  "rank": {
+    "place": "{{rank}}位"
+  },
+  "row": {
+    "focusing": "集中しています"
+  },
+  "format": {
+    "days": "{{days}}日",
+    "weekOfMonth": "{{month}}第{{week}}週"
+  },
+  "deadline": {
+    "midnight": "0時締め切り",
+    "days": "締め切りまで{{count}}日",
+    "hours": "締め切りまで{{count}}時間",
+    "hoursMinutes": "締め切りまで{{hours}}時間{{minutes}}分",
+    "minutes": "締め切りまで{{count}}分"
+  },
+  "podium": {
+    "titleTop3": "{{name}}のTOP3",
+    "titleFocusRate": "集中率TOP3",
+    "titleMaxStreak": "連続学習日数TOP3",
+    "titleHall": "殿堂入りTOP3",
+    "tooltipRateMonthly": "今月の集中時間が30時間以上になると、ランキングに参加できます",
+    "tooltipRateWeekly": "今週の集中時間が10時間以上になると、ランキングに参加できます",
+    "tooltipSlot": "{{period}}の{{hours}}の集中時間で集計",
+    "me": "自分",
+    "aria": {
+      "tooltip": "TOP3の基準について"
+    }
+  },
+  "card": {
+    "maxStreakTitle": "最長連続学習日数"
+  },
+  "offSlot": {
+    "headline": "{{slot}}に勉強してランクイン",
+    "notice": "この順位には{{slot}}の時間帯に勉強した時間だけが入ります"
+  },
+  "previousResult": {
+    "daily": "昨日の最終結果",
+    "weekly": "先週の最終結果",
+    "monthly": "先月の最終結果",
+    "rankPrefix": "{{rank}}位・",
+    "showRecords": "記録を見る ›"
+  },
+  "live": {
+    "rankUp": "{{steps}}位上がりました",
+    "rankDown": "{{steps}}位下がりました",
+    "gapWidening": "上の順位との差が広がっています",
+    "gapClosing": "下の順位との差が縮まっています",
+    "gapToSecond": "2位と{{gap}}差です",
+    "oneMoreSession": "あと1回勉強すれば追いつけます",
+    "catchUpBeforeSlotEnds": "{{slot}}の時間帯が終わる前に追いつけます"
+  },
+  "around": {
+    "status": "順位が{{change}}",
+    "aria": {
+      "label": "自分の周りの順位"
+    }
+  },
+  "switcher": {
+    "modeRanking": "ランキング",
+    "modeHall": "殿堂入り",
+    "aria": {
+      "mode": "ランキングの種類",
+      "type": "カテゴリー",
+      "period": "期間",
+      "slots": "時間帯",
+      "slot": "{{slot}}、{{hours}}",
+      "slotNow": "{{slot}}、{{hours}}、現在の時間帯"
+    }
+  },
+  "eligibility": {
+    "untilEntry": "ランクインまで<accent>{{gap}}</accent>",
+    "expectRank": "今の集中率なら{{rank}}位です",
+    "expectTopPercent": "今の集中率なら上位{{percent}}%です"
+  },
+  "lockedList": {
+    "message": "ランクインすると、自分の前後の順位が見られます",
+    "aria": {
+      "label": "自分の前後の順位"
+    }
+  },
+  "firstCard": {
+    "title": "まだ順位がありません",
+    "headline": "今勉強してランクイン",
+    "streakHeadline": "5分以上勉強すると<br/>ランクイン"
+  },
+  "resetCard": {
+    "startNow": "今始めれば<accent>{{rank}}位</accent>"
+  },
+  "goalExamples": {
+    "title": "今週これだけ勉強すれば",
+    "untilTop": "上位{{percent}}%まで"
+  },
+  "focusStart": {
+    "label": "集中をはじめる"
+  },
+  "rankedCard": {
+    "topPercent": "上位{{percent}}%",
+    "untilNext": "<pre>次の順位まで</pre><accent>{{gap}}</accent>",
+    "rateCatchUp": "もう少し集中すれば追いつけます"
+  },
+  "nextTier": {
+    "remaining": "<b>上位{{percent}}%</b>まであと{{gap}}です",
+    "eta": "今のペースなら約{{count}}日で追い抜けます"
+  },
+  "firstPlace": {
+    "headline": "<accent>1位</accent>をキープ中"
+  },
+  "medalButton": {
+    "aria": {
+      "label": "ランキング記録",
+      "withTotal": "ランキング記録、メダル{{count}}個"
+    }
+  },
+  "rankChips": {
+    "all": "すべて",
+    "aria": {
+      "label": "順位"
+    }
+  },
+  "nickname": {
+    "aria": {
+      "showFull": "{{name}}さんの名前をすべて表示"
+    }
+  },
+  "records": {
+    "title": "ランキング記録",
+    "loadError": "ランキング記録を読み込めませんでした",
+    "empty": "条件に合う記録がありません",
+    "aria": {
+      "item": "{{rank}}位、{{name}}、{{period}}、{{value}}"
+    }
+  },
+  "sheet": {
+    "totalCount": "合計{{count}}回",
+    "showAll": "{{count}}件すべて見る ›",
+    "emptyTitle": "まだTOP3の記録がありません",
+    "emptyBody": "ランキングの締め切り時に3位以内に入ると、ここでメダルを確認できます",
+    "closestLabel": "TOP3に最も近かった回",
+    "closestInTop3": "現在TOP3以内",
+    "closestGap": "あと{{gap}}"
+  },
+  "streak": {
+    "dayUnit": "日",
+    "currentIsBest": "今が最高記録です",
+    "nextBest": "明日も勉強すれば最長{{count}}日になります",
+    "best": "最高記録",
+    "current": "現在",
+    "startToday": "今日勉強すれば1日目です",
+    "beatBest": "<b>{{count}}日</b>続けると最高記録を更新します"
+  },
+  "medal": {
+    "closesAt": "{{date}} {{time}}",
+    "titleSingle": "{{rank}}位でフィニッシュしました",
+    "rowClosed": "{{rank}}位でフィニッシュ",
+    "eyebrowClosed": "{{time}}締め切り",
+    "titleMany": "メダルを{{count}}個獲得しました",
+    "recordValue": "記録：<value>{{value}}</value>",
+    "more": "ほか{{count}}個",
+    "totalSoFar": "これまでにメダルを<b>{{total}}回</b>獲得しました",
+    "showRecords": "ランキング記録を見る",
+    "aria": {
+      "countByRank": "{{rank}}位、{{count}}個"
+    }
+  },
+  "gainCard": {
+    "title": "順位が上がりました",
+    "weeklyFocus": "週間集中時間"
+  },
+  "recordsPage": {
+    "summaryTitle": "これまでのTOP3",
+    "timesUnit": "回",
+    "allTypes": "すべてのカテゴリー",
+    "aria": {
+      "countByRank": "{{rank}}位、{{count}}回",
+      "typeFilter": "カテゴリー：{{label}}"
+    }
+  }
+}

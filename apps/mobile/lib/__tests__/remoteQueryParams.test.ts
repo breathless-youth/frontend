@@ -140,6 +140,7 @@ describe("buildRemoteQueryParams", () => {
       groupRooms: "1",
       alertHaptic: "1",
       pushPermission: "1",
+      accountActions: "1",
       nativeTabBar: "1",
     });
   });
@@ -158,6 +159,7 @@ describe("buildRemoteQueryParams", () => {
       groupRooms: "1",
       alertHaptic: "1",
       pushPermission: "1",
+      accountActions: "1",
       nativeTabBar: "1",
     });
   });
@@ -176,8 +178,17 @@ describe("buildRemoteQueryParams", () => {
       groupRooms: "1",
       alertHaptic: "1",
       pushPermission: "1",
+      accountActions: "1",
       nativeTabBar: "1",
     });
+  });
+
+  it("셸이 로그아웃과 계정 삭제를 처리할 수 있음을 accountActions로 알린다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    const params = await buildRemoteQueryParams();
+
+    expect(params.accountActions).toBe("1");
   });
 
   it("isNew는 붙이지 않는다 — 소비하는 화면이 없다(2026-07-31 검토로 범위 밖 확정)", async () => {
@@ -407,6 +418,7 @@ describe("useRemoteQueryParams", () => {
         groupRooms: "1",
         alertHaptic: "1",
         pushPermission: "1",
+        accountActions: "1",
         nativeTabBar: "1",
       }),
     );
@@ -428,6 +440,7 @@ describe("useRemoteQueryParams", () => {
         groupRooms: "1",
         alertHaptic: "1",
         pushPermission: "1",
+        accountActions: "1",
         nativeTabBar: "1",
       }),
     );
@@ -447,6 +460,7 @@ describe("useRemoteQueryParams", () => {
       groupRooms: "1",
       alertHaptic: "1",
       pushPermission: "1",
+      accountActions: "1",
       nativeTabBar: "1",
     });
   });
@@ -494,6 +508,7 @@ describe("useRemoteQueryParams", () => {
         groupRooms: "1",
         alertHaptic: "1",
         pushPermission: "1",
+        accountActions: "1",
         nativeTabBar: "1",
       }),
     );
@@ -515,6 +530,7 @@ describe("useRemoteQueryParams", () => {
         groupRooms: "1",
         alertHaptic: "1",
         pushPermission: "1",
+        accountActions: "1",
         nativeTabBar: "1",
       }),
     );

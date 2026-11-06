@@ -10,7 +10,7 @@ export type { AppLocale };
  * 카탈로그가 있는 언어만 SUPPORTED_LOCALES에 넣으므로 결과는 늘 이 목록 안이다.
  * index.html 인라인 스크립트가 같은 규칙을 따로 구현하고, indexHtml.test.ts가 둘이 같은지 확인한다.
  */
-export const SUPPORTED_LOCALES: readonly AppLocale[] = ["ko", "en"];
+export const SUPPORTED_LOCALES: readonly AppLocale[] = ["ko", "en", "ja", "zh-Hant"];
 
 export const LOCALE_STORAGE_KEY = "fm.locale";
 

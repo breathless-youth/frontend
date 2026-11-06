@@ -58,6 +58,7 @@ import { PlannerPage } from "@/routes/PlannerPage";
 import { RankingPage } from "@/routes/RankingPage";
 import { RecordsPage } from "@/routes/RecordsPage";
 import { RoomPage } from "@/routes/RoomPage";
+import { SessionGuidePage } from "@/routes/SessionGuidePage";
 import { SettingsPage } from "@/routes/SettingsPage";
 import { SocialTabRoute } from "@/routes/SocialTabRoute";
 
@@ -333,6 +334,7 @@ export function App() {
               <Route path="/room/:id/result" element={<ResultPage />} />
               <Route path="/home" element={<HomeTabPage />} />
               <Route path="/onboarding" element={<OnboardingPage />} />
+              <Route path="/session-guide" element={<SessionGuidePage />} />
               <Route path="/records" element={<RecordsPage />} />
               <Route path="/ranking" element={<RankingPage />} />
               <Route path="/ranking/records" element={<RankingRecordsPage />} />

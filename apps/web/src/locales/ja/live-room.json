@@ -1,0 +1,134 @@
+{
+  "notice": {
+    "graceEndSaved": "長時間席を離れていたため、勉強を終了しました。\n勉強の記録は保存されたのでご安心ください。",
+    "graceEndPending": "長時間席を離れていたため、勉強を終了しました。\n勉強の記録は保存されるのでご安心ください。",
+    "graceEndSubMinute": "長時間席を離れていたため、勉強を終了しました。\n1分未満の勉強は記録に表示されません",
+    "roomClosedSaved": "ルームが終了したため、勉強を終えました。\n勉強の記録は保存されたのでご安心ください。",
+    "roomClosedPending": "ルームが終了したため、勉強を終えました。\n勉強の記録は保存されるのでご安心ください。",
+    "roomClosedSubMinute": "ルームが終了したため、勉強を終えました。\n1分未満の勉強は記録に表示されません",
+    "kicked": "「{{groupName}}」から削除されました",
+    "kickedUnnamed": "グループから削除されました"
+  },
+  "entry": {
+    "backToSocial": "ソーシャルルームに戻る",
+    "backToGroup": "グループに戻る"
+  },
+  "me": "自分",
+  "cameraConfirm": {
+    "title": "カメラをオンにしますか？",
+    "notice": "映像は同じルームの人にだけ表示され、保存はされません",
+    "confirm": "カメラをオン",
+    "faceMask": "顔を隠す",
+    "faceMaskUnsupported": "このデバイスでは「顔を隠す」を使用できません",
+    "tooltipMotion": "すばやく動くと、顔が一瞬見えることがあります",
+    "tooltipHeat": "長時間オンにしておくと、デバイスが熱くなることがあります",
+    "aria": {
+      "faceMaskInfo": "「顔を隠す」について"
+    }
+  },
+  "faceMask": {
+    "searching": "隠す位置を探しています",
+    "emoji": {
+      "dog": "犬",
+      "cat": "猫",
+      "bear": "クマ",
+      "hamster": "ハムスター",
+      "monkey": "サル",
+      "panda": "パンダ",
+      "rabbit": "ウサギ",
+      "tiger": "トラ",
+      "frog": "カエル"
+    },
+    "aria": {
+      "picker": "顔を隠す絵文字"
+    }
+  },
+  "controls": {
+    "cameraOff": "カメラをオフ",
+    "cameraOn": "カメラをオン",
+    "exit": "退出"
+  },
+  "tile": {
+    "focus": "集中しています",
+    "distracted": "休憩",
+    "off": "カメラオフ",
+    "break": "休憩中",
+    "aria": {
+      "micOn": "マイクオン",
+      "micOff": "マイクオフ",
+      "speaking": "発言中"
+    }
+  },
+  "time": {
+    "total": "合計",
+    "aria": {
+      "focus": "集中時間{{duration}}",
+      "total": "総勉強時間{{duration}}"
+    }
+  },
+  "groupRoomTopBar": {
+    "aria": {
+      "muteOthers": "ほかの人をミュート",
+      "switchCamera": "カメラを切り替え"
+    }
+  },
+  "micButton": {
+    "aria": {
+      "turnOff": "マイクをオフ",
+      "turnOn": "マイクをオン"
+    }
+  },
+  "timerButton": {
+    "aria": {
+      "label": "タイマー"
+    }
+  },
+  "roomTimerCopy": {
+    "startTimer": "{{duration}}で開始",
+    "startPomodoro": "{{duration}}の集中を開始",
+    "pomodoroIntro": "集中{{focus}}と休憩{{rest}}を交互にくり返します"
+  },
+  "roomTimerSheet": {
+    "title": "タイマー設定",
+    "kind": {
+      "timer": "通常",
+      "pomodoro": "ポモドーロ"
+    },
+    "aria": {
+      "kind": "タイマーの種類"
+    }
+  },
+  "roomTimerCapsule": {
+    "phase": {
+      "focus": "集中",
+      "break": "休憩"
+    },
+    "aria": {
+      "remaining": "残り時間",
+      "pause": "一時停止",
+      "resume": "再開",
+      "off": "タイマーをオフ"
+    }
+  },
+  "roomMemberMenu": {
+    "volume": "音量",
+    "mute": "ミュート",
+    "unmute": "ミュート解除",
+    "report": "通報",
+    "kick": "グループから削除",
+    "aria": {
+      "trigger": "{{nickname}}さんのメニュー",
+      "volume": "{{nickname}}さんの音量"
+    }
+  },
+  "reportMemberLayer": {
+    "title": "通報"
+  },
+  "liveRoomSession": {
+    "reportedAndBlocked": "{{nickname}}さんを通報してブロックしました"
+  },
+  "roomAudio": {
+    "micDenied": "設定でマイクへのアクセスを許可してください",
+    "micUnavailable": "マイクをオンにできません"
+  }
+}

@@ -4,7 +4,6 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { VisionFocusDetector } from "@/features/study-session/adapters/focusDetector";
-import { markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import type { FaceSpot } from "@/features/study-session/vision/faceSpot";
 import { CAMERA_PROMPT_NAME } from "@/test/cameraPrompt";
 import { RoomPage } from "../RoomPage";
@@ -123,7 +122,6 @@ function stubWorkingCamera() {
 
 /** 확인 창에서 가리기를 켜고 카메라로 들어간 뒤 위치를 흘려 공부 화면에 이모지를 붙인다. */
 async function enterWithStickerShown() {
-  markSessionGuideSeen(1);
   renderRoom();
   const dialog = prompt()!;
   await userEvent.click(within(dialog).getByRole("switch", { name: "얼굴 가리기" }));
@@ -143,7 +141,6 @@ describe("RoomPage 얼굴 가리기", () => {
   });
 
   it("확인 창에서 켠 가리기와 고른 이모지를 저장하고 공부 화면에 반영한다", async () => {
-    markSessionGuideSeen(1);
     localStorage.setItem("focuson.timelapse.v1", TIMELAPSE);
     renderRoom();
     const dialog = prompt()!;
@@ -190,7 +187,6 @@ describe("RoomPage 얼굴 가리기", () => {
   });
 
   it("저장된 켬 상태로 들어오면 확인 창 없이도 공부 화면을 가리고, 끄면 위치 구독을 멈춘다", async () => {
-    markSessionGuideSeen(1);
     localStorage.setItem("focusmakers.singleFaceMask", "on");
     renderRoom();
     const dialog = prompt()!;

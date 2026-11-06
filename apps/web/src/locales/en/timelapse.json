@@ -10,7 +10,7 @@
     "streak": "{{count}}-day streak 🔥"
   },
   "recent": {
-    "title": "Recent timelapses",
+    "title": "Recent time-lapses",
     "more": "More",
     "focusTime": "Focus {{duration}}"
   },
@@ -22,19 +22,19 @@
   },
   "player": {
     "aria": {
-      "play": "Play timelapse",
-      "pause": "Pause timelapse"
+      "play": "Play time-lapse",
+      "pause": "Pause time-lapse"
     }
   },
   "resultCard": {
-    "title": "Timelapse",
-    "info": "You can turn off timelapse recording anytime in Settings",
+    "title": "Time-lapse",
+    "info": "You can turn off time-lapse recording anytime in Settings",
     "building": "Creating {{percent}}%",
     "download": "Download",
     "share": "Share",
     "aria": {
-      "info": "About timelapse",
-      "share": "Share timelapse"
+      "info": "About time-lapse",
+      "share": "Share time-lapse"
     }
   },
   "share": {
@@ -65,25 +65,25 @@
     }
   },
   "list": {
-    "title": "Recent timelapses",
+    "title": "Recent time-lapses",
     "retention": "Up to 7 from the last 7 days are kept on this device",
     "focusTime": "Focus {{duration}}",
     "summary": "Total {{duration}} · Focus rate {{rate}}%",
     "deleteFailed": "Couldn't delete",
     "aria": {
-      "delete": "Delete timelapse from {{label}}"
+      "delete": "Delete time-lapse from {{label}}"
     }
   },
   "deleteDialog": {
-    "title": "Delete timelapse",
+    "title": "Delete time-lapse",
     "body": "Are you sure you want to delete it?",
     "confirm": "Delete"
   },
   "settings": {
-    "title": "Timelapse",
+    "title": "Time-lapse",
     "preview": "Preview",
     "save": {
-      "label": "Save timelapses",
+      "label": "Save time-lapses",
       "tooltip": "Kept only on this device, up to 7 for 7 days."
     },
     "aspect": {
@@ -98,9 +98,9 @@
       "date": "Date",
       "focusTime": "Focus time",
       "focusRate": "Focus rate",
-      "dday": "D-Day",
+      "dday": "Countdown",
       "streak": "Streak",
-      "ddayMissing": "Set a D-Day first",
+      "ddayMissing": "Set a countdown first",
       "faceMaskTooltip": "Only your face is hidden. Others in the shot stay visible."
     }
   }

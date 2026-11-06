@@ -21,6 +21,7 @@ import type liveRoom from "./locales/ko/live-room.json";
 import type socialRoom from "./locales/ko/social-room.json";
 import type studySession from "./locales/ko/study-session.json";
 import type groupRoom from "./locales/ko/group-room.json";
+import type login from "./locales/ko/login.json";
 
 /**
  * 카탈로그 키 타입
@@ -53,6 +54,7 @@ declare module "i18next" {
       "social-room": typeof socialRoom;
       "study-session": typeof studySession;
       "group-room": typeof groupRoom;
+      login: typeof login;
     };
   }
 }

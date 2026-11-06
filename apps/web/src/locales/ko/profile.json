@@ -13,7 +13,9 @@
   },
   "errors": {
     "nicknameTaken": "이미 사용 중인 닉네임이에요",
-    "nicknameRule": "한글, 영문, 숫자, 이모지, 띄어쓰기로 2~12자를 쓰실 수 있어요",
+    "nicknameLength": "40칸까지 쓸 수 있어요. 한글·일본어·한자·이모지는 한 글자에 2칸이에요.",
+    "nicknameChars": "한글·영문·일본어·한자·숫자·이모지·띄어쓰기·_·.·- 만 쓸 수 있어요",
+    "nicknameNotAllowed": "사용할 수 없는 닉네임이에요. 다른 닉네임을 입력해 주세요",
     "goalTooLong": "목표는 20자까지 쓸 수 있어요",
     "unknownCategory": "목록에 없는 카테고리예요"
   },

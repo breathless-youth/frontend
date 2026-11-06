@@ -142,7 +142,8 @@ function AllRecords({ userId, onPicked }: { userId: number; onPicked: () => void
       ) : cannotLoad(summary) ? null : (
         <Skeleton className="h-38.25 rounded-xl" />
       )}
-      <div className="mt-3.5 flex items-center justify-between gap-2">
+      {/* 언어나 화면 폭 때문에 한 줄에 들어가지 않으면 필터만 다음 줄 오른쪽으로 내린다. */}
+      <div className="mt-3.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-3">
         <RankChips value={rank} onChange={setRank} nativeControlId="segment-rank-chips" />
         <TypeFilterMenu value={type} onChange={setType} />
       </div>
@@ -260,7 +261,7 @@ function TypeFilterMenu({
         <button
           type="button"
           aria-label={t("recordsPage.aria.typeFilter", { label })}
-          className="relative flex h-7.75 shrink-0 items-center gap-1 text-[13px] leading-3.75 font-bold text-muted-foreground before:absolute before:inset-x-0 before:-inset-y-2 before:content-['']"
+          className="relative ml-auto flex h-7.75 shrink-0 items-center gap-1 text-[13px] leading-3.75 font-bold text-muted-foreground before:absolute before:inset-x-0 before:-inset-y-2 before:content-['']"
         >
           {label}
           <IconChevronDown aria-hidden="true" />

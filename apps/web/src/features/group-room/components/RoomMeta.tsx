@@ -2,6 +2,8 @@ import { Lock } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
+import type { RoomJoinPolicy } from "../model/joinPolicy";
+import { JoinPolicyChip } from "./JoinPolicyChip";
 import { memberCountText } from "../model/limits";
 import type { RoomVisibility } from "../model/roomMenu";
 import { VISIBILITY_TONE_CLASS, visibilityText } from "../visibility";
@@ -25,10 +27,12 @@ export function RoomMeta({
   visibility,
   categoryLabel,
   memberCount,
+  joinPolicy,
 }: {
   visibility: RoomVisibility;
   categoryLabel: string;
   memberCount: number;
+  joinPolicy?: RoomJoinPolicy;
 }) {
   return (
     <div className="flex items-center gap-1">
@@ -45,6 +49,7 @@ export function RoomMeta({
       <span className="pl-1 text-[13px] leading-5 text-muted-foreground">
         {memberCountText(memberCount)}
       </span>
+      {joinPolicy !== undefined && <JoinPolicyChip policy={joinPolicy} />}
     </div>
   );
 }

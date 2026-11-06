@@ -1,4 +1,7 @@
 {
+  "nameCheck": {
+    "taken": "A public group with this name already exists"
+  },
   "contactCheck": {
     "blocked": "You can't include contact info or links"
   },
@@ -281,5 +284,25 @@
     "notFound": "Couldn't find this group",
     "notMember": "You're not a member of this group",
     "applicationCanceled": "Request canceled"
+  },
+  "joinPolicy": {
+    "approval": "Request to join",
+    "open": "Join instantly",
+    "whoCanJoin": "Who can join?",
+    "settingsLabel": "How to join",
+    "join": "Join group",
+    "full": "This group is full",
+    "openError": "You can join this group without a request",
+    "approvalRequiredError": "This group requires approval to join",
+    "pendingLoss_one": "Changing the entry method will remove {{count}} pending request",
+    "pendingLoss_other": "Changing the entry method will remove {{count}} pending requests"
+  },
+  "notificationPrompt": {
+    "title": "Get member study notifications?",
+    "description": "We’ll let you know when a member starts studying",
+    "accept": "Notify me",
+    "later": "Later",
+    "enabled": "Member study notifications on",
+    "disabled": "Member study notifications off"
   }
 }

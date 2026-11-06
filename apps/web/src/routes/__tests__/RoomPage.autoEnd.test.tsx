@@ -52,7 +52,7 @@ function ResultRouteProbe() {
 }
 
 function renderRoom(url: string) {
-  return render(
+  const view = render(
     <MemoryRouter initialEntries={[url]}>
       <Routes>
         <Route path="/room/:id" element={<RoomPage />} />
@@ -60,6 +60,8 @@ function renderRoom(url: string) {
       </Routes>
     </MemoryRouter>,
   );
+  answerCameraPrompt("camera");
+  return view;
 }
 
 /** 일시정지 임계값을 넘길 만큼 시간을 흘린다. */

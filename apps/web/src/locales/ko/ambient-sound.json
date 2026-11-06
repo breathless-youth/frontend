@@ -29,7 +29,7 @@
   "groups": {
     "noise": "노이즈",
     "ambience": "배경 소리",
-    "music": "음악"
+    "music": "로파이"
   },
   "notes": {
     "binaural": "이어폰을 끼면 잘 들려요"
@@ -42,6 +42,14 @@
     "monaural": "모노럴 비트",
     "rain-trp": "빗소리 (실외)",
     "rain-mm": "빗소리 (실내)",
-    "cafe-vec": "카페"
+    "cafe-vec": "카페",
+    "exam-g39": "시험장 고사실",
+    "bonfire-kyles": "모닥불",
+    "waves-esh": "잔잔한 파도",
+    "birds-squashy": "새소리",
+    "airplane-courter": "비행기 기내",
+    "lofi-breeze": "Morning Breeze",
+    "lofi-stars": "Lost Stars",
+    "lofi-vanilla": "Vanilla"
   }
 }

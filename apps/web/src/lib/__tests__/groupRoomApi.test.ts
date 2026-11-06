@@ -17,6 +17,7 @@ import {
   getPublicGroup,
   getPublicGroups,
   joinGroupByCode,
+  joinPublicGroup,
   joinGroupRoom,
   kickGroupMember,
   leaveGroup,
@@ -88,6 +89,15 @@ describe("groupRoomApi", () => {
     expect(lastCall()[1].body).toBe(
       JSON.stringify({ reason: "카메라 앞에서 불쾌한 행동을 했어요" }),
     );
+  });
+
+  it("direct public join uses a bodyless versioned POST", async () => {
+    mockedFetch.mockResolvedValue(response(200, { groupId: 10, joined: true }));
+    await expect(joinPublicGroup(10)).resolves.toEqual({ groupId: 10, joined: true });
+    expect(lastCall()[0]).toBe("/api/groups/10/members");
+    expect(lastCall()[1]).toMatchObject({ method: "POST" });
+    expect(lastCall()[1].body).toBeUndefined();
+    expect(new Headers(lastCall()[1].headers).get("API-Version")).toBe("1");
   });
 
   it("초대코드 참여는 코드와 들어온 경로를 보낸다", async () => {
@@ -310,6 +320,7 @@ describe("개발용 가짜 서버로 보내기", () => {
     ["leaveGroup", [10]],
     ["regenerateGroupInvite", [11]],
     ["joinGroupByCode", ["K7Q2MX", "LINK"]],
+    ["joinPublicGroup", [10]],
     ["applyToGroup", [13, "같이 공부해요"]],
     ["cancelApplication", [55]],
     ["acceptApplication", [55]],
@@ -321,7 +332,7 @@ describe("개발용 가짜 서버로 보내기", () => {
     ["leaveGroupRoom", [10]],
   ];
 
-  it("표가 내보낸 함수 26개를 모두 담는다", () => {
+  it("표가 내보낸 함수 27개를 모두 담는다", () => {
     const exported = Object.entries(groupRoomApi)
       .filter(([, value]) => typeof value === "function")
       .map(([name]) => name);

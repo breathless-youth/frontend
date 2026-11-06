@@ -1,0 +1,107 @@
+{
+  "day": {
+    "today": "今日",
+    "yesterday": "昨日"
+  },
+  "frame": {
+    "watermark": "FocusMakers",
+    "focusTime": "集中{{duration}}",
+    "focusRate": "集中率{{rate}}%",
+    "streak": "{{count}}日連続で勉強中 🔥"
+  },
+  "recent": {
+    "title": "最近のタイムラプス",
+    "more": "もっと見る",
+    "focusTime": "集中{{duration}}"
+  },
+  "empty": {
+    "body": "勉強を終えたら、勉強している様子を共有してみましょう"
+  },
+  "preview": {
+    "placeholder": "勉強中の画面"
+  },
+  "player": {
+    "aria": {
+      "play": "タイムラプスを再生",
+      "pause": "タイムラプスを一時停止"
+    }
+  },
+  "resultCard": {
+    "title": "タイムラプス",
+    "info": "タイムラプスの撮影は設定でいつでもオフにできます",
+    "building": "作成中{{percent}}%",
+    "download": "ダウンロード",
+    "share": "共有",
+    "aria": {
+      "info": "タイムラプスについて",
+      "share": "タイムラプスを共有"
+    }
+  },
+  "share": {
+    "title": "共有",
+    "brand": "FocusMakers",
+    "openSettings": "設定を開く",
+    "text": "FocusMakersで勉強した様子です\n{{url}}",
+    "status": {
+      "updateApp": "アプリをアップデートすると保存・共有できます",
+      "preparing": "共有する動画を作成しています",
+      "unsupported": "このデバイスでは動画を作成できません",
+      "buildFailed": "動画を作成できませんでした"
+    },
+    "target": {
+      "save": "保存",
+      "instagram": "Instagram",
+      "kakao": "カカオトーク",
+      "more": "その他"
+    },
+    "notice": {
+      "shareFailed": "共有できませんでした。もう一度お試しください",
+      "saved": "「写真」に保存しました",
+      "denied": "写真へのアクセスがオフになっています",
+      "saveFailed": "保存できませんでした。もう一度お試しください"
+    },
+    "aria": {
+      "progress": "動画の作成状況"
+    }
+  },
+  "list": {
+    "title": "最近のタイムラプス",
+    "retention": "直近7日間のうち最大7本まで、このデバイスに保存されます",
+    "focusTime": "集中{{duration}}",
+    "summary": "総勉強時間{{duration}}・集中率{{rate}}%",
+    "deleteFailed": "削除できませんでした",
+    "aria": {
+      "delete": "{{label}}のタイムラプスを削除"
+    }
+  },
+  "deleteDialog": {
+    "title": "タイムラプスを削除",
+    "body": "本当に削除しますか？",
+    "confirm": "削除"
+  },
+  "settings": {
+    "title": "タイムラプス",
+    "preview": "プレビュー",
+    "save": {
+      "label": "タイムラプスを保存",
+      "tooltip": "このデバイスにのみ、最大7日間・7本まで保存されます。"
+    },
+    "aspect": {
+      "label": "アスペクト比",
+      "portrait": "縦9:16",
+      "landscape": "横16:9"
+    },
+    "info": {
+      "title": "動画に表示する情報",
+      "faceMask": "顔を隠す",
+      "flowBar": "集中の推移バー",
+      "date": "日付",
+      "focusTime": "集中時間",
+      "focusRate": "集中率",
+      "dday": "カウントダウン",
+      "streak": "連続学習日数",
+      "ddayMissing": "カウントダウンの設定が必要",
+      "faceMaskTooltip": "隠れるのは自分の顔だけです。一緒に写っているほかの人は隠れません。"
+    }
+  }
+}

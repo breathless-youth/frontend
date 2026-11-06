@@ -65,11 +65,15 @@ export function RankChips({
       }}
       className={cn("flex-nowrap gap-1.5", className)}
     >
-      <ToggleGroupItem value="all" className={CHIP_CLASS}>
+      <ToggleGroupItem value="all" className={cn(CHIP_CLASS, "whitespace-nowrap")}>
         {t("rankChips.all")}
       </ToggleGroupItem>
       {([1, 2, 3] as const).map((rank) => (
-        <ToggleGroupItem key={rank} value={String(rank)} className={cn(CHIP_CLASS, "gap-1.5 pl-3")}>
+        <ToggleGroupItem
+          key={rank}
+          value={String(rank)}
+          className={cn(CHIP_CLASS, "gap-1.5 pl-3 whitespace-nowrap")}
+        >
           <IllustMedal rank={rank} size={14} />
           {t("rank.place", { rank })}
         </ToggleGroupItem>

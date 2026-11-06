@@ -236,7 +236,7 @@ export function CameraOnConfirmDialog({
             variant="ghost"
             disabled={busy}
             onClick={onCancel}
-            className="h-13 flex-1 rounded-lg bg-bg-layer-2 text-[15px] font-semibold text-foreground"
+            className="h-13 flex-1 rounded-lg bg-bg-layer-2 text-[15px] leading-5 font-semibold whitespace-pre-line text-foreground"
           >
             {cancelLabel ?? t("common:actions.cancel")}
           </Button>

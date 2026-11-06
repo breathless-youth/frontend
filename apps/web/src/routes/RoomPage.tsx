@@ -94,12 +94,7 @@ import type {
   SessionEndReason,
   SessionState,
 } from "@/features/study-session/sessionState";
-import {
-  SESSION_HELP_STEPS,
-  markSessionGuideSeen,
-  sessionGuideState,
-  shouldShowSessionGuide,
-} from "@/features/study-session/sessionGuide";
+import { SESSION_HELP_STEPS, markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import { SESSION_LAYER_INSET } from "@/features/study-session/sessionLayout";
 import { MANUAL_END_REASON, statusLabelKey } from "@/features/study-session/sessionState";
 import {
@@ -116,6 +111,7 @@ import { useModalOverlayOpen } from "@/lib/nativeModalOverlay";
 import { useIdentityPending, useUserId } from "@/lib/userId";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
+import { useSessionHelpFunnel } from "@/features/study-session/useSessionHelpFunnel";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import type { SubjectSelection } from "@/features/study-session/subjectSegments";
 import { deriveSubjectTotals, liveSubjectTime } from "@/features/study-session/subjectSegments";
@@ -128,7 +124,7 @@ import { useSessionOrientationAnalytics } from "@/features/study-session/useSess
 import { useTrackedVisionDetector } from "@/features/study-session/useVisionReadyTracking";
 import type { FaceSpot } from "@/features/study-session/vision/faceSpot";
 import { createTimelapseRecorder } from "@/features/timelapse/timelapseRecorder";
-import type { CameraPromptChoice, SessionHelpTrigger } from "@/lib/amplitude";
+import type { CameraPromptChoice } from "@/lib/amplitude";
 import {
   stageStudyResultExit,
   trackSessionNoticeConfirmed,
@@ -141,8 +137,6 @@ import {
   trackStudySessionFaceMaskToggled,
   trackStudySessionHelpCompleted,
   trackStudySessionHelpDismissed,
-  trackStudySessionHelpShown,
-  trackStudySessionHelpStepViewed,
   trackSubjectItemSelected,
   trackSubjectSheetClosed,
   trackSubjectSheetOpened,
@@ -386,6 +380,7 @@ function RoomSessionScreen({
     getCompletedTaskIds: (startedAtMs) =>
       completedTaskIdsSince(subjectsListRef.current, startedAtMs),
     ambientUsage: ambientUsage.snapshot,
+    ambientSoundPlays: ambientUsage.soundSeconds,
     multiTimerUsage: multiTimerUsage.snapshot,
     onEnded: timelapse.finish,
     onCameraLost: () => showCtaToast(t("cameraToast.cameraOff")),
@@ -488,14 +483,8 @@ function RoomSessionScreen({
   // 종료 확인 다이얼로그. 열려 있는 동안에도 **세션은 계속 진행된다**(Figma에서 딤 뒤
   // 상태 필이 `순공시간 측정 중`이고 타이머가 살아 있음을 확인).
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
-  // 세션 도움말. 끝까지 본 기록(seen)이 없으면 세션마다 띄우고, 더보기의 도움말 보기는 언제든 연다.
-  // 기록은 마운트 때 한 번 읽는다. 신원이 바뀌면 화면이 key로 다시 마운트되어 새 계정의 기록을 읽는다.
-  const [guideState, setGuideState] = useState(() =>
-    userId === null ? null : sessionGuideState(userId),
-  );
+  // 더보기의 도움말 보기로 세션 중에 다시 여는 도움말. 처음 보는 가이드는 세션 앞의 `SessionGuidePage`가 띄운다.
   const [helpOpen, setHelpOpen] = useState(false);
-  // Escape로 중간에 닫으면 기록은 남기지 않고, 이번 세션 화면에서만 다시 띄우지 않는다.
-  const [helpDismissed, setHelpDismissed] = useState(false);
   // 과목 페이지 등에 가려 내렸다가 다시 띄울 때 같은 단계로 돌아오도록 단계를 여기서 든다.
   const [helpStep, setHelpStep] = useState(0);
   const [moreTrigger, setMoreTrigger] = useState<HTMLButtonElement | null>(null);
@@ -505,42 +494,14 @@ function RoomSessionScreen({
     page !== null || modeOpen || exitDialogOpen || invite !== null || modalOverlayOpen;
   // 떠 있는 동안 세션 본문은 inert로 막고 앱 glass 버튼은 faded로 감춘다. 덮개 위에 실제 glass 버튼이
   // 떠서 같은 자리의 가짜 버튼과 겹치지 않게 웹 가짜 요소만 보인다. 세션·타이머는 그대로 돈다.
-  const helpVisible =
-    phase.name === "studying" &&
-    (helpOpen
-      ? !helpBlocked
-      : userId !== null &&
-        !helpDismissed &&
-        shouldShowSessionGuide({ state: guideState, blocked: helpBlocked }));
-  // 도움말 화면은 가려지면 언마운트되어 다시 뜰 때 효과가 또 돈다.
-  // 그래서 노출·단계 이벤트는 화면이 아니라 여기서 노출마다, 단계가 바뀔 때마다 한 번씩만 보낸다.
-  // 열린 경로(trigger)는 노출이 끝날 때까지 유지하고, 추적 단계가 null이면 이번 노출의 첫 이벤트를 아직 보내지 않은 것이다.
-  const helpTriggerRef = useRef<SessionHelpTrigger>("auto");
-  const helpTrackedStepRef = useRef<number | null>(null);
-  useEffect(() => {
-    if (!helpVisible || helpTrackedStepRef.current === helpStep) {
-      return;
-    }
-    if (helpTrackedStepRef.current === null) {
-      trackStudySessionHelpShown(helpTriggerRef.current, "single");
-    }
-    helpTrackedStepRef.current = helpStep;
-    trackStudySessionHelpStepViewed({
-      step: helpStep + 1,
-      stepId: SESSION_HELP_STEPS[helpStep].id,
-      trigger: helpTriggerRef.current,
-      roomType: "single",
-    });
-  }, [helpVisible, helpStep]);
-  // 마지막 단계까지 본 계정만 기록한다.
-  // 메뉴로 다시 본 경우에도 같은 값을 남기므로 이미 seen인 계정에는 달라지는 것이 없다.
+  const helpVisible = phase.name === "studying" && helpOpen && !helpBlocked;
+  const endHelpExposure = useSessionHelpFunnel(helpVisible, helpStep, "menu");
+  // 끝까지 본 계정만 기록한다. 처음 도움말을 Escape로 닫은 계정이 메뉴로 다시 봐도 여기서 남는다.
   function completeHelp() {
-    trackStudySessionHelpCompleted(helpTriggerRef.current, "single");
-    helpTriggerRef.current = "auto";
-    helpTrackedStepRef.current = null;
+    trackStudySessionHelpCompleted("menu", "single");
+    endHelpExposure();
     if (userId !== null) {
       markSessionGuideSeen(userId);
-      setGuideState("seen");
     }
     setHelpOpen(false);
     setHelpStep(0);
@@ -549,20 +510,17 @@ function RoomSessionScreen({
     trackStudySessionHelpDismissed({
       step: helpStep + 1,
       stepId: SESSION_HELP_STEPS[helpStep].id,
-      trigger: helpTriggerRef.current,
+      trigger: "menu",
       roomType: "single",
       reason: "escape",
     });
-    helpTriggerRef.current = "auto";
-    helpTrackedStepRef.current = null;
-    setHelpDismissed(true);
+    endHelpExposure();
     setHelpOpen(false);
     setHelpStep(0);
   }
-  // 입장 카메라 확인 창. 세션 화면마다 한 번 묻고, 도움말이 자동으로 뜰 계정은 도움말을 끝내거나 닫은 뒤에 묻는다.
+  // 입장 카메라 확인 창. 세션 화면마다 한 번 묻는다.
   // 과목 페이지 등에 가려 도움말이 잠시 숨은 동안에도 묻지 않도록 가림 여부를 빼고 판정한다.
   // 신원은 진입 게이트가 첫 토큰을 기다린 뒤에야 이 화면을 만들므로 여기서 또 기다리지 않는다.
-  // 끝내 신원이 없는 기기(userId null)도 도움말은 없으니 바로 묻는다.
   // 종료·초대·과목 페이지·타이머 화면은 먼저 열렸으면 닫힌 뒤에 묻는다. 이 창도 aria-modal이라
   // modalOverlayOpen은 조건에 넣지 않는다(뜨자마자 스스로를 닫는 순환이 된다).
   const [cameraPromptAnswered, setCameraPromptAnswered] = useState(false);
@@ -598,15 +556,10 @@ function RoomSessionScreen({
     writeFaceMaskEmojiId("single", id);
     setFaceMaskEmojiId(id);
   }
-  const helpAutoPending =
-    userId !== null &&
-    !helpDismissed &&
-    shouldShowSessionGuide({ state: guideState, blocked: false });
   const cameraPromptOpen =
     phase.name === "studying" &&
     !cameraPromptAnswered &&
     !helpOpen &&
-    !helpAutoPending &&
     page === null &&
     !exitDialogOpen &&
     invite === null &&
@@ -1050,7 +1003,6 @@ function RoomSessionScreen({
               hidden={simpleMode || helpVisible}
               onFlipCamera={() => void handleFlipCamera()}
               onOpenHelp={() => {
-                helpTriggerRef.current = "menu";
                 setHelpStep(0);
                 setHelpOpen(true);
               }}

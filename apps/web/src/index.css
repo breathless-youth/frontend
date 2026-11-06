@@ -676,6 +676,13 @@
   animation: caret-blink 1.2s ease-out infinite;
 }
 
+/* break-keep은 한국어 어절을 지키려고 쓴다. 일본어·중국어는 띄어 쓰지 않아 문장 전체가
+   한 덩어리가 되고 줄이 바뀌지 않은 채 옆 글자 위로 넘친다. 영어는 keep-all이어도 같게
+   끊기므로 한국어가 아닐 때만 기본 줄바꿈으로 되돌린다. */
+.break-keep:not(:lang(ko)) {
+  word-break: normal;
+}
+
 /* 오버스크롤(고무줄) 영역은 `body`가 아니라 **`html`(캔버스)** 배경으로 칠해진다 —
    여기가 비어 있으면 다크 모드에서 위아래로 밀 때 화면 밖에 흰 띠가 보인다
    (2026-08-01 웹뷰 실기기 확인). 두 요소에 같은 토큰을 준다. */
@@ -1408,5 +1415,23 @@ video::-webkit-media-controls-overlay-play-button {
     transition: opacity 0.2s;
     transform: none !important;
     filter: none !important;
+  }
+}
+
+/*
+  앱 스플래시와 같은 서비스 로고다.
+  로고는 그림이라 색 토큰으로 바꿀 수 없어서 다크 토큰 블록과 같은 조건으로 다크 그림을 고른다.
+*/
+@utility splash-logo {
+  background: url("./assets/splash-logo.png") center / contain no-repeat;
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) & {
+      background-image: url("./assets/splash-logo-dark.png");
+    }
+  }
+  .theme-dark &,
+  :root[data-theme="dark"] & {
+    background-image: url("./assets/splash-logo-dark.png");
   }
 }

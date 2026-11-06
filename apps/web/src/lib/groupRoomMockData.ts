@@ -5,6 +5,7 @@ import type {
   GroupApplicationsResponse,
   GroupApplyState,
   GroupHomeResponse,
+  GroupJoinPolicy,
   GroupInviteResponse,
   GroupLimits,
   GroupMemberDesk,
@@ -66,6 +67,7 @@ export interface MockMember extends Omit<GroupMemberDesk, "owner"> {
 }
 
 export interface MockGroup {
+  joinPolicy: GroupJoinPolicy;
   groupId: number;
   name: string;
   visibility: GroupVisibility;
@@ -216,7 +218,7 @@ function applyViewOf(
     return { applyState: "MEMBER", unavailableReason: null, application: null };
   }
   const mine = pending.find((application) => application.groupId === group.groupId);
-  if (mine !== undefined) {
+  if (group.joinPolicy === "APPROVAL" && mine !== undefined) {
     return {
       applyState: "APPLIED",
       unavailableReason: null,
@@ -231,7 +233,10 @@ function applyViewOf(
     reason = "RECENTLY_KICKED";
   } else if (slotsUsed >= GROUP_MOCK_LIMITS.maxGroupsAndApplications) {
     reason = "GROUP_SLOT_LIMIT";
-  } else if (pending.length >= GROUP_MOCK_LIMITS.maxPendingApplications) {
+  } else if (
+    group.joinPolicy === "APPROVAL" &&
+    pending.length >= GROUP_MOCK_LIMITS.maxPendingApplications
+  ) {
     reason = "APPLICATION_LIMIT";
   }
   return reason === null
@@ -273,13 +278,14 @@ export function viewGroupWorld(world: GroupMockWorld, nowMs: number): GroupMockS
       groups: joined.map((group): MyGroupCard => ({
         groupId: group.groupId,
         name: group.name,
+        joinPolicy: group.joinPolicy,
         category: group.category,
         visibility: group.visibility,
         memberCount: group.members.length,
         studyingCount: group.members.filter(isStudying).length,
         owner: group.ownerId === meId,
         newApplicationCount:
-          group.ownerId === meId && group.visibility === "PUBLIC"
+          group.ownerId === meId && group.visibility === "PUBLIC" && group.joinPolicy === "APPROVAL"
             ? liveGroupApplications(group, nowMs).length
             : null,
         members: group.members.map((member) => toDesk(group, member, elapsedSec)),
@@ -305,6 +311,7 @@ export function viewGroupWorld(world: GroupMockWorld, nowMs: number): GroupMockS
       .map((group): PublicGroupCard => ({
         groupId: group.groupId,
         name: group.name,
+        joinPolicy: group.joinPolicy,
         category: group.category,
         memberCount: group.members.length,
         weeklyAverageFocusSec: weeklyAverage(group),
@@ -321,6 +328,7 @@ export function viewGroupWorld(world: GroupMockWorld, nowMs: number): GroupMockS
           {
             groupId: group.groupId,
             name: group.name,
+            joinPolicy: group.joinPolicy,
             category: group.category,
             description: group.description,
             memberCount: group.members.length,
@@ -344,6 +352,7 @@ export function viewGroupWorld(world: GroupMockWorld, nowMs: number): GroupMockS
           {
             groupId: group.groupId,
             name: group.name,
+            joinPolicy: group.joinPolicy,
             visibility: group.visibility,
             category: group.category,
             description: group.description,
@@ -351,7 +360,7 @@ export function viewGroupWorld(world: GroupMockWorld, nowMs: number): GroupMockS
             myRole: isOwner ? "OWNER" : "MEMBER",
             notifyEnabled: group.notifyEnabled,
             newApplicationCount:
-              isOwner && group.visibility === "PUBLIC"
+              isOwner && group.visibility === "PUBLIC" && group.joinPolicy === "APPROVAL"
                 ? liveGroupApplications(group, nowMs).length
                 : null,
             studyingCount: group.members.filter(isStudying).length,
@@ -460,6 +469,7 @@ function dawnCivilGroup(t: Clock, me: PersonSpec): MockGroup {
     groupId: 10,
     name: "새벽 5시 기상 공시반",
     visibility: "PUBLIC",
+    joinPolicy: "APPROVAL",
     category: "CIVIL_SERVICE",
     description: "매일 새벽 5시에 일어나서 2시간 이상 공부해요. 9급 행정직 준비생 환영해요.",
     ownerId: me.userId,
@@ -534,6 +544,7 @@ function eveningClassGroup(t: Clock, me: PersonSpec | null): MockGroup {
     groupId: 11,
     name: "우리 반 저녁 스터디",
     visibility: "PRIVATE",
+    joinPolicy: "APPROVAL",
     category: "SCHOOL_EXAM",
     description: "같은 반 친구들끼리 평일 저녁 7시부터 공부해요.",
     ownerId: seeded(4),
@@ -582,6 +593,7 @@ function medSchoolGroup(t: Clock, me: PersonSpec | null): MockGroup {
     groupId: 12,
     name: "의대 가자 2027",
     visibility: "PUBLIC",
+    joinPolicy: "APPROVAL",
     category: "CSAT",
     description: "의대 목표 재수생 모여요. 하루 10시간 이상 공부해요.",
     ownerId: seeded(9),
@@ -644,6 +656,7 @@ function toeicWeekendGroup(t: Clock, me: PersonSpec | null): MockGroup {
     groupId: 13,
     name: "토익 900 주말반",
     visibility: "PUBLIC",
+    joinPolicy: "APPROVAL",
     category: "LANGUAGE",
     description: "주말마다 모의고사를 한 회씩 풀어요.",
     ownerId: seeded(17),
@@ -686,6 +699,7 @@ function pastPapersGroup(t: Clock, me: PersonSpec): MockGroup {
     groupId: 14,
     name: "우리끼리 기출 스터디",
     visibility: "PRIVATE",
+    joinPolicy: "APPROVAL",
     category: "CERTIFICATE",
     description: null,
     ownerId: me.userId,
@@ -799,6 +813,7 @@ function catalogGroups(t: Clock): MockGroup[] {
         groupId: CATALOG_FIRST_GROUP_ID + index,
         name,
         visibility: "PUBLIC",
+        joinPolicy: index % 3 === 2 ? "OPEN" : "APPROVAL",
         category,
         description,
         ownerId: members[0]!.userId,
