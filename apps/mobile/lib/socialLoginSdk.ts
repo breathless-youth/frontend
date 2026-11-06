@@ -31,6 +31,18 @@ function isCancelError(error: unknown): boolean {
 
 type SignIn = (hashedNonce: string) => Promise<string | null>;
 
+/** 사용자가 SDK 창을 닫았으면 null로 바꾼다. */
+async function nullIfCancelled(run: () => Promise<string | null>): Promise<string | null> {
+  try {
+    return await run();
+  } catch (error) {
+    if (isCancelError(error)) {
+      return null;
+    }
+    throw error;
+  }
+}
+
 /* eslint-disable @typescript-eslint/no-require-imports -- 쓰는 공급자의 SDK만 조건부로 동기 로드하는 방법이 require뿐이다. */
 /**
  * 공급자 하나의 로그인 함수
@@ -81,6 +93,15 @@ function createSignIn(
     }
   }
 }
+/**
+ * 탈퇴 전에 애플 로그인을 다시 띄워 인가 코드를 받는 함수
+ *
+ * 애플 SDK를 이미 불러온 바이너리에서만 부른다.
+ */
+function createAppleReauthorize(): () => Promise<string> {
+  const { signInAsync } = require("expo-apple-authentication") as typeof AppleAuthentication;
+  return async () => (await signInAsync()).authorizationCode ?? "";
+}
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 /**
@@ -111,14 +132,10 @@ export function installSocialLoginSdk(): void {
       if (signIn === undefined) {
         throw new Error(`이 빌드에 없는 공급자: ${provider}`);
       }
-      try {
-        return await signIn(hashedNonce);
-      } catch (error) {
-        if (isCancelError(error)) {
-          return null;
-        }
-        throw error;
-      }
+      return nullIfCancelled(() => signIn(hashedNonce));
     },
+    ...(signIns.has("APPLE")
+      ? { reauthorizeApple: () => nullIfCancelled(createAppleReauthorize()) }
+      : {}),
   });
 }

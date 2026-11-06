@@ -249,6 +249,7 @@ export function RemoteScreen({
           resetPath={resetPath}
           tabRootPath={tabRootPath}
           query={query}
+          rootQuery={sharedQuery ?? undefined}
           backgroundColor={backgroundColor}
           onBridgeMessage={filteredBridgeMessage}
           onLoadEnd={onLoadEnd}

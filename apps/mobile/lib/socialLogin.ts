@@ -4,7 +4,7 @@ import { Platform } from "react-native";
 
 import type { SocialLoginProvider } from "@focusmakers/types";
 
-import { type LinkSocialResult, linkSocial } from "./auth";
+import { type DeleteAccountResult, type LinkSocialResult, deleteAccount, linkSocial } from "./auth";
 
 /**
  * 앱 종류별 소셜 로그인 설정 값
@@ -30,6 +30,13 @@ export type SocialLoginAdapter = {
   /** SDK 네이티브 모듈까지 불러온 공급자 */
   providers: SocialLoginProvider[];
   signIn(provider: SocialLoginProvider, hashedNonce: string): Promise<string | null>;
+  /**
+   * 애플 로그인을 다시 띄워 받은 인가 코드
+   *
+   * 사용자가 닫았으면 null, 애플이 코드를 주지 않으면 빈 문자열이다.
+   * 애플 SDK를 불러온 바이너리에만 있다.
+   */
+  reauthorizeApple?: () => Promise<string | null>;
 };
 
 let adapter: SocialLoginAdapter | null = null;
@@ -120,4 +127,38 @@ export async function socialLogin(provider: SocialLoginProvider): Promise<Social
   } finally {
     inFlight = false;
   }
+}
+
+/**
+ * 계정 삭제
+ *
+ * 애플 계정은 서버가 애플 토큰을 해지할 수 있게 애플 로그인을 다시 띄워 받은 인가 코드를 함께 보낸다.
+ * 사용자가 애플 창을 닫으면 서버에 보내지 않는다.
+ * 애플 로그인은 iOS 셸에만 있어 앱 종류는 늘 IOS다.
+ * 인가 코드는 로그와 브리지로 내보내지 않는다.
+ */
+export async function deleteAccountWithReauth(
+  provider: SocialLoginProvider,
+): Promise<DeleteAccountResult | { status: "cancelled" }> {
+  if (provider !== "APPLE") {
+    return deleteAccount();
+  }
+  const reauthorize = adapter?.reauthorizeApple;
+  if (reauthorize === undefined) {
+    return { status: "failed", code: "UNKNOWN" };
+  }
+  let code: string | null;
+  try {
+    code = await reauthorize();
+  } catch (error) {
+    console.warn("[social-login] 탈퇴 전 애플 로그인 실패", error);
+    return { status: "failed", code: "UNKNOWN" };
+  }
+  if (code === null) {
+    return { status: "cancelled" };
+  }
+  if (code === "") {
+    return { status: "failed", code: "UNKNOWN" };
+  }
+  return deleteAccount({ appleAuthorizationCode: code, appleClient: "IOS" });
 }

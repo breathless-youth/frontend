@@ -3,8 +3,10 @@ import * as SecureStore from "expo-secure-store";
 import {
   authTokenMessage,
   awaitAuth,
+  deleteAccount,
   ensureAuth,
   linkSocial,
+  logout,
   refreshAuth,
   registerUser,
   subscribeAuth,
@@ -564,6 +566,472 @@ describe("linkSocial", () => {
       code: "UNKNOWN",
     });
     expect(saved()).toEqual(GUEST);
+  });
+});
+
+describe("logout", () => {
+  const MEMBER = { userId: 42, accessToken: "a42", refreshToken: "r42" };
+  const NEW_GUEST = { isNew: true, accessToken: accessTokenFor(8), refreshToken: "r8" };
+
+  beforeEach(() => {
+    store.set("focuson.auth", JSON.stringify(MEMBER));
+  });
+
+  it("이 기기의 refresh로 로그아웃을 보낸 뒤 저장을 지우고 새 비회원으로 가입한다", async () => {
+    mockedFetch
+      .mockResolvedValueOnce(jsonResponse(204, null))
+      .mockResolvedValueOnce(jsonResponse(201, NEW_GUEST));
+    const listener = jest.fn();
+    const unsubscribe = subscribeAuth(listener);
+
+    await logout();
+
+    expect(mockedFetch.mock.calls.map((call) => call[0])).toEqual([
+      "http://api.test/api/auth/logout",
+      "http://api.test/api/users",
+    ]);
+    expect((mockedFetch.mock.calls[0] as [string, RequestInit])[1]).toMatchObject({
+      method: "POST",
+      body: JSON.stringify({ refreshToken: "r42" }),
+    });
+    expect(headersOf(0).get("Authorization")).toBe("Bearer a42");
+    expect(headersOf(0).get("API-Version")).toBe("1");
+    expect(mockedDelete).toHaveBeenCalledWith("focuson.auth", { keychainAccessible: 1 });
+    const guest = { userId: 8, accessToken: accessTokenFor(8), refreshToken: "r8" };
+    expect(saved()).toEqual(guest);
+    expect(listener).toHaveBeenCalledWith(guest);
+    unsubscribe();
+  });
+
+  it.each([
+    ["401", () => mockedFetch.mockResolvedValueOnce(jsonResponse(401, { code: "UNAUTHORIZED" }))],
+    [
+      "네트워크 오류",
+      () => mockedFetch.mockRejectedValueOnce(new TypeError("Network request failed")),
+    ],
+  ])("%s여도 저장을 지우고 새 비회원으로 가입한다", async (_label, failLogout) => {
+    failLogout();
+    mockedFetch.mockResolvedValueOnce(jsonResponse(201, NEW_GUEST));
+
+    await logout();
+
+    expect(mockedFetch.mock.calls.at(-1)?.[0]).toBe("http://api.test/api/users");
+    expect(saved()).toEqual({ userId: 8, accessToken: accessTokenFor(8), refreshToken: "r8" });
+  });
+
+  it("저장 삭제가 throw해도 새 비회원으로 덮어쓰고, 이전 회원 토큰은 다시 내주지 않는다", async () => {
+    mockedFetch
+      .mockResolvedValueOnce(jsonResponse(204, null))
+      .mockResolvedValueOnce(jsonResponse(201, NEW_GUEST));
+    mockedDelete.mockRejectedValueOnce(new Error("keychain locked"));
+    const listener = jest.fn();
+    const unsubscribe = subscribeAuth(listener);
+
+    await expect(logout()).resolves.toBeUndefined();
+
+    const guest = { userId: 8, accessToken: accessTokenFor(8), refreshToken: "r8" };
+    expect(saved()).toEqual(guest);
+    expect(listener.mock.calls).toEqual([[guest]]);
+    await expect(awaitAuth()).resolves.toEqual(guest);
+    unsubscribe();
+  });
+
+  it("저장 삭제와 새 비회원 가입이 모두 실패해도 이전 회원 토큰은 내주지 않는다", async () => {
+    mockedFetch
+      .mockResolvedValueOnce(jsonResponse(204, null))
+      .mockResolvedValue(jsonResponse(500, { message: "down" }));
+    mockedDelete.mockRejectedValue(new Error("keychain locked"));
+    const listener = jest.fn();
+    const unsubscribe = subscribeAuth(listener);
+
+    await expect(logout()).resolves.toBeUndefined();
+
+    expect(listener).not.toHaveBeenCalled();
+    // 웹뷰가 다시 떠서 auth-ready로 물어도 토큰 없이 답해 기존 복구 흐름에 맡긴다.
+    await expect(awaitAuth()).resolves.toBeNull();
+    // 다음 요청에서 가입이 되면 새 비회원으로 돌아온다.
+    mockedFetch.mockResolvedValueOnce(jsonResponse(201, NEW_GUEST));
+    await expect(ensureAuth()).resolves.toEqual({
+      userId: 8,
+      accessToken: accessTokenFor(8),
+      refreshToken: "r8",
+    });
+    unsubscribe();
+  });
+
+  it("저장 읽기·삭제·새 가입이 모두 실패해도 이전 회원 토큰은 내주지 않는다", async () => {
+    // 로그아웃이 기다리는 첫 읽기(새 키·옛 키)만 실패한다.
+    mockedGet
+      .mockRejectedValueOnce(new Error("keychain locked"))
+      .mockRejectedValueOnce(new Error("keychain locked"));
+    mockedFetch.mockResolvedValue(jsonResponse(500, { message: "down" }));
+    mockedDelete.mockRejectedValue(new Error("keychain locked"));
+    const listener = jest.fn();
+    const unsubscribe = subscribeAuth(listener);
+
+    await expect(logout()).resolves.toBeUndefined();
+
+    expect(listener).not.toHaveBeenCalled();
+    await expect(awaitAuth()).resolves.toBeNull();
+    unsubscribe();
+  });
+
+  it("로그아웃 뒤 같은 계정으로 다시 로그인하면 그 저장을 읽는다", async () => {
+    mockedFetch
+      .mockResolvedValueOnce(jsonResponse(204, null))
+      .mockResolvedValueOnce(jsonResponse(500, { message: "down" }));
+    mockedDelete.mockRejectedValue(new Error("keychain locked"));
+    await logout();
+
+    mockedFetch.mockResolvedValueOnce(jsonResponse(201, NEW_GUEST)).mockResolvedValueOnce(
+      jsonResponse(200, {
+        accessToken: accessTokenFor(42),
+        refreshToken: "r50",
+        isNewUser: false,
+      }),
+    );
+    await expect(linkSocial("KAKAO", "id-token", "raw-nonce")).resolves.toEqual({
+      status: "success",
+      isNewUser: false,
+    });
+
+    await expect(awaitAuth()).resolves.toEqual({
+      userId: 42,
+      accessToken: accessTokenFor(42),
+      refreshToken: "r50",
+    });
+  });
+
+  it("새 비회원 가입이 끝나지 않아도 10초 뒤 로그아웃을 끝내고, 나중의 요청은 같은 가입을 기다린다", async () => {
+    jest.useFakeTimers();
+    try {
+      let finishRegister: (value: unknown) => void = () => {};
+      mockedFetch
+        .mockResolvedValueOnce(jsonResponse(204, null))
+        .mockReturnValueOnce(new Promise((resolve) => (finishRegister = resolve)));
+
+      const loggingOut = logout();
+      await jest.advanceTimersByTimeAsync(10_000);
+      await expect(loggingOut).resolves.toBeUndefined();
+
+      const joining = ensureAuth();
+      finishRegister(jsonResponse(201, NEW_GUEST));
+      await expect(joining).resolves.toEqual({
+        userId: 8,
+        accessToken: accessTokenFor(8),
+        refreshToken: "r8",
+      });
+      expect(
+        mockedFetch.mock.calls.filter((call) => call[0] === "http://api.test/api/users"),
+      ).toHaveLength(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("로그아웃 요청이 끝나지 않아도 10초 뒤 새 비회원으로 넘어가 다른 갱신을 막지 않는다", async () => {
+    jest.useFakeTimers();
+    try {
+      mockedFetch
+        .mockReturnValueOnce(new Promise(() => {}))
+        .mockResolvedValueOnce(jsonResponse(201, NEW_GUEST));
+
+      const loggingOut = logout();
+      await jest.advanceTimersByTimeAsync(10_000);
+
+      await expect(loggingOut).resolves.toBeUndefined();
+      expect(mockedFetch.mock.calls.map((call) => call[0])).toEqual([
+        "http://api.test/api/auth/logout",
+        "http://api.test/api/users",
+      ]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("진행 중인 갱신이 끝난 뒤의 refresh로 로그아웃한다", async () => {
+    let finishRefresh: (value: unknown) => void = () => {};
+    mockedFetch
+      .mockReturnValueOnce(new Promise((resolve) => (finishRefresh = resolve)))
+      .mockResolvedValueOnce(jsonResponse(204, null))
+      .mockResolvedValueOnce(jsonResponse(201, NEW_GUEST));
+
+    const refreshing = refreshAuth();
+    const loggingOut = logout();
+    await flush();
+    // 갱신 전 refresh를 보내면 서버가 회전된 토큰의 재사용으로 보고 다른 기기까지 로그아웃시킨다.
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+
+    finishRefresh(jsonResponse(200, { accessToken: "a43", refreshToken: "r43" }));
+    await refreshing;
+    await loggingOut;
+    expect((mockedFetch.mock.calls[1] as [string, RequestInit])[1].body).toBe(
+      JSON.stringify({ refreshToken: "r43" }),
+    );
+  });
+
+  it("진행 중인 link가 끝난 뒤의 토큰으로 로그아웃하고, 그동안 들어온 갱신은 로그아웃 뒤의 토큰으로 한다", async () => {
+    let finishLink: (value: unknown) => void = () => {};
+    mockedFetch
+      .mockReturnValueOnce(new Promise((resolve) => (finishLink = resolve)))
+      .mockResolvedValueOnce(jsonResponse(204, null))
+      .mockResolvedValueOnce(jsonResponse(201, NEW_GUEST))
+      .mockResolvedValueOnce(jsonResponse(200, { accessToken: "a9", refreshToken: "r9" }));
+
+    const linking = linkSocial("KAKAO", "id-token", "raw-nonce");
+    const loggingOut = logout();
+    const refreshing = refreshAuth();
+    await flush();
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+
+    finishLink(
+      jsonResponse(200, { accessToken: accessTokenFor(50), refreshToken: "r50", isNewUser: false }),
+    );
+    await linking;
+    await loggingOut;
+    await refreshing;
+    expect(mockedFetch.mock.calls.map((call) => call[0])).toEqual([
+      "http://api.test/api/auth/link",
+      "http://api.test/api/auth/logout",
+      "http://api.test/api/users",
+      "http://api.test/api/auth/refresh",
+    ]);
+    expect((mockedFetch.mock.calls[1] as [string, RequestInit])[1].body).toBe(
+      JSON.stringify({ refreshToken: "r50" }),
+    );
+    expect((mockedFetch.mock.calls[3] as [string, RequestInit])[1].body).toBe(
+      JSON.stringify({ refreshToken: "r8" }),
+    );
+  });
+});
+
+describe("deleteAccount", () => {
+  const MEMBER = { userId: 42, accessToken: "a42", refreshToken: "r42" };
+  const NEW_GUEST = { isNew: true, accessToken: accessTokenFor(8), refreshToken: "r8" };
+
+  beforeEach(() => {
+    store.set("focuson.auth", JSON.stringify(MEMBER));
+  });
+
+  it("본문 없이 DELETE /api/users/me를 보내고 204면 저장을 지우고 새 비회원으로 가입한다", async () => {
+    mockedFetch
+      .mockResolvedValueOnce(jsonResponse(204, null))
+      .mockResolvedValueOnce(jsonResponse(201, NEW_GUEST));
+
+    await expect(deleteAccount()).resolves.toEqual({ status: "success" });
+
+    expect(mockedFetch.mock.calls.map((call) => call[0])).toEqual([
+      "http://api.test/api/users/me",
+      "http://api.test/api/users",
+    ]);
+    const init = (mockedFetch.mock.calls[0] as [string, RequestInit])[1];
+    expect(init.method).toBe("DELETE");
+    expect(init.body).toBeUndefined();
+    expect(headersOf(0).get("Authorization")).toBe("Bearer a42");
+    expect(headersOf(0).get("API-Version")).toBe("1");
+    expect(saved()).toEqual({ userId: 8, accessToken: accessTokenFor(8), refreshToken: "r8" });
+  });
+
+  it("애플 인가 코드를 받으면 appleClient와 함께 본문에 싣는다", async () => {
+    mockedFetch
+      .mockResolvedValueOnce(jsonResponse(204, null))
+      .mockResolvedValueOnce(jsonResponse(201, NEW_GUEST));
+
+    await deleteAccount({ appleAuthorizationCode: "apple-code", appleClient: "IOS" });
+
+    expect((mockedFetch.mock.calls[0] as [string, RequestInit])[1].body).toBe(
+      JSON.stringify({ appleAuthorizationCode: "apple-code", appleClient: "IOS" }),
+    );
+    expect(headersOf(0).get("Content-Type")).toBe("application/json");
+  });
+
+  it.each([400, 500])("%i이면 토큰을 그대로 두고 SERVER를 돌려준다", async (status) => {
+    mockedFetch.mockResolvedValueOnce(jsonResponse(status, { code: "VALIDATION_FAILED" }));
+
+    await expect(deleteAccount()).resolves.toEqual({ status: "failed", code: "SERVER" });
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+    expect(mockedDelete).not.toHaveBeenCalled();
+    expect(saved()).toEqual(MEMBER);
+  });
+
+  it("네트워크 오류면 토큰을 그대로 두고 NETWORK를 돌려준다", async () => {
+    mockedFetch.mockRejectedValueOnce(new TypeError("Network request failed"));
+
+    await expect(deleteAccount()).resolves.toEqual({ status: "failed", code: "NETWORK" });
+    expect(mockedDelete).not.toHaveBeenCalled();
+    expect(saved()).toEqual(MEMBER);
+  });
+
+  it("401이면 토큰을 갱신하고 한 번 다시 보낸다", async () => {
+    mockedFetch
+      .mockResolvedValueOnce(jsonResponse(401, { code: "UNAUTHORIZED" }))
+      .mockResolvedValueOnce(jsonResponse(200, { accessToken: "a43", refreshToken: "r43" }))
+      .mockResolvedValueOnce(jsonResponse(204, null))
+      .mockResolvedValueOnce(jsonResponse(201, NEW_GUEST));
+
+    await expect(deleteAccount()).resolves.toEqual({ status: "success" });
+    expect(mockedFetch.mock.calls.map((call) => call[0])).toEqual([
+      "http://api.test/api/users/me",
+      "http://api.test/api/auth/refresh",
+      "http://api.test/api/users/me",
+      "http://api.test/api/users",
+    ]);
+    expect(headersOf(2).get("Authorization")).toBe("Bearer a43");
+  });
+
+  it.each([400, 401])(
+    "다시 보내려던 갱신이 %i로 거부되면 회원 토큰을 그대로 두고 비회원으로 가입하지 않는다",
+    async (status) => {
+      mockedFetch
+        .mockResolvedValueOnce(jsonResponse(401, { code: "UNAUTHORIZED" }))
+        .mockResolvedValueOnce(jsonResponse(status, { code: "UNAUTHORIZED" }));
+
+      await expect(deleteAccount()).resolves.toEqual({ status: "failed", code: "SERVER" });
+      expect(mockedFetch.mock.calls.map((call) => call[0])).toEqual([
+        "http://api.test/api/users/me",
+        "http://api.test/api/auth/refresh",
+      ]);
+      expect(mockedDelete).not.toHaveBeenCalled();
+      expect(saved()).toEqual(MEMBER);
+    },
+  );
+
+  it("진행 중인 갱신이 거부돼 새 비회원이 되면 그 비회원에게 DELETE를 보내지 않는다", async () => {
+    let finishRefresh: (value: unknown) => void = () => {};
+    mockedFetch
+      .mockReturnValueOnce(new Promise((resolve) => (finishRefresh = resolve)))
+      .mockResolvedValueOnce(jsonResponse(201, NEW_GUEST));
+
+    const refreshing = refreshAuth();
+    const deleting = deleteAccount();
+    await flush();
+    finishRefresh(jsonResponse(401, { code: "UNAUTHORIZED" }));
+    await refreshing;
+
+    await expect(deleting).resolves.toEqual({ status: "failed", code: "SERVER" });
+    expect(mockedFetch.mock.calls.map((call) => call[0])).toEqual([
+      "http://api.test/api/auth/refresh",
+      "http://api.test/api/users",
+    ]);
+  });
+
+  describe("끝나지 않는 요청은 10초 뒤 NETWORK 실패로 끝내고 토큰을 그대로 둔다", () => {
+    // 끝나지 않는 요청은 테스트 끝에 실패로 풀어, 남은 갱신이 다음 테스트로 새지 않게 한다.
+    const hanging: ((value: unknown) => void)[] = [];
+    const never = () => new Promise((resolve) => hanging.push(resolve));
+
+    it.each([
+      ["첫 DELETE", () => mockedFetch.mockReturnValueOnce(never())],
+      [
+        "401 뒤 갱신",
+        () =>
+          mockedFetch
+            .mockResolvedValueOnce(jsonResponse(401, { code: "UNAUTHORIZED" }))
+            .mockReturnValueOnce(never()),
+      ],
+      [
+        "갱신 뒤 다시 보낸 DELETE",
+        () =>
+          mockedFetch
+            .mockResolvedValueOnce(jsonResponse(401, { code: "UNAUTHORIZED" }))
+            .mockResolvedValueOnce(jsonResponse(200, { accessToken: "a43", refreshToken: "r43" }))
+            .mockReturnValueOnce(never()),
+      ],
+    ])("%s", async (label, arrange) => {
+      jest.useFakeTimers();
+      try {
+        arrange();
+
+        const deleting = deleteAccount();
+        await jest.advanceTimersByTimeAsync(10_000);
+
+        await expect(deleting).resolves.toEqual({ status: "failed", code: "NETWORK" });
+        expect(
+          mockedFetch.mock.calls.filter((call) => call[0] === "http://api.test/api/users"),
+        ).toHaveLength(0);
+        expect(mockedDelete).not.toHaveBeenCalled();
+        // 갱신이 끝난 뒤의 시간 초과는 회전된 새 쌍을 이미 저장해 둔 상태다.
+        expect(saved()).toEqual(
+          label === "갱신 뒤 다시 보낸 DELETE"
+            ? { userId: 42, accessToken: "a43", refreshToken: "r43" }
+            : MEMBER,
+        );
+      } finally {
+        for (const resolve of hanging.splice(0)) {
+          resolve(jsonResponse(500, { message: "down" }));
+        }
+        await jest.advanceTimersByTimeAsync(0);
+        jest.useRealTimers();
+      }
+    });
+  });
+
+  it("시작할 때 돌던 갱신이 끝나지 않으면 10초 뒤 DELETE 없이 NETWORK 실패로 끝내고 토큰을 둔다", async () => {
+    jest.useFakeTimers();
+    let finishRefresh: (value: unknown) => void = () => {};
+    try {
+      mockedFetch.mockReturnValueOnce(new Promise((resolve) => (finishRefresh = resolve)));
+
+      void refreshAuth();
+      const deleting = deleteAccount();
+      await jest.advanceTimersByTimeAsync(10_000);
+
+      await expect(deleting).resolves.toEqual({ status: "failed", code: "NETWORK" });
+      expect(mockedFetch.mock.calls.map((call) => call[0])).toEqual([
+        "http://api.test/api/auth/refresh",
+      ]);
+      expect(saved()).toEqual(MEMBER);
+    } finally {
+      // 남은 갱신이 다음 테스트로 새지 않게 실패로 풀어 준다.
+      finishRefresh(jsonResponse(500, { message: "down" }));
+      await jest.advanceTimersByTimeAsync(0);
+      jest.useRealTimers();
+    }
+  });
+
+  it("시간이 지난 갱신이 아직 돌면 뒤이은 갱신은 같은 refresh를 다시 보내지 않고 그 결과를 기다린다", async () => {
+    jest.useFakeTimers();
+    try {
+      let finishRefresh: (value: unknown) => void = () => {};
+      mockedFetch
+        .mockResolvedValueOnce(jsonResponse(401, { code: "UNAUTHORIZED" }))
+        .mockReturnValueOnce(new Promise((resolve) => (finishRefresh = resolve)));
+
+      const deleting = deleteAccount();
+      await jest.advanceTimersByTimeAsync(10_000);
+      await expect(deleting).resolves.toEqual({ status: "failed", code: "NETWORK" });
+
+      // 같은 refresh가 두 번 나가면 서버가 재사용으로 보고 그 계정의 refresh를 모두 폐기한다.
+      const refreshing = refreshAuth();
+      finishRefresh(jsonResponse(200, { accessToken: "a43", refreshToken: "r43" }));
+      await expect(refreshing).resolves.toEqual({
+        userId: 42,
+        accessToken: "a43",
+        refreshToken: "r43",
+      });
+      expect(
+        mockedFetch.mock.calls.filter((call) => call[0] === "http://api.test/api/auth/refresh"),
+      ).toHaveLength(1);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("204가 아닌 2xx는 지웠다고 보지 않고 토큰을 그대로 둔다", async () => {
+    mockedFetch.mockResolvedValueOnce(jsonResponse(200, {}));
+
+    await expect(deleteAccount()).resolves.toEqual({ status: "failed", code: "SERVER" });
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+    expect(saved()).toEqual(MEMBER);
+  });
+
+  it("204 뒤 새 비회원 가입이 실패해도 서버는 이미 지웠으므로 성공이다", async () => {
+    mockedFetch
+      .mockResolvedValueOnce(jsonResponse(204, null))
+      .mockResolvedValueOnce(jsonResponse(500, { message: "down" }));
+
+    await expect(deleteAccount()).resolves.toEqual({ status: "success" });
+    expect(saved()).toBeNull();
   });
 });
 

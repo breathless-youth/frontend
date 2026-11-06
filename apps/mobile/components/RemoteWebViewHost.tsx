@@ -24,6 +24,7 @@ import { PrimaryCtaButton } from "./PrimaryCtaButton";
 import type { BridgeReply } from "../lib/nativeBridgeHandler";
 import { consumeAppLaunchSignal } from "../lib/appLaunch";
 import { getAppLocale, t } from "../lib/i18n";
+import { subscribeAccountReset } from "../lib/accountReset";
 import { authTokenMessage, subscribeAuth } from "../lib/auth";
 import { subscribeInAppNotifications } from "../lib/inAppNotification";
 import { attachInstallAttributionSink } from "../lib/installAttribution";
@@ -219,7 +220,17 @@ type RestoreTarget = { path: string; query?: Record<string, string> };
  * 베이스 URL도 함께 싣는 이유는 쓰지 않는 의존성 없이 재시도 때 설정을 다시 읽게 하기 위해서다.
  * 복원 경로는 재마운트 시점에만 반영된다는 규칙이 세대를 올리는 한 곳에 모인다.
  */
-type DocGeneration = { key: number; baseUrl: string | null; restore: RestoreTarget | null };
+type DocGeneration = {
+  key: number;
+  baseUrl: string | null;
+  restore: RestoreTarget | null;
+  /**
+   * 계정이 바뀌어 탭 첫 화면을 공용 쿼리로 여는 세대
+   *
+   * 새 문서가 화면을 보고하기 전의 재시도·사망 복구도 이어받아 이전 계정의 딥링크로 돌아가지 않는다.
+   */
+  fresh?: boolean;
+};
 
 /** `baseUrl` + `path` + `query` → WebView에 넘길 완성 URL. */
 export function buildRemoteWebViewUrl(
@@ -260,6 +271,13 @@ export type RemoteWebViewHostProps = {
   tabRootPath?: string;
   /** 쿼리 파라미터. 생략하면 쿼리 없이 연다. */
   query?: Record<string, string | number>;
+  /**
+   * 딥링크 쿼리를 뺀 공용 쿼리(appVersion·capability 표시)
+   *
+   * 로그아웃·탈퇴 뒤 다시 열 때 이전 계정의 하위 화면 쿼리를 싣지 않으려고 따로 받는다.
+   * 생략하면 `query`를 쓴다.
+   */
+  rootQuery?: Record<string, string | number>;
   /**
    * 웹이 보낸 브리지 메시지(start-session·navigate-home·open-settings 등)를
    * `lib/webBridge.ts`로 파싱해 넘긴다. 모르는 메시지는 넘어오지 않는다
@@ -328,6 +346,7 @@ export function RemoteWebViewHost({
   resetPath,
   tabRootPath,
   query,
+  rootQuery,
   onBridgeMessage,
   backgroundColor,
   onLoadEnd,
@@ -472,18 +491,32 @@ export function RemoteWebViewHost({
    * 그 시점에 보고돼 있던 복원 경로를 함께 싣는다.
    * 핸들러·리스너에서만 부른다.
    */
-  const nextGeneration = useCallback(() => {
-    const restore = restoreRef.current;
-    const baseUrl = readWebBaseUrl();
-    canGoBackRef.current = false;
-    setDoc((current) => ({ key: current.key + 1, baseUrl, restore }));
-    resetGlass();
-  }, [resetGlass]);
+  const nextGeneration = useCallback(
+    ({ fresh = false } = {}) => {
+      const restore = fresh ? null : restoreRef.current;
+      const baseUrl = readWebBaseUrl();
+      canGoBackRef.current = false;
+      setDoc((current) => ({
+        key: current.key + 1,
+        baseUrl,
+        restore,
+        fresh: fresh || (restore === null && current.fresh === true),
+      }));
+      resetGlass();
+    },
+    [resetGlass],
+  );
 
-  const { baseUrl, restore } = doc;
+  const { baseUrl, restore, fresh } = doc;
   const target = useMemo(() => {
     if (baseUrl === null) {
       return null;
+    }
+    if (fresh) {
+      return {
+        uri: buildRemoteWebViewUrl(baseUrl, tabRootPath ?? resetPath ?? path, rootQuery ?? query),
+        origin: originOf(baseUrl),
+      };
     }
     // 재마운트·재시도에서만 복원 경로가 반영된다 — 위 restoreRef 주석 참고.
     return {
@@ -494,7 +527,7 @@ export function RemoteWebViewHost({
       ),
       origin: originOf(baseUrl),
     };
-  }, [path, query, baseUrl, restore]);
+  }, [path, query, baseUrl, restore, fresh, tabRootPath, resetPath, rootQuery]);
 
   const retry = () => {
     trackNativeEvent("webview_retry_pressed", { path });
@@ -574,6 +607,16 @@ export function RemoteWebViewHost({
     return () => {
       recoveryListeners.delete(listener);
     };
+  }, [enterRecovery, nextGeneration]);
+
+  // 로그아웃·탈퇴로 계정이 바뀌면 이전 계정의 화면과 조회 캐시가 남지 않게 탭 첫 화면으로 새 문서를 띄운다.
+  // 문서 안 이동은 주소의 표시를 지우므로 `reload()`가 아니라 공용 쿼리를 실은 탭 첫 주소로 다시 마운트한다.
+  useEffect(() => {
+    return subscribeAccountReset(() => {
+      restoreRef.current = null;
+      enterRecovery();
+      nextGeneration({ fresh: true });
+    });
   }, [enterRecovery, nextGeneration]);
 
   /** 웹으로 나가는 메시지를 한 곳에 모으는 헬퍼 함수 — 개발 빌드에서 나가는 메시지를 로그로 남긴다. */

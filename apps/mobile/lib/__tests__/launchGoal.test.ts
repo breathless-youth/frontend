@@ -1,7 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 
 import { ensureAuth, refreshAuth } from "../auth";
-import { readLaunchGoal, refreshLaunchGoal, saveLaunchGoal } from "../launchGoal";
+import { clearLaunchGoal, readLaunchGoal, refreshLaunchGoal, saveLaunchGoal } from "../launchGoal";
 
 jest.mock("expo-secure-store", () => ({
   getItemAsync: jest.fn(),
@@ -123,6 +123,37 @@ describe("saveLaunchGoal", () => {
   it("저장이 실패해도 throw 하지 않는다", async () => {
     mockedSet.mockRejectedValue(new Error("keychain locked"));
     await expect(saveLaunchGoal({ goal: "하루 6시간", nickname: "포메" })).resolves.toBeUndefined();
+  });
+});
+
+describe("clearLaunchGoal", () => {
+  it("저장된 목표 문구를 지운다", async () => {
+    await clearLaunchGoal();
+
+    expect(mockedDelete).toHaveBeenCalledWith(KEY);
+  });
+
+  it("지우기 전에 시작한 조회의 이전 계정 응답은 저장하지 않는다", async () => {
+    let respond: (value: unknown) => void = () => {};
+    mockedFetch.mockReturnValue(
+      new Promise((resolve) => {
+        respond = resolve;
+      }),
+    );
+    const refreshing = refreshLaunchGoal();
+    await waitForFetch();
+
+    await clearLaunchGoal();
+    respond(jsonResponse(200, profile("이전 계정 목표")));
+    await refreshing;
+
+    expect(mockedSet).not.toHaveBeenCalled();
+  });
+
+  it("지우기가 실패해도 throw 하지 않는다", async () => {
+    mockedDelete.mockRejectedValueOnce(new Error("keychain locked"));
+
+    await expect(clearLaunchGoal()).resolves.toBeUndefined();
   });
 });
 

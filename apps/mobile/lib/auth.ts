@@ -3,6 +3,7 @@ import * as SecureStore from "expo-secure-store";
 
 import type {
   AuthRefreshResponse,
+  DeleteAccountFailureCode,
   SocialLoginFailureCode,
   SocialLoginProvider,
   ToWebMessage,
@@ -15,6 +16,7 @@ import { apiFetch, parseErrorMessage } from "./api";
 import { apiBaseUrl } from "./apiBaseUrl";
 import { getOrCreateDeviceId } from "./deviceId";
 import { logMetaRegistration } from "./metaAds";
+import { withTimeout } from "./withTimeout";
 
 /**
  * 토큰의 유일한 소유자
@@ -77,7 +79,18 @@ async function readItem(key: string, options?: typeof STORE_OPTIONS): Promise<st
   }
 }
 
+/**
+ * 로그아웃·탈퇴 뒤 아직 새 저장을 쓰지 못했는지
+ *
+ * 저장 삭제가 실패해 이전 계정의 토큰이 남아도 다시 읽어 웹에 내주지 않는다.
+ * 서버가 로그아웃해도 access 토큰은 만료까지 유효해서, 내주면 다시 띄운 화면이 이전 회원으로 움직인다.
+ */
+let storedAuthDiscarded = false;
+
 async function readAuth(): Promise<AuthState | null> {
+  if (storedAuthDiscarded) {
+    return null;
+  }
   const raw = await readItem(AUTH_KEY, STORE_OPTIONS);
   if (!raw) {
     return null;
@@ -99,6 +112,8 @@ async function readAuth(): Promise<AuthState | null> {
 
 async function writeAuth(state: AuthState): Promise<AuthState> {
   await SecureStore.setItemAsync(AUTH_KEY, JSON.stringify(state), STORE_OPTIONS);
+  // 새 저장이 남은 토큰을 덮었다.
+  storedAuthDiscarded = false;
   // 순회 중 구독 해제가 일어나도 안전하게 복사본을 돈다.
   for (const listener of [...listeners]) {
     listener(state);
@@ -214,11 +229,12 @@ let ongoingRefresh: Promise<AuthState | null> | null = null;
  * 저장을 지우고 재등록한다 — 지연 이관된 설치가 토큰을 얻는 유일한 경로다.
  */
 export function refreshAuth(): Promise<AuthState | null> {
-  if (ongoingLink !== null) {
+  if (ongoingAccountChange !== null) {
     // link가 성공하면 지금 저장된 refresh는 서버에서 무효가 된다.
     // 그 refresh로 갱신하면 401을 받아 저장을 비우고 새 비회원으로 가입하므로 link가 끝난 뒤의 저장으로 갱신한다.
     // link가 가입을 기다리는 중에도 가입 결과는 link 전 토큰이라 가입 검사보다 먼저 본다.
-    return ongoingLink.then(() => refreshAuth());
+    // 로그아웃과 탈퇴도 저장을 새 비회원으로 바꾸므로 같이 기다린다.
+    return ongoingAccountChange.then(() => refreshAuth());
   }
   if (ongoingAuth !== null) {
     // 등록이 곧 새 쌍이다 — 갱신을 겹쳐 회전을 낭비하지 않는다.
@@ -227,17 +243,24 @@ export function refreshAuth(): Promise<AuthState | null> {
   return startRefresh();
 }
 
-function startRefresh(): Promise<AuthState | null> {
-  ongoingRefresh ??= refreshOnce().finally(() => {
+function startRefresh(options?: { resetOnReject?: boolean }): Promise<AuthState | null> {
+  ongoingRefresh ??= refreshOnce(options).finally(() => {
     ongoingRefresh = null;
   });
   return ongoingRefresh;
 }
 
-async function refreshOnce(): Promise<AuthState | null> {
+/**
+ * `resetOnReject`가 거짓이면 거부(토큰 없음·400·401)에도 저장을 지우지 않고 null을 돌려준다.
+ * 탈퇴의 재시도가 쓴다. 지우고 다시 가입하면 탈퇴는 실패했는데 사용자는 로그아웃된다.
+ */
+async function refreshOnce({ resetOnReject = true } = {}): Promise<AuthState | null> {
   try {
     const current = await readAuth();
     if (current === null || current.refreshToken === null) {
+      if (!resetOnReject) {
+        return null;
+      }
       await SecureStore.deleteItemAsync(AUTH_KEY, STORE_OPTIONS);
       return await ensureAuth();
     }
@@ -248,6 +271,9 @@ async function refreshOnce(): Promise<AuthState | null> {
       body: JSON.stringify({ refreshToken: current.refreshToken }),
     });
     if (res.status === 401 || res.status === 400) {
+      if (!resetOnReject) {
+        return null;
+      }
       await SecureStore.deleteItemAsync(AUTH_KEY, STORE_OPTIONS);
       return await ensureAuth();
     }
@@ -275,16 +301,25 @@ type AuthLinkResponse = { accessToken: string; refreshToken: string; isNewUser: 
 
 // `API_ENDPOINTS`에 link가 없어 `apiFetch` 대신 버전 헤더를 직접 붙인다.
 // 백엔드 Swagger가 dev에 들어와 `packages/types`에 link를 넣으면 `apiFetch`로 바꾼다.
-async function postLink(state: AuthState, body: string): Promise<Response> {
-  return fetch(`${apiBaseUrl()}/api/auth/link`, {
-    method: "POST",
+async function sendAuthed(
+  state: AuthState,
+  method: "POST" | "DELETE",
+  path: string,
+  body?: string,
+): Promise<Response> {
+  return fetch(`${apiBaseUrl()}${path}`, {
+    method,
     headers: {
       "API-Version": "1",
       Authorization: `Bearer ${state.accessToken}`,
-      "Content-Type": "application/json",
+      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
     },
     body,
   });
+}
+
+function postLink(state: AuthState, body: string): Promise<Response> {
+  return sendAuthed(state, "POST", "/api/auth/link", body);
 }
 
 /**
@@ -310,7 +345,25 @@ async function linkFailureCode(res: Response): Promise<SocialLoginFailureCode> {
   }
 }
 
-let ongoingLink: Promise<LinkSocialResult> | null = null;
+let ongoingAccountChange: Promise<unknown> | null = null;
+
+/**
+ * 계정을 바꾸는 요청(link·로그아웃·탈퇴)을 하나씩 실행
+ *
+ * 셋 다 끝나면 지금 저장된 refresh가 서버에서 무효가 되거나 저장이 바뀐다.
+ * 그래서 앞선 요청이 끝난 뒤의 저장으로 시작하고, `refreshAuth`는 진행 중인 요청을 기다린다.
+ * 넘기는 작업은 throw하지 않아야 한다.
+ */
+function runAccountChange<T>(task: () => Promise<T>): Promise<T> {
+  const previous = ongoingAccountChange;
+  const current: Promise<T> = (previous === null ? task() : previous.then(task)).finally(() => {
+    if (ongoingAccountChange === current) {
+      ongoingAccountChange = null;
+    }
+  });
+  ongoingAccountChange = current;
+  return current;
+}
 
 /**
  * `POST /api/auth/link`
@@ -329,10 +382,7 @@ export function linkSocial(
   idToken: string,
   nonce: string,
 ): Promise<LinkSocialResult> {
-  ongoingLink = linkOnce(provider, idToken, nonce).finally(() => {
-    ongoingLink = null;
-  });
-  return ongoingLink;
+  return runAccountChange(() => linkOnce(provider, idToken, nonce));
 }
 
 async function linkOnce(
@@ -372,4 +422,122 @@ async function linkOnce(
     console.warn("[auth] 소셜 계정 연결 실패", error);
     return { status: "failed", code: "UNKNOWN" };
   }
+}
+
+/**
+ * 끝나지 않는 로그아웃·탈퇴 요청이나 새 가입이 계정 변경 차례를 막지 않게 하는 상한
+ *
+ * 차례가 막히면 모든 갱신과 브리지 결과, 웹뷰 다시 띄우기가 함께 멈춘다.
+ */
+const ACCOUNT_STEP_TIMEOUT_MS = 10_000;
+
+/**
+ * 저장을 지우고 기기 UUID로 다시 가입한다. 소셜 계정으로 바뀐 기기 UUID는 연결이 풀려 있어 새 비회원이 된다.
+ *
+ * 서버 쪽 로그아웃과 삭제는 이미 끝났으므로 여기서 실패해도 throw하지 않고 호출부는 성공으로 답한다.
+ * 삭제가 실패해 남은 토큰은 `storedAuthDiscarded`가 가리고, 가입이 실패하거나 늦으면 웹은 토큰 없이 받아 기존 복구 흐름을 탄다.
+ * 늦게 끝난 가입은 `ongoingAuth`에 남아 있어 다음 요청이 두 번째 가입 없이 그 결과를 받는다.
+ */
+async function startOverAsGuest(): Promise<void> {
+  storedAuthDiscarded = true;
+  try {
+    await SecureStore.deleteItemAsync(AUTH_KEY, STORE_OPTIONS);
+  } catch (error) {
+    console.warn("[auth] 저장 삭제 실패, 남은 토큰은 쓰지 않는다", error);
+  }
+  const register = async () => {
+    // 이미 저장을 읽어 간 등록이 끝난 뒤에 새로 읽어야 이전 회원 상태를 돌려받지 않는다.
+    await ongoingAuth;
+    await ensureAuth();
+  };
+  try {
+    await withTimeout(register(), ACCOUNT_STEP_TIMEOUT_MS);
+  } catch (error) {
+    console.warn("[auth] 새 비회원 가입이 늦어 토큰 없이 넘어간다", error);
+  }
+}
+
+/**
+ * `POST /api/auth/logout`
+ * 이 기기의 로그인을 끝내고 새 비회원으로 가입
+ *
+ * 서버는 이 기기의 refresh만 폐기하고 같은 계정의 다른 기기는 그대로 둔다.
+ * access 토큰은 서버가 저장하지 않아 만료까지 유효하므로 서버 응답과 상관없이 저장을 지운다.
+ * 진행 중인 갱신과 link가 끝난 뒤의 refresh를 보낸다.
+ * 회전으로 이미 무효가 된 refresh를 보내면 서버가 탈취로 보고 그 계정의 모든 기기를 로그아웃시키기 때문이다.
+ */
+export function logout(): Promise<void> {
+  return runAccountChange(async () => {
+    const state = await awaitAuth();
+    try {
+      if (state?.accessToken && state.refreshToken) {
+        const body = JSON.stringify({ refreshToken: state.refreshToken });
+        await withTimeout(
+          sendAuthed(state, "POST", "/api/auth/logout", body),
+          ACCOUNT_STEP_TIMEOUT_MS,
+        );
+      }
+    } catch (error) {
+      console.warn("[auth] 로그아웃 요청 실패, 저장은 지운다", error);
+    }
+    await startOverAsGuest();
+  });
+}
+
+export type DeleteAccountResult =
+  { status: "success" } | { status: "failed"; code: DeleteAccountFailureCode };
+
+/** 애플 계정만 싣는 탈퇴 본문. 서버가 이 코드로 애플 토큰을 해지한다. */
+export type AppleDeletionProof = { appleAuthorizationCode: string; appleClient: "IOS" };
+
+/**
+ * `DELETE /api/users/me`
+ * 계정과 모든 기록을 지우고 새 비회원으로 가입
+ *
+ * 204만 지운 것으로 보고, 저장을 지우고 다시 가입한다. 서버는 모든 기기를 로그아웃시킨다.
+ * 401이면 한 번 갱신해 다시 보낸다.
+ * 그 밖에는 서버가 지우지 않았으므로 저장을 그대로 두고 코드만 돌려준다.
+ * 실패해도 throw하지 않는다.
+ */
+export function deleteAccount(apple?: AppleDeletionProof): Promise<DeleteAccountResult> {
+  return runAccountChange(() => deleteOnce(apple));
+}
+
+async function deleteOnce(apple?: AppleDeletionProof): Promise<DeleteAccountResult> {
+  const body = apple === undefined ? undefined : JSON.stringify(apple);
+  try {
+    // 진행 중인 갱신이 거부되면 저장이 새 비회원으로 바뀌어, 기다린 뒤의 상태만 보면 그 비회원을 지운다.
+    // 끝나지 않는 요청이 웹의 확인 창을 영영 진행 중으로 두지 않게 기다림마다 상한을 둔다.
+    const stored = await readAuth();
+    const current = await withTimeout(awaitAuth(), ACCOUNT_STEP_TIMEOUT_MS);
+    if (current === null) {
+      return { status: "failed", code: "UNKNOWN" };
+    }
+    if (current.userId !== stored?.userId) {
+      return { status: "failed", code: "SERVER" };
+    }
+    const send = (state: AuthState) =>
+      withTimeout(sendAuthed(state, "DELETE", "/api/users/me", body), ACCOUNT_STEP_TIMEOUT_MS);
+    let res = await send(current);
+    if (res.status === 401) {
+      // link 안의 갱신과 같은 이유로 `refreshAuth`를 거치지 않는다.
+      // 시간이 지나도 갱신은 `ongoingRefresh`에 남아, 뒤이은 갱신이 같은 refresh를 다시 보내지 않고 그 결과를 기다린다.
+      const refreshed = await withTimeout(
+        startRefresh({ resetOnReject: false }),
+        ACCOUNT_STEP_TIMEOUT_MS,
+      );
+      if (refreshed === null) {
+        return { status: "failed", code: "SERVER" };
+      }
+      res = await send(refreshed);
+    }
+    if (res.status !== 204) {
+      return { status: "failed", code: "SERVER" };
+    }
+  } catch (error) {
+    console.warn("[auth] 계정 삭제 요청 실패", error);
+    return { status: "failed", code: "NETWORK" };
+  }
+  await startOverAsGuest();
+  return { status: "success" };
 }

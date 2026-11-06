@@ -20,6 +20,7 @@ import {
   trackNativeEvent,
 } from "../../lib/nativeAnalytics";
 import { lockPortrait, unlockForSession } from "../../lib/orientation";
+import { emitAccountReset } from "../../lib/accountReset";
 import { emitSessionClosed } from "../../lib/sessionClosed";
 import { attachTabBackHandler, handleTabBack } from "../../lib/tabBack";
 import { emitTabReset } from "../../lib/tabReset";
@@ -1222,6 +1223,154 @@ describe("report-screen 복원 (BY-436)", () => {
     expect(uri).toContain("code=0712");
     expect(uri).toContain("appVersion=1.4.2");
     expect(mockWebViewMounted).toHaveBeenCalledTimes(2);
+  });
+
+  it("계정이 바뀌면 보고된 경로를 버리고 탭 첫 화면으로 새 문서를 띄운다", () => {
+    const onRecoveryStart = jest.fn();
+    render(
+      <RemoteWebViewHost
+        path="/settings"
+        query={{ appVersion: "1.4.2", accountActions: "1" }}
+        onRecoveryStart={onRecoveryStart}
+        testID="host"
+      />,
+    );
+    const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+    act(() => {
+      onMessage({
+        nativeEvent: {
+          data: JSON.stringify({ type: "report-screen", path: "/profile", dark: false, atMs: 1 }),
+        },
+      });
+    });
+
+    act(() => {
+      emitAccountReset();
+    });
+
+    const uri = (screen.getByTestId("host").props.source as { uri: string }).uri;
+    expect(uri).toContain("/settings?");
+    expect(uri).not.toContain("/profile");
+    // 앱 안 이동으로 빠진 표시도 처음 주소로 다시 싣는다.
+    expect(uri).toContain("accountActions=1");
+    expect(mockWebViewMounted).toHaveBeenCalledTimes(2);
+    expect(onRecoveryStart).toHaveBeenCalledTimes(1);
+  });
+
+  it("딥링크로 연 하위 화면도 계정이 바뀌면 탭 첫 화면과 공용 쿼리로 다시 연다", () => {
+    render(
+      <RemoteWebViewHost
+        path="/social/groups/42"
+        tabRootPath="/social"
+        query={{ appVersion: "1.4.2", accountActions: "1", tab: "members" }}
+        rootQuery={{ appVersion: "1.4.2", accountActions: "1" }}
+        testID="host"
+      />,
+    );
+
+    act(() => {
+      emitAccountReset();
+    });
+
+    const uri = (screen.getByTestId("host").props.source as { uri: string }).uri;
+    expect(uri).toContain("/social?");
+    expect(uri).not.toContain("/groups/42");
+    expect(uri).not.toContain("tab=members");
+    expect(uri).toContain("accountActions=1");
+  });
+
+  describe("계정 리셋 뒤 새 문서가 화면을 보고하기 전의 재마운트", () => {
+    const DEEP_LINK = {
+      path: "/social/groups/42",
+      query: { appVersion: "1.4.2", accountActions: "1", tab: "members" },
+      rootQuery: { appVersion: "1.4.2", accountActions: "1" },
+    };
+
+    function sourceUri(): string {
+      return (screen.getByTestId("host").props.source as { uri: string }).uri;
+    }
+
+    it("다시 시도도 탭 첫 화면과 공용 쿼리로 연다", () => {
+      render(<RemoteWebViewHost {...DEEP_LINK} tabRootPath="/social" testID="host" />);
+      act(() => {
+        emitAccountReset();
+      });
+
+      fireWebViewEvent("onError");
+      fireEvent.press(screen.getByRole("button", { name: "다시 시도" }));
+
+      expect(sourceUri()).toContain("/social?");
+      expect(sourceUri()).not.toContain("/groups/42");
+      expect(sourceUri()).not.toContain("tab=members");
+      expect(mockWebViewMounted).toHaveBeenCalledTimes(3);
+    });
+
+    it("렌더러 사망 복구도 탭 첫 화면과 공용 쿼리로 연다", () => {
+      render(<RemoteWebViewHost {...DEEP_LINK} tabRootPath="/social" testID="host" />);
+      act(() => {
+        emitAccountReset();
+      });
+      act(() => {
+        (screen.getByTestId("host").props.onLoadEnd as (e: unknown) => void)({ nativeEvent: {} });
+      });
+
+      act(() => {
+        (screen.getByTestId("host").props.onRenderProcessGone as () => void)();
+      });
+
+      expect(sourceUri()).toContain("/social?");
+      expect(sourceUri()).not.toContain("/groups/42");
+      expect(sourceUri()).not.toContain("tab=members");
+      expect(mockWebViewMounted).toHaveBeenCalledTimes(3);
+    });
+
+    it("tabRootPath가 없는 탭은 resetPath를 첫 화면으로 쓰고, 다시 시도에서도 그대로다", () => {
+      render(
+        <RemoteWebViewHost
+          path="/records/2026-11-06"
+          resetPath="/records"
+          query={{ appVersion: "1.4.2", date: "2026-11-06" }}
+          rootQuery={{ appVersion: "1.4.2" }}
+          testID="host"
+        />,
+      );
+      act(() => {
+        emitAccountReset();
+      });
+      expect(sourceUri()).toContain("/records?");
+      expect(sourceUri()).not.toContain("date=");
+
+      fireWebViewEvent("onError");
+      fireEvent.press(screen.getByRole("button", { name: "다시 시도" }));
+
+      expect(sourceUri()).toContain("/records?");
+      expect(sourceUri()).not.toContain("2026-11-06");
+    });
+
+    it("새 문서가 화면을 보고한 뒤에는 보고된 경로로 복원한다", () => {
+      render(<RemoteWebViewHost {...DEEP_LINK} tabRootPath="/social" testID="host" />);
+      act(() => {
+        emitAccountReset();
+      });
+      const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+      act(() => {
+        onMessage({
+          nativeEvent: {
+            data: JSON.stringify({
+              type: "report-screen",
+              path: "/social/invite",
+              dark: false,
+              atMs: 1,
+            }),
+          },
+        });
+      });
+
+      fireWebViewEvent("onError");
+      fireEvent.press(screen.getByRole("button", { name: "다시 시도" }));
+
+      expect(sourceUri()).toContain("/social/invite");
+    });
   });
 
   it("보고가 없으면 재마운트는 원래 경로다", () => {

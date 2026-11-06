@@ -1,4 +1,4 @@
-import type { NativeAnalyticsPropertyValue } from "@focusmakers/types";
+import type { NativeAnalyticsPropertyValue, SocialLoginProvider } from "@focusmakers/types";
 
 /**
  * 네이티브에서만 관측되는 사용자 이벤트를 웹 Amplitude로 넘기는 통로(브리지 `track-event`).
@@ -174,6 +174,14 @@ export type NativeAnalyticsEventMap = AssertNativeAnalyticsCatalog<{
    * 문구가 없거나 강제 업데이트로 막힌 실행, 걷히기 전에 사라진 경우에는 남지 않는다.
    * 목표 문구와 닉네임은 사용자가 쓴 글이라 싣지 않는다.
    */
+  /**
+   * 이 기기 로그아웃 완료(`lib/nativeBridgeHandler.ts`)
+   *
+   * 곧 모든 웹뷰가 다시 마운트되어 웹이 남기면 사라질 수 있어 앱이 남기고, 새 비회원 문서가 받는다.
+   */
+  logout_completed: { provider: SocialLoginProvider };
+  /** 서버가 계정과 모든 기록을 지웠다. 로그아웃과 같은 이유로 앱이 남긴다. 실패는 웹이 `account_deletion_failed`로 남긴다. */
+  account_deleted: { provider: SocialLoginProvider };
   launch_goal_overlay_viewed: {
     visible_ms: number;
     closed_by: "loaded" | "max";
@@ -255,6 +263,16 @@ export function attachNativeAnalyticsSink(sink: NativeAnalyticsSink): () => void
       sinks.splice(index, 1);
     }
   };
+}
+
+/**
+ * 모든 sink 떼기
+ *
+ * 모든 문서가 곧 다시 마운트될 때 부른다.
+ * 호스트의 정리 effect는 렌더가 끝난 뒤에야 돌아서, 그 사이 이벤트가 사라질 문서로 가지 않고 큐에 머물다 새 문서가 받는다.
+ */
+export function detachAllNativeAnalyticsSinks(): void {
+  sinks.length = 0;
 }
 
 /** 테스트 전용: 큐와 sink를 비운다. 프로덕션 코드에서는 호출하지 않는다. */

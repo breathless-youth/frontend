@@ -77,6 +77,10 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   // 웹은 이 표시가 있을 때만 온보딩이나 홈 도착에서 권한을 요청한다(`apps/web/src/lib/nativePushPermission.ts`).
   // 표시 없는 구버전 앱은 실행할 때 이미 물었으므로 웹이 다시 요청하지 않는다.
   params.pushPermission = "1";
+  // `accountActions=1`: 이 바이너리가 `logout`·`delete-account`를 처리할 수 있다는 표시.
+  // 웹은 이 표시가 있을 때만 설정에 로그아웃과 계정 삭제를 보인다(`apps/web/src/lib/nativeAccount.ts`).
+  // 표시 없는 구버전 앱은 로그인은 되지만 이 메시지를 버리므로 누른 버튼이 답을 받지 못한다.
+  params.accountActions = "1";
   // `newUser=1`: 이번 실행에서 계정이 새로 생겼다는 표시. 웹은 이 표시로 온보딩을 시작한다(`apps/web/src/features/onboarding/onboardingGate.ts`).
   // 등록이 끝난 뒤에 파라미터를 만들어서 기다림이 늘지 않는다.
   if (isNewUserThisLaunch()) {

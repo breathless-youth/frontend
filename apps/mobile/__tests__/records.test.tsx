@@ -45,7 +45,7 @@ jest.mock("react-native-webview", () => {
 
 describe("RecordsScreen 딥링크 파라미터", () => {
   const SHARED =
-    "appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&pushPermission=1&nativeTabBar=1";
+    "appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&pushPermission=1&accountActions=1&nativeTabBar=1";
 
   afterEach(() => {
     delete mockParams.path;

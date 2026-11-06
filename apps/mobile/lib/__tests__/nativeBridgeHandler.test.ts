@@ -5,11 +5,13 @@ import { waitFor } from "@testing-library/react-native";
 import type { HandlerMessage } from "@focusmakers/types";
 
 import { __resetActiveTabForTests, setActiveTabRoute } from "../activeTab";
-import { awaitAuth, ensureAuth, refreshAuth } from "../auth";
+import { awaitAuth, ensureAuth, logout, refreshAuth } from "../auth";
+import { emitAccountReset } from "../accountReset";
 import type * as AuthModule from "../auth";
 import {
   __resetNativeAnalyticsForTests,
   attachNativeAnalyticsSink,
+  trackNativeEvent,
   type NativeAnalyticsEvent,
 } from "../nativeAnalytics";
 import { __resetStartSessionInFlightForTests, handleBridgeMessage } from "../nativeBridgeHandler";
@@ -27,13 +29,13 @@ import { emitSessionClosed } from "../sessionClosed";
 import { __resetSessionPresenceForTests, markSessionOpen } from "../sessionPresence";
 import { appendVideoChunk, saveVideo, shareVideo } from "../videoTransfer";
 import { handleAppLockMessage } from "../appLock/appLockRelay";
-import { saveLaunchGoal } from "../launchGoal";
+import { clearLaunchGoal, saveLaunchGoal } from "../launchGoal";
 import { acknowledgeInstallAttribution } from "../installAttribution";
 import { waitForStartPrompts } from "../launchReady";
 import { ensurePushPermission } from "../pushBootstrap";
 import { openPushRoute } from "../pushRouteOpener";
 import { registerPushToken } from "../pushTokenRegistration";
-import { socialLogin } from "../socialLogin";
+import { deleteAccountWithReauth, socialLogin } from "../socialLogin";
 
 /**
  * 브리지 수신 공용 핸들러(BY-333) — `RemoteWebViewHost`를 쓰는 화면(탭 3개 + 세션) 전부가
@@ -86,7 +88,9 @@ jest.mock("../auth", () => ({
   awaitAuth: jest.fn(),
   ensureAuth: jest.fn(),
   refreshAuth: jest.fn(),
+  logout: jest.fn(),
 }));
+jest.mock("../accountReset", () => ({ emitAccountReset: jest.fn() }));
 
 jest.mock("../appLock/appLockRelay", () => ({
   handleAppLockMessage: jest.fn(async () => undefined),
@@ -94,6 +98,7 @@ jest.mock("../appLock/appLockRelay", () => ({
 
 jest.mock("../launchGoal", () => ({
   saveLaunchGoal: jest.fn(async () => undefined),
+  clearLaunchGoal: jest.fn(async () => undefined),
 }));
 
 jest.mock("../launchReady", () => ({
@@ -112,7 +117,10 @@ jest.mock("../pushRouteOpener", () => ({
   openPushRoute: jest.fn(),
 }));
 
-jest.mock("../socialLogin", () => ({ socialLogin: jest.fn() }));
+jest.mock("../socialLogin", () => ({
+  socialLogin: jest.fn(),
+  deleteAccountWithReauth: jest.fn(),
+}));
 jest.mock("../installAttribution", () => ({
   acknowledgeInstallAttribution: jest.fn(async () => undefined),
 }));
@@ -1202,4 +1210,134 @@ describe("social-login", () => {
     expect(socialLogin).toHaveBeenCalledWith("KAKAO");
     expect(reply).toHaveBeenCalledTimes(1);
   });
+});
+
+describe("logout", () => {
+  let received: NativeAnalyticsEvent[];
+
+  beforeEach(() => {
+    __resetNativeAnalyticsForTests();
+    received = [];
+    attachNativeAnalyticsSink((event) => received.push(event));
+  });
+
+  afterEach(() => {
+    __resetNativeAnalyticsForTests();
+  });
+
+  it("로그아웃이 끝나면 답하고, 완료 이벤트를 새 문서 몫으로 남긴 뒤 모든 웹뷰를 다시 띄우고 홈 탭으로 옮긴다", async () => {
+    const order: string[] = [];
+    (logout as jest.Mock).mockResolvedValue(undefined);
+    (emitAccountReset as jest.Mock).mockImplementation(() => order.push("reset"));
+    const reply = jest.fn(() => order.push("reply"));
+
+    handleBridgeMessage({ type: "logout", id: "o1", provider: "KAKAO", atMs: 1 }, reply);
+
+    await waitFor(() => expect(emitAccountReset).toHaveBeenCalledTimes(1));
+    expect(reply).toHaveBeenCalledWith({
+      type: "logout-result",
+      id: "o1",
+      atMs: expect.any(Number),
+    });
+    expect(order).toEqual(["reply", "reset"]);
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/");
+    // 지금 문서는 곧 다시 마운트되므로 이벤트는 다음에 준비되는 문서가 받는다.
+    expect(received).toEqual([]);
+    const next: NativeAnalyticsEvent[] = [];
+    attachNativeAnalyticsSink((event) => next.push(event));
+    expect(next.map((event) => [event.name, event.properties])).toEqual([
+      ["logout_completed", { provider: "KAKAO" }],
+    ]);
+    // 다음 실행의 시작 오버레이에 이전 계정의 목표와 닉네임이 보이지 않게 한다.
+    expect(clearLaunchGoal).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("계정이 바뀐 뒤 처음 화면으로", () => {
+  it("목표 문구를 다 지운 뒤에 웹뷰를 다시 띄운다", async () => {
+    const order: string[] = [];
+    let finishClear: () => void = () => {};
+    (logout as jest.Mock).mockResolvedValue(undefined);
+    (clearLaunchGoal as jest.Mock).mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          order.push("clear");
+          finishClear = () => resolve();
+        }),
+    );
+    (emitAccountReset as jest.Mock).mockImplementation(() => order.push("reset"));
+    mockedRouter.navigate.mockImplementation(() => order.push("navigate"));
+    const reply = jest.fn(() => order.push("reply"));
+
+    handleBridgeMessage({ type: "logout", id: "o2", provider: "GOOGLE", atMs: 1 }, reply);
+
+    // 새 계정의 첫 프로필 조회가 저장한 목표 문구를 늦게 끝난 지우기가 없애지 않게 한다.
+    await waitFor(() => expect(clearLaunchGoal).toHaveBeenCalledTimes(1));
+    expect(emitAccountReset).not.toHaveBeenCalled();
+    finishClear();
+    await waitFor(() => expect(mockedRouter.navigate).toHaveBeenCalledWith("/"));
+    expect(order).toEqual(["reply", "clear", "reset", "navigate"]);
+  });
+});
+
+describe("delete-account", () => {
+  let received: NativeAnalyticsEvent[];
+
+  beforeEach(() => {
+    __resetNativeAnalyticsForTests();
+    received = [];
+    attachNativeAnalyticsSink((event) => received.push(event));
+  });
+
+  afterEach(() => {
+    __resetNativeAnalyticsForTests();
+  });
+
+  it("성공하면 답하고, 삭제 이벤트를 새 문서 몫으로 남긴 뒤 모든 웹뷰를 다시 띄우고 홈 탭으로 옮긴다", async () => {
+    (deleteAccountWithReauth as jest.Mock).mockResolvedValue({ status: "success" });
+    const reply = jest.fn();
+
+    handleBridgeMessage({ type: "delete-account", id: "d1", provider: "APPLE", atMs: 1 }, reply);
+
+    await waitFor(() => expect(emitAccountReset).toHaveBeenCalledTimes(1));
+    expect(deleteAccountWithReauth).toHaveBeenCalledWith("APPLE");
+    expect(reply).toHaveBeenCalledWith({
+      type: "delete-account-result",
+      id: "d1",
+      status: "success",
+      atMs: expect.any(Number),
+    });
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/");
+    expect(received).toEqual([]);
+    const next: NativeAnalyticsEvent[] = [];
+    attachNativeAnalyticsSink((event) => next.push(event));
+    expect(next.map((event) => [event.name, event.properties])).toEqual([
+      ["account_deleted", { provider: "APPLE" }],
+    ]);
+    expect(clearLaunchGoal).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([[{ status: "cancelled" }], [{ status: "failed", code: "NETWORK" }]])(
+    "결과 %o는 답만 하고 웹뷰와 분석 sink를 그대로 둔다",
+    async (result) => {
+      (deleteAccountWithReauth as jest.Mock).mockResolvedValue(result);
+      const reply = jest.fn();
+
+      handleBridgeMessage({ type: "delete-account", id: "d2", provider: "KAKAO", atMs: 1 }, reply);
+
+      await waitFor(() =>
+        expect(reply).toHaveBeenCalledWith({
+          type: "delete-account-result",
+          id: "d2",
+          ...result,
+          atMs: expect.any(Number),
+        }),
+      );
+      expect(emitAccountReset).not.toHaveBeenCalled();
+      expect(mockedRouter.navigate).not.toHaveBeenCalled();
+      expect(clearLaunchGoal).not.toHaveBeenCalled();
+      trackNativeEvent("app_backgrounded");
+      expect(received.map((event) => event.name)).toEqual(["app_backgrounded"]);
+    },
+  );
 });
