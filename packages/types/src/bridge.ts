@@ -141,6 +141,8 @@ export type ToWebMessage =
       atMs: number;
     }
   | SocialLoginResultMessage
+  | LogoutResultMessage
+  | DeleteAccountResultMessage
   | CameraPermissionMessage
   | TrackEventMessage
   | InstallAttributionMessage
@@ -255,6 +257,42 @@ export type SocialLoginResultMessage =
       id: string;
       status: "failed";
       code: SocialLoginFailureCode;
+      atMs: number;
+    };
+
+/**
+ * 로그아웃 결과
+ *
+ * `logout`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+ * 앱은 서버 응답과 상관없이 저장된 토큰을 지우고 새 비회원으로 가입한 뒤 보내므로 실패가 없다.
+ * 앱은 이 결과를 보낸 뒤 모든 탭 웹뷰를 첫 화면으로 다시 띄우고 홈 탭으로 옮긴다.
+ */
+export type LogoutResultMessage = { type: "logout-result"; id: string; atMs: number };
+
+/**
+ * 계정 삭제 실패 코드
+ *
+ * `NETWORK`는 서버에 닿지 못한 경우, `SERVER`는 서버가 지우지 않았다고 답한 경우다.
+ * 웹 파서가 이 목록으로 검사한다.
+ */
+export const DELETE_ACCOUNT_FAILURE_CODES = ["NETWORK", "SERVER", "UNKNOWN"] as const;
+export type DeleteAccountFailureCode = (typeof DELETE_ACCOUNT_FAILURE_CODES)[number];
+
+/**
+ * 계정 삭제 결과
+ *
+ * `delete-account`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+ * 성공이면 앱이 새 비회원 토큰의 `auth-token`을 먼저 보내고, 결과를 보낸 뒤 로그아웃처럼 모든 탭 웹뷰를 다시 띄운다.
+ * `cancelled`는 애플 계정의 다시 로그인 창을 사용자가 닫은 경우이고 서버에 요청하지 않았다.
+ * 실패하면 계정과 토큰은 그대로다.
+ */
+export type DeleteAccountResultMessage =
+  | { type: "delete-account-result"; id: string; status: "success" | "cancelled"; atMs: number }
+  | {
+      type: "delete-account-result";
+      id: string;
+      status: "failed";
+      code: DeleteAccountFailureCode;
       atMs: number;
     };
 
@@ -480,6 +518,20 @@ export type ToNativeMessage =
    * 앱이 웹뷰 주소의 `socialLogin`에 넣은 공급자만 보내고, 앱은 같은 `id`의 `social-login-result`로 답한다.
    */
   | { type: "social-login"; id: string; provider: SocialLoginProvider; atMs: number }
+  /**
+   * 이 기기 로그아웃 요청
+   *
+   * 앱이 웹뷰 주소에 `accountActions=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `logout-result`로 답한다.
+   * `provider`는 프로필의 로그인 공급자이고 앱이 남기는 완료 이벤트에만 쓴다.
+   */
+  | { type: "logout"; id: string; provider: SocialLoginProvider; atMs: number }
+  /**
+   * 계정 삭제 요청
+   *
+   * `accountActions=1`일 때만 보내고, 앱은 같은 `id`의 `delete-account-result`로 답한다.
+   * `provider`는 프로필의 로그인 공급자이고, 애플이면 앱이 애플 로그인을 다시 띄워 서버가 요구하는 인가 코드를 받는다.
+   */
+  | { type: "delete-account"; id: string; provider: SocialLoginProvider; atMs: number }
   | SetTabBarMessage
   | SetBackGestureMessage
   | SetBackLockMessage
