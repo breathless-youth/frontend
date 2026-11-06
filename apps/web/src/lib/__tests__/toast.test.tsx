@@ -1,12 +1,16 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Bell } from "lucide-react";
+import { useEffect } from "react";
+import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { notifyLoginSuccess } from "@/lib/authSuccessToast";
 import { CtaToaster, Toaster } from "@/components/ui/sonner";
-import { showCtaToast, showIconToast, showToast, showTopToast } from "@/lib/toast";
+import { dismissToast, showCtaToast, showIconToast, showToast, showTopToast } from "@/lib/toast";
 
 afterEach(() => {
+  vi.restoreAllMocks();
   act(() => {
     toast.dismiss();
   });
@@ -149,5 +153,64 @@ describe("showIconToast", () => {
     const after = await screen.findByText("After");
     expect(after.closest("[data-sonner-toast]")?.querySelector("svg")).toBeNull();
     expect(screen.queryByText("Enabled")).not.toBeInTheDocument();
+  });
+});
+
+describe("성공 뒤 화면 이동", () => {
+  it("로그인 성공 안내는 경로 정리 뒤에도 아래에 남고 이전 토스트를 되살리지 않는다", async () => {
+    function LoginDestination() {
+      const { pathname } = useLocation();
+      const navigate = useNavigate();
+      useEffect(() => {
+        dismissToast({ forNavigation: true });
+      }, [pathname]);
+      return (
+        <>
+          <Toaster />
+          <p>{pathname}</p>
+          <button
+            onClick={() => {
+              notifyLoginSuccess();
+              navigate("/social/groups/1", { replace: true });
+            }}
+          >
+            로그인 완료
+          </button>
+        </>
+      );
+    }
+    render(
+      <MemoryRouter initialEntries={["/social"]}>
+        <LoginDestination />
+      </MemoryRouter>,
+    );
+    act(() => showToast("이전 안내"));
+    await screen.findByText("이전 안내");
+    const dismiss = vi.spyOn(toast, "dismiss");
+    fireEvent.click(screen.getByRole("button", { name: "로그인 완료" }));
+    expect(screen.getByText("/social/groups/1")).toBeInTheDocument();
+    await screen.findByText("로그인을 성공했어요!");
+    expect(dismiss).not.toHaveBeenCalled();
+    dismiss.mockRestore();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    });
+    const success = screen.getByText("로그인을 성공했어요!");
+    expect(success.closest("[data-sonner-toaster]")).toHaveAttribute("data-y-position", "bottom");
+    expect(screen.queryByText("이전 안내")).not.toBeInTheDocument();
+    act(() => dismissToast());
+    await waitFor(() => expect(screen.queryByText("로그인을 성공했어요!")).not.toBeInTheDocument());
+    expect(screen.queryByText("이전 안내")).not.toBeInTheDocument();
+  });
+
+  it("성공 안내를 일반 토스트가 대체하면 경로 이동에서 다시 지운다", async () => {
+    render(<Toaster />);
+    act(() => showToast("성공", { persistOnNavigation: true }));
+    await screen.findByText("성공");
+    act(() => showToast("일반 안내"));
+    await screen.findByText("일반 안내");
+    act(() => dismissToast({ forNavigation: true }));
+    await waitFor(() => expect(screen.queryByText("일반 안내")).not.toBeInTheDocument());
+    expect(screen.queryByText("성공")).not.toBeInTheDocument();
   });
 });

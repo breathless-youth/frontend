@@ -59,6 +59,7 @@ export function GroupRoomPage({
       userId={userId}
       graceRejoin={entry?.graceRejoin === true}
       initialIceServers={entry?.iceServers ?? []}
+      initialSubjectId={entry?.initialSubjectId}
       createChannel={createChannel ?? ((options) => createStompRoomChannel(options))}
       createCamera={createCamera}
       createPeerConnection={createPeerConnection}

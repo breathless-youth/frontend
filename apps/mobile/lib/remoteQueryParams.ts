@@ -36,6 +36,7 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   const appVersion = Constants.expoConfig?.version;
 
   const params: RemoteQueryParams = {};
+  params.subjectStart = "1";
   if (appVersion) {
     params.appVersion = appVersion;
   }

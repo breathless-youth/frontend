@@ -4,6 +4,9 @@ import { settleRecoveredTimelapse } from "@/features/timelapse/timelapseRecorder
 import { API_BASE_URL, apiFetch, parseApiError } from "@/lib/api";
 import { reportHandled } from "@/lib/sentry";
 import { legacyQuery } from "@/lib/userId";
+import { queryClient } from "@/lib/queryClient";
+import { plannerKeys } from "@/lib/plannerQueries";
+import { postToNative } from "@/lib/bridge";
 
 /**
  * 마감에 거는 상한. 이 시간이 지나면 결과를 기다리지 않고 화면을 넘긴다.
@@ -39,6 +42,8 @@ async function requestRecovery(signal: AbortSignal): Promise<SessionRecoveryResp
   if (!res.ok) {
     throw await parseApiError(res, "stale session close failed");
   }
+  void queryClient.invalidateQueries({ queryKey: plannerKeys.all });
+  postToNative({ type: "records-changed", atMs: Date.now() });
   // 여기부터 마감은 이미 성공한 상태다. 본문이 깨져 화면에 못 보여줄 뿐이면 다시 보내거나
   // 실패로 보고하지 않고 기록 없이 끝낸다 (throw하면 성공한 마감이 한 번 더 나간다).
   let body: unknown;

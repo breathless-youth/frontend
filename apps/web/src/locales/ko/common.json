@@ -26,5 +26,10 @@
   },
   "errors": {
     "retryLater": "잠시 후 다시 시도해 주세요"
+  },
+  "authSuccess": {
+    "login": "로그인을 성공했어요!",
+    "logout": "로그아웃 되었어요",
+    "deleted": "계정이 삭제되었어요"
   }
 }

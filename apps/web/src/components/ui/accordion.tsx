@@ -42,12 +42,16 @@ AccordionTrigger.displayName = AccordionPrimitive.Trigger.displayName;
 
 const AccordionContent = React.forwardRef<
   React.ElementRef<typeof AccordionPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Content> & { animated?: boolean }
->(({ className, children, animated = true, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Content> & {
+    animated?: boolean;
+    overflowVisible?: boolean;
+  }
+>(({ className, children, animated = true, overflowVisible = false, ...props }, ref) => (
   <AccordionPrimitive.Content
     ref={ref}
     className={cn(
-      "overflow-hidden text-sm",
+      "text-sm",
+      overflowVisible ? "overflow-visible" : "overflow-hidden",
       animated &&
         "data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down",
     )}

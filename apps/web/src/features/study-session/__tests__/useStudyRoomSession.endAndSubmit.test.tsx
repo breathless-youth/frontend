@@ -1,8 +1,9 @@
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { queryClient } from "@/lib/queryClient";
 import { statsKeys } from "@/lib/statsQueries";
+import { plannerKeys } from "@/lib/plannerQueries";
 
 import { submitStudySession } from "../submitStudySession";
 import { useStudyRoomSession } from "../useStudyRoomSession";
@@ -14,6 +15,10 @@ vi.mock("@/lib/haptics", () => ({ haptic }));
 beforeEach(() => {
   vi.mocked(submitStudySession).mockReset();
   haptic.mockReset();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe("endAndSubmit 중복 호출", () => {
@@ -54,6 +59,33 @@ describe("endAndSubmit 중복 호출", () => {
 });
 
 describe("완료 할 일 전달 (BY-725)", () => {
+  it("완료 저장이 끝날 때까지 기다린 뒤 실제 할 일 번호로 제출한다", async () => {
+    let finish!: (ids: number[]) => void;
+    const completed = new Promise<number[]>((resolve) => {
+      finish = resolve;
+    });
+    vi.mocked(submitStudySession).mockResolvedValueOnce([]);
+    const hook = renderHook(() => useStudyRoomSession(7, { getCompletedTaskIds: () => completed }));
+    await act(async () => {
+      void hook.result.current.endAndSubmit();
+    });
+    expect(submitStudySession).not.toHaveBeenCalled();
+    await act(async () => {
+      finish([42]);
+    });
+    expect(vi.mocked(submitStudySession).mock.calls[0]![0].completedTaskIds).toEqual([42]);
+  });
+  it("완료 번호를 확인하지 못해도 공부 기록을 제출한다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValueOnce([]);
+    const hook = renderHook(() =>
+      useStudyRoomSession(7, { getCompletedTaskIds: async () => undefined }),
+    );
+    await act(async () => {
+      await hook.result.current.endAndSubmit();
+    });
+    expect(hook.result.current.phase.name).toBe("done");
+    expect(vi.mocked(submitStudySession).mock.calls[0]![0].completedTaskIds).toBeUndefined();
+  });
   it("제출 직전에 훅의 세션 시작 시각으로 콜백을 부르고 결과를 completedTaskIds로 싣는다", async () => {
     vi.mocked(submitStudySession).mockResolvedValueOnce([]);
     const getCompletedTaskIds = vi.fn(() => [5, 9]);
@@ -94,14 +126,14 @@ describe("완료 할 일 전달 (BY-725)", () => {
 });
 
 describe("제출 성공 후 통계 무효화", () => {
-  it("성공하면 statsKeys.all을 한 번 무효화한다", async () => {
+  it("성공하면 통계와 개인 플래너를 무효화한다", async () => {
     const invalidate = vi.spyOn(queryClient, "invalidateQueries").mockResolvedValue(undefined);
     vi.mocked(submitStudySession).mockResolvedValueOnce([]);
     const hook = renderHook(() => useStudyRoomSession(7));
     await act(async () => {
       await hook.result.current.endAndSubmit();
     });
-    expect(invalidate).toHaveBeenCalledTimes(1);
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: plannerKeys.all });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: statsKeys.all });
     invalidate.mockRestore();
   });

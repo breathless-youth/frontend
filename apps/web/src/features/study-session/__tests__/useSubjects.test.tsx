@@ -262,7 +262,7 @@ describe("useSubjects 이름 중복", () => {
 
     expect(created).toBeNull();
     expect(createSubject).not.toHaveBeenCalled();
-    expect(onError).toHaveBeenCalledWith("이미 있는 과목이에요");
+    expect(onError).toHaveBeenCalledWith("이미 같은 이름의 과목이 있어요");
   });
 
   it("다른 과목이 쓰는 이름으로는 바꾸지 않고, 서버가 409로 거절해도 같은 안내를 한다", async () => {
@@ -272,7 +272,7 @@ describe("useSubjects 이름 중복", () => {
       await hook.result.current.renameSubject(2, "과목1");
     });
     expect(renameSubject).not.toHaveBeenCalled();
-    expect(onError).toHaveBeenLastCalledWith("이미 있는 과목이에요");
+    expect(onError).toHaveBeenLastCalledWith("이미 같은 이름의 과목이 있어요");
 
     // 목록이 낡아 화면 검사를 지나친 경우 — 서버 거절을 같은 문구로 알린다.
     onError.mockClear();
@@ -282,7 +282,7 @@ describe("useSubjects 이름 중복", () => {
     await act(async () => {
       await hook.result.current.renameSubject(2, "새 이름");
     });
-    expect(onError).toHaveBeenCalledWith("이미 있는 과목이에요");
+    expect(onError).toHaveBeenCalledWith("이미 같은 이름의 과목이 있어요");
   });
 
   it("같은 이름이 이미 둘인 과목도 지금 이름 그대로는 서버에 보낸다", async () => {

@@ -24,6 +24,7 @@ import { postToNative } from "@/lib/bridge";
 import { createManualRecord, deleteManualRecord, updateManualRecord } from "@/lib/manualRecordApi";
 import { mockDeviceTimeZone } from "@/test/deviceTimeZone";
 import { statsKeys } from "@/lib/statsQueries";
+import { plannerKeys } from "@/lib/plannerQueries";
 import {
   enterGlassChrome,
   measureControlsNow,
@@ -328,6 +329,7 @@ describe("ManualRecordForm", () => {
     });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: statsKeys.all });
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ["subjects"] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: plannerKeys.all });
     expect(vi.mocked(postToNative)).toHaveBeenCalledWith(
       expect.objectContaining({ type: "records-changed" }),
     );

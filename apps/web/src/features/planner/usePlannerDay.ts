@@ -1,9 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef } from "react";
 
+import { syncProfileTimeZone } from "@/features/profile/useTimeZoneSync";
 import { addDaysToDateKey } from "@/features/records/recordsFormat";
-import { dailyStatsQuery } from "@/lib/statsQueries";
+import { listStudySessionStats } from "@/lib/statsApi";
+import { dailyStatsQuery, statsKeys } from "@/lib/statsQueries";
 
 import { EMPTY_STATS, assemblePlannerDay, type PlannerDay } from "./plannerDay";
+import { usePlannerClock } from "./usePlannerClock";
 import { localDateKey } from "@/lib/dateKey";
 
 export type PlannerDayState =
@@ -25,48 +29,74 @@ export type PlannerDayState =
 export function usePlannerDay(userId: number | null, dateKey: string): PlannerDayState {
   const nextKey = addDaysToDateKey(dateKey, 1);
   // 아직 오지 않은 날짜는 조회하지 않는다 — 기록이 있을 수 없다. 미래 날짜의 플래너는 둘 다 건너뛴다.
-  const todayKey = localDateKey();
+  const { todayKey, timeZone, nowMs } = usePlannerClock();
+  const queryClient = useQueryClient();
+  const previousClock = useRef({ todayKey, timeZone });
   const dayIsFuture = dateKey > todayKey;
-  const nextIsFuture = nextKey > todayKey;
+  // 새벽 기록은 다음 달력 날짜의 응답에 들어 있어 05시 오늘 판정과 구분한다.
+  const nextIsFuture = dayIsFuture || nextKey > localDateKey(new Date(nowMs), timeZone);
 
   // 지난 날은 열 때와 날짜를 넘길 때 모두 새로 받는다. refetchOnMount는 마운트에만 듣고, 같은 화면에서
   // 날짜만 바뀌면(쿼리 키 변경) staleTime을 따르므로 둘 다 준다.
   const freshOnOpen =
     dateKey < todayKey ? ({ staleTime: 0, refetchOnMount: "always" } as const) : {};
 
+  const syncedStatsQuery = (calendarDate: string) => ({
+    ...dailyStatsQuery(userId ?? 0, calendarDate),
+    queryFn: async ({ signal }: { signal: AbortSignal }) => {
+      await syncProfileTimeZone(userId ?? 0, timeZone);
+      signal.throwIfAborted();
+      return listStudySessionStats(calendarDate);
+    },
+  });
+
   const day = useQuery({
-    ...dailyStatsQuery(userId ?? 0, dateKey),
+    ...syncedStatsQuery(dateKey),
     ...freshOnOpen,
     enabled: userId != null && !dayIsFuture,
   });
   const next = useQuery({
-    ...dailyStatsQuery(userId ?? 0, nextKey),
+    ...syncedStatsQuery(nextKey),
     ...freshOnOpen,
     enabled: userId != null && !nextIsFuture,
   });
+
+  useEffect(() => {
+    const previous = previousClock.current;
+    previousClock.current = { todayKey, timeZone };
+    if (userId === null || (previous.todayKey === todayKey && previous.timeZone === timeZone))
+      return;
+
+    if (previous.timeZone !== timeZone) {
+      void queryClient.invalidateQueries({ queryKey: statsKeys.all, refetchType: "none" });
+    }
+    // 화면을 둔 채 05시를 넘기면 완료 목록의 출처가 바뀐다. 키가 같아도 두 날짜를 다시 받는다.
+    void queryClient.invalidateQueries({ queryKey: statsKeys.daily(userId, dateKey) });
+    void queryClient.invalidateQueries({ queryKey: statsKeys.daily(userId, nextKey) });
+  }, [queryClient, userId, dateKey, nextKey, todayKey, timeZone]);
 
   const dayData = dayIsFuture ? EMPTY_STATS : day.data;
   const nextData = nextIsFuture ? EMPTY_STATS : next.data;
   const assembled =
     dayData !== undefined && nextData !== undefined
-      ? assemblePlannerDay(dateKey, dayData, nextData)
+      ? assemblePlannerDay(dateKey, dayData, nextData, timeZone)
       : null;
 
-  if (assembled !== null) {
-    return { status: "success", day: assembled };
-  }
-  if (day.isError || next.isError) {
+  if ((!dayIsFuture && day.isError) || (!nextIsFuture && next.isError)) {
     return {
       status: "error",
       retry: () => {
-        if (day.isError) {
+        if (!dayIsFuture && day.isError) {
           void day.refetch();
         }
-        if (next.isError) {
+        if (!nextIsFuture && next.isError) {
           void next.refetch();
         }
       },
     };
+  }
+  if (assembled !== null) {
+    return { status: "success", day: assembled };
   }
   return { status: "pending" };
 }

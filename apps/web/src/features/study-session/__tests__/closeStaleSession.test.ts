@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { closeStaleSession } from "../closeStaleSession";
+import { queryClient } from "@/lib/queryClient";
+import { plannerDay } from "@/test/plannerFixtures";
 
 const reportHandled = vi.hoisted(() => vi.fn());
 const settleRecoveredTimelapse = vi.hoisted(() => vi.fn(async () => {}));
@@ -40,6 +42,7 @@ describe("closeStaleSession", () => {
     vi.unstubAllGlobals();
     vi.useRealTimers();
     settleRecoveredTimelapse.mockClear();
+    queryClient.removeQueries({ queryKey: ["planner"] });
   });
 
   it("확정된 세션의 타임랩스를 정리한다", async () => {
@@ -78,6 +81,21 @@ describe("closeStaleSession", () => {
     expect(recovered).toBeNull();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(reportHandled).not.toHaveBeenCalled();
+  });
+
+  it("복구가 HTTP 성공이면 본문을 읽지 못해도 개인 플래너를 갱신한다", async () => {
+    const key = ["planner", 7, "day", "2026-11-06", "Asia/Seoul"];
+    queryClient.setQueryData(key, plannerDay());
+    fetchMock.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.reject(new SyntaxError("bad json")),
+    });
+
+    await expect(closeStaleSession(7)).resolves.toBeNull();
+
+    expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("본문의 시각을 읽을 수 없으면 기록 없이 끝낸다", async () => {

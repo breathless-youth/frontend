@@ -98,3 +98,14 @@ it("홈 도착 요청은 문서당 한 번만 보낸다 — 홈은 탭을 오가
 
   expect(postMessage).toHaveBeenCalledTimes(1);
 });
+
+it("홈 도착의 중복 호출도 같은 권한 응답이 끝날 때까지 기다린다", async () => {
+  withPushPermissionShell();
+  const first = requestPushPermissionOnHomeArrival();
+  const second = requestPushPermissionOnHomeArrival();
+  nativeEntry()(JSON.stringify({ type: "push-permission-result", status: "granted", atMs: 1 }));
+  await expect(first).resolves.toBe("granted");
+  await expect(second).resolves.toBe("granted");
+  await expect(requestPushPermissionOnHomeArrival()).resolves.toBe("granted");
+  expect(postMessage).toHaveBeenCalledTimes(1);
+});

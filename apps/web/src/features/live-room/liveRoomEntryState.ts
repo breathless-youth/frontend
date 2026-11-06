@@ -20,6 +20,7 @@ export function isLiveRoomState(state: unknown): state is LiveRoomLocationState 
 
 /** 그룹 홈이 자리를 잡고 공부방 라우트로 넘기는 입장 정보 */
 export type GroupRoomLocationState = {
+  initialSubjectId?: number;
   roomId: number;
   graceRejoin: boolean;
   iceServers: IceServer[];
@@ -32,6 +33,10 @@ export function isGroupRoomState(state: unknown): state is GroupRoomLocationStat
   const value = state as Record<string, unknown>;
   return (
     typeof value.roomId === "number" &&
+    (value.initialSubjectId === undefined ||
+      (typeof value.initialSubjectId === "number" &&
+        Number.isSafeInteger(value.initialSubjectId) &&
+        value.initialSubjectId > 0)) &&
     typeof value.graceRejoin === "boolean" &&
     Array.isArray(value.iceServers)
   );

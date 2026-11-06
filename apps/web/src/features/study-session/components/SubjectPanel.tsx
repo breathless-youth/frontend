@@ -315,13 +315,15 @@ function AddTaskButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-function TaskRow({
+export function TaskRow({
   task,
   onToggle,
   onLongPress,
   onRemove,
+  disabled = false,
 }: {
-  task: TaskResponse;
+  task: Pick<TaskResponse, "name" | "doneAt">;
+  disabled?: boolean;
   onToggle: (done: boolean) => void;
   onLongPress: (element: HTMLElement) => void;
   onRemove: () => void;
@@ -329,9 +331,15 @@ function TaskRow({
   const { t } = useTranslation(["study-session", "common"]);
   const done = task.doneAt !== null;
   const { swipeX, pressed, handlers } = usePressGestures({
-    onTap: () => onToggle(!done),
-    onLongPress,
-    onSwipeLeft: onRemove,
+    onTap: () => {
+      if (!disabled) onToggle(!done);
+    },
+    onLongPress: (element) => {
+      if (!disabled) onLongPress(element);
+    },
+    onSwipeLeft: () => {
+      if (!disabled) onRemove();
+    },
   });
   const swiping = swipeX !== 0;
   return (
@@ -348,10 +356,11 @@ function TaskRow({
         role="checkbox"
         tabIndex={0}
         aria-checked={done}
+        aria-disabled={disabled || undefined}
         aria-label={task.name}
         {...handlers}
         onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
+          if (!disabled && (event.key === "Enter" || event.key === " ")) {
             event.preventDefault();
             onToggle(!done);
           }
@@ -378,7 +387,7 @@ function TaskRow({
         </span>
         <span
           className={cn(
-            "min-w-0 flex-1 truncate text-[15px] leading-5 font-medium",
+            "min-w-0 flex-1 py-2 text-[15px] leading-5 font-medium wrap-break-word whitespace-normal",
             done ? "text-white/45 line-through" : "text-white/90",
           )}
         >
@@ -396,7 +405,7 @@ function TaskRow({
  * 눌러도 측정 과목이 바뀌지 않는다.
  * 할 일을 관리하다 카드를 건드려도 측정 과목이 그대로 남아야 해서 측정 과목은 재생 버튼으로만 바꾼다.
  */
-function SubjectRow({
+export function SubjectRow({
   layout,
   viewing = false,
   subject,
@@ -416,7 +425,7 @@ function SubjectRow({
   layout: "card" | "row";
   /** 가로 목록에서 이 과목의 할 일이 오른쪽에 보이는가. */
   viewing?: boolean;
-  subject: SubjectResponse;
+  subject: Pick<SubjectResponse, "id" | "name" | "colorIndex">;
   focusSec: number;
   selected: boolean;
   /** 고른 과목의 시간이 지금 흐르는가 — 세션이 일시정지면 고른 과목도 멈춰 있다. */

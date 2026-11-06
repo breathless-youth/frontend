@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { isTextEntry } from "../useLandscapeLayout";
 
 export interface SessionPageProps {
+  variant?: "default" | "planner";
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** 포털 자리. `--session-*` 변수가 풀리도록 세션 `main`을 넘긴다. */
@@ -44,6 +45,7 @@ export function SessionPage({
   headerExtras,
   landscape,
   children,
+  variant = "default",
 }: SessionPageProps) {
   const { t } = useTranslation("common");
   return (
@@ -71,9 +73,26 @@ export function SessionPage({
             : "page-column",
         )}
       >
-        <div className="flex h-[calc(52px+env(safe-area-inset-top))] shrink-0 items-center px-1 pt-[env(safe-area-inset-top)]">
-          <SessionPageBackButton label={t("actions.back")} />
-          <SheetTitle className="truncate text-[17px] leading-5.25 font-bold tracking-normal text-(--session-dialog-title)">
+        <div
+          className={cn(
+            "flex shrink-0 items-center",
+            variant === "planner" && !landscape
+              ? "h-[calc(60px+env(safe-area-inset-top))] gap-0.5 pr-4 pl-2 pt-[calc(8px+env(safe-area-inset-top))]"
+              : "h-[calc(52px+env(safe-area-inset-top))] px-1 pt-[env(safe-area-inset-top)]",
+          )}
+        >
+          <SessionPageBackButton
+            label={t("actions.back")}
+            iconSize={variant === "planner" && !landscape ? 24 : 16}
+          />
+          <SheetTitle
+            className={cn(
+              "truncate font-bold tracking-normal text-(--session-dialog-title)",
+              variant === "planner" && !landscape
+                ? "text-lg leading-6.5"
+                : "text-[17px] leading-5.25",
+            )}
+          >
             {title}
           </SheetTitle>
           {headerExtras}
@@ -90,7 +109,15 @@ export function SessionPage({
  * 배경음·과목 페이지와 타이머 화면이 같은 모양을 쓴다.
  * 타이머 화면은 이 버튼이 모드를 끄는 길이라 이름을 따로 받는다.
  */
-export function SessionPageBackButton({ label, className }: { label: string; className?: string }) {
+export function SessionPageBackButton({
+  label,
+  className,
+  iconSize = 16,
+}: {
+  label: string;
+  className?: string;
+  iconSize?: number;
+}) {
   return (
     <SheetClose
       aria-label={label}
@@ -99,7 +126,7 @@ export function SessionPageBackButton({ label, className }: { label: string; cla
         className,
       )}
     >
-      <ChevronLeft size={16} aria-hidden="true" />
+      <ChevronLeft size={iconSize} aria-hidden="true" />
     </SheetClose>
   );
 }

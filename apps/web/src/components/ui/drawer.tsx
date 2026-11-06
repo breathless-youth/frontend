@@ -19,6 +19,8 @@ const DrawerDescription = DrawerPrimitive.Description;
 const DRAWER_EASE = "ease-[cubic-bezier(0.22,1,0.36,1)]";
 
 type DrawerContentProps = Omit<DrawerPrimitive.Popup.Props, "className"> & {
+  variant?: "default" | "planner";
+  bottomSpacing?: "default" | "compact";
   /** 모양이 아닌 클래스만 넘긴다(포털이 body로 나가 다시 달아야 하는 테마 클래스 등). */
   className?: string;
   /**
@@ -40,6 +42,8 @@ type DrawerContentProps = Omit<DrawerPrimitive.Popup.Props, "className"> & {
  * 모션 축소는 움직임 대신 페이드만 남긴다. 전역 tw-animate 덮기(`index.css`)는 Base UI 전환에 닿지 않는다.
  */
 function DrawerContent({
+  variant = "default",
+  bottomSpacing = "default",
   className,
   container,
   backdropClassName,
@@ -64,7 +68,12 @@ function DrawerContent({
           {...{ [COVERS_TAB_BAR_ATTR]: "" }}
           className={cn(
             // 태블릿에서는 본문 열과 같은 폭으로 가운데에 띄운다(`page-width`). 끌기가 transform을 쓰므로 가운데 정렬은 margin이 맡는다.
-            "relative w-full page-width rounded-t-3xl bg-muted px-5 pb-[max(28px,calc(env(safe-area-inset-bottom)+8px))] text-foreground shadow-[0_-12px_40px_rgba(0,0,0,0.18)] outline-none",
+            "relative w-full page-width rounded-t-3xl bg-muted px-5 text-foreground shadow-[0_-12px_40px_rgba(0,0,0,0.18)] outline-none",
+            variant === "planner"
+              ? bottomSpacing === "compact"
+                ? "pb-[max(30px,env(safe-area-inset-bottom))]"
+                : "pb-[max(34px,env(safe-area-inset-bottom))]"
+              : "pb-[max(28px,calc(env(safe-area-inset-bottom)+8px))]",
             // 위로 튕길 때 시트 아래가 비어 보이지 않게 같은 바탕을 화면 밖까지 잇는다.
             "after:absolute after:inset-x-0 after:top-full after:h-12 after:bg-inherit",
             "transform-[translateY(var(--drawer-swipe-movement-y,0px))] duration-300 data-ending-style:duration-[calc(var(--drawer-swipe-strength,1)*300ms)]",
@@ -79,7 +88,10 @@ function DrawerContent({
           <div
             aria-hidden="true"
             data-slot="drawer-handle"
-            className="-mb-7 flex h-11 shrink-0 justify-center pt-3"
+            className={cn(
+              "flex shrink-0 justify-center",
+              variant === "planner" ? "h-3.5 pt-2.5" : "-mb-7 h-11 pt-3",
+            )}
           >
             <div className="h-1 w-9 rounded-full bg-border-strong" />
           </div>

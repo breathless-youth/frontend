@@ -60,7 +60,10 @@ import {
 import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
 import { SessionMoreMenu } from "@/features/study-session/components/SessionMoreMenu";
 import { SessionPage } from "@/features/study-session/components/SessionPage";
-import { SubjectPanel } from "@/features/study-session/components/SubjectPanel";
+import { SessionSubjectPanel as SubjectPanel } from "@/features/study-session/components/SessionSubjectPanel";
+import { plannerCompletedTaskIds } from "@/features/study-session/plannerCompletedTasks";
+import { hasTokenSource } from "@/lib/userId";
+import { queryClient as sessionQueryClient } from "@/lib/queryClient";
 import { completedTaskIdsSince } from "@/features/study-session/completedTasks";
 import {
   SessionPageHeaderTime,
@@ -147,6 +150,7 @@ export function LiveRoomSession({
   iceServers,
   profile,
   restored,
+  initialSubjectId,
   audioDeps,
 }: {
   roomId: number;
@@ -159,6 +163,7 @@ export function LiveRoomSession({
   profile: ProfileResponse | null;
   /** 서버에서 받아 온 진행중 세션. 있으면 그 값에서 이어서 시작한다. */
   restored: RestoredSession | null;
+  initialSubjectId?: number;
   audioDeps?: RoomAudioDeps;
 }) {
   const navigate = useNavigate();
@@ -230,6 +235,7 @@ export function LiveRoomSession({
     flipCamera,
     endAndSubmit,
   } = useStudyRoomSession(userId, {
+    initialSubjectId,
     camera,
     detector,
     systemPause,
@@ -240,7 +246,9 @@ export function LiveRoomSession({
     ambientSoundPlays: ambientUsage.soundSeconds,
     multiTimerUsage: multiTimerUsage.snapshot,
     getCompletedTaskIds: (startedAtMs) =>
-      completedTaskIdsSince(subjectsListRef.current, startedAtMs),
+      hasTokenSource()
+        ? plannerCompletedTaskIds(sessionQueryClient, userId, startedAtMs)
+        : completedTaskIdsSince(subjectsListRef.current, startedAtMs),
     // 그룹 공부방은 일시정지 1시간에 나가고 초대코드 방은 싱글룸과 같은 20분이다.
     tuning: room.kind === "group" ? GROUP_ROOM_SESSION_TUNING : undefined,
   });
@@ -1307,6 +1315,7 @@ export function LiveRoomSession({
       />
       {/* 두 페이지는 Radix 포털을 타므로 여기 위치가 화면 배치를 정하지는 않는다. */}
       <SessionPage
+        variant={hasTokenSource() ? "planner" : "default"}
         open={page === "subject"}
         onOpenChange={(open) => {
           if (!open) closeSubjectPage("back");
@@ -1317,6 +1326,7 @@ export function LiveRoomSession({
         headerExtras={
           <SessionPageHeaderTime
             focusSec={focusSec}
+            variant={hasTokenSource() ? "planner" : undefined}
             stateColor={sessionStateColors[sessionState.kind].dark}
           />
         }

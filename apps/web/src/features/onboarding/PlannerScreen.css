@@ -1,0 +1,11 @@
+.onboarding-planner-timetable [data-paint] {
+  transform-origin: left;
+  animation: onboarding-planner-pop 6s both infinite;
+  animation-delay: var(--onboarding-paint-delay, 0.18s);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-planner-timetable [data-paint] {
+    animation: none;
+  }
+}

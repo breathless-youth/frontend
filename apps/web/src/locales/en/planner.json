@@ -12,16 +12,17 @@
   },
   "pillButton": {
     "aria": {
-      "open": "Planner"
+      "open": "Planner",
+      "updated": "See the updated planner"
     }
   },
   "timetable": {
     "aria": {
-      "distribution": "Study time by hour for this day. Focus time {{duration}}"
+      "distribution": "Study time by hour for this day. Focus time {{duration}}",
+      "currentTime": "Current time {{time}}"
     }
   },
   "subjects": {
-    "rest": "Break",
     "unassigned": "No subject"
   },
   "editor": {
@@ -46,5 +47,186 @@
       "list": "Suggested subjects",
       "add": "Add {{name}}"
     }
+  },
+  "subjectSheet": {
+    "title": "Add subjects",
+    "mySubjects": "My subjects",
+    "alreadyAdded": "{{name}}, already added",
+    "addCount": "Add {{count}}",
+    "create": "New subject",
+    "createConfirm": "Create",
+    "back": "Back to add subjects",
+    "limit": "You can create up to 20 subjects"
+  },
+  "calendar": {
+    "today": "Today",
+    "studied": "Studied",
+    "tasks": "Tasks planned"
+  },
+  "plan": {
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "setGoal": "+ Set goal",
+    "goal": "Focus goal {{duration}}",
+    "minutes": "{{count}} min",
+    "removeSubject": "Remove from this day",
+    "deleteSubject": "Delete subject",
+    "repeating": "Repeating task",
+    "addTask": "Add task",
+    "futureCheck": "You can’t complete this task yet",
+    "pastEmpty": "No study records for this day",
+    "editRecords": "Edit records",
+    "calendar": "Choose date",
+    "removeConfirm": "Remove {{name}} from this day?",
+    "removeTasks": "{{count}} tasks will also be removed",
+    "deleteConfirm": "Delete {{name}}?",
+    "remove": "Remove",
+    "change": "Change",
+    "date": "Date",
+    "add": "Add",
+    "move": "Move to another day",
+    "moveTitle": "Which day?",
+    "moveConfirm": "Move to {{date}}",
+    "studyStart": "Start studying",
+    "repeat": "Repeat",
+    "pastTask": "Past tasks can only be completed or moved",
+    "subjectLabel": "Subject",
+    "taskLabel": "Task",
+    "goalLabel": "Focus goal",
+    "focusLabel": "Focus",
+    "timetableEmpty": "Your study time\nwill appear here",
+    "taskLimit": "You can add up to 30 tasks per subject"
+  },
+  "sample": {
+    "label": "Example",
+    "language": "Language",
+    "languageTask": "Watch literature lesson 1",
+    "math": "Math",
+    "mathTask": "Practice chapter 1",
+    "title": "Start with this example?",
+    "direct": "Create my own",
+    "start": "Use example",
+    "emptyTitle": "No plans yet",
+    "emptyHint": "Add a subject and write your tasks"
+  },
+  "repeat": {
+    "endBeforeStart": "The repeat end date is before the start date. Please choose a new end date.",
+    "deleteTitle": "How far should this task be deleted?",
+    "renameTitle": "How far should this task be renamed?",
+    "scope": "Apply to",
+    "this": "This day only",
+    "future": "This day and all future days",
+    "none": "Off",
+    "daily": "Every day",
+    "weekdays": "Weekdays",
+    "weekends": "Weekends",
+    "weekdayTitle": "Repeat on",
+    "weekday": {
+      "MONDAY": "Mon",
+      "TUESDAY": "Tue",
+      "WEDNESDAY": "Wed",
+      "THURSDAY": "Thu",
+      "FRIDAY": "Fri",
+      "SATURDAY": "Sat",
+      "SUNDAY": "Sun"
+    },
+    "endTitle": "Repeat until",
+    "noEnd": "No end date",
+    "chooseDate": "Choose date",
+    "done": "Done",
+    "summary": "Every {{days}} from {{from}}",
+    "summaryEnd": "Every {{days}} from {{from}} to {{to}}",
+    "loadFailed": "Couldn’t load repeat settings",
+    "summaryPreset": "Add every {{days}} from {{from}}",
+    "summaryPresetEnd": "Add every {{days}} from {{from}} to {{to}}"
+  },
+  "goal": {
+    "title": "Focus time goal",
+    "decrease": "Decrease by 30 minutes",
+    "increase": "Increase by 30 minutes",
+    "asDefault": "Use this goal for other days",
+    "save": "Set goal"
+  },
+  "record": {
+    "selected": "Selected record",
+    "delete": "Delete record",
+    "start": "Start",
+    "end": "End",
+    "boundary": "Load the full time range before editing this record",
+    "changeSubject": "Change subject",
+    "save": "Save",
+    "hint": "Hold and drag an empty area to add a record; drag the ends to edit",
+    "grid": "Record editing grid",
+    "saveFailed": "Some records couldn’t be saved. Try again",
+    "leaveTitle": "Leave without saving?",
+    "leave": "Leave",
+    "errors": {
+      "range": "Check the start and end times",
+      "future": "Choose a time before now",
+      "overlap": "Choose a time that doesn’t overlap another record",
+      "boundary": "Load the full time range before editing this record",
+      "subject-required": "First choose a subject for the entire record",
+      "subject-time-required": "This record’s subject can’t be changed on its own",
+      "ambiguous-time": "This time occurs twice. Choose a different time"
+    },
+    "subjectScopeWarning": "Your selection applies to the entire record, including time outside this view.",
+    "chooseSubject": "Which subject did you study?",
+    "adjustStart": "Adjust start time",
+    "adjustEnd": "Adjust end time",
+    "deleteTitle": "Delete this record?",
+    "add": "Add record",
+    "list": "Records",
+    "noSpace": "There is no free time to add a record",
+    "new": "New record",
+    "closePanel": "Close record panel"
+  },
+  "week": {
+    "prev": "Previous week",
+    "next": "Next week",
+    "focusTime": "Focus time this week",
+    "completed": "Tasks {{done}}/{{count}}",
+    "tasks": "{{count}} tasks",
+    "tasks_one": "{{count}} task",
+    "tasks_other": "{{count}} tasks",
+    "empty": "No tasks",
+    "rangeSameMonth": "{{start}} – {{day}}",
+    "rangeCrossMonth": "{{start}} – {{end}}",
+    "moveFailed": "Couldn’t move the task. Please try again",
+    "pastDrop": "Choose today or a future date",
+    "dropHint": "Drop on a date to move the task",
+    "focusLabel": "This week’s focus"
+  },
+  "studyStart": {
+    "where": "Where would you like to study?",
+    "solo": "Study alone",
+    "group": "Group study room",
+    "whichGroup": "Which group would you like to study with?",
+    "studyingCount": "{{count}} people studying",
+    "studyingCount_one": "{{count}} person studying",
+    "studyingCount_other": "{{count}} people studying",
+    "emptyRoom": "No one is here right now",
+    "noGroups": "You haven’t joined any groups",
+    "updateApp": "Update the app to start with this subject",
+    "otherSubjects": "Other subjects",
+    "selectSubject": "Start studying {{name}}",
+    "deselectSubject": "Stop tracking {{name}}",
+    "todaySubjects": "Today's subjects",
+    "otherHint": "Choose a subject to add it to today",
+    "studying": "Studying",
+    "soloHint": "Start tracking focused study right away",
+    "groupHint": "Choose a group and study together",
+    "backToWhere": "Back to choosing where to study"
+  },
+  "carryover": {
+    "title": "You have {{count}} unfinished tasks",
+    "title_one": "You have {{count}} unfinished task",
+    "title_other": "You have {{count}} unfinished tasks",
+    "description": "Choose tasks to bring to today",
+    "selectAll": "Select all",
+    "deselectAll": "Deselect all",
+    "leave": "Leave them",
+    "bring": "Bring {{count}} tasks",
+    "bring_one": "Bring {{count}} task",
+    "bring_other": "Bring {{count}} tasks"
   }
 }

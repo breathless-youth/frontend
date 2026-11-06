@@ -77,6 +77,9 @@ beforeEach(() => {
 });
 
 describe("buildRemoteQueryParams", () => {
+  it("플래너 과목 선선택 전달 지원을 알린다", async () => {
+    expect(await buildRemoteQueryParams()).toMatchObject({ subjectStart: "1" });
+  });
   it("스크린타임 모듈이 든 iOS 빌드에만 appLock=1을 붙인다", async () => {
     mockedEnsureUserRegistered.mockResolvedValue(7);
     await expect(buildRemoteQueryParams()).resolves.not.toHaveProperty("appLock");
@@ -132,6 +135,7 @@ describe("buildRemoteQueryParams", () => {
     await expect(buildRemoteQueryParams()).resolves.toEqual({
       appVersion: "1.4.2",
       share: "1",
+      subjectStart: "1",
       cameraGate: "1",
       nativeUpdateGate: "1",
       guestAuth: "1",
@@ -151,6 +155,7 @@ describe("buildRemoteQueryParams", () => {
     await expect(buildRemoteQueryParams()).resolves.toEqual({
       appVersion: "1.4.2",
       share: "1",
+      subjectStart: "1",
       cameraGate: "1",
       nativeUpdateGate: "1",
       guestAuth: "1",
@@ -170,6 +175,7 @@ describe("buildRemoteQueryParams", () => {
 
     await expect(buildRemoteQueryParams()).resolves.toEqual({
       share: "1",
+      subjectStart: "1",
       cameraGate: "1",
       nativeUpdateGate: "1",
       guestAuth: "1",
@@ -410,6 +416,7 @@ describe("useRemoteQueryParams", () => {
       expect(result.current).toEqual({
         appVersion: "1.4.2",
         share: "1",
+        subjectStart: "1",
         cameraGate: "1",
         nativeUpdateGate: "1",
         guestAuth: "1",
@@ -432,6 +439,7 @@ describe("useRemoteQueryParams", () => {
       expect(first.result.current).toEqual({
         appVersion: "1.4.2",
         share: "1",
+        subjectStart: "1",
         cameraGate: "1",
         nativeUpdateGate: "1",
         guestAuth: "1",
@@ -452,6 +460,7 @@ describe("useRemoteQueryParams", () => {
     expect(second.result.current).toEqual({
       appVersion: "1.4.2",
       share: "1",
+      subjectStart: "1",
       cameraGate: "1",
       nativeUpdateGate: "1",
       guestAuth: "1",
@@ -500,6 +509,7 @@ describe("useRemoteQueryParams", () => {
       expect(first.result.current).toEqual({
         appVersion: "1.4.2",
         share: "1",
+        subjectStart: "1",
         cameraGate: "1",
         nativeUpdateGate: "1",
         guestAuth: "1",
@@ -522,6 +532,7 @@ describe("useRemoteQueryParams", () => {
       expect(second.result.current).toEqual({
         appVersion: "1.4.2",
         share: "1",
+        subjectStart: "1",
         cameraGate: "1",
         nativeUpdateGate: "1",
         guestAuth: "1",

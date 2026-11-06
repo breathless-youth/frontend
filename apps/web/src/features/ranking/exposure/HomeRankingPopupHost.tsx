@@ -27,6 +27,7 @@ export function HomeRankingPopupHost({
   ready,
   blocked,
   onOpenChange,
+  onSettled,
 }: {
   userId: number;
   ready: boolean;
@@ -37,6 +38,8 @@ export function HomeRankingPopupHost({
    */
   blocked: boolean;
   onOpenChange: (open: boolean) => void;
+  /** 후보 없음·오류·닫기까지 이번 판단이 끝났을 때 다음 홈 안내에 알린다. */
+  onSettled?: () => void;
 }) {
   const queryClient = useQueryClient();
   const { openRecords } = useOpenRanking();
@@ -47,9 +50,11 @@ export function HomeRankingPopupHost({
   // 응답을 기다리는 사이 바뀐 값도 읽어야 해서 ref에 담는다.
   const blockedRef = useRef(blocked);
   const onOpenChangeRef = useRef(onOpenChange);
+  const onSettledRef = useRef(onSettled);
   useEffect(() => {
     blockedRef.current = blocked;
     onOpenChangeRef.current = onOpenChange;
+    onSettledRef.current = onSettled;
   });
 
   useEffect(() => {
@@ -63,7 +68,11 @@ export function HomeRankingPopupHost({
   }, [open]);
 
   useEffect(() => {
-    if (!ready || !hasRankingTab()) {
+    if (!ready) {
+      return;
+    }
+    if (!hasRankingTab()) {
+      onSettledRef.current?.();
       return;
     }
     const allowed = () =>
@@ -73,6 +82,7 @@ export function HomeRankingPopupHost({
         recoveryShown: hasShownRecoveryThisLaunch(),
       });
     if (!allowed()) {
+      onSettledRef.current?.();
       return;
     }
     let cancelled = false;
@@ -81,10 +91,12 @@ export function HomeRankingPopupHost({
       // 가려진 사이 받은 응답으로 띄우면 사용자가 보지 못한 메달이 본 것으로 넘어간다.
       // 응답을 기다리는 사이 복구 결과가 오면 그 창이 먼저라 응답을 받고 다시 본다.
       if (cancelled || document.visibilityState !== "visible" || !allowed()) {
+        if (!cancelled) onSettledRef.current?.();
         return;
       }
       const next = medalModalView(unseen);
       if (next === null) {
+        onSettledRef.current?.();
         return;
       }
       trackRankingMedalModalShown({
@@ -105,6 +117,7 @@ export function HomeRankingPopupHost({
     };
     run().catch((error: unknown) => {
       console.warn("[ranking] failed to decide home ranking popup, skipping this time", error);
+      if (!cancelled) onSettledRef.current?.();
     });
     return () => {
       cancelled = true;
@@ -126,6 +139,7 @@ export function HomeRankingPopupHost({
     }
     handledRef.current = true;
     setOpen(false);
+    onSettledRef.current?.();
     return true;
   };
 

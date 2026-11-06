@@ -18,7 +18,7 @@ import {
   trackSocialLoginSucceeded,
 } from "@/lib/amplitude";
 import type { LoginEntry } from "@/lib/amplitude";
-import { postToNative } from "@/lib/bridge";
+import { notifyLoginSuccess } from "@/lib/authSuccessToast";
 import i18n from "@/lib/i18n";
 import { nativeSocialLoginProviders, requestNativeSocialLogin } from "@/lib/nativeSocialLogin";
 import { profileKeys } from "@/lib/profileQueries";
@@ -56,14 +56,10 @@ const LEGAL_LINK_CLASS =
  * 그룹 또는 설정에서 여는 비회원 로그인 화면
  *
  * 앱이 알린 공급자 버튼만 보이고, 로그인은 앱에 맡긴 뒤 결과만 받아 처리한다.
- * 그룹 진입은 로그인 후 게이트가 그룹 화면을 그린다. 설정 진입은 앱 홈으로 이동한다.
+ * 그룹 진입은 로그인 후 게이트가 그룹 화면을 그린다. 설정 진입은 설정 화면으로 돌아간다.
  * 새로 가입한 사람도 프로필 설정으로 보내지 않는다.
  * 이 기기에 공부 기록이 있을 때만 그 기록이 계정으로 이어진다는 안내를 보인다.
  */
-function requestHome(): void {
-  postToNative({ type: "navigate-home", atMs: Date.now() });
-}
-
 export function GroupLoginScreen({ entry }: { entry: LoginEntry }) {
   const { t } = useTranslation("login");
   const location = useLocation();
@@ -108,6 +104,7 @@ export function GroupLoginScreen({ entry }: { entry: LoginEntry }) {
     // 로그인으로 신원이 바뀌면 게이트가 이 화면을 먼저 내릴 수 있어 계측은 화면이 남았는지와 상관없이 한다.
     if (result.status === "success") {
       trackSocialLoginSucceeded({ provider, isNewUser: result.isNewUser });
+      notifyLoginSuccess();
     } else if (result.status === "failed") {
       trackSocialLoginFailed({ provider, reason: result.code });
     }
@@ -119,7 +116,6 @@ export function GroupLoginScreen({ entry }: { entry: LoginEntry }) {
     if (result.status === "success") {
       if (entry === "settings") {
         navigate("/settings", { replace: true });
-        requestHome();
         return;
       }
       await queryClient.refetchQueries(

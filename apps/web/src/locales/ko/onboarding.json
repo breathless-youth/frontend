@@ -10,7 +10,7 @@
     "titleTop": "공부하는 동안",
     "titleBottom": "플래너에 자동으로 기록돼요",
     "aria": {
-      "mock": "플래너 타임테이블에 순공이 칸 단위로 채워지는 화면"
+      "mock": "과목별 할 일과 공부 시간을 분 단위로 기록한 일간 플래너"
     }
   },
   "groupStudy": {
@@ -62,20 +62,28 @@
     "privacy": "영상은 저장하지 않아요"
   },
   "planner": {
-    "date": "10월 21일 (수)",
+    "date": "11월 7일",
     "dday": "수능",
     "focusLabel": "순공시간",
     "math": "수학",
     "english": "영어",
     "korean": "국어",
     "rest": "휴식",
-    "noSubject": "과목 없음"
+    "noSubject": "과목 없음",
+    "dayName": "토",
+    "daily": "일간",
+    "weekly": "주간",
+    "addTask": "할 일 추가",
+    "addSubject": "과목 추가",
+    "editRecords": "기록 고치기",
+    "todayTasks": "오늘 할 일"
   },
   "plannerTask": {
     "calculus": "미적분 3단원 복습",
     "pastExams": "기출 20문제",
     "vocab": "단어 100개",
-    "reading": "비문학 지문 4개"
+    "reading": "비문학 지문 4개",
+    "listening": "듣기 1회 풀기"
   },
   "room": {
     "total": "총"

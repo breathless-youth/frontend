@@ -1,6 +1,15 @@
 import { injectMessageScript, parseToNativeMessage, serializeToWebMessage } from "../webBridge";
 
 describe("parseToNativeMessage", () => {
+  it("공부 시작의 과목 선선택은 양의 안전한 정수만 받는다", () => {
+    expect(
+      parseToNativeMessage(JSON.stringify({ type: "start-session", atMs: 5, initialSubjectId: 3 })),
+    ).toEqual({ type: "start-session", atMs: 5, initialSubjectId: 3 });
+    for (const initialSubjectId of [-1, 0, 1.5, "3", Number.MAX_SAFE_INTEGER + 1])
+      expect(
+        parseToNativeMessage(JSON.stringify({ type: "start-session", atMs: 5, initialSubjectId })),
+      ).toBeNull();
+  });
   it.each([
     "home-ready",
     "analytics-ready",

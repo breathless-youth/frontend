@@ -71,6 +71,7 @@ function renderHost({
 } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const onOpenChange = vi.fn();
+  const onSettled = vi.fn();
   const wrap = (children: ReactNode) => (strict ? <StrictMode>{children}</StrictMode> : children);
   const tree = (isReady: boolean, isBlocked: boolean) =>
     wrap(
@@ -85,6 +86,7 @@ function renderHost({
                   ready={isReady}
                   blocked={isBlocked}
                   onOpenChange={onOpenChange}
+                  onSettled={onSettled}
                 />
               }
             />
@@ -103,6 +105,7 @@ function renderHost({
   return {
     ...view,
     onOpenChange,
+    onSettled,
     setReady: (next: boolean) => update({ ready: next }),
     setBlocked: (next: boolean) => update({ blocked: next }),
   };
@@ -378,4 +381,17 @@ describe("HomeRankingPopupHost: 쉬는 실행", () => {
 
     expect(screen.queryByRole("dialog")).toBeNull();
   });
+});
+
+it("메달 판단에 결과가 없으면 다음 홈 안내가 판단할 수 있게 끝을 알린다", async () => {
+  const { onSettled } = renderHost();
+  await waitFor(() => expect(onSettled).toHaveBeenCalledTimes(1));
+});
+it("메달이 있으면 닫은 다음에 다음 홈 안내에게 끝을 알린다", async () => {
+  rankingApi.getRankingRecordsUnseen.mockResolvedValue(FIXTURE_UNSEEN_ONE);
+  const { onSettled } = renderHost();
+  await screen.findByRole("dialog");
+  expect(onSettled).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole("button", { name: "닫기" }));
+  await waitFor(() => expect(onSettled).toHaveBeenCalledTimes(1));
 });

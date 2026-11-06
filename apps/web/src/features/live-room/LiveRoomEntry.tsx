@@ -22,6 +22,7 @@ import { groupHomeQuery } from "@/lib/groupRoomQueries";
 import { profileQuery } from "@/lib/profileQueries";
 
 import { LiveRoomSession } from "./LiveRoomSession";
+import { useInitialSubject } from "@/features/study-session/useInitialSubject";
 import type { CreatePeerConnection } from "./peerMesh";
 import type { CreateCamera, CreateChannel } from "./liveRoomEntryState";
 import type { LiveRoomKind } from "./roomKind";
@@ -61,6 +62,7 @@ export function LiveRoomEntry({
   userId,
   graceRejoin,
   initialIceServers,
+  initialSubjectId,
   createChannel,
   createCamera,
   createPeerConnection,
@@ -72,6 +74,7 @@ export function LiveRoomEntry({
   userId: number;
   graceRejoin: boolean;
   initialIceServers: IceServer[];
+  initialSubjectId?: number;
   createChannel: CreateChannel;
   createCamera: CreateCamera;
   createPeerConnection?: CreatePeerConnection;
@@ -112,6 +115,7 @@ export function LiveRoomEntry({
 
   // 세션이 마운트되기 전에 진행중 세션을 받아 둔다. 세션이 뜬 뒤에 받으면 타이머가 0에서 튄다.
   const { settled: restoreSettled, restored } = useActiveSessionRestore(userId);
+  const initialSubject = useInitialSubject(userId, initialSubjectId, restored !== null);
 
   const profile = useQuery({
     ...profileQuery(userId),
@@ -194,7 +198,11 @@ export function LiveRoomEntry({
   // 유예 재입장은 join을 부르지 않으므로(위 effect) 게이트만 통과하면 바로 들어간다.
   const profileSettled = profile.isSuccess || profile.isError;
   const ready =
-    restoreSettled && gatePassed && roomId !== null && (graceRejoin || (joined && profileSettled));
+    restoreSettled &&
+    initialSubject.settled &&
+    gatePassed &&
+    roomId !== null &&
+    (graceRejoin || (joined && profileSettled));
   // 입장은 래치다.
   // 조건이 나중에 거짓이 돼도 세션을 내리지 않는다.
   if (!entered && ready) {
@@ -269,6 +277,7 @@ export function LiveRoomEntry({
       iceServers={iceServers}
       profile={profile.data ?? null}
       restored={restored}
+      initialSubjectId={initialSubject.subjectId}
       audioDeps={audioDeps}
     />
   );

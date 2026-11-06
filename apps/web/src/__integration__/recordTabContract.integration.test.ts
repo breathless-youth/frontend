@@ -17,7 +17,7 @@ import {
   materializeSubjectSegments,
   selectSubjectSegment,
 } from "@/features/study-session/subjectSegments";
-import { assemblePlannerDay, plannerDateKeyOf } from "@/features/planner/plannerDay";
+import { assemblePlannerDay } from "@/features/planner/plannerDay";
 import { subjectRefMap } from "@/features/records/recordsTimetable";
 
 /**
@@ -75,16 +75,21 @@ describe.skipIf(!BASE)("기록 탭 v2 명세 — 프론트 빌더로 실제 백�
       },
     );
     expect(task.status).toBe(201);
-    expect(
-      (
-        await call(token, "1", "PATCH", `/api/subjects/${english.json.id}/tasks/${task.json.id}`, {
-          done: true,
-        })
-      ).status,
-    ).toBe(200);
+    const completed = await call<TaskResponse>(
+      token,
+      "1",
+      "PATCH",
+      `/api/subjects/${english.json.id}/tasks/${task.json.id}`,
+      { done: true },
+    );
+    expect(completed.status).toBe(200);
+    expect(completed.json.doneAt).not.toBeNull();
+    const doneAtMs = Date.parse(completed.json.doneAt!);
+    expect(Number.isFinite(doneAtMs)).toBe(true);
 
-    // 3) 세션: 2시간 전 시작, 영어 30분 → 수학. PHONE 10~15분
-    const startedAtMs = Date.now() - 2 * 3600_000;
+    // 3) 세션: 2~3시간 전 정각 시작, 영어 30분 → 수학. PHONE 10~15분
+    // 한 시간짜리 구간을 정각에 맞춰 자정·05시를 걸쳐 쪼개지는 실행 시각 의존성을 없앤다.
+    const startedAtMs = Math.floor((Date.now() - 2 * 3600_000) / 3600_000) * 3600_000;
     const dateKey = kstDateKey(startedAtMs);
     let tracker = createSubjectSegmentTracker();
     tracker = selectSubjectSegment(tracker, english.json.id, startedAtMs);
@@ -171,7 +176,7 @@ describe.skipIf(!BASE)("기록 탭 v2 명세 — 프론트 빌더로 실제 백�
     expect(local.get(english.json.id)).toEqual({ studySec: 1800, focusSec: 1500 });
     expect(local.get(math.json.id)).toEqual({ studySec: 1800, focusSec: 1800 });
 
-    // 6) 일간 조회 한 번 → 기록 탭 헬퍼에 그대로 넣는다
+    // 6) 일간 조회 → 기록 탭 헬퍼에 그대로 넣는다
     const stats = await call<StudySessionListResponse>(
       token,
       "2",
@@ -183,19 +188,51 @@ describe.skipIf(!BASE)("기록 탭 v2 명세 — 프론트 빌더로 실제 백�
     const refs = subjectRefMap(stats.json.subjects);
     expect(refs.get(english.json.id)?.name).toBe("영어");
     expect(refs.get(math.json.id)?.colorIndex).toBe(math.json.colorIndex);
-    // 플래너의 하루로 조립한다 — 세션이 새벽 0~5시면 전날 플래너에 든다.
-    const empty = { ...stats.json, sessions: [], sessionCount: 0, subjects: [] };
-    const plannerKey = plannerDateKeyOf(new Date(startedAtMs));
-    const day =
-      plannerKey === dateKey
-        ? assemblePlannerDay(plannerKey, stats.json, empty)
-        : assemblePlannerDay(plannerKey, empty, stats.json);
+    // 실제 날짜별 응답 두 개를 그대로 조립한다. 기대 날짜는 KST에서 5시간을 빼 독립적으로 정한다.
+    const statsByDate = new Map([[dateKey, stats.json]]);
+    const readStats = async (key: string) => {
+      const cached = statsByDate.get(key);
+      if (cached !== undefined) return cached;
+      const response = await call<StudySessionListResponse>(
+        token,
+        "2",
+        "GET",
+        `/api/stats?date=${key}`,
+      );
+      expect(response.status).toBe(200);
+      statsByDate.set(key, response.json);
+      return response.json;
+    };
+    const readPlannerDay = async (key: string) => {
+      const nextKey = kstDateKey(Date.parse(`${key}T00:00:00+09:00`) + 24 * 3600_000);
+      return assemblePlannerDay(key, await readStats(key), await readStats(nextKey), "Asia/Seoul");
+    };
+    const plannerKey = kstDateKey(startedAtMs - 5 * 3600_000);
+    const day = await readPlannerDay(plannerKey);
     // 과목별 시간은 순공 기준이다.
+    expect(day.studySec).toBe(3600);
+    expect(day.focusSec).toBe(3300);
     expect(day.subjectRows).toEqual([
       { subjectId: english.json.id, focusSec: 1500 },
       { subjectId: math.json.id, focusSec: 1800 },
     ]);
-    expect(day.completedTasks.map((t) => t.name)).toEqual(["문제집 1장 풀기"]);
+    // 할 일은 과거 세션 시각이 아니라 서버의 실제 완료 시각이 속한 05시 하루에 보인다.
+    const completedPlannerKey = kstDateKey(doneAtMs - 5 * 3600_000);
+    const completedDay = await readPlannerDay(completedPlannerKey);
+    const expectedCompletedTasks = [
+      {
+        id: task.json.id,
+        name: "문제집 1장 풀기",
+        subjectId: english.json.id,
+        doneAtMs,
+      },
+    ];
+    expect(completedDay.completedTasks).toEqual(expectedCompletedTasks);
+    expect(day.completedTasks).toEqual(
+      plannerKey === completedPlannerKey ? expectedCompletedTasks : [],
+    );
+    const previousCompletedKey = kstDateKey(doneAtMs - 5 * 3600_000 - 24 * 3600_000);
+    expect((await readPlannerDay(previousCompletedKey)).completedTasks).toEqual([]);
 
     const paintAt = (minutesFromStart: number) => {
       const ms = startedAtMs + minutesFromStart * 60_000;
@@ -207,7 +244,8 @@ describe.skipIf(!BASE)("기록 탭 v2 명세 — 프론트 빌더로 실제 백�
           : { kind: paint.kind };
     };
     expect(paintAt(5)).toEqual({ kind: "subject", subjectId: english.json.id });
-    expect(paintAt(12)).toEqual({ kind: "rest" });
+    // PHONE 5분도 과목색으로 이어 칠하되 위 순공 합계에서는 빠진다.
+    expect(paintAt(12)).toEqual({ kind: "subject", subjectId: english.json.id });
     expect(paintAt(35)).toEqual({ kind: "subject", subjectId: math.json.id });
     expect(paintAt(61)).toBeNull();
   }, 60_000);

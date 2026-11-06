@@ -8,11 +8,17 @@ import type * as Amplitude from "@/lib/amplitude";
 import { FOCUS_START_SOURCES } from "@/lib/amplitude";
 import type * as tokenSourceModule from "@/lib/auth/tokenSource";
 import type { AuthSnapshot, TokenSource } from "@/lib/auth/tokenSource";
+import type * as SessionStart from "@/lib/sessionStart";
+import { Toaster } from "@/components/ui/sonner";
+import { toast } from "sonner";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { requestSessionStart } from "@/lib/sessionStart";
 import { SessionGuidePage } from "@/routes/SessionGuidePage";
 
-vi.mock("@/lib/sessionStart", () => ({ requestSessionStart: vi.fn() }));
+vi.mock("@/lib/sessionStart", async (original) => ({
+  ...(await original<typeof SessionStart>()),
+  requestSessionStart: vi.fn(),
+}));
 vi.mock("@/lib/haptics", () => ({ haptic: vi.fn() }));
 
 const identity = vi.hoisted(() => ({ source: null as TokenSource | null }));
@@ -63,6 +69,30 @@ function renderFromRanking() {
   );
 }
 
+function renderFromPlanner(initialSubjectId: unknown) {
+  render(
+    <MemoryRouter
+      initialEntries={[
+        "/planner?userId=7&lang=ko",
+        {
+          pathname: "/session-guide",
+          search: "?userId=7&lang=ko&date=2026-11-05&from=week&initialSubjectId=99",
+          state: { source: "planner", initialSubjectId },
+        },
+      ]}
+      initialIndex={1}
+    >
+      <Routes>
+        <Route path="/planner" element={<Probe testId="planner" />} />
+        <Route path="/session-guide" element={<SessionGuidePage />} />
+        <Route path="/home" element={<Probe testId="home" />} />
+        <Route path="/room/1" element={<Probe testId="room" />} />
+      </Routes>
+      <Toaster />
+    </MemoryRouter>,
+  );
+}
+
 async function goToLastStep() {
   for (let index = 0; index < 4; index += 1) {
     await userEvent.click(screen.getByRole("button", { name: "다음" }));
@@ -91,9 +121,79 @@ afterEach(() => {
   capability.tabFocus = true;
   localStorage.clear();
   vi.clearAllMocks();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  window.history.replaceState({}, "", "/");
+  act(() => toast.dismiss());
 });
 
 describe("SessionGuidePage", () => {
+  it("플래너 과목은 마지막 시작 뒤 네이티브에 전달하고 URL 과목은 무시한다", async () => {
+    const actual = await vi.importActual<typeof SessionStart>("@/lib/sessionStart");
+    vi.mocked(requestSessionStart).mockImplementation(actual.requestSessionStart);
+    window.history.replaceState({}, "", "/?subjectStart=1");
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status: 404 })),
+    );
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderFromPlanner(3);
+
+    expect(screen.getByRole("dialog", { name: "세션 도움말" })).toBeInTheDocument();
+    expect(postMessage).not.toHaveBeenCalled();
+    await goToLastStep();
+    await userEvent.click(startButton());
+
+    await waitFor(() => expect(postMessage).toHaveBeenCalled());
+    expect(postMessage.mock.calls.map(([raw]) => JSON.parse(String(raw)))).toContainEqual({
+      type: "start-session",
+      initialSubjectId: 3,
+      atMs: expect.any(Number),
+    });
+    expect(screen.queryByTestId("room")).not.toBeInTheDocument();
+    coverTab();
+    expect(await screen.findByTestId("planner")).toBeInTheDocument();
+    expect(analytics.trackFocusStartTapped).toHaveBeenCalledExactlyOnceWith("planner");
+  });
+
+  it.each([undefined, "3", 0, -1, Number.MAX_SAFE_INTEGER + 1])(
+    "유효하지 않은 플래너 과목 %s와 URL 과목으로는 초기 과목을 선택하지 않는다",
+    async (initialSubjectId) => {
+      vi.mocked(requestSessionStart).mockImplementation(async (_user, navigateToRoom) => {
+        navigateToRoom();
+        return "web";
+      });
+      renderFromPlanner(initialSubjectId);
+      await goToLastStep();
+      await userEvent.click(startButton());
+
+      expect(await screen.findByTestId("room")).toHaveTextContent("/room/1?userId=7&lang=ko");
+      expect(screen.getByTestId("room")).not.toHaveTextContent("initialSubjectId");
+      expect(requestSessionStart).toHaveBeenCalledExactlyOnceWith(7, expect.any(Function));
+    },
+  );
+
+  it("과목 시작을 지원하지 않는 앱은 업데이트 안내를 띄우고 플래너로 돌아간다", async () => {
+    const actual = await vi.importActual<typeof SessionStart>("@/lib/sessionStart");
+    vi.mocked(requestSessionStart).mockImplementation(actual.requestSessionStart);
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderFromPlanner(3);
+    await goToLastStep();
+    await userEvent.click(startButton());
+
+    expect(await screen.findByTestId("planner")).toBeInTheDocument();
+    expect(
+      await screen.findByText("이 과목으로 시작하려면 앱을 업데이트해 주세요"),
+    ).toBeInTheDocument();
+    expect(postMessage.mock.calls.map(([raw]) => JSON.parse(String(raw)).type)).not.toContain(
+      "start-session",
+    );
+  });
+
   it("뜨면 노출 이벤트만 보내고 세션은 시작하지 않는다", () => {
     renderFromRanking();
 

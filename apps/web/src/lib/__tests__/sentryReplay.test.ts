@@ -7,6 +7,7 @@ import * as Sentry from "@sentry/react";
 import {
   initSentry,
   makeScrubbingTransport,
+  stripUserIdParam,
   scrubRecordingEvent,
   scrubReplayEvent,
 } from "../sentry";
@@ -170,6 +171,12 @@ describe("initSentry Session Replay 설정", () => {
 });
 
 describe("makeScrubbingTransport: 전송 직전 최종 방어선", () => {
+  it("과목 선선택 식별자도 URL과 녹화 문자열에서 제거한다", () => {
+    expect(stripUserIdParam('{"href":"/room/1?initialSubjectId=3&lang=ko"}')).toBe(
+      '{"href":"/room/1?lang=ko"}',
+    );
+    expect(stripUserIdParam("/room/1?lang=ko&initialSubjectId=3")).toBe("/room/1?lang=ko");
+  });
   /** SDK의 `createReplayEnvelope`·`prepareRecordingData`가 만드는 모양 그대로다. */
   function replayEnvelope(recording: unknown) {
     const length = typeof recording === "string" ? new TextEncoder().encode(recording).length : 100;
