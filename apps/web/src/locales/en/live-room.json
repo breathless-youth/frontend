@@ -2,15 +2,15 @@
   "notice": {
     "graceEndSaved": "You were away for a while, so we ended your session.\nDon't worry, your study record has been saved.",
     "graceEndPending": "You were away for a while, so we ended your session.\nDon't worry, your study record will be saved.",
-    "graceEndSubMinute": "You were away for a while, so we ended your session.\nSessions under 1 minute don't appear in your records",
+    "graceEndNoFocus": "You were away for a while, so we ended your session.\nSessions under 1 minute don't appear in your records",
     "roomClosedSaved": "The room closed, so your session ended.\nDon't worry, your study record has been saved.",
     "roomClosedPending": "The room closed, so your session ended.\nDon't worry, your study record will be saved.",
-    "roomClosedSubMinute": "The room closed, so your session ended.\nSessions under 1 minute don't appear in your records",
+    "roomClosedNoFocus": "The room closed, so your session ended.\nSessions under 1 minute don't appear in your records",
     "kicked": "You were removed from {{groupName}}",
     "kickedUnnamed": "You were removed from the group"
   },
   "entry": {
-    "backToSocial": "Back to Social",
+    "backToSocial": "Back to Groups",
     "backToGroup": "Back to group"
   },
   "me": "Me",

@@ -68,7 +68,10 @@ import {
 } from "@/features/study-session/components/SessionTimer";
 import { SESSION_SYMBOL_SCALE } from "@/features/study-session/components/controlButtonVariants";
 import { resolveDevDetectorOverride } from "@/features/study-session/devMockDetector";
-import { SUB_MINUTE_SEC, exitConfirmDescription } from "@/features/study-session/formatDuration";
+import {
+  MIN_RECORDED_FOCUS_SEC,
+  exitConfirmDescription,
+} from "@/features/study-session/formatDuration";
 import { MANUAL_END_REASON, autoEndReason } from "@/features/study-session/sessionState";
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import { GROUP_ROOM_SESSION_TUNING } from "@/features/study-session/sessionTuning";
@@ -234,6 +237,7 @@ export function LiveRoomSession({
     // 계측용 — 없으면 study_session_* 이벤트가 개인 세션과 섞인다.
     roomType: "social",
     ambientUsage: ambientUsage.snapshot,
+    ambientSoundPlays: ambientUsage.soundSeconds,
     multiTimerUsage: multiTimerUsage.snapshot,
     getCompletedTaskIds: (startedAtMs) =>
       completedTaskIdsSince(subjectsListRef.current, startedAtMs),
@@ -696,25 +700,25 @@ export function LiveRoomSession({
   // 체류 시간(social_room_exited.duration_sec)의 기점 — 이 컴포넌트 마운트가 곧 입장이다.
   const [enteredAtMs] = useState(() => Date.now());
 
-  // 순공 1분 미만은 기록 목록·합산에 표시되지 않는다 — 저장을 약속하면 화면이 거짓말이
-  // 된다(종료 확인 창의 1분 미만 문구와 같은 원칙). 제출은 그래도 한다.
+  // 순공이 0초면 기록에 남지 않는다. 저장을 약속하면 화면이 거짓말이 된다(종료 확인 창의
+  // 순공 없음 문구와 같은 원칙). 제출은 그래도 한다.
   // 두 번째 문장은 줄을 바꿔 보여준다(2026-08-26 실기기 확인 피드백). 문구는 소셜 홈이 띄운다.
   const graceEndNotice = useCallback(
     (submitted: boolean) =>
-      focusSec < SUB_MINUTE_SEC
-        ? t("notice.graceEndSubMinute")
+      focusSec < MIN_RECORDED_FOCUS_SEC
+        ? t("notice.graceEndNoFocus")
         : submitted
           ? t("notice.graceEndSaved")
           : t("notice.graceEndPending"),
     [focusSec, t],
   );
 
-  // 방에 다시 들어갈 수 없어(자리 회수) 세션을 마쳤을 때의 안내. 저장·미저장·1분 미만을
+  // 방에 다시 들어갈 수 없어(자리 회수) 세션을 마쳤을 때의 안내. 저장·미저장·순공 없음을
   // 유예 만료와 같은 기준으로 가른다.
   const roomUnavailableNotice = useCallback(
     (submitted: boolean) =>
-      focusSec < SUB_MINUTE_SEC
-        ? t("notice.roomClosedSubMinute")
+      focusSec < MIN_RECORDED_FOCUS_SEC
+        ? t("notice.roomClosedNoFocus")
         : submitted
           ? t("notice.roomClosedSaved")
           : t("notice.roomClosedPending"),

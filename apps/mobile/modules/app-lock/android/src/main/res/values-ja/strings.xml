@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_lock_channel_name">集中を妨げるアプリのブロック</string>
+  <plurals name="app_lock_notification_title">
+    <item quantity="other">勉強中 · 集中を妨げるアプリを%d個ブロック中</item>
+  </plurals>
+  <string name="app_lock_notification_text">勉強を終えるとブロックが解除されます</string>
+  <string name="app_lock_overlay_title">今は勉強に集中する時間です</string>
+  <string name="app_lock_overlay_subtitle">FocusMakersアプリで勉強を終えるとブロックが解除されます</string>
+  <string name="app_lock_overlay_button">FocusMakersに戻る</string>
+</resources>

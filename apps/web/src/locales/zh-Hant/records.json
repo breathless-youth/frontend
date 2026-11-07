@@ -1,0 +1,153 @@
+{
+  "format": {
+    "summaryTitle": "{{date}}讀書摘要",
+    "sessionMeta": "{{start}}～{{end}} · 總計 {{duration}}",
+    "sessionCount": "{{count}} 次",
+    "todayHeadline": "今天的專注時間",
+    "dayHeadline": "{{date}}的專注時間",
+    "dayTitle": "{{date}} {{weekday}}"
+  },
+  "unit": {
+    "hours": "小時",
+    "minutes": "分",
+    "seconds": "秒"
+  },
+  "eventChip": {
+    "away": "離開座位 {{count}} 次",
+    "phone": "使用手機 {{count}} 次",
+    "device": "操作裝置 {{count}} 次",
+    "sleep": "打瞌睡 {{count}} 次",
+    "pause": "暫停 {{count}} 次"
+  },
+  "weekRange": {
+    "sameMonth": "{{start}}～{{day}}日",
+    "crossMonth": "{{start}}～{{end}}"
+  },
+  "relativeWeek": {
+    "thisWeek": "本週",
+    "lastWeek": "上週",
+    "weeksAgo": "{{count}} 週前"
+  },
+  "streak": {
+    "title": "連續讀書 {{count}} 天",
+    "subtitle": "明天只要讀 5 分鐘就能延續",
+    "aria": {
+      "day": "{{weekday}}，{{state}}",
+      "today": "今天",
+      "done": "有讀書",
+      "none": "沒有紀錄"
+    }
+  },
+  "week": {
+    "headline": "每週專注時間",
+    "aria": {
+      "prev": "上一週",
+      "next": "下一週"
+    }
+  },
+  "headline": {
+    "total": "總計 {{duration}}"
+  },
+  "rhythm": {
+    "title": "讀書節奏",
+    "badge": "專注報告準備中",
+    "emptyTitle": "累積紀錄後就會顯示",
+    "sampleNotice": "目前顯示的是範例資料",
+    "legendLow": "少",
+    "legendHigh": "多",
+    "peakTitle": "你在{{range}}最專注",
+    "peakSubtitle": "彙整了 {{days}} 天的專注時間",
+    "range": "{{period}} {{from12}}～{{to12}} 點",
+    "rangeCrossNoon": "上午 {{from12}} 點～下午 {{to12}} 點",
+    "period": {
+      "morning": "早上",
+      "forenoon": "上午",
+      "afternoon": "下午",
+      "evening": "晚上",
+      "night": "深夜",
+      "dawn": "凌晨"
+    }
+  },
+  "calendar": {
+    "dailyAverage": "每日平均",
+    "monthTotal": "{{month}}總計",
+    "aria": {
+      "day": "{{day}} 日，{{record}}",
+      "todayDay": "今天，{{day}} 日，{{record}}",
+      "focus": "專注 {{duration}}",
+      "noRecord": "沒有紀錄",
+      "legend": "專注時間圖例，數字代表至少該時數"
+    }
+  },
+  "weekly": {
+    "error": "無法載入每週趨勢"
+  },
+  "sessionItem": {
+    "focusRate": "專注率 {{rate}}",
+    "startTime": "開始時間",
+    "endTime": "結束時間",
+    "longestFocus": "最長專注時間",
+    "underSecond": "不到 1 秒",
+    "aria": {
+      "summary": "{{start}} 到 {{end}}，專注 {{focus}}，專注率 {{rate}}"
+    }
+  },
+  "manualItem": {
+    "badge": "手動",
+    "start": "開始",
+    "end": "結束",
+    "subject": "科目",
+    "edit": "編輯"
+  },
+  "picker": {
+    "today": "今天",
+    "monthTitle": "選擇月份",
+    "weekTitle": "選擇週",
+    "dayTitle": "選擇日期",
+    "year": "{{year}} 年",
+    "aria": {
+      "prevYear": "上一年",
+      "nextYear": "下一年",
+      "prevMonth": "上個月",
+      "nextMonth": "下個月",
+      "today": "今天，{{date}}"
+    }
+  },
+  "trend": {
+    "dailyAverage": "每日平均",
+    "noRecord": "沒有紀錄",
+    "compare": {
+      "more": "比上週多讀了 <delta>{{duration}}</delta>",
+      "moreInProgress": "目前比上週多讀 <delta>{{duration}}</delta>",
+      "less": "比上週少讀了 <delta>{{duration}}</delta>",
+      "lessInProgress": "目前比上週少讀 <delta>{{duration}}</delta>",
+      "onlyThisWeek": "本週已讀 <total>{{duration}}</total>",
+      "onlyViewedWeek": "這週讀了 <total>{{duration}}</total>",
+      "noThisWeek": "本週還沒有紀錄",
+      "noViewedWeek": "這週沒有紀錄",
+      "empty": "還沒有紀錄"
+    },
+    "caption": {
+      "untilWeekday": "已與上週截至{{weekday}}的紀錄比較",
+      "twoWeeks": "比較{{current}}與{{previous}}",
+      "noPrevious": "{{previous}}沒有紀錄，只顯示{{current}}的紀錄",
+      "noCurrent": "只顯示{{previous}}的紀錄",
+      "empty": "開始讀書，看看你的讀書模式吧"
+    },
+    "aria": {
+      "chart": "每天的專注時間"
+    }
+  },
+  "page": {
+    "title": "紀錄",
+    "daily": "每日",
+    "weekly": "每週",
+    "unregistered": "這部裝置尚未註冊。在應用程式中開啟，就會儲存紀錄"
+  },
+  "daily": {
+    "error": "無法載入紀錄",
+    "manualEntry": "手動新增",
+    "empty": "這天沒有紀錄",
+    "emptyHint": "開始專注後，紀錄會出現在這裡"
+  }
+}

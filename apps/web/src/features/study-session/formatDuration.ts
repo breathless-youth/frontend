@@ -18,32 +18,26 @@ export function formatElapsed(totalSeconds: number): string {
 }
 
 /**
- * "1분" 정책 경계(초) — **하나의 값이 세 곳을 동시에 지배한다.**
+ * 기록으로 남는 최소 순공(초). 하나의 값이 세 곳을 동시에 지배한다.
  *
- * 1. 표기: `toKoreanDurationLength`가 이 값 미만을 `1분 미만`으로 쓴다.
- * 2. 문구 분기: `exitConfirmDescription`이 이 값 미만에서 저장 약속을 뺀다.
- * 3. 기록 포함 분기: `RoomPage`가 이 값 미만이면 S4 대신 미달 안내로 보낸다.
+ * 1. 종료 확인 문구: `exitConfirmDescription`이 이 값 미만(순공 0초)에서 저장 약속을 뺀다.
+ * 2. 결과 화면 분기: 싱글룸(`RoomPage`)과 소셜룸(`LiveRoomSession`, `liveRoomEndNavigation`)이
+ *    이 값 미만이면 결과 화면 대신 순공 없음 안내로 보낸다.
+ * 3. 최대 집중 구간: `longestFocusStretch`가 이 값 미만의 구간을 내세우지 않는다.
  *
- * 우연히 같은 숫자인 것이 아니라 같은 정책이다 — ai-wiki `product/mvp-scope.md`가
- * "사용자에게 보이는 '유효 공부'의 최소 단위 = 순공 1분"으로 하나로 묶었다. 셋이 서로 다른
- * 경계를 쓰면 `1분 미만`이라 써 놓고 저장을 약속하거나, 기록에 없는 세션의 결과 화면을 띄우는
- * 조합이 생긴다.
- *
- * ⚠️ 모바일에도 같은 경계가 있다(`apps/mobile/lib/displayedStats.ts`의
- * `MIN_DISPLAYED_FOCUS_SEC`) — 두 앱이 공유 패키지를 쓰지 않으므로 한쪽만 바꾸면 어긋난다.
+ * 서버가 순공 1초 이상인 세션부터 기록으로 세므로 같은 경계를 쓴다. 경계가 어긋나면 기록에
+ * 있는 세션의 결과 화면을 막거나, 기록에 없는 세션의 결과 화면을 띄우게 된다.
  */
-export const SUB_MINUTE_SEC = 60;
+export const MIN_RECORDED_FOCUS_SEC = 1;
 
 /**
  * 한글 **시간 길이** 표기(voice-tone.md §2 "시간 길이(한글)").
  *
  * - 1시간 이상 → `N시간 M분` (M=0이면 `N시간`)
  * - 1시간 미만 → `M분`
- * - 1분 미만 → `1분 미만` (2026-07-27 확정 — 구 `S초` 폐기)
+ * - 1분 미만 → `S초`
  *
- * 1분 미만은 초 숫자를 노출하지 않는다(8차 인터뷰). 저장은 여전히 초 단위이고 분 단위는 표시
- * 계층에만 적용된다. 라이브 타이머(`formatElapsed`)와 그 스크린리더 짝 `toKoreanDuration`은
- * 예외로 초를 그대로 쓴다.
+ * 순공 1초부터 기록으로 남으므로 1분 미만도 초 단위로 보여 준다. 시간 단위가 있으면 초는 버린다.
  *
  * ⚠️ 아래 `toKoreanDuration`(스크린리더용)과 **다른 함수다.** 저쪽은 라이브 타이머 전용이라
  * 초까지 읽어 주지만 이쪽은 노출 문구용이다. 다이얼로그·요약 카드에는 `HH:MM:SS`를
@@ -61,7 +55,7 @@ export function toKoreanDurationLength(totalSeconds: number): string {
   if (m > 0) {
     return i18n.t("common:duration.minutes", { minutes: m });
   }
-  return i18n.t("study-session:duration.underMinute");
+  return i18n.t("common:duration.seconds", { seconds: safeSeconds });
 }
 
 /**
@@ -89,15 +83,20 @@ export function toKoreanDuration(totalSeconds: number): string {
 /**
  * 종료 확인 본문. `지금까지 집중한 {순공시간}은 저장돼요`로 종료 손실 불안을 먼저 없앤다(voice-tone §1·§4).
  *
- * 순공 1분 미만 세션은 기록 목록·합산에서 빠지므로(mvp-scope "기록 저장·표시 기준") 저장을 약속하지
- * 않는 확정 문구로 갈린다. 서버에는 여전히 제출한다. 걸러내는 것은 표시·합산 단계다.
+ * 순공 0초 세션은 기록에 남지 않으므로 저장을 약속하지 않는 문구로 갈린다. 서버에는 여전히
+ * 제출한다.
  *
- * 조사 `은`은 시간 길이가 `분`·`시간`으로만 끝나서 고정이다. Figma `40:98`은 `이`, voice-tone은
- * `은`이라 최신 문서를 따라 잠정 `은`이다(SCR-S3-7·S3-8 Review Checklist).
+ * 조사는 시간 길이의 끝 글자에 맞춘다. `분`·`시간`은 받침이 있어 `은`, `초`는 받침이 없어 `는`이라
+ * 1분 미만은 문구를 따로 둔다(`exitDescription.savedSeconds`).
  */
 export function exitConfirmDescription(focusSec: number): string {
-  if (focusSec < SUB_MINUTE_SEC) {
-    return i18n.t("study-session:exitDescription.subMinute");
+  if (focusSec < MIN_RECORDED_FOCUS_SEC) {
+    return i18n.t("study-session:exitDescription.noFocus");
+  }
+  if (focusSec < 60) {
+    return i18n.t("study-session:exitDescription.savedSeconds", {
+      duration: toKoreanDurationLength(focusSec),
+    });
   }
   return i18n.t("study-session:exitDescription.saved", {
     duration: toKoreanDurationLength(focusSec),

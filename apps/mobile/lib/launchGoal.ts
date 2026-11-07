@@ -42,7 +42,7 @@ export async function readLaunchGoal(): Promise<LaunchGoal | null> {
 
 type LaunchGoalProfile = { goal: string | null; nickname: string | null };
 
-// 웹의 저장 알림이 올 때마다 올린다.
+// 웹의 저장 알림이 오거나 계정이 바뀔 때마다 올린다.
 // 진행 중인 조회는 시작 때 값과 다르면 자기 응답이 더 옛 값이라 보고 저장하지 않는다.
 let savedFromWebGeneration = 0;
 
@@ -55,6 +55,22 @@ let savedFromWebGeneration = 0;
 export function saveLaunchGoal(profile: LaunchGoalProfile): Promise<void> {
   savedFromWebGeneration += 1;
   return writeLaunchGoal(profile);
+}
+
+/**
+ * 저장된 목표 문구 지우기
+ *
+ * 로그아웃·탈퇴 뒤 다음 실행의 시작 오버레이에 이전 계정의 목표와 닉네임이 보이지 않게 한다.
+ * 진행 중인 조회가 이전 계정의 응답을 다시 쓰지 않도록 세대를 올린다.
+ * 실패해도 throw 하지 않는다.
+ */
+export async function clearLaunchGoal(): Promise<void> {
+  savedFromWebGeneration += 1;
+  try {
+    await SecureStore.deleteItemAsync(LAUNCH_GOAL_KEY);
+  } catch (error) {
+    console.warn("[launchGoal] 지우기 실패", error);
+  }
 }
 
 /**

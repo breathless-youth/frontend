@@ -3,16 +3,18 @@
     "title": "Home"
   },
   "dday": {
-    "remaining": "D-{{days}}",
-    "today": "D-Day",
-    "passed": "D+{{days}}"
+    "remaining_one": "{{days}} day left",
+    "remaining_other": "{{days}} days left",
+    "today": "Today",
+    "passed_one": "{{days}} day ago",
+    "passed_other": "{{days}} days ago"
   },
   "ddayBlock": {
-    "placeholder": "D-Day",
+    "placeholder": "Countdown",
     "emptyCaption": "Set a target date",
     "aria": {
-      "set": "Set D-Day",
-      "edit": "{{label}} {{title}}, edit D-Day"
+      "set": "Set countdown",
+      "edit": "{{label}} {{title}}, edit countdown"
     }
   },
   "ddaySheet": {
@@ -52,17 +54,15 @@
   },
   "stats": {
     "todayFocus": "Today's focus time",
-    "hoursUnit": "h",
-    "minutesUnit": "m",
     "focusRate": "Focus rate",
     "studyTotal": "Total study time",
     "longestFocus": "Longest focus",
     "loadFailed": "Couldn't load your records"
   },
-  "startFocus": "Start focusing",
+  "startFocus": "Start Focus",
   "invite": {
     "title": "Hard to focus alone today? <br/>Study together with others",
-    "cta": "Go to Social Room"
+    "cta": "Study with a group"
   },
   "unregistered": "This device isn't registered yet. Open the app to save your records",
   "demo": {

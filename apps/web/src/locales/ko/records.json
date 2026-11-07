@@ -87,7 +87,7 @@
     "startTime": "시작 시간",
     "endTime": "종료 시간",
     "longestFocus": "최대 집중 시간",
-    "underMinute": "1분 미만",
+    "underSecond": "1초 미만",
     "aria": {
       "summary": "{{start}}부터 {{end}}까지, 순공 {{focus}}, 집중 {{rate}}"
     }

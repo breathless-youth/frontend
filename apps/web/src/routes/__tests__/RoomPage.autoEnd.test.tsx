@@ -52,7 +52,7 @@ function ResultRouteProbe() {
 }
 
 function renderRoom(url: string) {
-  return render(
+  const view = render(
     <MemoryRouter initialEntries={[url]}>
       <Routes>
         <Route path="/room/:id" element={<RoomPage />} />
@@ -60,6 +60,8 @@ function renderRoom(url: string) {
       </Routes>
     </MemoryRouter>,
   );
+  answerCameraPrompt("camera");
+  return view;
 }
 
 /** 일시정지 임계값을 넘길 만큼 시간을 흘린다. */
@@ -74,7 +76,7 @@ async function waitPastThreshold() {
  *
  * 2026-07-27 확정으로 순공 1분 미만 세션은 기록에 남지 않으므로, 자동 종료로 끝나도 S3-8의
  * `여기까지 기록을 저장했어요`가 거짓이 된다. 그래서 `RoomPage`가 미달 안내
- * (`SubMinuteEndNotice`)로 갈라 보낸다. 갓 입장해서 바로 일시정지하면 순공이 0초라 이 파일의
+ * (`NoFocusEndNotice`)로 갈라 보낸다. 갓 입장해서 바로 일시정지하면 순공이 0초라 이 파일의
  * 테스트들이 전부 그쪽으로 가 버리므로, 일시정지 **전에** 1분을 채워 S3-8 경로를 유지한다.
  */
 async function focusPastMinute() {

@@ -6,7 +6,6 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import { submitStudySession } from "@/features/study-session/submitStudySession";
 import { ApiError } from "@/lib/api";
@@ -21,8 +20,8 @@ import {
 import { answerCameraPrompt } from "@/test/cameraPrompt";
 import { RoomPage } from "../RoomPage";
 
-// 문구 상수가 카탈로그(study-session:exitDescription.subMinute)로 옮겨 갔다.
-const SUB_MINUTE_EXIT_DESCRIPTION = "1분 미만 공부는 기록에 표시되지 않아요";
+// 문구 상수가 카탈로그(study-session:exitDescription.noFocus)로 옮겨 갔다.
+const NO_FOCUS_EXIT_DESCRIPTION = "1분 미만 공부는 기록에 표시되지 않아요";
 
 /** 복원 게이트는 이 파일의 관심사가 아니다 — 조회 없이 새 세션으로 통과시킨다. */
 vi.mock("@/features/study-session/useActiveSessionRestore", () => ({
@@ -86,8 +85,6 @@ function HomeRouteProbe() {
 }
 
 function renderRoom(url: string) {
-  // 세션 도움말이 뜨면 세션 화면을 검증할 수 없어서 이미 끝까지 본 계정으로 연다.
-  markSessionGuideSeen(1);
   const view = render(
     <MemoryRouter initialEntries={[url]}>
       <Routes>
@@ -125,11 +122,10 @@ function endSessionSync() {
 }
 
 /**
- * 순공 1분을 채운 뒤 종료한다 — **S4로 가려면 필요한 전제**다.
+ * 순공을 `seconds`만큼 채운 뒤 종료한다 — **S4로 가려면 필요한 전제**다.
  *
- * 2026-07-27 확정으로 순공 1분 미만 세션은 기록에 남지 않으므로, `RoomPage`가 S4 대신 미달
- * 안내(`SubMinuteEndNotice`)로 갈라 보낸다. 갓 입장해서 바로 끝내면 순공이 0초라 결과 화면에
- * 도달할 수 없다.
+ * 순공이 없는 세션은 기록에 남지 않으므로, `RoomPage`가 S4 대신 미달 안내(`NoFocusEndNotice`)로
+ * 갈라 보낸다. 갓 입장해서 바로 끝내면 순공이 0초라 결과 화면에 도달할 수 없다.
  *
  * 시간을 흘리는 데 가짜 타이머를 쓰고 클릭은 `fireEvent`로 한다(`userEvent`는 내부 지연 타이머가
  * 있어 가짜 타이머와 함께 쓰면 멈춘다). 마운트 시 만들어진 tick 인터벌은 진짜 타이머라 가짜
@@ -138,11 +134,11 @@ function endSessionSync() {
  *
  * 이후 `findByText`가 폴링해야 하므로 반드시 진짜 타이머로 되돌린다.
  */
-async function endSessionAfterMinute() {
+async function endSessionAfterFocus(seconds = 60) {
   vi.useFakeTimers();
   try {
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(60_000);
+      await vi.advanceTimersByTimeAsync(seconds * 1000);
     });
     endSessionSync();
     await act(async () => {
@@ -441,7 +437,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     ]);
     renderRoom("/room/7?userId=1");
 
-    await endSessionAfterMinute();
+    await endSessionAfterFocus();
 
     expect(await screen.findByText("결과 라우트")).toBeInTheDocument();
     expect(screen.getByText("/room/7/result")).toBeInTheDocument();
@@ -451,6 +447,27 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     expect(vi.mocked(submitStudySession).mock.calls[0]![0]).toMatchObject({
       events: [],
     });
+  });
+
+  it("순공 1초로 종료해도 결과 화면으로 간다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValue([
+      {
+        id: 11,
+        userId: 1,
+        statDate: "2026-07-25",
+        startedAt: "2026-07-25T01:00:00Z",
+        endedAt: "2026-07-25T01:00:01Z",
+        studySec: 1,
+        focusSec: 1,
+        focusRate: 100,
+        events: [],
+      },
+    ]);
+    renderRoom("/room/7?userId=1");
+
+    await endSessionAfterFocus(1);
+
+    expect(await screen.findByText("결과 라우트")).toBeInTheDocument();
   });
 
   it("제출 실패 시 메시지와 재시도 버튼을 보여준다 — S4로 넘기지 않는다", async () => {
@@ -506,7 +523,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     ]);
     renderRoom("/room/7?userId=1");
 
-    await endSessionAfterMinute();
+    await endSessionAfterFocus();
     // 코드 없는 오류는 공용 문구로 보인다(BY-809).
     expect(
       await screen.findByText("세션을 저장하지 못했어요. 잠시 후 다시 시도해 주세요"),
@@ -1093,19 +1110,19 @@ describe("RoomPage — S3-7 종료 확인", () => {
   });
 
   /**
-   * 갓 입장한 세션은 순공 0초라 **미달 분기**로 들어간다(2026-07-27 확정: 순공 1분 미만은
-   * 기록에 표시되지 않는다). 예전에는 `지금까지 집중한 0초는 저장돼요`였는데, 그 문구는
+   * 갓 입장한 세션은 순공 0초라 **미달 분기**로 들어간다(순공이 없는 세션은 기록에 표시되지
+   * 않는다). 예전에는 `지금까지 집중한 0초는 저장돼요`였는데, 그 문구는
    * 기록에 남지 않는 세션을 두고 저장을 약속하는 거짓이었다.
    *
-   * 1분 이상일 때의 문구(`지금까지 집중한 N은 저장돼요`)는 `sessionCopy.test.ts`가 값별로
+   * 순공이 있을 때의 문구(`지금까지 집중한 N은 저장돼요`)는 `sessionCopy.test.ts`가 값별로
    * 검증한다 — 여기서 타이머를 1분 넘게 돌리는 것보다 그쪽이 정확하다.
    */
-  it("순공 1분 미만이면 저장을 약속하지 않고 미달을 알린다", async () => {
+  it("순공이 0초면 저장을 약속하지 않고 안내한다", async () => {
     renderRoom("/room/7?userId=1");
 
     const dialog = await openExitDialog();
 
-    expect(within(dialog).getByText(SUB_MINUTE_EXIT_DESCRIPTION)).toBeInTheDocument();
+    expect(within(dialog).getByText(NO_FOCUS_EXIT_DESCRIPTION)).toBeInTheDocument();
     expect(within(dialog).queryByText(/저장돼요/)).not.toBeInTheDocument();
     // 다이얼로그에는 HH:MM:SS도, 초 숫자도 쓰지 않는다.
     expect(within(dialog).queryByText(/00:00:00/)).not.toBeInTheDocument();
@@ -1174,7 +1191,7 @@ describe("RoomPage — S3-7 종료 확인", () => {
     const describedBy = dialog.getAttribute("aria-describedby");
     expect(document.getElementById(labelledBy!)).toHaveTextContent("공부를 종료할까요?");
     // 갓 입장한 세션이라 본문은 미달 문구다(위 테스트 주석 참고).
-    expect(document.getElementById(describedBy!)).toHaveTextContent(SUB_MINUTE_EXIT_DESCRIPTION);
+    expect(document.getElementById(describedBy!)).toHaveTextContent(NO_FOCUS_EXIT_DESCRIPTION);
   });
 
   it("초기 포커스는 비파괴 버튼('계속하기')에 놓인다", async () => {
@@ -1225,10 +1242,9 @@ describe("RoomPage — S3-7 종료 확인", () => {
 });
 
 /**
- * 순공 1분 미만 종료 — **S4로 보내지 않는다**(2026-07-27 확정, ai-wiki `mvp-scope.md`
- * "기록 저장·표시 기준": "결과 화면(S4) 대신 간단 안내 후 홈으로 이동한다").
+ * 순공 0초 종료는 S4로 보내지 않고 안내 후 홈으로 이동한다. 1초 이상이면 S4로 간다.
  */
-describe("RoomPage — 미달 종료(순공 1분 미만)", () => {
+describe("RoomPage — 순공 0초 종료", () => {
   // 모듈 스코프 mock이라 정리하지 않으면 호출 기록이 테스트 간 누적된다(다른 describe와 동일).
   afterEach(() => {
     vi.clearAllMocks();
@@ -1248,7 +1264,7 @@ describe("RoomPage — 미달 종료(순공 1분 미만)", () => {
     expect(screen.queryByText("결과 라우트")).not.toBeInTheDocument();
     // 체크 서클(2026-08-01 사용자 확인, BY-336) — S3-8과 같은 완료 신호를 공유한다.
     expect(
-      container.querySelector('[data-session-surface="sub-minute-end"] .bg-brand-subtle'),
+      container.querySelector('[data-session-surface="no-focus-end"] .bg-brand-subtle'),
     ).not.toBeNull();
   });
 
@@ -1411,7 +1427,7 @@ describe("RoomPage: 세션 중 초대", () => {
     expect(
       within(dialog).getByText("진행 중인 공부를 종료하고 초대에 참여할까요?"),
     ).toBeInTheDocument();
-    expect(within(dialog).getByText(SUB_MINUTE_EXIT_DESCRIPTION)).toBeInTheDocument();
+    expect(within(dialog).getByText(NO_FOCUS_EXIT_DESCRIPTION)).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "계속하기" })).toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: "참여하기" })).toBeInTheDocument();
   });

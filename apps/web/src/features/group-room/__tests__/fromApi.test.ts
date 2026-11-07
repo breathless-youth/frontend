@@ -8,6 +8,8 @@ import {
   toApplyState,
   toBlockedUserRow,
   toGroupVisibility,
+  toGroupJoinPolicy,
+  toRoomJoinPolicy,
   toMemberPresence,
   toMyRoomSummary,
   toPendingApplication,
@@ -31,6 +33,29 @@ const desk = (userId: number, weekFocusSec: number) => ({
 const PHOTO = "https://cdn.example.com/profile.png";
 
 describe("fromApi", () => {
+  it("defaults old responses to approval and maps every policy model", () => {
+    expect(toRoomJoinPolicy(undefined)).toBe("approval");
+    expect(toRoomJoinPolicy("OPEN")).toBe("open");
+    expect(toGroupJoinPolicy("approval")).toBe("APPROVAL");
+    expect(toGroupJoinPolicy("open")).toBe("OPEN");
+    const card = { ...seed.publicGroups[0]! };
+    const detail = { ...seed.publicDetails[13]! };
+    const home = { ...seed.homes[10]! };
+    const mine = { ...seed.mine.groups[0]! };
+    for (const old of [card, detail, home, mine]) Reflect.deleteProperty(old, "joinPolicy");
+    expect(toPublicRoomSummary(card).joinPolicy).toBe("approval");
+    expect(toPublicRoomDetail(detail, 1).joinPolicy).toBe("approval");
+    expect(toRoomHome(home, 1).joinPolicy).toBe("approval");
+    expect(toMyRoomSummary(mine, 1).joinPolicy).toBe("approval");
+    expect(toPublicRoomSummary({ ...card, joinPolicy: "OPEN" }).joinPolicy).toBe("open");
+    expect(toPublicRoomDetail({ ...detail, joinPolicy: "OPEN" }, 1).joinPolicy).toBe("open");
+    expect(toRoomHome({ ...home, joinPolicy: "OPEN" }, 1).joinPolicy).toBe("open");
+    expect(
+      toMyRoomSummary({ ...mine, joinPolicy: "OPEN", newApplicationCount: null }, 1)
+        .newRequestCount,
+    ).toBe(0);
+  });
+
   it("서버 상태 네 가지를 책상 상태로 바꾼다", () => {
     expect(
       ["IN_ROOM", "STUDYING", "PAUSED", "IDLE"].map((status) => toMemberPresence(status as never)),
@@ -181,6 +206,7 @@ describe("fromApi", () => {
     );
     expect(detail).toMatchObject({
       roomId: 13,
+      joinPolicy: "approval",
       name: "토익 900 주말반",
       categoryLabel: "어학",
       memberCount: 3,
@@ -195,6 +221,7 @@ describe("fromApi", () => {
     const card = seed.publicGroups.find((group) => group.groupId === 13)!;
     expect(toPublicRoomSummary(card)).toEqual({
       roomId: 13,
+      joinPolicy: "approval",
       name: "토익 900 주말반",
       categoryLabel: "어학",
       memberCount: card.memberCount,

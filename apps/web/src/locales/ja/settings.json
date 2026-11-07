@@ -1,0 +1,78 @@
+{
+  "title": "設定",
+  "sections": {
+    "profile": "プロフィール",
+    "service": "一般",
+    "support": "サポート",
+    "legal": "規約・情報",
+    "account": "アカウント"
+  },
+  "rows": {
+    "editProfile": "プロフィールを編集",
+    "cameraPermission": "カメラへのアクセス",
+    "micPermission": "マイクへのアクセス",
+    "timelapse": "タイムラプス",
+    "appLock": "アプリブロック",
+    "blockList": "ブロックリスト",
+    "contact": "お問い合わせ",
+    "interview": "インタビューに申し込む",
+    "interviewBadge": "ギフト券プレゼント",
+    "terms": "利用規約",
+    "privacy": "プライバシーポリシー",
+    "licenses": "オープンソースライセンス",
+    "version": "バージョン情報",
+    "login": "ログイン",
+    "logout": "ログアウト",
+    "deleteAccount": "アカウント削除"
+  },
+  "cameraPermission": {
+    "tooltip": "権限はシステム設定で変更できます",
+    "aria": {
+      "tooltip": "カメラへのアクセスについて",
+      "granted": "カメラへのアクセス、許可済み、システム設定を開く",
+      "denied": "カメラへのアクセス、未許可、システム設定を開く"
+    }
+  },
+  "micPermission": {
+    "tooltip": "権限はシステム設定で変更できます",
+    "aria": {
+      "tooltip": "マイクへのアクセスについて",
+      "granted": "マイクへのアクセス、許可済み、システム設定を開く",
+      "denied": "マイクへのアクセス、未許可、システム設定を開く"
+    }
+  },
+  "version": {
+    "copied": "バージョンをコピーしました",
+    "copyFailed": "コピーできませんでした"
+  },
+  "row": {
+    "aria": {
+      "copy": "{{value}}をコピー",
+      "tooltip": "{{label}}について"
+    }
+  },
+  "contact": {
+    "loading": "お問い合わせフォームを読み込み中",
+    "failure": "お問い合わせフォームを読み込めませんでした"
+  },
+  "download": {
+    "redirecting": "ストアに移動しています…",
+    "manual": "ストアへ移動"
+  },
+  "legal": {
+    "koreanOnly": "この文書は現在、韓国語でのみ提供しています。"
+  },
+  "account": {
+    "logout": {
+      "title": "ログアウトしますか？",
+      "description": "記録は連携したアカウントにそのまま残ります",
+      "confirm": "ログアウト"
+    },
+    "delete": {
+      "title": "アカウントを削除しますか？",
+      "description": "すべての記録がすぐに削除され、元に戻せません",
+      "confirm": "削除",
+      "failed": "アカウントを削除できませんでした。しばらくしてからもう一度お試しください"
+    }
+  }
+}

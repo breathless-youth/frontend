@@ -1,0 +1,227 @@
+{
+  "page": {
+    "title": "排行榜",
+    "noDevice": "這部裝置尚未註冊。在應用程式中開啟，就會儲存紀錄",
+    "loadError": "無法載入排行榜"
+  },
+  "globalNotice": {
+    "title": "海外排行榜準備中",
+    "body": "目前只有韓國時區可以參加排行榜"
+  },
+  "type": {
+    "focusTime": "專注時間",
+    "focusRate": "專注率",
+    "timeSlot": "時段",
+    "totalTime": "總讀書時間",
+    "totalDays": "讀書天數",
+    "maxStreak": "連續讀書天數"
+  },
+  "period": {
+    "daily": "每日",
+    "weekly": "每週",
+    "monthly": "每月"
+  },
+  "periodWord": {
+    "daily": "今天",
+    "weekly": "本週",
+    "monthly": "本月"
+  },
+  "slot": {
+    "night": "凌晨",
+    "morning": "上午",
+    "afternoon": "下午",
+    "evening": "晚上",
+    "dawn": "凌晨",
+    "unknown": "時段",
+    "name": "{{slot}}時段"
+  },
+  "slotHours": {
+    "night": "0～6 點",
+    "morning": "6～12 點",
+    "afternoon": "12～18 點",
+    "evening": "18～24 點",
+    "dawn": "4～7 點"
+  },
+  "slotSubject": {
+    "night": "凌晨",
+    "morning": "上午",
+    "afternoon": "下午",
+    "evening": "晚上",
+    "dawn": "凌晨"
+  },
+  "rank": {
+    "place": "第 {{rank}} 名"
+  },
+  "row": {
+    "focusing": "專注中"
+  },
+  "format": {
+    "days": "{{days}} 天",
+    "weekOfMonth": "{{month}}第 {{week}} 週"
+  },
+  "deadline": {
+    "midnight": "0 點截止",
+    "days": "{{count}} 天後截止",
+    "hours": "{{count}} 小時後截止",
+    "hoursMinutes": "{{hours}} 小時 {{minutes}} 分後截止",
+    "minutes": "{{count}} 分鐘後截止"
+  },
+  "podium": {
+    "titleTop3": "{{name}}前 3 名",
+    "titleFocusRate": "專注率前 3 名",
+    "titleMaxStreak": "連續讀書天數前 3 名",
+    "titleHall": "名人堂前 3 名",
+    "tooltipRateMonthly": "本月專注時間達 30 小時以上，就能進入排行榜",
+    "tooltipRateWeekly": "本週專注時間達 10 小時以上，就能進入排行榜",
+    "tooltipSlot": "以{{period}} {{hours}}的專注時間計算",
+    "me": "我",
+    "aria": {
+      "tooltip": "前 3 名標準說明"
+    }
+  },
+  "card": {
+    "maxStreakTitle": "最長連續讀書天數"
+  },
+  "offSlot": {
+    "headline": "在{{slot}}時段讀書，就能進入排行榜",
+    "notice": "只有在{{slot}}時段讀書的時間會計入這個排名"
+  },
+  "previousResult": {
+    "daily": "昨天的最終結果",
+    "weekly": "上週的最終結果",
+    "monthly": "上個月的最終結果",
+    "rankPrefix": "第 {{rank}} 名 · ",
+    "showRecords": "查看紀錄 ›"
+  },
+  "live": {
+    "rankUp": "上升了 {{steps}} 名",
+    "rankDown": "下降了 {{steps}} 名",
+    "gapWidening": "和前一名的差距正在拉大",
+    "gapClosing": "和後一名的差距正在縮小",
+    "gapToSecond": "領先第 2 名 {{gap}}",
+    "oneMoreSession": "再讀一次就能追上",
+    "catchUpBeforeSlotEnds": "在{{slot}}時段結束前就能追上"
+  },
+  "around": {
+    "status": "排名{{change}}",
+    "aria": {
+      "label": "你附近的排名"
+    }
+  },
+  "switcher": {
+    "modeRanking": "排行榜",
+    "modeHall": "名人堂",
+    "aria": {
+      "mode": "排行榜類型",
+      "type": "類別",
+      "period": "期間",
+      "slots": "時段",
+      "slot": "{{slot}}，{{hours}}",
+      "slotNow": "{{slot}}，{{hours}}，目前時段"
+    }
+  },
+  "eligibility": {
+    "untilEntry": "距離進入排行榜還差 <accent>{{gap}}</accent>",
+    "expectRank": "以目前的專注率，你會是第 {{rank}} 名",
+    "expectTopPercent": "以目前的專注率，你在前 {{percent}}%"
+  },
+  "lockedList": {
+    "message": "進入排行榜後，就能看到你前後的排名",
+    "aria": {
+      "label": "你前後的排名"
+    }
+  },
+  "firstCard": {
+    "title": "你還沒有排名",
+    "headline": "現在讀書，就能進入排行榜",
+    "streakHeadline": "讀書 5 分鐘以上<br/>就能進入排行榜"
+  },
+  "resetCard": {
+    "startNow": "現在開始就是<accent>第 {{rank}} 名</accent>"
+  },
+  "goalExamples": {
+    "title": "這週讀這麼多的話",
+    "untilTop": "就能進入前 {{percent}}%"
+  },
+  "focusStart": {
+    "label": "開始專注"
+  },
+  "rankedCard": {
+    "topPercent": "前 {{percent}}%",
+    "untilNext": "<pre>距離下一名還差 </pre><accent>{{gap}}</accent>",
+    "rateCatchUp": "再專注一點就能追上"
+  },
+  "nextTier": {
+    "remaining": "距離<b>前 {{percent}}%</b> 還差 {{gap}}",
+    "eta": "照目前的速度，大約 {{count}} 天後就能超越"
+  },
+  "firstPlace": {
+    "headline": "穩坐<accent>第 1 名</accent>"
+  },
+  "medalButton": {
+    "aria": {
+      "label": "排行榜紀錄",
+      "withTotal": "排行榜紀錄，{{count}} 面獎牌"
+    }
+  },
+  "rankChips": {
+    "all": "全部",
+    "aria": {
+      "label": "排名"
+    }
+  },
+  "nickname": {
+    "aria": {
+      "showFull": "顯示 {{name}} 的完整名稱"
+    }
+  },
+  "records": {
+    "title": "排行榜紀錄",
+    "loadError": "無法載入排行榜紀錄",
+    "empty": "沒有符合條件的紀錄",
+    "aria": {
+      "item": "第 {{rank}} 名，{{name}}，{{period}}，{{value}}"
+    }
+  },
+  "sheet": {
+    "totalCount": "共 {{count}} 次",
+    "showAll": "查看全部 {{count}} 筆 ›",
+    "emptyTitle": "還沒有前 3 名的紀錄",
+    "emptyBody": "排行榜截止時進入前 3 名，就能在這裡看到獎牌",
+    "closestLabel": "最接近前 3 名的一次",
+    "closestInTop3": "目前在前 3 名內",
+    "closestGap": "差 {{gap}}"
+  },
+  "streak": {
+    "dayUnit": " 天",
+    "currentIsBest": "現在就是最佳紀錄",
+    "nextBest": "明天也讀書，最長紀錄就會是 {{count}} 天",
+    "best": "最佳紀錄",
+    "current": "目前",
+    "startToday": "今天讀書就是第 1 天",
+    "beatBest": "再連續 <b>{{count}} 天</b>就能打破最佳紀錄"
+  },
+  "medal": {
+    "closesAt": "{{date}} {{time}}",
+    "titleSingle": "最終排名第 {{rank}} 名",
+    "rowClosed": "最終第 {{rank}} 名",
+    "eyebrowClosed": "{{time}} 截止",
+    "titleMany": "你獲得了 {{count}} 面獎牌",
+    "recordValue": "紀錄：<value>{{value}}</value>",
+    "more": "另外 {{count}} 面",
+    "totalSoFar": "目前為止共獲得 <b>{{total}} 面</b>獎牌",
+    "showRecords": "查看排行榜紀錄",
+    "aria": {
+      "countByRank": "第 {{rank}} 名，{{count}} 面"
+    }
+  },
+  "recordsPage": {
+    "summaryTitle": "目前為止的前 3 名",
+    "timesUnit": " 次",
+    "allTypes": "所有類別",
+    "aria": {
+      "countByRank": "第 {{rank}} 名，{{count}} 次",
+      "typeFilter": "類別：{{label}}"
+    }
+  }
+}

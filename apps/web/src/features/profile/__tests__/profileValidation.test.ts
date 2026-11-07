@@ -1,92 +1,168 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeGoal, validateGoal, validateNickname } from "../profileValidation";
+import { normalizeServerText } from "@/lib/graphemes";
+
+import {
+  nicknameWidth,
+  normalizeGoal,
+  normalizeNickname,
+  validateGoal,
+  validateNickname,
+} from "../profileValidation";
 
 /** 문구 상수가 카탈로그로 옮겨져 한국어 원문을 직접 둔다. */
-const NICKNAME_RULE_MESSAGE = "한글, 영문, 숫자, 이모지, 띄어쓰기로 2~12자를 쓰실 수 있어요";
+const LENGTH_MESSAGE = "40칸까지 쓸 수 있어요. 한글·일본어·한자·이모지는 한 글자에 2칸이에요.";
+const CHARS_MESSAGE = "한글·영문·일본어·한자·숫자·이모지·띄어쓰기·_·.·- 만 쓸 수 있어요";
 
 describe("validateNickname", () => {
-  it("한글·영문·숫자·이모지·띄어쓰기 조합을 허용한다", () => {
-    expect(validateNickname("숨 벅찬 청년들")).toBeNull();
-    expect(validateNickname("코딩🧑‍💻")).toBeNull();
-    expect(validateNickname("🇰🇷 화이팅")).toBeNull();
-    expect(validateNickname("1️⃣등 목표")).toBeNull();
-    expect(validateNickname("  홍길동  ")).toBeNull();
-    expect(validateNickname("포메3721")).toBeNull();
-    expect(validateNickname("ab")).toBeNull();
+  it.each([
+    "숨 벅찬 청년들",
+    "Study7",
+    "코딩🧑‍💻",
+    "🇰🇷 화이팅",
+    "1️⃣등 목표",
+    "👩🏽‍💻 개발",
+    "❤️‍🔥 열정",
+    "🏴󠁧󠁢󠁥󠁮󠁧󠁿 잉글랜드",
+    "  홍길동  ",
+    "포메3721",
+    "猫",
+    "a",
+    "가",
+    "一夜漬けするラッコ",
+    "ラッコ",
+    "佐々木",
+    "ハムスター",
+    "熬夜复习的考拉",
+    "捱夜溫書嘅樹熊",
+    "study_otter",
+    "a_b.c-d",
+    "Jean-Luc",
+    "José",
+    "벼락치기하는 하늘다람쥐",
+    "\u1100\u1161나", // 자모 입력은 완성형으로 합쳐진다
+    "ﾊﾑｽﾀｰ", // 반각 가타카나는 보통 가타카나로 바뀐다
+    "Ｏｔｔｅｒ", // 전각 영문은 보통 영문으로 바뀐다
+    "홍길\u00a0동", // NBSP는 보통 띄어쓰기로 바뀐다
+    "© 저작권", // 텍스트 기본 표시 기호도 이모지 속성이라 허용
+    "가".repeat(20), // 40칸
+    "a".repeat(40),
+    "😀".repeat(20),
+    "🇰🇷".repeat(20),
+    "👨\u200D👩\u200D👧\u200D👦".repeat(12), // 84 코드포인트
+    "😀" + "\u200D😀".repeat(48) + " a", // 99 코드포인트
+    " ".repeat(254) + "가나", // 원문 256자
+  ])("%s 는 통과한다", (nickname) => {
+    expect(validateNickname(nickname)).toBeNull();
   });
 
-  it("특수문자가 섞이면 무효다", () => {
-    expect(validateNickname("느낌표금지!")).not.toBeNull();
-    expect(validateNickname("日本語ニック")).not.toBeNull();
-    expect(validateNickname("ㅋㅋㅋ")).not.toBeNull();
-    expect(validateNickname("under_score")).not.toBeNull();
-    expect(validateNickname("##")).not.toBeNull(); // 키캡 기호 없는 # 단독
-    expect(validateNickname("홍길​동")).not.toBeNull(); // 제로폭 공백
-    expect(validateNickname("홍길 동")).not.toBeNull(); // NBSP
-    expect(validateNickname(" a ")).not.toBeNull(); // 잘라내면 1자
-    expect(validateNickname("   ")).not.toBeNull(); // 공백만
-    expect(validateNickname("")).not.toBeNull();
+  it.each([
+    "",
+    "   ",
+    "가".repeat(21),
+    "가".repeat(20) + "a", // 41칸
+    "a".repeat(41),
+    "🇰🇷".repeat(21),
+    "😀" + "\u200D😀".repeat(49) + " a", // 101 코드포인트
+    " ".repeat(255) + "가나", // 원문 257자
+  ])("%s 는 길이 문구로 거부한다", (nickname) => {
+    expect(validateNickname(nickname)).toBe(LENGTH_MESSAGE);
   });
 
-  it("길이 경계 — 2자 통과, 1자 거부", () => {
-    expect(validateNickname("가나")).toBeNull();
-    expect(validateNickname("가")).not.toBeNull();
-  });
-
-  it("길이 경계 — 12자 통과, 13자 거부", () => {
-    expect(validateNickname("가나다라마바사아자차카타")).toBeNull(); // 12자
-    expect(validateNickname("가나다라마바사아자차카타파")).not.toBeNull(); // 13자
-  });
-
-  it("길이 경계 — 국기 이모지 12개 통과, 13개 거부", () => {
-    expect(validateNickname("🇰🇷".repeat(12))).toBeNull();
-    expect(validateNickname("🇰🇷".repeat(13))).not.toBeNull();
-  });
-
-  it("형식 오류는 공통 문구를 쓴다", () => {
-    expect(validateNickname("느낌표금지!")).toBe(NICKNAME_RULE_MESSAGE);
-  });
-
-  it("서버가 지우지 않는 공백류가 남으면 무효다", () => {
-    // NBSP(U+00A0) — JS trim()은 지우지만 서버 String.strip()은 남겨서 거부한다
-    expect(validateNickname(" 가나 ")).not.toBeNull();
-    // BOM(U+FEFF) — 마찬가지로 JS trim()만 지우고 서버는 남긴다
-    expect(validateNickname("﻿가나")).not.toBeNull();
-  });
-
-  it("U+2000~U+200A 안이라도 예외로 빠진 공백류는 계속 거부한다", () => {
-    // U+2007 FIGURE SPACE — Character.isWhitespace가 명시적으로 제외한다
-    expect(validateNickname("\u2007가나\u2007")).not.toBeNull();
-    // U+202F NARROW NO-BREAK SPACE — 마찬가지로 제외
-    expect(validateNickname("\u202F가나\u202F")).not.toBeNull();
-  });
-
-  it("서버가 지우는 전각·유니코드 공백류는 잘라내고 통과한다 — 한글 IME 전각 모드 입력", () => {
-    // U+3000 IDEOGRAPHIC SPACE(전각 공백)
-    expect(validateNickname("\u3000가나\u3000")).toBeNull();
-    // U+2003 EM SPACE
-    expect(validateNickname("\u2003가나")).toBeNull();
-    // U+1680 OGHAM SPACE MARK
-    expect(validateNickname("\u1680가나")).toBeNull();
-  });
-
-  it("이모지 조합 부품이 단독으로 오면 무효다 — 시작 글자가 그림 이모지·지역 지시자가 아니다", () => {
-    // 단독 VS16(U+FE0F)
-    expect(validateNickname("️ a")).not.toBeNull();
-    // 단독 ZWJ(U+200D)
-    expect(validateNickname("‍가나")).not.toBeNull();
-    // 단독 피부색 수정자(U+1F3FD)
-    expect(validateNickname("\u{1F3FD}가나")).not.toBeNull();
+  it.each([
+    "느낌표금지!",
+    "中・日", // 가운뎃점은 문장부호
+    "ｶﾞｸ\uFF65ｾｲ", // 반각 가운뎃점도 NFKC 뒤 가운뎃점이 된다
+    "ㅋㅋㅋ",
+    "ㅅㅂ",
+    "नमस्ते",
+    "Привет",
+    "a!b",
+    "가‼", // NFKC가 느낌표 두 개로 푼다
+    "##", // 키캡 기호 없는 # 단독
+    "홍길\u200B동", // 제로폭 공백
+    "홍길\u200D동", // 단독 ZWJ
+    "홍길\t동",
+    "😀\u200Da", // 이모지 뒤에 남은 ZWJ
+    "😀\u200Ca", // ZWNJ
+    "\u3164\u3164", // 한글 채움 문자
+    "\ufeff가나", // BOM은 서버가 지우지 않는다
+    "🇰 국기", // 지역 지시자 하나
+    "😀\u0301 악센트", // 이모지 + 결합기호
+    "🏴\u{E007F} 깃발", // 종료 태그만
+    "a\uFE0Fb", // 글자에 붙은 표현 선택자
+    "\uFE0F a", // 단독 VS16
+    "\u{1F3FD}가나", // 단독 피부색 수정자
+    "\u{1FC00} a", // 미할당 코드포인트
+  ])("%s 는 글자 문구로 거부한다", (nickname) => {
+    expect(validateNickname(nickname)).toBe(CHARS_MESSAGE);
   });
 
   it("서버가 지우는 공백류는 잘라내고 통과한다", () => {
     expect(validateNickname("\t가나\t")).toBeNull();
+    expect(validateNickname("\u3000가나\u3000")).toBeNull();
+    expect(validateNickname("\u2003가나")).toBeNull();
+    expect(validateNickname("\u1680가나")).toBeNull();
+    // NFKC가 보통 띄어쓰기로 바꾼 뒤 잘라낸다
+    expect(validateNickname("\u00a0가나\u00a0")).toBeNull();
+    expect(validateNickname("\u2007가나\u202F")).toBeNull();
+  });
+});
+
+describe("validateNickname 서버 경계", () => {
+  it("라틴 글자는 U+024F까지 받고 U+0250부터 거부한다", () => {
+    expect(validateNickname("\u024F")).toBeNull();
+    expect(validateNickname("\u0250")).toBe(CHARS_MESSAGE);
   });
 
-  it("서버가 허용하는 텍스트 표현 기호(Extended_Pictographic)는 통과한다", () => {
-    expect(validateNickname("가‼")).toBeNull();
-    expect(validateNickname("© 저작권")).toBeNull();
+  it("반복 부호 々와 확장 영역 한자를 한자로 받아 2칸으로 센다", () => {
+    expect(validateNickname("々")).toBeNull();
+    expect(validateNickname("\u{20000}")).toBeNull();
+    expect(nicknameWidth("\u{20000}")).toBe(2);
+  });
+
+  it("정규화 뒤 코드포인트 100개는 받고 101개는 칸 수와 글자보다 먼저 길이로 거부한다", () => {
+    const hundred = "😀" + "\u200D😀".repeat(49) + "a";
+    expect([...hundred]).toHaveLength(100);
+    expect(validateNickname(hundred)).toBeNull();
+    expect(validateNickname("😀" + "\u200D😀".repeat(49) + " a")).toBe(LENGTH_MESSAGE);
+    // 받지 않는 글자가 섞여도 코드포인트 상한을 먼저 본다
+    expect(validateNickname("😀" + "\u200D😀".repeat(49) + " !")).toBe(LENGTH_MESSAGE);
+  });
+
+  it("태그 깃발은 종료 태그까지 갖춘 것만 받는다", () => {
+    expect(
+      validateNickname("\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}\u{E007F}"),
+    ).toBeNull();
+    expect(validateNickname("\u{1F3F4}\u{E0067}\u{E0062}\u{E0065}\u{E006E}\u{E0067}")).toBe(
+      CHARS_MESSAGE,
+    );
+    expect(validateNickname("\u{1F3F4}\u{E007F}")).toBe(CHARS_MESSAGE);
+  });
+});
+
+describe("nicknameWidth", () => {
+  it("한글·가나·장음 부호·한자·이모지는 2칸, 나머지는 1칸으로 센다", () => {
+    expect(nicknameWidth("벼락치기하는 하늘다람쥐")).toBe(23);
+    expect(nicknameWidth("Caffeinated Capybara")).toBe(20);
+    expect(nicknameWidth("一夜漬けするラッコ")).toBe(18);
+    expect(nicknameWidth("ハムスター")).toBe(10);
+    expect(nicknameWidth("佐々木")).toBe(6);
+    expect(nicknameWidth("👨‍👩‍👧")).toBe(2);
+    expect(nicknameWidth("José_K.")).toBe(7);
+    expect(nicknameWidth("  가나다  ")).toBe(6);
+  });
+});
+
+describe("normalizeNickname", () => {
+  it("전각 영문과 반각 가타카나를 보통 글자로 바꾸고 앞뒤 공백을 뺀다", () => {
+    expect(normalizeNickname(" Ｏｔｔｅｒ ")).toBe("Otter");
+    expect(normalizeNickname("ﾊﾑｽﾀｰ")).toBe("ハムスター");
+    expect(normalizeNickname("홍 길  동")).toBe("홍 길  동");
+  });
+
+  it("그룹 글 정규화는 NFC 그대로라 전각 영문을 바꾸지 않는다", () => {
+    expect(normalizeServerText("Ｏｔｔｅｒ")).toBe("Ｏｔｔｅｒ");
   });
 });
 

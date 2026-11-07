@@ -1,0 +1,30 @@
+{
+  "actions": {
+    "cancel": "取消",
+    "close": "關閉",
+    "retry": "重試",
+    "back": "返回"
+  },
+  "duration": {
+    "hoursMinutes": "{{hours}} 小時 {{minutes}} 分",
+    "hours": "{{hours}} 小時",
+    "minutes": "{{minutes}} 分鐘",
+    "seconds": "{{seconds}} 秒"
+  },
+  "aria": {
+    "loading": "載入中",
+    "toaster": "通知",
+    "ctaToaster": "畫面通知"
+  },
+  "errorFallback": {
+    "title": "發生暫時性的問題",
+    "description": "無法載入畫面，請稍後再試。",
+    "reload": "重新載入"
+  },
+  "feedback": {
+    "thanks": "感謝你寶貴的意見！"
+  },
+  "errors": {
+    "retryLater": "請稍後再試"
+  }
+}

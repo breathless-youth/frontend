@@ -6,7 +6,6 @@ import {
   getRankingRecords,
   getRankingRecordsSummary,
   getRankingRecordsUnseen,
-  getRankingSessionGains,
   type RankingBoardParams,
 } from "./rankingApi";
 
@@ -40,8 +39,6 @@ export const rankingKeys = {
       filter.size,
     ] as const,
   unseen: (userId: number) => ["ranking", "records", "unseen", userId] as const,
-  sessionGains: (userId: number, startedAt: string) =>
-    ["ranking", "session-gains", userId, startedAt] as const,
 };
 
 /**
@@ -109,18 +106,5 @@ export function rankingUnseenQuery(userId: number) {
     queryKey: rankingKeys.unseen(userId),
     queryFn: ({ signal }) => getRankingRecordsUnseen(signal),
     staleTime: 0,
-  });
-}
-
-/**
- * 세션 뒤 오른 순위 queryOptions
- *
- * 끝난 제출 하나의 결과라 결과 화면에 있는 동안 다시 받지 않는다.
- */
-export function rankingSessionGainsQuery(userId: number, startedAt: string) {
-  return queryOptions({
-    queryKey: rankingKeys.sessionGains(userId, startedAt),
-    queryFn: ({ signal }) => getRankingSessionGains(startedAt, signal),
-    staleTime: Infinity,
   });
 }

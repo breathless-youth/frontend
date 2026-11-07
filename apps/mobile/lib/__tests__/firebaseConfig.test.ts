@@ -64,6 +64,14 @@ describe("Firebase 설정 (BY-585)", () => {
       expect(names).toContain("@react-native-firebase/messaging");
     });
 
+    // 둘 중 하나가 빠지면 빌드는 되지만 Android 상태 표시줄 알림 아이콘이 앱 아이콘 네모로 돌아간다.
+    it("Android 알림 아이콘을 RNFB 플러그인이 가리키고 withNotificationIcon이 리소스로 복사한다", () => {
+      const icon = pluginOptions("@react-native-firebase/messaging")?.android?.notificationIcon;
+      expect(icon).toBe("./assets/notification-icon.png");
+      expect(fs.existsSync(path.resolve(__dirname, "../..", icon as string))).toBe(true);
+      expect(plugins.map(pluginName)).toContain("./plugins/withNotificationIcon");
+    });
+
     /**
      * RNFB 26은 firebase-ios-sdk를 SPM으로 받고, SPM 제품은 automatic 라이브러리라 pod마다 복사본을
      * 안는다 — static 링크면 중복 심볼로 링크가 깨진다. dynamic이 SPM 모드의 요구사항이다.
@@ -166,9 +174,10 @@ describe("Firebase 설정 (BY-585)", () => {
           EAS_BUILD: "true",
           GOOGLE_SERVICES_JSON: json,
           GOOGLE_SERVICES_PLIST: plist,
-          // EAS 빌더의 production 평가는 Meta env도 요구한다 — 이 파일의 관심사가 아니라 채워 준다.
+          // EAS 빌더의 production 평가는 Meta·Airbridge env도 요구한다 — 이 파일의 관심사가 아니라 채워 준다.
           META_APP_ID: "1234567890123456",
           META_CLIENT_TOKEN: "0123456789abcdef0123456789abcdef",
+          AIRBRIDGE_APP_TOKEN: "test-token",
         });
         expect(config.android?.googleServicesFile).toBe(json);
         expect(config.ios?.googleServicesFile).toBe(plist);

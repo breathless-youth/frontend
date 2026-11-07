@@ -11,26 +11,26 @@ const sound = (id: string, extra: Partial<AmbientSound> = {}): AmbientSound => (
 });
 
 describe("soundGroups", () => {
-  it("group 을 따라 노이즈·배경 소리·음악 순으로 나눈다", () => {
+  it("group 을 따라 로파이·배경 소리·노이즈 순으로 나눈다", () => {
     const groups = soundGroups([
+      sound("binaural", { group: "noise" }),
       sound("lofi-1", { kind: "file", file: "a.mp3", group: "music" }),
       sound("bonfire", { kind: "file", file: "b.mp3", group: "ambience" }),
-      sound("binaural", { group: "noise" }),
     ]);
-    expect(groups.map((g) => g.id)).toEqual(["noise", "ambience", "music"]);
-    expect(groups.map((g) => g.label)).toEqual(["노이즈", "배경 소리", "음악"]);
+    expect(groups.map((g) => g.id)).toEqual(["music", "ambience", "noise"]);
+    expect(groups.map((g) => g.label)).toEqual(["로파이", "배경 소리", "노이즈"]);
     expect(groups.map((g) => g.sounds.map((s) => s.id))).toEqual([
-      ["binaural"],
-      ["bonfire"],
       ["lofi-1"],
+      ["bonfire"],
+      ["binaural"],
     ]);
   });
 
   it("group 이 없으면 합성은 노이즈, 파일은 배경 소리로 떨어진다", () => {
     const groups = soundGroups([sound("white"), sound("rain", { kind: "file", file: "r.mp3" })]);
-    expect(groups.map((g) => g.id)).toEqual(["noise", "ambience"]);
-    expect(groups[0].sounds.map((s) => s.id)).toEqual(["white"]);
-    expect(groups[1].sounds.map((s) => s.id)).toEqual(["rain"]);
+    expect(groups.map((g) => g.id)).toEqual(["ambience", "noise"]);
+    expect(groups[0].sounds.map((s) => s.id)).toEqual(["rain"]);
+    expect(groups[1].sounds.map((s) => s.id)).toEqual(["white"]);
   });
 
   it("비어 있는 그룹은 내보내지 않는다", () => {

@@ -1,0 +1,45 @@
+{
+  "title": "プロフィールを編集",
+  "loadError": "プロフィールを読み込めませんでした",
+  "saved": "プロフィールを保存しました",
+  "fields": {
+    "nickname": "ニックネーム",
+    "goal": "目標",
+    "category": "目指している試験"
+  },
+  "save": {
+    "idle": "保存",
+    "pending": "保存中…"
+  },
+  "errors": {
+    "nicknameTaken": "このニックネームはすでに使われています",
+    "nicknameLength": "全角20文字（半角40文字）まで入力できます。",
+    "nicknameChars": "使用できるのは、ひらがな・カタカナ・漢字・英数字・ハングル・絵文字・スペース・_ . - です",
+    "nicknameNotAllowed": "このニックネームは使用できません。別のニックネームを入力してください",
+    "goalTooLong": "目標は20文字まで入力できます",
+    "unknownCategory": "リストにないカテゴリーです"
+  },
+  "categories": {
+    "PROFESSIONAL": "専門職試験",
+    "CSAT": "大学入試",
+    "JOB": "就職",
+    "CERTIFICATE": "資格",
+    "CIVIL_SERVICE": "公務員試験",
+    "LANGUAGE": "語学",
+    "ETC": "その他",
+    "SCHOOL_EXAM": "定期テスト",
+    "UNIVERSITY_EXAM": "大学の試験"
+  },
+  "photo": {
+    "sheetTitle": "プロフィール写真",
+    "change": "写真を変更",
+    "remove": "写真を削除",
+    "changed": "プロフィール写真を変更しました",
+    "removed": "プロフィール写真を削除しました",
+    "unusable": "この写真は使用できません。別の写真を選んでください",
+    "uploadFailed": "写真をアップロードできませんでした。もう一度お試しください",
+    "aria": {
+      "change": "プロフィール写真を変更"
+    }
+  }
+}

@@ -53,10 +53,13 @@ describe("PublicRoomDetailScreen", () => {
     expect(onCancelApplication).toHaveBeenCalledOnce();
   });
 
-  it("자리가 다 찬 그룹은 신청하기를 누를 수 없다", () => {
-    renderDetail({ kind: "full" });
-    expect(screen.getByRole("button", { name: "신청하기" })).toBeDisabled();
-  });
+  it.each(["approval", "open"] as const)(
+    "%s full groups have a disabled full CTA",
+    (joinPolicy) => {
+      renderDetail({ kind: "full" }, { joinPolicy });
+      expect(screen.getByRole("button", { name: "자리가 다 찼어요" })).toBeDisabled();
+    },
+  );
 
   it("신청할 수 없는 이유가 있으면 흐린 버튼의 글자가 이유다", () => {
     renderDetail({ kind: "blocked", reason: "pending_applications_full" });

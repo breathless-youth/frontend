@@ -49,7 +49,7 @@ export type LegalDocument = {
 
 export const TERMS_OF_SERVICE: LegalDocument = {
   title: "이용약관",
-  effectiveDate: "2026년 11월 4일",
+  effectiveDate: "2026년 11월 14일",
   sections: [
     {
       heading: "제1조 (목적)",
@@ -101,7 +101,7 @@ export const TERMS_OF_SERVICE: LegalDocument = {
         },
         {
           kind: "paragraph",
-          text: "서비스는 별도의 회원가입 없이 무료로 이용할 수 있으며, 공부 기록은 앱 최초 실행 시 생성되는 기기 식별자를 기준으로 저장됩니다.",
+          text: "서비스는 무료로 이용할 수 있으며, 로그인하지 않아도 공부 기록은 앱 최초 실행 시 생성되는 기기 식별자를 기준으로 저장됩니다. 이용자는 원하는 경우 Google, 카카오, Apple 계정으로 로그인할 수 있습니다.",
         },
         {
           kind: "paragraph",
@@ -132,11 +132,11 @@ export const TERMS_OF_SERVICE: LegalDocument = {
         { kind: "paragraph", text: "공부 기록은 기기 식별자를 기준으로 팀의 서버에 저장됩니다." },
         {
           kind: "paragraph",
-          text: "서비스는 회원가입과 로그인 절차를 두지 않으므로, 이용자가 앱을 삭제하거나 기기를 변경하는 경우 기존에 저장된 공부 기록에 다시 접근할 수 없습니다. 팀은 이 경우 기록을 복구할 의무를 지지 않습니다.",
+          text: "로그인하지 않은 이용자가 앱을 삭제하거나 기기를 변경하는 경우 기존에 저장된 공부 기록에 다시 접근할 수 없습니다. 팀은 이 경우 기록을 복구할 의무를 지지 않습니다. 소셜 로그인한 이용자는 같은 소셜 계정으로 다시 로그인하면 기존 공부 기록을 이어서 볼 수 있습니다.",
         },
         {
           kind: "paragraph",
-          text: "이용자는 언제든지 개인정보처리방침에 안내된 연락처로 요청하여 자신의 공부 기록 전체를 삭제할 수 있으며, 삭제된 기록은 복구되지 않습니다.",
+          text: "이용자는 언제든지 자신의 공부 기록 전체를 삭제할 수 있습니다. 소셜 로그인한 이용자는 앱의 설정 > 계정 > 계정 삭제에서 직접 삭제할 수 있고, 로그인하지 않은 이용자나 앱을 쓸 수 없는 이용자는 개인정보처리방침에 안내된 연락처로 요청하여 삭제할 수 있습니다. 삭제된 기록은 복구되지 않습니다.",
         },
       ],
     },
@@ -247,7 +247,7 @@ export const TERMS_OF_SERVICE: LegalDocument = {
 
 export const PRIVACY_POLICY: LegalDocument = {
   title: "개인정보처리방침",
-  effectiveDate: "2026년 11월 11일",
+  effectiveDate: "2026년 11월 14일",
   intro:
     "숨 벅찬 청년들(이하 “팀”)은 공부 집중 측정 서비스 FocusMakers(이하 “서비스”)를 제공하면서 이용자의 개인정보를 소중하게 다루며, 「개인정보 보호법」 등 관련 법령을 준수합니다. 본 방침은 서비스가 어떤 정보를 왜 수집하고, 어떻게 보관하며, 이용자가 어떤 권리를 갖는지 설명합니다.",
   sections: [
@@ -256,7 +256,7 @@ export const PRIVACY_POLICY: LegalDocument = {
       blocks: [
         {
           kind: "paragraph",
-          text: "서비스는 별도의 회원가입 없이 사용할 수 있으며, 이름, 이메일, 전화번호 같은 연락처 정보를 요구하지 않습니다. 수집하는 항목은 다음과 같습니다.",
+          text: "서비스는 로그인하지 않아도 사용할 수 있으며, 이름과 전화번호는 요구하지 않습니다. 이메일은 이용자가 소셜 로그인을 선택한 경우에만 받습니다. 수집하는 항목은 다음과 같습니다.",
         },
         {
           kind: "fields",
@@ -264,7 +264,12 @@ export const PRIVACY_POLICY: LegalDocument = {
             {
               label: "기기 식별자",
               value:
-                "앱 최초 실행 시 자동 생성되는 무작위 식별자(UUID). 기기를 구분해 공부 기록을 이어 주는 용도로만 사용하며, 이용자의 실명이나 연락처와 연결되지 않습니다.",
+                "앱 최초 실행 시 자동 생성되는 무작위 식별자(UUID). 기기를 구분해 공부 기록을 이어 주는 용도로만 사용하며, 로그인하지 않으면 이용자의 실명이나 연락처와 연결되지 않습니다.",
+            },
+            {
+              label: "소셜 로그인 계정 정보",
+              value:
+                "이용자가 Google, 카카오, Apple 중 하나로 로그인하면 로그인 수단, 그 소셜 계정의 고유 식별 번호, 이메일을 저장합니다. 이메일은 Google과 카카오 로그인에서는 항상 받고(카카오는 이메일 제공을 필수 동의 항목으로 받습니다), Apple 로그인에서는 요청하지 않습니다. 소셜 계정의 이름과 프로필 사진은 받지 않습니다.",
             },
             {
               label: "공부 기록",
@@ -308,7 +313,8 @@ export const PRIVACY_POLICY: LegalDocument = {
             },
             {
               label: "기기 및 접속 환경 정보",
-              value: "기기 모델, 운영체제와 앱 버전, 브라우저 종류, 앱 설치 식별자, 푸시 알림 토큰",
+              value:
+                "기기 모델과 제조사, 운영체제와 앱 버전, 언어·국가 설정, 시간대, 화면 크기, 통신사, 브라우저 종류, 앱 설치 식별자, 푸시 알림 토큰",
             },
             {
               label: "오류 기록",
@@ -318,7 +324,7 @@ export const PRIVACY_POLICY: LegalDocument = {
             {
               label: "광고 식별자",
               value:
-                "Android 광고 ID와 iOS 광고 식별자(IDFA). 앱에 포함된 Meta SDK가 수집하며, iOS에서는 이용자가 앱 추적을 허용한 경우에만 수집합니다.",
+                "Android 광고 ID와 iOS 광고 식별자(IDFA). 앱에 포함된 Meta SDK와 Airbridge SDK가 수집하며, iOS에서는 이용자가 앱 추적을 허용한 경우에만 수집합니다.",
             },
           ],
         },
@@ -348,7 +354,11 @@ export const PRIVACY_POLICY: LegalDocument = {
         },
         {
           kind: "paragraph",
-          text: "서비스는 광고를 게재하지 않습니다. 다만 앱 설치 광고의 성과를 측정하기 위해 앱에 포함된 Meta SDK가 광고 식별자와 주요 이용 기록을 수집하며, 자세한 내용과 거부 방법은 9번 항목에 적었습니다.",
+          text: "소셜 로그인은 이용자가 원할 때만 하며, 로그인하지 않아도 기존처럼 기기 식별자로 서비스를 이용할 수 있습니다. 소셜 로그인 계정 정보는 이용자가 로그인할 때 해당 소셜 서비스로부터 받습니다.",
+        },
+        {
+          kind: "paragraph",
+          text: "서비스는 광고를 게재하지 않습니다. 다만 앱 설치 광고의 성과를 측정하기 위해 앱에 포함된 Meta SDK와 Airbridge SDK가 광고 식별자와 주요 이용 기록을 수집하며, 자세한 내용과 거부 방법은 9번 항목에 적었습니다.",
         },
         {
           kind: "paragraph",
@@ -399,6 +409,7 @@ export const PRIVACY_POLICY: LegalDocument = {
             "일간·주간·월간 공부 통계와 스트릭(연속 기록) 제공",
             "프로필·소셜룸·랭킹 화면의 프로필 정보와 프로필 사진 표시",
             "기기 내 데이터 손실 시 기존 공부 기록의 복원 및 연속 제공",
+            "소셜 로그인 시 본인 계정 확인과 계정 관리",
             "문의 접수 및 응대",
             "서비스 이용 행태 분석 및 기능 개선",
             "푸시 알림 발송 및 발송 대상 선정",
@@ -414,7 +425,7 @@ export const PRIVACY_POLICY: LegalDocument = {
       blocks: [
         {
           kind: "paragraph",
-          text: "수집한 정보는 서비스 제공 기간 동안 보유하며, 아래 연락처로 삭제를 요청하면 지체 없이 파기합니다.",
+          text: "수집한 정보는 서비스 제공 기간 동안 보유하며, 소셜 로그인한 이용자가 앱에서 계정을 삭제하거나 이용자가 아래 연락처로 삭제를 요청하면 지체 없이 파기합니다.",
         },
         {
           kind: "paragraph",
@@ -423,10 +434,6 @@ export const PRIVACY_POLICY: LegalDocument = {
         {
           kind: "fields",
           rows: [
-            {
-              label: "문의 및 응대 기록",
-              value: "3년 (「전자상거래 등에서의 소비자보호에 관한 법률」)",
-            },
             {
               label: "서비스 이용 기록(접속 IP, 접속 일시)",
               value: "3개월 (부정 이용 방지 및 장애 대응을 위한 내부 방침)",
@@ -460,12 +467,20 @@ export const PRIVACY_POLICY: LegalDocument = {
           kind: "bullets",
           items: [
             "전자적 파일 형태의 정보: 복구 및 재생이 불가능한 방법으로 영구 삭제합니다.",
-            "이용자의 삭제 요청: 이용자가 아래 연락처로 삭제를 요청하면, 해당 기기 식별자와 이에 연결된 모든 공부 기록과 프로필 사진이 서버에서 지체 없이 삭제됩니다.",
+            "이용자의 삭제 요청: 소셜 로그인한 이용자가 앱의 설정 > 계정 > 계정 삭제에서 계정을 삭제하거나 이용자가 아래 연락처로 삭제를 요청하면, 해당 계정과 기기 식별자에 연결된 공부 기록, 프로필 사진, 소셜 로그인 계정 정보, 문의 내역, 이용 통계 분석 정보가 서버에서 지체 없이 삭제됩니다. Apple로 로그인한 계정은 Apple에 로그인 권한 해제를 요청하고, 카카오로 로그인한 계정은 카카오와의 연결을 끊습니다.",
           ],
         },
         {
           kind: "paragraph",
           text: "백업본에 남아 있는 정보는 백업 보관 주기에 따라 최대 7일 이내에 삭제됩니다.",
+        },
+        {
+          kind: "paragraph",
+          text: "계정을 삭제하기 전에 발급된 접속 인증 정보는 만료될 때까지 최대 30분 동안 유효할 수 있습니다.",
+        },
+        {
+          kind: "paragraph",
+          text: "Amplitude, Google, Meta, Airbridge 같은 외부 분석 업체가 직접 가진 기록은 이 삭제로 지워지지 않으며, 8번과 9번 항목에 적은 각 업체의 보유 기간에 따라 처리됩니다.",
         },
         {
           kind: "paragraph",
@@ -514,6 +529,10 @@ export const PRIVACY_POLICY: LegalDocument = {
               label: "Functional Software, Inc. (Sentry)",
               value: "오류 진단 및 서비스 안정성 모니터링 / 미국",
             },
+            {
+              label: "주식회사 에이비일팔공(AB180 Inc.) (Airbridge)",
+              value: "앱 설치 광고의 성과 측정 / 일본 (Amazon Web Services 도쿄 리전)",
+            },
           ],
         },
         {
@@ -531,7 +550,7 @@ export const PRIVACY_POLICY: LegalDocument = {
         },
         {
           kind: "paragraph",
-          text: "다만 이용 통계 분석, 오류 진단, 푸시 알림 발송을 위해 아래와 같이 정보를 국외로 이전합니다. 이 이전은 「개인정보 보호법」 제28조의8 제1항 제3호의 처리 위탁·보관에 해당하여 본 방침으로 알립니다.",
+          text: "다만 이용 통계 분석, 오류 진단, 푸시 알림 발송, 앱 설치 광고의 성과 측정을 위해 아래와 같이 정보를 국외로 이전합니다. 이 이전은 「개인정보 보호법」 제28조의8 제1항 제3호의 처리 위탁·보관에 해당하여 본 방침으로 알립니다.",
         },
         {
           kind: "fields",
@@ -639,13 +658,32 @@ export const PRIVACY_POLICY: LegalDocument = {
           ],
         },
         {
+          kind: "fields",
+          rows: [
+            { label: "이전받는 자", value: "주식회사 에이비일팔공(AB180 Inc.) (Airbridge)" },
+            { label: "연락처", value: "compliance@ab180.co" },
+            { label: "이전 국가", value: "일본 (Amazon Web Services 도쿄 리전)" },
+            {
+              label: "이전 항목",
+              value:
+                "광고 식별자(Android 광고 ID, iOS IDFA), 앱 설치·실행 기록, 서비스 이용 이벤트 사본(정해진 항목 값과 숫자만 담기며 이용자가 직접 쓴 글은 담기지 않습니다), 기기 정보(모델, 제조사, 운영체제 이름·버전, 언어·국가 설정, 시간대, 화면 크기, 통신사), 접속 IP 주소",
+            },
+            { label: "이전 일시 및 방법", value: "앱 이용 중 네트워크를 통해 수시 전송" },
+            { label: "이용 목적", value: "앱 설치 광고의 성과 측정" },
+            {
+              label: "보유 및 이용 기간",
+              value: "위탁 계약 종료 시까지",
+            },
+          ],
+        },
+        {
           kind: "paragraph",
           text: "앱 설치 광고의 성과 측정을 위해 Meta Platforms, Inc.(미국)가 앱에서 직접 수집하는 정보는 9번 항목에서 안내합니다.",
         },
         { kind: "paragraph", text: "위 표의 이전 항목에 카메라 영상은 포함되지 않습니다." },
         {
           kind: "paragraph",
-          text: "이용자는 개인정보의 국외 이전을 거부할 수 있습니다. 웹사이트의 Google Analytics 수집을 원하지 않으시면 Google Analytics 차단 브라우저 부가기능(https://tools.google.com/dlpage/gaoptout)을 설치하실 수 있고, Hotjar 수집을 원하지 않으시면 Hotjar 수집 거부(Do Not Track) 페이지(https://www.hotjar.com/policies/do-not-track/)에서 거부하실 수 있습니다. 브라우저에서 쿠키를 차단하는 방법도 있습니다. 앱과 서비스 화면에서 Amplitude, Google, Sentry로 보내는 정보의 전송 거부를 원하시면 아래 개인정보 보호책임자에게 요청해 주시기 바랍니다.",
+          text: "이용자는 개인정보의 국외 이전을 거부할 수 있습니다. 웹사이트의 Google Analytics 수집을 원하지 않으시면 Google Analytics 차단 브라우저 부가기능(https://tools.google.com/dlpage/gaoptout)을 설치하실 수 있고, Hotjar 수집을 원하지 않으시면 Hotjar 수집 거부(Do Not Track) 페이지(https://www.hotjar.com/policies/do-not-track/)에서 거부하실 수 있습니다. 브라우저에서 쿠키를 차단하는 방법도 있습니다. 앱과 서비스 화면에서 Amplitude, Google, Sentry로 보내는 정보와 Airbridge로 보내는 이용 이벤트의 전송 거부를 원하시면 아래 개인정보 보호책임자에게 요청해 주시기 바랍니다.",
         },
         {
           kind: "paragraph",
@@ -658,7 +696,7 @@ export const PRIVACY_POLICY: LegalDocument = {
       blocks: [
         {
           kind: "paragraph",
-          text: "서비스는 앱 설치 광고의 성과를 측정하기 위해 앱에 Meta Platforms, Inc.의 SDK를 포함하고 있으며, 이 SDK가 아래 행태정보를 수집합니다.",
+          text: "서비스는 앱 설치 광고의 성과를 측정하기 위해 앱에 Meta Platforms, Inc.의 SDK와 Airbridge SDK를 포함하고 있으며, 이 SDK들이 아래 행태정보를 수집합니다.",
         },
         {
           kind: "fields",
@@ -681,6 +719,30 @@ export const PRIVACY_POLICY: LegalDocument = {
           ],
         },
         {
+          kind: "fields",
+          rows: [
+            {
+              label: "수집하는 자",
+              value:
+                "주식회사 에이비일팔공(AB180 Inc.) (Airbridge). 팀의 위탁을 받아 앱에 포함된 Airbridge SDK가 수집합니다.",
+            },
+            {
+              label: "수집 항목",
+              value:
+                "광고 식별자(Android 광고 ID, iOS IDFA), 앱 설치·실행 기록, 서비스 이용 이벤트 사본, 기기 정보(모델, 제조사, 운영체제 이름·버전, 언어·국가 설정, 시간대, 화면 크기, 통신사), 접속 IP 주소. 이벤트에는 정해진 항목 값과 숫자만 담기며 이용자가 직접 쓴 글은 담기지 않습니다. 서버가 기기 식별자에 붙인 번호와 이메일은 보내지 않습니다. iOS IDFA는 이용자가 앱 추적을 허용한 경우에만 수집합니다.",
+            },
+            {
+              label: "수집 방법",
+              value: "앱을 이용하는 동안 자동으로 생성되어 Airbridge로 전송됩니다.",
+            },
+            { label: "이용 목적", value: "앱 설치 광고의 성과 측정" },
+            {
+              label: "보유 및 이용 기간",
+              value: "위탁 계약 종료 시까지",
+            },
+          ],
+        },
+        {
           kind: "paragraph",
           text: "이용자는 아래 방법으로 광고 식별자 수집을 거부할 수 있습니다.",
         },
@@ -693,7 +755,7 @@ export const PRIVACY_POLICY: LegalDocument = {
         },
         {
           kind: "paragraph",
-          text: "광고 ID를 삭제하거나 앱 추적을 허용하지 않으면 광고 식별자는 Meta로 전송되지 않습니다. 다만 위 표의 나머지 기록은 광고 식별자 없이 계속 전송됩니다. 카메라 영상과 얼굴 정보는 Meta로 전송하지 않습니다.",
+          text: "광고 ID를 삭제하거나 앱 추적을 허용하지 않으면 광고 식별자는 Meta와 Airbridge로 전송되지 않습니다. 다만 위 표의 나머지 기록은 광고 식별자 없이 계속 전송됩니다. 카메라 영상과 얼굴 정보는 Meta와 Airbridge로 전송하지 않습니다.",
         },
       ],
     },
@@ -706,7 +768,11 @@ export const PRIVACY_POLICY: LegalDocument = {
         },
         {
           kind: "paragraph",
-          text: "서비스는 익명 기기 식별자를 기준으로 운영되며, 별도의 로그인 계정이 없어 앱 내에서 자동으로 삭제를 처리하는 기능은 제공하지 않습니다. 삭제를 원하시면 아래 연락처로 요청해 주시기 바랍니다. 다만 서비스가 실명이나 연락처를 보관하지 않으므로, 본인 확인을 위해 해당 기기의 식별자 정보가 필요할 수 있습니다.",
+          text: "소셜 로그인한 계정은 앱의 설정 > 계정 > 계정 삭제에서 직접 삭제할 수 있으며, 삭제하면 서버에 저장된 공부 기록과 계정에 연결된 정보가 바로 삭제됩니다. Apple로 로그인한 계정은 삭제할 때 Apple 로그인을 한 번 더 요청합니다.",
+        },
+        {
+          kind: "paragraph",
+          text: "로그인하지 않고 쓴 경우나 앱을 쓸 수 없는 경우에는 아래 연락처로 삭제를 요청해 주시기 바랍니다. 본인 확인을 위해 로그인한 소셜 서비스와 그 계정의 이메일, 로그인하지 않았다면 해당 기기의 식별자 정보가 필요할 수 있습니다. 자세한 방법은 계정 삭제 안내(https://focusmakers.app/account-deletion)에 적었습니다.",
         },
         {
           kind: "paragraph",
@@ -727,7 +793,7 @@ export const PRIVACY_POLICY: LegalDocument = {
         },
         {
           kind: "paragraph",
-          text: "서비스는 광고를 게재하지 않으며 이름·이메일·전화번호 같은 연락처 정보를 요구하지 않습니다. 수집하는 정보는 기기에서 자동 생성되는 무작위 식별자, 공부 시간 기록, 이용자가 직접 입력한 프로필 정보와 직접 올린 프로필 사진, 1번 항목에 적은 서비스 이용 기록·기기 및 접속 환경 정보·오류 기록·광고 식별자에 한정되며, 타임랩스 사진과 영상은 이용자의 기기 안에서만 처리하고 수집하지 않습니다. 방해 앱 잠금에 쓰는 앱 정보도 기기 안에서만 처리하고 수집하지 않습니다.",
+          text: "서비스는 광고를 게재하지 않으며 이름과 전화번호를 요구하지 않습니다. 수집하는 정보는 기기에서 자동 생성되는 무작위 식별자, 이용자가 소셜 로그인을 선택한 경우의 소셜 로그인 계정 정보, 공부 시간 기록, 이용자가 직접 입력한 프로필 정보와 직접 올린 프로필 사진, 1번 항목에 적은 서비스 이용 기록·기기 및 접속 환경 정보·오류 기록·광고 식별자에 한정되며, 타임랩스 사진과 영상은 이용자의 기기 안에서만 처리하고 수집하지 않습니다. 방해 앱 잠금에 쓰는 앱 정보도 기기 안에서만 처리하고 수집하지 않습니다.",
         },
         {
           kind: "paragraph",
@@ -741,7 +807,7 @@ export const PRIVACY_POLICY: LegalDocument = {
         {
           kind: "bullets",
           items: [
-            "이름, 이메일, 전화번호 등 연락처 정보를 요구하지 않는 최소 수집 원칙",
+            "이름과 전화번호를 요구하지 않고, 이메일은 소셜 로그인을 선택한 경우에만 받는 최소 수집 원칙",
             "전송 구간 암호화(HTTPS/TLS) 적용",
             "서버 접근 권한 최소화 및 접근 통제",
             "접속 기록의 보관 및 위·변조 방지",

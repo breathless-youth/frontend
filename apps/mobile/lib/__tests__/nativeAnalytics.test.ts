@@ -1,6 +1,7 @@
 import {
   __resetNativeAnalyticsForTests,
   attachNativeAnalyticsSink,
+  detachAllNativeAnalyticsSinks,
   trackNativeEvent,
   type NativeAnalyticsEvent,
 } from "../nativeAnalytics";
@@ -105,4 +106,21 @@ it("보관 상한을 넘으면 오래된 것부터 버린다 — 웹뷰가 오�
   expect(received).toHaveLength(100);
   expect(received[0]?.properties).toEqual({ path: "/5" });
   expect(received.at(-1)?.properties).toEqual({ path: "/104" });
+});
+
+it("모든 sink를 떼면 다음 이벤트는 사라질 문서로 가지 않고 새로 붙는 sink가 받는다", () => {
+  const old = collector();
+
+  detachAllNativeAnalyticsSinks();
+  trackNativeEvent("logout_completed", { provider: "KAKAO" });
+  // 뗀 sink의 정리 함수가 나중에 불려도 새 sink를 떼지 않는다.
+  const next = collector();
+  old.detach();
+  trackNativeEvent("app_backgrounded");
+
+  expect(old.received).toEqual([]);
+  expect(next.received.map((event) => event.name)).toEqual([
+    "logout_completed",
+    "app_backgrounded",
+  ]);
 });

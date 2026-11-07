@@ -1,12 +1,14 @@
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
+import { Music } from "lucide-react";
 import { describe, expect, it, vi } from "vitest";
 
 import en from "@/locales/en/ambient-sound.json";
 import ko from "@/locales/ko/ambient-sound.json";
 
 import { loadCatalog, parseCatalog } from "../catalog";
+import { soundIcon } from "../components/soundIcons";
 
 const VALID = {
   version: 1,
@@ -105,7 +107,7 @@ describe("public/sounds/catalog.json", () => {
    * 실리기로 한 목록 전체를 잠근다. 파일이 존재하는지만 보면 항목이 사라지거나 id 가 바뀐
    * 것을 못 잡고, `soundIcons.ts` 의 아이콘 표와도 어긋난다.
    */
-  it("합성 5종과 파일 3종을 정해진 id 와 순서로 담고 있다", () => {
+  it("합성 5종과 파일 11종을 정해진 id 와 순서로 담고 있다", () => {
     expect(catalog.map((s) => s.id)).toEqual([
       "white",
       "pink",
@@ -115,8 +117,16 @@ describe("public/sounds/catalog.json", () => {
       "rain-trp",
       "rain-mm",
       "cafe-vec",
+      "exam-g39",
+      "bonfire-kyles",
+      "waves-esh",
+      "birds-squashy",
+      "airplane-courter",
+      "lofi-breeze",
+      "lofi-stars",
+      "lofi-vanilla",
     ]);
-    expect(catalog.filter((s) => s.kind === "file")).toHaveLength(3);
+    expect(catalog.filter((s) => s.kind === "file")).toHaveLength(11);
   });
 
   /** 소리를 더하면서 문구 카탈로그 이름을 빠뜨리면 영어 화면에 JSON의 한국어 이름이 그대로 나온다. */
@@ -137,12 +147,32 @@ describe("public/sounds/catalog.json", () => {
     }
   });
 
+  /** 아이콘을 빠뜨리면 음표로 떨어져 같은 아이콘이 둘 이상 생기고 사용자가 구분하지 못한다. */
+  it("모든 항목이 음표가 아닌 자기 아이콘을 갖는다", () => {
+    for (const sound of catalog) {
+      expect(soundIcon(sound.id), sound.id).not.toBe(Music);
+    }
+  });
+
   /**
-   * 소리 파일은 사용자가 그
-   * 소리를 켤 때 받으므로 한 사람이 무는 비용은 파일 하나 크기다. 총량은 배포 크기
-   * 문제라 BY-683 에서 12MB 로 올렸다. 파일 하나의 상한은 1.2MB 그대로다.
+   * 출처를 적지 못한 파일은 싣지 않는다는 원칙을 파일 단위로 지킨다.
+   * 카탈로그에서 뺀 소리의 행이 표에 남거나 같은 파일 행이 두 번 있으면 출처 기록이 실제와 어긋나므로 양쪽 목록이 정확히 같아야 한다.
+   * 줄 머리의 첫 칸만 읽어 다른 행의 가공 칸에 적힌 파일명에는 걸리지 않게 한다.
    */
-  it("파일마다 1.2MB, 전체 12MB 를 넘지 않는다", () => {
+  it("LICENSES.md 표의 파일 목록이 카탈로그의 파일 목록과 같다", () => {
+    const licenses = readFileSync(join(dir, "LICENSES.md"), "utf8");
+    const rows = [...licenses.matchAll(/^\| `([^`]+\.mp3)` +\|/gm)].map((match) => match[1]);
+    const files = catalog.filter((s) => s.kind === "file").map((s) => s.file as string);
+
+    expect(rows.sort()).toEqual(files.sort());
+  });
+
+  /**
+   * 소리 파일은 사용자가 그 소리를 켤 때 받으므로 한 사람이 받는 양은 파일 하나 크기다.
+   * 총량은 배포 크기 문제라 배경 소리와 lofi 를 더하면서 16MB 로 올렸다.
+   * 파일 하나의 상한은 1.2MB 그대로다.
+   */
+  it("파일마다 1.2MB, 전체 16MB 를 넘지 않는다", () => {
     const files = catalog.filter((s) => s.kind === "file");
     let total = 0;
     for (const sound of files) {
@@ -151,6 +181,6 @@ describe("public/sounds/catalog.json", () => {
       total += size;
     }
 
-    expect(total).toBeLessThanOrEqual(12 * 1024 * 1024);
+    expect(total).toBeLessThanOrEqual(16 * 1024 * 1024);
   });
 });

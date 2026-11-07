@@ -31,7 +31,7 @@
     "titleTop": "You're all set",
     "titleBottom": "Let's focus together",
     "aria": {
-      "mock": "Tapping Start focusing on the home screen"
+      "mock": "Tapping Start Focus on the home screen"
     }
   },
   "cta": {
@@ -54,7 +54,7 @@
     "now": "now"
   },
   "home": {
-    "focusStart": "Start focusing"
+    "focusStart": "Start Focus"
   },
   "timer": {
     "measuring": "Measuring focus time",
@@ -90,7 +90,7 @@
   },
   "tileGoal": {
     "me": "6h a day",
-    "minji": "Finals D-29",
+    "minji": "Finals in 29 days",
     "hyunwoo": "IELTS 8.0",
     "sua": "Civil service",
     "jihoon": "IT certification",

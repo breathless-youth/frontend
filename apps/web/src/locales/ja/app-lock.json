@@ -1,0 +1,29 @@
+{
+  "title": "アプリブロック",
+  "switch": {
+    "label": "アプリブロック",
+    "tooltip": "確認できる情報：ブロック中のアプリの数、アプリブロックのオン・オフ"
+  },
+  "rows": {
+    "lockedApps": "ブロック中のアプリ",
+    "batteryGuide": "バッテリー設定のガイド"
+  },
+  "description": {
+    "title": "機能の説明",
+    "lockFlow": "勉強を始めるとブロックされ、勉強を終えると解除されます。"
+  },
+  "summary": {
+    "apps": "アプリ{{count}}個",
+    "categories": "カテゴリー{{count}}個",
+    "none": "選択なし"
+  },
+  "rowValue": {
+    "on": "オン",
+    "off": "オフ"
+  },
+  "toast": {
+    "lockedApps": "気が散るアプリを{{count}}個ブロックしました",
+    "locked": "気が散るアプリをブロックしました",
+    "unsupported": "アプリブロックは{{minVersion}}以降で利用できます"
+  }
+}

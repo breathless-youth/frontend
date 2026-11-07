@@ -6,6 +6,7 @@ import type { MyRoomSummary } from "../../types";
 import { MyRoomCard } from "../MyRoomCard";
 
 const room: MyRoomSummary = {
+  joinPolicy: "approval",
   roomId: 7,
   name: "새벽 공시반",
   categoryLabel: "공무원",

@@ -1,4 +1,5 @@
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import i18n from "@/lib/i18n";
@@ -24,12 +25,13 @@ function visibleText(container: HTMLElement): string {
   return [container.textContent, ...labels].join("\n");
 }
 
-function renderForm(mode: "create" | "edit", initial: RoomFormValues) {
+function renderForm(mode: "create" | "edit", initial: RoomFormValues, newRequestCount = 0) {
   return renderScreen(
     <RoomFormScreen
       mode={mode}
       categories={CATEGORIES}
       initial={initial}
+      newRequestCount={newRequestCount}
       pending={false}
       onBack={vi.fn()}
       onSubmit={vi.fn()}
@@ -41,11 +43,34 @@ afterEach(async () => {
   await i18n.changeLanguage("ko");
 });
 
+it.each([
+  [1, "Changing the entry method will remove 1 pending request"],
+  [3, "Changing the entry method will remove 3 pending requests"],
+])("shows the English pending request warning for %i requests", async (count, message) => {
+  await i18n.changeLanguage("en");
+  const { container } = renderForm(
+    "edit",
+    {
+      name: "Night owls",
+      joinPolicy: "approval",
+      visibility: "public",
+      category: "civil",
+      intro: "",
+    },
+    count,
+  );
+
+  await userEvent.setup().click(screen.getByRole("radio", { name: "Join instantly" }));
+  expect(screen.getByRole("status")).toHaveTextContent(message);
+  expect(visibleText(container)).not.toMatch(HANGUL);
+});
+
 describe("그룹 만들기 영어 화면", () => {
   it("영어로 바꾸면 그룹 만들기와 글자 수 오류에 한글이 남지 않는다", async () => {
     await i18n.changeLanguage("en");
     const { container } = renderForm("create", {
       name: "a".repeat(GROUP_ROOM_LIMITS.roomNameMax + 1),
+      joinPolicy: "approval",
       visibility: "public",
       category: "college",
       intro: "",
@@ -62,6 +87,7 @@ describe("그룹 만들기 영어 화면", () => {
     await i18n.changeLanguage("en");
     const { container } = renderForm("edit", {
       name: "Night owls",
+      joinPolicy: "approval",
       visibility: "private",
       category: "civil",
       intro: "",

@@ -14,7 +14,8 @@
   },
   "exitDescription": {
     "saved": "The {{duration}} you've focused so far will be saved",
-    "subMinute": "Sessions under 1 minute don't appear in your records"
+    "savedSeconds": "The {{duration}} you've focused so far will be saved",
+    "noFocus": "Sessions under 1 minute don't appear in your records"
   },
   "inviteConfirm": {
     "title": "End your session and accept the invite?",
@@ -25,17 +26,17 @@
     "title": "Check your camera position",
     "description": "Make sure your face and desk are in view",
     "notice": "Your camera video stays on your device",
-    "cancel": "Start in Simple Mode",
+    "cancel": "Start in\nSimple Mode",
     "confirm": "Turn on camera",
     "faceMaskTooltip": "If you move quickly, your face may show for a moment",
-    "faceMaskCaption": "Hide face for timelapses is a separate setting"
+    "faceMaskCaption": "Hide face for time-lapses is a separate setting"
   },
   "cameraToast": {
     "flipped": "Camera switched",
     "noAlternative": "No other camera to switch to",
     "cameraOff": "Camera is off"
   },
-  "subMinuteEnd": {
+  "noFocusEnd": {
     "title": "Session ended",
     "cta": "Home"
   },
@@ -60,7 +61,6 @@
     "server": "Couldn't save your session. Please try again in a moment"
   },
   "duration": {
-    "underMinute": "Under 1 min",
     "srHours_one": "{{count}} hour",
     "srHours_other": "{{count}} hours",
     "srMinutes_one": "{{count}} minute",
@@ -132,7 +132,8 @@
     "buttonsPause": "Taking a break?\nTap <hl>Pause</hl>",
     "finishMore": "Find this guide anytime\nin the More menu",
     "finishCenter": "You're all set\nReady to <hl>focus</hl>?",
-    "finishCta": "Start focusing"
+    "finishCta": "Start focusing",
+    "finishLater": "I'll start later"
   },
   "recovery": {
     "title": "Unsaved session recovered",

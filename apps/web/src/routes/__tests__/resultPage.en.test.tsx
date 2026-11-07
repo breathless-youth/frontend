@@ -14,9 +14,6 @@ import { getStudyDays, listStudySessionStats } from "@/lib/statsApi";
 import { ResultPage } from "@/routes/ResultPage";
 
 vi.mock("@/lib/statsApi", () => ({ listStudySessionStats: vi.fn(), getStudyDays: vi.fn() }));
-vi.mock("@/lib/rankingApi", () => ({
-  getRankingSessionGains: () => Promise.resolve({ weekly: null, others: [] }),
-}));
 vi.mock("@/lib/interviewApi", () => ({
   getInterviewStatus: () =>
     Promise.resolve({

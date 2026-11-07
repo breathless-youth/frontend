@@ -1,0 +1,153 @@
+{
+  "format": {
+    "summaryTitle": "{{date}}の勉強まとめ",
+    "sessionMeta": "{{start}}〜{{end}} · 合計{{duration}}",
+    "sessionCount": "{{count}}回",
+    "todayHeadline": "今日の集中時間",
+    "dayHeadline": "{{date}}の集中時間",
+    "dayTitle": "{{date}}（{{weekday}}）"
+  },
+  "unit": {
+    "hours": "時間",
+    "minutes": "分",
+    "seconds": "秒"
+  },
+  "eventChip": {
+    "away": "離席{{count}}回",
+    "phone": "スマホ使用{{count}}回",
+    "device": "端末操作{{count}}回",
+    "sleep": "居眠り{{count}}回",
+    "pause": "一時停止{{count}}回"
+  },
+  "weekRange": {
+    "sameMonth": "{{start}}〜{{day}}日",
+    "crossMonth": "{{start}}〜{{end}}"
+  },
+  "relativeWeek": {
+    "thisWeek": "今週",
+    "lastWeek": "先週",
+    "weeksAgo": "{{count}}週間前"
+  },
+  "streak": {
+    "title": "{{count}}日連続で勉強中",
+    "subtitle": "明日も5分勉強すれば記録が続きます",
+    "aria": {
+      "day": "{{weekday}}、{{state}}",
+      "today": "今日",
+      "done": "勉強済み",
+      "none": "記録なし"
+    }
+  },
+  "week": {
+    "headline": "週間の集中時間",
+    "aria": {
+      "prev": "前の週",
+      "next": "次の週"
+    }
+  },
+  "headline": {
+    "total": "合計{{duration}}"
+  },
+  "rhythm": {
+    "title": "勉強リズム",
+    "badge": "集中レポート準備中",
+    "emptyTitle": "記録がたまると表示されます",
+    "sampleNotice": "現在はサンプルデータを表示しています",
+    "legendLow": "少ない",
+    "legendHigh": "多い",
+    "peakTitle": "{{range}}に最も長く集中しています",
+    "peakSubtitle": "{{days}}日間の集中時間をまとめました",
+    "range": "{{period}}{{from12}}〜{{to12}}時",
+    "rangeCrossNoon": "午前{{from12}}時〜午後{{to12}}時",
+    "period": {
+      "morning": "朝",
+      "forenoon": "午前",
+      "afternoon": "午後",
+      "evening": "夜",
+      "night": "深夜",
+      "dawn": "明け方"
+    }
+  },
+  "calendar": {
+    "dailyAverage": "1日平均",
+    "monthTotal": "{{month}}の合計",
+    "aria": {
+      "day": "{{day}}日、{{record}}",
+      "todayDay": "今日、{{day}}日、{{record}}",
+      "focus": "集中{{duration}}",
+      "noRecord": "記録なし",
+      "legend": "集中時間の凡例。数字はその時間以上を表します"
+    }
+  },
+  "weekly": {
+    "error": "週間の推移を読み込めませんでした"
+  },
+  "sessionItem": {
+    "focusRate": "集中率{{rate}}",
+    "startTime": "開始時刻",
+    "endTime": "終了時刻",
+    "longestFocus": "最長集中時間",
+    "underSecond": "1秒未満",
+    "aria": {
+      "summary": "{{start}}から{{end}}まで、集中{{focus}}、集中率{{rate}}"
+    }
+  },
+  "manualItem": {
+    "badge": "手動",
+    "start": "開始",
+    "end": "終了",
+    "subject": "科目",
+    "edit": "編集"
+  },
+  "picker": {
+    "today": "今日",
+    "monthTitle": "月を選択",
+    "weekTitle": "週を選択",
+    "dayTitle": "日付を選択",
+    "year": "{{year}}年",
+    "aria": {
+      "prevYear": "前の年",
+      "nextYear": "次の年",
+      "prevMonth": "前の月",
+      "nextMonth": "次の月",
+      "today": "今日、{{date}}"
+    }
+  },
+  "trend": {
+    "dailyAverage": "1日平均",
+    "noRecord": "記録なし",
+    "compare": {
+      "more": "先週より<delta>{{duration}}</delta>多く勉強しました",
+      "moreInProgress": "先週より<delta>{{duration}}</delta>多いペースです",
+      "less": "先週より勉強時間が<delta>{{duration}}</delta>少なかったです",
+      "lessInProgress": "先週より<delta>{{duration}}</delta>少ないペースです",
+      "onlyThisWeek": "今週は<total>{{duration}}</total>勉強しています",
+      "onlyViewedWeek": "この週は<total>{{duration}}</total>勉強しました",
+      "noThisWeek": "今週の記録はまだありません",
+      "noViewedWeek": "この週は記録がありません",
+      "empty": "まだ記録がありません"
+    },
+    "caption": {
+      "untilWeekday": "先週の{{weekday}}までと比較しました",
+      "twoWeeks": "{{current}}と{{previous}}を比較しました",
+      "noPrevious": "{{previous}}の記録がないため、{{current}}の記録だけを表示しています",
+      "noCurrent": "{{previous}}の記録だけを表示しています",
+      "empty": "勉強を始めて、パターンを確認してみましょう"
+    },
+    "aria": {
+      "chart": "曜日別の集中時間"
+    }
+  },
+  "page": {
+    "title": "記録",
+    "daily": "日間",
+    "weekly": "週間",
+    "unregistered": "このデバイスはまだ登録されていません。アプリで開くと記録が保存されます"
+  },
+  "daily": {
+    "error": "記録を読み込めませんでした",
+    "manualEntry": "手動で追加",
+    "empty": "この日の記録はありません",
+    "emptyHint": "集中をはじめると、ここに記録されます"
+  }
+}

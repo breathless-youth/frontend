@@ -5,6 +5,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import type * as Amplitude from "@/lib/amplitude";
 import { setGroupRoomCount, trackGroupRoomCreated, trackGroupRoomJoined } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
+import i18n from "@/lib/i18n";
 import { getProfile } from "@/lib/profileApi";
 import type * as UserId from "@/lib/userId";
 import {
@@ -97,6 +98,27 @@ describe("그룹 만들기 계측", () => {
 });
 
 describe("그룹 만들기", () => {
+  it.each([
+    ["신청 후 입장", "PUBLIC", "APPROVAL"],
+    ["바로 입장", "PUBLIC", "OPEN"],
+    ["비공개", "PRIVATE", undefined],
+  ] as const)("maps %s to the create request", async (label, visibility, joinPolicy) => {
+    const api = mockGroupApi("default");
+    mockProfile({ category: "CSAT" });
+    renderGroupRoute("/social/groups/new?groupRooms=1");
+    const user = userEvent.setup();
+    await user.type(await screen.findByRole("textbox", { name: "그룹 이름" }), "New group");
+    await user.click(screen.getByRole("radio", { name: label }));
+    await user.click(screen.getByRole("button", { name: "그룹 만들기" }));
+    expect(api.createGroup).toHaveBeenCalledWith({
+      name: "New group",
+      visibility,
+      ...(joinPolicy === undefined ? {} : { joinPolicy }),
+      category: "CSAT",
+      description: "",
+    });
+  });
+
   it("그룹 만들기는 프로필 카테고리로 시작하고 없거나 모르는 값이면 수능이다", async () => {
     mockGroupApi("default");
     mockProfile({ category: "JOB" });
@@ -141,6 +163,10 @@ describe("그룹 만들기", () => {
       description: "",
     });
     await waitFor(() => expect(router.location().pathname).toMatch(/^\/social\/groups\/\d+$/));
+    await user.click(
+      await screen.findByRole("button", { name: i18n.t("group-room:notificationPrompt.later") }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(await screen.findByRole("heading", { name: "우리 반 저녁 스터디" })).toBeInTheDocument();
   });
 
@@ -168,6 +194,20 @@ describe("그룹 만들기", () => {
     await waitFor(() => expect(api.createGroup).toHaveBeenCalledOnce());
     expect(intro).toHaveAttribute("aria-invalid", "true");
     expect(screen.getAllByText("연락처나 링크는 보낼 수 없어요")).toHaveLength(1);
+  });
+
+  it("서버가 공개 그룹 이름 중복으로 막으면 이름 칸 아래에 알린다", async () => {
+    const api = mockGroupApi("default");
+    api.createGroup.mockRejectedValueOnce(new ApiError("x", 409, "GROUP_NAME_TAKEN"));
+    mockProfile({ category: null });
+    renderGroupRoute("/social/groups/new?groupRooms=1");
+    const user = userEvent.setup();
+    const name = await screen.findByRole("textbox", { name: "그룹 이름" });
+    await user.type(name, "새벽 5시 기상 공시반");
+    await user.click(screen.getByRole("button", { name: "그룹 만들기" }));
+    await waitFor(() => expect(api.createGroup).toHaveBeenCalledOnce());
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getAllByText("이미 있는 공개 그룹 이름이에요")).toHaveLength(1);
   });
 
   it("서버가 연락처로 막았는데 화면의 판정에 걸린 칸이 없으면 토스트로 알린다", async () => {
@@ -226,6 +266,25 @@ describe("그룹 만들기", () => {
 });
 
 describe("그룹 설정", () => {
+  it("saves OPEN without confirmation and closes requests in the refreshed home", async () => {
+    const api = mockGroupApi("default");
+    const { router } = renderGroupRoute("/social/groups/10/settings?groupRooms=1");
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("radio", { name: "바로 입장" }));
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "\uc785\uc7a5 \ubc29\uc2dd\uc744 \ubcc0\uacbd\ud558\uba74 \ub0a8\uc740 \uc2e0\uccad 2\uac74\uc774 \uc5c6\uc5b4\uc838\uc694",
+    );
+    await user.click(screen.getByRole("button", { name: "저장하기" }));
+    expect(api.updateGroup).toHaveBeenCalledWith(
+      10,
+      expect.objectContaining({ joinPolicy: "OPEN" }),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await waitFor(() => expect(router.location().pathname).toBe("/social/groups/10"));
+    expect((await api.server.getGroupApplications(10)).applications).toEqual([]);
+    expect(screen.queryByText(/새 신청이/)).toBeNull();
+  });
+
   it("그룹 설정은 지금 값으로 채우고 저장하면 그룹 홈으로 돌아간다", async () => {
     const api = mockGroupApi("default");
     const { router } = renderGroupRoute("/social/groups/10/settings?groupRooms=1");
@@ -240,6 +299,10 @@ describe("그룹 설정", () => {
       expect.objectContaining({ name: "새벽 공시반", category: "CIVIL_SERVICE" }),
     );
     await waitFor(() => expect(router.location().pathname).toBe("/social/groups/10"));
+    await user.click(
+      await screen.findByRole("button", { name: i18n.t("group-room:notificationPrompt.later") }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(await screen.findByRole("heading", { name: "새벽 공시반" })).toBeInTheDocument();
   });
 
@@ -255,6 +318,7 @@ describe("그룹 설정", () => {
     await user.click(screen.getByRole("button", { name: "저장하기" }));
     expect(api.updateGroup).toHaveBeenCalledWith(10, {
       name: "새벽 5시 기상 공시반",
+      joinPolicy: "APPROVAL",
       category: "CIVIL_SERVICE",
       description: "",
     });
@@ -263,6 +327,10 @@ describe("그룹 설정", () => {
   it("그룹 홈에서 왔으면 저장한 뒤 그 그룹 홈으로 돌아간다", async () => {
     mockGroupApi("default");
     const { router } = renderGroupRoute("/social/groups/10?groupRooms=1");
+    await userEvent.click(
+      await screen.findByRole("button", { name: i18n.t("group-room:notificationPrompt.later") }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     await screen.findByRole("heading", { name: "새벽 5시 기상 공시반" });
     const homeKey = router.location().key;
     stubHistoryIndex(1);

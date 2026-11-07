@@ -1,12 +1,20 @@
 import {
   AudioLines,
   AudioWaveform,
+  Bird,
+  CassetteTape,
   CloudDrizzle,
   CloudRain,
   Coffee,
+  Disc3,
+  Drum,
+  Flame,
   Headphones,
   Music,
+  NotebookPen,
+  Plane,
   Radio,
+  Shell,
   Waves,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -29,6 +37,14 @@ const ICONS: Record<SoundId, LucideIcon> = {
   "rain-trp": CloudRain,
   "rain-mm": CloudDrizzle,
   "cafe-vec": Coffee,
+  "exam-g39": NotebookPen,
+  "bonfire-kyles": Flame,
+  "waves-esh": Shell,
+  "birds-squashy": Bird,
+  "airplane-courter": Plane,
+  "lofi-breeze": Disc3,
+  "lofi-stars": CassetteTape,
+  "lofi-vanilla": Drum,
 };
 
 export function soundIcon(id: SoundId): LucideIcon {

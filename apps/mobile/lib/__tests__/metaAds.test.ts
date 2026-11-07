@@ -10,6 +10,11 @@ import {
   setMetaAdsAdapter,
 } from "../metaAds";
 
+const mockSetAirbridgeTrackingAllowed = jest.fn();
+jest.mock("../airbridge", () => ({
+  setAirbridgeTrackingAllowed: (granted: boolean) => mockSetAirbridgeTrackingAllowed(granted),
+}));
+
 /**
  * Meta SDK 통로의 큐·초기화 계약. SDK 실구현(`lib/metaAdsSdk.ts`)은 여기서 다루지 않는다 —
  * 어댑터를 가짜로 꽂아 "언제 무엇을 어떤 순서로 부르는지"만 고정한다.
@@ -32,6 +37,7 @@ let warn: jest.SpyInstance;
 
 beforeEach(() => {
   __resetMetaAdsForTests();
+  mockSetAirbridgeTrackingAllowed.mockClear();
   warn = jest.spyOn(console, "warn").mockImplementation(() => {});
 });
 
@@ -138,6 +144,24 @@ describe("metaAds — 초기화", () => {
       undefined,
     );
     expect(warn).toHaveBeenCalled();
+  });
+});
+
+describe("metaAds — Airbridge 수집 여부", () => {
+  it.each([true, false])("ATT 응답(%s)을 Airbridge에 그대로 넘긴다", async (granted) => {
+    setMetaAdsAdapter(fakeAdapter({ requestTrackingPermission: jest.fn(async () => granted) }));
+    await initMetaAds();
+    expect(mockSetAirbridgeTrackingAllowed).toHaveBeenCalledWith(granted);
+  });
+
+  it("ATT 요청이 실패하면 Airbridge는 켜지지 않는다 — 동의를 모르면 보내지 않는다", async () => {
+    setMetaAdsAdapter(
+      fakeAdapter({
+        requestTrackingPermission: jest.fn(async () => Promise.reject(new Error("x"))),
+      }),
+    );
+    await initMetaAds();
+    expect(mockSetAirbridgeTrackingAllowed).not.toHaveBeenCalled();
   });
 });
 

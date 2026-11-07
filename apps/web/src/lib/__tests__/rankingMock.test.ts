@@ -5,14 +5,10 @@ import {
   getRankingBoard,
   getRankingRecordsSummary,
   getRankingRecordsUnseen,
-  getRankingSessionGains,
   postRankingRecordsSeen,
 } from "@/lib/rankingApi";
 import {
   FIXTURE_OVERTAKEN,
-  FIXTURE_SESSION_GAINS,
-  FIXTURE_SESSION_GAINS_EMPTY,
-  FIXTURE_SESSION_GAINS_NO_WEEKLY,
   FIXTURE_SUMMARY_EMPTY,
   FIXTURE_UNSEEN_FIVE,
   FIXTURE_UNSEEN_MIXED,
@@ -25,7 +21,6 @@ import {
   activeRankingScene,
   mockBoard,
   mockRecords,
-  mockSessionGains,
   mockUnseen,
 } from "@/lib/rankingMock";
 
@@ -104,24 +99,18 @@ describe("노출 지점 가짜 응답", () => {
     expect(activeRankingScene()).toBe("medal-mixed");
   });
 
-  it("장면마다 안 본 메달·오른 순위를 고르고, 해당 없는 장면은 빈 응답이다", () => {
+  it("장면마다 안 본 메달을 고르고, 해당 없는 장면은 빈 응답이다", () => {
     expect(mockUnseen("medal-1")).toEqual(FIXTURE_UNSEEN_ONE);
     expect(mockUnseen("medal-3")).toEqual(FIXTURE_UNSEEN_THREE);
     expect(mockUnseen("medal-5")).toEqual(FIXTURE_UNSEEN_FIVE);
     expect(mockUnseen("medal-mixed")).toEqual(FIXTURE_UNSEEN_MIXED);
     expect(mockUnseen("default")).toEqual(FIXTURE_UNSEEN_NONE);
-    expect(mockSessionGains("gain")).toEqual(FIXTURE_SESSION_GAINS);
-    expect(mockSessionGains("gain-none")).toEqual(FIXTURE_SESSION_GAINS_NO_WEEKLY);
-    expect(mockSessionGains("medal-1")).toEqual(FIXTURE_SESSION_GAINS_EMPTY);
   });
 
   it("장면이 켜져 있으면 노출 지점 요청도 서버로 보내지 않는다", async () => {
     open("/home?rankingMock=medal-1");
 
     await expect(getRankingRecordsUnseen()).resolves.toEqual(FIXTURE_UNSEEN_ONE);
-    await expect(getRankingSessionGains("2026-10-12T00:00:00.000Z")).resolves.toEqual(
-      FIXTURE_SESSION_GAINS_EMPTY,
-    );
     await postRankingRecordsSeen([41]);
     expect(apiFetch).not.toHaveBeenCalled();
   });

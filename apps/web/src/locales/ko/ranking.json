@@ -215,10 +215,6 @@
       "countByRank": "{{rank}}위 {{count}}개"
     }
   },
-  "gainCard": {
-    "title": "랭킹이 올랐어요",
-    "weeklyFocus": "주간 순공"
-  },
   "recordsPage": {
     "summaryTitle": "지금까지 TOP 3",
     "timesUnit": "번",

@@ -141,9 +141,9 @@ function SessionExpansion({ session }: { session: StudySessionSummary }) {
       <ExpansionStat label={t("sessionItem.endTime")} value={formatIsoClock(session.endedAt)} />
       <ExpansionStat
         label={t("sessionItem.longestFocus")}
-        // 끊기지 않은 구간이 1분에 못 미치면 구간을 내세우지 않고 `1분 미만`으로 적는다.
+        // 1초 이상 끊기지 않은 구간이 없으면 구간을 내세우지 않고 `1초 미만`으로 적는다.
         value={
-          longest === null ? t("sessionItem.underMinute") : formatDuration(longest.durationSec)
+          longest === null ? t("sessionItem.underSecond") : formatDuration(longest.durationSec)
         }
         valueClassName="text-chart-peak"
         caption={

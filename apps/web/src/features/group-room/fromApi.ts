@@ -2,6 +2,7 @@ import type {
   BlockedUser as BlockedUserResponse,
   GroupApplicationItem,
   GroupHomeResponse,
+  GroupJoinPolicy,
   GroupMemberDesk,
   GroupMemberItem,
   GroupMemberStatus,
@@ -16,6 +17,7 @@ import type {
 
 import { studyCategoryLabel } from "@/lib/studyCategory";
 
+import type { RoomJoinPolicy } from "./model/joinPolicy";
 import type { MemberPresence } from "./model/desks";
 import type { ApplyBlockReason } from "./model/limits";
 import type { RoomRole, RoomVisibility } from "./model/roomMenu";
@@ -75,6 +77,15 @@ export function toMemberPresence(status: GroupMemberStatus): MemberPresence {
 
 export function toRoomVisibility(visibility: GroupVisibility): RoomVisibility {
   return visibility === "PUBLIC" ? "public" : "private";
+}
+
+/** Missing fields from older deployments keep approval as the default. */
+export function toRoomJoinPolicy(policy: GroupJoinPolicy | undefined): RoomJoinPolicy {
+  return policy === "OPEN" ? "open" : "approval";
+}
+
+export function toGroupJoinPolicy(policy: RoomJoinPolicy): GroupJoinPolicy {
+  return policy === "open" ? "OPEN" : "APPROVAL";
 }
 
 export function toGroupVisibility(visibility: RoomVisibility): GroupVisibility {
@@ -138,6 +149,7 @@ export function toRoomDeskMember(desk: GroupMemberDesk, myUserId: number): RoomD
 export function toMyRoomSummary(card: MyGroupCard, myUserId: number): MyRoomSummary {
   return {
     roomId: card.groupId,
+    joinPolicy: toRoomJoinPolicy(card.joinPolicy),
     name: card.name,
     categoryLabel: categoryLabel(card.category),
     visibility: toRoomVisibility(card.visibility),
@@ -161,6 +173,7 @@ export function toPendingApplication(item: MyApplicationItem): PendingApplicatio
 export function toPublicRoomSummary(card: PublicGroupCard): PublicRoomSummary {
   return {
     roomId: card.groupId,
+    joinPolicy: toRoomJoinPolicy(card.joinPolicy),
     name: card.name,
     categoryLabel: categoryLabel(card.category),
     memberCount: card.memberCount,
@@ -181,6 +194,7 @@ export function toPublicRoomDetail(
 ): PublicRoomDetail {
   return {
     roomId: detail.groupId,
+    joinPolicy: toRoomJoinPolicy(detail.joinPolicy),
     name: detail.name,
     categoryLabel: categoryLabel(detail.category),
     memberCount: detail.memberCount,
@@ -232,6 +246,7 @@ export function weeklyRanks(
 export function toRoomHome(home: GroupHomeResponse, myUserId: number): RoomHome {
   return {
     roomId: home.groupId,
+    joinPolicy: toRoomJoinPolicy(home.joinPolicy),
     name: home.name,
     categoryLabel: categoryLabel(home.category),
     visibility: toRoomVisibility(home.visibility),

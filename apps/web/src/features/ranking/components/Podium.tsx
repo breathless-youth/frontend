@@ -123,6 +123,7 @@ function PodiumSpot({
           <>
             <Nickname
               name={row.nickname}
+              lines={2}
               className={cn(
                 "text-center text-foreground",
                 first ? "text-[13px] leading-3.75 font-extrabold" : "text-xs leading-3.5 font-bold",

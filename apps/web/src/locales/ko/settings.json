@@ -4,7 +4,8 @@
     "profile": "프로필",
     "service": "서비스",
     "support": "지원",
-    "legal": "약관 · 정보"
+    "legal": "약관 · 정보",
+    "account": "계정"
   },
   "rows": {
     "editProfile": "프로필 수정",
@@ -19,7 +20,10 @@
     "terms": "이용약관",
     "privacy": "개인정보처리방침",
     "licenses": "오픈소스 라이선스",
-    "version": "버전 정보"
+    "version": "버전 정보",
+    "login": "로그인하기",
+    "logout": "로그아웃",
+    "deleteAccount": "계정 삭제"
   },
   "cameraPermission": {
     "tooltip": "권한은 시스템 설정에서 바꿀 수 있어요",
@@ -57,5 +61,18 @@
   },
   "legal": {
     "koreanOnly": "이 문서는 지금 한국어로만 제공돼요."
+  },
+  "account": {
+    "logout": {
+      "title": "로그아웃할까요?",
+      "description": "기록은 연동된 계정에 그대로 남아 있어요",
+      "confirm": "로그아웃"
+    },
+    "delete": {
+      "title": "계정을 삭제할까요?",
+      "description": "모든 기록이 바로 삭제되고 되돌릴 수 없어요",
+      "confirm": "삭제하기",
+      "failed": "계정을 삭제하지 못했어요. 잠시 후 다시 시도해 주세요"
+    }
   }
 }

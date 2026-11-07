@@ -19,12 +19,14 @@ export function TodayDesksCard({
   visibility,
   elapsedSec,
   className,
+  hideEmptySeatCopy = false,
 }: {
   title: string;
   members: readonly RoomDeskMember[];
   visibility: RoomVisibility;
   elapsedSec: number;
   className?: string;
+  hideEmptySeatCopy?: boolean;
 }) {
   const titleId = useId();
   return (
@@ -41,7 +43,12 @@ export function TodayDesksCard({
         </h2>
         <p className="shrink-0 text-[13px] leading-5 text-foreground">{roomStatusText(members)}</p>
       </div>
-      <DeskGrid members={members} visibility={visibility} elapsedSec={elapsedSec} />
+      <DeskGrid
+        members={members}
+        visibility={visibility}
+        elapsedSec={elapsedSec}
+        hideEmptySeatCopy={hideEmptySeatCopy}
+      />
     </section>
   );
 }

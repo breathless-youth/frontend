@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_lock_channel_name">分心應用程式封鎖</string>
+  <plurals name="app_lock_notification_title">
+    <item quantity="other">讀書中‧已封鎖 %d 個分心應用程式</item>
+  </plurals>
+  <string name="app_lock_notification_text">結束讀書後就會解除封鎖</string>
+  <string name="app_lock_overlay_title">現在是專心讀書的時間</string>
+  <string name="app_lock_overlay_subtitle">在 FocusMakers 中結束讀書後，就會解除封鎖</string>
+  <string name="app_lock_overlay_button">返回 FocusMakers</string>
+</resources>

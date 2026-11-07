@@ -21,6 +21,7 @@ import {
 } from "@/features/onboarding/onboardingGate";
 import { todayLabel } from "@/features/home/homeFormat";
 import { hasShownRecoveryThisLaunch } from "@/features/study-session/recoveryLaunchStore";
+import { markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import { LAUNCH_SIGNAL_WAIT_MS } from "@/features/study-session/useLaunchSessionRecovery";
 import { HomeTabPage } from "@/routes/HomeTabPage";
 
@@ -225,6 +226,27 @@ describe("HomeTabPage", () => {
     expect(screen.getByText("총 공부시간").nextElementSibling).toHaveTextContent(/^2시간$/);
     expect(screen.getByText("최대 집중시간").nextElementSibling).toHaveTextContent(/^52분$/);
     expect(screen.getByText("3일 연속 공부 중")).toBeInTheDocument();
+  });
+
+  it("오늘 순공시간은 시:분:초로 적고 화면 낭독기에는 한국어 길이로 읽힌다", async () => {
+    mockedStats.mockResolvedValue(statsResponse);
+    mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+
+    renderHome();
+
+    await waitFor(() => expect(screen.getByText("77%")).toBeInTheDocument());
+    expect(screen.getByText("1:32:00")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByText("1시간 32분")).toHaveClass("sr-only");
+  });
+
+  it("1분 미만 순공도 초까지 적는다", async () => {
+    mockedStats.mockResolvedValue({ ...statsResponse, totalFocusSec: 4 });
+    mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
+
+    renderHome();
+
+    await waitFor(() => expect(screen.getByText("77%")).toBeInTheDocument());
+    expect(screen.getByText("0:00:04")).toBeInTheDocument();
   });
 
   it("시간과 분이 함께 있는 스탯 값도 한 문장으로 읽힌다", async () => {
@@ -617,6 +639,8 @@ describe("HomeTabPage", () => {
   });
 
   describe("집중 시작 CTA", () => {
+    beforeEach(() => markSessionGuideSeen(7));
+
     it("쿼리를 승계해 세션 라우트로 바로 이동하고 출처를 남긴다", async () => {
       mockedStats.mockResolvedValue(statsResponse);
       mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });

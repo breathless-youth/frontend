@@ -112,13 +112,15 @@ function DdayBlock({
       aria-haspopup="dialog"
       aria-expanded={expanded}
       onClick={onOpen}
-      className="flex flex-col items-start text-left"
+      className="flex min-w-0 flex-col items-start text-left"
     >
-      <span className="flex items-center gap-2">
+      <span className="flex max-w-full min-w-0 items-center gap-2">
         <span
           data-testid="dday-label"
           className={cn(
-            "text-[32px] leading-9.5 font-extrabold tracking-[-0.8px] tabular-nums",
+            // 360 폭부터는 32px 그대로고, 그보다 좁으면 플래너 버튼과 겹치지 않게 창 폭을 따라 줄인다.
+            // 줄여도 넘치는 긴 문구만 말줄임으로 자른다.
+            "min-w-0 truncate text-[min(32px,8.9vw)] leading-9.5 font-extrabold tracking-[-0.8px] tabular-nums",
             // 지난 D-Day는 색으로 구분한다. 시안 색이 정해지면 여기만 바꾼다.
             daysLeft !== null && daysLeft < 0 ? "text-muted-foreground" : "text-primary",
           )}

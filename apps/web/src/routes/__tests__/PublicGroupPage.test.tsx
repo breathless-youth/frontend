@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type * as Amplitude from "@/lib/amplitude";
-import { trackGroupRoomApplicationSent } from "@/lib/amplitude";
+import { trackGroupRoomApplicationSent, trackGroupRoomJoined } from "@/lib/amplitude";
+import { observeMyGroups } from "@/features/group-room/groupMembershipTracker";
 import { ApiError } from "@/lib/api";
 import type * as UserId from "@/lib/userId";
 import {
@@ -23,6 +24,7 @@ vi.mock("@/lib/userId", async (importOriginal) => ({
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof Amplitude>()),
   trackGroupRoomApplicationSent: vi.fn(),
+  trackGroupRoomJoined: vi.fn(),
 }));
 
 // 공개 그룹 보기, 신청하기, 그룹 홈은 나눠 받는 화면이라 전체 스위트 부하에서 첫 그리기가 findBy 기본 1초를 넘지 않게 미리 받아 둔다.
@@ -34,6 +36,7 @@ beforeAll(async () => {
 
 afterEach(() => {
   vi.mocked(trackGroupRoomApplicationSent).mockClear();
+  vi.mocked(trackGroupRoomJoined).mockClear();
 });
 
 describe("신청 계측", () => {
@@ -242,5 +245,71 @@ describe("신청하기", () => {
     await act(() => Promise.resolve());
     expect(router.location().pathname).toBe("/social/public/13/apply");
     expect(api.getPublicGroup).not.toHaveBeenCalled();
+  });
+});
+
+describe("direct public entry", () => {
+  it("enters immediately and navigates to the group home", async () => {
+    const api = mockGroupApi("default");
+    const groups = await api.server.getPublicGroups({ page: 0, size: 50 });
+    const open = groups.groups.find((group) => group.joinPolicy === "OPEN")!;
+    observeMyGroups(1, (await api.server.getMyGroups()).groups);
+    const { router } = renderGroupRoute(`/social/public/${open.groupId}?groupRooms=1`);
+    await userEvent.setup().click(await screen.findByRole("button", { name: "입장하기" }));
+    await waitFor(() => expect(router.location().pathname).toBe(`/social/groups/${open.groupId}`));
+    expect(api.joinPublicGroup).toHaveBeenCalledOnce();
+    expect(trackGroupRoomJoined).toHaveBeenCalledExactlyOnceWith({
+      via: "application",
+      visibility: "public",
+    });
+    expect(observeMyGroups(1, (await api.server.getMyGroups()).groups).joined).toEqual([]);
+    expect(api.applyToGroup).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("blocks duplicate direct entry while the request is pending", async () => {
+    const api = mockGroupApi("default");
+    api.getPublicGroup.mockResolvedValue({ ...seedDetail(13), joinPolicy: "OPEN" });
+    api.joinPublicGroup.mockImplementation(() => new Promise(() => {}));
+    renderGroupRoute("/social/public/13?groupRooms=1");
+    const join = await screen.findByRole("button", { name: "입장하기" });
+    await userEvent.setup().dblClick(join);
+    expect(join).toBeDisabled();
+    expect(api.joinPublicGroup).toHaveBeenCalledOnce();
+    expect(trackGroupRoomJoined).not.toHaveBeenCalled();
+  });
+
+  it("does not count membership again when the server reports joined=false", async () => {
+    const api = mockGroupApi("default");
+    api.getPublicGroup.mockResolvedValue({ ...seedDetail(13), joinPolicy: "OPEN" });
+    api.joinPublicGroup.mockResolvedValue({ groupId: 10, joined: false });
+    const { router } = renderGroupRoute("/social/public/13?groupRooms=1");
+    await userEvent.setup().click(await screen.findByRole("button", { name: "입장하기" }));
+    await waitFor(() => expect(router.location().pathname).toBe("/social/groups/10"));
+    expect(trackGroupRoomJoined).not.toHaveBeenCalled();
+  });
+
+  it("refreshes the button if OPEN changed to APPROVAL", async () => {
+    const api = mockGroupApi("default");
+    api.getPublicGroup.mockResolvedValueOnce({ ...seedDetail(13), joinPolicy: "OPEN" });
+    api.joinPublicGroup.mockRejectedValueOnce(
+      new ApiError("x", 409, "GROUP_JOIN_APPROVAL_REQUIRED"),
+    );
+    renderGroupRoute("/social/public/13?groupRooms=1");
+    await userEvent.setup().click(await screen.findByRole("button", { name: "입장하기" }));
+    expect(await screen.findByRole("button", { name: "신청하기" })).toBeEnabled();
+    expect(api.getPublicGroup).toHaveBeenCalledTimes(2);
+  });
+
+  it("returns to detail and refreshes when applications are now closed", async () => {
+    const api = mockGroupApi("default");
+    const { router } = renderGroupRoute("/social/public/13/apply?groupRooms=1");
+    const user = userEvent.setup();
+    await user.type(await screen.findByRole("textbox", { name: "소개 글" }), "Hello");
+    api.applyToGroup.mockRejectedValueOnce(new ApiError("x", 409, "GROUP_JOIN_OPEN"));
+    api.getPublicGroup.mockResolvedValue({ ...seedDetail(13), joinPolicy: "OPEN" });
+    await user.click(screen.getByRole("button", { name: "신청 보내기" }));
+    await waitFor(() => expect(router.location().pathname).toBe("/social/public/13"));
+    expect(await screen.findByRole("button", { name: "입장하기" })).toBeEnabled();
   });
 });

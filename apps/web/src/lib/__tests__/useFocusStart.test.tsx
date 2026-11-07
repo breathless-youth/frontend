@@ -1,8 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import type * as Amplitude from "@/lib/amplitude";
 import { requestSessionStart } from "@/lib/sessionStart";
 import { useFocusStart } from "@/lib/useFocusStart";
@@ -16,10 +17,14 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
 const haptic = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/haptics", () => ({ haptic }));
 
-afterEach(() => vi.clearAllMocks());
+beforeEach(() => markSessionGuideSeen(7));
+afterEach(() => {
+  localStorage.clear();
+  vi.clearAllMocks();
+});
 
-function Starter() {
-  const startFocus = useFocusStart(7);
+function Starter({ userId = 7 }: { userId?: number | null }) {
+  const startFocus = useFocusStart(userId);
   return (
     <button type="button" onClick={() => startFocus("ranking_card")}>
       집중 시작
@@ -32,18 +37,52 @@ function RoomProbe() {
   return <div data-testid="room-probe">{location.pathname + location.search}</div>;
 }
 
-function renderStarter() {
+function GuideProbe() {
+  const location = useLocation();
+  return (
+    <div data-testid="guide-probe" data-state={JSON.stringify(location.state)}>
+      {location.pathname + location.search}
+    </div>
+  );
+}
+
+function renderStarter(userId: number | null = 7) {
   render(
     <MemoryRouter initialEntries={["/ranking?userId=7"]}>
       <Routes>
-        <Route path="/ranking" element={<Starter />} />
+        <Route path="/ranking" element={<Starter userId={userId} />} />
         <Route path="/room/1" element={<RoomProbe />} />
+        <Route path="/session-guide" element={<GuideProbe />} />
       </Routes>
     </MemoryRouter>,
   );
 }
 
 describe("useFocusStart", () => {
+  it("가이드를 안 본 계정은 세션을 시작하지 않고 누른 자리를 들고 가이드로 간다", async () => {
+    localStorage.clear();
+    renderStarter();
+
+    await userEvent.click(screen.getByRole("button", { name: "집중 시작" }));
+
+    const guide = await screen.findByTestId("guide-probe");
+    expect(guide).toHaveTextContent("/session-guide?userId=7");
+    expect(guide).toHaveAttribute("data-state", JSON.stringify({ source: "ranking_card" }));
+    expect(requestSessionStart).not.toHaveBeenCalled();
+    expect(analytics.trackFocusStartTapped).not.toHaveBeenCalled();
+  });
+
+  it("신원이 없으면 가이드 없이 바로 시작한다", async () => {
+    localStorage.clear();
+    vi.mocked(requestSessionStart).mockResolvedValue("web");
+    renderStarter(null);
+
+    await userEvent.click(screen.getByRole("button", { name: "집중 시작" }));
+
+    expect(screen.queryByTestId("guide-probe")).not.toBeInTheDocument();
+    expect(requestSessionStart).toHaveBeenCalledWith(null, expect.any(Function));
+  });
+
   it("누르면 출처를 남기고 세션 시작을 요청한다", async () => {
     vi.mocked(requestSessionStart).mockResolvedValue("web");
     renderStarter();

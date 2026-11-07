@@ -6,9 +6,10 @@ import * as Crypto from "expo-crypto";
 import { Platform } from "react-native";
 import { GoogleOneTapSignIn } from "react-native-nitro-google-signin";
 
-import { linkSocial } from "../auth";
+import { deleteAccount, linkSocial } from "../auth";
 import {
   __resetSocialLoginForTests,
+  deleteAccountWithReauth,
   socialLogin,
   supportedSocialLoginProviders,
 } from "../socialLogin";
@@ -61,10 +62,11 @@ jest.mock("react-native-nitro-google-signin", () => {
     },
   };
 });
-jest.mock("../auth", () => ({ linkSocial: jest.fn() }));
+jest.mock("../auth", () => ({ linkSocial: jest.fn(), deleteAccount: jest.fn() }));
 
 const mockedConstants = Constants as unknown as { expoConfig: { extra: Record<string, unknown> } };
 const mockedLinkSocial = linkSocial as jest.Mock;
+const mockedDeleteAccount = deleteAccount as jest.Mock;
 const mockedKakaoLogin = login as jest.Mock;
 const mockedAppleSignIn = AppleAuthentication.signInAsync as jest.Mock;
 const mockedGoogle = GoogleOneTapSignIn as unknown as Record<
@@ -93,6 +95,7 @@ beforeEach(() => {
   mockNativeModules.googleMissing = false;
   jest.spyOn(console, "warn").mockImplementation(() => {});
   mockedLinkSocial.mockResolvedValue({ status: "success", isNewUser: false });
+  mockedDeleteAccount.mockResolvedValue({ status: "success" });
   mockedGoogle.presentExplicitSignIn.mockResolvedValue({
     type: "success",
     data: { idToken: "google-id-token" },
@@ -222,8 +225,70 @@ describe("socialLogin", () => {
   });
 });
 
+describe("deleteAccountWithReauth", () => {
+  it.each(["GOOGLE", "KAKAO"] as const)(
+    "%s 계정은 애플 창 없이 본문 없이 지운다",
+    async (provider) => {
+      install("ios", PROD_SOCIAL_LOGIN);
+
+      await expect(deleteAccountWithReauth(provider)).resolves.toEqual({ status: "success" });
+      expect(mockedAppleSignIn).not.toHaveBeenCalled();
+      expect(mockedDeleteAccount).toHaveBeenCalledWith();
+    },
+  );
+
+  it("iOS 애플 계정은 애플 로그인을 다시 띄워 받은 인가 코드를 IOS와 함께 보낸다", async () => {
+    install("ios", PROD_SOCIAL_LOGIN);
+    mockedAppleSignIn.mockResolvedValue({ authorizationCode: "apple-code" });
+
+    await expect(deleteAccountWithReauth("APPLE")).resolves.toEqual({ status: "success" });
+    expect(mockedAppleSignIn).toHaveBeenCalledTimes(1);
+    expect(mockedDeleteAccount).toHaveBeenCalledWith({
+      appleAuthorizationCode: "apple-code",
+      appleClient: "IOS",
+    });
+  });
+
+  it("애플 창을 닫으면 서버에 보내지 않고 cancelled다", async () => {
+    install("ios", PROD_SOCIAL_LOGIN);
+    mockedAppleSignIn.mockRejectedValue(
+      Object.assign(new Error("cancel"), { code: "ERR_REQUEST_CANCELED" }),
+    );
+
+    await expect(deleteAccountWithReauth("APPLE")).resolves.toEqual({ status: "cancelled" });
+    expect(mockedDeleteAccount).not.toHaveBeenCalled();
+  });
+
+  it("애플이 인가 코드를 주지 않거나 애플 SDK가 없으면 서버에 보내지 않고 UNKNOWN이다", async () => {
+    install("ios", PROD_SOCIAL_LOGIN);
+    mockedAppleSignIn.mockResolvedValue({ authorizationCode: null });
+    await expect(deleteAccountWithReauth("APPLE")).resolves.toEqual({
+      status: "failed",
+      code: "UNKNOWN",
+    });
+
+    __resetSocialLoginForTests();
+    install("android", PROD_SOCIAL_LOGIN);
+    await expect(deleteAccountWithReauth("APPLE")).resolves.toEqual({
+      status: "failed",
+      code: "UNKNOWN",
+    });
+    expect(mockedDeleteAccount).not.toHaveBeenCalled();
+  });
+
+  it("서버 실패 코드는 그대로 돌려준다", async () => {
+    install("ios", PROD_SOCIAL_LOGIN);
+    mockedDeleteAccount.mockResolvedValue({ status: "failed", code: "NETWORK" });
+
+    await expect(deleteAccountWithReauth("GOOGLE")).resolves.toEqual({
+      status: "failed",
+      code: "NETWORK",
+    });
+  });
+});
+
 describe("installSocialLoginSdk", () => {
-  /** dev·staging처럼 앱 종류별 키가 없는 빌드. 구글 웹 클라이언트 ID는 모든 앱 종류가 같다. */
+  /** 앱 종류별 키가 비어 있는 빌드. 구글 웹 클라이언트 ID는 모든 앱 종류가 같다. */
   const NO_KEYS = {
     kakaoNativeAppKey: "",
     googleIosClientId: "",
