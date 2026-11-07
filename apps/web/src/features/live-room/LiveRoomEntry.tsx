@@ -22,6 +22,8 @@ import { groupHomeQuery } from "@/lib/groupRoomQueries";
 import { profileQuery } from "@/lib/profileQueries";
 
 import { LiveRoomSession } from "./LiveRoomSession";
+import { useInitialSubject } from "@/features/study-session/useInitialSubject";
+import { InitialSubjectError } from "@/features/study-session/InitialSubjectError";
 import type { CreatePeerConnection } from "./peerMesh";
 import type { CreateCamera, CreateChannel } from "./liveRoomEntryState";
 import type { LiveRoomKind } from "./roomKind";
@@ -61,6 +63,8 @@ export function LiveRoomEntry({
   userId,
   graceRejoin,
   initialIceServers,
+  initialSubjectId,
+  initialSubjectVerified,
   createChannel,
   createCamera,
   createPeerConnection,
@@ -72,6 +76,8 @@ export function LiveRoomEntry({
   userId: number;
   graceRejoin: boolean;
   initialIceServers: IceServer[];
+  initialSubjectId?: number;
+  initialSubjectVerified?: { userId: number; subjectId: number; validUntil: number };
   createChannel: CreateChannel;
   createCamera: CreateCamera;
   createPeerConnection?: CreatePeerConnection;
@@ -112,6 +118,31 @@ export function LiveRoomEntry({
 
   // 세션이 마운트되기 전에 진행중 세션을 받아 둔다. 세션이 뜬 뒤에 받으면 타이머가 0에서 튄다.
   const { settled: restoreSettled, restored } = useActiveSessionRestore(userId);
+  const [mountedAt] = useState(() => Date.now());
+  const [proofExpired, setProofExpired] = useState(false);
+  const proofValidUntil = initialSubjectVerified?.validUntil;
+  const proofMatches =
+    initialSubjectId !== undefined &&
+    initialSubjectVerified?.userId === userId &&
+    initialSubjectVerified.subjectId === initialSubjectId &&
+    proofValidUntil !== undefined &&
+    proofValidUntil >= mountedAt &&
+    proofValidUntil <= mountedAt + 30000;
+  useEffect(() => {
+    if (entered || !proofMatches || proofValidUntil === undefined) return;
+    const timer = setTimeout(
+      () => setProofExpired(true),
+      Math.max(0, proofValidUntil - Date.now()),
+    );
+    return () => clearTimeout(timer);
+  }, [entered, proofMatches, proofValidUntil]);
+  const prevalidated = proofMatches && !proofExpired;
+  const initialSubject = useInitialSubject(
+    userId,
+    initialSubjectId,
+    restored !== null,
+    prevalidated,
+  );
 
   const profile = useQuery({
     ...profileQuery(userId),
@@ -122,7 +153,7 @@ export function LiveRoomEntry({
   useEffect(() => {
     // 게이트를 지나기 전에는 자리를 잡지 않는다 — 권한이 거부되면 입장 자체를 하지 않으므로
     // 예약만 남기고 빠지는 일이 없어야 한다(BY-412).
-    if (graceRejoin || !gatePassed) {
+    if (graceRejoin || !gatePassed || !restoreSettled || !initialSubject.settled) {
       return;
     }
     let cancelled = false;
@@ -164,7 +195,17 @@ export function LiveRoomEntry({
     return () => {
       cancelled = true;
     };
-  }, [gatePassed, graceRejoin, joinAttempt, location.search, navigate, room, userId]);
+  }, [
+    gatePassed,
+    graceRejoin,
+    joinAttempt,
+    location.search,
+    navigate,
+    room,
+    userId,
+    restoreSettled,
+    initialSubject.settled,
+  ]);
 
   const gateRequestedRef = useRef(false);
   useEffect(() => {
@@ -194,7 +235,11 @@ export function LiveRoomEntry({
   // 유예 재입장은 join을 부르지 않으므로(위 effect) 게이트만 통과하면 바로 들어간다.
   const profileSettled = profile.isSuccess || profile.isError;
   const ready =
-    restoreSettled && gatePassed && roomId !== null && (graceRejoin || (joined && profileSettled));
+    restoreSettled &&
+    initialSubject.settled &&
+    gatePassed &&
+    roomId !== null &&
+    (graceRejoin || (joined && profileSettled));
   // 입장은 래치다.
   // 조건이 나중에 거짓이 돼도 세션을 내리지 않는다.
   if (!entered && ready) {
@@ -230,6 +275,14 @@ export function LiveRoomEntry({
         className="theme-dark relative flex h-dvh flex-col bg-background"
         style={sessionSurfaceStyle}
       >
+        {restoreSettled && initialSubject.error && (
+          <InitialSubjectError
+            onRetry={initialSubject.retry}
+            onBack={() =>
+              navigate({ pathname: homePath, search: location.search }, { replace: true })
+            }
+          />
+        )}
         {room.kind === "group" && (
           <LeaveWhenGroupGone error={groupGoneError} groupId={room.groupId} />
         )}
@@ -269,6 +322,7 @@ export function LiveRoomEntry({
       iceServers={iceServers}
       profile={profile.data ?? null}
       restored={restored}
+      initialSubjectId={initialSubject.subjectId}
       audioDeps={audioDeps}
     />
   );

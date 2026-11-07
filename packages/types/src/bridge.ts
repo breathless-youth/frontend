@@ -332,7 +332,7 @@ export type ToNativeMessage =
    * **권한 요청과 화면 스택은 네이티브 소유**라 웹이 대신할 수 없다. 네이티브가 권한 게이트를
    * 거쳐 세션 모달을 열고, 브라우저 단독 모드에서는 애초에 발신되지 않는다.
    */
-  | { type: "start-session"; atMs: number }
+  | { type: "start-session"; atMs: number; initialSubjectId?: number }
   /**
    * 설정(S6) 카메라 권한 행에서 OS 설정 앱을 열어달라는 요청. 네이티브가 OS 설정 앱을 연다.
    */

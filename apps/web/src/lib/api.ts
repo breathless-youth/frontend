@@ -112,27 +112,51 @@ export async function apiFetch(input: RequestInfo | URL, init: ApiFetchInit): Pr
   if (source === null || !isApiOrigin(input)) {
     return send();
   }
-  const sent = await source.getAccessToken();
-  if (sent !== null) {
-    headers.set("Authorization", `Bearer ${sent}`);
+  let owner = source.getUserId();
+  // 최초 auth-ready 왕복만 첫 확정 신원을 기다린다. 이미 신원이 있던 요청은 다른 계정으로 넘어갈 수 없다.
+  let firstIdentityPending = owner === null && !source.hasSettled();
+  let changedAccount = false;
+  const unsubscribe = source.subscribe((snapshot) => {
+    if (firstIdentityPending) {
+      owner = snapshot.userId;
+      firstIdentityPending = false;
+    } else if (snapshot.userId !== owner) {
+      // A → B → A도 원래 요청을 재개하지 않는다.
+      changedAccount = true;
+    }
+  });
+  const identityChanged = () =>
+    changedAccount || getTokenSource() !== source || source.getUserId() !== owner;
+  try {
+    const sent = await source.getAccessToken();
+    if (firstIdentityPending) {
+      owner = source.getUserId();
+      firstIdentityPending = false;
+    }
+    if (identityChanged()) throw new DOMException("request account changed", "AbortError");
+    if (sent !== null) {
+      headers.set("Authorization", `Bearer ${sent}`);
+    }
+    const res = await send();
+    // 서버가 이미 처리한 요청은 되돌릴 수 없지만 이전 계정 작업의 후속 단계는 중단한다.
+    if (identityChanged()) throw new DOMException("request account changed", "AbortError");
+    // 만료 판단은 서버의 401만 믿는다. 401 경로는 status만 읽는다 — 테스트가 fetch를 얇은 객체로 mock한다.
+    if (res.status !== 401 || signal?.aborted) {
+      return res;
+    }
+    // 같은 계정의 토큰만 1회 갱신해 재시도한다. 로그인·로그아웃으로 바뀐 계정에 이전 요청 본문을 보내지 않는다.
+    // 다른 문서가 이미 갱신했으면 현재 토큰을 쓰고, 버전과 본문·signal은 원래 요청 그대로 둔다.
+    const current = source.getCurrentToken();
+    const next = current !== sent ? current : await source.refresh();
+    if (identityChanged()) throw new DOMException("request account changed", "AbortError");
+    if (signal?.aborted || next === null || next === sent) {
+      return res;
+    }
+    headers.set("Authorization", `Bearer ${next}`);
+    const retried = await send();
+    if (identityChanged()) throw new DOMException("request account changed", "AbortError");
+    return retried;
+  } finally {
+    unsubscribe();
   }
-  const res = await send();
-  // 만료 판단은 서버의 401만 믿는다. 401 경로는 status만 읽는다 — 테스트가 fetch를 얇은 객체로 mock한다.
-  if (res.status !== 401 || signal?.aborted) {
-    return res;
-  }
-  // 다른 문서의 갱신이 이미 토큰을 바꿔 뒀으면 갱신 요청 없이 그 토큰으로 재시도한다. 아니면 갱신을
-  // 요청하고(문서당 하나로 묶임) 1회만 재시도한다. 갱신이 실패했거나 같은 토큰이면 재시도해도 같은
-  // 401이라 보내지 않는다. 재시도의 401은 그대로 돌려준다 — 갱신 루프 없음.
-  // 버전은 다시 만지지 않는다. 같은 엔드포인트라 같은 값이다.
-  const current = source.getCurrentToken();
-  const next = current !== sent ? current : await source.refresh();
-  if (signal?.aborted) {
-    return res;
-  }
-  if (next === null || next === sent) {
-    return res;
-  }
-  headers.set("Authorization", `Bearer ${next}`);
-  return send();
 }

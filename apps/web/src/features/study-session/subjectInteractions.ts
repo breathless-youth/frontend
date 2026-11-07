@@ -24,7 +24,7 @@ export const MAX_TASKS = 30;
  * 서버 한도보다 짧게 잡아 서버 검증과 부딪히지 않는다.
  */
 export const SUBJECT_NAME_MAX = 12;
-export const TASK_NAME_MAX = 15;
+export const TASK_NAME_MAX = 25;
 export const LONG_PRESS_MS = 480;
 export const SWIPE_SLOP_PX = 10;
 /** 이만큼 왼쪽으로 밀고 놓으면 제거된다(원본 96). 최대 이동은 160. */
@@ -226,7 +226,9 @@ export function revealInScrollList(target: HTMLElement): void {
 /**
  * 과목 순서 끌기 — 끄는 동안 지나는 과목과 자리를 바꾸고(화면에만), 놓을 때 순서가 달라졌으면 저장한다.
  */
-export function useSubjectReorder(store: SubjectsStore) {
+export function useSubjectReorder(
+  store: Pick<SubjectsStore, "startReorder" | "reorderSubject" | "commitReorder">,
+) {
   const [reorderingId, setReorderingId] = useState<number | null>(null);
   /**
    * 마지막으로 자리를 바꾼 상대 과목. 리렌더 전에 같은 과목 위에서 pointermove가 연달아 오면

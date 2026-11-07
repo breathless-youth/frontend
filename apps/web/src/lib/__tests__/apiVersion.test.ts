@@ -24,6 +24,7 @@ const EXPECTED: Record<ApiEndpoint, { current: string; legacy: string }> = {
   studyRhythm: { current: "1", legacy: "1" },
   dday: { current: "1", legacy: "1" },
   subjects: { current: "1", legacy: "1" },
+  planner: { current: "1", legacy: "1" },
   notices: { current: "1", legacy: "1" },
   interview: { current: "1", legacy: "1" },
   acquisition: { current: "1", legacy: "1" },

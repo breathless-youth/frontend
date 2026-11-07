@@ -1,5 +1,5 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import type { NoticeResponse, SessionRecoveryResponse } from "@focusmakers/types";
+import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
+import type { NoticeResponse, PlannerTask, SessionRecoveryResponse } from "@focusmakers/types";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type * as ReactRouterDom from "react-router-dom";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -20,9 +20,9 @@ import {
   onboardingRecord,
 } from "@/features/onboarding/onboardingGate";
 import { todayLabel } from "@/features/home/homeFormat";
-import { hasShownRecoveryThisLaunch } from "@/features/study-session/recoveryLaunchStore";
 import { markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import { LAUNCH_SIGNAL_WAIT_MS } from "@/features/study-session/useLaunchSessionRecovery";
+import { plannerTask } from "@/test/plannerFixtures";
 import { HomeTabPage } from "@/routes/HomeTabPage";
 
 /** 옛 세션 마감은 자기 테스트가 따로 있다 — 여기서는 결과만 조작한다. */
@@ -51,12 +51,20 @@ vi.mock("@/lib/statsApi", () => ({
 /** 홈이 앱에 보내는 시작 신호와 알림 권한 요청. 동작 자체는 각자 테스트가 본다. */
 const launchSignals = vi.hoisted(() => ({
   signalLaunchReady: vi.fn(),
-  requestPushPermissionOnHomeArrival: vi.fn(),
+  requestPushPermissionOnHomeArrival: vi.fn(() => Promise.resolve("unsupported")),
 }));
 vi.mock("@/lib/launchReady", () => ({ signalLaunchReady: launchSignals.signalLaunchReady }));
 vi.mock("@/lib/nativePushPermission", () => ({
   requestPushPermissionOnHomeArrival: launchSignals.requestPushPermissionOnHomeArrival,
 }));
+
+vi.mock("@/lib/subjectApi", () => ({ listSubjects: vi.fn(async () => []) }));
+
+const carryoverApi = vi.hoisted(() => ({
+  getPlannerCarryover: vi.fn<() => Promise<PlannerTask[]>>(() => Promise.resolve([])),
+  carryPlannerTasks: vi.fn<() => Promise<PlannerTask[]>>(() => Promise.resolve([])),
+}));
+vi.mock("@/lib/plannerApi", () => carryoverApi);
 
 /** 홈 공지는 자기 테스트가 따로 본다. 기본은 띄울 공지가 없게 두고 복구 창 순서 테스트만 바꾼다. */
 const getActiveNotices = vi.hoisted(() => vi.fn(() => Promise.resolve<NoticeResponse[]>([])));
@@ -671,7 +679,7 @@ describe("HomeTabPage", () => {
     });
   });
 
-  describe("홈 랭킹 팝업 순서", () => {
+  describe("홈 메달 자동 안내 제거", () => {
     afterEach(() => {
       vi.unstubAllGlobals();
       window.history.replaceState(null, "", "/");
@@ -719,50 +727,35 @@ describe("HomeTabPage", () => {
       expect(rankingApi.getRankingRecordsUnseen).not.toHaveBeenCalled();
     });
 
-    it("공지와 복구 창이 없으면 안 본 메달 모달을 띄운다", async () => {
+    it("공지와 복구가 없어도 메달을 자동 조회하거나 본 것으로 처리하지 않는다", async () => {
       mockedStats.mockResolvedValue(statsResponse);
       mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
       rankingApi.getRankingRecordsUnseen.mockResolvedValue(FIXTURE_UNSEEN_ONE);
-
       renderHome();
-
-      expect(await screen.findByRole("dialog", { name: "1위로 마감했어요" })).toBeInTheDocument();
-      expect(rankingApi.postRankingRecordsSeen).toHaveBeenCalledWith([41]);
+      await screen.findByText("오늘 순공시간");
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(rankingApi.getRankingRecordsUnseen).not.toHaveBeenCalled();
+      expect(rankingApi.postRankingRecordsSeen).not.toHaveBeenCalled();
     });
 
-    it("메달 모달이 뜬 뒤 복구 결과가 늦게 오면 모달을 두고, 모달을 닫은 뒤에 복구 창을 띄운다", async () => {
+    it("늦게 복구 결과가 와도 메달 없이 복구 안내만 표시한다", async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
       try {
         window.history.replaceState(null, "", "/home?ranking=1");
         __resetRankingTabForTests();
-        // 준비 신호에 바로 답하지 않는 셸이라 기다림이 끝나야 복구 판단이 끝난다.
         vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
         mockedStats.mockResolvedValue(statsResponse);
         mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
         closeStaleSession.mockResolvedValue(RECOVERED);
         rankingApi.getRankingRecordsUnseen.mockResolvedValue(FIXTURE_UNSEEN_ONE);
-
         renderHome();
-        await act(async () => {
-          await vi.advanceTimersByTimeAsync(LAUNCH_SIGNAL_WAIT_MS);
-        });
-        expect(await screen.findByRole("dialog", { name: "1위로 마감했어요" })).toBeInTheDocument();
-
+        await act(async () => vi.advanceTimersByTimeAsync(LAUNCH_SIGNAL_WAIT_MS));
+        expect(screen.queryByRole("dialog")).toBeNull();
         emitAppLaunched();
-        await waitFor(() => expect(hasShownRecoveryThisLaunch()).toBe(true));
-        await act(async () => {
-          await Promise.resolve();
-        });
-
-        // 메달은 띄운 직후 본 것으로 보냈으므로 내리면 사용자가 못 본 메달이 본 것으로 넘어간다.
-        expect(screen.getByRole("dialog", { name: "1위로 마감했어요" })).toBeInTheDocument();
-        // 열린 모달 밖은 aria-hidden이 되어 역할 조회로는 겹침을 놓치므로 글자로 찾는다.
-        expect(screen.queryByText(RECOVERY_TITLE)).toBeNull();
-
-        fireEvent.click(screen.getByRole("button", { name: "닫기" }));
-
         expect(await screen.findByText(RECOVERY_TITLE)).toBeInTheDocument();
-        expect(rankingApi.postRankingRecordsSeen).toHaveBeenCalledTimes(1);
+        expect(screen.queryByText("1위로 마감했어요")).toBeNull();
+        expect(rankingApi.getRankingRecordsUnseen).not.toHaveBeenCalled();
+        expect(rankingApi.postRankingRecordsSeen).not.toHaveBeenCalled();
       } finally {
         vi.useRealTimers();
       }
@@ -839,22 +832,14 @@ describe("HomeTabPage", () => {
       expect(rankingApi.getRankingRecordsUnseen).not.toHaveBeenCalled();
     });
 
-    it("랭킹 팝업을 띄운 문서에서는 다시 보여도 공지를 띄우지 않는다", async () => {
-      getActiveNotices
-        .mockImplementationOnce(() => Promise.resolve([]))
-        .mockImplementation(() => Promise.resolve([NOTICE]));
-
+    it("메달 판단 없이 다음 보임 평가의 공지를 표시한다", async () => {
+      getActiveNotices.mockResolvedValueOnce([]).mockResolvedValue([NOTICE]);
       renderHome();
-      fireEvent.click(await screen.findByRole("button", { name: "닫기" }));
-      act(() => {
-        document.dispatchEvent(new Event("visibilitychange"));
-      });
-      await act(async () => {
-        await Promise.resolve();
-      });
-
-      expect(screen.queryByRole("dialog")).toBeNull();
-      expect(screen.queryByText(NOTICE.title)).toBeNull();
+      await waitFor(() => expect(getActiveNotices).toHaveBeenCalledTimes(1));
+      act(() => document.dispatchEvent(new Event("visibilitychange")));
+      expect(await screen.findByText(NOTICE.title)).toBeInTheDocument();
+      expect(rankingApi.getRankingRecordsUnseen).not.toHaveBeenCalled();
+      expect(rankingApi.postRankingRecordsSeen).not.toHaveBeenCalled();
     });
   });
 });
@@ -927,9 +912,11 @@ describe("HomeTabPage — 좌상단 D-Day", () => {
     renderHome("/home?guestAuth=1");
 
     const button = await screen.findByRole("button", { name: "플래너" });
+    expect(button).toHaveAccessibleDescription("새 플래너를 확인해 보세요");
     navigateSpy.mockClear();
     fireEvent.click(button);
     fireEvent.click(button);
+    expect(button).not.toHaveAccessibleDescription();
 
     // 날짜 없이 열어 오늘의 플래너가 되고, 셸이 붙인 쿼리는 그대로 들고 간다.
     expect(navigateSpy).toHaveBeenCalledTimes(1);
@@ -1061,5 +1048,158 @@ describe("HomeTabPage — 첫 실행 온보딩", () => {
 
     expect(await screen.findByRole("button", { name: "집중 시작" })).toBeInTheDocument();
     expect(launchSignals.signalLaunchReady).toHaveBeenCalled();
+  });
+});
+
+describe("못 끝낸 할 일의 마지막 홈 순서", () => {
+  const pendingTask = plannerTask({ date: "2020-01-01" });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    sessionStorage.clear();
+    focusManager.setFocused(true);
+    tokenSourceMock.source = {
+      getUserId: () => 7,
+      hasSettled: () => true,
+      getAccessToken: async () => "token",
+      getCurrentToken: () => "token",
+      refresh: async () => "token",
+      subscribe: () => () => {},
+    };
+    mockedStats.mockResolvedValue(statsResponse);
+    mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+    closeStaleSession.mockResolvedValue(null);
+    getActiveNotices.mockResolvedValue([]);
+    carryoverApi.getPlannerCarryover.mockResolvedValue([pendingTask]);
+    carryoverApi.carryPlannerTasks.mockResolvedValue([]);
+    launchSignals.requestPushPermissionOnHomeArrival.mockResolvedValue("unsupported");
+  });
+  afterEach(() => {
+    tokenSourceMock.source = null;
+    focusManager.setFocused(undefined);
+    vi.unstubAllGlobals();
+    window.history.replaceState(null, "", "/");
+    __resetRankingTabForTests();
+  });
+  it("권한 응답 뒤 메달 판단 없이 미완료 후보를 띄운다", async () => {
+    let finishPermission = (_value: string) => {};
+    launchSignals.requestPushPermissionOnHomeArrival.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          finishPermission = resolve;
+        }),
+    );
+    rankingApi.getRankingRecordsUnseen.mockResolvedValue(FIXTURE_UNSEEN_ONE);
+    renderHome();
+    await screen.findByText("오늘 순공시간");
+    expect(carryoverApi.getPlannerCarryover).not.toHaveBeenCalled();
+    await act(async () => finishPermission("granted"));
+    expect(
+      await screen.findByRole("dialog", { name: "못 끝낸 할 일이 1개 있어요" }),
+    ).toBeInTheDocument();
+    expect(rankingApi.getRankingRecordsUnseen).not.toHaveBeenCalled();
+    expect(rankingApi.postRankingRecordsSeen).not.toHaveBeenCalled();
+  });
+
+  it("공지를 닫으면 같은 홈 접속에서 미완료 안내를 이어 띄운다", async () => {
+    getActiveNotices.mockResolvedValue([NOTICE]);
+    renderHome();
+    await screen.findByText(NOTICE.title);
+    expect(carryoverApi.getPlannerCarryover).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "닫기" }));
+    expect(
+      await screen.findByRole("dialog", { name: "못 끝낸 할 일이 1개 있어요" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(NOTICE.title)).toBeNull();
+  });
+
+  it("공지와 복구가 있으면 하나씩 닫은 뒤 같은 접속의 미완료 안내로 이어진다", async () => {
+    vi.stubGlobal("ReactNativeWebView", {
+      postMessage: vi.fn((raw: string) => {
+        if ((JSON.parse(raw) as { type: string }).type === "home-ready") emitAppLaunched();
+      }),
+    });
+    getActiveNotices.mockResolvedValue([NOTICE]);
+    closeStaleSession.mockResolvedValue(RECOVERED);
+    renderHome();
+    await screen.findByText(NOTICE.title);
+    expect(screen.queryByText(RECOVERY_TITLE)).toBeNull();
+    expect(carryoverApi.getPlannerCarryover).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "닫기" }));
+    expect(await screen.findByText(RECOVERY_TITLE)).toBeInTheDocument();
+    expect(screen.queryByText(NOTICE.title)).toBeNull();
+    expect(carryoverApi.getPlannerCarryover).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "확인" }));
+    expect(
+      await screen.findByRole("dialog", { name: "못 끝낸 할 일이 1개 있어요" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(RECOVERY_TITLE)).toBeNull();
+    expect(screen.getAllByRole("dialog", { hidden: true })).toHaveLength(1);
+    expect(rankingApi.getRankingRecordsUnseen).not.toHaveBeenCalled();
+    expect(rankingApi.postRankingRecordsSeen).not.toHaveBeenCalled();
+  });
+
+  it("공지가 열린 채 다시 홈에 와도 닫은 뒤 같은 접속에서 미완료 안내를 띄운다", async () => {
+    getActiveNotices.mockResolvedValue([NOTICE]);
+    renderHome();
+    await screen.findByText(NOTICE.title);
+    act(() => focusManager.setFocused(false));
+    act(() => focusManager.setFocused(true));
+    expect(carryoverApi.getPlannerCarryover).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "닫기" }));
+    expect(
+      await screen.findByRole("dialog", { name: "못 끝낸 할 일이 1개 있어요" }),
+    ).toBeInTheDocument();
+  });
+
+  it("이전 미완료가 없으면 복구 확인 뒤 추가 안내를 표시하지 않는다", async () => {
+    carryoverApi.getPlannerCarryover.mockResolvedValue([]);
+    vi.stubGlobal("ReactNativeWebView", {
+      postMessage: vi.fn((raw: string) => {
+        if ((JSON.parse(raw) as { type: string }).type === "home-ready") emitAppLaunched();
+      }),
+    });
+    closeStaleSession.mockResolvedValue(RECOVERED);
+    renderHome();
+    fireEvent.click(await screen.findByRole("button", { name: "확인" }));
+    await waitFor(() => expect(carryoverApi.getPlannerCarryover).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(rankingApi.getRankingRecordsUnseen).not.toHaveBeenCalled();
+  });
+
+  it("늦은 복구 동안 미완료 선택을 보존하고 확인 뒤 같은 접속에 이어 띄운다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+      carryoverApi.getPlannerCarryover.mockResolvedValue([
+        pendingTask,
+        plannerTask({ key: "t:2", name: "영어 듣기", date: "2020-01-02" }),
+      ]);
+      closeStaleSession.mockResolvedValue(RECOVERED);
+      renderHome();
+      await act(async () => vi.advanceTimersByTimeAsync(LAUNCH_SIGNAL_WAIT_MS));
+      await screen.findByRole("dialog", { name: "못 끝낸 할 일이 2개 있어요" });
+      fireEvent.click(screen.getByRole("checkbox", { name: "영어 듣기" }));
+      expect(screen.getByRole("button", { name: "1개 가져오기" })).toBeInTheDocument();
+      emitAppLaunched();
+      expect(await screen.findByText(RECOVERY_TITLE)).toBeInTheDocument();
+      expect(screen.queryByText("못 끝낸 할 일이 2개 있어요")).toBeNull();
+      expect(screen.getAllByRole("dialog", { hidden: true })).toHaveLength(1);
+      fireEvent.click(screen.getByRole("button", { name: "확인" }));
+      expect(
+        await screen.findByRole("dialog", { name: "못 끝낸 할 일이 2개 있어요" }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole("checkbox", { name: "영어 듣기" })).not.toBeChecked();
+      fireEvent.click(screen.getByRole("button", { name: "1개 가져오기" }));
+      await waitFor(() =>
+        expect(carryoverApi.carryPlannerTasks).toHaveBeenCalledWith(
+          { offeredKeys: [pendingTask.key, "t:2"], selectedKeys: [pendingTask.key] },
+          expect.objectContaining({ timeZone: expect.any(String) }),
+        ),
+      );
+      expect(screen.queryByRole("dialog")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { updateProfile } from "@/lib/profileApi";
 import { mockDeviceTimeZone } from "@/test/deviceTimeZone";
 
-import { useTimeZoneSync } from "../useTimeZoneSync";
+import { syncProfileTimeZone, useTimeZoneSync } from "../useTimeZoneSync";
 
 vi.mock("@/lib/profileApi", () => ({ updateProfile: vi.fn() }));
 
@@ -81,5 +81,27 @@ describe("useTimeZoneSync", () => {
 
     await waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
     warn.mockRestore();
+  });
+
+  it("변경 요청 중 원래 시간대로 돌아오면 앞선 응답 뒤에 원래 값을 보낸다", async () => {
+    sessionStorage.setItem("focuson.profile.timeZoneSent", "7:Asia/Seoul");
+    let acknowledge = () => {};
+    const pending = new Promise<Awaited<ReturnType<typeof updateProfile>>>((resolve) => {
+      acknowledge = () => resolve({} as Awaited<ReturnType<typeof updateProfile>>);
+    });
+    vi.mocked(updateProfile).mockReturnValueOnce(pending);
+    const newYork = syncProfileTimeZone(7, "America/New_York");
+    await waitFor(() => expect(updateProfile).toHaveBeenCalledTimes(1));
+
+    const seoul = syncProfileTimeZone(7, "Asia/Seoul");
+    expect(updateProfile).toHaveBeenCalledTimes(1);
+    acknowledge();
+    await Promise.all([newYork, seoul]);
+
+    expect(vi.mocked(updateProfile).mock.calls).toEqual([
+      [{ timeZone: "America/New_York" }],
+      [{ timeZone: "Asia/Seoul" }],
+    ]);
+    expect(sessionStorage.getItem("focuson.profile.timeZoneSent")).toBe("7:Asia/Seoul");
   });
 });

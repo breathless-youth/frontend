@@ -74,7 +74,7 @@ export async function reportActiveSession(
   try {
     const request = buildActiveSnapshotRequest(input);
     const legacy = legacyUserId();
-    const res = await apiFetch(`${API_BASE_URL}/api/study-sessions/active`, {
+    const res = await apiFetch(`${API_BASE_URL}/api/study-sessions/active?durable=true`, {
       endpoint: "activeSessionReport",
       method: "PUT",
       headers: { "Content-Type": "application/json" },

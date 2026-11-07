@@ -10,7 +10,7 @@
     "titleTop": "While you study,",
     "titleBottom": "your planner keeps track",
     "aria": {
-      "mock": "The planner timetable filling in block by block with focus time"
+      "mock": "A daily planner showing subject tasks and study time recorded to the minute"
     }
   },
   "groupStudy": {
@@ -62,20 +62,28 @@
     "privacy": "Video is never saved"
   },
   "planner": {
-    "date": "Wed, Oct 21",
+    "date": "Nov 7",
     "dday": "Finals",
     "focusLabel": "Focus time",
     "math": "Math",
     "english": "Spanish",
     "korean": "Literature",
     "rest": "Break",
-    "noSubject": "No subject"
+    "noSubject": "No subject",
+    "dayName": "Sat",
+    "daily": "Daily",
+    "weekly": "Weekly",
+    "addTask": "Add task",
+    "addSubject": "Add subject",
+    "editRecords": "Edit records",
+    "todayTasks": "Today's tasks"
   },
   "plannerTask": {
     "calculus": "Review Calculus ch. 3",
     "pastExams": "20 practice questions",
     "vocab": "100 vocab words",
-    "reading": "4 reading passages"
+    "reading": "4 reading passages",
+    "listening": "Listening practice"
   },
   "room": {
     "total": "Total"

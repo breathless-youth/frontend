@@ -22,8 +22,9 @@ import {
  * 덮는다.
  */
 
+const mockRoomParams: { id: string; initialSubjectId?: string } = { id: "1" };
 jest.mock("expo-router", () => ({
-  useLocalSearchParams: () => ({ id: "1" }),
+  useLocalSearchParams: () => mockRoomParams,
   router: {
     back: jest.fn(),
     replace: jest.fn(),
@@ -73,12 +74,26 @@ jest.mock("react-native-webview", () => {
 });
 
 describe("SessionRoomScreen", () => {
+  it("라우트의 선선택 과목을 extraQuery로 웹 세션에 전달한다", async () => {
+    mockRoomParams.initialSubjectId = "3";
+    try {
+      render(<SessionRoomScreen />);
+      await screen.findByTestId("session-webview");
+      expect(
+        new URL(screen.getByTestId("session-webview").props.source.uri as string).searchParams.get(
+          "initialSubjectId",
+        ),
+      ).toBe("3");
+    } finally {
+      delete mockRoomParams.initialSubjectId;
+    }
+  });
   it("세션 경로 + 탭과 동일한 쿼리(appVersion)로 조립한 URL을 WebView에 넘긴다", async () => {
     render(<SessionRoomScreen />);
 
     expect(await screen.findByTestId("session-webview")).toBeTruthy();
     expect(screen.getByTestId("session-webview").props.source).toEqual({
-      uri: "https://web.test/room/1?appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&pushPermission=1&accountActions=1&nativeTabBar=1&lang=ko",
+      uri: "https://web.test/room/1?subjectStart=1&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&pushPermission=1&accountActions=1&nativeTabBar=1&lang=ko",
     });
   });
 

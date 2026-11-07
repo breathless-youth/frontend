@@ -14,13 +14,18 @@ export const CTA_TOAST_ID = "focusmakers-cta-toast";
  */
 const GLOBAL_TOAST_ID = "focusmakers-toast";
 
-export function showToast(message: string) {
+let navigationHoldUntil = 0;
+
+export function showToast(message: string, { persistOnNavigation = false } = {}) {
+  // 인증 성공은 곧 홈이나 원래 목적지로 이동한다. 기존 5초 표시 동안만 경로 정리를 건너뛴다.
+  navigationHoldUntil = persistOnNavigation ? Date.now() + 5000 : 0;
   // 같은 id로 갱신하면 Sonner가 이전 옵션에 덮어 합친다. 위치를 빼면 떠 있던 위쪽 토스트 자리를 물려받는다.
   toast(message, { id: GLOBAL_TOAST_ID, position: "bottom-center" });
 }
 
 /** Render the icon inside the message so subsequent string toasts replace it completely. */
 export function showIconToast(message: string, icon: ReactNode) {
+  navigationHoldUntil = 0;
   toast(
     createElement(
       "span",
@@ -34,11 +39,14 @@ export function showIconToast(message: string, icon: ReactNode) {
 
 /** 세션 화면은 아래에 컨트롤 바가 떠 있어서, 위쪽 상태 필 바로 아래에 띄운다. */
 export function showTopToast(message: string) {
+  navigationHoldUntil = 0;
   toast(message, { id: GLOBAL_TOAST_ID, position: "top-center" });
 }
 
 /** 전역 Toaster는 App.tsx에 상시 마운트라 화면이 바뀌어도 토스트가 그대로 남는다. 화면 전환 시점에 불러 지운다. */
-export function dismissToast() {
+export function dismissToast({ forNavigation = false } = {}) {
+  if (forNavigation && Date.now() < navigationHoldUntil) return;
+  navigationHoldUntil = 0;
   toast.dismiss(GLOBAL_TOAST_ID);
 }
 
@@ -64,6 +72,7 @@ export function showNotificationToast({
   body: string;
   onOpen: () => void;
 }) {
+  navigationHoldUntil = 0;
   toast(
     createElement(NotificationToast, {
       title,

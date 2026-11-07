@@ -9,12 +9,17 @@ import type {
 import { queryClient } from "@/lib/queryClient";
 import { listStudySessionStats } from "@/lib/statsApi";
 import { listSubjects } from "@/lib/subjectApi";
+import { hasTokenSource } from "@/lib/userId";
+import { getPlannerDay } from "@/lib/plannerApi";
+import { plannerDay, plannerSubject, plannerTask } from "@/test/plannerFixtures";
 
 import { loadSessionSubjects } from "../loadSessionSubjects";
 
 const reportHandled = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/sentry", () => ({ reportHandled }));
 vi.mock("@/lib/subjectApi", () => ({ listSubjects: vi.fn() }));
+vi.mock("@/lib/userId", () => ({ hasTokenSource: vi.fn(() => false) }));
+vi.mock("@/lib/plannerApi", () => ({ getPlannerDay: vi.fn() }));
 vi.mock("@/lib/statsApi", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   listStudySessionStats: vi.fn(),
@@ -81,10 +86,32 @@ function stats(
 
 describe("loadSessionSubjects: 세션 화면 과목 순공은 플래너 하루 기준 오늘 값", () => {
   beforeEach(() => {
+    vi.mocked(hasTokenSource).mockReturnValue(false);
     queryClient.clear();
     vi.mocked(listSubjects).mockReset().mockResolvedValue([MATH, ENGLISH]);
     vi.mocked(listStudySessionStats).mockReset();
     reportHandled.mockReset();
+  });
+  it("토큰이 있는 앱은 개인 플래너의 오늘 순공과 실제 할 일 번호를 사용한다", async () => {
+    vi.mocked(hasTokenSource).mockReturnValue(true);
+    vi.mocked(getPlannerDay).mockResolvedValue(
+      plannerDay({
+        date: DAY,
+        subjects: [
+          plannerSubject({
+            focusSec: 1800,
+            tasks: [
+              plannerTask({ taskId: 42, done: true, doneAt: kst(DAY, 9) }),
+              plannerTask({ taskId: null }),
+            ],
+          }),
+        ],
+      }),
+    );
+    const result = await loadSessionSubjects(1, new Date(kst(DAY, 10)));
+    expect(result[0]?.focusSec).toBe(1800);
+    expect(result[0]?.tasks).toEqual([{ id: 42, name: "수학 3단원", doneAt: kst(DAY, 9) }]);
+    expect(listStudySessionStats).not.toHaveBeenCalled();
   });
 
   it("05시 이후에는 오늘 하루만 받아 과목 순공을 그날 저장 기록으로 바꾼다", async () => {

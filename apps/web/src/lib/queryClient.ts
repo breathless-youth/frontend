@@ -7,8 +7,19 @@ import { QueryClient } from "@tanstack/react-query";
  * 재노출 재조회에만 기대야 해서 통계를 바꾸는 최소 세션 길이 60초 미만으로 잡은 값인데,
  * 지금은 그 제약이 없고 30초는 중복 방지 창으로만 남는다.
  *
- * retry 1: 오류 UI에 재시도 버튼이 있어 자동 재시도를 길게 잡지 않았다.
+ * 일반 오류는 한 번만 재시도한다. 계정 전환으로 중단된 요청은 새 계정으로 재시도하지 않는다.
  */
 export const queryClient = new QueryClient({
-  defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: (failureCount, error) =>
+        !(
+          typeof error === "object" &&
+          error !== null &&
+          "name" in error &&
+          error.name === "AbortError"
+        ) && failureCount < 1,
+    },
+  },
 });

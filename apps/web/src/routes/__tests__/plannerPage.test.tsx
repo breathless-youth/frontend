@@ -1,1016 +1,391 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { SubjectResponse } from "@focusmakers/types";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
+import { MemoryRouter } from "react-router-dom";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-import type {
-  DayTaskItem,
-  StudySessionListResponse,
-  StudySessionSummary,
-  SubjectResponse,
-} from "@focusmakers/types";
-
-import { addDaysToDateKey, dayTitleWithWeekday } from "@/features/records/recordsFormat";
-import { LONG_PRESS_MS } from "@/features/study-session/subjectInteractions";
-import {
-  trackPlannerDateChanged,
-  trackPlannerOpened,
-  trackSubjectItemAdded,
-} from "@/lib/amplitude";
-import { getDday } from "@/lib/ddayApi";
-import { listStudySessionStats } from "@/lib/statsApi";
-import {
-  createSubject,
-  createTask,
-  deleteSubject,
-  deleteTask,
-  listSubjects,
-  renameSubject,
-  reorderSubjects,
-  updateTask,
-} from "@/lib/subjectApi";
-import { showToast } from "@/lib/toast";
-import type * as UserIdModule from "@/lib/userId";
 import { PlannerPage } from "@/routes/PlannerPage";
-import { enterGlassChrome, pressNative, resetGlassChrome } from "@/test/nativeControlStub";
-import { localDateKey } from "@/lib/dateKey";
+import "@/features/planner/record-edit/PlannerRecordEditor";
+import { plannerDay, plannerRecord, plannerSubject, plannerTask } from "@/test/plannerFixtures";
+import { showCtaToast } from "@/lib/toast";
+import { plannerKeys } from "@/lib/plannerQueries";
 
-vi.mock("@/lib/statsApi", () => ({ listStudySessionStats: vi.fn(), getPeriodStats: vi.fn() }));
-vi.mock("@/lib/subjectApi", () => ({
-  listSubjects: vi.fn(),
-  createSubject: vi.fn(),
-  renameSubject: vi.fn(),
-  deleteSubject: vi.fn(),
-  reorderSubjects: vi.fn(),
-  createTask: vi.fn(),
-  updateTask: vi.fn(),
-  deleteTask: vi.fn(),
+const identity = vi.hoisted(() => ({
+  userId: 7 as number | null,
+  listeners: new Set<() => void>(),
 }));
-vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
-const haptic = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/haptics", () => ({ haptic }));
-vi.mock("@/lib/ddayApi", () => ({ getDday: vi.fn() }));
+vi.mock("@/lib/userId", async () => {
+  const { useSyncExternalStore } = await import("react");
+  const subscribe = (listener: () => void) => {
+    identity.listeners.add(listener);
+    return () => identity.listeners.delete(listener);
+  };
+  return {
+    useUserId: () => useSyncExternalStore(subscribe, () => identity.userId),
+    hasTokenSource: () => true,
+  };
+});
+vi.mock("@/lib/toast", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  showToast: vi.fn(),
+  showCtaToast: vi.fn(),
+}));
 vi.mock("@/lib/amplitude", () => ({
   trackPlannerOpened: vi.fn(),
   trackPlannerDateChanged: vi.fn(),
   trackScreenBackPressed: vi.fn(),
   trackErrorRetryPressed: vi.fn(),
-  trackSubjectItemAdded: vi.fn(),
   setSubjectsUserProperties: vi.fn(),
+  trackSubjectItemAdded: vi.fn(),
 }));
 
-// 토큰 문서 여부만 바꾼다. 신원은 그대로 `?userId=`에서 읽는다.
-const tokenMock = vi.hoisted(() => ({ has: false }));
-vi.mock("@/lib/userId", async (importOriginal) => ({
-  ...(await importOriginal<typeof UserIdModule>()),
-  hasTokenSource: () => tokenMock.has,
-}));
+let requests: { url: string; method: string; body: unknown }[];
+let current = plannerDay();
+let globalSubjects: SubjectResponse[] = [];
+let subjectRenameConflict = false;
+let followRequestedDate = false;
+beforeEach(() => {
+  identity.userId = 7;
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-05T12:00:00+09:00"));
+  requests = [];
+  globalSubjects = [];
+  subjectRenameConflict = false;
+  followRequestedDate = false;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = init?.method ?? "GET";
+      requests.push({
+        url: String(url),
+        method,
+        body: init?.body ? JSON.parse(String(init.body)) : null,
+      });
+      if (String(url).includes("/api/planner/days/")) {
+        const date = String(url).match(/\/days\/(\d{4}-\d{2}-\d{2})/)?.[1];
+        if (followRequestedDate && date) {
+          return Response.json({
+            ...current,
+            date,
+            records: [
+              plannerRecord({
+                key: `c:${date}`,
+                startedAt: `${date}T00:13:00Z`,
+                endedAt: `${date}T00:${date === "2026-11-05" ? "29" : "45"}:00Z`,
+                subjectSegments: [],
+              }),
+            ],
+          });
+        }
+        return new Response(JSON.stringify(current));
+      }
+      if (String(url).includes("/api/planner/summary")) return Response.json([]);
+      if (String(url).includes("/api/subjects")) {
+        if (subjectRenameConflict && method === "PATCH")
+          return Response.json({ code: "CONFLICT", message: "duplicate" }, { status: 409 });
+        return Response.json(globalSubjects);
+      }
+      if (String(url).includes("/api/planner/tasks") && method === "POST")
+        return Response.json(plannerTask({ subjectId: 4 }));
+      return new Response("{}", { status: 404 });
+    }),
+  );
+});
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+  vi.clearAllMocks();
+});
 
-// jsdom에는 `PointerEvent` 구현이 없다 — 스와이프·길게 누르기 판정에 쓰는 좌표와 `isPrimary`를 채운다.
-class TestPointerEvent extends MouseEvent {
-  readonly isPrimary = true;
-  readonly pointerId = 1;
-  readonly pointerType = "touch";
-}
-window.PointerEvent = TestPointerEvent as unknown as typeof PointerEvent;
-
-const mockedStats = vi.mocked(listStudySessionStats);
-const mockedSubjects = vi.mocked(listSubjects);
-const mockedDday = vi.mocked(getDday);
-
-const TODAY = localDateKey();
-const YESTERDAY = addDaysToDateKey(TODAY, -1);
-const kst = (day: string, hour: number, minute = 0) =>
-  new Date(
-    `${day}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00+09:00`,
-  ).toISOString();
-
-function stats(
-  sessions: StudySessionSummary[] = [],
-  tasks?: DayTaskItem[],
-): StudySessionListResponse {
-  return {
-    sessions,
-    sessionCount: sessions.length,
-    totalStudySec: 0,
-    totalFocusSec: 0,
-    longestFocusSec: 0,
-    focusRate: 0,
-    totalEventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
-    studiedDatesInMonth: [],
-    // `tasks`를 주면 과목에 그날의 할 일이 실려 온 응답이다. 안 주면 과목별 할 일을 싣지 않는 서버의 응답.
-    subjects: [
-      {
-        id: 3,
-        name: "영어",
-        colorIndex: 7,
-        deleted: false,
-        ...(tasks === undefined ? {} : { tasks }),
-      },
-    ],
-  };
-}
-
-/** 어제 09:00~11:00 — 영어 1시간(휴대폰 10분 포함), 그 뒤 과목 없이 1시간. */
-function studiedYesterday(): StudySessionSummary {
-  return {
-    id: 1,
-    statDate: YESTERDAY,
-    startedAt: kst(YESTERDAY, 9),
-    endedAt: kst(YESTERDAY, 11),
-    studySec: 7200,
-    focusSec: 6600,
-    focusRate: 92,
-    eventCounts: { AWAY: 0, PHONE: 1, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
-    events: [{ status: "PHONE", startedAt: kst(YESTERDAY, 9, 20), endedAt: kst(YESTERDAY, 9, 30) }],
-    subjectSegments: [
-      {
-        subjectId: 3,
-        startedAt: kst(YESTERDAY, 9),
-        endedAt: kst(YESTERDAY, 10),
-        studySec: 3600,
-        focusSec: 3000,
-      },
-    ],
-    completedTasks: [],
-  };
-}
-
-const TWO_DAYS_AGO = addDaysToDateKey(TODAY, -2);
-
-/** 어제 14:00~15:30 영어 수동 기록. */
-function manualYesterday(): StudySessionSummary {
-  return {
-    id: 2,
-    statDate: YESTERDAY,
-    startedAt: kst(YESTERDAY, 14),
-    endedAt: kst(YESTERDAY, 15, 30),
-    studySec: 5400,
-    focusSec: 5400,
-    focusRate: 100,
-    eventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
-    events: [],
-    subjectSegments: [
-      {
-        subjectId: 3,
-        startedAt: kst(YESTERDAY, 14),
-        endedAt: kst(YESTERDAY, 15, 30),
-        studySec: 5400,
-        focusSec: 5400,
-      },
-    ],
-    completedTasks: [],
-    source: "MANUAL",
-    submissionStartedAt: kst(YESTERDAY, 14),
-  };
-}
-
-/** 칸 번호. 5시가 0행이고 한 행은 10분 칸 6개다. 새벽 0~4시는 다음 날 줄(19~23행)이다. */
-const cellIndex = (hour: number, minute = 0) => ((hour - 5 + 24) % 24) * 6 + minute / 10;
-
-/** 어제 완료한 할 일 — 세션 중(09:40)에 하나, 세션 없이 밤(22:10)에 하나. */
-function completedYesterday(): DayTaskItem[] {
-  return [
-    { id: 9, name: "단어 60개 암기", done: true, doneAt: kst(YESTERDAY, 9, 40), deleted: false },
-    { id: 10, name: "오답 노트", done: true, doneAt: kst(YESTERDAY, 22, 10), deleted: false },
-    // 어제도 미완료였던 할 일. 지난 날 플래너에는 보이지 않는다.
-    { id: 11, name: "어제 못 끝낸 일", done: false, doneAt: null, deleted: false },
-  ];
-}
-
-function LocationProbe() {
-  const location = useLocation();
-  return <output data-testid="location">{`${location.pathname}${location.search}`}</output>;
-}
-
-function renderPlanner(path: string, state?: unknown) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[{ pathname: "/planner", search: path, state }]}>
-        <Routes>
-          <Route path="/planner" element={<PlannerPage />} />
-          <Route path="/records" element={<p>기록 탭</p>} />
-          <Route path="/home" element={<p>홈 탭</p>} />
-          <Route path="/manual-record" element={<p>입력 화면</p>} />
-        </Routes>
-        <LocationProbe />
+function mount(date = "2026-11-06") {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[`/planner?date=${date}`]}>
+        <PlannerPage />
       </MemoryRouter>
     </QueryClientProvider>,
   );
+  return client;
 }
 
-// 시트는 나눠 받는다. 전체 스위트 부하에서는 첫 열기의 시트 모듈 받기가 findBy 기본 1초를 넘겨 미리 받아 둔다.
-beforeAll(async () => {
-  await import("@/features/records/PeriodPickerSheet");
-});
-
-describe("PlannerPage", () => {
-  beforeEach(() => {
-    tokenMock.has = false;
-    vi.clearAllMocks();
-    mockedStats.mockImplementation((date) =>
-      Promise.resolve(
-        date === YESTERDAY ? stats([studiedYesterday()], completedYesterday()) : stats(),
-      ),
-    );
-    mockedSubjects.mockResolvedValue([]);
-    mockedDday.mockResolvedValue(null);
+function mountCachedAccounts(date: string, withRecords = false) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: Infinity }, mutations: { retry: false } },
   });
-
-  it("지난 날 플래너는 머리에 그날 순공·총 공부시간을, 왼쪽에 과목별 순공과 완료한 할 일을 보여준다", async () => {
-    renderPlanner(`?userId=7&date=${YESTERDAY}`, { via: "records" });
-
-    const english = await screen.findByRole("heading", { name: "영어" });
-    expect(english.closest("section")).toHaveTextContent("50분");
-    expect(screen.getByText("단어 60개 암기")).toBeInTheDocument();
-    // 세션 없이 체크한 할 일도 그날 완료로 보인다.
-    expect(screen.getByText("오답 노트")).toBeInTheDocument();
-    expect(screen.getAllByRole("checkbox", { checked: true })).toHaveLength(2);
-    expect(screen.getByText("휴식")).toBeInTheDocument();
-    // 미완료도 함께 내려오지만 지난 날에는 완료한 것만 보여 준다.
-    expect(screen.queryByText("어제 못 끝낸 일")).not.toBeInTheDocument();
-    // 완료한 할 일은 일간 조회 이틀치에 실려 온다 — 따로 묻지 않는다.
-    expect(mockedStats.mock.calls.map(([date]) => date).sort()).toEqual([YESTERDAY, TODAY]);
-    // 과목 없이 공부한 1시간은 `과목 없음` 행으로 따로 보이고, 범례에도 같은 이름이 있다.
-    expect(screen.getByRole("heading", { name: "과목 없음" }).closest("section")).toHaveTextContent(
-      "1시간",
-    );
-    expect(screen.getAllByText("과목 없음")).toHaveLength(2);
-
-    const head = screen.getByText("순공시간").parentElement!;
-    expect(within(head).getByText("1시간 50분")).toBeInTheDocument();
-    expect(head).toHaveTextContent("총 2시간");
-    expect(vi.mocked(trackPlannerOpened)).toHaveBeenCalledWith({ via: "records", isToday: false });
-    // 지난 날에도 과목 목록을 조회한다 — 그날 공부하지 않은 과목을 0분으로 보여 주려고.
-    expect(mockedSubjects).toHaveBeenCalled();
-  });
-
-  it("타임테이블은 5시에서 시작하고, 과목·휴식·과목 없는 순공을 구분해 칠한다", async () => {
-    const { container } = renderPlanner(`?userId=7&date=${YESTERDAY}`);
-
-    const timetable = await screen.findByRole("img", { name: /시간대별 공부 분포/ });
-    expect(timetable.firstElementChild).toHaveTextContent(/^5$/);
-    expect(timetable.lastElementChild).toHaveTextContent(/^4$/);
-    await waitFor(() => {
-      expect(container.querySelector('[data-paint="subject"]')).not.toBeNull();
-    });
-    expect(container.querySelector('[data-paint="subject"]')).toHaveStyle({
-      background: "var(--subject-7)",
-    });
-    expect(container.querySelector('[data-paint="rest"]')).toHaveClass("bg-chart-rest");
-    expect(container.querySelector('[data-paint="focus"]')).toHaveClass("bg-primary");
-  });
-
-  it("오늘 플래너는 과목 목록을 전부 보여주고, 할 일을 고칠 수 있다", async () => {
-    mockedSubjects.mockResolvedValue([
-      {
-        id: 3,
-        name: "영어",
-        colorIndex: 7,
-        studySec: 0,
-        focusSec: 0,
-        tasks: [{ id: 21, name: "리스닝 모의고사 1회", doneAt: null }],
-      },
-    ]);
-
-    renderPlanner("?userId=7");
-
-    expect(await screen.findByRole("heading", { name: "영어" })).toBeInTheDocument();
-    expect(screen.getByText("리스닝 모의고사 1회")).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: "리스닝 모의고사 1회" })).not.toBeChecked();
-    expect(screen.getByRole("button", { name: "할 일 추가" })).toBeInTheDocument();
-    expect(vi.mocked(trackPlannerOpened)).toHaveBeenCalledWith({ via: "unknown", isToday: true });
-  });
-
-  it("오늘 플래너의 새 할 일은 15자를 넘으면 완료가 꺼지고 Enter로 저장되지 않는다", async () => {
-    mockedSubjects.mockResolvedValue([
-      { id: 3, name: "영어", colorIndex: 7, studySec: 0, focusSec: 0, tasks: [] },
-    ]);
-    renderPlanner("?userId=7");
-
-    await userEvent.click(await screen.findByRole("button", { name: "할 일 추가" }));
-    const input = screen.getByRole("textbox", { name: "새 할 일 이름" });
-    expect(input).not.toHaveAttribute("maxlength");
-    fireEvent.change(input, { target: { value: "가".repeat(11) } });
-    expect(input).not.toHaveAttribute("aria-describedby");
-    fireEvent.change(input, { target: { value: "가".repeat(16) } });
-    expect(input).toHaveValue("가".repeat(16));
-    expect(screen.getByText("16/15")).toBeInTheDocument();
-    expect(input).toHaveAttribute("aria-describedby");
-    expect(screen.getByRole("button", { name: "완료" })).toBeDisabled();
-    fireEvent.keyDown(input, { key: "Enter" });
-    expect(screen.getByRole("textbox", { name: "새 할 일 이름" })).toBeInTheDocument();
-    expect(createTask).not.toHaveBeenCalled();
-  });
-
-  it("일간 조회가 과목 목록과 할 일을 실어 주면 과목 목록 API를 부르지 않는다", async () => {
-    mockedStats.mockResolvedValue({
-      ...stats(),
-      subjects: [
-        {
-          id: 5,
-          name: "수학",
-          colorIndex: 5,
-          deleted: false,
-          tasks: [
-            {
-              id: 31,
-              name: "오답 정리",
-              done: true,
-              doneAt: new Date().toISOString(),
-              deleted: false,
-            },
-            { id: 32, name: "방금 지운 할 일", done: false, doneAt: null, deleted: true },
-          ],
-        },
-        {
-          id: 3,
-          name: "영어",
-          colorIndex: 7,
-          deleted: false,
-          tasks: [
-            { id: 21, name: "리스닝 모의고사 1회", done: false, doneAt: null, deleted: false },
-          ],
-        },
-        { id: 9, name: "한국사", colorIndex: 12, deleted: true, tasks: [] },
-      ],
-    });
-
-    renderPlanner("?userId=7");
-
-    // 응답 순서대로, 살아있는 과목만 관리 목록에 든다.
-    await screen.findByRole("heading", { name: "수학" });
-    expect(screen.getAllByRole("heading", { level: 2 }).map((node) => node.textContent)).toEqual([
-      "수학",
-      "영어",
-    ]);
-    expect(screen.getByRole("checkbox", { name: "오답 정리" })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: "리스닝 모의고사 1회" })).not.toBeChecked();
-    expect(screen.queryByText("방금 지운 할 일")).not.toBeInTheDocument();
-    expect(mockedSubjects).not.toHaveBeenCalled();
-    // 오늘 플래너는 화면이 받는 일간 조회 한 번을 과목 목록에도 쓴다.
-    expect(mockedStats).toHaveBeenCalledTimes(1);
-  });
-
-  it("전날·다음 날 버튼과 좌우 스와이프로 날짜를 넘기고, 셸이 붙인 쿼리는 유지한다", async () => {
-    renderPlanner(`?userId=7&date=${YESTERDAY}`);
-    await screen.findByRole("heading", { name: "영어" });
-
-    await userEvent.click(screen.getByRole("button", { name: "전날" }));
-    expect(screen.getByTestId("location")).toHaveTextContent(
-      `/planner?userId=7&date=${addDaysToDateKey(YESTERDAY, -1)}`,
-    );
-    expect(vi.mocked(trackPlannerDateChanged)).toHaveBeenLastCalledWith({
-      delta: -1,
-      method: "button",
-    });
-
-    // 왼쪽으로 스와이프 → 다음 날.
-    const swipeArea = screen.getByTestId("planner-swipe-area");
-    fireEvent.pointerDown(swipeArea, { clientX: 300, clientY: 200 });
-    fireEvent.pointerUp(swipeArea, { clientX: 220, clientY: 205 });
-    expect(screen.getByTestId("location")).toHaveTextContent(`date=${YESTERDAY}`);
-    expect(vi.mocked(trackPlannerDateChanged)).toHaveBeenLastCalledWith({
-      delta: 1,
-      method: "swipe",
-    });
-  });
-
-  it("날짜를 누르면 날짜 선택 시트가 열리고, 고른 날의 플래너로 옮긴다", async () => {
-    renderPlanner(`?userId=7&date=${YESTERDAY}`);
-    await screen.findByRole("heading", { name: "영어" });
-    const picked = addDaysToDateKey(YESTERDAY, -2);
-    const [, pickedMonth, pickedDay] = picked.split("-").map(Number);
-
-    await userEvent.click(screen.getByRole("button", { name: /^\d+월 \d+일 .$/ }));
-    const sheet = await screen.findByRole("dialog");
-    expect(within(sheet).getByText("날짜 선택")).toBeInTheDocument();
-    // 시트는 보고 있는 날의 달을 편다. 그 달이 아니면 이전 달로 넘긴다.
-    const dayName = new RegExp(`${String(pickedMonth)}월 ${String(pickedDay)}일$`);
-    if (within(sheet).queryByRole("button", { name: dayName }) === null) {
-      await userEvent.click(within(sheet).getByRole("button", { name: "이전 달" }));
-    }
-    await userEvent.click(within(sheet).getByRole("button", { name: dayName }));
-
-    expect(screen.getByTestId("location")).toHaveTextContent(`/planner?userId=7&date=${picked}`);
-    expect(vi.mocked(trackPlannerDateChanged)).toHaveBeenLastCalledWith({
-      delta: -2,
-      method: "picker",
-    });
-  });
-
-  describe("스택 없이 열린 플래너의 뒤로 가기 — 딥링크, 또는 셸이 웹뷰를 다시 띄워 복원한 문서", () => {
-    it("홈에서 들어온 플래너는 홈으로 돌아간다 — 홈 탭 웹뷰에 기록 화면을 띄우지 않는다", async () => {
-      renderPlanner(`?guestAuth=1&date=${YESTERDAY}&from=home`);
-      await screen.findByTestId("planner-page");
-
-      fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
-
-      expect(await screen.findByText("홈 탭")).toBeInTheDocument();
-      // 플래너 전용 쿼리는 떼고 셸이 붙인 쿼리만 들고 간다.
-      expect(screen.getByTestId("location")).toHaveTextContent("/home?guestAuth=1");
-      expect(vi.mocked(trackPlannerOpened)).toHaveBeenCalledWith({ via: "home", isToday: false });
-    });
-
-    it("날짜를 넘긴 뒤에도 들어온 탭을 잃지 않는다 — 주소의 from이 그대로 남는다", async () => {
-      renderPlanner(`?guestAuth=1&from=home`);
-      await screen.findByTestId("planner-page");
-
-      fireEvent.click(screen.getByRole("button", { name: "전날" }));
-      await waitFor(() =>
-        expect(screen.getByTestId("location")).toHaveTextContent(`date=${YESTERDAY}`),
-      );
-      expect(screen.getByTestId("location")).toHaveTextContent("from=home");
-
-      fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
-      expect(await screen.findByText("홈 탭")).toBeInTheDocument();
-    });
-
-    it("어디서 왔는지 모르거나 기록 탭에서 왔으면 기록 탭으로 간다", async () => {
-      renderPlanner("?guestAuth=1&from=elsewhere");
-      await screen.findByTestId("planner-page");
-
-      fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
-
-      expect(await screen.findByText("기록 탭")).toBeInTheDocument();
-      expect(screen.getByTestId("location")).toHaveTextContent("/records?guestAuth=1");
-    });
-  });
-
-  it("D-Day가 설정돼 있으면 머리 왼쪽에 일수와 제목을 두 줄로 보여주고, 없으면 생략한다", async () => {
-    mockedDday.mockResolvedValue({ title: "수능", targetDate: addDaysToDateKey(YESTERDAY, 10) });
-
-    renderPlanner(`?userId=7&date=${YESTERDAY}`);
-
-    // 일수는 플래너 날짜 기준으로 센다. 큰 `D-10` 아래 작은 제목이다.
-    const label = await screen.findByText("D-10");
-    expect(label.nextElementSibling).toHaveTextContent("수능");
-  });
-
-  it("날짜와 전날·다음 날 꺾쇠는 상단 바 가운데 제목이다", async () => {
-    renderPlanner(`?userId=7&date=${YESTERDAY}`);
-
-    // 요일은 한 글자다(`9월 18일 금`).
-    const label = await screen.findByRole("button", {
-      name: dayTitleWithWeekday(YESTERDAY, true),
-    });
-    expect(label).not.toHaveTextContent("요일");
-    // 날짜는 이 화면의 제목이고, 누르면 날짜 선택 시트가 열린다.
-    expect(screen.getByRole("heading", { level: 1 })).toContainElement(label);
-    expect(label).toHaveAttribute("aria-haspopup", "dialog");
-    const bar = screen.getByRole("button", { name: "뒤로 가기" }).parentElement!;
-    expect(bar).toContainElement(label);
-    expect(bar).toContainElement(screen.getByRole("button", { name: "전날" }));
-    expect(bar).toContainElement(screen.getByRole("button", { name: "다음 날" }));
-  });
-
-  describe("앱 모드", () => {
-    afterEach(() => {
-      cleanup();
-      resetGlassChrome();
-    });
-
-    it("앱에는 뒤로 버튼만 맡기고 날짜 이동 줄은 웹이 그대로 그린다", async () => {
-      const postMessage = enterGlassChrome("/planner");
-      renderPlanner(`?userId=7&date=${YESTERDAY}`);
-      await screen.findByRole("heading", { name: "영어" });
-
-      expect(screen.queryByRole("button", { name: "뒤로 가기" })).not.toBeInTheDocument();
-      const sent = postMessage.mock.calls
-        .map(([raw]) => JSON.parse(raw as string) as { type: string; top?: unknown })
-        .filter((message) => message.type === "set-glass-chrome");
-      expect(sent.at(-1)?.top).toEqual({ leading: "back", leadingLabel: "뒤로 가기", title: null });
-
-      const label = screen.getByRole("button", { name: dayTitleWithWeekday(YESTERDAY, true) });
-      expect(screen.getByRole("heading", { level: 1 })).toContainElement(label);
-      expect(label).toHaveAttribute("aria-haspopup", "dialog");
-
-      await userEvent.click(screen.getByRole("button", { name: "전날" }));
-      expect(screen.getByTestId("location")).toHaveTextContent(
-        `date=${addDaysToDateKey(YESTERDAY, -1)}`,
-      );
-      await userEvent.click(screen.getByRole("button", { name: "다음 날" }));
-      expect(screen.getByTestId("location")).toHaveTextContent(`date=${YESTERDAY}`);
-      expect(vi.mocked(trackPlannerDateChanged)).toHaveBeenLastCalledWith({
-        delta: 1,
-        method: "button",
-      });
-
-      await userEvent.click(label);
-      expect(await screen.findByRole("dialog")).toBeInTheDocument();
-    });
-
-    it("앱의 뒤로 가기 누름으로 들어온 탭으로 돌아간다", async () => {
-      enterGlassChrome("/planner");
-      renderPlanner(`?guestAuth=1&date=${YESTERDAY}&from=home`);
-      await screen.findByTestId("planner-page");
-
-      pressNative("chrome:leading", 0);
-
-      expect(await screen.findByText("홈 탭")).toBeInTheDocument();
-    });
-  });
-
-  it("기록이 없는 지난 날은 안내 문구 없이 과목과 과목 추가만 보여준다", async () => {
-    mockedSubjects.mockResolvedValue([
-      { id: 3, name: "영어", colorIndex: 7, studySec: 0, focusSec: 0, tasks: [] },
-    ]);
-    renderPlanner(`?userId=7&date=${addDaysToDateKey(YESTERDAY, -3)}`);
-
-    const english = await screen.findByRole("heading", { name: "영어" });
-    expect(english.closest("section")).toHaveTextContent(/^영어0분$/);
-    expect(screen.getByRole("button", { name: "과목 추가" })).toBeInTheDocument();
-    expect(screen.queryByText("이 날은 기록이 없어요")).not.toBeInTheDocument();
-    expect(screen.queryByText(/^D-/)).not.toBeInTheDocument();
-  });
-
-  it("새벽 0~5시에도 달력의 오늘 플래너를 연다 — 05시 기준은 한 장에 담는 구간에만 쓴다", async () => {
-    vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date("2026-10-05T03:00:00+09:00"));
-    try {
-      // 날짜 없이 열면 오늘 플래너다 — 05시 전에도 전날이 아니라 달력의 오늘이다.
-      renderPlanner("?userId=7");
-
-      expect(await screen.findByRole("button", { name: /10월 5일/ })).toBeInTheDocument();
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it.each(["10-05", "2020-13-45", "2025-02-30"])(
-    "형식이 틀리거나 달력에 없는 날짜(%s)로 열면 오늘 플래너를 연다",
-    async (date) => {
-      renderPlanner(`?userId=7&date=${date}`);
-
-      await waitFor(() => expect(mockedStats).toHaveBeenCalledWith(TODAY));
-      expect(mockedStats).not.toHaveBeenCalledWith(date);
-    },
-  );
-
-  it("미래 날짜의 플래너는 기록을 조회하지 않고, 지금 미완료인 할 일을 고칠 수 없는 채로 보여준다", async () => {
-    mockedSubjects.mockResolvedValue([
-      {
-        id: 3,
-        name: "영어",
-        colorIndex: 7,
-        studySec: 0,
-        focusSec: 0,
-        tasks: [
-          { id: 21, name: "리스닝 모의고사 1회", doneAt: null },
-          { id: 22, name: "오늘 끝낸 단어", doneAt: new Date().toISOString() },
+  for (const userId of [7, 8]) {
+    client.setQueryData(
+      plannerKeys.day(userId, date, "Asia/Seoul"),
+      plannerDay({
+        date,
+        subjects: [
+          plannerSubject({ id: userId === 7 ? 3 : 4, name: userId === 7 ? "수학" : "영어" }),
         ],
-      },
-    ]);
-    const future = addDaysToDateKey(TODAY, 5);
-    renderPlanner(`?userId=7&date=${future}`);
-
-    expect(await screen.findByText("리스닝 모의고사 1회")).toBeInTheDocument();
-    expect(screen.queryByText("오늘 끝낸 단어")).not.toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: "리스닝 모의고사 1회" })).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "할 일 추가" })).not.toBeInTheDocument();
-    // 과목은 날짜와 무관한 목록이라 미래 날짜에서도 고친다.
-    expect(screen.getByRole("button", { name: "과목 추가" })).toBeInTheDocument();
-    // 공부한 기록이 없는 날은 타임테이블 범례를 두지 않는다.
-    expect(screen.queryByText("휴식")).not.toBeInTheDocument();
-    // 미래 날짜의 기록은 조회하지 않는다 — 과목 목록을 받는 오늘의 일간 조회만 나간다.
-    expect(mockedStats.mock.calls.map(([date]) => date)).toEqual([TODAY]);
-
-    // 다음 날로 더 넘어갈 수 있다.
-    fireEvent.click(screen.getByRole("button", { name: "다음 날" }));
-    await waitFor(() =>
-      expect(screen.getByTestId("location")).toHaveTextContent(
-        `date=${addDaysToDateKey(future, 1)}`,
-      ),
+        records: withRecords
+          ? [
+              plannerRecord({
+                key: userId === 7 ? "c:account-a" : "c:account-b",
+                startedAt: `${date}T${userId === 7 ? "00:13" : "01:07"}:00Z`,
+                endedAt: `${date}T${userId === 7 ? "00:29" : "01:22"}:00Z`,
+                subjectSegments: [],
+              }),
+            ]
+          : [],
+      }),
     );
-  });
-
-  it("과목별 할 일을 싣지 않는 서버여도 과목별 시간과 타임테이블은 그린다", async () => {
-    mockedStats.mockImplementation((date) =>
-      Promise.resolve(date === YESTERDAY ? stats([studiedYesterday()]) : stats()),
-    );
-    renderPlanner(`?userId=7&date=${YESTERDAY}`);
-
-    const english = await screen.findByRole("heading", { name: "영어" });
-    expect(english.closest("section")).toHaveTextContent("50분");
-    expect(screen.queryByText("단어 60개 암기")).not.toBeInTheDocument();
-    expect(screen.queryByText("플래너를 불러오지 못했어요")).not.toBeInTheDocument();
-  });
-
-  it("조회가 실패하면 오류 문구와 다시 시도를 보여준다", async () => {
-    mockedStats.mockRejectedValue(new Error("network"));
-
-    renderPlanner(`?userId=7&date=${YESTERDAY}`);
-
-    expect(await screen.findByText("플래너를 불러오지 못했어요")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "다시 시도" })).toBeInTheDocument();
-  });
-
-  describe("수동 기록", () => {
-    beforeEach(() => {
-      tokenMock.has = true;
-      mockedStats.mockImplementation((date) =>
-        Promise.resolve(
-          date === YESTERDAY
-            ? stats([studiedYesterday(), manualYesterday()], completedYesterday())
-            : stats(),
-        ),
-      );
-    });
-
-    it("지난 날 플래너는 타임테이블 아래에 입구를 두고, 누르면 그날 입력 화면으로 간다", async () => {
-      renderPlanner(`?userId=7&date=${YESTERDAY}`);
-
-      await userEvent.click(await screen.findByRole("button", { name: "시간 직접 입력" }));
-
-      expect(await screen.findByText("입력 화면")).toBeInTheDocument();
-      expect(screen.getByTestId("location")).toHaveTextContent(
-        `/manual-record?userId=7&date=${YESTERDAY}&entry=planner_button`,
-      );
-    });
-
-    it("미래 날짜와 토큰 없는 문서에는 입구가 없다", async () => {
-      const { unmount } = renderPlanner(`?userId=7&date=${addDaysToDateKey(TODAY, 1)}`);
-      await screen.findByRole("img", { name: /시간대별 공부 분포/ });
-      expect(screen.queryByRole("button", { name: "시간 직접 입력" })).not.toBeInTheDocument();
-      unmount();
-
-      tokenMock.has = false;
-      renderPlanner(`?userId=7&date=${YESTERDAY}`);
-      await screen.findByRole("img", { name: /시간대별 공부 분포/ });
-      expect(screen.queryByRole("button", { name: "시간 직접 입력" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: /^수동 기록, / })).not.toBeInTheDocument();
-    });
-
-    it("수동 블록은 측정 블록과 같은 색이고 범례 항목 없이 스크린리더용 수정 버튼만 둔다", async () => {
-      const { container } = renderPlanner(`?userId=7&date=${YESTERDAY}`);
-
-      await screen.findByText("수동 기록, 영어, 오후 2시부터 3시 30분, 1시간 30분");
-      const fill = container.querySelector<HTMLElement>('[data-manual][data-paint="subject"]');
-      expect(fill?.style.background).not.toBe("");
-      expect(container.querySelector('[data-manual] ~ [data-paint="rest"]')).toBeNull();
-      expect(screen.queryByText("직접 입력")).not.toBeInTheDocument();
-
-      await userEvent.click(
-        screen.getByRole("button", { name: "수동 기록, 영어, 오후 2시부터 3시 30분, 1시간 30분" }),
-      );
-      expect(await screen.findByText("입력 화면")).toBeInTheDocument();
-      expect(screen.getByTestId("location")).toHaveTextContent(
-        `/manual-record?userId=7&date=${YESTERDAY}&entry=planner_cell&id=2`,
-      );
-    });
-
-    it("빈 칸을 누르면 그 칸 시각을 싣고 입력 화면으로 간다", async () => {
-      const { container } = renderPlanner(`?userId=7&date=${YESTERDAY}`);
-      await screen.findByRole("button", { name: /^수동 기록, / });
-
-      fireEvent.click(container.querySelectorAll("[data-cell]")[cellIndex(12)]!);
-
-      expect(await screen.findByText("입력 화면")).toBeInTheDocument();
-      expect(screen.getByTestId("location")).toHaveTextContent(
-        `/manual-record?userId=7&date=${YESTERDAY}&entry=planner_cell&start=${Date.parse(kst(YESTERDAY, 12))}`,
-      );
-    });
-
-    it("수동 블록 칸을 누르면 그 묶음 첫 조각 id로 수정 화면을 연다", async () => {
-      const { container } = renderPlanner(`?userId=7&date=${YESTERDAY}`);
-      await screen.findByRole("button", { name: /^수동 기록, / });
-
-      fireEvent.click(container.querySelectorAll("[data-cell]")[cellIndex(14, 10)]!);
-
-      expect(await screen.findByText("입력 화면")).toBeInTheDocument();
-      expect(screen.getByTestId("location")).toHaveTextContent(
-        `/manual-record?userId=7&date=${YESTERDAY}&entry=planner_cell&id=2`,
-      );
-    });
-
-    it("측정 기록 칸과 지금 이후 칸은 반응하지 않는다", async () => {
-      const { container, unmount } = renderPlanner(`?userId=7&date=${YESTERDAY}`);
-      await screen.findByRole("button", { name: /^수동 기록, / });
-      fireEvent.click(container.querySelectorAll("[data-cell]")[cellIndex(9, 10)]!);
-      expect(screen.queryByText("입력 화면")).not.toBeInTheDocument();
-      unmount();
-
-      const today = renderPlanner("?userId=7");
-      await screen.findByRole("img", { name: /시간대별 공부 분포/ });
-      // 오늘 플래너의 마지막 칸은 내일 04:50이라 언제 돌려도 지금 이후다.
-      fireEvent.click(today.container.querySelectorAll("[data-cell]")[143]!);
-      expect(screen.queryByText("입력 화면")).not.toBeInTheDocument();
-    });
-
-    it("새벽 줄 칸은 다음 달력 날짜로 입력 화면을 연다", async () => {
-      const { container } = renderPlanner(`?userId=7&date=${TWO_DAYS_AGO}`);
-      await screen.findByRole("img", { name: /시간대별 공부 분포/ });
-
-      fireEvent.click(container.querySelectorAll("[data-cell]")[cellIndex(1)]!);
-
-      expect(await screen.findByText("입력 화면")).toBeInTheDocument();
-      expect(screen.getByTestId("location")).toHaveTextContent(
-        `/manual-record?userId=7&date=${YESTERDAY}&entry=planner_cell&start=${Date.parse(kst(YESTERDAY, 1))}`,
-      );
-    });
-
-    it("새벽 줄 묶음 칸은 묶음 첫 조각이 시작한 날과 그 id로 연다", async () => {
-      const THREE_DAYS_AGO = addDaysToDateKey(TODAY, -3);
-      // 그저께 03:00부터 어제 02:00까지 한 묶음. 한 장(3일 전 플래너)은 그저께 조회까지만 받는다.
-      const first = {
-        ...manualYesterday(),
-        id: 21,
-        statDate: TWO_DAYS_AGO,
-        startedAt: kst(TWO_DAYS_AGO, 3),
-        endedAt: kst(YESTERDAY, 0),
-        subjectSegments: [],
-        submissionStartedAt: kst(TWO_DAYS_AGO, 3),
-      };
-      mockedStats.mockImplementation((date) =>
-        Promise.resolve(date === TWO_DAYS_AGO ? stats([first]) : stats()),
-      );
-      const { container } = renderPlanner(`?userId=7&date=${THREE_DAYS_AGO}`);
-      await screen.findByRole("button", { name: /^수동 기록, / });
-
-      fireEvent.click(container.querySelectorAll("[data-cell]")[cellIndex(3)]!);
-
-      expect(await screen.findByText("입력 화면")).toBeInTheDocument();
-      expect(screen.getByTestId("location")).toHaveTextContent(
-        `/manual-record?userId=7&date=${TWO_DAYS_AGO}&entry=planner_cell&id=21`,
-      );
-    });
-  });
-});
-
-const english: SubjectResponse = {
-  id: 3,
-  name: "영어",
-  colorIndex: 7,
-  studySec: 0,
-  focusSec: 0,
-  tasks: [{ id: 21, name: "리스닝 모의고사 1회", doneAt: null }],
-};
-const math: SubjectResponse = {
-  id: 5,
-  name: "수학",
-  colorIndex: 2,
-  studySec: 0,
-  focusSec: 0,
-  tasks: [],
-};
-
-/** 길게 누르기가 발화할 때까지 기다린다. */
-async function hold(element: HTMLElement) {
-  fireEvent.pointerDown(element, { clientX: 40, clientY: 100 });
-  await act(() => new Promise((resolve) => setTimeout(resolve, LONG_PRESS_MS + 40)));
+    client.setQueryData(["subjects", userId], []);
+  }
+  const page = () => (
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[`/planner?date=${date}`]}>
+        <PlannerPage />
+      </MemoryRouter>
+    </QueryClientProvider>
+  );
+  render(page());
+  return {
+    client,
+    switchAccount() {
+      act(() => {
+        identity.userId = 8;
+        identity.listeners.forEach((listener) => listener());
+      });
+    },
+  };
 }
 
-describe("PlannerPage — 과목·할 일 관리", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockedStats.mockResolvedValue(stats());
-    mockedSubjects.mockResolvedValue([english, math]);
-    mockedDday.mockResolvedValue(null);
-  });
+it("같은 날짜의 새 계정 캐시가 있어도 이전 계정의 기록 초안과 편집 선택을 정리한다", async () => {
+  const { client, switchAccount } = mountCachedAccounts("2026-11-05", true);
+  await userEvent.click(await screen.findByRole("button", { name: "기록 고치기" }));
+  fireEvent.click((await screen.findAllByRole("button", { name: /09:13.*09:29/ }))[0]!);
+  fireEvent.change(screen.getByLabelText("끝"), { target: { value: "09:30" } });
+  expect(screen.getByLabelText("끝")).toHaveValue("09:30");
 
-  it("할 일 추가를 누르면 그 자리에 입력이 열리고, 완료로 만든 할 일이 과목 아래에 보인다", async () => {
-    vi.mocked(createTask).mockResolvedValue({ id: 22, name: "리딩 지문 2개", doneAt: null });
-    renderPlanner("?userId=7");
-    const section = (await screen.findByRole("heading", { name: "영어" })).closest("section")!;
+  switchAccount();
 
-    await userEvent.click(within(section).getByRole("button", { name: "할 일 추가" }));
-    await userEvent.type(screen.getByRole("textbox", { name: "새 할 일 이름" }), "리딩 지문 2개");
-    await userEvent.click(screen.getByRole("button", { name: "완료" }));
+  expect(await screen.findByTestId("planner-page")).toBeInTheDocument();
+  expect(screen.queryByRole("region", { name: "선택한 기록" })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "기록 고치기" }));
+  fireEvent.click((await screen.findAllByRole("button", { name: /10:07.*10:22/ }))[0]!);
+  expect(screen.getByLabelText("끝")).toHaveValue("10:22");
+  expect(screen.queryAllByRole("button", { name: /09:13.*09:30/ })).toHaveLength(0);
+  expect(requests).toEqual([]);
+  client.clear();
+});
 
-    expect(createTask).toHaveBeenCalledWith(3, { name: "리딩 지문 2개" });
-    expect(await screen.findByRole("checkbox", { name: "리딩 지문 2개" })).toBeInTheDocument();
-    expect(vi.mocked(trackSubjectItemAdded)).toHaveBeenCalledWith("task", false, "planner");
-  });
-
-  it("할 일을 탭하면 완료로 바뀐다", async () => {
-    vi.mocked(updateTask).mockResolvedValue({
-      id: 21,
-      name: "리스닝 모의고사 1회",
-      doneAt: "2026-10-04T03:00:00Z",
-    });
-    renderPlanner("?userId=7");
-
-    await userEvent.click(await screen.findByRole("checkbox", { name: "리스닝 모의고사 1회" }));
-
-    expect(updateTask).toHaveBeenCalledWith(3, 21, { done: true });
-    await waitFor(() =>
-      expect(screen.getByRole("checkbox", { name: "리스닝 모의고사 1회" })).toBeChecked(),
+it.each(["goal", "task"])("계정이 바뀌면 열린 %s 시트와 입력 초안을 정리한다", async (sheet) => {
+  const { client, switchAccount } = mountCachedAccounts("2026-11-06");
+  const openSheet = () =>
+    userEvent.click(
+      screen.getByRole("button", {
+        name: sheet === "goal" ? "+ 정하기" : "할 일 추가",
+      }),
     );
-  });
-
-  it("할 일을 완료로 바꾸면 light 햅틱을 한 번 울린다", async () => {
-    vi.mocked(updateTask).mockResolvedValue({
-      id: 21,
-      name: "리스닝 모의고사 1회",
-      doneAt: "2026-10-04T03:00:00Z",
+  await openSheet();
+  await screen.findByRole("dialog");
+  if (sheet === "goal") {
+    await userEvent.click(screen.getByRole("button", { name: "6시간" }));
+    expect(screen.getByRole("status")).toHaveAccessibleName("6시간");
+  } else {
+    fireEvent.change(await screen.findByRole("textbox", { name: "할 일 이름" }), {
+      target: { value: "이전 계정 초안" },
     });
-    renderPlanner("?userId=7");
+  }
 
-    await userEvent.click(await screen.findByRole("checkbox", { name: "리스닝 모의고사 1회" }));
+  switchAccount();
 
-    expect(haptic).toHaveBeenCalledTimes(1);
-    expect(haptic).toHaveBeenCalledWith("light");
+  expect(await screen.findByTestId("planner-page")).toBeInTheDocument();
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  await openSheet();
+  await screen.findByRole("dialog");
+  if (sheet === "goal") expect(screen.getByRole("status")).toHaveAccessibleName("0분");
+  else expect(await screen.findByRole("textbox", { name: "할 일 이름" })).toHaveValue("");
+  expect(requests.every((request) => request.method === "GET")).toBe(true);
+  client.clear();
+});
+
+it("기록 고치기에서 날짜를 바꾸면 새 날짜의 기록 편집을 유지한다", async () => {
+  followRequestedDate = true;
+  const client = mount("2026-11-05");
+  await userEvent.click(await screen.findByRole("button", { name: "기록 고치기" }));
+  await screen.findAllByRole("button", { name: /09:13.*09:29/ });
+  await userEvent.click(screen.getByRole("button", { name: "날짜 고르기" }));
+  const calendar = await screen.findByRole("dialog");
+  await userEvent.click(within(calendar).getByRole("button", { name: /11월 4일/ }));
+  expect((await screen.findAllByRole("button", { name: /09:13.*09:45/ }))[0]).toBeInTheDocument();
+  expect(screen.queryByTestId("planner-page")).not.toBeInTheDocument();
+  expect(screen.queryAllByRole("button", { name: /09:13.*09:29/ })).toHaveLength(0);
+  expect(requests.every((request) => request.method === "GET")).toBe(true);
+  client.clear();
+});
+
+it("일간 추가 시트에서도 오늘에 아직 없는 다른 내 과목으로 계획을 만든다", async () => {
+  current = plannerDay({ subjects: [plannerSubject()] });
+  globalSubjects = [
+    { id: 3, name: "수학", colorIndex: 2, studySec: 0, focusSec: 0, tasks: [] },
+    { id: 4, name: "영어", colorIndex: 1, studySec: 0, focusSec: 0, tasks: [] },
+  ];
+  const client = mount();
+  await userEvent.click(await screen.findByRole("button", { name: "할 일 추가" }));
+  await userEvent.click(await screen.findByRole("button", { name: "영어" }, { timeout: 10000 }));
+  await userEvent.type(screen.getByRole("textbox", { name: "할 일 이름" }), "단어 복습");
+  await userEvent.click(screen.getByRole("button", { name: "추가" }));
+  await waitFor(() =>
+    expect(requests).toContainEqual(
+      expect.objectContaining({
+        method: "POST",
+        body: { date: "2026-11-06", subjectId: 4, name: "단어 복습" },
+      }),
+    ),
+  );
+  client.clear();
+});
+
+it("미래 날짜의 계획만 표시하고 완료 요청은 보내지 않는다", async () => {
+  current = plannerDay({
+    subjects: [plannerSubject({ tasks: [plannerTask({ name: "내일 계획" })] })],
   });
+  const client = mount();
+  await screen.findByText("내일 계획");
+  await userEvent.click(screen.getByRole("checkbox", { name: "내일 계획" }));
+  expect(showCtaToast).toHaveBeenCalledWith("아직 할 일을 완료할 수 없어요");
+  expect(requests.filter((request) => request.method !== "GET")).toEqual([]);
+  expect(requests.some((request) => request.url.includes("/api/stats"))).toBe(false);
+  expect(screen.queryByRole("button", { name: "기록 고치기" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "+ 정하기" })).toBeInTheDocument();
+  await waitFor(() =>
+    expect(screen.getByRole("tab", { name: "일간" })).toHaveAttribute("aria-selected", "true"),
+  );
+  client.clear();
+});
 
-  it("완료한 할 일을 풀 때는 햅틱을 울리지 않는다", async () => {
-    mockedSubjects.mockResolvedValue([
-      {
-        ...english,
-        tasks: [{ id: 21, name: "리스닝 모의고사 1회", doneAt: "2026-10-04T03:00:00Z" }],
-      },
-      math,
-    ]);
-    vi.mocked(updateTask).mockResolvedValue({ id: 21, name: "리스닝 모의고사 1회", doneAt: null });
-    renderPlanner("?userId=7");
+it("중복된 과목 이름으로 변경하면 이름 중복을 안내하고 초안을 유지한다", async () => {
+  current = plannerDay({ subjects: [plannerSubject()] });
+  subjectRenameConflict = true;
+  const client = mount();
+  (await screen.findByRole("button", { name: "수학" })).focus();
+  await userEvent.keyboard("{Enter}");
+  await userEvent.click(screen.getByRole("menuitem", { name: "이름 변경" }));
+  const input = await screen.findByRole("textbox", { name: "과목 이름" });
+  await userEvent.clear(input);
+  await userEvent.type(input, "영어");
+  await userEvent.click(screen.getByRole("button", { name: "저장" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("이미 같은 이름의 과목이 있어요");
+  expect(input).toHaveValue("영어");
+  await userEvent.type(input, " 복습");
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(requests.filter((request) => request.url.includes("/api/planner/days/"))).toHaveLength(1);
+  client.clear();
+});
 
-    await userEvent.click(await screen.findByRole("checkbox", { name: "리스닝 모의고사 1회" }));
+it("과목 이름을 바꾸면 전체 과목 API로 저장하고 그날 계획을 다시 조회한다", async () => {
+  current = plannerDay({ subjects: [plannerSubject()] });
+  const client = mount();
+  (await screen.findByRole("button", { name: "수학" })).focus();
+  await userEvent.keyboard("{Enter}");
+  await userEvent.click(screen.getByRole("menuitem", { name: "이름 변경" }));
+  const input = await screen.findByRole("textbox", { name: "과목 이름" });
+  await userEvent.clear(input);
+  await userEvent.type(input, "확률과 통계");
+  await userEvent.click(screen.getByRole("button", { name: "저장" }));
+  await waitFor(() =>
+    expect(requests).toContainEqual(
+      expect.objectContaining({
+        method: "PATCH",
+        url: expect.stringContaining("/api/subjects/3"),
+        body: { name: "확률과 통계" },
+      }),
+    ),
+  );
+  await waitFor(() =>
+    expect(
+      requests.filter((request) => request.url.includes("/api/planner/days/")).length,
+    ).toBeGreaterThan(1),
+  );
+  client.clear();
+});
 
-    expect(updateTask).toHaveBeenCalledWith(3, 21, { done: false });
-    expect(haptic).not.toHaveBeenCalled();
+it("할 일이 남은 과목은 확인 뒤 그 날짜에서만 뺀다", async () => {
+  current = plannerDay({
+    subjects: [
+      plannerSubject({
+        tasks: [plannerTask(), plannerTask({ key: "t:13", taskId: 13, name: "오답" })],
+      }),
+    ],
   });
+  const client = mount();
+  (await screen.findByRole("button", { name: "수학" })).focus();
+  await userEvent.keyboard("{Enter}");
+  await userEvent.click(screen.getByRole("menuitem", { name: "이 날에서 빼기" }));
+  expect(screen.getByRole("alertdialog", { name: "수학을 이 날에서 뺄까요?" })).toBeInTheDocument();
+  expect(screen.getByText("할 일 2개도 함께 사라져요")).toBeInTheDocument();
+  expect(requests.filter((request) => request.method === "DELETE")).toHaveLength(0);
+  await userEvent.click(screen.getByRole("button", { name: "빼기" }));
+  await waitFor(() =>
+    expect(requests.filter((request) => request.method === "DELETE")).toEqual([
+      expect.objectContaining({
+        url: expect.stringContaining("/api/planner/days/2026-11-06/subjects/3?"),
+      }),
+    ]),
+  );
+  client.clear();
+});
 
-  it("할 일을 왼쪽으로 밀어도 지워지거나 체크되지 않고, 다음 날로 넘어간다", async () => {
-    renderPlanner("?userId=7");
-    const row = await screen.findByRole("checkbox", { name: "리스닝 모의고사 1회" });
-
-    fireEvent.pointerDown(row, { clientX: 150, clientY: 100 });
-    fireEvent.pointerMove(row, { clientX: 30, clientY: 102 });
-    fireEvent.pointerUp(row, { clientX: 30, clientY: 102 });
-    fireEvent.click(row);
-
-    expect(deleteTask).not.toHaveBeenCalled();
-    expect(updateTask).not.toHaveBeenCalled();
-    expect(vi.mocked(trackPlannerDateChanged)).toHaveBeenCalledWith({ delta: 1, method: "swipe" });
+it("공부 기록이 있는 과목에는 그날에서 빼기를 제공하지 않는다", async () => {
+  current = plannerDay({
+    date: "2026-11-05",
+    records: [plannerRecord()],
+    subjects: [plannerSubject()],
   });
+  const client = mount("2026-11-05");
+  (await screen.findByRole("button", { name: /수학/ })).focus();
+  await userEvent.keyboard("{Enter}");
+  expect(screen.queryByRole("menuitem", { name: "이 날에서 빼기" })).not.toBeInTheDocument();
+  expect(screen.getByRole("menuitem", { name: "과목 삭제" })).toBeInTheDocument();
+  client.clear();
+});
 
-  it("과목을 길게 누르면 메뉴가 뜨고, 이름 변경은 그 자리의 입력으로 한다", async () => {
-    vi.mocked(renameSubject).mockResolvedValue({ ...english, name: "영어 독해" });
-    renderPlanner("?userId=7");
-    const head = (await screen.findByRole("heading", { name: "영어" })).closest(
-      '[role="button"]',
-    ) as HTMLElement;
-
-    await hold(head);
-    fireEvent.pointerUp(head, { clientX: 40, clientY: 100 });
-    await userEvent.click(screen.getByRole("menuitem", { name: "이름 변경" }));
-    const input = screen.getByRole("textbox", { name: "과목 이름" });
-    await userEvent.clear(input);
-    await userEvent.type(input, "영어 독해{Enter}");
-
-    expect(renameSubject).toHaveBeenCalledWith(3, { name: "영어 독해" });
-    expect(await screen.findByRole("heading", { name: "영어 독해" })).toBeInTheDocument();
-  });
-
-  it("메뉴의 삭제는 과목을 목록에서 뺀다", async () => {
-    vi.mocked(deleteSubject).mockResolvedValue(undefined);
-    renderPlanner("?userId=7");
-    const head = (await screen.findByRole("heading", { name: "수학" })).closest(
-      '[role="button"]',
-    ) as HTMLElement;
-
-    // 키보드로도 메뉴를 연다.
-    head.focus();
-    await userEvent.keyboard("{Enter}");
-    await userEvent.click(screen.getByRole("menuitem", { name: "삭제" }));
-
-    expect(deleteSubject).toHaveBeenCalledWith(5);
-    await waitFor(() =>
-      expect(screen.queryByRole("heading", { name: "수학" })).not.toBeInTheDocument(),
-    );
-  });
-
-  it("길게 누른 채 다른 과목 위로 끌면 순서가 바뀌고, 놓을 때 한 번 저장한다", async () => {
-    vi.mocked(reorderSubjects).mockResolvedValue([math, english]);
-    renderPlanner("?userId=7");
-    const head = (await screen.findByRole("heading", { name: "영어" })).closest(
-      '[role="button"]',
-    ) as HTMLElement;
-    const mathSection = screen.getByRole("heading", { name: "수학" }).closest("section")!;
-    document.elementFromPoint = vi.fn(() => mathSection);
-
-    await hold(head);
-    expect(screen.getByRole("menu")).toBeInTheDocument();
-    fireEvent.pointerMove(head, { clientX: 40, clientY: 160 });
-    // 끌기 시작하면 메뉴는 닫힌다.
+it("과목을 끌어 순서를 바꾸면 그 날짜의 순서만 저장한다", async () => {
+  class Pointer extends MouseEvent {
+    readonly isPrimary = true;
+    readonly pointerId = 1;
+    readonly pointerType = "touch";
+  }
+  vi.stubGlobal("PointerEvent", Pointer);
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn(() => ({ matches: false })),
+  );
+  current = plannerDay({ subjects: [plannerSubject(), plannerSubject({ id: 8, name: "영어" })] });
+  const client = mount();
+  const first = await screen.findByRole("button", { name: "수학" });
+  const second = screen.getByRole("button", { name: "영어" });
+  const original = document.elementFromPoint;
+  document.elementFromPoint = () => second;
+  try {
+    fireEvent.pointerDown(first, { clientX: 20, clientY: 40 });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 520));
+    });
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
-    fireEvent.pointerUp(head, { clientX: 40, clientY: 160 });
-
-    expect(reorderSubjects).toHaveBeenCalledWith({ subjectIds: [5, 3] });
-    expect(screen.getAllByRole("heading", { level: 2 }).map((node) => node.textContent)).toEqual([
-      "수학",
-      "영어",
-    ]);
-    expect(vi.mocked(trackPlannerDateChanged)).not.toHaveBeenCalled();
-  });
-
-  it("과목 추가로 만든 과목이 목록 끝에 붙는다", async () => {
-    vi.mocked(createSubject).mockResolvedValue({ ...math, id: 9, name: "한국사" });
-    renderPlanner("?userId=7");
-    await screen.findByRole("heading", { name: "영어" });
-
-    await userEvent.click(screen.getByRole("button", { name: "과목 추가" }));
-    await userEvent.type(screen.getByRole("textbox", { name: "새 과목 이름" }), "한국사{Enter}");
-
-    expect(createSubject).toHaveBeenCalledWith({ name: "한국사" });
-    expect(await screen.findByRole("heading", { name: "한국사" })).toBeInTheDocument();
-    expect(vi.mocked(trackSubjectItemAdded)).toHaveBeenCalledWith("subject", false, "planner");
-  });
-
-  it("과목 추가로 열린 입력칸에 포커스를 줄 때 문서를 끌어 올리지 않는다", async () => {
-    const focus = vi.spyOn(HTMLInputElement.prototype, "focus");
-    onTestFinished(() => focus.mockRestore());
-    renderPlanner("?userId=7");
-    await screen.findByRole("heading", { name: "영어" });
-
-    await userEvent.click(screen.getByRole("button", { name: "과목 추가" }));
-
-    expect(screen.getByRole("textbox", { name: "새 과목 이름" })).toHaveFocus();
-    // iOS는 키보드를 올리며 포커스를 받은 입력칸 쪽으로 문서를 끌어 올려서 머리 줄이 앱의 상태 막대와 뒤로 가기 밑으로 들어간다.
-    // autoFocus는 옵션 없이 focus()를 부르므로 옵션을 준 호출 하나만 있어야 한다.
-    expect(focus.mock.calls).toEqual([[{ preventScroll: true }]]);
-  });
-
-  it("이름 변경으로 열린 입력칸도 문서를 끌어 올리지 않고 포커스를 받는다", async () => {
-    const focus = vi.spyOn(HTMLInputElement.prototype, "focus");
-    onTestFinished(() => focus.mockRestore());
-    renderPlanner("?userId=7");
-    const head = (await screen.findByRole("heading", { name: "영어" })).closest(
-      '[role="button"]',
-    ) as HTMLElement;
-
-    await hold(head);
-    fireEvent.pointerUp(head, { clientX: 40, clientY: 100 });
-    await userEvent.click(screen.getByRole("menuitem", { name: "이름 변경" }));
-    // 닫히는 메뉴가 포커스를 되돌리는 타이머가 지난 뒤에도 포커스가 입력칸에 있어야 한다.
-    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
-
-    expect(screen.getByRole("textbox", { name: "과목 이름" })).toHaveFocus();
-    expect(focus.mock.calls).toEqual([[{ preventScroll: true }]]);
-  });
-
-  it("과목이 없으면 자주 쓰는 과목을 흐린 줄로 보여주고, 줄의 추가 한 번으로 과목을 만든다", async () => {
-    mockedSubjects.mockResolvedValue([]);
-    vi.mocked(createSubject).mockResolvedValue({ ...math, id: 9, name: "국어" });
-    renderPlanner("?userId=7");
-
-    const suggestions = await screen.findByRole("list", { name: "추천 과목" });
-    expect(within(suggestions).getAllByRole("button", { name: / 추가$/ })).toHaveLength(4);
-    expect(screen.queryByText("아직 과목이 없어요")).not.toBeInTheDocument();
-    await userEvent.click(within(suggestions).getByRole("button", { name: "국어 추가" }));
-
-    expect(createSubject).toHaveBeenCalledWith({ name: "국어" });
-    expect(await screen.findByRole("heading", { name: "국어" })).toBeInTheDocument();
-    expect(screen.queryByRole("list", { name: "추천 과목" })).not.toBeInTheDocument();
-    expect(vi.mocked(trackSubjectItemAdded)).toHaveBeenCalledWith("subject", true, "planner");
-  });
-
-  it("과목이 없어도 지난 날에는 흐린 추천 과목을 보여주지 않는다 — 과목 추가만 남는다", async () => {
-    mockedSubjects.mockResolvedValue([]);
-    renderPlanner(`?userId=7&date=${YESTERDAY}`);
-
-    expect(await screen.findByRole("button", { name: "과목 추가" })).toBeInTheDocument();
-    expect(screen.queryByRole("list", { name: "추천 과목" })).not.toBeInTheDocument();
-  });
-
-  it("지난 날 플래너는 과목만 고칠 수 있다 — 지금의 과목을 전부 보여주되 할 일은 그날 완료한 것만 남긴다", async () => {
-    mockedStats.mockImplementation((date) =>
-      Promise.resolve(
-        date === YESTERDAY ? stats([studiedYesterday()], completedYesterday()) : stats(),
+    fireEvent.pointerMove(first, { clientX: 20, clientY: 120 });
+    fireEvent.pointerUp(first, { clientX: 20, clientY: 120 });
+    await waitFor(() =>
+      expect(requests).toContainEqual(
+        expect.objectContaining({
+          method: "PUT",
+          url: expect.stringContaining("/api/planner/days/2026-11-06/subjects/order?"),
+          body: { subjectIds: [8, 3] },
+        }),
       ),
     );
-    renderPlanner(`?userId=7&date=${YESTERDAY}`);
-
-    // 그날 공부하지 않은 과목도 0분으로 보인다.
-    const mathHeading = await screen.findByRole("heading", { name: "수학" });
-    expect(mathHeading.closest("section")).toHaveTextContent(/^수학0분$/);
-    const englishSection = screen.getByRole("heading", { name: "영어" }).closest("section")!;
-    expect(englishSection).toHaveTextContent("50분");
-    expect(within(englishSection).getByText("단어 60개 암기")).toBeInTheDocument();
-    // 할 일에는 날짜가 없어 지금 목록의 미완료 할 일은 지난 날에 보여 주지 않는다.
-    expect(screen.queryByText("리스닝 모의고사 1회")).not.toBeInTheDocument();
-
-    expect(screen.queryByRole("button", { name: "할 일 추가" })).not.toBeInTheDocument();
-    for (const check of screen.getAllByRole("checkbox")) {
-      expect(check).toBeDisabled();
-    }
-
-    // 과목은 지난 날에서도 추가한다.
-    vi.mocked(createSubject).mockResolvedValue({ ...math, id: 9, name: "한국사" });
-    await userEvent.click(screen.getByRole("button", { name: "과목 추가" }));
-    await userEvent.type(screen.getByRole("textbox", { name: "새 과목 이름" }), "한국사{Enter}");
-    expect(createSubject).toHaveBeenCalledWith({ name: "한국사" });
-    expect(await screen.findByRole("heading", { name: "한국사" })).toBeInTheDocument();
-  });
-
-  it("과목 목록을 못 받으면 알리고 다시 시도할 수 있다", async () => {
-    mockedSubjects.mockRejectedValueOnce(new Error("network"));
-    renderPlanner("?userId=7");
-
-    await userEvent.click(await screen.findByRole("button", { name: "다시 시도" }));
-
-    expect(vi.mocked(showToast)).toHaveBeenCalledWith("과목을 불러오지 못했어요");
-    expect(await screen.findByRole("heading", { name: "영어" })).toBeInTheDocument();
-  });
+    expect(requests.some((request) => request.url.includes("/api/subjects/order"))).toBe(false);
+  } finally {
+    document.elementFromPoint = original;
+    client.clear();
+  }
 });

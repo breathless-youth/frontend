@@ -12,16 +12,17 @@
   },
   "pillButton": {
     "aria": {
-      "open": "讀書計畫"
+      "open": "讀書計畫",
+      "updated": "查看更新後的讀書計畫"
     }
   },
   "timetable": {
     "aria": {
-      "distribution": "這天各時段的讀書分布。專注時間 {{duration}}"
+      "distribution": "這天各時段的讀書分布。專注時間 {{duration}}",
+      "currentTime": "目前時間 {{time}}"
     }
   },
   "subjects": {
-    "rest": "休息",
     "unassigned": "無科目"
   },
   "editor": {
@@ -45,5 +46,178 @@
       "list": "推薦科目",
       "add": "新增{{name}}"
     }
+  },
+  "subjectSheet": {
+    "title": "新增科目",
+    "mySubjects": "我的科目",
+    "alreadyAdded": "{{name}}，已新增",
+    "addCount": "新增 {{count}} 個",
+    "create": "新科目",
+    "createConfirm": "建立",
+    "back": "返回新增科目",
+    "limit": "最多可建立20個科目"
+  },
+  "calendar": {
+    "today": "今天",
+    "studied": "有讀書紀錄",
+    "tasks": "有待辦事項"
+  },
+  "plan": {
+    "daily": "每日",
+    "weekly": "每週",
+    "setGoal": "+ 設定",
+    "goal": "專注目標 {{duration}}",
+    "minutes": "{{count}}分鐘",
+    "removeSubject": "從這天移除",
+    "deleteSubject": "刪除科目",
+    "repeating": "重複待辦事項",
+    "addTask": "新增待辦事項",
+    "futureCheck": "還不能完成這項待辦事項",
+    "pastEmpty": "這天沒有讀書紀錄",
+    "editRecords": "編輯紀錄",
+    "calendar": "選擇日期",
+    "removeConfirm": "要從這天移除{{name}}嗎？",
+    "removeTasks": "也會移除{{count}}項待辦事項",
+    "deleteConfirm": "要刪除{{name}}嗎？",
+    "remove": "移除",
+    "change": "變更",
+    "date": "日期",
+    "add": "新增",
+    "move": "移至其他日期",
+    "moveTitle": "要移到哪一天？",
+    "moveConfirm": "移至{{date}}",
+    "studyStart": "開始讀書",
+    "repeat": "重複",
+    "pastTask": "過去的待辦事項只能完成或移動",
+    "subjectLabel": "科目",
+    "taskLabel": "待辦事項",
+    "goalLabel": "專注目標",
+    "focusLabel": "專注時間",
+    "timetableEmpty": "開始學習後\n會顯示在這裡",
+    "taskLimit": "每個科目最多可新增30項待辦事項"
+  },
+  "sample": {
+    "label": "範例",
+    "language": "國文",
+    "languageTask": "觀看文學第1課",
+    "math": "數學",
+    "mathTask": "練習概念第1單元",
+    "title": "要從這個範例開始嗎？",
+    "direct": "自行建立",
+    "start": "使用範例",
+    "emptyTitle": "還沒有計畫",
+    "emptyHint": "新增科目並寫下待辦事項"
+  },
+  "repeat": {
+    "endBeforeStart": "重複結束日早於開始日期，請重新選擇結束日。",
+    "deleteTitle": "要刪除哪些重複待辦事項？",
+    "renameTitle": "要變更哪些重複待辦事項的名稱？",
+    "scope": "套用範圍",
+    "this": "僅這一天",
+    "future": "這天及之後所有日期",
+    "none": "不重複",
+    "daily": "每天",
+    "weekdays": "平日",
+    "weekends": "週末",
+    "weekdayTitle": "重複星期",
+    "weekday": {
+      "MONDAY": "一",
+      "TUESDAY": "二",
+      "WEDNESDAY": "三",
+      "THURSDAY": "四",
+      "FRIDAY": "五",
+      "SATURDAY": "六",
+      "SUNDAY": "日"
+    },
+    "endTitle": "重複結束日",
+    "noEnd": "不設定",
+    "chooseDate": "設定日期",
+    "done": "完成",
+    "summary": "從{{from}}起每週{{days}}新增",
+    "summaryEnd": "從{{from}}到{{to}}每週{{days}}新增",
+    "loadFailed": "無法載入重複設定",
+    "summaryPreset": "從{{from}}起於{{days}}加入",
+    "summaryPresetEnd": "從{{from}}到{{to}}於{{days}}加入"
+  },
+  "goal": {
+    "title": "目標專注時間",
+    "decrease": "減少30分鐘",
+    "increase": "增加30分鐘",
+    "asDefault": "其他日期也使用相同目標",
+    "save": "設定"
+  },
+  "record": {
+    "selected": "已選紀錄",
+    "delete": "刪除紀錄",
+    "start": "開始",
+    "end": "結束",
+    "boundary": "載入完整時間範圍後才能編輯",
+    "changeSubject": "變更科目",
+    "save": "儲存",
+    "hint": "長按空白格並拖曳以新增，拖曳紀錄兩端以編輯",
+    "grid": "紀錄編輯時間表",
+    "saveFailed": "部分紀錄無法儲存，請再試一次",
+    "leaveTitle": "不儲存就離開嗎？",
+    "leave": "離開",
+    "errors": {
+      "range": "請確認開始和結束時間",
+      "future": "請選擇現在之前的時間",
+      "overlap": "請選擇與其他紀錄不重疊的時間",
+      "boundary": "載入完整時間範圍後才能編輯",
+      "subject-required": "請先選擇套用至整筆紀錄的科目",
+      "subject-time-required": "這筆紀錄無法只更改科目",
+      "ambiguous-time": "這個時間出現兩次，請選擇其他時間"
+    },
+    "subjectScopeWarning": "所選科目會套用至整筆紀錄，包括畫面未顯示的時間。",
+    "chooseSubject": "讀了哪個科目？",
+    "adjustStart": "調整開始時間",
+    "adjustEnd": "調整結束時間",
+    "deleteTitle": "要刪除這筆紀錄嗎？",
+    "add": "新增紀錄",
+    "list": "紀錄清單",
+    "noSpace": "沒有可新增紀錄的空白時段",
+    "new": "新記錄",
+    "closePanel": "關閉紀錄面板"
+  },
+  "week": {
+    "prev": "上一週",
+    "next": "下一週",
+    "focusTime": "本週專注時間",
+    "completed": "待辦事項 {{done}}/{{count}}",
+    "tasks": "{{count}} 項待辦事項",
+    "empty": "沒有待辦事項",
+    "rangeSameMonth": "{{start}} – {{day}}日",
+    "rangeCrossMonth": "{{start}} – {{end}}",
+    "moveFailed": "無法移動待辦事項，請再試一次",
+    "pastDrop": "請選擇今天或之後的日期",
+    "dropHint": "放到要移動的日期上",
+    "focusLabel": "本週專注時間"
+  },
+  "studyStart": {
+    "where": "想在哪裡讀書？",
+    "solo": "自己讀書",
+    "group": "群組讀書房",
+    "whichGroup": "想和哪個群組一起讀書？",
+    "studyingCount": "{{count}} 人正在讀書",
+    "emptyRoom": "目前沒有人",
+    "noGroups": "尚未加入任何群組",
+    "updateApp": "請更新應用程式，以使用這個科目開始讀書",
+    "otherSubjects": "其他科目",
+    "selectSubject": "開始讀 {{name}}",
+    "deselectSubject": "停止記錄 {{name}} 科目",
+    "todaySubjects": "今天的科目",
+    "otherHint": "選擇後會加入今天的科目",
+    "studying": "讀書中",
+    "soloHint": "立即開始計算專注時間",
+    "groupHint": "選擇群組一起學習",
+    "backToWhere": "返回選擇學習地點"
+  },
+  "carryover": {
+    "title": "你有 {{count}} 項未完成的待辦事項",
+    "description": "請選擇要移到今天的待辦事項",
+    "selectAll": "全選",
+    "deselectAll": "全部取消",
+    "leave": "保留原狀",
+    "bring": "移動 {{count}} 項"
   }
 }

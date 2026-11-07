@@ -38,7 +38,9 @@ describe("useStudyRoomSession 스냅샷 보고", () => {
       await vi.advanceTimersByTimeAsync(1_000);
     });
     expect(vi.mocked(fetch).mock.calls).toHaveLength(1);
-    expect(String(vi.mocked(fetch).mock.calls[0]![0])).toMatch(/\/api\/study-sessions\/active$/);
+    expect(String(vi.mocked(fetch).mock.calls[0]![0])).toMatch(
+      /\/api\/study-sessions\/active\?durable=true$/,
+    );
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(30_000);
@@ -170,6 +172,53 @@ describe("useStudyRoomSession 스냅샷 보고", () => {
       await vi.advanceTimersByTimeAsync(60_000);
     });
     expect(vi.mocked(fetch).mock.calls).toHaveLength(1);
+  });
+
+  it("시계 정밀도로 첫 틱의 시각이 같으면 기다렸다가 양수 구간만 보고한다", async () => {
+    stubFetch({ ok: true });
+    const start = Date.now();
+    const now = vi.spyOn(Date, "now").mockReturnValue(start);
+    renderHook(() => useStudyRoomSession(1, { initialSubjectId: 3 }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10);
+    });
+    expect(fetch).not.toHaveBeenCalled();
+    now.mockReturnValue(start + 2);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10);
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(String(vi.mocked(fetch).mock.calls[0]![1]?.body));
+    expect(Date.parse(body.reportedAt)).toBeGreaterThan(Date.parse(body.startedAt));
+    expect(body.subjectSegments.at(-1).subjectId).toBe(3);
+  });
+
+  it("보고 중 과목을 바꾸면 응답 직후 최신 과목을 다시 보고한다", async () => {
+    stubFetch({ ok: true });
+    let finish!: (response: Response) => void;
+    vi.mocked(fetch).mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const { result } = renderHook(() => useStudyRoomSession(1, { initialSubjectId: 3 }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    act(() => {
+      result.current.selectSubject(8);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      finish(new Response(null, { status: 204 }));
+    });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    const latest = JSON.parse(String(vi.mocked(fetch).mock.calls[1]![1]?.body));
+    expect(latest.subjectSegments.at(-1).subjectId).toBe(8);
   });
 
   it("세션 기록을 localStorage에 쓰지 않는다", async () => {

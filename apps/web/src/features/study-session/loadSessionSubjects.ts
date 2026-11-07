@@ -8,6 +8,9 @@ import { reportHandled } from "@/lib/sentry";
 import { dailyStatsQuery } from "@/lib/statsQueries";
 import { listSubjects } from "@/lib/subjectApi";
 import { localDateKey } from "@/lib/dateKey";
+import { deviceTimeZone } from "@/lib/dateKey";
+import { hasTokenSource } from "@/lib/userId";
+import { plannerDayQuery } from "@/lib/plannerQueries";
 
 /**
  * 세션 화면의 과목 목록
@@ -25,6 +28,25 @@ export async function loadSessionSubjects(
   now = new Date(),
 ): Promise<SubjectResponse[]> {
   const dateKey = plannerDateKeyOf(now);
+  if (hasTokenSource()) {
+    const [subjects, day] = await Promise.all([
+      listSubjects(),
+      queryClient
+        .fetchQuery({ ...plannerDayQuery(userId, dateKey, deviceTimeZone()), retry: false })
+        .catch(() => null),
+    ]);
+    return subjects.map((subject) => {
+      const personal = day?.subjects.find((value) => value.id === subject.id);
+      return {
+        ...subject,
+        focusSec: personal?.focusSec ?? 0,
+        tasks:
+          personal?.tasks.flatMap((task) =>
+            task.taskId === null ? [] : [{ id: task.taskId, name: task.name, doneAt: task.doneAt }],
+          ) ?? [],
+      };
+    });
+  }
   const nextKey = addDaysToDateKey(dateKey, 1);
   const [subjects, day, next] = await Promise.all([
     listSubjects(),

@@ -48,10 +48,17 @@ function renderHost({ paused = false }: { paused?: boolean } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const onSettled = vi.fn();
   const onShown = vi.fn();
+  const onOpenChange = vi.fn();
   const tree = (nextPaused: boolean) => (
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={["/home?userId=7"]}>
-        <NoticeModalHost userId={7} paused={nextPaused} onShown={onShown} onSettled={onSettled} />
+        <NoticeModalHost
+          userId={7}
+          paused={nextPaused}
+          onShown={onShown}
+          onSettled={onSettled}
+          onOpenChange={onOpenChange}
+        />
       </MemoryRouter>
     </QueryClientProvider>
   );
@@ -60,6 +67,7 @@ function renderHost({ paused = false }: { paused?: boolean } = {}) {
     ...result,
     onSettled,
     onShown,
+    onOpenChange,
     setPaused: (next: boolean) => result.rerender(tree(next)),
   };
 }
@@ -425,4 +433,16 @@ describe("NoticeModalHost", () => {
     });
     expect(screen.getByRole("dialog", { name: "공지1" })).toBeInTheDocument();
   });
+});
+
+it("처음 판단이 끝난 뒤 나중에 열린 공지도 실제 열림과 닫힘을 알린다", async () => {
+  getActiveNotices.mockResolvedValueOnce([]).mockResolvedValue([notice(1, "ALL")]);
+  const { onOpenChange, onSettled } = renderHost();
+  await waitFor(() => expect(onSettled).toHaveBeenCalledTimes(1));
+  fireEvent(document, new Event("visibilitychange"));
+  await screen.findByRole("dialog");
+  expect(onOpenChange).toHaveBeenLastCalledWith(true);
+  fireEvent.click(screen.getByRole("button", { name: "닫기" }));
+  await waitFor(() => expect(onOpenChange).toHaveBeenLastCalledWith(false));
+  expect(onSettled).toHaveBeenCalledTimes(1);
 });

@@ -186,6 +186,15 @@ afterEach(() => {
 });
 
 describe("handleBridgeMessage", () => {
+  it("선택한 과목을 권한 게이트 뒤 세션 라우트로 전달한다", async () => {
+    mockedRunCameraPermissionGate.mockResolvedValue("start-session");
+    handleBridgeMessage({ type: "start-session", atMs: 1, initialSubjectId: 3 }, noopReply);
+    await flush();
+    expect(mockedRouter.push).toHaveBeenCalledWith({
+      pathname: "/room/[id]",
+      params: { id: "1", initialSubjectId: "3" },
+    });
+  });
   it("start-session → 권한이 있으면 세션 화면으로 push한다", async () => {
     mockedRunCameraPermissionGate.mockResolvedValue("start-session");
 
@@ -1225,7 +1234,7 @@ describe("logout", () => {
     __resetNativeAnalyticsForTests();
   });
 
-  it("로그아웃이 끝나면 답하고, 완료 이벤트를 새 문서 몫으로 남긴 뒤 모든 웹뷰를 다시 띄우고 홈 탭으로 옮긴다", async () => {
+  it("로그아웃이 끝나면 답하고, 완료 이벤트를 새 문서 몫으로 남긴 뒤 모든 웹뷰를 다시 띄우고 설정 탭에 남는다", async () => {
     const order: string[] = [];
     (logout as jest.Mock).mockResolvedValue(undefined);
     (emitAccountReset as jest.Mock).mockImplementation(() => order.push("reset"));
@@ -1240,7 +1249,7 @@ describe("logout", () => {
       atMs: expect.any(Number),
     });
     expect(order).toEqual(["reply", "reset"]);
-    expect(mockedRouter.navigate).toHaveBeenCalledWith("/");
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/settings");
     // 지금 문서는 곧 다시 마운트되므로 이벤트는 다음에 준비되는 문서가 받는다.
     expect(received).toEqual([]);
     const next: NativeAnalyticsEvent[] = [];
@@ -1275,7 +1284,7 @@ describe("계정이 바뀐 뒤 처음 화면으로", () => {
     await waitFor(() => expect(clearLaunchGoal).toHaveBeenCalledTimes(1));
     expect(emitAccountReset).not.toHaveBeenCalled();
     finishClear();
-    await waitFor(() => expect(mockedRouter.navigate).toHaveBeenCalledWith("/"));
+    await waitFor(() => expect(mockedRouter.navigate).toHaveBeenCalledWith("/settings"));
     expect(order).toEqual(["reply", "clear", "reset", "navigate"]);
   });
 });
@@ -1293,7 +1302,7 @@ describe("delete-account", () => {
     __resetNativeAnalyticsForTests();
   });
 
-  it("성공하면 답하고, 삭제 이벤트를 새 문서 몫으로 남긴 뒤 모든 웹뷰를 다시 띄우고 홈 탭으로 옮긴다", async () => {
+  it("성공하면 답하고, 삭제 이벤트를 새 문서 몫으로 남긴 뒤 모든 웹뷰를 다시 띄우고 설정 탭에 남는다", async () => {
     (deleteAccountWithReauth as jest.Mock).mockResolvedValue({ status: "success" });
     const reply = jest.fn();
 
@@ -1307,7 +1316,7 @@ describe("delete-account", () => {
       status: "success",
       atMs: expect.any(Number),
     });
-    expect(mockedRouter.navigate).toHaveBeenCalledWith("/");
+    expect(mockedRouter.navigate).toHaveBeenCalledWith("/settings");
     expect(received).toEqual([]);
     const next: NativeAnalyticsEvent[] = [];
     attachNativeAnalyticsSink((event) => next.push(event));

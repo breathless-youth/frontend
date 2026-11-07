@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { useNativeSessionClosed } from "@/lib/nativeSessionClosed";
 import { queryClient } from "@/lib/queryClient";
+import { plannerDay } from "@/test/plannerFixtures";
 import { rankingKeys } from "@/lib/rankingQueries";
 import { statsKeys } from "@/lib/statsQueries";
 
@@ -45,7 +46,7 @@ describe("useNativeSessionClosed", () => {
 
     emit('{"type":"session-closed","atMs":1}');
 
-    expect(invalidateQueries).toHaveBeenCalledTimes(2);
+    expect(invalidateQueries).toHaveBeenCalledTimes(3);
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: statsKeys.all });
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: rankingKeys.all });
   });
@@ -56,5 +57,17 @@ describe("useNativeSessionClosed", () => {
     emit('{"type":"app-launched","atMs":1}');
 
     expect(invalidateQueries).not.toHaveBeenCalled();
+  });
+
+  it("세션 종료 신호는 이미 받은 개인 플래너를 다시 조회할 상태로 바꾼다", () => {
+    invalidateQueries.mockRestore();
+    const key = ["planner", 7, "day", "2026-11-06", "Asia/Seoul"];
+    queryClient.setQueryData(key, plannerDay());
+    render();
+
+    emit('{"type":"session-closed","atMs":1}');
+
+    expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
+    queryClient.removeQueries({ queryKey: key });
   });
 });

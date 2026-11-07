@@ -61,4 +61,16 @@ describe("requestSessionStart", () => {
     await pending;
     expect(postToNative).toHaveBeenCalledTimes(1);
   });
+  it("과목 전달을 지원하는 앱에는 선택한 과목도 함께 보낸다", async () => {
+    window.history.replaceState({}, "", "/?subjectStart=1");
+    isNativeBridgeAvailable.mockReturnValue(true);
+    try {
+      await requestSessionStart(7, vi.fn(), { subjectId: 3 });
+      expect(postToNative).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "start-session", initialSubjectId: 3 }),
+      );
+    } finally {
+      window.history.replaceState({}, "", "/");
+    }
+  });
 });

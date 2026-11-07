@@ -15,6 +15,7 @@ import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { reloadOnChunkError } from "@/lib/chunkReload";
 import { useNativeControlPressRelay } from "@/lib/glassChrome";
 import { useBlockForwardGestureIntoFullScreen } from "@/lib/historyGuard";
+import { useAuthSuccessToast } from "@/lib/authSuccessToast";
 import { useInAppNotificationRelay } from "@/lib/inAppNotification";
 import { useNativeAnalyticsRelay } from "@/lib/nativeAnalytics";
 import { toastBottomOffset, useNativeTabBarClass, useNativeTabBarSync } from "@/lib/nativeTabBar";
@@ -256,11 +257,13 @@ function AppToaster() {
   const { pathname } = useLocation();
   const bottom = toastBottomOffset(pathname, isNativeBridgeAvailable());
   // 전역 Toaster는 화면과 달리 언마운트되지 않아, 지우지 않으면 이전 화면의 토스트가
-  // 다음 화면까지 넘어간다. 이 컴포넌트가 <Routes>보다 앞선 형제라 이펙트가 먼저 돌고,
+  // 다음 화면까지 넘어간다. 인증 성공 안내만 기존 표시 시간 동안 이동 뒤에도 남긴다.
+  // 이 컴포넌트가 <Routes>보다 앞선 형제라 이펙트가 먼저 돌고,
   // 새로 마운트되는 화면이 자기 토스트를 부르면 그 호출이 막 건 dismiss를 취소한다.
   useEffect(() => {
-    dismissToast();
+    dismissToast({ forNavigation: true });
   }, [pathname]);
+  useAuthSuccessToast();
   return (
     // 그룹 화면의 안내 토스트에는 그룹 이름이 들어가서 Amplitude 클릭 자동 수집이 토스트 글자를 싣지 않게 가린다.
     // Sonner는 이 속성을 넘겨받지 않아서 배치에 영향이 없는 `contents` 상자로 감싸 단다.

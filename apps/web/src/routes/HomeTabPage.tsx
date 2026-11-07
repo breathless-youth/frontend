@@ -19,8 +19,10 @@ import { useHomeSummary } from "@/features/home/useHomeSummary";
 import { NoticeModalHost } from "@/features/notice/NoticeModalHost";
 import { useOnboardingDecision } from "@/features/onboarding/useOnboardingDecision";
 import { PlannerPillButton } from "@/features/planner/PlannerPillButton";
+import { PlannerCarryoverDialog } from "@/features/planner/PlannerCarryoverDialog";
+import { usePlannerCarryover } from "@/features/planner/usePlannerCarryover";
+import { usePlannerUpdateNotice } from "@/features/planner/usePlannerUpdateNotice";
 import { useTimeZoneSync } from "@/features/profile/useTimeZoneSync";
-import { HomeRankingPopupHost } from "@/features/ranking/exposure/HomeRankingPopupHost";
 import { IllustFlame } from "@/features/records/icons";
 import { formatDuration } from "@/features/records/recordsFormat";
 import { WeekDot } from "@/features/records/StreakBanner";
@@ -257,6 +259,7 @@ function HomeHeaderLead({
   identityPending: boolean;
 }) {
   const { t } = useTranslation("home");
+  const plannerUpdate = usePlannerUpdateNotice(userId);
   if (hasTokenSource()) {
     // D-Day 블록은 버튼이라 페이지 제목이 없어진다 — 스크린리더용 h1을 숨겨 둔다.
     const hiddenTitle = <h1 className="sr-only">{t("header.title")}</h1>;
@@ -273,7 +276,12 @@ function HomeHeaderLead({
         <>
           {hiddenTitle}
           <DdaySection userId={userId} />
-          <PlannerPillButton via="home" className="mt-1 self-start" />
+          <PlannerPillButton
+            via="home"
+            className="mt-1 self-start"
+            showUpdateDot={plannerUpdate.unread}
+            onOpen={plannerUpdate.markOpened}
+          />
         </>
       );
     }
@@ -295,21 +303,26 @@ export function HomeTabPage() {
   useAppLockRevokeCheck();
   // 공지가 복구 창보다 먼저다. 공지 판단이 끝나야 복구 창을 띄운다. 공지 호스트가 없으면 기다릴 것도 없다.
   const [noticeSettled, setNoticeSettled] = useState(false);
+  const [noticePopupOpen, setNoticePopupOpen] = useState(false);
   const recoveryReady = userId === null || noticeSettled;
-  // 랭킹 팝업이 떠 있는 동안 늦게 온 복구 창은 공지 때처럼 그 팝업이 닫힐 때까지 미룬다.
-  const [rankingPopupOpen, setRankingPopupOpen] = useState(false);
-  // 이번 실행 표시를 sessionStorage에 쓰지 못한 기기에서도 같은 문서에서는 홈 팝업 하나를 지키도록 메모리에도 둔다.
-  const [homePopupInDoc, setHomePopupInDoc] = useState(false);
-  const [recoveryInDoc, setRecoveryInDoc] = useState(false);
-  if (recovered !== null && !recoveryInDoc) {
-    setRecoveryInDoc(true);
-  }
+  const [pushPermissionSettled, setPushPermissionSettled] = useState(false);
+  // 저장소가 막혀 있어도 같은 문서에서 공지를 반복하지 않는다.
+  const [noticeShownInDoc, setNoticeShownInDoc] = useState(false);
 
   // 처음 온 계정은 홈 대신 온보딩으로 보낸다. 앱은 시작 신호가 올 때까지 스플래시를 유지해서 홈이 비치지 않는다.
   // 다른 탭이 먼저 보여도 숨은 홈 웹뷰는 온보딩으로 넘어가 있다가 홈 탭을 누르면 온보딩을 보인다. 아직 온보딩을 안 본 계정이라 의도한 동작이다.
   const onboarding = useOnboardingDecision(userId, identityPending);
   const navigate = useNavigate();
   const location = useLocation();
+  const carryover = usePlannerCarryover(userId, {
+    ready:
+      onboarding === "home" &&
+      !identityPending &&
+      noticeSettled &&
+      recoverySettled &&
+      pushPermissionSettled,
+    blocked: noticePopupOpen || recovered !== null,
+  });
   useEffect(() => {
     if (onboarding === "onboarding") {
       navigate({ pathname: "/onboarding", search: location.search }, { replace: true });
@@ -317,9 +330,20 @@ export function HomeTabPage() {
     }
     if (onboarding === "home") {
       signalLaunchReady();
-      requestPushPermissionOnHomeArrival();
     }
   }, [onboarding, navigate, location.search]);
+
+  // 권한 창까지 끝나야 마지막 안내를 판단한다. StrictMode와 재마운트는 같은 요청을 기다린다.
+  useEffect(() => {
+    if (onboarding !== "home") return;
+    let cancelled = false;
+    void requestPushPermissionOnHomeArrival().then(() => {
+      if (!cancelled) setPushPermissionSettled(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [onboarding]);
 
   if (onboarding !== "home") {
     return <main data-testid="home-tab-page" className="theme-soft-blue bg-soft-blue min-h-dvh" />;
@@ -351,31 +375,25 @@ export function HomeTabPage() {
       {userId !== null && (
         <NoticeModalHost
           userId={userId}
-          paused={(recovered !== null && recoveryReady) || homePopupInDoc}
-          onShown={() => setHomePopupInDoc(true)}
+          paused={(recovered !== null && recoveryReady) || noticeShownInDoc || carryover.open}
+          onShown={() => {
+            setNoticeShownInDoc(true);
+          }}
           onSettled={() => setNoticeSettled(true)}
+          onOpenChange={setNoticePopupOpen}
         />
       )}
-      {recovered !== null && recoveryReady && !rankingPopupOpen && (
+      {recovered !== null && recoveryReady && !carryover.open && (
         <SessionRecoveryDialog recovered={recovered} onConfirm={dismiss} />
       )}
-      {/*
-        랭킹 팝업은 공지·인터뷰·복구 창 다음 차례라 두 판단이 끝난 뒤에 판단한다.
-        복구 결과는 실행 신호 기다림이 끝난 뒤에도 늦게 올 수 있다.
-        그때 이미 떠 있는 랭킹 팝업은 내리지 않고 복구 창을 그 팝업이 닫힐 때까지 미룬다.
-        메달은 띄운 직후 본 것으로 보내서, 내리면 사용자가 못 본 메달이 본 것으로 넘어간다.
-      */}
-      {userId !== null && (
-        <HomeRankingPopupHost
-          userId={userId}
-          ready={noticeSettled && recoverySettled}
-          blocked={homePopupInDoc || recoveryInDoc}
-          onOpenChange={(open) => {
-            setRankingPopupOpen(open);
-            if (open) {
-              setHomePopupInDoc(true);
-            }
-          }}
+      {carryover.tasks !== null && (
+        <PlannerCarryoverDialog
+          open={carryover.open}
+          tasks={carryover.tasks}
+          subjects={carryover.subjects}
+          uncertain={carryover.uncertain}
+          onConfirm={carryover.submit}
+          onDefer={carryover.defer}
         />
       )}
     </main>

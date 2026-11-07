@@ -26,5 +26,10 @@
   },
   "errors": {
     "retryLater": "請稍後再試"
+  },
+  "authSuccess": {
+    "login": "登入成功！",
+    "logout": "已登出",
+    "deleted": "帳號已刪除"
   }
 }
