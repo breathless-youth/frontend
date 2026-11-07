@@ -26,5 +26,10 @@
   },
   "errors": {
     "retryLater": "Please try again in a moment"
+  },
+  "authSuccess": {
+    "login": "Signed in successfully!",
+    "logout": "You’ve been signed out",
+    "deleted": "Your account has been deleted"
   }
 }

@@ -89,6 +89,20 @@ async function openMenuItem(name: RegExp | string) {
   return user;
 }
 
+describe("그룹 소개 페이지", () => {
+  it("멤버가 메뉴에서 소개를 열고 그룹 홈으로 돌아간다", async () => {
+    mockGroupApi("default");
+    const { router } = renderGroupRoute("/social/groups/11?groupRooms=1");
+    const user = await openMenuItem("그룹 소개 보기");
+    expect(
+      await screen.findByText("같은 반 친구들끼리 평일 저녁 7시부터 공부해요."),
+    ).toBeInTheDocument();
+    expect(router.location().pathname).toBe("/social/groups/11/intro");
+    await user.click(screen.getByRole("button", { name: /뒤로/ }));
+    await waitFor(() => expect(router.location().pathname).toBe("/social/groups/11"));
+  });
+});
+
 describe("그룹 홈 계측", () => {
   it("멤버가 나가면 left로 계측한다", async () => {
     const api = mockGroupApi("default");

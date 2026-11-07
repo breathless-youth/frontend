@@ -21,6 +21,7 @@
     "privacy": "プライバシーポリシー",
     "licenses": "オープンソースライセンス",
     "version": "バージョン情報",
+    "login": "ログイン",
     "logout": "ログアウト",
     "deleteAccount": "アカウント削除"
   },

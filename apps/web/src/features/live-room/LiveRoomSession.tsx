@@ -60,7 +60,10 @@ import {
 import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
 import { SessionMoreMenu } from "@/features/study-session/components/SessionMoreMenu";
 import { SessionPage } from "@/features/study-session/components/SessionPage";
-import { SubjectPanel } from "@/features/study-session/components/SubjectPanel";
+import { SessionSubjectPanel as SubjectPanel } from "@/features/study-session/components/SessionSubjectPanel";
+import { plannerCompletedTaskIds } from "@/features/study-session/plannerCompletedTasks";
+import { hasTokenSource } from "@/lib/userId";
+import { queryClient as sessionQueryClient } from "@/lib/queryClient";
 import { completedTaskIdsSince } from "@/features/study-session/completedTasks";
 import {
   SessionPageHeaderTime,
@@ -68,7 +71,10 @@ import {
 } from "@/features/study-session/components/SessionTimer";
 import { SESSION_SYMBOL_SCALE } from "@/features/study-session/components/controlButtonVariants";
 import { resolveDevDetectorOverride } from "@/features/study-session/devMockDetector";
-import { SUB_MINUTE_SEC, exitConfirmDescription } from "@/features/study-session/formatDuration";
+import {
+  MIN_RECORDED_FOCUS_SEC,
+  exitConfirmDescription,
+} from "@/features/study-session/formatDuration";
 import { MANUAL_END_REASON, autoEndReason } from "@/features/study-session/sessionState";
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import { GROUP_ROOM_SESSION_TUNING } from "@/features/study-session/sessionTuning";
@@ -144,6 +150,7 @@ export function LiveRoomSession({
   iceServers,
   profile,
   restored,
+  initialSubjectId,
   audioDeps,
 }: {
   roomId: number;
@@ -156,6 +163,7 @@ export function LiveRoomSession({
   profile: ProfileResponse | null;
   /** 서버에서 받아 온 진행중 세션. 있으면 그 값에서 이어서 시작한다. */
   restored: RestoredSession | null;
+  initialSubjectId?: number;
   audioDeps?: RoomAudioDeps;
 }) {
   const navigate = useNavigate();
@@ -201,6 +209,17 @@ export function LiveRoomSession({
   // 세션 훅과 유예 감시가 같은 신호원을 본다 — 어댑터를 따로 만들면 복귀 재계산과
   // 유예 판정이 다른 이벤트 순서를 탈 수 있다(usePauseAutoEnd의 같은 원칙).
   const [systemPause] = useState(() => createSystemPauseSource());
+  // 카메라가 꺼진 일시정지 중 앱을 떠나도 세션의 기존 트리거는 유지된다.
+  // 앱 가림은 배경음과 마이크가 독립적으로 따라갈 수 있도록 같은 신호원에서 읽는다.
+  const [appHidden, setAppHidden] = useState(() => document.visibilityState === "hidden");
+  useEffect(
+    () =>
+      systemPause.subscribe({
+        onLeave: () => setAppHidden(true),
+        onReturn: () => setAppHidden(false),
+      }),
+    [systemPause],
+  );
   const [ambientUsage] = useState(() => createAmbientUsage(Date.now));
   // 타이머 사용 기록은 세션 훅이 타이머 훅보다 먼저 생겨서 여기서 만들어 두 훅에 함께 넘긴다.
   const [multiTimerUsage] = useState(createMultiTimerUsage);
@@ -227,6 +246,7 @@ export function LiveRoomSession({
     flipCamera,
     endAndSubmit,
   } = useStudyRoomSession(userId, {
+    initialSubjectId,
     camera,
     detector,
     systemPause,
@@ -237,7 +257,9 @@ export function LiveRoomSession({
     ambientSoundPlays: ambientUsage.soundSeconds,
     multiTimerUsage: multiTimerUsage.snapshot,
     getCompletedTaskIds: (startedAtMs) =>
-      completedTaskIdsSince(subjectsListRef.current, startedAtMs),
+      hasTokenSource()
+        ? plannerCompletedTaskIds(sessionQueryClient, userId, startedAtMs)
+        : completedTaskIdsSince(subjectsListRef.current, startedAtMs),
     // 그룹 공부방은 일시정지 1시간에 나가고 초대코드 방은 싱글룸과 같은 20분이다.
     tuning: room.kind === "group" ? GROUP_ROOM_SESSION_TUNING : undefined,
   });
@@ -246,6 +268,7 @@ export function LiveRoomSession({
     phase,
     usage: ambientUsage,
     roomType: "social",
+    playbackPaused: appHidden,
   });
   // 소셜룸은 뒤로 가기를 잠가 두어 싱글룸과 달리 페이지를 history 항목 없이 연다.
   /** 세션 위에 열린 전체 페이지. 둘은 동시에 열리지 않는다. */
@@ -428,16 +451,6 @@ export function LiveRoomSession({
           .map((member) => member.userId),
       ),
     [members, userId],
-  );
-  // 카메라를 끈 채 떠나면 일시정지 사유가 바뀌지 않아서 앱을 떠났는지는 신호원에서 따로 읽는다.
-  const [appHidden, setAppHidden] = useState(false);
-  useEffect(
-    () =>
-      systemPause.subscribe({
-        onLeave: () => setAppHidden(true),
-        onReturn: () => setAppHidden(false),
-      }),
-    [systemPause],
   );
   // 소리는 그룹 공부방에서만 오간다.
   const audio = useRoomAudio({
@@ -697,25 +710,25 @@ export function LiveRoomSession({
   // 체류 시간(social_room_exited.duration_sec)의 기점 — 이 컴포넌트 마운트가 곧 입장이다.
   const [enteredAtMs] = useState(() => Date.now());
 
-  // 순공 1분 미만은 기록 목록·합산에 표시되지 않는다 — 저장을 약속하면 화면이 거짓말이
-  // 된다(종료 확인 창의 1분 미만 문구와 같은 원칙). 제출은 그래도 한다.
+  // 순공이 0초면 기록에 남지 않는다. 저장을 약속하면 화면이 거짓말이 된다(종료 확인 창의
+  // 순공 없음 문구와 같은 원칙). 제출은 그래도 한다.
   // 두 번째 문장은 줄을 바꿔 보여준다(2026-08-26 실기기 확인 피드백). 문구는 소셜 홈이 띄운다.
   const graceEndNotice = useCallback(
     (submitted: boolean) =>
-      focusSec < SUB_MINUTE_SEC
-        ? t("notice.graceEndSubMinute")
+      focusSec < MIN_RECORDED_FOCUS_SEC
+        ? t("notice.graceEndNoFocus")
         : submitted
           ? t("notice.graceEndSaved")
           : t("notice.graceEndPending"),
     [focusSec, t],
   );
 
-  // 방에 다시 들어갈 수 없어(자리 회수) 세션을 마쳤을 때의 안내. 저장·미저장·1분 미만을
+  // 방에 다시 들어갈 수 없어(자리 회수) 세션을 마쳤을 때의 안내. 저장·미저장·순공 없음을
   // 유예 만료와 같은 기준으로 가른다.
   const roomUnavailableNotice = useCallback(
     (submitted: boolean) =>
-      focusSec < SUB_MINUTE_SEC
-        ? t("notice.roomClosedSubMinute")
+      focusSec < MIN_RECORDED_FOCUS_SEC
+        ? t("notice.roomClosedNoFocus")
         : submitted
           ? t("notice.roomClosedSaved")
           : t("notice.roomClosedPending"),
@@ -1304,6 +1317,7 @@ export function LiveRoomSession({
       />
       {/* 두 페이지는 Radix 포털을 타므로 여기 위치가 화면 배치를 정하지는 않는다. */}
       <SessionPage
+        variant={hasTokenSource() ? "planner" : "default"}
         open={page === "subject"}
         onOpenChange={(open) => {
           if (!open) closeSubjectPage("back");
@@ -1314,6 +1328,7 @@ export function LiveRoomSession({
         headerExtras={
           <SessionPageHeaderTime
             focusSec={focusSec}
+            variant={hasTokenSource() ? "planner" : undefined}
             stateColor={sessionStateColors[sessionState.kind].dark}
           />
         }

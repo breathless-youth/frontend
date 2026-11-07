@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { SessionHelpScreen } from "@/features/study-session/components/SessionHelpScreen";
@@ -19,7 +20,8 @@ import {
 import { subscribeToNativeMessages } from "@/lib/bridge";
 import { haptic } from "@/lib/haptics";
 import { hasRankingTab } from "@/lib/rankingCapability";
-import { requestSessionStart } from "@/lib/sessionStart";
+import { requestSessionStart, SubjectStartUnavailableError } from "@/lib/sessionStart";
+import { showToast } from "@/lib/toast";
 import { useIdentityPending, useUserId } from "@/lib/userId";
 
 /** 집중 시작이 넘긴 누른 자리. 그 경로로 오지 않았으면 null이다. */
@@ -27,6 +29,18 @@ function focusStartSourceOf(state: unknown): FocusStartSource | null {
   const source =
     typeof state === "object" && state !== null ? (state as { source?: unknown }).source : null;
   return FOCUS_START_SOURCES.find((known) => known === source) ?? null;
+}
+
+/** 과목은 플래너가 넘긴 선택만 받는다. URL은 과목 시작 요청의 출처로 쓰지 않는다. */
+function plannerSubjectIdOf(state: unknown): number | undefined {
+  if (typeof state !== "object" || state === null) return undefined;
+  const value = state as { source?: unknown; initialSubjectId?: unknown };
+  return value.source === "planner" &&
+    typeof value.initialSubjectId === "number" &&
+    Number.isSafeInteger(value.initialSubjectId) &&
+    value.initialSubjectId > 0
+    ? value.initialSubjectId
+    : undefined;
 }
 
 /**
@@ -52,9 +66,11 @@ export function SessionGuidePage() {
 }
 
 function SessionGuide({ userId }: { userId: number | null }) {
+  const { t } = useTranslation(["planner", "common"]);
   const navigate = useNavigate();
   const location = useLocation();
   const source = focusStartSourceOf(location.state);
+  const initialSubjectId = plannerSubjectIdOf(location.state);
   // 끝까지 보면 기록이 남아도 이 화면이 다시 판정해 튕기지 않도록 들어올 때 한 번만 읽는다.
   const [guideNeeded] = useState(
     () => source !== null && userId !== null && sessionGuideState(userId) !== "seen",
@@ -109,14 +125,31 @@ function SessionGuide({ userId }: { userId: number | null }) {
       }
     });
     stopWaitingRef.current = stopWaiting;
-    requestSessionStart(
-      userId,
-      () => void navigate({ pathname: "/room/1", search: location.search }, { replace: true }),
-    )
+    const navigateToSession = () => {
+      const search = new URLSearchParams(location.search);
+      search.delete("initialSubjectId");
+      if (source === "planner") {
+        search.delete("date");
+        search.delete("from");
+      }
+      if (initialSubjectId !== undefined) search.set("initialSubjectId", String(initialSubjectId));
+      void navigate({ pathname: "/room/1", search: search.toString() }, { replace: true });
+    };
+    const request =
+      initialSubjectId === undefined
+        ? requestSessionStart(userId, navigateToSession)
+        : requestSessionStart(userId, navigateToSession, { subjectId: initialSubjectId });
+    request
       .catch((error: unknown) => {
         console.warn("[session-guide] failed to start session", error);
         stopWaiting();
         startingRef.current = false;
+        if (error instanceof SubjectStartUnavailableError) {
+          showToast(t("studyStart.updateApp"));
+          leave();
+        } else {
+          showToast(t("common:errors.retryLater"));
+        }
       })
       .finally(() => {
         requestPendingRef.current = false;

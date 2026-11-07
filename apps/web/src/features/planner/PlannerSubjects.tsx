@@ -1,23 +1,14 @@
-import {
-  useEffect,
-  useId,
-  useRef,
-  useState,
-  type PointerEvent as ReactPointerEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { formatDuration } from "@/features/records/recordsFormat";
 import { subjectColorVar } from "@/features/records/recordsTimetable";
 import { subjectSuggestions } from "@/features/study-session/useSubjects";
 import {
-  LONG_PRESS_MS,
   MAX_SUBJECTS,
   MAX_TASKS,
   SUBJECT_NAME_MAX,
   subjectIdUnderPoint,
-  SWIPE_SLOP_PX,
   TASK_NAME_MAX,
   useInlineNameEdit,
   usePressGestures,
@@ -26,6 +17,8 @@ import {
 import type { SubjectsStore } from "@/features/study-session/useSubjects";
 import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
+
+import { useHoldAndDrag } from "./usePlannerSubjectDrag";
 
 import type { PlannerSubjectItem, PlannerTaskItem } from "./subjectItems";
 import { Button } from "@/components/ui/button";
@@ -128,22 +121,14 @@ export function PlannerSubjects({
       )}
 
       {/* 범례는 타임테이블의 색을 풀이한다 — 공부하지 않은 날은 칠한 칸이 없어 두지 않는다. */}
-      {studied && (
+      {studied && hasUnassigned && (
         <div className="flex flex-wrap items-start gap-x-3 gap-y-1.5 pt-3.5">
           <span className="flex items-center gap-1.25">
-            <span aria-hidden className="size-2.5 rounded-[2px] bg-chart-rest" />
+            <span aria-hidden className="size-2.5 rounded-[2px] bg-primary" />
             <span className="text-[11px] leading-3.25 text-muted-foreground">
-              {t("subjects.rest")}
+              {t("subjects.unassigned")}
             </span>
           </span>
-          {hasUnassigned && (
-            <span className="flex items-center gap-1.25">
-              <span aria-hidden className="size-2.5 rounded-[2px] bg-primary" />
-              <span className="text-[11px] leading-3.25 text-muted-foreground">
-                {t("subjects.unassigned")}
-              </span>
-            </span>
-          )}
         </div>
       )}
     </div>
@@ -395,121 +380,6 @@ function RowMenu({
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
-
-/**
- * 과목 머리의 길게 누르기와, 누른 채 끌기.
- *
- * 길게 누르면 메뉴가 뜨고(`onLongPress`), 손을 떼지 않고 움직이면 순서 끌기로 넘어간다(`onDragStart` →
- * `onDragMove` → `onDragEnd`). 길게 누르기 전의 움직임은 페이지 스크롤이라 취소한다.
- */
-function useHoldAndDrag(handlers: {
-  onLongPress: () => void;
-  onDragStart: () => void;
-  onDragMove: (x: number, y: number) => void;
-  onDragEnd: () => void;
-}) {
-  const elementRef = useRef<HTMLDivElement>(null);
-  const [pressed, setPressed] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const stateRef = useRef<{ x: number; y: number; held: boolean; dragging: boolean } | null>(null);
-  const handlersRef = useRef(handlers);
-  useEffect(() => {
-    handlersRef.current = handlers;
-  });
-
-  function clearTimer() {
-    if (timerRef.current !== null) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-  }
-
-  useEffect(() => {
-    const element = elementRef.current;
-    if (element === null) return;
-    // 길게 누른 뒤의 끌기가 페이지 스크롤로 넘어가지 않게 한다. `touch-action`은 터치가 시작될 때
-    // 정해져 중간에 바꿀 수 없어서, 길게 누르기가 발화한 뒤의 touchmove만 막는다.
-    function blockScroll(event: TouchEvent) {
-      if (stateRef.current?.held === true) {
-        event.preventDefault();
-      }
-    }
-    element.addEventListener("touchmove", blockScroll, { passive: false });
-    return () => {
-      element.removeEventListener("touchmove", blockScroll);
-      clearTimer();
-    };
-  }, []);
-
-  function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    if (!event.isPrimary || (event.pointerType === "mouse" && event.button !== 0)) return;
-    const element = event.currentTarget;
-    const pointerId = event.pointerId;
-    const state = { x: event.clientX, y: event.clientY, held: false, dragging: false };
-    stateRef.current = state;
-    clearTimer();
-    setPressed(true);
-    timerRef.current = setTimeout(() => {
-      timerRef.current = null;
-      state.held = true;
-      setPressed(false);
-      try {
-        element.setPointerCapture(pointerId);
-      } catch {
-        // 캡처를 못 잡아도 메뉴는 뜬다 — 끌기만 머리 밖에서 끊긴다.
-      }
-      haptic("medium");
-      handlersRef.current.onLongPress();
-    }, LONG_PRESS_MS);
-  }
-
-  function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    const state = stateRef.current;
-    if (state === null) return;
-    const moved =
-      Math.abs(event.clientX - state.x) >= SWIPE_SLOP_PX ||
-      Math.abs(event.clientY - state.y) >= SWIPE_SLOP_PX;
-    if (!state.held) {
-      if (moved) {
-        clearTimer();
-        setPressed(false);
-        stateRef.current = null;
-      }
-      return;
-    }
-    if (!state.dragging) {
-      if (!moved) return;
-      state.dragging = true;
-      handlersRef.current.onDragStart();
-    }
-    handlersRef.current.onDragMove(event.clientX, event.clientY);
-  }
-
-  function onPointerEnd(event: ReactPointerEvent<HTMLDivElement>) {
-    clearTimer();
-    setPressed(false);
-    const state = stateRef.current;
-    stateRef.current = null;
-    if (state?.dragging === true) {
-      // 끌다 놓은 것이 날짜 넘김 스와이프로 읽히지 않게 한다.
-      event.stopPropagation();
-      handlersRef.current.onDragEnd();
-    }
-  }
-
-  return {
-    elementRef,
-    pressed,
-    handlers: {
-      onPointerDown,
-      onPointerMove,
-      onPointerUp: onPointerEnd,
-      onPointerCancel: onPointerEnd,
-      // Android 길게 누르기 컨텍스트 메뉴 차단.
-      onContextMenu: (event: { preventDefault: () => void }) => event.preventDefault(),
-    },
-  };
 }
 
 function ManagedTask({

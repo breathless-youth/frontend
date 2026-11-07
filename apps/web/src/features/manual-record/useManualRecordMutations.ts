@@ -7,6 +7,7 @@ import { ApiError } from "@/lib/api";
 import { postToNative } from "@/lib/bridge";
 import { createManualRecord, deleteManualRecord, updateManualRecord } from "@/lib/manualRecordApi";
 import { statsKeys } from "@/lib/statsQueries";
+import { plannerKeys } from "@/lib/plannerQueries";
 
 export type ManualRecordAction =
   | { kind: "add"; body: ManualStudySessionRequest }
@@ -42,12 +43,14 @@ export function useManualRecordMutations(input: {
     },
     onSuccess: (saved, action) => {
       void queryClient.invalidateQueries({ queryKey: statsKeys.all });
+      void queryClient.invalidateQueries({ queryKey: plannerKeys.all });
       void queryClient.invalidateQueries({ queryKey: ["subjects"] });
       postToNative({ type: "records-changed", atMs: Date.now() });
       input.onSuccess(action, saved);
     },
     onError: (cause) => {
       if (cause instanceof ApiError && cause.status === 409) {
+        void queryClient.invalidateQueries({ queryKey: plannerKeys.all });
         void queryClient.invalidateQueries({
           queryKey: statsKeys.daily(input.userId, input.dateKey),
         });

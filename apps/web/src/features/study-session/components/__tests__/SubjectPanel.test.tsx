@@ -141,17 +141,17 @@ describe("SubjectPanel 세로", () => {
     expect(screen.queryByRole("button", { name: "순서 변경" })).not.toBeInTheDocument();
   });
 
-  it("할 일 이름은 15자를 넘어도 입력을 받고, 완료·Enter·포커스 이탈로 저장하지 않는다", async () => {
+  it("할 일 이름은 25자를 넘어도 입력을 받고, 완료·Enter·포커스 이탈로 저장하지 않는다", async () => {
     const store = makeStore([MATH]);
     renderPanel({ store });
     await userEvent.click(screen.getByRole("button", { name: /할 일 추가/ }));
     const input = screen.getByRole("textbox", { name: "새 할 일 이름" });
     expect(input).not.toHaveAttribute("maxlength");
 
-    fireEvent.change(input, { target: { value: "가".repeat(16) } });
-    expect(input).toHaveValue("가".repeat(16));
-    expect(screen.getByText("16/15")).toBeInTheDocument();
-    expect(screen.getByRole("alert")).toHaveTextContent("15자까지 쓸 수 있어요");
+    fireEvent.change(input, { target: { value: "가".repeat(26) } });
+    expect(input).toHaveValue("가".repeat(26));
+    expect(screen.getByText("26/25")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("25자까지 쓸 수 있어요");
     expect(screen.getByRole("button", { name: "완료" })).toBeDisabled();
 
     fireEvent.keyDown(input, { key: "Enter" });
@@ -206,12 +206,12 @@ describe("SubjectPanel 세로", () => {
     renderPanel({ store: makeStore([MATH]) });
     await userEvent.click(screen.getByRole("button", { name: /할 일 추가/ }));
     const input = screen.getByRole("textbox", { name: "새 할 일 이름" });
-    fireEvent.change(input, { target: { value: "가".repeat(11) } });
-    expect(screen.queryByText("11/15")).not.toBeInTheDocument();
+    fireEvent.change(input, { target: { value: "가".repeat(19) } });
+    expect(screen.queryByText("19/25")).not.toBeInTheDocument();
     expect(input).not.toHaveAttribute("aria-describedby");
-    fireEvent.change(input, { target: { value: "가".repeat(12) } });
-    expect(screen.getByText("12/15")).toBeInTheDocument();
-    expect(input).toHaveAccessibleDescription("12/15");
+    fireEvent.change(input, { target: { value: "가".repeat(20) } });
+    expect(screen.getByText("20/25")).toBeInTheDocument();
+    expect(input).toHaveAccessibleDescription("20/25");
   });
 });
 

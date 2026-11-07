@@ -5,7 +5,7 @@ import stampImage from "@/assets/study-complete-stamp.png";
 import { Badge } from "@/components/ui/badge";
 import { haptic } from "@/lib/haptics";
 
-import { SUB_MINUTE_SEC, toKoreanDurationLength } from "../formatDuration";
+import { toKoreanDurationLength } from "../formatDuration";
 import type { SessionResultView } from "../sessionResult";
 
 /**
@@ -20,6 +20,8 @@ import type { SessionResultView } from "../sessionResult";
 export type CompleteHeroPhase = "intro" | "revealed" | "static";
 
 /** 순공시간 카운트업 — 프로토타입 `animate('pure', …, 1300, 950)` 그대로. */
+// 카운트업을 시작하는 값(초). 1분.
+const COUNT_UP_FROM_SEC = 60;
 const COUNT_UP_DURATION_MS = 1300;
 const COUNT_UP_DELAY_MS = 950;
 
@@ -151,12 +153,11 @@ export function StudyCompleteHero({
  *
  * — 1분에서 목표값까지 ease-out(cubic)으로 오른다.
  *
- * 0에서 올리면 첫 프레임과 시작 지연(950ms) 동안 값이 0이라 `1분 미만`(toKoreanDurationLength)이
- * 잠깐 떠, 오르기 전에 "공부를 1분도 못 했다"처럼 읽힌다. 순공이 1분 이상인 세션만 이 화면에
- * 오므로 1분부터 올려 그 오해를 없앤다. 1분 미만인 예외 세션은 목표값을 그대로 보여준다.
+ * 0에서 올리면 첫 프레임과 시작 지연(950ms) 동안 값이 `0초`로 떠, 오르기 전에 "공부를 못 했다"처럼
+ * 읽힌다. 그래서 1분부터 올린다. 1분 미만 세션도 이 화면에 오지만 목표값을 그대로 보여준다.
  */
 function useCountUp(target: number, enabled: boolean): number {
-  const from = Math.min(SUB_MINUTE_SEC, target);
+  const from = Math.min(COUNT_UP_FROM_SEC, target);
   const [value, setValue] = useState(enabled ? from : target);
   const canAnimate = enabled && typeof requestAnimationFrame === "function";
 

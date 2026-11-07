@@ -61,7 +61,7 @@ describe("roomMenuItems", () => {
           otherMemberCount: 3,
         }),
       ),
-    ).toEqual(["view_members", "leave"]);
+    ).toEqual(["view_intro", "view_members", "leave"]);
     expect(
       kinds(
         roomMenuItems({
@@ -71,7 +71,7 @@ describe("roomMenuItems", () => {
           otherMemberCount: 3,
         }),
       ),
-    ).toEqual(["invite", "view_members", "leave"]);
+    ).toEqual(["invite", "view_intro", "view_members", "leave"]);
   });
 
   it("멤버의 그룹 나가기에는 다른 멤버가 있어도 안내가 없다", () => {

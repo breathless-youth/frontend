@@ -12,16 +12,17 @@
   },
   "pillButton": {
     "aria": {
-      "open": "プランナー"
+      "open": "プランナー",
+      "updated": "新しいプランナーを確認しましょう"
     }
   },
   "timetable": {
     "aria": {
-      "distribution": "この日の時間帯別の勉強の分布。集中時間{{duration}}"
+      "distribution": "この日の時間帯別の勉強の分布。集中時間{{duration}}",
+      "currentTime": "現在時刻 {{time}}"
     }
   },
   "subjects": {
-    "rest": "休憩",
     "unassigned": "科目なし"
   },
   "editor": {
@@ -45,5 +46,178 @@
       "list": "おすすめの科目",
       "add": "{{name}}を追加"
     }
+  },
+  "subjectSheet": {
+    "title": "科目を追加",
+    "mySubjects": "自分の科目",
+    "alreadyAdded": "{{name}}、追加済み",
+    "addCount": "{{count}}個追加",
+    "create": "新しい科目",
+    "createConfirm": "作成",
+    "back": "科目の追加に戻る",
+    "limit": "科目は20個まで作成できます"
+  },
+  "calendar": {
+    "today": "今日",
+    "studied": "勉強した日",
+    "tasks": "やることがある日"
+  },
+  "plan": {
+    "daily": "日間",
+    "weekly": "週間",
+    "setGoal": "+ 設定",
+    "goal": "集中目標 {{duration}}",
+    "minutes": "{{count}}分",
+    "removeSubject": "この日から外す",
+    "deleteSubject": "科目を削除",
+    "repeating": "繰り返しタスク",
+    "addTask": "タスクを追加",
+    "futureCheck": "まだタスクを完了できません",
+    "pastEmpty": "この日の勉強記録はありません",
+    "editRecords": "記録を編集",
+    "calendar": "日付を選ぶ",
+    "removeConfirm": "この日から{{name}}を外しますか？",
+    "removeTasks": "タスク{{count}}件も削除されます",
+    "deleteConfirm": "{{name}}を削除しますか？",
+    "remove": "外す",
+    "change": "変更",
+    "date": "日付",
+    "add": "追加",
+    "move": "別の日に移動",
+    "moveTitle": "どの日に移動しますか？",
+    "moveConfirm": "{{date}}に移動",
+    "studyStart": "勉強を始める",
+    "repeat": "繰り返し",
+    "pastTask": "過去の日は完了と移動のみできます",
+    "subjectLabel": "科目",
+    "taskLabel": "やること",
+    "goalLabel": "集中目標",
+    "focusLabel": "集中時間",
+    "timetableEmpty": "勉強すると\nここに表示されます",
+    "taskLimit": "1つの科目に追加できるタスクは30件までです"
+  },
+  "sample": {
+    "label": "例",
+    "language": "国語",
+    "languageTask": "文学の第1講を受ける",
+    "math": "数学",
+    "mathTask": "概念の第1単元を解く",
+    "title": "この例で始めますか？",
+    "direct": "自分で作る",
+    "start": "例で始める",
+    "emptyTitle": "まだ計画がありません",
+    "emptyHint": "科目を追加してタスクを書いてみましょう"
+  },
+  "repeat": {
+    "endBeforeStart": "繰り返し終了日が開始日より前になっています。終了日を選び直してください。",
+    "deleteTitle": "繰り返しタスクをどこまで削除しますか？",
+    "renameTitle": "名前をどこまで変更しますか？",
+    "scope": "適用範囲",
+    "this": "この日のみ",
+    "future": "この日以降すべて",
+    "none": "なし",
+    "daily": "毎日",
+    "weekdays": "平日",
+    "weekends": "週末",
+    "weekdayTitle": "繰り返す曜日",
+    "weekday": {
+      "MONDAY": "月",
+      "TUESDAY": "火",
+      "WEDNESDAY": "水",
+      "THURSDAY": "木",
+      "FRIDAY": "金",
+      "SATURDAY": "土",
+      "SUNDAY": "日"
+    },
+    "endTitle": "繰り返し終了日",
+    "noEnd": "指定なし",
+    "chooseDate": "日付を設定",
+    "done": "完了",
+    "summary": "{{from}}から毎週{{days}}曜日に追加します",
+    "summaryEnd": "{{from}}から{{to}}まで毎週{{days}}曜日に追加します",
+    "loadFailed": "繰り返し設定を読み込めませんでした",
+    "summaryPreset": "{{from}}から{{days}}に追加します",
+    "summaryPresetEnd": "{{from}}から{{to}}まで{{days}}に追加します"
+  },
+  "goal": {
+    "title": "目標集中時間",
+    "decrease": "30分減らす",
+    "increase": "30分増やす",
+    "asDefault": "他の日も同じ目標に",
+    "save": "設定"
+  },
+  "record": {
+    "selected": "選択した記録",
+    "delete": "記録を削除",
+    "start": "開始",
+    "end": "終了",
+    "boundary": "記録全体の時間を読み込んでから編集できます",
+    "changeSubject": "科目を変更",
+    "save": "保存",
+    "hint": "空きマスを長押しして作成し、記録の端をドラッグして編集します",
+    "grid": "記録編集の時間割",
+    "saveFailed": "保存できなかった記録があります。もう一度お試しください",
+    "leaveTitle": "保存せずに戻りますか？",
+    "leave": "戻る",
+    "errors": {
+      "range": "開始と終了の時刻を確認してください",
+      "future": "現在時刻より前を選んでください",
+      "overlap": "他の記録と重ならない時間を選んでください",
+      "boundary": "記録全体の時間を読み込んでから編集できます",
+      "subject-required": "記録全体に適用する科目を先に選んでください",
+      "subject-time-required": "この記録は科目だけを変更できません",
+      "ambiguous-time": "この時刻は2回あります。別の時刻を選んでください"
+    },
+    "subjectScopeWarning": "選んだ科目は、表示されていない時間を含む記録全体に適用されます。",
+    "chooseSubject": "どの科目を勉強しましたか？",
+    "adjustStart": "開始時刻を調整",
+    "adjustEnd": "終了時刻を調整",
+    "deleteTitle": "この記録を削除しますか？",
+    "add": "記録を追加",
+    "list": "記録一覧",
+    "noSpace": "記録を追加できる空き時間がありません",
+    "new": "新しい記録",
+    "closePanel": "記録パネルを閉じる"
+  },
+  "week": {
+    "prev": "前の週",
+    "next": "次の週",
+    "focusTime": "今週の集中時間",
+    "completed": "タスク {{done}}/{{count}}",
+    "tasks": "タスク{{count}}件",
+    "empty": "タスクなし",
+    "rangeSameMonth": "{{start}} – {{day}}日",
+    "rangeCrossMonth": "{{start}} – {{end}}",
+    "moveFailed": "タスクを移せませんでした。もう一度お試しください",
+    "pastDrop": "今日以降の日付を選んでください",
+    "dropHint": "移したい日付にドロップしてください",
+    "focusLabel": "今週の集中時間"
+  },
+  "studyStart": {
+    "where": "どこで勉強しますか？",
+    "solo": "一人で勉強",
+    "group": "グループ勉強部屋",
+    "whichGroup": "どのグループで勉強しますか？",
+    "studyingCount": "{{count}}人が勉強中",
+    "emptyRoom": "今は誰もいません",
+    "noGroups": "参加しているグループはありません",
+    "updateApp": "この科目で始めるにはアプリを更新してください",
+    "otherSubjects": "ほかの科目",
+    "selectSubject": "{{name}}の勉強を始める",
+    "deselectSubject": "{{name}}の計測を止める",
+    "todaySubjects": "今日の科目",
+    "otherHint": "選ぶと今日の科目に追加されます",
+    "studying": "勉強中",
+    "soloHint": "すぐに集中時間の計測を始めます",
+    "groupHint": "グループを選んで一緒に勉強します",
+    "backToWhere": "勉強する場所の選択に戻る"
+  },
+  "carryover": {
+    "title": "未完了のタスクが{{count}}件あります",
+    "description": "今日に移すタスクを選んでください",
+    "selectAll": "すべて選択",
+    "deselectAll": "すべて解除",
+    "leave": "そのままにする",
+    "bring": "{{count}}件を移す"
   }
 }

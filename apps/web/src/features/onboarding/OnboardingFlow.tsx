@@ -8,7 +8,8 @@ import type { OnboardingStep } from "@/lib/amplitude";
 import { cn } from "@/lib/utils";
 
 import { CONFETTI, CONFETTI_LAUNCH_Y } from "./confetti";
-import { PlannerScreen, RecordsScreen, RoomScreen, TimerScreen } from "./MockScreens";
+import { RecordsScreen, RoomScreen, TimerScreen } from "./MockScreens";
+import { PlannerScreen, PlannerTaskDetail } from "./PlannerScreen";
 import { useStageBox } from "./useStageBox";
 
 /** 1~4는 소개 단계, 5는 준비 완료다. */
@@ -39,7 +40,7 @@ const COPY_KEY = {
  */
 const GEO: Record<Scene, { x: number; y: number; scale: number; clip: number; fade: number }> = {
   1: { x: 50, y: 142.04, scale: 0.828571, clip: 607.4, fade: 153.3 },
-  2: { x: 50, y: 142.04, scale: 0.828571, clip: 607.4, fade: 153.3 },
+  2: { x: 65, y: 124, scale: 0.86, clip: 630, fade: 148 },
   3: { x: 70, y: 85, scale: 0.714286, clip: 900, fade: 69 },
   4: { x: 20, y: 206, scale: 1, clip: 550, fade: 69 },
   5: { x: 72.5, y: 214, scale: 0.7, clip: 900, fade: 69 },
@@ -508,6 +509,19 @@ export function OnboardingFlow({
             <DistractionPills away={away} leaving={scene !== 1} />
           )}
         </div>
+
+        {(scene === 2 || prevScene === 2) && (
+          <div
+            aria-hidden="true"
+            inert
+            className={cn(
+              "pointer-events-none absolute top-[451px] left-[17px] z-3 w-55 motion-reduce:animate-none motion-reduce:transition-none",
+              scene === 2 ? SCREEN_IN : "opacity-0 transition-opacity duration-[620ms]",
+            )}
+          >
+            <PlannerTaskDetail />
+          </div>
+        )}
 
         {([1, 2, 3, 4, 5] as const).map((s) => {
           const active = s === scene;

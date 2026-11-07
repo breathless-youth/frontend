@@ -73,6 +73,8 @@ export const API_ENDPOINTS = {
 
   /** `/api/subjects` 이하 전부 — 과목·할 일 CRUD와 순서 저장. 구 앱 계약이 없는 새 경로다. */
   subjects: { version: "1", parsedBy: "apps/web/src/lib/subjectApi.ts" },
+  /** `/api/planner` 이하 날짜별 계획과 개인 기록. */
+  planner: { version: "1", parsedBy: "apps/web/src/lib/plannerApi.ts" },
   /** `GET /api/notices/active` — 홈 공지. 구 앱 계약이 없는 새 경로다(Swagger 기본값 1, 2026-10-05 대조). */
   notices: { version: "1", parsedBy: "apps/web/src/lib/noticeApi.ts" },
   /** `GET /api/interview/status` — 완료 화면 카드·설정 행. 새 경로다. */
@@ -100,11 +102,6 @@ export const API_ENDPOINTS = {
   rankingRecordsSeen: {
     version: "1",
     parsedBy: "apps/web/src/lib/rankingApi.ts postRankingRecordsSeen",
-  },
-  /** `GET /api/rankings/session-gains`: 공부 결과 랭킹 카드. */
-  rankingSessionGains: {
-    version: "1",
-    parsedBy: "apps/web/src/lib/rankingApi.ts getRankingSessionGains",
   },
 
   /** `POST /api/study-sessions` — 세션 제출 */

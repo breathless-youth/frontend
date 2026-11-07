@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { LoaderCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import appleIcon from "@/assets/icons/login-apple.svg";
 import googleIcon from "@/assets/icons/login-google.svg";
@@ -18,6 +18,7 @@ import {
   trackSocialLoginSucceeded,
 } from "@/lib/amplitude";
 import type { LoginEntry } from "@/lib/amplitude";
+import { notifyLoginSuccess } from "@/lib/authSuccessToast";
 import i18n from "@/lib/i18n";
 import { nativeSocialLoginProviders, requestNativeSocialLogin } from "@/lib/nativeSocialLogin";
 import { profileKeys } from "@/lib/profileQueries";
@@ -52,18 +53,19 @@ const LEGAL_LINK_CLASS =
   "inline-flex min-h-11 min-w-11 items-center justify-center whitespace-nowrap underline underline-offset-2";
 
 /**
- * 비회원에게 그룹 탭 대신 보이는 로그인 화면
+ * 그룹 또는 설정에서 여는 비회원 로그인 화면
  *
  * 앱이 알린 공급자 버튼만 보이고, 로그인은 앱에 맡긴 뒤 결과만 받아 처리한다.
- * 로그인에 성공하면 앱이 모든 조회를 다시 불러와 게이트가 회원으로 바뀌고, 같은 주소가 그대로 그룹 화면을 그린다.
+ * 그룹 진입은 로그인 후 게이트가 그룹 화면을 그린다. 설정 진입은 설정 화면으로 돌아간다.
  * 새로 가입한 사람도 프로필 설정으로 보내지 않는다.
  * 이 기기에 공부 기록이 있을 때만 그 기록이 계정으로 이어진다는 안내를 보인다.
  */
 export function GroupLoginScreen({ entry }: { entry: LoginEntry }) {
   const { t } = useTranslation("login");
   const location = useLocation();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const back = useBackTo("/social");
+  const back = useBackTo(entry === "settings" ? "/settings" : "/social");
   const userId = useUserId();
   const studyDays = useQuery({ ...studyDaysQuery(userId ?? 0), enabled: userId !== null });
   const [pending, setPending] = useState<SocialLoginProvider | null>(null);
@@ -102,6 +104,7 @@ export function GroupLoginScreen({ entry }: { entry: LoginEntry }) {
     // 로그인으로 신원이 바뀌면 게이트가 이 화면을 먼저 내릴 수 있어 계측은 화면이 남았는지와 상관없이 한다.
     if (result.status === "success") {
       trackSocialLoginSucceeded({ provider, isNewUser: result.isNewUser });
+      notifyLoginSuccess();
     } else if (result.status === "failed") {
       trackSocialLoginFailed({ provider, reason: result.code });
     }
@@ -111,6 +114,10 @@ export function GroupLoginScreen({ entry }: { entry: LoginEntry }) {
     // 성공하면 게이트가 회원으로 바꿔 이 화면을 내릴 때까지 프로필을 다시 받는 동안에도 진행 중으로 둔다.
     // 다시 받지 못해 화면이 남으면 버튼을 다시 연다. 앱 응답 때 시작한 재조회를 기다리기만 하고 새로 보내지 않는다.
     if (result.status === "success") {
+      if (entry === "settings") {
+        navigate("/settings", { replace: true });
+        return;
+      }
       await queryClient.refetchQueries(
         { queryKey: profileKeys.all, type: "active" },
         { cancelRefetch: false },

@@ -30,6 +30,9 @@ export function ConfirmDialog({
   maskFromAnalytics = false,
   onCancel,
   onConfirm,
+  theme = "theme-soft-blue",
+  variant,
+  offsetY = 0,
 }: {
   open: boolean;
   title: string;
@@ -42,6 +45,9 @@ export function ConfirmDialog({
   maskFromAnalytics?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
+  theme?: "theme-soft-blue" | "theme-dark";
+  variant?: "planner";
+  offsetY?: number;
 }) {
   const focusRestore = useDialogFocusRestore();
   return (
@@ -53,21 +59,35 @@ export function ConfirmDialog({
     >
       <DialogContent
         role="alertdialog"
+        style={offsetY === 0 ? undefined : { marginTop: offsetY }}
         showCloseButton={false}
         onOpenAutoFocus={focusRestore.onOpenAutoFocus}
         onCloseAutoFocus={focusRestore.onCloseAutoFocus}
         data-amp-mask={maskFromAnalytics || undefined}
         data-amp-mask-attributes={maskFromAnalytics ? "aria-label" : undefined}
-        className="theme-soft-blue w-full max-w-[320px] gap-0 rounded-3xl border-0 bg-muted px-5.5 pt-6.5 pb-5.5 text-foreground shadow-[0_20px_25px_rgba(0,0,0,0.4)] sm:rounded-3xl"
+        className={cn(
+          theme,
+          "w-full max-w-[320px] gap-0 rounded-3xl border-0 bg-muted px-5.5 pt-6.5 pb-5.5 text-foreground shadow-[0_20px_25px_rgba(0,0,0,0.4)] sm:rounded-3xl",
+        )}
         // 설명이 없을 때 이 속성을 비워 넘기지 않으면 Radix가 설명 누락을 경고한다.
         // 설명이 있으면 Radix가 설명 줄을 가리키는 기본 동작을 유지한다.
         {...(description === undefined ? { "aria-describedby": undefined } : {})}
       >
-        <DialogTitle className="text-[18px] leading-5.25 font-bold text-foreground">
+        <DialogTitle
+          className={cn(
+            "text-[18px] font-bold text-foreground",
+            variant === "planner" ? "leading-6" : "leading-5.25",
+          )}
+        >
           {title}
         </DialogTitle>
         {description !== undefined && (
-          <DialogDescription className="mt-2 text-sm leading-5 text-muted-foreground">
+          <DialogDescription
+            className={cn(
+              "text-sm leading-5 text-muted-foreground",
+              variant === "planner" ? "mt-1.5" : "mt-2",
+            )}
+          >
             {description}
           </DialogDescription>
         )}

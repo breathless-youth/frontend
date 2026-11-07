@@ -175,7 +175,7 @@ describe("assemblePlannerDay — 일간 조회 이틀치로 하루를 조립한�
     // 이 하루에 드는 것은 04:00~05:00 — 총 공부 50분(일시정지 10분 제외), 순공 50분.
     expect(day.studySec).toBe(50 * 60);
     expect(day.focusSec).toBe(50 * 60);
-    expect(day.paints.map((paint) => paint.kind)).toEqual(["focus", "rest", "focus"]);
+    expect(day.paints.map((paint) => paint.kind)).toEqual(["focus"]);
   });
 
   it("과목별 시간은 순공 기준이고, 과목 없이 공부한 순공을 따로 센다", () => {
@@ -204,8 +204,7 @@ describe("assemblePlannerDay — 일간 조회 이틀치로 하루를 조립한�
 
     expect(day.subjectRows).toEqual([{ subjectId: 3, focusSec: 3000 }]);
     expect(day.unassignedFocusSec).toBe(3600);
-    // 과목 구간 안이라도 휴식은 과목 색으로 칠하지 않는다.
-    expect(day.paints.map((paint) => paint.kind)).toEqual(["subject", "rest", "subject", "focus"]);
+    expect(day.paints.map((paint) => paint.kind)).toEqual(["subject", "focus"]);
   });
 
   it("이름이 같은 과목은 대표 과목 하나로 합친다", () => {
@@ -371,8 +370,8 @@ describe("liveSubjectsOf — 일간 조회에서 과목 목록을 꺼낸다", ()
 });
 
 describe("plannerCellFills — 10분 칸 안을 실제 시각대로 나눈다", () => {
-  it("칸 안의 2분 휴식은 그 길이만큼만 휴식으로 칠한다", () => {
-    // 05:00~05:10 칸: 05:00~05:04 순공, 05:04~05:06 휴식, 05:06~05:10 순공.
+  it("칸 안의 비집중 구간도 이어 칠하고 순공은 유지한다", () => {
+    // 10분 세션은 전부 칠하되 비집중 2분은 순공에 포함하지 않는다.
     const studied = session({
       startedAt: kst(DAY, 5),
       endedAt: kst(DAY, 5, 10),
@@ -385,9 +384,7 @@ describe("plannerCellFills — 10분 칸 안을 실제 시각대로 나눈다", 
 
     expect(cells).toHaveLength(144);
     expect(cells[0]).toEqual([
-      { left: 0, width: 0.4, paint: { kind: "focus" }, manual: false },
-      { left: 0.4, width: expect.closeTo(0.2), paint: { kind: "rest" }, manual: false },
-      { left: 0.6, width: expect.closeTo(0.4), paint: { kind: "focus" }, manual: false },
+      { left: 0, width: 1, paint: { kind: "focus" }, manual: false, startsBlock: true },
     ]);
     expect(cells[1]).toEqual([]);
   });
@@ -405,20 +402,25 @@ describe("plannerCellFills — 10분 칸 안을 실제 시각대로 나눈다", 
     const nineOClock = (9 - 5) * 6;
 
     expect(cells[nineOClock]).toEqual([
-      { left: 0.5, width: 0.5, paint: { kind: "focus" }, manual: false },
+      { left: 0.5, width: 0.5, paint: { kind: "focus" }, manual: false, startsBlock: true },
     ]);
     expect(cells[nineOClock + 1]).toEqual([
-      { left: 0, width: 1, paint: { kind: "focus" }, manual: false },
+      { left: 0, width: 1, paint: { kind: "focus" }, manual: false, startsBlock: false },
     ]);
     expect(cells[nineOClock + 2]).toEqual([
-      { left: 0, width: 0.5, paint: { kind: "focus" }, manual: false },
+      { left: 0, width: 0.5, paint: { kind: "focus" }, manual: false, startsBlock: false },
+    ]);
+    expect(cells.slice(nineOClock, nineOClock + 3).map((cell) => cell[0]?.startsBlock)).toEqual([
+      true,
+      false,
+      false,
     ]);
   });
 
   describe("서머타임 전환일(뉴욕)은 칸을 현지 벽시계로 나눈다", () => {
     /** 시(다음 날 0~4시 포함)·분 → 칸 번호. 5시가 0번이다. */
     const cellIndex = (hour: number, minute = 0) => (((hour + 24 - 5) % 24) * 60 + minute) / 10;
-    const full = { left: 0, width: 1, paint: { kind: "focus" }, manual: false };
+    const full = { left: 0, width: 1, paint: { kind: "focus" }, manual: false, startsBlock: false };
 
     it("23시간인 날은 없는 2시대 칸을 비우고 3시 공부를 3시 칸에 칠한다", () => {
       mockDeviceTimeZone("America/New_York");
@@ -438,7 +440,9 @@ describe("plannerCellFills — 10분 칸 안을 실제 시각대로 나눈다", 
         [3, 10],
         [3, 20],
       ]) {
-        expect(cells[cellIndex(hour!, minute)]).toEqual([full]);
+        expect(cells[cellIndex(hour!, minute)]).toEqual([
+          { ...full, startsBlock: hour === 1 && minute === 30 },
+        ]);
       }
       for (let minute = 0; minute < 60; minute += 10) {
         expect(cells[cellIndex(2, minute)]).toEqual([]);
@@ -481,10 +485,10 @@ describe("plannerCellFills — 10분 칸 안을 실제 시각대로 나눈다", 
       );
 
       for (let minute = 0; minute < 60; minute += 10) {
-        expect(cells[cellIndex(1, minute)]).toEqual([full]);
+        expect(cells[cellIndex(1, minute)]).toEqual([{ ...full, startsBlock: minute === 30 }]);
       }
       expect(cells[cellIndex(2)]).toEqual([]);
-      expect(cells[cellIndex(4)]).toEqual([full]);
+      expect(cells[cellIndex(4)]).toEqual([{ ...full, startsBlock: true }]);
     });
 
     it("25시간인 날 두 번 오는 시각의 칸을 누르면 먼저 오는 시각이다", () => {
@@ -513,7 +517,64 @@ describe("plannerCellFills — 10분 칸 안을 실제 시각대로 나눈다", 
 
     expect(day.sessions).toEqual([typed]);
     expect(cells[(9 - 5) * 6]).toEqual([
-      { left: 0, width: 1, paint: { kind: "focus" }, manual: true },
+      { left: 0, width: 1, paint: { kind: "focus" }, manual: true, startsBlock: true },
     ]);
   });
+
+  it.each([
+    { sameBundle: true, sameSubject: true, adjacent: true, starts: 1 },
+    { sameBundle: false, sameSubject: true, adjacent: true, starts: 2 },
+    { sameBundle: true, sameSubject: false, adjacent: true, starts: 2 },
+    { sameBundle: true, sameSubject: true, adjacent: false, starts: 2 },
+  ])(
+    "자정 조각은 같은 저장·과목·연속 구간일 때만 시작선을 잇는다: %o",
+    ({ sameBundle, sameSubject, adjacent, starts }) => {
+      const before = session({
+        source: "MANUAL",
+        submissionStartedAt: kst(DAY, 23, 30),
+        startedAt: kst(DAY, 23, 30),
+        endedAt: kst(NEXT, 0),
+        studySec: 1800,
+        focusSec: 1800,
+        subjectSegments: [
+          {
+            subjectId: 3,
+            startedAt: kst(DAY, 23, 30),
+            endedAt: kst(NEXT, 0),
+            studySec: 1800,
+            focusSec: 1800,
+          },
+        ],
+      });
+      const afterStart = kst(NEXT, 0, adjacent ? 0 : 10);
+      const after = session({
+        id: 2,
+        source: "MANUAL",
+        submissionStartedAt: sameBundle ? before.submissionStartedAt : afterStart,
+        statDate: NEXT,
+        startedAt: afterStart,
+        endedAt: kst(NEXT, 0, 30),
+        studySec: adjacent ? 1800 : 1200,
+        focusSec: adjacent ? 1800 : 1200,
+        subjectSegments: [
+          {
+            subjectId: sameSubject ? 3 : 4,
+            startedAt: afterStart,
+            endedAt: kst(NEXT, 0, 30),
+            studySec: adjacent ? 1800 : 1200,
+            focusSec: adjacent ? 1800 : 1200,
+          },
+        ],
+      });
+
+      const day = assemblePlannerDay(DAY, stats([before]), stats([after]));
+
+      expect(day.sessions).toEqual([before, after]);
+      expect(
+        plannerCellFills(day)
+          .flat()
+          .filter((fill) => fill.startsBlock),
+      ).toHaveLength(starts);
+    },
+  );
 });

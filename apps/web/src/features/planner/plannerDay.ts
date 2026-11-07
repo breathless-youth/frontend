@@ -9,7 +9,7 @@ import type {
 import { isManualSession } from "@/features/manual-record/manualRecord";
 import { addDaysToDateKey } from "@/features/records/recordsFormat";
 import { subjectRefMap } from "@/features/records/recordsTimetable";
-import { localDateKey, localTimeOfDayMs, zonedTimeMs } from "@/lib/dateKey";
+import { deviceTimeZone, localDateKey, localTimeOfDayMs, zonedTimeMs } from "@/lib/dateKey";
 
 /**
  * 플래너의 하루 — 순수 함수.
@@ -36,8 +36,8 @@ export const EMPTY_STATS: StudySessionListResponse = {
   subjects: [],
 };
 
-function plannerDayStartMs(dateKey: string): number {
-  return zonedTimeMs(dateKey, PLANNER_DAY_START_HOUR * 60);
+function plannerDayStartMs(dateKey: string, timeZone: string): number {
+  return zonedTimeMs(dateKey, PLANNER_DAY_START_HOUR * 60, timeZone);
 }
 
 /**
@@ -45,30 +45,50 @@ function plannerDayStartMs(dateKey: string): number {
  *
  * 서머타임 전환이 든 날은 23시간이나 25시간이라 끝은 다음 날짜의 05:00으로 구한다.
  */
-export function plannerDayWindow(dateKey: string): { startMs: number; endMs: number } {
+export function plannerDayWindow(
+  dateKey: string,
+  timeZone: string = deviceTimeZone(),
+): { startMs: number; endMs: number } {
   return {
-    startMs: plannerDayStartMs(dateKey),
-    endMs: plannerDayStartMs(addDaysToDateKey(dateKey, 1)),
+    startMs: plannerDayStartMs(dateKey, timeZone),
+    endMs: plannerDayStartMs(addDaysToDateKey(dateKey, 1), timeZone),
   };
 }
 
 /**
- * 어떤 시각이 속한 플래너 날짜 — 새벽 0~5시는 전날 플래너에 든다.
- * 플래너를 열 때의 "오늘"은 이 값이 아니라 달력 날짜(자정 기준)다. 05시 기준은 한 장에 담는 구간에만 쓴다.
+ * 어떤 시각이 속한 플래너 날짜
+ *
+ * 새벽 0~5시는 전날 플래너에 든다.
  */
-export function plannerDateKeyOf(at: Date): string {
-  const dateKey = localDateKey(at);
-  return at.getTime() < plannerDayStartMs(dateKey) ? addDaysToDateKey(dateKey, -1) : dateKey;
+export function plannerDateKeyOf(at: Date, timeZone: string = deviceTimeZone()): string {
+  const dateKey = localDateKey(at, timeZone);
+  return at.getTime() < plannerDayStartMs(dateKey, timeZone)
+    ? addDaysToDateKey(dateKey, -1)
+    : dateKey;
+}
+
+export function plannerCurrentTime(
+  dateKey: string,
+  nowMs: number,
+  timeZone: string = deviceTimeZone(),
+): { hour: number; fraction: number; label: string } | null {
+  if (plannerDateKeyOf(new Date(nowMs), timeZone) !== dateKey) return null;
+  const timeMs = localTimeOfDayMs(nowMs, timeZone);
+  const hour = Math.floor(timeMs / 3_600_000);
+  const minute = Math.floor((timeMs % 3_600_000) / 60_000);
+  return {
+    hour,
+    fraction: (timeMs % 3_600_000) / 3_600_000,
+    label: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`,
+  };
 }
 
 /** 타임테이블이 한 구간을 무엇으로 칠할지. */
 export type PlannerPaintKind =
-  /** 과목을 고르고 공부한 순공 — 과목 색 */
+  /** 과목을 고르고 공부한 세션 구간 */
   | { kind: "subject"; subjectId: number }
-  /** 과목 없이 공부한 순공 — 기본 집중색 */
-  | { kind: "focus" }
-  /** 순공이 아닌 시간(자동 멈춤 + 일시정지) — 휴식색 */
-  | { kind: "rest" };
+  /** 과목 없이 공부한 세션 구간 */
+  | { kind: "focus" };
 
 /** `manual`은 수동 기록에서 온 구간이다. 칠하는 색은 측정과 같고, 칸 탭이 수정 대상을 고를 때만 쓴다. */
 export type PlannerPaint = PlannerPaintKind & { startMs: number; endMs: number; manual: boolean };
@@ -88,6 +108,7 @@ export interface PlannerCompletedTask {
 
 export interface PlannerDay {
   dateKey: string;
+  timeZone?: string;
   startMs: number;
   endMs: number;
   focusSec: number;
@@ -142,8 +163,9 @@ function eventOverlapMs(
 }
 
 /**
- * 세션 한 조각을 순서대로 칠 구간으로 자른다 — 휴식 > 과목 > 과목 없는 순공 순으로 덮는다.
- * 과목 구간 안이라도 순공이 아닌 시간은 과목 색으로 칠하지 않는다.
+ * 세션 전체를 과목별 칠 구간으로 나누기
+ *
+ * 비집중과 일시정지도 같은 과목으로 칠하고 순공 계산은 별도로 유지한다.
  */
 function paintSession(
   span: Interval,
@@ -151,16 +173,13 @@ function paintSession(
   canonical: (subjectId: number) => number,
   manual: boolean,
 ): PlannerPaint[] {
-  const events = (session.events ?? [])
-    .map((event) => clip(event.startedAt, event.endedAt, span))
-    .filter((interval): interval is Interval => interval !== null);
   const segments = (session.subjectSegments ?? []).flatMap((segment) => {
     const interval = clip(segment.startedAt, segment.endedAt, span);
     return interval === null ? [] : [{ ...interval, subjectId: canonical(segment.subjectId) }];
   });
 
   const cuts = new Set<number>([span.startMs, span.endMs]);
-  for (const interval of [...events, ...segments]) {
+  for (const interval of segments) {
     cuts.add(interval.startMs);
     cuts.add(interval.endMs);
   }
@@ -173,11 +192,8 @@ function paintSession(
     const middle = (startMs + endMs) / 2;
     const covers = (interval: Interval) => middle >= interval.startMs && middle < interval.endMs;
     const segment = segments.find(covers);
-    const kind: PlannerPaintKind = events.some(covers)
-      ? { kind: "rest" }
-      : segment !== undefined
-        ? { kind: "subject", subjectId: segment.subjectId }
-        : { kind: "focus" };
+    const kind: PlannerPaintKind =
+      segment !== undefined ? { kind: "subject", subjectId: segment.subjectId } : { kind: "focus" };
     const last = paints[paints.length - 1];
     const sameAsLast =
       last !== undefined &&
@@ -204,8 +220,9 @@ export function assemblePlannerDay(
   dateKey: string,
   dayStats: StudySessionListResponse,
   nextDayStats: StudySessionListResponse,
+  timeZone: string = deviceTimeZone(),
 ): PlannerDay {
-  const window = plannerDayWindow(dateKey);
+  const window = plannerDayWindow(dateKey, timeZone);
   const rawSubjects = subjectRefMap([
     ...(dayStats.subjects ?? []),
     ...(nextDayStats.subjects ?? []),
@@ -227,6 +244,7 @@ export function assemblePlannerDay(
   let studyMs = 0;
   const paints: PlannerPaint[] = [];
   const subjectFocusMs = new Map<number, number>();
+  let previousSession: StudySessionSummary | undefined;
 
   for (const session of sessions) {
     const span = clip(session.startedAt, session.endedAt, window);
@@ -263,8 +281,29 @@ export function assemblePlannerDay(
       subjectFocusMs.set(id, (subjectFocusMs.get(id) ?? 0) + ms);
     }
 
-    // 수동 기록은 서버가 이벤트 없이 저장해 휴식 구간이 생기지 않는다.
-    paints.push(...paintSession(span, session, canonical, isManualSession(session)));
+    const sessionPaints = paintSession(span, session, canonical, isManualSession(session));
+    const previousPaint = paints.at(-1);
+    const firstPaint = sessionPaints[0];
+    const sameSubmission =
+      session.submissionStartedAt !== undefined &&
+      previousSession?.submissionStartedAt !== undefined &&
+      Date.parse(session.submissionStartedAt) === Date.parse(previousSession.submissionStartedAt);
+    // 서버가 자정에 나눈 같은 저장 묶음은 색과 시간이 이어지면 시작선도 이어 준다.
+    if (
+      sameSubmission &&
+      previousPaint !== undefined &&
+      firstPaint !== undefined &&
+      previousPaint.endMs === firstPaint.startMs &&
+      previousPaint.manual === firstPaint.manual &&
+      previousPaint.kind === firstPaint.kind &&
+      (previousPaint.kind !== "subject" ||
+        (firstPaint.kind === "subject" && previousPaint.subjectId === firstPaint.subjectId))
+    ) {
+      previousPaint.endMs = firstPaint.endMs;
+      sessionPaints.shift();
+    }
+    paints.push(...sessionPaints);
+    previousSession = session;
   }
 
   const subjectRows = [...subjectFocusMs].map(([subjectId, ms]) => ({
@@ -276,6 +315,7 @@ export function assemblePlannerDay(
 
   return {
     dateKey,
+    timeZone,
     startMs: window.startMs,
     endMs: window.endMs,
     focusSec,
@@ -319,17 +359,22 @@ export interface PlannerCellFill {
   width: number;
   paint: PlannerPaintKind;
   manual: boolean;
+  /** 실제 블록 시작에만 진한 시작선을 그린다. */
+  startsBlock: boolean;
 }
 
 /**
- * 하루 144칸(24행 × 6칸) 각각이 칠할 조각. 2분 쉬었다고 10분 칸 전체가 휴식색이 되지 않게
- * 칸 안을 실제 시작·종료 시각대로 나눈다.
+ * 하루 144칸에 표시할 세션 조각
+ *
+ * 칸 안을 실제 시작·종료 시각대로 나누고 블록 시작 위치를 보존한다.
  *
  * 칸은 기기 시간대의 벽시계 시각으로 고른다. 서머타임이 시작하는 날은 없는 2시대 칸이 비고,
  * 끝나는 날은 두 번 오는 1시대가 같은 칸에 겹쳐 칠해진다.
  * 서머타임 전환은 정시에 일어나 칸 경계와 겹치므로 한 칸 안에서는 벽시계와 실제 시각이 같이 흐른다.
  */
-export function plannerCellFills(day: Pick<PlannerDay, "paints">): PlannerCellFill[][] {
+export function plannerCellFills(
+  day: Pick<PlannerDay, "paints" | "timeZone">,
+): PlannerCellFill[][] {
   const cellMs = PLANNER_CELL_MINUTES * 60_000;
   const cells: PlannerCellFill[][] = Array.from({ length: 24 * PLANNER_CELLS_PER_ROW }, () => []);
   const firstCellOfDay = (PLANNER_DAY_START_HOUR * 60) / PLANNER_CELL_MINUTES;
@@ -340,7 +385,7 @@ export function plannerCellFills(day: Pick<PlannerDay, "paints">): PlannerCellFi
         : { kind: paint.kind };
     let from = paint.startMs;
     while (from < paint.endMs) {
-      const timeOfDay = localTimeOfDayMs(from);
+      const timeOfDay = localTimeOfDayMs(from, day.timeZone);
       const offset = timeOfDay % cellMs;
       const to = Math.min(paint.endMs, from - offset + cellMs);
       const index = (Math.floor(timeOfDay / cellMs) - firstCellOfDay + cells.length) % cells.length;
@@ -349,6 +394,7 @@ export function plannerCellFills(day: Pick<PlannerDay, "paints">): PlannerCellFi
         width: (to - from) / cellMs,
         paint: fill,
         manual: paint.manual,
+        startsBlock: from === paint.startMs,
       });
       from = to;
     }
@@ -362,8 +408,12 @@ export function plannerCellFills(day: Pick<PlannerDay, "paints">): PlannerCellFi
  * 칸 번호를 그 플래너 날짜의 벽시계 시각으로 바꾼다.
  * 없는 시각의 칸은 수동 기록 입력과 같이 건너뛴 만큼 늦은 시각이고, 두 번 오는 시각은 먼저 오는 쪽이다.
  */
-export function plannerCellStartMs(dateKey: string, index: number): number {
-  return zonedTimeMs(dateKey, PLANNER_DAY_START_HOUR * 60 + index * PLANNER_CELL_MINUTES);
+export function plannerCellStartMs(
+  dateKey: string,
+  index: number,
+  timeZone: string = deviceTimeZone(),
+): number {
+  return zonedTimeMs(dateKey, PLANNER_DAY_START_HOUR * 60 + index * PLANNER_CELL_MINUTES, timeZone);
 }
 
 /**

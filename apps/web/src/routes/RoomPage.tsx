@@ -79,13 +79,13 @@ import {
   SessionTimer,
 } from "@/features/study-session/components/SessionTimer";
 import { SimpleModeSurface } from "@/features/study-session/components/SimpleModeSurface";
-import { SubMinuteEndNotice } from "@/features/study-session/components/SubMinuteEndNotice";
-import { SubjectPanel } from "@/features/study-session/components/SubjectPanel";
+import { NoFocusEndNotice } from "@/features/study-session/components/NoFocusEndNotice";
+import { SessionSubjectPanel as SubjectPanel } from "@/features/study-session/components/SessionSubjectPanel";
 import { SubjectLabel } from "@/features/study-session/components/SubjectLabel";
 import { VisionPerfPanel } from "@/features/study-session/components/VisionPerfPanel";
 import { resolveDevDetectorOverride } from "@/features/study-session/devMockDetector";
 import {
-  SUB_MINUTE_SEC,
+  MIN_RECORDED_FOCUS_SEC,
   exitConfirmDescription,
   formatElapsed,
 } from "@/features/study-session/formatDuration";
@@ -116,6 +116,11 @@ import type { RestoredSession } from "@/features/study-session/restoreActiveSess
 import type { SubjectSelection } from "@/features/study-session/subjectSegments";
 import { deriveSubjectTotals, liveSubjectTime } from "@/features/study-session/subjectSegments";
 import { completedTaskIdsSince } from "@/features/study-session/completedTasks";
+import { plannerCompletedTaskIds } from "@/features/study-session/plannerCompletedTasks";
+import { hasTokenSource } from "@/lib/userId";
+import { queryClient } from "@/lib/queryClient";
+import { parseInitialSubject, useInitialSubject } from "@/features/study-session/useInitialSubject";
+import { InitialSubjectError } from "@/features/study-session/InitialSubjectError";
 import { loadSessionSubjects } from "@/features/study-session/loadSessionSubjects";
 import { useLandscapeLayout } from "@/features/study-session/useLandscapeLayout";
 import { useSubjects } from "@/features/study-session/useSubjects";
@@ -297,10 +302,12 @@ function RoomSessionScreen({
   userId,
   restored,
   invite,
+  initialSubjectId,
 }: {
   userId: number | null;
   restored: RestoredSession | null;
   invite: string | null;
+  initialSubjectId?: number;
 }) {
   const { t } = useTranslation(["study-session", "common"]);
   const [searchParams] = useSearchParams();
@@ -376,9 +383,12 @@ function RoomSessionScreen({
     camera,
     detector,
     restored,
+    initialSubjectId,
     // 과목 목록은 아래 useSubjects가 들고 있어 훅 뒤에 온다 — 제출 시점에 ref로 읽는다(옵션 주석 참고).
     getCompletedTaskIds: (startedAtMs) =>
-      completedTaskIdsSince(subjectsListRef.current, startedAtMs),
+      hasTokenSource() && userId !== null
+        ? plannerCompletedTaskIds(queryClient, userId, startedAtMs)
+        : completedTaskIdsSince(subjectsListRef.current, startedAtMs),
     ambientUsage: ambientUsage.snapshot,
     ambientSoundPlays: ambientUsage.soundSeconds,
     multiTimerUsage: multiTimerUsage.snapshot,
@@ -698,13 +708,13 @@ function RoomSessionScreen({
    * 순공 1분 미만으로 끝났는가
    *
    * 판정에 서버 응답(`phase.sessions`)이 아니라 클라이언트가 잰 `focusSec`을 쓴다.
-   * 자정을 넘는 세션은 서버가 날짜별로 쪼개서 내려주므로, 응답 한 건씩 보면 둘 다 1분 미만인데
-   * 세션 전체로는 1분을 넘는 경우가 생긴다.
+   * 자정을 넘는 세션은 서버가 날짜별로 쪼개서 내려주므로, 응답 한 건씩 보면 둘 다 순공이 짧은데
+   * 세션 전체로는 기준을 넘는 경우가 생긴다.
    * 사용자가 한 번 공부한 것을 두 조각으로 판정하면 안 된다.
    *
    * `endAndSubmit`이 제출 전에 최종 집계를 `setTotals`로 반영하므로 이 값은 이미 확정값이다.
    */
-  const endedBelowMinute = focusSec < SUB_MINUTE_SEC;
+  const endedWithoutFocus = focusSec < MIN_RECORDED_FOCUS_SEC;
 
   /**
    * `공부 종료` 경로
@@ -717,12 +727,12 @@ function RoomSessionScreen({
     if (
       phase.name === "done" &&
       invite === null &&
-      !endedBelowMinute &&
+      !endedWithoutFocus &&
       endReason?.kind !== "AUTO"
     ) {
       goToResult(phase.sessions);
     }
-  }, [endReason, endedBelowMinute, goToResult, invite, phase]);
+  }, [endReason, endedWithoutFocus, goToResult, invite, phase]);
 
   /**
    * 초대를 받은 채 끝난 세션의 이동
@@ -923,7 +933,7 @@ function RoomSessionScreen({
   // 종료 안내(1분 미만·자동 종료)는 세션이 끝난 뒤의 화면이라 결과 화면처럼 시스템 테마를 따른다.
   // 그 밖의 세션 화면은 항상 다크다.
   const endNoticeVisible =
-    phase.name === "done" && (endedBelowMinute || autoEndNoticeVisible(phase, endReason));
+    phase.name === "done" && (endedWithoutFocus || autoEndNoticeVisible(phase, endReason));
 
   return (
     <main
@@ -1184,6 +1194,7 @@ function RoomSessionScreen({
           {/* 두 페이지는 Radix 포털을 타므로 여기 위치가 화면 배치를 정하지는 않는다.
               포털 자리를 `main` 으로 잡아야 `--session-*` 변수가 풀린다. */}
           <SessionPage
+            variant={hasTokenSource() ? "planner" : "default"}
             open={page === "subject"}
             onOpenChange={(open) => {
               if (!open) closePage("back");
@@ -1191,7 +1202,12 @@ function RoomSessionScreen({
             container={sessionSurface}
             returnFocus={subjectReturnFocus}
             title={t("subjectSheet.title")}
-            headerExtras={<SessionPageHeaderTime focusSec={focusSec} />}
+            headerExtras={
+              <SessionPageHeaderTime
+                focusSec={focusSec}
+                variant={hasTokenSource() ? "planner" : undefined}
+              />
+            }
             landscape={pageLandscape}
           >
             <SubjectPanel
@@ -1279,8 +1295,8 @@ function RoomSessionScreen({
              `phase === "done"`을 요구하는 이유 — 제출 중·실패·미저장 상태에서는
              아래 폴백의 재시도 경로로 가야 한다. 저장 자체는 1분 미만이어도 정상적으로 하고,
              걸러내는 것은 표시·합산 단계다. */
-      phase.name === "done" && endedBelowMinute && invite === null ? (
-        <SubMinuteEndNotice
+      phase.name === "done" && endedWithoutFocus && invite === null ? (
+        <NoFocusEndNotice
           onGoHome={() => {
             trackSessionNoticeConfirmed({ notice: "sub_minute", roomType: "single" });
             // 결과 화면을 거치지 않는 종료도 홈에서 첫 세션 종료 이유 설문이 뜰 수 있게 같은 예약을 남긴다.
@@ -1471,12 +1487,32 @@ function SessionResultFallback({
  * 정상 경로는 수백 ms 수준이라 스피너 없이 다크 배경만 유지한다.
  */
 export function RoomPage() {
+  const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [candidate] = useState(() => parseInitialSubject(params.get("initialSubjectId")));
   // 신원이 오기 전에 세션을 띄우면 아래 `key`가 null에서 실제 id로 바뀌며 통째로 다시 마운트된다.
   // 마운트 1회 계측(`study_session_started`)이 두 번 나가고 세션 타이머도 처음부터 다시 선다.
   // 브라우저 단독 모드에는 기다릴 출처가 없어 언제나 false, 네이티브는 3초 한도가 있어 갇히지 않는다.
   const identityPending = useIdentityPending();
   const userId = useUserId();
   const { settled, restored } = useActiveSessionRestore(userId);
+  const initialSubject = useInitialSubject(
+    identityPending ? null : userId,
+    candidate,
+    restored !== null,
+  );
+  useEffect(() => {
+    if (!params.has("initialSubjectId") || identityPending || !settled || !initialSubject.settled)
+      return;
+    setParams(
+      (previous) => {
+        const next = new URLSearchParams(previous);
+        next.delete("initialSubjectId");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [params, setParams, identityPending, settled, initialSubject.settled]);
   // 복원 확인 중에도 초대를 받아 두도록 게이트 바깥에서 구독한다.
   const invite = useSessionInvite();
 
@@ -1485,16 +1521,36 @@ export function RoomPage() {
     prefetchResultPage();
   }, []);
 
-  if (identityPending || !settled) {
+  if (identityPending || !settled || !initialSubject.settled) {
     return (
       <main
         data-testid="room-restore-gate"
         className="theme-dark relative flex h-dvh flex-col bg-background"
         style={sessionSurfaceStyle}
-      />
+      >
+        {!identityPending && settled && initialSubject.error && (
+          <InitialSubjectError
+            onRetry={initialSubject.retry}
+            onBack={() => {
+              const search = new URLSearchParams(params);
+              search.delete("initialSubjectId");
+              postToNative({ type: "navigate-home", atMs: Date.now() });
+              navigate({ pathname: "/home", search: search.toString() }, { replace: true });
+            }}
+          />
+        )}
+      </main>
     );
   }
   // 사용자가 바뀌면 통째로 새로 만든다. 복원값은 마운트 시점에 한 번만 읽히므로, 같은
   // 인스턴스를 유지하면 새 사용자가 앞 사용자의 세션을 그대로 이어받는다.
-  return <RoomSessionScreen key={userId} userId={userId} restored={restored} invite={invite} />;
+  return (
+    <RoomSessionScreen
+      key={userId}
+      userId={userId}
+      restored={restored}
+      invite={invite}
+      initialSubjectId={initialSubject.subjectId}
+    />
+  );
 }

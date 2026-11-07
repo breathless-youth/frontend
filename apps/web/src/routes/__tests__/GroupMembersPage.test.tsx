@@ -191,6 +191,7 @@ describe("멤버 관리와 멤버 보기", () => {
     await user.click(screen.getByRole("button", { name: "그룹 메뉴" }));
     await user.click(screen.getByRole("menuitem", { name: "멤버 관리" }));
     api.transferGroupOwner.mockRejectedValueOnce(new ApiError("x", 403, "NOT_GROUP_OWNER"));
+    await screen.findByRole("heading", { name: "멤버 관리" });
     await user.click(await firstRowMenu());
     await user.click(screen.getByRole("menuitem", { name: "그룹장 넘기기" }));
     await user.click(screen.getByRole("button", { name: "넘기기" }));

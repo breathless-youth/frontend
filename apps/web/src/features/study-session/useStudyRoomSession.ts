@@ -35,6 +35,7 @@ import { haptic } from "@/lib/haptics";
 import { queryClient } from "@/lib/queryClient";
 import { reportHandled } from "@/lib/sentry";
 import { statsKeys } from "@/lib/statsQueries";
+import { plannerKeys } from "@/lib/plannerQueries";
 import { showTopToast } from "@/lib/toast";
 
 import type { CameraAdapter, CameraFlipResult } from "./adapters/cameraAdapter";
@@ -104,6 +105,7 @@ export type StudyRoomPhase =
   | { name: "unsaved"; studySec: number };
 
 export interface StudyRoomSessionOptions {
+  readonly initialSubjectId?: number;
   /** 기본값은 테스트용 mock이다. 실제 화면은 `RoomPage`가 `mediaStreamCamera` 구현체를 주입한다. */
   readonly camera?: CameraAdapter;
   readonly detector?: FocusDetector;
@@ -137,7 +139,9 @@ export interface StudyRoomSessionOptions {
    * 훅이 모른다. 다른 옵션과 달리 매 렌더 ref로 갱신해 제출 시점의 최신 함수를 부른다. 세션 시작 시각은
    * 훅 안에만 있어 인자로 넘긴다. 없으면 필드를 싣지 않는다(소셜룸 등).
    */
-  readonly getCompletedTaskIds?: (startedAtMs: number) => number[];
+  readonly getCompletedTaskIds?: (
+    startedAtMs: number,
+  ) => number[] | undefined | Promise<number[] | undefined>;
   /**
    * 계측용 배경음 사용 시간 조회 — 종료 시점에 한 번 읽어 `study_session_ended`에 싣는다.
    * `roomType`처럼 세션 로직에는 관여하지 않는다.
@@ -257,7 +261,16 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         priorEvents: [] as StatusEventPayload[],
         serverSeenMs: 0,
         restored: false,
-        subjectTracker: createSubjectSegmentTracker(),
+        subjectTracker:
+          options.initialSubjectId !== undefined &&
+          Number.isSafeInteger(options.initialSubjectId) &&
+          options.initialSubjectId > 0
+            ? selectSubjectSegment(
+                createSubjectSegmentTracker(),
+                options.initialSubjectId,
+                startedAtMs,
+              )
+            : createSubjectSegmentTracker(),
       };
     }
     const priorEvents = [...restored.events];
@@ -307,6 +320,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const submitInFlightRef = useRef(false);
   // 진행 스냅샷 보고 가드 — 겹침·정지·중복보고를 각각 막는다.
   const snapshotInFlightRef = useRef(false);
+  const requestSnapshotRef = useRef<(() => void) | null>(null);
   const snapshotStoppedRef = useRef(false);
   const snapshotErrorReportedRef = useRef(false);
 
@@ -635,17 +649,36 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     return () => clearInterval(timer);
   }, [applyState, detectionParams, phase.name, refreshDisplay, tickMs]);
 
-  // studying 동안만 30초마다 진행 스냅샷을 서버에 보고한다. 강제종료로 최종 제출이 안 와도
+  // studying 동안 30초마다, 과목을 선택하면 즉시 진행 스냅샷을 서버에 보고한다. 강제종료로 최종 제출이 안 와도
   // 서버가 마지막 스냅샷으로 세션을 자동 확정한다.
   useEffect(() => {
     if (phase.name !== "studying" || userId === null) {
       return;
     }
-    const timer = setInterval(() => {
-      if (snapshotStoppedRef.current || snapshotInFlightRef.current) {
+    let disposed = false;
+    let queued = false;
+    let clockRetry: ReturnType<typeof setTimeout> | undefined;
+    const send = () => {
+      if (disposed || snapshotStoppedRef.current) return;
+      if (snapshotInFlightRef.current) {
+        queued = true;
         return;
       }
+      queued = false;
       const nowMs = Date.now();
+      const tracker = subjectTrackerRef.current;
+      const lastClosed = tracker.closed[tracker.closed.length - 1];
+      const subjectBoundaryMs =
+        tracker.current?.startedAtMs ??
+        (lastClosed ? Date.parse(lastClosed.endedAt) : startedAtMsRef.current);
+      // 타이머가 실행돼도 제한된 벽시계 정밀도로 같은 시각일 수 있다.
+      // 선택 해제도 마지막 구간의 끝보다 보고 시각이 늦어야 복구 시 다시 선택되지 않는다.
+      if (nowMs <= Math.max(startedAtMsRef.current, subjectBoundaryMs)) {
+        clearTimeout(clockRetry);
+        clockRetry = setTimeout(send, 10);
+        return;
+      }
+      clearTimeout(clockRetry);
       const totals = withBase(computeSessionTotals(timelineRef.current, nowMs));
       const events = allEvents(nowMs);
       snapshotInFlightRef.current = true;
@@ -674,9 +707,20 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         })
         .finally(() => {
           snapshotInFlightRef.current = false;
+          if (queued && !disposed) send();
         });
-    }, 30_000);
-    return () => clearInterval(timer);
+    };
+    requestSnapshotRef.current = send;
+    const initialReport =
+      subjectTrackerRef.current.current !== null ? setTimeout(send, 1) : undefined;
+    const timer = setInterval(send, 30_000);
+    return () => {
+      disposed = true;
+      requestSnapshotRef.current = null;
+      clearTimeout(initialReport);
+      clearTimeout(clockRetry);
+      clearInterval(timer);
+    };
   }, [allEvents, phase.name, userId, withBase]);
 
   /**
@@ -807,6 +851,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     subjectTrackerRef.current = selectSubjectSegment(subjectTrackerRef.current, next, nowMs);
     setSubjectTracker(subjectTrackerRef.current);
     refreshDisplay(nowMs);
+    // 0ms 구간은 서버에 보낼 수 없어 다음 밀리초에 새 과목 구간을 포함한다.
+    setTimeout(() => requestSnapshotRef.current?.(), 1);
   };
 
   const flipCamera = async (): Promise<CameraFlipResult> => {
@@ -911,7 +957,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       submitAttemptRef.current += 1;
       const attempt = submitAttemptRef.current;
       await Promise.resolve()
-        .then(() =>
+        .then(async () =>
           submitStudySession({
             startedAtMs: startedAtMsRef.current,
             endedAtMs,
@@ -920,7 +966,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
             events,
             subjectSegments: materializeSubjectSegments(subjectTrackerRef.current, endedAtMs),
             // 재시도도 같은 시작 시각으로 다시 파생한다 — 그 사이 체크한 할 일이 있으면 함께 실린다.
-            completedTaskIds: getCompletedTaskIdsRef.current?.(startedAtMsRef.current),
+            completedTaskIds: await getCompletedTaskIdsRef.current?.(startedAtMsRef.current),
           }),
         )
         .then((sessions) => {
@@ -930,6 +976,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           // 네이티브 웹뷰에서는 세션이 별도 document라 이 호출이 홈 탭에 닿지 않고,
           // 모달이 닫힐 때 네이티브가 보내는 session-closed 신호가 홈 탭을 무효화한다.
           void queryClient.invalidateQueries({ queryKey: statsKeys.all });
+          void queryClient.invalidateQueries({ queryKey: plannerKeys.all });
           setPhase({ name: "done", sessions });
         })
         .catch((error: unknown) => {

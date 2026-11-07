@@ -80,6 +80,7 @@ describe("RoomMenu", () => {
     render(<RoomMenu items={items} onSelect={vi.fn()} defaultOpen />);
     expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
       "초대하기",
+      "그룹 소개 보기",
       "멤버 보기",
       "그룹 나가기",
     ]);

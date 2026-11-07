@@ -471,18 +471,18 @@ describe("SessionListItem", () => {
     expect(screen.getByText("07:30 ~ 07:50")).toBeInTheDocument();
   });
 
-  it("끊기지 않고 1분 이상 집중한 구간이 없으면 최대 집중 시간을 1분 미만으로 적고 구간은 적지 않는다", () => {
-    // 22:30:00~22:31:30 세션이 50초 집중 뒤 멈췄다가 끝났다 — 가장 긴 구간이 1분에 못 미친다.
+  it("집중한 구간이 없으면 최대 집중 시간을 1초 미만으로 적고 구간은 적지 않는다", () => {
+    // 22:30:00~22:31:30 세션이 처음부터 끝까지 멈춰 있다 — 집중한 구간이 없다.
     const brief = session({
       startedAt: "2026-09-18T22:30:00Z",
       endedAt: "2026-09-18T22:31:30Z",
       events: [
-        { status: "PHONE", startedAt: "2026-09-18T22:30:50Z", endedAt: "2026-09-18T22:31:30Z" },
+        { status: "PHONE", startedAt: "2026-09-18T22:30:00Z", endedAt: "2026-09-18T22:31:30Z" },
       ],
     });
     render(sessionRow(brief, { expanded: true }));
 
-    expect(screen.getByText("최대 집중 시간").nextElementSibling).toHaveTextContent(/^1분 미만$/);
+    expect(screen.getByText("최대 집중 시간").nextElementSibling).toHaveTextContent(/^1초 미만$/);
     expect(screen.queryByText(/~/)).not.toBeInTheDocument();
   });
 });

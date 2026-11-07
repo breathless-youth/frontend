@@ -6,7 +6,6 @@ import type {
   RankingRecordType,
   RankingRecordsPage,
   RankingRecordsSummary,
-  RankingSessionGainsResponse,
   RankingType,
   RankingUnseenResponse,
   TimeSlot,
@@ -185,31 +184,4 @@ export async function postRankingRecordsSeen(ids: readonly number[]): Promise<vo
   if (!res.ok) {
     throw await parseApiError(res, "ranking records mark seen failed");
   }
-}
-
-/**
- * 세션 뒤 오른 순위 조회
- *
- * `startedAt`은 제출한 세션의 시작 시각이다.
- * 그 시각으로 제출된 내 세션이 없으면 서버가 404를 주는데, 결과 화면에는 오른 판이 없는 것과 같아 빈 응답으로 바꾼다.
- */
-export async function getRankingSessionGains(
-  startedAt: string,
-  signal?: AbortSignal,
-): Promise<RankingSessionGainsResponse> {
-  const dev = await devMock();
-  if (dev !== null) {
-    return dev.mock.mockSessionGains(dev.scene);
-  }
-  const res = await apiFetch(
-    `${API_BASE_URL}/api/rankings/session-gains${toQuery([["startedAt", startedAt]])}`,
-    { endpoint: "rankingSessionGains", method: "GET", signal },
-  );
-  if (res.status === 404) {
-    return { weekly: null, others: [] };
-  }
-  if (!res.ok) {
-    throw await parseApiError(res, "post-session ranking fetch failed");
-  }
-  return (await res.json()) as RankingSessionGainsResponse;
 }

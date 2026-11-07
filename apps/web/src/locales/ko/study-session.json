@@ -14,7 +14,8 @@
   },
   "exitDescription": {
     "saved": "지금까지 집중한 {{duration}}은 저장돼요",
-    "subMinute": "1분 미만 공부는 기록에 표시되지 않아요"
+    "savedSeconds": "지금까지 집중한 {{duration}}는 저장돼요",
+    "noFocus": "1분 미만 공부는 기록에 표시되지 않아요"
   },
   "inviteConfirm": {
     "title": "진행 중인 공부를 종료하고 초대에 참여할까요?",
@@ -35,7 +36,7 @@
     "noAlternative": "전환할 카메라가 없어요",
     "cameraOff": "카메라가 꺼져 있어요"
   },
-  "subMinuteEnd": {
+  "noFocusEnd": {
     "title": "공부를 마쳤어요",
     "cta": "홈으로"
   },
@@ -60,7 +61,6 @@
     "server": "세션을 저장하지 못했어요. 잠시 후 다시 시도해 주세요"
   },
   "duration": {
-    "underMinute": "1분 미만",
     "srHours": "{{count}}시간",
     "srMinutes": "{{count}}분",
     "srSeconds": "{{count}}초"
@@ -99,7 +99,7 @@
     "taskLimit": "할 일은 과목마다 최대 30개까지 만들 수 있어요",
     "loadFailed": "과목을 불러오지 못했어요",
     "saveFailed": "저장하지 못했어요. 다시 시도해주세요",
-    "duplicateName": "이미 있는 과목이에요",
+    "duplicateName": "이미 같은 이름의 과목이 있어요",
     "overLimit": "{{count}}자까지 쓸 수 있어요",
     "suggestions": "추천 과목",
     "subjectName": "과목 이름",

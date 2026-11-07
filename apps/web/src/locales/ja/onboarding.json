@@ -10,7 +10,7 @@
     "titleTop": "勉強しているあいだ",
     "titleBottom": "プランナーに自動で記録されます",
     "aria": {
-      "mock": "プランナーのタイムテーブルに集中時間が1マスずつ埋まっていく画面"
+      "mock": "科目別のタスクと勉強時間を分単位で記録した日間プランナー"
     }
   },
   "groupStudy": {
@@ -62,20 +62,28 @@
     "privacy": "映像は保存しません"
   },
   "planner": {
-    "date": "10月21日（水）",
+    "date": "11月7日",
     "dday": "期末テスト",
     "focusLabel": "集中時間",
     "math": "数学",
     "english": "英語",
     "korean": "国語",
     "rest": "休憩",
-    "noSubject": "科目なし"
+    "noSubject": "科目なし",
+    "dayName": "土",
+    "daily": "日間",
+    "weekly": "週間",
+    "addTask": "タスクを追加",
+    "addSubject": "科目を追加",
+    "editRecords": "記録を編集",
+    "todayTasks": "今日のタスク"
   },
   "plannerTask": {
     "calculus": "微積分 第3章の復習",
     "pastExams": "過去問20問",
     "vocab": "英単語100個",
-    "reading": "長文読解4題"
+    "reading": "長文読解4題",
+    "listening": "リスニング1回"
   },
   "room": {
     "total": "合計"

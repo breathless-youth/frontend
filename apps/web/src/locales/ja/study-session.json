@@ -14,7 +14,8 @@
   },
   "exitDescription": {
     "saved": "ここまで集中した{{duration}}は保存されます",
-    "subMinute": "1分未満の勉強は記録に表示されません"
+    "savedSeconds": "ここまで集中した{{duration}}は保存されます",
+    "noFocus": "1分未満の勉強は記録に表示されません"
   },
   "inviteConfirm": {
     "title": "進行中の勉強を終了して、招待に参加しますか？",
@@ -35,7 +36,7 @@
     "noAlternative": "切り替えられるカメラがありません",
     "cameraOff": "カメラがオフになっています"
   },
-  "subMinuteEnd": {
+  "noFocusEnd": {
     "title": "勉強を終えました",
     "cta": "ホームへ"
   },
@@ -60,7 +61,6 @@
     "server": "勉強の記録を保存できませんでした。しばらくしてからもう一度お試しください"
   },
   "duration": {
-    "underMinute": "1分未満",
     "srHours": "{{count}}時間",
     "srMinutes": "{{count}}分",
     "srSeconds": "{{count}}秒"

@@ -28,6 +28,7 @@ import Constants from "expo-constants";
 
 import type { MetaAppEventParamValue } from "@focusmakers/types";
 
+import { setAirbridgeTrackingAllowed } from "./airbridge";
 import { withTimeout } from "./withTimeout";
 
 /** Meta 앱 이벤트 파라미터. 값 타입은 브리지 계약(`MetaAppEventParamValue`)과 같은 것을 쓴다 — 이 모듈이
@@ -105,8 +106,10 @@ export function initMetaAds(): Promise<void> {
 /**
  * ATT 응답을 SDK에 알린다. 상한 안에 온 응답과 상한 뒤에 온 응답이 모두 이 길로 들어오므로 두 번
  * 불릴 수 있다 — 같은 값을 다시 쓰는 것이라 무해하다(SDK 쪽도 멱등이다).
+ * ATT 창은 이 모듈만 띄우므로 Airbridge 수집 여부도 여기서 정한다. 응답이 오지 않으면 Airbridge는 꺼진 채다.
  */
 async function applyTracking(sdk: MetaAdsAdapter, granted: boolean): Promise<void> {
+  setAirbridgeTrackingAllowed(granted);
   await sdk.setAdvertiserTrackingEnabled(granted);
 }
 

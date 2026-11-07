@@ -10,7 +10,7 @@
     "titleTop": "在你讀書的同時",
     "titleBottom": "自動記錄到讀書計畫",
     "aria": {
-      "mock": "讀書計畫的時間表依專注時間逐格填滿的畫面"
+      "mock": "顯示各科待辦事項與精確到分鐘的讀書時間的每日計畫表"
     }
   },
   "groupStudy": {
@@ -62,20 +62,28 @@
     "privacy": "不會儲存影像"
   },
   "planner": {
-    "date": "10月21日 週三",
+    "date": "11月7日",
     "dday": "期末考",
     "focusLabel": "專注時間",
     "math": "數學",
     "english": "英文",
     "korean": "國文",
     "rest": "休息",
-    "noSubject": "無科目"
+    "noSubject": "無科目",
+    "dayName": "週六",
+    "daily": "每日",
+    "weekly": "每週",
+    "addTask": "新增待辦",
+    "addSubject": "新增科目",
+    "editRecords": "編輯記錄",
+    "todayTasks": "今日待辦"
   },
   "plannerTask": {
     "calculus": "複習微積分第 3 章",
     "pastExams": "考古題 20 題",
     "vocab": "單字 100 個",
-    "reading": "閱讀測驗 4 篇"
+    "reading": "閱讀測驗 4 篇",
+    "listening": "聽力練習1回"
   },
   "room": {
     "total": "總計"

@@ -15,6 +15,7 @@ import {
 import { nativeSocialLoginProviders, requestNativeSocialLogin } from "@/lib/nativeSocialLogin";
 import type * as NativeSocialLogin from "@/lib/nativeSocialLogin";
 import type { NativeSocialLoginResult } from "@/lib/nativeSocialLogin";
+import { __resetAuthSuccessToastForTests } from "@/lib/authSuccessToast";
 import { profileKeys } from "@/lib/profileQueries";
 import { getStudyDays } from "@/lib/statsApi";
 import { showToast } from "@/lib/toast";
@@ -43,6 +44,7 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
 }));
 
 afterEach(() => {
+  __resetAuthSuccessToastForTests();
   vi.clearAllMocks();
   vi.mocked(nativeSocialLoginProviders).mockReturnValue(["GOOGLE", "KAKAO", "APPLE"]);
 });
@@ -195,6 +197,20 @@ describe("그룹 로그인 결과", () => {
     }).subscribe(() => {});
   }
 
+  it("설정에서 로그인하면 홈 이동 없이 설정에 남아 성공을 한 번 알린다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    answerWith({ status: "success", isNewUser: false });
+    const view = renderScreen({ path: "/settings/login", entry: "settings" });
+    await press("Google로 계속하기");
+    await waitFor(() => expect(view.location()?.pathname).toBe("/settings"));
+    expect(postMessage).not.toHaveBeenCalledWith(expect.stringContaining('"type":"navigate-home"'));
+    expect(showToast).toHaveBeenCalledExactlyOnceWith("로그인을 성공했어요!", {
+      persistOnNavigation: true,
+    });
+    vi.unstubAllGlobals();
+  });
+
   it("앱이 답하기 전에는 모든 버튼을 막는다", async () => {
     vi.mocked(getStudyDays).mockReturnValue(new Promise(() => {}));
     vi.mocked(requestNativeSocialLogin).mockReturnValue(new Promise(() => {}));
@@ -282,7 +298,9 @@ describe("그룹 로그인 결과", () => {
       }),
     );
     expect(screen.queryByText("프로필 화면")).not.toBeInTheDocument();
-    expect(showToast).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledExactlyOnceWith("로그인을 성공했어요!", {
+      persistOnNavigation: true,
+    });
   });
 
   it("로그인 창을 닫으면 아무것도 하지 않고 버튼을 다시 연다", async () => {
@@ -345,6 +363,25 @@ describe("그룹 로그인 결과", () => {
       button.click();
     });
     expect(requestNativeSocialLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it("성공 응답 전에 게이트가 로그인 화면을 내려도 성공은 한 번 알린다", async () => {
+    vi.mocked(getStudyDays).mockReturnValue(new Promise(() => {}));
+    let answer: (result: NativeSocialLoginResult) => void = () => {};
+    vi.mocked(requestNativeSocialLogin).mockReturnValue(
+      new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    const { leave } = renderScreen();
+    await press("카카오로 계속하기");
+    leave();
+    await act(async () => {
+      answer({ status: "success", isNewUser: false });
+    });
+    expect(showToast).toHaveBeenCalledExactlyOnceWith("로그인을 성공했어요!", {
+      persistOnNavigation: true,
+    });
   });
 
   it("화면을 떠난 뒤 온 실패 응답은 알리지 않는다", async () => {

@@ -2,8 +2,12 @@ import type { SessionRecoveryResponse } from "@focusmakers/types";
 
 import { settleRecoveredTimelapse } from "@/features/timelapse/timelapseRecorder";
 import { API_BASE_URL, apiFetch, parseApiError } from "@/lib/api";
+import { getTokenSource } from "@/lib/auth/tokenSource";
 import { reportHandled } from "@/lib/sentry";
 import { legacyQuery } from "@/lib/userId";
+import { queryClient } from "@/lib/queryClient";
+import { plannerKeys } from "@/lib/plannerQueries";
+import { postToNative } from "@/lib/bridge";
 
 /**
  * 마감에 거는 상한. 이 시간이 지나면 결과를 기다리지 않고 화면을 넘긴다.
@@ -13,13 +17,19 @@ import { legacyQuery } from "@/lib/userId";
  */
 const DEADLINE_MS = 4_000;
 
+function isAbortError(error: unknown): boolean {
+  return (
+    typeof error === "object" && error !== null && "name" in error && error.name === "AbortError"
+  );
+}
+
 /** 한 번만 다시 시도한다. 버튼이 기다리고 있어 사이에 간격을 두지 않는다. */
 async function retryOnce<T>(signal: AbortSignal, run: () => Promise<T>): Promise<T> {
   try {
     return await run();
   } catch (error: unknown) {
     // 상한을 넘겨 우리가 끊은 것이라면 다시 보내도 같은 자리에서 끊긴다.
-    if (signal.aborted) {
+    if (signal.aborted || isAbortError(error)) {
       throw error;
     }
     return await run();
@@ -39,6 +49,8 @@ async function requestRecovery(signal: AbortSignal): Promise<SessionRecoveryResp
   if (!res.ok) {
     throw await parseApiError(res, "stale session close failed");
   }
+  void queryClient.invalidateQueries({ queryKey: plannerKeys.all });
+  postToNative({ type: "records-changed", atMs: Date.now() });
   // 여기부터 마감은 이미 성공한 상태다. 본문이 깨져 화면에 못 보여줄 뿐이면 다시 보내거나
   // 실패로 보고하지 않고 기록 없이 끝낸다 (throw하면 성공한 마감이 한 번 더 나간다).
   let body: unknown;
@@ -94,9 +106,10 @@ function isCalendarDateKey(value: string): boolean {
  * 그 규칙이 성립하려면 의도적으로 새로 시작하는 경로에서 옛 세션이 먼저 사라져 있어야 한다.
  * 판별과 확정을 서버가 한 번에 하므로 여기서는 결과를 읽지 않고 완료만 기다린다.
  *
- * 어떤 실패에서도 throw하지 않고, 상한을 넘기면 기다리지 않는다
+ * 일반 실패에서는 throw하지 않고, 상한을 넘기면 기다리지 않는다
  * (세션 시작을 네트워크 상태로 막지 않는 것이 더 중요하다).
  * 마감하지 못한 세션은 일정 시간 뒤 서버가 자동 확정하므로 기록은 사라지지 않는다.
+ * 계정이 바뀌면 AbortError를 전파해 이전 계정의 시작·입장 흐름까지 중단한다.
  *
  * 확정한 기록 요약을 돌려준다. 마감할 세션이 없거나 실패하면 null이다.
  * 앱 실행 복구가 이 값으로 안내 모달을 채운다.
@@ -109,28 +122,55 @@ export async function closeStaleSession(
     return null;
   }
   const controller = new AbortController();
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<null>((resolve) => {
-    timer = setTimeout(() => {
+  const source = getTokenSource();
+  let changedAccount = false;
+  const checkOwner = () => {
+    if (
+      changedAccount ||
+      getTokenSource() !== source ||
+      (source !== null && source.getUserId() !== userId)
+    ) {
+      changedAccount = true;
       controller.abort();
-      resolve(null);
-    }, DEADLINE_MS);
+      throw new DOMException("session recovery account changed", "AbortError");
+    }
+  };
+  let stopWaiting = () => {};
+  const cancelled = new Promise<null>((resolve) => {
+    const finish = () => resolve(null);
+    controller.signal.addEventListener("abort", finish, { once: true });
+    stopWaiting = () => controller.signal.removeEventListener("abort", finish);
   });
+  const unsubscribe = source?.subscribe((snapshot) => {
+    if (snapshot.userId !== userId) {
+      // A → B → A도 취소를 되돌리지 않는다. 응답 본문 대기와 외부 재시도까지 같은 소유자다.
+      changedAccount = true;
+      controller.abort();
+    }
+  });
+  let timer: ReturnType<typeof setTimeout> | undefined;
   let recovered: SessionRecoveryResponse | null;
   try {
+    checkOwner();
+    timer = setTimeout(() => controller.abort(), DEADLINE_MS);
     recovered = await Promise.race([
-      retryOnce(controller.signal, () => requestRecovery(controller.signal)).catch(
-        (error: unknown): null => {
-          if (!controller.signal.aborted) {
-            reportHandled(error, "stale-session-close");
-          }
-          return null;
-        },
-      ),
-      deadline,
+      retryOnce(controller.signal, () => {
+        checkOwner();
+        return requestRecovery(controller.signal);
+      }).catch((error: unknown): null => {
+        checkOwner();
+        if (!controller.signal.aborted && !isAbortError(error)) {
+          reportHandled(error, "stale-session-close");
+        }
+        return null;
+      }),
+      cancelled,
     ]);
+    checkOwner();
   } finally {
     clearTimeout(timer);
+    unsubscribe?.();
+    stopWaiting();
   }
   if (recovered !== null) {
     // 기기 저장소 정리 때문에 새 세션 시작이 늦어지면 안 되어 기다리지 않는다.

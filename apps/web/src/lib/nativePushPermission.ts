@@ -60,7 +60,7 @@ export function requestPushPermission(): Promise<PushPermissionResult> {
   return pending;
 }
 
-let askedOnHomeArrival = false;
+let homeArrivalRequest: Promise<PushPermissionResult> | null = null;
 
 /**
  * 온보딩을 거치지 않는 계정의 홈 도착 요청
@@ -68,15 +68,14 @@ let askedOnHomeArrival = false;
  * 홈은 탭을 오가며 다시 마운트되므로 문서당 한 번만 보낸다.
  * 이미 답한 기기에서는 앱이 창 없이 저장된 답을 돌려줘서 사용자에게는 처음 한 번만 보인다.
  */
-export function requestPushPermissionOnHomeArrival(): void {
-  if (askedOnHomeArrival) return;
-  askedOnHomeArrival = true;
-  void requestPushPermission();
+export function requestPushPermissionOnHomeArrival(): Promise<PushPermissionResult> {
+  homeArrivalRequest ??= requestPushPermission();
+  return homeArrivalRequest;
 }
 
 /** 테스트마다 URL을 바꿔 판정하도록 캐시와 진행 중인 요청을 비운다. */
 export function __resetNativePushPermissionForTests(): void {
   flagCache = null;
   pending = null;
-  askedOnHomeArrival = false;
+  homeArrivalRequest = null;
 }

@@ -61,7 +61,7 @@ const CTA_BOTTOM = "calc(100% + 12px)";
  * 하단 버튼 바로 위에 띄우는 Toaster. `relative` 부모 안에 두면 부모 윗변에서 12px 위에 뜬다.
  * 가로 모드 격자에서도 버튼 영역을 따라가야 해서 화면 고정이 아니라 부모 기준으로 둔다.
  */
-export function CtaToaster() {
+export function CtaToaster({ appearance }: { appearance?: "planner" | "planner-limit" } = {}) {
   // Sonner의 5초 타이머는 토스트 컴포넌트 안에 있다. 토스트가 떠 있을 때 이 Toaster가 먼저
   // 사라지면 토스트가 스토어에 남았다가, 다음에 마운트되는 CtaToaster에서 다시 뜬다.
   useEffect(() => {
@@ -74,15 +74,21 @@ export function CtaToaster() {
   return (
     <Toaster
       id={CTA_TOASTER_ID}
-      className="absolute!"
+      className={appearance ? "absolute! inset-x-4! mx-0! w-auto! transform-none!" : "absolute!"}
       // 전역 Toaster도 빈 알림 영역을 늘 그리므로, 스크린리더에서 이름이 겹치지 않게 한다.
       customAriaLabel={t("aria.ctaToaster")}
-      bottom={CTA_BOTTOM}
-      // 부모가 버튼 사이처럼 좁아도 짧은 문구는 한 줄로 두고, 화면보다 긴 문구만 좌우 16px 안에서 줄을 바꾼다.
-      // 부모보다 넓어진 토스트는 왼쪽 끝에 붙어 오른쪽으로 밀리므로, 양쪽 끝 기준과 auto 여백을 풀고 부모 가운데를 기준으로 둔다.
+      bottom={appearance ? "calc(100% + 20px)" : CTA_BOTTOM}
       toastOptions={{
         classNames: {
-          toast: "right-auto! left-1/2! mx-0! w-max! max-w-[calc(100vw-32px)] -translate-x-1/2",
+          toast: appearance
+            ? cn(
+                "min-h-11 border-0 bg-[color-mix(in_srgb,var(--foreground)_92%,transparent)] text-sm leading-5 font-semibold text-white shadow-[0_8px_20px_color-mix(in_srgb,var(--foreground)_20%,transparent)] backdrop-blur-none",
+                appearance === "planner-limit"
+                  ? "w-full! rounded-2xl px-4 py-2.5 whitespace-normal"
+                  : "flex h-11 items-center rounded-full px-4.5 py-0 whitespace-nowrap",
+              )
+            : // 좁은 부모에서도 가운데에 두고, 화면보다 긴 문구는 좌우 16px 안에서 줄을 바꾼다.
+              "right-auto! left-1/2! mx-0! w-max! max-w-[calc(100vw-32px)] -translate-x-1/2",
         },
       }}
     />

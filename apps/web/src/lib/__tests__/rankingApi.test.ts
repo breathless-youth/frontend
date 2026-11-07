@@ -6,7 +6,6 @@ import {
   getRankingRecords,
   getRankingRecordsSummary,
   getRankingRecordsUnseen,
-  getRankingSessionGains,
   postRankingRecordsSeen,
 } from "@/lib/rankingApi";
 import { FIXTURE_UNSEEN_ONE } from "@/lib/rankingFixtures";
@@ -149,39 +148,5 @@ describe("노출 지점 호출", () => {
     apiFetch.mockResolvedValue(new Response("{}", { status: 400 }));
 
     await expect(postRankingRecordsSeen([1])).rejects.toThrow();
-  });
-
-  it("오른 순위는 startedAt을 쿼리로 싣고 rankingSessionGains로 GET한다", async () => {
-    apiFetch.mockResolvedValue(ok({ weekly: { before: 9, after: 7, delta: 2 }, others: [] }));
-    const controller = new AbortController();
-
-    await expect(
-      getRankingSessionGains("2026-10-12T00:00:00.000Z", controller.signal),
-    ).resolves.toEqual({ weekly: { before: 9, after: 7, delta: 2 }, others: [] });
-    expect(apiFetch).toHaveBeenCalledWith(
-      expect.stringMatching(
-        /\/api\/rankings\/session-gains\?startedAt=2026-10-12T00%3A00%3A00\.000Z$/,
-      ),
-      expect.objectContaining({
-        endpoint: "rankingSessionGains",
-        method: "GET",
-        signal: controller.signal,
-      }),
-    );
-  });
-
-  it("그 시각의 세션이 없다는 404는 오른 판이 없는 응답으로 바꾼다", async () => {
-    apiFetch.mockResolvedValue(new Response("{}", { status: 404 }));
-
-    await expect(getRankingSessionGains("2026-10-12T00:00:00.000Z")).resolves.toEqual({
-      weekly: null,
-      others: [],
-    });
-  });
-
-  it("404가 아닌 실패는 throw한다", async () => {
-    apiFetch.mockResolvedValue(new Response("{}", { status: 500 }));
-
-    await expect(getRankingSessionGains("2026-10-12T00:00:00.000Z")).rejects.toThrow();
   });
 });

@@ -10,6 +10,7 @@ import { sanitizePagePath } from "@/lib/sanitizePath";
  * 탭 바 없는 전체 화면 라우트의 상단 바 (웹 버전)
  */
 type ScreenBackHeaderProps = {
+  appearance?: "plain";
   title?: string;
   onBack?: () => void;
   /**
@@ -28,7 +29,13 @@ type ScreenBackHeaderProps = {
   trailing?: ReactNode;
 };
 
-export function ScreenBackHeader({ title, onBack, center, trailing }: ScreenBackHeaderProps) {
+export function ScreenBackHeader({
+  title,
+  onBack,
+  center,
+  trailing,
+  appearance,
+}: ScreenBackHeaderProps) {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -36,6 +43,7 @@ export function ScreenBackHeader({ title, onBack, center, trailing }: ScreenBack
     <GlassChrome
       top={{
         leading: "back",
+        appearance,
         title,
         center,
         trailing,

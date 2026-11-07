@@ -1,6 +1,6 @@
 import type { StudySessionResponse } from "@focusmakers/types";
 
-import { SUB_MINUTE_SEC } from "@/features/study-session/formatDuration";
+import { MIN_RECORDED_FOCUS_SEC } from "@/features/study-session/formatDuration";
 import type { SessionEndReason } from "@/features/study-session/sessionState";
 import i18n from "@/lib/i18n";
 
@@ -19,7 +19,10 @@ export function resolveLiveRoomDoneNavigation(input: {
 }): LiveRoomDoneNavigation {
   const { expired, endReason, focusSec, sessions } = input;
   const showResult =
-    !expired && endReason?.kind === "MANUAL" && focusSec >= SUB_MINUTE_SEC && sessions.length > 0;
+    !expired &&
+    endReason?.kind === "MANUAL" &&
+    focusSec >= MIN_RECORDED_FOCUS_SEC &&
+    sessions.length > 0;
   return showResult ? { to: "result", sessions } : { to: "home" };
 }
 

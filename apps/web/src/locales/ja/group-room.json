@@ -21,6 +21,7 @@
   },
   "roomMenu": {
     "item": {
+      "viewIntro": "グループ紹介を見る",
       "requests": "参加リクエスト",
       "invite": "招待",
       "manageMembers": "メンバー管理",
@@ -204,6 +205,8 @@
     "cancelApplication": "リクエストをキャンセル"
   },
   "publicRoomsView": {
+    "expandCategories": "もっと見る",
+    "collapseCategories": "閉じる",
     "noneTitle": "まだ公開グループがありません",
     "noneDescription": "最初の公開グループを作って、一緒に勉強する仲間を集めましょう",
     "filteredTitle": "条件に合う公開グループがありません",
@@ -254,6 +257,8 @@
     "newRequests": "新しい参加リクエスト {{count}}件"
   },
   "roomHomeScreen": {
+    "introTitle": "グループ紹介",
+    "emptyIntro": "グループ紹介はまだありません",
     "todayTitle": "今日のグループ",
     "newRequests": "新しい参加リクエストが{{count}}件あります",
     "review": "確認",

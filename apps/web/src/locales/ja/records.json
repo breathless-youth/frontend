@@ -87,7 +87,7 @@
     "startTime": "開始時刻",
     "endTime": "終了時刻",
     "longestFocus": "最長集中時間",
-    "underMinute": "1分未満",
+    "underSecond": "1秒未満",
     "aria": {
       "summary": "{{start}}から{{end}}まで、集中{{focus}}、集中率{{rate}}"
     }

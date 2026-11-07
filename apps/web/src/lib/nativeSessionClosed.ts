@@ -4,6 +4,7 @@ import { subscribeToNativeMessages } from "./bridge";
 import { queryClient } from "./queryClient";
 import { rankingKeys } from "./rankingQueries";
 import { statsKeys } from "./statsQueries";
+import { plannerKeys } from "./plannerQueries";
 
 /**
  * 세션 모달 닫힘 신호 구독
@@ -20,6 +21,7 @@ export function useNativeSessionClosed(): void {
       if (message.type === "session-closed") {
         void queryClient.invalidateQueries({ queryKey: statsKeys.all });
         void queryClient.invalidateQueries({ queryKey: rankingKeys.all });
+        void queryClient.invalidateQueries({ queryKey: plannerKeys.all });
       }
     });
   }, []);

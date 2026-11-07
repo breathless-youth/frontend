@@ -133,7 +133,20 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       };
     }
     case "start-session":
-      return { type: "start-session", atMs: record.atMs };
+      if (
+        record.initialSubjectId !== undefined &&
+        (typeof record.initialSubjectId !== "number" ||
+          !Number.isSafeInteger(record.initialSubjectId) ||
+          record.initialSubjectId <= 0)
+      )
+        return null;
+      return {
+        type: "start-session",
+        atMs: record.atMs,
+        ...(record.initialSubjectId === undefined
+          ? {}
+          : { initialSubjectId: record.initialSubjectId as number }),
+      };
     case "navigate-home": {
       // 이어서 열 탭과 초대코드는 선택 필드다.
       // 명세 밖 값이면 그 필드만 빼고 모달 닫기는 살린다(탭이 빠지면 홈 탭에 머문다).

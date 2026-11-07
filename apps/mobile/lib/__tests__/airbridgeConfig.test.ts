@@ -1,6 +1,7 @@
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
 import buildConfig from "../../app.config";
+import airbridgeJson from "../../airbridge.json";
 import appJson from "../../app.json";
 import mobilePackageJson from "../../package.json";
 
@@ -60,6 +61,16 @@ describe("Airbridge SDK 설정", () => {
     expect(cfg.extra?.airbridgeEnabled).toBe(false);
   });
 
+  it("토큰이 없어도 네이티브 SDK를 빌드할 Maven 저장소는 유지한다", () => {
+    const cfg = resolveConfig({});
+    const buildProperties = cfg.plugins?.find(
+      (plugin) => pluginName(plugin) === "expo-build-properties",
+    ) as [string, { android?: { extraMavenRepos?: string[] } }];
+    expect(buildProperties[1].android?.extraMavenRepos).toContain(
+      "https://sdk-download.airbridge.io/maven",
+    );
+  });
+
   it("토큰이 있으면 앱 이름과 토큰으로 plugin이 붙고 런타임이 켜진다", () => {
     const cfg = resolveConfig({ AIRBRIDGE_APP_TOKEN: TOKEN });
     expect(findPlugin(cfg)).toEqual([
@@ -86,6 +97,10 @@ describe("Airbridge SDK 설정", () => {
       const cfg = resolveConfig({ APP_VARIANT: variant, EAS_BUILD: "true" });
       expect(findPlugin(cfg)).toBeUndefined();
     }
+  });
+
+  it("SDK는 꺼진 채 시작한다 — iOS는 앱 추적을 허용한 뒤에만 켠다(개인정보 처리방침의 약속)", () => {
+    expect(airbridgeJson).toEqual({ autoStartTrackingEnabled: false });
   });
 
   it("두 SDK는 정확한 버전으로 고정한다 — config plugin과 네이티브 SDK 버전이 함께 묶인다", () => {

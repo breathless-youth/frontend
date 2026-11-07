@@ -9,6 +9,7 @@ import type * as LazyRoutes from "@/routes/lazyRoutes";
 
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { __resetGroupRoomsForTests } from "@/lib/groupRoomCapability";
+import { __resetNativeSocialLoginForTests } from "@/lib/nativeSocialLogin";
 import { __resetNativeAccountForTests } from "@/lib/nativeAccount";
 import { getProfile } from "@/lib/profileApi";
 import { showToast } from "@/lib/toast";
@@ -75,15 +76,18 @@ function reply(message: Record<string, unknown>) {
 function renderSettings({
   loginProvider,
   flag = true,
+  social = false,
 }: {
   loginProvider: SocialLoginProvider | null;
   flag?: boolean;
+  social?: boolean;
 }) {
   vi.mocked(getProfile).mockResolvedValue({ ...PROFILE, loginProvider });
-  const path = `/settings?userId=1${flag ? "&accountActions=1" : ""}`;
+  const path = `/settings?userId=1${flag ? "&accountActions=1" : ""}${social ? "&socialLogin=GOOGLE" : ""}`;
   window.history.replaceState(null, "", path);
   __resetGroupRoomsForTests();
   __resetNativeAccountForTests();
+  __resetNativeSocialLoginForTests();
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
@@ -107,6 +111,16 @@ afterEach(() => {
 });
 
 describe("설정 계정 섹션", () => {
+  it("소셜 로그인 지원 앱의 비회원에게 로그인하기를 보인다", async () => {
+    renderSettings({ loginProvider: null, social: true });
+    expect(await screen.findByRole("button", { name: "로그인하기" })).toBeInTheDocument();
+  });
+
+  it("로그인한 사용자에게 로그인하기를 보이지 않는다", async () => {
+    renderSettings({ loginProvider: "GOOGLE", social: true });
+    expect(await screen.findByRole("button", { name: "로그아웃" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "로그인하기" })).toBeNull();
+  });
   it("비회원에게는 보이지 않는다", async () => {
     renderSettings({ loginProvider: null });
 

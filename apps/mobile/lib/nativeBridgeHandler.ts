@@ -42,7 +42,7 @@ import { profilePhotoPickerNative } from "../modules/profile-photo-picker";
 /**
  * 계정이 바뀐 뒤 처음 화면으로
  *
- * 탭 웹뷰마다 이전 계정의 조회 캐시가 남아 있어 모든 웹뷰를 탭 첫 화면으로 다시 띄우고 홈 탭으로 옮긴다.
+ * 탭 웹뷰마다 이전 계정의 조회 캐시가 남아 있어 모든 웹뷰를 탭 첫 화면으로 다시 띄우고 설정 탭에 머문다.
  * 완료 이벤트는 sink를 먼저 떼고 남겨, 사라질 문서가 아니라 새로 준비되는 문서가 받게 한다.
  * 다음 실행의 시작 오버레이도 이전 계정의 목표 문구를 보이지 않게 지운다.
  * 다 지운 뒤에 다시 띄워야 새 계정의 첫 프로필 조회가 저장한 목표 문구를 늦게 끝난 지우기가 없애지 않는다.
@@ -55,7 +55,7 @@ async function restartAsNewAccount(
   trackNativeEvent(event, { provider });
   await clearLaunchGoal();
   emitAccountReset();
-  router.navigate("/");
+  router.navigate("/settings");
 }
 
 /** 웹으로 응답을 되돌려 보내는 통로 — `RemoteWebViewHost`의 `injectJavaScript`가 구현한다. */
@@ -168,7 +168,14 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
           startSessionInFlight = false;
           return;
         }
-        router.push("/room/1");
+        router.push(
+          message.initialSubjectId === undefined
+            ? "/room/1"
+            : {
+                pathname: "/room/[id]",
+                params: { id: "1", initialSubjectId: String(message.initialSubjectId) },
+              },
+        );
         releaseStartSessionOnScreenClose();
       })().catch((error: unknown) => {
         console.warn("[bridge] 집중 시작(start-session) 처리 실패", error);

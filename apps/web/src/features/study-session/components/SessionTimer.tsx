@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
 
+import { formatDuration } from "@/features/records/recordsFormat";
 import { formatElapsed, toKoreanDuration } from "../formatDuration";
 import type { SessionStatusPillState } from "./SessionStatusPill";
 
@@ -130,21 +131,32 @@ export function SessionTimer({
 export function SessionPageHeaderTime({
   focusSec,
   stateColor,
+  variant,
 }: {
   focusSec: number;
   stateColor?: string;
+  variant?: "planner";
 }) {
   const { t } = useTranslation("study-session");
   return (
     <p
-      className="ml-auto shrink-0 pr-4 text-[20px] leading-6 font-extrabold tracking-[-0.3px] text-(--session-state-color) tabular-nums"
+      className={cn(
+        "ml-auto shrink-0 text-[20px] tabular-nums",
+        variant === "planner"
+          ? "leading-6.5 font-bold text-primary"
+          : "pr-4 leading-6 font-extrabold tracking-[-0.3px] text-(--session-state-color)",
+      )}
       style={
         stateColor === undefined
           ? undefined
           : ({ "--session-state-color": stateColor } as CSSProperties)
       }
     >
-      <span aria-hidden="true">{formatElapsed(focusSec)}</span>
+      <span aria-hidden="true">
+        {variant === "planner"
+          ? formatDuration(Math.ceil(focusSec / 60) * 60)
+          : formatElapsed(focusSec)}
+      </span>
       <span className="sr-only">
         {t("timer.srFocus", { duration: toKoreanDuration(focusSec) })}
       </span>

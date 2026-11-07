@@ -32,7 +32,9 @@ vi.mock("@/lib/ddayApi", () => ({
   deleteDday: vi.fn(),
 }));
 vi.mock("@/lib/launchReady", () => ({ signalLaunchReady: vi.fn() }));
-vi.mock("@/lib/nativePushPermission", () => ({ requestPushPermissionOnHomeArrival: vi.fn() }));
+vi.mock("@/lib/nativePushPermission", () => ({
+  requestPushPermissionOnHomeArrival: vi.fn(() => Promise.resolve()),
+}));
 vi.mock("@/lib/noticeApi", () => ({ getActiveNotices: vi.fn(() => Promise.resolve([])) }));
 vi.mock("@/lib/rankingApi", () => ({
   getRankingRecordsUnseen: vi.fn(() => Promise.resolve({ total: 0, records: [] })),

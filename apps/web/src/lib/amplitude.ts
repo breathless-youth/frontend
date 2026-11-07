@@ -678,7 +678,7 @@ export function setGroupRoomCount(count: number) {
  * 사용자가 로그인 창을 닫은 취소는 실패가 아니라 보내지 않는다.
  */
 
-export type LoginEntry = "tab" | "invite" | "group";
+export type LoginEntry = "tab" | "invite" | "group" | "settings";
 
 export function trackLoginScreenViewed(entry: LoginEntry) {
   if (!initialized) return;
@@ -1021,11 +1021,12 @@ export const FOCUS_START_SOURCES = [
   "ranking_card",
   "ranking_empty",
   "ranking_records",
+  "planner",
 ] as const;
 export type FocusStartSource = (typeof FOCUS_START_SOURCES)[number];
 
 /**
- * 홈과 랭킹의 "집중 시작" 탭
+ * 홈·랭킹·플래너의 공부 시작 탭
  *
  * F1 퍼널의 첫 행동이자 `camera_permission_gate_resolved`의 분모다.
  * 가이드를 처음 보는 계정은 가이드의 `순공 시작하기`를 누른 뒤에 보낸다.
@@ -1415,24 +1416,6 @@ export function trackRankingMedalModalShown(input: {
 export function trackRankingMedalModalAction(action: "records" | "close") {
   if (!initialized) return;
   track("ranking_medal_modal_action", { action });
-}
-
-/**
- * 공부 결과 랭킹 카드 노출
- *
- * 방 구분은 `study_result_confirmed`와 같은 `room_type`으로 실어 결과 화면 이벤트끼리 묶어 볼 수 있게 한다.
- */
-export function trackRankingGainCardShown(input: {
-  readonly delta: number;
-  readonly chipCount: number;
-  readonly roomType: StudyRoomType;
-}) {
-  if (!initialized) return;
-  track("ranking_gain_card_shown", {
-    delta: input.delta,
-    chip_count: input.chipCount,
-    room_type: input.roomType,
-  });
 }
 
 /** 플래너 진입. `via`는 들어온 곳, `isToday`는 오늘(플래너 기준) 플래너인지. */

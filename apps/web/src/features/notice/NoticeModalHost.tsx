@@ -47,6 +47,7 @@ export function NoticeModalHost({
   paused,
   onShown,
   onSettled,
+  onOpenChange,
 }: {
   userId: number;
   /**
@@ -62,6 +63,8 @@ export function NoticeModalHost({
    * 이번 실행 표시를 저장하지 못한 기기에서도 홈이 같은 문서의 랭킹 팝업을 막을 수 있게 한다.
    */
   onShown?: () => void;
+  /** 첫 판단이 끝난 뒤 열린 공지까지 실제 모달의 열림 상태를 알린다. */
+  onOpenChange?: (open: boolean) => void;
   onSettled: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -71,11 +74,20 @@ export function NoticeModalHost({
   const pausedRef = useRef(paused);
   const onShownRef = useRef(onShown);
   const onSettledRef = useRef(onSettled);
+  const onOpenChangeRef = useRef(onOpenChange);
   useEffect(() => {
     pausedRef.current = paused;
     onShownRef.current = onShown;
     onSettledRef.current = onSettled;
+    onOpenChangeRef.current = onOpenChange;
   });
+  const isOpen = open !== null;
+  useEffect(() => {
+    onOpenChangeRef.current?.(isOpen);
+    return () => {
+      if (isOpen) onOpenChangeRef.current?.(false);
+    };
+  }, [isOpen]);
   // 이번 실행 기록이 sessionStorage에 써지지 않은 기기에서도 같은 문서에서 두 번 띄우지 않는다.
   const shownInDocRef = useRef(false);
   // 복구 창은 한 번만 기다리면 되므로 문서당 한 번만 알린다.

@@ -21,6 +21,7 @@
     "privacy": "隱私權政策",
     "licenses": "開放原始碼授權",
     "version": "版本資訊",
+    "login": "登入",
     "logout": "登出",
     "deleteAccount": "刪除帳號"
   },

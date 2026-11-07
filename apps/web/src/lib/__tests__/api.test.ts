@@ -451,3 +451,172 @@ describe("apiFetch — Bearer 부착과 401 재시도", () => {
     expect(mockedFetch).toHaveBeenCalledTimes(6);
   });
 });
+
+describe("apiFetch — 요청 도중 계정 전환", () => {
+  const originalFetch = globalThis.fetch;
+  const response = (status: number) => new Response(null, { status });
+  function nativeAccount() {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    mocks.source = createBridgeTokenSource();
+    const entry = (globalThis as unknown as Record<string, (raw: string) => void>)[
+      NATIVE_MESSAGE_ENTRY
+    ]!;
+    return {
+      postMessage,
+      emit(userId: number, accessToken: string) {
+        entry(JSON.stringify({ type: "auth-token", userId, accessToken, atMs: Date.now() }));
+      },
+    };
+  }
+  afterEach(() => {
+    mocks.source = null;
+    globalThis.fetch = originalFetch;
+    vi.unstubAllGlobals();
+  });
+
+  it("최초 인증을 기다리던 요청은 처음 확정된 계정의 토큰으로 보낸다", async () => {
+    const native = nativeAccount();
+    const fetcher = vi.fn<typeof fetch>(async () => response(200));
+    globalThis.fetch = fetcher;
+    const pending = apiFetch("/api/planner/goals/default", {
+      endpoint: "planner",
+      method: "PUT",
+      body: '{"goalSec":14400}',
+    });
+    expect(fetcher).not.toHaveBeenCalled();
+    native.emit(7, "a1");
+    expect((await pending).status).toBe(200);
+    const init = fetcher.mock.calls[0]![1] as RequestInit;
+    expect(new Headers(init.headers).get("Authorization")).toBe("Bearer a1");
+    expect(init.body).toBe('{"goalSec":14400}');
+  });
+
+  it.each([false, true])(
+    "토큰 대기 중 계정이 바뀌면 최초 요청부터 취소한다(최초 인증: %s)",
+    async (first) => {
+      const native = nativeAccount();
+      if (!first) native.emit(7, "a1");
+      const fetcher = vi.fn<typeof fetch>(async () => response(200));
+      globalThis.fetch = fetcher;
+      const pending = apiFetch("/api/planner/goals/default", {
+        endpoint: "planner",
+        method: "PUT",
+      });
+      if (first) native.emit(7, "a1");
+      native.emit(8, "b1");
+      await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+      expect(fetcher).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(["다른 계정", "원래 계정으로 복귀"])(
+    "401 대기 중 %s으로 바뀌어도 요청을 재전송하지 않는다",
+    async (change) => {
+      const native = nativeAccount();
+      native.emit(7, "a1");
+      let finish!: (value: Response) => void;
+      const first = new Promise<Response>((resolve) => {
+        finish = resolve;
+      });
+      const fetcher = vi.fn().mockReturnValueOnce(first).mockResolvedValue(response(200));
+      globalThis.fetch = fetcher;
+      const pending = apiFetch("/api/planner/goals/default", {
+        endpoint: "planner",
+        method: "PUT",
+      });
+      await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
+      native.emit(8, "b1");
+      if (change === "원래 계정으로 복귀") native.emit(7, "a2");
+      const denied = response(401);
+      finish(denied);
+      await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+      expect(fetcher).toHaveBeenCalledTimes(1);
+      expect(
+        native.postMessage.mock.calls.filter(([raw]) =>
+          String(raw).includes("request-token-refresh"),
+        ),
+      ).toHaveLength(0);
+    },
+  );
+
+  it.each([200, 401])("요청 응답 %s 전에 A→B→A가 발생하면 응답 대신 중단한다", async (status) => {
+    const native = nativeAccount();
+    native.emit(7, "a1");
+    let finish!: (value: Response) => void;
+    const fetcher = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    globalThis.fetch = fetcher;
+    const pending = apiFetch("/api/planner/goals/default", { endpoint: "planner", method: "PUT" });
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
+    native.emit(8, "b1");
+    native.emit(7, "a2");
+    finish(response(status));
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it("같은 계정으로 갱신해 보낸 재시도 응답 전에 계정이 바뀌면 성공도 중단한다", async () => {
+    const native = nativeAccount();
+    native.emit(7, "a1");
+    let finish!: (value: Response) => void;
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(response(401))
+      .mockImplementationOnce(
+        () =>
+          new Promise<Response>((resolve) => {
+            finish = resolve;
+          }),
+      );
+    globalThis.fetch = fetcher;
+    const pending = apiFetch("/api/planner/goals/default", { endpoint: "planner", method: "PUT" });
+    await vi.waitFor(() =>
+      expect(
+        native.postMessage.mock.calls.some(([raw]) =>
+          String(raw).includes("request-token-refresh"),
+        ),
+      ).toBe(true),
+    );
+    native.emit(7, "a2");
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+    native.emit(8, "b1");
+    native.emit(7, "a3");
+    finish(response(200));
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it.each([7, 8])(
+    "refresh 대기 뒤 사용자 %s를 받으면 같은 계정일 때만 재시도한다",
+    async (userId) => {
+      const native = nativeAccount();
+      native.emit(7, "a1");
+      const denied = response(401);
+      const seen: string[] = [];
+      const fetcher = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+        seen.push(new Headers(init?.headers).get("Authorization") ?? "");
+        return seen.length === 1 ? denied : response(200);
+      });
+      globalThis.fetch = fetcher;
+      const pending = apiFetch("/api/planner/goals/default", {
+        endpoint: "planner",
+        method: "PUT",
+      });
+      await vi.waitFor(() =>
+        expect(
+          native.postMessage.mock.calls.some(([raw]) =>
+            String(raw).includes("request-token-refresh"),
+          ),
+        ).toBe(true),
+      );
+      native.emit(userId, userId === 7 ? "a2" : "b1");
+      if (userId === 7) expect((await pending).status).toBe(200);
+      else await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+      expect(seen).toEqual(userId === 7 ? ["Bearer a1", "Bearer a2"] : ["Bearer a1"]);
+    },
+  );
+});

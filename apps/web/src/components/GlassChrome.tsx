@@ -16,6 +16,9 @@ import { cn } from "@/lib/utils";
  * 넘긴 채 보내면 앱이 메시지 전체를 버린다.
  */
 export type GlassChromeTopProps = {
+  /** 승인된 플래너의 웹 머리는 유리 원형 대신 투명 버튼을 쓴다. */
+  appearance?: "plain";
+  leadingContent?: ReactNode;
   leading: "back" | "close";
   /** 기본값은 `뒤로 가기`, `닫기`다. */
   leadingLabel?: string;
@@ -164,34 +167,63 @@ function GlassTopBar({ top, withLeading }: { top: GlassChromeTopProps; withLeadi
   // 오른쪽 요소는 버튼 둘까지 들어가므로 그만큼 더 비워 제목이 버튼 아래로 깔리지 않게 말줄임한다.
   const middle = cn("absolute top-0", hasTrailing(top) ? "inset-x-24" : "inset-x-14");
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-0 z-30 px-5 pt-[calc(env(safe-area-inset-top)+4px)]">
-      <div className="relative flex h-11 items-center">
+    <div
+      className={cn(
+        "pointer-events-none fixed inset-x-0 top-0 z-30 pt-[calc(env(safe-area-inset-top)+4px)]",
+        top.appearance === "plain" ? "px-2" : "px-5",
+      )}
+    >
+      <div
+        className={cn("relative flex items-center", top.appearance === "plain" ? "h-12" : "h-11")}
+      >
         {withLeading && (
           <button
             type="button"
             aria-label={leadingLabel(top)}
             onClick={top.onLeading}
-            className="pointer-events-auto flex size-11 items-center justify-center rounded-full glass-surface"
+            className={cn(
+              "pointer-events-auto flex size-11 items-center justify-center",
+              top.appearance === "plain"
+                ? "bg-transparent text-[15px] font-semibold"
+                : "rounded-full glass-surface",
+            )}
           >
-            <LeadingIcon size={20} aria-hidden />
+            {top.leadingContent ?? (
+              <LeadingIcon size={top.appearance === "plain" ? 24 : 20} aria-hidden />
+            )}
           </button>
         )}
         {top.center !== undefined ? (
           // 줄의 빈 곳은 아래 본문으로 누름을 넘기고 가운데 요소만 누름을 받는다.
           <div
-            className={cn(middle, "flex h-11 items-center justify-center *:pointer-events-auto")}
+            className={cn(
+              middle,
+              "flex items-center justify-center *:pointer-events-auto",
+              top.appearance === "plain" ? "h-12" : "h-11",
+            )}
           >
             {top.center}
           </div>
         ) : (
           top.title && (
-            <h1 className={cn(middle, "truncate text-center text-[17px] leading-11 font-semibold")}>
+            <h1
+              className={cn(
+                middle,
+                "truncate text-center text-[17px]",
+                top.appearance === "plain" ? "leading-12 font-bold" : "leading-11 font-semibold",
+              )}
+            >
               {top.title}
             </h1>
           )
         )}
         {hasTrailing(top) && (
-          <div className="absolute top-0 right-0 flex h-11 items-center *:pointer-events-auto">
+          <div
+            className={cn(
+              "absolute top-0 right-0 flex items-center *:pointer-events-auto",
+              top.appearance === "plain" ? "h-12" : "h-11",
+            )}
+          >
             {top.trailing}
           </div>
         )}

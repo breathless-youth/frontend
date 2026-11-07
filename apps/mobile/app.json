@@ -2,7 +2,7 @@
   "expo": {
     "name": "FocusMakers",
     "slug": "mobile",
-    "version": "26.45.1",
+    "version": "26.45.2",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -31,7 +31,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#fdd9bb",
+        "backgroundColor": "#DCE7FD",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -88,7 +88,10 @@
           "android": {
             "enableMinifyInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
-            "extraMavenRepos": ["https://devrepo.kakao.com/nexus/content/groups/public/"]
+            "extraMavenRepos": [
+              "https://devrepo.kakao.com/nexus/content/groups/public/",
+              "https://sdk-download.airbridge.io/maven"
+            ]
           },
           "ios": {
             "useFrameworks": "dynamic",
@@ -105,7 +108,11 @@
         }
       ],
       "@react-native-firebase/app",
-      "@react-native-firebase/messaging",
+      [
+        "@react-native-firebase/messaging",
+        { "android": { "notificationIcon": "./assets/notification-icon.png" } }
+      ],
+      "./plugins/withNotificationIcon",
       "expo-apple-authentication",
       [
         "expo-media-library",
