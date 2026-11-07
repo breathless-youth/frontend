@@ -2302,7 +2302,7 @@ describe("LiveRoomPage — 배경음", () => {
     localStorage.clear();
   });
 
-  it("저장된 소리가 있어도 카메라를 끈 채 입장하면 믹스를 걸기 전에 멈춰 둔다", async () => {
+  it("저장된 소리는 카메라를 끈 채 입장해도 재생한다", async () => {
     setAmbientSoundStore(
       createMemoryAmbientSoundStore({ ...DEFAULT_AMBIENT_SETTINGS, mix: { white: 60 } }),
     );
@@ -2315,11 +2315,7 @@ describe("LiveRoomPage — 배경음", () => {
         mix: { white: 60 },
       });
     });
-    expect(ambientPlayers[0]?.commands.slice(0, 2)).toEqual([
-      { type: "suspend" },
-      { type: "applyMix", mix: { white: 60 } },
-    ]);
-    expect(ambientPlayers[0]?.getState()).toBe("suspended");
+    expect(ambientPlayers[0]?.getState()).toBe("playing");
   });
 
   it("버튼을 누르면 세션 화면 안에 페이지가 열리고, 닫으면 버튼으로 포커스가 돌아온다", async () => {
@@ -2354,7 +2350,7 @@ describe("LiveRoomPage — 배경음", () => {
     );
   });
 
-  it("입장 직후 카메라가 꺼진 동안은 소리를 켜도 재생하지 않고, 카메라를 켜면 재생한다", async () => {
+  it("카메라가 꺼져도 소리를 재생하고 화면을 가리면 멈춘 뒤 돌아오면 재생한다", async () => {
     renderRoom();
     await enterRoom();
 
@@ -2366,7 +2362,7 @@ describe("LiveRoomPage — 배경음", () => {
     await waitFor(() => {
       expect(player?.commands).toContainEqual({ type: "applyMix", mix: { white: 60 } });
     });
-    expect(player?.getState()).toBe("suspended");
+    expect(player?.getState()).toBe("playing");
 
     await userEvent.keyboard("{Escape}");
     expect(await screen.findByRole("button", { name: "배경음 켜짐" })).toBeInTheDocument();
@@ -2375,6 +2371,12 @@ describe("LiveRoomPage — 배경음", () => {
     await waitFor(() => {
       expect(player?.getState()).toBe("playing");
     });
+    await userEvent.click(screen.getByRole("button", { name: "카메라 끄기" }));
+    expect(player?.getState()).toBe("playing");
+    act(() => window.dispatchEvent(new Event("pagehide")));
+    await waitFor(() => expect(player?.getState()).toBe("suspended"));
+    act(() => window.dispatchEvent(new Event("pageshow")));
+    await waitFor(() => expect(player?.getState()).toBe("playing"));
   });
 
   it("세션이 끝나 제출 중으로 넘어가면 열려 있던 페이지가 닫힌다", async () => {

@@ -17,11 +17,11 @@ describe("CategoryChips", () => {
     expect(screen.getAllByRole("button")).toHaveLength(2);
   });
 
-  it("접힌 세 번째 줄은 포커스와 접근성 트리에서 제외하고 펼치면 복원한다", () => {
+  it("접힌 두 번째 줄은 포커스와 접근성 트리에서 제외하고 펼치면 복원한다", () => {
     const offset = vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockImplementation(function (
       this: HTMLElement,
     ) {
-      return this.textContent === "내신" ? 84 : 0;
+      return this.textContent === "내신" ? 42 : 0;
     });
     const { rerender } = render(
       <CategoryChips options={options} value={null} onChange={vi.fn()} allLabel="전체" compact />,
