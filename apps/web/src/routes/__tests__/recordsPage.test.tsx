@@ -9,7 +9,7 @@ import {
   useNavigate,
   useNavigationType,
 } from "react-router-dom";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
   StudyPeriodStatsResponse,
@@ -75,6 +75,7 @@ vi.mock("@/lib/userId", async (importOriginal) => ({
 }));
 
 const mockedStats = vi.mocked(listStudySessionStats);
+afterEach(() => vi.useRealTimers());
 const mockedPeriod = vi.mocked(getPeriodStats);
 const mockedRhythm = vi.mocked(getStudyRhythm);
 const mockedTrackMonthChanged = vi.mocked(trackRecordsMonthChanged);
@@ -157,7 +158,7 @@ function renderRecords(path = "/records?userId=7") {
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/records" element={<RecordsPage />} />
-          <Route path="/planner" element={<RouteProbe />} />
+          <Route path="/planner" element={<ManualRecordProbe />} />
           <Route path="/manual-record" element={<ManualRecordProbe />} />
         </Routes>
         <LocationProbe />
@@ -872,20 +873,27 @@ describe("RecordsPage", () => {
       );
     });
 
-    it("선택일 줄 오른쪽의 시간 직접 입력이 고른 날짜로 입력 화면을 열고, 목록 아래에는 입구가 없다", async () => {
-      renderRecords();
+    it.each([3, 12])(
+      "%s시의 시간 직접 입력은 05시 경계에 맞는 기록 고치기를 바로 연다",
+      async (hour) => {
+        const at = new Date();
+        at.setHours(hour, 0, 0, 0);
+        vi.useFakeTimers({ toFake: ["Date"] });
+        vi.setSystemTime(at);
+        renderRecords();
 
-      const dayRow = (await screen.findByText(dayTitleWithWeekday(TODAY))).parentElement!;
-      expect(screen.getAllByRole("button", { name: "시간 직접 입력" })).toHaveLength(1);
+        const dayRow = (await screen.findByText(dayTitleWithWeekday(TODAY))).parentElement!;
+        expect(screen.getAllByRole("button", { name: "시간 직접 입력" })).toHaveLength(1);
 
-      await userEvent.click(within(dayRow).getByRole("button", { name: "시간 직접 입력" }));
+        await userEvent.click(within(dayRow).getByRole("button", { name: "시간 직접 입력" }));
 
-      expect(await screen.findByTestId("route-probe")).toHaveTextContent(
-        `/manual-record?userId=7&date=${TODAY}&entry=records`,
-      );
-    });
+        expect(await screen.findByTestId("route-probe")).toHaveTextContent(
+          `/planner?userId=7&date=${hour < 5 ? addDaysToDateKey(TODAY, -1) : TODAY}&from=records&edit=records${hour < 5 ? `&returnDate=${TODAY}` : ""}`,
+        );
+      },
+    );
 
-    it("수동 행과 범례를 보여 주고, 펼친 행의 수정은 그 조각 id로 수정 화면을 연다", async () => {
+    it("수동 행과 범례를 보여 주고, 수정은 실제 기록 시각의 플래너 편집기로 연결한다", async () => {
       renderRecords();
 
       const row = await screen.findByRole("button", {
@@ -897,7 +905,7 @@ describe("RecordsPage", () => {
       await userEvent.click(screen.getByRole("button", { name: "수정" }));
 
       expect(await screen.findByTestId("route-probe")).toHaveTextContent(
-        `/manual-record?userId=7&date=${TODAY}&entry=records&id=9`,
+        `/planner?userId=7&date=2026-01-01&from=records&edit=records&returnDate=${TODAY}`,
       );
     });
 
@@ -943,7 +951,7 @@ describe("RecordsPage", () => {
 
       await userEvent.click(screen.getByRole("button", { name: "시간 직접 입력" }));
       expect(await screen.findByTestId("route-probe")).toHaveTextContent(
-        `/manual-record?userId=7&guestAuth=1&date=${DAY}&entry=records`,
+        `/planner?userId=7&guestAuth=1&date=${DAY}&from=records&edit=records`,
       );
 
       await userEvent.click(screen.getByRole("button", { name: "입력 화면 닫기" }));

@@ -97,6 +97,21 @@ describe("useNativeScreenReport", () => {
     expect(lastReport(postMessage).restoreQuery).toEqual({ from: "records" });
   });
 
+  it("기록 고치기 직접 진입과 돌아갈 달력 날짜도 복원한다", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderAt({
+      pathname: "/planner",
+      search: "?date=2026-11-04&from=records&edit=records&returnDate=2026-11-05",
+    });
+    expect(lastReport(postMessage).restoreQuery).toEqual({
+      date: "2026-11-04",
+      from: "records",
+      edit: "records",
+      returnDate: "2026-11-05",
+    });
+  });
+
   it("입력 화면은 날짜·입구·기록 id와 플래너가 붙인 from을 복원 쿼리로 보고한다", () => {
     const postMessage = vi.fn();
     vi.stubGlobal("ReactNativeWebView", { postMessage });

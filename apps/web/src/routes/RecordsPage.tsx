@@ -16,7 +16,8 @@ import {
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { subjectIdOf, subjectNameOf } from "@/features/manual-record/manualRecord";
-import { useOpenManualRecord } from "@/features/manual-record/useOpenManualRecord";
+import { plannerDateKeyOf } from "@/features/planner/plannerDay";
+import { useOpenPlanner } from "@/features/planner/useOpenPlanner";
 import { PlannerPillButton } from "@/features/planner/PlannerPillButton";
 import { PeriodHeadline } from "@/features/records/PeriodHeadline";
 import { MonthCalendar, type MonthStats } from "@/features/records/MonthCalendar";
@@ -127,7 +128,7 @@ function RecordsContent({
 
   // 수동 기록 API는 토큰이 있어야 해서 토큰 없는 문서에서는 입구를 모두 숨긴다.
   const canWrite = hasTokenSource();
-  const openManualRecord = useOpenManualRecord();
+  const openRecordEditor = useOpenPlanner("records");
   const subjectRefs = subjectRefMap(day.status === "success" ? day.stats.subjects : undefined);
   const canAdd = canWrite && !isFutureDateKey(selectedKey, todayKey);
 
@@ -225,9 +226,7 @@ function RecordsContent({
             {canAdd && (
               <button
                 type="button"
-                onClick={() =>
-                  openManualRecord({ kind: "add", dateKey: selectedKey, entry: "records" })
-                }
+                onClick={() => openRecordEditor(selectedKey, { editRecords: true })}
                 // 글자 링크라도 누르는 영역은 44px을 지키고, 음수 여백으로 줄 높이는 날짜 글자에 맞춘다.
                 className="-my-3 flex min-h-11 items-center gap-1 text-xs leading-3.75 font-bold text-primary"
               >
@@ -264,11 +263,9 @@ function RecordsContent({
                         onEdit={
                           canWrite
                             ? (edited) =>
-                                openManualRecord({
-                                  kind: "edit",
-                                  dateKey: selectedKey,
-                                  entry: "records",
-                                  id: edited.id,
+                                openRecordEditor(plannerDateKeyOf(new Date(edited.startedAt)), {
+                                  editRecords: true,
+                                  returnDate: selectedKey,
                                 })
                             : undefined
                         }
