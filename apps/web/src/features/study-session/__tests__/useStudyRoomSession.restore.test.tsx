@@ -70,6 +70,25 @@ describe("useStudyRoomSession 복원", () => {
     expect(progress?.subjectSegments[0]).toMatchObject({ subjectId: 3, startedAt: iso(NOW) });
   });
 
+  it("과목을 바꾸면 30초 주기를 기다리지 않고 새 과목을 보고한다", async () => {
+    const { result } = renderHook(() => useStudyRoomSession(7, { initialSubjectId: 3 }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    act(() => {
+      result.current.selectSubject(8);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    const progress = vi
+      .mocked(fetch)
+      .mock.calls.map(([, init]) => (init?.body ? JSON.parse(String(init.body)) : null))
+      .filter((body) => body?.subjectSegments?.length > 0)
+      .at(-1);
+    expect(progress?.subjectSegments.at(-1).subjectId).toBe(8);
+  });
+
   it("복원하면 서버 누적값부터 보인다", () => {
     const { result } = renderHook(() => useStudyRoomSession(7, { restored: RESTORED }));
 

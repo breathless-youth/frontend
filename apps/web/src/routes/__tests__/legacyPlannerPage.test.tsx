@@ -142,13 +142,13 @@ function studiedYesterday(): StudySessionSummary {
 
 const TWO_DAYS_AGO = addDaysToDateKey(TODAY, -2);
 
-/** 어제 14:00~15:30 영어 수동 기록. */
+/** 어제 13:00~14:30 영어 수동 기록. */
 function manualYesterday(): StudySessionSummary {
   return {
     id: 2,
     statDate: YESTERDAY,
-    startedAt: kst(YESTERDAY, 14),
-    endedAt: kst(YESTERDAY, 15, 30),
+    startedAt: kst(YESTERDAY, 13),
+    endedAt: kst(YESTERDAY, 14, 30),
     studySec: 5400,
     focusSec: 5400,
     focusRate: 100,
@@ -157,15 +157,15 @@ function manualYesterday(): StudySessionSummary {
     subjectSegments: [
       {
         subjectId: 3,
-        startedAt: kst(YESTERDAY, 14),
-        endedAt: kst(YESTERDAY, 15, 30),
+        startedAt: kst(YESTERDAY, 13),
+        endedAt: kst(YESTERDAY, 14, 30),
         studySec: 5400,
         focusSec: 5400,
       },
     ],
     completedTasks: [],
     source: "MANUAL",
-    submissionStartedAt: kst(YESTERDAY, 14),
+    submissionStartedAt: kst(YESTERDAY, 13),
   };
 }
 
@@ -774,14 +774,14 @@ describe("PlannerPage", () => {
     it("수동 블록은 측정 블록과 같은 색이고 범례 항목 없이 스크린리더용 수정 버튼만 둔다", async () => {
       const { container } = renderPlanner(`?userId=7&date=${YESTERDAY}`);
 
-      await screen.findByText("수동 기록, 영어, 오후 2시부터 3시 30분, 1시간 30분");
+      await screen.findByText("수동 기록, 영어, 오후 1시부터 2시 30분, 1시간 30분");
       const fill = container.querySelector<HTMLElement>('[data-manual][data-paint="subject"]');
       expect(fill?.style.background).not.toBe("");
       expect(container.querySelector('[data-manual] ~ [data-paint="rest"]')).toBeNull();
       expect(screen.queryByText("직접 입력")).not.toBeInTheDocument();
 
       await userEvent.click(
-        screen.getByRole("button", { name: "수동 기록, 영어, 오후 2시부터 3시 30분, 1시간 30분" }),
+        screen.getByRole("button", { name: "수동 기록, 영어, 오후 1시부터 2시 30분, 1시간 30분" }),
       );
       expect(await screen.findByText("입력 화면")).toBeInTheDocument();
       expect(screen.getByTestId("location")).toHaveTextContent(

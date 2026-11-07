@@ -320,6 +320,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const submitInFlightRef = useRef(false);
   // 진행 스냅샷 보고 가드 — 겹침·정지·중복보고를 각각 막는다.
   const snapshotInFlightRef = useRef(false);
+  const requestSnapshotRef = useRef<(() => void) | null>(null);
   const snapshotStoppedRef = useRef(false);
   const snapshotErrorReportedRef = useRef(false);
 
@@ -648,17 +649,36 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     return () => clearInterval(timer);
   }, [applyState, detectionParams, phase.name, refreshDisplay, tickMs]);
 
-  // studying 동안만 30초마다 진행 스냅샷을 서버에 보고한다. 강제종료로 최종 제출이 안 와도
+  // studying 동안 30초마다, 과목을 선택하면 즉시 진행 스냅샷을 서버에 보고한다. 강제종료로 최종 제출이 안 와도
   // 서버가 마지막 스냅샷으로 세션을 자동 확정한다.
   useEffect(() => {
     if (phase.name !== "studying" || userId === null) {
       return;
     }
-    const timer = setInterval(() => {
-      if (snapshotStoppedRef.current || snapshotInFlightRef.current) {
+    let disposed = false;
+    let queued = false;
+    let clockRetry: ReturnType<typeof setTimeout> | undefined;
+    const send = () => {
+      if (disposed || snapshotStoppedRef.current) return;
+      if (snapshotInFlightRef.current) {
+        queued = true;
         return;
       }
+      queued = false;
       const nowMs = Date.now();
+      const tracker = subjectTrackerRef.current;
+      const lastClosed = tracker.closed[tracker.closed.length - 1];
+      const subjectBoundaryMs =
+        tracker.current?.startedAtMs ??
+        (lastClosed ? Date.parse(lastClosed.endedAt) : startedAtMsRef.current);
+      // 타이머가 실행돼도 제한된 벽시계 정밀도로 같은 시각일 수 있다.
+      // 선택 해제도 마지막 구간의 끝보다 보고 시각이 늦어야 복구 시 다시 선택되지 않는다.
+      if (nowMs <= Math.max(startedAtMsRef.current, subjectBoundaryMs)) {
+        clearTimeout(clockRetry);
+        clockRetry = setTimeout(send, 10);
+        return;
+      }
+      clearTimeout(clockRetry);
       const totals = withBase(computeSessionTotals(timelineRef.current, nowMs));
       const events = allEvents(nowMs);
       snapshotInFlightRef.current = true;
@@ -687,9 +707,20 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         })
         .finally(() => {
           snapshotInFlightRef.current = false;
+          if (queued && !disposed) send();
         });
-    }, 30_000);
-    return () => clearInterval(timer);
+    };
+    requestSnapshotRef.current = send;
+    const initialReport =
+      subjectTrackerRef.current.current !== null ? setTimeout(send, 1) : undefined;
+    const timer = setInterval(send, 30_000);
+    return () => {
+      disposed = true;
+      requestSnapshotRef.current = null;
+      clearTimeout(initialReport);
+      clearTimeout(clockRetry);
+      clearInterval(timer);
+    };
   }, [allEvents, phase.name, userId, withBase]);
 
   /**
@@ -820,6 +851,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     subjectTrackerRef.current = selectSubjectSegment(subjectTrackerRef.current, next, nowMs);
     setSubjectTracker(subjectTrackerRef.current);
     refreshDisplay(nowMs);
+    // 0ms 구간은 서버에 보낼 수 없어 다음 밀리초에 새 과목 구간을 포함한다.
+    setTimeout(() => requestSnapshotRef.current?.(), 1);
   };
 
   const flipCamera = async (): Promise<CameraFlipResult> => {

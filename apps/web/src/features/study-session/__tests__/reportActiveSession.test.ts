@@ -42,7 +42,7 @@ describe("reportActiveSession", () => {
     await expect(reportActiveSession(INPUT)).resolves.toBeUndefined();
 
     const [url, init] = vi.mocked(fetch).mock.calls[0]!;
-    expect(String(url)).toMatch(/\/api\/study-sessions\/active$/);
+    expect(String(url)).toMatch(/\/api\/study-sessions\/active\?durable=true$/);
     expect((init as RequestInit).method).toBe("PUT");
     const body = JSON.parse((init as RequestInit).body as string);
     expect(body).toMatchObject({ reportedAt: "2026-07-25T01:00:30.000Z" });
