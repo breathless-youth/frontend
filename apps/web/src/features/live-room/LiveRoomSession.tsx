@@ -204,6 +204,17 @@ export function LiveRoomSession({
   // 세션 훅과 유예 감시가 같은 신호원을 본다 — 어댑터를 따로 만들면 복귀 재계산과
   // 유예 판정이 다른 이벤트 순서를 탈 수 있다(usePauseAutoEnd의 같은 원칙).
   const [systemPause] = useState(() => createSystemPauseSource());
+  // 카메라가 꺼진 일시정지 중 앱을 떠나도 세션의 기존 트리거는 유지된다.
+  // 앱 가림은 배경음과 마이크가 독립적으로 따라갈 수 있도록 같은 신호원에서 읽는다.
+  const [appHidden, setAppHidden] = useState(() => document.visibilityState === "hidden");
+  useEffect(
+    () =>
+      systemPause.subscribe({
+        onLeave: () => setAppHidden(true),
+        onReturn: () => setAppHidden(false),
+      }),
+    [systemPause],
+  );
   const [ambientUsage] = useState(() => createAmbientUsage(Date.now));
   // 타이머 사용 기록은 세션 훅이 타이머 훅보다 먼저 생겨서 여기서 만들어 두 훅에 함께 넘긴다.
   const [multiTimerUsage] = useState(createMultiTimerUsage);
@@ -249,6 +260,7 @@ export function LiveRoomSession({
     phase,
     usage: ambientUsage,
     roomType: "social",
+    playbackPaused: appHidden,
   });
   // 소셜룸은 뒤로 가기를 잠가 두어 싱글룸과 달리 페이지를 history 항목 없이 연다.
   /** 세션 위에 열린 전체 페이지. 둘은 동시에 열리지 않는다. */
@@ -431,16 +443,6 @@ export function LiveRoomSession({
           .map((member) => member.userId),
       ),
     [members, userId],
-  );
-  // 카메라를 끈 채 떠나면 일시정지 사유가 바뀌지 않아서 앱을 떠났는지는 신호원에서 따로 읽는다.
-  const [appHidden, setAppHidden] = useState(false);
-  useEffect(
-    () =>
-      systemPause.subscribe({
-        onLeave: () => setAppHidden(true),
-        onReturn: () => setAppHidden(false),
-      }),
-    [systemPause],
   );
   // 소리는 그룹 공부방에서만 오간다.
   const audio = useRoomAudio({

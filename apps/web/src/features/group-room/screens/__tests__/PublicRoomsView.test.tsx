@@ -33,8 +33,8 @@ function SearchHarness({ onQueryChange }: { onQueryChange: (query: string) => vo
 afterEach(() => vi.restoreAllMocks());
 
 describe("PublicRoomsView", () => {
-  it("두 줄 이하면 더보기 버튼을 표시하지 않는다", () => {
-    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(78);
+  it("한 줄이면 더보기 버튼을 표시하지 않는다", () => {
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(36);
     renderScreen(
       <PublicRoomsView
         query=""
@@ -64,7 +64,7 @@ describe("PublicRoomsView", () => {
         />
       );
     }
-    const height = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(120);
+    const height = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(78);
     renderScreen(<Harness />);
     const toggle = screen.getByRole("button", { name: "더보기" });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
