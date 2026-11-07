@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { CategoryOption } from "../types";
@@ -36,11 +37,32 @@ export function CategoryChips(props: CategoryChipsProps) {
   let chips: { value: string | null; label: string }[] =
     allLabel === undefined ? options : [{ value: null, label: allLabel }, ...options];
 
-  if (compact && value !== null) {
+  if (compact && value !== null && allLabel !== undefined) {
     const selected = chips.find((chip) => chip.value === value);
     if (selected)
       chips = [chips[0]!, selected, ...chips.slice(1).filter((chip) => chip.value !== value)];
   }
+
+  const groupRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const group = groupRef.current;
+    if (!group) return;
+    const update = () => {
+      const buttons = Array.from(group.querySelectorAll("button"));
+      const top = buttons[0]?.offsetTop ?? 0;
+      for (const button of buttons) {
+        const hidden = compact && button.offsetTop - top >= 78;
+        button.toggleAttribute("inert", hidden);
+        if (hidden) button.setAttribute("aria-hidden", "true");
+        else button.removeAttribute("aria-hidden");
+      }
+    };
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(update);
+    observer.observe(group);
+    return () => observer.disconnect();
+  }, [compact, options, value]);
 
   const pick = (next: string | null) => {
     if (next === value) {
@@ -55,11 +77,12 @@ export function CategoryChips(props: CategoryChipsProps) {
 
   return (
     <div
+      ref={groupRef}
       role="group"
       aria-label={t("categoryChips.aria.group")}
       className={
         compact
-          ? "@container flex max-h-[78px] min-w-0 flex-wrap gap-1.5 overflow-y-auto"
+          ? "@container flex max-h-[78px] min-w-0 flex-wrap gap-1.5 overflow-hidden"
           : "@container flex flex-wrap gap-1.5"
       }
     >

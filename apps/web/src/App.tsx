@@ -146,8 +146,10 @@ const GroupHomePage = lazy(
     loadGroupHomePage().then((module) => ({ default: module.GroupHomePage })),
   ),
 );
-const GroupIntroPage = lazy(() =>
-  loadGroupHomePage().then((module) => ({ default: module.GroupIntroPage })),
+const GroupIntroPage = lazy(
+  reloadOnChunkError(() =>
+    loadGroupHomePage().then((module) => ({ default: module.GroupIntroPage })),
+  ),
 );
 const GroupMembersPage = lazy(
   reloadOnChunkError(() =>
