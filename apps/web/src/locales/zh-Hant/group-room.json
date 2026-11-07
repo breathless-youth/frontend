@@ -21,6 +21,7 @@
   },
   "roomMenu": {
     "item": {
+      "viewIntro": "查看群組介紹",
       "requests": "加入申請",
       "invite": "邀請",
       "manageMembers": "管理成員",
@@ -204,6 +205,8 @@
     "cancelApplication": "取消申請"
   },
   "publicRoomsView": {
+    "expandCategories": "查看更多",
+    "collapseCategories": "收合",
     "noneTitle": "還沒有公開群組",
     "noneDescription": "建立第一個公開群組，找人一起讀書吧",
     "filteredTitle": "沒有符合條件的公開群組",
@@ -254,6 +257,8 @@
     "newRequests": "{{count}} 個新的加入申請"
   },
   "roomHomeScreen": {
+    "introTitle": "群組介紹",
+    "emptyIntro": "尚未填寫群組介紹",
     "todayTitle": "今天的群組",
     "newRequests": "有 {{count}} 個新的加入申請",
     "review": "查看",

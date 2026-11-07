@@ -273,6 +273,9 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
   };
   const selectMenu = (kind: RoomMenuItem["kind"]) => {
     switch (kind) {
+      case "view_intro":
+        go(`${groupPath}/intro`);
+        return;
       case "requests":
         go(`${groupPath}/applications`);
         return;
@@ -350,5 +353,45 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
         />
       )}
     </>
+  );
+}
+
+/** 그룹 멤버가 가입 뒤에도 소개와 규칙을 다시 읽는 화면. */
+export function GroupIntroPage() {
+  const pending = useIdentityPending();
+  const userId = useUserId();
+  const groupId = parseRouteId(useParams().groupId);
+  const location = useLocation();
+  if (pending) return null;
+  if (userId === null || groupId === null) {
+    return <Navigate to={{ pathname: "/social", search: baseSearch(location.search) }} replace />;
+  }
+  return <GroupIntro key={`${userId}:${groupId}`} userId={userId} groupId={groupId} />;
+}
+
+function GroupIntro({ userId, groupId }: { userId: number; groupId: number }) {
+  const { t } = useTranslation("group-room");
+  const back = useBackTo(`/social/groups/${groupId}`);
+  const homeQuery = useQuery({ ...groupHomeQuery(userId, groupId), refetchInterval: false });
+  useLeaveWhenGone(homeQuery.error, groupId);
+  const home = homeQuery.data;
+  return (
+    <GroupScreenFrame title={t("roomHomeScreen.introTitle")} onBack={back}>
+      {home ? (
+        <div className="mt-1 rounded-xl bg-muted p-4 shadow-sb-card">
+          <p className="whitespace-pre-wrap break-words text-[15px] leading-6 text-foreground">
+            {home.description?.trim() || t("roomHomeScreen.emptyIntro")}
+          </p>
+        </div>
+      ) : cannotLoadFirst(homeQuery) && !isGroupGoneError(homeQuery.error) ? (
+        <ErrorState
+          message={groupRetryCopy()}
+          onRetry={() => void homeQuery.refetch()}
+          screen="group_tab"
+        />
+      ) : (
+        <Skeleton className="mt-1 h-32 rounded-xl" />
+      )}
+    </GroupScreenFrame>
   );
 }
