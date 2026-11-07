@@ -12,6 +12,7 @@ export type RoomMenuItem =
   | { kind: "manage_members"; label: string }
   | { kind: "view_members"; label: string }
   | { kind: "settings"; label: string }
+  | { kind: "view_intro"; label: string }
   | { kind: "leave"; label: string; note: string | null };
 
 const ITEM_LABEL_KEYS = {
@@ -20,6 +21,7 @@ const ITEM_LABEL_KEYS = {
   manage_members: "group-room:roomMenu.item.manageMembers",
   view_members: "group-room:roomMenu.item.viewMembers",
   settings: "group-room:roomMenu.item.settings",
+  view_intro: "group-room:roomMenu.item.viewIntro",
   leave: "group-room:roomMenu.item.leave",
 } as const satisfies Record<RoomMenuItem["kind"], string>;
 
@@ -93,6 +95,7 @@ export function roomMenuItems(input: {
     ];
   }
   const memberItems: RoomMenuItem[] = [
+    { kind: "view_intro", label: itemLabel("view_intro") },
     { kind: "view_members", label: itemLabel("view_members") },
     leave,
   ];

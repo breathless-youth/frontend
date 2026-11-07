@@ -10,6 +10,7 @@ import type { CategoryOption } from "../types";
 type CategoryChipsProps = {
   options: CategoryOption[];
   value: string | null;
+  compact?: boolean;
 } & (
   | { allLabel: string; onChange: (value: string | null) => void }
   | { allLabel?: undefined; onChange: (value: string) => void }
@@ -31,9 +32,15 @@ type CategoryChipsProps = {
  */
 export function CategoryChips(props: CategoryChipsProps) {
   const { t } = useTranslation("group-room");
-  const { options, value, allLabel } = props;
-  const chips: { value: string | null; label: string }[] =
+  const { options, value, allLabel, compact = false } = props;
+  let chips: { value: string | null; label: string }[] =
     allLabel === undefined ? options : [{ value: null, label: allLabel }, ...options];
+
+  if (compact && value !== null) {
+    const selected = chips.find((chip) => chip.value === value);
+    if (selected)
+      chips = [chips[0]!, selected, ...chips.slice(1).filter((chip) => chip.value !== value)];
+  }
 
   const pick = (next: string | null) => {
     if (next === value) {
@@ -50,7 +57,11 @@ export function CategoryChips(props: CategoryChipsProps) {
     <div
       role="group"
       aria-label={t("categoryChips.aria.group")}
-      className="@container flex flex-wrap gap-1.5"
+      className={
+        compact
+          ? "@container flex max-h-[78px] min-w-0 flex-wrap gap-1.5 overflow-y-auto"
+          : "@container flex flex-wrap gap-1.5"
+      }
     >
       {chips.map((chip) => (
         <button

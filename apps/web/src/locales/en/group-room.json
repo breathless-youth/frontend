@@ -20,6 +20,7 @@
   },
   "roomMenu": {
     "item": {
+      "viewIntro": "View group introduction",
       "requests": "Join requests",
       "invite": "Invite",
       "manageMembers": "Manage members",
@@ -213,6 +214,8 @@
     "cancelApplication": "Cancel request"
   },
   "publicRoomsView": {
+    "expandCategories": "More",
+    "collapseCategories": "Less",
     "noneTitle": "No public groups yet",
     "noneDescription": "Create the first public group and find people to study with",
     "filteredTitle": "No public groups match your filters",
@@ -265,6 +268,8 @@
     "newRequests_other": "{{count}} new requests"
   },
   "roomHomeScreen": {
+    "introTitle": "Group introduction",
+    "emptyIntro": "There is no group introduction yet",
     "todayTitle": "Our group today",
     "newRequests_one": "You have {{count}} new request",
     "newRequests_other": "You have {{count}} new requests",

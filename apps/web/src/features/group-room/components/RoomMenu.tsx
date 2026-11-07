@@ -1,5 +1,14 @@
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
-import { Ellipsis, Inbox, LogOut, type LucideIcon, Settings, UserPlus, Users } from "lucide-react";
+import {
+  Ellipsis,
+  FileText,
+  Inbox,
+  LogOut,
+  type LucideIcon,
+  Settings,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import { Fragment, useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -22,6 +31,7 @@ const ITEM_ICON: Record<Exclude<RoomMenuItem, LeaveItem>["kind"], LucideIcon> = 
   manage_members: Users,
   view_members: Users,
   settings: Settings,
+  view_intro: FileText,
 };
 
 /**
