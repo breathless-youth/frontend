@@ -22,6 +22,8 @@ export type AmbientChangeSource = "dialog" | "auto_start";
 export type UseAmbientSoundOptions = {
   readonly sessionState: SessionState;
   readonly phase: StudyRoomPhase;
+  /** 지정하면 세션 일시정지와 별도로 재생 정지를 결정한다. */
+  readonly playbackPaused?: boolean;
   /** 재생 누적 시간 - 호출부가 만들어 세션 훅의 `ambientUsage`에도 같은 것을 넘긴다. */
   readonly usage: AmbientUsage;
   /**
@@ -52,7 +54,7 @@ export function useAmbientSound(options: UseAmbientSoundOptions) {
   const { sessionState, phase, usage, roomType } = options;
   const studying = phase.name === "studying";
   // 휴식도 공부 시간에서 빠지는 일시정지지만 쉬는 동안 소리는 이어져야 한다.
-  const paused = isSessionHeld(sessionState);
+  const paused = options.playbackPaused ?? isSessionHeld(sessionState);
   const distracted = sessionState.kind === "DISTRACTION";
 
   const [catalog, setCatalog] = useState<readonly AmbientSound[]>(options.catalog ?? EMPTY_CATALOG);
