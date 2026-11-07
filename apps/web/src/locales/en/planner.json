@@ -178,7 +178,14 @@
     "list": "Records",
     "noSpace": "There is no free time to add a record",
     "new": "New record",
-    "closePanel": "Close record panel"
+    "closePanel": "Close record panel",
+    "saveFailures": {
+      "unconfirmed": "Could not confirm whether your records were saved. Try again.",
+      "conflict": "Your changes conflict with another record. Check the times and subjects.",
+      "invalid": "Check the times and subjects for your records.",
+      "missing": "A record or subject could not be found. Reopen this screen.",
+      "server": "The server could not save your records. Try again shortly."
+    }
   },
   "week": {
     "prev": "Previous week",

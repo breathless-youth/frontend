@@ -13,7 +13,7 @@ import {
 } from "@/features/records/recordsFormat";
 import { subjectColorVar } from "@/features/records/recordsTimetable";
 import { cn } from "@/lib/utils";
-import { showToast } from "@/lib/toast";
+import { showToast, showTopToast } from "@/lib/toast";
 import { useKeyboardInset } from "@/lib/useKeyboardInset";
 import { PlannerDateSheet } from "../PlannerDateSheet";
 import { plannerCurrentTime, plannerDateKeyOf, plannerHours } from "../plannerDay";
@@ -29,8 +29,13 @@ import {
   firstRecordDraftMinute,
   recordDraftDurationSec,
 } from "./recordDraft";
-import { saveRecordDraft, acceptSavedRecords } from "./recordSave";
-import { recordClock, recordRowRects } from "./recordGeometry";
+import {
+  saveRecordDraft,
+  acceptSavedRecords,
+  recordSaveFailure,
+  type RecordSaveFailure,
+} from "./recordSave";
+import { recordClock, recordWindowRects } from "./recordGeometry";
 import { RecordBlockSheet } from "./RecordBlockSheet";
 import { RecordSubjectSheet } from "./RecordSubjectSheet";
 import {
@@ -67,6 +72,7 @@ export function PlannerRecordEditor({
   const [autoFocusTimes, setAutoFocusTimes] = useState(false);
   const [pending, setPending] = useState(false),
     [failed, setFailed] = useState(false);
+  const [saveFailure, setSaveFailure] = useState<RecordSaveFailure | null>(null);
   const [leave, setLeave] = useState<"close" | { date: string } | null>(null);
   const [datePicker, setDatePicker] = useState(false);
   const [uncertain, setUncertain] = useState<RecordDraftOperation[] | null>(null);
@@ -88,6 +94,7 @@ export function PlannerRecordEditor({
     anchor: number;
     before: RecordDraftState;
     base: RecordDraftState;
+    failure?: RecordDraftError["code"];
   } | null>(null);
   const block = draft.blocks.find((value) => value.id === selected);
   const todayKey = plannerDateKeyOf(new Date(clock.nowMs), draft.timeZone);
@@ -154,7 +161,10 @@ export function PlannerRecordEditor({
           : undefined,
       );
     } catch (cause) {
-      if (cause instanceof RecordDraftError) setError(cause.code);
+      if (cause instanceof RecordDraftError) {
+        setError(cause.code);
+        showTopToast(t(`record.errors.${cause.code}`));
+      }
       return;
     }
     const before = draft,
@@ -237,9 +247,13 @@ export function PlannerRecordEditor({
           : { [drag.mode === "start" ? "startMs" : "endMs"]: at };
       // eslint-disable-next-line react-hooks/purity -- onPointerMove에서만 호출하며 렌더가 아니라 포인터 조작 순간을 검증한다.
       setDraft(changeRecordDraft(drag.base, drag.id, patch, Date.now()));
+      drag.failure = undefined;
       setError(null);
     } catch (cause) {
-      if (cause instanceof RecordDraftError) setError(cause.code);
+      if (cause instanceof RecordDraftError) {
+        drag.failure = cause.code;
+        setError(cause.code);
+      }
     }
   }
   function pointerEnd(event: ReactPointerEvent<HTMLDivElement>, cancel: boolean) {
@@ -259,6 +273,8 @@ export function PlannerRecordEditor({
       setError(null);
     } else {
       // 유효하지 않은 포인터 위치는 초안에 넣지 않았다. 놓으면 마지막 유효 초안을 유지한다.
+      // 본문 아래 오류는 스크롤 밖에 있을 수 있으므로 거절 이유를 손을 놓은 뒤에도 알린다.
+      if (drag.failure) showTopToast(t(`record.errors.${drag.failure}`));
       setError(null);
       if (drag.mode === "create") {
         applySubjectRef.current = null;
@@ -331,6 +347,7 @@ export function PlannerRecordEditor({
     if (pending || error) return;
     setPending(true);
     setFailed(false);
+    setSaveFailure(null);
     setError(null);
     try {
       const result = await saveRecordDraft(uncertain ?? recordDraftOperations(draft), {
@@ -340,11 +357,15 @@ export function PlannerRecordEditor({
       setDraft(acceptSavedRecords(draft, result));
       setUncertain(result.uncertain ? result.pending : null);
       setFailed(result.pending.length > 0);
+      setSaveFailure(recordSaveFailure(result));
       await onSaved();
       if (!result.pending.length) onClose();
     } catch (cause) {
       if (cause instanceof RecordDraftError) setError(cause.code);
-      else setFailed(true);
+      else {
+        setFailed(true);
+        setSaveFailure("unknown");
+      }
     } finally {
       setPending(false);
     }
@@ -356,7 +377,10 @@ export function PlannerRecordEditor({
       setError(null);
       return true;
     } catch (cause) {
-      if (cause instanceof RecordDraftError) setError(cause.code);
+      if (cause instanceof RecordDraftError) {
+        setError(cause.code);
+        showTopToast(t(`record.errors.${cause.code}`));
+      }
       return false;
     }
   }
@@ -376,8 +400,8 @@ export function PlannerRecordEditor({
       ? plannerRecordPaints(value.original!, draft)
       : [
           {
-            startMs: Math.max(value.startMs, draft.startMs),
-            endMs: Math.min(value.endMs, draft.endMs),
+            startMs: value.startMs,
+            endMs: value.endMs,
             manual: value.source === "MANUAL",
             ...(value.subjectId === null
               ? { kind: "focus" as const }
@@ -385,7 +409,11 @@ export function PlannerRecordEditor({
           },
         ];
     return paints.flatMap((paint) =>
-      recordRowRects(paint, draft.timeZone).map((rect) => ({ block: value, paint, ...rect })),
+      recordWindowRects(paint, draft, draft.timeZone).map((rect) => ({
+        block: value,
+        paint,
+        ...rect,
+      })),
     );
   });
   const labelShapes = new Map<string, (typeof shapes)[number]>();
@@ -393,16 +421,7 @@ export function PlannerRecordEditor({
     const previous = labelShapes.get(shape.block.id);
     if (!previous || shape.width > previous.width) labelShapes.set(shape.block.id, shape);
   }
-  const bubbleRects =
-    block && dragMode
-      ? recordRowRects(
-          {
-            startMs: Math.max(block.startMs, draft.startMs),
-            endMs: Math.min(block.endMs, draft.endMs),
-          },
-          draft.timeZone,
-        )
-      : [];
+  const bubbleRects = block && dragMode ? recordWindowRects(block, draft, draft.timeZone) : [];
   const bubbleRect = dragMode === "start" ? bubbleRects[0] : bubbleRects.at(-1);
   return (
     <main
@@ -529,7 +548,8 @@ export function PlannerRecordEditor({
                           setError(null);
                         }}
                         className={cn(
-                          "absolute inset-y-0 flex min-w-0 items-center justify-center gap-1 overflow-hidden px-1 text-xs font-bold whitespace-nowrap",
+                          "absolute inset-y-0 flex min-w-0 items-center justify-center gap-1 overflow-hidden text-xs font-bold whitespace-nowrap",
+                          shape.width >= 25 / 60 ? "px-1" : "p-0",
                           ghost && "text-brand-subtle-text",
                           selected === shape.block.id && !ghost && "ring-2 ring-primary",
                         )}
@@ -582,13 +602,7 @@ export function PlannerRecordEditor({
                   (edge === "end" && block.endMs > draft.endMs)
                 )
                   return null;
-                const rects = recordRowRects(
-                  {
-                    startMs: Math.max(block.startMs, draft.startMs),
-                    endMs: Math.min(block.endMs, draft.endMs),
-                  },
-                  draft.timeZone,
-                );
+                const rects = recordWindowRects(block, draft, draft.timeZone);
                 const rect = edge === "start" ? rects[0] : rects.at(-1);
                 if (!rect) return null;
                 return (
@@ -673,7 +687,9 @@ export function PlannerRecordEditor({
         )}
         {failed && (
           <p role="alert" className="mt-3 text-sm text-state-distract-text">
-            {t("record.saveFailed")}
+            {saveFailure && saveFailure !== "unknown"
+              ? t(`record.saveFailures.${saveFailure}`)
+              : t("record.saveFailed")}
           </p>
         )}
         {error && (

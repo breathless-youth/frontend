@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { slideNavigate } from "@/lib/pageTransition";
+import { plannerDateKeyOf } from "./plannerDay";
 
 /** 플래너를 연 곳 — 라우터 state로 넘긴다(URL에 싣지 않아 분석 경로가 하나로 유지된다). */
 export type PlannerEntry = "records" | "home";
@@ -31,18 +32,30 @@ export function useOpenPlanner(via: PlannerEntry) {
    */
   const openedRef = useRef(false);
 
-  return (dateKey?: string) => {
+  return (dateKey?: string, options?: { editRecords?: boolean; returnDate?: string }) => {
     if (openedRef.current) {
       return;
     }
     openedRef.current = true;
     const params = new URLSearchParams(location.search);
-    if (dateKey === undefined) {
+    const today = plannerDateKeyOf(new Date());
+    // 기록 탭은 자정 날짜, 편집기는 05시 날짜다. 새벽의 오늘은 아직 시작하지 않은
+    // 플래너를 열지 않고 현재 플래너를 연다. 과거 날짜의 추가는 그날 05시부터다.
+    const targetDate =
+      options?.editRecords && (dateKey === undefined || dateKey > today) ? today : dateKey;
+    if (targetDate === undefined) {
       params.delete("date");
     } else {
-      params.set("date", dateKey);
+      params.set("date", targetDate);
     }
     params.set("from", via);
+    params.delete("edit");
+    params.delete("returnDate");
+    if (options?.editRecords) {
+      params.set("edit", "records");
+      const returnDate = options.returnDate ?? dateKey;
+      if (returnDate && returnDate !== targetDate) params.set("returnDate", returnDate);
+    }
     const search = params.toString();
     slideNavigate("forward", () => {
       navigate(
