@@ -11,11 +11,13 @@ import { enterGroupStudyRoom } from "@/features/group-room/enterGroupStudyRoom";
 import type { GroupRoomLocationState } from "@/features/live-room/liveRoomEntryState";
 import { subjectColorVar } from "@/features/records/recordsTimetable";
 import { sessionGuideState } from "@/features/study-session/sessionGuide";
+import { verifySubjectBeforeSeat } from "@/features/study-session/useInitialSubject";
 import { trackFocusStartTapped } from "@/lib/amplitude";
 import { hasGroupRooms } from "@/lib/groupRoomCapability";
 import { haptic } from "@/lib/haptics";
 import { myGroupsQuery } from "@/lib/groupRoomQueries";
 import { requestSessionStart, SubjectStartUnavailableError } from "@/lib/sessionStart";
+import { getTokenSource } from "@/lib/auth/tokenSource";
 import { cn } from "@/lib/utils";
 export interface PlannerStudyStartSheetProps {
   open: boolean;
@@ -76,9 +78,43 @@ export function PlannerStudyStartSheet({
           );
         }
       } else {
-        const seat = await enterGroupStudyRoom(userId, groupId);
-        const state: GroupRoomLocationState = { ...seat, initialSubjectId: task.subjectId };
-        navigate({ pathname: `/groups/${groupId}/room`, search: search.toString() }, { state });
+        const source = getTokenSource();
+        let changedAccount = false;
+        const unsubscribe = source?.subscribe((snapshot) => {
+          if (snapshot.userId !== userId) changedAccount = true;
+        });
+        const checkOwner = () => {
+          if (
+            changedAccount ||
+            getTokenSource() !== source ||
+            (source !== null && source.getUserId() !== userId)
+          )
+            throw new Error("account changed during group entry");
+        };
+        try {
+          checkOwner();
+          const exists = await verifySubjectBeforeSeat(userId, task.subjectId);
+          const verifiedAt = Date.now();
+          checkOwner();
+          const seat = await enterGroupStudyRoom(userId, groupId);
+          checkOwner();
+          const state: GroupRoomLocationState = {
+            ...seat,
+            ...(exists
+              ? {
+                  initialSubjectId: task.subjectId,
+                  initialSubjectVerified: {
+                    userId,
+                    subjectId: task.subjectId,
+                    validUntil: verifiedAt + 30000,
+                  },
+                }
+              : {}),
+          };
+          navigate({ pathname: `/groups/${groupId}/room`, search: search.toString() }, { state });
+        } finally {
+          unsubscribe?.();
+        }
       }
       onOpenChange(false);
     } catch (caught) {

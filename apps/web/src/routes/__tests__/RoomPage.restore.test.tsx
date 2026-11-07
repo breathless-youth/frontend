@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import userEvent from "@testing-library/user-event";
+import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RoomPage } from "../RoomPage";
@@ -72,6 +73,55 @@ describe("RoomPage 복원 게이트", () => {
   });
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("선택 과목 조회 실패 시 공부를 시작하지 않고 다시 시도하면 해당 과목으로 시작한다", async () => {
+    useActiveSessionRestore.mockReturnValue({ settled: true, restored: null });
+    listSubjects
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue([
+        { id: 3, name: "수학", colorIndex: 0, studySec: 0, focusSec: 0, tasks: [] },
+      ]);
+    render(
+      <MemoryRouter initialEntries={["/room/1?userId=7&initialSubjectId=3"]}>
+        <RoomPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText("과목을 불러오지 못했어요");
+    expect(useStudyRoomSession).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "뒤로 가기" })).toBeEnabled();
+    await userEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+    await waitFor(() =>
+      expect(useStudyRoomSession).toHaveBeenCalledWith(
+        7,
+        expect.objectContaining({ initialSubjectId: 3 }),
+      ),
+    );
+  });
+
+  it("과목 조회가 실패하는 동안 새로고침해도 선택 과목이 남도록 URL을 유지한다", async () => {
+    useActiveSessionRestore.mockReturnValue({ settled: true, restored: null });
+    listSubjects
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue([
+        { id: 3, name: "수학", colorIndex: 0, studySec: 0, focusSec: 0, tasks: [] },
+      ]);
+    function Search() {
+      const location = useLocation();
+      return <output data-testid="search">{location.search}</output>;
+    }
+    render(
+      <MemoryRouter initialEntries={["/room/1?userId=7&initialSubjectId=3"]}>
+        <Search />
+        <RoomPage />
+      </MemoryRouter>,
+    );
+    await screen.findByText("과목을 불러오지 못했어요");
+    expect(screen.getByTestId("search")).toHaveTextContent("initialSubjectId=3");
+    await userEvent.click(screen.getByRole("button", { name: "다시 시도" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("search")).not.toHaveTextContent("initialSubjectId"),
+    );
   });
 
   it("결착 전에는 세션을 시작하지 않는다", () => {

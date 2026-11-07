@@ -120,6 +120,7 @@ import { plannerCompletedTaskIds } from "@/features/study-session/plannerComplet
 import { hasTokenSource } from "@/lib/userId";
 import { queryClient } from "@/lib/queryClient";
 import { parseInitialSubject, useInitialSubject } from "@/features/study-session/useInitialSubject";
+import { InitialSubjectError } from "@/features/study-session/InitialSubjectError";
 import { loadSessionSubjects } from "@/features/study-session/loadSessionSubjects";
 import { useLandscapeLayout } from "@/features/study-session/useLandscapeLayout";
 import { useSubjects } from "@/features/study-session/useSubjects";
@@ -1487,6 +1488,7 @@ function SessionResultFallback({
  */
 export function RoomPage() {
   const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
   const [candidate] = useState(() => parseInitialSubject(params.get("initialSubjectId")));
   // 신원이 오기 전에 세션을 띄우면 아래 `key`가 null에서 실제 id로 바뀌며 통째로 다시 마운트된다.
   // 마운트 1회 계측(`study_session_started`)이 두 번 나가고 세션 타이머도 처음부터 다시 선다.
@@ -1500,7 +1502,8 @@ export function RoomPage() {
     restored !== null,
   );
   useEffect(() => {
-    if (!params.has("initialSubjectId")) return;
+    if (!params.has("initialSubjectId") || identityPending || !settled || !initialSubject.settled)
+      return;
     setParams(
       (previous) => {
         const next = new URLSearchParams(previous);
@@ -1509,7 +1512,7 @@ export function RoomPage() {
       },
       { replace: true },
     );
-  }, [params, setParams]);
+  }, [params, setParams, identityPending, settled, initialSubject.settled]);
   // 복원 확인 중에도 초대를 받아 두도록 게이트 바깥에서 구독한다.
   const invite = useSessionInvite();
 
@@ -1524,7 +1527,19 @@ export function RoomPage() {
         data-testid="room-restore-gate"
         className="theme-dark relative flex h-dvh flex-col bg-background"
         style={sessionSurfaceStyle}
-      />
+      >
+        {!identityPending && settled && initialSubject.error && (
+          <InitialSubjectError
+            onRetry={initialSubject.retry}
+            onBack={() => {
+              const search = new URLSearchParams(params);
+              search.delete("initialSubjectId");
+              postToNative({ type: "navigate-home", atMs: Date.now() });
+              navigate({ pathname: "/home", search: search.toString() }, { replace: true });
+            }}
+          />
+        )}
+      </main>
     );
   }
   // 사용자가 바뀌면 통째로 새로 만든다. 복원값은 마운트 시점에 한 번만 읽히므로, 같은

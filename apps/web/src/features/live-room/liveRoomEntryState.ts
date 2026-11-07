@@ -21,6 +21,7 @@ export function isLiveRoomState(state: unknown): state is LiveRoomLocationState 
 /** 그룹 홈이 자리를 잡고 공부방 라우트로 넘기는 입장 정보 */
 export type GroupRoomLocationState = {
   initialSubjectId?: number;
+  initialSubjectVerified?: { userId: number; subjectId: number; validUntil: number };
   roomId: number;
   graceRejoin: boolean;
   iceServers: IceServer[];
@@ -37,6 +38,13 @@ export function isGroupRoomState(state: unknown): state is GroupRoomLocationStat
       (typeof value.initialSubjectId === "number" &&
         Number.isSafeInteger(value.initialSubjectId) &&
         value.initialSubjectId > 0)) &&
+    (value.initialSubjectVerified === undefined ||
+      (typeof value.initialSubjectVerified === "object" &&
+        value.initialSubjectVerified !== null &&
+        Number.isSafeInteger((value.initialSubjectVerified as Record<string, unknown>).userId) &&
+        Number.isSafeInteger((value.initialSubjectVerified as Record<string, unknown>).subjectId) &&
+        typeof (value.initialSubjectVerified as Record<string, unknown>).validUntil ===
+          "number")) &&
     typeof value.graceRejoin === "boolean" &&
     Array.isArray(value.iceServers)
   );
