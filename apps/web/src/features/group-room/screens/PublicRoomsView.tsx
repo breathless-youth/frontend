@@ -1,10 +1,10 @@
 import { Search } from "lucide-react";
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Skeleton } from "@/components/ui/Skeleton";
 
-import { CategoryChips } from "../components/CategoryChips";
+import { CategoryChips, TWO_CHIP_ROWS_HEIGHT } from "../components/CategoryChips";
 import { PublicRoomCard } from "../components/PublicRoomCard";
 import { RoomsEmptyState } from "../components/RoomsEmptyState";
 import type { CategoryOption, PublicRoomSummary } from "../types";
@@ -60,6 +60,19 @@ export function PublicRoomsView({
   onOpenRoom: (roomId: number) => void;
 }) {
   const { t } = useTranslation("group-room");
+  const [expanded, setExpanded] = useState(false);
+  const [hasOverflow, setHasOverflow] = useState(false);
+  const measureRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = measureRef.current;
+    if (!element) return;
+    const measure = () => setHasOverflow(element.scrollHeight > TWO_CHIP_ROWS_HEIGHT);
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [categories, t]);
   const watchMore = hasMore && onLoadMore !== undefined;
   const moreRef = useInfiniteSentinel(() => onLoadMore?.(), watchMore);
   const emptyCopy =
@@ -120,13 +133,46 @@ export function PublicRoomsView({
           className="min-w-0 flex-1 bg-transparent text-[15px] text-foreground outline-none placeholder:text-muted-foreground"
         />
       </label>
-      <div className="pt-3">
-        <CategoryChips
-          options={categories}
-          value={category}
-          onChange={onCategoryChange}
-          allLabel={t("publicRoomsView.allCategories")}
-        />
+      <div className="relative pt-3">
+        <div
+          ref={measureRef}
+          aria-hidden="true"
+          inert
+          className="pointer-events-none invisible absolute inset-x-0 top-3"
+        >
+          <CategoryChips
+            options={categories}
+            value={category}
+            onChange={onCategoryChange}
+            allLabel={t("publicRoomsView.allCategories")}
+          />
+        </div>
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <CategoryChips
+              options={categories}
+              value={category}
+              onChange={onCategoryChange}
+              allLabel={t("publicRoomsView.allCategories")}
+              compact={hasOverflow && !expanded}
+            />
+          </div>
+          {hasOverflow && (
+            <button
+              type="button"
+              aria-expanded={expanded}
+              onClick={() => setExpanded(!expanded)}
+              className="flex h-9 shrink-0 items-center gap-1 text-sm font-semibold text-muted-foreground"
+            >
+              {t(
+                expanded
+                  ? "publicRoomsView.collapseCategories"
+                  : "publicRoomsView.expandCategories",
+              )}
+              <span aria-hidden="true">{expanded ? "⌃" : "⌄"}</span>
+            </button>
+          )}
+        </div>
       </div>
       {list}
     </div>

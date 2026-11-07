@@ -21,6 +21,7 @@
   },
   "roomMenu": {
     "item": {
+      "viewIntro": "그룹 소개 보기",
       "requests": "신청 확인",
       "invite": "초대하기",
       "manageMembers": "멤버 관리",
@@ -204,6 +205,8 @@
     "cancelApplication": "신청 취소"
   },
   "publicRoomsView": {
+    "expandCategories": "더보기",
+    "collapseCategories": "접기",
     "noneTitle": "아직 공개 그룹이 없어요",
     "noneDescription": "첫 공개 그룹을 만들어 같이 공부할 사람을 모아 보세요",
     "filteredTitle": "조건에 맞는 공개 그룹이 없어요",
@@ -254,6 +257,8 @@
     "newRequests": "새 신청 {{count}}건"
   },
   "roomHomeScreen": {
+    "introTitle": "그룹 소개",
+    "emptyIntro": "아직 작성된 그룹 소개가 없어요",
     "todayTitle": "오늘 우리 그룹",
     "newRequests": "새 신청이 {{count}}건 있어요",
     "review": "확인하기",

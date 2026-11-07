@@ -147,6 +147,11 @@ const GroupHomePage = lazy(
     loadGroupHomePage().then((module) => ({ default: module.GroupHomePage })),
   ),
 );
+const GroupIntroPage = lazy(
+  reloadOnChunkError(() =>
+    loadGroupHomePage().then((module) => ({ default: module.GroupIntroPage })),
+  ),
+);
 const GroupMembersPage = lazy(
   reloadOnChunkError(() =>
     loadGroupMembersPage().then((module) => ({ default: module.GroupMembersPage })),
@@ -353,6 +358,7 @@ export function App() {
                 path="/social/groups/:groupId/settings"
                 element={<GroupFormPage mode="edit" />}
               />
+              <Route path="/social/groups/:groupId/intro" element={<GroupIntroPage />} />
               <Route path="/social/groups/:groupId/members" element={<GroupMembersPage />} />
               <Route path="/social/groups/:groupId/room" element={<GroupRoomPage />} />
               <Route path="/social/groups/:groupId/room/result" element={<ResultPage />} />

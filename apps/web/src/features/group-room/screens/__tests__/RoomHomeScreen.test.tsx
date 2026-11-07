@@ -27,6 +27,23 @@ function renderHome(
 }
 
 describe("RoomHomeScreen", () => {
+  it.each(["public", "private"] as const)(
+    "%s 그룹 멤버는 소개 페이지를 연다",
+    async (visibility) => {
+      const user = userEvent.setup();
+      const { onMenuSelect } = renderHome({ ...fixtures.roomHome, role: "member", visibility });
+      await user.click(screen.getByRole("button", { name: "그룹 메뉴" }));
+      await user.click(screen.getByRole("menuitem", { name: "그룹 소개 보기" }));
+      expect(onMenuSelect).toHaveBeenCalledWith("view_intro");
+    },
+  );
+
+  it("그룹장 메뉴에는 소개 보기가 없다", async () => {
+    renderHome();
+    await userEvent.click(screen.getByRole("button", { name: "그룹 메뉴" }));
+    expect(screen.queryByRole("menuitem", { name: "그룹 소개 보기" })).toBeNull();
+  });
+
   it("머리 줄에 그룹 이름을 두고 그 아래에 공개 표시, 시험·목표, 멤버 수를 둔다", () => {
     renderHome();
     expect(

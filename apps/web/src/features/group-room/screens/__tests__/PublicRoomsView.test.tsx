@@ -1,7 +1,7 @@
 import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { stubIntersectionObserver } from "@/test/intersectionObserverStub";
 
@@ -30,7 +30,54 @@ function SearchHarness({ onQueryChange }: { onQueryChange: (query: string) => vo
   );
 }
 
+afterEach(() => vi.restoreAllMocks());
+
 describe("PublicRoomsView", () => {
+  it("두 줄 이하면 더보기 버튼을 표시하지 않는다", () => {
+    vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(78);
+    renderScreen(
+      <PublicRoomsView
+        query=""
+        onQueryChange={vi.fn()}
+        categories={fixtures.categories}
+        category={null}
+        onCategoryChange={vi.fn()}
+        rooms={[]}
+        onOpenRoom={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: "더보기" })).toBeNull();
+    vi.restoreAllMocks();
+  });
+  it("카테고리를 접고 펼치며 선택한 항목을 접힌 첫 줄에 유지한다", async () => {
+    function Harness() {
+      const [category, setCategory] = useState<string | null>(null);
+      return (
+        <PublicRoomsView
+          query=""
+          onQueryChange={vi.fn()}
+          categories={fixtures.categories}
+          category={category}
+          onCategoryChange={setCategory}
+          rooms={[]}
+          onOpenRoom={vi.fn()}
+        />
+      );
+    }
+    const height = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(120);
+    renderScreen(<Harness />);
+    const toggle = screen.getByRole("button", { name: "더보기" });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(toggle);
+    expect(screen.getByRole("button", { name: "접기" })).toHaveAttribute("aria-expanded", "true");
+    await userEvent.click(screen.getByRole("button", { name: "어학" }));
+    await userEvent.click(screen.getByRole("button", { name: "접기" }));
+    const group = screen.getByRole("group", { name: /시험|카테고리/ });
+    expect(within(group).getAllByRole("button")[1]).toHaveTextContent("어학");
+    expect(screen.getByRole("button", { name: "어학" })).toHaveAttribute("aria-pressed", "true");
+    height.mockRestore();
+  });
+
   it("검색창과 전체 칩을 두고, 칩은 하나만 고른다", async () => {
     const onCategoryChange = vi.fn();
     renderScreen(

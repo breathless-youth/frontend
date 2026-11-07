@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CategoryChips } from "../CategoryChips";
 
@@ -9,7 +9,31 @@ const options = [
   { value: "SCHOOL", label: "내신" },
 ];
 
+afterEach(() => vi.restoreAllMocks());
+
 describe("CategoryChips", () => {
+  it("전체 칩 없이 접어도 선택한 첫 칩을 중복하지 않는다", () => {
+    render(<CategoryChips options={options} value="CSAT" onChange={vi.fn()} compact />);
+    expect(screen.getAllByRole("button")).toHaveLength(2);
+  });
+
+  it("접힌 세 번째 줄은 포커스와 접근성 트리에서 제외하고 펼치면 복원한다", () => {
+    const offset = vi.spyOn(HTMLElement.prototype, "offsetTop", "get").mockImplementation(function (
+      this: HTMLElement,
+    ) {
+      return this.textContent === "내신" ? 84 : 0;
+    });
+    const { rerender } = render(
+      <CategoryChips options={options} value={null} onChange={vi.fn()} allLabel="전체" compact />,
+    );
+    const hidden = screen.getByText("내신");
+    expect(hidden).toHaveAttribute("inert");
+    expect(hidden).toHaveAttribute("aria-hidden", "true");
+    rerender(<CategoryChips options={options} value={null} onChange={vi.fn()} allLabel="전체" />);
+    expect(hidden).not.toHaveAttribute("inert");
+    expect(hidden).not.toHaveAttribute("aria-hidden");
+    offset.mockRestore();
+  });
   it("전체 라벨이 없으면 시험·목표 칩만 두고 넘긴 값의 칩이 눌려 있다", () => {
     render(<CategoryChips options={options} value="SCHOOL" onChange={vi.fn()} />);
     expect(
