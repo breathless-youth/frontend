@@ -9,6 +9,7 @@ import { plannerDateKeyOf } from "@/features/planner/plannerDay";
 import { plannerEntryOf } from "@/features/planner/useOpenPlanner";
 import { addDaysToDateKey } from "@/features/records/recordsFormat";
 import { localDateKey } from "@/lib/dateKey";
+import { ApiError } from "@/lib/api";
 import { studySessionDetailQuery } from "@/lib/statsQueries";
 import { hasTokenSource, useIdentityPending, useUserId } from "@/lib/userId";
 
@@ -44,7 +45,12 @@ export function ManualRecordPage() {
   if (identityPending || (canWrite && id !== null && detail.isPending)) {
     return <Skeleton className="m-5 h-96 rounded-xl" />;
   }
-  if (canWrite && id !== null && detail.isError) {
+  if (
+    canWrite &&
+    id !== null &&
+    detail.isError &&
+    !(detail.error instanceof ApiError && detail.error.status === 404)
+  ) {
     return (
       <ErrorState
         message={t("page.loadFailed")}

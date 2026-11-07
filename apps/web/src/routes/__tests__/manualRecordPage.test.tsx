@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { getStudySessionDetail } from "@/lib/studySessionApi";
+import { ApiError } from "@/lib/api";
 import type * as UserIdModule from "@/lib/userId";
 import { ManualRecordPage } from "@/routes/ManualRecordPage";
 
@@ -109,6 +110,15 @@ it("기록 조회가 실패하면 다른 날짜로 보내지 않고 재시도한
   });
   fireEvent.click(screen.getByRole("button", { name: /다시/ }));
   expect(await screen.findByTestId("destination")).toHaveTextContent("date=2026-11-05");
+});
+it("삭제된 기록의 옛 주소는 재시도에 갇히지 않고 남은 시각으로 기록 고치기를 연다", async () => {
+  vi.mocked(getStudySessionDetail).mockRejectedValueOnce(new ApiError("missing", 404));
+  const start = Date.parse("2026-11-05T03:00:00+09:00");
+  mount(`?userId=7&date=2026-11-05&entry=records&id=9&start=${start}`);
+  expect(await screen.findByTestId("destination")).toHaveTextContent(
+    "/planner?userId=7&date=2026-11-04&from=records&edit=records&returnDate=2026-11-05",
+  );
+  expect(screen.queryByRole("button", { name: /다시/ })).not.toBeInTheDocument();
 });
 it("새벽의 오늘 추가 링크는 아직 시작하지 않은 05시 대신 현재 플래너를 연다", async () => {
   vi.setSystemTime(new Date("2026-11-07T03:00:00+09:00"));
