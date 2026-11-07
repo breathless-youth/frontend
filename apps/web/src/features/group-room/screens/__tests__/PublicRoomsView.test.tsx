@@ -1,7 +1,7 @@
 import { act, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { stubIntersectionObserver } from "@/test/intersectionObserverStub";
 
@@ -29,6 +29,8 @@ function SearchHarness({ onQueryChange }: { onQueryChange: (query: string) => vo
     />
   );
 }
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("PublicRoomsView", () => {
   it("두 줄 이하면 더보기 버튼을 표시하지 않는다", () => {

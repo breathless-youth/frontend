@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { Skeleton } from "@/components/ui/Skeleton";
 
-import { CategoryChips } from "../components/CategoryChips";
+import { CategoryChips, TWO_CHIP_ROWS_HEIGHT } from "../components/CategoryChips";
 import { PublicRoomCard } from "../components/PublicRoomCard";
 import { RoomsEmptyState } from "../components/RoomsEmptyState";
 import type { CategoryOption, PublicRoomSummary } from "../types";
@@ -66,7 +66,7 @@ export function PublicRoomsView({
   useEffect(() => {
     const element = measureRef.current;
     if (!element) return;
-    const measure = () => setHasOverflow(element.scrollHeight > 78);
+    const measure = () => setHasOverflow(element.scrollHeight > TWO_CHIP_ROWS_HEIGHT);
     measure();
     if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(measure);

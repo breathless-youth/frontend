@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { CategoryChips } from "../CategoryChips";
 
@@ -8,6 +8,8 @@ const options = [
   { value: "CSAT", label: "수능" },
   { value: "SCHOOL", label: "내신" },
 ];
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("CategoryChips", () => {
   it("전체 칩 없이 접어도 선택한 첫 칩을 중복하지 않는다", () => {

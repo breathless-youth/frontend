@@ -8,6 +8,8 @@ import type { CategoryOption } from "../types";
  *
  * 조건 없음 칩이 있을 때만 `null`을 넘기고, 없으면 늘 값이 있어 그룹 만들기 같은 호출부가 `null`을 거르지 않아도 된다.
  */
+export const TWO_CHIP_ROWS_HEIGHT = 78;
+
 type CategoryChipsProps = {
   options: CategoryOption[];
   value: string | null;
@@ -37,10 +39,12 @@ export function CategoryChips(props: CategoryChipsProps) {
   let chips: { value: string | null; label: string }[] =
     allLabel === undefined ? options : [{ value: null, label: allLabel }, ...options];
 
-  if (compact && value !== null && allLabel !== undefined) {
+  if (compact && value !== null) {
     const selected = chips.find((chip) => chip.value === value);
-    if (selected)
-      chips = [chips[0]!, selected, ...chips.slice(1).filter((chip) => chip.value !== value)];
+    if (selected) {
+      const rest = chips.filter((chip) => chip.value !== value);
+      chips = allLabel === undefined ? [selected, ...rest] : [rest[0]!, selected, ...rest.slice(1)];
+    }
   }
 
   const groupRef = useRef<HTMLDivElement>(null);
@@ -51,7 +55,7 @@ export function CategoryChips(props: CategoryChipsProps) {
       const buttons = Array.from(group.querySelectorAll("button"));
       const top = buttons[0]?.offsetTop ?? 0;
       for (const button of buttons) {
-        const hidden = compact && button.offsetTop - top >= 78;
+        const hidden = compact && button.offsetTop - top >= TWO_CHIP_ROWS_HEIGHT;
         button.toggleAttribute("inert", hidden);
         if (hidden) button.setAttribute("aria-hidden", "true");
         else button.removeAttribute("aria-hidden");
@@ -62,7 +66,7 @@ export function CategoryChips(props: CategoryChipsProps) {
     const observer = new ResizeObserver(update);
     observer.observe(group);
     return () => observer.disconnect();
-  }, [compact, options, value]);
+  }, [allLabel, compact, options, t, value]);
 
   const pick = (next: string | null) => {
     if (next === value) {
@@ -78,11 +82,12 @@ export function CategoryChips(props: CategoryChipsProps) {
   return (
     <div
       ref={groupRef}
+      style={compact ? { maxHeight: TWO_CHIP_ROWS_HEIGHT } : undefined}
       role="group"
       aria-label={t("categoryChips.aria.group")}
       className={
         compact
-          ? "@container flex max-h-[78px] min-w-0 flex-wrap gap-1.5 overflow-hidden"
+          ? "@container flex min-w-0 flex-wrap gap-1.5 overflow-hidden"
           : "@container flex flex-wrap gap-1.5"
       }
     >
