@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next";
-import { Pencil } from "lucide-react";
 
 import type { StudySessionSummary, SubjectRef } from "@focusmakers/types";
 
@@ -66,10 +65,9 @@ export function PlannerTimetable({
   const { t } = useTranslation("planner");
   const cells = plannerCellFills(day);
   const currentTime = plannerCurrentTime(day.dateKey, nowMs, day.timeZone);
-  const distribution = [
-    t("timetable.aria.distribution", { duration: formatDuration(day.focusSec) }),
-    ...(day.paints.some((paint) => paint.edited) ? [t("record.edited")] : []),
-  ].join(". ");
+  const distribution = t("timetable.aria.distribution", {
+    duration: formatDuration(day.focusSec),
+  });
   const bundles =
     onEditBundle === undefined
       ? []
@@ -147,16 +145,7 @@ export function PlannerTimetable({
                         data-manual={fill.manual || undefined}
                         className="absolute inset-y-0"
                         style={fillStyle(fill, day.subjects)}
-                      >
-                        {fill.edited && fill.startsBlock && fill.width >= 0.6 && (
-                          <Pencil
-                            aria-hidden
-                            data-record-edited=""
-                            size={8}
-                            className="absolute top-1/2 left-0.5 -translate-y-1/2 text-foreground"
-                          />
-                        )}
-                      </span>
+                      />
                     ))}
                   </span>
                 );
