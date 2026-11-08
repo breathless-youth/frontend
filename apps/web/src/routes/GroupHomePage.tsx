@@ -9,6 +9,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { GroupNotificationPrompt } from "@/features/group-room/components/GroupNotificationPrompt";
+import { TranslationNotice } from "@/features/group-room/components/TranslationNotice";
 import { enterGroupStudyRoom } from "@/features/group-room/enterGroupStudyRoom";
 import { toRoomHome } from "@/features/group-room/fromApi";
 import {
@@ -19,6 +20,7 @@ import {
 } from "@/features/group-room/groupErrorCopy";
 import { markLocalMembership } from "@/features/group-room/groupMembershipTracker";
 import { baseSearch } from "@/features/group-room/groupTabSearch";
+import { pickGroupText, useShowOriginal } from "@/features/group-room/model/groupTranslation";
 import { leaveRoomDialog, otherMemberCount } from "@/features/group-room/model/roomMenu";
 import type { LeaveDialog, RoomMenuItem } from "@/features/group-room/model/roomMenu";
 import { parseRouteId } from "@/features/group-room/routeId";
@@ -375,13 +377,24 @@ function GroupIntro({ userId, groupId }: { userId: number; groupId: number }) {
   const homeQuery = useQuery({ ...groupHomeQuery(userId, groupId), refetchInterval: false });
   useLeaveWhenGone(homeQuery.error, groupId);
   const home = homeQuery.data;
+  const showOriginal = useShowOriginal();
+  const intro = home
+    ? pickGroupText(
+        home.description ?? "",
+        home.translation?.description ?? null,
+        showOriginal,
+      ).trim()
+    : "";
   return (
     <GroupScreenFrame title={t("roomHomeScreen.introTitle")} onBack={back}>
       {home ? (
         <div className="mt-1 rounded-xl bg-muted p-4 shadow-sb-card">
           <p className="whitespace-pre-wrap break-words text-[15px] leading-6 text-foreground">
-            {home.description?.trim() || t("roomHomeScreen.emptyIntro")}
+            {intro || t("roomHomeScreen.emptyIntro")}
           </p>
+          {intro !== "" && home.translation?.description != null && (
+            <TranslationNotice variant="detail" className="pt-1.5" />
+          )}
         </div>
       ) : cannotLoadFirst(homeQuery) && !isGroupGoneError(homeQuery.error) ? (
         <ErrorState

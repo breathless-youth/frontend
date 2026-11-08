@@ -14,6 +14,7 @@ import {
   isQuietApplicationError,
 } from "@/features/group-room/groupErrorCopy";
 import { baseSearch } from "@/features/group-room/groupTabSearch";
+import { pickGroupText, useShowOriginal } from "@/features/group-room/model/groupTranslation";
 import { remainingSeats } from "@/features/group-room/model/limits";
 import { parseRouteId } from "@/features/group-room/routeId";
 import { GroupScreenFrame } from "@/features/group-room/screens/GroupScreenFrame";
@@ -75,6 +76,7 @@ function GroupApplications({ userId, groupId }: { userId: number; groupId: numbe
   // 이 화면은 그룹 이름만 읽어서 그룹 홈처럼 30초마다 다시 받지 않는다.
   const homeQuery = useQuery({ ...groupHomeQuery(userId, groupId), refetchInterval: false });
   const home = homeQuery.data;
+  const showOriginal = useShowOriginal();
   const applicationsQuery = useQuery(groupApplicationsQuery(userId, groupId));
   const refresh = () => void invalidateGroupMembership(queryClient, userId, groupId);
 
@@ -152,7 +154,7 @@ function GroupApplications({ userId, groupId }: { userId: number; groupId: numbe
     cannotLoadFirst(applicationsQuery) && !notOwner && !isGroupGoneError(applicationsQuery.error);
   return (
     <RequestsScreen
-      roomName={home.name}
+      roomName={pickGroupText(home.name, home.translation?.name ?? null, showOriginal)}
       remainingSeats={applications?.remainingSeats ?? remainingSeats(home.memberCount)}
       requests={(applications?.applications ?? []).map(toApplicationRequest)}
       now={now}

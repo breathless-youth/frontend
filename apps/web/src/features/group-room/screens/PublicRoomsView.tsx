@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { CategoryChips, ONE_CHIP_ROW_HEIGHT } from "../components/CategoryChips";
 import { PublicRoomCard } from "../components/PublicRoomCard";
 import { RoomsEmptyState } from "../components/RoomsEmptyState";
+import { TranslationNotice } from "../components/TranslationNotice";
 import type { CategoryOption, PublicRoomSummary } from "../types";
 import { useInfiniteSentinel } from "../useInfiniteSentinel";
 
@@ -174,6 +175,10 @@ export function PublicRoomsView({
           )}
         </div>
       </div>
+      {/* 번역된 카드가 하나라도 있는지로 정해서 원문 보기 중에도 다시 번역으로 돌아갈 버튼이 남는다. */}
+      {rooms.some((room) => room.translatedName !== null) && (
+        <TranslationNotice variant="list" className="pt-3 pb-0.5" />
+      )}
       {list}
     </div>
   );

@@ -14,6 +14,7 @@ import {
   isQuietGroupConflict,
 } from "@/features/group-room/groupErrorCopy";
 import { baseSearch } from "@/features/group-room/groupTabSearch";
+import { pickGroupText, useShowOriginal } from "@/features/group-room/model/groupTranslation";
 import { parseRouteId } from "@/features/group-room/routeId";
 import { ApplyScreen } from "@/features/group-room/screens/ApplyScreen";
 import { GroupScreenFrame } from "@/features/group-room/screens/GroupScreenFrame";
@@ -77,6 +78,7 @@ function Apply({ userId, groupId }: { userId: number; groupId: number }) {
   const back = useBackTo(`/social/public/${groupId}`);
   const detailQuery = useQuery(publicGroupQuery(userId, groupId));
   const detail = detailQuery.data;
+  const showOriginal = useShowOriginal();
   const [intro, setIntro] = useState("");
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -145,7 +147,7 @@ function Apply({ userId, groupId }: { userId: number; groupId: number }) {
 
   return (
     <ApplyScreen
-      roomName={detail.name}
+      roomName={pickGroupText(detail.name, detail.translation?.name ?? null, showOriginal)}
       ownerNickname={detail.owner.nickname}
       value={intro}
       onChange={(next) => {

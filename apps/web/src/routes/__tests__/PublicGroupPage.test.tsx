@@ -39,6 +39,18 @@ afterEach(() => {
   vi.mocked(trackGroupRoomJoined).mockClear();
 });
 
+describe("신청 화면 그룹 이름", () => {
+  it("번역 이름이 오면 신청 안내에 번역 이름을 쓴다", async () => {
+    const api = mockGroupApi("default");
+    api.getPublicGroup.mockImplementation(async (groupId, signal) => ({
+      ...(await api.server.getPublicGroup(groupId, signal)),
+      translation: { language: "en", name: "Lang Club", description: null },
+    }));
+    renderGroupRoute("/social/public/13/apply?groupRooms=1");
+    expect(await screen.findByText("Lang Club에 신청할게요")).toBeInTheDocument();
+  });
+});
+
 describe("신청 계측", () => {
   it("신청을 보내면 그 그룹의 시험·목표만 계측하고 소개 글은 싣지 않는다", async () => {
     mockGroupApi("default");

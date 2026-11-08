@@ -42,6 +42,8 @@ const SCREEN_IDS = [
   "4-7",
   "code",
   "code-error",
+  "2-10",
+  "2-11",
   "longest",
 ];
 

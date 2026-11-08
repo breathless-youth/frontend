@@ -34,6 +34,18 @@ beforeAll(async () => {
 
 const firstRowMenu = async () => (await screen.findAllByRole("button", { name: / 메뉴$/ }))[0]!;
 
+describe("머리 줄 그룹 이름 번역", () => {
+  it("번역 이름이 오면 그룹 이름 줄에 번역 이름을 쓴다", async () => {
+    const api = mockGroupApi("default");
+    api.getGroupHome.mockImplementation(async (groupId, signal) => ({
+      ...(await api.server.getGroupHome(groupId, signal)),
+      translation: { language: "en", name: "Dawn Club", description: null },
+    }));
+    renderGroupRoute("/social/groups/10/members?groupRooms=1");
+    expect(await screen.findByText(/^Dawn Club · /)).toBeInTheDocument();
+  });
+});
+
 describe("멤버 관리와 멤버 보기", () => {
   it("그룹장은 멤버 관리, 멤버는 멤버 보기다", async () => {
     mockGroupApi("default");

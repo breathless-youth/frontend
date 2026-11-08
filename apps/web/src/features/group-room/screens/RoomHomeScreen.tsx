@@ -11,6 +11,7 @@ import { RoomMeta } from "../components/RoomMeta";
 import { TodayDesksCard } from "../components/TodayDesksCard";
 import { WeeklyRankCard } from "../components/WeeklyRankCard";
 import { otherMemberCount, type RoomMenuItem, roomMenuItems } from "../model/roomMenu";
+import { pickGroupText, useShowOriginal } from "../model/groupTranslation";
 import type { RoomHome } from "../types";
 import { useElapsedSec } from "../useElapsedSec";
 
@@ -66,6 +67,7 @@ export function RoomHomeScreen({
     room.visibility === "public" &&
     room.joinPolicy !== "open" &&
     room.newRequestCount > 0;
+  const name = pickGroupText(room.name, room.translatedName, useShowOriginal());
   return (
     <main
       // 그룹 이름과 닉네임이 Amplitude 클릭 이벤트에 실리지 않게 화면 안의 글자와 aria-label을 모두 가린다.
@@ -75,7 +77,7 @@ export function RoomHomeScreen({
       className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground"
     >
       <ScreenBackHeader
-        title={room.name}
+        title={name}
         onBack={onBack}
         trailing={
           <div className="flex items-center gap-1">

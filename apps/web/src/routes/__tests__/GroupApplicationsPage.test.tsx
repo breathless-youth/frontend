@@ -37,6 +37,18 @@ afterEach(() => {
   vi.mocked(trackGroupRoomReported).mockClear();
 });
 
+describe("머리 줄 그룹 이름 번역", () => {
+  it("번역 이름이 오면 그룹 이름 줄에 번역 이름을 쓴다", async () => {
+    const api = mockGroupApi("default");
+    api.getGroupHome.mockImplementation(async (groupId, signal) => ({
+      ...(await api.server.getGroupHome(groupId, signal)),
+      translation: { language: "en", name: "Dawn Club", description: null },
+    }));
+    renderGroupRoute("/social/groups/10/applications?groupRooms=1");
+    expect(await screen.findByText(/^Dawn Club · /)).toBeInTheDocument();
+  });
+});
+
 describe("신청 답 계측", () => {
   it("수락하면 accepted로 계측한다", async () => {
     const api = mockGroupApi("default");
