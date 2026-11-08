@@ -3,6 +3,7 @@ import {
   AccessibilityInfo,
   Animated,
   Appearance,
+  AppState,
   findNodeHandle,
   Platform,
   Text,
@@ -862,6 +863,12 @@ export function RemoteWebViewHost({
     if (message.type === "auth-ready" && !focused) {
       sendToWeb({ type: "tab-focus", focused: false, atMs: Date.now() });
     }
+    if (
+      message.type === "auth-ready" &&
+      (AppState.currentState === "background" || AppState.currentState === "inactive")
+    ) {
+      sendToWeb({ type: "app-visibility", visible: false, atMs: Date.now() });
+    }
     onBridgeMessage?.(message, sendToWeb);
   };
 
@@ -932,6 +939,9 @@ export function RemoteWebViewHost({
     }
     if (!focused) {
       sendToWeb({ type: "tab-focus", focused: false, atMs: Date.now() });
+    }
+    if (AppState.currentState === "background" || AppState.currentState === "inactive") {
+      sendToWeb({ type: "app-visibility", visible: false, atMs: Date.now() });
     }
     // 첫 붙이기가 다시 시도까지 모두 실패했어도 문서가 다 그려진 뒤 한 번 더 붙인다.
     if (inlineRunRef.current !== null) {
@@ -1009,6 +1019,20 @@ export function RemoteWebViewHost({
     sentFocusRef.current = focused;
     sendToWeb({ type: "tab-focus", focused, atMs: Date.now() });
   }, [focused, sendToWeb]);
+
+  // 앱 가시성은 탭 이동과 다르다. 가이드는 tab-focus:false를 네이티브 화면 진입으로 해석한다.
+  const sentAppVisibleRef = useRef(true);
+  useEffect(() => {
+    const update = (state: typeof AppState.currentState) => {
+      const visible = state !== "background" && state !== "inactive";
+      if (sentAppVisibleRef.current === visible) return;
+      sentAppVisibleRef.current = visible;
+      sendToWeb({ type: "app-visibility", visible, atMs: Date.now() });
+    };
+    update(AppState.currentState);
+    const subscription = AppState.addEventListener("change", update);
+    return () => subscription.remove();
+  }, [sendToWeb]);
 
   /**
    * 네이티브 사용자 이벤트의 전달 대상(sink)으로 붙는다 — **포커스된 화면이면서 웹이 준비 신호를

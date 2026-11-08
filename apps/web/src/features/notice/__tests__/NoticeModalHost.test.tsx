@@ -94,6 +94,21 @@ afterEach(() => {
 });
 
 describe("NoticeModalHost", () => {
+  it("홈 편집기를 닫으면 미뤄 둔 공지를 다시 판단한다", async () => {
+    getActiveNotices.mockResolvedValue([notice(1, "ALL")]);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tree = (deferred: boolean) => (
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <NoticeModalHost userId={7} paused={false} deferred={deferred} onSettled={vi.fn()} />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    const view = render(tree(true));
+    expect(getActiveNotices).not.toHaveBeenCalled();
+    view.rerender(tree(false));
+    expect(await screen.findByRole("dialog", { name: "공지1" })).toBeInTheDocument();
+  });
   it("인터뷰 공지를 띄우고 노출을 기록한다", async () => {
     getActiveNotices.mockResolvedValue([notice(1, "G1_NOT_STARTED")]);
     renderHost();

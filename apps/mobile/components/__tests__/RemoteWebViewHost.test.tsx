@@ -229,6 +229,7 @@ function fireWebViewEvent(name: "onError" | "onHttpError", value?: unknown) {
 }
 
 beforeEach(() => {
+  jest.spyOn(AppState, "addEventListener").mockReturnValue({ remove: jest.fn() });
   mockWebBaseUrl = "https://web.test";
   mockReload.mockClear();
   mockGoBack.mockClear();
@@ -1965,6 +1966,60 @@ describe("RemoteWebViewHost tab-focus", () => {
     expect(scripts).toHaveLength(2);
     expect(scripts[0]).toContain('\\"focused\\":false');
     expect(scripts[1]).toContain('\\"focused\\":true');
+  });
+
+  it("앱 가시성은 탭 이동과 별도 메시지로 전달한다", () => {
+    const appStateSpy = jest.spyOn(AppState, "addEventListener");
+    const view = render(<RemoteWebViewHost path="/home" testID="host" focused />);
+    const changeState = (state: "background" | "active") =>
+      act(() => {
+        appStateSpy.mock.calls
+          .filter(([event]) => event === "change")
+          .at(-1)?.[1](state);
+      });
+    changeState("background");
+    changeState("active");
+    const scripts = mockInjectJavaScript.mock.calls
+      .map(([script]) => script as string)
+      .filter((script) => script.includes("app-visibility"));
+    expect(scripts).toHaveLength(2);
+    expect(scripts[0]).toContain('\\"visible\\":false');
+    expect(scripts[1]).toContain('\\"visible\\":true');
+    expect(tabFocusScripts()).toEqual([]);
+    view.unmount();
+  });
+
+  it("백그라운드에서 문서가 준비되면 현재 가시성을 다시 보내고 탭 이동으로 알리지 않는다", () => {
+    const descriptor = Object.getOwnPropertyDescriptor(AppState, "currentState")!;
+    Object.defineProperty(AppState, "currentState", { ...descriptor, value: "background" });
+    try {
+      render(<RemoteWebViewHost path="/home" testID="host" focused />);
+      mockInjectJavaScript.mockClear();
+      const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+      act(() => onMessage({ nativeEvent: { data: '{"type":"auth-ready","atMs":1}' } }));
+      expect(
+        mockInjectJavaScript.mock.calls.some(
+          ([script]) =>
+            String(script).includes("app-visibility") &&
+            String(script).includes('\\"visible\\":false'),
+        ),
+      ).toBe(true);
+      expect(tabFocusScripts()).toEqual([]);
+      mockInjectJavaScript.mockClear();
+      act(() => {
+        (screen.getByTestId("host").props.onLoadEnd as () => void)();
+      });
+      expect(
+        mockInjectJavaScript.mock.calls.some(
+          ([script]) =>
+            String(script).includes("app-visibility") &&
+            String(script).includes('\\"visible\\":false'),
+        ),
+      ).toBe(true);
+      expect(tabFocusScripts()).toEqual([]);
+    } finally {
+      Object.defineProperty(AppState, "currentState", descriptor);
+    }
   });
 
   it("가려진 채 문서가 뜨면 로드 직후에 가려졌다고 보낸다", () => {

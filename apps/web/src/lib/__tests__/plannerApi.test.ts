@@ -7,6 +7,7 @@ import {
   getPlannerTaskRepeat,
   listPlannerDays,
   selectPlannerSubject,
+  setPlannerGoal,
 } from "../plannerApi";
 
 const request = vi.fn<typeof fetch>();
@@ -21,6 +22,23 @@ afterEach(() => {
 });
 
 describe("planner API", () => {
+  it("홈의 00시 목표는 HOME 달력으로 저장하고 0을 그대로 보낸다", async () => {
+    request.mockResolvedValue(
+      Response.json({ goalSec: 0, individualGoalSec: 0, defaultGoalSec: 14400 }),
+    );
+    await setPlannerGoal(
+      "2026-11-07",
+      { goalSec: 0 },
+      { timeZone: "Asia/Seoul", calendar: "HOME" },
+    );
+    const [url, init] = request.mock.calls[0]!;
+    const parsed = new URL(String(url), "http://localhost");
+    expect(parsed.pathname).toBe("/api/planner/goals/2026-11-07");
+    expect(parsed.searchParams.get("calendar")).toBe("HOME");
+    expect(parsed.searchParams.get("timeZone")).toBe("Asia/Seoul");
+    expect(init?.method).toBe("PUT");
+    expect(JSON.parse(String(init?.body))).toEqual({ goalSec: 0 });
+  });
   it("반복 편집 초기값을 회차 key와 시간대로 조회하고 무기한 종료일을 보존한다", async () => {
     const rule = {
       seriesId: 4,

@@ -45,6 +45,7 @@ const SETTLE_DEADLINE_MS = 3000;
 export function NoticeModalHost({
   userId,
   paused,
+  deferred = false,
   onShown,
   onSettled,
   onOpenChange,
@@ -57,6 +58,8 @@ export function NoticeModalHost({
    * 홈이 다시 보여도 그 위나 그 뒤에 공지를 띄우지 않는다.
    */
   paused: boolean;
+  /** 홈 편집기처럼 잠깐 미룬 경우, false가 되면 다시 판단한다. */
+  deferred?: boolean;
   /**
    * 공지를 띄웠을 때 알린다
    *
@@ -71,12 +74,12 @@ export function NoticeModalHost({
   const location = useLocation();
   const [open, setOpen] = useState<Open | null>(null);
   // 조회 콜백이 최신 값을 읽어야 해서 ref에 담는다. 렌더 중에는 쓰지 않는다.
-  const pausedRef = useRef(paused);
+  const pausedRef = useRef(paused || deferred);
   const onShownRef = useRef(onShown);
   const onSettledRef = useRef(onSettled);
   const onOpenChangeRef = useRef(onOpenChange);
   useEffect(() => {
-    pausedRef.current = paused;
+    pausedRef.current = paused || deferred;
     onShownRef.current = onShown;
     onSettledRef.current = onSettled;
     onOpenChangeRef.current = onOpenChange;
@@ -100,6 +103,7 @@ export function NoticeModalHost({
 
   useEffect(() => {
     let cancelled = false;
+    if (deferred) return;
     // 마감으로 정리한 뒤 첫 조회 응답을 띄우면 뒤이어 온 복구 창과 겹친다. 다음 평가부터 다시 정한다.
     let firstEvaluationExpired = false;
     const evaluate = (isFirst: boolean) => {
@@ -167,7 +171,7 @@ export function NoticeModalHost({
       clearTimeout(deadline);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [queryClient, userId, settle]);
+  }, [queryClient, userId, settle, deferred]);
 
   if (open === null) {
     return null;
