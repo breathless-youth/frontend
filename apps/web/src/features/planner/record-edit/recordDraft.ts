@@ -24,6 +24,7 @@ export interface RecordDraftBlock {
   subjectScopeUnknown?: boolean;
   locked: boolean;
   subjectChanged: boolean;
+  edited?: boolean;
   preciseStartedAt?: string;
   preciseEndedAt?: string;
   original?: PlannerRecordView;
@@ -86,6 +87,7 @@ export function createRecordDraft(day: PlannerDayResponse): RecordDraftState {
         (Date.parse(record.startedAt) <= window.startMs ||
           Date.parse(record.endedAt) >= window.endMs),
       subjectChanged: false,
+      edited: record.edited ?? false,
       preciseStartedAt: hasFull ? fullStart : record.startedAt,
       preciseEndedAt: hasFull ? fullEnd : record.endedAt,
       original: record,
@@ -296,6 +298,7 @@ export function addRecordDraft(
         mixed: false,
         locked: false,
         subjectChanged: true,
+        edited: true,
       },
     ],
   };

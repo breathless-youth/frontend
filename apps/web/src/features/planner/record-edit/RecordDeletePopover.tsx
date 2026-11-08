@@ -12,6 +12,7 @@ export interface RecordDeleteRect {
   borderLeft: string;
   label: string | null;
   manual: boolean;
+  edited?: boolean;
   rowLeft: number;
   rowWidth: number;
 }
@@ -95,10 +96,10 @@ export function RecordDeletePopover({
             })}
             {rect.label && (
               <span className="absolute inset-0 flex items-center justify-center gap-1 overflow-hidden px-1 text-xs font-bold whitespace-nowrap">
-                {rect.manual && (
+                {(rect.manual || rect.edited) && (
                   <Pencil
                     role="img"
-                    aria-label={t("records:manualItem.badge")}
+                    aria-label={rect.edited ? t("record.edited") : t("records:manualItem.badge")}
                     size={11}
                     className="shrink-0"
                   />

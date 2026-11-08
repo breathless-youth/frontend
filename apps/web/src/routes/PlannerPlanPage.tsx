@@ -34,6 +34,7 @@ import { postToNative } from "@/lib/bridge";
 import { ApiError } from "@/lib/api";
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
 import { plannerKeys } from "@/lib/plannerQueries";
+import { personalRecordsKeys } from "@/lib/personalRecordsQueries";
 import { createSubject, deleteSubject, listSubjects, renameSubject } from "@/lib/subjectApi";
 import { showCtaToast, showToast } from "@/lib/toast";
 import { useUserId } from "@/lib/userId";
@@ -185,6 +186,7 @@ function PlannerPlanContent({ userId }: { userId: number | null }) {
     postToNative({ type: "records-changed", atMs: Date.now() });
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: plannerKeys.user(userId ?? 0) }),
+      queryClient.invalidateQueries({ queryKey: personalRecordsKeys.user(userId ?? 0) }),
       queryClient.invalidateQueries({ queryKey: ["subjects"] }),
     ]);
   }

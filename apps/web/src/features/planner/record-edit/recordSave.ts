@@ -100,6 +100,7 @@ export function acceptSavedRecords(
       ...current,
       key: result.key,
       subjectChanged: false,
+      edited: true,
       preciseStartedAt: operation.startedAt ?? current.preciseStartedAt,
       preciseEndedAt: operation.endedAt ?? current.preciseEndedAt,
       original: undefined,

@@ -43,6 +43,8 @@ export interface PlannerGoalResponse {
 export interface PlannerRecordView {
   key: string;
   source: "MEASURED" | "MANUAL";
+  /** 서버에 저장된 개인 수정본 여부. 보완 전 응답의 누락은 false로 처리한다. */
+  edited?: boolean;
   startedAt: string;
   endedAt: string;
   /** 현재 개인 기록의 전체 구간. 보완 계약 이전 응답에는 없을 수 있다. */

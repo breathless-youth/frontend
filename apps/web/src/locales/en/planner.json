@@ -185,7 +185,8 @@
       "invalid": "Check the times and subjects for your records.",
       "missing": "A record or subject could not be found. Reopen this screen.",
       "server": "The server could not save your records. Try again shortly."
-    }
+    },
+    "edited": "Edited"
   },
   "week": {
     "prev": "Previous week",

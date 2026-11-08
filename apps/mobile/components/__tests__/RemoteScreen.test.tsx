@@ -28,6 +28,10 @@ import { ensureUserRegistered } from "../../lib/userApi";
 
 jest.mock("../../lib/userApi", () => ({ ensureUserRegistered: jest.fn() }));
 jest.mock("../../lib/nativeBridgeHandler", () => ({ handleBridgeMessage: jest.fn() }));
+// 실제 RootLayout의 SafeAreaProvider 없이 화면만 그리는 테스트의 시스템 안전 영역이다.
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
 jest.mock("../../lib/launchReady", () => ({
   markLaunchReady: jest.fn(),
   markLaunchLoadStarted: jest.fn(),

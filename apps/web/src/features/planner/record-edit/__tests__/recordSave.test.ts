@@ -205,6 +205,36 @@ it("과목만 바꾼 응답이 유실되면 시각 없는 동일 본문을 재�
   expect(JSON.parse(bodies[0]!).operations[0]).not.toHaveProperty("endedAt");
 });
 
+it("저장이 확정된 측정 기록은 초안을 정리한 뒤에도 수정 표시를 유지한다", () => {
+  const record = plannerRecord({ edited: false, subjectSegments: [] });
+  const draft = changeRecordDraft(
+    createRecordDraft(plannerDay({ records: [record] })),
+    record.key,
+    { endMs: Date.parse("2026-11-06T00:30:00Z") },
+    Date.parse("2026-11-06T03:00:00Z"),
+  );
+  const operation = recordDraftOperations(draft)[0]!;
+  const accepted = acceptSavedRecords(draft, {
+    confirmed: [
+      {
+        operation,
+        result: {
+          operationId: operation.operationId,
+          success: true,
+          key: record.key,
+          status: 200,
+          code: null,
+          message: null,
+        },
+      },
+    ],
+    pending: [],
+    uncertain: false,
+  });
+  expect(recordDraftOperations(accepted)).toEqual([]);
+  expect(accepted.blocks[0]?.edited).toBe(true);
+});
+
 it("51개 중 첫 배치 성공 후 응답이 유실되면 성공 baseline을 보존하고 미확정 본문만 재시도한다", async () => {
   const now = Date.parse("2026-11-06T03:00:00Z");
   const start = Date.parse("2026-11-06T00:00:00Z");

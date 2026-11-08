@@ -15,7 +15,7 @@ import {
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { subjectIdOf, subjectNameOf } from "@/features/manual-record/manualRecord";
+import { subjectNameOf } from "@/features/manual-record/manualRecord";
 import { plannerDateKeyOf } from "@/features/planner/plannerDay";
 import { useOpenPlanner } from "@/features/planner/useOpenPlanner";
 import { PlannerPillButton } from "@/features/planner/PlannerPillButton";
@@ -40,6 +40,7 @@ import {
 import { SegmentedControl, type RecordsView } from "@/features/records/SegmentedControl";
 import { subjectRefMap } from "@/features/records/recordsTimetable";
 import { SessionListItem, SessionTimelineLegend } from "@/features/records/SessionListItem";
+import { recordDisplayKey } from "@/features/records/recordsSession";
 import { useRecordsData } from "@/features/records/useRecordsData";
 import { WeeklyView } from "@/features/records/WeeklyView";
 import { PeriodNav, PeriodNavPickerButton } from "@/features/records/PeriodNav";
@@ -112,12 +113,12 @@ function RecordsContent({
           averageFocusSec: averageFocusSecPerStudiedDay(periodDaily),
         };
   // 한 번에 하나만 펼친다. id로만 기억해 두면 날짜가 바뀌어 그 세션이 목록에 없을 때 저절로 접힌다.
-  const [expandedSessionId, setExpandedSessionId] = useState<number | null>(null);
+  const [expandedRecordKey, setExpandedRecordKey] = useState<string | null>(null);
   // Accordion은 펼친 항목의 값을 주고, 접으면 빈 문자열을 준다.
   const changeExpandedSession = (value: string) => {
-    const next = value === "" ? null : Number(value);
+    const next = value === "" ? null : value;
     trackRecordsSessionExpanded({ expanded: next !== null });
-    setExpandedSessionId(next);
+    setExpandedRecordKey(next);
   };
 
   // 서버가 시작 시각 내림차순으로 내려주지만(Swagger), 화면 약속(최신순 고정)은 여기서도 보장한다.
@@ -192,7 +193,7 @@ function RecordsContent({
             });
             onSelectDate(dateKey);
             // 같은 날로 돌아왔을 때 접혔던 행이 다시 펼쳐지지 않게 기억해 둔 세션도 지운다.
-            setExpandedSessionId(null);
+            setExpandedRecordKey(null);
           }}
           // 월 이동은 선택일을 건드리지 않는다(2026-07-28 확정) — 달력 표시만 바뀌고, 다른 달로
           // 갔다 돌아오면 이전 선택이 그대로 하이라이트된다. 근거: BY-314 설계 문서.
@@ -251,15 +252,18 @@ function RecordsContent({
                   type="single"
                   collapsible
                   asChild
-                  value={expandedSessionId === null ? "" : String(expandedSessionId)}
+                  value={expandedRecordKey === null ? "" : String(expandedRecordKey)}
                   onValueChange={changeExpandedSession}
                 >
                   <ul>
                     {sessions.map((session, index) => (
                       <SessionListItem
-                        key={session.id}
+                        key={recordDisplayKey(session)}
                         session={session}
-                        subjectName={subjectNameOf(subjectIdOf(session), subjectRefs)}
+                        subjectName={subjectNameOf(
+                          session.subjectSegments?.[0]?.subjectId ?? null,
+                          subjectRefs,
+                        )}
                         onEdit={
                           canWrite
                             ? (edited) =>
