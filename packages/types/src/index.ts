@@ -767,6 +767,8 @@ export type {
   GroupOwnerTransferRequest,
   GroupRole,
   GroupRoomJoinResponse,
+  GroupTranslation,
+  GroupTranslationLanguage,
   GroupUnavailableReason,
   GroupUpdateRequest,
   GroupVisibility,

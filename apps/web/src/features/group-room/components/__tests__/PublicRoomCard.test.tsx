@@ -11,6 +11,7 @@ const room: PublicRoomSummary = {
   joinPolicy: "approval",
   roomId: 7,
   name: "새벽 공시반",
+  translatedName: null,
   categoryLabel: "공무원",
   memberCount: 4,
   weeklyAverageSec: 3600,

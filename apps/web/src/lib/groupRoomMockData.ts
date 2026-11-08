@@ -289,6 +289,7 @@ export function viewGroupWorld(world: GroupMockWorld, nowMs: number): GroupMockS
             ? liveGroupApplications(group, nowMs).length
             : null,
         members: group.members.map((member) => toDesk(group, member, elapsedSec)),
+        translation: null,
       })),
       pendingApplicationCount: pending.length,
       ownedGroupCount: owned.length,
@@ -317,6 +318,7 @@ export function viewGroupWorld(world: GroupMockWorld, nowMs: number): GroupMockS
         weeklyAverageFocusSec: weeklyAverage(group),
         studyingCount: group.members.filter(isStudying).length,
         member: isMember(group, meId),
+        translation: null,
       }))
       .sort(byServerOrder),
     publicDetails: Object.fromEntries(
@@ -339,6 +341,7 @@ export function viewGroupWorld(world: GroupMockWorld, nowMs: number): GroupMockS
             },
             weeklyAverageFocusSec: weeklyAverage(group),
             members: group.members.map((member) => toDesk(group, member, elapsedSec)),
+            translation: null,
             ...applyViewOf(world, group, nowMs, slotsUsed, pending),
           },
         ];
@@ -365,6 +368,7 @@ export function viewGroupWorld(world: GroupMockWorld, nowMs: number): GroupMockS
                 : null,
             studyingCount: group.members.filter(isStudying).length,
             members: group.members.map((member) => toDesk(group, member, elapsedSec)),
+            translation: null,
           },
         ];
       }),
