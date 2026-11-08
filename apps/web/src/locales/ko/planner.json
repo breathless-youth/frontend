@@ -190,7 +190,14 @@
     },
     "edited": "수정됨",
     "multipleSubjects": "여러 과목",
-    "unavailable": "최신 기록 정보를 불러온 뒤 분 단위로 수정할 수 있어요"
+    "unavailable": "최신 기록 정보를 불러온 뒤 분 단위로 수정할 수 있어요",
+    "editTime": "기록 시간 수정",
+    "rangeMode": "과목·삭제 범위 선택",
+    "timeMode": "기록 전체 시간 수정",
+    "applyTime": "시간 적용",
+    "timeSaveHint": "수정한 시간은 상단 저장을 누르면 반영돼요",
+    "saveRangesFirst": "과목·삭제 변경을 먼저 저장한 뒤 시간을 수정해 주세요",
+    "timeEditUnavailable": "여러 과목이나 날짜에 걸친 기록은 시간을 수정할 수 없어요"
   },
   "week": {
     "prev": "지난주",
