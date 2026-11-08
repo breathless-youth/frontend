@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { PlannerRecordEditor } from "../PlannerRecordEditor";
-import { plannerDay, plannerRecord } from "@/test/plannerFixtures";
+import { plannerDay, plannerRangeRecord as plannerRecord } from "@/test/plannerFixtures";
 
 class Pointer extends MouseEvent {
   readonly pointerId = 1;
@@ -84,6 +84,8 @@ function outsideTap() {
 it("바깥 탭은 마지막 유효 초안을 보존하고 불완전 입력 오류만 걷으며 저장하지 않는다", async () => {
   const { close } = mount();
   fireEvent.change(screen.getByLabelText("끝"), { target: { value: "09:30" } });
+  fireEvent.click(screen.getByRole("button", { name: "과목 바꾸기" }));
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "수학" }));
   fireEvent.change(screen.getByLabelText("끝"), { target: { value: "" } });
   expect(screen.getByRole("button", { name: "저장" })).toBeDisabled();
   outsideTap();
@@ -99,6 +101,7 @@ it("바깥 탭은 마지막 유효 초안을 보존하고 불완전 입력 오�
         operationId: op.operationId,
         success: true,
         key: "c:updated",
+        revision: 1,
         status: 200,
         code: null,
         message: null,
@@ -108,15 +111,29 @@ it("바깥 탭은 마지막 유효 초안을 보존하고 불완전 입력 오�
   fireEvent.click(screen.getByRole("button", { name: "저장" }));
   await waitFor(() => expect(close).toHaveBeenCalledTimes(1));
   expect(JSON.parse(String(request.mock.calls[0]![1]?.body))).toMatchObject({
-    operations: [{ action: "UPDATE", endedAt: "2026-11-04T00:30:00.000Z" }],
+    operations: [
+      {
+        action: "EDIT_RANGES",
+        ranges: [
+          {
+            change: "SUBJECT",
+            subjectId: 3,
+            startedAt: "2026-11-04T00:13:00.000Z",
+            endedAt: "2026-11-04T00:30:00.000Z",
+          },
+        ],
+      },
+    ],
   });
 });
 it("Escape는 패널만 닫고 편집기와 초안을 유지한다", () => {
   const { close } = mount();
   fireEvent.change(screen.getByLabelText("끝"), { target: { value: "09:30" } });
+  fireEvent.click(screen.getByRole("button", { name: "과목 바꾸기" }));
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "수학" }));
   fireEvent.keyDown(document, { key: "Escape" });
   expect(screen.queryByRole("region", { name: "선택한 기록" })).not.toBeInTheDocument();
-  expect(screen.getAllByRole("button", { name: /09:13.*09:30/ }).length).toBeGreaterThan(0);
+  expect(screen.getAllByRole("button", { name: /09:13.*09:29/ }).length).toBeGreaterThan(0);
   expect(close).not.toHaveBeenCalled();
   expect(request).not.toHaveBeenCalled();
 });
@@ -169,6 +186,8 @@ it("과목 시트를 취소하면 숨긴 패널과 입력 초안이 다시 나�
   const panel = screen.getByRole("region", { name: "선택한 기록" });
   fireEvent.change(screen.getByLabelText("끝"), { target: { value: "09:30" } });
   fireEvent.click(screen.getByRole("button", { name: "과목 바꾸기" }));
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "수학" }));
+  fireEvent.click(screen.getByRole("button", { name: "과목 바꾸기" }));
   expect(panel).not.toBeVisible();
   fireEvent.keyDown(document, { key: "Escape" });
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
@@ -199,6 +218,8 @@ it("날짜 시트와 변경 버리기 확인이 열린 동안 아래 패널을 �
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   expect(panel).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("끝"), { target: { value: "09:30" } });
+  fireEvent.click(screen.getByRole("button", { name: "과목 바꾸기" }));
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "수학" }));
   fireEvent.click(screen.getByRole("button", { name: "취소" }));
   const confirm = screen.getByRole("alertdialog");
   fireEvent.keyDown(document, { key: "Escape" });
@@ -209,6 +230,8 @@ it("저장 응답 대기 중에는 바깥 탭과 Escape를 무시한다", () => 
   mount();
   request.mockReturnValue(new Promise(() => {}));
   fireEvent.change(screen.getByLabelText("끝"), { target: { value: "09:30" } });
+  fireEvent.click(screen.getByRole("button", { name: "과목 바꾸기" }));
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "수학" }));
   fireEvent.click(screen.getByRole("button", { name: "저장" }));
   outsideTap();
   fireEvent.keyDown(document, { key: "Escape" });

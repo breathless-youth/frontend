@@ -29,6 +29,8 @@ export function RecordBlockSheet({
   isDismissBlocked,
   getHeightLimit,
   onError,
+  durationSec = recordDraftDurationSec(block),
+  readOnlyReason,
 }: {
   block: RecordDraftBlock;
   dateKey: string;
@@ -47,6 +49,8 @@ export function RecordBlockSheet({
   isDismissBlocked?: () => boolean;
   getHeightLimit?: () => number;
   onError: (code: RecordDraftError["code"]) => void;
+  durationSec?: number;
+  readOnlyReason?: string;
 }) {
   const { t } = useTranslation(["planner", "records"]);
   const color = colorIndex === undefined ? "var(--primary)" : subjectColorVar(colorIndex);
@@ -163,7 +167,7 @@ export function RecordBlockSheet({
                 {recordClock(block.startMs, timeZone)} – {recordClock(block.endMs, timeZone)}
               </Button>
               <span className="text-sm leading-5 font-semibold text-muted-foreground">
-                {toKoreanDuration(recordDraftDurationSec(block))}
+                {toKoreanDuration(durationSec)}
               </span>
             </div>
           </div>
@@ -207,7 +211,7 @@ export function RecordBlockSheet({
         </div>
         {block.locked && (
           <p role="alert" className="text-[13px] text-state-distract-text">
-            {t("record.boundary")}
+            {readOnlyReason ?? t("record.boundary")}
           </p>
         )}
       </div>

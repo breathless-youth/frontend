@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, it, vi } from "vitest";
-import { plannerDay, plannerRecord } from "@/test/plannerFixtures";
+import { plannerDay, plannerRangeRecord as plannerRecord } from "@/test/plannerFixtures";
 import { PlannerRecordEditor } from "../PlannerRecordEditor";
 
 afterEach(() => {
@@ -44,7 +44,8 @@ it.each([
     </MemoryRouter>,
   );
   fireEvent.click(screen.getAllByRole("button", { name: /09:00.*10:00/ })[0]!);
-  fireEvent.change(screen.getByLabelText("시작"), { target: { value: "09:01" } });
+  fireEvent.click(screen.getByRole("button", { name: "과목 바꾸기" }));
+  fireEvent.click(screen.getByRole("button", { name: "과목 없음" }));
   fireEvent.click(screen.getByRole("button", { name: "저장" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(text);
   expect(screen.getByRole("alert")).not.toHaveTextContent("untrusted server details");

@@ -1,0 +1,110 @@
+[
+  {
+    "name": "phone-light",
+    "geometry": {
+      "scrollWidth": 402,
+      "viewport": 402,
+      "delete": {
+        "left": 338,
+        "right": 382,
+        "width": 44,
+        "height": 44
+      },
+      "panel": {
+        "left": 0,
+        "right": 402,
+        "bottom": 874
+      },
+      "selection": [
+        {
+          "width": 5.25,
+          "height": 32
+        }
+      ]
+    },
+    "errors": [],
+    "representative": "국어",
+    "duration": "37초"
+  },
+  {
+    "name": "phone-dark",
+    "geometry": {
+      "scrollWidth": 402,
+      "viewport": 402,
+      "delete": {
+        "left": 338,
+        "right": 382,
+        "width": 44,
+        "height": 44
+      },
+      "panel": {
+        "left": 0,
+        "right": 402,
+        "bottom": 874
+      },
+      "selection": [
+        {
+          "width": 5.25,
+          "height": 32
+        }
+      ]
+    },
+    "errors": [],
+    "representative": "국어",
+    "duration": "37초"
+  },
+  {
+    "name": "narrow",
+    "geometry": {
+      "scrollWidth": 320,
+      "viewport": 320,
+      "delete": {
+        "left": 256,
+        "right": 300,
+        "width": 44,
+        "height": 44
+      },
+      "panel": {
+        "left": 0,
+        "right": 320,
+        "bottom": 740
+      },
+      "selection": [
+        {
+          "width": 3.875,
+          "height": 32
+        }
+      ]
+    },
+    "errors": [],
+    "representative": "국어",
+    "duration": "37초"
+  },
+  {
+    "name": "tablet",
+    "geometry": {
+      "scrollWidth": 834,
+      "viewport": 834,
+      "delete": {
+        "left": 673,
+        "right": 717,
+        "width": 44,
+        "height": 44
+      },
+      "panel": {
+        "left": 97,
+        "right": 737,
+        "bottom": 1194
+      },
+      "selection": [
+        {
+          "width": 9.203125,
+          "height": 32
+        }
+      ]
+    },
+    "errors": [],
+    "representative": "국어",
+    "duration": "37초"
+  }
+]

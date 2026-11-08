@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, it } from "vitest";
 
-import { plannerDay, plannerRecord } from "@/test/plannerFixtures";
+import { plannerDay, plannerRangeRecord as plannerRecord } from "@/test/plannerFixtures";
 import { PlannerRecordEditor } from "../PlannerRecordEditor";
 
 afterEach(cleanup);
@@ -29,7 +29,7 @@ it("과목 없는 측정 기록의 수정 여부를 새 서버 응답만으로 �
   expect(screen.getAllByRole("img", { name: "수정됨" }).length).toBeGreaterThan(0);
 });
 
-it("과목 없는 원본을 고치는 동안 연필을 표시하고 원래 시간으로 되돌리면 제거한다", () => {
+it("선택 범위를 옮기는 동안 원본을 수정하지 않고 과목 변경부터 연필을 표시한다", () => {
   render(
     <MemoryRouter>
       <PlannerRecordEditor
@@ -42,10 +42,11 @@ it("과목 없는 원본을 고치는 동안 연필을 표시하고 원래 시�
   );
   expect(screen.queryByRole("img", { name: "수정됨" })).not.toBeInTheDocument();
   fireEvent.click(screen.getAllByRole("button", { name: /09:00.*10:00/ })[0]!);
-  fireEvent.change(screen.getByLabelText("시작"), { target: { value: "09:01" } });
-  expect(screen.getAllByRole("img", { name: "수정됨" }).length).toBeGreaterThan(0);
-  fireEvent.change(screen.getByLabelText("시작"), { target: { value: "09:00" } });
+  fireEvent.change(screen.getByLabelText("끝"), { target: { value: "09:02" } });
   expect(screen.queryByRole("img", { name: "수정됨" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "과목 바꾸기" }));
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "과목 없음" }));
+  expect(screen.getAllByRole("img", { name: "수정됨" }).length).toBeGreaterThan(0);
 });
 
 it("연필을 넣기 어려운 짧은 기록도 선택하면 패널에서 수정 여부를 확인할 수 있다", () => {
@@ -68,7 +69,7 @@ it("연필을 넣기 어려운 짧은 기록도 선택하면 패널에서 수정
       />
     </MemoryRouter>,
   );
-  fireEvent.click(screen.getAllByRole("button", { name: /22:30.*22:30.*수정됨/ })[0]!);
+  fireEvent.click(screen.getAllByRole("button", { name: /22:29.*22:30.*수정됨/ })[0]!);
   expect(
     within(screen.getByRole("region", { name: "선택한 기록" })).getByRole("img", {
       name: "수정됨",

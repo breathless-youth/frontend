@@ -826,6 +826,8 @@ export type {
   PlannerDaySummary,
   PlannerGoalResponse,
   PlannerRecordSegment,
+  PlannerRecordPiece,
+  PlannerRecordRange,
   PlannerRecordView,
   PlannerRepeatRequest,
   PlannerTaskRepeatResponse,

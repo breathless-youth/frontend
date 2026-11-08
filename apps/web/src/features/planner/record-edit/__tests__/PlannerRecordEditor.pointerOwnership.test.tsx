@@ -2,7 +2,7 @@ import { MemoryRouter } from "react-router-dom";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { PlannerRecordEditor } from "../PlannerRecordEditor";
-import { plannerDay, plannerRecord } from "@/test/plannerFixtures";
+import { plannerDay, plannerRangeRecord as plannerRecord } from "@/test/plannerFixtures";
 class Pointer extends MouseEvent {
   readonly pointerId: number;
   readonly pointerType = "touch";

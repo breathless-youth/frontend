@@ -2,8 +2,14 @@ import type {
   PlannerDayResponse,
   PlannerRecordOperation,
   PlannerRecordView,
+  PlannerRecordRange,
+  PlannerRecordPiece,
 } from "@focusmakers/types";
 import { plannerDayWindow } from "../plannerDay";
+import { recordTimeOrder } from "../recordTime";
+import { applyRecordRanges, normalizeRecordRanges, supportsRecordRanges } from "./recordRanges";
+import { RecordDraftError } from "./recordError";
+export { RecordDraftError, type RecordDraftErrorCode } from "./recordError";
 export interface RecordDraftState {
   dateKey: string;
   timeZone: string;
@@ -28,21 +34,80 @@ export interface RecordDraftBlock {
   preciseStartedAt?: string;
   preciseEndedAt?: string;
   original?: PlannerRecordView;
+  ranges?: PlannerRecordRange[];
 }
-export type RecordDraftErrorCode =
-  | "range"
-  | "future"
-  | "overlap"
-  | "boundary"
-  | "subject-required"
-  | "subject-time-required"
-  | "ambiguous-time";
-export class RecordDraftError extends Error {
-  readonly code: RecordDraftErrorCode;
-  constructor(code: RecordDraftErrorCode) {
-    super(code);
-    this.code = code;
+
+export function recordDraftPieces(block: RecordDraftBlock): PlannerRecordPiece[] | undefined {
+  return block.original?.pieces === undefined
+    ? undefined
+    : Array.isArray(block.original.pieces)
+      ? applyRecordRanges(block.original.pieces, block.ranges ?? [])
+      : [];
+}
+
+export function stageRecordRange(
+  draft: RecordDraftState,
+  id: string,
+  range: PlannerRecordRange,
+): RecordDraftState {
+  const block = draft.blocks.find((value) => value.id === id);
+  if (!block?.key || !supportsRecordRanges(block.original))
+    throw new RecordDraftError("unavailable");
+  // 이미 삭제해 화면에서 사라진 분은 범위를 넓혀 과목을 칠해도 복구하지 않는다.
+  let changes = [range];
+  if (range.change === "SUBJECT") {
+    for (const deleted of block.ranges?.filter((value) => value.change === "DELETE") ?? []) {
+      changes = changes.flatMap((value) => {
+        if (
+          Date.parse(value.endedAt) <= Date.parse(deleted.startedAt) ||
+          Date.parse(value.startedAt) >= Date.parse(deleted.endedAt)
+        )
+          return [value];
+        return [
+          ...(Date.parse(value.startedAt) < Date.parse(deleted.startedAt)
+            ? [{ ...value, endedAt: deleted.startedAt }]
+            : []),
+          ...(Date.parse(value.endedAt) > Date.parse(deleted.endedAt)
+            ? [{ ...value, startedAt: deleted.endedAt }]
+            : []),
+        ];
+      });
+    }
   }
+  const ranges = normalizeRecordRanges(
+    [...(block.ranges ?? []), ...changes],
+    block.original!.pieces!,
+  );
+  const start = recordTimeOrder(range.startedAt, 0),
+    end = recordTimeOrder(range.endedAt, 0);
+  if (
+    Date.parse(range.startedAt) < draft.startMs ||
+    Date.parse(range.endedAt) > draft.endMs ||
+    !recordDraftPieces(block)!.some(
+      (piece) =>
+        recordTimeOrder(piece.startedAt, 0) < end && recordTimeOrder(piece.endedAt, 0) > start,
+    )
+  )
+    throw new RecordDraftError("range");
+  return {
+    ...draft,
+    blocks: draft.blocks.map((value) => (value.id === id ? { ...value, ranges } : value)),
+  };
+}
+
+function occupiedSpans(draft: RecordDraftState, block: RecordDraftBlock) {
+  const pieces = recordDraftPieces(block);
+  return pieces
+    ? pieces.map((piece) => ({
+        start: recordTimeOrder(piece.startedAt, 0),
+        end: recordTimeOrder(piece.endedAt, 0),
+      }))
+    : [
+        {
+          start: recordBlockTimeOrder(draft, block, "start"),
+          end: recordBlockTimeOrder(draft, block, "end"),
+        },
+      ];
 }
 export function createRecordDraft(day: PlannerDayResponse): RecordDraftState {
   const window = plannerDayWindow(day.date, day.timeZone);
@@ -120,10 +185,7 @@ export function firstRecordDraftMinute(
   const until = Math.min(draft.endMs, Math.floor(nowMs / 60000) * 60000);
   const minuteTicks = 60_000_000_000n;
   const occupied = draft.blocks
-    .map((block) => ({
-      start: recordBlockTimeOrder(draft, block, "start"),
-      end: recordBlockTimeOrder(draft, block, "end"),
-    }))
+    .flatMap((block) => occupiedSpans(draft, block))
     .filter((span) => span.end > span.start)
     .sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
   let startMs = draft.startMs;
@@ -147,6 +209,19 @@ export function recordDraftOperations(draft: RecordDraftState): RecordDraftOpera
       });
   for (const block of draft.blocks) {
     const original = draft.baseline.get(block.id);
+    if (block.ranges?.length) {
+      if (!block.key || !supportsRecordRanges(block.original))
+        throw new RecordDraftError("unavailable");
+      operations.push({
+        blockId: block.id,
+        operationId: crypto.randomUUID(),
+        action: "EDIT_RANGES",
+        key: block.key,
+        revision: block.original!.revision!,
+        ranges: normalizeRecordRanges(block.ranges, block.original!.pieces!),
+      });
+      continue;
+    }
     if (
       original &&
       original.startMs === block.startMs &&
@@ -193,7 +268,7 @@ function orderRecordOperations(
     operations.map((operation) => {
       return [
         operation,
-        operation.action === "DELETE"
+        operation.action === "DELETE" || operation.action === "EDIT_RANGES"
           ? []
           : operations.filter((other) => {
               if (other.blockId === operation.blockId) return false;
@@ -222,13 +297,6 @@ function orderRecordOperations(
     ordered.push(remaining.splice(index, 1)[0]!);
   }
   return ordered;
-}
-/** Date.parse가 버리는 소수 밀리초도 서버의 Instant 겹침 비교에 맞춰 보존한다. */
-function recordTimeOrder(iso: string | null | undefined, fallbackMs: number): bigint {
-  const ms = iso ? Date.parse(iso) : fallbackMs;
-  const fraction = iso?.match(/\.(\d+)(?:Z|[+-]\d{2}:\d{2})$/)?.[1];
-  const subMillisecond = fraction?.padEnd(9, "0").slice(3, 9) ?? "0";
-  return BigInt(ms) * 1_000_000n + BigInt(subMillisecond);
 }
 /** 화면에 올림한 경계가 아니라 다음 저장 요청이 실제로 보내는 경계를 비교한다. */
 function recordBlockTimeOrder(
@@ -268,8 +336,9 @@ function checkedSpan(
     draft.blocks.some(
       (other) =>
         other.id !== span.id &&
-        recordBlockTimeOrder(draft, other, "start") < actualEnd &&
-        recordBlockTimeOrder(draft, other, "end") > actualStart,
+        occupiedSpans(draft, other).some(
+          (span) => span.start < actualEnd && span.end > actualStart,
+        ),
     )
   )
     throw new RecordDraftError("overlap");
