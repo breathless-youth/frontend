@@ -59,7 +59,16 @@ describe("설정 하위 라우트", () => {
     renderAt("/contact");
     expect(await screen.findByText("문의 폼을 불러오는 중")).toBeInTheDocument();
     const iframe = screen.getByTitle("문의하기");
-    expect(iframe).toHaveAttribute("src", CONTACT_FORM_URL);
+    const url = new URL(iframe.getAttribute("src")!);
+    expect(`${url.origin}${url.pathname}`).toBe(CONTACT_FORM_URL);
+    expect(url.searchParams.get("entry.539461458")).toBe(__WEB_VERSION__);
+  });
+
+  it("문의 폼에 앱과 웹 버전을 함께 전달한다", () => {
+    renderAt("/contact?appVersion=1.4.2&userId=7");
+    const url = new URL(screen.getByTitle("문의하기").getAttribute("src")!);
+    expect(url.searchParams.get("entry.539461458")).toBe(`1.4.2 / ${__WEB_VERSION__}`);
+    expect(url.searchParams.has("userId")).toBe(false);
   });
 
   it("/contact 의 iframe이 로드되면 로딩 표시가 사라진다", async () => {

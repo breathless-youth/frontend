@@ -37,7 +37,7 @@ it("토큰만 먼저 다른 계정으로 바뀌어도 이전 편집기의 저장
   userId = 8;
   fireEvent.click(screen.getByRole("button", { name: "저장" }));
   await waitFor(() =>
-    expect(screen.getByRole("alert")).toHaveTextContent("저장하지 못한 기록이 있어요"),
+    expect(screen.getByRole("alert")).toHaveTextContent("저장 결과를 확인하지 못했어요"),
   );
   expect(request).not.toHaveBeenCalled();
 });

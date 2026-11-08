@@ -7,6 +7,18 @@ export interface RecordSaveOutcome {
   pending: RecordDraftOperation[];
   uncertain: boolean;
 }
+export type RecordSaveFailure =
+  "unconfirmed" | "conflict" | "invalid" | "missing" | "server" | "unknown";
+export function recordSaveFailure(outcome: RecordSaveOutcome): RecordSaveFailure | null {
+  if (outcome.uncertain) return "unconfirmed";
+  const failure = outcome.confirmed.find(({ result }) => !result.success)?.result;
+  if (!failure) return outcome.pending.length ? "unknown" : null;
+  if (failure.status === 409) return "conflict";
+  if (failure.status === 400) return "invalid";
+  if (failure.status === 404) return "missing";
+  if (failure.status >= 500) return "server";
+  return "unknown";
+}
 export async function saveRecordDraft(
   operations: readonly RecordDraftOperation[],
   options: PlannerRequestOptions & { ownerId?: number | null },
@@ -88,6 +100,7 @@ export function acceptSavedRecords(
       ...current,
       key: result.key,
       subjectChanged: false,
+      edited: true,
       preciseStartedAt: operation.startedAt ?? current.preciseStartedAt,
       preciseEndedAt: operation.endedAt ?? current.preciseEndedAt,
       original: undefined,

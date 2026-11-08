@@ -177,7 +177,15 @@
     "list": "紀錄清單",
     "noSpace": "沒有可新增紀錄的空白時段",
     "new": "新記錄",
-    "closePanel": "關閉紀錄面板"
+    "closePanel": "關閉紀錄面板",
+    "saveFailures": {
+      "unconfirmed": "無法確認紀錄是否已儲存，請再試一次",
+      "conflict": "變更與其他紀錄衝突，請確認時間和科目",
+      "invalid": "請確認紀錄的時間和科目",
+      "missing": "找不到紀錄或科目，請重新開啟此畫面",
+      "server": "伺服器無法儲存紀錄，請稍後再試"
+    },
+    "edited": "已編輯"
   },
   "week": {
     "prev": "上一週",

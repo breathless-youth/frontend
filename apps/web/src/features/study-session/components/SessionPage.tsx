@@ -1,10 +1,11 @@
 import { ChevronLeft } from "lucide-react";
-import { createContext, use, type ReactNode } from "react";
+import { createContext, use, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { CtaToaster } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
+import { OverlayPortalContainerContext } from "@/components/ui/overlay-portal-container";
 
 import { isTextEntry } from "../useLandscapeLayout";
 
@@ -48,9 +49,11 @@ export function SessionPage({
   variant = "default",
 }: SessionPageProps) {
   const { t } = useTranslation("common");
+  const [portalContainer, setPortalContainer] = useState<HTMLDivElement | null>(null);
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
+        ref={setPortalContainer}
         side="right"
         container={container}
         overlayClassName="bg-transparent"
@@ -97,7 +100,9 @@ export function SessionPage({
           </SheetTitle>
           {headerExtras}
         </div>
-        <SessionPageOpenContext value={open}>{children}</SessionPageOpenContext>
+        <OverlayPortalContainerContext value={portalContainer}>
+          <SessionPageOpenContext value={open}>{children}</SessionPageOpenContext>
+        </OverlayPortalContainerContext>
       </SheetContent>
     </Sheet>
   );

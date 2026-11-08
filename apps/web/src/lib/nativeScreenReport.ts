@@ -52,10 +52,17 @@ export function useNativeScreenReport(): void {
     } else if (location.pathname === "/planner") {
       // 보던 날짜와 들어온 탭. 들어온 탭이 유실되면 복원된 플래너의 뒤로 가기가 스택 없이 기록 탭으로
       // 떨어져, 홈 탭 웹뷰에 기록 화면이 뜬다.
-      const date = new URLSearchParams(location.search).get("date");
+      const params = new URLSearchParams(location.search);
+      const date = params.get("date");
       const from = plannerEntryOf(location);
-      if (date !== null || from !== null) {
-        restoreQuery = { ...(date !== null ? { date } : {}), ...(from !== null ? { from } : {}) };
+      const edit = params.get("edit") === "records";
+      const returnDate = params.get("returnDate");
+      if (date !== null || from !== null || edit) {
+        restoreQuery = {
+          ...(date !== null ? { date } : {}),
+          ...(from !== null ? { from } : {}),
+          ...(edit ? { edit: "records", ...(returnDate !== null ? { returnDate } : {}) } : {}),
+        };
       }
     } else if (location.pathname === "/manual-record") {
       // 무엇을 어느 날로 고치던 화면인지와, 플래너에서 왔다면 플래너가 붙인 들어온 탭.

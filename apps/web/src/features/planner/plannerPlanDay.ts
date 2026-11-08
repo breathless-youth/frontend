@@ -26,13 +26,17 @@ export function plannerRecordPaints(
     const segment = record.subjectSegments.find(
       (item) => Date.parse(item.startedAt) <= from && Date.parse(item.endedAt) >= to,
     );
-    const startMs = Math.max(window.startMs, Math.ceil(from / 60_000) * 60_000);
+    let startMs = Math.max(window.startMs, Math.ceil(from / 60_000) * 60_000);
     const endMs = Math.min(window.endMs, Math.ceil(to / 60_000) * 60_000);
+    // 원본의 양끝이 같은 분으로 올림되어도 실제 기록이 있던 1분 칸은 남긴다.
+    // 표시 영역만 넓히며 원본 시각·기록 길이·집계 값은 바꾸지 않는다.
+    if (to > from && startMs === endMs) startMs = Math.max(window.startMs, endMs - 60_000);
     if (endMs <= startMs) continue;
     paints.push({
       startMs,
       endMs,
       manual: record.source === "MANUAL",
+      ...(record.edited ? { edited: true } : {}),
       ...(segment
         ? { kind: "subject" as const, subjectId: segment.subjectId }
         : { kind: "focus" as const }),

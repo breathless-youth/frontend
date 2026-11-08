@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react-native-webview";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { colors } from "@focusmakers/design-tokens";
 import type {
@@ -355,6 +356,7 @@ export function RemoteWebViewHost({
   focused = true,
   testID,
 }: RemoteWebViewHostProps) {
+  const insets = useSafeAreaInsets();
   /**
    * 웹뷰에 넘길 배경색. prop이 없어도 항상 정한다.
    *
@@ -529,6 +531,21 @@ export function RemoteWebViewHost({
       origin: originOf(baseUrl),
     };
   }, [path, query, baseUrl, restore, fresh, tabRootPath, resetPath, rootQuery]);
+
+  // SPA 이동은 source를 바꾸지 않는다. 보고한 경로는 현재 문서의 레이아웃에만 쓴다.
+  const [reportedScreen, setReportedScreen] = useState<{
+    documentKey: number;
+    sourceUri: string;
+    path: string;
+  } | null>(null);
+  const viewportPath =
+    reportedScreen !== null &&
+    reportedScreen.documentKey === doc.key &&
+    reportedScreen.sourceUri === target?.uri
+      ? reportedScreen.path
+      : fresh
+        ? (tabRootPath ?? resetPath ?? path)
+        : (restore?.path ?? path);
 
   const retry = () => {
     trackNativeEvent("webview_retry_pressed", { path });
@@ -852,6 +869,11 @@ export function RemoteWebViewHost({
       return;
     }
     if (message.type === "report-screen") {
+      setReportedScreen({
+        documentKey: doc.key,
+        sourceUri: target?.uri ?? "",
+        path: message.path,
+      });
       restoreRef.current = {
         path: message.path,
         ...(message.restoreQuery ? { query: message.restoreQuery } : {}),
@@ -1263,7 +1285,15 @@ export function RemoteWebViewHost({
     <View
       ref={containerRef}
       collapsable={false}
-      style={{ flex: 1, backgroundColor: webViewBackgroundColor }}
+      style={{
+        flex: 1,
+        backgroundColor: webViewBackgroundColor,
+        // Android WebView의 CSS safe-area가 0이어도 마지막 격자는 시스템 바 위에서 끝난다.
+        // 일반 탭의 웹 여백과 iOS의 WKWebView 안전 영역은 그대로 둔다.
+        ...(Platform.OS === "android" && viewportPath === "/planner"
+          ? { paddingBottom: insets.bottom }
+          : {}),
+      }}
     >
       {webView}
       <GlassChromeOverlay

@@ -1,7 +1,9 @@
 import { Drawer as DrawerPrimitive } from "@base-ui/react/drawer";
+import { useContext } from "react";
 
 import { COVERS_TAB_BAR_ATTR } from "@/lib/nativeModalOverlay";
 import { cn } from "@/lib/utils";
+import { OverlayPortalContainerContext } from "./overlay-portal-container";
 
 /**
  * 바닥 시트
@@ -26,7 +28,7 @@ type DrawerContentProps = Omit<DrawerPrimitive.Popup.Props, "className"> & {
   /**
    * 포털이 그려질 자리
    *
-   * 기본은 body다.
+   * 세션 안에서는 바깥 모달 콘텐츠를 물려받고, 그 밖의 기본은 body다.
    * 세션 화면처럼 CSS 변수를 서브트리에만 주입하는 곳은 그 서브트리의 요소를 넘겨야 색이 풀린다.
    */
   container?: HTMLElement | null;
@@ -50,9 +52,11 @@ function DrawerContent({
   children,
   ...props
 }: DrawerContentProps) {
+  const inheritedContainer = useContext(OverlayPortalContainerContext);
+  const portalContainer = container === undefined ? inheritedContainer : container;
   return (
     // Base UI는 null을 "자리가 정해질 때까지 기다림"으로 읽어 시트를 그리지 않으므로 body 기본값으로 바꿔 넘긴다.
-    <DrawerPrimitive.Portal container={container ?? undefined}>
+    <DrawerPrimitive.Portal container={portalContainer ?? undefined}>
       <DrawerPrimitive.Backdrop
         className={cn(
           "fixed inset-0 z-50 bg-dim opacity-[calc(1-var(--drawer-swipe-progress,0))] transition-opacity duration-300 data-starting-style:opacity-0 data-ending-style:opacity-0 data-ending-style:duration-[calc(var(--drawer-swipe-strength,1)*300ms)] data-swiping:duration-0",

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fireEvent } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -111,6 +111,8 @@ afterEach(() => {
   vi.clearAllMocks();
   vi.restoreAllMocks();
   sessionStorage.clear();
+  // Toaster를 먼저 언마운트해야 dismiss가 종료 애니메이션 타이머를 만들지 않는다.
+  cleanup();
   // sonner 토스트 상태는 모듈 전역이라 화면 언마운트와 무관하게 다음 테스트로 샌다.
   act(() => {
     toast.dismiss();

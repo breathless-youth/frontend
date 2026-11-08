@@ -652,9 +652,9 @@ it("시간을 손대지 않은 기록 길이는 원본 초를 올림하고 시�
     </MemoryRouter>,
   );
   await userEvent.click(screen.getAllByRole("button", { name: /09:13.*09:25/ })[0]!);
-  expect(screen.getByRole("region", { name: "선택한 기록" })).toHaveTextContent("13분");
+  expect(screen.getByRole("region", { name: "선택한 기록" })).toHaveTextContent("12분 1초");
   fireEvent.change(screen.getByLabelText("끝"), { target: { value: "09:27" } });
-  expect(screen.getByRole("region", { name: "선택한 기록" })).toHaveTextContent("14분");
+  expect(screen.getByRole("region", { name: "선택한 기록" })).toHaveTextContent("14분 1초");
 });
 
 it("두 번째 DST 회차의 포인터 손잡이에서 끝만 끌어도 원래 시작 epoch를 보존한다", async () => {

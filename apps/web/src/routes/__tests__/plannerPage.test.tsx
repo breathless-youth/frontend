@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { SubjectResponse } from "@focusmakers/types";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { PlannerPage } from "@/routes/PlannerPage";
@@ -112,6 +112,47 @@ function mount(date = "2026-11-06") {
   );
   return client;
 }
+
+it("기록 탭의 직접 진입 URL은 선택한 날짜의 기록 고치기를 바로 연다", async () => {
+  current = plannerDay({ date: "2026-11-04", records: [] });
+  mount("2026-11-04&from=records&edit=records");
+  expect(await screen.findByLabelText("기록 편집 격자")).toBeInTheDocument();
+  expect(screen.queryByTestId("planner-page")).not.toBeInTheDocument();
+  expect(requests.some(({ url }) => url.includes("/api/planner/days/2026-11-04?"))).toBe(true);
+});
+
+it("스택 없이 복원한 기록 편집기를 취소하면 원래 자정 날짜의 기록 탭으로 돌아간다", async () => {
+  current = plannerDay({ date: "2026-11-04", records: [] });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  function Destination() {
+    const location = useLocation();
+    return (
+      <output data-testid="returned">
+        {location.pathname}
+        {location.search}
+      </output>
+    );
+  }
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter
+        initialEntries={[
+          "/planner?guestAuth=1&date=2026-11-04&from=records&edit=records&returnDate=2026-11-05",
+        ]}
+      >
+        <Routes>
+          <Route path="/planner" element={<PlannerPage />} />
+          <Route path="/records" element={<Destination />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  await screen.findByLabelText("기록 편집 격자");
+  await userEvent.click(screen.getByRole("button", { name: "취소" }));
+  expect(await screen.findByTestId("returned")).toHaveTextContent(
+    "/records?guestAuth=1&date=2026-11-05",
+  );
+});
 
 function mountCachedAccounts(date: string, withRecords = false) {
   const client = new QueryClient({

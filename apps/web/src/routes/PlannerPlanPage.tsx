@@ -34,6 +34,7 @@ import { postToNative } from "@/lib/bridge";
 import { ApiError } from "@/lib/api";
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
 import { plannerKeys } from "@/lib/plannerQueries";
+import { personalRecordsKeys } from "@/lib/personalRecordsQueries";
 import { createSubject, deleteSubject, listSubjects, renameSubject } from "@/lib/subjectApi";
 import { showCtaToast, showToast } from "@/lib/toast";
 import { useUserId } from "@/lib/userId";
@@ -99,7 +100,7 @@ function PlannerPlanContent({ userId }: { userId: number | null }) {
     | "task"
     | "renameSubject"
     | "studyStart"
-  >(null);
+  >(() => (params.get("edit") === "records" ? "records" : null));
   const [task, setTask] = useState<PlannerTask | null>(null);
   const [subject, setSubject] = useState<PlannerPlanSubject | null>(null);
   const [confirm, setConfirm] = useState<"remove" | "delete" | null>(null);
@@ -150,10 +151,42 @@ function PlannerPlanContent({ userId }: { userId: number | null }) {
     );
   }
   const swipe = useHorizontalSwipe((delta) => pickDate(addDaysToDateKey(dateKey, delta), "swipe"));
+  function closeRecords() {
+    if (params.get("edit") !== "records") {
+      setSheet(null);
+      return;
+    }
+    const history = window.history.state as { idx?: number } | null;
+    if (history?.idx) {
+      navigate(-1);
+      return;
+    }
+    const next = new URLSearchParams(location.search);
+    const returnDate = next.get("returnDate");
+    next.delete("edit");
+    next.delete("returnDate");
+    next.delete("from");
+    const via = plannerEntryOf(location);
+    if (via === "home") next.delete("date");
+    else
+      next.set(
+        "date",
+        returnDate &&
+          /^\d{4}-\d{2}-\d{2}$/.test(returnDate) &&
+          addDaysToDateKey(returnDate, 0) === returnDate
+          ? returnDate
+          : dateKey,
+      );
+    navigate(
+      { pathname: via === "home" ? "/home" : "/records", search: next.toString() },
+      { replace: true },
+    );
+  }
   async function refresh() {
     postToNative({ type: "records-changed", atMs: Date.now() });
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: plannerKeys.user(userId ?? 0) }),
+      queryClient.invalidateQueries({ queryKey: personalRecordsKeys.user(userId ?? 0) }),
       queryClient.invalidateQueries({ queryKey: ["subjects"] }),
     ]);
   }
@@ -204,11 +237,7 @@ function PlannerPlanContent({ userId }: { userId: number | null }) {
   if (sheet === "records") {
     const placeholder = (
       <main className="theme-soft-blue min-h-dvh bg-muted page-column">
-        <ScreenBackHeader
-          appearance="plain"
-          title={t("plan.editRecords")}
-          onBack={() => setSheet(null)}
-        />
+        <ScreenBackHeader appearance="plain" title={t("plan.editRecords")} onBack={closeRecords} />
         {state.isError ? (
           <ErrorState
             message={t("page.loadFailed")}
@@ -232,7 +261,7 @@ function PlannerPlanContent({ userId }: { userId: number | null }) {
               pickDate(date);
               setSheet("records");
             }}
-            onClose={() => setSheet(null)}
+            onClose={closeRecords}
             onSaved={refresh}
           />
         ) : (

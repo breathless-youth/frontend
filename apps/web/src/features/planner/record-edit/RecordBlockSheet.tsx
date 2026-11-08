@@ -1,9 +1,9 @@
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatDuration } from "@/features/records/recordsFormat";
+import { toKoreanDuration } from "@/features/study-session/formatDuration";
 import { subjectColorVar } from "@/features/records/recordsTimetable";
 import { cn } from "@/lib/utils";
 import { RecordDraftError, recordDraftDurationSec, type RecordDraftBlock } from "./recordDraft";
@@ -17,6 +17,7 @@ export function RecordBlockSheet({
   timeZone,
   label,
   colorIndex,
+  edited = block.edited ?? false,
   autoFocusTimes = false,
   hiddenBehindSheet = false,
   disabled,
@@ -34,6 +35,7 @@ export function RecordBlockSheet({
   timeZone: string;
   label: string;
   colorIndex: number | undefined;
+  edited?: boolean;
   autoFocusTimes?: boolean;
   hiddenBehindSheet?: boolean;
   disabled: boolean;
@@ -145,6 +147,9 @@ export function RecordBlockSheet({
                 }}
               />
               <span className="font-bold wrap-break-word text-foreground">{label}</span>
+              {edited && (
+                <Pencil size={11} role="img" aria-label={t("record.edited")} className="shrink-0" />
+              )}
               {block.source === "MANUAL" && <span>· {t("records:manualItem.badge")}</span>}
             </div>
             <div className="flex flex-wrap items-baseline gap-x-2 text-[22px] leading-7.5 font-extrabold tabular-nums">
@@ -158,7 +163,7 @@ export function RecordBlockSheet({
                 {recordClock(block.startMs, timeZone)} – {recordClock(block.endMs, timeZone)}
               </Button>
               <span className="text-sm leading-5 font-semibold text-muted-foreground">
-                {formatDuration(recordDraftDurationSec(block))}
+                {toKoreanDuration(recordDraftDurationSec(block))}
               </span>
             </div>
           </div>
