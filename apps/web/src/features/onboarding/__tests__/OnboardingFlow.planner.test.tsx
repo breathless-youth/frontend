@@ -59,3 +59,10 @@ it.each([
     expect(screen.getByRole("button", { name: next })).toBeInTheDocument();
   },
 );
+
+it("3단계 폰 목업은 그룹 공부방 화면으로 소개된다", () => {
+  mount();
+  fireEvent.click(screen.getByRole("button", { name: "다음" }));
+  fireEvent.click(screen.getByRole("button", { name: "다음" }));
+  expect(screen.getByLabelText("참여자 6명이 함께 공부하는 그룹 공부방 화면")).toBeInTheDocument();
+});

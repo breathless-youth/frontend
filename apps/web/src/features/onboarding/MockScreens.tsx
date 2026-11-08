@@ -1,7 +1,21 @@
-import { Lock } from "lucide-react";
+import {
+  ChevronRight,
+  Ellipsis,
+  Lock,
+  Mic,
+  MicOff,
+  Music,
+  SwitchCamera,
+  Timer,
+  Volume2,
+} from "lucide-react";
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { Trans, useTranslation } from "react-i18next";
 
+import cameraIcon from "@/assets/icons/session-camera.svg";
+import exitIcon from "@/assets/icons/session-exit.svg";
+import { Badge } from "@/components/ui/badge";
+import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import { cn } from "@/lib/utils";
 
 /**
@@ -186,9 +200,18 @@ const GLASS: CSSProperties = {
   WebkitBackdropFilter: "blur(11px)",
 };
 
-function ControlButton({ children, danger }: { children: ReactNode; danger?: boolean }) {
+function ControlButton({
+  control,
+  children,
+  danger,
+}: {
+  control: string;
+  children: ReactNode;
+  danger?: boolean;
+}) {
   return (
     <span
+      data-control={control}
       className="flex size-13.5 items-center justify-center rounded-full"
       style={
         danger
@@ -204,156 +227,159 @@ function ControlButton({ children, danger }: { children: ReactNode; danger?: boo
   );
 }
 
-/** 3단계 소셜룸. 참여자 타일이 한 명씩 들어오고 내 순공·총 시간이 1초씩 흐른다. */
+// 실제 바 아이콘과 같은 크기다.
+const BAR_ICON = "size-5.75 text-white";
+
+/**
+ * 3단계 그룹 공부방
+ *
+ * 실제 화면의 위쪽 바와 아래 바는 앱 네이티브 버튼을 등록하는 버튼이라 목업에서는 쓰지 않고 같은 아이콘으로 다시 그린다.
+ * 참여자 타일이 한 명씩 들어오고 내 순공과 총 시간이 1초씩 흐른다.
+ */
 export function RoomScreen() {
   const { t } = useTranslation("onboarding");
   const sec = useTicker(1000);
   return (
     <Scaled width={390} height={848} scale={APP_SCREEN_SCALE} background={C.roomBg}>
-      <div
-        className="absolute top-16.25 left-4 flex flex-col items-start tabular-nums"
-        style={{ textShadow: C.textShadow }}
-      >
-        <p style={{ fontSize: 26, lineHeight: "32px", fontWeight: 700, color: C.white }}>
-          {clock(2892 + sec)}
-        </p>
-        <p style={{ fontSize: 12, lineHeight: "16px", fontWeight: 700, color: C.gray }}>
-          <span style={{ fontWeight: 600 }}>{t("room.total")}</span> {clock(3750 + sec)}
-        </p>
-      </div>
-
-      <div className="absolute top-14.75 right-2.5 flex size-11 items-center justify-center">
-        <span className="flex size-8 items-center justify-center rounded-full" style={GLASS}>
-          <svg aria-hidden="true" width="18" height="4" viewBox="0 0 18 4" fill="none">
-            <circle cx="2" cy="2" r="2" fill="white" />
-            <circle cx="9" cy="2" r="2" fill="white" />
-            <circle cx="16" cy="2" r="2" fill="white" />
-          </svg>
-        </span>
-      </div>
-
-      <div className="absolute top-44 left-[15.5px] flex w-89.75 flex-wrap gap-1">
-        {TILES.map((tile, i) => {
-          const off = "state" in tile && tile.state === "OFF";
-          const name = t(`tileName.${tile.id}`);
-          return (
-            <div
-              key={tile.id}
-              className="animate-[onboarding-tile-in_0.4s_cubic-bezier(0.23,1,0.32,1)_both] motion-reduce:animate-none"
-              style={{ animationDelay: `${(0.18 + i * 0.08).toFixed(2)}s` }}
+      {/* 순공 뱃지가 실제 공부방과 같은 색을 쓰도록 공부방 화면의 세션 변수를 그대로 건다. */}
+      <div className="theme-dark absolute inset-0 text-white" style={sessionSurfaceStyle}>
+        <div className="absolute top-1.5 right-2 left-2 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-2 pt-14">
+          <div className="flex min-w-0 justify-start">
+            <span
+              className="flex min-h-11 max-w-full min-w-0 items-center gap-1.5 px-2 text-[15px] leading-5 font-semibold text-white"
+              style={{ textShadow: C.textShadow }}
             >
+              <span
+                aria-hidden="true"
+                className="size-2 shrink-0 rounded-full"
+                style={{ backgroundColor: C.math }}
+              />
+              <span className="truncate">{t("room.subject")}</span>
+              <ChevronRight aria-hidden="true" className="size-4 shrink-0" />
+            </span>
+          </div>
+
+          <div className="flex flex-col items-center gap-1 pt-1.5">
+            <Badge variant="session-focus" className="font-bold">
+              {clock(2892 + sec)}
+            </Badge>
+            <p
+              className="text-xs leading-4 font-bold text-text-tertiary tabular-nums"
+              style={{ textShadow: C.textShadow }}
+            >
+              {`${t("room.total")} ${clock(3750 + sec)}`}
+            </p>
+          </div>
+
+          <div className="flex justify-end">
+            <span className="flex size-11 items-center justify-center">
+              <Volume2 aria-hidden="true" className="size-6" />
+            </span>
+            <span className="flex size-11 items-center justify-center">
+              <SwitchCamera aria-hidden="true" className="size-6" />
+            </span>
+          </div>
+        </div>
+
+        <div className="absolute top-44 left-[15.5px] flex w-89.75 flex-wrap gap-1">
+          {TILES.map((tile, i) => {
+            const off = "state" in tile && tile.state === "OFF";
+            const mine = tile.id === "me";
+            const micOn = tile.id === "me" || tile.id === "sua";
+            const MicIcon = micOn ? Mic : MicOff;
+            const name = t(`tileName.${tile.id}`);
+            return (
               <div
-                className="relative size-[177.5px] overflow-hidden rounded-xl"
-                style={{ background: C.tileBg }}
+                key={tile.id}
+                className="animate-[onboarding-tile-in_0.4s_cubic-bezier(0.23,1,0.32,1)_both] motion-reduce:animate-none"
+                style={{ animationDelay: `${(0.18 + i * 0.08).toFixed(2)}s` }}
               >
-                {"bg" in tile && (
-                  <>
-                    <div className="absolute inset-0" style={{ background: tile.bg }} />
-                    <div
-                      className="absolute inset-x-0 bottom-0 h-19"
+                <div
+                  className="relative size-[177.5px] overflow-hidden rounded-xl"
+                  style={{ background: C.tileBg }}
+                >
+                  {"bg" in tile && (
+                    <>
+                      <div className="absolute inset-0" style={{ background: tile.bg }} />
+                      <div
+                        className="absolute inset-x-0 bottom-0 h-19"
+                        style={{
+                          background: C.tileFade,
+                        }}
+                      />
+                    </>
+                  )}
+                  {off && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="flex size-14 items-center justify-center rounded-full bg-white/10 text-xl leading-7 font-bold text-white">
+                        {name[0]}
+                      </span>
+                    </div>
+                  )}
+                  {"state" in tile && (
+                    <span
+                      className="absolute top-2.5 right-2.5 inline-flex items-center rounded-full border-[1.5px] px-3 py-1.25 text-[13px] leading-4 font-bold text-white tabular-nums backdrop-blur-[5px]"
                       style={{
-                        background: C.tileFade,
+                        borderColor: BADGE_BORDER[tile.state],
+                        background: C.badgeBg,
                       }}
-                    />
-                  </>
-                )}
-                {off && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="flex size-14 items-center justify-center rounded-full bg-white/10 text-xl leading-7 font-bold text-white">
-                      {name[0]}
+                    >
+                      {hhmm(tile.sec)}
                     </span>
+                  )}
+                  <div className={cn("absolute bottom-3 left-3", mine ? "right-3" : "right-12")}>
+                    <div className="flex items-center gap-1">
+                      <p className="truncate text-[15px] leading-4.75 font-bold text-white">
+                        {name}
+                      </p>
+                      <span
+                        data-mic={micOn ? "on" : "off"}
+                        className={cn("flex shrink-0", micOn ? "text-white" : "text-white/72")}
+                      >
+                        <MicIcon
+                          aria-hidden="true"
+                          className="size-3.5"
+                          style={{ filter: "drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45))" }}
+                        />
+                      </span>
+                    </div>
+                    <p className="mt-1 truncate text-xs leading-3.75 text-white/72">
+                      {t(`tileGoal.${tile.id}`)}
+                    </p>
                   </div>
-                )}
-                {"state" in tile && (
-                  <span
-                    className="absolute top-2.5 right-2.5 inline-flex items-center rounded-full border-[1.5px] px-3 py-1.25 text-[13px] leading-4 font-bold text-white tabular-nums backdrop-blur-[5px]"
-                    style={{
-                      borderColor: BADGE_BORDER[tile.state],
-                      background: C.badgeBg,
-                    }}
-                  >
-                    {hhmm(tile.sec)}
-                  </span>
-                )}
-                <div className="absolute inset-x-3 bottom-3">
-                  <p className="truncate text-[15px] leading-4.75 font-bold text-white">{name}</p>
-                  <p className="mt-1 truncate text-xs leading-3.75 text-white/72">
-                    {t(`tileGoal.${tile.id}`)}
-                  </p>
+                  {!mine && (
+                    <span className="absolute right-1 bottom-1 flex size-11 items-center justify-center text-white">
+                      <Ellipsis
+                        aria-hidden="true"
+                        className="size-6"
+                        style={{ filter: "drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45))" }}
+                      />
+                    </span>
+                  )}
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
 
-      <div className="absolute inset-x-0 bottom-8 flex justify-center">
-        <div className="flex h-18.5 items-center gap-3.5 rounded-full px-2.5" style={GLASS}>
-          <ControlButton>
-            <svg
-              aria-hidden="true"
-              width="23"
-              height="23"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="2.5" y="6" width="13" height="12" rx="3" />
-              <path d="M15.5 10.5l6-3v9l-6-3" />
-            </svg>
-          </ControlButton>
-          <ControlButton>
-            <svg
-              aria-hidden="true"
-              width="23"
-              height="23"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 7v14" />
-              <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
-            </svg>
-          </ControlButton>
-          <ControlButton>
-            <svg
-              aria-hidden="true"
-              width="23"
-              height="23"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="white"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M9 18V5l12-2v13" />
-              <circle cx="6" cy="18" r="3" />
-              <circle cx="18" cy="16" r="3" />
-            </svg>
-          </ControlButton>
-          <ControlButton danger>
-            <svg
-              aria-hidden="true"
-              width="23"
-              height="23"
-              viewBox="0 0 19 19"
-              fill="none"
-              stroke="white"
-              strokeWidth="1.58333"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M10.6875 3.5625H5.54165C5.12172 3.5625 4.71899 3.72931 4.42206 4.02625C4.12513 4.32318 3.95831 4.72591 3.95831 5.14583V13.8542C3.95831 14.2741 4.12513 14.6768 4.42206 14.9738C4.71899 15.2707 5.12172 15.4375 5.54165 15.4375H10.6875" />
-              <path d="M8.3125 9.50001H15.8333M13.0625 12.2708L15.8333 9.50001L13.0625 6.72917" />
-            </svg>
-          </ControlButton>
+        <div className="absolute inset-x-0 bottom-8 flex justify-center">
+          <div className="flex h-18.5 items-center gap-3.5 rounded-full px-2.5" style={GLASS}>
+            <ControlButton control="camera">
+              <img src={cameraIcon} alt="" className="size-5.75" />
+            </ControlButton>
+            <ControlButton control="mic">
+              <Mic aria-hidden="true" className={BAR_ICON} />
+            </ControlButton>
+            <ControlButton control="timer">
+              <Timer aria-hidden="true" className={BAR_ICON} />
+            </ControlButton>
+            <ControlButton control="ambient">
+              <Music aria-hidden="true" className={BAR_ICON} />
+            </ControlButton>
+            <ControlButton control="exit" danger>
+              <img src={exitIcon} alt="" className="size-5.75" />
+            </ControlButton>
+          </div>
         </div>
       </div>
     </Scaled>
