@@ -4,12 +4,14 @@
 
 하루를 한 장으로 본다. 왼쪽에 과목과 할 일, 오른쪽에 타임테이블을 나란히 두는 2열이고 카드가 없다. 기획 원본은 `.ai` `product/specs/BY-817-기록-탭-개선.md`, 시안은 Figma `S5 · 기록 V2.1 + S12 · 플래너 (BY-817 시안)`의 플래너 줄(오늘 5908-6576, 지난 날 5909-6219, 2026-10-05 최종안)이다.
 
+토큰 출처가 있는 앱은 현재 `PlannerPlanPage`와 `/api/planner` 계약을 사용하며, 오늘 판정도 05시 기준이다([날짜별 계획 설계](../superpowers/specs/2026-11-05-planner-plan-design.md)). 아래의 자정 기준 오늘 판정·통계 조립·날짜 없는 할 일 설명은 토큰 출처 없는 구 앱의 `LegacyPlannerPage`에 해당한다. 홈 v3의 00시 날짜로 플래너를 열면 새벽 0~5시에는 그 날짜가 미래 플래너로 열린다.
+
 ## 라우트와 진입
 
 - `/planner?date=YYYY-MM-DD` — 탭 바 없는 전체 화면(`lib/nativeTabBar.ts`의 `FULL_SCREEN_PATHS`). `date`가 없거나 형식이 틀리면(달력에 없는 날짜 포함) 오늘 플래너를 연다. 지난 날과 미래 날짜 모두 열 수 있다.
 - 진입은 두 곳이고 둘 다 `features/planner/useOpenPlanner.ts`를 쓴다(빠른 이중 탭에도 한 번만 이동).
   - 기록 탭 머리 오른쪽 `플래너` 알약(일간·주간 공통, `features/planner/PlannerPillButton.tsx`) → 달력에서 고른 날의 플래너(라우터 state `via: "records"`).
-  - 홈 헤더 오른쪽 `플래너` 알약(D-Day 블록 맞은편, 같은 `PlannerPillButton`) → 오늘의 플래너(`via: "home"`). 토큰 문서의 헤더에만 있고, 로고와 날짜를 쓰는 구 문서 헤더에는 없다.
+  - 홈 v3 본문의 `플래너` 카드 → 홈에 표시한 00시 기준 달력 날짜의 플래너(`via: "home"`). 헤더 알약은 제거했다. 홈 미션·목표와 연결되는 동작은 [홈 v3 설계](../superpowers/specs/2026-11-07-home-v3-design.md)에 있다.
 - 뒤로 가기는 온 곳으로 돌아간다. 히스토리가 비어 있으면(딥링크) 기록 탭으로 보낸다.
 
 ## 플래너의 하루
