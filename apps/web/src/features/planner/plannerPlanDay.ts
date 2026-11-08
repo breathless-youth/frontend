@@ -1,11 +1,38 @@
 import type { PlannerDayResponse, PlannerRecordView } from "@focusmakers/types";
 import { plannerDayWindow, type PlannerDay, type PlannerPaint } from "./plannerDay";
+import { recordPieceMinutes } from "./recordMinutes";
 
 export function plannerRecordPaints(
   record: PlannerRecordView,
   window: { startMs: number; endMs: number },
 ): PlannerPaint[] {
   const paints: PlannerPaint[] = [];
+  if (record.pieces !== undefined) {
+    if (!Array.isArray(record.pieces)) return paints;
+    for (const minute of recordPieceMinutes(record.pieces, window)) {
+      const previous = paints.at(-1);
+      const kind = minute.subjectId === null ? "focus" : "subject";
+      if (
+        previous &&
+        previous.endMs === minute.startMs &&
+        previous.kind === kind &&
+        (previous.kind !== "subject" || previous.subjectId === minute.subjectId)
+      ) {
+        previous.endMs = minute.endMs;
+      } else {
+        paints.push({
+          startMs: minute.startMs,
+          endMs: minute.endMs,
+          manual: record.source === "MANUAL",
+          ...(record.edited ? { edited: true } : {}),
+          ...(minute.subjectId === null
+            ? { kind: "focus" }
+            : { kind: "subject", subjectId: minute.subjectId }),
+        });
+      }
+    }
+    return paints;
+  }
   const start = Math.max(window.startMs, Date.parse(record.startedAt));
   const end = Math.min(window.endMs, Date.parse(record.endedAt));
   const cuts = [

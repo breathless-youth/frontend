@@ -263,6 +263,11 @@ function PlannerPlanContent({ userId }: { userId: number | null }) {
             }}
             onClose={closeRecords}
             onSaved={refresh}
+            onReload={async () => {
+              const result = await state.refetch({ throwOnError: true });
+              if (!result.data) throw new Error("planner record refresh unavailable");
+              return result.data;
+            }}
           />
         ) : (
           placeholder

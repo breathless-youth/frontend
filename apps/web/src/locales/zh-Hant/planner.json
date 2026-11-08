@@ -154,7 +154,7 @@
     "boundary": "載入完整時間範圍後才能編輯",
     "changeSubject": "變更科目",
     "save": "儲存",
-    "hint": "長按空白格並拖曳以新增，拖曳紀錄兩端以編輯",
+    "hint": "長按空白處新增紀錄，選取分鐘範圍來編輯紀錄",
     "grid": "紀錄編輯時間表",
     "saveFailed": "部分紀錄無法儲存，請再試一次",
     "leaveTitle": "不儲存就離開嗎？",
@@ -166,7 +166,9 @@
       "boundary": "載入完整時間範圍後才能編輯",
       "subject-required": "請先選擇套用至整筆紀錄的科目",
       "subject-time-required": "這筆紀錄無法只更改科目",
-      "ambiguous-time": "這個時間出現兩次，請選擇其他時間"
+      "ambiguous-time": "這個時間出現兩次，請選擇其他時間",
+      "unavailable": "重新載入最新紀錄後，即可按分鐘編輯",
+      "range-limit": "每筆紀錄一次最多可編輯100個範圍"
     },
     "subjectScopeWarning": "所選科目會套用至整筆紀錄，包括畫面未顯示的時間。",
     "chooseSubject": "讀了哪個科目？",
@@ -183,9 +185,12 @@
       "conflict": "變更與其他紀錄衝突，請確認時間和科目",
       "invalid": "請確認紀錄的時間和科目",
       "missing": "找不到紀錄或科目，請重新開啟此畫面",
-      "server": "伺服器無法儲存紀錄，請稍後再試"
+      "server": "伺服器無法儲存紀錄，請稍後再試",
+      "stale": "紀錄已在其他地方變更並重新載入，請重新選取範圍"
     },
-    "edited": "已編輯"
+    "edited": "已編輯",
+    "multipleSubjects": "多個科目",
+    "unavailable": "重新載入最新紀錄後，即可按分鐘編輯"
   },
   "week": {
     "prev": "上一週",

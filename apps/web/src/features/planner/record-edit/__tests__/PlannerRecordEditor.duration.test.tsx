@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, expect, it } from "vitest";
-import { plannerDay, plannerRecord } from "@/test/plannerFixtures";
+import { plannerDay, plannerRangeRecord as plannerRecord } from "@/test/plannerFixtures";
 import { PlannerRecordEditor } from "../PlannerRecordEditor";
 import {
   changeRecordDraft,
@@ -16,38 +16,41 @@ const start = "2026-11-06T00:00:00Z";
 it.each([
   [7, "7초", 1],
   [59, "59초", 1],
-  [83, "1분 23초", 2],
-  [3683, "1시간 1분 23초", 62],
-] as const)("%s초 기록은 칠한 분과 별도로 실제 길이를 보여 준다", (seconds, label, minutes) => {
-  const day = plannerDay({
-    records: [
-      plannerRecord({
-        startedAt: start,
-        endedAt: new Date(Date.parse(start) + seconds * 1000).toISOString(),
-        subjectSegments: [],
-      }),
-    ],
-  });
-  const draft = createRecordDraft(day);
-  expect(recordDraftDurationSec(draft.blocks[0]!)).toBe(seconds);
-  expect(recordDraftOperations(draft)).toEqual([]);
-  render(
-    <MemoryRouter>
-      <PlannerRecordEditor day={day} subjects={[]} onClose={() => {}} onSaved={async () => {}} />
-    </MemoryRouter>,
-  );
-  const grid = screen.getByLabelText("기록 편집 격자");
-  const blocks = [...grid.querySelectorAll<HTMLButtonElement>("[data-record]")];
-  expect(
-    blocks.reduce((sum, b) => sum + (Number.parseFloat(b.style.width) * 60) / 100, 0),
-  ).toBeCloseTo(minutes);
-  fireEvent.click(blocks[0]!);
-  expect(
-    within(screen.getByRole("region", { name: "선택한 기록" })).getByText(label),
-  ).toBeVisible();
-  fireEvent.click(screen.getByRole("button", { name: "과목 바꾸기" }));
-  expect(screen.getByRole("dialog")).toHaveTextContent(label);
-});
+  [83, "1분", 2],
+  [3683, "1분", 62],
+] as const)(
+  "%s초 기록은 선택 분의 실제 길이를 보여 주고 부모 길이는 보존한다",
+  (seconds, label, minutes) => {
+    const day = plannerDay({
+      records: [
+        plannerRecord({
+          startedAt: start,
+          endedAt: new Date(Date.parse(start) + seconds * 1000).toISOString(),
+          subjectSegments: [],
+        }),
+      ],
+    });
+    const draft = createRecordDraft(day);
+    expect(recordDraftDurationSec(draft.blocks[0]!)).toBe(seconds);
+    expect(recordDraftOperations(draft)).toEqual([]);
+    render(
+      <MemoryRouter>
+        <PlannerRecordEditor day={day} subjects={[]} onClose={() => {}} onSaved={async () => {}} />
+      </MemoryRouter>,
+    );
+    const grid = screen.getByLabelText("기록 편집 격자");
+    const blocks = [...grid.querySelectorAll<HTMLButtonElement>("[data-record]")];
+    expect(
+      blocks.reduce((sum, b) => sum + (Number.parseFloat(b.style.width) * 60) / 100, 0),
+    ).toBeCloseTo(minutes);
+    fireEvent.click(blocks[0]!);
+    expect(
+      within(screen.getByRole("region", { name: "선택한 기록" })).getByText(label),
+    ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "과목 바꾸기" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent(label);
+  },
+);
 
 it("한쪽 경계만 고치면 다른 쪽의 원본 초를 길이에 보존한다", () => {
   const draft = createRecordDraft(

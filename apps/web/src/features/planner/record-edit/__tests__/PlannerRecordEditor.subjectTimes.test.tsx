@@ -2,7 +2,11 @@ import { MemoryRouter } from "react-router-dom";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { PlannerRecordEditor } from "../PlannerRecordEditor";
-import { plannerDay, plannerRecord, plannerSubject } from "@/test/plannerFixtures";
+import {
+  plannerDay,
+  plannerRangeRecord as plannerRecord,
+  plannerSubject,
+} from "@/test/plannerFixtures";
 
 function mount() {
   const request = vi.fn(async (_url: unknown, init?: RequestInit) => {
@@ -12,6 +16,7 @@ function mount() {
         operationId: op.operationId,
         success: true,
         key: "c:updated",
+        revision: 1,
         status: 200,
         code: null,
         message: null,
@@ -49,25 +54,23 @@ function mount() {
       />
     </MemoryRouter>,
   );
-  fireEvent.click(screen.getAllByRole("button", { name: /04:30.*06:00/ })[0]!);
+  fireEvent.click(screen.getAllByRole("button", { name: /05:00.*06:00/ })[0]!);
   return request;
 }
 function chooseSubject() {
   fireEvent.click(screen.getByRole("button", { name: "과목 바꾸기" }));
   const dialog = screen.getByRole("dialog");
-  expect(dialog).toHaveTextContent(
-    "선택한 과목은 화면에 보이지 않는 시간까지 기록 전체에 적용돼요.",
-  );
+  expect(dialog).not.toHaveTextContent("화면에 보이지 않는 시간까지");
   fireEvent.click(within(dialog).getByRole("button", { name: "수학" }));
 }
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
-it("경계 기록 시간을 먼저 입력한 뒤 과목을 고르면 보이는 시간까지 함께 저장한다", async () => {
+it("선택 범위를 먼저 늘린 뒤 과목을 고르면 조회 창 안의 분 범위만 저장한다", async () => {
   const request = mount();
   fireEvent.change(screen.getByLabelText("끝"), { target: { value: "06:10" } });
-  expect(screen.getByRole("button", { name: "저장" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "저장" })).toBeEnabled();
   chooseSubject();
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(screen.getByLabelText("끝")).toHaveValue("06:10");
@@ -77,10 +80,16 @@ it("경계 기록 시간을 먼저 입력한 뒤 과목을 고르면 보이는 �
   expect(JSON.parse(String(request.mock.calls[0]![1]?.body))).toMatchObject({
     operations: [
       {
-        action: "UPDATE",
-        subjectId: 3,
-        startedAt: "2026-11-05T19:30:00Z",
-        endedAt: "2026-11-05T21:10:00.000Z",
+        action: "EDIT_RANGES",
+        revision: 0,
+        ranges: [
+          {
+            change: "SUBJECT",
+            subjectId: 3,
+            startedAt: "2026-11-05T20:00:00.000Z",
+            endedAt: "2026-11-05T21:10:00.000Z",
+          },
+        ],
       },
     ],
   });
@@ -105,6 +114,11 @@ it("과목을 고를 때 시각이 불완전하면 오류를 유지하고 상단
   fireEvent.click(screen.getByRole("button", { name: "저장" }));
   await waitFor(() => expect(request).toHaveBeenCalledTimes(1));
   expect(JSON.parse(String(request.mock.calls[0]![1]?.body))).toMatchObject({
-    operations: [{ subjectId: 3, endedAt: "2026-11-05T21:10:00.000Z" }],
+    operations: [
+      {
+        action: "EDIT_RANGES",
+        ranges: [{ change: "SUBJECT", subjectId: 3, endedAt: "2026-11-05T21:10:00.000Z" }],
+      },
+    ],
   });
 });

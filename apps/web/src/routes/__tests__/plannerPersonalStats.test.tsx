@@ -6,7 +6,7 @@ import type * as UserIdModule from "@/lib/userId";
 
 import { personalRecordsKeys } from "@/lib/personalRecordsQueries";
 import { personalRecordStats } from "@/test/personalRecordFixtures";
-import { plannerDay, plannerRecord } from "@/test/plannerFixtures";
+import { plannerDay, plannerRangeRecord as plannerRecord } from "@/test/plannerFixtures";
 import { PlannerPage } from "../PlannerPage";
 import "@/features/planner/record-edit/PlannerRecordEditor";
 
@@ -49,12 +49,14 @@ it.each([false, true])(
       if (url.includes("/api/subjects")) return Response.json([]);
       if (url.includes("/api/planner/records/batch")) {
         const body = JSON.parse(String(init?.body));
+        day.records[0]!.revision = 1;
         return Response.json({
           results: body.operations.map(
             (operation: { operationId: string; key: string }, index: number) => ({
               operationId: operation.operationId,
               success: !partial || index === 0,
               key: operation.key,
+              revision: 1,
               status: partial && index > 0 ? 409 : 200,
               code: partial && index > 0 ? "CONFLICT" : null,
               message: null,
@@ -88,10 +90,12 @@ it.each([false, true])(
       </QueryClientProvider>,
     );
     fireEvent.click((await screen.findAllByRole("button", { name: /09:00.*10:00/ }))[0]!);
-    fireEvent.change(screen.getByLabelText("시작"), { target: { value: "09:01" } });
+    fireEvent.click(screen.getByRole("button", { name: "과목 바꾸기" }));
+    fireEvent.click(screen.getByRole("button", { name: "과목 없음" }));
     if (partial) {
       fireEvent.click(screen.getAllByRole("button", { name: /11:00.*12:00/ })[0]!);
-      fireEvent.change(screen.getByLabelText("시작"), { target: { value: "11:01" } });
+      fireEvent.click(screen.getByRole("button", { name: "과목 바꾸기" }));
+      fireEvent.click(screen.getByRole("button", { name: "과목 없음" }));
     }
     fireEvent.click(screen.getByRole("button", { name: "저장" }));
     await waitFor(() =>

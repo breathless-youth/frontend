@@ -8,6 +8,54 @@ import {
   recordDraftOperations,
 } from "../record-edit/recordDraft";
 
+it("pieces의 대표 분과 빈칸을 표시하고 기존 공부·순공 집계를 유지한다", () => {
+  const day = plannerPlanDay(
+    plannerDay({
+      date: "2026-11-09",
+      studySec: 12,
+      focusSec: 7,
+      records: [
+        plannerRecord({
+          startedAt: "2026-11-09T03:00:00Z",
+          endedAt: "2026-11-09T03:02:37.5Z",
+          revision: 0,
+          pieces: [
+            { startedAt: "2026-11-09T03:00:00Z", endedAt: "2026-11-09T03:00:20Z", subjectId: 3 },
+            { startedAt: "2026-11-09T03:00:20Z", endedAt: "2026-11-09T03:01:00Z", subjectId: 5 },
+            {
+              startedAt: "2026-11-09T03:02:00Z",
+              endedAt: "2026-11-09T03:02:37.5Z",
+              subjectId: null,
+            },
+          ],
+        }),
+      ],
+    }),
+  );
+  expect(day.paints).toEqual([
+    {
+      startMs: Date.parse("2026-11-09T03:00:00Z"),
+      endMs: Date.parse("2026-11-09T03:01:00Z"),
+      kind: "subject",
+      subjectId: 5,
+      manual: false,
+    },
+    {
+      startMs: Date.parse("2026-11-09T03:02:00Z"),
+      endMs: Date.parse("2026-11-09T03:03:00Z"),
+      kind: "focus",
+      manual: false,
+    },
+  ]);
+  expect([day.studySec, day.focusSec]).toEqual([12, 7]);
+  expect(
+    plannerRecordPaints(
+      plannerRecord({ pieces: [] }),
+      plannerDayWindow("2026-11-09", "Asia/Seoul"),
+    ),
+  ).toEqual([]);
+});
+
 it("개인 집계를 보존하고 10분 칸의 중간부터 1분 단위로 칠한다", () => {
   const day = plannerPlanDay(
     plannerDay({

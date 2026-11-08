@@ -28,12 +28,15 @@ import {
   type RecordDraftOperation,
   firstRecordDraftMinute,
   recordDraftDurationSec,
+  recordDraftPieces,
+  stageRecordRange,
 } from "./recordDraft";
 import {
   saveRecordDraft,
   acceptSavedRecords,
   recordSaveFailure,
   type RecordSaveFailure,
+  rebaseRecordDraft,
 } from "./recordSave";
 import { recordClock, recordWindowRects } from "./recordGeometry";
 import { RecordBlockSheet } from "./RecordBlockSheet";
@@ -46,12 +49,21 @@ import {
 import { addRecordDraft, deleteRecordDraft, type RecordDraftState } from "./recordDraft";
 import { recordPointTime } from "./recordGeometry";
 import { LONG_PRESS_MS, SWIPE_SLOP_PX } from "@/features/study-session/subjectInteractions";
+import { recordRangeCoverageSec } from "./recordRanges";
+import { recordPieceMinutes } from "../recordMinutes";
+import {
+  selectRecordBlock,
+  selectedRecordBlock,
+  resizeRecordSelection,
+  type RecordSelection,
+} from "./recordSelection";
 export interface PlannerRecordEditorProps {
   day: PlannerDayResponse;
   userId?: number | null;
   subjects: readonly SubjectResponse[] | undefined;
   onClose: () => void;
   onSaved: () => Promise<void>;
+  onReload?: () => Promise<PlannerDayResponse>;
   onDateChange?: (date: string) => void;
 }
 export function PlannerRecordEditor({
@@ -60,6 +72,7 @@ export function PlannerRecordEditor({
   subjects,
   onClose,
   onSaved,
+  onReload,
   onDateChange,
 }: PlannerRecordEditorProps) {
   const { t } = useTranslation(["planner", "common", "records"]);
@@ -67,7 +80,10 @@ export function PlannerRecordEditor({
   const clock = usePlannerClock();
   const keyboardInset = useKeyboardInset();
   const [draft, setDraft] = useState(() => createRecordDraft(day));
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selection, setSelection] = useState<RecordSelection | null>(null);
+  const selected = selection?.id ?? null;
+  const setSelected = (id: string | null) =>
+    setSelection(id === null ? null : selectRecordBlock(draft, id));
   const [newRecordId, setNewRecordId] = useState<string | null>(null);
   const [autoFocusTimes, setAutoFocusTimes] = useState(false);
   const [pending, setPending] = useState(false),
@@ -76,6 +92,10 @@ export function PlannerRecordEditor({
   const [leave, setLeave] = useState<"close" | { date: string } | null>(null);
   const [datePicker, setDatePicker] = useState(false);
   const [uncertain, setUncertain] = useState<RecordDraftOperation[] | null>(null);
+  const [refreshKeys, setRefreshKeys] = useState<{
+    keys: string[];
+    failure: RecordSaveFailure | null;
+  } | null>(null);
   const [error, setError] = useState<RecordDraftError["code"] | null>(null);
   const [subjectPicker, setSubjectPicker] = useState(false);
   const [dragMode, setDragMode] = useState<"create" | "start" | "end" | null>(null);
@@ -95,8 +115,15 @@ export function PlannerRecordEditor({
     before: RecordDraftState;
     base: RecordDraftState;
     failure?: RecordDraftError["code"];
+    selection: RecordSelection | null;
   } | null>(null);
-  const block = draft.blocks.find((value) => value.id === selected);
+  const block = selectedRecordBlock(draft, selection);
+  const selectedDuration =
+    block && selection?.kind === "range"
+      ? recordRangeCoverageSec(recordDraftPieces(block)!, selection.startMs, selection.endMs)
+      : block
+        ? recordDraftDurationSec(block)
+        : 0;
   const todayKey = plannerDateKeyOf(new Date(clock.nowMs), draft.timeZone);
   const currentTime = plannerCurrentTime(day.date, clock.nowMs, draft.timeZone);
   const changedBlock = (value: RecordDraftBlock) => {
@@ -105,12 +132,16 @@ export function PlannerRecordEditor({
       !before ||
       value.startMs !== before.startMs ||
       value.endMs !== before.endMs ||
-      value.subjectChanged
+      value.subjectChanged ||
+      !!value.ranges?.length
     );
   };
-  const isEdited = (value: RecordDraftBlock) => value.edited || changedBlock(value);
+  const isEdited = (value: RecordDraftBlock) => {
+    const parent = draft.blocks.find((item) => item.id === value.id) ?? value;
+    return parent.edited || changedBlock(parent);
+  };
   const dirty = draft.blocks.length !== draft.baseline.size || draft.blocks.some(changedBlock);
-  const frozen = pending || uncertain !== null;
+  const frozen = pending || uncertain !== null || refreshKeys !== null;
   useEffect(() => {
     const element = gridRef.current;
     const prevent = (event: TouchEvent) => {
@@ -178,6 +209,7 @@ export function PlannerRecordEditor({
         anchor,
         before,
         base: before,
+        selection,
       };
       setDragMode(handle.dataset.handle as "start" | "end");
       try {
@@ -200,11 +232,11 @@ export function PlannerRecordEditor({
         );
         setDraft(next);
         setAutoFocusTimes(false);
-        setSelected(id);
+        setSelection({ kind: "draft", id });
         setNewRecordId(id);
         setError(null);
         newIdRef.current = id;
-        dragRef.current = { id, pointerId, mode: "create", anchor, before, base: next };
+        dragRef.current = { id, pointerId, mode: "create", anchor, before, base: next, selection };
         setDragMode("create");
         try {
           element.setPointerCapture(pointerId);
@@ -232,7 +264,7 @@ export function PlannerRecordEditor({
     }
     event.preventDefault();
     try {
-      const original = drag.base.blocks.find((value) => value.id === drag.id);
+      const original = selectedRecordBlock(drag.base, drag.selection);
       const at = point(
         event,
         drag.mode === "create"
@@ -245,8 +277,10 @@ export function PlannerRecordEditor({
         drag.mode === "create"
           ? { startMs: Math.min(at, drag.anchor), endMs: Math.max(at, drag.anchor + 60000) }
           : { [drag.mode === "start" ? "startMs" : "endMs"]: at };
-      // eslint-disable-next-line react-hooks/purity -- onPointerMove에서만 호출하며 렌더가 아니라 포인터 조작 순간을 검증한다.
-      setDraft(changeRecordDraft(drag.base, drag.id, patch, Date.now()));
+      if (drag.mode !== "create" && drag.selection?.kind === "range")
+        setSelection(resizeRecordSelection(drag.base, drag.selection, patch));
+      // eslint-disable-next-line react-hooks/purity -- 포인터 조작 순간의 실제 시각을 검증한다.
+      else setDraft(changeRecordDraft(drag.base, drag.id, patch, Date.now()));
       drag.failure = undefined;
       setError(null);
     } catch (cause) {
@@ -269,7 +303,7 @@ export function PlannerRecordEditor({
       setDraft(drag.before);
       newIdRef.current = null;
       setNewRecordId(null);
-      setSelected(null);
+      setSelection(drag.selection);
       setError(null);
     } else {
       // 유효하지 않은 포인터 위치는 초안에 넣지 않았다. 놓으면 마지막 유효 초안을 유지한다.
@@ -292,21 +326,33 @@ export function PlannerRecordEditor({
     const id = crypto.randomUUID();
     setDraft(addRecordDraft(draft, { id, ...span, subjectId: null }, Date.now()));
     setAutoFocusTimes(true);
-    setSelected(id);
+    setSelection({ kind: "draft", id });
     setError(null);
   }
   function askDelete() {
     if (!selected || frozen || block?.locked) return;
     const rects = [...(gridRef.current?.querySelectorAll<HTMLElement>("[data-record]") ?? [])]
-      .filter((element) => element.dataset.record === selected)
+      .filter(
+        (element) =>
+          element.dataset.record === selected &&
+          (selection?.kind !== "range" ||
+            (Number(element.dataset.end) > selection.startMs &&
+              Number(element.dataset.start) < selection.endMs)),
+      )
       .map((element) => {
         const rect = element.getBoundingClientRect();
         const row = element.parentElement!.getBoundingClientRect();
         const style = getComputedStyle(element);
+        const from = Number(element.dataset.start),
+          to = Number(element.dataset.end);
+        const leftFraction =
+          selection?.kind === "range" ? Math.max(0, (selection.startMs - from) / (to - from)) : 0;
+        const rightFraction =
+          selection?.kind === "range" ? Math.min(1, (selection.endMs - from) / (to - from)) : 1;
         return {
-          left: rect.left,
+          left: rect.left + rect.width * leftFraction,
           top: rect.top,
-          width: rect.width,
+          width: rect.width * (rightFraction - leftFraction),
           height: rect.height,
           background: style.backgroundColor,
           color: style.color,
@@ -330,12 +376,12 @@ export function PlannerRecordEditor({
   }
   function close() {
     if (pending) return;
-    if (dirty || uncertain || error) setLeave("close");
+    if (dirty || uncertain || refreshKeys || error) setLeave("close");
     else onClose();
   }
   function pickDate(date: string) {
     if (pending || !onDateChange || date === day.date || date > todayKey) return;
-    if (dirty || uncertain || error) setLeave({ date });
+    if (dirty || uncertain || refreshKeys || error) setLeave({ date });
     else onDateChange(date);
   }
   function confirmLeave() {
@@ -351,16 +397,42 @@ export function PlannerRecordEditor({
     setSaveFailure(null);
     setError(null);
     try {
+      if (refreshKeys) {
+        if (!onReload) throw new Error("canonical reload unavailable");
+        setDraft(rebaseRecordDraft(draft, await onReload(), refreshKeys.keys));
+        setRefreshKeys(null);
+        setSelected(null);
+        setSaveFailure(refreshKeys.failure);
+        setFailed(true);
+        return;
+      }
       const result = await saveRecordDraft(uncertain ?? recordDraftOperations(draft), {
         timeZone: draft.timeZone,
         ownerId: userId,
       });
-      setDraft(acceptSavedRecords(draft, result));
+      let accepted = acceptSavedRecords(draft, result);
+      setDraft(accepted);
       setUncertain(result.uncertain ? result.pending : null);
-      setFailed(result.pending.length > 0);
+      setFailed(result.pending.length > 0 || !!result.staleKeys?.length);
       setSaveFailure(recordSaveFailure(result));
+      const keys = [
+        ...(result.staleKeys ?? []),
+        ...result.confirmed
+          .filter(({ result: value }) => value.success)
+          .flatMap(({ result: value }) => (value.key ? [value.key] : [])),
+      ];
+      const needsReload =
+        keys.length > 0 && (result.pending.length > 0 || !!result.staleKeys?.length);
+      if (needsReload) setRefreshKeys({ keys, failure: recordSaveFailure(result) });
       await onSaved();
-      if (!result.pending.length) onClose();
+      if (needsReload) {
+        if (!onReload) throw new Error("canonical reload unavailable");
+        accepted = rebaseRecordDraft(accepted, await onReload(), keys);
+        setDraft(accepted);
+        setRefreshKeys(null);
+        setSelected(null);
+      }
+      if (!result.pending.length && !result.staleKeys?.length) onClose();
     } catch (cause) {
       if (cause instanceof RecordDraftError) setError(cause.code);
       else {
@@ -374,6 +446,23 @@ export function PlannerRecordEditor({
   function edit(patch: Partial<Pick<RecordDraftBlock, "startMs" | "endMs" | "subjectId">>) {
     if (frozen || !selected) return false;
     try {
+      if (selection?.kind === "unavailable") throw new RecordDraftError("unavailable");
+      if (selection?.kind === "range") {
+        const next = resizeRecordSelection(draft, selection, patch);
+        if (next.kind !== "range") return false;
+        if ("subjectId" in patch && patch.subjectId !== undefined)
+          setDraft(
+            stageRecordRange(draft, selected, {
+              startedAt: new Date(next.startMs).toISOString(),
+              endedAt: new Date(next.endMs).toISOString(),
+              change: "SUBJECT",
+              subjectId: patch.subjectId,
+            }),
+          );
+        setSelection(next);
+        setError(null);
+        return true;
+      }
       setDraft(changeRecordDraft(draft, selected, patch, Date.now()));
       setError(null);
       return true;
@@ -387,9 +476,11 @@ export function PlannerRecordEditor({
   }
   const refs = new Map([...day.subjects, ...(subjects ?? [])].map((value) => [value.id, value]));
   const label = (value: RecordDraftBlock) =>
-    value.subjectIds.length
-      ? value.subjectIds.map((id) => refs.get(id)?.name ?? t("subjects.unassigned")).join(" · ")
-      : t("subjects.unassigned");
+    value.mixed && selection?.kind === "range" && value.id === selected
+      ? t("record.multipleSubjects")
+      : value.subjectIds.length
+        ? value.subjectIds.map((id) => refs.get(id)?.name ?? t("subjects.unassigned")).join(" · ")
+        : t("subjects.unassigned");
   const shapes = draft.blocks.flatMap((value) => {
     const original = draft.baseline.get(value.id);
     const unchanged =
@@ -398,7 +489,13 @@ export function PlannerRecordEditor({
       original?.startMs === value.startMs &&
       original.endMs === value.endMs;
     const paints = unchanged
-      ? plannerRecordPaints(value.original!, draft)
+      ? plannerRecordPaints(
+          {
+            ...value.original!,
+            ...(value.original?.pieces === undefined ? {} : { pieces: recordDraftPieces(value) }),
+          },
+          draft,
+        )
       : [
           {
             startMs: value.startMs,
@@ -419,11 +516,27 @@ export function PlannerRecordEditor({
   });
   const labelShapes = new Map<string, (typeof shapes)[number]>();
   for (const shape of shapes) {
-    const previous = labelShapes.get(shape.block.id);
-    if (!previous || shape.width > previous.width) labelShapes.set(shape.block.id, shape);
+    const key = `${shape.block.id}:${shape.paint.kind === "subject" ? shape.paint.subjectId : "none"}`;
+    const previous = labelShapes.get(key);
+    if (!previous || shape.width > previous.width) labelShapes.set(key, shape);
   }
   const bubbleRects = block && dragMode ? recordWindowRects(block, draft, draft.timeZone) : [];
   const bubbleRect = dragMode === "start" ? bubbleRects[0] : bubbleRects.at(-1);
+  const listEntries = draft.blocks
+    .toSorted((a, b) => a.startMs - b.startMs)
+    .flatMap((value) => {
+      const pieces = recordDraftPieces(value);
+      return pieces === undefined
+        ? [{ value, startMs: value.startMs, endMs: value.endMs, label: label(value) }]
+        : recordPieceMinutes(pieces, draft).map((minute) => ({
+            value,
+            ...minute,
+            label:
+              minute.subjectId === null
+                ? t("subjects.unassigned")
+                : (refs.get(minute.subjectId)?.name ?? t("subjects.unassigned")),
+          }));
+    });
   return (
     <main
       style={{ paddingBottom: keyboardInset }}
@@ -531,7 +644,11 @@ export function PlannerRecordEditor({
                   .filter((shape) => shape.row === row)
                   .map((shape, index) => {
                     const ghost = shape.block.id === newRecordId;
-                    const shapeLabel = ghost ? t("record.new") : label(shape.block);
+                    const shapeLabel = ghost
+                      ? t("record.new")
+                      : shape.paint.kind === "subject"
+                        ? (refs.get(shape.paint.subjectId)?.name ?? t("subjects.unassigned"))
+                        : t("subjects.unassigned");
                     const color =
                       shape.paint.kind === "subject"
                         ? subjectColorVar(refs.get(shape.paint.subjectId)?.colorIndex ?? 0)
@@ -541,19 +658,38 @@ export function PlannerRecordEditor({
                         key={`${shape.block.id}:${index}`}
                         type="button"
                         data-record={shape.block.id}
+                        data-start={shape.startMs}
+                        data-end={shape.endMs}
                         data-record-edited={isEdited(shape.block) ? "" : undefined}
                         disabled={frozen}
-                        aria-label={`${shapeLabel} ${recordClock(shape.block.startMs, draft.timeZone)} – ${recordClock(shape.block.endMs, draft.timeZone)}${isEdited(shape.block) ? `, ${t("record.edited")}` : ""}`}
-                        onClick={() => {
+                        aria-label={`${shapeLabel} ${recordClock(shape.startMs, draft.timeZone)} – ${recordClock(shape.endMs, draft.timeZone)}${isEdited(shape.block) ? `, ${t("record.edited")}` : ""}`}
+                        onClick={(event) => {
                           setAutoFocusTimes(false);
-                          setSelected(shape.block.id);
+                          const bounds = event.currentTarget.getBoundingClientRect();
+                          const fraction =
+                            bounds.width > 0 && event.detail !== 0
+                              ? Math.max(
+                                  0,
+                                  Math.min(0.999999, (event.clientX - bounds.left) / bounds.width),
+                                )
+                              : 0;
+                          setSelection(
+                            selectRecordBlock(
+                              draft,
+                              shape.block.id,
+                              shape.startMs + fraction * (shape.endMs - shape.startMs),
+                            ),
+                          );
                           setError(null);
                         }}
                         className={cn(
                           "absolute inset-y-0 flex min-w-0 items-center justify-center gap-1 overflow-hidden text-xs font-bold whitespace-nowrap",
                           shape.width >= 25 / 60 ? "px-1" : "p-0",
                           ghost && "text-brand-subtle-text",
-                          selected === shape.block.id && !ghost && "ring-2 ring-primary",
+                          selection?.kind === "draft" &&
+                            selected === shape.block.id &&
+                            !ghost &&
+                            "ring-2 ring-primary",
                         )}
                         style={{
                           left: `${shape.left * 100}%`,
@@ -566,29 +702,32 @@ export function PlannerRecordEditor({
                             !ghost && shape.startsBlock ? `3px solid ${color}` : undefined,
                         }}
                       >
-                        {labelShapes.get(shape.block.id) === shape && shape.width >= 25 / 60 && (
-                          <>
-                            {!ghost &&
-                              (shape.block.source === "MANUAL" || isEdited(shape.block)) && (
-                                <Pencil
-                                  data-record-manual={
-                                    shape.block.source === "MANUAL" ? "" : undefined
-                                  }
-                                  role="img"
-                                  aria-label={
-                                    isEdited(shape.block)
-                                      ? t("record.edited")
-                                      : t("records:manualItem.badge")
-                                  }
-                                  size={11}
-                                  className="relative z-30 shrink-0"
-                                />
-                              )}
-                            <span data-record-label="" className="relative z-30 truncate">
-                              {shapeLabel}
-                            </span>
-                          </>
-                        )}
+                        {labelShapes.get(
+                          `${shape.block.id}:${shape.paint.kind === "subject" ? shape.paint.subjectId : "none"}`,
+                        ) === shape &&
+                          shape.width >= 25 / 60 && (
+                            <>
+                              {!ghost &&
+                                (shape.block.source === "MANUAL" || isEdited(shape.block)) && (
+                                  <Pencil
+                                    data-record-manual={
+                                      shape.block.source === "MANUAL" ? "" : undefined
+                                    }
+                                    role="img"
+                                    aria-label={
+                                      isEdited(shape.block)
+                                        ? t("record.edited")
+                                        : t("records:manualItem.badge")
+                                    }
+                                    size={11}
+                                    className="relative z-30 shrink-0"
+                                  />
+                                )}
+                              <span data-record-label="" className="relative z-30 truncate">
+                                {shapeLabel}
+                              </span>
+                            </>
+                          )}
                       </button>
                     );
                   })}
@@ -602,6 +741,21 @@ export function PlannerRecordEditor({
                 )}
               </div>
             ))}
+            {selection?.kind === "range" &&
+              recordWindowRects(selection, draft, draft.timeZone).map((rect, index) => (
+                <span
+                  key={index}
+                  aria-hidden
+                  data-record-selection=""
+                  className="pointer-events-none absolute z-20 ring-2 ring-primary ring-inset"
+                  style={{
+                    left: `${rect.left * 100}%`,
+                    width: `${rect.width * 100}%`,
+                    top: `${rect.row * 32}px`,
+                    height: 32,
+                  }}
+                />
+              ))}
             {block &&
               !block.locked &&
               !frozen &&
@@ -668,30 +822,30 @@ export function PlannerRecordEditor({
             aria-label={t("record.list")}
             className="sr-only flex flex-col gap-2 focus-within:not-sr-only focus-within:mt-4"
           >
-            {draft.blocks
-              .toSorted((a, b) => a.startMs - b.startMs)
-              .map((value) => (
-                <li key={value.id}>
-                  <Button
-                    variant="unstyled"
-                    disabled={frozen}
-                    aria-pressed={selected === value.id}
-                    data-record-select=""
-                    onClick={(event) => {
-                      setAutoFocusTimes(event.detail === 0);
-                      setSelected(value.id);
-                      setError(null);
-                    }}
-                    className="min-h-11 w-full justify-between gap-3 rounded-md border border-border px-3 py-2 text-left text-[13px] whitespace-normal"
-                  >
-                    <span className="min-w-0 flex-1 wrap-break-word">{label(value)}</span>
-                    <span className="shrink-0 tabular-nums">
-                      {recordClock(value.startMs, draft.timeZone)} –{" "}
-                      {recordClock(value.endMs, draft.timeZone)}
-                    </span>
-                  </Button>
-                </li>
-              ))}
+            {listEntries.map(({ value, startMs, endMs, label: entryLabel }) => (
+              <li key={`${value.id}:${startMs}`}>
+                <Button
+                  variant="unstyled"
+                  disabled={frozen}
+                  aria-pressed={
+                    selected === value.id &&
+                    (selection?.kind !== "range" || selection.startMs === startMs)
+                  }
+                  data-record-select=""
+                  onClick={(event) => {
+                    setAutoFocusTimes(event.detail === 0);
+                    setSelection(selectRecordBlock(draft, value.id, startMs));
+                    setError(null);
+                  }}
+                  className="min-h-11 w-full justify-between gap-3 rounded-md border border-border px-3 py-2 text-left text-[13px] whitespace-normal"
+                >
+                  <span className="min-w-0 flex-1 wrap-break-word">{entryLabel}</span>
+                  <span className="shrink-0 tabular-nums">
+                    {recordClock(startMs, draft.timeZone)} – {recordClock(endMs, draft.timeZone)}
+                  </span>
+                </Button>
+              </li>
+            ))}
           </ul>
         )}
         {failed && (
@@ -711,6 +865,8 @@ export function PlannerRecordEditor({
         <RecordBlockSheet
           key={block.id}
           block={block}
+          durationSec={selectedDuration}
+          readOnlyReason={selection?.kind === "unavailable" ? t("record.unavailable") : undefined}
           edited={isEdited(block)}
           dateKey={day.date}
           timeZone={draft.timeZone}
@@ -774,7 +930,7 @@ export function PlannerRecordEditor({
         errorMessage={error ? t(`record.errors.${error}`) : undefined}
         summary={
           block
-            ? `${recordClock(block.startMs, draft.timeZone)} – ${recordClock(block.endMs, draft.timeZone)} · ${toKoreanDuration(recordDraftDurationSec(block))}`
+            ? `${recordClock(block.startMs, draft.timeZone)} – ${recordClock(block.endMs, draft.timeZone)} · ${toKoreanDuration(selectedDuration)}`
             : undefined
         }
         onOpenChange={(open) => {
@@ -832,10 +988,25 @@ export function PlannerRecordEditor({
           }
         }}
         onConfirm={() => {
-          if (selected) {
-            setDraft(deleteRecordDraft(draft, selected));
-            setSelected(null);
-            setError(null);
+          try {
+            if (selected) {
+              if (selection?.kind === "range")
+                setDraft(
+                  stageRecordRange(draft, selected, {
+                    startedAt: new Date(selection.startMs).toISOString(),
+                    endedAt: new Date(selection.endMs).toISOString(),
+                    change: "DELETE",
+                  }),
+                );
+              else if (selection?.kind === "draft") setDraft(deleteRecordDraft(draft, selected));
+              setSelected(null);
+              setError(null);
+            }
+          } catch (cause) {
+            if (cause instanceof RecordDraftError) {
+              setError(cause.code);
+              showTopToast(t(`record.errors.${cause.code}`));
+            } else throw cause;
           }
           setDeleteRects(null);
           setDeleteHandles([]);

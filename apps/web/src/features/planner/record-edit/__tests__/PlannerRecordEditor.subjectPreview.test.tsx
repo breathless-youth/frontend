@@ -3,7 +3,11 @@ import { MemoryRouter } from "react-router-dom";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { PlannerRecordEditor } from "../PlannerRecordEditor";
-import { plannerDay, plannerRecord, plannerSubject } from "@/test/plannerFixtures";
+import {
+  plannerDay,
+  plannerRangeRecord as plannerRecord,
+  plannerSubject,
+} from "@/test/plannerFixtures";
 import { subjectColorVar } from "@/features/records/recordsTimetable";
 
 const subjects = [

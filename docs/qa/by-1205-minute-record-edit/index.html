@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="ko">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  /><title>BY-1205 분 단위 기록 편집 검증</title
+  ><style>
+    body {
+      font:
+        16px/1.65 -apple-system,
+        BlinkMacSystemFont,
+        "Apple SD Gothic Neo",
+        sans-serif;
+      background: #f6f8fb;
+      color: #202b3b;
+      margin: 0;
+    }
+    main {
+      max-width: 1080px;
+      margin: auto;
+      padding: 40px 24px;
+    }
+    h1 {
+      font-size: 30px;
+      line-height: 1.3;
+    }
+    h2 {
+      margin-top: 40px;
+    }
+    a {
+      color: #2868d5;
+    }
+    section,
+    .note {
+      background: white;
+      border: 1px solid #dfe6f1;
+      border-radius: 16px;
+      padding: 24px;
+      margin: 20px 0;
+    }
+    .badge {
+      display: inline-block;
+      background: #e3f4e8;
+      color: #24653b;
+      padding: 4px 10px;
+      border-radius: 7px;
+      font-weight: 700;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    td,
+    th {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #e5eaf2;
+    }
+    th {
+      font-size: 13px;
+      color: #586678;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 18px;
+    }
+    figure {
+      margin: 0;
+      background: white;
+      border: 1px solid #dfe6f1;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    img {
+      width: 100%;
+      height: 470px;
+      object-fit: contain;
+      background: #eaf0f6;
+      display: block;
+    }
+    figcaption {
+      padding: 14px;
+      font-size: 14px;
+    }
+    .muted {
+      color: #657084;
+    }
+    .flow {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .flow span {
+      padding: 10px 14px;
+      border-radius: 8px;
+      background: #edf3fe;
+    }
+  </style>
+  <main>
+    <p class="muted">FocusMakers · BY-1205 · 2026-11-09</p>
+    <h1>분 단위 대표 과목과 기록 편집</h1>
+    <p>
+      한 분 안의 과목별 실제 길이를 합산해 대표 과목 하나를 표시합니다. 동률이면 마지막에 끝난
+      과목을 고릅니다. 수정·삭제는 선택한 부모 기록의 분 범위 안에 있는 모든 실제 조각에 적용합니다.
+    </p>
+    <p>
+      <span class="badge">로컬 자동·화면 검증 통과</span>　<a
+        href="https://www.figma.com/design/nmpEKUAgMwMtLdxIIXGFUB/FocusMakers-V3-Design?node-id=10368-18207"
+        >Figma 라이트·다크 시안</a
+      >
+      · <a href="https://breathless-youth.atlassian.net/browse/BY-1205">FE 티켓</a>
+    </p>
+    <section>
+      <h2 style="margin-top: 0">검증한 항목</h2>
+      <table>
+        <tr>
+          <th>범위</th>
+          <th>결과</th>
+        </tr>
+        <tr>
+          <td>플래너 분 편집·기존 보호 동작</td>
+          <td>23개 파일 / 163개 테스트 통과</td>
+        </tr>
+        <tr>
+          <td>전체 저장소 테스트</td>
+          <td>pnpm test 5개 작업 통과 · web 7,312개 통과 / 기존 1개 건너뜀</td>
+        </tr>
+        <tr>
+          <td>타입·린트·프로덕션 빌드</td>
+          <td>전체 타입·린트 통과, 웹 빌드 통과 · QA 앱과 별도 출력 경로 사용</td>
+        </tr>
+        <tr>
+          <td>독립 코드 리뷰</td>
+          <td>94/100 · 남은 필수 수정 없음</td>
+        </tr>
+        <tr>
+          <td>실제 브라우저, 합성 데이터</td>
+          <td>320·402·834px, 라이트·다크, 대표 과목·37초 표시 · 콘솔 오류0</td>
+        </tr>
+        <tr>
+          <td>터치·레이아웃</td>
+          <td>삭제 버튼44×44px, 오른쪽 잘림 없음, 가로 넘침 없음, reduced-motion 적용</td>
+        </tr>
+      </table>
+      <p>
+        빈 시간과 과목 없음의 구분, 나노초 비교, revision0, 부모별 작업 하나, 삭제 빈칸 보존, 응답
+        유실 동일 본문 재시도, stale 재조회, 계정 변경, 날짜 이동과 새 기록 드래그를 검증했습니다.
+      </p>
+    </section>
+    <section>
+      <h2 style="margin-top: 0">저장 흐름</h2>
+      <div class="flow">
+        <span>실제 pieces</span><span>분별 대표 과목</span><span>부모 키 + 선택 분 범위</span
+        ><span>EDIT_RANGES + revision</span>
+      </div>
+      <p>
+        37초 기록을 60초로 늘리지 않습니다. 공부·순공 합계는 서버 값을 유지합니다. 다른 곳에서 바뀐
+        기록은 다시 불러오고, 예전 변경을 자동으로 다시 저장하지 않습니다.
+      </p>
+    </section>
+    <section>
+      <h2 style="margin-top: 0">아직 검증하지 않은 항목</h2>
+      <ul>
+        <li>BY-1204 배포 서버에서 실제 범위 저장·삭제 후 재조회</li>
+        <li>실제 동시 수정과 서버 원자성·개인 통계 반영</li>
+        <li>iPhone·Android 실기기에서 새 분 편집의 저장 왕복</li>
+        <li>VoiceOver와 카메라 앞5분 순공 실측: 사용자 요청대로 보류</li>
+      </ul>
+      <p>
+        실제 사용자 기록을 수정·삭제하지 않았습니다. 사용 중인 앱·세션·QA 배포 파일은 유지했습니다.
+        아래 캡처는 합성 데이터의 브라우저 화면입니다.
+      </p>
+    </section>
+    <h2>화면별 캡처</h2>
+    <div class="grid">
+      <figure>
+        <img
+          src="screenshots/phone-light.png"
+          loading="lazy"
+          alt="402px 라이트 · 20초씩 세 과목의 대표 국어"
+        />
+        <figcaption>402px 라이트 · 20초씩 세 과목의 대표 국어</figcaption>
+      </figure>
+      <figure>
+        <img
+          src="screenshots/phone-light-37s.png"
+          loading="lazy"
+          alt="402px 라이트 · 실제 길이 37초"
+        />
+        <figcaption>402px 라이트 · 실제 길이 37초</figcaption>
+      </figure>
+      <figure>
+        <img src="screenshots/phone-dark.png" loading="lazy" alt="402px 다크 · 대표 국어" />
+        <figcaption>402px 다크 · 대표 국어</figcaption>
+      </figure>
+      <figure>
+        <img
+          src="screenshots/phone-dark-37s.png"
+          loading="lazy"
+          alt="402px 다크 · 실제 길이 37초"
+        />
+        <figcaption>402px 다크 · 실제 길이 37초</figcaption>
+      </figure>
+      <figure>
+        <img src="screenshots/narrow.png" loading="lazy" alt="320px · 분 선택과 삭제 버튼" />
+        <figcaption>320px · 분 선택과 삭제 버튼</figcaption>
+      </figure>
+      <figure>
+        <img src="screenshots/narrow-37s.png" loading="lazy" alt="320px · 실제 길이 37초" />
+        <figcaption>320px · 실제 길이 37초</figcaption>
+      </figure>
+      <figure>
+        <img src="screenshots/tablet.png" loading="lazy" alt="834px 패드 · 가운데 최대 너비 유지" />
+        <figcaption>834px 패드 · 가운데 최대 너비 유지</figcaption>
+      </figure>
+      <figure>
+        <img src="screenshots/tablet-37s.png" loading="lazy" alt="834px 패드 · 실제 길이 37초" />
+        <figcaption>834px 패드 · 실제 길이 37초</figcaption>
+      </figure>
+    </div>
+    <p class="muted">
+      검증 수치: <a href="visual-results.json">화면별 측정 JSON</a> · 소스 브랜치
+      feature/BY-1205-planner-minute-ranges
+    </p>
+  </main>
+</html>

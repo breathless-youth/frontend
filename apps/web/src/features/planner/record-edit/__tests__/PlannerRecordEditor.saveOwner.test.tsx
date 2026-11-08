@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, expect, it, vi } from "vitest";
 import * as tokenSource from "@/lib/auth/tokenSource";
 import { PlannerRecordEditor } from "../PlannerRecordEditor";
-import { plannerDay, plannerRecord } from "@/test/plannerFixtures";
+import { plannerDay, plannerRangeRecord as plannerRecord } from "@/test/plannerFixtures";
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -33,7 +33,8 @@ it("토큰만 먼저 다른 계정으로 바뀌어도 이전 편집기의 저장
     </MemoryRouter>,
   );
   fireEvent.click(screen.getAllByRole("button", { name: /09:00.*10:00/ })[0]!);
-  fireEvent.change(screen.getByLabelText("끝"), { target: { value: "10:10" } });
+  fireEvent.click(screen.getByRole("button", { name: "과목 바꾸기" }));
+  fireEvent.click(screen.getByRole("button", { name: "과목 없음" }));
   userId = 8;
   fireEvent.click(screen.getByRole("button", { name: "저장" }));
   await waitFor(() =>
