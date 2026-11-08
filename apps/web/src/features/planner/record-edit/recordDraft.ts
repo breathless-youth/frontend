@@ -9,6 +9,7 @@ import { plannerDayWindow } from "../plannerDay";
 import { recordTimeOrder } from "../recordTime";
 import { applyRecordRanges, normalizeRecordRanges, supportsRecordRanges } from "./recordRanges";
 import { RecordDraftError } from "./recordError";
+import { hasRecordTimeChanges, recordTimePreviewPieces } from "./recordTimeEdit";
 export { RecordDraftError, type RecordDraftErrorCode } from "./recordError";
 export interface RecordDraftState {
   dateKey: string;
@@ -41,7 +42,7 @@ export function recordDraftPieces(block: RecordDraftBlock): PlannerRecordPiece[]
   return block.original?.pieces === undefined
     ? undefined
     : Array.isArray(block.original.pieces)
-      ? applyRecordRanges(block.original.pieces, block.ranges ?? [])
+      ? applyRecordRanges(recordTimePreviewPieces(block), block.ranges ?? [])
       : [];
 }
 
@@ -53,6 +54,7 @@ export function stageRecordRange(
   const block = draft.blocks.find((value) => value.id === id);
   if (!block?.key || !supportsRecordRanges(block.original))
     throw new RecordDraftError("unavailable");
+  if (hasRecordTimeChanges(block)) throw new RecordDraftError("unavailable");
   // 이미 삭제해 화면에서 사라진 분은 범위를 넓혀 과목을 칠해도 복구하지 않는다.
   let changes = [range];
   if (range.change === "SUBJECT") {
@@ -210,6 +212,7 @@ export function recordDraftOperations(draft: RecordDraftState): RecordDraftOpera
   for (const block of draft.blocks) {
     const original = draft.baseline.get(block.id);
     if (block.ranges?.length) {
+      if (hasRecordTimeChanges(block)) throw new RecordDraftError("unavailable");
       if (!block.key || !supportsRecordRanges(block.original))
         throw new RecordDraftError("unavailable");
       operations.push({
@@ -238,6 +241,7 @@ export function recordDraftOperations(draft: RecordDraftState): RecordDraftOpera
       operationId: crypto.randomUUID(),
       action: block.key === null ? "CREATE" : "UPDATE",
       ...(block.key === null ? {} : { key: block.key }),
+      ...(block.original?.revision === undefined ? {} : { revision: block.original.revision }),
       ...(timeChanged
         ? {
             startedAt:

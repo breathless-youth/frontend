@@ -3,10 +3,12 @@ import type { RecordDraftBlock, RecordDraftState } from "./recordDraft";
 import { recordDraftPieces } from "./recordDraft";
 import { RecordDraftError } from "./recordError";
 import { recordRangeCoverageSec, supportsRecordRanges } from "./recordRanges";
+import { hasRecordTimeChanges } from "./recordTimeEdit";
 
 export type RecordSelection =
   | { kind: "range"; id: string; startMs: number; endMs: number }
   | { kind: "draft"; id: string }
+  | { kind: "time"; id: string }
   | { kind: "unavailable"; id: string };
 
 export function selectRecordBlock(
@@ -18,6 +20,7 @@ export function selectRecordBlock(
   if (!block) return null;
   if (block.key === null) return { kind: "draft", id };
   if (!supportsRecordRanges(block.original)) return { kind: "unavailable", id };
+  if (hasRecordTimeChanges(block)) return { kind: "time", id };
   const minutes = recordPieceMinutes(recordDraftPieces(block)!, draft);
   const minute =
     minutes.find((item) => atMs !== undefined && atMs >= item.startMs && atMs < item.endMs) ??
@@ -54,7 +57,7 @@ export function selectedRecordBlock(
   const block = draft.blocks.find((value) => value.id === selection?.id);
   if (!block || !selection) return undefined;
   if (selection.kind === "unavailable") return { ...block, locked: true };
-  if (selection.kind === "draft") return block;
+  if (selection.kind === "draft" || selection.kind === "time") return block;
   const minutes = recordPieceMinutes(recordDraftPieces(block)!, selection);
   const ids = [...new Set(minutes.map((minute) => minute.subjectId))];
   return {

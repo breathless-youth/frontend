@@ -51,6 +51,7 @@ import { recordPointTime } from "./recordGeometry";
 import { LONG_PRESS_MS, SWIPE_SLOP_PX } from "@/features/study-session/subjectInteractions";
 import { recordRangeCoverageSec } from "./recordRanges";
 import { recordPieceMinutes } from "../recordMinutes";
+import { recordTimeEditBlock } from "./recordTimeEdit";
 import {
   selectRecordBlock,
   selectedRecordBlock,
@@ -118,9 +119,14 @@ export function PlannerRecordEditor({
     selection: RecordSelection | null;
   } | null>(null);
   const block = selectedRecordBlock(draft, selection);
+  const selectedParent = draft.blocks.find((value) => value.id === selected);
   const selectedDuration =
-    block && selection?.kind === "range"
-      ? recordRangeCoverageSec(recordDraftPieces(block)!, selection.startMs, selection.endMs)
+    block && (selection?.kind === "range" || selection?.kind === "time")
+      ? recordRangeCoverageSec(
+          recordDraftPieces(selectedParent!)!,
+          selection?.kind === "time" ? draft.startMs : block.startMs,
+          selection?.kind === "time" ? draft.endMs : block.endMs,
+        )
       : block
         ? recordDraftDurationSec(block)
         : 0;
@@ -488,24 +494,25 @@ export function PlannerRecordEditor({
       !value.subjectChanged &&
       original?.startMs === value.startMs &&
       original.endMs === value.endMs;
-    const paints = unchanged
-      ? plannerRecordPaints(
-          {
-            ...value.original!,
-            ...(value.original?.pieces === undefined ? {} : { pieces: recordDraftPieces(value) }),
-          },
-          draft,
-        )
-      : [
-          {
-            startMs: value.startMs,
-            endMs: value.endMs,
-            manual: value.source === "MANUAL",
-            ...(value.subjectId === null
-              ? { kind: "focus" as const }
-              : { kind: "subject" as const, subjectId: value.subjectId }),
-          },
-        ];
+    const paints =
+      unchanged || value.original?.pieces !== undefined
+        ? plannerRecordPaints(
+            {
+              ...value.original!,
+              ...(value.original?.pieces === undefined ? {} : { pieces: recordDraftPieces(value) }),
+            },
+            draft,
+          )
+        : [
+            {
+              startMs: value.startMs,
+              endMs: value.endMs,
+              manual: value.source === "MANUAL",
+              ...(value.subjectId === null
+                ? { kind: "focus" as const }
+                : { kind: "subject" as const, subjectId: value.subjectId }),
+            },
+          ];
     return paints.flatMap((paint) =>
       recordWindowRects(paint, draft, draft.timeZone).map((rect) => ({
         block: value,
@@ -801,7 +808,7 @@ export function PlannerRecordEditor({
                     {recordClock(block.startMs, draft.timeZone)} –{" "}
                     {recordClock(block.endMs, draft.timeZone)}
                     <span className="font-medium opacity-80">
-                      {toKoreanDuration(recordDraftDurationSec(block))}
+                      {toKoreanDuration(selectedDuration)}
                     </span>
                   </>
                 ) : (
@@ -863,7 +870,7 @@ export function PlannerRecordEditor({
       </div>
       {block && !newRecordId && (
         <RecordBlockSheet
-          key={block.id}
+          key={`${block.id}:${selection?.kind === "time" ? "time" : "range"}`}
           block={block}
           durationSec={selectedDuration}
           readOnlyReason={selection?.kind === "unavailable" ? t("record.unavailable") : undefined}
@@ -872,7 +879,30 @@ export function PlannerRecordEditor({
           timeZone={draft.timeZone}
           label={label(block)}
           colorIndex={block.subjectId === null ? undefined : refs.get(block.subjectId)?.colorIndex}
-          autoFocusTimes={autoFocusTimes}
+          autoFocusTimes={autoFocusTimes || selection?.kind === "time"}
+          timeEdit={
+            block.key && selection?.kind !== "unavailable"
+              ? {
+                  active: selection?.kind === "time",
+                  available: !!recordTimeEditBlock(draft, block.id),
+                  blockedReason: draft.blocks.find((value) => value.id === block.id)?.ranges?.length
+                    ? t("record.saveRangesFirst")
+                    : t("record.timeEditUnavailable"),
+                  onStart: () => {
+                    const parent = recordTimeEditBlock(draft, block.id);
+                    if (!parent || frozen) return;
+                    setDraft({
+                      ...draft,
+                      blocks: draft.blocks.map((value) =>
+                        value.id === parent.id ? parent : value,
+                      ),
+                    });
+                    setSelection({ kind: "time", id: parent.id });
+                    setError(null);
+                  },
+                }
+              : undefined
+          }
           hiddenBehindSheet={subjectPicker}
           disabled={frozen}
           onChange={edit}

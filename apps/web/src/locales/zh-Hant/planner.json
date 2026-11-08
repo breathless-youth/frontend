@@ -190,7 +190,14 @@
     },
     "edited": "已編輯",
     "multipleSubjects": "多個科目",
-    "unavailable": "重新載入最新紀錄後，即可按分鐘編輯"
+    "unavailable": "重新載入最新紀錄後，即可按分鐘編輯",
+    "editTime": "修改紀錄時間",
+    "rangeMode": "選擇科目或刪除範圍",
+    "timeMode": "修改整筆紀錄時間",
+    "applyTime": "套用時間",
+    "timeSaveHint": "按上方儲存即可儲存時間變更",
+    "saveRangesFirst": "請先儲存科目或刪除變更，再修改時間",
+    "timeEditUnavailable": "跨多個科目或日期的紀錄無法修改時間"
   },
   "week": {
     "prev": "上一週",
