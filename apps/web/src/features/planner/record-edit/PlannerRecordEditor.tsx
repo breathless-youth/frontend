@@ -6,11 +6,11 @@ import { GlassChrome } from "@/components/GlassChrome";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
-  formatDuration,
   formatMonthDay,
   weekdayIndexOfDateKey,
   weekdayShortLabel,
 } from "@/features/records/recordsFormat";
+import { toKoreanDuration } from "@/features/study-session/formatDuration";
 import { subjectColorVar } from "@/features/records/recordsTimetable";
 import { cn } from "@/lib/utils";
 import { showToast, showTopToast } from "@/lib/toast";
@@ -647,7 +647,7 @@ export function PlannerRecordEditor({
                     {recordClock(block.startMs, draft.timeZone)} –{" "}
                     {recordClock(block.endMs, draft.timeZone)}
                     <span className="font-medium opacity-80">
-                      {formatDuration(recordDraftDurationSec(block))}
+                      {toKoreanDuration(recordDraftDurationSec(block))}
                     </span>
                   </>
                 ) : (
@@ -774,7 +774,7 @@ export function PlannerRecordEditor({
         errorMessage={error ? t(`record.errors.${error}`) : undefined}
         summary={
           block
-            ? `${recordClock(block.startMs, draft.timeZone)} – ${recordClock(block.endMs, draft.timeZone)} · ${formatDuration(recordDraftDurationSec(block))}`
+            ? `${recordClock(block.startMs, draft.timeZone)} – ${recordClock(block.endMs, draft.timeZone)} · ${toKoreanDuration(recordDraftDurationSec(block))}`
             : undefined
         }
         onOpenChange={(open) => {

@@ -72,7 +72,7 @@ it("같은 분으로 올림된 짧은 기록도 실제 기록이 있던 1분 칸
     preciseStartedAt: original.startedAt,
     preciseEndedAt: original.endedAt,
   });
-  expect(recordDraftDurationSec(draft.blocks[0]!)).toBe(60);
+  expect(recordDraftDurationSec(draft.blocks[0]!)).toBe(4);
   expect(recordDraftOperations(draft)).toEqual([]);
 });
 

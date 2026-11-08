@@ -104,17 +104,13 @@ export function createRecordDraft(day: PlannerDayResponse): RecordDraftState {
 export interface RecordDraftOperation extends PlannerRecordOperation {
   blockId: string;
 }
-/** 표시 시각의 분 올림과 별개로, 손대지 않은 시간 길이는 원본 초에서 한 번만 올림한다. */
+/** 칠한 분과 별개로 실제 길이를 초까지 표시한다. 손대지 않은 경계는 원본 정밀도를 쓴다. */
 export function recordDraftDurationSec(block: RecordDraftBlock): number {
-  const start = block.preciseStartedAt;
-  const end = block.preciseEndedAt;
-  const unchanged =
-    start &&
-    end &&
-    block.startMs === Math.ceil(Date.parse(start) / 60000) * 60000 &&
-    block.endMs === Math.ceil(Date.parse(end) / 60000) * 60000;
-  const span = unchanged ? Date.parse(end) - Date.parse(start) : block.endMs - block.startMs;
-  return Math.ceil(span / 60000) * 60;
+  const edgeTime = (iso: string | undefined, ms: number) =>
+    recordTimeOrder(iso && ms === Math.ceil(Date.parse(iso) / 60000) * 60000 ? iso : undefined, ms);
+  const span =
+    edgeTime(block.preciseEndedAt, block.endMs) - edgeTime(block.preciseStartedAt, block.startMs);
+  return span > 0n ? Number((span + 999_999_999n) / 1_000_000_000n) : 0;
 }
 /** 포인터를 쓰지 않는 추가 경로도 기존 검증을 통과할 수 있는 첫 1분을 고른다. */
 export function firstRecordDraftMinute(

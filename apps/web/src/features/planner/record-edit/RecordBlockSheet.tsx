@@ -3,7 +3,7 @@ import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatDuration } from "@/features/records/recordsFormat";
+import { toKoreanDuration } from "@/features/study-session/formatDuration";
 import { subjectColorVar } from "@/features/records/recordsTimetable";
 import { cn } from "@/lib/utils";
 import { RecordDraftError, recordDraftDurationSec, type RecordDraftBlock } from "./recordDraft";
@@ -163,7 +163,7 @@ export function RecordBlockSheet({
                 {recordClock(block.startMs, timeZone)} – {recordClock(block.endMs, timeZone)}
               </Button>
               <span className="text-sm leading-5 font-semibold text-muted-foreground">
-                {formatDuration(recordDraftDurationSec(block))}
+                {toKoreanDuration(recordDraftDurationSec(block))}
               </span>
             </div>
           </div>
