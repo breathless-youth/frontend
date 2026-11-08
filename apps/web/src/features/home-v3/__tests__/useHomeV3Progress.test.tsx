@@ -1,5 +1,5 @@
 import type { HomeMissionResponse } from "@focusmakers/types";
-import { plannerDay } from "@/test/plannerFixtures";
+import { plannerDay, plannerSubject, plannerTask } from "@/test/plannerFixtures";
 import { homeMission } from "@/test/homeMissionFixtures";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -9,6 +9,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { HomeV3Gateway } from "../HomeV3Gateway";
 import { homeV3Keys, useHomeV3Progress } from "../useHomeV3Progress";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
+import { ApiError } from "@/lib/api";
 
 function setup(overrides: Partial<HomeV3Gateway> = {}) {
   const gateway: HomeV3Gateway = {
@@ -44,6 +45,105 @@ const stats = {
 };
 
 describe("home v3 server progress", () => {
+  /**
+   * Value: protects=a new mission version can restart completed steps;
+   * fails_when=monotonic mission merging ignores the version boundary;
+   * why_new=existing stale-response fixtures all use the same version;
+   * seam=none;
+   * no_claim=backend rollout acceptance, mocked gateway.
+   */
+  it("accepts lower completion when the server starts a new mission version", async () => {
+    const nextMission = { ...homeMission(0, 0, false), version: "home-v4" };
+    const { gateway, client, wrapper } = setup({
+      readMission: vi.fn().mockResolvedValueOnce(homeMission(2)).mockResolvedValue(nextMission),
+    });
+    const { result } = renderHook(() => useHomeV3Progress(gateway, 7, day, stats), { wrapper });
+    await waitFor(() => expect(result.current.band).toMatchObject({ value: { kind: "goal" } }));
+
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: homeV3Keys.mission(7) });
+    });
+
+    expect(client.getQueryData(homeV3Keys.mission(7))).toEqual(nextMission);
+    await waitFor(() =>
+      expect(result.current.band).toMatchObject({
+        value: { kind: "mission", step: 1, ready: false, progress: 0 },
+      }),
+    );
+  });
+
+  /**
+   * Value: protects=an ineligible acknowledgement refreshes authoritative readiness;
+   * fails_when=HTTP 400 no longer refetches mission eligibility;
+   * why_new=the existing acknowledgement failure test only rejects a generic error;
+   * seam=none;
+   * no_claim=live server validation, mocked gateway.
+   */
+  it("refetches authoritative mission readiness after an HTTP 400 acknowledgement", async () => {
+    const authoritativeMission = homeMission(0, 0, false);
+    const { gateway, client, wrapper } = setup({
+      readMission: vi
+        .fn()
+        .mockResolvedValueOnce(homeMission(0, 300, true))
+        .mockResolvedValue(authoritativeMission),
+      acknowledgeMission: vi
+        .fn()
+        .mockRejectedValue(new ApiError("not eligible", 400, "BAD_REQUEST")),
+    });
+    const { result } = renderHook(() => useHomeV3Progress(gateway, 7, day, stats), { wrapper });
+    await waitFor(() =>
+      expect(result.current.band).toMatchObject({ value: { step: 1, ready: true } }),
+    );
+
+    act(() => result.current.completeMission(1));
+
+    await waitFor(() =>
+      expect(result.current.band).toMatchObject({ value: { step: 1, ready: false } }),
+    );
+    expect(gateway.acknowledgeMission).toHaveBeenCalledExactlyOnceWith(1);
+    expect(gateway.readMission).toHaveBeenCalledTimes(2);
+    expect(client.getQueryData(homeV3Keys.mission(7))).toEqual(authoritativeMission);
+    expect(result.current.missionError).toBe(true);
+  });
+
+  /**
+   * Value: protects=the Home planner count includes only remaining visible tasks;
+   * fails_when=deleted subjects or done or dismissed tasks are counted;
+   * why_new=existing planner-day cache fixtures do not assert task filtering;
+   * seam=none;
+   * no_claim=server filtering policy, planner response fixtures.
+   */
+  it("counts remaining tasks across live subjects without deleted, done or dismissed tasks", async () => {
+    const { gateway, wrapper } = setup({
+      readPlannerDay: vi.fn().mockResolvedValue(
+        plannerDay({
+          subjects: [
+            plannerSubject({
+              tasks: [
+                plannerTask({ key: "t:1", taskId: 1 }),
+                plannerTask({ key: "t:2", taskId: 2, done: true }),
+                plannerTask({ key: "t:3", taskId: 3, dismissed: true }),
+                plannerTask({ key: "t:4", taskId: 4, done: true, dismissed: true }),
+              ],
+            }),
+            plannerSubject({
+              id: 4,
+              deleted: true,
+              tasks: [plannerTask({ key: "t:5", taskId: 5, subjectId: 4 })],
+            }),
+            plannerSubject({
+              id: 5,
+              tasks: [plannerTask({ key: "t:6", taskId: 6, subjectId: 5 })],
+            }),
+          ],
+        }),
+      ),
+    });
+    const { result } = renderHook(() => useHomeV3Progress(gateway, 7, day, stats), { wrapper });
+
+    await waitFor(() => expect(result.current.goal?.remainingTasks).toBe(2));
+  });
+
   it("reads the canonical planner day cache and reacts to planner changes without another home cache", async () => {
     const { gateway, client, wrapper } = setup({
       readMission: vi.fn().mockResolvedValue(homeMission(2)),

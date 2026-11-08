@@ -1,7 +1,12 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { readHomeSubject, writeHomeSubject, reconcileHomeSubject } from "../subjectSelection";
+import {
+  readHomeSubject,
+  writeHomeSubject,
+  reconcileHomeSubject,
+  useHomeSubject,
+} from "../subjectSelection";
 import { useHomeDay } from "../useHomeDay";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { mockDeviceTimeZone } from "@/test/deviceTimeZone";
@@ -27,13 +32,42 @@ describe("home subject selection", () => {
     expect(reconcileHomeSubject(12, [])).toBeNull();
   });
 
-  it("ignores corrupt storage and survives unavailable localStorage", () => {
+  /**
+   * Value: protects=blocked storage retains per-user subjects and explicit none in subscribers;
+   * fails_when=memory fallback or selection change notification is removed;
+   * why_new=the previous quota assertion only checked that writing did not throw;
+   * seam=none;
+   * no_claim=persistence after a document restart, storage writes deliberately fail.
+   */
+  it("ignores corrupt storage and keeps per-user selections reactive when localStorage fails", () => {
     localStorage.setItem("home-v3:subject:7", "{bad");
     expect(readHomeSubject(7)).toBeNull();
-    vi.spyOn(Storage.prototype, "setItem").mockImplementationOnce(() => {
+    const storage = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("quota");
     });
-    expect(() => writeHomeSubject(7, 12)).not.toThrow();
+    const { result, unmount } = renderHook(() => ({
+      first: useHomeSubject(7, undefined)[0],
+      second: useHomeSubject(8, undefined)[0],
+    }));
+    try {
+      act(() => {
+        writeHomeSubject(7, 12);
+        writeHomeSubject(8, 34);
+      });
+      expect(readHomeSubject(7)).toBe(12);
+      expect(readHomeSubject(8)).toBe(34);
+      expect(result.current).toEqual({ first: 12, second: 34 });
+
+      act(() => writeHomeSubject(7, null));
+      expect(readHomeSubject(7)).toBeNull();
+      expect(readHomeSubject(8)).toBe(34);
+      expect(result.current).toEqual({ first: null, second: 34 });
+    } finally {
+      unmount();
+      storage.mockRestore();
+      writeHomeSubject(7, null);
+      writeHomeSubject(8, null);
+    }
   });
 });
 
