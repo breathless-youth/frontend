@@ -172,7 +172,7 @@ export function RecordBlockSheet({
             aria-label={t("record.delete")}
             disabled={disabled || block.locked}
             onClick={onDelete}
-            className="-mr-1 mt-0.5 size-11 shrink-0 rounded-full bg-feedback-danger/10 p-0 text-feedback-danger"
+            className="mt-0.5 size-11 shrink-0 rounded-full bg-feedback-danger/10 p-0 text-feedback-danger"
           >
             <Trash2 aria-hidden size={20} />
           </Button>
