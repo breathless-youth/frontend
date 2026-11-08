@@ -99,17 +99,17 @@ export function PlannerRecordEditor({
   const block = draft.blocks.find((value) => value.id === selected);
   const todayKey = plannerDateKeyOf(new Date(clock.nowMs), draft.timeZone);
   const currentTime = plannerCurrentTime(day.date, clock.nowMs, draft.timeZone);
-  const dirty =
-    draft.blocks.length !== draft.baseline.size ||
-    draft.blocks.some((value) => {
-      const before = draft.baseline.get(value.id);
-      return (
-        !before ||
-        value.startMs !== before.startMs ||
-        value.endMs !== before.endMs ||
-        value.subjectChanged
-      );
-    });
+  const changedBlock = (value: RecordDraftBlock) => {
+    const before = draft.baseline.get(value.id);
+    return (
+      !before ||
+      value.startMs !== before.startMs ||
+      value.endMs !== before.endMs ||
+      value.subjectChanged
+    );
+  };
+  const isEdited = (value: RecordDraftBlock) => value.edited || changedBlock(value);
+  const dirty = draft.blocks.length !== draft.baseline.size || draft.blocks.some(changedBlock);
   const frozen = pending || uncertain !== null;
   useEffect(() => {
     const element = gridRef.current;
@@ -313,6 +313,7 @@ export function PlannerRecordEditor({
           borderLeft: style.borderLeft,
           label: element.querySelector("[data-record-label]")?.textContent ?? null,
           manual: element.querySelector("[data-record-manual]") !== null,
+          edited: element.hasAttribute("data-record-edited"),
           rowLeft: row.left,
           rowWidth: row.width,
         };
@@ -540,8 +541,9 @@ export function PlannerRecordEditor({
                         key={`${shape.block.id}:${index}`}
                         type="button"
                         data-record={shape.block.id}
+                        data-record-edited={isEdited(shape.block) ? "" : undefined}
                         disabled={frozen}
-                        aria-label={`${shapeLabel} ${recordClock(shape.block.startMs, draft.timeZone)} – ${recordClock(shape.block.endMs, draft.timeZone)}`}
+                        aria-label={`${shapeLabel} ${recordClock(shape.block.startMs, draft.timeZone)} – ${recordClock(shape.block.endMs, draft.timeZone)}${isEdited(shape.block) ? `, ${t("record.edited")}` : ""}`}
                         onClick={() => {
                           setAutoFocusTimes(false);
                           setSelected(shape.block.id);
@@ -566,15 +568,22 @@ export function PlannerRecordEditor({
                       >
                         {labelShapes.get(shape.block.id) === shape && shape.width >= 25 / 60 && (
                           <>
-                            {!ghost && shape.block.source === "MANUAL" && (
-                              <Pencil
-                                data-record-manual=""
-                                role="img"
-                                aria-label={t("records:manualItem.badge")}
-                                size={11}
-                                className="relative z-30 shrink-0"
-                              />
-                            )}
+                            {!ghost &&
+                              (shape.block.source === "MANUAL" || isEdited(shape.block)) && (
+                                <Pencil
+                                  data-record-manual={
+                                    shape.block.source === "MANUAL" ? "" : undefined
+                                  }
+                                  role="img"
+                                  aria-label={
+                                    isEdited(shape.block)
+                                      ? t("record.edited")
+                                      : t("records:manualItem.badge")
+                                  }
+                                  size={11}
+                                  className="relative z-30 shrink-0"
+                                />
+                              )}
                             <span data-record-label="" className="relative z-30 truncate">
                               {shapeLabel}
                             </span>
@@ -702,6 +711,7 @@ export function PlannerRecordEditor({
         <RecordBlockSheet
           key={block.id}
           block={block}
+          edited={isEdited(block)}
           dateKey={day.date}
           timeZone={draft.timeZone}
           label={label(block)}

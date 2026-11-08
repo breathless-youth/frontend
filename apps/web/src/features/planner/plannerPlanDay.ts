@@ -36,6 +36,7 @@ export function plannerRecordPaints(
       startMs,
       endMs,
       manual: record.source === "MANUAL",
+      ...(record.edited ? { edited: true } : {}),
       ...(segment
         ? { kind: "subject" as const, subjectId: segment.subjectId }
         : { kind: "focus" as const }),

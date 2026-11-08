@@ -5,6 +5,8 @@
 
 import type { SocialLoginProvider } from "./bridge";
 
+export type { PersonalRecordSummary, PersonalRecordListResponse } from "./personalRecords";
+
 /**
  * 익명 기기 유저 등록 API
  * 로그인 없는 V1.0에서 기기 UUID로 사용자를 식별한다

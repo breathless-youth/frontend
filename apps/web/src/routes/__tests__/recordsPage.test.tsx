@@ -25,6 +25,8 @@ import {
   shiftMonth,
 } from "@/features/records/recordsFormat";
 import { getPeriodStats, getStudyRhythm, listStudySessionStats } from "@/lib/statsApi";
+import { getPersonalRecordPeriod, getPersonalRecordStats } from "@/lib/personalRecordsApi";
+import { personalRecord, personalRecordStats } from "@/test/personalRecordFixtures";
 import {
   trackRecordsMonthChanged,
   trackRecordsPeriodPicked,
@@ -56,6 +58,11 @@ vi.mock("@/lib/statsApi", () => ({
   listStudySessionStats: vi.fn(),
   getPeriodStats: vi.fn(),
   getStudyRhythm: vi.fn(),
+}));
+vi.mock("@/lib/personalRecordsApi", () => ({
+  getPersonalRecordStats: vi.fn(),
+  getPersonalRecordPeriod: vi.fn(),
+  getPersonalRecordRhythm: vi.fn(),
 }));
 vi.mock("@/lib/amplitude", () => ({
   trackRecordsDateSelected: vi.fn(),
@@ -871,6 +878,28 @@ describe("RecordsPage", () => {
       mockedStats.mockImplementation((date) =>
         Promise.resolve(date === TODAY ? manualDay : statsResponse(false)),
       );
+      const { id: originalSessionId, ...manual } = manualDay.sessions[0]!;
+      vi.mocked(getPersonalRecordStats).mockImplementation(async (date) =>
+        date === TODAY
+          ? personalRecordStats({
+              ...manualDay,
+              totalStudySec: 5400,
+              totalFocusSec: 5400,
+              subjects: manualDay.subjects ?? [],
+              sessions: [
+                personalRecord({
+                  ...manual,
+                  displayKey: "manual:2026-01-01:0",
+                  recordKey: "m:2026-01-01T05:00:00.000Z",
+                  originalSessionId,
+                  fullStartedAt: "2026-01-01T05:00:00.000Z",
+                  fullEndedAt: "2026-01-01T06:30:00.000Z",
+                }),
+              ],
+            })
+          : personalRecordStats(),
+      );
+      vi.mocked(getPersonalRecordPeriod).mockResolvedValue(periodResponse());
     });
 
     it.each([3, 12])(

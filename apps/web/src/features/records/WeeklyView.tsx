@@ -15,6 +15,8 @@ import { reloadOnChunkError } from "@/lib/chunkReload";
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
 import { cn } from "@/lib/utils";
 import { whenIdle } from "@/lib/whenIdle";
+import { personalRecordsKeys } from "@/lib/personalRecordsQueries";
+import { hasTokenSource } from "@/lib/userId";
 
 import { RhythmCard } from "./RhythmCard";
 import { WeekHeader } from "./WeekHeader";
@@ -73,7 +75,9 @@ export function WeeklyView({
   }, []);
 
   const retryPeriod = () => {
-    void queryClient.refetchQueries({ queryKey: ["stats", "period"] });
+    void queryClient.refetchQueries({
+      queryKey: hasTokenSource() ? personalRecordsKeys.user(userId) : ["stats", "period"],
+    });
   };
 
   // 다음 주가 미래(그 주 월요일이 오늘 이후)면 더 넘어가지 않는다 — 일간 달력이 미래 달을 막는 것과 같은 취지.
