@@ -156,7 +156,7 @@ export interface PlannerRecordResult {
   status: number;
   code: string | null;
   message: string | null;
-  revision?: number;
+  revision?: number | null;
 }
 export interface PlannerRecordBatchRequest {
   operations: PlannerRecordOperation[];

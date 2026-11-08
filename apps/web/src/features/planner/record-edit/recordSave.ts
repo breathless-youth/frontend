@@ -122,7 +122,7 @@ export function acceptSavedRecords(
         edited: true,
         original: {
           ...current.original,
-          revision: result.revision,
+          revision: result.revision ?? undefined,
           pieces: applyRecordRanges(current.original.pieces, operation.ranges),
           edited: true,
         },

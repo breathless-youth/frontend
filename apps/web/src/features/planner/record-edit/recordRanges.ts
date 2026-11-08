@@ -51,7 +51,10 @@ const sameChange = (a: PlannerRecordRange, b: PlannerRecordRange) =>
   (a.change !== "SUBJECT" || (b.change === "SUBJECT" && a.subjectId === b.subjectId));
 
 /** 뒤의 편집을 우선하며 서버에 보내기 전 겹침을 없앤다. */
-export function normalizeRecordRanges(ranges: readonly PlannerRecordRange[]): PlannerRecordRange[] {
+export function normalizeRecordRanges(
+  ranges: readonly PlannerRecordRange[],
+  pieces?: readonly PlannerRecordPiece[],
+): PlannerRecordRange[] {
   let result: PlannerRecordRange[] = [];
   for (const next of ranges) {
     validateRange(next);
@@ -78,8 +81,19 @@ export function normalizeRecordRanges(ranges: readonly PlannerRecordRange[]): Pl
       previous.endedAt = range.endedAt;
     else merged.push({ ...range });
   }
-  if (merged.length > 100) throw new RecordDraftError("range-limit");
-  return merged;
+  // 후속 편집으로 잘린 범위가 원래 삭제 공백에만 남으면 서버가 작업 전체를 stale로 거절한다.
+  const occupied =
+    pieces === undefined
+      ? merged
+      : merged.filter((range) =>
+          pieces.some(
+            (piece) =>
+              order(piece.startedAt) < order(range.endedAt) &&
+              order(piece.endedAt) > order(range.startedAt),
+          ),
+        );
+  if (occupied.length > 100) throw new RecordDraftError("range-limit");
+  return occupied;
 }
 
 /** 원본 조각과의 교차에만 적용한다. 원본 ISO 경계·삭제 공백을 보존한다. */

@@ -120,11 +120,11 @@
         </tr>
         <tr>
           <td>플래너 분 편집·기존 보호 동작</td>
-          <td>23개 파일 / 163개 테스트 통과</td>
+          <td>24개 파일 / 165개 테스트 통과</td>
         </tr>
         <tr>
           <td>전체 저장소 테스트</td>
-          <td>pnpm test 5개 작업 통과 · web 7,312개 통과 / 기존 1개 건너뜀</td>
+          <td>pnpm test 5개 작업 통과 · web 7,314개 통과 / 기존 1개 건너뜀</td>
         </tr>
         <tr>
           <td>타입·린트·프로덕션 빌드</td>
@@ -170,6 +170,24 @@
       <p>
         실제 사용자 기록을 수정·삭제하지 않았습니다. 사용 중인 앱·세션·QA 배포 파일은 유지했습니다.
         아래 캡처는 합성 데이터의 브라우저 화면입니다.
+      </p>
+    </section>
+    <section style="border-color: #e5b45c; background: #fff9eb">
+      <h2 style="margin-top: 0">백엔드 머지 후 확인: 서버 반영 대기</h2>
+      <p>
+        BE PR163은 머지됐지만 개발 서버 배포 작업은 실패했습니다. 실제 QA 서버의 공개 API 명세는
+        HTTP200이며 아직 EDIT_RANGES·pieces·revision이 없습니다. 실제 기록의 생성·수정·삭제 요청은
+        보내지 않았습니다.
+      </p>
+      <p>
+        빈칸만 대상으로 남는 과목 변경을 제거하는 FE 보완 후 관련165개 검사가 통과했습니다. 기존8개
+        캡처는 앞서 수행한 합성 데이터의 화면 검증이며, 실서버 저장 성공을 의미하지 않습니다.
+      </p>
+      <p>
+        <a href="https://github.com/breathless-youth/backend/actions/runs/42500928596"
+          >배포 실패 확인</a
+        >
+        · <a href="backend-integration.json">API 명세 조회 결과</a>
       </p>
     </section>
     <h2>화면별 캡처</h2>

@@ -74,7 +74,10 @@ export function stageRecordRange(
       });
     }
   }
-  const ranges = normalizeRecordRanges([...(block.ranges ?? []), ...changes]);
+  const ranges = normalizeRecordRanges(
+    [...(block.ranges ?? []), ...changes],
+    block.original!.pieces!,
+  );
   const start = recordTimeOrder(range.startedAt, 0),
     end = recordTimeOrder(range.endedAt, 0);
   if (
@@ -215,7 +218,7 @@ export function recordDraftOperations(draft: RecordDraftState): RecordDraftOpera
         action: "EDIT_RANGES",
         key: block.key,
         revision: block.original!.revision!,
-        ranges: normalizeRecordRanges(block.ranges),
+        ranges: normalizeRecordRanges(block.ranges, block.original!.pieces!),
       });
       continue;
     }
