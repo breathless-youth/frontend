@@ -2,7 +2,7 @@
 
 한국어 · [English](./README.en.md)
 
-<img src="apps/web/public/og-image.png" alt="FocusMakers" width="720">
+<img src="docs/assets/readme-header.png" alt="FocusMakers" width="720">
 
 ## 소개
 
