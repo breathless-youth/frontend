@@ -43,15 +43,32 @@ export interface PlannerGoalResponse {
 export interface PlannerRecordView {
   key: string;
   source: "MEASURED" | "MANUAL";
+  /** 서버에 저장된 개인 수정본 여부. 보완 전 응답의 누락은 false로 처리한다. */
+  edited?: boolean;
   startedAt: string;
   endedAt: string;
   /** 현재 개인 기록의 전체 구간. 보완 계약 이전 응답에는 없을 수 있다. */
   fullStartedAt?: string;
   fullEndedAt?: string;
+  /** BY-1204 이전 응답에서는 누락될 수 있다. 0도 유효한 revision이다. */
+  revision?: number;
+  /** 조회 창 안의 실제 조각. 빈 배열과 필드 누락은 구분하며 빈 시간을 채우지 않는다. */
+  pieces?: PlannerRecordPiece[];
   studySec: number;
   focusSec: number;
   subjectSegments: PlannerRecordSegment[];
 }
+
+export interface PlannerRecordPiece {
+  startedAt: string;
+  endedAt: string;
+  subjectId: number | null;
+}
+
+export type PlannerRecordRange = {
+  startedAt: string;
+  endedAt: string;
+} & ({ change: "SUBJECT"; subjectId: number | null } | { change: "DELETE" });
 
 export interface PlannerRecordSegment {
   subjectId: number;
@@ -121,7 +138,11 @@ export interface PlannerCarryRequest {
 }
 export interface PlannerRecordOperation {
   operationId: string;
-  action: "CREATE" | "UPDATE" | "DELETE";
+  action: "CREATE" | "UPDATE" | "DELETE" | "EDIT_RANGES";
+  /** EDIT_RANGES에는 필수. 기존 UPDATE/DELETE에도 보내면 서버가 검사한다. */
+  revision?: number;
+  /** EDIT_RANGES 전용. 같은 부모의 변경은 한 작업에 모두 담는다. */
+  ranges?: PlannerRecordRange[];
   key?: string | null;
   startedAt?: string | null;
   endedAt?: string | null;
@@ -135,6 +156,7 @@ export interface PlannerRecordResult {
   status: number;
   code: string | null;
   message: string | null;
+  revision?: number | null;
 }
 export interface PlannerRecordBatchRequest {
   operations: PlannerRecordOperation[];

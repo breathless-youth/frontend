@@ -1,5 +1,5 @@
-import type { StudySessionSummary } from "@focusmakers/types";
 import { useTranslation } from "react-i18next";
+import { Pencil } from "lucide-react";
 
 import {
   ResultBarSegment,
@@ -15,15 +15,16 @@ import { cn } from "@/lib/utils";
 import { IconChevronDown } from "./icons";
 import { durationParts, formatDuration, formatFocusRate, formatIsoClock } from "./recordsFormat";
 import { Badge } from "@/components/ui/badge";
+import { recordDisplayKey, type RecordsSession } from "./recordsSession";
 
-type SessionListItemProps = {
-  session: StudySessionSummary;
+type SessionListItemProps<T extends RecordsSession = RecordsSession> = {
+  session: T;
   /** 목록 안에서의 구분선 등 — 줄(`li`)에 붙는다. */
   className?: string;
   /** 수동 기록의 과목 이름. 측정 세션 행은 쓰지 않는다. */
   subjectName?: string;
-  /** 수동 기록 펼침의 `수정`. 없으면 버튼을 두지 않는다. */
-  onEdit?: (session: StudySessionSummary) => void;
+  /** 기록 펼침의 `수정`. 토큰 없는 문서는 버튼을 두지 않는다. */
+  onEdit?: (session: T) => void;
 };
 
 /**
@@ -35,7 +36,12 @@ type SessionListItemProps = {
  * 더하지 않기로 해서 펼침 애니메이션은 끈다.
  * 타임라인 색의 뜻은 목록 맨 아래의 범례(`SessionTimelineLegend`)가 한 번 알려 준다.
  */
-export function SessionListItem({ session, className, subjectName, onEdit }: SessionListItemProps) {
+export function SessionListItem<T extends RecordsSession>({
+  session,
+  className,
+  subjectName,
+  onEdit,
+}: SessionListItemProps<T>) {
   const { t } = useTranslation(["records", "manual-record"]);
   if (isManualSession(session)) {
     return (
@@ -58,7 +64,11 @@ export function SessionListItem({ session, className, subjectName, onEdit }: Ses
   });
 
   return (
-    <AccordionItem value={String(session.id)} asChild className={cn("border-b-0", className)}>
+    <AccordionItem
+      value={recordDisplayKey(session)}
+      asChild
+      className={cn("border-b-0", className)}
+    >
       <li>
         <AccordionTrigger
           // 꺾쇠는 집중률 알약 옆 제자리에 따로 둔다.
@@ -79,6 +89,7 @@ export function SessionListItem({ session, className, subjectName, onEdit }: Ses
               </span>
             </span>
             <span className="flex shrink-0 items-center gap-2 pt-0.5">
+              <RecordEditedIndicator session={session} />
               <Badge className="h-6 px-2.25 py-0 text-xs leading-4 font-semibold">
                 {t("sessionItem.focusRate", { rate: formatFocusRate(session.focusRate) })}
               </Badge>
@@ -108,10 +119,41 @@ export function SessionListItem({ session, className, subjectName, onEdit }: Ses
         </AccordionTrigger>
         <AccordionContent animated={false} className="pb-3.5">
           <SessionExpansion session={session} />
+          <RecordEditButton session={session} onEdit={onEdit} />
         </AccordionContent>
       </li>
     </AccordionItem>
   );
+}
+
+function RecordEditedIndicator({ session }: { session: RecordsSession }) {
+  const { t } = useTranslation("planner");
+  return "edited" in session && session.edited ? (
+    <Pencil
+      size={12}
+      role="img"
+      aria-label={t("record.edited")}
+      className="shrink-0 text-muted-foreground"
+    />
+  ) : null;
+}
+
+function RecordEditButton<T extends RecordsSession>({
+  session,
+  onEdit,
+}: Pick<SessionListItemProps<T>, "session" | "onEdit">) {
+  const { t } = useTranslation("records");
+  return onEdit ? (
+    <div className="flex justify-end pt-2">
+      <Button
+        variant="link"
+        onClick={() => onEdit(session)}
+        className="h-11 px-4 text-[15px] leading-4.75"
+      >
+        {t("manualItem.edit")}
+      </Button>
+    </div>
+  ) : null;
 }
 
 /** 타임라인 색의 뜻 — 세션 목록 맨 아래에 한 번만 둔다. 항목과 문구는 공부 결과 화면의 범례 그대로다. */
@@ -126,7 +168,7 @@ export function SessionTimelineLegend() {
   );
 }
 
-function SessionExpansion({ session }: { session: StudySessionSummary }) {
+function SessionExpansion({ session }: { session: RecordsSession }) {
   const { t } = useTranslation("records");
   const longest = longestFocusStretch({
     startedAt: session.startedAt,
@@ -200,25 +242,29 @@ function FocusDuration({ focusSec }: { focusSec: number }) {
  *
  * 수동 기록은 전부 순공이라 순공 = 총이어서 `총 N` 줄을 두지 않고, 집중률 자리에 `직접 입력` 배지를 둔다.
  * 미니 타임라인은 전체를 순공색으로 칠하고, 펼치면 최대 집중 대신 과목을 보여 준다.
- * 겹침으로 잘린 조각도 조각마다 한 행이고, `수정`은 호출부가 그 조각 id로 입력 화면을 연다.
+ * 자정에서 나뉜 조각도 각각 한 행이며, 문자열 표시 키는 실제 원본 세션 ID와 구분한다.
  */
-function ManualSessionListItem({
+function ManualSessionListItem<T extends RecordsSession>({
   session,
   className,
   subjectName,
   onEdit,
 }: {
-  session: StudySessionSummary;
+  session: T;
   className?: string;
   subjectName: string;
-  onEdit?: (session: StudySessionSummary) => void;
+  onEdit?: (session: T) => void;
 }) {
   const { t } = useTranslation("records");
   const startClock = formatIsoClock(session.startedAt);
   const endClock = formatIsoClock(session.endedAt);
 
   return (
-    <AccordionItem value={String(session.id)} asChild className={cn("border-b-0", className)}>
+    <AccordionItem
+      value={recordDisplayKey(session)}
+      asChild
+      className={cn("border-b-0", className)}
+    >
       <li>
         <AccordionTrigger
           hideChevron
@@ -228,6 +274,7 @@ function ManualSessionListItem({
           <span className="flex w-full items-start justify-between">
             <FocusDuration focusSec={session.focusSec} />
             <span className="flex shrink-0 items-center gap-2 pt-0.5">
+              <RecordEditedIndicator session={session} />
               <Badge variant="neutral" className="h-6 px-2.25 py-0 text-xs leading-4 font-semibold">
                 {t("manualItem.badge")}
               </Badge>
@@ -248,17 +295,7 @@ function ManualSessionListItem({
             <ExpansionStat label={t("manualItem.end")} value={endClock} />
             <ExpansionStat label={t("manualItem.subject")} value={subjectName} />
           </dl>
-          {onEdit !== undefined && (
-            <div className="flex justify-end pt-2">
-              <Button
-                variant="link"
-                onClick={() => onEdit(session)}
-                className="h-11 px-4 text-[15px] leading-4.75"
-              >
-                {t("manualItem.edit")}
-              </Button>
-            </div>
-          )}
+          <RecordEditButton session={session} onEdit={onEdit} />
         </AccordionContent>
       </li>
     </AccordionItem>

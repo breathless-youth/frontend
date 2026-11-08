@@ -17,7 +17,7 @@
     "titleTop": "친구를 초대해 6명까지",
     "titleBottom": "함께 집중할 수 있어요",
     "aria": {
-      "mock": "참여자 6명이 함께 공부하는 소셜룸 화면"
+      "mock": "참여자 6명이 함께 공부하는 그룹 공부방 화면"
     }
   },
   "notification": {
@@ -54,7 +54,7 @@
     "now": "지금"
   },
   "home": {
-    "focusStart": "집중 시작"
+    "focusStart": "공부 시작"
   },
   "timer": {
     "measuring": "순공시간 측정 중",
@@ -86,7 +86,8 @@
     "listening": "듣기 1회 풀기"
   },
   "room": {
-    "total": "총"
+    "total": "총",
+    "subject": "수학"
   },
   "tileName": {
     "me": "나",

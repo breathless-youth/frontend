@@ -2,6 +2,7 @@ import { useEffect } from "react";
 
 import { deviceTimeZone } from "@/lib/dateKey";
 import { updateProfile } from "@/lib/profileApi";
+import { assertCurrentUserId } from "@/lib/userId";
 
 const SENT_KEY = "focuson.profile.timeZoneSent";
 
@@ -21,27 +22,33 @@ function writeSent(value: string): void {
   }
 }
 
-// 같은 값은 함께 기다리고, 다른 값은 앞선 요청 뒤에 보내 서버에서 순서가 뒤집히지 않게 한다.
-let inFlight: { sent: string; promise: Promise<void> } | null = null;
+// 같은 요청은 공유하고, 같은 계정의 시간대 변경은 앞선 전송 뒤에 보내 순서가 뒤집히지 않게 한다.
+const inFlight = new Map<number, { timeZone: string; request: Promise<void> }>();
 
-/** 통계를 조회하기 전에 서버의 날짜 기준을 기기 시간대와 맞춘다. */
+/** 통계처럼 프로필의 시간대가 먼저 반영되어야 하는 조회는 이 Promise를 기다린다. */
 export function syncProfileTimeZone(userId: number, timeZone: string): Promise<void> {
+  try {
+    assertCurrentUserId(userId);
+  } catch (error) {
+    return Promise.reject(error);
+  }
   const sent = `${userId}:${timeZone}`;
-  if (inFlight?.sent === sent) return inFlight.promise;
-  if (inFlight === null && readSent() === sent) return Promise.resolve();
-
-  const previous = inFlight?.promise.catch(() => {});
-  const promise = Promise.resolve(previous)
+  const pending = inFlight.get(userId);
+  if (pending?.timeZone === timeZone) return pending.request;
+  if (!pending && readSent() === sent) return Promise.resolve();
+  const request = (pending?.request.catch(() => undefined) ?? Promise.resolve())
     .then(async () => {
+      assertCurrentUserId(userId);
       if (readSent() === sent) return;
       await updateProfile({ timeZone });
+      assertCurrentUserId(userId);
       writeSent(sent);
     })
     .finally(() => {
-      if (inFlight?.promise === promise) inFlight = null;
+      if (inFlight.get(userId)?.request === request) inFlight.delete(userId);
     });
-  inFlight = { sent, promise };
-  return promise;
+  inFlight.set(userId, { timeZone, request });
+  return request;
 }
 
 /**
@@ -57,7 +64,7 @@ export function useTimeZoneSync(userId: number | null, identityPending: boolean)
     if (userId === null || identityPending) {
       return;
     }
-    void syncProfileTimeZone(userId, timeZone).catch((error: unknown) => {
+    syncProfileTimeZone(userId, timeZone).catch((error: unknown) => {
       console.warn("[profile] could not send the device time zone", error);
     });
   }, [userId, identityPending, timeZone]);

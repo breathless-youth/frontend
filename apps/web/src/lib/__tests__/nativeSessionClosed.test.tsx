@@ -9,6 +9,8 @@ import { queryClient } from "@/lib/queryClient";
 import { plannerDay } from "@/test/plannerFixtures";
 import { rankingKeys } from "@/lib/rankingQueries";
 import { statsKeys } from "@/lib/statsQueries";
+import { personalRecordsKeys } from "@/lib/personalRecordsQueries";
+import { personalRecordStats } from "@/test/personalRecordFixtures";
 
 /** 네이티브가 주입하는 것과 같은 경로로 신호를 흘려보낸다. mock이 아니라 실물 구독을 지난다. */
 function emit(raw: string): void {
@@ -67,6 +69,16 @@ describe("useNativeSessionClosed", () => {
 
     emit('{"type":"session-closed","atMs":1}');
 
+    expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
+    queryClient.removeQueries({ queryKey: key });
+  });
+
+  it("다른 웹뷰에서 기록을 저장한 뒤 오는 신호가 개인 통계도 갱신한다", () => {
+    invalidateQueries.mockRestore();
+    const key = personalRecordsKeys.daily(7, "2026-11-07", "Asia/Seoul");
+    queryClient.setQueryData(key, personalRecordStats());
+    render();
+    emit('{"type":"session-closed","atMs":1}');
     expect(queryClient.getQueryState(key)?.isInvalidated).toBe(true);
     queryClient.removeQueries({ queryKey: key });
   });

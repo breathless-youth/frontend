@@ -1,9 +1,14 @@
 import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
-import type { NoticeResponse, PlannerTask, SessionRecoveryResponse } from "@focusmakers/types";
+import type {
+  NoticeResponse,
+  PlannerTask,
+  PlannerDayResponse,
+  SessionRecoveryResponse,
+} from "@focusmakers/types";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type * as ReactRouterDom from "react-router-dom";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as Amplitude from "@/lib/amplitude";
 import type * as TokenSourceModule from "@/lib/auth/tokenSource";
@@ -22,7 +27,9 @@ import {
 import { todayLabel } from "@/features/home/homeFormat";
 import { markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import { LAUNCH_SIGNAL_WAIT_MS } from "@/features/study-session/useLaunchSessionRecovery";
-import { plannerTask } from "@/test/plannerFixtures";
+import { plannerDay, plannerTask } from "@/test/plannerFixtures";
+import { homeMission } from "@/test/homeMissionFixtures";
+import { localDateKey } from "@/lib/dateKey";
 import { HomeTabPage } from "@/routes/HomeTabPage";
 
 /** 옛 세션 마감은 자기 테스트가 따로 있다 — 여기서는 결과만 조작한다. */
@@ -61,6 +68,17 @@ vi.mock("@/lib/nativePushPermission", () => ({
 vi.mock("@/lib/subjectApi", () => ({ listSubjects: vi.fn(async () => []) }));
 
 const carryoverApi = vi.hoisted(() => ({
+  getPlannerDay: vi.fn<() => Promise<PlannerDayResponse>>(() =>
+    Promise.resolve({
+      date: "2026-11-07",
+      timeZone: "Asia/Seoul",
+      studySec: 0,
+      focusSec: 0,
+      goal: { goalSec: null, individualGoalSec: null, defaultGoalSec: null },
+      subjects: [],
+      records: [],
+    }),
+  ),
   getPlannerCarryover: vi.fn<() => Promise<PlannerTask[]>>(() => Promise.resolve([])),
   carryPlannerTasks: vi.fn<() => Promise<PlannerTask[]>>(() => Promise.resolve([])),
 }));
@@ -81,9 +99,16 @@ const rankingApi = vi.hoisted(() => ({
   postRankingRecordsSeen: vi.fn(),
 }));
 vi.mock("@/lib/rankingApi", () => rankingApi);
+afterEach(() => vi.unstubAllGlobals());
 
 // 파일의 모든 describe가 같은 기본값에서 시작하게 맨 바깥에 둔다.
 beforeEach(() => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: RequestInfo | URL) =>
+      Response.json(String(url).includes("/api/home/mission") ? homeMission(0, 0, false) : {}),
+    ),
+  );
   rankingApi.getRankingRecordsUnseen.mockResolvedValue({ total: 0, records: [] });
   rankingApi.postRankingRecordsSeen.mockResolvedValue(undefined);
 });
@@ -214,6 +239,40 @@ function renderHomeWithRoutes(path = "/home?userId=7") {
 }
 
 describe("HomeTabPage", () => {
+  // 첫 lazy 모듈 변환 시간은 화면 응답을 기다리는 시간에 포함하지 않는다.
+  beforeAll(async () => {
+    await import("@/features/home-v3/HomeV3Entry");
+  });
+  it("토큰 계약 홈은 별도 gateway 주입 없이 실제 새 홈을 표시한다", async () => {
+    tokenSourceMock.source = {
+      getUserId: () => 7,
+      getAccessToken: async () => "token",
+      getCurrentToken: () => "token",
+      hasSettled: () => true,
+      subscribe: () => () => {},
+      refresh: async () => "token",
+    };
+    mockedStats.mockResolvedValue(statsResponse);
+    mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+    carryoverApi.getPlannerDay.mockResolvedValue(plannerDay());
+    const fetch = vi.fn(async (url: RequestInfo | URL) =>
+      Response.json(String(url).includes("/api/home/mission") ? homeMission(0, 0, false) : {}),
+    );
+    vi.stubGlobal("fetch", fetch);
+    try {
+      renderHome();
+      expect(await screen.findByRole("button", { name: "공부 시작" })).toBeInTheDocument();
+      expect(await screen.findByText("오늘 공부시간")).toBeInTheDocument();
+      await waitFor(() =>
+        expect(fetch.mock.calls.some(([url]) => String(url).includes("/api/home/mission"))).toBe(
+          true,
+        ),
+      );
+    } finally {
+      tokenSourceMock.source = null;
+      vi.unstubAllGlobals();
+    }
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     closeStaleSession.mockResolvedValue(null);
@@ -900,7 +959,7 @@ describe("HomeTabPage — 좌상단 D-Day", () => {
     expect(screen.getByRole("heading", { level: 1, name: "홈" })).toBeInTheDocument();
   });
 
-  it("헤더 오른쪽 플래너 알약으로 오늘의 플래너를 연다 — 빠르게 두 번 눌러도 한 번만 이동한다", async () => {
+  it("플래너 카드가 홈의 00시 날짜를 전달하고 빠르게 두 번 눌러도 한 번만 이동한다", async () => {
     tokenSourceMock.source = {
       getUserId: () => 7,
       getAccessToken: () => "token",
@@ -911,18 +970,16 @@ describe("HomeTabPage — 좌상단 D-Day", () => {
     mockedStreak.mockResolvedValue({ streak: 0, maxStreak: 0, studiedDatesInRange: [] });
     renderHome("/home?guestAuth=1");
 
-    const button = await screen.findByRole("button", { name: "플래너" });
-    expect(button).toHaveAccessibleDescription("새 플래너를 확인해 보세요");
+    const button = await screen.findByRole("button", { name: /^플래너/ });
     navigateSpy.mockClear();
     fireEvent.click(button);
     fireEvent.click(button);
-    expect(button).not.toHaveAccessibleDescription();
 
     // 날짜 없이 열어 오늘의 플래너가 되고, 셸이 붙인 쿼리는 그대로 들고 간다.
     expect(navigateSpy).toHaveBeenCalledTimes(1);
     expect(navigateSpy).toHaveBeenCalledWith(
       // 들어온 탭을 주소에도 싣는다 — 웹뷰가 다시 로드되면 state는 사라지고 주소만 남는다.
-      { pathname: "/planner", search: "?guestAuth=1&from=home" },
+      { pathname: "/planner", search: `?guestAuth=1&date=${localDateKey()}&from=home` },
       { state: { via: "home" } },
     );
   });
@@ -1022,20 +1079,20 @@ describe("HomeTabPage — 첫 실행 온보딩", () => {
 
     renderWithOnboardingRoute();
 
-    expect(await screen.findByRole("button", { name: "집중 시작" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "공부 시작" })).toBeInTheDocument();
   });
 
   it("기존 계정은 홈에 머물고 시작 신호를 보낸다", async () => {
     renderWithOnboardingRoute();
 
-    expect(await screen.findByRole("button", { name: "집중 시작" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "공부 시작" })).toBeInTheDocument();
     expect(launchSignals.signalLaunchReady).toHaveBeenCalled();
     expect(onboardingRecord(7)).toBeNull();
   });
 
   it("홈에 머무는 계정은 홈 도착 알림 권한 요청을 부른다", async () => {
     renderWithOnboardingRoute();
-    await screen.findByRole("button", { name: "집중 시작" });
+    await screen.findByRole("button", { name: "공부 시작" });
 
     expect(launchSignals.requestPushPermissionOnHomeArrival).toHaveBeenCalled();
   });
@@ -1091,7 +1148,7 @@ describe("못 끝낸 할 일의 마지막 홈 순서", () => {
     );
     rankingApi.getRankingRecordsUnseen.mockResolvedValue(FIXTURE_UNSEEN_ONE);
     renderHome();
-    await screen.findByText("오늘 순공시간");
+    await screen.findByRole("button", { name: "공부 시작" });
     expect(carryoverApi.getPlannerCarryover).not.toHaveBeenCalled();
     await act(async () => finishPermission("granted"));
     expect(

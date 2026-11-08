@@ -17,7 +17,7 @@
     "titleTop": "Invite friends to focus",
     "titleBottom": "together, up to 6 of you",
     "aria": {
-      "mock": "A Social Room with 6 people studying together"
+      "mock": "A group study room with 6 people studying together"
     }
   },
   "notification": {
@@ -54,7 +54,7 @@
     "now": "now"
   },
   "home": {
-    "focusStart": "Start Focus"
+    "focusStart": "Start studying"
   },
   "timer": {
     "measuring": "Measuring focus time",
@@ -86,7 +86,8 @@
     "listening": "Listening practice"
   },
   "room": {
-    "total": "Total"
+    "total": "Total",
+    "subject": "Math"
   },
   "tileName": {
     "me": "Me",

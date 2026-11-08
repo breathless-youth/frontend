@@ -61,6 +61,8 @@ export type ToWebMessage =
    * 웹은 첫 신호 전까지 보이는 것으로 본다(`apps/web/src/lib/nativeTabFocus.ts`).
    */
   | { type: "tab-focus"; focused: boolean; atMs: number }
+  /** 앱의 포그라운드 여부. 권한 창·백그라운드는 탭 이동과 구분한다. */
+  | { type: "app-visibility"; visible: boolean; atMs: number }
   /**
    * 세션 중에 들어온 초대.
    * 세션 화면이 열려 있을 때 초대 링크나 초대 푸시가 오면 네이티브가 화면을 쌓지 않고 세션 웹뷰에만 보낸다.

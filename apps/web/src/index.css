@@ -1,6 +1,24 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* 시작 미션의 완료 조건을 알리는, 처음 두 단계에만 쓰는 시안 모션. motion-safe에서만 켠다. */
+@keyframes home-mission-ready {
+  0%,
+  60%,
+  100% {
+    transform: scale(1);
+  }
+  70% {
+    transform: scale(1.04);
+  }
+  80% {
+    transform: scale(0.995);
+  }
+  90% {
+    transform: scale(1.015);
+  }
+}
+
 @theme inline {
   --font-sans:
     "Pretendard Variable", "Pretendard", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;

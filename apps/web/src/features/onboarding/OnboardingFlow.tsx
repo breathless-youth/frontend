@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import iphoneFrame from "@/assets/onboarding/iphone-frame.webp";
 import screenHome from "@/assets/onboarding/screen-home.webp";
+import { HomeDesignIcon } from "@/features/home-v3/HomeDesignIcon";
 import type { OnboardingStep } from "@/lib/amplitude";
 import { cn } from "@/lib/utils";
 
@@ -119,12 +120,13 @@ function HomeScreen() {
   const { t } = useTranslation("onboarding");
   return (
     <AppScreen src={screenHome}>
-      <span className="onboarding-press-ring absolute top-133 left-5 h-14 w-87.5 animate-[onboarding-press-ring_2.6s_cubic-bezier(0.23,1,0.32,1)_0.9s_infinite] rounded-2xl opacity-0 motion-reduce:hidden" />
-      <span className="absolute top-133 left-5 flex h-14 w-87.5 animate-[onboarding-home-press_2.6s_cubic-bezier(0.4,0,0.2,1)_0.9s_infinite] items-center justify-center rounded-2xl bg-[#3671cf] text-[18px] leading-5.25 font-bold tracking-[0.9px] text-white shadow-sb-cta motion-reduce:animate-none">
+      <span className="onboarding-press-ring absolute top-120.25 left-5 h-18 w-87.5 animate-[onboarding-press-ring_2.6s_cubic-bezier(0.23,1,0.32,1)_0.9s_infinite] rounded-[22px] opacity-0 motion-reduce:hidden" />
+      <span className="absolute top-120.25 left-5 flex h-18 w-87.5 animate-[onboarding-home-press_2.6s_cubic-bezier(0.4,0,0.2,1)_0.9s_infinite] items-center justify-center gap-2.5 rounded-[22px] bg-[#3671cf] text-xl leading-6 font-bold tracking-[0.9px] text-white shadow-sb-cta motion-reduce:animate-none">
+        <HomeDesignIcon name="play" />
         {t("home.focusStart")}
       </span>
-      <span className="onboarding-tap-ripple absolute top-133.5 left-61.75 size-13 animate-[onboarding-tap-ripple_2.6s_cubic-bezier(0.23,1,0.32,1)_0.9s_infinite] rounded-full opacity-0 motion-reduce:hidden" />
-      <span className="onboarding-tap-dot absolute top-133.5 left-61.75 size-13 animate-[onboarding-tap-dot_2.6s_cubic-bezier(0.4,0,0.2,1)_0.9s_infinite] rounded-full opacity-0 motion-reduce:hidden" />
+      <span className="onboarding-tap-ripple absolute top-122.75 left-61.75 size-13 animate-[onboarding-tap-ripple_2.6s_cubic-bezier(0.23,1,0.32,1)_0.9s_infinite] rounded-full opacity-0 motion-reduce:hidden" />
+      <span className="onboarding-tap-dot absolute top-122.75 left-61.75 size-13 animate-[onboarding-tap-dot_2.6s_cubic-bezier(0.4,0,0.2,1)_0.9s_infinite] rounded-full opacity-0 motion-reduce:hidden" />
     </AppScreen>
   );
 }

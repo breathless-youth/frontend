@@ -1,12 +1,11 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
 
 import { weekDateKeys } from "@/features/records/recordsFormat";
-import { setStudyStatusUserProperties } from "@/lib/amplitude";
 import { dailyStatsQuery, streakQuery } from "@/lib/statsQueries";
 
 import { buildHomeSummary, type HomeSummary } from "./homeSummary";
 import { localDateKey } from "@/lib/dateKey";
+import { useHomeStudyStatusProperties } from "./useHomeStudyStatusProperties";
 
 export type HomeSummaryState =
   | { status: "pending" }
@@ -43,19 +42,7 @@ export function useHomeSummary(userId: number): HomeSummaryState {
   const streakData = streak.isPlaceholderData ? undefined : streak.data;
   const statsUpdatedAt = stats.dataUpdatedAt;
   const streakUpdatedAt = streak.dataUpdatedAt;
-  useEffect(() => {
-    if (statsData === undefined || streakData === undefined) {
-      return;
-    }
-    const todayStudyMin = Math.floor(statsData.totalStudySec / 60);
-    setStudyStatusUserProperties({
-      streakDays: streakData.streak,
-      maxStreak: streakData.maxStreak,
-      weekStudyDays: (streakData.studiedDatesInRange ?? []).length,
-      todayStudyMin,
-      studiedToday: todayStudyMin >= 1,
-    });
-  }, [statsData, streakData, statsUpdatedAt, streakUpdatedAt]);
+  useHomeStudyStatusProperties(statsData, streakData, statsUpdatedAt, streakUpdatedAt);
 
   const retry = () => {
     if (stats.isError) {

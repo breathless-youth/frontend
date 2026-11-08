@@ -2,7 +2,7 @@
 
 한국어 · [English](./README.en.md)
 
-<img src="apps/web/public/og-image.png" alt="FocusMakers" width="720">
+<img src="docs/assets/readme-header.png" alt="FocusMakers" width="720">
 
 ## 소개
 
@@ -140,6 +140,7 @@ pnpm --filter mobile start
 | [`docs/domain-glossary.md`](./docs/domain-glossary.md)                               | 도메인 용어                                 |
 | [`docs/screen-ownership.md`](./docs/screen-ownership.md)                             | 화면별 구현 위치                            |
 | [`docs/screens/`](./docs/screens)                                                    | 화면 스펙                                   |
+| [`홈 v3 구현 현황`](./docs/superpowers/specs/2026-11-07-home-v3-implementation.md)   | 홈 미션·목표·과목 선택과 검증 범위          |
 | [`docs/adr/`](./docs/adr)                                                            | 설계 결정 기록                              |
 | [`docs/runbooks/device-web-dev-server.md`](./docs/runbooks/device-web-dev-server.md) | 실기기에서 로컬 웹 화면 열기                |
 | [`docs/runbooks/local-dev-build.md`](./docs/runbooks/local-dev-build.md)             | 로컬 Dev Client 빌드                        |

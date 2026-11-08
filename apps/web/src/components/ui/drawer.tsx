@@ -1,7 +1,9 @@
 import { Drawer as DrawerPrimitive } from "@base-ui/react/drawer";
+import { useContext } from "react";
 
 import { COVERS_TAB_BAR_ATTR } from "@/lib/nativeModalOverlay";
 import { cn } from "@/lib/utils";
+import { OverlayPortalContainerContext } from "./overlay-portal-container";
 
 /**
  * 바닥 시트
@@ -19,14 +21,14 @@ const DrawerDescription = DrawerPrimitive.Description;
 const DRAWER_EASE = "ease-[cubic-bezier(0.22,1,0.36,1)]";
 
 type DrawerContentProps = Omit<DrawerPrimitive.Popup.Props, "className"> & {
-  variant?: "default" | "planner";
+  variant?: "default" | "planner" | "goal";
   bottomSpacing?: "default" | "compact";
   /** 모양이 아닌 클래스만 넘긴다(포털이 body로 나가 다시 달아야 하는 테마 클래스 등). */
   className?: string;
   /**
    * 포털이 그려질 자리
    *
-   * 기본은 body다.
+   * 세션 안에서는 바깥 모달 콘텐츠를 물려받고, 그 밖의 기본은 body다.
    * 세션 화면처럼 CSS 변수를 서브트리에만 주입하는 곳은 그 서브트리의 요소를 넘겨야 색이 풀린다.
    */
   container?: HTMLElement | null;
@@ -50,9 +52,11 @@ function DrawerContent({
   children,
   ...props
 }: DrawerContentProps) {
+  const inheritedContainer = useContext(OverlayPortalContainerContext);
+  const portalContainer = container === undefined ? inheritedContainer : container;
   return (
     // Base UI는 null을 "자리가 정해질 때까지 기다림"으로 읽어 시트를 그리지 않으므로 body 기본값으로 바꿔 넘긴다.
-    <DrawerPrimitive.Portal container={container ?? undefined}>
+    <DrawerPrimitive.Portal container={portalContainer ?? undefined}>
       <DrawerPrimitive.Backdrop
         className={cn(
           "fixed inset-0 z-50 bg-dim opacity-[calc(1-var(--drawer-swipe-progress,0))] transition-opacity duration-300 data-starting-style:opacity-0 data-ending-style:opacity-0 data-ending-style:duration-[calc(var(--drawer-swipe-strength,1)*300ms)] data-swiping:duration-0",
@@ -74,6 +78,8 @@ function DrawerContent({
                 ? "pb-[max(30px,env(safe-area-inset-bottom))]"
                 : "pb-[max(34px,env(safe-area-inset-bottom))]"
               : "pb-[max(28px,calc(env(safe-area-inset-bottom)+8px))]",
+            variant === "goal" &&
+              "rounded-t-xl pb-[max(40px,calc(env(safe-area-inset-bottom)+6px))]",
             // 위로 튕길 때 시트 아래가 비어 보이지 않게 같은 바탕을 화면 밖까지 잇는다.
             "after:absolute after:inset-x-0 after:top-full after:h-12 after:bg-inherit",
             "transform-[translateY(var(--drawer-swipe-movement-y,0px))] duration-300 data-ending-style:duration-[calc(var(--drawer-swipe-strength,1)*300ms)]",
@@ -90,10 +96,19 @@ function DrawerContent({
             data-slot="drawer-handle"
             className={cn(
               "flex shrink-0 justify-center",
-              variant === "planner" ? "h-3.5 pt-2.5" : "-mb-7 h-11 pt-3",
+              variant === "planner"
+                ? "h-3.5 pt-2.5"
+                : variant === "goal"
+                  ? "-mb-7 h-11 pt-2.5"
+                  : "-mb-7 h-11 pt-3",
             )}
           >
-            <div className="h-1 w-9 rounded-full bg-border-strong" />
+            <div
+              className={cn(
+                "rounded-full",
+                variant === "goal" ? "h-1.25 w-10 bg-brand-subtle" : "h-1 w-9 bg-border-strong",
+              )}
+            />
           </div>
           {children}
         </DrawerPrimitive.Popup>

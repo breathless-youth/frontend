@@ -91,7 +91,12 @@ export type PlannerPaintKind =
   | { kind: "focus" };
 
 /** `manual`은 수동 기록에서 온 구간이다. 칠하는 색은 측정과 같고, 칸 탭이 수정 대상을 고를 때만 쓴다. */
-export type PlannerPaint = PlannerPaintKind & { startMs: number; endMs: number; manual: boolean };
+export type PlannerPaint = PlannerPaintKind & {
+  startMs: number;
+  endMs: number;
+  manual: boolean;
+  edited?: boolean;
+};
 
 export interface PlannerSubjectRow {
   subjectId: number;
@@ -359,6 +364,7 @@ export interface PlannerCellFill {
   width: number;
   paint: PlannerPaintKind;
   manual: boolean;
+  edited?: boolean;
   /** 실제 블록 시작에만 진한 시작선을 그린다. */
   startsBlock: boolean;
 }
@@ -394,6 +400,7 @@ export function plannerCellFills(
         width: (to - from) / cellMs,
         paint: fill,
         manual: paint.manual,
+        ...(paint.edited ? { edited: true } : {}),
         startsBlock: from === paint.startMs,
       });
       from = to;

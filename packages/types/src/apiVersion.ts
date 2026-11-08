@@ -33,6 +33,8 @@ interface SingleContractEndpoint {
 export type ApiEndpointSpec = DualContractEndpoint | SingleContractEndpoint;
 
 export const API_ENDPOINTS = {
+  /** 홈 시작 미션 조회·완료. 새 토큰 계약, Swagger 기본버전1(BY-1190). */
+  homeMission: { version: "1", parsedBy: "apps/web/src/lib/homeMissionApi.ts" },
   /** `POST /api/users` — 등록. v2 응답에는 `userId`가 없고 신원은 access JWT `sub`에 있다. */
   register: { version: "2", parsedBy: "apps/mobile/lib/auth.ts registerUser" },
   /** `POST /api/auth/refresh` — 구 앱에 토큰이 없어 갱신을 부른 적이 없으니 새 경로다. */

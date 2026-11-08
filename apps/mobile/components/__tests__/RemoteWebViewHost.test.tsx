@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from "@testing-library/react-native";
 import type * as ReactNativeModule from "react-native";
-import { Appearance, AppState, Platform } from "react-native";
+import { Appearance, AppState, Platform, StyleSheet, View } from "react-native";
 import { colors } from "@focusmakers/design-tokens";
 import type { ToNativeMessage, ToWebMessage } from "@focusmakers/types";
 
@@ -54,8 +54,9 @@ jest.mock(
   "@expo/ui/swift-ui/modifiers",
   () => jest.requireActual<typeof ExpoUiMock>("../../jest/expoUiMock").swiftUiModifiers,
 );
+const mockSafeAreaInsets = { top: 59, bottom: 34, left: 0, right: 0 };
 jest.mock("react-native-safe-area-context", () => ({
-  useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
+  useSafeAreaInsets: () => mockSafeAreaInsets,
 }));
 
 const mockSyncInlineControls = jest.fn();
@@ -228,7 +229,24 @@ function fireWebViewEvent(name: "onError" | "onHttpError", value?: unknown) {
   });
 }
 
+function viewportPaddingBottom(): number {
+  const viewport = screen
+    .UNSAFE_getAllByType(View)
+    .find((view) => view.props.collapsable === false);
+  return StyleSheet.flatten(viewport?.props.style).paddingBottom ?? 0;
+}
+
+function reportCurrentScreen(path: string): void {
+  fireEvent(screen.getByTestId("host"), "message", {
+    nativeEvent: {
+      data: JSON.stringify({ type: "report-screen", path, dark: false, atMs: 1 }),
+    },
+  });
+}
+
 beforeEach(() => {
+  jest.spyOn(AppState, "addEventListener").mockReturnValue({ remove: jest.fn() });
+  mockSafeAreaInsets.bottom = 34;
   mockWebBaseUrl = "https://web.test";
   mockReload.mockClear();
   mockGoBack.mockClear();
@@ -313,6 +331,79 @@ describe("originOf", () => {
 });
 
 describe("RemoteWebViewHost", () => {
+  it.each([0, 24, 48])(
+    "Android 플래너 웹뷰의 하단을 실제 시스템 바 %ipx만큼 비운다",
+    (bottomInset) => {
+      jest.replaceProperty(Platform, "OS", "android");
+      mockSafeAreaInsets.bottom = bottomInset;
+      render(<RemoteWebViewHost path="/planner" testID="host" />);
+      expect(viewportPaddingBottom()).toBe(bottomInset);
+    },
+  );
+
+  it.each(["/home", "/records", "/room/1"])(
+    "Android %s는 기존 탭·세션의 하단 여백을 늘리지 않는다",
+    (path) => {
+      jest.replaceProperty(Platform, "OS", "android");
+      mockSafeAreaInsets.bottom = 48;
+      render(<RemoteWebViewHost path={path} testID="host" />);
+      expect(viewportPaddingBottom()).toBe(0);
+    },
+  );
+
+  it("iOS 플래너는 WKWebView의 기존 안전 영역에 네이티브 여백을 더하지 않는다", () => {
+    jest.replaceProperty(Platform, "OS", "ios");
+    render(<RemoteWebViewHost path="/planner" testID="host" />);
+    expect(viewportPaddingBottom()).toBe(0);
+  });
+
+  it("Android 시스템 바 높이가 바뀌면 플래너 뷰포트 여백도 갱신한다", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    mockSafeAreaInsets.bottom = 24;
+    const { rerender } = render(<RemoteWebViewHost path="/planner" testID="host" />);
+    for (const bottomInset of [48, 0, 24]) {
+      mockSafeAreaInsets.bottom = bottomInset;
+      rerender(<RemoteWebViewHost path="/planner" testID="host" />);
+      expect(viewportPaddingBottom()).toBe(bottomInset);
+    }
+  });
+
+  it("홈 웹뷰 안에서 플래너를 열고 돌아올 때만 하단을 비우며 문서를 다시 열지 않는다", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    mockSafeAreaInsets.bottom = 48;
+    render(<RemoteWebViewHost path="/home" testID="host" />);
+    const uri = screen.getByTestId("host").props.source.uri;
+    expect(viewportPaddingBottom()).toBe(0);
+    fireEvent(screen.getByTestId("host"), "message", {
+      nativeEvent: { data: JSON.stringify({ type: "set-tab-bar", visible: false, atMs: 1 }) },
+    });
+    expect(viewportPaddingBottom()).toBe(0);
+    reportCurrentScreen("/planner");
+    expect(viewportPaddingBottom()).toBe(48);
+    expect(screen.getByTestId("host").props.source.uri).toBe(uri);
+    reportCurrentScreen("/home");
+    expect(viewportPaddingBottom()).toBe(0);
+    expect(screen.getByTestId("host").props.source.uri).toBe(uri);
+  });
+
+  it("복원된 플래너는 여백을 유지하고 초기 경로·계정이 바뀌면 여백을 걷는다", () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    mockSafeAreaInsets.bottom = 48;
+    const { rerender } = render(<RemoteWebViewHost path="/home" testID="host" />);
+    reportCurrentScreen("/planner");
+    expect(viewportPaddingBottom()).toBe(48);
+    rerender(<RemoteWebViewHost path="/records" testID="host" />);
+    expect(viewportPaddingBottom()).toBe(0);
+    reportCurrentScreen("/planner");
+    expect(viewportPaddingBottom()).toBe(48);
+    act(() => requestGlobalWebViewRecovery());
+    expect(viewportPaddingBottom()).toBe(48);
+    expect(screen.getByTestId("host").props.source.uri).toBe("https://web.test/planner?lang=ko");
+    act(() => emitAccountReset());
+    expect(viewportPaddingBottom()).toBe(0);
+    expect(screen.getByTestId("host").props.source.uri).toBe("https://web.test/records?lang=ko");
+  });
+
   it("경로와 쿼리로 조립한 URL을 WebView에 넘긴다", () => {
     render(<RemoteWebViewHost path="/room/1" query={{ appVersion: "1.4.2" }} testID="host" />);
 
@@ -1965,6 +2056,60 @@ describe("RemoteWebViewHost tab-focus", () => {
     expect(scripts).toHaveLength(2);
     expect(scripts[0]).toContain('\\"focused\\":false');
     expect(scripts[1]).toContain('\\"focused\\":true');
+  });
+
+  it("앱 가시성은 탭 이동과 별도 메시지로 전달한다", () => {
+    const appStateSpy = jest.spyOn(AppState, "addEventListener");
+    const view = render(<RemoteWebViewHost path="/home" testID="host" focused />);
+    const changeState = (state: "background" | "active") =>
+      act(() => {
+        appStateSpy.mock.calls
+          .filter(([event]) => event === "change")
+          .at(-1)?.[1](state);
+      });
+    changeState("background");
+    changeState("active");
+    const scripts = mockInjectJavaScript.mock.calls
+      .map(([script]) => script as string)
+      .filter((script) => script.includes("app-visibility"));
+    expect(scripts).toHaveLength(2);
+    expect(scripts[0]).toContain('\\"visible\\":false');
+    expect(scripts[1]).toContain('\\"visible\\":true');
+    expect(tabFocusScripts()).toEqual([]);
+    view.unmount();
+  });
+
+  it("백그라운드에서 문서가 준비되면 현재 가시성을 다시 보내고 탭 이동으로 알리지 않는다", () => {
+    const descriptor = Object.getOwnPropertyDescriptor(AppState, "currentState")!;
+    Object.defineProperty(AppState, "currentState", { ...descriptor, value: "background" });
+    try {
+      render(<RemoteWebViewHost path="/home" testID="host" focused />);
+      mockInjectJavaScript.mockClear();
+      const onMessage = screen.getByTestId("host").props.onMessage as (e: unknown) => void;
+      act(() => onMessage({ nativeEvent: { data: '{"type":"auth-ready","atMs":1}' } }));
+      expect(
+        mockInjectJavaScript.mock.calls.some(
+          ([script]) =>
+            String(script).includes("app-visibility") &&
+            String(script).includes('\\"visible\\":false'),
+        ),
+      ).toBe(true);
+      expect(tabFocusScripts()).toEqual([]);
+      mockInjectJavaScript.mockClear();
+      act(() => {
+        (screen.getByTestId("host").props.onLoadEnd as () => void)();
+      });
+      expect(
+        mockInjectJavaScript.mock.calls.some(
+          ([script]) =>
+            String(script).includes("app-visibility") &&
+            String(script).includes('\\"visible\\":false'),
+        ),
+      ).toBe(true);
+      expect(tabFocusScripts()).toEqual([]);
+    } finally {
+      Object.defineProperty(AppState, "currentState", descriptor);
+    }
   });
 
   it("가려진 채 문서가 뜨면 로드 직후에 가려졌다고 보낸다", () => {

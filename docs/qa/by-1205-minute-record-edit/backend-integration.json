@@ -1,0 +1,73 @@
+{
+  "probe": "GET /v3/api-docs",
+  "status": 200,
+  "hasEditRanges": false,
+  "recordSchemas": {
+    "PlannerRecordBatchRequest": ["operations"],
+    "PlannerRecordOperation": [
+      "operationId",
+      "action",
+      "key",
+      "startedAt",
+      "endedAt",
+      "subjectId",
+      "timeZone"
+    ],
+    "PlannerRecordBatchResponse": ["results"],
+    "PlannerRecordResult": ["operationId", "success", "key", "status", "code", "message"],
+    "PlannerRecordSegment": ["subjectId", "startedAt", "endedAt", "studySec", "focusSec"],
+    "PlannerRecordView": [
+      "key",
+      "source",
+      "edited",
+      "startedAt",
+      "endedAt",
+      "fullStartedAt",
+      "fullEndedAt",
+      "studySec",
+      "focusSec",
+      "subjectSegments"
+    ]
+  },
+  "observedAtUtc": "2026-11-08T16:47:14.831620+00:00",
+  "source": "existing QA mobile/API origin matched; dev profile pinned",
+  "backendMerge": "de595e58929a8366c0f3822aa4fdd4d736c4bee6",
+  "backendPr": "https://github.com/breathless-youth/backend/pull/163",
+  "deployRun": "https://github.com/breathless-youth/backend/actions/runs/42500928596",
+  "deployStatus": "failed at Wait for completion",
+  "mutationsSent": 0,
+  "authenticatedUserDataRead": false,
+  "recheck": {
+    "probe": "GET /v3/api-docs recheck",
+    "status": 200,
+    "hasEditRanges": false,
+    "observedAtUtc": "2026-11-08T16:48:45.462823+00:00",
+    "recordSchemas": {
+      "PlannerRecordBatchRequest": ["operations"],
+      "PlannerRecordOperation": [
+        "operationId",
+        "action",
+        "key",
+        "startedAt",
+        "endedAt",
+        "subjectId",
+        "timeZone"
+      ],
+      "PlannerRecordBatchResponse": ["results"],
+      "PlannerRecordResult": ["operationId", "success", "key", "status", "code", "message"],
+      "PlannerRecordSegment": ["subjectId", "startedAt", "endedAt", "studySec", "focusSec"],
+      "PlannerRecordView": [
+        "key",
+        "source",
+        "edited",
+        "startedAt",
+        "endedAt",
+        "fullStartedAt",
+        "fullEndedAt",
+        "studySec",
+        "focusSec",
+        "subjectSegments"
+      ]
+    }
+  }
+}

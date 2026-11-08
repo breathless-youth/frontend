@@ -1,11 +1,27 @@
-import type { PlannerRecordResult } from "@focusmakers/types";
+import type { PlannerDayResponse, PlannerRecordResult } from "@focusmakers/types";
 import { getTokenSource } from "@/lib/auth/tokenSource";
 import { batchPlannerRecords, type PlannerRequestOptions } from "@/lib/plannerApi";
 import type { RecordDraftOperation, RecordDraftState } from "./recordDraft";
+import { createRecordDraft } from "./recordDraft";
+import { applyRecordRanges } from "./recordRanges";
 export interface RecordSaveOutcome {
   confirmed: { operation: RecordDraftOperation; result: PlannerRecordResult }[];
   pending: RecordDraftOperation[];
   uncertain: boolean;
+  staleKeys?: string[];
+}
+export type RecordSaveFailure =
+  "unconfirmed" | "conflict" | "invalid" | "missing" | "server" | "unknown" | "stale";
+export function recordSaveFailure(outcome: RecordSaveOutcome): RecordSaveFailure | null {
+  if (outcome.uncertain) return "unconfirmed";
+  if (outcome.staleKeys?.length) return "stale";
+  const failure = outcome.confirmed.find(({ result }) => !result.success)?.result;
+  if (!failure) return outcome.pending.length ? "unknown" : null;
+  if (failure.status === 409) return "conflict";
+  if (failure.status === 400) return "invalid";
+  if (failure.status === 404) return "missing";
+  if (failure.status >= 500) return "server";
+  return "unknown";
 }
 export async function saveRecordDraft(
   operations: readonly RecordDraftOperation[],
@@ -43,18 +59,32 @@ export async function saveRecordDraft(
           { operations: batch.map(({ blockId: _, ...operation }) => operation) },
           { ...options, signal: controller.signal },
         );
+        checkOwner();
         for (const operation of batch) {
           const matches = response.results.filter(
             (result) => result.operationId === operation.operationId,
           );
           const result = matches.length === 1 ? matches[0] : undefined;
-          if (!result || (result.success && operation.action !== "DELETE" && result.key === null)) {
+          if (
+            !result ||
+            (result.success && operation.action !== "DELETE" && result.key === null) ||
+            (result.success &&
+              operation.action === "EDIT_RANGES" &&
+              (!Number.isSafeInteger(result.revision) || result.revision! <= operation.revision!))
+          ) {
             outcome.pending.push(operation);
             outcome.uncertain = true;
             continue;
           }
           outcome.confirmed.push({ operation, result });
-          if (!result.success)
+          if (
+            !result.success &&
+            result.status === 409 &&
+            result.code === "STALE_RECORD" &&
+            operation.key
+          ) {
+            outcome.staleKeys = [...(outcome.staleKeys ?? []), operation.key];
+          } else if (!result.success)
             outcome.pending.push({ ...operation, operationId: crypto.randomUUID() });
         }
       } catch {
@@ -84,16 +114,57 @@ export function acceptSavedRecords(
     }
     const current = blocks.find((block) => block.id === operation.blockId);
     if (!current) continue;
+    if (operation.action === "EDIT_RANGES" && current.original?.pieces && operation.ranges) {
+      const saved = {
+        ...current,
+        ranges: undefined,
+        subjectChanged: false,
+        edited: true,
+        original: {
+          ...current.original,
+          revision: result.revision ?? undefined,
+          pieces: applyRecordRanges(current.original.pieces, operation.ranges),
+          edited: true,
+        },
+      };
+      baseline.set(current.id, saved);
+      blocks = blocks.map((block) => (block.id === current.id ? saved : block));
+      continue;
+    }
     const saved = {
       ...current,
       key: result.key,
       subjectChanged: false,
+      edited: true,
       preciseStartedAt: operation.startedAt ?? current.preciseStartedAt,
       preciseEndedAt: operation.endedAt ?? current.preciseEndedAt,
       original: undefined,
     };
     baseline.set(current.id, saved);
     blocks = blocks.map((block) => (block.id === current.id ? saved : block));
+  }
+  return { ...draft, blocks, baseline };
+}
+
+/** 성공·stale 부모만 최신 서버 값으로 교체해 다른 부모의 미저장 초안을 보존한다. */
+export function rebaseRecordDraft(
+  draft: RecordDraftState,
+  freshDay: PlannerDayResponse,
+  keys: readonly string[],
+): RecordDraftState {
+  if (freshDay.date !== draft.dateKey || freshDay.timeZone !== draft.timeZone)
+    throw new Error("record refresh date changed");
+  const fresh = createRecordDraft(freshDay);
+  const affected = new Set(keys);
+  const baseline = new Map(draft.baseline);
+  const blocks = draft.blocks.filter((block) => !block.key || !affected.has(block.key));
+  for (const [id, block] of baseline) if (block.key && affected.has(block.key)) baseline.delete(id);
+  for (const block of fresh.blocks) {
+    if (!block.key || !affected.has(block.key)) continue;
+    const previous = draft.blocks.find((value) => value.key === block.key);
+    const saved = { ...block, id: previous?.id ?? block.id };
+    baseline.set(saved.id, saved);
+    blocks.push(saved);
   }
   return { ...draft, blocks, baseline };
 }

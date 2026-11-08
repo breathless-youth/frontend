@@ -13,7 +13,21 @@ import {
   WASM_PUBLIC_DIR,
   WASM_SENTINEL_FILE,
 } from "./scripts/copyMediapipeWasm.js";
+import { toDownloadPageHtml } from "./scripts/downloadPageHtml.js";
 import { assertNotProdApiHost, resolveApiBase } from "./scripts/resolveApiBase.js";
+
+/** 빌드된 `index.html`에서 OG만 바꾼 `download.html`을 옆에 쓴다(`scripts/downloadPageHtml.ts`). */
+function emitDownloadPageHtml() {
+  return {
+    name: "focusmakers:download-page-html",
+    apply: "build",
+    writeBundle(options: { dir?: string }) {
+      const dir = options.dir ?? "dist";
+      const index = fs.readFileSync(path.join(dir, "index.html"), "utf-8");
+      fs.writeFileSync(path.join(dir, "download.html"), toDownloadPageHtml(index));
+    },
+  } as const;
+}
 
 /**
  * MediaPipe wasm이 `public/`에 실제로 있는지 **빌드 시작 전에** 확인한다.
@@ -333,6 +347,7 @@ export default defineConfig({
     }),
     tailwindcss(),
     requireMediapipeWasm(),
+    emitDownloadPageHtml(),
     sentrySourcemaps(),
     warnMissingProxyTarget(),
   ],

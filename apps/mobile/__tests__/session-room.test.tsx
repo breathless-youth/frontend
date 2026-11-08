@@ -34,6 +34,10 @@ jest.mock("expo-router", () => ({
 }));
 
 jest.mock("../lib/userApi", () => ({ ensureUserRegistered: jest.fn(async () => 7) }));
+// 실제 RootLayout의 SafeAreaProvider 없이 세션 화면만 마운트한다.
+jest.mock("react-native-safe-area-context", () => ({
+  useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
+}));
 
 jest.mock("../lib/orientation", () => ({
   lockPortrait: jest.fn(),

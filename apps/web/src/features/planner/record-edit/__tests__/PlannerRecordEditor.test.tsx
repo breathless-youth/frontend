@@ -1,207 +1,17 @@
 import { MemoryRouter } from "react-router-dom";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { PlannerRecordEditor } from "../PlannerRecordEditor";
-import { plannerDay, plannerRecord, plannerSubject } from "@/test/plannerFixtures";
+import {
+  plannerDay,
+  plannerRangeRecord as plannerRecord,
+  plannerSubject,
+} from "@/test/plannerFixtures";
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
   vi.unstubAllGlobals();
-});
-it.each(["입력", "손잡이"])(
-  "현재 분에 끝난 원본 기록은 %s 조작 뒤 원본 종료 초를 보존해 저장한다",
-  async (method) => {
-    vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date("2026-11-04T00:29:50Z"));
-    class Pointer extends MouseEvent {
-      readonly isPrimary = true;
-      readonly pointerId = 1;
-      readonly pointerType = "touch";
-    }
-    vi.stubGlobal("PointerEvent", Pointer);
-    const requests: unknown[] = [];
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (_url: string, init?: RequestInit) => {
-        const body = JSON.parse(String(init?.body));
-        requests.push(body);
-        return Response.json({
-          results: body.operations.map((operation: { operationId: string }) => ({
-            operationId: operation.operationId,
-            success: true,
-            key: "c:updated",
-            status: 200,
-            code: null,
-            message: null,
-          })),
-        });
-      }),
-    );
-    render(
-      <MemoryRouter>
-        <PlannerRecordEditor
-          day={plannerDay({
-            date: "2026-11-04",
-            records: [
-              plannerRecord({
-                startedAt: "2026-11-04T00:13:20Z",
-                endedAt: "2026-11-04T00:29:40Z",
-                subjectSegments: [],
-              }),
-            ],
-          })}
-          subjects={[]}
-          onClose={() => {}}
-          onSaved={async () => {}}
-        />
-      </MemoryRouter>,
-    );
-    fireEvent.click(screen.getAllByRole("button", { name: /09:14.*09:30/ })[0]!);
-    if (method === "입력") {
-      fireEvent.change(screen.getByLabelText("시작"), { target: { value: "09:15" } });
-    } else {
-      const grid = screen.getByLabelText("기록 편집 격자");
-      grid.getBoundingClientRect = () => ({
-        left: 0,
-        top: 0,
-        width: 600,
-        height: 768,
-        right: 600,
-        bottom: 768,
-        x: 0,
-        y: 0,
-        toJSON: () => ({}),
-      });
-      fireEvent.pointerDown(screen.getByRole("button", { name: "시작 시각 조절" }), {
-        clientX: 140,
-        clientY: 144,
-      });
-      fireEvent.pointerMove(grid, { clientX: 150, clientY: 144 });
-      fireEvent.pointerUp(grid, { clientX: 150, clientY: 144 });
-    }
-    expect(screen.getByLabelText("시작")).toHaveValue("09:15");
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "저장" })).toBeEnabled();
-    fireEvent.click(screen.getByRole("button", { name: "저장" }));
-    await waitFor(() => expect(requests).toHaveLength(1));
-    expect(requests[0]).toMatchObject({
-      operations: [
-        {
-          action: "UPDATE",
-          startedAt: "2026-11-04T00:15:00.000Z",
-          endedAt: "2026-11-04T00:29:40Z",
-        },
-      ],
-    });
-  },
-);
-
-it("현재 분이 지나기 전에는 다음 분으로 종료 시각을 늘릴 수 없다", () => {
-  vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(new Date("2026-11-04T00:29:50Z"));
-  render(
-    <MemoryRouter>
-      <PlannerRecordEditor
-        day={plannerDay({
-          date: "2026-11-04",
-          records: [
-            plannerRecord({
-              startedAt: "2026-11-04T00:13:00Z",
-              endedAt: "2026-11-04T00:28:00Z",
-              subjectSegments: [],
-            }),
-          ],
-        })}
-        subjects={[]}
-        onClose={() => {}}
-        onSaved={async () => {}}
-      />
-    </MemoryRouter>,
-  );
-  fireEvent.click(screen.getAllByRole("button", { name: /09:13.*09:28/ })[0]!);
-  fireEvent.change(screen.getByLabelText("끝"), { target: { value: "09:30" } });
-  expect(screen.getByRole("alert")).toHaveTextContent("현재 시각 전까지 고칠 수 있어요");
-  expect(screen.getByRole("button", { name: "저장" })).toBeDisabled();
-});
-
-it("측정 기록의 1분 수정은 완료가 아니라 상단 저장에서 일괄 전송한다", async () => {
-  const calls: { url: string; body: unknown }[] = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (url: string, init?: RequestInit) => {
-      const body = JSON.parse(String(init?.body));
-      calls.push({ url, body });
-      return Response.json({
-        results: body.operations.map((operation: { operationId: string }) => ({
-          operationId: operation.operationId,
-          success: true,
-          key: "c:updated",
-          status: 200,
-          code: null,
-          message: null,
-        })),
-      });
-    }),
-  );
-  const client = new QueryClient();
-  const close = vi.fn();
-  render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter>
-        <PlannerRecordEditor
-          day={plannerDay({
-            date: "2026-11-04",
-            subjects: [plannerSubject()],
-            records: [
-              plannerRecord({
-                startedAt: "2026-11-04T00:13:00Z",
-                endedAt: "2026-11-04T00:29:00Z",
-                subjectSegments: [
-                  {
-                    subjectId: 3,
-                    startedAt: "2026-11-04T00:13:00Z",
-                    endedAt: "2026-11-04T00:29:00Z",
-                    studySec: 960,
-                    focusSec: 960,
-                  },
-                ],
-              }),
-            ],
-          })}
-          subjects={[{ id: 3, name: "수학", colorIndex: 2, studySec: 0, focusSec: 0, tasks: [] }]}
-          onClose={close}
-          onSaved={async () => {}}
-        />
-      </MemoryRouter>
-    </QueryClientProvider>,
-  );
-  await userEvent.click(screen.getAllByRole("button", { name: /09:13.*09:29/ })[0]!);
-  const end = screen.getByLabelText("끝");
-  await userEvent.clear(end);
-  await userEvent.type(end, "09:30");
-  await userEvent.click(screen.getByRole("button", { name: "완료" }));
-  expect(calls).toEqual([]);
-  await userEvent.click(screen.getByRole("button", { name: "저장" }));
-  await waitFor(() => expect(close).toHaveBeenCalled());
-  expect(calls).toEqual([
-    {
-      url: "/api/planner/records/batch",
-      body: {
-        operations: [
-          expect.objectContaining({
-            action: "UPDATE",
-            startedAt: "2026-11-04T00:13:00Z",
-            endedAt: "2026-11-04T00:30:00.000Z",
-            subjectId: 3,
-            timeZone: "Asia/Seoul",
-          }),
-        ],
-      },
-    },
-  ]);
-  client.clear();
 });
 it("빈 칸을 길게 끌고 과목을 고른 기록은 상단 저장 전까지 초안에만 둔다", async () => {
   class Pointer extends MouseEvent {
@@ -284,56 +94,6 @@ it("빈 칸을 길게 끌고 과목을 고른 기록은 상단 저장 전까지 
     ],
   });
 });
-it("기록 삭제 말풍선에서 확인해도 상단 저장 전에는 서버에서 삭제하지 않는다", async () => {
-  const calls: unknown[] = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (_url: string, init?: RequestInit) => {
-      const body = JSON.parse(String(init?.body));
-      calls.push(body);
-      return Response.json({
-        results: body.operations.map((operation: { operationId: string }) => ({
-          operationId: operation.operationId,
-          success: true,
-          key: null,
-          status: 204,
-          code: null,
-          message: null,
-        })),
-      });
-    }),
-  );
-  render(
-    <MemoryRouter>
-      <PlannerRecordEditor
-        day={plannerDay({
-          date: "2026-11-04",
-          records: [
-            plannerRecord({
-              startedAt: "2026-11-04T00:13:00Z",
-              endedAt: "2026-11-04T00:29:00Z",
-              subjectSegments: [],
-            }),
-          ],
-        })}
-        subjects={[]}
-        onClose={() => {}}
-        onSaved={async () => {}}
-      />
-    </MemoryRouter>,
-  );
-  await userEvent.click(screen.getAllByRole("button", { name: /09:13.*09:29/ })[0]!);
-  await userEvent.click(screen.getByRole("button", { name: "기록 삭제" }));
-  expect(screen.getByRole("alertdialog", { name: "이 기록을 삭제할까요?" })).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "삭제" }));
-  expect(calls).toEqual([]);
-  await userEvent.click(screen.getByRole("button", { name: "저장" }));
-  await waitFor(() => expect(calls).toHaveLength(1));
-  expect(calls[0]).toMatchObject({
-    operations: [{ action: "DELETE", key: "c:2026-11-06T00:00:00Z" }],
-  });
-});
-
 it("키보드로 1분 기록을 추가하고 기록 목록에서 다시 골라 저장한다", async () => {
   const calls: unknown[] = [];
   vi.stubGlobal(
@@ -392,85 +152,7 @@ it("키보드로 1분 기록을 추가하고 기록 목록에서 다시 골라 �
   });
 });
 
-it("끌기의 끝점이 잘못되면 마지막 유효 초안으로 놓고 오류 없이 저장할 수 있다", async () => {
-  class Pointer extends MouseEvent {
-    readonly isPrimary = true;
-    readonly pointerId = 1;
-    readonly pointerType = "touch";
-  }
-  vi.stubGlobal("PointerEvent", Pointer);
-  const calls: unknown[] = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (_url: string, init?: RequestInit) => {
-      const body = JSON.parse(String(init?.body));
-      calls.push(body);
-      return Response.json({
-        results: body.operations.map((operation: { operationId: string }) => ({
-          operationId: operation.operationId,
-          success: true,
-          key: "c:updated",
-          status: 200,
-          code: null,
-          message: null,
-        })),
-      });
-    }),
-  );
-  render(
-    <MemoryRouter>
-      <PlannerRecordEditor
-        day={plannerDay({
-          date: "2026-11-04",
-          records: [
-            plannerRecord({
-              startedAt: "2026-11-04T00:13:00Z",
-              endedAt: "2026-11-04T00:29:00Z",
-              subjectSegments: [],
-            }),
-          ],
-        })}
-        subjects={[]}
-        onClose={() => {}}
-        onSaved={async () => {}}
-      />
-    </MemoryRouter>,
-  );
-  await userEvent.click(screen.getAllByRole("button", { name: /09:13.*09:29/ })[0]!);
-  const grid = screen.getByLabelText("기록 편집 격자");
-  grid.getBoundingClientRect = () => ({
-    left: 0,
-    top: 0,
-    width: 600,
-    height: 672,
-    right: 600,
-    bottom: 672,
-    x: 0,
-    y: 0,
-    toJSON: () => ({}),
-  });
-  const end = screen.getByRole("button", { name: "끝 시각 조절" });
-  fireEvent.pointerDown(end, { clientX: 290, clientY: 122 });
-  fireEvent.pointerMove(grid, { clientX: 310, clientY: 122 });
-  fireEvent.pointerMove(grid, { clientX: 120, clientY: 122 });
-  expect(screen.getByRole("alert")).toHaveTextContent("시작과 끝을 다시 확인해 주세요");
-  fireEvent.pointerUp(grid, { clientX: 120, clientY: 122 });
-  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "저장" })).toBeEnabled();
-  await userEvent.click(screen.getByRole("button", { name: "저장" }));
-  await waitFor(() => expect(calls).toHaveLength(1));
-  expect(calls[0]).toMatchObject({
-    operations: [
-      {
-        action: "UPDATE",
-        startedAt: "2026-11-04T00:13:00Z",
-        endedAt: "2026-11-04T00:31:00.000Z",
-      },
-    ],
-  });
-});
-
-it("초 원본의 과목만 바꾸면 시각 없이 저장한다", async () => {
+it("초 원본의 과목은 선택 분 범위로 저장하고 부모 시각을 보내지 않는다", async () => {
   const requests: unknown[] = [];
   vi.stubGlobal(
     "fetch",
@@ -482,6 +164,7 @@ it("초 원본의 과목만 바꾸면 시각 없이 저장한다", async () => {
           operationId: operation.operationId,
           success: true,
           key: "c:updated",
+          revision: 1,
           status: 200,
           code: null,
           message: null,
@@ -508,12 +191,16 @@ it("초 원본의 과목만 바꾸면 시각 없이 저장한다", async () => {
       />
     </MemoryRouter>,
   );
-  await userEvent.click(screen.getAllByRole("button", { name: /09:13.*09:29/ })[0]!);
+  await userEvent.click(screen.getAllByRole("button", { name: /09:12.*09:29/ })[0]!);
   await userEvent.click(screen.getByRole("button", { name: "과목 바꾸기" }));
   await userEvent.click(await screen.findByRole("button", { name: "영어" }));
   await userEvent.click(screen.getByRole("button", { name: "저장" }));
   await waitFor(() => expect(requests).toHaveLength(1));
-  expect(requests[0]).toMatchObject({ operations: [{ action: "UPDATE", subjectId: 4 }] });
+  expect(requests[0]).toMatchObject({
+    operations: [
+      { action: "EDIT_RANGES", revision: 0, ranges: [{ change: "SUBJECT", subjectId: 4 }] },
+    ],
+  });
   const operation = (requests[0] as { operations: Record<string, unknown>[] }).operations[0]!;
   expect(operation).not.toHaveProperty("startedAt");
   expect(operation).not.toHaveProperty("endedAt");
@@ -550,55 +237,6 @@ it("두 번째 DST 회차를 손대지 않고 완료·저장하면 원래 시각
   expect(request).not.toHaveBeenCalled();
 });
 
-it("DST에서 끝만 고치면 두 번째 회차의 손대지 않은 시작 시각은 보존한다", async () => {
-  const requests: unknown[] = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (_url: string, init?: RequestInit) => {
-      const body = JSON.parse(String(init?.body));
-      requests.push(body);
-      return Response.json({
-        results: body.operations.map((operation: { operationId: string }) => ({
-          operationId: operation.operationId,
-          success: true,
-          key: "c:updated",
-          status: 200,
-          code: null,
-          message: null,
-        })),
-      });
-    }),
-  );
-  render(
-    <MemoryRouter>
-      <PlannerRecordEditor
-        day={plannerDay({
-          date: "2026-10-31",
-          timeZone: "America/New_York",
-          records: [
-            plannerRecord({
-              startedAt: "2026-11-01T06:20:00Z",
-              endedAt: "2026-11-01T06:40:00Z",
-              subjectSegments: [],
-            }),
-          ],
-        })}
-        subjects={[]}
-        onClose={() => {}}
-        onSaved={async () => {}}
-      />
-    </MemoryRouter>,
-  );
-  await userEvent.click(screen.getAllByRole("button", { name: /01:20.*01:40/ })[0]!);
-  fireEvent.change(screen.getByLabelText("끝"), { target: { value: "02:10" } });
-  await userEvent.click(screen.getByRole("button", { name: "완료" }));
-  await userEvent.click(screen.getByRole("button", { name: "저장" }));
-  await waitFor(() => expect(requests).toHaveLength(1));
-  expect(requests[0]).toMatchObject({
-    operations: [{ startedAt: "2026-11-01T06:20:00Z", endedAt: "2026-11-01T07:10:00.000Z" }],
-  });
-});
-
 it("새로운 모호한 DST 시각을 입력하면 안내하고 batch 저장을 막는다", async () => {
   const request = vi.fn<typeof fetch>();
   vi.stubGlobal("fetch", request);
@@ -629,104 +267,6 @@ it("새로운 모호한 DST 시각을 입력하면 안내하고 batch 저장을 
   );
   expect(screen.getByRole("button", { name: "저장" })).toBeDisabled();
   expect(request).not.toHaveBeenCalled();
-});
-
-it("시간을 손대지 않은 기록 길이는 원본 초를 올림하고 시간 편집 뒤에는 초안 길이를 쓴다", async () => {
-  render(
-    <MemoryRouter>
-      <PlannerRecordEditor
-        day={plannerDay({
-          date: "2026-11-04",
-          records: [
-            plannerRecord({
-              startedAt: "2026-11-04T00:12:59Z",
-              endedAt: "2026-11-04T00:25:00Z",
-              subjectSegments: [],
-            }),
-          ],
-        })}
-        subjects={[]}
-        onClose={() => {}}
-        onSaved={async () => {}}
-      />
-    </MemoryRouter>,
-  );
-  await userEvent.click(screen.getAllByRole("button", { name: /09:13.*09:25/ })[0]!);
-  expect(screen.getByRole("region", { name: "선택한 기록" })).toHaveTextContent("13분");
-  fireEvent.change(screen.getByLabelText("끝"), { target: { value: "09:27" } });
-  expect(screen.getByRole("region", { name: "선택한 기록" })).toHaveTextContent("14분");
-});
-
-it("두 번째 DST 회차의 포인터 손잡이에서 끝만 끌어도 원래 시작 epoch를 보존한다", async () => {
-  class Pointer extends MouseEvent {
-    readonly isPrimary = true;
-    readonly pointerId = 1;
-    readonly pointerType = "touch";
-  }
-  vi.stubGlobal("PointerEvent", Pointer);
-  const requests: unknown[] = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (_url: string, init?: RequestInit) => {
-      const body = JSON.parse(String(init?.body));
-      requests.push(body);
-      return Response.json({
-        results: body.operations.map((operation: { operationId: string }) => ({
-          operationId: operation.operationId,
-          success: true,
-          key: "c:updated",
-          status: 200,
-          code: null,
-          message: null,
-        })),
-      });
-    }),
-  );
-  render(
-    <MemoryRouter>
-      <PlannerRecordEditor
-        day={plannerDay({
-          date: "2026-10-31",
-          timeZone: "America/New_York",
-          records: [
-            plannerRecord({
-              startedAt: "2026-11-01T06:20:00Z",
-              endedAt: "2026-11-01T06:40:00Z",
-              subjectSegments: [],
-            }),
-          ],
-        })}
-        subjects={[]}
-        onClose={() => {}}
-        onSaved={async () => {}}
-      />
-    </MemoryRouter>,
-  );
-  await userEvent.click(screen.getAllByRole("button", { name: /01:20.*01:40/ })[0]!);
-  const grid = screen.getByLabelText("기록 편집 격자");
-  grid.getBoundingClientRect = () => ({
-    left: 0,
-    top: 0,
-    width: 600,
-    height: 672,
-    right: 600,
-    bottom: 672,
-    x: 0,
-    y: 0,
-    toJSON: () => ({}),
-  });
-  fireEvent.pointerDown(screen.getByRole("button", { name: "끝 시각 조절" }), {
-    clientX: 400,
-    clientY: 566,
-  });
-  fireEvent.pointerMove(grid, { clientX: 100, clientY: 594 });
-  fireEvent.pointerUp(grid, { clientX: 100, clientY: 594 });
-  expect(screen.getByRole("button", { name: "저장" })).toBeEnabled();
-  await userEvent.click(screen.getByRole("button", { name: "저장" }));
-  await waitFor(() => expect(requests).toHaveLength(1));
-  expect(requests[0]).toMatchObject({
-    operations: [{ startedAt: "2026-11-01T06:20:00Z", endedAt: "2026-11-01T07:10:00.000Z" }],
-  });
 });
 
 it("여러 시간 줄에 걸친 직접 입력 기록은 가장 넓은 구간 한 곳에 과목명과 직접 입력 표시를 보여 준다", () => {
@@ -846,6 +386,7 @@ it("삭제 강조 사본도 실제 과목명·연필과 전체 시간 줄에 맞
   const grid = screen.getByLabelText("기록 편집 격자");
   const shape = within(grid).getByRole("button", { name: /09:15.*09:45/ });
   await userEvent.click(shape);
+  fireEvent.change(screen.getByLabelText("끝"), { target: { value: "09:45" } });
   shape.getBoundingClientRect = () => ({
     left: 210,
     top: 112,
@@ -1010,7 +551,7 @@ it("시간 요약에서 1분 입력을 펼치고 접어도 입력값을 보존�
     </MemoryRouter>,
   );
   await userEvent.click(screen.getAllByRole("button", { name: /09:13.*09:29/ })[0]!);
-  const summary = screen.getByRole("button", { name: "09:13 – 09:29" });
+  const summary = screen.getByRole("button", { name: "09:13 – 09:14" });
   expect(summary).toHaveAttribute("aria-expanded", "false");
   await userEvent.click(summary);
   expect(summary).toHaveAttribute("aria-expanded", "true");
@@ -1022,63 +563,4 @@ it("시간 요약에서 1분 입력을 펼치고 접어도 입력값을 보존�
   expect(summary).toHaveAttribute("aria-expanded", "true");
   expect(screen.getByLabelText("시작")).toHaveValue("09:13");
   expect(request).not.toHaveBeenCalled();
-});
-it("05시 밖의 전체 시작 시각을 입력으로 바꿔도 끝의 소수초를 보존한다", async () => {
-  const requests: { operations: Record<string, unknown>[] }[] = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn(async (_url: string, init?: RequestInit) => {
-      const body = JSON.parse(String(init?.body));
-      requests.push(body);
-      return Response.json({
-        results: body.operations.map((op: Record<string, unknown>) => ({
-          operationId: op.operationId,
-          success: true,
-          key: op.key,
-          status: 200,
-          code: null,
-          message: null,
-        })),
-      });
-    }),
-  );
-  render(
-    <MemoryRouter>
-      <PlannerRecordEditor
-        day={plannerDay({
-          date: "2026-11-04",
-          records: [
-            plannerRecord({
-              startedAt: "2026-11-03T20:00:00Z",
-              endedAt: "2026-11-03T21:00:03Z",
-              fullStartedAt: "2026-11-03T19:30:12.123456Z",
-              fullEndedAt: "2026-11-03T21:00:03.654321Z",
-              subjectSegments: [],
-            }),
-          ],
-        })}
-        subjects={[]}
-        onClose={() => {}}
-        onSaved={async () => {}}
-      />
-    </MemoryRouter>,
-  );
-  await userEvent.click(screen.getAllByRole("button", { name: /04:31.*06:01/ })[0]!);
-  fireEvent.change(screen.getByLabelText("시작"), { target: { value: "04:35" } });
-  expect(screen.getByRole("alert")).toHaveTextContent("기록 전체에 적용할 과목을 먼저 골라 주세요");
-  expect(requests).toHaveLength(0);
-  expect(screen.getByRole("button", { name: "저장" })).toBeDisabled();
-  await userEvent.click(screen.getByRole("button", { name: "과목 바꾸기" }));
-  expect(
-    screen.getByText("선택한 과목은 화면에 보이지 않는 시간까지 기록 전체에 적용돼요."),
-  ).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "과목 없음" }));
-  fireEvent.change(screen.getByLabelText("시작"), { target: { value: "04:36" } });
-  fireEvent.change(screen.getByLabelText("시작"), { target: { value: "04:35" } });
-  await userEvent.click(screen.getByRole("button", { name: "저장" }));
-  await waitFor(() => expect(requests).toHaveLength(1));
-  expect(requests[0]?.operations[0]).toMatchObject({
-    startedAt: "2026-11-03T19:35:00.000Z",
-    endedAt: "2026-11-03T21:00:03.654321Z",
-  });
 });

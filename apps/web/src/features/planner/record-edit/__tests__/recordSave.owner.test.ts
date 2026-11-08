@@ -86,8 +86,8 @@ it.each(["응답 대기", "본문 읽기"])(
     const result = await saving;
     expect(request).toHaveBeenCalledTimes(1);
     expect(aborted).toBe(true);
-    expect(result.confirmed).toHaveLength(phase === "본문 읽기" ? 50 : 0);
-    expect(result.pending).toEqual(phase === "본문 읽기" ? [operations[50]] : operations);
+    expect(result.confirmed).toEqual([]);
+    expect(result.pending).toEqual(operations);
     expect(result.uncertain).toBe(true);
     expect(native.listeners.size).toBe(0);
   },

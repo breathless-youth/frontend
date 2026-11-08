@@ -5,7 +5,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type * as tokenSourceModule from "@/lib/auth/tokenSource";
 import type { AuthSnapshot, TokenSource } from "@/lib/auth/tokenSource";
-import { legacyQuery, legacyUserId, parseUserId, readUserId, useUserId } from "@/lib/userId";
+import {
+  assertCurrentUserId,
+  legacyQuery,
+  legacyUserId,
+  parseUserId,
+  readUserId,
+  useUserId,
+} from "@/lib/userId";
 
 const mocks = vi.hoisted(() => ({ source: null as TokenSource | null }));
 vi.mock("@/lib/auth/tokenSource", async (importOriginal) => ({
@@ -45,6 +52,14 @@ describe("parseUserId", () => {
 });
 
 describe("readUserId", () => {
+  it("대기 작업은 현재 토큰의 계정이 다르거나 로그아웃했으면 중단한다", () => {
+    mocks.source = fakeSource({ getUserId: () => 7 });
+    expect(() => assertCurrentUserId(7)).not.toThrow();
+    mocks.source = fakeSource({ getUserId: () => 8 });
+    expect(() => assertCurrentUserId(7)).toThrow("User identity changed");
+    mocks.source = fakeSource({ getUserId: () => null });
+    expect(() => assertCurrentUserId(7)).toThrow("User identity changed");
+  });
   it("쿼리 문자열에서 userId를 읽는다", () => {
     expect(readUserId("?userId=7&appVersion=1.4.2")).toBe(7);
   });

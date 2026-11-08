@@ -68,3 +68,35 @@ export function plannerDay(over: Partial<PlannerDayResponse> = {}): PlannerDayRe
     ...over,
   };
 }
+
+/** 분 편집용 완전한 서버 응답. 구계약 호환 테스트는 plannerRecord를 그대로 쓴다. */
+export function plannerRangeRecord(over: Partial<PlannerRecordView> = {}): PlannerRecordView {
+  const record = plannerRecord(over);
+  const start = Date.parse(record.startedAt),
+    end = Date.parse(record.endedAt);
+  const cuts = [
+    ...new Set([
+      record.startedAt,
+      record.endedAt,
+      ...record.subjectSegments.flatMap((segment) => [segment.startedAt, segment.endedAt]),
+    ]),
+  ]
+    .filter((iso) => Date.parse(iso) >= start && Date.parse(iso) <= end)
+    .sort((a, b) => Date.parse(a) - Date.parse(b));
+  return {
+    ...record,
+    revision: record.revision ?? 0,
+    pieces:
+      record.pieces ??
+      cuts.slice(0, -1).map((from, index) => ({
+        startedAt: from,
+        endedAt: cuts[index + 1]!,
+        subjectId:
+          record.subjectSegments.find(
+            (segment) =>
+              Date.parse(segment.startedAt) <= Date.parse(from) &&
+              Date.parse(segment.endedAt) >= Date.parse(cuts[index + 1]!),
+          )?.subjectId ?? null,
+      })),
+  };
+}

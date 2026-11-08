@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, renderHook, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -59,6 +59,49 @@ function renderStarter(userId: number | null = 7) {
 }
 
 describe("useFocusStart", () => {
+  it("홈에서 고른 과목을 첫 가이드 state에 전달한다", async () => {
+    localStorage.clear();
+    const { result } = renderHook(() => ({ start: useFocusStart(7), location: useLocation() }), {
+      wrapper: ({ children }) => (
+        <MemoryRouter initialEntries={["/home?guestAuth=1"]}>{children}</MemoryRouter>
+      ),
+    });
+    await act(async () => {
+      await result.current.start("home", { subjectId: 9 });
+    });
+    expect(result.current.location.pathname).toBe("/session-guide");
+    expect(result.current.location.state).toEqual({ source: "home", initialSubjectId: 9 });
+  });
+  it("가이드 확인 뒤에는 홈 과목을 세션 시작과 브라우저 URL로 전달한다", async () => {
+    vi.mocked(requestSessionStart).mockImplementationOnce(async (_id, navigate) => {
+      navigate();
+      return "web";
+    });
+    const { result } = renderHook(() => ({ start: useFocusStart(7), location: useLocation() }), {
+      wrapper: ({ children }) => (
+        <MemoryRouter initialEntries={["/home?guestAuth=1&initialSubjectId=77"]}>
+          {children}
+        </MemoryRouter>
+      ),
+    });
+    await act(async () => {
+      await result.current.start("home", { subjectId: 9 });
+    });
+    expect(requestSessionStart).toHaveBeenCalledWith(7, expect.any(Function), { subjectId: 9 });
+    expect(new URLSearchParams(result.current.location.search).get("initialSubjectId")).toBe("9");
+  });
+  it("실패를 호출한 화면에 돌려주면서 기존 호출에는 처리되지 않은 reject를 남기지 않는다", async () => {
+    const error = new Error("unsupported");
+    vi.mocked(requestSessionStart).mockRejectedValueOnce(error);
+    const { result } = renderHook(() => useFocusStart(7), {
+      wrapper: ({ children }) => <MemoryRouter>{children}</MemoryRouter>,
+    });
+    let failure: unknown;
+    await act(async () => {
+      failure = await result.current("home", { subjectId: 9 });
+    });
+    expect(failure).toBe(error);
+  });
   it("가이드를 안 본 계정은 세션을 시작하지 않고 누른 자리를 들고 가이드로 간다", async () => {
     localStorage.clear();
     renderStarter();

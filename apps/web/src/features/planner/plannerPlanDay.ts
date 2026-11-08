@@ -1,11 +1,38 @@
 import type { PlannerDayResponse, PlannerRecordView } from "@focusmakers/types";
 import { plannerDayWindow, type PlannerDay, type PlannerPaint } from "./plannerDay";
+import { recordPieceMinutes } from "./recordMinutes";
 
 export function plannerRecordPaints(
   record: PlannerRecordView,
   window: { startMs: number; endMs: number },
 ): PlannerPaint[] {
   const paints: PlannerPaint[] = [];
+  if (record.pieces !== undefined) {
+    if (!Array.isArray(record.pieces)) return paints;
+    for (const minute of recordPieceMinutes(record.pieces, window)) {
+      const previous = paints.at(-1);
+      const kind = minute.subjectId === null ? "focus" : "subject";
+      if (
+        previous &&
+        previous.endMs === minute.startMs &&
+        previous.kind === kind &&
+        (previous.kind !== "subject" || previous.subjectId === minute.subjectId)
+      ) {
+        previous.endMs = minute.endMs;
+      } else {
+        paints.push({
+          startMs: minute.startMs,
+          endMs: minute.endMs,
+          manual: record.source === "MANUAL",
+          ...(record.edited ? { edited: true } : {}),
+          ...(minute.subjectId === null
+            ? { kind: "focus" }
+            : { kind: "subject", subjectId: minute.subjectId }),
+        });
+      }
+    }
+    return paints;
+  }
   const start = Math.max(window.startMs, Date.parse(record.startedAt));
   const end = Math.min(window.endMs, Date.parse(record.endedAt));
   const cuts = [
@@ -26,13 +53,17 @@ export function plannerRecordPaints(
     const segment = record.subjectSegments.find(
       (item) => Date.parse(item.startedAt) <= from && Date.parse(item.endedAt) >= to,
     );
-    const startMs = Math.max(window.startMs, Math.ceil(from / 60_000) * 60_000);
+    let startMs = Math.max(window.startMs, Math.ceil(from / 60_000) * 60_000);
     const endMs = Math.min(window.endMs, Math.ceil(to / 60_000) * 60_000);
+    // 원본의 양끝이 같은 분으로 올림되어도 실제 기록이 있던 1분 칸은 남긴다.
+    // 표시 영역만 넓히며 원본 시각·기록 길이·집계 값은 바꾸지 않는다.
+    if (to > from && startMs === endMs) startMs = Math.max(window.startMs, endMs - 60_000);
     if (endMs <= startMs) continue;
     paints.push({
       startMs,
       endMs,
       manual: record.source === "MANUAL",
+      ...(record.edited ? { edited: true } : {}),
       ...(segment
         ? { kind: "subject" as const, subjectId: segment.subjectId }
         : { kind: "focus" as const }),

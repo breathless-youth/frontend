@@ -375,7 +375,7 @@ describe("MonthCalendar", () => {
 
 /** 세션 행은 Accordion의 한 항목이다 — 펼침 여부는 Accordion의 값으로 준다. */
 function sessionRow(
-  data: Parameters<typeof SessionListItem>[0]["session"],
+  data: StudySessionSummary,
   {
     expanded = false,
     onToggle = vi.fn(),

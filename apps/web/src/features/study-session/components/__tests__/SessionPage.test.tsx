@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { SessionPage, SessionPageFooter } from "../SessionPage";
 import { SessionPageTimer } from "../SessionTimer";
+import { Drawer, DrawerContent, DrawerTitle, DrawerClose } from "@/components/ui/drawer";
 
 function renderPage(overrides: Partial<Parameters<typeof SessionPage>[0]> = {}) {
   const onOpenChange = vi.fn();
@@ -26,6 +27,46 @@ function renderPage(overrides: Partial<Parameters<typeof SessionPage>[0]> = {}) 
 }
 
 describe("SessionPage", () => {
+  it("과목 페이지 위 바텀시트의 입력·버튼·바깥 닫기는 동작하고 과목 페이지는 유지된다", async () => {
+    function Harness() {
+      const [page, setPage] = useState(true);
+      const [drawer, setDrawer] = useState(false);
+      return (
+        <SessionPage
+          open={page}
+          onOpenChange={setPage}
+          container={null}
+          returnFocus={() => null}
+          title="과목"
+          landscape={false}
+        >
+          <button onClick={() => setDrawer(true)}>과목 추가 열기</button>
+          <Drawer open={drawer} onOpenChange={setDrawer}>
+            <DrawerContent initialFocus={false} backdropClassName="session-test-backdrop">
+              <DrawerTitle>새 과목 만들기</DrawerTitle>
+              <input aria-label="새 과목 이름" />
+              <DrawerClose>닫기</DrawerClose>
+            </DrawerContent>
+          </Drawer>
+        </SessionPage>
+      );
+    }
+    render(<Harness />);
+    const page = screen.getByRole("dialog", { name: "과목" });
+    await userEvent.click(screen.getByRole("button", { name: "과목 추가 열기" }));
+    const input = screen.getByRole("textbox", { name: "새 과목 이름" });
+    await userEvent.type(input, "물리");
+    expect(input).toHaveValue("물리");
+    expect(input).toHaveFocus();
+    expect(page).toContainElement(input);
+    await userEvent.click(screen.getByRole("button", { name: "닫기" }));
+    expect(screen.queryByRole("dialog", { name: "새 과목 만들기" })).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "과목 추가 열기" }));
+    await userEvent.click(document.querySelector<HTMLElement>(".session-test-backdrop")!);
+    expect(screen.queryByRole("dialog", { name: "새 과목 만들기" })).toBeNull();
+    expect(screen.getByRole("dialog", { name: "과목" })).toBeVisible();
+  });
+
   it("제목이 대화상자 이름이고 aria-modal을 단다", () => {
     renderPage();
     expect(screen.getByRole("dialog", { name: "과목" })).toHaveAttribute("aria-modal", "true");

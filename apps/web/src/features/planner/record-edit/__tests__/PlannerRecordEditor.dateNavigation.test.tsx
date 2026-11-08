@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testi
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-import { plannerDay, plannerRecord } from "@/test/plannerFixtures";
+import { plannerDay, plannerRangeRecord as plannerRecord } from "@/test/plannerFixtures";
 import { PlannerRecordEditor } from "../PlannerRecordEditor";
 
 const request = vi.fn<typeof fetch>();
@@ -69,7 +69,8 @@ function renderEditor(userId?: number) {
 
 async function editRecord() {
   await userEvent.click(screen.getAllByRole("button", { name: /09:13.*09:29/ })[0]!);
-  fireEvent.change(screen.getByLabelText("끝"), { target: { value: "09:30" } });
+  fireEvent.click(screen.getByRole("button", { name: "과목 바꾸기" }));
+  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "과목 없음" }));
   await userEvent.click(screen.getByRole("button", { name: "완료" }));
 }
 
@@ -117,7 +118,7 @@ it("수정 중 날짜 이동을 취소하면 원래 날짜와 저장하지 않�
   expect(onDateChange).not.toHaveBeenCalled();
   await userEvent.click(within(dialog).getByRole("button", { name: "취소" }));
   expect(screen.getByText("11월 4일")).toBeInTheDocument();
-  expect(screen.getAllByRole("button", { name: /09:13.*09:30/ })).not.toHaveLength(0);
+  expect(screen.getAllByRole("button", { name: /09:13.*09:29/ })).not.toHaveLength(0);
   expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   expect(onClose).not.toHaveBeenCalled();
   expect(request).not.toHaveBeenCalled();
@@ -143,7 +144,7 @@ it("수정 중 같은 날짜를 다시 고르면 초안과 날짜를 바꾸거�
   await pickDate(/11월 4일/);
   expect(onDateChange).not.toHaveBeenCalled();
   expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
-  expect(screen.getAllByRole("button", { name: /09:13.*09:30/ })).not.toHaveLength(0);
+  expect(screen.getAllByRole("button", { name: /09:13.*09:29/ })).not.toHaveLength(0);
 });
 
 it("오늘까지 날짜를 고를 수 있고 미래 기록 날짜는 비활성화한다", async () => {
@@ -197,6 +198,7 @@ it("저장 결과가 불명확해도 날짜 이동 취소 후 원래 작업으�
         operationId: operation.operationId,
         success: true,
         key: "c:2026-11-04",
+        revision: 1,
         status: 200,
         code: null,
         message: null,

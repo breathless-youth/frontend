@@ -65,7 +65,9 @@ export function PlannerTimetable({
   const { t } = useTranslation("planner");
   const cells = plannerCellFills(day);
   const currentTime = plannerCurrentTime(day.dateKey, nowMs, day.timeZone);
-  const distribution = t("timetable.aria.distribution", { duration: formatDuration(day.focusSec) });
+  const distribution = t("timetable.aria.distribution", {
+    duration: formatDuration(day.focusSec),
+  });
   const bundles =
     onEditBundle === undefined
       ? []

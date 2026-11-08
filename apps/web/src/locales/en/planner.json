@@ -155,7 +155,7 @@
     "boundary": "Load the full time range before editing this record",
     "changeSubject": "Change subject",
     "save": "Save",
-    "hint": "Hold and drag an empty area to add a record; drag the ends to edit",
+    "hint": "Hold an empty space to add a record, or select minutes to edit",
     "grid": "Record editing grid",
     "saveFailed": "Some records couldn’t be saved. Try again",
     "leaveTitle": "Leave without saving?",
@@ -167,7 +167,9 @@
       "boundary": "Load the full time range before editing this record",
       "subject-required": "First choose a subject for the entire record",
       "subject-time-required": "This record’s subject can’t be changed on its own",
-      "ambiguous-time": "This time occurs twice. Choose a different time"
+      "ambiguous-time": "This time occurs twice. Choose a different time",
+      "unavailable": "Reload the latest record to edit by minute",
+      "range-limit": "You can edit up to 100 ranges per record at once"
     },
     "subjectScopeWarning": "Your selection applies to the entire record, including time outside this view.",
     "chooseSubject": "Which subject did you study?",
@@ -178,7 +180,18 @@
     "list": "Records",
     "noSpace": "There is no free time to add a record",
     "new": "New record",
-    "closePanel": "Close record panel"
+    "closePanel": "Close record panel",
+    "saveFailures": {
+      "unconfirmed": "Could not confirm whether your records were saved. Try again.",
+      "conflict": "Your changes conflict with another record. Check the times and subjects.",
+      "invalid": "Check the times and subjects for your records.",
+      "missing": "A record or subject could not be found. Reopen this screen.",
+      "server": "The server could not save your records. Try again shortly.",
+      "stale": "This record changed elsewhere and was reloaded. Select the range again."
+    },
+    "edited": "Edited",
+    "multipleSubjects": "Multiple subjects",
+    "unavailable": "Reload the latest record to edit by minute"
   },
   "week": {
     "prev": "Previous week",

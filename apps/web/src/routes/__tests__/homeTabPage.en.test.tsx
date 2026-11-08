@@ -1,12 +1,24 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type * as TokenSourceModule from "@/lib/auth/tokenSource";
 import type { TokenSource } from "@/lib/auth/tokenSource";
 import i18n from "@/lib/i18n";
 import { HomeTabPage } from "@/routes/HomeTabPage";
+import { homeMission } from "@/test/homeMissionFixtures";
+import { plannerDay } from "@/test/plannerFixtures";
+
+vi.mock("@/lib/profileApi", () => ({ updateProfile: vi.fn(async () => ({})) }));
+vi.mock("@/lib/homeMissionApi", () => ({
+  getHomeMission: vi.fn(async () => homeMission(0, 0, false)),
+}));
+vi.mock("@/lib/plannerApi", () => ({
+  getPlannerDay: vi.fn(async () => plannerDay()),
+  getPlannerCarryover: vi.fn(async () => []),
+}));
+vi.mock("@/lib/subjectApi", () => ({ listSubjects: vi.fn(async () => []) }));
 
 vi.mock("@/features/study-session/closeStaleSession", () => ({
   closeStaleSession: vi.fn(() => Promise.resolve(null)),
@@ -52,7 +64,8 @@ vi.mock("@/lib/auth/tokenSource", async (importOriginal) => ({
   getTokenSource: () =>
     ({
       getUserId: () => 7,
-      getAccessToken: () => "token",
+      getAccessToken: async () => "token",
+      getCurrentToken: () => "token",
       hasSettled: () => true,
       subscribe: () => () => {},
     }) as unknown as TokenSource,
@@ -73,6 +86,9 @@ afterEach(async () => {
 });
 
 describe("홈 영어 화면", () => {
+  beforeAll(async () => {
+    await import("@/features/home-v3/HomeV3Entry");
+  });
   it("영어로 바꾸면 홈 탭에 한글이 남지 않는다", async () => {
     await i18n.changeLanguage("en");
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

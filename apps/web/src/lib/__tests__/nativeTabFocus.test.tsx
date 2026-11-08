@@ -43,6 +43,43 @@ describe("initNativeTabFocus", () => {
     expect(focusManager.isFocused()).toBe(true);
   });
 
+  it("앱 복귀가 백그라운드의 낡은 통계를 다시 조회하고 숨겨진 탭을 드러내지 않는다", async () => {
+    vi.useFakeTimers();
+    initNativeTabFocus();
+    const queryFn = vi.fn().mockResolvedValue({ focusSec: 120 });
+    const client = new QueryClient({
+      defaultOptions: { queries: { staleTime: 30_000, retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    renderHook(() => useQuery({ queryKey: ["foreground-stat"], queryFn }), { wrapper });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    const appVisibility = (visible: boolean) =>
+      Reflect.get(
+        globalThis,
+        NATIVE_MESSAGE_ENTRY,
+      )?.(JSON.stringify({ type: "app-visibility", visible, atMs: 1 }));
+    act(() => appVisibility(false));
+    expect(focusManager.isFocused()).toBe(false);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(31_000);
+    });
+    queryFn.mockResolvedValue({ focusSec: 0 });
+    act(() => appVisibility(true));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(client.getQueryData(["foreground-stat"])).toEqual({ focusSec: 0 });
+    act(() => emit(false));
+    act(() => appVisibility(false));
+    act(() => appVisibility(true));
+    expect(focusManager.isFocused()).toBe(false);
+    client.clear();
+  });
+
   it("tab-focus에 따라 보임이 바뀐다", () => {
     initNativeTabFocus();
 

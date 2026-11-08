@@ -67,7 +67,10 @@ export function recordRowRects(span: { startMs: number; endMs: number }, timeZon
     endMs: number;
     startsBlock: boolean;
   }[] = [];
-  let from = span.startMs;
+  // 분 올림으로 점이 된 짧은 기록도 선택 표시와 손잡이가 보이도록 직전 1분을 쓴다.
+  // 입력 구간 자체는 바꾸지 않으며 역전된 구간은 여전히 빈 배열이다.
+  const visualStart = span.startMs === span.endMs ? span.endMs - MINUTE : span.startMs;
+  let from = visualStart;
   while (from < span.endMs) {
     const time = localTimeOfDayMs(from, timeZone),
       offset = time % HOUR,
@@ -78,9 +81,27 @@ export function recordRowRects(span: { startMs: number; endMs: number }, timeZon
       width: (to - from) / HOUR,
       startMs: from,
       endMs: to,
-      startsBlock: from === span.startMs,
+      startsBlock: from === visualStart,
     });
     from = to;
   }
   return rects;
+}
+
+/** 원래 짧은 기록과 날짜 창에서 잘려 없어진 구간을 구분한다. */
+export function recordWindowRects(
+  span: { startMs: number; endMs: number },
+  window: { startMs: number; endMs: number },
+  timeZone: string,
+) {
+  if (span.startMs === span.endMs) {
+    return span.endMs > window.startMs && span.endMs <= window.endMs
+      ? recordRowRects(span, timeZone)
+      : [];
+  }
+  const clipped = {
+    startMs: Math.max(span.startMs, window.startMs),
+    endMs: Math.min(span.endMs, window.endMs),
+  };
+  return clipped.startMs < clipped.endMs ? recordRowRects(clipped, timeZone) : [];
 }

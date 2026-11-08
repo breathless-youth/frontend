@@ -2,8 +2,14 @@ import type {
   PlannerDayResponse,
   PlannerRecordOperation,
   PlannerRecordView,
+  PlannerRecordRange,
+  PlannerRecordPiece,
 } from "@focusmakers/types";
 import { plannerDayWindow } from "../plannerDay";
+import { recordTimeOrder } from "../recordTime";
+import { applyRecordRanges, normalizeRecordRanges, supportsRecordRanges } from "./recordRanges";
+import { RecordDraftError } from "./recordError";
+export { RecordDraftError, type RecordDraftErrorCode } from "./recordError";
 export interface RecordDraftState {
   dateKey: string;
   timeZone: string;
@@ -24,24 +30,84 @@ export interface RecordDraftBlock {
   subjectScopeUnknown?: boolean;
   locked: boolean;
   subjectChanged: boolean;
+  edited?: boolean;
   preciseStartedAt?: string;
   preciseEndedAt?: string;
   original?: PlannerRecordView;
+  ranges?: PlannerRecordRange[];
 }
-export type RecordDraftErrorCode =
-  | "range"
-  | "future"
-  | "overlap"
-  | "boundary"
-  | "subject-required"
-  | "subject-time-required"
-  | "ambiguous-time";
-export class RecordDraftError extends Error {
-  readonly code: RecordDraftErrorCode;
-  constructor(code: RecordDraftErrorCode) {
-    super(code);
-    this.code = code;
+
+export function recordDraftPieces(block: RecordDraftBlock): PlannerRecordPiece[] | undefined {
+  return block.original?.pieces === undefined
+    ? undefined
+    : Array.isArray(block.original.pieces)
+      ? applyRecordRanges(block.original.pieces, block.ranges ?? [])
+      : [];
+}
+
+export function stageRecordRange(
+  draft: RecordDraftState,
+  id: string,
+  range: PlannerRecordRange,
+): RecordDraftState {
+  const block = draft.blocks.find((value) => value.id === id);
+  if (!block?.key || !supportsRecordRanges(block.original))
+    throw new RecordDraftError("unavailable");
+  // 이미 삭제해 화면에서 사라진 분은 범위를 넓혀 과목을 칠해도 복구하지 않는다.
+  let changes = [range];
+  if (range.change === "SUBJECT") {
+    for (const deleted of block.ranges?.filter((value) => value.change === "DELETE") ?? []) {
+      changes = changes.flatMap((value) => {
+        if (
+          Date.parse(value.endedAt) <= Date.parse(deleted.startedAt) ||
+          Date.parse(value.startedAt) >= Date.parse(deleted.endedAt)
+        )
+          return [value];
+        return [
+          ...(Date.parse(value.startedAt) < Date.parse(deleted.startedAt)
+            ? [{ ...value, endedAt: deleted.startedAt }]
+            : []),
+          ...(Date.parse(value.endedAt) > Date.parse(deleted.endedAt)
+            ? [{ ...value, startedAt: deleted.endedAt }]
+            : []),
+        ];
+      });
+    }
   }
+  const ranges = normalizeRecordRanges(
+    [...(block.ranges ?? []), ...changes],
+    block.original!.pieces!,
+  );
+  const start = recordTimeOrder(range.startedAt, 0),
+    end = recordTimeOrder(range.endedAt, 0);
+  if (
+    Date.parse(range.startedAt) < draft.startMs ||
+    Date.parse(range.endedAt) > draft.endMs ||
+    !recordDraftPieces(block)!.some(
+      (piece) =>
+        recordTimeOrder(piece.startedAt, 0) < end && recordTimeOrder(piece.endedAt, 0) > start,
+    )
+  )
+    throw new RecordDraftError("range");
+  return {
+    ...draft,
+    blocks: draft.blocks.map((value) => (value.id === id ? { ...value, ranges } : value)),
+  };
+}
+
+function occupiedSpans(draft: RecordDraftState, block: RecordDraftBlock) {
+  const pieces = recordDraftPieces(block);
+  return pieces
+    ? pieces.map((piece) => ({
+        start: recordTimeOrder(piece.startedAt, 0),
+        end: recordTimeOrder(piece.endedAt, 0),
+      }))
+    : [
+        {
+          start: recordBlockTimeOrder(draft, block, "start"),
+          end: recordBlockTimeOrder(draft, block, "end"),
+        },
+      ];
 }
 export function createRecordDraft(day: PlannerDayResponse): RecordDraftState {
   const window = plannerDayWindow(day.date, day.timeZone);
@@ -86,6 +152,7 @@ export function createRecordDraft(day: PlannerDayResponse): RecordDraftState {
         (Date.parse(record.startedAt) <= window.startMs ||
           Date.parse(record.endedAt) >= window.endMs),
       subjectChanged: false,
+      edited: record.edited ?? false,
       preciseStartedAt: hasFull ? fullStart : record.startedAt,
       preciseEndedAt: hasFull ? fullEnd : record.endedAt,
       original: record,
@@ -102,17 +169,13 @@ export function createRecordDraft(day: PlannerDayResponse): RecordDraftState {
 export interface RecordDraftOperation extends PlannerRecordOperation {
   blockId: string;
 }
-/** 표시 시각의 분 올림과 별개로, 손대지 않은 시간 길이는 원본 초에서 한 번만 올림한다. */
+/** 칠한 분과 별개로 실제 길이를 초까지 표시한다. 손대지 않은 경계는 원본 정밀도를 쓴다. */
 export function recordDraftDurationSec(block: RecordDraftBlock): number {
-  const start = block.preciseStartedAt;
-  const end = block.preciseEndedAt;
-  const unchanged =
-    start &&
-    end &&
-    block.startMs === Math.ceil(Date.parse(start) / 60000) * 60000 &&
-    block.endMs === Math.ceil(Date.parse(end) / 60000) * 60000;
-  const span = unchanged ? Date.parse(end) - Date.parse(start) : block.endMs - block.startMs;
-  return Math.ceil(span / 60000) * 60;
+  const edgeTime = (iso: string | undefined, ms: number) =>
+    recordTimeOrder(iso && ms === Math.ceil(Date.parse(iso) / 60000) * 60000 ? iso : undefined, ms);
+  const span =
+    edgeTime(block.preciseEndedAt, block.endMs) - edgeTime(block.preciseStartedAt, block.startMs);
+  return span > 0n ? Number((span + 999_999_999n) / 1_000_000_000n) : 0;
 }
 /** 포인터를 쓰지 않는 추가 경로도 기존 검증을 통과할 수 있는 첫 1분을 고른다. */
 export function firstRecordDraftMinute(
@@ -120,11 +183,17 @@ export function firstRecordDraftMinute(
   nowMs: number,
 ): { startMs: number; endMs: number } | null {
   const until = Math.min(draft.endMs, Math.floor(nowMs / 60000) * 60000);
+  const minuteTicks = 60_000_000_000n;
+  const occupied = draft.blocks
+    .flatMap((block) => occupiedSpans(draft, block))
+    .filter((span) => span.end > span.start)
+    .sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
   let startMs = draft.startMs;
-  for (const block of draft.blocks.toSorted((a, b) => a.startMs - b.startMs)) {
-    if (startMs + 60000 <= Math.min(block.startMs, until))
+  for (const span of occupied) {
+    if (startMs + 60000 <= until && recordTimeOrder(undefined, startMs + 60000) <= span.start)
       return { startMs, endMs: startMs + 60000 };
-    startMs = Math.max(startMs, block.endMs);
+    const endMinute = span.end / minuteTicks + (span.end % minuteTicks > 0n ? 1n : 0n);
+    startMs = Math.max(startMs, Number(endMinute) * 60000);
   }
   return startMs + 60000 <= until ? { startMs, endMs: startMs + 60000 } : null;
 }
@@ -140,6 +209,19 @@ export function recordDraftOperations(draft: RecordDraftState): RecordDraftOpera
       });
   for (const block of draft.blocks) {
     const original = draft.baseline.get(block.id);
+    if (block.ranges?.length) {
+      if (!block.key || !supportsRecordRanges(block.original))
+        throw new RecordDraftError("unavailable");
+      operations.push({
+        blockId: block.id,
+        operationId: crypto.randomUUID(),
+        action: "EDIT_RANGES",
+        key: block.key,
+        revision: block.original!.revision!,
+        ranges: normalizeRecordRanges(block.ranges, block.original!.pieces!),
+      });
+      continue;
+    }
     if (
       original &&
       original.startMs === block.startMs &&
@@ -172,7 +254,60 @@ export function recordDraftOperations(draft: RecordDraftState): RecordDraftOpera
       timeZone: draft.timeZone,
     });
   }
-  return operations;
+  return orderRecordOperations(operations, draft);
+}
+
+/** 서버는 각 작업을 따로 검증하므로 다른 기록의 원래 구간을 먼저 비운다. */
+function orderRecordOperations(
+  operations: RecordDraftOperation[],
+  draft: RecordDraftState,
+): RecordDraftOperation[] {
+  const remaining = [...operations];
+  const ordered: RecordDraftOperation[] = [];
+  const dependencies = new Map(
+    operations.map((operation) => {
+      return [
+        operation,
+        operation.action === "DELETE" || operation.action === "EDIT_RANGES"
+          ? []
+          : operations.filter((other) => {
+              if (other.blockId === operation.blockId) return false;
+              const occupied = draft.baseline.get(other.blockId);
+              if (!occupied) return false;
+              const final = draft.blocks.find((block) => block.id === operation.blockId)!;
+              const before = draft.baseline.get(operation.blockId);
+              const start = recordTimeOrder(
+                operation.startedAt ?? before?.preciseStartedAt,
+                final.startMs,
+              );
+              const end = recordTimeOrder(operation.endedAt ?? before?.preciseEndedAt, final.endMs);
+              const occupiedStart = recordTimeOrder(occupied.preciseStartedAt, occupied.startMs);
+              const occupiedEnd = recordTimeOrder(occupied.preciseEndedAt, occupied.endMs);
+              return occupiedStart < end && occupiedEnd > start;
+            }),
+      ] as const;
+    }),
+  );
+  while (remaining.length > 0) {
+    const index = remaining.findIndex((operation) =>
+      dependencies.get(operation)!.every((dependency) => !remaining.includes(dependency)),
+    );
+    // 서로 자리를 맞바꾸는 순환은 순서만으로 풀 수 없다. 기존 부분 성공 계약을 유지한다.
+    if (index === -1) return [...ordered, ...remaining];
+    ordered.push(remaining.splice(index, 1)[0]!);
+  }
+  return ordered;
+}
+/** 화면에 올림한 경계가 아니라 다음 저장 요청이 실제로 보내는 경계를 비교한다. */
+function recordBlockTimeOrder(
+  draft: RecordDraftState,
+  block: Pick<RecordDraftBlock, "id" | "startMs" | "endMs">,
+  edge: "start" | "end",
+): bigint {
+  const before = draft.baseline.get(block.id);
+  const field = edge === "start" ? "startMs" : "endMs";
+  const precise = edge === "start" ? before?.preciseStartedAt : before?.preciseEndedAt;
+  return recordTimeOrder(before?.[field] === block[field] ? precise : undefined, block[field]);
 }
 function checkedSpan(
   draft: RecordDraftState,
@@ -185,27 +320,25 @@ function checkedSpan(
     startMs: Math.ceil(block.startMs / 60000) * 60000,
     endMs: Math.ceil(block.endMs / 60000) * 60000,
   };
-  const actualStart =
-    original?.startMs === span.startMs && original.preciseStartedAt
-      ? Date.parse(original.preciseStartedAt)
-      : span.startMs;
-  const actualEnd =
-    original?.endMs === span.endMs && original.preciseEndedAt
-      ? Date.parse(original.preciseEndedAt)
-      : span.endMs;
   if (
     !Number.isFinite(span.startMs) ||
     !Number.isFinite(span.endMs) ||
     (span.startMs < draft.startMs && !(original && original.startMs < draft.startMs)) ||
-    (span.endMs > draft.endMs && !(original && original.endMs > draft.endMs)) ||
-    actualEnd - actualStart < 60000 ||
-    actualEnd - actualStart > 86400000
+    (span.endMs > draft.endMs && !(original && original.endMs > draft.endMs))
   )
     throw new RecordDraftError("range");
-  if (actualEnd > nowMs) throw new RecordDraftError("future");
+  const actualStart = recordBlockTimeOrder(draft, span, "start");
+  const actualEnd = recordBlockTimeOrder(draft, span, "end");
+  if (actualEnd - actualStart < 60_000_000_000n || actualEnd - actualStart > 86_400_000_000_000n)
+    throw new RecordDraftError("range");
+  if (actualEnd > recordTimeOrder(undefined, nowMs)) throw new RecordDraftError("future");
   if (
     draft.blocks.some(
-      (other) => other.id !== span.id && other.startMs < span.endMs && other.endMs > span.startMs,
+      (other) =>
+        other.id !== span.id &&
+        occupiedSpans(draft, other).some(
+          (span) => span.start < actualEnd && span.end > actualStart,
+        ),
     )
   )
     throw new RecordDraftError("overlap");
@@ -230,6 +363,7 @@ export function addRecordDraft(
         mixed: false,
         locked: false,
         subjectChanged: true,
+        edited: true,
       },
     ],
   };

@@ -63,17 +63,19 @@ function Probe() {
 function renderHost({
   ready = true,
   blocked = false,
+  deferred = false,
   strict = false,
 }: {
   ready?: boolean;
   blocked?: boolean;
+  deferred?: boolean;
   strict?: boolean;
 } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const onOpenChange = vi.fn();
   const onSettled = vi.fn();
   const wrap = (children: ReactNode) => (strict ? <StrictMode>{children}</StrictMode> : children);
-  const tree = (isReady: boolean, isBlocked: boolean) =>
+  const tree = (isReady: boolean, isBlocked: boolean, isDeferred: boolean) =>
     wrap(
       <QueryClientProvider client={client}>
         <MemoryRouter initialEntries={["/home?userId=7"]}>
@@ -85,6 +87,7 @@ function renderHost({
                   userId={7}
                   ready={isReady}
                   blocked={isBlocked}
+                  deferred={isDeferred}
                   onOpenChange={onOpenChange}
                   onSettled={onSettled}
                 />
@@ -96,11 +99,11 @@ function renderHost({
         </MemoryRouter>
       </QueryClientProvider>,
     );
-  let current = { ready, blocked };
-  const view = render(tree(ready, blocked));
+  let current = { ready, blocked, deferred };
+  const view = render(tree(ready, blocked, deferred));
   const update = (next: Partial<typeof current>) => {
     current = { ...current, ...next };
-    view.rerender(tree(current.ready, current.blocked));
+    view.rerender(tree(current.ready, current.blocked, current.deferred));
   };
   return {
     ...view,
@@ -108,6 +111,7 @@ function renderHost({
     onSettled,
     setReady: (next: boolean) => update({ ready: next }),
     setBlocked: (next: boolean) => update({ blocked: next }),
+    setDeferred: (next: boolean) => update({ deferred: next }),
   };
 }
 
@@ -124,6 +128,15 @@ async function settle() {
 }
 
 describe("HomeRankingPopupHost: 메달 모달", () => {
+  it("홈 편집기를 닫으면 미뤄 둔 메달을 다시 판단한다", async () => {
+    window.history.replaceState(null, "", "/home?rankingTab=1");
+    rankingApi.getRankingRecordsUnseen.mockResolvedValue(FIXTURE_UNSEEN_ONE);
+    const view = renderHost({ deferred: true });
+    expect(rankingApi.getRankingRecordsUnseen).not.toHaveBeenCalled();
+    view.setDeferred(false);
+    await waitFor(() => expect(rankingApi.postRankingRecordsSeen).toHaveBeenCalled());
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
   it("준비되기 전에는 묻지 않고, 준비되면 한 번 판단한다", async () => {
     const view = renderHost({ ready: false });
     await act(async () => {
