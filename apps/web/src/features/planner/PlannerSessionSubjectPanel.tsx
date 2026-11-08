@@ -23,6 +23,7 @@ import { subjectColorVar } from "@/features/records/recordsTimetable";
 import { liveSubjectTime } from "@/features/study-session/subjectSegments";
 import {
   SWIPE_REMOVE_PX,
+  subjectIdUnderPoint,
   usePressGestures,
   useSubjectReorder,
 } from "@/features/study-session/subjectInteractions";
@@ -30,6 +31,7 @@ import { lazyWithPreload } from "@/lib/lazyWithPreload";
 import { plannerKeys } from "@/lib/plannerQueries";
 import { createSubject, renameSubject, deleteSubject } from "@/lib/subjectApi";
 import { cn } from "@/lib/utils";
+import { SessionSubjectDrag } from "./SessionSubjectDrag";
 import { usePlannerClock } from "./usePlannerClock";
 import { usePlannerPlan } from "./usePlannerPlan";
 import { usePlannerPlanMutation } from "./usePlannerPlanMutation";
@@ -65,11 +67,14 @@ export function PlannerSessionSubjectPanel({
   const [menu, setMenu] = useState<number | null>(null);
   const [deleting, setDeleting] = useState<PlannerDaySubject | null>(null);
   const [globalPending, setGlobalPending] = useState(false);
-  const [reorderMode, setReorderMode] = useState(false);
   const [order, setOrder] = useState<number[] | null>(null);
   const [viewedId, setViewedId] = useState<number | null>(null);
   const busy = useRef(false);
   const orderRef = useRef<number[] | null>(null);
+  const initialOrder = useRef<number[]>([]);
+  const cancelled = useRef(false);
+  const validDrop = useRef(true);
+  const listRef = useRef<HTMLDivElement>(null);
   const today = state.plan?.subjects ?? [];
   const included = new Set(today.map((value) => value.id));
   const others: PlannerDaySubject[] = store.subjects
@@ -82,8 +87,6 @@ export function PlannerSessionSubjectPanel({
       studySec: 0,
       focusSec: 0,
     }));
-  const displayed =
-    order === null ? today : order.flatMap((id) => today.filter((value) => value.id === id));
   const all = [...today, ...others];
   const viewed =
     all.find((value) => value.id === viewedId) ??
@@ -110,7 +113,10 @@ export function PlannerSessionSubjectPanel({
   }
   const reorder = useSubjectReorder({
     startReorder() {
+      cancelled.current = false;
+      validDrop.current = true;
       orderRef.current = today.map((value) => value.id);
+      initialOrder.current = orderRef.current;
       setOrder(orderRef.current);
     },
     reorderSubject(id, over) {
@@ -129,13 +135,23 @@ export function PlannerSessionSubjectPanel({
       const ids = orderRef.current;
       orderRef.current = null;
       try {
-        if (ids)
+        if (!cancelled.current && ids?.some((id, index) => id !== initialOrder.current[index]))
           await run({ kind: "reorderSubjects", date: clock.todayKey, body: { subjectIds: ids } });
       } finally {
         setOrder(null);
       }
     },
   });
+  function addTask() {
+    const value = landscape ? viewed : all.find((item) => item.id === selection);
+    if (value && value.tasks.length >= 30) {
+      onNotice(t("study-session:subjectSheet.taskLimit"));
+      return;
+    }
+    setSubject(value && !value.deleted ? value : null);
+    setTask(null);
+    setSheet("addTask");
+  }
   function play(value: PlannerDaySubject) {
     if (busy.current || pending) return;
     const selected = () => {
@@ -190,9 +206,52 @@ export function PlannerSessionSubjectPanel({
   }
   function row(value: PlannerDaySubject, other = false) {
     return (
-      <div
+      <SessionSubjectDrag
         key={value.id}
-        data-subject-id={value.id}
+        subjectId={value.id}
+        order={
+          other
+            ? undefined
+            : (order?.indexOf(value.id) ?? today.findIndex((item) => item.id === value.id))
+        }
+        disabled={pending || other}
+        lifted={reorder.reorderingId === value.id}
+        onMenu={() => setMenu(value.id)}
+        onDragStart={() => {
+          setMenu(null);
+          reorder.start(value.id);
+        }}
+        onDragMove={(x, y) => {
+          validDrop.current =
+            document.elementFromPoint(x, y)?.closest("[data-session-subject-list]") ===
+            listRef.current;
+          const over = subjectIdUnderPoint(x, y, value.id);
+          const current = orderRef.current;
+          if (over === null || !current || !validDrop.current) {
+            reorder.over(value.id, null);
+            return;
+          }
+          const target = listRef.current?.querySelector<HTMLElement>(`[data-subject-id="${over}"]`);
+          if (!target) return;
+          const rect = target.getBoundingClientRect();
+          const from = current.indexOf(value.id),
+            to = current.indexOf(over);
+          if (
+            (from < to && y < rect.top + rect.height / 2) ||
+            (from > to && y > rect.top + rect.height / 2)
+          )
+            return;
+          reorder.over(value.id, null);
+          reorder.over(value.id, over);
+        }}
+        onDragEnd={() => {
+          if (!validDrop.current) cancelled.current = true;
+          reorder.end();
+        }}
+        onDragCancel={() => {
+          cancelled.current = true;
+          reorder.end();
+        }}
         className={cn(
           other && !landscape
             ? "relative border-t border-(--session-sheet-line) px-3.5 first:border-t-0"
@@ -202,39 +261,42 @@ export function PlannerSessionSubjectPanel({
             "shadow-[inset_0_0_0_1.5px_var(--session-sheet-selected-card-ring)]",
         )}
       >
-        {landscape || (reorderMode && !other) ? (
-          <SubjectRow
-            layout={landscape || other ? "row" : "card"}
-            subject={value}
-            focusSec={value.focusSec + liveSubjectTime(liveTotals, value.id).focusSec}
-            selected={selection === value.id}
-            running={selection === value.id && !paused}
-            reorderMode={reorderMode && !other}
-            viewing={landscape && viewed?.id === value.id}
-            onTap={landscape ? () => setViewedId(value.id) : undefined}
-            onPlay={() => play(value)}
-            onDeselect={() => onSelect(null)}
-            onLongPress={() => {
-              if (!pending) setMenu(value.id);
-            }}
-            onReorderStart={() => reorder.start(value.id)}
-            onReorderOver={(id) => reorder.over(value.id, id)}
-            onReorderEnd={reorder.end}
-          />
-        ) : (
-          <SessionPlanSubjectHead
-            subject={value}
-            focusSec={value.focusSec + liveSubjectTime(liveTotals, value.id).focusSec}
-            other={other}
-            running={selection === value.id && !paused}
-            disabled={pending}
-            onPlay={() => play(value)}
-            onDeselect={() => onSelect(null)}
-            onLongPress={() => setMenu(value.id)}
-          />
-        )}
+        <div data-session-subject-head="">
+          {landscape ? (
+            <SubjectRow
+              layout={landscape || other ? "row" : "card"}
+              subject={value}
+              focusSec={value.focusSec + liveSubjectTime(liveTotals, value.id).focusSec}
+              selected={selection === value.id}
+              running={selection === value.id && !paused}
+              reorderMode={false}
+              viewing={landscape && viewed?.id === value.id}
+              onTap={landscape ? () => setViewedId(value.id) : undefined}
+              onPlay={() => play(value)}
+              onDeselect={() => onSelect(null)}
+              onLongPress={() => {
+                if (!pending) setMenu(value.id);
+              }}
+              onReorderStart={() => reorder.start(value.id)}
+              onReorderOver={(id) => reorder.over(value.id, id)}
+              onReorderEnd={reorder.end}
+            />
+          ) : (
+            <SessionPlanSubjectHead
+              subject={value}
+              focusSec={value.focusSec + liveSubjectTime(liveTotals, value.id).focusSec}
+              other={other}
+              running={selection === value.id && !paused}
+              disabled={pending}
+              onPlay={() => play(value)}
+              onDeselect={() => onSelect(null)}
+              onLongPress={() => setMenu(value.id)}
+            />
+          )}
+        </div>
         {menu === value.id && (
           <DropdownMenu
+            modal={false}
             open
             onOpenChange={(open) => {
               if (!open) setMenu(null);
@@ -245,21 +307,6 @@ export function PlannerSessionSubjectPanel({
               className="theme-dark"
               onCloseAutoFocus={(event) => event.preventDefault()}
             >
-              {!value.deleted && (
-                <DropdownMenuItem
-                  onSelect={() => {
-                    if (value.tasks.length >= 30) {
-                      onNotice(t("study-session:subjectSheet.taskLimit"));
-                      return;
-                    }
-                    setSubject(value);
-                    setTask(null);
-                    setSheet("addTask");
-                  }}
-                >
-                  {t("plan.addTask")}
-                </DropdownMenuItem>
-              )}
               <DropdownMenuItem
                 onSelect={() => {
                   setSubject(value);
@@ -286,8 +333,8 @@ export function PlannerSessionSubjectPanel({
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-        {!landscape && !other && !reorderMode && tasks(value)}
-      </div>
+        {!landscape && !other && tasks(value)}
+      </SessionSubjectDrag>
     );
   }
   return (
@@ -308,7 +355,9 @@ export function PlannerSessionSubjectPanel({
               <h2 className="text-[13px] leading-4.5 font-semibold text-muted-foreground">
                 {t("studyStart.todaySubjects")}
               </h2>
-              {displayed.map((value) => row(value))}
+              <div ref={listRef} data-session-subject-list="" className="flex flex-col gap-2.5">
+                {today.map((value) => row(value))}
+              </div>
             </section>
           )}
           {others.length > 0 && (
@@ -348,13 +397,9 @@ export function PlannerSessionSubjectPanel({
                 variant="unstyled"
                 className="h-12 flex-1 rounded-[14px] bg-(--session-sheet-surface) text-[15px] leading-5.5 font-semibold text-foreground"
                 disabled={pending}
-                onClick={() => setReorderMode((value) => !value)}
+                onClick={addTask}
               >
-                {t(
-                  reorderMode
-                    ? "study-session:subjectSheet.done"
-                    : "study-session:subjectSheet.reorder",
-                )}
+                {t("plan.addTask")}
               </Button>
               <Button
                 variant="unstyled"
@@ -370,16 +415,8 @@ export function PlannerSessionSubjectPanel({
         leading={
           landscape && (
             <div className="flex w-full gap-2">
-              <Button
-                variant="subtle"
-                disabled={pending}
-                onClick={() => setReorderMode((value) => !value)}
-              >
-                {t(
-                  reorderMode
-                    ? "study-session:subjectSheet.done"
-                    : "study-session:subjectSheet.reorder",
-                )}
+              <Button variant="subtle" disabled={pending} onClick={addTask}>
+                {t("plan.addTask")}
               </Button>
               <Button variant="subtle" disabled={pending} onClick={() => setSheet("subjects")}>
                 + {t("subjectSheet.title")}
