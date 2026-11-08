@@ -31,6 +31,7 @@ export function RecordBlockSheet({
   onError,
   durationSec = recordDraftDurationSec(block),
   readOnlyReason,
+  timeEdit,
 }: {
   block: RecordDraftBlock;
   dateKey: string;
@@ -51,6 +52,7 @@ export function RecordBlockSheet({
   onError: (code: RecordDraftError["code"]) => void;
   durationSec?: number;
   readOnlyReason?: string;
+  timeEdit?: { active: boolean; available: boolean; blockedReason: string; onStart: () => void };
 }) {
   const { t } = useTranslation(["planner", "records"]);
   const color = colorIndex === undefined ? "var(--primary)" : subjectColorVar(colorIndex);
@@ -139,6 +141,27 @@ export function RecordBlockSheet({
         <span aria-hidden className="h-1 w-9 rounded-full bg-border-strong" />
       </button>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-clip [@media(max-height:500px)]:overflow-y-auto [@media(max-height:500px)]:overscroll-contain">
+        {timeEdit && (
+          <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span>{t(timeEdit.active ? "record.timeMode" : "record.rangeMode")}</span>
+            {!timeEdit.active && (
+              <Button
+                variant="secondary"
+                className="h-9 px-3 text-xs"
+                disabled={disabled || !timeEdit.available}
+                onClick={timeEdit.onStart}
+              >
+                {t("record.editTime")}
+              </Button>
+            )}
+          </div>
+        )}
+        {timeEdit && !timeEdit.active && !timeEdit.available && (
+          <p className="text-xs text-muted-foreground">{timeEdit.blockedReason}</p>
+        )}
+        {timeEdit?.active && (
+          <p className="text-xs text-muted-foreground">{t("record.timeSaveHint")}</p>
+        )}
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 flex-col gap-1">
             <div className="flex items-center gap-1.5 text-[13px] leading-4.5 font-semibold text-muted-foreground">
@@ -171,15 +194,17 @@ export function RecordBlockSheet({
               </span>
             </div>
           </div>
-          <Button
-            variant="unstyled"
-            aria-label={t("record.delete")}
-            disabled={disabled || block.locked}
-            onClick={onDelete}
-            className="mt-0.5 size-11 shrink-0 rounded-full bg-feedback-danger/10 p-0 text-feedback-danger"
-          >
-            <Trash2 aria-hidden size={20} />
-          </Button>
+          {!timeEdit?.active && (
+            <Button
+              variant="unstyled"
+              aria-label={t("record.delete")}
+              disabled={disabled || block.locked}
+              onClick={onDelete}
+              className="mt-0.5 size-11 shrink-0 rounded-full bg-feedback-danger/10 p-0 text-feedback-danger"
+            >
+              <Trash2 aria-hidden size={20} />
+            </Button>
+          )}
         </div>
         <div
           id={timesId}
@@ -216,14 +241,16 @@ export function RecordBlockSheet({
         )}
       </div>
       <div className="flex shrink-0 gap-2 pt-4 pb-[max(30px,env(safe-area-inset-bottom))]">
-        <Button
-          variant="secondary"
-          disabled={disabled || block.locked}
-          onClick={() => onSubject((subjectId) => applyTimes(times, subjectId))}
-          className="h-13 flex-1 rounded-lg text-[15px] leading-5.5 font-bold"
-        >
-          {t("record.changeSubject")}
-        </Button>
+        {!timeEdit?.active && (
+          <Button
+            variant="secondary"
+            disabled={disabled || block.locked}
+            onClick={() => onSubject((subjectId) => applyTimes(times, subjectId))}
+            className="h-13 flex-1 rounded-lg text-[15px] leading-5.5 font-bold"
+          >
+            {t("record.changeSubject")}
+          </Button>
+        )}
         <Button
           disabled={disabled || !times.start || !times.end}
           onClick={() => {
@@ -231,7 +258,7 @@ export function RecordBlockSheet({
           }}
           className="h-13 flex-1 rounded-lg text-base leading-6 font-bold shadow-sb-cta"
         >
-          {t("repeat.done")}
+          {t(timeEdit?.active ? "record.applyTime" : "repeat.done")}
         </Button>
       </div>
     </section>
