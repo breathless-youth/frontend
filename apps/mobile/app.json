@@ -10,6 +10,11 @@
       "reactCompiler": true
     },
     "ios": {
+      "icon": {
+        "light": "./assets/icon.png",
+        "dark": "./assets/icon-dark.png",
+        "tinted": "./assets/icon-tinted.png"
+      },
       "supportsTablet": true,
       "infoPlist": {
         "NSCameraUsageDescription": "순공 시간 측정, 타임랩스 기록, 캠스터디 이용을 위해 카메라 접근이 필요해요. 공부 화면은 서버에 저장하지 않아요.",
@@ -66,6 +71,13 @@
             "image": "./assets/splash-icon-dark.png",
             "backgroundColor": "#0d1118"
           }
+        }
+      ],
+      [
+        "./plugins/withKoreanSplash",
+        {
+          "image": "./assets/splash-icon-ko.png",
+          "darkImage": "./assets/splash-icon-ko-dark.png"
         }
       ],
       [
