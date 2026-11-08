@@ -26,6 +26,7 @@ export function HomeRankingPopupHost({
   userId,
   ready,
   blocked,
+  deferred = false,
   onOpenChange,
   onSettled,
 }: {
@@ -37,6 +38,8 @@ export function HomeRankingPopupHost({
    * 이번 실행 표시를 sessionStorage에 쓰지 못한 기기에서도 같은 문서에서는 한 실행에 하나를 지키게 한다.
    */
   blocked: boolean;
+  /** 홈 편집기가 닫히면 다시 판단하는 일시 보류. 실행당 차단(blocked)과 구분한다. */
+  deferred?: boolean;
   onOpenChange: (open: boolean) => void;
   /** 후보 없음·오류·닫기까지 이번 판단이 끝났을 때 다음 홈 안내에 알린다. */
   onSettled?: () => void;
@@ -48,11 +51,11 @@ export function HomeRankingPopupHost({
   // 닫히는 동안 남은 버튼을 연달아 눌러도 이동과 이벤트가 한 번만 나가게 한다.
   const handledRef = useRef(false);
   // 응답을 기다리는 사이 바뀐 값도 읽어야 해서 ref에 담는다.
-  const blockedRef = useRef(blocked);
+  const blockedRef = useRef(blocked || deferred);
   const onOpenChangeRef = useRef(onOpenChange);
   const onSettledRef = useRef(onSettled);
   useEffect(() => {
-    blockedRef.current = blocked;
+    blockedRef.current = blocked || deferred;
     onOpenChangeRef.current = onOpenChange;
     onSettledRef.current = onSettled;
   });
@@ -68,6 +71,7 @@ export function HomeRankingPopupHost({
   }, [open]);
 
   useEffect(() => {
+    if (deferred) return;
     if (!ready) {
       return;
     }
@@ -122,7 +126,7 @@ export function HomeRankingPopupHost({
     return () => {
       cancelled = true;
     };
-  }, [ready, userId, queryClient]);
+  }, [ready, userId, queryClient, deferred]);
 
   if (view === null) {
     return null;

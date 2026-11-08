@@ -874,3 +874,4 @@ export {
   VIDEO_RESULT_STATUSES,
   VIDEO_SHARE_TARGETS,
 } from "./bridge";
+export type { HomeMissionResponse } from "./homeMission";

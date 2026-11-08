@@ -31,11 +31,11 @@ function focusStartSourceOf(state: unknown): FocusStartSource | null {
   return FOCUS_START_SOURCES.find((known) => known === source) ?? null;
 }
 
-/** 과목은 플래너가 넘긴 선택만 받는다. URL은 과목 시작 요청의 출처로 쓰지 않는다. */
+/** 과목은 홈·플래너가 넘긴 선택만 받는다. URL 값으로 새 선택을 만들지 않는다. */
 function plannerSubjectIdOf(state: unknown): number | undefined {
   if (typeof state !== "object" || state === null) return undefined;
   const value = state as { source?: unknown; initialSubjectId?: unknown };
-  return value.source === "planner" &&
+  return (value.source === "planner" || value.source === "home") &&
     typeof value.initialSubjectId === "number" &&
     Number.isSafeInteger(value.initialSubjectId) &&
     value.initialSubjectId > 0

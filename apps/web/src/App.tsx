@@ -206,6 +206,12 @@ const DevGroupRoomsPage = import.meta.env.DEV
     )
   : null;
 
+const DevHomeV3Page = import.meta.env.DEV
+  ? lazy(() =>
+      import("@/routes/DevHomeV3Page").then((module) => ({ default: module.DevHomeV3Page })),
+    )
+  : null;
+
 // 세션 화면의 커밋 횟수를 개발 빌드에서만 기록한다.
 // React Compiler 전후 비교의 근거다.
 const roomCommitStats = { commits: 0, actualMs: 0, lastLogAt: 0 };
@@ -378,6 +384,7 @@ export function App() {
               {DevGroupRoomsPage !== null && (
                 <Route path="/dev/group-rooms" element={<DevGroupRoomsPage />} />
               )}
+              {DevHomeV3Page !== null && <Route path="/dev/home-v3" element={<DevHomeV3Page />} />}
               {import.meta.env.VITE_PERF_PANEL === "1" && (
                 <Route path="/perf/worker-parity" element={<WorkerParityPage />} />
               )}

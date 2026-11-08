@@ -66,5 +66,79 @@
   "demo": {
     "tagline": "AI 비전 기반 순공 시간 측정 캠스터디",
     "enter": "스터디룸 입장 (데모)"
+  },
+  "v3": {
+    "retry": "다시 시도",
+    "progressFailed": "미션과 목표를 불러오지 못했어요",
+    "startStudy": "공부 시작",
+    "mission": {
+      "caption": "시작 미션",
+      "subject": "플래너에서 과목 만들기",
+      "focus": "공부 5분 완료하기",
+      "progress": "시작 미션 {{step}}단계",
+      "go": "이동하기",
+      "start": "시작하기",
+      "complete": "완료",
+      "completing": "저장 중",
+      "finished": "시작 미션 완료",
+      "failed": "완료를 저장하지 못했어요. 다시 눌러 주세요."
+    },
+    "goal": {
+      "caption": "오늘 목표 {{time}}",
+      "remaining": "{{time}} 남았어요",
+      "achieved": "오늘 목표를 달성했어요",
+      "prompt": "일일 목표 시간을 설정해 보세요",
+      "change": "변경하기",
+      "set": "설정하기",
+      "progress": "오늘 목표 진행률",
+      "description": "0시간부터 24시간까지 30분 단위로 설정해요",
+      "save": "저장",
+      "saving": "저장 중",
+      "saveFailed": "목표를 저장하지 못했어요. 다시 시도해 주세요.",
+      "defaultFailed": "오늘 목표는 저장했어요. 다른 날의 기본 목표를 다시 저장해 주세요.",
+      "retryDefault": "기본 목표 다시 저장"
+    },
+    "stats": {
+      "title": "오늘 공부시간",
+      "total": "총 공부시간 {{time}}",
+      "focus": "순공시간"
+    },
+    "subject": {
+      "choose": "과목 선택",
+      "none": "과목 없이",
+      "add": "과목 추가",
+      "retry": "과목 다시 불러오기",
+      "saved": "지난번 과목",
+      "checking": "과목 확인 중",
+      "verifyFailed": "저장된 과목을 확인하지 못했어요. 다시 시도하거나 과목 없이를 선택해 주세요."
+    },
+    "planner": {
+      "title": "플래너",
+      "open": "오늘의 공부 계획",
+      "remaining": "남은 할 일 {{count}}개"
+    },
+    "timelapse": {
+      "title": "타임랩스",
+      "open": "내 타임랩스 보기",
+      "recent": "최근 {{count}}개",
+      "settings": "타임랩스 촬영 설정"
+    },
+    "appLock": {
+      "title": "방해 앱 잠금",
+      "unknown": "잠금 설정 확인",
+      "unsupported": "앱에서 설정해 주세요",
+      "locked": "앱 {{count}}개 잠금"
+    },
+    "preview": {
+      "subjects": {
+        "korean": "국어",
+        "math": "수학",
+        "english": "영어",
+        "science": "탐구"
+      },
+      "exam": "수능"
+    },
+    "startingStudy": "공부 준비 중",
+    "startFailed": "공부를 시작하지 못했어요. 다시 시도해 주세요."
   }
 }

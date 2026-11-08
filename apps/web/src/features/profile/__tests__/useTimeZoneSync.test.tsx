@@ -7,8 +7,15 @@ import { mockDeviceTimeZone } from "@/test/deviceTimeZone";
 import { syncProfileTimeZone, useTimeZoneSync } from "../useTimeZoneSync";
 
 vi.mock("@/lib/profileApi", () => ({ updateProfile: vi.fn() }));
+const identity = vi.hoisted(() => ({ userId: 7 }));
+vi.mock("@/lib/userId", () => ({
+  assertCurrentUserId: (userId: number) => {
+    if (identity.userId !== userId) throw new DOMException("Identity changed", "AbortError");
+  },
+}));
 
 beforeEach(() => {
+  identity.userId = 7;
   vi.mocked(updateProfile).mockResolvedValue({} as Awaited<ReturnType<typeof updateProfile>>);
 });
 
@@ -18,6 +25,39 @@ afterEach(() => {
 });
 
 describe("useTimeZoneSync", () => {
+  it("계정을 바꾸면 대기 중인 이전 계정의 시간대를 새 계정에 보내지 않는다", async () => {
+    let finish!: () => void;
+    vi.mocked(updateProfile).mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = () => resolve({} as Awaited<ReturnType<typeof updateProfile>>);
+      }),
+    );
+    const first = syncProfileTimeZone(7, "Asia/Seoul");
+    const next = syncProfileTimeZone(7, "America/New_York");
+    const firstResult = first.catch((error: unknown) => error);
+    const nextResult = next.catch((error: unknown) => error);
+    await waitFor(() => expect(updateProfile).toHaveBeenCalledOnce());
+    identity.userId = 8;
+    finish();
+    await firstResult;
+    expect(await nextResult).toMatchObject({ name: "AbortError" });
+    expect(updateProfile).toHaveBeenCalledOnce();
+    expect(sessionStorage.getItem("focuson.profile.timeZoneSent")).toBeNull();
+  });
+  it("통계 조회가 같은 시간대 전송을 기다리면 진행 중인 요청을 공유한다", async () => {
+    let finish!: () => void;
+    vi.mocked(updateProfile).mockReturnValueOnce(
+      new Promise((resolve) => {
+        finish = () => resolve({} as Awaited<ReturnType<typeof updateProfile>>);
+      }),
+    );
+    const first = syncProfileTimeZone(7, "Asia/Seoul");
+    const second = syncProfileTimeZone(7, "Asia/Seoul");
+    expect(second).toBe(first);
+    await waitFor(() => expect(updateProfile).toHaveBeenCalledOnce());
+    finish();
+    await Promise.all([first, second]);
+  });
   it("신원이 준비되면 기기 시간대만 프로필에 보낸다", async () => {
     renderHook(() => useTimeZoneSync(7, false));
 

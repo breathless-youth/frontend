@@ -188,6 +188,14 @@ function LocationProbe() {
 }
 
 function renderPlanner(path: string, state?: unknown) {
+  // React 밖의 계정 보호도 실제 문서와 같은 신원을 읽어야 한다.
+  const documentParams = new URLSearchParams(window.location.search);
+  const params = new URLSearchParams(path);
+  for (const key of ["glassChrome", "glassControls"]) {
+    const value = documentParams.get(key);
+    if (value !== null) params.set(key, value);
+  }
+  window.history.replaceState(null, "", `/planner?${params}`);
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
@@ -218,6 +226,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.useRealTimers();
+  window.history.replaceState(null, "", "/");
 });
 
 describe("PlannerPage", () => {

@@ -79,6 +79,7 @@ it("6시간에서 30분을 더하고 기본 목표를 함께 저장한다", asyn
   );
   await userEvent.click(screen.getByRole("button", { name: "6시간" }));
   await userEvent.click(screen.getByRole("button", { name: "30분 늘리기" }));
+  expect(screen.getByRole("status", { name: "6시간 30분" })).toHaveTextContent("6시간30분");
   await userEvent.click(screen.getByRole("checkbox", { name: "다른 날도 같은 목표로" }));
   await userEvent.click(screen.getByRole("button", { name: "저장" }));
   await waitFor(() =>
@@ -89,6 +90,49 @@ it("6시간에서 30분을 더하고 기본 목표를 함께 저장한다", asyn
   );
   client.clear();
 });
+
+it.each([
+  { steps: [], wantSeconds: 36900, wantLabel: "10시간 15분" },
+  { steps: ["increase"], wantSeconds: 38700, wantLabel: "10시간 45분" },
+  { steps: ["increase", "decrease"], wantSeconds: 36900, wantLabel: "10시간 15분" },
+])(
+  "유효한 기존 목표를 임의 반올림하지 않는다: $steps → $wantSeconds",
+  async ({ steps, wantSeconds, wantLabel }) => {
+    const requests: unknown[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        requests.push(JSON.parse(String(init?.body)));
+        return Response.json({
+          goalSec: wantSeconds,
+          individualGoalSec: wantSeconds,
+          defaultGoalSec: null,
+        });
+      }),
+    );
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <PlannerGoalSheet
+          open
+          onOpenChange={vi.fn()}
+          userId={7}
+          dateKey="2026-11-06"
+          goal={{ goalSec: 36900, individualGoalSec: 36900, defaultGoalSec: null }}
+        />
+      </QueryClientProvider>,
+    );
+    for (const step of steps) {
+      await userEvent.click(
+        screen.getByRole("button", { name: step === "increase" ? "30분 늘리기" : "30분 줄이기" }),
+      );
+    }
+    expect(screen.getByRole("status", { name: wantLabel })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "저장" }));
+    await waitFor(() => expect(requests).toEqual([{ goalSec: wantSeconds }]));
+    client.clear();
+  },
+);
 
 it("날짜 목표를 저장하는 사이 계정이 바뀌면 새 계정에 기본 목표를 저장하지 않는다", async () => {
   let owner = 7;

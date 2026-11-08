@@ -66,5 +66,79 @@
   "demo": {
     "tagline": "用 AI 視覺測量專注時間的視訊讀書",
     "enter": "進入個人讀書室（示範）"
+  },
+  "v3": {
+    "retry": "重試",
+    "progressFailed": "無法載入任務與目標",
+    "startStudy": "開始讀書",
+    "mission": {
+      "caption": "入門任務",
+      "subject": "在計畫表建立科目",
+      "focus": "完成5分鐘專注",
+      "progress": "入門任務第{{step}}階段",
+      "go": "前往",
+      "start": "開始",
+      "complete": "完成",
+      "completing": "儲存中",
+      "finished": "入門任務已完成",
+      "failed": "無法儲存完成狀態，請再試一次。"
+    },
+    "goal": {
+      "caption": "今日目標 {{time}}",
+      "remaining": "還差 {{time}}",
+      "achieved": "已達成今日目標",
+      "prompt": "設定每日專注時間目標",
+      "change": "變更",
+      "set": "設定",
+      "progress": "今日目標進度",
+      "description": "以30分鐘為單位設定0至24小時的目標",
+      "save": "儲存",
+      "saving": "儲存中",
+      "saveFailed": "無法儲存目標，請再試一次。",
+      "defaultFailed": "今日目標已儲存。請重新儲存其他日期的預設目標。",
+      "retryDefault": "重試儲存預設目標"
+    },
+    "stats": {
+      "title": "今日讀書時間",
+      "total": "總讀書時間 {{time}}",
+      "focus": "專注時間"
+    },
+    "subject": {
+      "choose": "選擇科目",
+      "none": "不選科目",
+      "add": "新增科目",
+      "retry": "重新載入科目",
+      "saved": "上次的科目",
+      "checking": "確認科目中",
+      "verifyFailed": "無法確認已儲存的科目。請重試或選擇不選科目。"
+    },
+    "planner": {
+      "title": "計畫表",
+      "open": "今日讀書計畫",
+      "remaining": "剩餘{{count}}項待辦"
+    },
+    "timelapse": {
+      "title": "縮時攝影",
+      "open": "查看影片",
+      "recent": "最近{{count}}部",
+      "settings": "縮時攝影拍攝設定"
+    },
+    "appLock": {
+      "title": "干擾App鎖定",
+      "unknown": "確認鎖定設定",
+      "unsupported": "請在App中設定",
+      "locked": "已鎖定{{count}}個App"
+    },
+    "preview": {
+      "subjects": {
+        "korean": "國文",
+        "math": "數學",
+        "english": "英文",
+        "science": "科學"
+      },
+      "exam": "考試"
+    },
+    "startingStudy": "準備讀書中",
+    "startFailed": "無法開始讀書，請再試一次。"
   }
 }

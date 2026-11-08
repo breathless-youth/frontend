@@ -48,6 +48,7 @@ apps/web (Vite + React)
 - `auth-ready`를 받은 네이티브는 그 문서에 `auth-token`으로 신원과 access 토큰을 보낸다.
 - `home-ready`를 받은 순간에만 네이티브가 `app-launched`로 답한다.
 - `analytics-ready`를 보낸 문서에만 네이티브가 관측한 `track-event`를 넣고, 그 전까지는 큐에 모아 둔다.
+- 앱 전경·백그라운드는 `app-visibility`, 탭 이동은 `tab-focus`로 따로 보낸다. 웹 쿼리는 두 신호와 DOM 가시성이 모두 참일 때 재조회한다. 첫 세션 가이드는 탭 이동만 화면 이탈로 처리한다.
 
 ### 기능 표시 쿼리
 

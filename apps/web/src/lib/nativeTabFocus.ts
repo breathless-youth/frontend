@@ -4,6 +4,7 @@ import { useSyncExternalStore } from "react";
 import { isNativeBridgeAvailable, subscribeToNativeMessages } from "./bridge";
 
 let tabFocused = true;
+let appVisible = true;
 
 /**
  * 탭 웹뷰 보임 신호 연결
@@ -18,12 +19,12 @@ export function initNativeTabFocus(): void {
     return;
   }
   focusManager.setEventListener((setFocused) => {
-    const update = () => setFocused(tabFocused && document.visibilityState === "visible");
+    const update = () =>
+      setFocused(tabFocused && appVisible && document.visibilityState === "visible");
     const unsubscribe = subscribeToNativeMessages((message) => {
-      if (message.type !== "tab-focus") {
-        return;
-      }
-      tabFocused = message.focused;
+      if (message.type === "tab-focus") tabFocused = message.focused;
+      else if (message.type === "app-visibility") appVisible = message.visible;
+      else return;
       update();
     });
     document.addEventListener("visibilitychange", update);
@@ -58,6 +59,7 @@ export function useScreenVisible(): boolean {
  */
 export function __resetNativeTabFocusForTests(): void {
   tabFocused = true;
+  appVisible = true;
   focusManager.setEventListener((setFocused) => {
     const listener = () => setFocused();
     window.addEventListener("visibilitychange", listener, false);

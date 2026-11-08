@@ -33,7 +33,13 @@ const { LazySheet: LazyDdaySheet, preload: preloadDdaySheet } = lazyWithPreload(
  * 조회 실패는 미설정처럼 그린다. 저장은 upsert라 그 상태에서 저장해도 서버 값이 덮이고, 응답으로
  * 캐시가 다시 채워져 스스로 복구된다. 홈 통계의 오류 상태와 달리 이 블록에는 재시도 버튼이 없다.
  */
-export function DdaySection({ userId }: { userId: number }) {
+export function DdaySection({
+  userId,
+  layout = "default",
+}: {
+  userId: number;
+  layout?: "default" | "home-v3";
+}) {
   const query = useQuery(ddayQuery(userId));
   const [open, setOpen] = useState(false);
   // 열 때마다 1씩 올라 폼을 새로 만든다. `open`을 key로 쓰면 닫히는 순간 폼이 리셋돼 300ms 닫힘
@@ -71,7 +77,12 @@ export function DdaySection({ userId }: { userId: number }) {
 
   return (
     <>
-      <DdayBlock dday={dday} expanded={open} onOpen={() => handleOpenChange(true)} />
+      <DdayBlock
+        dday={dday}
+        expanded={open}
+        onOpen={() => handleOpenChange(true)}
+        layout={layout}
+      />
       <LazyDdaySheet
         open={open}
         onOpenChange={handleOpenChange}
@@ -91,10 +102,12 @@ function DdayBlock({
   dday,
   expanded,
   onOpen,
+  layout,
 }: {
   dday: DdayResponse | null;
   expanded: boolean;
   onOpen: () => void;
+  layout: "default" | "home-v3";
 }) {
   const { t } = useTranslation("home");
   const daysLeft = dday === null ? null : daysUntil(dday.targetDate);
@@ -112,7 +125,10 @@ function DdayBlock({
       aria-haspopup="dialog"
       aria-expanded={expanded}
       onClick={onOpen}
-      className="flex min-w-0 flex-col items-start text-left"
+      className={cn(
+        "flex min-h-13.5 min-w-0 items-start text-left",
+        layout === "home-v3" ? "flex-col-reverse gap-0.5" : "flex-col",
+      )}
     >
       <span className="flex max-w-full min-w-0 items-center gap-2">
         <span
@@ -120,18 +136,34 @@ function DdayBlock({
           className={cn(
             // 360 폭부터는 32px 그대로고, 그보다 좁으면 플래너 버튼과 겹치지 않게 창 폭을 따라 줄인다.
             // 줄여도 넘치는 긴 문구만 말줄임으로 자른다.
-            "min-w-0 truncate text-[min(32px,8.9vw)] leading-9.5 font-extrabold tracking-[-0.8px] tabular-nums",
+            "min-w-0 truncate font-extrabold tracking-[-0.8px] tabular-nums",
+            layout === "home-v3" ? "text-[30px] leading-9" : "text-[min(32px,8.9vw)] leading-9.5",
             // 지난 D-Day는 색으로 구분한다. 시안 색이 정해지면 여기만 바꾼다.
-            daysLeft !== null && daysLeft < 0 ? "text-muted-foreground" : "text-primary",
+            daysLeft !== null && daysLeft < 0
+              ? "text-muted-foreground"
+              : layout === "home-v3"
+                ? "text-foreground"
+                : "text-primary",
           )}
         >
           {label}
         </span>
         {/* 탭할 수 있다는 힌트 — 시안대로 숫자 옆에 작게, 글자 중심선보다 살짝 아래 */}
-        <IconChevronDown size={12} color="var(--color-muted-foreground)" className="mt-0.75" />
+        {layout !== "home-v3" && (
+          <IconChevronDown size={12} color="var(--color-muted-foreground)" className="mt-0.75" />
+        )}
       </span>
-      <span data-testid="dday-caption" className="text-[13px] leading-4 text-muted-foreground">
+      <span
+        data-testid="dday-caption"
+        className={cn(
+          "flex min-w-0 items-center gap-1 text-[13px] leading-4 text-muted-foreground",
+          layout === "home-v3" && "font-medium",
+        )}
+      >
         {caption}
+        {layout === "home-v3" && (
+          <IconChevronDown size={12} color="var(--color-text-tertiary)" className="-rotate-90" />
+        )}
       </span>
     </button>
   );

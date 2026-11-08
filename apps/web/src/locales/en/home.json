@@ -68,5 +68,81 @@
   "demo": {
     "tagline": "Cam study that measures your focus time with AI vision",
     "enter": "Enter study room (demo)"
+  },
+  "v3": {
+    "retry": "Retry",
+    "progressFailed": "Could not load missions and goal",
+    "startStudy": "Start studying",
+    "mission": {
+      "caption": "Getting started",
+      "subject": "Create a subject in Planner",
+      "focus": "Complete 5 minutes of focus",
+      "progress": "Getting started, step {{step}}",
+      "go": "Go",
+      "start": "Start",
+      "complete": "Done",
+      "completing": "Saving",
+      "finished": "Getting started complete",
+      "failed": "Could not save completion. Please try again."
+    },
+    "goal": {
+      "caption": "Today’s goal {{time}}",
+      "remaining": "{{time}} remaining",
+      "achieved": "You reached today’s goal",
+      "prompt": "Set your daily focus goal",
+      "change": "Change",
+      "set": "Set goal",
+      "progress": "Today’s goal progress",
+      "description": "Set a goal from 0 to 24 hours in 30-minute steps",
+      "save": "Save",
+      "saving": "Saving",
+      "saveFailed": "Could not save your goal. Please try again.",
+      "defaultFailed": "Today’s goal is saved. Please retry saving the default for other days.",
+      "retryDefault": "Retry default goal"
+    },
+    "stats": {
+      "title": "Today’s study time",
+      "total": "Total study time {{time}}",
+      "focus": "Focus time"
+    },
+    "subject": {
+      "choose": "Choose subject",
+      "none": "No subject",
+      "add": "Add subject",
+      "retry": "Reload subjects",
+      "saved": "Last subject",
+      "checking": "Checking subject",
+      "verifyFailed": "Could not check your saved subject. Retry or choose No subject."
+    },
+    "planner": {
+      "title": "Planner",
+      "open": "Today’s study plan",
+      "remaining_one": "{{count}} task left",
+      "remaining_other": "{{count}} tasks left"
+    },
+    "timelapse": {
+      "title": "Timelapse",
+      "open": "View timelapses",
+      "recent_one": "{{count}} recent video",
+      "recent_other": "{{count}} recent videos",
+      "settings": "Timelapse capture settings"
+    },
+    "appLock": {
+      "title": "App lock",
+      "unknown": "Check lock settings",
+      "unsupported": "Set up in the app",
+      "locked": "{{count}} apps locked"
+    },
+    "preview": {
+      "subjects": {
+        "korean": "Korean",
+        "math": "Math",
+        "english": "English",
+        "science": "Science"
+      },
+      "exam": "Exam"
+    },
+    "startingStudy": "Getting ready",
+    "startFailed": "Could not start studying. Please try again."
   }
 }

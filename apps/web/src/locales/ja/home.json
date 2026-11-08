@@ -66,5 +66,79 @@
   "demo": {
     "tagline": "AIビジョンで集中時間を測定するカメラスタディ",
     "enter": "勉強ルームに入る（デモ）"
+  },
+  "v3": {
+    "retry": "再試行",
+    "progressFailed": "ミッションと目標を読み込めませんでした",
+    "startStudy": "勉強を始める",
+    "mission": {
+      "caption": "スタートミッション",
+      "subject": "プランナーで科目を作る",
+      "focus": "5分間集中する",
+      "progress": "スタートミッション {{step}}段階",
+      "go": "移動する",
+      "start": "始める",
+      "complete": "完了",
+      "completing": "保存中",
+      "finished": "スタートミッション完了",
+      "failed": "完了を保存できませんでした。もう一度お試しください。"
+    },
+    "goal": {
+      "caption": "今日の目標 {{time}}",
+      "remaining": "あと {{time}}",
+      "achieved": "今日の目標を達成しました",
+      "prompt": "毎日の集中時間の目標を設定しましょう",
+      "change": "変更",
+      "set": "設定",
+      "progress": "今日の目標の進捗",
+      "description": "0〜24時間の間で30分単位で設定できます",
+      "save": "保存",
+      "saving": "保存中",
+      "saveFailed": "目標を保存できませんでした。もう一度お試しください。",
+      "defaultFailed": "今日の目標は保存しました。ほかの日の基本目標をもう一度保存してください。",
+      "retryDefault": "基本目標を再保存"
+    },
+    "stats": {
+      "title": "今日の勉強時間",
+      "total": "合計勉強時間 {{time}}",
+      "focus": "集中時間"
+    },
+    "subject": {
+      "choose": "科目を選択",
+      "none": "科目なし",
+      "add": "科目を追加",
+      "retry": "科目を再読み込み",
+      "saved": "前回の科目",
+      "checking": "科目を確認中",
+      "verifyFailed": "保存した科目を確認できませんでした。再試行するか、科目なしを選んでください。"
+    },
+    "planner": {
+      "title": "プランナー",
+      "open": "今日の勉強計画",
+      "remaining": "残りのタスク {{count}}件"
+    },
+    "timelapse": {
+      "title": "タイムラプス",
+      "open": "動画を見る",
+      "recent": "最近 {{count}}件",
+      "settings": "タイムラプス撮影設定"
+    },
+    "appLock": {
+      "title": "アプリロック",
+      "unknown": "ロック設定を確認",
+      "unsupported": "アプリで設定してください",
+      "locked": "アプリ{{count}}個をロック"
+    },
+    "preview": {
+      "subjects": {
+        "korean": "国語",
+        "math": "数学",
+        "english": "英語",
+        "science": "探究"
+      },
+      "exam": "試験"
+    },
+    "startingStudy": "勉強を準備中",
+    "startFailed": "勉強を始められませんでした。もう一度お試しください。"
   }
 }

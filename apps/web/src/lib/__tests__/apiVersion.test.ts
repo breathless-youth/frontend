@@ -11,6 +11,7 @@ import { API_ENDPOINTS, apiVersionFor, type ApiEndpoint } from "@focusmakers/typ
  * 구 앱 문서가 보내는 값(구 계약이 없으면 current와 같다).
  */
 const EXPECTED: Record<ApiEndpoint, { current: string; legacy: string }> = {
+  homeMission: { current: "1", legacy: "1" },
   register: { current: "2", legacy: "2" },
   refresh: { current: "1", legacy: "1" },
   pushTokens: { current: "1", legacy: "1" },

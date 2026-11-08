@@ -157,9 +157,14 @@ export function setPlannerTaskRepeat(
 export function setPlannerGoal(
   date: string,
   body: PlannerGoalRequest,
-  options: PlannerRequestOptions,
+  options: PlannerRequestOptions & { calendar?: "HOME" },
 ): Promise<PlannerGoalResponse> {
-  return send(`/goals/${date}`, options, { method: "PUT", body: JSON.stringify(body) });
+  return send(
+    `/goals/${date}`,
+    options,
+    { method: "PUT", body: JSON.stringify(body) },
+    options.calendar === "HOME" ? { calendar: "HOME" } : {},
+  );
 }
 export function setPlannerDefaultGoal(
   body: PlannerGoalRequest,

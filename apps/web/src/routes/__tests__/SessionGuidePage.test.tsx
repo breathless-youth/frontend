@@ -69,7 +69,7 @@ function renderFromRanking() {
   );
 }
 
-function renderFromPlanner(initialSubjectId: unknown) {
+function renderFromPlanner(initialSubjectId: unknown, source = "planner") {
   render(
     <MemoryRouter
       initialEntries={[
@@ -77,7 +77,7 @@ function renderFromPlanner(initialSubjectId: unknown) {
         {
           pathname: "/session-guide",
           search: "?userId=7&lang=ko&date=2026-11-05&from=week&initialSubjectId=99",
-          state: { source: "planner", initialSubjectId },
+          state: { source, initialSubjectId },
         },
       ]}
       initialIndex={1}
@@ -128,6 +128,18 @@ afterEach(() => {
 });
 
 describe("SessionGuidePage", () => {
+  it("홈의 과목도 첫 가이드의 마지막 시작까지 보존한다", async () => {
+    vi.mocked(requestSessionStart).mockImplementation(async (_id, navigate) => {
+      navigate();
+      return "web";
+    });
+    renderFromPlanner(9, "home");
+    await goToLastStep();
+    await userEvent.click(startButton());
+    expect(requestSessionStart).toHaveBeenCalledWith(7, expect.any(Function), { subjectId: 9 });
+    expect(await screen.findByTestId("room")).toHaveTextContent("initialSubjectId=9");
+    expect(analytics.trackFocusStartTapped).toHaveBeenCalledWith("home");
+  });
   it("플래너 과목은 마지막 시작 뒤 네이티브에 전달하고 URL 과목은 무시한다", async () => {
     const actual = await vi.importActual<typeof SessionStart>("@/lib/sessionStart");
     vi.mocked(requestSessionStart).mockImplementation(actual.requestSessionStart);

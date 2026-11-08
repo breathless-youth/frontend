@@ -1,5 +1,5 @@
 import { ChevronRight } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -37,6 +37,11 @@ import { useFocusStart } from "@/lib/useFocusStart";
 import { hasTokenSource, useIdentityPending, useUserId } from "@/lib/userId";
 import { cn } from "@/lib/utils";
 import { prefetchTimelapsesPage } from "@/routes/lazyRoutes";
+
+import type { HomeV3Gateway } from "@/features/home-v3/HomeV3Gateway";
+const LazyHomeV3Entry = lazy(() =>
+  import("@/features/home-v3/HomeV3Entry").then((module) => ({ default: module.HomeV3Entry })),
+);
 
 /**
  * 홈
@@ -294,9 +299,10 @@ function HomeHeaderLead({
   );
 }
 
-export function HomeTabPage() {
+export function HomeTabPage({ homeV3Gateway }: { homeV3Gateway?: HomeV3Gateway }) {
   const { t } = useTranslation("home");
   const userId = useUserId();
+  const useNewHome = homeV3Gateway !== undefined || (hasTokenSource() && userId !== null);
   const identityPending = useIdentityPending();
   const { recovered, settled: recoverySettled, dismiss } = useLaunchSessionRecovery(userId);
   useTimeZoneSync(userId, identityPending);
@@ -304,6 +310,7 @@ export function HomeTabPage() {
   // 공지가 복구 창보다 먼저다. 공지 판단이 끝나야 복구 창을 띄운다. 공지 호스트가 없으면 기다릴 것도 없다.
   const [noticeSettled, setNoticeSettled] = useState(false);
   const [noticePopupOpen, setNoticePopupOpen] = useState(false);
+  const [homeEditorOpen, setHomeEditorOpen] = useState(false);
   const recoveryReady = userId === null || noticeSettled;
   const [pushPermissionSettled, setPushPermissionSettled] = useState(false);
   // 저장소가 막혀 있어도 같은 문서에서 공지를 반복하지 않는다.
@@ -321,7 +328,7 @@ export function HomeTabPage() {
       noticeSettled &&
       recoverySettled &&
       pushPermissionSettled,
-    blocked: noticePopupOpen || recovered !== null,
+    blocked: homeEditorOpen || noticePopupOpen || recovered !== null,
   });
   useEffect(() => {
     if (onboarding === "onboarding") {
@@ -355,9 +362,11 @@ export function HomeTabPage() {
       className="theme-soft-blue bg-soft-blue page-column min-h-dvh pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+22px)] text-foreground"
     >
       <div className="flex flex-col gap-3 px-5">
-        <header className="flex items-end justify-between pb-2">
-          <HomeHeaderLead userId={userId} identityPending={identityPending} />
-        </header>
+        {!useNewHome && (
+          <header className="flex items-end justify-between pb-2">
+            <HomeHeaderLead userId={userId} identityPending={identityPending} />
+          </header>
+        )}
 
         {identityPending ? (
           // 첫 토큰을 기다리는 동안은 헤더와 같이 로딩이다 — "등록 전"이라고 단정하지 않는다.
@@ -367,6 +376,15 @@ export function HomeTabPage() {
           </>
         ) : userId === null ? (
           <p className="p-4 text-sm text-muted-foreground">{t("unregistered")}</p>
+        ) : useNewHome ? (
+          <Suspense fallback={<Skeleton className="h-96 rounded-xl" />}>
+            <LazyHomeV3Entry
+              key={userId}
+              userId={userId}
+              gateway={homeV3Gateway}
+              onOverlayChange={setHomeEditorOpen}
+            />
+          </Suspense>
         ) : (
           <HomeContent userId={userId} />
         )}
@@ -380,10 +398,11 @@ export function HomeTabPage() {
             setNoticeShownInDoc(true);
           }}
           onSettled={() => setNoticeSettled(true)}
+          deferred={homeEditorOpen}
           onOpenChange={setNoticePopupOpen}
         />
       )}
-      {recovered !== null && recoveryReady && !carryover.open && (
+      {recovered !== null && recoveryReady && !carryover.open && !homeEditorOpen && (
         <SessionRecoveryDialog recovered={recovered} onConfirm={dismiss} />
       )}
       {carryover.tasks !== null && (

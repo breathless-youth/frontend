@@ -122,6 +122,15 @@ describe("parseToWebMessage", () => {
     expect(parseToWebMessage('{"type":"session-closed"}')).toBeNull();
   });
 
+  it("app-visibility는 visible boolean을 요구한다", () => {
+    expect(parseToWebMessage('{"type":"app-visibility","visible":false,"atMs":3}')).toEqual({
+      type: "app-visibility",
+      visible: false,
+      atMs: 3,
+    });
+    expect(parseToWebMessage('{"type":"app-visibility","visible":"no","atMs":3}')).toBeNull();
+  });
+
   it("tab-focus는 focused가 boolean일 때만 받는다", () => {
     expect(parseToWebMessage('{"type":"tab-focus","focused":false,"atMs":3}')).toEqual({
       type: "tab-focus",

@@ -34,6 +34,13 @@ export function readUserId(search: string): number | null {
   );
 }
 
+/** await 뒤의 계정 전환을 확인한다. 토큰 출처의 로그아웃을 옛 URL 신원으로 되살리지 않는다. */
+export function assertCurrentUserId(userId: number): void {
+  const source = getTokenSource();
+  const current = source ? source.getUserId() : readUserId(window.location.search);
+  if (current !== userId) throw new DOMException("User identity changed", "AbortError");
+}
+
 /**
  * 토큰 출처가 없는 문서가 URL로 받은 신원. 값이 있으면 API·소켓이 구 방식(userId 파라미터,
  * 구 경로, 소켓 쿼리)으로 요청한다. 구 앱은 모든 문서 URL에 `?userId=N`을 붙이므로 이 값은
