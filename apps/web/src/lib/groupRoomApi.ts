@@ -24,6 +24,7 @@ import type {
 } from "@focusmakers/types";
 
 import { API_BASE_URL, apiFetch, parseApiError } from "./api";
+import { groupRequestLocale } from "./groupRequestLocale";
 
 /**
  * 그룹 공부방 API 호출
@@ -116,15 +117,17 @@ async function request(
   method: Method,
   endpoint: GroupEndpoint,
   fallback: string,
-  options: { body?: unknown; signal?: AbortSignal } = {},
+  options: { body?: unknown; signal?: AbortSignal; headers?: Record<string, string> } = {},
 ): Promise<Response> {
   const res = await apiFetch(`${API_BASE_URL}${path}`, {
     endpoint,
     method,
     signal: options.signal,
-    ...(options.body === undefined
-      ? {}
-      : { headers: { "Content-Type": "application/json" }, body: JSON.stringify(options.body) }),
+    headers: {
+      ...options.headers,
+      ...(options.body === undefined ? {} : { "Content-Type": "application/json" }),
+    },
+    ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
   });
   if (!res.ok) {
     throw await parseApiError(res, fallback);
@@ -137,9 +140,19 @@ async function getJson<T>(
   endpoint: GroupEndpoint,
   fallback: string,
   signal?: AbortSignal,
+  headers?: Record<string, string>,
 ): Promise<T> {
-  const res = await request(path, "GET", endpoint, fallback, { signal });
+  const res = await request(path, "GET", endpoint, fallback, { signal, headers });
   return (await res.json()) as T;
+}
+
+/**
+ * 번역을 싣는 그룹 조회 4개에만 붙이는 헤더
+ *
+ * 다른 그룹 API는 언어로 응답이 달라지지 않아 보내지 않는다.
+ */
+function translatedHeaders(): Record<string, string> {
+  return { "Accept-Language": groupRequestLocale() };
 }
 
 /** 결과를 돌려주는 변경은 모두 `/api/groups` 아래의 POST다. */
@@ -177,7 +190,7 @@ export async function getMyGroups(signal?: AbortSignal): Promise<MyGroupsRespons
   if (mock !== null) {
     return mock.getMyGroups(signal);
   }
-  return getJson("/api/groups/me", "groups", "my groups fetch failed", signal);
+  return getJson("/api/groups/me", "groups", "my groups fetch failed", signal, translatedHeaders());
 }
 
 export async function getMyApplications(signal?: AbortSignal): Promise<MyApplicationsResponse> {
@@ -202,7 +215,13 @@ export async function getPublicGroups(
     ["page", params.page],
     ["size", params.size ?? DEFAULT_PAGE_SIZE],
   ]);
-  return getJson(`/api/groups/public${query}`, "groups", "public groups fetch failed", signal);
+  return getJson(
+    `/api/groups/public${query}`,
+    "groups",
+    "public groups fetch failed",
+    signal,
+    translatedHeaders(),
+  );
 }
 
 export async function getPublicGroup(
@@ -213,7 +232,13 @@ export async function getPublicGroup(
   if (mock !== null) {
     return mock.getPublicGroup(groupId, signal);
   }
-  return getJson(`/api/groups/public/${groupId}`, "groups", "public group fetch failed", signal);
+  return getJson(
+    `/api/groups/public/${groupId}`,
+    "groups",
+    "public group fetch failed",
+    signal,
+    translatedHeaders(),
+  );
 }
 
 export async function getGroupHome(
@@ -224,7 +249,13 @@ export async function getGroupHome(
   if (mock !== null) {
     return mock.getGroupHome(groupId, signal);
   }
-  return getJson(`/api/groups/${groupId}`, "groups", "group home fetch failed", signal);
+  return getJson(
+    `/api/groups/${groupId}`,
+    "groups",
+    "group home fetch failed",
+    signal,
+    translatedHeaders(),
+  );
 }
 
 export async function getGroupMembers(

@@ -30,6 +30,7 @@ import {
   unblockUser,
   updateGroup,
 } from "../groupRoomApi";
+import i18n from "../i18n";
 import * as groupRoomApi from "../groupRoomApi";
 import type { GroupRoomApi } from "../groupRoomApi";
 
@@ -68,6 +69,28 @@ describe("groupRoomApi", () => {
     await getMyGroups();
     expect(lastCall()[0]).toBe("/api/groups/me");
     expect(new Headers(lastCall()[1].headers).get("API-Version")).toBe("1");
+  });
+
+  it("그룹 조회 4개는 화면 언어를 Accept-Language로 보내고 API-Version도 그대로 싣는다", async () => {
+    await i18n.changeLanguage("zh-Hant");
+    try {
+      mockedFetch.mockResolvedValue(response(200, {}));
+      for (const call of [
+        () => getMyGroups(),
+        () => getPublicGroups({ page: 0 }),
+        () => getPublicGroup(10),
+        () => getGroupHome(10),
+      ]) {
+        await call();
+        const headers = new Headers(lastCall()[1].headers);
+        expect(headers.get("Accept-Language")).toBe("zh-TW");
+        expect(headers.get("API-Version")).toBe("1");
+      }
+      await getGroupMembers(10);
+      expect(new Headers(lastCall()[1].headers).get("Accept-Language")).toBeNull();
+    } finally {
+      await i18n.changeLanguage("ko");
+    }
   });
 
   it("공개 그룹 목록은 값이 있는 조건만 쿼리로 보낸다", async () => {
