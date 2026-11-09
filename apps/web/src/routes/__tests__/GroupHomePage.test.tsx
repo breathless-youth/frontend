@@ -5,12 +5,13 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { markSocialRoomNotice } from "@/features/social-room/socialRoomNotice";
-import { shareInvite } from "@/features/social-room/shareInvite";
+import { shareInvite, shareInviteText } from "@/features/social-room/shareInvite";
 import type * as ShareInvite from "@/features/social-room/shareInvite";
 import { closeStaleSession } from "@/features/study-session/closeStaleSession";
 import type * as Amplitude from "@/lib/amplitude";
 import {
   setGroupRoomCount,
+  trackGroupInviteShared,
   trackGroupRoomLeft,
   trackGroupRoomNotificationToggled,
 } from "@/lib/amplitude";
@@ -35,12 +36,14 @@ vi.mock("@/lib/userId", async (importOriginal) => ({
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof Amplitude>()),
   setGroupRoomCount: vi.fn(),
+  trackGroupInviteShared: vi.fn(),
   trackGroupRoomLeft: vi.fn(),
   trackGroupRoomNotificationToggled: vi.fn(),
 }));
 vi.mock("@/features/social-room/shareInvite", async (importOriginal) => ({
   ...(await importOriginal<typeof ShareInvite>()),
   shareInvite: vi.fn(async () => "shared" as const),
+  shareInviteText: vi.fn(async () => "shared" as const),
 }));
 vi.mock("@/features/study-session/closeStaleSession");
 // 이 파일은 공부방으로 넘어가는 이동까지만 본다. 진짜 공부방은 카메라와 STOMP를 열어서 자리표시로 바꾼다.
@@ -474,6 +477,61 @@ describe("그룹 홈", () => {
     renderGroupRoute("/social/groups/11?groupRooms=1");
     await openMenuItem("초대하기");
     expect(await screen.findByText("초대코드를 복사했어요")).toBeInTheDocument();
+  });
+
+  describe("빈자리 초대하기", () => {
+    beforeEach(() => {
+      vi.mocked(shareInvite).mockClear();
+      vi.mocked(shareInviteText).mockClear();
+      vi.mocked(trackGroupInviteShared).mockClear();
+    });
+
+    it("공개 그룹은 빈자리에서 그룹 소개로 가는 g- 링크를 공유하고 계측한다", async () => {
+      mockGroupApi("default");
+      renderGroupRoute("/social/groups/10?groupRooms=1");
+      const seats = await screen.findAllByRole("button", { name: "초대하기" });
+      await userEvent.setup().click(seats[0]!);
+      await waitFor(() => expect(shareInviteText).toHaveBeenCalledOnce());
+      expect(vi.mocked(shareInviteText).mock.calls[0]![0]).toContain(
+        `${window.location.origin}/social/join?code=g-10`,
+      );
+      expect(shareInvite).not.toHaveBeenCalled();
+      expect(trackGroupInviteShared).toHaveBeenCalledExactlyOnceWith({
+        visibility: "public",
+        source: "empty_seat",
+      });
+    });
+
+    it("다른 기기에서 멤버를 내보내 자리가 늘면 초대코드를 다시 받아 새 코드로 공유한다", async () => {
+      const api = mockGroupApi("default");
+      renderGroupRoute("/social/groups/11?groupRooms=1");
+      await screen.findByRole("heading", { name: "우리 반 저녁 스터디" });
+      await waitFor(() => expect(api.getGroupInvite).toHaveBeenCalledOnce());
+      const home = await api.getGroupHome(11);
+      api.getGroupHome.mockResolvedValue({
+        ...home,
+        memberCount: home.memberCount - 1,
+        members: home.members.slice(0, -1),
+      });
+      api.getGroupInvite.mockResolvedValue({ inviteCode: "Q4WN8T" });
+      await act(() => queryClient.invalidateQueries({ queryKey: groupKeys.home(1, 11) }));
+      await waitFor(() => expect(api.getGroupInvite).toHaveBeenCalledTimes(2));
+      const seats = await screen.findAllByRole("button", { name: "초대하기" });
+      await userEvent.setup().click(seats[0]!);
+      await waitFor(() => expect(shareInvite).toHaveBeenCalledWith("Q4WN8T"));
+    });
+
+    it("비공개 그룹은 빈자리에서 그룹 초대코드로 공유한다", async () => {
+      mockGroupApi("default");
+      renderGroupRoute("/social/groups/11?groupRooms=1");
+      const seats = await screen.findAllByRole("button", { name: "초대하기" });
+      await userEvent.setup().click(seats[0]!);
+      await waitFor(() => expect(shareInvite).toHaveBeenCalledWith("K7Q2MX"));
+      expect(trackGroupInviteShared).toHaveBeenCalledExactlyOnceWith({
+        visibility: "private",
+        source: "empty_seat",
+      });
+    });
   });
 
   it("신청 확인은 그 그룹의 신청 확인 화면으로 간다", async () => {

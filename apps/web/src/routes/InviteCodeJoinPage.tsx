@@ -13,7 +13,9 @@ import { openInApp, shouldAutoOpenInApp } from "@/features/social-room/appHandof
 import { CODE_CELL_CLASS } from "@/features/social-room/codeCell";
 import { InviteCodeInput } from "@/features/social-room/InviteCodeInput";
 import { isCompleteInviteCode, sanitizeInviteCode } from "@/features/social-room/inviteCode";
+import { publicInviteCode } from "@/features/group-room/model/publicInviteLink";
 import { parseInviteParam } from "@/features/social-room/inviteParam";
+import type { InviteParam } from "@/features/social-room/inviteParam";
 import { joinErrorMessage, joinErrorReason } from "@/features/social-room/joinError";
 import { detectStorePlatform } from "@/features/social-room/storeLink";
 import {
@@ -46,15 +48,23 @@ export function InviteCodeJoinPage() {
   const navigate = useNavigate();
   const location = useLocation();
   // 초대 링크(`inviteLink`)로 들어오면 `?code`가 붙어 있다 — 코드를 채운 채 시작한다.
-  const [code, setCode] = useState(() => sanitizeInviteCode(searchParams.get("code") ?? ""));
+  // 공개 그룹 링크에는 4자리 칸에 넣을 코드가 없어서 빈 칸으로 시작한다.
+  const [code, setCode] = useState(() =>
+    parseInviteParam(searchParams.get("code"))?.kind === "public"
+      ? ""
+      : sanitizeInviteCode(searchParams.get("code") ?? ""),
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // 진입 계측 (공유→입장 전환율의 분모)
   // `has_code`는 진입 시점 기준이라 입력 중 상태가 아니라 마운트 1회 스냅샷으로 고정한다(초대 링크 경유 여부의 의미).
   const [initialHasCode] = useState(() => searchParams.get("code") !== null);
+  const [initialKind] = useState<InviteParam["kind"] | "none">(
+    () => parseInviteParam(searchParams.get("code"))?.kind ?? "none",
+  );
   useEffect(() => {
-    trackInviteLinkOpened(initialHasCode);
-  }, [initialHasCode]);
+    trackInviteLinkOpened(initialHasCode, initialKind);
+  }, [initialHasCode, initialKind]);
 
   const userId = useUserId();
 
@@ -67,9 +77,14 @@ export function InviteCodeJoinPage() {
   // 앱으로 넘길 링크의 코드이고 예전 방의 4자리와 그룹의 6자리를 모두 넘긴다.
   // 어느 코드도 아니면 코드 없는 링크와 같게 다룬다.
   const linkInvite = parseInviteParam(searchParams.get("code"));
-  const handoffCode = linkInvite?.code ?? "";
+  const handoffCode =
+    linkInvite?.kind === "public" ? publicInviteCode(linkInvite.groupId) : (linkInvite?.code ?? "");
+  // 코드를 보여 줄 링크만 남기고, 공개 그룹 링크는 보여 줄 코드가 없다.
+  const shownCode = linkInvite !== null && linkInvite.kind !== "public" ? linkInvite : null;
   // 그룹의 6자리 코드는 4자리 입력칸에 담기지 않아서 컴퓨터 브라우저에도 입력 화면 대신 코드 안내를 보인다.
-  const showsGuidance = storePlatform !== null || (!inApp && linkInvite?.kind === "group");
+  const showsGuidance =
+    storePlatform !== null ||
+    (!inApp && (linkInvite?.kind === "group" || linkInvite?.kind === "public"));
 
   // 인앱 브라우저는 유니버설 링크가 발동하지 않아 앱으로 못 넘어간다.
   // 코드가 실린 링크로 들어왔고 앱 밖 모바일이면, 첫 로드에 한 번 스킴으로 앱 열기를 시도한다.
@@ -135,19 +150,19 @@ export function InviteCodeJoinPage() {
 
         <div className="flex grow flex-col items-center justify-center gap-2 px-5">
           <h2 className="text-lg font-bold text-foreground">{t("join.invited")}</h2>
-          {linkInvite !== null && (
+          {shownCode !== null && (
             <>
               <div className="size-2" aria-hidden="true" />
               <div
                 role="group"
-                aria-label={t("codeCells.aria.label", { code: linkInvite.code })}
-                className={LINK_CODE_CELLS[linkInvite.kind].row}
+                aria-label={t("codeCells.aria.label", { code: shownCode.code })}
+                className={LINK_CODE_CELLS[shownCode.kind].row}
               >
-                {linkInvite.code.split("").map((character, index) => (
+                {shownCode.code.split("").map((character, index) => (
                   <div
                     key={index}
                     aria-hidden="true"
-                    className={LINK_CODE_CELLS[linkInvite.kind].cell}
+                    className={LINK_CODE_CELLS[shownCode.kind].cell}
                   >
                     {character}
                   </div>
@@ -156,7 +171,11 @@ export function InviteCodeJoinPage() {
             </>
           )}
           <p className="text-sm leading-5 text-muted-foreground">
-            {handoffCode !== "" ? t("join.inAppWithCode") : t("join.inAppNoCode")}
+            {linkInvite?.kind === "public"
+              ? t("join.inAppPublic")
+              : handoffCode !== ""
+                ? t("join.inAppWithCode")
+                : t("join.inAppNoCode")}
           </p>
         </div>
 

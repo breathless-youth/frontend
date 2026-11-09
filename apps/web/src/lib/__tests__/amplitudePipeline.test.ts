@@ -181,6 +181,7 @@ describe("Amplitude 전송 파이프라인 (실제 SDK)", () => {
           onMenuSelect: () => {},
           onOpenRequests: () => {},
           onEnterStudyRoom: () => {},
+          onInvite: () => {},
         }),
       ),
     );

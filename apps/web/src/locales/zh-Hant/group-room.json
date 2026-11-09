@@ -89,6 +89,7 @@
     },
     "emptySeat": "空位",
     "openSeat": "開放申請中",
+    "invite": "邀請",
     "aria": {
       "list": "成員書桌",
       "owner": "管理員"

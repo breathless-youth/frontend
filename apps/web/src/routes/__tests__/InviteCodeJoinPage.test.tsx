@@ -3,12 +3,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import type * as AppHandoffModule from "@/features/social-room/appHandoff";
 import { openInApp } from "@/features/social-room/appHandoff";
 import type * as Amplitude from "@/lib/amplitude";
-import { trackStoreLinkRedirected } from "@/lib/amplitude";
+import { trackInviteLinkOpened, trackStoreLinkRedirected } from "@/lib/amplitude";
 
 import { InviteCodeJoinPage } from "../InviteCodeJoinPage";
 
@@ -19,6 +19,7 @@ vi.mock("@/features/social-room/appHandoff", async (importOriginal) => ({
 
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof Amplitude>()),
+  trackInviteLinkOpened: vi.fn(),
   trackStoreLinkRedirected: vi.fn(),
 }));
 
@@ -137,6 +138,48 @@ describe("InviteCodeJoinPage 모바일 브라우저 안내", () => {
     expect(screen.queryByRole("button", { name: "참여하기" })).not.toBeInTheDocument();
     // 컴퓨터에는 열 앱도 보낼 스토어도 없어서 앱으로 넘기는 버튼을 두지 않는다.
     expect(screen.queryByRole("button", { name: "앱에서 참여하기" })).not.toBeInTheDocument();
+  });
+});
+
+describe("InviteCodeJoinPage 공개 그룹 링크", () => {
+  it("휴대폰 브라우저는 코드 칸 없이 앱에서 참여하기를 두고 누르면 그 링크 코드로 앱을 연다", async () => {
+    setUserAgent(SAFARI_UA);
+    renderAt("?code=g-12");
+    expect(screen.getByRole("heading", { name: "그룹 스터디에 초대받았어요" })).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: /초대코드/ })).not.toBeInTheDocument();
+    expect(screen.getByText("앱에서 이 그룹을 볼 수 있어요")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "앱에서 참여하기" }));
+    expect(openInApp).toHaveBeenCalledWith("ios", "g-12");
+  });
+
+  it("컴퓨터 브라우저는 안내만 두고 코드 칸과 버튼이 없다", () => {
+    setUserAgent(WINDOWS_UA, 0);
+    renderAt("?code=g-12");
+    expect(screen.getByText("앱에서 이 그룹을 볼 수 있어요")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: /초대코드/ })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("초대코드 4자리")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button")).toHaveAccessibleName("뒤로 가기");
+  });
+
+  it("그룹 표시가 없는 예전 앱은 빈 4자리 입력칸으로 연다", () => {
+    (globalThis as { ReactNativeWebView?: unknown }).ReactNativeWebView = { postMessage: vi.fn() };
+    onTestFinished(() => {
+      delete (globalThis as { ReactNativeWebView?: unknown }).ReactNativeWebView;
+    });
+    setUserAgent(SAFARI_UA);
+    renderAt("?code=g-12");
+    expect(screen.getByLabelText("초대코드 4자리")).toHaveValue("");
+  });
+
+  it.each([
+    ["?code=g-12", true, "public"],
+    ["?code=1234", true, "room"],
+    ["?code=K7Q2MX", true, "group"],
+    ["", false, "none"],
+  ] as const)("%s로 들어오면 링크 종류를 함께 계측한다", (search, hasCode, kind) => {
+    setUserAgent(WINDOWS_UA, 0);
+    renderAt(search);
+    expect(trackInviteLinkOpened).toHaveBeenCalledExactlyOnceWith(hasCode, kind);
   });
 });
 

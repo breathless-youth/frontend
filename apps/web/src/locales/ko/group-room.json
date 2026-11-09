@@ -89,6 +89,7 @@
     },
     "emptySeat": "빈자리",
     "openSeat": "신청을 받고 있어요",
+    "invite": "초대하기",
     "aria": {
       "list": "멤버 책상",
       "owner": "그룹장"

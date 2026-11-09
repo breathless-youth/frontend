@@ -96,6 +96,7 @@
     },
     "emptySeat": "Empty seat",
     "openSeat": "Accepting requests",
+    "invite": "Invite",
     "aria": {
       "list": "Member desks",
       "owner": "Owner"

@@ -24,6 +24,7 @@
     "invited": "你受邀一起讀書",
     "inAppWithCode": "可以在 App 中用這組邀請碼加入",
     "inAppNoCode": "可以在 App 中輸入邀請碼加入",
+    "inAppPublic": "可以在 App 中查看這個群組",
     "openApp": "在 App 中加入",
     "prompt": "請輸入邀請碼",
     "hint": "可以用朋友傳來的 4 位數邀請碼加入",
@@ -40,6 +41,7 @@
   },
   "inviteMessage": {
     "title": "一起在 FocusMakers 讀書",
-    "body": "一起在 FocusMakers 讀書吧！\n\n{{link}}\n\n邀請碼：{{code}}"
+    "body": "一起在 FocusMakers 讀書吧！\n\n{{link}}\n\n邀請碼：{{code}}",
+    "publicBody": "一起在 FocusMakers 讀書吧！\n\n{{link}}"
   }
 }

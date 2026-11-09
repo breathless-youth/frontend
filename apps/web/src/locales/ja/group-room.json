@@ -89,6 +89,7 @@
     },
     "emptySeat": "空席",
     "openSeat": "参加リクエスト受付中",
+    "invite": "招待する",
     "aria": {
       "list": "メンバーのデスク",
       "owner": "オーナー"
