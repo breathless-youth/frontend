@@ -149,3 +149,34 @@ it("빈 쪽으로 끝을 늘리면 그 과목으로 ADD를 보낸다", async () 
     { startedAt: z("01:04"), endedAt: z("01:10"), change: "ADD", subjectId: 4 },
   ]);
 });
+
+it("짧은 블록에서 두 손잡이 터치 영역이 겹치면 손가락에 더 가까운 손잡이를 잡는다", () => {
+  class Pointer extends MouseEvent {
+    readonly pointerId = 1;
+    readonly pointerType = "touch";
+    readonly isPrimary = true;
+  }
+  vi.stubGlobal("PointerEvent", Pointer);
+  HTMLElement.prototype.setPointerCapture = vi.fn();
+  mount([mixed()]);
+  tapBlock(z("01:02"));
+  const rect = (x: number, y: number) => () =>
+    ({
+      left: x - 22,
+      top: y - 22,
+      width: 44,
+      height: 44,
+      right: x + 22,
+      bottom: y + 22,
+      x: x - 22,
+      y: y - 22,
+      toJSON() {},
+    }) as DOMRect;
+  const start = screen.getByRole("button", { name: "시작 시각 조절" });
+  const end = screen.getByRole("button", { name: "끝 시각 조절" });
+  start.getBoundingClientRect = rect(100, 100);
+  end.getBoundingClientRect = rect(120, 116);
+  // 겹친 영역에서 위에 그려진 끝 손잡이가 이벤트를 받지만 손가락은 시작 손잡이 중심에 더 가깝다.
+  fireEvent.pointerDown(end, { clientX: 101, clientY: 99 });
+  expect(screen.getByRole("status")).toHaveTextContent("시작");
+});

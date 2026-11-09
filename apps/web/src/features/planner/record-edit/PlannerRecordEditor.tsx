@@ -181,7 +181,21 @@ export function PlannerRecordEditor({
       dragRef.current
     )
       return;
-    const handle = (event.target as Element).closest<HTMLElement>("[data-handle]");
+    // 짧은 블록은 두 손잡이의 44pt 터치 영역이 겹쳐 위에 그려진 끝 손잡이가 이벤트를 받는다. 손가락에 가까운 쪽을 잡는다.
+    const touched = (event.target as Element).closest<HTMLElement>("[data-handle]");
+    const distance = (element: HTMLElement) => {
+      const rect = element.getBoundingClientRect();
+      return Math.hypot(
+        rect.left + rect.width / 2 - event.clientX,
+        rect.top + rect.height / 2 - event.clientY,
+      );
+    };
+    const handle = touched
+      ? [...event.currentTarget.querySelectorAll<HTMLElement>("[data-handle]")].reduce(
+          (nearest, value) => (distance(value) < distance(nearest) ? value : nearest),
+          touched,
+        )
+      : null;
     const record = (event.target as Element).closest("[data-record]");
     if (record && !handle) return;
     stopTimer();
