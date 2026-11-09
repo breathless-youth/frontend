@@ -153,8 +153,8 @@ export function AmbientLinesIcon({ on }: { on: boolean }) {
             <stop offset="1" stopColor="white" stopOpacity="0.4" />
             {!prefersReducedMotion() && (
               <>
-                <animate attributeName="x1" values="-24;0" dur="2.4s" repeatCount="indefinite" />
-                <animate attributeName="x2" values="0;24" dur="2.4s" repeatCount="indefinite" />
+                <animate attributeName="x1" values="-24;0" dur="2s" repeatCount="indefinite" />
+                <animate attributeName="x2" values="0;24" dur="2s" repeatCount="indefinite" />
               </>
             )}
           </linearGradient>

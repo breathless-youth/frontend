@@ -1,4 +1,3 @@
-import { Maximize2, Minimize2 } from "lucide-react";
 import {
   type RefObject,
   useCallback,
@@ -8,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
@@ -45,9 +45,11 @@ import { CameraPreviewSurface } from "@/features/study-session/components/Camera
 import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
 import { SessionClock } from "@/features/study-session/components/SessionClock";
 import {
+  ExpandGlyph,
   SESSION_BAR,
   SessionExitButton,
   SessionPauseButton,
+  ShrinkGlyph,
 } from "@/features/study-session/components/SessionControlButtons";
 import { SessionHelpScreen } from "@/features/study-session/components/SessionHelpScreen";
 import {
@@ -61,6 +63,7 @@ import {
   SessionPageTimer,
 } from "@/features/study-session/components/SessionTimer";
 import { SimpleModeSurface } from "@/features/study-session/components/SimpleModeSurface";
+import { CAMERA_EXPAND_TIMING, cameraBoxFrames } from "@/features/study-session/cameraExpandMotion";
 import { NoFocusEndNotice } from "@/features/study-session/components/NoFocusEndNotice";
 import { SessionSubjectPanel as SubjectPanel } from "@/features/study-session/components/SessionSubjectPanel";
 import { SessionSubjectHeader } from "@/features/study-session/components/SessionSubjectHeader";
@@ -128,6 +131,7 @@ import {
 } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
 import { haptic } from "@/lib/haptics";
+import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 import { cn } from "@/lib/utils";
 import { prefetchResultPage } from "@/routes/lazyRoutes";
 
@@ -161,6 +165,12 @@ const PIP_ANCHOR = [
 /** 타임랩스가 찍히고 있음을 알리는 빨간 점. 작은 창 이름표와 확대 화면 필이 같이 쓴다. */
 const TIMELAPSE_DOT =
   "size-1.5 shrink-0 rounded-full bg-(--session-control-exit-bg) shadow-[0_0_0_3px_rgba(255,255,255,0.08)]";
+
+/** 카메라를 줄일 때 확대 화면의 버튼·덮개가 사라지는 페이드. 줄이는 움직임보다 짧게 끝나 작은 창이 되기 전에 다 사라진다. */
+const CAMERA_CHROME_FADE = "transition-opacity duration-200 ease-out motion-reduce:transition-none";
+
+/** 작은 창 모서리(`rounded-lg`). 키우기·줄이기 움직임이 이 둥글기에서 시작하고 끝난다. */
+const PIP_RADIUS_PX = 8;
 
 const PIP_SIZE =
   "h-36 w-27 regular:h-48 regular:w-36 landscape-compact:h-27 landscape-compact:w-40";
@@ -461,6 +471,88 @@ function RoomSessionScreen({
   const [simpleMode, setSimpleMode] = useState(false);
   // 기본 모드의 내 카메라는 작은 창으로 시작하고, 키우면 화면 전체를 채운다.
   const [cameraExpanded, setCameraExpanded] = useState(false);
+  // 작은 창 자리. 보이지 않는 같은 크기의 칸을 둬서 화면을 돌린 뒤에도 그때의 자리를 잰다.
+  const pipSlotRef = useRef<HTMLDivElement>(null);
+  // 줄이는 중. 작게 보기 버튼·타임랩스 필·어두운 덮개를 움직임과 함께 서서히 지운다.
+  const [cameraShrinking, setCameraShrinking] = useState(false);
+  // 진행 중인 키우기·줄이기 움직임. 움직이는 동안 다시 누르면 무시한다.
+  const cameraMotionRef = useRef<Animation | null>(null);
+
+  /**
+   * 움직임을 그릴 카메라 화면과 키프레임
+   *
+   * 전체 화면일 때 재야 세션 화면 크기가 나온다.
+   * 동작 줄이기 설정이거나 움직임 API가 없거나 크기를 못 재면 null이라 바로 바뀐다.
+   */
+  function cameraMotion(): { surface: HTMLElement; frames: [Keyframe, Keyframe] } | null {
+    const surface = sessionSurface?.querySelector<HTMLElement>('[data-session-surface="camera"]');
+    const slot = pipSlotRef.current;
+    if (
+      !surface ||
+      slot === null ||
+      typeof surface.animate !== "function" ||
+      prefersReducedMotion()
+    ) {
+      return null;
+    }
+    const pip = slot.getBoundingClientRect();
+    const full = surface.getBoundingClientRect();
+    if (pip.width === 0 || full.width === 0) return null;
+    return { surface, frames: cameraBoxFrames(pip, full, PIP_RADIUS_PX) };
+  }
+
+  /**
+   * 내 카메라 키우기
+   *
+   * 유튜브 작은 화면처럼 작은 창 자리에서 화면 전체로 커진다.
+   * 전체 화면으로 바꾼 뒤 작은 창 모양에서 시작하는 움직임을 재생해 영상이 끊기지 않는다.
+   */
+  function expandCamera() {
+    if (cameraMotionRef.current !== null) return;
+    flushSync(() => setCameraExpanded(true));
+    const motion = cameraMotion();
+    if (motion === null) return;
+    const animation = motion.surface.animate(motion.frames, CAMERA_EXPAND_TIMING);
+    cameraMotionRef.current = animation;
+    void animation.finished
+      .catch(() => {})
+      .finally(() => {
+        cameraMotionRef.current = null;
+      });
+  }
+
+  /**
+   * 내 카메라 줄이기
+   *
+   * 전체 화면인 채로 작은 창 자리까지 움직인 뒤 작은 창으로 바꾼다.
+   * 끝 모양이 작은 창과 위치·크기가 같아 바꾸는 순간 아무것도 움직이지 않는다.
+   */
+  function shrinkCamera() {
+    if (cameraMotionRef.current !== null) return;
+    const motion = cameraMotion();
+    if (motion === null) {
+      setCameraExpanded(false);
+      return;
+    }
+    setCameraShrinking(true);
+    const animation = motion.surface.animate([...motion.frames].reverse(), {
+      ...CAMERA_EXPAND_TIMING,
+      fill: "forwards",
+    });
+    cameraMotionRef.current = animation;
+    void animation.finished
+      .then(() => {
+        // 마지막 모양을 붙든 채 작은 창으로 바꾼 뒤 움직임을 지워야 한 프레임도 전체 화면으로 튀지 않는다.
+        flushSync(() => setCameraExpanded(false));
+      })
+      .catch(() => {})
+      .finally(() => {
+        animation.cancel();
+        cameraMotionRef.current = null;
+        setCameraShrinking(false);
+      });
+  }
+
   // ⓘ 버튼으로 펼치는 집중 시간·집중률 카드
   const [infoOpen, setInfoOpen] = useState(false);
   // `오늘 누적`에 더할 오늘 저장 기록. 받기 전과 실패하면 0이라 이번 세션 시간만 보인다.
@@ -893,6 +985,12 @@ function RoomSessionScreen({
       <SimpleModeSurface hidden={!simpleMode} glowKey={glowKey} />
       {/* 회전 오버스캔은 프리뷰에만 건다 — 심플 모드는 카메라를 걷어낸 화면이라 회전해도
           메울 빈 자리가 없고, 단색 배경을 확대해 봐야 보이는 변화가 없다. */}
+      <div
+        ref={pipSlotRef}
+        aria-hidden="true"
+        data-testid="camera-pip-slot"
+        className={cn(PIP_ANCHOR, PIP_SIZE, "pointer-events-none invisible")}
+      />
       <CameraPreviewSurface
         stream={cameraStream}
         facing={cameraFacing}
@@ -937,7 +1035,11 @@ function RoomSessionScreen({
           {!simpleMode && cameraExpanded && (
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.5),rgba(0,0,0,0)_25%,rgba(0,0,0,0)_65%,rgba(0,0,0,0.6))]"
+              className={cn(
+                "pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.5),rgba(0,0,0,0)_25%,rgba(0,0,0,0)_65%,rgba(0,0,0,0.6))]",
+                CAMERA_CHROME_FADE,
+                cameraShrinking && "opacity-0",
+              )}
             />
           )}
 
@@ -1027,9 +1129,12 @@ function RoomSessionScreen({
               (cameraExpanded ? (
                 // 확대 중에는 작은 창의 이름표가 사라지므로 타임랩스 필을 같은 줄 왼쪽 끝에 따로 띄운다(시안 21d).
                 <div
+                  inert={cameraShrinking}
                   className={cn(
                     PIP_ANCHOR,
                     "left-[calc(env(safe-area-inset-left)+16px)] flex h-11 items-center justify-between landscape-compact:left-[max(env(safe-area-inset-left),16px)]",
+                    CAMERA_CHROME_FADE,
+                    cameraShrinking && "opacity-0",
                   )}
                 >
                   {timelapseOn ? (
@@ -1044,10 +1149,10 @@ function RoomSessionScreen({
                     type="button"
                     inert={moreMenuOpen}
                     aria-label={t("camera.shrink")}
-                    onClick={() => setCameraExpanded(false)}
+                    onClick={shrinkCamera}
                     className="pointer-events-auto flex size-11 items-center justify-center rounded-full bg-(--session-pill-bg) backdrop-blur-[10px]"
                   >
-                    <Minimize2 aria-hidden="true" className="size-5" strokeWidth={1.5} />
+                    <ShrinkGlyph aria-hidden="true" className="size-5" />
                   </button>
                 </div>
               ) : (
@@ -1055,11 +1160,13 @@ function RoomSessionScreen({
                   type="button"
                   inert={moreMenuOpen}
                   aria-label={t("camera.expand")}
-                  onClick={() => setCameraExpanded(true)}
+                  onClick={expandCamera}
                   className={cn(
                     PIP_ANCHOR,
                     PIP_SIZE,
                     "pointer-events-auto flex items-end justify-start rounded-lg shadow-[0_8px_24px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(255,255,255,0.12)]",
+                    // 줄이기가 끝나 작은 창이 되는 순간 테두리·이름표·버튼이 한꺼번에 튀어나오지 않게 서서히 나타낸다.
+                    "animate-in duration-200 fade-in-0 motion-reduce:animate-none",
                   )}
                 >
                   <span
@@ -1072,7 +1179,7 @@ function RoomSessionScreen({
                     {timelapseOn ? t("camera.timelapse") : t("camera.label")}
                   </span>
                   <span className="absolute top-2 right-2 flex size-7 items-center justify-center rounded-full bg-(--session-pill-bg) backdrop-blur-[10px]">
-                    <Maximize2 aria-hidden="true" className="size-4" strokeWidth={1.8} />
+                    <ExpandGlyph aria-hidden="true" className="size-4" />
                   </span>
                 </button>
               ))}

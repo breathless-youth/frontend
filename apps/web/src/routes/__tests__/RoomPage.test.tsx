@@ -965,6 +965,85 @@ describe("RoomPage — S3-4 심플 모드", () => {
     expect(container.querySelector('[data-session-surface="camera"]')!.className).toContain("w-27");
   });
 
+  describe("카메라 창 키우기·줄이기 움직임", () => {
+    const FULL = { left: 0, top: 0, width: 402, height: 874 };
+    const PIP = { left: 278, top: 582, width: 108, height: 144 };
+    let animate: ReturnType<typeof vi.fn>;
+
+    beforeEach(() => {
+      animate = vi.fn(() => ({ finished: Promise.resolve(), cancel: vi.fn() }));
+      Element.prototype.animate = animate as unknown as Element["animate"];
+      vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        const box = this.dataset.testid === "camera-pip-slot" ? PIP : FULL;
+        return { ...box, right: box.left + box.width, bottom: box.top + box.height } as DOMRect;
+      });
+    });
+
+    afterEach(() => {
+      // jsdom에는 없는 함수라 지워서 다른 테스트가 움직임 없이 바로 바뀌게 둔다.
+      delete (Element.prototype as Partial<Element>).animate;
+      vi.unstubAllGlobals();
+      vi.restoreAllMocks();
+    });
+
+    it("키우면 작은 창 자리에서 화면 전체로 커지고, 줄이면 작은 창 자리로 돌아간 뒤 작은 창이 된다", async () => {
+      const { container } = renderRoom("/room/7?userId=1");
+      const surface = () => container.querySelector('[data-session-surface="camera"]')!;
+
+      await userEvent.click(screen.getByRole("button", { name: "내 화면 크게 보기" }));
+
+      expect(surface().className).not.toContain("w-27");
+      expect(animate).toHaveBeenCalledTimes(1);
+      expect(animate.mock.contexts[0]).toBe(surface());
+      const [grow] = animate.mock.calls[0] as [Keyframe[]];
+      expect(grow[0]).toMatchObject({
+        top: "582px",
+        left: "278px",
+        width: "108px",
+        height: "144px",
+      });
+      expect(grow[1]).toMatchObject({ top: "0px", left: "0px", width: "402px", height: "874px" });
+
+      await userEvent.click(screen.getByRole("button", { name: "작게 보기" }));
+
+      const [shrink] = animate.mock.calls[1] as [Keyframe[]];
+      expect(shrink[1]).toEqual(grow[0]);
+      await waitFor(() => expect(surface().className).toContain("w-27"));
+    });
+
+    it("줄이기를 누르면 작게 보기 버튼이 움직이는 동안 서서히 사라지고 다시 눌리지 않는다", async () => {
+      let finish = () => {};
+      const finished = new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+      renderRoom("/room/7?userId=1");
+      await userEvent.click(screen.getByRole("button", { name: "내 화면 크게 보기" }));
+      animate.mockReturnValueOnce({ finished, cancel: vi.fn() });
+
+      await userEvent.click(screen.getByRole("button", { name: "작게 보기" }));
+
+      const shrink = screen.getByRole("button", { name: "작게 보기", hidden: true });
+      expect(shrink.parentElement!.className).toContain("opacity-0");
+      expect(shrink.closest("[inert]")).not.toBeNull();
+      await act(async () => finish());
+      expect(screen.getByRole("button", { name: "내 화면 크게 보기" })).toBeInTheDocument();
+    });
+
+    it("동작 줄이기 설정이면 움직임 없이 바로 바뀐다", async () => {
+      vi.stubGlobal("matchMedia", (query: string) => ({ matches: query.includes("reduce") }));
+      const { container } = renderRoom("/room/7?userId=1");
+
+      await userEvent.click(screen.getByRole("button", { name: "내 화면 크게 보기" }));
+
+      expect(animate).not.toHaveBeenCalled();
+      expect(container.querySelector('[data-session-surface="camera"]')!.className).not.toContain(
+        "w-27",
+      );
+    });
+  });
+
   it("카메라 창을 누르면 화면 전체로 키우고, 같은 자리 버튼으로 다시 줄인다", async () => {
     const { container } = renderRoom("/room/7?userId=1");
     const surface = () => container.querySelector('[data-session-surface="camera"]')!;

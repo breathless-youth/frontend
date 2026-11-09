@@ -75,6 +75,45 @@ export function PlayGlyph(props: SVGProps<SVGSVGElement>) {
 /** 재개 아이콘 크기. 바 아이콘과 같은 비율로 키운다(52px 버튼에 24px). */
 const PLAY_ICON_SIZE = "size-6 regular:size-7 short-side-lg:size-9";
 
+/**
+ * 내 카메라 크게 보기 아이콘
+ *
+ * v3 시안의 왼쪽 위·오른쪽 아래 모서리로 나가는 화살표(Heroicons `arrows-pointing-out`)를 그대로 옮겼다.
+ * lucide `Maximize2`는 오른쪽 위·왼쪽 아래 방향이라 시안과 다르다.
+ */
+export function ExpandGlyph(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.8}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9m11.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+    </svg>
+  );
+}
+
+/** 내 카메라 작게 보기 아이콘. 크게 보기와 같은 두 모서리에서 가운데로 들어오는 화살표(Heroicons `arrows-pointing-in`)다. */
+export function ShrinkGlyph(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M9 9V4.5M9 9H4.5M9 9 3.75 3.75M15 15h4.5M15 15v4.5m0-4.5 5.25 5.25" />
+    </svg>
+  );
+}
+
 /** 하단 바 버튼의 아이콘 크기 */
 export const BAR_ICON_SIZE = "size-5.5 regular:size-6.5 short-side-lg:size-8";
 
