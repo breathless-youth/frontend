@@ -57,6 +57,40 @@ describe("HomeV3Content", () => {
     expect(input.actions.startStudy).toHaveBeenCalledOnce();
   });
 
+  it("scrolls only the subject list so no-subject and add stay reachable", async () => {
+    const subjects = Array.from({ length: 8 }, (_, i) => ({
+      id: i + 1,
+      name: `Subject ${i + 1}`,
+      colorIndex: i,
+    }));
+    render(<HomeV3Content {...props()} subjects={{ status: "success", value: subjects }} />);
+    await userEvent.click(screen.getByRole("button", { name: i18n.t("home:v3.subject.choose") }));
+    const list = await screen.findByTestId("home-subject-list");
+    for (const subject of subjects) {
+      expect(list).toContainElement(screen.getByRole("menuitem", { name: subject.name }));
+    }
+    expect(list).not.toContainElement(
+      screen.getByRole("menuitem", { name: i18n.t("home:v3.subject.none") }),
+    );
+    expect(list).not.toContainElement(
+      screen.getByRole("menuitem", { name: i18n.t("home:v3.subject.add") }),
+    );
+  });
+
+  it("moves keyboard focus from the last subject past the scroll list", async () => {
+    const subjects = Array.from({ length: 8 }, (_, i) => ({
+      id: i + 1,
+      name: `Subject ${i + 1}`,
+      colorIndex: i,
+    }));
+    render(<HomeV3Content {...props()} subjects={{ status: "success", value: subjects }} />);
+    await userEvent.click(screen.getByRole("button", { name: i18n.t("home:v3.subject.choose") }));
+    const last = await screen.findByRole("menuitem", { name: "Subject 8" });
+    act(() => last.focus());
+    await userEvent.keyboard("{ArrowDown}");
+    expect(screen.getByRole("menuitem", { name: i18n.t("home:v3.subject.none") })).toHaveFocus();
+  });
+
   it("keeps study start usable when stats and progress fail", async () => {
     const input = props();
     render(
