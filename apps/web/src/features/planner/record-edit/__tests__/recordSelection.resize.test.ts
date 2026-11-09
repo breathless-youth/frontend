@@ -59,3 +59,32 @@ it("미래 시각까지 늘리면 future로 거절한다", () => {
     resizeRecordBlock(base, selection, { endMs: Date.parse(z("01:10")) }, Date.parse(z("01:05"))),
   ).toThrow(expect.objectContaining({ code: "future" }));
 });
+
+it("한 기록을 줄여 비운 자리로 다른 기록을 늘리면 줄이는 작업을 먼저 보낸다", () => {
+  const one = (key: string, from: string, to: string) =>
+    plannerRecord({
+      key,
+      revision: 0,
+      startedAt: z(from),
+      endedAt: z(to),
+      fullStartedAt: z(from),
+      fullEndedAt: z(to),
+      subjectSegments: [],
+      pieces: [{ startedAt: z(from), endedAt: z(to), subjectId: 3 }],
+    });
+  // 10~11시 A, 12~13시 B (KST)
+  const base = createRecordDraft(
+    plannerDay({
+      date: "2026-11-09",
+      records: [one("A", "01:00", "02:00"), one("B", "03:00", "04:00")],
+    }),
+  );
+  const [a, b] = base.blocks;
+  const selectB = selectRecordBlock(base, b!.id, Date.parse(z("03:00")));
+  if (selectB?.kind !== "range") throw new Error("range selection expected");
+  const shrunk = resizeRecordBlock(base, selectB, { startMs: Date.parse(z("03:30")) }, now).draft;
+  const selectA = selectRecordBlock(shrunk, a!.id, Date.parse(z("01:00")));
+  if (selectA?.kind !== "range") throw new Error("range selection expected");
+  const grown = resizeRecordBlock(shrunk, selectA, { endMs: Date.parse(z("03:20")) }, now).draft;
+  expect(recordDraftOperations(grown).map((operation) => operation.key)).toEqual(["B", "A"]);
+});
