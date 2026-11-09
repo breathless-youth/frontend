@@ -43,7 +43,7 @@
     "openSettings": "開啟設定",
     "text": "這是我用 FocusMakers 讀書的樣子\n{{url}}",
     "status": {
-      "updateApp": "更新應用程式後即可儲存和分享",
+      "updateApp": "更新 App 後即可儲存和分享",
       "preparing": "正在製作要分享的影片",
       "unsupported": "這部裝置無法製作影片",
       "buildFailed": "無法製作影片"

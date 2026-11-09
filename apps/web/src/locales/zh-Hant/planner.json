@@ -2,7 +2,7 @@
   "page": {
     "prevDay": "前一天",
     "nextDay": "後一天",
-    "unregistered": "這部裝置尚未註冊。在應用程式中開啟，就會儲存紀錄",
+    "unregistered": "這部裝置尚未註冊。在 App 中開啟，就會儲存紀錄",
     "loadFailed": "無法載入讀書計畫",
     "manualEntry": "手動新增"
   },
@@ -178,7 +178,7 @@
     "add": "新增紀錄",
     "list": "紀錄清單",
     "noSpace": "沒有可新增紀錄的空白時段",
-    "new": "新記錄",
+    "new": "新紀錄",
     "closePanel": "關閉紀錄面板",
     "saveFailures": {
       "unconfirmed": "無法確認紀錄是否已儲存，請再試一次",
@@ -221,7 +221,7 @@
     "studyingCount": "{{count}} 人正在讀書",
     "emptyRoom": "目前沒有人",
     "noGroups": "尚未加入任何群組",
-    "updateApp": "請更新應用程式，以使用這個科目開始讀書",
+    "updateApp": "請更新 App，以使用這個科目開始讀書",
     "otherSubjects": "其他科目",
     "selectSubject": "開始讀 {{name}}",
     "deselectSubject": "停止記錄 {{name}} 科目",

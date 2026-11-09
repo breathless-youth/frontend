@@ -10,7 +10,7 @@
     "titleTop": "在你讀書的同時",
     "titleBottom": "自動記錄到讀書計畫",
     "aria": {
-      "mock": "顯示各科待辦事項與精確到分鐘的讀書時間的每日計畫表"
+      "mock": "顯示各科待辦事項與精確到分鐘的讀書時間的每日讀書計畫"
     }
   },
   "groupStudy": {
@@ -75,7 +75,7 @@
     "weekly": "每週",
     "addTask": "新增待辦",
     "addSubject": "新增科目",
-    "editRecords": "編輯記錄",
+    "editRecords": "編輯紀錄",
     "todayTasks": "今日待辦"
   },
   "plannerTask": {

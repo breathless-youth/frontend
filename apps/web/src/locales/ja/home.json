@@ -124,10 +124,10 @@
       "settings": "タイムラプス撮影設定"
     },
     "appLock": {
-      "title": "アプリロック",
-      "unknown": "ロック設定を確認",
+      "title": "アプリブロック",
+      "unknown": "ブロック設定を確認",
       "unsupported": "アプリで設定してください",
-      "locked": "アプリ{{count}}個をロック"
+      "locked": "アプリ{{count}}個をブロック中"
     },
     "preview": {
       "subjects": {

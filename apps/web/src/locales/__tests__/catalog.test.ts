@@ -43,6 +43,24 @@ function byBaseKey(flat: Map<string, string>): Map<string, Set<string>> {
   return out;
 }
 
+/**
+ * 화면마다 이름이 달랐던 기능을 스토어 표기 하나로 맞췄다(BY-1212).
+ * 번역을 고칠 때 예전 표기가 다시 들어오지 않게 막는다.
+ */
+const RETIRED_TERMS: Partial<Record<string, RegExp[]>> = {
+  en: [/timelapse/i, /\bapp lock/i],
+  ja: [/(?<!ブ)ロック/],
+  // 대만 번체는 한자와 라틴 문자 사이를 띄운다(App 封鎖, 在 App 中).
+  "zh-Hant": [
+    /應用程式/,
+    /計畫表/,
+    /鎖定/,
+    /編輯記錄/,
+    /新記錄/,
+    /\p{Script=Han}App|App\p{Script=Han}/u,
+  ],
+};
+
 const namespaces = Object.keys(resources.ko ?? {});
 const translated = SUPPORTED_LOCALES.filter((lng) => lng !== "ko");
 
@@ -78,6 +96,12 @@ describe.each(translated)("%s 카탈로그", (lng) => {
       const koVars = byBaseKey(ko);
       for (const [key, vars] of byBaseKey(translation)) {
         expect([...vars].sort(), key).toEqual([...(koVars.get(key) ?? [])].sort());
+      }
+    });
+
+    it("통일하기로 한 용어의 다른 표기가 없다", () => {
+      for (const [key, value] of translation) {
+        for (const term of RETIRED_TERMS[lng] ?? []) expect(value, key).not.toMatch(term);
       }
     });
   });
