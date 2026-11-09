@@ -8,7 +8,7 @@ import {
   resetGlassChrome,
 } from "@/test/nativeControlStub";
 
-import { AmbientSoundButton } from "../AmbientSoundButton";
+import { AmbientLinesIcon, AmbientSoundButton } from "../AmbientSoundButton";
 
 afterEach(() => {
   cleanup();
@@ -94,5 +94,35 @@ describe("AmbientSoundButton 바깥 모양", () => {
     render(<AmbientSoundButton disabled on={false} expanded={false} onClick={() => {}} />);
 
     expect(screen.getByRole("button", { name: "배경음" })).toBeDisabled();
+  });
+});
+
+describe("AmbientLinesIcon 켜짐 표시", () => {
+  it("꺼져 있으면 회색 빗금 아이콘이고 그라데이션이 없다", () => {
+    const { container } = render(<AmbientLinesIcon on={false} />);
+
+    expect(container.querySelector("svg")).toHaveAttribute("stroke", "currentColor");
+    expect(container.querySelector("svg")).toHaveClass("opacity-40");
+    expect(container.querySelector('[data-testid="ambient-off-slash"]')).not.toBeNull();
+    expect(container.querySelector("linearGradient")).toBeNull();
+  });
+
+  it("켜져 있으면 막대를 흐르는 그라데이션으로 칠한다", () => {
+    const { container } = render(<AmbientLinesIcon on />);
+
+    const gradient = container.querySelector("linearGradient")!;
+    expect(container.querySelector("svg")).toHaveAttribute("stroke", `url(#${gradient.id})`);
+    expect(gradient.querySelectorAll("animate")).toHaveLength(2);
+    expect(container.querySelector('[data-testid="ambient-off-slash"]')).toBeNull();
+  });
+
+  it("동작 줄이기 설정이면 흐름 없이 그라데이션만 남긴다", () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: query.includes("reduce") }));
+
+    const { container } = render(<AmbientLinesIcon on />);
+
+    expect(container.querySelector("linearGradient")).not.toBeNull();
+    expect(container.querySelector("animate")).toBeNull();
+    vi.unstubAllGlobals();
   });
 });

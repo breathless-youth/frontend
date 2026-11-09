@@ -59,6 +59,8 @@ const SESSION_SURFACE_VARS = {
    * `--session-exit-bg`는 위처럼 다른 화면의 오류 문구와 공유돼 바꿀 수 없어서 값이 다른 변수를 따로 둔다.
    */
   "--session-control-resume-bg": "#4593fc",
+  /** 싱글룸 하단 바 판. 디자인 시스템 v2 `--session-bar-bg` 값이다. */
+  "--session-bar-bg": "rgba(22, 27, 34, 0.55)",
   "--session-control-exit-bg": "#f0555f",
   /**
    * 토스트 배경 — 시각 스펙 미확정. 컨트롤 바보다 불투명하게 둔다.

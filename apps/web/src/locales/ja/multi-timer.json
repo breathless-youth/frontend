@@ -1,9 +1,4 @@
 {
-  "entryButton": {
-    "aria": {
-      "open": "タイマー"
-    }
-  },
   "screen": {
     "title": "タイマー",
     "close": "タイマーをオフ",

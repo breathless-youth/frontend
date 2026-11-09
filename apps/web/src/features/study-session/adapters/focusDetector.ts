@@ -175,7 +175,7 @@ const VISION_SOURCES = [
  * 추가된 것은 두 가지뿐이고 둘 다 세션 로직이 아니라 **수명·진단**에 속한다.
  */
 export interface VisionFocusDetector extends FocusDetector {
-  /** 지금 상태. 개발 빌드의 실패 표시(`components/DevVisionFailureNotice.tsx`)가 읽는다. */
+  /** 지금 상태. 준비 계측과 측정 패널이 읽는다. */
   readonly status: VisionDetectorStatus;
   /** 준비된 검출기가 워커와 메인 스레드 중 어디서 도는지. 준비 전이면 null. */
   readonly runtime: VisionRuntimeKind | null;

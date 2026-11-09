@@ -1,11 +1,10 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { trackAmbientSoundChanged } from "@/lib/amplitude";
 
-import { answerCameraPrompt } from "@/test/cameraPrompt";
 import { RoomPage } from "../RoomPage";
 
 /**
@@ -38,9 +37,6 @@ function renderRoom() {
       </Routes>
     </MemoryRouter>,
   );
-  // 입장 카메라 확인 창에는 카메라 켜기로 답해 촬영 화면에서 시작한다.
-  // 심플 모드 시작 자체는 RoomPage.cameraPrompt.test.tsx가 본다.
-  answerCameraPrompt("camera");
   return view;
 }
 
@@ -70,34 +66,29 @@ describe("RoomPage — 배경음 버튼·페이지", () => {
     expect(await screen.findByRole("slider", { name: "백색소음 음량" })).toBeInTheDocument();
   });
 
-  it("배경음 버튼은 부가 기능 그룹에서 맨 앞, 과목 앞에 있다", () => {
-    renderRoom();
-
-    const names = within(screen.getByRole("group", { name: "부가 기능" }))
-      .getAllByRole("button")
-      .map((button) => button.getAttribute("aria-label"));
-    expect(names).toEqual([expect.stringMatching(/^배경음/), "과목", "타이머"]);
-  });
-
-  it("탭 순서가 더보기와 부가 기능(배경음, 과목, 타이머)에서 시작해 일시정지·공부 종료로 이어진다", async () => {
+  it("탭 순서가 과목, 배경음, 더보기에서 시작해 일시정지·공부 종료로 이어진다", async () => {
     renderRoom();
 
     const names: string[] = [];
-    for (let i = 0; i < 8; i += 1) {
+    for (let i = 0; i < 10; i += 1) {
       await userEvent.tab();
-      names.push(document.activeElement?.getAttribute("aria-label") ?? "");
+      const active = document.activeElement;
+      names.push(
+        active?.getAttribute("data-testid") === "session-subject"
+          ? "과목"
+          : (active?.getAttribute("aria-label") ?? ""),
+      );
     }
 
-    const more = names.indexOf("더보기");
-    expect(more).toBeGreaterThanOrEqual(0);
-    expect(names.slice(more, more + 6)).toEqual([
-      "더보기",
-      expect.stringMatching(/^배경음/),
+    const subject = names.indexOf("과목");
+    expect(subject).toBeGreaterThanOrEqual(0);
+    expect(names.slice(subject, subject + 3)).toEqual([
       "과목",
-      "타이머",
-      "일시정지",
-      "공부 종료",
+      expect.stringMatching(/^배경음/),
+      "더보기",
     ]);
+    expect(names.indexOf("일시정지")).toBeGreaterThan(subject);
+    expect(names.indexOf("공부 종료")).toBe(names.indexOf("일시정지") + 1);
   });
 
   /**

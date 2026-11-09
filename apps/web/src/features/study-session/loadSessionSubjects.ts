@@ -93,3 +93,33 @@ function todayFocusBySubject(
     return new Map();
   }
 }
+
+/**
+ * 오늘(플래너 하루) 저장된 총 공부 시간(초)
+ *
+ * 세션 화면의 `오늘 누적` 줄이 쓰고, 화면은 여기에 이번 세션 몫을 더한다.
+ * 과목 목록과 같은 일간 조회를 같은 queryClient로 받아 캐시를 나눈다.
+ * 조회나 조립이 실패하면 0으로 둬서 이번 세션 시간만 보인다.
+ */
+export async function loadTodayStudySec(userId: number, now = new Date()): Promise<number> {
+  const dateKey = plannerDateKeyOf(now);
+  if (hasTokenSource()) {
+    const day = await queryClient
+      .fetchQuery({ ...plannerDayQuery(userId, dateKey, deviceTimeZone()), retry: false })
+      .catch(() => null);
+    return day?.studySec ?? 0;
+  }
+  const nextKey = addDaysToDateKey(dateKey, 1);
+  const [day, next] = await Promise.all([
+    fetchDay(userId, dateKey),
+    nextKey > localDateKey(now) ? EMPTY_STATS : fetchDay(userId, nextKey),
+  ]);
+  if (day === null || next === null) {
+    return 0;
+  }
+  try {
+    return assemblePlannerDay(dateKey, day, next).studySec;
+  } catch {
+    return 0;
+  }
+}

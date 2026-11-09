@@ -1,4 +1,4 @@
-import { BookOpen } from "lucide-react";
+import { Maximize2, Minimize2 } from "lucide-react";
 import {
   type RefObject,
   useCallback,
@@ -13,25 +13,19 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 
 import type { StudySessionResponse, SubjectResponse } from "@focusmakers/types";
 
-import { Button } from "@/components/ui/button";
 import { CtaToaster } from "@/components/ui/sonner";
 import { createAmbientUsage } from "@/features/ambient-sound/ambientUsage";
-import { AmbientSoundButton } from "@/features/ambient-sound/components/AmbientSoundButton";
+import {
+  AmbientLinesIcon,
+  AmbientSoundButton,
+} from "@/features/ambient-sound/components/AmbientSoundButton";
 import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSoundSheet";
 import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
-import { CameraOnConfirmDialog } from "@/features/live-room/components/CameraOnConfirmDialog";
-import { ClonedTrackPreview } from "@/features/live-room/components/ClonedTrackPreview";
-import { FaceMaskSearchingBadge } from "@/features/live-room/components/FaceMaskSearchingBadge";
 import {
-  FACE_MASK_EMOJIS,
   faceMaskEmojiOf,
   readFaceMaskEmojiId,
   readFaceMaskOn,
-  writeFaceMaskEmojiId,
-  writeFaceMaskOn,
 } from "@/features/live-room/faceMaskSettings";
-import { useCameraPreviewAspect } from "@/features/live-room/useCameraPreviewAspect";
-import { ModeEntryButton } from "@/features/multi-timer/components/ModeEntryButton";
 import { MultiTimerScreen } from "@/features/multi-timer/components/MultiTimerScreen";
 import { PomodoroPanel } from "@/features/multi-timer/components/PomodoroPanel";
 import { TimerPanel } from "@/features/multi-timer/components/TimerPanel";
@@ -48,40 +42,28 @@ import { combineFocusDetectors } from "@/features/study-session/adapters/focusDe
 import { createMediaStreamCameraAdapter } from "@/features/study-session/adapters/mediaStreamCamera";
 import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice";
 import { CameraPreviewSurface } from "@/features/study-session/components/CameraPreviewSurface";
-import { DevVisionFailureNotice } from "@/features/study-session/components/DevVisionFailureNotice";
 import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
+import { SessionClock } from "@/features/study-session/components/SessionClock";
 import {
-  controlButtonVariants,
-  SESSION_SYMBOL_SCALE,
-} from "@/features/study-session/components/controlButtonVariants";
-import {
+  SESSION_BAR,
   SessionExitButton,
   SessionPauseButton,
 } from "@/features/study-session/components/SessionControlButtons";
 import { SessionHelpScreen } from "@/features/study-session/components/SessionHelpScreen";
 import {
+  SESSION_PILL_BUTTON,
   SessionMoreMenu,
-  SOLO_MORE_POSITION,
 } from "@/features/study-session/components/SessionMoreMenu";
 import { SessionPage } from "@/features/study-session/components/SessionPage";
-import {
-  SESSION_SIDE_POSITION,
-  SessionSideActions,
-} from "@/features/study-session/components/SessionSideActions";
-import {
-  SESSION_PILL_SIZE,
-  SessionStatusPill,
-} from "@/features/study-session/components/SessionStatusPill";
 import type { SessionStatusPillState } from "@/features/study-session/components/SessionStatusPill";
 import {
   SessionPageHeaderTime,
   SessionPageTimer,
-  SessionTimer,
 } from "@/features/study-session/components/SessionTimer";
 import { SimpleModeSurface } from "@/features/study-session/components/SimpleModeSurface";
 import { NoFocusEndNotice } from "@/features/study-session/components/NoFocusEndNotice";
 import { SessionSubjectPanel as SubjectPanel } from "@/features/study-session/components/SessionSubjectPanel";
-import { SubjectLabel } from "@/features/study-session/components/SubjectLabel";
+import { SessionSubjectHeader } from "@/features/study-session/components/SessionSubjectHeader";
 import { VisionPerfPanel } from "@/features/study-session/components/VisionPerfPanel";
 import { resolveDevDetectorOverride } from "@/features/study-session/devMockDetector";
 import {
@@ -106,7 +88,6 @@ import { sessionGlowStyle, sessionSurfaceStyle } from "@/features/study-session/
 import { useRotationRepaintNudge } from "@/lib/rotationRepaint";
 import { showCtaToast } from "@/lib/toast";
 import { useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
-import { useNativeControl } from "@/lib/nativeControls";
 import { useModalOverlayOpen } from "@/lib/nativeModalOverlay";
 import { useIdentityPending, useUserId } from "@/lib/userId";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
@@ -114,14 +95,17 @@ import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSessio
 import { useSessionHelpFunnel } from "@/features/study-session/useSessionHelpFunnel";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import type { SubjectSelection } from "@/features/study-session/subjectSegments";
-import { deriveSubjectTotals, liveSubjectTime } from "@/features/study-session/subjectSegments";
+import { deriveSubjectTotals } from "@/features/study-session/subjectSegments";
 import { completedTaskIdsSince } from "@/features/study-session/completedTasks";
 import { plannerCompletedTaskIds } from "@/features/study-session/plannerCompletedTasks";
 import { hasTokenSource } from "@/lib/userId";
 import { queryClient } from "@/lib/queryClient";
 import { parseInitialSubject, useInitialSubject } from "@/features/study-session/useInitialSubject";
 import { InitialSubjectError } from "@/features/study-session/InitialSubjectError";
-import { loadSessionSubjects } from "@/features/study-session/loadSessionSubjects";
+import {
+  loadSessionSubjects,
+  loadTodayStudySec,
+} from "@/features/study-session/loadSessionSubjects";
 import { useLandscapeLayout } from "@/features/study-session/useLandscapeLayout";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
@@ -129,17 +113,13 @@ import { useSessionOrientationAnalytics } from "@/features/study-session/useSess
 import { useTrackedVisionDetector } from "@/features/study-session/useVisionReadyTracking";
 import type { FaceSpot } from "@/features/study-session/vision/faceSpot";
 import { createTimelapseRecorder } from "@/features/timelapse/timelapseRecorder";
-import type { CameraPromptChoice } from "@/lib/amplitude";
+import { loadTimelapseSettings } from "@/features/timelapse/timelapseSettings";
 import {
   stageStudyResultExit,
   trackSessionNoticeConfirmed,
   trackSessionSimpleModeToggled,
-  trackStudySessionCameraPromptAnswered,
-  trackStudySessionCameraPromptShown,
   trackStudySessionExitCancelled,
   trackStudySessionExitRequested,
-  trackStudySessionFaceMaskEmojiSelected,
-  trackStudySessionFaceMaskToggled,
   trackStudySessionHelpCompleted,
   trackStudySessionHelpDismissed,
   trackSubjectItemSelected,
@@ -152,28 +132,38 @@ import { cn } from "@/lib/utils";
 import { prefetchResultPage } from "@/routes/lazyRoutes";
 
 /**
- * 세션 레이어의 세로/가로 배치
+ * 세션 레이어의 배치
  *
- * 세로는 flex 컬럼, 가로는 3열 그리드다. 방향은 `landscape-compact`(가로이면서 높이 30rem 미만)만 보고
- * 갈린다 — JS 방향 감지도, 방향 상태도 없다(`useStudyRoomSession`은 방향을 모른다).
+ * 위에서 아래로 머리 줄, 시간 묶음, 하단 바를 쌓는 flex 컬럼이다.
+ * 방향은 `landscape-compact`(가로이면서 높이 30rem 미만) 유틸리티만 보고 갈린다 — JS 방향 감지도, 방향 상태도 없다.
  * 회전해도 DOM 트리가 그대로여야 포커스와 진행 중인 세션이 살아남기 때문이다.
- * 그래서 가로 프레임을 별도 라우트·별도 컴포넌트로 만들지 않고 같은 자식들을 그리드 셀에 재배치하기만 한다.
  * 태블릿 가로는 세로 배치를 받는다.
  */
 const SESSION_LAYER_LAYOUT = [
   "pointer-events-none relative flex h-full w-full flex-col items-center",
-  "landscape-compact:grid landscape-compact:grid-cols-[1fr_auto_1fr] landscape-compact:grid-rows-[auto_1fr_auto_auto] landscape-compact:items-start",
   SESSION_LAYER_INSET,
 ].join(" ");
 
 /**
- * 심플 모드에서 숨기는 버튼의 전환
+ * 내 카메라 작은 창의 자리
  *
- * 심플 모드는 상태 필, 일시정지 버튼, 측정 중인 과목 시간만 남기고 숫자에 집중하게 하는 화면이다.
- * 사라지는 동안에도 눌리지 않게 호출부가 `inert`를 함께 단다.
+ * 세로는 오른쪽 아래, 하단 바 위 34px이고 가로는 오른쪽 아래 하단 바와 같은 높이다.
+ * 하단 바 위 끝은 레이어 아래 여백(12, 24, 27px) + 바 높이(68, 76, 88px)다.
+ * 카메라 화면과 그 위의 누르는 버튼, 확대 중의 줄이기 버튼이 같은 자리를 쓴다.
  */
-const SIMPLE_MODE_FADE =
-  "transition-[opacity,visibility] duration-200 motion-reduce:transition-none";
+const PIP_ANCHOR = [
+  "absolute right-[calc(env(safe-area-inset-right)+16px)] bottom-[calc(env(safe-area-inset-bottom)+114px)]",
+  "regular:bottom-[calc(env(safe-area-inset-bottom)+134px)] short-side-lg:bottom-[calc(env(safe-area-inset-bottom)+149px)]",
+  "landscape-compact:right-[max(env(safe-area-inset-right),16px)] landscape-compact:bottom-[max(env(safe-area-inset-bottom),calc((env(safe-area-inset-bottom)+14px)/2))]",
+].join(" ");
+
+/** 내 카메라 작은 창의 크기. 세로 108×144, 가로 160×108이고 폭 600 이상 창은 144×192다. */
+/** 타임랩스가 찍히고 있음을 알리는 빨간 점. 작은 창 이름표와 확대 화면 필이 같이 쓴다. */
+const TIMELAPSE_DOT =
+  "size-1.5 shrink-0 rounded-full bg-(--session-control-exit-bg) shadow-[0_0_0_3px_rgba(255,255,255,0.08)]";
+
+const PIP_SIZE =
+  "h-36 w-27 regular:h-48 regular:w-36 landscape-compact:h-27 landscape-compact:w-40";
 
 /**
  * 열린 페이지를 표시하는 history 항목의 키
@@ -291,9 +281,9 @@ function useRotationPhase(): RotationPhase {
  * 세션 화면
  *
  * - 세션 상태(`sessionState`: FOCUS / DISTRACTION / PAUSE)
- *   상태 필·타이머 색·하단 일시정지 버튼이 여기 반응한다.
+ *   시간 위 상태 문구·타이머 색·하단 일시정지 버튼이 여기 반응한다.
  * - 표시 모드(`simpleMode`: 프리뷰 / 심플) — "어떻게 보여줄 것인가".
- *   카메라 프리뷰 유무, 일시정지 말고 나머지 버튼의 숨김, 타이머 발광·세로 배치가 여기 반응한다.
+ *   카메라 창 유무와 시간 묶음의 자리가 여기 반응한다.
  *
  * 두 축은 서로를 리셋하지 않는다 — 심플 모드에서 일시정지했다가 다시 시작하면 심플 모드로
  * 돌아온다. 그래서 `simpleMode`는 `SessionState`에 넣지 않고 별도 토글로 둔다.
@@ -438,8 +428,6 @@ function RoomSessionScreen({
   const [sessionSurface, setSessionSurface] = useState<HTMLElement | null>(null);
   // 페이지를 닫은 뒤 포커스를 돌려줄 자리. Radix 는 Trigger 를 쓸 때만 스스로 되돌린다.
   const ambientButtonRef = useRef<HTMLButtonElement>(null);
-  const subjectButtonRef = useRef<HTMLButtonElement>(null);
-  const timerButtonRef = useRef<HTMLButtonElement>(null);
   // 과목 페이지를 연 요소와 연 시각. 닫을 때 포커스를 돌려주고 열려 있던 시간을 계측한다.
   const subjectOpenerRef = useRef<HTMLElement | null>(null);
   const subjectOpenedAtRef = useRef(0);
@@ -468,9 +456,40 @@ function RoomSessionScreen({
     subjectsListRef.current = subjects.subjects;
   });
   // 심플 모드는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
-  // 첫 화면에 얼굴이 가득 비치는 부담을 덜려고 세션마다 심플 모드로 시작하고, 촬영 화면은 입장 확인 창에서 고른다.
+  // 세션은 기본 모드로 시작한다. 내 카메라는 작은 창이라 입장 확인 창 없이 바로 보인다.
   // 카메라·감지·타이머는 표시 모드와 상관없이 입장 즉시 돈다.
-  const [simpleMode, setSimpleMode] = useState(true);
+  const [simpleMode, setSimpleMode] = useState(false);
+  // 기본 모드의 내 카메라는 작은 창으로 시작하고, 키우면 화면 전체를 채운다.
+  const [cameraExpanded, setCameraExpanded] = useState(false);
+  // ⓘ 버튼으로 펼치는 집중 시간·집중률 카드
+  const [infoOpen, setInfoOpen] = useState(false);
+  // `오늘 누적`에 더할 오늘 저장 기록. 받기 전과 실패하면 0이라 이번 세션 시간만 보인다.
+  const [savedTodayStudySec, setSavedTodayStudySec] = useState(0);
+  useEffect(() => {
+    if (userId === null) {
+      return;
+    }
+    let cancelled = false;
+    void loadTodayStudySec(userId).then((sec) => {
+      if (!cancelled) setSavedTodayStudySec(sec);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+  // 카메라 창 이름표. 타임랩스를 켜 둔 계정은 찍히고 있다는 것을 빨간 점으로 알린다.
+  const [timelapseOn, setTimelapseOn] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    loadTimelapseSettings()
+      .then((settings) => {
+        if (!cancelled) setTimelapseOn(settings.enabled);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
   // 확인 창이 닫힌 뒤 초점을 돌려줄 자리. 심플 모드에서는 더보기 버튼이 inert라 초점을 받지 못한다.
   const simpleToggleRef = useRef<HTMLButtonElement>(null);
   // 더보기 메뉴는 열려도 앱 버튼을 숨기지 않아서 열린 동안 앱 버튼은 disabled로 누름을 막는다.
@@ -528,15 +547,10 @@ function RoomSessionScreen({
     setHelpOpen(false);
     setHelpStep(0);
   }
-  // 입장 카메라 확인 창. 세션 화면마다 한 번 묻는다.
-  // 과목 페이지 등에 가려 도움말이 잠시 숨은 동안에도 묻지 않도록 가림 여부를 빼고 판정한다.
-  // 신원은 진입 게이트가 첫 토큰을 기다린 뒤에야 이 화면을 만들므로 여기서 또 기다리지 않는다.
-  // 종료·초대·과목 페이지·타이머 화면은 먼저 열렸으면 닫힌 뒤에 묻는다. 이 창도 aria-modal이라
-  // modalOverlayOpen은 조건에 넣지 않는다(뜨자마자 스스로를 닫는 순환이 된다).
-  const [cameraPromptAnswered, setCameraPromptAnswered] = useState(false);
-  // 내 화면에만 그리는 가림이라 소셜룸·타임랩스와 설정을 나누지 않는다.
-  const [faceMaskOn, setFaceMaskOn] = useState(() => readFaceMaskOn("single"));
-  const [faceMaskEmojiId, setFaceMaskEmojiId] = useState(() => readFaceMaskEmojiId("single"));
+  // 얼굴 가리기는 내 화면에만 그리는 가림이라 소셜룸·타임랩스와 설정을 나누지 않는다.
+  // 싱글룸에는 바꾸는 화면이 없어 저장된 값만 읽는다.
+  const [faceMaskOn] = useState(() => readFaceMaskOn("single"));
+  const [faceMaskEmojiId] = useState(() => readFaceMaskEmojiId("single"));
   const [faceSpot, setFaceSpot] = useState<FaceSpot | null>(null);
   // 카메라가 바뀌면 이전 영상에서 구한 위치가 새 영상과 맞지 않아 렌더 중에 비운다.
   const [faceSpotStream, setFaceSpotStream] = useState(cameraStream);
@@ -553,61 +567,6 @@ function RoomSessionScreen({
   const faceMask = faceMaskOn
     ? { spot: faceSpot, emojiUrl: faceMaskEmojiOf(faceMaskEmojiId).url }
     : null;
-  function changeFaceMaskOn(next: boolean) {
-    trackStudySessionFaceMaskToggled({ on: next, roomType: "single" });
-    writeFaceMaskOn("single", next);
-    setFaceMaskOn(next);
-    // 꺼 둔 동안에는 구독하지 않아 일시정지로 위치가 비워진 것도 놓친다.
-    // 다시 켰을 때 그 옛 위치에 이모지가 붙지 않게 비운다.
-    setFaceSpot(null);
-  }
-  function changeFaceMaskEmoji(id: string) {
-    trackStudySessionFaceMaskEmojiSelected({ emojiId: id, roomType: "single" });
-    writeFaceMaskEmojiId("single", id);
-    setFaceMaskEmojiId(id);
-  }
-  const cameraPromptOpen =
-    phase.name === "studying" &&
-    !cameraPromptAnswered &&
-    !helpOpen &&
-    page === null &&
-    !exitDialogOpen &&
-    invite === null &&
-    !modeOpen;
-  // 미리보기가 촬영 화면과 같은 영역을 잘라 보이도록 세션 루트를 직접 잰다.
-  const {
-    selfSurfaceRef: sessionRootRef,
-    previewAspect,
-    measurePreviewAspect,
-  } = useCameraPreviewAspect<HTMLElement>(cameraPromptOpen);
-  const setSessionRoot = useCallback(
-    (node: HTMLElement | null) => {
-      sessionRootRef.current = node;
-      setSessionSurface(node);
-    },
-    [sessionRootRef],
-  );
-  // 창이 뜰 때 그리기 전에 비율을 재고 노출을 보낸다.
-  // StrictMode가 effect를 두 번 돌려도 노출은 한 번만 보내도록 ref로 막는다.
-  const cameraPromptShownRef = useRef(false);
-  useLayoutEffect(() => {
-    if (!cameraPromptOpen) {
-      return;
-    }
-    measurePreviewAspect();
-    if (!cameraPromptShownRef.current) {
-      cameraPromptShownRef.current = true;
-      trackStudySessionCameraPromptShown("single");
-    }
-  }, [cameraPromptOpen, measurePreviewAspect]);
-  /** 입장 카메라 확인 창의 답. 표시 모드만 바꾸고 카메라·감지·타이머는 그대로 둔다. */
-  function answerCameraPrompt(choice: CameraPromptChoice) {
-    trackStudySessionCameraPromptAnswered({ choice, roomType: "single", faceMask: faceMaskOn });
-    setCameraPromptAnswered(true);
-    if (choice === "camera") {
-      setSimpleMode(false);
-    }
-  }
   /**
    * 카메라 전환이 진행 중인가 — **추론 정지 구간을 표시하는 값이지 화면 상태가 아니다.**
    * 전환 중에는 기존 트랙이 멈추고 새 스트림이 `<video>`에 다시 붙는데, 그 사이의 프레임은
@@ -855,10 +814,8 @@ function RoomSessionScreen({
     multiTimer.close();
   }
 
-  // 라벨로 열었는데 페이지에서 과목을 해제하면 라벨이 사라지므로 과목 버튼으로 돌아간다.
   function subjectReturnFocus() {
-    const opener = subjectOpenerRef.current;
-    return opener?.isConnected ? opener : subjectButtonRef.current;
+    return subjectOpenerRef.current;
   }
 
   function handleSelectSubject(next: SubjectSelection | null) {
@@ -872,20 +829,18 @@ function RoomSessionScreen({
 
   /** 이 세션에서 과목별로 쌓인 시간 — 서버와 같은 규칙(구간 − 이벤트 겹침)으로 화면에서 파생한다. */
   const liveSubjectTotals = deriveSubjectTotals(subjectSegments, sessionEvents);
-  /** 타이머 위 라벨에 보일 과목. 이름은 목록에서 오고, 순공은 오늘(플래너 하루) 저장 기록 + 이 세션 몫이다. */
   const selectedSubject =
     subjectSelection === null
       ? null
       : (subjects.subjects.find((subject) => subject.id === subjectSelection) ?? null);
-  const subjectLabel =
+  /** 왼쪽 위에 보일 과목. 할 일은 끝내지 않은 첫 할 일 하나다. 목록이 오기 전에는 이름 자리에 `과목`을 둔다. */
+  const headerSubject =
     subjectSelection === null
       ? null
       : {
           name: selectedSubject?.name ?? t("subjectSheet.title"),
-          paused,
-          focusSec:
-            (selectedSubject?.focusSec ?? 0) +
-            liveSubjectTime(liveSubjectTotals, subjectSelection).focusSec,
+          colorIndex: selectedSubject?.colorIndex ?? 0,
+          task: selectedSubject?.tasks.find((task) => task.doneAt === null)?.name ?? null,
         };
 
   /** 하단 종료 버튼 */
@@ -907,29 +862,6 @@ function RoomSessionScreen({
     void endAndSubmit(MANUAL_END_REASON);
   }
 
-  const subjectButtonLabel =
-    subjectSelection === null ? t("subjectSheet.title") : t("controls.subjectSelected");
-  const subjectNative = useNativeControl<HTMLButtonElement>(
-    {
-      id: "session-subject",
-      kind: "button",
-      title: null,
-      systemImage: "book",
-      shape: "circle",
-      disabled: moreMenuOpen,
-      accessibilityLabel: subjectButtonLabel,
-      tone: subjectSelection === null ? "default" : "active",
-      faded: simpleMode || helpVisible,
-    },
-    () => {
-      // 앱 누름에는 누른 웹 요소가 없어서 숨겨 둔 웹 버튼을 연 요소로 둔다.
-      if (subjectButtonRef.current !== null) {
-        openSubjectPage("button", subjectButtonRef.current);
-      }
-    },
-    { measureIcon: true, iconScale: SESSION_SYMBOL_SCALE },
-  );
-
   // 종료 안내(1분 미만·자동 종료)는 세션이 끝난 뒤의 화면이라 결과 화면처럼 시스템 테마를 따른다.
   // 그 밖의 세션 화면은 항상 다크다.
   const endNoticeVisible =
@@ -937,7 +869,7 @@ function RoomSessionScreen({
 
   return (
     <main
-      ref={setSessionRoot}
+      ref={setSessionSurface}
       style={{ ...sessionSurfaceStyle, ...sessionGlowStyle(sessionState.kind) }}
       data-simple-mode={simpleMode}
       // 하단 버튼 아이콘과 타이머 텍스트가 마우스/터치 드래그로 끌리는 것을
@@ -966,8 +898,10 @@ function RoomSessionScreen({
         facing={cameraFacing}
         videoRef={videoRef}
         hidden={simpleMode}
-        rotating={!simpleMode && rotationPhase === "rotating"}
+        rotating={!simpleMode && cameraExpanded && rotationPhase === "rotating"}
         faceMask={faceMask}
+        // 기본 모드는 오른쪽 아래 작은 창이다. 크기만 바뀌어 영상과 추론은 끊기지 않는다.
+        className={cameraExpanded ? undefined : cn("inset-auto rounded-lg", PIP_ANCHOR, PIP_SIZE)}
       />
 
       {phase.name === "studying" ? (
@@ -982,8 +916,10 @@ function RoomSessionScreen({
             ref={simpleToggleRef}
             inert={helpVisible}
             // 메뉴는 누름이 시작될 때 닫혀서 클릭 때는 이미 닫힌 상태라, 누름을 시작한 순간의 열림으로 판단한다.
+            // 머리 줄에서 할 일을 적는 중이면 바깥 누름은 입력을 끝내려는 것이라 모드를 바꾸지 않는다(누를 때는 아직 포커스가 있다).
             onPointerDown={() => {
-              pressStartedWithMenuOpenRef.current = moreMenuOpen;
+              pressStartedWithMenuOpenRef.current =
+                moreMenuOpen || document.activeElement instanceof HTMLInputElement;
             }}
             onClick={() => {
               // 메뉴 바깥을 눌러 메뉴만 닫으려던 누름이 심플 모드까지 바꾸지 않게 한다.
@@ -997,185 +933,175 @@ function RoomSessionScreen({
             className="absolute inset-0 cursor-default"
           />
 
+          {/* 카메라 확대 중에는 위아래 글자가 읽히게 화면 위·아래 끝을 어둡게 깐다. */}
+          {!simpleMode && cameraExpanded && (
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.5),rgba(0,0,0,0)_25%,rgba(0,0,0,0)_65%,rgba(0,0,0,0.6))]"
+            />
+          )}
+
           <div inert={helpVisible} className={SESSION_LAYER_LAYOUT}>
-            <SessionStatusPill
-              state={pillState}
-              label={statusLabel}
-              className={cn(
-                "landscape-compact:col-start-2 landscape-compact:row-start-1 landscape-compact:justify-self-center",
-                SESSION_PILL_SIZE,
-              )}
-            />
-
-            {/* 보이는 순서대로 오른쪽 열보다 앞에 둬서 탭 순서가 위에서 아래로 이어진다. */}
-            <SessionMoreMenu
-              container={sessionSurface}
-              hidden={simpleMode || helpVisible}
-              onFlipCamera={() => void handleFlipCamera()}
-              onOpenHelp={() => {
-                setHelpStep(0);
-                setHelpOpen(true);
-              }}
-              onOpenChange={setMoreMenuOpen}
-              className={SOLO_MORE_POSITION}
-              triggerRef={setMoreTrigger}
-              aboveSideColumn
-            />
-
-            <SessionSideActions
-              inert={simpleMode || moreMenuOpen}
-              ambient={
-                /* 배경음 버튼 */
-                <AmbientSoundButton
-                  ref={ambientButtonRef}
-                  on={ambient.isOn}
-                  expanded={page === "ambient"}
-                  onClick={() => openPage("ambient")}
-                  faded={simpleMode || helpVisible}
-                  inactive={moreMenuOpen}
+            {/* 머리 줄: 왼쪽 과목·할 일, 오른쪽 배경음·더보기. 두 모드 모두 같은 자리에 둔다.
+                웹 버튼은 스스로 pointer-events-auto라 더보기 메뉴의 바깥 누름 차단이 닿지 않아서 메뉴가 열린 동안 inert로 막는다. */}
+            <div className="flex w-full items-start justify-between gap-3">
+              <div inert={moreMenuOpen} className="min-w-0">
+                <SessionSubjectHeader
+                  subject={headerSubject}
+                  expanded={page === "subject"}
+                  onClick={(event) => openSubjectPage("label", event.currentTarget)}
+                  onAddTask={
+                    subjectSelection === null
+                      ? undefined
+                      : (name) => void subjects.addTask(subjectSelection, name)
+                  }
                 />
-              }
-              subject={
-                <Button
-                  ref={(node) => {
-                    subjectButtonRef.current = node;
-                    subjectNative.ref(node);
-                  }}
-                  type="button"
-                  size="icon"
-                  variant="unstyled"
-                  // 배경음 버튼과 같은 규칙이다.
-                  // 이 버튼은 과목을 고르지 않고 페이지를 열어서, 고른 상태는 이름과 색으로 전한다.
-                  aria-label={subjectButtonLabel}
-                  aria-haspopup="dialog"
-                  aria-expanded={page === "subject"}
-                  data-on={subjectSelection !== null}
-                  onClick={(event) => openSubjectPage("button", event.currentTarget)}
-                  className={cn(controlButtonVariants(), "data-[on=true]:text-(--state-focus)")}
-                >
-                  <BookOpen
-                    aria-hidden="true"
-                    className="size-5.75 regular:size-6.75 short-side-lg:size-8.5"
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <div inert={moreMenuOpen} className="flex">
+                  <AmbientSoundButton
+                    ref={ambientButtonRef}
+                    nativeId={null}
+                    on={ambient.isOn}
+                    expanded={page === "ambient"}
+                    onClick={() => openPage("ambient")}
+                    className={SESSION_PILL_BUTTON}
+                    icon={<AmbientLinesIcon on={ambient.isOn} />}
                   />
-                </Button>
-              }
-              // 페이지가 열려 있으면 페이지가 이 버튼들을 덮어서 따로 막지 않는다.
-              modes={
-                <ModeEntryButton
-                  ref={timerButtonRef}
-                  expanded={modeOpen}
-                  faded={simpleMode || helpVisible}
-                  inactive={moreMenuOpen}
-                  onClick={() => multiTimer.open()}
+                </div>
+                <SessionMoreMenu
+                  variant="pill"
+                  container={sessionSurface}
+                  hidden={helpVisible}
+                  // 심플 모드는 카메라 화면이 없어 전환 항목을 뺀다.
+                  onFlipCamera={simpleMode ? undefined : () => void handleFlipCamera()}
+                  onOpenTimer={() => multiTimer.open()}
+                  onOpenHelp={() => {
+                    setHelpStep(0);
+                    setHelpOpen(true);
+                  }}
+                  onOpenChange={setMoreMenuOpen}
+                  triggerRef={setMoreTrigger}
                 />
-              }
+              </div>
+            </div>
+
+            {/* 시간 묶음 자리. 기본 모드는 과목 줄 아래 30px에, 심플 모드는 머리 줄과 하단 바 사이 4:9 지점에 둔다(시안 y=300).
+                가로 기본은 과목 줄 위끝에서 22px 아래 가운데(머리 줄 높이에 겹침), 가로 심플은 화면 가운데다.
+                위치만 즉시 바뀌고 묶음은 다시 마운트하지 않아 숫자가 끊기지 않는다. */}
+            <div
               className={cn(
-                SESSION_SIDE_POSITION,
-                SIMPLE_MODE_FADE,
-                simpleMode && "invisible opacity-0",
+                simpleMode ? "grow-4" : "h-7.5 shrink-0",
+                "landscape-compact:h-0 landscape-compact:grow-0",
               )}
             />
-
-            {/* 타이머 세로 위치는 이 스페이서 두 개의 flex-grow 비가 정한다 — 프리뷰는 위만
-                늘려(1:0) 하단 버튼 바로 위에, 심플 모드는 균등(1:1)하게 나눠 상태 필과 하단 버튼
-                사이 여백의 중앙에 놓는다. Figma는 ≈3:5로 중앙보다 위지만
-                실기기에서 너무 높다는 확인으로 균등 배분으로 낮췄다.
-
-                전환 애니메이션을 다시 넣지 말 것.
-                
-                예전에는 `transition-[flex-grow]`로 300ms ease-out 슬라이드를 줬는데,
-                타이머가 미끄러지는 것 자체가 거슬린다는 판단으로 걷어냈다. 지금은 위치만
-                즉시 바뀌고 배경·발광은 그대로 300ms로 페이드한다 — 움직이는 것은 타이머가
-                아니라 화면이라는 인상이 된다. 타이머는 여전히 언마운트/재마운트하지 않으므로
-                숫자가 끊기거나 리셋되지는 않는다. 가로에서는 그리드 트랙이 같은 일을 하므로 스페이서를 접는다. */}
-            <div className="grow landscape-compact:hidden" />
-
-            {/* 가로 배치만 표시 모드에 따라 갈린다.
-                프리뷰는 두 하단 버튼 사이 가운데(3행 2열), 심플은 화면 가운데다.
-                세로에서는 두 경우 모두 흐름 그대로다. */}
             <div
               className={cn(
                 "relative flex flex-col items-center",
+                "landscape-compact:absolute landscape-compact:left-1/2 landscape-compact:-translate-x-1/2",
                 simpleMode
-                  ? // 그리드 칸 중앙은 위 필과 아래 바 높이 차이만큼 어긋나서 화면 기준으로 띄운다.
-                    "landscape-compact:absolute landscape-compact:top-1/2 landscape-compact:left-1/2 landscape-compact:-translate-x-1/2 landscape-compact:-translate-y-1/2"
-                  : "landscape-compact:col-start-2 landscape-compact:row-start-3 landscape-compact:self-end",
+                  ? "landscape-compact:top-1/2 landscape-compact:-translate-y-1/2"
+                  : "landscape-compact:top-[calc(env(safe-area-inset-top)+40px)]",
               )}
             >
               {/* 페이지가 열린 동안은 페이지 푸터의 Toaster가 받는다.
                   둘이 함께 있으면 토스트가 두 번 뜬다. */}
               {page === null && <CtaToaster />}
-              {subjectLabel !== null && (
-                <SubjectLabel
-                  name={subjectLabel.name}
-                  focusSec={subjectLabel.focusSec}
-                  paused={subjectLabel.paused}
-                  expanded={page === "subject"}
-                  // 심플 모드는 화면 탭이 곧 모드 전환이라, 라벨이 눌리면 그 동작과 겹쳐 페이지가 잘못 열린다.
-                  // 그래서 심플 모드에서는 누를 수 없는 글자로 둔다.
-                  onClick={
-                    simpleMode
-                      ? undefined
-                      : (event) => openSubjectPage("label", event.currentTarget)
-                  }
-                  className={cn(
-                    "mb-1 landscape-compact:mb-2",
-                    moreMenuOpen && "pointer-events-none",
-                  )}
+              <div inert={moreMenuOpen}>
+                <SessionClock
+                  studySec={studySec}
+                  focusSec={focusSec}
+                  todayStudySec={savedTodayStudySec + studySec}
+                  state={pillState}
+                  statusLabel={statusLabel}
+                  simple={simpleMode}
+                  infoOpen={infoOpen}
+                  onToggleInfo={() => setInfoOpen((open) => !open)}
                 />
-              )}
-              <SessionTimer
-                focusSec={focusSec}
-                studySec={studySec}
-                state={pillState}
-                glow={simpleMode}
-              />
+              </div>
             </div>
+            <div className={simpleMode ? "grow-9" : "grow"} />
 
-            <div className={cn(simpleMode ? "grow" : "grow-0", "landscape-compact:hidden")} />
+            {/* 내 카메라 작은 창. 누르면 화면 전체로 키우고, 확대 중에는 같은 자리의 버튼으로 다시 줄인다. */}
+            {!simpleMode &&
+              (cameraExpanded ? (
+                // 확대 중에는 작은 창의 이름표가 사라지므로 타임랩스 필을 같은 줄 왼쪽 끝에 따로 띄운다(시안 21d).
+                <div
+                  className={cn(
+                    PIP_ANCHOR,
+                    "left-[calc(env(safe-area-inset-left)+16px)] flex h-11 items-center justify-between landscape-compact:left-[max(env(safe-area-inset-left),16px)]",
+                  )}
+                >
+                  {timelapseOn ? (
+                    <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-(--session-pill-bg) px-2.5 text-xs leading-4 font-semibold whitespace-nowrap text-white backdrop-blur-[10px]">
+                      <span aria-hidden="true" className={TIMELAPSE_DOT} />
+                      {t("camera.timelapse")}
+                    </span>
+                  ) : (
+                    <span />
+                  )}
+                  <button
+                    type="button"
+                    inert={moreMenuOpen}
+                    aria-label={t("camera.shrink")}
+                    onClick={() => setCameraExpanded(false)}
+                    className="pointer-events-auto flex size-11 items-center justify-center rounded-full bg-(--session-pill-bg) backdrop-blur-[10px]"
+                  >
+                    <Minimize2 aria-hidden="true" className="size-5" strokeWidth={1.5} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  inert={moreMenuOpen}
+                  aria-label={t("camera.expand")}
+                  onClick={() => setCameraExpanded(true)}
+                  className={cn(
+                    PIP_ANCHOR,
+                    PIP_SIZE,
+                    "pointer-events-auto flex items-end justify-start rounded-lg shadow-[0_8px_24px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(255,255,255,0.12)]",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "m-2 inline-flex items-center gap-1.25 rounded-full bg-(--session-pill-bg) px-2 py-0.5 text-xs leading-4 whitespace-nowrap",
+                      timelapseOn ? "font-semibold text-white" : "text-white/85",
+                    )}
+                  >
+                    {timelapseOn && <span aria-hidden="true" className={TIMELAPSE_DOT} />}
+                    {timelapseOn ? t("camera.timelapse") : t("camera.label")}
+                  </span>
+                  <span className="absolute top-2 right-2 flex size-7 items-center justify-center rounded-full bg-(--session-pill-bg) backdrop-blur-[10px]">
+                    <Maximize2 aria-hidden="true" className="size-4" strokeWidth={1.8} />
+                  </span>
+                </button>
+              ))}
 
-            {/* 가로에서는 줄을 풀어 두 버튼을 그리드 양 끝 칸에 놓는다.
-                `display: contents` 요소의 role은 Safari에서 사라진 적이 있어 이 줄에는 role을 달지 않는다. */}
-            <div className="mt-2 flex w-full justify-between regular:mt-2.5 short-side-lg:mt-3 landscape-compact:contents">
-              <div
-                inert={moreMenuOpen}
-                className="landscape-compact:col-start-1 landscape-compact:row-start-3 landscape-compact:self-end landscape-compact:justify-self-start"
-              >
-                <SessionPauseButton
-                  paused={paused}
-                  inactive={moreMenuOpen}
-                  faded={helpVisible}
-                  // 화면 꺼짐 일시정지와 과목 재생 버튼도 pause·resume을 거치므로 햅틱은 이 버튼에만 둔다.
-                  onClick={() => {
-                    // 두 햅틱 모두 일시정지 상태에서 울려서 진동이 기기 조작 감지 결과로 이어지지 않는다.
-                    if (paused) {
-                      haptic("medium");
-                      resume();
-                    } else {
-                      pause();
-                      haptic("light");
-                    }
-                  }}
-                />
-              </div>
-              <div
-                inert={simpleMode || moreMenuOpen}
-                className={cn(
-                  "landscape-compact:col-start-3 landscape-compact:row-start-3 landscape-compact:self-end landscape-compact:justify-self-end",
-                  SIMPLE_MODE_FADE,
-                  simpleMode && "invisible opacity-0",
-                )}
-              >
-                <SessionExitButton
-                  onClick={handleRequestExit}
-                  faded={simpleMode || helpVisible}
-                  inactive={moreMenuOpen}
-                />
-              </div>
+            <div
+              role="toolbar"
+              aria-label={t("controls.bar")}
+              inert={moreMenuOpen}
+              className={cn(SESSION_BAR, "pointer-events-auto")}
+            >
+              <SessionPauseButton
+                paused={paused}
+                // 화면 꺼짐 일시정지와 과목 재생 버튼도 pause·resume을 거치므로 햅틱은 이 버튼에만 둔다.
+                onClick={() => {
+                  // 두 햅틱 모두 일시정지 상태에서 울려서 진동이 기기 조작 감지 결과로 이어지지 않는다.
+                  if (paused) {
+                    haptic("medium");
+                    resume();
+                  } else {
+                    pause();
+                    haptic("light");
+                  }
+                }}
+              />
+              <SessionExitButton onClick={handleRequestExit} />
             </div>
 
             {userId === null && (
-              <p className="mt-3 text-center text-[12px] leading-4 text-white/55 landscape-compact:col-span-full landscape-compact:row-start-4 landscape-compact:justify-self-center">
+              <p className="mt-3 text-center text-[12px] leading-4 text-white/55">
                 {t("submit.unregistered")}
               </p>
             )}
@@ -1258,7 +1184,7 @@ function RoomSessionScreen({
               kindLocked={modeView.kindLocked}
               onSwitchKind={(kind) => multiTimer.switchKind(kind)}
               container={sessionSurface}
-              returnFocus={() => timerButtonRef.current}
+              returnFocus={() => moreTrigger}
               onClose={closeMode}
               primaryLabel={modeView.primaryLabel}
               primaryDisabled={modeView.primaryDisabled}
@@ -1326,14 +1252,6 @@ function RoomSessionScreen({
         <SessionResultFallback phase={phase} onRetry={() => void endAndSubmit()} />
       )}
 
-      {/* 개발 빌드 전용 — 걷어낼 때 지울 두 지점 중 하나가 이 줄이다(나머지 하나는
-          `components/DevVisionFailureNotice.tsx` 파일 자체). 모델 로딩이 최종 실패했을 때
-          프로덕션은 에러 화면 없이 감지만 없는 채로 세션을 계속 진행하고,
-          개발 빌드만 그 사실을 화면에 띄운다 — 조용히 mock처럼 도는 상태를 개발 중에 못 알아채는
-          쪽이 더 위험하기 때문이다. Vite가 프로덕션에서 `import.meta.env.DEV`를 `false`로
-          치환하므로 이 블록과 컴포넌트 모듈이 통째로 번들에서 빠진다. */}
-      {import.meta.env.DEV && <DevVisionFailureNotice detector={visionDetector} />}
-
       {/* 측정 빌드(VITE_PERF_PANEL=1) 전용. 운영 빌드에서는 조건이 false로 접혀 패널 모듈이 번들에서 빠진다. */}
       {import.meta.env.VITE_PERF_PANEL === "1" && <VisionPerfPanel measurement={visionReady} />}
 
@@ -1371,42 +1289,6 @@ function RoomSessionScreen({
           haptic("medium");
           void endAndSubmit(MANUAL_END_REASON);
         }}
-      />
-      {/* 입장 카메라 확인 창도 종료 확인과 같은 이유로 `phase` 삼항 밖에 둔다.
-          답에 따라 심플 모드일 수도 아닐 수도 있어서 닫히면 항상 화면 탭 전환 버튼으로 초점을 돌린다. */}
-      <CameraOnConfirmDialog
-        open={cameraPromptOpen}
-        container={sessionSurface}
-        title={t("cameraPrompt.title")}
-        description={t("cameraPrompt.description")}
-        notice={t("cameraPrompt.notice")}
-        cancelLabel={t("cameraPrompt.cancel")}
-        confirmLabel={t("cameraPrompt.confirm")}
-        returnFocus={() => simpleToggleRef.current}
-        preview={
-          <div className="relative size-full">
-            <ClonedTrackPreview
-              stream={cameraStream}
-              facing={cameraFacing}
-              targetAspect={previewAspect ?? undefined}
-              faceMask={faceMask}
-            />
-            {faceMaskOn && faceSpot === null && <FaceMaskSearchingBadge />}
-          </div>
-        }
-        // 싱글룸은 영상을 다시 합성하지 않아 어느 기기에서나 쓸 수 있다.
-        faceMask={{
-          supported: true,
-          on: faceMaskOn,
-          onChange: changeFaceMaskOn,
-          emojis: FACE_MASK_EMOJIS,
-          emojiId: faceMaskEmojiId,
-          onEmojiChange: changeFaceMaskEmoji,
-          tooltip: [t("cameraPrompt.faceMaskTooltip")],
-          caption: t("cameraPrompt.faceMaskCaption"),
-        }}
-        onCancel={() => answerCameraPrompt("simple")}
-        onConfirm={() => answerCameraPrompt("camera")}
       />
     </main>
   );

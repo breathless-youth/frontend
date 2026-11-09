@@ -8,13 +8,7 @@ import { sessionGuideState } from "@/features/study-session/sessionGuide";
 import type * as tokenSourceModule from "@/lib/auth/tokenSource";
 import type { TokenSource } from "@/lib/auth/tokenSource";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
-import {
-  enterGlassChrome,
-  lastInlineControls,
-  measureControlsNow,
-  resetGlassChrome,
-} from "@/test/nativeControlStub";
-import { answerCameraPrompt } from "@/test/cameraPrompt";
+import { resetGlassChrome } from "@/test/nativeControlStub";
 import { RoomPage } from "../RoomPage";
 
 /**
@@ -106,7 +100,6 @@ async function openHelpFromMenu() {
 async function renderWithMenuHelp() {
   localStorage.setItem(KEY, "seen");
   renderRoom();
-  answerCameraPrompt("camera");
   await openHelpFromMenu();
 }
 
@@ -138,7 +131,6 @@ describe("RoomPage 세션 도움말", () => {
 
   it("안 본 계정이 메뉴로 끝까지 보면 seen을 남긴다", async () => {
     renderRoom();
-    answerCameraPrompt("camera");
     expect(sessionGuideState(1)).toBeNull();
 
     await openHelpFromMenu();
@@ -159,7 +151,6 @@ describe("RoomPage 세션 도움말", () => {
   it("더보기의 도움말 보기로 언제든 다시 연다", async () => {
     localStorage.setItem(KEY, "seen");
     renderRoom();
-    answerCameraPrompt("camera");
 
     await userEvent.click(screen.getByRole("button", { name: "더보기" }));
     await userEvent.click(screen.getByRole("menuitem", { name: "도움말 보기" }));
@@ -190,7 +181,7 @@ describe("RoomPage 세션 도움말", () => {
     expect(screen.getByText("2/5")).toBeInTheDocument();
 
     // jsdom은 inert를 지키지 않아 덮개 뒤 버튼을 직접 눌러 페이지를 연 상황을 만든다.
-    fireEvent.click(screen.getByRole("button", { name: "과목", hidden: true }));
+    fireEvent.click(screen.getByTestId("session-subject"));
     await waitFor(() => expect(helpDialog()).not.toBeInTheDocument());
 
     await userEvent.keyboard("{Escape}");
@@ -200,7 +191,6 @@ describe("RoomPage 세션 도움말", () => {
 
   it("신원이 없어도 메뉴로 열고 닫을 수 있고 기기에 아무것도 남기지 않는다", async () => {
     renderRoom("/room/7");
-    answerCameraPrompt("camera");
 
     await userEvent.click(screen.getByRole("button", { name: "더보기" }));
     await userEvent.click(screen.getByRole("menuitem", { name: "도움말 보기" }));
@@ -214,7 +204,6 @@ describe("RoomPage 세션 도움말", () => {
   it("메뉴로 열었다 닫으면 초점이 더보기 버튼으로 돌아온다", async () => {
     localStorage.setItem(KEY, "seen");
     renderRoom();
-    answerCameraPrompt("camera");
     const more = screen.getByRole("button", { name: "더보기" });
 
     await userEvent.click(more);
@@ -252,44 +241,14 @@ describe("RoomPage 세션 도움말", () => {
     await waitFor(() => expect(helpDialog()).toBeInTheDocument());
   });
 
-  it("메뉴로 연 도움말이 떠 있는 동안 앱 glass 버튼 다섯 개를 faded로 감추고 닫으면 되돌린다", async () => {
-    const postMessage = enterGlassChrome("/room/7", "segment,switch,button,button-style");
-    measureControlsNow();
-    // jsdom은 CSS를 계산하지 않아서 아이콘 svg의 CSS 폭만 돌려준다(RoomPage.test와 같은 방식).
-    const computedStyle = window.getComputedStyle.bind(window);
-    vi.spyOn(window, "getComputedStyle").mockImplementation((element, pseudo) =>
-      element instanceof SVGElement
-        ? ({ width: "23px" } as CSSStyleDeclaration)
-        : computedStyle(element, pseudo),
-    );
-    await renderWithMenuHelp();
-    const ids = [
-      "session-ambient",
-      "session-subject",
-      "session-timer",
-      "session-pause",
-      "session-exit",
-    ];
-    const faded = () =>
-      Object.fromEntries(
-        lastInlineControls(postMessage)
-          .filter((control) => ids.includes(control.id))
-          .map((control) => [control.id, control.faded]),
-      );
-
-    await waitFor(() => expect(Object.values(faded())).toEqual([true, true, true, true, true]));
-
-    fireEvent.keyDown(screen.getByRole("dialog", { name: "세션 도움말" }), { key: "Escape" });
-    await waitFor(() =>
-      expect(Object.values(faded())).toEqual([false, false, false, false, false]),
-    );
-  });
-
   it("메뉴로 연 도움말은 타이머 화면이 열린 동안 숨긴다", async () => {
     await renderWithMenuHelp();
 
-    // jsdom은 inert를 지키지 않아 덮개 뒤 타이머 버튼을 직접 누른다.
-    fireEvent.click(screen.getByRole("button", { name: "타이머", hidden: true }));
+    // jsdom은 inert를 지키지 않아 덮개 뒤 더보기 메뉴를 키보드로 열어 타이머를 고른다.
+    fireEvent.keyDown(screen.getByRole("button", { name: "더보기", hidden: true }), {
+      key: "Enter",
+    });
+    fireEvent.click(screen.getByRole("menuitem", { name: "타이머", hidden: true }));
 
     await waitFor(() => expect(helpDialog()).not.toBeInTheDocument());
   });
@@ -307,7 +266,6 @@ describe("RoomPage 세션 도움말", () => {
     it("더보기의 도움말 보기로 열면 shown(menu)과 1단계 step_viewed를 보낸다", async () => {
       localStorage.setItem(KEY, "seen");
       renderRoom();
-      answerCameraPrompt("camera");
 
       await openHelpFromMenu();
 
@@ -357,7 +315,7 @@ describe("RoomPage 세션 도움말", () => {
       await userEvent.click(screen.getByRole("button", { name: "다음" }));
 
       // jsdom은 inert를 지키지 않아 덮개 뒤 버튼을 직접 눌러 페이지를 연 상황을 만든다.
-      fireEvent.click(screen.getByRole("button", { name: "과목", hidden: true }));
+      fireEvent.click(screen.getByTestId("session-subject"));
       await waitFor(() => expect(helpDialog()).not.toBeInTheDocument());
       await userEvent.keyboard("{Escape}");
       await waitFor(() => expect(helpDialog()).toBeInTheDocument());

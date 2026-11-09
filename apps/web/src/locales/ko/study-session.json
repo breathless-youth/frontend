@@ -22,15 +22,6 @@
     "cancel": "계속하기",
     "confirm": "참여하기"
   },
-  "cameraPrompt": {
-    "title": "카메라 위치를 확인해 주세요",
-    "description": "얼굴과 책상이 보이게 자리를 잡아 주세요",
-    "notice": "영상은 기기 밖으로 나가지 않아요",
-    "cancel": "심플 모드로 시작",
-    "confirm": "카메라 켜기",
-    "faceMaskTooltip": "빠르게 움직이면 얼굴이 잠깐 보일 수 있어요",
-    "faceMaskCaption": "타임랩스 얼굴 가리기는 따로 설정해야 해요"
-  },
   "cameraToast": {
     "flipped": "카메라를 전환했어요",
     "noAlternative": "전환할 카메라가 없어요",
@@ -66,9 +57,7 @@
     "srSeconds": "{{count}}초"
   },
   "timer": {
-    "total": "총 {{elapsed}}",
     "srFocus": "순공시간 {{duration}}",
-    "srTotal": "총 공부 시간 {{duration}}",
     "srSubjectFocus": "순공 {{duration}}"
   },
   "controls": {
@@ -76,14 +65,15 @@
     "resume": "다시 시작",
     "exit": "공부 종료",
     "simpleModeToggle": "심플 모드 전환",
-    "sideActions": "부가 기능",
-    "subjectSelected": "과목 선택됨"
+    "subjectSelected": "과목 선택됨",
+    "bar": "공부 조작"
   },
   "moreMenu": {
     "trigger": "더보기",
     "flipCamera": "카메라 전환",
     "help": "도움말 보기",
-    "shareInvite": "초대코드 공유"
+    "shareInvite": "초대코드 공유",
+    "timer": "타이머"
   },
   "subjectSheet": {
     "title": "과목",
@@ -124,7 +114,7 @@
     "measuringPill": "자리로 돌아오면 <hl>다시 측정</hl>해요\n측정 화면은 <hl>기기 밖</hl>으로 나가지 않으니\n안심하세요😌",
     "measuringTimer": "<hl>순공시간</hl>이\n다시 흘러가요⏰",
     "cameraTap": "화면을 탭하면\n<hl>카메라 화면</hl>으로 바뀌어요",
-    "buttonsSide": "<hl>배경음</hl>, <hl>과목</hl>, <hl>타이머</hl>는\n여기서 켜요",
+    "buttonsSide": "<hl>배경음</hl>은 여기서,\n<hl>타이머</hl>는 더보기에서 켜요",
     "buttonsPause": "쉴 때는\n<hl>일시정지</hl>를 눌러요",
     "finishMore": "이 도움말은 더보기 메뉴에서\n언제든 다시 볼 수 있어요",
     "finishCenter": "준비됐어요\n이제 <hl>집중</hl>해 볼까요?",
@@ -159,5 +149,25 @@
     "focus": "순공",
     "distract": "자동 멈춤",
     "pause": "일시정지"
+  },
+  "clock": {
+    "current": "현재 공부",
+    "today": "오늘 누적 {{elapsed}}",
+    "info": "순공시간·집중률 보기",
+    "focus": "순공시간",
+    "rate": "집중률",
+    "srStudy": "이번 공부 시간 {{duration}}",
+    "srToday": "오늘 누적 공부 시간 {{duration}}"
+  },
+  "header": {
+    "choose": "과목 선택",
+    "noSubject": "과목 없이도 시간은 재요",
+    "addTask": "할 일 추가.."
+  },
+  "camera": {
+    "label": "카메라",
+    "timelapse": "타임랩스",
+    "expand": "내 화면 크게 보기",
+    "shrink": "작게 보기"
   }
 }

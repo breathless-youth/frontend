@@ -1,9 +1,4 @@
 {
-  "entryButton": {
-    "aria": {
-      "open": "Timer"
-    }
-  },
   "screen": {
     "title": "Timer",
     "close": "Turn off timer",

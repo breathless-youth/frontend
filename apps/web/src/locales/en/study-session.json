@@ -22,15 +22,6 @@
     "cancel": "Keep going",
     "confirm": "Join"
   },
-  "cameraPrompt": {
-    "title": "Check your camera position",
-    "description": "Make sure your face and desk are in view",
-    "notice": "Your camera video stays on your device",
-    "cancel": "Start in\nSimple Mode",
-    "confirm": "Turn on camera",
-    "faceMaskTooltip": "If you move quickly, your face may show for a moment",
-    "faceMaskCaption": "Hide face for time-lapses is a separate setting"
-  },
   "cameraToast": {
     "flipped": "Camera switched",
     "noAlternative": "No other camera to switch to",
@@ -69,9 +60,7 @@
     "srSeconds_other": "{{count}} seconds"
   },
   "timer": {
-    "total": "Total {{elapsed}}",
     "srFocus": "Focus time {{duration}}",
-    "srTotal": "Total study time {{duration}}",
     "srSubjectFocus": "Focus {{duration}}"
   },
   "controls": {
@@ -79,14 +68,15 @@
     "resume": "Resume",
     "exit": "End session",
     "simpleModeToggle": "Simple Mode",
-    "sideActions": "Session tools",
-    "subjectSelected": "Subject selected"
+    "subjectSelected": "Subject selected",
+    "bar": "Session controls"
   },
   "moreMenu": {
     "trigger": "More",
     "flipCamera": "Switch camera",
     "help": "View guide",
-    "shareInvite": "Share invite code"
+    "shareInvite": "Share invite code",
+    "timer": "Timer"
   },
   "subjectSheet": {
     "title": "Subject",
@@ -128,7 +118,7 @@
     "measuringPill": "Come back to <hl>measure again</hl>\nYour camera view stays\non <hl>your device</hl>, so rest easy😌",
     "measuringTimer": "<hl>Focus time</hl>\nstarts counting again⏰",
     "cameraTap": "Tap the screen to switch\nto the <hl>camera view</hl>",
-    "buttonsSide": "<hl>Ambient sound</hl>,\n<hl>subjects</hl>, and <hl>timers</hl>\nare right here",
+    "buttonsSide": "<hl>Ambient sound</hl> is here,\n<hl>timers</hl> are in More",
     "buttonsPause": "Taking a break?\nTap <hl>Pause</hl>",
     "finishMore": "Find this guide anytime\nin the More menu",
     "finishCenter": "You're all set\nReady to <hl>focus</hl>?",
@@ -164,5 +154,25 @@
     "focus": "Focus",
     "distract": "Auto-paused",
     "pause": "Paused"
+  },
+  "clock": {
+    "current": "This session",
+    "today": "Today {{elapsed}}",
+    "info": "Show focus time and focus rate",
+    "focus": "Focus time",
+    "rate": "Focus rate",
+    "srStudy": "Study time this session {{duration}}",
+    "srToday": "Total study time today {{duration}}"
+  },
+  "header": {
+    "choose": "Choose a subject",
+    "noSubject": "Time is tracked without a subject too",
+    "addTask": "Add a task…"
+  },
+  "camera": {
+    "label": "Camera",
+    "timelapse": "Time-lapse",
+    "expand": "Enlarge my camera",
+    "shrink": "Make it smaller"
   }
 }

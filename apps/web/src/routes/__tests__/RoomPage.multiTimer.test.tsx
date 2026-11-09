@@ -8,7 +8,6 @@ import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import { trackMultiTimerClosed, trackStudySessionEnded } from "@/lib/amplitude";
 import { NATIVE_MESSAGE_ENTRY, postToNative } from "@/lib/bridge";
 import type * as BridgeModule from "@/lib/bridge";
-import { answerCameraPrompt } from "@/test/cameraPrompt";
 import { RoomPage } from "../RoomPage";
 
 /**
@@ -76,7 +75,6 @@ function renderRoom() {
       </Routes>
     </BrowserRouter>,
   );
-  answerCameraPrompt("camera");
   return view;
 }
 
@@ -92,9 +90,21 @@ function statusShows(copy: string) {
     .some((status) => status.textContent === copy);
 }
 
-/** 타이머 버튼으로 연 뒤 토글로 뽀모도로를 고른다. */
+/** 더보기 메뉴의 타이머 항목으로 타이머 화면을 연다. */
+async function openTimer() {
+  await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "타이머" }));
+}
+
+/** 가짜 타이머 아래에서 더보기 메뉴로 타이머 화면을 연다. Radix 메뉴는 Enter 키로도 열린다. */
+function openTimerNow() {
+  fireEvent.keyDown(screen.getByRole("button", { name: "더보기" }), { key: "Enter" });
+  fireEvent.click(screen.getByRole("menuitem", { name: "타이머" }));
+}
+
+/** 타이머 화면을 연 뒤 토글로 뽀모도로를 고른다. */
 async function openPomodoro() {
-  await userEvent.click(screen.getByRole("button", { name: "타이머" }));
+  await openTimer();
   await userEvent.click(screen.getByRole("tab", { name: "뽀모도로" }));
 }
 
@@ -104,11 +114,11 @@ async function openPomodoro() {
  * Radix Tabs는 클릭이 아니라 mousedown으로 칸을 고른다.
  */
 function openPomodoroNow() {
-  fireEvent.click(screen.getByRole("button", { name: "타이머" }));
+  openTimerNow();
   fireEvent.mouseDown(screen.getByRole("tab", { name: "뽀모도로" }));
 }
 
-const MEASURING = "순공시간 측정 중";
+const MEASURING = "현재 공부";
 const PAUSED = "측정을 일시정지했어요";
 
 async function advance(ms: number) {
@@ -132,13 +142,13 @@ describe("RoomPage 멀티 타이머", () => {
     window.history.replaceState(null, "", "/");
   });
 
-  it("오른쪽 위 열은 배경음, 과목, 타이머 순서다", () => {
+  it("더보기 메뉴는 카메라 전환, 타이머, 도움말 보기 순서다", async () => {
     renderRoom();
 
-    const names = within(screen.getByRole("group", { name: "부가 기능" }))
-      .getAllByRole("button")
-      .map((button) => button.getAttribute("aria-label"));
-    expect(names).toEqual(["배경음", "과목", "타이머"]);
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+
+    const names = screen.getAllByRole("menuitem").map((item) => item.textContent);
+    expect(names).toEqual(["카메라 전환", "타이머", "도움말 보기"]);
   });
 
   it("측정 화면이 열리면 회전 허용을 한 번 다시 알린다", () => {
@@ -167,28 +177,23 @@ describe("RoomPage 멀티 타이머", () => {
     expect(orientation).toEqual([]);
   });
 
-  it("opens_timer_screen_from_button", async () => {
+  it("opens_timer_screen_from_more_menu", async () => {
     renderRoom();
-    const timerButton = screen.getByRole("button", { name: "타이머" });
-    expect(timerButton).toHaveAttribute("aria-haspopup", "dialog");
-    expect(timerButton).toHaveAttribute("aria-expanded", "false");
 
-    await userEvent.click(timerButton);
+    await openTimer();
 
     expect(screen.getByRole("dialog", { name: "타이머" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "시작" })).toBeInTheDocument();
-    expect(timerButton).toHaveAttribute("aria-expanded", "true");
     expect(modeEntryOnTop()).toBe(true);
     // 같은 주소에 머물러 세션이 끊기지 않는다.
     expect(routerPath()).toBe("/room/7");
     expect(window.location.pathname).toBe("/room/7");
-    const statuses = screen.getAllByRole("status", { hidden: true });
-    expect(statuses.some((status) => status.textContent?.includes("순공시간 측정 중"))).toBe(true);
+    expect(statusShows(MEASURING)).toBe(true);
   });
 
   it("close_button_turns_mode_off", async () => {
     renderRoom();
-    const timerButton = screen.getByRole("button", { name: "타이머" });
+    const moreButton = screen.getByRole("button", { name: "더보기" });
     await openPomodoro();
 
     await userEvent.click(screen.getByRole("button", { name: "타이머 끄기" }));
@@ -197,14 +202,13 @@ describe("RoomPage 멀티 타이머", () => {
       expect(screen.queryByRole("dialog", { name: "타이머" })).not.toBeInTheDocument(),
     );
     await waitFor(() => expect(modeEntryOnTop()).toBe(false));
-    await waitFor(() => expect(timerButton).toHaveFocus());
-    expect(timerButton).toHaveAttribute("aria-expanded", "false");
+    await waitFor(() => expect(moreButton).toHaveFocus());
     expect(routerPath()).toBe("/room/7");
   });
 
   it("토글로 뽀모도로를 고르면 같은 화면에 뽀모도로가 뜨고 다시 열면 그 모드로 연다", async () => {
     renderRoom();
-    await userEvent.click(screen.getByRole("button", { name: "타이머" }));
+    await openTimer();
     expect(screen.getByRole("tab", { name: "기본" })).toHaveAttribute("aria-selected", "true");
 
     await userEvent.click(screen.getByRole("tab", { name: "뽀모도로" }));
@@ -215,7 +219,7 @@ describe("RoomPage 멀티 타이머", () => {
     await waitFor(() =>
       expect(screen.queryByRole("dialog", { name: "타이머" })).not.toBeInTheDocument(),
     );
-    await userEvent.click(screen.getByRole("button", { name: "타이머" }));
+    await openTimer();
 
     expect(screen.getByRole("tab", { name: "뽀모도로" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("combobox", { name: "집중 시간" })).toHaveValue("25");
@@ -223,7 +227,7 @@ describe("RoomPage 멀티 타이머", () => {
 
   it("모드를 시작하면 토글을 누를 수 없다", async () => {
     renderRoom();
-    await userEvent.click(screen.getByRole("button", { name: "타이머" }));
+    await openTimer();
 
     await userEvent.click(screen.getByRole("button", { name: "시작" }));
 
@@ -232,7 +236,7 @@ describe("RoomPage 멀티 타이머", () => {
 
   it("browser_back_keeps_mode_screen", async () => {
     renderRoom();
-    await userEvent.click(screen.getByRole("button", { name: "타이머" }));
+    await openTimer();
     const pushState = vi.spyOn(window.history, "pushState");
 
     act(() => {
@@ -248,7 +252,7 @@ describe("RoomPage 멀티 타이머", () => {
 
   it("session_end_closes_mode", async () => {
     renderRoom();
-    await userEvent.click(screen.getByRole("button", { name: "타이머" }));
+    await openTimer();
 
     // 초대 확인 창의 참여하기가 모드 화면을 연 채로 세션을 끝내는 실제 경로다.
     receiveInvite("4680");
@@ -263,13 +267,14 @@ describe("RoomPage 멀티 타이머", () => {
     expect(window.location.pathname).toBe("/room/7");
   });
 
-  it("simple_mode_hides_mode_buttons", async () => {
+  it("심플 모드에서도 더보기 메뉴로 타이머를 열고, 카메라 전환은 빠진다", async () => {
     renderRoom();
 
     await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
 
-    const button = screen.getByRole("button", { name: "타이머", hidden: true });
-    expect(button.closest("[inert]")).not.toBeNull();
+    const names = screen.getAllByRole("menuitem").map((item) => item.textContent);
+    expect(names).toEqual(["타이머", "도움말 보기"]);
   });
 
   it("뽀모도로 화면 안에서 집중 칸 선택 목록으로 집중 시간을 바꿀 수 있다", async () => {

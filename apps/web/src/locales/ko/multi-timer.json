@@ -1,9 +1,4 @@
 {
-  "entryButton": {
-    "aria": {
-      "open": "타이머"
-    }
-  },
   "screen": {
     "title": "타이머",
     "close": "타이머 끄기",

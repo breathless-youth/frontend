@@ -22,15 +22,6 @@
     "cancel": "続ける",
     "confirm": "参加する"
   },
-  "cameraPrompt": {
-    "title": "カメラの位置を確認してください",
-    "description": "顔と机が映るように位置を調整してください",
-    "notice": "映像がデバイスの外に出ることはありません",
-    "cancel": "シンプルモードで始める",
-    "confirm": "カメラをオン",
-    "faceMaskTooltip": "すばやく動くと、顔が一瞬見えることがあります",
-    "faceMaskCaption": "タイムラプスの「顔を隠す」は別に設定が必要です"
-  },
   "cameraToast": {
     "flipped": "カメラを切り替えました",
     "noAlternative": "切り替えられるカメラがありません",
@@ -66,9 +57,7 @@
     "srSeconds": "{{count}}秒"
   },
   "timer": {
-    "total": "合計{{elapsed}}",
     "srFocus": "集中時間{{duration}}",
-    "srTotal": "総勉強時間{{duration}}",
     "srSubjectFocus": "集中{{duration}}"
   },
   "controls": {
@@ -76,14 +65,15 @@
     "resume": "再開",
     "exit": "勉強を終了",
     "simpleModeToggle": "シンプルモードに切り替え",
-    "sideActions": "ツール",
-    "subjectSelected": "科目を選択中"
+    "subjectSelected": "科目を選択中",
+    "bar": "勉強の操作"
   },
   "moreMenu": {
     "trigger": "その他",
     "flipCamera": "カメラを切り替え",
     "help": "ヘルプを見る",
-    "shareInvite": "招待コードを共有"
+    "shareInvite": "招待コードを共有",
+    "timer": "タイマー"
   },
   "subjectSheet": {
     "title": "科目",
@@ -124,7 +114,7 @@
     "measuringPill": "席に戻ると<hl>測定を再開</hl>します\n映像は<hl>デバイスの外</hl>に\n出ないので安心してください😌",
     "measuringTimer": "<hl>集中時間</hl>が\nまた進みはじめます⏰",
     "cameraTap": "画面をタップすると\n<hl>カメラ画面</hl>に切り替わります",
-    "buttonsSide": "<hl>バックグラウンド\nサウンド</hl>、<hl>科目</hl>、\n<hl>タイマー</hl>は\nここからオンにします",
+    "buttonsSide": "<hl>バックグラウンド\nサウンド</hl>はここ、\n<hl>タイマー</hl>は\n「その他」からオンにします",
     "buttonsPause": "休憩するときは\n<hl>一時停止</hl>を\nタップします",
     "finishMore": "このヘルプは\n「その他」メニューから\nいつでも見られます",
     "finishCenter": "準備ができました\nさあ、<hl>集中</hl>しましょう",
@@ -159,5 +149,25 @@
     "focus": "集中",
     "distract": "自動一時停止",
     "pause": "一時停止"
+  },
+  "clock": {
+    "current": "現在の勉強",
+    "today": "今日の累計 {{elapsed}}",
+    "info": "集中時間・集中率を見る",
+    "focus": "集中時間",
+    "rate": "集中率",
+    "srStudy": "今回の勉強時間{{duration}}",
+    "srToday": "今日の累計勉強時間{{duration}}"
+  },
+  "header": {
+    "choose": "科目を選ぶ",
+    "noSubject": "科目がなくても時間は測ります",
+    "addTask": "タスクを追加…"
+  },
+  "camera": {
+    "label": "カメラ",
+    "timelapse": "タイムラプス",
+    "expand": "自分の画面を大きく表示",
+    "shrink": "小さく表示"
   }
 }

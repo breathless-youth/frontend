@@ -7,7 +7,6 @@ import type {
   PhotoTap,
   VisionFocusDetector,
 } from "@/features/study-session/adapters/focusDetector";
-import { answerCameraPrompt } from "@/test/cameraPrompt";
 import { RoomPage } from "../RoomPage";
 
 /**
@@ -101,7 +100,6 @@ function renderRoom() {
       </Routes>
     </MemoryRouter>,
   );
-  answerCameraPrompt("camera");
   return view;
 }
 

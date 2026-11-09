@@ -1,22 +1,20 @@
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
-import { BookOpen, Music, Pause } from "lucide-react";
+import { Ellipsis } from "lucide-react";
 import { Trans, useTranslation } from "react-i18next";
 
 import handTap from "@/assets/guide/hand-tap.svg";
 import helpPhoto from "@/assets/guide/session-help-photo.jpg";
-import moreIcon from "@/assets/icons/session-more.svg";
-import { Badge } from "@/components/ui/badge";
-import { TimerIcon } from "@/features/multi-timer/icons";
 import { controlButtonVariants } from "@/features/study-session/components/controlButtonVariants";
-import { CONTROL_ICON_SIZE } from "@/features/study-session/components/SessionControlButtons";
-import { SOLO_MORE_POSITION } from "@/features/study-session/components/SessionMoreMenu";
+import { SessionClock } from "@/features/study-session/components/SessionClock";
 import {
-  SESSION_SIDE_GAP,
-  SESSION_SIDE_POSITION,
-} from "@/features/study-session/components/SessionSideActions";
-import { SESSION_PILL_SIZE } from "@/features/study-session/components/SessionStatusPill";
-import { SessionTimer } from "@/features/study-session/components/SessionTimer";
+  BAR_ICON_SIZE,
+  ExitGlyph,
+  PauseGlyph,
+  SESSION_BAR,
+} from "@/features/study-session/components/SessionControlButtons";
+import { AmbientLinesIcon } from "@/features/ambient-sound/components/AmbientSoundButton";
+import { SESSION_PILL_BUTTON } from "@/features/study-session/components/SessionMoreMenu";
 import { SimpleModeSurface } from "@/features/study-session/components/SimpleModeSurface";
 import type { SessionHelpStep, SessionHelpTextKey } from "@/features/study-session/sessionGuide";
 import { SESSION_HELP_STEPS } from "@/features/study-session/sessionGuide";
@@ -34,7 +32,7 @@ const CALLOUT_TEXT = "text-xl leading-7 font-medium break-keep text-primary-fore
  * 테두리만 그려서 요소 위에 겹쳐도 가리지 않는다. 화살표는 이 테두리 밖 3px에서 시작한다.
  */
 const RING = "pointer-events-none absolute -inset-1.25 border-[1.5px] border-primary-foreground/60";
-/** 가짜 유리 버튼. 바탕 클래스의 pointer-events-auto를 덮어 덮개 탭이 그대로 다음 단계로 간다. */
+/** 가짜 버튼. 바탕 클래스의 pointer-events-auto를 덮어 덮개 탭이 그대로 다음 단계로 간다. */
 const FAKE_BUTTON = "pointer-events-none";
 
 /** 문구의 `<hl>` 핵심 단어만 그라데이션 글자로 감싼다. */
@@ -98,51 +96,60 @@ function CalloutText({ callout, className }: { callout: SessionHelpTextKey; clas
   );
 }
 
-/** 가짜 순공 숫자 시작값(01:24:08) */
-const FOCUS_START_SEC = 5048;
+/** 가짜 공부 시간 시작값(01:24:08)과 가짜 순공 시작값(01:10:00) */
+const STUDY_START_SEC = 5048;
+const FOCUS_START_SEC = 4200;
 
 /**
- * 가짜 순공 숫자
+ * 가짜 시간 묶음
  *
- * 심플 모드의 발광 숫자를 실제 타이머 컴포넌트로 그려서 크기·발광·가로 크기가 실제와 같다.
- * 단계마다 다시 마운트되어 시작값에서 다시 센다.
- * 모션 줄이기를 켜면 숫자를 멈춘다.
+ * 실제 세션의 시간 묶음 컴포넌트로 그려서 크기와 자리가 실제와 같다.
+ * 공부 시간은 비집중에도 흐르고, 순공은 측정 중일 때만 오른다.
+ * 단계마다 다시 마운트되어 시작값에서 다시 센다. 모션 줄이기를 켜면 숫자를 멈춘다.
+ * 낭독기에는 설명 문구만 남기고 누를 수 없게 막는다.
  */
-function FakeFocusTimer({ ticking }: { ticking: boolean }) {
+function FakeClock({
+  step,
+  callouts,
+}: {
+  step: SessionHelpStep;
+  callouts: { caption?: ReactNode; card?: ReactNode };
+}) {
+  const { t } = useTranslation("study-session");
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
-    if (!ticking || prefersReducedMotion()) {
+    if (prefersReducedMotion()) {
       return;
     }
     const id = window.setInterval(() => setElapsed((sec) => sec + 1), 1000);
     return () => window.clearInterval(id);
-  }, [ticking]);
-  return <SessionTimer focusSec={FOCUS_START_SEC + elapsed} studySec={0} state="focus" glow />;
-}
-
-const PILL = {
-  distract: { variant: "session-distract", label: "status.away" },
-  focus: { variant: "session-focus", label: "status.focus" },
-} as const;
-
-/** 가짜 일시정지 버튼. 테두리·화살표·설명은 children으로 받는다. */
-function FakePauseButton({ children }: { children?: ReactNode }) {
+  }, []);
+  const distract = step.state === "distract";
+  const studySec = STUDY_START_SEC + elapsed;
   return (
-    <div className={cn(controlButtonVariants({ size: "primary" }), FAKE_BUTTON, "relative")}>
-      <Pause aria-hidden fill="currentColor" className={CONTROL_ICON_SIZE} />
-      {children}
-    </div>
+    <SessionClock
+      studySec={studySec}
+      focusSec={FOCUS_START_SEC + (step.ticking === true ? elapsed : 0)}
+      todayStudySec={studySec}
+      state={distract ? "distract" : "focus"}
+      statusLabel={t("status.away")}
+      simple
+      // 순공시간 설명 단계만 카드를 펼쳐 멈추고 흐르는 순공을 보인다.
+      infoOpen={callouts.card !== undefined}
+      onToggleInfo={() => {}}
+      callouts={callouts}
+      fake
+    />
   );
 }
 
 /**
- * 상태 필 설명
+ * 상태 문구 설명
  *
- * 세로는 필 왼쪽에서 둥글게 꺾여 내려가는 화살표 아래에 문구 블록을 화면 가운데로 두고 글은 왼쪽 정렬한다.
- * 가로는 위아래 자리가 없어 필 오른쪽에 짧은 화살표와 문구를 둔다.
- * 가로에서 세 줄 이상이면 필 높이 가운데에 맞추면 윗줄이 화면 밖으로 밀려서 필 위 끝에 맞춘다.
+ * 세로는 문구 위로 둥글게 올라가는 화살표 위에 설명을 화면 가운데로 둔다.
+ * 가로는 위아래 자리가 없어 문구 오른쪽에 짧은 화살표와 설명을 둔다.
  */
-function PillCallout({ callout }: { callout: SessionHelpTextKey }) {
+function CaptionCallout({ callout }: { callout: SessionHelpTextKey }) {
   const { t } = useTranslation("study-session");
   const tall = t(callout).split("\n").length > 2;
   return (
@@ -152,7 +159,7 @@ function PillCallout({ callout }: { callout: SessionHelpTextKey }) {
         viewBox="0 0 24 44"
         body="M23 1C10 1 4 4 4 18V40"
         head="M0 35L4 40L8 35"
-        className="absolute top-[calc(50%+6px)] right-[calc(100%+6px)] h-11 w-6 landscape-compact:hidden"
+        className="absolute right-[calc(100%+6px)] bottom-[calc(50%+6px)] h-11 w-6 -scale-y-100 landscape-compact:hidden"
       />
       <Arrow
         viewBox="0 0 20 8"
@@ -163,9 +170,10 @@ function PillCallout({ callout }: { callout: SessionHelpTextKey }) {
       <CalloutText
         callout={callout}
         className={cn(
-          "absolute top-[calc(100%+34px)] left-1/2 -translate-x-1/2 whitespace-pre landscape-compact:left-[calc(100%+36px)] landscape-compact:translate-x-0",
+          "absolute bottom-[calc(100%+34px)] left-1/2 -translate-x-1/2 whitespace-pre landscape-compact:bottom-auto landscape-compact:left-[calc(100%+36px)] landscape-compact:translate-x-0",
+          // 가로에서 세 줄 이상이면 아래 숫자를 덮지 않게 문구 아래 끝에 맞춰 위로 쌓는다.
           tall
-            ? "landscape-compact:top-0"
+            ? "landscape-compact:bottom-0"
             : "landscape-compact:top-1/2 landscape-compact:-translate-y-1/2",
         )}
       />
@@ -174,32 +182,35 @@ function PillCallout({ callout }: { callout: SessionHelpTextKey }) {
 }
 
 /**
- * 순공 숫자 설명
+ * 순공시간 카드 설명
  *
- * 세로는 숫자 아래로 곧게 내려가는 화살표 밑에 가운데 정렬로 둔다.
- * 가로는 숫자 왼쪽에 오른쪽 정렬로 두고 화살표가 숫자를 향한다.
+ * 세로는 카드 아래로 곧게 내려가는 화살표 밑에 가운데 정렬로 둔다.
+ * 가로는 카드 왼쪽에 오른쪽 정렬로 두고 화살표가 카드를 향한다.
  */
-function TimerCallout({ callout }: { callout: SessionHelpTextKey }) {
+function CardCallout({ callout }: { callout: SessionHelpTextKey }) {
   return (
-    <div className="absolute top-full left-1/2 flex w-max max-w-[calc(100vw-40px)] -translate-x-1/2 flex-col items-center pt-2 landscape-compact:top-1/2 landscape-compact:right-full landscape-compact:left-auto landscape-compact:max-w-none landscape-compact:translate-x-0 landscape-compact:-translate-y-1/2 landscape-compact:flex-row-reverse landscape-compact:pt-0 landscape-compact:pr-2.5">
-      <Arrow
-        viewBox="0 0 16 36"
-        body="M8 1V33"
-        head="M4 29L8 34L12 29"
-        className="h-9 w-4 landscape-compact:hidden"
-      />
-      <Arrow
-        viewBox="0 0 20 8"
-        body="M20 4H2"
-        head="M5 0.5L1 4L5 7.5"
-        className="hidden h-2 w-5 landscape-compact:block"
-      />
-      <CalloutText
-        callout={callout}
-        // 숫자 왼쪽 자리가 좁아 가로에서만 문구의 줄바꿈을 살리고 세로에서는 공백으로 접는다.
-        className="mt-2 text-center text-balance whitespace-normal landscape-compact:mt-0 landscape-compact:mr-3 landscape-compact:text-right landscape-compact:whitespace-pre-line"
-      />
-    </div>
+    <>
+      <span aria-hidden className={cn(RING, "rounded-2xl")} />
+      <div className="absolute top-full left-1/2 flex w-max max-w-[calc(100vw-40px)] -translate-x-1/2 flex-col items-center pt-2 landscape-compact:top-1/2 landscape-compact:right-full landscape-compact:left-auto landscape-compact:max-w-none landscape-compact:translate-x-0 landscape-compact:-translate-y-1/2 landscape-compact:flex-row-reverse landscape-compact:pt-0 landscape-compact:pr-2.5">
+        <Arrow
+          viewBox="0 0 16 36"
+          body="M8 1V33"
+          head="M4 29L8 34L12 29"
+          className="h-9 w-4 landscape-compact:hidden"
+        />
+        <Arrow
+          viewBox="0 0 20 8"
+          body="M20 4H2"
+          head="M5 0.5L1 4L5 7.5"
+          className="hidden h-2 w-5 landscape-compact:block"
+        />
+        <CalloutText
+          callout={callout}
+          // 카드 왼쪽 자리가 좁아 가로에서만 문구의 줄바꿈을 살리고 세로에서는 공백으로 접는다.
+          className="mt-2 text-center text-balance whitespace-normal landscape-compact:mt-0 landscape-compact:mr-3 landscape-compact:text-right landscape-compact:whitespace-pre-line"
+        />
+      </div>
+    </>
   );
 }
 
@@ -211,7 +222,7 @@ function TimerCallout({ callout }: { callout: SessionHelpTextKey }) {
  */
 function TapCallout({ callout }: { callout: SessionHelpTextKey }) {
   return (
-    <div className="absolute top-full left-1/2 mt-7 flex w-max max-w-[calc(100vw-32px)] -translate-x-1/2 flex-col items-center gap-3 landscape-compact:top-1/2 landscape-compact:right-full landscape-compact:left-auto landscape-compact:mt-0 landscape-compact:mr-12 landscape-compact:translate-x-0 landscape-compact:-translate-y-1/2">
+    <div className="absolute top-full left-1/2 mt-12 flex w-max max-w-[calc(100vw-32px)] -translate-x-1/2 flex-col items-center gap-3 landscape-compact:top-1/2 landscape-compact:right-full landscape-compact:left-auto landscape-compact:mt-0 landscape-compact:mr-12 landscape-compact:translate-x-0 landscape-compact:-translate-y-1/2">
       <CalloutText
         callout={callout}
         className="text-center text-balance whitespace-normal landscape-compact:whitespace-pre-line"
@@ -221,180 +232,178 @@ function TapCallout({ callout }: { callout: SessionHelpTextKey }) {
   );
 }
 
+/** 가짜 하단 바. 일시정지와 종료를 실제와 같은 모양으로 그린다. */
+function FakeBar({ children }: { children?: ReactNode }) {
+  return (
+    <div className={cn(SESSION_BAR, "relative")}>
+      <span className={cn(controlButtonVariants({ variant: "pause", size: "bar" }), FAKE_BUTTON)}>
+        <PauseGlyph aria-hidden className={BAR_ICON_SIZE} />
+      </span>
+      <span className={cn(controlButtonVariants({ variant: "stop", size: "bar" }), FAKE_BUTTON)}>
+        <ExitGlyph aria-hidden className={BAR_ICON_SIZE} />
+      </span>
+      {children}
+    </div>
+  );
+}
+
+/** 가짜 알약 버튼(배경음·더보기) */
+function FakePill({ icon }: { icon: "ambient" | "more" }) {
+  return (
+    <span className={cn(SESSION_PILL_BUTTON, FAKE_BUTTON)}>
+      {icon === "ambient" ? (
+        <AmbientLinesIcon on={false} />
+      ) : (
+        <Ellipsis aria-hidden className="size-5" strokeWidth={2} />
+      )}
+    </span>
+  );
+}
+
 /**
  * 심플 모드 화면
  *
- * 실제 세션 레이어와 같은 여백·배치로 상태 필, 과목 줄, 발광 숫자, 일시정지 버튼을 그려서 설명이 실제 자리를 가리킨다.
- * 상태 필만 실제 컴포넌트가 아니다. 실제 필은 라이브 리전이라 낭독기가 가짜 상태를 읽는다.
+ * 실제 세션 레이어와 같은 여백·배치로 머리 줄, 시간 묶음, 하단 바를 그려서 설명이 실제 자리를 가리킨다.
  * 상태 색은 실제 세션 상태가 아니라 단계가 정해서, 이 화면 안에서만 발광 색 변수를 덮어쓴다.
  * 탭 설명 단계는 덮개 대신 가짜 요소를 옅게 해서 가운데 문구만 또렷하게 둔다.
  */
 function SimpleModeBackdrop({ step }: { step: SessionHelpStep }) {
-  const { t } = useTranslation("study-session");
-  const state = step.state ?? "focus";
   const { pill, timer, tap } = step.callouts;
   const dimmed = tap !== undefined && "opacity-40";
   return (
     <div
-      style={sessionGlowStyle(state === "distract" ? "DISTRACTION" : "FOCUS")}
+      style={sessionGlowStyle(step.state === "distract" ? "DISTRACTION" : "FOCUS")}
       className="absolute inset-0"
     >
       <SimpleModeSurface glowKey={step.id} />
       <div className={cn("absolute inset-0 flex flex-col items-center", SESSION_LAYER_INSET)}>
-        <div className={cn("relative flex", dimmed)}>
-          <Badge variant={PILL[state].variant} aria-hidden className={SESSION_PILL_SIZE}>
-            {t(PILL[state].label)}
-          </Badge>
-          {pill && <PillCallout callout={pill} />}
-        </div>
-        {/* 세로는 실제 심플 모드처럼 두 스페이서가 필과 아래 버튼 줄 사이 가운데에 숫자 묶음을 둔다.
-            가로는 실제 화면처럼 숫자 묶음을 화면 가운데에 띄운다. */}
-        <div className="grow landscape-compact:hidden" />
-        <div className="relative flex flex-col items-center landscape-compact:absolute landscape-compact:top-1/2 landscape-compact:left-1/2 landscape-compact:-translate-x-1/2 landscape-compact:-translate-y-1/2">
-          {/* 실제 심플 모드의 과목 줄은 설명에 쓰이지 않아 그리지 않는다. 숫자 하나에 시선을 모은다. */}
-          <div className="relative">
-            <div aria-hidden className={cn(dimmed)}>
-              <FakeFocusTimer key={step.id} ticking={step.ticking === true} />
-            </div>
-            {timer && <TimerCallout callout={timer} />}
-            {tap && <TapCallout callout={tap} />}
-          </div>
-        </div>
-        <div className="grow landscape-compact:hidden" />
+        {/* 머리 줄은 실제 과목 줄 높이(56px)만 비우고 오른쪽 알약만 그린다. 과목 줄은 설명하지 않는다.
+            가로는 상태 문구 설명이 오른쪽 위로 뻗어 알약과 겹치므로 알약을 감춘다. */}
         <div
+          aria-hidden
           className={cn(
-            "mt-2 flex w-full regular:mt-2.5 short-side-lg:mt-3 landscape-compact:mt-auto",
+            "flex h-14 w-full items-start justify-end landscape-compact:invisible",
             dimmed,
           )}
         >
-          <FakePauseButton />
+          <div className="flex gap-2 pt-1">
+            <FakePill icon="ambient" />
+            <FakePill icon="more" />
+          </div>
+        </div>
+        {/* 실제 심플 모드처럼 머리 줄과 하단 바 사이 4:9 지점에 시간 묶음을 둔다. 가로는 화면 가운데다. */}
+        <div className="grow-4 landscape-compact:h-0 landscape-compact:grow-0" />
+        <div className="relative landscape-compact:absolute landscape-compact:top-1/2 landscape-compact:left-1/2 landscape-compact:-translate-x-1/2 landscape-compact:-translate-y-1/2">
+          <div className={cn(dimmed)}>
+            <FakeClock
+              key={step.id}
+              step={step}
+              callouts={{
+                caption: pill && <CaptionCallout callout={pill} />,
+                card: timer && <CardCallout callout={timer} />,
+              }}
+            />
+          </div>
+          {tap && <TapCallout callout={tap} />}
+        </div>
+        <div className="grow-9" />
+        <div aria-hidden className={cn(dimmed)}>
+          <FakeBar />
         </div>
       </div>
     </div>
   );
 }
 
-/** 사이드 버튼 세 개와 설명. 설명은 가운데(과목) 버튼을 가리킨다. */
-function SideCallout({ callout }: { callout: SessionHelpTextKey }) {
-  return (
-    <div className={SESSION_SIDE_POSITION}>
-      <span aria-hidden className={cn(RING, "rounded-full")} />
-      <div aria-hidden className={cn("flex flex-col", SESSION_SIDE_GAP)}>
-        <span className={cn(controlButtonVariants(), FAKE_BUTTON)}>
-          <Music className="size-5.75 regular:size-6.75 short-side-lg:size-8.5" />
-        </span>
-        <span className={cn(controlButtonVariants(), FAKE_BUTTON)}>
-          <BookOpen className="size-5.75 regular:size-6.75 short-side-lg:size-8.5" />
-        </span>
-        <span className={cn(controlButtonVariants(), FAKE_BUTTON)}>
-          <TimerIcon className="size-7 regular:size-8.25 short-side-lg:size-10.25" />
-        </span>
-      </div>
-      {/* 세로: 과목 버튼 중심(버튼 지름 + 간격 + 지름의 절반: 93, 110, 138px) 높이의 테두리 밖 3px에서 아래 설명으로 둥글게 내려간다.
-          설명은 중심 + 24px에서 시작해 열 왼쪽 8px 앞에 오른쪽 정렬한다.
-          가로: 과목 버튼 중심 높이에서 왼쪽으로 곧게 나가고 설명을 그 높이 가운데에 둔다. */}
-      <Arrow
-        viewBox="0 0 24 24"
-        body="M20 4Q4 6 2 20"
-        head="M-0.5 16L2 20L5 16.5"
-        className="absolute top-22.25 right-[calc(100%+4px)] h-6 w-6 overflow-visible regular:top-26.5 short-side-lg:top-33.5 landscape-compact:hidden"
-      />
-      <Arrow
-        viewBox="0 0 20 8"
-        body="M20 4H2"
-        head="M5 0.5L1 4L5 7.5"
-        className="absolute top-23.25 right-[calc(100%+8px)] hidden h-2 w-5 -translate-y-1/2 landscape-compact:block"
-      />
-      <CalloutText
-        callout={callout}
-        className="absolute top-29.25 right-[calc(100%+8px)] text-right whitespace-pre regular:top-33.5 short-side-lg:top-40.5 landscape-compact:top-23.25 landscape-compact:right-[calc(100%+36px)] landscape-compact:-translate-y-1/2"
-      />
-    </div>
-  );
-}
-
 /**
- * 일시정지 버튼과 설명
+ * 사진 단계의 머리 줄과 하단 바
  *
- * 세로는 버튼 오른쪽으로 곧게 나간 화살표 옆에 버튼 높이 가운데로 둔다.
- * 가로는 오른쪽에 내비게이션 막대가 있어 버튼 위로 올라가 오른쪽으로 꺾인다.
+ * 실제 세션 레이어와 같은 여백으로 그 단계가 설명하는 버튼만 다시 그린다.
+ * 배경음·더보기 묶음 설명은 아래로, 더보기 설명은 왼쪽으로, 하단 바 설명은 세로에서 위로, 가로에서 왼쪽으로 둔다.
+ * 가로의 오른쪽 아래는 이동 막대 자리다.
  */
-function PauseCallout({ callout }: { callout: SessionHelpTextKey }) {
+function PhotoChrome({ step }: { step: SessionHelpStep }) {
   const { t } = useTranslation("study-session");
-  // 버튼이 화면 아래 끝에 붙어 있어서 세 줄 이상을 버튼 높이 가운데에 맞추면 아랫줄이 화면 끝에 닿으므로 버튼 아래 끝에 맞춘다.
-  const tall = t(callout).split("\n").length > 2;
+  const { side, pause, more } = step.callouts;
+  const tallMore = more !== undefined && t(more).split("\n").length > 2;
   return (
-    <div className={cn("absolute inset-0 flex items-end", SESSION_LAYER_INSET)}>
-      <FakePauseButton>
-        <span aria-hidden className={cn(RING, "rounded-full")} />
-        <Arrow
-          viewBox="0 0 22 8"
-          body="M0 4H20"
-          head="M17 0.5L21 4L17 7.5"
-          className="absolute top-1/2 left-[calc(100%+8px)] h-2 w-5.5 -translate-y-1/2 landscape-compact:hidden"
-        />
-        <Arrow
-          viewBox="0 0 58 26"
-          body="M1 25C1 10 6 4 18 4H53"
-          head="M49 0L54 4L49 8"
-          className="absolute bottom-[calc(100%+8px)] left-[calc(50%-1px)] hidden h-6.5 w-14.5 overflow-visible landscape-compact:block"
-        />
-        <CalloutText
-          callout={callout}
-          className={cn(
-            "absolute left-[calc(100%+42px)] w-max whitespace-pre landscape-compact:top-auto landscape-compact:bottom-[calc(100%+8px)] landscape-compact:left-[calc(100%+28px)] landscape-compact:translate-y-0",
-            tall ? "bottom-0" : "top-1/2 -translate-y-1/2",
-          )}
-        />
-      </FakePauseButton>
-    </div>
-  );
-}
-
-/** 더보기 버튼과 설명. 설명은 강조 없이 17/24 흰 글자로 줄여 정중앙 제목보다 눈에 덜 띄게 한다. */
-function MoreCallout({ callout }: { callout: SessionHelpTextKey }) {
-  const { t } = useTranslation("study-session");
-  // 버튼이 화면 위 끝에 붙어 있어서 세 줄 이상을 버튼 높이 가운데에 맞추면 윗줄이 화면 밖으로 밀리므로 버튼 위 끝에 맞춘다.
-  const tall = t(callout).split("\n").length > 2;
-  return (
-    <div className={cn(SOLO_MORE_POSITION, "flex size-11 items-center justify-center")}>
-      <span
-        aria-hidden
-        className="flex size-8 items-center justify-center rounded-full bg-(--session-bar-glass-bg) shadow-[0px_10px_15px_var(--session-bar-glass-shadow),inset_0px_1px_0px_var(--session-bar-glass-highlight)] backdrop-blur-[11px]"
-      >
-        <img src={moreIcon} alt="" className="h-1 w-4.5" />
-      </span>
-      {/* 보이는 원(32px) 둘레 5px. 누르는 영역(44px)보다 사방 1px 안쪽이다. */}
-      <span aria-hidden className={cn(RING, "inset-px rounded-full")} />
-      {/* 설명을 버튼과 같은 높이에 두고 테두리 왼쪽에서 곧게 가리킨다. */}
-      <Arrow
-        viewBox="0 0 20 8"
-        body="M20 4H2"
-        head="M5 0.5L1 4L5 7.5"
-        className="absolute top-1/2 right-[calc(100%+2px)] h-2 w-4 -translate-y-1/2"
-      />
-      <CalloutText
-        callout={callout}
-        className={cn(
-          "absolute right-[calc(100%+23px)] text-right text-[17px] leading-6 whitespace-pre text-primary-foreground",
-          tall ? "top-0" : "top-1/2 -translate-y-1/2",
+    <div className={cn("absolute inset-0 flex flex-col items-center", SESSION_LAYER_INSET)}>
+      <div aria-hidden className="flex w-full justify-end">
+        {side && (
+          <div className="relative flex gap-2">
+            <FakePill icon="ambient" />
+            <FakePill icon="more" />
+            <span className={cn(RING, "rounded-full")} />
+            <Arrow
+              viewBox="0 0 24 24"
+              body="M20 4Q4 6 2 20"
+              head="M-0.5 16L2 20L5 16.5"
+              className="absolute top-[calc(100%+6px)] right-12 h-6 w-6 overflow-visible"
+            />
+            <CalloutText
+              callout={side}
+              className="absolute top-[calc(100%+36px)] right-0 text-right whitespace-pre"
+            />
+          </div>
         )}
-      />
+        {more && (
+          <div className="relative">
+            <FakePill icon="more" />
+            <span className={cn(RING, "rounded-full")} />
+            {/* 설명을 버튼과 같은 높이에 두고 테두리 왼쪽에서 곧게 가리킨다. 강조 없이 17/24 흰 글자로 줄여 정중앙 제목보다 덜 띄게 한다. */}
+            <Arrow
+              viewBox="0 0 20 8"
+              body="M20 4H2"
+              head="M5 0.5L1 4L5 7.5"
+              className="absolute top-1/2 right-[calc(100%+8px)] h-2 w-4 -translate-y-1/2"
+            />
+            <CalloutText
+              callout={more}
+              className={cn(
+                "absolute right-[calc(100%+28px)] text-right text-[17px] leading-6 whitespace-pre text-primary-foreground",
+                tallMore ? "top-0" : "top-1/2 -translate-y-1/2",
+              )}
+            />
+          </div>
+        )}
+      </div>
+      <div className="grow" />
+      {pause && (
+        <FakeBar>
+          <span aria-hidden className={cn(RING, "rounded-[36px]")} />
+          <Arrow
+            viewBox="0 0 16 32"
+            body="M8 31V3"
+            head="M4 7L8 2L12 7"
+            className="absolute bottom-[calc(100%+6px)] left-1/2 h-8 w-4 -translate-x-1/2 landscape-compact:hidden"
+          />
+          <Arrow
+            viewBox="0 0 22 8"
+            body="M22 4H2"
+            head="M5 0.5L1 4L5 7.5"
+            className="absolute top-1/2 right-[calc(100%+8px)] hidden h-2 w-5.5 -translate-y-1/2 landscape-compact:block"
+          />
+          <CalloutText
+            callout={pause}
+            className="absolute bottom-[calc(100%+44px)] left-1/2 w-max -translate-x-1/2 text-center whitespace-pre landscape-compact:top-1/2 landscape-compact:right-[calc(100%+40px)] landscape-compact:bottom-auto landscape-compact:left-auto landscape-compact:translate-x-0 landscape-compact:-translate-y-1/2 landscape-compact:text-right"
+          />
+        </FakeBar>
+      )}
     </div>
   );
 }
 
 /**
- * 이동 막대의 바닥 기준선
+ * 이동 막대의 자리
  *
- * 하단 여백 + 일시정지 버튼 높이 + 버튼 위 68px다. 세로는 크기 단계마다 여백과 버튼 높이가 달라서 같이 바꾼다.
- * 가로는 버튼과 나란히 있어서 바닥에서 40px 위에 둔다.
+ * 세로는 가운데, 하단 바 위 일시정지 설명보다 위에 둔다: 하단 여백 + 바 높이 + 설명 자리 112px.
+ * 가로는 화면 높이가 낮아 가운데 시간 묶음과 겹치므로 오른쪽 아래 구석에 하단 바와 같은 높이로 둔다.
  */
 const NAV_BAR_BOTTOM = [
-  "bottom-[calc(env(safe-area-inset-bottom)+136px)]",
-  "regular:bottom-[calc(env(safe-area-inset-bottom)+164px)]",
-  "short-side-lg:bottom-[calc(env(safe-area-inset-bottom)+183px)]",
-  "landscape-compact:bottom-[calc(env(safe-area-inset-bottom)+40px)]",
+  "bottom-[calc(env(safe-area-inset-bottom)+192px)]",
+  "regular:bottom-[calc(env(safe-area-inset-bottom)+212px)]",
+  "short-side-lg:bottom-[calc(env(safe-area-inset-bottom)+227px)]",
+  "landscape-compact:right-[max(env(safe-area-inset-right),16px)] landscape-compact:bottom-[calc(env(safe-area-inset-bottom)+20px)] landscape-compact:left-auto landscape-compact:translate-x-0",
 ].join(" ");
 
 /** 이동 막대 버튼(16px Bold). 누르는 영역은 44px 이상이다. */
@@ -452,7 +461,6 @@ export function SessionHelpScreen({
   const step = SESSION_HELP_STEPS[stepIndex];
   const isFirst = stepIndex === 0;
   const isLast = stepIndex === SESSION_HELP_STEPS.length - 1;
-  const { callouts } = step;
 
   const rootRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -514,9 +522,7 @@ export function SessionHelpScreen({
 
       {/* 아래부터는 누름을 받지 않아 탭이 덮개로 내려간다. 끝내기 버튼만 스스로 누름을 받는다. */}
       <div className="pointer-events-none absolute inset-0">
-        {callouts.side && <SideCallout callout={callouts.side} />}
-        {callouts.pause && <PauseCallout callout={callouts.pause} />}
-        {callouts.more && <MoreCallout callout={callouts.more} />}
+        {step.background === "photo" && <PhotoChrome step={step} />}
         {step.center && (
           // 가로는 세로 폭이 좁아 버튼이 하나 늘면 이동 막대와 닿으므로 묶음을 위로 올린다.
           <div

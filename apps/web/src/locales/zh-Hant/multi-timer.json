@@ -1,9 +1,4 @@
 {
-  "entryButton": {
-    "aria": {
-      "open": "計時器"
-    }
-  },
   "screen": {
     "title": "計時器",
     "close": "關閉計時器",
