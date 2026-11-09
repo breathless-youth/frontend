@@ -103,6 +103,69 @@ describe("그룹 소개 페이지", () => {
   });
 });
 
+describe("그룹 이름·소개 번역", () => {
+  it("번역이 오면 머리 제목과 소개를 번역으로 보이고 소개 아래 원문 보기로 함께 원문으로 바꾼다", async () => {
+    const api = mockGroupApi("default");
+    api.getGroupHome.mockImplementation(async (groupId, signal) => ({
+      ...(await api.server.getGroupHome(groupId, signal)),
+      translation: { language: "en", name: "After-school Club", description: "We study at 7 p.m." },
+    }));
+    renderGroupRoute("/social/groups/11?groupRooms=1");
+    expect(await screen.findByRole("heading", { name: "After-school Club" })).toBeInTheDocument();
+    const user = await openMenuItem("그룹 소개 보기");
+    expect(await screen.findByText("We study at 7 p.m.")).toBeInTheDocument();
+    expect(screen.getByText("번역됨")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "원문 보기" }));
+    expect(screen.getByText("같은 반 친구들끼리 평일 저녁 7시부터 공부해요.")).toBeInTheDocument();
+  });
+});
+
+describe("그룹 소개 화면 번역 안내", () => {
+  it("이름만 번역되고 소개는 번역되지 않으면 소개 화면에 번역 안내가 없다", async () => {
+    const api = mockGroupApi("default");
+    api.getGroupHome.mockImplementation(async (groupId, signal) => ({
+      ...(await api.server.getGroupHome(groupId, signal)),
+      translation: { language: "en", name: "After-school Club", description: null },
+    }));
+    renderGroupRoute("/social/groups/11?groupRooms=1");
+    await openMenuItem("그룹 소개 보기");
+    expect(
+      await screen.findByText("같은 반 친구들끼리 평일 저녁 7시부터 공부해요."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /원문 보기|번역 보기/ })).not.toBeInTheDocument();
+  });
+
+  it("번역 소개가 공백뿐이면 원문 소개를 보이고 번역 안내가 없다", async () => {
+    const api = mockGroupApi("default");
+    api.getGroupHome.mockImplementation(async (groupId, signal) => ({
+      ...(await api.server.getGroupHome(groupId, signal)),
+      translation: { language: "en", name: null, description: "   " },
+    }));
+    renderGroupRoute("/social/groups/11?groupRooms=1");
+    await openMenuItem("그룹 소개 보기");
+    expect(
+      await screen.findByText("같은 반 친구들끼리 평일 저녁 7시부터 공부해요."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("번역됨")).not.toBeInTheDocument();
+  });
+
+  it("원문 소개가 비어도 번역 소개가 있으면 원문으로 바꾼 뒤 번역 보기로 돌아올 수 있다", async () => {
+    const api = mockGroupApi("default");
+    api.getGroupHome.mockImplementation(async (groupId, signal) => ({
+      ...(await api.server.getGroupHome(groupId, signal)),
+      description: "",
+      translation: { language: "en", name: null, description: "We study at 7 p.m." },
+    }));
+    renderGroupRoute("/social/groups/11?groupRooms=1");
+    const user = await openMenuItem("그룹 소개 보기");
+    expect(await screen.findByText("We study at 7 p.m.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "원문 보기" }));
+    expect(screen.queryByText("We study at 7 p.m.")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "번역 보기" }));
+    expect(screen.getByText("We study at 7 p.m.")).toBeInTheDocument();
+  });
+});
+
 describe("그룹 홈 계측", () => {
   it("멤버가 나가면 left로 계측한다", async () => {
     const api = mockGroupApi("default");

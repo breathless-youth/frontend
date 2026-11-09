@@ -126,6 +126,46 @@ describe("fromApi", () => {
     ]);
   });
 
+  it("번역이 없으면 번역 이름과 소개는 null이고 원문은 그대로 둔다", () => {
+    const card = { ...seed.publicGroups[0]!, translation: null };
+    const detail = { ...seed.publicDetails[13]!, translation: null };
+    const home = { ...seed.homes[10]!, translation: null };
+    const mine = { ...seed.mine.groups[0]!, translation: null };
+    expect(toPublicRoomSummary(card)).toMatchObject({ name: card.name, translatedName: null });
+    expect(toMyRoomSummary(mine, 1)).toMatchObject({ name: mine.name, translatedName: null });
+    expect(toPublicRoomDetail(detail, 1)).toMatchObject({
+      name: detail.name,
+      translatedName: null,
+      translatedIntro: null,
+    });
+    expect(toRoomHome(home, 1)).toMatchObject({
+      name: home.name,
+      translatedName: null,
+      translatedIntro: null,
+    });
+  });
+
+  it("이름만 번역되면 번역 이름만 채우고 소개 번역은 null이다", () => {
+    const translation = { language: "en" as const, name: "Dawn Club", description: null };
+    const card = { ...seed.publicGroups[0]!, translation };
+    const mine = { ...seed.mine.groups[0]!, translation };
+    const detail = { ...seed.publicDetails[13]!, translation };
+    const home = { ...seed.homes[10]!, translation: { ...translation, description: "Intro" } };
+    expect(toPublicRoomSummary(card).translatedName).toBe("Dawn Club");
+    expect(toMyRoomSummary(mine, 1).translatedName).toBe("Dawn Club");
+    expect(toPublicRoomDetail(detail, 1)).toMatchObject({
+      name: detail.name,
+      translatedName: "Dawn Club",
+      translatedIntro: null,
+    });
+    expect(toRoomHome(home, 1)).toMatchObject({
+      name: home.name,
+      intro: home.description,
+      translatedName: "Dawn Club",
+      translatedIntro: "Intro",
+    });
+  });
+
   it("공개 그룹 그룹장이 아니면 새 신청 수는 0이고 소개가 없으면 빈 글이다", () => {
     const home = toRoomHome(
       { ...seed.homes[11]!, newApplicationCount: null, description: null },
@@ -223,6 +263,7 @@ describe("fromApi", () => {
       roomId: 13,
       joinPolicy: "approval",
       name: "토익 900 주말반",
+      translatedName: null,
       categoryLabel: "어학",
       memberCount: card.memberCount,
       weeklyAverageSec: card.weeklyAverageFocusSec,

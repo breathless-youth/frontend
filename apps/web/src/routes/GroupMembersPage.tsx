@@ -14,6 +14,7 @@ import {
 } from "@/features/group-room/groupErrorCopy";
 import type { GroupAction } from "@/features/group-room/groupErrorCopy";
 import { baseSearch } from "@/features/group-room/groupTabSearch";
+import { pickGroupText, useShowOriginal } from "@/features/group-room/model/groupTranslation";
 import {
   inviteCodeRenewedCopy,
   kickMemberDialog,
@@ -77,6 +78,7 @@ function GroupMembers({ userId, groupId }: { userId: number; groupId: number }) 
   // 이 화면은 그룹 이름과 역할만 읽어서 그룹 홈처럼 30초마다 다시 받지 않는다.
   const homeQuery = useQuery({ ...groupHomeQuery(userId, groupId), refetchInterval: false });
   const home = homeQuery.data;
+  const showOriginal = useShowOriginal();
   const membersQuery = useQuery(groupMembersQuery(userId, groupId));
   const manage = home?.myRole === "OWNER";
   const isPrivate = home?.visibility === "PRIVATE";
@@ -188,7 +190,7 @@ function GroupMembers({ userId, groupId }: { userId: number; groupId: number }) 
     <>
       <MembersScreen
         mode={manage ? "manage" : "view"}
-        roomName={home.name}
+        roomName={pickGroupText(home.name, home.translation?.name ?? null, showOriginal)}
         visibility={toRoomVisibility(home.visibility)}
         memberCount={home.memberCount}
         members={members}

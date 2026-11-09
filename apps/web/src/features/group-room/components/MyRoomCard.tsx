@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 
 import { studyingCount, studyingCountText } from "../model/desks";
 import { memberCountText } from "../model/limits";
+import { pickGroupText, useShowOriginal } from "../model/groupTranslation";
 import type { MyRoomSummary } from "../types";
 import { VISIBILITY_TONE_CLASS, visibilityText } from "../visibility";
 import { DeskRow } from "./DeskRow";
@@ -28,9 +29,10 @@ export function MyRoomCard({
   onOpenRequests: (roomId: number) => void;
 }) {
   const { t } = useTranslation("group-room");
+  const name = pickGroupText(room.name, room.translatedName, useShowOriginal());
   const count = studyingCount(room.members);
   const label = [
-    room.name,
+    name,
     visibilityText(room.visibility),
     room.categoryLabel,
     memberCountText(room.memberCount),
@@ -52,9 +54,7 @@ export function MyRoomCard({
       >
         <span className="flex w-full items-start gap-3">
           <span className="flex min-w-0 flex-1 flex-col gap-1">
-            <span className="truncate text-base leading-5.5 font-bold text-foreground">
-              {room.name}
-            </span>
+            <span className="truncate text-base leading-5.5 font-bold text-foreground">{name}</span>
             <span className="flex items-center gap-1">
               <CategoryTag label={room.categoryLabel} />
               <span className="pl-1 text-xs leading-4 text-muted-foreground">
@@ -80,7 +80,7 @@ export function MyRoomCard({
       {room.newRequestCount > 0 && (
         <button
           type="button"
-          aria-label={`${room.name}, ${requestsText}`}
+          aria-label={`${name}, ${requestsText}`}
           data-amp-mask
           data-amp-mask-attributes="aria-label"
           data-sentry-element="MyRoomCardRequests"

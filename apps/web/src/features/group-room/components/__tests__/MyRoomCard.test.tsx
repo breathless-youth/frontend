@@ -9,6 +9,7 @@ const room: MyRoomSummary = {
   joinPolicy: "approval",
   roomId: 7,
   name: "새벽 공시반",
+  translatedName: null,
   categoryLabel: "공무원",
   visibility: "public",
   memberCount: 2,

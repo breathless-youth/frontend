@@ -293,5 +293,13 @@
     "later": "나중에",
     "enabled": "멤버 공부 알림 켜짐",
     "disabled": "멤버 공부 알림 꺼짐"
+  },
+  "translationNotice": {
+    "listTranslated": "그룹 이름을 번역해서 보여주고 있어요",
+    "listOriginal": "원문 이름으로 보여주고 있어요",
+    "detailTranslated": "번역됨",
+    "detailOriginal": "원문",
+    "seeOriginal": "원문 보기",
+    "seeTranslation": "번역 보기"
   }
 }

@@ -306,6 +306,21 @@ describe("그룹 설정", () => {
     expect(await screen.findByRole("heading", { name: "새벽 공시반" })).toBeInTheDocument();
   });
 
+  it("번역이 와도 그룹 설정 입력칸은 원문으로 채운다", async () => {
+    const api = mockGroupApi("default");
+    api.getGroupHome.mockImplementation(async (groupId, signal) => ({
+      ...(await api.server.getGroupHome(groupId, signal)),
+      translation: { language: "en", name: "Dawn Club", description: "We study at dawn." },
+    }));
+    renderGroupRoute("/social/groups/10/settings?groupRooms=1");
+    expect(await screen.findByRole("textbox", { name: "그룹 이름" })).toHaveValue(
+      "새벽 5시 기상 공시반",
+    );
+    const home = await api.server.getGroupHome(10);
+    expect(screen.getByRole("textbox", { name: "그룹 소개" })).toHaveValue(home.description);
+    expect(screen.queryByDisplayValue("We study at dawn.")).not.toBeInTheDocument();
+  });
+
   it("소개를 비우고 저장해도 소개를 빈 글로 함께 보낸다", async () => {
     const api = mockGroupApi("default");
     renderGroupRoute("/social/groups/10/settings?groupRooms=1");

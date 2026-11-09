@@ -7,6 +7,8 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { MyRoomCard } from "../components/MyRoomCard";
 import { PendingBand } from "../components/PendingBand";
 import { RoomsEmptyState } from "../components/RoomsEmptyState";
+import { TranslationNotice } from "../components/TranslationNotice";
+import { hasGroupTranslation } from "../model/groupTranslation";
 import type { MyRoomSummary } from "../types";
 
 /**
@@ -42,13 +44,18 @@ export function MyRoomsView({
   let body: ReactNode;
   if (rooms.length > 0) {
     body = (
-      <ul className="flex flex-col gap-3">
-        {rooms.map((room) => (
-          <li key={room.roomId}>
-            <MyRoomCard room={room} onOpen={onOpenRoom} onOpenRequests={onOpenRequests} />
-          </li>
-        ))}
-      </ul>
+      <>
+        {rooms.some((room) => hasGroupTranslation(room.translatedName)) && (
+          <TranslationNotice variant="list" className="-mb-1" />
+        )}
+        <ul className="flex flex-col gap-3">
+          {rooms.map((room) => (
+            <li key={room.roomId}>
+              <MyRoomCard room={room} onOpen={onOpenRoom} onOpenRequests={onOpenRequests} />
+            </li>
+          ))}
+        </ul>
+      </>
     );
   } else if (error) {
     body = error;

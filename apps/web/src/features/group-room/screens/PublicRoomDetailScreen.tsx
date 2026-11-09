@@ -9,7 +9,9 @@ import { cn } from "@/lib/utils";
 
 import { BOTTOM_CTA_BAR_CLASS, BOTTOM_CTA_CLASS, BOTTOM_CTA_UNAVAILABLE_CLASS } from "../bottomCta";
 import { RoomMeta } from "../components/RoomMeta";
+import { TranslationNotice } from "../components/TranslationNotice";
 import { TodayDesksCard } from "../components/TodayDesksCard";
+import { hasGroupTranslation, pickGroupText, useShowOriginal } from "../model/groupTranslation";
 import type { RoomJoinPolicy } from "../model/joinPolicy";
 import { applyBlockCopy } from "../model/limits";
 import { formatHoursMinutes } from "../model/timeText";
@@ -51,6 +53,11 @@ export function PublicRoomDetailScreen({
     fetchedAtMs,
     room.members.some((member) => member.accumulating),
   );
+  const showOriginal = useShowOriginal();
+  const name = pickGroupText(room.name, room.translatedName, showOriginal);
+  const intro = pickGroupText(room.intro, room.translatedIntro, showOriginal).trim();
+  const translated =
+    hasGroupTranslation(room.translatedName) || hasGroupTranslation(room.translatedIntro);
   return (
     <main
       // 그룹 이름, 닉네임, 소개가 Amplitude 클릭 이벤트에 실리지 않게 화면 안의 글자와 aria-label을 모두 가린다.
@@ -58,7 +65,7 @@ export function PublicRoomDetailScreen({
       data-amp-mask-attributes="aria-label"
       className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col text-foreground"
     >
-      <ScreenBackHeader title={room.name} onBack={onBack} />
+      <ScreenBackHeader title={name} onBack={onBack} />
       <div className="flex flex-col px-5">
         <div className="pt-0.5">
           <RoomMeta
@@ -69,7 +76,9 @@ export function PublicRoomDetailScreen({
           />
         </div>
         {/* 공백과 줄바꿈만 있는 소개는 빈 칸으로 보여서 빈 소개처럼 칸을 그리지 않는다. */}
-        {room.intro.trim() !== "" && <IntroCard intro={room.intro.trim()} />}
+        {intro !== "" && <IntroCard intro={intro} translated={translated} />}
+        {/* 소개 카드가 없어도 번역된 제목을 원문으로 되돌릴 수 있게 안내 줄만 따로 둔다. */}
+        {intro === "" && translated && <TranslationNotice variant="detail" className="pt-2" />}
         <dl className={cn(CARD_CLASS, "mt-3 px-4 py-1.5")}>
           <div className="flex min-h-11 items-center justify-between gap-3 border-b border-border">
             <dt className="shrink-0 text-sm leading-5 text-muted-foreground">
@@ -119,7 +128,7 @@ export function PublicRoomDetailScreen({
  * 이모지 조합이 반으로 잘리지 않게 글자 단위로 자른다.
  * 줄바꿈이 많은 소개는 앞부분만으로도 길어져서 접어 둔 동안에는 줄 수도 함께 막는다.
  */
-function IntroCard({ intro }: { intro: string }) {
+function IntroCard({ intro, translated }: { intro: string; translated: boolean }) {
   const { t } = useTranslation("group-room");
   const [expanded, setExpanded] = useState(false);
   const titleId = useId();
@@ -151,6 +160,7 @@ function IntroCard({ intro }: { intro: string }) {
           {t("publicRoomDetailScreen.showMore")}
         </button>
       )}
+      {translated && <TranslationNotice variant="detail" className="pt-1" />}
     </section>
   );
 }
