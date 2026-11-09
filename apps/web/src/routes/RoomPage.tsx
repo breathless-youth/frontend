@@ -64,6 +64,13 @@ import {
 } from "@/features/study-session/components/SessionTimer";
 import { SimpleModeSurface } from "@/features/study-session/components/SimpleModeSurface";
 import { CAMERA_EXPAND_TIMING, cameraBoxFrames } from "@/features/study-session/cameraExpandMotion";
+import { readTimerBackground } from "@/features/timer-background/timerBackground";
+import { TimerBackgroundLayer } from "@/features/timer-background/TimerBackgroundLayer";
+import { timerBackgroundPhotoStore } from "@/features/timer-background/timerBackgroundPhotos";
+import {
+  toPhotoView,
+  type BackgroundPhotoView,
+} from "@/features/timer-background/timerBackgroundQueries";
 import { NoFocusEndNotice } from "@/features/study-session/components/NoFocusEndNotice";
 import { SessionSubjectPanel as SubjectPanel } from "@/features/study-session/components/SessionSubjectPanel";
 import { SessionSubjectHeader } from "@/features/study-session/components/SessionSubjectHeader";
@@ -80,7 +87,7 @@ import type {
   SessionState,
 } from "@/features/study-session/sessionState";
 import { SESSION_HELP_STEPS, markSessionGuideSeen } from "@/features/study-session/sessionGuide";
-import { SESSION_LAYER_INSET } from "@/features/study-session/sessionLayout";
+import { PIP_ANCHOR, PIP_SIZE, SESSION_LAYER_INSET } from "@/features/study-session/sessionLayout";
 import { MANUAL_END_REASON, statusLabelKey } from "@/features/study-session/sessionState";
 import {
   clearSessionInvite,
@@ -148,20 +155,6 @@ const SESSION_LAYER_LAYOUT = [
   SESSION_LAYER_INSET,
 ].join(" ");
 
-/**
- * 내 카메라 작은 창의 자리
- *
- * 세로는 오른쪽 아래, 하단 바 위 34px이고 가로는 오른쪽 아래 하단 바와 같은 높이다.
- * 하단 바 위 끝은 레이어 아래 여백(12, 24, 27px) + 바 높이(68, 76, 88px)다.
- * 카메라 화면과 그 위의 누르는 버튼, 확대 중의 줄이기 버튼이 같은 자리를 쓴다.
- */
-const PIP_ANCHOR = [
-  "absolute right-[calc(env(safe-area-inset-right)+16px)] bottom-[calc(env(safe-area-inset-bottom)+114px)]",
-  "regular:bottom-[calc(env(safe-area-inset-bottom)+134px)] short-side-lg:bottom-[calc(env(safe-area-inset-bottom)+149px)]",
-  "landscape-compact:right-[max(env(safe-area-inset-right),16px)] landscape-compact:bottom-[max(env(safe-area-inset-bottom),calc((env(safe-area-inset-bottom)+14px)/2))]",
-].join(" ");
-
-/** 내 카메라 작은 창의 크기. 세로 108×144, 가로 160×108이고 폭 600 이상 창은 144×192다. */
 /** 타임랩스가 찍히고 있음을 알리는 빨간 점. 작은 창 이름표와 확대 화면 필이 같이 쓴다. */
 const TIMELAPSE_DOT =
   "size-1.5 shrink-0 rounded-full bg-(--session-control-exit-bg) shadow-[0_0_0_3px_rgba(255,255,255,0.08)]";
@@ -171,9 +164,6 @@ const CAMERA_CHROME_FADE = "transition-opacity duration-200 ease-out motion-redu
 
 /** 작은 창 모서리(`rounded-lg`). 키우기·줄이기 움직임이 이 둥글기에서 시작하고 끝난다. */
 const PIP_RADIUS_PX = 8;
-
-const PIP_SIZE =
-  "h-36 w-27 regular:h-48 regular:w-36 landscape-compact:h-27 landscape-compact:w-40";
 
 /**
  * 열린 페이지를 표시하는 history 항목의 키
@@ -475,6 +465,9 @@ function RoomSessionScreen({
   const pipSlotRef = useRef<HTMLDivElement>(null);
   // 줄이는 중. 작게 보기 버튼·타임랩스 필·어두운 덮개를 움직임과 함께 서서히 지운다.
   const [cameraShrinking, setCameraShrinking] = useState(false);
+  // 키우는 중. 줄이는 중과 함께 움직이는 동안 타이머 배경을 남겨 두는 데 쓴다.
+  const [cameraGrowing, setCameraGrowing] = useState(false);
+  const cameraMoving = cameraGrowing || cameraShrinking;
   // 진행 중인 키우기·줄이기 움직임. 움직이는 동안 다시 누르면 무시한다.
   const cameraMotionRef = useRef<Animation | null>(null);
 
@@ -509,15 +502,23 @@ function RoomSessionScreen({
    */
   function expandCamera() {
     if (cameraMotionRef.current !== null) return;
-    flushSync(() => setCameraExpanded(true));
+    // 배경이 한 프레임도 빠지지 않게 키우는 중 표시를 전체 화면 전환과 함께 건다.
+    flushSync(() => {
+      setCameraExpanded(true);
+      setCameraGrowing(true);
+    });
     const motion = cameraMotion();
-    if (motion === null) return;
+    if (motion === null) {
+      setCameraGrowing(false);
+      return;
+    }
     const animation = motion.surface.animate(motion.frames, CAMERA_EXPAND_TIMING);
     cameraMotionRef.current = animation;
     void animation.finished
       .catch(() => {})
       .finally(() => {
         cameraMotionRef.current = null;
+        setCameraGrowing(false);
       });
   }
 
@@ -576,6 +577,25 @@ function RoomSessionScreen({
     loadTimelapseSettings()
       .then((settings) => {
         if (!cancelled) setTimelapseOn(settings.enabled);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  // 타이머 배경. 설정 화면이 이 기기에 저장한 값을 세션을 열 때 한 번 읽는다.
+  // 고른 사진이 지워졌거나 읽지 못하면 배경 없이 그린다.
+  const [backgroundPhoto, setBackgroundPhoto] = useState<BackgroundPhotoView | null>(null);
+  useEffect(() => {
+    const selection = readTimerBackground();
+    if (selection.kind !== "photo") return;
+    let cancelled = false;
+    timerBackgroundPhotoStore()
+      .get(selection.photoId)
+      .then(async (photo) => {
+        if (photo === null) return;
+        const view = await toPhotoView(photo);
+        if (!cancelled) setBackgroundPhoto(view);
       })
       .catch(() => {});
     return () => {
@@ -985,6 +1005,11 @@ function RoomSessionScreen({
       <SimpleModeSurface hidden={!simpleMode} glowKey={glowKey} />
       {/* 회전 오버스캔은 프리뷰에만 건다 — 심플 모드는 카메라를 걷어낸 화면이라 회전해도
           메울 빈 자리가 없고, 단색 배경을 확대해 봐야 보이는 변화가 없다. */}
+      {/* 배경은 기본 모드의 작은 카메라 창 뒤에만 깐다. 심플 모드와 카메라를 키운 화면은 배경을 쓰지 않는다.
+          키우기·줄이기 움직임 동안에는 남겨 둬야 카메라 상자 밖으로 배경이 이어 보이고 끝에서 툭 나타나지 않는다. */}
+      {backgroundPhoto !== null && !simpleMode && (!cameraExpanded || cameraMoving) && (
+        <TimerBackgroundLayer src={backgroundPhoto.src} fit={backgroundPhoto.fit} />
+      )}
       <div
         ref={pipSlotRef}
         aria-hidden="true"

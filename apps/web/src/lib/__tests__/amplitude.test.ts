@@ -2365,3 +2365,34 @@ describe("순공 1분 달성 (focus_milestone_reached)", () => {
     expect(localStorage.getItem("focusmakers:focus-milestone-tracked")).toBeNull();
   });
 });
+
+describe("타이머 배경 이벤트", () => {
+  it("적용·사진 추가·삭제를 정해진 이름과 속성으로 보내고, 사진 내용은 싣지 않는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    mocks.track.mockClear();
+
+    m.trackSettingsRowPressed("timer_background");
+    m.trackTimerBackgroundApplied({ kind: "photo" });
+    m.trackTimerBackgroundPhotoAdded({ count: 3, source: "native" });
+    m.trackTimerBackgroundPhotoRemoved({ count: 2, wasSelected: true });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["settings_row_pressed", { row: "timer_background" }],
+      ["timer_background_applied", { kind: "photo" }],
+      ["timer_background_photo_added", { count: 3, source: "native" }],
+      ["timer_background_photo_removed", { count: 2, was_selected: true }],
+    ]);
+  });
+
+  it("미초기화 상태에서는 보내지 않는다", async () => {
+    const m = await loadModule();
+
+    m.trackTimerBackgroundApplied({ kind: "simple" });
+    m.trackTimerBackgroundPhotoAdded({ count: 1, source: "file" });
+    m.trackTimerBackgroundPhotoRemoved({ count: 0, wasSelected: false });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+});

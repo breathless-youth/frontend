@@ -63,7 +63,8 @@ export function SessionClock({
   );
   return (
     <div className="relative flex flex-col items-center">
-      <div className="relative flex items-center gap-1">
+      {/* 타이머 배경 사진 위에서도 읽히게 시안대로 글자 그림자를 깐다. */}
+      <div className="relative flex items-center gap-1 [text-shadow:0_1px_10px_rgba(0,0,0,0.45)]">
         {callouts?.caption}
         <p
           role={fake ? undefined : "status"}
@@ -95,7 +96,10 @@ export function SessionClock({
           </button>
         )}
       </div>
-      <div aria-hidden={fake || undefined} className="flex flex-col items-center">
+      <div
+        aria-hidden={fake || undefined}
+        className="flex flex-col items-center [text-shadow:0_1px_10px_rgba(0,0,0,0.45)]"
+      >
         <p
           className={cn(
             "mt-1 text-center landscape-compact:mt-0.5",

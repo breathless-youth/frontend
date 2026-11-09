@@ -16,3 +16,20 @@ export const SESSION_LAYER_INSET = [
   "landscape-compact:pt-[calc(env(safe-area-inset-top)+18px)] landscape-compact:pb-[max(env(safe-area-inset-bottom),calc((env(safe-area-inset-bottom)+14px)/2))]",
   "landscape-compact:pl-[max(env(safe-area-inset-left),16px)] landscape-compact:pr-[max(env(safe-area-inset-right),16px)]",
 ].join(" ");
+
+/**
+ * 내 카메라 작은 창의 자리
+ *
+ * 세로는 오른쪽 아래, 하단 바 위 34px이고 가로는 오른쪽 아래 하단 바와 같은 높이다.
+ * 하단 바 위 끝은 레이어 아래 여백(12, 24, 27px) + 바 높이(68, 76, 88px)다.
+ * 카메라 화면과 그 위의 누르는 버튼, 확대 중의 줄이기 버튼, 타이머 배경 미리보기의 가짜 카메라 창이 같은 자리를 쓴다.
+ */
+export const PIP_ANCHOR = [
+  "absolute right-[calc(env(safe-area-inset-right)+16px)] bottom-[calc(env(safe-area-inset-bottom)+114px)]",
+  "regular:bottom-[calc(env(safe-area-inset-bottom)+134px)] short-side-lg:bottom-[calc(env(safe-area-inset-bottom)+149px)]",
+  "landscape-compact:right-[max(env(safe-area-inset-right),16px)] landscape-compact:bottom-[max(env(safe-area-inset-bottom),calc((env(safe-area-inset-bottom)+14px)/2))]",
+].join(" ");
+
+/** 내 카메라 작은 창의 크기. 세로 108×144, 가로 160×108이고 폭 600 이상 창은 144×192다. */
+export const PIP_SIZE =
+  "h-36 w-27 regular:h-48 regular:w-36 landscape-compact:h-27 landscape-compact:w-40";
