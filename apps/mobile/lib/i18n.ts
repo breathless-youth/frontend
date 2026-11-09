@@ -252,15 +252,15 @@ const zhHant = {
   "recommendedUpdate.confirm": "立即更新",
 
   "appLock.shieldTitle": "現在是專心讀書的時間",
-  "appLock.shieldSubtitle": "在 FocusMakers 完成讀書後，就會解除這個應用程式的封鎖",
+  "appLock.shieldSubtitle": "在 FocusMakers 完成讀書後，就會解除這個 App 的封鎖",
 
-  "appLockConsent.title": "若要開啟應用程式封鎖，\n需要兩項權限",
+  "appLockConsent.title": "若要開啟 App 封鎖，\n需要兩項權限",
   "appLockConsent.usageTitle": "使用情況存取權",
-  "appLockConsent.usageBody": "只會用來確認目前開啟的應用程式是否已封鎖。",
+  "appLockConsent.usageBody": "只會用來確認目前開啟的 App 是否已封鎖。",
   "appLockConsent.overlayTitle": "在其他應用程式上層顯示",
-  "appLockConsent.overlayBody": "讀書時開啟已封鎖的應用程式，就會顯示封鎖畫面。",
+  "appLockConsent.overlayBody": "讀書時開啟已封鎖的 App，就會顯示封鎖畫面。",
   "appLockConsent.installedApps":
-    "為了讓你選擇要封鎖的應用程式，FocusMakers 會讀取裝置上已安裝的應用程式清單。這份清單不會傳送到裝置以外。",
+    "為了讓你選擇要封鎖的 App，FocusMakers 會讀取裝置上已安裝的 App 清單。這份清單不會傳送到裝置以外。",
   "appLockConsent.granted": "已允許",
   "appLockConsent.actionAgree": "同意並開啟設定",
   "appLockConsent.actionOverlay": "允許在其他應用程式上層顯示",
@@ -275,11 +275,11 @@ const zhHant = {
   "appLockBattery.stepNoRestrictions": "選取「無限制」",
   "appLockBattery.stepAutostart": "開啟「自動啟動」",
 
-  "appLockPicker.title": "封鎖的應用程式",
-  "appLockPicker.search": "搜尋應用程式",
+  "appLockPicker.title": "封鎖的 App",
+  "appLockPicker.search": "搜尋 App",
   "appLockPicker.selected": "已選取 {{count}} 個",
-  "appLockPicker.loadFailed": "無法載入應用程式清單",
-  "appLockPicker.empty": "找不到應用程式",
+  "appLockPicker.loadFailed": "無法載入 App 清單",
+  "appLockPicker.empty": "找不到 App",
 } satisfies Record<keyof typeof ko, string>;
 
 export type CopyKey = keyof typeof ko;
