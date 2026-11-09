@@ -155,7 +155,7 @@
     "boundary": "Load the full time range before editing this record",
     "changeSubject": "Change subject",
     "save": "Save",
-    "hint": "Hold an empty space to add a record, or select minutes to edit",
+    "hint": "Hold an empty space to add a record. Tap a record and drag its ends to change the time",
     "grid": "Record editing grid",
     "saveFailed": "Some records couldn’t be saved. Try again",
     "leaveTitle": "Leave without saving?",
