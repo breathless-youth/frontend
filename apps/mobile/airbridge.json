@@ -1,3 +1,4 @@
 {
-  "autoStartTrackingEnabled": false
+  "autoStartTrackingEnabled": false,
+  "isHandleAirbridgeDeeplinkOnly": true
 }

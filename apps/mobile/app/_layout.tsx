@@ -13,6 +13,7 @@ import { cleanupOnLaunch } from "../lib/appLock/appLock";
 import { type ForceUpdateDecision, resolveForceUpdateOnLaunch } from "../lib/forceUpdate";
 import { createAppStateTracker } from "../lib/appStateAnalytics";
 import { installFirebaseAnalyticsSdk } from "../lib/firebaseAnalyticsSdk";
+import { onAirbridgeDeepLink } from "../lib/airbridge";
 import { forceUpdateAlert } from "../lib/forceUpdateAlert";
 import { t } from "../lib/i18n";
 import { startInstallAttribution } from "../lib/installAttribution";
@@ -23,6 +24,7 @@ import { initMetaAds } from "../lib/metaAds";
 import { installMetaAdsSdk } from "../lib/metaAdsSdk";
 import { lockPortrait } from "../lib/orientation";
 import { startPushMessaging } from "../lib/pushBootstrap";
+import { routeFromPushLink } from "../lib/pushNotificationRouting";
 import { openPushRoute } from "../lib/pushRouteOpener";
 import { registerPushToken, watchAuthForPushToken } from "../lib/pushTokenRegistration";
 import { recommendedUpdateAlert } from "../lib/recommendedUpdateAlert";
@@ -203,6 +205,17 @@ function RootLayout() {
       startPushMessaging({
         // 초대 푸시는 세션 화면에 넘기고, 그 밖의 경로는 세션이 끝난 뒤 담당 탭으로 연다.
         navigate: (route) => openPushRoute(route, (target) => router.push(target)),
+      }),
+    [router],
+  );
+
+  // Airbridge 추적 링크: SDK가 광고에 심은 딥링크(`focusmakers://social/join?code=…`)로 바꿔 넘긴다.
+  // 알림 탭과 같은 표로 경로를 고르고 세션 중이면 끝난 뒤 연다. 앱 스킴 밖이거나 앱에 없는 주소는 열지 않는다.
+  useEffect(
+    () =>
+      onAirbridgeDeepLink((url) => {
+        const route = routeFromPushLink(url);
+        if (route !== null) openPushRoute(route, (target) => router.push(target));
       }),
     [router],
   );

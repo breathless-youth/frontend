@@ -61,6 +61,7 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 - **SDK는 `extra.airbridgeEnabled`를 본 뒤 `try` 안에서 `require`한다.** 불러오는 순간 네이티브 이벤트 emitter를 만들어 모듈 없는 바이너리에서 던지는데, 이 통로를 `auth.ts` 가입 처리와 `nativeBridgeHandler`가 부르므로 밖으로 새면 가입·브리지가 끊긴다.
 - **보내는 것**: 브리지 `analytics-event`(웹 Amplitude 사본, Firebase와 같은 것) 전부를 커스텀 이벤트로, Meta 전환 중 가입·튜토리얼 완료·업적·공유 4종만 표준 이벤트로. 이름을 화이트리스트하지 않는다(목록은 웹이 소유). 설치·실행은 SDK가 네이티브에서 직접 잡는다.
 - **iOS는 앱 추적(ATT)을 허용해야만 보낸다.** `airbridge.json`의 `autoStartTrackingEnabled: false`로 꺼진 채 시작하고, ATT 창을 띄우는 `initMetaAds`의 응답이 `setAirbridgeTrackingAllowed`로 `startTracking`/`stopTracking`을 부른다. 응답 전 이벤트(첫 실행의 가입 등)는 쌓아 뒀다가 허용이면 보내고 거부면 버린다. 개인정보 처리방침이 이 약속을 적고 있으니 자동 시작을 다시 켜지 말 것. Android는 응답이 늘 허용이다. Meta env 없는 빌드는 ATT 흐름이 없어 Airbridge가 아예 켜지지 않는다.
+- **추적 링크 딥링크는 SDK 콜백 하나로 연다.** 운영(토큰 든) 빌드만 `focusmakers.airbridge.io`·`focusmakers.abr.ge`를 App Link·유니버설 링크로 선언한다(`app.config.ts`). 이 주소와 `airbridge_referrer`가 붙은 스킴 링크는 `+native-intent`가 라우터에서 걸러 내고, SDK가 광고에 심은 딥링크로 바꿔 `onAirbridgeDeepLink`로 넘기면 루트 레이아웃이 알림 탭과 같은 표(`routeFromPushLink`·`openPushRoute`)로 연다. `airbridge.json`의 `isHandleAirbridgeDeeplinkOnly: true`를 빼면 일반 링크도 콜백으로 와서 두 번 이동한다. 지연 딥링크는 수집이 켜진 뒤에만 와서 iOS에서 추적을 거부한 사용자는 받지 못한다.
 - ⚠️ **릴리즈 게이트**: 개인정보 처리방침·App Store 개인정보 라벨·Play 데이터 보안에 Airbridge(IDFA/GAID)를 넣기 전에는 이 SDK가 든 빌드를 스토어에 내지 않는다.
 - Airbridge 딥링크는 쓰지 않는다. Expo SDK 57 이하에서는 딥링크 수집이 안 될 수 있다(Airbridge 문서, SDK 58부터 지원). `airbridge-expo-sdk`가 옛 `@expo/config-plugins`를 따로 끌어오므로 Expo SDK를 올릴 때 이 plugin 호환을 먼저 본다.
 

@@ -100,7 +100,37 @@ describe("Airbridge SDK 설정", () => {
   });
 
   it("SDK는 꺼진 채 시작한다 — iOS는 앱 추적을 허용한 뒤에만 켠다(개인정보 처리방침의 약속)", () => {
-    expect(airbridgeJson).toEqual({ autoStartTrackingEnabled: false });
+    expect(airbridgeJson.autoStartTrackingEnabled).toBe(false);
+  });
+
+  it("SDK 딥링크 콜백은 Airbridge 링크만 받는다 — 일반 링크는 라우터가 열어 두 번 이동하지 않는다", () => {
+    expect(airbridgeJson).toEqual({
+      autoStartTrackingEnabled: false,
+      isHandleAirbridgeDeeplinkOnly: true,
+    });
+  });
+
+  it("토큰이 있을 때만 추적 링크 호스트로 앱이 열린다", () => {
+    const hosts = ["focusmakers.airbridge.io", "focusmakers.abr.ge"];
+    const on = resolveConfig({ AIRBRIDGE_APP_TOKEN: TOKEN });
+    expect(on.ios?.associatedDomains).toEqual(hosts.map((host) => `applinks:${host}`));
+    expect(on.android?.intentFilters).toEqual([
+      {
+        action: "VIEW",
+        autoVerify: true,
+        data: hosts.flatMap((host) => [
+          { scheme: "https", host },
+          { scheme: "http", host },
+        ]),
+        category: ["BROWSABLE", "DEFAULT"],
+      },
+    ]);
+    // 경로를 그대로 여는 허용 목록에는 넣지 않는다.
+    expect(on.extra?.deepLinkHosts).toEqual([]);
+
+    const off = resolveConfig({});
+    expect(off.ios?.associatedDomains).toBeUndefined();
+    expect(off.android?.intentFilters).toBeUndefined();
   });
 
   it("두 SDK는 정확한 버전으로 고정한다 — config plugin과 네이티브 SDK 버전이 함께 묶인다", () => {
