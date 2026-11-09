@@ -42,13 +42,13 @@ function validateRange(range: PlannerRecordRange) {
     order(range.startedAt) !== BigInt(start) * 1_000_000n ||
     order(range.endedAt) !== BigInt(end) * 1_000_000n ||
     end - start < 60000 ||
-    (range.change === "SUBJECT" && !validSubject(range.subjectId))
+    (range.change !== "DELETE" && !validSubject(range.subjectId))
   )
     throw new RecordDraftError("range");
 }
 const sameChange = (a: PlannerRecordRange, b: PlannerRecordRange) =>
   a.change === b.change &&
-  (a.change !== "SUBJECT" || (b.change === "SUBJECT" && a.subjectId === b.subjectId));
+  (a.change === "DELETE" || (b.change !== "DELETE" && a.subjectId === b.subjectId));
 
 /** 뒤의 편집을 우선하며 서버에 보내기 전 겹침을 없앤다. */
 export function normalizeRecordRanges(
@@ -60,6 +60,23 @@ export function normalizeRecordRanges(
     validateRange(next);
     const start = order(next.startedAt),
       end = order(next.endedAt);
+    // 늘린 시간(ADD) 위에 과목을 바꾸면 그 부분은 새 과목의 ADD로 남겨야 늘린 시간이 사라지지 않는다.
+    const filled =
+      next.change === "SUBJECT"
+        ? result
+            .filter(
+              (previous) =>
+                previous.change === "ADD" &&
+                order(previous.startedAt) < end &&
+                order(previous.endedAt) > start,
+            )
+            .map((previous) => ({
+              startedAt: order(previous.startedAt) > start ? previous.startedAt : next.startedAt,
+              endedAt: order(previous.endedAt) < end ? previous.endedAt : next.endedAt,
+              change: "ADD" as const,
+              subjectId: next.subjectId,
+            }))
+        : [];
     result = result.flatMap((previous) => {
       if (order(previous.endedAt) <= start || order(previous.startedAt) >= end) return [previous];
       return [
@@ -67,7 +84,21 @@ export function normalizeRecordRanges(
         ...(order(previous.endedAt) > end ? [{ ...previous, startedAt: next.endedAt }] : []),
       ];
     });
-    result.push(next);
+    let rest: PlannerRecordRange[] = [next];
+    for (const fill of filled)
+      rest = rest.flatMap((part) =>
+        order(part.endedAt) <= order(fill.startedAt) || order(part.startedAt) >= order(fill.endedAt)
+          ? [part]
+          : [
+              ...(order(part.startedAt) < order(fill.startedAt)
+                ? [{ ...part, endedAt: fill.startedAt }]
+                : []),
+              ...(order(part.endedAt) > order(fill.endedAt)
+                ? [{ ...part, startedAt: fill.endedAt }]
+                : []),
+            ],
+      );
+    result.push(...rest, ...filled);
   }
   result.sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt));
   const merged: PlannerRecordRange[] = [];
@@ -85,18 +116,25 @@ export function normalizeRecordRanges(
   const occupied =
     pieces === undefined
       ? merged
-      : merged.filter((range) =>
-          pieces.some(
-            (piece) =>
-              order(piece.startedAt) < order(range.endedAt) &&
-              order(piece.endedAt) > order(range.startedAt),
-          ),
+      : merged.filter(
+          (range) =>
+            range.change === "ADD" ||
+            pieces.some(
+              (piece) =>
+                order(piece.startedAt) < order(range.endedAt) &&
+                order(piece.endedAt) > order(range.startedAt),
+            ),
         );
   if (occupied.length > 100) throw new RecordDraftError("range-limit");
   return occupied;
 }
 
-/** 원본 조각과의 교차에만 적용한다. 원본 ISO 경계·삭제 공백을 보존한다. */
+/**
+ * 원본 조각에 범위 편집을 적용한다.
+ *
+ * SUBJECT·DELETE는 원본 조각과의 교차에만 적용해 원본 ISO 경계와 삭제 공백을 보존한다.
+ * ADD는 범위 전체를 그 과목 조각 하나로 바꿔 빈 시간도 채운다.
+ */
 export function applyRecordRanges(
   pieces: readonly PlannerRecordPiece[],
   ranges: readonly PlannerRecordRange[],
@@ -123,6 +161,20 @@ export function applyRecordRanges(
         ...(to > end ? [{ ...piece, startedAt: range.endedAt }] : []),
       ];
     });
+    if (range.change === "ADD") {
+      result.push({
+        startedAt: range.startedAt,
+        endedAt: range.endedAt,
+        subjectId: range.subjectId,
+      });
+      result.sort((a, b) =>
+        order(a.startedAt) < order(b.startedAt)
+          ? -1
+          : order(a.startedAt) > order(b.startedAt)
+            ? 1
+            : 0,
+      );
+    }
   }
   return result;
 }

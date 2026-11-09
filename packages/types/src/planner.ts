@@ -68,7 +68,11 @@ export interface PlannerRecordPiece {
 export type PlannerRecordRange = {
   startedAt: string;
   endedAt: string;
-} & ({ change: "SUBJECT"; subjectId: number | null } | { change: "DELETE" });
+} & (
+  | { change: "SUBJECT"; subjectId: number | null }
+  | { change: "ADD"; subjectId: number | null }
+  | { change: "DELETE" }
+);
 
 export interface PlannerRecordSegment {
   subjectId: number;
