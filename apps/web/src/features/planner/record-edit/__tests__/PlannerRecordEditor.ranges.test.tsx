@@ -237,7 +237,7 @@ it("stale 재조회 실패 후 다시 시도는 조회만 하고 없어진 선�
   expect(screen.getByRole("alert")).toHaveTextContent("범위를 다시 선택");
 });
 
-it("긴 동일 과목 영역의 중간을 누르면 UTC 해당 분을 골라 원본 시각 없이 저장한다", async () => {
+it("긴 동일 과목 영역의 중간을 눌러도 이어진 블록 전체를 골라 원본 시각 없이 저장한다", async () => {
   const longRecord = {
     ...record,
     pieces: [{ startedAt: "2026-11-06T00:00:00Z", endedAt: "2026-11-06T00:03:00Z", subjectId: 3 }],
@@ -275,8 +275,8 @@ it("긴 동일 과목 영역의 중간을 누르면 UTC 해당 분을 골라 원
     toJSON() {},
   });
   fireEvent.click(shape, { detail: 1, clientX: 299 });
-  expect(screen.getByLabelText("시작")).toHaveValue("09:01");
-  expect(screen.getByLabelText("끝")).toHaveValue("09:02");
+  expect(screen.getByLabelText("시작")).toHaveValue("09:00");
+  expect(screen.getByLabelText("끝")).toHaveValue("09:03");
   fireEvent.click(screen.getByRole("button", { name: "과목 바꾸기" }));
   fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "영어" }));
   fireEvent.click(screen.getByRole("button", { name: "저장" }));
@@ -285,8 +285,8 @@ it("긴 동일 과목 영역의 중간을 누르면 UTC 해당 분을 골라 원
     action: "EDIT_RANGES",
     ranges: [
       {
-        startedAt: "2026-11-06T00:01:00.000Z",
-        endedAt: "2026-11-06T00:02:00.000Z",
+        startedAt: "2026-11-06T00:00:00.000Z",
+        endedAt: "2026-11-06T00:03:00.000Z",
         change: "SUBJECT",
         subjectId: 4,
       },

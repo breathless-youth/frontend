@@ -22,9 +22,9 @@
   "join": {
     "title": "用邀請碼加入",
     "invited": "你受邀一起讀書",
-    "inAppWithCode": "可以在應用程式中用這組邀請碼加入",
-    "inAppNoCode": "可以在應用程式中輸入邀請碼加入",
-    "openApp": "在應用程式中加入",
+    "inAppWithCode": "可以在 App 中用這組邀請碼加入",
+    "inAppNoCode": "可以在 App 中輸入邀請碼加入",
+    "openApp": "在 App 中加入",
     "prompt": "請輸入邀請碼",
     "hint": "可以用朋友傳來的 4 位數邀請碼加入",
     "submit": "加入",

@@ -62,7 +62,7 @@
     "title": "今天很難一個人專心嗎？<br/>和大家一起讀書吧",
     "cta": "和群組一起讀書"
   },
-  "unregistered": "這部裝置尚未註冊。在應用程式中開啟，就會儲存紀錄",
+  "unregistered": "這部裝置尚未註冊。在 App 中開啟，就會儲存紀錄",
   "demo": {
     "tagline": "用 AI 視覺測量專注時間的視訊讀書",
     "enter": "進入個人讀書室（示範）"
@@ -73,7 +73,7 @@
     "startStudy": "開始讀書",
     "mission": {
       "caption": "入門任務",
-      "subject": "在計畫表建立科目",
+      "subject": "在讀書計畫建立科目",
       "focus": "完成5分鐘專注",
       "progress": "入門任務第{{step}}階段",
       "go": "前往",
@@ -113,7 +113,7 @@
       "verifyFailed": "無法確認已儲存的科目。請重試或選擇不選科目。"
     },
     "planner": {
-      "title": "計畫表",
+      "title": "讀書計畫",
       "open": "今日讀書計畫",
       "remaining": "剩餘{{count}}項待辦"
     },
@@ -124,10 +124,10 @@
       "settings": "縮時攝影拍攝設定"
     },
     "appLock": {
-      "title": "干擾App鎖定",
-      "unknown": "確認鎖定設定",
-      "unsupported": "請在App中設定",
-      "locked": "已鎖定{{count}}個App"
+      "title": "App 封鎖",
+      "unknown": "確認封鎖設定",
+      "unsupported": "請在 App 中設定",
+      "locked": "已封鎖 {{count}} 個 App"
     },
     "preview": {
       "subjects": {

@@ -3,11 +3,13 @@ import type * as AirbridgeModule from "../airbridge";
 const mockTrackEvent = jest.fn();
 const mockStartTracking = jest.fn();
 const mockStopTracking = jest.fn();
+const mockSetOnDeeplinkReceived = jest.fn();
 const mockSdk = () => ({
   Airbridge: {
     trackEvent: mockTrackEvent,
     startTracking: mockStartTracking,
     stopTracking: mockStopTracking,
+    setOnDeeplinkReceived: mockSetOnDeeplinkReceived,
   },
 });
 const mockExtra: { airbridgeEnabled?: boolean } = {};
@@ -33,6 +35,7 @@ beforeEach(() => {
   mockTrackEvent.mockClear();
   mockStartTracking.mockClear();
   mockStopTracking.mockClear();
+  mockSetOnDeeplinkReceived.mockClear();
 });
 
 test("꺼진 빌드는 SDK를 부르지 않는다", () => {
@@ -134,4 +137,33 @@ test("수집 켜기가 실패하면 큐를 지키고, 같은 응답이 다시 �
   ab.setAirbridgeTrackingAllowed(true);
   expect(mockTrackEvent.mock.calls).toEqual([["airbridge.user.signup", {}, {}]]);
   warn.mockRestore();
+});
+
+test("추적 링크 주소와 SDK 표시가 붙은 스킴 링크만 Airbridge 링크로 본다", () => {
+  const { isAirbridgeLink } = load(true);
+  for (const url of [
+    "https://focusmakers.airbridge.io/campaign?x=1",
+    "https://focusmakers.abr.ge/abc123",
+    "http://focusmakers.abr.ge",
+    "focusmakers://social/join?code=1234&airbridge_referrer=xyz",
+  ]) {
+    expect([url, isAirbridgeLink(url)]).toEqual([url, true]);
+  }
+  for (const url of [
+    "focusmakers://social/join?code=1234",
+    "https://web.focusmakers.app/social/join?code=1234",
+    "https://focusmakers.airbridge.io.evil.com/x",
+    "https://other.abr.ge/x",
+  ]) {
+    expect([url, isAirbridgeLink(url)]).toEqual([url, false]);
+  }
+});
+
+test("딥링크 콜백은 켜진 빌드에서만 SDK에 건다", () => {
+  const handler = jest.fn();
+  load(false).onAirbridgeDeepLink(handler);
+  expect(mockSetOnDeeplinkReceived).not.toHaveBeenCalled();
+
+  load(true).onAirbridgeDeepLink(handler);
+  expect(mockSetOnDeeplinkReceived).toHaveBeenCalledWith(handler);
 });

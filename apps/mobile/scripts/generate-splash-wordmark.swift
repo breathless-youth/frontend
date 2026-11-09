@@ -1,4 +1,4 @@
-// Render "포커스 메이커스" wordmark PNGs (V2 brand colors) on transparent 1024x1024 canvas.
+// Render splash wordmark PNGs (V2 brand colors) on transparent 1024x1024 canvas.
 // V2 시안(Figma "E1 · 스플래시" 5322:3661)의 브랜드색 #3671cf / #5a90ea, 글꼴은 Pretendard ExtraBold.
 // 글꼴 파일은 pretendard 패키지의 정적 OTF를 그대로 읽는다. 앱에서 쓰는 폰트와 원본을 한 곳으로 모으기 위해서다.
 // Usage: swift scripts/generate-splash-wordmark.swift <outDir>   (apps/mobile에서 실행, outDir=assets)
@@ -7,8 +7,8 @@ import CoreText
 
 let outDir = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "."
 let canvas: CGFloat = 1024
-let targetWidth: CGFloat = 720 // wordmark width inside the canvas (한글 8자, 여백 확보)
-let wordmark = "포커스 메이커스"
+let targetWidth: CGFloat = 720 // wordmark width inside the canvas (여백 확보)
+// 기본은 영어 워드마크이고, 한국어 기기만 한글 워드마크를 쓴다(BY-1181, plugins/withKoreanSplash.js).
 
 func brandColor(_ hex: String) -> NSColor {
     let r = CGFloat(Int(hex.dropFirst().prefix(2), radix: 16)!) / 255
@@ -43,7 +43,7 @@ func wordmarkFont(size: CGFloat) -> NSFont {
     return base
 }
 
-func render(hex: String, path: String) {
+func render(_ wordmark: String, hex: String, path: String) {
     // find font size so the text fits targetWidth
     var size: CGFloat = 100
     let probeAttrs: [NSAttributedString.Key: Any] = [.font: wordmarkFont(size: size), .kern: size * -0.03]
@@ -75,5 +75,7 @@ func render(hex: String, path: String) {
     print("wrote \(path) fontSize=\(Int(size)) textWidth=\(Int(ts.width)) font=\(registeredFontName ?? "system-fallback")")
 }
 
-render(hex: "#3671cf", path: outDir + "/splash-icon.png")
-render(hex: "#5a90ea", path: outDir + "/splash-icon-dark.png")
+render("FocusMakers", hex: "#3671cf", path: outDir + "/splash-icon.png")
+render("FocusMakers", hex: "#5a90ea", path: outDir + "/splash-icon-dark.png")
+render("포커스 메이커스", hex: "#3671cf", path: outDir + "/splash-icon-ko.png")
+render("포커스 메이커스", hex: "#5a90ea", path: outDir + "/splash-icon-ko-dark.png")

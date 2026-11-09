@@ -67,7 +67,7 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
-it("선택 범위를 먼저 늘린 뒤 과목을 고르면 조회 창 안의 분 범위만 저장한다", async () => {
+it("블록을 먼저 늘린 뒤 과목을 고르면 원래 분은 SUBJECT, 늘린 분은 새 과목 ADD로 저장한다", async () => {
   const request = mount();
   fireEvent.change(screen.getByLabelText("끝"), { target: { value: "06:10" } });
   expect(screen.getByRole("button", { name: "저장" })).toBeEnabled();
@@ -87,6 +87,12 @@ it("선택 범위를 먼저 늘린 뒤 과목을 고르면 조회 창 안의 분
             change: "SUBJECT",
             subjectId: 3,
             startedAt: "2026-11-05T20:00:00.000Z",
+            endedAt: "2026-11-05T21:00:00.000Z",
+          },
+          {
+            change: "ADD",
+            subjectId: 3,
+            startedAt: "2026-11-05T21:00:00.000Z",
             endedAt: "2026-11-05T21:10:00.000Z",
           },
         ],
@@ -117,7 +123,10 @@ it("과목을 고를 때 시각이 불완전하면 오류를 유지하고 상단
     operations: [
       {
         action: "EDIT_RANGES",
-        ranges: [{ change: "SUBJECT", subjectId: 3, endedAt: "2026-11-05T21:10:00.000Z" }],
+        ranges: [
+          { change: "SUBJECT", subjectId: 3, endedAt: "2026-11-05T21:00:00.000Z" },
+          { change: "ADD", subjectId: 3, endedAt: "2026-11-05T21:10:00.000Z" },
+        ],
       },
     ],
   });

@@ -142,7 +142,7 @@
     "title": "紀錄",
     "daily": "每日",
     "weekly": "每週",
-    "unregistered": "這部裝置尚未註冊。在應用程式中開啟，就會儲存紀錄"
+    "unregistered": "這部裝置尚未註冊。在 App 中開啟，就會儲存紀錄"
   },
   "daily": {
     "error": "無法載入紀錄",

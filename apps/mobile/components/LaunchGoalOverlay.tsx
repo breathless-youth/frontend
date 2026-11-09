@@ -13,7 +13,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { onFirstScreenLoaded } from "../lib/firstScreenLoaded";
-import { t } from "../lib/i18n";
+import { getAppLocale, t } from "../lib/i18n";
 import type { LaunchGoal } from "../lib/launchGoal";
 import { trackNativeEvent } from "../lib/nativeAnalytics";
 
@@ -28,6 +28,17 @@ const EASE_OUT = Easing.bezier(0.23, 1, 0.32, 1);
 // 네이티브 스플래시와 이어져 보여야 해서 토큰이 아니라 app.json의 expo-splash-screen 값을 그대로 쓴다.
 const SPLASH_BACKGROUND = { light: "#f8fafd", dark: "#0d1118" } as const;
 const SPLASH_LOGO_SIZE = 240;
+// 네이티브 스플래시처럼 한국어 기기만 한글 워드마크다(plugins/withKoreanSplash.js).
+const SPLASH_LOGO = {
+  default: {
+    light: require("../assets/splash-icon.png") as number,
+    dark: require("../assets/splash-icon-dark.png") as number,
+  },
+  ko: {
+    light: require("../assets/splash-icon-ko.png") as number,
+    dark: require("../assets/splash-icon-ko-dark.png") as number,
+  },
+} as const;
 
 /**
  * 콜드 스타트 때 스플래시 바로 뒤에 덮는 목표 문구 화면
@@ -120,11 +131,7 @@ export function LaunchGoalOverlay({
         >
           <Image
             resizeMode="contain"
-            source={
-              scheme === "dark"
-                ? (require("../assets/splash-icon-dark.png") as number)
-                : (require("../assets/splash-icon.png") as number)
-            }
+            source={SPLASH_LOGO[getAppLocale() === "ko" ? "ko" : "default"][scheme]}
             style={{ width: SPLASH_LOGO_SIZE, height: SPLASH_LOGO_SIZE }}
           />
         </Animated.View>

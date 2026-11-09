@@ -2,7 +2,7 @@
   "page": {
     "titleAdd": "手動新增",
     "titleEdit": "編輯紀錄",
-    "unregistered": "這部裝置尚未註冊。在應用程式中開啟，就會儲存紀錄",
+    "unregistered": "這部裝置尚未註冊。在 App 中開啟，就會儲存紀錄",
     "loadFailed": "無法載入紀錄"
   },
   "form": {

@@ -1,3 +1,4 @@
+import { isAirbridgeLink } from "../lib/airbridge";
 import { routeFromPushLink } from "../lib/pushNotificationRouting";
 import { offerRouteToSession } from "../lib/sessionInvite";
 
@@ -21,6 +22,8 @@ export function redirectSystemPath({
   initial: boolean;
 }): string | null {
   if (SOCIAL_LOGIN_RETURN.test(path)) return null;
+  // 추적 링크는 SDK가 원래 딥링크로 바꿔 루트 레이아웃의 `onAirbridgeDeepLink`가 연다.
+  if (isAirbridgeLink(path)) return null;
   if (initial) return path;
   try {
     const route = routeFromPushLink(path);

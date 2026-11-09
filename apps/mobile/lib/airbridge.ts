@@ -4,7 +4,7 @@ import type * as AirbridgeSdk from "airbridge-react-native-sdk";
 import type { AnalyticsEventParamValue, MetaAppEventParamValue } from "@focusmakers/types";
 
 /**
- * Airbridge(MMP) 인앱 이벤트 통로.
+ * Airbridge(MMP) 인앱 이벤트·추적 링크 딥링크 통로.
  *
  * SDK는 꺼진 채로 시작하고(`airbridge.json`의 `autoStartTrackingEnabled: false`), `initMetaAds`가 받은 앱 추적(ATT)
  * 응답이 `setAirbridgeTrackingAllowed`로 들어온 뒤에야 수집을 켠다. iOS에서 추적을 거부하면 설치·실행·이벤트
@@ -92,6 +92,37 @@ export function setAirbridgeTrackingAllowed(granted: boolean): void {
   const queued = pending.splice(0);
   if (granted) {
     for (const [category, semantic, custom] of queued) send(client, category, semantic, custom);
+  }
+}
+
+/** 추적 링크 주소(`app.config.ts`의 `AIRBRIDGE_LINK_HOSTS`)와 SDK가 스킴 링크에 붙이는 표시. */
+const AIRBRIDGE_LINK =
+  /^https?:\/\/focusmakers\.(?:airbridge\.io|abr\.ge)(?:[/?#]|$)|[?&]airbridge_referrer=/i;
+
+/**
+ * Airbridge 추적 링크로 들어온 주소인가
+ *
+ * 이 주소는 SDK가 광고에 심은 원래 딥링크로 바꿔 `onAirbridgeDeepLink`로 넘긴다.
+ * 라우터가 그대로 받으면 없는 화면이 뜨거나 같은 곳으로 두 번 이동하므로 `+native-intent`가 걸러 낸다.
+ */
+export function isAirbridgeLink(url: string): boolean {
+  return AIRBRIDGE_LINK.test(url);
+}
+
+/**
+ * 추적 링크가 연 딥링크 받기
+ *
+ * 앱이 깔려 있으면 링크를 누른 순간, 깔려 있지 않았으면 설치 뒤 첫 실행에 한 번(지연 딥링크) 온다.
+ * 지연 딥링크는 수집이 켜진 뒤에만 오므로 iOS에서 앱 추적을 거부하면 오지 않는다.
+ * 일반 링크는 `airbridge.json`의 `isHandleAirbridgeDeeplinkOnly`로 SDK가 넘기지 않는다.
+ */
+export function onAirbridgeDeepLink(handler: (url: string) => void): void {
+  const client = airbridge();
+  if (client === null) return;
+  try {
+    client.setOnDeeplinkReceived(handler);
+  } catch (error) {
+    console.warn("[airbridge] 딥링크 콜백 등록 실패", error);
   }
 }
 

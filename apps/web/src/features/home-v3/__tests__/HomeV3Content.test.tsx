@@ -16,7 +16,7 @@ function props(): HomeV3ContentProps {
     subjects: { status: "success", value: [{ id: 1, name: "Math", colorIndex: 0 }] },
     selectedSubjectId: null,
     timelapseCount: 2,
-    appLockLabel: "4 apps locked",
+    appLockLabel: "4 apps blocked",
     actions: {
       selectSubject: vi.fn(),
       startStudy: vi.fn(),

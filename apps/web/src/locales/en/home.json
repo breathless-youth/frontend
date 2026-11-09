@@ -121,17 +121,18 @@
       "remaining_other": "{{count}} tasks left"
     },
     "timelapse": {
-      "title": "Timelapse",
-      "open": "View timelapses",
+      "title": "Time-lapse",
+      "open": "View time-lapses",
       "recent_one": "{{count}} recent video",
       "recent_other": "{{count}} recent videos",
-      "settings": "Timelapse capture settings"
+      "settings": "Time-lapse capture settings"
     },
     "appLock": {
-      "title": "App lock",
-      "unknown": "Check lock settings",
+      "title": "App blocking",
+      "unknown": "Check blocking settings",
       "unsupported": "Set up in the app",
-      "locked": "{{count}} apps locked"
+      "locked_one": "{{count}} app blocked",
+      "locked_other": "{{count}} apps blocked"
     },
     "preview": {
       "subjects": {
