@@ -37,3 +37,24 @@ class ProfilePhotoRulesTest {
     assertEquals(1, sampleSizeFor(0, 0))
   }
 }
+
+class BackgroundPhotoRulesTest {
+  @Test
+  fun 배경은_긴_변이_1920_이상_남는_만큼만_줄여_읽는다() {
+    // 8160 / 4 = 2040, 8160 / 8 = 1020
+    assertEquals(4, backgroundSampleSizeFor(8160, 6120))
+    assertEquals(4, backgroundSampleSizeFor(6120, 8160))
+  }
+
+  @Test
+  fun 배경용으로_작은_사진은_원본_크기로_읽는다() {
+    assertEquals(1, backgroundSampleSizeFor(1080, 1920))
+    assertEquals(1, backgroundSampleSizeFor(0, 0))
+  }
+
+  @Test
+  fun 배경_배율은_긴_변을_1920에_맞추고_키우지_않는다() {
+    assertEquals(0.5f, backgroundScaleFor(3840, 2160), 0.0001f)
+    assertEquals(1f, backgroundScaleFor(800, 600), 0.0001f)
+  }
+}

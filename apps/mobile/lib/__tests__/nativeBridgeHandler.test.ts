@@ -131,7 +131,9 @@ jest.mock("../videoTransfer", () => ({
   shareVideo: jest.fn(),
 }));
 
-const mockPicker: { native: { pick: jest.Mock } | null } = { native: null };
+const mockPicker: { native: { pick: jest.Mock; pickBackground?: jest.Mock } | null } = {
+  native: null,
+};
 jest.mock("../../modules/profile-photo-picker", () => ({
   get profilePhotoPickerNative() {
     return mockPicker.native;
@@ -1128,6 +1130,76 @@ describe("handleBridgeMessage: 프로필 사진 선택기", () => {
         expect.objectContaining({ type: "profile-photo-result", id: "r1", status: "failed" }),
       ),
     );
+  });
+});
+
+describe("handleBridgeMessage: 배경 사진 선택기", () => {
+  const request = { type: "pick-background-photo", id: "b1", atMs: 1 } as const;
+
+  afterEach(() => {
+    mockPicker.native = null;
+  });
+
+  it("고른 사진을 크기와 함께 같은 id의 picked로 답한다", async () => {
+    mockPicker.native = {
+      pick: jest.fn(),
+      pickBackground: jest.fn(async () => ({ data: "AAEC", width: 1080, height: 1920 })),
+    };
+    const reply = jest.fn();
+
+    handleBridgeMessage(request, reply);
+
+    await waitFor(() =>
+      expect(reply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "background-photo-result",
+          id: "b1",
+          status: "picked",
+          data: "AAEC",
+          width: 1080,
+          height: 1920,
+        }),
+      ),
+    );
+  });
+
+  it("선택기를 닫으면 cancelled, 읽지 못하면 failed로 답한다", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    mockPicker.native = { pick: jest.fn(), pickBackground: jest.fn(async () => null) };
+    const cancelReply = jest.fn();
+    handleBridgeMessage(request, cancelReply);
+    await waitFor(() =>
+      expect(cancelReply).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "background-photo-result", status: "cancelled" }),
+      ),
+    );
+
+    mockPicker.native = {
+      pick: jest.fn(),
+      pickBackground: jest.fn(async () => Promise.reject(new Error("decode"))),
+    };
+    const failReply = jest.fn();
+    handleBridgeMessage(request, failReply);
+    await waitFor(() =>
+      expect(failReply).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "background-photo-result", status: "failed" }),
+      ),
+    );
+    warn.mockRestore();
+  });
+
+  it("배경 함수가 없는 옛 모듈이면 선택기 없이 failed로 답한다", async () => {
+    mockPicker.native = { pick: jest.fn() };
+    const reply = jest.fn();
+
+    handleBridgeMessage(request, reply);
+
+    await waitFor(() =>
+      expect(reply).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "background-photo-result", id: "b1", status: "failed" }),
+      ),
+    );
+    expect(mockPicker.native.pick).not.toHaveBeenCalled();
   });
 });
 

@@ -106,6 +106,11 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   if (Platform.OS === "android" && profilePhotoPickerNative !== null) {
     params.profilePhotoPicker = "1";
   }
+  // `backgroundPhotoPicker=1`: 이 바이너리가 `pick-background-photo`를 처리할 수 있다는 표시.
+  // 프로필 선택기만 든 옛 바이너리에도 모듈은 있어서 배경 함수가 있는지로 판단한다(`apps/web/src/lib/nativeBackgroundPhoto.ts`).
+  if (Platform.OS === "android" && typeof profilePhotoPickerNative?.pickBackground === "function") {
+    params.backgroundPhotoPicker = "1";
+  }
   // `socialLogin`: 이 바이너리가 `social-login`으로 로그인할 수 있는 공급자 목록이다.
   // 웹은 목록 안의 공급자 버튼만 보이고, 목록이 없는 구버전 앱에서는 로그인을 앱에 맡기지 않는다(`apps/web/src/lib/nativeSocialLogin.ts`).
   // 앱 종류별 키가 없는 공급자는 빠지고, SDK 네이티브 모듈이 없는 이전 Dev Client에는 붙지 않는다.

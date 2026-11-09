@@ -19,3 +19,25 @@ internal fun sampleSizeFor(width: Int, height: Int): Int {
   }
   return sample
 }
+
+/** 타이머 배경 사진의 긴 변. 휴대폰 화면을 덮고 남는 크기이고 웹 파일 입력 경로와 같다. */
+internal const val BACKGROUND_LONG_EDGE_PX = 1920
+
+/**
+ * 배경 사진을 줄여 읽을 배율
+ *
+ * 긴 변이 BACKGROUND_LONG_EDGE_PX 아래로 내려가지 않는 가장 큰 2의 거듭제곱이다.
+ * 프로필 사진과 같은 이유로 원본을 다 풀지 않는다.
+ */
+internal fun backgroundSampleSizeFor(width: Int, height: Int): Int {
+  val longSide = maxOf(width, height)
+  var sample = 1
+  while (longSide / (sample * 2) >= BACKGROUND_LONG_EDGE_PX) {
+    sample *= 2
+  }
+  return sample
+}
+
+/** 줄여 읽은 배경 사진을 긴 변 BACKGROUND_LONG_EDGE_PX로 맞출 배율. 작은 사진은 키우지 않는다. */
+internal fun backgroundScaleFor(width: Int, height: Int): Float =
+  minOf(1f, BACKGROUND_LONG_EDGE_PX.toFloat() / maxOf(width, height, 1))

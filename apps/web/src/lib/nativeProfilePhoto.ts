@@ -26,8 +26,13 @@ export function __resetNativeProfilePhotoForTests(): void {
   pickerFlagCache = null;
 }
 
-// 버전이 다른 앱이 빈 본문을 보내도 올리지 않도록 0바이트도 깨진 사진으로 본다.
-function jpegFromBase64(data: string): Blob {
+/**
+ * 앱이 보낸 base64 사진 바이트
+ *
+ * 버전이 다른 앱이 빈 본문을 보내도 쓰지 않도록 0바이트도 깨진 사진으로 본다.
+ * 타이머 배경 사진 브리지도 같이 쓴다.
+ */
+export function photoBytesFromBase64(data: string): Uint8Array<ArrayBuffer> {
   let bytes: Uint8Array<ArrayBuffer>;
   try {
     bytes = Uint8Array.from(atob(data), (char) => char.charCodeAt(0));
@@ -37,7 +42,11 @@ function jpegFromBase64(data: string): Blob {
   if (bytes.length === 0) {
     throw new UnusablePhotoError();
   }
-  return new Blob([bytes], { type: "image/jpeg" });
+  return bytes;
+}
+
+function jpegFromBase64(data: string): Blob {
+  return new Blob([photoBytesFromBase64(data)], { type: "image/jpeg" });
 }
 
 /**
