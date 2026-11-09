@@ -551,7 +551,7 @@ it("시간 요약에서 1분 입력을 펼치고 접어도 입력값을 보존�
     </MemoryRouter>,
   );
   await userEvent.click(screen.getAllByRole("button", { name: /09:13.*09:29/ })[0]!);
-  const summary = screen.getByRole("button", { name: "09:13 – 09:14" });
+  const summary = screen.getByRole("button", { name: /^09:13 – 09:29/ });
   expect(summary).toHaveAttribute("aria-expanded", "false");
   await userEvent.click(summary);
   expect(summary).toHaveAttribute("aria-expanded", "true");

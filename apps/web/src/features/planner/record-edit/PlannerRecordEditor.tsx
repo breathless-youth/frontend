@@ -51,11 +51,10 @@ import { recordPointTime } from "./recordGeometry";
 import { LONG_PRESS_MS, SWIPE_SLOP_PX } from "@/features/study-session/subjectInteractions";
 import { recordRangeCoverageSec } from "./recordRanges";
 import { recordPieceMinutes } from "../recordMinutes";
-import { recordTimeEditBlock } from "./recordTimeEdit";
 import {
   selectRecordBlock,
   selectedRecordBlock,
-  resizeRecordSelection,
+  resizeRecordBlock,
   type RecordSelection,
 } from "./recordSelection";
 export interface PlannerRecordEditorProps {
@@ -119,13 +118,12 @@ export function PlannerRecordEditor({
     selection: RecordSelection | null;
   } | null>(null);
   const block = selectedRecordBlock(draft, selection);
-  const selectedParent = draft.blocks.find((value) => value.id === selected);
   const selectedDuration =
-    block && (selection?.kind === "range" || selection?.kind === "time")
+    block && selection?.kind === "range"
       ? recordRangeCoverageSec(
-          recordDraftPieces(selectedParent!)!,
-          selection?.kind === "time" ? draft.startMs : block.startMs,
-          selection?.kind === "time" ? draft.endMs : block.endMs,
+          recordDraftPieces(draft.blocks.find((value) => value.id === selected)!)!,
+          block.startMs,
+          block.endMs,
         )
       : block
         ? recordDraftDurationSec(block)
@@ -283,8 +281,12 @@ export function PlannerRecordEditor({
         drag.mode === "create"
           ? { startMs: Math.min(at, drag.anchor), endMs: Math.max(at, drag.anchor + 60000) }
           : { [drag.mode === "start" ? "startMs" : "endMs"]: at };
-      if (drag.mode !== "create" && drag.selection?.kind === "range")
-        setSelection(resizeRecordSelection(drag.base, drag.selection, patch));
+      if (drag.mode !== "create" && drag.selection?.kind === "range") {
+        // eslint-disable-next-line react-hooks/purity -- 포인터 조작 순간의 실제 시각을 검증한다.
+        const resized = resizeRecordBlock(drag.base, drag.selection, patch, Date.now());
+        setDraft(resized.draft);
+        setSelection(resized.selection);
+      }
       // eslint-disable-next-line react-hooks/purity -- 포인터 조작 순간의 실제 시각을 검증한다.
       else setDraft(changeRecordDraft(drag.base, drag.id, patch, Date.now()));
       drag.failure = undefined;
@@ -454,17 +456,19 @@ export function PlannerRecordEditor({
     try {
       if (selection?.kind === "unavailable") throw new RecordDraftError("unavailable");
       if (selection?.kind === "range") {
-        const next = resizeRecordSelection(draft, selection, patch);
-        if (next.kind !== "range") return false;
-        if ("subjectId" in patch && patch.subjectId !== undefined)
-          setDraft(
-            stageRecordRange(draft, selected, {
-              startedAt: new Date(next.startMs).toISOString(),
-              endedAt: new Date(next.endMs).toISOString(),
-              change: "SUBJECT",
-              subjectId: patch.subjectId,
-            }),
-          );
+        const { subjectId, ...times } = patch;
+        const resized = resizeRecordBlock(draft, selection, times, Date.now());
+        const next = resized.selection;
+        setDraft(
+          subjectId === undefined
+            ? resized.draft
+            : stageRecordRange(resized.draft, selected, {
+                startedAt: new Date(next.startMs).toISOString(),
+                endedAt: new Date(next.endMs).toISOString(),
+                change: "SUBJECT",
+                subjectId,
+              }),
+        );
         setSelection(next);
         setError(null);
         return true;
@@ -870,7 +874,7 @@ export function PlannerRecordEditor({
       </div>
       {block && !newRecordId && (
         <RecordBlockSheet
-          key={`${block.id}:${selection?.kind === "time" ? "time" : "range"}`}
+          key={block.id}
           block={block}
           durationSec={selectedDuration}
           readOnlyReason={selection?.kind === "unavailable" ? t("record.unavailable") : undefined}
@@ -879,30 +883,7 @@ export function PlannerRecordEditor({
           timeZone={draft.timeZone}
           label={label(block)}
           colorIndex={block.subjectId === null ? undefined : refs.get(block.subjectId)?.colorIndex}
-          autoFocusTimes={autoFocusTimes || selection?.kind === "time"}
-          timeEdit={
-            block.key && selection?.kind !== "unavailable"
-              ? {
-                  active: selection?.kind === "time",
-                  available: !!recordTimeEditBlock(draft, block.id),
-                  blockedReason: draft.blocks.find((value) => value.id === block.id)?.ranges?.length
-                    ? t("record.saveRangesFirst")
-                    : t("record.timeEditUnavailable"),
-                  onStart: () => {
-                    const parent = recordTimeEditBlock(draft, block.id);
-                    if (!parent || frozen) return;
-                    setDraft({
-                      ...draft,
-                      blocks: draft.blocks.map((value) =>
-                        value.id === parent.id ? parent : value,
-                      ),
-                    });
-                    setSelection({ kind: "time", id: parent.id });
-                    setError(null);
-                  },
-                }
-              : undefined
-          }
+          autoFocusTimes={autoFocusTimes}
           hiddenBehindSheet={subjectPicker}
           disabled={frozen}
           onChange={edit}

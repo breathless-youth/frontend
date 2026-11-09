@@ -70,7 +70,7 @@ it("같은 분의 서로 다른 부모 중 짧은 기록도 따로 선택하고 
   expect(screen.getByRole("button", { name: "기록 삭제" })).toBeEnabled();
 });
 
-it("05시 경계 기록도 조회 창 안의 분만 선택하고 밖의 전체 경계를 노출하지 않는다", () => {
+it("05시 경계 기록도 조회 창 안의 블록만 선택하고 밖의 전체 경계를 노출하지 않는다", () => {
   const { grid } = mount([
     plannerRecord({
       key: "crossing",
@@ -83,17 +83,17 @@ it("05시 경계 기록도 조회 창 안의 분만 선택하고 밖의 전체 �
   ]);
   fireEvent.click(grid.querySelector('[data-record="crossing"]')!);
   expect(screen.getByLabelText("시작")).toHaveValue("05:00");
-  expect(screen.getByLabelText("끝")).toHaveValue("05:01");
+  expect(screen.getByLabelText("끝")).toHaveValue("05:30");
   fireEvent.change(screen.getByLabelText("시작"), { target: { value: "04:59" } });
   expect(screen.getByRole("button", { name: "저장" })).toBeDisabled();
   expect(grid.querySelector('[data-record="crossing"]')).toBeInTheDocument();
 });
 
-it("선택 범위를 다른 부모의 분까지 늘려도 선택한 부모의 실제 길이만 표시한다", () => {
+it("같은 분의 다른 부모를 지나 빈 시간으로 늘리면 늘린 만큼만 길이에 더한다", () => {
   const { grid } = mount();
   fireEvent.click(grid.querySelector('[data-record="visible"]')!);
   fireEvent.change(screen.getByLabelText("끝"), { target: { value: "22:36" } });
-  expect(screen.getByRole("region", { name: "선택한 기록" })).toHaveTextContent("29분 45초");
+  expect(screen.getByRole("region", { name: "선택한 기록" })).toHaveTextContent("35분 45초");
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   expect(grid.querySelector('[data-record="short"]')).toBeInTheDocument();
 });
@@ -148,6 +148,12 @@ it("같은 분의 짧은 부모 삭제와 다른 부모 과목 변경을 독립�
           change: "SUBJECT",
           subjectId: null,
           startedAt: "2026-11-03T13:00:00.000Z",
+          endedAt: "2026-11-03T13:30:00.000Z",
+        },
+        {
+          change: "ADD",
+          subjectId: null,
+          startedAt: "2026-11-03T13:30:00.000Z",
           endedAt: "2026-11-03T13:36:00.000Z",
         },
       ],

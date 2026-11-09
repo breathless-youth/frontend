@@ -190,14 +190,7 @@
     },
     "edited": "編集済み",
     "multipleSubjects": "複数の科目",
-    "unavailable": "最新の記録情報を読み込むと、分単位で編集できます",
-    "editTime": "記録時間を編集",
-    "rangeMode": "科目・削除範囲を選択",
-    "timeMode": "記録全体の時間を編集",
-    "applyTime": "時間を適用",
-    "timeSaveHint": "上部の保存を押すと時間の変更が保存されます",
-    "saveRangesFirst": "科目・削除の変更を保存してから時間を編集してください",
-    "timeEditUnavailable": "複数の科目や日付にまたがる記録は時間を編集できません"
+    "unavailable": "最新の記録情報を読み込むと、分単位で編集できます"
   },
   "week": {
     "prev": "前の週",

@@ -119,6 +119,12 @@ it("바깥 탭은 마지막 유효 초안을 보존하고 불완전 입력 오�
             change: "SUBJECT",
             subjectId: 3,
             startedAt: "2026-11-04T00:13:00.000Z",
+            endedAt: "2026-11-04T00:29:00.000Z",
+          },
+          {
+            change: "ADD",
+            subjectId: 3,
+            startedAt: "2026-11-04T00:29:00.000Z",
             endedAt: "2026-11-04T00:30:00.000Z",
           },
         ],
@@ -133,7 +139,7 @@ it("Escape는 패널만 닫고 편집기와 초안을 유지한다", () => {
   fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "수학" }));
   fireEvent.keyDown(document, { key: "Escape" });
   expect(screen.queryByRole("region", { name: "선택한 기록" })).not.toBeInTheDocument();
-  expect(screen.getAllByRole("button", { name: /09:13.*09:29/ }).length).toBeGreaterThan(0);
+  expect(screen.getAllByRole("button", { name: /09:13.*09:30/ }).length).toBeGreaterThan(0);
   expect(close).not.toHaveBeenCalled();
   expect(request).not.toHaveBeenCalled();
 });

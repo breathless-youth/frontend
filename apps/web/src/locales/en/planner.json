@@ -191,14 +191,7 @@
     },
     "edited": "Edited",
     "multipleSubjects": "Multiple subjects",
-    "unavailable": "Reload the latest record to edit by minute",
-    "editTime": "Edit record time",
-    "rangeMode": "Select subject or deletion range",
-    "timeMode": "Edit full record time",
-    "applyTime": "Apply time",
-    "timeSaveHint": "Tap Save at the top to save your time changes",
-    "saveRangesFirst": "Save subject or deletion changes before editing the time",
-    "timeEditUnavailable": "Time editing is unavailable for records spanning multiple subjects or planner days"
+    "unavailable": "Reload the latest record to edit by minute"
   },
   "week": {
     "prev": "Previous week",
