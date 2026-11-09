@@ -11,7 +11,7 @@ import { BOTTOM_CTA_BAR_CLASS, BOTTOM_CTA_CLASS, BOTTOM_CTA_UNAVAILABLE_CLASS } 
 import { RoomMeta } from "../components/RoomMeta";
 import { TranslationNotice } from "../components/TranslationNotice";
 import { TodayDesksCard } from "../components/TodayDesksCard";
-import { pickGroupText, useShowOriginal } from "../model/groupTranslation";
+import { hasGroupTranslation, pickGroupText, useShowOriginal } from "../model/groupTranslation";
 import type { RoomJoinPolicy } from "../model/joinPolicy";
 import { applyBlockCopy } from "../model/limits";
 import { formatHoursMinutes } from "../model/timeText";
@@ -56,7 +56,8 @@ export function PublicRoomDetailScreen({
   const showOriginal = useShowOriginal();
   const name = pickGroupText(room.name, room.translatedName, showOriginal);
   const intro = pickGroupText(room.intro, room.translatedIntro, showOriginal).trim();
-  const translated = room.translatedName !== null || room.translatedIntro !== null;
+  const translated =
+    hasGroupTranslation(room.translatedName) || hasGroupTranslation(room.translatedIntro);
   return (
     <main
       // 그룹 이름, 닉네임, 소개가 Amplitude 클릭 이벤트에 실리지 않게 화면 안의 글자와 aria-label을 모두 가린다.
@@ -76,6 +77,8 @@ export function PublicRoomDetailScreen({
         </div>
         {/* 공백과 줄바꿈만 있는 소개는 빈 칸으로 보여서 빈 소개처럼 칸을 그리지 않는다. */}
         {intro !== "" && <IntroCard intro={intro} translated={translated} />}
+        {/* 소개 카드가 없어도 번역된 제목을 원문으로 되돌릴 수 있게 안내 줄만 따로 둔다. */}
+        {intro === "" && translated && <TranslationNotice variant="detail" className="pt-2" />}
         <dl className={cn(CARD_CLASS, "mt-3 px-4 py-1.5")}>
           <div className="flex min-h-11 items-center justify-between gap-3 border-b border-border">
             <dt className="shrink-0 text-sm leading-5 text-muted-foreground">

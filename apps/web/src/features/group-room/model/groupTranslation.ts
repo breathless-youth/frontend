@@ -27,8 +27,18 @@ export function toggleShowOriginal(): void {
   for (const listener of listeners) listener();
 }
 
+/** 모듈 안 상태라 테스트끼리 섞이지 않게 테스트 준비 단계에서만 부른다. */
 export function resetShowOriginalForTest(): void {
   showOriginal = false;
+}
+
+/**
+ * 번역을 화면에 쓸 수 있는지
+ *
+ * 글자를 고르는 곳과 번역됨 안내를 띄우는 곳이 같은 기준을 써야 원문을 보이면서 번역됨이라고 적지 않는다.
+ */
+export function hasGroupTranslation(translated: string | null | undefined): translated is string {
+  return translated != null && translated.trim() !== "";
 }
 
 /** 번역이 없거나 공백뿐인 필드는 원문을 보여 준다. */
@@ -37,5 +47,5 @@ export function pickGroupText(
   translated: string | null,
   wantsOriginal: boolean,
 ): string {
-  return wantsOriginal || translated === null || translated.trim() === "" ? original : translated;
+  return wantsOriginal || !hasGroupTranslation(translated) ? original : translated;
 }

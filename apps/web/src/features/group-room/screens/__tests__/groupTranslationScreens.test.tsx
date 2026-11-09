@@ -80,6 +80,11 @@ describe("공개 그룹 목록 번역 안내", () => {
     expect(screen.getByRole("button", { name: "번역 보기" })).toBeInTheDocument();
   });
 
+  it("번역 이름이 공백뿐이면 안내 줄이 없다", () => {
+    renderPublicList([{ ...firstPublic!, translatedName: "  " }, ...restPublic]);
+    expect(screen.queryByText("그룹 이름을 번역해서 보여주고 있어요")).not.toBeInTheDocument();
+  });
+
   it("번역된 카드가 없으면 안내 줄이 없다", () => {
     renderPublicList(fixtures.publicRooms);
     expect(screen.queryByText("그룹 이름을 번역해서 보여주고 있어요")).not.toBeInTheDocument();
@@ -95,6 +100,12 @@ describe("내 그룹 목록 번역 안내", () => {
     unmount();
     renderMine(fixtures.myRooms);
     expect(screen.queryByText("그룹 이름을 번역해서 보여주고 있어요")).not.toBeInTheDocument();
+  });
+
+  it("번역 이름이 공백뿐이면 안내 줄 없이 원문 이름을 보인다", () => {
+    renderMine([{ ...firstMine!, translatedName: "  " }, ...restMine]);
+    expect(screen.queryByText("그룹 이름을 번역해서 보여주고 있어요")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: new RegExp(firstMine!.name) })).toBeInTheDocument();
   });
 });
 
@@ -129,16 +140,24 @@ describe("공개 그룹 보기 번역 안내", () => {
     expect(screen.queryByText("번역됨")).not.toBeInTheDocument();
   });
 
-  it("소개가 비었으면 소개 카드와 안내 줄을 그리지 않는다", () => {
-    renderDetail({ intro: "", translatedName: "Dawn Club" });
+  it("소개가 비었으면 소개 카드 없이 안내 줄만 보이고 원문 보기로 이름을 되돌린다", async () => {
+    renderDetail({ intro: "", translatedName: "Dawn Club", translatedIntro: null });
     expect(screen.queryByRole("region", { name: "그룹 소개" })).not.toBeInTheDocument();
+    expect(screen.getByText("번역됨")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "원문 보기" }));
+    expect(screen.getByRole("heading", { name: fixtures.publicDetail.name })).toBeInTheDocument();
+  });
+
+  it("소개가 비었고 번역도 없으면 안내 줄이 없다", () => {
+    renderDetail({ intro: "", translatedName: null, translatedIntro: null });
     expect(screen.queryByText("번역됨")).not.toBeInTheDocument();
   });
 
-  it("번역 소개가 공백뿐이면 원문 소개를 보인다", () => {
+  it("번역 소개가 공백뿐이면 원문 소개를 보이고 번역됨을 띄우지 않는다", () => {
     renderDetail({ intro: "원문 소개", translatedName: null, translatedIntro: "   " });
     const intro = screen.getByRole("region", { name: "그룹 소개" });
     expect(within(intro).getByText("원문 소개")).toBeInTheDocument();
+    expect(screen.queryByText("번역됨")).not.toBeInTheDocument();
   });
 });
 

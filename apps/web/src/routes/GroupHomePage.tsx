@@ -20,7 +20,11 @@ import {
 } from "@/features/group-room/groupErrorCopy";
 import { markLocalMembership } from "@/features/group-room/groupMembershipTracker";
 import { baseSearch } from "@/features/group-room/groupTabSearch";
-import { pickGroupText, useShowOriginal } from "@/features/group-room/model/groupTranslation";
+import {
+  hasGroupTranslation,
+  pickGroupText,
+  useShowOriginal,
+} from "@/features/group-room/model/groupTranslation";
 import { leaveRoomDialog, otherMemberCount } from "@/features/group-room/model/roomMenu";
 import type { LeaveDialog, RoomMenuItem } from "@/features/group-room/model/roomMenu";
 import { parseRouteId } from "@/features/group-room/routeId";
@@ -392,7 +396,7 @@ function GroupIntro({ userId, groupId }: { userId: number; groupId: number }) {
           <p className="whitespace-pre-wrap break-words text-[15px] leading-6 text-foreground">
             {intro || t("roomHomeScreen.emptyIntro")}
           </p>
-          {intro !== "" && home.translation?.description != null && (
+          {hasGroupTranslation(home.translation?.description) && (
             <TranslationNotice variant="detail" className="pt-1.5" />
           )}
         </div>
