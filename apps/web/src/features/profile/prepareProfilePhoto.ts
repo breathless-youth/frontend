@@ -1,5 +1,5 @@
 /** 이보다 큰 원본은 디코드하다 기기 메모리가 모자랄 수 있어 읽지 않는다. */
-const MAX_SOURCE_BYTES = 20 * 1024 * 1024;
+export const MAX_SOURCE_BYTES = 20 * 1024 * 1024;
 /** 서버가 업로드 주소를 내주는 상한과 같다. */
 const MAX_UPLOAD_BYTES = 1024 * 1024;
 const OUTPUT_PX = 512;
@@ -7,11 +7,12 @@ const JPEG_QUALITIES = [0.85, 0.7];
 
 export class UnusablePhotoError extends Error {}
 
-function encodeJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null> {
+export function encodeJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null> {
   return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
 }
 
-async function decode(source: Blob): Promise<ImageBitmap> {
+/** EXIF 방향대로 세운 비트맵. 타이머 배경 사진도 같은 방식으로 읽는다. */
+export async function decode(source: Blob): Promise<ImageBitmap> {
   try {
     // 휴대폰 사진은 EXIF 방향대로 돌려야 똑바로 선다.
     return await createImageBitmap(source, { imageOrientation: "from-image" });
