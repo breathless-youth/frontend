@@ -66,22 +66,28 @@ export function HomeSubjectSelect({
         sideOffset={6}
         className="theme-soft-blue w-60 max-w-[calc(100vw-40px)] rounded-lg border-0 bg-muted p-1.5 shadow-[0_10px_28px_rgba(31,42,61,0.18)]"
       >
-        {subjects.status === "error" && (
-          <DropdownMenuItem onSelect={subjects.retry} className="min-h-11 px-3">
-            {t("v3.subject.retry")}
-          </DropdownMenuItem>
-        )}
-        {items.map((subject) => (
-          <DropdownMenuItem
-            key={subject.id}
-            onSelect={() => onSelect(subject.id)}
-            className="min-h-11 gap-2.5 px-3 text-[15px] leading-5"
-          >
-            <SubjectDot colorIndex={subject.colorIndex} />
-            <span className="min-w-0 flex-1 truncate">{subject.name}</span>
-            {selected?.id === subject.id && <Check size={16} aria-hidden="true" />}
-          </DropdownMenuItem>
-        ))}
+        {/* 과목이 늘어도 아래 두 항목이 화면 밖으로 밀리지 않게 목록만 4개 반 높이에서 스크롤한다. */}
+        <div
+          data-testid="home-subject-list"
+          className="max-h-[198px] overflow-y-auto overscroll-contain"
+        >
+          {subjects.status === "error" && (
+            <DropdownMenuItem onSelect={subjects.retry} className="min-h-11 px-3">
+              {t("v3.subject.retry")}
+            </DropdownMenuItem>
+          )}
+          {items.map((subject) => (
+            <DropdownMenuItem
+              key={subject.id}
+              onSelect={() => onSelect(subject.id)}
+              className="min-h-11 gap-2.5 px-3 text-[15px] leading-5"
+            >
+              <SubjectDot colorIndex={subject.colorIndex} />
+              <span className="min-w-0 flex-1 truncate">{subject.name}</span>
+              {selected?.id === subject.id && <Check size={16} aria-hidden="true" />}
+            </DropdownMenuItem>
+          ))}
+        </div>
         <Separator className="mx-2 my-1 w-auto" />
         <DropdownMenuItem
           onSelect={() => onSelect(null)}
