@@ -29,7 +29,7 @@ it("과목 없는 측정 기록의 수정 여부를 새 서버 응답만으로 �
   expect(screen.getAllByRole("img", { name: "수정됨" }).length).toBeGreaterThan(0);
 });
 
-it("선택 범위를 옮기는 동안 원본을 수정하지 않고 과목 변경부터 연필을 표시한다", () => {
+it("선택만 할 때는 연필이 없고 블록 시간을 바꾸면 연필을 표시한다", () => {
   render(
     <MemoryRouter>
       <PlannerRecordEditor
@@ -42,10 +42,8 @@ it("선택 범위를 옮기는 동안 원본을 수정하지 않고 과목 변�
   );
   expect(screen.queryByRole("img", { name: "수정됨" })).not.toBeInTheDocument();
   fireEvent.click(screen.getAllByRole("button", { name: /09:00.*10:00/ })[0]!);
-  fireEvent.change(screen.getByLabelText("끝"), { target: { value: "09:02" } });
   expect(screen.queryByRole("img", { name: "수정됨" })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "과목 바꾸기" }));
-  fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "과목 없음" }));
+  fireEvent.change(screen.getByLabelText("끝"), { target: { value: "09:02" } });
   expect(screen.getAllByRole("img", { name: "수정됨" }).length).toBeGreaterThan(0);
 });
 

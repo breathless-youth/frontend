@@ -9,7 +9,6 @@ import { plannerDayWindow } from "../plannerDay";
 import { recordTimeOrder } from "../recordTime";
 import { applyRecordRanges, normalizeRecordRanges, supportsRecordRanges } from "./recordRanges";
 import { RecordDraftError } from "./recordError";
-import { hasRecordTimeChanges, recordTimePreviewPieces } from "./recordTimeEdit";
 export { RecordDraftError, type RecordDraftErrorCode } from "./recordError";
 export interface RecordDraftState {
   dateKey: string;
@@ -42,7 +41,7 @@ export function recordDraftPieces(block: RecordDraftBlock): PlannerRecordPiece[]
   return block.original?.pieces === undefined
     ? undefined
     : Array.isArray(block.original.pieces)
-      ? applyRecordRanges(recordTimePreviewPieces(block), block.ranges ?? [])
+      ? applyRecordRanges(block.original.pieces, block.ranges ?? [])
       : [];
 }
 
@@ -54,7 +53,6 @@ export function stageRecordRange(
   const block = draft.blocks.find((value) => value.id === id);
   if (!block?.key || !supportsRecordRanges(block.original))
     throw new RecordDraftError("unavailable");
-  if (hasRecordTimeChanges(block)) throw new RecordDraftError("unavailable");
   // 이미 삭제해 화면에서 사라진 분은 범위를 넓혀 과목을 칠해도 복구하지 않는다.
   let changes = [range];
   if (range.change === "SUBJECT") {
@@ -85,10 +83,11 @@ export function stageRecordRange(
   if (
     Date.parse(range.startedAt) < draft.startMs ||
     Date.parse(range.endedAt) > draft.endMs ||
-    !recordDraftPieces(block)!.some(
-      (piece) =>
-        recordTimeOrder(piece.startedAt, 0) < end && recordTimeOrder(piece.endedAt, 0) > start,
-    )
+    (range.change !== "ADD" &&
+      !recordDraftPieces(block)!.some(
+        (piece) =>
+          recordTimeOrder(piece.startedAt, 0) < end && recordTimeOrder(piece.endedAt, 0) > start,
+      ))
   )
     throw new RecordDraftError("range");
   return {
@@ -97,7 +96,7 @@ export function stageRecordRange(
   };
 }
 
-function occupiedSpans(draft: RecordDraftState, block: RecordDraftBlock) {
+export function occupiedSpans(draft: RecordDraftState, block: RecordDraftBlock) {
   const pieces = recordDraftPieces(block);
   return pieces
     ? pieces.map((piece) => ({
@@ -212,7 +211,6 @@ export function recordDraftOperations(draft: RecordDraftState): RecordDraftOpera
   for (const block of draft.blocks) {
     const original = draft.baseline.get(block.id);
     if (block.ranges?.length) {
-      if (hasRecordTimeChanges(block)) throw new RecordDraftError("unavailable");
       if (!block.key || !supportsRecordRanges(block.original))
         throw new RecordDraftError("unavailable");
       operations.push({
@@ -268,27 +266,38 @@ function orderRecordOperations(
 ): RecordDraftOperation[] {
   const remaining = [...operations];
   const ordered: RecordDraftOperation[] = [];
+  // 이 작업이 새로 차지하는 구간. 늘리는 ADD 범위와 새로 만들거나 옮긴 수동 기록의 구간이다.
+  const claimed = (operation: RecordDraftOperation) => {
+    if (operation.action === "DELETE") return [];
+    if (operation.action === "EDIT_RANGES")
+      return (operation.ranges ?? [])
+        .filter((range) => range.change === "ADD")
+        .map((range) => ({
+          start: recordTimeOrder(range.startedAt, 0),
+          end: recordTimeOrder(range.endedAt, 0),
+        }));
+    const final = draft.blocks.find((block) => block.id === operation.blockId)!;
+    const before = draft.baseline.get(operation.blockId);
+    return [
+      {
+        start: recordTimeOrder(operation.startedAt ?? before?.preciseStartedAt, final.startMs),
+        end: recordTimeOrder(operation.endedAt ?? before?.preciseEndedAt, final.endMs),
+      },
+    ];
+  };
   const dependencies = new Map(
     operations.map((operation) => {
+      const spans = claimed(operation);
       return [
         operation,
-        operation.action === "DELETE" || operation.action === "EDIT_RANGES"
-          ? []
-          : operations.filter((other) => {
-              if (other.blockId === operation.blockId) return false;
-              const occupied = draft.baseline.get(other.blockId);
-              if (!occupied) return false;
-              const final = draft.blocks.find((block) => block.id === operation.blockId)!;
-              const before = draft.baseline.get(operation.blockId);
-              const start = recordTimeOrder(
-                operation.startedAt ?? before?.preciseStartedAt,
-                final.startMs,
-              );
-              const end = recordTimeOrder(operation.endedAt ?? before?.preciseEndedAt, final.endMs);
-              const occupiedStart = recordTimeOrder(occupied.preciseStartedAt, occupied.startMs);
-              const occupiedEnd = recordTimeOrder(occupied.preciseEndedAt, occupied.endMs);
-              return occupiedStart < end && occupiedEnd > start;
-            }),
+        operations.filter((other) => {
+          if (other.blockId === operation.blockId) return false;
+          const occupied = draft.baseline.get(other.blockId);
+          if (!occupied) return false;
+          return occupiedSpans(draft, occupied).some((taken) =>
+            spans.some((span) => taken.start < span.end && taken.end > span.start),
+          );
+        }),
       ] as const;
     }),
   );
