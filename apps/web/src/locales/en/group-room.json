@@ -309,5 +309,13 @@
     "later": "Later",
     "enabled": "Member study notifications on",
     "disabled": "Member study notifications off"
+  },
+  "translationNotice": {
+    "listTranslated": "Group names are translated",
+    "listOriginal": "Showing original names",
+    "detailTranslated": "Translated",
+    "detailOriginal": "Original",
+    "seeOriginal": "See original",
+    "seeTranslation": "See translation"
   }
 }

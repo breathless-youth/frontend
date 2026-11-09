@@ -293,5 +293,13 @@
     "later": "稍後再說",
     "enabled": "已開啟成員讀書通知",
     "disabled": "已關閉成員讀書通知"
+  },
+  "translationNotice": {
+    "listTranslated": "群組名稱已翻譯",
+    "listOriginal": "正在顯示原文名稱",
+    "detailTranslated": "已翻譯",
+    "detailOriginal": "原文",
+    "seeOriginal": "查看原文",
+    "seeTranslation": "查看翻譯"
   }
 }

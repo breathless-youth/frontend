@@ -28,6 +28,8 @@ export interface MyRoomSummary {
   joinPolicy: RoomJoinPolicy;
   roomId: number;
   name: string;
+  /** 서버 번역 이름이고 없으면 null이다. `name`은 수정 화면이 쓰는 원문이다. */
+  translatedName: string | null;
   categoryLabel: string;
   visibility: RoomVisibility;
   memberCount: number;
@@ -48,6 +50,8 @@ export interface PublicRoomSummary {
   joinPolicy: RoomJoinPolicy;
   roomId: number;
   name: string;
+  /** 서버 번역 이름이고 없으면 null이다. `name`은 수정 화면이 쓰는 원문이다. */
+  translatedName: string | null;
   categoryLabel: string;
   memberCount: number;
   weeklyAverageSec: number;
@@ -66,6 +70,10 @@ export interface PublicRoomDetail {
   joinPolicy: RoomJoinPolicy;
   roomId: number;
   name: string;
+  /** 서버 번역 이름이고 없으면 null이다. `name`은 수정 화면이 쓰는 원문이다. */
+  translatedName: string | null;
+  /** 서버 번역 소개이고 없으면 null이다. */
+  translatedIntro: string | null;
   categoryLabel: string;
   memberCount: number;
   intro: string;
@@ -106,6 +114,10 @@ export interface RoomHome {
   joinPolicy: RoomJoinPolicy;
   roomId: number;
   name: string;
+  /** 서버 번역 이름이고 없으면 null이다. `name`은 수정 화면이 쓰는 원문이다. */
+  translatedName: string | null;
+  /** 서버 번역 소개이고 없으면 null이다. */
+  translatedIntro: string | null;
   categoryLabel: string;
   visibility: RoomVisibility;
   role: RoomRole;

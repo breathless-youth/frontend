@@ -6,6 +6,7 @@ import { JoinPolicyChip } from "./JoinPolicyChip";
 import { studyingCountText } from "../model/desks";
 import { memberCountText } from "../model/limits";
 import { formatHoursMinutes } from "../model/timeText";
+import { pickGroupText, useShowOriginal } from "../model/groupTranslation";
 import type { PublicRoomSummary } from "../types";
 import { CategoryTag } from "./RoomMeta";
 import { StudyStatus } from "./StudyStatus";
@@ -26,9 +27,10 @@ export function PublicRoomCard({
   onOpen: (roomId: number) => void;
 }) {
   const { t } = useTranslation("group-room");
+  const name = pickGroupText(room.name, room.translatedName, useShowOriginal());
   const weeklyAverage = formatHoursMinutes(room.weeklyAverageSec);
   const label = [
-    room.name,
+    name,
     ...(room.member ? [t("publicRoomCard.joined")] : []),
     joinPolicyText(room.joinPolicy ?? "approval"),
     memberCountText(room.memberCount),
@@ -50,7 +52,7 @@ export function PublicRoomCard({
     >
       <span className="flex w-full items-center justify-between gap-3">
         <span className="min-w-0 truncate text-base leading-5.5 font-bold text-foreground">
-          {room.name}
+          {name}
         </span>
         <span className="shrink-0 text-[13px] leading-5 font-semibold text-muted-foreground">
           {memberCountText(room.memberCount)}

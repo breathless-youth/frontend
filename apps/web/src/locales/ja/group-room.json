@@ -293,5 +293,13 @@
     "later": "あとで",
     "enabled": "メンバーの勉強通知オン",
     "disabled": "メンバーの勉強通知オフ"
+  },
+  "translationNotice": {
+    "listTranslated": "グループ名を翻訳して表示しています",
+    "listOriginal": "原文の名前を表示しています",
+    "detailTranslated": "翻訳済み",
+    "detailOriginal": "原文",
+    "seeOriginal": "原文を表示",
+    "seeTranslation": "翻訳を表示"
   }
 }

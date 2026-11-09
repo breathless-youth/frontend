@@ -49,6 +49,22 @@ const KICKED_NICKNAME = "민준";
 
 function noop() {}
 
+// 번역 안내 줄을 고정 데이터로 보려고 서버가 영어로 번역해 보낸 모습을 흉내 낸다.
+const TRANSLATED_NAMES: Record<number, string> = {
+  7: "5 a.m. Civil Service Club",
+  8: "Med School 2027",
+  10: "Korean History Level 1 Together",
+};
+const translatedPublicRooms = fixtures.publicRooms.map((room) => ({
+  ...room,
+  translatedName: TRANSLATED_NAMES[room.roomId] ?? null,
+}));
+const TRANSLATED_DETAIL = {
+  translatedName: "5 a.m. Civil Service Club",
+  translatedIntro:
+    "We wake up at 5 a.m. every day and study for at least two hours. Grade 9 administrative exam takers are welcome.",
+};
+
 type CaseProps = { onBack: () => void };
 
 function SocialHomeCase({
@@ -249,12 +265,17 @@ function PublicDetailCase({
   initialState,
   onBack,
   joinPolicy = "approval",
-}: CaseProps & { initialState: ApplyState; joinPolicy?: RoomJoinPolicy }) {
+  translated = false,
+}: CaseProps & { initialState: ApplyState; joinPolicy?: RoomJoinPolicy; translated?: boolean }) {
   const [fetchedAtMs] = useState(() => Date.now());
   const [applyState, setApplyState] = useState(initialState);
   return (
     <PublicRoomDetailScreen
-      room={{ ...fixtures.publicDetail, joinPolicy }}
+      room={{
+        ...fixtures.publicDetail,
+        joinPolicy,
+        ...(translated ? TRANSLATED_DETAIL : {}),
+      }}
       applyState={applyState}
       fetchedAtMs={fetchedAtMs}
       pending={false}
@@ -526,6 +547,18 @@ const CASES: { id: string; title: string; Screen: ComponentType<CaseProps> }[] =
         initialError={joinBlockCopy("room_full")}
         {...props}
       />
+    ),
+  },
+  {
+    id: "2-10",
+    title: "번역된 공개 그룹 탭",
+    Screen: () => <SocialHomeCase initialTab="public" publicRooms={translatedPublicRooms} />,
+  },
+  {
+    id: "2-11",
+    title: "번역된 공개 그룹 보기",
+    Screen: (props) => (
+      <PublicDetailCase initialState={{ kind: "can_apply" }} translated {...props} />
     ),
   },
   {

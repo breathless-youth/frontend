@@ -19,6 +19,7 @@ import {
   getPublicGroup,
   getPublicGroups,
 } from "./groupRoomApi";
+import { groupRequestLocale } from "./groupRequestLocale";
 
 /** 공개 그룹 목록의 검색 조건 */
 export interface PublicGroupFilter {
@@ -30,21 +31,26 @@ export interface PublicGroupFilter {
  * 그룹 쿼리 키
  *
  * 모든 키에 사용자 번호를 넣어 계정이 바뀌면 다른 사람이 받은 그룹을 보이지 않는다.
+ * 그룹 응답은 요청 언어로 번역돼 오므로 언어도 넣어 다른 언어 응답이 섞이지 않게 한다.
+ * 언어를 사용자 번호 바로 뒤에 두어 `all`로 묶어 지우는 기존 무효화가 그대로 모든 그룹 키에 닿는다.
  * 차단 목록은 그룹 밖에서도 쓰는 기능이라 `groups` 아래에 두지 않는다.
  */
 export const groupKeys = {
-  all: (userId: number) => ["groups", userId] as const,
-  mine: (userId: number) => ["groups", userId, "mine"] as const,
-  myApplications: (userId: number) => ["groups", userId, "my-applications"] as const,
-  publicLists: (userId: number) => ["groups", userId, "public-list"] as const,
+  all: (userId: number) => ["groups", userId, groupRequestLocale()] as const,
+  mine: (userId: number) => [...groupKeys.all(userId), "mine"] as const,
+  myApplications: (userId: number) => [...groupKeys.all(userId), "my-applications"] as const,
+  publicLists: (userId: number) => [...groupKeys.all(userId), "public-list"] as const,
   publicList: (userId: number, filter: PublicGroupFilter) =>
-    ["groups", userId, "public-list", filter.query, filter.category ?? "all"] as const,
-  publicDetail: (userId: number, groupId: number) => ["groups", userId, "public", groupId] as const,
-  home: (userId: number, groupId: number) => ["groups", userId, "home", groupId] as const,
-  members: (userId: number, groupId: number) => ["groups", userId, "members", groupId] as const,
-  invite: (userId: number, groupId: number) => ["groups", userId, "invite", groupId] as const,
+    [...groupKeys.all(userId), "public-list", filter.query, filter.category ?? "all"] as const,
+  publicDetail: (userId: number, groupId: number) =>
+    [...groupKeys.all(userId), "public", groupId] as const,
+  home: (userId: number, groupId: number) => [...groupKeys.all(userId), "home", groupId] as const,
+  members: (userId: number, groupId: number) =>
+    [...groupKeys.all(userId), "members", groupId] as const,
+  invite: (userId: number, groupId: number) =>
+    [...groupKeys.all(userId), "invite", groupId] as const,
   applications: (userId: number, groupId: number) =>
-    ["groups", userId, "applications", groupId] as const,
+    [...groupKeys.all(userId), "applications", groupId] as const,
   blocks: (userId: number) => ["blocks", userId] as const,
 };
 

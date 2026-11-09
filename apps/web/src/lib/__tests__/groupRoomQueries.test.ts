@@ -4,6 +4,7 @@ import { afterEach, describe, expect, expectTypeOf, it, vi } from "vitest";
 
 import { ApiError } from "../api";
 import * as groupRoomApi from "../groupRoomApi";
+import i18n from "../i18n";
 import {
   blocksQuery,
   cannotLoadFirst,
@@ -34,6 +35,7 @@ const card = (groupId: number) => ({
   weeklyAverageFocusSec: 0,
   studyingCount: 0,
   member: false,
+  translation: null,
 });
 
 afterEach(() => {
@@ -41,16 +43,27 @@ afterEach(() => {
 });
 
 describe("groupRoomQueries", () => {
-  it("모든 키에 사용자 번호가 들어간다", () => {
-    expect(groupKeys.home(7, 10)).toEqual(["groups", 7, "home", 10]);
+  it("그룹 키에는 사용자 번호와 요청 언어가 들어가고 차단 목록 키에는 사용자 번호만 들어간다", () => {
+    expect(groupKeys.all(7)).toEqual(["groups", 7, "ko"]);
+    expect(groupKeys.home(7, 10)).toEqual(["groups", 7, "ko", "home", 10]);
     expect(groupKeys.publicList(7, { query: "공시", category: null })).toEqual([
       "groups",
       7,
+      "ko",
       "public-list",
       "공시",
       "all",
     ]);
     expect(groupKeys.blocks(7)).toEqual(["blocks", 7]);
+  });
+
+  it("화면 언어가 다르면 다른 키라 다른 언어 응답이 섞이지 않는다", async () => {
+    await i18n.changeLanguage("ja");
+    try {
+      expect(groupKeys.mine(7)).toEqual(["groups", 7, "ja", "mine"]);
+    } finally {
+      await i18n.changeLanguage("ko");
+    }
   });
 
   it("내 그룹 탭과 그룹 홈은 보이는 동안 30초마다 다시 받는다", () => {
@@ -137,6 +150,7 @@ describe("groupRoomQueries", () => {
       owner,
       newApplicationCount: null,
       members: [],
+      translation: null,
     });
     client.setQueryData<MyGroupsResponse>(groupKeys.mine(7), {
       groups: [myCard(10, true), myCard(11, false), myCard(12, true)],

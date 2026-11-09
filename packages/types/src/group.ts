@@ -70,6 +70,22 @@ export interface GroupLimits {
   maxOwnedGroups: number;
 }
 
+/** `GroupTranslation.language`: 서버가 번역한 언어 */
+export type GroupTranslationLanguage = "ko" | "en" | "ja" | "zh-TW";
+
+/**
+ * `GroupTranslation`: 그룹 조회 4개의 번역
+ *
+ * 이름과 소개가 따로 번역돼서 한쪽만 null일 수 있고, 둘 다 없으면 객체가 null이다.
+ * 번역이 꺼져 있거나 무료량이 끝나도 응답은 정상이고 이 값만 null이다.
+ */
+export interface GroupTranslation {
+  language: GroupTranslationLanguage;
+  name: string | null;
+  /** 목록 응답은 소개를 번역하지 않아 늘 null이다. */
+  description: string | null;
+}
+
 /** `MyGroupCard`: `GET /api/groups/me`의 그룹 카드 */
 export interface MyGroupCard {
   joinPolicy: GroupJoinPolicy;
@@ -89,6 +105,7 @@ export interface MyGroupCard {
    * 책상 순서는 FE가 정한다.
    */
   members: GroupMemberDesk[];
+  translation: GroupTranslation | null;
 }
 
 /** `MyGroupsResponse`: `GET /api/groups/me` */
@@ -117,6 +134,7 @@ export interface GroupHomeResponse {
   studyingCount: number;
   /** 들어간 순서 */
   members: GroupMemberDesk[];
+  translation: GroupTranslation | null;
 }
 
 /** `PublicGroupCard`: `GET /api/groups/public`의 그룹 카드 */
@@ -132,6 +150,7 @@ export interface PublicGroupCard {
   studyingCount: number;
   /** 내가 이 그룹의 멤버면 true */
   member: boolean;
+  translation: GroupTranslation | null;
 }
 
 /** `PublicGroupPageResponse`: `GET /api/groups/public` */
@@ -172,6 +191,7 @@ export interface PublicGroupDetailResponse {
   unavailableReason: GroupUnavailableReason | null;
   /** `applyState`가 `APPLIED`일 때만 값이 있다. */
   application: PendingApplicationRef | null;
+  translation: GroupTranslation | null;
 }
 
 /** `GroupCreateRequest`: `POST /api/groups` */

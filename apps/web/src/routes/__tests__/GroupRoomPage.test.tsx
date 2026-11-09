@@ -135,6 +135,7 @@ function groupHome(overrides: Partial<GroupHomeResponse> = {}): GroupHomeRespons
     newApplicationCount: null,
     studyingCount: 0,
     members: [],
+    translation: null,
     ...overrides,
   };
 }
@@ -318,16 +319,18 @@ async function enterGroupRoom({
   myRole = "MEMBER",
   snapshot = [member(7)],
   state,
+  translation = null,
 }: {
   groupId?: number;
   groupName?: string;
   visibility?: GroupHomeResponse["visibility"];
   myRole?: GroupHomeResponse["myRole"];
   snapshot?: RoomMember[];
+  translation?: GroupHomeResponse["translation"];
   state?: unknown;
 } = {}) {
   vi.mocked(getGroupHome).mockResolvedValue(
-    groupHome({ groupId, name: groupName, visibility, myRole }),
+    groupHome({ groupId, name: groupName, visibility, myRole, translation }),
   );
   const rendered = renderGroupRoom({ path: `/social/groups/${groupId}/room`, snapshot, state });
   // 영어 화면 테스트도 같은 도우미로 들어오게 나가기 버튼 이름을 카탈로그에서 읽는다.
@@ -608,6 +611,19 @@ describe("GroupRoomPage 나가기", () => {
         ?.groups.map((group) => group.groupId),
     ).toEqual([11]);
     expect(client.getQueryData(groupKeys.home(7, 10))).toBeUndefined();
+  });
+
+  it("그룹 이름이 번역돼 오면 내보내기 안내에 번역 이름을 쓴다", async () => {
+    const { channel, location } = await enterGroupRoom({
+      groupId: 10,
+      translation: { language: "en", name: "Dawn Club", description: null },
+    });
+    act(() => channel.emitServerMessage({ type: "KICKED", groupId: 10 }));
+    await waitFor(() => expect(location().pathname).toBe("/social"));
+    expect(consumeSocialRoomNotice()).toEqual({
+      kind: "failure",
+      message: "Dawn Club에서 내보내졌어요",
+    });
   });
 
   it("내보내진 뒤 기록을 보내지 못해도 그룹 탭으로 가서 안내를 본다", async () => {
