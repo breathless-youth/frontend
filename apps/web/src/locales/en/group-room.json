@@ -133,9 +133,9 @@
   },
   "publicRoomCard": {
     "joined": "Joined",
-    "weeklyAverage": "This week's avg <value>{{duration}}</value>",
+    "weeklyTotal": "This week's total <value>{{duration}}</value>",
     "aria": {
-      "weeklyAverage": "This week's average {{duration}}"
+      "weeklyTotal": "This week's total {{duration}}"
     }
   },
   "roomFab": {
@@ -209,7 +209,7 @@
   },
   "publicRoomDetailScreen": {
     "owner": "Owner",
-    "weeklyAverage": "Members' avg focus time this week",
+    "weeklyTotal": "Members' total focus time this week",
     "todayMembers": "Members today",
     "intro": "About this group",
     "showMore": "Show more",

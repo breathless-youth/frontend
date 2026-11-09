@@ -182,9 +182,12 @@ function toMemberItem(group: MockGroup, member: MockMember): GroupMemberItem {
   };
 }
 
+function weeklyTotal(group: MockGroup): number {
+  return group.members.reduce((sum, member) => sum + member.weekFocusSec, 0);
+}
+
 function weeklyAverage(group: MockGroup): number {
-  const total = group.members.reduce((sum, member) => sum + member.weekFocusSec, 0);
-  return group.members.length === 0 ? 0 : Math.round(total / group.members.length);
+  return group.members.length === 0 ? 0 : Math.round(weeklyTotal(group) / group.members.length);
 }
 
 function liveGroupApplications(group: MockGroup, nowMs: number): GroupApplicationItem[] {
@@ -194,10 +197,10 @@ function liveGroupApplications(group: MockGroup, nowMs: number): GroupApplicatio
     .map((application) => ({ ...application }));
 }
 
-/** 서버 정렬: 다 차지 않은 그룹이 먼저이고, 그 안에서는 평균 순공이 많은 순, 같으면 그룹 ID가 작은 순이다. */
+/** 서버 정렬: 다 차지 않은 그룹이 먼저이고, 그 안에서는 주간 합계 순공이 많은 순, 같으면 그룹 ID가 작은 순이다. */
 function byServerOrder(a: PublicGroupCard, b: PublicGroupCard): number {
   const fullFirst = Number(a.memberCount >= MAX_MEMBERS) - Number(b.memberCount >= MAX_MEMBERS);
-  return fullFirst || b.weeklyAverageFocusSec - a.weeklyAverageFocusSec || a.groupId - b.groupId;
+  return fullFirst || b.weeklyTotalFocusSec - a.weeklyTotalFocusSec || a.groupId - b.groupId;
 }
 
 interface ApplyView {
@@ -316,6 +319,7 @@ export function viewGroupWorld(world: GroupMockWorld, nowMs: number): GroupMockS
         category: group.category,
         memberCount: group.members.length,
         weeklyAverageFocusSec: weeklyAverage(group),
+        weeklyTotalFocusSec: weeklyTotal(group),
         studyingCount: group.members.filter(isStudying).length,
         member: isMember(group, meId),
         translation: null,
@@ -340,6 +344,7 @@ export function viewGroupWorld(world: GroupMockWorld, nowMs: number): GroupMockS
               profileImageUrl: owner.profileImageUrl,
             },
             weeklyAverageFocusSec: weeklyAverage(group),
+            weeklyTotalFocusSec: weeklyTotal(group),
             members: group.members.map((member) => toDesk(group, member, elapsedSec)),
             translation: null,
             ...applyViewOf(world, group, nowMs, slotsUsed, pending),

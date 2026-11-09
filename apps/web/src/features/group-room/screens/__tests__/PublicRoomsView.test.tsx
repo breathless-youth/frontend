@@ -117,7 +117,7 @@ describe("PublicRoomsView", () => {
     expect(onQueryChange).toHaveBeenLastCalledWith("토익");
   });
 
-  it("카드는 멤버 수, 시험·목표, 이번 주 평균, 공부 상태를 보이고 누르면 그 그룹을 연다", async () => {
+  it("카드는 멤버 수, 시험·목표, 이번 주 합계, 공부 상태를 보이고 누르면 그 그룹을 연다", async () => {
     const onOpenRoom = vi.fn();
     renderScreen(
       <PublicRoomsView
@@ -132,11 +132,12 @@ describe("PublicRoomsView", () => {
     );
     const card = screen.getByRole("button", { name: /새벽 5시 기상 공시반/ });
     expect(card).toHaveAccessibleName(
-      "새벽 5시 기상 공시반, 신청 후 입장, 멤버 4/6, 공무원, 이번 주 평균 21시간 10분, 2명 공부 중",
+      "새벽 5시 기상 공시반, 신청 후 입장, 멤버 4/6, 공무원, 이번 주 합계 21시간 10분, 2명 공부 중",
     );
     expect(within(card).getByText("멤버 4/6")).toBeInTheDocument();
     expect(within(card).getByText("공무원")).toBeInTheDocument();
-    expect(within(card).getByText(/21시간 10분/)).toBeInTheDocument();
+    expect(card).toHaveTextContent("이번 주 합계 21시간 10분");
+    expect(card).not.toHaveTextContent("평균");
     expect(within(card).getByText("2명 공부 중")).toBeInTheDocument();
     await userEvent.setup().click(card);
     expect(onOpenRoom).toHaveBeenCalledWith(7);

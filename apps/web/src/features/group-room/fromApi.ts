@@ -179,7 +179,7 @@ export function toPublicRoomSummary(card: PublicGroupCard): PublicRoomSummary {
     translatedName: card.translation?.name ?? null,
     categoryLabel: categoryLabel(card.category),
     memberCount: card.memberCount,
-    weeklyAverageSec: card.weeklyAverageFocusSec,
+    weeklyTotalSec: card.weeklyTotalFocusSec,
     studyingCount: card.studyingCount,
     member: card.member,
   };
@@ -205,7 +205,7 @@ export function toPublicRoomDetail(
     intro: detail.description ?? "",
     ownerNickname: detail.owner.nickname,
     ownerImageUrl: detail.owner.profileImageUrl,
-    weeklyAverageSec: detail.weeklyAverageFocusSec,
+    weeklyTotalSec: detail.weeklyTotalFocusSec,
     members: detail.members.map((desk) => toRoomDeskMember(desk, myUserId)),
   };
 }
