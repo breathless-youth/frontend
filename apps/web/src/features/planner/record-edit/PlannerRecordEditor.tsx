@@ -66,6 +66,9 @@ export interface PlannerRecordEditorProps {
   onReload?: () => Promise<PlannerDayResponse>;
   onDateChange?: (date: string) => void;
 }
+/** 끌거나 고치다 막히는 범위·겹침은 블록이 멈추는 것으로 충분해 토스트를 띄우지 않는다. */
+const quietError = (code: RecordDraftError["code"]) => code === "range" || code === "overlap";
+
 export function PlannerRecordEditor({
   day,
   userId = null,
@@ -330,7 +333,8 @@ export function PlannerRecordEditor({
     } else {
       // 유효하지 않은 포인터 위치는 초안에 넣지 않았다. 놓으면 마지막 유효 초안을 유지한다.
       // 본문 아래 오류는 스크롤 밖에 있을 수 있으므로 거절 이유를 손을 놓은 뒤에도 알린다.
-      if (drag.failure) showTopToast(t(`record.errors.${drag.failure}`));
+      if (drag.failure && !quietError(drag.failure))
+        showTopToast(t(`record.errors.${drag.failure}`));
       setError(null);
       if (drag.mode === "create") {
         applySubjectRef.current = null;
@@ -493,7 +497,7 @@ export function PlannerRecordEditor({
     } catch (cause) {
       if (cause instanceof RecordDraftError) {
         setError(cause.code);
-        showTopToast(t(`record.errors.${cause.code}`));
+        if (!quietError(cause.code)) showTopToast(t(`record.errors.${cause.code}`));
       }
       return false;
     }

@@ -98,16 +98,28 @@ it("같은 분의 다른 부모를 지나 빈 시간으로 늘리면 늘린 만�
   expect(grid.querySelector('[data-record="short"]')).toBeInTheDocument();
 });
 
-it("역전된 분 범위를 입력하면 화면 안에 이유를 알리고 저장을 막는다", async () => {
-  const { grid } = mount();
+it("역전된 범위나 겹치는 범위를 입력하면 토스트 없이 저장만 막는다", async () => {
+  const { grid } = mount([
+    plannerRecord({
+      key: "visible",
+      startedAt: iso("22:00:00"),
+      endedAt: iso("22:29:44.190"),
+      subjectSegments: [],
+    }),
+    plannerRecord({
+      key: "next",
+      startedAt: iso("22:40:00"),
+      endedAt: iso("22:50:00"),
+      subjectSegments: [],
+    }),
+  ]);
   fireEvent.click(grid.querySelector('[data-record="visible"]')!);
   fireEvent.change(screen.getByLabelText("끝"), { target: { value: "21:59" } });
-  await waitFor(() =>
-    expect(document.querySelector("[data-sonner-toast]")).toHaveTextContent(
-      "시작과 끝을 다시 확인해 주세요",
-    ),
-  );
   expect(screen.getByRole("button", { name: "저장" })).toBeDisabled();
+  fireEvent.change(screen.getByLabelText("끝"), { target: { value: "22:45" } });
+  expect(screen.getByRole("button", { name: "저장" })).toBeDisabled();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(document.querySelector("[data-sonner-toast]")).toBeNull();
 });
 
 it("같은 분의 짧은 부모 삭제와 다른 부모 과목 변경을 독립된 범위로 저장한다", async () => {
