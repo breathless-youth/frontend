@@ -28,8 +28,9 @@ import {
 } from "@/features/timer-background/timerBackgroundPhotos";
 import {
   TIMER_BACKGROUND_PHOTOS_KEY,
+  timerBackgroundPhotoQuery,
   timerBackgroundPhotosQuery,
-  type BackgroundPhotoView,
+  type BackgroundPhotoTile,
 } from "@/features/timer-background/timerBackgroundQueries";
 import { TimerBackgroundPreview } from "@/features/timer-background/TimerBackgroundPreview";
 import { WatcherDemo } from "@/features/timer-background/watcher/WatcherBackground";
@@ -218,7 +219,7 @@ export function TimerBackgroundSettingsPage() {
     }
   }
 
-  async function removePhoto(photo: BackgroundPhotoView) {
+  async function removePhoto(photo: BackgroundPhotoTile) {
     const wasSelected = effective.kind === "photo" && effective.photoId === photo.id;
     try {
       await timerBackgroundPhotoStore().remove(photo.id);
@@ -293,10 +294,11 @@ export function TimerBackgroundSettingsPage() {
   }
 
   const stagedSelection = staged?.selection ?? null;
+  // 타일은 작게 줄인 그림만 들고 있어 미리보기에는 그 사진 원본을 따로 읽는다.
   const stagedPhoto =
-    stagedSelection?.kind === "photo"
-      ? (photoList.find((photo) => photo.id === stagedSelection.photoId) ?? null)
-      : null;
+    useQuery(
+      timerBackgroundPhotoQuery(stagedSelection?.kind === "photo" ? stagedSelection.photoId : null),
+    ).data ?? null;
   const headerTitle =
     stagedSelection === null
       ? t("timerBackground.title")
@@ -390,7 +392,7 @@ export function TimerBackgroundSettingsPage() {
                   className={cn(TILE, inUse && SELECTED_RING)}
                 >
                   <img
-                    src={photo.src}
+                    src={photo.thumb}
                     alt=""
                     className={cn("size-full object-cover", REPLAY_BLOCKED)}
                   />

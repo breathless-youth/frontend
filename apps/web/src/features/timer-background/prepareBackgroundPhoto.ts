@@ -24,27 +24,43 @@ export async function prepareBackgroundPhoto(file: File): Promise<NewTimerBackgr
   }
   try {
     // Android 웹뷰는 파일 선택기가 준 File을 바로 디코드하지 못하고, 같은 내용을 메모리로 옮긴 사본은 디코드한다.
-    const bitmap = await decode(new Blob([await file.arrayBuffer()], { type: file.type }));
-    const ratio = Math.min(1, BACKGROUND_LONG_EDGE_PX / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(bitmap.width * ratio);
-    canvas.height = Math.round(bitmap.height * ratio);
-    try {
-      const context = canvas.getContext("2d");
-      if (context === null) {
-        throw new UnusablePhotoError();
-      }
-      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    } finally {
-      bitmap.close();
-    }
-    const blob = await encodeJpeg(canvas, JPEG_QUALITY);
-    // 캔버스는 JPEG를 못 만들면 오류 없이 PNG를 준다. iOS 웹뷰는 JPEG만 믿을 만하게 만든다.
-    if (blob?.type !== "image/jpeg") {
-      throw new UnusablePhotoError();
-    }
-    return { bytes: await blob.arrayBuffer(), width: canvas.width, height: canvas.height };
+    return await resizeToJpeg(
+      new Blob([await file.arrayBuffer()], { type: file.type }),
+      BACKGROUND_LONG_EDGE_PX,
+    );
   } catch {
     throw new UnusablePhotoError();
   }
+}
+
+/**
+ * 비율을 지킨 채 긴 변을 `longEdge` 이하로 줄인 JPEG
+ *
+ * 담을 사진과 선택 화면 타일의 작은 사진이 같이 쓴다.
+ * 읽거나 만들지 못하면 throw한다.
+ */
+export async function resizeToJpeg(
+  source: Blob,
+  longEdge: number,
+): Promise<NewTimerBackgroundPhoto> {
+  const bitmap = await decode(source);
+  const ratio = Math.min(1, longEdge / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * ratio);
+  canvas.height = Math.round(bitmap.height * ratio);
+  try {
+    const context = canvas.getContext("2d");
+    if (context === null) {
+      throw new UnusablePhotoError();
+    }
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  } finally {
+    bitmap.close();
+  }
+  const blob = await encodeJpeg(canvas, JPEG_QUALITY);
+  // 캔버스는 JPEG를 못 만들면 오류 없이 PNG를 준다. iOS 웹뷰는 JPEG만 믿을 만하게 만든다.
+  if (blob?.type !== "image/jpeg") {
+    throw new UnusablePhotoError();
+  }
+  return { bytes: await blob.arrayBuffer(), width: canvas.width, height: canvas.height };
 }

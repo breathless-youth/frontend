@@ -88,7 +88,10 @@ async function addPhotoFromFile() {
   fireEvent.change(fileInput(), {
     target: { files: [new File(["x"], "a.jpg", { type: "image/jpeg" })] },
   });
-  return screen.findByTestId("timer-background-preview");
+  const preview = await screen.findByTestId("timer-background-preview");
+  // 미리보기의 원본 사진은 따로 읽어 와서 깔린 뒤에 조작한다.
+  await within(preview).findByTestId("timer-background-layer");
+  return preview;
 }
 
 beforeEach(() => {
