@@ -24,6 +24,7 @@
     "invited": "그룹 스터디에 초대받았어요",
     "inAppWithCode": "앱에서 이 코드로 참여할 수 있어요",
     "inAppNoCode": "앱에서 초대코드를 입력해 참여할 수 있어요",
+    "inAppPublic": "앱에서 이 그룹을 볼 수 있어요",
     "openApp": "앱에서 참여하기",
     "prompt": "초대코드를 입력해 주세요",
     "hint": "친구에게 받은 4자리 코드로 참여할 수 있어요",
@@ -40,6 +41,7 @@
   },
   "inviteMessage": {
     "title": "포커스 메이커스 그룹 스터디",
-    "body": "그룹 스터디에 초대받았어요!\n\n{{link}}\n\n초대코드: {{code}}"
+    "body": "그룹 스터디에 초대받았어요!\n\n{{link}}\n\n초대코드: {{code}}",
+    "publicBody": "그룹 스터디에 초대받았어요!\n\n{{link}}"
   }
 }

@@ -1,5 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
 
 import type { RoomDeskMember } from "../../types";
 import { DeskGrid } from "../DeskGrid";
@@ -136,6 +137,45 @@ describe("DeskGrid", () => {
       render(<DeskGrid members={[mine]} visibility="private" elapsedSec={0} />);
       const myDesk = desks().find((desk) => desk.hasAttribute("data-me"));
       expect((myDesk as HTMLElement).querySelector("svg g")).toHaveClass("stroke-text-tertiary");
+    });
+  });
+
+  describe("빈자리 초대", () => {
+    const four: RoomDeskMember[] = [
+      ...members,
+      { ...base, userId: 4, nickname: "민준", presence: "away" },
+    ];
+    const six: RoomDeskMember[] = [
+      ...four,
+      { ...base, userId: 5, nickname: "옥수수", presence: "away" },
+      { ...base, userId: 6, nickname: "라떼", presence: "away" },
+    ];
+
+    it("멤버가 4명이면 빈자리 2개가 초대하기 버튼이고 누르면 넘긴다", async () => {
+      const onInvite = vi.fn();
+      render(<DeskGrid members={four} visibility="public" elapsedSec={0} onInvite={onInvite} />);
+      const buttons = screen.getAllByRole("button", { name: "초대하기" });
+      expect(buttons).toHaveLength(2);
+      await userEvent.setup().click(buttons[0]!);
+      expect(onInvite).toHaveBeenCalledOnce();
+    });
+
+    it("초대할 수 있는 빈자리에는 빈자리와 신청 안내 글자를 두지 않는다", () => {
+      render(<DeskGrid members={four} visibility="public" elapsedSec={0} onInvite={vi.fn()} />);
+      expect(screen.queryByText("빈자리")).toBeNull();
+      expect(screen.queryByText("신청을 받고 있어요")).toBeNull();
+      expect(screen.getAllByText("초대하기")).toHaveLength(2);
+    });
+
+    it("멤버가 6명이면 초대하기 버튼이 없다", () => {
+      render(<DeskGrid members={six} visibility="private" elapsedSec={0} onInvite={vi.fn()} />);
+      expect(screen.queryByRole("button", { name: "초대하기" })).toBeNull();
+    });
+
+    it("초대를 넘기지 않으면 지금처럼 빈자리로 읽고 버튼이 없다", () => {
+      render(<DeskGrid members={four} visibility="public" elapsedSec={0} />);
+      expect(screen.queryByRole("button")).toBeNull();
+      expect(desks()[5]).toHaveAccessibleName("빈자리, 신청을 받고 있어요");
     });
   });
 });

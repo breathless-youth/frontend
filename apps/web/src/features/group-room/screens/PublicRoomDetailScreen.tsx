@@ -93,10 +93,10 @@ export function PublicRoomDetailScreen({
           </div>
           <div className="flex min-h-11 items-center justify-between gap-3">
             <dt className="text-sm leading-5 text-muted-foreground">
-              {t("publicRoomDetailScreen.weeklyAverage")}
+              {t("publicRoomDetailScreen.weeklyTotal")}
             </dt>
             <dd className="shrink-0 text-sm leading-5 font-bold text-foreground tabular-nums">
-              {formatHoursMinutes(room.weeklyAverageSec)}
+              {formatHoursMinutes(room.weeklyTotalSec)}
             </dd>
           </div>
         </dl>

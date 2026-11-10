@@ -33,6 +33,7 @@ export function RoomHomeScreen({
   onMenuSelect,
   onOpenRequests,
   onEnterStudyRoom,
+  onInvite,
   entering = false,
 }: {
   room: RoomHome;
@@ -46,6 +47,8 @@ export function RoomHomeScreen({
   onMenuSelect: (kind: RoomMenuItem["kind"]) => void;
   onOpenRequests: () => void;
   onEnterStudyRoom: () => void;
+  /** 빈자리를 눌러 초대 링크를 보낸다. */
+  onInvite: () => void;
   /** 자리를 잡는 동안 다시 눌러 자리를 두 번 잡지 않게 막는다. */
   entering?: boolean;
 }) {
@@ -119,7 +122,7 @@ export function RoomHomeScreen({
           members={room.members}
           visibility={room.visibility}
           elapsedSec={elapsedSec}
-          hideEmptySeatCopy={room.joinPolicy === "open"}
+          onInvite={onInvite}
         />
         <WeeklyRankCard rows={room.weeklyRanks} elapsedSec={elapsedSec} />
       </div>

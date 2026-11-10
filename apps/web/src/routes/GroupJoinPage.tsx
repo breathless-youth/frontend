@@ -1,6 +1,6 @@
 import type { GroupJoinVia } from "@focusmakers/types";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { groupErrorCopy } from "@/features/group-room/groupErrorCopy";
@@ -9,6 +9,7 @@ import { baseSearch } from "@/features/group-room/groupTabSearch";
 import { normalizeInviteCode } from "@/features/group-room/model/inviteCode";
 import { InviteCodeEntryScreen } from "@/features/group-room/screens/InviteCodeEntryScreen";
 import { useBackTo } from "@/features/group-room/useBackTo";
+import { parseInviteParam } from "@/features/social-room/inviteParam";
 import { trackGroupRoomJoined } from "@/lib/amplitude";
 import type { GroupRoomJoinVia } from "@/lib/amplitude";
 import { joinGroupByCode } from "@/lib/groupRoomApi";
@@ -40,6 +41,7 @@ export function GroupJoinPage() {
  * 그룹 참여 본문
  *
  * 링크로 받은 코드를 채운 채 시작하고, 그 코드를 고치지 않고 보내면 링크로 참여한 것으로 알린다.
+ * 링크에 온전한 코드가 있으면 누르지 않아도 한 번 보내고, 실패하면 입력칸 아래 오류를 보인 채 머물러 다시 누를 수 있다.
  * 이미 멤버여도 서버가 그 그룹을 알려 줘서 참여한 때처럼 그룹 홈으로 바꿔 간다.
  * 온전한 코드를 붙여 넣으면 한 번에 값이 두 번 바뀌어서 입력이 바뀔 때는 보내지 않고 참여하기를 누를 때만 보낸다.
  * 신원 없이 연 브라우저는 참여할 수 없어 참여하기를 막는다.
@@ -51,6 +53,11 @@ function GroupJoin({ userId }: { userId: number | null }) {
   const queryClient = useQueryClient();
   const back = useBackTo("/social");
   const [linkCode] = useState(() => normalizeInviteCode(searchParams.get("code") ?? ""));
+  // 그룹 초대코드로 읽히는 링크만 자동으로 보내서 망가진 공개 그룹 링크가 엉뚱한 그룹에 들어가지 않게 한다.
+  const [autoJoinCode] = useState(() => {
+    const invite = parseInviteParam(searchParams.get("code"));
+    return invite?.kind === "group" ? invite.code : null;
+  });
   const [code, setCode] = useState(linkCode);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,6 +87,16 @@ function GroupJoin({ userId }: { userId: number | null }) {
       setError(groupErrorCopy("join_code", failure));
     },
   });
+
+  // 개발 빌드는 효과를 두 번 돌려서 이미 보냈는지 기억해 둔다.
+  const autoJoinSent = useRef(false);
+  useEffect(() => {
+    if (autoJoinSent.current || userId === null || autoJoinCode === null) {
+      return;
+    }
+    autoJoinSent.current = true;
+    join.mutate(autoJoinCode);
+  }, [autoJoinCode, join, userId]);
 
   return (
     <InviteCodeEntryScreen

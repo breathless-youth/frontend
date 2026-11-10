@@ -14,7 +14,7 @@ const room: PublicRoomSummary = {
   translatedName: null,
   categoryLabel: "공무원",
   memberCount: 4,
-  weeklyAverageSec: 3600,
+  weeklyTotalSec: 3600,
   studyingCount: 0,
   member: false,
 };
@@ -36,6 +36,14 @@ describe("PublicRoomCard 참여 표시", () => {
     await userEvent.setup().click(card);
     expect(onOpen).toHaveBeenCalledWith(7);
   });
+});
+
+it("이번 주 합계를 보이고 카드 이름에도 담는다", () => {
+  render(<PublicRoomCard room={room} onOpen={vi.fn()} />);
+  const card = screen.getByRole("button");
+  expect(card).toHaveTextContent("이번 주 합계 1시간");
+  expect(card).toHaveAccessibleName(/이번 주 합계 1시간/);
+  expect(card).not.toHaveTextContent("평균");
 });
 
 it.each([

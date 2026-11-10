@@ -24,6 +24,7 @@
     "invited": "You're invited to study together",
     "inAppWithCode": "Join with this code in the app",
     "inAppNoCode": "Enter the invite code in the app to join",
+    "inAppPublic": "Open this group in the app",
     "openApp": "Join in the app",
     "prompt": "Enter the invite code",
     "hint": "Join with the 4-digit code a friend sent you",
@@ -40,6 +41,7 @@
   },
   "inviteMessage": {
     "title": "Study together on FocusMakers",
-    "body": "Come study with me on FocusMakers!\n\n{{link}}\n\nInvite code: {{code}}"
+    "body": "Come study with me on FocusMakers!\n\n{{link}}\n\nInvite code: {{code}}",
+    "publicBody": "Come study with me on FocusMakers!\n\n{{link}}"
   }
 }

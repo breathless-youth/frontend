@@ -21,6 +21,7 @@ function renderHome(
     onMenuSelect: vi.fn(),
     onOpenRequests: vi.fn(),
     onEnterStudyRoom: vi.fn(),
+    onInvite: vi.fn(),
   };
   renderScreen(<RoomHomeScreen room={room} fetchedAtMs={NOW.getTime()} {...props} {...extra} />);
   return props;

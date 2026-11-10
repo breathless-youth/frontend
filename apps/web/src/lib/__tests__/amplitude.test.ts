@@ -868,7 +868,7 @@ describe("초대 루프 이벤트 (BY-472)", () => {
 
     trackInviteShared("shared", "code_page");
     trackInviteShared("copied", "room_menu");
-    trackInviteLinkOpened(true);
+    trackInviteLinkOpened(true, "public");
     trackStoreLinkRedirected("android");
 
     expect(mocks.track).toHaveBeenCalledWith("invite_shared", {
@@ -879,7 +879,10 @@ describe("초대 루프 이벤트 (BY-472)", () => {
       method: "copied",
       source: "room_menu",
     });
-    expect(mocks.track).toHaveBeenCalledWith("invite_link_opened", { has_code: true });
+    expect(mocks.track).toHaveBeenCalledWith("invite_link_opened", {
+      has_code: true,
+      invite_kind: "public",
+    });
     expect(mocks.track).toHaveBeenCalledWith("store_link_redirected", { platform: "android" });
   });
 });

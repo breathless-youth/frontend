@@ -162,6 +162,7 @@ function RoomHomeCase({
         }}
         onOpenRequests={noop}
         onEnterStudyRoom={noop}
+        onInvite={noop}
       />
       {leaving && <LightDialog copy={leaveCopy} onClose={() => setLeaving(false)} />}
     </>
