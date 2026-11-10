@@ -1002,6 +1002,45 @@ it("추가가 과목당 30개 제한으로 거절되면 그 이유를 보여 준
   );
 });
 
+it("한도 거절 뒤 다시 받은 목록이 30개면 한도 문구를 한 번만 보여 준다", async () => {
+  let rejected = false;
+  const full = Array.from({ length: 30 }, (_, index) =>
+    plannerTask({ key: `t:${index + 100}`, name: `할 일 ${index}`, date: "2026-11-07" }),
+  );
+  request.mockImplementation(async (input, init) => {
+    if (init?.method === "POST") {
+      rejected = true;
+      return Response.json({ message: "limit", code: "PLANNER_TASK_LIMIT" }, { status: 409 });
+    }
+    const date = String(input).match(/\/days\/(\d{4}-\d{2}-\d{2})\?/)?.[1];
+    if (!date) return Response.json(plannerTask());
+    return Response.json(
+      plannerDay({ date, subjects: [plannerSubject({ tasks: rejected ? full : full.slice(1) })] }),
+    );
+  });
+  render(
+    <QueryClientProvider client={client}>
+      <PlannerTaskSheets
+        open
+        onOpenChange={() => {}}
+        userId={7}
+        dateKey="2026-11-07"
+        todayKey="2026-11-05"
+        task={null}
+        subjectId={3}
+        subjects={[plannerSubject()]}
+        onStudyStart={() => {}}
+      />
+    </QueryClientProvider>,
+  );
+  await userEvent.type(screen.getByRole("textbox", { name: "할 일 이름" }), "새 할 일");
+  await userEvent.click(await screen.findByRole("button", { name: "추가" }));
+  expect(await screen.findByRole("status")).toHaveTextContent(
+    "과목 하나에 할 일은 30개까지 넣을 수 있어요",
+  );
+  expect(screen.getAllByText("과목 하나에 할 일은 30개까지 넣을 수 있어요")).toHaveLength(1);
+});
+
 it("메뉴에서 지운 할 일이 이미 없으면 지워진 할 일이라고 알리고 목록을 다시 받는다", async () => {
   request.mockImplementation(async (_input, init) =>
     init?.method === "DELETE"

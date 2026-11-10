@@ -598,7 +598,8 @@ export function PlannerTaskSheets({
                 </p>
               )}
             </div>
-            {failure !== null && (
+            {/* 한도에 닿으면 저장할 수 없고 입력칸 아래 안내가 이유를 말하므로, 거절 뒤 목록을 다시 받아도 같은 문장을 두 번 띄우지 않는다. */}
+            {failure !== null && !taskLimitReached && (
               <p role="alert" className="text-sm text-state-distract-text">
                 {plannerErrorCopy(failure)}
               </p>
