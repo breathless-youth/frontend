@@ -257,7 +257,7 @@ describe("fromApi", () => {
     expect(detail.members.some((member) => member.isMe)).toBe(false);
   });
 
-  it("공개 그룹 카드는 평균 순공과 공부 중인 사람 수를 받고 모르는 시험·목표는 빈 글자다", () => {
+  it("공개 그룹 카드는 주간 합계 순공과 공부 중인 사람 수를 받고 모르는 시험·목표는 빈 글자다", () => {
     const card = seed.publicGroups.find((group) => group.groupId === 13)!;
     expect(toPublicRoomSummary(card)).toEqual({
       roomId: 13,
@@ -266,12 +266,22 @@ describe("fromApi", () => {
       translatedName: null,
       categoryLabel: "어학",
       memberCount: card.memberCount,
-      weeklyAverageSec: card.weeklyAverageFocusSec,
+      weeklyTotalSec: card.weeklyTotalFocusSec,
       studyingCount: card.studyingCount,
       member: card.member,
     });
+    expect(toPublicRoomSummary({ ...card, weeklyTotalFocusSec: 139_200 }).weeklyTotalSec).toBe(
+      139_200,
+    );
     expect(toPublicRoomSummary({ ...card, member: true }).member).toBe(true);
     expect(toPublicRoomSummary({ ...card, category: "UNKNOWN" as never }).categoryLabel).toBe("");
+  });
+
+  it("공개 그룹 보기는 주간 합계 순공을 받는다", () => {
+    const detail = seed.publicDetails[seed.publicGroups[0]!.groupId]!;
+    expect(toPublicRoomDetail({ ...detail, weeklyTotalFocusSec: 139_200 }, 1).weeklyTotalSec).toBe(
+      139_200,
+    );
   });
 
   it("프로필 사진을 순위, 멤버, 신청, 차단 줄의 사진 칸으로 넘긴다", () => {

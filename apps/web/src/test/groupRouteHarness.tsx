@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import type { ProfileResponse, PublicGroupDetailResponse } from "@focusmakers/types";
 import { act, render } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -52,10 +53,11 @@ function resetGroupRoute(): void {
  * 그룹 표시를 읽도록 주소를 창 기록에도 넣고, 앞 테스트가 받아 둔 조회를 비운 뒤 그린다.
  * 돌려주는 `router.location()`은 앱 안에서 이동한 지금 주소다.
  * `state`는 앞 화면이 이동하며 넘긴 상태처럼 첫 주소에 싣는다.
+ * `strict`는 개발 빌드처럼 효과를 두 번 돌려 한 번만 보내야 하는 요청을 확인할 때 쓴다.
  */
 export function renderGroupRoute(
   path: string,
-  { state }: { state?: unknown } = {},
+  { state, strict = false }: { state?: unknown; strict?: boolean } = {},
 ): { router: { location(): Location } } {
   window.history.replaceState(null, "", path);
   __resetGroupRoomsForTests();
@@ -64,7 +66,7 @@ export function renderGroupRoute(
   let current: Location | null = null;
   const url = new URL(path, window.location.origin);
   const entry = state === undefined ? path : { pathname: url.pathname, search: url.search, state };
-  render(
+  const tree = (
     <MemoryRouter initialEntries={[entry]}>
       <App />
       <LocationProbe
@@ -72,8 +74,9 @@ export function renderGroupRoute(
           current = location;
         }}
       />
-    </MemoryRouter>,
+    </MemoryRouter>
   );
+  render(strict ? <StrictMode>{tree}</StrictMode> : tree);
   return {
     router: {
       location() {

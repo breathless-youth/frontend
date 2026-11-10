@@ -103,7 +103,7 @@ export function ManualRecordForm({
   const [subjectId, setSubjectId] = useState<number | null>(() =>
     mode.kind === "edit" ? subjectIdOf(mode.bundle[0]) : null,
   );
-  const [serverError, setServerError] = useState<"conflict" | "failed" | null>(null);
+  const [serverError, setServerError] = useState<"conflict" | "locked" | "failed" | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const subjectLabelId = useId();
 
@@ -118,18 +118,20 @@ export function ManualRecordForm({
     othersForOverlap(sessions, mode.kind === "edit" ? mode.bundle : []),
   );
   const overlapBlocked = serverError === "conflict" || (spanError === null && pieces.length === 0);
-  const blocking = spanError !== null || overlapBlocked;
+  const blocking = spanError !== null || overlapBlocked || serverError === "locked";
   const recordDaysAgo = daysAgo(recordDateKey, todayKey);
   const message =
     serverError === "failed"
       ? t("message.failed")
-      : spanError === "too-short"
-        ? t("message.tooShort")
-        : spanError === "future"
-          ? t("message.future")
-          : overlapBlocked
-            ? t("message.allOverlap")
-            : overlapNotice(span, pieces);
+      : serverError === "locked"
+        ? t("message.measuredLocked")
+        : spanError === "too-short"
+          ? t("message.tooShort")
+          : spanError === "future"
+            ? t("message.future")
+            : overlapBlocked
+              ? t("message.allOverlap")
+              : overlapNotice(span, pieces);
 
   const reportedBlockRef = useRef(false);
   useEffect(() => {

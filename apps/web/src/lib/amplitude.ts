@@ -630,6 +630,21 @@ export function trackGroupRoomApplicationAnswered(result: "accepted" | "declined
   track("group_room_application_answered", { result });
 }
 
+/** 멤버가 초대 링크 공유를 눌렀을 때 보내고 `source`는 누른 자리다. */
+export function trackGroupInviteShared(input: {
+  visibility: GroupVisibilityProp;
+  source: "empty_seat";
+}) {
+  if (!initialized) return;
+  track("group_invite_shared", { visibility: input.visibility, source: input.source });
+}
+
+/** 그룹 공부방 앱에서 초대 링크로 참여 화면을 열었을 때 보낸다. */
+export function trackGroupInviteLinkOpened(inviteKind: "group" | "public") {
+  if (!initialized) return;
+  track("group_invite_link_opened", { invite_kind: inviteKind });
+}
+
 /** 멤버가 됐을 때 보낸다. */
 export function trackGroupRoomJoined(input: {
   via: GroupRoomJoinVia;
@@ -732,9 +747,12 @@ export function trackInviteShared(
 }
 
 /** 초대코드 입력 화면 진입 — `has_code`면 초대 링크(`?code`) 경유. 공유→입장 전환율의 분모. */
-export function trackInviteLinkOpened(hasCode: boolean) {
+export function trackInviteLinkOpened(
+  hasCode: boolean,
+  inviteKind: "room" | "group" | "public" | "none",
+) {
   if (!initialized) return;
-  track("invite_link_opened", { has_code: hasCode });
+  track("invite_link_opened", { has_code: hasCode, invite_kind: inviteKind });
 }
 
 /**

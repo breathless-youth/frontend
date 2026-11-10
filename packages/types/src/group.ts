@@ -147,6 +147,8 @@ export interface PublicGroupCard {
   memberCount: number;
   /** 지금 멤버들의 이번 주 순공 합을 멤버 수로 나눈 값 */
   weeklyAverageFocusSec: number;
+  /** 지금 멤버들의 이번 주(월요일 0시 KST부터) 앱 전체 순공 합 */
+  weeklyTotalFocusSec: number;
   studyingCount: number;
   /** 내가 이 그룹의 멤버면 true */
   member: boolean;
@@ -184,6 +186,8 @@ export interface PublicGroupDetailResponse {
   memberCount: number;
   owner: GroupOwnerProfile;
   weeklyAverageFocusSec: number;
+  /** 지금 멤버들의 이번 주(월요일 0시 KST부터) 앱 전체 순공 합 */
+  weeklyTotalFocusSec: number;
   /** 들어간 순서 */
   members: GroupMemberDesk[];
   applyState: GroupApplyState;

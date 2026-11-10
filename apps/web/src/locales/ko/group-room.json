@@ -89,6 +89,7 @@
     },
     "emptySeat": "빈자리",
     "openSeat": "신청을 받고 있어요",
+    "invite": "초대하기",
     "aria": {
       "list": "멤버 책상",
       "owner": "그룹장"
@@ -123,9 +124,9 @@
   },
   "publicRoomCard": {
     "joined": "참여 중",
-    "weeklyAverage": "이번 주 평균 <value>{{duration}}</value>",
+    "weeklyTotal": "이번 주 합계 <value>{{duration}}</value>",
     "aria": {
-      "weeklyAverage": "이번 주 평균 {{duration}}"
+      "weeklyTotal": "이번 주 합계 {{duration}}"
     }
   },
   "roomFab": {
@@ -197,7 +198,7 @@
   },
   "publicRoomDetailScreen": {
     "owner": "그룹장",
-    "weeklyAverage": "이번 주 멤버 평균 순공",
+    "weeklyTotal": "이번 주 멤버 순공 합계",
     "todayMembers": "오늘 멤버",
     "intro": "그룹 소개",
     "showMore": "더 보기",

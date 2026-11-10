@@ -89,6 +89,7 @@
     },
     "emptySeat": "空席",
     "openSeat": "参加リクエスト受付中",
+    "invite": "招待する",
     "aria": {
       "list": "メンバーのデスク",
       "owner": "オーナー"
@@ -123,9 +124,9 @@
   },
   "publicRoomCard": {
     "joined": "参加中",
-    "weeklyAverage": "今週の平均<value>{{duration}}</value>",
+    "weeklyTotal": "今週の合計<value>{{duration}}</value>",
     "aria": {
-      "weeklyAverage": "今週の平均{{duration}}"
+      "weeklyTotal": "今週の合計{{duration}}"
     }
   },
   "roomFab": {
@@ -197,7 +198,7 @@
   },
   "publicRoomDetailScreen": {
     "owner": "オーナー",
-    "weeklyAverage": "今週のメンバー平均集中時間",
+    "weeklyTotal": "今週のメンバー合計集中時間",
     "todayMembers": "今日のメンバー",
     "intro": "グループ紹介",
     "showMore": "もっと見る",

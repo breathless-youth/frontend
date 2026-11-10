@@ -17,7 +17,7 @@ import { StudyStatus } from "./StudyStatus";
  * 카드 전체가 공개 그룹 보기로 가는 버튼 하나다.
  * 여러 글 조각이 붙어 읽히지 않도록 카드 이름은 보이는 글을 쉼표로 이어 따로 만든다.
  * 내가 들어간 그룹은 시험·목표 태그 옆에 표시를 두고, 색만으로 구분되지 않게 글자도 함께 쓴다.
- * 좁은 화면에서 이번 주 평균과 공부 상태가 한 줄에 들어가지 않으면 공부 상태가 다음 줄로 내려간다.
+ * 좁은 화면에서 이번 주 합계와 공부 상태가 한 줄에 들어가지 않으면 공부 상태가 다음 줄로 내려간다.
  */
 export function PublicRoomCard({
   room,
@@ -28,14 +28,14 @@ export function PublicRoomCard({
 }) {
   const { t } = useTranslation("group-room");
   const name = pickGroupText(room.name, room.translatedName, useShowOriginal());
-  const weeklyAverage = formatHoursMinutes(room.weeklyAverageSec);
+  const weeklyTotal = formatHoursMinutes(room.weeklyTotalSec);
   const label = [
     name,
     ...(room.member ? [t("publicRoomCard.joined")] : []),
     joinPolicyText(room.joinPolicy ?? "approval"),
     memberCountText(room.memberCount),
     room.categoryLabel,
-    t("publicRoomCard.aria.weeklyAverage", { duration: weeklyAverage }),
+    t("publicRoomCard.aria.weeklyTotal", { duration: weeklyTotal }),
     studyingCountText(room.studyingCount),
   ].join(", ");
   return (
@@ -72,8 +72,8 @@ export function PublicRoomCard({
         <span className="text-[13px] leading-5 text-muted-foreground">
           <Trans
             t={t}
-            i18nKey="publicRoomCard.weeklyAverage"
-            values={{ duration: weeklyAverage }}
+            i18nKey="publicRoomCard.weeklyTotal"
+            values={{ duration: weeklyTotal }}
             components={{ value: <span className="font-bold text-foreground" /> }}
           />
         </span>

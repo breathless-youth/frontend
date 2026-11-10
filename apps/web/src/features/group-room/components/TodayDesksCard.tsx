@@ -19,14 +19,14 @@ export function TodayDesksCard({
   visibility,
   elapsedSec,
   className,
-  hideEmptySeatCopy = false,
+  onInvite,
 }: {
   title: string;
   members: readonly RoomDeskMember[];
   visibility: RoomVisibility;
   elapsedSec: number;
   className?: string;
-  hideEmptySeatCopy?: boolean;
+  onInvite?: () => void;
 }) {
   const titleId = useId();
   return (
@@ -47,7 +47,7 @@ export function TodayDesksCard({
         members={members}
         visibility={visibility}
         elapsedSec={elapsedSec}
-        hideEmptySeatCopy={hideEmptySeatCopy}
+        onInvite={onInvite}
       />
     </section>
   );

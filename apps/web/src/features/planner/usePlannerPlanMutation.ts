@@ -88,7 +88,11 @@ export function usePlannerPlanMutation(userId: number | null) {
       postToNative({ type: "records-changed", atMs: Date.now() });
     },
     onError: (error, _action, context) => {
-      if (error instanceof ApiError && error.status === 409 && context?.userId != null) {
+      if (
+        error instanceof ApiError &&
+        (error.status === 409 || error.status === 404) &&
+        context?.userId != null
+      ) {
         void queryClient.invalidateQueries({ queryKey: plannerKeys.user(context.userId) });
       }
     },

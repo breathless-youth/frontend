@@ -1,4 +1,4 @@
-import { Crown } from "lucide-react";
+import { Crown, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
@@ -22,17 +22,18 @@ const TONE_TEXT_KEY = {
  * 색만으로 상태를 알리지 않도록 칸마다 닉네임, 상태 말, 시간을 이름으로 묶어 한 번에 읽힌다.
  * 보이는 글자는 그 이름과 겹쳐 두 번 읽히지 않게 화면 낭독기에서 뺀다.
  * 마지막으로 공부한 때는 오래 오지 않은 멤버를 찾는 멤버 화면에서만 보이고 책상에는 붙이지 않는다.
+ * 초대를 넘기면 빈자리가 초대 링크를 보내는 버튼이 된다.
  */
 export function DeskGrid({
   members,
   visibility,
   elapsedSec,
-  hideEmptySeatCopy = false,
+  onInvite,
 }: {
   members: readonly RoomDeskMember[];
   visibility: RoomVisibility;
   elapsedSec: number;
-  hideEmptySeatCopy?: boolean;
+  onInvite?: () => void;
 }) {
   const { t } = useTranslation("group-room");
   // 판단 모듈이 순서를 정하며 멤버를 공통 모양으로 돌려주므로 내 자리는 아이디로 다시 찾는다.
@@ -42,11 +43,11 @@ export function DeskGrid({
       <ul aria-label={t("deskGrid.aria.list")} className="grid grid-cols-3 gap-x-1.5 gap-y-3 pt-1">
         {arrangeDesks(members).map((slot, index) =>
           slot.kind === "empty" ? (
-            <EmptyDesk
-              key={`empty-${index}`}
-              open={visibility === "public"}
-              hideCopy={hideEmptySeatCopy}
-            />
+            onInvite ? (
+              <InviteDesk key={`empty-${index}`} onInvite={onInvite} />
+            ) : (
+              <EmptyDesk key={`empty-${index}`} open={visibility === "public"} />
+            )
           ) : (
             <MemberDesk
               key={slot.member.userId}
@@ -143,14 +144,13 @@ function MemberDesk({
   );
 }
 
-function EmptyDesk({ open, hideCopy }: { open: boolean; hideCopy: boolean }) {
+function EmptyDesk({ open }: { open: boolean }) {
   const { t } = useTranslation("group-room");
   const emptySeat = t("deskGrid.emptySeat");
   const openSeat = t("deskGrid.openSeat");
   return (
     <li
-      aria-hidden={hideCopy || undefined}
-      aria-label={hideCopy ? undefined : open ? `${emptySeat}, ${openSeat}` : emptySeat}
+      aria-label={open ? `${emptySeat}, ${openSeat}` : emptySeat}
       data-tone="empty"
       className="flex min-w-0 flex-col items-center"
     >
@@ -159,9 +159,37 @@ function EmptyDesk({ open, hideCopy }: { open: boolean; hideCopy: boolean }) {
         aria-hidden="true"
         className="mt-1 flex flex-col items-center gap-0.5 text-center text-state-pause"
       >
-        {!hideCopy && <p className="text-xs leading-4">{emptySeat}</p>}
-        {!hideCopy && open && <p className="text-[10px] leading-3.5">{openSeat}</p>}
+        <p className="text-xs leading-4">{emptySeat}</p>
+        {open && <p className="text-[10px] leading-3.5">{openSeat}</p>}
       </div>
+    </li>
+  );
+}
+
+/**
+ * 초대 링크를 보내는 빈자리
+ *
+ * 빈 책상 그림은 그대로 두고 아래 글자만 초대로 바꿔서 멤버 책상 색과 다투지 않는다.
+ */
+function InviteDesk({ onInvite }: { onInvite: () => void }) {
+  const { t } = useTranslation("group-room");
+  return (
+    <li data-tone="empty" className="flex min-w-0 flex-col items-center">
+      <button
+        type="button"
+        aria-label={t("deskGrid.invite")}
+        onClick={onInvite}
+        className="flex min-h-11 w-full flex-col items-center rounded-lg focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
+      >
+        <DeskFigure tone="empty" size="md" />
+        <span
+          aria-hidden="true"
+          className="mt-1 inline-flex items-center gap-0.5 text-xs leading-4 font-bold text-primary"
+        >
+          <Plus size={12} strokeWidth={2.6} className="shrink-0" />
+          {t("deskGrid.invite")}
+        </span>
+      </button>
     </li>
   );
 }

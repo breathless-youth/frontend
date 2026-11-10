@@ -100,13 +100,15 @@ describe("PublicRoomDetailScreen", () => {
     expect(screen.queryByText("그룹 소개")).toBeNull();
   });
 
-  it("그룹장, 이번 주 멤버 평균 순공, 오늘 멤버 책상을 보인다", () => {
+  it("그룹장, 이번 주 멤버 순공 합계, 오늘 멤버 책상을 보인다", () => {
     renderDetail({ kind: "can_apply" });
     // 그룹장 닉네임은 그룹장 책상에도 있어서 그룹장 줄 안에서 찾는다.
     const ownerRow = screen.getByText("그룹장").parentElement;
     expect(ownerRow).not.toBeNull();
     expect(within(ownerRow as HTMLElement).getByText("옥수수라떼")).toBeInTheDocument();
-    expect(screen.getByText(/21시간 10분/)).toBeInTheDocument();
+    const totalRow = screen.getByText("이번 주 멤버 순공 합계").parentElement as HTMLElement;
+    expect(within(totalRow).getByText("21시간 10분")).toBeInTheDocument();
+    expect(screen.queryByText(/평균/)).toBeNull();
     const today = screen.getByRole("region", { name: "오늘 멤버" });
     expect(within(today).getByText("2명 공부 중")).toBeInTheDocument();
     expect(within(today).getByRole("list", { name: "멤버 책상" })).toBeInTheDocument();

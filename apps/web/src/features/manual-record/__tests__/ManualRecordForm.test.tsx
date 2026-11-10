@@ -369,6 +369,21 @@ describe("ManualRecordForm", () => {
     expect(onDone).not.toHaveBeenCalled();
   });
 
+  it("측정한 기록이라 거절되면 겹침 대신 고칠 수 없다고 알리고 저장을 막는다", async () => {
+    vi.mocked(createManualRecord).mockRejectedValue(
+      new ApiError("측정한 기록은 고치거나 지울 수 없어요", 409, "MEASURED_RECORD_LOCKED"),
+    );
+    const { onDone } = renderForm();
+
+    fireEvent.click(saveButton());
+
+    expect(await screen.findByText("측정한 기록은 고칠 수 없어요")).toBeInTheDocument();
+    expect(screen.queryByText("이미 기록이 있는 시간이에요")).not.toBeInTheDocument();
+    expect(vi.mocked(trackManualRecordOverlapBlocked)).not.toHaveBeenCalled();
+    expect(saveButton()).toBeDisabled();
+    expect(onDone).not.toHaveBeenCalled();
+  });
+
   it("그 밖의 실패는 폼을 남기고 다시 시도하게 한다", async () => {
     vi.mocked(createManualRecord).mockRejectedValue(new Error("network"));
     const { onDone } = renderForm();

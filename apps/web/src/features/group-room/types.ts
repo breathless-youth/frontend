@@ -54,7 +54,7 @@ export interface PublicRoomSummary {
   translatedName: string | null;
   categoryLabel: string;
   memberCount: number;
-  weeklyAverageSec: number;
+  weeklyTotalSec: number;
   studyingCount: number;
   /** 내가 이미 들어간 그룹이다. */
   member: boolean;
@@ -80,7 +80,7 @@ export interface PublicRoomDetail {
   ownerNickname: string;
   /** 그룹장 아바타의 프로필 사진이고, 없거나 받지 못하면 닉네임 첫 글자를 그린다. */
   ownerImageUrl?: string | null;
-  weeklyAverageSec: number;
+  weeklyTotalSec: number;
   members: RoomDeskMember[];
 }
 

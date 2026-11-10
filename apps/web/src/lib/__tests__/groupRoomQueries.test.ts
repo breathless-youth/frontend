@@ -33,6 +33,7 @@ const card = (groupId: number) => ({
   joinPolicy: "APPROVAL" as const,
   memberCount: 3,
   weeklyAverageFocusSec: 0,
+  weeklyTotalFocusSec: 0,
   studyingCount: 0,
   member: false,
   translation: null,

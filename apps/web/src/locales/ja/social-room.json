@@ -24,6 +24,7 @@
     "invited": "一緒に勉強しようと招待されました",
     "inAppWithCode": "アプリでこのコードを使って参加できます",
     "inAppNoCode": "アプリで招待コードを入力して参加できます",
+    "inAppPublic": "アプリでこのグループを見られます",
     "openApp": "アプリで参加",
     "prompt": "招待コードを入力してください",
     "hint": "友達から受け取った4桁のコードで参加できます",
@@ -40,6 +41,7 @@
   },
   "inviteMessage": {
     "title": "FocusMakersで一緒に勉強しよう",
-    "body": "FocusMakersで一緒に勉強しましょう！\n\n{{link}}\n\n招待コード：{{code}}"
+    "body": "FocusMakersで一緒に勉強しましょう！\n\n{{link}}\n\n招待コード：{{code}}",
+    "publicBody": "FocusMakersで一緒に勉強しましょう！\n\n{{link}}"
   }
 }

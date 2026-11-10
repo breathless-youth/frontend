@@ -37,7 +37,7 @@ describe("buildGroupRoomFixtures", () => {
     const [first] = fixtures.publicRooms;
     expect(first.name).toBe("새벽 5시 기상 공시반");
     expect(memberCountText(first.memberCount)).toBe("멤버 4/6");
-    expect(formatHoursMinutes(first.weeklyAverageSec)).toBe("21시간 10분");
+    expect(formatHoursMinutes(first.weeklyTotalSec)).toBe("21시간 10분");
     expect(studyingCountText(first.studyingCount)).toBe("2명 공부 중");
     expect(fixtures.categories.map((category) => category.label)).toContain("수능");
   });

@@ -30,6 +30,7 @@ import { plannerDayQuery } from "@/lib/plannerQueries";
 import { getPlannerTaskRepeat } from "@/lib/plannerApi";
 import { usePlannerPlanMutation } from "./usePlannerPlanMutation";
 import { PlannerDateSheet } from "./PlannerDateSheet";
+import { plannerErrorCopy } from "./plannerErrorCopy";
 import { PlannerNameSheet } from "./PlannerNameSheet";
 import { plannerMode } from "./plannerPermissions";
 import { PlannerRepeatSheet, PlannerRepeatControls } from "./PlannerRepeatSheet";
@@ -78,7 +79,7 @@ export function PlannerTaskSheets({
   const [name, setName] = useState("");
   const [subject, setSubject] = useState(subjectId);
   const [date, setDate] = useState(dateKey);
-  const [failed, setFailed] = useState(false);
+  const [failure, setFailure] = useState<unknown>(null);
   const [panel, setPanel] = useState(task ? "menu" : "create");
   const [repeat, setRepeat] = useState<PlannerRepeatRequest>({ weekdays: [], endDate: null });
   const keyboardInset = useKeyboardInset();
@@ -136,7 +137,7 @@ export function PlannerTaskSheets({
   async function save() {
     if (taskLimitReached) return;
     if (!canSave || subject === null) return;
-    setFailed(false);
+    setFailure(null);
     try {
       await mutation.mutateAsync({
         kind: "createTask",
@@ -148,8 +149,8 @@ export function PlannerTaskSheets({
         },
       });
       onOpenChange(false);
-    } catch {
-      setFailed(true);
+    } catch (error: unknown) {
+      setFailure(error ?? new Error("planner save failed"));
     }
   }
   if (panel === "subjects")
@@ -291,6 +292,7 @@ export function PlannerTaskSheets({
         title={t("rowMenu.rename")}
         maxLength={TASK_NAME_MAX}
         closeOnSave={task.seriesId === null}
+        getErrorMessage={(error) => plannerErrorCopy(error, { taskTarget: true })}
         onSave={async (value) => {
           if (task.seriesId !== null) {
             setRename(value);
@@ -415,12 +417,12 @@ export function PlannerTaskSheets({
                         setPanel("deleteScope");
                         return;
                       }
-                      setFailed(false);
+                      setFailure(null);
                       void mutation
                         .mutateAsync({ kind: "deleteTask", key: task.key, scope: "THIS" })
                         .then(
                           () => onOpenChange(false),
-                          () => setFailed(true),
+                          (error: unknown) => setFailure(error ?? new Error("planner save failed")),
                         );
                     }}
                   >
@@ -433,9 +435,9 @@ export function PlannerTaskSheets({
             {mode === "past" && (
               <p className="text-[13px] leading-4.5 text-muted-foreground">{t("plan.pastTask")}</p>
             )}
-            {failed && (
+            {failure !== null && (
               <p role="alert" className="text-sm text-state-distract-text">
-                {t("common:errors.retryLater")}
+                {plannerErrorCopy(failure, { taskTarget: true })}
               </p>
             )}
           </div>
@@ -596,9 +598,10 @@ export function PlannerTaskSheets({
                 </p>
               )}
             </div>
-            {failed && (
+            {/* 한도에 닿으면 저장할 수 없고 입력칸 아래 안내가 이유를 말하므로, 거절 뒤 목록을 다시 받아도 같은 문장을 두 번 띄우지 않는다. */}
+            {failure !== null && !taskLimitReached && (
               <p role="alert" className="text-sm text-state-distract-text">
-                {t("common:errors.retryLater")}
+                {plannerErrorCopy(failure)}
               </p>
             )}
           </div>
