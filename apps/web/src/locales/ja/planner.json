@@ -232,5 +232,11 @@
     "deselectAll": "すべて解除",
     "leave": "そのままにする",
     "bring": "{{count}}件を移す"
+  },
+  "rejected": {
+    "duplicateOccurrence": "その日にはすでに同じ繰り返しタスクがあります",
+    "carryoverChanged": "その間にタスクが変わったため、リストを読み込み直しました",
+    "pastDay": "過去の日の計画は変更できません",
+    "taskGone": "このタスクはすでに削除されています"
   }
 }

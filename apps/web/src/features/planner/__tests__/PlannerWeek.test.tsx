@@ -24,6 +24,7 @@ let client: QueryClient;
 let days: Record<string, PlannerDayResponse>;
 let requests: { url: string; method: string; body: unknown }[];
 let rejectMove: boolean;
+let rejectCode: string;
 let moveGate: Promise<void>;
 let globalSubjects: {
   id: number;
@@ -49,6 +50,7 @@ beforeEach(() => {
   requests = [];
   days = {};
   rejectMove = false;
+  rejectCode = "TASK_LIMIT_EXCEEDED";
   moveGate = Promise.resolve();
   globalSubjects = [
     { id: 3, name: "수학", colorIndex: 2, studySec: 9999, focusSec: 9999, tasks: [] },
@@ -77,10 +79,7 @@ beforeEach(() => {
       if (method === "PUT" && parsed.pathname.endsWith("/date")) {
         await moveGate;
         if (rejectMove)
-          return Response.json(
-            { message: "date limit", code: "TASK_LIMIT_EXCEEDED" },
-            { status: 409 },
-          );
+          return Response.json({ message: "date limit", code: rejectCode }, { status: 409 });
         const key = decodeURIComponent(parsed.pathname.split("/").at(-2)!);
         for (const day of Object.values(days))
           for (const subject of day.subjects) {
@@ -485,6 +484,22 @@ it("이동 충돌이면 미리보기를 원래 날짜로 되돌리고 다시 시
   expect(
     within(dayRegion("6")).queryByRole("checkbox", { name: "옮길 할 일" }),
   ).not.toBeInTheDocument();
+});
+
+it("옮길 날짜에 같은 반복 할 일이 있으면 그 이유를 토스트로 알린다", async () => {
+  rejectMove = true;
+  rejectCode = "PLANNER_DUPLICATE_OCCURRENCE";
+  days["2026-11-05"] = plannerDay({
+    date: "2026-11-05",
+    subjects: [
+      plannerSubject({ tasks: [plannerTask({ date: "2026-11-05", name: "옮길 할 일" })] }),
+    ],
+  });
+  mount();
+  await screen.findByRole("button", { name: "옮길 할 일" });
+  await drag("옮길 할 일", dateRow("6"));
+  expect(await screen.findByText("그 날짜에 같은 반복 할 일이 이미 있어요")).toBeInTheDocument();
+  expect(screen.queryByText("할 일을 옮기지 못했어요. 다시 시도해 주세요")).not.toBeInTheDocument();
 });
 
 it("일반 탭으로 기존 할 일 시트를 열어 다른 주로 옮기기를 제공한다", async () => {

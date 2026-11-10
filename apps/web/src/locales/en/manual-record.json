@@ -25,6 +25,7 @@
     "future": "You can't add time that hasn't happened yet",
     "allOverlap": "You already have a record for this time",
     "failed": "Couldn't save. Please try again",
+    "measuredLocked": "Measured records can't be changed",
     "overlapNotice": "{{removed}} ({{start}}–{{end}}) is already recorded, so we'll save {{saved}}"
   },
   "subject": {

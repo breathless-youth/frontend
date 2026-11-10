@@ -232,5 +232,11 @@
     "deselectAll": "전체 해제",
     "leave": "그냥 둘게요",
     "bring": "{{count}}개 가져오기"
+  },
+  "rejected": {
+    "duplicateOccurrence": "그 날짜에 같은 반복 할 일이 이미 있어요",
+    "carryoverChanged": "그사이 할 일이 바뀌어 목록을 새로 불러왔어요",
+    "pastDay": "지난 날의 계획은 바꿀 수 없어요",
+    "taskGone": "이미 지워진 할 일이에요"
   }
 }

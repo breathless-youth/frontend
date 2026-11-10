@@ -22,12 +22,13 @@ export type ManualRecordAction =
  * 과목별 누적 시간이 바뀌어 기록 탭이 받는 과목 목록도 무효화한다.
  * 다른 탭 웹뷰는 별도 문서라 이 문서의 무효화가 닿지 않아 네이티브에 알린다.
  * 409는 미리보기가 낡았다는 뜻이라 그날·다음 날 조회를 다시 받아 미리보기를 서버와 맞춘다.
+ * 측정한 기록이라 거절된 409는 겹침이 아니므로 따로 알린다.
  */
 export function useManualRecordMutations(input: {
   userId: number;
   dateKey: string;
   onSuccess: (action: ManualRecordAction, saved: readonly StudySessionResponse[]) => void;
-  onError: (reason: "conflict" | "failed") => void;
+  onError: (reason: "conflict" | "locked" | "failed") => void;
 }) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -57,7 +58,7 @@ export function useManualRecordMutations(input: {
         void queryClient.invalidateQueries({
           queryKey: statsKeys.daily(input.userId, addDaysToDateKey(input.dateKey, 1)),
         });
-        input.onError("conflict");
+        input.onError(cause.code === "MEASURED_RECORD_LOCKED" ? "locked" : "conflict");
         return;
       }
       input.onError("failed");
