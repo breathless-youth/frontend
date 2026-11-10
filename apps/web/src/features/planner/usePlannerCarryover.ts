@@ -198,6 +198,11 @@ export function usePlannerCarryover(
               : { ...previous, decided: false },
           );
           void queryClient.invalidateQueries({ queryKey: plannerKeys.user(owner) });
+          // 결과를 모르던 이전 본문은 사라진 후보를 담고 있어 다시 보내지 않는다.
+          uncertainRequests.current.delete(scope);
+          setUncertainScope((previousScope) =>
+            previousScope === `${scope}:${id}` ? null : previousScope,
+          );
         }
         if (!(error instanceof ApiError && error.status >= 400 && error.status < 500)) {
           uncertainRequests.current.set(scope, { arrivalId: id, body });

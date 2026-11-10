@@ -377,3 +377,40 @@ it("후보가 바뀌었다는 거절은 후보를 새로 받아 바꾸고 사용
     client.getQueryState(["planner", 7, "day", "2026-11-04", "Asia/Seoul"])?.isInvalidated,
   ).toBe(true);
 });
+
+it("결과를 모르던 재시도가 후보 변경으로 거절되면 새 후보로 새 본문을 보낸다", async () => {
+  let candidates = tasks;
+  let posts = 0;
+  request.mockImplementation(async (_url, init) => {
+    if (init?.method !== "POST") return Response.json(candidates);
+    posts++;
+    if (posts === 1) throw new TypeError("Failed to fetch");
+    if (posts === 2)
+      return Response.json(
+        { code: "PLANNER_CARRYOVER_CHANGED", message: "후보가 바뀌었습니다" },
+        { status: 409 },
+      );
+    return Response.json([]);
+  });
+  const { result } = renderHook(() => usePlannerCarryover(7, { ready: true, blocked: false }), {
+    wrapper: Wrapper,
+  });
+  await waitFor(() => expect(result.current.open).toBe(true));
+  await act(async () => {
+    await expect(result.current.submit(["t:1"])).rejects.toThrow();
+  });
+  expect(result.current.uncertain).toBe(true);
+  candidates = [tasks[1]!];
+  await act(async () => {
+    await expect(result.current.submit(["t:1"])).rejects.toMatchObject({ status: 409 });
+  });
+  await waitFor(() => expect(result.current.tasks?.map((task) => task.key)).toEqual(["t:2"]));
+  expect(result.current.uncertain).toBe(false);
+  await act(async () => {
+    await result.current.submit(["t:2"]);
+  });
+  const bodies = request.mock.calls
+    .filter(([, init]) => init?.method === "POST")
+    .map(([, init]) => JSON.parse(String(init?.body)));
+  expect(bodies.at(-1)).toEqual({ offeredKeys: ["t:2"], selectedKeys: ["t:2"] });
+});
