@@ -125,6 +125,10 @@ export const BAR_ICON_SIZE = "size-5.5 regular:size-6.5 short-side-lg:size-8";
 export const SESSION_BAR =
   "flex items-center gap-2.5 rounded-[32px] bg-(--session-bar-bg) p-2 shadow-[0px_10px_30px_var(--session-bar-glass-shadow),inset_0px_1px_0px_var(--session-bar-glass-highlight)] backdrop-blur-[14px]";
 
+/** 심플 모드의 하단 바. 그림자 없이 옅은 유리로 낮춘다(v3 시안 18i·31a). */
+export const SESSION_BAR_MUTED =
+  "flex items-center gap-2.5 rounded-[32px] bg-[rgba(16,18,24,0.45)] p-2 shadow-[inset_0_0_0_0.5px_rgba(255,255,255,0.16)] backdrop-blur-[20px] backdrop-saturate-140";
+
 interface ControlButtonProps {
   label: string;
   icon: ReactNode;
@@ -160,7 +164,16 @@ export function ControlButton({
   );
 }
 
-export function SessionPauseButton({ paused, onClick }: { paused: boolean; onClick: () => void }) {
+export function SessionPauseButton({
+  paused,
+  onClick,
+  muted = false,
+}: {
+  paused: boolean;
+  onClick: () => void;
+  /** 심플 모드. 일시정지 중의 다시 시작 버튼은 그대로 눈에 띄게 둔다. */
+  muted?: boolean;
+}) {
   const { t } = useTranslation("study-session");
   return (
     // 아이콘 전용 버튼이라 이름이 상태를 따라간다. '재개'가 아니라 쉬운 우리말 '다시 시작'
@@ -185,13 +198,20 @@ export function SessionPauseButton({ paused, onClick }: { paused: boolean; onCli
         )
       }
       onClick={onClick}
-      variant={paused ? "resume" : "pause"}
+      variant={paused ? "resume" : muted ? "pauseMuted" : "pause"}
       size="bar"
     />
   );
 }
 
-export function SessionExitButton({ onClick }: { onClick: () => void }) {
+export function SessionExitButton({
+  onClick,
+  muted = false,
+}: {
+  onClick: () => void;
+  /** 심플 모드 */
+  muted?: boolean;
+}) {
   const { t } = useTranslation("study-session");
   return (
     <ControlButton
@@ -204,7 +224,7 @@ export function SessionExitButton({ onClick }: { onClick: () => void }) {
         />
       }
       onClick={onClick}
-      variant="stop"
+      variant={muted ? "stopMuted" : "stop"}
       size="bar"
     />
   );

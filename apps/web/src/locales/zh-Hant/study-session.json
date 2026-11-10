@@ -153,15 +153,17 @@
   "clock": {
     "current": "本次讀書",
     "today": "今日累計 {{elapsed}}",
+    "todayLabel": "今日累計",
     "info": "查看專注時間與專注率",
     "focus": "專注時間",
+    "focusShort": "專注",
     "rate": "專注率",
     "srStudy": "本次讀書時間 {{duration}}",
     "srToday": "今日累計讀書時間 {{duration}}"
   },
   "header": {
     "choose": "選擇科目",
-    "noSubject": "沒有科目也會計時",
+    "noSubject": "請選擇科目",
     "addTask": "新增待辦…"
   },
   "camera": {

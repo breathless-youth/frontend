@@ -152,10 +152,13 @@ describe("RoomPage 얼굴 가리기", () => {
     expect(within(cameraSurface()!).queryByTestId("face-mask-emoji")).toBeNull();
   });
 
-  it("이모지가 붙은 뒤 일시정지하면 감지기가 멈추며 위치가 비어 흐림으로 바뀐다", async () => {
+  it("이모지가 붙은 뒤 일시정지하면 감지기가 멈추며 위치가 비고, 재개해도 옛 위치 대신 흐림이다", async () => {
     await enterWithStickerShown();
 
     await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
+    // 일시정지 동안은 카메라가 꺼지고 미리보기 창도 걷힌다.
+    expect(cameraSurface()).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "다시 시작" }));
 
     expect(surfaceMaskMode()).toBe("blur");
   });

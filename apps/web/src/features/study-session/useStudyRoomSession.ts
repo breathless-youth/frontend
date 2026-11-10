@@ -96,6 +96,9 @@ import { submitStudySession } from "./submitStudySession";
 import type { PausedSnapshot } from "./usePauseAutoEnd";
 import { usePauseAutoEnd } from "./usePauseAutoEnd";
 
+/** 공부 화면 카메라 미리보기의 페이드 길이(`CameraPreviewSurface`의 `duration-300`)와 같다. */
+const CAMERA_PREVIEW_FADE_MS = 300;
+
 /** 제출 라이프사이클. 세션 내부 상태(FOCUS/DISTRACTION/PAUSE)와는 **다른 축**이다. */
 export type StudyRoomPhase =
   | { name: "studying" }
@@ -545,9 +548,32 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     Sentry.setTag("bridge", isNativeBridgeAvailable() ? "webview" : "browser");
   }, []);
 
+  /**
+   * 일시정지 동안에는 카메라를 끈다
+   *
+   * 표시등을 끄고 배터리를 아끼려는 것이다. 재개하면 다시 열고, 첫 프레임이 올 때까지 1~2초는 감지기가
+   * 판정을 건너뛴다. 휴식은 사용자가 멈춘 것이 아니라 켜 둔다.
+   * 소셜룸은 같은 트랙을 참여자에게 보내므로 지금처럼 켜 둔다.
+   */
+  const cameraHeld = roomType === "single" && isSessionHeld(sessionState);
+  // 미리보기 창이 사라지는 동안은 움직이는 장면이 남도록, 페이드가 끝난 뒤에 끈다. 재개는 바로 켠다.
+  const [cameraOff, setCameraOff] = useState(cameraHeld);
+  if (!cameraHeld && cameraOff) {
+    setCameraOff(false);
+  }
   useEffect(() => {
+    if (!cameraHeld) {
+      return;
+    }
+    const timer = setTimeout(() => setCameraOff(true), CAMERA_PREVIEW_FADE_MS);
+    return () => clearTimeout(timer);
+  }, [cameraHeld]);
+  const cameraOpenedRef = useRef(false);
+  useEffect(() => {
+    if (cameraOff) {
+      return;
+    }
     let cancelled = false;
-    cameraActiveRef.current = true;
     // `syncCamera`를 쓰지 않는다.
     // 컴파일러가 `camera.stream` 읽기를 그 함수의 의존성으로 잡아 스트림이 바뀔 때마다 새 함수가 된다.
     // 여기 의존성에 넣으면 재획득할 때마다 카메라를 껐다 켠다.
@@ -555,14 +581,32 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       setIsCameraRunning(camera.isRunning);
       setCameraStream(camera.stream ?? null);
     };
+    // 한 번 켜졌던 카메라를 재개 때 다시 열지 못했으면 알린다. 처음부터 못 연 경우(권한 거부)는 화면이 따로 안내한다.
+    const reopening = cameraOpenedRef.current;
     const starting = camera.start();
     // 동기 시작 어댑터(mock)는 여기서 이미 반영되고, 비동기 어댑터는 아래 then에서 반영된다.
     applyCamera();
     void starting.then(() => {
-      if (!cancelled) {
-        applyCamera();
+      if (cancelled) {
+        return;
+      }
+      applyCamera();
+      if (camera.isRunning) {
+        cameraOpenedRef.current = true;
+      } else if (reopening) {
+        onCameraLostRef.current?.();
       }
     });
+    return () => {
+      cancelled = true;
+      camera.stop();
+      setIsCameraRunning(false);
+      setCameraStream(null);
+    };
+  }, [camera, cameraOff]);
+
+  useEffect(() => {
+    cameraActiveRef.current = true;
     detector.start();
     const unsubscribe = detector.subscribe((signal) => {
       const next = { ...signalsRef.current, [signal.source]: signal.active };
@@ -572,15 +616,11 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       detectionRef.current = stepDetection(detectionRef.current, next, Date.now(), detectionParams);
     });
     return () => {
-      cancelled = true;
       cameraActiveRef.current = false;
       unsubscribe();
       detector.stop();
-      camera.stop();
-      setIsCameraRunning(false);
-      setCameraStream(null);
     };
-  }, [camera, detectionParams, detector]);
+  }, [detectionParams, detector]);
 
   /**
    * 끊긴 카메라 다시 잡기
@@ -781,7 +821,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    */
   const resume = () => {
     applyStateTrackingResume(FOCUS_STATE);
-    // 복귀 때 다시 잡지 못했으면 한 번 더 시도한다.
+    // 일시정지 중에도 카메라를 켜 두는 소셜룸에서, 복귀 때 다시 잡지 못했으면 한 번 더 시도한다.
     // 재개는 기다리지 않는다. 카메라가 없어도 세션은 이어진다.
     void reviveCamera();
   };
@@ -816,7 +856,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    * **확정: 수동 재개**(2026-07-26 리더 확정). 화면 꺼짐·백그라운드에서 돌아와도 세션은
    * 자동으로 재개되지 않는다 — 사용자가 일시정지 화면의 재개 버튼을 직접 눌러야 한다.
    * 그래서 복귀 시 세션 상태는 바꾸지 않는다 — 이건 임시가 아니라 확정된 동작이다.
-   * 카메라만 다시 잡는다.
+   * 카메라만 다시 잡는다(일시정지 중에도 카메라를 켜 두는 소셜룸).
    * Android는 백그라운드에서 트랙을 끊어, 그대로 두면 일시정지 화면 프리뷰와 재개 뒤 판정이 멈춘 장면에 머문다.
    */
   const onReturnFromBackground = useCallback(() => {

@@ -51,5 +51,8 @@
     "lofi-breeze": "Morning Breeze",
     "lofi-stars": "Lost Stars",
     "lofi-vanilla": "Vanilla"
+  },
+  "watcher": {
+    "footsteps": "감독관 발소리"
   }
 }

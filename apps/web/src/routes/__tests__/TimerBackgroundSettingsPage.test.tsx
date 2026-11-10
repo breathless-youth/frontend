@@ -23,6 +23,12 @@ import { showToast } from "@/lib/toast";
 const SQUARE = { bytes: new Uint8Array([1]).buffer, width: 1000, height: 1000 };
 
 const prepare = vi.hoisted(() => vi.fn());
+import {
+  __resetWatcherAssetsForTests,
+  readWatcherAsset,
+  watcherAssetUrls,
+} from "@/features/timer-background/watcher/watcherAssets";
+
 vi.mock("@/features/timer-background/prepareBackgroundPhoto", () => ({
   prepareBackgroundPhoto: prepare,
 }));
@@ -88,6 +94,7 @@ async function addPhotoFromFile() {
 beforeEach(() => {
   globalThis.indexedDB = new IDBFactory();
   __resetTimerBackgroundPhotoStoreForTests();
+  __resetWatcherAssetsForTests();
   vi.stubGlobal("PointerEvent", Pointer);
   Element.prototype.scrollIntoView = vi.fn();
   Element.prototype.setPointerCapture = vi.fn();
@@ -103,15 +110,92 @@ afterEach(() => {
 });
 
 describe("설정 › 타이머 배경 선택 화면", () => {
-  it("처음에는 심플이 사용 중이고, 감시·자연 배경은 출시 예정이라 누를 수 없다", async () => {
+  it("처음에는 심플이 사용 중이고, 감독관 말고 다른 감시·자연 배경은 출시 예정이라 누를 수 없다", async () => {
     renderPage();
 
     const simple = await findSimpleTile();
     expect(simple).toHaveAttribute("aria-pressed", "true");
     expect(within(simple).getByText("사용 중")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "독서실 감독관, 출시 예정" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /독서실 감독관/ })).toBeNull();
+    expect(screen.getByRole("img", { name: "문 너머 강아지, 출시 예정" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /문 너머 강아지/ })).toBeNull();
     expect(screen.getByText("0/10")).toBeInTheDocument();
+  });
+
+  it("독서실 감독관을 고르면 빈 방이 깔린 미리보기가 뜨고, 적용하면 설정 행 이름이 바뀐다", async () => {
+    renderPage();
+    await findSimpleTile();
+
+    fireEvent.click(screen.getByRole("button", { name: "독서실 감독관" }));
+    const preview = screen.getByTestId("timer-background-preview");
+    expect(within(preview).getByTestId("watcher-background")).toBeInTheDocument();
+    expect(screen.getByText("발걸음 소리가 들려요")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "적용하기" }));
+
+    expect(
+      await screen.findByRole("button", { name: "타이머 배경, 독서실 감독관" }),
+    ).toBeInTheDocument();
+    expect(readTimerBackground()).toEqual({ kind: "proctor" });
+    expect(analytics.applied).toHaveBeenCalledWith({ kind: "proctor" });
+  });
+
+  it("감독관을 적용하면 영상·소리를 기기에 받는 동안 적용하는 중을 보이고, 다 받으면 돌아간다", async () => {
+    let finish = () => {};
+    const gate = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        await gate;
+        return new Response("clip", { headers: { "content-type": "video/mp4" } });
+      }),
+    );
+    renderPage();
+    await findSimpleTile();
+    fireEvent.click(screen.getByRole("button", { name: "독서실 감독관" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "적용하기" }));
+
+    const applying = await screen.findByRole("button", { name: "적용하는 중…" });
+    expect(applying).toBeDisabled();
+    expect(readTimerBackground()).toEqual({ kind: "simple" });
+
+    finish();
+    expect(
+      await screen.findByRole("button", { name: "타이머 배경, 독서실 감독관" }),
+    ).toBeInTheDocument();
+    expect(readTimerBackground()).toEqual({ kind: "proctor" });
+    // 테스트 창(1024×768)은 태블릿이라 태블릿 영상을 받는다.
+    const [first] = watcherAssetUrls({ width: window.innerWidth, height: window.innerHeight });
+    expect(first).toContain("tablet");
+    expect(await readWatcherAsset(first)).not.toBeNull();
+  });
+
+  it("받는 동안 미리보기를 닫으면 받기가 끝나도 적용하지 않는다", async () => {
+    let finish = () => {};
+    const gate = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        await gate;
+        return new Response("clip");
+      }),
+    );
+    renderPage();
+    await findSimpleTile();
+    fireEvent.click(screen.getByRole("button", { name: "독서실 감독관" }));
+    fireEvent.click(screen.getByRole("button", { name: "적용하기" }));
+    await screen.findByRole("button", { name: "적용하는 중…" });
+
+    fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
+    await act(async () => finish());
+
+    expect(screen.queryByTestId("timer-background-preview")).toBeNull();
+    expect(readTimerBackground()).toEqual({ kind: "simple" });
+    expect(analytics.applied).not.toHaveBeenCalled();
   });
 
   it("다음 묶음 제목이 화면 위쪽 40% 안으로 들어오면 그 칩으로 바뀐다", async () => {
@@ -154,7 +238,7 @@ describe("설정 › 타이머 배경 선택 화면", () => {
     expect(row).toContainElement(lastPhoto);
     // 감시·자연 묶음은 그대로 세 칸 격자다.
     expect(
-      screen.getByRole("img", { name: "독서실 감독관, 출시 예정" }).parentElement!.className,
+      screen.getByRole("button", { name: "독서실 감독관" }).parentElement!.className,
     ).toContain("grid-cols-3");
   });
 
@@ -178,6 +262,7 @@ describe("설정 › 타이머 배경 선택 화면", () => {
 
     await addPhotoFromFile();
     expect(analytics.added).toHaveBeenCalledWith({ count: 1, source: "file" });
+    expect(screen.queryByText("발걸음 소리가 들려요")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "적용하기" }));
 

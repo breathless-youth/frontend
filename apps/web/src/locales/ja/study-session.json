@@ -153,15 +153,17 @@
   "clock": {
     "current": "現在の勉強",
     "today": "今日の累計 {{elapsed}}",
+    "todayLabel": "今日の累計",
     "info": "集中時間・集中率を見る",
     "focus": "集中時間",
+    "focusShort": "集中",
     "rate": "集中率",
     "srStudy": "今回の勉強時間{{duration}}",
     "srToday": "今日の累計勉強時間{{duration}}"
   },
   "header": {
     "choose": "科目を選ぶ",
-    "noSubject": "科目がなくても時間は測ります",
+    "noSubject": "科目を選択してください",
     "addTask": "タスクを追加…"
   },
   "camera": {

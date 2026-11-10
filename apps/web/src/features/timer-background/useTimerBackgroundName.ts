@@ -17,6 +17,7 @@ export function useTimerBackgroundName(): string {
     selection.kind === "photo"
       ? (photos.data ?? []).findIndex((photo) => photo.id === selection.photoId)
       : -1;
+  if (selection.kind === "proctor") return t("timerBackground.names.proctor");
   return index < 0
     ? t("timerBackground.simple")
     : t("timerBackground.photoName", { number: index + 1 });

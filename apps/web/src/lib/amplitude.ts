@@ -1545,7 +1545,9 @@ export type TimelapseSettingEventKey =
   | "streak";
 
 /** 설정 › 타이머 배경 미리보기에서 `적용하기`를 눌렀다. `kind`는 고른 배경 종류다. */
-export function trackTimerBackgroundApplied(input: { readonly kind: "simple" | "photo" }) {
+export function trackTimerBackgroundApplied(input: {
+  readonly kind: "simple" | "proctor" | "photo";
+}) {
   if (!initialized) return;
   track("timer_background_applied", { kind: input.kind });
 }

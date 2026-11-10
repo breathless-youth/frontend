@@ -18,6 +18,12 @@ describe("타이머 배경 선택 저장", () => {
     expect(readTimerBackground()).toEqual({ kind: "photo", photoId: "p1" });
   });
 
+  it("독서실 감독관을 저장하고 다시 읽는다", () => {
+    writeTimerBackground({ kind: "proctor" });
+
+    expect(readTimerBackground()).toEqual({ kind: "proctor" });
+  });
+
   it("깨진 값은 심플로 본다", () => {
     localStorage.setItem("focusmakers.timerBackground", "{oops");
     expect(readTimerBackground()).toEqual({ kind: "simple" });
