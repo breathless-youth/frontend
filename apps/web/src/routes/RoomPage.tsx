@@ -71,7 +71,12 @@ import { WallpaperScrim } from "@/features/timer-background/WallpaperScrim";
 import { useWatcherPresence } from "@/features/timer-background/watcher/useWatcherPresence";
 import { WatcherBackground } from "@/features/timer-background/watcher/WatcherBackground";
 import { DEFAULT_WATCHER_TRIGGER_MS } from "@/features/timer-background/watcher/watcherTrigger";
-import { createWatcherSound } from "@/features/timer-background/watcher/watcherSound";
+import {
+  createWatcherSound,
+  DEFAULT_WATCHER_VOLUME,
+  readWatcherVolume,
+  writeWatcherVolume,
+} from "@/features/timer-background/watcher/watcherSound";
 import { timerBackgroundPhotoStore } from "@/features/timer-background/timerBackgroundPhotos";
 import {
   toPhotoView,
@@ -670,6 +675,29 @@ function RoomSessionScreen({
     // 들어오면 다가오던 소리가 등장 소리로 이어지니 그대로 두고, 들어오기 전에 집중하면 멀어지듯 줄인다.
     else if (!watcher.present) watcherSound?.fadeApproach();
   }, [watcher.approaching, watcher.present, watcherSound]);
+  // 배경음 페이지의 `감독관 발소리` 음량. 배경음 전체 스위치를 끄고 켤 때도 함께 따라간다.
+  const [footstepsLevel, setFootstepsLevelState] = useState(readWatcherVolume);
+  // 끈 발소리를 다시 켤 때 돌아갈 음량
+  const lastFootstepsLevel = useRef(footstepsLevel || DEFAULT_WATCHER_VOLUME);
+  const setFootstepsLevel = (level: number) => {
+    if (level > 0) lastFootstepsLevel.current = level;
+    setFootstepsLevelState(level);
+    writeWatcherVolume(level);
+  };
+  useEffect(() => {
+    watcherSound?.setVolume(footstepsLevel / 100);
+  }, [footstepsLevel, watcherSound]);
+  const footstepsOn = proctorBackground && footstepsLevel > 0;
+  const soundOn = ambient.isOn || footstepsOn;
+  const toggleAllSound = () => {
+    if (soundOn) {
+      if (ambient.isOn) ambient.toggleAll();
+      if (footstepsOn) setFootstepsLevel(0);
+      return;
+    }
+    if (ambient.canRestore) ambient.toggleAll();
+    if (proctorBackground) setFootstepsLevel(lastFootstepsLevel.current);
+  };
   useEffect(() => {
     const selection = readTimerBackground();
     if (selection.kind !== "photo") return;
@@ -1203,11 +1231,11 @@ function RoomSessionScreen({
                   <AmbientSoundButton
                     ref={ambientButtonRef}
                     nativeId={null}
-                    on={ambient.isOn}
+                    on={soundOn}
                     expanded={page === "ambient"}
                     onClick={() => openPage("ambient")}
                     className={SESSION_PILL_BUTTON}
-                    icon={<AmbientLinesIcon on={ambient.isOn} />}
+                    icon={<AmbientLinesIcon on={soundOn} />}
                   />
                 </div>
                 <SessionMoreMenu
@@ -1429,11 +1457,21 @@ function RoomSessionScreen({
             mix={ambient.mix}
             duckEnabled={ambient.duckEnabled}
             blocked={ambient.blocked}
-            canRestore={ambient.canRestore}
+            canRestore={ambient.canRestore || proctorBackground}
             onToggleSound={ambient.toggleSound}
             onChangeLevel={ambient.changeLevel}
             onSetDuckEnabled={ambient.setDuckEnabled}
-            onToggleAll={ambient.toggleAll}
+            onToggleAll={toggleAllSound}
+            footsteps={
+              proctorBackground
+                ? {
+                    level: footstepsLevel,
+                    onToggle: () =>
+                      setFootstepsLevel(footstepsLevel > 0 ? 0 : lastFootstepsLevel.current),
+                    onChangeLevel: setFootstepsLevel,
+                  }
+                : undefined
+            }
             onOpenChange={(open) => {
               if (!open) closePage("back");
             }}

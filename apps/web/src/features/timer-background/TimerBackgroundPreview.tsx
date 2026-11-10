@@ -1,4 +1,4 @@
-import { ChevronRight } from "lucide-react";
+import { AudioLines, ChevronRight } from "lucide-react";
 import { useRef, type PointerEvent, type WheelEvent } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -189,6 +189,13 @@ export function TimerBackgroundPreview({
         </div>
       </div>
       <div className="absolute inset-x-5 bottom-[calc(env(safe-area-inset-bottom)+20px)]">
+        {proctor && (
+          // 감독관은 소리도 함께 난다는 걸 적용 전에 알린다. 아이콘은 세션 머리 줄의 배경음 아이콘과 같은 모양이다.
+          <p className="mb-2 flex items-center justify-center gap-1.5 text-[13px] leading-4 text-muted-foreground">
+            <AudioLines aria-hidden="true" className="size-4" strokeWidth={1.5} />
+            {t("timerBackground.footstepsNote")}
+          </p>
+        )}
         <Button
           size="xl"
           onClick={onApply}

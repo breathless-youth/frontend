@@ -158,6 +158,34 @@ describe("RoomPage — 타이머 배경", () => {
     }
   });
 
+  it("감독관 배경이면 배경음의 배경 소리 탭 아래에 발소리 음량이 100으로 켜져 있고, 전체 스위치로 함께 꺼진다", async () => {
+    writeTimerBackground({ kind: "proctor" });
+    renderRoom();
+    await screen.findByTestId("watcher-background");
+
+    await userEvent.click(screen.getByRole("button", { name: /배경음/ }));
+    await userEvent.click(await screen.findByRole("tab", { name: /배경 소리/ }));
+    const footsteps = screen.getByRole("slider", { name: "감독관 발소리 음량" });
+    expect(footsteps).toHaveValue("100");
+
+    await userEvent.click(screen.getByRole("switch", { name: "배경음" }));
+    expect(footsteps).toHaveValue("0");
+    expect(localStorage.getItem("focusmakers.watcherSound.volume")).toBe("0");
+
+    await userEvent.click(screen.getByRole("switch", { name: "배경음" }));
+    expect(footsteps).toHaveValue("100");
+  });
+
+  it("다른 배경이면 배경음에 감독관 발소리가 없다", async () => {
+    await choosePhoto();
+    renderRoom();
+    await screen.findByTestId("timer-background-layer");
+
+    await userEvent.click(screen.getByRole("button", { name: /배경음/ }));
+    await screen.findByRole("dialog", { name: "배경음" });
+    expect(screen.queryByRole("slider", { name: "감독관 발소리 음량" })).toBeNull();
+  });
+
   it("월페이퍼 위 순공은 집중하지 않는 동안 회색으로 멈춘다", async () => {
     writeTimerBackground({ kind: "proctor" });
     renderRoom();

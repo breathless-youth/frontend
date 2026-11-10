@@ -102,6 +102,7 @@
     "soon": "Coming soon",
     "removePhoto": "Delete {{name}}",
     "apply": "Apply",
+    "footstepsNote": "You'll hear footsteps",
     "applying": "Applying…",
     "applied": "Background applied",
     "applyFailed": "Couldn't apply the background. Please try again.",

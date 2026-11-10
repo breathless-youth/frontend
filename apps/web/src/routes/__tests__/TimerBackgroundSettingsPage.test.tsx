@@ -128,6 +128,7 @@ describe("설정 › 타이머 배경 선택 화면", () => {
     fireEvent.click(screen.getByRole("button", { name: "독서실 감독관" }));
     const preview = screen.getByTestId("timer-background-preview");
     expect(within(preview).getByTestId("watcher-background")).toBeInTheDocument();
+    expect(screen.getByText("발걸음 소리가 들려요")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "적용하기" }));
 
@@ -261,6 +262,7 @@ describe("설정 › 타이머 배경 선택 화면", () => {
 
     await addPhotoFromFile();
     expect(analytics.added).toHaveBeenCalledWith({ count: 1, source: "file" });
+    expect(screen.queryByText("발걸음 소리가 들려요")).toBeNull();
 
     fireEvent.click(screen.getByRole("button", { name: "적용하기" }));
 

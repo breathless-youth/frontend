@@ -24,6 +24,8 @@ export interface WatcherSound {
   fadeApproach(): void;
   /** 켜면 나던 소리를 줄여 끄고 새 소리를 내지 않는다. 끄면 다음 소리부터 다시 난다. */
   setMuted(muted: boolean): void;
+  /** 0~1. 멀고 가까운 크기 차이는 소리 파일에 담겨 있고 여기서는 전체 크기만 바꾼다. 0이면 새 소리를 내지 않는다. */
+  setVolume(volume: number): void;
   stopAll(): void;
   dispose(): void;
 }
@@ -62,6 +64,7 @@ export function createWatcherSound(
   const pending = new Map<WatcherCue, object>();
   const voices = new Map<WatcherCue, { source: AudioBufferSourceNode; gain: GainNode }>();
   let muted = false;
+  let volume = 1;
 
   const ensureRunning = (): AudioContext | null => {
     try {
@@ -111,6 +114,7 @@ export function createWatcherSound(
       const source = current.createBufferSource();
       const gain = current.createGain();
       source.buffer = buffer;
+      gain.gain.value = volume;
       source.connect(gain).connect(current.destination);
       source.onended = () => {
         if (voices.get(cue)?.source === source) voices.delete(cue);
@@ -128,7 +132,7 @@ export function createWatcherSound(
       if (current) loadAll(current);
     },
     play(cue, offsetSec = 0) {
-      if (muted) return;
+      if (muted || volume === 0) return;
       const current = ensureRunning();
       if (current === null) return;
       loadAll(current);
@@ -159,6 +163,16 @@ export function createWatcherSound(
       muted = next;
       if (muted) for (const cue of CUES) stop(cue, MUTE_FADE_SEC);
     },
+    setVolume(next) {
+      volume = Math.min(1, Math.max(0, next));
+      for (const voice of voices.values()) {
+        try {
+          voice.gain.gain.setValueAtTime(volume, context?.currentTime ?? 0);
+        } catch {
+          // 이미 끝난 소리는 무시한다.
+        }
+      }
+    },
     stopAll() {
       for (const cue of CUES) stop(cue);
     },
@@ -173,4 +187,29 @@ export function createWatcherSound(
       }
     },
   };
+}
+
+// 배경음 페이지의 `감독관 발소리` 음량(0~100). 설정 화면과 세션 화면이 다른 웹뷰라 localStorage에 둔다.
+const VOLUME_KEY = "focusmakers.watcherSound.volume";
+
+/** 처음이거나 읽지 못하면 100(맞춰 둔 크기 그대로)이다. */
+export const DEFAULT_WATCHER_VOLUME = 100;
+
+export function readWatcherVolume(): number {
+  try {
+    const stored = Number(localStorage.getItem(VOLUME_KEY) ?? Number.NaN);
+    return Number.isFinite(stored) && stored >= 0 && stored <= 100
+      ? stored
+      : DEFAULT_WATCHER_VOLUME;
+  } catch {
+    return DEFAULT_WATCHER_VOLUME;
+  }
+}
+
+export function writeWatcherVolume(level: number): void {
+  try {
+    localStorage.setItem(VOLUME_KEY, String(level));
+  } catch {
+    // 저장하지 못하면 다음 세션은 기본 크기로 시작한다.
+  }
 }

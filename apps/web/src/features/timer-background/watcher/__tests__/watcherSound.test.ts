@@ -107,4 +107,29 @@ describe("createWatcherSound", () => {
     sound.play("enter");
     expect(starts.at(-1)?.cue).toBe(2);
   });
+
+  it("음량은 새로 나는 소리와 나던 소리에 함께 걸리고, 0이면 새 소리를 내지 않는다", async () => {
+    const gains: { value: number; setValueAtTime: ReturnType<typeof vi.fn> }[] = [];
+    const { context, starts } = fakeContext();
+    const createGain = context.createGain;
+    context.createGain = () => {
+      const node = createGain();
+      gains.push(node.gain);
+      return node;
+    };
+    const sound = createWatcherSound(() => context as unknown as AudioContext, load);
+    sound.setVolume(0.4);
+
+    sound.play("enter");
+    await vi.waitFor(() => expect(starts).toHaveLength(1));
+    expect(gains[0].value).toBe(0.4);
+
+    sound.setVolume(0.8);
+    expect(gains[0].setValueAtTime).toHaveBeenCalledWith(0.8, 10);
+
+    sound.setVolume(0);
+    sound.play("exit");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(starts).toHaveLength(1);
+  });
 });
