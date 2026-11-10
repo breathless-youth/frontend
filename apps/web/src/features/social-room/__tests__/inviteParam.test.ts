@@ -24,15 +24,15 @@ describe("parseInviteParam", () => {
     expect(parseInviteParam("37A2")).toBeNull();
   });
 
-  it.each(["g-12", "G-12", " g-12 ", "g-12."])("공개 그룹 링크 %s는 그룹 12다", (raw) => {
+  it.each(["go-12", "GO-12", " go-12 ", "go-12."])("공개 그룹 링크 %s는 그룹 12다", (raw) => {
     expect(parseInviteParam(raw)).toEqual({ kind: "public", groupId: 12 });
   });
 
   it("공개 그룹 ID가 다섯 자리여도 6자리 그룹 코드로 읽지 않는다", () => {
-    expect(parseInviteParam("g-12345")).toEqual({ kind: "public", groupId: 12345 });
+    expect(parseInviteParam("go-12345")).toEqual({ kind: "public", groupId: 12345 });
   });
 
-  it.each(["g-0", "g-", "g-abc", "g-012", "g-abcde", "g-01234"])(
+  it.each(["go-0", "go-", "go-abc", "go-012", "go-abcde", "go-01234", "g-23456"])(
     "그룹 ID가 아닌 %s는 어느 링크도 아니다",
     (raw) => {
       expect(parseInviteParam(raw)).toBeNull();

@@ -486,14 +486,14 @@ describe("그룹 홈", () => {
       vi.mocked(trackGroupInviteShared).mockClear();
     });
 
-    it("공개 그룹은 빈자리에서 그룹 소개로 가는 g- 링크를 공유하고 계측한다", async () => {
+    it("공개 그룹은 빈자리에서 그룹 소개로 가는 go- 링크를 공유하고 계측한다", async () => {
       mockGroupApi("default");
       renderGroupRoute("/social/groups/10?groupRooms=1");
       const seats = await screen.findAllByRole("button", { name: "초대하기" });
       await userEvent.setup().click(seats[0]!);
       await waitFor(() => expect(shareInviteText).toHaveBeenCalledOnce());
       expect(vi.mocked(shareInviteText).mock.calls[0]![0]).toContain(
-        `${window.location.origin}/social/join?code=g-10`,
+        `${window.location.origin}/social/join?code=go-10`,
       );
       expect(shareInvite).not.toHaveBeenCalled();
       expect(trackGroupInviteShared).toHaveBeenCalledExactlyOnceWith({

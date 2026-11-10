@@ -10,7 +10,7 @@ afterEach(() => {
 });
 
 const PUBLIC_BODY = () =>
-  `그룹 스터디에 초대받았어요!\n\n${window.location.origin}/social/join?code=g-12`;
+  `그룹 스터디에 초대받았어요!\n\n${window.location.origin}/social/join?code=go-12`;
 
 describe("sharePublicGroupInvite", () => {
   it("공유 시트에 공개 그룹 링크를 싣고 초대코드 줄은 넣지 않는다", async () => {

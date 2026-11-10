@@ -144,17 +144,17 @@ describe("InviteCodeJoinPage 모바일 브라우저 안내", () => {
 describe("InviteCodeJoinPage 공개 그룹 링크", () => {
   it("휴대폰 브라우저는 코드 칸 없이 앱에서 참여하기를 두고 누르면 그 링크 코드로 앱을 연다", async () => {
     setUserAgent(SAFARI_UA);
-    renderAt("?code=g-12");
+    renderAt("?code=go-12");
     expect(screen.getByRole("heading", { name: "그룹 스터디에 초대받았어요" })).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: /초대코드/ })).not.toBeInTheDocument();
     expect(screen.getByText("앱에서 이 그룹을 볼 수 있어요")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "앱에서 참여하기" }));
-    expect(openInApp).toHaveBeenCalledWith("ios", "g-12");
+    expect(openInApp).toHaveBeenCalledWith("ios", "go-12");
   });
 
   it("컴퓨터 브라우저는 안내만 두고 코드 칸과 버튼이 없다", () => {
     setUserAgent(WINDOWS_UA, 0);
-    renderAt("?code=g-12");
+    renderAt("?code=go-12");
     expect(screen.getByText("앱에서 이 그룹을 볼 수 있어요")).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: /초대코드/ })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("초대코드 4자리")).not.toBeInTheDocument();
@@ -167,12 +167,12 @@ describe("InviteCodeJoinPage 공개 그룹 링크", () => {
       delete (globalThis as { ReactNativeWebView?: unknown }).ReactNativeWebView;
     });
     setUserAgent(SAFARI_UA);
-    renderAt("?code=g-12");
+    renderAt("?code=go-12");
     expect(screen.getByLabelText("초대코드 4자리")).toHaveValue("");
   });
 
   it.each([
-    ["?code=g-12", true, "public"],
+    ["?code=go-12", true, "public"],
     ["?code=1234", true, "room"],
     ["?code=K7Q2MX", true, "group"],
     ["", false, "none"],

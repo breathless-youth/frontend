@@ -235,7 +235,7 @@ describe("6자리 초대코드 참여", () => {
     },
   );
 
-  it.each(["g-abcde", "g-01234"])(
+  it.each(["go-abcde", "go-01234"])(
     "망가진 공개 그룹 링크 %s는 6자리 코드로 자동 참여하지 않는다",
     async (raw) => {
       const api = mockGroupApi("default");
@@ -289,7 +289,7 @@ describe("6자리 초대코드 참여", () => {
 describe("공개 그룹 초대 링크", () => {
   it("표시가 있으면 공개 그룹 링크는 초대코드를 뺀 주소로 그 그룹 소개를 열고 계측한다", async () => {
     const api = mockGroupApi("default");
-    const { router } = renderGroupRoute("/social/join?groupRooms=1&code=g-12");
+    const { router } = renderGroupRoute("/social/join?groupRooms=1&code=go-12");
     await waitFor(() => expect(router.location().pathname).toBe("/social/public/12"));
     expect(router.location().search).toBe("?groupRooms=1");
     expect(api.joinGroupByCode).not.toHaveBeenCalled();
