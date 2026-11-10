@@ -111,7 +111,9 @@ export function PlannerWeek({
     }));
     void week
       .moveTask(current.task.key, date)
-      .catch((error: unknown) => showToast(plannerErrorCopy(error, t("week.moveFailed"))));
+      .catch((error: unknown) =>
+        showToast(plannerErrorCopy(error, { fallback: t("week.moveFailed"), taskTarget: true })),
+      );
   }
   const selectedDay = week.days.find((day) => day.date === sheet?.date);
   // 전체 내 과목에서는 색·이름만 가져온다. 누적 시간과 구 계약 할 일은 날짜별 계획에 섞지 않는다.

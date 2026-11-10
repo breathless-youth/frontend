@@ -14,9 +14,11 @@ describe("plannerErrorCopy", () => {
     expect(plannerErrorCopy(new ApiError("서버 메시지", status, code))).toBe(copy);
   });
 
-  it("404는 이미 지워진 할 일 문구다", () => {
-    expect(plannerErrorCopy(new ApiError("할 일을 찾을 수 없습니다", 404, "NOT_FOUND"))).toBe(
-      "이미 지워진 할 일이에요",
+  it("할 일을 대상으로 한 요청의 404만 이미 지워진 할 일 문구다", () => {
+    const missing = new ApiError("할 일을 찾을 수 없습니다", 404, "NOT_FOUND");
+    expect(plannerErrorCopy(missing, { taskTarget: true })).toBe("이미 지워진 할 일이에요");
+    expect(plannerErrorCopy(new ApiError("과목을 찾을 수 없습니다", 404, "NOT_FOUND"))).toBe(
+      "잠시 후 다시 시도해 주세요",
     );
   });
 
@@ -28,14 +30,13 @@ describe("plannerErrorCopy", () => {
   });
 
   it("fallback을 주면 모를 때 그 문구를 쓴다", () => {
-    expect(plannerErrorCopy(new ApiError("충돌", 409, "CONFLICT"), "옮기지 못했어요")).toBe(
-      "옮기지 못했어요",
-    );
     expect(
-      plannerErrorCopy(
-        new ApiError("중복", 409, "PLANNER_DUPLICATE_OCCURRENCE"),
-        "옮기지 못했어요",
-      ),
+      plannerErrorCopy(new ApiError("충돌", 409, "CONFLICT"), { fallback: "옮기지 못했어요" }),
+    ).toBe("옮기지 못했어요");
+    expect(
+      plannerErrorCopy(new ApiError("중복", 409, "PLANNER_DUPLICATE_OCCURRENCE"), {
+        fallback: "옮기지 못했어요",
+      }),
     ).toBe("그 날짜에 같은 반복 할 일이 이미 있어요");
   });
 });

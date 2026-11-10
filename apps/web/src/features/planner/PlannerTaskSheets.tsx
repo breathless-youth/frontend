@@ -292,7 +292,7 @@ export function PlannerTaskSheets({
         title={t("rowMenu.rename")}
         maxLength={TASK_NAME_MAX}
         closeOnSave={task.seriesId === null}
-        getErrorMessage={plannerErrorCopy}
+        getErrorMessage={(error) => plannerErrorCopy(error, { taskTarget: true })}
         onSave={async (value) => {
           if (task.seriesId !== null) {
             setRename(value);
@@ -437,7 +437,7 @@ export function PlannerTaskSheets({
             )}
             {failure !== null && (
               <p role="alert" className="text-sm text-state-distract-text">
-                {plannerErrorCopy(failure)}
+                {plannerErrorCopy(failure, { taskTarget: true })}
               </p>
             )}
           </div>

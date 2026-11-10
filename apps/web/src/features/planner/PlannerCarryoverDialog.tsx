@@ -191,7 +191,7 @@ export function PlannerCarryoverDialog({
         </div>
         {failure !== null && (
           <p role="alert" className="shrink-0 text-sm text-state-distract-text">
-            {plannerErrorCopy(failure)}
+            {plannerErrorCopy(failure, { taskTarget: true })}
           </p>
         )}
         <div className={cn("flex shrink-0 gap-2", !many && "pt-0.5")}>

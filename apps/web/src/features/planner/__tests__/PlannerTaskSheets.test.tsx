@@ -1057,3 +1057,33 @@ it("이름을 바꾼 할 일이 이미 없으면 지워진 할 일이라고 알�
   await userEvent.click(screen.getByRole("button", { name: "저장" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("이미 지워진 할 일이에요");
 });
+
+it("추가 중 과목이 없어 404가 오면 지워진 할 일 문구를 쓰지 않는다", async () => {
+  request.mockImplementation(async (input, init) => {
+    if (init?.method === "POST")
+      return Response.json(
+        { message: "과목을 찾을 수 없습니다", code: "NOT_FOUND" },
+        { status: 404 },
+      );
+    const date = String(input).match(/\/days\/(\d{4}-\d{2}-\d{2})\?/)?.[1];
+    return Response.json(date ? plannerDay({ date, subjects: [plannerSubject()] }) : plannerTask());
+  });
+  render(
+    <QueryClientProvider client={client}>
+      <PlannerTaskSheets
+        open
+        onOpenChange={() => {}}
+        userId={7}
+        dateKey="2026-11-07"
+        todayKey="2026-11-05"
+        task={null}
+        subjectId={3}
+        subjects={[plannerSubject()]}
+        onStudyStart={() => {}}
+      />
+    </QueryClientProvider>,
+  );
+  await userEvent.type(screen.getByRole("textbox", { name: "할 일 이름" }), "새 할 일");
+  await userEvent.click(screen.getByRole("button", { name: "추가" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("잠시 후 다시 시도해 주세요");
+});

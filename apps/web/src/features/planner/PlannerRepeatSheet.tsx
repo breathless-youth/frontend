@@ -349,7 +349,7 @@ export function PlannerRepeatSheet({
               <p className="text-[13px] leading-4.5 text-muted-foreground">{summary}</p>
               {failure !== null && (
                 <p role="alert" className="text-sm text-state-distract-text">
-                  {plannerErrorCopy(failure)}
+                  {plannerErrorCopy(failure, { taskTarget: true })}
                 </p>
               )}
               <Button
@@ -373,7 +373,7 @@ export function PlannerRepeatSheet({
               <p className="text-[13px] leading-4.5 text-muted-foreground">{summary}</p>
               {failure !== null && (
                 <p role="alert" className="text-sm text-state-distract-text">
-                  {plannerErrorCopy(failure)}
+                  {plannerErrorCopy(failure, { taskTarget: true })}
                 </p>
               )}
               <Button

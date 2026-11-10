@@ -197,7 +197,7 @@ function PlannerCalendar({
         <>
           {failure !== null && (
             <p role="alert" className="text-sm text-state-distract-text">
-              {plannerErrorCopy(failure)}
+              {plannerErrorCopy(failure, { taskTarget: true })}
             </p>
           )}
           <Button
