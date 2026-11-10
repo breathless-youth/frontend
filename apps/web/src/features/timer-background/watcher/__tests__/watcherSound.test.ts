@@ -145,4 +145,17 @@ describe("createWatcherSound", () => {
       hidden.mockRestore();
     }
   });
+
+  it("소리를 받지 못하면 1초 뒤 다시 받아, 늦은 만큼 건너뛰어 울린다", async () => {
+    const { context, starts } = fakeContext();
+    let failures = 1;
+    const flaky = (url: string) =>
+      url.endsWith("exit.m4a") && failures-- > 0 ? Promise.reject(new Error("offline")) : load(url);
+    const sound = createWatcherSound(() => context as unknown as AudioContext, flaky);
+
+    sound.play("exit");
+    await vi.waitFor(() => expect(starts).toHaveLength(1), { timeout: 3_000 });
+    expect(starts[0].cue).toBe(3);
+    expect(starts[0].offset).toBeGreaterThanOrEqual(0.9);
+  });
 });

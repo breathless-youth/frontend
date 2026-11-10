@@ -35,6 +35,53 @@ function setup() {
 }
 
 describe("WatcherBackground", () => {
+  it("재생이 막히면 1초 간격으로 그 자리에서 다시 재생한다", async () => {
+    const play = vi.mocked(HTMLMediaElement.prototype.play);
+    const succeed = play.getMockImplementation()!;
+    let failures = 2;
+    play.mockImplementation(function (this: HTMLMediaElement) {
+      if (failures-- > 0) return Promise.reject(new Error("blocked"));
+      return succeed.call(this);
+    });
+    const { rerender, videos, shown } = setup();
+
+    rerender(<WatcherBackground present />);
+    act(() => {
+      videos()[0]!.currentTime = 1.5;
+    });
+    expect(shown()).toHaveLength(0);
+    for (let i = 0; i < 2; i++) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1_000);
+      });
+    }
+
+    expect(shown()).toEqual([videos()[0]]);
+    expect(videos()[0]!.currentTime).toBe(1.5);
+  });
+
+  it("3번 다시 시도해도 막히면 빈 방으로 돌아가고, 다음에 들어올 때 다시 재생한다", async () => {
+    const play = vi.mocked(HTMLMediaElement.prototype.play);
+    const succeed = play.getMockImplementation()!;
+    play.mockImplementation(() => Promise.reject(new Error("blocked")));
+    const onClipStart = vi.fn();
+    const view = render(<WatcherBackground present={false} onClipStart={onClipStart} />);
+
+    view.rerender(<WatcherBackground present onClipStart={onClipStart} />);
+    for (let i = 0; i < 4; i++) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1_000);
+      });
+    }
+    expect(play).toHaveBeenCalledTimes(4);
+    expect(onClipStart).toHaveBeenLastCalledWith(null);
+
+    play.mockImplementation(succeed);
+    view.rerender(<WatcherBackground present={false} onClipStart={onClipStart} />);
+    view.rerender(<WatcherBackground present onClipStart={onClipStart} />);
+    expect(onClipStart).toHaveBeenLastCalledWith("enter");
+  });
+
   it("평소에는 빈 방만 보이고 영상은 숨어 있다", () => {
     const { container, shown } = setup();
 

@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { IDBFactory } from "fake-indexeddb";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -158,7 +158,7 @@ describe("RoomPage — 타이머 배경", () => {
     }
   });
 
-  it("감독관 배경이면 배경음의 배경 소리 탭 아래에 발소리 음량이 100으로 켜져 있고, 전체 스위치로 함께 꺼진다", async () => {
+  it("감독관 배경이면 배경음의 배경 소리 탭 아래에 발소리 음량이 80으로 켜져 있고, 전체 스위치로 함께 꺼진다", async () => {
     writeTimerBackground({ kind: "proctor" });
     renderRoom();
     await screen.findByTestId("watcher-background");
@@ -166,14 +166,37 @@ describe("RoomPage — 타이머 배경", () => {
     await userEvent.click(screen.getByRole("button", { name: /배경음/ }));
     await userEvent.click(await screen.findByRole("tab", { name: /배경 소리/ }));
     const footsteps = screen.getByRole("slider", { name: "감독관 발소리 음량" });
-    expect(footsteps).toHaveValue("100");
+    expect(footsteps).toHaveValue("80");
 
     await userEvent.click(screen.getByRole("switch", { name: "배경음" }));
     expect(footsteps).toHaveValue("0");
     expect(localStorage.getItem("focusmakers.watcherSound.volume")).toBe("0");
 
     await userEvent.click(screen.getByRole("switch", { name: "배경음" }));
-    expect(footsteps).toHaveValue("100");
+    expect(footsteps).toHaveValue("80");
+  });
+
+  it("전체 스위치로 끈 발소리는 다음 공부에서 다시 켜면 끄기 전 음량으로 돌아온다", async () => {
+    writeTimerBackground({ kind: "proctor" });
+    const first = renderRoom();
+    await screen.findByTestId("watcher-background");
+    await userEvent.click(screen.getByRole("button", { name: /배경음/ }));
+    await userEvent.click(await screen.findByRole("tab", { name: /배경 소리/ }));
+    fireEvent.change(screen.getByRole("slider", { name: "감독관 발소리 음량" }), {
+      target: { value: "40" },
+    });
+    await userEvent.click(screen.getByRole("switch", { name: "배경음" }));
+    first.unmount();
+
+    renderRoom();
+    await screen.findByTestId("watcher-background");
+    await userEvent.click(screen.getByRole("button", { name: /배경음/ }));
+    await userEvent.click(await screen.findByRole("tab", { name: /배경 소리/ }));
+    const footsteps = screen.getByRole("slider", { name: "감독관 발소리 음량" });
+    expect(footsteps).toHaveValue("0");
+
+    await userEvent.click(screen.getByRole("switch", { name: "배경음" }));
+    expect(footsteps).toHaveValue("40");
   });
 
   it("다른 배경이면 배경음에 감독관 발소리가 없다", async () => {

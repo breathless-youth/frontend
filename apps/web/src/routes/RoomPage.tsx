@@ -73,7 +73,6 @@ import { WatcherBackground } from "@/features/timer-background/watcher/WatcherBa
 import { DEFAULT_WATCHER_TRIGGER_MS } from "@/features/timer-background/watcher/watcherTrigger";
 import {
   createWatcherSound,
-  DEFAULT_WATCHER_VOLUME,
   readWatcherVolume,
   writeWatcherVolume,
 } from "@/features/timer-background/watcher/watcherSound";
@@ -676,9 +675,10 @@ function RoomSessionScreen({
     else if (!watcher.present) watcherSound?.fadeApproach();
   }, [watcher.approaching, watcher.present, watcherSound]);
   // 배경음 페이지의 `감독관 발소리` 음량. 배경음 전체 스위치를 끄고 켤 때도 함께 따라간다.
-  const [footstepsLevel, setFootstepsLevelState] = useState(readWatcherVolume);
+  const [storedFootsteps] = useState(readWatcherVolume);
+  const [footstepsLevel, setFootstepsLevelState] = useState(storedFootsteps.level);
   // 끈 발소리를 다시 켤 때 돌아갈 음량
-  const lastFootstepsLevel = useRef(footstepsLevel || DEFAULT_WATCHER_VOLUME);
+  const lastFootstepsLevel = useRef(storedFootsteps.last);
   const setFootstepsLevel = (level: number) => {
     if (level > 0) lastFootstepsLevel.current = level;
     setFootstepsLevelState(level);

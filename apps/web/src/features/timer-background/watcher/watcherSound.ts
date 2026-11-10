@@ -12,6 +12,10 @@ const FADE_OUT_SEC = 0.6;
 /** 내 화면을 키워 소리를 끌 때 딸깍 소리 없이 줄이는 시간 */
 const MUTE_FADE_SEC = 0.2;
 
+/** 소리를 못 받으면 이 간격으로 이만큼 다시 받는다. */
+const RETRY_MS = 1_000;
+const MAX_RETRIES = 3;
+
 export interface WatcherSound {
   /** 소리를 미리 받아 두고 컨텍스트를 깨운다. iOS 브라우저는 사용자 누름 안에서 불러야 이후 재생을 허락한다. */
   prime(): void;
@@ -76,19 +80,32 @@ export function createWatcherSound(
     }
   };
 
+  // 못 받으면 바로 1초 간격으로 다시 받고, 그래도 안 되면 기록을 비워 다음 재생 요청 때 다시 받는다.
+  const loadCue = (current: AudioContext, cue: WatcherCue) => {
+    const attempt = (retried: number): Promise<AudioBuffer | null> =>
+      load(`${WATCHER_ASSET_DIR}/sound/${cue}.m4a`)
+        .then((data) => current.decodeAudioData(data))
+        .then((buffer) => {
+          ready.set(cue, buffer);
+          return buffer;
+        })
+        .catch(() =>
+          retried < MAX_RETRIES && context === current
+            ? new Promise((resolve) => setTimeout(resolve, RETRY_MS)).then(() =>
+                context === current ? attempt(retried + 1) : null,
+              )
+            : null,
+        );
+    const loading: Promise<AudioBuffer | null> = attempt(0).then((buffer) => {
+      if (!buffer && buffers.get(cue) === loading) buffers.delete(cue);
+      return buffer;
+    });
+    buffers.set(cue, loading);
+  };
+
   const loadAll = (current: AudioContext) => {
     for (const cue of CUES) {
-      if (buffers.has(cue)) continue;
-      buffers.set(
-        cue,
-        load(`${WATCHER_ASSET_DIR}/sound/${cue}.m4a`)
-          .then((data) => current.decodeAudioData(data))
-          .then((buffer) => {
-            ready.set(cue, buffer);
-            return buffer;
-          })
-          .catch(() => null),
-      );
+      if (!buffers.has(cue)) loadCue(current, cue);
     }
   };
 
@@ -179,6 +196,9 @@ export function createWatcherSound(
     },
     dispose() {
       for (const cue of CUES) stop(cue);
+      // 닫힌 컨텍스트에서 받다 실패한 기록이 남으면 다음 컨텍스트가 다시 받지 않는다.
+      buffers.clear();
+      ready.clear();
       const current = context;
       context = null;
       try {
@@ -192,24 +212,31 @@ export function createWatcherSound(
 
 // 배경음 페이지의 `감독관 발소리` 음량(0~100). 설정 화면과 세션 화면이 다른 웹뷰라 localStorage에 둔다.
 const VOLUME_KEY = "focusmakers.watcherSound.volume";
+// 끈 발소리를 다시 켤 때 돌아갈 음량. 배경음의 마지막 조합처럼 다음 공부에도 남긴다.
+const LAST_VOLUME_KEY = "focusmakers.watcherSound.lastVolume";
 
-/** 처음이거나 읽지 못하면 100(맞춰 둔 크기 그대로)이다. */
-export const DEFAULT_WATCHER_VOLUME = 100;
+/** 처음이거나 읽지 못하면 80이다. 100이 소리 파일에 맞춰 둔 크기다. */
+export const DEFAULT_WATCHER_VOLUME = 80;
 
-export function readWatcherVolume(): number {
+function readLevel(key: string): number | null {
   try {
-    const stored = Number(localStorage.getItem(VOLUME_KEY) ?? Number.NaN);
-    return Number.isFinite(stored) && stored >= 0 && stored <= 100
-      ? stored
-      : DEFAULT_WATCHER_VOLUME;
+    const stored = Number(localStorage.getItem(key) ?? Number.NaN);
+    return Number.isFinite(stored) && stored >= 0 && stored <= 100 ? stored : null;
   } catch {
-    return DEFAULT_WATCHER_VOLUME;
+    return null;
   }
+}
+
+/** 지금 음량과, 꺼져 있으면 다시 켤 때 돌아갈 음량 */
+export function readWatcherVolume(): { level: number; last: number } {
+  const level = readLevel(VOLUME_KEY) ?? DEFAULT_WATCHER_VOLUME;
+  return { level, last: readLevel(LAST_VOLUME_KEY) || level || DEFAULT_WATCHER_VOLUME };
 }
 
 export function writeWatcherVolume(level: number): void {
   try {
     localStorage.setItem(VOLUME_KEY, String(level));
+    if (level > 0) localStorage.setItem(LAST_VOLUME_KEY, String(level));
   } catch {
     // 저장하지 못하면 다음 세션은 기본 크기로 시작한다.
   }

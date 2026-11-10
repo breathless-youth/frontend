@@ -22,6 +22,11 @@ const other = (slot: Slot): Slot => (slot === 0 ? 1 : 0);
 /** 화면을 넘긴 뒤 나간 영상 요소에 다음 클립을 받기까지 기다리는 시간. 넘긴 화면이 그려지기 전에 바꾸면 한 프레임 빈다. */
 const SWAP_SETTLE_MS = 100;
 
+/** 재생이 막히면 이 간격으로 그 자리에서 다시 재생한다. */
+const RETRY_MS = 1_000;
+/** 이만큼 다시 시도해도 막히면 빈 방으로 돌아가 다음 등장 때 다시 재생한다. */
+const MAX_RETRIES = 3;
+
 function viewport() {
   return { width: window.innerWidth, height: window.innerHeight };
 }
@@ -50,6 +55,8 @@ export function WatcherBackground({
 }) {
   const videos = useRef<[HTMLVideoElement | null, HTMLVideoElement | null]>([null, null]);
   const head = useRef<Head>({ slot: 1, clip: null });
+  const retries = useRef(0);
+  const retryTimer = useRef<number | undefined>(undefined);
   const presentRef = useRef(present);
   const [visible, setVisible] = useState<Slot | null>(null);
   const local = useStoredWatcherAssets();
@@ -69,6 +76,9 @@ export function WatcherBackground({
   }
 
   function start(slot: Slot, clip: WatcherClip) {
+    window.clearTimeout(retryTimer.current);
+    retryTimer.current = undefined;
+    retries.current = 0;
     head.current = { slot, clip };
     onClipStart?.(clip);
     const video = videos.current[slot];
@@ -76,9 +86,36 @@ export function WatcherBackground({
     const url = resolve(watcherClipUrl(clip, viewport()));
     if (!video.src.endsWith(url)) video.src = url;
     video.currentTime = 0;
-    // 소리 없는 인라인 영상이라 자동 재생 제한에 걸리지 않는다. 막혀도 빈 방이 남을 뿐이다.
-    video.play().catch(() => {});
+    // 소리 없는 인라인 영상이지만 저전력 모드나 소재를 못 받은 오프라인에서는 막힐 수 있다.
+    video.play().catch(() => recover(slot, clip));
   }
+
+  // 재생이 막힌 클립을 그 자리에서 다시 재생한다. 끝내 막히면 지금 클립을 놓아야 다음 등장이 다시 시작된다.
+  function recover(slot: Slot, clip: WatcherClip) {
+    const current = head.current;
+    if (current.slot !== slot || current.clip !== clip || retryTimer.current !== undefined) return;
+    if (retries.current >= MAX_RETRIES) {
+      head.current = { slot, clip: null };
+      setVisible(null);
+      onClipStart?.(null);
+      return;
+    }
+    retries.current += 1;
+    retryTimer.current = window.setTimeout(() => {
+      retryTimer.current = undefined;
+      const video = videos.current[slot];
+      if (!video || head.current.slot !== slot || head.current.clip !== clip) return;
+      // 파일을 못 읽은 오류는 다시 불러와야 하고, 불러와도 막힌 자리부터 잇는다.
+      if (video.error) {
+        const at = video.currentTime;
+        video.load();
+        video.currentTime = at;
+      }
+      video.play().catch(() => recover(slot, clip));
+    }, RETRY_MS);
+  }
+
+  useEffect(() => () => window.clearTimeout(retryTimer.current), []);
 
   function handleEnded(slot: Slot) {
     const { slot: current, clip } = head.current;
@@ -160,6 +197,10 @@ export function WatcherBackground({
           disablePictureInPicture
           onPlaying={() => handlePlaying(slot)}
           onEnded={() => handleEnded(slot)}
+          onError={() => {
+            const { slot: current, clip } = head.current;
+            if (slot === current && clip) recover(slot, clip);
+          }}
           className={cn(
             "absolute inset-0 size-full object-cover",
             visible === slot ? "opacity-100" : "opacity-0",
