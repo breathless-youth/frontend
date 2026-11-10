@@ -38,4 +38,8 @@ describe("parseInviteParam", () => {
       expect(parseInviteParam(raw)).toBeNull();
     },
   );
+
+  it("하이픈을 넣어 붙여 넣은 그룹 초대코드는 그대로 받는다", () => {
+    expect(parseInviteParam("G-2X4AB")).toEqual({ kind: "group", code: "G2X4AB" });
+  });
 });
