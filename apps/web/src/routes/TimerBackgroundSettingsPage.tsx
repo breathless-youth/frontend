@@ -105,6 +105,7 @@ export function TimerBackgroundSettingsPage() {
   const [staged, setStaged] = useState<Staged | null>(null);
   const [adding, setAdding] = useState(false);
   const [applying, setApplying] = useState(false);
+  const applyingRef = useRef(false);
   // 받는 동안 미리보기를 닫았으면 받기가 끝나도 적용하지 않는다.
   const stagedRef = useRef(staged);
   useEffect(() => {
@@ -244,10 +245,21 @@ export function TimerBackgroundSettingsPage() {
    * 나머지는 화면을 떠난 뒤에도 이어 받는다. 받지 못해도 공부 화면이 그때 받으므로 적용은 그대로 한다.
    */
   async function apply(current: Staged) {
-    if (applying) return;
+    // 같은 순간 두 번 눌러도 상태가 반영되기 전이라 ref로 막는다.
+    if (applyingRef.current) return;
+    applyingRef.current = true;
+    setApplying(true);
+    try {
+      await applyStaged(current);
+    } finally {
+      applyingRef.current = false;
+      setApplying(false);
+    }
+  }
+
+  async function applyStaged(current: Staged) {
     const { selection: next, fit } = current;
     if (next.kind === "proctor") {
-      setApplying(true);
       const saving = saveWatcherAssets(
         watcherAssetUrls({ width: window.innerWidth, height: window.innerHeight }),
       );
@@ -255,7 +267,6 @@ export function TimerBackgroundSettingsPage() {
         saving,
         new Promise((resolve) => setTimeout(resolve, PROCTOR_APPLY_WAIT_MS)),
       ]);
-      setApplying(false);
       if (stagedRef.current !== current) return;
     }
     try {

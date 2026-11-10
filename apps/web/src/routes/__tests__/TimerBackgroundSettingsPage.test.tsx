@@ -274,6 +274,24 @@ describe("설정 › 타이머 배경 선택 화면", () => {
     expect(showToast).toHaveBeenCalledWith("배경을 적용했어요", { persistOnNavigation: true });
   });
 
+  it("적용하기를 연달아 눌러도 한 번만 적용하고 돌아간다", async () => {
+    renderPage();
+    await findSimpleTile();
+    await addPhotoFromFile();
+
+    const button = screen.getByRole("button", { name: "적용하기" });
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    expect(
+      await screen.findByRole("button", { name: "타이머 배경, 내 사진 1" }),
+    ).toBeInTheDocument();
+    expect(analytics.applied).toHaveBeenCalledTimes(1);
+    expect(
+      vi.mocked(showToast).mock.calls.filter(([message]) => message === "배경을 적용했어요"),
+    ).toHaveLength(1);
+  });
+
   it("미리보기에서 사진을 끌면 위치가 바뀌고 적용할 때 저장된다", async () => {
     renderPage();
     await findSimpleTile();
