@@ -92,16 +92,17 @@
     "simple": "簡約",
     "names": {
       "proctor": "自習室監督",
-      "watchingCat": "盯著你的貓",
-      "studyMate": "隔壁讀書夥伴",
-      "foggyForest": "霧之森",
-      "sunsetField": "夕陽原野",
-      "snowyPeak": "雪峰"
+      "libraryCapybara": "圖書館的水豚",
+      "peepholeDog": "門外的狗狗",
+      "grass": "草叢",
+      "mountain": "山",
+      "rain": "雨天"
     },
     "inUse": "使用中",
     "soon": "即將推出",
     "removePhoto": "刪除{{name}}",
     "apply": "套用",
+    "applying": "套用中…",
     "applied": "已套用背景",
     "applyFailed": "無法套用背景，請再試一次。",
     "removed": "已刪除照片",

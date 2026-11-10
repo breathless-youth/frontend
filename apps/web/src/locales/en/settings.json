@@ -92,16 +92,17 @@
     "simple": "Simple",
     "names": {
       "proctor": "Study hall proctor",
-      "watchingCat": "Watching cat",
-      "studyMate": "Study buddy",
-      "foggyForest": "Foggy forest",
-      "sunsetField": "Sunset field",
-      "snowyPeak": "Snowy peak"
+      "libraryCapybara": "Library capybara",
+      "peepholeDog": "Dog at the door",
+      "grass": "Grass",
+      "mountain": "Mountains",
+      "rain": "Rainy day"
     },
     "inUse": "In use",
     "soon": "Coming soon",
     "removePhoto": "Delete {{name}}",
     "apply": "Apply",
+    "applying": "Applying…",
     "applied": "Background applied",
     "applyFailed": "Couldn't apply the background. Please try again.",
     "removed": "Photo deleted",

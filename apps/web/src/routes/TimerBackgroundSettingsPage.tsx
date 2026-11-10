@@ -14,6 +14,8 @@ import {
   readTimerBackground,
   SIMPLE_BACKGROUND,
   SIMPLE_BACKGROUND_COLOR,
+  PROCTOR_BACKGROUND,
+  PROCTOR_TILE_URL,
   WATCH_BACKGROUNDS,
   writeTimerBackground,
   type TimerBackgroundSelection,
@@ -30,6 +32,7 @@ import {
   type BackgroundPhotoView,
 } from "@/features/timer-background/timerBackgroundQueries";
 import { TimerBackgroundPreview } from "@/features/timer-background/TimerBackgroundPreview";
+import { WatcherDemo } from "@/features/timer-background/watcher/WatcherBackground";
 import {
   trackTimerBackgroundApplied,
   trackTimerBackgroundPhotoAdded,
@@ -40,6 +43,11 @@ import {
   canUseNativeBackgroundPhoto,
   pickNativeBackgroundPhoto,
 } from "@/lib/nativeBackgroundPhoto";
+import {
+  clearWatcherAssets,
+  saveWatcherAssets,
+  watcherAssetUrls,
+} from "@/features/timer-background/watcher/watcherAssets";
 import { slideBack } from "@/lib/pageTransition";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 import { showToast } from "@/lib/toast";
@@ -62,6 +70,9 @@ const MIN_SPY_LINE_PX = 160;
 
 /** 칩을 누른 뒤 부드러운 스크롤이 끝날 때까지 스크롤 위치로 칩을 바꾸지 않는다. */
 const JUMP_LOCK_MS = 1000;
+
+/** 감독관 소재를 받는 동안 `적용하는 중`으로 기다리는 최대 시간 */
+const PROCTOR_APPLY_WAIT_MS = 10_000;
 
 /** 고정 머리 줄(안전 영역 + 52px)과 칩 줄(66px) 아래로 묶음 제목이 보이게 한다. */
 const SECTION_SCROLL_MARGIN = "scroll-mt-[calc(env(safe-area-inset-top)+130px)]";
@@ -93,6 +104,12 @@ export function TimerBackgroundSettingsPage() {
   const [selection, setSelection] = useState(readTimerBackground);
   const [staged, setStaged] = useState<Staged | null>(null);
   const [adding, setAdding] = useState(false);
+  const [applying, setApplying] = useState(false);
+  // 받는 동안 미리보기를 닫았으면 받기가 끝나도 적용하지 않는다.
+  const stagedRef = useRef(staged);
+  useEffect(() => {
+    stagedRef.current = staged;
+  }, [staged]);
   const [activeChip, setActiveChip] = useState<Section>("mine");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sectionRefs = useRef<Partial<Record<Section, HTMLElement | null>>>({});
@@ -223,9 +240,24 @@ export function TimerBackgroundSettingsPage() {
    *
    * 사진 조정값을 먼저 저장하고 그다음 선택을 저장하며, 다 저장하면 설정 화면으로 돌아간다.
    * 어느 쪽이든 저장하지 못하면 적용됐다고 알리지 않고 미리보기에 머물러 다시 누를 수 있게 한다.
+   * 감독관은 공부 화면이 바로 쓰도록 영상·소리를 기기에 받아 두는데, 최대 `PROCTOR_APPLY_WAIT_MS`만 기다리고
+   * 나머지는 화면을 떠난 뒤에도 이어 받는다. 받지 못해도 공부 화면이 그때 받으므로 적용은 그대로 한다.
    */
   async function apply(current: Staged) {
+    if (applying) return;
     const { selection: next, fit } = current;
+    if (next.kind === "proctor") {
+      setApplying(true);
+      const saving = saveWatcherAssets(
+        watcherAssetUrls({ width: window.innerWidth, height: window.innerHeight }),
+      );
+      await Promise.race([
+        saving,
+        new Promise((resolve) => setTimeout(resolve, PROCTOR_APPLY_WAIT_MS)),
+      ]);
+      setApplying(false);
+      if (stagedRef.current !== current) return;
+    }
     try {
       if (next.kind === "photo") {
         await timerBackgroundPhotoStore().updateFit(next.photoId, fit);
@@ -239,6 +271,7 @@ export function TimerBackgroundSettingsPage() {
       return;
     }
     setSelection(next);
+    if (next.kind !== "proctor") void clearWatcherAssets();
     trackTimerBackgroundApplied({ kind: next.kind });
     // 설정 행의 배경 이름이 바로 바뀌도록 사진 목록을 다시 읽은 뒤 설정으로 돌아간다.
     if (next.kind === "photo") {
@@ -258,7 +291,9 @@ export function TimerBackgroundSettingsPage() {
       ? t("timerBackground.title")
       : stagedSelection.kind === "photo"
         ? photoName(stagedSelection.photoId)
-        : t("timerBackground.simple");
+        : stagedSelection.kind === "proctor"
+          ? t("timerBackground.names.proctor")
+          : t("timerBackground.simple");
 
   return (
     <main className="theme-soft-blue bg-soft-blue page-column min-h-dvh pb-10 text-foreground">
@@ -377,6 +412,31 @@ export function TimerBackgroundSettingsPage() {
           description={t("timerBackground.watchDescription")}
           sectionRef={(element) => (sectionRefs.current.watch = element)}
         >
+          <button
+            type="button"
+            aria-label={t("timerBackground.names.proctor")}
+            aria-pressed={effective.kind === "proctor"}
+            onClick={() => openPreview(PROCTOR_BACKGROUND)}
+            className={cn(TILE, "bg-bg-layer-2", effective.kind === "proctor" && SELECTED_RING)}
+          >
+            {/* 미리보기를 연 동안은 그쪽이 같은 영상을 트니 타일은 빈 방으로 쉰다. */}
+            {staged === null ? (
+              <WatcherDemo />
+            ) : (
+              <img
+                src={PROCTOR_TILE_URL}
+                alt=""
+                draggable={false}
+                className="absolute inset-0 size-full object-cover"
+              />
+            )}
+            <span className="absolute inset-x-0 bottom-0 bg-linear-to-t from-black/50 to-transparent p-2.5 pt-6 text-left text-xs leading-4 font-medium text-white">
+              {t("timerBackground.names.proctor")}
+            </span>
+            {effective.kind === "proctor" && (
+              <span className={cn(BADGE, "top-2 right-2")}>{t("timerBackground.inUse")}</span>
+            )}
+          </button>
           {WATCH_BACKGROUNDS.map((background) => (
             <UpcomingTile key={background.id} background={background} />
           ))}
@@ -428,8 +488,10 @@ export function TimerBackgroundSettingsPage() {
       {staged !== null && (
         <TimerBackgroundPreview
           photo={stagedPhoto}
+          proctor={stagedSelection?.kind === "proctor"}
           fit={staged.fit}
           onFitChange={(fit) => setStaged({ ...staged, fit })}
+          applying={applying}
           onApply={() => void apply(staged)}
         />
       )}
@@ -482,7 +544,7 @@ function TileSection({
   );
 }
 
-/** 출시 전 배경 타일. 흐린 색 자리 표시 위에 `출시 예정`을 두고 누를 수 없다. */
+/** 출시 전 배경 타일. 흐린 장면 사진 위에 `출시 예정`을 두고 누를 수 없다. */
 function UpcomingTile({ background }: { background: UpcomingBackground }) {
   const { t } = useTranslation("settings");
   const name = t(`timerBackground.names.${background.nameKey}`);
@@ -492,9 +554,11 @@ function UpcomingTile({ background }: { background: UpcomingBackground }) {
       aria-label={`${name}, ${t("timerBackground.soon")}`}
       className={cn(TILE, "bg-bg-layer-2")}
     >
-      <span
-        className="absolute inset-0 scale-112 blur-[10px]"
-        style={{ background: background.gradient }}
+      <img
+        src={`/images/timer-background/${background.nameKey}.jpg`}
+        alt=""
+        draggable={false}
+        className="absolute inset-0 size-full scale-106 object-cover blur-[3px]"
       />
       <span className="absolute inset-0 flex items-center justify-center bg-black/22">
         <span

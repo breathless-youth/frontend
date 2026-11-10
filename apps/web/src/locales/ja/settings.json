@@ -92,16 +92,17 @@
     "simple": "シンプル",
     "names": {
       "proctor": "自習室の監督",
-      "watchingCat": "見守るネコ",
-      "studyMate": "となりの勉強仲間",
-      "foggyForest": "霧の森",
-      "sunsetField": "夕焼けの野原",
-      "snowyPeak": "雪の峰"
+      "libraryCapybara": "図書館のカピバラ",
+      "peepholeDog": "ドアの向こうの犬",
+      "grass": "草むら",
+      "mountain": "山",
+      "rain": "雨の日"
     },
     "inUse": "使用中",
     "soon": "近日公開",
     "removePhoto": "{{name}}を削除",
     "apply": "適用する",
+    "applying": "適用中…",
     "applied": "背景を適用しました",
     "applyFailed": "背景を適用できませんでした。もう一度お試しください。",
     "removed": "写真を削除しました",

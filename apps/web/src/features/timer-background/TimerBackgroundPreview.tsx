@@ -6,16 +6,24 @@ import { Button } from "@/components/ui/button";
 import { SessionClock } from "@/features/study-session/components/SessionClock";
 import { ExpandGlyph } from "@/features/study-session/components/SessionControlButtons";
 import { FakeBar, FakePill } from "@/features/study-session/components/SessionHelpScreen";
-import { PIP_ANCHOR, PIP_SIZE, SESSION_LAYER_INSET } from "@/features/study-session/sessionLayout";
+import {
+  PIP_ANCHOR,
+  PIP_SIZE,
+  SESSION_LAYER_INSET,
+  WALLPAPER_CLOCK_ANCHOR,
+} from "@/features/study-session/sessionLayout";
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import { cn } from "@/lib/utils";
 
 import { panZoom, type GestureBase, type PhotoFit } from "./photoFit";
 import { TimerBackgroundLayer } from "./TimerBackgroundLayer";
 import type { BackgroundPhotoView } from "./timerBackgroundQueries";
+import { WallpaperScrim } from "./WallpaperScrim";
+import { WatcherDemo } from "./watcher/WatcherBackground";
 
-/** 시안의 미리보기 숫자(01:12:30, 오늘 누적 04:15:40) */
+/** 시안의 미리보기 숫자(01:12:30, 순공 01:03:12, 오늘 누적 04:15:40) */
 const SAMPLE_STUDY_SEC = 4350;
+const SAMPLE_FOCUS_SEC = 3792;
 const SAMPLE_TODAY_SEC = 15340;
 
 /** 휠 한 칸이 바꾸는 배율. 트랙패드 핀치(ctrl+휠)는 더 민감하다. */
@@ -23,11 +31,15 @@ const WHEEL_ZOOM = 0.002;
 const PINCH_WHEEL_ZOOM = 0.01;
 
 export interface TimerBackgroundPreviewProps {
-  /** null이면 심플 배경이다. */
+  /** 내 사진이 아니면 null이다. */
   photo: BackgroundPhotoView | null;
+  /** 독서실 감독관 배경이면 감독관이 들어오기 전 빈 방을 깐다. */
+  proctor?: boolean;
   fit: PhotoFit;
   onFitChange: (fit: PhotoFit) => void;
   onApply: () => void;
+  /** 적용하는 중이면 버튼을 막고 진행 표시를 한다. */
+  applying?: boolean;
 }
 
 /**
@@ -40,11 +52,14 @@ export interface TimerBackgroundPreviewProps {
  */
 export function TimerBackgroundPreview({
   photo,
+  proctor = false,
   fit,
   onFitChange,
   onApply,
+  applying = false,
 }: TimerBackgroundPreviewProps) {
   const { t } = useTranslation("settings");
+  const wallpaper = photo !== null || proctor;
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const base = useRef<GestureBase | null>(null);
 
@@ -115,6 +130,8 @@ export function TimerBackgroundPreview({
         )}
       >
         {photo !== null && <TimerBackgroundLayer src={photo.src} fit={fit} />}
+        {proctor && <WatcherDemo />}
+        {wallpaper && <WallpaperScrim />}
         <div
           aria-hidden="true"
           className={cn("relative flex h-full flex-col items-center", SESSION_LAYER_INSET)}
@@ -138,17 +155,20 @@ export function TimerBackgroundPreview({
             </div>
           </div>
           <div className="h-7.5 shrink-0" />
-          <SessionClock
-            studySec={SAMPLE_STUDY_SEC}
-            focusSec={SAMPLE_STUDY_SEC}
-            todayStudySec={SAMPLE_TODAY_SEC}
-            state="focus"
-            statusLabel=""
-            simple={false}
-            infoOpen={false}
-            onToggleInfo={() => {}}
-            fake
-          />
+          <div className={wallpaper ? WALLPAPER_CLOCK_ANCHOR : undefined}>
+            <SessionClock
+              studySec={SAMPLE_STUDY_SEC}
+              focusSec={SAMPLE_FOCUS_SEC}
+              todayStudySec={SAMPLE_TODAY_SEC}
+              state="focus"
+              statusLabel=""
+              simple={false}
+              corner={wallpaper}
+              infoOpen={false}
+              onToggleInfo={() => {}}
+              fake
+            />
+          </div>
           <div className="grow" />
           <FakeBar />
         </div>
@@ -169,8 +189,20 @@ export function TimerBackgroundPreview({
         </div>
       </div>
       <div className="absolute inset-x-5 bottom-[calc(env(safe-area-inset-bottom)+20px)]">
-        <Button size="xl" onClick={onApply} className="w-full font-bold shadow-sb-cta">
-          {t("timerBackground.apply")}
+        <Button
+          size="xl"
+          onClick={onApply}
+          disabled={applying}
+          aria-busy={applying}
+          className="w-full font-bold shadow-sb-cta"
+        >
+          {applying && (
+            <span
+              aria-hidden="true"
+              className="size-4 animate-spin rounded-full border-2 border-current/35 border-t-current"
+            />
+          )}
+          {t(applying ? "timerBackground.applying" : "timerBackground.apply")}
         </Button>
       </div>
     </div>

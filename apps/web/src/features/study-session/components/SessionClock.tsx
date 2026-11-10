@@ -27,13 +27,25 @@ export interface SessionClockProps {
   callouts?: { caption?: ReactNode; card?: ReactNode };
   /** 도움말 화면의 가짜 묶음. 라이브 리전과 버튼 없이 모양만 그린다. */
   fake?: boolean;
+  /**
+   * 월페이퍼 위 배치(v3 시안 28e·30a)
+   *
+   * 왼쪽 정렬이고 큰 숫자 아래에 오늘 누적·순공·집중률을 늘 보여 준다. 그래서 ⓘ 버튼과 카드가 없다.
+   */
+  corner?: boolean;
 }
+
+/** 상태가 바뀔 때 색이 툭 바뀌지 않게 서서히 옮긴다. */
+const STATE_COLOR_EASE = "transition-colors duration-500 ease-out motion-reduce:transition-none";
+
+/** 월페이퍼 위 글자 그림자. 밝은 그림 위에서도 읽히게 가까운 그림자와 넓은 그림자를 겹친다. */
+const CORNER_SHADOW = "[text-shadow:0_1px_2px_rgba(0,0,0,0.6),0_4px_16px_rgba(0,0,0,0.45)]";
 
 /**
  * 세션 화면 가운데 시간 묶음
  *
  * 큰 숫자는 이번 세션 공부 시간이고 아래 작은 줄은 오늘 누적 공부 시간이다.
- * 순공과 집중률은 ⓘ 버튼으로 펼치는 카드에만 보인다.
+ * 순공과 집중률은 ⓘ 버튼으로 펼치는 카드에만 보인다. 월페이퍼 위(`corner`)에서는 세 값을 늘 보여 준다.
  * 시안에는 상태 필이 없어서, 비집중·일시정지는 `현재 공부` 자리를 상태 색 문구로 바꿔 알린다.
  * 상태 문구는 자동 감지로 바뀌므로 라이브 리전으로 읽힌다.
  */
@@ -48,9 +60,102 @@ export function SessionClock({
   onToggleInfo,
   callouts,
   fake = false,
+  corner = false,
 }: SessionClockProps) {
   const { t } = useTranslation("study-session");
   const rate = studySec > 0 ? (focusSec / studySec) * 100 : 0;
+  const statusText = (
+    <p
+      role={fake ? undefined : "status"}
+      aria-live={fake ? undefined : "polite"}
+      aria-hidden={fake || undefined}
+      className={cn(
+        "text-xs leading-4 regular:text-sm regular:leading-5",
+        STATE_COLOR_EASE,
+        state !== "focus"
+          ? "font-semibold text-(--session-state-color)"
+          : corner
+            ? "text-white/80"
+            : "text-white/60",
+      )}
+    >
+      {/* 문구가 바뀌면 새 문구를 서서히 띄운다. 라이브 리전은 바깥 p라 다시 읽는 것은 그대로다. */}
+      <span
+        key={state === "focus" ? "focus" : statusLabel}
+        className="animate-in duration-300 fade-in-0 motion-reduce:animate-none"
+      >
+        {state === "focus" ? t("clock.current") : statusLabel}
+      </span>
+    </p>
+  );
+  const studyTime = (
+    <>
+      <span aria-hidden="true">{formatElapsed(studySec)}</span>
+      <span className="sr-only">
+        {t("clock.srStudy", { duration: toKoreanDuration(studySec) })}
+      </span>
+    </>
+  );
+  // 집중하지 않는 동안은 상태 문구와 같은 상태 색(비집중 주황·일시정지 회색)으로 바꾼다.
+  const rateColor =
+    state === "focus" ? "text-(--session-control-resume-bg)" : "text-(--session-state-color)";
+  // 순공은 집중하는 동안만 흐른다. 멈춘 동안은 일시정지 회색으로 바꿔 멈췄다는 것을 보인다.
+  const focusColor = state === "focus" ? "text-white" : "text-text-tertiary";
+  if (corner) {
+    const stats = [
+      { label: t("clock.todayLabel"), value: formatElapsed(todayStudySec) },
+      {
+        label: t("clock.focusShort"),
+        value: formatElapsed(focusSec),
+        color: focusColor,
+        testId: "session-focus-time",
+      },
+      {
+        label: t("clock.rate"),
+        value: `${rate.toFixed(1)}%`,
+        color: rateColor,
+        testId: "session-focus-rate",
+      },
+    ];
+    return (
+      <div className={cn("flex flex-col items-start gap-0.5", CORNER_SHADOW)}>
+        {statusText}
+        <p
+          aria-hidden={fake || undefined}
+          className={cn(
+            "text-5xl leading-14 font-bold tracking-[-0.5px] tabular-nums regular:text-[64px] regular:leading-18",
+            STATE_COLOR_EASE,
+            state === "paused" ? "text-text-tertiary" : "text-white",
+          )}
+        >
+          {studyTime}
+        </p>
+        <dl
+          aria-hidden={fake || undefined}
+          // 카메라 창이 있든 없든(심플 모드) 같은 간격이라 전환해도 칸이 움직이지 않는다.
+          className="mt-2 flex items-start gap-3"
+        >
+          {stats.map((stat) => (
+            <div key={stat.label} className="flex flex-col gap-0.5">
+              <dt className="text-xs leading-4 whitespace-nowrap text-white/70 regular:text-sm regular:leading-5">
+                {stat.label}
+              </dt>
+              <dd
+                data-testid={stat.testId}
+                className={cn(
+                  "text-base leading-6 font-medium whitespace-nowrap tabular-nums regular:text-xl regular:leading-7",
+                  STATE_COLOR_EASE,
+                  stat.color ?? "text-white",
+                )}
+              >
+                {stat.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    );
+  }
   const infoIcon = (
     <span
       className={cn(
@@ -66,17 +171,7 @@ export function SessionClock({
       {/* 타이머 배경 사진 위에서도 읽히게 시안대로 글자 그림자를 깐다. */}
       <div className="relative flex items-center gap-1 [text-shadow:0_1px_10px_rgba(0,0,0,0.45)]">
         {callouts?.caption}
-        <p
-          role={fake ? undefined : "status"}
-          aria-live={fake ? undefined : "polite"}
-          aria-hidden={fake || undefined}
-          className={cn(
-            "text-xs leading-4 regular:text-sm regular:leading-5",
-            state === "focus" ? "text-white/60" : "font-semibold text-(--session-state-color)",
-          )}
-        >
-          {state === "focus" ? t("clock.current") : statusLabel}
-        </p>
+        {statusText}
         {fake ? (
           <span
             aria-hidden="true"
@@ -104,16 +199,14 @@ export function SessionClock({
           className={cn(
             "mt-1 text-center landscape-compact:mt-0.5",
             NUMBER_SIZE,
+            STATE_COLOR_EASE,
             simple
               ? "landscape-compact:text-[72px] landscape-compact:leading-20"
               : "landscape-compact:text-[44px] landscape-compact:leading-13",
             state === "paused" ? "text-text-tertiary" : "text-white",
           )}
         >
-          <span aria-hidden="true">{formatElapsed(studySec)}</span>
-          <span className="sr-only">
-            {t("clock.srStudy", { duration: toKoreanDuration(studySec) })}
-          </span>
+          {studyTime}
         </p>
         <p
           className={cn(
@@ -142,21 +235,26 @@ export function SessionClock({
             <dt className="text-xs leading-4 whitespace-nowrap text-white/60">
               {t("clock.focus")}
             </dt>
-            <dd className="text-xl leading-6.5 font-bold text-white tabular-nums">
+            <dd
+              data-testid="session-focus-time"
+              className={cn(
+                "text-xl leading-6.5 font-bold tabular-nums",
+                STATE_COLOR_EASE,
+                focusColor,
+              )}
+            >
               {formatElapsed(focusSec)}
             </dd>
           </dl>
           <span aria-hidden="true" className="w-px self-stretch bg-white/14" />
           <dl className="flex flex-1 flex-col items-center gap-0.5">
             <dt className="text-xs leading-4 whitespace-nowrap text-white/60">{t("clock.rate")}</dt>
-            {/* 집중하지 않는 동안은 상태 문구와 같은 상태 색(비집중 주황·일시정지 회색)으로 바꾼다. */}
             <dd
               data-testid="session-focus-rate"
               className={cn(
                 "text-xl leading-6.5 font-bold tabular-nums",
-                state === "focus"
-                  ? "text-(--session-control-resume-bg)"
-                  : "text-(--session-state-color)",
+                STATE_COLOR_EASE,
+                rateColor,
               )}
             >
               {rate.toFixed(1)}%

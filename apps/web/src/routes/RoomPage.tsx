@@ -47,6 +47,7 @@ import { SessionClock } from "@/features/study-session/components/SessionClock";
 import {
   ExpandGlyph,
   SESSION_BAR,
+  SESSION_BAR_MUTED,
   SessionExitButton,
   SessionPauseButton,
   ShrinkGlyph,
@@ -66,6 +67,11 @@ import { SimpleModeSurface } from "@/features/study-session/components/SimpleMod
 import { CAMERA_EXPAND_TIMING, cameraBoxFrames } from "@/features/study-session/cameraExpandMotion";
 import { readTimerBackground } from "@/features/timer-background/timerBackground";
 import { TimerBackgroundLayer } from "@/features/timer-background/TimerBackgroundLayer";
+import { WallpaperScrim } from "@/features/timer-background/WallpaperScrim";
+import { useWatcherPresence } from "@/features/timer-background/watcher/useWatcherPresence";
+import { WatcherBackground } from "@/features/timer-background/watcher/WatcherBackground";
+import { DEFAULT_WATCHER_TRIGGER_MS } from "@/features/timer-background/watcher/watcherTrigger";
+import { createWatcherSound } from "@/features/timer-background/watcher/watcherSound";
 import { timerBackgroundPhotoStore } from "@/features/timer-background/timerBackgroundPhotos";
 import {
   toPhotoView,
@@ -87,8 +93,18 @@ import type {
   SessionState,
 } from "@/features/study-session/sessionState";
 import { SESSION_HELP_STEPS, markSessionGuideSeen } from "@/features/study-session/sessionGuide";
-import { PIP_ANCHOR, PIP_SIZE, SESSION_LAYER_INSET } from "@/features/study-session/sessionLayout";
-import { MANUAL_END_REASON, statusLabelKey } from "@/features/study-session/sessionState";
+import {
+  PIP_ANCHOR,
+  PIP_SIZE,
+  SESSION_LAYER_INSET,
+  WALLPAPER_CLOCK_ANCHOR,
+  WALLPAPER_CLOCK_WIDE,
+} from "@/features/study-session/sessionLayout";
+import {
+  MANUAL_END_REASON,
+  isSessionHeld,
+  statusLabelKey,
+} from "@/features/study-session/sessionState";
 import {
   clearSessionInvite,
   leaveSessionForInvite,
@@ -459,6 +475,35 @@ function RoomSessionScreen({
   // 세션은 기본 모드로 시작한다. 내 카메라는 작은 창이라 입장 확인 창 없이 바로 보인다.
   // 카메라·감지·타이머는 표시 모드와 상관없이 입장 즉시 돈다.
   const [simpleMode, setSimpleMode] = useState(false);
+  /**
+   * 심플 모드 전환 때 시간 묶음이 새 자리로 미끄러져 가게 한다
+   *
+   * 묶음 자리는 레이아웃(flex 칸·위치 클래스)으로 바뀌어 CSS 전환이 걸리지 않는다.
+   * 그래서 누르기 직전 자리를 재 두고, 바뀐 자리에서 그 차이만큼 되돌린 모습부터 300ms 동안 풀어 준다.
+   * 카메라 창·심플 화면의 페이드와 같은 박자다.
+   */
+  const clockRef = useRef<HTMLDivElement>(null);
+  const clockRectBeforeToggle = useRef<DOMRect | null>(null);
+  useLayoutEffect(() => {
+    const before = clockRectBeforeToggle.current;
+    clockRectBeforeToggle.current = null;
+    const element = clockRef.current;
+    if (before === null || element === null || typeof element.animate !== "function") return;
+    if (prefersReducedMotion()) return;
+    const after = element.getBoundingClientRect();
+    if (after.width === 0) return;
+    const scale = before.width / after.width;
+    const dx = before.left - after.left;
+    const dy = before.top - after.top;
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(scale - 1) < 0.01) return;
+    element.animate(
+      [
+        { transformOrigin: "top left", transform: `translate(${dx}px, ${dy}px) scale(${scale})` },
+        { transformOrigin: "top left", transform: "none" },
+      ],
+      { duration: 300, easing: "ease-out" },
+    );
+  }, [simpleMode]);
   // 기본 모드의 내 카메라는 작은 창으로 시작하고, 키우면 화면 전체를 채운다.
   const [cameraExpanded, setCameraExpanded] = useState(false);
   // 작은 창 자리. 보이지 않는 같은 크기의 칸을 둬서 화면을 돌린 뒤에도 그때의 자리를 잰다.
@@ -572,6 +617,13 @@ function RoomSessionScreen({
   }, [userId]);
   // 카메라 창 이름표. 타임랩스를 켜 둔 계정은 찍히고 있다는 것을 빨간 점으로 알린다.
   const [timelapseOn, setTimelapseOn] = useState(false);
+  // 카메라를 키운 동안 작은 창 이름표 대신 띄우는 타임랩스 표시.
+  const expandedTimelapsePill = (
+    <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-(--session-pill-bg) px-2.5 text-xs leading-4 font-semibold whitespace-nowrap text-white backdrop-blur-[10px]">
+      <span aria-hidden="true" className={TIMELAPSE_DOT} />
+      {t("camera.timelapse")}
+    </span>
+  );
   useEffect(() => {
     let cancelled = false;
     loadTimelapseSettings()
@@ -586,6 +638,38 @@ function RoomSessionScreen({
   // 타이머 배경. 설정 화면이 이 기기에 저장한 값을 세션을 열 때 한 번 읽는다.
   // 고른 사진이 지워졌거나 읽지 못하면 배경 없이 그린다.
   const [backgroundPhoto, setBackgroundPhoto] = useState<BackgroundPhotoView | null>(null);
+  const [proctorBackground] = useState(() => readTimerBackground().kind === "proctor");
+  // 월페이퍼가 보이는 기본 모드에서는 시간 묶음을 왼쪽 아래로 옮긴다. 심플 모드는 배경이 걷혀 가운데로 돌아간다.
+  // 월페이퍼가 있으면 시간 묶음을 왼쪽 아래로 옮기고(시안 28e·30a), 심플 모드도 어두운 화면 대신
+  // 그림을 둔 채 카메라 창만 뺀다(시안 31a). 하단 버튼은 심플 모드면 배경과 상관없이 유리 원으로 낮춘다(시안 18i).
+  const wallpaper = backgroundPhoto !== null || proctorBackground;
+  // 감독관은 비집중이 끊기지 않고 이어질 때만 들어온다. 비집중 판정 자체가 이미 잠깐의 흔들림을 걸러 낸다.
+  const watcher = useWatcherPresence(
+    sessionState.kind === "DISTRACTION" ? sessionState.trigger : null,
+    DEFAULT_WATCHER_TRIGGER_MS,
+  );
+  // 감독관 배경이면 늘 발소리를 낸다. 화면을 떠나면 끊고, 다시 볼 때 이어 울리지 않는다.
+  const [watcherSound] = useState(() => (proctorBackground ? createWatcherSound() : null));
+  useEffect(() => {
+    if (!watcherSound) return;
+    watcherSound.prime();
+    const unlock = () => watcherSound.prime();
+    const silenceHidden = () => {
+      if (document.hidden) watcherSound.stopAll();
+    };
+    window.addEventListener("pointerdown", unlock);
+    document.addEventListener("visibilitychange", silenceHidden);
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      document.removeEventListener("visibilitychange", silenceHidden);
+      watcherSound.dispose();
+    };
+  }, [watcherSound]);
+  useEffect(() => {
+    if (watcher.approaching) watcherSound?.play("approach");
+    // 들어오면 다가오던 소리가 등장 소리로 이어지니 그대로 두고, 들어오기 전에 집중하면 멀어지듯 줄인다.
+    else if (!watcher.present) watcherSound?.fadeApproach();
+  }, [watcher.approaching, watcher.present, watcherSound]);
   useEffect(() => {
     const selection = readTimerBackground();
     if (selection.kind !== "photo") return;
@@ -688,6 +772,14 @@ function RoomSessionScreen({
   const rotationPhase = useRotationPhase();
 
   const paused = sessionState.kind === "PAUSE";
+  /** 일시정지 동안 카메라가 꺼진다(`useStudyRoomSession`). 미리보기 창은 심플 모드처럼 스르륵 걷는다. */
+  const cameraOff = isSessionHeld(sessionState);
+  const cameraHidden = simpleMode || cameraOff;
+  // 내 화면을 키우면 감독관이 가려지므로 발소리도 끈다. 다시 줄이면 다음 소리부터 난다.
+  const watcherMuted = cameraExpanded && !cameraHidden;
+  useEffect(() => {
+    watcherSound?.setMuted(watcherMuted);
+  }, [watcherMuted, watcherSound]);
   const statusLabel = t(statusLabelKey(sessionState));
   const pillState = toPillState(sessionState);
   /**
@@ -708,13 +800,12 @@ function RoomSessionScreen({
    *
    * | 상황             | 카메라 | 추론 |
    * | ---------------- | ------ | ---- |
-   * | 일시정지         | 유지   | 정지 |
+   * | 일시정지         | 끔     | 정지 |
    * | 카메라 전환 중   | 재연결 | 정지 |
    * | 세션 종료·제출   | 훅이 정리 | 정지 |
    *
-   * 일시정지에서 스트림을 끄지 않는 이유는 셋이다 — Figma가 프리뷰를 그대로 보여주고,
-   * 배터리 주 소모원은 카메라 피드가 아니라 추론이며, 스트림을 끄면 재개 시 `getUserMedia`
-   * 재호출로 1~2초 공백이 생겨 그 구간이 측정되지 않는다.
+   * 일시정지에서는 표시등과 배터리를 위해 카메라도 끈다(`useStudyRoomSession`의 `cameraHeld`).
+   * 대가로 재개 직후 `getUserMedia`를 다시 부르는 1~2초는 프레임이 없어 판정을 건너뛴다.
    *
    * `start`/`stop`은 멱등이라 훅이 마운트 시 부르는 `detector.start()`와 겹쳐도 안전하다.
    */
@@ -1002,13 +1093,35 @@ function RoomSessionScreen({
           SimpleModeSurface도 카메라 서피스와 같은 hidden 패턴으로 상시 마운트한다 
           — 조건부 마운트면 전환 순간 배경이 0ms에 스왑되어, 300ms를 끄는 타이머 이동과 시차가 벌어진다. 
           두 서피스가 각자 300ms 페이드로 교차하면 배경도 같은 박자를 탄다. */}
-      <SimpleModeSurface hidden={!simpleMode} glowKey={glowKey} />
+      <SimpleModeSurface hidden={!simpleMode || wallpaper} glowKey={glowKey} />
       {/* 회전 오버스캔은 프리뷰에만 건다 — 심플 모드는 카메라를 걷어낸 화면이라 회전해도
           메울 빈 자리가 없고, 단색 배경을 확대해 봐야 보이는 변화가 없다. */}
-      {/* 배경은 기본 모드의 작은 카메라 창 뒤에만 깐다. 심플 모드와 카메라를 키운 화면은 배경을 쓰지 않는다.
-          키우기·줄이기 움직임 동안에는 남겨 둬야 카메라 상자 밖으로 배경이 이어 보이고 끝에서 툭 나타나지 않는다. */}
-      {backgroundPhoto !== null && !simpleMode && (!cameraExpanded || cameraMoving) && (
-        <TimerBackgroundLayer src={backgroundPhoto.src} fit={backgroundPhoto.fit} />
+      {/* 배경은 기본 모드의 작은 카메라 창 뒤에만 보인다. 두 서피스처럼 상시 마운트해 심플 모드 전환은 같은 300ms로 교차하고,
+          감독관 영상은 심플 모드나 카메라를 키운 동안에도 멈추지 않고 이어진다.
+          카메라를 키운 화면은 카메라가 덮으므로 페이드 없이 바로 가린다. 키우기·줄이기 움직임 동안에는 남겨 둬야
+          카메라 상자 밖으로 배경이 이어 보이고 끝에서 툭 나타나지 않는다. */}
+      {(backgroundPhoto !== null || proctorBackground) && (
+        <div
+          aria-hidden="true"
+          data-testid="timer-background"
+          className={cn(
+            "pointer-events-none absolute inset-0 transition-opacity duration-300 ease-out motion-reduce:transition-none",
+            cameraExpanded && !cameraMoving && !cameraHidden && "invisible",
+          )}
+        >
+          {backgroundPhoto !== null && (
+            <TimerBackgroundLayer src={backgroundPhoto.src} fit={backgroundPhoto.fit} />
+          )}
+          {proctorBackground && (
+            <WatcherBackground
+              present={watcher.present}
+              onClipPlaying={(clip, at) => {
+                if (clip === "enter" || clip === "exit") watcherSound?.play(clip, at);
+              }}
+            />
+          )}
+          <WallpaperScrim />
+        </div>
       )}
       <div
         ref={pipSlotRef}
@@ -1020,8 +1133,8 @@ function RoomSessionScreen({
         stream={cameraStream}
         facing={cameraFacing}
         videoRef={videoRef}
-        hidden={simpleMode}
-        rotating={!simpleMode && cameraExpanded && rotationPhase === "rotating"}
+        hidden={cameraHidden}
+        rotating={!cameraHidden && cameraExpanded && rotationPhase === "rotating"}
         faceMask={faceMask}
         // 기본 모드는 오른쪽 아래 작은 창이다. 크기만 바뀌어 영상과 추론은 끊기지 않는다.
         className={cameraExpanded ? undefined : cn("inset-auto rounded-lg", PIP_ANCHOR, PIP_SIZE)}
@@ -1051,6 +1164,7 @@ function RoomSessionScreen({
                 return;
               }
               trackSessionSimpleModeToggled(!simpleMode);
+              clockRectBeforeToggle.current = clockRef.current?.getBoundingClientRect() ?? null;
               setSimpleMode((prev) => !prev);
             }}
             className="absolute inset-0 cursor-default"
@@ -1113,28 +1227,50 @@ function RoomSessionScreen({
               </div>
             </div>
 
+            {wallpaper && timelapseOn && !cameraHidden && cameraExpanded && (
+              <div
+                className={cn(
+                  "mt-4 flex shrink-0 self-start",
+                  CAMERA_CHROME_FADE,
+                  cameraShrinking && "opacity-0",
+                )}
+              >
+                {expandedTimelapsePill}
+              </div>
+            )}
+
             {/* 시간 묶음 자리. 기본 모드는 과목 줄 아래 30px에, 심플 모드는 머리 줄과 하단 바 사이 4:9 지점에 둔다(시안 y=300).
                 가로 기본은 과목 줄 위끝에서 22px 아래 가운데(머리 줄 높이에 겹침), 가로 심플은 화면 가운데다.
-                위치만 즉시 바뀌고 묶음은 다시 마운트하지 않아 숫자가 끊기지 않는다. */}
+                묶음은 다시 마운트하지 않아 숫자가 끊기지 않고, 자리는 위 clockRef 애니메이션으로 미끄러져 간다. */}
             <div
               className={cn(
                 simpleMode ? "grow-4" : "h-7.5 shrink-0",
                 "landscape-compact:h-0 landscape-compact:grow-0",
               )}
             />
+            {/* 월페이퍼 위에서는 그림을 가리지 않게 왼쪽 아래로 내린다(시안 28e·30a). */}
             <div
               className={cn(
-                "relative flex flex-col items-center",
-                "landscape-compact:absolute landscape-compact:left-1/2 landscape-compact:-translate-x-1/2",
-                simpleMode
-                  ? "landscape-compact:top-1/2 landscape-compact:-translate-y-1/2"
-                  : "landscape-compact:top-[calc(env(safe-area-inset-top)+40px)]",
+                wallpaper
+                  ? cn(
+                      WALLPAPER_CLOCK_ANCHOR,
+                      // 심플 모드는 카메라 창이 없어 오른쪽 끝까지 쓴다.
+                      simpleMode && WALLPAPER_CLOCK_WIDE,
+                      "flex flex-col items-start",
+                    )
+                  : [
+                      "relative flex flex-col items-center",
+                      "landscape-compact:absolute landscape-compact:left-1/2 landscape-compact:-translate-x-1/2",
+                      simpleMode
+                        ? "landscape-compact:top-1/2 landscape-compact:-translate-y-1/2"
+                        : "landscape-compact:top-[calc(env(safe-area-inset-top)+40px)]",
+                    ],
               )}
             >
               {/* 페이지가 열린 동안은 페이지 푸터의 Toaster가 받는다.
                   둘이 함께 있으면 토스트가 두 번 뜬다. */}
               {page === null && <CtaToaster />}
-              <div inert={moreMenuOpen}>
+              <div ref={clockRef} inert={moreMenuOpen}>
                 <SessionClock
                   studySec={studySec}
                   focusSec={focusSec}
@@ -1142,6 +1278,7 @@ function RoomSessionScreen({
                   state={pillState}
                   statusLabel={statusLabel}
                   simple={simpleMode}
+                  corner={wallpaper}
                   infoOpen={infoOpen}
                   onToggleInfo={() => setInfoOpen((open) => !open)}
                 />
@@ -1150,9 +1287,10 @@ function RoomSessionScreen({
             <div className={simpleMode ? "grow-9" : "grow"} />
 
             {/* 내 카메라 작은 창. 누르면 화면 전체로 키우고, 확대 중에는 같은 자리의 버튼으로 다시 줄인다. */}
-            {!simpleMode &&
+            {!cameraHidden &&
               (cameraExpanded ? (
                 // 확대 중에는 작은 창의 이름표가 사라지므로 타임랩스 필을 같은 줄 왼쪽 끝에 따로 띄운다(시안 21d).
+                // 월페이퍼 배치는 그 자리에 시간 묶음이 있어 필을 과목 줄 아래로 올린다.
                 <div
                   inert={cameraShrinking}
                   className={cn(
@@ -1162,14 +1300,7 @@ function RoomSessionScreen({
                     cameraShrinking && "opacity-0",
                   )}
                 >
-                  {timelapseOn ? (
-                    <span className="inline-flex h-7 items-center gap-1.5 rounded-full bg-(--session-pill-bg) px-2.5 text-xs leading-4 font-semibold whitespace-nowrap text-white backdrop-blur-[10px]">
-                      <span aria-hidden="true" className={TIMELAPSE_DOT} />
-                      {t("camera.timelapse")}
-                    </span>
-                  ) : (
-                    <span />
-                  )}
+                  {timelapseOn && !wallpaper ? expandedTimelapsePill : <span />}
                   <button
                     type="button"
                     inert={moreMenuOpen}
@@ -1213,10 +1344,11 @@ function RoomSessionScreen({
               role="toolbar"
               aria-label={t("controls.bar")}
               inert={moreMenuOpen}
-              className={cn(SESSION_BAR, "pointer-events-auto")}
+              className={cn(simpleMode ? SESSION_BAR_MUTED : SESSION_BAR, "pointer-events-auto")}
             >
               <SessionPauseButton
                 paused={paused}
+                muted={simpleMode}
                 // 화면 꺼짐 일시정지와 과목 재생 버튼도 pause·resume을 거치므로 햅틱은 이 버튼에만 둔다.
                 onClick={() => {
                   // 두 햅틱 모두 일시정지 상태에서 울려서 진동이 기기 조작 감지 결과로 이어지지 않는다.
@@ -1229,7 +1361,7 @@ function RoomSessionScreen({
                   }
                 }}
               />
-              <SessionExitButton onClick={handleRequestExit} />
+              <SessionExitButton onClick={handleRequestExit} muted={simpleMode} />
             </div>
 
             {userId === null && (
