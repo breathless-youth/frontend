@@ -132,7 +132,8 @@ export function createWatcherSound(
       if (current) loadAll(current);
     },
     play(cue, offsetSec = 0) {
-      if (muted || volume === 0) return;
+      // 앱을 떠난 동안에도 영상이 다음 클립을 틀 수 있어 숨겨진 화면에서는 소리를 내지 않는다.
+      if (muted || volume === 0 || document.hidden) return;
       const current = ensureRunning();
       if (current === null) return;
       loadAll(current);

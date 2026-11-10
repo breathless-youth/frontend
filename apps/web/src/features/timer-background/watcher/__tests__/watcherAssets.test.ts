@@ -59,4 +59,21 @@ describe("watcherAssets", () => {
 
     expect(await readWatcherAsset(old)).toBeNull();
   });
+
+  it("받는 중에 지우면 늦게 끝난 파일을 저장하지 않는다", async () => {
+    const url = `${WATCHER_ASSET_DIR}/enter/phone_portrait.mp4`;
+    let finish: (response: Response) => void = () => {};
+    let started = false;
+    const saving = saveWatcherAssets([url], () => {
+      started = true;
+      return new Promise((resolve) => (finish = resolve));
+    });
+    await vi.waitFor(() => expect(started).toBe(true));
+
+    await clearWatcherAssets();
+    finish(new Response("late", { headers: { "content-type": "video/mp4" } }));
+    await saving;
+
+    expect(await readWatcherAsset(url)).toBeNull();
+  });
 });

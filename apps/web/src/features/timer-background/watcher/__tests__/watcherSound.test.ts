@@ -132,4 +132,17 @@ describe("createWatcherSound", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(starts).toHaveLength(1);
   });
+
+  it("화면이 숨겨진 동안에는 새 소리를 내지 않는다", async () => {
+    const { context, starts } = fakeContext();
+    const sound = createWatcherSound(() => context as unknown as AudioContext, load);
+    const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+    try {
+      sound.play("enter");
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(starts).toEqual([]);
+    } finally {
+      hidden.mockRestore();
+    }
+  });
 });

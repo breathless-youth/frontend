@@ -49,6 +49,9 @@ function database(): Promise<IDBPDatabase<WatcherAssetDb>> {
   return opening;
 }
 
+// 지울 때마다 올린다. 지우기 전에 시작한 받기가 늦게 끝나도 지운 소재를 다시 저장하지 않게 한다.
+let generation = 0;
+
 /**
  * 감독관 소재를 기기에 받아 둔다
  *
@@ -60,6 +63,7 @@ export async function saveWatcherAssets(
   urls: readonly string[],
   load: (url: string) => Promise<Response> = (url) => fetch(url),
 ): Promise<void> {
+  const started = generation;
   try {
     const db = await database();
     const stored = new Set(await db.getAllKeys("files"));
@@ -74,7 +78,9 @@ export async function saveWatcherAssets(
             const response = await load(url);
             if (!response.ok) return;
             const type = response.headers.get("content-type") ?? "";
-            await db.put("files", { url, bytes: await response.arrayBuffer(), type });
+            const bytes = await response.arrayBuffer();
+            if (started !== generation) return;
+            await db.put("files", { url, bytes, type });
           } catch {
             // 이 파일은 공부 화면에서 네트워크로 받는다.
           }
@@ -87,6 +93,7 @@ export async function saveWatcherAssets(
 
 /** 감독관이 아닌 배경을 고르면 받아 둔 소재를 지운다. */
 export async function clearWatcherAssets(): Promise<void> {
+  generation += 1;
   try {
     await (await database()).clear("files");
   } catch {
