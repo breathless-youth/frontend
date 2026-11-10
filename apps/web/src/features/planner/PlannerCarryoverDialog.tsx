@@ -10,6 +10,7 @@ import { subjectColorVar } from "@/features/records/recordsTimetable";
 import { cn } from "@/lib/utils";
 
 import { groupCarryoverTasks } from "./plannerCarryover";
+import { plannerErrorCopy } from "./plannerErrorCopy";
 
 export function PlannerCarryoverDialog({
   open = true,
@@ -28,8 +29,14 @@ export function PlannerCarryoverDialog({
 }) {
   const { t, i18n } = useTranslation(["planner", "common"]);
   const [selected, setSelected] = useState(() => new Set(tasks.map((task) => task.key)));
+  const [shownTasks, setShownTasks] = useState(tasks);
+  // 후보를 새로 받으면 이전 선택은 없는 할 일을 가리키므로 새 후보 전체로 다시 고른다.
+  if (shownTasks !== tasks) {
+    setShownTasks(tasks);
+    setSelected(new Set(tasks.map((task) => task.key)));
+  }
   const [pending, setPending] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [failure, setFailure] = useState<unknown>(null);
   const [listAtEnd, setListAtEnd] = useState(false);
   const saving = useRef(false);
   if (!open) return null;
@@ -50,9 +57,9 @@ export function PlannerCarryoverDialog({
     if (saving.current) return;
     saving.current = true;
     setPending(true);
-    setFailed(false);
+    setFailure(null);
     void onConfirm(keys)
-      .catch(() => setFailed(true))
+      .catch((error: unknown) => setFailure(error ?? new Error("planner save failed")))
       .finally(() => {
         saving.current = false;
         setPending(false);
@@ -182,9 +189,9 @@ export function PlannerCarryoverDialog({
             />
           )}
         </div>
-        {failed && (
+        {failure !== null && (
           <p role="alert" className="shrink-0 text-sm text-state-distract-text">
-            {t("common:errors.retryLater")}
+            {plannerErrorCopy(failure)}
           </p>
         )}
         <div className={cn("flex shrink-0 gap-2", !many && "pt-0.5")}>

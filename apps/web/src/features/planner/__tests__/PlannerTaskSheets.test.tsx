@@ -939,3 +939,121 @@ it("409 뒤 반복 규칙 재조회가 끝나도 편집값과 오류를 보존�
   expect(screen.getByRole("button", { name: "반복 종료일" })).toHaveTextContent("정하지 않음");
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
+
+it("옮길 날짜에 같은 반복 할 일이 있으면 다시 시도 대신 그 이유를 보여 준다", async () => {
+  request.mockImplementation(async (input, init) => {
+    if (init?.method === "PATCH" || init?.method === "POST" || init?.method === "PUT")
+      return Response.json(
+        { message: "같은 반복 할 일이 이미 있는 날짜입니다", code: "PLANNER_DUPLICATE_OCCURRENCE" },
+        { status: 409 },
+      );
+    return Response.json(String(input).includes("/summary") ? [] : plannerTask());
+  });
+  render(
+    <QueryClientProvider client={client}>
+      <PlannerTaskSheets
+        open
+        onOpenChange={() => {}}
+        userId={7}
+        dateKey="2026-11-06"
+        todayKey="2026-11-05"
+        task={plannerTask({ date: "2026-11-06" })}
+        subjectId={3}
+        subjects={[plannerSubject()]}
+        onStudyStart={() => {}}
+      />
+    </QueryClientProvider>,
+  );
+  await userEvent.click(screen.getByRole("button", { name: "다른 날로 옮기기" }));
+  await userEvent.click(screen.getByRole("button", { name: /11월 7일/ }));
+  await userEvent.click(screen.getByRole("button", { name: /로 옮기기$/ }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "그 날짜에 같은 반복 할 일이 이미 있어요",
+  );
+  expect(screen.queryByText("잠시 후 다시 시도해 주세요")).not.toBeInTheDocument();
+});
+
+it("추가가 과목당 30개 제한으로 거절되면 그 이유를 보여 준다", async () => {
+  request.mockImplementation(async (input, init) => {
+    if (init?.method === "POST")
+      return Response.json({ message: "limit", code: "PLANNER_TASK_LIMIT" }, { status: 409 });
+    const date = String(input).match(/\/days\/(\d{4}-\d{2}-\d{2})\?/)?.[1];
+    return Response.json(date ? plannerDay({ date, subjects: [plannerSubject()] }) : plannerTask());
+  });
+  render(
+    <QueryClientProvider client={client}>
+      <PlannerTaskSheets
+        open
+        onOpenChange={() => {}}
+        userId={7}
+        dateKey="2026-11-07"
+        todayKey="2026-11-05"
+        task={null}
+        subjectId={3}
+        subjects={[plannerSubject()]}
+        onStudyStart={() => {}}
+      />
+    </QueryClientProvider>,
+  );
+  await userEvent.type(screen.getByRole("textbox", { name: "할 일 이름" }), "새 할 일");
+  await userEvent.click(screen.getByRole("button", { name: "추가" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "과목 하나에 할 일은 30개까지 넣을 수 있어요",
+  );
+});
+
+it("메뉴에서 지운 할 일이 이미 없으면 지워진 할 일이라고 알리고 목록을 다시 받는다", async () => {
+  request.mockImplementation(async (_input, init) =>
+    init?.method === "DELETE"
+      ? Response.json({ message: "할 일을 찾을 수 없습니다", code: "NOT_FOUND" }, { status: 404 })
+      : Response.json(plannerTask()),
+  );
+  const invalidate = vi.spyOn(client, "invalidateQueries");
+  render(
+    <QueryClientProvider client={client}>
+      <PlannerTaskSheets
+        open
+        onOpenChange={() => {}}
+        userId={7}
+        dateKey="2026-11-06"
+        todayKey="2026-11-05"
+        task={plannerTask({ date: "2026-11-06" })}
+        subjectId={3}
+        subjects={[plannerSubject()]}
+        onStudyStart={() => {}}
+      />
+    </QueryClientProvider>,
+  );
+  await userEvent.click(screen.getByRole("button", { name: "삭제" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("이미 지워진 할 일이에요");
+  expect(invalidate).toHaveBeenCalledWith({ queryKey: plannerKeys.user(7) });
+});
+
+it("이름을 바꾼 할 일이 이미 없으면 지워진 할 일이라고 알린다", async () => {
+  request.mockImplementation(async (_input, init) =>
+    init?.method === "PATCH"
+      ? Response.json({ message: "할 일을 찾을 수 없습니다", code: "NOT_FOUND" }, { status: 404 })
+      : Response.json(plannerTask()),
+  );
+  render(
+    <QueryClientProvider client={client}>
+      <PlannerTaskSheets
+        open
+        onOpenChange={() => {}}
+        userId={7}
+        dateKey="2026-11-06"
+        todayKey="2026-11-05"
+        task={plannerTask({ date: "2026-11-06", name: "원래 이름" })}
+        subjectId={3}
+        subjects={[plannerSubject()]}
+        onStudyStart={() => {}}
+      />
+    </QueryClientProvider>,
+  );
+  await userEvent.click(screen.getByRole("button", { name: "이름 변경" }));
+  const input = screen.getByRole("textbox");
+  await userEvent.clear(input);
+  await userEvent.type(input, "새 이름");
+  await userEvent.click(screen.getByRole("button", { name: "저장" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("이미 지워진 할 일이에요");
+});

@@ -13,6 +13,7 @@ import {
 } from "@/features/records/recordsFormat";
 import { cn } from "@/lib/utils";
 import { PlannerDateSheet } from "./PlannerDateSheet";
+import { plannerErrorCopy } from "./plannerErrorCopy";
 const DAYS: PlannerWeekday[] = [
   "MONDAY",
   "TUESDAY",
@@ -145,7 +146,7 @@ export function PlannerRepeatSheet({
   }
   const [panel, setPanel] = useState<"rule" | "end" | "date">(initialPanel);
   const [pending, setPending] = useState(false),
-    [failed, setFailed] = useState(false);
+    [failure, setFailure] = useState<unknown>(null);
   const preset = (Object.keys(PRESETS) as (keyof typeof PRESETS)[]).find(
     (key) => value.weekdays.join() === PRESETS[key].join(),
   );
@@ -154,15 +155,15 @@ export function PlannerRepeatSheet({
   async function saveRule() {
     if (!initialized || pending || invalidEnd) return;
     setPending(true);
-    setFailed(false);
+    setFailure(null);
     try {
       await onSave({
         weekdays: value.weekdays,
         endDate: value.weekdays.length ? (value.endDate ?? null) : null,
       });
       onOpenChange(false);
-    } catch {
-      setFailed(true);
+    } catch (error: unknown) {
+      setFailure(error ?? new Error("planner save failed"));
     } finally {
       setPending(false);
     }
@@ -346,9 +347,9 @@ export function PlannerRepeatSheet({
                 </div>
               )}
               <p className="text-[13px] leading-4.5 text-muted-foreground">{summary}</p>
-              {failed && (
+              {failure !== null && (
                 <p role="alert" className="text-sm text-state-distract-text">
-                  {t("common:errors.retryLater")}
+                  {plannerErrorCopy(failure)}
                 </p>
               )}
               <Button
@@ -370,9 +371,9 @@ export function PlannerRepeatSheet({
                 />
               </fieldset>
               <p className="text-[13px] leading-4.5 text-muted-foreground">{summary}</p>
-              {failed && (
+              {failure !== null && (
                 <p role="alert" className="text-sm text-state-distract-text">
-                  {t("common:errors.retryLater")}
+                  {plannerErrorCopy(failure)}
                 </p>
               )}
               <Button

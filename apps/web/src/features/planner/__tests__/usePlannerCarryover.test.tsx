@@ -351,3 +351,29 @@ it("과목 목록 실패는 가져오기를 막지 않고 사용자 범위를 �
   await waitFor(() => expect(result.current.open).toBe(true));
   expect(result.current.subjects).toEqual([]);
 });
+
+it("후보가 바뀌었다는 거절은 후보를 새로 받아 바꾸고 사용자 캐시를 갱신한다", async () => {
+  let candidates = tasks;
+  request.mockImplementation(async (_url, init) =>
+    init?.method === "POST"
+      ? Response.json(
+          { code: "PLANNER_CARRYOVER_CHANGED", message: "후보가 바뀌었습니다" },
+          { status: 409 },
+        )
+      : Response.json(candidates),
+  );
+  client.setQueryData(["planner", 7, "day", "2026-11-04", "Asia/Seoul"], { original: true });
+  const { result } = renderHook(() => usePlannerCarryover(7, { ready: true, blocked: false }), {
+    wrapper: Wrapper,
+  });
+  await waitFor(() => expect(result.current.open).toBe(true));
+  candidates = [tasks[1]!];
+  await act(async () => {
+    await expect(result.current.submit(["t:1"])).rejects.toMatchObject({ status: 409 });
+  });
+  await waitFor(() => expect(result.current.tasks?.map((task) => task.key)).toEqual(["t:2"]));
+  expect(result.current.open).toBe(true);
+  expect(
+    client.getQueryState(["planner", 7, "day", "2026-11-04", "Asia/Seoul"])?.isInvalidated,
+  ).toBe(true);
+});

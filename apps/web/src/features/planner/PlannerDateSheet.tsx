@@ -21,6 +21,7 @@ import { useHorizontalSwipe } from "@/features/records/useHorizontalSwipe";
 import { plannerSummaryQuery } from "@/lib/plannerQueries";
 import { cn } from "@/lib/utils";
 
+import { plannerErrorCopy } from "./plannerErrorCopy";
 import { usePlannerClock } from "./usePlannerClock";
 
 interface PlannerDateSheetProps {
@@ -88,7 +89,7 @@ function PlannerCalendar({
   const { timeZone } = usePlannerClock();
   const [month, setMonth] = useState(() => monthOfDateKey(dateKey));
   const [selected, setSelected] = useState<string | null>(null);
-  const [failed, setFailed] = useState(false);
+  const [failure, setFailure] = useState<unknown>(null);
   const dates = buildMonthGrid(month)
     .flat()
     .filter((date): date is string => date !== null);
@@ -194,9 +195,9 @@ function PlannerCalendar({
       </div>
       {onConfirm !== undefined && (
         <>
-          {failed && (
+          {failure !== null && (
             <p role="alert" className="text-sm text-state-distract-text">
-              {t("common:errors.retryLater")}
+              {plannerErrorCopy(failure)}
             </p>
           )}
           <Button
@@ -206,11 +207,11 @@ function PlannerCalendar({
             onClick={() => {
               if (selected === null || pending) return;
               setPending(true);
-              setFailed(false);
+              setFailure(null);
               void onConfirm(selected)
                 .then(
                   () => onOpenChange(false),
-                  () => setFailed(true),
+                  (error: unknown) => setFailure(error ?? new Error("planner move failed")),
                 )
                 .finally(() => setPending(false));
             }}

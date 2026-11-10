@@ -26,6 +26,7 @@ import { createSubject, listSubjects } from "@/lib/subjectApi";
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
 import { showToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
+import { plannerErrorCopy } from "./plannerErrorCopy";
 import { initialWeekExpanded } from "./plannerWeekModel";
 import { useHoldAndDrag } from "./usePlannerSubjectDrag";
 import { usePlannerPlanMutation } from "./usePlannerPlanMutation";
@@ -108,7 +109,9 @@ export function PlannerWeek({
       ...previous,
       [weekStart]: [...new Set([...expanded, date])],
     }));
-    void week.moveTask(current.task.key, date).catch(() => showToast(t("week.moveFailed")));
+    void week
+      .moveTask(current.task.key, date)
+      .catch((error: unknown) => showToast(plannerErrorCopy(error, t("week.moveFailed"))));
   }
   const selectedDay = week.days.find((day) => day.date === sheet?.date);
   // 전체 내 과목에서는 색·이름만 가져온다. 누적 시간과 구 계약 할 일은 날짜별 계획에 섞지 않는다.

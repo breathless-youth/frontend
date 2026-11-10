@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { plannerErrorCopy } from "./plannerErrorCopy";
 export interface PlannerRepeatScopeDialogProps {
   theme?: string;
   open: boolean;
@@ -21,7 +22,7 @@ export function PlannerRepeatScopeDialog({
   const { t } = useTranslation(["planner", "common"]);
   const [scope, setScope] = useState<PlannerTaskScope>("THIS");
   const [pending, setPending] = useState(false),
-    [failed, setFailed] = useState(false);
+    [failure, setFailure] = useState<unknown>(null);
   return (
     <Dialog
       open={open}
@@ -65,9 +66,9 @@ export function PlannerRepeatScopeDialog({
             </label>
           ))}
         </fieldset>
-        {failed && (
+        {failure !== null && (
           <p role="alert" className="text-sm text-state-distract-text">
-            {t("common:errors.retryLater")}
+            {plannerErrorCopy(failure)}
           </p>
         )}
         <div className="mt-3 flex gap-2">
@@ -89,11 +90,11 @@ export function PlannerRepeatScopeDialog({
             onClick={() => {
               if (pending) return;
               setPending(true);
-              setFailed(false);
+              setFailure(null);
               void onConfirm(scope)
                 .then(
                   () => onOpenChange(false),
-                  () => setFailed(true),
+                  (error: unknown) => setFailure(error ?? new Error("planner save failed")),
                 )
                 .finally(() => setPending(false));
             }}

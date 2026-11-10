@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
+import { ApiError } from "@/lib/api";
 import { plannerTask } from "@/test/plannerFixtures";
 import { PlannerCarryoverDialog } from "../PlannerCarryoverDialog";
 
@@ -127,4 +128,32 @@ it("과목 이름을 표시하고 없는 과목은 식별자 대신 기본 문�
   expect(screen.getByText("수학")).toBeInTheDocument();
   expect(screen.getByText("과목 없음")).toBeInTheDocument();
   expect(screen.queryByText("99")).not.toBeInTheDocument();
+});
+
+it("가져오는 사이 후보가 바뀌면 목록을 새로 불러왔다고 알린다", async () => {
+  const save = vi
+    .fn()
+    .mockRejectedValue(new ApiError("후보가 바뀌었습니다", 409, "PLANNER_CARRYOVER_CHANGED"));
+  render(<PlannerCarryoverDialog tasks={tasks} onConfirm={save} onDefer={() => {}} />);
+  await userEvent.click(screen.getByRole("button", { name: "2개 가져오기" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "그사이 할 일이 바뀌어 목록을 새로 불러왔어요",
+  );
+});
+
+it("새로 받은 후보로 바뀌면 안내는 남기고 새 후보를 모두 고른 상태로 가져온다", async () => {
+  const save = vi
+    .fn()
+    .mockRejectedValueOnce(new ApiError("후보가 바뀌었습니다", 409, "PLANNER_CARRYOVER_CHANGED"))
+    .mockResolvedValue(undefined);
+  const view = render(<PlannerCarryoverDialog tasks={tasks} onConfirm={save} onDefer={() => {}} />);
+  await userEvent.click(screen.getByRole("button", { name: "2개 가져오기" }));
+  await screen.findByRole("alert");
+  const refreshed = [plannerTask({ key: "t:3", name: "새 후보", date: "2026-11-04" })];
+  view.rerender(<PlannerCarryoverDialog tasks={refreshed} onConfirm={save} onDefer={() => {}} />);
+  expect(screen.getByRole("alert")).toHaveTextContent(
+    "그사이 할 일이 바뀌어 목록을 새로 불러왔어요",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "1개 가져오기" }));
+  expect(save).toHaveBeenLastCalledWith(["t:3"]);
 });

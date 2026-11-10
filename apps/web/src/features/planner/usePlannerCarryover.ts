@@ -187,6 +187,18 @@ export function usePlannerCarryover(
         );
       })
       .catch((error: unknown) => {
+        // 후보가 바뀌었으면 같은 본문으로는 다시 성공하지 않으므로 후보를 새로 받는다.
+        if (
+          error instanceof ApiError &&
+          (error.code === "PLANNER_CARRYOVER_CHANGED" || error.status === 404)
+        ) {
+          setArrival((previous) =>
+            previous.id !== id || previous.scope !== scope
+              ? previous
+              : { ...previous, decided: false },
+          );
+          void queryClient.invalidateQueries({ queryKey: plannerKeys.user(owner) });
+        }
         if (!(error instanceof ApiError && error.status >= 400 && error.status < 500)) {
           uncertainRequests.current.set(scope, { arrivalId: id, body });
           setUncertainScope(`${scope}:${id}`);
