@@ -164,6 +164,11 @@ describe("isFullScreenPath", () => {
     expect(isFullScreenPath("/blocks")).toBe(true);
     expect(isFullScreenPath("/social")).toBe(false);
   });
+
+  it("설정에서 여는 로그인 화면은 탭 바를 감춘다", () => {
+    expect(isFullScreenPath("/settings/login")).toBe(true);
+    expect(isFullScreenPath("/settings")).toBe(false);
+  });
 });
 
 describe("isNativeCoveredPath", () => {
