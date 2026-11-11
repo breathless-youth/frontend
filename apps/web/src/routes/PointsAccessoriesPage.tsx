@@ -20,8 +20,10 @@ function AccessoriesContent() {
   const { t } = useTranslation("points");
   const gateway = usePointsGateway();
   const userId = usePointsUserId();
-  const earn = useQuery(earnTodayQuery(gateway, userId));
-  const packs = useQuery(chargePacksQuery(gateway, userId));
+  const { earn: canEarn, ads, charge } = gateway.capabilities;
+  // 모자람 창의 광고 줄과 충전 줄에만 쓰여서 그 기능이 없는 경계에는 묻지 않는다.
+  const earn = useQuery({ ...earnTodayQuery(gateway, userId), enabled: canEarn && ads });
+  const packs = useQuery({ ...chargePacksQuery(gateway, userId), enabled: charge });
   const actions = useShopActions();
   return (
     <PointsShopRoute title={t("titles.accessories")}>
@@ -32,7 +34,8 @@ function AccessoriesContent() {
           earn={earn.data}
           packs={packs.data ?? []}
           onBack={back}
-          onSetInUse={actions.setInUse}
+          missions={canEarn}
+          onEquip={actions.equipAccessory}
           onWatchAd={actions.watchAd}
           onCharge={actions.charge}
         />

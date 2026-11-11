@@ -2,13 +2,20 @@
  * 포인트 화면의 타입
  *
  * 서버 계약이 아니라 화면이 쓰는 모양이다.
- * 백엔드 Swagger가 나오면 API 타입은 packages/types에 두고 gateway 구현이 이 모양으로 바꿔 넘긴다.
+ * 서버 응답은 gateway/fromApi.ts가 이 모양으로 바꿔 넘긴다.
  */
 
 export type MascotId =
   "book" | "planner" | "pencil" | "stopwatch" | "lamp" | "padlock" | "camcorder";
 
-export type Mascot = { id: MascotId; unlockFocusSec: number; unlocked: boolean; selected: boolean };
+export type Mascot = {
+  id: MascotId;
+  unlockFocusSec: number;
+  unlocked: boolean;
+  selected: boolean;
+  /** 열린 뒤 아직 축하 화면을 보지 않았는지이며 서버가 기억한다. */
+  newlyUnlocked: boolean;
+};
 
 export type AccessorySlot = "head" | "face" | "body";
 
@@ -78,8 +85,10 @@ export type SessionReward = {
   nextMascot: { id: MascotId; remainingSec: number; progress: number } | null;
 };
 
-export type PurchaseResult =
-  { ok: true; balance: number } | { ok: false; reason: "insufficient" | "owned" | "lockedMascot" };
+export type PurchaseFailure =
+  "insufficient" | "owned" | "lockedMascot" | "notPurchasable" | "notFound";
+
+export type PurchaseResult = { ok: true; balance: number } | { ok: false; reason: PurchaseFailure };
 
 export type AdResult =
   { status: "rewarded"; balance: number } | { status: "unavailable" } | { status: "cancelled" };

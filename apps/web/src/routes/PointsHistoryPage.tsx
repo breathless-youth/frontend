@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
 import { useBackTo } from "@/features/group-room/useBackTo";
 import { PointsLoadState } from "@/features/points/components/shared/PointsLoadState";
@@ -18,9 +18,19 @@ import { cannotLoad } from "@/lib/rankingQueries";
 export function PointsHistoryPage() {
   return (
     <PointsRouteGate>
-      <HistoryContent />
+      <HistoryGate />
     </PointsRouteGate>
   );
+}
+
+/** 기록을 지원하지 않는 경계에서는 들어갈 곳이 없어 포인트 상점으로 돌려보낸다. */
+function HistoryGate() {
+  const gateway = usePointsGateway();
+  const location = useLocation();
+  if (!gateway.capabilities.history) {
+    return <Navigate to={{ pathname: "/points", search: pointsSearch(location.search) }} replace />;
+  }
+  return <HistoryContent />;
 }
 
 /** 포인트 기록이며 설정에서 들어와 앞 화면이 없으면 설정으로 돌아간다. */

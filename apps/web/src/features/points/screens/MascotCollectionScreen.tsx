@@ -12,8 +12,9 @@ import type { Mascot, MascotId, ShopData } from "../types";
 /**
  * 마스코트 모으기 화면
  *
- * 새로 열린 마스코트를 이미 보여 줬는지는 서버가 모르므로 `newlyUnlocked`로 받는다.
- * 받은 값은 이 화면이 떠 있는 동안 한 번만 축하 화면으로 보이고, 나중에를 누르면 다시 보이지 않는다.
+ * 새로 열린 마스코트는 라우트가 서버 값에서 골라 `newlyUnlocked`로 넘긴다.
+ * 받은 값은 이 화면이 떠 있는 동안 한 번만 축하 화면으로 보인다.
+ * 바꾸기나 나중에로 축하 화면을 닫으면 `onCelebrated`로 알려 서버가 본 것으로 기억하게 한다.
  */
 export function MascotCollectionScreen({
   data,
@@ -21,12 +22,14 @@ export function MascotCollectionScreen({
   onSelect,
   onBack,
   newlyUnlocked,
+  onCelebrated,
 }: {
   data: ShopData;
   balance: number;
   onSelect: (id: MascotId) => Promise<void>;
   onBack: () => void;
   newlyUnlocked?: MascotId;
+  onCelebrated?: () => void;
 }) {
   const { t } = useTranslation("points");
   const { t: tMascots } = useTranslation("points-mascots");
@@ -41,9 +44,13 @@ export function MascotCollectionScreen({
         mascotId={newlyUnlocked}
         onSwitch={() => {
           setCelebrated(true);
+          onCelebrated?.();
           void onSelect(newlyUnlocked);
         }}
-        onLater={() => setCelebrated(true)}
+        onLater={() => {
+          setCelebrated(true);
+          onCelebrated?.();
+        }}
       />
     );
   }

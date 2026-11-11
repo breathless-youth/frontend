@@ -4,12 +4,15 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { pointsKeys } from "@/lib/pointsQueries";
+import { showToast } from "@/lib/toast";
 
 import { createFakePointsGateway } from "../../gateway/createFakePointsGateway";
 import type { PointsGateway } from "../../gateway/PointsGateway";
 import { PointsGatewayProvider } from "../../gateway/PointsGatewayContext";
 import type { ShopItem } from "../../types";
 import { usePurchaseFlow } from "../usePurchaseFlow";
+
+vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
 
 const USER = 7;
 
@@ -71,4 +74,16 @@ describe("usePurchaseFlow", () => {
     act(() => view.result.current.close());
     expect(view.result.current.step).toBe("idle");
   });
+
+  it.each(["notPurchasable", "notFound"] as const)(
+    "%s로 거절되면 창을 닫고 일반 안내를 띄운다",
+    async (reason) => {
+      const { view, purchase } = await setup(1240);
+      purchase.mockResolvedValue({ ok: false, reason });
+      act(() => view.result.current.open());
+      await act(() => view.result.current.confirm());
+      expect(view.result.current.step).toBe("idle");
+      expect(showToast).toHaveBeenCalledWith("잠시 후 다시 시도해 주세요");
+    },
+  );
 });

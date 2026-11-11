@@ -43,7 +43,9 @@
     "missionsAction": "미션 보기",
     "charge": "바로 충전하기",
     "chargeAndBuy": "{{points}} 충전하고 구매하기",
-    "pricePending": "가격 확인 중"
+    "pricePending": "가격 확인 중",
+    "studyHint": "30분 공부할 때마다 +10P",
+    "ok": "확인"
   },
   "loadError": {
     "shop": "상점을 불러오지 못했어요",

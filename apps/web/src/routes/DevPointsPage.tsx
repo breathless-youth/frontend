@@ -46,7 +46,7 @@ function isScene(value: string | null): value is PointsScene {
  * 포인트 화면 모음
  *
  * 장면마다 새 가짜 경계와 새 조회 캐시를 만들어 장면을 바꾸면 처음 상태에서 다시 그린다.
- * 라우트 화면을 그대로 그리고, 화면 안에서 다른 포인트 화면으로 이동하면 앱의 기본 가짜 경계로 넘어간다.
+ * 라우트 화면을 그대로 그리고, 화면 안에서 다른 포인트 화면으로 이동하면 앱의 기본 경계(주소에 `pointsMock`이 없으면 실제 API)로 넘어간다.
  */
 export function DevPointsPage() {
   const [params, setParams] = useSearchParams();
@@ -171,7 +171,7 @@ function ResultPreview() {
   const gateway = usePointsGateway();
   const reward = useQuery({
     queryKey: ["dev-points", "sessionReward"],
-    queryFn: () => gateway.getSessionReward([1]),
+    queryFn: () => gateway.getSessionReward(new Date().toISOString()),
   });
   return (
     <div className="p-5">

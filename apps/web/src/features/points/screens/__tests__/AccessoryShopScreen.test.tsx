@@ -96,7 +96,7 @@ describe("AccessoryShopScreen", () => {
 
   it("착용이 실패하면 알리고 다시 누를 수 있다", async () => {
     const base = createFakePointsGateway("default");
-    renderScreen({ ...base, setInUse: () => Promise.reject(new Error("down")) });
+    renderScreen({ ...base, equipAccessory: () => Promise.reject(new Error("down")) });
     await userEvent.click(await screen.findByRole("button", { name: "몸 장식" }));
     await userEvent.click(screen.getByRole("button", { name: "단추 리본, 가지고 있어요" }));
     await userEvent.click(screen.getByRole("button", { name: "착용하기" }));

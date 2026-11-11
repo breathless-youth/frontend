@@ -1,6 +1,6 @@
 import { buildPointsFixture, type PointsScene } from "../fixtures";
 import type { PointsReason, ShopItem } from "../types";
-import type { PointsGateway } from "./PointsGateway";
+import { FULL_POINTS_CAPABILITIES, type PointsGateway } from "./PointsGateway";
 
 /**
  * 메모리 가짜 포인트 경계
@@ -46,7 +46,16 @@ export function createFakePointsGateway(
     record(amount, reason);
   };
 
+  const findOwned = (itemId: string): ShopItem => {
+    const item = findItem(itemId);
+    if (!item.owned) {
+      throw new Error(`item ${itemId} is not owned`);
+    }
+    return item;
+  };
+
   return {
+    capabilities: FULL_POINTS_CAPABILITIES,
     getBalance: () => read(() => state.balance),
     getShop: () =>
       read(() => ({
@@ -74,24 +83,22 @@ export function createFakePointsGateway(
       record(-item.acquire.price, "purchase", item.name);
       return { ok: true, balance: state.balance };
     },
-    setInUse: async (itemId, inUse) => {
-      const item = findItem(itemId);
-      if (!item.owned) {
-        throw new Error(`item ${itemId} is not owned`);
-      }
-      // 같은 자리에는 하나만 쓴다.
-      if (inUse) {
-        for (const other of state.items) {
-          if (
-            other.kind === item.kind &&
-            other.mascotId === item.mascotId &&
-            other.slot === item.slot
-          ) {
-            other.inUse = false;
-          }
+    // 같은 자리에는 하나만 쓰므로 먼저 그 자리를 비운다.
+    equipAccessory: async (mascotId, slot, itemId) => {
+      const item = itemId === null ? null : findOwned(itemId);
+      for (const other of state.items) {
+        if (other.kind === "accessory" && other.mascotId === mascotId && other.slot === slot) {
+          other.inUse = false;
         }
       }
-      item.inUse = inUse;
+      if (item) item.inUse = true;
+    },
+    setTimerBackground: async (itemId) => {
+      const item = itemId === null ? null : findOwned(itemId);
+      for (const other of state.items) {
+        if (other.kind === "timerBackground") other.inUse = false;
+      }
+      if (item) item.inUse = true;
     },
     selectMascot: async (id) => {
       const target = state.mascots.find((m) => m.id === id);
@@ -100,6 +107,11 @@ export function createFakePointsGateway(
       }
       for (const mascot of state.mascots) {
         mascot.selected = mascot.id === id;
+      }
+    },
+    markUnlocksSeen: async () => {
+      for (const mascot of state.mascots) {
+        mascot.newlyUnlocked = false;
       }
     },
     getHistory: (filter) =>

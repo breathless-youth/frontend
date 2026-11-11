@@ -27,11 +27,12 @@ export function TimerBackgroundScreen({
   balance,
   earn,
   packs,
+  missions,
   onBack,
-  onSetInUse,
+  onApply,
   onWatchAd,
   onCharge,
-}: ShopScreenProps) {
+}: ShopScreenProps & { onApply: (itemId: string | null) => Promise<void> }) {
   const { t } = useTranslation(["points", "points-decor", "common"]);
   const navigate = useNavigate();
   const location = useLocation();
@@ -53,7 +54,7 @@ export function TimerBackgroundScreen({
   const purchasedName = selected?.name ?? "";
 
   const apply = (itemId: string) => {
-    onSetInUse(itemId, true).catch(() => showToast(t("common:errors.retryLater")));
+    onApply(itemId).catch(() => showToast(t("common:errors.retryLater")));
   };
 
   // 단계를 닫아야 산 배경을 한 번만 적용한다.
@@ -87,21 +88,25 @@ export function TimerBackgroundScreen({
         onConfirm={() => void flow.confirm()}
         onClose={close}
       />
-      {earn !== undefined && (
-        <InsufficientPointsSheet
-          open={step === "insufficient"}
-          item={selected ?? null}
-          balance={balance}
-          earn={earn}
-          packs={packs}
-          onWatchAd={onWatchAd && (() => flow.watchAdForPoints(onWatchAd))}
-          onMissions={() =>
-            void navigate({ pathname: "/points", search: pointsSearch(location.search, "earn") })
-          }
-          onCharge={onCharge && ((productId) => flow.chargeAndBuy(() => onCharge(productId)))}
-          onClose={close}
-        />
-      )}
+      <InsufficientPointsSheet
+        open={step === "insufficient"}
+        item={selected ?? null}
+        balance={balance}
+        earn={earn}
+        packs={packs}
+        onWatchAd={onWatchAd && (() => flow.watchAdForPoints(onWatchAd))}
+        onMissions={
+          missions
+            ? () =>
+                void navigate({
+                  pathname: "/points",
+                  search: pointsSearch(location.search, "earn"),
+                })
+            : undefined
+        }
+        onCharge={onCharge && ((productId) => flow.chargeAndBuy(() => onCharge(productId)))}
+        onClose={close}
+      />
     </PointsScreenFrame>
   );
 }

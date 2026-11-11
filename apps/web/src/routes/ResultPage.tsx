@@ -9,6 +9,7 @@ import { CtaToaster } from "@/components/ui/sonner";
 import { InterviewCardHost } from "@/features/interview/InterviewCardHost";
 import { MeasurementFeedbackCardHost } from "@/features/measurement-feedback/MeasurementFeedbackCardHost";
 import { ResultPointsHost } from "@/features/points/components/result/ResultPointsHost";
+import { rewardStartedAt } from "@/features/points/model/rewardStartedAt";
 import { ConfettiBurst } from "@/features/study-session/components/ConfettiBurst";
 import { SessionSummaryCard } from "@/features/study-session/components/SessionSummaryCard";
 import {
@@ -293,7 +294,7 @@ export function ResultPage() {
               <StudyTimelineCard view={view} />
               <MeasurementFeedbackCardHost focusSec={totalFocusSec} roomType={roomType} />
               {userId !== null && isPointsEnabled() && (
-                <ResultPointsHost sessionIds={sessions.map((session) => session.id)} />
+                <ResultPointsHost startedAt={rewardStartedAt(sessions)} />
               )}
               {userId !== null && <SessionSummaryCard userId={userId} />}
               {userId !== null && <InterviewCardHost userId={userId} />}

@@ -22,6 +22,7 @@ function suggestedPack(packs: ChargePack[], shortfall: number): ChargePack | und
  *
  * 광고·미션·충전 세 가지 길을 보여 준다.
  * 앱 밖 브라우저처럼 광고나 충전을 못 하는 곳은 그 처리기를 넘기지 않아 줄을 숨긴다.
+ * 포인트 받기 탭이 없으면 미션 줄도 숨기고, 세 길이 모두 없으면 공부로 모으는 안내와 확인 버튼만 둔다.
  * 결제와 광고는 끝날 때까지 시간이 걸려서, 끝나기 전에는 두 버튼을 함께 막는다.
  * 비활성 표시는 다음 렌더에야 붙으므로 같은 순간의 두 번째 누름은 ref로 막는다.
  * 시트는 body로 나가므로 Soft Blue 테마를 시트에도 단다.
@@ -40,10 +41,10 @@ export function InsufficientPointsSheet({
   open: boolean;
   item: ShopItem | null;
   balance: number;
-  earn: EarnToday;
+  earn?: EarnToday;
   packs: ChargePack[];
   onWatchAd?: () => Promise<void> | void;
-  onMissions: () => void;
+  onMissions?: () => void;
   onCharge?: (productId: string) => Promise<void> | void;
   onClose: () => void;
 }) {
@@ -53,7 +54,8 @@ export function InsufficientPointsSheet({
   const [pickedId, setPickedId] = useState<string | null>(null);
   const picked =
     packs.find((pack) => pack.productId === pickedId) ?? suggestedPack(packs, shortfall);
-  const adLeft = earn.ad.limit - earn.ad.watched;
+  const adLeft = earn === undefined ? 0 : earn.ad.limit - earn.ad.watched;
+  const noWays = onWatchAd === undefined && onMissions === undefined && onCharge === undefined;
   const busyRef = useRef(false);
   const [busy, setBusy] = useState(false);
 
@@ -79,7 +81,17 @@ export function InsufficientPointsSheet({
               shortfall: formatPoints(shortfall),
             })}
           </DrawerTitle>
-          {onWatchAd && (
+          {noWays && (
+            <>
+              <p className="text-[15px] break-keep text-muted-foreground">
+                {t("insufficient.studyHint")}
+              </p>
+              <Button size="xl" className="w-full shadow-sb-cta" onClick={onClose}>
+                {t("insufficient.ok")}
+              </Button>
+            </>
+          )}
+          {onWatchAd && earn && (
             <WayRow
               title={t("insufficient.ad", { reward: formatPoints(earn.ad.reward) })}
               hint={
@@ -93,12 +105,14 @@ export function InsufficientPointsSheet({
               onClick={() => void runOnce(onWatchAd)}
             />
           )}
-          <WayRow
-            title={t("insufficient.missions")}
-            hint={t("insufficient.missionsHint")}
-            action={t("insufficient.missionsAction")}
-            onClick={onMissions}
-          />
+          {onMissions && (
+            <WayRow
+              title={t("insufficient.missions")}
+              hint={t("insufficient.missionsHint")}
+              action={t("insufficient.missionsAction")}
+              onClick={onMissions}
+            />
+          )}
           {onCharge && picked && (
             <>
               <div className="flex flex-col gap-2">

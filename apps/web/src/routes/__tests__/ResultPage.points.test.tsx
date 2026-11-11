@@ -44,7 +44,12 @@ const session: StudySessionResponse = {
 
 const PATHS = ["/room/7/result", "/social/room/42/result", "/social/groups/10/room/result"];
 
-function renderAt(path: string, search: string, gateway: PointsGateway) {
+function renderAt(
+  path: string,
+  search: string,
+  gateway: PointsGateway,
+  sessions: StudySessionResponse[] = [session],
+) {
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
     writable: true,
@@ -59,7 +64,7 @@ function renderAt(path: string, search: string, gateway: PointsGateway) {
   return render(
     <QueryClientProvider client={client}>
       <PointsGatewayProvider gateway={gateway} userId={7}>
-        <MemoryRouter initialEntries={[{ pathname: path, search, state: { sessions: [session] } }]}>
+        <MemoryRouter initialEntries={[{ pathname: path, search, state: { sessions } }]}>
           <Routes>
             <Route path="/room/:id/result" element={<ResultPage />} />
             <Route path="/social/room/:roomId/result" element={<ResultPage />} />
@@ -92,12 +97,27 @@ describe("ResultPage 포인트 카드", () => {
     expect(summary).toHaveTextContent("오늘 누적 순공시간");
   });
 
-  it("세션 id를 경계에 넘긴다", async () => {
+  it("세션의 시작 시각을 경계에 넘긴다", async () => {
     const gateway = createFakePointsGateway("default");
     const spy = vi.spyOn(gateway, "getSessionReward");
     renderAt(PATHS[0], "?userId=7", gateway);
     await screen.findByText("+20P 받았어요");
-    expect(spy).toHaveBeenCalledWith([10]);
+    expect(spy).toHaveBeenCalledWith(session.startedAt);
+  });
+
+  it("세션이 여러 개 묶여 오면 가장 이른 시작 시각을 넘긴다", async () => {
+    const gateway = createFakePointsGateway("default");
+    const spy = vi.spyOn(gateway, "getSessionReward");
+    const earlier = {
+      ...session,
+      id: 9,
+      startedAt: new Date(2026, 6, 25, 19, 0).toISOString(),
+      endedAt: new Date(2026, 6, 25, 20, 0).toISOString(),
+    };
+    renderAt(PATHS[0], "?userId=7", gateway, [session, earlier]);
+    await screen.findByText("+20P 받았어요");
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith(earlier.startedAt);
   });
 
   it("플래그가 꺼지면 카드가 없고 경계도 부르지 않는다", () => {

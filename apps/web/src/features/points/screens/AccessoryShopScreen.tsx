@@ -34,11 +34,14 @@ export function AccessoryShopScreen({
   balance,
   earn,
   packs,
+  missions,
   onBack,
-  onSetInUse,
+  onEquip,
   onWatchAd,
   onCharge,
-}: ShopScreenProps) {
+}: ShopScreenProps & {
+  onEquip: (mascotId: MascotId, slot: AccessorySlot, itemId: string | null) => Promise<void>;
+}) {
   const { t } = useTranslation("points-items");
   const { t: tPoints } = useTranslation("points");
   const { t: tCommon } = useTranslation("common");
@@ -60,8 +63,11 @@ export function AccessoryShopScreen({
   const flow = usePurchaseFlow(item);
 
   const setInUse = async (target: ShopItem, inUse: boolean) => {
+    if (target.mascotId === undefined || target.slot === undefined) {
+      return;
+    }
     try {
-      await onSetInUse(target.id, inUse);
+      await onEquip(target.mascotId, target.slot, inUse ? target.id : null);
     } catch {
       showToast(tCommon("errors.retryLater"));
     }
@@ -154,19 +160,17 @@ export function AccessoryShopScreen({
         onConfirm={() => void flow.confirm()}
         onClose={flow.close}
       />
-      {earn !== undefined && (
-        <InsufficientPointsSheet
-          open={flow.step === "insufficient"}
-          item={item}
-          balance={balance}
-          earn={earn}
-          packs={packs}
-          onWatchAd={onWatchAd && (() => flow.watchAdForPoints(onWatchAd))}
-          onMissions={() => open("/points", "earn")}
-          onCharge={onCharge && ((productId) => flow.chargeAndBuy(() => onCharge(productId)))}
-          onClose={flow.close}
-        />
-      )}
+      <InsufficientPointsSheet
+        open={flow.step === "insufficient"}
+        item={item}
+        balance={balance}
+        earn={earn}
+        packs={packs}
+        onWatchAd={onWatchAd && (() => flow.watchAdForPoints(onWatchAd))}
+        onMissions={missions ? () => open("/points", "earn") : undefined}
+        onCharge={onCharge && ((productId) => flow.chargeAndBuy(() => onCharge(productId)))}
+        onClose={flow.close}
+      />
     </PointsScreenFrame>
   );
 }

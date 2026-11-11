@@ -39,6 +39,7 @@ export function PointsPage() {
  *
  * 꾸미기 상점과 포인트 받기 두 탭이고 고른 탭은 `?tab=shop|earn`으로 주소에 남는다.
  * 탭을 바꾸는 것은 같은 화면 안의 일이라 기록을 쌓지 않는다.
+ * 경계가 포인트 받기를 지원하지 않으면 탭 줄 없이 꾸미기 상점만 그리고, `?tab=earn`으로 들어와도 상점을 보인다.
  * 앞 화면이 없으면 뒤로 가기는 홈으로 간다.
  */
 function PointsContent() {
@@ -46,9 +47,23 @@ function PointsContent() {
   const gateway = usePointsGateway();
   const userId = usePointsUserId();
   const balance = useQuery(balanceQuery(gateway, userId));
+  const back = useBackTo("/home");
+  if (!gateway.capabilities.earn) {
+    return (
+      <PointsScreenFrame title={t("title")} onBack={back} balance={balance.data}>
+        <div className="pt-3">
+          <ShopPanel />
+        </div>
+      </PointsScreenFrame>
+    );
+  }
+  return <TabbedContent balance={balance.data} back={back} />;
+}
+
+function TabbedContent({ balance, back }: { balance: number | undefined; back: () => void }) {
+  const { t } = useTranslation("points");
   const [params, setParams] = useSearchParams();
   const tab: PointsTab = params.get("tab") === "earn" ? "earn" : "shop";
-  const back = useBackTo("/home");
   const selectTab = (next: string) =>
     setParams(
       (prev) => {
@@ -60,7 +75,7 @@ function PointsContent() {
     );
 
   return (
-    <PointsScreenFrame title={t("title")} onBack={back} balance={balance.data}>
+    <PointsScreenFrame title={t("title")} onBack={back} balance={balance}>
       <Tabs value={tab} onValueChange={selectTab} className="flex flex-col gap-3.5 pt-3">
         <TabsList
           aria-label={t("tabs.label")}

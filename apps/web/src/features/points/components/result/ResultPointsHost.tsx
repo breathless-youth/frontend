@@ -16,25 +16,25 @@ import { usePointsAccess } from "../../usePointsAccess";
  * 포인트 입구는 비회원에게 로그인 화면을 그리지만 결과 화면은 비회원도 보므로,
  * 회원으로 확인된 때만 입구를 거치고 그 밖에는 카드를 그리지 않는다.
  */
-export function ResultPointsHost({ sessionIds }: { sessionIds: number[] }) {
+export function ResultPointsHost({ startedAt }: { startedAt: string }) {
   if (usePointsAccess().status !== "member") {
     return null;
   }
   return (
     <PointsRouteGate>
-      <RewardCard sessionIds={sessionIds} />
+      <RewardCard startedAt={startedAt} />
     </PointsRouteGate>
   );
 }
 
-function RewardCard({ sessionIds }: { sessionIds: number[] }) {
+function RewardCard({ startedAt }: { startedAt: string }) {
   const gateway = usePointsGateway();
   const userId = usePointsUserId();
   const location = useLocation();
   const navigate = useNavigate();
   const reward = useQuery({
-    queryKey: [...pointsKeys.user(userId), "sessionReward", sessionIds],
-    queryFn: () => gateway.getSessionReward(sessionIds),
+    queryKey: [...pointsKeys.user(userId), "sessionReward", startedAt],
+    queryFn: () => gateway.getSessionReward(startedAt),
     staleTime: Infinity,
   });
   return (

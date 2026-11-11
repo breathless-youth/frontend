@@ -45,7 +45,9 @@
     "missionsAction": "See missions",
     "charge": "Top up now",
     "chargeAndBuy": "Top up {{points}} and buy",
-    "pricePending": "Checking price"
+    "pricePending": "Checking price",
+    "studyHint": "+10P for every 30 minutes you study",
+    "ok": "OK"
   },
   "loadError": {
     "shop": "Couldn't load the shop",

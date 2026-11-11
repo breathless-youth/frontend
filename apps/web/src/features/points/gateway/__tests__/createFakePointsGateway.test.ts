@@ -103,3 +103,39 @@ describe("createFakePointsGateway 마스코트", () => {
     expect(shop.mascots.map((m) => m.unlockFocusSec / 3600)).toEqual([0, 5, 15, 30, 60, 100, 150]);
   });
 });
+
+describe("createFakePointsGateway 꾸미기", () => {
+  it("소품은 같은 마스코트·부위에 하나만 입고 null이면 벗는다", async () => {
+    const gateway = createFakePointsGateway("default");
+    await gateway.purchase(CROWN);
+    await gateway.equipAccessory("stopwatch", "head", CROWN);
+    expect((await item(gateway, CROWN))?.inUse).toBe(true);
+    await gateway.equipAccessory("stopwatch", "head", null);
+    expect((await item(gateway, CROWN))?.inUse).toBe(false);
+  });
+
+  it("가지지 않은 소품과 배경은 거절한다", async () => {
+    const gateway = createFakePointsGateway("default");
+    await expect(gateway.equipAccessory("stopwatch", "head", CROWN)).rejects.toThrow();
+    await expect(gateway.setTimerBackground("bg-seaside")).rejects.toThrow();
+  });
+
+  it("타이머 배경은 하나만 쓰고 null이면 기본 배경으로 돌린다", async () => {
+    const gateway = createFakePointsGateway("default");
+    await gateway.setTimerBackground("bg-forest-morning");
+    expect((await item(gateway, "bg-forest-morning"))?.inUse).toBe(true);
+    await gateway.setTimerBackground(null);
+    const backgrounds = (await gateway.getShop()).items.filter(
+      (it) => it.kind === "timerBackground",
+    );
+    expect(backgrounds.some((it) => it.inUse)).toBe(false);
+  });
+
+  it("새로 열린 마스코트를 본 것으로 적는다", async () => {
+    const gateway = createFakePointsGateway("newMascot");
+    const before = (await gateway.getShop()).mascots.filter((m) => m.newlyUnlocked);
+    expect(before.map((m) => m.id)).toEqual(["planner", "stopwatch"]);
+    await gateway.markUnlocksSeen();
+    expect((await gateway.getShop()).mascots.some((m) => m.newlyUnlocked)).toBe(false);
+  });
+});

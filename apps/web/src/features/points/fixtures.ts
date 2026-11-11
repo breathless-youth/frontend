@@ -9,20 +9,9 @@ import type {
   ShopItem,
   ShopItemKind,
 } from "./types";
+import type { PointsScene } from "./pointsScenes";
 
-export const POINTS_SCENES = [
-  "default",
-  "empty",
-  "allCollected",
-  "firstDay",
-  "allDone",
-  "noMedal",
-  "adUnavailable",
-  "payFail",
-  "loadError",
-] as const;
-
-export type PointsScene = (typeof POINTS_SCENES)[number];
+export { POINTS_SCENES, type PointsScene } from "./pointsScenes";
 
 export type PointsFixture = {
   balance: number;
@@ -124,12 +113,17 @@ function buildItems(totalFocusHours: number): ShopItem[] {
   ];
 }
 
-function buildMascots(totalFocusSec: number, selected: MascotId): Mascot[] {
+function buildMascots(
+  totalFocusSec: number,
+  selected: MascotId,
+  newlyUnlocked: MascotId[],
+): Mascot[] {
   return MASCOT_UNLOCK_HOURS.map(([id, hours]) => ({
     id,
     unlockFocusSec: hours * HOUR,
     unlocked: totalFocusSec >= hours * HOUR,
     selected: id === selected,
+    newlyUnlocked: newlyUnlocked.includes(id),
   }));
 }
 
@@ -214,7 +208,11 @@ export function buildPointsFixture(scene: PointsScene, now: number = Date.now())
             : { ...it, owned: false, inUse: false },
         )
       : items,
-    mascots: buildMascots(totalFocusSec, scene === "firstDay" ? "book" : "stopwatch"),
+    mascots: buildMascots(
+      totalFocusSec,
+      scene === "firstDay" || scene === "newMascot" ? "book" : "stopwatch",
+      scene === "newMascot" ? ["planner", "stopwatch"] : [],
+    ),
     totalFocusSec,
     history: fresh ? [] : buildHistory(now),
     earn: buildEarn(scene),

@@ -43,7 +43,9 @@
     "missionsAction": "ミッションを見る",
     "charge": "今すぐチャージ",
     "chargeAndBuy": "{{points}}チャージして購入",
-    "pricePending": "価格を確認中"
+    "pricePending": "価格を確認中",
+    "studyHint": "30分勉強するたびに+10P",
+    "ok": "OK"
   },
   "loadError": {
     "shop": "ショップを読み込めませんでした",

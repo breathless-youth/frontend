@@ -56,6 +56,10 @@ export function usePurchaseFlow(item: ShopItem | null) {
         void queryClient.invalidateQueries({ queryKey: pointsKeys.balance(userId) });
       } else {
         setStep("idle");
+        // 이미 가졌거나 잠긴 것은 다시 받은 상점이 보여 주고, 팔지 않거나 없어진 상품은 화면이 설명할 길이 없어 일반 안내를 띄운다.
+        if (result.reason === "notPurchasable" || result.reason === "notFound") {
+          showToast(i18n.t("common:errors.retryLater"));
+        }
       }
       void queryClient.invalidateQueries({ queryKey: pointsKeys.shop(userId) });
       void queryClient.invalidateQueries({ queryKey: [...pointsKeys.user(userId), "history"] });

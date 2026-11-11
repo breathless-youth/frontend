@@ -96,7 +96,10 @@ describe("TimerBackgroundScreen", () => {
   });
 
   it("적용이 실패하면 알리고 다시 누를 수 있다", async () => {
-    await setup(1240, (g) => ({ ...g, setInUse: () => Promise.reject(new Error("down")) }));
+    await setup(1240, (g) => ({
+      ...g,
+      setTimerBackground: () => Promise.reject(new Error("down")),
+    }));
     await userEvent.click(tile("숲속 아침"));
     await userEvent.click(screen.getByRole("button", { name: "적용하기" }));
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("잠시 후 다시 시도해 주세요"));
