@@ -811,6 +811,24 @@ export function trackPeerConnectionFailed(peerCount: number) {
   track("peer_connection_failed", { peer_count: peerCount });
 }
 
+/**
+ * API 응답 시간 요약
+ *
+ * 국가는 Amplitude가 IP로 붙이므로 주소·사용자 정보 없이 숫자만 싣는다.
+ */
+export function trackApiLatencySampled(input: {
+  medianMs: number;
+  maxMs: number;
+  sampleCount: number;
+}) {
+  if (!initialized) return;
+  track("api_latency_sampled", {
+    median_ms: input.medianMs,
+    max_ms: input.maxMs,
+    sample_count: input.sampleCount,
+  });
+}
+
 /* ── 브리지 기반 앱 이벤트 (BY-472) ─────────────────────────────────────────
  *
  * 네이티브 Amplitude SDK 없이, 네이티브→웹 브리지(`lib/bridge.ts`) 메시지를 웹 SDK로

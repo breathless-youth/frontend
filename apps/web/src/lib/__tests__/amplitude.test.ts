@@ -911,6 +911,30 @@ describe("WebRTC 연결 이벤트 (BY-472)", () => {
   });
 });
 
+describe("API 응답 시간 요약 이벤트", () => {
+  it("중간값·최댓값·개수만 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackApiLatencySampled } = await loadModule();
+    initAmplitude();
+
+    trackApiLatencySampled({ medianMs: 80, maxMs: 210, sampleCount: 10 });
+
+    expect(mocks.track).toHaveBeenCalledWith("api_latency_sampled", {
+      median_ms: 80,
+      max_ms: 210,
+      sample_count: 10,
+    });
+  });
+
+  it("초기화되지 않았으면 보내지 않는다", async () => {
+    const { trackApiLatencySampled } = await loadModule();
+
+    trackApiLatencySampled({ medianMs: 80, maxMs: 210, sampleCount: 10 });
+
+    expect(mocks.track).not.toHaveBeenCalledWith("api_latency_sampled", expect.anything());
+  });
+});
+
 describe("브리지 기반 앱 이벤트 (BY-472)", () => {
   it("앱 실행을 보낸다 — 홈 웹뷰에만 한 번 오는 app-launched의 짝", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
