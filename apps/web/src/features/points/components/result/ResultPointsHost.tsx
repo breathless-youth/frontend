@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { useGroupAccess } from "@/features/login/useGroupAccess";
 import { slideNavigate } from "@/lib/pageTransition";
 import { pointsKeys } from "@/lib/pointsQueries";
 
@@ -9,16 +8,16 @@ import { usePointsGateway, usePointsUserId } from "../../gateway/PointsGatewayCo
 import { PointsRouteGate } from "../../PointsRouteGate";
 import { pointsSearch } from "../../pointsSearch";
 import { ResultPointsCard } from "../../screens/ResultPointsCard";
+import { usePointsAccess } from "../../usePointsAccess";
 
 /**
  * 결과 화면에 붙는 포인트 카드
  *
  * 포인트 입구는 비회원에게 로그인 화면을 그리지만 결과 화면은 비회원도 보므로,
- * 로그인 판정이 끝난 회원일 때만 입구를 거친다.
+ * 회원으로 확인된 때만 입구를 거치고 그 밖에는 카드를 그리지 않는다.
  */
 export function ResultPointsHost({ sessionIds }: { sessionIds: number[] }) {
-  const access = useGroupAccess();
-  if (access !== "ungated" && access !== "member") {
+  if (usePointsAccess().status !== "member") {
     return null;
   }
   return (

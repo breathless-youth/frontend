@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import type { ProfileResponse, ProfileUpdateRequest } from "@focusmakers/types";
 
@@ -18,6 +18,8 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ProfileMascotRow } from "@/features/points/components/mascots/ProfileMascotRow";
 import { usePointsGateway, usePointsUserId } from "@/features/points/gateway/PointsGatewayContext";
 import { PointsRouteGate } from "@/features/points/PointsRouteGate";
+import { pointsSearch } from "@/features/points/pointsSearch";
+import { isMemberProfile } from "@/features/points/usePointsAccess";
 import { categoryChips } from "@/features/profile/categoryChips";
 import { ProfilePhotoButton } from "@/features/profile/ProfilePhotoButton";
 import { markProfileSaved } from "@/features/profile/profileSavedNotice";
@@ -120,6 +122,7 @@ function ProfileMascots() {
   const gateway = usePointsGateway();
   const userId = usePointsUserId();
   const queryClient = useQueryClient();
+  const location = useLocation();
   const shop = useQuery(shopQuery(gateway, userId));
   if (shop.data === undefined) {
     return null;
@@ -128,7 +131,7 @@ function ProfileMascots() {
   return (
     <ProfileMascotRow
       mascots={mascots}
-      decorateTo="/points/accessories"
+      decorateTo={`/points/accessories${pointsSearch(location.search)}`}
       onSelect={(id) => {
         void gateway
           .selectMascot(id)
@@ -359,8 +362,8 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
             />
           </div>
 
-          {/* 비회원은 포인트를 쓰지 못하므로 로그인 화면이 대신 그려지지 않게 줄째 뺀다. */}
-          {isPointsEnabled() && profile.loginProvider !== null && (
+          {/* 회원으로 확인되지 않으면 포인트를 쓰지 못하므로 로그인 화면이 대신 그려지지 않게 줄째 뺀다. */}
+          {isPointsEnabled() && isMemberProfile(profile) && (
             <PointsRouteGate>
               <ProfileMascots />
             </PointsRouteGate>

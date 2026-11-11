@@ -2,20 +2,22 @@ import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 
 import { baseSearch } from "@/features/group-room/groupTabSearch";
-import { GroupLoginGate } from "@/features/login/GroupLoginGate";
+import { useBackTo } from "@/features/group-room/useBackTo";
 import { GroupLoginScreen } from "@/features/login/GroupLoginScreen";
 import { isPointsEnabled } from "@/lib/pointsCapability";
-import { useIdentityPending, useUserId } from "@/lib/userId";
 
+import { PointsLoadState } from "./components/shared/PointsLoadState";
+import { PointsScreenFrame } from "./components/shared/PointsScreenFrame";
 import { appPointsGateway } from "./components/shop/appPointsGateway";
 import { PointsGatewayProvider, usePointsGatewayProvided } from "./gateway/PointsGatewayContext";
+import { usePointsAccess } from "./usePointsAccess";
 
 /**
  * 포인트 화면의 입구
  *
  * 플래그가 꺼져 있으면 홈으로 보낸다.
- * 포인트는 로그인한 사용자만 쓰므로 비회원에게는 그 주소에 기존 로그인 화면을 그린다.
- * 신원이 끝내 없는 문서도 누구의 포인트인지 알 수 없어 같은 로그인 화면을 그린다.
+ * 포인트는 로그인한 사용자만 쓰므로 회원으로 확인된 때만 화면을 그리고, 확인하는 동안은 뼈대를 둔다.
+ * 비회원과 확인하지 못한 경우는 모두 그 주소에 기존 로그인 화면을 그린다.
  */
 export function PointsRouteGate({ children }: { children: ReactNode }) {
   const location = useLocation();
@@ -26,25 +28,29 @@ export function PointsRouteGate({ children }: { children: ReactNode }) {
   if (!isPointsEnabled()) {
     return <Navigate to={{ pathname: "/home", search: baseSearch(location.search) }} replace />;
   }
-  return (
-    <GroupLoginGate entry="points">
-      <WithUser>{children}</WithUser>
-    </GroupLoginGate>
-  );
+  return <MemberOnly>{children}</MemberOnly>;
 }
 
-function WithUser({ children }: { children: ReactNode }) {
-  const identityPending = useIdentityPending();
-  const userId = useUserId();
-  if (identityPending) {
-    return null;
+function MemberOnly({ children }: { children: ReactNode }) {
+  const access = usePointsAccess();
+  if (access.status === "pending") {
+    return <GateSkeleton />;
   }
-  if (userId === null) {
+  if (access.status === "denied") {
     return <GroupLoginScreen entry="points" />;
   }
   return (
-    <PointsGatewayProvider gateway={appPointsGateway} userId={userId}>
+    <PointsGatewayProvider gateway={appPointsGateway} userId={access.userId}>
       {children}
     </PointsGatewayProvider>
+  );
+}
+
+function GateSkeleton() {
+  const back = useBackTo("/home");
+  return (
+    <PointsScreenFrame onBack={back} balance={undefined}>
+      <PointsLoadState failed={false} message="" onRetry={() => {}} />
+    </PointsScreenFrame>
   );
 }

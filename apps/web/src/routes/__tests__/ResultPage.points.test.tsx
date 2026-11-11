@@ -7,12 +7,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createFakePointsGateway } from "@/features/points/gateway/createFakePointsGateway";
 import type { PointsGateway } from "@/features/points/gateway/PointsGateway";
 import { PointsGatewayProvider } from "@/features/points/gateway/PointsGatewayContext";
-import { useGroupAccess } from "@/features/login/useGroupAccess";
+import { usePointsAccess } from "@/features/points/usePointsAccess";
 import { __resetPointsForTests } from "@/lib/pointsCapability";
 
 import { ResultPage } from "../ResultPage";
 
-vi.mock("@/features/login/useGroupAccess", () => ({ useGroupAccess: vi.fn() }));
+vi.mock("@/features/points/usePointsAccess", () => ({ usePointsAccess: vi.fn() }));
 vi.mock("@/features/login/GroupLoginScreen", () => ({
   GroupLoginScreen: () => <p>로그인 화면</p>,
 }));
@@ -73,13 +73,13 @@ function renderAt(path: string, search: string, gateway: PointsGateway) {
 }
 
 beforeEach(() => {
-  vi.mocked(useGroupAccess).mockReturnValue("member");
+  vi.mocked(usePointsAccess).mockReturnValue({ status: "member", userId: 7 });
   setFlag(true);
 });
 
 afterEach(() => {
   setFlag(false);
-  vi.mocked(useGroupAccess).mockReset();
+  vi.mocked(usePointsAccess).mockReset();
   delete (window as { matchMedia?: unknown }).matchMedia;
 });
 
@@ -109,8 +109,11 @@ describe("ResultPage 포인트 카드", () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
-  it("비회원이면 카드도 로그인 화면도 없다", () => {
-    vi.mocked(useGroupAccess).mockReturnValue("guest");
+  it.each([
+    ["비회원이거나 확인할 수 없으면", "denied"],
+    ["확인하는 중이면", "pending"],
+  ] as const)("%s 카드도 로그인 화면도 없다", (_, status) => {
+    vi.mocked(usePointsAccess).mockReturnValue({ status });
     renderAt(PATHS[0], "?userId=7", createFakePointsGateway("default"));
     expect(screen.queryByText("로그인 화면")).not.toBeInTheDocument();
     expect(screen.queryByText(/받았어요/)).not.toBeInTheDocument();

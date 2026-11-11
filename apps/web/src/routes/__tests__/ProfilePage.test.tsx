@@ -920,6 +920,8 @@ describe("프로필 사진", () => {
 });
 
 describe("프로필 설정의 내 마스코트", () => {
+  const member = { ...profile, loginProvider: "KAKAO" } as const;
+
   function enablePoints() {
     window.history.replaceState(null, "", "/profile?points=1");
     __resetPointsForTests();
@@ -939,13 +941,13 @@ describe("프로필 설정의 내 마스코트", () => {
 
   it("포인트가 켜져 있으면 카테고리 아래에 줄이 보이고 잠긴 마스코트는 눌러도 바뀌지 않는다", async () => {
     enablePoints();
-    mockedGetProfile.mockResolvedValue({ ...profile });
-    renderAt("/profile?userId=7");
+    mockedGetProfile.mockResolvedValue(member);
+    renderAt("/profile?userId=7&lang=ko");
 
     expect(await screen.findByText("내 마스코트")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /꾸미기/ })).toHaveAttribute(
       "href",
-      "/points/accessories",
+      "/points/accessories?userId=7&lang=ko",
     );
     const selected = await screen.findByRole("button", { name: "스톱워치" });
     await userEvent.click(await screen.findByRole("button", { name: "램프 잠김" }));
@@ -955,7 +957,7 @@ describe("프로필 설정의 내 마스코트", () => {
 
   it("연 마스코트를 누르면 폼 저장 없이 바로 바뀐다", async () => {
     enablePoints();
-    mockedGetProfile.mockResolvedValue({ ...profile });
+    mockedGetProfile.mockResolvedValue(member);
     renderAt("/profile?userId=7");
 
     await userEvent.click(await screen.findByRole("button", { name: "플래너" }));
@@ -966,6 +968,15 @@ describe("프로필 설정의 내 마스코트", () => {
       ),
     );
     expect(mockedUpdateProfile).not.toHaveBeenCalled();
+  });
+
+  it("로그인 공급자를 모르면 줄이 없다", async () => {
+    enablePoints();
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    renderAt("/profile?userId=7");
+
+    await screen.findByLabelText("닉네임");
+    expect(screen.queryByText("내 마스코트")).not.toBeInTheDocument();
   });
 
   it("비회원이면 줄이 없다", async () => {
