@@ -1,0 +1,105 @@
+import { describe, expect, it } from "vitest";
+
+import { createFakePointsGateway } from "../createFakePointsGateway";
+
+const CROWN = "acc-stopwatch-crown";
+
+async function item(gateway: ReturnType<typeof createFakePointsGateway>, id: string) {
+  return (await gateway.getShop()).items.find((it) => it.id === id);
+}
+
+describe("createFakePointsGateway 구매", () => {
+  it("잔액 1240에서 600짜리를 사면 640이 남고 그 상품을 갖는다", async () => {
+    const gateway = createFakePointsGateway("default");
+    expect(await gateway.getBalance()).toBe(1240);
+    expect(await gateway.purchase(CROWN)).toEqual({ ok: true, balance: 640 });
+    expect(await gateway.getBalance()).toBe(640);
+    expect((await item(gateway, CROWN))?.owned).toBe(true);
+  });
+
+  it("잔액이 모자라면 사지 않는다", async () => {
+    const gateway = createFakePointsGateway("default", { balance: 480 });
+    expect(await gateway.purchase(CROWN)).toEqual({ ok: false, reason: "insufficient" });
+    expect(await gateway.getBalance()).toBe(480);
+    expect((await item(gateway, CROWN))?.owned).toBe(false);
+  });
+
+  it("잔액이 가격과 같으면 사고 0이 남는다", async () => {
+    const gateway = createFakePointsGateway("default", { balance: 600 });
+    expect(await gateway.purchase(CROWN)).toEqual({ ok: true, balance: 0 });
+  });
+
+  it("가진 상품은 다시 사지 않는다", async () => {
+    const gateway = createFakePointsGateway("default");
+    await gateway.purchase(CROWN);
+    expect(await gateway.purchase(CROWN)).toEqual({ ok: false, reason: "owned" });
+    expect(await gateway.getBalance()).toBe(640);
+  });
+
+  it("잠긴 마스코트의 소품은 사지 않는다", async () => {
+    const gateway = createFakePointsGateway("default");
+    const lampItem = (await gateway.getShop()).items.find((it) => it.mascotId === "lamp");
+    expect(lampItem).toBeDefined();
+    expect(await gateway.purchase(lampItem!.id)).toEqual({ ok: false, reason: "lockedMascot" });
+  });
+
+  it("산 내역이 쓴 기록에 남는다", async () => {
+    const gateway = createFakePointsGateway("empty");
+    expect(await gateway.getHistory("all")).toEqual([]);
+    const cheap = createFakePointsGateway("default");
+    await cheap.purchase(CROWN);
+    const spent = await cheap.getHistory("spent");
+    expect(spent[0]).toMatchObject({ amount: -600, reason: "purchase", itemName: "왕관" });
+    expect(spent.every((entry) => entry.amount < 0)).toBe(true);
+  });
+});
+
+describe("createFakePointsGateway 받기", () => {
+  it("메달 포인트를 받으면 잔액이 늘고 새 메달이 없어진다", async () => {
+    const gateway = createFakePointsGateway("default");
+    expect(await gateway.claim("medals")).toEqual({ balance: 1370 });
+    expect((await gateway.getEarnToday()).medals).toEqual([]);
+  });
+
+  it("광고가 없는 장면이면 보상을 주지 않는다", async () => {
+    const gateway = createFakePointsGateway("adUnavailable");
+    expect(await gateway.watchAd()).toEqual({ status: "unavailable" });
+    expect(await gateway.getBalance()).toBe(1240);
+  });
+
+  it("충전하면 묶음 포인트와 보너스가 들어온다", async () => {
+    const gateway = createFakePointsGateway("default");
+    expect(await gateway.charge("points_1200")).toEqual({
+      status: "completed",
+      granted: 1200,
+      bonus: 100,
+      balance: 2540,
+    });
+  });
+
+  it("결제 실패 장면이면 충전하지 않는다", async () => {
+    const gateway = createFakePointsGateway("payFail");
+    expect(await gateway.charge("points_1200")).toEqual({ status: "failed" });
+  });
+
+  it("불러오기 실패 장면이면 조회가 실패한다", async () => {
+    const gateway = createFakePointsGateway("loadError");
+    await expect(gateway.getShop()).rejects.toThrow();
+    await expect(gateway.getBalance()).rejects.toThrow();
+  });
+});
+
+describe("createFakePointsGateway 마스코트", () => {
+  it("연 마스코트로 고른 것을 옮긴다", async () => {
+    const gateway = createFakePointsGateway("default");
+    await gateway.selectMascot("book");
+    const mascots = (await gateway.getShop()).mascots;
+    expect(mascots.filter((m) => m.selected).map((m) => m.id)).toEqual(["book"]);
+  });
+
+  it("누적 순공과 해금 기준이 시안과 같다", async () => {
+    const shop = await createFakePointsGateway("default").getShop();
+    expect(shop.totalFocusSec).toBe(25 * 3600 + 48 * 60);
+    expect(shop.mascots.map((m) => m.unlockFocusSec / 3600)).toEqual([0, 5, 15, 30, 60, 100, 150]);
+  });
+});
