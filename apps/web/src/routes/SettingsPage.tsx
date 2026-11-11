@@ -12,6 +12,10 @@ import { interviewStatusQuery } from "@/lib/interviewQueries";
 import { slideNavigate } from "@/lib/pageTransition";
 import { showToast } from "@/lib/toast";
 import { useUserId } from "@/lib/userId";
+import { usePointsBalance } from "@/features/points/components/shop/usePointsBalance";
+import { formatPoints } from "@/features/points/model/formatPoints";
+import { pointsSearch } from "@/features/points/pointsSearch";
+import { isPointsEnabled } from "@/lib/pointsCapability";
 import { hasAppLockCapability } from "@/features/app-lock/appLockCapability";
 import { formatAppLockRowValue } from "@/features/app-lock/appLockSummary";
 import { useAppLockSettings } from "@/features/app-lock/useAppLockSettings";
@@ -58,6 +62,7 @@ export function SettingsPage() {
   const permissions = useDevicePermissions();
   const appLock = useAppLockSettings();
   const userId = useUserId();
+  const pointsBalance = usePointsBalance(userId);
   // 보상이 국내 기프티콘이라 영어 화면에서는 상태를 묻지 않아 행이 생기지 않는다.
   const interview = useQuery({
     ...interviewStatusQuery(userId ?? 0),
@@ -136,6 +141,22 @@ export function SettingsPage() {
               );
             }}
           />
+          {isPointsEnabled() && (
+            <SettingsRow
+              label={t("settings.history", { ns: "points-shop" })}
+              trailing={
+                pointsBalance === undefined
+                  ? { kind: "chevron" }
+                  : { kind: "valueChevron", value: formatPoints(pointsBalance) }
+              }
+              onPress={() => {
+                trackSettingsRowPressed("points_history");
+                slideNavigate("forward", () =>
+                  navigate({ pathname: "/points/history", search: pointsSearch(location.search) }),
+                );
+              }}
+            />
+          )}
         </SettingsSection>
 
         <SettingsSection className="mt-5" label={t("sections.service")}>
