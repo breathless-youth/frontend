@@ -1,1 +1,9 @@
-{}
+{
+  "earned": "獲得 {{points}}",
+  "todayProgress": "今天上限 {{max}}，已學習 {{today}}",
+  "today": "今天 {{duration}}",
+  "max": "上限 {{duration}}",
+  "nextMascot": "距離{{name}}還需專注 {{duration}}",
+  "nextProgress": "已累積 {{percent}}% 前往{{name}}",
+  "openShop": "商店"
+}

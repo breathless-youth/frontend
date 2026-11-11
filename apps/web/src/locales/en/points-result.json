@@ -1,1 +1,9 @@
-{}
+{
+  "earned": "You earned {{points}}",
+  "todayProgress": "Studied {{today}} of {{max}} today",
+  "today": "Today {{duration}}",
+  "max": "Max {{duration}}",
+  "nextMascot": "{{duration}} of focus left until {{name}}",
+  "nextProgress": "{{percent}}% of the way to {{name}}",
+  "openShop": "Shop"
+}

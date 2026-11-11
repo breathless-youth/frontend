@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { CtaToaster } from "@/components/ui/sonner";
 import { InterviewCardHost } from "@/features/interview/InterviewCardHost";
 import { MeasurementFeedbackCardHost } from "@/features/measurement-feedback/MeasurementFeedbackCardHost";
+import { ResultPointsHost } from "@/features/points/components/result/ResultPointsHost";
 import { ConfettiBurst } from "@/features/study-session/components/ConfettiBurst";
 import { SessionSummaryCard } from "@/features/study-session/components/SessionSummaryCard";
 import {
@@ -26,6 +27,7 @@ import {
   type StudyRoomType,
 } from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
+import { isPointsEnabled } from "@/lib/pointsCapability";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 import { useUserId } from "@/lib/userId";
 
@@ -290,6 +292,9 @@ export function ResultPage() {
             <div className="mt-6 flex flex-col gap-3 animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
               <StudyTimelineCard view={view} />
               <MeasurementFeedbackCardHost focusSec={totalFocusSec} roomType={roomType} />
+              {userId !== null && isPointsEnabled() && (
+                <ResultPointsHost sessionIds={sessions.map((session) => session.id)} />
+              )}
               {userId !== null && <SessionSummaryCard userId={userId} />}
               {userId !== null && <InterviewCardHost userId={userId} />}
               {showTimelapse && (
