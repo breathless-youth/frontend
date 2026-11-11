@@ -1548,6 +1548,7 @@ export function trackRecordsSessionExpanded(input: { readonly expanded: boolean 
 export function trackSettingsRowPressed(
   row:
     | "profile"
+    | "points_history"
     | "timelapse"
     | "app_lock"
     | "block_list"

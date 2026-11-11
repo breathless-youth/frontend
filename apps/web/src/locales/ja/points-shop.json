@@ -1,1 +1,48 @@
-{}
+{
+  "nextMascot": {
+    "label": "次のマスコット {{name}}",
+    "remaining": "あと{{duration}}勉強すると解放されます",
+    "open": "次のマスコット {{name}}、マスコットあつめを開く",
+    "progress": "{{name}}まで{{percent}}%たまりました"
+  },
+  "picker": {
+    "title": "今日は誰と勉強しますか？",
+    "label": "今日いっしょにいるマスコット"
+  },
+  "section": {
+    "accessory": "{{name}}の小物",
+    "background": "タイマー背景",
+    "all": "すべて見る"
+  },
+  "tile": {
+    "owned": "持っています",
+    "streakDays": "連続勉強 {{current}} / {{target}}日",
+    "focusHours": "累計集中 {{current}} / {{target}}時間"
+  },
+  "history": {
+    "filter": {
+      "label": "履歴の種類",
+      "all": "すべて",
+      "earned": "もらった",
+      "spent": "使った"
+    },
+    "today": "今日",
+    "reason": {
+      "study": "集中時間のごほうび",
+      "attendance": "出席",
+      "dailyGoal": "今日の目標達成",
+      "ad": "広告を見てもらう",
+      "medal": "ランキングメダル",
+      "charge": "ポイントチャージ",
+      "purchase": "{{name}}を購入",
+      "purchaseUnknown": "きせかえの購入"
+    },
+    "empty": {
+      "title": "まだポイント履歴がありません",
+      "action": "ポイントをもらいに行く"
+    }
+  },
+  "settings": {
+    "history": "ポイント履歴"
+  }
+}

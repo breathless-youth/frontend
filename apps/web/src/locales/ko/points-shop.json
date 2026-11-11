@@ -1,1 +1,48 @@
-{}
+{
+  "nextMascot": {
+    "label": "다음 마스코트 {{name}}",
+    "remaining": "순공 {{duration}} 더 하면 열려요",
+    "open": "다음 마스코트 {{name}}, 마스코트 모으기 열기",
+    "progress": "{{name}}까지 {{percent}}% 모았어요"
+  },
+  "picker": {
+    "title": "오늘은 누구랑 공부할까요?",
+    "label": "오늘 함께할 마스코트"
+  },
+  "section": {
+    "accessory": "{{name}} 소품",
+    "background": "타이머 배경",
+    "all": "전체 보기"
+  },
+  "tile": {
+    "owned": "보유 중",
+    "streakDays": "연속 공부 {{current}} / {{target}}일",
+    "focusHours": "누적 순공 {{current}} / {{target}}시간"
+  },
+  "history": {
+    "filter": {
+      "label": "기록 종류",
+      "all": "전체",
+      "earned": "받은 것",
+      "spent": "쓴 것"
+    },
+    "today": "오늘",
+    "reason": {
+      "study": "순공 보상",
+      "attendance": "출석하기",
+      "dailyGoal": "하루 목표 채우기",
+      "ad": "광고 보고 받기",
+      "medal": "랭킹 메달",
+      "charge": "포인트 충전",
+      "purchase": "{{name}} 사기",
+      "purchaseUnknown": "꾸미기 구매"
+    },
+    "empty": {
+      "title": "아직 포인트 기록이 없어요",
+      "action": "포인트 받으러 가기"
+    }
+  },
+  "settings": {
+    "history": "포인트 기록"
+  }
+}

@@ -1,1 +1,48 @@
-{}
+{
+  "nextMascot": {
+    "label": "Next mascot: {{name}}",
+    "remaining": "Study {{duration}} more to unlock",
+    "open": "Next mascot {{name}}, open Collect Mascots",
+    "progress": "{{percent}}% of the way to {{name}}"
+  },
+  "picker": {
+    "title": "Who will you study with today?",
+    "label": "Today's mascot"
+  },
+  "section": {
+    "accessory": "{{name}} accessories",
+    "background": "Timer backgrounds",
+    "all": "See all"
+  },
+  "tile": {
+    "owned": "Owned",
+    "streakDays": "Study streak {{current}} / {{target}} days",
+    "focusHours": "Total focus {{current}} / {{target}} hrs"
+  },
+  "history": {
+    "filter": {
+      "label": "History type",
+      "all": "All",
+      "earned": "Earned",
+      "spent": "Spent"
+    },
+    "today": "Today",
+    "reason": {
+      "study": "Focus time reward",
+      "attendance": "Check-in",
+      "dailyGoal": "Daily goal reached",
+      "ad": "Watched an ad",
+      "medal": "Ranking medal",
+      "charge": "Points top-up",
+      "purchase": "Bought {{name}}",
+      "purchaseUnknown": "Decor purchase"
+    },
+    "empty": {
+      "title": "No point history yet",
+      "action": "Go earn points"
+    }
+  },
+  "settings": {
+    "history": "Point history"
+  }
+}

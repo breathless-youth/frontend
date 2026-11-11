@@ -7,12 +7,8 @@ import { GroupLoginScreen } from "@/features/login/GroupLoginScreen";
 import { isPointsEnabled } from "@/lib/pointsCapability";
 import { useIdentityPending, useUserId } from "@/lib/userId";
 
-import { createFakePointsGateway } from "./gateway/createFakePointsGateway";
+import { appPointsGateway } from "./components/shop/appPointsGateway";
 import { PointsGatewayProvider, usePointsGatewayProvided } from "./gateway/PointsGatewayContext";
-
-// 서버 API가 나오기 전이라 플래그를 켠 문서도 메모리 가짜 경계를 쓴다.
-// 화면을 오가도 산 상품과 잔액이 남도록 문서마다 하나만 만든다.
-const appGateway = createFakePointsGateway("default");
 
 /**
  * 포인트 화면의 입구
@@ -47,7 +43,7 @@ function WithUser({ children }: { children: ReactNode }) {
     return <GroupLoginScreen entry="points" />;
   }
   return (
-    <PointsGatewayProvider gateway={appGateway} userId={userId}>
+    <PointsGatewayProvider gateway={appPointsGateway} userId={userId}>
       {children}
     </PointsGatewayProvider>
   );
