@@ -1,3 +1,4 @@
+import { Check } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { EarnIcon } from "./EarnIcon";
@@ -34,15 +35,15 @@ export function FreeTile({
           {note}
         </span>
       )}
-      <div className="mt-auto flex w-full flex-col gap-1 pt-1.5">{children}</div>
+      <div className="mt-auto flex w-full flex-col items-center gap-1 pt-1.5">{children}</div>
     </div>
   );
 }
 
 const ACTION_CLASS =
-  "flex min-h-11 w-full items-center justify-center rounded-md px-1.5 text-[13px] font-bold break-keep disabled:opacity-60";
+  "relative flex h-8 max-w-full items-center justify-center rounded-full px-5 text-[13px] font-bold break-keep before:absolute before:-inset-x-1 before:-inset-y-1.5 disabled:opacity-60";
 
-/** 타일 아래의 누르는 버튼. 강조는 브랜드색 채움, 아니면 옅은 바탕이다. */
+/** 타일 아래의 작은 알약 버튼. 보이는 높이는 낮추고 누르는 범위는 위아래로 넓힌다. */
 export function TileButton({
   children,
   onClick,
@@ -59,7 +60,7 @@ export function TileButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`${ACTION_CLASS} ${quiet ? "bg-brand-subtle text-primary" : "bg-primary text-primary-foreground"}`}
+      className={`${ACTION_CLASS} ${quiet ? "bg-muted text-muted-foreground" : "bg-brand-subtle text-primary"}`}
     >
       {children}
     </button>
@@ -69,8 +70,8 @@ export function TileButton({
 /** 이미 받은 타일 아래의 완료 표시 */
 export function TileDone({ label }: { label: string }) {
   return (
-    <span className="flex min-h-11 items-center justify-center rounded-md bg-muted text-[13px] font-bold text-feedback-success">
-      <span aria-hidden="true">✓ </span>
+    <span className="flex h-8 items-center justify-center gap-1 text-[13px] font-bold text-feedback-success">
+      <Check aria-hidden="true" size={14} strokeWidth={3} />
       {label}
     </span>
   );
