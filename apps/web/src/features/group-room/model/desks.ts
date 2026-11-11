@@ -1,3 +1,4 @@
+import type { AccessorySlot, MascotId } from "@/features/points/types";
 import i18n from "@/lib/i18n";
 
 import { GROUP_ROOM_LIMITS } from "./limits";
@@ -10,6 +11,12 @@ import { GROUP_ROOM_LIMITS } from "./limits";
 export type MemberPresence = "this_room" | "studying_elsewhere" | "paused_elsewhere" | "away";
 
 export type DeskTone = "room" | "elsewhere" | "rest";
+
+/** 책상에 앉힐 마스코트와 입은 소품. 그림 주소가 없는 소품은 그릴 수 없어 빼고 담는다. */
+export interface DeskMascot {
+  id: MascotId;
+  accessories: { slot: AccessorySlot; code: string; imageUrl: string }[];
+}
 
 export interface DeskMember {
   userId: number;
@@ -26,6 +33,8 @@ export interface DeskMember {
    * 공부방에 있거나 측정 중이어도 일시정지나 휴식 동안에는 순공이 쌓이지 않아 책상 색과 따로 받는다.
    */
   accumulating: boolean;
+  /** 서버가 마스코트를 아직 주지 않는 응답에서는 없고, 그때 책상은 사람 그림이다. */
+  mascot?: DeskMascot;
 }
 
 export type DeskSlot = { kind: "member"; member: DeskMember; tone: DeskTone } | { kind: "empty" };

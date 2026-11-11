@@ -2,7 +2,7 @@ import { MascotImage } from "@/features/points/components/shared/MascotImage";
 import type { MascotId } from "@/features/points/types";
 import { cn } from "@/lib/utils";
 
-import type { DeskTone } from "../model/desks";
+import type { DeskMascot, DeskTone } from "../model/desks";
 
 // `--feedback-success`는 `.theme-soft-blue` 안에서만 값이 있어 그 바탕 밖에 그리면 다른 곳에서 공부 중인 초록이 빠진다.
 const PERSON_STROKE = {
@@ -35,10 +35,13 @@ export function DeskFigure({
   tone,
   size,
   mascot,
+  accessories = [],
 }: {
   tone: DeskTone | "empty";
   size: keyof typeof SIZE;
   mascot?: MascotId;
+  /** 마스코트가 입은 소품 그림이며 마스코트와 같은 크기의 투명 그림이라 겹쳐 놓는다. */
+  accessories?: DeskMascot["accessories"];
 }) {
   const look = SIZE[size];
   const empty = tone === "empty";
@@ -70,6 +73,19 @@ export function DeskFigure({
             tone === "rest" && "opacity-50 grayscale",
           )}
         />
+        {accessories.map((accessory) => (
+          <img
+            key={accessory.slot}
+            src={accessory.imageUrl}
+            alt=""
+            data-slot={`accessory-${accessory.slot}`}
+            draggable={false}
+            className={cn(
+              "absolute bottom-[8%] left-1/2 size-[86%] -translate-x-1/2 object-contain",
+              tone === "rest" && "opacity-50 grayscale",
+            )}
+          />
+        ))}
         {restMark && (
           <svg viewBox="0 0 64 60" className="absolute inset-0 size-full">
             {restMark}

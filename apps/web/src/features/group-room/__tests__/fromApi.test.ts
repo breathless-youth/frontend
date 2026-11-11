@@ -320,3 +320,60 @@ describe("fromApi", () => {
     expect(toGroupVisibility("private")).toBe("PRIVATE");
   });
 });
+
+describe("그룹 구성원 마스코트", () => {
+  const desk = {
+    userId: 2,
+    nickname: "별",
+    profileImageUrl: null,
+    owner: false,
+    status: "IDLE",
+    accumulating: false,
+    todayFocusSec: 0,
+    weekFocusSec: 0,
+    lastStudiedAt: null,
+  } as const;
+
+  it("마스코트와 그림 주소가 있는 소품을 책상에 싣는다", () => {
+    const member = toRoomDeskMember(
+      {
+        ...desk,
+        mascot: {
+          mascotCode: "STOPWATCH",
+          accessories: [
+            {
+              mascotCode: "STOPWATCH",
+              slot: "HEAD",
+              item: { itemId: 12, code: "STOPWATCH_HEAD_CROWN", imageUrl: "/crown.png" },
+            },
+            {
+              mascotCode: "STOPWATCH",
+              slot: "FACE",
+              item: { itemId: 13, code: "STOPWATCH_FACE_GLASSES", imageUrl: null },
+            },
+          ],
+        },
+      },
+      1,
+    );
+    expect(member.mascot).toEqual({
+      id: "stopwatch",
+      accessories: [{ slot: "head", code: "STOPWATCH_HEAD_CROWN", imageUrl: "/crown.png" }],
+    });
+  });
+
+  it("마스코트를 안 고른 사람은 책 마스코트에 소품이 없다", () => {
+    const member = toRoomDeskMember(
+      { ...desk, mascot: { mascotCode: "BOOK", accessories: [] } },
+      1,
+    );
+    expect(member.mascot).toEqual({ id: "book", accessories: [] });
+  });
+
+  it("필드가 없거나 모르는 코드면 마스코트 없이 사람 그림으로 둔다", () => {
+    expect(toRoomDeskMember(desk, 1).mascot).toBeUndefined();
+    expect(
+      toRoomDeskMember({ ...desk, mascot: { mascotCode: "NEW", accessories: [] } }, 1).mascot,
+    ).toBeUndefined();
+  });
+});

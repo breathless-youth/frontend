@@ -15,10 +15,12 @@ import type {
   PublicGroupDetailResponse,
 } from "@focusmakers/types";
 
+import { toAccessorySlot, toMascotId } from "@/features/points/gateway/fromApi";
+import type { GroupMemberMascotResponse } from "@/features/points/gateway/pointsApiTypes";
 import { studyCategoryLabel } from "@/lib/studyCategory";
 
 import type { RoomJoinPolicy } from "./model/joinPolicy";
-import type { MemberPresence } from "./model/desks";
+import type { DeskMascot, MemberPresence } from "./model/desks";
 import type { ApplyBlockReason } from "./model/limits";
 import type { RoomRole, RoomVisibility } from "./model/roomMenu";
 import type {
@@ -128,12 +130,37 @@ export function toApplyState(detail: PublicGroupDetailResponse): ApplyState | nu
 }
 
 /**
+ * 책상의 마스코트
+ *
+ * Swagger에 아직 없는 필드라 웹 쪽 잠정 타입으로 읽는다. 모르는 마스코트 코드면 사람 그림으로 둔다.
+ * 그림 주소가 없는 소품은 앱 안에 소품 그림이 없어 그리지 않는다.
+ */
+export function toDeskMascot(raw: GroupMemberMascotResponse | null | undefined): DeskMascot | null {
+  const id = raw == null ? null : toMascotId(raw.mascotCode);
+  if (raw == null || id === null) {
+    return null;
+  }
+  return {
+    id,
+    accessories: raw.accessories.flatMap((entry) => {
+      const slot = toAccessorySlot(entry.slot);
+      const imageUrl = entry.item.imageUrl;
+      return slot === null || imageUrl === null ? [] : [{ slot, code: entry.item.code, imageUrl }];
+    }),
+  };
+}
+
+/**
  * 책상에 앉힐 멤버
  *
  * 지금 보는 사람의 책상은 닉네임 대신 `나`로 그리도록 사용자 번호를 견줘 표시한다.
  * 오늘 순공은 이 그룹이 아니라 앱 전체에서 쌓은 값이다.
  */
-export function toRoomDeskMember(desk: GroupMemberDesk, myUserId: number): RoomDeskMember {
+export function toRoomDeskMember(
+  desk: GroupMemberDesk & { mascot?: GroupMemberMascotResponse | null },
+  myUserId: number,
+): RoomDeskMember {
+  const mascot = toDeskMascot(desk.mascot);
   return {
     userId: desk.userId,
     nickname: desk.nickname,
@@ -143,6 +170,7 @@ export function toRoomDeskMember(desk: GroupMemberDesk, myUserId: number): RoomD
     todayStudySec: desk.todayFocusSec,
     lastStudiedAt: desk.lastStudiedAt,
     accumulating: desk.accumulating,
+    ...(mascot === null ? {} : { mascot }),
   };
 }
 

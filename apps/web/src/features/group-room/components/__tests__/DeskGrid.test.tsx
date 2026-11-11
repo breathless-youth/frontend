@@ -57,6 +57,27 @@ describe("DeskGrid", () => {
     expect(items[5]).toHaveAccessibleName("빈자리");
   });
 
+  it("마스코트가 있는 멤버는 마스코트와 입은 소품을 그리고 없는 멤버는 사람 그림이다", () => {
+    const withMascot: RoomDeskMember[] = [
+      {
+        ...members[0]!,
+        mascot: {
+          id: "stopwatch",
+          accessories: [{ slot: "head", code: "STOPWATCH_HEAD_CROWN", imageUrl: "/crown.png" }],
+        },
+      },
+      members[1]!,
+    ];
+    render(<DeskGrid members={withMascot} visibility="private" elapsedSec={0} />);
+    const [first, , third] = desks();
+    expect(first!.querySelector('[data-slot="accessory-head"]')).toHaveAttribute(
+      "src",
+      "/crown.png",
+    );
+    expect(first!.querySelectorAll("img")).toHaveLength(2);
+    expect(third!.querySelector("img")).toBeNull();
+  });
+
   it("쉬는 멤버의 책상 아래에는 마지막으로 공부한 때를 보이지 않는다", () => {
     render(<DeskGrid members={members} visibility="private" elapsedSec={0} />);
     const resting = screen.getByRole("listitem", { name: /^연필깎이,/ });

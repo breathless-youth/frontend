@@ -108,7 +108,12 @@ function MemberDesk({
       data-me={isMe || undefined}
       className="flex min-w-0 flex-col items-center"
     >
-      <DeskFigure tone={tone} size="md" />
+      <DeskFigure
+        tone={tone}
+        size="md"
+        mascot={member.mascot?.id}
+        accessories={member.mascot?.accessories}
+      />
       <div
         aria-hidden="true"
         className="mt-1 flex w-full min-w-0 flex-col items-center gap-0.5 text-center"

@@ -29,4 +29,18 @@ describe("DeskFigure", () => {
     expect(container.querySelector("img")).toBeNull();
     expect(container.querySelector("circle")).not.toBeNull();
   });
+
+  it("입은 소품을 마스코트 위에 겹쳐 그린다", () => {
+    const { container } = render(
+      <DeskFigure
+        tone="room"
+        size="md"
+        mascot="stopwatch"
+        accessories={[{ slot: "head", code: "STOPWATCH_HEAD_CROWN", imageUrl: "/crown.png" }]}
+      />,
+    );
+    const accessory = container.querySelector('[data-slot="accessory-head"]');
+    expect(accessory).toHaveAttribute("src", "/crown.png");
+    expect(container.querySelectorAll("img")).toHaveLength(2);
+  });
 });
