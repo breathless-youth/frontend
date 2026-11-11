@@ -1103,6 +1103,28 @@ export function trackFocusStartTapped(source: FocusStartSource = "home") {
   track("focus_start_tapped", { destination: "session", source });
 }
 
+export type HomeShortcutTarget = "planner" | "timelapse" | "timelapse_settings" | "app_lock";
+
+/**
+ * 홈 바로가기 탭
+ *
+ * 타임랩스와 앱 잠금 화면은 어디서 열렸는지 남기지 않아서 홈에서 연 경우를 여기서 센다.
+ */
+export function trackHomeShortcutTapped(target: HomeShortcutTarget) {
+  if (!initialized) return;
+  track("home_shortcut_tapped", { target });
+}
+
+/**
+ * 홈 과목 선택
+ *
+ * 과목 이름은 사용자가 직접 지은 글이라 보내지 않고 골랐는지만 보낸다.
+ */
+export function trackHomeSubjectSelected(hasSubject: boolean) {
+  if (!initialized) return;
+  track("home_subject_selected", { has_subject: hasSubject });
+}
+
 /** 온보딩 단계. 순서대로 자동 타이머, 자동 기록, 그룹 스터디, 맞춤 알림, 준비 완료다. */
 export type OnboardingStep =
   "auto_timer" | "auto_record" | "group_study" | "notification" | "ready";

@@ -2471,3 +2471,36 @@ describe("순공 1분 달성 (focus_milestone_reached)", () => {
     expect(localStorage.getItem("focusmakers:focus-milestone-tracked")).toBeNull();
   });
 });
+
+describe("홈 바로가기·과목 선택", () => {
+  it("바로가기 대상과 과목 선택 여부만 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackHomeShortcutTapped("planner");
+    m.trackHomeShortcutTapped("timelapse");
+    m.trackHomeShortcutTapped("timelapse_settings");
+    m.trackHomeShortcutTapped("app_lock");
+    m.trackHomeSubjectSelected(true);
+    m.trackHomeSubjectSelected(false);
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["home_shortcut_tapped", { target: "planner" }],
+      ["home_shortcut_tapped", { target: "timelapse" }],
+      ["home_shortcut_tapped", { target: "timelapse_settings" }],
+      ["home_shortcut_tapped", { target: "app_lock" }],
+      ["home_subject_selected", { has_subject: true }],
+      ["home_subject_selected", { has_subject: false }],
+    ]);
+  });
+
+  it("초기화 전에는 보내지 않는다", async () => {
+    const m = await loadModule();
+
+    m.trackHomeShortcutTapped("planner");
+    m.trackHomeSubjectSelected(true);
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+});
