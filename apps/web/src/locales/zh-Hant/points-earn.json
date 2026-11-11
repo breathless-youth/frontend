@@ -1,1 +1,72 @@
-{}
+{
+  "header": {
+    "title": "今日免費點數",
+    "today": "今天 {{earned}} / {{max}}"
+  },
+  "study": {
+    "every": "每讀書 {{duration}}",
+    "today": "今天 {{duration}}",
+    "max": "上限 {{duration}}",
+    "aria": "今天已讀書 {{done}}(上限 {{max}})"
+  },
+  "tile": {
+    "attendance": "簽到",
+    "dailyGoal": "每日目標",
+    "ad": "觀看廣告",
+    "done": "完成",
+    "claim": "領取",
+    "watch": "觀看",
+    "openInApp": "在 App 開啟",
+    "left": "還剩 {{duration}}",
+    "goalAria": "每日目標已完成 {{percent}}%"
+  },
+  "medal": {
+    "title_other": "排行榜獎牌 {{count}} 枚",
+    "claim": "領取 {{points}}",
+    "none": "沒有新的排行榜獎牌",
+    "noneHint": "進入前 3 名,每枚獎牌都能獲得點數",
+    "ranking": "排行榜 ›",
+    "gold": "金牌 {{points}}",
+    "silver": "銀牌 {{points}}",
+    "bronze": "銅牌 {{points}}",
+    "period": {
+      "DAILY": "日榜",
+      "WEEKLY": "週榜",
+      "MONTHLY": "月榜"
+    },
+    "rank": "第 {{rank}} 名"
+  },
+  "charge": {
+    "title": "儲值點數",
+    "guide": "付款與退款說明",
+    "popular": "熱門",
+    "bonus": "多送 {{points}}",
+    "pricePending": "價格確認中",
+    "packLabel": "儲值 {{points}}"
+  },
+  "openInApp": {
+    "title": "儲值與廣告獎勵請在 App 使用",
+    "body": "在網頁上只能用點數購買裝飾商品。",
+    "action": "在 App 開啟"
+  },
+  "done": {
+    "title": "儲值完成",
+    "points": "儲值點數",
+    "bonus": "贈點",
+    "balance": "持有點數",
+    "close": "確認",
+    "shop": "前往商店"
+  },
+  "failed": {
+    "title": "付款未完成",
+    "body": "請確認付款方式後再試一次。",
+    "close": "關閉",
+    "retry": "再試一次",
+    "missing": "已付款但點數沒入帳?"
+  },
+  "adUnavailable": {
+    "title": "目前沒有可觀看的廣告",
+    "body": "請稍後再試。",
+    "ok": "確認"
+  }
+}

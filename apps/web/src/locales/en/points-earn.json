@@ -1,1 +1,73 @@
-{}
+{
+  "header": {
+    "title": "Free points today",
+    "today": "Today {{earned}} / {{max}}"
+  },
+  "study": {
+    "every": "Every {{duration}} you study",
+    "today": "Today {{duration}}",
+    "max": "Max {{duration}}",
+    "aria": "Studied {{done}} of {{max}} today"
+  },
+  "tile": {
+    "attendance": "Check-in",
+    "dailyGoal": "Daily goal",
+    "ad": "Watch an ad",
+    "done": "Done",
+    "claim": "Claim",
+    "watch": "Watch",
+    "openInApp": "Open in app",
+    "left": "{{duration}} left",
+    "goalAria": "Daily goal {{percent}}% done"
+  },
+  "medal": {
+    "title_one": "{{count}} ranking medal",
+    "title_other": "{{count}} ranking medals",
+    "claim": "Claim {{points}}",
+    "none": "No new ranking medals",
+    "noneHint": "Finish in the top 3 to earn points for each medal",
+    "ranking": "Ranking ›",
+    "gold": "Gold {{points}}",
+    "silver": "Silver {{points}}",
+    "bronze": "Bronze {{points}}",
+    "period": {
+      "DAILY": "Daily",
+      "WEEKLY": "Weekly",
+      "MONTHLY": "Monthly"
+    },
+    "rank": "#{{rank}}"
+  },
+  "charge": {
+    "title": "Buy points",
+    "guide": "Payment and refunds",
+    "popular": "Popular",
+    "bonus": "{{points}} extra",
+    "pricePending": "Checking price",
+    "packLabel": "Buy {{points}}"
+  },
+  "openInApp": {
+    "title": "Buying points and ad rewards are available in the app",
+    "body": "On the web, you can only spend points on decorations.",
+    "action": "Open in app"
+  },
+  "done": {
+    "title": "Purchase complete",
+    "points": "Points bought",
+    "bonus": "Bonus",
+    "balance": "Your points",
+    "close": "OK",
+    "shop": "Go to shop"
+  },
+  "failed": {
+    "title": "We couldn't complete the payment",
+    "body": "Check your payment method and try again.",
+    "close": "Close",
+    "retry": "Try again",
+    "missing": "Paid but didn't get your points?"
+  },
+  "adUnavailable": {
+    "title": "No ads are available right now",
+    "body": "Please try again in a moment.",
+    "ok": "OK"
+  }
+}

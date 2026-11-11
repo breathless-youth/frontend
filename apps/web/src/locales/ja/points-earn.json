@@ -1,1 +1,72 @@
-{}
+{
+  "header": {
+    "title": "今日の無料ポイント",
+    "today": "今日 {{earned}} / {{max}}"
+  },
+  "study": {
+    "every": "{{duration}}勉強するたびに",
+    "today": "今日 {{duration}}",
+    "max": "最大 {{duration}}",
+    "aria": "今日は{{max}}のうち{{done}}勉強しました"
+  },
+  "tile": {
+    "attendance": "出席",
+    "dailyGoal": "1日の目標",
+    "ad": "広告を見る",
+    "done": "完了",
+    "claim": "受け取る",
+    "watch": "見る",
+    "openInApp": "アプリで開く",
+    "left": "あと{{duration}}",
+    "goalAria": "1日の目標を{{percent}}%達成しました"
+  },
+  "medal": {
+    "title_other": "ランキングメダル {{count}}個",
+    "claim": "{{points}}を受け取る",
+    "none": "新しいランキングメダルはありません",
+    "noneHint": "3位以内に入るとメダルごとにポイントがもらえます",
+    "ranking": "ランキング ›",
+    "gold": "金メダル {{points}}",
+    "silver": "銀メダル {{points}}",
+    "bronze": "銅メダル {{points}}",
+    "period": {
+      "DAILY": "日間",
+      "WEEKLY": "週間",
+      "MONTHLY": "月間"
+    },
+    "rank": "{{rank}}位"
+  },
+  "charge": {
+    "title": "ポイントをチャージ",
+    "guide": "決済・返金のご案内",
+    "popular": "人気",
+    "bonus": "+{{points}}",
+    "pricePending": "価格を確認中",
+    "packLabel": "{{points}}をチャージ"
+  },
+  "openInApp": {
+    "title": "チャージと広告の報酬はアプリで利用できます",
+    "body": "ウェブでは、ポイントでデコレーションアイテムを買うことだけできます。",
+    "action": "アプリで開く"
+  },
+  "done": {
+    "title": "チャージ完了",
+    "points": "チャージポイント",
+    "bonus": "ボーナス",
+    "balance": "所持ポイント",
+    "close": "OK",
+    "shop": "ショップへ"
+  },
+  "failed": {
+    "title": "決済を完了できませんでした",
+    "body": "支払い方法を確認して、もう一度お試しください。",
+    "close": "閉じる",
+    "retry": "もう一度試す",
+    "missing": "決済したのにポイントが入っていませんか?"
+  },
+  "adUnavailable": {
+    "title": "今は見られる広告がありません",
+    "body": "しばらくしてからもう一度押してください。",
+    "ok": "OK"
+  }
+}
