@@ -10,7 +10,7 @@ export const SIMPLE_BACKGROUND: TimerBackgroundSelection = { kind: "simple" };
 export const SIMPLE_BACKGROUND_COLOR = "#0b0f14";
 
 /** 사진은 이 개수까지 담는다. */
-export const MAX_BACKGROUND_PHOTOS = 10;
+export const MAX_BACKGROUND_PHOTOS = 3;
 
 /** 아직 출시 전인 배경. 타일에는 `public/images/timer-background/{nameKey}.jpg` 장면을 흐리게 보인다. 이미지 모델로 만든 그림이다. */
 export interface UpcomingBackground {

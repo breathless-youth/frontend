@@ -108,7 +108,7 @@
     "applyFailed": "Couldn't apply the background. Please try again.",
     "removed": "Photo deleted",
     "removeFailed": "Couldn't delete the photo. Please try again.",
-    "photoLimit": "You can add up to 10 photos",
+    "photoLimit": "You can add up to {{max}} photos",
     "preview": {
       "subject": "Math",
       "task": "Calculus past paper #3",

@@ -41,7 +41,7 @@
 
 - `timerBackgroundCatalog.ts`: 묶음(내 사진·감시·자연·심플)과 프리셋 항목, 잠금 여부, 타일 그라데이션을 정의한다.
 - `timerBackgroundSettings.ts`: 고른 배경(`simple` | `photo` + 사진 id)을 localStorage에 읽고 쓴다. 깨진 값이나 지워진 사진은 `simple`로 본다.
-- `timerBackgroundPhotos.ts`: IndexedDB `focusmakers-timer-background`의 `photos` 저장소에 사진(JPEG Blob, 추가 시각, 조정값)을 10장까지 둔다.
+- `timerBackgroundPhotos.ts`: IndexedDB `focusmakers-timer-background`의 `photos` 저장소에 사진(JPEG Blob, 추가 시각, 조정값)을 3장까지 둔다.
 - `prepareBackgroundPhoto.ts`: 웹 파일 입력 경로에서 사진을 긴 변 1920px JPEG로 줄인다. 프로필 사진 줄이기와 같은 방식(`createImageBitmap` + canvas)을 쓴다.
 - `nativeBackgroundPhoto.ts`: 앱 선택기 경로. 프로필 사진 브리지와 같은 요청·응답 방식을 쓰되 메시지 이름과 표시를 따로 둔다(`pick-background-photo`, `backgroundPhotoPicker=1`). 프로필 선택기만 있는 앱이 이 메시지를 모르는 경우를 구분하기 위해서다.
 - 화면: 선택 화면, 미리보기, 공부 화면 배경 레이어.

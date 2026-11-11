@@ -177,7 +177,7 @@ export function TimerBackgroundSettingsPage() {
     } catch (error) {
       showToast(
         error instanceof PhotoLimitError
-          ? t("timerBackground.photoLimit")
+          ? t("timerBackground.photoLimit", { max: MAX_BACKGROUND_PHOTOS })
           : t("profile:photo.unusable"),
       );
     }
@@ -185,7 +185,7 @@ export function TimerBackgroundSettingsPage() {
 
   async function addPhoto() {
     if (photoList.length >= MAX_BACKGROUND_PHOTOS) {
-      showToast(t("timerBackground.photoLimit"));
+      showToast(t("timerBackground.photoLimit", { max: MAX_BACKGROUND_PHOTOS }));
       return;
     }
     if (!canUseNativeBackgroundPhoto()) {

@@ -108,7 +108,7 @@
     "applyFailed": "배경을 적용하지 못했어요. 다시 시도해 주세요.",
     "removed": "사진을 삭제했어요",
     "removeFailed": "사진을 삭제하지 못했어요. 다시 시도해 주세요.",
-    "photoLimit": "사진은 10개까지 담을 수 있어요",
+    "photoLimit": "사진은 {{max}}개까지 담을 수 있어요",
     "preview": {
       "subject": "수학",
       "task": "미적분 기출 3회차",

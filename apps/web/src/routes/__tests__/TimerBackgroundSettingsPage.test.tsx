@@ -121,7 +121,7 @@ describe("설정 › 타이머 배경 선택 화면", () => {
     expect(within(simple).getByText("사용 중")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "문 너머 강아지, 출시 예정" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /문 너머 강아지/ })).toBeNull();
-    expect(screen.getByText("0/10")).toBeInTheDocument();
+    expect(screen.getByText("0/3")).toBeInTheDocument();
   });
 
   it("독서실 감독관을 고르면 빈 방이 깔린 미리보기가 뜨고, 적용하면 설정 행 이름이 바뀐다", async () => {
@@ -228,12 +228,12 @@ describe("설정 › 타이머 배경 선택 화면", () => {
     }
   });
 
-  it("내 사진은 많아져도 한 줄에 두고 좌우로 넘긴다", async () => {
-    for (let index = 0; index < 4; index += 1) {
+  it("내 사진을 다 채우면 앨범 칸과 함께 한 줄을 넘어 좌우로 넘긴다", async () => {
+    for (let index = 0; index < 3; index += 1) {
       await timerBackgroundPhotoStore().add(SQUARE, index);
     }
     renderPage();
-    const lastPhoto = await screen.findByRole("button", { name: "내 사진 4" });
+    const lastPhoto = await screen.findByRole("button", { name: "내 사진 3" });
 
     const row = screen.getByRole("button", { name: "앨범에서 선택" }).parentElement!;
     expect(row.className).toContain("overflow-x-auto");
@@ -403,21 +403,21 @@ describe("설정 › 타이머 배경 선택 화면", () => {
     );
     expect(screen.queryByTestId("timer-background-preview")).toBeNull();
     expect(analytics.added).not.toHaveBeenCalled();
-    expect(screen.getByText("0/10")).toBeInTheDocument();
+    expect(screen.getByText("0/3")).toBeInTheDocument();
   });
 
-  it("10장이 차 있으면 앨범을 열지 않고 안내한다", async () => {
-    for (let index = 0; index < 10; index += 1) {
+  it("3장이 차 있으면 앨범을 열지 않고 안내한다", async () => {
+    for (let index = 0; index < 3; index += 1) {
       await timerBackgroundPhotoStore().add(SQUARE, index);
     }
     renderPage();
-    await screen.findByText("10/10");
+    await screen.findByText("3/3");
     const click = vi.spyOn(fileInput(), "click");
 
     fireEvent.click(screen.getByRole("button", { name: "앨범에서 선택" }));
 
     expect(click).not.toHaveBeenCalled();
-    expect(showToast).toHaveBeenCalledWith("사진은 10개까지 담을 수 있어요");
+    expect(showToast).toHaveBeenCalledWith("사진은 3개까지 담을 수 있어요");
   });
 
   it("앱 선택기를 쓸 수 있으면 앱에서 고른 사진을 담는다", async () => {

@@ -108,7 +108,7 @@
     "applyFailed": "無法套用背景，請再試一次。",
     "removed": "已刪除照片",
     "removeFailed": "無法刪除照片，請再試一次。",
-    "photoLimit": "最多可加入 10 張照片",
+    "photoLimit": "最多可加入 {{max}} 張照片",
     "preview": {
       "subject": "數學",
       "task": "微積分考古題第 3 回",

@@ -35,7 +35,7 @@ export interface BackgroundPhotoTile {
   thumb: string;
 }
 
-// 원본 10장을 data URL로 들고 있으면 저사양 웹뷰에서 수 MB가 메모리에 남아 타일에는 줄인 그림만 둔다.
+// 원본을 data URL로 들고 있으면 저사양 웹뷰에서 사진마다 수백 KB가 메모리에 남아 타일에는 줄인 그림만 둔다.
 async function toPhotoTile(photo: TimerBackgroundPhoto): Promise<BackgroundPhotoTile> {
   let thumb: string;
   try {

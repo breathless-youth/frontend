@@ -27,14 +27,14 @@ describe("타이머 배경 사진 저장소", () => {
     expect(new Uint8Array(list[1]!.bytes)).toEqual(new Uint8Array([2]));
   });
 
-  it("10장이 찼으면 더 담지 않는다", async () => {
+  it("3장이 찼으면 더 담지 않는다", async () => {
     const store = createTimerBackgroundPhotoStore();
-    for (let index = 0; index < 10; index += 1) {
+    for (let index = 0; index < 3; index += 1) {
       await store.add(jpeg(index), index);
     }
 
     await expect(store.add(jpeg(99), 99)).rejects.toBeInstanceOf(PhotoLimitError);
-    expect(await store.list()).toHaveLength(10);
+    expect(await store.list()).toHaveLength(3);
   });
 
   it("사진을 삭제하면 목록과 조회에서 빠진다", async () => {
