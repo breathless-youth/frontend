@@ -1,1 +1,72 @@
-{}
+{
+  "header": {
+    "title": "오늘의 무료 포인트",
+    "today": "오늘 {{earned}} / {{max}}"
+  },
+  "study": {
+    "every": "{{duration}} 공부할 때마다",
+    "today": "오늘 {{duration}}",
+    "max": "최대 {{duration}}",
+    "aria": "오늘 {{max}} 중 {{done}} 공부했어요"
+  },
+  "tile": {
+    "attendance": "출석",
+    "dailyGoal": "하루 목표",
+    "ad": "광고 보기",
+    "done": "완료",
+    "claim": "받기",
+    "watch": "보기",
+    "openInApp": "앱에서 열기",
+    "left": "{{duration}} 남음",
+    "goalAria": "하루 목표 {{percent}}% 채웠어요"
+  },
+  "medal": {
+    "title_other": "랭킹 메달 {{count}}개",
+    "claim": "{{points}} 받기",
+    "none": "새 랭킹 메달이 없어요",
+    "noneHint": "3위 안에 들면 메달마다 포인트를 받아요",
+    "ranking": "랭킹 ›",
+    "gold": "금메달 {{points}}",
+    "silver": "은메달 {{points}}",
+    "bronze": "동메달 {{points}}",
+    "period": {
+      "DAILY": "일간",
+      "WEEKLY": "주간",
+      "MONTHLY": "월간"
+    },
+    "rank": "{{rank}}위"
+  },
+  "charge": {
+    "title": "포인트 충전",
+    "guide": "결제·환불 안내",
+    "popular": "인기",
+    "bonus": "{{points}} 더",
+    "pricePending": "가격 확인 중",
+    "packLabel": "{{points}} 충전"
+  },
+  "openInApp": {
+    "title": "충전과 광고 보상은 앱에서 할 수 있어요",
+    "body": "웹에서는 포인트로 꾸미기 상품을 사는 것만 돼요.",
+    "action": "앱에서 열기"
+  },
+  "done": {
+    "title": "충전 완료",
+    "points": "충전 포인트",
+    "bonus": "보너스",
+    "balance": "보유 포인트",
+    "close": "확인",
+    "shop": "상점 가기"
+  },
+  "failed": {
+    "title": "결제를 완료하지 못했어요",
+    "body": "결제 수단을 확인하고 다시 시도해 주세요.",
+    "close": "닫기",
+    "retry": "다시 시도",
+    "missing": "결제됐는데 포인트가 안 들어왔나요?"
+  },
+  "adUnavailable": {
+    "title": "지금은 볼 수 있는 광고가 없어요",
+    "body": "잠시 뒤에 다시 눌러 주세요.",
+    "ok": "확인"
+  }
+}
