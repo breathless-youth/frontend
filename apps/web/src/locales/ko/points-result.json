@@ -1,1 +1,9 @@
-{}
+{
+  "earned": "{{points}} 받았어요",
+  "todayProgress": "오늘 {{max}} 중 {{today}} 공부했어요",
+  "today": "오늘 {{duration}}",
+  "max": "최대 {{duration}}",
+  "nextMascot": "{{name}}까지 순공 {{duration}} 남았어요",
+  "nextProgress": "{{name}}까지 {{percent}}% 모았어요",
+  "openShop": "상점"
+}
