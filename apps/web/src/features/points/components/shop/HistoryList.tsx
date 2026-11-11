@@ -69,6 +69,12 @@ function reasonLabel(
   entry: PointsHistoryEntry,
   t: ReturnType<typeof useTranslation<"points-shop">>["t"],
 ): string {
+  if (entry.reason === "medal" && entry.medal !== undefined) {
+    return t("history.reason.medalRank", {
+      period: t(`history.medalPeriod.${entry.medal.period}`),
+      rank: entry.medal.rank,
+    });
+  }
   if (entry.reason === "purchase") {
     return entry.itemName === undefined
       ? t("history.reason.purchaseUnknown")

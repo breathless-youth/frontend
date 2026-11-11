@@ -3,6 +3,10 @@ import type {
   ItemAcquire,
   Mascot,
   MascotId,
+  MedalReward,
+  PointsHistoryEntry,
+  PointsHistoryPage,
+  PointsReason,
   PurchaseFailure,
   SessionReward,
   ShopData,
@@ -10,6 +14,8 @@ import type {
 } from "../types";
 import type {
   MascotsResponse,
+  PointsHistoryItemResponse,
+  PointsHistoryResponse,
   ShopItemResponse,
   ShopItemsResponse,
   StudyRewardResponse,
@@ -50,6 +56,26 @@ const SLOT_BY_CODE: ReadonlyMap<string, AccessorySlot> = new Map(
 const REWARD_CONDITION_BY_TYPE: ReadonlyMap<string, "streakDays" | "focusHours"> = new Map(
   Object.entries({ STREAK_DAYS: "streakDays", TOTAL_FOCUS_HOURS: "focusHours" } as const),
 );
+
+// 확정 전인 분류 코드라 모르는 코드는 분류 없이 두어 그 상품은 전체에서만 보인다.
+const BACKGROUND_CATEGORY_BY_TAG: ReadonlyMap<string, string> = new Map(
+  Object.entries({
+    NATURE: "nature",
+    STUDY_SPACE: "studySpace",
+    NIGHT_SKY: "nightSky",
+    SEASON: "season",
+  }),
+);
+
+// 1단계 서버가 주는 사유는 STUDY와 PURCHASE뿐이고, MEDAL은 문구 형식이 알려져 있어 미리 받는다.
+const HISTORY_REASON_BY_CODE: ReadonlyMap<string, PointsReason> = new Map(
+  Object.entries({ STUDY: "study", PURCHASE: "purchase", MEDAL: "medal" } satisfies Record<
+    string,
+    PointsReason
+  >),
+);
+
+const MEDAL_PERIODS: readonly MedalReward["period"][] = ["DAILY", "WEEKLY", "MONTHLY"];
 
 const PURCHASE_FAILURE_BY_CODE: ReadonlyMap<string, PurchaseFailure> = new Map(
   Object.entries({
@@ -128,11 +154,8 @@ export function toShopItem(item: ShopItemResponse): ShopItem | null {
     inUse: item.inUse,
   };
   if (item.category === "TIMER_BACKGROUND") {
-    return {
-      ...base,
-      kind: "timerBackground",
-      ...(item.tag === null ? {} : { category: item.tag }),
-    };
+    const category = item.tag === null ? undefined : BACKGROUND_CATEGORY_BY_TAG.get(item.tag);
+    return { ...base, kind: "timerBackground", ...(category === undefined ? {} : { category }) };
   }
   if (item.category !== "MASCOT_ACCESSORY") {
     return null;
@@ -180,5 +203,52 @@ export function toSessionReward(res: StudyRewardResponse): SessionReward {
                 ? Math.min(1, Math.max(0, 1 - next.remainingFocusSec / next.unlockFocusSec))
                 : 1,
           },
+  };
+}
+
+/**
+ * 메달 기록 문구에서 기간과 순위 읽기
+ *
+ * 서버 문구는 `FOCUS_TIME:DAILY/1`처럼 판 키와 순위이고, 판 키 안에서 기간 조각만 찾는다.
+ * 형식이 다르면 null이라 화면은 사유의 기본 문구를 쓴다.
+ */
+export function parseMedalLabel(label: string | null): PointsHistoryEntry["medal"] | null {
+  const match = label === null ? null : /^([A-Z_]+(?::[A-Z_]+)*)\/([1-3])$/.exec(label);
+  if (match === null) {
+    return null;
+  }
+  const period = MEDAL_PERIODS.find((value) => match[1].split(":").includes(value));
+  return period === undefined ? null : { period, rank: Number(match[2]) as 1 | 2 | 3 };
+}
+
+/** 모르는 사유는 화면에 보일 문구가 없어 그 기록만 버린다. */
+export function toHistoryEntry(item: PointsHistoryItemResponse): PointsHistoryEntry | null {
+  const reason = HISTORY_REASON_BY_CODE.get(item.reason);
+  if (reason === undefined) {
+    return null;
+  }
+  const entry: PointsHistoryEntry = {
+    id: String(item.id),
+    atMs: Date.parse(item.createdAt),
+    amount: item.amount,
+    reason,
+  };
+  if (reason === "purchase" && item.label !== null) {
+    entry.itemName = item.label;
+  }
+  const medal = reason === "medal" ? parseMedalLabel(item.label) : null;
+  if (medal !== null) {
+    entry.medal = medal;
+  }
+  return entry;
+}
+
+export function toHistoryPage(res: PointsHistoryResponse): PointsHistoryPage {
+  return {
+    entries: res.items.flatMap((item) => {
+      const entry = toHistoryEntry(item);
+      return entry === null ? [] : [entry];
+    }),
+    nextCursor: res.nextCursor,
   };
 }

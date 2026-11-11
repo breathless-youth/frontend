@@ -35,11 +35,17 @@
       "medal": "랭킹 메달",
       "charge": "포인트 충전",
       "purchase": "{{name}} 구매",
-      "purchaseUnknown": "꾸미기 구매"
+      "purchaseUnknown": "꾸미기 구매",
+      "medalRank": "{{period}} 랭킹 {{rank}}위 메달"
     },
     "empty": {
       "title": "아직 포인트 기록이 없어요",
       "action": "포인트 받으러 가기"
+    },
+    "medalPeriod": {
+      "DAILY": "일간",
+      "WEEKLY": "주간",
+      "MONTHLY": "월간"
     }
   },
   "settings": {

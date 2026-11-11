@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  parseMedalLabel,
+  toHistoryPage,
   toMascotCode,
   toMascotId,
   toMascots,
@@ -9,7 +11,11 @@ import {
   toShopData,
   toShopItem,
 } from "../fromApi";
-import type { MascotResponse, ShopItemResponse } from "../pointsApiTypes";
+import type {
+  MascotResponse,
+  PointsHistoryItemResponse,
+  ShopItemResponse,
+} from "../pointsApiTypes";
 
 function item(overrides: Partial<ShopItemResponse> = {}): ShopItemResponse {
   return {
@@ -88,12 +94,23 @@ describe("toShopItem", () => {
     });
   });
 
-  it("타이머 배경은 tag를 분류로 쓴다", () => {
+  it.each([
+    ["NATURE", "nature"],
+    ["STUDY_SPACE", "studySpace"],
+    ["NIGHT_SKY", "nightSky"],
+    ["SEASON", "season"],
+  ])("타이머 배경의 tag %s는 분류 %s다", (tag, category) => {
+    expect(
+      toShopItem(item({ category: "TIMER_BACKGROUND", mascotCode: null, slot: null, tag })),
+    ).toMatchObject({ kind: "timerBackground", category });
+  });
+
+  it("모르는 tag나 tag 없는 배경은 분류 없이 남는다", () => {
     expect(
       toShopItem(
-        item({ category: "TIMER_BACKGROUND", mascotCode: null, slot: null, tag: "nature" }),
+        item({ category: "TIMER_BACKGROUND", mascotCode: null, slot: null, tag: "SPACE" }),
       ),
-    ).toMatchObject({ kind: "timerBackground", category: "nature" });
+    ).not.toHaveProperty("category");
     expect(
       toShopItem(item({ category: "TIMER_BACKGROUND", mascotCode: null, slot: null })),
     ).not.toHaveProperty("category");
@@ -182,4 +199,66 @@ describe("toSessionReward", () => {
       }).nextMascot,
     ).toBeNull();
   });
+});
+
+function history(overrides: Partial<PointsHistoryItemResponse>): PointsHistoryItemResponse {
+  return {
+    id: 1,
+    amount: 10,
+    reason: "STUDY",
+    fund: "FREE",
+    label: null,
+    statDate: "2026-11-12",
+    createdAt: "2026-11-12T03:00:00Z",
+    ...overrides,
+  };
+}
+
+describe("포인트 기록", () => {
+  it("구매는 label을 상품 이름으로, 공부는 사유만 싣고 모르는 사유는 버린다", () => {
+    const page = toHistoryPage({
+      items: [
+        history({ id: 1 }),
+        history({ id: 2, amount: -300, reason: "PURCHASE", label: "목도리" }),
+        history({ id: 3, reason: "LUCKY_DRAW" }),
+        history({ id: 4, amount: -100, reason: "PURCHASE", label: null }),
+      ],
+      nextCursor: null,
+    });
+    expect(page.entries).toEqual([
+      { id: "1", atMs: Date.parse("2026-11-12T03:00:00Z"), amount: 10, reason: "study" },
+      {
+        id: "2",
+        atMs: Date.parse("2026-11-12T03:00:00Z"),
+        amount: -300,
+        reason: "purchase",
+        itemName: "목도리",
+      },
+      { id: "4", atMs: Date.parse("2026-11-12T03:00:00Z"), amount: -100, reason: "purchase" },
+    ]);
+    expect(page.nextCursor).toBeNull();
+  });
+
+  it("메달 기록은 판 키와 순위에서 기간과 순위를 읽는다", () => {
+    expect(parseMedalLabel("FOCUS_TIME:DAILY/1")).toEqual({ period: "DAILY", rank: 1 });
+    expect(parseMedalLabel("TIME_SLOT:WEEKLY:MORNING/3")).toEqual({ period: "WEEKLY", rank: 3 });
+    const [entry] = toHistoryPage({
+      items: [history({ reason: "MEDAL", amount: 100, label: "FOCUS_RATE:MONTHLY/2" })],
+      nextCursor: "n",
+    }).entries;
+    expect(entry).toMatchObject({ reason: "medal", medal: { period: "MONTHLY", rank: 2 } });
+  });
+
+  it.each([null, "FOCUS_TIME:DAILY/9", "FOCUS_TIME/1", "왕관", "FOCUS_TIME:YEARLY/1"])(
+    "메달 문구 %s는 형식을 몰라 기본 문구로 남긴다",
+    (label) => {
+      expect(parseMedalLabel(label)).toBeNull();
+      const [entry] = toHistoryPage({
+        items: [history({ reason: "MEDAL", label })],
+        nextCursor: null,
+      }).entries;
+      expect(entry).toMatchObject({ reason: "medal" });
+      expect(entry).not.toHaveProperty("medal");
+    },
+  );
 });

@@ -59,3 +59,19 @@ export type MascotsResponse = {
   selectedMascotCode: string | null;
   mascots: MascotResponse[];
 };
+
+export type PointsHistoryItemResponse = {
+  id: number;
+  amount: number;
+  reason: string;
+  fund: string;
+  /** 구매는 상품 이름, 메달은 `FOCUS_TIME:DAILY/1`처럼 판 키와 순위이고 나머지 사유는 null이다. */
+  label: string | null;
+  statDate: string;
+  createdAt: string;
+};
+
+export type PointsHistoryResponse = {
+  items: PointsHistoryItemResponse[];
+  nextCursor: string | null;
+};

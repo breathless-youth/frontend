@@ -45,19 +45,40 @@ describe("createFakePointsGateway 구매", () => {
 
   it("산 내역이 쓴 기록에 남는다", async () => {
     const gateway = createFakePointsGateway("empty");
-    expect(await gateway.getHistory("all")).toEqual([]);
+    expect(await gateway.getHistory("all", null)).toEqual({ entries: [], nextCursor: null });
     const cheap = createFakePointsGateway("default");
     await cheap.purchase(CROWN);
-    const spent = await cheap.getHistory("spent");
+    const spent = (await cheap.getHistory("spent", null)).entries;
     expect(spent[0]).toMatchObject({ amount: -600, reason: "purchase", itemName: "왕관" });
     expect(spent.every((entry) => entry.amount < 0)).toBe(true);
   });
 });
 
+describe("createFakePointsGateway 기록 쪽", () => {
+  it("커서로 이어 받고 마지막 쪽은 nextCursor가 null이다", async () => {
+    const gateway = createFakePointsGateway("default");
+    const first = await gateway.getHistory("all", null);
+    expect(first.entries).toHaveLength(5);
+    expect(first.nextCursor).not.toBeNull();
+    const second = await gateway.getHistory("all", first.nextCursor);
+    expect(second).toMatchObject({ nextCursor: null });
+    expect([...first.entries, ...second.entries].map((entry) => entry.id)).toHaveLength(8);
+  });
+});
+
 describe("createFakePointsGateway 받기", () => {
+  it("이미 받은 보상을 다시 받으면 granted가 거짓이고 잔액은 그대로다", async () => {
+    const gateway = createFakePointsGateway("default");
+    expect(await gateway.claim("attendance")).toEqual({
+      granted: false,
+      points: 0,
+      balance: 1240,
+    });
+  });
+
   it("메달 포인트를 받으면 잔액이 늘고 새 메달이 없어진다", async () => {
     const gateway = createFakePointsGateway("default");
-    expect(await gateway.claim("medals")).toEqual({ balance: 1370 });
+    expect(await gateway.claim("medals")).toEqual({ granted: true, points: 130, balance: 1370 });
     expect((await gateway.getEarnToday()).medals).toEqual([]);
   });
 

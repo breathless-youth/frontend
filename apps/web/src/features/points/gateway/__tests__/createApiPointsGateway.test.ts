@@ -67,19 +67,78 @@ const ITEMS: ShopItemsResponse = {
 };
 
 describe("createApiPointsGateway", () => {
-  it("1단계에 없는 받기·기록·충전·광고는 꺼 두고 부르면 요청 없이 거절한다", async () => {
+  it("1단계에 없는 받기·충전·광고는 꺼 두고 부르면 요청 없이 거절한다", async () => {
     const gateway = createApiPointsGateway();
     expect(gateway.capabilities).toEqual({
       earn: false,
-      history: false,
+      history: true,
       charge: false,
       ads: false,
     });
     await expect(gateway.getEarnToday()).rejects.toThrow();
-    await expect(gateway.getHistory("all")).rejects.toThrow();
+    await expect(gateway.claim("attendance")).rejects.toThrow();
     await expect(gateway.charge("points_500")).rejects.toThrow();
     await expect(gateway.watchAd()).rejects.toThrow();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("기록은 종류·크기·커서를 실어 GET하고 다음 커서를 넘긴다", async () => {
+    fetchMock.mockImplementation(async () =>
+      respond(200, {
+        items: [
+          {
+            id: 5,
+            amount: -300,
+            reason: "PURCHASE",
+            fund: "FREE",
+            label: "목도리",
+            statDate: "2026-11-12",
+            createdAt: "2026-11-12T03:00:00Z",
+          },
+        ],
+        nextCursor: "abc",
+      }),
+    );
+    const gateway = createApiPointsGateway();
+    await expect(gateway.getHistory("spent", null)).resolves.toEqual({
+      entries: [
+        {
+          id: "5",
+          atMs: Date.parse("2026-11-12T03:00:00Z"),
+          amount: -300,
+          reason: "purchase",
+          itemName: "목도리",
+        },
+      ],
+      nextCursor: "abc",
+    });
+    await gateway.getHistory("all", "abc");
+    expect(call(0)).toMatchObject({ method: "GET", version: "1" });
+    expect(call(0).url).toMatch(/\/api\/points\/history\?type=SPENT&size=30$/);
+    expect(call(1).url).toMatch(/\/api\/points\/history\?type=ALL&size=30&cursor=abc$/);
+  });
+
+  it("상품과 기록은 화면 언어를 Accept-Language로 보내고 번체는 zh-TW로 보낸다", async () => {
+    const { default: i18n } = await import("@/lib/i18n");
+    const before = i18n.language;
+    await i18n.changeLanguage("zh-Hant");
+    try {
+      fetchMock.mockImplementation(async (input) =>
+        String(input).includes("/api/points/history")
+          ? respond(200, { items: [], nextCursor: null })
+          : respond(200, { items: [] }),
+      );
+      const gateway = createApiPointsGateway();
+      await gateway.getHistory("all", null);
+      expect(
+        fetchMock.mock.calls.map(([, init]) => new Headers(init?.headers).get("Accept-Language")),
+      ).toEqual(["zh-TW"]);
+      fetchMock.mockResolvedValue(respond(200, { balance: 0 }));
+      await gateway.getBalance();
+      expect(new Headers(fetchMock.mock.calls[1]![1]?.headers).get("Accept-Language")).toBeNull();
+    } finally {
+      await i18n.changeLanguage(before);
+    }
   });
 
   it("잔액을 API-Version 1로 GET한다", async () => {

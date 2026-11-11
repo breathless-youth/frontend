@@ -35,11 +35,17 @@
       "medal": "Ranking medal",
       "charge": "Points top-up",
       "purchase": "Bought {{name}}",
-      "purchaseUnknown": "Decor purchase"
+      "purchaseUnknown": "Decor purchase",
+      "medalRank": "{{period}} ranking #{{rank}} medal"
     },
     "empty": {
       "title": "No point history yet",
       "action": "Go earn points"
+    },
+    "medalPeriod": {
+      "DAILY": "Daily",
+      "WEEKLY": "Weekly",
+      "MONTHLY": "Monthly"
     }
   },
   "settings": {

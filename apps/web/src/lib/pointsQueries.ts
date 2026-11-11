@@ -1,4 +1,4 @@
-import { queryOptions } from "@tanstack/react-query";
+import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 
 import type { PointsGateway } from "@/features/points/gateway/PointsGateway";
 import type { HistoryFilter } from "@/features/points/types";
@@ -35,10 +35,13 @@ export function shopQuery(gateway: PointsGateway, userId: number) {
   });
 }
 
+/** 커서로 이어 받는 기록이며 구매·받기마다 바뀌어 신선하다고 보지 않는다. */
 export function historyQuery(gateway: PointsGateway, userId: number, filter: HistoryFilter) {
-  return queryOptions({
+  return infiniteQueryOptions({
     queryKey: pointsKeys.history(userId, filter),
-    queryFn: () => gateway.getHistory(filter),
+    queryFn: ({ pageParam }) => gateway.getHistory(filter, pageParam),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
     staleTime: 0,
   });
 }

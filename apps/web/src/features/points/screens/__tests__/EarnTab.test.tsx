@@ -7,7 +7,7 @@ import i18n from "@/lib/i18n";
 import { showToast } from "@/lib/toast";
 
 import { buildPointsFixture } from "../../fixtures";
-import type { AdResult, ChargeResult, EarnToday } from "../../types";
+import type { AdResult, ChargeResult, ClaimResult, EarnToday } from "../../types";
 import { EarnTab } from "../EarnTab";
 
 vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
@@ -23,12 +23,13 @@ function setup(
   over: {
     earn?: EarnToday;
     inApp?: boolean;
-    onClaim?: () => Promise<{ balance: number }>;
+    onClaim?: () => Promise<ClaimResult>;
     onWatchAd?: () => Promise<AdResult>;
     onCharge?: (id: string) => Promise<ChargeResult>;
   } = {},
 ) {
-  const onClaim = over.onClaim ?? vi.fn(async () => ({ balance: 1370 }));
+  const onClaim =
+    over.onClaim ?? vi.fn(async () => ({ granted: true, points: 130, balance: 1370 }));
   const onWatchAd =
     over.onWatchAd ?? vi.fn(async (): Promise<AdResult> => ({ status: "unavailable" }));
   const onCharge =

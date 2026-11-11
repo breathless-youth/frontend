@@ -18,7 +18,14 @@ import { StudyRow } from "../components/earn/StudyRow";
 import { Progress } from "@/components/ui/progress";
 import { formatPoints, formatSignedPoints } from "../model/formatPoints";
 import { pointsSearch } from "../pointsSearch";
-import type { AdResult, ChargePack, ChargeResult, ClaimKind, EarnToday } from "../types";
+import type {
+  AdResult,
+  ChargePack,
+  ChargeResult,
+  ClaimKind,
+  ClaimResult,
+  EarnToday,
+} from "../types";
 
 /**
  * 포인트 받기 탭
@@ -37,7 +44,7 @@ export function EarnTab({
 }: {
   earn: EarnToday;
   packs: ChargePack[];
-  onClaim: (kind: ClaimKind) => Promise<{ balance: number }>;
+  onClaim: (kind: ClaimKind) => Promise<ClaimResult>;
   onWatchAd?: () => Promise<AdResult>;
   onCharge?: (productId: string) => Promise<ChargeResult>;
 }) {

@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 const KNOWN = ["studySpace", "nature", "nightSky", "season"] as const;
 
-/** 분류 칩. 모르는 분류는 상품이 준 값을 그대로 이름으로 쓴다. */
+/** 분류 칩. 이름을 모르는 분류는 칩을 만들지 않아 그 상품은 전체에서만 보인다. */
 export function CategoryChips({
   categories,
   value,
@@ -15,10 +15,9 @@ export function CategoryChips({
   onChange: (category: string | null) => void;
 }) {
   const { t } = useTranslation("points-decor");
-  const label = (category: string) =>
-    (KNOWN as readonly string[]).includes(category)
-      ? t(`categories.${category as (typeof KNOWN)[number]}`)
-      : category;
+  const known = categories.filter((category): category is (typeof KNOWN)[number] =>
+    (KNOWN as readonly string[]).includes(category),
+  );
   return (
     <div
       role="group"
@@ -28,9 +27,9 @@ export function CategoryChips({
       <Chip selected={value === null} onClick={() => onChange(null)}>
         {t("categories.all")}
       </Chip>
-      {categories.map((category) => (
+      {known.map((category) => (
         <Chip key={category} selected={value === category} onClick={() => onChange(category)}>
-          {label(category)}
+          {t(`categories.${category}`)}
         </Chip>
       ))}
     </div>

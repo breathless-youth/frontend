@@ -35,11 +35,17 @@
       "medal": "ランキングメダル",
       "charge": "ポイントチャージ",
       "purchase": "{{name}}を購入",
-      "purchaseUnknown": "きせかえの購入"
+      "purchaseUnknown": "きせかえの購入",
+      "medalRank": "{{period}}ランキング{{rank}}位メダル"
     },
     "empty": {
       "title": "まだポイント履歴がありません",
       "action": "ポイントをもらいに行く"
+    },
+    "medalPeriod": {
+      "DAILY": "日間",
+      "WEEKLY": "週間",
+      "MONTHLY": "月間"
     }
   },
   "settings": {

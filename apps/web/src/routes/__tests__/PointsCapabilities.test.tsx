@@ -15,13 +15,13 @@ import { PointsHistoryPage } from "../PointsHistoryPage";
 import { PointsMascotsPage } from "../PointsMascotsPage";
 import { PointsPage } from "../PointsPage";
 
-const STAGE_ONE = { earn: false, history: false, charge: false, ads: false };
+const NOTHING_EXTRA = { earn: false, history: false, charge: false, ads: false };
 
-/** 1단계 실제 경계처럼 받기·기록·충전·광고가 없는 가짜 경계 */
-function stageOne(scene: PointsScene = "default", balance?: number): PointsGateway {
+/** 받기·기록·충전·광고를 모두 끈 가짜 경계 */
+function withoutExtras(scene: PointsScene = "default", balance?: number): PointsGateway {
   return {
     ...createFakePointsGateway(scene, balance === undefined ? {} : { balance }),
-    capabilities: STAGE_ONE,
+    capabilities: NOTHING_EXTRA,
   };
 }
 
@@ -53,16 +53,16 @@ function renderAt(path: string, element: ReactElement, gateway?: PointsGateway) 
   );
 }
 
-describe("1단계 경계의 포인트 상점", () => {
+describe("받기·기록·충전·광고가 없는 경계의 포인트 상점", () => {
   it("포인트 받기 탭 줄 없이 꾸미기 상점만 그린다", async () => {
-    renderAt("/points", <PointsPage />, stageOne());
+    renderAt("/points", <PointsPage />, withoutExtras());
     expect(await screen.findByRole("button", { name: /소품/ })).toBeInTheDocument();
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "포인트 받기" })).not.toBeInTheDocument();
   });
 
   it("?tab=earn으로 들어와도 상점을 보이고 받기를 묻지 않는다", async () => {
-    const gateway = stageOne();
+    const gateway = withoutExtras();
     const earn = vi.spyOn(gateway, "getEarnToday");
     renderAt("/points?tab=earn", <PointsPage />, gateway);
     expect(await screen.findByRole("button", { name: /소품/ })).toBeInTheDocument();
@@ -71,7 +71,7 @@ describe("1단계 경계의 포인트 상점", () => {
   });
 
   it("포인트 기록 주소는 포인트 상점으로 돌려보낸다", async () => {
-    const gateway = stageOne();
+    const gateway = withoutExtras();
     const history = vi.spyOn(gateway, "getHistory");
     renderAt("/points/history?userId=7", <PointsHistoryPage />, gateway);
     expect(await screen.findByTestId("where")).toHaveTextContent("/points?userId=7");
@@ -79,7 +79,7 @@ describe("1단계 경계의 포인트 상점", () => {
   });
 
   it("모자람 창은 공부 안내와 확인 버튼만 보이고 받기·충전을 묻지 않는다", async () => {
-    const gateway = stageOne("default", 100);
+    const gateway = withoutExtras("default", 100);
     const earn = vi.spyOn(gateway, "getEarnToday");
     const packs = vi.spyOn(gateway, "getChargePacks");
     renderAt("/points/accessories", <PointsAccessoriesPage />, gateway);

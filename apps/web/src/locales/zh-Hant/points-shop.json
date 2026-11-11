@@ -35,11 +35,17 @@
       "medal": "排行獎牌",
       "charge": "點數儲值",
       "purchase": "購買{{name}}",
-      "purchaseUnknown": "裝飾購買"
+      "purchaseUnknown": "裝飾購買",
+      "medalRank": "{{period}}排行第 {{rank}} 名獎牌"
     },
     "empty": {
       "title": "還沒有點數紀錄",
       "action": "去賺點數"
+    },
+    "medalPeriod": {
+      "DAILY": "每日",
+      "WEEKLY": "每週",
+      "MONTHLY": "每月"
     }
   },
   "settings": {

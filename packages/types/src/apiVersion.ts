@@ -107,7 +107,7 @@ export const API_ENDPOINTS = {
   },
 
   /**
-   * `GET /api/points`, `GET /api/points/study-reward`: 잔액과 공부 끝 보상.
+   * `GET /api/points`, `GET /api/points/study-reward`, `GET /api/points/history`: 잔액, 공부 끝 보상, 포인트 기록.
    * 포인트·상점·꾸미기·마스코트 네 키는 Swagger 등재 전에 백엔드가 알려 준 값이라 등재 뒤 다시 대조한다.
    */
   points: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },

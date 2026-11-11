@@ -10,11 +10,11 @@ function openAt(search: string) {
 afterEach(() => openAt(""));
 
 describe("appPointsGateway", () => {
-  it("기본은 받기·기록·충전·광고가 없는 실제 API 경계다", () => {
+  it("기본은 받기·충전·광고가 없는 실제 API 경계다", () => {
     openAt("?points=1");
     expect(appPointsGateway().capabilities).toEqual({
       earn: false,
-      history: false,
+      history: true,
       charge: false,
       ads: false,
     });

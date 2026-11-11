@@ -49,7 +49,11 @@ export type PointsHistoryEntry = {
   amount: number;
   reason: PointsReason;
   itemName?: string;
+  medal?: { period: MedalReward["period"]; rank: MedalReward["rank"] };
 };
+
+/** 기록 한 쪽이며 `nextCursor`가 null이면 더 받을 쪽이 없다. */
+export type PointsHistoryPage = { entries: PointsHistoryEntry[]; nextCursor: string | null };
 
 export type HistoryFilter = "all" | "earned" | "spent";
 
@@ -99,5 +103,8 @@ export type ChargeResult =
   | { status: "cancelled" };
 
 export type ClaimKind = "attendance" | "dailyGoal" | "medals";
+
+/** 같은 보상을 다시 받으면 서버가 오류 대신 `granted: false`와 지금 잔액을 준다. */
+export type ClaimResult = { granted: boolean; points: number; balance: number };
 
 export type PointsTab = "shop" | "earn";

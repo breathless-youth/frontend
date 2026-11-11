@@ -32,7 +32,7 @@ function deferredFakeGateway(scene: PointsScene): PointsGateway {
     selectMascot: async (id) => (await load()).selectMascot(id),
     markUnlocksSeen: async () => (await load()).markUnlocksSeen(),
     getSessionReward: async (startedAt) => (await load()).getSessionReward(startedAt),
-    getHistory: async (filter) => (await load()).getHistory(filter),
+    getHistory: async (filter, cursor) => (await load()).getHistory(filter, cursor),
     getEarnToday: async () => (await load()).getEarnToday(),
     claim: async (kind) => (await load()).claim(kind),
     watchAd: async () => (await load()).watchAd(),

@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { mockAllIsIntersecting } from "react-intersection-observer/test-utils";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
@@ -40,6 +41,10 @@ describe("포인트 기록", () => {
     expect(within(today).getByText("출석하기")).toBeInTheDocument();
     expect(within(today).getByText("+10P")).toBeInTheDocument();
     expect(within(today).getByText("단추 리본 구매")).toBeInTheDocument();
+    // 가짜 경계는 다섯 개씩 주므로 끝에 닿아야 사흘 전 기록이 온다.
+    expect(screen.queryByText("숲속 아침 구매")).not.toBeInTheDocument();
+    mockAllIsIntersecting(true);
+    expect(await screen.findByText("숲속 아침 구매")).toBeInTheDocument();
     expect(screen.getAllByRole("region").length).toBeGreaterThanOrEqual(3);
 
     await userEvent.click(screen.getByRole("button", { name: "쓴 것" }));

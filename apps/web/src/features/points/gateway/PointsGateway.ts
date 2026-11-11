@@ -4,10 +4,11 @@ import type {
   ChargePack,
   ChargeResult,
   ClaimKind,
+  ClaimResult,
   EarnToday,
   HistoryFilter,
   MascotId,
-  PointsHistoryEntry,
+  PointsHistoryPage,
   PurchaseResult,
   SessionReward,
   ShopData,
@@ -47,9 +48,10 @@ export interface PointsGateway {
   selectMascot(id: MascotId): Promise<void>;
   markUnlocksSeen(): Promise<void>;
   getSessionReward(startedAt: string): Promise<SessionReward | null>;
-  getHistory(filter: HistoryFilter): Promise<PointsHistoryEntry[]>;
+  /** 최신순 한 쪽이며 첫 쪽은 cursor를 null로 묻는다. */
+  getHistory(filter: HistoryFilter, cursor: string | null): Promise<PointsHistoryPage>;
   getEarnToday(): Promise<EarnToday>;
-  claim(kind: ClaimKind): Promise<{ balance: number }>;
+  claim(kind: ClaimKind): Promise<ClaimResult>;
   watchAd(): Promise<AdResult>;
   getChargePacks(): Promise<ChargePack[]>;
   charge(productId: string): Promise<ChargeResult>;

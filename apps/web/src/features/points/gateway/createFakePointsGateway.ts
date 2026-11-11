@@ -2,6 +2,9 @@ import { buildPointsFixture, type PointsScene } from "../fixtures";
 import type { PointsReason, ShopItem } from "../types";
 import { FULL_POINTS_CAPABILITIES, type PointsGateway } from "./PointsGateway";
 
+// 서버 쪽 크기보다 작게 잡아 고정 데이터로도 다음 쪽 받기를 볼 수 있게 한다.
+const FAKE_HISTORY_PAGE = 5;
+
 /**
  * 메모리 가짜 포인트 경계
  *
@@ -114,14 +117,21 @@ export function createFakePointsGateway(
         mascot.newlyUnlocked = false;
       }
     },
-    getHistory: (filter) =>
-      read(() =>
-        state.history.filter((entry) =>
+    getHistory: (filter, cursor) =>
+      read(() => {
+        const matched = state.history.filter((entry) =>
           filter === "all" ? true : filter === "earned" ? entry.amount > 0 : entry.amount < 0,
-        ),
-      ),
+        );
+        const start = cursor === null ? 0 : Number(cursor);
+        const end = start + FAKE_HISTORY_PAGE;
+        return {
+          entries: matched.slice(start, end),
+          nextCursor: end < matched.length ? String(end) : null,
+        };
+      }),
     getEarnToday: () => read(() => state.earn),
     claim: async (kind) => {
+      const before = state.balance;
       if (kind === "attendance" && !state.earn.attendance.claimed) {
         state.earn.attendance.claimed = true;
         earn(state.earn.attendance.reward, "attendance");
@@ -137,7 +147,8 @@ export function createFakePointsGateway(
         state.earn.medals = [];
         earn(total, "medal");
       }
-      return { balance: state.balance };
+      const points = state.balance - before;
+      return { granted: points > 0, points, balance: state.balance };
     },
     watchAd: async () => {
       if (scene === "adUnavailable" || state.earn.ad.watched >= state.earn.ad.limit) {

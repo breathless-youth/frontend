@@ -70,15 +70,16 @@ describe("설정의 포인트 기록 줄", () => {
     expect(screen.queryByRole("button", { name: /포인트 기록/ })).not.toBeInTheDocument();
   });
 
-  it("기록이 없는 실제 경계에서는 줄도 잔액 조회도 없다", async () => {
-    const fetchMock = vi.fn<typeof fetch>(async () => new Response("{}", { status: 200 }));
+  it("실제 경계에서도 줄이 보이고 잔액을 API로 받는다", async () => {
+    const fetchMock = vi.fn<typeof fetch>(
+      async () => new Response(JSON.stringify({ balance: 300 }), { status: 200 }),
+    );
     vi.stubGlobal("fetch", fetchMock);
     try {
       renderSettings(true, "/?points=1");
-      expect(await screen.findByRole("button", { name: /프로필/ })).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: /포인트 기록/ })).not.toBeInTheDocument();
-      expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/api/points"))).toBe(
-        false,
+      expect(await screen.findByRole("button", { name: "포인트 기록, 300P" })).toBeInTheDocument();
+      expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith("/api/points"))).toBe(
+        true,
       );
     } finally {
       vi.unstubAllGlobals();

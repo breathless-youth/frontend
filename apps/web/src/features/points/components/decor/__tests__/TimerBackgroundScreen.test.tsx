@@ -10,6 +10,7 @@ import { showToast } from "@/lib/toast";
 import { PointsBackgroundsPage } from "@/routes/PointsBackgroundsPage";
 
 import { createFakePointsGateway } from "../../../gateway/createFakePointsGateway";
+import { CategoryChips } from "../CategoryChips";
 import type { PointsGateway } from "../../../gateway/PointsGateway";
 import { PointsGatewayProvider } from "../../../gateway/PointsGatewayContext";
 
@@ -123,5 +124,14 @@ describe("TimerBackgroundScreen", () => {
     const sheet = await screen.findByRole("dialog");
     expect(within(sheet).getByText(/광고 보고/)).toBeInTheDocument();
     expect(within(sheet).getByText(/충전하고 구매하기/)).toBeInTheDocument();
+  });
+});
+
+describe("CategoryChips", () => {
+  it("이름을 모르는 분류는 칩을 만들지 않고 코드 글자를 보이지 않는다", () => {
+    render(<CategoryChips categories={["nature", "SPACE"]} value={null} onChange={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "전체" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button")).toHaveLength(2);
+    expect(screen.queryByText("SPACE")).not.toBeInTheDocument();
   });
 });
