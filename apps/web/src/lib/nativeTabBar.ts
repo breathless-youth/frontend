@@ -51,6 +51,7 @@ const FULL_SCREEN_PATHS = [
   "/onboarding",
   "/session-guide",
   "/blocks",
+  "/settings/login",
 ];
 
 /**
