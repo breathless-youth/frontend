@@ -209,7 +209,7 @@ export function HomeV3Entry({
           <span className="text-2xl font-bold">FocusMakers</span>
         )}
         {isPointsEnabled() && !points.memberOnly ? (
-          <div className="shrink-0 pb-1.5">
+          <div className="shrink-0">
             <PointsBalancePill
               size="home"
               balance={points.balance}
