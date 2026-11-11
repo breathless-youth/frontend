@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { PointsHistoryPage } from "@/routes/PointsHistoryPage";
 
@@ -29,6 +29,12 @@ function renderPage(scene: PointsScene) {
 
 describe("포인트 기록", () => {
   it("날짜별로 묶이고 쓴 것을 고르면 음수 항목만 보인다", async () => {
+    // 기록 시각은 지금에서 몇 분씩 거꾸로 세므로 자정 직후에 돌리면 오늘 묶음이 어제로 넘어간다.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(2026, 10, 12, 15, 0));
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
     renderPage("default");
     const today = await screen.findByRole("region", { name: "오늘" });
     expect(within(today).getByText("출석하기")).toBeInTheDocument();
