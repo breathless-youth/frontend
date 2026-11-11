@@ -1437,24 +1437,6 @@ video::-webkit-media-controls-overlay-play-button {
 }
 
 /*
-  앱 스플래시와 같은 서비스 로고다.
-  로고는 그림이라 색 토큰으로 바꿀 수 없어서 다크 토큰 블록과 같은 조건으로 다크 그림을 고른다.
-*/
-@utility splash-logo {
-  background: url("./assets/splash-logo.png") center / contain no-repeat;
-
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) & {
-      background-image: url("./assets/splash-logo-dark.png");
-    }
-  }
-  .theme-dark &,
-  :root[data-theme="dark"] & {
-    background-image: url("./assets/splash-logo-dark.png");
-  }
-}
-
-/*
   테마에 따라 색이 뒤집히는 Apple 로그인 버튼
   Apple 지침이 어두운 배경에서는 흰 버튼을 쓰라고 해서 다크일 때 바탕과 글자색을 맞바꾼다.
 */
