@@ -9,6 +9,8 @@ import { HomeGoalSheet } from "@/features/home-v3/HomeGoalSheet";
 import { homeDateLabel, type HomeMission } from "@/features/home-v3/homeV3Model";
 import type { HomeGoal, HomeV3Gateway } from "@/features/home-v3/HomeV3Gateway";
 import { homeV3Keys, useHomeV3Progress } from "@/features/home-v3/useHomeV3Progress";
+import { PointsBalancePill } from "@/features/points/components/shared/PointsBalancePill";
+import { isPointsEnabled } from "@/lib/pointsCapability";
 
 const scenarios = ["2a", "2b", "2c", "2d", "2e", "2f", "2g", "2h"] as const;
 type Scenario = (typeof scenarios)[number];
@@ -112,9 +114,19 @@ function Preview({ scenario }: { scenario: Scenario }) {
           </span>
           <span className="text-[30px] leading-9 font-extrabold tracking-[-0.8px]">D-52</span>
         </button>
-        <span className="pb-1.5 text-sm leading-4.5 font-medium text-muted-foreground">
-          {homeDateLabel(day.dateKey, i18n.language)}
-        </span>
+        {isPointsEnabled() ? (
+          <span className="pb-1.5">
+            <PointsBalancePill
+              size="home"
+              balance={1240}
+              onPress={() => setMessage("DEV: open points")}
+            />
+          </span>
+        ) : (
+          <span className="pb-1.5 text-sm leading-4.5 font-medium text-muted-foreground">
+            {homeDateLabel(day.dateKey, i18n.language)}
+          </span>
+        )}
       </header>
       <HomeV3Content
         band={progress.band}

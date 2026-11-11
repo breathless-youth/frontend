@@ -12,7 +12,11 @@ import { useHomeStudyStatusProperties } from "@/features/home/useHomeStudyStatus
 import { useOpenPlanner } from "@/features/planner/useOpenPlanner";
 import { recentTimelapsesQuery } from "@/features/timelapse/timelapseQueries";
 import { getTimelapseStore } from "@/features/timelapse/timelapseStore";
+import { PointsBalancePill } from "@/features/points/components/shared/PointsBalancePill";
+import { usePointsBalance } from "@/features/points/components/shop/usePointsBalance";
+import { pointsSearch } from "@/features/points/pointsSearch";
 import { setHasTimelapseUserProperty } from "@/lib/amplitude";
+import { isPointsEnabled } from "@/lib/pointsCapability";
 import { hasTokenSource } from "@/lib/userId";
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
 import { slideNavigate } from "@/lib/pageTransition";
@@ -57,6 +61,7 @@ export function HomeV3Entry({
   const navigate = useNavigate();
   const location = useLocation();
   const openPlanner = useOpenPlanner("home");
+  const pointsBalance = usePointsBalance(userId);
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState<{
     day: HomeDay;
@@ -203,9 +208,23 @@ export function HomeV3Entry({
         ) : (
           <span className="text-2xl font-bold">FocusMakers</span>
         )}
-        <p className="shrink-0 pb-1.5 text-sm leading-4.5 font-medium text-muted-foreground">
-          {homeDateLabel(day.dateKey, i18n.language)}
-        </p>
+        {isPointsEnabled() ? (
+          <div className="shrink-0 pb-1.5">
+            <PointsBalancePill
+              size="home"
+              balance={pointsBalance}
+              onPress={() =>
+                slideNavigate("forward", () =>
+                  navigate({ pathname: "/points", search: pointsSearch(location.search) }),
+                )
+              }
+            />
+          </div>
+        ) : (
+          <p className="shrink-0 pb-1.5 text-sm leading-4.5 font-medium text-muted-foreground">
+            {homeDateLabel(day.dateKey, i18n.language)}
+          </p>
+        )}
       </header>
       <HomeV3Content
         band={progress.band}

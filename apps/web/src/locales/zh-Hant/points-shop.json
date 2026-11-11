@@ -1,1 +1,48 @@
-{}
+{
+  "nextMascot": {
+    "label": "下一個吉祥物 {{name}}",
+    "remaining": "再專注 {{duration}} 就會解鎖",
+    "open": "下一個吉祥物 {{name}}，開啟收集吉祥物",
+    "progress": "距離 {{name}} 已完成 {{percent}}%"
+  },
+  "picker": {
+    "title": "今天要跟誰一起讀書呢？",
+    "label": "今天一起讀書的吉祥物"
+  },
+  "section": {
+    "accessory": "{{name}}的小物",
+    "background": "計時器背景",
+    "all": "查看全部"
+  },
+  "tile": {
+    "owned": "已擁有",
+    "streakDays": "連續讀書 {{current}} / {{target}} 天",
+    "focusHours": "累計專注 {{current}} / {{target}} 小時"
+  },
+  "history": {
+    "filter": {
+      "label": "紀錄類型",
+      "all": "全部",
+      "earned": "獲得",
+      "spent": "花費"
+    },
+    "today": "今天",
+    "reason": {
+      "study": "專注時間獎勵",
+      "attendance": "簽到",
+      "dailyGoal": "達成每日目標",
+      "ad": "看廣告獲得",
+      "medal": "排行獎牌",
+      "charge": "點數儲值",
+      "purchase": "購買{{name}}",
+      "purchaseUnknown": "裝飾購買"
+    },
+    "empty": {
+      "title": "還沒有點數紀錄",
+      "action": "去賺點數"
+    }
+  },
+  "settings": {
+    "history": "點數紀錄"
+  }
+}
