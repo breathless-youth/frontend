@@ -11,7 +11,8 @@
   },
   "tile": {
     "attendance": "簽到",
-    "dailyGoal": "每日目標",
+    "goalTitle": "每日目標 {{duration}}",
+    "perUnit": "每 {{duration}} {{points}}",
     "ad": "觀看廣告",
     "done": "完成",
     "claim": "領取",
@@ -26,9 +27,7 @@
     "none": "沒有新的排行榜獎牌",
     "noneHint": "進入前 3 名,每枚獎牌都能獲得點數",
     "ranking": "排行榜 ›",
-    "gold": "金牌 {{points}}",
-    "silver": "銀牌 {{points}}",
-    "bronze": "銅牌 {{points}}",
+    "guide": "獎牌點數說明",
     "period": {
       "DAILY": "日榜",
       "WEEKLY": "週榜",

@@ -11,7 +11,8 @@
   },
   "tile": {
     "attendance": "출석",
-    "dailyGoal": "하루 목표",
+    "goalTitle": "하루 목표 {{duration}}",
+    "perUnit": "{{duration}}당 {{points}}",
     "ad": "광고 보기",
     "done": "완료",
     "claim": "받기",
@@ -26,9 +27,7 @@
     "none": "새 랭킹 메달이 없어요",
     "noneHint": "3위 안에 들면 메달마다 포인트를 받아요",
     "ranking": "랭킹 ›",
-    "gold": "금메달 {{points}}",
-    "silver": "은메달 {{points}}",
-    "bronze": "동메달 {{points}}",
+    "guide": "메달별 포인트 안내",
     "period": {
       "DAILY": "일간",
       "WEEKLY": "주간",

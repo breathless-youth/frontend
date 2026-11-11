@@ -11,7 +11,8 @@
   },
   "tile": {
     "attendance": "Check-in",
-    "dailyGoal": "Daily goal",
+    "goalTitle": "Daily goal {{duration}}",
+    "perUnit": "{{points}} per {{duration}}",
     "ad": "Watch an ad",
     "done": "Done",
     "claim": "Claim",
@@ -27,9 +28,7 @@
     "none": "No new ranking medals",
     "noneHint": "Finish in the top 3 to earn points for each medal",
     "ranking": "Ranking ›",
-    "gold": "Gold {{points}}",
-    "silver": "Silver {{points}}",
-    "bronze": "Bronze {{points}}",
+    "guide": "Medal points info",
     "period": {
       "DAILY": "Daily",
       "WEEKLY": "Weekly",

@@ -63,15 +63,25 @@ export type MedalReward = {
   reward: number;
 };
 
+export type MedalRates = { gold: number; silver: number; bronze: number };
+
 export type EarnToday = {
   earned: number;
   dailyMax: number;
   study: { focusSec: number; capSec: number; unitSec: number; pointsPerUnit: number };
   attendance: { reward: number; claimed: boolean };
-  dailyGoal: { reward: number; achieved: boolean; claimed: boolean; remainingSec: number };
+  dailyGoal: {
+    goalSec: number;
+    unitSec: number;
+    pointsPerUnit: number;
+    reward: number;
+    achieved: boolean;
+    claimed: boolean;
+    remainingSec: number;
+  };
   ad: { reward: number; watched: number; limit: number };
   medals: MedalReward[];
-  medalRates: { gold: number; silver: number; bronze: number };
+  medalRates: Record<"daily" | "weekly" | "monthly", MedalRates>;
 };
 
 export type ChargePack = {

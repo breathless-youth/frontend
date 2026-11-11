@@ -8,22 +8,30 @@ export function FreeTile({
   label,
   count,
   reward,
+  note,
   children,
 }: {
   icon: "attendance" | "dailyGoal" | "ad";
   label: string;
   count?: string;
   reward: string;
+  /** 보상 아래에 붙는 작은 강조 줄 */
+  note?: string;
   children: ReactNode;
 }) {
   return (
     <div className="flex min-w-0 flex-col items-center gap-1 rounded-lg bg-bg-layer-2 px-2 pt-3 pb-2 text-center">
       <EarnIcon name={icon} />
-      <span className="mt-0.5 text-xs break-keep text-muted-foreground">
+      <span className="mt-0.5 max-w-full text-xs break-keep text-muted-foreground">
         {label}
         {count !== undefined && <span className="ml-1 font-bold text-primary">{count}</span>}
       </span>
       <span className="text-base font-extrabold tabular-nums">{reward}</span>
+      {note !== undefined && (
+        <span className="max-w-full text-[11px] leading-tight font-semibold break-keep text-primary">
+          {note}
+        </span>
+      )}
       <div className="mt-auto flex w-full flex-col gap-1 pt-1.5">{children}</div>
     </div>
   );

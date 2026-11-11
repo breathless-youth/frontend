@@ -140,7 +140,10 @@ function buildEarn(scene: PointsScene): EarnToday {
     },
     attendance: { reward: 10, claimed: true },
     dailyGoal: {
-      reward: 50,
+      goalSec: 3 * HOUR,
+      unitSec: 30 * MINUTE,
+      pointsPerUnit: 10,
+      reward: 60,
       achieved: allDone,
       claimed: allDone,
       remainingSec: allDone ? 0 : 36 * MINUTE,
@@ -150,10 +153,14 @@ function buildEarn(scene: PointsScene): EarnToday {
       allDone || scene === "noMedal"
         ? []
         : [
-            { rank: 1, period: "DAILY", reward: 100 },
+            { rank: 1, period: "DAILY", reward: 30 },
             { rank: 3, period: "WEEKLY", reward: 30 },
           ],
-    medalRates: { gold: 100, silver: 60, bronze: 30 },
+    medalRates: {
+      daily: { gold: 30, silver: 20, bronze: 10 },
+      weekly: { gold: 100, silver: 60, bronze: 30 },
+      monthly: { gold: 300, silver: 200, bronze: 100 },
+    },
   };
 }
 
@@ -177,7 +184,7 @@ function buildHistory(now: number): PointsHistoryEntry[] {
     entry("h2", 0, -200, "purchase", "단추 리본"),
     entry("h3", 0, 1300, "charge"),
     entry("h4", 2, 100, "medal"),
-    entry("h5", 2, 50, "dailyGoal"),
+    entry("h5", 2, 60, "dailyGoal"),
     entry("h6", 2, 30, "ad"),
     entry("h7", 2, 40, "study"),
     entry("h8", 3, -350, "purchase", "숲속 아침"),

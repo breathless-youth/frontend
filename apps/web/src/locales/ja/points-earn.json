@@ -11,7 +11,8 @@
   },
   "tile": {
     "attendance": "出席",
-    "dailyGoal": "1日の目標",
+    "goalTitle": "1日の目標 {{duration}}",
+    "perUnit": "{{duration}}ごとに{{points}}",
     "ad": "広告を見る",
     "done": "完了",
     "claim": "受け取る",
@@ -26,9 +27,7 @@
     "none": "新しいランキングメダルはありません",
     "noneHint": "3位以内に入るとメダルごとにポイントがもらえます",
     "ranking": "ランキング ›",
-    "gold": "金メダル {{points}}",
-    "silver": "銀メダル {{points}}",
-    "bronze": "銅メダル {{points}}",
+    "guide": "メダルごとのポイント案内",
     "period": {
       "DAILY": "日間",
       "WEEKLY": "週間",

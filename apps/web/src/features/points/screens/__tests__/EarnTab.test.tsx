@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -28,8 +28,7 @@ function setup(
     onCharge?: (id: string) => Promise<ChargeResult>;
   } = {},
 ) {
-  const onClaim =
-    over.onClaim ?? vi.fn(async () => ({ granted: true, points: 130, balance: 1370 }));
+  const onClaim = over.onClaim ?? vi.fn(async () => ({ granted: true, points: 60, balance: 1300 }));
   const onWatchAd =
     over.onWatchAd ?? vi.fn(async (): Promise<AdResult> => ({ status: "unavailable" }));
   const onCharge =
@@ -64,7 +63,20 @@ describe("EarnTab 무료 포인트", () => {
     expect(screen.getByRole("button", { name: "보기" })).toBeInTheDocument();
     expect(screen.getByText("완료")).toBeInTheDocument();
     expect(screen.getByText("36분 남음")).toBeInTheDocument();
+    expect(screen.getByText("하루 목표 3시간")).toBeInTheDocument();
+    expect(screen.getByText("+60P")).toBeInTheDocument();
+    expect(screen.getByText("30분당 10P")).toBeInTheDocument();
     expect(screen.queryByText(/50P 받기/)).not.toBeInTheDocument();
+  });
+
+  it("목표가 1시간이면 gateway가 준 보상을 그대로 보인다", () => {
+    const earn = {
+      ...fixture.earn,
+      dailyGoal: { ...fixture.earn.dailyGoal, goalSec: 3600, reward: 20 },
+    };
+    setup({ earn });
+    expect(screen.getByText("하루 목표 1시간")).toBeInTheDocument();
+    expect(screen.getByText("+20P")).toBeInTheDocument();
   });
 
   it("받은 광고 타일은 완료다", () => {
@@ -77,18 +89,29 @@ describe("EarnTab 무료 포인트", () => {
 describe("EarnTab 메달", () => {
   it("받으면 claim을 부르고 새 메달 없음으로 바뀐다", async () => {
     const { onClaim } = setup();
-    expect(screen.getByText("금메달 100P")).toBeInTheDocument();
-    expect(screen.getByText("은메달 60P")).toBeInTheDocument();
-    expect(screen.getByText("동메달 30P")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "+130P 받기" }));
+    await userEvent.click(screen.getByRole("button", { name: "+60P 받기" }));
     expect(onClaim).toHaveBeenCalledWith("medals");
     expect(await screen.findByText("새 랭킹 메달이 없어요")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "+130P 받기" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "+60P 받기" })).not.toBeInTheDocument();
   });
 
   it("처음부터 메달이 없으면 안내를 보인다", () => {
     setup({ earn: buildPointsFixture("noMedal").earn });
     expect(screen.getByText("새 랭킹 메달이 없어요")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "메달별 포인트 안내" })).toBeInTheDocument();
+  });
+
+  it("메달 설명은 안내 버튼을 눌러야 일간·주간·월간 표로 보인다", async () => {
+    setup();
+    expect(screen.queryByText("월간")).not.toBeInTheDocument();
+    const trigger = screen.getByRole("button", { name: "메달별 포인트 안내" });
+    fireEvent.pointerDown(trigger);
+    fireEvent.click(trigger);
+    const table = await screen.findByText("월간", { selector: "[data-state] *" });
+    const rows = table.closest("[data-state]") as HTMLElement;
+    for (const text of ["일간", "주간", "월간", "30P", "100P", "300P", "20P", "200P", "10P"]) {
+      expect(within(rows).getAllByText(new RegExp(text)).length).toBeGreaterThan(0);
+    }
   });
 });
 
@@ -162,7 +185,7 @@ describe("EarnTab 앱 밖", () => {
 
 describe("EarnTab 실패", () => {
   it.each([
-    ["받기", { onClaim: () => Promise.reject(new Error("down")) }, "+130P 받기"],
+    ["받기", { onClaim: () => Promise.reject(new Error("down")) }, "+60P 받기"],
     ["광고", { onWatchAd: () => Promise.reject(new Error("down")) }, "보기"],
     ["충전", { onCharge: () => Promise.reject(new Error("down")) }, /500P 충전/],
   ] as const)("%s 요청이 실패하면 알리고 다시 누를 수 있다", async (_, over, name) => {

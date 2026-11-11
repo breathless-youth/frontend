@@ -144,8 +144,12 @@ export function EarnTab({
           </FreeTile>
           <FreeTile
             icon="dailyGoal"
-            label={t("tile.dailyGoal")}
+            label={t("tile.goalTitle", { duration: formatDuration(earn.dailyGoal.goalSec) })}
             reward={formatSignedPoints(earn.dailyGoal.reward)}
+            note={t("tile.perUnit", {
+              duration: formatDuration(earn.dailyGoal.unitSec),
+              points: formatPoints(earn.dailyGoal.pointsPerUnit),
+            })}
           >
             {goalClaimed ? (
               <TileDone label={t("tile.done")} />
