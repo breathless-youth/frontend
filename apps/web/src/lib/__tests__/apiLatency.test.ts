@@ -103,4 +103,19 @@ describe("API 응답 시간 요약", () => {
     });
     now.mockRestore();
   });
+
+  it("전송이 실패해도 처리되지 않은 오류를 남기지 않는다", async () => {
+    mocks.trackApiLatencySampled.mockImplementationOnce(() => {
+      throw new Error("analytics unavailable");
+    });
+    const onUnhandled = vi.fn();
+    process.on("unhandledRejection", onUnhandled);
+    for (let i = 0; i < 10; i++) recordApiLatency(50);
+    await vi.dynamicImportSettled();
+    vi.useRealTimers();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    process.off("unhandledRejection", onUnhandled);
+    expect(mocks.trackApiLatencySampled).toHaveBeenCalledTimes(1);
+    expect(onUnhandled).not.toHaveBeenCalled();
+  });
 });

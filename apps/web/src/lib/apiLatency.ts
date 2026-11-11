@@ -31,9 +31,10 @@ function flush() {
     maxMs: Math.round(sorted[sorted.length - 1]!),
     sampleCount: sorted.length,
   };
-  void import("@/lib/amplitude").then(({ trackApiLatencySampled }) =>
-    trackApiLatencySampled(summary),
-  );
+  // 끊긴 네트워크에서는 모듈을 못 불러올 수 있는데, 분석 전송 실패가 앱 오류로 번지면 안 된다.
+  void import("@/lib/amplitude")
+    .then(({ trackApiLatencySampled }) => trackApiLatencySampled(summary))
+    .catch(() => {});
 }
 
 export function recordApiLatency(ms: number): void {
