@@ -29,7 +29,7 @@ function renderPage(scene: PointsScene) {
 }
 
 describe("포인트 기록", () => {
-  it("날짜별로 묶이고 쓴 것을 고르면 음수 항목만 보인다", async () => {
+  it("날짜별로 묶이고 사용을 고르면 음수 항목만 보인다", async () => {
     // 기록 시각은 지금에서 몇 분씩 거꾸로 세므로 자정 직후에 돌리면 오늘 묶음이 어제로 넘어간다.
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(2026, 10, 12, 15, 0));
@@ -47,10 +47,10 @@ describe("포인트 기록", () => {
     expect(await screen.findByText("숲속 아침 구매")).toBeInTheDocument();
     expect(screen.getAllByRole("region").length).toBeGreaterThanOrEqual(3);
 
-    await userEvent.click(screen.getByRole("button", { name: "쓴 것" }));
+    await userEvent.click(screen.getByRole("button", { name: "사용" }));
     expect(await screen.findByText("-200P")).toBeInTheDocument();
     expect(screen.queryByText("+10P")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "쓴 것" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "사용" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("기록이 없으면 안내와 포인트 받으러 가기를 보이고 누르면 받기 탭으로 간다", async () => {
@@ -70,7 +70,7 @@ describe("PointsHistoryScreen", () => {
   it("고른 종류를 알리고 누른 종류를 넘긴다", async () => {
     const onFilter = vi.fn();
     render(<PointsHistoryScreen entries={[]} filter="all" onFilter={onFilter} onEarn={vi.fn()} />);
-    await userEvent.click(screen.getByRole("button", { name: "받은 것" }));
+    await userEvent.click(screen.getByRole("button", { name: "적립" }));
     expect(onFilter).toHaveBeenCalledWith("earned");
   });
 });

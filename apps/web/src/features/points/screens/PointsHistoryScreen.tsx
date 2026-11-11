@@ -23,7 +23,11 @@ export function PointsHistoryScreen({
   const { t } = useTranslation("points-shop");
   return (
     <div className="flex flex-col gap-2 pt-3 pb-6">
-      <div role="group" aria-label={t("history.filter.label")} className="flex gap-2">
+      <div
+        role="group"
+        aria-label={t("history.filter.label")}
+        className="flex rounded-lg bg-brand-subtle p-1"
+      >
         {FILTERS.map((value) => (
           <button
             key={value}
@@ -31,8 +35,10 @@ export function PointsHistoryScreen({
             aria-pressed={filter === value}
             onClick={() => onFilter(value)}
             className={cn(
-              "relative h-9 rounded-full px-4 text-sm font-bold before:absolute before:-inset-y-1 before:inset-x-0",
-              filter === value ? "bg-primary text-primary-foreground" : "bg-muted text-foreground",
+              "h-11 flex-1 rounded-[12px] text-sm font-bold",
+              filter === value
+                ? "bg-muted text-foreground shadow-sb-card"
+                : "text-muted-foreground",
             )}
           >
             {t(`history.filter.${value}`)}

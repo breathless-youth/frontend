@@ -23,8 +23,8 @@
     "filter": {
       "label": "기록 종류",
       "all": "전체",
-      "earned": "받은 것",
-      "spent": "쓴 것"
+      "earned": "적립",
+      "spent": "사용"
     },
     "today": "오늘",
     "reason": {
