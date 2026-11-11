@@ -70,12 +70,14 @@ const BACKGROUND_CATEGORY_BY_TAG: ReadonlyMap<string, string> = new Map(
   }),
 );
 
-// 1단계 서버가 주는 사유는 STUDY와 PURCHASE뿐이고, MEDAL은 문구 형식이 알려져 있어 미리 받는다.
+// 서버에서 확인한 사유는 STUDY, PURCHASE, ATTENDANCE이고, MEDAL은 문구 형식이 알려져 있어 미리 받는다.
 const HISTORY_REASON_BY_CODE: ReadonlyMap<string, PointsReason> = new Map(
-  Object.entries({ STUDY: "study", PURCHASE: "purchase", MEDAL: "medal" } satisfies Record<
-    string,
-    PointsReason
-  >),
+  Object.entries({
+    STUDY: "study",
+    PURCHASE: "purchase",
+    ATTENDANCE: "attendance",
+    MEDAL: "medal",
+  } satisfies Record<string, PointsReason>),
 );
 
 const MEDAL_PERIODS: readonly MedalReward["period"][] = ["DAILY", "WEEKLY", "MONTHLY"];

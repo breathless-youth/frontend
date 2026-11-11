@@ -249,6 +249,14 @@ describe("포인트 기록", () => {
     expect(entry).toMatchObject({ reason: "medal", medal: { period: "MONTHLY", rank: 2 } });
   });
 
+  it("출석으로 받은 기록을 싣는다", () => {
+    const [entry] = toHistoryPage({
+      items: [history({ reason: "ATTENDANCE", amount: 10 })],
+      nextCursor: null,
+    }).entries;
+    expect(entry).toMatchObject({ reason: "attendance", amount: 10 });
+  });
+
   it.each([null, "FOCUS_TIME:DAILY/9", "FOCUS_TIME/1", "왕관", "FOCUS_TIME:YEARLY/1"])(
     "메달 문구 %s는 형식을 몰라 기본 문구로 남긴다",
     (label) => {
