@@ -1,1 +1,23 @@
-{}
+{
+  "totalFocus": "Total focus",
+  "remaining": "{{time}} left",
+  "hiddenName": "???",
+  "lockedLabel": "{{name}} locked, {{remaining}}",
+  "selectedLabel": "{{name}} selected",
+  "sheet": {
+    "untilOpen": "Focus {{time}} more to unlock.",
+    "progress": "{{percent}}% of the way to {{name}}",
+    "close": "Close"
+  },
+  "unlocked": {
+    "tag": "New mascot",
+    "switch": "Switch to this mascot",
+    "later": "Later"
+  },
+  "profile": {
+    "title": "My mascot",
+    "decorate": "Decorate",
+    "pick": "Choose my mascot",
+    "locked": "{{name}} locked"
+  }
+}

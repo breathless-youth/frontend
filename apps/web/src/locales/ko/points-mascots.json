@@ -1,1 +1,23 @@
-{}
+{
+  "totalFocus": "누적 순공",
+  "remaining": "{{time}} 남음",
+  "hiddenName": "???",
+  "lockedLabel": "{{name}} 잠김, {{remaining}}",
+  "selectedLabel": "{{name}} 선택 중",
+  "sheet": {
+    "untilOpen": "순공 {{time}} 더 하면 열려요.",
+    "progress": "{{name}}까지 {{percent}}% 모았어요",
+    "close": "닫기"
+  },
+  "unlocked": {
+    "tag": "새 마스코트",
+    "switch": "이 마스코트로 바꾸기",
+    "later": "나중에"
+  },
+  "profile": {
+    "title": "내 마스코트",
+    "decorate": "꾸미기",
+    "pick": "내 마스코트 고르기",
+    "locked": "{{name}} 잠김"
+  }
+}
