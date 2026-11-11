@@ -122,6 +122,13 @@ describe("isFullScreenPath", () => {
     expect(isFullScreenPath("/timelapse-settings")).toBe(true);
   });
 
+  it("포인트 상점과 그 하위 화면은 전체 화면이다", () => {
+    for (const path of ["/points", "/points/history", "/points/accessories", "/points/mascots"]) {
+      expect(isFullScreenPath(path)).toBe(true);
+    }
+    expect(isFullScreenPath("/pointsx")).toBe(false);
+  });
+
   it("타임랩스 전체 목록은 전체 화면이다", () => {
     expect(isFullScreenPath("/timelapses")).toBe(true);
   });

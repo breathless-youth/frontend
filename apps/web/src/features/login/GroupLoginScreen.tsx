@@ -100,8 +100,14 @@ function MascotLayer({ mascots }: { mascots: Mascot[] }) {
   );
 }
 
+/** 앞 화면 없이 바로 열렸을 때 뒤로 가기가 돌아갈 화면 */
+const BACK_FALLBACK: Partial<Record<LoginEntry, string>> = {
+  settings: "/settings",
+  points: "/home",
+};
+
 /**
- * 그룹 또는 설정에서 여는 비회원 로그인 화면
+ * 그룹·설정·포인트 상점에서 여는 비회원 로그인 화면
  *
  * 앱이 알린 공급자 버튼만 보이고, 로그인은 앱에 맡긴 뒤 결과만 받아 처리한다.
  * 그룹 진입은 로그인 후 게이트가 그룹 화면을 그린다. 설정 진입은 설정 화면으로 돌아간다.
@@ -112,7 +118,7 @@ export function GroupLoginScreen({ entry }: { entry: LoginEntry }) {
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const back = useBackTo(entry === "settings" ? "/settings" : "/social");
+  const back = useBackTo(BACK_FALLBACK[entry] ?? "/social");
   const [pending, setPending] = useState<SocialLoginProvider | null>(null);
   const viewedRef = useRef(false);
   // 버튼 비활성은 다음 렌더에 붙어서, 같은 순간의 두 번째 누름은 이 값으로 막는다.
