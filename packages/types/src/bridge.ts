@@ -127,6 +127,23 @@ export type ToWebMessage =
   | { type: "profile-photo-result"; id: string; status: "picked"; data: string; atMs: number }
   | { type: "profile-photo-result"; id: string; status: "cancelled" | "failed"; atMs: number }
   /**
+   * 앱 배경 사진 선택기 결과
+   *
+   * `pick-background-photo`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+   * `picked`의 `data`는 앱이 자르지 않고 긴 변 1920px로 줄인 JPEG의 base64이고 `width`·`height`는 그 크기다.
+   * `cancelled`는 사용자가 고르지 않고 닫은 경우이고 `failed`는 앱이 사진을 읽지 못한 경우다.
+   */
+  | {
+      type: "background-photo-result";
+      id: string;
+      status: "picked";
+      data: string;
+      width: number;
+      height: number;
+      atMs: number;
+    }
+  | { type: "background-photo-result"; id: string; status: "cancelled" | "failed"; atMs: number }
+  /**
    * 앱을 쓰는 중에 온 그룹 알림
    *
    * 앱이 포그라운드에서 그룹 푸시를 받았고 세션 화면이 아닐 때 보이는 탭 웹뷰 하나에만 보낸다.
@@ -506,6 +523,13 @@ export type ToNativeMessage =
    * 앱이 웹뷰 주소에 `profilePhotoPicker=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `profile-photo-result`로 답한다.
    */
   | { type: "pick-profile-photo"; id: string; atMs: number }
+  /**
+   * 타이머 배경 사진 고르기 요청
+   *
+   * 프로필 사진과 같은 이유로 Android는 앱이 시스템 선택기로 고르고 줄여 보낸다.
+   * 앱이 웹뷰 주소에 `backgroundPhotoPicker=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `background-photo-result`로 답한다.
+   */
+  | { type: "pick-background-photo"; id: string; atMs: number }
   /**
    * 앱 안 알림 토스트를 눌렀다
    *

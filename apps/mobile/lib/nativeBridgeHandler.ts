@@ -128,6 +128,27 @@ async function pickProfilePhoto(): Promise<
 }
 
 /**
+ * 앱 사진 선택기로 고른 타이머 배경 사진
+ *
+ * 배경 함수가 없는 옛 모듈과 읽기 실패도 `failed`로 돌려줘 웹이 답을 못 받는 경우가 없게 한다.
+ */
+async function pickBackgroundPhoto(): Promise<
+  | { status: "picked"; data: string; width: number; height: number }
+  | { status: "cancelled" | "failed" }
+> {
+  if (typeof profilePhotoPickerNative?.pickBackground !== "function") {
+    return { status: "failed" };
+  }
+  try {
+    const photo = await profilePhotoPickerNative.pickBackground();
+    return photo === null ? { status: "cancelled" } : { status: "picked", ...photo };
+  } catch (error) {
+    console.warn("[bridge] 배경 사진 읽기 실패", error);
+    return { status: "failed" };
+  }
+}
+
+/**
  * 웹이 보낸 브리지 메시지(세션 상태 모델 스펙 §10)에 대한 네이티브 쪽 공통 반응.
  *
  * `RemoteWebViewHost`를 쓰는 화면(탭 5개와 세션) 전부가 같은 규칙으로 반응해야
@@ -397,6 +418,11 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
     case "pick-profile-photo":
       void pickProfilePhoto().then((result) => {
         reply({ type: "profile-photo-result", id: message.id, ...result, atMs: Date.now() });
+      });
+      break;
+    case "pick-background-photo":
+      void pickBackgroundPhoto().then((result) => {
+        reply({ type: "background-photo-result", id: message.id, ...result, atMs: Date.now() });
       });
       break;
     case "open-push-link": {

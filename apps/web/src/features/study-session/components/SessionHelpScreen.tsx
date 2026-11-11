@@ -233,7 +233,7 @@ function TapCallout({ callout }: { callout: SessionHelpTextKey }) {
 }
 
 /** 가짜 하단 바. 일시정지와 종료를 실제와 같은 모양으로 그린다. */
-function FakeBar({ children }: { children?: ReactNode }) {
+export function FakeBar({ children }: { children?: ReactNode }) {
   return (
     <div className={cn(SESSION_BAR, "relative")}>
       <span className={cn(controlButtonVariants({ variant: "pause", size: "bar" }), FAKE_BUTTON)}>
@@ -247,8 +247,8 @@ function FakeBar({ children }: { children?: ReactNode }) {
   );
 }
 
-/** 가짜 알약 버튼(배경음·더보기) */
-function FakePill({ icon }: { icon: "ambient" | "more" }) {
+/** 가짜 알약 버튼(배경음·더보기). 타이머 배경 미리보기도 같이 쓴다. */
+export function FakePill({ icon }: { icon: "ambient" | "more" }) {
   return (
     <span className={cn(SESSION_PILL_BUTTON, FAKE_BUTTON)}>
       {icon === "ambient" ? (

@@ -325,7 +325,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     expect(await screen.findByText("카메라가 꺼져 있어요")).toBeInTheDocument();
   });
 
-  it("백그라운드에서 돌아와 끊긴 카메라를 다시 잡지 못하면 꺼짐 토스트를 띄운다 (BY-893)", async () => {
+  it("백그라운드에 다녀와 재개할 때 카메라를 다시 열지 못하면 꺼짐 토스트를 띄운다 (BY-893)", async () => {
     const track = { stop: vi.fn(), readyState: "live" as MediaStreamTrackState };
     const getUserMedia = vi
       .fn()
@@ -351,8 +351,9 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
       act(() => {
         document.dispatchEvent(new Event("visibilitychange"));
       });
+      // 싱글룸은 일시정지 동안 카메라를 꺼 두고 재개할 때 다시 연다.
+      await userEvent.click(screen.getByRole("button", { name: "다시 시작" }));
 
-      // 어댑터가 한 번 실패하면 700ms 뒤 한 번 더 열어 본다.
       expect(
         await screen.findByText("카메라가 꺼져 있어요", {}, { timeout: 3000 }),
       ).toBeInTheDocument();
@@ -922,9 +923,7 @@ describe("RoomPage — S3-4 심플 모드", () => {
 
     await enterSimpleMode();
 
-    expect(screen.getByTestId("session-subject")).toHaveTextContent(
-      "과목 선택과목 없이도 시간은 재요",
-    );
+    expect(screen.getByTestId("session-subject")).toHaveTextContent("과목 선택과목을 선택하세요");
   });
 
   it("ⓘ 버튼으로 순공시간·집중률 카드를 펼치고 다시 누르면 접는다", async () => {

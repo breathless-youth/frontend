@@ -1515,6 +1515,7 @@ export function trackRecordsSessionExpanded(input: { readonly expanded: boolean 
 export function trackSettingsRowPressed(
   row:
     | "profile"
+    | "timer_background"
     | "timelapse"
     | "app_lock"
     | "block_list"
@@ -1542,6 +1543,40 @@ export type TimelapseSettingEventKey =
   | "focus_rate"
   | "dday"
   | "streak";
+
+/** 설정 › 타이머 배경 미리보기에서 `적용하기`를 눌렀다. `kind`는 고른 배경 종류다. */
+export function trackTimerBackgroundApplied(input: {
+  readonly kind: "simple" | "proctor" | "photo";
+}) {
+  if (!initialized) return;
+  track("timer_background_applied", { kind: input.kind });
+}
+
+/**
+ * 타이머 배경에 사진을 담았다
+ *
+ * `count`는 담은 뒤의 사진 수이고 `source`는 앱 선택기(`native`)와 웹 파일 입력(`file`) 중 어느 길로 골랐는지다.
+ * 사진 내용과 크기는 보내지 않는다.
+ */
+export function trackTimerBackgroundPhotoAdded(input: {
+  readonly count: number;
+  readonly source: "native" | "file";
+}) {
+  if (!initialized) return;
+  track("timer_background_photo_added", { count: input.count, source: input.source });
+}
+
+/** 타이머 배경 사진을 삭제했다. `count`는 삭제한 뒤의 사진 수이고 `wasSelected`는 쓰던 배경이었는지다. */
+export function trackTimerBackgroundPhotoRemoved(input: {
+  readonly count: number;
+  readonly wasSelected: boolean;
+}) {
+  if (!initialized) return;
+  track("timer_background_photo_removed", {
+    count: input.count,
+    was_selected: input.wasSelected,
+  });
+}
 
 /** 설정 › 타임랩스에서 바꾼 항목과 바뀐 뒤의 값. 비율은 `9:16`·`16:9`, 가림 이모지는 이모지 id, 나머지는 켜짐 여부다. */
 export function trackTimelapseSettingChanged(input: {

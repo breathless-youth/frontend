@@ -158,15 +158,17 @@
   "clock": {
     "current": "This session",
     "today": "Today {{elapsed}}",
+    "todayLabel": "Today",
     "info": "Show focus time and focus rate",
     "focus": "Focus time",
+    "focusShort": "Focus",
     "rate": "Focus rate",
     "srStudy": "Study time this session {{duration}}",
     "srToday": "Total study time today {{duration}}"
   },
   "header": {
     "choose": "Choose a subject",
-    "noSubject": "Time is tracked without a subject too",
+    "noSubject": "Choose a subject",
     "addTask": "Add a task…"
   },
   "camera": {

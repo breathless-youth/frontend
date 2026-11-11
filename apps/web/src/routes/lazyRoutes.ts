@@ -14,6 +14,7 @@ export const loadLicensesPage = () => import("./LicensesPage");
 export const loadContactPage = () => import("./ContactPage");
 export const loadInterviewFormPage = () => import("./InterviewFormPage");
 export const loadTimelapseSettingsPage = () => import("./TimelapseSettingsPage");
+export const loadTimerBackgroundSettingsPage = () => import("./TimerBackgroundSettingsPage");
 export const loadAppLockSettingsPage = () => import("./AppLockSettingsPage");
 export const loadTimelapsesPage = () => import("./TimelapsesPage");
 export const loadRankingRecordsPage = () => import("./RankingRecordsPage");
@@ -46,6 +47,7 @@ export function prefetchSettingsSubPages(): void {
       loadLicensesPage,
       loadContactPage,
       loadTimelapseSettingsPage,
+      loadTimerBackgroundSettingsPage,
       loadAppLockSettingsPage,
     ]) {
       void load().catch(() => {});

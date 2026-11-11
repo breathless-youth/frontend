@@ -332,6 +332,35 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
       };
     }
   }
+  if (
+    record.type === "background-photo-result" &&
+    typeof record.id === "string" &&
+    record.id !== ""
+  ) {
+    const { width, height } = record;
+    // 빈 본문도 받아 기다리는 쪽을 끝내고, 크기를 모르는 사진은 그릴 수 없어 실패로 넘긴다.
+    if (record.status === "picked" && typeof record.data === "string") {
+      return typeof width === "number" && width > 0 && typeof height === "number" && height > 0
+        ? {
+            type: "background-photo-result",
+            id: record.id,
+            status: "picked",
+            data: record.data,
+            width,
+            height,
+            atMs: record.atMs,
+          }
+        : { type: "background-photo-result", id: record.id, status: "failed", atMs: record.atMs };
+    }
+    if (record.status === "cancelled" || record.status === "failed") {
+      return {
+        type: "background-photo-result",
+        id: record.id,
+        status: record.status,
+        atMs: record.atMs,
+      };
+    }
+  }
   if (record.type === "social-login-result" && typeof record.id === "string" && record.id !== "") {
     if (record.status === "success" && typeof record.isNewUser === "boolean") {
       return {

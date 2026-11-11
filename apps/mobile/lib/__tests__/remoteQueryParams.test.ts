@@ -101,6 +101,21 @@ describe("buildRemoteQueryParams", () => {
     }
   });
 
+  it("배경 사진 함수가 든 Android 빌드에만 backgroundPhotoPicker=1을 붙인다", async () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    // 프로필 선택기만 든 옛 바이너리는 배경 요청을 처리하지 못한다.
+    mockPickerModule.profilePhotoPickerNative = { pick: jest.fn() };
+    try {
+      await expect(buildRemoteQueryParams()).resolves.not.toHaveProperty("backgroundPhotoPicker");
+
+      mockPickerModule.profilePhotoPickerNative = { pick: jest.fn(), pickBackground: jest.fn() };
+      await expect(buildRemoteQueryParams()).resolves.toHaveProperty("backgroundPhotoPicker", "1");
+    } finally {
+      mockPickerModule.profilePhotoPickerNative = null;
+    }
+  });
+
   it("사진 선택기 모듈이 든 Android 빌드에만 profilePhotoPicker=1을 붙인다", async () => {
     jest.replaceProperty(Platform, "OS", "android");
     mockedEnsureUserRegistered.mockResolvedValue(7);
