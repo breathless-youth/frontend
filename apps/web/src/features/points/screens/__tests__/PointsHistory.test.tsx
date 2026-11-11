@@ -33,7 +33,7 @@ describe("포인트 기록", () => {
     const today = await screen.findByRole("region", { name: "오늘" });
     expect(within(today).getByText("출석하기")).toBeInTheDocument();
     expect(within(today).getByText("+10P")).toBeInTheDocument();
-    expect(within(today).getByText("단추 리본 사기")).toBeInTheDocument();
+    expect(within(today).getByText("단추 리본 구매")).toBeInTheDocument();
     expect(screen.getAllByRole("region").length).toBeGreaterThanOrEqual(3);
 
     await userEvent.click(screen.getByRole("button", { name: "쓴 것" }));
