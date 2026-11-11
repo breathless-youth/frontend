@@ -26,9 +26,15 @@ export function useShopActions() {
   const refetchShop = () => queryClient.invalidateQueries({ queryKey: pointsKeys.shop(userId) });
 
   const claim = async (kind: ClaimKind) => {
-    const result = await gateway.claim(kind);
-    settle(result.balance);
-    return result;
+    try {
+      const result = await gateway.claim(kind);
+      settle(result.balance);
+      return result;
+    } catch (error) {
+      // 이미 받았거나 받을 수 없게 된 보상은 서버 상태에 맞춰 화면을 다시 그린다.
+      void queryClient.invalidateQueries({ queryKey: pointsKeys.earnToday(userId) });
+      throw error;
+    }
   };
   const watchAd = async (): Promise<AdResult> => {
     const result = await gateway.watchAd();

@@ -79,6 +79,43 @@ describe("EarnTab 무료 포인트", () => {
     expect(screen.getByText("+20P")).toBeInTheDocument();
   });
 
+  it("30분당 기준이 없으면 그 줄을 그리지 않는다", () => {
+    const { unitSec, pointsPerUnit, ...goal } = fixture.earn.dailyGoal;
+    void unitSec;
+    void pointsPerUnit;
+    setup({ earn: { ...fixture.earn, dailyGoal: goal } });
+    expect(screen.getByText("하루 목표 3시간")).toBeInTheDocument();
+    expect(screen.queryByText(/30분당/)).not.toBeInTheDocument();
+  });
+
+  it("목표가 없으면 제목과 안내 한 줄만 보이고 보상과 버튼이 없다", () => {
+    setup({
+      earn: {
+        ...fixture.earn,
+        dailyGoal: { ...fixture.earn.dailyGoal, goalSec: null, remainingSec: null, reward: 0 },
+      },
+    });
+    expect(screen.getByText("하루 목표")).toBeInTheDocument();
+    expect(screen.getByText("목표를 정하면 받을 수 있어요")).toBeInTheDocument();
+    expect(screen.queryByText("+0P")).not.toBeInTheDocument();
+    expect(screen.queryByText(/남음/)).not.toBeInTheDocument();
+  });
+
+  it("광고가 없는 경계는 광고 타일과 충전 칸 없이 타일 두 개만 그린다", () => {
+    const { ad, ...rest } = fixture.earn;
+    void ad;
+    render(
+      <MemoryRouter>
+        <EarnTab earn={rest} packs={[]} onClaim={vi.fn()} chargeAvailable={false} />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText("광고 보기")).not.toBeInTheDocument();
+    expect(screen.queryByText("포인트 충전")).not.toBeInTheDocument();
+    expect(screen.queryByText("충전과 광고 보상은 앱에서 할 수 있어요")).not.toBeInTheDocument();
+    expect(screen.getByText("출석")).toBeInTheDocument();
+    expect(screen.getByText("하루 목표 3시간").closest(".grid")).toHaveClass("grid-cols-2");
+  });
+
   it("받은 광고 타일은 완료다", () => {
     setup({ earn: buildPointsFixture("allDone").earn });
     expect(screen.getAllByText("완료")).toHaveLength(3);

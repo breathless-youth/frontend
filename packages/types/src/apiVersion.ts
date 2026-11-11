@@ -111,6 +111,10 @@ export const API_ENDPOINTS = {
    * 포인트·상점·꾸미기·마스코트 네 키는 Swagger 등재 전에 백엔드가 알려 준 값이라 등재 뒤 다시 대조한다.
    */
   points: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },
+  /** `GET /api/points/earn`: 오늘 받을 수 있는 포인트와 메달 포인트 표. 등재 전 잠정 계약이다. */
+  pointsEarn: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },
+  /** `POST /api/points/rewards/{attendance,daily-goal,medals}/claim`: 출석·하루 목표·랭킹 메달 받기. */
+  pointsRewards: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },
   /** `GET /api/shop/items`, `POST /api/shop/items/{id}/purchase`: 꾸미기 상점 목록과 구매. */
   shop: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },
   /** `/api/decorations` 이하 전부: 소품 착용과 타이머 배경 적용. */

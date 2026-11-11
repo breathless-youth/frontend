@@ -103,7 +103,7 @@ describe("InsufficientPointsSheet", () => {
         open
         item={crown}
         balance={480}
-        earn={{ ...fixture.earn, ad: { ...fixture.earn.ad, watched } }}
+        earn={{ ...fixture.earn, ad: { reward: 30, limit: 3, watched } }}
         packs={fixture.packs}
         {...handlers}
       />,

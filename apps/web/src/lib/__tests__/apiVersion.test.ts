@@ -35,6 +35,8 @@ const EXPECTED: Record<ApiEndpoint, { current: string; legacy: string }> = {
   rankingRecordsUnseen: { current: "1", legacy: "1" },
   rankingRecordsSeen: { current: "1", legacy: "1" },
   points: { current: "1", legacy: "1" },
+  pointsEarn: { current: "1", legacy: "1" },
+  pointsRewards: { current: "1", legacy: "1" },
   shop: { current: "1", legacy: "1" },
   decorations: { current: "1", legacy: "1" },
   mascots: { current: "1", legacy: "1" },

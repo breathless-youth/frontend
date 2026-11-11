@@ -143,7 +143,8 @@ function EarnPanel() {
   const gateway = usePointsGateway();
   const userId = usePointsUserId();
   const earn = useQuery(earnTodayQuery(gateway, userId));
-  const packs = useQuery(chargePacksQuery(gateway, userId));
+  const chargeAvailable = gateway.capabilities.charge;
+  const packs = useQuery({ ...chargePacksQuery(gateway, userId), enabled: chargeAvailable });
   const actions = useShopActions();
 
   if (earn.data === undefined) {
@@ -162,6 +163,7 @@ function EarnPanel() {
       onClaim={actions.claim}
       onWatchAd={actions.watchAd}
       onCharge={actions.charge}
+      chargeAvailable={chargeAvailable}
     />
   );
 }

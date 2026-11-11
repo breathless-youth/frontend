@@ -10,10 +10,10 @@ function openAt(search: string) {
 afterEach(() => openAt(""));
 
 describe("appPointsGateway", () => {
-  it("기본은 받기·충전·광고가 없는 실제 API 경계다", () => {
+  it("기본은 받기만 있는 실제 API 경계다", () => {
     openAt("?points=1");
     expect(appPointsGateway().capabilities).toEqual({
-      earn: false,
+      earn: true,
       history: true,
       charge: false,
       ads: false,
@@ -29,7 +29,7 @@ describe("appPointsGateway", () => {
 
   it("모르는 장면 이름이면 실제 경계를 쓴다", () => {
     openAt("?pointsMock=nope");
-    expect(appPointsGateway().capabilities.earn).toBe(false);
+    expect(appPointsGateway().capabilities.charge).toBe(false);
   });
 
   it("주소가 바뀌어도 문서 안에서는 처음 고른 경계를 나눠 쓴다", () => {

@@ -1,11 +1,13 @@
 import { ApiError } from "@/lib/api";
 import {
   getMascots,
+  getPointsEarn,
   getPointsBalance,
   getPointsHistory,
   getShopItems,
   getStudyReward,
   postMascotUnlocksSeen,
+  postRewardClaim,
   purchaseShopItem,
   putMascotAccessory,
   putSelectedMascot,
@@ -14,17 +16,19 @@ import {
 
 import {
   toMascotCode,
+  toClaimResult,
+  toEarnToday,
   toHistoryPage,
   toPurchaseFailure,
   toSessionReward,
   toShopData,
   toSlotCode,
 } from "./fromApi";
-import type { HistoryFilter } from "../types";
+import type { ClaimKind, HistoryFilter } from "../types";
 import type { PointsCapabilities, PointsGateway } from "./PointsGateway";
 
-const STAGE_ONE_CAPABILITIES: PointsCapabilities = {
-  earn: false,
+const STAGE_TWO_CAPABILITIES: PointsCapabilities = {
+  earn: true,
   history: true,
   charge: false,
   ads: false,
@@ -34,6 +38,12 @@ const HISTORY_TYPE = { all: "ALL", earned: "EARNED", spent: "SPENT" } as const s
   HistoryFilter,
   string
 >;
+
+const REWARD_PATH = {
+  attendance: "attendance",
+  dailyGoal: "daily-goal",
+  medals: "medals",
+} as const satisfies Record<ClaimKind, string>;
 
 const HISTORY_PAGE_SIZE = 30;
 
@@ -47,15 +57,15 @@ function toServerItemId(itemId: string | null): number | null {
 }
 
 /**
- * 포인트 1단계 API로 도는 경계
+ * 포인트 API로 도는 경계
  *
- * 1단계에는 받기·충전·광고 API가 없어 그 기능은 capabilities에서 끄고 메서드는 거절한다.
+ * 받기는 연결했고 충전·광고 API는 아직 없어 그 기능은 capabilities에서 끄고 메서드는 거절한다.
  * 같은 구매가 두 번 와도 서버가 한 번만 처리하므로 따로 중복 방지 키를 보내지 않는다.
  * 상점 화면은 상품과 마스코트를 함께 쓰므로 두 조회를 묶어 한 번에 넘긴다.
  */
 export function createApiPointsGateway(): PointsGateway {
   return {
-    capabilities: STAGE_ONE_CAPABILITIES,
+    capabilities: STAGE_TWO_CAPABILITIES,
     getBalance: async () => (await getPointsBalance()).balance,
     getShop: async () => {
       const [items, mascots] = await Promise.all([getShopItems(), getMascots()]);
@@ -90,8 +100,13 @@ export function createApiPointsGateway(): PointsGateway {
       toHistoryPage(
         await getPointsHistory({ type: HISTORY_TYPE[filter], cursor, size: HISTORY_PAGE_SIZE }),
       ),
-    getEarnToday: () => unsupported("earn"),
-    claim: () => unsupported("claim"),
+    getEarnToday: async () => toEarnToday(await getPointsEarn()),
+    claim: async (kind) => {
+      const result = toClaimResult(await postRewardClaim(REWARD_PATH[kind]));
+      // 출석·하루 목표 받기는 응답 모양이 명세에 없어 잔액이 빠져 있으면 다시 읽는다.
+      const balance = result.balance ?? (await getPointsBalance()).balance;
+      return { ...result, balance };
+    },
     watchAd: () => unsupported("ads"),
     getChargePacks: () => unsupported("charge packs"),
     charge: () => unsupported("charge"),

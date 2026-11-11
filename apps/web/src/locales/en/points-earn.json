@@ -11,6 +11,8 @@
   },
   "tile": {
     "attendance": "Check-in",
+    "dailyGoalTitle": "Daily goal",
+    "noGoal": "Set a goal to earn this",
     "goalTitle": "Daily goal {{duration}}",
     "perUnit": "{{points}} per {{duration}}",
     "ad": "Watch an ad",

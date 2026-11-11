@@ -151,11 +151,12 @@ export function createFakePointsGateway(
       return { granted: points > 0, points, balance: state.balance };
     },
     watchAd: async () => {
-      if (scene === "adUnavailable" || state.earn.ad.watched >= state.earn.ad.limit) {
+      const ad = state.earn.ad;
+      if (scene === "adUnavailable" || ad === undefined || ad.watched >= ad.limit) {
         return { status: "unavailable" };
       }
-      state.earn.ad.watched += 1;
-      earn(state.earn.ad.reward, "ad");
+      ad.watched += 1;
+      earn(ad.reward, "ad");
       return { status: "rewarded", balance: state.balance };
     },
     getChargePacks: () => read(() => state.packs),

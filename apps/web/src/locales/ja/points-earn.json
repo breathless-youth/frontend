@@ -11,6 +11,8 @@
   },
   "tile": {
     "attendance": "出席",
+    "dailyGoalTitle": "1日の目標",
+    "noGoal": "目標を決めると受け取れます",
     "goalTitle": "1日の目標 {{duration}}",
     "perUnit": "{{duration}}ごとに{{points}}",
     "ad": "広告を見る",

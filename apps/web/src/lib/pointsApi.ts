@@ -3,7 +3,9 @@ import type { ApiEndpoint } from "@focusmakers/types";
 import type {
   DecorationsResponse,
   MascotsResponse,
+  ClaimResponse,
   PointsBalanceResponse,
+  PointsEarnResponse,
   PointsHistoryResponse,
   PurchaseResponse,
   ShopItemsResponse,
@@ -13,7 +15,10 @@ import type {
 import { API_BASE_URL, apiFetch, parseApiError } from "./api";
 import { groupRequestLocale } from "./groupRequestLocale";
 
-type PointsEndpoint = Extract<ApiEndpoint, "points" | "shop" | "decorations" | "mascots">;
+type PointsEndpoint = Extract<
+  ApiEndpoint,
+  "points" | "pointsEarn" | "pointsRewards" | "shop" | "decorations" | "mascots"
+>;
 
 /**
  * 포인트 API 한 번 부르기
@@ -47,11 +52,12 @@ async function request<T>(
 /**
  * 상품 이름과 구매 기록 문구를 화면 언어로 받는 헤더
  *
- * 서버는 번체를 지역과 관계없이 zh 하나로 번역해서, 그룹 번역과 같은 헬퍼로 zh-Hant를 zh-TW로 보낸다.
+ * 서버는 번체를 지역과 관계없이 zh 하나로 받아서, 그룹 번역 언어의 zh-TW를 zh로 바꿔 보낸다.
  * 이름이 실리지 않는 다른 포인트 API에는 보내지 않는다.
  */
 function translatedHeaders(): Record<string, string> {
-  return { "Accept-Language": groupRequestLocale() };
+  const language = groupRequestLocale();
+  return { "Accept-Language": language === "zh-TW" ? "zh" : language };
 }
 
 export type PointsHistoryType = "ALL" | "EARNED" | "SPENT";
@@ -136,4 +142,22 @@ export function postMascotUnlocksSeen(): Promise<MascotsResponse> {
   return request("/api/mascots/unlocks/seen", "mascots", "mascot unlocks seen failed", {
     method: "POST",
   });
+}
+
+export function getPointsEarn(): Promise<PointsEarnResponse> {
+  return request("/api/points/earn", "pointsEarn", "points earn fetch failed");
+}
+
+export type RewardKind = "attendance" | "daily-goal" | "medals";
+
+/** 이미 받았거나 받을 수 없으면 서버가 409(REWARD_NOT_AVAILABLE)를 준다. */
+export function postRewardClaim(kind: RewardKind): Promise<ClaimResponse> {
+  return request(
+    `/api/points/rewards/${kind}/claim`,
+    "pointsRewards",
+    "points reward claim failed",
+    {
+      method: "POST",
+    },
+  );
 }

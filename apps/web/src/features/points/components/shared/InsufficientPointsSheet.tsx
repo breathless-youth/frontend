@@ -54,7 +54,8 @@ export function InsufficientPointsSheet({
   const [pickedId, setPickedId] = useState<string | null>(null);
   const picked =
     packs.find((pack) => pack.productId === pickedId) ?? suggestedPack(packs, shortfall);
-  const adLeft = earn === undefined ? 0 : earn.ad.limit - earn.ad.watched;
+  const ad = earn?.ad;
+  const adLeft = ad === undefined ? 0 : ad.limit - ad.watched;
   const noWays = onWatchAd === undefined && onMissions === undefined && onCharge === undefined;
   const busyRef = useRef(false);
   const [busy, setBusy] = useState(false);
@@ -91,13 +92,13 @@ export function InsufficientPointsSheet({
               </Button>
             </>
           )}
-          {onWatchAd && earn && (
+          {onWatchAd && ad && (
             <WayRow
-              title={t("insufficient.ad", { reward: formatPoints(earn.ad.reward) })}
+              title={t("insufficient.ad", { reward: formatPoints(ad.reward) })}
               hint={
                 adLeft > 0
                   ? t("insufficient.adLeft", { count: adLeft })
-                  : t("insufficient.adDone", { count: earn.ad.limit })
+                  : t("insufficient.adDone", { count: ad.limit })
               }
               action={adLeft > 0 ? t("insufficient.watch") : t("insufficient.tomorrow")}
               highlighted={adLeft > 0}

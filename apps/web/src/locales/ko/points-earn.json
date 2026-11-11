@@ -11,6 +11,8 @@
   },
   "tile": {
     "attendance": "출석",
+    "dailyGoalTitle": "하루 목표",
+    "noGoal": "목표를 정하면 받을 수 있어요",
     "goalTitle": "하루 목표 {{duration}}",
     "perUnit": "{{duration}}당 {{points}}",
     "ad": "광고 보기",

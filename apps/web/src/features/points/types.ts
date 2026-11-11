@@ -71,15 +71,18 @@ export type EarnToday = {
   study: { focusSec: number; capSec: number; unitSec: number; pointsPerUnit: number };
   attendance: { reward: number; claimed: boolean };
   dailyGoal: {
-    goalSec: number;
-    unitSec: number;
-    pointsPerUnit: number;
+    /** 목표를 안 정했으면 null이다. */
+    goalSec: number | null;
+    /** 서버가 기준을 주지 않으면 없고, 그때 타일은 `30분당` 줄을 그리지 않는다. */
+    unitSec?: number;
+    pointsPerUnit?: number;
     reward: number;
     achieved: boolean;
     claimed: boolean;
-    remainingSec: number;
+    remainingSec: number | null;
   };
-  ad: { reward: number; watched: number; limit: number };
+  /** 광고를 지원하지 않는 경계에서는 없고, 그때 광고 타일을 그리지 않는다. */
+  ad?: { reward: number; watched: number; limit: number };
   medals: MedalReward[];
   medalRates: Record<"daily" | "weekly" | "monthly", MedalRates>;
 };

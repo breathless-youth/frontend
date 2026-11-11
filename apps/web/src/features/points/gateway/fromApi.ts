@@ -1,5 +1,6 @@
 import type {
   AccessorySlot,
+  EarnToday,
   ItemAcquire,
   Mascot,
   MascotId,
@@ -13,7 +14,9 @@ import type {
   ShopItem,
 } from "../types";
 import type {
+  ClaimResponse,
   MascotsResponse,
+  PointsEarnResponse,
   PointsHistoryItemResponse,
   PointsHistoryResponse,
   ShopItemResponse,
@@ -94,6 +97,10 @@ export function toMascotId(code: string): MascotId | null {
 export function toMascotCode(id: MascotId): string {
   // 위 표가 일곱 마스코트를 모두 담고 있어 비지 않는다.
   return CODE_BY_MASCOT.get(id) ?? id.toUpperCase();
+}
+
+export function toAccessorySlot(code: string): AccessorySlot | null {
+  return SLOT_BY_CODE.get(code) ?? null;
 }
 
 export function toSlotCode(slot: AccessorySlot): string {
@@ -250,5 +257,62 @@ export function toHistoryPage(res: PointsHistoryResponse): PointsHistoryPage {
       return entry === null ? [] : [entry];
     }),
     nextCursor: res.nextCursor,
+  };
+}
+
+function toMedalRates(points: number[] | undefined) {
+  const at = (index: number) => points?.[index] ?? 0;
+  return { gold: at(0), silver: at(1), bronze: at(2) };
+}
+
+/**
+ * 오늘 받을 수 있는 포인트
+ *
+ * 광고는 1단계 서버에 없어 싣지 않는다. 하루 목표의 30분당 기준도 서버가 주지 않으므로 보상과 목표 시간으로 거꾸로 계산하지 않는다.
+ * 모르는 기간이나 1~3위 밖 순위의 메달은 표에 그릴 자리가 없어 그 항목만 버린다.
+ */
+export function toEarnToday(res: PointsEarnResponse): EarnToday {
+  return {
+    earned: res.todayEarned,
+    dailyMax: res.dailyMax,
+    study: {
+      focusSec: res.study.recognizedFocusSec,
+      capSec: res.study.dailyCapFocusSec,
+      unitSec: res.study.unitSec,
+      pointsPerUnit: res.study.pointsPerUnit,
+    },
+    attendance: { reward: res.attendance.points, claimed: res.attendance.claimed },
+    dailyGoal: {
+      goalSec: res.dailyGoal.goalSec,
+      reward: res.dailyGoal.points,
+      achieved: res.dailyGoal.achieved,
+      claimed: res.dailyGoal.claimed,
+      remainingSec: res.dailyGoal.remainingSec,
+    },
+    medals: res.medals.flatMap((medal): MedalReward[] => {
+      const period = MEDAL_PERIODS.find((value) => value === medal.period);
+      if (period === undefined || ![1, 2, 3].includes(medal.rank)) {
+        return [];
+      }
+      return [{ rank: medal.rank as 1 | 2 | 3, period, reward: medal.points }];
+    }),
+    medalRates: {
+      daily: toMedalRates(res.medalPoints.daily),
+      weekly: toMedalRates(res.medalPoints.weekly),
+      monthly: toMedalRates(res.medalPoints.monthly),
+    },
+  };
+}
+
+/** 받기 응답을 화면 결과로 바꾸며, 응답에 없는 값은 비워 두어 경계가 채운다. */
+export function toClaimResult(res: ClaimResponse): {
+  granted: boolean;
+  points: number;
+  balance: number | null;
+} {
+  return {
+    granted: res.granted ?? (res.claimedCount === undefined ? true : res.claimedCount > 0),
+    points: res.points ?? 0,
+    balance: res.balance ?? null,
   };
 }

@@ -75,3 +75,59 @@ export type PointsHistoryResponse = {
   items: PointsHistoryItemResponse[];
   nextCursor: string | null;
 };
+
+export type PointsEarnResponse = {
+  date: string;
+  todayEarned: number;
+  dailyMax: number;
+  study: {
+    recognizedFocusSec: number;
+    dailyCapFocusSec: number;
+    unitSec: number;
+    pointsPerUnit: number;
+    earnedPoints: number;
+    maxPoints: number;
+  };
+  attendance: { points: number; claimed: boolean };
+  /** 목표가 없으면 goalSec와 remainingSec이 null이고 points는 0이다. */
+  dailyGoal: {
+    points: number;
+    goalSec: number | null;
+    focusSec: number;
+    remainingSec: number | null;
+    achieved: boolean;
+    claimed: boolean;
+  };
+  medals: {
+    recordId: number;
+    boardKey: string;
+    period: string;
+    periodStart: string;
+    rank: number;
+    points: number;
+  }[];
+  /** 1·2·3위 순서다. */
+  medalPoints: { daily: number[]; weekly: number[]; monthly: number[] };
+};
+
+/**
+ * 받기 응답
+ *
+ * 메달 한 번에 받기만 명세가 있고, 출석·하루 목표는 같은 모양이라고 가정해 값이 없으면 경계가 잔액을 다시 읽는다.
+ */
+export type ClaimResponse = {
+  granted?: boolean;
+  claimedCount?: number;
+  points?: number;
+  balance?: number;
+};
+
+/** 그룹 구성원 응답에 더해 오는 마스코트와 착용 소품 */
+export type GroupMemberMascotResponse = {
+  mascotCode: string;
+  accessories: {
+    mascotCode: string;
+    slot: string;
+    item: { itemId: number; code: string; imageUrl: string | null };
+  }[];
+};

@@ -67,16 +67,14 @@ const ITEMS: ShopItemsResponse = {
 };
 
 describe("createApiPointsGateway", () => {
-  it("1단계에 없는 받기·충전·광고는 꺼 두고 부르면 요청 없이 거절한다", async () => {
+  it("받기는 켜고 아직 없는 충전·광고는 꺼 두고 부르면 요청 없이 거절한다", async () => {
     const gateway = createApiPointsGateway();
     expect(gateway.capabilities).toEqual({
-      earn: false,
+      earn: true,
       history: true,
       charge: false,
       ads: false,
     });
-    await expect(gateway.getEarnToday()).rejects.toThrow();
-    await expect(gateway.claim("attendance")).rejects.toThrow();
     await expect(gateway.charge("points_500")).rejects.toThrow();
     await expect(gateway.watchAd()).rejects.toThrow();
     expect(fetchMock).not.toHaveBeenCalled();
@@ -118,7 +116,7 @@ describe("createApiPointsGateway", () => {
     expect(call(1).url).toMatch(/\/api\/points\/history\?type=ALL&size=30&cursor=abc$/);
   });
 
-  it("상품과 기록은 화면 언어를 Accept-Language로 보내고 번체는 zh-TW로 보낸다", async () => {
+  it("상품과 기록은 화면 언어를 Accept-Language로 보내고 번체는 zh로 보낸다", async () => {
     const { default: i18n } = await import("@/lib/i18n");
     const before = i18n.language;
     await i18n.changeLanguage("zh-Hant");
@@ -132,7 +130,7 @@ describe("createApiPointsGateway", () => {
       await gateway.getHistory("all", null);
       expect(
         fetchMock.mock.calls.map(([, init]) => new Headers(init?.headers).get("Accept-Language")),
-      ).toEqual(["zh-TW"]);
+      ).toEqual(["zh"]);
       fetchMock.mockResolvedValue(respond(200, { balance: 0 }));
       await gateway.getBalance();
       expect(new Headers(fetchMock.mock.calls[1]![1]?.headers).get("Accept-Language")).toBeNull();
@@ -273,5 +271,107 @@ describe("createApiPointsGateway", () => {
     expect(call().url).toMatch(
       /\/api\/points\/study-reward\?startedAt=2026-11-12T09%3A00%3A00%2B09%3A00$/,
     );
+  });
+});
+
+const EARN = {
+  date: "2026-11-12",
+  todayEarned: 80,
+  dailyMax: 254,
+  study: {
+    recognizedFocusSec: 7800,
+    dailyCapFocusSec: 43200,
+    unitSec: 1800,
+    pointsPerUnit: 10,
+    earnedPoints: 40,
+    maxPoints: 240,
+  },
+  attendance: { points: 10, claimed: false },
+  dailyGoal: {
+    points: 4,
+    goalSec: 7200,
+    focusSec: 5400,
+    remainingSec: 1800,
+    achieved: false,
+    claimed: false,
+  },
+  medals: [
+    {
+      recordId: 301,
+      boardKey: "FOCUS_TIME:DAILY",
+      period: "DAILY",
+      periodStart: "2026-11-09",
+      rank: 1,
+      points: 100,
+    },
+  ],
+  medalPoints: { daily: [100, 50, 30], weekly: [300, 150, 100], monthly: [1000, 500, 300] },
+};
+
+describe("포인트 받기 연결", () => {
+  it("받기 탭 데이터를 GET /api/points/earn으로 받아 화면 모양으로 바꾼다", async () => {
+    fetchMock.mockResolvedValue(respond(200, EARN));
+    const earn = await createApiPointsGateway().getEarnToday();
+    expect(call()).toMatchObject({ method: "GET", version: "1" });
+    expect(call().url).toMatch(/\/api\/points\/earn$/);
+    expect(earn.dailyGoal).toEqual({
+      goalSec: 7200,
+      reward: 4,
+      achieved: false,
+      claimed: false,
+      remainingSec: 1800,
+    });
+    expect(earn.ad).toBeUndefined();
+    expect(earn.medals).toEqual([{ rank: 1, period: "DAILY", reward: 100 }]);
+    expect(earn.medalRates.weekly).toEqual({ gold: 300, silver: 150, bronze: 100 });
+    expect(earn.dailyMax).toBe(254);
+  });
+
+  it("목표가 없으면 goalSec와 remainingSec을 null로 두고 메달이 없어도 된다", async () => {
+    fetchMock.mockResolvedValue(
+      respond(200, {
+        ...EARN,
+        dailyGoal: { ...EARN.dailyGoal, points: 0, goalSec: null, remainingSec: null },
+        medals: [],
+      }),
+    );
+    const earn = await createApiPointsGateway().getEarnToday();
+    expect(earn.dailyGoal).toMatchObject({ goalSec: null, remainingSec: null, reward: 0 });
+    expect(earn.medals).toEqual([]);
+  });
+
+  it.each([
+    ["attendance", "attendance"],
+    ["dailyGoal", "daily-goal"],
+  ] as const)("%s 받기는 잔액이 응답에 없으면 잔액을 다시 읽는다", async (kind, path) => {
+    fetchMock
+      .mockResolvedValueOnce(respond(200, { granted: true, points: 10 }))
+      .mockResolvedValueOnce(respond(200, { balance: 1250 }));
+    const result = await createApiPointsGateway().claim(kind);
+    expect(call(0)).toMatchObject({ method: "POST", version: "1" });
+    expect(call(0).url).toMatch(new RegExp(`/api/points/rewards/${path}/claim$`));
+    expect(result).toEqual({ granted: true, points: 10, balance: 1250 });
+  });
+
+  it("메달은 한 번에 받고 받은 개수가 0이면 granted가 거짓이다", async () => {
+    fetchMock.mockResolvedValueOnce(respond(200, { claimedCount: 2, points: 130, balance: 1370 }));
+    const gateway = createApiPointsGateway();
+    expect(await gateway.claim("medals")).toEqual({ granted: true, points: 130, balance: 1370 });
+    expect(call(0).url).toMatch(/\/api\/points\/rewards\/medals\/claim$/);
+    fetchMock.mockResolvedValueOnce(respond(200, { claimedCount: 0, points: 0, balance: 1370 }));
+    expect(await gateway.claim("medals")).toMatchObject({ granted: false });
+  });
+
+  it.each([
+    [409, "REWARD_NOT_AVAILABLE", "dailyGoal"],
+    [404, "MEDAL_NOT_FOUND", "medals"],
+  ] as const)("%s 응답은 서버 코드를 실은 오류로 던진다", async (status, code, kind) => {
+    fetchMock.mockResolvedValue(respond(status, { code, message: "x" }));
+    await expect(createApiPointsGateway().claim(kind)).rejects.toMatchObject({ status, code });
+  });
+
+  it("네트워크가 끊기면 그대로 거절한다", async () => {
+    fetchMock.mockRejectedValue(new TypeError("offline"));
+    await expect(createApiPointsGateway().claim("attendance")).rejects.toThrow();
   });
 });

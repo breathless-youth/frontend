@@ -41,12 +41,15 @@ export function EarnTab({
   onClaim,
   onWatchAd,
   onCharge,
+  chargeAvailable = true,
 }: {
   earn: EarnToday;
   packs: ChargePack[];
   onClaim: (kind: ClaimKind) => Promise<ClaimResult>;
   onWatchAd?: () => Promise<AdResult>;
   onCharge?: (productId: string) => Promise<ChargeResult>;
+  /** 충전을 아직 지원하지 않으면 충전 칸과 앱에서 열기 안내를 그리지 않는다. */
+  chargeAvailable?: boolean;
 }) {
   const { t } = useTranslation(["points-earn", "common"]);
   const navigate = useNavigate();
@@ -104,13 +107,17 @@ export function EarnTab({
       }
     });
 
-  const watched = Math.max(earn.ad.watched, watchedAtLeast);
+  const ad = earn.ad;
+  const watched = Math.max(ad?.watched ?? 0, watchedAtLeast);
   const attendanceClaimed = earn.attendance.claimed || claimed.has("attendance");
   const goalClaimed = earn.dailyGoal.claimed || claimed.has("dailyGoal");
   const medals = claimed.has("medals") ? [] : earn.medals;
-  const adDone = watched >= earn.ad.limit;
-  const goalTotal = earn.study.focusSec + earn.dailyGoal.remainingSec;
-  const goalPercent = goalTotal === 0 ? 0 : Math.round((earn.study.focusSec / goalTotal) * 100);
+  const adDone = ad !== undefined && watched >= ad.limit;
+  const { goalSec, remainingSec, unitSec, pointsPerUnit } = earn.dailyGoal;
+  const goalPercent =
+    goalSec === null || remainingSec === null || goalSec === 0
+      ? 0
+      : Math.round(((goalSec - remainingSec) / goalSec) * 100);
 
   return (
     <div className="flex flex-col gap-3.5">
@@ -128,7 +135,7 @@ export function EarnTab({
           </span>
         </div>
         <StudyRow study={earn.study} />
-        <div className="grid grid-cols-3 gap-2">
+        <div className={`grid gap-2 ${ad === undefined ? "grid-cols-2" : "grid-cols-3"}`}>
           <FreeTile
             icon="attendance"
             label={t("tile.attendance")}
@@ -142,52 +149,66 @@ export function EarnTab({
               </TileButton>
             )}
           </FreeTile>
-          <FreeTile
-            icon="dailyGoal"
-            label={t("tile.goalTitle", { duration: formatDuration(earn.dailyGoal.goalSec) })}
-            reward={formatSignedPoints(earn.dailyGoal.reward)}
-            note={t("tile.perUnit", {
-              duration: formatDuration(earn.dailyGoal.unitSec),
-              points: formatPoints(earn.dailyGoal.pointsPerUnit),
-            })}
-          >
-            {goalClaimed ? (
-              <TileDone label={t("tile.done")} />
-            ) : earn.dailyGoal.achieved ? (
-              <TileButton disabled={pending} onClick={() => void claim("dailyGoal")}>
-                {t("tile.claim")}
-              </TileButton>
-            ) : (
-              <div className="flex min-h-11 flex-col justify-center gap-1 px-1">
-                <Progress
-                  value={goalPercent}
-                  aria-label={t("tile.goalAria", { percent: goalPercent })}
-                  className="h-1.5 bg-brand-subtle"
-                />
-                <span className="text-[11px] break-keep text-muted-foreground">
-                  {t("tile.left", { duration: formatDuration(earn.dailyGoal.remainingSec) })}
-                </span>
-              </div>
-            )}
-          </FreeTile>
-          <FreeTile
-            icon="ad"
-            label={t("tile.ad")}
-            count={`${watched}/${earn.ad.limit}`}
-            reward={formatSignedPoints(earn.ad.reward)}
-          >
-            {onWatchAd === undefined ? (
-              <TileButton quiet onClick={openAppStore}>
-                {t("tile.openInApp")}
-              </TileButton>
-            ) : adDone ? (
-              <TileDone label={t("tile.done")} />
-            ) : (
-              <TileButton disabled={pending} onClick={() => void watchAd(onWatchAd)}>
-                {t("tile.watch")}
-              </TileButton>
-            )}
-          </FreeTile>
+          {goalSec === null || remainingSec === null ? (
+            <FreeTile icon="dailyGoal" label={t("tile.dailyGoalTitle")}>
+              <p className="flex min-h-11 items-center justify-center px-1 text-[11px] break-keep text-muted-foreground">
+                {t("tile.noGoal")}
+              </p>
+            </FreeTile>
+          ) : (
+            <FreeTile
+              icon="dailyGoal"
+              label={t("tile.goalTitle", { duration: formatDuration(goalSec) })}
+              reward={formatSignedPoints(earn.dailyGoal.reward)}
+              note={
+                unitSec === undefined || pointsPerUnit === undefined
+                  ? undefined
+                  : t("tile.perUnit", {
+                      duration: formatDuration(unitSec),
+                      points: formatPoints(pointsPerUnit),
+                    })
+              }
+            >
+              {goalClaimed ? (
+                <TileDone label={t("tile.done")} />
+              ) : earn.dailyGoal.achieved ? (
+                <TileButton disabled={pending} onClick={() => void claim("dailyGoal")}>
+                  {t("tile.claim")}
+                </TileButton>
+              ) : (
+                <div className="flex min-h-11 flex-col justify-center gap-1 px-1">
+                  <Progress
+                    value={goalPercent}
+                    aria-label={t("tile.goalAria", { percent: goalPercent })}
+                    className="h-1.5 bg-brand-subtle"
+                  />
+                  <span className="text-[11px] break-keep text-muted-foreground">
+                    {t("tile.left", { duration: formatDuration(remainingSec) })}
+                  </span>
+                </div>
+              )}
+            </FreeTile>
+          )}
+          {ad !== undefined && (
+            <FreeTile
+              icon="ad"
+              label={t("tile.ad")}
+              count={`${watched}/${ad.limit}`}
+              reward={formatSignedPoints(ad.reward)}
+            >
+              {onWatchAd === undefined ? (
+                <TileButton quiet onClick={openAppStore}>
+                  {t("tile.openInApp")}
+                </TileButton>
+              ) : adDone ? (
+                <TileDone label={t("tile.done")} />
+              ) : (
+                <TileButton disabled={pending} onClick={() => void watchAd(onWatchAd)}>
+                  {t("tile.watch")}
+                </TileButton>
+              )}
+            </FreeTile>
+          )}
         </div>
       </section>
 
@@ -198,7 +219,7 @@ export function EarnTab({
         onClaim={() => void claim("medals")}
       />
 
-      {onCharge !== undefined ? (
+      {!chargeAvailable ? null : onCharge !== undefined ? (
         <section
           aria-label={t("charge.title")}
           className="flex flex-col gap-3.5 rounded-xl bg-muted px-3 pt-3.5 pb-3 shadow-sb-card"

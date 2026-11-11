@@ -14,7 +14,7 @@ export function FreeTile({
   icon: "attendance" | "dailyGoal" | "ad";
   label: string;
   count?: string;
-  reward: string;
+  reward?: string;
   /** 보상 아래에 붙는 작은 강조 줄 */
   note?: string;
   children: ReactNode;
@@ -26,7 +26,9 @@ export function FreeTile({
         {label}
         {count !== undefined && <span className="ml-1 font-bold text-primary">{count}</span>}
       </span>
-      <span className="text-base font-extrabold tabular-nums">{reward}</span>
+      {reward !== undefined && (
+        <span className="text-base font-extrabold tabular-nums">{reward}</span>
+      )}
       {note !== undefined && (
         <span className="max-w-full text-[11px] leading-tight font-semibold break-keep text-primary">
           {note}

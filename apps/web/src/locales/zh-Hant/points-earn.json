@@ -11,6 +11,8 @@
   },
   "tile": {
     "attendance": "簽到",
+    "dailyGoalTitle": "每日目標",
+    "noGoal": "設定目標後即可領取",
     "goalTitle": "每日目標 {{duration}}",
     "perUnit": "每 {{duration}} {{points}}",
     "ad": "觀看廣告",
