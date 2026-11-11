@@ -106,6 +106,18 @@ export const API_ENDPOINTS = {
     parsedBy: "apps/web/src/lib/rankingApi.ts postRankingRecordsSeen",
   },
 
+  /**
+   * `GET /api/points`, `GET /api/points/study-reward`: 잔액과 공부 끝 보상.
+   * 포인트·상점·꾸미기·마스코트 네 키는 Swagger 등재 전에 백엔드가 알려 준 값이라 등재 뒤 다시 대조한다.
+   */
+  points: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },
+  /** `GET /api/shop/items`, `POST /api/shop/items/{id}/purchase`: 꾸미기 상점 목록과 구매. */
+  shop: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },
+  /** `/api/decorations` 이하 전부: 소품 착용과 타이머 배경 적용. */
+  decorations: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },
+  /** `/api/mascots` 이하 전부: 마스코트 목록, 선택, 새로 열린 마스코트 확인. */
+  mascots: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },
+
   /** `POST /api/study-sessions` — 세션 제출 */
   studySessionSubmit: {
     version: "2",
