@@ -1,1 +1,21 @@
-{}
+{
+  "preview": { "label": "미리 보기" },
+  "categories": {
+    "label": "배경 종류",
+    "all": "전체",
+    "studySpace": "공부 공간",
+    "nature": "자연",
+    "nightSky": "밤하늘",
+    "season": "계절"
+  },
+  "grid": {
+    "label": "타이머 배경",
+    "owned": "가지고 있어요",
+    "streakDays": "연속 {{target}}일",
+    "focusHours": "순공 {{target}}시간"
+  },
+  "button": {
+    "streakDays": "연속 공부 {{current}} / {{target}}일",
+    "focusHours": "누적 순공 {{current}} / {{target}}시간"
+  }
+}

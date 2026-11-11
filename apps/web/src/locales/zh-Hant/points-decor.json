@@ -1,1 +1,21 @@
-{}
+{
+  "preview": { "label": "預覽" },
+  "categories": {
+    "label": "背景類型",
+    "all": "全部",
+    "studySpace": "讀書空間",
+    "nature": "自然",
+    "nightSky": "夜空",
+    "season": "季節"
+  },
+  "grid": {
+    "label": "計時器背景",
+    "owned": "已擁有",
+    "streakDays": "連續 {{target}} 天",
+    "focusHours": "專注 {{target}} 小時"
+  },
+  "button": {
+    "streakDays": "連續讀書 {{current}} / {{target}} 天",
+    "focusHours": "累計專注 {{current}} / {{target}} 小時"
+  }
+}
