@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
@@ -7,21 +7,16 @@ import { useBackTo } from "@/features/group-room/useBackTo";
 import { PointsLoadState } from "@/features/points/components/shared/PointsLoadState";
 import { PointsScreenFrame } from "@/features/points/components/shared/PointsScreenFrame";
 import { usePointsGateway, usePointsUserId } from "@/features/points/gateway/PointsGatewayContext";
+import { useShopActions } from "@/features/points/model/useShopActions";
 import { PointsRouteGate } from "@/features/points/PointsRouteGate";
 import { pointsSearch } from "@/features/points/pointsSearch";
 import { EarnTab } from "@/features/points/screens/EarnTab";
 import { ShopTab } from "@/features/points/screens/ShopTab";
-import type { ClaimKind, PointsTab, ShopItemKind } from "@/features/points/types";
-import { isNativeBridgeAvailable } from "@/lib/bridge";
+import type { PointsTab, ShopItemKind } from "@/features/points/types";
 import { slideNavigate } from "@/lib/pageTransition";
-import {
-  balanceQuery,
-  chargePacksQuery,
-  earnTodayQuery,
-  pointsKeys,
-  shopQuery,
-} from "@/lib/pointsQueries";
+import { balanceQuery, chargePacksQuery, earnTodayQuery, shopQuery } from "@/lib/pointsQueries";
 import { cannotLoad } from "@/lib/rankingQueries";
+import { showToast } from "@/lib/toast";
 
 const KIND_PATH: Record<ShopItemKind, string> = {
   accessory: "/points/accessories",
@@ -90,36 +85,35 @@ function PointsContent() {
 }
 
 function ShopPanel() {
-  const { t } = useTranslation("points");
+  const { t } = useTranslation(["points", "common"]);
   const gateway = usePointsGateway();
   const userId = usePointsUserId();
   const navigate = useNavigate();
   const location = useLocation();
   const shop = useQuery(shopQuery(gateway, userId));
-  const balance = useQuery(balanceQuery(gateway, userId));
+  const { selectMascot } = useShopActions();
   const open = (pathname: string, tab?: string) =>
     slideNavigate("forward", () =>
       navigate({ pathname, search: pointsSearch(location.search, tab) }),
     );
 
-  if (shop.data === undefined || balance.data === undefined) {
+  if (shop.data === undefined) {
     return (
       <PointsLoadState
-        failed={cannotLoad(shop) || cannotLoad(balance)}
-        message={t("loadError.shop")}
-        onRetry={() => {
-          void shop.refetch();
-          void balance.refetch();
-        }}
+        failed={cannotLoad(shop)}
+        message={t("points:loadError.shop")}
+        onRetry={() => void shop.refetch()}
       />
     );
   }
   return (
     <ShopTab
       data={shop.data}
-      balance={balance.data}
       onOpen={(kind) => open(KIND_PATH[kind])}
       onOpenMascots={() => open("/points/mascots")}
+      onSelectMascot={(id) => {
+        selectMascot(id).catch(() => showToast(t("common:errors.retryLater")));
+      }}
     />
   );
 }
@@ -127,39 +121,15 @@ function ShopPanel() {
 /**
  * 포인트 받기 탭의 데이터와 처리
  *
- * 받기·광고·충전 뒤의 잔액은 경계가 돌려준 값으로 덮고, 오늘 받은 것과 기록은 다시 받는다.
  * 결과를 그대로 돌려줘서 탭이 완료·실패 창을 고른다.
  */
 function EarnPanel() {
   const { t } = useTranslation("points");
   const gateway = usePointsGateway();
   const userId = usePointsUserId();
-  const queryClient = useQueryClient();
   const earn = useQuery(earnTodayQuery(gateway, userId));
   const packs = useQuery(chargePacksQuery(gateway, userId));
-
-  const settle = (nextBalance: number | null) => {
-    if (nextBalance !== null) {
-      queryClient.setQueryData(pointsKeys.balance(userId), nextBalance);
-    }
-    void queryClient.invalidateQueries({ queryKey: pointsKeys.earnToday(userId) });
-    void queryClient.invalidateQueries({ queryKey: [...pointsKeys.user(userId), "history"] });
-  };
-  const claim = async (kind: ClaimKind) => {
-    const result = await gateway.claim(kind);
-    settle(result.balance);
-    return result;
-  };
-  const watchAd = async () => {
-    const result = await gateway.watchAd();
-    if (result.status === "rewarded") settle(result.balance);
-    return result;
-  };
-  const charge = async (productId: string) => {
-    const result = await gateway.charge(productId);
-    if (result.status === "completed") settle(result.balance);
-    return result;
-  };
+  const actions = useShopActions();
 
   if (earn.data === undefined) {
     return (
@@ -174,10 +144,9 @@ function EarnPanel() {
     <EarnTab
       earn={earn.data}
       packs={packs.data ?? []}
-      inApp={isNativeBridgeAvailable()}
-      onClaim={claim}
-      onWatchAd={watchAd}
-      onCharge={charge}
+      onClaim={actions.claim}
+      onWatchAd={actions.watchAd}
+      onCharge={actions.charge}
     />
   );
 }

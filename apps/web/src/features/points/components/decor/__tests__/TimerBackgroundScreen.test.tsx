@@ -1,34 +1,37 @@
-import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { shopQuery } from "@/lib/pointsQueries";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { isNativeBridgeAvailable } from "@/lib/bridge";
+import type * as Bridge from "@/lib/bridge";
+import { showToast } from "@/lib/toast";
+import { PointsBackgroundsPage } from "@/routes/PointsBackgroundsPage";
 
 import { createFakePointsGateway } from "../../../gateway/createFakePointsGateway";
-import { PointsGatewayProvider, usePointsGateway } from "../../../gateway/PointsGatewayContext";
-import { TimerBackgroundScreen } from "../../../screens/TimerBackgroundScreen";
+import type { PointsGateway } from "../../../gateway/PointsGateway";
+import { PointsGatewayProvider } from "../../../gateway/PointsGatewayContext";
 
 vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
-import { showToast } from "@/lib/toast";
+vi.mock("@/lib/bridge", async (importOriginal) => ({
+  ...(await importOriginal<typeof Bridge>()),
+  isNativeBridgeAvailable: vi.fn(() => false),
+}));
 
-// 실제 라우트처럼 상점 데이터를 다시 받아 화면에 넘긴다.
-function Harness() {
-  const gateway = usePointsGateway();
-  const shop = useQuery(shopQuery(gateway, 7));
-  const balance = useQuery({ queryKey: ["b"], queryFn: () => gateway.getBalance() });
-  if (!shop.data || balance.data === undefined) return null;
-  return <TimerBackgroundScreen data={shop.data} balance={balance.data} onBack={() => {}} />;
-}
+afterEach(() => {
+  vi.mocked(showToast).mockClear();
+  vi.mocked(isNativeBridgeAvailable).mockReturnValue(false);
+});
 
-async function setup(balance = 1240) {
-  const gateway = createFakePointsGateway("default", { balance });
+async function setup(balance = 1240, wrap: (g: PointsGateway) => PointsGateway = (g) => g) {
+  const gateway = wrap(createFakePointsGateway("default", { balance }));
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
       <PointsGatewayProvider gateway={gateway} userId={7}>
-        <MemoryRouter>
-          <Harness />
+        <MemoryRouter initialEntries={["/points/backgrounds"]}>
+          <PointsBackgroundsPage />
         </MemoryRouter>
       </PointsGatewayProvider>
     </QueryClientProvider>,
@@ -90,5 +93,32 @@ describe("TimerBackgroundScreen", () => {
     await userEvent.click(tile("비 오는 창가"));
     await userEvent.click(screen.getByRole("button", { name: "400P로 구매" }));
     expect(await screen.findByText(/비 오는 창가를 구매하려면/)).toBeInTheDocument();
+  });
+
+  it("적용이 실패하면 알리고 다시 누를 수 있다", async () => {
+    await setup(1240, (g) => ({ ...g, setInUse: () => Promise.reject(new Error("down")) }));
+    await userEvent.click(tile("숲속 아침"));
+    await userEvent.click(screen.getByRole("button", { name: "적용하기" }));
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("잠시 후 다시 시도해 주세요"));
+    expect(screen.getByRole("button", { name: "적용하기" })).toBeEnabled();
+  });
+
+  it("앱 밖에서는 모자람 창에 광고와 충전 줄이 없다", async () => {
+    await setup(100);
+    await userEvent.click(tile("비 오는 창가"));
+    await userEvent.click(screen.getByRole("button", { name: "400P로 구매" }));
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).queryByText(/광고 보고/)).not.toBeInTheDocument();
+    expect(within(sheet).queryByText(/충전하고 구매하기/)).not.toBeInTheDocument();
+  });
+
+  it("앱 안에서는 모자람 창에 광고와 충전 줄이 있다", async () => {
+    vi.mocked(isNativeBridgeAvailable).mockReturnValue(true);
+    await setup(100);
+    await userEvent.click(tile("비 오는 창가"));
+    await userEvent.click(screen.getByRole("button", { name: "400P로 구매" }));
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getByText(/광고 보고/)).toBeInTheDocument();
+    expect(within(sheet).getByText(/충전하고 구매하기/)).toBeInTheDocument();
   });
 });

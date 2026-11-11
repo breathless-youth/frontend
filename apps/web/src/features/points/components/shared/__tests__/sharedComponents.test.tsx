@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -136,6 +136,51 @@ describe("InsufficientPointsSheet", () => {
       await screen.findByText("오늘은 다 봤어요. 내일 다시 3번 볼 수 있어요"),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /광고 보고 30P 받기/ })).toBeDisabled();
+  });
+
+  it("광고와 충전은 끝나기 전에 다시 눌러도 한 번만 부르고 그동안 막는다", async () => {
+    let finishAd: () => void = () => {};
+    let finishCharge: () => void = () => {};
+    const onWatchAd = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishAd = resolve;
+        }),
+    );
+    const onCharge = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishCharge = resolve;
+        }),
+    );
+    render(
+      <InsufficientPointsSheet
+        open
+        item={crown}
+        balance={480}
+        earn={fixture.earn}
+        packs={fixture.packs}
+        onWatchAd={onWatchAd}
+        onMissions={() => {}}
+        onCharge={onCharge}
+        onClose={() => {}}
+      />,
+    );
+    const ad = await screen.findByRole("button", { name: /광고 보고 30P 받기/ });
+    const charge = screen.getByRole("button", { name: "500P 충전하고 구매하기" });
+    fireEvent.click(ad);
+    fireEvent.click(ad);
+    fireEvent.click(charge);
+    expect(onWatchAd).toHaveBeenCalledOnce();
+    expect(onCharge).not.toHaveBeenCalled();
+    await waitFor(() => expect(charge).toBeDisabled());
+    finishAd();
+    await waitFor(() => expect(charge).toBeEnabled());
+    fireEvent.click(charge);
+    fireEvent.click(charge);
+    expect(onCharge).toHaveBeenCalledOnce();
+    finishCharge();
+    await waitFor(() => expect(ad).toBeEnabled());
   });
 
   it("광고와 충전을 못 하는 곳에서는 두 줄을 숨긴다", async () => {

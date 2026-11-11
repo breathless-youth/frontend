@@ -1,23 +1,32 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { showToast } from "@/lib/toast";
 
 import { buildPointsFixture } from "../../fixtures";
 import type { AdResult, ChargeResult, EarnToday } from "../../types";
 import { EarnTab } from "../EarnTab";
 
+vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
+
 const fixture = buildPointsFixture("default");
+
+afterEach(() => {
+  vi.mocked(showToast).mockClear();
+});
 
 function setup(
   over: {
     earn?: EarnToday;
     inApp?: boolean;
+    onClaim?: () => Promise<{ balance: number }>;
     onWatchAd?: () => Promise<AdResult>;
     onCharge?: (id: string) => Promise<ChargeResult>;
   } = {},
 ) {
-  const onClaim = vi.fn(async () => ({ balance: 1370 }));
+  const onClaim = over.onClaim ?? vi.fn(async () => ({ balance: 1370 }));
   const onWatchAd =
     over.onWatchAd ?? vi.fn(async (): Promise<AdResult> => ({ status: "unavailable" }));
   const onCharge =
@@ -33,10 +42,9 @@ function setup(
       <EarnTab
         earn={over.earn ?? fixture.earn}
         packs={fixture.packs}
-        inApp={over.inApp ?? true}
         onClaim={onClaim}
-        onWatchAd={onWatchAd}
-        onCharge={onCharge}
+        onWatchAd={over.inApp === false ? undefined : onWatchAd}
+        onCharge={over.inApp === false ? undefined : onCharge}
       />
     </MemoryRouter>,
   );
@@ -146,5 +154,18 @@ describe("EarnTab 앱 밖", () => {
     expect(screen.getByText("충전과 광고 보상은 앱에서 할 수 있어요")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "앱에서 열기" })).toHaveLength(2);
     expect(screen.queryByRole("button", { name: "보기" })).not.toBeInTheDocument();
+  });
+});
+
+describe("EarnTab 실패", () => {
+  it.each([
+    ["받기", { onClaim: () => Promise.reject(new Error("down")) }, "+130P 받기"],
+    ["광고", { onWatchAd: () => Promise.reject(new Error("down")) }, "보기"],
+    ["충전", { onCharge: () => Promise.reject(new Error("down")) }, /500P 충전/],
+  ] as const)("%s 요청이 실패하면 알리고 다시 누를 수 있다", async (_, over, name) => {
+    setup(over);
+    await userEvent.click(screen.getByRole("button", { name }));
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("잠시 후 다시 시도해 주세요"));
+    expect(screen.getByRole("button", { name })).toBeEnabled();
   });
 });

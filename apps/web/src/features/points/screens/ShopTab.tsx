@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { MascotPickerCard } from "../components/shop/MascotPickerCard";
 import { NextMascotCard } from "../components/shop/NextMascotCard";
 import { ShopSectionRow } from "../components/shop/ShopSectionRow";
-import type { ShopData, ShopItem, ShopItemKind } from "../types";
+import type { MascotId, ShopData, ShopItem, ShopItemKind } from "../types";
 
 const PREVIEW_COUNT = 3;
 
@@ -17,11 +17,12 @@ export function ShopTab({
   data,
   onOpen,
   onOpenMascots,
+  onSelectMascot,
 }: {
   data: ShopData;
-  balance: number;
   onOpen: (kind: ShopItemKind) => void;
   onOpenMascots: () => void;
+  onSelectMascot: (id: MascotId) => void;
 }) {
   const { t } = useTranslation(["points-shop", "points"]);
   const nextMascot = data.mascots
@@ -40,7 +41,7 @@ export function ShopTab({
           onOpen={onOpenMascots}
         />
       ) : (
-        <MascotPickerCard mascots={data.mascots} />
+        <MascotPickerCard mascots={data.mascots} onSelect={onSelectMascot} />
       )}
       {selected !== undefined && (
         <ShopSectionRow

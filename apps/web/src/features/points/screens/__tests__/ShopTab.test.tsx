@@ -1,11 +1,8 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { buildPointsFixture, type PointsScene } from "../../fixtures";
-import { createFakePointsGateway } from "../../gateway/createFakePointsGateway";
-import { PointsGatewayProvider } from "../../gateway/PointsGatewayContext";
 import type { ShopData } from "../../types";
 import { ShopTab } from "../ShopTab";
 
@@ -14,17 +11,10 @@ function shopData(scene: PointsScene): ShopData {
   return { items: f.items, mascots: f.mascots, totalFocusSec: f.totalFocusSec };
 }
 
-function renderTab(scene: PointsScene, handlers = { onOpen: vi.fn(), onOpenMascots: vi.fn() }) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  const gateway = createFakePointsGateway(scene);
-  render(
-    <QueryClientProvider client={client}>
-      <PointsGatewayProvider gateway={gateway} userId={7}>
-        <ShopTab data={shopData(scene)} balance={1240} {...handlers} />
-      </PointsGatewayProvider>
-    </QueryClientProvider>,
-  );
-  return { ...handlers, gateway };
+function renderTab(scene: PointsScene) {
+  const handlers = { onOpen: vi.fn(), onOpenMascots: vi.fn(), onSelectMascot: vi.fn() };
+  render(<ShopTab data={shopData(scene)} {...handlers} />);
+  return handlers;
 }
 
 describe("ShopTab", () => {
@@ -37,13 +27,12 @@ describe("ShopTab", () => {
   });
 
   it("다 모으면 마스코트 고르기 칸이 보이고 고른 마스코트를 저장한다", async () => {
-    const { gateway } = renderTab("allCollected");
+    const { onSelectMascot } = renderTab("allCollected");
     const picker = screen.getByRole("region", { name: "오늘 함께할 마스코트" });
     expect(within(picker).getByText("오늘은 누구랑 공부할까요?")).toBeInTheDocument();
     expect(within(picker).getAllByRole("button")).toHaveLength(7);
-    const select = vi.spyOn(gateway, "selectMascot");
     await userEvent.click(within(picker).getByRole("button", { name: "램프" }));
-    await waitFor(() => expect(select).toHaveBeenCalledWith("lamp"));
+    expect(onSelectMascot).toHaveBeenCalledWith("lamp");
   });
 
   it("상품 줄이 소품과 타이머 배경 두 종류로 세 개씩 나오고 전체 보기로 그 종류를 연다", async () => {

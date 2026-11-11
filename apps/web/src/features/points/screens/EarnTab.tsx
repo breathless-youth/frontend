@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { formatDuration } from "@/features/records/recordsFormat";
+import { showToast } from "@/lib/toast";
 
 import { AdUnavailableDialog } from "../components/earn/AdUnavailableDialog";
 import { ChargeDoneSheet, type ChargeDone } from "../components/earn/ChargeDoneSheet";
@@ -24,23 +25,23 @@ import type { AdResult, ChargePack, ChargeResult, ClaimKind, EarnToday } from ".
  *
  * 받은 직후 칸이 바로 바뀌도록 받은 표시는 화면에 들고 있고, 다시 받아 온 값이 오면 그 값과 합친다.
  * 받기·광고·충전은 잔액을 고친 뒤의 결과를 돌려줘서 완료·실패 창을 여기서 고른다.
+ * 요청이 아예 실패하면 알림만 띄우고 버튼을 다시 누를 수 있게 둔다.
+ * 광고와 충전 처리기는 앱 안에서만 넘어오고, 없으면 앱에서 열기 안내를 그린다.
  */
 export function EarnTab({
   earn,
   packs,
-  inApp,
   onClaim,
   onWatchAd,
   onCharge,
 }: {
   earn: EarnToday;
   packs: ChargePack[];
-  inApp: boolean;
   onClaim: (kind: ClaimKind) => Promise<{ balance: number }>;
-  onWatchAd: () => Promise<AdResult>;
-  onCharge: (productId: string) => Promise<ChargeResult>;
+  onWatchAd?: () => Promise<AdResult>;
+  onCharge?: (productId: string) => Promise<ChargeResult>;
 }) {
-  const { t } = useTranslation("points-earn");
+  const { t } = useTranslation(["points-earn", "common"]);
   const navigate = useNavigate();
   const location = useLocation();
   const [claimed, setClaimed] = useState<Set<ClaimKind>>(new Set());
@@ -58,6 +59,8 @@ export function EarnTab({
     setPending(true);
     try {
       await task();
+    } catch {
+      showToast(t("common:errors.retryLater"));
     } finally {
       busy.current = false;
       setPending(false);
@@ -70,16 +73,16 @@ export function EarnTab({
       setClaimed((prev) => new Set(prev).add(kind));
     });
 
-  const watchAd = () =>
+  const watchAd = (handler: () => Promise<AdResult>) =>
     run(async () => {
-      const result = await onWatchAd();
+      const result = await handler();
       if (result.status === "rewarded") setWatchedAtLeast(watched + 1);
       if (result.status === "unavailable") setAdUnavailable(true);
     });
 
-  const charge = (productId: string) =>
+  const charge = (handler: (productId: string) => Promise<ChargeResult>, productId: string) =>
     run(async () => {
-      const result = await onCharge(productId);
+      const result = await handler(productId);
       if (result.status === "completed") {
         setFailedFor(null);
         const index = packs.findIndex((pack) => pack.productId === productId);
@@ -162,14 +165,14 @@ export function EarnTab({
             count={`${watched}/${earn.ad.limit}`}
             reward={formatSignedPoints(earn.ad.reward)}
           >
-            {!inApp ? (
+            {onWatchAd === undefined ? (
               <TileButton quiet onClick={openAppStore}>
                 {t("tile.openInApp")}
               </TileButton>
             ) : adDone ? (
               <TileDone label={t("tile.done")} />
             ) : (
-              <TileButton disabled={pending} onClick={() => void watchAd()}>
+              <TileButton disabled={pending} onClick={() => void watchAd(onWatchAd)}>
                 {t("tile.watch")}
               </TileButton>
             )}
@@ -184,7 +187,7 @@ export function EarnTab({
         onClaim={() => void claim("medals")}
       />
 
-      {inApp ? (
+      {onCharge !== undefined ? (
         <section
           aria-label={t("charge.title")}
           className="flex flex-col gap-3.5 rounded-xl bg-muted px-3 pt-3.5 pb-3 shadow-sb-card"
@@ -201,7 +204,7 @@ export function EarnTab({
           <ChargePackGrid
             packs={packs}
             pending={pending}
-            onCharge={(pack) => void charge(pack.productId)}
+            onCharge={(pack) => void charge(onCharge, pack.productId)}
           />
         </section>
       ) : (
@@ -226,7 +229,7 @@ export function EarnTab({
         onRetry={() => {
           const productId = failedFor;
           setFailedFor(null);
-          if (productId !== null) void charge(productId);
+          if (productId !== null && onCharge !== undefined) void charge(onCharge, productId);
         }}
       />
     </div>

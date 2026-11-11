@@ -1,13 +1,10 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
-import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { slideNavigate } from "@/lib/pageTransition";
-import { balanceQuery, chargePacksQuery, earnTodayQuery, pointsKeys } from "@/lib/pointsQueries";
 import { showToast } from "@/lib/toast";
 
 import { AccessoryGrid } from "../components/items/AccessoryGrid";
@@ -18,11 +15,11 @@ import { SlotChips } from "../components/items/SlotChips";
 import { InsufficientPointsSheet } from "../components/shared/InsufficientPointsSheet";
 import { PointsScreenFrame } from "../components/shared/PointsScreenFrame";
 import { PurchaseConfirmSheet } from "../components/shared/PurchaseConfirmSheet";
-import { usePointsGateway, usePointsUserId } from "../gateway/PointsGatewayContext";
 import { formatPoints } from "../model/formatPoints";
 import { usePurchaseFlow } from "../model/usePurchaseFlow";
 import { pointsSearch } from "../pointsSearch";
-import type { AccessorySlot, MascotId, ShopData, ShopItem } from "../types";
+import type { AccessorySlot, MascotId, ShopItem } from "../types";
+import type { ShopScreenProps } from "./shopScreenProps";
 
 const NOTICE_MS = 3000;
 
@@ -30,23 +27,21 @@ const NOTICE_MS = 3000;
  * 소품 사기
  *
  * 마스코트와 부위를 고르면 그 소품 격자가 나오고, 사고 입는 일은 맨 아래 버튼 하나가 맡는다.
- * 산 소품은 바로 입은 상태로 만든다. 입고 벗는 상태는 경계가 원본이라 바꾼 뒤 상점을 다시 받는다.
+ * 산 소품은 바로 입은 상태로 만든다. 조회와 변경은 라우트가 맡고 이 화면은 받은 값과 처리기만 쓴다.
  */
 export function AccessoryShopScreen({
   data,
   balance,
+  earn,
+  packs,
   onBack,
-}: {
-  data: ShopData;
-  balance: number;
-  onBack: () => void;
-}) {
+  onSetInUse,
+  onWatchAd,
+  onCharge,
+}: ShopScreenProps) {
   const { t } = useTranslation("points-items");
   const { t: tPoints } = useTranslation("points");
   const { t: tCommon } = useTranslation("common");
-  const gateway = usePointsGateway();
-  const userId = usePointsUserId();
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
   const [mascotId, setMascotId] = useState<MascotId>(
@@ -63,13 +58,10 @@ export function AccessoryShopScreen({
   const item = slotItems.find((it) => it.id === pickedId) ?? slotItems[0] ?? null;
 
   const flow = usePurchaseFlow(item);
-  const earn = useQuery(earnTodayQuery(gateway, userId));
-  const packs = useQuery(chargePacksQuery(gateway, userId));
 
   const setInUse = async (target: ShopItem, inUse: boolean) => {
     try {
-      await gateway.setInUse(target.id, inUse);
-      await queryClient.invalidateQueries({ queryKey: pointsKeys.shop(userId) });
+      await onSetInUse(target.id, inUse);
     } catch {
       showToast(tCommon("errors.retryLater"));
     }
@@ -96,11 +88,6 @@ export function AccessoryShopScreen({
     slideNavigate("forward", () =>
       navigate({ pathname, search: pointsSearch(location.search, tab) }),
     );
-  const settleBalance = (next: number) => {
-    queryClient.setQueryData(balanceQuery(gateway, userId).queryKey, next);
-    flow.close();
-  };
-  const inApp = isNativeBridgeAvailable();
 
   return (
     <PointsScreenFrame title={t("title", { name: mascotName })} onBack={onBack} balance={balance}>
@@ -167,34 +154,16 @@ export function AccessoryShopScreen({
         onConfirm={() => void flow.confirm()}
         onClose={flow.close}
       />
-      {earn.data !== undefined && (
+      {earn !== undefined && (
         <InsufficientPointsSheet
           open={flow.step === "insufficient"}
           item={item}
           balance={balance}
-          earn={earn.data}
-          packs={packs.data ?? []}
-          onWatchAd={
-            inApp
-              ? () =>
-                  void gateway.watchAd().then((result) => {
-                    if (result.status === "rewarded") {
-                      settleBalance(result.balance);
-                    }
-                  })
-              : undefined
-          }
+          earn={earn}
+          packs={packs}
+          onWatchAd={onWatchAd && (() => flow.watchAdForPoints(onWatchAd))}
           onMissions={() => open("/points", "earn")}
-          onCharge={
-            inApp
-              ? (productId) =>
-                  void gateway.charge(productId).then((result) => {
-                    if (result.status === "completed") {
-                      settleBalance(result.balance);
-                    }
-                  })
-              : undefined
-          }
+          onCharge={onCharge && ((productId) => flow.chargeAndBuy(() => onCharge(productId)))}
           onClose={flow.close}
         />
       )}

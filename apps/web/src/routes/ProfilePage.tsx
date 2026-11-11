@@ -17,6 +17,7 @@ import { CtaToaster } from "@/components/ui/sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ProfileMascotRow } from "@/features/points/components/mascots/ProfileMascotRow";
 import { usePointsGateway, usePointsUserId } from "@/features/points/gateway/PointsGatewayContext";
+import { useShopActions } from "@/features/points/model/useShopActions";
 import { PointsRouteGate } from "@/features/points/PointsRouteGate";
 import { pointsSearch } from "@/features/points/pointsSearch";
 import { isMemberProfile } from "@/features/points/usePointsAccess";
@@ -36,9 +37,10 @@ import { ApiError } from "@/lib/api";
 import { postToNative } from "@/lib/bridge";
 import { canSegmentGraphemes, firstGrapheme } from "@/lib/graphemes";
 import { slideBack } from "@/lib/pageTransition";
+import { showToast } from "@/lib/toast";
 import { updateProfile } from "@/lib/profileApi";
 import { isPointsEnabled } from "@/lib/pointsCapability";
-import { pointsKeys, shopQuery } from "@/lib/pointsQueries";
+import { shopQuery } from "@/lib/pointsQueries";
 import { profileKeys, profileQuery } from "@/lib/profileQueries";
 import { useUserId } from "@/lib/userId";
 
@@ -121,8 +123,9 @@ function buildPatch(values: ProfileFormValues, profile: ProfileResponse): Profil
 function ProfileMascots() {
   const gateway = usePointsGateway();
   const userId = usePointsUserId();
-  const queryClient = useQueryClient();
+  const { t } = useTranslation("common");
   const location = useLocation();
+  const { selectMascot } = useShopActions();
   const shop = useQuery(shopQuery(gateway, userId));
   if (shop.data === undefined) {
     return null;
@@ -133,9 +136,7 @@ function ProfileMascots() {
       mascots={mascots}
       decorateTo={`/points/accessories${pointsSearch(location.search)}`}
       onSelect={(id) => {
-        void gateway
-          .selectMascot(id)
-          .then(() => queryClient.invalidateQueries({ queryKey: pointsKeys.shop(userId) }));
+        selectMascot(id).catch(() => showToast(t("errors.retryLater")));
       }}
     />
   );

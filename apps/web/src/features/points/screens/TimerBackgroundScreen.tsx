@@ -1,10 +1,8 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
-import { chargePacksQuery, earnTodayQuery, pointsKeys } from "@/lib/pointsQueries";
 import { showToast } from "@/lib/toast";
 
 import { BackgroundGrid } from "../components/decor/BackgroundGrid";
@@ -13,29 +11,30 @@ import { TimerPreview } from "../components/decor/TimerPreview";
 import { InsufficientPointsSheet } from "../components/shared/InsufficientPointsSheet";
 import { PointsScreenFrame } from "../components/shared/PointsScreenFrame";
 import { PurchaseConfirmSheet } from "../components/shared/PurchaseConfirmSheet";
-import { usePointsGateway, usePointsUserId } from "../gateway/PointsGatewayContext";
 import { formatPoints } from "../model/formatPoints";
 import { usePurchaseFlow } from "../model/usePurchaseFlow";
 import { pointsSearch } from "../pointsSearch";
-import type { ShopData, ShopItem } from "../types";
+import type { ShopItem } from "../types";
+import type { ShopScreenProps } from "./shopScreenProps";
 
+/**
+ * 타이머 배경 고르기
+ *
+ * 산 배경은 바로 쓰는 상태로 만든다. 조회와 변경은 라우트가 맡고 이 화면은 받은 값과 처리기만 쓴다.
+ */
 export function TimerBackgroundScreen({
   data,
   balance,
+  earn,
+  packs,
   onBack,
-}: {
-  data: ShopData;
-  balance: number;
-  onBack: () => void;
-}) {
-  const { t } = useTranslation(["points", "points-decor"]);
-  const gateway = usePointsGateway();
-  const userId = usePointsUserId();
-  const queryClient = useQueryClient();
+  onSetInUse,
+  onWatchAd,
+  onCharge,
+}: ShopScreenProps) {
+  const { t } = useTranslation(["points", "points-decor", "common"]);
   const navigate = useNavigate();
   const location = useLocation();
-  const earn = useQuery(earnTodayQuery(gateway, userId));
-  const packs = useQuery(chargePacksQuery(gateway, userId));
   const [category, setCategory] = useState<string | null>(null);
   const [pickedId, setPickedId] = useState<string | null>(null);
 
@@ -53,21 +52,20 @@ export function TimerBackgroundScreen({
   const purchasedId = step === "done" ? selected?.id : undefined;
   const purchasedName = selected?.name ?? "";
 
-  // 산 배경은 바로 쓰는 상태로 만든다. 단계를 닫아야 한 번만 돈다.
+  const apply = (itemId: string) => {
+    onSetInUse(itemId, true).catch(() => showToast(t("common:errors.retryLater")));
+  };
+
+  // 단계를 닫아야 산 배경을 한 번만 적용한다.
   useEffect(() => {
     if (purchasedId === undefined) {
       return;
     }
     close();
     showToast(t("points:purchase.done", { name: purchasedName }));
-    void gateway.setInUse(purchasedId, true).then(() => {
-      void queryClient.invalidateQueries({ queryKey: pointsKeys.shop(userId) });
-    });
-  }, [purchasedId, purchasedName, close, gateway, queryClient, userId, t]);
-
-  function refreshBalance(next: number) {
-    queryClient.setQueryData(pointsKeys.balance(userId), next);
-  }
+    apply(purchasedId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 산 배경이 정해질 때만 돌린다
+  }, [purchasedId]);
 
   return (
     <PointsScreenFrame title={t("points:titles.backgrounds")} onBack={onBack} balance={balance}>
@@ -76,7 +74,9 @@ export function TimerBackgroundScreen({
         <CategoryChips categories={categories} value={category} onChange={setCategory} />
         <BackgroundGrid items={visible} selectedId={selected?.id} onSelect={setPickedId} />
         <div className="mt-auto pt-2">
-          {selected && <ActionButton item={selected} onBuy={flow.open} onApply={apply} />}
+          {selected && (
+            <ActionButton item={selected} onBuy={flow.open} onApply={(item) => apply(item.id)} />
+          )}
         </div>
       </div>
       <PurchaseConfirmSheet
@@ -87,42 +87,23 @@ export function TimerBackgroundScreen({
         onConfirm={() => void flow.confirm()}
         onClose={close}
       />
-      {earn.data && (
+      {earn !== undefined && (
         <InsufficientPointsSheet
           open={step === "insufficient"}
           item={selected ?? null}
           balance={balance}
-          earn={earn.data}
-          packs={packs.data ?? []}
-          onWatchAd={() => {
-            void gateway.watchAd().then((result) => {
-              if (result.status === "rewarded") {
-                refreshBalance(result.balance);
-                void queryClient.invalidateQueries({ queryKey: pointsKeys.earnToday(userId) });
-              }
-            });
-          }}
+          earn={earn}
+          packs={packs}
+          onWatchAd={onWatchAd && (() => flow.watchAdForPoints(onWatchAd))}
           onMissions={() =>
             void navigate({ pathname: "/points", search: pointsSearch(location.search, "earn") })
           }
-          onCharge={(productId) => {
-            void gateway.charge(productId).then((result) => {
-              if (result.status === "completed") {
-                refreshBalance(result.balance);
-              }
-            });
-          }}
+          onCharge={onCharge && ((productId) => flow.chargeAndBuy(() => onCharge(productId)))}
           onClose={close}
         />
       )}
     </PointsScreenFrame>
   );
-
-  function apply(item: ShopItem) {
-    void gateway.setInUse(item.id, true).then(() => {
-      void queryClient.invalidateQueries({ queryKey: pointsKeys.shop(userId) });
-    });
-  }
 }
 
 function ActionButton({

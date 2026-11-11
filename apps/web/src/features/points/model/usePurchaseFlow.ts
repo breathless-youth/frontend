@@ -6,7 +6,7 @@ import { balanceQuery, pointsKeys } from "@/lib/pointsQueries";
 import { showToast } from "@/lib/toast";
 
 import { usePointsGateway, usePointsUserId } from "../gateway/PointsGatewayContext";
-import type { ShopItem } from "../types";
+import type { AdResult, ChargeResult, ShopItem } from "../types";
 
 export type PurchaseStep = "idle" | "confirm" | "insufficient" | "pending" | "done";
 
@@ -17,6 +17,8 @@ export type PurchaseStep = "idle" | "confirm" | "insufficient" | "pending" | "do
  * 확인을 빠르게 두 번 눌러도 요청은 한 번만 나가게 ref로 막는다.
  * 비활성 표시는 다음 렌더에 붙어서 같은 순간의 두 번째 누름은 막지 못한다.
  * 산 뒤의 잔액은 경계가 돌려준 값으로 덮고, 보유 상태와 기록은 다시 받는다.
+ * 모자람 창에서 충전하면 이어서 같은 상품을 사서, 충전하고 다시 구매 버튼을 찾는 일을 없앤다.
+ * 광고는 받는 양이 작아 다 채울지 알 수 없으므로 잔액만 채우고 창을 닫는다.
  */
 export function usePurchaseFlow(item: ShopItem | null) {
   const gateway = usePointsGateway();
@@ -69,6 +71,34 @@ export function usePurchaseFlow(item: ShopItem | null) {
     setStep("idle");
   }
 
+  async function chargeAndBuy(charge: () => Promise<ChargeResult>) {
+    let result: ChargeResult;
+    try {
+      result = await charge();
+    } catch {
+      showToast(i18n.t("common:errors.retryLater"));
+      return;
+    }
+    if (result.status === "completed") {
+      await confirm();
+    } else {
+      showToast(i18n.t("points-earn:failed.title"));
+    }
+  }
+
+  async function watchAdForPoints(watchAd: () => Promise<AdResult>) {
+    try {
+      const result = await watchAd();
+      if (result.status === "rewarded") {
+        setStep("idle");
+      } else if (result.status === "unavailable") {
+        showToast(i18n.t("points-earn:adUnavailable.title"));
+      }
+    } catch {
+      showToast(i18n.t("common:errors.retryLater"));
+    }
+  }
+
   const balanceAfter =
     step === "done"
       ? paidBalance
@@ -76,5 +106,5 @@ export function usePurchaseFlow(item: ShopItem | null) {
         ? balance - price
         : null;
 
-  return { step, open, confirm, close, balanceAfter };
+  return { step, open, confirm, close, chargeAndBuy, watchAdForPoints, balanceAfter };
 }

@@ -2,13 +2,20 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { showToast } from "@/lib/toast";
+import { PointsAccessoriesPage } from "@/routes/PointsAccessoriesPage";
 
 import { createFakePointsGateway } from "../../gateway/createFakePointsGateway";
 import type { PointsGateway } from "../../gateway/PointsGateway";
 import { PointsGatewayProvider } from "../../gateway/PointsGatewayContext";
-import { PointsShopRoute } from "../../PointsShopRoute";
-import { AccessoryShopScreen } from "../AccessoryShopScreen";
+
+vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
+
+afterEach(() => {
+  vi.mocked(showToast).mockClear();
+});
 
 function renderScreen(gateway: PointsGateway) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -17,16 +24,7 @@ function renderScreen(gateway: PointsGateway) {
       <PointsGatewayProvider gateway={gateway} userId={1}>
         <MemoryRouter initialEntries={["/points/accessories"]}>
           <Routes>
-            <Route
-              path="/points/accessories"
-              element={
-                <PointsShopRoute title="소품">
-                  {({ data, balance, back }) => (
-                    <AccessoryShopScreen data={data} balance={balance} onBack={back} />
-                  )}
-                </PointsShopRoute>
-              }
-            />
+            <Route path="/points/accessories" element={<PointsAccessoriesPage />} />
             <Route path="/points/mascots" element={<p>마스코트 화면</p>} />
           </Routes>
         </MemoryRouter>
@@ -92,5 +90,15 @@ describe("AccessoryShopScreen", () => {
       expect(screen.getByText("왕관을 구매하려면 500P가 더 필요해요")).toBeVisible(),
     );
     expect(screen.queryByRole("button", { name: "구매하기" })).not.toBeInTheDocument();
+  });
+
+  it("착용이 실패하면 알리고 다시 누를 수 있다", async () => {
+    const base = createFakePointsGateway("default");
+    renderScreen({ ...base, setInUse: () => Promise.reject(new Error("down")) });
+    await userEvent.click(await screen.findByRole("button", { name: "몸 장식" }));
+    await userEvent.click(screen.getByRole("button", { name: "단추 리본, 가지고 있어요" }));
+    await userEvent.click(screen.getByRole("button", { name: "착용하기" }));
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("잠시 후 다시 시도해 주세요"));
+    expect(screen.getByRole("button", { name: "착용하기" })).toBeEnabled();
   });
 });

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,8 @@ function suggestedPack(packs: ChargePack[], shortfall: number): ChargePack | und
  *
  * 광고·미션·충전 세 가지 길을 보여 준다.
  * 앱 밖 브라우저처럼 광고나 충전을 못 하는 곳은 그 처리기를 넘기지 않아 줄을 숨긴다.
+ * 결제와 광고는 끝날 때까지 시간이 걸려서, 끝나기 전에는 두 버튼을 함께 막는다.
+ * 비활성 표시는 다음 렌더에야 붙으므로 같은 순간의 두 번째 누름은 ref로 막는다.
  * 시트는 body로 나가므로 Soft Blue 테마를 시트에도 단다.
  */
 export function InsufficientPointsSheet({
@@ -40,9 +42,9 @@ export function InsufficientPointsSheet({
   balance: number;
   earn: EarnToday;
   packs: ChargePack[];
-  onWatchAd?: () => void;
+  onWatchAd?: () => Promise<void> | void;
   onMissions: () => void;
-  onCharge?: (productId: string) => void;
+  onCharge?: (productId: string) => Promise<void> | void;
   onClose: () => void;
 }) {
   const { t } = useTranslation("points");
@@ -52,6 +54,20 @@ export function InsufficientPointsSheet({
   const picked =
     packs.find((pack) => pack.productId === pickedId) ?? suggestedPack(packs, shortfall);
   const adLeft = earn.ad.limit - earn.ad.watched;
+  const busyRef = useRef(false);
+  const [busy, setBusy] = useState(false);
+
+  const runOnce = async (task: () => Promise<void> | void) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+    setBusy(true);
+    try {
+      await task();
+    } finally {
+      busyRef.current = false;
+      setBusy(false);
+    }
+  };
 
   return (
     <Drawer open={open && item !== null} onOpenChange={(next) => !next && onClose()}>
@@ -73,8 +89,8 @@ export function InsufficientPointsSheet({
               }
               action={adLeft > 0 ? t("insufficient.watch") : t("insufficient.tomorrow")}
               highlighted={adLeft > 0}
-              disabled={adLeft <= 0}
-              onClick={onWatchAd}
+              disabled={adLeft <= 0 || busy}
+              onClick={() => void runOnce(onWatchAd)}
             />
           )}
           <WayRow
@@ -115,7 +131,8 @@ export function InsufficientPointsSheet({
               <Button
                 size="xl"
                 className="w-full shadow-sb-cta"
-                onClick={() => onCharge(picked.productId)}
+                disabled={busy}
+                onClick={() => void runOnce(() => onCharge(picked.productId))}
               >
                 {t("insufficient.chargeAndBuy", { points: formatPoints(picked.points) })}
               </Button>
