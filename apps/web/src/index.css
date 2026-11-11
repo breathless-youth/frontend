@@ -1453,3 +1453,33 @@ video::-webkit-media-controls-overlay-play-button {
     background-image: url("./assets/splash-logo-dark.png");
   }
 }
+
+/*
+  테마에 따라 색이 뒤집히는 Apple 로그인 버튼
+  Apple 지침이 어두운 배경에서는 흰 버튼을 쓰라고 해서 다크일 때 바탕과 글자색을 맞바꾼다.
+*/
+@utility login-apple {
+  background-color: #000000;
+  color: #ffffff;
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) & {
+      background-color: #ffffff;
+      color: #000000;
+    }
+  }
+  .theme-dark &,
+  :root[data-theme="dark"] & {
+    background-color: #ffffff;
+    color: #000000;
+  }
+}
+
+/*
+  글자색을 따라가는 Apple 로고
+  버튼 색이 테마마다 달라서 그림 대신 마스크로 그려 글자색을 그대로 입힌다.
+*/
+@utility login-apple-mark {
+  background-color: currentColor;
+  mask: url("./assets/icons/login-apple.svg") center / contain no-repeat;
+}

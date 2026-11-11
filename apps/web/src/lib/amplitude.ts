@@ -690,7 +690,7 @@ export function setGroupRoomCount(count: number) {
 
 /* ── 소셜 로그인 이벤트 ──────────────────────────────────────────────────────
  *
- * 사용자가 로그인 창을 닫은 취소는 실패가 아니라 보내지 않는다.
+ * 사용자가 로그인 창을 닫은 취소는 실패가 아니라 취소 이벤트로 따로 남긴다.
  */
 
 export type LoginEntry = "tab" | "invite" | "group" | "settings";
@@ -707,6 +707,21 @@ export function trackSocialLoginSucceeded(input: {
 }) {
   if (!initialized) return;
   track("social_login_succeeded", { provider: input.provider, is_new_user: input.isNewUser });
+}
+
+/** 로그인 화면을 본 사람과 성공한 사람 사이에서 어디서 빠지는지 보려고 누름을 따로 남긴다. */
+export function trackSocialLoginTapped(input: { provider: SocialLoginProvider }) {
+  if (!initialized) return;
+  track("social_login_tapped", { provider: input.provider });
+}
+
+/**
+ * 사용자가 공급자 로그인 창을 닫은 경우다.
+ * 실패와 섞으면 실패율이 부풀어 따로 남긴다.
+ */
+export function trackSocialLoginCancelled(input: { provider: SocialLoginProvider }) {
+  if (!initialized) return;
+  track("social_login_cancelled", { provider: input.provider });
 }
 
 export function trackSocialLoginFailed(input: {

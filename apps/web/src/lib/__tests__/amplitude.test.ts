@@ -830,6 +830,8 @@ describe("소셜 로그인 이벤트", () => {
     module.trackLoginScreenViewed("tab");
     module.trackSocialLoginSucceeded({ provider: "GOOGLE", isNewUser: true });
     module.trackSocialLoginFailed({ provider: "KAKAO", reason: "UNKNOWN" });
+    module.trackSocialLoginTapped({ provider: "GOOGLE" });
+    module.trackSocialLoginCancelled({ provider: "APPLE" });
 
     expect(mocks.track).not.toHaveBeenCalled();
   });
@@ -841,13 +843,17 @@ describe("소셜 로그인 이벤트", () => {
     mocks.track.mockClear();
 
     module.trackLoginScreenViewed("invite");
+    module.trackSocialLoginTapped({ provider: "KAKAO" });
     module.trackSocialLoginSucceeded({ provider: "APPLE", isNewUser: false });
     module.trackSocialLoginFailed({ provider: "KAKAO", reason: "SOCIAL_PROVIDER_UNAVAILABLE" });
+    module.trackSocialLoginCancelled({ provider: "KAKAO" });
 
     expect(mocks.track.mock.calls).toEqual([
       ["login_screen_viewed", { entry: "invite" }],
+      ["social_login_tapped", { provider: "KAKAO" }],
       ["social_login_succeeded", { provider: "APPLE", is_new_user: false }],
       ["social_login_failed", { provider: "KAKAO", reason: "SOCIAL_PROVIDER_UNAVAILABLE" }],
+      ["social_login_cancelled", { provider: "KAKAO" }],
     ]);
     for (const [, payload] of mocks.track.mock.calls) {
       for (const value of Object.values(payload as Record<string, unknown>)) {
