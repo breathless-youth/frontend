@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { buildPointsFixture } from "../../fixtures";
-import { previewWatchAd, withAdPreview } from "../adPreview";
+import { previewCharge, previewWatchAd, withAdPreview } from "../earnPreview";
 
 const earnToday = buildPointsFixture("default").earn;
 
@@ -20,5 +20,11 @@ describe("withAdPreview", () => {
 describe("previewWatchAd", () => {
   it("포인트를 주지 않고 볼 수 있는 광고가 없다고 알린다", async () => {
     await expect(previewWatchAd()).resolves.toEqual({ status: "unavailable" });
+  });
+});
+
+describe("previewCharge", () => {
+  it("포인트를 주지 않고 결제하지 못했다고 알린다", async () => {
+    await expect(previewCharge()).resolves.toEqual({ status: "failed" });
   });
 });

@@ -7,7 +7,12 @@ import { useBackTo } from "@/features/group-room/useBackTo";
 import { PointsLoadState } from "@/features/points/components/shared/PointsLoadState";
 import { PointsScreenFrame } from "@/features/points/components/shared/PointsScreenFrame";
 import { usePointsGateway, usePointsUserId } from "@/features/points/gateway/PointsGatewayContext";
-import { previewWatchAd, withAdPreview } from "@/features/points/model/adPreview";
+import {
+  CHARGE_PACKS_PREVIEW,
+  previewCharge,
+  previewWatchAd,
+  withAdPreview,
+} from "@/features/points/model/earnPreview";
 import { useShopActions } from "@/features/points/model/useShopActions";
 import { PointsRouteGate } from "@/features/points/PointsRouteGate";
 import { pointsSearch } from "@/features/points/pointsSearch";
@@ -145,7 +150,7 @@ function EarnPanel() {
   const userId = usePointsUserId();
   const earn = useQuery(earnTodayQuery(gateway, userId));
   const chargeAvailable = gateway.capabilities.charge;
-  // 광고가 붙기 전에는 타일을 예시 값으로 보여 주고, 누르면 볼 수 있는 광고가 없다고 알린다.
+  // 광고와 충전이 붙기 전에는 예시 값으로 보여 주고, 누르면 지금은 할 수 없다고 알린다.
   const adsAvailable = gateway.capabilities.ads;
   const packs = useQuery({ ...chargePacksQuery(gateway, userId), enabled: chargeAvailable });
   const actions = useShopActions();
@@ -162,11 +167,10 @@ function EarnPanel() {
   return (
     <EarnTab
       earn={adsAvailable ? earn.data : withAdPreview(earn.data)}
-      packs={packs.data ?? []}
+      packs={chargeAvailable ? (packs.data ?? []) : CHARGE_PACKS_PREVIEW}
       onClaim={actions.claim}
       onWatchAd={adsAvailable ? actions.watchAd : previewWatchAd}
-      onCharge={actions.charge}
-      chargeAvailable={chargeAvailable}
+      onCharge={chargeAvailable ? actions.charge : previewCharge}
     />
   );
 }
