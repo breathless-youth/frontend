@@ -1,1 +1,48 @@
-{}
+{
+  "title": "{{name}} accessories",
+  "mascotStrip": {
+    "label": "Choose a mascot",
+    "selected": "{{name}}, selected mascot",
+    "locked": "{{name}}, still locked"
+  },
+  "slots": {
+    "label": "Accessory slot",
+    "head": "Head",
+    "face": "Face",
+    "body": "Body"
+  },
+  "preview": "{{name}} preview",
+  "grid": {
+    "label": "Choose an accessory",
+    "owned": "Owned",
+    "wearingLabel": "{{name}}, wearing",
+    "ownedLabel": "{{name}}, owned",
+    "rewardHours": "{{target}} hrs",
+    "rewardDays": "{{target}} days",
+    "rewardHoursLabel": "{{name}}, reward for {{target}} focus hours",
+    "rewardDaysLabel": "{{name}}, reward for a {{target}}-day streak",
+    "takeOff": "Remove",
+    "takeOffLabel": "Remove {{slot}} accessory",
+    "empty": "No accessories for this slot yet"
+  },
+  "action": {
+    "focusHours": "Focus total {{current}} / {{target}} hrs",
+    "streakDays": "Streak {{current}} / {{target}} days",
+    "progressHours": "{{current}} of {{target}} focus hours",
+    "progressDays": "{{current}} of {{target}} days"
+  },
+  "locked": {
+    "title": {
+      "book": "Book is still locked",
+      "planner": "Planner is still locked",
+      "pencil": "Pencil is still locked",
+      "stopwatch": "Stopwatch is still locked",
+      "lamp": "Lamp is still locked",
+      "padlock": "Padlock is still locked",
+      "camcorder": "Camcorder is still locked"
+    },
+    "hint": "Focus {{remaining}} more to unlock it.",
+    "progress": "{{percent}}% of the way to {{name}}",
+    "collect": "Collect mascots"
+  }
+}
