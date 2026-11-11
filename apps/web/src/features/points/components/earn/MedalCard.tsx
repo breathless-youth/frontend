@@ -1,12 +1,13 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
+import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { IllustMedal } from "@/features/ranking/icons";
 
 import { formatPoints } from "../../model/formatPoints";
 import type { EarnToday, MedalReward } from "../../types";
 
-/** 새 랭킹 메달이 있으면 받기 버튼을, 없으면 안내를 보이고 아래에 메달별 포인트를 적는다. */
+/** 새 랭킹 메달이 있으면 받기 버튼을, 없으면 안내를 보인다. 메달별 포인트는 제목 옆 안내 버튼의 표로 본다. */
 export function MedalCard({
   medals,
   rates,
@@ -23,10 +24,15 @@ export function MedalCard({
   const summary = medals
     .map((m) => `${t(`medal.period.${m.period}`)} ${t("medal.rank", { rank: m.rank })}`)
     .join(" · ");
+  const guide = (
+    <InfoTooltip label={t("medal.guide")}>
+      <RateTable rates={rates} />
+    </InfoTooltip>
+  );
   return (
     <section
       aria-label={t("medal.title", { count: medals.length })}
-      className="flex flex-col gap-3 rounded-xl bg-muted px-4 pt-3.5 pb-3 shadow-sb-card"
+      className="flex flex-col rounded-xl bg-muted px-4 pt-3.5 pb-3 shadow-sb-card"
     >
       <div className="flex items-center gap-3">
         {medals.length > 0 ? (
@@ -39,8 +45,9 @@ export function MedalCard({
               ))}
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="text-sm font-bold">
+              <span className="flex items-center gap-1.5 text-sm font-bold">
                 {t("medal.title", { count: medals.length })}
+                {guide}
               </span>
               <span className="text-xs break-keep text-muted-foreground">{summary}</span>
             </span>
@@ -59,7 +66,10 @@ export function MedalCard({
               <IllustMedal rank={1} size={36} />
             </span>
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <span className="text-sm font-bold">{t("medal.none")}</span>
+              <span className="flex items-center gap-1.5 text-sm font-bold">
+                {t("medal.none")}
+                {guide}
+              </span>
               <span className="text-xs break-keep text-muted-foreground">
                 {t("medal.noneHint")}
               </span>
@@ -73,20 +83,29 @@ export function MedalCard({
           </>
         )}
       </div>
-      <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1 border-t border-border pt-2.5 text-xs text-muted-foreground">
-        <Rate rank={1} label={t("medal.gold", { points: formatPoints(rates.gold) })} />
-        <Rate rank={2} label={t("medal.silver", { points: formatPoints(rates.silver) })} />
-        <Rate rank={3} label={t("medal.bronze", { points: formatPoints(rates.bronze) })} />
-      </div>
     </section>
   );
 }
 
-function Rate({ rank, label }: { rank: 1 | 2 | 3; label: string }) {
+const PERIODS = ["daily", "weekly", "monthly"] as const;
+
+function RateTable({ rates }: { rates: EarnToday["medalRates"] }) {
+  const { t } = useTranslation("points-earn");
   return (
-    <span className="flex items-center gap-1">
-      <IllustMedal rank={rank} size={16} />
-      {label}
-    </span>
+    <div className="flex flex-col gap-1.5 text-xs whitespace-nowrap">
+      {PERIODS.map((period) => (
+        <div key={period} className="flex items-center gap-2.5">
+          <span className="w-9 font-bold">
+            {t(`medal.period.${period.toUpperCase() as Uppercase<typeof period>}`)}
+          </span>
+          {([1, 2, 3] as const).map((rank) => (
+            <span key={rank} className="flex items-center gap-0.5">
+              <IllustMedal rank={rank} size={14} />
+              {formatPoints(rates[period][(["gold", "silver", "bronze"] as const)[rank - 1]])}
+            </span>
+          ))}
+        </div>
+      ))}
+    </div>
   );
 }
