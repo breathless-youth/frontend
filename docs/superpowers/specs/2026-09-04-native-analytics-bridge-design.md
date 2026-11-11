@@ -105,6 +105,28 @@
 - #97(BY-472)을 dev 위로 리베이스하고 정리했다(2026-09-05): `app_foregrounded`/`app_backgrounded`는 네이티브 `app-state` 발신자가 없어 한 번도 찍히지 않았고 보내도 웹뷰 수만큼 중복되므로 릴레이를 빼고 이 티켓의 네이티브 단일 sink로 옮겼다. `camera_permission_result`는 게이트 쪽을 `camera_permission_gate_resolved`가 더 자세히 갖고, 설정 화면 응답은 `camera_permission_granted` user property로 바꿨다. `invite_link_opened`(웹, 브라우저 포함)와 `invite_deep_link_opened`(네이티브, 앱이 링크로 열림)는 다른 질문이라 둘 다 유지 — `is_webview` user property로 가른다.
 - PR #124의 base는 #97 브랜치다. 세션 내부 이벤트가 `room_type`에 의존하므로 #97 → #124 순서로 머지한다.
 
+## 온보딩 후 다른 날 재순공 집계 (2026-11-06)
+
+`onboarding_completed`에서 사용자별 최초 완료 시각을 저장한 경우 `repeat_tracking_version: 1`을 함께 보낸다. `study_session_ended`를 보낼 때 최초 온보딩 이후 168시간 미만인지 확인하고, 단일 세션 순공이 300초 이상인 종료 날짜를 한국 시간 자정 기준으로 센다. 서로 다른 두 번째 날짜가 되면 `onboarding_week_study_repeated {repeat_tracking_version: 1}`을 한 번 보낸다. 짧은 세션은 합산하지 않는다.
+
+첫 인정 날짜와 완료 표시는 사용자별 localStorage에 저장한다. 세션 시작 시각도 로컬에 저장해 제출 실패 후 같은 세션을 다음 날 복원·종료하더라도 다른 날짜로 다시 세지 않는다. 앱 재실행 뒤에도 유지하고, 온보딩 때 만든 무작위 `insert_id`를 사용해 웹뷰 간 중복 전송을 방지한다. 저장소 접근에 실패하거나 기록이 손상되면 새 기준 시각을 만들지 않는다. 새 날짜·시각 속성은 전송하지 않는다.
+
+R2 분모는 `onboarding_completed.repeat_tracking_version = 1`인 사용자 중 168시간 관찰이 끝난 사용자다. 분자는 그 온보딩 이후 168시간 내 새 집계 이벤트를 보낸 사용자다. 배포 전 사용자에게 소급 적용하지 않으며, 기기 변경이나 저장소 삭제로 끊긴 기록은 연결하지 못한다. 여러 기기를 합쳐 사용자 단위로 집계하려면 서버 집계가 필요하다.
+
+Amplitude 추적 계획에 새 이벤트와 속성을 등록했다. 실제 수집 전에는 분석 엔진이 속성을 인식하지 않아 차트 조회를 거절할 수 있다. 첫 실제 데이터가 수집된 뒤 이 절의 조건으로 R2 차트를 저장하고 기존 대시보드에 연결한다. 관찰 기간이 끝나지 않은 사용자는 실패로 세지 않는다.
+
+차트 입력은 `docs/analytics/onboarding-repeat-r2.chart.json`에 저장했다. 조회 범위는 `Last 30 Days Offset 8`로, 한국 날짜 기준 8일 전까지의 온보딩 코호트 30일치다. 7일 전 날짜의 늦은 온보딩까지 포함하면 아직 168시간이 지나지 않은 사용자가 들어갈 수 있어서 하루 더 제외했다. 상대 날짜 프리셋을 사용해 조회 날짜가 매일 갱신되도록 했다.
+
+`.ai` 위키에는 이 지표와 세션별 5분·한국 자정 기준을 별도 분석 지표로 추가하는 갱신을 제안한다. 서비스의 스트릭 기준은 이 지표와 별도로 유지한다.
+
+## 새 플래너 계획 저장과 홈 바로가기 (2026-11-12)
+
+2026-11-07에 나간 새 플래너는 할 일을 저장해도 이벤트를 보내지 않아서, `subject_item_added`(`kind: task`, `surface: planner`)로 세던 계획 작성 지표가 그날부터 끊겼다. 새 플래너에서 할 일 저장에 성공하면 옛 플래너와 같은 이벤트와 값을 보내도록 했다. 차트를 바꾸지 않아도 계획 작성 지표가 다시 이어진다. 저장에 실패하거나 할 일 저장이 아닌 변경(목표, 수정, 삭제, 이동, 과목 선택)은 보내지 않는다. 배포 전 기간은 DB로 확인한다.
+
+홈 v3의 바로가기는 `home_shortcut_tapped {target}`을 보낸다. `target`은 `planner`, `timelapse`, `timelapse_settings`, `app_lock`이다. 타임랩스와 앱 잠금 화면은 어디서 열렸는지 남기지 않아서, 홈에서 연 경우는 이 이벤트로 센다. 앱 잠금은 바로가기 뒤에 오는 `app_lock_toggled {on: true}`로 실제로 켰는지 본다.
+
+홈 과목 목록에서 과목이나 `과목 없음`을 고르면 `home_subject_selected {has_subject}`를 보낸다. 과목 이름은 사용자가 직접 지은 글이라 보내지 않는다. `과목 추가`를 누른 것은 과목 선택으로 세지 않는다.
+
 ## 테스트
 
 - `apps/mobile/lib/__tests__/nativeAnalytics.test.ts`: 즉시 전달, 큐 보관·순서, 이중 전달 없음, 활성 sink 교대, 상한.
