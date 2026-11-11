@@ -1,0 +1,66 @@
+{
+  "title": "ポイントショップ",
+  "tabs": {
+    "label": "ポイントショップのメニュー",
+    "shop": "きせかえショップ",
+    "earn": "ポイントをもらう"
+  },
+  "titles": {
+    "history": "ポイント履歴",
+    "accessories": "小物",
+    "backgrounds": "タイマー背景",
+    "mascots": "マスコットあつめ"
+  },
+  "balance": {
+    "label": "保有ポイント {{amount}}",
+    "unknown": "保有ポイントを読み込めませんでした"
+  },
+  "status": {
+    "wearing": "着用中",
+    "wear": "着用する",
+    "using": "使用中",
+    "apply": "適用する",
+    "selected": "選択中",
+    "selectable": "選択できます"
+  },
+  "buyFor": "{{price}}で購入",
+  "purchase": {
+    "title": "{{name}}を購入しますか？",
+    "balanceAfter": "購入後のポイント",
+    "cancel": "キャンセル",
+    "confirm": "購入する",
+    "done": "{{name}}を購入しました！"
+  },
+  "insufficient": {
+    "title": "{{name}}を購入するには、あと{{shortfall}}必要です",
+    "ad": "広告を見て{{reward}}もらう",
+    "adLeft": "今日はあと{{count}}回もらえます",
+    "adDone": "今日はすべて見ました。明日また{{count}}回見られます",
+    "watch": "見る",
+    "tomorrow": "明日",
+    "missions": "デイリーミッションをクリアする",
+    "missionsHint": "出席と1日の目標でポイントがもらえます",
+    "missionsAction": "ミッションを見る",
+    "charge": "今すぐチャージ",
+    "chargeAndBuy": "{{points}}チャージして購入",
+    "pricePending": "価格を確認中"
+  },
+  "loadError": {
+    "shop": "ショップを読み込めませんでした",
+    "earn": "ポイントをもらう画面を読み込めませんでした",
+    "screen": "画面を読み込めませんでした"
+  },
+  "mascots": {
+    "book": "本",
+    "planner": "プランナー",
+    "pencil": "えんぴつ",
+    "stopwatch": "ストップウォッチ",
+    "lamp": "ランプ",
+    "padlock": "南京錠",
+    "camcorder": "ビデオカメラ"
+  },
+  "mascotImage": {
+    "unlocked": "{{name}}のマスコット",
+    "locked": "まだ開いていない{{name}}のマスコット"
+  }
+}

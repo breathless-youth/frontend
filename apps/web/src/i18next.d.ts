@@ -22,6 +22,13 @@ import type socialRoom from "./locales/ko/social-room.json";
 import type studySession from "./locales/ko/study-session.json";
 import type groupRoom from "./locales/ko/group-room.json";
 import type login from "./locales/ko/login.json";
+import type points from "./locales/ko/points.json";
+import type pointsShop from "./locales/ko/points-shop.json";
+import type pointsEarn from "./locales/ko/points-earn.json";
+import type pointsItems from "./locales/ko/points-items.json";
+import type pointsDecor from "./locales/ko/points-decor.json";
+import type pointsMascots from "./locales/ko/points-mascots.json";
+import type pointsResult from "./locales/ko/points-result.json";
 
 /**
  * 카탈로그 키 타입
@@ -55,6 +62,13 @@ declare module "i18next" {
       "study-session": typeof studySession;
       "group-room": typeof groupRoom;
       login: typeof login;
+      points: typeof points;
+      "points-shop": typeof pointsShop;
+      "points-earn": typeof pointsEarn;
+      "points-items": typeof pointsItems;
+      "points-decor": typeof pointsDecor;
+      "points-mascots": typeof pointsMascots;
+      "points-result": typeof pointsResult;
     };
   }
 }

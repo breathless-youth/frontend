@@ -1,0 +1,66 @@
+{
+  "title": "點數商店",
+  "tabs": {
+    "label": "點數商店選單",
+    "shop": "裝扮商店",
+    "earn": "領取點數"
+  },
+  "titles": {
+    "history": "點數紀錄",
+    "accessories": "配件",
+    "backgrounds": "計時器背景",
+    "mascots": "收集吉祥物"
+  },
+  "balance": {
+    "label": "持有點數 {{amount}}",
+    "unknown": "無法載入持有點數"
+  },
+  "status": {
+    "wearing": "穿戴中",
+    "wear": "穿戴",
+    "using": "使用中",
+    "apply": "套用",
+    "selected": "已選擇",
+    "selectable": "可選擇"
+  },
+  "buyFor": "以 {{price}} 購買",
+  "purchase": {
+    "title": "要購買{{name}}嗎？",
+    "balanceAfter": "購買後點數",
+    "cancel": "取消",
+    "confirm": "購買",
+    "done": "已購買{{name}}！"
+  },
+  "insufficient": {
+    "title": "購買{{name}}還需要 {{shortfall}}",
+    "ad": "看廣告領 {{reward}}",
+    "adLeft": "今天還能再領 {{count}} 次",
+    "adDone": "今天已經看完了，明天可以再看 {{count}} 次",
+    "watch": "觀看",
+    "tomorrow": "明天",
+    "missions": "完成每日任務",
+    "missionsHint": "簽到和達成每日目標就能領點數",
+    "missionsAction": "查看任務",
+    "charge": "立即儲值",
+    "chargeAndBuy": "儲值 {{points}} 並購買",
+    "pricePending": "確認價格中"
+  },
+  "loadError": {
+    "shop": "無法載入商店",
+    "earn": "無法載入領取點數",
+    "screen": "無法載入畫面"
+  },
+  "mascots": {
+    "book": "書本",
+    "planner": "計畫本",
+    "pencil": "鉛筆",
+    "stopwatch": "碼錶",
+    "lamp": "檯燈",
+    "padlock": "鎖頭",
+    "camcorder": "攝影機"
+  },
+  "mascotImage": {
+    "unlocked": "{{name}}吉祥物",
+    "locked": "未解鎖的{{name}}吉祥物"
+  }
+}

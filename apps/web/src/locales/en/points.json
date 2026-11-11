@@ -1,0 +1,68 @@
+{
+  "title": "Point Shop",
+  "tabs": {
+    "label": "Point Shop menu",
+    "shop": "Decor Shop",
+    "earn": "Earn Points"
+  },
+  "titles": {
+    "history": "Point History",
+    "accessories": "Accessories",
+    "backgrounds": "Timer Backgrounds",
+    "mascots": "Mascot Collection"
+  },
+  "balance": {
+    "label": "{{amount}} available",
+    "unknown": "Couldn't load your points"
+  },
+  "status": {
+    "wearing": "Wearing",
+    "wear": "Wear",
+    "using": "In use",
+    "apply": "Apply",
+    "selected": "Selected",
+    "selectable": "Available"
+  },
+  "buyFor": "Buy for {{price}}",
+  "purchase": {
+    "title": "Buy {{name}}?",
+    "balanceAfter": "Points after purchase",
+    "cancel": "Cancel",
+    "confirm": "Buy",
+    "done": "You bought {{name}}!"
+  },
+  "insufficient": {
+    "title": "You need {{shortfall}} more to buy {{name}}",
+    "ad": "Watch an ad for {{reward}}",
+    "adLeft_one": "{{count}} more left today",
+    "adLeft_other": "{{count}} more left today",
+    "adDone_one": "All done for today. You can watch {{count}} again tomorrow",
+    "adDone_other": "All done for today. You can watch {{count}} again tomorrow",
+    "watch": "Watch",
+    "tomorrow": "Tomorrow",
+    "missions": "Complete daily missions",
+    "missionsHint": "Earn points by checking in and hitting your daily goal",
+    "missionsAction": "See missions",
+    "charge": "Top up now",
+    "chargeAndBuy": "Top up {{points}} and buy",
+    "pricePending": "Checking price"
+  },
+  "loadError": {
+    "shop": "Couldn't load the shop",
+    "earn": "Couldn't load Earn Points",
+    "screen": "Couldn't load this screen"
+  },
+  "mascots": {
+    "book": "Book",
+    "planner": "Planner",
+    "pencil": "Pencil",
+    "stopwatch": "Stopwatch",
+    "lamp": "Lamp",
+    "padlock": "Padlock",
+    "camcorder": "Camcorder"
+  },
+  "mascotImage": {
+    "unlocked": "{{name}} mascot",
+    "locked": "Locked {{name}} mascot"
+  }
+}

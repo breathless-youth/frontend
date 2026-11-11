@@ -693,7 +693,7 @@ export function setGroupRoomCount(count: number) {
  * 사용자가 로그인 창을 닫은 취소는 실패가 아니라 취소 이벤트로 따로 남긴다.
  */
 
-export type LoginEntry = "tab" | "invite" | "group" | "settings";
+export type LoginEntry = "tab" | "invite" | "group" | "settings" | "points";
 
 export function trackLoginScreenViewed(entry: LoginEntry) {
   if (!initialized) return;
@@ -1894,7 +1894,8 @@ export function trackErrorRetryPressed(
     | "contact"
     | "interview_form"
     | "ranking"
-    | "group_tab",
+    | "group_tab"
+    | "points",
 ) {
   if (!initialized) return;
   track("error_retry_pressed", { screen });
