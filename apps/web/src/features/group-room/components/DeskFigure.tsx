@@ -1,3 +1,5 @@
+import { MascotImage } from "@/features/points/components/shared/MascotImage";
+import type { MascotId } from "@/features/points/types";
 import { cn } from "@/lib/utils";
 
 import type { DeskTone } from "../model/desks";
@@ -28,22 +30,37 @@ const SIZE = {
  * 나중에 커스텀 캐릭터로 갈아 끼우도록 사람과 책상을 이 부품 하나로 감싼다.
  * 상태는 칸의 이름이나 옆 글자가 알려 주므로 그림은 화면 낭독기에서 뺀다.
  */
-export function DeskFigure({ tone, size }: { tone: DeskTone | "empty"; size: keyof typeof SIZE }) {
+export function DeskFigure({
+  tone,
+  size,
+  mascot,
+}: {
+  tone: DeskTone | "empty";
+  size: keyof typeof SIZE;
+  mascot?: MascotId;
+}) {
   const look = SIZE[size];
   const empty = tone === "empty";
-  return (
-    <svg viewBox="0 0 64 60" aria-hidden="true" className={cn("shrink-0", look.box)}>
-      <g
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={empty ? look.dashed : look.person}
-        strokeDasharray={empty ? "3 3" : undefined}
-        className={PERSON_STROKE[tone]}
-      >
-        <circle cx="32" cy="17" r="7" />
-        <path d="M17 45 V38 C17 33 21 29.5 26 29.5 H38 C43 29.5 47 33 47 38 V45" />
-      </g>
+  const withMascot = mascot !== undefined && !empty;
+  const svg = (
+    <svg
+      viewBox="0 0 64 60"
+      aria-hidden="true"
+      className={withMascot ? "absolute inset-0 size-full" : cn("shrink-0", look.box)}
+    >
+      {!withMascot && (
+        <g
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={empty ? look.dashed : look.person}
+          strokeDasharray={empty ? "3 3" : undefined}
+          className={PERSON_STROKE[tone]}
+        >
+          <circle cx="32" cy="17" r="7" />
+          <path d="M17 45 V38 C17 33 21 29.5 26 29.5 H38 C43 29.5 47 33 47 38 V45" />
+        </g>
+      )}
       <g fill="none" strokeLinecap="round" className="stroke-border-strong">
         <path d="M6 46 H58" strokeWidth={look.top} />
         <path d="M11 47 V58 M53 47 V58" strokeWidth={look.legs} />
@@ -60,5 +77,23 @@ export function DeskFigure({ tone, size }: { tone: DeskTone | "empty"; size: key
         </g>
       )}
     </svg>
+  );
+  if (!withMascot) {
+    return svg;
+  }
+  return (
+    <span aria-hidden="true" className={cn("relative block shrink-0", look.box)}>
+      {/* 책상 윗면(그림 높이의 77%) 위에 앉히고, 쉬는 중에는 사람 그림의 쉼 색처럼 회색으로 가라앉힌다. */}
+      <MascotImage
+        id={mascot}
+        size={1}
+        decorative
+        className={cn(
+          "absolute bottom-[23%] left-1/2 size-[68%]! -translate-x-1/2",
+          tone === "rest" && "opacity-50 grayscale",
+        )}
+      />
+      {svg}
+    </span>
   );
 }

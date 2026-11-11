@@ -1,1 +1,23 @@
-{}
+{
+  "totalFocus": "累計專注時間",
+  "remaining": "還需 {{time}}",
+  "hiddenName": "???",
+  "lockedLabel": "{{name}}未解鎖，{{remaining}}",
+  "selectedLabel": "已選擇{{name}}",
+  "sheet": {
+    "untilOpen": "再專注 {{time}} 就會解鎖。",
+    "progress": "距離{{name}}已完成 {{percent}}%",
+    "close": "關閉"
+  },
+  "unlocked": {
+    "tag": "新吉祥物",
+    "switch": "換成這個吉祥物",
+    "later": "稍後"
+  },
+  "profile": {
+    "title": "我的吉祥物",
+    "decorate": "裝扮",
+    "pick": "選擇我的吉祥物",
+    "locked": "{{name}}未解鎖"
+  }
+}

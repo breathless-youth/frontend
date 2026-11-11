@@ -2,6 +2,7 @@ import { type ComponentType, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DeskFigure } from "@/features/group-room/components/DeskFigure";
 import { LazyPendingApplicationsSheet } from "@/features/group-room/components/lazyPendingApplicationsSheet";
 import { buildGroupRoomFixtures } from "@/features/group-room/fixtures";
 import { joinPolicyText } from "@/features/group-room/model/joinPolicy";
@@ -423,7 +424,31 @@ const soloOwnerHome: RoomHome = {
 
 const minjunId = fixtures.members.find((member) => member.nickname === KICKED_NICKNAME)?.userId;
 
+function DeskMascotsCase({ onBack }: CaseProps) {
+  return (
+    <main className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col gap-4 px-5 pt-[calc(env(safe-area-inset-top)+24px)] text-foreground">
+      <button type="button" onClick={onBack} className="min-h-11 self-start text-sm font-bold">
+        목록
+      </button>
+      <h1 className="text-lg font-bold">마스코트가 앉은 책상</h1>
+      <ul className="grid grid-cols-3 gap-4">
+        {(["room", "elsewhere", "rest"] as const).map((tone) => (
+          <li key={tone} className="flex flex-col items-center gap-1 text-xs">
+            <DeskFigure tone={tone} size="md" mascot="lamp" />
+            {tone}
+          </li>
+        ))}
+        <li className="flex flex-col items-center gap-1 text-xs">
+          <DeskFigure tone="room" size="md" />
+          마스코트 없음
+        </li>
+      </ul>
+    </main>
+  );
+}
+
 const CASES: { id: string; title: string; Screen: ComponentType<CaseProps> }[] = [
+  { id: "desk-mascots", title: "마스코트가 앉은 책상", Screen: DeskMascotsCase },
   {
     id: "open-detail",
     title: joinPolicyText("open"),
