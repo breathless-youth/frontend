@@ -6,6 +6,7 @@ import type * as userIdModule from "@/lib/userId";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { __resetAppPointsGatewayForTests } from "@/features/points/gateway/appPointsGateway";
 import { __resetPointsForTests } from "@/lib/pointsCapability";
 import { SettingsPage } from "@/routes/SettingsPage";
 
@@ -32,9 +33,10 @@ function Where() {
   return <p data-testid="where">{useLocation().pathname}</p>;
 }
 
-function renderSettings(flag: boolean) {
-  window.history.replaceState(null, "", flag ? "/?points=1" : "/");
+function renderSettings(flag: boolean, search = "/?points=1&pointsMock=default") {
+  window.history.replaceState(null, "", flag ? search : "/");
   __resetPointsForTests();
+  __resetAppPointsGatewayForTests();
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
@@ -51,6 +53,7 @@ function renderSettings(flag: boolean) {
 afterEach(() => {
   window.history.replaceState(null, "", "/");
   __resetPointsForTests();
+  __resetAppPointsGatewayForTests();
 });
 
 describe("설정의 포인트 기록 줄", () => {
@@ -65,5 +68,20 @@ describe("설정의 포인트 기록 줄", () => {
   it("플래그가 꺼지면 줄이 없다", () => {
     renderSettings(false);
     expect(screen.queryByRole("button", { name: /포인트 기록/ })).not.toBeInTheDocument();
+  });
+
+  it("기록이 없는 실제 경계에서는 줄도 잔액 조회도 없다", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async () => new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      renderSettings(true, "/?points=1");
+      expect(await screen.findByRole("button", { name: /프로필/ })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /포인트 기록/ })).not.toBeInTheDocument();
+      expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/api/points"))).toBe(
+        false,
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

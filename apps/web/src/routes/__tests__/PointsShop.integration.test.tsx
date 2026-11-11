@@ -13,6 +13,7 @@ import type { ChargeResult } from "@/features/points/types";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import type * as Bridge from "@/lib/bridge";
 import { getProfile } from "@/lib/profileApi";
+import { __resetAppPointsGatewayForTests } from "@/features/points/gateway/appPointsGateway";
 import { __resetPointsForTests } from "@/lib/pointsCapability";
 import { pointsKeys } from "@/lib/pointsQueries";
 import { showToast } from "@/lib/toast";
@@ -43,8 +44,9 @@ const PROFILE = {
 };
 
 function setFlag(on: boolean) {
-  window.history.replaceState(null, "", on ? "/?points=1" : "/");
+  window.history.replaceState(null, "", on ? "/?points=1&pointsMock=default" : "/");
   __resetPointsForTests();
+  __resetAppPointsGatewayForTests();
 }
 
 function renderWith(ui: ReactElement, path: string, gateway?: PointsGateway) {

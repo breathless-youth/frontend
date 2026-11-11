@@ -13,6 +13,7 @@ import { slideNavigate } from "@/lib/pageTransition";
 import { showToast } from "@/lib/toast";
 import { useUserId } from "@/lib/userId";
 import { usePointsBalance } from "@/features/points/components/shop/usePointsBalance";
+import { appPointsGateway } from "@/features/points/gateway/appPointsGateway";
 import { formatPoints } from "@/features/points/model/formatPoints";
 import { pointsSearch } from "@/features/points/pointsSearch";
 import { isPointsEnabled } from "@/lib/pointsCapability";
@@ -62,7 +63,9 @@ export function SettingsPage() {
   const permissions = useDevicePermissions();
   const appLock = useAppLockSettings();
   const userId = useUserId();
-  const pointsBalance = usePointsBalance(userId);
+  // 1단계 서버에는 포인트 기록이 없어 그 경계에서는 줄과 잔액 조회를 함께 뺀다.
+  const pointsHistoryRow = isPointsEnabled() && appPointsGateway().capabilities.history;
+  const points = usePointsBalance(pointsHistoryRow ? userId : null);
   // 보상이 국내 기프티콘이라 영어 화면에서는 상태를 묻지 않아 행이 생기지 않는다.
   const interview = useQuery({
     ...interviewStatusQuery(userId ?? 0),
@@ -141,13 +144,13 @@ export function SettingsPage() {
               );
             }}
           />
-          {isPointsEnabled() && (
+          {pointsHistoryRow && !points.memberOnly && (
             <SettingsRow
               label={t("settings.history", { ns: "points-shop" })}
               trailing={
-                pointsBalance === undefined
+                points.balance === undefined
                   ? { kind: "chevron" }
-                  : { kind: "valueChevron", value: formatPoints(pointsBalance) }
+                  : { kind: "valueChevron", value: formatPoints(points.balance) }
               }
               onPress={() => {
                 trackSettingsRowPressed("points_history");

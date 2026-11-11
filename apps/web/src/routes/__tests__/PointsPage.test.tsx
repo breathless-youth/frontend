@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createFakePointsGateway } from "@/features/points/gateway/createFakePointsGateway";
 import { PointsGatewayProvider } from "@/features/points/gateway/PointsGatewayContext";
+import { __resetAppPointsGatewayForTests } from "@/features/points/gateway/appPointsGateway";
 import { __resetPointsForTests } from "@/lib/pointsCapability";
 import { getProfile } from "@/lib/profileApi";
 
@@ -18,8 +19,9 @@ vi.mock("@/features/login/GroupLoginScreen", () => ({
 }));
 
 function setFlag(on: boolean) {
-  window.history.replaceState(null, "", on ? "/?points=1" : "/");
+  window.history.replaceState(null, "", on ? "/?points=1&pointsMock=default" : "/");
   __resetPointsForTests();
+  __resetAppPointsGatewayForTests();
 }
 
 function renderAt(path: string, wrap: (ui: ReactElement) => ReactElement = (ui) => ui) {

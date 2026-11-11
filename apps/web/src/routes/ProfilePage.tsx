@@ -365,7 +365,7 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
 
           {/* 회원으로 확인되지 않으면 포인트를 쓰지 못하므로 로그인 화면이 대신 그려지지 않게 줄째 뺀다. */}
           {isPointsEnabled() && isMemberProfile(profile) && (
-            <PointsRouteGate>
+            <PointsRouteGate embedded>
               <ProfileMascots />
             </PointsRouteGate>
           )}

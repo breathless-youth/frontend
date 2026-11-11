@@ -5,6 +5,7 @@ import type * as userIdModule from "@/lib/userId";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { __resetAppPointsGatewayForTests } from "@/features/points/gateway/appPointsGateway";
 import { __resetPointsForTests } from "@/lib/pointsCapability";
 import { homeMission } from "@/test/homeMissionFixtures";
 import { plannerDay } from "@/test/plannerFixtures";
@@ -78,8 +79,9 @@ function renderHome() {
 }
 
 function setFlag(on: boolean) {
-  window.history.replaceState(null, "", on ? "/?points=1" : "/");
+  window.history.replaceState(null, "", on ? "/?points=1&pointsMock=default" : "/");
   __resetPointsForTests();
+  __resetAppPointsGatewayForTests();
 }
 
 beforeEach(() => localStorage.clear());
@@ -100,5 +102,28 @@ describe("홈 머리말의 포인트 알약", () => {
     renderHome();
     expect(await screen.findByText(homeDateLabel("2026-11-07", "ko"))).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /보유 포인트/ })).not.toBeInTheDocument();
+  });
+
+  it("서버가 회원 전용이라고 거절하면 알약을 숨기고 날짜를 보인다", async () => {
+    window.history.replaceState(null, "", "/?points=1");
+    __resetPointsForTests();
+    __resetAppPointsGatewayForTests();
+    const fetchMock = vi.fn<typeof fetch>(
+      async () =>
+        new Response(JSON.stringify({ code: "MEMBER_ONLY", message: "member only" }), {
+          status: 403,
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      renderHome();
+      expect(await screen.findByText(homeDateLabel("2026-11-07", "ko"))).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /보유 포인트/ })).not.toBeInTheDocument();
+      expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith("/api/points"))).toBe(
+        true,
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

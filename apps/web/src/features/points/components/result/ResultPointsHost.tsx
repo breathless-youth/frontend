@@ -13,15 +13,15 @@ import { usePointsAccess } from "../../usePointsAccess";
 /**
  * 결과 화면에 붙는 포인트 카드
  *
- * 포인트 입구는 비회원에게 로그인 화면을 그리지만 결과 화면은 비회원도 보므로,
- * 회원으로 확인된 때만 입구를 거치고 그 밖에는 카드를 그리지 않는다.
+ * 결과 화면은 비회원도 보므로 회원으로 확인된 때만 입구를 얹힌 조각으로 거쳐 카드를 그린다.
+ * 보상 조회가 실패하면 서버의 회원 전용 거절이어도 카드를 그리지 않는다.
  */
 export function ResultPointsHost({ startedAt }: { startedAt: string }) {
   if (usePointsAccess().status !== "member") {
     return null;
   }
   return (
-    <PointsRouteGate>
+    <PointsRouteGate embedded>
       <RewardCard startedAt={startedAt} />
     </PointsRouteGate>
   );

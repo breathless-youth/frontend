@@ -61,7 +61,7 @@ export function HomeV3Entry({
   const navigate = useNavigate();
   const location = useLocation();
   const openPlanner = useOpenPlanner("home");
-  const pointsBalance = usePointsBalance(userId);
+  const points = usePointsBalance(userId);
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState<{
     day: HomeDay;
@@ -208,11 +208,11 @@ export function HomeV3Entry({
         ) : (
           <span className="text-2xl font-bold">FocusMakers</span>
         )}
-        {isPointsEnabled() ? (
+        {isPointsEnabled() && !points.memberOnly ? (
           <div className="shrink-0 pb-1.5">
             <PointsBalancePill
               size="home"
-              balance={pointsBalance}
+              balance={points.balance}
               onPress={() =>
                 slideNavigate("forward", () =>
                   navigate({ pathname: "/points", search: pointsSearch(location.search) }),

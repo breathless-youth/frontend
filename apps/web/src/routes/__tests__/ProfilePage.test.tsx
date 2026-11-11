@@ -17,6 +17,7 @@ import type { TokenSource } from "@/lib/auth/tokenSource";
 import type * as Bridge from "@/lib/bridge";
 import { postToNative } from "@/lib/bridge";
 import { __resetGroupRoomsForTests } from "@/lib/groupRoomCapability";
+import { __resetAppPointsGatewayForTests } from "@/features/points/gateway/appPointsGateway";
 import { __resetPointsForTests } from "@/lib/pointsCapability";
 import { canUseNativeProfilePhoto, pickNativeProfilePhoto } from "@/lib/nativeProfilePhoto";
 import {
@@ -923,11 +924,13 @@ describe("프로필 설정의 내 마스코트", () => {
   const member = { ...profile, loginProvider: "KAKAO" } as const;
 
   function enablePoints() {
-    window.history.replaceState(null, "", "/profile?points=1");
+    window.history.replaceState(null, "", "/profile?points=1&pointsMock=default");
     __resetPointsForTests();
+    __resetAppPointsGatewayForTests();
     onTestFinished(() => {
       window.history.replaceState(null, "", "/");
       __resetPointsForTests();
+      __resetAppPointsGatewayForTests();
     });
   }
 

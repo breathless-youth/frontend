@@ -8,6 +8,7 @@ import { createFakePointsGateway } from "@/features/points/gateway/createFakePoi
 import type { PointsGateway } from "@/features/points/gateway/PointsGateway";
 import { PointsGatewayProvider } from "@/features/points/gateway/PointsGatewayContext";
 import { usePointsAccess } from "@/features/points/usePointsAccess";
+import { __resetAppPointsGatewayForTests } from "@/features/points/gateway/appPointsGateway";
 import { __resetPointsForTests } from "@/lib/pointsCapability";
 
 import { ResultPage } from "../ResultPage";
@@ -26,8 +27,9 @@ vi.mock("@/lib/interviewApi", () => ({
 vi.mock("@/features/timelapse/ResultTimelapseCard", () => ({ ResultTimelapseCard: () => null }));
 
 function setFlag(on: boolean) {
-  window.history.replaceState(null, "", on ? "/?points=1" : "/");
+  window.history.replaceState(null, "", on ? "/?points=1&pointsMock=default" : "/");
   __resetPointsForTests();
+  __resetAppPointsGatewayForTests();
 }
 
 const session: StudySessionResponse = {
