@@ -143,7 +143,7 @@ export function AccessoryShopScreen({
       {flow.step === "done" && item !== null && (
         <div
           role="status"
-          className="fixed top-18 right-5 left-5 z-50 mx-auto flex max-w-[350px] items-center gap-2 rounded-[14px] bg-foreground px-4 py-3 text-sm font-semibold text-background shadow-lg"
+          className="fixed right-5 bottom-[calc(env(safe-area-inset-bottom)+92px)] left-5 z-50 mx-auto flex max-w-[350px] items-center gap-2 rounded-[14px] bg-foreground px-4 py-3 text-sm font-semibold text-background shadow-lg"
         >
           <span className="flex size-5 items-center justify-center rounded-full bg-feedback-success">
             <Check size={12} aria-hidden="true" />
