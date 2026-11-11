@@ -8,7 +8,7 @@
 const DOWNLOAD_OG: Record<string, string> = {
   "og:url": "https://web.focusmakers.app/download",
   "og:description": "오늘 공부한 모습, 타임랩스로 남겨요. 공부하고 타임랩스를 만들어 보세요",
-  "og:image": "https://web.focusmakers.app/og-timelapse.png",
+  "og:image": "https://web.focusmakers.app/og-timelapse.png?v=2",
   "og:image:alt": "포커스 메이커스 공부 타임랩스",
 };
 

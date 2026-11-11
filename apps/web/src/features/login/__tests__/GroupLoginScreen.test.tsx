@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider, QueryObserver } from "@tanstack/react-query";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { Location } from "react-router-dom";
@@ -9,17 +9,17 @@ import type * as Amplitude from "@/lib/amplitude";
 import type { LoginEntry } from "@/lib/amplitude";
 import {
   trackLoginScreenViewed,
+  trackSocialLoginCancelled,
   trackSocialLoginFailed,
   trackSocialLoginSucceeded,
+  trackSocialLoginTapped,
 } from "@/lib/amplitude";
 import { nativeSocialLoginProviders, requestNativeSocialLogin } from "@/lib/nativeSocialLogin";
 import type * as NativeSocialLogin from "@/lib/nativeSocialLogin";
 import type { NativeSocialLoginResult } from "@/lib/nativeSocialLogin";
 import { __resetAuthSuccessToastForTests } from "@/lib/authSuccessToast";
 import { profileKeys } from "@/lib/profileQueries";
-import { getStudyDays } from "@/lib/statsApi";
 import { showToast } from "@/lib/toast";
-import type * as UserId from "@/lib/userId";
 import { LocationProbe } from "@/test/LocationProbe";
 
 import { GroupLoginScreen } from "../GroupLoginScreen";
@@ -29,18 +29,14 @@ vi.mock("@/lib/nativeSocialLogin", async (importOriginal) => ({
   nativeSocialLoginProviders: vi.fn(() => ["GOOGLE", "KAKAO", "APPLE"]),
   requestNativeSocialLogin: vi.fn(),
 }));
-vi.mock("@/lib/statsApi", () => ({ getStudyDays: vi.fn() }));
 vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
-vi.mock("@/lib/userId", async (importOriginal) => ({
-  ...(await importOriginal<typeof UserId>()),
-  useUserId: vi.fn(() => 1),
-  useIdentityPending: vi.fn(() => false),
-}));
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof Amplitude>()),
   trackLoginScreenViewed: vi.fn(),
   trackSocialLoginSucceeded: vi.fn(),
   trackSocialLoginFailed: vi.fn(),
+  trackSocialLoginTapped: vi.fn(),
+  trackSocialLoginCancelled: vi.fn(),
 }));
 
 afterEach(() => {
@@ -80,12 +76,9 @@ function renderScreen({
   return { client, leave: () => rerender(tree(false)), location: () => current };
 }
 
-const CARRY_OVER = "지금까지의 기록이 로그인한 계정에 그대로 이어져요";
-
 describe("그룹 로그인 화면", () => {
   it("앱이 알린 공급자만 Google, Apple, 카카오 순서로 보인다", () => {
     vi.mocked(nativeSocialLoginProviders).mockReturnValue(["KAKAO", "GOOGLE"]);
-    vi.mocked(getStudyDays).mockReturnValue(new Promise(() => {}));
     renderScreen();
     expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual([
       "Google로 계속하기",
@@ -94,7 +87,6 @@ describe("그룹 로그인 화면", () => {
   });
 
   it("세 공급자를 모두 알리면 시안 순서대로 세 버튼이다", () => {
-    vi.mocked(getStudyDays).mockReturnValue(new Promise(() => {}));
     renderScreen();
     expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual([
       "Google로 계속하기",
@@ -104,7 +96,6 @@ describe("그룹 로그인 화면", () => {
   });
 
   it("동의 문구의 이용약관과 개인정보 처리방침은 각 문서로 가는 링크다", () => {
-    vi.mocked(getStudyDays).mockReturnValue(new Promise(() => {}));
     renderScreen();
     expect(screen.getByText(/로그인하면 만 14세 이상임을 확인하고/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "이용약관" })).toHaveAttribute("href", "/terms");
@@ -115,7 +106,6 @@ describe("그룹 로그인 화면", () => {
   });
 
   it("동의 문구는 화면 폭과 상관없이 14세 확인 다음 줄에서 약관 동의가 시작된다", () => {
-    vi.mocked(getStudyDays).mockReturnValue(new Promise(() => {}));
     renderScreen();
     const consent = screen.getByText(/로그인하면 만 14세 이상임을 확인하고/);
     expect(consent.textContent?.split("\n")).toEqual([
@@ -124,62 +114,43 @@ describe("그룹 로그인 화면", () => {
     ]);
   });
 
-  it("공부한 날이 있으면 기록 이어가기 안내를 보인다", async () => {
-    vi.mocked(getStudyDays).mockResolvedValue({ totalDays: 3 });
+  it("기록 이어가기 안내를 보이지 않는다", () => {
     renderScreen();
-    expect(await screen.findByText(CARRY_OVER)).toBeInTheDocument();
     expect(
-      screen.getByText(
-        "이미 쓰던 계정으로 로그인하면 기록이 합쳐져요. 합쳐진 기록은 되돌릴 수 없어요",
-      ),
-    ).toBeInTheDocument();
-  });
-
-  it("공부한 날이 없으면 기록 이어가기 안내를 보이지 않는다", async () => {
-    vi.mocked(getStudyDays).mockResolvedValue({ totalDays: 0 });
-    renderScreen();
-    await waitFor(() => expect(getStudyDays).toHaveBeenCalled());
-    expect(screen.queryByText(CARRY_OVER)).not.toBeInTheDocument();
-  });
-
-  it("공부한 날을 받지 못하면 기록 이어가기 안내를 보이지 않는다", async () => {
-    vi.mocked(getStudyDays).mockRejectedValue(new Error("network"));
-    renderScreen();
-    await waitFor(() => expect(getStudyDays).toHaveBeenCalled());
-    expect(screen.queryByText(CARRY_OVER)).not.toBeInTheDocument();
+      screen.queryByText("지금까지의 기록이 로그인한 계정에 그대로 이어져요"),
+    ).not.toBeInTheDocument();
   });
 
   it("탭 첫 화면에는 뒤로 가기가 없다", () => {
-    vi.mocked(getStudyDays).mockReturnValue(new Promise(() => {}));
     renderScreen();
     expect(screen.queryByRole("button", { name: "뒤로 가기" })).not.toBeInTheDocument();
   });
 
   it("초대 참여처럼 탭 첫 화면이 아니면 뒤로 가기가 있다", () => {
-    vi.mocked(getStudyDays).mockReturnValue(new Promise(() => {}));
     renderScreen({ path: "/social/join?code=K7Q2MX", entry: "invite" });
     expect(screen.getByRole("button", { name: "뒤로 가기" })).toBeInTheDocument();
   });
 
   it("화면이 보이면 들어온 곳을 실어 한 번 알린다", () => {
-    vi.mocked(getStudyDays).mockReturnValue(new Promise(() => {}));
     renderScreen({ path: "/social/groups/11", entry: "group" });
     expect(trackLoginScreenViewed).toHaveBeenCalledTimes(1);
     expect(trackLoginScreenViewed).toHaveBeenCalledWith("group");
   });
 
-  it("가운데에 서비스 로고를 보인다", () => {
-    vi.mocked(getStudyDays).mockReturnValue(new Promise(() => {}));
+  it("서비스 이름을 제목으로 보인다", () => {
     renderScreen();
-    const main = screen.getByRole("main");
-    expect(within(main).getByRole("img", { name: "포커스 메이커스" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "포커스 메이커스" })).toBeInTheDocument();
+  });
+
+  it("마스코트 그림은 스크린 리더에 읽히지 않는다", () => {
+    renderScreen();
+    expect(screen.queryAllByRole("img")).toHaveLength(0);
   });
 });
 
 describe("그룹 로그인 결과", () => {
   /** 앱이 이 결과로 답하는 로그인 요청 */
   function answerWith(result: NativeSocialLoginResult) {
-    vi.mocked(getStudyDays).mockReturnValue(new Promise(() => {}));
     vi.mocked(requestNativeSocialLogin).mockResolvedValue(result);
   }
 
@@ -212,7 +183,6 @@ describe("그룹 로그인 결과", () => {
   });
 
   it("앱이 답하기 전에는 모든 버튼을 막는다", async () => {
-    vi.mocked(getStudyDays).mockReturnValue(new Promise(() => {}));
     vi.mocked(requestNativeSocialLogin).mockReturnValue(new Promise(() => {}));
     renderScreen();
     await press("카카오로 계속하기");
@@ -223,7 +193,6 @@ describe("그룹 로그인 결과", () => {
   });
 
   it("앱이 답하기 전에는 누른 버튼만 진행 중이고 나머지는 막기만 한다", async () => {
-    vi.mocked(getStudyDays).mockReturnValue(new Promise(() => {}));
     vi.mocked(requestNativeSocialLogin).mockReturnValue(new Promise(() => {}));
     renderScreen();
     await press("카카오로 계속하기");
@@ -303,6 +272,34 @@ describe("그룹 로그인 결과", () => {
     });
   });
 
+  it("버튼을 누르면 누른 공급자를 한 번 알린다", async () => {
+    answerWith({ status: "cancelled" });
+    renderScreen();
+    await press("카카오로 계속하기");
+    expect(trackSocialLoginTapped).toHaveBeenCalledTimes(1);
+    expect(trackSocialLoginTapped).toHaveBeenCalledWith({ provider: "KAKAO" });
+  });
+
+  it("로그인 창을 닫으면 취소를 알리고 실패로 세지 않는다", async () => {
+    answerWith({ status: "cancelled" });
+    renderScreen();
+    await press("Apple로 계속하기");
+    await waitFor(() =>
+      expect(trackSocialLoginCancelled).toHaveBeenCalledWith({ provider: "APPLE" }),
+    );
+    expect(trackSocialLoginFailed).not.toHaveBeenCalled();
+  });
+
+  it("앱이 답하기 전에 다시 눌러도 누름은 한 번만 알린다", async () => {
+    vi.mocked(requestNativeSocialLogin).mockReturnValue(new Promise(() => {}));
+    renderScreen();
+    const button = screen.getByRole("button", { name: "Google로 계속하기" });
+    const user = userEvent.setup();
+    await user.click(button);
+    await user.click(button);
+    expect(trackSocialLoginTapped).toHaveBeenCalledTimes(1);
+  });
+
   it("로그인 창을 닫으면 아무것도 하지 않고 버튼을 다시 연다", async () => {
     answerWith({ status: "cancelled" });
     renderScreen();
@@ -354,7 +351,6 @@ describe("그룹 로그인 결과", () => {
   });
 
   it("같은 순간에 두 번 눌러도 앱에 한 번만 요청한다", () => {
-    vi.mocked(getStudyDays).mockReturnValue(new Promise(() => {}));
     vi.mocked(requestNativeSocialLogin).mockReturnValue(new Promise(() => {}));
     renderScreen();
     const button = screen.getByRole("button", { name: "Google로 계속하기" });
@@ -366,7 +362,6 @@ describe("그룹 로그인 결과", () => {
   });
 
   it("성공 응답 전에 게이트가 로그인 화면을 내려도 성공은 한 번 알린다", async () => {
-    vi.mocked(getStudyDays).mockReturnValue(new Promise(() => {}));
     let answer: (result: NativeSocialLoginResult) => void = () => {};
     vi.mocked(requestNativeSocialLogin).mockReturnValue(
       new Promise((resolve) => {
@@ -385,7 +380,6 @@ describe("그룹 로그인 결과", () => {
   });
 
   it("화면을 떠난 뒤 온 실패 응답은 알리지 않는다", async () => {
-    vi.mocked(getStudyDays).mockReturnValue(new Promise(() => {}));
     let answer: (result: NativeSocialLoginResult) => void = () => {};
     vi.mocked(requestNativeSocialLogin).mockReturnValue(
       new Promise((resolve) => {
