@@ -1,1 +1,48 @@
-{}
+{
+  "title": "{{name}}的配件",
+  "mascotStrip": {
+    "label": "選擇吉祥物",
+    "selected": "{{name}}，已選擇的吉祥物",
+    "locked": "{{name}}，尚未解鎖"
+  },
+  "slots": {
+    "label": "配件部位",
+    "head": "頭上",
+    "face": "臉部",
+    "body": "身體"
+  },
+  "preview": "{{name}}預覽",
+  "grid": {
+    "label": "選擇配件",
+    "owned": "已擁有",
+    "wearingLabel": "{{name}}，穿戴中",
+    "ownedLabel": "{{name}}，已擁有",
+    "rewardHours": "{{target}} 小時",
+    "rewardDays": "{{target}} 天",
+    "rewardHoursLabel": "{{name}}，專注 {{target}} 小時的獎勵",
+    "rewardDaysLabel": "{{name}}，連續學習 {{target}} 天的獎勵",
+    "takeOff": "卸下",
+    "takeOffLabel": "卸下{{slot}}配件",
+    "empty": "這個部位還沒有配件"
+  },
+  "action": {
+    "focusHours": "累計專注 {{current}} / {{target}} 小時",
+    "streakDays": "連續學習 {{current}} / {{target}} 天",
+    "progressHours": "專注 {{target}} 小時中的 {{current}} 小時",
+    "progressDays": "{{target}} 天中的 {{current}} 天"
+  },
+  "locked": {
+    "title": {
+      "book": "書本尚未解鎖",
+      "planner": "手帳尚未解鎖",
+      "pencil": "鉛筆尚未解鎖",
+      "stopwatch": "碼錶尚未解鎖",
+      "lamp": "檯燈尚未解鎖",
+      "padlock": "掛鎖尚未解鎖",
+      "camcorder": "攝影機尚未解鎖"
+    },
+    "hint": "再專注 {{remaining}} 就能解鎖。",
+    "progress": "距離{{name}}已完成 {{percent}}%",
+    "collect": "收集吉祥物"
+  }
+}

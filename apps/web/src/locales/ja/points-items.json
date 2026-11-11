@@ -1,1 +1,48 @@
-{}
+{
+  "title": "{{name}}のアイテム",
+  "mascotStrip": {
+    "label": "マスコットを選ぶ",
+    "selected": "{{name}}、選択中のマスコット",
+    "locked": "{{name}}、まだ使えません"
+  },
+  "slots": {
+    "label": "アイテムの部位",
+    "head": "頭の上",
+    "face": "顔",
+    "body": "体"
+  },
+  "preview": "{{name}}のプレビュー",
+  "grid": {
+    "label": "アイテムを選ぶ",
+    "owned": "所持",
+    "wearingLabel": "{{name}}、着用中",
+    "ownedLabel": "{{name}}、所持しています",
+    "rewardHours": "{{target}}時間",
+    "rewardDays": "{{target}}日",
+    "rewardHoursLabel": "{{name}}、集中{{target}}時間の報酬",
+    "rewardDaysLabel": "{{name}}、{{target}}日連続の報酬",
+    "takeOff": "外す",
+    "takeOffLabel": "{{slot}}のアイテムを外す",
+    "empty": "この部位のアイテムはまだありません"
+  },
+  "action": {
+    "focusHours": "累計集中 {{current}} / {{target}}時間",
+    "streakDays": "連続学習 {{current}} / {{target}}日",
+    "progressHours": "集中{{target}}時間中{{current}}時間",
+    "progressDays": "{{target}}日中{{current}}日"
+  },
+  "locked": {
+    "title": {
+      "book": "本はまだ使えません",
+      "planner": "プランナーはまだ使えません",
+      "pencil": "えんぴつはまだ使えません",
+      "stopwatch": "ストップウォッチはまだ使えません",
+      "lamp": "ランプはまだ使えません",
+      "padlock": "南京錠はまだ使えません",
+      "camcorder": "ビデオカメラはまだ使えません"
+    },
+    "hint": "あと集中{{remaining}}で使えるようになります。",
+    "progress": "{{name}}まで{{percent}}%貯まりました",
+    "collect": "マスコットを集める"
+  }
+}
