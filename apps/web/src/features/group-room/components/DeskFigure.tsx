@@ -28,6 +28,7 @@ const SIZE = {
  * 책상에 앉은 사람 그림
  *
  * 나중에 커스텀 캐릭터로 갈아 끼우도록 사람과 책상을 이 부품 하나로 감싼다.
+ * 마스코트를 주면 책상 없이 마스코트와 발밑 그림자만 그린다.
  * 상태는 칸의 이름이나 옆 글자가 알려 주므로 그림은 화면 낭독기에서 뺀다.
  */
 export function DeskFigure({
@@ -41,59 +42,60 @@ export function DeskFigure({
 }) {
   const look = SIZE[size];
   const empty = tone === "empty";
-  const withMascot = mascot !== undefined && !empty;
-  const svg = (
-    <svg
-      viewBox="0 0 64 60"
-      aria-hidden="true"
-      className={withMascot ? "absolute inset-0 size-full" : cn("shrink-0", look.box)}
-    >
-      {!withMascot && (
-        <g
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeWidth={empty ? look.dashed : look.person}
-          strokeDasharray={empty ? "3 3" : undefined}
-          className={PERSON_STROKE[tone]}
-        >
-          <circle cx="32" cy="17" r="7" />
-          <path d="M17 45 V38 C17 33 21 29.5 26 29.5 H38 C43 29.5 47 33 47 38 V45" />
-        </g>
-      )}
+  // 작은 책상에서는 글자가 너무 작아 읽히지 않아 쉼 표시를 그리지 않는다.
+  const restMark = tone === "rest" && size !== "sm" && (
+    <g className="font-bold">
+      <text x="44" y="11.7" fontSize="9" className="fill-state-pause">
+        z
+      </text>
+      <text x="50.3" y="5.5" fontSize="6.8" className="fill-text-disabled">
+        z
+      </text>
+    </g>
+  );
+  if (mascot !== undefined && !empty) {
+    return (
+      <span aria-hidden="true" className={cn("relative block shrink-0", look.box)}>
+        <span
+          data-slot="mascot-shadow"
+          className="absolute bottom-[3%] left-1/2 h-[14%] w-[62%] -translate-x-1/2 rounded-[50%] bg-foreground/15"
+        />
+        {/* 쉬는 중에는 사람 그림의 쉼 색처럼 회색으로 가라앉힌다. */}
+        <MascotImage
+          id={mascot}
+          size={1}
+          decorative
+          className={cn(
+            "absolute bottom-[8%] left-1/2 size-[86%]! -translate-x-1/2",
+            tone === "rest" && "opacity-50 grayscale",
+          )}
+        />
+        {restMark && (
+          <svg viewBox="0 0 64 60" className="absolute inset-0 size-full">
+            {restMark}
+          </svg>
+        )}
+      </span>
+    );
+  }
+  return (
+    <svg viewBox="0 0 64 60" aria-hidden="true" className={cn("shrink-0", look.box)}>
+      <g
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={empty ? look.dashed : look.person}
+        strokeDasharray={empty ? "3 3" : undefined}
+        className={PERSON_STROKE[tone]}
+      >
+        <circle cx="32" cy="17" r="7" />
+        <path d="M17 45 V38 C17 33 21 29.5 26 29.5 H38 C43 29.5 47 33 47 38 V45" />
+      </g>
       <g fill="none" strokeLinecap="round" className="stroke-border-strong">
         <path d="M6 46 H58" strokeWidth={look.top} />
         <path d="M11 47 V58 M53 47 V58" strokeWidth={look.legs} />
       </g>
-      {/* 작은 책상에서는 글자가 너무 작아 읽히지 않아 쉼 표시를 그리지 않는다. */}
-      {tone === "rest" && size !== "sm" && (
-        <g className="font-bold">
-          <text x="44" y="11.7" fontSize="9" className="fill-state-pause">
-            z
-          </text>
-          <text x="50.3" y="5.5" fontSize="6.8" className="fill-text-disabled">
-            z
-          </text>
-        </g>
-      )}
+      {restMark}
     </svg>
-  );
-  if (!withMascot) {
-    return svg;
-  }
-  return (
-    <span aria-hidden="true" className={cn("relative block shrink-0", look.box)}>
-      {/* 책상 윗면(그림 높이의 77%) 위에 앉히고, 쉬는 중에는 사람 그림의 쉼 색처럼 회색으로 가라앉힌다. */}
-      <MascotImage
-        id={mascot}
-        size={1}
-        decorative
-        className={cn(
-          "absolute bottom-[23%] left-1/2 size-[68%]! -translate-x-1/2",
-          tone === "rest" && "opacity-50 grayscale",
-        )}
-      />
-      {svg}
-    </span>
   );
 }

@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import i18n from "@/lib/i18n";
 import { showToast } from "@/lib/toast";
 
 import { buildPointsFixture } from "../../fixtures";
@@ -13,8 +14,9 @@ vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
 
 const fixture = buildPointsFixture("default");
 
-afterEach(() => {
+afterEach(async () => {
   vi.mocked(showToast).mockClear();
+  await i18n.changeLanguage("ko");
 });
 
 function setup(
@@ -167,5 +169,15 @@ describe("EarnTab 실패", () => {
     await userEvent.click(screen.getByRole("button", { name }));
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("잠시 후 다시 시도해 주세요"));
     expect(screen.getByRole("button", { name })).toBeEnabled();
+  });
+});
+
+describe("EarnTab 보너스 표기", () => {
+  it.each(["ko", "en", "ja", "zh-Hant"])("%s에서 보너스 부호가 한 번만 붙는다", async (lng) => {
+    await i18n.changeLanguage(lng);
+    setup();
+    const bonus = screen.getByText(/100P/, { selector: "span.text-feedback-success" });
+    expect(bonus.textContent).toContain("+100P");
+    expect(bonus.textContent).not.toContain("++");
   });
 });

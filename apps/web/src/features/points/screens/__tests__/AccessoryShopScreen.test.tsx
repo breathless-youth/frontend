@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { showToast } from "@/lib/toast";
 import { PointsAccessoriesPage } from "@/routes/PointsAccessoriesPage";
 
+import { AccessoryGrid } from "../../components/items/AccessoryGrid";
+import { buildPointsFixture } from "../../fixtures";
 import { createFakePointsGateway } from "../../gateway/createFakePointsGateway";
 import type { PointsGateway } from "../../gateway/PointsGateway";
 import { PointsGatewayProvider } from "../../gateway/PointsGatewayContext";
@@ -100,5 +102,30 @@ describe("AccessoryShopScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "착용하기" }));
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("잠시 후 다시 시도해 주세요"));
     expect(screen.getByRole("button", { name: "착용하기" })).toBeEnabled();
+  });
+});
+
+describe("AccessoryGrid", () => {
+  const [first, second] = buildPointsFixture("default").items.filter(
+    (item) => item.kind === "accessory",
+  );
+
+  it("그림이 있으면 칸에 그리고 없으면 그리지 않는다", () => {
+    const { container } = render(
+      <AccessoryGrid
+        items={[
+          { ...first, imageUrl: "/crown.png" },
+          { ...second, imageUrl: null },
+        ]}
+        slot="head"
+        pickedId={undefined}
+        onPick={() => {}}
+        onTakeOff={() => {}}
+      />,
+    );
+    const images = container.querySelectorAll("img");
+    expect(images).toHaveLength(1);
+    expect(images[0]).toHaveAttribute("src", "/crown.png");
+    expect(images[0]).toHaveAttribute("alt", "");
   });
 });

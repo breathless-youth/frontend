@@ -24,7 +24,7 @@ const KIND_PATH: Record<ShopItemKind, string> = {
 };
 
 const TAB_TRIGGER_CLASS =
-  "mb-0 h-10 min-h-10 flex-1 justify-center rounded-[12px] border-b-0 text-sm font-bold text-muted-foreground data-[state=active]:bg-muted data-[state=active]:text-foreground data-[state=active]:shadow-sb-card";
+  "mb-0 h-11 min-h-11 flex-1 justify-center rounded-[12px] border-b-0 text-sm font-bold text-muted-foreground data-[state=active]:bg-muted data-[state=active]:text-foreground data-[state=active]:shadow-sb-card";
 
 export function PointsPage() {
   return (

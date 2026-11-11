@@ -86,6 +86,13 @@ describe("PointsPage", () => {
     expect(await screen.findByText("1,240P")).toBeInTheDocument();
   });
 
+  it("탭 버튼은 손가락으로 누르기 넉넉한 높이다", async () => {
+    renderAt("/points?userId=7");
+    for (const tab of await screen.findAllByRole("tab")) {
+      expect(tab).toHaveClass("min-h-11");
+    }
+  });
+
   it("?tab=earn이면 포인트 받기 탭을 고른다", async () => {
     renderAt("/points?userId=7&tab=earn");
     expect(await screen.findByRole("tab", { name: "포인트 받기" })).toHaveAttribute(

@@ -11,6 +11,7 @@ import type { AccessorySlot, ShopItem } from "../../types";
  *
  * 칸을 누르면 미리 보기만 바뀌고, 사고 입는 일은 아래 버튼이 한다.
  * 마지막 `벗기` 칸은 그 부위에 입은 소품을 벗긴다.
+ * 그림이 없는 상품은 이름과 가격만 두어 칸 높이는 그대로다.
  */
 export function AccessoryGrid({
   items,
@@ -42,6 +43,15 @@ export function AccessoryGrid({
             onClick={() => onPick(item.id)}
             className={cn(cell, picked ? "border-2 border-primary" : "border border-border")}
           >
+            {item.imageUrl !== null && (
+              <img
+                src={item.imageUrl}
+                alt=""
+                aria-hidden="true"
+                draggable={false}
+                className="size-10 object-contain"
+              />
+            )}
             <span className="text-[10px] break-keep text-muted-foreground">{item.name}</span>
             <span className={cn("text-[11px] font-bold", sub.tone)}>{sub.text}</span>
           </button>
