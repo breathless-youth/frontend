@@ -14,7 +14,7 @@ describe("toDownloadPageHtml", () => {
     const html = toDownloadPageHtml(indexHtml);
 
     expect(html).toContain(
-      '<meta property="og:image" content="https://web.focusmakers.app/og-timelapse.png" />',
+      '<meta property="og:image" content="https://web.focusmakers.app/og-timelapse.png?v=2" />',
     );
     expect(html).toContain(
       '<meta property="og:url" content="https://web.focusmakers.app/download" />',
