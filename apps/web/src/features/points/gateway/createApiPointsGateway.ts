@@ -135,7 +135,7 @@ export function createApiPointsGateway(): PointsGateway {
         popular: false,
       }));
     },
-    charge: async (productId) => {
+    charge: async (productId, onPaid) => {
       const [{ items }, before] = await Promise.all([getPointProducts(), getPointsBalance()]);
       const product = items.find((item) => item.storeProductId === productId);
       if (product === undefined) {
@@ -145,15 +145,20 @@ export function createApiPointsGateway(): PointsGateway {
       if (status !== "completed") {
         return { status };
       }
-      let balance = before.balance;
+      onPaid?.();
       for (let attempt = 0; attempt < CHARGE_SETTLE_TRIES; attempt += 1) {
-        balance = (await getPointsBalance()).balance;
+        const { balance } = await getPointsBalance();
         if (balance > before.balance) {
-          break;
+          return {
+            status: "completed",
+            granted: product.points,
+            bonus: product.bonusPoints,
+            balance,
+          };
         }
         await wait(CHARGE_SETTLE_INTERVAL_MS);
       }
-      return { status: "completed", granted: product.points, bonus: product.bonusPoints, balance };
+      return { status: "failed" };
     },
   };
 }

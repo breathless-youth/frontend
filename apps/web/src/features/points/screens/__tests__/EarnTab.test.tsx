@@ -25,7 +25,7 @@ function setup(
     inApp?: boolean;
     onClaim?: () => Promise<ClaimResult>;
     onWatchAd?: () => Promise<AdResult>;
-    onCharge?: (id: string) => Promise<ChargeResult>;
+    onCharge?: (id: string, onPaid?: () => void) => Promise<ChargeResult>;
   } = {},
 ) {
   const onClaim = over.onClaim ?? vi.fn(async () => ({ granted: true, points: 60, balance: 1300 }));
@@ -192,16 +192,75 @@ describe("EarnTab 광고와 충전", () => {
     },
   );
 
-  it("다시 시도는 같은 묶음을 다시 결제한다", async () => {
+  it("보너스가 없는 묶음의 완료 창에는 보너스 줄이 없고 있는 묶음에는 있다", async () => {
     const onCharge = vi
       .fn<(id: string) => Promise<ChargeResult>>()
+      .mockResolvedValueOnce({ status: "completed", granted: 500, bonus: 0, balance: 1740 })
+      .mockResolvedValueOnce({ status: "completed", granted: 500, bonus: 50, balance: 2290 });
+    setup({ onCharge });
+    await userEvent.click(screen.getByRole("button", { name: /500P 충전/ }));
+    await screen.findByText("충전 완료");
+    expect(screen.queryByText("보너스")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "확인" }));
+    await userEvent.click(screen.getByRole("button", { name: /500P 충전/ }));
+    expect(await screen.findByText("보너스")).toBeInTheDocument();
+    expect(screen.getByText("+50P")).toBeInTheDocument();
+  });
+
+  it("결제가 끝나면 충전 중 창을 띄우고 포인트가 들어오면 완료 창으로 바꾼다", async () => {
+    let settle: (result: ChargeResult) => void = () => {};
+    setup({
+      onCharge: (_id, onPaid) => {
+        onPaid?.();
+        return new Promise<ChargeResult>((resolve) => (settle = resolve));
+      },
+    });
+    await userEvent.click(screen.getByRole("button", { name: /500P 충전/ }));
+    expect(await screen.findByText("포인트를 충전하고 있어요")).toBeInTheDocument();
+    expect(screen.queryByText("충전 완료")).not.toBeInTheDocument();
+
+    settle({ status: "completed", granted: 500, bonus: 0, balance: 1740 });
+    expect(await screen.findByText("충전 완료")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByText("포인트를 충전하고 있어요")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("충전 중 창에서 포인트가 끝내 들어오지 않으면 실패 창으로 바꾼다", async () => {
+    let settle: (result: ChargeResult) => void = () => {};
+    setup({
+      onCharge: (_id, onPaid) => {
+        onPaid?.();
+        return new Promise<ChargeResult>((resolve) => (settle = resolve));
+      },
+    });
+    await userEvent.click(screen.getByRole("button", { name: /500P 충전/ }));
+    await screen.findByText("포인트를 충전하고 있어요");
+
+    settle({ status: "failed" });
+    expect(await screen.findByText("결제를 완료하지 못했어요")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.queryByText("포인트를 충전하고 있어요")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("결제 창을 닫기 전에는 충전 중 창을 띄우지 않는다", async () => {
+    setup({ onCharge: () => new Promise<ChargeResult>(() => {}) });
+    await userEvent.click(screen.getByRole("button", { name: /500P 충전/ }));
+    expect(screen.queryByText("포인트를 충전하고 있어요")).not.toBeInTheDocument();
+  });
+
+  it("다시 시도는 같은 묶음을 다시 결제한다", async () => {
+    const onCharge = vi
+      .fn<(id: string, onPaid?: () => void) => Promise<ChargeResult>>()
       .mockResolvedValueOnce({ status: "failed" })
       .mockResolvedValueOnce({ status: "completed", granted: 500, bonus: 0, balance: 1740 });
     setup({ onCharge });
     await userEvent.click(screen.getByRole("button", { name: /500P 충전/ }));
     await userEvent.click(await screen.findByRole("button", { name: "다시 시도" }));
     await screen.findByText("충전 완료");
-    expect(onCharge).toHaveBeenNthCalledWith(2, "points_500");
+    expect(onCharge).toHaveBeenNthCalledWith(2, "points_500", expect.any(Function));
   });
 
   it("가격 라벨이 없으면 자리 표시를 보인다", () => {

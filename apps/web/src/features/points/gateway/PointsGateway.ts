@@ -54,5 +54,9 @@ export interface PointsGateway {
   claim(kind: ClaimKind): Promise<ClaimResult>;
   watchAd(): Promise<AdResult>;
   getChargePacks(): Promise<ChargePack[]>;
-  charge(productId: string): Promise<ChargeResult>;
+  /**
+   * onPaid는 스토어 결제가 끝나고 서버가 포인트를 넣기를 기다리기 시작할 때 한 번 불린다.
+   * 기다려도 포인트가 들어오지 않으면 실패로 끝난다.
+   */
+  charge(productId: string, onPaid?: () => void): Promise<ChargeResult>;
 }

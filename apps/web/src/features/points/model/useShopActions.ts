@@ -41,8 +41,8 @@ export function useShopActions() {
     if (result.status === "rewarded") settle(result.balance);
     return result;
   };
-  const charge = async (productId: string): Promise<ChargeResult> => {
-    const result = await gateway.charge(productId);
+  const charge = async (productId: string, onPaid?: () => void): Promise<ChargeResult> => {
+    const result = await gateway.charge(productId, onPaid);
     if (result.status === "completed") settle(result.balance);
     return result;
   };

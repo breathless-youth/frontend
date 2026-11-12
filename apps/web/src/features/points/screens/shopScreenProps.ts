@@ -15,5 +15,5 @@ export type ShopScreenProps = {
   onBack: () => void;
   missions: boolean;
   onWatchAd?: () => Promise<AdResult>;
-  onCharge?: (productId: string) => Promise<ChargeResult>;
+  onCharge?: (productId: string, onPaid?: () => void) => Promise<ChargeResult>;
 };

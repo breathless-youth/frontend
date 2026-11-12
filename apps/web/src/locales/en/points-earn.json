@@ -59,6 +59,9 @@
     "close": "OK",
     "shop": "Go to shop"
   },
+  "charging": {
+    "title": "Adding your points"
+  },
   "failed": {
     "title": "We couldn't complete the payment",
     "body": "Check your payment method and try again.",

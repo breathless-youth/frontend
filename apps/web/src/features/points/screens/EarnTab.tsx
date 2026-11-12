@@ -13,6 +13,7 @@ import { MedalCard } from "../components/earn/MedalCard";
 import { openAppStore } from "../components/earn/openAppStore";
 import { OpenInAppCard } from "../components/earn/OpenInAppCard";
 import { packImage } from "../components/earn/packImage";
+import { ChargingDialog } from "../components/earn/ChargingDialog";
 import { PaymentFailedSheet } from "../components/earn/PaymentFailedSheet";
 import { StudyRow } from "../components/earn/StudyRow";
 import { Progress } from "@/components/ui/progress";
@@ -47,7 +48,7 @@ export function EarnTab({
   packs: ChargePack[];
   onClaim: (kind: ClaimKind) => Promise<ClaimResult>;
   onWatchAd?: () => Promise<AdResult>;
-  onCharge?: (productId: string) => Promise<ChargeResult>;
+  onCharge?: (productId: string, onPaid?: () => void) => Promise<ChargeResult>;
   /** 충전을 아직 지원하지 않으면 충전 칸과 앱에서 열기 안내를 그리지 않는다. */
   chargeAvailable?: boolean;
 }) {
@@ -59,6 +60,7 @@ export function EarnTab({
   const [adUnavailable, setAdUnavailable] = useState(false);
   const [done, setDone] = useState<ChargeDone | null>(null);
   const [failedFor, setFailedFor] = useState<string | null>(null);
+  const [charging, setCharging] = useState(false);
   // 같은 요청이 두 번 나가지 않게 처리 중인 일을 ref로도 막는다(상태는 다음 렌더에야 바뀐다).
   const busy = useRef(false);
   const [pending, setPending] = useState(false);
@@ -90,9 +92,17 @@ export function EarnTab({
       if (result.status === "unavailable") setAdUnavailable(true);
     });
 
-  const charge = (handler: (productId: string) => Promise<ChargeResult>, productId: string) =>
+  const charge = (
+    handler: (productId: string, onPaid?: () => void) => Promise<ChargeResult>,
+    productId: string,
+  ) =>
     run(async () => {
-      const result = await handler(productId);
+      let result: ChargeResult;
+      try {
+        result = await handler(productId, () => setCharging(true));
+      } finally {
+        setCharging(false);
+      }
       if (result.status === "completed") {
         setFailedFor(null);
         const index = packs.findIndex((pack) => pack.productId === productId);
@@ -244,6 +254,7 @@ export function EarnTab({
       )}
 
       <AdUnavailableDialog open={adUnavailable} onClose={() => setAdUnavailable(false)} />
+      <ChargingDialog open={charging} />
       <ChargeDoneSheet
         done={done}
         onClose={() => setDone(null)}
