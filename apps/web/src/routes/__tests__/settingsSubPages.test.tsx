@@ -4,7 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { App } from "@/App";
 import { CONTACT_FORM_URL } from "@/features/settings/settingsInfo";
-import { canExitViaHistoryBack, hardReplace } from "@/lib/hardNavigation";
+import { canExitViaHistoryBack, exitToPreviousDocument, hardReplace } from "@/lib/hardNavigation";
+import type * as HardNavigationModule from "@/lib/hardNavigation";
 import { PRIVACY_POLICY, TERMS_OF_SERVICE } from "@/features/settings/legalDocuments";
 import { OPEN_SOURCE_ENTRIES } from "@/features/settings/openSourceLicenses";
 import { enterGlassChrome, resetGlassChrome } from "@/test/nativeControlStub";
@@ -13,11 +14,15 @@ import { resetViewTransitionStub, stubViewTransition } from "@/test/viewTransiti
 // jsdom은 실제 내비게이션을 구현하지 않는다 — 하드 내비게이션은 모듈 단위로 모킹한다
 // (`lib/hardNavigation.ts` 주석, `settingsPage.test.tsx`와 같은 패턴). 판정 순수 함수는
 // 실제 구현을 그대로 쓴다.
-vi.mock("@/lib/hardNavigation", async (importOriginal) => ({
-  ...(await importOriginal<object>()),
-  hardNavigate: vi.fn(),
-  hardReplace: vi.fn(),
-}));
+vi.mock("@/lib/hardNavigation", async (importOriginal) => {
+  const actual = await importOriginal<typeof HardNavigationModule>();
+  return {
+    ...actual,
+    hardNavigate: vi.fn(),
+    hardReplace: vi.fn(),
+    exitToPreviousDocument: vi.fn(actual.exitToPreviousDocument),
+  };
+});
 
 function renderAt(path: string) {
   return render(
@@ -215,12 +220,13 @@ describe("/contact 문서 단위 뒤로 가기", () => {
   });
 
   it("딥링크로 곧장 열렸으면 설정을 **하드 내비게이션**으로 연다(쿼리 승계) — SPA로 가면 이 문서의 'COEP 없음'이 설정 이후까지 승계된다", async () => {
-    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+    // 같은 모듈 안에서 부르는 hardReplace는 모킹으로 가로챌 수 없어 폴백 인자를 확인한다.
+    // 폴백으로 갈지는 위 canExitViaHistoryBack 테스트가 확인한다.
+    vi.mocked(exitToPreviousDocument).mockImplementationOnce(() => {});
 
     renderAt("/contact?userId=7&appVersion=1.4.2");
     fireEvent.click(await screen.findByRole("button", { name: "뒤로 가기" }));
 
-    expect(hardReplace).toHaveBeenCalledWith("/settings?userId=7&appVersion=1.4.2");
-    expect(back).not.toHaveBeenCalled();
+    expect(exitToPreviousDocument).toHaveBeenCalledWith("/settings", "?userId=7&appVersion=1.4.2");
   });
 });

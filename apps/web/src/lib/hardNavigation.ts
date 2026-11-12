@@ -43,3 +43,18 @@ export function canExitViaHistoryBack(
 ): boolean {
   return referrer.startsWith(`${origin}/`) && historyLength > 1;
 }
+
+/**
+ * 문서 단위 라우트에서 이전 문서로 돌아가기
+ *
+ * 같은 출처에서 넘어왔고 뒤로 갈 항목이 있으면 history.back()으로 이전 문서를 되살린다.
+ * 그렇지 않으면 폴백 경로를 하드 내비게이션으로 연다.
+ * SPA로 이동하면 이 문서의 COEP 없음이 다음 화면까지 이어지므로 폴백도 하드 내비게이션이어야 한다.
+ */
+export function exitToPreviousDocument(fallbackPath: string, search: string): void {
+  if (canExitViaHistoryBack(document.referrer, window.location.origin, window.history.length)) {
+    window.history.back();
+    return;
+  }
+  hardReplace(`${fallbackPath}${search}`);
+}
