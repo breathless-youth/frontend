@@ -62,6 +62,12 @@
   "charging": {
     "title": "Adding your points"
   },
+  "late": {
+    "title": "Your points are on the way",
+    "body": "Your payment went through. Check your balance in a moment.",
+    "ok": "OK",
+    "missing": "Points still not showing up?"
+  },
   "failed": {
     "title": "We couldn't complete the payment",
     "body": "Check your payment method and try again.",

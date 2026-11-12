@@ -85,6 +85,8 @@ export function usePurchaseFlow(item: ShopItem | null) {
     }
     if (result.status === "completed") {
       await confirm();
+    } else if (result.status === "late") {
+      showToast(i18n.t("points-earn:late.title"));
     } else {
       showToast(i18n.t("points-earn:failed.title"));
     }

@@ -14,6 +14,7 @@ import { openAppStore } from "../components/earn/openAppStore";
 import { OpenInAppCard } from "../components/earn/OpenInAppCard";
 import { packImage } from "../components/earn/packImage";
 import { ChargingDialog } from "../components/earn/ChargingDialog";
+import { LatePointsDialog } from "../components/earn/LatePointsDialog";
 import { PaymentFailedSheet } from "../components/earn/PaymentFailedSheet";
 import { StudyRow } from "../components/earn/StudyRow";
 import { Progress } from "@/components/ui/progress";
@@ -61,6 +62,7 @@ export function EarnTab({
   const [done, setDone] = useState<ChargeDone | null>(null);
   const [failedFor, setFailedFor] = useState<string | null>(null);
   const [charging, setCharging] = useState(false);
+  const [late, setLate] = useState(false);
   // 같은 요청이 두 번 나가지 않게 처리 중인 일을 ref로도 막는다(상태는 다음 렌더에야 바뀐다).
   const busy = useRef(false);
   const [pending, setPending] = useState(false);
@@ -112,6 +114,8 @@ export function EarnTab({
           balance: result.balance,
           image: packImage(Math.max(index, 0)),
         });
+      } else if (result.status === "late") {
+        setLate(true);
       } else {
         setFailedFor(productId);
       }
@@ -255,6 +259,7 @@ export function EarnTab({
 
       <AdUnavailableDialog open={adUnavailable} onClose={() => setAdUnavailable(false)} />
       <ChargingDialog open={charging} />
+      <LatePointsDialog open={late} onClose={() => setLate(false)} />
       <ChargeDoneSheet
         done={done}
         onClose={() => setDone(null)}

@@ -112,6 +112,8 @@ export type AdResult =
 
 export type ChargeResult =
   | { status: "completed"; granted: number; bonus: number; balance: number }
+  /** 스토어 결제는 끝났는데 기다리는 동안 포인트가 들어오지 않았다. */
+  | { status: "late" }
   | { status: "failed" }
   | { status: "cancelled" };
 

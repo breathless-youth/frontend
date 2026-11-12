@@ -6,6 +6,8 @@ import { pointsKeys } from "@/lib/pointsQueries";
 import { usePointsGateway, usePointsUserId } from "../gateway/PointsGatewayContext";
 import type { AccessorySlot, AdResult, ChargeResult, ClaimKind, MascotId } from "../types";
 
+const LATE_BALANCE_REFETCH_MS = [10_000, 30_000, 60_000, 180_000];
+
 /**
  * 포인트 화면이 경계에 거는 변경과 그 뒤처리
  *
@@ -44,6 +46,14 @@ export function useShopActions() {
   const charge = async (productId: string, onPaid?: () => void): Promise<ChargeResult> => {
     const result = await gateway.charge(productId, onPaid);
     if (result.status === "completed") settle(result.balance);
+    if (result.status === "late") {
+      // 늦게 들어온 포인트가 화면에 보이도록 잔액을 몇 번 더 읽는다.
+      for (const delayMs of LATE_BALANCE_REFETCH_MS) {
+        window.setTimeout(() => {
+          void queryClient.invalidateQueries({ queryKey: pointsKeys.user(userId) });
+        }, delayMs);
+      }
+    }
     return result;
   };
   const equipAccessory = async (mascotId: MascotId, slot: AccessorySlot, itemId: string | null) => {

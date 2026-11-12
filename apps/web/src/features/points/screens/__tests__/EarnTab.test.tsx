@@ -227,7 +227,7 @@ describe("EarnTab 광고와 충전", () => {
     );
   });
 
-  it("충전 중 창에서 포인트가 끝내 들어오지 않으면 실패 창으로 바꾼다", async () => {
+  it("충전 중 창에서 포인트가 끝내 들어오지 않으면 다시 결제하는 길 없이 곧 들어온다고 알린다", async () => {
     let settle: (result: ChargeResult) => void = () => {};
     setup({
       onCharge: (_id, onPaid) => {
@@ -238,11 +238,21 @@ describe("EarnTab 광고와 충전", () => {
     await userEvent.click(screen.getByRole("button", { name: /500P 충전/ }));
     await screen.findByText("포인트를 충전하고 있어요");
 
-    settle({ status: "failed" });
-    expect(await screen.findByText("결제를 완료하지 못했어요")).toBeInTheDocument();
+    settle({ status: "late" });
+    expect(await screen.findByText("포인트가 곧 들어와요")).toBeInTheDocument();
+    expect(screen.getByText("결제는 끝났어요. 잠시 뒤 잔액을 확인해 주세요.")).toBeInTheDocument();
+    expect(screen.queryByText("결제를 완료하지 못했어요")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "다시 시도" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "포인트가 계속 안 들어오나요?" })).toHaveAttribute(
+      "href",
+      "/contact",
+    );
     await waitFor(() =>
       expect(screen.queryByText("포인트를 충전하고 있어요")).not.toBeInTheDocument(),
     );
+
+    await userEvent.click(screen.getByRole("button", { name: "확인" }));
+    await waitFor(() => expect(screen.queryByText("포인트가 곧 들어와요")).not.toBeInTheDocument());
   });
 
   it("결제 창을 닫기 전에는 충전 중 창을 띄우지 않는다", async () => {

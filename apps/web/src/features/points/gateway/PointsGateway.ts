@@ -56,7 +56,7 @@ export interface PointsGateway {
   getChargePacks(): Promise<ChargePack[]>;
   /**
    * onPaid는 스토어 결제가 끝나고 서버가 포인트를 넣기를 기다리기 시작할 때 한 번 불린다.
-   * 기다려도 포인트가 들어오지 않으면 실패로 끝난다.
+   * 기다려도 포인트가 들어오지 않으면 `late`로 끝난다. 돈은 이미 나갔으므로 실패와 구분한다.
    */
   charge(productId: string, onPaid?: () => void): Promise<ChargeResult>;
 }

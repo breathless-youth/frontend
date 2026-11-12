@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 import { formatPoints } from "../../model/formatPoints";
+import { useCountUp } from "../../model/useCountUp";
 import { CoinIcon } from "./CoinIcon";
 
 const SIZES = {
@@ -18,6 +19,7 @@ const UNKNOWN = "–P";
  * 홈 머리말은 작게, 그 밖의 화면 오른쪽 위는 한 단계 크게 그린다.
  * 잔액을 받기 전이나 받지 못했을 때는 숫자 자리에 줄표를 둔다.
  * 누를 수 있으면 알약은 작게 두고 누르는 자리만 44px로 넓힌다.
+ * 잔액이 늘면 숫자를 세어 올리고, 읽어 주는 이름에는 처음부터 새 잔액을 쓴다.
  */
 export function PointsBalancePill({
   size,
@@ -29,8 +31,12 @@ export function PointsBalancePill({
   onPress?: () => void;
 }) {
   const { t } = useTranslation("points");
-  const text = balance === undefined ? UNKNOWN : formatPoints(balance);
-  const label = balance === undefined ? t("balance.unknown") : t("balance.label", { amount: text });
+  const shown = useCountUp(balance);
+  const text = shown === undefined ? UNKNOWN : formatPoints(shown);
+  const label =
+    balance === undefined
+      ? t("balance.unknown")
+      : t("balance.label", { amount: formatPoints(balance) });
   const className = cn(
     "relative inline-flex shrink-0 items-center rounded-full bg-muted font-bold text-foreground tabular-nums shadow-sb-card",
     SIZES[size].box,

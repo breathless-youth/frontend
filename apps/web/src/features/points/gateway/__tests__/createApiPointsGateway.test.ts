@@ -459,7 +459,7 @@ describe("포인트 충전", () => {
     expect(onPaid).toHaveBeenCalledTimes(1);
   });
 
-  it("결제가 끝났는데 1분을 기다려도 잔액이 늘지 않으면 실패로 끝난다", async () => {
+  it("결제가 끝났는데 1분을 기다려도 잔액이 늘지 않으면 늦는 것으로 끝난다", async () => {
     vi.useFakeTimers();
     const { gateway } = gatewayWith({});
     fetchMock.mockImplementation(async (input) =>
@@ -470,7 +470,7 @@ describe("포인트 충전", () => {
     const pending = gateway.charge("points_1000", onPaid);
     await vi.advanceTimersByTimeAsync(61_000);
 
-    expect(await pending).toEqual({ status: "failed" });
+    expect(await pending).toEqual({ status: "late" });
     expect(onPaid).toHaveBeenCalledTimes(1);
   });
 

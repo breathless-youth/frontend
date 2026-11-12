@@ -173,7 +173,7 @@ export function createApiPointsGateway(): PointsGateway {
         }
         await wait(CHARGE_SETTLE_INTERVAL_MS);
       }
-      return { status: "failed" };
+      return { status: "late" };
     },
   };
 }
