@@ -13,6 +13,7 @@ import { useOpenPlanner } from "@/features/planner/useOpenPlanner";
 import { recentTimelapsesQuery } from "@/features/timelapse/timelapseQueries";
 import { getTimelapseStore } from "@/features/timelapse/timelapseStore";
 import { setHasTimelapseUserProperty } from "@/lib/amplitude";
+import { hardNavigate } from "@/lib/hardNavigation";
 import { hasTokenSource } from "@/lib/userId";
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
 import { slideNavigate } from "@/lib/pageTransition";
@@ -261,6 +262,8 @@ export function HomeV3Entry({
           openTimelapses: () => openPage("/timelapses"),
           openTimelapseSettings: () => openPage("/timelapse-settings"),
           openAppLock: () => openPage("/app-lock-settings"),
+          // 상담 화면은 COEP 예외 문서라 SPA 이동이 아니라 문서 이동으로 연다.
+          openContact: () => hardNavigate(`/contact/chat${location.search}`),
         }}
       />
       {editing && (

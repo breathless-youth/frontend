@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { HomeContactBubble } from "./HomeContactBubble";
 import { HomeDesignIcon } from "./HomeDesignIcon";
 import { HomeInlineError } from "./HomeInlineError";
 import { HomeProgressBand } from "./HomeProgressBand";
@@ -80,6 +81,7 @@ export function HomeV3Content({
         appLockLabel={appLockLabel}
         actions={actions}
       />
+      <HomeContactBubble onOpen={actions.openContact} />
     </div>
   );
 }

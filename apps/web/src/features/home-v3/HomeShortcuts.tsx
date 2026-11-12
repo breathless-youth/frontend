@@ -3,17 +3,9 @@ import notebook from "@/assets/home-v3/mascot-notebook.png";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { trackHomeShortcutTapped, type HomeShortcutTarget } from "@/lib/amplitude";
 import { HomeDesignIcon } from "./HomeDesignIcon";
 import type { HomeV3ContentProps } from "./homeV3ContentTypes";
-
-/** 바로가기를 누르면 화면을 열기 전에 어느 바로가기였는지 남긴다. */
-function tapped(target: HomeShortcutTarget, open: () => void) {
-  return () => {
-    trackHomeShortcutTapped(target);
-    open();
-  };
-}
+import { tapped } from "./homeShortcutTap";
 
 function ShortcutSummary({ title, detail }: { title: string; detail: string }) {
   return (
