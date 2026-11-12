@@ -1125,6 +1125,33 @@ export function trackHomeSubjectSelected(hasSubject: boolean) {
   track("home_subject_selected", { has_subject: hasSubject });
 }
 
+/**
+ * 홈 시작 미션 단계 완료
+ *
+ * 1단계는 플래너에서 과목 만들기, 2단계는 공부 5분 완료다.
+ * 서버가 완료를 저장한 뒤에만 보낸다.
+ */
+export function trackHomeMissionStepCompleted(step: 1 | 2) {
+  if (!initialized) return;
+  track("home_mission_step_completed", { step });
+}
+
+/**
+ * 홈 오늘 목표 저장
+ *
+ * 날짜 목표가 저장된 뒤에만 보내고, 기본 목표 저장이 실패하면 `as_default`를 false로 보낸다.
+ */
+export function trackHomeGoalSaved(input: {
+  readonly seconds: number;
+  readonly asDefault: boolean;
+}) {
+  if (!initialized) return;
+  track("home_goal_saved", {
+    goal_min: Math.round(input.seconds / 60),
+    as_default: input.asDefault,
+  });
+}
+
 /** 온보딩 단계. 순서대로 자동 타이머, 자동 기록, 그룹 스터디, 맞춤 알림, 준비 완료다. */
 export type OnboardingStep =
   "auto_timer" | "auto_record" | "group_study" | "notification" | "ready";

@@ -2472,6 +2472,35 @@ describe("순공 1분 달성 (focus_milestone_reached)", () => {
   });
 });
 
+describe("홈 시작 미션·목표", () => {
+  it("미션 단계와 목표 분·기본 목표 여부만 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackHomeMissionStepCompleted(1);
+    m.trackHomeMissionStepCompleted(2);
+    m.trackHomeGoalSaved({ seconds: 5400, asDefault: true });
+    m.trackHomeGoalSaved({ seconds: 0, asDefault: false });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["home_mission_step_completed", { step: 1 }],
+      ["home_mission_step_completed", { step: 2 }],
+      ["home_goal_saved", { goal_min: 90, as_default: true }],
+      ["home_goal_saved", { goal_min: 0, as_default: false }],
+    ]);
+  });
+
+  it("초기화 전에는 보내지 않는다", async () => {
+    const m = await loadModule();
+
+    m.trackHomeMissionStepCompleted(1);
+    m.trackHomeGoalSaved({ seconds: 5400, asDefault: true });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+});
+
 describe("홈 바로가기·과목 선택", () => {
   it("바로가기 대상과 과목 선택 여부만 보낸다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");

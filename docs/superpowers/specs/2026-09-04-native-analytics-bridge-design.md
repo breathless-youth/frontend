@@ -127,6 +127,10 @@ Amplitude 추적 계획에 새 이벤트와 속성을 등록했다. 실제 수�
 
 홈 과목 목록에서 과목이나 `과목 없음`을 고르면 `home_subject_selected {has_subject}`를 보낸다. 과목 이름은 사용자가 직접 지은 글이라 보내지 않는다. `과목 추가`를 누른 것은 과목 선택으로 세지 않는다.
 
+홈 시작 미션의 단계 완료를 서버가 저장하면 `home_mission_step_completed {step}`을 보낸다. 1단계는 플래너에서 과목 만들기, 2단계는 공부 5분 완료다. 서버가 거절하면 보내지 않는다.
+
+홈 목표 시트에서 날짜 목표가 저장되면 `home_goal_saved {goal_min, as_default}`를 보낸다. 기본 목표 저장만 실패하면 `as_default`를 false로 보내고, 기본 목표만 다시 저장할 때는 다시 보내지 않는다. 날짜 목표 저장이 실패하면 보내지 않는다.
+
 ## 테스트
 
 - `apps/mobile/lib/__tests__/nativeAnalytics.test.ts`: 즉시 전달, 큐 보관·순서, 이중 전달 없음, 활성 sink 교대, 상한.
