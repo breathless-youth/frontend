@@ -4,6 +4,7 @@ import type {
   DecorationsResponse,
   MascotsResponse,
   ClaimResponse,
+  PointProductsResponse,
   PointsBalanceResponse,
   PointsEarnResponse,
   PointsHistoryResponse,
@@ -84,6 +85,10 @@ export function getPointsHistory(params: {
 
 export function getPointsBalance(): Promise<PointsBalanceResponse> {
   return request("/api/points", "points", "points balance fetch failed");
+}
+
+export function getPointProducts(): Promise<PointProductsResponse> {
+  return request("/api/points/products", "points", "point products fetch failed");
 }
 
 export function getStudyReward(startedAt: string): Promise<StudyRewardResponse> {

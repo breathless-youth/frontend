@@ -1,6 +1,7 @@
 import { ApiError } from "@/lib/api";
 import {
   getMascots,
+  getPointProducts,
   getPointsEarn,
   getPointsBalance,
   getPointsHistory,
@@ -15,6 +16,12 @@ import {
 } from "@/lib/pointsApi";
 
 import {
+  isNativePointsChargeAvailable,
+  requestNativePointsPrices,
+  requestNativePointsPurchase,
+} from "@/lib/nativePointsCharge";
+
+import {
   toMascotCode,
   toClaimResult,
   toEarnToday,
@@ -27,12 +34,13 @@ import {
 import type { ClaimKind, HistoryFilter } from "../types";
 import type { PointsCapabilities, PointsGateway } from "./PointsGateway";
 
-const STAGE_TWO_CAPABILITIES: PointsCapabilities = {
-  earn: true,
-  history: true,
-  charge: false,
-  ads: false,
-};
+/** 결제 알림이 서버에 닿기까지 보통 몇 초, 길면 1분쯤 걸려서 그동안 잔액을 다시 읽는다. */
+const CHARGE_SETTLE_INTERVAL_MS = 2_000;
+const CHARGE_SETTLE_TRIES = 30;
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
 
 const HISTORY_TYPE = { all: "ALL", earned: "EARNED", spent: "SPENT" } as const satisfies Record<
   HistoryFilter,
@@ -59,13 +67,20 @@ function toServerItemId(itemId: string | null): number | null {
 /**
  * 포인트 API로 도는 경계
  *
- * 받기는 연결했고 충전·광고 API는 아직 없어 그 기능은 capabilities에서 끄고 메서드는 거절한다.
+ * 충전은 결제를 맡을 수 있는 앱 안에서만 켜고, 광고는 아직 연결 전이라 capabilities에서 끄고 메서드는 거절한다.
+ * 충전 포인트는 서버가 결제 알림을 받아 주므로 결제가 끝나면 잔액이 늘 때까지 다시 읽는다.
  * 같은 구매가 두 번 와도 서버가 한 번만 처리하므로 따로 중복 방지 키를 보내지 않는다.
  * 상점 화면은 상품과 마스코트를 함께 쓰므로 두 조회를 묶어 한 번에 넘긴다.
  */
 export function createApiPointsGateway(): PointsGateway {
+  const capabilities: PointsCapabilities = {
+    earn: true,
+    history: true,
+    charge: isNativePointsChargeAvailable(),
+    ads: false,
+  };
   return {
-    capabilities: STAGE_TWO_CAPABILITIES,
+    capabilities,
     getBalance: async () => (await getPointsBalance()).balance,
     getShop: async () => {
       const [items, mascots] = await Promise.all([getShopItems(), getMascots()]);
@@ -108,7 +123,37 @@ export function createApiPointsGateway(): PointsGateway {
       return { ...result, balance };
     },
     watchAd: () => unsupported("ads"),
-    getChargePacks: () => unsupported("charge packs"),
-    charge: () => unsupported("charge"),
+    getChargePacks: async () => {
+      const { items } = await getPointProducts();
+      const prices = await requestNativePointsPrices(items.map((item) => item.storeProductId));
+      const priceById = new Map(prices.map((price) => [price.storeProductId, price.priceLabel]));
+      return items.map((item) => ({
+        productId: item.storeProductId,
+        points: item.points,
+        bonus: item.bonusPoints,
+        priceLabel: priceById.get(item.storeProductId) ?? null,
+        popular: false,
+      }));
+    },
+    charge: async (productId) => {
+      const [{ items }, before] = await Promise.all([getPointProducts(), getPointsBalance()]);
+      const product = items.find((item) => item.storeProductId === productId);
+      if (product === undefined) {
+        return { status: "failed" };
+      }
+      const status = await requestNativePointsPurchase(productId);
+      if (status !== "completed") {
+        return { status };
+      }
+      let balance = before.balance;
+      for (let attempt = 0; attempt < CHARGE_SETTLE_TRIES; attempt += 1) {
+        balance = (await getPointsBalance()).balance;
+        if (balance > before.balance) {
+          break;
+        }
+        await wait(CHARGE_SETTLE_INTERVAL_MS);
+      }
+      return { status: "completed", granted: product.points, bonus: product.bonusPoints, balance };
+    },
   };
 }

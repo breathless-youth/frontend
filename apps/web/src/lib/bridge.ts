@@ -13,6 +13,7 @@ import {
   INSTALL_REFERRER_MAX_LENGTH,
   NATIVE_CONTROL_ID_PATTERN,
   DELETE_ACCOUNT_FAILURE_CODES,
+  POINTS_CHARGE_PURCHASE_STATUSES,
   SOCIAL_LOGIN_FAILURE_CODES,
   VIDEO_RESULT_STATUSES,
 } from "@focusmakers/types";
@@ -358,6 +359,31 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
         atMs: record.atMs,
       };
     }
+  }
+  if (
+    record.type === "points-charge-prices-result" &&
+    typeof record.id === "string" &&
+    record.id !== "" &&
+    Array.isArray(record.prices)
+  ) {
+    const prices = (record.prices as unknown[]).flatMap((entry) => {
+      const price = entry as { storeProductId?: unknown; priceLabel?: unknown } | null;
+      return typeof price?.storeProductId === "string" && typeof price.priceLabel === "string"
+        ? [{ storeProductId: price.storeProductId, priceLabel: price.priceLabel }]
+        : [];
+    });
+    return { type: "points-charge-prices-result", id: record.id, prices, atMs: record.atMs };
+  }
+  if (
+    record.type === "points-charge-purchase-result" &&
+    typeof record.id === "string" &&
+    record.id !== ""
+  ) {
+    // 앱이 새 상태를 더해도 응답을 버리면 기다리는 쪽이 끝나지 않으므로 모르는 상태는 실패로 받는다.
+    const status = (POINTS_CHARGE_PURCHASE_STATUSES as readonly unknown[]).includes(record.status)
+      ? (record.status as (typeof POINTS_CHARGE_PURCHASE_STATUSES)[number])
+      : "failed";
+    return { type: "points-charge-purchase-result", id: record.id, status, atMs: record.atMs };
   }
   if (record.type === "logout-result" && typeof record.id === "string" && record.id !== "") {
     return { type: "logout-result", id: record.id, atMs: record.atMs };

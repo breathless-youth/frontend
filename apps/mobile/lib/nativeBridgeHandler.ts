@@ -34,6 +34,7 @@ import type * as PushTokenRegistration from "./pushTokenRegistration";
 import { detachAllNativeAnalyticsSinks, trackNativeEvent } from "./nativeAnalytics";
 import { emitSessionClosed } from "./sessionClosed";
 import { runAfterNextSessionScreen } from "./sessionPresence";
+import { pointsChargePrices, purchasePointsCharge } from "./pointsCharge";
 import { deleteAccountWithReauth, socialLogin } from "./socialLogin";
 import { setTabBarState } from "./tabBarVisibility";
 import { appendVideoChunk, saveVideo, shareVideo } from "./videoTransfer";
@@ -418,6 +419,16 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       // 성공이면 새 토큰의 `auth-token`이 저장 구독으로 먼저 나간 뒤에 결과가 나간다.
       void socialLogin(message.provider).then((result) => {
         reply({ type: "social-login-result", id: message.id, ...result, atMs: Date.now() });
+      });
+      break;
+    case "points-charge-prices":
+      void pointsChargePrices(message.storeProductIds).then((prices) => {
+        reply({ type: "points-charge-prices-result", id: message.id, prices, atMs: Date.now() });
+      });
+      break;
+    case "points-charge-purchase":
+      void purchasePointsCharge(message.storeProductId).then((status) => {
+        reply({ type: "points-charge-purchase-result", id: message.id, status, atMs: Date.now() });
       });
       break;
     case "logout":

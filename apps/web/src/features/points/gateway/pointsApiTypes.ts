@@ -8,6 +8,16 @@
 
 export type PointsBalanceResponse = { balance: number };
 
+export type PointProductResponse = {
+  id: number;
+  storeProductId: string;
+  points: number;
+  bonusPoints: number;
+  totalPoints: number;
+};
+
+export type PointProductsResponse = { items: PointProductResponse[] };
+
 export type StudyRewardResponse = {
   earnedPoints: number;
   statDate: string;

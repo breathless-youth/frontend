@@ -48,6 +48,13 @@ import { inviteCodeFrom } from "./sessionInvite";
 const NATIVE_MESSAGE_ENTRY = "__focusonNativeMessage";
 
 /** `unknown` 값이 계약 목록 안의 리터럴인지 좁힌다. */
+const MAX_CHARGE_PRODUCTS = 20;
+
+// 스토어 상품 ID는 영문·숫자·점·밑줄·하이픈만 쓴다. 그 밖의 문자열은 결제 SDK에 넘기지 않는다.
+function isStoreProductId(value: unknown): value is string {
+  return typeof value === "string" && /^[A-Za-z0-9._-]{1,100}$/.test(value);
+}
+
 function isOneOf<const T extends readonly string[]>(list: T, value: unknown): value is T[number] {
   return typeof value === "string" && (list as readonly string[]).includes(value);
 }
@@ -194,6 +201,36 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         return null;
       }
       return { type: "social-login", id: record.id, provider: record.provider, atMs: record.atMs };
+    case "points-charge-prices":
+      if (
+        typeof record.id !== "string" ||
+        record.id === "" ||
+        !Array.isArray(record.storeProductIds) ||
+        record.storeProductIds.length > MAX_CHARGE_PRODUCTS ||
+        !record.storeProductIds.every(isStoreProductId)
+      ) {
+        return null;
+      }
+      return {
+        type: "points-charge-prices",
+        id: record.id,
+        storeProductIds: record.storeProductIds,
+        atMs: record.atMs,
+      };
+    case "points-charge-purchase":
+      if (
+        typeof record.id !== "string" ||
+        record.id === "" ||
+        !isStoreProductId(record.storeProductId)
+      ) {
+        return null;
+      }
+      return {
+        type: "points-charge-purchase",
+        id: record.id,
+        storeProductId: record.storeProductId,
+        atMs: record.atMs,
+      };
     case "logout":
     case "delete-account":
       if (

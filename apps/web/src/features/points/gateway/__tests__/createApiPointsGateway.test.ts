@@ -67,7 +67,7 @@ const ITEMS: ShopItemsResponse = {
 };
 
 describe("createApiPointsGateway", () => {
-  it("받기는 켜고 아직 없는 충전·광고는 꺼 두고 부르면 요청 없이 거절한다", async () => {
+  it("받기는 켜고 앱 밖의 충전과 아직 없는 광고는 꺼 두며 광고는 부르면 요청 없이 거절한다", async () => {
     const gateway = createApiPointsGateway();
     expect(gateway.capabilities).toEqual({
       earn: true,
@@ -75,7 +75,6 @@ describe("createApiPointsGateway", () => {
       charge: false,
       ads: false,
     });
-    await expect(gateway.charge("points_500")).rejects.toThrow();
     await expect(gateway.watchAd()).rejects.toThrow();
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -373,5 +372,98 @@ describe("포인트 받기 연결", () => {
   it("네트워크가 끊기면 그대로 거절한다", async () => {
     fetchMock.mockRejectedValue(new TypeError("offline"));
     await expect(createApiPointsGateway().claim("attendance")).rejects.toThrow();
+  });
+});
+
+describe("포인트 충전", () => {
+  const PRODUCTS = {
+    items: [
+      { id: 1, storeProductId: "points_1000", points: 1000, bonusPoints: 100, totalPoints: 1100 },
+      { id: 2, storeProductId: "points_3000", points: 3000, bonusPoints: 400, totalPoints: 3400 },
+    ],
+  };
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.doUnmock("@/lib/nativePointsCharge");
+    vi.resetModules();
+  });
+
+  async function gatewayWith(native: {
+    available?: boolean;
+    prices?: { storeProductId: string; priceLabel: string }[];
+    purchase?: "completed" | "cancelled" | "failed";
+  }) {
+    vi.resetModules();
+    const requestNativePointsPurchase = vi.fn(async () => native.purchase ?? "completed");
+    vi.doMock("@/lib/nativePointsCharge", () => ({
+      isNativePointsChargeAvailable: () => native.available ?? true,
+      requestNativePointsPrices: vi.fn(async () => native.prices ?? []),
+      requestNativePointsPurchase,
+    }));
+    const mod = await import("../createApiPointsGateway");
+    return { gateway: mod.createApiPointsGateway(), requestNativePointsPurchase };
+  }
+
+  it("결제를 맡을 수 있는 앱에서만 충전을 켠다", async () => {
+    expect((await gatewayWith({ available: false })).gateway.capabilities.charge).toBe(false);
+    expect((await gatewayWith({ available: true })).gateway.capabilities.charge).toBe(true);
+  });
+
+  it("상품 목록은 서버의 포인트에 스토어 가격을 붙이고 가격을 모르면 null이다", async () => {
+    const { gateway } = await gatewayWith({
+      prices: [{ storeProductId: "points_1000", priceLabel: "₩1,100" }],
+    });
+    fetchMock.mockResolvedValueOnce(respond(200, PRODUCTS));
+
+    expect(await gateway.getChargePacks()).toEqual([
+      { productId: "points_1000", points: 1000, bonus: 100, priceLabel: "₩1,100", popular: false },
+      { productId: "points_3000", points: 3000, bonus: 400, priceLabel: null, popular: false },
+    ]);
+    expect(call().url).toContain("/api/points/products");
+  });
+
+  it("결제가 끝나면 잔액이 늘 때까지 다시 읽어 그 값을 돌려준다", async () => {
+    vi.useFakeTimers();
+    const { gateway, requestNativePointsPurchase } = await gatewayWith({});
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes("/api/points/products")) return respond(200, PRODUCTS);
+      const balanceReads = fetchMock.mock.calls.filter(
+        ([target]) => !String(target).includes("/products"),
+      ).length;
+      return respond(200, { balance: balanceReads >= 3 ? 1150 : 50 });
+    });
+
+    const pending = gateway.charge("points_1000");
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    expect(await pending).toEqual({
+      status: "completed",
+      granted: 1000,
+      bonus: 100,
+      balance: 1150,
+    });
+    expect(requestNativePointsPurchase).toHaveBeenCalledWith("points_1000");
+  });
+
+  it("취소와 실패는 잔액을 기다리지 않고 그대로 돌려준다", async () => {
+    const cancelled = await gatewayWith({ purchase: "cancelled" });
+    fetchMock.mockImplementation(async (input) =>
+      String(input).includes("/products") ? respond(200, PRODUCTS) : respond(200, { balance: 50 }),
+    );
+    expect(await cancelled.gateway.charge("points_1000")).toEqual({ status: "cancelled" });
+
+    const failed = await gatewayWith({ purchase: "failed" });
+    expect(await failed.gateway.charge("points_1000")).toEqual({ status: "failed" });
+  });
+
+  it("서버 목록에 없는 상품은 결제를 열지 않는다", async () => {
+    const { gateway, requestNativePointsPurchase } = await gatewayWith({});
+    fetchMock.mockImplementation(async (input) =>
+      String(input).includes("/products") ? respond(200, PRODUCTS) : respond(200, { balance: 50 }),
+    );
+    expect(await gateway.charge("points_9999")).toEqual({ status: "failed" });
+    expect(requestNativePointsPurchase).not.toHaveBeenCalled();
   });
 });

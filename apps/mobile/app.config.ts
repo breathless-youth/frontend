@@ -281,6 +281,20 @@ function resolveAirbridgeToken(variant: AppVariant): string | null {
   return null;
 }
 
+/**
+ * RevenueCat 공개 SDK 키 주입
+ *
+ * 바이너리에 실리는 공개 키지만 공개 저장소라 env(`REVENUECAT_API_KEY`)로 받는다. 없으면 충전이 꺼진다.
+ * `test_`로 시작하는 Test Store 키는 실제 돈이 오가지 않는 가짜 결제라 운영 빌드에 실리면 여기서 끊는다.
+ */
+function resolveRevenueCatApiKey(variant: AppVariant): string {
+  const key = process.env.REVENUECAT_API_KEY ?? "";
+  if (variant === "production" && key.startsWith("test_")) {
+    throw new Error("production 빌드에 RevenueCat Test Store 키(test_)를 넣을 수 없습니다.");
+  }
+  return key;
+}
+
 function airbridgePlugins(token: string | null): NonNullable<ExpoConfig["plugins"]> {
   return token === null
     ? []
@@ -530,8 +544,8 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
       },
       // 같은 기기에서 CSS 대체 화면과 비교하려고 개발 빌드만 네이티브 glass를 끌 수 있게 한다(`lib/remoteQueryParams.ts`).
       glassChromeOff: variant === "development" && process.env.GLASS_CHROME_OFF === "1",
-      // 스파이크: RevenueCat Test Store 키. 저장소에 적지 않고 .env.local에서만 읽는다.
-      revenueCatApiKey: variant === "development" ? (process.env.REVENUECAT_API_KEY ?? "") : "",
+      // 런타임 게이트(`lib/pointsChargeSdk.ts`)이고, 비어 있으면 이 빌드는 포인트 충전을 끈다.
+      revenueCatApiKey: resolveRevenueCatApiKey(variant),
     },
   };
 }

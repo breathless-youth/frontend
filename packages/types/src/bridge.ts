@@ -143,6 +143,8 @@ export type ToWebMessage =
       atMs: number;
     }
   | SocialLoginResultMessage
+  | PointsChargePricesResultMessage
+  | PointsChargePurchaseResultMessage
   | LogoutResultMessage
   | DeleteAccountResultMessage
   | CameraPermissionMessage
@@ -242,6 +244,39 @@ export const SOCIAL_LOGIN_FAILURE_CODES = [
   "UNKNOWN",
 ] as const;
 export type SocialLoginFailureCode = (typeof SOCIAL_LOGIN_FAILURE_CODES)[number];
+
+/** 스토어가 그 기기의 통화로 만든 충전 상품 가격 문구 */
+export type PointsChargePrice = { storeProductId: string; priceLabel: string };
+
+/**
+ * 충전 상품 가격 조회 결과
+ *
+ * `points-charge-prices`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+ * 스토어가 모르는 상품은 목록에서 빠지고, 조회에 실패하면 빈 목록이다.
+ */
+export type PointsChargePricesResultMessage = {
+  type: "points-charge-prices-result";
+  id: string;
+  prices: PointsChargePrice[];
+  atMs: number;
+};
+
+export const POINTS_CHARGE_PURCHASE_STATUSES = ["completed", "cancelled", "failed"] as const;
+export type PointsChargePurchaseStatus = (typeof POINTS_CHARGE_PURCHASE_STATUSES)[number];
+
+/**
+ * 포인트 충전 결제 결과
+ *
+ * `points-charge-purchase`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+ * `completed`는 스토어 결제가 끝났다는 뜻이고 포인트는 서버가 결제 알림을 받은 뒤에 들어온다.
+ * `cancelled`는 사용자가 결제 창을 닫았거나 앞선 결제가 아직 진행 중인 경우다.
+ */
+export type PointsChargePurchaseResultMessage = {
+  type: "points-charge-purchase-result";
+  id: string;
+  status: PointsChargePurchaseStatus;
+  atMs: number;
+};
 
 /**
  * 소셜 로그인 결과
@@ -534,6 +569,20 @@ export type ToNativeMessage =
    * `provider`는 프로필의 로그인 공급자이고, 애플이면 앱이 애플 로그인을 다시 띄워 서버가 요구하는 인가 코드를 받는다.
    */
   | { type: "delete-account"; id: string; provider: SocialLoginProvider; atMs: number }
+  /**
+   * 충전 상품 가격 조회 요청
+   *
+   * 앱이 웹뷰 주소에 `pointsCharge=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `points-charge-prices-result`로 답한다.
+   * 상품 ID는 서버의 충전 상품 목록이 준 스토어 상품 ID다.
+   */
+  | { type: "points-charge-prices"; id: string; storeProductIds: string[]; atMs: number }
+  /**
+   * 포인트 충전 결제 요청
+   *
+   * `pointsCharge=1`일 때만 보내고, 앱은 같은 `id`의 `points-charge-purchase-result`로 답한다.
+   * 앱은 결제 전에 결제 SDK에 지금 사용자 ID로 로그인해서 서버가 결제 알림의 주인을 알 수 있게 한다.
+   */
+  | { type: "points-charge-purchase"; id: string; storeProductId: string; atMs: number }
   | SetTabBarMessage
   | SetBackGestureMessage
   | SetBackLockMessage
