@@ -149,6 +149,7 @@ function Preview({ scenario }: { scenario: Scenario }) {
           openTimelapses: () => setMessage("DEV: /timelapses"),
           openTimelapseSettings: () => setMessage("DEV: /timelapse-settings"),
           openAppLock: () => setMessage("DEV: /app-lock-settings"),
+          openContact: () => setMessage("DEV: /contact/chat"),
         }}
       />
       <HomeGoalSheet

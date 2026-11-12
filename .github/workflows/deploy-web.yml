@@ -33,6 +33,7 @@ jobs:
       VERIFY_URL: ${{ vars[format('{0}_VERIFY_URL', github.ref_name == 'main' && 'PROD' || 'STAGING')] }}
       VITE_SENTRY_DSN: ${{ vars[format('{0}_VITE_SENTRY_DSN', github.ref_name == 'main' && 'PROD' || 'STAGING')] }}
       VITE_AMPLITUDE_API_KEY: ${{ vars[format('{0}_VITE_AMPLITUDE_API_KEY', github.ref_name == 'main' && 'PROD' || 'STAGING')] }}
+      VITE_CHANNEL_PLUGIN_KEY: ${{ vars[format('{0}_VITE_CHANNEL_PLUGIN_KEY', github.ref_name == 'main' && 'PROD' || 'STAGING')] }}
       # GA4는 운영에만 넣는다. Vercel 때부터 스테이징은 GA4를 끈 채였고, 운영 속성에 스테이징 방문이 섞이지 않게 한다.
       VITE_GA4_MEASUREMENT_ID: ${{ github.ref_name == 'main' && vars.PROD_VITE_GA4_MEASUREMENT_ID || '' }}
     steps:
@@ -51,7 +52,7 @@ jobs:
               ;;
           esac
 
-          names="BUCKET DISTRIBUTION_ID ROLE_ARN VERIFY_URL VITE_SENTRY_DSN VITE_AMPLITUDE_API_KEY SENTRY_AUTH_TOKEN"
+          names="BUCKET DISTRIBUTION_ID ROLE_ARN VERIFY_URL VITE_SENTRY_DSN VITE_AMPLITUDE_API_KEY VITE_CHANNEL_PLUGIN_KEY SENTRY_AUTH_TOKEN"
           if [ "$TARGET" = "PROD" ]; then
             names="$names VITE_GA4_MEASUREMENT_ID"
           fi

@@ -55,6 +55,10 @@
     "loading": "문의 폼을 불러오는 중",
     "failure": "문의 폼을 불러오지 못했어요"
   },
+  "contactChat": {
+    "loading": "상담창을 불러오는 중",
+    "failure": "상담창을 불러오지 못했어요"
+  },
   "download": {
     "redirecting": "스토어로 이동하는 중…",
     "manual": "직접 이동하기"
