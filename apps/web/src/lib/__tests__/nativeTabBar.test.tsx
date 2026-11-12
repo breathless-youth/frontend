@@ -114,6 +114,10 @@ describe("isFullScreenPath", () => {
     expect(isFullScreenPath("/onboarding-guide")).toBe(false);
   });
 
+  it("채널톡 상담 화면은 전체 화면이다", () => {
+    expect(isFullScreenPath("/contact/chat")).toBe(true);
+  });
+
   it("첫 실행 온보딩은 전체 화면이다", () => {
     expect(isFullScreenPath("/onboarding")).toBe(true);
   });

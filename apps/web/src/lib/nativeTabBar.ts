@@ -35,6 +35,7 @@ import { pageTransitionFinished } from "./pageTransition";
  */
 const FULL_SCREEN_PATHS = [
   "/contact",
+  "/contact/chat",
   "/interview",
   "/terms",
   "/privacy",

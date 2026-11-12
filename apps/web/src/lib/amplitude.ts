@@ -1121,7 +1121,8 @@ export function trackFocusStartTapped(source: FocusStartSource = "home") {
   track("focus_start_tapped", { destination: "session", source });
 }
 
-export type HomeShortcutTarget = "planner" | "timelapse" | "timelapse_settings" | "app_lock";
+export type HomeShortcutTarget =
+  "planner" | "timelapse" | "timelapse_settings" | "app_lock" | "contact";
 
 /**
  * 홈 바로가기 탭
@@ -1997,10 +1998,31 @@ export function trackErrorRetryPressed(
     | "contact"
     | "interview_form"
     | "ranking"
-    | "group_tab",
+    | "group_tab"
+    | "contact_chat",
 ) {
   if (!initialized) return;
   track("error_retry_pressed", { screen });
+}
+
+/**
+ * 상담창 열림
+ *
+ * 채널톡 SDK가 메신저를 실제로 띄운 시점이다.
+ */
+export function trackContactChatOpened() {
+  if (!initialized) return;
+  track("contact_chat_opened");
+}
+
+/**
+ * 상담창 열기 실패
+ *
+ * 홈 번들에 채널톡 모듈이 섞이지 않도록 실패 이유 타입을 채널톡 모듈에서 가져오지 않고 여기 둔다.
+ */
+export function trackContactChatLoadFailed(reason: "script" | "boot" | "no_key") {
+  if (!initialized) return;
+  track("contact_chat_load_failed", { reason });
 }
 
 /** 렌더 크래시 폴백의 "새로고침" — 에러 자체는 Sentry가 갖고, 사용자가 복구를 시도한 횟수만 센다. */
