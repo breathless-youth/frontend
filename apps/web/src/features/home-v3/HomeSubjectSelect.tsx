@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
+import { trackHomeSubjectSelected } from "@/lib/amplitude";
 import { SubjectColorDot } from "@/features/study-session/components/SubjectColorDot";
 import { HomeDesignIcon } from "./HomeDesignIcon";
 import type { HomeLoadState, HomeSubject } from "./homeV3ContentTypes";
@@ -79,7 +80,10 @@ export function HomeSubjectSelect({
           {items.map((subject) => (
             <DropdownMenuItem
               key={subject.id}
-              onSelect={() => onSelect(subject.id)}
+              onSelect={() => {
+                trackHomeSubjectSelected(true);
+                onSelect(subject.id);
+              }}
               className="min-h-11 gap-2.5 px-3 text-[15px] leading-5"
             >
               <SubjectDot colorIndex={subject.colorIndex} />
@@ -90,7 +94,10 @@ export function HomeSubjectSelect({
         </div>
         <Separator className="mx-2 my-1 w-auto" />
         <DropdownMenuItem
-          onSelect={() => onSelect(null)}
+          onSelect={() => {
+            trackHomeSubjectSelected(false);
+            onSelect(null);
+          }}
           className="min-h-11 gap-2.5 px-3 text-[15px] leading-5 text-muted-foreground"
         >
           <SubjectDot />

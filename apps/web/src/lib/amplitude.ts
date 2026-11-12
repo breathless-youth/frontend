@@ -29,6 +29,10 @@ import type { RoomVisibility } from "@/features/group-room/model/roomMenu";
 
 import { firebaseAnalyticsForwardPlugin } from "./firebaseAnalyticsBridge";
 import i18n from "./i18n";
+import {
+  qualifyOnboardingRepeat,
+  startOnboardingRepeatTracking,
+} from "./onboardingRepeatRetention";
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
 import { showToast } from "./toast";
 import { readUserId } from "./userId";
@@ -326,6 +330,10 @@ export type MultiTimerUse = "none" | "timer" | "pomodoro" | "both";
 
 /** 세션 종료 사유 — `features/study-session`의 `SessionEndReason`을 평평하게 편 값. */
 export interface StudySessionEndedInput {
+  /** 재순공 집계에서 복원된 같은 세션을 구분하는 로컬 값. 이벤트 속성으로 전송하지 않는다. */
+  readonly startedAtMs?: number;
+  /** 세션이 고정한 종료 시각. 계측이 늦게 불려도 이벤트 시각과 재순공 날짜가 이 값을 따른다. 이벤트 속성으로 전송하지 않는다. */
+  readonly endedAtMs?: number;
   readonly roomType: StudyRoomType;
   readonly studySec: number;
   readonly focusSec: number;
@@ -382,22 +390,45 @@ export function trackStudySessionStarted(roomType: StudyRoomType, restored = fal
  */
 export function trackStudySessionEnded(input: StudySessionEndedInput) {
   if (!initialized) return;
-  track("study_session_ended", {
-    room_type: input.roomType,
-    study_sec: Number(input.studySec),
-    focus_sec: Number(input.focusSec),
-    pause_sec: Number(input.pauseSec),
-    distraction_sec: Number(input.distractionSec),
-    focus_rate_percent:
-      input.studySec > 0 ? Math.round((input.focusSec / input.studySec) * 100) : 0,
-    end_reason: input.endReason,
-    pause_trigger: input.pauseTrigger,
-    will_submit: input.willSubmit,
-    ambient_sound_used: input.ambientSoundUsed ?? false,
-    ambient_sound_sec: Number(input.ambientSoundSec ?? 0),
-    break_sec: Number(input.breakSec ?? 0),
-    multi_timer: input.multiTimer ?? "none",
-  });
+  const endedAt = input.endedAtMs ?? Date.now();
+  track(
+    "study_session_ended",
+    {
+      room_type: input.roomType,
+      study_sec: Number(input.studySec),
+      focus_sec: Number(input.focusSec),
+      pause_sec: Number(input.pauseSec),
+      distraction_sec: Number(input.distractionSec),
+      focus_rate_percent:
+        input.studySec > 0 ? Math.round((input.focusSec / input.studySec) * 100) : 0,
+      end_reason: input.endReason,
+      pause_trigger: input.pauseTrigger,
+      will_submit: input.willSubmit,
+      ambient_sound_used: input.ambientSoundUsed ?? false,
+      ambient_sound_sec: Number(input.ambientSoundSec ?? 0),
+      break_sec: Number(input.breakSec ?? 0),
+      multi_timer: input.multiTimer ?? "none",
+    },
+    { time: endedAt },
+  );
+  if (currentUserId !== null && input.startedAtMs !== undefined) {
+    const insertId = qualifyOnboardingRepeat(
+      currentUserId,
+      input.focusSec,
+      endedAt,
+      input.startedAtMs,
+    );
+    if (insertId !== null) {
+      track(
+        "onboarding_week_study_repeated",
+        { repeat_tracking_version: 1 },
+        {
+          insert_id: insertId,
+          time: endedAt,
+        },
+      );
+    }
+  }
 }
 
 /**
@@ -1090,6 +1121,55 @@ export function trackFocusStartTapped(source: FocusStartSource = "home") {
   track("focus_start_tapped", { destination: "session", source });
 }
 
+export type HomeShortcutTarget = "planner" | "timelapse" | "timelapse_settings" | "app_lock";
+
+/**
+ * 홈 바로가기 탭
+ *
+ * 타임랩스와 앱 잠금 화면은 어디서 열렸는지 남기지 않아서 홈에서 연 경우를 여기서 센다.
+ */
+export function trackHomeShortcutTapped(target: HomeShortcutTarget) {
+  if (!initialized) return;
+  track("home_shortcut_tapped", { target });
+}
+
+/**
+ * 홈 과목 선택
+ *
+ * 과목 이름은 사용자가 직접 지은 글이라 보내지 않고 골랐는지만 보낸다.
+ */
+export function trackHomeSubjectSelected(hasSubject: boolean) {
+  if (!initialized) return;
+  track("home_subject_selected", { has_subject: hasSubject });
+}
+
+/**
+ * 홈 시작 미션 단계 완료
+ *
+ * 1단계는 플래너에서 과목 만들기, 2단계는 공부 5분 완료다.
+ * 서버가 완료를 저장한 뒤에만 보낸다.
+ */
+export function trackHomeMissionStepCompleted(step: 1 | 2) {
+  if (!initialized) return;
+  track("home_mission_step_completed", { step });
+}
+
+/**
+ * 홈 오늘 목표 저장
+ *
+ * 날짜 목표가 저장된 뒤에만 보내고, 기본 목표 저장이 실패하면 `as_default`를 false로 보낸다.
+ */
+export function trackHomeGoalSaved(input: {
+  readonly seconds: number;
+  readonly asDefault: boolean;
+}) {
+  if (!initialized) return;
+  track("home_goal_saved", {
+    goal_min: Math.round(input.seconds / 60),
+    as_default: input.asDefault,
+  });
+}
+
 /** 온보딩 단계. 순서대로 자동 타이머, 자동 기록, 그룹 스터디, 맞춤 알림, 준비 완료다. */
 export type OnboardingStep =
   "auto_timer" | "auto_record" | "group_study" | "notification" | "ready";
@@ -1121,6 +1201,11 @@ export function trackOnboardingNotificationResult(
 /** 온보딩 준비 완료 화면에서 `시작하기`를 눌러 홈으로 간 것. 이 계정은 다시 보지 않는다. */
 export function trackOnboardingCompleted() {
   if (!initialized) return;
+  const at = Date.now();
+  if (currentUserId !== null && startOnboardingRepeatTracking(currentUserId, at)) {
+    track("onboarding_completed", { repeat_tracking_version: 1 }, { time: at });
+    return;
+  }
   track("onboarding_completed");
 }
 

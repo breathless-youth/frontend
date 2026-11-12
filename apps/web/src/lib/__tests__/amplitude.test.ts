@@ -59,6 +59,99 @@ async function loadModule() {
   return await import("../amplitude");
 }
 
+describe("온보딩 후 7일 내 다른 날 재순공", () => {
+  const ended = {
+    startedAtMs: Date.parse("2026-11-06T09:55:00+09:00"),
+    roomType: "single",
+    studySec: 300,
+    focusSec: 300,
+    pauseSec: 0,
+    distractionSec: 0,
+    endReason: "MANUAL",
+    pauseTrigger: null,
+    willSubmit: true,
+  } as const;
+
+  beforeEach(() => {
+    localStorage.clear();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-06T10:00:00+09:00"));
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    localStorage.clear();
+  });
+
+  it("서로 다른 한국 날짜에 300초 세션을 끝내면 한 번 집계한다", async () => {
+    const m = await loadModule();
+    m.initAmplitude();
+    m.setAmplitudeUserId(7);
+    m.trackOnboardingCompleted();
+    m.trackStudySessionEnded(ended);
+    m.trackStudySessionEnded(ended);
+    expect(
+      mocks.track.mock.calls.filter(([name]) => name === "onboarding_week_study_repeated"),
+    ).toHaveLength(0);
+
+    vi.setSystemTime(new Date("2026-11-07T00:00:00+09:00"));
+    m.trackStudySessionEnded({ ...ended, roomType: "social", startedAtMs: Date.now() - 300_000 });
+    m.trackStudySessionEnded(ended);
+
+    expect(
+      mocks.track.mock.calls.filter(([name]) => name === "onboarding_week_study_repeated"),
+    ).toHaveLength(1);
+    expect(mocks.track).toHaveBeenCalledWith(
+      "onboarding_completed",
+      { repeat_tracking_version: 1 },
+      { time: Date.parse("2026-11-06T10:00:00+09:00") },
+    );
+  });
+
+  it("SDK 처리 중 자정이 지나도 세션 종료 시각으로 날짜를 고정한다", async () => {
+    const m = await loadModule();
+    m.initAmplitude();
+    m.setAmplitudeUserId(7);
+    m.trackOnboardingCompleted();
+    const midnight = Date.parse("2026-11-07T00:00:00+09:00");
+    vi.setSystemTime(midnight - 1);
+    mocks.track.mockImplementationOnce(() => {
+      vi.setSystemTime(midnight);
+    });
+    m.trackStudySessionEnded(ended);
+    expect(mocks.track).toHaveBeenCalledWith("study_session_ended", expect.any(Object), {
+      time: midnight - 1,
+    });
+    vi.setSystemTime(midnight + 300_000);
+    m.trackStudySessionEnded({ ...ended, startedAtMs: midnight });
+    expect(
+      mocks.track.mock.calls.filter(([name]) => name === "onboarding_week_study_repeated"),
+    ).toHaveLength(1);
+  });
+
+  it("세션이 넘긴 종료 시각이 있으면 계측 시점이 자정을 넘어도 그 시각으로 판정한다", async () => {
+    const m = await loadModule();
+    m.initAmplitude();
+    m.setAmplitudeUserId(7);
+    m.trackOnboardingCompleted();
+    m.trackStudySessionEnded(ended);
+    const midnight = Date.parse("2026-11-07T00:00:00+09:00");
+    vi.setSystemTime(midnight + 5);
+    m.trackStudySessionEnded({
+      ...ended,
+      startedAtMs: midnight - 600_000,
+      endedAtMs: midnight - 1,
+    });
+    expect(mocks.track).toHaveBeenCalledWith("study_session_ended", expect.any(Object), {
+      time: midnight - 1,
+    });
+    expect(
+      mocks.track.mock.calls.filter(([name]) => name === "onboarding_week_study_repeated"),
+    ).toHaveLength(0);
+  });
+});
+
 /** `add`로 등록된 정제 플러그인을 꺼낸다 — 등록 순서에 의존하지 않고 이름으로 찾는다. */
 function sanitizePlugin() {
   const plugins = mocks.add.mock.calls.map(([plugin]) => plugin as { name?: string });
@@ -557,21 +650,25 @@ describe("공부 세션 이벤트", () => {
       willSubmit: true,
     });
 
-    expect(mocks.track).toHaveBeenCalledWith("study_session_ended", {
-      room_type: "single",
-      study_sec: 1200,
-      focus_sec: 900,
-      pause_sec: 120,
-      distraction_sec: 300,
-      focus_rate_percent: 75,
-      end_reason: "AUTO",
-      pause_trigger: "BACKGROUND",
-      will_submit: true,
-      ambient_sound_used: false,
-      ambient_sound_sec: 0,
-      break_sec: 0,
-      multi_timer: "none",
-    });
+    expect(mocks.track).toHaveBeenCalledWith(
+      "study_session_ended",
+      {
+        room_type: "single",
+        study_sec: 1200,
+        focus_sec: 900,
+        pause_sec: 120,
+        distraction_sec: 300,
+        focus_rate_percent: 75,
+        end_reason: "AUTO",
+        pause_trigger: "BACKGROUND",
+        will_submit: true,
+        ambient_sound_used: false,
+        ambient_sound_sec: 0,
+        break_sec: 0,
+        multi_timer: "none",
+      },
+      { time: expect.any(Number) },
+    );
   });
 
   it("휴식 길이와 시작한 멀티 타이머 종류를 싣는다", async () => {
@@ -2396,5 +2493,67 @@ describe("순공 1분 달성 (focus_milestone_reached)", () => {
 
     expect(mocks.track).not.toHaveBeenCalled();
     expect(localStorage.getItem("focusmakers:focus-milestone-tracked")).toBeNull();
+  });
+});
+
+describe("홈 시작 미션·목표", () => {
+  it("미션 단계와 목표 분·기본 목표 여부만 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackHomeMissionStepCompleted(1);
+    m.trackHomeMissionStepCompleted(2);
+    m.trackHomeGoalSaved({ seconds: 5400, asDefault: true });
+    m.trackHomeGoalSaved({ seconds: 0, asDefault: false });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["home_mission_step_completed", { step: 1 }],
+      ["home_mission_step_completed", { step: 2 }],
+      ["home_goal_saved", { goal_min: 90, as_default: true }],
+      ["home_goal_saved", { goal_min: 0, as_default: false }],
+    ]);
+  });
+
+  it("초기화 전에는 보내지 않는다", async () => {
+    const m = await loadModule();
+
+    m.trackHomeMissionStepCompleted(1);
+    m.trackHomeGoalSaved({ seconds: 5400, asDefault: true });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+});
+
+describe("홈 바로가기·과목 선택", () => {
+  it("바로가기 대상과 과목 선택 여부만 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackHomeShortcutTapped("planner");
+    m.trackHomeShortcutTapped("timelapse");
+    m.trackHomeShortcutTapped("timelapse_settings");
+    m.trackHomeShortcutTapped("app_lock");
+    m.trackHomeSubjectSelected(true);
+    m.trackHomeSubjectSelected(false);
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["home_shortcut_tapped", { target: "planner" }],
+      ["home_shortcut_tapped", { target: "timelapse" }],
+      ["home_shortcut_tapped", { target: "timelapse_settings" }],
+      ["home_shortcut_tapped", { target: "app_lock" }],
+      ["home_subject_selected", { has_subject: true }],
+      ["home_subject_selected", { has_subject: false }],
+    ]);
+  });
+
+  it("초기화 전에는 보내지 않는다", async () => {
+    const m = await loadModule();
+
+    m.trackHomeShortcutTapped("planner");
+    m.trackHomeSubjectSelected(true);
+
+    expect(mocks.track).not.toHaveBeenCalled();
   });
 });

@@ -3,8 +3,17 @@ import notebook from "@/assets/home-v3/mascot-notebook.png";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { trackHomeShortcutTapped, type HomeShortcutTarget } from "@/lib/amplitude";
 import { HomeDesignIcon } from "./HomeDesignIcon";
 import type { HomeV3ContentProps } from "./homeV3ContentTypes";
+
+/** 바로가기를 누르면 화면을 열기 전에 어느 바로가기였는지 남긴다. */
+function tapped(target: HomeShortcutTarget, open: () => void) {
+  return () => {
+    trackHomeShortcutTapped(target);
+    open();
+  };
+}
 
 function ShortcutSummary({ title, detail }: { title: string; detail: string }) {
   return (
@@ -28,7 +37,7 @@ export function HomePlannerShortcut({
       <Button
         variant="unstyled"
         className="relative h-auto min-h-22 w-full items-center justify-start rounded-xl px-5 py-4 text-left"
-        onClick={onOpen}
+        onClick={tapped("planner", onOpen)}
       >
         <span className="relative z-1 flex flex-col gap-1.5">
           <span className="text-[22px] leading-7.5 font-bold">{t("v3.planner.title")}</span>
@@ -74,7 +83,7 @@ export function HomeUtilityShortcuts({
         <Button
           variant="unstyled"
           className="h-auto min-h-16 min-w-0 flex-1 justify-start gap-2.5 rounded-none py-2 pr-0 pl-3.5 text-left"
-          onClick={actions.openTimelapses}
+          onClick={tapped("timelapse", actions.openTimelapses)}
         >
           <HomeDesignIcon name="video" className="text-primary" />
           <ShortcutSummary
@@ -91,7 +100,7 @@ export function HomeUtilityShortcuts({
           variant="unstyled"
           className="h-auto min-h-16 w-12 shrink-0 rounded-none p-0 text-muted-foreground"
           aria-label={t("v3.timelapse.settings")}
-          onClick={actions.openTimelapseSettings}
+          onClick={tapped("timelapse_settings", actions.openTimelapseSettings)}
         >
           <HomeDesignIcon name="settings" />
         </Button>
@@ -100,7 +109,7 @@ export function HomeUtilityShortcuts({
         <Button
           variant="unstyled"
           className="h-auto min-h-16 w-full justify-start gap-2.5 rounded-xl px-3.5 py-2 text-left"
-          onClick={actions.openAppLock}
+          onClick={tapped("app_lock", actions.openAppLock)}
         >
           <HomeDesignIcon name="lock" className="text-primary" />
           <ShortcutSummary title={t("v3.appLock.title")} detail={appLockLabel} />
