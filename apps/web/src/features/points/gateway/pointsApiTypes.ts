@@ -102,6 +102,9 @@ export type PointsEarnResponse = {
   /** 목표가 없으면 goalSec와 remainingSec이 null이고 points는 0이다. */
   dailyGoal: {
     points: number;
+    /** 목표 시간의 이만큼마다 pointsPerUnit을 준다. 이 기준이 생기기 전의 서버는 주지 않는다. */
+    unitSec?: number;
+    pointsPerUnit?: number;
     goalSec: number | null;
     focusSec: number;
     remainingSec: number | null;

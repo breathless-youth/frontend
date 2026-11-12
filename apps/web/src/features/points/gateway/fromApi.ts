@@ -286,6 +286,9 @@ export function toEarnToday(res: PointsEarnResponse): EarnToday {
     attendance: { reward: res.attendance.points, claimed: res.attendance.claimed },
     dailyGoal: {
       goalSec: res.dailyGoal.goalSec,
+      ...(res.dailyGoal.unitSec === undefined || res.dailyGoal.pointsPerUnit === undefined
+        ? null
+        : { unitSec: res.dailyGoal.unitSec, pointsPerUnit: res.dailyGoal.pointsPerUnit }),
       reward: res.dailyGoal.points,
       achieved: res.dailyGoal.achieved,
       claimed: res.dailyGoal.claimed,

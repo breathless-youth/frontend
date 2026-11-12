@@ -8,6 +8,7 @@ import { showToast } from "@/lib/toast";
 import { AdUnavailableDialog } from "../components/earn/AdUnavailableDialog";
 import { ChargeDoneSheet, type ChargeDone } from "../components/earn/ChargeDoneSheet";
 import { ChargePackGrid } from "../components/earn/ChargePackGrid";
+import { EarnIcon } from "../components/earn/EarnIcon";
 import { FreeTile, TileButton, TileDone } from "../components/earn/FreeTile";
 import { MedalCard } from "../components/earn/MedalCard";
 import { openAppStore } from "../components/earn/openAppStore";
@@ -17,6 +18,7 @@ import { ChargingDialog } from "../components/earn/ChargingDialog";
 import { LatePointsDialog } from "../components/earn/LatePointsDialog";
 import { PaymentFailedSheet } from "../components/earn/PaymentFailedSheet";
 import { StudyRow } from "../components/earn/StudyRow";
+import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { Progress } from "@/components/ui/progress";
 import { formatPoints, formatSignedPoints } from "../model/formatPoints";
 import { pointsSearch } from "../pointsSearch";
@@ -128,6 +130,7 @@ export function EarnTab({
   const goalClaimed = earn.dailyGoal.claimed || claimed.has("dailyGoal");
   const medals = claimed.has("medals") ? [] : earn.medals;
   const adDone = ad !== undefined && watched >= ad.limit;
+  const goalDone = goalClaimed || earn.dailyGoal.achieved;
   const { goalSec, remainingSec, unitSec, pointsPerUnit } = earn.dailyGoal;
   const goalPercent =
     goalSec === null || remainingSec === null || goalSec === 0
@@ -150,7 +153,7 @@ export function EarnTab({
           </span>
         </div>
         <StudyRow study={earn.study} />
-        <div className={`grid gap-2 ${ad === undefined ? "grid-cols-2" : "grid-cols-3"}`}>
+        <div className="flex flex-col gap-2">
           <FreeTile
             icon="attendance"
             label={t("tile.attendance")}
@@ -166,51 +169,52 @@ export function EarnTab({
           </FreeTile>
           {goalSec === null || remainingSec === null ? (
             <FreeTile icon="dailyGoal" label={t("tile.dailyGoalTitle")}>
-              <p className="flex min-h-11 items-center justify-center px-1 text-[11px] break-keep text-muted-foreground">
+              <p className="max-w-32 text-right text-[11px] break-keep text-muted-foreground">
                 {t("tile.noGoal")}
               </p>
             </FreeTile>
           ) : (
-            <FreeTile
-              icon="dailyGoal"
-              label={t("tile.goalTitle", { duration: formatDuration(goalSec) })}
-              reward={formatSignedPoints(earn.dailyGoal.reward)}
-              note={
-                unitSec === undefined || pointsPerUnit === undefined
-                  ? undefined
-                  : t("tile.perUnit", {
-                      duration: formatDuration(unitSec),
-                      points: formatPoints(pointsPerUnit),
-                    })
-              }
-            >
+            <div className="flex items-center gap-3 rounded-lg bg-bg-layer-2 p-3">
+              <EarnIcon name="dailyGoal" />
+              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <span className="flex items-center gap-1.5 text-sm font-bold break-keep">
+                  <span>
+                    <span>{t("tile.goalTitle", { duration: formatDuration(goalSec) })}</span>{" "}
+                    <span className="text-primary tabular-nums">
+                      {formatSignedPoints(earn.dailyGoal.reward)}
+                    </span>
+                  </span>
+                  {unitSec !== undefined && pointsPerUnit !== undefined && (
+                    <InfoTooltip label={t("tile.goalGuide")} iconSize={14}>
+                      {t("tile.goalRule", {
+                        duration: formatDuration(unitSec),
+                        points: formatPoints(pointsPerUnit),
+                      })}
+                    </InfoTooltip>
+                  )}
+                </span>
+                <Progress
+                  value={goalDone ? 100 : goalPercent}
+                  aria-label={t("tile.goalAria", { percent: goalDone ? 100 : goalPercent })}
+                  className="h-1.5 bg-brand-subtle"
+                />
+                {!goalDone && (
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {t("tile.left", { duration: formatDuration(remainingSec) })}
+                  </span>
+                )}
+              </div>
               {goalClaimed ? (
                 <TileDone label={t("tile.done")} />
               ) : earn.dailyGoal.achieved ? (
                 <TileButton disabled={pending} onClick={() => void claim("dailyGoal")}>
                   {t("tile.claim")}
                 </TileButton>
-              ) : (
-                <div className="flex min-h-11 flex-col justify-center gap-1 px-1">
-                  <Progress
-                    value={goalPercent}
-                    aria-label={t("tile.goalAria", { percent: goalPercent })}
-                    className="h-1.5 bg-brand-subtle"
-                  />
-                  <span className="text-[11px] break-keep text-muted-foreground">
-                    {t("tile.left", { duration: formatDuration(remainingSec) })}
-                  </span>
-                </div>
-              )}
-            </FreeTile>
+              ) : null}
+            </div>
           )}
           {ad !== undefined && (
-            <FreeTile
-              icon="ad"
-              label={t("tile.ad")}
-              count={`${watched}/${ad.limit}`}
-              reward={formatSignedPoints(ad.reward)}
-            >
+            <FreeTile icon="ad" label={t("tile.ad")} reward={formatSignedPoints(ad.reward)}>
               {onWatchAd === undefined ? (
                 <TileButton quiet onClick={openAppStore}>
                   {t("tile.openInApp")}
@@ -219,7 +223,10 @@ export function EarnTab({
                 <TileDone label={t("tile.done")} />
               ) : (
                 <TileButton disabled={pending} onClick={() => void watchAd(onWatchAd)}>
-                  {t("tile.watch")}
+                  {t("tile.watch")}{" "}
+                  <span className="tabular-nums">
+                    {watched}/{ad.limit}
+                  </span>
                 </TileButton>
               )}
             </FreeTile>
@@ -237,22 +244,21 @@ export function EarnTab({
       {!chargeAvailable ? null : onCharge !== undefined ? (
         <section
           aria-label={t("charge.title")}
-          className="flex flex-col gap-3.5 rounded-xl bg-muted px-3 pt-3.5 pb-3 shadow-sb-card"
+          className="flex flex-col gap-2.5 rounded-xl bg-muted px-3 pt-3.5 pb-3 shadow-sb-card"
         >
-          <div className="flex items-baseline justify-between gap-2 px-1">
-            <h2 className="text-base font-bold">{t("charge.title")}</h2>
-            <Link
-              to="/terms"
-              className="flex min-h-11 items-center text-[13px] font-semibold text-muted-foreground"
-            >
-              {t("charge.guide")}
-            </Link>
-          </div>
+          <h2 className="px-1 text-base font-bold">{t("charge.title")}</h2>
           <ChargePackGrid
             packs={packs}
             pending={pending}
             onCharge={(pack) => void charge(onCharge, pack.productId)}
           />
+          {/* 글자는 작게 두고 누르는 범위만 위아래로 넓힌다. */}
+          <Link
+            to="/terms"
+            className="relative self-center text-[11px] font-medium text-muted-foreground/80 underline underline-offset-2 before:absolute before:-inset-x-3 before:-inset-y-4"
+          >
+            {t("charge.guide")}
+          </Link>
         </section>
       ) : (
         <OpenInAppCard />

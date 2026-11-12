@@ -6,6 +6,7 @@ import { IllustMedal } from "@/features/ranking/icons";
 
 import { formatPoints } from "../../model/formatPoints";
 import type { EarnToday, MedalReward } from "../../types";
+import { TileButton } from "./FreeTile";
 
 /** 새 랭킹 메달이 있으면 받기 버튼을, 없으면 안내를 보인다. 메달별 포인트는 제목 옆 안내 버튼의 표로 본다. */
 export function MedalCard({
@@ -25,7 +26,7 @@ export function MedalCard({
     .map((m) => `${t(`medal.period.${m.period}`)} ${t("medal.rank", { rank: m.rank })}`)
     .join(" · ");
   const guide = (
-    <InfoTooltip label={t("medal.guide")}>
+    <InfoTooltip label={t("medal.guide")} iconSize={14}>
       <RateTable rates={rates} />
     </InfoTooltip>
   );
@@ -51,14 +52,11 @@ export function MedalCard({
               </span>
               <span className="text-xs break-keep text-muted-foreground">{summary}</span>
             </span>
-            <button
-              type="button"
-              disabled={pending}
-              onClick={onClaim}
-              className="min-h-11 shrink-0 rounded-md bg-primary px-3 text-[13px] font-bold text-primary-foreground disabled:opacity-60"
-            >
-              {t("medal.claim", { points: `+${formatPoints(total)}` })}
-            </button>
+            <span className="shrink-0">
+              <TileButton disabled={pending} onClick={onClaim}>
+                {t("medal.claim", { points: `+${formatPoints(total)}` })}
+              </TileButton>
+            </span>
           </>
         ) : (
           <>

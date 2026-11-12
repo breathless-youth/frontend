@@ -26,7 +26,7 @@ export function ChargePackGrid({
           aria-label={`${t("charge.packLabel", { points: formatPoints(pack.points) })}${pack.priceLabel === null ? "" : `, ${pack.priceLabel}`}`}
           onClick={() => onCharge(pack)}
           className={cn(
-            "relative flex min-w-0 flex-col items-center gap-0.5 rounded-lg bg-bg-layer-2 px-2 pt-3 pb-2 disabled:opacity-60",
+            "relative flex min-w-0 flex-col items-center gap-0.5 rounded-lg bg-bg-layer-2 px-2 pt-1.5 pb-2 disabled:opacity-60",
             pack.popular && "shadow-[inset_0_0_0_2px_var(--primary)]",
           )}
         >
@@ -42,7 +42,7 @@ export function ChargePackGrid({
           </span>
           <span
             className={cn(
-              "mt-1.5 flex min-h-11 w-full items-center justify-center rounded-md bg-muted px-1 text-[13px] font-bold break-keep",
+              "mt-1 flex min-h-11 w-full items-center justify-center rounded-md bg-muted px-1 text-[13px] font-bold break-keep",
               pack.priceLabel === null ? "text-muted-foreground" : "text-primary",
             )}
           >

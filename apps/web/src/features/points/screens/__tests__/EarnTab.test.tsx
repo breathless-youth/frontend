@@ -59,13 +59,13 @@ describe("EarnTab 무료 포인트", () => {
     expect(screen.getByText(/30분 공부할 때마다/)).toHaveTextContent("30분 공부할 때마다 +10P");
     expect(screen.getByText("오늘 1시간 24분")).toBeInTheDocument();
     expect(screen.getByText("최대 12시간")).toBeInTheDocument();
-    expect(screen.getByText("광고 보기")).toHaveTextContent("광고 보기0/3");
-    expect(screen.getByRole("button", { name: "보기" })).toBeInTheDocument();
+    expect(screen.getByText("0/3")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^보기/ })).toBeInTheDocument();
     expect(screen.getByText("완료")).toBeInTheDocument();
     expect(screen.getByText("36분 남음")).toBeInTheDocument();
     expect(screen.getByText("하루 목표 3시간")).toBeInTheDocument();
     expect(screen.getByText("+60P")).toBeInTheDocument();
-    expect(screen.getByText("30분당 10P")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "하루 목표 포인트 안내" })).toBeInTheDocument();
     expect(screen.queryByText(/50P 받기/)).not.toBeInTheDocument();
   });
 
@@ -85,7 +85,7 @@ describe("EarnTab 무료 포인트", () => {
     void pointsPerUnit;
     setup({ earn: { ...fixture.earn, dailyGoal: goal } });
     expect(screen.getByText("하루 목표 3시간")).toBeInTheDocument();
-    expect(screen.queryByText(/30분당/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "하루 목표 포인트 안내" })).not.toBeInTheDocument();
   });
 
   it("목표가 없으면 제목과 안내 한 줄만 보이고 보상과 버튼이 없다", () => {
@@ -101,7 +101,7 @@ describe("EarnTab 무료 포인트", () => {
     expect(screen.queryByText(/남음/)).not.toBeInTheDocument();
   });
 
-  it("광고가 없는 경계는 광고 타일과 충전 칸 없이 타일 두 개만 그린다", () => {
+  it("광고가 없는 경계는 광고 줄과 충전 칸 없이 줄 두 개만 그린다", () => {
     const { ad, ...rest } = fixture.earn;
     void ad;
     render(
@@ -113,13 +113,13 @@ describe("EarnTab 무료 포인트", () => {
     expect(screen.queryByText("포인트 충전")).not.toBeInTheDocument();
     expect(screen.queryByText("충전과 광고 보상은 앱에서 할 수 있어요")).not.toBeInTheDocument();
     expect(screen.getByText("출석")).toBeInTheDocument();
-    expect(screen.getByText("하루 목표 3시간").closest(".grid")).toHaveClass("grid-cols-2");
+    expect(screen.getByText("하루 목표 3시간")).toBeInTheDocument();
   });
 
   it("받은 광고 타일은 완료다", () => {
     setup({ earn: buildPointsFixture("allDone").earn });
     expect(screen.getAllByText("완료")).toHaveLength(3);
-    expect(screen.queryByRole("button", { name: "보기" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^보기/ })).not.toBeInTheDocument();
   });
 });
 
@@ -155,22 +155,22 @@ describe("EarnTab 메달", () => {
 describe("EarnTab 광고와 충전", () => {
   it("광고가 없으면 안내 창을 띄운다", async () => {
     setup();
-    await userEvent.click(screen.getByRole("button", { name: "보기" }));
+    await userEvent.click(screen.getByRole("button", { name: /^보기/ }));
     expect(await screen.findByText("지금은 볼 수 있는 광고가 없어요")).toBeInTheDocument();
     expect(screen.getByText("잠시 뒤에 다시 눌러 주세요.")).toBeInTheDocument();
   });
 
   it("광고를 봤어도 서버가 확인하기 전에는 횟수를 올리지 않는다", async () => {
     setup({ onWatchAd: async () => ({ status: "late" }) });
-    await userEvent.click(screen.getByRole("button", { name: "보기" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "보기" })).toBeEnabled());
-    expect(screen.getByText("광고 보기")).toHaveTextContent("0/3");
+    await userEvent.click(screen.getByRole("button", { name: /^보기/ }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /^보기/ })).toBeEnabled());
+    expect(screen.getByText("0/3")).toBeInTheDocument();
   });
 
   it("광고를 보면 횟수가 오른다", async () => {
     setup({ onWatchAd: async () => ({ status: "rewarded", balance: 1270 }) });
-    await userEvent.click(screen.getByRole("button", { name: "보기" }));
-    await waitFor(() => expect(screen.getByText("광고 보기")).toHaveTextContent("1/3"));
+    await userEvent.click(screen.getByRole("button", { name: /^보기/ }));
+    await waitFor(() => expect(screen.getByText("1/3")).toBeInTheDocument());
   });
 
   it("충전이 끝나면 결과 표를 보인다", async () => {
@@ -292,14 +292,14 @@ describe("EarnTab 앱 밖", () => {
     expect(screen.queryByText("포인트 충전")).not.toBeInTheDocument();
     expect(screen.getByText("충전과 광고 보상은 앱에서 할 수 있어요")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: "앱에서 열기" })).toHaveLength(2);
-    expect(screen.queryByRole("button", { name: "보기" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^보기/ })).not.toBeInTheDocument();
   });
 });
 
 describe("EarnTab 실패", () => {
   it.each([
     ["받기", { onClaim: () => Promise.reject(new Error("down")) }, "+60P 받기"],
-    ["광고", { onWatchAd: () => Promise.reject(new Error("down")) }, "보기"],
+    ["광고", { onWatchAd: () => Promise.reject(new Error("down")) }, /^보기/],
     ["충전", { onCharge: () => Promise.reject(new Error("down")) }, /500P 충전/],
   ] as const)("%s 요청이 실패하면 알리고 다시 누를 수 있다", async (_, over, name) => {
     setup(over);

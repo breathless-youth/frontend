@@ -21,13 +21,7 @@ export function EarnIcon({ name }: { name: "study" | "attendance" | "dailyGoal" 
         {name === "attendance" && (
           <path d="M6.5 5h11a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-11a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3zM8 3v4M16 3v4M3.5 10h17M9 15l2 2 4-4" />
         )}
-        {name === "dailyGoal" && (
-          <>
-            <circle cx="12" cy="12" r="9" />
-            <circle cx="12" cy="12" r="4.5" />
-            <circle cx="12" cy="12" r="1" fill="currentColor" />
-          </>
-        )}
+        {name === "dailyGoal" && <path d="M5 21V4M5 4.5h11.5l-2.5 4 2.5 4H5" />}
         {name === "ad" && (
           <>
             <rect x="2.5" y="5" width="19" height="14" rx="4" />
