@@ -103,7 +103,7 @@ describe("startChannelTalk", () => {
     await failed;
   });
 
-  it("boot에는 정해진 다섯 옵션만 넘긴다", async () => {
+  it("boot에는 정해진 일곱 옵션만 넘기고 페이지 조회·유입 수집은 끈다", async () => {
     startChannelTalk(OPTIONS);
     script().dispatchEvent(new Event("load"));
     await vi.waitFor(() => expect(queued("boot")).toHaveLength(1));
@@ -114,6 +114,8 @@ describe("startChannelTalk", () => {
       appearance: "system",
       profile: OPTIONS.profile,
       hideChannelButtonOnBoot: true,
+      trackDefaultEvent: false,
+      trackUtmSource: false,
     });
   });
 

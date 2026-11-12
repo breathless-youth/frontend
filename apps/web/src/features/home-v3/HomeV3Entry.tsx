@@ -37,6 +37,19 @@ const { LazySheet: LazyGoalSheet, preload: preloadGoalSheet } = lazyWithPreload(
 );
 
 /** 실제 서버 어댑터를 연결한 뒤에만 HomeTabPage에서 선택하는 새 본문. */
+/**
+ * 상담 화면 주소
+ *
+ * 상담 화면은 외부 SDK를 띄우므로 페이지 주소에 사용자 번호 쿼리를 싣지 않는다.
+ * 앱 버전과 토큰 출처 표시 같은 나머지 쿼리는 상담 화면이 그대로 쓴다.
+ */
+function contactChatPath(search: string): string {
+  const params = new URLSearchParams(search);
+  params.delete("userId");
+  const query = params.toString();
+  return query === "" ? "/contact/chat" : `/contact/chat?${query}`;
+}
+
 export function HomeV3Entry({
   userId,
   gateway: suppliedGateway,
@@ -263,7 +276,7 @@ export function HomeV3Entry({
           openTimelapseSettings: () => openPage("/timelapse-settings"),
           openAppLock: () => openPage("/app-lock-settings"),
           // 상담 화면은 COEP 예외 문서라 SPA 이동이 아니라 문서 이동으로 연다.
-          openContact: () => hardNavigate(`/contact/chat${location.search}`),
+          openContact: () => hardNavigate(contactChatPath(location.search)),
         }}
       />
       {editing && (

@@ -186,6 +186,9 @@ export function startChannelTalk(options: ChannelStartOptions): ChannelAttempt {
             appearance: options.appearance,
             profile: options.profile,
             hideChannelButtonOnBoot: true,
+            // 페이지 주소에 실린 식별자가 외부 SDK로 넘어가지 않게 페이지 조회와 유입 경로 수집을 끈다.
+            trackDefaultEvent: false,
+            trackUtmSource: false,
           },
           (error: unknown) => {
             if (mine !== generation) return;

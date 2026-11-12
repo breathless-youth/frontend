@@ -149,8 +149,8 @@ describe("home v3 entry adapters", () => {
     );
     expect(JSON.parse(String(datePut?.[1]?.body))).toEqual({ goalSec: 30600 });
   });
-  it("opens the contact chat as a new document with the current query", async () => {
-    setup({}, false, "/home?userId=7&appVersion=26.46.0");
+  it("opens the contact chat as a new document without the userId query", async () => {
+    setup({}, false, "/home?userId=7&appVersion=26.46.0&guestAuth=1");
 
     await userEvent.click(
       await screen.findByRole("button", {
@@ -158,7 +158,19 @@ describe("home v3 entry adapters", () => {
       }),
     );
 
-    expect(hardNavigate).toHaveBeenCalledWith("/contact/chat?userId=7&appVersion=26.46.0");
+    expect(hardNavigate).toHaveBeenCalledWith("/contact/chat?appVersion=26.46.0&guestAuth=1");
+  });
+
+  it("opens the contact chat without a trailing question mark when there is no query", async () => {
+    setup({}, false, "/home");
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: `${i18n.t("home:v3.contact.bubble")} ${i18n.t("home:v3.contact.label")}`,
+      }),
+    );
+
+    expect(hardNavigate).toHaveBeenCalledWith("/contact/chat");
   });
 
   it("shows the app update action when the selected subject cannot be passed by an older app", async () => {
