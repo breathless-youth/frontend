@@ -108,7 +108,11 @@ export type PurchaseFailure =
 export type PurchaseResult = { ok: true; balance: number } | { ok: false; reason: PurchaseFailure };
 
 export type AdResult =
-  { status: "rewarded"; balance: number } | { status: "unavailable" } | { status: "cancelled" };
+  | { status: "rewarded"; balance: number }
+  /** 광고는 끝까지 봤는데 기다리는 동안 서버가 시청을 확인하지 못했다. */
+  | { status: "late" }
+  | { status: "unavailable" }
+  | { status: "cancelled" };
 
 export type ChargeResult =
   | { status: "completed"; granted: number; bonus: number; balance: number }

@@ -25,6 +25,14 @@ export function useShopActions() {
     void queryClient.invalidateQueries({ queryKey: pointsKeys.earnToday(userId) });
     void queryClient.invalidateQueries({ queryKey: [...pointsKeys.user(userId), "history"] });
   };
+  // 늦게 들어온 포인트가 화면에 보이도록 잔액과 오늘 받은 것을 몇 번 더 읽는다.
+  const refetchLater = () => {
+    for (const delayMs of LATE_BALANCE_REFETCH_MS) {
+      window.setTimeout(() => {
+        void queryClient.invalidateQueries({ queryKey: pointsKeys.user(userId) });
+      }, delayMs);
+    }
+  };
   const refetchShop = () => queryClient.invalidateQueries({ queryKey: pointsKeys.shop(userId) });
 
   const claim = async (kind: ClaimKind) => {
@@ -41,19 +49,13 @@ export function useShopActions() {
   const watchAd = async (): Promise<AdResult> => {
     const result = await gateway.watchAd();
     if (result.status === "rewarded") settle(result.balance);
+    if (result.status === "late") refetchLater();
     return result;
   };
   const charge = async (productId: string, onPaid?: () => void): Promise<ChargeResult> => {
     const result = await gateway.charge(productId, onPaid);
     if (result.status === "completed") settle(result.balance);
-    if (result.status === "late") {
-      // 늦게 들어온 포인트가 화면에 보이도록 잔액을 몇 번 더 읽는다.
-      for (const delayMs of LATE_BALANCE_REFETCH_MS) {
-        window.setTimeout(() => {
-          void queryClient.invalidateQueries({ queryKey: pointsKeys.user(userId) });
-        }, delayMs);
-      }
-    }
+    if (result.status === "late") refetchLater();
     return result;
   };
   const equipAccessory = async (mascotId: MascotId, slot: AccessorySlot, itemId: string | null) => {

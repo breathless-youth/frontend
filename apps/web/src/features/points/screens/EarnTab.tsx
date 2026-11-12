@@ -90,6 +90,7 @@ export function EarnTab({
   const watchAd = (handler: () => Promise<AdResult>) =>
     run(async () => {
       const result = await handler();
+      // 확인이 늦으면 따로 알리지 않고, 뒤에서 다시 읽은 값으로 횟수와 잔액이 바뀐다.
       if (result.status === "rewarded") setWatchedAtLeast(watched + 1);
       if (result.status === "unavailable") setAdUnavailable(true);
     });

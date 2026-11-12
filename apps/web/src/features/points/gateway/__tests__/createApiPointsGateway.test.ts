@@ -557,14 +557,14 @@ describe("보상형 광고 연결", () => {
     expect(nativeAds.requestNativePointsAd).toHaveBeenCalledTimes(1);
   });
 
-  it("시청 확인이 늦어도 기다림이 끝나면 지금 잔액으로 마친다", async () => {
+  it("기다려도 서버가 시청을 확인하지 못하면 늦는 것으로 끝낸다", async () => {
     vi.useFakeTimers();
     serve(() => 1, 60);
 
     const pending = createApiPointsGateway().watchAd();
     await vi.advanceTimersByTimeAsync(21_000);
 
-    expect(await pending).toEqual({ status: "rewarded", balance: 60 });
+    expect(await pending).toEqual({ status: "late" });
   });
 
   it("중간에 닫았거나 볼 광고가 없으면 기다리지 않고 그대로 돌려준다", async () => {

@@ -160,6 +160,13 @@ describe("EarnTab 광고와 충전", () => {
     expect(screen.getByText("잠시 뒤에 다시 눌러 주세요.")).toBeInTheDocument();
   });
 
+  it("광고를 봤어도 서버가 확인하기 전에는 횟수를 올리지 않는다", async () => {
+    setup({ onWatchAd: async () => ({ status: "late" }) });
+    await userEvent.click(screen.getByRole("button", { name: "보기" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "보기" })).toBeEnabled());
+    expect(screen.getByText("광고 보기")).toHaveTextContent("0/3");
+  });
+
   it("광고를 보면 횟수가 오른다", async () => {
     setup({ onWatchAd: async () => ({ status: "rewarded", balance: 1270 }) });
     await userEvent.click(screen.getByRole("button", { name: "보기" }));

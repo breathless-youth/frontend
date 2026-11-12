@@ -129,14 +129,14 @@ export function createApiPointsGateway(): PointsGateway {
       if (status !== "rewarded") {
         return { status };
       }
-      // 확인이 늦어도 광고는 끝까지 본 것이라 기다림이 끝나면 지금 잔액으로 마친다.
+      // 횟수와 잔액은 서버가 시청을 확인한 뒤에만 올린다.
       for (let attempt = 0; attempt < AD_SETTLE_TRIES; attempt += 1) {
         if (((await getPointsEarn()).ad?.watchedToday ?? 0) > before) {
-          break;
+          return { status: "rewarded", balance: (await getPointsBalance()).balance };
         }
         await wait(AD_SETTLE_INTERVAL_MS);
       }
-      return { status: "rewarded", balance: (await getPointsBalance()).balance };
+      return { status: "late" };
     },
     getChargePacks: async () => {
       const { items } = await getPointProducts();
