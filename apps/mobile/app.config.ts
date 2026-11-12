@@ -484,6 +484,18 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
       ...metaSdkPlugins(metaSdk, appDisplayName),
       ...airbridgePlugins(airbridgeToken),
       ...socialLoginPlugins(kakaoNativeAppKey, googleIosClientId),
+      // 스파이크: 개발 빌드에만 광고 SDK를 넣는다. 앱 ID는 AdMob에 등록한 운영 앱의 것이고 광고 단위는 테스트 ID만 쓴다.
+      ...(variant === "development"
+        ? ([
+            [
+              "react-native-google-mobile-ads",
+              {
+                iosAppId: "ca-app-pub-4724067415486202~4873548455",
+                androidAppId: "ca-app-pub-4724067415486202~1529713162",
+              },
+            ],
+          ] as NonNullable<ExpoConfig["plugins"]>)
+        : []),
     ],
     ios: {
       ...config.ios,
@@ -518,6 +530,8 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
       },
       // 같은 기기에서 CSS 대체 화면과 비교하려고 개발 빌드만 네이티브 glass를 끌 수 있게 한다(`lib/remoteQueryParams.ts`).
       glassChromeOff: variant === "development" && process.env.GLASS_CHROME_OFF === "1",
+      // 스파이크: RevenueCat Test Store 키. 저장소에 적지 않고 .env.local에서만 읽는다.
+      revenueCatApiKey: variant === "development" ? (process.env.REVENUECAT_API_KEY ?? "") : "",
     },
   };
 }
