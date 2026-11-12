@@ -1,8 +1,9 @@
-import { Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Skeleton } from "@/components/ui/Skeleton";
+import { cn } from "@/lib/utils";
 
 import { CategoryChips, ONE_CHIP_ROW_HEIGHT } from "../components/CategoryChips";
 import { PublicRoomCard } from "../components/PublicRoomCard";
@@ -63,6 +64,8 @@ export function PublicRoomsView({
 }) {
   const { t } = useTranslation("group-room");
   const [expanded, setExpanded] = useState(false);
+  // 펼친 채로 고른 칩은 접을 때 앞으로 꺼내고, 접힌 채로 고를 때는 누르는 자리가 움직이지 않게 그대로 둔다.
+  const [leading, setLeading] = useState(category);
   const [hasOverflow, setHasOverflow] = useState(false);
   const measureRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -157,13 +160,17 @@ export function PublicRoomsView({
               onChange={onCategoryChange}
               allLabel={t("publicRoomsView.allCategories")}
               compact={hasOverflow && !expanded}
+              leading={leading}
             />
           </div>
           {hasOverflow && (
             <button
               type="button"
               aria-expanded={expanded}
-              onClick={() => setExpanded(!expanded)}
+              onClick={() => {
+                if (expanded) setLeading(category);
+                setExpanded(!expanded);
+              }}
               className="flex h-9 shrink-0 items-center gap-1 text-sm font-semibold text-muted-foreground"
             >
               {t(
@@ -171,7 +178,10 @@ export function PublicRoomsView({
                   ? "publicRoomsView.collapseCategories"
                   : "publicRoomsView.expandCategories",
               )}
-              <span aria-hidden="true">{expanded ? "⌃" : "⌄"}</span>
+              <ChevronDown
+                aria-hidden="true"
+                className={cn("size-4 shrink-0", expanded && "rotate-180")}
+              />
             </button>
           )}
         </div>
