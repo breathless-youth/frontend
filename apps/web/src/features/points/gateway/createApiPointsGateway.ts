@@ -15,6 +15,7 @@ import {
   putTimerBackground,
 } from "@/lib/pointsApi";
 
+import { isNativePointsAdsAvailable, requestNativePointsAd } from "@/lib/nativePointsAds";
 import {
   isNativePointsChargeAvailable,
   requestNativePointsPrices,
@@ -37,6 +38,9 @@ import type { PointsCapabilities, PointsGateway } from "./PointsGateway";
 /** 결제 알림이 서버에 닿기까지 보통 몇 초, 길면 1분쯤 걸려서 그동안 잔액을 다시 읽는다. */
 const CHARGE_SETTLE_INTERVAL_MS = 2_000;
 const CHARGE_SETTLE_TRIES = 30;
+/** 광고 시청 확인은 광고 사업자가 서버로 직접 보내서 몇 초 늦을 수 있다. */
+const AD_SETTLE_INTERVAL_MS = 2_000;
+const AD_SETTLE_TRIES = 10;
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -55,10 +59,6 @@ const REWARD_PATH = {
 
 const HISTORY_PAGE_SIZE = 30;
 
-function unsupported(name: string): Promise<never> {
-  return Promise.reject(new Error(`points ${name} is not available yet`));
-}
-
 /** 화면의 상품 id는 서버 숫자 id를 문자열로 바꾼 것이라 보낼 때 되돌린다. */
 function toServerItemId(itemId: string | null): number | null {
   return itemId === null ? null : Number(itemId);
@@ -67,8 +67,9 @@ function toServerItemId(itemId: string | null): number | null {
 /**
  * 포인트 API로 도는 경계
  *
- * 충전은 결제를 맡을 수 있는 앱 안에서만 켜고, 광고는 아직 연결 전이라 capabilities에서 끄고 메서드는 거절한다.
+ * 충전과 광고는 결제와 광고를 맡을 수 있는 앱 안에서만 켠다.
  * 충전 포인트는 서버가 결제 알림을 받아 주므로 결제가 끝나면 잔액이 늘 때까지 다시 읽는다.
+ * 광고 포인트도 서버가 광고 사업자의 시청 확인을 받아 주므로 광고가 끝나면 오늘 본 횟수가 늘 때까지 다시 읽는다.
  * 같은 구매가 두 번 와도 서버가 한 번만 처리하므로 따로 중복 방지 키를 보내지 않는다.
  * 상점 화면은 상품과 마스코트를 함께 쓰므로 두 조회를 묶어 한 번에 넘긴다.
  */
@@ -77,7 +78,7 @@ export function createApiPointsGateway(): PointsGateway {
     earn: true,
     history: true,
     charge: isNativePointsChargeAvailable(),
-    ads: false,
+    ads: isNativePointsAdsAvailable(),
   };
   return {
     capabilities,
@@ -122,7 +123,21 @@ export function createApiPointsGateway(): PointsGateway {
       const balance = result.balance ?? (await getPointsBalance()).balance;
       return { ...result, balance };
     },
-    watchAd: () => unsupported("ads"),
+    watchAd: async () => {
+      const before = (await getPointsEarn()).ad?.watchedToday ?? 0;
+      const status = await requestNativePointsAd();
+      if (status !== "rewarded") {
+        return { status };
+      }
+      // 확인이 늦어도 광고는 끝까지 본 것이라 기다림이 끝나면 지금 잔액으로 마친다.
+      for (let attempt = 0; attempt < AD_SETTLE_TRIES; attempt += 1) {
+        if (((await getPointsEarn()).ad?.watchedToday ?? 0) > before) {
+          break;
+        }
+        await wait(AD_SETTLE_INTERVAL_MS);
+      }
+      return { status: "rewarded", balance: (await getPointsBalance()).balance };
+    },
     getChargePacks: async () => {
       const { items } = await getPointProducts();
       const prices = await requestNativePointsPrices(items.map((item) => item.storeProductId));

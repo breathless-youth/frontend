@@ -295,6 +295,32 @@ function resolveRevenueCatApiKey(variant: AppVariant): string {
   return key;
 }
 
+/**
+ * 보상형 광고 단위
+ *
+ * 서버는 자기 설정에 있는 광고 단위의 시청만 보상하고 dev 서버는 dev 단위, 운영 서버는 운영 단위만 받는다.
+ * 그래서 빌드 종류로 고르고 Google 테스트 단위로 대신하지 않는다.
+ * 광고 단위 ID는 바이너리에 그대로 실리는 공개 값이다.
+ */
+const ADMOB_REWARDED_UNIT_IDS: Partial<Record<AppVariant, { ios: string; android: string }>> = {
+  development: {
+    ios: "ca-app-pub-4724067415486202/6730214745",
+    android: "ca-app-pub-4724067415486202/5416473931",
+  },
+  production: {
+    ios: "ca-app-pub-4724067415486202/5967651624",
+    android: "ca-app-pub-4724067415486202/3528677194",
+  },
+};
+
+// 광고 SDK는 앱 ID 없이 초기화하면 앱이 죽어서 플러그인과 광고 단위를 같은 조건으로 켠다.
+// 운영 빌드는 출시를 정할 때 이 목록에 더한다.
+const ADS_VARIANTS: readonly AppVariant[] = ["development"];
+
+function resolveAdmobRewardedUnitIds(variant: AppVariant): { ios: string; android: string } | null {
+  return ADS_VARIANTS.includes(variant) ? (ADMOB_REWARDED_UNIT_IDS[variant] ?? null) : null;
+}
+
 function airbridgePlugins(token: string | null): NonNullable<ExpoConfig["plugins"]> {
   return token === null
     ? []
@@ -427,6 +453,7 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
   const appDisplayNameEn = `${config.extra?.appDisplayNameEn ?? ""}${table.nameSuffix}`;
   const metaSdk = resolveMetaSdk(variant);
   const airbridgeToken = resolveAirbridgeToken(variant);
+  const admobRewardedUnitIds = resolveAdmobRewardedUnitIds(variant);
   const kakaoNativeAppKey = table.kakaoNativeAppKey ?? "";
   const googleIosClientId = table.googleIosClientId ?? "";
 
@@ -498,9 +525,9 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
       ...metaSdkPlugins(metaSdk, appDisplayName),
       ...airbridgePlugins(airbridgeToken),
       ...socialLoginPlugins(kakaoNativeAppKey, googleIosClientId),
-      // 스파이크: 개발 빌드에만 광고 SDK를 넣는다. 앱 ID는 AdMob에 등록한 운영 앱의 것이고 광고 단위는 테스트 ID만 쓴다.
-      ...(variant === "development"
-        ? ([
+      ...(admobRewardedUnitIds === null
+        ? []
+        : ([
             [
               "react-native-google-mobile-ads",
               {
@@ -508,8 +535,7 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
                 androidAppId: "ca-app-pub-4724067415486202~1529713162",
               },
             ],
-          ] as NonNullable<ExpoConfig["plugins"]>)
-        : []),
+          ] as NonNullable<ExpoConfig["plugins"]>)),
     ],
     ios: {
       ...config.ios,
@@ -546,6 +572,8 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
       glassChromeOff: variant === "development" && process.env.GLASS_CHROME_OFF === "1",
       // 런타임 게이트(`lib/pointsChargeSdk.ts`)이고, 비어 있으면 이 빌드는 포인트 충전을 끈다.
       revenueCatApiKey: resolveRevenueCatApiKey(variant),
+      // 런타임 게이트(`lib/pointsAdsSdk.ts`)이고, 비어 있으면 이 빌드는 보상형 광고를 끈다.
+      admobRewardedUnitIds: admobRewardedUnitIds ?? { ios: "", android: "" },
     },
   };
 }

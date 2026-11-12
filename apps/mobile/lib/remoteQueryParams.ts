@@ -10,6 +10,7 @@ import { profilePhotoPickerNative } from "../modules/profile-photo-picker";
 import { SUPPORTED_INLINE_KINDS, webGlassNative } from "../modules/web-glass";
 import { getRnda } from "./appLock/rnda";
 import { isNewUserThisLaunch } from "./auth";
+import { isPointsAdsSupported } from "./pointsAds";
 import { isPointsChargeSupported } from "./pointsCharge";
 import { supportedSocialLoginProviders } from "./socialLogin";
 import { ensureUserRegistered } from "./userApi";
@@ -119,6 +120,12 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   // 결제 SDK 키가 없는 빌드와 SDK 네이티브 모듈이 없는 이전 Dev Client에는 붙지 않는다.
   if (isPointsChargeSupported()) {
     params.pointsCharge = "1";
+  }
+  // `pointsAds=1`: 이 바이너리가 `points-ad-show`로 보상형 광고를 띄울 수 있다는 표시.
+  // 웹은 이 표시가 있을 때만 광고 타일의 보기 버튼을 연다(`apps/web/src/lib/nativePointsAds.ts`).
+  // 광고 단위 ID가 없는 빌드와 광고 SDK 네이티브 모듈이 없는 이전 Dev Client에는 붙지 않는다.
+  if (isPointsAdsSupported()) {
+    params.pointsAds = "1";
   }
   // `glassChrome`: 이 바이너리가 위쪽 고정 영역을 네이티브 Liquid Glass로 그린다는 표시이고 값은 그릴 수 있는 크롬 모양의 버전이다.
   // `glassControls`: 이 바이너리의 Swift가 그리는 본문 부품 종류 목록이고, 버튼 모양을 그리면 `button-style`이 뒤에 붙는다.

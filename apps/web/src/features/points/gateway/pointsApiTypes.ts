@@ -108,6 +108,8 @@ export type PointsEarnResponse = {
     achieved: boolean;
     claimed: boolean;
   };
+  /** 광고 보상이 생기기 전의 서버는 주지 않는다. available이 false면 서버에 광고 단위가 설정되지 않은 것이다. */
+  ad?: { available: boolean; points: number; watchedToday: number; dailyLimit: number };
   medals: {
     recordId: number;
     boardKey: string;

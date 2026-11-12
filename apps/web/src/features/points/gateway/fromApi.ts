@@ -291,6 +291,9 @@ export function toEarnToday(res: PointsEarnResponse): EarnToday {
       claimed: res.dailyGoal.claimed,
       remainingSec: res.dailyGoal.remainingSec,
     },
+    ...(res.ad?.available === true
+      ? { ad: { reward: res.ad.points, watched: res.ad.watchedToday, limit: res.ad.dailyLimit } }
+      : null),
     medals: res.medals.flatMap((medal): MedalReward[] => {
       const period = MEDAL_PERIODS.find((value) => value === medal.period);
       if (period === undefined || ![1, 2, 3].includes(medal.rank)) {

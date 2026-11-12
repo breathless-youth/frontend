@@ -15,6 +15,12 @@ const native = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/nativePointsCharge", () => native);
 
+const nativeAds = vi.hoisted(() => ({
+  isNativePointsAdsAvailable: vi.fn(() => false),
+  requestNativePointsAd: vi.fn(),
+}));
+vi.mock("@/lib/nativePointsAds", () => nativeAds);
+
 beforeEach(() => {
   vi.stubGlobal("fetch", fetchMock);
 });
@@ -74,7 +80,7 @@ const ITEMS: ShopItemsResponse = {
 };
 
 describe("createApiPointsGateway", () => {
-  it("받기는 켜고 앱 밖의 충전과 아직 없는 광고는 꺼 두며 광고는 부르면 요청 없이 거절한다", async () => {
+  it("받기는 켜고 앱 밖에서는 충전과 광고를 꺼 둔다", () => {
     const gateway = createApiPointsGateway();
     expect(gateway.capabilities).toEqual({
       earn: true,
@@ -82,8 +88,6 @@ describe("createApiPointsGateway", () => {
       charge: false,
       ads: false,
     });
-    await expect(gateway.watchAd()).rejects.toThrow();
-    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("기록은 종류·크기·커서를 실어 GET하고 다음 커서를 넘긴다", async () => {
@@ -498,5 +502,77 @@ describe("포인트 충전", () => {
     );
     expect(await gateway.charge("points_9999")).toEqual({ status: "failed" });
     expect(requestNativePointsPurchase).not.toHaveBeenCalled();
+  });
+});
+
+describe("보상형 광고 연결", () => {
+  const AD = { available: true, points: 10, watchedToday: 1, dailyLimit: 3 };
+
+  beforeEach(() => {
+    nativeAds.isNativePointsAdsAvailable.mockReset().mockReturnValue(true);
+    nativeAds.requestNativePointsAd.mockReset().mockResolvedValue("rewarded");
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function serve(watchedAfter: (earnReads: number) => number, balance = 60) {
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (!url.includes("/api/points/earn")) return respond(200, { balance });
+      const earnReads = fetchMock.mock.calls.filter(([target]) =>
+        String(target).includes("/api/points/earn"),
+      ).length;
+      return respond(200, { ...EARN, ad: { ...AD, watchedToday: watchedAfter(earnReads) } });
+    });
+  }
+
+  it("광고를 맡을 수 있는 앱에서만 광고를 켠다", () => {
+    expect(createApiPointsGateway().capabilities.ads).toBe(true);
+    nativeAds.isNativePointsAdsAvailable.mockReturnValue(false);
+    expect(createApiPointsGateway().capabilities.ads).toBe(false);
+  });
+
+  it("서버가 광고를 쓸 수 있다고 할 때만 광고 칸 값을 넘긴다", async () => {
+    const gateway = createApiPointsGateway();
+    fetchMock.mockResolvedValueOnce(respond(200, { ...EARN, ad: AD }));
+    expect((await gateway.getEarnToday()).ad).toEqual({ reward: 10, watched: 1, limit: 3 });
+
+    fetchMock.mockResolvedValueOnce(respond(200, { ...EARN, ad: { ...AD, available: false } }));
+    expect((await gateway.getEarnToday()).ad).toBeUndefined();
+
+    fetchMock.mockResolvedValueOnce(respond(200, EARN));
+    expect((await gateway.getEarnToday()).ad).toBeUndefined();
+  });
+
+  it("광고를 다 보면 오늘 본 횟수가 늘 때까지 다시 읽고 그때의 잔액을 돌려준다", async () => {
+    vi.useFakeTimers();
+    serve((earnReads) => (earnReads >= 3 ? 2 : 1), 70);
+
+    const pending = createApiPointsGateway().watchAd();
+    await vi.advanceTimersByTimeAsync(10_000);
+
+    expect(await pending).toEqual({ status: "rewarded", balance: 70 });
+    expect(nativeAds.requestNativePointsAd).toHaveBeenCalledTimes(1);
+  });
+
+  it("시청 확인이 늦어도 기다림이 끝나면 지금 잔액으로 마친다", async () => {
+    vi.useFakeTimers();
+    serve(() => 1, 60);
+
+    const pending = createApiPointsGateway().watchAd();
+    await vi.advanceTimersByTimeAsync(21_000);
+
+    expect(await pending).toEqual({ status: "rewarded", balance: 60 });
+  });
+
+  it("중간에 닫았거나 볼 광고가 없으면 기다리지 않고 그대로 돌려준다", async () => {
+    serve(() => 1);
+    nativeAds.requestNativePointsAd.mockResolvedValueOnce("cancelled");
+    expect(await createApiPointsGateway().watchAd()).toEqual({ status: "cancelled" });
+
+    nativeAds.requestNativePointsAd.mockResolvedValueOnce("unavailable");
+    expect(await createApiPointsGateway().watchAd()).toEqual({ status: "unavailable" });
   });
 });

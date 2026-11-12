@@ -231,6 +231,11 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         storeProductId: record.storeProductId,
         atMs: record.atMs,
       };
+    case "points-ad-show":
+      if (typeof record.id !== "string" || record.id === "") {
+        return null;
+      }
+      return { type: "points-ad-show", id: record.id, atMs: record.atMs };
     case "logout":
     case "delete-account":
       if (

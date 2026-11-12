@@ -13,6 +13,7 @@ import {
   INSTALL_REFERRER_MAX_LENGTH,
   NATIVE_CONTROL_ID_PATTERN,
   DELETE_ACCOUNT_FAILURE_CODES,
+  POINTS_AD_STATUSES,
   POINTS_CHARGE_PURCHASE_STATUSES,
   SOCIAL_LOGIN_FAILURE_CODES,
   VIDEO_RESULT_STATUSES,
@@ -384,6 +385,17 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
       ? (record.status as (typeof POINTS_CHARGE_PURCHASE_STATUSES)[number])
       : "failed";
     return { type: "points-charge-purchase-result", id: record.id, status, atMs: record.atMs };
+  }
+  if (
+    record.type === "points-ad-show-result" &&
+    typeof record.id === "string" &&
+    record.id !== ""
+  ) {
+    // 앱이 새 상태를 더해도 응답을 버리면 기다리는 쪽이 끝나지 않으므로 모르는 상태는 광고 없음으로 받는다.
+    const status = (POINTS_AD_STATUSES as readonly unknown[]).includes(record.status)
+      ? (record.status as (typeof POINTS_AD_STATUSES)[number])
+      : "unavailable";
+    return { type: "points-ad-show-result", id: record.id, status, atMs: record.atMs };
   }
   if (record.type === "logout-result" && typeof record.id === "string" && record.id !== "") {
     return { type: "logout-result", id: record.id, atMs: record.atMs };

@@ -145,6 +145,7 @@ export type ToWebMessage =
   | SocialLoginResultMessage
   | PointsChargePricesResultMessage
   | PointsChargePurchaseResultMessage
+  | PointsAdShowResultMessage
   | LogoutResultMessage
   | DeleteAccountResultMessage
   | CameraPermissionMessage
@@ -275,6 +276,24 @@ export type PointsChargePurchaseResultMessage = {
   type: "points-charge-purchase-result";
   id: string;
   status: PointsChargePurchaseStatus;
+  atMs: number;
+};
+
+export const POINTS_AD_STATUSES = ["rewarded", "cancelled", "unavailable"] as const;
+export type PointsAdStatus = (typeof POINTS_AD_STATUSES)[number];
+
+/**
+ * 보상형 광고 시청 결과
+ *
+ * `points-ad-show`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+ * `rewarded`는 광고 SDK가 보상 조건을 채웠다고 알렸다는 뜻이고 포인트는 서버가 광고 사업자의 확인을 받은 뒤에 들어온다.
+ * `cancelled`는 사용자가 광고를 끝까지 보지 않고 닫았거나 앞선 광고가 아직 떠 있는 경우다.
+ * `unavailable`은 띄울 광고가 없거나 불러오지 못한 경우다.
+ */
+export type PointsAdShowResultMessage = {
+  type: "points-ad-show-result";
+  id: string;
+  status: PointsAdStatus;
   atMs: number;
 };
 
@@ -583,6 +602,13 @@ export type ToNativeMessage =
    * 앱은 결제 전에 결제 SDK에 지금 사용자 ID로 로그인해서 서버가 결제 알림의 주인을 알 수 있게 한다.
    */
   | { type: "points-charge-purchase"; id: string; storeProductId: string; atMs: number }
+  /**
+   * 보상형 광고 보기 요청
+   *
+   * 앱이 웹뷰 주소에 `pointsAds=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `points-ad-show-result`로 답한다.
+   * 앱은 광고의 서버 확인 옵션에 지금 사용자 ID를 실어 서버가 보상을 줄 계정을 알 수 있게 한다.
+   */
+  | { type: "points-ad-show"; id: string; atMs: number }
   | SetTabBarMessage
   | SetBackGestureMessage
   | SetBackLockMessage

@@ -34,6 +34,7 @@ import type * as PushTokenRegistration from "./pushTokenRegistration";
 import { detachAllNativeAnalyticsSinks, trackNativeEvent } from "./nativeAnalytics";
 import { emitSessionClosed } from "./sessionClosed";
 import { runAfterNextSessionScreen } from "./sessionPresence";
+import { showPointsAd } from "./pointsAds";
 import { pointsChargePrices, purchasePointsCharge } from "./pointsCharge";
 import { deleteAccountWithReauth, socialLogin } from "./socialLogin";
 import { setTabBarState } from "./tabBarVisibility";
@@ -429,6 +430,11 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
     case "points-charge-purchase":
       void purchasePointsCharge(message.storeProductId).then((status) => {
         reply({ type: "points-charge-purchase-result", id: message.id, status, atMs: Date.now() });
+      });
+      break;
+    case "points-ad-show":
+      void showPointsAd().then((status) => {
+        reply({ type: "points-ad-show-result", id: message.id, status, atMs: Date.now() });
       });
       break;
     case "logout":
