@@ -309,6 +309,31 @@ describe("runFinish", () => {
     assert.equal(calls[1][1].threadTs, "111.1");
     assert.deepEqual(calls[2][1].platforms, ["Web"]);
   });
+  it("이벤트 파서를 못 불러와도 PR 목록과 Release는 나간다", async () => {
+    const mergeLog =
+      [
+        "786bcaf",
+        "Merge pull request #527 from o/chore/web",
+        "2026-11-11T19:14:47+09:00",
+        "[chore] 웹 버전\n",
+      ].join(US) + RS;
+    const { deps, calls } = fake({
+      githubGetAll: async (path) =>
+        path.endsWith("/releases")
+          ? [{ tag_name: "web/26.46.3", body: "## 로그인\n- a", html_url: "https://r" }]
+          : [{ id: 8, head_sha: "prev123456" }],
+      loadEvents: fail("Cannot find package 'typescript'"),
+    });
+    const git = deps.git;
+    deps.git = (...args) => (args[0] === "log" ? mergeLog : git(...args));
+    const before = log.mock.calls.length;
+    assert.equal(await runFinish(env, deps), true);
+    assert.deepEqual(names(calls), ["update", "post", "post", "release"]);
+    assert.match(calls[2][1].text, /^포함된 PR 1건/);
+    assert.equal(calls[3][1].description, "## 로그인\n- a");
+    const warnings = log.mock.calls.slice(before).map((c) => c.arguments[0]);
+    assert.ok(warnings.some((w) => /^::warning::이벤트 변경을 만들지 못했습니다/.test(w)));
+  });
   it("jobs API가 실패해도 메인 메시지를 고치고 실패로 끝낸다", async () => {
     const { deps, calls } = fake({ githubGet: fail("GitHub 500") });
     assert.equal(await runFinish(env, deps), true);

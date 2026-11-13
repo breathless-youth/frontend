@@ -200,31 +200,37 @@ async function changesSincePrevious({ env, token, runId, headSha, version, deps,
     return none;
   }
   // 얕은 체크아웃 등으로 git 기록이 없어도 결과 메시지는 올라가야 한다.
-  const changes = await optional("지난 운영 배포와 비교하지 못했습니다", async () => {
-    // start는 의존성 설치 전에 돌아 typescript를 쓰는 이 모듈을 처음부터 불러올 수 없다.
-    const { AMPLITUDE_FILE, diffEvents, extractEvents, formatEventDiff } =
-      await import("./amplitude-events.mjs");
-    const log = deps.git(
-      "log",
-      "--merges",
-      "--format=%H%x1f%s%x1f%cI%x1f%b%x1e",
-      `${prev}..${headSha}`,
-    );
+  const prs = await optional("지난 운영 배포와 비교하지 못했습니다", () =>
+    parseMergedPrs(
+      deps.git("log", "--merges", "--format=%H%x1f%s%x1f%cI%x1f%b%x1e", `${prev}..${headSha}`),
+    ),
+  );
+  // 의존성 설치가 실패해 파서를 못 불러와도 이벤트 변경만 빠지고 PR 목록은 남아야 한다.
+  const eventDiffText = await optional("이벤트 변경을 만들지 못했습니다", async () => {
+    const { AMPLITUDE_FILE, diffEvents, extractEvents, formatEventDiff } = await deps.loadEvents();
     const diff = diffEvents(
       extractEvents(deps.git("show", `${prev}:${AMPLITUDE_FILE}`)),
       extractEvents(deps.git("show", `${headSha}:${AMPLITUDE_FILE}`)),
     );
-    const eventDiffText = formatEventDiff(diff, {
+    return formatEventDiff(diff, {
       fromVersion: versionAt(prev, deps),
       toVersion: version,
       compareUrl: `https://github.com/${repo(env)}/compare/${prev.slice(0, 7)}...${headSha.slice(0, 7)}`,
     });
-    return { prs: parseMergedPrs(log), eventDiffText };
   });
-  return changes ?? none;
+  return { prs, eventDiffText };
 }
 
-const defaultDeps = { githubGet, githubGetAll, git, postMessage, updateMessage, createRelease };
+const defaultDeps = {
+  githubGet,
+  githubGetAll,
+  git,
+  postMessage,
+  updateMessage,
+  createRelease,
+  // start는 의존성 설치 전에 돌아 typescript를 쓰는 이 모듈을 처음부터 불러올 수 없다.
+  loadEvents: () => import("./amplitude-events.mjs"),
+};
 
 /**
  * 배포 결과 메시지, 스레드, Amplitude Release 처리.

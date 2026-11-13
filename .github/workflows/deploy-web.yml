@@ -194,7 +194,9 @@ jobs:
           cache: "pnpm"
       # 이벤트를 읽는 타입스크립트 파서가 필요하다.
       # node-linker=hoisted라 --filter로 루트만 골라도 워크스페이스 전체가 설치되어 거르지 않는다.
+      # 설치가 실패한 배포야말로 결과를 알려야 해서, 설치가 막히면 이벤트 변경만 빼고 알린다.
       - name: Install dependencies
+        continue-on-error: true
         run: pnpm install --frozen-lockfile
       - name: Notify deploy result
         env:
