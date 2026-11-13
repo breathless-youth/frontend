@@ -22,6 +22,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      slack_ts: ${{ steps.slack_start.outputs.ts }}
     # environment: 를 쓰면 OIDC sub가 브랜치 대신 환경 이름이 되어 역할 신뢰 정책(ref:refs/heads/<브랜치>)과 맞지 않는다.
     # 그래서 환경 대신 브랜치로 PROD_·STAGING_ 접두사 변수를 고른다.
     # `조건 && 운영값 || 스테이징값` 식으로 고르면 운영 변수가 비었을 때 오류 없이 스테이징 값으로 넘어가므로, 접두사를 붙여 변수 이름 자체를 고른다.
@@ -84,6 +86,17 @@ jobs:
         with:
           node-version-file: ".nvmrc"
           cache: "pnpm"
+
+      # 운영 배포만 알린다. 스테이징은 하루 열 번 가까이 돌아 운영 알림이 묻힌다.
+      # 알림이 실패해도 배포는 계속한다.
+      - name: Notify deploy start
+        id: slack_start
+        if: github.ref_name == 'main'
+        continue-on-error: true
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_DEPLOY_CHANNEL_ID: ${{ vars.SLACK_DEPLOY_CHANNEL_ID }}
+        run: node scripts/notify-deploy.mjs start
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -155,3 +168,42 @@ jobs:
       # 운영은 컷오버 전까지 CloudFront 기본 주소를, 컷오버 뒤에는 실제 도메인을 VERIFY_URL로 둔다.
       - name: Verify deploy
         run: node apps/web/scripts/verifyDeploy.js "$VERIFY_URL"
+
+  # Draft Release를 읽으려면 쓰기 권한이 필요하다.
+  # 외부 패키지를 설치하고 빌드하는 deploy job에는 쓰기 권한을 주지 않으려고 job을 나눴다.
+  notify:
+    needs: deploy
+    if: always() && github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      # 이벤트 비교와 PR 목록에 지난 운영 배포 커밋이 필요하다
+      # 쓰기 토큰이 의존성 설치 중에 git 설정에 남지 않게 한다. 이 job은 push하지 않는다
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+      # 이벤트를 읽는 타입스크립트 파서가 필요하다.
+      # node-linker=hoisted라 --filter로 루트만 골라도 워크스페이스 전체가 설치되어 거르지 않는다.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Notify deploy result
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DEPLOY_RESULT: ${{ needs.deploy.result }}
+          SLACK_TS: ${{ needs.deploy.outputs.slack_ts }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_DEPLOY_CHANNEL_ID: ${{ vars.SLACK_DEPLOY_CHANNEL_ID }}
+          SLACK_USER_MAP: ${{ vars.SLACK_USER_MAP }}
+          AMPLITUDE_API_KEY: ${{ vars.PROD_VITE_AMPLITUDE_API_KEY }}
+          AMPLITUDE_SECRET_KEY: ${{ secrets.AMPLITUDE_SECRET_KEY }}
+        run: node scripts/notify-deploy.mjs finish
