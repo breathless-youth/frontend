@@ -73,7 +73,9 @@
     "flipCamera": "카메라 전환",
     "help": "도움말 보기",
     "shareInvite": "초대코드 공유",
-    "timer": "타이머"
+    "timer": "타이머",
+    "hideMascot": "마스코트 숨기기",
+    "showMascot": "마스코트 보이기"
   },
   "subjectSheet": {
     "title": "과목",

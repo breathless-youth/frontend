@@ -69,6 +69,49 @@ describe("SessionMoreMenu", () => {
     expect(onOpenTimer).toHaveBeenCalledTimes(1);
   });
 
+  it("마스코트 토글을 넘기지 않으면 마스코트 항목이 없다", async () => {
+    renderMenu({ mascotVisible: true });
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+
+    expect(screen.queryByRole("menuitem", { name: "마스코트 숨기기" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "마스코트 보이기" })).toBeNull();
+  });
+
+  it("마스코트가 보이면 타이머 다음 도움말 앞에 숨기기가 있고 누르면 토글한다", async () => {
+    const onToggleMascot = vi.fn();
+    renderMenu({
+      variant: "pill",
+      onOpenTimer: vi.fn(),
+      onOpenHelp: vi.fn(),
+      mascotVisible: true,
+      onToggleMascot,
+    });
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
+      "카메라 전환",
+      "타이머",
+      "마스코트 숨기기",
+      "도움말 보기",
+      "초대코드 공유",
+    ]);
+    await userEvent.click(screen.getByRole("menuitem", { name: "마스코트 숨기기" }));
+    expect(onToggleMascot).toHaveBeenCalledTimes(1);
+  });
+
+  it("마스코트가 숨어 있으면 보이기 문구가 나온다", async () => {
+    const onToggleMascot = vi.fn();
+    renderMenu({ mascotVisible: false, onToggleMascot });
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+
+    expect(screen.queryByRole("menuitem", { name: "마스코트 숨기기" })).toBeNull();
+    await userEvent.click(screen.getByRole("menuitem", { name: "마스코트 보이기" }));
+    expect(onToggleMascot).toHaveBeenCalledTimes(1);
+  });
+
   it("메뉴 안 touchmove는 document까지 올라가지 않는다", async () => {
     renderMenu();
     await userEvent.click(screen.getByRole("button", { name: "더보기" }));

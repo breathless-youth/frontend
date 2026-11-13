@@ -1553,6 +1553,17 @@ export function trackTimerBackgroundApplied(input: {
 }
 
 /**
+ * 공부 화면 마스코트 켜고 끄기 이벤트
+ *
+ * 더보기 메뉴에서 마스코트를 켜거나 끌 때 보낸다.
+ * `visible`은 바꾼 뒤의 값이다.
+ */
+export function trackSessionMascotToggled(visible: boolean) {
+  if (!initialized) return;
+  track("session_mascot_toggled", { visible });
+}
+
+/**
  * 타이머 배경에 사진을 담았다
  *
  * `count`는 담은 뒤의 사진 수이고 `source`는 앱 선택기(`native`)와 웹 파일 입력(`file`) 중 어느 길로 골랐는지다.

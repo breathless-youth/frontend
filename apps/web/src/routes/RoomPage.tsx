@@ -137,6 +137,12 @@ import {
   loadTodayStudySec,
 } from "@/features/study-session/loadSessionSubjects";
 import { useLandscapeLayout } from "@/features/study-session/useLandscapeLayout";
+import { SessionMascot } from "@/features/study-session/mascot/SessionMascot";
+import {
+  readSessionMascotOn,
+  writeSessionMascotOn,
+} from "@/features/study-session/mascot/mascotSettings";
+import { useRegularWindow } from "@/features/study-session/mascot/useRegularWindow";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
@@ -146,6 +152,7 @@ import { createTimelapseRecorder } from "@/features/timelapse/timelapseRecorder"
 import { loadTimelapseSettings } from "@/features/timelapse/timelapseSettings";
 import {
   stageStudyResultExit,
+  trackSessionMascotToggled,
   trackSessionNoticeConfirmed,
   trackSessionSimpleModeToggled,
   trackStudySessionExitCancelled,
@@ -791,6 +798,15 @@ function RoomSessionScreen({
   const faceMask = faceMaskOn
     ? { spot: faceSpot, emojiUrl: faceMaskEmojiOf(faceMaskEmojiId).url }
     : null;
+  // 마스코트는 태블릿 창에만 마운트해서 폰에서는 시트 이미지 요청도 깜빡임 타이머도 생기지 않는다.
+  const regularWindow = useRegularWindow();
+  const [mascotOn, setMascotOn] = useState(readSessionMascotOn);
+  const toggleMascot = () => {
+    const next = !mascotOn;
+    setMascotOn(next);
+    writeSessionMascotOn(next);
+    trackSessionMascotToggled(next);
+  };
   /**
    * 카메라 전환이 진행 중인가 — **추론 정지 구간을 표시하는 값이지 화면 상태가 아니다.**
    * 전환 중에는 기존 트랙이 멈추고 새 스트림이 `<video>`에 다시 붙는데, 그 사이의 프레임은
@@ -1245,6 +1261,8 @@ function RoomSessionScreen({
                   // 심플 모드는 카메라 화면이 없어 전환 항목을 뺀다.
                   onFlipCamera={simpleMode ? undefined : () => void handleFlipCamera()}
                   onOpenTimer={() => multiTimer.open()}
+                  mascotVisible={mascotOn}
+                  onToggleMascot={regularWindow ? toggleMascot : undefined}
                   onOpenHelp={() => {
                     setHelpStep(0);
                     setHelpOpen(true);
@@ -1368,28 +1386,33 @@ function RoomSessionScreen({
                 </button>
               ))}
 
-            <div
-              role="toolbar"
-              aria-label={t("controls.bar")}
-              inert={moreMenuOpen}
-              className={cn(simpleMode ? SESSION_BAR_MUTED : SESSION_BAR, "pointer-events-auto")}
-            >
-              <SessionPauseButton
-                paused={paused}
-                muted={simpleMode}
-                // 화면 꺼짐 일시정지와 과목 재생 버튼도 pause·resume을 거치므로 햅틱은 이 버튼에만 둔다.
-                onClick={() => {
-                  // 두 햅틱 모두 일시정지 상태에서 울려서 진동이 기기 조작 감지 결과로 이어지지 않는다.
-                  if (paused) {
-                    haptic("medium");
-                    resume();
-                  } else {
-                    pause();
-                    haptic("light");
-                  }
-                }}
-              />
-              <SessionExitButton onClick={handleRequestExit} muted={simpleMode} />
+            {/* 마스코트는 바 바깥 왼쪽에 붙이려고 바와 같은 상자에 둔다.
+                바 안에 넣으면 조작 묶음에 섞이고, 상자는 바 크기 그대로라 바 자리는 바뀌지 않는다. */}
+            <div className="relative">
+              {regularWindow && mascotOn && <SessionMascot state={sessionState} />}
+              <div
+                role="toolbar"
+                aria-label={t("controls.bar")}
+                inert={moreMenuOpen}
+                className={cn(simpleMode ? SESSION_BAR_MUTED : SESSION_BAR, "pointer-events-auto")}
+              >
+                <SessionPauseButton
+                  paused={paused}
+                  muted={simpleMode}
+                  // 화면 꺼짐 일시정지와 과목 재생 버튼도 pause·resume을 거치므로 햅틱은 이 버튼에만 둔다.
+                  onClick={() => {
+                    // 두 햅틱 모두 일시정지 상태에서 울려서 진동이 기기 조작 감지 결과로 이어지지 않는다.
+                    if (paused) {
+                      haptic("medium");
+                      resume();
+                    } else {
+                      pause();
+                      haptic("light");
+                    }
+                  }}
+                />
+                <SessionExitButton onClick={handleRequestExit} muted={simpleMode} />
+              </div>
             </div>
 
             {userId === null && (

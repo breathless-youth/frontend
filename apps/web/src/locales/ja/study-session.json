@@ -73,7 +73,9 @@
     "flipCamera": "カメラを切り替え",
     "help": "ヘルプを見る",
     "shareInvite": "招待コードを共有",
-    "timer": "タイマー"
+    "timer": "タイマー",
+    "hideMascot": "マスコットを非表示",
+    "showMascot": "マスコットを表示"
   },
   "subjectSheet": {
     "title": "科目",

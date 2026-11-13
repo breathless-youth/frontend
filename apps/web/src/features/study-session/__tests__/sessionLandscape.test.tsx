@@ -78,17 +78,30 @@ describe("RoomPage — 가로(거치) 배치", () => {
   });
 
   function layerOf() {
-    return screen.getByRole("toolbar", { name: "공부 조작" }).parentElement!;
+    // 하단 바는 마스코트와 함께 놓이는 상자에 들어 있어 그 바깥이 세션 레이어다.
+    return screen.getByRole("toolbar", { name: "공부 조작" }).parentElement!.parentElement!;
   }
 
   it("방향을 JS로 감지하지 않는다 — 미디어쿼리만으로 갈린다", () => {
     // jsdom에는 matchMedia가 없어 감시할 함수를 직접 붙였다 뗀다.
-    const matchMedia = vi.fn();
+    const matchMedia = vi.fn(() => ({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }));
     vi.stubGlobal("matchMedia", matchMedia);
 
     renderRoom();
 
-    expect(matchMedia).not.toHaveBeenCalled();
+    // 태블릿 창에서만 마스코트를 마운트하는 판정은 matchMedia를 읽지만 배치를 바꾸지는 않는다.
+    const queries = matchMedia.mock.calls.map((call: unknown[]) => call[0]);
+    expect(
+      queries.filter(
+        (query) =>
+          query !== "(min-width: 37.5rem)" &&
+          query !== "(orientation: landscape) and (max-height: 29.99rem)",
+      ),
+    ).toEqual([]);
   });
 
   it("세로·가로가 같은 flex 컬럼을 쓴다 — 회전해도 DOM이 그대로다", () => {

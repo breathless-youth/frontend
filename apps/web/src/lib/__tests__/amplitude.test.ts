@@ -2396,3 +2396,26 @@ describe("타이머 배경 이벤트", () => {
     expect(mocks.track).not.toHaveBeenCalled();
   });
 });
+
+describe("공부 화면 마스코트 이벤트", () => {
+  it("켜고 끈 결과를 visible로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    mocks.track.mockClear();
+
+    m.trackSessionMascotToggled(false);
+    m.trackSessionMascotToggled(true);
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["session_mascot_toggled", { visible: false }],
+      ["session_mascot_toggled", { visible: true }],
+    ]);
+  });
+
+  it("초기화 전에는 보내지 않는다", async () => {
+    const m = await loadModule();
+    m.trackSessionMascotToggled(true);
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+});
