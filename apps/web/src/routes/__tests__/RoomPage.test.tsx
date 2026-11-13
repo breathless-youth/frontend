@@ -191,11 +191,11 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     });
   });
 
-  it("공부 시간·오늘 누적·하단 바를 렌더링한다", () => {
+  it("순공·오늘 집중·하단 바를 렌더링한다", () => {
     renderRoom("/room/7?userId=1");
 
-    expect(screen.getByText("00:00:00")).toBeInTheDocument();
-    expect(screen.getByText("오늘 누적 00:00:00")).toBeInTheDocument();
+    expect(screen.getAllByText("00:00:00")).toHaveLength(2);
+    expect(screen.getByText("오늘 집중")).toBeInTheDocument();
     expect(screen.getByRole("toolbar", { name: "공부 조작" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "더보기" })).toBeInTheDocument();
@@ -207,7 +207,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
   it("기본 상태는 집중이며 시간 위 문구를 라이브 리전으로 알린다", () => {
     renderRoom("/room/7?userId=1");
 
-    expect(screen.getByRole("status")).toHaveTextContent("현재 공부");
+    expect(screen.getByRole("status")).toHaveTextContent("현재 집중");
   });
 
   it("Figma V2에 없는 하단 캡션 문구가 화면에 없다", () => {
@@ -588,7 +588,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
         await vi.advanceTimersByTimeAsync(1200); // PHONE enterMs(1000) 경과
       });
 
-      expect(screen.getByRole("status")).toHaveTextContent("휴대폰을 사용 중인 것 같아요");
+      expect(screen.getByRole("status")).toHaveTextContent("자리를 확인해 주세요");
 
       await act(async () => {
         detector!.emit({ source: "PHONE", active: false });
@@ -596,7 +596,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
       });
 
       // 해제는 색만 복귀 — 별도 안내 문구를 띄우지 않는다.
-      expect(screen.getByRole("status")).toHaveTextContent("현재 공부");
+      expect(screen.getByRole("status")).toHaveTextContent("현재 집중");
     } finally {
       vi.useRealTimers();
     }
@@ -623,7 +623,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
         await vi.advanceTimersByTimeAsync(2000);
       });
 
-      expect(screen.getByRole("status")).toHaveTextContent("자리를 비운 것 같아요");
+      expect(screen.getByRole("status")).toHaveTextContent("자리를 확인해 주세요");
     } finally {
       vi.useRealTimers();
     }
@@ -668,7 +668,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     expect(camera.opened[0]?.stop).toHaveBeenCalled();
   });
 
-  it("비집중은 순공만 멈추고 큰 숫자인 공부 시간은 계속 흐른다", async () => {
+  it("비집중이면 순공 보기의 숫자는 멈추고, 공부 시간 보기로 바꾸면 계속 흐른 시간이 보인다", async () => {
     vi.useFakeTimers();
     try {
       renderRoom("/room/7?userId=1&detector=mock");
@@ -678,20 +678,23 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
         detector!.emit({ source: "AWAY", active: true });
         await vi.advanceTimersByTimeAsync(2000);
       });
-      expect(screen.getByRole("status")).toHaveTextContent("자리를 비운 것 같아요");
+      expect(screen.getByRole("status")).toHaveTextContent("자리를 확인해 주세요");
 
-      fireEvent.click(screen.getByRole("button", { name: "순공시간·집중률 보기" }));
-      const card = screen.getByRole("region", { name: "순공시간·집중률 보기" });
-      const focusAfterDetect = within(card).getByText(/^\d{2}:\d{2}:\d{2}$/).textContent;
+      const times = () => screen.getAllByText(/^\d{2}:\d{2}:\d{2}$/).map((el) => el.textContent);
+      const atDetect = times();
       await act(async () => {
         await vi.advanceTimersByTimeAsync(3000);
       });
+      // 순공(큰 숫자)과 오늘 순공은 감지 시점에서 멈춰 있다.
+      expect(times()).toEqual(atDetect);
 
-      // 순공은 감지 시점에서 멈춰 있고, 공부 시간은 계속 올라간다.
-      expect(within(card).getByText(/^\d{2}:\d{2}:\d{2}$/).textContent).toBe(focusAfterDetect);
-      expect(screen.getByText("00:00:05")).toBeInTheDocument();
+      fireEvent.keyDown(screen.getByRole("button", { name: "더보기" }), { key: "Enter" });
+      fireEvent.click(screen.getByRole("menuitem", { name: "공부 시간으로 보기" }));
+      expect(screen.getAllByText("00:00:05")).toHaveLength(2);
     } finally {
       vi.useRealTimers();
+      // 보기 형식은 저장되므로 다음 테스트로 새지 않게 지운다.
+      localStorage.clear();
     }
   });
 });
@@ -910,7 +913,7 @@ describe("RoomPage — S3-4 심플 모드", () => {
 
     await enterSimpleMode();
 
-    expect(screen.getByRole("status")).toHaveTextContent("현재 공부");
+    expect(screen.getByRole("status")).toHaveTextContent("현재 집중");
     expect(unreachable(screen.getByTestId("session-subject"))).toBe(false);
     for (const name of ["더보기", /^배경음/, "일시정지", "공부 종료"]) {
       expect(unreachable(screen.getByRole("button", { name }))).toBe(false);
@@ -924,33 +927,6 @@ describe("RoomPage — S3-4 심플 모드", () => {
     await enterSimpleMode();
 
     expect(screen.getByTestId("session-subject")).toHaveTextContent("과목 선택과목을 선택하세요");
-  });
-
-  it("ⓘ 버튼으로 순공시간·집중률 카드를 펼치고 다시 누르면 접는다", async () => {
-    renderRoom("/room/7?userId=1");
-    const info = screen.getByRole("button", { name: "순공시간·집중률 보기" });
-    expect(info).toHaveAttribute("aria-expanded", "false");
-
-    await userEvent.click(info);
-    const card = screen.getByRole("region", { name: "순공시간·집중률 보기" });
-    expect(within(card).getByText("순공시간")).toBeInTheDocument();
-    expect(within(card).getByText("0.0%")).toBeInTheDocument();
-
-    await userEvent.click(info);
-    expect(screen.queryByRole("region", { name: "순공시간·집중률 보기" })).not.toBeInTheDocument();
-  });
-
-  it("집중하지 않는 동안 집중률은 상태 색으로 바뀌고, 다시 시작하면 파랑으로 돌아온다", async () => {
-    renderRoom("/room/7?userId=1");
-    await userEvent.click(screen.getByRole("button", { name: "순공시간·집중률 보기" }));
-    const rate = () => screen.getByTestId("session-focus-rate");
-    expect(rate().className).toContain("text-(--session-control-resume-bg)");
-
-    await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
-    expect(rate().className).toContain("text-(--session-state-color)");
-
-    await userEvent.click(screen.getByRole("button", { name: "다시 시작" }));
-    expect(rate().className).toContain("text-(--session-control-resume-bg)");
   });
 
   it("입장하면 확인 창 없이 기본 모드로 시작해 내 카메라가 작은 창으로 보인다", () => {
@@ -1203,7 +1179,7 @@ describe("RoomPage — S3-7 종료 확인", () => {
     expect(within(dialog).getByText("공부를 종료할까요?")).toBeInTheDocument();
     expect(vi.mocked(submitStudySession)).not.toHaveBeenCalled();
     // 세션 화면은 그대로 살아 있다 — 딤 뒤에서 계속 측정된다.
-    expect(screen.getByRole("status")).toHaveTextContent("현재 공부");
+    expect(screen.getByRole("status")).toHaveTextContent("현재 집중");
   });
 
   /**

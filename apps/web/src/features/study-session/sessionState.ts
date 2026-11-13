@@ -118,23 +118,16 @@ export function isStudyRunning(state: SessionState): boolean {
 /**
  * 상태 필 문구 키(voice-tone.md §3). 값은 카탈로그 `study-session:status.*`에 있다.
  *
- * 추정형 어미("~것 같아요")를 단정형으로 바꾸지 않는다. 감지 오탐 가능성을 문구가 흡수한다(§1).
+ * 비집중은 원인과 상관없이 문구 하나(`status.distracted`)로 알린다. 원인별 문구는 문구가 확정될 때까지 카탈로그에 남긴다.
  * 수동 일시정지·화면 꺼짐·휴식은 같은 문구를 쓴다(2026-07-26 6차 확정). `화면 꺼짐` 라벨은 UI에 없다.
  * 졸음(SLEEP)은 오래 감김과 꾸벅거림을 한 문구로 덮는다(voice-tone 등재 전, 리더 확인 대기).
  */
-const DISTRACTION_LABEL_KEY = {
-  AWAY: "study-session:status.away",
-  PHONE: "study-session:status.phone",
-  DEVICE: "study-session:status.device",
-  SLEEP: "study-session:status.sleep",
-} as const satisfies Record<DistractionTrigger, string>;
-
 export function statusLabelKey(state: SessionState) {
   switch (state.kind) {
     case "FOCUS":
       return "study-session:status.focus";
     case "DISTRACTION":
-      return DISTRACTION_LABEL_KEY[state.trigger];
+      return "study-session:status.distracted";
     case "PAUSE":
       return "study-session:status.pause";
   }

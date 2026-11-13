@@ -39,22 +39,14 @@ describe("statusCopyFor — voice-tone.md §3 상태 문구", () => {
     expect(statusCopyFor(FOCUS_STATE)).toEqual({ label: "순공시간 측정 중" });
   });
 
-  it("비집중 4종 문구를 전부 갖는다 — Figma에 없는 3종도 구현한다", () => {
-    expect(statusCopyFor(distractionState("AWAY"))).toEqual({ label: "자리를 비운 것 같아요" });
-    expect(statusCopyFor(distractionState("PHONE"))).toEqual({
-      label: "휴대폰을 사용 중인 것 같아요",
-    });
-    expect(statusCopyFor(distractionState("DEVICE"))).toEqual({
-      label: "기기를 조작 중인 것 같아요",
-    });
+  it("비집중은 원인과 상관없이 같은 문구를 쓴다", () => {
+    for (const trigger of ["AWAY", "PHONE", "DEVICE", "SLEEP"] as const) {
+      expect(statusCopyFor(distractionState(trigger))).toEqual({ label: "자리를 확인해 주세요" });
+    }
   });
 
   it("수동 일시정지와 화면 꺼짐은 같은 문구를 쓴다 — '화면 꺼짐'은 별도 유형이 아니다", () => {
     expect(statusCopyFor(pauseState("BACKGROUND"))).toEqual(statusCopyFor(pauseState("MANUAL")));
-  });
-
-  it("졸음 문구를 돌려준다", () => {
-    expect(statusCopyFor(distractionState("SLEEP"))).toEqual({ label: "졸고 있는 것 같아요" });
   });
 
   it("일시정지 문구를 낸다", () => {

@@ -42,14 +42,14 @@ function renderRoom(url = "/room/7?userId=1") {
 function renderClock(simple: boolean) {
   return render(
     <SessionClock
+      view="focus"
       studySec={0}
       focusSec={0}
       todayStudySec={0}
+      todayFocusSec={0}
       state="focus"
       statusLabel=""
       simple={simple}
-      infoOpen={false}
-      onToggleInfo={() => {}}
     />,
   );
 }
@@ -58,7 +58,7 @@ describe("SessionClock — 가로 타이포", () => {
   it("세로 52px, 가로 기본 44px로 가운데 정렬을 유지한다", () => {
     renderClock(false);
 
-    const number = screen.getByText("00:00:00").parentElement!;
+    const number = screen.getByTestId("session-clock-number");
     expect(number.className).toContain("text-[52px]");
     expect(number.className).toContain("landscape-compact:text-[44px]");
     expect(number.className).toContain("text-center");
@@ -67,7 +67,7 @@ describe("SessionClock — 가로 타이포", () => {
   it("가로 심플은 72px다", () => {
     renderClock(true);
 
-    const number = screen.getByText("00:00:00").parentElement!;
+    const number = screen.getByTestId("session-clock-number");
     expect(number.className).toContain("landscape-compact:text-[72px]");
   });
 });
@@ -127,7 +127,7 @@ describe("RoomPage — 가로(거치) 배치", () => {
     const clock = container.querySelector(
       '[class*="landscape-compact:top-[calc(env(safe-area-inset-top)+40px)]"]',
     )!;
-    expect(clock).toContainElement(screen.getByText("00:00:00"));
+    expect(clock).toContainElement(screen.getByTestId("session-clock-number"));
     expect(clock.className).toContain("landscape-compact:-translate-x-1/2");
   });
 
@@ -137,7 +137,7 @@ describe("RoomPage — 가로(거치) 배치", () => {
     await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
 
     const clock = container.querySelector('[class*="landscape-compact:top-1/2"]')!;
-    expect(clock).toContainElement(screen.getByText("00:00:00"));
+    expect(clock).toContainElement(screen.getByTestId("session-clock-number"));
     expect(clock.className).toContain("landscape-compact:-translate-y-1/2");
     expect(clock.className).toContain("landscape-compact:-translate-x-1/2");
   });

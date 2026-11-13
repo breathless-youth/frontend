@@ -1560,6 +1560,16 @@ export function trackTimerBackgroundApplied(input: {
 }
 
 /**
+ * 공부 화면 시계 보기 형식 바꾸기 이벤트
+ *
+ * 더보기 메뉴에서 순공 보기와 공부 시간 보기를 바꿀 때 보낸다. `view`는 바꾼 뒤의 값이다.
+ */
+export function trackSessionClockViewChanged(input: { readonly view: "focus" | "study" }) {
+  if (!initialized) return;
+  track("session_clock_view_changed", { view: input.view });
+}
+
+/**
  * 공부 화면 마스코트 켜고 끄기 이벤트
  *
  * 더보기 메뉴에서 마스코트를 켜거나 끌 때 보낸다.

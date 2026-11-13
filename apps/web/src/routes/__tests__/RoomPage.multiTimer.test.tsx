@@ -118,7 +118,7 @@ function openPomodoroNow() {
   fireEvent.mouseDown(screen.getByRole("tab", { name: "뽀모도로" }));
 }
 
-const MEASURING = "현재 공부";
+const MEASURING = "현재 집중";
 const PAUSED = "측정을 일시정지했어요";
 
 async function advance(ms: number) {
@@ -142,13 +142,19 @@ describe("RoomPage 멀티 타이머", () => {
     window.history.replaceState(null, "", "/");
   });
 
-  it("더보기 메뉴는 카메라 전환, 타이머, 마스코트, 도움말 보기 순서다", async () => {
+  it("더보기 메뉴는 카메라 전환, 타이머, 보기 형식, 마스코트, 도움말 보기 순서다", async () => {
     renderRoom();
 
     await userEvent.click(screen.getByRole("button", { name: "더보기" }));
 
     const names = screen.getAllByRole("menuitem").map((item) => item.textContent);
-    expect(names).toEqual(["카메라 전환", "타이머", "마스코트 보이기", "도움말 보기"]);
+    expect(names).toEqual([
+      "카메라 전환",
+      "타이머",
+      "공부 시간으로 보기",
+      "마스코트 보이기",
+      "도움말 보기",
+    ]);
   });
 
   it("측정 화면이 열리면 회전 허용을 한 번 다시 알린다", () => {
@@ -274,7 +280,7 @@ describe("RoomPage 멀티 타이머", () => {
     await userEvent.click(screen.getByRole("button", { name: "더보기" }));
 
     const names = screen.getAllByRole("menuitem").map((item) => item.textContent);
-    expect(names).toEqual(["타이머", "마스코트 보이기", "도움말 보기"]);
+    expect(names).toEqual(["타이머", "공부 시간으로 보기", "마스코트 보이기", "도움말 보기"]);
   });
 
   it("뽀모도로 화면 안에서 집중 칸 선택 목록으로 집중 시간을 바꿀 수 있다", async () => {

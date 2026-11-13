@@ -5,7 +5,8 @@
     "phone": "你好像在使用手機",
     "device": "你好像在操作裝置",
     "sleep": "你好像在打瞌睡",
-    "pause": "已暫停測量"
+    "pause": "已暫停測量",
+    "distracted": "請確認你在座位上"
   },
   "exitConfirm": {
     "title": "要結束讀書嗎？",
@@ -75,7 +76,9 @@
     "shareInvite": "分享邀請碼",
     "timer": "計時器",
     "hideMascot": "隱藏吉祥物",
-    "showMascot": "顯示吉祥物"
+    "showMascot": "顯示吉祥物",
+    "viewStudy": "以讀書時間顯示",
+    "viewFocus": "以專注時間顯示"
   },
   "subjectSheet": {
     "title": "科目",
@@ -153,15 +156,14 @@
     "pause": "暫停"
   },
   "clock": {
-    "current": "本次讀書",
-    "today": "今日累計 {{elapsed}}",
-    "todayLabel": "今日累計",
-    "info": "查看專注時間與專注率",
-    "focus": "專注時間",
-    "focusShort": "專注",
-    "rate": "專注率",
+    "currentFocus": "本次專注",
+    "currentStudy": "本次讀書",
+    "todayFocus": "今日專注",
+    "todayStudy": "今日讀書",
+    "srFocus": "本次專注時間 {{duration}}",
     "srStudy": "本次讀書時間 {{duration}}",
-    "srToday": "今日累計讀書時間 {{duration}}"
+    "srTodayFocus": "今日專注時間 {{duration}}",
+    "srTodayStudy": "今日讀書時間 {{duration}}"
   },
   "header": {
     "choose": "選擇科目",

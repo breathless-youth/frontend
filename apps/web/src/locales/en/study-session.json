@@ -5,7 +5,8 @@
     "phone": "Looks like you're on your phone",
     "device": "Looks like you're moving your device",
     "sleep": "Looks like you're dozing off",
-    "pause": "Measuring paused"
+    "pause": "Measuring paused",
+    "distracted": "Check that you're at your desk"
   },
   "exitConfirm": {
     "title": "End your session?",
@@ -78,7 +79,9 @@
     "shareInvite": "Share invite code",
     "timer": "Timer",
     "hideMascot": "Hide mascot",
-    "showMascot": "Show mascot"
+    "showMascot": "Show mascot",
+    "viewStudy": "Show study time",
+    "viewFocus": "Show focus time"
   },
   "subjectSheet": {
     "title": "Subject",
@@ -158,15 +161,14 @@
     "pause": "Paused"
   },
   "clock": {
-    "current": "This session",
-    "today": "Today {{elapsed}}",
-    "todayLabel": "Today",
-    "info": "Show focus time and focus rate",
-    "focus": "Focus time",
-    "focusShort": "Focus",
-    "rate": "Focus rate",
+    "currentFocus": "Focus this session",
+    "currentStudy": "This session",
+    "todayFocus": "Focus today",
+    "todayStudy": "Study today",
+    "srFocus": "Focus time this session {{duration}}",
     "srStudy": "Study time this session {{duration}}",
-    "srToday": "Total study time today {{duration}}"
+    "srTodayFocus": "Total focus time today {{duration}}",
+    "srTodayStudy": "Total study time today {{duration}}"
   },
   "header": {
     "choose": "Choose a subject",

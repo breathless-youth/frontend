@@ -132,10 +132,12 @@ import { hasTokenSource } from "@/lib/userId";
 import { queryClient } from "@/lib/queryClient";
 import { parseInitialSubject, useInitialSubject } from "@/features/study-session/useInitialSubject";
 import { InitialSubjectError } from "@/features/study-session/InitialSubjectError";
+import { loadSessionSubjects, loadTodayTotals } from "@/features/study-session/loadSessionSubjects";
+import type { TodayTotals } from "@/features/study-session/loadSessionSubjects";
 import {
-  loadSessionSubjects,
-  loadTodayStudySec,
-} from "@/features/study-session/loadSessionSubjects";
+  readSessionClockView,
+  writeSessionClockView,
+} from "@/features/study-session/sessionClockView";
 import { useLandscapeLayout } from "@/features/study-session/useLandscapeLayout";
 import { SessionMascot } from "@/features/study-session/mascot/SessionMascot";
 import {
@@ -151,6 +153,7 @@ import { createTimelapseRecorder } from "@/features/timelapse/timelapseRecorder"
 import { loadTimelapseSettings } from "@/features/timelapse/timelapseSettings";
 import {
   stageStudyResultExit,
+  trackSessionClockViewChanged,
   trackSessionMascotToggled,
   trackSessionNoticeConfirmed,
   trackSessionSimpleModeToggled,
@@ -611,17 +614,23 @@ function RoomSessionScreen({
       });
   }
 
-  // ⓘ 버튼으로 펼치는 집중 시간·집중률 카드
-  const [infoOpen, setInfoOpen] = useState(false);
-  // `오늘 누적`에 더할 오늘 저장 기록. 받기 전과 실패하면 0이라 이번 세션 시간만 보인다.
-  const [savedTodayStudySec, setSavedTodayStudySec] = useState(0);
+  // 시계 보기 형식. 순공이 기본이고 더보기 메뉴에서 공부 시간으로 바꾼다.
+  const [clockView, setClockView] = useState(readSessionClockView);
+  const toggleClockView = () => {
+    const next = clockView === "focus" ? "study" : "focus";
+    setClockView(next);
+    writeSessionClockView(next);
+    trackSessionClockViewChanged({ view: next });
+  };
+  // 오늘 줄에 더할 오늘 저장 기록. 받기 전과 실패하면 0이라 이번 세션 시간만 보인다.
+  const [savedToday, setSavedToday] = useState<TodayTotals>({ studySec: 0, focusSec: 0 });
   useEffect(() => {
     if (userId === null) {
       return;
     }
     let cancelled = false;
-    void loadTodayStudySec(userId).then((sec) => {
-      if (!cancelled) setSavedTodayStudySec(sec);
+    void loadTodayTotals(userId).then((totals) => {
+      if (!cancelled) setSavedToday(totals);
     });
     return () => {
       cancelled = true;
@@ -1263,6 +1272,8 @@ function RoomSessionScreen({
                   onOpenTimer={() => multiTimer.open()}
                   mascotVisible={mascotOn}
                   onToggleMascot={toggleMascot}
+                  clockView={clockView}
+                  onToggleClockView={toggleClockView}
                   onOpenHelp={() => {
                     setHelpStep(0);
                     setHelpOpen(true);
@@ -1318,15 +1329,15 @@ function RoomSessionScreen({
               {page === null && <CtaToaster />}
               <div ref={clockRef} inert={moreMenuOpen}>
                 <SessionClock
+                  view={clockView}
                   studySec={studySec}
                   focusSec={focusSec}
-                  todayStudySec={savedTodayStudySec + studySec}
+                  todayStudySec={savedToday.studySec + studySec}
+                  todayFocusSec={savedToday.focusSec + focusSec}
                   state={pillState}
                   statusLabel={statusLabel}
                   simple={simpleMode}
                   corner={wallpaper}
-                  infoOpen={infoOpen}
-                  onToggleInfo={() => setInfoOpen((open) => !open)}
                 />
               </div>
             </div>

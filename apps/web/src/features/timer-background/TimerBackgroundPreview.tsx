@@ -3,6 +3,7 @@ import { useRef, type PointerEvent, type WheelEvent } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
+import { readSessionClockView } from "@/features/study-session/sessionClockView";
 import { SessionClock } from "@/features/study-session/components/SessionClock";
 import { ExpandGlyph } from "@/features/study-session/components/SessionControlButtons";
 import { FakeBar, FakePill } from "@/features/study-session/components/SessionHelpScreen";
@@ -25,6 +26,7 @@ import { WatcherDemo } from "./watcher/WatcherBackground";
 const SAMPLE_STUDY_SEC = 4350;
 const SAMPLE_FOCUS_SEC = 3792;
 const SAMPLE_TODAY_SEC = 15340;
+const SAMPLE_TODAY_FOCUS_SEC = 13700;
 
 /** 휠 한 칸이 바꾸는 배율. 트랙패드 핀치(ctrl+휠)는 더 민감하다. */
 const WHEEL_ZOOM = 0.002;
@@ -157,15 +159,15 @@ export function TimerBackgroundPreview({
           <div className="h-7.5 shrink-0" />
           <div className={wallpaper ? WALLPAPER_CLOCK_ANCHOR : undefined}>
             <SessionClock
+              view={readSessionClockView()}
               studySec={SAMPLE_STUDY_SEC}
               focusSec={SAMPLE_FOCUS_SEC}
               todayStudySec={SAMPLE_TODAY_SEC}
+              todayFocusSec={SAMPLE_TODAY_FOCUS_SEC}
               state="focus"
               statusLabel=""
               simple={false}
               corner={wallpaper}
-              infoOpen={false}
-              onToggleInfo={() => {}}
               fake
             />
           </div>

@@ -199,7 +199,7 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
     });
     // 열린 동안에도 순공이 쌓이고, 페이지를 열었다고 일시정지되지 않는다.
     expect(within(dialog).getByText(/^00:00:0[34]$/)).toBeInTheDocument();
-    expect(screen.getByRole("status", { hidden: true })).toHaveTextContent("현재 공부");
+    expect(screen.getByRole("status", { hidden: true })).toHaveTextContent("현재 집중");
     expect(screen.getByRole("button", { name: "일시정지", hidden: true })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "뒤로 가기" }));
 

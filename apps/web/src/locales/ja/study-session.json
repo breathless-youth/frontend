@@ -5,7 +5,8 @@
     "phone": "スマホを使っているようです",
     "device": "端末を操作しているようです",
     "sleep": "居眠りしているようです",
-    "pause": "測定を一時停止しました"
+    "pause": "測定を一時停止しました",
+    "distracted": "席にいるか確認してください"
   },
   "exitConfirm": {
     "title": "勉強を終了しますか？",
@@ -75,7 +76,9 @@
     "shareInvite": "招待コードを共有",
     "timer": "タイマー",
     "hideMascot": "マスコットを非表示",
-    "showMascot": "マスコットを表示"
+    "showMascot": "マスコットを表示",
+    "viewStudy": "勉強時間で表示",
+    "viewFocus": "集中時間で表示"
   },
   "subjectSheet": {
     "title": "科目",
@@ -153,15 +156,14 @@
     "pause": "一時停止"
   },
   "clock": {
-    "current": "現在の勉強",
-    "today": "今日の累計 {{elapsed}}",
-    "todayLabel": "今日の累計",
-    "info": "集中時間・集中率を見る",
-    "focus": "集中時間",
-    "focusShort": "集中",
-    "rate": "集中率",
+    "currentFocus": "現在の集中",
+    "currentStudy": "現在の勉強",
+    "todayFocus": "今日の集中",
+    "todayStudy": "今日の勉強",
+    "srFocus": "今回の集中時間{{duration}}",
     "srStudy": "今回の勉強時間{{duration}}",
-    "srToday": "今日の累計勉強時間{{duration}}"
+    "srTodayFocus": "今日の集中時間{{duration}}",
+    "srTodayStudy": "今日の勉強時間{{duration}}"
   },
   "header": {
     "choose": "科目を選ぶ",

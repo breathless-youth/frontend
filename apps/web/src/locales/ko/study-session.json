@@ -5,7 +5,8 @@
     "phone": "휴대폰을 사용 중인 것 같아요",
     "device": "기기를 조작 중인 것 같아요",
     "sleep": "졸고 있는 것 같아요",
-    "pause": "측정을 일시정지했어요"
+    "pause": "측정을 일시정지했어요",
+    "distracted": "자리를 확인해 주세요"
   },
   "exitConfirm": {
     "title": "공부를 종료할까요?",
@@ -75,7 +76,9 @@
     "shareInvite": "초대코드 공유",
     "timer": "타이머",
     "hideMascot": "마스코트 숨기기",
-    "showMascot": "마스코트 보이기"
+    "showMascot": "마스코트 보이기",
+    "viewStudy": "공부 시간으로 보기",
+    "viewFocus": "순공으로 보기"
   },
   "subjectSheet": {
     "title": "과목",
@@ -153,15 +156,14 @@
     "pause": "일시정지"
   },
   "clock": {
-    "current": "현재 공부",
-    "today": "오늘 누적 {{elapsed}}",
-    "todayLabel": "오늘 누적",
-    "info": "순공시간·집중률 보기",
-    "focus": "순공시간",
-    "focusShort": "순공",
-    "rate": "집중률",
+    "currentFocus": "현재 집중",
+    "currentStudy": "현재 공부",
+    "todayFocus": "오늘 집중",
+    "todayStudy": "오늘 공부",
+    "srFocus": "이번 순공시간 {{duration}}",
     "srStudy": "이번 공부 시간 {{duration}}",
-    "srToday": "오늘 누적 공부 시간 {{duration}}"
+    "srTodayFocus": "오늘 순공시간 {{duration}}",
+    "srTodayStudy": "오늘 공부 시간 {{duration}}"
   },
   "header": {
     "choose": "과목 선택",

@@ -1,4 +1,5 @@
 import {
+  ArrowLeftRight,
   CircleHelp,
   Clock,
   Ellipsis,
@@ -64,6 +65,9 @@ type SessionMoreMenuProps = {
    */
   mascotVisible?: boolean;
   onToggleMascot?: () => void;
+  /** 지금 시계 보기 형식. 항목 이름이 바꿀 보기를 가리킨다. */
+  clockView?: "focus" | "study";
+  onToggleClockView?: () => void;
   /** 넘긴 방에서만 초대코드 공유 항목이 보인다. */
   onShareInvite?: () => void;
   /** 넘긴 화면에서만 도움말 보기 항목이 보인다. */
@@ -96,6 +100,8 @@ export function SessionMoreMenu({
   onOpenTimer,
   mascotVisible = false,
   onToggleMascot,
+  clockView = "focus",
+  onToggleClockView,
   onShareInvite,
   onOpenHelp,
   hidden = false,
@@ -138,6 +144,13 @@ export function SessionMoreMenu({
   }
   if (onOpenTimer) {
     items.push({ label: t("moreMenu.timer"), icon: Clock, onSelect: onOpenTimer });
+  }
+  if (onToggleClockView) {
+    items.push({
+      label: t(clockView === "focus" ? "moreMenu.viewStudy" : "moreMenu.viewFocus"),
+      icon: ArrowLeftRight,
+      onSelect: onToggleClockView,
+    });
   }
   if (onToggleMascot) {
     items.push(
