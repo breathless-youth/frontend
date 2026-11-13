@@ -92,3 +92,26 @@ jobs:
         run: node scripts/check-version.mjs --base "origin/$BASE"
         env:
           BASE: ${{ github.base_ref }}
+
+  # 릴리즈 PR(base main)을 머지하기 전에 web/<버전> Release에 노트가 있는지 본다.
+  # 운영 배포 알림과 Amplitude Release는 배포가 끝날 때 노트를 한 번만 읽기 때문이다.
+  # Draft는 쓰기 권한이 있어야 보여서, PR 코드를 실행하지 않도록 체크아웃 없이 API만 부른다.
+  # 노트를 쓴 뒤에는 PR 제목·본문을 고치거나 이 job을 다시 실행한다.
+  release-notes:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          version=$(gh api "repos/$GITHUB_REPOSITORY/contents/apps/web/package.json?ref=$HEAD_SHA" --jq .content | base64 -d | jq -r .version)
+          body=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=50" --jq ".[] | select(.tag_name == \"web/$version\") | .body")
+          if [ -z "${body//[[:space:]]/}" ]; then
+            echo "::error::web/$version Release(Draft 포함)에 릴리즈 노트가 없습니다. 노트를 쓴 뒤 PR 제목·본문을 고치거나 이 job을 다시 실행하세요."
+            exit 1
+          fi
+          echo "web/$version 릴리즈 노트 확인"
