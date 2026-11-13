@@ -88,11 +88,11 @@ describe("WatcherBackground", () => {
     // 빈 방은 enter 첫 프레임이라 화면 방향·크기별로 따로 있다.
     expect(container.querySelector("img")).toHaveAttribute(
       "src",
-      "/watcher/1d51e502/poster/phone_portrait.jpg",
+      "/watcher/9c8d9f19/poster/phone_portrait.jpg",
     );
     expect(container.querySelector('source[media="(orientation: landscape)"]')).toHaveAttribute(
       "srcset",
-      "/watcher/1d51e502/poster/phone_landscape.jpg",
+      "/watcher/9c8d9f19/poster/phone_landscape.jpg",
     );
     expect(shown()).toHaveLength(0);
   });
@@ -103,24 +103,24 @@ describe("WatcherBackground", () => {
     rerender(<WatcherBackground present />);
     settle();
     const [first, second] = videos();
-    expect(first!.src).toContain("/watcher/1d51e502/enter/");
+    expect(first!.src).toContain("/watcher/9c8d9f19/enter/");
     expect(shown()).toEqual([first]);
     // 쉬는 요소는 다음 루프를 미리 받아 둔다.
-    expect(second!.src).toContain("/watcher/1d51e502/loop-a/");
+    expect(second!.src).toContain("/watcher/9c8d9f19/loop-a/");
 
     act(() => {
       fireEvent.ended(first!);
     });
     settle();
     expect(shown()).toEqual([second]);
-    expect(first!.src).toContain("/watcher/1d51e502/loop-b/");
+    expect(first!.src).toContain("/watcher/9c8d9f19/loop-b/");
 
     act(() => {
       fireEvent.ended(second!);
     });
     settle();
     expect(shown()).toEqual([first]);
-    expect(first!.src).toContain("/watcher/1d51e502/loop-b/");
+    expect(first!.src).toContain("/watcher/9c8d9f19/loop-b/");
   });
 
   it("집중으로 돌아오면 지금 루프를 끝까지 재생한 뒤 퇴장하고, 퇴장이 끝나면 빈 방으로 돌아간다", () => {
@@ -142,7 +142,7 @@ describe("WatcherBackground", () => {
       fireEvent.ended(second!);
     });
     settle();
-    expect(first!.src).toContain("/watcher/1d51e502/exit/");
+    expect(first!.src).toContain("/watcher/9c8d9f19/exit/");
     expect(shown()).toEqual([first]);
 
     act(() => {
@@ -163,7 +163,7 @@ describe("WatcherBackground", () => {
       fireEvent.ended(first!);
     });
     settle();
-    expect(second!.src).toContain("/watcher/1d51e502/exit/");
+    expect(second!.src).toContain("/watcher/9c8d9f19/exit/");
 
     rerender(<WatcherBackground present />);
     settle();
@@ -172,7 +172,7 @@ describe("WatcherBackground", () => {
     });
     settle();
 
-    expect(first!.src).toContain("/watcher/1d51e502/enter/");
+    expect(first!.src).toContain("/watcher/9c8d9f19/enter/");
   });
 });
 
@@ -219,14 +219,14 @@ describe("WatcherBackground — 이음매", () => {
 
     // 다음 요소가 아직 재생을 시작하지 않아 앞 요소의 마지막 프레임이 그대로 보인다.
     expect(shown()).toEqual([first]);
-    expect(first!.src).toContain("/watcher/1d51e502/enter/");
+    expect(first!.src).toContain("/watcher/9c8d9f19/enter/");
 
     act(() => {
       fireEvent.playing(second!);
     });
     settle();
     expect(shown()).toEqual([second]);
-    expect(first!.src).toContain("/watcher/1d51e502/exit/");
+    expect(first!.src).toContain("/watcher/9c8d9f19/exit/");
   });
 });
 

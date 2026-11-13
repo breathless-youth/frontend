@@ -33,13 +33,13 @@ describe("nextWatcherClip", () => {
 describe("watcherClipUrl", () => {
   it("짧은 변 600 미만은 휴대폰, 이상은 태블릿 영상을 화면 방향대로 고른다", () => {
     expect(watcherClipUrl("enter", { width: 402, height: 874 })).toBe(
-      "/watcher/1d51e502/enter/phone_portrait.mp4",
+      "/watcher/9c8d9f19/enter/phone_portrait.mp4",
     );
     expect(watcherClipUrl("loop-a", { width: 874, height: 402 })).toBe(
-      "/watcher/1d51e502/loop-a/phone_landscape.mp4",
+      "/watcher/9c8d9f19/loop-a/phone_landscape.mp4",
     );
     expect(watcherClipUrl("exit", { width: 834, height: 1194 })).toBe(
-      "/watcher/1d51e502/exit/tablet_portrait.mp4",
+      "/watcher/9c8d9f19/exit/tablet_portrait.mp4",
     );
   });
 });
