@@ -168,6 +168,13 @@ export interface StudyRoomSessionOptions {
    */
   readonly multiTimerUsage?: () => MultiTimerUse;
   /**
+   * 계측용 마스코트 켜짐 조회
+   *
+   * 종료 시점에 한 번 읽어 `study_session_ended`에 싣는다.
+   * 마스코트가 없는 소셜룸은 생략한다.
+   */
+  readonly mascotOn?: () => boolean;
+  /**
    * 세션이 끝난 순간 한 번 부르는 알림
    *
    * 서버 제출 성패와 관계없이 기기가 잰 값을 준다.
@@ -232,10 +239,12 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const ambientUsageRef = useRef(options.ambientUsage);
   const ambientSoundPlaysRef = useRef(options.ambientSoundPlays);
   const multiTimerUsageRef = useRef(options.multiTimerUsage);
+  const mascotOnRef = useRef(options.mascotOn);
   useLayoutEffect(() => {
     ambientUsageRef.current = options.ambientUsage;
     ambientSoundPlaysRef.current = options.ambientSoundPlays;
     multiTimerUsageRef.current = options.multiTimerUsage;
+    mascotOnRef.current = options.mascotOn;
   });
   const onEndedRef = useRef(options.onEnded);
   useLayoutEffect(() => {
@@ -963,6 +972,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           ...(ambient && { ambientSoundUsed: ambient.used, ambientSoundSec: ambient.sec }),
           breakSec,
           multiTimer: multiTimerUsageRef.current?.() ?? "none",
+          mascotOn: mascotOnRef.current?.() ?? false,
         });
         for (const play of ambientSoundPlaysRef.current?.() ?? []) {
           if (play.sec <= 0) continue;

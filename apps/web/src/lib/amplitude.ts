@@ -358,6 +358,12 @@ export interface StudySessionEndedInput {
   readonly breakSec?: number;
   /** 멀티 타이머가 없는 소셜룸은 생략하고, 생략은 none 으로 나간다. */
   readonly multiTimer?: MultiTimerUse;
+  /**
+   * 끝낸 순간 공부 화면 마스코트가 켜져 있었는가
+   *
+   * 마스코트가 없는 소셜룸은 생략하고, 생략은 false 로 나간다.
+   */
+  readonly mascotOn?: boolean;
 }
 
 /**
@@ -397,6 +403,7 @@ export function trackStudySessionEnded(input: StudySessionEndedInput) {
     ambient_sound_sec: Number(input.ambientSoundSec ?? 0),
     break_sec: Number(input.breakSec ?? 0),
     multi_timer: input.multiTimer ?? "none",
+    mascot_on: input.mascotOn ?? false,
   });
 }
 
@@ -1550,6 +1557,21 @@ export function trackTimerBackgroundApplied(input: {
 }) {
   if (!initialized) return;
   track("timer_background_applied", { kind: input.kind });
+}
+
+/**
+ * 공부 화면 마스코트 켜고 끄기 이벤트
+ *
+ * 더보기 메뉴에서 마스코트를 켜거나 끌 때 보낸다.
+ * `visible`은 바꾼 뒤의 값이다.
+ */
+export function trackSessionMascotToggled(visible: boolean) {
+  if (!initialized) return;
+  track("session_mascot_toggled", { visible });
+  // 켠 사용자와 안 켠 사용자의 집중률을 나눠 보려고 이벤트와 함께 상태로도 남긴다.
+  const id = new Identify();
+  id.set("session_mascot", visible);
+  identify(id);
 }
 
 /**

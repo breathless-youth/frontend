@@ -78,7 +78,8 @@ describe("RoomPage — 가로(거치) 배치", () => {
   });
 
   function layerOf() {
-    return screen.getByRole("toolbar", { name: "공부 조작" }).parentElement!;
+    // 하단 바는 마스코트와 같은 줄 상자 안에 있어서 바깥쪽 flex 컬럼이 세션 레이어다.
+    return screen.getByRole("toolbar", { name: "공부 조작" }).closest<HTMLElement>(".flex-col")!;
   }
 
   it("방향을 JS로 감지하지 않는다 — 미디어쿼리만으로 갈린다", () => {

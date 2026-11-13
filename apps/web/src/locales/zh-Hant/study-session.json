@@ -73,7 +73,9 @@
     "flipCamera": "切換相機",
     "help": "查看說明",
     "shareInvite": "分享邀請碼",
-    "timer": "計時器"
+    "timer": "計時器",
+    "hideMascot": "隱藏吉祥物",
+    "showMascot": "顯示吉祥物"
   },
   "subjectSheet": {
     "title": "科目",

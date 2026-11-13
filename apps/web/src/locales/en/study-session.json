@@ -76,7 +76,9 @@
     "flipCamera": "Switch camera",
     "help": "View guide",
     "shareInvite": "Share invite code",
-    "timer": "Timer"
+    "timer": "Timer",
+    "hideMascot": "Hide mascot",
+    "showMascot": "Show mascot"
   },
   "subjectSheet": {
     "title": "Subject",

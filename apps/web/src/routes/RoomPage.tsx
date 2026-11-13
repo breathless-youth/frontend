@@ -137,6 +137,11 @@ import {
   loadTodayStudySec,
 } from "@/features/study-session/loadSessionSubjects";
 import { useLandscapeLayout } from "@/features/study-session/useLandscapeLayout";
+import { SessionMascot } from "@/features/study-session/mascot/SessionMascot";
+import {
+  readSessionMascotOn,
+  writeSessionMascotOn,
+} from "@/features/study-session/mascot/mascotSettings";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
@@ -146,6 +151,7 @@ import { createTimelapseRecorder } from "@/features/timelapse/timelapseRecorder"
 import { loadTimelapseSettings } from "@/features/timelapse/timelapseSettings";
 import {
   stageStudyResultExit,
+  trackSessionMascotToggled,
   trackSessionNoticeConfirmed,
   trackSessionSimpleModeToggled,
   trackStudySessionExitCancelled,
@@ -402,6 +408,8 @@ function RoomSessionScreen({
     ambientUsage: ambientUsage.snapshot,
     ambientSoundPlays: ambientUsage.soundSeconds,
     multiTimerUsage: multiTimerUsage.snapshot,
+    // 켜고 끌 때 바로 저장하므로 끝낸 순간의 저장 값이 화면의 켜짐과 같다.
+    mascotOn: readSessionMascotOn,
     onEnded: timelapse.finish,
     onCameraLost: () => showCtaToast(t("cameraToast.cameraOff")),
   });
@@ -791,6 +799,14 @@ function RoomSessionScreen({
   const faceMask = faceMaskOn
     ? { spot: faceSpot, emojiUrl: faceMaskEmojiOf(faceMaskEmojiId).url }
     : null;
+  // 마스코트는 사용자가 켰을 때만 마운트해서 꺼져 있으면 시트 이미지 요청도 깜빡임 타이머도 생기지 않는다.
+  const [mascotOn, setMascotOn] = useState(readSessionMascotOn);
+  const toggleMascot = () => {
+    const next = !mascotOn;
+    setMascotOn(next);
+    writeSessionMascotOn(next);
+    trackSessionMascotToggled(next);
+  };
   /**
    * 카메라 전환이 진행 중인가 — **추론 정지 구간을 표시하는 값이지 화면 상태가 아니다.**
    * 전환 중에는 기존 트랙이 멈추고 새 스트림이 `<video>`에 다시 붙는데, 그 사이의 프레임은
@@ -1245,6 +1261,8 @@ function RoomSessionScreen({
                   // 심플 모드는 카메라 화면이 없어 전환 항목을 뺀다.
                   onFlipCamera={simpleMode ? undefined : () => void handleFlipCamera()}
                   onOpenTimer={() => multiTimer.open()}
+                  mascotVisible={mascotOn}
+                  onToggleMascot={toggleMascot}
                   onOpenHelp={() => {
                     setHelpStep(0);
                     setHelpOpen(true);
@@ -1368,28 +1386,48 @@ function RoomSessionScreen({
                 </button>
               ))}
 
-            <div
-              role="toolbar"
-              aria-label={t("controls.bar")}
-              inert={moreMenuOpen}
-              className={cn(simpleMode ? SESSION_BAR_MUTED : SESSION_BAR, "pointer-events-auto")}
-            >
-              <SessionPauseButton
-                paused={paused}
-                muted={simpleMode}
-                // 화면 꺼짐 일시정지와 과목 재생 버튼도 pause·resume을 거치므로 햅틱은 이 버튼에만 둔다.
-                onClick={() => {
-                  // 두 햅틱 모두 일시정지 상태에서 울려서 진동이 기기 조작 감지 결과로 이어지지 않는다.
-                  if (paused) {
-                    haptic("medium");
-                    resume();
-                  } else {
-                    pause();
-                    haptic("light");
-                  }
-                }}
-              />
-              <SessionExitButton onClick={handleRequestExit} muted={simpleMode} />
+            {/* 마스코트를 하단 바와 같은 줄의 왼쪽 끝에 두려고 바와 같은 줄 상자에 넣는다.
+                바 안에 넣으면 조작 묶음에 섞인다.
+                줄 상자는 레이어 폭을 다 쓰고 바를 가운데에 두어서 바 자리는 감싸기 전과 같다.
+                가로 폰에서 월페이퍼를 켜면 왼쪽 끝을 시간 묶음이 쓰므로 바를 감싼 상자를 기준으로 바 왼쪽 옆에 붙인다. */}
+            <div className="relative flex w-full justify-center">
+              <div className={cn(wallpaper && "landscape-compact:relative")}>
+                {mascotOn && (
+                  <SessionMascot
+                    state={sessionState}
+                    className={cn(
+                      wallpaper &&
+                        "landscape-compact:right-full landscape-compact:left-auto landscape-compact:mr-3",
+                    )}
+                  />
+                )}
+                <div
+                  role="toolbar"
+                  aria-label={t("controls.bar")}
+                  inert={moreMenuOpen}
+                  className={cn(
+                    simpleMode ? SESSION_BAR_MUTED : SESSION_BAR,
+                    "pointer-events-auto",
+                  )}
+                >
+                  <SessionPauseButton
+                    paused={paused}
+                    muted={simpleMode}
+                    // 화면 꺼짐 일시정지와 과목 재생 버튼도 pause·resume을 거치므로 햅틱은 이 버튼에만 둔다.
+                    onClick={() => {
+                      // 두 햅틱 모두 일시정지 상태에서 울려서 진동이 기기 조작 감지 결과로 이어지지 않는다.
+                      if (paused) {
+                        haptic("medium");
+                        resume();
+                      } else {
+                        pause();
+                        haptic("light");
+                      }
+                    }}
+                  />
+                  <SessionExitButton onClick={handleRequestExit} muted={simpleMode} />
+                </div>
+              </div>
             </div>
 
             {userId === null && (
