@@ -26,6 +26,7 @@ import {
   type StudyRoomType,
 } from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
+import { useNativePortraitLock } from "@/lib/nativeBackGesture";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 import { useUserId } from "@/lib/userId";
 
@@ -94,6 +95,7 @@ export function ResultPage() {
   // 카드가 뜨기 전에 사용자가 화면을 만졌는지. 촬영 정리를 기다리느라 카드가 늦게 뜨면
   // 사용자는 이미 결과를 읽으며 스크롤하는 중일 수 있다.
   const touchedRef = useRef(false);
+  useNativePortraitLock();
 
   useEffect(() => {
     const mark = () => {

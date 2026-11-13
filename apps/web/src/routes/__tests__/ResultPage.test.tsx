@@ -751,6 +751,7 @@ describe("ResultPage — 이탈 경로: 기록으로 가기 (BY-560)", () => {
     const postMessage = vi.fn();
     vi.stubGlobal("ReactNativeWebView", { postMessage });
     renderResult({ sessions: [exampleSession()] });
+    postMessage.mockClear();
 
     await userEvent.click(screen.getByRole("button", { name: "기록으로 가기" }));
 
@@ -833,6 +834,36 @@ describe("ResultPage — state 없는 진입", () => {
   });
 });
 
+describe("ResultPage — 화면 방향", () => {
+  /**
+   * 싱글룸 네이티브 화면은 회전을 열어 두고, 결과는 같은 웹뷰 안 이동이라 그대로면 가로로 돈다.
+   */
+  it.each([
+    ["싱글룸", "/room/7/result"],
+    ["그룹 공부방", "/social/groups/3/room/result"],
+  ])("%s 결과가 열리면 세로 잠금을 요청한다", (_, path) => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+    renderResult({ sessions: [exampleSession()] }, "?userId=7", { path });
+
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.stringMatching(/"type":"set-orientation","unlocked":false/),
+    );
+  });
+
+  it("소셜룸 결과가 열려도 세로 잠금을 요청한다", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+    renderResultAtSocial({ sessions: [exampleSession()] });
+
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.stringMatching(/"type":"set-orientation","unlocked":false/),
+    );
+  });
+});
+
 describe("ResultPage — 자정(세션 시간대) 분할 세션", () => {
   it("배열이 여러 건이면 첫 항목만 그린다 — 합산하지 않는다(미정, 보수적 처리)", () => {
     const first = exampleSession();
@@ -911,6 +942,7 @@ describe("ResultPage — 소셜 결과의 목적지", () => {
     vi.stubGlobal("ReactNativeWebView", { postMessage });
     const user = userEvent.setup();
     renderResultAtSocial({ sessions: [exampleSession()] });
+    postMessage.mockClear();
 
     await user.click(screen.getByRole("button", { name: "기록으로 가기" }));
 
