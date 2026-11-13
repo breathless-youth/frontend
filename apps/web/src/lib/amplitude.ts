@@ -308,6 +308,19 @@ function setUserProperties(properties: Record<string, string | number | boolean>
   identify(id);
 }
 
+/**
+ * 기기 시간대·지역을 사용자 속성으로 남긴다
+ *
+ * Amplitude 기본 country는 이벤트를 보낸 순간의 IP라 여행·VPN에 흔들린다.
+ * 광고 나라별 분석은 서버 프로필과 같은 기기 설정 값으로 본다. 지역이 없으면 시간대만 남긴다.
+ */
+export function setDeviceLocaleUserProperties(locale: { timeZone?: string; region?: string }) {
+  const properties: Record<string, string> = {};
+  if (locale.timeZone) properties.device_time_zone = locale.timeZone;
+  if (locale.region) properties.device_region = locale.region;
+  if (Object.keys(properties).length > 0) setUserProperties(properties);
+}
+
 /** 한 번 켜지면 되돌리지 않는 이력 속성. 같은 문서 안에서는 한 번만 보내 identify와 브리지 왕복을 줄인다. */
 const sentFlags = new Set<string>();
 function setFlagOnce(key: string) {

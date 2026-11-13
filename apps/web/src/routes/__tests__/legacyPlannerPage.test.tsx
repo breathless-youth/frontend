@@ -40,6 +40,8 @@ import { mockDeviceTimeZone } from "@/test/deviceTimeZone";
 
 vi.mock("@/lib/statsApi", () => ({ listStudySessionStats: vi.fn(), getPeriodStats: vi.fn() }));
 vi.mock("@/lib/profileApi", () => ({ updateProfile: vi.fn() }));
+// 기기 지역은 프로필 동기화 테스트가 따로 본다. 여기서는 시간대만 보내는 흐름으로 고정한다.
+vi.mock("@/lib/deviceRegion", () => ({ deviceRegion: () => null }));
 vi.mock("@/lib/subjectApi", () => ({
   listSubjects: vi.fn(),
   createSubject: vi.fn(),
@@ -61,6 +63,7 @@ vi.mock("@/lib/amplitude", () => ({
   trackErrorRetryPressed: vi.fn(),
   trackSubjectItemAdded: vi.fn(),
   setSubjectsUserProperties: vi.fn(),
+  setDeviceLocaleUserProperties: vi.fn(),
 }));
 
 // 토큰 문서 여부만 바꾼다. 신원은 그대로 `?userId=`에서 읽는다.
