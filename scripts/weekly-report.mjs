@@ -142,6 +142,15 @@ export function formatWeeklyReport(metrics, baseline, range) {
   ].join("\n");
 }
 
+/** 필터를 건 실행 목록이 검색 상한에 닿지 않았는지 확인한 목록. */
+export function checkSearchCap(runs) {
+  // created 같은 필터를 건 실행 목록은 GitHub가 1000건까지만 줘서 그 이상은 지표가 조용히 틀린다.
+  if (runs.length >= 1000) {
+    throw new Error("GitHub API 검색 상한 1000건에 닿아 지표가 잘렸을 수 있습니다");
+  }
+  return runs;
+}
+
 // GitHub 실행 목록 필터는 밀리초 없는 ISO 시각을 받는다.
 const iso = (d) => `${d.toISOString().slice(0, 19)}Z`;
 
@@ -149,10 +158,12 @@ async function collect(env, range, weeks) {
   const token = githubToken(env);
   // 범위 첫 배포가 담은 PR을 찾으려면 그 앞 성공 배포가 필요해 8일 전부터 받는다.
   const since = encodeURIComponent(`>=${iso(new Date(range.start - 8 * DAY))}`);
-  const deployRuns = await githubGetAll(
-    `/repos/${repo(env)}/actions/workflows/deploy-web.yml/runs?branch=main&created=${since}`,
-    "workflow_runs",
-    { token },
+  const deployRuns = checkSearchCap(
+    await githubGetAll(
+      `/repos/${repo(env)}/actions/workflows/deploy-web.yml/runs?branch=main&created=${since}`,
+      "workflow_runs",
+      { token },
+    ),
   );
   const successes = deployRuns
     .filter((r) => r.conclusion === "success")
@@ -183,11 +194,12 @@ async function collect(env, range, weeks) {
     }
   }
 
-  // 네 주 기준선이면 PR CI 실행이 천 건 가까이 되어 기본 상한에서 잘릴 수 있다.
-  const ciRuns = await githubGetAll(
-    `/repos/${repo(env)}/actions/workflows/ci.yml/runs?event=pull_request&created=${iso(range.start)}..${iso(range.end)}`,
-    "workflow_runs",
-    { token, max: 5000 },
+  const ciRuns = checkSearchCap(
+    await githubGetAll(
+      `/repos/${repo(env)}/actions/workflows/ci.yml/runs?event=pull_request&created=${iso(range.start)}..${iso(range.end)}`,
+      "workflow_runs",
+      { token },
+    ),
   );
 
   let counts = null;

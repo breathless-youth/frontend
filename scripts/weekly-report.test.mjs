@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import {
   appSubmissionCounts,
+  checkSearchCap,
   ciMetrics,
   deployMetrics,
   formatWeeklyReport,
@@ -188,5 +189,15 @@ describe("formatWeeklyReport", () => {
       formatWeeklyReport(m, null, range),
       /^📈 지난주 배포 지표 \(11\/02~11\/08\)\n운영 웹 배포  7회\n/,
     );
+  });
+});
+
+describe("checkSearchCap", () => {
+  it("1000건 미만이면 그대로 돌려준다", () => {
+    const runs = Array(999).fill({});
+    assert.equal(checkSearchCap(runs), runs);
+  });
+  it("1000건에 닿으면 지표가 잘렸을 수 있어 실패한다", () => {
+    assert.throws(() => checkSearchCap(Array(1000).fill({})), /검색 상한 1000건/);
   });
 });
