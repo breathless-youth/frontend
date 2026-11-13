@@ -1,0 +1,37 @@
+name: Weekly deploy report
+
+# 지난주 운영 배포·CI·앱 제출 지표를 기준선과 함께 Slack에 올린다.
+on:
+  schedule:
+    - cron: "0 0 * * 1" # 매주 월요일 09:00 KST
+  # 수동 실행 버튼과 schedule은 이 파일이 기본 브랜치(main)에 들어간 뒤에 생긴다.
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # 리드타임을 구하려면 배포 사이의 머지 커밋이 필요하다
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+      # 앱 제출 수를 세는 submit:list가 모바일 의존성까지 필요하다
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Post weekly report
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_DEPLOY_CHANNEL_ID: ${{ vars.SLACK_DEPLOY_CHANNEL_ID }}
+        run: node scripts/weekly-report.mjs

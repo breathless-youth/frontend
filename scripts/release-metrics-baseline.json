@@ -1,0 +1,18 @@
+{
+  "range": {
+    "start": "2026-10-11T15:00:00.000Z",
+    "end": "2026-11-08T15:00:00.000Z"
+  },
+  "weeks": 4,
+  "deploysPerWeek": 7.25,
+  "failures": 0,
+  "failureRate": 0,
+  "leadTimeSec": 50810,
+  "failureToNextSec": null,
+  "ciFailureRate": 0.07052186177715092,
+  "ciAvgDurationSec": 208.69957686882933,
+  "appSubmissionsPerWeek": {
+    "ios": 2,
+    "android": 2.5
+  }
+}
