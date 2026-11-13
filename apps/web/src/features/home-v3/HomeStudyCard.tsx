@@ -61,7 +61,7 @@ export function HomeStudyCard({
         alt=""
         width={190}
         height={190}
-        className="home-v3-clock pointer-events-none absolute -right-7 -bottom-7.5 size-47.5 select-none"
+        className="home-v3-clock pointer-events-none absolute -right-7 scale-80 select-none"
       />
       <div className="relative z-1 flex flex-col gap-3.5">
         {stats.status === "pending" ? (

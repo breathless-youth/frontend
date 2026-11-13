@@ -54,7 +54,7 @@ export function HomeSubjectSelect({
         <Button
           variant="unstyled"
           disabled={subjects.status === "pending" || starting}
-          className="home-v3-subject-trigger min-h-11 max-w-full justify-start gap-2.5 rounded-[14px] bg-bg-layer-2 py-0 pr-3 pl-3.5 text-sm leading-5 font-medium"
+          className="home-v3-subject-trigger min-h-11 w-fulljustify-start gap-2.5 rounded-[14px] bg-bg-layer-2 py-0 pr-3 pl-3.5 text-sm leading-5 font-medium"
           aria-label={subjectLabel}
         >
           <SubjectDot colorIndex={selected?.colorIndex} />
@@ -65,7 +65,7 @@ export function HomeSubjectSelect({
       <DropdownMenuContent
         align="start"
         sideOffset={6}
-        className="theme-soft-blue w-60 max-w-[calc(100vw-40px)] rounded-lg border-0 bg-muted p-1.5 shadow-[0_10px_28px_rgba(31,42,61,0.18)]"
+        className="theme-soft-blue w-(--radix-dropdown-menu-trigger-width) max-w-[calc(100vw-40px)]rounded-lg border-0 bg-muted p-1.5 shadow-[0_10px_28px_rgba(31,42,61,0.18)]"
       >
         {/* 과목이 늘어도 아래 두 항목이 화면 밖으로 밀리지 않게 목록만 4개 반 높이에서 스크롤한다. */}
         <div
@@ -92,7 +92,10 @@ export function HomeSubjectSelect({
             </DropdownMenuItem>
           ))}
         </div>
-        <Separator className="mx-2 my-1 w-auto" />
+        {/* 위 목록이 비면 구분선만 떠 보여 함께 숨긴다. */}
+        {(items.length > 0 || subjects.status === "error") && (
+          <Separator className="mx-2 my-1 w-auto" />
+        )}
         <DropdownMenuItem
           onSelect={() => {
             trackHomeSubjectSelected(false);
