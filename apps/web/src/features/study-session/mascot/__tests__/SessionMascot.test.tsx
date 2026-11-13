@@ -67,6 +67,15 @@ describe("SessionMascot", () => {
     expect(root.className).toContain("pointer-events-none");
   });
 
+  it("상자는 폰 72, 태블릿 80, 큰 태블릿 93 크기이고 넘긴 자리 클래스를 더한다", () => {
+    const { container } = render(<SessionMascot state={FOCUS} className="extra-place" />);
+    const root = container.firstElementChild as HTMLElement;
+    expect(root.className).toContain("[--mascot-box:4.5rem]");
+    expect(root.className).toContain("regular:[--mascot-box:5rem]");
+    expect(root.className).toContain("short-side-lg:[--mascot-box:5.8125rem]");
+    expect(root.className).toContain("extra-place");
+  });
+
   it("상태에 맞는 칸으로 시트를 바꾼다", () => {
     const { container, rerender } = render(<SessionMascot state={FOCUS} />);
     expect(cellOf(container)).toBe("1");

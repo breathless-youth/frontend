@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, type CSSProperties } from "react";
 
 import sheetUrl from "@/assets/session/mascot-stopwatch-sprite.webp";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
+import { cn } from "@/lib/utils";
 
 import type { SessionState } from "../sessionState";
 import {
@@ -48,13 +49,24 @@ const IDLE_BLINK_FRAMES: readonly MascotFrame[] = [
 ];
 
 /**
- * 태블릿 공부 화면 마스코트
+ * 공부 화면 마스코트
  *
  * 시트 한 장의 위치를 바꿔 표정을 바꾸고 상태가 바뀔 때만 다시 그려진다.
  * 움직임은 표정이 바뀔 때와 가끔 깜빡일 때 한 번씩만 재생해서 공부하는 동안 눈길을 끌지 않는다.
  * 모션 축소를 켰거나 Web Animations API가 없으면 칸만 바꾼다.
  */
-export function SessionMascot({ state }: { state: SessionState }) {
+export function SessionMascot({
+  state,
+  className,
+}: {
+  state: SessionState;
+  /**
+   * 자리를 덮어쓰는 클래스
+   *
+   * 기본 자리는 가장 가까운 위치 기준 상자의 왼쪽 끝 세로 가운데다.
+   */
+  className?: string;
+}) {
   const cell = mascotCellFor(state);
   const sheetRef = useRef<HTMLImageElement>(null);
   const prevCellRef = useRef<MascotCell | null>(null);
@@ -109,7 +121,10 @@ export function SessionMascot({ state }: { state: SessionState }) {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute top-1/2 left-0 size-(--mascot-box) -translate-y-1/2 overflow-hidden [--mascot-box:5rem] short-side-lg:[--mascot-box:5.8125rem]"
+      className={cn(
+        "pointer-events-none absolute top-1/2 left-0 size-(--mascot-box) -translate-y-1/2 overflow-hidden [--mascot-box:4.5rem] regular:[--mascot-box:5rem] short-side-lg:[--mascot-box:5.8125rem]",
+        className,
+      )}
     >
       <img
         ref={sheetRef}

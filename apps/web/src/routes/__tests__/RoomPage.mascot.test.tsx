@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { writeTimerBackground } from "@/features/timer-background/timerBackground";
+
 import { RoomPage } from "../RoomPage";
 
 /**
@@ -40,16 +42,6 @@ function renderRoom() {
   );
 }
 
-/** 폭 600 이상이면서 가로 폰은 아닌 태블릿 창으로 만든다. */
-function stubTabletWindow() {
-  vi.stubGlobal("matchMedia", (query: string) => ({
-    matches: query === "(min-width: 37.5rem)",
-    media: query,
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-  }));
-}
-
 const mascotSheet = () => document.querySelector('img[src*="mascot-stopwatch-sprite"]');
 
 async function openMoreMenu() {
@@ -64,41 +56,61 @@ describe("RoomPage 마스코트", () => {
     vi.unstubAllGlobals();
   });
 
-  it("폰과 같은 판정이면 마스코트도 메뉴 항목도 없다", async () => {
+  it("처음에는 마스코트가 없고 메뉴에서 보이기를 고르면 나타나며 켜짐을 저장한다", async () => {
     renderRoom();
-
     expect(mascotSheet()).toBeNull();
+
     await openMoreMenu();
-    expect(screen.queryByRole("menuitem", { name: "마스코트 숨기기" })).toBeNull();
-    expect(screen.queryByRole("menuitem", { name: "마스코트 보이기" })).toBeNull();
+    await userEvent.click(screen.getByRole("menuitem", { name: "마스코트 보이기" }));
+
+    expect(mascotSheet()).not.toBeNull();
+    expect(localStorage.getItem("focuson.sessionMascot.v1")).toBe("on");
+    expect(amplitude.trackSessionMascotToggled).toHaveBeenCalledWith(true);
   });
 
-  it("태블릿 창이면 하단 바 옆에 마스코트를 띄운다", () => {
-    stubTabletWindow();
+  it("켜 둔 기기에서는 화면 크기와 상관없이 하단 바 줄에 마스코트를 띄운다", () => {
+    localStorage.setItem("focuson.sessionMascot.v1", "on");
     renderRoom();
 
-    const sheet = mascotSheet();
+    const sheet = mascotSheet() as HTMLElement;
     expect(sheet).not.toBeNull();
     const toolbar = screen.getByRole("toolbar", { name: "공부 조작" });
-    expect(toolbar).not.toContainElement(sheet as HTMLElement);
-    expect(toolbar.parentElement).toContainElement(sheet as HTMLElement);
+    expect(toolbar).not.toContainElement(sheet);
   });
 
   it("마스코트는 하단 바와 같은 줄의 왼쪽 끝에 놓이고 바는 가운데에 남는다", () => {
-    stubTabletWindow();
+    localStorage.setItem("focuson.sessionMascot.v1", "on");
     renderRoom();
 
-    const row = screen.getByRole("toolbar", { name: "공부 조작" }).parentElement!;
+    const inner = screen.getByRole("toolbar", { name: "공부 조작" }).parentElement!;
+    const row = inner.parentElement!;
+    expect(row.className).toContain("relative");
     expect(row.className).toContain("w-full");
     expect(row.className).toContain("justify-center");
     const mascot = mascotSheet()!.parentElement!;
-    expect(mascot.parentElement).toBe(row);
+    expect(inner).toContainElement(mascot);
     expect(mascot.className).toContain("left-0");
-    expect(mascot.className).not.toContain("right-full");
+    // 월페이퍼가 없으면 가로 폰에서도 왼쪽 끝 그대로다.
+    expect(inner.className).not.toContain("landscape-compact:relative");
+    expect(mascot.className).not.toContain("landscape-compact:right-full");
+  });
+
+  it("월페이퍼가 있으면 가로 폰에서만 하단 바 왼쪽 옆으로 붙는다", () => {
+    localStorage.setItem("focuson.sessionMascot.v1", "on");
+    writeTimerBackground({ kind: "proctor" });
+    renderRoom();
+
+    const inner = screen.getByRole("toolbar", { name: "공부 조작" }).parentElement!;
+    expect(inner.className).toContain("landscape-compact:relative");
+    const mascot = mascotSheet()!.parentElement!;
+    expect(mascot.className).toContain("left-0");
+    expect(mascot.className).toContain("landscape-compact:left-auto");
+    expect(mascot.className).toContain("landscape-compact:right-full");
+    expect(mascot.className).toContain("landscape-compact:mr-3");
   });
 
   it("더보기 메뉴에서 숨기면 마스코트가 사라지고 꺼짐을 저장한다", async () => {
-    stubTabletWindow();
+    localStorage.setItem("focuson.sessionMascot.v1", "on");
     renderRoom();
 
     await openMoreMenu();
@@ -107,15 +119,5 @@ describe("RoomPage 마스코트", () => {
     expect(mascotSheet()).toBeNull();
     expect(localStorage.getItem("focuson.sessionMascot.v1")).toBe("off");
     expect(amplitude.trackSessionMascotToggled).toHaveBeenCalledWith(false);
-  });
-
-  it("꺼 둔 기기에서는 태블릿이어도 마스코트가 없고 메뉴는 보이기 문구다", async () => {
-    localStorage.setItem("focuson.sessionMascot.v1", "off");
-    stubTabletWindow();
-    renderRoom();
-
-    expect(mascotSheet()).toBeNull();
-    await openMoreMenu();
-    expect(screen.getByRole("menuitem", { name: "마스코트 보이기" })).toBeInTheDocument();
   });
 });

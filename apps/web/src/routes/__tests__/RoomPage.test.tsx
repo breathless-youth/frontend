@@ -1031,11 +1031,7 @@ describe("RoomPage — S3-4 심플 모드", () => {
     });
 
     it("동작 줄이기 설정이면 움직임 없이 바로 바뀐다", async () => {
-      vi.stubGlobal("matchMedia", (query: string) => ({
-        matches: query.includes("reduce"),
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-      }));
+      vi.stubGlobal("matchMedia", (query: string) => ({ matches: query.includes("reduce") }));
       const { container } = renderRoom("/room/7?userId=1");
 
       await userEvent.click(screen.getByRole("button", { name: "내 화면 크게 보기" }));
