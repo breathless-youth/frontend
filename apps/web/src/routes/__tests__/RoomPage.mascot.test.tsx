@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -26,7 +26,10 @@ vi.mock("@/lib/subjectApi", async (importOriginal) => ({
 
 vi.mock("@/routes/lazyRoutes", () => ({ prefetchResultPage: vi.fn() }));
 
-const amplitude = vi.hoisted(() => ({ trackSessionMascotToggled: vi.fn() }));
+const amplitude = vi.hoisted(() => ({
+  trackSessionMascotToggled: vi.fn(),
+  trackStudySessionEnded: vi.fn(),
+}));
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   ...amplitude,
@@ -119,5 +122,35 @@ describe("RoomPage 마스코트", () => {
     expect(mascotSheet()).toBeNull();
     expect(localStorage.getItem("focuson.sessionMascot.v1")).toBe("off");
     expect(amplitude.trackSessionMascotToggled).toHaveBeenCalledWith(false);
+  });
+
+  async function endSession() {
+    fireEvent.click(screen.getByRole("button", { name: "공부 종료", hidden: true }));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", { name: "공부 종료" }),
+    );
+    await waitFor(() => expect(amplitude.trackStudySessionEnded).toHaveBeenCalledTimes(1));
+  }
+
+  it("마스코트를 켠 채 끝내면 종료 계측에 mascotOn을 true로 싣는다", async () => {
+    localStorage.setItem("focuson.sessionMascot.v1", "on");
+    renderRoom();
+
+    await endSession();
+
+    expect(amplitude.trackStudySessionEnded.mock.calls[0]?.[0]).toMatchObject({ mascotOn: true });
+  });
+
+  it("세션 중에 마스코트를 끄고 끝내면 mascotOn을 false로 싣는다", async () => {
+    localStorage.setItem("focuson.sessionMascot.v1", "on");
+    renderRoom();
+    await openMoreMenu();
+    await userEvent.click(screen.getByRole("menuitem", { name: "마스코트 숨기기" }));
+
+    await endSession();
+
+    expect(amplitude.trackStudySessionEnded.mock.calls[0]?.[0]).toMatchObject({
+      mascotOn: false,
+    });
   });
 });

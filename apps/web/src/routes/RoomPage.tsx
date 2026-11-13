@@ -408,6 +408,8 @@ function RoomSessionScreen({
     ambientUsage: ambientUsage.snapshot,
     ambientSoundPlays: ambientUsage.soundSeconds,
     multiTimerUsage: multiTimerUsage.snapshot,
+    // 켜고 끌 때 바로 저장하므로 끝낸 순간의 저장 값이 화면의 켜짐과 같다.
+    mascotOn: readSessionMascotOn,
     onEnded: timelapse.finish,
     onCameraLost: () => showCtaToast(t("cameraToast.cameraOff")),
   });

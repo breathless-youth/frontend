@@ -571,7 +571,28 @@ describe("공부 세션 이벤트", () => {
       ambient_sound_sec: 0,
       break_sec: 0,
       multi_timer: "none",
+      mascot_on: false,
     });
+  });
+
+  it("끝낼 때 마스코트가 켜져 있었으면 mascot_on을 true로 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackStudySessionEnded } = await loadModule();
+    initAmplitude();
+
+    trackStudySessionEnded({
+      roomType: "single",
+      studySec: 600,
+      focusSec: 600,
+      pauseSec: 0,
+      distractionSec: 0,
+      endReason: "MANUAL",
+      pauseTrigger: null,
+      willSubmit: true,
+      mascotOn: true,
+    });
+
+    expect(mocks.track.mock.calls[0]?.[1]).toMatchObject({ mascot_on: true });
   });
 
   it("휴식 길이와 시작한 멀티 타이머 종류를 싣는다", async () => {
@@ -2413,9 +2434,25 @@ describe("공부 화면 마스코트 이벤트", () => {
     ]);
   });
 
+  it("켜고 끌 때마다 session_mascot 유저 속성을 바꾼 뒤의 값으로 남긴다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    mocks.identify.mockClear();
+
+    m.trackSessionMascotToggled(true);
+    m.trackSessionMascotToggled(false);
+
+    const sets = mocks.identify.mock.calls.map(
+      ([sent]) => (sent as InstanceType<typeof mocks.FakeIdentify>).sets,
+    );
+    expect(sets).toEqual([[["session_mascot", true]], [["session_mascot", false]]]);
+  });
+
   it("초기화 전에는 보내지 않는다", async () => {
     const m = await loadModule();
     m.trackSessionMascotToggled(true);
     expect(mocks.track).not.toHaveBeenCalled();
+    expect(mocks.identify).not.toHaveBeenCalled();
   });
 });

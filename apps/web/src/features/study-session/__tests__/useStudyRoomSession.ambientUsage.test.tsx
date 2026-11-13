@@ -69,6 +69,20 @@ describe("useStudyRoomSession — 배경음 사용 시간 계측", () => {
     expect(mocks.ended.mock.calls[1]?.[0]).toMatchObject({ multiTimer: "none" });
   });
 
+  it("종료 시점에 마스코트 켜짐을 읽어 싣고, 옵션이 없는 소셜룸은 false 를 싣는다", async () => {
+    const single = renderHook(() => useStudyRoomSession(null, { mascotOn: () => true }));
+    await act(async () => {
+      await single.result.current.endAndSubmit();
+    });
+    const social = renderHook(() => useStudyRoomSession(null, { roomType: "social" }));
+    await act(async () => {
+      await social.result.current.endAndSubmit();
+    });
+
+    expect(mocks.ended.mock.calls[0]?.[0]).toMatchObject({ mascotOn: true });
+    expect(mocks.ended.mock.calls[1]?.[0]).toMatchObject({ mascotOn: false });
+  });
+
   describe("소리별 재생 시간", () => {
     it("세션이 끝나면 재생 시간이 있는 소리마다 ambient_sound_played 를 한 번씩 보낸다", async () => {
       const ambientSoundPlays = () => [
