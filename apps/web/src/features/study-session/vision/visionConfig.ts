@@ -497,6 +497,12 @@ export const HAND_PHONE_MARGIN = 0.5;
 /** 휴대폰을 쥐었는지 볼 때 이보다 오래된 손 판정은 쓰지 않는다. 휴대폰이 보이면 손은 1초마다 돈다. */
 export const HAND_PHONE_MAX_AGE_MS = 1500;
 
+/**
+ * 휴대폰이 보이는 동안 손 모델을 매 프레임 돌리는 최대 시간.
+ * 이 시간 내내 쥔 것이 한 번도 확인되지 않으면 책상에 놓인 휴대폰으로 보고 3초 주기로 돌아간다.
+ */
+export const HAND_PHONE_IDLE_MS = 30_000;
+
 /** 손이 도구 위에 있다고 볼 때 도구 박스를 폭·높이 대비 이만큼 넓혀 본다. 책 모서리를 짚는 손이 박스 밖으로 걸친다. */
 export const HAND_TOOL_MARGIN = 0.15;
 

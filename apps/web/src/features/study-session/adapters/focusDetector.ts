@@ -47,7 +47,9 @@ import {
   EYE_RATIO_WINDOW_SAMPLES,
   FACE_FRAME_DIVISOR,
   FACE_SMOOTHING_SAMPLES,
+  FRAME_INTERVAL_MS,
   HAND_FRAME_DIVISOR,
+  HAND_PHONE_IDLE_MS,
   HAND_PHONE_MAX_AGE_MS,
   HAND_RESULT_MAX_AGE_MS,
   SCORE_THRESHOLDS,
@@ -292,6 +294,28 @@ export interface VisionFocusDetectorOptions {
   readonly photoTap?: PhotoTap;
 }
 
+/** 필기 움직임 비교 간격. 손 틱 간격과 같고, 프레임 시각이 조금 밀려도 맞도록 반 프레임 여유를 둔다. */
+const HAND_MOVE_MIN_GAP_MS = HAND_FRAME_DIVISOR * FRAME_INTERVAL_MS - FRAME_INTERVAL_MS / 2;
+/** 이보다 오래된 손은 비교하지 않는다. 손 결과가 끊겼다 다시 돌 때 옛 손과 비교하지 않게 한다. */
+const HAND_MOVE_MAX_GAP_MS = 2 * HAND_FRAME_DIVISOR * FRAME_INTERVAL_MS + FRAME_INTERVAL_MS / 2;
+/** 휴대폰이 이만큼 안 보이면 사라진 것으로 보고 `HAND_PHONE_IDLE_MS`를 처음부터 센다. */
+const PHONE_GONE_MS = 2 * FRAME_INTERVAL_MS;
+
+/** 필기는 도구 위에 있는 손이 움직이는 것이다. 다른 손의 움직임은 세지 않는다. */
+function handsMovingOnTool(
+  previous: readonly HandPose[] | null,
+  current: readonly HandPose[],
+  tools: readonly NormalizedBox[],
+): boolean {
+  return (
+    previous !== null &&
+    handsMoving(
+      previous,
+      current.filter((hand) => handsAtTool([hand], tools)),
+    )
+  );
+}
+
 /**
  * MediaPipe 추론을 기존 `FocusDetector` 뒤에 배선한다.
  *
@@ -396,7 +420,12 @@ export function createVisionFocusDetector(
   let lastFace: { present: boolean; gaze: GazeReading; bounds: NormalizedBox | null } | null = null;
   let handLoadRequested = false;
   let lastHands: { hands: readonly HandPose[]; atMs: number } | null = null;
-  let previousHands: readonly HandPose[] | null = null;
+  /** 필기 움직임 비교용 최근 손 기록. 손을 1초마다 돌려도 3초 전 손과 비교하려고 몇 개 들고 있다. */
+  let handHistory: { hands: readonly HandPose[]; atMs: number }[] = [];
+  /** 휴대폰이 이어서 보이기 시작한 시각과 마지막으로 보인 시각, 마지막으로 쥔 것이 확인된 시각. */
+  let phoneVisibleSinceMs: number | null = null;
+  let phoneLastSeenAtMs = 0;
+  let phoneHeldAtMs: number | null = null;
 
   function setStatus(next: VisionDetectorStatus): void {
     if (next === status) {
@@ -449,7 +478,9 @@ export function createVisionFocusDetector(
   function dropEvidence(): void {
     lastFace = null;
     lastHands = null;
-    previousHands = null;
+    handHistory = [];
+    phoneVisibleSinceMs = null;
+    phoneHeldAtMs = null;
   }
 
   function resetFrameState(): void {
@@ -604,7 +635,7 @@ export function createVisionFocusDetector(
   ): Promise<number | null> {
     if (!wanted) {
       lastHands = null;
-      previousHands = null;
+      handHistory = [];
       return null;
     }
     if (
@@ -618,9 +649,45 @@ export function createVisionFocusDetector(
     if (ran === null || frameRunId !== runId) {
       return null;
     }
-    previousHands = lastHands?.hands ?? null;
     lastHands = { hands: ran.hands, atMs };
+    handHistory = [
+      ...handHistory.filter((entry) => atMs - entry.atMs <= HAND_MOVE_MAX_GAP_MS),
+      lastHands,
+    ];
     return ran.durationMs;
+  }
+
+  /**
+   * 필기 움직임을 비교할 이전 손. 손 틱 간격(3초)만큼 지난 손 중 가장 최근 것이다.
+   * 휴대폰 때문에 1초마다 돌 때도 이동량 기준(`HAND_MOVE_RANGE`)이 전제한 간격을 지킨다.
+   */
+  function handsForMovement(atMs: number): readonly HandPose[] | null {
+    for (let i = handHistory.length - 1; i >= 0; i -= 1) {
+      const entry = handHistory[i];
+      if (entry !== undefined && atMs - entry.atMs >= HAND_MOVE_MIN_GAP_MS) {
+        return entry.hands;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * 휴대폰을 지켜보며 손을 매 프레임 돌릴지. 휴대폰이 이어서 보이는 동안 쥔 것이
+   * `HAND_PHONE_IDLE_MS` 내내 확인되지 않으면 책상에 놓인 휴대폰으로 보고 3초 주기로 돌아간다.
+   * 휴대폰이 잠깐 가려진 것은 이어서 보인 것으로 친다.
+   */
+  function watchPhone(phoneSeen: boolean, atMs: number): boolean {
+    if (phoneSeen) {
+      if (phoneVisibleSinceMs === null || atMs - phoneLastSeenAtMs > PHONE_GONE_MS) {
+        phoneVisibleSinceMs = atMs;
+        phoneHeldAtMs = null;
+      }
+      phoneLastSeenAtMs = atMs;
+    }
+    if (!phoneSeen || phoneVisibleSinceMs === null) {
+      return false;
+    }
+    return atMs - Math.max(phoneVisibleSinceMs, phoneHeldAtMs ?? -Infinity) < HAND_PHONE_IDLE_MS;
   }
 
   /** 최근 표본이 깨어남 표본 수만큼 전부 임계 아래인가. 창이 그보다 짧으면 아니다. */
@@ -855,7 +922,7 @@ export function createVisionFocusDetector(
       element,
       atMs,
       phoneSeen || evaluateEvidence({ ...evidenceInput, hands: null }).wantHands,
-      phoneSeen,
+      watchPhone(phoneSeen, atMs),
       frameRunId,
     );
     if (frameRunId !== runId) {
@@ -868,6 +935,9 @@ export function createVisionFocusDetector(
       lastHands !== null &&
       atMs - lastHands.atMs <= HAND_PHONE_MAX_AGE_MS &&
       handsHoldingPhone(lastHands.hands, phoneBoxesOf(result.detections, frame.frameSize));
+    if (phoneHeld) {
+      phoneHeldAtMs = atMs;
+    }
     const judged: FrameSignals = { ...signals, phoneInUse: phoneHeld };
     const freshHands =
       lastHands !== null && atMs - lastHands.atMs <= HAND_RESULT_MAX_AGE_MS ? lastHands : null;
@@ -877,12 +947,7 @@ export function createVisionFocusDetector(
         : {
             atTool: handsAtTool(freshHands.hands, tools),
             // 필기는 도구 위에 있는 손이 움직이는 것이다. 다른 손의 움직임은 세지 않는다.
-            moving:
-              previousHands !== null &&
-              handsMoving(
-                previousHands,
-                freshHands.hands.filter((hand) => handsAtTool([hand], tools)),
-              ),
+            moving: handsMovingOnTool(handsForMovement(atMs), freshHands.hands, tools),
           };
     const evidence = evaluateEvidence({ ...evidenceInput, hands });
 

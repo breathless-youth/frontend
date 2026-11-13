@@ -26,6 +26,7 @@ import {
   FACE_FRAME_DIVISOR,
   FRAME_INTERVAL_MS,
   HAND_FRAME_DIVISOR,
+  HAND_PHONE_IDLE_MS,
   SCORE_THRESHOLDS,
 } from "../../vision/visionConfig";
 
@@ -2379,6 +2380,40 @@ describe("공부 증거 배선", () => {
     await vi.advanceTimersByTimeAsync(SETTLE_MS);
 
     expect(last(signals, "PHONE")).toBe(false);
+  });
+
+  it("휴대폰이 30초 넘게 보여도 쥐지 않으면 손 모델을 3초마다 돌린다", async () => {
+    const { vision, handDetect } = setup({
+      frames: [[...personFrame(), phone]],
+      pitch: 20,
+      hands: [[handAt(0.2, 0.8)]],
+    });
+    vision.start();
+    await vi.advanceTimersByTimeAsync(HAND_PHONE_IDLE_MS);
+    const firstWindow = handDetect.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(HAND_PHONE_IDLE_MS);
+    const secondWindow = handDetect.mock.calls.length - firstWindow;
+
+    // 처음 30초는 매 프레임(1초), 그 뒤는 3초마다다.
+    expect(firstWindow).toBeGreaterThan(HAND_PHONE_IDLE_MS / FRAME_INTERVAL_MS - 6);
+    expect(secondWindow).toBeLessThanOrEqual(
+      HAND_PHONE_IDLE_MS / (FRAME_INTERVAL_MS * HAND_FRAME_DIVISOR) + 1,
+    );
+  });
+
+  it("손을 1초마다 돌려도 필기 움직임은 3초 전 손과 비교한다", async () => {
+    const noFace: FaceObservation = { facePresent: false, eye: null, eyeSkipReason: "no-face" };
+    // 1초에 0.004씩 움직인다. 1초 간격으로는 필기 기준(0.008)에 못 미치고 3초 간격이면 넘는다.
+    const slow = Array.from({ length: 40 }, (_, i) => [handOnBook(0.4 + i * 0.004)]);
+    const { vision, signals } = setup({
+      frames: [[...personWithBook, phone]],
+      pitch: 0,
+      face: noFace,
+      hands: slow,
+    });
+    vision.start();
+    await vi.advanceTimersByTimeAsync(SETTLE_MS * 2);
+    expect(last(signals, "NO_EVIDENCE")).toBe(false);
   });
 
   it("손에 쥔 휴대폰은 사용으로 본다", async () => {

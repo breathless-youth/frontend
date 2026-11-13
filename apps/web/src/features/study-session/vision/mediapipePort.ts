@@ -137,11 +137,6 @@ export interface FaceLandmarkerCreateOptions {
   readonly minTrackingConfidence: number;
 }
 
-/**
- * MediaPipe를 감싼 최소 런타임. 클래스(`FilesetResolver`·`ObjectDetector`)를 그대로 노출하지
- * 않고 **"detector 하나 만들어 줘"** 로 좁힌 이유는, 이 인터페이스가 그대로 워커 메시지 계약이
- * 되기 때문이다(`./workerProtocol.ts`).
- */
 /** 손 랜드마크. 손마다 21점이고 좌표는 프레임 대비 0~1이다. 래퍼 밖으로 나가지 않는다. */
 export interface MediapipeHandResult {
   readonly landmarks: readonly (readonly MediapipeNormalizedLandmark[])[];
@@ -159,6 +154,11 @@ export interface HandLandmarkerCreateOptions {
   readonly minTrackingConfidence: number;
 }
 
+/**
+ * MediaPipe를 감싼 최소 런타임. 클래스(`FilesetResolver`·`ObjectDetector`)를 그대로 노출하지
+ * 않고 **"detector 하나 만들어 줘"** 로 좁힌 이유는, 이 인터페이스가 그대로 워커 메시지 계약이
+ * 되기 때문이다(`./workerProtocol.ts`).
+ */
 export interface MediapipeObjectRuntime {
   createDetector(options: DetectorCreateOptions): Promise<MediapipeDetectorHandle>;
 }
@@ -169,13 +169,13 @@ export interface MediapipeFaceRuntime {
   ): Promise<MediapipeFaceLandmarkerHandle>;
 }
 
-/** 실제 구현(`./mediapipeModule.ts`·`./workerRuntime.ts`)이 제공하는 전체 런타임. */
 export interface MediapipeHandRuntime {
   createHandLandmarker(
     options: HandLandmarkerCreateOptions,
   ): Promise<MediapipeHandLandmarkerHandle>;
 }
 
+/** 실제 구현(`./mediapipeModule.ts`·`./workerRuntime.ts`)이 제공하는 전체 런타임. */
 export type MediapipeVisionRuntime = MediapipeObjectRuntime &
   MediapipeFaceRuntime &
   MediapipeHandRuntime;
