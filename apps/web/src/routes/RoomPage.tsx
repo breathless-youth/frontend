@@ -367,6 +367,18 @@ function RoomSessionScreen(props: RoomSessionScreenProps) {
       visionDetector.preload();
     }
   }, [counting, visionDetector]);
+  /**
+   * 세션 이탈 — 모델과 GPU 컨텍스트를 해제한다.
+   * `stop()`은 추론만 멈추고 모델을 들고 있으므로 이게 없으면 wasm 힙과 GPU 컨텍스트가 orphan이 된다
+   * (브라우저가 컨텍스트 개수를 제한한다).
+   * 감지기를 만든 이 화면이 닫으므로 카운트다운 중에 나가도 해제되고, 카운트다운이 끝날 때는 닫지 않는다.
+   * 로딩 중에 언마운트돼도 뒤늦게 도착한 detector를 닫는다(멱등).
+   */
+  useEffect(() => {
+    return () => {
+      visionDetector.close();
+    };
+  }, [visionDetector]);
   if (counting) {
     return <SessionCountdown seconds={countdown} onDone={finishCountdown} />;
   }
@@ -918,18 +930,6 @@ function RoomSessionBody({
       detector.stop();
     }
   }, [detectionEnabled, detector]);
-
-  /**
-   * 세션 이탈 — 모델과 GPU 컨텍스트를 해제한다.
-   * `stop()`은 추론만 멈추고 모델을 들고 있으므로 이게 없으면 wasm 힙과 GPU 컨텍스트가 orphan이 된다
-   * (브라우저가 컨텍스트 개수를 제한한다).
-   * 로딩 중에 언마운트돼도 뒤늦게 도착한 detector를 닫는다(멱등).
-   */
-  useEffect(() => {
-    return () => {
-      visionDetector.close();
-    };
-  }, [visionDetector]);
 
   /**
    * 공부 결과로 이동

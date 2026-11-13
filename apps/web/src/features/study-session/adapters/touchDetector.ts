@@ -21,6 +21,7 @@ export function createTouchDetector(options: TouchDetectorOptions = {}): FocusDe
   let active = false;
   let running = false;
   let releaseTimer: ReturnType<typeof setTimeout> | undefined;
+  const pressed = new Set<number | undefined>();
 
   function notify(next: boolean): void {
     if (next === active) {
@@ -32,12 +33,22 @@ export function createTouchDetector(options: TouchDetectorOptions = {}): FocusDe
     }
   }
 
-  function onPress(): void {
+  function pointerIdOf(event: Event): number | undefined {
+    return (event as Partial<PointerEvent>).pointerId;
+  }
+
+  function onPress(event: Event): void {
+    pressed.add(pointerIdOf(event));
     clearTimeout(releaseTimer);
     notify(true);
   }
 
-  function onRelease(): void {
+  // 손가락을 모두 뗀 뒤에만 끄기 타이머를 건다.
+  function onRelease(event: Event): void {
+    pressed.delete(pointerIdOf(event));
+    if (pressed.size > 0) {
+      return;
+    }
     clearTimeout(releaseTimer);
     releaseTimer = setTimeout(() => notify(false), holdMs);
   }
@@ -62,6 +73,7 @@ export function createTouchDetector(options: TouchDetectorOptions = {}): FocusDe
       target.removeEventListener("pointerup", onRelease);
       target.removeEventListener("pointercancel", onRelease);
       clearTimeout(releaseTimer);
+      pressed.clear();
       notify(false);
     },
 

@@ -55,6 +55,21 @@ describe("createTouchDetector", () => {
     expect(signals.at(-1)).toEqual({ source: "TOUCH", active: false });
   });
 
+  it("두 손가락 중 하나만 떼면 계속 켜 두고 모두 떼야 2초 뒤 끈다", () => {
+    const { target, signals } = setup();
+    const pointer = (type: string, pointerId: number) =>
+      target.dispatchEvent(Object.assign(new Event(type), { pointerId }));
+    pointer("pointerdown", 1);
+    pointer("pointerdown", 2);
+    pointer("pointerup", 1);
+    vi.advanceTimersByTime(5000);
+    expect(signals).toEqual([{ source: "TOUCH", active: true }]);
+
+    pointer("pointerup", 2);
+    vi.advanceTimersByTime(2000);
+    expect(signals.at(-1)).toEqual({ source: "TOUCH", active: false });
+  });
+
   it("터치가 취소되어도 손을 뗀 것으로 본다", () => {
     const { target, signals } = setup();
     target.dispatchEvent(new Event("pointerdown"));
