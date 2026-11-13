@@ -906,12 +906,14 @@ body {
 
 /* 공부 완료 히어로의 마스코트 점프
    요소의 기본 자리가 정점이라 키프레임은 바닥에서 출발해 정점(none)에서 끝난다.
+   바닥 36px은 기본 표정의 발끝이 그림자에 닿는 높이다.
+   54.35%(0.5s)는 웃는 표정으로 바뀌는 순간이라 이때 뛰어오르기 시작한다.
    모션 축소는 사용처의 motion-reduce:animate-none이 막아 정점 자세만 남긴다.
    길이 0.92s는 StudyCompleteHero의 MASCOT_APEX_MS 햅틱 시점과 같아 바꾸면 그 값도 함께 바꾼다. */
 @keyframes result-mascot-jump {
   0% {
     opacity: 0;
-    transform: translateY(40px);
+    transform: translateY(36px);
     animation-timing-function: cubic-bezier(0.77, 0, 0.175, 1);
   }
 
@@ -919,8 +921,8 @@ body {
     opacity: 1;
   }
 
-  55% {
-    transform: translateY(40px) scale(1.05, 0.9);
+  54.35% {
+    transform: translateY(36px) scale(1.05, 0.9);
     animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
   }
 
@@ -943,7 +945,7 @@ body {
     opacity: 1;
   }
 
-  55% {
+  54.35% {
     opacity: 1;
     transform: scale(1.5, 1.286);
     animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1);
@@ -952,6 +954,58 @@ body {
   100% {
     opacity: 0.62;
     transform: none;
+  }
+}
+
+/* 마스코트 표정 전환
+   겹쳐 둔 네 장 중 하나만 보이고 step-end로 순간 교체한다.
+   점프와 같은 0.92s 타임라인이고 퍼센트는 기본 0.33s, 정색 0.38s, 눈 감음 0.45s, 정색 0.5s 경계다.
+   웃음은 기본 opacity가 1이라 애니메이션이 없는 모션 축소와 다시 본 결과에서는 웃음만 보인다. */
+@keyframes result-mascot-face-idle {
+  0% {
+    opacity: 1;
+  }
+
+  35.87%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes result-mascot-face-squint {
+  0%,
+  41.3%,
+  54.35%,
+  100% {
+    opacity: 0;
+  }
+
+  35.87%,
+  48.91% {
+    opacity: 1;
+  }
+}
+
+@keyframes result-mascot-face-closed {
+  0%,
+  48.91%,
+  100% {
+    opacity: 0;
+  }
+
+  41.3% {
+    opacity: 1;
+  }
+}
+
+@keyframes result-mascot-face-smile {
+  0% {
+    opacity: 0;
+  }
+
+  54.35%,
+  100% {
+    opacity: 1;
   }
 }
 

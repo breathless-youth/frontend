@@ -1,6 +1,11 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import timiClosed from "@/assets/mascot/timi-closed.png";
+import timiIdle from "@/assets/mascot/timi-idle.png";
+import timiSmile from "@/assets/mascot/timi-smile.png";
+import timiSquint from "@/assets/mascot/timi-squint.png";
+
 import type { SessionResultView } from "../../sessionResult";
 import { StudyCompleteHero } from "../StudyCompleteHero";
 
@@ -21,14 +26,37 @@ const view: SessionResultView = {
 };
 
 describe("StudyCompleteHero", () => {
-  it("마스코트 그림을 넘기면 기본 그림 대신 그 그림을 그린다", () => {
+  function mascotSources(container: HTMLElement) {
+    return Array.from(container.querySelectorAll("[data-result-mascot] img"), (img) =>
+      img.getAttribute("src"),
+    );
+  }
+
+  it("표정 묶음을 넘기면 기본 표정 대신 그 그림들을 그린다", () => {
     const { container } = render(
-      <StudyCompleteHero view={view} phase="static" mascotSrc="/custom-mascot.png" />,
+      <StudyCompleteHero
+        view={view}
+        phase="static"
+        mascot={{
+          idle: "/idle.png",
+          squint: "/squint.png",
+          closed: "/closed.png",
+          smile: "/smile.png",
+        }}
+      />,
     );
 
-    expect(container.querySelector("img[data-result-mascot]")).toHaveAttribute(
-      "src",
-      "/custom-mascot.png",
-    );
+    expect(mascotSources(container)).toEqual([
+      "/idle.png",
+      "/squint.png",
+      "/closed.png",
+      "/smile.png",
+    ]);
+  });
+
+  it("표정 묶음을 넘기지 않으면 타이미 네 표정을 그린다", () => {
+    const { container } = render(<StudyCompleteHero view={view} phase="static" />);
+
+    expect(mascotSources(container)).toEqual([timiIdle, timiSquint, timiClosed, timiSmile]);
   });
 });

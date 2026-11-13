@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import timiJump from "@/assets/mascot/timi-jump.png";
+import timiClosed from "@/assets/mascot/timi-closed.png";
+import timiIdle from "@/assets/mascot/timi-idle.png";
+import timiSmile from "@/assets/mascot/timi-smile.png";
+import timiSquint from "@/assets/mascot/timi-squint.png";
 import { Badge } from "@/components/ui/badge";
 import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
@@ -35,21 +38,50 @@ const COUNT_UP_DELAY_MS = 950;
 const MASCOT_APEX_MS = 920;
 
 /**
+ * 결과 화면 마스코트의 표정 묶음
+ *
+ * 네 장은 같은 캔버스(1배 74×94)와 같은 원점이라 겹쳐 두면 몸통이 맞는다.
+ * 웃음은 정점 자세라 몸통이 조금 위로 올라가고 기울어 있다.
+ */
+export type ResultMascotFrames = {
+  idle: string;
+  squint: string;
+  closed: string;
+  smile: string;
+};
+
+const TIMI_FRAMES: ResultMascotFrames = {
+  idle: timiIdle,
+  squint: timiSquint,
+  closed: timiClosed,
+  smile: timiSmile,
+};
+
+// 그리는 순서와 표정마다 거는 keyframes. Tailwind가 클래스를 찾도록 문자열을 통째로 둔다.
+const FACE_ANIMATIONS = [
+  ["idle", "animate-[result-mascot-face-idle_0.92s_step-end_both]"],
+  ["squint", "animate-[result-mascot-face-squint_0.92s_step-end_both]"],
+  ["closed", "animate-[result-mascot-face-closed_0.92s_step-end_both]"],
+  ["smile", "animate-[result-mascot-face-smile_0.92s_step-end_both]"],
+] as const satisfies ReadonlyArray<readonly [keyof ResultMascotFrames, string]>;
+
+/**
  * 공부 완료 히어로
  *
  * 마스코트가 웅크렸다 뛰어올라 정점(0.92s)에 멈추고, 바닥 그림자는 높이에 따라 작아지고 옅어진다.
+ * 웅크리는 동안 표정이 기본, 정색, 눈 감음, 정색으로 바뀌고 뛰어오르는 순간 웃는다.
  * 타이틀(0.55s)·설명(0.66s)·순공시간(0.78s, 0.95s부터 1.3s 카운트업)·총 공부
  * (0.9s)·집중률 배지(1.0s)가 차례로 떠오른다.
- * 나중에 고른 마스코트로 바꿀 수 있게 그림 주소를 받는다.
+ * 나중에 고른 마스코트로 바꿀 수 있게 표정 묶음을 받는다.
  */
 export function StudyCompleteHero({
   view,
   phase,
-  mascotSrc = timiJump,
+  mascot = TIMI_FRAMES,
 }: {
   view: SessionResultView;
   phase: CompleteHeroPhase;
-  mascotSrc?: string;
+  mascot?: ResultMascotFrames;
 }) {
   const { t } = useTranslation("study-session");
   const collapsed = phase === "revealed";
@@ -108,16 +140,31 @@ export function StudyCompleteHero({
                 jumping && "animate-[result-mascot-shadow_0.92s_both] motion-reduce:animate-none",
               )}
             />
-            <img
-              src={mascotSrc}
-              alt=""
-              draggable={false}
+            {/* 움직임은 컨테이너가, 표정 교체는 각 그림이 맡는다.
+                네 장을 처음부터 그려 두어 첫 교체 전에 디코드가 끝난다.
+                bottom-9·left-0.75는 웃는 표정 기준의 정점 자리다.
+                기본 표정은 몸통이 5.6px 아래에 그려져 있어 바닥(36px 아래)에서 발끝이 그림자에 닿는다. */}
+            <div
               data-result-mascot=""
               className={cn(
-                "pointer-events-none absolute bottom-10 left-1 w-18.25 max-w-none origin-bottom",
+                "pointer-events-none absolute bottom-9 left-0.75 h-23.5 w-18.5 origin-bottom",
                 jumping && "animate-[result-mascot-jump_0.92s_both] motion-reduce:animate-none",
               )}
-            />
+            >
+              {FACE_ANIMATIONS.map(([face, animation]) => (
+                <img
+                  key={face}
+                  src={mascot[face]}
+                  alt=""
+                  draggable={false}
+                  className={cn(
+                    "absolute inset-0 size-full",
+                    face !== "smile" && "opacity-0",
+                    jumping && [animation, "motion-reduce:animate-none"],
+                  )}
+                />
+              ))}
+            </div>
           </div>
 
           <h1 className="text-[20px] leading-6 font-extrabold tracking-[-0.4px] text-foreground animate-[result-fade-up_0.5s_ease-out_0.55s_both] motion-reduce:animate-none">

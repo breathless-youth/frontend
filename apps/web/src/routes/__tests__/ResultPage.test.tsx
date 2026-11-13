@@ -242,12 +242,17 @@ describe("ResultPage — 완료 히어로 (BY-560)", () => {
     expect(screen.getByText("1시간 42분").closest("p")).toHaveTextContent("총 공부시간 1시간 42분");
   });
 
-  it("모션 축소면 마스코트가 점프 없이 정점 자세로 바로 보인다", () => {
+  it("모션 축소면 마스코트가 점프도 표정 전환도 없이 정점 자세로 바로 보인다", () => {
     const { container } = renderResult({ sessions: [exampleSession()] });
 
-    const mascot = container.querySelector("img[data-result-mascot]");
+    const mascot = container.querySelector("[data-result-mascot]");
     expect(mascot).not.toBeNull();
     expect(mascot?.className).not.toContain("result-mascot-jump");
+    const faces = Array.from(container.querySelectorAll("[data-result-mascot] img"));
+    expect(faces).toHaveLength(4);
+    for (const face of faces) {
+      expect(face.className).not.toContain("result-mascot-face");
+    }
   });
 
   it("예전 헤더(타이틀 '공부 결과'·우상단 닫기)는 시안에서 빠졌다", () => {
@@ -305,13 +310,24 @@ describe("ResultPage — 마스코트 연출 → 공개 (모션 축소 아님)",
     const { container } = renderAnimated();
 
     expect(screen.getByRole("heading", { level: 1, name: "오늘 공부 완료" })).toBeInTheDocument();
-    expect(container.querySelector("img[data-result-mascot]")?.className).toContain(
+    expect(container.querySelector("[data-result-mascot]")?.className).toContain(
       "result-mascot-jump",
     );
     expect(screen.queryByText("공부 타임라인")).not.toBeInTheDocument();
     expect(screen.queryByText("오늘 누적 순공시간")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "홈으로" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "기록으로 가기" })).not.toBeInTheDocument();
+  });
+
+  it("인트로에서는 표정 네 장이 모두 있고 각자 표정 전환 애니메이션이 걸린다", () => {
+    const { container } = renderAnimated();
+
+    const faces = Array.from(container.querySelectorAll("[data-result-mascot] img"));
+    expect(faces).toHaveLength(4);
+    for (const face of faces) {
+      expect(face.className).toContain("result-mascot-face");
+      expect(face).toHaveAttribute("alt", "");
+    }
   });
 
   it("카운트업은 0이 아니라 1분부터 올라 시작 프레임에 '1분 미만'이 뜨지 않는다", () => {
@@ -339,7 +355,7 @@ describe("ResultPage — 마스코트 연출 → 공개 (모션 축소 아님)",
     expect(screen.getByRole("button", { name: "홈으로" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "기록으로 가기" })).toBeInTheDocument();
     // 마스코트와 타이틀은 DOM에 남되(접힘 전환) 스크린리더에는 읽히지 않는다.
-    const mascot = container.querySelector("img[data-result-mascot]");
+    const mascot = container.querySelector("[data-result-mascot]");
     expect(mascot).not.toBeNull();
     expect(mascot?.closest('[aria-hidden="true"]')).not.toBeNull();
     expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
