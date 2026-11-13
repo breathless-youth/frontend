@@ -15,6 +15,8 @@
 - 로컬에서 빌드해 올린 제출은 EAS가 버전을 모르므로 지금처럼 손으로 태그를 단다.
 - 웹은 main 머지 커밋에 `web/<버전>` 태그를 달고, 그 태그로 GitHub Release 노트를 쓴다
   (예: `web/26.41.0`).
+- 릴리즈 노트는 릴리즈 PR을 머지하기 전에 `web/<버전>` Draft Release로 써 둔다. 배포 알림과
+  Amplitude Release가 배포가 끝날 때 노트를 한 번만 읽기 때문이다. 없으면 CI `release-notes`가 실패한다.
 - 빌드 커밋의 원천은 EAS 기록이고 `cd apps/mobile && npx eas-cli build:list`로 확인한다.
 - 비고에는 호환 여부를 판단할 때 필요한 내용만 한 줄로 적는다. 포함하거나 빠진 기능, 지원하는
   capability 정도면 충분하다.
