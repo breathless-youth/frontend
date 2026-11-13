@@ -2,6 +2,9 @@ import type { MedalRank, RankingBoardResponse, RankingType } from "@focusmakers/
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
+import pencil from "@/assets/mascot/silhouette-pencil.svg";
+import planner from "@/assets/mascot/silhouette-planner.svg";
+import stopwatch from "@/assets/mascot/silhouette-stopwatch.svg";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { cn } from "@/lib/utils";
 
@@ -18,11 +21,33 @@ import { RankAvatar } from "./RankAvatar";
  *
  * 화면 순서는 2·1·3이고 문서 순서는 1·2·3이라 화면 낭독기는 순위대로 읽는다.
  * 테 지름은 아바타 지름에 양쪽으로 틈 2px과 테 두께 3px씩을 더한 값이다.
+ * 빈자리에는 순위마다 다른 마스코트 실루엣을 둔다.
  */
 const SPOT = {
-  1: { order: "order-2", stand: "h-10 pt-2.25", medal: 22, avatar: "lg", ring: 66 },
-  2: { order: "order-1", stand: "h-7 pt-1.25", medal: 18, avatar: "md", ring: 56 },
-  3: { order: "order-3", stand: "h-5 pt-px", medal: 18, avatar: "md", ring: 56 },
+  1: {
+    order: "order-2",
+    stand: "h-10 pt-2.25",
+    medal: 22,
+    avatar: "lg",
+    ring: 66,
+    silhouette: { kind: "stopwatch", src: stopwatch },
+  },
+  2: {
+    order: "order-1",
+    stand: "h-7 pt-1.25",
+    medal: 18,
+    avatar: "md",
+    ring: 56,
+    silhouette: { kind: "planner", src: planner },
+  },
+  3: {
+    order: "order-3",
+    stand: "h-5 pt-px",
+    medal: 18,
+    avatar: "md",
+    ring: 56,
+    silhouette: { kind: "pencil", src: pencil },
+  },
 } as const;
 
 /**
@@ -92,20 +117,25 @@ function PodiumSpot({
         <span
           aria-hidden="true"
           className={cn(
-            "inline-flex items-center justify-center rounded-full bg-bg-layer-2 font-extrabold text-text-tertiary",
-            first ? "size-14 text-[19px]" : "size-11.5 text-base",
+            "inline-flex items-center justify-center rounded-full bg-bg-layer-2",
+            first ? "size-14" : "size-11.5",
           )}
         >
-          ?
+          {/* 그림 대신 마스크로 그려 실루엣 색을 테마 토큰에 맞춘다. */}
+          <span
+            data-empty-silhouette={look.silhouette.kind}
+            className="size-3/5 bg-text-tertiary"
+            style={{
+              maskImage: `url("${look.silhouette.src}")`,
+              maskRepeat: "no-repeat",
+              maskPosition: "center",
+              maskSize: "contain",
+            }}
+          />
         </span>
       ) : (
         <span className="relative inline-flex">
-          <RankAvatar
-            nickname={row.nickname}
-            me={row.me}
-            size={look.avatar}
-            imageUrl={row.profileImageUrl}
-          />
+          <RankAvatar me={row.me} size={look.avatar} imageUrl={row.profileImageUrl} />
           {!medalless && (
             <IllustMedalRing
               rank={spot}
@@ -129,7 +159,7 @@ function PodiumSpot({
                 first ? "text-[13px] leading-3.75 font-extrabold" : "text-xs leading-3.5 font-bold",
               )}
             />
-            {/* 눈으로는 사진이나 파란 첫 글자와 아래 내 닉네임으로 내 자리를 알아보므로 나 표시는 화면 낭독기에만 읽힌다. */}
+            {/* 눈으로는 사진이나 파란 바탕 마스코트와 아래 내 닉네임으로 내 자리를 알아보므로 나 표시는 화면 낭독기에만 읽힌다. */}
             {row.me && <span className="sr-only">{t("podium.me")}</span>}
           </>
         )}

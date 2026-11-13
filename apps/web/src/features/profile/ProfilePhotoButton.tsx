@@ -17,7 +17,6 @@ const { LazySheet: LazyProfilePhotoSheet, preload: preloadProfilePhotoSheet } = 
 
 type ProfilePhotoProps = {
   userId: number;
-  initial: string;
   colorIndex: number;
   imageUrl?: string | null;
 };
@@ -30,19 +29,13 @@ type ProfilePhotoProps = {
  */
 export function ProfilePhotoButton(props: ProfilePhotoProps) {
   if (!hasTokenSource()) {
-    return (
-      <ProfileAvatar
-        initial={props.initial}
-        colorIndex={props.colorIndex}
-        imageUrl={props.imageUrl}
-      />
-    );
+    return <ProfileAvatar colorIndex={props.colorIndex} imageUrl={props.imageUrl} />;
   }
   return <EditablePhoto {...props} />;
 }
 
 /** 파일 입력은 시트가 닫힌 뒤에 선택 결과를 받으므로 시트 밖인 여기에 둔다. */
-function EditablePhoto({ userId, initial, colorIndex, imageUrl }: ProfilePhotoProps) {
+function EditablePhoto({ userId, colorIndex, imageUrl }: ProfilePhotoProps) {
   const { t } = useTranslation("profile");
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
@@ -62,7 +55,7 @@ function EditablePhoto({ userId, initial, colorIndex, imageUrl }: ProfilePhotoPr
         onClick={() => setOpen(true)}
         className="relative flex rounded-full focus-visible:ring-2 focus-visible:ring-state-focus focus-visible:outline-none"
       >
-        <ProfileAvatar initial={initial} colorIndex={colorIndex} imageUrl={imageUrl} />
+        <ProfileAvatar colorIndex={colorIndex} imageUrl={imageUrl} />
         {busy ? (
           <span
             aria-hidden="true"

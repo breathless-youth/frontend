@@ -48,17 +48,17 @@ const before = interpolateRows(FIXTURE_FOCUS_WEEKLY.around, 0);
 const after = interpolateRows(FIXTURE_OVERTAKEN.around, 0);
 
 describe("AroundList", () => {
-  it("순위 숫자 없이 닉네임 첫 글자·닉네임·값을 순서대로 보이고 내 줄을 표시한다", () => {
+  it("순위 숫자 없이 아바타·닉네임·값을 순서대로 보이고 내 줄을 표시한다", () => {
     render(<AroundList type="FOCUS_TIME" rows={before} />);
 
     const items = screen.getAllByRole("listitem");
     expect(items).toHaveLength(5);
     expect(items[2]).toHaveAttribute("aria-current", "true");
-    expect(items[2]).toHaveTextContent(/^오오늘도출석12:40:00$/);
+    expect(items[2]).toHaveTextContent(/^오늘도출석12:40:00$/);
     // 내 줄은 연한 강조 바탕이라 아바타만 진한 파랑으로 둔다.
     expect(items[2].firstElementChild).toHaveClass("bg-brand-subtle");
     expect(items[2].querySelector("[data-me]")).toHaveClass("bg-primary-deep");
-    expect(items[3]).toHaveTextContent(/^도도서관지박령집중 중12:34:00$/);
+    expect(items[3]).toHaveTextContent(/^도서관지박령집중 중12:34:00$/);
     expect(screen.queryByText(/1,20\d/)).toBeNull();
   });
 
@@ -115,7 +115,7 @@ describe("AroundList", () => {
     it("변동을 보이지 않는 판은 칸 없이 아바타부터 시작한다", () => {
       render(<AroundList type="FOCUS_RATE" rows={after} />);
 
-      expect(firstCell(rowOf("오늘도출석")!)).toHaveTextContent(/^오$/);
+      expect(firstCell(rowOf("오늘도출석")!)).toHaveAttribute("data-slot", "avatar");
       expect(screen.queryByText(/[▲▼]/)).toBeNull();
     });
   });
@@ -235,7 +235,7 @@ describe("AroundList", () => {
     });
   });
 
-  it("사진이 있는 줄은 첫 글자 대신 사진을 그린다", async () => {
+  it("사진이 있는 줄은 마스코트 대신 사진을 그린다", async () => {
     stubImageLoad();
     const rows = interpolateRows(
       FIXTURE_FOCUS_WEEKLY.around.map((row) =>
@@ -248,6 +248,7 @@ describe("AroundList", () => {
     await waitFor(() =>
       expect(rowOf("형광펜")?.querySelector("img")).toHaveAttribute("src", "/avatars/3.jpg"),
     );
-    expect(rowOf("커피세잔")?.querySelector("img")).toBeNull();
+    expect(rowOf("형광펜")?.querySelector("[data-default-mascot]")).toBeNull();
+    expect(rowOf("커피세잔")?.querySelector("[data-default-mascot]")).not.toBeNull();
   });
 });

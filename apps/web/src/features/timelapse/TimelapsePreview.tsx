@@ -137,9 +137,6 @@ export function TimelapsePreview({
           </div>
         )}
       </div>
-      <span className="absolute top-3 right-3 rounded-[4px] bg-white px-1.25 py-[2.5px] text-[8px] font-extrabold text-[#3671cf]">
-        {t("frame.watermark")}
-      </span>
     </div>
   );
 }

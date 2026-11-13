@@ -98,7 +98,7 @@ describe("RoomTile 폴백", () => {
     expect(screen.queryByText(/undefined/)).not.toBeInTheDocument();
   });
 
-  it("카메라를 끈 타일에서 이모지 닉네임 이니셜이 깨지지 않는다", () => {
+  it("카메라를 끈 타일은 닉네임 첫 글자 대신 기본 마스코트를 그린다", () => {
     render(
       <RoomTile
         member={{
@@ -110,7 +110,8 @@ describe("RoomTile 폴백", () => {
       />,
     );
 
-    expect(screen.getByText("🧑‍💻")).toBeInTheDocument();
+    expect(screen.getByTestId("room-tile").querySelector("[data-default-mascot]")).not.toBeNull();
+    expect(screen.queryByText("🧑‍💻")).toBeNull();
   });
 
   it("필드가 있으면 기존처럼 전부 표시한다", () => {

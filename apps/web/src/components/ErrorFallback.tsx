@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import lampiSurprised from "@/assets/mascot/lampi-surprised.png";
 import { trackErrorFallbackReloaded } from "@/lib/amplitude";
 
 /**
@@ -14,6 +15,14 @@ export function ErrorFallback() {
   const { t } = useTranslation();
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center gap-2 px-6 text-center">
+      <img
+        src={lampiSurprised}
+        alt=""
+        width={106}
+        height={96}
+        draggable={false}
+        className="mb-4 h-24 w-auto"
+      />
       <h1 className="text-lg font-semibold">{t("errorFallback.title")}</h1>
       <p className="text-sm text-muted-foreground">{t("errorFallback.description")}</p>
       <button

@@ -180,11 +180,7 @@ export function RoomTile({
       {showMedia ? (
         <div className="absolute inset-0">{media}</div>
       ) : (
-        <RoomAvatarFallback
-          nickname={member.nickname}
-          imageUrl={member.profileImageUrl}
-          scaleWithTile
-        />
+        <RoomAvatarFallback imageUrl={member.profileImageUrl} scaleWithTile />
       )}
       {showMedia && (
         <>
