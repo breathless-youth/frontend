@@ -4,7 +4,6 @@
     "yesterday": "昨天"
   },
   "frame": {
-    "watermark": "FocusMakers",
     "focusTime": "專注 {{duration}}",
     "focusRate": "專注率 {{rate}}%",
     "streak": "連續讀書 {{count}} 天 🔥"
