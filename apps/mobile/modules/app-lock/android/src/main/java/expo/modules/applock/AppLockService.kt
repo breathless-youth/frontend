@@ -264,7 +264,7 @@ class AppLockService : Service() {
     val content = LinearLayout(this).apply {
       orientation = LinearLayout.VERTICAL
       gravity = Gravity.CENTER_HORIZONTAL
-      addView(mascot, LinearLayout.LayoutParams(dp(96), dp(96)))
+      addView(mascot, LinearLayout.LayoutParams(dp(77), dp(77)))
       addView(title, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { topMargin = dp(24) })
       addView(subtitle, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { topMargin = dp(8) })
     }
