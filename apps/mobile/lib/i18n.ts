@@ -43,7 +43,8 @@ const ko = {
   "forceUpdate.reshowHint": "업데이트 안내를 다시 표시합니다",
 
   "recommendedUpdate.title": "새 버전이 나왔어요",
-  "recommendedUpdate.description": "최신 버전으로 업데이트하면 더 나아진 포메를 쓸 수 있어요.",
+  "recommendedUpdate.description":
+    "최신 버전으로 업데이트하면 더 나아진 포커스 메이커스를 쓸 수 있어요.",
   "recommendedUpdate.later": "나중에",
   "recommendedUpdate.confirm": "지금 업데이트",
 

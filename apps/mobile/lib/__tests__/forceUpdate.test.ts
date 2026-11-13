@@ -141,7 +141,8 @@ describe("resolveForceUpdate", () => {
       force_update_message: "원활한 이용을 위해 최신 버전으로 업데이트 해주세요.",
       force_update_button: "지금 업데이트",
       recommended_update_title: "새 버전이 나왔어요",
-      recommended_update_message: "최신 버전으로 업데이트하면 더 나아진 포메를 쓸 수 있어요.",
+      recommended_update_message:
+        "최신 버전으로 업데이트하면 더 나아진 포커스 메이커스를 쓸 수 있어요.",
       recommended_update_later_button: "나중에",
       recommended_update_confirm_button: "지금 업데이트",
     });
