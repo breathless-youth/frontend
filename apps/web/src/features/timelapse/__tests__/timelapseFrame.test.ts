@@ -86,24 +86,25 @@ function texts(calls: Call[]) {
 }
 
 describe("drawTimelapseFrame", () => {
-  it("켠 정보만 그리고 워터마크는 항상 그린다", () => {
+  it("켠 정보만 그린다", () => {
     const { ctx, calls } = recordingContext();
 
     drawTimelapseFrame(ctx, scene({ info: { ...NONE, date: true, focusTime: true } }));
 
     expect(texts(calls).map((call) => call.text)).toEqual(
-      expect.arrayContaining(["10월 5일", "순공 48분", "포커스 메이커스"]),
+      expect.arrayContaining(["10월 5일", "순공 48분"]),
     );
     expect(texts(calls).map((call) => call.text)).not.toContain("집중률 80%");
     expect(texts(calls).map((call) => call.text)).not.toContain("D-108 · 2027 수능");
   });
 
-  it("워터마크는 흰 바탕 위에 그린다", () => {
+  it("워터마크를 그리지 않는다", () => {
     const { ctx, calls } = recordingContext();
 
     drawTimelapseFrame(ctx, scene());
 
-    expect(calls).toContainEqual({ op: "fill", fill: "#ffffff" });
+    expect(texts(calls)).toHaveLength(0);
+    expect(calls.filter((call) => call.op === "fill")).toHaveLength(0);
   });
 
   it("D-Day와 연속 공부는 왼쪽 정렬, 나머지 정보는 오른쪽 정렬로 그린다", () => {
@@ -129,7 +130,7 @@ describe("drawTimelapseFrame", () => {
       }),
     );
 
-    expect(texts(calls).map((call) => call.text)).toEqual(["포커스 메이커스"]);
+    expect(texts(calls).map((call) => call.text)).toEqual([]);
   });
 
   it("흐름 바는 진행률만큼 채운다", () => {
@@ -159,7 +160,7 @@ describe("drawTimelapseFrame", () => {
   it("글자는 웹이 선언한 Pretendard Variable로 그린다", () => {
     const { ctx } = recordingContext();
 
-    drawTimelapseFrame(ctx, scene({}));
+    drawTimelapseFrame(ctx, scene({ info: { ...NONE, date: true } }));
 
     expect(ctx.font).toContain('"Pretendard Variable"');
   });

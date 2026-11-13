@@ -297,7 +297,7 @@ describe("TimelapsePlayer", () => {
       );
       const [, glyphs] = load.mock.calls[0] as [string, string];
       expect(glyphs).toContain("순공 2시간 14분");
-      expect(glyphs).toContain("포커스 메이커스");
+      expect(glyphs).not.toContain("포커스 메이커스");
     });
 
     it("글꼴 요청이 멈춰도 대체 글꼴로 재생한다", async () => {

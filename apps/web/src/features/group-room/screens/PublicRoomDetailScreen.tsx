@@ -85,7 +85,7 @@ export function PublicRoomDetailScreen({
               {t("publicRoomDetailScreen.owner")}
             </dt>
             <dd className="flex min-w-0 items-center gap-2">
-              <RankAvatar nickname={room.ownerNickname} imageUrl={room.ownerImageUrl} size="2xs" />
+              <RankAvatar imageUrl={room.ownerImageUrl} size="2xs" />
               <span className="truncate text-sm leading-5 font-semibold text-foreground">
                 {room.ownerNickname}
               </span>

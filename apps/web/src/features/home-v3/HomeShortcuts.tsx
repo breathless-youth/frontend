@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { HomeDesignIcon } from "./HomeDesignIcon";
 import type { HomeV3ContentProps } from "./homeV3ContentTypes";
+import { tapped } from "./homeShortcutTap";
 
 function ShortcutSummary({ title, detail }: { title: string; detail: string }) {
   return (
@@ -27,11 +28,11 @@ export function HomePlannerShortcut({
     <Card className="overflow-hidden rounded-xl border-0 shadow-sb-card">
       <Button
         variant="unstyled"
-        className="relative h-auto min-h-22 w-full items-center justify-start rounded-xl px-5 py-4 text-left"
-        onClick={onOpen}
+        className="relative h-auto w-full items-center justify-start rounded-xl px-5 py-3.5 text-left"
+        onClick={tapped("planner", onOpen)}
       >
         <span className="relative z-1 flex flex-col gap-1.5">
-          <span className="text-[22px] leading-7.5 font-bold">{t("v3.planner.title")}</span>
+          <span className="text-lg leading-6 font-semibold">{t("v3.planner.title")}</span>
           <span className="text-[13px] leading-5 font-normal text-muted-foreground">
             {plannerTaskCount === undefined
               ? t("v3.planner.open")
@@ -40,7 +41,7 @@ export function HomePlannerShortcut({
         </span>
         <span
           aria-hidden="true"
-          className="home-v3-notebook pointer-events-none absolute -right-6 -bottom-11.5 size-40 -rotate-12 select-none"
+          className="home-v3-notebook pointer-events-none absolute -right-6 -bottom-11.5 size-40 scale-80 -rotate-12 select-none"
         >
           <span className="relative block size-full overflow-hidden">
             <img
@@ -74,7 +75,7 @@ export function HomeUtilityShortcuts({
         <Button
           variant="unstyled"
           className="h-auto min-h-16 min-w-0 flex-1 justify-start gap-2.5 rounded-none py-2 pr-0 pl-3.5 text-left"
-          onClick={actions.openTimelapses}
+          onClick={tapped("timelapse", actions.openTimelapses)}
         >
           <HomeDesignIcon name="video" className="text-primary" />
           <ShortcutSummary
@@ -91,7 +92,7 @@ export function HomeUtilityShortcuts({
           variant="unstyled"
           className="h-auto min-h-16 w-12 shrink-0 rounded-none p-0 text-muted-foreground"
           aria-label={t("v3.timelapse.settings")}
-          onClick={actions.openTimelapseSettings}
+          onClick={tapped("timelapse_settings", actions.openTimelapseSettings)}
         >
           <HomeDesignIcon name="settings" />
         </Button>
@@ -100,7 +101,7 @@ export function HomeUtilityShortcuts({
         <Button
           variant="unstyled"
           className="h-auto min-h-16 w-full justify-start gap-2.5 rounded-xl px-3.5 py-2 text-left"
-          onClick={actions.openAppLock}
+          onClick={tapped("app_lock", actions.openAppLock)}
         >
           <HomeDesignIcon name="lock" className="text-primary" />
           <ShortcutSummary title={t("v3.appLock.title")} detail={appLockLabel} />

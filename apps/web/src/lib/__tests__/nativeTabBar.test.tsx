@@ -114,6 +114,10 @@ describe("isFullScreenPath", () => {
     expect(isFullScreenPath("/onboarding-guide")).toBe(false);
   });
 
+  it("채널톡 상담 화면은 전체 화면이다", () => {
+    expect(isFullScreenPath("/contact/chat")).toBe(true);
+  });
+
   it("첫 실행 온보딩은 전체 화면이다", () => {
     expect(isFullScreenPath("/onboarding")).toBe(true);
   });
@@ -163,6 +167,11 @@ describe("isFullScreenPath", () => {
     expect(isFullScreenPath("/social/public/12/apply")).toBe(true);
     expect(isFullScreenPath("/blocks")).toBe(true);
     expect(isFullScreenPath("/social")).toBe(false);
+  });
+
+  it("설정에서 여는 로그인 화면은 탭 바를 감춘다", () => {
+    expect(isFullScreenPath("/settings/login")).toBe(true);
+    expect(isFullScreenPath("/settings")).toBe(false);
   });
 });
 

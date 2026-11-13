@@ -123,7 +123,7 @@ function RequestCard({
   return (
     <li className="flex flex-col gap-3 rounded-xl bg-muted p-4 shadow-sb-card">
       <div className="flex items-center gap-2.5">
-        <RankAvatar nickname={request.nickname} imageUrl={request.imageUrl} size="sm-plus" />
+        <RankAvatar imageUrl={request.imageUrl} size="sm-plus" />
         <p
           id={nameId}
           className="min-w-0 flex-1 truncate text-base leading-5.5 font-bold text-foreground"

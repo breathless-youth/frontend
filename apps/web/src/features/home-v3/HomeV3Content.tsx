@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { HomeContactFooter } from "./HomeContactFooter";
 import { HomeDesignIcon } from "./HomeDesignIcon";
 import { HomeInlineError } from "./HomeInlineError";
 import { HomeProgressBand } from "./HomeProgressBand";
@@ -35,7 +36,7 @@ export function HomeV3Content({
 }: HomeV3ContentProps) {
   const { t } = useTranslation("home");
   return (
-    <div className="home-v3-content flex flex-col gap-3">
+    <div className="home-v3-content flex flex-1 flex-col gap-3">
       {band.status === "pending" && <Skeleton className="h-19 rounded-xl" />}
       {band.status === "error" && (
         <HomeInlineError label={t("v3.progressFailed")} retry={band.retry} />
@@ -61,7 +62,7 @@ export function HomeV3Content({
         />
       </HomeStudyCard>
       <Button
-        className="min-h-18 w-full gap-2.5 rounded-[22px] text-xl leading-6 font-bold tracking-[0.9px] shadow-sb-cta"
+        className="min-h-16 w-full gap-2.5 rounded-[22px] text-xl leading-6 font-bold tracking-[0.9px] shadow-sb-cta"
         disabled={startingStudy}
         aria-busy={startingStudy}
         onClick={actions.startStudy}
@@ -80,6 +81,7 @@ export function HomeV3Content({
         appLockLabel={appLockLabel}
         actions={actions}
       />
+      <HomeContactFooter onOpen={actions.openContact} />
     </div>
   );
 }

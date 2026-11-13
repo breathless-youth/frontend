@@ -8,12 +8,12 @@ const NONE = DEFAULT_TIMELAPSE_SETTINGS.info;
 const CAT = "/face-mask/cat.png";
 
 describe("TimelapsePreview", () => {
-  it("켠 요소가 없으면 안내 문구와 워터마크만 있다", () => {
+  it("켠 요소가 없으면 안내 문구만 있고 워터마크는 없다", () => {
     render(<TimelapsePreview aspect="9:16" info={NONE} />);
     const preview = screen.getByTestId("timelapse-preview");
 
     expect(within(preview).getByText("공부 중 화면")).toBeInTheDocument();
-    expect(within(preview).getByText("포커스 메이커스")).toBeInTheDocument();
+    expect(within(preview).queryByText("포커스 메이커스")).toBeNull();
     expect(within(preview).queryByText("10월 5일")).toBeNull();
   });
 
