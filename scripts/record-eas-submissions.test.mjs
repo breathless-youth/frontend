@@ -202,11 +202,14 @@ describe("recordSubmissions", () => {
       "⚠️ EAS 기록 실패 · 로컬 실행",
     ]);
   });
-  it("Amplitude 키가 없으면 Release만 건너뛴다", async () => {
-    const { deps, calls } = fake();
-    assert.equal(await recordSubmissions({ ...env, AMPLITUDE_API_KEY: "" }, deps), 0);
-    assert.deepEqual(calls, ["git ls-remote", "git tag", "git push", "slack"]);
-  });
+  for (const key of ["AMPLITUDE_API_KEY", "AMPLITUDE_SECRET_KEY"]) {
+    it(`${key}가 비면 제출을 하나도 처리하지 않고 시작에서 실패한다`, async () => {
+      const { deps, calls } = fake();
+      deps.listSubmissions = () => calls.push("list") && [sub()];
+      await assert.rejects(recordSubmissions({ ...env, [key]: "" }, deps), /AMPLITUDE_API_KEY/);
+      assert.deepEqual(calls, []);
+    });
+  }
   it("DRY_RUN이면 시크릿 없이도 본문을 내고 태그는 달지 않는다", async () => {
     const { deps, calls } = fake();
     const releases = [];

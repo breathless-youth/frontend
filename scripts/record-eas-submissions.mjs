@@ -206,20 +206,12 @@ function isKnownCommit(sha) {
 
 async function record(sub, { env, slack, dryRun, deps }) {
   const release = releaseFor(sub);
-  const withRelease = Boolean(env.AMPLITUDE_API_KEY && env.AMPLITUDE_SECRET_KEY);
-  // DRY_RUN은 키 없이도 보낼 본문을 확인할 수 있어야 한다.
-  if (withRelease || dryRun) {
-    await deps.createRelease({
-      apiKey: env.AMPLITUDE_API_KEY,
-      secretKey: env.AMPLITUDE_SECRET_KEY,
-      dryRun,
-      ...release,
-    });
-  } else {
-    console.log(
-      "::warning::AMPLITUDE_API_KEY 또는 AMPLITUDE_SECRET_KEY가 비어 Amplitude Release를 건너뜁니다",
-    );
-  }
+  await deps.createRelease({
+    apiKey: env.AMPLITUDE_API_KEY,
+    secretKey: env.AMPLITUDE_SECRET_KEY,
+    dryRun,
+    ...release,
+  });
   const tagArgs = ["tag", "-a", release.version, sub.submittedBuild.gitCommitHash];
   const message = `${release.title} 스토어 제출`;
   if (dryRun) {
@@ -231,7 +223,7 @@ async function record(sub, { env, slack, dryRun, deps }) {
       deps.git(...pushArgs(release.version, env.GITHUB_TOKEN));
     } catch (err) {
       // Slack까지 보내면 다음 날 재시도 때 같은 제출 알림이 한 번 더 올라간다.
-      err.releaseWithoutTag = withRelease;
+      err.releaseWithoutTag = true;
       throw err;
     }
   }
@@ -252,6 +244,10 @@ export async function recordSubmissions(env, deps = defaultDeps) {
   const dryRun = isDryRun(env);
   if (!dryRun && (!env.SLACK_BOT_TOKEN || !env.SLACK_DEPLOY_CHANNEL_ID)) {
     throw new Error("SLACK_BOT_TOKEN 또는 SLACK_DEPLOY_CHANNEL_ID가 비어 있습니다");
+  }
+  // 태그가 처리 완료 표시라 키 없이 진행하면 그 제출의 Release를 다시 만들 수 없다.
+  if (!dryRun && (!env.AMPLITUDE_API_KEY || !env.AMPLITUDE_SECRET_KEY)) {
+    throw new Error("AMPLITUDE_API_KEY 또는 AMPLITUDE_SECRET_KEY가 비어 있습니다");
   }
   // DRY_RUN은 시크릿 없이도 보낼 본문을 확인할 수 있어야 한다.
   const slack = {
