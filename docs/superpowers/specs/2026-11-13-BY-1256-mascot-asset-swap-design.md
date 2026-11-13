@@ -17,7 +17,7 @@ SVG 안에 큰 래스터가 섞여 있으면 PNG(필요하면 WebP)를 쓴다. �
 
 | 파일                                                                | 쓰는 곳                                            |
 | ------------------------------------------------------------------- | -------------------------------------------------- |
-| `timi-jump`                                                         | 결과 화면                                          |
+| `timi-idle` · `timi-squint` · `timi-closed` · `timi-smile`          | 결과 화면 표정 4장(같은 캔버스)                    |
 | `lampi-surprised`                                                   | 크래시 화면                                        |
 | `timi-avatar`                                                       | 기본 프로필(랭킹·그룹 목록, 라이브룸, 프로필 화면) |
 | `silhouette-stopwatch` · `silhouette-planner` · `silhouette-pencil` | 시상대 빈자리(CSS mask로 `text-tertiary` 색 적용)  |
@@ -32,12 +32,13 @@ SVG 안에 큰 래스터가 섞여 있으면 PNG(필요하면 WebP)를 쓴다. �
 - `StudyCompleteHero`에서 도장 PNG(`study-complete-stamp.png`), 충격 링, `SealIcon`을 지운다. `@/assets/study-complete-stamp.png` 파일도 지운다.
 - 인주 자리(72px 슬롯)에 타이미 점프 그림을 둔다. 시안의 112px는 여백을 포함한 인스턴스 상자이고, 실제 그림은 정점에서 약 73×89px(몸통 지름이 예전 인주 테와 같은 72px)다. 아래 글자 위치는 그대로다.
 - 모션은 index.css keyframes와 Tailwind 임의값 `animate-[...]`으로 만든다(기존 방식, 새 의존성 없음).
-  - 웅크림(scaleY 눌림) → 상승 → 정점(40px 위)에서 멈춘 채 유지한다. 바닥 그림자 타원은 높이에 따라 작아지고 옅어진다.
+  - 웅크림(scaleY 눌림) → 상승 → 정점에서 멈춘 채 유지한다. 바닥 그림자 타원은 높이에 따라 작아지고 옅어진다.
+  - 표정은 웅크리는 동안 기본 → 정색 → 눈 감음(졸림) → 정색 → 웃음(점프) 순서로 바뀌고, 웃는 순간 뛰어오른다. 네 장을 겹쳐 두고 순간 전환한다.
   - 정점 도달 시각은 지금 도장이 닿는 시각(약 0.82~0.92s)에 맞춰 색종이(900ms)·햅틱(920ms) 타이밍을 그대로 쓴다. 햅틱 세기는 지금 값(heavy)을 유지한다.
   - `result-stamp-press`·`result-seal-pop`·`result-stamp-impact` keyframes는 지우고 점프용 keyframes를 새로 둔다.
 - `phase="static"`(모션 줄이기, 다시 본 결과)에서는 정점 자세를 바로 보여 준다. `motion-reduce:` 클래스도 같은 결과가 되게 한다.
 - 2단계(`revealed`)에서는 지금처럼 인트로 블록이 접히며 타이미도 함께 사라진다.
-- 마스코트 이미지는 `StudyCompleteHero`의 선택 prop(`mascotSrc`)로 받고 기본값은 타이미 점프다.
+- 마스코트 표정 4장은 `StudyCompleteHero`의 선택 prop(`mascot`)으로 받고 기본값은 타이미다.
 - 그림은 장식이라 `alt=""`이고, 접힌 블록은 지금처럼 `aria-hidden`이다.
 
 ### 타임랩스 워터마크 삭제 (BY-1261)
@@ -63,7 +64,7 @@ SVG 안에 큰 래스터가 섞여 있으면 PNG(필요하면 WebP)를 쓴다. �
 
 - 스플래시: 워드마크 위에 배경 없는 타이미를 얹은 PNG 4종(라이트·다크 × 한국어·그 외)을 다시 만든다. 생성기 `scripts/generate-splash-wordmark.swift`가 타이미 원본을 함께 그리도록 고쳐 재현 가능하게 한다. `LaunchGoalOverlay`는 같은 PNG를 쓰므로 코드 변경이 없다. `imageWidth`는 시안 비율에 맞춰 조정한다.
 - 권한 거부: 66px 회색 원과 `IconCameraOff`를 캠코미 그림(96px, RN `Image`)으로 바꾼다. 접근성 숨김은 유지한다. `IconCameraOff`가 더는 안 쓰이면 지운다.
-- Android 앱 잠금: 84dp 원 + 자물쇠 아이콘을 락키 프로필 이미지(96dp, 원 배경 `#FCDBCE` 포함)로 바꾼다. 알림 small icon은 `app_lock_ic_lock`을 계속 쓴다.
+- Android 앱 잠금: 84dp 원 + 자물쇠 아이콘을 락키 프로필 이미지(77dp, 원 배경 `#FCDBCE` 포함)로 바꾼다. 알림 small icon은 `app_lock_ic_lock`을 계속 쓴다.
 - `lib/i18n.ts` 한국어 `recommendedUpdate.description`의 `포메`를 `포커스 메이커스`로 바꾸고 `forceUpdate.test.ts`의 리터럴도 맞춘다.
 - 참조가 없는 `assets/favicon.png`, `scripts/generate-splash-mark.js`를 지운다.
 
