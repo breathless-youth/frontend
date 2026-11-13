@@ -54,7 +54,7 @@ export interface FrameDiagnostics {
   readonly eyeClosedRatio?: number | null;
   /** 이번 프레임의 얼굴 추론 결과. 얼굴 추론을 건너뛴 프레임에서는 null이다. */
   readonly face?: FaceFrameDiagnostics | null;
-  /** 공부 증거 원신호와 그 재료. 좌표 없이 boolean만 남긴다. */
+  /** 공부 증거 원신호와 그 재료. 랜드마크 좌표는 남기지 않고 판정 결과, 눈 점수, 소요시간만 남긴다. */
   readonly evidence?: {
     readonly tool: boolean;
     readonly noEvidence: boolean;
