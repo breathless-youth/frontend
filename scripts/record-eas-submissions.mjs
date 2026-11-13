@@ -109,6 +109,13 @@ export function releaseFor(sub) {
   };
 }
 
+/** eas 자식 프로세스 환경 변수. */
+export function easEnv(env) {
+  // 외부 패키지를 받아 실행하므로 EXPO_TOKEN 말고 다른 토큰은 넘기지 않는다.
+  const { GITHUB_TOKEN, GH_TOKEN, SLACK_BOT_TOKEN, AMPLITUDE_SECRET_KEY, ...rest } = env;
+  return rest;
+}
+
 /**
  * EAS 제출 목록.
  * 팀이 쓰는 eas-cli 21에는 submit:list가 없어 이 명령만 버전을 고정해 실행한다.
@@ -131,6 +138,7 @@ export function listSubmissions() {
     {
       // app.config의 Expo 설정 플러그인을 읽어서 모바일 의존성이 있는 위치에서 돌아야 한다.
       cwd: path.join(ROOT, "apps/mobile"),
+      env: easEnv(process.env),
       encoding: "utf8",
       stdio: ["ignore", "pipe", "inherit"],
       maxBuffer: 64 * 1024 * 1024,
@@ -147,8 +155,28 @@ export function runLink(env) {
   return `<${server}/${repo(env)}/actions/runs/${env.GITHUB_RUN_ID}|실행 보기>`;
 }
 
-function git(...args) {
-  return execFileSync("git", args, { cwd: ROOT, encoding: "utf8" });
+/** 저장소 루트에서 실행한 git 명령의 출력. */
+export function git(...args) {
+  try {
+    return execFileSync("git", args, { cwd: ROOT, encoding: "utf8" });
+  } catch (err) {
+    // 실패 메시지에 명령줄이 그대로 들어가 인증 헤더가 로그에 남지 않게 가린다.
+    err.message = err.message.replace(/(extraheader=AUTHORIZATION: basic )\S+/g, "$1***");
+    throw err;
+  }
+}
+
+// 체크아웃이 쓰기 토큰을 git 설정에 남기지 않아 태그 push에만 인증을 붙인다.
+function pushArgs(tag, token) {
+  if (!token) return ["push", "origin", tag];
+  const basic = Buffer.from(`x-access-token:${token}`).toString("base64");
+  return [
+    "-c",
+    `http.https://github.com/.extraheader=AUTHORIZATION: basic ${basic}`,
+    "push",
+    "origin",
+    tag,
+  ];
 }
 
 function remoteTags(git) {
@@ -200,7 +228,7 @@ async function record(sub, { env, slack, dryRun, deps }) {
   } else {
     try {
       deps.git(...tagArgs, "-m", message);
-      deps.git("push", "origin", release.version);
+      deps.git(...pushArgs(release.version, env.GITHUB_TOKEN));
     } catch (err) {
       // Slack까지 보내면 다음 날 재시도 때 같은 제출 알림이 한 번 더 올라간다.
       err.releaseWithoutTag = withRelease;

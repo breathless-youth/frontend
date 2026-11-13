@@ -3,7 +3,9 @@ import { after, before, describe, it, mock } from "node:test";
 
 import {
   classifySubmissions,
+  easEnv,
   formatSubmission,
+  git as runGit,
   formatWarning,
   recordSubmissions,
   releaseFor,
@@ -144,12 +146,14 @@ describe("recordSubmissions", () => {
   };
   const fake = (over = {}) => {
     const calls = [];
+    const gitArgs = [];
     const deps = {
       listSubmissions: () => [sub()],
       now: () => now,
       isKnownCommit: () => true,
       git: (...args) => {
-        calls.push(`git ${args[0]}`);
+        calls.push(`git ${args[0] === "-c" ? args[2] : args[0]}`);
+        gitArgs.push(args);
         return "";
       },
       createRelease: async () => calls.push("release"),
@@ -159,8 +163,9 @@ describe("recordSubmissions", () => {
       },
       ...over,
     };
-    return { deps, calls };
+    return { deps, calls, gitArgs };
   };
+  const pushOf = (gitArgs) => gitArgs.find((a) => a.includes("push"));
 
   it("Amplitude, 태그, Slack 순서로 처리한다", async () => {
     const { deps, calls } = fake();
@@ -175,7 +180,7 @@ describe("recordSubmissions", () => {
   it("태그 push가 실패하면 Slack 없이 Release 중복 가능성을 알린다", async () => {
     const { deps, calls } = fake();
     const git = deps.git;
-    deps.git = (...args) => (args[0] === "push" ? boom("rejected") : git(...args));
+    deps.git = (...args) => (args.includes("push") ? boom("rejected") : git(...args));
     assert.equal(await recordSubmissions(env, deps), 1);
     assert.deepEqual(calls, [
       "git ls-remote",
@@ -234,8 +239,61 @@ describe("recordSubmissions", () => {
     assert.match(calls[1], /submissions\/w2\|/);
     assert.equal(calls[2], "⚠️ EAS 기록 실패 · 로컬 실행");
   });
+  it("GITHUB_TOKEN이 있으면 태그 push에만 인증 헤더를 붙인다", async () => {
+    const { deps, gitArgs } = fake();
+    assert.equal(await recordSubmissions({ ...env, GITHUB_TOKEN: "ghs_abc" }, deps), 0);
+    const basic = Buffer.from("x-access-token:ghs_abc").toString("base64");
+    assert.deepEqual(pushOf(gitArgs), [
+      "-c",
+      `http.https://github.com/.extraheader=AUTHORIZATION: basic ${basic}`,
+      "push",
+      "origin",
+      "ios/26.46.0-23",
+    ]);
+    assert.equal(gitArgs.filter((a) => a[0] === "-c").length, 1);
+  });
+  it("GITHUB_TOKEN이 없으면 인증 없이 push한다", async () => {
+    const { deps, gitArgs } = fake();
+    assert.equal(await recordSubmissions(env, deps), 0);
+    assert.deepEqual(pushOf(gitArgs), ["push", "origin", "ios/26.46.0-23"]);
+  });
+  it("DRY_RUN 출력에는 토큰이 나오지 않는다", async () => {
+    const { deps } = fake();
+    const before = console.log.mock.calls.length;
+    await recordSubmissions({ DRY_RUN: "1", GITHUB_TOKEN: "ghs_abc" }, deps);
+    const out = console.log.mock.calls
+      .slice(before)
+      .map((c) => c.arguments.join(" "))
+      .join("\n");
+    assert.match(out, /git push origin ios\/26\.46\.0-23/);
+    assert.doesNotMatch(out, /ghs_abc|eC1hY2Nlc3MtdG9rZW46Z2hzX2FiYw/);
+  });
   it("DRY_RUN이 아니면 Slack 시크릿이 없을 때 시작하지 않는다", async () => {
     const { deps } = fake();
     await assert.rejects(recordSubmissions({}, deps), /SLACK_BOT_TOKEN/);
+  });
+});
+
+describe("easEnv", () => {
+  it("eas 자식 프로세스에는 EXPO_TOKEN만 남기고 다른 토큰을 뺀다", () => {
+    const env = easEnv({
+      PATH: "/bin",
+      EXPO_TOKEN: "e",
+      GITHUB_TOKEN: "g",
+      GH_TOKEN: "h",
+      SLACK_BOT_TOKEN: "s",
+      AMPLITUDE_SECRET_KEY: "k",
+    });
+    assert.deepEqual(env, { PATH: "/bin", EXPO_TOKEN: "e" });
+  });
+});
+
+describe("git", () => {
+  it("실패 메시지에서 인증 헤더 값을 가린다", () => {
+    const header = "http.https://github.com/.extraheader=AUTHORIZATION: basic c2VjcmV0";
+    assert.throws(
+      () => runGit("-c", header, "rev-parse", "--verify", "--quiet", "refs/tags/no-such-tag-x"),
+      (err) => !err.message.includes("c2VjcmV0") && err.message.includes("basic ***"),
+    );
   });
 });

@@ -21,9 +21,11 @@ jobs:
     timeout-minutes: 15
     steps:
       # 제출된 커밋이 저장소에 있는지 확인하려면 전체 기록이 필요하다
+      # 쓰기 토큰이 의존성 설치와 eas-cli 실행 중에 git 설정에 남지 않게 하고, 태그 push에서만 쓴다
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -35,6 +37,7 @@ jobs:
       - name: Record submissions
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_DEPLOY_CHANNEL_ID: ${{ vars.SLACK_DEPLOY_CHANNEL_ID }}
           AMPLITUDE_API_KEY: ${{ vars.PROD_VITE_AMPLITUDE_API_KEY }}
