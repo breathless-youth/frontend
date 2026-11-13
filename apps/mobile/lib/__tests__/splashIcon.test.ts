@@ -1,11 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-
-// pngjs는 @expo/image-utils가 끌어와 루트에 올라와 있고 타입 패키지가 없어 쓰는 모양만 적는다.
-// eslint-disable-next-line @typescript-eslint/no-require-imports -- 타입 선언이 없는 모듈이라 import로는 typecheck가 깨진다.
-const { PNG } = require("pngjs") as {
-  PNG: { sync: { read(buffer: Buffer): { width: number; height: number; data: Buffer } } };
-};
+import { PNG } from "pngjs";
 
 const mobileRoot = path.join(__dirname, "../..");
 const ICONS = ["splash-icon", "splash-icon-dark", "splash-icon-ko", "splash-icon-ko-dark"];
