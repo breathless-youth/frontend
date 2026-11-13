@@ -33,17 +33,23 @@ export function nextWatcherClip(ended: WatcherClip, present: boolean): WatcherCl
 
 /**
  * 감시자 소재 폴더. 폴더 이름은 소재 묶음 전체의 내용 해시라 소재를 바꾸면 주소도 바뀌어 1년 캐시를 걸 수 있다.
+ * 해시는 폴더 안 파일별 sha256 목록의 sha256 앞 8자다: `find . -type f | sort | xargs shasum -a 256 | shasum -a 256`.
  *
- * 원본 HEVC는 Android 일부 기기가 못 풀어서 H.264로 바꿔 둔다.
+ * 원본(v2)은 HEVC에 소리가 든 mov라 Android 일부 기기가 못 풀어서 H.264로 바꾸고 소리를 뺀다. 해상도는 원본 그대로다.
  * `ffmpeg -i <원본> -an -c:v libx264 -profile:v high -pix_fmt yuv420p -crf 23 -preset slow -movflags +faststart <클립>/<기기>_<방향>.mp4`
- * 빈 방 포스터(`poster/`)는 enter 첫 프레임이다.
- * 발소리(`sound/`)는 소리를 입힌 등장·퇴장 원본에서 뽑는다. 네 화면 모두 소리가 같아 하나만 쓴다.
- * 멀 때는 잘 들리고 가까울 때는 덜 크게, 걸음마다 크기(50ms RMS 최댓값)를 맞춘 뒤 AAC 96k로 담았다.
- * - enter: 모두 -29dB, exit: -29 -29 -29 -29 -29 -30 -30dB (원본은 -34~-22dB)
- * - approach: 등장 첫 두 발을 번갈아 0.22초부터 6.82초까지 9번(0.825초 간격) -31에서 -29dB로 키워 놓고
- *   5kHz 저역 통과를 건 7초 소리. `WATCHER_APPROACH_LEAD_MS`와 길이가 같고, 등장 첫 발(0.62초)까지 0.8초 간격이 이어진다.
+ * 빈 방 포스터(`poster/`)는 원본과 함께 받은 빈 방 PNG(`00_empty_room`)를 JPEG 품질 2로 바꾼 것이다.
+ * enter 첫 프레임·exit 마지막 프레임과 PSNR 46~48dB로 같은 장면이다.
+ * 발소리(`sound/`)는 등장·퇴장 원본 소리에서 뽑는다. 네 화면 모두 소리가 같아 하나만 쓴다.
+ * 걸음마다 크기(50ms RMS 최댓값)를 맞추고 첫 걸음 0.2초 앞까지는 원래 크기로 둔 뒤 AAC 96k로 담았다.
+ * - enter: 0.10초부터 6걸음 모두 -26dB, exit: 2.95초부터 7걸음 -26dB, 마지막 둘은 -27dB (원본은 -40~-21dB)
+ * - approach: 원본과 함께 받은 `footsteps_approach.wav`(9걸음, 0.7초 간격, -41에서 -23dB로 커짐)를 걸음마다
+ *   -32에서 -26dB로 고르게 키우고 앞에 0.4초 무음을 넣은 7초 소리. `WATCHER_APPROACH_LEAD_MS`와 길이가 같고,
+ *   마지막 걸음(6.40초)에서 등장 첫 발(0.10초)까지 같은 0.7초 간격이 이어진다. 마지막 걸음을 등장 발소리 크기에 맞춰
+ *   들어오는 순간 소리가 작아지지 않게 하고, 먼 걸음도 폰 스피커로 들리게 했다.
+ * 이음매는 클립 끝과 다음 클립 첫 프레임의 PSNR이 모두 40dB 이상이고, 루프 B 중간과 퇴장 첫 프레임도 31~43dB라
+ * 루프 B에서 바로 퇴장해도 튀지 않는다.
  */
-export const WATCHER_ASSET_DIR = "/watcher/1d51e502";
+export const WATCHER_ASSET_DIR = "/watcher/9c8d9f19";
 
 /** 태블릿 영상을 쓰는 짧은 변 기준. 휴대폰은 가로로 돌려도 짧은 변이 500을 넘지 않는다. */
 const TABLET_SHORT_SIDE_PX = 600;
