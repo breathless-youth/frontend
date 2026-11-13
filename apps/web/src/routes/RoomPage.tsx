@@ -1386,9 +1386,10 @@ function RoomSessionScreen({
                 </button>
               ))}
 
-            {/* 마스코트는 바 바깥 왼쪽에 붙이려고 바와 같은 상자에 둔다.
-                바 안에 넣으면 조작 묶음에 섞이고, 상자는 바 크기 그대로라 바 자리는 바뀌지 않는다. */}
-            <div className="relative">
+            {/* 마스코트를 하단 바와 같은 줄의 왼쪽 끝에 두려고 바와 같은 줄 상자에 넣는다.
+                바 안에 넣으면 조작 묶음에 섞인다.
+                줄 상자는 레이어 폭을 다 쓰고 바를 가운데에 두어서 바 자리는 감싸기 전과 같다. */}
+            <div className="relative flex w-full justify-center">
               {regularWindow && mascotOn && <SessionMascot state={sessionState} />}
               <div
                 role="toolbar"

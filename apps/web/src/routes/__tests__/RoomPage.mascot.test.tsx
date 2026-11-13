@@ -84,6 +84,19 @@ describe("RoomPage 마스코트", () => {
     expect(toolbar.parentElement).toContainElement(sheet as HTMLElement);
   });
 
+  it("마스코트는 하단 바와 같은 줄의 왼쪽 끝에 놓이고 바는 가운데에 남는다", () => {
+    stubTabletWindow();
+    renderRoom();
+
+    const row = screen.getByRole("toolbar", { name: "공부 조작" }).parentElement!;
+    expect(row.className).toContain("w-full");
+    expect(row.className).toContain("justify-center");
+    const mascot = mascotSheet()!.parentElement!;
+    expect(mascot.parentElement).toBe(row);
+    expect(mascot.className).toContain("left-0");
+    expect(mascot.className).not.toContain("right-full");
+  });
+
   it("더보기 메뉴에서 숨기면 마스코트가 사라지고 꺼짐을 저장한다", async () => {
     stubTabletWindow();
     renderRoom();
