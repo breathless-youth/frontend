@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { setSessionCountdownSecondsForTest } from "@/features/study-session/sessionCountdown";
+
 import { RoomPage } from "../RoomPage";
 
 const useActiveSessionRestore = vi.hoisted(() => vi.fn());
@@ -158,6 +160,26 @@ describe("RoomPage 복원 게이트", () => {
     await waitFor(() => {
       expect(listSubjects).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("이어받은 세션은 카운트다운 없이 바로 세션을 띄운다", () => {
+    setSessionCountdownSecondsForTest(3);
+    useActiveSessionRestore.mockReturnValue({ settled: true, restored: RESTORED });
+
+    renderRoom();
+
+    expect(screen.queryByTestId("session-countdown")).not.toBeInTheDocument();
+    expect(useStudyRoomSession).toHaveBeenCalled();
+  });
+
+  it("새 세션은 카운트다운 동안 세션을 시작하지 않는다", () => {
+    setSessionCountdownSecondsForTest(3);
+    useActiveSessionRestore.mockReturnValue({ settled: true, restored: null });
+
+    renderRoom();
+
+    expect(screen.getByTestId("session-countdown")).toBeInTheDocument();
+    expect(useStudyRoomSession).not.toHaveBeenCalled();
   });
 
   it("결착하면 복원값을 세션 훅에 넘긴다", async () => {

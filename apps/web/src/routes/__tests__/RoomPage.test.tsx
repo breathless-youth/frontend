@@ -1,3 +1,4 @@
+import { sessionStateColors } from "@focusmakers/design-tokens";
 import type { StudySessionResponse } from "@focusmakers/types";
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -6,7 +7,9 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { setSessionCountdownSecondsForTest } from "@/features/study-session/sessionCountdown";
 import { clearSessionInvite } from "@/features/study-session/sessionInvite";
+import { GRACE_STATE_COLOR } from "@/features/study-session/sessionTheme";
 import { submitStudySession } from "@/features/study-session/submitStudySession";
 import {
   DEFAULT_TIMELAPSE_SETTINGS,
@@ -84,6 +87,15 @@ function ResultRouteProbe() {
 function HomeRouteProbe() {
   const location = useLocation();
   return <p>{`홈 라우트${location.search}`}</p>;
+}
+
+/** 상태 색. 집중은 파랑, 유예는 연보라, 비집중은 주황이다. */
+const FOCUS_BLUE = sessionStateColors.FOCUS.dark;
+const GRACE_LAVENDER = GRACE_STATE_COLOR.dark;
+const DISTRACTION_ORANGE = sessionStateColors.DISTRACTION.dark;
+
+function stateColor() {
+  return document.querySelector("main")?.style.getPropertyValue("--session-state-color");
 }
 
 function renderRoom(url: string) {
@@ -585,18 +597,58 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
 
       await act(async () => {
         detector!.emit({ source: "PHONE", active: true });
-        await vi.advanceTimersByTimeAsync(1200); // PHONE enterMs(1000) 경과
+        await vi.advanceTimersByTimeAsync(3200); // 유예 3초 경과
+      });
+
+      expect(screen.getByRole("status")).toHaveTextContent("공부 중인지 확인하고 있어요");
+      expect(stateColor()).toBe(GRACE_LAVENDER);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(7000); // 처음 켜진 때부터 10초 경과
+      });
+
+      expect(screen.getByRole("status")).toHaveTextContent("휴대폰을 사용 중인 것 같아요");
+      expect(stateColor()).toBe(DISTRACTION_ORANGE);
+
+      await act(async () => {
+        detector!.emit({ source: "PHONE", active: false });
+        await vi.advanceTimersByTimeAsync(2800); // 복귀 3초 직전
       });
 
       expect(screen.getByRole("status")).toHaveTextContent("휴대폰을 사용 중인 것 같아요");
 
       await act(async () => {
-        detector!.emit({ source: "PHONE", active: false });
-        await vi.advanceTimersByTimeAsync(1700);
+        await vi.advanceTimersByTimeAsync(400); // 복귀 3초 경과
       });
 
       // 해제는 색만 복귀 — 별도 안내 문구를 띄우지 않는다.
       expect(screen.getByRole("status")).toHaveTextContent("현재 공부");
+      expect(stateColor()).toBe(FOCUS_BLUE);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("새 세션은 3초 카운트다운이 끝난 뒤에 세션 화면을 띄운다", async () => {
+    setSessionCountdownSecondsForTest(3);
+    vi.useFakeTimers();
+    try {
+      renderRoom("/room/7?userId=1&detector=mock");
+      const countdown = screen.getByTestId("session-countdown");
+      expect(countdown).toHaveTextContent("3");
+      expect(countdown).toHaveTextContent("카메라를 준비하고 있어요");
+      expect(screen.queryByRole("button", { name: "공부 종료" })).not.toBeInTheDocument();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+      expect(screen.getByTestId("session-countdown")).toHaveTextContent("1");
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+      expect(screen.queryByTestId("session-countdown")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "공부 종료" })).toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }
@@ -620,7 +672,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
 
       await act(async () => {
         window.__focusonMockDetector!.emit({ source: "AWAY", active: true });
-        await vi.advanceTimersByTimeAsync(2000);
+        await vi.advanceTimersByTimeAsync(10_000);
       });
 
       expect(screen.getByRole("status")).toHaveTextContent("자리를 비운 것 같아요");
@@ -676,7 +728,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
 
       await act(async () => {
         detector!.emit({ source: "AWAY", active: true });
-        await vi.advanceTimersByTimeAsync(2000);
+        await vi.advanceTimersByTimeAsync(10_000);
       });
       expect(screen.getByRole("status")).toHaveTextContent("자리를 비운 것 같아요");
 
@@ -689,7 +741,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
 
       // 순공은 감지 시점에서 멈춰 있고, 공부 시간은 계속 올라간다.
       expect(within(card).getByText(/^\d{2}:\d{2}:\d{2}$/).textContent).toBe(focusAfterDetect);
-      expect(screen.getByText("00:00:05")).toBeInTheDocument();
+      expect(screen.getByText("00:00:13")).toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }

@@ -1,6 +1,10 @@
 {
+  "countdown": {
+    "preparing": "正在準備相機"
+  },
   "status": {
     "focus": "正在測量專注時間",
+    "grace": "正在確認你是否在讀書",
     "away": "你好像離開座位了",
     "phone": "你好像在使用手機",
     "device": "你好像在操作裝置",

@@ -72,11 +72,9 @@ export function SessionClock({
       className={cn(
         "text-xs leading-4 regular:text-sm regular:leading-5",
         STATE_COLOR_EASE,
-        state !== "focus"
-          ? "font-semibold text-(--session-state-color)"
-          : corner
-            ? "text-white/80"
-            : "text-white/60",
+        // 상태 문구는 집중(파랑)·유예(연보라)·비집중(주황) 모두 상태 색으로 칠한다.
+        "text-(--session-state-color)",
+        state !== "focus" && "font-semibold",
       )}
     >
       {/* 문구가 바뀌면 새 문구를 서서히 띄운다. 라이브 리전은 바깥 p라 다시 읽는 것은 그대로다. */}
@@ -99,8 +97,8 @@ export function SessionClock({
   // 집중하지 않는 동안은 상태 문구와 같은 상태 색(비집중 주황·일시정지 회색)으로 바꾼다.
   const rateColor =
     state === "focus" ? "text-(--session-control-resume-bg)" : "text-(--session-state-color)";
-  // 순공은 집중하는 동안만 흐른다. 멈춘 동안은 일시정지 회색으로 바꿔 멈췄다는 것을 보인다.
-  const focusColor = state === "focus" ? "text-white" : "text-text-tertiary";
+  // 순공은 집중과 유예 동안 흐른다. 멈춘 동안은 일시정지 회색으로 바꿔 멈췄다는 것을 보인다.
+  const focusColor = state === "focus" || state === "grace" ? "text-white" : "text-text-tertiary";
   if (corner) {
     const stats = [
       { label: t("clock.todayLabel"), value: formatElapsed(todayStudySec) },

@@ -123,8 +123,18 @@ export const sessionSurfaceStyle = SESSION_SURFACE_VARS as unknown as CSSPropert
  * 스펙이 지시한 가장 보수적인 잠정안 — **발광은 유지하고 색만 상태 컬러로 바꾼다** — 를 적용했다.
  * 디자인이 확정되면 이 함수 하나만 고치면 된다.
  */
-export function sessionGlowStyle(kind: keyof typeof sessionStateColors): CSSProperties {
-  const stateColor = sessionStateColors[kind];
+/**
+ * 유예 상태색 — 채도를 낮춘 연보라
+ *
+ * 유예는 자주 뜨고 순공도 흐르는 상태라 집중 파랑·비집중 주황과 구별되면서 덜 눈에 띄어야 한다.
+ * 토큰 체계에 없는 실험용 색이라 세션 화면 안에만 둔다.
+ */
+export const GRACE_STATE_COLOR = { light: "#7c74b8", dark: "#a49fd0" } as const;
+
+export type SessionColorKind = keyof typeof sessionStateColors | "GRACE";
+
+export function sessionGlowStyle(kind: SessionColorKind): CSSProperties {
+  const stateColor = kind === "GRACE" ? GRACE_STATE_COLOR : sessionStateColors[kind];
   return {
     "--session-state-color": stateColor.dark,
     // 숫자 발광 — 0 0 24 (dark) 55% + 0 0 60 (light) 35%

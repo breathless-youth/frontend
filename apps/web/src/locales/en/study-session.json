@@ -1,6 +1,10 @@
 {
+  "countdown": {
+    "preparing": "Getting your camera ready"
+  },
   "status": {
     "focus": "Measuring focus time",
+    "grace": "Checking that you're studying",
     "away": "Looks like you're away",
     "phone": "Looks like you're on your phone",
     "device": "Looks like you're moving your device",
