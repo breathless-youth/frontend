@@ -55,4 +55,18 @@ describe("앱 잠금 Android 문구 리소스", () => {
     expect(used).toContain("app_lock_lakki");
     expect(used.filter((name) => !available.includes(name))).toEqual([]);
   });
+
+  // 알림 small icon은 상태 표시줄에서 알파만 남아, 락키 그림을 넣으면 흰 덩어리로 보인다.
+  it("잠금 화면은 락키를, 알림 아이콘은 자물쇠를 쓴다", () => {
+    const kotlin = readFileSync(
+      path.join(androidMain, "java/expo/modules/applock/AppLockService.kt"),
+      "utf-8",
+    );
+    const lockView = kotlin.slice(kotlin.indexOf("private fun lockView"));
+    const lockViewBody = lockView.slice(0, lockView.indexOf("private fun", 1));
+
+    expect(lockViewBody).toContain("R.drawable.app_lock_lakki");
+    expect(lockViewBody).not.toContain("R.drawable.app_lock_ic_lock");
+    expect(kotlin).toMatch(/\.setSmallIcon\(R\.drawable\.app_lock_ic_lock\)/);
+  });
 });

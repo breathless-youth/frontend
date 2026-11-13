@@ -44,6 +44,9 @@ jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 59, bottom: 34, left: 0, right: 0 }),
 }));
 
+// jest-expo는 모든 이미지를 같은 숫자로 바꿔서, 캠코미 파일만 이름으로 돌려받아 다른 그림과 구별한다.
+jest.mock("../assets/mascot/camcomi-serious.png", () => "camcomi-serious.png");
+
 // 설정 앱 열기·권한 재조회는 OS 어댑터다 — 이벤트 배선만 보므로 무동작으로 둔다.
 jest.mock("../lib/cameraPermission", () => ({
   openAppSettings: jest.fn(async () => undefined),
@@ -86,6 +89,9 @@ describe("S2-3 · 권한 거부 안내", () => {
 
     const mascot = screen.getByTestId("permission-denied-mascot", { includeHiddenElements: true });
     expect(isHiddenFromAccessibility(mascot)).toBe(true);
+    expect(mascot.props.source).toBe("camcomi-serious.png");
+    // NativeWind는 jest에서 className을 style로 풀지 않아 96pt 크기 클래스로 확인한다.
+    expect(mascot.props.className).toBe("size-24");
   });
 
   it("카메라 없이 시작하는 우회 경로를 제공하지 않는다 (policies.md §3 카메라 필수)", () => {
