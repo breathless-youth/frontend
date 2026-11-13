@@ -4,10 +4,13 @@ import type {
   AssetTiming,
   DetectorCreateOptions,
   FaceLandmarkerCreateOptions,
+  HandLandmarkerCreateOptions,
   MediapipeDetectionResult,
   MediapipeDetectorHandle,
   MediapipeFaceInference,
   MediapipeFaceLandmarkerHandle,
+  MediapipeHandLandmarkerHandle,
+  MediapipeHandResult,
   MediapipeInferenceHandle,
   MediapipeVisionRuntime,
   VisionRuntimeKind,
@@ -381,6 +384,20 @@ export function createWorkerRuntime(deps: WorkerRuntimeDeps = {}): MediapipeVisi
         close: () => handle.close(),
       };
     },
+
+    async createHandLandmarker(
+      options: HandLandmarkerCreateOptions,
+    ): Promise<MediapipeHandLandmarkerHandle> {
+      const { handle } = await open<MediapipeHandResult>(
+        (id) => ({ type: "create", id, model: "hand", options }),
+        (message) => (message.model === "hand" ? message.result : undefined),
+      );
+      return {
+        runtime: handle.runtime,
+        detect: (video, timestampMs) => handle.detect(video, timestampMs),
+        close: () => handle.close(),
+      };
+    },
   };
 }
 
@@ -511,6 +528,20 @@ export function createFallbackRuntime(
         },
         detect: (video, timestampMs, photo) =>
           handle.run((current) => current.detect(video, timestampMs, photo)),
+        close: () => handle.close(),
+      };
+    },
+
+    async createHandLandmarker(options) {
+      const first = await openWithFallback((runtime) => runtime.createHandLandmarker(options));
+      const handle = withFrameFallback(first, async () =>
+        (await loadFallback()).createHandLandmarker(options),
+      );
+      return {
+        get runtime() {
+          return handle.runtime;
+        },
+        detect: (video, timestampMs) => handle.run((current) => current.detect(video, timestampMs)),
         close: () => handle.close(),
       };
     },
