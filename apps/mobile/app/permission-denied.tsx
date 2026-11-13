@@ -4,6 +4,7 @@ import {
   AccessibilityInfo,
   AppState,
   findNodeHandle,
+  Image,
   Pressable,
   ScrollView,
   Text,
@@ -11,7 +12,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { IconCameraOff } from "../components/icons";
 import { PrimaryCtaButton } from "../components/PrimaryCtaButton";
 import { getCameraPermissionStatus, openAppSettings } from "../lib/cameraPermission";
 import { t } from "../lib/i18n";
@@ -100,34 +100,34 @@ export default function PermissionDeniedScreen() {
     <View className="bg-bg-base dark:bg-bg-base-dark flex-1" style={{ paddingTop: insets.top }}>
       {/*
         시스템 폰트 확대 시 본문·캡션이 잘리거나 CTA가 밀려나지 않도록 내용 영역을 스크롤 가능하게 둔다.
-        Figma는 내용 블록을 남는 영역의 정중앙이 아니라 27px 위(아이콘 원 top=261)에 둔다 —
-        빈 상태 화면의 시각적 중심이다. 절대 좌표 대신 아래/위 패딩 차(54)로 그 편차를 재현한다.
+        Figma는 마스코트부터 본문까지를 남는 영역의 정중앙에 둔다.
+        시안에 없는 프라이버시 캡션이 그 아래에 붙으므로 캡션 높이만큼 위 패딩을 더 준다.
       */}
       <ScrollView
         contentContainerStyle={{
           flexGrow: 1,
           justifyContent: "center",
           paddingHorizontal: 20,
-          paddingTop: 24,
-          paddingBottom: 78,
+          paddingTop: 48,
+          paddingBottom: 24,
         }}
       >
         <View className="items-center">
-          {/* 장식 요소 — 의미는 아래 타이틀이 전달하므로 스크린 리더에서 제외한다.
-              Figma는 #F2F4F6 하드코딩이지만 값이 bg/layer2와 일치해 토큰으로 바인딩한다(다크모드 대응). */}
-          <View
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            className="bg-bg-layer2 dark:bg-bg-layer2-dark size-[66px] items-center justify-center rounded-full"
-          >
-            <IconCameraOff size={28} />
+          {/* 장식 요소 — 의미는 아래 타이틀이 전달하므로 스크린 리더에서 제외한다. */}
+          <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            <Image
+              testID="permission-denied-mascot"
+              source={require("../assets/mascot/camcomi-serious.png") as number}
+              resizeMode="contain"
+              className="size-24"
+            />
           </View>
 
           {/* 아래 타이포는 전부 Figma 실측값이다 — 표준 스케일에 억지로 근사하지 않는다(스펙 참고) */}
           <Text
             ref={titleRef}
             accessibilityRole="header"
-            className="text-text-primary dark:text-text-primary-dark mt-[39px] text-center text-[20px] font-sans-bold leading-[24px]"
+            className="text-text-primary dark:text-text-primary-dark mt-6 text-center text-[20px] font-sans-bold leading-[24px]"
           >
             {t("permissionDenied.title")}
           </Text>

@@ -1,4 +1,9 @@
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import {
+  fireEvent,
+  isHiddenFromAccessibility,
+  render,
+  screen,
+} from "@testing-library/react-native";
 
 import PermissionDeniedScreen from "../app/permission-denied";
 import { setDeviceLanguages } from "../jest/deviceLanguages";
@@ -74,6 +79,13 @@ describe("S2-3 · 권한 거부 안내", () => {
 
     expect(screen.getByRole("button", { name: "설정 열기" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "홈으로 돌아가기" })).toBeTruthy();
+  });
+
+  it("캠코미 장식 이미지를 그리고 스크린 리더에서는 숨긴다", () => {
+    render(<PermissionDeniedScreen />);
+
+    const mascot = screen.getByTestId("permission-denied-mascot", { includeHiddenElements: true });
+    expect(isHiddenFromAccessibility(mascot)).toBe(true);
   });
 
   it("카메라 없이 시작하는 우회 경로를 제공하지 않는다 (policies.md §3 카메라 필수)", () => {
