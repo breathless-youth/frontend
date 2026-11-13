@@ -400,7 +400,7 @@ describe("RankingPage", () => {
     it("순공 판은 연 시점보다 내려간 순위를 내 줄에 ▼N으로 남기고 화면 낭독기에 알린다", async () => {
       const client = renderPage();
       const mine = await screen.findByRole("listitem", { current: true });
-      expect(mine).toHaveTextContent(/^-오오늘도출석/);
+      expect(mine).toHaveTextContent(/^-오늘도출석/);
 
       vi.mocked(getRankingBoard).mockResolvedValue({ ...FIXTURE_OVERTAKEN, period: "DAILY" });
       await act(async () => {
@@ -408,7 +408,7 @@ describe("RankingPage", () => {
         await new Promise((resolve) => setTimeout(resolve, 0));
       });
 
-      expect(screen.getByRole("listitem", { current: true })).toHaveTextContent(/^▼3오오늘도출석/);
+      expect(screen.getByRole("listitem", { current: true })).toHaveTextContent(/^▼3오늘도출석/);
       expect(
         within(screen.getByRole("region", { name: "내 주변 순위" })).getByRole("status"),
       ).toHaveTextContent("순위가 3계단 내려갔어요");
@@ -417,7 +417,7 @@ describe("RankingPage", () => {
     it("가려진 동안 순위가 바뀌면 다시 보일 때 처음 본 순위와 비교해 한 번만 알린다", async () => {
       const client = renderPage();
       expect(await screen.findByRole("listitem", { current: true })).toHaveTextContent(
-        /^-오오늘도출석/,
+        /^-오늘도출석/,
       );
       const status = within(screen.getByRole("region", { name: "내 주변 순위" })).getByRole(
         "status",
@@ -445,7 +445,7 @@ describe("RankingPage", () => {
 
       act(() => focusManager.setFocused(true));
       await poll();
-      expect(screen.getByRole("listitem", { current: true })).toHaveTextContent(/^▼3오오늘도출석/);
+      expect(screen.getByRole("listitem", { current: true })).toHaveTextContent(/^▼3오늘도출석/);
       expect(takeChanges()).toEqual(["순위가 3계단 내려갔어요"]);
 
       await poll();
@@ -454,7 +454,7 @@ describe("RankingPage", () => {
     });
 
     it("집중률 판과 지금 구간이 아닌 시간대 판에는 변동 칸이 없어 내 줄이 아바타부터 시작한다", async () => {
-      /** 내 줄의 맨 앞 칸. 빈 변동 칸이 있으면 글자가 없다. */
+      /** 내 줄의 맨 앞 칸. 변동 칸이 없으면 아바타다. */
       const myFirstCell = () =>
         screen.getByRole("listitem", { current: true }).firstElementChild!.firstElementChild;
       renderPage();
@@ -462,12 +462,12 @@ describe("RankingPage", () => {
 
       await userEvent.click(screen.getByRole("tab", { name: "집중률" }));
       await screen.findByRole("heading", { name: "집중률 TOP 3" });
-      expect(myFirstCell()).toHaveTextContent(/^오$/);
+      expect(myFirstCell()).toHaveAttribute("data-slot", "avatar");
 
       // 응답 시각이 점심이라 아침 판은 지금 구간이 아니다.
       await userEvent.click(screen.getByRole("tab", { name: "시간대" }));
       await screen.findByRole("heading", { name: "아침 구간 TOP 3" });
-      expect(myFirstCell()).toHaveTextContent(/^오$/);
+      expect(myFirstCell()).toHaveAttribute("data-slot", "avatar");
     });
   });
 
@@ -490,7 +490,7 @@ describe("RankingPage", () => {
       const list = await screen.findByRole("region", { name: "내 주변 순위" });
       expect(within(list).getAllByRole("listitem")).toHaveLength(5);
       expect(within(list).getByRole("listitem", { current: true })).toHaveTextContent(
-        /^오오늘도출석64일$/,
+        /^오늘도출석64일$/,
       );
       expect(within(list).queryByText(/1,5\d\d/)).toBeNull();
     });
@@ -518,7 +518,7 @@ describe("RankingPage", () => {
       const items = within(list).getAllByRole("listitem");
       expect(items).toHaveLength(3);
       expect(items[0]).toHaveAttribute("aria-current", "true");
-      expect(items[2]).toHaveTextContent(/^공공시생J351일$/);
+      expect(items[2]).toHaveTextContent(/^공시생J351일$/);
     });
 
     it("연속 공부 판도 같은 목록을 보인다", async () => {
@@ -527,7 +527,7 @@ describe("RankingPage", () => {
       const list = await screen.findByRole("region", { name: "내 주변 순위" });
       expect(within(list).getAllByRole("listitem")).toHaveLength(5);
       expect(within(list).getByRole("listitem", { current: true })).toHaveTextContent(
-        /^오오늘도출석13일$/,
+        /^오늘도출석13일$/,
       );
     });
   });

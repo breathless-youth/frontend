@@ -120,12 +120,13 @@ afterEach(() => {
 });
 
 describe("프로필 설정", () => {
-  it("프로필을 불러와 닉네임과 아바타 이니셜을 보여준다", async () => {
+  it("프로필을 불러와 닉네임과 기본 마스코트 아바타를 보여준다", async () => {
     mockedGetProfile.mockResolvedValue({ ...profile });
     renderAt("/profile?userId=7");
 
     expect(await screen.findByLabelText("닉네임")).toHaveValue("포메3721");
-    expect(screen.getByText("포")).toBeInTheDocument();
+    expect(document.querySelector("[data-default-mascot]")).not.toBeNull();
+    expect(screen.queryByText("포")).toBeNull();
     expect(screen.getByText("전문직")).toBeInTheDocument(); // 칩 렌더 확인 대표
   });
 
@@ -510,44 +511,15 @@ describe("프로필 설정", () => {
     });
   });
 
-  it("닉네임을 바꾸면 아바타 이니셜이 입력 즉시 반영된다", async () => {
+  it("사진이 없으면 닉네임을 바꿔도 아바타는 기본 마스코트 그대로다", async () => {
     mockedGetProfile.mockResolvedValue({ ...profile });
     renderAt("/profile?userId=7");
 
     const nicknameInput = await screen.findByLabelText("닉네임");
-    expect(screen.getByText("포")).toBeInTheDocument();
-
     fireEvent.change(nicknameInput, { target: { value: "밝은하마" } });
-    expect(screen.getByText("밝")).toBeInTheDocument();
-    expect(screen.queryByText("포")).not.toBeInTheDocument();
 
-    // 다 지우면 서버 이니셜로 폴백한다 — 아바타가 빈 원이 되지 않게.
-    fireEvent.change(nicknameInput, { target: { value: "" } });
-    expect(screen.getByText("포")).toBeInTheDocument();
-  });
-
-  it("보이지 않는 공백류만 입력하면 아바타는 서버 이니셜을 유지한다", async () => {
-    mockedGetProfile.mockResolvedValue({ ...profile });
-    renderAt("/profile?userId=7");
-
-    const nicknameInput = await screen.findByLabelText("닉네임");
-    expect(screen.getByText("포")).toBeInTheDocument();
-
-    // BOM(U+FEFF) 하나 — NFKC도 서버 String.strip()도 지우지 않아 정규화 후에도 남지만
-    // 눈에 보이는 글자가 아니므로, 아바타는 그 보이지 않는 문자 대신 서버 이니셜을 보여줘야 한다.
-    fireEvent.change(nicknameInput, { target: { value: "\uFEFF" } });
-    expect(screen.getByText("포")).toBeInTheDocument();
-  });
-
-  it("이모지 닉네임을 입력하면 아바타 이니셜이 깨지지 않은 온전한 글자로 바뀐다", async () => {
-    mockedGetProfile.mockResolvedValue({ ...profile });
-    renderAt("/profile?userId=7");
-
-    const nicknameInput = await screen.findByLabelText("닉네임");
-    fireEvent.change(nicknameInput, { target: { value: "🧑‍💻코딩" } });
-
-    expect(screen.getByText("🧑‍💻")).toBeInTheDocument();
-    expect(screen.queryByText("포")).not.toBeInTheDocument();
+    expect(document.querySelector("[data-default-mascot]")).not.toBeNull();
+    expect(screen.queryByText("밝")).toBeNull();
   });
 
   it("저장에 성공하면 설정 화면으로 돌아가고 설정 화면이 띄울 저장 완료 표시를 한 번 남긴다", async () => {
@@ -853,7 +825,7 @@ describe("프로필 사진", () => {
     expect(requestUploadUrl).not.toHaveBeenCalled();
   });
 
-  it("사진이 있으면 메뉴에 사진 삭제가 있고, 누르면 확인 없이 지워 이니셜로 돌아간다", async () => {
+  it("사진이 있으면 메뉴에 사진 삭제가 있고, 누르면 확인 없이 지워 기본 마스코트로 돌아간다", async () => {
     stubImageLoad();
     mockedGetProfile.mockResolvedValue({ ...profile, profileImageUrl: PHOTO });
     vi.mocked(deleteProfileImage).mockResolvedValue({ ...profile, profileImageUrl: null });
@@ -865,8 +837,8 @@ describe("프로필 사진", () => {
 
     expect(await screen.findByText("프로필 사진을 삭제했어요")).toBeInTheDocument();
     expect(deleteProfileImage).toHaveBeenCalledTimes(1);
-    await waitFor(() => expect(container.querySelector("img")).toBeNull());
-    expect(screen.getByText("포")).toBeInTheDocument();
+    await waitFor(() => expect(container.querySelector(`img[src="${PHOTO}"]`)).toBeNull());
+    expect(container.querySelector("[data-default-mascot]")).not.toBeNull();
   });
 
   it("지우는 동안에는 사진 버튼과 닫히며 내려가는 시트의 항목을 막아 삭제와 올리기가 겹치지 않는다", async () => {

@@ -43,10 +43,10 @@ describe("RoomGrid 1명", () => {
     expect(selfSurfaceRef.current).toBe(screen.getByTestId("room-tile"));
   });
 
-  it("카메라가 꺼지면 검은 화면 대신 내 닉네임 아바타를 그린다", () => {
+  it("카메라가 꺼지면 검은 화면 대신 기본 마스코트 아바타를 그린다", () => {
     renderSolo(false);
 
-    expect(screen.getByText("홍")).toBeInTheDocument();
+    expect(document.querySelector("[data-default-mascot]")).not.toBeNull();
     expect(screen.queryByTestId("my-video")).not.toBeInTheDocument();
   });
 });

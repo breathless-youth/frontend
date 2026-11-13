@@ -57,7 +57,7 @@ export function WeeklyRankCard({
             >
               {row.rank}
             </span>
-            <RankAvatar nickname={row.nickname} me={row.isMe} size="xs" imageUrl={row.imageUrl} />
+            <RankAvatar me={row.isMe} size="xs" imageUrl={row.imageUrl} />
             <span
               className={cn(
                 "min-w-0 flex-1 truncate text-sm leading-4.5 text-foreground",
