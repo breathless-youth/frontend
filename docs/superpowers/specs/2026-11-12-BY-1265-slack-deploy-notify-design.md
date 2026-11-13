@@ -69,7 +69,9 @@ Slack, Amplitude, GitHub 호출은 모두 루트 `scripts/`의 `.mjs` 스크립�
 - `deploy` job은 외부 패키지를 설치하고 빌드하므로 쓰기 권한을 주지 않는다.
 - 그래서 `notify` job만 `contents: write`, `actions: read`를 받고, `deploy` job은 지금 권한을 유지한다.
 - `notify` job은 `continue-on-error: true`라서 알림이 실패해도 배포 결과가 바뀌지 않는다.
-- 이벤트 비교와 PR 목록에 이전 커밋이 필요해 `fetch-depth: 0`으로 체크아웃하고, 타입스크립트 파서를 쓰려고 루트 의존성만 설치한다.
+- 이벤트 비교와 PR 목록에 이전 커밋이 필요해 `fetch-depth: 0`으로 체크아웃한다.
+- 타입스크립트 파서를 쓰려고 의존성을 설치한다. 저장소가 `node-linker=hoisted`라 루트만 골라 설치할 수 없어 전체를 설치한다.
+- 설치가 실패해도 결과 알림은 돈다. 설치가 실패한 배포야말로 결과를 알려야 하므로, 파서가 없으면 이벤트 변경만 빼고 나머지를 올린다.
 
 ### 기준이 되는 값
 
@@ -166,6 +168,7 @@ Slack, Amplitude, GitHub 호출은 모두 루트 `scripts/`의 `.mjs` 스크립�
 - 팀이 쓰는 `eas-cli` 21에는 `submit:list`가 없다. devDependency를 올리면 팀원의 로컬 빌드 명령이 바뀌므로 이 워크플로에서만 버전을 고정해 실행한다.
 - `submit:list`는 Expo 설정 플러그인을 읽어서 의존성 설치가 필요하다.
 - Amplitude Release는 고칠 수 없어서 만든 바로 뒤에 태그를 달아 처리 표시를 남긴다. Release가 중복되는 경우는 Release를 만든 뒤 태그 push만 실패한 때로 줄어들고, 이때 실패 알림에 그 가능성을 적는다. 태그를 단 뒤 Slack이 실패하면 다음 날 다시 보내지 않는다.
+- 체크아웃은 `persist-credentials: false`로 하고 쓰기 토큰은 태그 push 명령에만 붙인다. 의존성 설치와 `eas-cli`의 하위 의존성이 토큰을 읽지 못하게 하려는 것이고, `eas-cli`에는 `EXPO_TOKEN` 말고 다른 비밀값을 넘기지 않는다.
 - 7일을 넘는 제출은 보지 않는다. 처음 켰을 때 예전 제출이 한꺼번에 올라가지 않게 하려는 것이다.
 
 ### 처리 표시를 남길 수 없는 제출
