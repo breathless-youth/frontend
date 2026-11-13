@@ -2298,6 +2298,25 @@ describe("공부 증거 배선", () => {
     expect(last(writing.signals, "NO_EVIDENCE")).toBe(false);
   });
 
+  it("책 위 손은 가만히 있고 책 밖 손만 움직이면 필기로 보지 않는다", async () => {
+    const noFace: FaceObservation = { facePresent: false, eye: null, eyeSkipReason: "no-face" };
+    const offBook = (x: number) => handAt(x, 0.2);
+    const { vision, signals } = setup({
+      frames: [personWithBook],
+      pitch: 0,
+      face: noFace,
+      hands: [
+        [handOnBook(0.5), offBook(0.9)],
+        [handOnBook(0.5), offBook(0.85)],
+        [handOnBook(0.5), offBook(0.9)],
+        [handOnBook(0.5), offBook(0.85)],
+      ],
+    });
+    vision.start();
+    await vi.advanceTimersByTimeAsync(SETTLE_MS);
+    expect(last(signals, "NO_EVIDENCE")).toBe(true);
+  });
+
   it("책이 안 보이고 화면을 정면으로 보면 화면 응시를 올린다", async () => {
     const lookingAtScreen: FaceObservation = {
       facePresent: true,

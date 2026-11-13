@@ -636,7 +636,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
       renderRoom("/room/7?userId=1&detector=mock");
       const countdown = screen.getByTestId("session-countdown");
       expect(countdown).toHaveTextContent("3");
-      expect(countdown).toHaveTextContent("카메라를 준비하고 있어요");
+      expect(countdown).toHaveTextContent("공부 감지를 준비하고 있어요");
       expect(screen.queryByRole("button", { name: "공부 종료" })).not.toBeInTheDocument();
 
       await act(async () => {

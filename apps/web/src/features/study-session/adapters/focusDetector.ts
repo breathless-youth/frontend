@@ -600,6 +600,7 @@ export function createVisionFocusDetector(
     atMs: number,
     wanted: boolean,
     everyFrame: boolean,
+    frameRunId: number,
   ): Promise<number | null> {
     if (!wanted) {
       lastHands = null;
@@ -613,7 +614,8 @@ export function createVisionFocusDetector(
       return null;
     }
     const ran = await handLandmarker.detect(element, atMs);
-    if (ran === null) {
+    // 기다리는 사이 멈췄다 다시 켰으면 지난 실행의 손을 새 실행에 남기지 않는다.
+    if (ran === null || frameRunId !== runId) {
       return null;
     }
     previousHands = lastHands?.hands ?? null;
@@ -854,6 +856,7 @@ export function createVisionFocusDetector(
       atMs,
       phoneSeen || evaluateEvidence({ ...evidenceInput, hands: null }).wantHands,
       phoneSeen,
+      frameRunId,
     );
     if (frameRunId !== runId) {
       return;
@@ -873,7 +876,13 @@ export function createVisionFocusDetector(
         ? null
         : {
             atTool: handsAtTool(freshHands.hands, tools),
-            moving: previousHands !== null && handsMoving(previousHands, freshHands.hands),
+            // 필기는 도구 위에 있는 손이 움직이는 것이다. 다른 손의 움직임은 세지 않는다.
+            moving:
+              previousHands !== null &&
+              handsMoving(
+                previousHands,
+                freshHands.hands.filter((hand) => handsAtTool([hand], tools)),
+              ),
           };
     const evidence = evaluateEvidence({ ...evidenceInput, hands });
 

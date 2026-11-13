@@ -38,19 +38,34 @@ export function createTouchDetector(options: TouchDetectorOptions = {}): FocusDe
   }
 
   function onPress(event: Event): void {
+    // 새 터치의 첫 손가락이면 이전 손가락은 모두 뗀 것이다. 떼는 신호를 놓쳐도 여기서 정리된다.
+    if ((event as Partial<PointerEvent>).isPrimary === true) {
+      pressed.clear();
+    }
     pressed.add(pointerIdOf(event));
     clearTimeout(releaseTimer);
     notify(true);
   }
 
+  function scheduleOff(): void {
+    clearTimeout(releaseTimer);
+    releaseTimer = setTimeout(() => notify(false), holdMs);
+  }
+
   // 손가락을 모두 뗀 뒤에만 끄기 타이머를 건다.
   function onRelease(event: Event): void {
     pressed.delete(pointerIdOf(event));
-    if (pressed.size > 0) {
-      return;
+    if (pressed.size === 0) {
+      scheduleOff();
     }
-    clearTimeout(releaseTimer);
-    releaseTimer = setTimeout(() => notify(false), holdMs);
+  }
+
+  // 화면이 가려지면 떼는 신호가 오지 않을 수 있어 눌린 손가락을 모두 잊는다.
+  function onVisibilityChange(): void {
+    pressed.clear();
+    if (active) {
+      scheduleOff();
+    }
   }
 
   return {
@@ -62,6 +77,7 @@ export function createTouchDetector(options: TouchDetectorOptions = {}): FocusDe
       target.addEventListener("pointerdown", onPress, { passive: true });
       target.addEventListener("pointerup", onRelease, { passive: true });
       target.addEventListener("pointercancel", onRelease, { passive: true });
+      target.addEventListener("visibilitychange", onVisibilityChange);
     },
 
     stop(): void {
@@ -72,6 +88,7 @@ export function createTouchDetector(options: TouchDetectorOptions = {}): FocusDe
       target.removeEventListener("pointerdown", onPress);
       target.removeEventListener("pointerup", onRelease);
       target.removeEventListener("pointercancel", onRelease);
+      target.removeEventListener("visibilitychange", onVisibilityChange);
       clearTimeout(releaseTimer);
       pressed.clear();
       notify(false);

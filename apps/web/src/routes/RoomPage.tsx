@@ -38,10 +38,8 @@ import type { ModeKind } from "@/features/multi-timer/multiTimerMachine";
 import { createMultiTimerUsage, useMultiTimer } from "@/features/multi-timer/useMultiTimer";
 import type { MultiTimerControls } from "@/features/multi-timer/useMultiTimer";
 import { createDeviceHandlingDetector } from "@/features/study-session/adapters/deviceHandlingDetector";
-import {
-  combineFocusDetectors,
-  type VisionFocusDetector,
-} from "@/features/study-session/adapters/focusDetector";
+import { combineFocusDetectors } from "@/features/study-session/adapters/focusDetector";
+import type { VisionFocusDetector } from "@/features/study-session/adapters/focusDetector";
 import { createTouchDetector } from "@/features/study-session/adapters/touchDetector";
 import { SessionCountdown } from "@/features/study-session/components/SessionCountdown";
 import { sessionCountdownSeconds } from "@/features/study-session/sessionCountdown";

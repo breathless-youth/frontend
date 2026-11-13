@@ -70,6 +70,26 @@ describe("createTouchDetector", () => {
     expect(signals.at(-1)).toEqual({ source: "TOUCH", active: false });
   });
 
+  it("떼는 신호를 놓쳐도 새 첫 터치부터 다시 센다", () => {
+    const { target, signals } = setup();
+    const pointer = (type: string, pointerId: number, isPrimary: boolean) =>
+      target.dispatchEvent(Object.assign(new Event(type), { pointerId, isPrimary }));
+    pointer("pointerdown", 1, true);
+    // 1번의 pointerup이 오지 않았다.
+    pointer("pointerdown", 2, true);
+    pointer("pointerup", 2, true);
+    vi.advanceTimersByTime(2000);
+    expect(signals.at(-1)).toEqual({ source: "TOUCH", active: false });
+  });
+
+  it("화면이 가려지면 눌린 손가락을 잊고 2초 뒤 끈다", () => {
+    const { target, signals } = setup();
+    target.dispatchEvent(Object.assign(new Event("pointerdown"), { pointerId: 1 }));
+    target.dispatchEvent(new Event("visibilitychange"));
+    vi.advanceTimersByTime(2000);
+    expect(signals.at(-1)).toEqual({ source: "TOUCH", active: false });
+  });
+
   it("터치가 취소되어도 손을 뗀 것으로 본다", () => {
     const { target, signals } = setup();
     target.dispatchEvent(new Event("pointerdown"));
