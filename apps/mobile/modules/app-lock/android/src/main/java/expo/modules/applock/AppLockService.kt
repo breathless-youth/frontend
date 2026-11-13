@@ -221,10 +221,10 @@ class AppLockService : Service() {
   }
 
   /**
-   * 포메로 돌아가기
+   * 포커스 메이커스로 돌아가기
    *
    * 다른 앱 위에 창이 떠 있는 동안에만 뒤에서 화면을 열 수 있어 화면을 연 뒤에 창을 내린다.
-   * 포메가 앞에 온 기록이 다음 조회까지 늦게 와도 창이 다시 뜨지 않게 앞 앱을 미리 포메로 둔다.
+   * 포커스 메이커스가 앞에 온 기록이 다음 조회까지 늦게 와도 창이 다시 뜨지 않게 앞 앱을 미리 포커스 메이커스로 둔다.
    */
   private fun returnToApp() {
     packageManager.getLaunchIntentForPackage(packageName)?.let {
