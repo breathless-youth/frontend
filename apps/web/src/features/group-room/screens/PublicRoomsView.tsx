@@ -64,9 +64,11 @@ export function PublicRoomsView({
 }) {
   const { t } = useTranslation("group-room");
   const [expanded, setExpanded] = useState(false);
-  // 펼친 채로 고른 칩은 접을 때 앞으로 꺼내고, 접힌 채로 고를 때는 누르는 자리가 움직이지 않게 그대로 둔다.
   const [leading, setLeading] = useState(category);
   const [hasOverflow, setHasOverflow] = useState(false);
+  const compact = hasOverflow && !expanded;
+  // 접혀 있지 않을 때 고른 칩은 다음에 접힐 때 앞으로 꺼내고, 접힌 채로 고를 때는 누르는 자리가 움직이지 않게 그대로 둔다.
+  if (!compact && leading !== category) setLeading(category);
   const measureRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const element = measureRef.current;
@@ -159,7 +161,7 @@ export function PublicRoomsView({
               value={category}
               onChange={onCategoryChange}
               allLabel={t("publicRoomsView.allCategories")}
-              compact={hasOverflow && !expanded}
+              compact={compact}
               leading={leading}
             />
           </div>
@@ -167,10 +169,7 @@ export function PublicRoomsView({
             <button
               type="button"
               aria-expanded={expanded}
-              onClick={() => {
-                if (expanded) setLeading(category);
-                setExpanded(!expanded);
-              }}
+              onClick={() => setExpanded(!expanded)}
               className="flex h-9 shrink-0 items-center gap-1 text-sm font-semibold text-muted-foreground"
             >
               {t(

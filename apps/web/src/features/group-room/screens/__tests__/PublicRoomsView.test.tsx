@@ -109,6 +109,48 @@ describe("PublicRoomsView", () => {
     height.mockRestore();
   });
 
+  it("한 줄에 다 들어갈 때 고른 칩은 폭이 줄어 접히면 전체 바로 뒤에 온다", async () => {
+    const callbacks: (() => void)[] = [];
+    const remeasure = () => callbacks.forEach((callback) => callback());
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: () => void) {
+          callbacks.push(callback);
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    function Harness() {
+      const [category, setCategory] = useState<string | null>(null);
+      return (
+        <PublicRoomsView
+          query=""
+          onQueryChange={vi.fn()}
+          categories={fixtures.categories}
+          category={category}
+          onCategoryChange={setCategory}
+          rooms={[]}
+          onOpenRoom={vi.fn()}
+        />
+      );
+    }
+    const height = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(36);
+    renderScreen(<Harness />);
+    const group = screen.getByRole("group", { name: /시험|카테고리/ });
+    await userEvent.click(within(group).getByRole("button", { name: "어학" }));
+    height.mockReturnValue(78);
+    act(() => remeasure());
+    expect(within(group).getAllByRole("button")[1]).toHaveTextContent("어학");
+    expect(within(group).getByRole("button", { name: "어학" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    height.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
   it("처음 들어올 때 이미 골라 둔 칩은 접힌 줄에서 전체 바로 뒤에 온다", () => {
     const language = fixtures.categories.find((option) => option.label === "어학")!;
     const height = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(78);
