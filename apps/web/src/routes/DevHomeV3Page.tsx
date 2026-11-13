@@ -199,7 +199,7 @@ export function DevHomeV3Page() {
     setParams(next);
   }
   return (
-    <main className="theme-soft-blue bg-soft-blue page-column min-h-dvh pt-21 pb-10 text-foreground">
+    <main className="theme-soft-blue bg-soft-blue page-column min-h-dvh pt-21 pb-(--tab-bar-reserve) text-foreground">
       {!capture && (
         <div className="fixed top-2 right-2 left-2 z-40 flex items-center justify-center gap-3 text-xs">
           <label>

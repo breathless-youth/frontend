@@ -250,6 +250,30 @@ describe("ContactChatPage", () => {
     await waitFor(() => expect(startChannelTalk).toHaveBeenCalledTimes(2));
   });
 
+  it("상담창이 열리면 우리 뒤로 가기 줄을 그리지 않는다", async () => {
+    vi.stubEnv("VITE_CHANNEL_PLUGIN_KEY", "test-key");
+    const { session } = fakeSession();
+    mockAttempt(Promise.resolve(session));
+    renderPage();
+
+    await waitFor(() => expect(session.openChat).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: "뒤로 가기" })).not.toBeInTheDocument();
+  });
+
+  it("불러오는 중과 실패 화면에는 뒤로 가기 줄이 있다", async () => {
+    vi.stubEnv("VITE_CHANNEL_PLUGIN_KEY", "test-key");
+    mockAttempt(never());
+    const { unmount } = renderPage();
+    expect(await screen.findByRole("status")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "뒤로 가기" })).toBeInTheDocument();
+    unmount();
+
+    mockAttempt(Promise.reject(new ChannelLoadError("boot")));
+    renderPage();
+    expect(await screen.findByText("상담창을 불러오지 못했어요")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "뒤로 가기" })).toBeInTheDocument();
+  });
+
   it("헤더 뒤로 가기는 시도를 놓은 뒤 이전 문서로 돌아간다", async () => {
     vi.stubEnv("VITE_CHANNEL_PLUGIN_KEY", "test-key");
     const { cancel } = mockAttempt(never());

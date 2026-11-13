@@ -28,11 +28,11 @@ export function HomePlannerShortcut({
     <Card className="overflow-hidden rounded-xl border-0 shadow-sb-card">
       <Button
         variant="unstyled"
-        className="relative h-auto min-h-22 w-full items-center justify-start rounded-xl px-5 py-4 text-left"
+        className="relative h-auto w-full items-center justify-start rounded-xl px-5 py-3.5 text-left"
         onClick={tapped("planner", onOpen)}
       >
         <span className="relative z-1 flex flex-col gap-1.5">
-          <span className="text-[22px] leading-7.5 font-bold">{t("v3.planner.title")}</span>
+          <span className="text-lg leading-6 font-semibold">{t("v3.planner.title")}</span>
           <span className="text-[13px] leading-5 font-normal text-muted-foreground">
             {plannerTaskCount === undefined
               ? t("v3.planner.open")
@@ -41,7 +41,7 @@ export function HomePlannerShortcut({
         </span>
         <span
           aria-hidden="true"
-          className="home-v3-notebook pointer-events-none absolute -right-6 -bottom-11.5 size-40 -rotate-12 select-none"
+          className="home-v3-notebook pointer-events-none absolute -right-6 -bottom-11.5 size-40 scale-80 -rotate-12 select-none"
         >
           <span className="relative block size-full overflow-hidden">
             <img

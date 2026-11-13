@@ -359,9 +359,10 @@ export function HomeTabPage({ homeV3Gateway }: { homeV3Gateway?: HomeV3Gateway }
   return (
     <main
       data-testid="home-tab-page"
-      className="theme-soft-blue bg-soft-blue page-column min-h-dvh pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+22px)] text-foreground"
+      className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+22px)] text-foreground"
     >
-      <div className="flex flex-col gap-3 px-5">
+      {/* 새 홈의 문의 푸터가 화면 바닥에 붙도록 남는 높이를 이 열이 채운다. */}
+      <div className="flex flex-1 flex-col gap-3 px-5">
         {!useNewHome && (
           <header className="flex items-end justify-between pb-2">
             <HomeHeaderLead userId={userId} identityPending={identityPending} />
