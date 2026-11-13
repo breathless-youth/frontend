@@ -9,7 +9,6 @@ import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.PixelFormat
@@ -240,21 +239,14 @@ class AppLockService : Service() {
       Configuration.UI_MODE_NIGHT_YES
     // 디자인 토큰의 라이트·다크 값이다.
     val pageColor = Color.parseColor(if (dark) "#101419" else "#F2F4F6")
-    val subtle = Color.parseColor(if (dark) "#1B2B4D" else "#E8F3FF")
     val brand = Color.parseColor(if (dark) "#3182F6" else "#1B64DA")
     val primaryText = Color.parseColor(if (dark) "#F9FAFB" else "#191F28")
     val secondaryText = Color.parseColor(if (dark) "#B0B8C1" else "#6B7684")
 
-    val icon = ImageView(this).apply {
-      setImageResource(R.drawable.app_lock_ic_lock)
-      imageTintList = ColorStateList.valueOf(brand)
-    }
-    val circle = FrameLayout(this).apply {
-      background = GradientDrawable().apply {
-        shape = GradientDrawable.OVAL
-        setColor(subtle)
-      }
-      addView(icon, FrameLayout.LayoutParams(dp(36), dp(36), Gravity.CENTER))
+    // 원 배경까지 그림에 들어 있어 라이트·다크 모두 같은 그림을 쓴다.
+    val mascot = ImageView(this).apply {
+      setImageResource(R.drawable.app_lock_lakki)
+      scaleType = ImageView.ScaleType.FIT_CENTER
     }
     val title = TextView(this).apply {
       text = getString(R.string.app_lock_overlay_title)
@@ -272,7 +264,7 @@ class AppLockService : Service() {
     val content = LinearLayout(this).apply {
       orientation = LinearLayout.VERTICAL
       gravity = Gravity.CENTER_HORIZONTAL
-      addView(circle, LinearLayout.LayoutParams(dp(84), dp(84)))
+      addView(mascot, LinearLayout.LayoutParams(dp(96), dp(96)))
       addView(title, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { topMargin = dp(24) })
       addView(subtitle, LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply { topMargin = dp(8) })
     }

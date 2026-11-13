@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 /**
@@ -38,5 +38,21 @@ describe("앱 잠금 Android 문구 리소스", () => {
     );
     const literals = [...kotlin.matchAll(/"([^"\n]*)"/g)].map((m) => m[1]);
     expect(literals.filter((text) => /[가-힣]/.test(text))).toEqual([]);
+  });
+
+  // 이 저장소에서는 Kotlin을 컴파일하지 않아서 없는 리소스 이름은 네이티브 빌드에서야 드러난다.
+  it("잠금 서비스가 쓰는 drawable 리소스가 모듈에 있다", () => {
+    const kotlin = readFileSync(
+      path.join(androidMain, "java/expo/modules/applock/AppLockService.kt"),
+      "utf-8",
+    );
+    const used = [...new Set([...kotlin.matchAll(/R\.drawable\.(\w+)/g)].map((m) => m[1]))];
+    const available = readdirSync(path.join(androidMain, "res"))
+      .filter((dir) => dir.startsWith("drawable"))
+      .flatMap((dir) => readdirSync(path.join(androidMain, "res", dir)))
+      .map((file) => file.replace(/\.(xml|png)$/, ""));
+
+    expect(used).toContain("app_lock_lakki");
+    expect(used.filter((name) => !available.includes(name))).toEqual([]);
   });
 });
