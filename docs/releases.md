@@ -10,6 +10,9 @@
   아래 표에 한 행을 추가한다.
 - 앱 빌드는 그 빌드의 커밋에 git 태그를 남긴다. iOS는 `ios/<버전>-<빌드번호>`, Android는
   `android/<버전>-<빌드번호>` 형식이다 (예: `ios/26.37.0-6`).
+- EAS에서 빌드한 production 제출의 태그는 `EAS submissions` 워크플로가 제출 뒤 처음 돌아오는
+  03시(KST)에 단다.
+- 로컬에서 빌드해 올린 제출은 EAS가 버전을 모르므로 지금처럼 손으로 태그를 단다.
 - 웹은 main 머지 커밋에 `web/<버전>` 태그를 달고, 그 태그로 GitHub Release 노트를 쓴다
   (예: `web/26.41.0`).
 - 빌드 커밋의 원천은 EAS 기록이고 `cd apps/mobile && npx eas-cli build:list`로 확인한다.
@@ -108,6 +111,7 @@ base가 `main`인 PR에서만 `ci.yml`의 `version-check` job이 `scripts/check-
 
 - 하위 계획 PR은 `[feat] BY-1125 제목`으로 `dev`에 머지한다.
 - 웹은 `main` 머지 커밋에서 `Deploy web`이 돌아 배포되고, 그 커밋에 `web/<버전>` 태그를 단다.
+- 운영 웹 배포는 `#배포-알림` 채널과 Amplitude Release에 자동으로 남는다.
 - dev → main `[release]` PR은 ruleset `protect-main-dev` 때문에 작성자가 아닌 팀원 1명의 승인이 있어야 머지된다.
 - 작성자는 자기 PR을 승인할 수 없으므로 PR을 열 때 승인할 사람을 함께 정한다.
 - `groupRooms=1`이 없는 지금 바이너리에는 지금 소셜 홈과 숫자 4자리 초대코드 흐름이 그대로 보인다.
