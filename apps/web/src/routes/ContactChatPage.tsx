@@ -126,12 +126,15 @@ export function ContactChatPage() {
 
   return (
     <div className="flex h-dvh flex-col bg-background">
-      <div className="page-column">
-        <ScreenBackHeader
-          title={t("rows.contact")}
-          onBack={() => leave(attemptRef.current, search)}
-        />
-      </div>
+      {/* 상담창은 자기 헤더와 닫기 버튼을 그려서, 열린 동안 우리 뒤로 가기 줄이 있으면 그 위에 겹친다. */}
+      {state.kind !== "open" && (
+        <div className="page-column">
+          <ScreenBackHeader
+            title={t("rows.contact")}
+            onBack={() => leave(attemptRef.current, search)}
+          />
+        </div>
+      )}
 
       {failure !== null ? (
         <div className="flex flex-1 flex-col items-center justify-center px-5 pb-19.5 page-width">
