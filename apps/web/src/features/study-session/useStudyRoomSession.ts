@@ -47,11 +47,11 @@ import { createSystemPauseSource } from "./adapters/systemPauseSource";
 import type { DetectionParams, DetectionState, TriggerSignals } from "./detection";
 import {
   DEFAULT_DETECTION_PARAMS,
-  SOCIAL_DETECTION_PARAMS,
-  usesStudyEvidence,
   NO_TRIGGER_SIGNALS,
+  SOCIAL_DETECTION_PARAMS,
   createDetectionState,
   stepDetection,
+  usesStudyEvidence,
 } from "./detection";
 import type { PauseTrigger, SessionEndReason, SessionState } from "./sessionState";
 import {
