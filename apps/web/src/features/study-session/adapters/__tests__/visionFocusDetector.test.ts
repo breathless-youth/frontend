@@ -2222,6 +2222,7 @@ describe("공부 증거 배선", () => {
     readonly yaw?: number;
     readonly hands?: readonly (readonly HandPose[])[];
     readonly handLoaded?: DetectorState;
+    readonly studyEvidence?: boolean;
   }) {
     const { detector } = fakeObjectDetector({ frames: options.frames });
     const { landmarker } = fakeFaceLandmarker({
@@ -2236,9 +2237,10 @@ describe("공부 증거 배선", () => {
       detector,
       faceLandmarker: landmarker,
       handLandmarker: hand.landmarker,
+      studyEvidence: options.studyEvidence,
     });
     vision.subscribe(listener);
-    return { vision, signals, handDetect: hand.detect };
+    return { vision, signals, handDetect: hand.detect, handLoad: hand.landmarker.load };
   }
 
   function last(signals: readonly DetectorSignal[], source: DetectorSignal["source"]) {
@@ -2426,5 +2428,34 @@ describe("공부 증거 배선", () => {
     await vi.advanceTimersByTimeAsync(SETTLE_MS);
 
     expect(last(signals, "PHONE")).toBe(true);
+  });
+
+  describe("공부 흔적 판정을 끈 감지기(소셜룸)", () => {
+    it("손 모델을 받지 않고, 화면 응시·흔적 없음 신호를 내지 않는다", async () => {
+      const { vision, signals, handDetect, handLoad } = setup({
+        frames: [personWithBook],
+        pitch: 0,
+        studyEvidence: false,
+      });
+      vision.start();
+      await vi.advanceTimersByTimeAsync(SETTLE_MS);
+
+      expect(handLoad).not.toHaveBeenCalled();
+      expect(handDetect).not.toHaveBeenCalled();
+      expect(last(signals, "NO_EVIDENCE")).toBe(false);
+      expect(last(signals, "SCREEN_GAZE")).toBe(false);
+    });
+
+    it("쥐었는지 보지 않고 보이는 휴대폰을 그대로 휴대폰 사용으로 본다", async () => {
+      const { vision, signals } = setup({
+        frames: [[...personFrame(), phone]],
+        pitch: 0,
+        studyEvidence: false,
+      });
+      vision.start();
+      await vi.advanceTimersByTimeAsync(SETTLE_MS);
+
+      expect(last(signals, "PHONE")).toBe(true);
+    });
   });
 });

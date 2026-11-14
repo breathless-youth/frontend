@@ -5,6 +5,7 @@ import {
   DEFAULT_DETECTION_PARAMS,
   DETECTION_SOURCES,
   NO_TRIGGER_SIGNALS,
+  SOCIAL_DETECTION_PARAMS,
   SOURCE_TRIGGER,
   TRIGGER_PRIORITY,
   createDetectionState,
@@ -217,5 +218,52 @@ describe("출처 계층 불변식", () => {
       Object.values(SOURCE_TRIGGER).filter((trigger) => trigger !== null),
     );
     expect(triggersWithSource).toEqual(new Set(TRIGGER_PRIORITY));
+  });
+});
+
+describe("소셜룸 감지 시간 — 유예 없이 예전 시간에 비집중", () => {
+  /** 같은 원신호를 `from`부터 `to`까지 0.5초 간격으로 넣는다. */
+  function holdSocial(state: DetectionState, raw: TriggerSignals, from: number, to: number) {
+    let next = state;
+    const seen: DetectionState[] = [];
+    for (let at = from; at <= to; at += 500) {
+      next = stepDetection(next, raw, T0 + at, SOCIAL_DETECTION_PARAMS);
+      seen.push(next);
+    }
+    return { state: next, everGrace: seen.some((each) => each.grace) };
+  }
+
+  it("자리 비움은 2초, 휴대폰은 1초 이어지면 바로 비집중이고 그 사이 유예는 없다", () => {
+    const away = holdSocial(createDetectionState(T0), signals({ AWAY: true }), 0, 2000);
+    expect(away.state.active).toBe("AWAY");
+    expect(away.everGrace).toBe(false);
+
+    const phone = holdSocial(createDetectionState(T0), signals({ PHONE: true }), 0, 1000);
+    expect(phone.state.active).toBe("PHONE");
+    expect(phone.everGrace).toBe(false);
+  });
+
+  it("기기 흔들림은 0.5초 이어지면 휴대폰이 아니라 기기 조작으로 기록한다", () => {
+    const shaking = holdSocial(createDetectionState(T0), signals({ DEVICE: true }), 0, 500);
+    expect(shaking.state.active).toBe("DEVICE");
+  });
+
+  it("자리 비움은 2초 동안 신호가 꺼져야 풀린다", () => {
+    let state = holdSocial(createDetectionState(T0), signals({ AWAY: true }), 0, 2000).state;
+    state = holdSocial(state, signals({}), 2500, 4000).state;
+    expect(state.active).toBe("AWAY");
+    state = holdSocial(state, signals({}), 4500, 4500).state;
+    expect(state.active).toBeNull();
+  });
+
+  it("공부 흔적 신호(화면 응시·흔적 없음·터치)는 소셜룸에서 아무것도 만들지 않는다", () => {
+    const quiet = holdSocial(
+      createDetectionState(T0),
+      signals({ SCREEN_GAZE: true, NO_EVIDENCE: true, TOUCH: true }),
+      0,
+      20_000,
+    );
+    expect(quiet.state.active).toBeNull();
+    expect(quiet.everGrace).toBe(false);
   });
 });
