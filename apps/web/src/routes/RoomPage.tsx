@@ -1398,12 +1398,12 @@ function RoomSessionBody({
               </div>
             )}
 
-            {/* 시간 묶음 자리. 기본 모드는 과목 줄 아래 30px에, 심플 모드는 머리 줄과 하단 바 사이 4:9 지점에 둔다(시안 y=300).
+            {/* 시간 묶음 자리. 기본 모드는 과목 줄 아래 30px에, 심플 모드는 화면 정가운데에 둔다.
                 가로 기본은 과목 줄 위끝에서 22px 아래 가운데(머리 줄 높이에 겹침), 가로 심플은 화면 가운데다.
                 묶음은 다시 마운트하지 않아 숫자가 끊기지 않고, 자리는 위 clockRef 애니메이션으로 미끄러져 간다. */}
             <div
               className={cn(
-                simpleMode ? "grow-4" : "h-7.5 shrink-0",
+                simpleMode ? "grow" : "h-7.5 shrink-0",
                 "landscape-compact:h-0 landscape-compact:grow-0",
               )}
             />
@@ -1417,13 +1417,13 @@ function RoomSessionBody({
                       simpleMode && WALLPAPER_CLOCK_WIDE,
                       "flex flex-col items-start",
                     )
-                  : [
-                      "relative flex flex-col items-center",
-                      "landscape-compact:absolute landscape-compact:left-1/2 landscape-compact:-translate-x-1/2",
-                      simpleMode
-                        ? "landscape-compact:top-1/2 landscape-compact:-translate-y-1/2"
-                        : "landscape-compact:top-[calc(env(safe-area-inset-top)+40px)]",
-                    ],
+                  : simpleMode
+                    ? // 심플 모드는 세로·가로 모두 화면 정가운데에 둔다(시안 3a·3e).
+                      "absolute top-1/2 left-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+                    : [
+                        "relative flex flex-col items-center",
+                        "landscape-compact:absolute landscape-compact:top-[calc(env(safe-area-inset-top)+40px)] landscape-compact:left-1/2 landscape-compact:-translate-x-1/2",
+                      ],
               )}
             >
               {/* 페이지가 열린 동안은 페이지 푸터의 Toaster가 받는다.
@@ -1451,7 +1451,7 @@ function RoomSessionBody({
                 />
               </div>
             </div>
-            <div className={simpleMode ? "grow-9" : "grow"} />
+            <div className="grow" />
 
             {/* 내 카메라 작은 창. 누르면 화면 전체로 키우고, 확대 중에는 같은 자리의 버튼으로 다시 줄인다. */}
             {!cameraHidden &&

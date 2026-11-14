@@ -292,9 +292,9 @@ function SimpleModeBackdrop({ step }: { step: SessionHelpStep }) {
             <FakePill icon="more" />
           </div>
         </div>
-        {/* 실제 심플 모드처럼 머리 줄과 하단 바 사이 4:9 지점에 시간 묶음을 둔다. 가로는 화면 가운데다. */}
-        <div className="grow-4 landscape-compact:h-0 landscape-compact:grow-0" />
-        <div className="relative landscape-compact:absolute landscape-compact:top-1/2 landscape-compact:left-1/2 landscape-compact:-translate-x-1/2 landscape-compact:-translate-y-1/2">
+        {/* 실제 심플 모드처럼 시간 묶음을 세로·가로 모두 화면 정가운데에 둔다. */}
+        <div className="grow" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
           <div className={cn(dimmed)}>
             <FakeClock
               key={step.id}
@@ -307,7 +307,7 @@ function SimpleModeBackdrop({ step }: { step: SessionHelpStep }) {
           </div>
           {tap && <TapCallout callout={tap} />}
         </div>
-        <div className="grow-9" />
+        <div className="grow" />
         <div aria-hidden className={cn(dimmed)}>
           <FakeBar />
         </div>
