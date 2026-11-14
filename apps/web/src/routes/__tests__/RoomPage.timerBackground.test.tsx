@@ -224,12 +224,13 @@ describe("RoomPage — 타이머 배경", () => {
     writeTimerBackground({ kind: "proctor" });
     renderRoom();
     await screen.findByTestId("watcher-background");
-    const topBand = () => screen.getByTestId("wallpaper-scrim").firstElementChild;
-    expect(topBand()).toHaveClass("h-35");
+    const simpleBands = () =>
+      screen.getByTestId("wallpaper-scrim").querySelector('[data-scrim="simple"]');
+    expect(simpleBands()).toHaveClass("opacity-0");
 
     await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
 
-    expect(topBand()).toHaveClass("h-24");
+    expect(simpleBands()).toHaveClass("opacity-100");
   });
 
   it("배경 없이 심플을 고르면 가운데 묶음이다", async () => {

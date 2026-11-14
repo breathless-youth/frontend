@@ -1,5 +1,9 @@
 import { cn } from "@/lib/utils";
 
+/** 모드를 바꿀 때 두 띠 묶음을 서서히 바꾼다. 그라데이션 값은 직접 이어 바꿀 수 없어 겹쳐 두고 교차 페이드한다. */
+const LAYER =
+  "absolute inset-0 transition-opacity duration-500 ease-out motion-reduce:transition-none";
+
 /**
  * 월페이퍼 위아래 어둠(v3 시안 28e·30a)
  *
@@ -14,22 +18,14 @@ export function WallpaperScrim({ simple }: { simple: boolean }) {
       data-testid="wallpaper-scrim"
       className="pointer-events-none absolute inset-0"
     >
-      <div
-        className={cn(
-          "absolute inset-x-0 top-0",
-          simple
-            ? "h-24 bg-[linear-gradient(180deg,rgba(8,10,14,0.45),rgba(8,10,14,0))] landscape-compact:h-20"
-            : "h-35 bg-[linear-gradient(180deg,rgba(8,10,14,0.6),rgba(8,10,14,0))] landscape-compact:h-30",
-        )}
-      />
-      <div
-        className={cn(
-          "absolute inset-x-0 bottom-0",
-          simple
-            ? "h-56 bg-[linear-gradient(0deg,rgba(8,10,14,0.75)_0%,rgba(8,10,14,0.4)_50%,rgba(8,10,14,0)_100%)] regular:h-72 landscape-compact:h-40"
-            : "h-80 bg-[linear-gradient(0deg,rgba(8,10,14,0.88)_0%,rgba(8,10,14,0.6)_50%,rgba(8,10,14,0)_100%)] regular:h-100 landscape-compact:h-55",
-        )}
-      />
+      <div data-scrim="default" className={cn(LAYER, simple ? "opacity-0" : "opacity-100")}>
+        <div className="absolute inset-x-0 top-0 h-35 bg-[linear-gradient(180deg,rgba(8,10,14,0.6),rgba(8,10,14,0))] landscape-compact:h-30" />
+        <div className="absolute inset-x-0 bottom-0 h-80 bg-[linear-gradient(0deg,rgba(8,10,14,0.88)_0%,rgba(8,10,14,0.6)_50%,rgba(8,10,14,0)_100%)] regular:h-100 landscape-compact:h-55" />
+      </div>
+      <div data-scrim="simple" className={cn(LAYER, simple ? "opacity-100" : "opacity-0")}>
+        <div className="absolute inset-x-0 top-0 h-24 bg-[linear-gradient(180deg,rgba(8,10,14,0.45),rgba(8,10,14,0))] landscape-compact:h-20" />
+        <div className="absolute inset-x-0 bottom-0 h-56 bg-[linear-gradient(0deg,rgba(8,10,14,0.75)_0%,rgba(8,10,14,0.4)_50%,rgba(8,10,14,0)_100%)] regular:h-72 landscape-compact:h-40" />
+      </div>
     </div>
   );
 }
