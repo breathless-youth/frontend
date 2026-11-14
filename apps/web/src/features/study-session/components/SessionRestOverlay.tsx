@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { createAlarmSound } from "@/features/multi-timer/alarmSound";
 import type { AlarmSound } from "@/features/multi-timer/alarmSound";
 import { formatPomodoroRemaining } from "@/features/multi-timer/multiTimerFormat";
-import { ALARM_HAPTIC_GAP_MS, alarmHaptics } from "@/features/multi-timer/useMultiTimer";
+import { ALARM_HAPTIC_GAP_MS, alarmHaptics } from "@/features/multi-timer/alarmHaptics";
 import { trackSessionRestAlarmFired, trackSessionRestAlarmSet } from "@/lib/amplitude";
 import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
