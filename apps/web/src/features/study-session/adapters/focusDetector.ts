@@ -21,6 +21,7 @@ import type {
   NormalizedBox,
 } from "../vision/studyEvidenceRules";
 import {
+  NO_EVIDENCE_SIGNALS,
   evaluateEvidence,
   eyeLookDownOf,
   handsAtTool,
@@ -292,6 +293,12 @@ export interface VisionFocusDetectorOptions {
   readonly presenceRule?: PersonPresenceRule;
   /** 타임랩스 촬영 창구이고, 없으면 사진을 묻지 않아 런타임 메시지가 지금과 같다. */
   readonly photoTap?: PhotoTap;
+  /**
+   * 손 모델과 공부 흔적 판정을 쓸지. 기본값은 참이다.
+   * 거짓이면 손 모델을 받지 않고 화면 응시·흔적 없음 신호를 내지 않으며, 보이는 휴대폰을 그대로 휴대폰 사용으로 본다.
+   * 소셜룸은 이 판정 없이 사람·휴대폰·졸음만 본다.
+   */
+  readonly studyEvidence?: boolean;
 }
 
 /** 필기 움직임 비교 간격. 손 틱 간격과 같고, 프레임 시각이 조금 밀려도 맞도록 반 프레임 여유를 둔다. */
@@ -357,6 +364,7 @@ export function createVisionFocusDetector(
   } = options;
 
   const sleepEnabled = options.sleepDetection ?? true;
+  const evidenceEnabled = options.studyEvidence ?? true;
 
   const listeners = new Set<(signal: DetectorSignal) => void>();
   const statusListeners = new Set<(status: VisionDetectorStatus) => void>();
@@ -601,7 +609,9 @@ export function createVisionFocusDetector(
       ) {
         setFaceStatus("ready");
         diagnostics.faceReady(faceLandmarker.delegate, faceLandmarker.runtime);
-        ensureHandLoaded();
+        if (evidenceEnabled) {
+          ensureHandLoaded();
+        }
         return;
       }
       setFaceStatus("unavailable");
@@ -921,7 +931,8 @@ export function createVisionFocusDetector(
     const handDurationMs = await observeHands(
       element,
       atMs,
-      phoneSeen || evaluateEvidence({ ...evidenceInput, hands: null }).wantHands,
+      evidenceEnabled &&
+        (phoneSeen || evaluateEvidence({ ...evidenceInput, hands: null }).wantHands),
       watchPhone(phoneSeen, atMs),
       frameRunId,
     );
@@ -929,12 +940,14 @@ export function createVisionFocusDetector(
       return;
     }
     // 쥐었는지 확인할 수 없으면 휴대폰 사용으로 보지 않는다. 손 모델을 못 여는 기기는 휴대폰 감지가 빠진다.
-    const phoneHeld =
-      phoneSeen &&
-      handLandmarker.state === "ready" &&
-      lastHands !== null &&
-      atMs - lastHands.atMs <= HAND_PHONE_MAX_AGE_MS &&
-      handsHoldingPhone(lastHands.hands, phoneBoxesOf(result.detections, frame.frameSize));
+    // 공부 흔적 판정을 끄면 손을 보지 않으므로 보이는 휴대폰을 그대로 사용으로 본다.
+    const phoneHeld = !evidenceEnabled
+      ? phoneSeen
+      : phoneSeen &&
+        handLandmarker.state === "ready" &&
+        lastHands !== null &&
+        atMs - lastHands.atMs <= HAND_PHONE_MAX_AGE_MS &&
+        handsHoldingPhone(lastHands.hands, phoneBoxesOf(result.detections, frame.frameSize));
     if (phoneHeld) {
       phoneHeldAtMs = atMs;
     }
@@ -949,7 +962,9 @@ export function createVisionFocusDetector(
             // 필기는 도구 위에 있는 손이 움직이는 것이다. 다른 손의 움직임은 세지 않는다.
             moving: handsMovingOnTool(handsForMovement(atMs), freshHands.hands, tools),
           };
-    const evidence = evaluateEvidence({ ...evidenceInput, hands });
+    const evidence = evidenceEnabled
+      ? evaluateEvidence({ ...evidenceInput, hands })
+      : NO_EVIDENCE_SIGNALS;
 
     // ⚠️ bbox는 넘기지 않는다 — `DiagnosticsPayload`가 스칼라만 받도록 타입으로 막혀 있고,
     // 좌표 기록은 개인정보 원칙 위반이다(`frontend/CLAUDE.md`, 설계 §8).

@@ -48,8 +48,10 @@ import type { DetectionParams, DetectionState, TriggerSignals } from "./detectio
 import {
   DEFAULT_DETECTION_PARAMS,
   NO_TRIGGER_SIGNALS,
+  SOCIAL_DETECTION_PARAMS,
   createDetectionState,
   stepDetection,
+  usesStudyEvidence,
 } from "./detection";
 import type { PauseTrigger, SessionEndReason, SessionState } from "./sessionState";
 import {
@@ -134,7 +136,7 @@ export interface StudyRoomSessionOptions {
   /**
    * 계측용 룸 종류(BY-472) — 소셜룸(`LiveRoomSession`)이 이 훅을 재사용하므로, 이 값
    * 없이는 `study_session_*` 이벤트에서 개인/그룹 세션이 구분되지 않아 F1 퍼널이 오염된다.
-   * 세션 로직에는 관여하지 않는다.
+   * `detectionParams`를 따로 주지 않으면 감지 시간도 이 값으로 고른다. 싱글룸만 유예를 쓴다.
    */
   readonly roomType?: StudyRoomType;
   /**
@@ -147,7 +149,7 @@ export interface StudyRoomSessionOptions {
   ) => number[] | undefined | Promise<number[] | undefined>;
   /**
    * 계측용 배경음 사용 시간 조회 — 종료 시점에 한 번 읽어 `study_session_ended`에 싣는다.
-   * `roomType`처럼 세션 로직에는 관여하지 않는다.
+   * 세션 로직에는 관여하지 않는다.
    */
   readonly ambientUsage?: () => { used: boolean; sec: number };
   /**
@@ -225,15 +227,20 @@ function buildEvents(
 export function useStudyRoomSession(userId: number | null, options: StudyRoomSessionOptions = {}) {
   const [camera] = useState<CameraAdapter>(() => options.camera ?? createMockCameraAdapter());
   const [detector] = useState<FocusDetector>(() => options.detector ?? createMockFocusDetector());
+  // 유예와 공부 흔적 판정은 싱글룸만 쓴다. 소셜·그룹룸은 유예 도입 전 감지 시간을 그대로 쓴다.
   const [detectionParams] = useState<DetectionParams>(
-    () => options.detectionParams ?? DEFAULT_DETECTION_PARAMS,
+    () =>
+      options.detectionParams ??
+      (usesStudyEvidence(options.roomType ?? "single")
+        ? DEFAULT_DETECTION_PARAMS
+        : SOCIAL_DETECTION_PARAMS),
   );
   const [systemPause] = useState<SystemPauseSource>(
     () => options.systemPause ?? createSystemPauseSource(),
   );
   const [tuning] = useState<SessionTuningConfig>(() => options.tuning ?? DEFAULT_SESSION_TUNING);
   const tickMs = options.tickMs ?? 200;
-  // 계측 전용 — 마운트 후 바뀌지 않는다(옵션 전체가 마운트 1회 계약).
+  // 계측과 감지 시간 선택에 쓴다. 마운트 후 바뀌지 않는다(옵션 전체가 마운트 1회 계약).
   const roomType: StudyRoomType = options.roomType ?? "single";
   // 계측 전용 — 호출부가 렌더마다 새 함수를 줄 수 있어 최신 것을 들고 있다가 종료 시점에 읽는다.
   const ambientUsageRef = useRef(options.ambientUsage);

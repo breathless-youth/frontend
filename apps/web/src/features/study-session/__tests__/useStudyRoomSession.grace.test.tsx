@@ -15,10 +15,10 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
 
 const NOW = Date.UTC(2026, 10, 13, 1, 0, 0);
 
-function setup() {
+function setup(roomType: "single" | "social" = "single") {
   const detector = createMockFocusDetector();
   const systemPause = createMockSystemPauseSource();
-  const hook = renderHook(() => useStudyRoomSession(null, { detector, systemPause }));
+  const hook = renderHook(() => useStudyRoomSession(null, { detector, systemPause, roomType }));
   return { ...hook, detector };
 }
 
@@ -81,5 +81,39 @@ describe("useStudyRoomSession 유예", () => {
     expect(result.current.grace).toBe(true);
     await advance(1_000);
     expect(result.current.grace).toBe(false);
+  });
+});
+
+describe("useStudyRoomSession 소셜룸은 유예 없이 예전 시간에 비집중", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("자리 비움이 2초 이어지면 유예 없이 바로 비집중이다", async () => {
+    const { result, detector } = setup("social");
+    act(() => {
+      detector.emit({ source: "AWAY", active: true });
+    });
+    await advance(1_000);
+    expect(result.current.grace).toBe(false);
+    expect(result.current.sessionState).toEqual(FOCUS_STATE);
+
+    await advance(2_000);
+    expect(result.current.grace).toBe(false);
+    expect(result.current.sessionState).toEqual(distractionState("AWAY"));
+  });
+
+  it("공부 흔적 없음 신호가 와도 소셜룸은 유예를 띄우지 않는다", async () => {
+    const { result, detector } = setup("social");
+    act(() => {
+      detector.emit({ source: "NO_EVIDENCE", active: true });
+    });
+    await advance(30_000);
+    expect(result.current.grace).toBe(false);
+    expect(result.current.sessionState).toEqual(FOCUS_STATE);
   });
 });

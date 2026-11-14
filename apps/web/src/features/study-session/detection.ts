@@ -1,3 +1,5 @@
+import type { StudyRoomType } from "@/lib/amplitude";
+
 import type { DistractionTrigger } from "./sessionState";
 
 /**
@@ -24,6 +26,8 @@ export interface TriggerHoldParams {
    * 연속으로 이어진 조작만 세는 가속도 신호가 쓴다.
    */
   readonly continuous?: boolean;
+  /** 이 출처를 기록할 트리거. 없으면 `SOURCE_TRIGGER`를 따른다. 방마다 같은 출처를 다르게 기록할 때 쓴다. */
+  readonly trigger?: DistractionTrigger;
 }
 
 /**
@@ -95,6 +99,37 @@ export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
 };
 
 /**
+ * 이 방이 유예와 공부 흔적 판정(손 모델)을 쓰는지. 지금은 싱글룸만 쓴다.
+ * 감지기 옵션과 감지 시간 기본값이 같이 따르므로 두 곳이 어긋나지 않게 여기 한 곳에서 정한다.
+ */
+export function usesStudyEvidence(roomType: StudyRoomType): boolean {
+  return roomType === "single";
+}
+
+/** 쓰지 않는 출처. 원신호가 와도 유예도 비집중도 만들지 않는다. */
+const OFF_HOLD: TriggerHoldParams = { graceMs: Number.POSITIVE_INFINITY, enterMs: null, exitMs: 0 };
+
+/**
+ * 소셜·그룹룸 유지시간
+ *
+ * 유예와 공부 흔적 판정은 싱글룸에만 쓰고, 소셜·그룹룸은 유예를 도입하기 전 판정을 그대로 둔다.
+ * `graceMs`를 `enterMs`와 같게 두면 유예가 뜨는 순간 바로 확정되어 유예 구간이 보이지 않는다.
+ * 프레임 주기 1초와 짝인 값이다. 자리 비움은 한 프레임 놓침으로 확정되지 않게 주기의 2배, 휴대폰은 주기와 같다.
+ * 가속도(기기 흔들림)는 예전처럼 기기 조작으로 기록한다.
+ * 터치·화면 응시·흔적 없음은 소셜룸 감지기가 내보내지 않지만, 와도 아무 판정을 하지 않게 끈다.
+ */
+export const SOCIAL_DETECTION_PARAMS: DetectionParams = {
+  AWAY: { graceMs: 2000, enterMs: 2000, exitMs: 2000 },
+  PHONE: { graceMs: 1000, enterMs: 1000, exitMs: 1500 },
+  DEVICE: { graceMs: 500, enterMs: 500, exitMs: 2000, trigger: "DEVICE" },
+  SLEEP_EYES: { graceMs: 10_000, enterMs: 10_000, exitMs: 2000 },
+  SLEEP_DROWSY: { graceMs: 4000, enterMs: 4000, exitMs: 2000 },
+  TOUCH: OFF_HOLD,
+  SCREEN_GAZE: OFF_HOLD,
+  NO_EVIDENCE: OFF_HOLD,
+};
+
+/**
  * 동시 다중 감지 시 대표 트리거 선택 순서 — **`AWAY` > `DEVICE` > `PHONE`**(2026-07-26 확정,
  * 세션 상태 모델 스펙 §3).
  *
@@ -163,9 +198,13 @@ export function createDetectionState(nowMs: number): DetectionState {
 }
 
 /** 트리거가 확정됐는가 = 그 트리거에 속한 출처 중 하나라도 확정. */
-function isTriggerConfirmed(confirmed: TriggerSignals, trigger: DistractionTrigger): boolean {
+function isTriggerConfirmed(
+  confirmed: TriggerSignals,
+  trigger: DistractionTrigger,
+  params: DetectionParams,
+): boolean {
   return DETECTION_SOURCES.some(
-    (source) => SOURCE_TRIGGER[source] === trigger && confirmed[source],
+    (source) => (params[source].trigger ?? SOURCE_TRIGGER[source]) === trigger && confirmed[source],
   );
 }
 
@@ -214,9 +253,10 @@ export function stepDetection(
   }
 
   const active =
-    state.active !== null && isTriggerConfirmed(nextConfirmed, state.active)
+    state.active !== null && isTriggerConfirmed(nextConfirmed, state.active, params)
       ? state.active
-      : (TRIGGER_PRIORITY.find((trigger) => isTriggerConfirmed(nextConfirmed, trigger)) ?? null);
+      : (TRIGGER_PRIORITY.find((trigger) => isTriggerConfirmed(nextConfirmed, trigger, params)) ??
+        null);
   const grace = active === null && DETECTION_SOURCES.some((source) => nextEpisode[source] !== null);
 
   const unchanged =
