@@ -12,6 +12,23 @@ import { evaluateFrame, topScoresByLabel } from "../vision/detectionRules";
 import type { VisionDiagnostics } from "../vision/diagnostics";
 import { visionDiagnostics } from "../vision/diagnostics";
 import type { FaceDetectionResult, VisionFaceLandmarker } from "../vision/faceLandmarker";
+import type { VisionHandLandmarker } from "../vision/handLandmarker";
+import { createHandLandmarker } from "../vision/handLandmarker";
+import type {
+  EvidenceSignals,
+  GazeReading,
+  HandPose,
+  NormalizedBox,
+} from "../vision/studyEvidenceRules";
+import {
+  evaluateEvidence,
+  eyeLookDownOf,
+  handsAtTool,
+  handsHoldingPhone,
+  handsMoving,
+  phoneBoxesOf,
+  toolBoxesOf,
+} from "../vision/studyEvidenceRules";
 import { headPitchZone, pushHeadPitch } from "../vision/headPitchGate";
 import { createFaceLandmarker } from "../vision/faceLandmarker";
 import type { FaceSpot, FaceSpotState } from "../vision/faceSpot";
@@ -30,6 +47,11 @@ import {
   EYE_RATIO_WINDOW_SAMPLES,
   FACE_FRAME_DIVISOR,
   FACE_SMOOTHING_SAMPLES,
+  FRAME_INTERVAL_MS,
+  HAND_FRAME_DIVISOR,
+  HAND_PHONE_IDLE_MS,
+  HAND_PHONE_MAX_AGE_MS,
+  HAND_RESULT_MAX_AGE_MS,
   SCORE_THRESHOLDS,
 } from "../vision/visionConfig";
 
@@ -55,10 +77,10 @@ export interface FocusDetector {
 
 /**
  * 여러 감지기를 하나로 묶는다
- * — 훅은 감지기를 하나만 받고, 실제로는 Vision(카메라)과 가속도 센서가 서로 다른 트리거를 담당한다.
+ * — 훅은 감지기를 하나만 받고, 실제로는 Vision(카메라)·가속도 센서·화면 터치가 서로 다른 출처를 담당한다.
  *
- * 출처가 겹치지 않는다는 전제 위에 서 있다: Vision은 `AWAY`/`PHONE`/`SLEEP_EYES`/`SLEEP_DROWSY`
- * 출처만, 가속도는 `DEVICE` 출처만 내보낸다.
+ * 출처가 겹치지 않는다는 전제 위에 서 있다: Vision은 `AWAY`/`PHONE`/`SLEEP_EYES`/`SLEEP_DROWSY`/
+ * `SCREEN_GAZE`/`NO_EVIDENCE`, 가속도는 `DEVICE`, 터치는 `TOUCH` 출처만 내보낸다.
  * 겹치면 나중에 도착한 신호가 이기는데, 그건 합성기가 아니라 감지기 쪽 버그다.
  * 대표 트리거 선택은 여기가 아니라 `../detection.ts`의 `TRIGGER_PRIORITY`가 한다.
  */
@@ -161,13 +183,15 @@ export type VisionDetectorStatus = "idle" | "loading" | "ready" | "unavailable";
  * 배열이 아니라 `DetectionSource`에서 빼서 정의한다. 새 카메라 출처가 늘면 `publish`의
  * 객체 리터럴에 키가 모자라 컴파일이 멈춘다 — 런타임에 조용히 빠지지 않는다.
  */
-type VisionSource = Exclude<DetectionSource, "DEVICE">;
+type VisionSource = Exclude<DetectionSource, "DEVICE" | "TOUCH">;
 
 const VISION_SOURCES = [
   "AWAY",
   "PHONE",
   "SLEEP_EYES",
   "SLEEP_DROWSY",
+  "SCREEN_GAZE",
+  "NO_EVIDENCE",
 ] as const satisfies readonly VisionSource[];
 
 /**
@@ -251,6 +275,8 @@ export interface VisionFocusDetectorOptions {
   readonly detector?: VisionObjectDetector;
   /** 테스트용 주입점. 기본값은 MediaPipe `FaceLandmarker` 래퍼. 객체 검출기와 같은 워커를 쓴다. */
   readonly faceLandmarker?: VisionFaceLandmarker;
+  /** 테스트용 주입점. 기본값은 MediaPipe `HandLandmarker` 래퍼. 같은 워커를 쓴다. */
+  readonly handLandmarker?: VisionHandLandmarker;
   /** 졸음 판정 규칙 교체 지점. */
   readonly sleepRule?: SleepRule;
   /**
@@ -266,6 +292,28 @@ export interface VisionFocusDetectorOptions {
   readonly presenceRule?: PersonPresenceRule;
   /** 타임랩스 촬영 창구이고, 없으면 사진을 묻지 않아 런타임 메시지가 지금과 같다. */
   readonly photoTap?: PhotoTap;
+}
+
+/** 필기 움직임 비교 간격. 손 틱 간격과 같고, 프레임 시각이 조금 밀려도 맞도록 반 프레임 여유를 둔다. */
+const HAND_MOVE_MIN_GAP_MS = HAND_FRAME_DIVISOR * FRAME_INTERVAL_MS - FRAME_INTERVAL_MS / 2;
+/** 이보다 오래된 손은 비교하지 않는다. 손 결과가 끊겼다 다시 돌 때 옛 손과 비교하지 않게 한다. */
+const HAND_MOVE_MAX_GAP_MS = 2 * HAND_FRAME_DIVISOR * FRAME_INTERVAL_MS + FRAME_INTERVAL_MS / 2;
+/** 휴대폰이 이만큼 안 보이면 사라진 것으로 보고 `HAND_PHONE_IDLE_MS`를 처음부터 센다. */
+const PHONE_GONE_MS = 2 * FRAME_INTERVAL_MS;
+
+/** 필기는 도구 위에 있는 손이 움직이는 것이다. 다른 손의 움직임은 세지 않는다. */
+function handsMovingOnTool(
+  previous: readonly HandPose[] | null,
+  current: readonly HandPose[],
+  tools: readonly NormalizedBox[],
+): boolean {
+  return (
+    previous !== null &&
+    handsMoving(
+      previous,
+      current.filter((hand) => handsAtTool([hand], tools)),
+    )
+  );
 }
 
 /**
@@ -299,6 +347,7 @@ export function createVisionFocusDetector(
     video,
     detector = createObjectDetector(),
     faceLandmarker = createFaceLandmarker(),
+    handLandmarker = createHandLandmarker(),
     diagnostics = visionDiagnostics,
     nowMs = () => performance.now(),
     phoneRule,
@@ -367,6 +416,16 @@ export function createVisionFocusDetector(
    * 관측을 버리는 곳에서 같이 버린다.
    */
   let recentHeadPitch: number[] = [];
+  /** 마지막 얼굴 틱의 얼굴 유무와 시선. 다음 얼굴 틱까지 그대로 쓴다. */
+  let lastFace: { present: boolean; gaze: GazeReading; bounds: NormalizedBox | null } | null = null;
+  let handLoadRequested = false;
+  let lastHands: { hands: readonly HandPose[]; atMs: number } | null = null;
+  /** 필기 움직임 비교용 최근 손 기록. 손을 1초마다 돌려도 3초 전 손과 비교하려고 몇 개 들고 있다. */
+  let handHistory: { hands: readonly HandPose[]; atMs: number }[] = [];
+  /** 휴대폰이 이어서 보이기 시작한 시각과 마지막으로 보인 시각, 마지막으로 쥔 것이 확인된 시각. */
+  let phoneVisibleSinceMs: number | null = null;
+  let phoneLastSeenAtMs = 0;
+  let phoneHeldAtMs: number | null = null;
 
   function setStatus(next: VisionDetectorStatus): void {
     if (next === status) {
@@ -416,7 +475,16 @@ export function createVisionFocusDetector(
    * `stop()`과 `close()`가 같은 것을 부른다. 한쪽에만 적으면 상태가 늘 때마다 더 강한 정리인
    * `close()`가 오히려 덜 정리하는 비대칭이 생긴다.
    */
+  function dropEvidence(): void {
+    lastFace = null;
+    lastHands = null;
+    handHistory = [];
+    phoneVisibleSinceMs = null;
+    phoneHeldAtMs = null;
+  }
+
   function resetFrameState(): void {
+    dropEvidence();
     // 재개 시점의 첫 프레임은 공백 이후의 프레임이다 — 그 앞 프레임과의 이동량은 의미가 없다.
     previousDetections = null;
     emitted = null;
@@ -459,12 +527,14 @@ export function createVisionFocusDetector(
    * 같은 값이면 내보내지 않는 것은 최적화가 아니라 계약 유지다: 재전송해도 `stepDetection`이
    * 시각을 갱신하지 않으므로 판정은 같지만, 굳이 매 프레임 훅을 깨울 이유가 없다.
    */
-  function publish(signals: FrameSignals, sleep: SleepSignals): void {
+  function publish(signals: FrameSignals, sleep: SleepSignals, evidence: EvidenceSignals): void {
     const next: Record<VisionSource, boolean> = {
       AWAY: !signals.personPresent,
       PHONE: signals.phoneInUse,
       SLEEP_EYES: sleep.eyesClosed,
       SLEEP_DROWSY: sleep.eyesDrowsy,
+      SCREEN_GAZE: evidence.screenGaze,
+      NO_EVIDENCE: evidence.noEvidence,
     };
     const before = emitted;
     emitted = next;
@@ -531,11 +601,93 @@ export function createVisionFocusDetector(
       ) {
         setFaceStatus("ready");
         diagnostics.faceReady(faceLandmarker.delegate, faceLandmarker.runtime);
+        ensureHandLoaded();
         return;
       }
       setFaceStatus("unavailable");
       diagnostics.faceUnavailable(state);
     });
+  }
+
+  /**
+   * 손 모델은 얼굴 모델이 열린 뒤 받는다. 손은 얼굴 판정을 보조하는 신호라 얼굴 없이는 쓰지 않는다.
+   * 열지 못하면 손 증거 없이 판정한다. 얼굴이 안 보이는 구간이 유예로 남을 뿐 비집중으로 확정되지는 않고,
+   * 쥐었는지 확인할 수 없어 카메라에 보이는 휴대폰은 휴대폰 사용으로 보지 않는다.
+   */
+  function ensureHandLoaded(): void {
+    if (handLoadRequested) {
+      return;
+    }
+    handLoadRequested = true;
+    void handLandmarker.load();
+  }
+
+  /**
+   * 손 추론. 시선만으로 결론이 나면 돌리지 않고, 돌 때도 손 틱 주기에만 돈다.
+   * 휴대폰이 보이면 쥐었는지 바로 알아야 해서 매 프레임 돈다.
+   */
+  async function observeHands(
+    element: HTMLVideoElement,
+    atMs: number,
+    wanted: boolean,
+    everyFrame: boolean,
+    frameRunId: number,
+  ): Promise<number | null> {
+    if (!wanted) {
+      lastHands = null;
+      handHistory = [];
+      return null;
+    }
+    if (
+      handLandmarker.state !== "ready" ||
+      (!everyFrame && frameIndex % HAND_FRAME_DIVISOR !== 0)
+    ) {
+      return null;
+    }
+    const ran = await handLandmarker.detect(element, atMs);
+    // 기다리는 사이 멈췄다 다시 켰으면 지난 실행의 손을 새 실행에 남기지 않는다.
+    if (ran === null || frameRunId !== runId) {
+      return null;
+    }
+    lastHands = { hands: ran.hands, atMs };
+    handHistory = [
+      ...handHistory.filter((entry) => atMs - entry.atMs <= HAND_MOVE_MAX_GAP_MS),
+      lastHands,
+    ];
+    return ran.durationMs;
+  }
+
+  /**
+   * 필기 움직임을 비교할 이전 손. 손 틱 간격(3초)만큼 지난 손 중 가장 최근 것이다.
+   * 휴대폰 때문에 1초마다 돌 때도 이동량 기준(`HAND_MOVE_RANGE`)이 전제한 간격을 지킨다.
+   */
+  function handsForMovement(atMs: number): readonly HandPose[] | null {
+    for (let i = handHistory.length - 1; i >= 0; i -= 1) {
+      const entry = handHistory[i];
+      if (entry !== undefined && atMs - entry.atMs >= HAND_MOVE_MIN_GAP_MS) {
+        return entry.hands;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * 휴대폰을 지켜보며 손을 매 프레임 돌릴지. 휴대폰이 이어서 보이는 동안 쥔 것이
+   * `HAND_PHONE_IDLE_MS` 내내 확인되지 않으면 책상에 놓인 휴대폰으로 보고 3초 주기로 돌아간다.
+   * 휴대폰이 잠깐 가려진 것은 이어서 보인 것으로 친다.
+   */
+  function watchPhone(phoneSeen: boolean, atMs: number): boolean {
+    if (phoneSeen) {
+      if (phoneVisibleSinceMs === null || atMs - phoneLastSeenAtMs > PHONE_GONE_MS) {
+        phoneVisibleSinceMs = atMs;
+        phoneHeldAtMs = null;
+      }
+      phoneLastSeenAtMs = atMs;
+    }
+    if (!phoneSeen || phoneVisibleSinceMs === null) {
+      return false;
+    }
+    return atMs - Math.max(phoneVisibleSinceMs, phoneHeldAtMs ?? -Infinity) < HAND_PHONE_IDLE_MS;
   }
 
   /** 최근 표본이 깨어남 표본 수만큼 전부 임계 아래인가. 창이 그보다 짧으면 아니다. */
@@ -667,6 +819,7 @@ export function createVisionFocusDetector(
       // 없고, 돌아왔을 때 옛 관측이 섞이면 평활이 과거를 가리킨다. 비율 창도 같은 이유로 버린다 —
       // 남겨 두면 복귀 첫 프레임에 새 얼굴 틱이 하나도 없는 채로 옛 창이 그대로 꾸벅거림 판정을
       // 세우고, 깬 사람이 앉자마자 졸음으로 기록된다. 보정 창은 사람에 매인 값이라 그대로 둔다.
+      dropEvidence();
       faceSamples = [];
       eyeReadings = [];
       eyeGateMisses = 0;
@@ -712,6 +865,16 @@ export function createVisionFocusDetector(
           return;
         }
         if (faceRan !== null) {
+          lastFace = {
+            present: faceRan.face.facePresent,
+            gaze: {
+              pitchDeg: faceRan.metrics.headPitchDeg,
+              yawDeg: faceRan.metrics.headYawDeg,
+              eyeLookDown: eyeLookDownOf(faceRan.face.eye),
+              noseOffsetX: faceRan.metrics.noseOffsetX,
+            },
+            bounds: faceRan.bounds ?? null,
+          };
           faceObserved = gateHeadPitch(faceRan);
           faceSamples = [...faceSamples, faceObserved].slice(-FACE_SMOOTHING_SAMPLES);
           recordEyeReading(faceObserved);
@@ -747,13 +910,54 @@ export function createVisionFocusDetector(
         )
       : NO_SLEEP_SIGNALS;
 
+    const tools = toolBoxesOf(result.detections, frame.frameSize);
+    const evidenceInput = {
+      personPresent: signals.personPresent,
+      face: sleepEnabled && faceStatus === "ready" ? lastFace : null,
+      tools,
+    };
+    // 휴대폰은 손에 쥐었을 때만 사용으로 본다. 책상에 놓인 휴대폰이 검출돼 순공이 깎이는 것을 막는다.
+    const phoneSeen = signals.phoneInUse;
+    const handDurationMs = await observeHands(
+      element,
+      atMs,
+      phoneSeen || evaluateEvidence({ ...evidenceInput, hands: null }).wantHands,
+      watchPhone(phoneSeen, atMs),
+      frameRunId,
+    );
+    if (frameRunId !== runId) {
+      return;
+    }
+    // 쥐었는지 확인할 수 없으면 휴대폰 사용으로 보지 않는다. 손 모델을 못 여는 기기는 휴대폰 감지가 빠진다.
+    const phoneHeld =
+      phoneSeen &&
+      handLandmarker.state === "ready" &&
+      lastHands !== null &&
+      atMs - lastHands.atMs <= HAND_PHONE_MAX_AGE_MS &&
+      handsHoldingPhone(lastHands.hands, phoneBoxesOf(result.detections, frame.frameSize));
+    if (phoneHeld) {
+      phoneHeldAtMs = atMs;
+    }
+    const judged: FrameSignals = { ...signals, phoneInUse: phoneHeld };
+    const freshHands =
+      lastHands !== null && atMs - lastHands.atMs <= HAND_RESULT_MAX_AGE_MS ? lastHands : null;
+    const hands =
+      freshHands === null
+        ? null
+        : {
+            atTool: handsAtTool(freshHands.hands, tools),
+            // 필기는 도구 위에 있는 손이 움직이는 것이다. 다른 손의 움직임은 세지 않는다.
+            moving: handsMovingOnTool(handsForMovement(atMs), freshHands.hands, tools),
+          };
+    const evidence = evaluateEvidence({ ...evidenceInput, hands });
+
     // ⚠️ bbox는 넘기지 않는다 — `DiagnosticsPayload`가 스칼라만 받도록 타입으로 막혀 있고,
     // 좌표 기록은 개인정보 원칙 위반이다(`frontend/CLAUDE.md`, 설계 §8).
     diagnostics.frame({
       personPresent: signals.personPresent,
       topScores,
       awaySignal: !signals.personPresent,
-      phoneSignal: signals.phoneInUse,
+      phoneSignal: phoneHeld,
       durationMs: result.durationMs,
       delegate: detector.delegate,
       sleepEyesSignal: sleep.eyesClosed,
@@ -771,10 +975,22 @@ export function createVisionFocusDetector(
               durationMs: faceRan.durationMs,
               delegate: faceLandmarker.delegate,
               headPitchDeg: faceRan.metrics.headPitchDeg,
+              headYawDeg: faceRan.metrics.headYawDeg,
             },
+      evidence: {
+        tool: tools.length > 0,
+        noEvidence: evidence.noEvidence,
+        screenGaze: evidence.screenGaze,
+        eyeLookDown: lastFace?.gaze.eyeLookDown ?? null,
+        gazeOnTool:
+          lastFace?.present === true && evidence.noEvidence === false && !evidence.screenGaze,
+        handsAtTool: hands?.atTool ?? null,
+        handsMoving: hands?.moving ?? null,
+        handDurationMs,
+      },
     });
     if (!previewOnly) {
-      publish(signals, sleep);
+      publish(judged, sleep, evidence);
     }
     if (photo !== null && photoTap !== undefined) {
       await takePhoto(photoTap, photo, {
@@ -933,6 +1149,8 @@ export function createVisionFocusDetector(
       setStatus("idle");
       faceLoadRequested = false;
       faceLandmarker.close();
+      handLoadRequested = false;
+      handLandmarker.close();
       setFaceStatus("idle");
       // 세션을 나가면 다음 사람이 쓸 수 있다. 보정은 사람에 매인 값이라 여기서만 버린다.
       calibrationReadings = [];

@@ -98,7 +98,10 @@ export type ModelVariant = keyof typeof MODEL_PATHS;
 export const DEFAULT_MODEL_VARIANT: ModelVariant = "int8";
 
 /** COCO 80클래스 중 우리가 알아야 할 둘. 나머지는 후처리 비용일 뿐이다(설계 §2). */
-export const CATEGORY_ALLOWLIST = ["person", "cell phone"] as const;
+export const CATEGORY_ALLOWLIST = ["person", "cell phone", "laptop", "book"] as const;
+
+/** 공부 도구로 보는 COCO 라벨. 시선과 손이 이 박스 쪽을 향하면 공부 증거다. */
+export const TOOL_LABELS = ["laptop", "book"] as const;
 
 /**
  * 라벨별 score 임계 — **M1 튜닝 대상**(mvp-scope.md 감지 파라미터).
@@ -132,10 +135,19 @@ export const CATEGORY_ALLOWLIST = ["person", "cell phone"] as const;
 export const SCORE_THRESHOLDS = {
   person: 0.3,
   phone: 0.55,
+  /**
+   * 공부 도구. 사람과 같은 낮은 임계다.
+   * 도구를 놓치면 시선 판정이 화면 응시 쪽으로 넘어가 순공이 깎이는 방향이라 관대하게 둔다.
+   */
+  tool: 0.3,
 } as const;
 
 /** 검출기에 넘길 임계 — 라벨별 임계 중 최솟값. 위 주석 참고. */
-export const DETECTOR_SCORE_THRESHOLD = Math.min(SCORE_THRESHOLDS.person, SCORE_THRESHOLDS.phone);
+export const DETECTOR_SCORE_THRESHOLD = Math.min(
+  SCORE_THRESHOLDS.person,
+  SCORE_THRESHOLDS.phone,
+  SCORE_THRESHOLDS.tool,
+);
 
 /**
  * 프레임 처리 주기 — 1000ms(1 FPS).
@@ -173,12 +185,11 @@ export const DETECTOR_SCORE_THRESHOLD = Math.min(SCORE_THRESHOLDS.person, SCORE_
  *
  * 유지시간 디바운스는 벽시계 기반이고 200ms 세션 틱마다 평가되므로, 신호가 샘플 사이에
  * 유지되는 동안에도 시간은 계속 누적된다. 그래서 확정에 필요한 실제 유지 시간은
- * **관측 지연(0~1000ms) + `enterMs`**다 — PHONE(1000ms)은 1.0~2.0초(평균 ~1.5초),
- * AWAY(2000ms)는 2.0~3.0초. DEVICE는 가속도 센서 경로(20Hz)라 이 주기와 무관하다.
+ * **관측 지연(0~1000ms) + 유지시간**이다. 지금은 모든 출처가 유예 3초·확정 10초라 유예는 3~4초,
+ * 비집중은 10~11초에 선다. DEVICE는 가속도 센서 경로(20Hz)라 이 주기와 무관하다.
  *
- * AWAY의 `enterMs`를 주기의 2배로 둔 이유는 샘플 하나의 무게 때문이다. 1 fps에서는 person을
- * 한 프레임 놓치면 그 미검출이 1000ms 동안 유지된다. 2000ms면 연속 두 프레임을 놓쳐야 이탈로
- * 확정되므로 고개를 숙이는 등의 순간 미검출은 걸러진다.
+ * 1 fps에서는 person을 한 프레임 놓치면 그 미검출이 1000ms 동안 유지된다. 유예 3초는 연속 세 프레임을
+ * 놓쳐야 서므로 고개를 숙이는 등의 순간 미검출은 걸러진다.
  *
  * 반대 방향 오차도 있다 — 한 샘플에만 걸린 짧은 신호는 다음 샘플까지 참으로 유지되어 실제보다
  * 길게 집계된다(최대 1000ms). 지연·누락·과대 집계는 서로 다른 문제이므로 BY-304에서 각각
@@ -282,6 +293,11 @@ export const FACE_BLENDSHAPE_ALLOWLIST = [
   "eyeBlinkRight",
   "eyeLookDownLeft",
   "eyeLookDownRight",
+  // 눈동자 좌우. 고개는 두고 눈만 돌려 보는 경우를 실기기에서 재려고 진단에만 싣는다. 판정에는 아직 쓰지 않는다.
+  "eyeLookInLeft",
+  "eyeLookOutLeft",
+  "eyeLookInRight",
+  "eyeLookOutRight",
 ] as const;
 
 export type EyeBlendshapeName = (typeof FACE_BLENDSHAPE_ALLOWLIST)[number];
@@ -440,3 +456,92 @@ export const EYE_RATIO_THRESHOLD = 0.5;
  * 잡는 쪽이 아니다. 깜빡임 한 표본으로 진입하지 않는 것은 그대로다.
  */
 export const FACE_SMOOTHING_SAMPLES = 2;
+
+/* ------------------------------------------------------------------ *
+ * 공부 증거 · 손 모델
+ * ------------------------------------------------------------------ */
+
+/**
+ * MediaPipe Hand Landmarker 모델.
+ *
+ * 출처 https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task
+ * sha256 fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1, 7,819,105 바이트.
+ * 커밋하는 이유와 파일명 규칙은 `FACE_MODEL_PATH`와 같다.
+ */
+export const HAND_MODEL_PATH = "/models/hand_landmarker-fbc2a300.task";
+
+export const HAND_LANDMARKER_OPTIONS = {
+  numHands: 2,
+  minHandDetectionConfidence: 0.5,
+  minHandPresenceConfidence: 0.5,
+  minTrackingConfidence: 0.5,
+} as const;
+
+/**
+ * 손 추론 간격 — 처리된 프레임 3개마다 한 번, 즉 3초.
+ *
+ * 손 모델은 얼굴 모델보다 무거워 보조 신호로만 긴 주기로 돈다.
+ * 시선만으로 공부가 확인되면 아예 돌리지 않는다.
+ */
+export const HAND_FRAME_DIVISOR = 3;
+
+/** 이보다 오래된 손 판정은 버린다. 손 틱 두 번분이다. */
+export const HAND_RESULT_MAX_AGE_MS = 6000;
+
+/**
+ * 휴대폰을 쥐었다고 볼 때 휴대폰 박스를 폭·높이 대비 이만큼 넓혀 본다.
+ * 휴대폰은 작고 손가락이 박스 밖을 감싸서 도구보다 넉넉히 둔다.
+ */
+export const HAND_PHONE_MARGIN = 0.5;
+
+/** 휴대폰을 쥐었는지 볼 때 이보다 오래된 손 판정은 쓰지 않는다. 휴대폰이 보이면 손은 1초마다 돈다. */
+export const HAND_PHONE_MAX_AGE_MS = 1500;
+
+/**
+ * 휴대폰이 보이는 동안 손 모델을 매 프레임 돌리는 최대 시간.
+ * 이 시간 내내 쥔 것이 한 번도 확인되지 않으면 책상에 놓인 휴대폰으로 보고 3초 주기로 돌아간다.
+ */
+export const HAND_PHONE_IDLE_MS = 30_000;
+
+/** 손이 도구 위에 있다고 볼 때 도구 박스를 폭·높이 대비 이만큼 넓혀 본다. 책 모서리를 짚는 손이 박스 밖으로 걸친다. */
+export const HAND_TOOL_MARGIN = 0.15;
+
+/**
+ * 필기·타이핑 동작으로 보는 손끝 이동량(프레임 대비 0~1).
+ *
+ * 손 틱 사이(3초) 검지 끝이 이만큼 움직이면 손을 쓰고 있다고 본다. 위쪽은 손을 크게 휘두르는 것을 뺀다.
+ */
+export const HAND_MOVE_RANGE = { min: 0.008, max: 0.2 } as const;
+
+/**
+ * 도구 응시 — 도구가 얼굴 앞쪽에 있으면 내려다보고, 옆에 있으면 그쪽으로 고개를 돌렸다.
+ *
+ * 앞쪽은 도구 가운데가 얼굴 가운데에서 얼굴 폭 `frontRangeFaceWidths`배 안에 있을 때다. 내려다봄은 고개 숙임
+ * `HEAD_PITCH_DOWN_DEG` 이상이거나 눈 아래 보기 `eyeLookDownMin` 이상이다.
+ * 옆은 고개를 `sideYawDeg` 이상 돌렸고 코끝이 도구 쪽으로 치우쳤을 때다. 아이폰 실측에서 옆 노트북을 볼 때
+ * 40~58도, 폰 화면을 볼 때 14~19도였다.
+ */
+export const GAZE_TOOL = {
+  eyeLookDownMin: 0.4,
+  frontRangeFaceWidths: 1,
+  sideYawDeg: 30,
+} as const;
+
+/**
+ * 화면 응시 — 공부 도구를 보지 않고 고개가 카메라 정면이다.
+ *
+ * 폰을 세워 둔 사용자가 화면을 보는 자세다. 유예까지만 가고 비집중으로 확정하지 않는다(`../detection.ts`).
+ * 폰을 공부 자리 정면에 두면 공부하는 동안에도 이 자세가 되기 때문이다.
+ * 사용자가 카메라 정중앙에 앉지 않으면 화면을 봐도 고개가 기울어 보여서 좌우는 25도까지 둔다(실측 14~19도).
+ * 눈 아래 보기 점수는 화면을 보는 동안에도 0.3~0.9로 흔들려 쓰지 않는다.
+ */
+export const SCREEN_GAZE = {
+  maxYawDeg: 25,
+  /** 이 각도 이상 숙이면 화면이 아니라 책상을 본다. 실측에서 화면은 5~8도, 책상은 25도 안팎이었다. */
+  maxPitchDeg: 12,
+  /**
+   * 폰은 보통 얼굴보다 낮게 놓여 카메라가 얼굴을 올려다본다. 그래서 화면을 볼 때 고개 각도가 음수로 나온다.
+   * 아이폰 실측에서 화면을 보는 동안 -12~-19도였다. 천장을 보는 정도만 빼도록 -30도까지 둔다.
+   */
+  minPitchDeg: -30,
+} as const;

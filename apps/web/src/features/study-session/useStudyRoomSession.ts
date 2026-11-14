@@ -376,6 +376,13 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     [initial.priorEvents],
   );
 
+  /**
+   * 유예 중인가
+   *
+   * 비집중 원신호가 잠깐 이어졌지만 아직 확정 전이다. 순공은 그대로 흐르고 타임라인에는 집중으로 남아
+   * 서버로 나가지 않는다. 화면 문구만 바꾸려고 세션 상태와 따로 둔다.
+   */
+  const [grace, setGrace] = useState(false);
   const [sessionState, setSessionState] = useState<SessionState>(() =>
     currentState(initial.timeline),
   );
@@ -691,6 +698,9 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       if (currentState(timelineRef.current).kind !== "PAUSE") {
         const active = detectionRef.current.active;
         applyState(active === null ? FOCUS_STATE : distractionState(active), nowMs);
+        setGrace(detectionRef.current.grace);
+      } else {
+        setGrace(false);
       }
 
       refreshDisplay(nowMs);
@@ -1096,6 +1106,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
      */
     pausedSinceMs: phase.name === "studying" ? (pausedSnapshot?.sinceMs ?? null) : null,
     sessionState,
+    /** 유예 중인가. 세션 상태가 집중일 때만 참이다. */
+    grace: grace && sessionState.kind === "FOCUS",
     phase,
     /**
      * 세션이 어떻게 끝났는가 — 종료 전에는 `null`. 서버로 보내지 않는 **클라이언트 내부 값**이며

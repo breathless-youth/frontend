@@ -1,7 +1,7 @@
 import { createPhotoRenderer, offscreenSurface } from "@/features/timelapse/photoFrame";
 
 import type { AssetTiming } from "./mediapipePort";
-import { openFaceLandmarker, openObjectDetector } from "./mediapipeModule";
+import { openFaceLandmarker, openHandLandmarker, openObjectDetector } from "./mediapipeModule";
 import { createWorkerMessageHandler, type MainToWorkerMessage } from "./workerProtocol";
 
 /**
@@ -35,6 +35,7 @@ import { createWorkerMessageHandler, type MainToWorkerMessage } from "./workerPr
 const handle = createWorkerMessageHandler({
   createDetector: openObjectDetector,
   createFaceLandmarker: openFaceLandmarker,
+  createHandLandmarker: openHandLandmarker,
   readAssetTimings() {
     // 워커의 `timeOrigin`이 문서와 달라 epoch ms로 바꿔 보낸다.
     // 메인이 문서 시각으로 되돌린다.
