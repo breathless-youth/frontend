@@ -13,7 +13,7 @@ import { hasTokenSource } from "@/lib/userId";
 import { getPlannerDay } from "@/lib/plannerApi";
 import { plannerDay, plannerSubject, plannerTask } from "@/test/plannerFixtures";
 
-import { loadSessionSubjects } from "../loadSessionSubjects";
+import { loadSessionSubjects, loadTodayTotals } from "../loadSessionSubjects";
 
 const reportHandled = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/sentry", () => ({ reportHandled }));
@@ -191,5 +191,32 @@ describe("loadSessionSubjects: 세션 화면 과목 순공은 플래너 하루 �
     const result = await loadSessionSubjects(1, new Date(kst(DAY, 12)));
 
     expect(result[0]?.focusSec).toBe(900);
+  });
+});
+
+describe("loadTodayTotals: 세션 화면 오늘 줄의 저장된 오늘 값", () => {
+  beforeEach(() => {
+    vi.mocked(hasTokenSource).mockReturnValue(true);
+    queryClient.clear();
+  });
+
+  it("플래너 하루의 공부 시간과 순공을 함께 돌려준다", async () => {
+    vi.mocked(getPlannerDay).mockResolvedValue(
+      plannerDay({ date: DAY, studySec: 7200, focusSec: 6000 }),
+    );
+
+    await expect(loadTodayTotals(1, new Date(kst(DAY, 10)))).resolves.toEqual({
+      studySec: 7200,
+      focusSec: 6000,
+    });
+  });
+
+  it("조회가 실패하면 둘 다 0이다", async () => {
+    vi.mocked(getPlannerDay).mockRejectedValue(new Error("network"));
+
+    await expect(loadTodayTotals(1, new Date(kst(DAY, 10)))).resolves.toEqual({
+      studySec: 0,
+      focusSec: 0,
+    });
   });
 });

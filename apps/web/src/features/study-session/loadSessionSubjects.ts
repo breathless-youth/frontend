@@ -93,3 +93,41 @@ function todayFocusBySubject(
     return new Map();
   }
 }
+
+export interface TodayTotals {
+  studySec: number;
+  focusSec: number;
+}
+
+const NO_TODAY: TodayTotals = { studySec: 0, focusSec: 0 };
+
+/**
+ * 오늘(플래너 하루) 저장된 공부 시간과 순공(초)
+ *
+ * 세션 화면의 오늘 줄이 쓰고, 화면은 여기에 이번 세션 몫을 더한다.
+ * 과목 목록과 같은 일간 조회를 같은 queryClient로 받아 캐시를 나눈다.
+ * 조회나 조립이 실패하면 0으로 둬서 이번 세션 시간만 보인다.
+ */
+export async function loadTodayTotals(userId: number, now = new Date()): Promise<TodayTotals> {
+  const dateKey = plannerDateKeyOf(now);
+  if (hasTokenSource()) {
+    const day = await queryClient
+      .fetchQuery({ ...plannerDayQuery(userId, dateKey, deviceTimeZone()), retry: false })
+      .catch(() => null);
+    return day === null ? NO_TODAY : { studySec: day.studySec, focusSec: day.focusSec };
+  }
+  const nextKey = addDaysToDateKey(dateKey, 1);
+  const [day, next] = await Promise.all([
+    fetchDay(userId, dateKey),
+    nextKey > localDateKey(now) ? EMPTY_STATS : fetchDay(userId, nextKey),
+  ]);
+  if (day === null || next === null) {
+    return NO_TODAY;
+  }
+  try {
+    const assembled = assemblePlannerDay(dateKey, day, next);
+    return { studySec: assembled.studySec, focusSec: assembled.focusSec };
+  } catch {
+    return NO_TODAY;
+  }
+}

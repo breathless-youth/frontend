@@ -20,6 +20,7 @@ import { AccountSection } from "@/features/settings/AccountSection";
 import { PermissionRow } from "@/features/settings/PermissionRow";
 import { SettingsRow } from "@/features/settings/SettingsRow";
 import { SettingsSection } from "@/features/settings/SettingsSection";
+import { useTimerBackgroundName } from "@/features/timer-background/useTimerBackgroundName";
 import {
   appVersionLabel,
   cameraPermissionRowLabel,
@@ -57,6 +58,7 @@ export function SettingsPage() {
   const location = useLocation();
   const permissions = useDevicePermissions();
   const appLock = useAppLockSettings();
+  const timerBackgroundName = useTimerBackgroundName();
   const userId = useUserId();
   // 보상이 국내 기프티콘이라 영어 화면에서는 상태를 묻지 않아 행이 생기지 않는다.
   const interview = useQuery({
@@ -157,6 +159,16 @@ export function SettingsPage() {
               permission="mic"
             />
           )}
+          <SettingsRow
+            label={t("rows.timerBackground")}
+            trailing={{ kind: "valueChevron", value: timerBackgroundName }}
+            onPress={() => {
+              trackSettingsRowPressed("timer_background");
+              slideNavigate("forward", () =>
+                navigate({ pathname: "/timer-background-settings", search: location.search }),
+              );
+            }}
+          />
           <SettingsRow
             label={t("rows.timelapse")}
             trailing={{ kind: "chevron" }}

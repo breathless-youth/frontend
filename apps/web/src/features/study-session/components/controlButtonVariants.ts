@@ -22,7 +22,14 @@ export const controlButtonVariants = cva(
       variant: {
         default: `${GLASS} text-(--session-btn-default-fg)`,
         resume: "pointer-events-auto bg-(--session-control-resume-bg) text-primary-foreground",
-        exit: `${GLASS} text-(--session-control-exit-bg)`,
+        /** 하단 바의 일시정지. 흰 원에 어두운 아이콘이다. */
+        pause: "pointer-events-auto bg-white text-(--session-camera-base)",
+        /** 하단 바의 종료. 빨간 원에 흰 아이콘이다. */
+        stop: "pointer-events-auto bg-(--session-control-exit-bg) text-white",
+        /** 심플 모드의 일시정지. 흰 원 대신 반투명 흰 유리 원이다(v3 시안 18i·31a). */
+        pauseMuted: "pointer-events-auto bg-white/14 text-white/90",
+        /** 심플 모드의 종료. 빨강 없이 일시정지와 같은 유리 원이다(v3 시안 18i·31a). */
+        stopMuted: "pointer-events-auto bg-white/14 text-white/85",
       },
       /**
        * 하단의 일시정지·나가기는 공부를 멈추고 끝내는 주 조작이라 오른쪽 부가 버튼보다 한 단계 크게 둔다.
@@ -30,6 +37,8 @@ export const controlButtonVariants = cva(
       size: {
         default: "size-13.5 regular:size-16 short-side-lg:size-20",
         primary: "size-15 regular:size-18 short-side-lg:size-22",
+        /** 싱글룸 하단 바의 두 버튼 */
+        bar: "size-13 regular:size-15 short-side-lg:size-18",
       },
     },
     defaultVariants: { variant: "default", size: "default" },

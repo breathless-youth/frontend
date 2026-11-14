@@ -26,8 +26,8 @@ let devDetector: MockFocusDetector | undefined;
  * (SCR-S3-1·S3-2 구현 노트 4번) — 대신 개발 빌드에서만 콘솔에서 호출할 수 있게 노출한다.
  *
  * ```js
- * window.__focusonMockDetector.emit({ source: "PHONE", active: true });   // 1초 뒤 비집중
- * window.__focusonMockDetector.emit({ source: "PHONE", active: false });  // 1.5초 뒤 자동 재개
+ * window.__focusonMockDetector.emit({ source: "PHONE", active: true });   // 3초 뒤 유예, 10초 뒤 비집중
+ * window.__focusonMockDetector.emit({ source: "PHONE", active: false });  // 3초 뒤 자동 재개
  * ```
  *
  * 프로덕션 빌드에서는 undefined를 돌려주고 훅이 기본 mock(신호 없음)을 쓴다.

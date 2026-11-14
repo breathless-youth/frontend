@@ -1,19 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  formatPomodoroRemaining,
-  formatTimerRemaining,
-  joinTimerSec,
-  splitTimerSec,
-} from "../multiTimerFormat";
-
-describe("formatTimerRemaining", () => {
-  it("초를 올림한 HH:MM:SS", () => {
-    expect(formatTimerRemaining(0)).toBe("00:00:00");
-    expect(formatTimerRemaining(4_321_000)).toBe("01:12:01");
-    expect(formatTimerRemaining(999)).toBe("00:00:01");
-  });
-});
+import { formatPomodoroRemaining, joinTimerSec, splitTimerSec } from "../multiTimerFormat";
 
 describe("formatPomodoroRemaining", () => {
   it("1시간 이상은 h:mm:ss, 미만은 mm:ss", () => {

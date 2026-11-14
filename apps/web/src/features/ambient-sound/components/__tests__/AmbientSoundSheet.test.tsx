@@ -432,3 +432,32 @@ describe("AmbientSoundSheet — 방향별 배치", () => {
     },
   );
 });
+
+describe("AmbientSoundSheet — 감독관 발소리", () => {
+  const ambienceOnly = catalog.filter((s) => s.kind === "file");
+
+  it("넘기면 배경 소리 목록 맨 아래에 발소리 음량 줄을 두고 탭 개수에 더한다", async () => {
+    const onChangeLevel = vi.fn();
+    const onToggle = vi.fn();
+    renderSheet({ catalog: ambienceOnly, footsteps: { level: 100, onToggle, onChangeLevel } });
+
+    const sliders = screen.getAllByRole("slider");
+    expect(sliders.at(-1)).toHaveAccessibleName("감독관 발소리 음량");
+    expect(sliders.at(-1)).toHaveValue("100");
+    expect(screen.getByRole("tab", { name: /배경 소리/ })).toHaveTextContent("2");
+    // 배경음이 하나도 안 켜져 있어도 발소리가 켜져 있으면 전체 스위치는 켜져 있다.
+    expect(screen.getByRole("switch", { name: "배경음" })).toBeChecked();
+
+    fireEvent.change(sliders.at(-1)!, { target: { value: "40" } });
+    expect(onChangeLevel).toHaveBeenCalledWith(40);
+    await userEvent.click(screen.getByRole("button", { name: "감독관 발소리" }));
+    expect(onToggle).toHaveBeenCalled();
+  });
+
+  it("넘기지 않으면 발소리 줄이 없다", () => {
+    renderSheet({ catalog: ambienceOnly });
+
+    expect(screen.queryByRole("slider", { name: "감독관 발소리 음량" })).toBeNull();
+    expect(screen.getByRole("switch", { name: "배경음" })).not.toBeChecked();
+  });
+});

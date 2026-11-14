@@ -413,6 +413,42 @@ describe("타임랩스 행", () => {
   });
 });
 
+describe("타이머 배경 행", () => {
+  it("타임랩스 바로 위에 지금 배경 이름과 함께 보인다", () => {
+    renderAt("/settings");
+
+    const row = screen.getByRole("button", { name: "타이머 배경, 심플" });
+
+    expect(
+      row.compareDocumentPosition(screen.getByRole("button", { name: "타임랩스" })) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("누르면 기존 쿼리를 이어받아 타이머 배경 화면으로 가고 행 터치를 남긴다", () => {
+    render(
+      withQueryClient(
+        <MemoryRouter initialEntries={["/settings?userId=7"]}>
+          <Routes>
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route
+              path="/timer-background-settings"
+              element={<LocationProbe testId="timer-background-stub" />}
+            />
+          </Routes>
+        </MemoryRouter>,
+      ),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "타이머 배경, 심플" }));
+
+    expect(analytics.trackSettingsRowPressed).toHaveBeenCalledWith("timer_background");
+    expect(screen.getByTestId("timer-background-stub").textContent).toBe(
+      "/timer-background-settings?userId=7",
+    );
+  });
+});
+
 describe("방해 앱 잠금 행", () => {
   afterEach(() => {
     hasAppLockCapability.mockReturnValue(false);

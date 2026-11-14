@@ -1,11 +1,16 @@
 {
+  "countdown": {
+    "preparing": "正在準備學習偵測"
+  },
   "status": {
     "focus": "正在測量專注時間",
+    "grace": "正在確認讀書狀態",
     "away": "你好像離開座位了",
     "phone": "你好像在使用手機",
     "device": "你好像在操作裝置",
     "sleep": "你好像在打瞌睡",
-    "pause": "已暫停測量"
+    "pause": "已暫停測量",
+    "distracted": "請確認你在座位上"
   },
   "exitConfirm": {
     "title": "要結束讀書嗎？",
@@ -21,15 +26,6 @@
     "title": "要結束目前的讀書並接受邀請嗎？",
     "cancel": "繼續讀書",
     "confirm": "加入"
-  },
-  "cameraPrompt": {
-    "title": "請確認相機位置",
-    "description": "請調整位置，讓臉和書桌都入鏡",
-    "notice": "影像不會離開你的裝置",
-    "cancel": "以極簡模式開始",
-    "confirm": "開啟相機",
-    "faceMaskTooltip": "快速移動時，臉部可能會短暫露出",
-    "faceMaskCaption": "縮時攝影的「遮住臉部」需要另外設定"
   },
   "cameraToast": {
     "flipped": "已切換相機",
@@ -66,9 +62,7 @@
     "srSeconds": "{{count}} 秒"
   },
   "timer": {
-    "total": "總計 {{elapsed}}",
     "srFocus": "專注時間 {{duration}}",
-    "srTotal": "總讀書時間 {{duration}}",
     "srSubjectFocus": "專注 {{duration}}"
   },
   "controls": {
@@ -76,14 +70,20 @@
     "resume": "繼續",
     "exit": "結束讀書",
     "simpleModeToggle": "切換為極簡模式",
-    "sideActions": "工具",
-    "subjectSelected": "已選取科目"
+    "subjectSelected": "已選取科目",
+    "bar": "讀書控制"
   },
   "moreMenu": {
     "trigger": "更多",
     "flipCamera": "切換相機",
     "help": "查看說明",
-    "shareInvite": "分享邀請碼"
+    "shareInvite": "分享邀請碼",
+    "timer": "計時器",
+    "hideMascot": "隱藏吉祥物",
+    "showMascot": "顯示吉祥物",
+    "viewStudy": "以讀書時間顯示",
+    "viewFocus": "以專注時間顯示",
+    "stopwatch": "碼錶"
   },
   "subjectSheet": {
     "title": "科目",
@@ -124,7 +124,7 @@
     "measuringPill": "回到座位就會<hl>重新測量</hl>\n用於測量的影像不會離開<hl>你的裝置</hl>\n請放心😌",
     "measuringTimer": "<hl>專注時間</hl>\n又開始計時了⏰",
     "cameraTap": "點一下畫面\n就會切換成<hl>相機畫面</hl>",
-    "buttonsSide": "<hl>背景聲音</hl>、<hl>科目</hl>和<hl>計時器</hl>\n都在這裡開啟",
+    "buttonsSide": "<hl>背景聲音</hl>在這裡開啟，\n<hl>計時器</hl>在「更多」裡",
     "buttonsPause": "想休息時\n請點<hl>暫停</hl>",
     "finishMore": "隨時可以在「更多」選單\n再次查看這份說明",
     "finishCenter": "準備好了\n一起來<hl>專注</hl>吧！",
@@ -159,5 +159,53 @@
     "focus": "專注",
     "distract": "自動暫停",
     "pause": "暫停"
+  },
+  "clock": {
+    "currentFocus": "本次專注",
+    "currentStudy": "本次讀書",
+    "todayFocus": "今日專注",
+    "todayStudy": "今日讀書",
+    "srFocus": "本次專注時間 {{duration}}",
+    "srStudy": "本次讀書時間 {{duration}}",
+    "srTodayFocus": "今日專注時間 {{duration}}",
+    "srTodayStudy": "今日讀書時間 {{duration}}"
+  },
+  "header": {
+    "choose": "選擇科目",
+    "noSubject": "請選擇科目",
+    "addTask": "新增待辦…"
+  },
+  "camera": {
+    "label": "相機",
+    "timelapse": "縮時影片",
+    "expand": "放大我的畫面",
+    "shrink": "縮小顯示"
+  },
+  "timerChip": {
+    "group": "額外計時器",
+    "timer": "計時器",
+    "stopwatch": "碼錶",
+    "open": "計時器設定",
+    "total": "/ {{total}}",
+    "pause": "暫停",
+    "resume": "繼續",
+    "off": "關閉",
+    "elapsed": "經過時間",
+    "remaining": "剩餘時間"
+  },
+  "timerSheet": {
+    "title": "計時器設定"
+  },
+  "rest": {
+    "label": "休息中",
+    "labelWithAlarm": "休息中 · {{minutes}} 分鐘後提醒你",
+    "ended": "休息結束了",
+    "alarmGroup": "休息提醒",
+    "alarm": "休息 {{minutes}} 分鐘後提醒",
+    "alarmNone": "不提醒",
+    "srElapsed": "休息時間 {{duration}}",
+    "srRemaining": "剩餘休息時間 {{duration}}",
+    "notificationTitle": "{{minutes}} 分鐘的休息結束了",
+    "notificationBody": "該繼續讀書了"
   }
 }

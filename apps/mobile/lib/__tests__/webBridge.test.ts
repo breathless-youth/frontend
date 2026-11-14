@@ -27,19 +27,22 @@ describe("parseToNativeMessage", () => {
     expect(parseToNativeMessage(`{"type":"${type}","atMs":5}`)).toEqual({ type, atMs: 5 });
   });
 
-  it.each(["app-lock-query", "app-lock-authorize", "app-lock-pick", "pick-profile-photo"] as const)(
-    "%s는 요청 id와 함께 파싱하고 id가 비었거나 없으면 버린다",
-    (type) => {
-      expect(parseToNativeMessage(`{"type":"${type}","id":"r1","atMs":5}`)).toEqual({
-        type,
-        id: "r1",
-        atMs: 5,
-      });
-      expect(parseToNativeMessage(`{"type":"${type}","id":"","atMs":5}`)).toBeNull();
-      expect(parseToNativeMessage(`{"type":"${type}","id":1,"atMs":5}`)).toBeNull();
-      expect(parseToNativeMessage(`{"type":"${type}","atMs":5}`)).toBeNull();
-    },
-  );
+  it.each([
+    "app-lock-query",
+    "app-lock-authorize",
+    "app-lock-pick",
+    "pick-profile-photo",
+    "pick-background-photo",
+  ] as const)("%s는 요청 id와 함께 파싱하고 id가 비었거나 없으면 버린다", (type) => {
+    expect(parseToNativeMessage(`{"type":"${type}","id":"r1","atMs":5}`)).toEqual({
+      type,
+      id: "r1",
+      atMs: 5,
+    });
+    expect(parseToNativeMessage(`{"type":"${type}","id":"","atMs":5}`)).toBeNull();
+    expect(parseToNativeMessage(`{"type":"${type}","id":1,"atMs":5}`)).toBeNull();
+    expect(parseToNativeMessage(`{"type":"${type}","atMs":5}`)).toBeNull();
+  });
 
   it("social-login은 공급자와 요청 id를 함께 파싱한다", () => {
     for (const provider of ["GOOGLE", "KAKAO", "APPLE"]) {
@@ -177,6 +180,30 @@ describe("parseToNativeMessage", () => {
       atMs: 3,
     });
     expect(parseToNativeMessage('{"type":"haptic","style":"boom","atMs":3}')).toBeNull();
+  });
+
+  it("휴식 알림 예약 메시지를 파싱하고 빠진 값이 있으면 버린다", () => {
+    expect(
+      parseToNativeMessage(
+        '{"type":"schedule-rest-notification","id":"rest","fireAtMs":1000,"title":"5분 휴식이 끝났어요","body":"다시","atMs":3}',
+      ),
+    ).toEqual({
+      type: "schedule-rest-notification",
+      id: "rest",
+      fireAtMs: 1000,
+      title: "5분 휴식이 끝났어요",
+      body: "다시",
+      atMs: 3,
+    });
+    expect(
+      parseToNativeMessage(
+        '{"type":"schedule-rest-notification","id":"rest","fireAtMs":"soon","title":"t","body":"b","atMs":3}',
+      ),
+    ).toBeNull();
+    expect(
+      parseToNativeMessage('{"type":"cancel-rest-notification","id":"rest","atMs":3}'),
+    ).toEqual({ type: "cancel-rest-notification", id: "rest", atMs: 3 });
+    expect(parseToNativeMessage('{"type":"cancel-rest-notification","atMs":3}')).toBeNull();
   });
 
   it("haptic 메시지의 alert 세기를 받는다", () => {

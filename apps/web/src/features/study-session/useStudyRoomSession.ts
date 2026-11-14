@@ -48,8 +48,10 @@ import type { DetectionParams, DetectionState, TriggerSignals } from "./detectio
 import {
   DEFAULT_DETECTION_PARAMS,
   NO_TRIGGER_SIGNALS,
+  SOCIAL_DETECTION_PARAMS,
   createDetectionState,
   stepDetection,
+  usesStudyEvidence,
 } from "./detection";
 import type { PauseTrigger, SessionEndReason, SessionState } from "./sessionState";
 import {
@@ -96,6 +98,9 @@ import { submitStudySession } from "./submitStudySession";
 import type { PausedSnapshot } from "./usePauseAutoEnd";
 import { usePauseAutoEnd } from "./usePauseAutoEnd";
 
+/** 공부 화면 카메라 미리보기의 페이드 길이(`CameraPreviewSurface`의 `duration-300`)와 같다. */
+const CAMERA_PREVIEW_FADE_MS = 300;
+
 /** 제출 라이프사이클. 세션 내부 상태(FOCUS/DISTRACTION/PAUSE)와는 **다른 축**이다. */
 export type StudyRoomPhase =
   | { name: "studying" }
@@ -131,7 +136,7 @@ export interface StudyRoomSessionOptions {
   /**
    * 계측용 룸 종류(BY-472) — 소셜룸(`LiveRoomSession`)이 이 훅을 재사용하므로, 이 값
    * 없이는 `study_session_*` 이벤트에서 개인/그룹 세션이 구분되지 않아 F1 퍼널이 오염된다.
-   * 세션 로직에는 관여하지 않는다.
+   * `detectionParams`를 따로 주지 않으면 감지 시간도 이 값으로 고른다. 싱글룸만 유예를 쓴다.
    */
   readonly roomType?: StudyRoomType;
   /**
@@ -144,7 +149,7 @@ export interface StudyRoomSessionOptions {
   ) => number[] | undefined | Promise<number[] | undefined>;
   /**
    * 계측용 배경음 사용 시간 조회 — 종료 시점에 한 번 읽어 `study_session_ended`에 싣는다.
-   * `roomType`처럼 세션 로직에는 관여하지 않는다.
+   * 세션 로직에는 관여하지 않는다.
    */
   readonly ambientUsage?: () => { used: boolean; sec: number };
   /**
@@ -164,6 +169,13 @@ export interface StudyRoomSessionOptions {
    * 멀티 타이머가 없는 소셜룸은 생략한다.
    */
   readonly multiTimerUsage?: () => MultiTimerUse;
+  /**
+   * 계측용 마스코트 켜짐 조회
+   *
+   * 종료 시점에 한 번 읽어 `study_session_ended`에 싣는다.
+   * 마스코트가 없는 소셜룸은 생략한다.
+   */
+  readonly mascotOn?: () => boolean;
   /**
    * 세션이 끝난 순간 한 번 부르는 알림
    *
@@ -215,24 +227,31 @@ function buildEvents(
 export function useStudyRoomSession(userId: number | null, options: StudyRoomSessionOptions = {}) {
   const [camera] = useState<CameraAdapter>(() => options.camera ?? createMockCameraAdapter());
   const [detector] = useState<FocusDetector>(() => options.detector ?? createMockFocusDetector());
+  // 유예와 공부 흔적 판정은 싱글룸만 쓴다. 소셜·그룹룸은 유예 도입 전 감지 시간을 그대로 쓴다.
   const [detectionParams] = useState<DetectionParams>(
-    () => options.detectionParams ?? DEFAULT_DETECTION_PARAMS,
+    () =>
+      options.detectionParams ??
+      (usesStudyEvidence(options.roomType ?? "single")
+        ? DEFAULT_DETECTION_PARAMS
+        : SOCIAL_DETECTION_PARAMS),
   );
   const [systemPause] = useState<SystemPauseSource>(
     () => options.systemPause ?? createSystemPauseSource(),
   );
   const [tuning] = useState<SessionTuningConfig>(() => options.tuning ?? DEFAULT_SESSION_TUNING);
   const tickMs = options.tickMs ?? 200;
-  // 계측 전용 — 마운트 후 바뀌지 않는다(옵션 전체가 마운트 1회 계약).
+  // 계측과 감지 시간 선택에 쓴다. 마운트 후 바뀌지 않는다(옵션 전체가 마운트 1회 계약).
   const roomType: StudyRoomType = options.roomType ?? "single";
   // 계측 전용 — 호출부가 렌더마다 새 함수를 줄 수 있어 최신 것을 들고 있다가 종료 시점에 읽는다.
   const ambientUsageRef = useRef(options.ambientUsage);
   const ambientSoundPlaysRef = useRef(options.ambientSoundPlays);
   const multiTimerUsageRef = useRef(options.multiTimerUsage);
+  const mascotOnRef = useRef(options.mascotOn);
   useLayoutEffect(() => {
     ambientUsageRef.current = options.ambientUsage;
     ambientSoundPlaysRef.current = options.ambientSoundPlays;
     multiTimerUsageRef.current = options.multiTimerUsage;
+    mascotOnRef.current = options.mascotOn;
   });
   const onEndedRef = useRef(options.onEnded);
   useLayoutEffect(() => {
@@ -364,6 +383,13 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     [initial.priorEvents],
   );
 
+  /**
+   * 유예 중인가
+   *
+   * 비집중 원신호가 잠깐 이어졌지만 아직 확정 전이다. 순공은 그대로 흐르고 타임라인에는 집중으로 남아
+   * 서버로 나가지 않는다. 화면 문구만 바꾸려고 세션 상태와 따로 둔다.
+   */
+  const [grace, setGrace] = useState(false);
   const [sessionState, setSessionState] = useState<SessionState>(() =>
     currentState(initial.timeline),
   );
@@ -545,9 +571,32 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     Sentry.setTag("bridge", isNativeBridgeAvailable() ? "webview" : "browser");
   }, []);
 
+  /**
+   * 일시정지 동안에는 카메라를 끈다
+   *
+   * 표시등을 끄고 배터리를 아끼려는 것이다. 재개하면 다시 열고, 첫 프레임이 올 때까지 1~2초는 감지기가
+   * 판정을 건너뛴다. 휴식은 사용자가 멈춘 것이 아니라 켜 둔다.
+   * 소셜룸은 같은 트랙을 참여자에게 보내므로 지금처럼 켜 둔다.
+   */
+  const cameraHeld = roomType === "single" && isSessionHeld(sessionState);
+  // 미리보기 창이 사라지는 동안은 움직이는 장면이 남도록, 페이드가 끝난 뒤에 끈다. 재개는 바로 켠다.
+  const [cameraOff, setCameraOff] = useState(cameraHeld);
+  if (!cameraHeld && cameraOff) {
+    setCameraOff(false);
+  }
   useEffect(() => {
+    if (!cameraHeld) {
+      return;
+    }
+    const timer = setTimeout(() => setCameraOff(true), CAMERA_PREVIEW_FADE_MS);
+    return () => clearTimeout(timer);
+  }, [cameraHeld]);
+  const cameraOpenedRef = useRef(false);
+  useEffect(() => {
+    if (cameraOff) {
+      return;
+    }
     let cancelled = false;
-    cameraActiveRef.current = true;
     // `syncCamera`를 쓰지 않는다.
     // 컴파일러가 `camera.stream` 읽기를 그 함수의 의존성으로 잡아 스트림이 바뀔 때마다 새 함수가 된다.
     // 여기 의존성에 넣으면 재획득할 때마다 카메라를 껐다 켠다.
@@ -555,14 +604,32 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       setIsCameraRunning(camera.isRunning);
       setCameraStream(camera.stream ?? null);
     };
+    // 한 번 켜졌던 카메라를 재개 때 다시 열지 못했으면 알린다. 처음부터 못 연 경우(권한 거부)는 화면이 따로 안내한다.
+    const reopening = cameraOpenedRef.current;
     const starting = camera.start();
     // 동기 시작 어댑터(mock)는 여기서 이미 반영되고, 비동기 어댑터는 아래 then에서 반영된다.
     applyCamera();
     void starting.then(() => {
-      if (!cancelled) {
-        applyCamera();
+      if (cancelled) {
+        return;
+      }
+      applyCamera();
+      if (camera.isRunning) {
+        cameraOpenedRef.current = true;
+      } else if (reopening) {
+        onCameraLostRef.current?.();
       }
     });
+    return () => {
+      cancelled = true;
+      camera.stop();
+      setIsCameraRunning(false);
+      setCameraStream(null);
+    };
+  }, [camera, cameraOff]);
+
+  useEffect(() => {
+    cameraActiveRef.current = true;
     detector.start();
     const unsubscribe = detector.subscribe((signal) => {
       const next = { ...signalsRef.current, [signal.source]: signal.active };
@@ -572,15 +639,11 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       detectionRef.current = stepDetection(detectionRef.current, next, Date.now(), detectionParams);
     });
     return () => {
-      cancelled = true;
       cameraActiveRef.current = false;
       unsubscribe();
       detector.stop();
-      camera.stop();
-      setIsCameraRunning(false);
-      setCameraStream(null);
     };
-  }, [camera, detectionParams, detector]);
+  }, [detectionParams, detector]);
 
   /**
    * 끊긴 카메라 다시 잡기
@@ -642,6 +705,9 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       if (currentState(timelineRef.current).kind !== "PAUSE") {
         const active = detectionRef.current.active;
         applyState(active === null ? FOCUS_STATE : distractionState(active), nowMs);
+        setGrace(detectionRef.current.grace);
+      } else {
+        setGrace(false);
       }
 
       refreshDisplay(nowMs);
@@ -781,7 +847,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    */
   const resume = () => {
     applyStateTrackingResume(FOCUS_STATE);
-    // 복귀 때 다시 잡지 못했으면 한 번 더 시도한다.
+    // 일시정지 중에도 카메라를 켜 두는 소셜룸에서, 복귀 때 다시 잡지 못했으면 한 번 더 시도한다.
     // 재개는 기다리지 않는다. 카메라가 없어도 세션은 이어진다.
     void reviveCamera();
   };
@@ -816,7 +882,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    * **확정: 수동 재개**(2026-07-26 리더 확정). 화면 꺼짐·백그라운드에서 돌아와도 세션은
    * 자동으로 재개되지 않는다 — 사용자가 일시정지 화면의 재개 버튼을 직접 눌러야 한다.
    * 그래서 복귀 시 세션 상태는 바꾸지 않는다 — 이건 임시가 아니라 확정된 동작이다.
-   * 카메라만 다시 잡는다.
+   * 카메라만 다시 잡는다(일시정지 중에도 카메라를 켜 두는 소셜룸).
    * Android는 백그라운드에서 트랙을 끊어, 그대로 두면 일시정지 화면 프리뷰와 재개 뒤 판정이 멈춘 장면에 머문다.
    */
   const onReturnFromBackground = useCallback(() => {
@@ -925,6 +991,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           ...(ambient && { ambientSoundUsed: ambient.used, ambientSoundSec: ambient.sec }),
           breakSec,
           multiTimer: multiTimerUsageRef.current?.() ?? "none",
+          mascotOn: mascotOnRef.current?.() ?? false,
         });
         for (const play of ambientSoundPlaysRef.current?.() ?? []) {
           if (play.sec <= 0) continue;
@@ -1041,7 +1108,15 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     studySec: display.totals.studySec,
     /** 일시정지 누적(초) — 벽시계 기준 별도 집계(2026-07-26 확정). */
     pauseSec: display.totals.pauseSec,
+    /**
+     * 사용자가 멈춘 일시정지(수동·화면 꺼짐)가 시작된 시각
+     *
+     * 휴식 화면이 쉰 시간을 세는 기준이다. 공부 중이거나 뽀모도로 휴식이면 null이다.
+     */
+    pausedSinceMs: phase.name === "studying" ? (pausedSnapshot?.sinceMs ?? null) : null,
     sessionState,
+    /** 유예 중인가. 세션 상태가 집중일 때만 참이다. */
+    grace: grace && sessionState.kind === "FOCUS",
     phase,
     /**
      * 세션이 어떻게 끝났는가 — 종료 전에는 `null`. 서버로 보내지 않는 **클라이언트 내부 값**이며

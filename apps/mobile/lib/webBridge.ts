@@ -181,6 +181,7 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
     case "app-lock-authorize":
     case "app-lock-pick":
     case "pick-profile-photo":
+    case "pick-background-photo":
       if (typeof record.id !== "string" || record.id === "") {
         return null;
       }
@@ -311,6 +312,30 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       return { type: "request-camera-gate", atMs: record.atMs };
     case "request-push-permission":
       return { type: "request-push-permission", atMs: record.atMs };
+    case "schedule-rest-notification":
+      if (
+        typeof record.id !== "string" ||
+        record.id === "" ||
+        typeof record.fireAtMs !== "number" ||
+        !Number.isFinite(record.fireAtMs) ||
+        typeof record.title !== "string" ||
+        typeof record.body !== "string"
+      ) {
+        return null;
+      }
+      return {
+        type: "schedule-rest-notification",
+        id: record.id,
+        fireAtMs: record.fireAtMs,
+        title: record.title,
+        body: record.body,
+        atMs: record.atMs,
+      };
+    case "cancel-rest-notification":
+      if (typeof record.id !== "string" || record.id === "") {
+        return null;
+      }
+      return { type: "cancel-rest-notification", id: record.id, atMs: record.atMs };
     case "launch-ready":
       return { type: "launch-ready", atMs: record.atMs };
     case "auth-ready":

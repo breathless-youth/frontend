@@ -1,19 +1,4 @@
 {
-  "entryButton": {
-    "aria": {
-      "open": "計時器"
-    }
-  },
-  "screen": {
-    "title": "計時器",
-    "close": "關閉計時器",
-    "kindLabel": "計時器類型",
-    "kind": {
-      "timer": "一般",
-      "pomodoro": "番茄鐘"
-    },
-    "restart": "從頭開始"
-  },
   "primary": {
     "start": "開始",
     "pause": "暫停",
@@ -28,23 +13,6 @@
     "minuteOption": "{{count}} 分鐘",
     "aria": {
       "minutes": "{{label}}時間"
-    }
-  },
-  "pomodoro": {
-    "phase": {
-      "focus": "專注時間",
-      "break": "休息時間"
-    }
-  },
-  "remaining": {
-    "aria": {
-      "label": "剩餘時間"
-    }
-  },
-  "dial": {
-    "lap": "第 {{lap}} 輪",
-    "aria": {
-      "minutes": "{{count}} 分鐘"
     }
   },
   "wheel": {

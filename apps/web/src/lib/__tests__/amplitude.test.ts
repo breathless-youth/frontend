@@ -666,9 +666,30 @@ describe("공부 세션 이벤트", () => {
         ambient_sound_sec: 0,
         break_sec: 0,
         multi_timer: "none",
+        mascot_on: false,
       },
       { time: expect.any(Number) },
     );
+  });
+
+  it("끝낼 때 마스코트가 켜져 있었으면 mascot_on을 true로 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackStudySessionEnded } = await loadModule();
+    initAmplitude();
+
+    trackStudySessionEnded({
+      roomType: "single",
+      studySec: 600,
+      focusSec: 600,
+      pauseSec: 0,
+      distractionSec: 0,
+      endReason: "MANUAL",
+      pauseTrigger: null,
+      willSubmit: true,
+      mascotOn: true,
+    });
+
+    expect(mocks.track.mock.calls[0]?.[1]).toMatchObject({ mascot_on: true });
   });
 
   it("휴식 길이와 시작한 멀티 타이머 종류를 싣는다", async () => {
@@ -2343,6 +2364,25 @@ describe("멀티 타이머 이벤트", () => {
     ]);
   });
 
+  it("스톱워치 시작에는 시간 설정값을 싣지 않는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackMultiTimerStarted({
+      kind: "stopwatch",
+      timerSec: 600,
+      focusMin: 25,
+      breakMin: 5,
+      soundOn: false,
+      fromPause: false,
+    });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["multi_timer_started", { kind: "stopwatch", sound_on: false, from_pause: false }],
+    ]);
+  });
+
   it("처음 시작할 때 이용 이력을 한 번만 남긴다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const m = await loadModule();
@@ -2493,6 +2533,76 @@ describe("순공 1분 달성 (focus_milestone_reached)", () => {
 
     expect(mocks.track).not.toHaveBeenCalled();
     expect(localStorage.getItem("focusmakers:focus-milestone-tracked")).toBeNull();
+  });
+});
+
+describe("타이머 배경 이벤트", () => {
+  it("적용·사진 추가·삭제를 정해진 이름과 속성으로 보내고, 사진 내용은 싣지 않는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    mocks.track.mockClear();
+
+    m.trackSettingsRowPressed("timer_background");
+    m.trackTimerBackgroundApplied({ kind: "photo" });
+    m.trackTimerBackgroundPhotoAdded({ count: 3, source: "native" });
+    m.trackTimerBackgroundPhotoRemoved({ count: 2, wasSelected: true });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["settings_row_pressed", { row: "timer_background" }],
+      ["timer_background_applied", { kind: "photo" }],
+      ["timer_background_photo_added", { count: 3, source: "native" }],
+      ["timer_background_photo_removed", { count: 2, was_selected: true }],
+    ]);
+  });
+
+  it("미초기화 상태에서는 보내지 않는다", async () => {
+    const m = await loadModule();
+
+    m.trackTimerBackgroundApplied({ kind: "simple" });
+    m.trackTimerBackgroundPhotoAdded({ count: 1, source: "file" });
+    m.trackTimerBackgroundPhotoRemoved({ count: 0, wasSelected: false });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+});
+
+describe("공부 화면 마스코트 이벤트", () => {
+  it("켜고 끈 결과를 visible로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    mocks.track.mockClear();
+
+    m.trackSessionMascotToggled(false);
+    m.trackSessionMascotToggled(true);
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["session_mascot_toggled", { visible: false }],
+      ["session_mascot_toggled", { visible: true }],
+    ]);
+  });
+
+  it("켜고 끌 때마다 session_mascot 유저 속성을 바꾼 뒤의 값으로 남긴다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    mocks.identify.mockClear();
+
+    m.trackSessionMascotToggled(true);
+    m.trackSessionMascotToggled(false);
+
+    const sets = mocks.identify.mock.calls.map(
+      ([sent]) => (sent as InstanceType<typeof mocks.FakeIdentify>).sets,
+    );
+    expect(sets).toEqual([[["session_mascot", true]], [["session_mascot", false]]]);
+  });
+
+  it("초기화 전에는 보내지 않는다", async () => {
+    const m = await loadModule();
+    m.trackSessionMascotToggled(true);
+    expect(mocks.track).not.toHaveBeenCalled();
+    expect(mocks.identify).not.toHaveBeenCalled();
   });
 });
 

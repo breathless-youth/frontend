@@ -4,9 +4,8 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { RoomPage } from "@/routes/RoomPage";
-import { answerCameraPrompt } from "@/test/cameraPrompt";
 
-import { SessionTimer } from "../components/SessionTimer";
+import { SessionClock } from "../components/SessionClock";
 import { sessionSurfaceStyle } from "../sessionTheme";
 
 /** 복원 게이트는 자기 테스트가 따로 있다 — 여기서는 통과시킨다. */
@@ -37,57 +36,39 @@ function renderRoom(url = "/room/7?userId=1") {
       </Routes>
     </MemoryRouter>,
   );
-  // 입장 카메라 확인 창에는 카메라 켜기로 답해 촬영 화면에서 시작한다.
-  // 심플 모드 시작 자체는 RoomPage.cameraPrompt.test.tsx가 본다.
-  answerCameraPrompt("camera");
   return view;
 }
 
-describe("SessionTimer — 가로 타이포 (S3-5 `61:460` · S3-6 `61:531`)", () => {
-  it("가로 프리뷰는 44px로 줄고 가운데 정렬을 유지한다", () => {
-    render(<SessionTimer focusSec={0} studySec={0} state="focus" />);
+function renderClock(simple: boolean) {
+  return render(
+    <SessionClock
+      view="focus"
+      studySec={0}
+      focusSec={0}
+      todayStudySec={0}
+      todayFocusSec={0}
+      state="focus"
+      statusLabel=""
+      simple={simple}
+    />,
+  );
+}
 
-    const number = screen.getByText("00:00:00").parentElement!;
+describe("SessionClock — 가로 타이포", () => {
+  it("세로 52px, 가로 기본 44px로 가운데 정렬을 유지한다", () => {
+    renderClock(false);
+
+    const number = screen.getByTestId("session-clock-number");
     expect(number.className).toContain("text-[52px]");
     expect(number.className).toContain("landscape-compact:text-[44px]");
-    expect(number.className).not.toContain("landscape-compact:text-right");
-    expect(number.parentElement!.className).not.toContain("landscape-compact:items-end");
+    expect(number.className).toContain("text-center");
   });
 
-  it("가로 프리뷰 총 공부 병기는 14px로 줄고 타이머 아래 가운데에 붙는다", () => {
-    render(<SessionTimer focusSec={0} studySec={0} state="focus" />);
+  it("가로 심플은 72px다", () => {
+    renderClock(true);
 
-    const total = screen.getByText("총 00:00:00").parentElement!;
-    expect(total.className).toContain("landscape-compact:text-sm");
-    expect(total.className).not.toContain("landscape-compact:text-right");
-  });
-
-  it("가로 심플 타이머는 56px다 — design.md의 84px이 아니라 Figma 실측·display.lg 토큰 값", () => {
-    render(<SessionTimer focusSec={0} studySec={0} state="focus" glow />);
-
-    const number = screen.getByText("00:00:00").parentElement!;
-    expect(number.className).toContain("landscape-compact:text-[56px]");
-    expect(number.className).toContain("landscape-compact:leading-16");
-    expect(number.className).not.toContain("84px");
-    // 심플은 가로에서도 중앙 정렬을 유지한다(우상단으로 가는 건 프리뷰뿐).
-    expect(number.parentElement!.className).not.toContain("landscape-compact:items-end");
-  });
-
-  it("발광 반경이 숫자 크기에 비례한다 — 52px에서 24/60px, 56px에서 26/64px", () => {
-    // 인라인 style은 미디어쿼리를 탈 수 없어 반경을 `em`으로 뒀다. 상수가 흔들리면
-    // 두 방향 중 한쪽이 Figma 실측에서 벗어나므로 여기서 환산값을 고정한다.
-    render(<SessionTimer focusSec={0} studySec={0} state="focus" glow />);
-
-    const shadow = screen.getByText("00:00:00").parentElement!.style.textShadow;
-    expect(shadow).toContain("var(--session-glow-near)");
-    const [near, far] = [...shadow.matchAll(/([\d.]+)em/g)].map((match) => Number(match[1]));
-
-    // 세로 52px — Figma Spec 페이지 `14:7` 실측 24 / 60px과 동일.
-    expect(near! * 52).toBeCloseTo(24, 1);
-    expect(far! * 52).toBeCloseTo(60, 1);
-    // 가로 심플 56px — Figma `61:531` 실측 26 / 64px과 1px 이내(육안 식별 불가).
-    expect(Math.abs(near! * 56 - 26)).toBeLessThan(1);
-    expect(Math.abs(far! * 56 - 64)).toBeLessThan(1);
+    const number = screen.getByTestId("session-clock-number");
+    expect(number.className).toContain("landscape-compact:text-[72px]");
   });
 });
 
@@ -96,8 +77,9 @@ describe("RoomPage — 가로(거치) 배치", () => {
     vi.unstubAllGlobals();
   });
 
-  function layerOf(container: HTMLElement) {
-    return container.querySelector<HTMLElement>(".landscape-compact\\:grid")!;
+  function layerOf() {
+    // 하단 바는 마스코트와 같은 줄 상자 안에 있어서 바깥쪽 flex 컬럼이 세션 레이어다.
+    return screen.getByRole("toolbar", { name: "공부 조작" }).closest<HTMLElement>(".flex-col")!;
   }
 
   it("방향을 JS로 감지하지 않는다 — 미디어쿼리만으로 갈린다", () => {
@@ -110,59 +92,55 @@ describe("RoomPage — 가로(거치) 배치", () => {
     expect(matchMedia).not.toHaveBeenCalled();
   });
 
-  it("세로 flex 컬럼과 가로 그리드가 같은 DOM에 함께 선언된다", () => {
-    const { container } = renderRoom();
+  it("세로·가로가 같은 flex 컬럼을 쓴다 — 회전해도 DOM이 그대로다", () => {
+    renderRoom();
 
-    const layer = layerOf(container);
-    expect(layer.className).toContain("flex-col");
-    expect(layer.className).toContain("landscape-compact:grid-cols-[1fr_auto_1fr]");
-    expect(layer.className).toContain("landscape-compact:grid-rows-[auto_1fr_auto_auto]");
+    expect(layerOf().className).toContain("flex-col");
   });
 
   it("가로 좌우 안전 영역을 반영한다 — 거치 시 노치가 좌우로 온다", () => {
-    const { container } = renderRoom();
+    renderRoom();
 
-    const layer = layerOf(container);
+    const layer = layerOf();
+    expect(layer.className).toContain("landscape-compact:pl-[max(env(safe-area-inset-left),16px)]");
     expect(layer.className).toContain(
-      "landscape-compact:pl-[calc(env(safe-area-inset-left)+16px)]",
-    );
-    expect(layer.className).toContain(
-      "landscape-compact:pr-[calc(env(safe-area-inset-right)+16px)]",
+      "landscape-compact:pr-[max(env(safe-area-inset-right),16px)]",
     );
     // 가로에는 iOS 상태바가 없어 상단 여백이 13 → 18로 바뀐다(상태바 높이만큼 빠진다).
     expect(layer.className).toContain("landscape-compact:pt-[calc(env(safe-area-inset-top)+18px)]");
   });
 
-  it("가로 프리뷰 — 상태 필은 상단 중앙, 타이머 묶음은 두 하단 버튼 사이 아래에 붙는다", () => {
+  it("가로 기본 — 카메라 창은 오른쪽 아래 160×108이다", () => {
     const { container } = renderRoom();
 
-    const pill = screen.getByRole("status");
-    expect(pill.className).toContain("landscape-compact:col-start-2");
-    expect(pill.className).toContain("landscape-compact:row-start-1");
-
-    const timer = container.querySelector(
-      '[class*="landscape-compact:col-start-2"][class*="landscape-compact:row-start-3"]',
-    )!;
-    expect(timer).toContainElement(screen.getByText("00:00:00"));
-    expect(timer.className).toContain("landscape-compact:self-end");
+    const surface = container.querySelector('[data-session-surface="camera"]')!;
+    expect(surface.className).toContain(
+      "landscape-compact:right-[max(env(safe-area-inset-right),16px)]",
+    );
+    expect(surface.className).toContain("landscape-compact:w-40");
+    expect(surface.className).toContain("landscape-compact:h-27");
   });
 
-  it("가로 심플 — 타이머가 아래 가운데에서 화면 가운데로 옮겨간다", async () => {
+  it("가로 기본 — 시간 묶음을 과목 줄 높이의 위 가운데에 둔다", () => {
     const { container } = renderRoom();
+
+    const clock = container.querySelector(
+      '[class*="landscape-compact:top-[calc(env(safe-area-inset-top)+40px)]"]',
+    )!;
+    expect(clock).toContainElement(screen.getByTestId("session-clock-number"));
+    expect(clock.className).toContain("landscape-compact:-translate-x-1/2");
+  });
+
+  it("가로 심플 — 시간 묶음을 화면 가운데에 띄운다(세로와 같은 배치)", async () => {
+    renderRoom();
 
     await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
 
-    expect(
-      container.querySelector(
-        '[class*="landscape-compact:col-start-2"][class*="landscape-compact:row-start-3"]',
-      ),
-    ).toBeNull();
-    const timer = container.querySelector('[class*="landscape-compact:top-1/2"]')!;
-    expect(timer.className).toContain("landscape-compact:-translate-y-1/2");
-    expect(timer.className).toContain("landscape-compact:-translate-x-1/2");
+    const clock = screen.getByTestId("session-clock-number").closest(".absolute")!;
+    expect(clock).toHaveClass("top-1/2", "left-1/2", "-translate-x-1/2", "-translate-y-1/2");
   });
 
-  it("가로에서도 상태 필 문구가 남는다 — 좁다고 색 단독으로 상태를 전달하지 않는다", async () => {
+  it("가로에서도 상태 문구가 남는다 — 좁다고 색 단독으로 상태를 전달하지 않는다", async () => {
     renderRoom();
 
     await userEvent.click(screen.getByRole("button", { name: "일시정지" }));

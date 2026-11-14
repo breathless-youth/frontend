@@ -1,3 +1,5 @@
+import type { StudyRoomType } from "@/lib/amplitude";
+
 import type { DistractionTrigger } from "./sessionState";
 
 /**
@@ -7,74 +9,124 @@ import type { DistractionTrigger } from "./sessionState";
  * 감지 수단 자체는 어댑터(`adapters/focusDetector.ts`) 뒤에 있고, 이 모듈은 시간 판정만 한다.
  */
 
+/**
+ * 출처 하나의 유지시간
+ *
+ * 원신호가 `graceMs` 이어지면 유예, 처음 켜진 때부터 `enterMs`가 지나면 비집중으로 확정한다.
+ * 유예와 비집중은 원신호가 `exitMs` 동안 꺼져 있어야 풀린다.
+ * 유예 중 원신호가 잠깐 꺼져도 `exitMs`를 못 채우면 확정까지의 시간은 처음 켜진 때부터 계속 잰다.
+ */
 export interface TriggerHoldParams {
-  /** 원신호가 이만큼 연속 유지되면 비집중으로 진입한다. */
-  readonly enterMs: number;
-  /** 원신호가 이만큼 연속 해제되면 자동 재개한다. */
+  readonly graceMs: number;
+  /** null이면 유예까지만 가고 비집중으로 확정하지 않는다. */
+  readonly enterMs: number | null;
   readonly exitMs: number;
+  /**
+   * 참이면 확정도 끊김 없이 `enterMs` 이어져야 한다. 유예 중 한 번 꺼지면 확정까지의 시간을 처음부터 다시 잰다.
+   * 연속으로 이어진 조작만 세는 가속도 신호가 쓴다.
+   */
+  readonly continuous?: boolean;
+  /** 이 출처를 기록할 트리거. 없으면 `SOURCE_TRIGGER`를 따른다. 방마다 같은 출처를 다르게 기록할 때 쓴다. */
+  readonly trigger?: DistractionTrigger;
 }
 
 /**
  * 감지 원신호의 출처. 트리거(사용자·서버가 보는 단위)보다 한 단계 아래다.
  *
- * 지금은 셋 다 출처가 하나라 이름이 트리거와 같다. 출처가 둘인 트리거가 들어오면
- * 여기에 출처를 추가하고 `SOURCE_TRIGGER`로 트리거에 묶는다. 출처마다 유지시간이 다를 수
- * 있어서 판정은 출처 단위로 하고 트리거 단위로 합친다. 유지시간 판정은 이 모듈 한 곳뿐이다.
+ * 출처마다 유지시간을 따로 재고 트리거 단위로 합친다. 유지시간 판정은 이 모듈 한 곳뿐이다.
  * 어댑터가 출처를 미리 합치거나 자체 디바운스를 두지 않는다.
+ *
+ * - `DEVICE`: 가속도 센서가 폰을 들거나 흔든 동안 켜진다. 폰을 손에 든 것이라 휴대폰 사용으로 센다.
+ * - `TOUCH`: 세션 화면을 계속 만지는 중이다.
+ * - `SCREEN_GAZE`: 공부 도구를 보지 않고 시선이 화면에 고정돼 있다. 유예까지만 간다.
+ *   폰을 공부 자리 정면에 세워 두면 공부하는 동안에도 얼굴이 카메라를 향해 이 신호가 계속 켜진다.
+ *   그래서 기기 조작 비집중은 실제로 기기를 만지는 `TOUCH`·`DEVICE`로만 확정한다.
+ * - `NO_EVIDENCE`: 공부 증거(도구 쪽 시선·손, 얼굴)가 없다. 유예까지만 간다.
  */
-export const DETECTION_SOURCES = ["AWAY", "PHONE", "DEVICE", "SLEEP_EYES", "SLEEP_DROWSY"] as const;
+export const DETECTION_SOURCES = [
+  "AWAY",
+  "PHONE",
+  "DEVICE",
+  "SLEEP_EYES",
+  "SLEEP_DROWSY",
+  "TOUCH",
+  "SCREEN_GAZE",
+  "NO_EVIDENCE",
+] as const;
 export type DetectionSource = (typeof DETECTION_SOURCES)[number];
 
 /**
- * 출처 → 트리거. 모든 출처는 정확히 하나의 트리거에 속한다.
+ * 출처 → 트리거. null인 출처는 비집중 사유가 없어 유예만 만든다.
  * `satisfies`가 출처 누락을 컴파일 에러로 만든다. 트리거 쪽 누락은 테스트가 잡는다.
  */
 export const SOURCE_TRIGGER = {
   AWAY: "AWAY",
   PHONE: "PHONE",
-  DEVICE: "DEVICE",
+  DEVICE: "PHONE",
   SLEEP_EYES: "SLEEP",
   SLEEP_DROWSY: "SLEEP",
-} as const satisfies Record<DetectionSource, DistractionTrigger>;
+  TOUCH: "DEVICE",
+  SCREEN_GAZE: null,
+  NO_EVIDENCE: null,
+} as const satisfies Record<DetectionSource, DistractionTrigger | null>;
 
 /** 출처별 유지시간. */
 export type DetectionParams = Record<DetectionSource, TriggerHoldParams>;
 
 /**
- * 감지 파라미터 기본값 — `ai-wiki/product/mvp-scope.md` "감지 파라미터"(M1 테스트로 튜닝 예정).
- * 하드코딩하지 말고 이 객체를 주입해 바꾼다.
+ * 유예 3초 · 비집중 10초 · 복귀 3초
  *
- * ## AWAY 2000 · PHONE 1000 (2026-09-21, 발열·배터리 조정)
- *
- * 원래 AWAY 1500 / PHONE 500이었다. 프레임 주기를 500ms에서 1000ms로 늘리면서
- * (`vision/visionConfig.ts`의 `FRAME_INTERVAL_MS`) 함께 올렸다 — **주기와 짝인 값이라 따로 바꾸면
- * 안 된다.** 2026-09-22 저녁 한 회차만 500ms·1500/500으로 돌렸다가 함께 되돌렸다.
- *
- * - `PHONE.enterMs`는 **샘플 간격보다 짧으면 안 된다.** 짧으면 두 샘플 사이에 통째로 들어간 폰
- *   사용이 어느 프레임에도 걸리지 않아 지연이 아니라 누락이 된다. 1000ms는 주기와 같은 경계값이다.
- * - `AWAY.enterMs`는 한 프레임만 person을 놓쳐도(1000ms 유지) 확정되지 않도록 주기의 2배로 둔다.
- *
- * 실제 확정까지 걸리는 시간은 관측 지연(0~1주기)이 더해진다 — `vision/visionConfig.ts` 주석 참고.
+ * 세 값 모두 원신호가 켜지거나 꺼진 시각부터 잰다. 비집중은 유예가 뜨고 7초 뒤, 신호가 켜지고 10초 뒤에 확정된다.
+ * 유예는 규칙 원안의 범위(3~5초) 중 짧은 쪽이고, 복귀는 3~5초로 정한 범위의 짧은 쪽이다.
+ * 실기기에서 상태가 깜빡이면 복귀를 5초까지 올린다.
+ * 확정이 10초라 1 fps 감지 주기보다 충분히 길어 샘플 사이로 신호가 빠져도 확정이 늦어질 뿐 사라지지 않는다.
  */
+const STANDARD_HOLD: TriggerHoldParams = { graceMs: 3000, enterMs: 10_000, exitMs: 3000 };
+
 export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
-  AWAY: { enterMs: 2000, exitMs: 2000 },
-  PHONE: { enterMs: 1000, exitMs: 1500 },
-  DEVICE: { enterMs: 500, exitMs: 2000 },
+  AWAY: STANDARD_HOLD,
+  PHONE: STANDARD_HOLD,
   /**
-   * ⚠️ 잠정값이다. 2026-09-20 스파이크는 피험자가 한 명이라 앱 안 측정에서 다시 정한다.
-   *
-   * 눈 감김은 감은 눈을 직접 보므로 10초면 충분하다. 마이크로슬립 정의(1~15초)의 위쪽이고,
-   * 정상 깜빡임보다 한참 길다.
-   * 해제 2초는 얼굴 틱 한 번 분량이다. 원신호가 이미 뜬 표본 하나로 내려오므로 여기서
-   * 더 기다릴 이유가 없고, 2026-09-20 실측에서 3초는 체감으로 늦었다.
+   * 조작이 1초 이어지면 유예, 4초 이어지면 휴대폰 사용이다. 중간에 끊기면 처음부터 다시 잰다.
+   * 1초에 한 번 본다고 치면 2회 연속이 유예, 5회 연속이 확정인 것과 같다.
    */
-  SLEEP_EYES: { enterMs: 10_000, exitMs: 2000 },
-  /**
-   * ⚠️ 잠정값이다. 진입이 유독 짧은 것은 원신호가 이미 1분 창의 비율로 평활돼 있기 때문이다.
-   * 여기서 다시 오래 기다리면 1분을 재고 또 기다리는 셈이 되어 판정이 그만큼 늦는다. 얼굴 틱
-   * 두 번이면 새 비율이 반영되므로 4초를 본다. 해제는 다른 졸음 출처와 같다.
-   */
-  SLEEP_DROWSY: { enterMs: 4000, exitMs: 2000 },
+  DEVICE: { graceMs: 1000, enterMs: 4000, exitMs: STANDARD_HOLD.exitMs, continuous: true },
+  SLEEP_EYES: STANDARD_HOLD,
+  SLEEP_DROWSY: STANDARD_HOLD,
+  TOUCH: STANDARD_HOLD,
+  SCREEN_GAZE: { ...STANDARD_HOLD, enterMs: null },
+  NO_EVIDENCE: { ...STANDARD_HOLD, enterMs: null },
+};
+
+/**
+ * 이 방이 유예와 공부 흔적 판정(손 모델)을 쓰는지. 지금은 싱글룸만 쓴다.
+ * 감지기 옵션과 감지 시간 기본값이 같이 따르므로 두 곳이 어긋나지 않게 여기 한 곳에서 정한다.
+ */
+export function usesStudyEvidence(roomType: StudyRoomType): boolean {
+  return roomType === "single";
+}
+
+/** 쓰지 않는 출처. 원신호가 와도 유예도 비집중도 만들지 않는다. */
+const OFF_HOLD: TriggerHoldParams = { graceMs: Number.POSITIVE_INFINITY, enterMs: null, exitMs: 0 };
+
+/**
+ * 소셜·그룹룸 유지시간
+ *
+ * 유예와 공부 흔적 판정은 싱글룸에만 쓰고, 소셜·그룹룸은 유예를 도입하기 전 판정을 그대로 둔다.
+ * `graceMs`를 `enterMs`와 같게 두면 유예가 뜨는 순간 바로 확정되어 유예 구간이 보이지 않는다.
+ * 프레임 주기 1초와 짝인 값이다. 자리 비움은 한 프레임 놓침으로 확정되지 않게 주기의 2배, 휴대폰은 주기와 같다.
+ * 가속도(기기 흔들림)는 예전처럼 기기 조작으로 기록한다.
+ * 터치·화면 응시·흔적 없음은 소셜룸 감지기가 내보내지 않지만, 와도 아무 판정을 하지 않게 끈다.
+ */
+export const SOCIAL_DETECTION_PARAMS: DetectionParams = {
+  AWAY: { graceMs: 2000, enterMs: 2000, exitMs: 2000 },
+  PHONE: { graceMs: 1000, enterMs: 1000, exitMs: 1500 },
+  DEVICE: { graceMs: 500, enterMs: 500, exitMs: 2000, trigger: "DEVICE" },
+  SLEEP_EYES: { graceMs: 10_000, enterMs: 10_000, exitMs: 2000 },
+  SLEEP_DROWSY: { graceMs: 4000, enterMs: 4000, exitMs: 2000 },
+  TOUCH: OFF_HOLD,
+  SCREEN_GAZE: OFF_HOLD,
+  NO_EVIDENCE: OFF_HOLD,
 };
 
 /**
@@ -83,9 +135,9 @@ export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
  *
  * `StatusEventPayload`는 status 하나만 갖고 구간이 서로 겹칠 수 없어서, 자리 이탈 중 기기
  * 조작이 겹치면 어느 쪽으로 기록할지 정해야 했다. 자리에 없으면 나머지 판정은 관측 자체가
- * 불확실하므로 `AWAY`가 최상위다. `DEVICE`가 `PHONE`보다 앞서는 것은 가속도 신호가 카메라
- * 객체 인식보다 오탐이 적고, **기기가 흔들리는 동안에는 카메라 기반 판정을 신뢰하기 어렵기**
- * 때문이다.
+ * 불확실하므로 `AWAY`가 최상위다. `DEVICE`(화면 조작)는 사용자가 지금 이 화면을 만지고 있다는
+ * 직접 신호라 `PHONE`보다 앞선다. `PHONE`은 손에 쥔 휴대폰(카메라)과 이 휴대폰의 움직임(가속도,
+ * `SOURCE_TRIGGER` 참고)에서 온다.
  *
  * 적용 방식은 (a) 이미 활성인 트리거를 해제 전까지 유지하고 (b) 새로 고를 때만 이 순서를 쓴다.
  *
@@ -106,7 +158,7 @@ const TRIGGER_PRIORITY_RANK = {
 
 export const TRIGGER_PRIORITY = Object.keys(TRIGGER_PRIORITY_RANK) as readonly DistractionTrigger[];
 
-/** 출처별 원신호. 이름은 호출부 호환을 위해 유지한다. 키는 출처다. */
+/** 출처별 원신호. 키는 출처다. */
 export type TriggerSignals = Record<DetectionSource, boolean>;
 
 function fillSources<T>(value: T): Record<DetectionSource, T> {
@@ -124,25 +176,35 @@ export interface DetectionState {
   readonly signals: TriggerSignals;
   /** 각 원신호가 현재 값으로 바뀐 시각(유지시간 계산 기준). */
   readonly signalSinceMs: Record<DetectionSource, number>;
-  /** 유지시간을 넘겨 "확정"된 출처. 트리거 확정은 `isTriggerConfirmed`로 파생한다. */
+  /** 유예나 비집중이 시작된 원신호의 첫 시각. null이면 그 출처는 집중이다. */
+  readonly episodeSinceMs: Record<DetectionSource, number | null>;
+  /** 확정 시간을 넘긴 출처. 트리거 확정은 `isTriggerConfirmed`로 파생한다. */
   readonly confirmed: TriggerSignals;
-  /** 화면에 표시할 대표 트리거. 없으면 집중. */
+  /** 화면에 표시할 대표 트리거. 없으면 집중이나 유예다. */
   readonly active: DistractionTrigger | null;
+  /** 확정된 트리거는 없고 유예 중인 출처가 있다. 순공은 그대로 흐른다. */
+  readonly grace: boolean;
 }
 
 export function createDetectionState(nowMs: number): DetectionState {
   return {
     signals: { ...NO_TRIGGER_SIGNALS },
     signalSinceMs: fillSources(nowMs),
+    episodeSinceMs: fillSources<number | null>(null),
     confirmed: { ...NO_TRIGGER_SIGNALS },
     active: null,
+    grace: false,
   };
 }
 
 /** 트리거가 확정됐는가 = 그 트리거에 속한 출처 중 하나라도 확정. */
-function isTriggerConfirmed(confirmed: TriggerSignals, trigger: DistractionTrigger): boolean {
+function isTriggerConfirmed(
+  confirmed: TriggerSignals,
+  trigger: DistractionTrigger,
+  params: DetectionParams,
+): boolean {
   return DETECTION_SOURCES.some(
-    (source) => SOURCE_TRIGGER[source] === trigger && confirmed[source],
+    (source) => (params[source].trigger ?? SOURCE_TRIGGER[source]) === trigger && confirmed[source],
   );
 }
 
@@ -158,6 +220,7 @@ export function stepDetection(
 ): DetectionState {
   const nextSignals: TriggerSignals = { ...state.signals };
   const nextSince: Record<DetectionSource, number> = { ...state.signalSinceMs };
+  const nextEpisode: Record<DetectionSource, number | null> = { ...state.episodeSinceMs };
   const nextConfirmed: TriggerSignals = { ...state.confirmed };
 
   for (const source of DETECTION_SOURCES) {
@@ -168,28 +231,52 @@ export function stepDetection(
     }
     const heldMs = nowMs - nextSince[source];
     const hold = params[source];
-    if (raw && !nextConfirmed[source] && heldMs >= hold.enterMs) {
-      nextConfirmed[source] = true;
+    let episode = nextEpisode[source];
+    if (episode === null && raw && heldMs >= hold.graceMs) {
+      episode = nextSince[source];
     }
-    if (!raw && nextConfirmed[source] && heldMs >= hold.exitMs) {
+    if (episode !== null && !raw && heldMs >= hold.exitMs) {
+      episode = null;
+    }
+    nextEpisode[source] = episode;
+    const confirmFrom = hold.continuous === true ? nextSince[source] : episode;
+    if (episode === null) {
       nextConfirmed[source] = false;
+    } else if (
+      raw &&
+      hold.enterMs !== null &&
+      confirmFrom !== null &&
+      nowMs - confirmFrom >= hold.enterMs
+    ) {
+      nextConfirmed[source] = true;
     }
   }
 
   const active =
-    state.active !== null && isTriggerConfirmed(nextConfirmed, state.active)
+    state.active !== null && isTriggerConfirmed(nextConfirmed, state.active, params)
       ? state.active
-      : (TRIGGER_PRIORITY.find((trigger) => isTriggerConfirmed(nextConfirmed, trigger)) ?? null);
+      : (TRIGGER_PRIORITY.find((trigger) => isTriggerConfirmed(nextConfirmed, trigger, params)) ??
+        null);
+  const grace = active === null && DETECTION_SOURCES.some((source) => nextEpisode[source] !== null);
 
   const unchanged =
     active === state.active &&
+    grace === state.grace &&
     DETECTION_SOURCES.every(
       (source) =>
         nextSignals[source] === state.signals[source] &&
+        nextEpisode[source] === state.episodeSinceMs[source] &&
         nextConfirmed[source] === state.confirmed[source],
     );
 
   return unchanged
     ? state
-    : { signals: nextSignals, signalSinceMs: nextSince, confirmed: nextConfirmed, active };
+    : {
+        signals: nextSignals,
+        signalSinceMs: nextSince,
+        episodeSinceMs: nextEpisode,
+        confirmed: nextConfirmed,
+        active,
+        grace,
+      };
 }

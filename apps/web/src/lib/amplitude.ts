@@ -338,8 +338,8 @@ function setFlagOnce(key: string) {
  */
 export type StudyRoomType = "single" | "social";
 
-/** 한 세션 동안 한 번이라도 시작한 멀티 타이머 종류. */
-export type MultiTimerUse = "none" | "timer" | "pomodoro" | "both";
+/** 한 세션 동안 한 번이라도 시작한 멀티 타이머 종류. 두 종류 이상이면 `both`다. */
+export type MultiTimerUse = "none" | "timer" | "pomodoro" | "stopwatch" | "both";
 
 /** 세션 종료 사유 — `features/study-session`의 `SessionEndReason`을 평평하게 편 값. */
 export interface StudySessionEndedInput {
@@ -379,6 +379,12 @@ export interface StudySessionEndedInput {
   readonly breakSec?: number;
   /** 멀티 타이머가 없는 소셜룸은 생략하고, 생략은 none 으로 나간다. */
   readonly multiTimer?: MultiTimerUse;
+  /**
+   * 끝낸 순간 공부 화면 마스코트가 켜져 있었는가
+   *
+   * 마스코트가 없는 소셜룸은 생략하고, 생략은 false 로 나간다.
+   */
+  readonly mascotOn?: boolean;
 }
 
 /**
@@ -421,6 +427,7 @@ export function trackStudySessionEnded(input: StudySessionEndedInput) {
       ambient_sound_sec: Number(input.ambientSoundSec ?? 0),
       break_sec: Number(input.breakSec ?? 0),
       multi_timer: input.multiTimer ?? "none",
+      mascot_on: input.mascotOn ?? false,
     },
     { time: endedAt },
   );
@@ -1665,6 +1672,7 @@ export function trackRecordsSessionExpanded(input: { readonly expanded: boolean 
 export function trackSettingsRowPressed(
   row:
     | "profile"
+    | "timer_background"
     | "timelapse"
     | "app_lock"
     | "block_list"
@@ -1692,6 +1700,87 @@ export type TimelapseSettingEventKey =
   | "focus_rate"
   | "dday"
   | "streak";
+
+/** 설정 › 타이머 배경 미리보기에서 `적용하기`를 눌렀다. `kind`는 고른 배경 종류다. */
+export function trackTimerBackgroundApplied(input: {
+  readonly kind: "simple" | "proctor" | "photo";
+}) {
+  if (!initialized) return;
+  track("timer_background_applied", { kind: input.kind });
+}
+
+/**
+ * 일시정지 휴식 알림 고르기 이벤트
+ *
+ * 휴식 화면의 말풍선에서 알림 시간을 고를 때 보낸다. `알림 없음`은 `minutes: null`이다.
+ */
+export function trackSessionRestAlarmSet(input: { readonly minutes: number | null }) {
+  if (!initialized) return;
+  track("session_rest_alarm_set", { minutes: input.minutes });
+}
+
+/**
+ * 일시정지 휴식 알림이 울린 이벤트
+ *
+ * `in_app`은 앱이 앞에 있을 때 소리·진동으로 울린 경우다.
+ * 앱을 나가 있는 동안 지난 알림은 웹이 직접 알 수 없어 돌아왔을 때 `os`로 남긴다.
+ * `os`는 추정이다. 알림 권한과 화면 숨김으로 판단할 뿐, 알림 채널 차단 등으로 OS 알림이 실제로 떴는지는 모른다.
+ */
+export function trackSessionRestAlarmFired(input: { readonly channel: "in_app" | "os" }) {
+  if (!initialized) return;
+  track("session_rest_alarm_fired", { channel: input.channel });
+}
+
+/**
+ * 공부 화면 시계 보기 형식 바꾸기 이벤트
+ *
+ * 더보기 메뉴에서 순공 보기와 공부 시간 보기를 바꿀 때 보낸다. `view`는 바꾼 뒤의 값이다.
+ */
+export function trackSessionClockViewChanged(input: { readonly view: "focus" | "study" }) {
+  if (!initialized) return;
+  track("session_clock_view_changed", { view: input.view });
+}
+
+/**
+ * 공부 화면 마스코트 켜고 끄기 이벤트
+ *
+ * 더보기 메뉴에서 마스코트를 켜거나 끌 때 보낸다.
+ * `visible`은 바꾼 뒤의 값이다.
+ */
+export function trackSessionMascotToggled(visible: boolean) {
+  if (!initialized) return;
+  track("session_mascot_toggled", { visible });
+  // 켠 사용자와 안 켠 사용자의 집중률을 나눠 보려고 이벤트와 함께 상태로도 남긴다.
+  const id = new Identify();
+  id.set("session_mascot", visible);
+  identify(id);
+}
+
+/**
+ * 타이머 배경에 사진을 담았다
+ *
+ * `count`는 담은 뒤의 사진 수이고 `source`는 앱 선택기(`native`)와 웹 파일 입력(`file`) 중 어느 길로 골랐는지다.
+ * 사진 내용과 크기는 보내지 않는다.
+ */
+export function trackTimerBackgroundPhotoAdded(input: {
+  readonly count: number;
+  readonly source: "native" | "file";
+}) {
+  if (!initialized) return;
+  track("timer_background_photo_added", { count: input.count, source: input.source });
+}
+
+/** 타이머 배경 사진을 삭제했다. `count`는 삭제한 뒤의 사진 수이고 `wasSelected`는 쓰던 배경이었는지다. */
+export function trackTimerBackgroundPhotoRemoved(input: {
+  readonly count: number;
+  readonly wasSelected: boolean;
+}) {
+  if (!initialized) return;
+  track("timer_background_photo_removed", {
+    count: input.count,
+    was_selected: input.wasSelected,
+  });
+}
 
 /** 설정 › 타임랩스에서 바꾼 항목과 바뀐 뒤의 값. 비율은 `9:16`·`16:9`, 가림 이모지는 이모지 id, 나머지는 켜짐 여부다. */
 export function trackTimelapseSettingChanged(input: {
@@ -2184,7 +2273,7 @@ export function trackAmbientSoundDuckToggled(enabled: boolean, roomType: StudyRo
  * 세션 단위 사용 여부는 `trackStudySessionEnded`의 `multi_timer`가 싣는다.
  */
 
-type MultiTimerKind = "timer" | "pomodoro";
+type MultiTimerKind = "timer" | "pomodoro" | "stopwatch";
 type PomodoroPhase = "focus" | "break";
 
 /**
@@ -2214,9 +2303,8 @@ export function trackMultiTimerStarted(input: {
   if (!initialized) return;
   track("multi_timer_started", {
     kind: input.kind,
-    ...(input.kind === "timer"
-      ? { timer_sec: input.timerSec }
-      : { focus_min: input.focusMin, break_min: input.breakMin }),
+    ...(input.kind === "timer" && { timer_sec: input.timerSec }),
+    ...(input.kind === "pomodoro" && { focus_min: input.focusMin, break_min: input.breakMin }),
     sound_on: input.soundOn,
     from_pause: input.fromPause,
   });

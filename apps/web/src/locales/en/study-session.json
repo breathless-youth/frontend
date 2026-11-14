@@ -1,11 +1,16 @@
 {
+  "countdown": {
+    "preparing": "Getting study detection ready"
+  },
   "status": {
     "focus": "Measuring focus time",
+    "grace": "Checking your study status",
     "away": "Looks like you're away",
     "phone": "Looks like you're on your phone",
     "device": "Looks like you're moving your device",
     "sleep": "Looks like you're dozing off",
-    "pause": "Measuring paused"
+    "pause": "Measuring paused",
+    "distracted": "Check that you're at your desk"
   },
   "exitConfirm": {
     "title": "End your session?",
@@ -21,15 +26,6 @@
     "title": "End your session and accept the invite?",
     "cancel": "Keep going",
     "confirm": "Join"
-  },
-  "cameraPrompt": {
-    "title": "Check your camera position",
-    "description": "Make sure your face and desk are in view",
-    "notice": "Your camera video stays on your device",
-    "cancel": "Start in\nSimple Mode",
-    "confirm": "Turn on camera",
-    "faceMaskTooltip": "If you move quickly, your face may show for a moment",
-    "faceMaskCaption": "Hide face for time-lapses is a separate setting"
   },
   "cameraToast": {
     "flipped": "Camera switched",
@@ -69,9 +65,7 @@
     "srSeconds_other": "{{count}} seconds"
   },
   "timer": {
-    "total": "Total {{elapsed}}",
     "srFocus": "Focus time {{duration}}",
-    "srTotal": "Total study time {{duration}}",
     "srSubjectFocus": "Focus {{duration}}"
   },
   "controls": {
@@ -79,14 +73,20 @@
     "resume": "Resume",
     "exit": "End session",
     "simpleModeToggle": "Simple Mode",
-    "sideActions": "Session tools",
-    "subjectSelected": "Subject selected"
+    "subjectSelected": "Subject selected",
+    "bar": "Session controls"
   },
   "moreMenu": {
     "trigger": "More",
     "flipCamera": "Switch camera",
     "help": "View guide",
-    "shareInvite": "Share invite code"
+    "shareInvite": "Share invite code",
+    "timer": "Timer",
+    "hideMascot": "Hide mascot",
+    "showMascot": "Show mascot",
+    "viewStudy": "Show study time",
+    "viewFocus": "Show focus time",
+    "stopwatch": "Stopwatch"
   },
   "subjectSheet": {
     "title": "Subject",
@@ -128,7 +128,7 @@
     "measuringPill": "Come back to <hl>measure again</hl>\nYour camera view stays\non <hl>your device</hl>, so rest easy😌",
     "measuringTimer": "<hl>Focus time</hl>\nstarts counting again⏰",
     "cameraTap": "Tap the screen to switch\nto the <hl>camera view</hl>",
-    "buttonsSide": "<hl>Ambient sound</hl>,\n<hl>subjects</hl>, and <hl>timers</hl>\nare right here",
+    "buttonsSide": "<hl>Ambient sound</hl> is here,\n<hl>timers</hl> are in More",
     "buttonsPause": "Taking a break?\nTap <hl>Pause</hl>",
     "finishMore": "Find this guide anytime\nin the More menu",
     "finishCenter": "You're all set\nReady to <hl>focus</hl>?",
@@ -164,5 +164,53 @@
     "focus": "Focus",
     "distract": "Auto-paused",
     "pause": "Paused"
+  },
+  "clock": {
+    "currentFocus": "Focus this session",
+    "currentStudy": "This session",
+    "todayFocus": "Focus today",
+    "todayStudy": "Study today",
+    "srFocus": "Focus time this session {{duration}}",
+    "srStudy": "Study time this session {{duration}}",
+    "srTodayFocus": "Total focus time today {{duration}}",
+    "srTodayStudy": "Total study time today {{duration}}"
+  },
+  "header": {
+    "choose": "Choose a subject",
+    "noSubject": "Choose a subject",
+    "addTask": "Add a task…"
+  },
+  "camera": {
+    "label": "Camera",
+    "timelapse": "Time-lapse",
+    "expand": "Enlarge my camera",
+    "shrink": "Make it smaller"
+  },
+  "timerChip": {
+    "group": "Extra timer",
+    "timer": "Timer",
+    "stopwatch": "Stopwatch",
+    "open": "Timer settings",
+    "total": "/ {{total}}",
+    "pause": "Pause",
+    "resume": "Resume",
+    "off": "Turn off",
+    "elapsed": "Elapsed time",
+    "remaining": "Time left"
+  },
+  "timerSheet": {
+    "title": "Timer settings"
+  },
+  "rest": {
+    "label": "Taking a break",
+    "labelWithAlarm": "Taking a break · I'll remind you in {{minutes}} min",
+    "ended": "Break's over",
+    "alarmGroup": "Break reminder",
+    "alarm": "Remind me in {{minutes}} min",
+    "alarmNone": "No reminder",
+    "srElapsed": "Break time {{duration}}",
+    "srRemaining": "Break time left {{duration}}",
+    "notificationTitle": "Your {{minutes}}-min break is over",
+    "notificationBody": "Time to get back to studying"
   }
 }

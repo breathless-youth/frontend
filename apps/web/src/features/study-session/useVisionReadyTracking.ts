@@ -6,6 +6,7 @@ import {
   type PhotoTap,
   type VisionFocusDetector,
 } from "@/features/study-session/adapters/focusDetector";
+import { usesStudyEvidence } from "@/features/study-session/detection";
 import {
   type AssetTiming,
   resolveModelVariant,
@@ -201,7 +202,12 @@ export function useTrackedVisionDetector(
   // 촬영 창구는 검출기와 수명이 같아 마운트 때 한 번만 읽는다.
   // eslint-disable-next-line react-hooks/refs -- video 게터는 추론 루프가 부른다. 생성 중에는 부르지 않는다
   const [visionDetector] = useState(() =>
-    createVisionFocusDetector({ video: () => videoRef.current, photoTap }),
+    // 손 모델과 공부 흔적 판정은 싱글룸만 쓴다. 소셜룸은 사람·휴대폰·졸음만 본다.
+    createVisionFocusDetector({
+      video: () => videoRef.current,
+      photoTap,
+      studyEvidence: usesStudyEvidence(roomType),
+    }),
   );
   const visionReady = useVisionReadyTracking(visionDetector, roomType);
   return { visionDetector, visionReady };

@@ -11,6 +11,7 @@
     "editProfile": "プロフィールを編集",
     "cameraPermission": "カメラへのアクセス",
     "micPermission": "マイクへのアクセス",
+    "timerBackground": "タイマー背景",
     "timelapse": "タイムラプス",
     "appLock": "アプリブロック",
     "blockList": "ブロックリスト",
@@ -77,6 +78,46 @@
       "description": "すべての記録がすぐに削除され、元に戻せません",
       "confirm": "削除",
       "failed": "アカウントを削除できませんでした。しばらくしてからもう一度お試しください"
+    }
+  },
+  "timerBackground": {
+    "title": "タイマー背景",
+    "sections": {
+      "mine": "マイ写真",
+      "watch": "見守り",
+      "nature": "自然",
+      "simple": "シンプル"
+    },
+    "watchDescription": "集中の状態に合わせて見守り役がやってきます。",
+    "simpleDescription": "背景なしで、暗い画面にタイマーだけを表示します。",
+    "addPhoto": "アルバムから選択",
+    "photoCount": "{{count}}/{{max}}",
+    "photoName": "マイ写真 {{number}}",
+    "simple": "シンプル",
+    "names": {
+      "proctor": "自習室の監督",
+      "libraryCapybara": "図書館のカピバラ",
+      "peepholeDog": "ドアの向こうの犬",
+      "grass": "草むら",
+      "mountain": "山",
+      "rain": "雨の日"
+    },
+    "inUse": "使用中",
+    "soon": "近日公開",
+    "removePhoto": "{{name}}を削除",
+    "apply": "適用する",
+    "footstepsNote": "足音が聞こえます",
+    "applying": "適用中…",
+    "applied": "背景を適用しました",
+    "applyFailed": "背景を適用できませんでした。もう一度お試しください。",
+    "removed": "写真を削除しました",
+    "removeFailed": "写真を削除できませんでした。もう一度お試しください。",
+    "photoLimit": "写真は{{max}}枚まで追加できます",
+    "preview": {
+      "subject": "数学",
+      "task": "微積分 過去問 第3回",
+      "camera": "カメラ",
+      "screen": "勉強画面のプレビュー"
     }
   }
 }

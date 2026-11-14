@@ -11,6 +11,7 @@
     "editProfile": "Edit profile",
     "cameraPermission": "Camera access",
     "micPermission": "Microphone access",
+    "timerBackground": "Timer background",
     "timelapse": "Time-lapse",
     "appLock": "App blocking",
     "blockList": "Blocked users",
@@ -77,6 +78,46 @@
       "description": "All your records will be deleted right away. This can't be undone.",
       "confirm": "Delete",
       "failed": "Couldn't delete your account. Please try again later."
+    }
+  },
+  "timerBackground": {
+    "title": "Timer background",
+    "sections": {
+      "mine": "My photos",
+      "watch": "Watchers",
+      "nature": "Nature",
+      "simple": "Simple"
+    },
+    "watchDescription": "A watcher shows up depending on how focused you are.",
+    "simpleDescription": "Just the timer on a dark screen, no background.",
+    "addPhoto": "Choose from album",
+    "photoCount": "{{count}}/{{max}}",
+    "photoName": "My photo {{number}}",
+    "simple": "Simple",
+    "names": {
+      "proctor": "Study hall proctor",
+      "libraryCapybara": "Library capybara",
+      "peepholeDog": "Dog at the door",
+      "grass": "Grass",
+      "mountain": "Mountains",
+      "rain": "Rainy day"
+    },
+    "inUse": "In use",
+    "soon": "Coming soon",
+    "removePhoto": "Delete {{name}}",
+    "apply": "Apply",
+    "footstepsNote": "You'll hear footsteps",
+    "applying": "Applying…",
+    "applied": "Background applied",
+    "applyFailed": "Couldn't apply the background. Please try again.",
+    "removed": "Photo deleted",
+    "removeFailed": "Couldn't delete the photo. Please try again.",
+    "photoLimit": "You can add up to {{max}} photos",
+    "preview": {
+      "subject": "Math",
+      "task": "Calculus past paper #3",
+      "camera": "Camera",
+      "screen": "Study screen preview"
     }
   }
 }

@@ -5,7 +5,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { VisionFocusDetector } from "@/features/study-session/adapters/focusDetector";
 import type { FaceSpot } from "@/features/study-session/vision/faceSpot";
-import { CAMERA_PROMPT_NAME } from "@/test/cameraPrompt";
 import { RoomPage } from "../RoomPage";
 
 /**
@@ -85,11 +84,6 @@ vi.mock("@/features/study-session/useVisionReadyTracking", () => ({
 }));
 
 const SPOT: FaceSpot = { x: 0.5, y: 0.3, size: 0.25, aspect: 16 / 9, visible: true };
-const TIMELAPSE = JSON.stringify({
-  enabled: true,
-  aspect: "9:16",
-  info: { faceMask: true },
-});
 
 function renderRoom() {
   return render(
@@ -101,7 +95,6 @@ function renderRoom() {
   );
 }
 
-const prompt = () => screen.queryByRole("alertdialog", { name: CAMERA_PROMPT_NAME });
 const cameraSurface = () => document.querySelector<HTMLElement>('[data-session-surface="camera"]');
 const surfaceMaskMode = () =>
   cameraSurface()?.querySelector("[data-face-mask]")?.getAttribute("data-face-mask");
@@ -120,12 +113,10 @@ function stubWorkingCamera() {
   });
 }
 
-/** 확인 창에서 가리기를 켜고 카메라로 들어간 뒤 위치를 흘려 공부 화면에 이모지를 붙인다. */
+/** 저장된 켬 상태로 들어간 뒤 위치를 흘려 공부 화면에 이모지를 붙인다. */
 async function enterWithStickerShown() {
+  localStorage.setItem("focusmakers.singleFaceMask", "on");
   renderRoom();
-  const dialog = prompt()!;
-  await userEvent.click(within(dialog).getByRole("switch", { name: "얼굴 가리기" }));
-  await userEvent.click(within(dialog).getByRole("button", { name: "카메라 켜기" }));
   act(() => vision.emitSpot(SPOT));
   fireEvent.load(within(cameraSurface()!).getByTestId("face-mask-emoji"));
   expect(surfaceMaskMode()).toBe("sticker");
@@ -140,76 +131,34 @@ describe("RoomPage 얼굴 가리기", () => {
     vision.state.stopClearsSpot = true;
   });
 
-  it("확인 창에서 켠 가리기와 고른 이모지를 저장하고 공부 화면에 반영한다", async () => {
-    localStorage.setItem("focuson.timelapse.v1", TIMELAPSE);
+  // 싱글룸에는 가리기를 바꾸는 화면이 없어 저장된 설정만 읽는다.
+  it("저장된 가리기와 이모지로 들어오면 확인 창 없이 공부 화면을 가린다", () => {
+    localStorage.setItem("focusmakers.singleFaceMask", "on");
+    localStorage.setItem("focusmakers.singleFaceMaskEmoji", "cat");
     renderRoom();
-    const dialog = prompt()!;
-    expect(within(dialog).getByRole("switch", { name: "얼굴 가리기" })).not.toBeChecked();
-    expect(vision.spotListeners.size).toBe(0);
-
-    await userEvent.click(within(dialog).getByRole("switch", { name: "얼굴 가리기" }));
-    await userEvent.click(within(dialog).getByRole("radio", { name: "고양이" }));
-
-    expect(
-      within(dialog).getByText("타임랩스 얼굴 가리기는 따로 설정해야 해요"),
-    ).toBeInTheDocument();
-    expect(within(dialog).getByRole("status")).toHaveTextContent("가릴 위치를 찾고 있어요");
-    expect(within(dialog).getByTestId("face-mask-emoji")).toHaveAttribute(
-      "src",
-      "/face-mask/cat.png",
-    );
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
 
     act(() => vision.emitSpot(SPOT));
-    expect(within(dialog).queryByText("가릴 위치를 찾고 있어요")).toBeNull();
 
-    await userEvent.click(within(dialog).getByRole("button", { name: "카메라 켜기" }));
-
-    expect(localStorage.getItem("focusmakers.singleFaceMask")).toBe("on");
-    expect(localStorage.getItem("focusmakers.singleFaceMaskEmoji")).toBe("cat");
-    expect(localStorage.getItem("focusmakers.socialFaceMask")).toBeNull();
-    expect(localStorage.getItem("focuson.timelapse.v1")).toBe(TIMELAPSE);
     const emoji = within(cameraSurface()!).getByTestId("face-mask-emoji");
     expect(emoji).toHaveAttribute("src", "/face-mask/cat.png");
     expect(emoji.style.left).toBe("50%");
-    expect(amplitude.trackStudySessionFaceMaskToggled).toHaveBeenCalledExactlyOnceWith({
-      on: true,
-      roomType: "single",
-    });
-    expect(amplitude.trackStudySessionFaceMaskEmojiSelected).toHaveBeenCalledExactlyOnceWith({
-      emojiId: "cat",
-      roomType: "single",
-    });
-    expect(amplitude.trackStudySessionCameraPromptAnswered).toHaveBeenCalledExactlyOnceWith({
-      choice: "camera",
-      roomType: "single",
-      faceMask: true,
-    });
   });
 
-  it("저장된 켬 상태로 들어오면 확인 창 없이도 공부 화면을 가리고, 끄면 위치 구독을 멈춘다", async () => {
-    localStorage.setItem("focusmakers.singleFaceMask", "on");
+  it("가리기를 꺼 두었으면 위치를 구독하지 않는다", () => {
     renderRoom();
-    const dialog = prompt()!;
-    expect(within(dialog).getByRole("switch", { name: "얼굴 가리기" })).toBeChecked();
-    expect(vision.spotListeners.size).toBe(1);
-
-    await userEvent.click(within(dialog).getByRole("switch", { name: "얼굴 가리기" }));
 
     expect(vision.spotListeners.size).toBe(0);
-    expect(localStorage.getItem("focusmakers.singleFaceMask")).toBe("off");
-    await userEvent.click(within(dialog).getByRole("button", { name: "카메라 켜기" }));
     expect(within(cameraSurface()!).queryByTestId("face-mask-emoji")).toBeNull();
-    expect(amplitude.trackStudySessionCameraPromptAnswered).toHaveBeenCalledExactlyOnceWith({
-      choice: "camera",
-      roomType: "single",
-      faceMask: false,
-    });
   });
 
-  it("이모지가 붙은 뒤 일시정지하면 감지기가 멈추며 위치가 비어 흐림으로 바뀐다", async () => {
+  it("이모지가 붙은 뒤 일시정지하면 감지기가 멈추며 위치가 비고, 재개해도 옛 위치 대신 흐림이다", async () => {
     await enterWithStickerShown();
 
     await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
+    // 일시정지 동안은 카메라가 꺼지고 미리보기 창도 걷힌다.
+    expect(cameraSurface()).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "다시 시작" }));
 
     expect(surfaceMaskMode()).toBe("blur");
   });

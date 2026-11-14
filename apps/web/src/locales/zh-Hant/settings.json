@@ -11,6 +11,7 @@
     "editProfile": "編輯個人檔案",
     "cameraPermission": "相機取用權限",
     "micPermission": "麥克風取用權限",
+    "timerBackground": "計時器背景",
     "timelapse": "縮時攝影",
     "appLock": "App 封鎖",
     "blockList": "封鎖名單",
@@ -77,6 +78,46 @@
       "description": "所有紀錄會立即刪除，且無法復原",
       "confirm": "刪除",
       "failed": "無法刪除帳號，請稍後再試"
+    }
+  },
+  "timerBackground": {
+    "title": "計時器背景",
+    "sections": {
+      "mine": "我的照片",
+      "watch": "監督",
+      "nature": "自然",
+      "simple": "簡約"
+    },
+    "watchDescription": "監督者會依你的專注狀態出現。",
+    "simpleDescription": "沒有背景，只在暗色畫面顯示計時器。",
+    "addPhoto": "從相簿選擇",
+    "photoCount": "{{count}}/{{max}}",
+    "photoName": "我的照片 {{number}}",
+    "simple": "簡約",
+    "names": {
+      "proctor": "自習室監督",
+      "libraryCapybara": "圖書館的水豚",
+      "peepholeDog": "門外的狗狗",
+      "grass": "草叢",
+      "mountain": "山",
+      "rain": "雨天"
+    },
+    "inUse": "使用中",
+    "soon": "即將推出",
+    "removePhoto": "刪除{{name}}",
+    "apply": "套用",
+    "footstepsNote": "會聽到腳步聲",
+    "applying": "套用中…",
+    "applied": "已套用背景",
+    "applyFailed": "無法套用背景，請再試一次。",
+    "removed": "已刪除照片",
+    "removeFailed": "無法刪除照片，請再試一次。",
+    "photoLimit": "最多可加入 {{max}} 張照片",
+    "preview": {
+      "subject": "數學",
+      "task": "微積分考古題第 3 回",
+      "camera": "相機",
+      "screen": "讀書畫面預覽"
     }
   }
 }

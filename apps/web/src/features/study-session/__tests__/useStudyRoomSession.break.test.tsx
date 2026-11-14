@@ -227,7 +227,7 @@ describe("useStudyRoomSession 휴식", () => {
     act(() => {
       detector.emit({ source: "PHONE", active: true });
     });
-    await advance(1_000); // enterMs(1000) 경과 → DISTRACTION
+    await advance(10_000); // 유예 3초를 지나 10초에 비집중 확정
     expect(result.current.sessionState).toEqual(distractionState("PHONE"));
     await advance(9_000);
     act(() => {

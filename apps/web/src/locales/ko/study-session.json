@@ -1,11 +1,16 @@
 {
+  "countdown": {
+    "preparing": "공부 감지를 준비하고 있어요"
+  },
   "status": {
     "focus": "순공시간 측정 중",
+    "grace": "공부 상태를 확인 중이에요",
     "away": "자리를 비운 것 같아요",
     "phone": "휴대폰을 사용 중인 것 같아요",
     "device": "기기를 조작 중인 것 같아요",
     "sleep": "졸고 있는 것 같아요",
-    "pause": "측정을 일시정지했어요"
+    "pause": "측정을 일시정지했어요",
+    "distracted": "자리를 확인해 주세요"
   },
   "exitConfirm": {
     "title": "공부를 종료할까요?",
@@ -21,15 +26,6 @@
     "title": "진행 중인 공부를 종료하고 초대에 참여할까요?",
     "cancel": "계속하기",
     "confirm": "참여하기"
-  },
-  "cameraPrompt": {
-    "title": "카메라 위치를 확인해 주세요",
-    "description": "얼굴과 책상이 보이게 자리를 잡아 주세요",
-    "notice": "영상은 기기 밖으로 나가지 않아요",
-    "cancel": "심플 모드로 시작",
-    "confirm": "카메라 켜기",
-    "faceMaskTooltip": "빠르게 움직이면 얼굴이 잠깐 보일 수 있어요",
-    "faceMaskCaption": "타임랩스 얼굴 가리기는 따로 설정해야 해요"
   },
   "cameraToast": {
     "flipped": "카메라를 전환했어요",
@@ -66,9 +62,7 @@
     "srSeconds": "{{count}}초"
   },
   "timer": {
-    "total": "총 {{elapsed}}",
     "srFocus": "순공시간 {{duration}}",
-    "srTotal": "총 공부 시간 {{duration}}",
     "srSubjectFocus": "순공 {{duration}}"
   },
   "controls": {
@@ -76,14 +70,20 @@
     "resume": "다시 시작",
     "exit": "공부 종료",
     "simpleModeToggle": "심플 모드 전환",
-    "sideActions": "부가 기능",
-    "subjectSelected": "과목 선택됨"
+    "subjectSelected": "과목 선택됨",
+    "bar": "공부 조작"
   },
   "moreMenu": {
     "trigger": "더보기",
     "flipCamera": "카메라 전환",
     "help": "도움말 보기",
-    "shareInvite": "초대코드 공유"
+    "shareInvite": "초대코드 공유",
+    "timer": "타이머",
+    "hideMascot": "마스코트 숨기기",
+    "showMascot": "마스코트 보이기",
+    "viewStudy": "공부 시간으로 보기",
+    "viewFocus": "순공으로 보기",
+    "stopwatch": "스톱워치"
   },
   "subjectSheet": {
     "title": "과목",
@@ -124,7 +124,7 @@
     "measuringPill": "자리로 돌아오면 <hl>다시 측정</hl>해요\n측정 화면은 <hl>기기 밖</hl>으로 나가지 않으니\n안심하세요😌",
     "measuringTimer": "<hl>순공시간</hl>이\n다시 흘러가요⏰",
     "cameraTap": "화면을 탭하면\n<hl>카메라 화면</hl>으로 바뀌어요",
-    "buttonsSide": "<hl>배경음</hl>, <hl>과목</hl>, <hl>타이머</hl>는\n여기서 켜요",
+    "buttonsSide": "<hl>배경음</hl>은 여기서,\n<hl>타이머</hl>는 더보기에서 켜요",
     "buttonsPause": "쉴 때는\n<hl>일시정지</hl>를 눌러요",
     "finishMore": "이 도움말은 더보기 메뉴에서\n언제든 다시 볼 수 있어요",
     "finishCenter": "준비됐어요\n이제 <hl>집중</hl>해 볼까요?",
@@ -159,5 +159,53 @@
     "focus": "순공",
     "distract": "자동 멈춤",
     "pause": "일시정지"
+  },
+  "clock": {
+    "currentFocus": "현재 집중",
+    "currentStudy": "현재 공부",
+    "todayFocus": "오늘 집중",
+    "todayStudy": "오늘 공부",
+    "srFocus": "이번 순공시간 {{duration}}",
+    "srStudy": "이번 공부 시간 {{duration}}",
+    "srTodayFocus": "오늘 순공시간 {{duration}}",
+    "srTodayStudy": "오늘 공부 시간 {{duration}}"
+  },
+  "header": {
+    "choose": "과목 선택",
+    "noSubject": "과목을 선택하세요",
+    "addTask": "할 일 추가.."
+  },
+  "camera": {
+    "label": "카메라",
+    "timelapse": "타임랩스",
+    "expand": "내 화면 크게 보기",
+    "shrink": "작게 보기"
+  },
+  "timerChip": {
+    "group": "추가 타이머",
+    "timer": "타이머",
+    "stopwatch": "스톱워치",
+    "open": "타이머 설정",
+    "total": "/ {{total}}",
+    "pause": "멈춤",
+    "resume": "계속",
+    "off": "끄기",
+    "elapsed": "흐른 시간",
+    "remaining": "남은 시간"
+  },
+  "timerSheet": {
+    "title": "타이머 설정"
+  },
+  "rest": {
+    "label": "쉬는 중",
+    "labelWithAlarm": "쉬는 중 · {{minutes}}분 뒤 알려줄게요",
+    "ended": "휴식이 끝났어요",
+    "alarmGroup": "휴식 알림",
+    "alarm": "{{minutes}}분 휴식 후 알림",
+    "alarmNone": "알림 없음",
+    "srElapsed": "쉰 시간 {{duration}}",
+    "srRemaining": "남은 휴식 시간 {{duration}}",
+    "notificationTitle": "{{minutes}}분 휴식이 끝났어요",
+    "notificationBody": "다시 공부를 시작할 시간이에요"
   }
 }

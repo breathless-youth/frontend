@@ -1,11 +1,16 @@
 {
+  "countdown": {
+    "preparing": "学習の検出を準備しています"
+  },
   "status": {
     "focus": "集中時間を測定中",
+    "grace": "勉強の状態を確認しています",
     "away": "席を離れているようです",
     "phone": "スマホを使っているようです",
     "device": "端末を操作しているようです",
     "sleep": "居眠りしているようです",
-    "pause": "測定を一時停止しました"
+    "pause": "測定を一時停止しました",
+    "distracted": "席にいるか確認してください"
   },
   "exitConfirm": {
     "title": "勉強を終了しますか？",
@@ -21,15 +26,6 @@
     "title": "進行中の勉強を終了して、招待に参加しますか？",
     "cancel": "続ける",
     "confirm": "参加する"
-  },
-  "cameraPrompt": {
-    "title": "カメラの位置を確認してください",
-    "description": "顔と机が映るように位置を調整してください",
-    "notice": "映像がデバイスの外に出ることはありません",
-    "cancel": "シンプルモードで始める",
-    "confirm": "カメラをオン",
-    "faceMaskTooltip": "すばやく動くと、顔が一瞬見えることがあります",
-    "faceMaskCaption": "タイムラプスの「顔を隠す」は別に設定が必要です"
   },
   "cameraToast": {
     "flipped": "カメラを切り替えました",
@@ -66,9 +62,7 @@
     "srSeconds": "{{count}}秒"
   },
   "timer": {
-    "total": "合計{{elapsed}}",
     "srFocus": "集中時間{{duration}}",
-    "srTotal": "総勉強時間{{duration}}",
     "srSubjectFocus": "集中{{duration}}"
   },
   "controls": {
@@ -76,14 +70,20 @@
     "resume": "再開",
     "exit": "勉強を終了",
     "simpleModeToggle": "シンプルモードに切り替え",
-    "sideActions": "ツール",
-    "subjectSelected": "科目を選択中"
+    "subjectSelected": "科目を選択中",
+    "bar": "勉強の操作"
   },
   "moreMenu": {
     "trigger": "その他",
     "flipCamera": "カメラを切り替え",
     "help": "ヘルプを見る",
-    "shareInvite": "招待コードを共有"
+    "shareInvite": "招待コードを共有",
+    "timer": "タイマー",
+    "hideMascot": "マスコットを非表示",
+    "showMascot": "マスコットを表示",
+    "viewStudy": "勉強時間で表示",
+    "viewFocus": "集中時間で表示",
+    "stopwatch": "ストップウォッチ"
   },
   "subjectSheet": {
     "title": "科目",
@@ -124,7 +124,7 @@
     "measuringPill": "席に戻ると<hl>測定を再開</hl>します\n映像は<hl>デバイスの外</hl>に\n出ないので安心してください😌",
     "measuringTimer": "<hl>集中時間</hl>が\nまた進みはじめます⏰",
     "cameraTap": "画面をタップすると\n<hl>カメラ画面</hl>に切り替わります",
-    "buttonsSide": "<hl>バックグラウンド\nサウンド</hl>、<hl>科目</hl>、\n<hl>タイマー</hl>は\nここからオンにします",
+    "buttonsSide": "<hl>バックグラウンド\nサウンド</hl>はここ、\n<hl>タイマー</hl>は\n「その他」からオンにします",
     "buttonsPause": "休憩するときは\n<hl>一時停止</hl>を\nタップします",
     "finishMore": "このヘルプは\n「その他」メニューから\nいつでも見られます",
     "finishCenter": "準備ができました\nさあ、<hl>集中</hl>しましょう",
@@ -159,5 +159,53 @@
     "focus": "集中",
     "distract": "自動一時停止",
     "pause": "一時停止"
+  },
+  "clock": {
+    "currentFocus": "現在の集中",
+    "currentStudy": "現在の勉強",
+    "todayFocus": "今日の集中",
+    "todayStudy": "今日の勉強",
+    "srFocus": "今回の集中時間{{duration}}",
+    "srStudy": "今回の勉強時間{{duration}}",
+    "srTodayFocus": "今日の集中時間{{duration}}",
+    "srTodayStudy": "今日の勉強時間{{duration}}"
+  },
+  "header": {
+    "choose": "科目を選ぶ",
+    "noSubject": "科目を選択してください",
+    "addTask": "タスクを追加…"
+  },
+  "camera": {
+    "label": "カメラ",
+    "timelapse": "タイムラプス",
+    "expand": "自分の画面を大きく表示",
+    "shrink": "小さく表示"
+  },
+  "timerChip": {
+    "group": "追加タイマー",
+    "timer": "タイマー",
+    "stopwatch": "ストップウォッチ",
+    "open": "タイマー設定",
+    "total": "/ {{total}}",
+    "pause": "一時停止",
+    "resume": "再開",
+    "off": "オフ",
+    "elapsed": "経過時間",
+    "remaining": "残り時間"
+  },
+  "timerSheet": {
+    "title": "タイマー設定"
+  },
+  "rest": {
+    "label": "休憩中",
+    "labelWithAlarm": "休憩中 · {{minutes}}分後にお知らせします",
+    "ended": "休憩が終わりました",
+    "alarmGroup": "休憩のお知らせ",
+    "alarm": "{{minutes}}分後にお知らせ",
+    "alarmNone": "お知らせなし",
+    "srElapsed": "休憩時間{{duration}}",
+    "srRemaining": "残りの休憩時間{{duration}}",
+    "notificationTitle": "{{minutes}}分の休憩が終わりました",
+    "notificationBody": "勉強を再開する時間です"
   }
 }
