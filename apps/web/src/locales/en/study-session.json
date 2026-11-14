@@ -205,6 +205,8 @@
     "alarm": "Remind me in {{minutes}} min",
     "alarmNone": "No reminder",
     "srElapsed": "Break time {{duration}}",
-    "srRemaining": "Break time left {{duration}}"
+    "srRemaining": "Break time left {{duration}}",
+    "notificationTitle": "Your {{minutes}}-min break is over",
+    "notificationBody": "Time to get back to studying"
   }
 }

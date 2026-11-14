@@ -200,6 +200,8 @@
     "alarm": "休息 {{minutes}} 分鐘後提醒",
     "alarmNone": "不提醒",
     "srElapsed": "休息時間 {{duration}}",
-    "srRemaining": "剩餘休息時間 {{duration}}"
+    "srRemaining": "剩餘休息時間 {{duration}}",
+    "notificationTitle": "{{minutes}} 分鐘的休息結束了",
+    "notificationBody": "該繼續讀書了"
   }
 }

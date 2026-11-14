@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { __resetNativePushPermissionForTests } from "@/lib/nativePushPermission";
 import { __resetRestNotificationForTests } from "@/lib/restNotificationCapability";
 
 import { RoomPage } from "../RoomPage";
@@ -29,6 +30,7 @@ vi.mock("@/routes/lazyRoutes", () => ({ prefetchResultPage: vi.fn() }));
 function renderRoom(path = "/room/7?userId=1") {
   window.history.replaceState(null, "", path);
   __resetRestNotificationForTests();
+  __resetNativePushPermissionForTests();
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
@@ -100,5 +102,46 @@ describe("RoomPage 일시정지 휴식 화면", () => {
 
     expect(overlay()).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "휴식 알림" })).toBeNull();
+  });
+
+  it("앱에서 휴식 알림을 고르면 OS 알림을 예약하고, 다시 시작하면 거둔다", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderRoom("/room/7?userId=1&restNotify=1");
+    const sent = () => postMessage.mock.calls.map(([raw]) => JSON.parse(raw as string));
+
+    fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
+    fireEvent.click(screen.getByRole("button", { name: "5분 휴식 후 알림" }));
+
+    const scheduled = sent().find((message) => message.type === "schedule-rest-notification");
+    expect(scheduled).toMatchObject({
+      id: "study-rest",
+      title: "5분 휴식이 끝났어요",
+      body: "다시 공부를 시작할 시간이에요",
+    });
+    expect(scheduled.fireAtMs).toBeGreaterThan(Date.now() + 299_000);
+
+    fireEvent.click(screen.getByRole("button", { name: "다시 시작" }));
+
+    expect(sent()).toContainEqual(
+      expect.objectContaining({ type: "cancel-rest-notification", id: "study-rest" }),
+    );
+  });
+
+  it("알림 권한을 물을 수 있는 앱이면 처음 알림을 고를 때 한 번만 묻는다", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderRoom("/room/7?userId=1&restNotify=1&pushPermission=1");
+    const asks = () =>
+      postMessage.mock.calls.filter(
+        ([raw]) => JSON.parse(raw as string).type === "request-push-permission",
+      ).length;
+
+    fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
+    expect(asks()).toBe(0);
+    fireEvent.click(screen.getByRole("button", { name: "5분 휴식 후 알림" }));
+    fireEvent.click(screen.getByRole("button", { name: "10분 휴식 후 알림" }));
+
+    expect(asks()).toBe(1);
   });
 });

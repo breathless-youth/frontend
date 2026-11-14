@@ -200,6 +200,8 @@
     "alarm": "{{minutes}}분 휴식 후 알림",
     "alarmNone": "알림 없음",
     "srElapsed": "쉰 시간 {{duration}}",
-    "srRemaining": "남은 휴식 시간 {{duration}}"
+    "srRemaining": "남은 휴식 시간 {{duration}}",
+    "notificationTitle": "{{minutes}}분 휴식이 끝났어요",
+    "notificationBody": "다시 공부를 시작할 시간이에요"
   }
 }

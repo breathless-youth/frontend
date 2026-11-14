@@ -28,7 +28,10 @@ import {
 } from "@/features/live-room/faceMaskSettings";
 import { useSessionRotationRestore } from "@/features/multi-timer/modeScreenLocks";
 import { createMultiTimerUsage, useMultiTimer } from "@/features/multi-timer/useMultiTimer";
-import { SessionRestOverlay } from "@/features/study-session/components/SessionRestOverlay";
+import {
+  type RestAlarm,
+  SessionRestOverlay,
+} from "@/features/study-session/components/SessionRestOverlay";
 import { SessionTimerChip } from "@/features/study-session/components/SessionTimerChip";
 import { SessionTimerSheet } from "@/features/study-session/components/SessionTimerSheet";
 import { createDeviceHandlingDetector } from "@/features/study-session/adapters/deviceHandlingDetector";
@@ -161,6 +164,7 @@ import {
   trackSubjectSheetOpened,
 } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
+import { canRequestPushPermission, requestPushPermission } from "@/lib/nativePushPermission";
 import { hasRestNotification } from "@/lib/restNotificationCapability";
 import { haptic } from "@/lib/haptics";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
@@ -466,6 +470,32 @@ function RoomSessionScreen({
   const ambientButtonRef = useRef<HTMLButtonElement>(null);
   // 과목 페이지를 연 요소와 연 시각. 닫을 때 포커스를 돌려주고 열려 있던 시간을 계측한다.
   const subjectOpenerRef = useRef<HTMLElement | null>(null);
+  const restPushAskedRef = useRef(false);
+
+  // 휴식 알림을 고르면 앱을 나가 있어도 울리도록 OS 알림을 함께 예약한다. 브라우저에서는 보낼 곳이 없어 앱 안 알림만 남는다.
+  const handleRestAlarmChange = (alarm: RestAlarm | null) => {
+    if (alarm === null) {
+      postToNative({
+        type: "cancel-rest-notification",
+        id: REST_NOTIFICATION_ID,
+        atMs: Date.now(),
+      });
+      return;
+    }
+    // 알림 권한은 처음 알림을 고를 때 한 번만 묻는다. 이미 답한 기기는 창 없이 저장된 답이 온다.
+    if (!restPushAskedRef.current && canRequestPushPermission()) {
+      restPushAskedRef.current = true;
+      void requestPushPermission();
+    }
+    postToNative({
+      type: "schedule-rest-notification",
+      id: REST_NOTIFICATION_ID,
+      fireAtMs: alarm.fireAtMs,
+      title: t("rest.notificationTitle", { minutes: alarm.minutes }),
+      body: t("rest.notificationBody"),
+      atMs: Date.now(),
+    });
+  };
   const subjectOpenedAtRef = useRef(0);
   /**
    * 닫기를 요청한 까닭
@@ -1248,7 +1278,11 @@ function RoomSessionScreen({
 
           {/* 일시정지 동안 공부 화면을 흐리게 덮는다. 하단 바 줄은 z-20이라 이 위에 남는다. */}
           {pausedSinceMs !== null && (
-            <SessionRestOverlay pausedSinceMs={pausedSinceMs} showAlarms={hasRestNotification()} />
+            <SessionRestOverlay
+              pausedSinceMs={pausedSinceMs}
+              showAlarms={hasRestNotification()}
+              onAlarmChange={handleRestAlarmChange}
+            />
           )}
 
           <div inert={helpVisible} className={SESSION_LAYER_LAYOUT}>
@@ -1717,6 +1751,9 @@ function SessionResultFallback({
  * 사용자가 0분에서 복원값으로 튀는 것을 보고, 그 사이 스냅샷 보고가 낡은 시작 시각으로 나간다.
  * 정상 경로는 수백 ms 수준이라 스피너 없이 다크 배경만 유지한다.
  */
+/** 휴식 끝 OS 알림 예약 id. 휴식마다 같은 id로 덮어써서 예약이 하나만 남는다. */
+const REST_NOTIFICATION_ID = "study-rest";
+
 export function RoomPage() {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();

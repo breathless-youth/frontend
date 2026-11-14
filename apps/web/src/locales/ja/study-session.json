@@ -200,6 +200,8 @@
     "alarm": "{{minutes}}分後にお知らせ",
     "alarmNone": "お知らせなし",
     "srElapsed": "休憩時間{{duration}}",
-    "srRemaining": "残りの休憩時間{{duration}}"
+    "srRemaining": "残りの休憩時間{{duration}}",
+    "notificationTitle": "{{minutes}}分の休憩が終わりました",
+    "notificationBody": "勉強を再開する時間です"
   }
 }

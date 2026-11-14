@@ -68,7 +68,7 @@
 - 기능 플래그: 새 앱은 웹뷰 주소에 `restNotify=1`을 붙인다. 이 값이 없으면 웹은 말풍선을 숨긴다(`alertHaptic=1`과 같은 방식).
 - 권한: 처음 알림을 고를 때 기존 `request-push-permission` 브리지로 한 번만 요청한다. 거부되면 앱 안 알림만 울린다.
 - iOS 처리기: RNFB가 이미 알림 처리기를 갖고 있어 `expo-notifications`는 자기 처리기를 설치하지 않는다. 예약은 처리기와 상관없이 울린다. 앱이 앞에 있을 때는 앱 안 알림이 울리므로, OS 알림이 보이지 않는 것이 맞다. 이것은 실기기에서 확인한다.
-- Android 알림 채널 `rest`를 만들고, 상태 표시줄 아이콘은 기존 `notification_icon`을 쓴다.
+- Android 알림 채널 `rest`를 만들고, 상태 표시줄 아이콘은 기존 `notification_icon`을 쓴다. `expo-notifications` 플러그인은 아이콘을 받지 못하면 RNFB가 넣은 FCM 아이콘 항목을 지우므로 같은 그림을 넘긴다. 그러면 그림을 복사하던 `withNotificationIcon` 플러그인은 할 일이 없어져 지운다.
 - 알림을 누르면 앱이 열리고 세션 화면으로 돌아간다. 따로 딥링크를 붙이지 않는다.
 
 ## 4. 추가 타이머·스톱워치 칩 (BY-1282)
