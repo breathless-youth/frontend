@@ -118,7 +118,7 @@ interface Snapshot {
   readonly atMs: number;
 }
 
-const ALARM_HAPTIC_GAP_MS = 180;
+export const ALARM_HAPTIC_GAP_MS = 180;
 
 const ALARM_PHASE = {
   "timer-done": "timer",
@@ -132,7 +132,7 @@ const ALARM_PHASE = {
  * alert 를 받는 앱은 진동 패턴을 스스로 내서 한 번만 보낸다.
  * alert 를 모르는 구버전 앱은 그 메시지를 버려서 짧은 heavy 를 세 번 친다.
  */
-function alarmHaptics(): readonly HapticStyle[] {
+export function alarmHaptics(): readonly HapticStyle[] {
   return hasAlertHaptic() ? ["alert"] : ["heavy", "heavy", "heavy"];
 }
 

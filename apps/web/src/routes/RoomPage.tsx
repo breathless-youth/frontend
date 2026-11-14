@@ -28,6 +28,7 @@ import {
 } from "@/features/live-room/faceMaskSettings";
 import { useSessionRotationRestore } from "@/features/multi-timer/modeScreenLocks";
 import { createMultiTimerUsage, useMultiTimer } from "@/features/multi-timer/useMultiTimer";
+import { SessionRestOverlay } from "@/features/study-session/components/SessionRestOverlay";
 import { SessionTimerChip } from "@/features/study-session/components/SessionTimerChip";
 import { SessionTimerSheet } from "@/features/study-session/components/SessionTimerSheet";
 import { createDeviceHandlingDetector } from "@/features/study-session/adapters/deviceHandlingDetector";
@@ -160,6 +161,7 @@ import {
   trackSubjectSheetOpened,
 } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
+import { hasRestNotification } from "@/lib/restNotificationCapability";
 import { haptic } from "@/lib/haptics";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 import { cn } from "@/lib/utils";
@@ -377,6 +379,7 @@ function RoomSessionScreen({
     startedAtMs,
     focusSec,
     studySec,
+    pausedSinceMs,
     sessionState,
     phase,
     endReason,
@@ -827,6 +830,8 @@ function RoomSessionScreen({
   const rotationPhase = useRotationPhase();
 
   const paused = sessionState.kind === "PAUSE";
+  // 휴식 화면이 덮은 동안에는 가려진 머리 줄·시계·칩을 누를 수 없게 한다. 하단 바만 남는다.
+  const resting = pausedSinceMs !== null;
   /** 일시정지 동안 카메라가 꺼진다(`useStudyRoomSession`). 미리보기 창은 심플 모드처럼 스르륵 걷는다. */
   const cameraOff = isSessionHeld(sessionState);
   const cameraHidden = simpleMode || cameraOff;
@@ -1241,10 +1246,15 @@ function RoomSessionScreen({
             />
           )}
 
+          {/* 일시정지 동안 공부 화면을 흐리게 덮는다. 하단 바 줄은 z-20이라 이 위에 남는다. */}
+          {pausedSinceMs !== null && (
+            <SessionRestOverlay pausedSinceMs={pausedSinceMs} showAlarms={hasRestNotification()} />
+          )}
+
           <div inert={helpVisible} className={SESSION_LAYER_LAYOUT}>
             {/* 머리 줄: 왼쪽 과목·할 일, 오른쪽 배경음·더보기. 두 모드 모두 같은 자리에 둔다.
                 웹 버튼은 스스로 pointer-events-auto라 더보기 메뉴의 바깥 누름 차단이 닿지 않아서 메뉴가 열린 동안 inert로 막는다. */}
-            <div className="flex w-full items-start justify-between gap-3">
+            <div inert={resting} className="flex w-full items-start justify-between gap-3">
               <div inert={moreMenuOpen} className="min-w-0">
                 <SessionSubjectHeader
                   subject={headerSubject}
@@ -1334,7 +1344,7 @@ function RoomSessionScreen({
               {/* 페이지가 열린 동안은 페이지 푸터의 Toaster가 받는다.
                   둘이 함께 있으면 토스트가 두 번 뜬다. */}
               {page === null && <CtaToaster />}
-              <div ref={clockRef} inert={moreMenuOpen}>
+              <div ref={clockRef} inert={moreMenuOpen || resting}>
                 <SessionClock
                   view={clockView}
                   studySec={studySec}
@@ -1410,7 +1420,7 @@ function RoomSessionScreen({
                 줄 상자는 레이어 폭을 다 쓰고 바를 가운데에 두어서 바 자리는 감싸기 전과 같다.
                 가로 폰에서 월페이퍼를 켜면 왼쪽 끝을 시간 묶음이 쓰므로 바를 감싼 상자를 기준으로 바 왼쪽 옆에 붙인다. */}
             {timerChipVisible && multiTimer.mode !== null && (
-              <div className="mb-5 flex w-full justify-center">
+              <div inert={resting} className="mb-5 flex w-full justify-center">
                 <SessionTimerChip
                   mode={multiTimer.mode}
                   displayMs={multiTimer.remainingMs}
@@ -1421,7 +1431,7 @@ function RoomSessionScreen({
                 />
               </div>
             )}
-            <div className="relative flex w-full justify-center">
+            <div className="relative z-20 flex w-full justify-center">
               <div className={cn(wallpaper && "landscape-compact:relative")}>
                 {mascotOn && (
                   <SessionMascot

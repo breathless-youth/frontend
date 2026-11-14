@@ -191,5 +191,15 @@
   },
   "timerSheet": {
     "title": "計時器設定"
+  },
+  "rest": {
+    "label": "休息中",
+    "labelWithAlarm": "休息中 · {{minutes}} 分鐘後提醒你",
+    "ended": "休息結束了",
+    "alarmGroup": "休息提醒",
+    "alarm": "休息 {{minutes}} 分鐘後提醒",
+    "alarmNone": "不提醒",
+    "srElapsed": "休息時間 {{duration}}",
+    "srRemaining": "剩餘休息時間 {{duration}}"
   }
 }

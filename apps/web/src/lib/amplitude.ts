@@ -1560,6 +1560,27 @@ export function trackTimerBackgroundApplied(input: {
 }
 
 /**
+ * 일시정지 휴식 알림 고르기 이벤트
+ *
+ * 휴식 화면의 말풍선에서 알림 시간을 고를 때 보낸다. `알림 없음`은 `minutes: null`이다.
+ */
+export function trackSessionRestAlarmSet(input: { readonly minutes: number | null }) {
+  if (!initialized) return;
+  track("session_rest_alarm_set", { minutes: input.minutes });
+}
+
+/**
+ * 일시정지 휴식 알림이 울린 이벤트
+ *
+ * `in_app`은 앱이 앞에 있을 때 소리·진동으로 울린 경우다.
+ * 앱을 나가 있는 동안 지난 알림은 웹이 직접 알 수 없어 돌아왔을 때 `os`로 남긴다.
+ */
+export function trackSessionRestAlarmFired(input: { readonly channel: "in_app" | "os" }) {
+  if (!initialized) return;
+  track("session_rest_alarm_fired", { channel: input.channel });
+}
+
+/**
  * 공부 화면 시계 보기 형식 바꾸기 이벤트
  *
  * 더보기 메뉴에서 순공 보기와 공부 시간 보기를 바꿀 때 보낸다. `view`는 바꾼 뒤의 값이다.

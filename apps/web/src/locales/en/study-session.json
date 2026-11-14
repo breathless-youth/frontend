@@ -196,5 +196,15 @@
   },
   "timerSheet": {
     "title": "Timer settings"
+  },
+  "rest": {
+    "label": "Taking a break",
+    "labelWithAlarm": "Taking a break · I'll remind you in {{minutes}} min",
+    "ended": "Break's over",
+    "alarmGroup": "Break reminder",
+    "alarm": "Remind me in {{minutes}} min",
+    "alarmNone": "No reminder",
+    "srElapsed": "Break time {{duration}}",
+    "srRemaining": "Break time left {{duration}}"
   }
 }

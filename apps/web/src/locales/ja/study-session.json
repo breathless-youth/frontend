@@ -191,5 +191,15 @@
   },
   "timerSheet": {
     "title": "タイマー設定"
+  },
+  "rest": {
+    "label": "休憩中",
+    "labelWithAlarm": "休憩中 · {{minutes}}分後にお知らせします",
+    "ended": "休憩が終わりました",
+    "alarmGroup": "休憩のお知らせ",
+    "alarm": "{{minutes}}分後にお知らせ",
+    "alarmNone": "お知らせなし",
+    "srElapsed": "休憩時間{{duration}}",
+    "srRemaining": "残りの休憩時間{{duration}}"
   }
 }

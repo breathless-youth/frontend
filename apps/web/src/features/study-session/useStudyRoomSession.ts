@@ -1089,6 +1089,12 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     studySec: display.totals.studySec,
     /** 일시정지 누적(초) — 벽시계 기준 별도 집계(2026-07-26 확정). */
     pauseSec: display.totals.pauseSec,
+    /**
+     * 사용자가 멈춘 일시정지(수동·화면 꺼짐)가 시작된 시각
+     *
+     * 휴식 화면이 쉰 시간을 세는 기준이다. 공부 중이거나 뽀모도로 휴식이면 null이다.
+     */
+    pausedSinceMs: phase.name === "studying" ? (pausedSnapshot?.sinceMs ?? null) : null,
     sessionState,
     phase,
     /**

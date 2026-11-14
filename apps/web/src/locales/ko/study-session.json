@@ -191,5 +191,15 @@
   },
   "timerSheet": {
     "title": "타이머 설정"
+  },
+  "rest": {
+    "label": "쉬는 중",
+    "labelWithAlarm": "쉬는 중 · {{minutes}}분 뒤 알려줄게요",
+    "ended": "휴식이 끝났어요",
+    "alarmGroup": "휴식 알림",
+    "alarm": "{{minutes}}분 휴식 후 알림",
+    "alarmNone": "알림 없음",
+    "srElapsed": "쉰 시간 {{duration}}",
+    "srRemaining": "남은 휴식 시간 {{duration}}"
   }
 }
