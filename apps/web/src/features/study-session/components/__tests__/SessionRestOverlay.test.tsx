@@ -6,12 +6,17 @@ import { SessionRestOverlay } from "../SessionRestOverlay";
 const haptic = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/haptics", () => ({ haptic }));
 
+const trackSessionRestAlarmFired = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  trackSessionRestAlarmFired,
+}));
+
 const START = Date.UTC(2026, 10, 14, 1, 0, 0);
 
 function setup(over: Partial<Parameters<typeof SessionRestOverlay>[0]> = {}) {
   const alarm = { prime: vi.fn(), play: vi.fn(), dispose: vi.fn() };
   const onAlarmChange = vi.fn();
-  const onAlarmFired = vi.fn();
   const view = render(
     <SessionRestOverlay
       pausedSinceMs={START}
@@ -19,11 +24,10 @@ function setup(over: Partial<Parameters<typeof SessionRestOverlay>[0]> = {}) {
       osNotifiable
       alarm={alarm}
       onAlarmChange={onAlarmChange}
-      onAlarmFired={onAlarmFired}
       {...over}
     />,
   );
-  return { ...view, alarm, onAlarmChange, onAlarmFired };
+  return { ...view, alarm, onAlarmChange };
 }
 
 function advance(ms: number) {
@@ -54,6 +58,7 @@ describe("SessionRestOverlay", () => {
   afterEach(() => {
     vi.useRealTimers();
     haptic.mockClear();
+    trackSessionRestAlarmFired.mockClear();
   });
 
   it("쉬는 중 라벨과 일시정지부터 흐른 시간을 보이고 1초마다 올린다", () => {
@@ -85,14 +90,14 @@ describe("SessionRestOverlay", () => {
   });
 
   it("시간이 되면 소리와 진동으로 알리고 휴식이 끝났다고 보이며 말풍선은 알림 없음으로 돌아간다", () => {
-    const { alarm, onAlarmFired, onAlarmChange } = setup();
+    const { alarm, onAlarmChange } = setup();
     fireEvent.click(option("5분 휴식 후 알림"));
 
     advance(300_000);
 
     expect(alarm.play).toHaveBeenCalledTimes(1);
     expect(haptic).toHaveBeenCalled();
-    expect(onAlarmFired).toHaveBeenCalledWith("in_app");
+    expect(trackSessionRestAlarmFired).toHaveBeenCalledWith({ channel: "in_app" });
     expect(screen.getByText("휴식이 끝났어요")).toBeInTheDocument();
     // 일시정지부터 센 총 휴식 시간으로 돌아간다: 2:41 + 5:00
     expect(timer()).toHaveTextContent("07:41");
@@ -101,7 +106,7 @@ describe("SessionRestOverlay", () => {
   });
 
   it("앱을 나가 있다 돌아와 이미 지난 알림은 소리 없이 끝났다고만 보이고 OS 알림으로 기록한다", () => {
-    const { alarm, onAlarmFired } = setup({ osNotifiable: true });
+    const { alarm } = setup({ osNotifiable: true });
     fireEvent.click(option("5분 휴식 후 알림"));
     hideAndShowPage();
 
@@ -110,7 +115,7 @@ describe("SessionRestOverlay", () => {
     advance(1000);
 
     expect(alarm.play).not.toHaveBeenCalled();
-    expect(onAlarmFired).toHaveBeenCalledWith("os");
+    expect(trackSessionRestAlarmFired).toHaveBeenCalledWith({ channel: "os" });
     expect(screen.getByText("휴식이 끝났어요")).toBeInTheDocument();
   });
 
@@ -131,19 +136,19 @@ describe("SessionRestOverlay", () => {
 
   it("앱이 계속 앞에 있었다면 확인이 늦어도 OS 알림이 아니라 앱 안에서 알린다", () => {
     // 화면이 버벅여 확인이 늦었을 뿐이면 앞에 있는 앱에는 OS 알림이 뜨지 않는다.
-    const { alarm, onAlarmFired } = setup({ osNotifiable: true });
+    const { alarm } = setup({ osNotifiable: true });
     fireEvent.click(option("5분 휴식 후 알림"));
 
     vi.setSystemTime(Date.now() + 303_000);
     advance(250);
 
     expect(alarm.play).toHaveBeenCalledTimes(1);
-    expect(onAlarmFired).toHaveBeenCalledWith("in_app");
+    expect(trackSessionRestAlarmFired).toHaveBeenCalledWith({ channel: "in_app" });
   });
 
   it("OS 알림을 보낼 수 없으면 늦게 돌아와도 한 번 소리와 진동으로 알리고 앱 안 알림으로 기록한다", () => {
     // 브라우저이거나 알림 권한이 없으면 앱을 나가 있는 동안 아무것도 울리지 않았다.
-    const { alarm, onAlarmFired } = setup({ osNotifiable: false });
+    const { alarm } = setup({ osNotifiable: false });
     fireEvent.click(option("5분 휴식 후 알림"));
 
     vi.setSystemTime(Date.now() + 420_000);
@@ -151,7 +156,7 @@ describe("SessionRestOverlay", () => {
 
     expect(alarm.play).toHaveBeenCalledTimes(1);
     expect(haptic).toHaveBeenCalled();
-    expect(onAlarmFired).toHaveBeenCalledWith("in_app");
+    expect(trackSessionRestAlarmFired).toHaveBeenCalledWith({ channel: "in_app" });
     expect(screen.getByText("휴식이 끝났어요")).toBeInTheDocument();
   });
 

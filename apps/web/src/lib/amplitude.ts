@@ -1574,6 +1574,7 @@ export function trackSessionRestAlarmSet(input: { readonly minutes: number | nul
  *
  * `in_app`은 앱이 앞에 있을 때 소리·진동으로 울린 경우다.
  * 앱을 나가 있는 동안 지난 알림은 웹이 직접 알 수 없어 돌아왔을 때 `os`로 남긴다.
+ * `os`는 추정이다. 알림 권한과 화면 숨김으로 판단할 뿐, 알림 채널 차단 등으로 OS 알림이 실제로 떴는지는 모른다.
  */
 export function trackSessionRestAlarmFired(input: { readonly channel: "in_app" | "os" }) {
   if (!initialized) return;

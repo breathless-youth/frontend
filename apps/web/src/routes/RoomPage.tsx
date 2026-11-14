@@ -1806,6 +1806,9 @@ function SessionResultFallback({
   );
 }
 
+/** 휴식 끝 OS 알림 예약 id. 휴식마다 같은 id로 덮어써서 예약이 하나만 남는다. */
+const REST_NOTIFICATION_ID = "study-rest";
+
 /**
  * 세션 화면 진입 게이트
  *
@@ -1813,9 +1816,6 @@ function SessionResultFallback({
  * 사용자가 0분에서 복원값으로 튀는 것을 보고, 그 사이 스냅샷 보고가 낡은 시작 시각으로 나간다.
  * 정상 경로는 수백 ms 수준이라 스피너 없이 다크 배경만 유지한다.
  */
-/** 휴식 끝 OS 알림 예약 id. 휴식마다 같은 id로 덮어써서 예약이 하나만 남는다. */
-const REST_NOTIFICATION_ID = "study-rest";
-
 export function RoomPage() {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();

@@ -143,11 +143,11 @@ function syncClock(state: ModeState, nowMs: number, held: boolean) {
 }
 
 /**
- * 화면에 보이는 남은 초
+ * 화면에 보이는 초
  *
- * 표기 함수와 같이 올림해서 이 값이 그대로면 화면 숫자도 그대로다.
+ * 표기 함수와 같은 방향으로 센다. 남은 시간은 올리고, 스톱워치의 흐른 시간은 내린다.
+ * 이 값이 그대로면 화면 숫자도 그대로다.
  */
-/** 화면에 보이는 초. 남은 시간은 올려서, 스톱워치의 흐른 시간은 내려서 센다. */
 function shownSecond(mode: ModeState | null, atMs: number): number | null {
   if (mode === null) return null;
   const seconds = remainingMs(mode, atMs) / 1000;

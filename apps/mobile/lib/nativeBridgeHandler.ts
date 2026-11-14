@@ -32,10 +32,10 @@ import { openedEventProperties, resolvePushRoute } from "./pushNotificationRouti
 import { openPushRoute } from "./pushRouteOpener";
 import type * as PushTokenRegistration from "./pushTokenRegistration";
 import { detachAllNativeAnalyticsSinks, trackNativeEvent } from "./nativeAnalytics";
+import { cancelRestNotification, scheduleRestNotification } from "./restNotification";
 import { emitSessionClosed } from "./sessionClosed";
 import { runAfterNextSessionScreen } from "./sessionPresence";
 import { deleteAccountWithReauth, socialLogin } from "./socialLogin";
-import { cancelRestNotification, scheduleRestNotification } from "./restNotification";
 import { setTabBarState } from "./tabBarVisibility";
 import { appendVideoChunk, saveVideo, shareVideo } from "./videoTransfer";
 import { profilePhotoPickerNative } from "../modules/profile-photo-picker";
