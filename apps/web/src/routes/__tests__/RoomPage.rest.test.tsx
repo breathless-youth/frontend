@@ -144,4 +144,18 @@ describe("RoomPage 일시정지 휴식 화면", () => {
 
     expect(asks()).toBe(1);
   });
+
+  it("알림을 고르지 않은 휴식이 끝나도 남아 있을지 모르는 OS 알림을 거둔다", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderRoom("/room/7?userId=1&restNotify=1");
+    const sent = () => postMessage.mock.calls.map(([raw]) => JSON.parse(raw as string));
+
+    fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
+    fireEvent.click(screen.getByRole("button", { name: "다시 시작" }));
+
+    expect(sent()).toContainEqual(
+      expect.objectContaining({ type: "cancel-rest-notification", id: "study-rest" }),
+    );
+  });
 });

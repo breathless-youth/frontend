@@ -36,6 +36,7 @@ export interface RestAlarm {
  * 알림이 울리면 `휴식이 끝났어요`와 함께 다시 일시정지부터 센 쉰 시간을 보이고 말풍선은 `알림 없음`으로 돌아간다.
  * 앱을 나가 있던 동안 지난 알림은 OS 알림이 대신 울린 것이라 돌아와서 다시 울리지 않는다.
  * 일시정지할 때마다 새로 그려져서 알림은 늘 `알림 없음`에서 시작한다.
+ * 닫힐 때는 고른 알림이 없어도 알림 취소를 알린다.
  */
 export function SessionRestOverlay({
   pausedSinceMs,
@@ -104,7 +105,8 @@ export function SessionRestOverlay({
   }, []);
 
   const cleanUp = useEffectEvent(() => {
-    if (alarmRef.current !== null) onAlarmChange?.(null);
+    // 고른 알림이 없어도 거둔다. 웹뷰가 다시 떠서 화면이 고른 알림을 잊어도 앞서 예약한 OS 알림은 남아 있을 수 있다.
+    onAlarmChange?.(null);
     hapticTimersRef.current.forEach(clearTimeout);
     sound.dispose();
   });

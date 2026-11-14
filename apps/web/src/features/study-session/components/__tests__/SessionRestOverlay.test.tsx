@@ -108,6 +108,15 @@ describe("SessionRestOverlay", () => {
     expect(screen.getByText("쉬는 중")).toBeInTheDocument();
   });
 
+  it("고른 알림이 없어도 닫힐 때 알림 취소를 알린다", () => {
+    // 웹뷰가 다시 떠서 화면이 고른 알림을 잊어도 앞서 예약한 OS 알림은 남아 있을 수 있다.
+    const { unmount, onAlarmChange } = setup();
+
+    unmount();
+
+    expect(onAlarmChange).toHaveBeenCalledWith(null);
+  });
+
   it("닫히면 예약한 알림을 거둔다", () => {
     const { unmount, onAlarmChange, alarm } = setup();
     fireEvent.click(option("10분 휴식 후 알림"));
