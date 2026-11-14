@@ -170,7 +170,7 @@ import {
   trackSubjectSheetClosed,
   trackSubjectSheetOpened,
 } from "@/lib/amplitude";
-import { postToNative } from "@/lib/bridge";
+import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import { canRequestPushPermission, requestPushPermission } from "@/lib/nativePushPermission";
 import { hasRestNotification } from "@/lib/restNotificationCapability";
 import { haptic } from "@/lib/haptics";
@@ -534,6 +534,8 @@ function RoomSessionBody({
   // 과목 페이지를 연 요소와 연 시각. 닫을 때 포커스를 돌려주고 열려 있던 시간을 계측한다.
   const subjectOpenerRef = useRef<HTMLElement | null>(null);
   const restPushAskedRef = useRef(false);
+  // 앱을 나가 있는 동안 OS 알림이 실제로 울릴 수 있는지는 알림 권한 답으로 안다. 모르면 앱 안에서 알린다.
+  const [restPushGranted, setRestPushGranted] = useState(false);
 
   // 휴식 알림을 고르면 앱을 나가 있어도 울리도록 OS 알림을 함께 예약한다. 브라우저에서는 보낼 곳이 없어 앱 안 알림만 남는다.
   const handleRestAlarmChange = (alarm: RestAlarm | null) => {
@@ -548,7 +550,7 @@ function RoomSessionBody({
     // 알림 권한은 처음 알림을 고를 때 한 번만 묻는다. 이미 답한 기기는 창 없이 저장된 답이 온다.
     if (!restPushAskedRef.current && canRequestPushPermission()) {
       restPushAskedRef.current = true;
-      void requestPushPermission();
+      void requestPushPermission().then((status) => setRestPushGranted(status === "granted"));
     }
     postToNative({
       type: "schedule-rest-notification",
@@ -1332,6 +1334,7 @@ function RoomSessionBody({
             <SessionRestOverlay
               pausedSinceMs={pausedSinceMs}
               showAlarms={hasRestNotification()}
+              osNotifiable={isNativeBridgeAvailable() && hasRestNotification() && restPushGranted}
               onAlarmChange={handleRestAlarmChange}
             />
           )}

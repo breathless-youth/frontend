@@ -36,12 +36,14 @@ export interface RestAlarm {
  * 우하단 말풍선(하나만 눌리는 버튼 묶음)에서 5분·10분 뒤 알림을 고르면 고른 때부터 남은 시간을 거꾸로 세고, 시간이 되면 소리와 진동으로 알린다.
  * 알림이 울리면 `휴식이 끝났어요`와 함께 다시 일시정지부터 센 쉰 시간을 보이고 말풍선은 `알림 없음`으로 돌아간다.
  * 앱을 나가 있던 동안 지난 알림은 OS 알림이 대신 울린 것이라 돌아와서 다시 울리지 않는다.
+ * OS 알림을 보낼 수 없는 환경(브라우저·알림 권한 없음)에서는 돌아왔을 때 한 번 알린다.
  * 일시정지할 때마다 새로 그려져서 알림은 늘 `알림 없음`에서 시작한다.
  * 닫힐 때는 고른 알림이 없어도 알림 취소를 알린다.
  */
 export function SessionRestOverlay({
   pausedSinceMs,
   showAlarms,
+  osNotifiable,
   alarm: injectedAlarm,
   onAlarmChange,
   onAlarmFired,
@@ -50,6 +52,11 @@ export function SessionRestOverlay({
   pausedSinceMs: number;
   /** 알림 말풍선을 보일지. OS 알림을 예약할 수 없는 구버전 앱은 숨긴다. */
   showAlarms: boolean;
+  /**
+   * 앱을 나가 있는 동안 OS 알림이 실제로 울릴 수 있는지. 알림 권한을 허용한 새 앱만 참이다.
+   * 거짓이면(브라우저·권한 없음) 늦게 돌아와도 앱 안에서 한 번 알린다.
+   */
+  osNotifiable: boolean;
   alarm?: AlarmSound;
   /** 고른 알림이 바뀔 때. OS 알림 예약과 취소가 쓴다. `null`은 알림 없음이다. */
   onAlarmChange?: (alarm: RestAlarm | null) => void;
@@ -91,7 +98,8 @@ export function SessionRestOverlay({
     setNowMs(atMs);
     const due = alarmRef.current;
     if (due === null || atMs < due.fireAtMs) return;
-    const missed = atMs - due.fireAtMs > MISSED_ALARM_MS;
+    // 늦게 알아챈 알림은 OS 알림이 대신 울렸을 때만 다시 울리지 않는다.
+    const missed = osNotifiable && atMs - due.fireAtMs > MISSED_ALARM_MS;
     if (!missed) ring();
     const channel = missed ? "os" : "in_app";
     trackSessionRestAlarmFired({ channel });

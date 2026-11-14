@@ -16,6 +16,7 @@ function setup(over: Partial<Parameters<typeof SessionRestOverlay>[0]> = {}) {
     <SessionRestOverlay
       pausedSinceMs={START}
       showAlarms
+      osNotifiable
       alarm={alarm}
       onAlarmChange={onAlarmChange}
       onAlarmFired={onAlarmFired}
@@ -89,7 +90,7 @@ describe("SessionRestOverlay", () => {
   });
 
   it("앱을 나가 있다 돌아와 이미 지난 알림은 소리 없이 끝났다고만 보이고 OS 알림으로 기록한다", () => {
-    const { alarm, onAlarmFired } = setup();
+    const { alarm, onAlarmFired } = setup({ osNotifiable: true });
     fireEvent.click(option("5분 휴식 후 알림"));
 
     // 웹뷰가 멈춰 있던 동안 시계만 흘렀다.
@@ -114,6 +115,20 @@ describe("SessionRestOverlay", () => {
     for (const layer of [overlay, content, bubbles]) {
       expect(layer).toHaveClass("motion-reduce:animate-none");
     }
+  });
+
+  it("OS 알림을 보낼 수 없으면 늦게 돌아와도 한 번 소리와 진동으로 알리고 앱 안 알림으로 기록한다", () => {
+    // 브라우저이거나 알림 권한이 없으면 앱을 나가 있는 동안 아무것도 울리지 않았다.
+    const { alarm, onAlarmFired } = setup({ osNotifiable: false });
+    fireEvent.click(option("5분 휴식 후 알림"));
+
+    vi.setSystemTime(Date.now() + 420_000);
+    advance(1000);
+
+    expect(alarm.play).toHaveBeenCalledTimes(1);
+    expect(haptic).toHaveBeenCalled();
+    expect(onAlarmFired).toHaveBeenCalledWith("in_app");
+    expect(screen.getByText("휴식이 끝났어요")).toBeInTheDocument();
   });
 
   it("말풍선을 보일 수 없는 앱에서는 숨긴다", () => {

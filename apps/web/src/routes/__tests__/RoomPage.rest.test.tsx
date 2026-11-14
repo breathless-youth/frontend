@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { __resetNativePushPermissionForTests } from "@/lib/nativePushPermission";
 import { __resetRestNotificationForTests } from "@/lib/restNotificationCapability";
 
@@ -26,6 +27,12 @@ vi.mock("@/lib/subjectApi", async (importOriginal) => ({
 }));
 
 vi.mock("@/routes/lazyRoutes", () => ({ prefetchResultPage: vi.fn() }));
+
+const trackSessionRestAlarmFired = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  trackSessionRestAlarmFired,
+}));
 
 function renderRoom(path = "/room/7?userId=1") {
   window.history.replaceState(null, "", path);
@@ -168,5 +175,41 @@ describe("RoomPage 일시정지 휴식 화면", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "다시 시작" }));
     expect(screen.getByRole("status").closest(".transition-opacity")).not.toHaveClass("opacity-0");
+  });
+
+  describe("늦게 돌아왔을 때 OS 알림이 대신 울렸다고 볼지", () => {
+    // 권한 답은 약속을 거쳐 화면을 다시 그리므로 비동기 act 안에서 보낸다.
+    const answerPermission = (status: "granted" | "denied") =>
+      act(async () => {
+        const receive = (globalThis as Record<string, unknown>)[NATIVE_MESSAGE_ENTRY];
+        (receive as (raw: string) => void)(
+          JSON.stringify({ type: "push-permission-result", status, atMs: Date.now() }),
+        );
+      });
+
+    async function chooseAlarmThenReturnLate(status: "granted" | "denied") {
+      vi.useFakeTimers();
+      vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+      renderRoom("/room/7?userId=1&restNotify=1&pushPermission=1");
+      fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
+      fireEvent.click(screen.getByRole("button", { name: "5분 휴식 후 알림" }));
+      await answerPermission(status);
+      vi.setSystemTime(Date.now() + 420_000);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
+      });
+    }
+
+    it("알림 권한을 허용한 앱이면 OS 알림이 울린 것으로 기록한다", async () => {
+      await chooseAlarmThenReturnLate("granted");
+
+      expect(trackSessionRestAlarmFired).toHaveBeenCalledWith({ channel: "os" });
+    });
+
+    it("알림 권한을 거부한 앱이면 돌아왔을 때 앱 안에서 알린다", async () => {
+      await chooseAlarmThenReturnLate("denied");
+
+      expect(trackSessionRestAlarmFired).toHaveBeenCalledWith({ channel: "in_app" });
+    });
   });
 });
