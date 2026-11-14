@@ -1,19 +1,8 @@
 /**
  * 멀티 타이머 시간 표기 순수 함수
  */
-import { formatElapsed } from "../study-session/formatDuration";
-
 function ceilSeconds(ms: number): number {
   return Math.max(0, Math.ceil(ms / 1000));
-}
-
-/**
- * 타이머 남은 시간 표기
- *
- * 초를 올림해야 0초가 되는 순간과 알림이 울리는 순간이 어긋나지 않는다.
- */
-export function formatTimerRemaining(ms: number): string {
-  return formatElapsed(ceilSeconds(ms));
 }
 
 /**

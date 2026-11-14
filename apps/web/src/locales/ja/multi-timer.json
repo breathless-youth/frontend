@@ -1,14 +1,4 @@
 {
-  "screen": {
-    "title": "タイマー",
-    "close": "タイマーをオフ",
-    "kindLabel": "タイマーの種類",
-    "kind": {
-      "timer": "通常",
-      "pomodoro": "ポモドーロ"
-    },
-    "restart": "最初から"
-  },
   "primary": {
     "start": "開始",
     "pause": "一時停止",
@@ -23,23 +13,6 @@
     "minuteOption": "{{count}}分",
     "aria": {
       "minutes": "{{label}}の時間"
-    }
-  },
-  "pomodoro": {
-    "phase": {
-      "focus": "集中時間",
-      "break": "休憩時間"
-    }
-  },
-  "remaining": {
-    "aria": {
-      "label": "残り時間"
-    }
-  },
-  "dial": {
-    "lap": "{{lap}}セット目",
-    "aria": {
-      "minutes": "{{count}}分"
     }
   },
   "wheel": {
