@@ -194,6 +194,14 @@ describe("RoomPage 일시정지 휴식 화면", () => {
       fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
       fireEvent.click(screen.getByRole("button", { name: "5분 휴식 후 알림" }));
       await answerPermission(status);
+      // 앱을 나갔다 돌아온다.
+      for (const state of ["hidden", "visible"] as const) {
+        Object.defineProperty(document, "visibilityState", { value: state, configurable: true });
+        act(() => {
+          document.dispatchEvent(new Event("visibilitychange"));
+        });
+      }
+      Reflect.deleteProperty(document, "visibilityState");
       vi.setSystemTime(Date.now() + 420_000);
       await act(async () => {
         await vi.advanceTimersByTimeAsync(1000);

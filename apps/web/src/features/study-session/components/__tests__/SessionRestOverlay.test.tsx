@@ -32,6 +32,17 @@ function advance(ms: number) {
   });
 }
 
+/** 앱을 나갔다 돌아온 것처럼 화면을 숨겼다 다시 보인다. */
+function hideAndShowPage() {
+  for (const state of ["hidden", "visible"] as const) {
+    Object.defineProperty(document, "visibilityState", { value: state, configurable: true });
+    act(() => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+  }
+  Reflect.deleteProperty(document, "visibilityState");
+}
+
 const timer = () => screen.getByRole("timer");
 const option = (name: string) => screen.getByRole("button", { name });
 
@@ -92,6 +103,7 @@ describe("SessionRestOverlay", () => {
   it("앱을 나가 있다 돌아와 이미 지난 알림은 소리 없이 끝났다고만 보이고 OS 알림으로 기록한다", () => {
     const { alarm, onAlarmFired } = setup({ osNotifiable: true });
     fireEvent.click(option("5분 휴식 후 알림"));
+    hideAndShowPage();
 
     // 웹뷰가 멈춰 있던 동안 시계만 흘렀다.
     vi.setSystemTime(Date.now() + 420_000);
@@ -115,6 +127,18 @@ describe("SessionRestOverlay", () => {
     for (const layer of [overlay, content, bubbles]) {
       expect(layer).toHaveClass("motion-reduce:animate-none");
     }
+  });
+
+  it("앱이 계속 앞에 있었다면 확인이 늦어도 OS 알림이 아니라 앱 안에서 알린다", () => {
+    // 화면이 버벅여 확인이 늦었을 뿐이면 앞에 있는 앱에는 OS 알림이 뜨지 않는다.
+    const { alarm, onAlarmFired } = setup({ osNotifiable: true });
+    fireEvent.click(option("5분 휴식 후 알림"));
+
+    vi.setSystemTime(Date.now() + 303_000);
+    advance(250);
+
+    expect(alarm.play).toHaveBeenCalledTimes(1);
+    expect(onAlarmFired).toHaveBeenCalledWith("in_app");
   });
 
   it("OS 알림을 보낼 수 없으면 늦게 돌아와도 한 번 소리와 진동으로 알리고 앱 안 알림으로 기록한다", () => {

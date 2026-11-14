@@ -70,6 +70,8 @@ export function SessionRestOverlay({
   const [restAlarm, setRestAlarm] = useState<RestAlarm | null>(null);
   const [ended, setEnded] = useState(false);
   const alarmRef = useRef<RestAlarm | null>(null);
+  // 알림을 고른 뒤 화면이 숨겨진 적이 있는지. 앱이 계속 앞에 있었다면 OS 알림은 뜨지 않았다.
+  const hiddenSinceChoiceRef = useRef(false);
   const hapticTimersRef = useRef(new Set<ReturnType<typeof setTimeout>>());
 
   const changeAlarm = (next: RestAlarm | null) => {
@@ -98,8 +100,9 @@ export function SessionRestOverlay({
     setNowMs(atMs);
     const due = alarmRef.current;
     if (due === null || atMs < due.fireAtMs) return;
-    // 늦게 알아챈 알림은 OS 알림이 대신 울렸을 때만 다시 울리지 않는다.
-    const missed = osNotifiable && atMs - due.fireAtMs > MISSED_ALARM_MS;
+    // 늦게 알아챈 알림은 앱을 나가 있는 동안 OS 알림이 대신 울렸을 때만 다시 울리지 않는다.
+    const missed =
+      osNotifiable && hiddenSinceChoiceRef.current && atMs - due.fireAtMs > MISSED_ALARM_MS;
     if (!missed) ring();
     const channel = missed ? "os" : "in_app";
     trackSessionRestAlarmFired({ channel });
@@ -113,6 +116,16 @@ export function SessionRestOverlay({
     return () => clearInterval(id);
   }, []);
 
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        hiddenSinceChoiceRef.current = true;
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => document.removeEventListener("visibilitychange", onVisibility);
+  }, []);
+
   const cleanUp = useEffectEvent(() => {
     // 고른 알림이 없어도 거둔다. 웹뷰가 다시 떠서 화면이 고른 알림을 잊어도 앞서 예약한 OS 알림은 남아 있을 수 있다.
     onAlarmChange?.(null);
@@ -124,6 +137,7 @@ export function SessionRestOverlay({
   const choose = (minutes: number | null) => {
     // 알림음은 사용자가 누른 순간에 깨워 둬야 나중에 소리를 낼 수 있다.
     sound.prime();
+    hiddenSinceChoiceRef.current = false;
     const atMs = now();
     setNowMs(atMs);
     setEnded(false);
