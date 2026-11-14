@@ -9,7 +9,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setSessionCountdownSecondsForTest } from "@/features/study-session/sessionCountdown";
 import { clearSessionInvite } from "@/features/study-session/sessionInvite";
-import { GRACE_STATE_COLOR } from "@/features/study-session/sessionTheme";
 import { submitStudySession } from "@/features/study-session/submitStudySession";
 import {
   DEFAULT_TIMELAPSE_SETTINGS,
@@ -89,9 +88,8 @@ function HomeRouteProbe() {
   return <p>{`홈 라우트${location.search}`}</p>;
 }
 
-/** 상태 색. 집중은 파랑, 유예는 연보라, 비집중은 주황이다. */
+/** 상태 색. 집중과 유예는 파랑, 비집중은 주황이다. */
 const FOCUS_BLUE = sessionStateColors.FOCUS.dark;
-const GRACE_LAVENDER = GRACE_STATE_COLOR.dark;
 const DISTRACTION_ORANGE = sessionStateColors.DISTRACTION.dark;
 
 function stateColor() {
@@ -600,11 +598,18 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
         await vi.advanceTimersByTimeAsync(3200); // 유예 3초 경과
       });
 
-      expect(screen.getByRole("status")).toHaveTextContent("공부 중인지 확인하고 있어요");
-      expect(stateColor()).toBe(GRACE_LAVENDER);
+      expect(screen.getByRole("status")).toHaveTextContent("공부 상태를 확인 중이에요");
+      // 유예는 순공이 흐르는 상태라 경고 색을 쓰지 않고 집중 파랑을 유지한다.
+      expect(stateColor()).toBe(FOCUS_BLUE);
+      const focusInGrace = screen.getByTestId("session-clock-number").textContent;
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+      // 유예 동안 순공 숫자는 계속 오른다.
+      expect(screen.getByTestId("session-clock-number").textContent).not.toBe(focusInGrace);
 
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(7000); // 처음 켜진 때부터 10초 경과
+        await vi.advanceTimersByTimeAsync(5000); // 처음 켜진 때부터 10초 경과
       });
 
       // 비집중 문구는 원인과 상관없이 하나로 통일했다.

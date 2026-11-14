@@ -4,7 +4,7 @@
   },
   "status": {
     "focus": "Measuring focus time",
-    "grace": "Checking that you're studying",
+    "grace": "Checking your study status",
     "away": "Looks like you're away",
     "phone": "Looks like you're on your phone",
     "device": "Looks like you're moving your device",

@@ -116,11 +116,7 @@ import {
   leaveSessionForInvite,
   useSessionInvite,
 } from "@/features/study-session/sessionInvite";
-import {
-  type SessionColorKind,
-  sessionGlowStyle,
-  sessionSurfaceStyle,
-} from "@/features/study-session/sessionTheme";
+import { sessionGlowStyle, sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import { useRotationRepaintNudge } from "@/lib/rotationRepaint";
 import { showCtaToast } from "@/lib/toast";
 import { useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
@@ -1213,7 +1209,7 @@ function RoomSessionBody({
   return (
     <main
       ref={setSessionSurface}
-      style={{ ...sessionSurfaceStyle, ...sessionGlowStyle(stateColorKind(sessionState, grace)) }}
+      style={{ ...sessionSurfaceStyle, ...sessionGlowStyle(sessionState.kind) }}
       data-simple-mode={simpleMode}
       // 하단 버튼 아이콘과 타이머 텍스트가 마우스/터치 드래그로 끌리는 것을
       // 막는다 — `session-no-drag`(index.css)가 CSS를, onDragStart가 브라우저 네이티브
@@ -1751,15 +1747,6 @@ function autoEndNoticeVisible(
   endReason: SessionEndReason | null,
 ): endReason is { kind: "AUTO"; trigger: PauseTrigger } {
   return phase.name === "done" && endReason?.kind === "AUTO";
-}
-
-/**
- * 상태 색 — 집중은 파랑, 유예는 연보라, 비집중은 주황, 일시정지는 회색
- *
- * 시간 묶음의 상태 문구·집중률과 심플 모드 발광이 이 색 하나를 따른다.
- */
-function stateColorKind(state: SessionState, grace: boolean): SessionColorKind {
-  return grace ? "GRACE" : state.kind;
 }
 
 function toPillState(state: SessionState): SessionStatusPillState {

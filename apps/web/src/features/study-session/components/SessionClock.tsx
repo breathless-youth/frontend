@@ -38,6 +38,14 @@ export interface SessionClockProps {
 /** 상태가 바뀔 때 색이 툭 바뀌지 않게 서서히 옮긴다. */
 const STATE_COLOR_EASE = "transition-colors duration-500 ease-out motion-reduce:transition-none";
 
+/** 유예 문구. 순공은 흐르므로 경고 색 없이 흰색으로 두고 2초 주기로 옅어졌다 돌아온다. */
+const GRACE_LABEL =
+  "text-white/85 animate-[session-grace-label_2s_ease-in-out_infinite] motion-reduce:animate-none";
+
+/** 유예 숫자. 흰색 그대로 2초 주기로 살짝 옅어졌다 돌아온다. */
+const GRACE_NUMBER =
+  "text-white animate-[session-grace-number_2s_ease-in-out_infinite] motion-reduce:animate-none";
+
 /** 월페이퍼 위 글자 그림자. 밝은 그림 위에서도 읽히게 가까운 그림자와 넓은 그림자를 겹친다. */
 const CORNER_SHADOW = "[text-shadow:0_1px_2px_rgba(0,0,0,0.6),0_4px_16px_rgba(0,0,0,0.45)]";
 
@@ -46,6 +54,7 @@ const CORNER_SHADOW = "[text-shadow:0_1px_2px_rgba(0,0,0,0.6),0_4px_16px_rgba(0,
  *
  * 라벨, 큰 숫자, 오늘 줄로 이뤄진다. 보기 형식(`view`)에 따라 순공 또는 공부 시간을 보인다.
  * 집중하지 않는 동안은 라벨 자리를 상태 문구로 바꾸고 숫자를 회색으로 둔다. 순공 보기에서는 숫자가 멈춘다.
+ * 유예는 순공이 흐르는 상태라 문구와 숫자를 흰색으로 두고 2초 주기로 옅어지게만 한다.
  * 상태 문구는 자동 감지로 바뀌므로 라이브 리전으로 읽힌다. 심플 모드는 오늘 줄을 숨긴다.
  */
 export function SessionClock({
@@ -77,6 +86,7 @@ export function SessionClock({
         state === "paused" && "font-semibold text-(--session-state-color)",
         state === "distract" && "font-semibold text-text-tertiary",
         state === "focus" && (corner ? "text-white/80" : "text-white/60"),
+        state === "grace" && GRACE_LABEL,
       )}
     >
       {/* 문구가 바뀌면 새 문구를 서서히 띄운다. 라이브 리전은 바깥 p라 다시 읽는 것은 그대로다. */}
@@ -88,7 +98,9 @@ export function SessionClock({
       </span>
     </p>
   );
-  const numberColor = state === "focus" ? "text-white" : "text-text-tertiary";
+  // 유예에도 순공은 흐르므로 숫자는 흰색으로 두고, 멈춘 동안만 회색으로 둔다.
+  const numberColor =
+    state === "focus" ? "text-white" : state === "grace" ? GRACE_NUMBER : "text-text-tertiary";
   const sessionTime = (
     <>
       <span aria-hidden="true">{formatElapsed(sessionSec)}</span>
