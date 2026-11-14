@@ -3,11 +3,15 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type * as FocusDetectorModule from "@/features/study-session/adapters/focusDetector";
+import { setSessionCountdownSecondsForTest } from "@/features/study-session/sessionCountdown";
+
 import { RoomPage } from "../RoomPage";
 
 const useActiveSessionRestore = vi.hoisted(() => vi.fn());
 const useStudyRoomSession = vi.hoisted(() => vi.fn());
 const listSubjects = vi.hoisted(() => vi.fn());
+const visionCloses = vi.hoisted((): { close: () => void }[] => []);
 
 vi.mock("@/features/study-session/useActiveSessionRestore", () => ({ useActiveSessionRestore }));
 // useSubjects는 실제 훅이라 복원 세션이면 목록을 받는다 — jsdom엔 fetch가 없어 API 계층만 막는다.
@@ -24,6 +28,21 @@ vi.mock("@/lib/subjectApi", () => ({
 vi.mock("@/features/study-session/useStudyRoomSession", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return { ...actual, useStudyRoomSession };
+});
+
+// 감지 모델 해제를 확인하려고 실제 감지기의 `close`만 감싼다.
+vi.mock("@/features/study-session/adapters/focusDetector", async (importOriginal) => {
+  const actual = await importOriginal<typeof FocusDetectorModule>();
+  return {
+    ...actual,
+    createVisionFocusDetector: (
+      options: Parameters<typeof actual.createVisionFocusDetector>[0],
+    ) => {
+      const detector = actual.createVisionFocusDetector(options);
+      visionCloses.push(vi.spyOn(detector, "close") as unknown as { close: () => void });
+      return detector;
+    },
+  };
 });
 
 const RESTORED = {
@@ -158,6 +177,37 @@ describe("RoomPage 복원 게이트", () => {
     await waitFor(() => {
       expect(listSubjects).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("이어받은 세션은 카운트다운 없이 바로 세션을 띄운다", () => {
+    setSessionCountdownSecondsForTest(3);
+    useActiveSessionRestore.mockReturnValue({ settled: true, restored: RESTORED });
+
+    renderRoom();
+
+    expect(screen.queryByTestId("session-countdown")).not.toBeInTheDocument();
+    expect(useStudyRoomSession).toHaveBeenCalled();
+  });
+
+  it("새 세션은 카운트다운 동안 세션을 시작하지 않는다", () => {
+    setSessionCountdownSecondsForTest(3);
+    useActiveSessionRestore.mockReturnValue({ settled: true, restored: null });
+
+    renderRoom();
+
+    expect(screen.getByTestId("session-countdown")).toBeInTheDocument();
+    expect(useStudyRoomSession).not.toHaveBeenCalled();
+  });
+
+  it("카운트다운 중에 나가도 감지 모델을 닫는다", () => {
+    setSessionCountdownSecondsForTest(3);
+    useActiveSessionRestore.mockReturnValue({ settled: true, restored: null });
+
+    const { unmount } = renderRoom();
+    expect(screen.getByTestId("session-countdown")).toBeInTheDocument();
+    unmount();
+
+    expect(visionCloses.at(-1)).toHaveBeenCalled();
   });
 
   it("결착하면 복원값을 세션 훅에 넘긴다", async () => {

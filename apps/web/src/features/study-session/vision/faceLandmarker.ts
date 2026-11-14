@@ -46,6 +46,13 @@ import { loadVisionRuntime } from "./visionRuntime";
 export interface FaceMetrics {
   /** 고개 숙임 각도(도). 아래를 볼 때 양수, 카메라 기준 상대각. 자세 행렬이 없으면 null. */
   readonly headPitchDeg: number | null;
+  /** 고개 좌우 각도(도). 부호는 판정에 쓰지 않고 크기만 본다. 자세 행렬이 없으면 null. */
+  readonly headYawDeg: number | null;
+  /**
+   * 코끝이 두 눈 바깥 꼬리의 가운데에서 프레임 x 방향으로 눈 사이 거리 대비 얼마나 비켜 있는가.
+   * 고개를 돌린 방향을 프레임 좌표로 알려 준다(오른쪽이 +). 좌표가 아니라 비율 하나다.
+   */
+  readonly noseOffsetX: number | null;
 }
 
 export interface FaceDetectionResult {
@@ -119,7 +126,26 @@ const BLENDSHAPES_MISSING: FaceObservation = {
   eye: null,
   eyeSkipReason: "blendshapes-missing",
 };
-const NO_METRICS: FaceMetrics = { headPitchDeg: null };
+const NO_METRICS: FaceMetrics = { headPitchDeg: null, headYawDeg: null, noseOffsetX: null };
+
+const NOSE_TIP = 1;
+
+/** 코끝 치우침. 근거는 `FaceMetrics.noseOffsetX`. 점이 없거나 눈 사이가 0이면 null이다. */
+export function noseOffsetXOf(
+  landmarks: readonly { readonly x: number; readonly y: number }[],
+): number | null {
+  const nose = landmarks[NOSE_TIP];
+  const left = landmarks[EYE_OUTER_CORNER_LANDMARKS.left];
+  const right = landmarks[EYE_OUTER_CORNER_LANDMARKS.right];
+  if (nose === undefined || left === undefined || right === undefined) {
+    return null;
+  }
+  const interOcular = Math.hypot(left.x - right.x, left.y - right.y);
+  if (interOcular === 0) {
+    return null;
+  }
+  return round((nose.x - (left.x + right.x) / 2) / interOcular, 2);
+}
 
 function round(value: number, digits: number): number {
   const factor = 10 ** digits;
@@ -145,6 +171,20 @@ export function headPitchDegOf(raw: MediapipeFaceResult): number | null {
   }
   const clamped = Math.max(-1, Math.min(1, forwardY));
   return round((-Math.asin(clamped) * 180) / Math.PI, 1);
+}
+
+/** 고개 좌우 각도(도). 자세 행렬의 정면 방향 x 성분에서 구한다. 읽는 열은 `headPitchDegOf`와 같다. */
+export function headYawDegOf(raw: MediapipeFaceResult): number | null {
+  const matrix = raw.facialTransformationMatrixes?.[0];
+  if (matrix === undefined || matrix.rows !== 4 || matrix.columns !== 4) {
+    return null;
+  }
+  const forwardX = matrix.data[8];
+  if (forwardX === undefined || !Number.isFinite(forwardX)) {
+    return null;
+  }
+  const clamped = Math.max(-1, Math.min(1, forwardX));
+  return round((Math.asin(clamped) * 180) / Math.PI, 1);
 }
 
 interface OpenedLandmarker {
@@ -195,7 +235,11 @@ export function createFaceLandmarker(
     if (landmarks === undefined || landmarks.length === 0) {
       return NO_METRICS;
     }
-    return { headPitchDeg: headPitchDegOf(raw) };
+    return {
+      headPitchDeg: headPitchDegOf(raw),
+      headYawDeg: headYawDegOf(raw),
+      noseOffsetX: noseOffsetXOf(landmarks),
+    };
   }
 
   function normalizeObservation(raw: MediapipeFaceResult): FaceObservation {

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type * as sentryLib from "@/lib/sentry";
 import { reportHandled } from "@/lib/sentry";
 
-import { createFaceLandmarker } from "../faceLandmarker";
+import { createFaceLandmarker, noseOffsetXOf } from "../faceLandmarker";
 import type {
   FaceLandmarkerCreateOptions,
   MediapipeFaceLandmarkerHandle,
@@ -55,6 +55,14 @@ function pitchMatrix(pitchDeg: number) {
   const s = Math.sin(radians);
   // 열 우선: 열0=(1,0,0,0) 열1=(0,c,s,0) 열2=(0,-s,c,0) 열3=(0,0,0,1)
   return { rows: 4, columns: 4, data: [1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, 0, 0, 0, 1] };
+}
+
+/** 순수 yaw 회전의 자세 행렬(열 우선). 정면 방향 열의 x 성분 `data[8]`이 sin(각도)다. */
+function yawMatrix(yawDeg: number) {
+  const radians = (yawDeg * Math.PI) / 180;
+  const c = Math.cos(radians);
+  const s = Math.sin(radians);
+  return { rows: 4, columns: 4, data: [c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, 0, 0, 0, 1] };
 }
 
 /**
@@ -431,7 +439,29 @@ describe("얼굴 지표 — 고개 각도. 내려다봄 게이트가 읽는다",
 
   it("얼굴이 없으면 지표도 없다", async () => {
     const { landmarker } = await ready(NO_FACE);
-    expect((await landmarker.detect(video, 0))?.metrics).toEqual({ headPitchDeg: null });
+    expect((await landmarker.detect(video, 0))?.metrics).toEqual({
+      headPitchDeg: null,
+      headYawDeg: null,
+      noseOffsetX: null,
+    });
+  });
+
+  it("코끝이 두 눈 꼬리 가운데에서 비켜 난 정도를 눈 사이 거리 대비로 뽑는다", () => {
+    const landmarks = Array.from({ length: 300 }, () => ({ x: 0.5, y: 0.5 }));
+    landmarks[33] = { x: 0.4, y: 0.4 };
+    landmarks[263] = { x: 0.6, y: 0.4 };
+    landmarks[1] = { x: 0.55, y: 0.5 };
+    expect(noseOffsetXOf(landmarks)).toBeCloseTo(0.25, 2);
+  });
+
+  it("자세 행렬에서 고개 좌우 각도를 뽑는다", async () => {
+    const { landmarker } = await ready({
+      ...faceResult(0.13, 0.9),
+      facialTransformationMatrixes: [yawMatrix(-25)],
+    });
+    const result = await landmarker.detect(video, 0);
+    expect(result?.metrics.headYawDeg).toBeCloseTo(-25, 0);
+    expect(result?.metrics.headPitchDeg).toBeCloseTo(0, 0);
   });
 
   it("행렬은 각도 하나로 줄고 반환값에 남지 않는다", async () => {

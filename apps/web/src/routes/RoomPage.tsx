@@ -39,6 +39,10 @@ import { createMultiTimerUsage, useMultiTimer } from "@/features/multi-timer/use
 import type { MultiTimerControls } from "@/features/multi-timer/useMultiTimer";
 import { createDeviceHandlingDetector } from "@/features/study-session/adapters/deviceHandlingDetector";
 import { combineFocusDetectors } from "@/features/study-session/adapters/focusDetector";
+import type { VisionFocusDetector } from "@/features/study-session/adapters/focusDetector";
+import { createTouchDetector } from "@/features/study-session/adapters/touchDetector";
+import { SessionCountdown } from "@/features/study-session/components/SessionCountdown";
+import { sessionCountdownSeconds } from "@/features/study-session/sessionCountdown";
 import { createMediaStreamCameraAdapter } from "@/features/study-session/adapters/mediaStreamCamera";
 import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice";
 import { CameraPreviewSurface } from "@/features/study-session/components/CameraPreviewSurface";
@@ -114,7 +118,11 @@ import {
   leaveSessionForInvite,
   useSessionInvite,
 } from "@/features/study-session/sessionInvite";
-import { sessionGlowStyle, sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
+import {
+  type SessionColorKind,
+  sessionGlowStyle,
+  sessionSurfaceStyle,
+} from "@/features/study-session/sessionTheme";
 import { useRotationRepaintNudge } from "@/lib/rotationRepaint";
 import { showCtaToast } from "@/lib/toast";
 import { useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
@@ -145,7 +153,10 @@ import {
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
-import { useTrackedVisionDetector } from "@/features/study-session/useVisionReadyTracking";
+import {
+  useTrackedVisionDetector,
+  type VisionReadyMeasurement,
+} from "@/features/study-session/useVisionReadyTracking";
 import type { FaceSpot } from "@/features/study-session/vision/faceSpot";
 import { createTimelapseRecorder } from "@/features/timelapse/timelapseRecorder";
 import { loadTimelapseSettings } from "@/features/timelapse/timelapseSettings";
@@ -314,39 +325,27 @@ function useRotationPhase(): RotationPhase {
  * 두 축은 서로를 리셋하지 않는다 — 심플 모드에서 일시정지했다가 다시 시작하면 심플 모드로
  * 돌아온다. 그래서 `simpleMode`는 `SessionState`에 넣지 않고 별도 토글로 둔다.
  */
-function RoomSessionScreen({
-  userId,
-  restored,
-  invite,
-  initialSubjectId,
-}: {
+interface RoomSessionScreenProps {
   userId: number | null;
   restored: RestoredSession | null;
   invite: string | null;
   initialSubjectId?: number;
-}) {
-  const { t } = useTranslation(["study-session", "common"]);
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
+}
+
+/**
+ * 세션 준비
+ *
+ * 카메라·감지기·타임랩스를 먼저 만들고, 새 세션이면 카운트다운 동안 감지 모델을 미리 불러온다.
+ * 세션 시각은 안쪽 화면이 마운트될 때 정해지므로 카운트다운 시간은 공부 시간에 들어가지 않는다.
+ */
+function RoomSessionScreen(props: RoomSessionScreenProps) {
   const [camera] = useState(createMediaStreamCameraAdapter);
-  // 저전력 모드에서 멈춘 카메라 프리뷰를 탭 제스처로 되살린다 — lib/videoPlayback.ts 주석 참고.
-  useGestureVideoPlaybackKick();
-  // iOS 회전 백지 방어 — 소셜룸 실기기에서 확인된 증상의 예방적 적용(같은 웹뷰 셸,
-  // 이 화면도 회전 대상). 사유는 lib/rotationRepaint.ts 주석.
-  useRotationRepaintNudge();
-  // 가로 거치 모드 사용 여부 — 회전은 클릭이 아니라 autocapture가 못 본다.
-  useSessionOrientationAnalytics("single");
   /**
    * 프리뷰
    * — 이 화면이 소유하고 두 곳에 나눠준다.
    * 표시는 `CameraPreviewSurface`가, 추론은 `createVisionFocusDetector`가 같은 엘리먼트를 본다.
    */
   const videoRef = useRef<HTMLVideoElement>(null);
-  /**
-   * DEV에서 `?detector=mock`이면 콘솔 mock이 이긴다 — 실기기 없이 비집중 시나리오를 재현해야
-   * 할 때가 계속 있다. 그 외에는(프로덕션 포함) 아래 Vision 감지기가 쓰인다.
-   */
-  const [devDetector] = useState(() => resolveDevDetectorOverride(searchParams.get("detector")));
   /**
    * 타임랩스 촬영
    *
@@ -358,13 +357,80 @@ function RoomSessionScreen({
     "single",
     timelapse.photoTap,
   );
+  const [countdown] = useState(() => (props.restored === null ? sessionCountdownSeconds() : 0));
+  const [counting, setCounting] = useState(countdown > 0);
+  const finishCountdown = useCallback(() => setCounting(false), []);
+  useEffect(() => {
+    if (counting) {
+      visionDetector.preload();
+    }
+  }, [counting, visionDetector]);
   /**
-   * 카메라(`AWAY`·`PHONE`)와 가속도 센서(`DEVICE`).
-   * 담당 트리거가 겹치지 않으므로 하나로 묶어 훅에 넘긴다.
+   * 세션 이탈 — 모델과 GPU 컨텍스트를 해제한다.
+   * `stop()`은 추론만 멈추고 모델을 들고 있으므로 이게 없으면 wasm 힙과 GPU 컨텍스트가 orphan이 된다
+   * (브라우저가 컨텍스트 개수를 제한한다).
+   * 감지기를 만든 이 화면이 닫으므로 카운트다운 중에 나가도 해제되고, 카운트다운이 끝날 때는 닫지 않는다.
+   * 로딩 중에 언마운트돼도 뒤늦게 도착한 detector를 닫는다(멱등).
+   */
+  useEffect(() => {
+    return () => {
+      visionDetector.close();
+    };
+  }, [visionDetector]);
+  if (counting) {
+    return <SessionCountdown seconds={countdown} onDone={finishCountdown} />;
+  }
+  return (
+    <RoomSessionBody
+      {...props}
+      camera={camera}
+      videoRef={videoRef}
+      timelapse={timelapse}
+      visionDetector={visionDetector}
+      visionReady={visionReady}
+    />
+  );
+}
+
+function RoomSessionBody({
+  userId,
+  restored,
+  invite,
+  initialSubjectId,
+  camera,
+  videoRef,
+  timelapse,
+  visionDetector,
+  visionReady,
+}: RoomSessionScreenProps & {
+  camera: ReturnType<typeof createMediaStreamCameraAdapter>;
+  videoRef: RefObject<HTMLVideoElement | null>;
+  timelapse: ReturnType<typeof createTimelapseRecorder>;
+  visionDetector: VisionFocusDetector;
+  visionReady: VisionReadyMeasurement | null;
+}) {
+  const { t } = useTranslation(["study-session", "common"]);
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  // 저전력 모드에서 멈춘 카메라 프리뷰를 탭 제스처로 되살린다 — lib/videoPlayback.ts 주석 참고.
+  useGestureVideoPlaybackKick();
+  // iOS 회전 백지 방어 — 소셜룸 실기기에서 확인된 증상의 예방적 적용(같은 웹뷰 셸,
+  // 이 화면도 회전 대상). 사유는 lib/rotationRepaint.ts 주석.
+  useRotationRepaintNudge();
+  // 가로 거치 모드 사용 여부 — 회전은 클릭이 아니라 autocapture가 못 본다.
+  useSessionOrientationAnalytics("single");
+  /**
+   * DEV에서 `?detector=mock`이면 콘솔 mock이 이긴다 — 실기기 없이 비집중 시나리오를 재현해야
+   * 할 때가 계속 있다. 그 외에는(프로덕션 포함) 아래 Vision 감지기가 쓰인다.
+   */
+  const [devDetector] = useState(() => resolveDevDetectorOverride(searchParams.get("detector")));
+  /**
+   * 카메라(`AWAY`·`PHONE`·졸음·공부 증거), 가속도 센서(`DEVICE`), 화면 터치(`TOUCH`).
+   * 담당 출처가 겹치지 않으므로 하나로 묶어 훅에 넘긴다. 화면 터치는 소셜룸에 넣지 않는다. 채팅처럼 공부 중에도 화면을 자주 만진다.
    * 센서 정지 시점은 "카메라 추론 정지와 동일한 시점"이다.
    */
   const [sensorDetector] = useState(() =>
-    combineFocusDetectors([visionDetector, createDeviceHandlingDetector()]),
+    combineFocusDetectors([visionDetector, createDeviceHandlingDetector(), createTouchDetector()]),
   );
   const detector = devDetector ?? sensorDetector;
   // 제출 시점에 읽을 과목 목록 — 커밋마다 최신 값으로 덮는다(아래 useSubjects 뒤).
@@ -381,6 +447,7 @@ function RoomSessionScreen({
     focusSec,
     studySec,
     sessionState,
+    grace,
     phase,
     endReason,
     cameraStream,
@@ -824,8 +891,8 @@ function RoomSessionScreen({
   useEffect(() => {
     watcherSound?.setMuted(watcherMuted);
   }, [watcherMuted, watcherSound]);
-  const statusLabel = t(statusLabelKey(sessionState));
-  const pillState = toPillState(sessionState);
+  const statusLabel = t(grace ? "study-session:status.grace" : statusLabelKey(sessionState));
+  const pillState = grace ? "grace" : toPillState(sessionState);
   /**
    * 공부 상태의 식별 키 — 심플 모드 엣지 글로우 **잔향**(SimpleModeSurface)이 상태 전환을
    * 감지하는 값이다. `isSameSessionState`와 같은 기준(kind + trigger)이라 실제 전환에서만
@@ -836,7 +903,7 @@ function RoomSessionScreen({
    * 잔향을 재생하지 않는다(그쪽 주석 참고).
    */
   const glowKey = `${simpleMode ? "simple" : "preview"}:${sessionState.kind}${
-    sessionState.kind === "FOCUS" ? "" : `:${sessionState.trigger}`
+    sessionState.kind === "FOCUS" ? (grace ? ":grace" : "") : `:${sessionState.trigger}`
   }`;
 
   /**
@@ -861,18 +928,6 @@ function RoomSessionScreen({
       detector.stop();
     }
   }, [detectionEnabled, detector]);
-
-  /**
-   * 세션 이탈 — 모델과 GPU 컨텍스트를 해제한다.
-   * `stop()`은 추론만 멈추고 모델을 들고 있으므로 이게 없으면 wasm 힙과 GPU 컨텍스트가 orphan이 된다
-   * (브라우저가 컨텍스트 개수를 제한한다).
-   * 로딩 중에 언마운트돼도 뒤늦게 도착한 detector를 닫는다(멱등).
-   */
-  useEffect(() => {
-    return () => {
-      visionDetector.close();
-    };
-  }, [visionDetector]);
 
   /**
    * 공부 결과로 이동
@@ -1117,7 +1172,7 @@ function RoomSessionScreen({
   return (
     <main
       ref={setSessionSurface}
-      style={{ ...sessionSurfaceStyle, ...sessionGlowStyle(sessionState.kind) }}
+      style={{ ...sessionSurfaceStyle, ...sessionGlowStyle(stateColorKind(sessionState, grace)) }}
       data-simple-mode={simpleMode}
       // 하단 버튼 아이콘과 타이머 텍스트가 마우스/터치 드래그로 끌리는 것을
       // 막는다 — `session-no-drag`(index.css)가 CSS를, onDragStart가 브라우저 네이티브
@@ -1645,6 +1700,15 @@ function autoEndNoticeVisible(
   endReason: SessionEndReason | null,
 ): endReason is { kind: "AUTO"; trigger: PauseTrigger } {
   return phase.name === "done" && endReason?.kind === "AUTO";
+}
+
+/**
+ * 상태 색 — 집중은 파랑, 유예는 연보라, 비집중은 주황, 일시정지는 회색
+ *
+ * 시간 묶음의 상태 문구·집중률과 심플 모드 발광이 이 색 하나를 따른다.
+ */
+function stateColorKind(state: SessionState, grace: boolean): SessionColorKind {
+  return grace ? "GRACE" : state.kind;
 }
 
 function toPillState(state: SessionState): SessionStatusPillState {

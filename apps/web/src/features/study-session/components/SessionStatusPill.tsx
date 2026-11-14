@@ -18,10 +18,11 @@ export const SESSION_PILL_SIZE =
   "max-w-[calc(100vw-126px)] justify-center text-center text-balance break-keep whitespace-normal " +
   "regular:px-4.5 regular:py-2 regular:text-base regular:leading-5 short-side-lg:px-5.5 short-side-lg:py-2.5 short-side-lg:text-xl short-side-lg:leading-6.25";
 
-export type SessionStatusPillState = "focus" | "distract" | "paused";
+export type SessionStatusPillState = "focus" | "grace" | "distract" | "paused";
 
 const BADGE_VARIANT = {
   focus: "session-focus",
+  grace: "session-paused",
   distract: "session-distract",
   paused: "session-paused",
 } as const satisfies Record<SessionStatusPillState, string>;
