@@ -101,6 +101,21 @@ describe("SessionRestOverlay", () => {
     expect(screen.getByText("휴식이 끝났어요")).toBeInTheDocument();
   });
 
+  it("보던 화면을 서서히 흐리고 휴식 내용은 늦게 띄우며, 움직임 줄이기에서는 전환을 끈다", () => {
+    setup();
+
+    const overlay = screen.getByTestId("session-rest-overlay");
+    const content = timer().parentElement!;
+    const bubbles = screen.getByRole("group", { name: "휴식 알림" });
+    expect(overlay.className).toContain("animate-[session-rest-veil_500ms_ease-out]");
+    for (const layer of [content, bubbles]) {
+      expect(layer.className).toContain("animate-[coach-fade-in_350ms_ease-out_225ms_both]");
+    }
+    for (const layer of [overlay, content, bubbles]) {
+      expect(layer).toHaveClass("motion-reduce:animate-none");
+    }
+  });
+
   it("말풍선을 보일 수 없는 앱에서는 숨긴다", () => {
     setup({ showAlarms: false });
 

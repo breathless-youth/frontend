@@ -1378,7 +1378,15 @@ function RoomSessionScreen({
               {/* 페이지가 열린 동안은 페이지 푸터의 Toaster가 받는다.
                   둘이 함께 있으면 토스트가 두 번 뜬다. */}
               {page === null && <CtaToaster />}
-              <div ref={clockRef} inert={moreMenuOpen || resting}>
+              {/* 쉬는 동안 시계는 흐려지는 화면 아래로 서서히 사라진다. */}
+              <div
+                ref={clockRef}
+                inert={moreMenuOpen || resting}
+                className={cn(
+                  "transition-opacity duration-300 ease-out motion-reduce:transition-none",
+                  resting && "opacity-0",
+                )}
+              >
                 <SessionClock
                   view={clockView}
                   studySec={studySec}

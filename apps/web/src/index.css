@@ -675,6 +675,16 @@
   }
 }
 
+/* 일시정지 휴식 화면이 보던 공부 화면을 0부터 서서히 흐리고 어둡게 한다.
+   끝 값은 요소의 배경과 backdrop-blur 클래스가 정한다. 모션 축소는 사용처가 막는다. */
+@keyframes session-rest-veil {
+  from {
+    background-color: rgb(16 18 24 / 0);
+    -webkit-backdrop-filter: blur(0.1px);
+    backdrop-filter: blur(0.1px);
+  }
+}
+
 /* 초대코드 input-otp 활성 칸 캐럿 깜빡임. 모션 축소는 사용처의
    motion-reduce:animate-none이 막는다. */
 @keyframes caret-blink {

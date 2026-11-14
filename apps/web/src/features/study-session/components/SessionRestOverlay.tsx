@@ -32,6 +32,7 @@ export interface RestAlarm {
  * 일시정지 휴식 화면
  *
  * 공부 화면을 흐리게 덮고 흑백 마스코트와 쉰 시간을 보인다. 하단 바는 이 화면 위에 남는다.
+ * 멈추면 보던 화면이 0.5초 동안 서서히 흐려지고, 휴식 내용은 흐려지는 도중에 조금 늦게 떠오른다.
  * 우하단 말풍선(하나만 눌리는 버튼 묶음)에서 5분·10분 뒤 알림을 고르면 고른 때부터 남은 시간을 거꾸로 세고, 시간이 되면 소리와 진동으로 알린다.
  * 알림이 울리면 `휴식이 끝났어요`와 함께 다시 일시정지부터 센 쉰 시간을 보이고 말풍선은 `알림 없음`으로 돌아간다.
  * 앱을 나가 있던 동안 지난 알림은 OS 알림이 대신 울린 것이라 돌아와서 다시 울리지 않는다.
@@ -137,9 +138,11 @@ export function SessionRestOverlay({
   return (
     <div
       data-testid="session-rest-overlay"
-      className="absolute inset-0 z-10 bg-[rgba(16,18,24,0.45)] backdrop-blur-[18px]"
+      // 멈춘 순간 화면이 뚝 바뀌지 않도록 보던 공부 화면을 0부터 서서히 흐리고 어둡게 한다.
+      className="absolute inset-0 z-10 animate-[session-rest-veil_500ms_ease-out] bg-[rgba(16,18,24,0.45)] backdrop-blur-[18px] motion-reduce:animate-none"
     >
-      <div className="pointer-events-none flex h-full flex-col items-center justify-center gap-3.5 pb-27.5">
+      {/* 휴식 내용은 흐려지는 도중에 조금 늦게 떠오른다. */}
+      <div className="pointer-events-none flex h-full animate-[coach-fade-in_350ms_ease-out_225ms_both] flex-col items-center justify-center gap-3.5 pb-27.5 motion-reduce:animate-none">
         <SessionMascot
           state={PAUSED}
           className="static translate-y-0 grayscale [--mascot-box:8.75rem] regular:[--mascot-box:8.75rem] short-side-lg:[--mascot-box:10rem]"
@@ -163,7 +166,7 @@ export function SessionRestOverlay({
         <div
           role="group"
           aria-label={t("rest.alarmGroup")}
-          className="absolute right-[calc(env(safe-area-inset-right)+16px)] bottom-[calc(env(safe-area-inset-bottom)+148px)] flex flex-col items-end gap-2"
+          className="absolute right-[calc(env(safe-area-inset-right)+16px)] bottom-[calc(env(safe-area-inset-bottom)+148px)] flex animate-[coach-fade-in_350ms_ease-out_225ms_both] flex-col items-end gap-2 motion-reduce:animate-none"
         >
           {[...ALARM_MINUTES, null].map((minutes) => {
             const checked = selected === minutes;

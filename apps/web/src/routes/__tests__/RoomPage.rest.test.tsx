@@ -158,4 +158,15 @@ describe("RoomPage 일시정지 휴식 화면", () => {
       expect.objectContaining({ type: "cancel-rest-notification", id: "study-rest" }),
     );
   });
+
+  it("쉬는 동안 시계는 서서히 사라지고 다시 시작하면 돌아온다", async () => {
+    renderRoom();
+    expect(screen.getByRole("status").closest(".transition-opacity")).not.toHaveClass("opacity-0");
+
+    await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
+    expect(screen.getByRole("status").closest(".transition-opacity")).toHaveClass("opacity-0");
+
+    await userEvent.click(screen.getByRole("button", { name: "다시 시작" }));
+    expect(screen.getByRole("status").closest(".transition-opacity")).not.toHaveClass("opacity-0");
+  });
 });
