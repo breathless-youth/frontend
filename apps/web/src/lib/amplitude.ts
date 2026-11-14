@@ -2303,9 +2303,8 @@ export function trackMultiTimerStarted(input: {
   if (!initialized) return;
   track("multi_timer_started", {
     kind: input.kind,
-    ...(input.kind === "timer"
-      ? { timer_sec: input.timerSec }
-      : { focus_min: input.focusMin, break_min: input.breakMin }),
+    ...(input.kind === "timer" && { timer_sec: input.timerSec }),
+    ...(input.kind === "pomodoro" && { focus_min: input.focusMin, break_min: input.breakMin }),
     sound_on: input.soundOn,
     from_pause: input.fromPause,
   });

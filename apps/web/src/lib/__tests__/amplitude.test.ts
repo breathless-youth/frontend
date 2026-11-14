@@ -2364,6 +2364,25 @@ describe("멀티 타이머 이벤트", () => {
     ]);
   });
 
+  it("스톱워치 시작에는 시간 설정값을 싣지 않는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackMultiTimerStarted({
+      kind: "stopwatch",
+      timerSec: 600,
+      focusMin: 25,
+      breakMin: 5,
+      soundOn: false,
+      fromPause: false,
+    });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["multi_timer_started", { kind: "stopwatch", sound_on: false, from_pause: false }],
+    ]);
+  });
+
   it("처음 시작할 때 이용 이력을 한 번만 남긴다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const m = await loadModule();
