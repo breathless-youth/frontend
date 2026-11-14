@@ -30,6 +30,17 @@ export const PIP_ANCHOR = [
   "landscape-compact:right-[max(env(safe-area-inset-right),16px)] landscape-compact:bottom-[max(env(safe-area-inset-bottom),calc((env(safe-area-inset-bottom)+14px)/2))]",
 ].join(" ");
 
+/**
+ * 하단 바 위에 추가 타이머 칩(40px + 간격 20px)이 있을 때 내 카메라 작은 창 자리
+ *
+ * `PIP_ANCHOR`의 아래 여백을 칩만큼 올린다. 함께 쓰면 뒤에 둔 이 값이 이긴다.
+ */
+export const PIP_ABOVE_CHIP = [
+  "bottom-[calc(env(safe-area-inset-bottom)+174px)]",
+  "regular:bottom-[calc(env(safe-area-inset-bottom)+194px)] short-side-lg:bottom-[calc(env(safe-area-inset-bottom)+209px)]",
+  "landscape-compact:bottom-[calc(max(env(safe-area-inset-bottom),calc((env(safe-area-inset-bottom)+14px)/2))+60px)]",
+].join(" ");
+
 /** 내 카메라 작은 창의 크기. 세로 108×144, 가로 160×108이고 폭 600 이상 창은 144×192다. */
 export const PIP_SIZE =
   "h-36 w-27 regular:h-48 regular:w-36 landscape-compact:h-27 landscape-compact:w-40";

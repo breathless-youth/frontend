@@ -97,8 +97,12 @@ export interface MultiTimerControls {
   readonly kindLocked: boolean;
   /** 꺼도 끝 알림의 햅틱은 그대로 낸다. */
   readonly soundOn: boolean;
-  /** 마지막으로 고른 모드로 연다. */
-  open(): void;
+  /**
+   * 모드를 연다
+   *
+   * 종류를 넘기지 않으면 마지막으로 고른 모드로 연다. `start`면 열자마자 시작한다(스톱워치).
+   */
+  open(kind?: ModeKind, options?: { readonly start?: boolean }): void;
   close(): void;
   /** 설정 화면에서만 바꾸고 고른 모드를 다음 열기에 쓴다. */
   switchKind(kind: ModeKind): void;
@@ -157,8 +161,11 @@ function syncClock(state: ModeState, nowMs: number, held: boolean) {
  *
  * 표기 함수와 같이 올림해서 이 값이 그대로면 화면 숫자도 그대로다.
  */
+/** 화면에 보이는 초. 남은 시간은 올려서, 스톱워치의 흐른 시간은 내려서 센다. */
 function shownSecond(mode: ModeState | null, atMs: number): number | null {
-  return mode === null ? null : Math.ceil(remainingMs(mode, atMs) / 1000);
+  if (mode === null) return null;
+  const seconds = remainingMs(mode, atMs) / 1000;
+  return mode.kind === "stopwatch" ? Math.floor(seconds) : Math.ceil(seconds);
 }
 
 function primaryLabelOf(mode: ModeState | null, held: boolean): ModePrimaryLabel {
@@ -248,9 +255,12 @@ export function useMultiTimer({
         // 모드가 든 다른 모드의 값은 열 때 읽은 것이라 그대로 쓰면 그 뒤 저장된 값을 덮는다.
         const stored = loadMultiTimerSettings();
         const { timerSec, focusMin, breakMin } = started.settings;
-        saveMultiTimerSettings(
-          started.kind === "timer" ? { ...stored, timerSec } : { ...stored, focusMin, breakMin },
-        );
+        // 스톱워치는 정할 시간이 없어 저장할 설정도 없다.
+        if (started.kind !== "stopwatch") {
+          saveMultiTimerSettings(
+            started.kind === "timer" ? { ...stored, timerSec } : { ...stored, focusMin, breakMin },
+          );
+        }
         alarm.prime();
         trackMultiTimerStarted({
           kind: started.kind,
@@ -288,12 +298,16 @@ export function useMultiTimer({
     commit(synced.status === current.status ? pressed(synced, atMs) : synced, atMs, alarms);
   };
 
-  const open = () => {
-    const kind = loadLastModeKind();
-    openedAtRef.current = now();
+  const open = (
+    kind: ModeKind = loadLastModeKind(),
+    options: { readonly start?: boolean } = {},
+  ) => {
+    const atMs = now();
+    openedAtRef.current = atMs;
     startedRef.current = false;
     trackMultiTimerOpened(kind);
-    commit(createModeState(kind, loadMultiTimerSettings()), openedAtRef.current);
+    const created = createModeState(kind, loadMultiTimerSettings());
+    commit(options.start === true ? pressed(created, atMs) : created, atMs);
   };
 
   const switchKind = (kind: ModeKind) => {

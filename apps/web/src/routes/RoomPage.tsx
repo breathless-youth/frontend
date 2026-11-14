@@ -26,17 +26,10 @@ import {
   readFaceMaskEmojiId,
   readFaceMaskOn,
 } from "@/features/live-room/faceMaskSettings";
-import { MultiTimerScreen } from "@/features/multi-timer/components/MultiTimerScreen";
-import { PomodoroPanel } from "@/features/multi-timer/components/PomodoroPanel";
-import { TimerPanel } from "@/features/multi-timer/components/TimerPanel";
-import {
-  useModeHistoryHold,
-  useModeScreenLocks,
-  useSessionRotationRestore,
-} from "@/features/multi-timer/modeScreenLocks";
-import type { ModeKind } from "@/features/multi-timer/multiTimerMachine";
+import { useSessionRotationRestore } from "@/features/multi-timer/modeScreenLocks";
 import { createMultiTimerUsage, useMultiTimer } from "@/features/multi-timer/useMultiTimer";
-import type { MultiTimerControls } from "@/features/multi-timer/useMultiTimer";
+import { SessionTimerChip } from "@/features/study-session/components/SessionTimerChip";
+import { SessionTimerSheet } from "@/features/study-session/components/SessionTimerSheet";
 import { createDeviceHandlingDetector } from "@/features/study-session/adapters/deviceHandlingDetector";
 import { combineFocusDetectors } from "@/features/study-session/adapters/focusDetector";
 import { createMediaStreamCameraAdapter } from "@/features/study-session/adapters/mediaStreamCamera";
@@ -98,6 +91,7 @@ import type {
 } from "@/features/study-session/sessionState";
 import { SESSION_HELP_STEPS, markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import {
+  PIP_ABOVE_CHIP,
   PIP_ANCHOR,
   PIP_SIZE,
   SESSION_LAYER_INSET,
@@ -442,18 +436,26 @@ function RoomSessionScreen({
     onResumeSession: resume,
     usage: multiTimerUsage,
   });
-  const modeOpen = multiTimer.mode !== null;
+  // 타이머 시간을 고르는 시트. 시작하면 닫히고 타이머는 하단 칩으로 계속 돈다.
+  const [timerSheetOpen, setTimerSheetOpen] = useState(false);
+  const timerSheetLandscape = useLandscapeLayout(timerSheetOpen);
+  // 시작 전(시간 고르는 중)이거나 끝나서 시작 전으로 돌아간 모드는 칩으로 보이지 않는다.
+  const timerChipVisible =
+    multiTimer.mode !== null && multiTimer.mode.status !== "setup" && !timerSheetOpen;
   /**
-   * 모드를 끈 순간의 모습
+   * 타이머 시트 열기
    *
-   * 꺼진 모드는 남은 시간과 버튼 이름이 처음 값으로 돌아가서, 밀려 나가는 동안에는 끄기 직전 모습을 그린다.
-   * 세션이 끝나 꺼질 때는 모드 화면이 공부 화면과 함께 사라져 남길 모습이 없다.
+   * 돌던 타이머나 스톱워치는 시트를 열 때 끄지 않는다. 시트에서 시작을 눌러야 새 타이머로 바뀌고, 취소하면 그대로 돈다.
    */
-  const [closingMode, setClosingMode] = useState<MultiTimerControls | null>(null);
-  const modeView = modeOpen ? multiTimer : closingMode;
-  const modeKind: ModeKind = modeView?.mode?.kind ?? "timer";
-  useModeScreenLocks(modeOpen);
-  useModeHistoryHold(modeOpen);
+  const openTimer = () => {
+    if (multiTimer.mode === null) multiTimer.open("timer");
+    setTimerSheetOpen(true);
+  };
+  /** 타이머와 스톱워치는 동시에 하나만 돈다. 스톱워치를 켜면 돌던 타이머를 끈다. */
+  const openStopwatch = () => {
+    if (multiTimer.mode !== null) multiTimer.close();
+    multiTimer.open("stopwatch", { start: true });
+  };
   useSessionRotationRestore();
   // 배경음·과목 페이지의 포털 자리. `--session-*` 변수가 여기 주입돼 있어 body 로 나가면 색이 빠진다.
   const [sessionSurface, setSessionSurface] = useState<HTMLElement | null>(null);
@@ -761,7 +763,7 @@ function RoomSessionScreen({
   const modalOverlayOpen = useModalOverlayOpen();
   // 다른 화면이 떠 있는 동안은 숨겼다가 닫히면 다시 보인다.
   const helpBlocked =
-    page !== null || modeOpen || exitDialogOpen || invite !== null || modalOverlayOpen;
+    page !== null || timerSheetOpen || exitDialogOpen || invite !== null || modalOverlayOpen;
   // 떠 있는 동안 세션 본문은 inert로 막고 앱 glass 버튼은 faded로 감춘다. 덮개 위에 실제 glass 버튼이
   // 떠서 같은 자리의 가짜 버튼과 겹치지 않게 웹 가짜 요소만 보인다. 세션·타이머는 그대로 돈다.
   const helpVisible = phase.name === "studying" && helpOpen && !helpBlocked;
@@ -1065,11 +1067,6 @@ function RoomSessionScreen({
   }, [studying]);
   useEffect(() => () => dropPageEntry(closingRef), []);
 
-  function closeMode() {
-    setClosingMode(multiTimer);
-    multiTimer.close();
-  }
-
   function subjectReturnFocus() {
     return subjectOpenerRef.current;
   }
@@ -1180,7 +1177,12 @@ function RoomSessionScreen({
         ref={pipSlotRef}
         aria-hidden="true"
         data-testid="camera-pip-slot"
-        className={cn(PIP_ANCHOR, PIP_SIZE, "pointer-events-none invisible")}
+        className={cn(
+          PIP_ANCHOR,
+          timerChipVisible && PIP_ABOVE_CHIP,
+          PIP_SIZE,
+          "pointer-events-none invisible",
+        )}
       />
       <CameraPreviewSurface
         stream={cameraStream}
@@ -1190,7 +1192,11 @@ function RoomSessionScreen({
         rotating={!cameraHidden && cameraExpanded && rotationPhase === "rotating"}
         faceMask={faceMask}
         // 기본 모드는 오른쪽 아래 작은 창이다. 크기만 바뀌어 영상과 추론은 끊기지 않는다.
-        className={cameraExpanded ? undefined : cn("inset-auto rounded-lg", PIP_ANCHOR, PIP_SIZE)}
+        className={
+          cameraExpanded
+            ? undefined
+            : cn("inset-auto rounded-lg", PIP_ANCHOR, timerChipVisible && PIP_ABOVE_CHIP, PIP_SIZE)
+        }
       />
 
       {phase.name === "studying" ? (
@@ -1269,7 +1275,8 @@ function RoomSessionScreen({
                   hidden={helpVisible}
                   // 심플 모드는 카메라 화면이 없어 전환 항목을 뺀다.
                   onFlipCamera={simpleMode ? undefined : () => void handleFlipCamera()}
-                  onOpenTimer={() => multiTimer.open()}
+                  onOpenStopwatch={openStopwatch}
+                  onOpenTimer={openTimer}
                   mascotVisible={mascotOn}
                   onToggleMascot={toggleMascot}
                   clockView={clockView}
@@ -1376,6 +1383,7 @@ function RoomSessionScreen({
                   onClick={expandCamera}
                   className={cn(
                     PIP_ANCHOR,
+                    timerChipVisible && PIP_ABOVE_CHIP,
                     PIP_SIZE,
                     "pointer-events-auto flex items-end justify-start rounded-lg shadow-[0_8px_24px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(255,255,255,0.12)]",
                     // 줄이기가 끝나 작은 창이 되는 순간 테두리·이름표·버튼이 한꺼번에 튀어나오지 않게 서서히 나타낸다.
@@ -1401,6 +1409,18 @@ function RoomSessionScreen({
                 바 안에 넣으면 조작 묶음에 섞인다.
                 줄 상자는 레이어 폭을 다 쓰고 바를 가운데에 두어서 바 자리는 감싸기 전과 같다.
                 가로 폰에서 월페이퍼를 켜면 왼쪽 끝을 시간 묶음이 쓰므로 바를 감싼 상자를 기준으로 바 왼쪽 옆에 붙인다. */}
+            {timerChipVisible && multiTimer.mode !== null && (
+              <div className="mb-5 flex w-full justify-center">
+                <SessionTimerChip
+                  mode={multiTimer.mode}
+                  displayMs={multiTimer.remainingMs}
+                  held={multiTimer.held}
+                  onOpen={() => setTimerSheetOpen(true)}
+                  onPrimary={() => multiTimer.pressPrimary()}
+                  onOff={() => multiTimer.close()}
+                />
+              </div>
+            )}
             <div className="relative flex w-full justify-center">
               <div className={cn(wallpaper && "landscape-compact:relative")}>
                 {mascotOn && (
@@ -1526,45 +1546,13 @@ function RoomSessionScreen({
             }}
           />
 
-          {/* 처음 열기 전에는 그릴 모드가 없다.
-              끈 뒤에는 끄기 직전 모습으로 밀려 나간다. */}
-          {modeView !== null && (
-            <MultiTimerScreen
-              open={modeOpen}
-              kind={modeKind}
-              kindLocked={modeView.kindLocked}
-              onSwitchKind={(kind) => multiTimer.switchKind(kind)}
-              container={sessionSurface}
-              returnFocus={() => moreTrigger}
-              onClose={closeMode}
-              primaryLabel={modeView.primaryLabel}
-              primaryDisabled={modeView.primaryDisabled}
-              onPrimary={() => multiTimer.pressPrimary()}
-              restartDisabled={modeView.restartDisabled}
-              onRestart={() => multiTimer.restart()}
-            >
-              {modeView.mode?.kind === "timer" && (
-                <TimerPanel
-                  mode={modeView.mode}
-                  remainingMs={modeView.remainingMs}
-                  distracted={modeView.distracted}
-                  onChangeTimerSec={(timerSec) => multiTimer.changeSettings({ timerSec })}
-                  soundOn={modeView.soundOn}
-                  onChangeSoundOn={(on) => multiTimer.setSoundOn(on)}
-                />
-              )}
-              {modeView.mode?.kind === "pomodoro" && (
-                <PomodoroPanel
-                  mode={modeView.mode}
-                  remainingMs={modeView.remainingMs}
-                  distracted={modeView.distracted}
-                  onChangeSettings={(patch) => multiTimer.changeSettings(patch)}
-                  soundOn={modeView.soundOn}
-                  onChangeSoundOn={(on) => multiTimer.setSoundOn(on)}
-                />
-              )}
-            </MultiTimerScreen>
-          )}
+          <SessionTimerSheet
+            open={timerSheetOpen}
+            landscape={timerSheetLandscape}
+            container={sessionSurface}
+            timer={multiTimer}
+            onClose={() => setTimerSheetOpen(false)}
+          />
         </>
       ) : /* 미달 종료 안내 — 순공 1분 미만이면 자동 종료로 끝났든
              수동으로 끝냈든 기록에 남지 않으므로, `여기까지 기록을 저장했어요`도 결과 표시도 모두 사실이 아니다.

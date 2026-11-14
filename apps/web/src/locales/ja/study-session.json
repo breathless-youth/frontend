@@ -78,7 +78,8 @@
     "hideMascot": "マスコットを非表示",
     "showMascot": "マスコットを表示",
     "viewStudy": "勉強時間で表示",
-    "viewFocus": "集中時間で表示"
+    "viewFocus": "集中時間で表示",
+    "stopwatch": "ストップウォッチ"
   },
   "subjectSheet": {
     "title": "科目",
@@ -175,5 +176,20 @@
     "timelapse": "タイムラプス",
     "expand": "自分の画面を大きく表示",
     "shrink": "小さく表示"
+  },
+  "timerChip": {
+    "group": "追加タイマー",
+    "timer": "タイマー",
+    "stopwatch": "ストップウォッチ",
+    "open": "タイマー設定",
+    "total": "/ {{total}}",
+    "pause": "一時停止",
+    "resume": "再開",
+    "off": "オフ",
+    "elapsed": "経過時間",
+    "remaining": "残り時間"
+  },
+  "timerSheet": {
+    "title": "タイマー設定"
   }
 }

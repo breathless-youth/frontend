@@ -78,7 +78,8 @@
     "hideMascot": "마스코트 숨기기",
     "showMascot": "마스코트 보이기",
     "viewStudy": "공부 시간으로 보기",
-    "viewFocus": "순공으로 보기"
+    "viewFocus": "순공으로 보기",
+    "stopwatch": "스톱워치"
   },
   "subjectSheet": {
     "title": "과목",
@@ -175,5 +176,20 @@
     "timelapse": "타임랩스",
     "expand": "내 화면 크게 보기",
     "shrink": "작게 보기"
+  },
+  "timerChip": {
+    "group": "추가 타이머",
+    "timer": "타이머",
+    "stopwatch": "스톱워치",
+    "open": "타이머 설정",
+    "total": "/ {{total}}",
+    "pause": "멈춤",
+    "resume": "계속",
+    "off": "끄기",
+    "elapsed": "흐른 시간",
+    "remaining": "남은 시간"
+  },
+  "timerSheet": {
+    "title": "타이머 설정"
   }
 }

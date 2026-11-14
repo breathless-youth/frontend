@@ -11,8 +11,8 @@ import type * as BridgeModule from "@/lib/bridge";
 import { RoomPage } from "../RoomPage";
 
 /**
- * 타이머·뽀모도로 모드 화면과 RoomPage 연결만 본다.
- * 모드 안 조작은 `useMultiTimer.test.tsx`와 패널 테스트, 껍데기는 `MultiTimerScreen.test.tsx`가 검증한다.
+ * 싱글룸 타이머 시트와 세션의 연결(회전, 세션 종료, 알림음, 종료 계측)을 본다.
+ * 시트·칩 조작은 `RoomPage.timerChip.test.tsx`, 모드 안 규칙은 `useMultiTimer.test.tsx`가 검증한다.
  */
 vi.mock("@/features/study-session/useActiveSessionRestore", () => ({
   useActiveSessionRestore: () => ({ settled: true, restored: null }),
@@ -52,12 +52,6 @@ function receiveInvite(code: string) {
   });
 }
 
-/** 지금 history 항목이 모드 화면 표시인가. */
-function modeEntryOnTop() {
-  const state = window.history.state as { sessionMode?: boolean } | null;
-  return state?.sessionMode === true;
-}
-
 /** 라우터가 지금 보는 경로. */
 function RouterPath() {
   return <output aria-label="라우터 경로">{useLocation().pathname}</output>;
@@ -66,7 +60,7 @@ function RouterPath() {
 /** `main.tsx`와 같은 BrowserRouter로 띄운다. popstate를 받으면 라우터도 위치를 다시 읽는다. */
 function renderRoom() {
   window.history.pushState(null, "", "/room/7?userId=1");
-  const view = render(
+  return render(
     <BrowserRouter>
       <RouterPath />
       <Routes>
@@ -75,51 +69,22 @@ function renderRoom() {
       </Routes>
     </BrowserRouter>,
   );
-  return view;
 }
 
-// 모드 화면이 열리면 뒤 화면이 aria-hidden이라 역할 이름을 계산하지 않아서 라벨로 찾는다.
-function routerPath() {
-  return screen.getByLabelText("라우터 경로").textContent;
-}
-
-/** 모드 화면 뒤에 가려진 측정 화면 상태 필의 문구 일치 여부 */
-function statusShows(copy: string) {
-  return screen
-    .getAllByRole("status", { hidden: true })
-    .some((status) => status.textContent === copy);
-}
-
-/** 더보기 메뉴의 타이머 항목으로 타이머 화면을 연다. */
-async function openTimer() {
+/** 더보기 메뉴의 타이머 항목으로 시간 고르는 시트를 연다. */
+async function openTimerSheet() {
   await userEvent.click(screen.getByRole("button", { name: "더보기" }));
   await userEvent.click(screen.getByRole("menuitem", { name: "타이머" }));
 }
 
-/** 가짜 타이머 아래에서 더보기 메뉴로 타이머 화면을 연다. Radix 메뉴는 Enter 키로도 열린다. */
-function openTimerNow() {
+/** 가짜 타이머 아래에서 시트를 연다. Radix 메뉴는 Enter 키로도 열린다. */
+function openTimerSheetNow() {
   fireEvent.keyDown(screen.getByRole("button", { name: "더보기" }), { key: "Enter" });
   fireEvent.click(screen.getByRole("menuitem", { name: "타이머" }));
+  return screen.getByRole("dialog", { name: "타이머 설정" });
 }
 
-/** 타이머 화면을 연 뒤 토글로 뽀모도로를 고른다. */
-async function openPomodoro() {
-  await openTimer();
-  await userEvent.click(screen.getByRole("tab", { name: "뽀모도로" }));
-}
-
-/**
- * 가짜 타이머 아래에서 뽀모도로를 연다.
- *
- * Radix Tabs는 클릭이 아니라 mousedown으로 칸을 고른다.
- */
-function openPomodoroNow() {
-  openTimerNow();
-  fireEvent.mouseDown(screen.getByRole("tab", { name: "뽀모도로" }));
-}
-
-const MEASURING = "현재 집중";
-const PAUSED = "측정을 일시정지했어요";
+const sheet = () => screen.queryByRole("dialog", { name: "타이머 설정" });
 
 async function advance(ms: number) {
   await act(async () => {
@@ -127,7 +92,7 @@ async function advance(ms: number) {
   });
 }
 
-describe("RoomPage 멀티 타이머", () => {
+describe("RoomPage 타이머와 세션", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.clearAllMocks();
@@ -136,25 +101,8 @@ describe("RoomPage 멀티 타이머", () => {
       clearSessionInvite();
       toast.dismiss();
     });
-    localStorage.removeItem("focuson.multiTimer.v1");
-    localStorage.removeItem("focuson.multiTimer.lastKind.v1");
-    localStorage.removeItem("focuson.multiTimer.alarmSound.v1");
+    localStorage.clear();
     window.history.replaceState(null, "", "/");
-  });
-
-  it("더보기 메뉴는 카메라 전환, 타이머, 보기 형식, 마스코트, 도움말 보기 순서다", async () => {
-    renderRoom();
-
-    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
-
-    const names = screen.getAllByRole("menuitem").map((item) => item.textContent);
-    expect(names).toEqual([
-      "카메라 전환",
-      "타이머",
-      "공부 시간으로 보기",
-      "마스코트 보이기",
-      "도움말 보기",
-    ]);
   });
 
   it("측정 화면이 열리면 회전 허용을 한 번 다시 알린다", () => {
@@ -169,13 +117,13 @@ describe("RoomPage 멀티 타이머", () => {
     ]);
   });
 
-  it("타이머 화면을 열어도 회전을 잠그지 않는다", async () => {
+  it("타이머 시트를 열어도 회전을 잠그지 않는다", async () => {
     renderRoom();
     vi.mocked(postToNative).mockClear();
 
-    await openPomodoro();
+    await openTimerSheet();
 
-    expect(screen.getByRole("dialog", { name: "타이머" })).toBeInTheDocument();
+    expect(sheet()).toBeInTheDocument();
     const orientation = vi
       .mocked(postToNative)
       .mock.calls.map(([message]) => message)
@@ -183,160 +131,41 @@ describe("RoomPage 멀티 타이머", () => {
     expect(orientation).toEqual([]);
   });
 
-  it("opens_timer_screen_from_more_menu", async () => {
+  it("시트를 연 채로 세션이 끝나면 시트도 사라지고 룸에 머문다", async () => {
     renderRoom();
+    await openTimerSheet();
 
-    await openTimer();
-
-    expect(screen.getByRole("dialog", { name: "타이머" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "시작" })).toBeInTheDocument();
-    expect(modeEntryOnTop()).toBe(true);
-    // 같은 주소에 머물러 세션이 끊기지 않는다.
-    expect(routerPath()).toBe("/room/7");
-    expect(window.location.pathname).toBe("/room/7");
-    expect(statusShows(MEASURING)).toBe(true);
-  });
-
-  it("close_button_turns_mode_off", async () => {
-    renderRoom();
-    const moreButton = screen.getByRole("button", { name: "더보기" });
-    await openPomodoro();
-
-    await userEvent.click(screen.getByRole("button", { name: "타이머 끄기" }));
-
-    await waitFor(() =>
-      expect(screen.queryByRole("dialog", { name: "타이머" })).not.toBeInTheDocument(),
-    );
-    await waitFor(() => expect(modeEntryOnTop()).toBe(false));
-    await waitFor(() => expect(moreButton).toHaveFocus());
-    expect(routerPath()).toBe("/room/7");
-  });
-
-  it("토글로 뽀모도로를 고르면 같은 화면에 뽀모도로가 뜨고 다시 열면 그 모드로 연다", async () => {
-    renderRoom();
-    await openTimer();
-    expect(screen.getByRole("tab", { name: "기본" })).toHaveAttribute("aria-selected", "true");
-
-    await userEvent.click(screen.getByRole("tab", { name: "뽀모도로" }));
-    expect(screen.getByRole("combobox", { name: "집중 시간" })).toHaveValue("25");
-    expect(screen.getByRole("dialog", { name: "타이머" })).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { name: "타이머 끄기" }));
-    await waitFor(() =>
-      expect(screen.queryByRole("dialog", { name: "타이머" })).not.toBeInTheDocument(),
-    );
-    await openTimer();
-
-    expect(screen.getByRole("tab", { name: "뽀모도로" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("combobox", { name: "집중 시간" })).toHaveValue("25");
-  });
-
-  it("모드를 시작하면 토글을 누를 수 없다", async () => {
-    renderRoom();
-    await openTimer();
-
-    await userEvent.click(screen.getByRole("button", { name: "시작" }));
-
-    expect(screen.getByRole("tab", { name: "뽀모도로" })).toBeDisabled();
-  });
-
-  it("browser_back_keeps_mode_screen", async () => {
-    renderRoom();
-    await openTimer();
-    const pushState = vi.spyOn(window.history, "pushState");
-
-    act(() => {
-      window.history.back();
-    });
-
-    await waitFor(() => expect(pushState).toHaveBeenCalledOnce());
-    expect(modeEntryOnTop()).toBe(true);
-    expect(screen.getByRole("dialog", { name: "타이머" })).toBeInTheDocument();
-    expect(routerPath()).toBe("/room/7");
-    expect(screen.queryByText("룸 밖 화면")).not.toBeInTheDocument();
-  });
-
-  it("session_end_closes_mode", async () => {
-    renderRoom();
-    await openTimer();
-
-    // 초대 확인 창의 참여하기가 모드 화면을 연 채로 세션을 끝내는 실제 경로다.
+    // 초대 확인 창의 참여하기가 시트를 연 채로 세션을 끝내는 실제 경로다.
     receiveInvite("4680");
     await userEvent.click(
       within(await screen.findByRole("alertdialog")).getByRole("button", { name: "참여하기" }),
     );
 
-    await waitFor(() =>
-      expect(screen.queryByRole("dialog", { name: "타이머" })).not.toBeInTheDocument(),
-    );
-    await waitFor(() => expect(modeEntryOnTop()).toBe(false));
+    await waitFor(() => expect(sheet()).not.toBeInTheDocument());
     expect(window.location.pathname).toBe("/room/7");
+    expect(screen.getByLabelText("라우터 경로").textContent).toBe("/room/7");
   });
 
-  it("심플 모드에서도 더보기 메뉴로 타이머를 열고, 카메라 전환은 빠진다", async () => {
+  it("심플 모드 더보기에는 카메라 전환 없이 스톱워치와 타이머가 있다", async () => {
     renderRoom();
 
     await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
     await userEvent.click(screen.getByRole("button", { name: "더보기" }));
 
     const names = screen.getAllByRole("menuitem").map((item) => item.textContent);
-    expect(names).toEqual(["타이머", "공부 시간으로 보기", "마스코트 보이기", "도움말 보기"]);
+    expect(names).toEqual([
+      "스톱워치",
+      "타이머",
+      "공부 시간으로 보기",
+      "마스코트 보이기",
+      "도움말 보기",
+    ]);
   });
 
-  it("뽀모도로 화면 안에서 집중 칸 선택 목록으로 집중 시간을 바꿀 수 있다", async () => {
-    renderRoom();
-    await openPomodoro();
-
-    await userEvent.selectOptions(screen.getByRole("combobox", { name: "집중 시간" }), "45");
-
-    expect(screen.getByRole("combobox", { name: "집중 시간" })).toHaveValue("45");
-    expect(screen.getByRole("slider", { name: "집중 시간" })).toHaveAttribute(
-      "aria-valuenow",
-      "45",
-    );
-    expect(screen.getByRole("timer", { name: "집중 시간" })).toHaveTextContent("45:00");
-    expect(screen.getByRole("dialog", { name: "타이머" })).toBeInTheDocument();
-  });
-
-  it("뽀모도로 집중이 끝나면 세션이 휴식에 들어가고 휴식이 끝나면 측정이 다시 흐른다", async () => {
+  it("알림음을 끄면 타이머가 끝나도 소리 없이 진동만 하고 다시 켜면 소리를 낸다", async () => {
     localStorage.setItem(
       "focuson.multiTimer.v1",
-      JSON.stringify({ timerSec: 1800, focusMin: 1, breakMin: 1 }),
-    );
-    vi.useFakeTimers();
-    renderRoom();
-    openPomodoroNow();
-    const screenDialog = screen.getByRole("dialog", { name: "타이머" });
-    fireEvent.click(within(screenDialog).getByRole("button", { name: "시작" }));
-    expect(statusShows(MEASURING)).toBe(true);
-
-    await advance(61_000);
-    expect(statusShows(PAUSED)).toBe(true);
-    // 휴식은 사용자가 멈춘 것이 아니라 모드 버튼은 계속이 아니라 일시정지다.
-    expect(within(screenDialog).getByRole("button", { name: "일시정지" })).toBeInTheDocument();
-
-    await advance(60_000);
-    expect(statusShows(MEASURING)).toBe(true);
-  });
-
-  it("세션이 멈춘 채 뽀모도로를 시작하면 측정도 다시 흐른다", async () => {
-    vi.useFakeTimers();
-    renderRoom();
-    fireEvent.click(screen.getByRole("button", { name: "일시정지" }));
-    expect(statusShows(PAUSED)).toBe(true);
-
-    openPomodoroNow();
-    const screenDialog = screen.getByRole("dialog", { name: "타이머" });
-    fireEvent.click(within(screenDialog).getByRole("button", { name: "시작" }));
-
-    expect(statusShows(MEASURING)).toBe(true);
-    expect(within(screenDialog).getByRole("button", { name: "일시정지" })).toBeInTheDocument();
-  });
-
-  it("알림음을 끄면 집중이 끝나도 소리 없이 진동만 하고 다시 켜면 휴식 끝에 소리를 낸다", async () => {
-    localStorage.setItem(
-      "focuson.multiTimer.v1",
-      JSON.stringify({ timerSec: 1800, focusMin: 1, breakMin: 1 }),
+      JSON.stringify({ timerSec: 60, focusMin: 25, breakMin: 5 }),
     );
     const createOscillator = vi.fn(() => ({
       type: "sine",
@@ -364,10 +193,9 @@ describe("RoomPage 멀티 타이머", () => {
     try {
       vi.useFakeTimers();
       renderRoom();
-      openPomodoroNow();
-      const screenDialog = screen.getByRole("dialog", { name: "타이머" });
-      fireEvent.click(within(screenDialog).getByRole("switch", { name: "알림음" }));
-      fireEvent.click(within(screenDialog).getByRole("button", { name: "시작" }));
+      let dialog = openTimerSheetNow();
+      fireEvent.click(within(dialog).getByRole("switch", { name: "알림음" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "1분 시작" }));
       vibrate.mockClear();
 
       await advance(61_000);
@@ -375,8 +203,10 @@ describe("RoomPage 멀티 타이머", () => {
       // 브라우저 단독에서는 alert 를 진동 길이로 바꿔 낸다.
       expect(vibrate).toHaveBeenCalledWith(20);
 
-      fireEvent.click(within(screenDialog).getByRole("switch", { name: "알림음" }));
-      await advance(60_000);
+      dialog = openTimerSheetNow();
+      fireEvent.click(within(dialog).getByRole("switch", { name: "알림음" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "1분 시작" }));
+      await advance(61_000);
       expect(createOscillator).toHaveBeenCalled();
     } finally {
       vi.unstubAllGlobals();
@@ -384,20 +214,14 @@ describe("RoomPage 멀티 타이머", () => {
     }
   });
 
-  it("휴식 중에 세션을 끝내면 종료 계측에 뽀모도로 사용과 휴식 길이가 실리고 타이머 닫힘은 보내지 않는다", async () => {
-    localStorage.setItem(
-      "focuson.multiTimer.v1",
-      JSON.stringify({ timerSec: 1800, focusMin: 1, breakMin: 5 }),
-    );
+  it("타이머를 쓴 세션을 끝내면 종료 계측에 타이머 사용이 실리고 타이머 닫힘은 보내지 않는다", async () => {
     vi.useFakeTimers();
     renderRoom();
-    openPomodoroNow();
-    fireEvent.click(
-      within(screen.getByRole("dialog", { name: "타이머" })).getByRole("button", { name: "시작" }),
-    );
-    await advance(90_000);
+    const dialog = openTimerSheetNow();
+    fireEvent.click(within(dialog).getByRole("button", { name: "30분 시작" }));
+    await advance(5000);
 
-    fireEvent.click(screen.getByRole("button", { name: "공부 종료", hidden: true }));
+    fireEvent.click(screen.getByRole("button", { name: "공부 종료" }));
     fireEvent.click(
       within(screen.getByRole("alertdialog")).getByRole("button", { name: "공부 종료" }),
     );
@@ -406,9 +230,7 @@ describe("RoomPage 멀티 타이머", () => {
     expect(vi.mocked(trackStudySessionEnded)).toHaveBeenCalledTimes(1);
     expect(vi.mocked(trackStudySessionEnded).mock.calls[0]?.[0]).toMatchObject({
       roomType: "single",
-      multiTimer: "pomodoro",
-      breakSec: 30,
-      pauseSec: 0,
+      multiTimer: "timer",
     });
     expect(vi.mocked(trackMultiTimerClosed)).not.toHaveBeenCalled();
   });

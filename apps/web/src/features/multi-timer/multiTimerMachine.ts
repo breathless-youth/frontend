@@ -7,12 +7,13 @@
 import { clampBreakMin, clampFocusMin, clampTimerSec } from "./multiTimerSettings";
 import type { MultiTimerSettings } from "./multiTimerSettings";
 
-export type ModeKind = "timer" | "pomodoro";
+export type ModeKind = "timer" | "pomodoro" | "stopwatch";
 export type PomodoroPhase = "focus" | "break";
 export type ModeStatus = "setup" | "running" | "paused";
 export type ModeAlarm = "timer-done" | "focus-done" | "break-done";
 
 export interface ModeClock {
+  /** 타이머·뽀모도로는 남은 시간이고, 스톱워치는 흐른 시간이다. */
   readonly remainingMs: number;
   /**
    * 흐르기 시작한 벽시계 시각
@@ -35,6 +36,8 @@ export function phaseDurationMs(
   phase: PomodoroPhase,
 ): number {
   if (state.kind === "timer") return state.settings.timerSec * 1000;
+  // 스톱워치는 0부터 올라가서 정해진 길이가 없다.
+  if (state.kind === "stopwatch") return 0;
   return (phase === "focus" ? state.settings.focusMin : state.settings.breakMin) * 60_000;
 }
 
@@ -71,7 +74,7 @@ export function updateModeSettings(
 export function startMode(state: ModeState): ModeState {
   if (state.status !== "setup") return state;
   const first = phaseDurationMs(state, "focus");
-  if (first <= 0) return state;
+  if (first <= 0 && state.kind !== "stopwatch") return state;
   return {
     ...state,
     status: "running",
@@ -80,9 +83,11 @@ export function startMode(state: ModeState): ModeState {
   };
 }
 
+/** 지금 보여 줄 시간. 타이머·뽀모도로는 남은 시간, 스톱워치는 흐른 시간이다. */
 export function remainingMs(state: ModeState, nowMs: number): number {
   const { remainingMs: base, anchorMs } = state.clock;
   if (anchorMs === null) return base;
+  if (state.kind === "stopwatch") return base + (nowMs - anchorMs);
   return Math.max(0, base - (nowMs - anchorMs));
 }
 
@@ -129,6 +134,8 @@ export function syncMode(
   if (anchorMs === null) {
     return { state: { ...state, clock: { remainingMs: base, anchorMs: nowMs } }, alarms: [] };
   }
+
+  if (state.kind === "stopwatch") return { state, alarms: [] };
 
   const left = base - (nowMs - anchorMs);
   if (left > 0) return { state, alarms: [] };

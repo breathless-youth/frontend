@@ -321,8 +321,8 @@ function setFlagOnce(key: string) {
  */
 export type StudyRoomType = "single" | "social";
 
-/** 한 세션 동안 한 번이라도 시작한 멀티 타이머 종류. */
-export type MultiTimerUse = "none" | "timer" | "pomodoro" | "both";
+/** 한 세션 동안 한 번이라도 시작한 멀티 타이머 종류. 두 종류 이상이면 `both`다. */
+export type MultiTimerUse = "none" | "timer" | "pomodoro" | "stopwatch" | "both";
 
 /** 세션 종료 사유 — `features/study-session`의 `SessionEndReason`을 평평하게 편 값. */
 export interface StudySessionEndedInput {
@@ -2080,7 +2080,7 @@ export function trackAmbientSoundDuckToggled(enabled: boolean, roomType: StudyRo
  * 세션 단위 사용 여부는 `trackStudySessionEnded`의 `multi_timer`가 싣는다.
  */
 
-type MultiTimerKind = "timer" | "pomodoro";
+type MultiTimerKind = "timer" | "pomodoro" | "stopwatch";
 type PomodoroPhase = "focus" | "break";
 
 /**

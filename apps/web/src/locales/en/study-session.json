@@ -81,7 +81,8 @@
     "hideMascot": "Hide mascot",
     "showMascot": "Show mascot",
     "viewStudy": "Show study time",
-    "viewFocus": "Show focus time"
+    "viewFocus": "Show focus time",
+    "stopwatch": "Stopwatch"
   },
   "subjectSheet": {
     "title": "Subject",
@@ -180,5 +181,20 @@
     "timelapse": "Time-lapse",
     "expand": "Enlarge my camera",
     "shrink": "Make it smaller"
+  },
+  "timerChip": {
+    "group": "Extra timer",
+    "timer": "Timer",
+    "stopwatch": "Stopwatch",
+    "open": "Timer settings",
+    "total": "/ {{total}}",
+    "pause": "Pause",
+    "resume": "Resume",
+    "off": "Turn off",
+    "elapsed": "Elapsed time",
+    "remaining": "Time left"
+  },
+  "timerSheet": {
+    "title": "Timer settings"
   }
 }

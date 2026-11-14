@@ -7,6 +7,7 @@ import {
   EyeOff,
   Share2,
   SwitchCamera,
+  Timer,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -59,6 +60,8 @@ type SessionMoreMenuProps = {
   onFlipCamera?: () => void;
   /** 넘긴 화면에서만 타이머 항목이 보인다. */
   onOpenTimer?: () => void;
+  /** 싱글룸만 넘긴다. 누르면 스톱워치가 바로 시작한다. */
+  onOpenStopwatch?: () => void;
   /**
    * 넘긴 화면에서만 마스코트 항목이 보인다.
    * 지금 보이는지에 따라 문구가 바뀐다.
@@ -98,6 +101,7 @@ export function SessionMoreMenu({
   flipDisabled = false,
   onFlipCamera,
   onOpenTimer,
+  onOpenStopwatch,
   mascotVisible = false,
   onToggleMascot,
   clockView = "focus",
@@ -141,6 +145,9 @@ export function SessionMoreMenu({
       onSelect: onFlipCamera,
       disabled: flipDisabled,
     });
+  }
+  if (onOpenStopwatch) {
+    items.push({ label: t("moreMenu.stopwatch"), icon: Timer, onSelect: onOpenStopwatch });
   }
   if (onOpenTimer) {
     items.push({ label: t("moreMenu.timer"), icon: Clock, onSelect: onOpenTimer });

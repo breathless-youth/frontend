@@ -78,7 +78,8 @@
     "hideMascot": "隱藏吉祥物",
     "showMascot": "顯示吉祥物",
     "viewStudy": "以讀書時間顯示",
-    "viewFocus": "以專注時間顯示"
+    "viewFocus": "以專注時間顯示",
+    "stopwatch": "碼錶"
   },
   "subjectSheet": {
     "title": "科目",
@@ -175,5 +176,20 @@
     "timelapse": "縮時影片",
     "expand": "放大我的畫面",
     "shrink": "縮小顯示"
+  },
+  "timerChip": {
+    "group": "額外計時器",
+    "timer": "計時器",
+    "stopwatch": "碼錶",
+    "open": "計時器設定",
+    "total": "/ {{total}}",
+    "pause": "暫停",
+    "resume": "繼續",
+    "off": "關閉",
+    "elapsed": "經過時間",
+    "remaining": "剩餘時間"
+  },
+  "timerSheet": {
+    "title": "計時器設定"
   }
 }
