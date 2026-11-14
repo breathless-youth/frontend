@@ -1258,7 +1258,7 @@ function RoomSessionBody({
               }}
             />
           )}
-          <WallpaperScrim />
+          <WallpaperScrim simple={simpleMode} />
         </div>
       )}
       <div

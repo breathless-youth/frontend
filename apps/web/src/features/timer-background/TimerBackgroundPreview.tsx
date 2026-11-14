@@ -133,7 +133,7 @@ export function TimerBackgroundPreview({
       >
         {photo !== null && <TimerBackgroundLayer src={photo.src} fit={fit} />}
         {proctor && <WatcherDemo />}
-        {wallpaper && <WallpaperScrim />}
+        {wallpaper && <WallpaperScrim simple={false} />}
         <div
           aria-hidden="true"
           className={cn("relative flex h-full flex-col items-center", SESSION_LAYER_INSET)}
