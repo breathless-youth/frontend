@@ -47,7 +47,7 @@
         "HIGH_SAMPLING_RATE_SENSORS",
         "RECORD_AUDIO",
         "MODIFY_AUDIO_SETTINGS",
-        "android.permission.USE_EXACT_ALARM"
+        "USE_EXACT_ALARM"
       ],
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",

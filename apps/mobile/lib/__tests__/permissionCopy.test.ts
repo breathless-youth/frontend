@@ -133,7 +133,7 @@ describe("app.json 카메라 권한 문구 (S2-2)", () => {
       // normal 권한이라 런타임 다이얼로그는 뜨지 않는다.
       "MODIFY_AUDIO_SETTINGS",
       // 휴식 끝 로컬 알림이 절전 중에도 고른 시각에 울리게 한다. 사용자가 끌 수 없는 권한이라 다이얼로그는 없다.
-      "android.permission.USE_EXACT_ALARM",
+      "USE_EXACT_ALARM",
     ]);
   });
 

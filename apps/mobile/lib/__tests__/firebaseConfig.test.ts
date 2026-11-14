@@ -75,7 +75,7 @@ describe("Firebase 설정 (BY-585)", () => {
 
     // 휴식 끝 알림이 절전 중에도 고른 시각에 울리려면 정확한 알람 권한이 있어야 한다.
     it("Android가 정확한 알람 권한을 선언한다", () => {
-      expect(appJson.expo.android.permissions).toContain("android.permission.USE_EXACT_ALARM");
+      expect(appJson.expo.android.permissions).toContain("USE_EXACT_ALARM");
     });
 
     /**
