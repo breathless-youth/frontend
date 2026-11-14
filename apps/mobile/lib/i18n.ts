@@ -25,6 +25,8 @@ const ko = {
   "common.loading": "불러오는 중",
   "common.openSettings": "설정 열기",
 
+  "notification.restChannel": "휴식 알림",
+
   "webview.loadFailedTitle": "화면을 불러오지 못했어요",
   "webview.loadFailedBody": "네트워크 상태를 확인하고 다시 시도해 주세요.",
   "webview.loading": "화면을 불러오는 중",
@@ -91,6 +93,8 @@ const en = {
   "common.retry": "Try again",
   "common.loading": "Loading",
   "common.openSettings": "Open settings",
+
+  "notification.restChannel": "Break reminders",
 
   "webview.loadFailedTitle": "Couldn't load this screen",
   "webview.loadFailedBody": "Check your connection and try again.",
@@ -159,6 +163,8 @@ const ja = {
   "common.retry": "再試行",
   "common.loading": "読み込み中",
   "common.openSettings": "設定を開く",
+
+  "notification.restChannel": "休憩の通知",
 
   "webview.loadFailedTitle": "画面を読み込めませんでした",
   "webview.loadFailedBody": "ネットワーク接続を確認して、もう一度お試しください。",
@@ -229,6 +235,8 @@ const zhHant = {
   "common.retry": "重試",
   "common.loading": "載入中",
   "common.openSettings": "開啟設定",
+
+  "notification.restChannel": "休息提醒",
 
   "webview.loadFailedTitle": "無法載入畫面",
   "webview.loadFailedBody": "請檢查網路連線，然後再試一次。",

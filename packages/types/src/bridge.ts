@@ -449,6 +449,22 @@ export type ToNativeMessage =
    */
   | { type: "request-push-permission"; atMs: number }
   /**
+   * 휴식 끝 OS 알림 예약
+   *
+   * 앱이 웹뷰 주소에 `restNotify=1`을 붙였을 때만 보낸다. 앱은 `fireAtMs`에 로컬 알림을 띄운다.
+   * 같은 `id`로 다시 보내면 앞의 예약을 바꾼다. 응답은 없다.
+   */
+  | {
+      type: "schedule-rest-notification";
+      id: string;
+      fireAtMs: number;
+      title: string;
+      body: string;
+      atMs: number;
+    }
+  /** 휴식 끝 OS 알림 예약 취소. 없는 `id`면 아무 일도 없다. */
+  | { type: "cancel-rest-notification"; id: string; atMs: number }
+  /**
    * 첫 화면을 보여도 된다는 신호
    *
    * 앱은 이 신호가 올 때까지 스플래시를 유지한다.

@@ -74,6 +74,10 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   // 웹은 이 표시가 있을 때만 타이머 끝 알림에 `alert`를 보낸다(`apps/web/src/lib/alertHapticCapability.ts`).
   // 구버전 앱의 파서는 모르는 세기를 통째로 버리므로 브리지가 있다는 것만으로는 보낼 수 없다.
   params.alertHaptic = "1";
+  // `restNotify=1`: 이 바이너리가 `schedule-rest-notification`으로 휴식 끝 로컬 알림을 띄울 수 있다는 표시.
+  // 웹은 이 표시가 있을 때만 휴식 알림 말풍선을 보인다(`apps/web/src/lib/restNotificationCapability.ts`).
+  // 구버전 앱은 앱을 나가 있는 동안 알릴 수 없어 말풍선 자체를 숨긴다.
+  params.restNotify = "1";
   // `pushPermission=1`: 이 바이너리는 실행할 때 알림 권한을 묻지 않고 `request-push-permission`을 기다린다는 표시.
   // 웹은 이 표시가 있을 때만 온보딩이나 홈 도착에서 권한을 요청한다(`apps/web/src/lib/nativePushPermission.ts`).
   // 표시 없는 구버전 앱은 실행할 때 이미 물었으므로 웹이 다시 요청하지 않는다.

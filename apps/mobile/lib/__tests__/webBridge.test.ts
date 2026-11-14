@@ -182,6 +182,30 @@ describe("parseToNativeMessage", () => {
     expect(parseToNativeMessage('{"type":"haptic","style":"boom","atMs":3}')).toBeNull();
   });
 
+  it("휴식 알림 예약 메시지를 파싱하고 빠진 값이 있으면 버린다", () => {
+    expect(
+      parseToNativeMessage(
+        '{"type":"schedule-rest-notification","id":"rest","fireAtMs":1000,"title":"5분 휴식이 끝났어요","body":"다시","atMs":3}',
+      ),
+    ).toEqual({
+      type: "schedule-rest-notification",
+      id: "rest",
+      fireAtMs: 1000,
+      title: "5분 휴식이 끝났어요",
+      body: "다시",
+      atMs: 3,
+    });
+    expect(
+      parseToNativeMessage(
+        '{"type":"schedule-rest-notification","id":"rest","fireAtMs":"soon","title":"t","body":"b","atMs":3}',
+      ),
+    ).toBeNull();
+    expect(
+      parseToNativeMessage('{"type":"cancel-rest-notification","id":"rest","atMs":3}'),
+    ).toEqual({ type: "cancel-rest-notification", id: "rest", atMs: 3 });
+    expect(parseToNativeMessage('{"type":"cancel-rest-notification","atMs":3}')).toBeNull();
+  });
+
   it("haptic 메시지의 alert 세기를 받는다", () => {
     expect(parseToNativeMessage('{"type":"haptic","style":"alert","atMs":3}')).toEqual({
       type: "haptic",

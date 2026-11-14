@@ -46,7 +46,8 @@
         "CAMERA",
         "HIGH_SAMPLING_RATE_SENSORS",
         "RECORD_AUDIO",
-        "MODIFY_AUDIO_SETTINGS"
+        "MODIFY_AUDIO_SETTINGS",
+        "android.permission.USE_EXACT_ALARM"
       ],
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -124,7 +125,7 @@
         "@react-native-firebase/messaging",
         { "android": { "notificationIcon": "./assets/notification-icon.png" } }
       ],
-      "./plugins/withNotificationIcon",
+      ["expo-notifications", { "icon": "./assets/notification-icon.png" }],
       "expo-apple-authentication",
       [
         "expo-media-library",

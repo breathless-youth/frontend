@@ -61,7 +61,7 @@ describe("SocialScreen", () => {
     render(<SocialScreen />);
     expect(await screen.findByTestId("social-webview")).toBeTruthy();
     expect(screen.getByTestId("social-webview").props.source).toEqual({
-      uri: "https://web.test/social/code?subjectStart=1&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&pushPermission=1&accountActions=1&nativeTabBar=1&lang=ko",
+      uri: "https://web.test/social/code?subjectStart=1&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&restNotify=1&pushPermission=1&accountActions=1&nativeTabBar=1&lang=ko",
     });
   });
 
@@ -72,7 +72,7 @@ describe("SocialScreen", () => {
     render(<SocialScreen />);
     expect(await screen.findByTestId("social-webview")).toBeTruthy();
     expect(screen.getByTestId("social-webview").props.source).toEqual({
-      uri: "https://web.test/social/join?subjectStart=1&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&pushPermission=1&accountActions=1&nativeTabBar=1&code=5634&lang=ko",
+      uri: "https://web.test/social/join?subjectStart=1&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&restNotify=1&pushPermission=1&accountActions=1&nativeTabBar=1&code=5634&lang=ko",
     });
   });
 
@@ -81,7 +81,7 @@ describe("SocialScreen", () => {
 
     expect(await screen.findByTestId("social-webview")).toBeTruthy();
     expect(screen.getByTestId("social-webview").props.source).toEqual({
-      uri: "https://web.test/social?subjectStart=1&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&pushPermission=1&accountActions=1&nativeTabBar=1&lang=ko",
+      uri: "https://web.test/social?subjectStart=1&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&restNotify=1&pushPermission=1&accountActions=1&nativeTabBar=1&lang=ko",
     });
   });
 
@@ -91,7 +91,7 @@ describe("SocialScreen", () => {
 
     expect(await screen.findByTestId("social-webview")).toBeTruthy();
     expect(screen.getByTestId("social-webview").props.source).toEqual({
-      uri: "https://web.test/social/join?subjectStart=1&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&pushPermission=1&accountActions=1&nativeTabBar=1&code=5634&lang=ko",
+      uri: "https://web.test/social/join?subjectStart=1&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&restNotify=1&pushPermission=1&accountActions=1&nativeTabBar=1&code=5634&lang=ko",
     });
   });
 
@@ -100,7 +100,7 @@ describe("SocialScreen", () => {
 
     expect(await screen.findByTestId("social-webview")).toBeTruthy();
     expect(screen.getByTestId("social-webview").props.source).toEqual({
-      uri: "https://web.test/social?subjectStart=1&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&pushPermission=1&accountActions=1&nativeTabBar=1&lang=ko",
+      uri: "https://web.test/social?subjectStart=1&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&restNotify=1&pushPermission=1&accountActions=1&nativeTabBar=1&lang=ko",
     });
 
     mockParams.code = "5634";
@@ -108,7 +108,7 @@ describe("SocialScreen", () => {
 
     expect(await screen.findByTestId("social-webview")).toBeTruthy();
     expect(screen.getByTestId("social-webview").props.source).toEqual({
-      uri: "https://web.test/social/join?subjectStart=1&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&pushPermission=1&accountActions=1&nativeTabBar=1&code=5634&lang=ko",
+      uri: "https://web.test/social/join?subjectStart=1&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&restNotify=1&pushPermission=1&accountActions=1&nativeTabBar=1&code=5634&lang=ko",
     });
   });
 
