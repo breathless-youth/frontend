@@ -101,18 +101,8 @@ internal class PickImageContract : AppContextActivityResultContract<PickImageInp
  * 가운데 정사각형은 돌리거나 뒤집어도 가운데 정사각형이라, 자르기와 EXIF 방향과 축소를 행렬 하나로 한 번에 그린다.
  * 사진은 파일로 남기지 않고 메모리에서만 다룬다.
  */
-internal fun encodeProfilePhoto(resolver: ContentResolver, uri: Uri): String {
-  val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-  open(resolver, uri).use { BitmapFactory.decodeStream(it, null, bounds) }
-  if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
-    throw IOException("사진 크기를 읽지 못했다")
-  }
-  val options = BitmapFactory.Options().apply {
-    inSampleSize = sampleSizeFor(bounds.outWidth, bounds.outHeight)
-  }
-  val decoded = open(resolver, uri).use { BitmapFactory.decodeStream(it, null, options) }
-    ?: throw IOException("사진을 디코드하지 못했다")
-
+internal fun encodeProfilePhoto(resolver: ContentResolver, uri: Uri): String = failOnOutOfMemory {
+  val decoded = decodeSampled(resolver, uri, ::sampleSizeFor)
   val side = min(decoded.width, decoded.height)
   val scale = OUTPUT_PX.toFloat() / side
   val matrix = orientationMatrix(readOrientation(resolver, uri)).apply { postScale(scale, scale) }
@@ -125,21 +115,7 @@ internal fun encodeProfilePhoto(resolver: ContentResolver, uri: Uri): String {
     matrix,
     true
   )
-  // 변환이 없으면 createBitmap이 원본을 그대로 돌려주므로 같은 객체는 해제하지 않는다.
-  if (square !== decoded) {
-    decoded.recycle()
-  }
-  val bytes = ByteArrayOutputStream().use { out ->
-    if (!square.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)) {
-      throw IOException("JPEG로 바꾸지 못했다")
-    }
-    out.toByteArray()
-  }
-  square.recycle()
-  if (bytes.isEmpty()) {
-    throw IOException("JPEG가 비었다")
-  }
-  return Base64.encodeToString(bytes, Base64.NO_WRAP)
+  Base64.encodeToString(compressAndRecycle(decoded, square, JPEG_QUALITY), Base64.NO_WRAP)
 }
 
 /**
@@ -148,38 +124,49 @@ internal fun encodeProfilePhoto(resolver: ContentResolver, uri: Uri): String {
  * 프로필 사진처럼 줄여 디코드하고 EXIF 방향과 축소를 행렬 하나로 그리되 자르지 않는다.
  * 사진은 파일로 남기지 않고 메모리에서만 다룬다.
  */
-internal fun encodeBackgroundPhoto(resolver: ContentResolver, uri: Uri): Map<String, Any> {
+internal fun encodeBackgroundPhoto(resolver: ContentResolver, uri: Uri): Map<String, Any> = failOnOutOfMemory {
+  val decoded = decodeSampled(resolver, uri, ::backgroundSampleSizeFor)
+  val scale = backgroundScaleFor(decoded.width, decoded.height)
+  val matrix = orientationMatrix(readOrientation(resolver, uri)).apply { postScale(scale, scale) }
+  val upright = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
+  val width = upright.width
+  val height = upright.height
+  val bytes = compressAndRecycle(decoded, upright, BACKGROUND_JPEG_QUALITY)
+  mapOf("data" to Base64.encodeToString(bytes, Base64.NO_WRAP), "width" to width, "height" to height)
+}
+
+/** 크기만 먼저 읽고, 주어진 배율로 줄여 디코드한다. 큰 원본을 메모리에 다 올리지 않기 위해서다. */
+private fun decodeSampled(resolver: ContentResolver, uri: Uri, sampleSize: (Int, Int) -> Int): Bitmap {
   val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
   open(resolver, uri).use { BitmapFactory.decodeStream(it, null, bounds) }
   if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
     throw IOException("사진 크기를 읽지 못했다")
   }
-  val options = BitmapFactory.Options().apply {
-    inSampleSize = backgroundSampleSizeFor(bounds.outWidth, bounds.outHeight)
-  }
-  val decoded = open(resolver, uri).use { BitmapFactory.decodeStream(it, null, options) }
+  val options = BitmapFactory.Options().apply { inSampleSize = sampleSize(bounds.outWidth, bounds.outHeight) }
+  return open(resolver, uri).use { BitmapFactory.decodeStream(it, null, options) }
     ?: throw IOException("사진을 디코드하지 못했다")
+}
 
-  val scale = backgroundScaleFor(decoded.width, decoded.height)
-  val matrix = orientationMatrix(readOrientation(resolver, uri)).apply { postScale(scale, scale) }
-  val upright = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
-  // 변환이 없으면 createBitmap이 원본을 그대로 돌려주므로 같은 객체는 해제하지 않는다.
-  if (upright !== decoded) {
+/** 변환한 비트맵을 JPEG 바이트로 바꾸고 두 비트맵을 모두 해제한다. */
+private fun compressAndRecycle(decoded: Bitmap, transformed: Bitmap, quality: Int): ByteArray {
+  // 변환이 없으면 createBitmap이 원본을 그대로 돌려주므로 같은 객체는 한 번만 해제한다.
+  if (transformed !== decoded) {
     decoded.recycle()
   }
-  val bytes = ByteArrayOutputStream().use { out ->
-    if (!upright.compress(Bitmap.CompressFormat.JPEG, BACKGROUND_JPEG_QUALITY, out)) {
-      throw IOException("JPEG로 바꾸지 못했다")
+  val bytes = try {
+    ByteArrayOutputStream().use { out ->
+      if (!transformed.compress(Bitmap.CompressFormat.JPEG, quality, out)) {
+        throw IOException("JPEG로 바꾸지 못했다")
+      }
+      out.toByteArray()
     }
-    out.toByteArray()
+  } finally {
+    transformed.recycle()
   }
-  val width = upright.width
-  val height = upright.height
-  upright.recycle()
   if (bytes.isEmpty()) {
     throw IOException("JPEG가 비었다")
   }
-  return mapOf("data" to Base64.encodeToString(bytes, Base64.NO_WRAP), "width" to width, "height" to height)
+  return bytes
 }
 
 private fun open(resolver: ContentResolver, uri: Uri): InputStream =

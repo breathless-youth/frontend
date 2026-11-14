@@ -41,3 +41,16 @@ internal fun backgroundSampleSizeFor(width: Int, height: Int): Int {
 /** 줄여 읽은 배경 사진을 긴 변 BACKGROUND_LONG_EDGE_PX로 맞출 배율. 작은 사진은 키우지 않는다. */
 internal fun backgroundScaleFor(width: Int, height: Int): Float =
   minOf(1f, BACKGROUND_LONG_EDGE_PX.toFloat() / maxOf(width, height, 1))
+
+/**
+ * 사진 처리 중 메모리 부족을 실패로 바꾸기
+ *
+ * OutOfMemoryError는 Exception이 아니라서 그대로 두면 브리지의 실패 처리를 지나쳐 앱이 끝날 수 있다.
+ * 줄여 읽어도 저사양 기기에서는 큰 비트맵 하나가 모자랄 수 있으니, 그때는 고르기 실패로 끝낸다.
+ */
+internal inline fun <T> failOnOutOfMemory(block: () -> T): T =
+  try {
+    block()
+  } catch (e: OutOfMemoryError) {
+    throw java.io.IOException("사진을 처리할 메모리가 모자라다", e)
+  }
