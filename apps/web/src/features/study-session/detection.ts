@@ -1,3 +1,5 @@
+import type { StudyRoomType } from "@/lib/amplitude";
+
 import type { DistractionTrigger } from "./sessionState";
 
 /**
@@ -95,6 +97,14 @@ export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
   SCREEN_GAZE: { ...STANDARD_HOLD, enterMs: null },
   NO_EVIDENCE: { ...STANDARD_HOLD, enterMs: null },
 };
+
+/**
+ * 이 방이 유예와 공부 흔적 판정(손 모델)을 쓰는지. 지금은 싱글룸만 쓴다.
+ * 감지기 옵션과 감지 시간 기본값이 같이 따르므로 두 곳이 어긋나지 않게 여기 한 곳에서 정한다.
+ */
+export function usesStudyEvidence(roomType: StudyRoomType): boolean {
+  return roomType === "single";
+}
 
 /** 쓰지 않는 출처. 원신호가 와도 유예도 비집중도 만들지 않는다. */
 const OFF_HOLD: TriggerHoldParams = { graceMs: Number.POSITIVE_INFINITY, enterMs: null, exitMs: 0 };

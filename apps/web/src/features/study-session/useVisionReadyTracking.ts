@@ -6,6 +6,7 @@ import {
   type PhotoTap,
   type VisionFocusDetector,
 } from "@/features/study-session/adapters/focusDetector";
+import { usesStudyEvidence } from "@/features/study-session/detection";
 import {
   type AssetTiming,
   resolveModelVariant,
@@ -205,7 +206,7 @@ export function useTrackedVisionDetector(
     createVisionFocusDetector({
       video: () => videoRef.current,
       photoTap,
-      studyEvidence: roomType === "single",
+      studyEvidence: usesStudyEvidence(roomType),
     }),
   );
   const visionReady = useVisionReadyTracking(visionDetector, roomType);

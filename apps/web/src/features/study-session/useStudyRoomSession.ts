@@ -48,6 +48,7 @@ import type { DetectionParams, DetectionState, TriggerSignals } from "./detectio
 import {
   DEFAULT_DETECTION_PARAMS,
   SOCIAL_DETECTION_PARAMS,
+  usesStudyEvidence,
   NO_TRIGGER_SIGNALS,
   createDetectionState,
   stepDetection,
@@ -230,7 +231,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const [detectionParams] = useState<DetectionParams>(
     () =>
       options.detectionParams ??
-      ((options.roomType ?? "single") === "single"
+      (usesStudyEvidence(options.roomType ?? "single")
         ? DEFAULT_DETECTION_PARAMS
         : SOCIAL_DETECTION_PARAMS),
   );
