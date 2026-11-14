@@ -29,6 +29,10 @@ import type { RoomVisibility } from "@/features/group-room/model/roomMenu";
 
 import { firebaseAnalyticsForwardPlugin } from "./firebaseAnalyticsBridge";
 import i18n from "./i18n";
+import {
+  qualifyOnboardingRepeat,
+  startOnboardingRepeatTracking,
+} from "./onboardingRepeatRetention";
 import { sanitizePagePath, sanitizeUrl } from "./sanitizePath";
 import { showToast } from "./toast";
 import { readUserId } from "./userId";
@@ -304,6 +308,19 @@ function setUserProperties(properties: Record<string, string | number | boolean>
   identify(id);
 }
 
+/**
+ * 기기 시간대·지역을 사용자 속성으로 남긴다
+ *
+ * Amplitude 기본 country는 이벤트를 보낸 순간의 IP라 여행·VPN에 흔들린다.
+ * 광고 나라별 분석은 서버 프로필과 같은 기기 설정 값으로 본다. 지역이 없으면 시간대만 남긴다.
+ */
+export function setDeviceLocaleUserProperties(locale: { timeZone?: string; region?: string }) {
+  const properties: Record<string, string> = {};
+  if (locale.timeZone) properties.device_time_zone = locale.timeZone;
+  if (locale.region) properties.device_region = locale.region;
+  if (Object.keys(properties).length > 0) setUserProperties(properties);
+}
+
 /** 한 번 켜지면 되돌리지 않는 이력 속성. 같은 문서 안에서는 한 번만 보내 identify와 브리지 왕복을 줄인다. */
 const sentFlags = new Set<string>();
 function setFlagOnce(key: string) {
@@ -326,6 +343,10 @@ export type MultiTimerUse = "none" | "timer" | "pomodoro" | "stopwatch" | "both"
 
 /** 세션 종료 사유 — `features/study-session`의 `SessionEndReason`을 평평하게 편 값. */
 export interface StudySessionEndedInput {
+  /** 재순공 집계에서 복원된 같은 세션을 구분하는 로컬 값. 이벤트 속성으로 전송하지 않는다. */
+  readonly startedAtMs?: number;
+  /** 세션이 고정한 종료 시각. 계측이 늦게 불려도 이벤트 시각과 재순공 날짜가 이 값을 따른다. 이벤트 속성으로 전송하지 않는다. */
+  readonly endedAtMs?: number;
   readonly roomType: StudyRoomType;
   readonly studySec: number;
   readonly focusSec: number;
@@ -388,23 +409,46 @@ export function trackStudySessionStarted(roomType: StudyRoomType, restored = fal
  */
 export function trackStudySessionEnded(input: StudySessionEndedInput) {
   if (!initialized) return;
-  track("study_session_ended", {
-    room_type: input.roomType,
-    study_sec: Number(input.studySec),
-    focus_sec: Number(input.focusSec),
-    pause_sec: Number(input.pauseSec),
-    distraction_sec: Number(input.distractionSec),
-    focus_rate_percent:
-      input.studySec > 0 ? Math.round((input.focusSec / input.studySec) * 100) : 0,
-    end_reason: input.endReason,
-    pause_trigger: input.pauseTrigger,
-    will_submit: input.willSubmit,
-    ambient_sound_used: input.ambientSoundUsed ?? false,
-    ambient_sound_sec: Number(input.ambientSoundSec ?? 0),
-    break_sec: Number(input.breakSec ?? 0),
-    multi_timer: input.multiTimer ?? "none",
-    mascot_on: input.mascotOn ?? false,
-  });
+  const endedAt = input.endedAtMs ?? Date.now();
+  track(
+    "study_session_ended",
+    {
+      room_type: input.roomType,
+      study_sec: Number(input.studySec),
+      focus_sec: Number(input.focusSec),
+      pause_sec: Number(input.pauseSec),
+      distraction_sec: Number(input.distractionSec),
+      focus_rate_percent:
+        input.studySec > 0 ? Math.round((input.focusSec / input.studySec) * 100) : 0,
+      end_reason: input.endReason,
+      pause_trigger: input.pauseTrigger,
+      will_submit: input.willSubmit,
+      ambient_sound_used: input.ambientSoundUsed ?? false,
+      ambient_sound_sec: Number(input.ambientSoundSec ?? 0),
+      break_sec: Number(input.breakSec ?? 0),
+      multi_timer: input.multiTimer ?? "none",
+      mascot_on: input.mascotOn ?? false,
+    },
+    { time: endedAt },
+  );
+  if (currentUserId !== null && input.startedAtMs !== undefined) {
+    const insertId = qualifyOnboardingRepeat(
+      currentUserId,
+      input.focusSec,
+      endedAt,
+      input.startedAtMs,
+    );
+    if (insertId !== null) {
+      track(
+        "onboarding_week_study_repeated",
+        { repeat_tracking_version: 1 },
+        {
+          insert_id: insertId,
+          time: endedAt,
+        },
+      );
+    }
+  }
 }
 
 /**
@@ -637,6 +681,21 @@ export function trackGroupRoomApplicationAnswered(result: "accepted" | "declined
   track("group_room_application_answered", { result });
 }
 
+/** 멤버가 초대 링크 공유를 눌렀을 때 보내고 `source`는 누른 자리다. */
+export function trackGroupInviteShared(input: {
+  visibility: GroupVisibilityProp;
+  source: "empty_seat";
+}) {
+  if (!initialized) return;
+  track("group_invite_shared", { visibility: input.visibility, source: input.source });
+}
+
+/** 그룹 공부방 앱에서 초대 링크로 참여 화면을 열었을 때 보낸다. */
+export function trackGroupInviteLinkOpened(inviteKind: "group" | "public") {
+  if (!initialized) return;
+  track("group_invite_link_opened", { invite_kind: inviteKind });
+}
+
 /** 멤버가 됐을 때 보낸다. */
 export function trackGroupRoomJoined(input: {
   via: GroupRoomJoinVia;
@@ -682,7 +741,7 @@ export function setGroupRoomCount(count: number) {
 
 /* ── 소셜 로그인 이벤트 ──────────────────────────────────────────────────────
  *
- * 사용자가 로그인 창을 닫은 취소는 실패가 아니라 보내지 않는다.
+ * 사용자가 로그인 창을 닫은 취소는 실패가 아니라 취소 이벤트로 따로 남긴다.
  */
 
 export type LoginEntry = "tab" | "invite" | "group" | "settings";
@@ -699,6 +758,21 @@ export function trackSocialLoginSucceeded(input: {
 }) {
   if (!initialized) return;
   track("social_login_succeeded", { provider: input.provider, is_new_user: input.isNewUser });
+}
+
+/** 로그인 화면을 본 사람과 성공한 사람 사이에서 어디서 빠지는지 보려고 누름을 따로 남긴다. */
+export function trackSocialLoginTapped(input: { provider: SocialLoginProvider }) {
+  if (!initialized) return;
+  track("social_login_tapped", { provider: input.provider });
+}
+
+/**
+ * 사용자가 공급자 로그인 창을 닫은 경우다.
+ * 실패와 섞으면 실패율이 부풀어 따로 남긴다.
+ */
+export function trackSocialLoginCancelled(input: { provider: SocialLoginProvider }) {
+  if (!initialized) return;
+  track("social_login_cancelled", { provider: input.provider });
 }
 
 export function trackSocialLoginFailed(input: {
@@ -739,9 +813,12 @@ export function trackInviteShared(
 }
 
 /** 초대코드 입력 화면 진입 — `has_code`면 초대 링크(`?code`) 경유. 공유→입장 전환율의 분모. */
-export function trackInviteLinkOpened(hasCode: boolean) {
+export function trackInviteLinkOpened(
+  hasCode: boolean,
+  inviteKind: "room" | "group" | "public" | "none",
+) {
   if (!initialized) return;
-  track("invite_link_opened", { has_code: hasCode });
+  track("invite_link_opened", { has_code: hasCode, invite_kind: inviteKind });
 }
 
 /**
@@ -783,6 +860,24 @@ export function trackPeerConnectionEstablished(input: { peerCount: number; path:
 export function trackPeerConnectionFailed(peerCount: number) {
   if (!initialized) return;
   track("peer_connection_failed", { peer_count: peerCount });
+}
+
+/**
+ * API 응답 시간 요약
+ *
+ * 국가는 Amplitude가 IP로 붙이므로 주소·사용자 정보 없이 숫자만 싣는다.
+ */
+export function trackApiLatencySampled(input: {
+  medianMs: number;
+  maxMs: number;
+  sampleCount: number;
+}) {
+  if (!initialized) return;
+  track("api_latency_sampled", {
+    median_ms: input.medianMs,
+    max_ms: input.maxMs,
+    sample_count: input.sampleCount,
+  });
 }
 
 /* ── 브리지 기반 앱 이벤트 (BY-472) ─────────────────────────────────────────
@@ -1046,6 +1141,56 @@ export function trackFocusStartTapped(source: FocusStartSource = "home") {
   track("focus_start_tapped", { destination: "session", source });
 }
 
+export type HomeShortcutTarget =
+  "planner" | "timelapse" | "timelapse_settings" | "app_lock" | "contact";
+
+/**
+ * 홈 바로가기 탭
+ *
+ * 타임랩스와 앱 잠금 화면은 어디서 열렸는지 남기지 않아서 홈에서 연 경우를 여기서 센다.
+ */
+export function trackHomeShortcutTapped(target: HomeShortcutTarget) {
+  if (!initialized) return;
+  track("home_shortcut_tapped", { target });
+}
+
+/**
+ * 홈 과목 선택
+ *
+ * 과목 이름은 사용자가 직접 지은 글이라 보내지 않고 골랐는지만 보낸다.
+ */
+export function trackHomeSubjectSelected(hasSubject: boolean) {
+  if (!initialized) return;
+  track("home_subject_selected", { has_subject: hasSubject });
+}
+
+/**
+ * 홈 시작 미션 단계 완료
+ *
+ * 1단계는 플래너에서 과목 만들기, 2단계는 공부 5분 완료다.
+ * 서버가 완료를 저장한 뒤에만 보낸다.
+ */
+export function trackHomeMissionStepCompleted(step: 1 | 2) {
+  if (!initialized) return;
+  track("home_mission_step_completed", { step });
+}
+
+/**
+ * 홈 오늘 목표 저장
+ *
+ * 날짜 목표가 저장된 뒤에만 보내고, 기본 목표 저장이 실패하면 `as_default`를 false로 보낸다.
+ */
+export function trackHomeGoalSaved(input: {
+  readonly seconds: number;
+  readonly asDefault: boolean;
+}) {
+  if (!initialized) return;
+  track("home_goal_saved", {
+    goal_min: Math.round(input.seconds / 60),
+    as_default: input.asDefault,
+  });
+}
+
 /** 온보딩 단계. 순서대로 자동 타이머, 자동 기록, 그룹 스터디, 맞춤 알림, 준비 완료다. */
 export type OnboardingStep =
   "auto_timer" | "auto_record" | "group_study" | "notification" | "ready";
@@ -1077,6 +1222,11 @@ export function trackOnboardingNotificationResult(
 /** 온보딩 준비 완료 화면에서 `시작하기`를 눌러 홈으로 간 것. 이 계정은 다시 보지 않는다. */
 export function trackOnboardingCompleted() {
   if (!initialized) return;
+  const at = Date.now();
+  if (currentUserId !== null && startOnboardingRepeatTracking(currentUserId, at)) {
+    track("onboarding_completed", { repeat_tracking_version: 1 }, { time: at });
+    return;
+  }
   track("onboarding_completed");
 }
 
@@ -1950,10 +2100,31 @@ export function trackErrorRetryPressed(
     | "contact"
     | "interview_form"
     | "ranking"
-    | "group_tab",
+    | "group_tab"
+    | "contact_chat",
 ) {
   if (!initialized) return;
   track("error_retry_pressed", { screen });
+}
+
+/**
+ * 상담창 열림
+ *
+ * 채널톡 SDK가 메신저를 실제로 띄운 시점이다.
+ */
+export function trackContactChatOpened() {
+  if (!initialized) return;
+  track("contact_chat_opened");
+}
+
+/**
+ * 상담창 열기 실패
+ *
+ * 홈 번들에 채널톡 모듈이 섞이지 않도록 실패 이유 타입을 채널톡 모듈에서 가져오지 않고 여기 둔다.
+ */
+export function trackContactChatLoadFailed(reason: "script" | "boot" | "no_key") {
+  if (!initialized) return;
+  track("contact_chat_load_failed", { reason });
 }
 
 /** 렌더 크래시 폴백의 "새로고침" — 에러 자체는 Sentry가 갖고, 사용자가 복구를 시도한 횟수만 센다. */

@@ -6,10 +6,6 @@
     "KAKAO": "Continue with Kakao"
   },
   "consent": "By signing in, you confirm that you're 14 or older\nand agree to the <terms>Terms of Service</terms> and <privacy>Privacy Policy</privacy>.",
-  "carryOver": {
-    "title": "Your study history so far will carry over to the account you sign in with.",
-    "body": "If you sign in to an account you already use, your records will be merged. Merged records can't be separated again."
-  },
   "errors": {
     "failed": "Couldn't sign in. Please try again."
   }

@@ -1,7 +1,7 @@
 import type { GroupHomeResponse } from "@focusmakers/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bell, BellOff } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 
@@ -30,13 +30,17 @@ import type { LeaveDialog, RoomMenuItem } from "@/features/group-room/model/room
 import { parseRouteId } from "@/features/group-room/routeId";
 import { GroupScreenFrame } from "@/features/group-room/screens/GroupScreenFrame";
 import { RoomHomeScreen } from "@/features/group-room/screens/RoomHomeScreen";
-import { shareGroupInvite } from "@/features/group-room/shareGroupInvite";
+import { shareGroupInvite, sharePublicGroupInvite } from "@/features/group-room/shareGroupInvite";
 import { useBackTo } from "@/features/group-room/useBackTo";
 import { useLeaveWhenGone } from "@/features/group-room/useLeaveWhenGone";
 import type { GroupRoomLocationState } from "@/features/live-room/liveRoomEntryState";
 import { GraceEndDialog } from "@/features/social-room/GraceEndDialog";
 import { useSocialRoomNoticeHandoff } from "@/features/social-room/useSocialRoomNoticeHandoff";
-import { trackGroupRoomLeft, trackGroupRoomNotificationToggled } from "@/lib/amplitude";
+import {
+  trackGroupInviteShared,
+  trackGroupRoomLeft,
+  trackGroupRoomNotificationToggled,
+} from "@/lib/amplitude";
 import type { GroupRoomLeaveReason } from "@/lib/amplitude";
 import { leaveGroup, setGroupNotification } from "@/lib/groupRoomApi";
 import {
@@ -106,6 +110,16 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
     ...groupInviteQuery(userId, groupId),
     enabled: !left && home?.visibility === "PRIVATE",
   });
+  // 멤버를 내보내면 서버가 초대코드를 새로 만들어서, 다른 기기에서 내보내 자리가 늘면 빈자리 초대가 옛 코드를 보내지 않게 다시 받는다.
+  const privateMemberCount = home?.visibility === "PRIVATE" ? home.memberCount : null;
+  const seenMemberCount = useRef(privateMemberCount);
+  useEffect(() => {
+    const previous = seenMemberCount.current;
+    seenMemberCount.current = privateMemberCount;
+    if (previous !== null && privateMemberCount !== null && privateMemberCount < previous) {
+      void queryClient.invalidateQueries({ queryKey: groupKeys.invite(userId, groupId) });
+    }
+  }, [groupId, privateMemberCount, queryClient, userId]);
   const enterRoom = useMutation({
     ...GROUP_MUTATION_OPTIONS,
     mutationFn: () => enterGroupStudyRoom(userId, groupId),
@@ -277,6 +291,14 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
       showToast(groupErrorCopy("load", error));
     }
   };
+  const inviteFromSeat = () => {
+    trackGroupInviteShared({ visibility: room.visibility, source: "empty_seat" });
+    if (room.visibility === "private") {
+      void shareInviteCode();
+      return;
+    }
+    void sharePublicGroupInvite(groupId);
+  };
   const selectMenu = (kind: RoomMenuItem["kind"]) => {
     switch (kind) {
       case "view_intro":
@@ -330,6 +352,7 @@ function GroupHome({ userId, groupId }: { userId: number; groupId: number }) {
         onMenuSelect={selectMenu}
         onOpenRequests={() => go(`${groupPath}/applications`)}
         onEnterStudyRoom={enterStudyRoom}
+        onInvite={inviteFromSeat}
         entering={enterRoom.isPending}
       />
       <GroupNotificationPrompt

@@ -4,12 +4,25 @@ import { homeMission } from "@/test/homeMissionFixtures";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { HomeV3Gateway } from "../HomeV3Gateway";
 import { homeV3Keys, useHomeV3Progress } from "../useHomeV3Progress";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { ApiError } from "@/lib/api";
+import type * as Amplitude from "@/lib/amplitude";
+import { trackHomeGoalSaved, trackHomeMissionStepCompleted } from "@/lib/amplitude";
+
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof Amplitude>()),
+  trackHomeMissionStepCompleted: vi.fn(),
+  trackHomeGoalSaved: vi.fn(),
+}));
+
+beforeEach(() => {
+  vi.mocked(trackHomeMissionStepCompleted).mockReset();
+  vi.mocked(trackHomeGoalSaved).mockReset();
+});
 
 function setup(overrides: Partial<HomeV3Gateway> = {}) {
   const gateway: HomeV3Gateway = {
@@ -104,6 +117,21 @@ describe("home v3 server progress", () => {
     expect(gateway.readMission).toHaveBeenCalledTimes(2);
     expect(client.getQueryData(homeV3Keys.mission(7))).toEqual(authoritativeMission);
     expect(result.current.missionError).toBe(true);
+    expect(trackHomeMissionStepCompleted).not.toHaveBeenCalled();
+  });
+
+  it("records the mission step once after the server saves it", async () => {
+    const { gateway, wrapper } = setup({
+      readMission: vi.fn().mockResolvedValue(homeMission(0, 300, true)),
+    });
+    const { result } = renderHook(() => useHomeV3Progress(gateway, 7, day, stats), { wrapper });
+    await waitFor(() =>
+      expect(result.current.band).toMatchObject({ value: { step: 1, ready: true } }),
+    );
+
+    act(() => result.current.completeMission(1));
+
+    await waitFor(() => expect(trackHomeMissionStepCompleted).toHaveBeenCalledExactlyOnceWith(1));
   });
 
   /**
@@ -326,6 +354,40 @@ describe("home v3 server progress", () => {
     });
     expect(saved).toEqual({ defaultSaved: true });
     expect(gateway.saveDateGoal).toHaveBeenCalledOnce();
+    expect(trackHomeGoalSaved).toHaveBeenCalledExactlyOnceWith({ seconds: 0, asDefault: false });
+  });
+
+  it("records the saved goal with whether it also became the default", async () => {
+    const { gateway, wrapper } = setup();
+    const { result } = renderHook(() => useHomeV3Progress(gateway, 7, day, stats), { wrapper });
+
+    await act(async () => {
+      await result.current.saveGoal(day, { seconds: 5400, asDefault: true, defaultOnly: false });
+    });
+    await act(async () => {
+      await result.current.saveGoal(day, { seconds: 3600, asDefault: false, defaultOnly: false });
+    });
+
+    expect(vi.mocked(trackHomeGoalSaved).mock.calls).toEqual([
+      [{ seconds: 5400, asDefault: true }],
+      [{ seconds: 3600, asDefault: false }],
+    ]);
+    expect(gateway.saveDefaultGoal).toHaveBeenCalledOnce();
+  });
+
+  it("does not record a goal when the date goal fails to save", async () => {
+    const { gateway, wrapper } = setup({
+      saveDateGoal: vi.fn().mockRejectedValue(new Error("offline")),
+    });
+    const { result } = renderHook(() => useHomeV3Progress(gateway, 7, day, stats), { wrapper });
+
+    await act(async () => {
+      await result.current
+        .saveGoal(day, { seconds: 5400, asDefault: true, defaultOnly: false })
+        .catch(() => undefined);
+    });
+
+    expect(trackHomeGoalSaved).not.toHaveBeenCalled();
   });
 
   it("separates accounts and local calendar dates", async () => {

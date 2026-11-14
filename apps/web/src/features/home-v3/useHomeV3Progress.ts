@@ -2,6 +2,7 @@ import type { PlannerDayResponse } from "@focusmakers/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 
+import { trackHomeGoalSaved, trackHomeMissionStepCompleted } from "@/lib/amplitude";
 import { postToNative, subscribeToNativeMessages } from "@/lib/bridge";
 import { plannerKeys } from "@/lib/plannerQueries";
 import { ApiError } from "@/lib/api";
@@ -87,7 +88,10 @@ export function useHomeV3Progress(
     networkMode: "always",
     retry: false,
     onMutate: ({ owner }) => client.cancelQueries({ queryKey: homeV3Keys.mission(owner) }),
-    onSuccess: (result, { owner }) => client.setQueryData(homeV3Keys.mission(owner), result),
+    onSuccess: (result, { owner, step }) => {
+      trackHomeMissionStepCompleted(step);
+      client.setQueryData(homeV3Keys.mission(owner), result);
+    },
     onError: (error, { owner }) => {
       if (error instanceof ApiError && error.status === 400)
         void client.invalidateQueries({ queryKey: homeV3Keys.mission(owner) });
@@ -122,6 +126,9 @@ export function useHomeV3Progress(
           defaultSaved = false;
         }
       }
+      // 기본 목표만 다시 저장할 때는 날짜 목표가 이미 기록됐으므로 다시 세지 않는다.
+      if (!input.defaultOnly)
+        trackHomeGoalSaved({ seconds: input.seconds, asDefault: input.asDefault && defaultSaved });
       await client.invalidateQueries({ queryKey: homeV3Keys.goals(owner) });
       postToNative({ type: "records-changed", atMs: Date.now() });
       return { defaultSaved };

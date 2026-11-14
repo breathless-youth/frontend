@@ -54,6 +54,7 @@ describe("그룹 홈 영어 화면", () => {
         onMenuSelect={vi.fn()}
         onOpenRequests={vi.fn()}
         onEnterStudyRoom={vi.fn()}
+        onInvite={vi.fn()}
       />,
     );
 

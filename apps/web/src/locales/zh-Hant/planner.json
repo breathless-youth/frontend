@@ -232,5 +232,11 @@
     "deselectAll": "全部取消",
     "leave": "保留原狀",
     "bring": "移動 {{count}} 項"
+  },
+  "rejected": {
+    "duplicateOccurrence": "那天已經有相同的重複待辦事項",
+    "carryoverChanged": "待辦事項在這段期間有變動，已重新載入清單",
+    "pastDay": "無法變更過去日期的計畫",
+    "taskGone": "這項待辦事項已被刪除"
   }
 }

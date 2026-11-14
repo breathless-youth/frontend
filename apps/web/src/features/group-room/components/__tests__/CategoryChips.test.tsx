@@ -12,9 +12,38 @@ const options = [
 afterEach(() => vi.restoreAllMocks());
 
 describe("CategoryChips", () => {
-  it("전체 칩 없이 접어도 선택한 첫 칩을 중복하지 않는다", () => {
-    render(<CategoryChips options={options} value="CSAT" onChange={vi.fn()} compact />);
+  it("전체 칩 없이 접어도 앞에 둔 칩을 중복하지 않는다", () => {
+    render(
+      <CategoryChips options={options} value="CSAT" onChange={vi.fn()} compact leading="CSAT" />,
+    );
     expect(screen.getAllByRole("button")).toHaveLength(2);
+  });
+
+  it("접으면 앞에 둘 칩만 전체 바로 뒤로 오고, 고른 값만으로는 순서가 바뀌지 않는다", () => {
+    const three = [...options, { value: "LANGUAGE", label: "어학" }];
+    const labels = () => screen.getAllByRole("button").map((button) => button.textContent);
+    const { rerender } = render(
+      <CategoryChips
+        options={three}
+        value="LANGUAGE"
+        onChange={vi.fn()}
+        allLabel="전체"
+        compact
+        leading={null}
+      />,
+    );
+    expect(labels()).toEqual(["전체", "수능", "내신", "어학"]);
+    rerender(
+      <CategoryChips
+        options={three}
+        value="LANGUAGE"
+        onChange={vi.fn()}
+        allLabel="전체"
+        compact
+        leading="SCHOOL"
+      />,
+    );
+    expect(labels()).toEqual(["전체", "내신", "수능", "어학"]);
   });
 
   it("접힌 두 번째 줄은 포커스와 접근성 트리에서 제외하고 펼치면 복원한다", () => {

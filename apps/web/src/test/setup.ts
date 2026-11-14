@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 
-import { beforeEach } from "vitest";
+import { toast } from "sonner";
+import { afterAll, beforeEach } from "vitest";
 
 import { resetShowOriginalForTest } from "@/features/group-room/model/groupTranslation";
 import { setSessionCountdownSecondsForTest } from "@/features/study-session/sessionCountdown";
@@ -40,4 +41,12 @@ beforeEach(() => {
 // 화면 테스트 대부분은 세션이 바로 뜨는 것을 전제로 한다. 카운트다운은 전용 테스트가 켠다.
 beforeEach(() => {
   setSessionCountdownSecondsForTest(0);
+});
+
+// sonner는 토스트를 닫을 때 200ms 뒤 목록에서 빼는 타이머를 걸고, 화면을 내려도 이 타이머를 지우지 않는다.
+// 파일이 끝나 jsdom이 window를 치운 뒤에 이 타이머가 돌면 React가 `window is not defined`를 던져
+// 테스트가 모두 통과해도 실행이 실패한다(BY-1276). 토스트를 띄운 파일만 그 시간이 지날 때까지 기다린다.
+afterAll(async () => {
+  if (toast.getHistory().length === 0) return;
+  await new Promise((resolve) => setTimeout(resolve, 250));
 });

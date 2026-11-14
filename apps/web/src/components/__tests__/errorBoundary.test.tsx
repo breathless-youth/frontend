@@ -15,12 +15,13 @@ describe("ErrorBoundary + ErrorFallback", () => {
     // React가 렌더 에러를 콘솔에 찍는 것을 조용히 한다 — 테스트 출력 오염 방지.
     const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    render(
+    const { container } = render(
       <Sentry.ErrorBoundary fallback={<ErrorFallback />}>
         <Bomb />
       </Sentry.ErrorBoundary>,
     );
 
+    expect(container.querySelector('img[alt=""]')).not.toBeNull();
     expect(screen.getByText("일시적인 문제가 생겼어요")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "새로고침" })).toBeInTheDocument();
     errorLog.mockRestore();

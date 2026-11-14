@@ -49,13 +49,22 @@ export async function copyInviteCode(inviteCode: string): Promise<boolean> {
  * 클립보드 복사(순수 브라우저) 순.
  */
 export async function shareInvite(inviteCode: string): Promise<"shared" | "copied" | "failed"> {
+  return shareInviteText(inviteShareText(inviteCode));
+}
+
+/**
+ * 초대 본문 공유
+ *
+ * 초대코드가 없는 공개 그룹 초대도 같은 순서로 공유 시트를 열고 복사로 물러선다.
+ */
+export async function shareInviteText(text: string): Promise<"shared" | "copied" | "failed"> {
   if (typeof navigator.share === "function") {
     try {
       // 링크는 text 본문에만 싣고 url 필드는 넘기지 않는다 — url으로도 보내면 카톡이 같은
       // 링크로 프리뷰를 한 번 더 만들어 말풍선이 중복된다(BY-584, `inviteShareTitle` 주석).
       await navigator.share({
         title: inviteShareTitle(),
-        text: inviteShareText(inviteCode),
+        text,
       });
       return "shared";
     } catch {
@@ -74,12 +83,12 @@ export async function shareInvite(inviteCode: string): Promise<"shared" | "copie
     // navigator.share와 같은 이유로 프리뷰 중복을 막는다. title은 시트 제목으로 쓴다.
     postToNative({
       type: "share",
-      text: inviteShareText(inviteCode),
+      text,
       title: inviteShareTitle(),
       atMs: Date.now(),
     });
     return "shared";
   }
   // 폴백은 코드만이 아니라 **공유하려던 텍스트 전체**(링크 포함)를 복사한다.
-  return (await copyText(inviteShareText(inviteCode))) ? "copied" : "failed";
+  return (await copyText(text)) ? "copied" : "failed";
 }

@@ -16,8 +16,6 @@ export const FLOW_COLORS = {
   track: "rgba(255,255,255,0.25)",
 } as const;
 
-const WATERMARK_COLOR = "#3671cf";
-const WATERMARK_BACKGROUND = "#ffffff";
 const TEXT_COLOR = "#ffffff";
 const TEXT_SHADOW = "rgba(0,0,0,0.45)";
 /** 웹이 불러오는 Pretendard CSS는 이 이름 하나만 선언한다. `Pretendard`로 쓰면 대체 글꼴로 그려진다. */
@@ -134,14 +132,7 @@ export function savedOverlayFor(
 
 /** 한 장면에 그리는 모든 글자. 글꼴 조각 파일을 미리 받을 때 쓴다. */
 export function timelapseGlyphs(text: TimelapseOverlayText): string {
-  return [
-    text.date,
-    text.focusTime,
-    text.focusRate,
-    text.dday,
-    text.streak,
-    i18n.t("timelapse:frame.watermark"),
-  ]
+  return [text.date, text.focusTime, text.focusRate, text.dday, text.streak]
     .filter((line) => line !== null)
     .join("");
 }
@@ -282,22 +273,6 @@ export function drawTimelapseFrame(ctx: CanvasRenderingContext2D, scene: Timelap
     ctx.fillText(line.text, width - padX, bottomY);
     bottomY -= (line.size * 1.2 + 1) * u;
   }
-
-  // 오른쪽 위 워터마크는 항상 그린다.
-  clearShadow(ctx);
-  ctx.font = `800 ${8 * u}px ${TIMELAPSE_FONT_FAMILY}`;
-  const watermark = i18n.t("timelapse:frame.watermark");
-  const chipWidth = ctx.measureText(watermark).width + 10 * u;
-  const chipHeight = (8 * 1.2 + 5) * u;
-  const chipX = width - 12 * u - chipWidth;
-  const chipY = 12 * u;
-  ctx.fillStyle = WATERMARK_BACKGROUND;
-  roundedRect(ctx, chipX, chipY, chipWidth, chipHeight, 4 * u);
-  ctx.fill();
-  ctx.fillStyle = WATERMARK_COLOR;
-  ctx.textAlign = "left";
-  ctx.textBaseline = "middle";
-  ctx.fillText(watermark, chipX + 5 * u, chipY + chipHeight / 2);
 
   ctx.restore();
 }

@@ -78,6 +78,121 @@ describe("PublicRoomsView", () => {
     height.mockRestore();
   });
 
+  it("접힌 상태에서 다른 칩을 골라도 칩 순서가 그대로다", async () => {
+    function Harness() {
+      const [category, setCategory] = useState<string | null>(null);
+      return (
+        <PublicRoomsView
+          query=""
+          onQueryChange={vi.fn()}
+          categories={fixtures.categories}
+          category={category}
+          onCategoryChange={setCategory}
+          rooms={[]}
+          onOpenRoom={vi.fn()}
+        />
+      );
+    }
+    const height = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(78);
+    renderScreen(<Harness />);
+    const group = screen.getByRole("group", { name: /시험|카테고리/ });
+    await userEvent.click(within(group).getByRole("button", { name: "어학" }));
+    expect(within(group).getByRole("button", { name: "어학" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(
+      within(group)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(chipLabels);
+    height.mockRestore();
+  });
+
+  it("한 줄에 다 들어갈 때 고른 칩은 폭이 줄어 접히면 전체 바로 뒤에 온다", async () => {
+    const callbacks: (() => void)[] = [];
+    const remeasure = () => callbacks.forEach((callback) => callback());
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(callback: () => void) {
+          callbacks.push(callback);
+        }
+        observe() {}
+        disconnect() {}
+      },
+    );
+    function Harness() {
+      const [category, setCategory] = useState<string | null>(null);
+      return (
+        <PublicRoomsView
+          query=""
+          onQueryChange={vi.fn()}
+          categories={fixtures.categories}
+          category={category}
+          onCategoryChange={setCategory}
+          rooms={[]}
+          onOpenRoom={vi.fn()}
+        />
+      );
+    }
+    const height = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(36);
+    renderScreen(<Harness />);
+    const group = screen.getByRole("group", { name: /시험|카테고리/ });
+    await userEvent.click(within(group).getByRole("button", { name: "어학" }));
+    height.mockReturnValue(78);
+    act(() => remeasure());
+    expect(within(group).getAllByRole("button")[1]).toHaveTextContent("어학");
+    expect(within(group).getByRole("button", { name: "어학" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    height.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
+  it("처음 들어올 때 이미 골라 둔 칩은 접힌 줄에서 전체 바로 뒤에 온다", () => {
+    const language = fixtures.categories.find((option) => option.label === "어학")!;
+    const height = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(78);
+    renderScreen(
+      <PublicRoomsView
+        query=""
+        onQueryChange={vi.fn()}
+        categories={fixtures.categories}
+        category={language.value}
+        onCategoryChange={vi.fn()}
+        rooms={[]}
+        onOpenRoom={vi.fn()}
+      />,
+    );
+    const group = screen.getByRole("group", { name: /시험|카테고리/ });
+    expect(within(group).getAllByRole("button")[1]).toHaveTextContent("어학");
+    height.mockRestore();
+  });
+
+  it("더보기와 접기 옆 화살표는 글자가 아니라 아이콘이다", async () => {
+    const height = vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(78);
+    renderScreen(
+      <PublicRoomsView
+        query=""
+        onQueryChange={vi.fn()}
+        categories={fixtures.categories}
+        category={null}
+        onCategoryChange={vi.fn()}
+        rooms={[]}
+        onOpenRoom={vi.fn()}
+      />,
+    );
+    const toggle = screen.getByRole("button", { name: "더보기" });
+    expect(toggle.textContent).toBe("더보기");
+    expect(toggle.querySelector("svg")).not.toBeNull();
+    await userEvent.click(toggle);
+    const collapse = screen.getByRole("button", { name: "접기" });
+    expect(collapse.textContent).toBe("접기");
+    expect(collapse.querySelector("svg")).toHaveClass("rotate-180");
+    height.mockRestore();
+  });
+
   it("검색창과 전체 칩을 두고, 칩은 하나만 고른다", async () => {
     const onCategoryChange = vi.fn();
     renderScreen(
@@ -117,7 +232,7 @@ describe("PublicRoomsView", () => {
     expect(onQueryChange).toHaveBeenLastCalledWith("토익");
   });
 
-  it("카드는 멤버 수, 시험·목표, 이번 주 평균, 공부 상태를 보이고 누르면 그 그룹을 연다", async () => {
+  it("카드는 멤버 수, 시험·목표, 이번 주 합계, 공부 상태를 보이고 누르면 그 그룹을 연다", async () => {
     const onOpenRoom = vi.fn();
     renderScreen(
       <PublicRoomsView
@@ -132,11 +247,12 @@ describe("PublicRoomsView", () => {
     );
     const card = screen.getByRole("button", { name: /새벽 5시 기상 공시반/ });
     expect(card).toHaveAccessibleName(
-      "새벽 5시 기상 공시반, 신청 후 입장, 멤버 4/6, 공무원, 이번 주 평균 21시간 10분, 2명 공부 중",
+      "새벽 5시 기상 공시반, 신청 후 입장, 멤버 4/6, 공무원, 이번 주 합계 21시간 10분, 2명 공부 중",
     );
     expect(within(card).getByText("멤버 4/6")).toBeInTheDocument();
     expect(within(card).getByText("공무원")).toBeInTheDocument();
-    expect(within(card).getByText(/21시간 10분/)).toBeInTheDocument();
+    expect(card).toHaveTextContent("이번 주 합계 21시간 10분");
+    expect(card).not.toHaveTextContent("평균");
     expect(within(card).getByText("2명 공부 중")).toBeInTheDocument();
     await userEvent.setup().click(card);
     expect(onOpenRoom).toHaveBeenCalledWith(7);

@@ -4,7 +4,6 @@
     "yesterday": "어제"
   },
   "frame": {
-    "watermark": "포커스 메이커스",
     "focusTime": "순공 {{duration}}",
     "focusRate": "집중률 {{rate}}%",
     "streak": "{{count}}일 연속 공부 🔥"

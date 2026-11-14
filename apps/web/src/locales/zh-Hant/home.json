@@ -129,6 +129,10 @@
       "unsupported": "請在 App 中設定",
       "locked": "已封鎖 {{count}} 個 App"
     },
+    "contact": {
+      "bubble": "有任何不便，歡迎隨時告訴我們",
+      "label": "聯絡我們"
+    },
     "preview": {
       "subjects": {
         "korean": "國文",

@@ -1,8 +1,9 @@
-import { Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Skeleton } from "@/components/ui/Skeleton";
+import { cn } from "@/lib/utils";
 
 import { CategoryChips, ONE_CHIP_ROW_HEIGHT } from "../components/CategoryChips";
 import { PublicRoomCard } from "../components/PublicRoomCard";
@@ -63,7 +64,11 @@ export function PublicRoomsView({
 }) {
   const { t } = useTranslation("group-room");
   const [expanded, setExpanded] = useState(false);
+  const [leading, setLeading] = useState(category);
   const [hasOverflow, setHasOverflow] = useState(false);
+  const compact = hasOverflow && !expanded;
+  // 접혀 있지 않을 때 고른 칩은 다음에 접힐 때 앞으로 꺼내고, 접힌 채로 고를 때는 누르는 자리가 움직이지 않게 그대로 둔다.
+  if (!compact && leading !== category) setLeading(category);
   const measureRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const element = measureRef.current;
@@ -156,7 +161,8 @@ export function PublicRoomsView({
               value={category}
               onChange={onCategoryChange}
               allLabel={t("publicRoomsView.allCategories")}
-              compact={hasOverflow && !expanded}
+              compact={compact}
+              leading={leading}
             />
           </div>
           {hasOverflow && (
@@ -171,7 +177,10 @@ export function PublicRoomsView({
                   ? "publicRoomsView.collapseCategories"
                   : "publicRoomsView.expandCategories",
               )}
-              <span aria-hidden="true">{expanded ? "⌃" : "⌄"}</span>
+              <ChevronDown
+                aria-hidden="true"
+                className={cn("size-4 shrink-0", expanded && "rotate-180")}
+              />
             </button>
           )}
         </div>

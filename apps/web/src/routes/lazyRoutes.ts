@@ -12,6 +12,7 @@ export const loadTermsPage = () => import("./TermsPage");
 export const loadPrivacyPage = () => import("./PrivacyPage");
 export const loadLicensesPage = () => import("./LicensesPage");
 export const loadContactPage = () => import("./ContactPage");
+export const loadContactChatPage = () => import("./ContactChatPage");
 export const loadInterviewFormPage = () => import("./InterviewFormPage");
 export const loadTimelapseSettingsPage = () => import("./TimelapseSettingsPage");
 export const loadTimerBackgroundSettingsPage = () => import("./TimerBackgroundSettingsPage");

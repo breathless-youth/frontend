@@ -56,6 +56,10 @@
     "loading": "Loading the contact form",
     "failure": "Couldn't load the contact form"
   },
+  "contactChat": {
+    "loading": "Loading support chat",
+    "failure": "Couldn't load support chat"
+  },
   "download": {
     "redirecting": "Taking you to the store…",
     "manual": "Go to the store"

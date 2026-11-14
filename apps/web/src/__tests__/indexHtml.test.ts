@@ -196,7 +196,7 @@ describe("index.html OG 도메인", () => {
   it("og:url과 og:image가 운영 도메인을 가리킨다", () => {
     expect(html).toContain('<meta property="og:url" content="https://web.focusmakers.app/" />');
     expect(html).toContain(
-      '<meta property="og:image" content="https://web.focusmakers.app/og-image.png" />',
+      '<meta property="og:image" content="https://web.focusmakers.app/og-image.png?v=2" />',
     );
   });
 });

@@ -241,5 +241,11 @@
     "bring": "Bring {{count}} tasks",
     "bring_one": "Bring {{count}} task",
     "bring_other": "Bring {{count}} tasks"
+  },
+  "rejected": {
+    "duplicateOccurrence": "That day already has the same repeating task",
+    "carryoverChanged": "Your tasks changed in the meantime, so we reloaded the list",
+    "pastDay": "You can't change plans for past days",
+    "taskGone": "This task was already deleted"
   }
 }

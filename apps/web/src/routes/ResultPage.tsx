@@ -26,15 +26,16 @@ import {
   type StudyRoomType,
 } from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
+import { useNativePortraitLock } from "@/lib/nativeBackGesture";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 import { useUserId } from "@/lib/userId";
 
 /**
- * 도장 연출이 끝나고 타임라인·통계 카드와 CTA를 드러내기까지의 시간
+ * 마스코트 연출이 끝나고 타임라인·통계 카드와 CTA를 드러내기까지의 시간
  */
 export const RESULT_REVEAL_DELAY_MS = 3500;
 
-/** 색종이가 터지는 시점 — 도장이 종이에 닿는 순간(도장 모션 46% ≈ 0.92s)에 맞춘 프로토타입 값. */
+/** 색종이가 터지는 시점 — 마스코트가 정점에 닿는 순간(0.92s) 직전에 맞춘 값. */
 const CONFETTI_AT_MS = 900;
 /** 카드 묶음이 떠오르는 연출(0.12초 지연 + 0.5초)이 끝난 뒤에 스크롤한다. */
 const TIMELAPSE_SCROLL_DELAY_MS = 700;
@@ -53,9 +54,9 @@ const USER_SCROLL_EVENTS = ["pointerdown", "wheel", "keydown"] as const;
  *
  * ## 연출 순서
  *
- * 1. `intro`: 도장이 찍히고 `오늘 공부 완료`·순공시간·집중률 배지가 차례로 떠오른다. 카드와
+ * 1. `intro`: 마스코트가 뛰어오르고 `오늘 공부 완료`·순공시간·집중률 배지가 차례로 떠오른다. 카드와
  *    CTA는 없다.
- * 2. `RESULT_REVEAL_DELAY_MS` 뒤 `revealed`: 인주·타이틀이 접혀 올라가고 순공시간 아래로
+ * 2. `RESULT_REVEAL_DELAY_MS` 뒤 `revealed`: 마스코트·타이틀이 접혀 올라가고 순공시간 아래로
  *    타임라인(최대 집중 시간 포함)·누적 요약 카드가, 하단에 CTA 둘(`홈으로`·`기록으로 가기`)이
  *    드러난다.
  * *
@@ -94,6 +95,7 @@ export function ResultPage() {
   // 카드가 뜨기 전에 사용자가 화면을 만졌는지. 촬영 정리를 기다리느라 카드가 늦게 뜨면
   // 사용자는 이미 결과를 읽으며 스크롤하는 중일 수 있다.
   const touchedRef = useRef(false);
+  useNativePortraitLock();
 
   useEffect(() => {
     const mark = () => {
@@ -177,7 +179,7 @@ export function ResultPage() {
     }
   }, [invite, home]);
 
-  // 도장 연출 → 공개. 언마운트(연출 중 이탈)되면 타이머를 걷어 사라진 화면에 setState하지 않는다.
+  // 마스코트 연출 → 공개. 언마운트(연출 중 이탈)되면 타이머를 걷어 사라진 화면에 setState하지 않는다.
   useEffect(() => {
     if (skipIntro || sessions === null) {
       return;
@@ -277,7 +279,7 @@ export function ResultPage() {
       {/* 색종이는 화면 전체를 덮는 장식 캔버스 — 터치를 막지 않는다. */}
       <ConfettiBurst enabled={!skipIntro} fireAfterMs={CONFETTI_AT_MS} />
 
-      {/* 콘텐츠만 스크롤. 가로는 잠근다 — 히어로의 글로우(340px)·도장 모션이 좁은 화면 폭을 넘는다. */}
+      {/* 콘텐츠만 스크롤. 가로는 잠근다 — 히어로의 글로우(340px)가 좁은 화면 폭을 넘는다. */}
       {/* 열 여백을 main이 아니라 스크롤 영역에 두어야 태블릿에서 열 바깥을 끌어도 스크롤된다.
           page-column과 px-5가 같은 좌우 padding이라 안쪽을 한 겹 감싼다. */}
       <div

@@ -29,7 +29,7 @@ import {
 import { trackProfileSaveResult, trackProfileSaveSubmitted } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import { postToNative } from "@/lib/bridge";
-import { canSegmentGraphemes, firstGrapheme } from "@/lib/graphemes";
+import { canSegmentGraphemes } from "@/lib/graphemes";
 import { slideBack } from "@/lib/pageTransition";
 import { updateProfile } from "@/lib/profileApi";
 import { profileKeys, profileQuery } from "@/lib/profileQueries";
@@ -212,15 +212,8 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
       <form noValidate onSubmit={handleSubmit(onValid)} className="flex flex-1 flex-col">
         <div className="flex flex-col gap-4.5 px-5 pt-2 pb-6">
           <div className="flex justify-center py-1">
-            {/* 이니셜은 입력 중 닉네임에서 즉시 파생한다(2026-08-25 피드백) — 저장 후에야
-                바뀌면 아바타가 낡은 글자를 들고 있다. 빈 입력은 서버 이니셜로 폴백.
-                firstGrapheme은 정규화 후 남은 문자를 그대로 주므로, BOM처럼 NFKC가 바꾸지 않고
-                서버 String.strip()도 지우지 않는 공백류만 입력했을 때는 그 보이지 않는 문자를
-                돌려준다 — trim()을 한 번 더 걸어 그런 공백류뿐이면 서버 이니셜로 폴백시킨다
-                (trim()은 BOM도 지우므로 여기서는 안전하다). */}
             <ProfilePhotoButton
               userId={userId}
-              initial={firstGrapheme(normalizeNickname(nickname)).trim() || profile.initial}
               colorIndex={profile.colorIndex}
               imageUrl={profile.profileImageUrl}
             />

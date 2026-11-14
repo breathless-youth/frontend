@@ -25,6 +25,7 @@
     "future": "지금 이후 시간은 넣을 수 없어요",
     "allOverlap": "이미 기록이 있는 시간이에요",
     "failed": "저장하지 못했어요. 다시 시도해 주세요",
+    "measuredLocked": "측정한 기록은 고칠 수 없어요",
     "overlapNotice": "이미 기록된 {{removed}}({{start}}~{{end}})은 제외하고 {{saved}}을 저장해요"
   },
   "subject": {

@@ -4,7 +4,6 @@
     "yesterday": "昨日"
   },
   "frame": {
-    "watermark": "FocusMakers",
     "focusTime": "集中{{duration}}",
     "focusRate": "集中率{{rate}}%",
     "streak": "{{count}}日連続で勉強中 🔥"
