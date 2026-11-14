@@ -806,3 +806,39 @@ describe("useMultiTimer 계측", () => {
     expect(analytics.trackMultiTimerRestarted).toHaveBeenCalledExactlyOnceWith("pomodoro", "focus");
   });
 });
+
+describe("useMultiTimer 종류를 정해 열기", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("종류를 넘기면 마지막 모드와 상관없이 그 종류로 연다", () => {
+    const { result } = setup();
+    store.set(LAST_KIND_KEY, "pomodoro");
+
+    act(() => result.current.open("timer"));
+
+    expect(result.current.mode?.kind).toBe("timer");
+    expect(result.current.mode?.status).toBe("setup");
+  });
+
+  it("스톱워치를 바로 시작하면 0부터 올라가고 종류를 마지막 모드로 저장하지 않는다", () => {
+    const { result, usage } = setup();
+    store.set(LAST_KIND_KEY, "pomodoro");
+
+    act(() => result.current.open("stopwatch", { start: true }));
+    expect(result.current.mode?.kind).toBe("stopwatch");
+    expect(result.current.mode?.status).toBe("running");
+    advance(3000);
+
+    expect(result.current.remainingMs).toBeGreaterThanOrEqual(3000);
+    expect(store.get(LAST_KIND_KEY)).toBe("pomodoro");
+    expect(analytics.trackMultiTimerStarted).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "stopwatch" }),
+    );
+    expect(usage.snapshot()).toBe("stopwatch");
+  });
+});

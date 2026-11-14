@@ -9,7 +9,7 @@ import { formatElapsed, toKoreanDuration } from "../formatDuration";
 /**
  * 발광 반경은 숫자 크기에 비례한다 — `em`이라 미디어쿼리 없이 두 방향을 모두 만족한다.
  */
-const GLOW_TEXT_SHADOW =
+export const GLOW_TEXT_SHADOW =
   "0 0 0.4615em var(--session-glow-near), 0 0 1.1538em var(--session-glow-far)";
 
 /**

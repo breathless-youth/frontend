@@ -157,22 +157,20 @@ describe("SessionHelpScreen", () => {
     expect(document.activeElement).toBe(screen.getByRole("dialog", { name: "세션 도움말" }));
   });
 
-  it("1단계는 비집중 문구와 흐르는 공부 시간, 멈춘 순공시간 카드를 보인다", () => {
+  it("1단계는 비집중 문구와 멈춘 순공시간(큰 숫자)을 보인다", () => {
     vi.useFakeTimers();
     renderHelp();
-    expect(screen.getByText("자리를 비운 것 같아요")).toBeInTheDocument();
-    expect(screen.getByText("01:24:08")).toBeInTheDocument();
+    expect(screen.getByText("자리를 확인해 주세요")).toBeInTheDocument();
     expect(screen.getByText("01:10:00")).toBeInTheDocument();
 
     act(() => {
       vi.advanceTimersByTime(2000);
     });
 
-    expect(screen.getByText("01:24:10")).toBeInTheDocument();
     expect(screen.getByText("01:10:00")).toBeInTheDocument();
   });
 
-  it("2단계는 측정 중 문구와 1초씩 오르는 순공시간을, 3단계는 카드 없이 시간만 보인다", () => {
+  it("2단계는 측정 중 라벨과 1초씩 오르는 순공시간을, 3단계는 설명 없이 시간만 보인다", () => {
     vi.useFakeTimers();
     renderHelp();
 
@@ -181,10 +179,10 @@ describe("SessionHelpScreen", () => {
       vi.advanceTimersByTime(1000);
     });
     expect(screen.getByText("01:10:01")).toBeInTheDocument();
-    expect(screen.getByText("현재 공부")).toBeInTheDocument();
+    expect(screen.getByText("현재 집중")).toBeInTheDocument();
 
     next();
-    expect(screen.getByText("01:24:08")).toBeInTheDocument();
+    expect(screen.getByText("01:10:00")).toBeInTheDocument();
     expect(screen.queryByText("순공시간")).not.toBeInTheDocument();
   });
 
@@ -246,9 +244,7 @@ describe("SessionHelpScreen", () => {
     });
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(screen.queryByRole("timer")).not.toBeInTheDocument();
-    expect(screen.getByText("01:24:08").closest("[aria-hidden='true']")).not.toBeNull();
-    expect(
-      screen.getByText("자리를 비운 것 같아요").closest("[aria-hidden='true']"),
-    ).not.toBeNull();
+    expect(screen.getByText("01:10:00").closest("[aria-hidden='true']")).not.toBeNull();
+    expect(screen.getByText("자리를 확인해 주세요").closest("[aria-hidden='true']")).not.toBeNull();
   });
 });

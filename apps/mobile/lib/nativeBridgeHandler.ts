@@ -32,6 +32,7 @@ import { openedEventProperties, resolvePushRoute } from "./pushNotificationRouti
 import { openPushRoute } from "./pushRouteOpener";
 import type * as PushTokenRegistration from "./pushTokenRegistration";
 import { detachAllNativeAnalyticsSinks, trackNativeEvent } from "./nativeAnalytics";
+import { cancelRestNotification, scheduleRestNotification } from "./restNotification";
 import { emitSessionClosed } from "./sessionClosed";
 import { runAfterNextSessionScreen } from "./sessionPresence";
 import { deleteAccountWithReauth, socialLogin } from "./socialLogin";
@@ -375,6 +376,22 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       void refreshAuth()
         .then((state) => state ?? ensureAuth())
         .then((state) => reply(authTokenMessage(state)));
+      break;
+    case "schedule-rest-notification":
+      void scheduleRestNotification({
+        id: message.id,
+        fireAtMs: message.fireAtMs,
+        title: message.title,
+        body: message.body,
+      }).catch((error: unknown) => {
+        // 앱 안 알림은 웹이 따로 울리므로 OS 알림만 빠진다.
+        console.warn("[bridge] 휴식 알림 예약 실패", error);
+      });
+      break;
+    case "cancel-rest-notification":
+      void cancelRestNotification(message.id).catch((error: unknown) => {
+        console.warn("[bridge] 휴식 알림 취소 실패", error);
+      });
       break;
     case "haptic":
       // 웹뷰는 스스로 햅틱을 못 낸다(iOS는 API가 없고 Android는 강한 진동뿐) — 여기서 대신 낸다.

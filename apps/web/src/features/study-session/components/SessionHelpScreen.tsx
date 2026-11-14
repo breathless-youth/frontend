@@ -113,7 +113,7 @@ function FakeClock({
   callouts,
 }: {
   step: SessionHelpStep;
-  callouts: { caption?: ReactNode; card?: ReactNode };
+  callouts: { caption?: ReactNode; number?: ReactNode };
 }) {
   const { t } = useTranslation("study-session");
   const [elapsed, setElapsed] = useState(0);
@@ -126,17 +126,18 @@ function FakeClock({
   }, []);
   const distract = step.state === "distract";
   const studySec = STUDY_START_SEC + elapsed;
+  // 큰 숫자는 순공이라 측정 중일 때만 오르고, 비집중 단계에서는 멈춘다.
+  const focusSec = FOCUS_START_SEC + (step.ticking === true ? elapsed : 0);
   return (
     <SessionClock
+      view="focus"
       studySec={studySec}
-      focusSec={FOCUS_START_SEC + (step.ticking === true ? elapsed : 0)}
+      focusSec={focusSec}
       todayStudySec={studySec}
+      todayFocusSec={focusSec}
       state={distract ? "distract" : "focus"}
-      statusLabel={t("status.away")}
+      statusLabel={t("status.distracted")}
       simple
-      // 순공시간 설명 단계만 카드를 펼쳐 멈추고 흐르는 순공을 보인다.
-      infoOpen={callouts.card !== undefined}
-      onToggleInfo={() => {}}
       callouts={callouts}
       fake
     />
@@ -182,12 +183,12 @@ function CaptionCallout({ callout }: { callout: SessionHelpTextKey }) {
 }
 
 /**
- * 순공시간 카드 설명
+ * 순공시간(큰 숫자) 설명
  *
- * 세로는 카드 아래로 곧게 내려가는 화살표 밑에 가운데 정렬로 둔다.
- * 가로는 카드 왼쪽에 오른쪽 정렬로 두고 화살표가 카드를 향한다.
+ * 세로는 숫자 아래로 곧게 내려가는 화살표 밑에 가운데 정렬로 둔다.
+ * 가로는 숫자 왼쪽에 오른쪽 정렬로 두고 화살표가 숫자를 향한다.
  */
-function CardCallout({ callout }: { callout: SessionHelpTextKey }) {
+function NumberCallout({ callout }: { callout: SessionHelpTextKey }) {
   return (
     <>
       <span aria-hidden className={cn(RING, "rounded-2xl")} />
@@ -206,7 +207,7 @@ function CardCallout({ callout }: { callout: SessionHelpTextKey }) {
         />
         <CalloutText
           callout={callout}
-          // 카드 왼쪽 자리가 좁아 가로에서만 문구의 줄바꿈을 살리고 세로에서는 공백으로 접는다.
+          // 숫자 왼쪽 자리가 좁아 가로에서만 문구의 줄바꿈을 살리고 세로에서는 공백으로 접는다.
           className="mt-2 text-center text-balance whitespace-normal landscape-compact:mt-0 landscape-compact:mr-3 landscape-compact:text-right landscape-compact:whitespace-pre-line"
         />
       </div>
@@ -291,22 +292,22 @@ function SimpleModeBackdrop({ step }: { step: SessionHelpStep }) {
             <FakePill icon="more" />
           </div>
         </div>
-        {/* 실제 심플 모드처럼 머리 줄과 하단 바 사이 4:9 지점에 시간 묶음을 둔다. 가로는 화면 가운데다. */}
-        <div className="grow-4 landscape-compact:h-0 landscape-compact:grow-0" />
-        <div className="relative landscape-compact:absolute landscape-compact:top-1/2 landscape-compact:left-1/2 landscape-compact:-translate-x-1/2 landscape-compact:-translate-y-1/2">
+        {/* 실제 심플 모드처럼 시간 묶음을 세로·가로 모두 화면 정가운데에 둔다. */}
+        <div className="grow" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
           <div className={cn(dimmed)}>
             <FakeClock
               key={step.id}
               step={step}
               callouts={{
                 caption: pill && <CaptionCallout callout={pill} />,
-                card: timer && <CardCallout callout={timer} />,
+                number: timer && <NumberCallout callout={timer} />,
               }}
             />
           </div>
           {tap && <TapCallout callout={tap} />}
         </div>
-        <div className="grow-9" />
+        <div className="grow" />
         <div aria-hidden className={cn(dimmed)}>
           <FakeBar />
         </div>

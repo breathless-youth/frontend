@@ -80,7 +80,7 @@ describe("RoomPage — 타이머 배경", () => {
     expect(screen.queryByRole("button", { name: "내 화면 크게 보기" })).toBeNull();
     expect(background).not.toHaveClass("opacity-0");
     expect(screen.getByTestId("watcher-background")).toBe(watcher);
-    expect(screen.getByText("순공")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("현재 집중");
     expect(screen.getByRole("button", { name: "일시정지" })).toHaveClass("bg-white/14");
     expect(screen.getByRole("button", { name: "공부 종료" })).toHaveClass("bg-white/14");
 
@@ -128,14 +128,14 @@ describe("RoomPage — 타이머 배경", () => {
     }
   });
 
-  it("월페이퍼 위에서는 시간 묶음이 오늘 누적·순공·집중률을 늘 보여 주고 ⓘ 버튼이 없다", async () => {
+  it("월페이퍼 위에서는 시간 묶음이 라벨·큰 숫자·오늘 줄만 보인다", async () => {
     writeTimerBackground({ kind: "proctor" });
     renderRoom();
     await screen.findByTestId("watcher-background");
 
-    expect(screen.getByText("순공")).toBeInTheDocument();
-    expect(screen.getByTestId("session-focus-rate")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "순공시간·집중률 보기" })).toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent("현재 집중");
+    expect(screen.getByText("오늘 집중")).toBeInTheDocument();
+    expect(screen.queryByText("집중률")).toBeNull();
   });
 
   it("월페이퍼에서 타임랩스를 켜고 카메라를 키우면 필이 과목 줄 아래로 올라간다", async () => {
@@ -209,22 +209,34 @@ describe("RoomPage — 타이머 배경", () => {
     expect(screen.queryByRole("slider", { name: "감독관 발소리 음량" })).toBeNull();
   });
 
-  it("월페이퍼 위 순공은 집중하지 않는 동안 회색으로 멈춘다", async () => {
+  it("월페이퍼 위 큰 숫자는 집중하지 않는 동안 회색으로 멈춘다", async () => {
     writeTimerBackground({ kind: "proctor" });
     renderRoom();
     await screen.findByTestId("watcher-background");
-    expect(screen.getByTestId("session-focus-time")).toHaveClass("text-white");
+    expect(screen.getByTestId("session-clock-number")).toHaveClass("text-white");
 
     await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
 
-    expect(screen.getByTestId("session-focus-time")).toHaveClass("text-text-tertiary");
+    expect(screen.getByTestId("session-clock-number")).toHaveClass("text-text-tertiary");
+  });
+
+  it("배경이 있는 심플 모드는 위아래 어두운 띠를 옅게 한다", async () => {
+    writeTimerBackground({ kind: "proctor" });
+    renderRoom();
+    await screen.findByTestId("watcher-background");
+    const simpleBands = () =>
+      screen.getByTestId("wallpaper-scrim").querySelector('[data-scrim="simple"]');
+    expect(simpleBands()).toHaveClass("opacity-0");
+
+    await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
+
+    expect(simpleBands()).toHaveClass("opacity-100");
   });
 
   it("배경 없이 심플을 고르면 가운데 묶음이다", async () => {
     renderRoom();
     await screen.findByRole("button", { name: "심플 모드 전환" });
 
-    expect(screen.getByRole("button", { name: "순공시간·집중률 보기" })).toBeInTheDocument();
     expect(screen.queryByTestId("wallpaper-scrim")).toBeNull();
 
     // 심플 모드의 하단 버튼은 배경이 없어도 같은 유리 원이다(시안 18i).

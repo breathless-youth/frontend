@@ -42,14 +42,14 @@ function renderRoom(url = "/room/7?userId=1") {
 function renderClock(simple: boolean) {
   return render(
     <SessionClock
+      view="focus"
       studySec={0}
       focusSec={0}
       todayStudySec={0}
+      todayFocusSec={0}
       state="focus"
       statusLabel=""
       simple={simple}
-      infoOpen={false}
-      onToggleInfo={() => {}}
     />,
   );
 }
@@ -58,7 +58,7 @@ describe("SessionClock — 가로 타이포", () => {
   it("세로 52px, 가로 기본 44px로 가운데 정렬을 유지한다", () => {
     renderClock(false);
 
-    const number = screen.getByText("00:00:00").parentElement!;
+    const number = screen.getByTestId("session-clock-number");
     expect(number.className).toContain("text-[52px]");
     expect(number.className).toContain("landscape-compact:text-[44px]");
     expect(number.className).toContain("text-center");
@@ -67,7 +67,7 @@ describe("SessionClock — 가로 타이포", () => {
   it("가로 심플은 72px다", () => {
     renderClock(true);
 
-    const number = screen.getByText("00:00:00").parentElement!;
+    const number = screen.getByTestId("session-clock-number");
     expect(number.className).toContain("landscape-compact:text-[72px]");
   });
 });
@@ -127,19 +127,17 @@ describe("RoomPage — 가로(거치) 배치", () => {
     const clock = container.querySelector(
       '[class*="landscape-compact:top-[calc(env(safe-area-inset-top)+40px)]"]',
     )!;
-    expect(clock).toContainElement(screen.getByText("00:00:00"));
+    expect(clock).toContainElement(screen.getByTestId("session-clock-number"));
     expect(clock.className).toContain("landscape-compact:-translate-x-1/2");
   });
 
-  it("가로 심플 — 시간 묶음을 화면 가운데에 띄운다", async () => {
-    const { container } = renderRoom();
+  it("가로 심플 — 시간 묶음을 화면 가운데에 띄운다(세로와 같은 배치)", async () => {
+    renderRoom();
 
     await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
 
-    const clock = container.querySelector('[class*="landscape-compact:top-1/2"]')!;
-    expect(clock).toContainElement(screen.getByText("00:00:00"));
-    expect(clock.className).toContain("landscape-compact:-translate-y-1/2");
-    expect(clock.className).toContain("landscape-compact:-translate-x-1/2");
+    const clock = screen.getByTestId("session-clock-number").closest(".absolute")!;
+    expect(clock).toHaveClass("top-1/2", "left-1/2", "-translate-x-1/2", "-translate-y-1/2");
   });
 
   it("가로에서도 상태 문구가 남는다 — 좁다고 색 단독으로 상태를 전달하지 않는다", async () => {

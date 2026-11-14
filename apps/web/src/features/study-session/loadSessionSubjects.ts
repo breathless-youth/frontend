@@ -94,20 +94,27 @@ function todayFocusBySubject(
   }
 }
 
+export interface TodayTotals {
+  studySec: number;
+  focusSec: number;
+}
+
+const NO_TODAY: TodayTotals = { studySec: 0, focusSec: 0 };
+
 /**
- * 오늘(플래너 하루) 저장된 총 공부 시간(초)
+ * 오늘(플래너 하루) 저장된 공부 시간과 순공(초)
  *
- * 세션 화면의 `오늘 누적` 줄이 쓰고, 화면은 여기에 이번 세션 몫을 더한다.
+ * 세션 화면의 오늘 줄이 쓰고, 화면은 여기에 이번 세션 몫을 더한다.
  * 과목 목록과 같은 일간 조회를 같은 queryClient로 받아 캐시를 나눈다.
  * 조회나 조립이 실패하면 0으로 둬서 이번 세션 시간만 보인다.
  */
-export async function loadTodayStudySec(userId: number, now = new Date()): Promise<number> {
+export async function loadTodayTotals(userId: number, now = new Date()): Promise<TodayTotals> {
   const dateKey = plannerDateKeyOf(now);
   if (hasTokenSource()) {
     const day = await queryClient
       .fetchQuery({ ...plannerDayQuery(userId, dateKey, deviceTimeZone()), retry: false })
       .catch(() => null);
-    return day?.studySec ?? 0;
+    return day === null ? NO_TODAY : { studySec: day.studySec, focusSec: day.focusSec };
   }
   const nextKey = addDaysToDateKey(dateKey, 1);
   const [day, next] = await Promise.all([
@@ -115,11 +122,12 @@ export async function loadTodayStudySec(userId: number, now = new Date()): Promi
     nextKey > localDateKey(now) ? EMPTY_STATS : fetchDay(userId, nextKey),
   ]);
   if (day === null || next === null) {
-    return 0;
+    return NO_TODAY;
   }
   try {
-    return assemblePlannerDay(dateKey, day, next).studySec;
+    const assembled = assemblePlannerDay(dateKey, day, next);
+    return { studySec: assembled.studySec, focusSec: assembled.focusSec };
   } catch {
-    return 0;
+    return NO_TODAY;
   }
 }

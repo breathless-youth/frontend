@@ -22,6 +22,7 @@ import {
 } from "../cameraPermission";
 import { runCameraPermissionGate } from "../cameraPermissionGate";
 import { triggerHaptic } from "../haptics";
+import { cancelRestNotification, scheduleRestNotification } from "../restNotification";
 import { logAnalyticsEvent, setAnalyticsUserProperties } from "../firebaseAnalytics";
 import { initMetaAds, logMetaAppEvent } from "../metaAds";
 import { getMotionSensorRelay } from "../motionSensorRelay";
@@ -54,6 +55,10 @@ jest.mock("expo-router", () => ({
 }));
 
 jest.mock("../haptics", () => ({ triggerHaptic: jest.fn() }));
+jest.mock("../restNotification", () => ({
+  scheduleRestNotification: jest.fn(async () => undefined),
+  cancelRestNotification: jest.fn(async () => undefined),
+}));
 
 jest.mock("../cameraPermissionGate", () => ({
   runCameraPermissionGate: jest.fn(),
@@ -687,6 +692,29 @@ describe("handleBridgeMessage", () => {
       expect(mockedGetCameraPermissionStatus).toHaveBeenCalledTimes(1);
       expect(mockedRunCameraPermissionGate).not.toHaveBeenCalled();
     });
+  });
+
+  it("휴식 알림 예약·취소 메시지를 로컬 알림으로 넘긴다", () => {
+    handleBridgeMessage(
+      {
+        type: "schedule-rest-notification",
+        id: "rest",
+        fireAtMs: 5000,
+        title: "5분 휴식이 끝났어요",
+        body: "다시 공부를 시작할 시간이에요",
+        atMs: 1,
+      },
+      noopReply,
+    );
+    expect(scheduleRestNotification).toHaveBeenCalledWith({
+      id: "rest",
+      fireAtMs: 5000,
+      title: "5분 휴식이 끝났어요",
+      body: "다시 공부를 시작할 시간이에요",
+    });
+
+    handleBridgeMessage({ type: "cancel-rest-notification", id: "rest", atMs: 2 }, noopReply);
+    expect(cancelRestNotification).toHaveBeenCalledWith("rest");
   });
 
   it("haptic → 네이티브 햅틱을 낸다", () => {

@@ -1,4 +1,5 @@
 import {
+  ArrowLeftRight,
   CircleHelp,
   Clock,
   Ellipsis,
@@ -6,6 +7,7 @@ import {
   EyeOff,
   Share2,
   SwitchCamera,
+  Timer,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -58,12 +60,17 @@ type SessionMoreMenuProps = {
   onFlipCamera?: () => void;
   /** 넘긴 화면에서만 타이머 항목이 보인다. */
   onOpenTimer?: () => void;
+  /** 싱글룸만 넘긴다. 누르면 스톱워치가 바로 시작한다. */
+  onOpenStopwatch?: () => void;
   /**
    * 넘긴 화면에서만 마스코트 항목이 보인다.
    * 지금 보이는지에 따라 문구가 바뀐다.
    */
   mascotVisible?: boolean;
   onToggleMascot?: () => void;
+  /** 지금 시계 보기 형식. 항목 이름이 바꿀 보기를 가리킨다. */
+  clockView?: "focus" | "study";
+  onToggleClockView?: () => void;
   /** 넘긴 방에서만 초대코드 공유 항목이 보인다. */
   onShareInvite?: () => void;
   /** 넘긴 화면에서만 도움말 보기 항목이 보인다. */
@@ -94,8 +101,11 @@ export function SessionMoreMenu({
   flipDisabled = false,
   onFlipCamera,
   onOpenTimer,
+  onOpenStopwatch,
   mascotVisible = false,
   onToggleMascot,
+  clockView = "focus",
+  onToggleClockView,
   onShareInvite,
   onOpenHelp,
   hidden = false,
@@ -136,8 +146,18 @@ export function SessionMoreMenu({
       disabled: flipDisabled,
     });
   }
+  if (onOpenStopwatch) {
+    items.push({ label: t("moreMenu.stopwatch"), icon: Timer, onSelect: onOpenStopwatch });
+  }
   if (onOpenTimer) {
     items.push({ label: t("moreMenu.timer"), icon: Clock, onSelect: onOpenTimer });
+  }
+  if (onToggleClockView) {
+    items.push({
+      label: t(clockView === "focus" ? "moreMenu.viewStudy" : "moreMenu.viewFocus"),
+      icon: ArrowLeftRight,
+      onSelect: onToggleClockView,
+    });
   }
   if (onToggleMascot) {
     items.push(

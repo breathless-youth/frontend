@@ -4,12 +4,13 @@
   },
   "status": {
     "focus": "Measuring focus time",
-    "grace": "Checking that you're studying",
+    "grace": "Checking your study status",
     "away": "Looks like you're away",
     "phone": "Looks like you're on your phone",
     "device": "Looks like you're moving your device",
     "sleep": "Looks like you're dozing off",
-    "pause": "Measuring paused"
+    "pause": "Measuring paused",
+    "distracted": "Check that you're at your desk"
   },
   "exitConfirm": {
     "title": "End your session?",
@@ -82,7 +83,10 @@
     "shareInvite": "Share invite code",
     "timer": "Timer",
     "hideMascot": "Hide mascot",
-    "showMascot": "Show mascot"
+    "showMascot": "Show mascot",
+    "viewStudy": "Show study time",
+    "viewFocus": "Show focus time",
+    "stopwatch": "Stopwatch"
   },
   "subjectSheet": {
     "title": "Subject",
@@ -162,15 +166,14 @@
     "pause": "Paused"
   },
   "clock": {
-    "current": "This session",
-    "today": "Today {{elapsed}}",
-    "todayLabel": "Today",
-    "info": "Show focus time and focus rate",
-    "focus": "Focus time",
-    "focusShort": "Focus",
-    "rate": "Focus rate",
+    "currentFocus": "Focus this session",
+    "currentStudy": "This session",
+    "todayFocus": "Focus today",
+    "todayStudy": "Study today",
+    "srFocus": "Focus time this session {{duration}}",
     "srStudy": "Study time this session {{duration}}",
-    "srToday": "Total study time today {{duration}}"
+    "srTodayFocus": "Total focus time today {{duration}}",
+    "srTodayStudy": "Total study time today {{duration}}"
   },
   "header": {
     "choose": "Choose a subject",
@@ -182,5 +185,32 @@
     "timelapse": "Time-lapse",
     "expand": "Enlarge my camera",
     "shrink": "Make it smaller"
+  },
+  "timerChip": {
+    "group": "Extra timer",
+    "timer": "Timer",
+    "stopwatch": "Stopwatch",
+    "open": "Timer settings",
+    "total": "/ {{total}}",
+    "pause": "Pause",
+    "resume": "Resume",
+    "off": "Turn off",
+    "elapsed": "Elapsed time",
+    "remaining": "Time left"
+  },
+  "timerSheet": {
+    "title": "Timer settings"
+  },
+  "rest": {
+    "label": "Taking a break",
+    "labelWithAlarm": "Taking a break · I'll remind you in {{minutes}} min",
+    "ended": "Break's over",
+    "alarmGroup": "Break reminder",
+    "alarm": "Remind me in {{minutes}} min",
+    "alarmNone": "No reminder",
+    "srElapsed": "Break time {{duration}}",
+    "srRemaining": "Break time left {{duration}}",
+    "notificationTitle": "Your {{minutes}}-min break is over",
+    "notificationBody": "Time to get back to studying"
   }
 }

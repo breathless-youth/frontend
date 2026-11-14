@@ -4,12 +4,13 @@
   },
   "status": {
     "focus": "集中時間を測定中",
-    "grace": "勉強中か確認しています",
+    "grace": "勉強の状態を確認しています",
     "away": "席を離れているようです",
     "phone": "スマホを使っているようです",
     "device": "端末を操作しているようです",
     "sleep": "居眠りしているようです",
-    "pause": "測定を一時停止しました"
+    "pause": "測定を一時停止しました",
+    "distracted": "席にいるか確認してください"
   },
   "exitConfirm": {
     "title": "勉強を終了しますか？",
@@ -79,7 +80,10 @@
     "shareInvite": "招待コードを共有",
     "timer": "タイマー",
     "hideMascot": "マスコットを非表示",
-    "showMascot": "マスコットを表示"
+    "showMascot": "マスコットを表示",
+    "viewStudy": "勉強時間で表示",
+    "viewFocus": "集中時間で表示",
+    "stopwatch": "ストップウォッチ"
   },
   "subjectSheet": {
     "title": "科目",
@@ -157,15 +161,14 @@
     "pause": "一時停止"
   },
   "clock": {
-    "current": "現在の勉強",
-    "today": "今日の累計 {{elapsed}}",
-    "todayLabel": "今日の累計",
-    "info": "集中時間・集中率を見る",
-    "focus": "集中時間",
-    "focusShort": "集中",
-    "rate": "集中率",
+    "currentFocus": "現在の集中",
+    "currentStudy": "現在の勉強",
+    "todayFocus": "今日の集中",
+    "todayStudy": "今日の勉強",
+    "srFocus": "今回の集中時間{{duration}}",
     "srStudy": "今回の勉強時間{{duration}}",
-    "srToday": "今日の累計勉強時間{{duration}}"
+    "srTodayFocus": "今日の集中時間{{duration}}",
+    "srTodayStudy": "今日の勉強時間{{duration}}"
   },
   "header": {
     "choose": "科目を選ぶ",
@@ -177,5 +180,32 @@
     "timelapse": "タイムラプス",
     "expand": "自分の画面を大きく表示",
     "shrink": "小さく表示"
+  },
+  "timerChip": {
+    "group": "追加タイマー",
+    "timer": "タイマー",
+    "stopwatch": "ストップウォッチ",
+    "open": "タイマー設定",
+    "total": "/ {{total}}",
+    "pause": "一時停止",
+    "resume": "再開",
+    "off": "オフ",
+    "elapsed": "経過時間",
+    "remaining": "残り時間"
+  },
+  "timerSheet": {
+    "title": "タイマー設定"
+  },
+  "rest": {
+    "label": "休憩中",
+    "labelWithAlarm": "休憩中 · {{minutes}}分後にお知らせします",
+    "ended": "休憩が終わりました",
+    "alarmGroup": "休憩のお知らせ",
+    "alarm": "{{minutes}}分後にお知らせ",
+    "alarmNone": "お知らせなし",
+    "srElapsed": "休憩時間{{duration}}",
+    "srRemaining": "残りの休憩時間{{duration}}",
+    "notificationTitle": "{{minutes}}分の休憩が終わりました",
+    "notificationBody": "勉強を再開する時間です"
   }
 }

@@ -26,17 +26,14 @@ import {
   readFaceMaskEmojiId,
   readFaceMaskOn,
 } from "@/features/live-room/faceMaskSettings";
-import { MultiTimerScreen } from "@/features/multi-timer/components/MultiTimerScreen";
-import { PomodoroPanel } from "@/features/multi-timer/components/PomodoroPanel";
-import { TimerPanel } from "@/features/multi-timer/components/TimerPanel";
-import {
-  useModeHistoryHold,
-  useModeScreenLocks,
-  useSessionRotationRestore,
-} from "@/features/multi-timer/modeScreenLocks";
-import type { ModeKind } from "@/features/multi-timer/multiTimerMachine";
+import { useSessionRotationRestore } from "@/features/multi-timer/modeScreenLocks";
 import { createMultiTimerUsage, useMultiTimer } from "@/features/multi-timer/useMultiTimer";
-import type { MultiTimerControls } from "@/features/multi-timer/useMultiTimer";
+import {
+  type RestAlarm,
+  SessionRestOverlay,
+} from "@/features/study-session/components/SessionRestOverlay";
+import { SessionTimerChip } from "@/features/study-session/components/SessionTimerChip";
+import { SessionTimerSheet } from "@/features/study-session/components/SessionTimerSheet";
 import { createDeviceHandlingDetector } from "@/features/study-session/adapters/deviceHandlingDetector";
 import { combineFocusDetectors } from "@/features/study-session/adapters/focusDetector";
 import type { VisionFocusDetector } from "@/features/study-session/adapters/focusDetector";
@@ -102,6 +99,7 @@ import type {
 } from "@/features/study-session/sessionState";
 import { SESSION_HELP_STEPS, markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import {
+  PIP_ABOVE_CHIP,
   PIP_ANCHOR,
   PIP_SIZE,
   SESSION_LAYER_INSET,
@@ -118,11 +116,7 @@ import {
   leaveSessionForInvite,
   useSessionInvite,
 } from "@/features/study-session/sessionInvite";
-import {
-  type SessionColorKind,
-  sessionGlowStyle,
-  sessionSurfaceStyle,
-} from "@/features/study-session/sessionTheme";
+import { sessionGlowStyle, sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import { useRotationRepaintNudge } from "@/lib/rotationRepaint";
 import { showCtaToast } from "@/lib/toast";
 import { useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
@@ -140,10 +134,12 @@ import { hasTokenSource } from "@/lib/userId";
 import { queryClient } from "@/lib/queryClient";
 import { parseInitialSubject, useInitialSubject } from "@/features/study-session/useInitialSubject";
 import { InitialSubjectError } from "@/features/study-session/InitialSubjectError";
+import { loadSessionSubjects, loadTodayTotals } from "@/features/study-session/loadSessionSubjects";
+import type { TodayTotals } from "@/features/study-session/loadSessionSubjects";
 import {
-  loadSessionSubjects,
-  loadTodayStudySec,
-} from "@/features/study-session/loadSessionSubjects";
+  readSessionClockView,
+  writeSessionClockView,
+} from "@/features/study-session/sessionClockView";
 import { useLandscapeLayout } from "@/features/study-session/useLandscapeLayout";
 import { SessionMascot } from "@/features/study-session/mascot/SessionMascot";
 import {
@@ -162,6 +158,7 @@ import { createTimelapseRecorder } from "@/features/timelapse/timelapseRecorder"
 import { loadTimelapseSettings } from "@/features/timelapse/timelapseSettings";
 import {
   stageStudyResultExit,
+  trackSessionClockViewChanged,
   trackSessionMascotToggled,
   trackSessionNoticeConfirmed,
   trackSessionSimpleModeToggled,
@@ -173,7 +170,9 @@ import {
   trackSubjectSheetClosed,
   trackSubjectSheetOpened,
 } from "@/lib/amplitude";
-import { postToNative } from "@/lib/bridge";
+import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
+import { canRequestPushPermission, requestPushPermission } from "@/lib/nativePushPermission";
+import { hasRestNotification } from "@/lib/restNotificationCapability";
 import { haptic } from "@/lib/haptics";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 import { cn } from "@/lib/utils";
@@ -446,6 +445,7 @@ function RoomSessionBody({
     startedAtMs,
     focusSec,
     studySec,
+    pausedSinceMs,
     sessionState,
     grace,
     phase,
@@ -506,18 +506,26 @@ function RoomSessionBody({
     onResumeSession: resume,
     usage: multiTimerUsage,
   });
-  const modeOpen = multiTimer.mode !== null;
+  // 타이머 시간을 고르는 시트. 시작하면 닫히고 타이머는 하단 칩으로 계속 돈다.
+  const [timerSheetOpen, setTimerSheetOpen] = useState(false);
+  const timerSheetLandscape = useLandscapeLayout(timerSheetOpen);
+  // 시작 전(시간 고르는 중)이거나 끝나서 시작 전으로 돌아간 모드는 칩으로 보이지 않는다.
+  const timerChipVisible =
+    multiTimer.mode !== null && multiTimer.mode.status !== "setup" && !timerSheetOpen;
   /**
-   * 모드를 끈 순간의 모습
+   * 타이머 시트 열기
    *
-   * 꺼진 모드는 남은 시간과 버튼 이름이 처음 값으로 돌아가서, 밀려 나가는 동안에는 끄기 직전 모습을 그린다.
-   * 세션이 끝나 꺼질 때는 모드 화면이 공부 화면과 함께 사라져 남길 모습이 없다.
+   * 돌던 타이머나 스톱워치는 시트를 열 때 끄지 않는다. 시트에서 시작을 눌러야 새 타이머로 바뀌고, 취소하면 그대로 돈다.
    */
-  const [closingMode, setClosingMode] = useState<MultiTimerControls | null>(null);
-  const modeView = modeOpen ? multiTimer : closingMode;
-  const modeKind: ModeKind = modeView?.mode?.kind ?? "timer";
-  useModeScreenLocks(modeOpen);
-  useModeHistoryHold(modeOpen);
+  const openTimer = () => {
+    if (multiTimer.mode === null) multiTimer.open("timer");
+    setTimerSheetOpen(true);
+  };
+  /** 타이머와 스톱워치는 동시에 하나만 돈다. 스톱워치를 켜면 돌던 타이머를 끈다. */
+  const openStopwatch = () => {
+    if (multiTimer.mode !== null) multiTimer.close();
+    multiTimer.open("stopwatch", { start: true });
+  };
   useSessionRotationRestore();
   // 배경음·과목 페이지의 포털 자리. `--session-*` 변수가 여기 주입돼 있어 body 로 나가면 색이 빠진다.
   const [sessionSurface, setSessionSurface] = useState<HTMLElement | null>(null);
@@ -525,6 +533,34 @@ function RoomSessionBody({
   const ambientButtonRef = useRef<HTMLButtonElement>(null);
   // 과목 페이지를 연 요소와 연 시각. 닫을 때 포커스를 돌려주고 열려 있던 시간을 계측한다.
   const subjectOpenerRef = useRef<HTMLElement | null>(null);
+  const restPushAskedRef = useRef(false);
+  // 앱을 나가 있는 동안 OS 알림이 실제로 울릴 수 있는지는 알림 권한 답으로 안다. 모르면 앱 안에서 알린다.
+  const [restPushGranted, setRestPushGranted] = useState(false);
+
+  // 휴식 알림을 고르면 앱을 나가 있어도 울리도록 OS 알림을 함께 예약한다. 브라우저에서는 보낼 곳이 없어 앱 안 알림만 남는다.
+  const handleRestAlarmChange = (alarm: RestAlarm | null) => {
+    if (alarm === null) {
+      postToNative({
+        type: "cancel-rest-notification",
+        id: REST_NOTIFICATION_ID,
+        atMs: Date.now(),
+      });
+      return;
+    }
+    // 알림 권한은 처음 알림을 고를 때 한 번만 묻는다. 이미 답한 기기는 창 없이 저장된 답이 온다.
+    if (!restPushAskedRef.current && canRequestPushPermission()) {
+      restPushAskedRef.current = true;
+      void requestPushPermission().then((status) => setRestPushGranted(status === "granted"));
+    }
+    postToNative({
+      type: "schedule-rest-notification",
+      id: REST_NOTIFICATION_ID,
+      fireAtMs: alarm.fireAtMs,
+      title: t("rest.notificationTitle", { minutes: alarm.minutes }),
+      body: t("rest.notificationBody"),
+      atMs: Date.now(),
+    });
+  };
   const subjectOpenedAtRef = useRef(0);
   /**
    * 닫기를 요청한 까닭
@@ -678,17 +714,23 @@ function RoomSessionBody({
       });
   }
 
-  // ⓘ 버튼으로 펼치는 집중 시간·집중률 카드
-  const [infoOpen, setInfoOpen] = useState(false);
-  // `오늘 누적`에 더할 오늘 저장 기록. 받기 전과 실패하면 0이라 이번 세션 시간만 보인다.
-  const [savedTodayStudySec, setSavedTodayStudySec] = useState(0);
+  // 시계 보기 형식. 순공이 기본이고 더보기 메뉴에서 공부 시간으로 바꾼다.
+  const [clockView, setClockView] = useState(readSessionClockView);
+  const toggleClockView = () => {
+    const next = clockView === "focus" ? "study" : "focus";
+    setClockView(next);
+    writeSessionClockView(next);
+    trackSessionClockViewChanged({ view: next });
+  };
+  // 오늘 줄에 더할 오늘 저장 기록. 받기 전과 실패하면 0이라 이번 세션 시간만 보인다.
+  const [savedToday, setSavedToday] = useState<TodayTotals>({ studySec: 0, focusSec: 0 });
   useEffect(() => {
     if (userId === null) {
       return;
     }
     let cancelled = false;
-    void loadTodayStudySec(userId).then((sec) => {
-      if (!cancelled) setSavedTodayStudySec(sec);
+    void loadTodayTotals(userId).then((totals) => {
+      if (!cancelled) setSavedToday(totals);
     });
     return () => {
       cancelled = true;
@@ -819,7 +861,7 @@ function RoomSessionBody({
   const modalOverlayOpen = useModalOverlayOpen();
   // 다른 화면이 떠 있는 동안은 숨겼다가 닫히면 다시 보인다.
   const helpBlocked =
-    page !== null || modeOpen || exitDialogOpen || invite !== null || modalOverlayOpen;
+    page !== null || timerSheetOpen || exitDialogOpen || invite !== null || modalOverlayOpen;
   // 떠 있는 동안 세션 본문은 inert로 막고 앱 glass 버튼은 faded로 감춘다. 덮개 위에 실제 glass 버튼이
   // 떠서 같은 자리의 가짜 버튼과 겹치지 않게 웹 가짜 요소만 보인다. 세션·타이머는 그대로 돈다.
   const helpVisible = phase.name === "studying" && helpOpen && !helpBlocked;
@@ -883,6 +925,8 @@ function RoomSessionBody({
   const rotationPhase = useRotationPhase();
 
   const paused = sessionState.kind === "PAUSE";
+  // 휴식 화면이 덮은 동안에는 가려진 머리 줄·시계·칩을 누를 수 없게 한다. 하단 바만 남는다.
+  const resting = pausedSinceMs !== null;
   /** 일시정지 동안 카메라가 꺼진다(`useStudyRoomSession`). 미리보기 창은 심플 모드처럼 스르륵 걷는다. */
   const cameraOff = isSessionHeld(sessionState);
   const cameraHidden = simpleMode || cameraOff;
@@ -1111,11 +1155,6 @@ function RoomSessionBody({
   }, [studying]);
   useEffect(() => () => dropPageEntry(closingRef), []);
 
-  function closeMode() {
-    setClosingMode(multiTimer);
-    multiTimer.close();
-  }
-
   function subjectReturnFocus() {
     return subjectOpenerRef.current;
   }
@@ -1172,7 +1211,7 @@ function RoomSessionBody({
   return (
     <main
       ref={setSessionSurface}
-      style={{ ...sessionSurfaceStyle, ...sessionGlowStyle(stateColorKind(sessionState, grace)) }}
+      style={{ ...sessionSurfaceStyle, ...sessionGlowStyle(sessionState.kind) }}
       data-simple-mode={simpleMode}
       // 하단 버튼 아이콘과 타이머 텍스트가 마우스/터치 드래그로 끌리는 것을
       // 막는다 — `session-no-drag`(index.css)가 CSS를, onDragStart가 브라우저 네이티브
@@ -1219,14 +1258,19 @@ function RoomSessionBody({
               }}
             />
           )}
-          <WallpaperScrim />
+          <WallpaperScrim simple={simpleMode} />
         </div>
       )}
       <div
         ref={pipSlotRef}
         aria-hidden="true"
         data-testid="camera-pip-slot"
-        className={cn(PIP_ANCHOR, PIP_SIZE, "pointer-events-none invisible")}
+        className={cn(
+          PIP_ANCHOR,
+          timerChipVisible && PIP_ABOVE_CHIP,
+          PIP_SIZE,
+          "pointer-events-none invisible",
+        )}
       />
       <CameraPreviewSurface
         stream={cameraStream}
@@ -1236,7 +1280,11 @@ function RoomSessionBody({
         rotating={!cameraHidden && cameraExpanded && rotationPhase === "rotating"}
         faceMask={faceMask}
         // 기본 모드는 오른쪽 아래 작은 창이다. 크기만 바뀌어 영상과 추론은 끊기지 않는다.
-        className={cameraExpanded ? undefined : cn("inset-auto rounded-lg", PIP_ANCHOR, PIP_SIZE)}
+        className={
+          cameraExpanded
+            ? undefined
+            : cn("inset-auto rounded-lg", PIP_ANCHOR, timerChipVisible && PIP_ABOVE_CHIP, PIP_SIZE)
+        }
       />
 
       {phase.name === "studying" ? (
@@ -1281,10 +1329,20 @@ function RoomSessionBody({
             />
           )}
 
+          {/* 일시정지 동안 공부 화면을 흐리게 덮는다. 하단 바 줄은 z-20이라 이 위에 남는다. */}
+          {pausedSinceMs !== null && (
+            <SessionRestOverlay
+              pausedSinceMs={pausedSinceMs}
+              showAlarms={hasRestNotification()}
+              osNotifiable={isNativeBridgeAvailable() && hasRestNotification() && restPushGranted}
+              onAlarmChange={handleRestAlarmChange}
+            />
+          )}
+
           <div inert={helpVisible} className={SESSION_LAYER_LAYOUT}>
             {/* 머리 줄: 왼쪽 과목·할 일, 오른쪽 배경음·더보기. 두 모드 모두 같은 자리에 둔다.
                 웹 버튼은 스스로 pointer-events-auto라 더보기 메뉴의 바깥 누름 차단이 닿지 않아서 메뉴가 열린 동안 inert로 막는다. */}
-            <div className="flex w-full items-start justify-between gap-3">
+            <div inert={resting} className="flex w-full items-start justify-between gap-3">
               <div inert={moreMenuOpen} className="min-w-0">
                 <SessionSubjectHeader
                   subject={headerSubject}
@@ -1315,9 +1373,12 @@ function RoomSessionBody({
                   hidden={helpVisible}
                   // 심플 모드는 카메라 화면이 없어 전환 항목을 뺀다.
                   onFlipCamera={simpleMode ? undefined : () => void handleFlipCamera()}
-                  onOpenTimer={() => multiTimer.open()}
+                  onOpenStopwatch={openStopwatch}
+                  onOpenTimer={openTimer}
                   mascotVisible={mascotOn}
                   onToggleMascot={toggleMascot}
+                  clockView={clockView}
+                  onToggleClockView={toggleClockView}
                   onOpenHelp={() => {
                     setHelpStep(0);
                     setHelpOpen(true);
@@ -1340,12 +1401,12 @@ function RoomSessionBody({
               </div>
             )}
 
-            {/* 시간 묶음 자리. 기본 모드는 과목 줄 아래 30px에, 심플 모드는 머리 줄과 하단 바 사이 4:9 지점에 둔다(시안 y=300).
+            {/* 시간 묶음 자리. 기본 모드는 과목 줄 아래 30px에, 심플 모드는 화면 정가운데에 둔다.
                 가로 기본은 과목 줄 위끝에서 22px 아래 가운데(머리 줄 높이에 겹침), 가로 심플은 화면 가운데다.
                 묶음은 다시 마운트하지 않아 숫자가 끊기지 않고, 자리는 위 clockRef 애니메이션으로 미끄러져 간다. */}
             <div
               className={cn(
-                simpleMode ? "grow-4" : "h-7.5 shrink-0",
+                simpleMode ? "grow" : "h-7.5 shrink-0",
                 "landscape-compact:h-0 landscape-compact:grow-0",
               )}
             />
@@ -1359,33 +1420,41 @@ function RoomSessionBody({
                       simpleMode && WALLPAPER_CLOCK_WIDE,
                       "flex flex-col items-start",
                     )
-                  : [
-                      "relative flex flex-col items-center",
-                      "landscape-compact:absolute landscape-compact:left-1/2 landscape-compact:-translate-x-1/2",
-                      simpleMode
-                        ? "landscape-compact:top-1/2 landscape-compact:-translate-y-1/2"
-                        : "landscape-compact:top-[calc(env(safe-area-inset-top)+40px)]",
-                    ],
+                  : simpleMode
+                    ? // 심플 모드는 세로·가로 모두 화면 정가운데에 둔다(시안 3a·3e).
+                      "absolute top-1/2 left-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+                    : [
+                        "relative flex flex-col items-center",
+                        "landscape-compact:absolute landscape-compact:top-[calc(env(safe-area-inset-top)+40px)] landscape-compact:left-1/2 landscape-compact:-translate-x-1/2",
+                      ],
               )}
             >
               {/* 페이지가 열린 동안은 페이지 푸터의 Toaster가 받는다.
                   둘이 함께 있으면 토스트가 두 번 뜬다. */}
               {page === null && <CtaToaster />}
-              <div ref={clockRef} inert={moreMenuOpen}>
+              {/* 쉬는 동안 시계는 흐려지는 화면 아래로 서서히 사라진다. */}
+              <div
+                ref={clockRef}
+                inert={moreMenuOpen || resting}
+                className={cn(
+                  "transition-opacity duration-300 ease-out motion-reduce:transition-none",
+                  resting && "opacity-0",
+                )}
+              >
                 <SessionClock
+                  view={clockView}
                   studySec={studySec}
                   focusSec={focusSec}
-                  todayStudySec={savedTodayStudySec + studySec}
+                  todayStudySec={savedToday.studySec + studySec}
+                  todayFocusSec={savedToday.focusSec + focusSec}
                   state={pillState}
                   statusLabel={statusLabel}
                   simple={simpleMode}
                   corner={wallpaper}
-                  infoOpen={infoOpen}
-                  onToggleInfo={() => setInfoOpen((open) => !open)}
                 />
               </div>
             </div>
-            <div className={simpleMode ? "grow-9" : "grow"} />
+            <div className="grow" />
 
             {/* 내 카메라 작은 창. 누르면 화면 전체로 키우고, 확대 중에는 같은 자리의 버튼으로 다시 줄인다. */}
             {!cameraHidden &&
@@ -1420,6 +1489,7 @@ function RoomSessionBody({
                   onClick={expandCamera}
                   className={cn(
                     PIP_ANCHOR,
+                    timerChipVisible && PIP_ABOVE_CHIP,
                     PIP_SIZE,
                     "pointer-events-auto flex items-end justify-start rounded-lg shadow-[0_8px_24px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(255,255,255,0.12)]",
                     // 줄이기가 끝나 작은 창이 되는 순간 테두리·이름표·버튼이 한꺼번에 튀어나오지 않게 서서히 나타낸다.
@@ -1445,7 +1515,19 @@ function RoomSessionBody({
                 바 안에 넣으면 조작 묶음에 섞인다.
                 줄 상자는 레이어 폭을 다 쓰고 바를 가운데에 두어서 바 자리는 감싸기 전과 같다.
                 가로 폰에서 월페이퍼를 켜면 왼쪽 끝을 시간 묶음이 쓰므로 바를 감싼 상자를 기준으로 바 왼쪽 옆에 붙인다. */}
-            <div className="relative flex w-full justify-center">
+            {timerChipVisible && multiTimer.mode !== null && (
+              <div inert={resting} className="mb-5 flex w-full justify-center">
+                <SessionTimerChip
+                  mode={multiTimer.mode}
+                  displayMs={multiTimer.remainingMs}
+                  held={multiTimer.held}
+                  onOpen={() => setTimerSheetOpen(true)}
+                  onPrimary={() => multiTimer.pressPrimary()}
+                  onOff={() => multiTimer.close()}
+                />
+              </div>
+            )}
+            <div className="relative z-20 flex w-full justify-center">
               <div className={cn(wallpaper && "landscape-compact:relative")}>
                 {mascotOn && (
                   <SessionMascot
@@ -1570,45 +1652,13 @@ function RoomSessionBody({
             }}
           />
 
-          {/* 처음 열기 전에는 그릴 모드가 없다.
-              끈 뒤에는 끄기 직전 모습으로 밀려 나간다. */}
-          {modeView !== null && (
-            <MultiTimerScreen
-              open={modeOpen}
-              kind={modeKind}
-              kindLocked={modeView.kindLocked}
-              onSwitchKind={(kind) => multiTimer.switchKind(kind)}
-              container={sessionSurface}
-              returnFocus={() => moreTrigger}
-              onClose={closeMode}
-              primaryLabel={modeView.primaryLabel}
-              primaryDisabled={modeView.primaryDisabled}
-              onPrimary={() => multiTimer.pressPrimary()}
-              restartDisabled={modeView.restartDisabled}
-              onRestart={() => multiTimer.restart()}
-            >
-              {modeView.mode?.kind === "timer" && (
-                <TimerPanel
-                  mode={modeView.mode}
-                  remainingMs={modeView.remainingMs}
-                  distracted={modeView.distracted}
-                  onChangeTimerSec={(timerSec) => multiTimer.changeSettings({ timerSec })}
-                  soundOn={modeView.soundOn}
-                  onChangeSoundOn={(on) => multiTimer.setSoundOn(on)}
-                />
-              )}
-              {modeView.mode?.kind === "pomodoro" && (
-                <PomodoroPanel
-                  mode={modeView.mode}
-                  remainingMs={modeView.remainingMs}
-                  distracted={modeView.distracted}
-                  onChangeSettings={(patch) => multiTimer.changeSettings(patch)}
-                  soundOn={modeView.soundOn}
-                  onChangeSoundOn={(on) => multiTimer.setSoundOn(on)}
-                />
-              )}
-            </MultiTimerScreen>
-          )}
+          <SessionTimerSheet
+            open={timerSheetOpen}
+            landscape={timerSheetLandscape}
+            container={sessionSurface}
+            timer={multiTimer}
+            onClose={() => setTimerSheetOpen(false)}
+          />
         </>
       ) : /* 미달 종료 안내 — 순공 1분 미만이면 자동 종료로 끝났든
              수동으로 끝냈든 기록에 남지 않으므로, `여기까지 기록을 저장했어요`도 결과 표시도 모두 사실이 아니다.
@@ -1702,15 +1752,6 @@ function autoEndNoticeVisible(
   return phase.name === "done" && endReason?.kind === "AUTO";
 }
 
-/**
- * 상태 색 — 집중은 파랑, 유예는 연보라, 비집중은 주황, 일시정지는 회색
- *
- * 시간 묶음의 상태 문구·집중률과 심플 모드 발광이 이 색 하나를 따른다.
- */
-function stateColorKind(state: SessionState, grace: boolean): SessionColorKind {
-  return grace ? "GRACE" : state.kind;
-}
-
 function toPillState(state: SessionState): SessionStatusPillState {
   switch (state.kind) {
     case "FOCUS":
@@ -1764,6 +1805,9 @@ function SessionResultFallback({
     </div>
   );
 }
+
+/** 휴식 끝 OS 알림 예약 id. 휴식마다 같은 id로 덮어써서 예약이 하나만 남는다. */
+const REST_NOTIFICATION_ID = "study-rest";
 
 /**
  * 세션 화면 진입 게이트
