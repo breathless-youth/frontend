@@ -45,7 +45,11 @@ describe("RankAvatar", () => {
     expect(mat?.style.inset.startsWith("-")).toBe(true);
     expect(container.querySelector("[data-slot='avatar']")).toHaveClass("overflow-hidden");
     // 소품이 있어도 마스코트 상자는 소품이 없을 때와 같은 자리, 같은 크기다.
-    expect(container.querySelector("[data-default-mascot]")).toHaveClass("p-[14%]");
+    const bare = render(<RankAvatar look={{ id: "pencil", accessories: [] }} />).container;
+    const frame = (root: HTMLElement) =>
+      root.querySelector<HTMLElement>("[data-mascot-frame]")?.getAttribute("style");
+    expect(frame(container)).toBeTruthy();
+    expect(frame(container)).toBe(frame(bare));
     expect(container.querySelector("[data-slot='mascot-body']")).toHaveClass("inset-0");
   });
 });
