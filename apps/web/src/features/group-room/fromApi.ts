@@ -145,10 +145,7 @@ export function toDeskMascot(raw: GroupMemberMascotResponse | null | undefined):
  * 지금 보는 사람의 책상은 닉네임 대신 `나`로 그리도록 사용자 번호를 견줘 표시한다.
  * 오늘 순공은 이 그룹이 아니라 앱 전체에서 쌓은 값이다.
  */
-export function toRoomDeskMember(
-  desk: GroupMemberDesk & { mascot?: GroupMemberMascotResponse | null },
-  myUserId: number,
-): RoomDeskMember {
+export function toRoomDeskMember(desk: GroupMemberDesk, myUserId: number): RoomDeskMember {
   const mascot = toDeskMascot(desk.mascot);
   return {
     userId: desk.userId,
@@ -253,6 +250,7 @@ export function weeklyRanks(
       accumulating: desk.accumulating,
       isMe: desk.userId === myUserId,
       imageUrl: desk.profileImageUrl,
+      ...(desk.mascot == null ? {} : { mascot: desk.mascot }),
     });
   }
   return rows;

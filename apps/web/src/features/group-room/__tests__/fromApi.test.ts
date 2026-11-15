@@ -126,6 +126,14 @@ describe("fromApi", () => {
     ]);
   });
 
+  it("이번 주 순위 줄은 책상에 실려 온 마스코트를 그대로 싣고, 없으면 열쇠를 만들지 않는다", () => {
+    const mascot = { mascotCode: "LAMP", accessories: [] };
+    const rows = weeklyRanks([{ ...desk(1, 300), mascot }, desk(2, 100)], 1);
+
+    expect(rows[0]?.mascot).toEqual(mascot);
+    expect(rows[1]).not.toHaveProperty("mascot");
+  });
+
   it("번역이 없으면 번역 이름과 소개는 null이고 원문은 그대로 둔다", () => {
     const card = { ...seed.publicGroups[0]!, translation: null };
     const detail = { ...seed.publicDetails[13]!, translation: null };

@@ -1,5 +1,9 @@
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+
+import timiAvatar from "@/assets/mascot/timi-avatar.png";
+import lamp from "@/assets/points/mascot-lamp.png";
+import { __resetPointsForTests } from "@/lib/pointsCapability";
 
 import { IGNORE_ARIA_HIDDEN } from "../../__tests__/renderScreen";
 import { buildGroupRoomFixtures } from "../../fixtures";
@@ -42,5 +46,53 @@ describe("WeeklyRankCard", () => {
     render(<WeeklyRankCard rows={rows} elapsedSec={0} />);
     expect(within(rowOf("새벽러")).getByText("공부 중")).toBeInTheDocument();
     expect(within(rowOf("연필깎이")).queryByText("공부 중")).toBeNull();
+  });
+
+  describe("고른 마스코트", () => {
+    const withMascot = rows.map((row, index) =>
+      index === 0
+        ? {
+            ...row,
+            imageUrl: null,
+            mascot: {
+              mascotCode: "LAMP",
+              accessories: [
+                {
+                  mascotCode: "LAMP",
+                  slot: "FACE",
+                  item: { itemId: 1, code: "glasses", imageUrl: "/glasses.png" },
+                },
+              ],
+            },
+          }
+        : row,
+    );
+
+    afterEach(() => {
+      window.history.replaceState(null, "", "/");
+      __resetPointsForTests();
+    });
+
+    it("포인트를 연 곳에서는 사진이 없는 줄에 그 사람이 고른 마스코트와 소품을 그린다", () => {
+      window.history.replaceState(null, "", "/?points=1");
+      __resetPointsForTests();
+      render(<WeeklyRankCard rows={withMascot} elapsedSec={0} />);
+
+      const row = rowOf("새벽러");
+      expect(row.querySelector("[data-slot='mascot-body'] img")).toHaveAttribute("src", lamp);
+      expect(row.querySelector("[data-slot='accessory-face']")).toHaveAttribute(
+        "src",
+        "/glasses.png",
+      );
+    });
+
+    it("포인트를 열지 않은 곳에서는 지금 기본 그림을 그린다", () => {
+      __resetPointsForTests();
+      render(<WeeklyRankCard rows={withMascot} elapsedSec={0} />);
+
+      const row = rowOf("새벽러");
+      expect(row.querySelector("[data-slot='mascot-body']")).toBeNull();
+      expect(row.querySelector("img[data-default-mascot]")).toHaveAttribute("src", timiAvatar);
+    });
   });
 });
