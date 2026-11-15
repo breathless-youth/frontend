@@ -1,5 +1,5 @@
-import { MascotImage } from "@/features/points/components/shared/MascotImage";
-import type { MascotId } from "@/features/points/types";
+import { MascotFigure } from "@/components/mascot/MascotFigure";
+import type { MascotId } from "@/components/mascot/types";
 import { cn } from "@/lib/utils";
 
 import type { DeskMascot, DeskTone } from "../model/desks";
@@ -40,7 +40,7 @@ export function DeskFigure({
   tone: DeskTone | "empty";
   size: keyof typeof SIZE;
   mascot?: MascotId;
-  /** 마스코트가 입은 소품 그림이며 마스코트와 같은 크기의 투명 그림이라 겹쳐 놓는다. */
+  /** 마스코트가 낀 소품이다. */
   accessories?: DeskMascot["accessories"];
 }) {
   const look = SIZE[size];
@@ -63,29 +63,15 @@ export function DeskFigure({
           data-slot="mascot-shadow"
           className="absolute bottom-[3%] left-1/2 h-[14%] w-[62%] -translate-x-1/2 rounded-[50%] bg-foreground/15"
         />
-        {/* 쉬는 중에는 사람 그림의 쉼 색처럼 회색으로 가라앉힌다. */}
-        <MascotImage
+        {/* 쉬는 중에는 사람 그림의 쉼 색처럼 소품까지 회색으로 가라앉힌다. */}
+        <MascotFigure
           id={mascot}
-          size={1}
-          decorative
+          accessories={accessories}
           className={cn(
-            "absolute bottom-[8%] left-1/2 size-[86%]! -translate-x-1/2",
+            "absolute bottom-[8%] left-1/2 w-[86%] -translate-x-1/2",
             tone === "rest" && "opacity-50 grayscale",
           )}
         />
-        {accessories.map((accessory) => (
-          <img
-            key={accessory.slot}
-            src={accessory.imageUrl}
-            alt=""
-            data-slot={`accessory-${accessory.slot}`}
-            draggable={false}
-            className={cn(
-              "absolute bottom-[8%] left-1/2 size-[86%] -translate-x-1/2 object-contain",
-              tone === "rest" && "opacity-50 grayscale",
-            )}
-          />
-        ))}
         {restMark && (
           <svg viewBox="0 0 64 60" className="absolute inset-0 size-full">
             {restMark}

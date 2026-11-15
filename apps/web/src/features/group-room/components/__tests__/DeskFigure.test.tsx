@@ -21,7 +21,7 @@ describe("DeskFigure", () => {
 
   it("쉬는 중에는 마스코트가 회색으로 보인다", () => {
     const { container } = render(<DeskFigure tone="rest" size="md" mascot="lamp" />);
-    expect(container.querySelector("img")).toHaveClass("grayscale");
+    expect(container.querySelector("img")?.closest(".grayscale")).not.toBeNull();
   });
 
   it("빈자리는 마스코트를 줘도 점선 사람 그림 그대로다", () => {
@@ -42,5 +42,22 @@ describe("DeskFigure", () => {
     const accessory = container.querySelector('[data-slot="accessory-head"]');
     expect(accessory).toHaveAttribute("src", "/crown.png");
     expect(container.querySelectorAll("img")).toHaveLength(2);
+  });
+
+  it("날개는 마스코트 뒤에, 머리 소품은 앞에 그린다", () => {
+    const { container } = render(
+      <DeskFigure
+        tone="room"
+        size="md"
+        mascot="book"
+        accessories={[
+          { slot: "head", code: "BOOK_HEAD_BERET", imageUrl: "/beret.png" },
+          { slot: "wings", code: "BOOK_WINGS_ANGEL", imageUrl: "/wings.png" },
+        ]}
+      />,
+    );
+    const order = Array.from(container.querySelectorAll("img"), (img) => img.getAttribute("src"));
+    expect(order[0]).toBe("/wings.png");
+    expect(order[2]).toBe("/beret.png");
   });
 });

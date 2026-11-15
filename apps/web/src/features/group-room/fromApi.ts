@@ -15,7 +15,7 @@ import type {
   PublicGroupDetailResponse,
 } from "@focusmakers/types";
 
-import { toAccessorySlot, toMascotId } from "@/features/points/gateway/fromApi";
+import { toMascotLook } from "@/features/points/gateway/fromApi";
 import type { GroupMemberMascotResponse } from "@/features/points/gateway/pointsApiTypes";
 import { studyCategoryLabel } from "@/lib/studyCategory";
 
@@ -136,18 +136,7 @@ export function toApplyState(detail: PublicGroupDetailResponse): ApplyState | nu
  * 그림 주소가 없는 소품은 앱 안에 소품 그림이 없어 그리지 않는다.
  */
 export function toDeskMascot(raw: GroupMemberMascotResponse | null | undefined): DeskMascot | null {
-  const id = raw == null ? null : toMascotId(raw.mascotCode);
-  if (raw == null || id === null) {
-    return null;
-  }
-  return {
-    id,
-    accessories: raw.accessories.flatMap((entry) => {
-      const slot = toAccessorySlot(entry.slot);
-      const imageUrl = entry.item.imageUrl;
-      return slot === null || imageUrl === null ? [] : [{ slot, code: entry.item.code, imageUrl }];
-    }),
-  };
+  return toMascotLook(raw ?? null);
 }
 
 /**

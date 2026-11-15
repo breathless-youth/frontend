@@ -2,6 +2,7 @@ import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import timiAvatar from "@/assets/mascot/timi-avatar.png";
+import lamp from "@/assets/points/mascot-lamp.png";
 
 import { DefaultProfileMascot } from "../DefaultProfileMascot";
 
@@ -18,6 +19,21 @@ describe("DefaultProfileMascot", () => {
     expect(container.querySelector("img[data-default-mascot]")).toHaveAttribute(
       "src",
       "/custom-mascot.png",
+    );
+  });
+
+  it("모습을 넘기면 그 마스코트를 소품과 함께 그린다", () => {
+    const { container } = render(
+      <DefaultProfileMascot
+        look={{ id: "lamp", accessories: [{ slot: "face", imageUrl: "/glasses.png" }] }}
+      />,
+    );
+
+    const figure = container.querySelector("[data-default-mascot]");
+    expect(figure?.querySelector("[data-slot='mascot-body'] img")).toHaveAttribute("src", lamp);
+    expect(figure?.querySelector("[data-slot='accessory-face']")).toHaveAttribute(
+      "src",
+      "/glasses.png",
     );
   });
 });

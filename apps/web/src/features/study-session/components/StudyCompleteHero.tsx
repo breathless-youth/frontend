@@ -5,6 +5,8 @@ import timiClosed from "@/assets/mascot/timi-closed.png";
 import timiIdle from "@/assets/mascot/timi-idle.png";
 import timiSmile from "@/assets/mascot/timi-smile.png";
 import timiSquint from "@/assets/mascot/timi-squint.png";
+import { MascotFigure } from "@/components/mascot/MascotFigure";
+import type { MascotId, MascotLook } from "@/components/mascot/types";
 import { Badge } from "@/components/ui/badge";
 import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
@@ -57,6 +59,24 @@ const TIMI_FRAMES: ResultMascotFrames = {
   smile: timiSmile,
 };
 
+// 표정 그림이 있는 마스코트만 담고, 없는 마스코트는 정지 그림으로 뛰어오른다.
+const FRAMES_BY_MASCOT: Partial<Record<MascotId, ResultMascotFrames>> = {
+  stopwatch: TIMI_FRAMES,
+};
+
+/**
+ * 표정 그림으로 그릴지 고르기
+ *
+ * 고른 마스코트가 없으면 타이미의 표정 그림을 쓴다.
+ * 표정 그림은 소품 그림과 판 크기가 달라서 소품을 끼고 있으면 쓰지 않는다.
+ */
+function framesFor(look: MascotLook | null | undefined): ResultMascotFrames | null {
+  if (look == null) {
+    return TIMI_FRAMES;
+  }
+  return look.accessories.length === 0 ? (FRAMES_BY_MASCOT[look.id] ?? null) : null;
+}
+
 // 그리는 순서와 표정마다 거는 keyframes. Tailwind가 클래스를 찾도록 문자열을 통째로 둔다.
 const FACE_ANIMATIONS = [
   ["idle", "animate-[result-mascot-face-idle_0.92s_step-end_both]"],
@@ -72,22 +92,27 @@ const FACE_ANIMATIONS = [
  * 웅크리는 동안 표정이 기본, 정색, 눈 감음, 정색으로 바뀌고 뛰어오르는 순간 웃는다.
  * 타이틀(0.55s)·설명(0.66s)·순공시간(0.78s, 0.95s부터 1.3s 카운트업)·총 공부
  * (0.9s)·집중률 배지(1.0s)가 차례로 떠오른다.
- * 나중에 고른 마스코트로 바꿀 수 있게 표정 묶음을 받는다.
+ * 고른 마스코트의 모습을 받으면 그 마스코트가 소품을 낀 채로 뛰어오른다.
+ * 표정 그림이 없는 마스코트와 소품을 낀 마스코트는 표정을 바꾸지 않고 정지 그림으로 뛰어오른다.
  */
 export function StudyCompleteHero({
   view,
   phase,
-  mascot = TIMI_FRAMES,
+  mascot,
+  look,
 }: {
   view: SessionResultView;
   phase: CompleteHeroPhase;
+  /** 표정 묶음을 직접 넘기면 고른 모습보다 먼저 쓴다. */
   mascot?: ResultMascotFrames;
+  look?: MascotLook | null;
 }) {
   const { t } = useTranslation("study-session");
   const collapsed = phase === "revealed";
   const animated = phase !== "static";
   const focusSec = useCountUp(view.focusSec, animated);
   const jumping = phase === "intro";
+  const frames = mascot ?? framesFor(look);
 
   useEffect(() => {
     if (!jumping) {
@@ -151,19 +176,28 @@ export function StudyCompleteHero({
                 jumping && "animate-[result-mascot-jump_0.92s_both] motion-reduce:animate-none",
               )}
             >
-              {FACE_ANIMATIONS.map(([face, animation]) => (
-                <img
-                  key={face}
-                  src={mascot[face]}
-                  alt=""
-                  draggable={false}
-                  className={cn(
-                    "absolute inset-0 size-full",
-                    face !== "smile" && "opacity-0",
-                    jumping && [animation, "motion-reduce:animate-none"],
-                  )}
+              {frames !== null ? (
+                FACE_ANIMATIONS.map(([face, animation]) => (
+                  <img
+                    key={face}
+                    src={frames[face]}
+                    alt=""
+                    draggable={false}
+                    className={cn(
+                      "absolute inset-0 size-full",
+                      face !== "smile" && "opacity-0",
+                      jumping && [animation, "motion-reduce:animate-none"],
+                    )}
+                  />
+                ))
+              ) : look != null ? (
+                // 정지 그림은 발끝이 판 아래에 닿아 있어 상자 아래에 붙인다.
+                <MascotFigure
+                  id={look.id}
+                  accessories={look.accessories}
+                  className="absolute bottom-0 left-0 w-full"
                 />
-              ))}
+              ) : null}
             </div>
           </div>
 

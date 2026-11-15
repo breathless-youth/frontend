@@ -1,6 +1,8 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import pencil from "@/assets/points/mascot-pencil.png";
+
 import { RankAvatar } from "../RankAvatar";
 
 describe("RankAvatar", () => {
@@ -17,5 +19,17 @@ describe("RankAvatar", () => {
 
     expect(container.querySelector("[data-default-mascot]")).not.toBeNull();
     expect(container.firstElementChild).toHaveAttribute("data-me", "true");
+  });
+
+  it("모습을 넘기면 그 마스코트를 소품과 함께 그린다", () => {
+    const { container } = render(
+      <RankAvatar look={{ id: "pencil", accessories: [{ slot: "head", imageUrl: "/cap.png" }] }} />,
+    );
+
+    expect(container.querySelector("[data-slot='mascot-body'] img")).toHaveAttribute("src", pencil);
+    expect(container.querySelector("[data-slot='accessory-head']")).toHaveAttribute(
+      "src",
+      "/cap.png",
+    );
   });
 });

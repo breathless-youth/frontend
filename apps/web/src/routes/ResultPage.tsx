@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { CtaToaster } from "@/components/ui/sonner";
 import { InterviewCardHost } from "@/features/interview/InterviewCardHost";
 import { MeasurementFeedbackCardHost } from "@/features/measurement-feedback/MeasurementFeedbackCardHost";
+import { useMyMascotLook } from "@/features/points/model/useMyMascotLook";
 import { ResultPointsHost } from "@/features/points/components/result/ResultPointsHost";
 import { rewardStartedAt } from "@/features/points/model/rewardStartedAt";
 import { ConfettiBurst } from "@/features/study-session/components/ConfettiBurst";
@@ -90,6 +91,7 @@ export function ResultPage() {
   // 튕기던 문제를 막는다.
   const home = resolveHome(location.pathname);
   const userId = useUserId();
+  const mascotLook = useMyMascotLook(userId);
   // 마운트 시 한 번만 판정한다 — 연출 도중 설정이 바뀌어도 단계가 섞이지 않게.
   const [skipIntro] = useState(() => prefersReducedMotion() || readResultIntroSeen(location.state));
   const [revealed, setRevealed] = useState(skipIntro);
@@ -290,7 +292,7 @@ export function ResultPage() {
         className="page-column flex-1 overflow-x-hidden overflow-y-auto pt-[calc(env(safe-area-inset-top)+44px)] pb-4"
       >
         <div className="px-5">
-          <StudyCompleteHero view={view} phase={phase} />
+          <StudyCompleteHero view={view} phase={phase} look={mascotLook} />
           {revealed && (
             <div className="mt-6 flex flex-col gap-3 animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
               <StudyTimelineCard view={view} />
