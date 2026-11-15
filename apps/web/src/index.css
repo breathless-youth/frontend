@@ -1041,6 +1041,216 @@ body {
 }
 
 /* 히어로 뒤 은은한 글로우 호흡. */
+/* 마스코트 효과 칸 소품이 천천히 떠오르내리는 움직임 */
+@keyframes mascot-effect-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3%);
+  }
+}
+
+/* 마스코트 효과 조각의 움직임이며 조각마다 하나씩 붙는다. */
+@keyframes mascot-fx-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14%);
+  }
+}
+
+@keyframes mascot-fx-fall {
+  0% {
+    opacity: 0;
+    transform: translateY(-30%);
+  }
+  20%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(70%);
+  }
+}
+
+@keyframes mascot-fx-rise {
+  0% {
+    opacity: 0;
+    transform: translate(0, 25%);
+  }
+  20%,
+  80% {
+    opacity: 1;
+  }
+  50% {
+    transform: translate(10%, -12%);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-6%, -55%);
+  }
+}
+
+@keyframes mascot-fx-twinkle {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.55) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1) rotate(18deg);
+  }
+}
+
+@keyframes mascot-fx-flutter {
+  0%,
+  100% {
+    transform: translate(0, 0) scaleX(1);
+  }
+  25% {
+    transform: translate(12%, -16%) scaleX(0.6);
+  }
+  50% {
+    transform: translate(24%, -4%) scaleX(1);
+  }
+  75% {
+    transform: translate(10%, 10%) scaleX(0.6);
+  }
+}
+
+@keyframes mascot-fx-pulse {
+  0%,
+  30%,
+  60%,
+  100% {
+    transform: scale(1);
+  }
+  15% {
+    transform: scale(1.22);
+  }
+  45% {
+    transform: scale(1.14);
+  }
+}
+
+@keyframes mascot-fx-sway {
+  0%,
+  100% {
+    transform: rotate(-10deg);
+  }
+  50% {
+    transform: rotate(10deg);
+  }
+}
+
+@keyframes mascot-fx-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(-10%) rotate(3deg);
+  }
+}
+
+@keyframes mascot-fx-pop {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  15%,
+  70% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  85% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+/* 마스코트 몸 뒤에 코드로 그리는 빛이며 안쪽 조각이 마스코트 윤곽 모양으로 잘려 있다. */
+@keyframes mascot-glow-aurora {
+  0%,
+  100% {
+    filter: blur(var(--mascot-glow-blur)) hue-rotate(0deg);
+    transform: scale(1.12) rotate(-2deg);
+  }
+  50% {
+    filter: blur(var(--mascot-glow-blur)) hue-rotate(70deg);
+    transform: scale(1.2) rotate(2deg);
+  }
+}
+
+@keyframes mascot-glow-breathe {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1.08);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.18);
+  }
+}
+
+@keyframes mascot-glow-rainbow {
+  0% {
+    filter: blur(var(--mascot-glow-blur)) hue-rotate(0deg);
+  }
+  100% {
+    filter: blur(var(--mascot-glow-blur)) hue-rotate(360deg);
+  }
+}
+
+.mascot-glow {
+  /* 작은 아바타에서도 번짐이 몸 크기를 따라가도록 안쪽 조각이 이 상자 폭을 기준으로 삼는다. */
+  container-type: inline-size;
+}
+
+.mascot-glow-blur {
+  --mascot-glow-blur: 5cqi;
+  filter: blur(var(--mascot-glow-blur));
+  transform: scale(1.14);
+}
+
+.mascot-glow-aurora {
+  animation: mascot-glow-aurora 5s ease-in-out infinite;
+}
+
+.mascot-glow-aurora > [data-glow-shape] {
+  background: linear-gradient(120deg, #5eead4, #60a5fa 40%, #a78bfa 70%, #f0abfc);
+}
+
+.mascot-glow-glow {
+  animation: mascot-glow-breathe 2.8s ease-in-out infinite;
+}
+
+.mascot-glow-glow > [data-glow-shape] {
+  background: #ffd75e;
+}
+
+.mascot-glow-rainbow {
+  animation: mascot-glow-rainbow 6s linear infinite;
+}
+
+.mascot-glow-rainbow > [data-glow-shape] {
+  background: conic-gradient(#f87171, #fbbf24, #4ade80, #60a5fa, #c084fc, #f87171);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot-glow-blur {
+    animation: none;
+  }
+}
+
 @keyframes result-hero-glow {
   0%,
   100% {

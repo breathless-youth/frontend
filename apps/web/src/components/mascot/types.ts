@@ -6,11 +6,39 @@
 export type MascotId =
   "book" | "planner" | "pencil" | "stopwatch" | "lamp" | "padlock" | "camcorder";
 
-/** 칸마다 소품 하나를 끼고 일곱 칸을 한꺼번에 낄 수 있다. */
-export type AccessorySlot = "face" | "head" | "body" | "wings" | "held" | "underfoot" | "effect";
+/**
+ * 소품을 끼는 칸
+ *
+ * 낱개 일곱 칸은 칸마다 하나씩 한꺼번에 낄 수 있다.
+ * 세트는 한 벌 옷이라 낱개 일곱 칸과 함께 끼지 않는다.
+ */
+export type AccessorySlot =
+  "face" | "head" | "body" | "wings" | "held" | "underfoot" | "effect" | "set";
 
-/** 끼고 있는 소품 한 점이며 그림은 마스코트와 같은 크기의 투명 판이다. */
-export type WornAccessory = { slot: AccessorySlot; imageUrl: string };
+/** 효과 그림의 조각 하나이며 위치와 크기는 그림 판에 대한 비율이다. */
+export type EffectPiece = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  /** 서버가 정한 움직임 이름이며 모르는 이름은 멈춘 그림으로 그린다. */
+  motion: string;
+};
+
+/** 끼고 있는 소품 한 점이며 그림은 마스코트 판보다 사방으로 넓은 투명 판이다. */
+export type WornAccessory = {
+  slot: AccessorySlot;
+  /** 코드로 그리는 빛 효과는 그림이 없다. */
+  imageUrl?: string;
+  /** 목도리처럼 몸을 감싸는 소품이 몸 뒤로 돌아가는 조각이며 없는 소품이 대부분이다. */
+  backImageUrl?: string;
+  /** 세트에서 옷과 따로 움직이는 효과 그림 */
+  effectImageUrl?: string;
+  /** 효과 칸 소품은 imageUrl을, 세트는 effectImageUrl을 이 조각대로 잘라 움직인다. */
+  effectPieces?: readonly EffectPiece[];
+  /** 그림 없이 코드로 그리는 빛 효과의 종류 */
+  effectType?: string;
+};
 
 /** 한 사람이 고른 마스코트와 끼고 있는 소품 */
 export type MascotLook = { id: MascotId; accessories: readonly WornAccessory[] };

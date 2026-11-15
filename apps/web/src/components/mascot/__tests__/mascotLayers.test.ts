@@ -35,6 +35,16 @@ describe("splitAccessoryLayers", () => {
       { slot: "head", imageUrl: "/second.png" },
     ]);
 
-    expect(layers.front).toEqual([{ slot: "head", imageUrl: "/first.png" }]);
+    expect(layers.front).toEqual([{ key: "head", slot: "head", imageUrl: "/first.png" }]);
+  });
+
+  it("뒤 조각이 있는 소품은 앞 조각은 몸 앞에, 뒤 조각은 몸 뒤에 둔다", () => {
+    const layers = splitAccessoryLayers([
+      { slot: "body", imageUrl: "/scarf.png", backImageUrl: "/scarf-back.png" },
+      { slot: "wings", imageUrl: "/wings.png" },
+    ]);
+
+    expect(layers.behind.map((layer) => layer.imageUrl)).toEqual(["/wings.png", "/scarf-back.png"]);
+    expect(layers.front.map((layer) => layer.imageUrl)).toEqual(["/scarf.png"]);
   });
 });
