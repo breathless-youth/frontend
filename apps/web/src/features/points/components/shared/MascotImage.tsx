@@ -1,25 +1,9 @@
 import { useTranslation } from "react-i18next";
 
-import book from "@/assets/points/mascot-book.png";
-import camcorder from "@/assets/points/mascot-camcorder.png";
-import lamp from "@/assets/points/mascot-lamp.png";
-import padlock from "@/assets/points/mascot-padlock.png";
-import pencil from "@/assets/points/mascot-pencil.png";
-import planner from "@/assets/points/mascot-planner.png";
-import stopwatch from "@/assets/points/mascot-stopwatch.png";
+import { MASCOT_SRC } from "@/components/mascot/mascotSources";
 import { cn } from "@/lib/utils";
 
 import type { MascotId } from "../../types";
-
-const MASCOT_SRC: Record<MascotId, string> = {
-  book,
-  planner,
-  pencil,
-  stopwatch,
-  lamp,
-  padlock,
-  camcorder,
-};
 
 /**
  * 마스코트 그림

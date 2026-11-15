@@ -9,7 +9,11 @@
     "label": "소품 부위",
     "head": "머리 위",
     "face": "얼굴",
-    "body": "몸 장식"
+    "body": "몸 장식",
+    "wings": "날개",
+    "held": "물건",
+    "underfoot": "발밑",
+    "effect": "효과"
   },
   "preview": "{{name}} 미리 보기",
   "grid": {

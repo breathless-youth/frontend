@@ -5,8 +5,9 @@
  * 서버 응답은 gateway/fromApi.ts가 이 모양으로 바꿔 넘긴다.
  */
 
-export type MascotId =
-  "book" | "planner" | "pencil" | "stopwatch" | "lamp" | "padlock" | "camcorder";
+import type { AccessorySlot, MascotId } from "@/components/mascot/types";
+
+export type { AccessorySlot, MascotId };
 
 export type Mascot = {
   id: MascotId;
@@ -16,8 +17,6 @@ export type Mascot = {
   /** 열린 뒤 아직 축하 화면을 보지 않았는지이며 서버가 기억한다. */
   newlyUnlocked: boolean;
 };
-
-export type AccessorySlot = "head" | "face" | "body";
 
 export type ShopItemKind = "accessory" | "timerBackground";
 

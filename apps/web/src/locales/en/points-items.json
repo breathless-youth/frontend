@@ -9,7 +9,11 @@
     "label": "Accessory slot",
     "head": "Head",
     "face": "Face",
-    "body": "Body"
+    "body": "Body",
+    "wings": "Wings",
+    "held": "Held item",
+    "underfoot": "Underfoot",
+    "effect": "Effect"
   },
   "preview": "{{name}} preview",
   "grid": {

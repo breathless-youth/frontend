@@ -9,7 +9,11 @@
     "label": "配件部位",
     "head": "頭上",
     "face": "臉部",
-    "body": "身體"
+    "body": "身體",
+    "wings": "翅膀",
+    "held": "手持物",
+    "underfoot": "腳下",
+    "effect": "特效"
   },
   "preview": "{{name}}預覽",
   "grid": {

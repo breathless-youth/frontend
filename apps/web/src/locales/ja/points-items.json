@@ -9,7 +9,11 @@
     "label": "アイテムの部位",
     "head": "頭の上",
     "face": "顔",
-    "body": "体"
+    "body": "体",
+    "wings": "羽",
+    "held": "持ち物",
+    "underfoot": "足もと",
+    "effect": "エフェクト"
   },
   "preview": "{{name}}のプレビュー",
   "grid": {
