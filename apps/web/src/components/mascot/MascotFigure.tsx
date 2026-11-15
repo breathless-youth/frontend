@@ -100,7 +100,8 @@ function AccessoryLayer({ layer }: { layer: AccessoryLayerImage }) {
       draggable={false}
       data-slot={`accessory-${layer.key}`}
       className={cn(
-        "absolute object-contain",
+        // 전역 img의 max-width: 100%가 넓힌 폭을 상자 폭으로 잘라 그림이 가로로 눌리지 않게 푼다.
+        "absolute max-w-none object-contain",
         floats &&
           "animate-[mascot-effect-float_3.2s_ease-in-out_infinite] motion-reduce:animate-none",
       )}

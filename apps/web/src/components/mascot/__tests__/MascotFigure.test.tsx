@@ -19,6 +19,17 @@ describe("MascotFigure", () => {
     expect(container.querySelector("img")?.getAttribute("src")).toBe(book);
   });
 
+  it("소품 그림은 전역 img의 폭 제한을 받지 않는다", () => {
+    const { container } = render(
+      <MascotFigure id="book" accessories={[{ slot: "head", imageUrl: "/head.png" }]} />,
+    );
+
+    // 넓은 판(140.625%)이 상자 폭으로 잘리면 소품이 가로로 눌려 그려진다.
+    expect(container.querySelector('[data-slot="accessory-head"]')?.className).toContain(
+      "max-w-none",
+    );
+  });
+
   it("몸 뒤 소품, 마스코트, 몸 앞 소품 순서로 겹친다", () => {
     const { container } = render(
       <MascotFigure
