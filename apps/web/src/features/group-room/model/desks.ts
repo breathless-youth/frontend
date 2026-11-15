@@ -1,4 +1,4 @@
-import type { AccessorySlot, MascotId } from "@/features/points/types";
+import type { MascotId, WornAccessory } from "@/components/mascot/types";
 import i18n from "@/lib/i18n";
 
 import { GROUP_ROOM_LIMITS } from "./limits";
@@ -12,10 +12,10 @@ export type MemberPresence = "this_room" | "studying_elsewhere" | "paused_elsewh
 
 export type DeskTone = "room" | "elsewhere" | "rest";
 
-/** 책상에 앉힐 마스코트와 입은 소품. 그림 주소가 없는 소품은 그릴 수 없어 빼고 담는다. */
+/** 책상에 앉힐 마스코트와 입은 소품. 그릴 것이 없는 소품은 빼고 담는다. */
 export interface DeskMascot {
   id: MascotId;
-  accessories: { slot: AccessorySlot; code: string; imageUrl: string }[];
+  accessories: (WornAccessory & { code: string })[];
 }
 
 export interface DeskMember {
