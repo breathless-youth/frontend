@@ -56,6 +56,12 @@ describe("MascotCollectionScreen", () => {
     );
   });
 
+  it("남은 시간이 길어도 낱말 중간에서 줄이 바뀌지 않는다", () => {
+    renderScreen();
+    // 좁은 칸에서 "124시간 12분 남음"이 "남 / 음"으로 갈라진 것을 Android 실기기에서 봤다.
+    expect(screen.getByText("4시간 12분 남음")).toHaveClass("break-keep");
+  });
+
   it("다음 차례 뒤의 잠긴 마스코트는 이름을 ???로 숨긴다", () => {
     renderScreen();
     expect(screen.getByText("램프")).toBeInTheDocument();

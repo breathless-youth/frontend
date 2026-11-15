@@ -79,7 +79,7 @@ export function MascotGrid({
               <span
                 aria-hidden={!mascot.unlocked}
                 className={cn(
-                  "text-xs",
+                  "text-xs break-keep",
                   mascot.selected ? "font-bold text-feedback-success" : "text-muted-foreground",
                 )}
               >
