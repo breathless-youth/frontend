@@ -5,6 +5,7 @@ import { toMyMascotLook } from "../myMascotLook";
 
 const mascot = (id: Mascot["id"], selected: boolean): Mascot => ({
   id,
+  price: null,
   unlockFocusSec: 0,
   unlocked: true,
   selected,

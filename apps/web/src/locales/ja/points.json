@@ -64,5 +64,15 @@
   "mascotImage": {
     "unlocked": "{{name}}のマスコット",
     "locked": "まだ開いていない{{name}}のマスコット"
+  },
+  "storeItem": {
+    "buyFor": "{{price}}で購入",
+    "buy": "購入する",
+    "appOnly": "アプリで購入できます",
+    "buying": "購入したアイテムを追加しています",
+    "lateTitle": "アイテムはまもなく届きます",
+    "lateBody": "お支払いは完了しました。少ししてからもう一度確認してください。",
+    "lateMissing": "アイテムが届きませんか？",
+    "failedMissing": "支払ったのにアイテムが届きませんか？"
   }
 }

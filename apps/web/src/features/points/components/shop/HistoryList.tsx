@@ -28,7 +28,7 @@ function groupByDay(entries: PointsHistoryEntry[]): Group[] {
 
 /** 날짜별로 묶은 포인트 기록 */
 export function HistoryList({ entries }: { entries: PointsHistoryEntry[] }) {
-  const { t, i18n } = useTranslation("points-shop");
+  const { t, i18n } = useTranslation(["points-shop", "points"]);
   const [todayKey] = useState(() => dayKey(Date.now()));
   return (
     <div className="flex flex-col gap-1.5">
@@ -67,13 +67,18 @@ function dayLabel(date: Date, language: string): string {
 
 function reasonLabel(
   entry: PointsHistoryEntry,
-  t: ReturnType<typeof useTranslation<"points-shop">>["t"],
+  t: ReturnType<typeof useTranslation<["points-shop", "points"]>>["t"],
 ): string {
   if (entry.reason === "medal" && entry.medal !== undefined) {
     return t("history.reason.medalRank", {
       period: t(`history.medalPeriod.${entry.medal.period}`),
       rank: entry.medal.rank,
     });
+  }
+  if (entry.reason === "mascotPurchase") {
+    return entry.mascotId === undefined
+      ? t("history.reason.mascotPurchaseUnknown")
+      : t("history.reason.mascotPurchase", { name: t(`points:mascots.${entry.mascotId}`) });
   }
   if (entry.reason === "purchase") {
     return entry.itemName === undefined

@@ -66,5 +66,15 @@
   "mascotImage": {
     "unlocked": "{{name}} mascot",
     "locked": "Locked {{name}} mascot"
+  },
+  "storeItem": {
+    "buyFor": "Buy for {{price}}",
+    "buy": "Buy",
+    "appOnly": "Available in the app",
+    "buying": "Adding your item",
+    "lateTitle": "Your item is on its way",
+    "lateBody": "Payment went through. Check again in a moment.",
+    "lateMissing": "Still not seeing your item?",
+    "failedMissing": "Paid but didn't get your item?"
   }
 }

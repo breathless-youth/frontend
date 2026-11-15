@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { formatDuration } from "@/features/records/recordsFormat";
 import { cn } from "@/lib/utils";
 
+import { formatPoints } from "../../model/formatPoints";
 import type { Mascot } from "../../types";
 import { MascotImage } from "../shared/MascotImage";
 
@@ -26,23 +27,31 @@ export function MascotGrid({
 }) {
   const { t } = useTranslation("points-mascots");
   const { t: tPoints } = useTranslation("points");
-  const nextId = mascots.find((mascot) => !mascot.unlocked)?.id;
+  const nextId = mascots.find((mascot) => !mascot.unlocked && mascot.price === null)?.id;
   return (
     <ul className="grid grid-cols-3 gap-2.5">
       {mascots.map((mascot) => {
         const name = tPoints(`mascots.${mascot.id}`);
-        const hidden = !mascot.unlocked && mascot.id !== nextId;
+        // 포인트로 사는 마스코트는 무엇을 사는지 알아야 해서 이름을 숨기지 않는다.
+        const hidden = !mascot.unlocked && mascot.price === null && mascot.id !== nextId;
         const shownName = hidden ? t("hiddenName") : name;
-        const remaining = t("remaining", {
-          time: formatDuration(Math.max(mascot.unlockFocusSec - totalFocusSec, 0)),
-        });
+        const remaining =
+          mascot.price === null
+            ? t("remaining", {
+                time: formatDuration(Math.max(mascot.unlockFocusSec - totalFocusSec, 0)),
+              })
+            : formatPoints(mascot.price);
         return (
           <li key={mascot.id} className="contents">
             <button
               type="button"
               aria-pressed={mascot.unlocked ? mascot.selected : undefined}
               aria-label={
-                mascot.unlocked ? undefined : t("lockedLabel", { name: shownName, remaining })
+                mascot.unlocked
+                  ? undefined
+                  : mascot.price === null
+                    ? t("lockedLabel", { name: shownName, remaining })
+                    : t("purchase.lockedPriceLabel", { name: shownName, price: remaining })
               }
               onClick={() => (mascot.unlocked ? onSelect(mascot.id) : onLockedPress(mascot))}
               className={cn(

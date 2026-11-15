@@ -19,5 +19,9 @@
     "decorate": "꾸미기",
     "pick": "내 마스코트 고르기",
     "locked": "{{name}} 잠김"
+  },
+  "purchase": {
+    "buyFor": "{{price}}로 열기",
+    "lockedPriceLabel": "{{name}} 잠김, {{price}}"
   }
 }

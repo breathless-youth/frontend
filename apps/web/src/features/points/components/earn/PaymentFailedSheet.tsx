@@ -9,10 +9,13 @@ export function PaymentFailedSheet({
   open,
   onClose,
   onRetry,
+  missing,
 }: {
   open: boolean;
   onClose: () => void;
   onRetry: () => void;
+  /** 포인트가 아닌 상품을 샀을 때 문의 줄의 문구를 바꾼다. */
+  missing?: string;
 }) {
   const { t } = useTranslation("points-earn");
   return (
@@ -35,7 +38,7 @@ export function PaymentFailedSheet({
             to="/contact"
             className="flex min-h-11 items-center self-center text-[13px] font-semibold text-muted-foreground underline"
           >
-            {t("failed.missing")}
+            {missing ?? t("failed.missing")}
           </Link>
         </div>
       </DrawerContent>

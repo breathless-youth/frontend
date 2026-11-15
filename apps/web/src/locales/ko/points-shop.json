@@ -17,7 +17,8 @@
   "tile": {
     "owned": "보유 중",
     "streakDays": "연속 공부 {{current}} / {{target}}일",
-    "focusHours": "누적 순공 {{current}} / {{target}}시간"
+    "focusHours": "누적 순공 {{current}} / {{target}}시간",
+    "store": "결제"
   },
   "history": {
     "filter": {
@@ -36,7 +37,11 @@
       "charge": "포인트 충전",
       "purchase": "{{name}} 구매",
       "purchaseUnknown": "꾸미기 구매",
-      "medalRank": "{{period}} 랭킹 {{rank}}위 메달"
+      "medalRank": "{{period}} 랭킹 {{rank}}위 메달",
+      "mascotPurchase": "{{name}} 마스코트 구매",
+      "mascotPurchaseUnknown": "마스코트 구매",
+      "mission": "시작 미션 보상",
+      "refund": "결제 환불로 차감"
     },
     "empty": {
       "title": "아직 포인트 기록이 없어요",

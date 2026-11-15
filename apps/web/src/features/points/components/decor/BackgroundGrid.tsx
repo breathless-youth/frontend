@@ -70,6 +70,9 @@ function Status({ item }: { item: ShopItem }) {
       </span>
     );
   }
+  if (item.acquire.type === "store") {
+    return <span className="text-xs font-bold text-primary">{t("points-decor:grid.store")}</span>;
+  }
   return (
     <span className="text-xs font-bold break-keep text-muted-foreground">
       {t(`points-decor:grid.${item.acquire.condition}`, { target: item.acquire.target })}

@@ -79,6 +79,9 @@ function subLabel(item: ShopItem, t: T): { text: string; tone: string } {
   if (item.acquire.type === "price") {
     return { text: formatPoints(item.acquire.price), tone: "text-primary" };
   }
+  if (item.acquire.type === "store") {
+    return { text: t("grid.store"), tone: "text-primary" };
+  }
   const { condition, target } = item.acquire;
   return {
     text: t(condition === "focusHours" ? "grid.rewardHours" : "grid.rewardDays", { target }),
@@ -95,6 +98,9 @@ function cellLabel(item: ShopItem, t: T): string {
   }
   if (item.acquire.type === "price") {
     return `${item.name} ${formatPoints(item.acquire.price)}`;
+  }
+  if (item.acquire.type === "store") {
+    return t("grid.storeLabel", { name: item.name });
   }
   const { condition, target } = item.acquire;
   return t(condition === "focusHours" ? "grid.rewardHoursLabel" : "grid.rewardDaysLabel", {

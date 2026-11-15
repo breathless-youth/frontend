@@ -19,5 +19,9 @@
     "decorate": "裝扮",
     "pick": "選擇我的吉祥物",
     "locked": "{{name}}未解鎖"
+  },
+  "purchase": {
+    "buyFor": "以 {{price}} 解鎖",
+    "lockedPriceLabel": "{{name}}未解鎖，{{price}}"
   }
 }

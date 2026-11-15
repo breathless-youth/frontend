@@ -64,5 +64,15 @@
   "mascotImage": {
     "unlocked": "{{name}} 마스코트",
     "locked": "잠긴 {{name}} 마스코트"
+  },
+  "storeItem": {
+    "buyFor": "{{price}}에 구매하기",
+    "buy": "구매하기",
+    "appOnly": "앱에서 살 수 있어요",
+    "buying": "구매한 상품을 넣고 있어요",
+    "lateTitle": "상품이 곧 들어와요",
+    "lateBody": "결제는 끝났어요. 잠시 뒤 다시 확인해 주세요.",
+    "lateMissing": "상품이 계속 안 들어오나요?",
+    "failedMissing": "결제됐는데 상품이 안 들어왔나요?"
   }
 }

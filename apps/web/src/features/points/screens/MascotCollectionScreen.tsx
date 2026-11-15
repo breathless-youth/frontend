@@ -1,13 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { formatDuration } from "@/features/records/recordsFormat";
 
 import { LockedMascotSheet } from "../components/mascots/LockedMascotSheet";
 import { MascotGrid } from "../components/mascots/MascotGrid";
 import { MascotUnlockedScreen } from "../components/mascots/MascotUnlockedScreen";
+import { InsufficientPointsSheet } from "../components/shared/InsufficientPointsSheet";
 import { PointsScreenFrame } from "../components/shared/PointsScreenFrame";
-import type { Mascot, MascotId, ShopData } from "../types";
+import { PurchaseConfirmSheet } from "../components/shared/PurchaseConfirmSheet";
+import { usePointsGateway } from "../gateway/PointsGatewayContext";
+import { usePurchaseFlow } from "../model/usePurchaseFlow";
+import { pointsSearch } from "../pointsSearch";
+import type { Mascot, MascotId, ShopData, ShopItem } from "../types";
+import { usePointsScreenViewed } from "../model/usePointsScreenViewed";
 
 /**
  * 마스코트 모으기 화면
@@ -15,6 +22,8 @@ import type { Mascot, MascotId, ShopData } from "../types";
  * 새로 열린 마스코트는 라우트가 서버 값에서 골라 `newlyUnlocked`로 넘긴다.
  * 받은 값은 이 화면이 떠 있는 동안 한 번만 축하 화면으로 보인다.
  * 바꾸기나 나중에로 축하 화면을 닫으면 `onCelebrated`로 알려 서버가 본 것으로 기억하게 한다.
+ * 포인트로 여는 마스코트는 잠금 시트에서 사고, 산 직후 같은 축하 화면을 한 번 보인다.
+ * 산 마스코트는 서버가 새로 열린 것으로 치지 않아 본 것으로 알릴 일이 없다.
  */
 export function MascotCollectionScreen({
   data,
@@ -33,10 +42,62 @@ export function MascotCollectionScreen({
 }) {
   const { t } = useTranslation("points");
   const { t: tMascots } = useTranslation("points-mascots");
+  usePointsScreenViewed("mascots");
+  const gateway = usePointsGateway();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [pressed, setPressed] = useState<Mascot | null>(null);
   const [celebrated, setCelebrated] = useState(false);
-  const mascots = [...data.mascots].sort((a, b) => a.unlockFocusSec - b.unlockFocusSec);
-  const nextId = mascots.find((mascot) => !mascot.unlocked)?.id;
+  const [buying, setBuying] = useState<Mascot | null>(null);
+  // 공부 시간으로 여는 마스코트를 기준 순서대로 두고 포인트로 사는 마스코트는 그 뒤에 둔다.
+  const mascots = [...data.mascots].sort(
+    (a, b) =>
+      Number(a.price !== null) - Number(b.price !== null) || a.unlockFocusSec - b.unlockFocusSec,
+  );
+  const nextId = mascots.find((mascot) => !mascot.unlocked && mascot.price === null)?.id;
+  // 구매 확인 창과 모자람 창은 상점 상품의 모양을 받아서 마스코트를 그 모양으로 넘긴다.
+  const buyingItem: ShopItem | null =
+    buying === null || buying.price === null
+      ? null
+      : {
+          id: `mascot-${buying.id}`,
+          kind: "accessory",
+          name: t(`mascots.${buying.id}`),
+          imageUrl: null,
+          acquire: { type: "price", price: buying.price },
+          owned: false,
+          inUse: false,
+        };
+  const flow = usePurchaseFlow(
+    buyingItem,
+    buying === null ? undefined : () => gateway.purchaseMascot(buying.id),
+  );
+  const { step, close } = flow;
+  // 살 마스코트가 정해진 뒤에야 가격을 알 수 있어서 다음 렌더에 창을 연다.
+  const buyingId = buying?.id;
+  useEffect(() => {
+    if (buyingId !== undefined) {
+      flow.open();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 살 마스코트가 바뀔 때만 연다
+  }, [buyingId]);
+  // 산 직후에는 같은 축하 화면을 한 번 보이고, 닫으면 구매 흐름을 처음으로 돌린다.
+  if (step === "done" && buying !== null) {
+    const finish = () => {
+      close();
+      setBuying(null);
+    };
+    return (
+      <MascotUnlockedScreen
+        mascotId={buying.id}
+        onSwitch={() => {
+          void onSelect(buying.id);
+          finish();
+        }}
+        onLater={finish}
+      />
+    );
+  }
 
   if (newlyUnlocked !== undefined && !celebrated) {
     return (
@@ -75,7 +136,41 @@ export function MascotCollectionScreen({
         mascot={pressed}
         hidden={pressed !== null && pressed.id !== nextId}
         totalFocusSec={data.totalFocusSec}
+        onBuy={(mascot) => {
+          setPressed(null);
+          setBuying(mascot);
+        }}
         onClose={() => setPressed(null)}
+      />
+      <PurchaseConfirmSheet
+        open={step === "confirm" || step === "pending"}
+        pending={step === "pending"}
+        item={buyingItem}
+        balance={balance}
+        onConfirm={() => void flow.confirm()}
+        onClose={() => {
+          close();
+          setBuying(null);
+        }}
+      />
+      <InsufficientPointsSheet
+        open={step === "insufficient"}
+        item={buyingItem}
+        balance={balance}
+        packs={[]}
+        onMissions={
+          gateway.capabilities.earn
+            ? () =>
+                void navigate({
+                  pathname: "/points",
+                  search: pointsSearch(location.search, "earn"),
+                })
+            : undefined
+        }
+        onClose={() => {
+          close();
+          setBuying(null);
+        }}
       />
     </PointsScreenFrame>
   );

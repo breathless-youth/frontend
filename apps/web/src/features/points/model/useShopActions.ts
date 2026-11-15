@@ -1,5 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
 
+import {
+  trackPointsAdWatched,
+  trackPointsCharge,
+  trackPointsClaimed,
+  trackPointsDecorationChanged,
+  trackPointsMascotSelected,
+} from "@/lib/amplitude";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { pointsKeys } from "@/lib/pointsQueries";
 
@@ -45,6 +52,7 @@ export function useShopActions() {
   const claim = async (kind: ClaimKind) => {
     try {
       const result = await gateway.claim(kind);
+      if (result.granted) trackPointsClaimed({ kind, points: result.points });
       settle(result.balance);
       return result;
     } catch (error) {
@@ -55,26 +63,38 @@ export function useShopActions() {
   };
   const watchAd = async (): Promise<AdResult> => {
     const result = await gateway.watchAd();
+    trackPointsAdWatched(result.status);
     if (result.status === "rewarded") settle(result.balance);
     if (result.status === "late") refetchLater();
     return result;
   };
   const charge = async (productId: string, onPaid?: () => void): Promise<ChargeResult> => {
     const result = await gateway.charge(productId, onPaid);
+    trackPointsCharge(result.status, productId);
     if (result.status === "completed") settle(result.balance);
     if (result.status === "late") refetchLater();
     return result;
   };
   const equipAccessory = async (mascotId: MascotId, slot: AccessorySlot, itemId: string | null) => {
     await gateway.equipAccessory(mascotId, slot, itemId);
+    trackPointsDecorationChanged({
+      kind: "accessory",
+      action: itemId === null ? "off" : "on",
+      slot,
+    });
     await refetchLook();
   };
   const setTimerBackground = async (itemId: string | null) => {
     await gateway.setTimerBackground(itemId);
+    trackPointsDecorationChanged({
+      kind: "timerBackground",
+      action: itemId === null ? "off" : "on",
+    });
     await refetchShop();
   };
   const selectMascot = async (id: MascotId) => {
     await gateway.selectMascot(id);
+    trackPointsMascotSelected(id);
     await refetchLook();
   };
   const markUnlocksSeen = async () => {

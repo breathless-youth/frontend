@@ -19,5 +19,9 @@
     "decorate": "きせかえ",
     "pick": "マイマスコットを選ぶ",
     "locked": "{{name}}は未解放"
+  },
+  "purchase": {
+    "buyFor": "{{price}}で解放",
+    "lockedPriceLabel": "{{name}}は未解放、{{price}}"
   }
 }

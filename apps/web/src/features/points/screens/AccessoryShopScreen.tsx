@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
+import { trackPointsSetViewed } from "@/lib/amplitude";
 import { slideNavigate } from "@/lib/pageTransition";
 import { showToast } from "@/lib/toast";
 
@@ -15,11 +16,16 @@ import { SlotChips } from "../components/items/SlotChips";
 import { InsufficientPointsSheet } from "../components/shared/InsufficientPointsSheet";
 import { PointsScreenFrame } from "../components/shared/PointsScreenFrame";
 import { PurchaseConfirmSheet } from "../components/shared/PurchaseConfirmSheet";
+import { StoreBuyButton } from "../components/shared/StoreBuyButton";
+import { StorePurchaseDialogs } from "../components/shared/StorePurchaseDialogs";
 import { formatPoints } from "../model/formatPoints";
+import { SLOT_ORDER } from "../model/slotOrder";
 import { usePurchaseFlow } from "../model/usePurchaseFlow";
+import { useStorePurchase } from "../model/useStorePurchase";
 import { pointsSearch } from "../pointsSearch";
 import type { AccessorySlot, MascotId, ShopItem } from "../types";
 import type { ShopScreenProps } from "./shopScreenProps";
+import { usePointsScreenViewed } from "../model/usePointsScreenViewed";
 
 const NOTICE_MS = 3000;
 
@@ -45,22 +51,37 @@ export function AccessoryShopScreen({
   const { t } = useTranslation("points-items");
   const { t: tPoints } = useTranslation("points");
   const { t: tCommon } = useTranslation("common");
+  usePointsScreenViewed("accessories");
   const navigate = useNavigate();
   const location = useLocation();
   const [mascotId, setMascotId] = useState<MascotId>(
     () => (data.mascots.find((m) => m.selected) ?? data.mascots[0]).id,
   );
-  const [slot, setSlot] = useState<AccessorySlot>("head");
+  const [pickedSlot, setSlot] = useState<AccessorySlot>("head");
   const [pickedId, setPickedId] = useState<string>();
 
   const mascot = data.mascots.find((m) => m.id === mascotId) ?? data.mascots[0];
   const mascotName = tPoints(`mascots.${mascot.id}`);
-  const slotItems = data.items.filter(
-    (it) => it.kind === "accessory" && it.mascotId === mascot.id && it.slot === slot,
+  const mascotItems = data.items.filter(
+    (it) => it.kind === "accessory" && it.mascotId === mascot.id,
   );
+  // 상품이 있는 부위만 칩으로 보이고, 고른 부위에 상품이 없는 마스코트로 바꾸면 첫 부위로 간다.
+  const withItems = SLOT_ORDER.filter((s) => mascotItems.some((it) => it.slot === s));
+  const slots: readonly AccessorySlot[] =
+    withItems.length > 0 ? withItems : ["head", "face", "body"];
+  const slot = slots.includes(pickedSlot) ? pickedSlot : slots[0];
+  const slotItems = mascotItems.filter((it) => it.slot === slot);
+  const store = useStorePurchase(mascotItems);
   const item = slotItems.find((it) => it.id === pickedId) ?? slotItems[0] ?? null;
 
   const flow = usePurchaseFlow(item);
+
+  const viewingSetOf = slot === "set" ? mascot.id : null;
+  useEffect(() => {
+    if (viewingSetOf !== null) {
+      trackPointsSetViewed(viewingSetOf);
+    }
+  }, [viewingSetOf]);
 
   const setInUse = async (target: ShopItem, inUse: boolean) => {
     if (target.mascotId === undefined || target.slot === undefined) {
@@ -85,6 +106,18 @@ export function AccessoryShopScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- step이 done이 될 때만 돌린다
   }, [step]);
 
+  // 결제로 산 소품도 바로 입히고 알린다.
+  const storeStep = store.step;
+  useEffect(() => {
+    if (storeStep !== "done" || store.target === null) {
+      return;
+    }
+    void setInUse(store.target, true);
+    showToast(tPoints("purchase.done", { name: store.target.name }));
+    store.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 결제가 끝난 때만 돌린다
+  }, [storeStep]);
+
   const choose = (change: () => void) => {
     flow.close();
     change();
@@ -102,11 +135,20 @@ export function AccessoryShopScreen({
         pickedId={mascot.id}
         onPick={(id) => choose(() => setMascotId(id))}
       />
-      <AccessoryPreview mascotId={mascot.id} item={mascot.unlocked ? item : null} />
+      <AccessoryPreview
+        mascotId={mascot.id}
+        item={mascot.unlocked ? item : null}
+        worn={mascotItems.filter((it) => it.inUse)}
+      />
       <div className="-mx-5 flex flex-1 flex-col gap-3.5 rounded-t-3xl bg-white px-5 pt-4 shadow-[0_-12px_40px_rgb(0_0_0/0.08)]">
         {mascot.unlocked ? (
           <>
-            <SlotChips value={slot} onChange={(next) => choose(() => setSlot(next))} />
+            <SlotChips
+              slots={slots}
+              value={slot}
+              onChange={(next) => choose(() => setSlot(next))}
+            />
+            {slot === "set" && <p className="text-xs text-muted-foreground">{t("setNotice")}</p>}
             {slotItems.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t("grid.empty")}</p>
             ) : null}
@@ -125,6 +167,7 @@ export function AccessoryShopScreen({
             {item !== null && (
               <ActionButton
                 item={item}
+                store={store}
                 onBuy={flow.open}
                 onWear={() => void setInUse(item, true)}
               />
@@ -152,6 +195,7 @@ export function AccessoryShopScreen({
         </div>
       )}
 
+      <StorePurchaseDialogs flow={store} />
       <PurchaseConfirmSheet
         open={flow.step === "confirm" || flow.step === "pending"}
         pending={flow.step === "pending"}
@@ -178,10 +222,12 @@ export function AccessoryShopScreen({
 /** 고른 소품에 할 수 있는 일 하나를 문구로 보이는 맨 아래 버튼 */
 function ActionButton({
   item,
+  store,
   onBuy,
   onWear,
 }: {
   item: ShopItem;
+  store: ReturnType<typeof useStorePurchase>;
   onBuy: () => void;
   onWear: () => void;
 }) {
@@ -207,6 +253,9 @@ function ActionButton({
         {tPoints("buyFor", { price: formatPoints(item.acquire.price) })}
       </Button>
     );
+  }
+  if (item.acquire.type === "store") {
+    return <StoreBuyButton item={item} flow={store} className="mt-auto w-full shadow-sb-cta" />;
   }
   const { condition, current, target } = item.acquire;
   const hours = condition === "focusHours";

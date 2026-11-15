@@ -1,5 +1,7 @@
 {
-  "preview": { "label": "プレビュー" },
+  "preview": {
+    "label": "プレビュー"
+  },
   "categories": {
     "label": "背景の種類",
     "all": "すべて",
@@ -12,7 +14,8 @@
     "label": "タイマー背景",
     "owned": "所有中",
     "streakDays": "{{target}}日連続",
-    "focusHours": "集中{{target}}時間"
+    "focusHours": "集中{{target}}時間",
+    "store": "有料"
   },
   "button": {
     "streakDays": "連続学習 {{current}} / {{target}}日",

@@ -13,8 +13,10 @@
     "wings": "翅膀",
     "held": "手持物",
     "underfoot": "腳下",
-    "effect": "特效"
+    "effect": "特效",
+    "set": "套裝"
   },
+  "setNotice": "穿上套裝後，其他配件會自動卸下",
   "preview": "{{name}}預覽",
   "grid": {
     "label": "選擇配件",
@@ -27,7 +29,9 @@
     "rewardDaysLabel": "{{name}}，連續學習 {{target}} 天的獎勵",
     "takeOff": "卸下",
     "takeOffLabel": "卸下{{slot}}配件",
-    "empty": "這個部位還沒有配件"
+    "empty": "這個部位還沒有配件",
+    "store": "付費",
+    "storeLabel": "{{name}}，付費商品"
   },
   "action": {
     "focusHours": "累計專注 {{current}} / {{target}} 小時",

@@ -1,5 +1,7 @@
 {
-  "preview": { "label": "Preview" },
+  "preview": {
+    "label": "Preview"
+  },
   "categories": {
     "label": "Background type",
     "all": "All",
@@ -12,7 +14,8 @@
     "label": "Timer backgrounds",
     "owned": "Owned",
     "streakDays": "{{target}}-day streak",
-    "focusHours": "{{target}} focus hours"
+    "focusHours": "{{target}} focus hours",
+    "store": "Paid"
   },
   "button": {
     "streakDays": "Study streak {{current}} / {{target}} days",

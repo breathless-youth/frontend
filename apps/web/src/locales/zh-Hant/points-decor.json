@@ -1,5 +1,7 @@
 {
-  "preview": { "label": "預覽" },
+  "preview": {
+    "label": "預覽"
+  },
   "categories": {
     "label": "背景類型",
     "all": "全部",
@@ -12,7 +14,8 @@
     "label": "計時器背景",
     "owned": "已擁有",
     "streakDays": "連續 {{target}} 天",
-    "focusHours": "專注 {{target}} 小時"
+    "focusHours": "專注 {{target}} 小時",
+    "store": "付費"
   },
   "button": {
     "streakDays": "連續讀書 {{current}} / {{target}} 天",

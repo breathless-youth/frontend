@@ -7,9 +7,10 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
  * 결제 뒤 포인트가 들어오기를 기다리는 창
  *
  * 스토어 결제가 끝나고 서버가 포인트를 넣을 때까지 뜬다.
+ * 결제로 산 상품을 기다릴 때는 제목을 바꿔 쓴다.
  * 기다림이 끝나면 완료 창이나 실패 창이 이어지므로 사용자가 닫을 수 없다.
  */
-export function ChargingDialog({ open }: { open: boolean }) {
+export function ChargingDialog({ open, title }: { open: boolean; title?: string }) {
   const { t } = useTranslation("points-earn");
   return (
     <Dialog open={open}>
@@ -26,7 +27,7 @@ export function ChargingDialog({ open }: { open: boolean }) {
           className="mx-auto size-8 animate-spin text-primary motion-reduce:animate-none"
         />
         <DialogTitle role="status" className="text-[17px] font-bold break-keep">
-          {t("charging.title")}
+          {title ?? t("charging.title")}
         </DialogTitle>
       </DialogContent>
     </Dialog>

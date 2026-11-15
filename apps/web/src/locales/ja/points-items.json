@@ -13,8 +13,10 @@
     "wings": "羽",
     "held": "持ち物",
     "underfoot": "足もと",
-    "effect": "エフェクト"
+    "effect": "エフェクト",
+    "set": "セット"
   },
+  "setNotice": "セットを着ると他のアイテムは外れます",
   "preview": "{{name}}のプレビュー",
   "grid": {
     "label": "アイテムを選ぶ",
@@ -27,7 +29,9 @@
     "rewardDaysLabel": "{{name}}、{{target}}日連続の報酬",
     "takeOff": "外す",
     "takeOffLabel": "{{slot}}のアイテムを外す",
-    "empty": "この部位のアイテムはまだありません"
+    "empty": "この部位のアイテムはまだありません",
+    "store": "有料",
+    "storeLabel": "{{name}}、有料アイテム"
   },
   "action": {
     "focusHours": "累計集中 {{current}} / {{target}}時間",

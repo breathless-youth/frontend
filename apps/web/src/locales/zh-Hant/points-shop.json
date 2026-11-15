@@ -17,7 +17,8 @@
   "tile": {
     "owned": "已擁有",
     "streakDays": "連續讀書 {{current}} / {{target}} 天",
-    "focusHours": "累計專注 {{current}} / {{target}} 小時"
+    "focusHours": "累計專注 {{current}} / {{target}} 小時",
+    "store": "付費"
   },
   "history": {
     "filter": {
@@ -36,7 +37,11 @@
       "charge": "點數儲值",
       "purchase": "購買{{name}}",
       "purchaseUnknown": "裝飾購買",
-      "medalRank": "{{period}}排行第 {{rank}} 名獎牌"
+      "medalRank": "{{period}}排行第 {{rank}} 名獎牌",
+      "mascotPurchase": "購買吉祥物{{name}}",
+      "mascotPurchaseUnknown": "購買吉祥物",
+      "mission": "新手任務獎勵",
+      "refund": "因退款扣除"
     },
     "empty": {
       "title": "還沒有點數紀錄",

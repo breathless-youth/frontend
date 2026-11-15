@@ -36,6 +36,61 @@ function renderScreen(gateway: PointsGateway) {
 }
 
 describe("AccessoryShopScreen", () => {
+  describe("스토어 결제 상품", () => {
+    // 왕관을 결제 상품으로 바꾼 상점을 주는 가짜 경계
+    function withStoreItem(storeItems: boolean) {
+      const gateway = createFakePointsGateway("default");
+      const getShop = gateway.getShop.bind(gateway);
+      return {
+        ...gateway,
+        capabilities: { ...gateway.capabilities, storeItems },
+        getShop: async () => {
+          const shop = await getShop();
+          return {
+            ...shop,
+            items: shop.items.map((item) =>
+              item.name === "왕관"
+                ? { ...item, acquire: { type: "store" as const, productId: "item_crown" } }
+                : item,
+            ),
+          };
+        },
+      } satisfies PointsGateway;
+    }
+
+    it("스토어 가격으로 사는 버튼을 보이고, 결제가 끝나면 바로 입히고 알린다", async () => {
+      const gateway = withStoreItem(true);
+      const purchase = vi
+        .spyOn(gateway, "purchaseStoreItem")
+        .mockResolvedValue({ status: "completed" });
+      const equip = vi.spyOn(gateway, "equipAccessory");
+      renderScreen(gateway);
+
+      await userEvent.click(await screen.findByRole("button", { name: "₩1,100에 구매하기" }));
+
+      expect(purchase).toHaveBeenCalledTimes(1);
+      await waitFor(() =>
+        expect(equip).toHaveBeenCalledWith("stopwatch", "head", expect.any(String)),
+      );
+      expect(showToast).toHaveBeenCalledWith("왕관을 구매했어요!");
+    });
+
+    it("결제를 맡을 수 없는 곳에서는 앱에서 살 수 있다고만 알린다", async () => {
+      renderScreen(withStoreItem(false));
+      expect(await screen.findByRole("button", { name: "앱에서 살 수 있어요" })).toBeDisabled();
+    });
+
+    it("결제는 끝났는데 상품이 늦으면 다시 결제하는 길 없이 곧 들어온다고 알린다", async () => {
+      const gateway = withStoreItem(true);
+      vi.spyOn(gateway, "purchaseStoreItem").mockResolvedValue({ status: "late" });
+      renderScreen(gateway);
+
+      await userEvent.click(await screen.findByRole("button", { name: "₩1,100에 구매하기" }));
+
+      expect(await screen.findByText("상품이 곧 들어와요")).toBeVisible();
+    });
+  });
+
   it("잠긴 마스코트는 자물쇠와 함께 보이고, 고르면 잠김 안내와 마스코트 모으기가 나온다", async () => {
     renderScreen(createFakePointsGateway("default"));
     expect(await screen.findByRole("button", { name: "램프, 아직 잠겨 있어요" })).toBeVisible();

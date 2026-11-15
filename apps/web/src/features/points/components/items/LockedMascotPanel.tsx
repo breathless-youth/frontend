@@ -5,7 +5,7 @@ import { formatDuration } from "@/features/records/recordsFormat";
 
 import type { Mascot } from "../../types";
 
-/** 잠긴 마스코트를 골랐을 때 소품 격자 대신 남은 시간과 모으는 길을 보인다. */
+/** 잠긴 마스코트를 골랐을 때 소품 격자 대신 남은 시간과 모으는 길을 보이며, 포인트로 사는 마스코트는 사러 가는 길만 보인다. */
 export function LockedMascotPanel({
   mascot,
   name,
@@ -23,16 +23,20 @@ export function LockedMascotPanel({
   return (
     <div className="flex flex-1 flex-col items-center gap-3 text-center">
       <h2 className="text-lg font-bold break-keep">{t(`locked.title.${mascot.id}`)}</h2>
-      <p className="text-sm break-keep text-muted-foreground">
-        {t("locked.hint", { remaining: formatDuration(mascot.unlockFocusSec - totalFocusSec) })}
-      </p>
-      <span
-        role="img"
-        aria-label={t("locked.progress", { name, percent })}
-        className="block h-2 w-full overflow-hidden rounded-full bg-brand-subtle"
-      >
-        <span className="block h-2 rounded-full bg-primary" style={{ width: `${percent}%` }} />
-      </span>
+      {mascot.price === null && (
+        <>
+          <p className="text-sm break-keep text-muted-foreground">
+            {t("locked.hint", { remaining: formatDuration(mascot.unlockFocusSec - totalFocusSec) })}
+          </p>
+          <span
+            role="img"
+            aria-label={t("locked.progress", { name, percent })}
+            className="block h-2 w-full overflow-hidden rounded-full bg-brand-subtle"
+          >
+            <span className="block h-2 rounded-full bg-primary" style={{ width: `${percent}%` }} />
+          </span>
+        </>
+      )}
       <Button variant="secondary" size="xl" className="mt-auto w-full" onClick={onCollect}>
         {t("locked.collect")}
       </Button>

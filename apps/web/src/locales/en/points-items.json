@@ -13,8 +13,10 @@
     "wings": "Wings",
     "held": "Held item",
     "underfoot": "Underfoot",
-    "effect": "Effect"
+    "effect": "Effect",
+    "set": "Sets"
   },
+  "setNotice": "Wearing a set takes off your other accessories",
   "preview": "{{name}} preview",
   "grid": {
     "label": "Choose an accessory",
@@ -27,7 +29,9 @@
     "rewardDaysLabel": "{{name}}, reward for a {{target}}-day streak",
     "takeOff": "Remove",
     "takeOffLabel": "Remove {{slot}} accessory",
-    "empty": "No accessories for this slot yet"
+    "empty": "No accessories for this slot yet",
+    "store": "Paid",
+    "storeLabel": "{{name}}, paid item"
   },
   "action": {
     "focusHours": "Focus total {{current}} / {{target}} hrs",

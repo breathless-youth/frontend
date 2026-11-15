@@ -11,11 +11,15 @@ import { TimerPreview } from "../components/decor/TimerPreview";
 import { InsufficientPointsSheet } from "../components/shared/InsufficientPointsSheet";
 import { PointsScreenFrame } from "../components/shared/PointsScreenFrame";
 import { PurchaseConfirmSheet } from "../components/shared/PurchaseConfirmSheet";
+import { StoreBuyButton } from "../components/shared/StoreBuyButton";
+import { StorePurchaseDialogs } from "../components/shared/StorePurchaseDialogs";
 import { formatPoints } from "../model/formatPoints";
 import { usePurchaseFlow } from "../model/usePurchaseFlow";
+import { useStorePurchase } from "../model/useStorePurchase";
 import { pointsSearch } from "../pointsSearch";
 import type { ShopItem } from "../types";
 import type { ShopScreenProps } from "./shopScreenProps";
+import { usePointsScreenViewed } from "../model/usePointsScreenViewed";
 
 /**
  * 타이머 배경 고르기
@@ -34,6 +38,7 @@ export function TimerBackgroundScreen({
   onCharge,
 }: ShopScreenProps & { onApply: (itemId: string | null) => Promise<void> }) {
   const { t } = useTranslation(["points", "points-decor", "common"]);
+  usePointsScreenViewed("backgrounds");
   const navigate = useNavigate();
   const location = useLocation();
   const [category, setCategory] = useState<string | null>(null);
@@ -49,9 +54,12 @@ export function TimerBackgroundScreen({
     visible[0];
 
   const flow = usePurchaseFlow(selected ?? null);
+  const store = useStorePurchase(all);
   const { step, close } = flow;
-  const purchasedId = step === "done" ? selected?.id : undefined;
-  const purchasedName = selected?.name ?? "";
+  // 포인트로 샀든 결제로 샀든 산 배경은 바로 쓰는 상태로 만든다.
+  const bought = step === "done" ? selected : store.step === "done" ? store.target : undefined;
+  const purchasedId = bought?.id;
+  const purchasedName = bought?.name ?? "";
 
   const apply = (itemId: string) => {
     onApply(itemId).catch(() => showToast(t("common:errors.retryLater")));
@@ -63,6 +71,7 @@ export function TimerBackgroundScreen({
       return;
     }
     close();
+    store.close();
     showToast(t("points:purchase.done", { name: purchasedName }));
     apply(purchasedId);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 산 배경이 정해질 때만 돌린다
@@ -76,10 +85,16 @@ export function TimerBackgroundScreen({
         <BackgroundGrid items={visible} selectedId={selected?.id} onSelect={setPickedId} />
         <div className="mt-auto pt-2">
           {selected && (
-            <ActionButton item={selected} onBuy={flow.open} onApply={(item) => apply(item.id)} />
+            <ActionButton
+              item={selected}
+              store={store}
+              onBuy={flow.open}
+              onApply={(item) => apply(item.id)}
+            />
           )}
         </div>
       </div>
+      <StorePurchaseDialogs flow={store} />
       <PurchaseConfirmSheet
         open={step === "confirm" || step === "pending"}
         pending={step === "pending"}
@@ -113,10 +128,12 @@ export function TimerBackgroundScreen({
 
 function ActionButton({
   item,
+  store,
   onBuy,
   onApply,
 }: {
   item: ShopItem;
+  store: ReturnType<typeof useStorePurchase>;
   onBuy: () => void;
   onApply: (item: ShopItem) => void;
 }) {
@@ -141,6 +158,9 @@ function ActionButton({
         {t("points:buyFor", { price: formatPoints(item.acquire.price) })}
       </Button>
     );
+  }
+  if (item.acquire.type === "store") {
+    return <StoreBuyButton item={item} flow={store} className="w-full shadow-sb-cta" />;
   }
   return (
     <Button size="xl" className="w-full" disabled>

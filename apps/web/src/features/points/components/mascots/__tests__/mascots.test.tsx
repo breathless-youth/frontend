@@ -1,9 +1,13 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import { buildPointsFixture } from "../../../fixtures";
+import { createFakePointsGateway } from "../../../gateway/createFakePointsGateway";
+import type { PointsGateway } from "../../../gateway/PointsGateway";
+import { PointsGatewayProvider } from "../../../gateway/PointsGatewayContext";
 import { MascotCollectionScreen } from "../../../screens/MascotCollectionScreen";
 import { ProfileMascotRow } from "../ProfileMascotRow";
 
@@ -14,20 +18,28 @@ const shop = {
   totalFocusSec: fixture.totalFocusSec,
 };
 
-function renderScreen(props: Partial<Parameters<typeof MascotCollectionScreen>[0]> = {}) {
+function renderScreen(
+  props: Partial<Parameters<typeof MascotCollectionScreen>[0]> = {},
+  gateway: PointsGateway = createFakePointsGateway("default"),
+) {
   const onSelect = vi.fn().mockResolvedValue(undefined);
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
-    <MemoryRouter>
-      <MascotCollectionScreen
-        data={shop}
-        balance={1240}
-        onSelect={onSelect}
-        onBack={() => {}}
-        {...props}
-      />
-    </MemoryRouter>,
+    <QueryClientProvider client={client}>
+      <PointsGatewayProvider gateway={gateway} userId={1}>
+        <MemoryRouter>
+          <MascotCollectionScreen
+            data={shop}
+            balance={1240}
+            onSelect={onSelect}
+            onBack={() => {}}
+            {...props}
+          />
+        </MemoryRouter>
+      </PointsGatewayProvider>
+    </QueryClientProvider>,
   );
-  return { onSelect };
+  return { onSelect, gateway };
 }
 
 describe("MascotCollectionScreen", () => {
@@ -93,6 +105,50 @@ describe("MascotCollectionScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "이 마스코트로 바꾸기" }));
     expect(onSelect).toHaveBeenCalledWith("lamp");
     expect(screen.queryByText("새 마스코트")).not.toBeInTheDocument();
+  });
+
+  describe("포인트로 여는 마스코트", () => {
+    const priced = {
+      ...shop,
+      mascots: shop.mascots.map((mascot) =>
+        mascot.id === "camcorder" ? { ...mascot, price: 500, unlocked: false } : mascot,
+      ),
+    };
+
+    it("이름을 숨기지 않고 남은 시간 대신 가격을 보인다", () => {
+      renderScreen({ data: priced });
+      expect(screen.getByRole("button", { name: "캠코더 잠김, 500P" })).toBeVisible();
+    });
+
+    it("잠금 시트에서 사면 서버에 구매를 보내고 축하 화면에서 바로 바꿀 수 있다", async () => {
+      const gateway = createFakePointsGateway("default", { balance: 1240 });
+      const purchase = vi
+        .spyOn(gateway, "purchaseMascot")
+        .mockResolvedValue({ ok: true, balance: 740 });
+      const { onSelect } = renderScreen({ data: priced }, gateway);
+
+      await userEvent.click(screen.getByRole("button", { name: "캠코더 잠김, 500P" }));
+      await userEvent.click(await screen.findByRole("button", { name: "500P로 열기" }));
+      await userEvent.click(await screen.findByRole("button", { name: "구매하기" }));
+
+      expect(purchase).toHaveBeenCalledWith("camcorder");
+      expect(await screen.findByText("새 마스코트")).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "이 마스코트로 바꾸기" }));
+      expect(onSelect).toHaveBeenCalledWith("camcorder");
+      expect(screen.getByText("누적 순공")).toBeInTheDocument();
+    });
+
+    it("포인트가 모자라면 구매를 보내지 않고 모자람 창을 띄운다", async () => {
+      const gateway = createFakePointsGateway("default", { balance: 100 });
+      const purchase = vi.spyOn(gateway, "purchaseMascot");
+      renderScreen({ data: priced, balance: 100 }, gateway);
+
+      await userEvent.click(screen.getByRole("button", { name: "캠코더 잠김, 500P" }));
+      await userEvent.click(await screen.findByRole("button", { name: "500P로 열기" }));
+
+      expect(await screen.findByText(/더 필요해요/)).toBeInTheDocument();
+      expect(purchase).not.toHaveBeenCalled();
+    });
   });
 });
 

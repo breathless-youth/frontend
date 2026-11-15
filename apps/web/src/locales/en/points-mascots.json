@@ -19,5 +19,9 @@
     "decorate": "Decorate",
     "pick": "Choose my mascot",
     "locked": "{{name}} locked"
+  },
+  "purchase": {
+    "buyFor": "Unlock for {{price}}",
+    "lockedPriceLabel": "{{name}} locked, {{price}}"
   }
 }

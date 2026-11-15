@@ -11,7 +11,16 @@ import { useDialogFocusRestore } from "@/lib/useDialogFocusRestore";
  *
  * 돈은 이미 나갔으므로 다시 결제하는 길을 두지 않고, 오래 안 들어오는 사람을 위해 문의 길만 둔다.
  */
-export function LatePointsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function LatePointsDialog({
+  open,
+  onClose,
+  copy,
+}: {
+  open: boolean;
+  onClose: () => void;
+  /** 결제로 산 상품이 늦을 때처럼 포인트가 아닌 것을 기다리면 문구를 바꾼다. */
+  copy?: { title: string; body: string; missing: string };
+}) {
   const { t } = useTranslation("points-earn");
   const focusRestore = useDialogFocusRestore();
   return (
@@ -23,9 +32,11 @@ export function LatePointsDialog({ open, onClose }: { open: boolean; onClose: ()
         className="theme-soft-blue w-[calc(100%-64px)] max-w-[320px] gap-2 rounded-xl border-0 bg-muted px-5 pt-6 pb-3 text-center sm:rounded-xl"
       >
         <Clock aria-hidden className="mx-auto mb-1 size-10 text-primary" />
-        <DialogTitle className="text-[17px] font-bold break-keep">{t("late.title")}</DialogTitle>
+        <DialogTitle className="text-[17px] font-bold break-keep">
+          {copy?.title ?? t("late.title")}
+        </DialogTitle>
         <DialogDescription className="mb-2 text-sm break-keep text-muted-foreground">
-          {t("late.body")}
+          {copy?.body ?? t("late.body")}
         </DialogDescription>
         <Button size="xl" onClick={onClose}>
           {t("late.ok")}
@@ -34,7 +45,7 @@ export function LatePointsDialog({ open, onClose }: { open: boolean; onClose: ()
           to="/contact"
           className="flex min-h-11 items-center self-center text-[13px] font-semibold text-muted-foreground underline"
         >
-          {t("late.missing")}
+          {copy?.missing ?? t("late.missing")}
         </Link>
       </DialogContent>
     </Dialog>

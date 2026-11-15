@@ -26,7 +26,8 @@ export function ShopTab({
 }) {
   const { t } = useTranslation(["points-shop", "points"]);
   const nextMascot = data.mascots
-    .filter((mascot) => !mascot.unlocked)
+    // 포인트로 사는 마스코트는 공부 시간으로 다가가는 것이 아니라 다음 마스코트에서 뺀다.
+    .filter((mascot) => !mascot.unlocked && mascot.price === null)
     .sort((a, b) => a.unlockFocusSec - b.unlockFocusSec)[0];
   const selected = data.mascots.find((mascot) => mascot.selected);
   const preview = (matches: (item: ShopItem) => boolean) =>

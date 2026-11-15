@@ -68,6 +68,7 @@ export function ShopSectionRow({
 function caption(item: ShopItem, t: ReturnType<typeof useTranslation<"points-shop">>["t"]): string {
   if (item.owned) return t("tile.owned");
   if (item.acquire.type === "price") return formatPoints(item.acquire.price);
+  if (item.acquire.type === "store") return t("tile.store");
   const { condition, current, target } = item.acquire;
   return t(condition === "streakDays" ? "tile.streakDays" : "tile.focusHours", { current, target });
 }

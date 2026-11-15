@@ -1,12 +1,18 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 
+import { trackPointsPurchase } from "@/lib/amplitude";
 import i18n from "@/lib/i18n";
 import { balanceQuery, pointsKeys } from "@/lib/pointsQueries";
 import { showToast } from "@/lib/toast";
 
 import { usePointsGateway, usePointsUserId } from "../gateway/PointsGatewayContext";
-import type { AdResult, ChargeResult, ShopItem } from "../types";
+import type { AdResult, ChargeResult, PurchaseResult, ShopItem } from "../types";
+
+/** 마스코트는 상점 상품의 모양을 빌려 오므로 id 앞머리로 종류를 가린다. */
+function tracked(item: ShopItem, price: number) {
+  return { kind: item.id.startsWith("mascot-") ? ("mascot" as const) : item.kind, price };
+}
 
 export type PurchaseStep = "idle" | "confirm" | "insufficient" | "pending" | "done";
 
@@ -19,8 +25,9 @@ export type PurchaseStep = "idle" | "confirm" | "insufficient" | "pending" | "do
  * 산 뒤의 잔액은 경계가 돌려준 값으로 덮고, 보유 상태와 기록은 다시 받는다.
  * 모자람 창에서 충전하면 이어서 같은 상품을 사서, 충전하고 다시 구매 버튼을 찾는 일을 없앤다.
  * 광고는 받는 양이 작아 다 채울지 알 수 없으므로 잔액만 채우고 창을 닫는다.
+ * 마스코트처럼 상점 상품이 아닌 것을 살 때는 buy로 사는 요청을 바꿔 끼운다.
  */
-export function usePurchaseFlow(item: ShopItem | null) {
+export function usePurchaseFlow(item: ShopItem | null, buy?: () => Promise<PurchaseResult>) {
   const gateway = usePointsGateway();
   const userId = usePointsUserId();
   const queryClient = useQueryClient();
@@ -36,6 +43,10 @@ export function usePurchaseFlow(item: ShopItem | null) {
       return;
     }
     setPaidBalance(null);
+    trackPointsPurchase("attempted", tracked(item, price));
+    if (balance !== undefined && balance < price) {
+      trackPointsPurchase("insufficient", tracked(item, price));
+    }
     setStep(balance !== undefined && balance < price ? "insufficient" : "confirm");
   }
 
@@ -46,12 +57,14 @@ export function usePurchaseFlow(item: ShopItem | null) {
     inFlightRef.current = true;
     setStep("pending");
     try {
-      const result = await gateway.purchase(item.id);
+      const result = await (buy ?? (() => gateway.purchase(item.id)))();
       if (result.ok) {
         queryClient.setQueryData(pointsKeys.balance(userId), result.balance);
         setPaidBalance(result.balance);
+        if (price !== null) trackPointsPurchase("succeeded", tracked(item, price));
         setStep("done");
       } else if (result.reason === "insufficient") {
+        if (price !== null) trackPointsPurchase("insufficient", tracked(item, price));
         setStep("insufficient");
         void queryClient.invalidateQueries({ queryKey: pointsKeys.balance(userId) });
       } else {

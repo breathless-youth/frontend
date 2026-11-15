@@ -17,7 +17,8 @@
   "tile": {
     "owned": "Owned",
     "streakDays": "Study streak {{current}} / {{target}} days",
-    "focusHours": "Total focus {{current}} / {{target}} hrs"
+    "focusHours": "Total focus {{current}} / {{target}} hrs",
+    "store": "Paid"
   },
   "history": {
     "filter": {
@@ -36,7 +37,11 @@
       "charge": "Points top-up",
       "purchase": "Bought {{name}}",
       "purchaseUnknown": "Decor purchase",
-      "medalRank": "{{period}} ranking #{{rank}} medal"
+      "medalRank": "{{period}} ranking #{{rank}} medal",
+      "mascotPurchase": "Bought the {{name}} mascot",
+      "mascotPurchaseUnknown": "Mascot purchase",
+      "mission": "Starter mission reward",
+      "refund": "Deducted for a refund"
     },
     "empty": {
       "title": "No point history yet",
