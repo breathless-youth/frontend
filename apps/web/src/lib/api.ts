@@ -1,6 +1,8 @@
 import { apiVersionFor } from "@focusmakers/types";
 import type { ApiEndpoint, ApiErrorBody } from "@focusmakers/types";
 
+import { beginApiLatency } from "@/lib/apiLatency";
+
 /** `apiFetch`가 받는 init — 엔드포인트 키가 필수다. 빠뜨리면 컴파일에서 걸린다. */
 export interface ApiFetchInit extends RequestInit {
   readonly endpoint: ApiEndpoint;
@@ -103,7 +105,13 @@ export async function apiFetch(input: RequestInfo | URL, init: ApiFetchInit): Pr
   // 재시도는 같은 input·init(본문 문자열·AbortSignal 포함)을 그대로 다시 보낸다 — headers만 갱신된다.
   // ponytail: 본문 있는 Request 객체 입력은 재시도에서 본문이 이미 소비돼 실패한다. 호출부는 전부 문자열
   // URL + init이라 clone()을 두지 않았다. Request 입력을 쓰게 되면 그때 더한다.
-  const send = () => fetch(input, { ...requestInit, headers });
+  // 응답 시간은 토큰 대기를 빼고 서버 왕복만 잰다. 실패 응답은 속도가 아니라 오류라 넣지 않는다.
+  const send = async () => {
+    const finishLatency = beginApiLatency();
+    const res = await fetch(input, { ...requestInit, headers });
+    if (res.ok && isApiOrigin(input)) finishLatency();
+    return res;
+  };
 
   // 토큰 출처가 없으면(브라우저 단독, guestAuth 표시 없는 구버전 셸) 구 계약으로 말한다.
   const source = getTokenSource();

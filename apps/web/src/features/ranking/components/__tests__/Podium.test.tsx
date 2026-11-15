@@ -46,7 +46,7 @@ describe("Podium", () => {
     expect(items[2]).toHaveTextContent("집중 중28:55:22");
   });
 
-  it("빈자리는 아바타 자리에만 ?를 둔다", () => {
+  it("빈자리는 아바타 자리에만 순위별 실루엣을 둔다", () => {
     render(
       <Podium
         board={{ ...FIXTURE_TOTAL_TIME, podium: FIXTURE_TOTAL_TIME.podium.slice(0, 1) }}
@@ -54,9 +54,15 @@ describe("Podium", () => {
       />,
     );
 
-    expect(screen.getAllByText("?")).toHaveLength(2);
+    expect(screen.queryByText("?")).toBeNull();
     // 빈자리에는 메달색 테를 두르지 않는다.
     const [filled, ...empty] = within(screen.getByRole("list")).getAllByRole("listitem");
+    expect(filled!.querySelector("[data-empty-silhouette]")).toBeNull();
+    expect(
+      empty.map((item) =>
+        item.querySelector("[data-empty-silhouette]")?.getAttribute("data-empty-silhouette"),
+      ),
+    ).toEqual(["planner", "pencil"]);
     expect(filled!.querySelector("[data-medal-ring]")).toHaveAttribute("data-medal-ring", "1");
     for (const item of empty) {
       expect(item.querySelector("[data-medal-ring]")).toBeNull();
@@ -71,6 +77,10 @@ describe("Podium", () => {
 
     const items = within(screen.getByRole("list")).getAllByRole("listitem");
     expect(items).toHaveLength(3);
+    expect(items[0]!.querySelector("[data-empty-silhouette]")).toHaveAttribute(
+      "data-empty-silhouette",
+      "stopwatch",
+    );
     for (const item of items) {
       const placeholder = item.querySelector("[data-value-placeholder]");
       expect(placeholder).not.toBeNull();
@@ -104,17 +114,18 @@ describe("Podium", () => {
     expect(new Set(strokes).size).toBe(3);
   });
 
-  it("내 자리는 보이는 나 표시 없이 내 첫 글자의 파란 아바타를 두고 화면 낭독기에만 나라고 알린다", () => {
+  it("내 자리는 보이는 나 표시 없이 파란 바탕 마스코트 아바타를 두고 화면 낭독기에만 나라고 알린다", () => {
     render(<Podium board={FIXTURE_FIRST_PLACE} elapsedSec={0} />);
 
     const first = within(screen.getByRole("list")).getAllByRole("listitem")[0]!;
     expect(first).toHaveTextContent("오늘도출석나");
-    const avatar = within(first).getByText("오").closest("[aria-hidden='true']");
-    expect(avatar).toHaveAttribute("data-me");
+    const avatar = first.querySelector("[data-me]");
+    expect(avatar).toHaveAttribute("aria-hidden", "true");
+    expect(avatar?.querySelector("[data-default-mascot]")).not.toBeNull();
     expect(
       within(first).queryByText("나", { selector: "[aria-hidden='true'], [aria-hidden='true'] *" }),
     ).toBeNull();
-    // 아바타 글자는 화면 낭독기에서 숨기므로 남는 나는 화면에 보이지 않는 글자 하나뿐이다.
+    // 아바타는 화면 낭독기에서 숨기므로 남는 나는 화면에 보이지 않는 글자 하나뿐이다.
     expect(within(first).getByText("나", { ignore: "[aria-hidden='true']" })).toHaveClass(
       "sr-only",
     );
@@ -182,15 +193,16 @@ describe("Podium", () => {
 
       const second = within(screen.getByRole("list")).getAllByRole("listitem")[1]!;
       expect(second).toHaveTextContent("오늘도출석나171일");
-      // 시상대의 내 아바타는 나 대신 내 첫 글자를 쓰는 파란 원이고 화면 낭독기에서는 숨긴다.
-      const avatar = within(second).getByText("오").closest("[aria-hidden='true']");
-      expect(avatar).toHaveAttribute("data-me");
+      // 시상대의 내 아바타는 마스코트를 그린 파란 원이고 화면 낭독기에서는 숨긴다.
+      const avatar = second.querySelector("[data-me]");
+      expect(avatar).toHaveAttribute("aria-hidden", "true");
+      expect(avatar?.querySelector("[data-default-mascot]")).not.toBeNull();
       expect(within(second).getByText("나", { ignore: "[aria-hidden='true']" })).toHaveClass(
         "sr-only",
       );
     });
 
-    it("3명보다 적으면 빈자리는 아바타 자리에만 ?를 두고 자리 번호로 읽는다", () => {
+    it("3명보다 적으면 빈자리는 아바타 자리에만 실루엣을 두고 자리 번호로 읽는다", () => {
       render(
         <Podium
           board={{ ...FIXTURE_TOTAL_DAYS, podium: FIXTURE_TOTAL_DAYS.podium.slice(0, 1) }}
@@ -198,7 +210,8 @@ describe("Podium", () => {
         />,
       );
 
-      expect(screen.getAllByText("?")).toHaveLength(2);
+      expect(screen.queryByText("?")).toBeNull();
+      expect(document.querySelectorAll("[data-empty-silhouette]")).toHaveLength(2);
       const [filled, second, third] = within(screen.getByRole("list")).getAllByRole("listitem");
       expect(filled).toHaveTextContent("도서관지박령412일");
       expect(within(second!).getByText("2위")).toBeInTheDocument();
@@ -206,7 +219,7 @@ describe("Podium", () => {
     });
   });
 
-  it("사진이 있는 자리는 첫 글자 대신 사진을 그린다", async () => {
+  it("사진이 있는 자리는 마스코트 대신 사진을 그린다", async () => {
     stubImageLoad();
     const [first, ...rest] = FIXTURE_FOCUS_WEEKLY.podium;
     render(
@@ -223,7 +236,8 @@ describe("Podium", () => {
     await waitFor(() =>
       expect(spot1!.querySelector("img")).toHaveAttribute("src", "/avatars/1.jpg"),
     );
-    expect(spot2!.querySelector("img")).toBeNull();
+    expect(spot1!.querySelector("[data-default-mascot]")).toBeNull();
+    expect(spot2!.querySelector("[data-default-mascot]")).not.toBeNull();
   });
 
   it("일수 판도 사진을 그린다", async () => {

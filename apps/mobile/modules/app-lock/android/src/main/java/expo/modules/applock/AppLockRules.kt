@@ -5,7 +5,7 @@ package expo.modules.applock
  *
  * 조회 구간을 1초씩 겹쳐 읽어서 이미 본 기록이 다시 들어온다.
  * 같은 밀리초에 찍힌 기록도 버리지 않도록 마지막 시각과 그 시각에 본 앱을 함께 기억한다.
- * 이미 본 기록을 다시 반영하면 포메로 돌아가기 직후 잠긴 앱이 앞 앱으로 되살아나 잠금 화면이 다시 뜬다.
+ * 이미 본 기록을 다시 반영하면 포커스 메이커스로 돌아가기 직후 잠긴 앱이 앞 앱으로 되살아나 잠금 화면이 다시 뜬다.
  */
 internal class ForegroundTracker(private val foregroundEventType: Int) {
   var current: String? = null
@@ -28,7 +28,7 @@ internal class ForegroundTracker(private val foregroundEventType: Int) {
   }
 }
 
-/** 기본 홈 앱과 이 앱은 목록에 남아 있어도 잠그지 않는다. 잠그면 홈 화면이나 포메로 돌아갈 길이 막힌다. */
+/** 기본 홈 앱과 이 앱은 목록에 남아 있어도 잠그지 않는다. 잠그면 홈 화면이나 포커스 메이커스로 돌아갈 길이 막힌다. */
 internal fun lockable(selected: Set<String>, homePackage: String?, ownPackage: String): Set<String> =
   selected - setOfNotNull(homePackage, ownPackage)
 

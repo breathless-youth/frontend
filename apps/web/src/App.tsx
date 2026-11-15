@@ -37,6 +37,7 @@ import {
   loadAppLockSettingsPage,
   loadApplyPage,
   loadBlockListPage,
+  loadContactChatPage,
   loadContactPage,
   loadGroupApplicationsPage,
   loadGroupFormPage,
@@ -111,6 +112,11 @@ function OnboardingGuideRedirect() {
 }
 const ContactPage = lazy(
   reloadOnChunkError(() => loadContactPage().then((module) => ({ default: module.ContactPage }))),
+);
+const ContactChatPage = lazy(
+  reloadOnChunkError(() =>
+    loadContactChatPage().then((module) => ({ default: module.ContactChatPage })),
+  ),
 );
 const InterviewFormPage = lazy(
   reloadOnChunkError(() =>
@@ -433,6 +439,7 @@ export function App() {
               <Route path="/profile" element={<ProfilePage />} />
               <Route path="/onboarding-guide" element={<OnboardingGuideRedirect />} />
               <Route path="/contact" element={<ContactPage />} />
+              <Route path="/contact/chat" element={<ContactChatPage />} />
               <Route path="/interview" element={<InterviewFormPage />} />
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />

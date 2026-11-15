@@ -912,6 +912,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         const ambient = ambientUsageRef.current?.();
         const { pauseSec, breakSec } = splitPauseSec(closed, endedAtMs);
         trackStudySessionEnded({
+          startedAtMs: startedAtMsRef.current,
+          endedAtMs,
           roomType,
           studySec: finalTotals.studySec,
           focusSec: finalTotals.focusSec,

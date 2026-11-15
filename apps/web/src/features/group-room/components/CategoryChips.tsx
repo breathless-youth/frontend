@@ -14,6 +14,8 @@ type CategoryChipsProps = {
   options: CategoryOption[];
   value: string | null;
   compact?: boolean;
+  /** 접었을 때 앞으로 꺼낼 칩이고, 고른 값과 따로 받아 접힌 채로 고를 때는 순서가 바뀌지 않는다. */
+  leading?: string | null;
 } & (
   | { allLabel: string; onChange: (value: string | null) => void }
   | { allLabel?: undefined; onChange: (value: string) => void }
@@ -35,14 +37,14 @@ type CategoryChipsProps = {
  */
 export function CategoryChips(props: CategoryChipsProps) {
   const { t } = useTranslation("group-room");
-  const { options, value, allLabel, compact = false } = props;
+  const { options, value, allLabel, compact = false, leading = null } = props;
   let chips: { value: string | null; label: string }[] =
     allLabel === undefined ? options : [{ value: null, label: allLabel }, ...options];
 
-  if (compact && value !== null) {
-    const selected = chips.find((chip) => chip.value === value);
+  if (compact && leading !== null) {
+    const selected = chips.find((chip) => chip.value === leading);
     if (selected) {
-      const rest = chips.filter((chip) => chip.value !== value);
+      const rest = chips.filter((chip) => chip.value !== leading);
       chips = allLabel === undefined ? [selected, ...rest] : [rest[0]!, selected, ...rest.slice(1)];
     }
   }
@@ -66,7 +68,7 @@ export function CategoryChips(props: CategoryChipsProps) {
     const observer = new ResizeObserver(update);
     observer.observe(group);
     return () => observer.disconnect();
-  }, [allLabel, compact, options, t, value]);
+  }, [allLabel, compact, leading, options, t, value]);
 
   const pick = (next: string | null) => {
     if (next === value) {

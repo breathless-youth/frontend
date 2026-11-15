@@ -1,7 +1,7 @@
 import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-import { useNativeOrientationUnlock } from "@/lib/nativeBackGesture";
+import { useNativeOrientationUnlock, useNativePortraitLock } from "@/lib/nativeBackGesture";
 
 const postMessage = vi.fn();
 
@@ -54,6 +54,34 @@ it("화면이 숨겨질 때는 회전 해제를 보내지 않는다", () => {
 
   document.dispatchEvent(new Event("visibilitychange"));
   window.dispatchEvent(new Event("resize"));
+
+  expect(postMessage).not.toHaveBeenCalled();
+});
+
+it("세로 잠금은 마운트와 화면 복귀·크기 변화에 보내고 언마운트에는 보내지 않는다", () => {
+  const { unmount } = renderHook(() => useNativePortraitLock());
+
+  document.dispatchEvent(new Event("visibilitychange"));
+  window.dispatchEvent(new Event("resize"));
+
+  expect(postMessage.mock.calls.map(([raw]) => JSON.parse(raw as string))).toEqual([
+    expect.objectContaining({ type: "set-orientation", unlocked: false }),
+    expect.objectContaining({ type: "set-orientation", unlocked: false }),
+    expect.objectContaining({ type: "set-orientation", unlocked: false }),
+  ]);
+
+  postMessage.mockClear();
+  unmount();
+  window.dispatchEvent(new Event("resize"));
+  expect(postMessage).not.toHaveBeenCalled();
+});
+
+it("화면이 숨겨질 때는 세로 잠금을 다시 보내지 않는다", () => {
+  renderHook(() => useNativePortraitLock());
+  postMessage.mockClear();
+  vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+
+  document.dispatchEvent(new Event("visibilitychange"));
 
   expect(postMessage).not.toHaveBeenCalled();
 });

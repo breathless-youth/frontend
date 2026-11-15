@@ -7,7 +7,11 @@ import { createBridgeTokenSource } from "@/lib/auth/tokenSource";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 
 // getTokenSource만 바꿔 끼운다 — createBridgeTokenSource는 진짜를 써야 병렬 401 묶음을 실제로 검증한다.
-const mocks = vi.hoisted(() => ({ source: null as TokenSource | null }));
+const mocks = vi.hoisted(() => ({
+  source: null as TokenSource | null,
+  finishApiLatency: vi.fn(),
+}));
+vi.mock("@/lib/apiLatency", () => ({ beginApiLatency: () => mocks.finishApiLatency }));
 vi.mock("@/lib/auth/tokenSource", async (importOriginal) => ({
   ...(await importOriginal<typeof tokenSourceModule>()),
   getTokenSource: () => mocks.source,
@@ -619,4 +623,60 @@ describe("apiFetch — 요청 도중 계정 전환", () => {
       expect(seen).toEqual(userId === 7 ? ["Bearer a1", "Bearer a2"] : ["Bearer a1"]);
     },
   );
+});
+
+describe("apiFetch — 응답 시간 표본", () => {
+  const originalFetch = globalThis.fetch;
+  const status = (code: number) => ({ ok: code < 300, status: code, json: async () => ({}) });
+  let mockedFetch: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    mockedFetch = vi.fn();
+    globalThis.fetch = mockedFetch as unknown as typeof fetch;
+    mocks.finishApiLatency.mockClear();
+  });
+
+  afterEach(() => {
+    mocks.source = null;
+    globalThis.fetch = originalFetch;
+  });
+
+  it("우리 API의 성공 응답은 응답 시간을 남긴다", async () => {
+    mockedFetch.mockResolvedValue(status(200));
+    await apiFetch("/api/rooms", { endpoint: "roomCreate" });
+    expect(mocks.finishApiLatency).toHaveBeenCalledTimes(1);
+  });
+
+  it("실패 응답은 남기지 않는다", async () => {
+    mockedFetch.mockResolvedValue(status(500));
+    await apiFetch("/api/rooms", { endpoint: "roomCreate" });
+    expect(mocks.finishApiLatency).not.toHaveBeenCalled();
+  });
+
+  it("다른 주소로 간 요청은 남기지 않는다", async () => {
+    mockedFetch.mockResolvedValue(status(200));
+    await apiFetch("https://example.com/x", { endpoint: "roomCreate" });
+    expect(mocks.finishApiLatency).not.toHaveBeenCalled();
+  });
+
+  it("네트워크 오류는 남기지 않는다", async () => {
+    mockedFetch.mockRejectedValue(new TypeError("Failed to fetch"));
+    await expect(apiFetch("/api/rooms", { endpoint: "roomCreate" })).rejects.toThrow();
+    expect(mocks.finishApiLatency).not.toHaveBeenCalled();
+  });
+
+  it("401 뒤 재시도가 성공하면 그 한 번만 남긴다", async () => {
+    mocks.source = {
+      getAccessToken: vi.fn().mockResolvedValue("a1"),
+      getCurrentToken: () => "a1",
+      refresh: vi.fn().mockResolvedValue("a2"),
+      getUserId: () => 7,
+      hasSettled: () => true,
+      subscribe: () => () => {},
+    };
+    mockedFetch.mockResolvedValueOnce(status(401)).mockResolvedValueOnce(status(200));
+    await apiFetch("/api/rooms", { endpoint: "roomCreate" });
+    expect(mockedFetch).toHaveBeenCalledTimes(2);
+    expect(mocks.finishApiLatency).toHaveBeenCalledTimes(1);
+  });
 });

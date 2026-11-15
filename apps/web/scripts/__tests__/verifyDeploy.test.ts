@@ -132,6 +132,17 @@ describe("buildChecks", () => {
     expect(problems).toHaveLength(1);
   });
 
+  it("/contact/chat는 격리 헤더가 있으면 실패한다", async () => {
+    const chat = byUrl(`${BASE}/contact/chat`)!;
+    const html = {
+      "content-type": "text/html",
+      "x-robots-tag": "noindex",
+      "cross-origin-embedder-policy": "require-corp",
+    };
+    const problems = chat.rules.flatMap((rule) => rule(new Response(null, { headers: html })));
+    expect(problems).toHaveLength(1);
+  });
+
   it("/interview는 격리 헤더가 있으면 실패한다", async () => {
     const interview = byUrl(`${BASE}/interview`)!;
     const html = {
@@ -243,7 +254,7 @@ const healthyFetch = async (input: string | URL | Request) => {
     return new Response(null, { headers: immutable });
   }
   const isolated: Record<string, string> =
-    url.pathname === "/contact" || url.pathname === "/interview"
+    url.pathname === "/contact" || url.pathname === "/contact/chat" || url.pathname === "/interview"
       ? {}
       : {
           "cross-origin-opener-policy": "same-origin",

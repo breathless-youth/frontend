@@ -21,7 +21,7 @@ function confettiColor(k: number): string {
   return CONFETTI_COLORS[k % CONFETTI_COLORS.length] ?? colors.brand.primary.light;
 }
 
-/** 프로토타입 `burst(fx, fy, n, power, spread)` 값 — 도장 좌우 두 지점에서 위로 터진다. */
+/** 프로토타입 `burst(fx, fy, n, power, spread)` 값 — 마스코트 좌우 두 지점에서 위로 터진다. */
 const BURSTS: readonly { x: number; y: number }[] = [
   { x: 0.28, y: 0.34 },
   { x: 0.72, y: 0.34 },
@@ -48,7 +48,7 @@ interface Particle {
 }
 
 /**
- * 도장이 닿는 순간 터지는 색종이(BY-560) — 화면 전체를 덮는 장식 캔버스.
+ * 마스코트가 정점에 닿는 순간 터지는 색종이(BY-560) — 화면 전체를 덮는 장식 캔버스.
  *
  * 프로토타입의 캔버스 파티클 루프를 그대로 옮겼다: `fireAfterMs` 뒤 두 지점에서 조각 60개씩이
  * 위로 튀어 중력(0.16)으로 떨어지며 수명 끝에 흐려진다. 조각이 다 사라지면 루프를 멈춘다 —

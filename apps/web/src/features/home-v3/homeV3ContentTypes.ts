@@ -37,5 +37,6 @@ export interface HomeV3ContentProps {
     openTimelapses: () => void;
     openTimelapseSettings: () => void;
     openAppLock: () => void;
+    openContact: () => void;
   };
 }

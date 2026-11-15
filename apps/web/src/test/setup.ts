@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom/vitest";
 
-import { beforeEach } from "vitest";
+import { toast } from "sonner";
+import { afterAll, beforeEach } from "vitest";
 
 import { resetShowOriginalForTest } from "@/features/group-room/model/groupTranslation";
 
@@ -34,4 +35,12 @@ globalThis.ResizeObserver ??= class {
 // 그룹 글 원문 보기 설정은 모듈 메모리에 남아서 앞 테스트에서 누른 값이 다음 테스트로 넘어가지 않게 매번 번역 보기로 되돌린다.
 beforeEach(() => {
   resetShowOriginalForTest();
+});
+
+// sonner는 토스트를 닫을 때 200ms 뒤 목록에서 빼는 타이머를 걸고, 화면을 내려도 이 타이머를 지우지 않는다.
+// 파일이 끝나 jsdom이 window를 치운 뒤에 이 타이머가 돌면 React가 `window is not defined`를 던져
+// 테스트가 모두 통과해도 실행이 실패한다(BY-1276). 토스트를 띄운 파일만 그 시간이 지날 때까지 기다린다.
+afterAll(async () => {
+  if (toast.getHistory().length === 0) return;
+  await new Promise((resolve) => setTimeout(resolve, 250));
 });

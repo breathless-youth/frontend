@@ -55,6 +55,10 @@
     "loading": "正在載入聯絡表單",
     "failure": "無法載入聯絡表單"
   },
+  "contactChat": {
+    "loading": "正在載入線上客服",
+    "failure": "無法載入線上客服"
+  },
   "download": {
     "redirecting": "正在前往商店…",
     "manual": "前往商店"

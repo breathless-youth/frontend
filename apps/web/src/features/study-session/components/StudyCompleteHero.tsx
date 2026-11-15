@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import stampImage from "@/assets/study-complete-stamp.png";
+import timiClosed from "@/assets/mascot/timi-closed.png";
+import timiIdle from "@/assets/mascot/timi-idle.png";
+import timiSmile from "@/assets/mascot/timi-smile.png";
+import timiSquint from "@/assets/mascot/timi-squint.png";
 import { Badge } from "@/components/ui/badge";
 import { haptic } from "@/lib/haptics";
+import { cn } from "@/lib/utils";
 
 import { toKoreanDurationLength } from "../formatDuration";
 import type { SessionResultView } from "../sessionResult";
@@ -11,8 +15,8 @@ import type { SessionResultView } from "../sessionResult";
 /**
  * 히어로의 연출 단계
  *
- * - `intro`: 도장이 찍히고 타이틀·순공시간이 차례로 떠오르는 구간. 카드·CTA는 아직 없다.
- * - `revealed`: 인주·타이틀 블록이 접혀 올라가고 순공시간이 위로 붙는다
+ * - `intro`: 마스코트가 뛰어오르고 타이틀·순공시간이 차례로 떠오르는 구간. 카드·CTA는 아직 없다.
+ * - `revealed`: 마스코트·타이틀 블록이 접혀 올라가고 순공시간이 위로 붙는다
  *   — 그 아래로 타임라인·통계 카드가 드러난다
  * - `static`: 모션 축소(`prefers-reduced-motion`)
  *   — 연출도 접힘도 없이 처음부터 전부 보여준다. 접힘까지 따라가면 모션 축소 사용자는 `오늘 공부 완료`를 한 번도 보지 못한다.
@@ -26,55 +30,78 @@ const COUNT_UP_DURATION_MS = 1300;
 const COUNT_UP_DELAY_MS = 950;
 
 /**
- * 도장이 종이에 닿는 시점 — `result-stamp-press` 2s의 46% 프레임.
+ * 마스코트가 정점에 닿는 시점
  *
- * CSS 애니메이션은 중간 프레임에 이벤트가 없어 타이머로 맞춘다.
+ * `result-mascot-jump`가 끝나는 시각이다.
+ * 정점에 멈춘 뒤에는 이벤트가 없어 햅틱을 타이머로 맞춘다.
  */
-const STAMP_TOUCH_MS = 920;
+const MASCOT_APEX_MS = 920;
+
+/**
+ * 결과 화면 마스코트의 표정 묶음
+ *
+ * 네 장은 같은 캔버스(1배 74×94)와 같은 원점이라 겹쳐 두면 몸통이 맞는다.
+ * 웃음은 정점 자세라 몸통이 조금 위로 올라가고 기울어 있다.
+ */
+export type ResultMascotFrames = {
+  idle: string;
+  squint: string;
+  closed: string;
+  smile: string;
+};
+
+const TIMI_FRAMES: ResultMascotFrames = {
+  idle: timiIdle,
+  squint: timiSquint,
+  closed: timiClosed,
+  smile: timiSmile,
+};
+
+// 그리는 순서와 표정마다 거는 keyframes. Tailwind가 클래스를 찾도록 문자열을 통째로 둔다.
+const FACE_ANIMATIONS = [
+  ["idle", "animate-[result-mascot-face-idle_0.92s_step-end_both]"],
+  ["squint", "animate-[result-mascot-face-squint_0.92s_step-end_both]"],
+  ["closed", "animate-[result-mascot-face-closed_0.92s_step-end_both]"],
+  ["smile", "animate-[result-mascot-face-smile_0.92s_step-end_both]"],
+] as const satisfies ReadonlyArray<readonly [keyof ResultMascotFrames, string]>;
 
 /**
  * 공부 완료 히어로
  *
- * 도장(PNG)이 위에서 내려와 찍히고(`result-stamp-press` 2s), 닿는 순간(0.82s) 인주가 튀어나오며
- * 충격 링이 퍼진다. 타이틀(0.55s)·설명(0.66s)·순공시간(0.78s, 0.95s부터 1.3s 카운트업)·총 공부
+ * 마스코트가 웅크렸다 뛰어올라 정점(0.92s)에 멈추고, 바닥 그림자는 높이에 따라 작아지고 옅어진다.
+ * 웅크리는 동안 표정이 기본, 정색, 눈 감음, 정색으로 바뀌고 뛰어오르는 순간 웃는다.
+ * 타이틀(0.55s)·설명(0.66s)·순공시간(0.78s, 0.95s부터 1.3s 카운트업)·총 공부
  * (0.9s)·집중률 배지(1.0s)가 차례로 떠오른다.
+ * 나중에 고른 마스코트로 바꿀 수 있게 표정 묶음을 받는다.
  */
 export function StudyCompleteHero({
   view,
   phase,
+  mascot = TIMI_FRAMES,
 }: {
   view: SessionResultView;
   phase: CompleteHeroPhase;
+  mascot?: ResultMascotFrames;
 }) {
   const { t } = useTranslation("study-session");
   const collapsed = phase === "revealed";
   const animated = phase !== "static";
   const focusSec = useCountUp(view.focusSec, animated);
-  const stamping = phase === "intro";
+  const jumping = phase === "intro";
 
   useEffect(() => {
-    if (!stamping) {
+    if (!jumping) {
       return;
     }
-    const timer = window.setTimeout(() => haptic("heavy"), STAMP_TOUCH_MS);
+    const timer = window.setTimeout(() => haptic("heavy"), MASCOT_APEX_MS);
     return () => window.clearTimeout(timer);
-  }, [stamping]);
+  }, [jumping]);
 
   return (
     // `isolate`: 글로우를 `-z-10`으로 텍스트 **뒤**에 두기 위한 스태킹 컨텍스트. 없으면 절대 배치인
     // 글로우가 흐름 안 텍스트 위에 칠해져 타이틀·숫자가 뿌옇게 바랜다(모션 축소·접힘 전 레이아웃에서
     // 실제 확인). 음수 z-index는 자기 스태킹 컨텍스트 배경 뒤로만 가므로 섹션이 컨텍스트여야 한다.
     <section className="relative isolate flex w-full flex-col items-center">
-      {/* 도장 — 인트로 동안만 존재한다. `both`라 모션이 끝나면 투명하게 남고, 접히면서 사라진다. */}
-      {phase === "intro" && (
-        <img
-          src={stampImage}
-          alt=""
-          draggable={false}
-          className="pointer-events-none absolute top-11 left-1/2 z-8 size-44 origin-bottom animate-[result-stamp-press_2s_cubic-bezier(0.5,0,0.4,1)_both] motion-reduce:hidden"
-        />
-      )}
-
       {/* 글로우 — 바깥은 접힘에 맞춰 사라지는 페이드, 안쪽은 호흡 애니메이션. 한 요소에 두면
           animation의 opacity가 inline opacity를 덮어 페이드가 안 먹는다. */}
       <div
@@ -87,13 +114,15 @@ export function StudyCompleteHero({
 
       <div
         className="flex w-full flex-col items-center transition-[margin-top] duration-550 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
-        style={{ marginTop: collapsed ? 8 : animated ? 150 : 24 }}
+        // 모션 축소에서도 정점의 마스코트가 슬롯 위로 넘치므로 그만큼 더 띄운다.
+        style={{ marginTop: collapsed ? 8 : animated ? 150 : 80 }}
       >
-        {/* 인트로 블록: 인주 + 타이틀 + 설명. 접히면 높이 0·투명·위로 22px — DOM에는 남기되
-            보이지 않는 텍스트를 스크린리더가 읽지 않게 aria-hidden을 함께 건다. */}
+        {/* 인트로 블록: 마스코트 + 타이틀 + 설명. 접히면 높이 0·투명·위로 22px — DOM에는 남기되
+            보이지 않는 텍스트를 스크린리더가 읽지 않게 aria-hidden을 함께 건다.
+            접힘에 필요한 overflow-hidden이 슬롯 위로 넘친 마스코트를 자르지 않게 위 여백을 늘리고 같은 만큼 끌어올린다. */}
         <div
           aria-hidden={collapsed}
-          className="flex w-full flex-col items-center overflow-hidden [transition:max-height_0.55s_cubic-bezier(0.22,1,0.36,1),opacity_0.4s_ease,transform_0.5s_ease] motion-reduce:transition-none"
+          className="-mt-15 flex w-full flex-col items-center overflow-hidden pt-15 [transition:max-height_0.55s_cubic-bezier(0.22,1,0.36,1),opacity_0.4s_ease,transform_0.5s_ease] motion-reduce:transition-none"
           style={
             collapsed
               ? { maxHeight: 0, opacity: 0, transform: "translateY(-22px)" }
@@ -102,15 +131,39 @@ export function StudyCompleteHero({
                 : undefined
           }
         >
+          {/* 기본 자리는 정점이라 모션 축소와 다시 본 결과는 애니메이션 없이 정점 자세를 바로 보인다. */}
           <div className="relative mb-4.5 size-18">
-            {/* 충격 링 — `forwards`다. 프로토타입의 `both`는 지연 동안 0% 프레임(반투명 링)이
-                미리 보이는 부작용이 있어 여기서는 닿기 전까지 숨긴다. */}
-            <div
+            <span
               aria-hidden="true"
-              className="absolute inset-0 rounded-full border-[2.5px] border-primary/30 opacity-0 animate-[result-stamp-impact_0.7s_ease-out_0.82s_forwards] motion-reduce:hidden"
+              className={cn(
+                "absolute top-17.5 left-1/2 h-1.75 w-9 -translate-x-1/2 rounded-full bg-(--result-mascot-shadow) opacity-62 blur-xs",
+                jumping && "animate-[result-mascot-shadow_0.92s_both] motion-reduce:animate-none",
+              )}
             />
-            <div className="absolute inset-0 flex items-center justify-center animate-[result-seal-pop_0.55s_cubic-bezier(0.34,1.56,0.64,1)_0.82s_both] motion-reduce:animate-none">
-              <SealIcon />
+            {/* 움직임은 컨테이너가, 표정 교체는 각 그림이 맡는다.
+                네 장을 처음부터 그려 두어 첫 교체 전에 디코드가 끝난다.
+                bottom-9·left-0.75는 웃는 표정 기준의 정점 자리다.
+                기본 표정은 몸통이 5.6px 아래에 그려져 있어 바닥(36px 아래)에서 발끝이 그림자에 닿는다. */}
+            <div
+              data-result-mascot=""
+              className={cn(
+                "pointer-events-none absolute bottom-9 left-0.75 h-23.5 w-18.5 origin-bottom",
+                jumping && "animate-[result-mascot-jump_0.92s_both] motion-reduce:animate-none",
+              )}
+            >
+              {FACE_ANIMATIONS.map(([face, animation]) => (
+                <img
+                  key={face}
+                  src={mascot[face]}
+                  alt=""
+                  draggable={false}
+                  className={cn(
+                    "absolute inset-0 size-full",
+                    face !== "smile" && "opacity-0",
+                    jumping && [animation, "motion-reduce:animate-none"],
+                  )}
+                />
+              ))}
             </div>
           </div>
 
@@ -180,30 +233,4 @@ function useCountUp(target: number, enabled: boolean): number {
   }, [target, canAnimate, from]);
 
   return canAnimate ? value : target;
-}
-
-/**
- * 인주(도장 자국)
- */
-function SealIcon() {
-  return (
-    <svg
-      width="72"
-      height="72"
-      viewBox="0 0 100 100"
-      className="-rotate-6 text-primary"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <circle cx="50" cy="50" r="46.5" fill="none" stroke="currentColor" strokeWidth="5" />
-      <circle cx="50" cy="50" r="38" fill="none" stroke="currentColor" strokeWidth="1.8" />
-      <g transform="translate(19 25) scale(0.62)" fill="currentColor">
-        <ellipse cx="14" cy="34" rx="9.5" ry="11" />
-        <ellipse cx="35" cy="15.5" rx="11.5" ry="13.5" />
-        <ellipse cx="65" cy="15.5" rx="11.5" ry="13.5" />
-        <ellipse cx="86" cy="34" rx="9.5" ry="11" />
-        <path d="M50 34 C64 34 77 43 77 59 C77 70 70 79 61 79 C56.5 79 53 76 50 76 C47 76 43.5 79 39 79 C30 79 23 70 23 59 C23 43 36 34 50 34 Z" />
-      </g>
-    </svg>
-  );
 }

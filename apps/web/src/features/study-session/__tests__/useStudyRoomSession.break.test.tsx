@@ -275,4 +275,16 @@ describe("useStudyRoomSession 휴식", () => {
     expect(mocks.ended).toHaveBeenCalledTimes(1);
     expect(mocks.ended.mock.calls[0]?.[0]).toMatchObject({ pauseSec: 20, breakSec: 90 });
   });
+
+  it("종료 계측에 세션이 고정한 종료 시각을 넘긴다", async () => {
+    const { result } = setup();
+    await advance(10_000);
+    const endedAt = Date.now();
+
+    await act(async () => {
+      await result.current.endAndSubmit();
+    });
+
+    expect(mocks.ended.mock.calls[0]?.[0]).toMatchObject({ endedAtMs: endedAt });
+  });
 });

@@ -10,6 +10,7 @@ import type {
   PlannerGoalRequest,
 } from "@focusmakers/types";
 
+import { trackSubjectItemAdded } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import { getTokenSource } from "@/lib/auth/tokenSource";
 import { postToNative } from "@/lib/bridge";
@@ -78,7 +79,9 @@ export function usePlannerPlanMutation(userId: number | null) {
           return reorderPlannerSubjects(action.date, action.body, { timeZone });
       }
     },
-    onSuccess: async (_saved, _action, context) => {
+    onSuccess: async (_saved, action, context) => {
+      // 옛 플래너와 같은 이벤트·값으로 보내야 계획 작성 지표가 화면 교체와 상관없이 이어진다.
+      if (action.kind === "createTask") trackSubjectItemAdded("task", false, "planner");
       const owner = context?.userId;
       if (owner == null) return;
       await Promise.all([

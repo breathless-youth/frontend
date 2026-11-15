@@ -623,6 +623,12 @@ export interface ProfileUpdateRequest {
    * 없거나 잘못된 값이면 400 없이 무시한다.
    */
   timeZone?: string;
+  /**
+   * 기기 지역(ISO 3166-1 두 글자, 예 `TW`). 선택 필드이고 광고 나라별 분석에 쓴다.
+   * 프로필 응답에는 실리지 않는다.
+   * 국가 코드가 아니면 400 없이 무시한다.
+   */
+  region?: string;
 }
 
 /** `POST /api/users/me/profile-image/upload-url` — 서버는 1 이상 1,048,576 이하만 받는다. */

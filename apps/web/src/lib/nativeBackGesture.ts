@@ -48,23 +48,46 @@ export function useNativeBackLock(): void {
  */
 export function useNativeOrientationUnlock(): void {
   useEffect(() => {
-    const unlock = () => {
-      postToNative({ type: "set-orientation", unlocked: true, atMs: Date.now() });
-    };
-    // Android에서 앱 화면이 잠시 가려졌다 돌아오면 앱 셸이 기본 세로 잠금을 다시 걸어서 해제를 다시 보낸다.
-    // 홈 화면에서 돌아올 때는 visibilitychange가 오고, 공유 시트에서 돌아올 때는 세로로 바뀐 resize만 온다.
-    const unlockWhenVisible = () => {
-      if (document.visibilityState === "visible") {
-        unlock();
-      }
-    };
-    unlock();
-    document.addEventListener("visibilitychange", unlockWhenVisible);
-    window.addEventListener("resize", unlockWhenVisible);
+    const stop = holdOrientation(true);
     return () => {
-      document.removeEventListener("visibilitychange", unlockWhenVisible);
-      window.removeEventListener("resize", unlockWhenVisible);
-      postToNative({ type: "set-orientation", unlocked: false, atMs: Date.now() });
+      stop();
+      postOrientation(false);
     };
   }, []);
+}
+
+/**
+ * 마운트 동안 세로 잠금을 요청한다
+ *
+ * 공부 결과 화면이 쓴다: 싱글룸 네이티브 화면이 회전을 열어 두고, 결과는 같은 웹뷰 안 이동이라 그대로 두면 가로로 돈다.
+ * 언마운트에서는 아무것도 보내지 않는다: 결과를 떠나면 다음 룸이나 앱 셸이 자기 방향을 정한다.
+ */
+export function useNativePortraitLock(): void {
+  useEffect(() => holdOrientation(false), []);
+}
+
+function postOrientation(unlocked: boolean): void {
+  postToNative({ type: "set-orientation", unlocked, atMs: Date.now() });
+}
+
+/**
+ * 방향 요청을 지금 보내고 화면이 다시 보일 때마다 다시 보내는 구독
+ *
+ * Android에서 앱 화면이 잠시 가려졌다 돌아오면 앱 셸이나 화면 옵션이 방향을 제 기본값으로 되돌려서 다시 보낸다.
+ * 홈 화면에서 돌아올 때는 visibilitychange가 오고, 공유 시트에서 돌아올 때는 resize만 온다.
+ * 반환값은 구독을 거두는 함수다.
+ */
+function holdOrientation(unlocked: boolean): () => void {
+  const sendWhenVisible = () => {
+    if (document.visibilityState === "visible") {
+      postOrientation(unlocked);
+    }
+  };
+  postOrientation(unlocked);
+  document.addEventListener("visibilitychange", sendWhenVisible);
+  window.addEventListener("resize", sendWhenVisible);
+  return () => {
+    document.removeEventListener("visibilitychange", sendWhenVisible);
+    window.removeEventListener("resize", sendWhenVisible);
+  };
 }

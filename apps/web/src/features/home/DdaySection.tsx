@@ -136,8 +136,10 @@ function DdayBlock({
           className={cn(
             // 360 폭부터는 32px 그대로고, 그보다 좁으면 플래너 버튼과 겹치지 않게 창 폭을 따라 줄인다.
             // 줄여도 넘치는 긴 문구만 말줄임으로 자른다.
-            "min-w-0 truncate font-extrabold tracking-[-0.8px] tabular-nums",
-            layout === "home-v3" ? "text-[30px] leading-9" : "text-[min(32px,8.9vw)] leading-9.5",
+            "min-w-0 truncate tracking-[-0.8px] tabular-nums",
+            layout === "home-v3"
+              ? "text-[30px] leading-9 font-bold"
+              : "text-[min(32px,8.9vw)] leading-9.5 font-extrabold",
             // 지난 D-Day는 색으로 구분한다. 시안 색이 정해지면 여기만 바꾼다.
             daysLeft !== null && daysLeft < 0
               ? "text-muted-foreground"

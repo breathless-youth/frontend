@@ -19,6 +19,7 @@ vi.mock("@/lib/hardNavigation", () => ({
   hardNavigate: vi.fn(),
   hardReplace: vi.fn(),
   canExitViaHistoryBack: () => false,
+  exitToPreviousDocument: vi.fn(),
 }));
 
 const FORM = "https://docs.google.com/forms/d/e/abc/viewform?usp=pp_url&entry.1=NICKNAME";

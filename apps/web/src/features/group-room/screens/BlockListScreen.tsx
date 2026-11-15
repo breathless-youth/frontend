@@ -81,7 +81,7 @@ function BlockedRow({
   const nameId = useId();
   return (
     <li className="flex min-h-15 items-center gap-2.5 border-b border-border last:border-b-0">
-      <RankAvatar nickname={user.nickname} imageUrl={user.imageUrl} />
+      <RankAvatar imageUrl={user.imageUrl} />
       <p
         id={nameId}
         className="min-w-0 flex-1 truncate text-[15px] leading-5.5 font-bold text-foreground"

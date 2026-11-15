@@ -17,11 +17,10 @@ describe("Intl.Segmenter가 없는 환경", () => {
     vi.resetModules();
   });
 
-  it("firstGrapheme은 글자 단위를 셀 수 없으므로 빈 문자열을 돌려준다 — 코드포인트로 반쪽 글자를 주지 않는다", async () => {
-    const { firstGrapheme } = await import("../graphemes");
+  it("글자 단위를 셀 수 없다고 알리고 코드포인트로 나눠 화면이 죽지 않게 한다", async () => {
+    const { canSegmentGraphemes, countGraphemes } = await import("../graphemes");
 
-    expect(firstGrapheme("🧑‍💻코딩")).toBe("");
-    expect(firstGrapheme("🇰🇷화이팅")).toBe("");
-    expect(firstGrapheme("가나다")).toBe("");
+    expect(canSegmentGraphemes).toBe(false);
+    expect(countGraphemes("가나다")).toBe(3);
   });
 });

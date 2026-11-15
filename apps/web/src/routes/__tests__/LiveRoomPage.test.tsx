@@ -991,7 +991,7 @@ describe("LiveRoomPage — P2P 연동", () => {
     await enterRoom();
 
     expect(screen.queryByTestId("remote-video-8")).not.toBeInTheDocument();
-    expect(screen.getByText("멤")).toBeInTheDocument();
+    expect(document.querySelector('[data-user-id="8"] [data-default-mascot]')).not.toBeNull();
   });
 
   it("카메라를 끄면 송신 트랙 enabled만 꺼지고 P2P 연결은 유지된다", async () => {

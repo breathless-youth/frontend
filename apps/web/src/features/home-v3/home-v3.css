@@ -49,23 +49,27 @@
   }
 }
 
-/* 362px 카드의 210px 과목 버튼을 기준으로, 시계가 보이는 오른쪽 영역은 남긴다. */
-.home-v3-subject-trigger {
-  width: min(13.125rem, calc(100% - 6.75rem));
+/*
+ * 시계 발끝이 과목 버튼 윗변에 4px만 걸치게 한다(카드 바닥에서 아래 여백 20px + 버튼 높이 44px - 4px).
+ * PNG 아래 투명 여백과 80% 축소를 합치면 발끝은 이미지 상자 바닥보다 크기의 18.83%만큼 위에 있어 크기에 비례해 내린다.
+ */
+.home-v3-clock {
+  --home-clock-size: 11.875rem;
+  width: var(--home-clock-size);
+  height: var(--home-clock-size);
+  bottom: calc(1.25rem + 2.75rem - 0.25rem - 0.1883 * var(--home-clock-size));
 }
 
-/* 패드는 넓어진 카드에 맞춰 시계만 키우고 우하단 잘림 위치를 유지한다. */
+/* 패드는 넓어진 카드에 맞춰 시계만 키운다. */
 @media (min-width: 768px) {
   .home-v3-clock {
-    width: 16.25rem;
-    height: 16.25rem;
+    --home-clock-size: 16.25rem;
   }
 }
 
 @media (min-width: 1024px) {
   .home-v3-clock {
-    width: 17.5rem;
-    height: 17.5rem;
+    --home-clock-size: 17.5rem;
   }
 }
 

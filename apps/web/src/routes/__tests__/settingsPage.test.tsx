@@ -353,7 +353,8 @@ describe("S6 · 설정", () => {
     await act(async () => {
       await updateDone();
     });
-    expect(screen.getByRole("heading", { name: "프로필 수정" })).toBeInTheDocument();
+    // 프로필 화면은 lazy라 전환이 끝난 뒤에도 청크를 받는 동안은 아직 그려지지 않는다.
+    expect(await screen.findByRole("heading", { name: "프로필 수정" })).toBeInTheDocument();
   });
 
   it("하위 화면의 뒤로 가기 버튼은 반대 방향 전환으로 돌아온다", async () => {

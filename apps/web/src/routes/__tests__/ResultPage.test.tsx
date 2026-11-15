@@ -97,7 +97,7 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   stageStudyResultExit: vi.fn(),
 }));
 
-/** 도장이 종이에 닿는 순간의 햅틱 — 언제 몇 번 불리는지만 본다. */
+/** 마스코트가 정점에 닿는 순간의 햅틱 — 언제 몇 번 불리는지만 본다. */
 const haptic = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/haptics", () => ({ haptic }));
 
@@ -155,8 +155,8 @@ function RecordsProbe() {
  * 모션 축소 여부를 `matchMedia`로 심는다 — jsdom에는 `matchMedia`가 없어 `ResultPage`는 "축소
  * 아님"으로 본다.
  *
- * 기본은 **축소(true)**: 그러면 도장 연출·타이머 없이 처음부터 히어로·카드·CTA가 전부 그려져
- * 내용 검증이 시간과 무관해진다(BY-560). 연출 순서 자체는 아래 "도장 연출 → 공개" 블록이 축소
+ * 기본은 **축소(true)**: 그러면 마스코트 연출·타이머 없이 처음부터 히어로·카드·CTA가 전부 그려져
+ * 내용 검증이 시간과 무관해진다(BY-560). 연출 순서 자체는 아래 "마스코트 연출 → 공개" 블록이 축소
  * 아님으로 렌더해 가짜 타이머로 검증한다.
  */
 function stubReducedMotion(matches: boolean) {
@@ -242,6 +242,19 @@ describe("ResultPage — 완료 히어로 (BY-560)", () => {
     expect(screen.getByText("1시간 42분").closest("p")).toHaveTextContent("총 공부시간 1시간 42분");
   });
 
+  it("모션 축소면 마스코트가 점프도 표정 전환도 없이 정점 자세로 바로 보인다", () => {
+    const { container } = renderResult({ sessions: [exampleSession()] });
+
+    const mascot = container.querySelector("[data-result-mascot]");
+    expect(mascot).not.toBeNull();
+    expect(mascot?.className).not.toContain("result-mascot-jump");
+    const faces = Array.from(container.querySelectorAll("[data-result-mascot] img"));
+    expect(faces).toHaveLength(4);
+    for (const face of faces) {
+      expect(face.className).not.toContain("result-mascot-face");
+    }
+  });
+
   it("예전 헤더(타이틀 '공부 결과'·우상단 닫기)는 시안에서 빠졌다", () => {
     renderResult({ sessions: [exampleSession()] });
 
@@ -279,7 +292,7 @@ describe("ResultPage — 완료 히어로 (BY-560)", () => {
   });
 });
 
-describe("ResultPage — 도장 연출 → 공개 (모션 축소 아님)", () => {
+describe("ResultPage — 마스코트 연출 → 공개 (모션 축소 아님)", () => {
   /**
    * 연출 경로는 타이머(공개)·rAF(카운트업)·캔버스(색종이)를 쓴다. 타이머만 가짜로 돌리고
    * rAF·캔버스는 무동작으로 막는다 — jsdom의 getContext는 미구현 경고를 찍고, 실제 rAF는
@@ -293,15 +306,28 @@ describe("ResultPage — 도장 연출 → 공개 (모션 축소 아님)", () =>
     return renderResult(state, "?userId=7", { reducedMotion: false });
   }
 
-  it("공개 전에는 도장·히어로만 있고 카드와 CTA는 없다", () => {
+  it("공개 전에는 점프하는 마스코트와 히어로만 있고 카드와 CTA는 없다", () => {
     const { container } = renderAnimated();
 
     expect(screen.getByRole("heading", { level: 1, name: "오늘 공부 완료" })).toBeInTheDocument();
-    expect(container.querySelector("img")).not.toBeNull();
+    expect(container.querySelector("[data-result-mascot]")?.className).toContain(
+      "result-mascot-jump",
+    );
     expect(screen.queryByText("공부 타임라인")).not.toBeInTheDocument();
     expect(screen.queryByText("오늘 누적 순공시간")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "홈으로" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "기록으로 가기" })).not.toBeInTheDocument();
+  });
+
+  it("인트로에서는 표정 네 장이 모두 있고 각자 표정 전환 애니메이션이 걸린다", () => {
+    const { container } = renderAnimated();
+
+    const faces = Array.from(container.querySelectorAll("[data-result-mascot] img"));
+    expect(faces).toHaveLength(4);
+    for (const face of faces) {
+      expect(face.className).toContain("result-mascot-face");
+      expect(face).toHaveAttribute("alt", "");
+    }
   });
 
   it("카운트업은 0이 아니라 1분부터 올라 시작 프레임에 '1분 미만'이 뜨지 않는다", () => {
@@ -328,8 +354,10 @@ describe("ResultPage — 도장 연출 → 공개 (모션 축소 아님)", () =>
     expect(screen.getByText("오늘 누적 순공시간")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "홈으로" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "기록으로 가기" })).toBeInTheDocument();
-    // 도장은 사라지고, 타이틀은 DOM에 남되(접힘 전환) 스크린리더에는 읽히지 않는다.
-    expect(container.querySelector("img")).toBeNull();
+    // 마스코트와 타이틀은 DOM에 남되(접힘 전환) 스크린리더에는 읽히지 않는다.
+    const mascot = container.querySelector("[data-result-mascot]");
+    expect(mascot).not.toBeNull();
+    expect(mascot?.closest('[aria-hidden="true"]')).not.toBeNull();
     expect(screen.queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, hidden: true })).toHaveTextContent(
       "오늘 공부 완료",
@@ -361,9 +389,9 @@ describe("ResultPage — 도장 연출 → 공개 (모션 축소 아님)", () =>
   });
 });
 
-describe("ResultPage — 도장 햅틱", () => {
-  /** 도장 키프레임에서 도장이 종이에 닿는 46% 지점 — 2초의 46%. */
-  const STAMP_TOUCH_MS = 920;
+describe("ResultPage — 마스코트 햅틱", () => {
+  /** 점프 키프레임이 끝나 마스코트가 정점에 닿는 시점 */
+  const MASCOT_APEX_MS = 920;
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -372,11 +400,11 @@ describe("ResultPage — 도장 햅틱", () => {
     vi.stubGlobal("cancelAnimationFrame", () => undefined);
   });
 
-  it("도장이 종이에 닿는 순간 heavy 햅틱을 한 번 울린다", () => {
+  it("마스코트가 정점에 닿는 순간 heavy 햅틱을 한 번 울린다", () => {
     renderResult({ sessions: [exampleSession()] }, "?userId=7", { reducedMotion: false });
 
     act(() => {
-      vi.advanceTimersByTime(STAMP_TOUCH_MS - 1);
+      vi.advanceTimersByTime(MASCOT_APEX_MS - 1);
     });
     expect(haptic).not.toHaveBeenCalled();
 
@@ -387,7 +415,7 @@ describe("ResultPage — 도장 햅틱", () => {
     expect(haptic).toHaveBeenCalledWith("heavy");
   });
 
-  it("모션 축소면 도장이 없으니 햅틱도 울리지 않는다", () => {
+  it("모션 축소면 점프가 없으니 햅틱도 울리지 않는다", () => {
     renderResult({ sessions: [exampleSession()] });
 
     act(() => {
@@ -407,13 +435,13 @@ describe("ResultPage — 도장 햅틱", () => {
     expect(haptic).not.toHaveBeenCalled();
   });
 
-  it("도장이 닿기 전에 화면을 떠나면 햅틱을 울리지 않는다", () => {
+  it("마스코트가 정점에 닿기 전에 화면을 떠나면 햅틱을 울리지 않는다", () => {
     const { unmount } = renderResult({ sessions: [exampleSession()] }, "?userId=7", {
       reducedMotion: false,
     });
 
     act(() => {
-      vi.advanceTimersByTime(STAMP_TOUCH_MS - 1);
+      vi.advanceTimersByTime(MASCOT_APEX_MS - 1);
     });
     unmount();
     act(() => {
@@ -611,7 +639,7 @@ describe("ResultPage — AI 측정 만족도 카드 (BY-1083)", () => {
   });
 
   it("결과가 드러나기 전에는 보이지 않는다", () => {
-    // 연출 경로의 rAF·캔버스는 "도장 연출 → 공개" 블록처럼 무동작으로 막고 타이머만 돌린다.
+    // 연출 경로의 rAF·캔버스는 "마스코트 연출 → 공개" 블록처럼 무동작으로 막고 타이머만 돌린다.
     vi.useFakeTimers();
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(() => null);
     vi.stubGlobal("requestAnimationFrame", () => 0);
@@ -723,6 +751,7 @@ describe("ResultPage — 이탈 경로: 기록으로 가기 (BY-560)", () => {
     const postMessage = vi.fn();
     vi.stubGlobal("ReactNativeWebView", { postMessage });
     renderResult({ sessions: [exampleSession()] });
+    postMessage.mockClear();
 
     await userEvent.click(screen.getByRole("button", { name: "기록으로 가기" }));
 
@@ -805,6 +834,36 @@ describe("ResultPage — state 없는 진입", () => {
   });
 });
 
+describe("ResultPage — 화면 방향", () => {
+  /**
+   * 싱글룸 네이티브 화면은 회전을 열어 두고, 결과는 같은 웹뷰 안 이동이라 그대로면 가로로 돈다.
+   */
+  it.each([
+    ["싱글룸", "/room/7/result"],
+    ["그룹 공부방", "/social/groups/3/room/result"],
+  ])("%s 결과가 열리면 세로 잠금을 요청한다", (_, path) => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+    renderResult({ sessions: [exampleSession()] }, "?userId=7", { path });
+
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.stringMatching(/"type":"set-orientation","unlocked":false/),
+    );
+  });
+
+  it("소셜룸 결과가 열려도 세로 잠금을 요청한다", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+    renderResultAtSocial({ sessions: [exampleSession()] });
+
+    expect(postMessage).toHaveBeenCalledWith(
+      expect.stringMatching(/"type":"set-orientation","unlocked":false/),
+    );
+  });
+});
+
 describe("ResultPage — 자정(세션 시간대) 분할 세션", () => {
   it("배열이 여러 건이면 첫 항목만 그린다 — 합산하지 않는다(미정, 보수적 처리)", () => {
     const first = exampleSession();
@@ -883,6 +942,7 @@ describe("ResultPage — 소셜 결과의 목적지", () => {
     vi.stubGlobal("ReactNativeWebView", { postMessage });
     const user = userEvent.setup();
     renderResultAtSocial({ sessions: [exampleSession()] });
+    postMessage.mockClear();
 
     await user.click(screen.getByRole("button", { name: "기록으로 가기" }));
 

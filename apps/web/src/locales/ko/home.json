@@ -129,6 +129,10 @@
       "unsupported": "앱에서 설정해 주세요",
       "locked": "앱 {{count}}개 잠금"
     },
+    "contact": {
+      "bubble": "불편한 점이 있으면 바로 알려 주세요",
+      "label": "문의하기"
+    },
     "preview": {
       "subjects": {
         "korean": "국어",

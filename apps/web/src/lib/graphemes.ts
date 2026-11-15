@@ -24,18 +24,6 @@ export function countGraphemes(text: string): number {
   return splitGraphemes(text).length;
 }
 
-/**
- * 첫 글자(그래핌). Intl.Segmenter가 없는 환경에서는 글자 단위를 셀 방법이 없으므로
- * 코드포인트 폴백으로 이모지 조합의 반쪽("🧑‍💻" → "🧑")을 주는 대신 빈 문자열을
- * 돌려준다 — 호출부가 `|| 폴백값`으로 안전하게 대체하도록 계약을 명확히 한다.
- */
-export function firstGrapheme(text: string): string {
-  if (segmenter === null) {
-    return "";
-  }
-  return splitGraphemes(text)[0] ?? "";
-}
-
 // 서버 자바 String.strip()은 Character.isWhitespace 기준이라 JS trim()과 빼는 글자가 다르다.
 // trim()은 NBSP(U+00A0)와 BOM(U+FEFF)까지 빼지만 strip()은 둘을 남기고, 대신 U+001C~U+001F 제어 문자를 뺀다.
 // isWhitespace는 유니코드 공백 분리자를 받되 줄바꿈 없는 공백인 U+00A0, U+2007, U+202F는 받지 않는다.

@@ -1,12 +1,16 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { setDeviceLocaleUserProperties } from "@/lib/amplitude";
+import { deviceRegion } from "@/lib/deviceRegion";
 import { updateProfile } from "@/lib/profileApi";
 import { mockDeviceTimeZone } from "@/test/deviceTimeZone";
 
 import { syncProfileTimeZone, useTimeZoneSync } from "../useTimeZoneSync";
 
 vi.mock("@/lib/profileApi", () => ({ updateProfile: vi.fn() }));
+vi.mock("@/lib/deviceRegion", () => ({ deviceRegion: vi.fn() }));
+vi.mock("@/lib/amplitude", () => ({ setDeviceLocaleUserProperties: vi.fn() }));
 const identity = vi.hoisted(() => ({ userId: 7 }));
 vi.mock("@/lib/userId", () => ({
   assertCurrentUserId: (userId: number) => {
@@ -16,6 +20,7 @@ vi.mock("@/lib/userId", () => ({
 
 beforeEach(() => {
   identity.userId = 7;
+  vi.mocked(deviceRegion).mockReturnValue(null);
   vi.mocked(updateProfile).mockResolvedValue({} as Awaited<ReturnType<typeof updateProfile>>);
 });
 
@@ -63,6 +68,42 @@ describe("useTimeZoneSync", () => {
 
     await waitFor(() => expect(updateProfile).toHaveBeenCalledTimes(1));
     expect(updateProfile).toHaveBeenCalledWith({ timeZone: "Asia/Seoul" });
+  });
+
+  it("기기 지역이 있으면 시간대와 함께 보내고 Amplitude 속성으로도 남긴다", async () => {
+    vi.mocked(deviceRegion).mockReturnValue("TW");
+    mockDeviceTimeZone("Asia/Taipei");
+    renderHook(() => useTimeZoneSync(7, false));
+
+    await waitFor(() =>
+      expect(setDeviceLocaleUserProperties).toHaveBeenCalledWith({
+        timeZone: "Asia/Taipei",
+        region: "TW",
+      }),
+    );
+    expect(updateProfile).toHaveBeenCalledWith({ timeZone: "Asia/Taipei", region: "TW" });
+  });
+
+  it("지역이 바뀌면 같은 시간대라도 다시 보낸다", async () => {
+    vi.mocked(deviceRegion).mockReturnValue("SG");
+    mockDeviceTimeZone("Asia/Singapore");
+    renderHook(() => useTimeZoneSync(7, false)).unmount();
+    await waitFor(() => expect(updateProfile).toHaveBeenCalledTimes(1));
+    vi.mocked(deviceRegion).mockReturnValue("MY");
+    renderHook(() => useTimeZoneSync(7, false));
+
+    await waitFor(() => expect(updateProfile).toHaveBeenCalledTimes(2));
+    expect(updateProfile).toHaveBeenLastCalledWith({ timeZone: "Asia/Singapore", region: "MY" });
+  });
+
+  it("보내지 못하면 Amplitude 속성도 남기지 않는다", async () => {
+    vi.mocked(updateProfile).mockRejectedValueOnce(new Error("network"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    renderHook(() => useTimeZoneSync(7, false));
+
+    await waitFor(() => expect(warn).toHaveBeenCalledTimes(1));
+    expect(setDeviceLocaleUserProperties).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it("같은 문서에서 같은 값은 다시 보내지 않는다", async () => {

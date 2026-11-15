@@ -1,0 +1,48 @@
+name: EAS submissions
+
+# EAS 스토어 제출을 Slack과 Amplitude에 남기고, 처리한 빌드에는 ios/·android/ 태그를 단다.
+# 태그가 처리 표시라서 같은 제출을 두 번 기록하지 않는다.
+on:
+  schedule:
+    - cron: "0 18 * * *" # 매일 03:00 KST
+  # 수동 실행 버튼과 schedule은 이 파일이 기본 브랜치(main)에 들어간 뒤에 생긴다.
+  workflow_dispatch:
+
+concurrency:
+  group: eas-submissions
+  cancel-in-progress: false
+
+permissions:
+  contents: write # 태그 push
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # 제출된 커밋이 저장소에 있는지 확인하려면 전체 기록이 필요하다
+      # 쓰기 토큰이 의존성 설치와 eas-cli 실행 중에 git 설정에 남지 않게 하고, 태그 push에서만 쓴다
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: ".nvmrc"
+          cache: "pnpm"
+      # submit:list가 app.config의 Expo 설정 플러그인을 읽어 모바일 의존성까지 필요하다
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Record submissions
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_DEPLOY_CHANNEL_ID: ${{ vars.SLACK_DEPLOY_CHANNEL_ID }}
+          AMPLITUDE_API_KEY: ${{ vars.PROD_VITE_AMPLITUDE_API_KEY }}
+          AMPLITUDE_SECRET_KEY: ${{ secrets.AMPLITUDE_SECRET_KEY }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          node scripts/record-eas-submissions.mjs

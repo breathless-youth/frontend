@@ -1,0 +1,56 @@
+{
+  "projectId": "849613",
+  "chart": {
+    "kind": "funnel",
+    "name": "R2 · 7일 내 다른 날 재순공 5분+ · 관찰 완료 코호트",
+    "steps": [
+      {
+        "event": "onboarding_completed",
+        "where": [
+          {
+            "property": "nth_time_performed_on_event",
+            "op": "is",
+            "values": ["1"],
+            "scope": "nth_time_hack"
+          },
+          {
+            "property": "repeat_tracking_version",
+            "op": "is",
+            "values": ["1"],
+            "scope": "event"
+          }
+        ]
+      },
+      {
+        "event": "onboarding_week_study_repeated"
+      }
+    ],
+    "conversion_window": {
+      "value": 168,
+      "unit": "hour"
+    },
+    "mode": "ordered",
+    "count_unique_by": "User",
+    "measured_as": {
+      "as": "conversion"
+    },
+    "interval": "day",
+    "date_range": {
+      "relative": "Last 30 Days Offset 8",
+      "timezone": "Asia/Seoul"
+    },
+    "segments": [
+      {
+        "where": [
+          {
+            "property": "userdata_cohort",
+            "op": "is not",
+            "values": ["kcwnl3hi"],
+            "scope": "user"
+          }
+        ],
+        "label": "실사용자 · 노이즈 제외"
+      }
+    ]
+  }
+}

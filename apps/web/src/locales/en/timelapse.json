@@ -4,7 +4,6 @@
     "yesterday": "Yesterday"
   },
   "frame": {
-    "watermark": "FocusMakers",
     "focusTime": "Focus {{duration}}",
     "focusRate": "Focus rate {{rate}}%",
     "streak": "{{count}}-day streak 🔥"

@@ -137,7 +137,7 @@ function MemberRow({ member, now, menu }: { member: RoomMemberRow; now: Date; me
   const lastText = lastStudiedText(member.lastStudiedAt, now);
   return (
     <li className="flex min-h-14 items-center gap-2.5 border-b border-border last:border-b-0">
-      <RankAvatar nickname={member.nickname} me={member.isMe} imageUrl={member.imageUrl} />
+      <RankAvatar me={member.isMe} imageUrl={member.imageUrl} />
       <p className="flex min-w-0 flex-1 items-center gap-1.5">
         <span
           className={cn(

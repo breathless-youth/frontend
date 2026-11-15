@@ -5,7 +5,7 @@ import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { trackErrorRetryPressed } from "@/lib/amplitude";
-import { canExitViaHistoryBack, hardReplace } from "@/lib/hardNavigation";
+import { exitToPreviousDocument } from "@/lib/hardNavigation";
 
 /**
  * 구글 폼을 앱 안에서 띄우는 화면 (문의하기·인터뷰 신청)
@@ -76,17 +76,8 @@ export function GoogleFormPage({
     setReloadKey((key) => key + 1);
   };
 
-  // 문서 단위 라우트의 뒤로 가기(`lib/hardNavigation.ts`의 canExitViaHistoryBack 주석 참고).
-  // 폴백도 SPA가 아니라 하드 내비게이션이어야 한다 — SPA로 가면 이 문서의
-  // "COEP 없음"이 다음 화면까지 승계된다. 쿼리(userId·appVersion)는 진입 쪽이 승계해 준
-  // 것을 그대로 되돌린다.
-  const exitToPreviousDocument = () => {
-    if (canExitViaHistoryBack(document.referrer, window.location.origin, window.history.length)) {
-      window.history.back();
-      return;
-    }
-    hardReplace(`${fallbackPath}${location.search}`);
-  };
+  // 쿼리(userId·appVersion)는 진입 쪽이 승계해 준 것을 그대로 되돌린다.
+  const exit = () => exitToPreviousDocument(fallbackPath, location.search);
 
   // React-DOM은 <iframe>에 "load" 이벤트만 위임 등록하고 "error"는 등록하지 않는다
   // (react-dom-client.development.js의 `case "iframe": listenToNonDelegatedEvent("load", ...)`).
@@ -110,7 +101,7 @@ export function GoogleFormPage({
     <div className="flex h-dvh flex-col bg-background">
       {/* 구글 폼은 자체 가운데 열과 배경을 그려 iframe만 전폭으로 두고 헤더와 실패 화면을 열에 맞춘다. */}
       <div className="page-column">
-        <ScreenBackHeader title={title} onBack={exitToPreviousDocument} />
+        <ScreenBackHeader title={title} onBack={exit} />
       </div>
 
       {showFailure ? (

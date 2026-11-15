@@ -1,26 +1,17 @@
-import { render, screen } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { RoomAvatarFallback } from "../components/RoomAvatarFallback";
 
 describe("RoomAvatarFallback", () => {
-  it("닉네임 첫 글자를 원형 아바타로 그린다", () => {
-    render(<RoomAvatarFallback nickname="가나다" />);
-    expect(screen.getByText("가")).toBeInTheDocument();
-  });
-
-  it("이모지로 시작하는 닉네임도 이니셜이 깨지지 않는다", () => {
-    render(<RoomAvatarFallback nickname="🧑‍💻코딩" />);
-    expect(screen.getByText("🧑‍💻")).toBeInTheDocument();
-  });
-
-  it("닉네임이 없으면 빈 글자여도 깨지지 않는다", () => {
-    const { container } = render(<RoomAvatarFallback nickname={undefined} />);
-    expect(container.firstChild).not.toBeNull();
+  it("사진이 없으면 글자 대신 기본 마스코트를 원형 아바타로 그린다", () => {
+    const { container } = render(<RoomAvatarFallback />);
+    expect(container.querySelector("[data-default-mascot]")).not.toBeNull();
+    expect(container.textContent).toBe("");
   });
 
   it("타일 아래 닉네임과 겹쳐 읽지 않게 화면 낭독기에서는 숨긴다", () => {
-    const { container } = render(<RoomAvatarFallback nickname="가나다" />);
+    const { container } = render(<RoomAvatarFallback />);
     expect(container.firstElementChild).toHaveAttribute("aria-hidden", "true");
   });
 });

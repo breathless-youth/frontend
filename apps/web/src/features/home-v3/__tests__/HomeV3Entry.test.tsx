@@ -6,12 +6,14 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SubjectStartUnavailableError } from "@/lib/sessionStart";
+import { hardNavigate } from "@/lib/hardNavigation";
 
 import { HomeV3Entry } from "../HomeV3Entry";
 import type { HomeV3Gateway } from "../HomeV3Gateway";
 import { readHomeSubject, writeHomeSubject } from "../subjectSelection";
 import i18n from "@/lib/i18n";
 import type * as amplitude from "@/lib/amplitude";
+import type * as hardNavigation from "@/lib/hardNavigation";
 import type * as userIdModule from "@/lib/userId";
 
 const mocked = vi.hoisted(() => ({
@@ -51,9 +53,13 @@ vi.mock("@/features/study-session/vision/prefetchVisionAssets", () => ({
   prefetchVisionAssets: vi.fn(),
 }));
 vi.mock("@/routes/lazyRoutes", () => ({ prefetchTimelapsesPage: vi.fn() }));
+vi.mock("@/lib/hardNavigation", async (original) => ({
+  ...(await original<typeof hardNavigation>()),
+  hardNavigate: vi.fn(),
+}));
 afterEach(() => vi.unstubAllGlobals());
 
-function setup(overrides: Partial<HomeV3Gateway> = {}, real = false) {
+function setup(overrides: Partial<HomeV3Gateway> = {}, real = false, path = "/") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const gateway: HomeV3Gateway = {
     readMission: vi.fn().mockResolvedValue(homeMission(0, 0)),
@@ -72,7 +78,7 @@ function setup(overrides: Partial<HomeV3Gateway> = {}, real = false) {
   const onOverlayChange = vi.fn();
   const element = () => (
     <QueryClientProvider client={client}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[path]}>
         <HomeV3Entry
           userId={7}
           gateway={real ? undefined : gateway}
@@ -143,6 +149,30 @@ describe("home v3 entry adapters", () => {
     );
     expect(JSON.parse(String(datePut?.[1]?.body))).toEqual({ goalSec: 30600 });
   });
+  it("opens the contact chat as a new document without the userId query", async () => {
+    setup({}, false, "/home?userId=7&appVersion=26.46.0&guestAuth=1");
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: `${i18n.t("home:v3.contact.bubble")} ${i18n.t("home:v3.contact.label")}`,
+      }),
+    );
+
+    expect(hardNavigate).toHaveBeenCalledWith("/contact/chat?appVersion=26.46.0&guestAuth=1");
+  });
+
+  it("opens the contact chat without a trailing question mark when there is no query", async () => {
+    setup({}, false, "/home");
+
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: `${i18n.t("home:v3.contact.bubble")} ${i18n.t("home:v3.contact.label")}`,
+      }),
+    );
+
+    expect(hardNavigate).toHaveBeenCalledWith("/contact/chat");
+  });
+
   it("shows the app update action when the selected subject cannot be passed by an older app", async () => {
     writeHomeSubject(7, 2);
     const { gateway } = setup({

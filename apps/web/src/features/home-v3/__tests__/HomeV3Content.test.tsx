@@ -26,6 +26,7 @@ function props(): HomeV3ContentProps {
       openTimelapses: vi.fn(),
       openTimelapseSettings: vi.fn(),
       openAppLock: vi.fn(),
+      openContact: vi.fn(),
     },
   };
 }

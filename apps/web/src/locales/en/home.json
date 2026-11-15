@@ -134,6 +134,10 @@
       "locked_one": "{{count}} app blocked",
       "locked_other": "{{count}} apps blocked"
     },
+    "contact": {
+      "bubble": "Something not right? Let us know",
+      "label": "Contact us"
+    },
     "preview": {
       "subjects": {
         "korean": "Korean",
