@@ -112,6 +112,10 @@ export function purchaseShopItem(itemId: number): Promise<PurchaseResponse> {
   });
 }
 
+export function getDecorations(): Promise<DecorationsResponse> {
+  return request("/api/decorations", "decorations", "decorations fetch failed", { method: "GET" });
+}
+
 export function putMascotAccessory(
   mascotCode: string,
   slot: string,

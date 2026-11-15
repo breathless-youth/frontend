@@ -8,6 +8,7 @@ export const pointsKeys = {
   user: (userId: number) => ["points", userId] as const,
   balance: (userId: number) => ["points", userId, "balance"] as const,
   shop: (userId: number) => ["points", userId, "shop"] as const,
+  look: (userId: number) => ["points", userId, "look"] as const,
   history: (userId: number, filter: HistoryFilter) =>
     ["points", userId, "history", filter] as const,
   earnToday: (userId: number) => ["points", userId, "earnToday"] as const,
@@ -31,6 +32,19 @@ export function shopQuery(gateway: PointsGateway, userId: number) {
   return queryOptions({
     queryKey: pointsKeys.shop(userId),
     queryFn: () => gateway.getShop(),
+    staleTime: 60_000,
+  });
+}
+
+/**
+ * 내 마스코트 모습 queryOptions
+ *
+ * 상점 밖 화면(결과, 프로필)이 읽고, 상점에서 마스코트나 소품을 바꾸면 무효화된다.
+ */
+export function lookQuery(gateway: PointsGateway, userId: number) {
+  return queryOptions({
+    queryKey: pointsKeys.look(userId),
+    queryFn: () => gateway.getMyLook(),
     staleTime: 60_000,
   });
 }

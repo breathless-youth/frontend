@@ -25,6 +25,7 @@ function deferredFakeGateway(scene: PointsScene): PointsGateway {
     capabilities: FULL_POINTS_CAPABILITIES,
     getBalance: async () => (await load()).getBalance(),
     getShop: async () => (await load()).getShop(),
+    getMyLook: async () => (await load()).getMyLook(),
     purchase: async (itemId) => (await load()).purchase(itemId),
     equipAccessory: async (mascotId, slot, itemId) =>
       (await load()).equipAccessory(mascotId, slot, itemId),

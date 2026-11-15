@@ -576,3 +576,43 @@ describe("보상형 광고 연결", () => {
     expect(await createApiPointsGateway().watchAd()).toEqual({ status: "unavailable" });
   });
 });
+
+describe("createApiPointsGateway 내 모습", () => {
+  it("꾸미기 조회에서 고른 마스코트와 그 마스코트의 소품을 읽는다", async () => {
+    fetchMock.mockResolvedValueOnce(
+      respond(200, {
+        selectedMascotCode: "LAMP",
+        accessories: [
+          {
+            mascotCode: "LAMP",
+            slot: "FACE",
+            item: { itemId: 3, code: "LAMP_GLASSES", imageUrl: "/glasses.png" },
+          },
+          {
+            mascotCode: "BOOK",
+            slot: "HEAD",
+            item: { itemId: 4, code: "BOOK_CAP", imageUrl: "/cap.png" },
+          },
+        ],
+        timerBackground: null,
+      }),
+    );
+
+    const look = await createApiPointsGateway().getMyLook();
+
+    expect(call().url).toContain("/api/decorations");
+    expect(call().method).toBe("GET");
+    expect(look).toEqual({
+      id: "lamp",
+      accessories: [{ slot: "face", code: "LAMP_GLASSES", imageUrl: "/glasses.png" }],
+    });
+  });
+
+  it("고른 마스코트가 없으면 null이다", async () => {
+    fetchMock.mockResolvedValueOnce(
+      respond(200, { selectedMascotCode: null, accessories: [], timerBackground: null }),
+    );
+
+    expect(await createApiPointsGateway().getMyLook()).toBeNull();
+  });
+});

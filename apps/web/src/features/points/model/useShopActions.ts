@@ -34,6 +34,13 @@ export function useShopActions() {
     }
   };
   const refetchShop = () => queryClient.invalidateQueries({ queryKey: pointsKeys.shop(userId) });
+  // 결과 화면과 프로필이 읽는 내 모습은 상점과 다른 조회라 마스코트나 소품이 바뀌면 함께 다시 받는다.
+  const refetchLook = async () => {
+    await Promise.all([
+      refetchShop(),
+      queryClient.invalidateQueries({ queryKey: pointsKeys.look(userId) }),
+    ]);
+  };
 
   const claim = async (kind: ClaimKind) => {
     try {
@@ -60,7 +67,7 @@ export function useShopActions() {
   };
   const equipAccessory = async (mascotId: MascotId, slot: AccessorySlot, itemId: string | null) => {
     await gateway.equipAccessory(mascotId, slot, itemId);
-    await refetchShop();
+    await refetchLook();
   };
   const setTimerBackground = async (itemId: string | null) => {
     await gateway.setTimerBackground(itemId);
@@ -68,7 +75,7 @@ export function useShopActions() {
   };
   const selectMascot = async (id: MascotId) => {
     await gateway.selectMascot(id);
-    await refetchShop();
+    await refetchLook();
   };
   const markUnlocksSeen = async () => {
     await gateway.markUnlocksSeen();

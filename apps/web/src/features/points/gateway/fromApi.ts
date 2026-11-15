@@ -15,6 +15,7 @@ import type {
 } from "../types";
 import type {
   ClaimResponse,
+  DecorationsResponse,
   MascotsResponse,
   PointsEarnResponse,
   PointsHistoryItemResponse,
@@ -50,10 +51,15 @@ const CODE_BY_MASCOT: ReadonlyMap<MascotId, string> = new Map(
 );
 
 const SLOT_BY_CODE: ReadonlyMap<string, AccessorySlot> = new Map(
-  Object.entries({ HEAD: "head", FACE: "face", BODY: "body" } satisfies Record<
-    string,
-    AccessorySlot
-  >),
+  Object.entries({
+    FACE: "face",
+    HEAD: "head",
+    BODY: "body",
+    WINGS: "wings",
+    HELD: "held",
+    UNDERFOOT: "underfoot",
+    EFFECT: "effect",
+  } satisfies Record<string, AccessorySlot>),
 );
 
 const REWARD_CONDITION_BY_TYPE: ReadonlyMap<string, "streakDays" | "focusHours"> = new Map(
@@ -110,6 +116,35 @@ export function toSlotCode(slot: AccessorySlot): string {
 }
 
 /** 구매 거절 코드를 화면의 실패 사유로 바꾸며 모르는 코드는 null이라 부른 쪽이 그대로 던진다. */
+/**
+ * 서버가 준 마스코트와 착용 소품을 그릴 수 있는 모습으로 바꾸기
+ *
+ * 내 꾸미기 조회와 그룹 구성원 응답이 같은 모양이라 함께 쓴다.
+ * 꾸미기 조회에는 마스코트마다 낀 소품이 함께 오므로 고른 마스코트의 소품만 남긴다.
+ * 고른 마스코트가 없거나 모르는 코드면 null이고, 그림 주소가 없거나 모르는 칸의 소품은 그릴 수 없어 뺀다.
+ */
+export function toMascotLook(
+  raw: { mascotCode: string | null; accessories: DecorationsResponse["accessories"] } | null,
+): {
+  id: MascotId;
+  accessories: { slot: AccessorySlot; code: string; imageUrl: string }[];
+} | null {
+  const id = raw === null || raw.mascotCode === null ? null : toMascotId(raw.mascotCode);
+  if (raw === null || id === null) {
+    return null;
+  }
+  return {
+    id,
+    accessories: raw.accessories.flatMap((entry) => {
+      const slot = toAccessorySlot(entry.slot);
+      const imageUrl = entry.item.imageUrl;
+      return entry.mascotCode !== raw.mascotCode || slot === null || imageUrl === null
+        ? []
+        : [{ slot, code: entry.item.code, imageUrl }];
+    }),
+  };
+}
+
 export function toPurchaseFailure(code: string | undefined): PurchaseFailure | null {
   return code === undefined ? null : (PURCHASE_FAILURE_BY_CODE.get(code) ?? null);
 }

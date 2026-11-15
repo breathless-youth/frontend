@@ -5,6 +5,7 @@ import {
   toHistoryPage,
   toMascotCode,
   toMascotId,
+  toMascotLook,
   toMascots,
   toPurchaseFailure,
   toSessionReward,
@@ -269,4 +270,55 @@ describe("포인트 기록", () => {
       expect(entry).not.toHaveProperty("medal");
     },
   );
+});
+
+describe("toAccessorySlot", () => {
+  it("일곱 칸의 서버 코드를 화면 칸으로 바꾼다", async () => {
+    const { toAccessorySlot } = await import("../fromApi");
+
+    expect(
+      ["FACE", "HEAD", "BODY", "WINGS", "HELD", "UNDERFOOT", "EFFECT"].map(toAccessorySlot),
+    ).toEqual(["face", "head", "body", "wings", "held", "underfoot", "effect"]);
+  });
+
+  it("모르는 칸은 null이다", async () => {
+    const { toAccessorySlot } = await import("../fromApi");
+
+    expect(toAccessorySlot("TAIL")).toBeNull();
+  });
+});
+
+describe("toMascotLook", () => {
+  const worn = (mascotCode: string, slot: string, imageUrl: string | null, itemId = 1) => ({
+    mascotCode,
+    slot,
+    item: { itemId, code: `ITEM_${itemId}`, imageUrl },
+  });
+
+  it("고른 마스코트가 없거나 모르는 코드면 null이다", () => {
+    expect(toMascotLook(null)).toBeNull();
+    expect(toMascotLook({ mascotCode: null, accessories: [] })).toBeNull();
+    expect(toMascotLook({ mascotCode: "DRAGON", accessories: [] })).toBeNull();
+  });
+
+  it("고른 마스코트의 소품만 담고 다른 마스코트의 소품은 뺀다", () => {
+    expect(
+      toMascotLook({
+        mascotCode: "LAMP",
+        accessories: [worn("LAMP", "FACE", "/glasses.png", 1), worn("BOOK", "HEAD", "/cap.png", 2)],
+      }),
+    ).toEqual({
+      id: "lamp",
+      accessories: [{ slot: "face", code: "ITEM_1", imageUrl: "/glasses.png" }],
+    });
+  });
+
+  it("그림 주소가 없거나 모르는 칸의 소품은 뺀다", () => {
+    expect(
+      toMascotLook({
+        mascotCode: "LAMP",
+        accessories: [worn("LAMP", "HEAD", null, 1), worn("LAMP", "TAIL", "/tail.png", 2)],
+      }),
+    ).toEqual({ id: "lamp", accessories: [] });
+  });
 });

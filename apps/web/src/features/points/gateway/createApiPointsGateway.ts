@@ -1,5 +1,6 @@
 import { ApiError } from "@/lib/api";
 import {
+  getDecorations,
   getMascots,
   getPointProducts,
   getPointsEarn,
@@ -24,6 +25,7 @@ import {
 
 import {
   toMascotCode,
+  toMascotLook,
   toClaimResult,
   toEarnToday,
   toHistoryPage,
@@ -86,6 +88,10 @@ export function createApiPointsGateway(): PointsGateway {
     getShop: async () => {
       const [items, mascots] = await Promise.all([getShopItems(), getMascots()]);
       return toShopData(items, mascots);
+    },
+    getMyLook: async () => {
+      const res = await getDecorations();
+      return toMascotLook({ mascotCode: res.selectedMascotCode, accessories: res.accessories });
     },
     purchase: async (itemId) => {
       try {

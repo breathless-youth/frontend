@@ -160,3 +160,16 @@ describe("createFakePointsGateway 꾸미기", () => {
     expect((await gateway.getShop()).mascots.some((m) => m.newlyUnlocked)).toBe(false);
   });
 });
+
+describe("createFakePointsGateway 내 모습", () => {
+  it("고른 마스코트와 입은 소품이 내 모습에 반영된다", async () => {
+    const gateway = createFakePointsGateway("default");
+    const shop = await gateway.getShop();
+    const selected = shop.mascots.find((m) => m.selected)!;
+
+    expect((await gateway.getMyLook())?.id).toBe(selected.id);
+
+    await gateway.selectMascot("book");
+    expect((await gateway.getMyLook())?.id).toBe("book");
+  });
+});
