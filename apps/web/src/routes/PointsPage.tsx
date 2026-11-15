@@ -23,6 +23,7 @@ import { slideNavigate } from "@/lib/pageTransition";
 import { balanceQuery, chargePacksQuery, earnTodayQuery, shopQuery } from "@/lib/pointsQueries";
 import { cannotLoad } from "@/lib/rankingQueries";
 import { showToast } from "@/lib/toast";
+import { usePointsScreenViewed } from "@/features/points/model/usePointsScreenViewed";
 
 const KIND_PATH: Record<ShopItemKind, string> = {
   accessory: "/points/accessories",
@@ -70,6 +71,7 @@ function TabbedContent({ balance, back }: { balance: number | undefined; back: (
   const { t } = useTranslation("points");
   const [params, setParams] = useSearchParams();
   const tab: PointsTab = params.get("tab") === "earn" ? "earn" : "shop";
+  usePointsScreenViewed(tab);
   const selectTab = (next: string) =>
     setParams(
       (prev) => {

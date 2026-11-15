@@ -17,6 +17,7 @@ import type { HistoryFilter } from "@/features/points/types";
 import { slideNavigate } from "@/lib/pageTransition";
 import { balanceQuery, historyQuery } from "@/lib/pointsQueries";
 import { cannotLoad } from "@/lib/rankingQueries";
+import { usePointsScreenViewed } from "@/features/points/model/usePointsScreenViewed";
 
 export function PointsHistoryPage() {
   return (
@@ -49,6 +50,7 @@ function HistoryContent() {
   const navigate = useNavigate();
   const location = useLocation();
   const [filter, setFilter] = useState<HistoryFilter>("all");
+  usePointsScreenViewed("history");
   const balance = useQuery(balanceQuery(gateway, userId));
   const history = useInfiniteQuery(historyQuery(gateway, userId, filter));
   const { ref, inView } = useInView({ rootMargin: "200px 0px" });

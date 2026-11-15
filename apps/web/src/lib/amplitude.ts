@@ -2355,3 +2355,117 @@ export function setHasTimelapseUserProperty(hasTimelapse: boolean) {
 export function setStudyDaysTotalUserProperty(totalDays: number) {
   setUserProperties({ study_days_total: totalDays });
 }
+
+/**
+ * 포인트 상점 화면 열람
+ *
+ * 상점 첫 화면, 소품, 타이머 배경, 마스코트 모으기, 기록 가운데 어느 화면을 열었는지 보낸다.
+ */
+export function trackPointsScreenViewed(
+  screen: "shop" | "earn" | "accessories" | "backgrounds" | "mascots" | "history",
+) {
+  if (!initialized) return;
+  track("points_screen_viewed", { screen });
+}
+
+/**
+ * 포인트로 사기 시도와 결과
+ *
+ * 구매 버튼을 눌러 창이 열릴 때 `attempted`, 서버가 답한 뒤 `succeeded`나 `insufficient`를 보낸다.
+ * 상품 이름은 언어마다 달라 보내지 않고 종류와 가격만 보낸다.
+ */
+export function trackPointsPurchase(
+  outcome: "attempted" | "succeeded" | "insufficient",
+  item: { kind: "accessory" | "timerBackground" | "mascot"; price: number },
+) {
+  if (!initialized) return;
+  track("points_purchase", { outcome, item_kind: item.kind, price: item.price });
+}
+
+/**
+ * 스토어 결제 상품 구매 결과
+ *
+ * `late`는 결제는 끝났는데 기다리는 동안 상품이 들어오지 않은 것이다.
+ */
+export function trackPointsStorePurchase(
+  outcome: "attempted" | "completed" | "late" | "failed" | "cancelled",
+  itemKind: "accessory" | "timerBackground" | "set",
+) {
+  if (!initialized) return;
+  track("points_store_purchase", { outcome, item_kind: itemKind });
+}
+
+/**
+ * 세트 칸 열람
+ *
+ * 소품 화면에서 세트 칸을 열 때마다 어느 마스코트의 세트를 봤는지 보낸다.
+ * 세트 구매는 `points_store_purchase`의 `item_kind: set`으로, 착용은 `points_decoration_changed`의 `slot: set`으로 본다.
+ */
+export function trackPointsSetViewed(mascot: string) {
+  if (!initialized) return;
+  track("points_set_viewed", { mascot });
+}
+
+/**
+ * 소품 착용과 벗기, 타이머 배경 적용
+ *
+ * 서버가 저장한 뒤에만 보낸다.
+ */
+export function trackPointsDecorationChanged(change: {
+  kind: "accessory" | "timerBackground";
+  action: "on" | "off";
+  slot?: string;
+}) {
+  if (!initialized) return;
+  track("points_decoration_changed", {
+    kind: change.kind,
+    action: change.action,
+    ...(change.slot === undefined ? {} : { slot: change.slot }),
+  });
+}
+
+/**
+ * 마스코트 고르기
+ *
+ * 서버가 저장한 뒤에만 보낸다.
+ */
+export function trackPointsMascotSelected(mascot: string) {
+  if (!initialized) return;
+  track("points_mascot_selected", { mascot });
+}
+
+/**
+ * 보상형 광고 시청 결과
+ *
+ * `late`는 광고는 끝까지 봤는데 기다리는 동안 서버가 시청을 확인하지 못한 것이다.
+ */
+export function trackPointsAdWatched(status: "rewarded" | "late" | "unavailable" | "cancelled") {
+  if (!initialized) return;
+  track("points_ad_watched", { status });
+}
+
+/**
+ * 포인트 충전 결과
+ *
+ * 스토어 상품 ID는 묶음을 가리키는 고정 이름이라 그대로 보낸다.
+ */
+export function trackPointsCharge(
+  status: "completed" | "late" | "failed" | "cancelled",
+  productId: string,
+) {
+  if (!initialized) return;
+  track("points_charge", { status, product_id: productId });
+}
+
+/**
+ * 포인트 받기
+ *
+ * 출석, 하루 목표, 메달, 시작 미션으로 실제로 포인트가 들어왔을 때만 보낸다.
+ */
+export function trackPointsClaimed(claim: {
+  kind: "attendance" | "dailyGoal" | "medals" | "mission";
+  points: number;
+}) {
+  if (!initialized) return;
+  track("points_claimed", { kind: claim.kind, points: claim.points });
+}

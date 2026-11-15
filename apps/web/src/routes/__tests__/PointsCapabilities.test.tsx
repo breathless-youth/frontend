@@ -15,7 +15,13 @@ import { PointsHistoryPage } from "../PointsHistoryPage";
 import { PointsMascotsPage } from "../PointsMascotsPage";
 import { PointsPage } from "../PointsPage";
 
-const NOTHING_EXTRA = { earn: false, history: false, charge: false, ads: false };
+const NOTHING_EXTRA = {
+  earn: false,
+  history: false,
+  charge: false,
+  ads: false,
+  storeItems: false,
+};
 
 /** 받기·기록·충전·광고를 모두 끈 가짜 경계 */
 function withoutExtras(scene: PointsScene = "default", balance?: number): PointsGateway {
