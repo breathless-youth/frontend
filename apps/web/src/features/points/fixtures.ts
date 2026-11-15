@@ -84,6 +84,13 @@ function buildItems(totalFocusHours: number): ShopItem[] {
     accessory("stopwatch", "partyhat", "고깔모자", price(150)),
     accessory("stopwatch", "headphones", "헤드폰", price(450)),
     accessory("stopwatch", "glasses", "동그란 안경", price(250), { slot: "face" }),
+    accessory(
+      "stopwatch",
+      "rainset",
+      "비 오는 날 세트",
+      { type: "store", productId: "set_stopwatch_rain" },
+      { slot: "set" },
+    ),
     accessory("book", "bookmark", "책갈피 핀", price(150)),
     accessory("book", "scarf", "목도리", price(300), { slot: "body" }),
     accessory("planner", "pen", "만년필", price(200)),
@@ -120,6 +127,7 @@ function buildMascots(
 ): Mascot[] {
   return MASCOT_UNLOCK_HOURS.map(([id, hours]) => ({
     id,
+    price: null,
     unlockFocusSec: hours * HOUR,
     unlocked: totalFocusSec >= hours * HOUR,
     selected: id === selected,

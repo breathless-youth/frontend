@@ -2,6 +2,7 @@ import type { ApiEndpoint } from "@focusmakers/types";
 
 import type {
   DecorationsResponse,
+  MascotPurchaseResponse,
   MascotsResponse,
   ClaimResponse,
   PointProductsResponse,
@@ -145,6 +146,16 @@ export function putSelectedMascot(code: string): Promise<MascotsResponse> {
     method: "PUT",
     body: { code },
   });
+}
+
+/** 포인트로 여는 마스코트만 살 수 있고 거절은 409의 코드로 온다. */
+export function postMascotPurchase(code: string): Promise<MascotPurchaseResponse> {
+  return request(
+    `/api/mascots/${encodeURIComponent(code)}/purchase`,
+    "mascots",
+    "mascot purchase failed",
+    { method: "POST" },
+  );
 }
 
 export function postMascotUnlocksSeen(): Promise<MascotsResponse> {

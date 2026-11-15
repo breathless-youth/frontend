@@ -74,7 +74,7 @@ export function createFakePointsGateway(
         return { ok: false, reason: "owned" };
       }
       if (item.acquire.type !== "price") {
-        throw new Error(`reward item ${itemId} is not for sale`);
+        throw new Error(`item ${itemId} is not sold for points`);
       }
       const mascot = state.mascots.find((m) => m.id === item.mascotId);
       if (mascot && !mascot.unlocked) {
@@ -88,11 +88,46 @@ export function createFakePointsGateway(
       record(-item.acquire.price, "purchase", item.name);
       return { ok: true, balance: state.balance };
     },
+    purchaseMascot: async (id) => {
+      const mascot = state.mascots.find((m) => m.id === id);
+      if (mascot === undefined) {
+        return { ok: false, reason: "notFound" };
+      }
+      if (mascot.price === null) {
+        return { ok: false, reason: "notPurchasable" };
+      }
+      if (mascot.unlocked) {
+        return { ok: false, reason: "owned" };
+      }
+      if (state.balance < mascot.price) {
+        return { ok: false, reason: "insufficient" };
+      }
+      state.balance -= mascot.price;
+      mascot.unlocked = true;
+      record(-mascot.price, "mascotPurchase");
+      return { ok: true, balance: state.balance };
+    },
+    getStorePrices: async (productIds) =>
+      Object.fromEntries(productIds.map((productId) => [productId, "₩1,100"])),
+    purchaseStoreItem: async (itemId, onPaid) => {
+      const item = findItem(itemId);
+      if (item.acquire.type !== "store" || item.owned) {
+        return { status: "failed" };
+      }
+      onPaid?.();
+      item.owned = true;
+      return { status: "completed" };
+    },
     // 같은 자리에는 하나만 쓰므로 먼저 그 자리를 비운다.
     equipAccessory: async (mascotId, slot, itemId) => {
       const item = itemId === null ? null : findOwned(itemId);
       for (const other of state.items) {
-        if (other.kind === "accessory" && other.mascotId === mascotId && other.slot === slot) {
+        if (other.kind !== "accessory" || other.mascotId !== mascotId) {
+          continue;
+        }
+        // 서버처럼 세트를 끼면 낱개를 모두 벗기고 낱개를 끼면 세트를 벗긴다.
+        const opposite = item !== null && (slot === "set" || other.slot === "set");
+        if (other.slot === slot || opposite) {
           other.inUse = false;
         }
       }

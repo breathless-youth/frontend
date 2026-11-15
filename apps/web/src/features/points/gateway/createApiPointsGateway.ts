@@ -8,6 +8,7 @@ import {
   getPointsHistory,
   getShopItems,
   getStudyReward,
+  postMascotPurchase,
   postMascotUnlocksSeen,
   postRewardClaim,
   purchaseShopItem,
@@ -81,6 +82,14 @@ export function createApiPointsGateway(): PointsGateway {
     history: true,
     charge: isNativePointsChargeAvailable(),
     ads: isNativePointsAdsAvailable(),
+    storeItems: isNativePointsChargeAvailable(),
+  };
+  const rejected = (error: unknown) => {
+    const reason = error instanceof ApiError ? toPurchaseFailure(error.code) : null;
+    if (reason === null) {
+      throw error;
+    }
+    return { ok: false as const, reason };
   };
   return {
     capabilities,
@@ -98,12 +107,44 @@ export function createApiPointsGateway(): PointsGateway {
         const res = await purchaseShopItem(Number(itemId));
         return { ok: true, balance: res.balance };
       } catch (error) {
-        const reason = error instanceof ApiError ? toPurchaseFailure(error.code) : null;
-        if (reason === null) {
-          throw error;
-        }
-        return { ok: false, reason };
+        return rejected(error);
       }
+    },
+    purchaseMascot: async (id) => {
+      try {
+        const res = await postMascotPurchase(toMascotCode(id));
+        return { ok: true, balance: res.balance };
+      } catch (error) {
+        return rejected(error);
+      }
+    },
+    getStorePrices: async (productIds) => {
+      if (productIds.length === 0) {
+        return {};
+      }
+      const prices = await requestNativePointsPrices(productIds);
+      return Object.fromEntries(prices.map((price) => [price.storeProductId, price.priceLabel]));
+    },
+    purchaseStoreItem: async (itemId, onPaid) => {
+      const owned = async () =>
+        (await getShopItems()).items.find((item) => String(item.id) === itemId);
+      const item = await owned();
+      if (item === undefined || !item.storeProductId || item.owned) {
+        return { status: "failed" };
+      }
+      const status = await requestNativePointsPurchase(item.storeProductId);
+      if (status !== "completed") {
+        return { status };
+      }
+      onPaid?.();
+      // 상품은 서버가 결제 알림을 받은 뒤에 보유로 바뀐다.
+      for (let attempt = 0; attempt < CHARGE_SETTLE_TRIES; attempt += 1) {
+        if ((await owned())?.owned === true) {
+          return { status: "completed" };
+        }
+        await wait(CHARGE_SETTLE_INTERVAL_MS);
+      }
+      return { status: "late" };
     },
     equipAccessory: async (mascotId, slot, itemId) => {
       await putMascotAccessory(toMascotCode(mascotId), toSlotCode(slot), toServerItemId(itemId));

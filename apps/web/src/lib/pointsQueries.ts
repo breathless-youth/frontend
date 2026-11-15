@@ -13,6 +13,8 @@ export const pointsKeys = {
     ["points", userId, "history", filter] as const,
   earnToday: (userId: number) => ["points", userId, "earnToday"] as const,
   chargePacks: (userId: number) => ["points", userId, "chargePacks"] as const,
+  storePrices: (userId: number, productIds: readonly string[]) =>
+    ["points", userId, "storePrices", productIds] as const,
 };
 
 /**
@@ -75,5 +77,19 @@ export function chargePacksQuery(gateway: PointsGateway, userId: number) {
     queryKey: pointsKeys.chargePacks(userId),
     queryFn: () => gateway.getChargePacks(),
     staleTime: 10 * 60_000,
+  });
+}
+
+/** 스토어 결제 상품의 가격 문구이며 가격과 통화는 스토어가 정해서 자주 바뀌지 않는다. */
+export function storePricesQuery(
+  gateway: PointsGateway,
+  userId: number,
+  productIds: readonly string[],
+) {
+  return queryOptions({
+    queryKey: pointsKeys.storePrices(userId, productIds),
+    queryFn: () => gateway.getStorePrices([...productIds]),
+    staleTime: 10 * 60_000,
+    enabled: productIds.length > 0 && gateway.capabilities.storeItems,
   });
 }

@@ -135,6 +135,22 @@ describe("createFakePointsGateway 꾸미기", () => {
     expect((await item(gateway, CROWN))?.inUse).toBe(false);
   });
 
+  it("세트를 입으면 그 마스코트의 낱개 소품이 모두 벗겨지고, 낱개를 끼면 세트가 벗겨진다", async () => {
+    const gateway = createFakePointsGateway("default");
+    const RIBBON = "acc-stopwatch-ribbon";
+    const SET = "acc-stopwatch-rainset";
+    await gateway.equipAccessory("stopwatch", "body", RIBBON);
+    await gateway.purchaseStoreItem(SET, () => {});
+
+    await gateway.equipAccessory("stopwatch", "set", SET);
+    expect((await item(gateway, SET))?.inUse).toBe(true);
+    expect((await item(gateway, RIBBON))?.inUse).toBe(false);
+
+    await gateway.equipAccessory("stopwatch", "body", RIBBON);
+    expect((await item(gateway, SET))?.inUse).toBe(false);
+    expect((await item(gateway, RIBBON))?.inUse).toBe(true);
+  });
+
   it("가지지 않은 소품과 배경은 거절한다", async () => {
     const gateway = createFakePointsGateway("default");
     await expect(gateway.equipAccessory("stopwatch", "head", CROWN)).rejects.toThrow();

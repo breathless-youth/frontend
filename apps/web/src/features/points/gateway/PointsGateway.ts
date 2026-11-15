@@ -13,6 +13,7 @@ import type {
   PointsHistoryPage,
   PurchaseResult,
   SessionReward,
+  StorePurchaseResult,
   ShopData,
 } from "../types";
 
@@ -22,6 +23,8 @@ export type PointsCapabilities = {
   history: boolean;
   charge: boolean;
   ads: boolean;
+  /** 스토어 결제로 사는 상품을 살 수 있는지이며 결제를 맡을 앱 안에서만 참이다. */
+  storeItems: boolean;
 };
 
 export const FULL_POINTS_CAPABILITIES: PointsCapabilities = {
@@ -29,6 +32,7 @@ export const FULL_POINTS_CAPABILITIES: PointsCapabilities = {
   history: true,
   charge: true,
   ads: true,
+  storeItems: true,
 };
 
 /**
@@ -45,6 +49,17 @@ export interface PointsGateway {
   /** 고른 마스코트와 그 마스코트가 끼고 있는 소품이며 고른 마스코트가 없으면 null이다. */
   getMyLook(): Promise<MascotLook | null>;
   purchase(itemId: string): Promise<PurchaseResult>;
+  /** 포인트로 여는 마스코트를 산다. 고르는 일은 따로 한다. */
+  purchaseMascot(id: MascotId): Promise<PurchaseResult>;
+  /** 스토어 결제 상품의 가격 문구이며 스토어가 답하지 않은 상품은 빠진다. */
+  getStorePrices(productIds: string[]): Promise<Record<string, string>>;
+  /**
+   * 스토어 결제로 상품을 산다.
+   *
+   * onPaid는 스토어 결제가 끝나고 서버가 상품을 넣어 주기를 기다리기 시작할 때 한 번 불린다.
+   * 기다려도 보유로 바뀌지 않으면 `late`로 끝난다. 돈은 이미 나갔으므로 실패와 구분한다.
+   */
+  purchaseStoreItem(itemId: string, onPaid?: () => void): Promise<StorePurchaseResult>;
   /** itemId가 null이면 그 자리의 소품을 벗긴다. */
   equipAccessory(mascotId: MascotId, slot: AccessorySlot, itemId: string | null): Promise<void>;
   /** itemId가 null이면 기본 배경으로 돌린다. */

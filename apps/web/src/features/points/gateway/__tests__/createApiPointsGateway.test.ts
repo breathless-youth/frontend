@@ -87,6 +87,7 @@ describe("createApiPointsGateway", () => {
       history: true,
       charge: false,
       ads: false,
+      storeItems: false,
     });
   });
 

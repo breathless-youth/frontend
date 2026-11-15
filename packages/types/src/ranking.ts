@@ -1,3 +1,5 @@
+import type { MascotAppearance } from "./mascotAppearance";
+
 /**
  * 랭킹 API 응답 타입
  *
@@ -45,6 +47,8 @@ export interface RankingEntry {
    */
   focusing: boolean;
   me: boolean;
+  /** 고른 마스코트와 낀 소품. 이 필드가 배포되기 전 응답에는 없다. */
+  mascot?: MascotAppearance;
 }
 
 export interface RankingMe {

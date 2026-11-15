@@ -5,12 +5,14 @@
  * 서버 응답은 gateway/fromApi.ts가 이 모양으로 바꿔 넘긴다.
  */
 
-import type { AccessorySlot, MascotId } from "@/components/mascot/types";
+import type { AccessorySlot, EffectPiece, MascotId } from "@/components/mascot/types";
 
 export type { AccessorySlot, MascotId };
 
 export type Mascot = {
   id: MascotId;
+  /** 포인트로 사서 여는 마스코트의 가격이며 공부 시간으로 여는 마스코트는 null이다. */
+  price: number | null;
   unlockFocusSec: number;
   unlocked: boolean;
   selected: boolean;
@@ -22,6 +24,8 @@ export type ShopItemKind = "accessory" | "timerBackground";
 
 export type ItemAcquire =
   | { type: "price"; price: number }
+  /** 스토어 결제로만 사는 상품이며 가격 문구는 스토어가 알려 준다. */
+  | { type: "store"; productId: string }
   | { type: "reward"; condition: "streakDays" | "focusHours"; current: number; target: number };
 
 export type ShopItem = {
@@ -29,6 +33,14 @@ export type ShopItem = {
   kind: ShopItemKind;
   name: string;
   imageUrl: string | null;
+  /** 마스코트 뒤에 그리는 조각이며 없는 상품이 대부분이다. */
+  backImageUrl?: string | null;
+  /** 세트에서 옷과 따로 움직이는 효과 그림 */
+  effectImageUrl?: string;
+  /** 효과 칸 소품은 imageUrl을, 세트는 effectImageUrl을 이 조각대로 잘라 움직인다. */
+  effectPieces?: readonly EffectPiece[];
+  /** 그림 없이 코드로 그리는 빛 효과의 종류이며 이때 imageUrl은 null이다. */
+  effectType?: string;
   acquire: ItemAcquire;
   owned: boolean;
   inUse: boolean;
@@ -40,7 +52,16 @@ export type ShopItem = {
 export type ShopData = { items: ShopItem[]; mascots: Mascot[]; totalFocusSec: number };
 
 export type PointsReason =
-  "study" | "attendance" | "dailyGoal" | "ad" | "medal" | "charge" | "purchase";
+  | "study"
+  | "attendance"
+  | "dailyGoal"
+  | "ad"
+  | "medal"
+  | "charge"
+  | "purchase"
+  | "mascotPurchase"
+  | "mission"
+  | "refund";
 
 export type PointsHistoryEntry = {
   id: string;
@@ -48,6 +69,8 @@ export type PointsHistoryEntry = {
   amount: number;
   reason: PointsReason;
   itemName?: string;
+  /** 포인트로 산 마스코트이며 모르는 마스코트면 없다. */
+  mascotId?: MascotId;
   medal?: { period: MedalReward["period"]; rank: MedalReward["rank"] };
 };
 
@@ -103,6 +126,10 @@ export type SessionReward = {
 
 export type PurchaseFailure =
   "insufficient" | "owned" | "lockedMascot" | "notPurchasable" | "notFound";
+
+/** 스토어 결제로 상품을 산 결과이며 `late`는 결제는 끝났는데 기다리는 동안 보유로 바뀌지 않은 것이다. */
+export type StorePurchaseResult =
+  { status: "completed" } | { status: "late" } | { status: "failed" } | { status: "cancelled" };
 
 export type PurchaseResult = { ok: true; balance: number } | { ok: false; reason: PurchaseFailure };
 

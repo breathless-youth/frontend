@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   parseMedalLabel,
+  toHistoryEntry,
   toHistoryPage,
   toMascotCode,
   toMascotId,
@@ -74,8 +75,39 @@ describe("마스코트 코드", () => {
       ],
     });
     expect(mascots).toEqual([
-      { id: "book", unlockFocusSec: 0, unlocked: true, selected: true, newlyUnlocked: false },
-      { id: "padlock", unlockFocusSec: 0, unlocked: true, selected: false, newlyUnlocked: true },
+      {
+        id: "book",
+        price: null,
+        unlockFocusSec: 0,
+        unlocked: true,
+        selected: true,
+        newlyUnlocked: false,
+      },
+      {
+        id: "padlock",
+        price: null,
+        unlockFocusSec: 0,
+        unlocked: true,
+        selected: false,
+        newlyUnlocked: true,
+      },
+    ]);
+  });
+
+  it("포인트로 여는 마스코트는 가격을 싣고 공부 시간 마스코트는 가격이 없다", () => {
+    const mascots = toMascots({
+      totalFocusSec: 0,
+      selectedMascotCode: "BOOK",
+      mascots: [
+        mascot("BOOK", { selected: true }),
+        mascot("CAMCORDER", { unlockType: "POINTS", price: 3000, unlocked: false }),
+        mascot("LAMP", { unlockType: "FOCUS_TIME", price: null, unlocked: false }),
+      ],
+    });
+    expect(mascots.map((entry) => [entry.id, entry.price])).toEqual([
+      ["book", null],
+      ["camcorder", 3000],
+      ["lamp", null],
     ]);
   });
 });
@@ -320,5 +352,158 @@ describe("toMascotLook", () => {
         accessories: [worn("LAMP", "HEAD", null, 1), worn("LAMP", "TAIL", "/tail.png", 2)],
       }),
     ).toEqual({ id: "lamp", accessories: [] });
+  });
+});
+
+describe("새 기록 사유와 결제 상품", () => {
+  const entry = (reason: string, label: string | null = null) =>
+    toHistoryEntry({
+      id: 1,
+      amount: 10,
+      reason,
+      fund: "FREE",
+      label,
+      statDate: "2026-11-10",
+      createdAt: "2026-11-10T05:00:00Z",
+    });
+
+  it("서버가 주는 사유를 모두 화면 사유로 바꾼다", () => {
+    expect(
+      ["DAILY_GOAL", "AD", "CHARGE", "REFUND", "MISSION", "MASCOT_PURCHASE"].map(
+        (reason) => entry(reason)?.reason,
+      ),
+    ).toEqual(["dailyGoal", "ad", "charge", "refund", "mission", "mascotPurchase"]);
+  });
+
+  it("마스코트 구매는 문구의 코드로 어느 마스코트인지 싣고 모르는 코드면 뺀다", () => {
+    expect(entry("MASCOT_PURCHASE", "CAMCORDER")?.mascotId).toBe("camcorder");
+    expect(entry("MASCOT_PURCHASE", "ROBOT")?.mascotId).toBeUndefined();
+  });
+
+  it("가격이 없고 스토어 상품 ID가 있으면 결제로 사는 상품이다", () => {
+    expect(toShopItem(item({ price: null, storeProductId: "item_crown_gold" }))?.acquire).toEqual({
+      type: "store",
+      productId: "item_crown_gold",
+    });
+  });
+
+  it("뒤 조각 그림이 있으면 상품과 착용 모습에 함께 싣는다", () => {
+    expect(toShopItem(item({ backImageUrl: "https://cdn.example/back.png" }))?.backImageUrl).toBe(
+      "https://cdn.example/back.png",
+    );
+    expect(
+      toMascotLook({
+        mascotCode: "BOOK",
+        accessories: [
+          {
+            mascotCode: "BOOK",
+            slot: "BODY",
+            item: { itemId: 1, code: "SCARF", imageUrl: "/front.png", backImageUrl: "/back.png" },
+          },
+        ],
+      })?.accessories,
+    ).toEqual([{ slot: "body", code: "SCARF", imageUrl: "/front.png", backImageUrl: "/back.png" }]);
+  });
+});
+
+describe("세트와 효과", () => {
+  const pieces = [{ x: 0.1, y: 0.2, width: 0.2, height: 0.2, motion: "fall" }];
+
+  it("세트 상품은 세트 칸으로 받고 효과 그림과 조각을 함께 넘긴다", () => {
+    expect(
+      toShopItem(
+        item({
+          slot: "SET",
+          price: null,
+          storeProductId: "set_frog",
+          effectImageUrl: "/frog-fx.png",
+          effectPieces: pieces,
+        }),
+      ),
+    ).toMatchObject({
+      slot: "set",
+      acquire: { type: "store", productId: "set_frog" },
+      effectImageUrl: "/frog-fx.png",
+      effectPieces: pieces,
+    });
+  });
+
+  it("코드로 그리는 빛 효과 상품은 그림이 없어도 종류를 넘긴다", () => {
+    expect(
+      toShopItem(item({ slot: "EFFECT", imageUrl: null, effectType: "aurora" })),
+    ).toMatchObject({ slot: "effect", imageUrl: null, effectType: "aurora" });
+  });
+
+  it("끼고 있는 세트는 옷, 뒤 조각, 효과 그림, 조각을 모두 담는다", () => {
+    expect(
+      toMascotLook({
+        mascotCode: "BOOK",
+        accessories: [
+          {
+            mascotCode: "BOOK",
+            slot: "SET",
+            item: {
+              itemId: 9,
+              code: "BOOK_SET_FROG",
+              imageUrl: "/frog.png",
+              backImageUrl: "/frog-back.png",
+              effectImageUrl: "/frog-fx.png",
+              effectPieces: pieces,
+              effectType: null,
+            },
+          },
+        ],
+      }),
+    ).toEqual({
+      id: "book",
+      accessories: [
+        {
+          slot: "set",
+          code: "BOOK_SET_FROG",
+          imageUrl: "/frog.png",
+          backImageUrl: "/frog-back.png",
+          effectImageUrl: "/frog-fx.png",
+          effectPieces: pieces,
+        },
+      ],
+    });
+  });
+
+  it("끼고 있는 빛 효과는 그림 주소가 없어도 남긴다", () => {
+    expect(
+      toMascotLook({
+        mascotCode: "BOOK",
+        accessories: [
+          {
+            mascotCode: "BOOK",
+            slot: "EFFECT",
+            item: { itemId: 3, code: "BOOK_FX_AURORA", imageUrl: null, effectType: "aurora" },
+          },
+        ],
+      }),
+    ).toEqual({
+      id: "book",
+      accessories: [{ slot: "effect", code: "BOOK_FX_AURORA", effectType: "aurora" }],
+    });
+  });
+
+  it("모양이 틀린 조각은 버리고 나머지 조각만 넘긴다", () => {
+    const look = toMascotLook({
+      mascotCode: "BOOK",
+      accessories: [
+        {
+          mascotCode: "BOOK",
+          slot: "EFFECT",
+          item: {
+            itemId: 4,
+            code: "BOOK_FX_STAR",
+            imageUrl: "/star.png",
+            effectPieces: [...pieces, { x: 0.5, y: 0.5, width: 0, height: 0.1, motion: "float" }],
+          },
+        },
+      ],
+    });
+
+    expect(look?.accessories[0].effectPieces).toEqual(pieces);
   });
 });

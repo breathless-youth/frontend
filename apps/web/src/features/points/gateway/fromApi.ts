@@ -1,3 +1,5 @@
+import type { EffectPiece, WornAccessory } from "@/components/mascot/types";
+
 import type {
   AccessorySlot,
   EarnToday,
@@ -16,6 +18,7 @@ import type {
 import type {
   ClaimResponse,
   DecorationsResponse,
+  EffectPieceResponse,
   MascotsResponse,
   PointsEarnResponse,
   PointsHistoryItemResponse,
@@ -59,6 +62,7 @@ const SLOT_BY_CODE: ReadonlyMap<string, AccessorySlot> = new Map(
     HELD: "held",
     UNDERFOOT: "underfoot",
     EFFECT: "effect",
+    SET: "set",
   } satisfies Record<string, AccessorySlot>),
 );
 
@@ -76,13 +80,19 @@ const BACKGROUND_CATEGORY_BY_TAG: ReadonlyMap<string, string> = new Map(
   }),
 );
 
-// 서버에서 확인한 사유는 STUDY, PURCHASE, ATTENDANCE이고, MEDAL은 문구 형식이 알려져 있어 미리 받는다.
+// 공부 포인트의 날짜 옮김(STUDY_ADJUST)은 서버가 기록 조회에 싣지 않아 표에 없다.
 const HISTORY_REASON_BY_CODE: ReadonlyMap<string, PointsReason> = new Map(
   Object.entries({
     STUDY: "study",
     PURCHASE: "purchase",
+    MASCOT_PURCHASE: "mascotPurchase",
+    MISSION: "mission",
     ATTENDANCE: "attendance",
+    DAILY_GOAL: "dailyGoal",
     MEDAL: "medal",
+    AD: "ad",
+    CHARGE: "charge",
+    REFUND: "refund",
   } satisfies Record<string, PointsReason>),
 );
 
@@ -95,6 +105,9 @@ const PURCHASE_FAILURE_BY_CODE: ReadonlyMap<string, PurchaseFailure> = new Map(
     MASCOT_LOCKED: "lockedMascot",
     ITEM_NOT_PURCHASABLE: "notPurchasable",
     SHOP_ITEM_NOT_FOUND: "notFound",
+    MASCOT_ALREADY_OWNED: "owned",
+    MASCOT_NOT_PURCHASABLE: "notPurchasable",
+    MASCOT_NOT_FOUND: "notFound",
   } satisfies Record<string, PurchaseFailure>),
 );
 
@@ -125,10 +138,7 @@ export function toSlotCode(slot: AccessorySlot): string {
  */
 export function toMascotLook(
   raw: { mascotCode: string | null; accessories: DecorationsResponse["accessories"] } | null,
-): {
-  id: MascotId;
-  accessories: { slot: AccessorySlot; code: string; imageUrl: string }[];
-} | null {
+): { id: MascotId; accessories: (WornAccessory & { code: string })[] } | null {
   const id = raw === null || raw.mascotCode === null ? null : toMascotId(raw.mascotCode);
   if (raw === null || id === null) {
     return null;
@@ -137,11 +147,53 @@ export function toMascotLook(
     id,
     accessories: raw.accessories.flatMap((entry) => {
       const slot = toAccessorySlot(entry.slot);
-      const imageUrl = entry.item.imageUrl;
-      return entry.mascotCode !== raw.mascotCode || slot === null || imageUrl === null
+      const drawing = toDrawing(entry.item);
+      return entry.mascotCode !== raw.mascotCode || slot === null || drawing === null
         ? []
-        : [{ slot, code: entry.item.code, imageUrl }];
+        : [{ slot, code: entry.item.code, ...drawing }];
     }),
+  };
+}
+
+/** 그림 판에 대한 비율이 0과 1 사이인 조각만 남기며 하나도 없으면 조각 없이 통째로 그리게 한다. */
+function toEffectPieces(raw: EffectPieceResponse[] | null | undefined): EffectPiece[] | undefined {
+  const ratio = (value: unknown) => typeof value === "number" && value >= 0 && value <= 1;
+  const pieces = (raw ?? []).filter(
+    (piece) =>
+      ratio(piece.x) &&
+      ratio(piece.y) &&
+      ratio(piece.width) &&
+      ratio(piece.height) &&
+      piece.width > 0 &&
+      piece.height > 0 &&
+      typeof piece.motion === "string",
+  );
+  return pieces.length > 0 ? pieces : undefined;
+}
+
+/**
+ * 상품의 그림 정보
+ *
+ * 그림도 없고 코드로 그리는 빛 효과도 아니면 그릴 것이 없어 null이다.
+ * 없는 값은 열쇠째 빼서 받는 쪽이 있는 것만 보게 한다.
+ */
+function toDrawing(item: {
+  imageUrl: string | null;
+  backImageUrl?: string | null;
+  effectImageUrl?: string | null;
+  effectPieces?: EffectPieceResponse[] | null;
+  effectType?: string | null;
+}): Omit<WornAccessory, "slot"> | null {
+  if (item.imageUrl === null && !item.effectType) {
+    return null;
+  }
+  const effectPieces = toEffectPieces(item.effectPieces);
+  return {
+    ...(item.imageUrl === null ? null : { imageUrl: item.imageUrl }),
+    ...(item.backImageUrl ? { backImageUrl: item.backImageUrl } : null),
+    ...(item.effectImageUrl ? { effectImageUrl: item.effectImageUrl } : null),
+    ...(effectPieces ? { effectPieces } : null),
+    ...(item.effectType ? { effectType: item.effectType } : null),
   };
 }
 
@@ -157,6 +209,8 @@ export function toMascots(res: MascotsResponse): Mascot[] {
       : [
           {
             id,
+            // 포인트로 사는 마스코트인데 가격이 빠져 있으면 살 길을 보일 수 없어 공부 시간 마스코트처럼 둔다.
+            price: mascot.unlockType === "POINTS" ? (mascot.price ?? null) : null,
             unlockFocusSec: mascot.unlockFocusSec,
             unlocked: mascot.unlocked,
             selected: mascot.selected,
@@ -166,10 +220,13 @@ export function toMascots(res: MascotsResponse): Mascot[] {
   });
 }
 
-/** 값이 null인 가격은 보상 상품이라 조건을 채운 정도로 바꾸고, 조건을 모르면 얻는 길을 보일 수 없어 버린다. */
+/** 가격이 없으면 스토어 결제 상품이거나 보상 상품이고, 어느 쪽인지 모르면 얻는 길을 보일 수 없어 버린다. */
 function toAcquire(item: ShopItemResponse): ItemAcquire | null {
   if (item.price !== null) {
     return { type: "price", price: item.price };
+  }
+  if (item.storeProductId) {
+    return { type: "store", productId: item.storeProductId };
   }
   const condition =
     item.unlock === null ? undefined : REWARD_CONDITION_BY_TYPE.get(item.unlock.type);
@@ -189,10 +246,15 @@ export function toShopItem(item: ShopItemResponse): ShopItem | null {
   if (acquire === null) {
     return null;
   }
+  const effectPieces = toEffectPieces(item.effectPieces);
   const base = {
     id: String(item.id),
     name: item.name,
     imageUrl: item.imageUrl,
+    ...(item.backImageUrl ? { backImageUrl: item.backImageUrl } : null),
+    ...(item.effectImageUrl ? { effectImageUrl: item.effectImageUrl } : null),
+    ...(effectPieces ? { effectPieces } : null),
+    ...(item.effectType ? { effectType: item.effectType } : null),
     acquire,
     owned: item.owned,
     inUse: item.inUse,
@@ -280,6 +342,11 @@ export function toHistoryEntry(item: PointsHistoryItemResponse): PointsHistoryEn
   if (reason === "purchase" && item.label !== null) {
     entry.itemName = item.label;
   }
+  const mascotId =
+    reason === "mascotPurchase" && item.label !== null ? toMascotId(item.label) : null;
+  if (mascotId !== null) {
+    entry.mascotId = mascotId;
+  }
   const medal = reason === "medal" ? parseMedalLabel(item.label) : null;
   if (medal !== null) {
     entry.medal = medal;
@@ -347,7 +414,7 @@ export function toEarnToday(res: PointsEarnResponse): EarnToday {
   };
 }
 
-/** 받기 응답을 화면 결과로 바꾸며, 응답에 없는 값은 비워 두어 경계가 채운다. */
+/** 받기 응답을 화면 결과로 바꾸며, 예전 서버가 잔액을 안 주면 비워 두어 경계가 채운다. */
 export function toClaimResult(res: ClaimResponse): {
   granted: boolean;
   points: number;

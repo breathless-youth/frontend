@@ -35,29 +35,67 @@ export type ShopItemResponse = {
   tag: string | null;
   name: string;
   imageUrl: string | null;
+  /** 뒤 조각, 등급, 스토어 상품 ID는 이 필드들이 생기기 전의 서버가 주지 않는다. */
+  backImageUrl?: string | null;
+  grade?: number;
   price: number | null;
   owned: boolean;
   inUse: boolean;
   unlock: { type: string; requiredValue: number; currentValue: number } | null;
+  /** 스토어 결제로 사는 상품이면 스토어 상품 ID이고 이때 price와 unlock은 null이다. */
+  storeProductId?: string | null;
+  /** 아래 세 필드는 세트와 효과가 생기기 전의 서버가 주지 않는다. */
+  effectImageUrl?: string | null;
+  effectPieces?: EffectPieceResponse[] | null;
+  /** 그림 없이 코드로 그리는 빛 효과의 종류이며 이때 imageUrl은 null이다. */
+  effectType?: string | null;
+};
+
+/** 효과 그림의 조각 하나이며 위치와 크기는 그림 판에 대한 비율(0~1)이다. */
+export type EffectPieceResponse = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  motion: string;
 };
 
 export type ShopItemsResponse = { items: ShopItemResponse[] };
 
 export type PurchaseResponse = { itemId: number; balance: number };
 
+export type MascotPurchaseResponse = { code: string; balance: number };
+
+export type EquippedItemResponse = {
+  itemId: number;
+  code: string;
+  imageUrl: string | null;
+  /** 뒤 조각이 생기기 전의 서버는 주지 않는다. */
+  backImageUrl?: string | null;
+  /** 세트의 움직이는 효과 그림이며 세트가 생기기 전의 서버는 주지 않는다. */
+  effectImageUrl?: string | null;
+  /** 효과 칸 소품은 imageUrl에, 세트는 effectImageUrl에 적용한다. */
+  effectPieces?: EffectPieceResponse[] | null;
+  effectType?: string | null;
+};
+
 export type DecorationsResponse = {
   selectedMascotCode: string | null;
   accessories: {
     mascotCode: string;
     slot: string;
-    item: { itemId: number; code: string; imageUrl: string | null };
+    item: EquippedItemResponse;
   }[];
-  timerBackground: { itemId: number; code: string; imageUrl: string | null } | null;
+  timerBackground: EquippedItemResponse | null;
 };
 
 export type MascotResponse = {
   code: string;
+  /** FOCUS_TIME(누적 순공)이나 POINTS(포인트로 사기)이며 포인트 구매가 생기기 전의 서버는 주지 않는다. */
+  unlockType?: string;
   unlockFocusSec: number;
+  /** unlockType이 FOCUS_TIME이면 null이다. */
+  price?: number | null;
   unlocked: boolean;
   remainingFocusSec: number;
   selected: boolean;
@@ -75,7 +113,7 @@ export type PointsHistoryItemResponse = {
   amount: number;
   reason: string;
   fund: string;
-  /** 구매는 상품 이름, 메달은 `FOCUS_TIME:DAILY/1`처럼 판 키와 순위이고 나머지 사유는 null이다. */
+  /** 구매는 상품 이름, 마스코트 구매는 마스코트 코드, 메달은 `FOCUS_TIME:DAILY/1`처럼 판 키와 순위, 충전과 환불은 스토어 상품 ID이고 나머지 사유는 null이다. */
   label: string | null;
   statDate: string;
   createdAt: string;
@@ -128,7 +166,7 @@ export type PointsEarnResponse = {
 /**
  * 받기 응답
  *
- * 메달 한 번에 받기만 명세가 있고, 출석·하루 목표는 같은 모양이라고 가정해 값이 없으면 경계가 잔액을 다시 읽는다.
+ * 출석·하루 목표·시작 미션은 granted, points, balance를 주고 메달 한 번에 받기는 claimedCount를 함께 준다.
  */
 export type ClaimResponse = {
   granted?: boolean;
@@ -143,6 +181,6 @@ export type GroupMemberMascotResponse = {
   accessories: {
     mascotCode: string;
     slot: string;
-    item: { itemId: number; code: string; imageUrl: string | null };
+    item: EquippedItemResponse;
   }[];
 };
