@@ -36,7 +36,7 @@ export function SlotChips({
             "min-h-11 shrink-0 rounded-full border px-3.5 text-sm font-semibold",
             value === slot
               ? "border-foreground bg-foreground text-background"
-              : "border-border bg-white text-muted-foreground",
+              : "border-border bg-muted text-muted-foreground",
           )}
         >
           {t(`slots.${slot}`)}

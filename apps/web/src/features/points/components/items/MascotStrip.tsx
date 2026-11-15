@@ -45,7 +45,7 @@ export function MascotStrip({
             <span
               className={cn(
                 "relative flex size-13 items-center justify-center rounded-2xl",
-                mascot.unlocked ? "border bg-white" : "bg-muted",
+                mascot.unlocked ? "border bg-muted" : "bg-muted",
                 picked && "border-2 border-primary",
               )}
             >
@@ -53,7 +53,7 @@ export function MascotStrip({
               {!mascot.unlocked && (
                 <span
                   aria-hidden="true"
-                  className="absolute -right-0.75 -bottom-0.75 flex size-4.5 items-center justify-center rounded-full bg-white"
+                  className="absolute -right-0.75 -bottom-0.75 flex size-4.5 items-center justify-center rounded-full bg-muted"
                 >
                   <Lock size={11} className="text-text-tertiary" />
                 </span>

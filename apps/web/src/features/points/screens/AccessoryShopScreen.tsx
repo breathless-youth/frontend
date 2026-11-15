@@ -140,7 +140,7 @@ export function AccessoryShopScreen({
         item={mascot.unlocked ? item : null}
         worn={mascotItems.filter((it) => it.inUse)}
       />
-      <div className="-mx-5 flex flex-1 flex-col gap-3.5 rounded-t-3xl bg-white px-5 pt-4 shadow-[0_-12px_40px_rgb(0_0_0/0.08)]">
+      <div className="-mx-5 flex flex-1 flex-col gap-3.5 rounded-t-3xl bg-muted px-5 pt-4 shadow-[0_-12px_40px_rgb(0_0_0/0.08)]">
         {mascot.unlocked ? (
           <>
             <SlotChips
