@@ -148,6 +148,12 @@
       "exam": "Exam"
     },
     "startingStudy": "Getting ready",
-    "startFailed": "Could not start studying. Please try again."
+    "startFailed": "Could not start studying. Please try again.",
+    "reward": {
+      "title": "Your {{points}} reward is waiting",
+      "claim": "Claim",
+      "claiming": "Claiming",
+      "failed": "Couldn't claim the reward. Tap again."
+    }
   }
 }

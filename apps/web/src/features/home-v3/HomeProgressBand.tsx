@@ -54,12 +54,14 @@ function ProgressRing({
 export function HomeProgressBand({
   band,
   completing,
+  claiming = false,
   starting,
   error,
   actions,
 }: {
   band: HomeBand;
   completing: boolean;
+  claiming?: boolean;
   starting: boolean;
   error?: string;
   actions: HomeV3ContentProps["actions"];
@@ -67,18 +69,21 @@ export function HomeProgressBand({
   const { t } = useTranslation("home");
   const mission = band.kind === "mission" ? band : null;
   const goal = band.kind === "goal" ? band : null;
+  const reward = band.kind === "mission-reward" ? band : null;
   const caption = mission
     ? t("v3.mission.caption")
     : goal
       ? t("v3.goal.caption", { time: homeClock(goal.targetSeconds) })
       : t("v3.mission.finished");
-  const title = mission
-    ? t(mission.step === 1 ? "v3.mission.subject" : "v3.mission.focus")
-    : goal
-      ? goal.remainingSeconds === 0
-        ? t("v3.goal.achieved")
-        : t("v3.goal.remaining", { time: homeClock(goal.remainingSeconds) })
-      : t("v3.goal.prompt");
+  const title = reward
+    ? t("v3.reward.title", { points: `${reward.points.toLocaleString()}P` })
+    : mission
+      ? t(mission.step === 1 ? "v3.mission.subject" : "v3.mission.focus")
+      : goal
+        ? goal.remainingSeconds === 0
+          ? t("v3.goal.achieved")
+          : t("v3.goal.remaining", { time: homeClock(goal.remainingSeconds) })
+        : t("v3.goal.prompt");
   return (
     <div>
       <section
@@ -98,11 +103,19 @@ export function HomeProgressBand({
           )}
         </ProgressRing>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <p className="text-xs leading-4 text-brand-subtle-text tabular-nums">{caption}</p>
+          <p className="flex items-center gap-1.5 text-xs leading-4 text-brand-subtle-text tabular-nums">
+            {caption}
+            {mission?.rewardPoints !== undefined && (
+              // 이번 단계를 끝내면 받는 포인트이며 금액은 서버가 정한다.
+              <span className="rounded-full bg-primary px-1.5 py-px text-[11px] leading-4 font-extrabold text-primary-foreground">
+                +{mission.rewardPoints.toLocaleString()}P
+              </span>
+            )}
+          </p>
           <p
             className={cn(
               "break-keep text-foreground tabular-nums",
-              band.kind === "goal-empty"
+              band.kind === "goal-empty" || reward
                 ? "text-sm leading-5 font-medium"
                 : "text-lg leading-6.5 font-bold",
             )}
@@ -110,7 +123,15 @@ export function HomeProgressBand({
             {title}
           </p>
         </div>
-        {mission?.ready ? (
+        {reward ? (
+          <Button
+            className="min-h-11 min-w-18 shrink-0 rounded-full px-4 text-sm leading-5 font-medium shadow-sb-cta"
+            disabled={claiming}
+            onClick={actions.claimMissionReward}
+          >
+            {t(claiming ? "v3.reward.claiming" : "v3.reward.claim")}
+          </Button>
+        ) : mission?.ready ? (
           <Button
             className={cn(
               "min-h-11 min-w-18 shrink-0 gap-1.5 rounded-full px-4 text-sm leading-5 font-medium shadow-sb-cta",

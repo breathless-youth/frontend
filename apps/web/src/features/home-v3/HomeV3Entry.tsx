@@ -142,7 +142,13 @@ export function HomeV3Entry({
           },
         }
       : { status: "pending" };
-  const progress = useHomeV3Progress(gateway, userId, day, stats);
+  const progress = useHomeV3Progress(
+    gateway,
+    userId,
+    day,
+    stats,
+    isPointsEnabled() && !points.memberOnly,
+  );
   useEffect(() => {
     if (stats.status !== "success" || prefetched.current) return;
     prefetched.current = true;
@@ -258,7 +264,14 @@ export function HomeV3Entry({
         selectedSubjectId={subjectId}
         onMenuOpenChange={setMenuOpen}
         completingMission={progress.completingMission}
-        missionError={progress.missionError ? t("v3.mission.failed") : undefined}
+        claimingReward={progress.claimingReward}
+        missionError={
+          progress.missionError
+            ? t("v3.mission.failed")
+            : progress.rewardError
+              ? t("v3.reward.failed")
+              : undefined
+        }
         startingStudy={verifyingSubject}
         startError={
           startError === "verify"
@@ -282,6 +295,7 @@ export function HomeV3Entry({
           },
           openPlanner: () => openPlanner(day.dateKey),
           completeMission: progress.completeMission,
+          claimMissionReward: progress.claimMissionReward,
           editGoal: () => {
             void preloadGoalSheet();
             setEditing({

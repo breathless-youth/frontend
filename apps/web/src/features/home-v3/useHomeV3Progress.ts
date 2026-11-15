@@ -2,9 +2,14 @@ import type { PlannerDayResponse } from "@focusmakers/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 
-import { trackHomeGoalSaved, trackHomeMissionStepCompleted } from "@/lib/amplitude";
+import {
+  trackHomeGoalSaved,
+  trackHomeMissionStepCompleted,
+  trackPointsClaimed,
+} from "@/lib/amplitude";
 import { postToNative, subscribeToNativeMessages } from "@/lib/bridge";
 import { plannerKeys } from "@/lib/plannerQueries";
+import { pointsKeys } from "@/lib/pointsQueries";
 import { ApiError } from "@/lib/api";
 import type { HomeDay, HomeGoal, HomeV3Gateway } from "./HomeV3Gateway";
 import type { HomeGoalSaveInput, HomeGoalSaveResult } from "./HomeGoalSheet";
@@ -55,6 +60,8 @@ export function useHomeV3Progress(
   userId: number,
   day: HomeDay,
   stats: HomeLoadState<HomeTodayStats>,
+  /** 미션 포인트를 보일지이며 포인트 기능이 켜져 있고 회원일 때만 참이다. */
+  rewards = false,
 ) {
   const client = useQueryClient();
   const completingRef = useRef(false);
@@ -91,11 +98,35 @@ export function useHomeV3Progress(
     onSuccess: (result, { owner, step }) => {
       trackHomeMissionStepCompleted(step);
       client.setQueryData(homeV3Keys.mission(owner), result);
+      // 단계를 끝내며 받은 포인트는 알림 없이 잔액이 세어 올라가는 것으로만 보인다.
+      if ((result.rewardedPoints ?? 0) > 0) {
+        trackPointsClaimed({ kind: "mission", points: result.rewardedPoints ?? 0 });
+        void client.invalidateQueries({ queryKey: pointsKeys.user(owner) });
+      }
     },
     onError: (error, { owner }) => {
       if (error instanceof ApiError && error.status === 400)
         void client.invalidateQueries({ queryKey: homeV3Keys.mission(owner) });
     },
+  });
+  const rewardClaim = useMutation({
+    mutationFn: ({ adapter }: { adapter: HomeV3Gateway; owner: number }) =>
+      adapter.claimMissionReward(),
+    networkMode: "always",
+    retry: false,
+    onSuccess: (result, { owner }) => {
+      if (result.granted) {
+        trackPointsClaimed({ kind: "mission", points: result.points });
+      }
+      client.setQueryData(pointsKeys.balance(owner), result.balance);
+      client.setQueryData<HomeMission>(homeV3Keys.mission(owner), (previous) =>
+        previous ? { ...previous, claimablePoints: 0 } : previous,
+      );
+      void client.invalidateQueries({ queryKey: [...pointsKeys.user(owner), "history"] });
+    },
+    // 다른 기기에서 이미 받았을 수 있어 실패하면 서버 상태로 띠를 다시 그린다.
+    onError: (_error, { owner }) =>
+      void client.invalidateQueries({ queryKey: homeV3Keys.mission(owner) }),
   });
   const goalSave = useMutation({
     networkMode: "always",
@@ -144,8 +175,11 @@ export function useHomeV3Progress(
           },
         }
       : { status: "pending" };
-  else if (mission.data.currentStep !== null)
-    band = { status: "success", value: selectHomeBand(mission.data, 0, null) };
+  else if (
+    mission.data.currentStep !== null ||
+    (rewards && (mission.data.claimablePoints ?? 0) > 0)
+  )
+    band = { status: "success", value: selectHomeBand(mission.data, 0, null, rewards) };
   else if (goal.data === undefined)
     band = goal.isError
       ? {
@@ -163,6 +197,7 @@ export function useHomeV3Progress(
         mission.data,
         stats.status === "success" ? stats.value.focusSeconds : 0,
         goal.data.seconds,
+        rewards,
       ),
     };
 
@@ -189,6 +224,11 @@ export function useHomeV3Progress(
     completingMission: acknowledgement.isPending,
     missionError: acknowledgement.isError,
     completeMission,
+    claimingReward: rewardClaim.isPending,
+    rewardError: rewardClaim.isError,
+    claimMissionReward: () => {
+      if (!rewardClaim.isPending) rewardClaim.mutate({ adapter: gateway, owner: userId });
+    },
     saveGoal: (editedDay: HomeDay, input: HomeGoalSaveInput) =>
       goalSave.mutateAsync({ adapter: gateway, owner: userId, day: editedDay, input }),
   };

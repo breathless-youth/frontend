@@ -49,6 +49,7 @@ function Preview({ scenario }: { scenario: Scenario }) {
   });
   const gateway: HomeV3Gateway = {
     readMission: async () => mission.current,
+    claimMissionReward: async () => ({ granted: false, points: 0, balance: 0 }),
     acknowledgeMission: async (step) => {
       mission.current = {
         ...mission.current,

@@ -52,6 +52,7 @@ function renderHome() {
   const gateway: HomeV3Gateway = {
     readMission: vi.fn().mockResolvedValue(homeMission(0, 0)),
     acknowledgeMission: vi.fn(),
+    claimMissionReward: vi.fn(),
     readPlannerDay: vi.fn().mockResolvedValue(
       plannerDay({
         date: "2026-11-07",

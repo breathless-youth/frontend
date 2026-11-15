@@ -143,6 +143,12 @@
       "exam": "수능"
     },
     "startingStudy": "공부 준비 중",
-    "startFailed": "공부를 시작하지 못했어요. 다시 시도해 주세요."
+    "startFailed": "공부를 시작하지 못했어요. 다시 시도해 주세요.",
+    "reward": {
+      "title": "보상 {{points}}를 받아 주세요",
+      "claim": "받기",
+      "claiming": "받는 중",
+      "failed": "보상을 받지 못했어요. 다시 눌러 주세요."
+    }
   }
 }

@@ -143,6 +143,12 @@
       "exam": "考試"
     },
     "startingStudy": "準備讀書中",
-    "startFailed": "無法開始讀書，請再試一次。"
+    "startFailed": "無法開始讀書，請再試一次。",
+    "reward": {
+      "title": "請領取 {{points}} 獎勵",
+      "claim": "領取",
+      "claiming": "領取中",
+      "failed": "無法領取獎勵，請再按一次。"
+    }
   }
 }
