@@ -1958,9 +1958,10 @@ body {
   }
 }
 
+/* 별 모양을 clip-path로 자르면 반짝일 때마다 가림막을 다시 계산해 여러 마리에서 무거워서, 같은 모양을 배경 그림으로 그린다. */
 .mascot-fx-star {
-  background: #fff3b5;
-  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpolygon points='50,0 61,39 100,50 61,61 50,100 39,61 0,50 39,39' fill='%23fff3b5'/%3E%3C/svg%3E")
+    center / 100% 100% no-repeat;
   animation-name: mascot-fx-star;
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
