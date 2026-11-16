@@ -16,7 +16,8 @@ const LOAD_TIMEOUT_MS = 15_000;
  * 이 파일만 SDK를 불러오고 다른 코드는 `lib/pointsAds.ts`의 공개 함수만 본다.
  * `app/_layout.tsx`가 모듈 스코프에서 `installPointsAdsSdk()`를 부른다.
  * 광고 단위 ID가 없는 빌드는 SDK를 불러오지 않고, Metro의 새 JS가 SDK 네이티브 모듈이 없는 이전 Dev Client에 실리면 광고를 끈다.
- * 미성년 사용자가 많아 맞춤형이 아닌 광고만 요청하고, 광고 등급 상한을 전체 이용가로 건다.
+ * 미성년 사용자가 많아 광고 등급 상한을 전체 이용가로 건다.
+ * 맞춤 광고는 허용하기로 해서 맞춤 광고를 끄는 옵션과 아동 대상 표시는 넣지 않는다.
  */
 export function installPointsAdsSdk(): void {
   const unitIds = Constants.expoConfig?.extra?.admobRewardedUnitIds as
@@ -47,7 +48,6 @@ export function installPointsAdsSdk(): void {
       initialized ??= start();
       await initialized;
       const rewarded = ads.RewardedAd.createForAdRequest(unitId, {
-        requestNonPersonalizedAdsOnly: true,
         serverSideVerificationOptions: { userId },
       });
       return new Promise<PointsAdStatus>((resolve) => {

@@ -115,4 +115,13 @@ describe("보상형 광고 SDK 어댑터", () => {
     const [, options] = mockCreateForAdRequest.mock.calls[0] as [string, Record<string, unknown>];
     expect(options.serverSideVerificationOptions).toEqual({ userId: "1685" });
   });
+
+  it("맞춤 광고를 허용하므로 광고 요청에 맞춤 광고를 끄는 옵션을 싣지 않는다", async () => {
+    const adapter = installedAdapter();
+
+    await adapter.show("1685");
+
+    const [, options] = mockCreateForAdRequest.mock.calls[0] as [string, Record<string, unknown>];
+    expect(options).not.toHaveProperty("requestNonPersonalizedAdsOnly");
+  });
 });
