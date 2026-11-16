@@ -1486,76 +1486,85 @@ body {
 }
 
 /* 지우개 가루
-   갈래 번호는 덩어리 순서로 정하고 r은 l을 좌우로 뒤집은 것이다. */
+   갈래 번호는 덩어리 순서로 정하고 r은 l을 좌우로 뒤집은 것이다.
+   덩어리는 한 바퀴의 40%부터 84%까지만 움직이고 나머지는 제자리에 머물러, 시작 시점이 엇갈리면 같은 순간에 흩어진 덩어리가 적다. */
 @keyframes mascot-fx-spread-l1 {
   0%,
+  40%,
+  84%,
   100% {
     opacity: 1;
     transform: translate(0, 0) rotate(0deg);
   }
-  50% {
-    opacity: 0.75;
-    transform: translate(-36%, -30%) rotate(-10deg);
+  62% {
+    opacity: 0.8;
+    transform: translate(-26%, -22%) rotate(-7deg);
   }
 }
 
 @keyframes mascot-fx-spread-l2 {
   0%,
+  40%,
+  84%,
   100% {
-    transform: translate(0, 0);
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
   }
-  50% {
-    transform: translate(-14%, -26%);
+  62% {
+    transform: translate(-14%, -24%) rotate(0deg);
   }
 }
 
 @keyframes mascot-fx-spread-l3 {
   0%,
+  40%,
+  84%,
   100% {
+    opacity: 1;
     transform: translate(0, 0) rotate(0deg);
   }
-  35% {
-    transform: translate(-12%, -34%) rotate(8deg);
-  }
-  70% {
-    opacity: 0.85;
-    transform: translate(-28%, -10%) rotate(-5deg);
+  62% {
+    transform: translate(-22%, -12%) rotate(5deg);
   }
 }
 
 @keyframes mascot-fx-spread-r1 {
   0%,
+  40%,
+  84%,
   100% {
     opacity: 1;
     transform: translate(0, 0) rotate(0deg);
   }
-  50% {
-    opacity: 0.75;
-    transform: translate(36%, -30%) rotate(10deg);
+  62% {
+    opacity: 0.8;
+    transform: translate(26%, -22%) rotate(7deg);
   }
 }
 
 @keyframes mascot-fx-spread-r2 {
   0%,
+  40%,
+  84%,
   100% {
-    transform: translate(0, 0);
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
   }
-  50% {
-    transform: translate(14%, -26%);
+  62% {
+    transform: translate(14%, -24%) rotate(0deg);
   }
 }
 
 @keyframes mascot-fx-spread-r3 {
   0%,
+  40%,
+  84%,
   100% {
+    opacity: 1;
     transform: translate(0, 0) rotate(0deg);
   }
-  35% {
-    transform: translate(12%, -34%) rotate(-8deg);
-  }
-  70% {
-    opacity: 0.85;
-    transform: translate(28%, -10%) rotate(5deg);
+  62% {
+    transform: translate(22%, -12%) rotate(-5deg);
   }
 }
 
@@ -1565,7 +1574,7 @@ body {
     transform: translateY(0);
   }
   50% {
-    transform: translateY(-12%);
+    transform: translateY(-10%);
   }
 }
 
@@ -1600,6 +1609,54 @@ body {
 
 .mascot-fx-spread-m {
   animation-name: mascot-fx-spread-m;
+}
+
+/* 원래 가루 그림을 옅게 깐 바탕이며 움직이지 않는다. */
+.mascot-fx-spread-base {
+  opacity: 0.55;
+}
+
+/* 덩어리에서 떨어져 바깥 위로 날리며 흐려지는 작은 알갱이 */
+@keyframes mascot-fx-grain-l {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(1);
+  }
+  15% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-190%, -150%) scale(0.5);
+  }
+}
+
+@keyframes mascot-fx-grain-r {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(1);
+  }
+  15% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(190%, -150%) scale(0.5);
+  }
+}
+
+.mascot-fx-grain {
+  opacity: 0;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+
+.mascot-fx-grain-l {
+  animation-name: mascot-fx-grain-l;
+}
+
+.mascot-fx-grain-r {
+  animation-name: mascot-fx-grain-r;
 }
 
 /* 열쇠 고리
@@ -2170,6 +2227,9 @@ body {
   .mascot-fx-ripple-ring,
   .mascot-fx-ripple-halo,
   .mascot-fx-ripple-bright,
+  .mascot-fx-grain,
+  .mascot-fx-grain-l,
+  .mascot-fx-grain-r,
   .mascot-fx-star,
   .mascot-fx-meteor-path,
   .mascot-fx-flow-shine,

@@ -112,6 +112,56 @@ describe("코드로 그리는 효과", () => {
     expect(new Set(delays).size).toBe(delays.length);
   });
 
+  describe("지우개 가루", () => {
+    const blobs: EffectPiece[] = [
+      { x: 0.38, y: 0.75, width: 0.3, height: 0.05, motion: "spread" },
+      ...Array.from({ length: 12 }, (_, i) => ({
+        x: i < 6 ? 0.2 + i * 0.01 : 0.7 + (i - 6) * 0.01,
+        y: 0.68,
+        width: 0.07,
+        height: 0.07,
+        motion: "spread",
+      })),
+    ];
+
+    it("원래 가루 그림을 옅게 한 장 깔아 덩어리가 흩어져도 가루 구름 자리가 비지 않는다", () => {
+      const { container } = renderEffect({ backImageUrl: "/dust.png", effectPieces: blobs });
+
+      const base = container.querySelectorAll<HTMLElement>("[data-fx-base]");
+      expect(base).toHaveLength(1);
+      expect(base[0].style.backgroundImage).toContain("/dust.png");
+      // 판 전체 그림이라 조각 자리와 상관없이 판을 꽉 채운다.
+      expect(base[0].className).toContain("inset-0");
+    });
+
+    it("가운데 띠를 뺀 덩어리마다 작은 알갱이 두 개가 날리고 작은 크기에서는 알갱이를 뺀다", () => {
+      const { container } = renderEffect({ backImageUrl: "/dust.png", effectPieces: blobs });
+
+      const grains = container.querySelectorAll<HTMLElement>("[data-fx-grain]");
+      expect(grains).toHaveLength(24);
+      for (const grain of grains) {
+        expect(grain.hasAttribute("data-fx-detail")).toBe(true);
+        expect(grain.style.backgroundImage).toContain("/dust.png");
+      }
+    });
+
+    it("같은 순간에 바깥으로 나가 있는 덩어리는 전체의 1/3을 넘지 않는다", () => {
+      const { container } = renderEffect({ backImageUrl: "/dust.png", effectPieces: blobs });
+
+      const phases = piecesOf(container).map((piece) => {
+        const duration = Number.parseFloat(piece.style.animationDuration);
+        const delay = Number.parseFloat(piece.style.animationDelay);
+        return (((-delay / duration) % 1) + 1) % 1;
+      });
+      // index.css의 mascot-fx-spread-* 키프레임에서 덩어리가 가장 먼 자리의 절반보다 멀리 나가 있는 구간이다.
+      const out = (local: number) => local > 0.51 && local < 0.73;
+      for (let t = 0; t < 1; t += 0.01) {
+        const scattered = phases.filter((phase) => out((t + phase) % 1)).length;
+        expect(scattered).toBeLessThanOrEqual(phases.length / 3);
+      }
+    });
+  });
+
   it("지우개 가루는 판 왼쪽 조각은 왼쪽으로, 오른쪽 조각은 오른쪽으로 흩어진다", () => {
     const { container } = renderEffect({
       backImageUrl: "/fx.png",

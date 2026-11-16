@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 
 import type { DrawnMotion } from "./drawnMotion";
+import { rectBox, rectPicture } from "./effectPicture";
 import type { EffectPiece } from "./types";
 
 type Part = { box: CSSProperties; picture: CSSProperties };
@@ -114,33 +115,91 @@ function Drift({ box, picture, piece, index }: Part & { piece: EffectPiece; inde
 // 가루 덩어리는 서로 겹쳐 있어 네모로 자르면 옆 덩어리가 묻어 나온다.
 // 그래서 둥근 가림막으로 덩어리만 남긴다.
 const SOFT_EDGE = "radial-gradient(closest-side, #000 88%, transparent)";
+const SOFT: CSSProperties = { maskImage: SOFT_EDGE, WebkitMaskImage: SOFT_EDGE };
+
+// 덩어리 개수와 상관없이 시작 시점이 고르게 퍼지도록 황금비 간격으로 엇갈린다.
+const GOLDEN = 0.618034;
+
+/** 한 바퀴(3초) 안의 위상을 0초에서 −3초 사이의 시작 지연으로 바꾼다. */
+function phaseDelay(phase: number) {
+  return -((((phase % 1) + 1) % 1) * 3);
+}
+
+/** 덩어리 바깥 위쪽에서 잘라 날리는 작은 알갱이 두 개의 자리(덩어리 상자에 대한 비율, 왼쪽 덩어리 기준) */
+const GRAIN_SPOTS = [
+  { x: 0.05, y: 0.1, size: 0.34 },
+  { x: 0.02, y: 0.45, size: 0.28 },
+];
 
 /**
- * 지우개 가루: 그림 속 가루 덩어리마다 바깥 위로 흩어졌다가 제자리로 모인다.
+ * 지우개 가루: 그림 속 가루 덩어리마다 바깥 위로 조금 흩어졌다가 제자리로 모인다.
  *
  * 판 왼쪽 덩어리는 왼쪽으로, 오른쪽 덩어리는 오른쪽으로 흩어지고 가운데 띠는 제자리에서 출렁인다.
- * 덩어리마다 갈래·박자·시작 시점을 달리해 한꺼번에 움직이지 않는다.
+ * 덩어리는 한 바퀴의 절반 넘게 제자리에 머물고 시작 시점을 황금비 간격으로 엇갈려서, 같은 순간에 흩어진 덩어리가 1/3을 넘지 않는다.
+ * 첫 덩어리가 원래 그림을 옅게 한 장 깔아서 덩어리가 흩어진 순간에도 가루 구름 자리가 비지 않는다.
+ * 덩어리마다 바깥 위쪽에서 잘라 낸 작은 알갱이 두 개가 날리며 흐려지고, 작은 크기에서는 알갱이를 뺀다.
  * 이동 거리를 변수로 넘기면 합성 단계에서 돌지 못해 정해 둔 갈래 가운데 하나로 움직인다.
  */
-function Spread({ box, picture, piece, index }: Part & { piece: EffectPiece; index: number }) {
+function Spread({
+  box,
+  picture,
+  piece,
+  index,
+  imageUrl,
+}: Part & { piece: EffectPiece; index: number; imageUrl: string }) {
   const center = piece.x + piece.width / 2;
   const side = center < 0.45 ? "left" : center > 0.55 ? "right" : "middle";
   const path = side === "middle" ? "m" : `${side === "left" ? "l" : "r"}${(index % 3) + 1}`;
-  const duration = side !== "middle" && index % 3 === 1 ? 1.5 : 3;
-  const random = seeded(index * 29 + 7);
+  const phase = index * GOLDEN;
+  const grains =
+    side === "middle"
+      ? []
+      : GRAIN_SPOTS.map((spot) => {
+          const width = piece.width * spot.size;
+          const height = piece.height * spot.size;
+          const offset = piece.width * spot.x;
+          return {
+            x: side === "left" ? piece.x + offset : piece.x + piece.width - offset - width,
+            y: piece.y + piece.height * spot.y,
+            width,
+            height,
+          };
+        });
   return (
-    <span
-      data-effect-piece="spread"
-      data-spread-side={side}
-      className={cn("mascot-fx-spread absolute bg-no-repeat", `mascot-fx-spread-${path}`)}
-      style={{
-        ...box,
-        ...picture,
-        maskImage: SOFT_EDGE,
-        WebkitMaskImage: SOFT_EDGE,
-        ...timing(duration, -random() * duration),
-      }}
-    />
+    <>
+      {index === 0 && (
+        // 원래 그림보다 옅게 깔아야 제자리에 있는 덩어리와 겹쳐도 진해 보이지 않는다.
+        <span
+          data-fx-base=""
+          className="mascot-fx-spread-base absolute inset-0 bg-no-repeat"
+          style={{ backgroundImage: `url(${imageUrl})`, backgroundSize: "100% 100%" }}
+        />
+      )}
+      <span
+        data-effect-piece="spread"
+        data-spread-side={side}
+        className={cn("mascot-fx-spread absolute bg-no-repeat", `mascot-fx-spread-${path}`)}
+        style={{ ...box, ...picture, ...SOFT, ...timing(3, phaseDelay(phase)) }}
+      />
+      {grains.map((grain, spot) => (
+        <span
+          key={spot}
+          data-fx-grain=""
+          data-fx-detail=""
+          className={cn(
+            "mascot-fx-grain absolute bg-no-repeat",
+            side === "left" ? "mascot-fx-grain-l" : "mascot-fx-grain-r",
+          )}
+          // 덩어리가 바깥으로 나가기 시작할 때 첫 알갱이가, 반 바퀴 뒤에 둘째 알갱이가 날린다.
+          style={{
+            ...rectBox(grain),
+            ...rectPicture(imageUrl, grain),
+            ...SOFT,
+            ...timing(3, phaseDelay(phase - 0.45 + spot * 0.5)),
+          }}
+        />
+      ))}
+    </>
   );
 }
 
@@ -307,6 +366,7 @@ export type OrbitSide = "back" | "front";
  */
 export function DrawnEffectPiece({
   motion,
+  imageUrl,
   piece,
   index,
   side,
@@ -314,6 +374,8 @@ export function DrawnEffectPiece({
   picture,
 }: {
   motion: DrawnMotion;
+  /** 조각을 자른 효과 그림이며 지우개 가루가 바탕과 알갱이를 그릴 때 쓴다. */
+  imageUrl: string;
   piece: EffectPiece;
   index: number;
   side: OrbitSide;
@@ -329,7 +391,7 @@ export function DrawnEffectPiece({
     case "drift":
       return <Drift {...part} piece={piece} index={index} />;
     case "spread":
-      return <Spread {...part} piece={piece} index={index} />;
+      return <Spread {...part} piece={piece} index={index} imageUrl={imageUrl} />;
     case "wipe":
       return <Wipe {...part} />;
     case "spiral":

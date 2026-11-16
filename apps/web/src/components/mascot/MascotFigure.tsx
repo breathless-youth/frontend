@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 
 import { DrawnEffectPiece, type OrbitSide } from "./DrawnEffectPiece";
 import { isDrawnMotion } from "./drawnMotion";
+import { rectBox, rectPicture } from "./effectPicture";
 import {
   ACCESSORY_BOARD_OUTSET,
   splitAccessoryLayers,
@@ -34,16 +35,6 @@ const PIECE_MOTION: ReadonlyMap<string, string> = new Map(
   }),
 );
 
-/** 비율을 CSS 퍼센트 글자로 바꾸며 긴 소수는 넷째 자리에서 끊는다. */
-function percent(ratio: number) {
-  return `${Number((ratio * 100).toFixed(4))}%`;
-}
-
-/** 조각이 판의 어디에 있는지를 배경 위치 값으로 바꾸며 판을 꽉 채운 조각은 밀 곳이 없어 0이다. */
-function backgroundOffset(start: number, size: number) {
-  return size >= 1 ? "0%" : percent(start / (1 - size));
-}
-
 /**
  * 효과 그림에서 잘라 낸 조각 하나
  *
@@ -63,17 +54,8 @@ function EffectPieceLayer({
   index: number;
   side: OrbitSide;
 }) {
-  const box: CSSProperties = {
-    left: percent(piece.x),
-    top: percent(piece.y),
-    width: percent(piece.width),
-    height: percent(piece.height),
-  };
-  const picture: CSSProperties = {
-    backgroundImage: `url(${imageUrl})`,
-    backgroundSize: `${percent(1 / piece.width)} ${percent(1 / piece.height)}`,
-    backgroundPosition: `${backgroundOffset(piece.x, piece.width)} ${backgroundOffset(piece.y, piece.height)}`,
-  };
+  const box = rectBox(piece);
+  const picture = rectPicture(imageUrl, piece);
   if (piece.sprite !== undefined) {
     return <SpriteEffectPiece sprite={piece.sprite} box={box} picture={picture} />;
   }
@@ -81,6 +63,7 @@ function EffectPieceLayer({
     return (
       <DrawnEffectPiece
         motion={piece.motion}
+        imageUrl={imageUrl}
         piece={piece}
         index={index}
         side={side}
