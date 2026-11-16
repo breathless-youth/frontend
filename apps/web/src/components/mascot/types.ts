@@ -10,7 +10,7 @@ export type MascotId =
  * 소품을 끼는 칸
  *
  * 낱개 일곱 칸은 칸마다 하나씩 한꺼번에 낄 수 있다.
- * 세트는 한 벌 옷이라 낱개 일곱 칸과 함께 끼지 않는다.
+ * 세트는 여러 칸을 한 번에 덮는 옷이라 낱개 일곱 칸과 함께 끼지 않는다.
  */
 export type AccessorySlot =
   "face" | "head" | "body" | "wings" | "held" | "underfoot" | "effect" | "set";

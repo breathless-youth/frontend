@@ -23,7 +23,7 @@ type PointsEndpoint = Extract<
 /**
  * 포인트 API 한 번 부르기
  *
- * 실패는 서버 코드를 실은 ApiError로 던져서 경계가 구매 실패 사유나 회원 전용 거절을 코드로 가른다.
+ * 실패는 서버 코드를 실은 ApiError로 throw해서 경계가 구매 실패 사유나 회원 전용 거절을 코드로 구분한다.
  */
 async function request<T>(
   path: string,

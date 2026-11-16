@@ -51,14 +51,14 @@ import { inviteCodeFrom } from "./sessionInvite";
  */
 const NATIVE_MESSAGE_ENTRY = "__focusonNativeMessage";
 
-/** `unknown` 값이 계약 목록 안의 리터럴인지 좁힌다. */
-
-// 스토어 상품 ID는 영문·숫자·점·밑줄·하이픈만 쓴다. 그 밖의 문자열은 결제 SDK에 넘기지 않는다.
+// 스토어 상품 ID는 영문·숫자·점·밑줄·하이픈만 쓴다.
+// 그 밖의 문자열은 결제 SDK에 넘기지 않는다.
 function isStoreProductId(value: unknown): value is string {
   return typeof value === "string" && /^[A-Za-z0-9._-]{1,100}$/.test(value);
 }
 
-// 결제용 ID는 서버가 준 UUID라 영문·숫자·점·밑줄·하이픈만 받는다. 결제 SDK가 익명 사용자에 쓰는 `$` 앞머리 값도 이 규칙에서 걸린다.
+// 결제용 ID는 서버가 준 UUID라 영문·숫자·점·밑줄·하이픈만 받는다.
+// 결제 SDK가 익명 사용자에 쓰는 `$` 앞머리 값도 이 규칙에서 걸린다.
 function toRevenueCatAppUserId(value: unknown): string | null {
   return typeof value === "string" && /^[A-Za-z0-9._-]{1,100}$/.test(value) ? value : null;
 }
@@ -67,6 +67,7 @@ function isBoundedString(value: unknown, max: number): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= max;
 }
 
+/** `unknown` 값이 명세 목록 안의 리터럴인지 좁힌다. */
 function isOneOf<const T extends readonly string[]>(list: T, value: unknown): value is T[number] {
   return typeof value === "string" && (list as readonly string[]).includes(value);
 }

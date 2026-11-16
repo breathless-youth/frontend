@@ -60,7 +60,7 @@ if (!i18n.isInitialized) {
  * 받침에 맞춘 목적격 조사
  *
  * 상품 이름은 서버가 내려줘 카탈로그 문장에서 `을`과 `를`을 미리 고를 수 없다.
- * 한국어 문장만 `{{name, objectParticle}}`로 쓰고 다른 언어는 이름을 그대로 둔다.
+ * 한국어 문장만 `{{name, objectParticle}}`로 쓰고 다른 언어는 이름을 바꾸지 않는다.
  * 한글 음절로 끝나지 않는 이름은 받침을 알 수 없어 둘 다 적는다.
  */
 // eslint-disable-next-line no-restricted-syntax -- 화면 문구가 아니라 한국어 문장에 붙이는 조사다

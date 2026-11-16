@@ -135,7 +135,6 @@ export function toSlotCode(slot: AccessorySlot): string {
   return slot.toUpperCase();
 }
 
-/** 구매 거절 코드를 화면의 실패 사유로 바꾸며 모르는 코드는 null이라 부른 쪽이 그대로 던진다. */
 /**
  * 서버가 준 마스코트와 착용 소품을 그릴 수 있는 모습으로 바꾸기
  *
@@ -193,6 +192,7 @@ function toDrawing(item: EquippedItemResponse): Omit<WornAccessory, "slot"> | nu
   };
 }
 
+/** 구매 거절 코드를 화면의 실패 사유로 바꾸며 모르는 코드는 null이라 부른 쪽이 받은 오류를 다시 throw한다. */
 export function toPurchaseFailure(code: string | undefined): PurchaseFailure | null {
   return code === undefined ? null : (PURCHASE_FAILURE_BY_CODE.get(code) ?? null);
 }

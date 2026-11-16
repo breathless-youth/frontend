@@ -40,8 +40,9 @@ export const FULL_POINTS_CAPABILITIES: PointsCapabilities = {
 };
 
 /**
- * 포인트 화면이 필요로 하는 동작의 경계이며 HTTP 계약이 아니다.
+ * 포인트 화면이 필요로 하는 동작의 경계
  *
+ * HTTP 명세가 아니라 화면이 부르는 동작을 모은 것이다.
  * 잔액과 지급 여부는 서버가 원본이라 바뀐 잔액은 늘 이 경계가 돌려준 값을 쓴다.
  * 실제 API 구현과 개발용 메모리 가짜 구현이 같은 모양을 지킨다.
  * capabilities가 false인 기능의 메서드는 실제 구현에서 거절되므로 화면이 부르지 않는다.
@@ -53,19 +54,20 @@ export interface PointsGateway {
   /** 고른 마스코트와 그 마스코트가 끼고 있는 소품이며 고른 마스코트가 없으면 null이다. */
   getMyLook(): Promise<MascotLook | null>;
   purchase(itemId: string): Promise<PurchaseResult>;
-  /** 포인트로 여는 마스코트를 산다. 고르는 일은 따로 한다. */
+  /** 포인트로 여는 마스코트 사기이며 고르는 일은 따로 한다. */
   purchaseMascot(id: MascotId): Promise<PurchaseResult>;
   /** 스토어 결제 상품의 가격 문구이며 스토어가 답하지 않은 상품은 빠진다. */
   getStorePrices(productIds: string[]): Promise<Record<string, string>>;
   /**
-   * 스토어 결제로 상품을 산다.
+   * 스토어 결제로 상품 사기
    *
    * onPaid는 스토어 결제가 끝나고 서버가 상품을 넣어 주기를 기다리기 시작할 때 한 번 불린다.
-   * 기다려도 보유로 바뀌지 않으면 `late`로 끝난다. 돈은 이미 나갔으므로 실패와 구분한다.
+   * 기다려도 보유로 바뀌지 않으면 `late`로 끝난다.
+   * 돈은 이미 나갔으므로 실패와 구분한다.
    */
   purchaseStoreItem(itemId: string, onPaid?: () => void): Promise<StorePurchaseResult>;
   /**
-   * 스토어 결제로 산 상품을 스토어 결제 기록으로 되찾는다.
+   * 스토어 결제로 산 상품을 스토어 결제 기록으로 되찾기
    *
    * 보유는 서버가 결제 알림을 받은 뒤에 바뀌므로 부른 쪽이 상점을 다시 읽는다.
    */
@@ -84,8 +86,11 @@ export interface PointsGateway {
   watchAd(): Promise<AdResult>;
   getChargePacks(): Promise<ChargePack[]>;
   /**
+   * 포인트 충전
+   *
    * onPaid는 스토어 결제가 끝나고 서버가 포인트를 넣기를 기다리기 시작할 때 한 번 불린다.
-   * 기다려도 포인트가 들어오지 않으면 `late`로 끝난다. 돈은 이미 나갔으므로 실패와 구분한다.
+   * 기다려도 포인트가 들어오지 않으면 `late`로 끝난다.
+   * 돈은 이미 나갔으므로 실패와 구분한다.
    */
   charge(productId: string, onPaid?: () => void): Promise<ChargeResult>;
 }

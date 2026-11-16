@@ -11,7 +11,7 @@ import { isMemberOnlyError } from "../../gateway/memberOnly";
  *
  * 플래그가 꺼져 있거나 사용자가 없으면 요청하지 않고 잔액은 undefined다.
  * 받기 전이나 실패했을 때도 undefined라 호출한 쪽이 줄표나 생략을 고른다.
- * 서버가 회원 전용이라고 거절하면 `memberOnly`가 참이라 얹힌 조각을 통째로 숨긴다.
+ * 서버가 회원 전용이라고 거절하면 `memberOnly`가 참이라 다른 화면에 붙은 포인트 조각을 통째로 숨긴다.
  */
 export function usePointsBalance(userId: number | null): {
   balance: number | undefined;

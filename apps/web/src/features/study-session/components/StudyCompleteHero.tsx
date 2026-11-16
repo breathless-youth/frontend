@@ -74,7 +74,7 @@ const TILT_ANIMATION =
 /**
  * 정점에서 소품을 몸에 맞추는 기울기
  *
- * 기본 자리가 정점이라 기울인 transform을 그대로 두고, 연출 중에는 keyframes가 표정이 바뀌는 순간까지 기울기를 푼다.
+ * 기본 자리가 정점이라 기울인 transform을 유지하고, 연출 중에는 keyframes가 표정이 바뀌는 순간까지 기울기를 푼다.
  * keyframes가 마스코트마다 다른 값을 읽도록 같은 값을 변수로도 둔다.
  */
 function tiltFrame(id: MascotId, jumping: boolean) {
