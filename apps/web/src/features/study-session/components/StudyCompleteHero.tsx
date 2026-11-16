@@ -150,10 +150,11 @@ export function StudyCompleteHero({
       >
         {/* 인트로 블록: 마스코트 + 타이틀 + 설명. 접히면 높이 0·투명·위로 22px — DOM에는 남기되
             보이지 않는 텍스트를 스크린리더가 읽지 않게 aria-hidden을 함께 건다.
-            접힘에 필요한 overflow-hidden이 슬롯 위로 넘친 마스코트를 자르지 않게 위 여백을 늘리고 같은 만큼 끌어올린다. */}
+            접힘에 필요한 overflow-hidden이 슬롯 위로 넘친 마스코트를 자르지 않게 위 여백을 늘리고 같은 만큼 끌어올린다.
+            여백은 정점에서 기운 소품 판의 위 끝(슬롯 위 약 93px)까지 덮는다. */}
         <div
           aria-hidden={collapsed}
-          className="-mt-15 flex w-full flex-col items-center overflow-hidden pt-15 [transition:max-height_0.55s_cubic-bezier(0.22,1,0.36,1),opacity_0.4s_ease,transform_0.5s_ease] motion-reduce:transition-none"
+          className="-mt-24 flex w-full flex-col items-center overflow-hidden pt-24 [transition:max-height_0.55s_cubic-bezier(0.22,1,0.36,1),opacity_0.4s_ease,transform_0.5s_ease] motion-reduce:transition-none"
           style={
             collapsed
               ? { maxHeight: 0, opacity: 0, transform: "translateY(-22px)" }
