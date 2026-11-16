@@ -7,6 +7,7 @@ import {
   MASCOT_FOOT_Y,
   jumpTiltTransform,
 } from "@/components/mascot/mascotExpressions";
+import { splitAccessoryLayers } from "@/components/mascot/mascotLayers";
 import type { MascotId, MascotLook } from "@/components/mascot/types";
 import { Badge } from "@/components/ui/badge";
 import { haptic } from "@/lib/haptics";
@@ -110,7 +111,7 @@ export function StudyCompleteHero({
   const focusSec = useCountUp(view.focusSec, animated);
   const jumping = phase === "intro";
   const { id, accessories } = look ?? DEFAULT_LOOK;
-  const wearsSet = accessories.some((accessory) => accessory.slot === "set");
+  const { wearsSet } = splitAccessoryLayers(accessories);
   const expressions = MASCOT_EXPRESSION_SRC[id];
   const faces = {
     idle: expressions.idle,
