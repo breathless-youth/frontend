@@ -42,6 +42,8 @@ describe("보상형 광고 설정", () => {
       "META_CLIENT_TOKEN",
       "AIRBRIDGE_APP_TOKEN",
       "REVENUECAT_API_KEY",
+      "REVENUECAT_IOS_API_KEY",
+      "REVENUECAT_ANDROID_API_KEY",
       "EAS_BUILD",
     ]) {
       delete process.env[key];

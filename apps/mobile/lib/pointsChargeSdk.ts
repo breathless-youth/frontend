@@ -1,4 +1,5 @@
 import Constants from "expo-constants";
+import { Platform } from "react-native";
 import type * as PurchasesSdk from "react-native-purchases";
 
 import { setPointsChargeAdapter } from "./pointsCharge";
@@ -10,11 +11,14 @@ type PurchasesModule = typeof PurchasesSdk;
  *
  * 이 파일만 SDK를 불러오고 다른 코드는 `lib/pointsCharge.ts`의 공개 함수만 본다.
  * `app/_layout.tsx`가 모듈 스코프에서 `installPointsChargeSdk()`를 부른다.
- * 키가 없는 빌드는 SDK를 불러오지 않고, Metro의 새 JS가 SDK 네이티브 모듈이 없는 이전 Dev Client에 실리면 충전을 끈다.
+ * 운영 공개 키가 플랫폼마다 달라서 실행 중인 플랫폼의 키로 SDK를 시작한다.
+ * 그 키가 없는 빌드는 SDK를 불러오지 않고, Metro의 새 JS가 SDK 네이티브 모듈이 없는 이전 Dev Client에 실리면 충전을 끈다.
  * 포인트는 소모성 상품이라 구독이 아닌 상품으로 조회한다.
  */
 export function installPointsChargeSdk(): void {
-  const apiKey = Constants.expoConfig?.extra?.revenueCatApiKey as string | undefined;
+  const apiKeys = Constants.expoConfig?.extra?.revenueCatApiKeys as
+    Partial<Record<string, string>> | undefined;
+  const apiKey = apiKeys?.[Platform.OS];
   if (!apiKey) {
     return;
   }

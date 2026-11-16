@@ -284,15 +284,33 @@ function resolveAirbridgeToken(variant: AppVariant): string | null {
 /**
  * RevenueCat 공개 SDK 키 주입
  *
- * 바이너리에 실리는 공개 키지만 공개 저장소라 env(`REVENUECAT_API_KEY`)로 받는다. 없으면 충전이 꺼진다.
+ * 운영 공개 키는 iOS(`appl_`)와 Android(`goog_`)가 다르고 EAS 환경 변수는 플랫폼별로 나뉘지 않아 env를 플랫폼마다 따로 받는다.
+ * 플랫폼 키(`REVENUECAT_IOS_API_KEY`, `REVENUECAT_ANDROID_API_KEY`)가 하나도 없으면 두 플랫폼이 함께 쓰는 Test Store 키(`REVENUECAT_API_KEY`)를 쓴다.
+ * 플랫폼 키가 하나만 있으면 다른 플랫폼은 비워 두어 그 플랫폼의 충전이 꺼진다.
+ * 바이너리에 실리는 공개 키지만 공개 저장소라 env로 받는다.
  * `test_`로 시작하는 Test Store 키는 실제 돈이 오가지 않는 가짜 결제라 운영 빌드에 실리면 여기서 끊는다.
+ * 다른 플랫폼의 키가 들어가면 그 플랫폼에서 결제가 되지 않아 운영 빌드에서는 접두어로 확인해 끊는다.
  */
-function resolveRevenueCatApiKey(variant: AppVariant): string {
-  const key = process.env.REVENUECAT_API_KEY ?? "";
-  if (variant === "production" && key.startsWith("test_")) {
-    throw new Error("production 빌드에 RevenueCat Test Store 키(test_)를 넣을 수 없습니다.");
+function resolveRevenueCatApiKeys(variant: AppVariant): { ios: string; android: string } {
+  const shared = process.env.REVENUECAT_API_KEY ?? "";
+  const ios = process.env.REVENUECAT_IOS_API_KEY ?? "";
+  const android = process.env.REVENUECAT_ANDROID_API_KEY ?? "";
+  if (variant === "production") {
+    if ([shared, ios, android].some((key) => key.startsWith("test_"))) {
+      throw new Error("production 빌드에 RevenueCat Test Store 키(test_)를 넣을 수 없습니다.");
+    }
+    if (ios.startsWith("goog_")) {
+      throw new Error(
+        "production 빌드의 REVENUECAT_IOS_API_KEY에 Android 키(goog_)가 들어 있습니다.",
+      );
+    }
+    if (android.startsWith("appl_")) {
+      throw new Error(
+        "production 빌드의 REVENUECAT_ANDROID_API_KEY에 iOS 키(appl_)가 들어 있습니다.",
+      );
+    }
   }
-  return key;
+  return ios === "" && android === "" ? { ios: shared, android: shared } : { ios, android };
 }
 
 /**
@@ -570,8 +588,8 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
       },
       // 같은 기기에서 CSS 대체 화면과 비교하려고 개발 빌드만 네이티브 glass를 끌 수 있게 한다(`lib/remoteQueryParams.ts`).
       glassChromeOff: variant === "development" && process.env.GLASS_CHROME_OFF === "1",
-      // 런타임 게이트(`lib/pointsChargeSdk.ts`)이고, 비어 있으면 이 빌드는 포인트 충전을 끈다.
-      revenueCatApiKey: resolveRevenueCatApiKey(variant),
+      // 런타임 게이트(`lib/pointsChargeSdk.ts`)이고, 실행 중인 플랫폼의 값이 비어 있으면 그 플랫폼은 포인트 충전을 끈다.
+      revenueCatApiKeys: resolveRevenueCatApiKeys(variant),
       // 런타임 게이트(`lib/pointsAdsSdk.ts`)이고, 비어 있으면 이 빌드는 보상형 광고를 끈다.
       admobRewardedUnitIds: admobRewardedUnitIds ?? { ios: "", android: "" },
     },

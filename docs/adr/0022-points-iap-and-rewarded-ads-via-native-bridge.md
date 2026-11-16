@@ -21,8 +21,12 @@
 - 결제는 RevenueCat(`react-native-purchases` 11.0.2)을 쓴다.
 - 광고는 AdMob(`react-native-google-mobile-ads` 17.4.0)의 보상형 광고만 쓴다.
 - SDK는 `lib/pointsChargeSdk.ts`와 `lib/pointsAdsSdk.ts`만 불러오고, 나머지 코드는 `lib/pointsCharge.ts`와 `lib/pointsAds.ts`의 공개 함수만 본다.
-- 결제 키(`REVENUECAT_API_KEY`)나 광고 단위가 없는 빌드와 네이티브 모듈이 없는 옛 Dev Client에서는 SDK를 불러오지 않고 그 기능을 끈다.
+- 운영 공개 키가 iOS와 Android로 다르고 EAS 환경 변수는 플랫폼별로 나뉘지 않아 결제 키를 플랫폼마다 따로 받는다(`REVENUECAT_IOS_API_KEY`, `REVENUECAT_ANDROID_API_KEY`).
+- 셸은 실행 중인 플랫폼의 키로 SDK를 시작한다.
+- 두 플랫폼 키가 모두 없으면 두 플랫폼이 함께 쓰는 Test Store 키(`REVENUECAT_API_KEY`)를 쓴다.
+- 실행 중인 플랫폼의 결제 키나 광고 단위가 없는 빌드와 네이티브 모듈이 없는 옛 Dev Client에서는 SDK를 불러오지 않고 그 기능을 끈다.
 - `test_`로 시작하는 RevenueCat Test Store 키는 운영 빌드에 들어가면 빌드를 실패시킨다.
+- iOS 키 자리에 Android 키(`goog_`), Android 키 자리에 iOS 키(`appl_`)가 들어가도 운영 빌드를 실패시킨다.
 - 광고 단위는 빌드 종류로 고른다. 서버가 자기 환경의 광고 단위로 본 시청만 보상하기 때문이다.
 - AdMob 앱 ID 플러그인은 광고를 띄우지 않는 빌드에도 넣는다. Android는 SDK가 링크된 앱의 매니페스트에 앱 ID가 없으면 시작할 때 죽는다.
 
@@ -96,7 +100,7 @@
 - 결제, 복원, 광고 요청에는 시간 제한이 없다. 사용자가 결제 창이나 광고에 머무는 시간을 정할 수 없기 때문이고, 셸이 답하지 않으면 그 화면의 버튼은 화면을 다시 열 때까지 풀리지 않는다.
 - 셸이 회원 여부를 모르므로, 웹을 거치지 않고 브리지 메시지를 직접 보내면 비회원도 결제 창을 띄울 수 있다. 이때도 포인트는 서버가 회원에게만 준다.
 - 결제와 광고 SDK가 들어가 앱 심사를 다시 받는다. 맞춤 광고를 허용하므로 개인정보 처리방침, App Store 개인정보 라벨, Play 데이터 보안에 광고 식별자와 구매 내역을 넣기 전에는 이 빌드를 스토어에 내지 않는다.
-- 운영 빌드에는 운영용 RevenueCat 키(iOS, Android)와 스토어 상품 등록이 필요하다. 키가 없으면 충전과 결제 상품, 구매 복원이 꺼진 채로 나간다.
+- 운영 빌드에는 운영용 RevenueCat 키(`REVENUECAT_IOS_API_KEY`, `REVENUECAT_ANDROID_API_KEY`)와 스토어 상품 등록이 필요하다. 한 플랫폼의 키가 없으면 그 플랫폼은 충전과 결제 상품, 구매 복원이 꺼진 채로 나간다.
 - staging에는 그 서버가 받는 광고 단위가 없어 광고가 꺼져 있다.
 - 실기기 스파이크(BY-1242, BY-1243)의 SDK 후보 비교 표와 기기별 확인 결과는 이 문서에 담지 못했다. 정리되면 이 문서에 더한다.
 - SDK 버전을 올릴 때는 RevenueCat의 복원 결과 모양(`nonSubscriptionTransactions`)과 AdMob의 요청 설정 이름이 그대로인지 확인한다.
