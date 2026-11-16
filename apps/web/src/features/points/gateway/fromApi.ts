@@ -1,3 +1,5 @@
+import type { PointsEarnResponse } from "@focusmakers/types";
+
 import type { EffectPiece, WornAccessory } from "@/components/mascot/types";
 
 import type {
@@ -21,7 +23,6 @@ import type {
   DecorationsResponse,
   EffectPieceResponse,
   MascotsResponse,
-  PointsEarnResponse,
   PointsHistoryItemResponse,
   PointsHistoryResponse,
   ShopItemResponse,

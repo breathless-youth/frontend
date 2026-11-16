@@ -39,7 +39,7 @@ import {
 } from "./fromApi";
 import type { ClaimKind, HistoryFilter } from "../types";
 import type { PointsCapabilities, PointsGateway } from "./PointsGateway";
-import type { PointProductsResponse } from "./pointsApiTypes";
+import type { PointProductsResponse } from "@focusmakers/types";
 
 /** 결제 알림이 서버에 닿기까지 보통 몇 초, 길면 1분쯤 걸려서 그동안 잔액을 다시 읽는다. */
 const CHARGE_SETTLE_INTERVAL_MS = 2_000;
@@ -69,8 +69,8 @@ const HISTORY_PAGE_SIZE = 30;
  * 결제와 복원 전에 결제 SDK에 로그인할 결제용 ID
  *
  * 서버는 이 값으로 로그인한 결제만 지급하므로 회원번호로 대신하지 않는다.
- * 비회원이면 서버가 null을 주고, 이때는 회원 전용 거절과 같은 오류로 던져 부른 쪽이 로그인 화면으로 보내게 한다.
- * 값이 빠졌거나 목록을 받지 못하면 일반 오류로 던져 결제를 열지 않고 다시 시도하게 한다.
+ * 비회원이면 서버가 null을 주고, 이때는 회원 전용 거절과 같은 오류를 throw해 부른 쪽이 로그인 화면으로 보내게 한다.
+ * 값이 빠졌거나 목록을 받지 못하면 일반 오류를 throw해 결제를 열지 않고 다시 시도하게 한다.
  */
 function requireAppUserId(products: PointProductsResponse): string {
   const appUserId = products.revenueCatAppUserId;

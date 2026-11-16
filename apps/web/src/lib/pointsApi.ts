@@ -1,13 +1,11 @@
-import type { ApiEndpoint } from "@focusmakers/types";
+import type { ApiEndpoint, PointProductsResponse, PointsEarnResponse } from "@focusmakers/types";
 
 import type {
   DecorationsResponse,
   MascotPurchaseResponse,
   MascotsResponse,
   ClaimResponse,
-  PointProductsResponse,
   PointsBalanceResponse,
-  PointsEarnResponse,
   PointsHistoryResponse,
   PurchaseResponse,
   ShopItemsResponse,

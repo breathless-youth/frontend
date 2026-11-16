@@ -42,7 +42,7 @@ export interface AuthRefreshResponse {
 }
 
 /**
- * 심사용 로그인 입구를 그릴지 (GET /api/auth/review-login/status?appVersion=) — Swagger 기준.
+ * 심사용 로그인 입구를 그릴지 (GET /api/auth/review-login/status?appVersion=), Swagger 기준.
  * 토큰 없이 부르고, 서버에 적어 둔 출시 버전보다 높은 앱 버전에서만 enabled가 참이다.
  */
 export interface ReviewLoginStatusResponse {
@@ -50,7 +50,7 @@ export interface ReviewLoginStatusResponse {
 }
 
 /**
- * 심사용 로그인 요청 (POST /api/auth/review-login) — Swagger 기준.
+ * 심사용 로그인 요청 (POST /api/auth/review-login), Swagger 기준.
  * appVersion은 `26.47.0`처럼 점으로 나눈 숫자이고 응답은 `AuthRefreshResponse`와 같은 토큰 한 쌍이다.
  * 실패는 403 REVIEW_LOGIN_DISABLED, 400 INVALID_REVIEW_CREDENTIALS, 429 TOO_MANY_REQUESTS로 온다.
  */
@@ -924,3 +924,10 @@ export type {
   EquippedItemResponse,
   MascotAppearance,
 } from "./mascotAppearance";
+export type {
+  GoalPointTierResponse,
+  PointProductResponse,
+  PointProductsResponse,
+  PointsEarnResponse,
+  StudyPointTierResponse,
+} from "./points";
