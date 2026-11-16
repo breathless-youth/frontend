@@ -137,7 +137,6 @@ export type ChargePack = {
   points: number;
   bonus: number;
   priceLabel: string | null;
-  popular: boolean;
 };
 
 export type SessionReward = {

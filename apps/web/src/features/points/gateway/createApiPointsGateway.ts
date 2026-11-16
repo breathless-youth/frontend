@@ -270,7 +270,6 @@ export function createApiPointsGateway(): PointsGateway {
         points: item.points,
         bonus: item.bonusPoints,
         priceLabel: priceById.get(item.storeProductId) ?? null,
-        popular: false,
       }));
     },
     charge: async (productId, onPaid) => {

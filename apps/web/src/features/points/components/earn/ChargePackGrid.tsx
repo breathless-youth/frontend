@@ -35,16 +35,8 @@ export function ChargePackGrid({
             disabled={pending || price === null}
             aria-label={`${t("points-earn:charge.packLabel", { points: formatPoints(pack.points) })}${price === null ? "" : `, ${price}`}`}
             onClick={() => onCharge(pack)}
-            className={cn(
-              "relative flex min-w-0 flex-col items-center gap-0.5 rounded-lg bg-bg-layer-2 px-2 pt-1.5 pb-2 disabled:opacity-60",
-              pack.popular && "shadow-[inset_0_0_0_2px_var(--primary)]",
-            )}
+            className="relative flex min-w-0 flex-col items-center gap-0.5 rounded-lg bg-bg-layer-2 px-2 pt-1.5 pb-2 disabled:opacity-60"
           >
-            {pack.popular && (
-              <span className="absolute -top-2.25 rounded-full bg-primary px-2 py-0.5 text-[11px] font-extrabold text-primary-foreground">
-                {t("points-earn:charge.popular")}
-              </span>
-            )}
             <img src={packImage(index)} alt="" aria-hidden draggable={false} className="size-19" />
             <span className="text-base font-extrabold tabular-nums">
               {formatPoints(pack.points)}

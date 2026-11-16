@@ -246,9 +246,9 @@ export function buildPointsFixture(scene: PointsScene, now: number = Date.now())
     history: fresh ? [] : buildHistory(now),
     earn: buildEarn(scene),
     packs: [
-      { productId: "points_500", points: 500, bonus: 0, priceLabel: "₩1,100", popular: false },
-      { productId: "points_1200", points: 1200, bonus: 100, priceLabel: "₩2,500", popular: true },
-      { productId: "points_3000", points: 3000, bonus: 400, priceLabel: "₩5,900", popular: false },
+      { productId: "points_500", points: 500, bonus: 0, priceLabel: "₩1,100" },
+      { productId: "points_1200", points: 1200, bonus: 100, priceLabel: "₩2,500" },
+      { productId: "points_3000", points: 3000, bonus: 400, priceLabel: "₩5,900" },
     ],
     sessionReward: {
       earned: 20,

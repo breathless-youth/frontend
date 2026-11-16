@@ -37,9 +37,6 @@ export const ACCESSORY_BOARD_OUTSET = `${(-208 / 1024) * 100}%`;
  */
 export const MASCOT_INSET_IN_BOARD = `${Number(((208 / 1440) * 100).toFixed(4))}%`;
 
-/** 세트 그림이 마스코트까지 그린 완성 그림으로 바뀌면 true로 바꿔 몸을 그리지 않는다. */
-export const HIDE_MASCOT_UNDER_SET = false;
-
 /** 코드로 그릴 줄 아는 빛 효과 */
 const GLOW_TYPES = ["aurora", "glow", "rainbow"] as const;
 export type GlowType = (typeof GLOW_TYPES)[number];

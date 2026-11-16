@@ -42,7 +42,6 @@
   "charge": {
     "title": "Buy points",
     "guide": "Payment and refunds",
-    "popular": "Popular",
     "bonus": "{{points}} extra",
     "pricePending": "Checking price",
     "packLabel": "Buy {{points}}"

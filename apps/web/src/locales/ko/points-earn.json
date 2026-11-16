@@ -41,7 +41,6 @@
   "charge": {
     "title": "포인트 충전",
     "guide": "결제·환불 안내",
-    "popular": "인기",
     "bonus": "{{points}} 더",
     "pricePending": "가격 확인 중",
     "packLabel": "{{points}} 충전"

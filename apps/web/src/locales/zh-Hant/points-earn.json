@@ -41,7 +41,6 @@
   "charge": {
     "title": "儲值點數",
     "guide": "付款與退款說明",
-    "popular": "熱門",
     "bonus": "多送 {{points}}",
     "pricePending": "價格確認中",
     "packLabel": "儲值 {{points}}"

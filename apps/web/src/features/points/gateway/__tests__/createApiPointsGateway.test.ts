@@ -482,8 +482,8 @@ describe("포인트 충전", () => {
     fetchMock.mockResolvedValueOnce(respond(200, PRODUCTS));
 
     expect(await gateway.getChargePacks()).toEqual([
-      { productId: "points_1000", points: 1000, bonus: 100, priceLabel: "₩1,100", popular: false },
-      { productId: "points_3000", points: 3000, bonus: 400, priceLabel: null, popular: false },
+      { productId: "points_1000", points: 1000, bonus: 100, priceLabel: "₩1,100" },
+      { productId: "points_3000", points: 3000, bonus: 400, priceLabel: null },
     ]);
     expect(call().url).toContain("/api/points/products");
     expect(native.requestNativePointsPrices).toHaveBeenCalledWith(
@@ -497,8 +497,8 @@ describe("포인트 충전", () => {
     fetchMock.mockResolvedValueOnce(respond(200, { ...PRODUCTS, revenueCatAppUserId: null }));
 
     expect(await gateway.getChargePacks()).toEqual([
-      { productId: "points_1000", points: 1000, bonus: 100, priceLabel: null, popular: false },
-      { productId: "points_3000", points: 3000, bonus: 400, priceLabel: null, popular: false },
+      { productId: "points_1000", points: 1000, bonus: 100, priceLabel: null },
+      { productId: "points_3000", points: 3000, bonus: 400, priceLabel: null },
     ]);
     expect(native.requestNativePointsPrices).not.toHaveBeenCalled();
   });

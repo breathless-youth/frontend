@@ -41,7 +41,6 @@
   "charge": {
     "title": "ポイントをチャージ",
     "guide": "決済・返金のご案内",
-    "popular": "人気",
     "bonus": "{{points}}",
     "pricePending": "価格を確認中",
     "packLabel": "{{points}}をチャージ"

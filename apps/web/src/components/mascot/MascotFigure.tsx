@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils";
 
 import {
   ACCESSORY_BOARD_OUTSET,
-  HIDE_MASCOT_UNDER_SET,
   splitAccessoryLayers,
   type AccessoryLayerImage,
   type GlowType,
@@ -161,7 +160,7 @@ export function MascotFigure({
   layerFrame?: { className?: string; style?: CSSProperties };
   className?: string;
 }) {
-  const { behind, front, glow, wearsSet } = splitAccessoryLayers(accessories);
+  const { behind, front, glow } = splitAccessoryLayers(accessories);
   const behindLayers = (
     <>
       {glow !== null && <GlowLayer type={glow} id={id} />}
@@ -189,11 +188,9 @@ export function MascotFigure({
   return (
     <span aria-hidden="true" className={cn("relative block aspect-square shrink-0", className)}>
       {frame("behind", behindLayers, glow === null && behind.length === 0)}
-      {!(wearsSet && HIDE_MASCOT_UNDER_SET) && (
-        <span data-slot="mascot-body" className="absolute inset-0">
-          {body ?? <img src={MASCOT_SRC[id]} alt="" draggable={false} className={LAYER} />}
-        </span>
-      )}
+      <span data-slot="mascot-body" className="absolute inset-0">
+        {body ?? <img src={MASCOT_SRC[id]} alt="" draggable={false} className={LAYER} />}
+      </span>
       {frame("front", frontLayers, front.length === 0)}
     </span>
   );
