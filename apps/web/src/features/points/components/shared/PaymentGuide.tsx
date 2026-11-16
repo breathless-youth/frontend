@@ -29,7 +29,7 @@ export function PaymentGuideLink({ itemId }: { itemId?: string }) {
   const location = useLocation();
   const to = { pathname: PAYMENT_GUIDE_PATH, search: pointsSearch(location.search) };
   return (
-    // 글자는 작게 두고 누르는 범위만 위아래로 넓힌다.
+    // 글자는 작게 두고 링크 상자를 44px로 키워, 누르는 범위가 바로 옆 결제 버튼과 겹치지 않는다.
     <Link
       to={to}
       onClick={(event) => {
@@ -44,7 +44,7 @@ export function PaymentGuideLink({ itemId }: { itemId?: string }) {
           navigate(to);
         });
       }}
-      className="relative self-center text-[11px] font-medium text-muted-foreground/80 underline underline-offset-2 before:absolute before:-inset-x-3 before:-inset-y-4"
+      className="relative inline-flex min-h-11 items-center self-center px-3 text-[11px] font-medium text-muted-foreground/80 underline underline-offset-2"
     >
       {t("charge.guide")}
     </Link>
