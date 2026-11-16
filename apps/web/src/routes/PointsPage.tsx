@@ -7,12 +7,6 @@ import { useBackTo } from "@/features/group-room/useBackTo";
 import { PointsLoadState } from "@/features/points/components/shared/PointsLoadState";
 import { PointsScreenFrame } from "@/features/points/components/shared/PointsScreenFrame";
 import { usePointsGateway, usePointsUserId } from "@/features/points/gateway/PointsGatewayContext";
-import {
-  CHARGE_PACKS_PREVIEW,
-  previewCharge,
-  previewWatchAd,
-  withAdPreview,
-} from "@/features/points/model/earnPreview";
 import { useShopActions } from "@/features/points/model/useShopActions";
 import { PointsRouteGate } from "@/features/points/PointsRouteGate";
 import { pointsItemSearch, pointsSearch } from "@/features/points/pointsSearch";
@@ -152,16 +146,16 @@ function ShopPanel() {
  * 포인트 받기 탭의 데이터와 처리
  *
  * 결과를 그대로 돌려줘서 탭이 완료·실패 창을 고른다.
+ * 앱 밖에서는 충전 칸과 광고 타일 자리에 앱에서 열기 안내를 그린다.
+ * 앱 안에서는 그 기능을 맡을 수 있는 앱에서만 칸을 그려서, 예전 앱에 누를 수 없는 칸이 남지 않게 한다.
  */
 function EarnPanel() {
   const { t } = useTranslation("points");
   const gateway = usePointsGateway();
   const userId = usePointsUserId();
   const earn = useQuery(earnTodayQuery(gateway, userId));
-  const chargeAvailable = gateway.capabilities.charge;
-  // 광고와 충전이 붙기 전에는 예시 값으로 보여 주고, 누르면 지금은 할 수 없다고 알린다.
-  const adsAvailable = gateway.capabilities.ads;
-  const packs = useQuery({ ...chargePacksQuery(gateway, userId), enabled: chargeAvailable });
+  const { charge: canCharge, ads: canShowAds } = gateway.capabilities;
+  const packs = useQuery({ ...chargePacksQuery(gateway, userId), enabled: canCharge });
   const actions = useShopActions();
 
   if (earn.data === undefined) {
@@ -175,11 +169,13 @@ function EarnPanel() {
   }
   return (
     <EarnTab
-      earn={adsAvailable ? earn.data : withAdPreview(earn.data)}
-      packs={chargeAvailable ? (packs.data ?? []) : CHARGE_PACKS_PREVIEW}
+      earn={earn.data}
+      packs={packs.data ?? []}
       onClaim={actions.claim}
-      onWatchAd={adsAvailable ? actions.watchAd : previewWatchAd}
-      onCharge={chargeAvailable ? actions.charge : previewCharge}
+      onWatchAd={actions.watchAd}
+      onCharge={actions.charge}
+      chargeAvailable={!actions.inApp || canCharge}
+      adAvailable={!actions.inApp || canShowAds}
     />
   );
 }

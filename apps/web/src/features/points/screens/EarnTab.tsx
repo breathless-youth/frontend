@@ -38,6 +38,7 @@ import type {
  * 받기·광고·충전은 잔액을 고친 뒤의 결과를 돌려줘서 완료·실패 창을 여기서 고른다.
  * 요청이 아예 실패하면 알림만 띄우고 버튼을 다시 누를 수 있게 둔다.
  * 광고와 충전 처리기는 앱 안에서만 넘어오고, 없으면 앱에서 열기 안내를 그린다.
+ * 앱 안인데 그 기능을 맡지 못하는 예전 앱에서는 안내 대신 칸을 그리지 않는다.
  */
 export function EarnTab({
   earn,
@@ -46,14 +47,17 @@ export function EarnTab({
   onWatchAd,
   onCharge,
   chargeAvailable = true,
+  adAvailable = true,
 }: {
   earn: EarnToday;
   packs: ChargePack[];
   onClaim: (kind: ClaimKind) => Promise<ClaimResult>;
   onWatchAd?: () => Promise<AdResult>;
   onCharge?: (productId: string, onPaid?: () => void) => Promise<ChargeResult>;
-  /** 충전을 아직 지원하지 않으면 충전 칸과 앱에서 열기 안내를 그리지 않는다. */
+  /** 충전을 맡지 못하는 앱에서는 충전 칸과 앱에서 열기 안내를 그리지 않는다. */
   chargeAvailable?: boolean;
+  /** 광고를 맡지 못하는 앱에서는 서버가 광고 상태를 줘도 광고 타일을 그리지 않는다. */
+  adAvailable?: boolean;
 }) {
   const { t } = useTranslation(["points-earn", "common"]);
   const navigate = useNavigate();
@@ -125,7 +129,7 @@ export function EarnTab({
       }
     });
 
-  const ad = earn.ad;
+  const ad = adAvailable ? earn.ad : undefined;
   const watched = Math.max(ad?.watched ?? 0, watchedAtLeast);
   const attendanceClaimed = earn.attendance.claimed || claimed.has("attendance");
   const goalClaimed = earn.dailyGoal.claimed || claimed.has("dailyGoal");
