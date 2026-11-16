@@ -1,18 +1,22 @@
 import { Lock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import type { WornAccessory } from "@/components/mascot/types";
 import { cn } from "@/lib/utils";
 
 import type { Mascot, MascotId } from "../../types";
-import { MascotImage } from "../shared/MascotImage";
+import { MascotThumb } from "../shared/MascotThumb";
 
-/** 마스코트 7종을 한 줄로 보이고, 잠긴 것은 흐리게 자물쇠와 함께 둔다. */
+/** 마스코트 7종을 꾸며 둔 모습으로 한 줄에 보이고, 잠긴 것은 소품 없이 흐리게 자물쇠와 함께 둔다. */
 export function MascotStrip({
   mascots,
+  worn,
   pickedId,
   onPick,
 }: {
   mascots: Mascot[];
+  /** 마스코트마다 끼고 있는 소품이며 없는 마스코트는 소품 없이 그린다. */
+  worn: ReadonlyMap<MascotId, readonly WornAccessory[]>;
   pickedId: MascotId;
   onPick: (id: MascotId) => void;
 }) {
@@ -49,7 +53,12 @@ export function MascotStrip({
                 picked && "border-2 border-primary",
               )}
             >
-              <MascotImage id={mascot.id} locked={!mascot.unlocked} size={36} decorative />
+              <MascotThumb
+                id={mascot.id}
+                locked={!mascot.unlocked}
+                accessories={worn.get(mascot.id)}
+                className="size-12"
+              />
               {!mascot.unlocked && (
                 <span
                   aria-hidden="true"

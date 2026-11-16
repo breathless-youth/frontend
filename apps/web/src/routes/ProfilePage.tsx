@@ -19,6 +19,7 @@ import { ProfileMascotRow } from "@/features/points/components/mascots/ProfileMa
 import { usePointsGateway, usePointsUserId } from "@/features/points/gateway/PointsGatewayContext";
 import { sortMascots } from "@/features/points/model/mascotOrder";
 import { useShopActions } from "@/features/points/model/useShopActions";
+import { wornByMascot } from "@/features/points/model/wornAccessories";
 import { PointsRouteGate } from "@/features/points/PointsRouteGate";
 import { pointsSearch } from "@/features/points/pointsSearch";
 import { isMemberProfile } from "@/features/points/usePointsAccess";
@@ -134,6 +135,7 @@ function ProfileMascots() {
   return (
     <ProfileMascotRow
       mascots={sortMascots(shop.data.mascots)}
+      worn={wornByMascot(shop.data.items)}
       decorateTo={`/points/accessories${pointsSearch(location.search)}`}
       onSelect={(id) => {
         selectMascot(id).catch(() => showToast(t("errors.retryLater")));

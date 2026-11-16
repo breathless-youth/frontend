@@ -13,6 +13,7 @@ import { buildPointsFixture } from "../../fixtures";
 import { createFakePointsGateway } from "../../gateway/createFakePointsGateway";
 import type { PointsGateway } from "../../gateway/PointsGateway";
 import { PointsGatewayProvider } from "../../gateway/PointsGatewayContext";
+import type { MascotId } from "../../types";
 
 vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
 
@@ -154,6 +155,41 @@ describe("AccessoryShopScreen", () => {
         .getAllByRole("button")
         .map((button) => button.textContent),
     ).toEqual(["타이미", "몽당이", "플래니", "락키", "부기", "램피", "캠코미"]);
+  });
+
+  it("마스코트 줄은 마스코트마다 꾸며 둔 모습이고 잠긴 마스코트는 소품 없이 보인다", async () => {
+    const gateway = createFakePointsGateway("default");
+    const getShop = gateway.getShop.bind(gateway);
+    const worn = (id: string, mascotId: MascotId) => ({
+      id,
+      kind: "accessory" as const,
+      name: id,
+      imageUrl: `/${id}.png`,
+      acquire: { type: "price" as const, price: 100 },
+      owned: true,
+      inUse: true,
+      mascotId,
+      slot: "held" as const,
+    });
+    renderScreen({
+      ...gateway,
+      getShop: async () => {
+        const shop = await getShop();
+        return {
+          ...shop,
+          items: [...shop.items, worn("planner-mug", "planner"), worn("book-mug", "book")],
+        };
+      },
+    });
+    const strip = await screen.findByRole("group", { name: "마스코트 고르기" });
+    const layers = (name: string) =>
+      [
+        ...within(strip)
+          .getByRole("button", { name })
+          .querySelectorAll("img[data-slot^='accessory-']"),
+      ].map((img) => img.getAttribute("src"));
+    expect(layers("플래니")).toEqual(["/planner-mug.png"]);
+    expect(layers("부기, 아직 잠겨 있어요")).toEqual([]);
   });
 
   it("잠긴 마스코트는 자물쇠와 함께 보이고, 고르면 잠김 안내와 마스코트 모으기가 나온다", async () => {

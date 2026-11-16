@@ -10,6 +10,7 @@ import type { PointsGateway } from "../../../gateway/PointsGateway";
 import { PointsGatewayProvider } from "../../../gateway/PointsGatewayContext";
 import { MascotCollectionScreen } from "../../../screens/MascotCollectionScreen";
 import type { AccessorySlot, MascotId, ShopData, ShopItem } from "../../../types";
+import { wornByMascot } from "../../../model/wornAccessories";
 import { ProfileMascotRow } from "../ProfileMascotRow";
 
 const fixture = buildPointsFixture("default");
@@ -283,12 +284,13 @@ describe("MascotCollectionScreen", () => {
 });
 
 describe("ProfileMascotRow", () => {
-  function renderRow() {
+  function renderRow(data: ShopData = shop) {
     const onSelect = vi.fn();
     render(
       <MemoryRouter>
         <ProfileMascotRow
-          mascots={shop.mascots}
+          mascots={data.mascots}
+          worn={wornByMascot(data.items)}
           onSelect={onSelect}
           decorateTo="/points/accessories"
         />
@@ -296,6 +298,17 @@ describe("ProfileMascotRow", () => {
     );
     return { onSelect };
   }
+
+  it("연 마스코트는 고르지 않았어도 꾸민 모습으로, 잠긴 마스코트는 소품 없이 보인다", () => {
+    renderRow(decorated);
+    expect(accessoryLayers(screen.getByRole("button", { name: "타이미" }))).toEqual([
+      "/timi-cap.png",
+    ]);
+    expect(accessoryLayers(screen.getByRole("button", { name: "플래니" }))).toEqual([
+      "/planner-mug.png",
+    ]);
+    expect(accessoryLayers(screen.getByRole("button", { name: "부기 잠김" }))).toEqual([]);
+  });
 
   it("제목과 꾸미기 링크, 마스코트가 보인다", () => {
     renderRow();

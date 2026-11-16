@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { buildPointsFixture, type PointsScene } from "../../fixtures";
-import type { ShopData } from "../../types";
+import type { ShopData, ShopItem } from "../../types";
 import { ShopTab } from "../ShopTab";
 
 function shopData(scene: PointsScene): ShopData {
@@ -51,6 +51,38 @@ describe("ShopTab", () => {
         .getAllByRole("button")
         .map((button) => button.getAttribute("aria-label")),
     ).toEqual(["타이미", "몽당이", "플래니", "락키", "부기", "램피", "캠코미"]);
+  });
+
+  it("고르기 칸의 마스코트는 마스코트마다 꾸며 둔 모습으로 보인다", () => {
+    const data = shopData("allCollected");
+    const mug: ShopItem = {
+      id: "planner-mug",
+      kind: "accessory",
+      name: "머그잔",
+      imageUrl: "/planner-mug.png",
+      acquire: { type: "price", price: 100 },
+      owned: true,
+      inUse: true,
+      mascotId: "planner",
+      slot: "held",
+    };
+    render(
+      <ShopTab
+        data={{ ...data, items: [...data.items, mug] }}
+        onOpen={vi.fn()}
+        onOpenMascots={vi.fn()}
+        onSelectMascot={vi.fn()}
+      />,
+    );
+    const picker = screen.getByRole("region", { name: "오늘 함께할 마스코트" });
+    const layers = (name: string) =>
+      [
+        ...within(picker)
+          .getByRole("button", { name })
+          .querySelectorAll("img[data-slot^='accessory-']"),
+      ].map((img) => img.getAttribute("src"));
+    expect(layers("플래니")).toEqual(["/planner-mug.png"]);
+    expect(layers("타이미")).toEqual([]);
   });
 
   it("상품 줄이 소품과 타이머 배경 두 종류로 세 개씩 나오고 전체 보기로 그 종류를 연다", async () => {

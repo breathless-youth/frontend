@@ -23,6 +23,7 @@ import { sortMascots } from "../model/mascotOrder";
 import { SLOT_ORDER } from "../model/slotOrder";
 import { usePurchaseFlow } from "../model/usePurchaseFlow";
 import { useStorePurchase } from "../model/useStorePurchase";
+import { wornByMascot } from "../model/wornAccessories";
 import { pickedItemFrom, pointsSearch } from "../pointsSearch";
 import type { AccessorySlot, MascotId, ShopItem } from "../types";
 import type { ShopScreenProps } from "./shopScreenProps";
@@ -159,6 +160,7 @@ export function AccessoryShopScreen({
     <PointsScreenFrame title={t("title", { name: mascotName })} onBack={onBack} balance={balance}>
       <MascotStrip
         mascots={mascots}
+        worn={wornByMascot(data.items)}
         pickedId={mascot.id}
         onPick={(id) => choose(() => setMascotId(id))}
       />

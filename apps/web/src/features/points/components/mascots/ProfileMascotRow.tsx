@@ -2,23 +2,28 @@ import { Lock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
+import type { WornAccessory } from "@/components/mascot/types";
 import { cn } from "@/lib/utils";
 
 import type { Mascot, MascotId } from "../../types";
-import { MascotImage } from "../shared/MascotImage";
+import { MascotThumb } from "../shared/MascotThumb";
 
 /**
  * 프로필 수정의 내 마스코트 줄
  *
  * 폼의 저장 버튼과 상관없이 누르는 즉시 바뀐다.
+ * 연 마스코트는 그 마스코트에 꾸며 둔 소품을 입혀 그린다.
  * 잠긴 마스코트는 흐리게 보이고 눌러도 아무 일도 없다.
  */
 export function ProfileMascotRow({
   mascots,
+  worn,
   onSelect,
   decorateTo,
 }: {
   mascots: Mascot[];
+  /** 마스코트마다 끼고 있는 소품이며 없는 마스코트는 소품 없이 그린다. */
+  worn: ReadonlyMap<MascotId, readonly WornAccessory[]>;
   onSelect: (id: MascotId) => void;
   decorateTo: string;
 }) {
@@ -62,7 +67,12 @@ export function ProfileMascotRow({
                         : "border-border bg-bg-layer-2",
                   )}
                 >
-                  <MascotImage id={mascot.id} locked={!mascot.unlocked} size={40} decorative />
+                  <MascotThumb
+                    id={mascot.id}
+                    locked={!mascot.unlocked}
+                    accessories={worn.get(mascot.id)}
+                    className="size-12"
+                  />
                   {!mascot.unlocked && (
                     <Lock
                       size={10}
