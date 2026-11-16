@@ -87,14 +87,14 @@ describe("TimerBackgroundScreen", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "사용 중" })).toBeDisabled());
   });
 
-  it("사면 알림이 뜨고 그 배경이 사용 중이 된다", async () => {
+  it("사면 알림 없이 그 배경이 사용 중이 된다", async () => {
     const { gateway } = await setup();
     await userEvent.click(tile("비 오는 창가"));
     await userEvent.click(screen.getByRole("button", { name: "400P로 구매" }));
     const sheet = await screen.findByRole("dialog");
     await userEvent.click(within(sheet).getByRole("button", { name: "구매하기" }));
-    await waitFor(() => expect(showToast).toHaveBeenCalledWith("비 오는 창가를 구매했어요!"));
     await waitFor(() => expect(screen.getByRole("button", { name: "사용 중" })).toBeDisabled());
+    expect(showToast).not.toHaveBeenCalled();
     expect(await gateway.getBalance()).toBe(840);
   });
 

@@ -57,10 +57,9 @@ export function TimerBackgroundScreen({
   const flow = usePurchaseFlow(selected ?? null);
   const store = useStorePurchase(all);
   const { step, close } = flow;
-  // 포인트로 샀든 결제로 샀든 산 배경은 바로 쓰는 상태로 만든다.
+  // 포인트로 샀든 결제로 샀든 산 배경은 바로 쓰는 상태로 만들고, 사용 중 표시로 알 수 있어 따로 알리지 않는다.
   const bought = step === "done" ? selected : store.step === "done" ? store.target : undefined;
   const purchasedId = bought?.id;
-  const purchasedName = bought?.name ?? "";
 
   const apply = (itemId: string) => {
     onApply(itemId).catch(() => showToast(t("common:errors.retryLater")));
@@ -73,7 +72,6 @@ export function TimerBackgroundScreen({
     }
     close();
     store.close();
-    showToast(t("points:purchase.done", { name: purchasedName }));
     apply(purchasedId);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 산 배경이 정해질 때만 돌린다
   }, [purchasedId]);

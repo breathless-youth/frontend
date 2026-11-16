@@ -31,8 +31,7 @@
     "noRefundAccessory": "ポイントで買った小物は返金できません。",
     "noRefundMascot": "ポイントで買ったマスコットは返金できません。",
     "cancel": "キャンセル",
-    "confirm": "購入する",
-    "done": "{{name}}を購入しました！"
+    "confirm": "購入する"
   },
   "insufficient": {
     "title": "{{name}}を購入するには、あと{{shortfall}}必要です",

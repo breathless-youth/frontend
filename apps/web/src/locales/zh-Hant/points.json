@@ -31,8 +31,7 @@
     "noRefundAccessory": "用點數購買的小物無法退款。",
     "noRefundMascot": "用點數購買的吉祥物無法退款。",
     "cancel": "取消",
-    "confirm": "購買",
-    "done": "已購買{{name}}！"
+    "confirm": "購買"
   },
   "insufficient": {
     "title": "購買{{name}}還需要 {{shortfall}}",

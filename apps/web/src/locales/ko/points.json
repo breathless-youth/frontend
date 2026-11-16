@@ -31,8 +31,7 @@
     "noRefundAccessory": "포인트로 산 소품은 환불되지 않아요.",
     "noRefundMascot": "포인트로 산 마스코트는 환불되지 않아요.",
     "cancel": "취소",
-    "confirm": "구매하기",
-    "done": "{{name, objectParticle}} 구매했어요!"
+    "confirm": "구매하기"
   },
   "insufficient": {
     "title": "{{name, objectParticle}} 구매하려면 {{shortfall}}가 더 필요해요",

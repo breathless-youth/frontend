@@ -69,12 +69,13 @@ describe("AccessoryShopScreen", () => {
       } satisfies PointsGateway;
     }
 
-    it("스토어 가격으로 사는 버튼을 보이고, 결제가 끝나면 바로 입히고 알린다", async () => {
+    it("스토어 가격으로 사는 버튼을 보이고, 결제가 끝나면 알림 없이 바로 입힌다", async () => {
       const gateway = withStoreItem(true);
       const purchase = vi
         .spyOn(gateway, "purchaseStoreItem")
         .mockResolvedValue({ status: "completed" });
-      const equip = vi.spyOn(gateway, "equipAccessory");
+      // 가짜 경계는 결제 알림을 받지 않아 보유로 바뀌지 않으므로 착용 요청은 성공으로 둔다.
+      const equip = vi.spyOn(gateway, "equipAccessory").mockResolvedValue();
       renderScreen(gateway);
 
       await userEvent.click(await screen.findByRole("button", { name: "₩1,100에 구매하기" }));
@@ -83,7 +84,7 @@ describe("AccessoryShopScreen", () => {
       await waitFor(() =>
         expect(equip).toHaveBeenCalledWith("stopwatch", "head", expect.any(String)),
       );
-      expect(showToast).toHaveBeenCalledWith("왕관을 구매했어요!");
+      expect(showToast).not.toHaveBeenCalled();
     });
 
     it("비회원이 결제 상품을 사려고 하면 결제 창 대신 로그인 화면을 연다", async () => {
@@ -232,13 +233,14 @@ describe("AccessoryShopScreen", () => {
     expect(await screen.findByRole("button", { name: "착용하기" })).toBeEnabled();
   });
 
-  it("구매에 성공하면 알림이 뜨고 잔액이 줄고 바로 착용 상태가 된다", async () => {
+  it("구매에 성공하면 알림 없이 잔액이 줄고 바로 착용 상태가 된다", async () => {
     renderScreen(createFakePointsGateway("default"));
     await userEvent.click(await screen.findByRole("button", { name: "600P로 구매" }));
     await userEvent.click(await screen.findByRole("button", { name: "구매하기" }));
-    expect(await screen.findByRole("status")).toHaveTextContent("왕관을 구매했어요!");
-    expect(screen.getByText("640P")).toBeVisible();
     expect(await screen.findByRole("button", { name: "착용 중" })).toBeDisabled();
+    expect(screen.getByText("640P")).toBeVisible();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.queryByText("왕관을 구매했어요!")).not.toBeInTheDocument();
   });
 
   it("구매 확인 창이 열린 채 뒤로 가기를 누르면 창만 닫히고 사지 않는다", async () => {

@@ -1,4 +1,3 @@
-import { Check } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -29,8 +28,6 @@ import { pickedItemFrom, pointsSearch } from "../pointsSearch";
 import type { AccessorySlot, MascotId, ShopItem } from "../types";
 import type { ShopScreenProps } from "./shopScreenProps";
 import { usePointsScreenViewed } from "../model/usePointsScreenViewed";
-
-const NOTICE_MS = 3000;
 
 /**
  * 소품 사기
@@ -125,26 +122,24 @@ export function AccessoryShopScreen({
     }
   };
 
-  // 산 직후 한 번 입히고, 단계가 done인 동안 보이는 알림은 잠시 뒤 거둔다.
+  // 산 직후 한 번 입힌다. 보유·착용 표시가 바뀌는 것으로 산 것을 알 수 있어 따로 알리지 않는다.
   const { step, close } = flow;
   useEffect(() => {
     if (step !== "done" || item === null) {
       return;
     }
     void setInUse(item, true);
-    const timer = window.setTimeout(close, NOTICE_MS);
-    return () => window.clearTimeout(timer);
+    close();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- step이 done이 될 때만 돌린다
   }, [step]);
 
-  // 결제로 산 소품도 바로 입히고 알린다.
+  // 결제로 산 소품도 바로 입힌다.
   const storeStep = store.step;
   useEffect(() => {
     if (storeStep !== "done" || store.target === null) {
       return;
     }
     void setInUse(store.target, true);
-    showToast(tPoints("purchase.done", { name: store.target.name }));
     store.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 결제가 끝난 때만 돌린다
   }, [storeStep]);
@@ -215,18 +210,6 @@ export function AccessoryShopScreen({
           />
         )}
       </div>
-
-      {flow.step === "done" && item !== null && (
-        <div
-          role="status"
-          className="fixed right-5 bottom-[calc(env(safe-area-inset-bottom)+92px)] left-5 z-50 mx-auto flex max-w-87.5 items-center gap-2 rounded-[14px] bg-foreground px-4 py-3 text-sm font-semibold text-background shadow-lg"
-        >
-          <span className="flex size-5 items-center justify-center rounded-full bg-feedback-success">
-            <Check size={12} aria-hidden="true" />
-          </span>
-          {tPoints("purchase.done", { name: item.name })}
-        </div>
-      )}
 
       <StorePurchaseDialogs flow={store} />
       <PurchaseConfirmSheet

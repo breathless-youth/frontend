@@ -31,8 +31,7 @@
     "noRefundAccessory": "Accessories bought with points can't be refunded.",
     "noRefundMascot": "Mascots bought with points can't be refunded.",
     "cancel": "Cancel",
-    "confirm": "Buy",
-    "done": "You bought {{name}}!"
+    "confirm": "Buy"
   },
   "insufficient": {
     "title": "You need {{shortfall}} more to buy {{name}}",
