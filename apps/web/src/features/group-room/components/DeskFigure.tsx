@@ -12,6 +12,13 @@ const PERSON_STROKE = {
   empty: "stroke-text-tertiary",
 } as const;
 
+// 마스코트에는 선이 없어서 사람 그림의 선과 같은 색을 발밑 자리 조명에 입혀 공부 상태를 알린다.
+const SEAT_LIGHT = {
+  room: "bg-primary/30",
+  elsewhere: "bg-feedback-success/30",
+  rest: "bg-foreground/15",
+} as const satisfies Record<DeskTone, string>;
+
 /**
  * 크기마다 다른 모양
  *
@@ -28,7 +35,7 @@ const SIZE = {
  * 책상에 앉은 사람 그림
  *
  * 나중에 커스텀 캐릭터로 갈아 끼우도록 사람과 책상을 이 부품 하나로 감싼다.
- * 마스코트를 주면 책상 없이 마스코트와 발밑 그림자만 그린다.
+ * 마스코트를 주면 책상 없이 마스코트와 발밑 자리 조명만 그린다.
  * 상태는 칸의 이름이나 옆 글자가 알려 주므로 그림은 화면 낭독기에서 뺀다.
  */
 export function DeskFigure({
@@ -61,7 +68,10 @@ export function DeskFigure({
       <span aria-hidden="true" className={cn("relative block shrink-0", look.box)}>
         <span
           data-slot="mascot-shadow"
-          className="absolute bottom-[3%] left-1/2 h-[14%] w-[62%] -translate-x-1/2 rounded-[50%] bg-foreground/15"
+          className={cn(
+            "absolute bottom-[3%] left-1/2 h-[14%] w-[62%] -translate-x-1/2 rounded-[50%]",
+            SEAT_LIGHT[tone],
+          )}
         />
         {/* 쉬는 중에는 사람 그림의 쉼 색처럼 소품까지 회색으로 가라앉힌다. */}
         <MascotFigure

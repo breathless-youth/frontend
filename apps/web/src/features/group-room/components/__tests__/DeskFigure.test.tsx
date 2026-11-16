@@ -24,6 +24,16 @@ describe("DeskFigure", () => {
     expect(container.querySelector("img")?.closest(".grayscale")).not.toBeNull();
   });
 
+  // 사람 그림이 선 색으로 알리는 상태를 마스코트는 발밑 자리 조명에 같은 색을 입혀 알린다.
+  it.each([
+    ["room", "bg-primary/30"],
+    ["elsewhere", "bg-feedback-success/30"],
+    ["rest", "bg-foreground/15"],
+  ] as const)("%s 상태의 마스코트 자리 조명은 범례와 같은 색이다", (tone, light) => {
+    const { container } = render(<DeskFigure tone={tone} size="md" mascot="lamp" />);
+    expect(container.querySelector('[data-slot="mascot-shadow"]')).toHaveClass(light);
+  });
+
   it("빈자리는 마스코트를 줘도 점선 사람 그림 그대로다", () => {
     const { container } = render(<DeskFigure tone="empty" size="md" mascot="lamp" />);
     expect(container.querySelector("img")).toBeNull();
