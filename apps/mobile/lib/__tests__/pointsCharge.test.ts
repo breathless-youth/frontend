@@ -233,6 +233,27 @@ describe("포인트 충전 결제", () => {
   });
 });
 
+describe("결제 오류 로그", () => {
+  it("결제 SDK 오류는 객체를 통째로 남기지 않고 코드나 이름만 남긴다", async () => {
+    setPointsChargeAdapter(adapter);
+    const warn = jest.mocked(console.warn);
+    const rcError = Object.assign(new Error(`purchase failed for ${APP_USER_ID}`), { code: "2" });
+    adapter.purchase.mockRejectedValueOnce(rcError);
+    adapter.restore.mockRejectedValueOnce(new TypeError(`restore failed for ${APP_USER_ID}`));
+    adapter.prices.mockRejectedValueOnce({ message: APP_USER_ID });
+
+    await purchasePointsCharge("points_1000", APP_USER_ID);
+    await restorePointsPurchases(["set_book_bear"], APP_USER_ID);
+    await pointsChargePrices(["points_1000"], APP_USER_ID);
+
+    expect(warn.mock.calls).toEqual([
+      ["[points-charge] 결제 실패", "code 2"],
+      ["[points-charge] 구매 복원 실패", "TypeError"],
+      ["[points-charge] 가격 조회 실패", "unknown"],
+    ]);
+  });
+});
+
 describe("구매 복원", () => {
   it("어댑터가 없으면 실패로 답한다", async () => {
     expect(await restorePointsPurchases(["set_book_bear"], APP_USER_ID)).toBe("failed");

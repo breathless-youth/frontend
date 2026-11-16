@@ -25,6 +25,15 @@ export type PointsChargeAdapter = {
 const RECORD_KEY = "focuson.pointsCharge";
 const STORE_OPTIONS = { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY };
 
+/** 결제 SDK 오류에는 결제용 ID나 스토어 계정 정보가 실릴 수 있어 로그에는 코드나 이름만 남긴다. */
+function errorSummary(error: unknown): string {
+  const code = (error as { code?: unknown } | null)?.code;
+  if (typeof code === "string" || typeof code === "number") {
+    return `code ${code}`;
+  }
+  return error instanceof Error ? error.name : "unknown";
+}
+
 let adapter: PointsChargeAdapter | null = null;
 let inFlight = false;
 /** 결제 SDK에 로그인해 둔 결제용 ID이며 아직 켜지 않았으면 null이다. */
@@ -66,7 +75,7 @@ async function signIn(active: PointsChargeAdapter, appUserId: string): Promise<v
     remembered = appUserId;
     await SecureStore.setItemAsync(RECORD_KEY, appUserId, STORE_OPTIONS).catch((error: unknown) => {
       remembered = null;
-      console.warn("[points-charge] 켠 기록 저장 실패", error);
+      console.warn("[points-charge] 켠 기록 저장 실패", errorSummary(error));
     });
   }
 }
@@ -91,7 +100,7 @@ export async function resumePointsCharge(): Promise<void> {
     adapter.start(stored);
     signedIn = stored;
   } catch (error) {
-    console.warn("[points-charge] 시작할 때 결제 SDK를 켜지 못함", error);
+    console.warn("[points-charge] 시작할 때 결제 SDK를 켜지 못함", errorSummary(error));
   }
 }
 
@@ -105,7 +114,7 @@ export async function resumePointsCharge(): Promise<void> {
 export async function forgetPointsChargeUser(): Promise<void> {
   remembered = null;
   await SecureStore.deleteItemAsync(RECORD_KEY, STORE_OPTIONS).catch((error: unknown) => {
-    console.warn("[points-charge] 켠 기록 삭제 실패", error);
+    console.warn("[points-charge] 켠 기록 삭제 실패", errorSummary(error));
   });
 }
 
@@ -130,7 +139,7 @@ export async function pointsChargePrices(
     return [];
   }
   await signIn(adapter, appUserId).catch((error: unknown) => {
-    console.warn("[points-charge] 가격 조회 전 로그인 실패", error);
+    console.warn("[points-charge] 가격 조회 전 로그인 실패", errorSummary(error));
   });
   if (signedIn === null) {
     return [];
@@ -138,7 +147,7 @@ export async function pointsChargePrices(
   try {
     return await adapter.prices(storeProductIds);
   } catch (error) {
-    console.warn("[points-charge] 가격 조회 실패", error);
+    console.warn("[points-charge] 가격 조회 실패", errorSummary(error));
     return [];
   }
 }
@@ -167,7 +176,7 @@ export async function purchasePointsCharge(
     await signIn(adapter, appUserId);
     return (await adapter.purchase(storeProductId)) ? "completed" : "cancelled";
   } catch (error) {
-    console.warn("[points-charge] 결제 실패", error);
+    console.warn("[points-charge] 결제 실패", errorSummary(error));
     return "failed";
   } finally {
     inFlight = false;
@@ -195,7 +204,7 @@ export async function restorePointsPurchases(
     const purchased = new Set(await adapter.restore());
     return storeProductIds.some((id) => purchased.has(id)) ? "restored" : "nothing";
   } catch (error) {
-    console.warn("[points-charge] 구매 복원 실패", error);
+    console.warn("[points-charge] 구매 복원 실패", errorSummary(error));
     return "failed";
   } finally {
     inFlight = false;

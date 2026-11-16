@@ -37,7 +37,10 @@ export function installPointsChargeSdk(): void {
     sdk = loaded.default;
     category = loaded.PRODUCT_CATEGORY;
   } catch (error) {
-    console.warn("[points-charge] 결제 SDK를 불러오지 못해 충전을 끈다", error);
+    console.warn(
+      "[points-charge] 결제 SDK를 불러오지 못해 충전을 끈다",
+      error instanceof Error ? error.name : "unknown",
+    );
     return;
   }
   const load = (storeProductIds: string[]) =>
