@@ -1,9 +1,10 @@
 /**
  * 포인트 1단계 API의 응답 타입
  *
- * Swagger 등재 전에 백엔드가 알려 준 모양을 옮긴 잠정 타입이다.
- * Swagger에 올라오면 필드를 대조한 뒤 packages/types로 옮기고 이 파일은 지운다.
+ * 백엔드가 알려 준 모양으로 만든 웹 쪽 타입이며 아직 Swagger와 필드를 대조하지 않았다.
+ * 필드를 대조한 타입은 `packages/types`로 올리고 이 파일에서 삭제한다.
  * 충전 상품과 받기 탭 응답은 대조를 마쳐 `packages/types`의 `points.ts`에 둔다.
+ * 낀 소품과 효과 조각은 다른 사람의 모습과 같은 타입이라 `packages/types`의 `mascotAppearance.ts`를 쓴다.
  * 열거 값은 서버가 값을 더해도 컴파일이 깨지지 않게 string으로 받고, 아는 값만 fromApi가 화면 값으로 바꾼다.
  */
 

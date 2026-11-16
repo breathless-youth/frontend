@@ -1,4 +1,4 @@
-/** BE dev 3b8f395, 효과 그림의 조각 하나. 위치와 크기는 그림 판에 대한 비율(0~1)이다. */
+/** 효과 그림의 조각 하나이며 위치와 크기는 그림 판에 대한 비율(0~1)이다. 백엔드 Swagger 스키마 `EffectPiece` 기준. */
 export interface EffectPieceResponse {
   x: number;
   y: number;
@@ -8,7 +8,7 @@ export interface EffectPieceResponse {
   motion: string;
 }
 
-/** BE dev 3b8f395, 낀 소품 하나. */
+/** 낀 소품 하나이며 백엔드 Swagger 스키마 `EquippedItem` 기준이다. */
 export interface EquippedItemResponse {
   itemId: number;
   code: string;
@@ -25,7 +25,9 @@ export interface EquippedItemResponse {
 }
 
 /**
- * BE dev 3b8f395, 다른 사람에게 보이는 모습.
+ * 다른 사람에게 보이는 모습
+ *
+ * 백엔드 Swagger 스키마 `MascotAppearance`와 그 소품 줄 `EquippedAccessory` 기준이다.
  * 그룹 구성원, 멀티룸 멤버, 랭킹 줄이 같은 모양으로 싣는다.
  * 고른 적이 없거나 비회원이면 첫 마스코트에 accessories가 빈 배열이다.
  */

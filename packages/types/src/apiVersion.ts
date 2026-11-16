@@ -113,10 +113,11 @@ export const API_ENDPOINTS = {
 
   /**
    * `GET /api/points`, `GET /api/points/study-reward`, `GET /api/points/history`: 잔액, 공부 끝 보상, 포인트 기록.
-   * 포인트·상점·꾸미기·마스코트 네 키는 Swagger 등재 전에 백엔드가 알려 준 값이라 등재 뒤 다시 대조한다.
+   * 포인트·상점·꾸미기·마스코트 네 키는 백엔드 Swagger 태그의 API-Version 1과 같다(2026-11-16 백엔드 코드에서 확인).
+   * 응답 필드는 아직 Swagger와 대조하지 않아 웹 쪽 타입(`pointsApiTypes.ts`)으로 읽는다.
    */
   points: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },
-  /** `GET /api/points/earn`: 오늘 받을 수 있는 포인트와 메달 포인트 표. 등재 전 잠정 계약이다. */
+  /** `GET /api/points/earn`: 오늘 받을 수 있는 포인트와 메달 포인트 표. 응답은 2026-11-16 개발 서버 Swagger의 `EarnOverviewResponse`와 필드를 대조했다. */
   pointsEarn: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },
   /** `POST /api/points/rewards/{attendance,daily-goal,medals}/claim`: 출석·하루 목표·랭킹 메달 받기. */
   pointsRewards: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },

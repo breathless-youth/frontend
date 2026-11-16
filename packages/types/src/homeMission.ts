@@ -1,4 +1,4 @@
-/** BE dev 17ae022c, GET/POST /api/home/mission 계열의 직접 JSON 응답. */
+/** GET/POST /api/home/mission 계열의 직접 JSON 응답이며 백엔드 Swagger 스키마 `HomeMissionResponse` 기준이다. */
 export interface HomeMissionResponse {
   version: string;
   startsOn: string;
@@ -11,11 +11,11 @@ export interface HomeMissionResponse {
   rewardedPoints?: number;
   /** 완료했지만 아직 안 받은 미션 포인트. 0보다 크면 rewards/claim으로 받는다. 비회원은 늘 0이다. */
   claimablePoints?: number;
-  /** BE dev 3b8f395. 단계별 미션 포인트이며 첫 값이 1단계(과목 만들기), 둘째 값이 2단계(공부 5분)다. 이 필드가 생기기 전의 서버는 주지 않는다. */
+  /** 단계별 미션 포인트이며 첫 값이 1단계(과목 만들기), 둘째 값이 2단계(공부 5분)다. 이 필드가 생기기 전의 서버는 주지 않는다. */
   stepPoints?: number[];
 }
 
-/** BE dev df9c95c, POST /api/home/mission/rewards/claim의 응답. 받을 것이 없으면 granted가 false다. */
+/** POST /api/home/mission/rewards/claim의 응답이며 백엔드 Swagger 스키마 `ClaimResponse` 기준이다. 받을 것이 없으면 granted가 false다. */
 export interface HomeMissionRewardClaimResponse {
   granted: boolean;
   points: number;
