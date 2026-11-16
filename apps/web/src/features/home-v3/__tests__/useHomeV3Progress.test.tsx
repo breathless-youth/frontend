@@ -450,6 +450,27 @@ describe("home v3 server progress", () => {
       expect(client.getQueryData(["points", 1, "balance"])).toBe(450);
     });
 
+    it("서버가 받기를 회원 전용이라고 거절하면 실패 문구 대신 로그인 화면을 열게 한다", async () => {
+      const { gateway, wrapper } = setup({
+        readMission: vi.fn().mockResolvedValue({ ...homeMission(2, 300), claimablePoints: 150 }),
+        claimMissionReward: vi
+          .fn()
+          .mockRejectedValue(new ApiError("member only", 403, "MEMBER_ONLY")),
+      });
+      const { result } = renderHook(() => useHomeV3Progress(gateway, 1, day, stats, true), {
+        wrapper,
+      });
+      await waitFor(() =>
+        expect(result.current.band).toMatchObject({ value: { kind: "mission-reward" } }),
+      );
+      const onMemberOnly = vi.fn();
+
+      act(() => result.current.claimMissionReward(onMemberOnly));
+
+      await waitFor(() => expect(onMemberOnly).toHaveBeenCalledOnce());
+      expect(result.current.rewardError).toBe(false);
+    });
+
     it("단계를 끝내며 포인트를 받으면 잔액을 다시 읽게 한다", async () => {
       const { gateway, client, wrapper } = setup({
         acknowledgeMission: vi

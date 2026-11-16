@@ -6,6 +6,7 @@ import { pointsKeys, storePricesQuery } from "@/lib/pointsQueries";
 
 import { usePointsGateway, usePointsUserId } from "../gateway/PointsGatewayContext";
 import type { ShopItem } from "../types";
+import { useMemberOnly } from "./useMemberOnly";
 
 export type StorePurchaseStep = "idle" | "paying" | "waiting" | "late" | "failed" | "done";
 
@@ -16,6 +17,7 @@ export type StorePurchaseStep = "idle" | "paying" | "waiting" | "late" | "failed
  * 결제를 맡을 수 없는 곳(브라우저, 예전 앱)에서는 available이 false라 화면이 살 길 대신 안내를 보인다.
  * 결제 창이 떠 있는 동안 버튼을 다시 눌러도 요청이 한 번만 나가게 ref로 막는다.
  * 취소는 사용자가 고른 일이라 알리지 않고 처음으로 돌아간다.
+ * 결제는 회원만 하므로 비회원이 누르면 결제 창 대신 로그인 화면을 연다.
  */
 export function useStorePurchase(items: readonly ShopItem[]) {
   const gateway = usePointsGateway();
@@ -24,6 +26,7 @@ export function useStorePurchase(items: readonly ShopItem[]) {
   const [step, setStep] = useState<StorePurchaseStep>("idle");
   const [target, setTarget] = useState<ShopItem | null>(null);
   const inFlightRef = useRef(false);
+  const memberOnly = useMemberOnly();
   const productIds = [
     ...new Set(
       items.flatMap((item) => (item.acquire.type === "store" ? [item.acquire.productId] : [])),
@@ -33,6 +36,9 @@ export function useStorePurchase(items: readonly ShopItem[]) {
 
   async function buy(item: ShopItem) {
     if (item.acquire.type !== "store" || item.owned || inFlightRef.current) {
+      return;
+    }
+    if (!memberOnly.allow()) {
       return;
     }
     inFlightRef.current = true;

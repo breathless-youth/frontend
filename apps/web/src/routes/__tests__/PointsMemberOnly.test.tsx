@@ -66,6 +66,27 @@ describe("실제 경계의 회원 전용 거절", () => {
     expect(await screen.findByText("로그인 화면 points")).toBeInTheDocument();
   });
 
+  it("비회원에게 서버가 403 MEMBER_ONLY를 주면 로그인 화면을 그린다", async () => {
+    vi.mocked(getProfile).mockResolvedValue({
+      nickname: "열공곰",
+      goal: null,
+      category: null,
+      initial: "열",
+      colorIndex: 0,
+      profileImageUrl: null,
+      loginProvider: null,
+    });
+    fetchMock.mockImplementation(
+      async () =>
+        new Response(JSON.stringify({ code: "MEMBER_ONLY", message: "member only" }), {
+          status: 403,
+        }),
+    );
+    renderPoints();
+    expect(await screen.findByText("로그인 화면 points")).toBeInTheDocument();
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+  });
+
   it("다른 실패는 로그인 화면 없이 상점의 오류를 보인다", async () => {
     fetchMock.mockImplementation(async () => new Response("{}", { status: 500 }));
     renderPoints();

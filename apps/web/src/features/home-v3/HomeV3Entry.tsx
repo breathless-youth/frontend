@@ -15,6 +15,7 @@ import { getTimelapseStore } from "@/features/timelapse/timelapseStore";
 import { PointsBalancePill } from "@/features/points/components/shared/PointsBalancePill";
 import { usePointsBalance } from "@/features/points/components/shop/usePointsBalance";
 import { pointsSearch } from "@/features/points/pointsSearch";
+import { usePointsLogin } from "@/features/points/usePointsLogin";
 import { setHasTimelapseUserProperty } from "@/lib/amplitude";
 import { isPointsEnabled } from "@/lib/pointsCapability";
 import { hardNavigate } from "@/lib/hardNavigation";
@@ -76,6 +77,7 @@ export function HomeV3Entry({
   const location = useLocation();
   const openPlanner = useOpenPlanner("home");
   const points = usePointsBalance(userId);
+  const openPointsLogin = usePointsLogin();
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState<{
     day: HomeDay;
@@ -295,7 +297,8 @@ export function HomeV3Entry({
           },
           openPlanner: () => openPlanner(day.dateKey),
           completeMission: progress.completeMission,
-          claimMissionReward: progress.claimMissionReward,
+          // 보상은 회원만 받으므로 서버가 회원 전용이라고 거절하면 로그인 화면을 연다.
+          claimMissionReward: () => progress.claimMissionReward(openPointsLogin),
           editGoal: () => {
             void preloadGoalSheet();
             setEditing({

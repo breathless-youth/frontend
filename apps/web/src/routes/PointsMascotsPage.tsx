@@ -1,7 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 
-import { usePointsGateway, usePointsUserId } from "@/features/points/gateway/PointsGatewayContext";
+import {
+  usePointsGateway,
+  usePointsMembership,
+  usePointsUserId,
+} from "@/features/points/gateway/PointsGatewayContext";
 import { useShopActions } from "@/features/points/model/useShopActions";
 import { PointsRouteGate } from "@/features/points/PointsRouteGate";
 import { PointsShopRoute } from "@/features/points/PointsShopRoute";
@@ -33,6 +37,7 @@ function MascotsContent() {
   const { t } = useTranslation(["points", "common"]);
   const gateway = usePointsGateway();
   const userId = usePointsUserId();
+  const { member } = usePointsMembership();
   const { earn: canEarn, ads, charge } = gateway.capabilities;
   // 모자람 창의 광고 줄과 충전 줄에만 쓰여서 그 기능이 없는 경계에는 묻지 않는다.
   const earn = useQuery({ ...earnTodayQuery(gateway, userId), enabled: canEarn && ads });
@@ -50,7 +55,8 @@ function MascotsContent() {
           onBack={back}
           onWatchAd={watchAd}
           onCharge={chargePoints}
-          newlyUnlocked={celebratedMascot(data.mascots)}
+          // 비회원은 본 것으로 적을 수 없어 들어올 때마다 다시 뜨므로 축하는 로그인한 뒤에 보인다.
+          newlyUnlocked={member ? celebratedMascot(data.mascots) : undefined}
           // 본 것으로 적지 못하면 다음에 한 번 더 축하할 뿐이라 알리지 않는다.
           onCelebrated={() => void markUnlocksSeen().catch(() => {})}
         />

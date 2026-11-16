@@ -12,6 +12,7 @@ import { pointsKeys } from "@/lib/pointsQueries";
 
 import { usePointsGateway, usePointsUserId } from "../gateway/PointsGatewayContext";
 import type { AccessorySlot, AdResult, ChargeResult, ClaimKind, MascotId } from "../types";
+import { useMemberOnly } from "./useMemberOnly";
 
 const LATE_BALANCE_REFETCH_MS = [10_000, 30_000, 60_000, 180_000];
 
@@ -21,11 +22,25 @@ const LATE_BALANCE_REFETCH_MS = [10_000, 30_000, 60_000, 180_000];
  * 잔액은 경계가 돌려준 값으로 바로 덮고, 오늘 받은 것·기록·상점은 다시 받는다.
  * 실패는 그대로 던져서 부른 화면이 자기 방식(창이나 알림)으로 알린다.
  * 광고와 충전은 앱 안이면서 경계가 지원할 때만 처리기를 주고, 아니면 화면이 그 줄을 숨긴다.
+ * 꾸미기 저장은 회원만 하므로 비회원이면 요청을 보내지 않고 로그인 화면을 연다.
+ * 받기·광고·충전은 결과를 돌려줘야 해서 부르는 화면이 누르는 순간에 같은 문으로 막는다.
+ * 서버가 회원 전용이라고 거절하면 로그인 화면을 열고 오류는 그대로 던진다.
  */
 export function useShopActions() {
   const gateway = usePointsGateway();
   const userId = usePointsUserId();
   const queryClient = useQueryClient();
+  const memberOnly = useMemberOnly();
+
+  /** 서버의 회원 전용 거절을 로그인 화면으로 보내고 오류는 부른 쪽에 그대로 넘긴다. */
+  const guarded = async <T>(request: () => Promise<T>): Promise<T> => {
+    try {
+      return await request();
+    } catch (error) {
+      memberOnly.redirected(error);
+      throw error;
+    }
+  };
 
   const settle = (balance: number) => {
     queryClient.setQueryData(pointsKeys.balance(userId), balance);
@@ -51,7 +66,7 @@ export function useShopActions() {
 
   const claim = async (kind: ClaimKind) => {
     try {
-      const result = await gateway.claim(kind);
+      const result = await guarded(() => gateway.claim(kind));
       if (result.granted) trackPointsClaimed({ kind, points: result.points });
       settle(result.balance);
       return result;
@@ -62,21 +77,22 @@ export function useShopActions() {
     }
   };
   const watchAd = async (): Promise<AdResult> => {
-    const result = await gateway.watchAd();
+    const result = await guarded(() => gateway.watchAd());
     trackPointsAdWatched(result.status);
     if (result.status === "rewarded") settle(result.balance);
     if (result.status === "late") refetchLater();
     return result;
   };
   const charge = async (productId: string, onPaid?: () => void): Promise<ChargeResult> => {
-    const result = await gateway.charge(productId, onPaid);
+    const result = await guarded(() => gateway.charge(productId, onPaid));
     trackPointsCharge(result.status, productId);
     if (result.status === "completed") settle(result.balance);
     if (result.status === "late") refetchLater();
     return result;
   };
   const equipAccessory = async (mascotId: MascotId, slot: AccessorySlot, itemId: string | null) => {
-    await gateway.equipAccessory(mascotId, slot, itemId);
+    if (!memberOnly.allow()) return;
+    await guarded(() => gateway.equipAccessory(mascotId, slot, itemId));
     trackPointsDecorationChanged({
       kind: "accessory",
       action: itemId === null ? "off" : "on",
@@ -85,7 +101,8 @@ export function useShopActions() {
     await refetchLook();
   };
   const setTimerBackground = async (itemId: string | null) => {
-    await gateway.setTimerBackground(itemId);
+    if (!memberOnly.allow()) return;
+    await guarded(() => gateway.setTimerBackground(itemId));
     trackPointsDecorationChanged({
       kind: "timerBackground",
       action: itemId === null ? "off" : "on",
@@ -93,7 +110,8 @@ export function useShopActions() {
     await refetchShop();
   };
   const selectMascot = async (id: MascotId) => {
-    await gateway.selectMascot(id);
+    if (!memberOnly.allow()) return;
+    await guarded(() => gateway.selectMascot(id));
     trackPointsMascotSelected(id);
     await refetchLook();
   };
@@ -106,6 +124,8 @@ export function useShopActions() {
   const { ads, charge: canCharge } = gateway.capabilities;
   return {
     inApp,
+    /** 받기·광고·충전 버튼이 누르는 순간에 부르는 문이며 비회원이면 로그인 화면을 열고 false를 준다. */
+    allowMemberAction: memberOnly.allow,
     claim,
     equipAccessory,
     setTimerBackground,

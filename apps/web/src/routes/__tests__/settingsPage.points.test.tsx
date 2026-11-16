@@ -10,6 +10,7 @@ import {
   __resetAppPointsGatewayForTests,
   appPointsGateway,
 } from "@/features/points/gateway/appPointsGateway";
+import { ApiError } from "@/lib/api";
 import { __resetPointsForTests } from "@/lib/pointsCapability";
 import { getProfile } from "@/lib/profileApi";
 import { showToast } from "@/lib/toast";
@@ -40,10 +41,16 @@ function Where() {
   return <p data-testid="where">{useLocation().pathname}</p>;
 }
 
-function renderSettings(flag: boolean, search = "/?points=1&pointsMock=default") {
+function renderSettings(
+  flag: boolean,
+  search = "/?points=1&pointsMock=default",
+  /** 경계를 새로 고른 뒤 화면을 그리기 전에 가짜 응답을 바꾼다. */
+  arrange: () => void = () => {},
+) {
   window.history.replaceState(null, "", flag ? search : "/");
   __resetPointsForTests();
   __resetAppPointsGatewayForTests();
+  arrange();
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
@@ -51,6 +58,7 @@ function renderSettings(flag: boolean, search = "/?points=1&pointsMock=default")
         <Routes>
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/points/history" element={<Where />} />
+          <Route path="/settings/login" element={<Where />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -155,10 +163,28 @@ describe("설정의 구매 복원 줄", () => {
     expect(restore).toHaveBeenCalledTimes(1);
   });
 
-  it("비회원이면 줄이 없다", async () => {
+  it("비회원에게도 줄이 보이고 누르면 복원하지 않고 로그인 화면으로 간다", async () => {
     signIn(null);
     renderSettings(true);
-    await screen.findByRole("button", { name: /포인트 기록/ });
+    const restore = vi.spyOn(appPointsGateway(), "restorePurchases");
+
+    await userEvent.click(await restoreRow());
+
+    expect(await screen.findByTestId("where")).toHaveTextContent("/settings/login");
+    expect(restore).not.toHaveBeenCalled();
+  });
+
+  it("서버가 비회원에게 포인트 조회를 거절하면 포인트 기록 줄과 함께 줄이 없다", async () => {
+    signIn(null);
+    // 잔액 조회가 회원 전용으로 거절되면 포인트 입구를 모두 숨긴다.
+    const balance = vi.fn().mockRejectedValue(new ApiError("member only", 403, "MEMBER_ONLY"));
+    renderSettings(true, undefined, () => {
+      vi.spyOn(appPointsGateway(), "getBalance").mockImplementation(balance);
+    });
+    await vi.waitFor(() => expect(balance).toHaveBeenCalled());
+    await vi.waitFor(() =>
+      expect(screen.queryByRole("button", { name: /포인트 기록/ })).not.toBeInTheDocument(),
+    );
     expect(screen.queryByRole("button", { name: "구매 복원" })).not.toBeInTheDocument();
   });
 

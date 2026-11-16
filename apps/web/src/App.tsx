@@ -67,6 +67,7 @@ import { RecordsPage } from "@/routes/RecordsPage";
 import { RoomPage } from "@/routes/RoomPage";
 import { SessionGuidePage } from "@/routes/SessionGuidePage";
 import { GroupLoginScreen } from "@/features/login/GroupLoginScreen";
+import { PointsLoginPage } from "@/routes/PointsLoginPage";
 import { SettingsPage } from "@/routes/SettingsPage";
 import { SocialTabRoute } from "@/routes/SocialTabRoute";
 
@@ -453,6 +454,7 @@ export function App() {
               <Route path="/points/accessories" element={<PointsAccessoriesPage />} />
               <Route path="/points/backgrounds" element={<PointsBackgroundsPage />} />
               <Route path="/points/mascots" element={<PointsMascotsPage />} />
+              <Route path="/points/login" element={<PointsLoginPage />} />
             </Routes>
           </Suspense>
         )}

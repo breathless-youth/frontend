@@ -11,6 +11,7 @@ import { postToNative, subscribeToNativeMessages } from "@/lib/bridge";
 import { plannerKeys } from "@/lib/plannerQueries";
 import { pointsKeys } from "@/lib/pointsQueries";
 import { ApiError } from "@/lib/api";
+import { isMemberOnlyError } from "@/features/points/gateway/memberOnly";
 import type { HomeDay, HomeGoal, HomeV3Gateway } from "./HomeV3Gateway";
 import type { HomeGoalSaveInput, HomeGoalSaveResult } from "./HomeGoalSheet";
 import type { HomeLoadState, HomeTodayStats } from "./HomeV3Content";
@@ -225,9 +226,18 @@ export function useHomeV3Progress(
     missionError: acknowledgement.isError,
     completeMission,
     claimingReward: rewardClaim.isPending,
-    rewardError: rewardClaim.isError,
-    claimMissionReward: () => {
-      if (!rewardClaim.isPending) rewardClaim.mutate({ adapter: gateway, owner: userId });
+    // 서버의 회원 전용 거절은 로그인 화면으로 보내므로 실패 문구를 띄우지 않는다.
+    rewardError: rewardClaim.isError && !isMemberOnlyError(rewardClaim.error),
+    claimMissionReward: (onMemberOnly?: () => void) => {
+      if (rewardClaim.isPending) return;
+      rewardClaim.mutate(
+        { adapter: gateway, owner: userId },
+        {
+          onError: (error) => {
+            if (isMemberOnlyError(error)) onMemberOnly?.();
+          },
+        },
+      );
     },
     saveGoal: (editedDay: HomeDay, input: HomeGoalSaveInput) =>
       goalSave.mutateAsync({ adapter: gateway, owner: userId, day: editedDay, input }),

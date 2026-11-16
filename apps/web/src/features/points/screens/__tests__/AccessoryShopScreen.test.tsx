@@ -19,11 +19,20 @@ afterEach(() => {
   vi.mocked(showToast).mockClear();
 });
 
-function renderScreen(gateway: PointsGateway, entry = "/points/accessories") {
+function renderScreen(
+  gateway: PointsGateway,
+  entry = "/points/accessories",
+  guest?: { requestLogin: () => void },
+) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
-      <PointsGatewayProvider gateway={gateway} userId={1}>
+      <PointsGatewayProvider
+        gateway={gateway}
+        userId={1}
+        member={guest === undefined}
+        requestLogin={guest?.requestLogin}
+      >
         <MemoryRouter initialEntries={[entry]}>
           <Routes>
             <Route path="/points/accessories" element={<PointsAccessoriesPage />} />
@@ -73,6 +82,18 @@ describe("AccessoryShopScreen", () => {
         expect(equip).toHaveBeenCalledWith("stopwatch", "head", expect.any(String)),
       );
       expect(showToast).toHaveBeenCalledWith("왕관을 구매했어요!");
+    });
+
+    it("비회원이 결제 상품을 사려고 하면 결제 창 대신 로그인 화면을 연다", async () => {
+      const gateway = withStoreItem(true);
+      const purchase = vi.spyOn(gateway, "purchaseStoreItem");
+      const requestLogin = vi.fn();
+      renderScreen(gateway, "/points/accessories", { requestLogin });
+
+      await userEvent.click(await screen.findByRole("button", { name: "₩1,100에 구매하기" }));
+
+      expect(requestLogin).toHaveBeenCalledOnce();
+      expect(purchase).not.toHaveBeenCalled();
     });
 
     it("결제를 맡을 수 없는 곳에서는 앱에서 살 수 있다고만 알린다", async () => {

@@ -8,6 +8,7 @@ import { showToast } from "@/lib/toast";
 
 import { usePointsGateway, usePointsUserId } from "../gateway/PointsGatewayContext";
 import type { AdResult, ChargeResult, PurchaseResult, ShopItem } from "../types";
+import { useMemberOnly } from "./useMemberOnly";
 
 /** 마스코트는 상점 상품의 모양을 빌려 오므로 id 앞머리로 종류를 가린다. */
 function tracked(item: ShopItem, price: number) {
@@ -26,6 +27,7 @@ export type PurchaseStep = "idle" | "confirm" | "insufficient" | "pending" | "do
  * 모자람 창에서 충전하면 이어서 같은 상품을 사서, 충전하고 다시 구매 버튼을 찾는 일을 없앤다.
  * 광고는 받는 양이 작아 다 채울지 알 수 없으므로 잔액만 채우고 창을 닫는다.
  * 마스코트처럼 상점 상품이 아닌 것을 살 때는 buy로 사는 요청을 바꿔 끼운다.
+ * 사는 일은 회원만 하므로 비회원이 열면 확인 창 대신 로그인 화면을 열고, 서버가 회원 전용이라고 거절해도 같은 화면으로 보낸다.
  */
 export function usePurchaseFlow(item: ShopItem | null, buy?: () => Promise<PurchaseResult>) {
   const gateway = usePointsGateway();
@@ -35,11 +37,15 @@ export function usePurchaseFlow(item: ShopItem | null, buy?: () => Promise<Purch
   const [step, setStep] = useState<PurchaseStep>("idle");
   const [paidBalance, setPaidBalance] = useState<number | null>(null);
   const inFlightRef = useRef(false);
+  const memberOnly = useMemberOnly();
 
   const price = item?.acquire.type === "price" ? item.acquire.price : null;
 
   function open() {
     if (item === null || price === null || item.owned) {
+      return;
+    }
+    if (!memberOnly.allow()) {
       return;
     }
     setPaidBalance(null);
@@ -76,9 +82,13 @@ export function usePurchaseFlow(item: ShopItem | null, buy?: () => Promise<Purch
       }
       void queryClient.invalidateQueries({ queryKey: pointsKeys.shop(userId) });
       void queryClient.invalidateQueries({ queryKey: [...pointsKeys.user(userId), "history"] });
-    } catch {
-      setStep("confirm");
-      showToast(i18n.t("common:errors.retryLater"));
+    } catch (error) {
+      if (memberOnly.redirected(error)) {
+        setStep("idle");
+      } else {
+        setStep("confirm");
+        showToast(i18n.t("common:errors.retryLater"));
+      }
     } finally {
       inFlightRef.current = false;
     }

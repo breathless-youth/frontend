@@ -5,6 +5,8 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { formatDuration } from "@/features/records/recordsFormat";
 import { showToast } from "@/lib/toast";
 
+import { isMemberOnlyError } from "../gateway/memberOnly";
+
 import { AdUnavailableDialog } from "../components/earn/AdUnavailableDialog";
 import { ChargeDoneSheet, type ChargeDone } from "../components/earn/ChargeDoneSheet";
 import { ChargePackGrid } from "../components/earn/ChargePackGrid";
@@ -39,6 +41,7 @@ import type {
  * 요청이 아예 실패하면 알림만 띄우고 버튼을 다시 누를 수 있게 둔다.
  * 광고와 충전 처리기는 앱 안에서만 넘어오고, 없으면 앱에서 열기 안내를 그린다.
  * 앱 안인데 그 기능을 맡지 못하는 예전 앱에서는 안내 대신 칸을 그리지 않는다.
+ * 받기·광고·충전은 회원만 하므로 누르는 순간 `allowAction`에 묻고, 비회원이면 아무 요청도 보내지 않는다.
  */
 export function EarnTab({
   earn,
@@ -48,6 +51,7 @@ export function EarnTab({
   onCharge,
   chargeAvailable = true,
   adAvailable = true,
+  allowAction = () => true,
 }: {
   earn: EarnToday;
   packs: ChargePack[];
@@ -58,6 +62,8 @@ export function EarnTab({
   chargeAvailable?: boolean;
   /** 광고를 맡지 못하는 앱에서는 서버가 광고 상태를 줘도 광고 타일을 그리지 않는다. */
   adAvailable?: boolean;
+  /** 받기·광고·충전을 해도 되는지이며 비회원이면 로그인 화면을 열고 false를 준다. */
+  allowAction?: () => boolean;
 }) {
   const { t } = useTranslation(["points-earn", "common"]);
   const navigate = useNavigate();
@@ -74,13 +80,14 @@ export function EarnTab({
   const [pending, setPending] = useState(false);
 
   const run = async (task: () => Promise<void>) => {
-    if (busy.current) return;
+    if (busy.current || !allowAction()) return;
     busy.current = true;
     setPending(true);
     try {
       await task();
-    } catch {
-      showToast(t("common:errors.retryLater"));
+    } catch (error) {
+      // 서버의 회원 전용 거절은 로그인 화면으로 보내므로 다시 시도하라고 알리지 않는다.
+      if (!isMemberOnlyError(error)) showToast(t("common:errors.retryLater"));
     } finally {
       busy.current = false;
       setPending(false);

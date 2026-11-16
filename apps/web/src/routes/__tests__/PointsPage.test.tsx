@@ -67,11 +67,11 @@ describe("PointsPage", () => {
     expect(screen.getByText("홈")).toBeInTheDocument();
   });
 
-  it("비회원이면 상점 대신 로그인 화면을 그린다", async () => {
+  it("비회원이어도 서버가 조회를 열어 주면 상점을 그린다", async () => {
     signIn(null);
     renderAt("/points?userId=7");
-    expect(await screen.findByText("로그인 화면 points")).toBeInTheDocument();
-    expect(screen.queryByText("포인트 상점")).not.toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: "꾸미기 상점" })).toBeInTheDocument();
+    expect(screen.queryByText("로그인 화면 points")).not.toBeInTheDocument();
   });
 
   it("신원이 없으면 로그인 화면을 그린다", () => {

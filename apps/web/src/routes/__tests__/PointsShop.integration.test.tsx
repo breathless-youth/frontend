@@ -201,11 +201,11 @@ describe("포인트 입구", () => {
     ["비회원", () => vi.mocked(getProfile).mockResolvedValue({ ...PROFILE, loginProvider: null })],
     ["로그인 공급자를 모름", () => vi.mocked(getProfile).mockResolvedValue({ ...PROFILE })],
     ["프로필을 받지 못함", () => vi.mocked(getProfile).mockRejectedValue(new Error("down"))],
-  ])("%s이면 로그인 화면을 그린다", async (_, arrange) => {
+  ])("%s이어도 서버가 조회를 열어 주면 상점을 그린다", async (_, arrange) => {
     arrange();
     renderWith(<PointsPage />, "/points?userId=7");
-    expect(await screen.findByText("로그인 화면")).toBeInTheDocument();
-    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+    expect(await screen.findByRole("tab", { name: "꾸미기 상점" })).toBeInTheDocument();
+    expect(screen.queryByText("로그인 화면")).not.toBeInTheDocument();
   });
 
   it("신원이 없으면 로그인 화면을 그린다", () => {

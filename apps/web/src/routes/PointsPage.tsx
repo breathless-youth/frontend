@@ -176,6 +176,7 @@ function EarnPanel() {
       onCharge={actions.charge}
       chargeAvailable={!actions.inApp || canCharge}
       adAvailable={!actions.inApp || canShowAds}
+      allowAction={actions.allowMemberAction}
     />
   );
 }

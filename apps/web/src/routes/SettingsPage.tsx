@@ -162,7 +162,10 @@ export function SettingsPage() {
             />
           )}
           {/* 복원 메시지를 모르는 예전 앱과 브라우저에서는 맡길 곳이 없어 줄을 그리지 않는다. */}
-          {isPointsEnabled() && appPointsGateway().capabilities.restore && <RestorePurchasesRow />}
+          {/* 서버가 포인트 조회를 회원 전용으로 거절한 사용자에게는 포인트 기록 줄과 함께 숨긴다. */}
+          {isPointsEnabled() && appPointsGateway().capabilities.restore && !points.memberOnly && (
+            <RestorePurchasesRow readable={points.balance !== undefined} />
+          )}
         </SettingsSection>
 
         <SettingsSection className="mt-5" label={t("sections.service")}>
