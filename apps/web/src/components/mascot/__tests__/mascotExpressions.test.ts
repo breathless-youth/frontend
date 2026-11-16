@@ -15,8 +15,8 @@ describe("mascotExpressions", () => {
   });
 
   it("점프 그림의 몸만큼 옮긴 뒤 반시계 방향으로 돌린다", () => {
-    expect(jumpTiltTransform("stopwatch")).toBe("translate(0.3906%, -5.2734%) rotate(-5.5deg)");
-    expect(jumpTiltTransform("planner")).toBe("translate(1.9531%, -5.2734%) rotate(-6.1deg)");
-    expect(jumpTiltTransform("padlock")).toBe("translate(0%, -3.7109%) rotate(-6deg)");
+    expect(jumpTiltTransform("stopwatch")).toBe("translate(0.4883%, -4.9805%) rotate(-5.5deg)");
+    expect(jumpTiltTransform("planner")).toBe("translate(1.4648%, -4.8828%) rotate(-5.9deg)");
+    expect(jumpTiltTransform("padlock")).toBe("translate(0%, -3.8086%) rotate(-6.3deg)");
   });
 });
