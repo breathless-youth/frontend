@@ -1,17 +1,36 @@
+import * as SecureStore from "expo-secure-store";
+
 import {
   __resetPointsChargeForTests,
+  forgetPointsChargeUser,
   isPointsChargeSupported,
   pointsChargePrices,
   purchasePointsCharge,
   restorePointsPurchases,
+  resumePointsCharge,
   setPointsChargeAdapter,
 } from "../pointsCharge";
 import { parseToNativeMessage } from "../webBridge";
 
+jest.mock("expo-secure-store", () => ({
+  AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY: 6,
+  getItemAsync: jest.fn(),
+  setItemAsync: jest.fn(),
+  deleteItemAsync: jest.fn(),
+}));
+
 // 서버가 내려 준 결제용 ID이며 회원번호와 다른 값이다.
 const APP_USER_ID = "0b9f6a3e-6c1d-4d2a-9a51-3f1c2b7e8d90";
+const OTHER_APP_USER_ID = "5d2c8f10-7a4b-4e3c-8b21-9c0d1e2f3a4b";
+const RECORD_KEY = "focuson.pointsCharge";
 
-const adapter = { logIn: jest.fn(), prices: jest.fn(), purchase: jest.fn(), restore: jest.fn() };
+const adapter = {
+  start: jest.fn(),
+  logIn: jest.fn(),
+  prices: jest.fn(),
+  purchase: jest.fn(),
+  restore: jest.fn(),
+};
 
 beforeEach(() => {
   jest.resetAllMocks();
@@ -20,6 +39,91 @@ beforeEach(() => {
   adapter.logIn.mockResolvedValue(undefined);
   adapter.purchase.mockResolvedValue(true);
   adapter.restore.mockResolvedValue([]);
+  adapter.prices.mockResolvedValue([]);
+  jest.mocked(SecureStore.getItemAsync).mockResolvedValue(null);
+  jest.mocked(SecureStore.setItemAsync).mockResolvedValue(undefined);
+  jest.mocked(SecureStore.deleteItemAsync).mockResolvedValue(undefined);
+});
+
+describe("결제 SDK를 켜는 때", () => {
+  it("결제용 ID가 실린 첫 요청에서 그 ID로 결제 SDK를 켜고 켠 기록을 남긴다", async () => {
+    setPointsChargeAdapter(adapter);
+
+    await pointsChargePrices(["points_1000"], APP_USER_ID);
+
+    expect(adapter.start).toHaveBeenCalledWith(APP_USER_ID);
+    expect(adapter.logIn).not.toHaveBeenCalled();
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
+      RECORD_KEY,
+      APP_USER_ID,
+      expect.objectContaining({
+        keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
+      }),
+    );
+  });
+
+  it("결제용 ID가 없는 가격 조회는 결제 SDK를 켜지 않고 빈 목록으로 답한다", async () => {
+    setPointsChargeAdapter(adapter);
+
+    expect(await pointsChargePrices(["points_1000"], null)).toEqual([]);
+    expect(adapter.start).not.toHaveBeenCalled();
+    expect(adapter.prices).not.toHaveBeenCalled();
+    expect(SecureStore.setItemAsync).not.toHaveBeenCalled();
+  });
+
+  it("켠 뒤에는 같은 결제용 ID로 다시 켜지 않고, 다른 결제용 ID가 오면 그 ID로 로그인하고 기록을 바꾼다", async () => {
+    setPointsChargeAdapter(adapter);
+    await pointsChargePrices(["points_1000"], APP_USER_ID);
+    await purchasePointsCharge("points_1000", APP_USER_ID);
+    expect(adapter.start).toHaveBeenCalledTimes(1);
+    expect(adapter.logIn).not.toHaveBeenCalled();
+    expect(SecureStore.setItemAsync).toHaveBeenCalledTimes(1);
+
+    await purchasePointsCharge("points_1000", OTHER_APP_USER_ID);
+    expect(adapter.logIn).toHaveBeenCalledWith(OTHER_APP_USER_ID);
+    expect(SecureStore.setItemAsync).toHaveBeenLastCalledWith(
+      RECORD_KEY,
+      OTHER_APP_USER_ID,
+      expect.anything(),
+    );
+  });
+
+  it("켠 기록이 있으면 앱을 시작할 때 그 결제용 ID로 바로 켠다", async () => {
+    setPointsChargeAdapter(adapter);
+    jest.mocked(SecureStore.getItemAsync).mockResolvedValue(APP_USER_ID);
+
+    await resumePointsCharge();
+
+    expect(adapter.start).toHaveBeenCalledWith(APP_USER_ID);
+    // 이어서 같은 ID로 결제하면 다시 켜거나 로그인하지 않는다.
+    await purchasePointsCharge("points_1000", APP_USER_ID);
+    expect(adapter.start).toHaveBeenCalledTimes(1);
+    expect(adapter.logIn).not.toHaveBeenCalled();
+  });
+
+  it("켠 기록이 없거나 읽지 못하면 앱을 시작할 때 켜지 않는다", async () => {
+    setPointsChargeAdapter(adapter);
+    await resumePointsCharge();
+    jest.mocked(SecureStore.getItemAsync).mockRejectedValue(new Error("keychain"));
+    await resumePointsCharge();
+
+    expect(adapter.start).not.toHaveBeenCalled();
+  });
+
+  it("결제를 할 수 없는 바이너리는 기록을 읽지 않는다", async () => {
+    await resumePointsCharge();
+
+    expect(SecureStore.getItemAsync).not.toHaveBeenCalled();
+  });
+
+  it("로그아웃하면 켠 기록을 삭제해 다음 시작에 켜지 않게 한다", async () => {
+    setPointsChargeAdapter(adapter);
+    await pointsChargePrices(["points_1000"], APP_USER_ID);
+
+    await forgetPointsChargeUser();
+
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith(RECORD_KEY, expect.anything());
+  });
 });
 
 describe("포인트 충전 결제", () => {
@@ -29,24 +133,31 @@ describe("포인트 충전 결제", () => {
     expect(await pointsChargePrices(["points_1000"], APP_USER_ID)).toEqual([]);
   });
 
-  it("결제 전에 웹이 넘긴 결제용 ID로 로그인한다", async () => {
+  it("결제 전에 웹이 넘긴 결제용 ID로 결제 SDK를 켠다", async () => {
     setPointsChargeAdapter(adapter);
     const order: string[] = [];
-    adapter.logIn.mockImplementation(async (id: string) => void order.push(`logIn:${id}`));
+    adapter.start.mockImplementation((id: string) => void order.push(`start:${id}`));
     adapter.purchase.mockImplementation(async (id: string) => {
       order.push(`purchase:${id}`);
       return true;
     });
 
     expect(await purchasePointsCharge("points_1000", APP_USER_ID)).toBe("completed");
-    expect(order).toEqual([`logIn:${APP_USER_ID}`, "purchase:points_1000"]);
+    expect(order).toEqual([`start:${APP_USER_ID}`, "purchase:points_1000"]);
   });
 
-  it("로그인에 실패하면 결제하지 않는다", async () => {
+  it("결제 SDK를 켜거나 다른 결제용 ID로 로그인하지 못하면 결제하지 않는다", async () => {
     setPointsChargeAdapter(adapter);
-    adapter.logIn.mockRejectedValue(new Error("network"));
-
+    adapter.start.mockImplementationOnce(() => {
+      throw new Error("native");
+    });
     expect(await purchasePointsCharge("points_1000", APP_USER_ID)).toBe("failed");
+    expect(adapter.purchase).not.toHaveBeenCalled();
+
+    await purchasePointsCharge("points_1000", APP_USER_ID);
+    adapter.purchase.mockClear();
+    adapter.logIn.mockRejectedValue(new Error("network"));
+    expect(await purchasePointsCharge("points_1000", OTHER_APP_USER_ID)).toBe("failed");
     expect(adapter.purchase).not.toHaveBeenCalled();
   });
 
@@ -54,6 +165,7 @@ describe("포인트 충전 결제", () => {
     setPointsChargeAdapter(adapter);
 
     expect(await purchasePointsCharge("points_1000", null)).toBe("failed");
+    expect(adapter.start).not.toHaveBeenCalled();
     expect(adapter.logIn).not.toHaveBeenCalled();
     expect(adapter.purchase).not.toHaveBeenCalled();
   });
@@ -85,31 +197,32 @@ describe("포인트 충전 결제", () => {
     expect(await purchasePointsCharge("points_1000", APP_USER_ID)).toBe("completed");
   });
 
-  it("가격을 묻기 전에 결제용 ID로 로그인하고, 없으면 로그인 없이 묻는다", async () => {
+  it("가격을 묻기 전에 결제용 ID로 결제 SDK를 켠다", async () => {
     setPointsChargeAdapter(adapter);
     const prices = [{ storeProductId: "points_1000", priceLabel: "₩1,100" }];
     const order: string[] = [];
-    adapter.logIn.mockImplementation(async (id: string) => void order.push(`logIn:${id}`));
+    adapter.start.mockImplementation((id: string) => void order.push(`start:${id}`));
     adapter.prices.mockImplementation(async () => {
       order.push("prices");
       return prices;
     });
 
     expect(await pointsChargePrices(["points_1000"], APP_USER_ID)).toEqual(prices);
-    expect(order).toEqual([`logIn:${APP_USER_ID}`, "prices"]);
-
-    order.length = 0;
-    expect(await pointsChargePrices(["points_1000"], null)).toEqual(prices);
-    expect(order).toEqual(["prices"]);
+    expect(order).toEqual([`start:${APP_USER_ID}`, "prices"]);
   });
 
-  it("가격만 묻는 때는 로그인이 실패해도 가격을 돌려준다", async () => {
+  it("켜 둔 뒤 다른 결제용 ID로 로그인하지 못해도 가격은 돌려주고, 켜지 못했으면 빈 목록이다", async () => {
     setPointsChargeAdapter(adapter);
     const prices = [{ storeProductId: "points_1000", priceLabel: "₩1,100" }];
-    adapter.logIn.mockRejectedValue(new Error("network"));
     adapter.prices.mockResolvedValue(prices);
+    adapter.start.mockImplementationOnce(() => {
+      throw new Error("native");
+    });
+    expect(await pointsChargePrices(["points_1000"], APP_USER_ID)).toEqual([]);
 
-    expect(await pointsChargePrices(["points_1000"], APP_USER_ID)).toEqual(prices);
+    await pointsChargePrices(["points_1000"], APP_USER_ID);
+    adapter.logIn.mockRejectedValue(new Error("network"));
+    expect(await pointsChargePrices(["points_1000"], OTHER_APP_USER_ID)).toEqual(prices);
   });
 
   it("가격 조회가 실패하면 빈 목록이다", async () => {
@@ -124,10 +237,10 @@ describe("구매 복원", () => {
     expect(await restorePointsPurchases(["set_book_bear"], APP_USER_ID)).toBe("failed");
   });
 
-  it("결제용 ID로 로그인한 뒤 복원하고, 되찾을 상품이 결제 기록에 있으면 되찾았다고 답한다", async () => {
+  it("결제용 ID로 결제 SDK를 켠 뒤 복원하고, 되찾을 상품이 결제 기록에 있으면 되찾았다고 답한다", async () => {
     setPointsChargeAdapter(adapter);
     const order: string[] = [];
-    adapter.logIn.mockImplementation(async (id: string) => void order.push(`logIn:${id}`));
+    adapter.start.mockImplementation((id: string) => void order.push(`start:${id}`));
     adapter.restore.mockImplementation(async () => {
       order.push("restore");
       return ["points_1000", "set_book_bear"];
@@ -136,7 +249,7 @@ describe("구매 복원", () => {
     expect(await restorePointsPurchases(["set_book_bear", "set_book_rain"], APP_USER_ID)).toBe(
       "restored",
     );
-    expect(order).toEqual([`logIn:${APP_USER_ID}`, "restore"]);
+    expect(order).toEqual([`start:${APP_USER_ID}`, "restore"]);
   });
 
   it("결제 기록에 되찾을 상품이 없으면 없다고 답한다", async () => {
@@ -147,13 +260,15 @@ describe("구매 복원", () => {
     expect(await restorePointsPurchases(["set_book_bear"], APP_USER_ID)).toBe("nothing");
   });
 
-  it("결제용 ID가 없거나 로그인·복원이 실패하면 실패로 답한다", async () => {
+  it("결제용 ID가 없거나 결제 SDK를 켜지 못하거나 복원이 실패하면 실패로 답한다", async () => {
     setPointsChargeAdapter(adapter);
     expect(await restorePointsPurchases(["set_book_bear"], null)).toBe("failed");
-    expect(adapter.logIn).not.toHaveBeenCalled();
+    expect(adapter.start).not.toHaveBeenCalled();
     expect(adapter.restore).not.toHaveBeenCalled();
 
-    adapter.logIn.mockRejectedValueOnce(new Error("network"));
+    adapter.start.mockImplementationOnce(() => {
+      throw new Error("native");
+    });
     expect(await restorePointsPurchases(["set_book_bear"], APP_USER_ID)).toBe("failed");
     expect(adapter.restore).not.toHaveBeenCalled();
 

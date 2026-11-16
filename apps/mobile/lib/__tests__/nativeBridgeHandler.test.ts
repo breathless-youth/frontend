@@ -37,7 +37,12 @@ import { openPushRoute } from "../pushRouteOpener";
 import { registerPushToken } from "../pushTokenRegistration";
 import { deleteAccountWithReauth, socialLogin } from "../socialLogin";
 import { showPointsAd } from "../pointsAds";
-import { pointsChargePrices, purchasePointsCharge, restorePointsPurchases } from "../pointsCharge";
+import {
+  forgetPointsChargeUser,
+  pointsChargePrices,
+  purchasePointsCharge,
+  restorePointsPurchases,
+} from "../pointsCharge";
 
 /**
  * 브리지 수신 공용 핸들러(BY-333) — `RemoteWebViewHost`를 쓰는 화면(탭 3개 + 세션) 전부가
@@ -129,6 +134,7 @@ jest.mock("../pointsCharge", () => ({
   pointsChargePrices: jest.fn(),
   purchasePointsCharge: jest.fn(),
   restorePointsPurchases: jest.fn(),
+  forgetPointsChargeUser: jest.fn(async () => undefined),
 }));
 jest.mock("../installAttribution", () => ({
   acknowledgeInstallAttribution: jest.fn(async () => undefined),
@@ -1407,6 +1413,8 @@ describe("logout", () => {
     ]);
     // 다음 실행의 시작 오버레이에 이전 계정의 목표와 닉네임이 보이지 않게 한다.
     expect(clearLaunchGoal).toHaveBeenCalledTimes(1);
+    // 다음 실행에 이전 계정의 결제용 ID로 결제 SDK를 켜지 않게 한다.
+    expect(forgetPointsChargeUser).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -1472,6 +1480,7 @@ describe("delete-account", () => {
       ["account_deleted", { provider: "APPLE" }],
     ]);
     expect(clearLaunchGoal).toHaveBeenCalledTimes(1);
+    expect(forgetPointsChargeUser).toHaveBeenCalledTimes(1);
   });
 
   it.each([[{ status: "cancelled" }], [{ status: "failed", code: "NETWORK" }]])(
@@ -1493,6 +1502,7 @@ describe("delete-account", () => {
       expect(emitAccountReset).not.toHaveBeenCalled();
       expect(mockedRouter.navigate).not.toHaveBeenCalled();
       expect(clearLaunchGoal).not.toHaveBeenCalled();
+      expect(forgetPointsChargeUser).not.toHaveBeenCalled();
       trackNativeEvent("app_backgrounded");
       expect(received.map((event) => event.name)).toEqual(["app_backgrounded"]);
     },

@@ -31,6 +31,7 @@ import { recommendedUpdateAlert } from "../lib/recommendedUpdateAlert";
 import { initSentry, wrapRoot } from "../lib/sentry";
 import { runAfterSession } from "../lib/sessionPresence";
 import { installPointsAdsSdk } from "../lib/pointsAdsSdk";
+import { resumePointsCharge } from "../lib/pointsCharge";
 import { installPointsChargeSdk } from "../lib/pointsChargeSdk";
 import { installSocialLoginSdk } from "../lib/socialLoginSdk";
 import { checkUpdateOnConnect, createReconnectListener } from "../lib/updateOnConnect";
@@ -56,6 +57,8 @@ installFirebaseAnalyticsSdk();
 installSocialLoginSdk();
 installPointsChargeSdk();
 installPointsAdsSdk();
+// 결제 SDK는 결제 메시지가 올 때 켜지만, 전에 켠 기기는 끊긴 결제를 이어서 넘기도록 바로 켠다.
+void resumePointsCharge();
 
 // 지난 프로세스가 남긴 방해 앱 잠금과 안전 해제 예약을 지운다.
 // 새 프로세스에는 진행 중인 공부가 없고, 웹뷰가 잠금을 요청하기 전에 끝나야 해서 모듈 스코프에서 한 번만 부른다.

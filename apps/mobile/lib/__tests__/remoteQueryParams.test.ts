@@ -313,6 +313,7 @@ describe("buildRemoteQueryParams", () => {
     expect(off).not.toHaveProperty("pointsRestore");
 
     setPointsChargeAdapter({
+      start: jest.fn(),
       logIn: jest.fn(),
       prices: jest.fn(),
       purchase: jest.fn(),
