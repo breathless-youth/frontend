@@ -52,6 +52,27 @@ function wait(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+/**
+ * 서버 값이 바뀔 때까지 다시 읽기
+ *
+ * `read`가 null이 아닌 값을 주면 그 값으로 끝내고, 정한 횟수만큼 읽어도 null이면 null이다.
+ * 읽을 때마다 정한 간격을 기다린다.
+ */
+async function pollUntil<T>(
+  read: () => Promise<T | null>,
+  tries: number,
+  intervalMs: number,
+): Promise<T | null> {
+  for (let attempt = 0; attempt < tries; attempt += 1) {
+    const settled = await read();
+    if (settled !== null) {
+      return settled;
+    }
+    await wait(intervalMs);
+  }
+  return null;
+}
+
 const HISTORY_TYPE = { all: "ALL", earned: "EARNED", spent: "SPENT" } as const satisfies Record<
   HistoryFilter,
   string
@@ -169,13 +190,12 @@ export function createApiPointsGateway(): PointsGateway {
       }
       onPaid?.();
       // 상품은 서버가 결제 알림을 받은 뒤에 보유로 바뀐다.
-      for (let attempt = 0; attempt < CHARGE_SETTLE_TRIES; attempt += 1) {
-        if ((await owned())?.owned === true) {
-          return { status: "completed" };
-        }
-        await wait(CHARGE_SETTLE_INTERVAL_MS);
-      }
-      return { status: "late" };
+      const settled = await pollUntil(
+        async () => ((await owned())?.owned === true ? true : null),
+        CHARGE_SETTLE_TRIES,
+        CHARGE_SETTLE_INTERVAL_MS,
+      );
+      return settled === null ? { status: "late" } : { status: "completed" };
     },
     restorePurchases: async () => {
       // 충전 묶음은 써서 없어지는 상품이라 되찾을 것은 스토어 결제로 파는 상점 상품뿐이다.
@@ -225,13 +245,15 @@ export function createApiPointsGateway(): PointsGateway {
         return { status };
       }
       // 횟수와 잔액은 서버가 시청을 확인한 뒤에만 올린다.
-      for (let attempt = 0; attempt < AD_SETTLE_TRIES; attempt += 1) {
-        if (((await getPointsEarn()).ad?.watchedToday ?? 0) > before) {
-          return { status: "rewarded", balance: (await getPointsBalance()).balance };
-        }
-        await wait(AD_SETTLE_INTERVAL_MS);
-      }
-      return { status: "late" };
+      const balance = await pollUntil(
+        async () =>
+          ((await getPointsEarn()).ad?.watchedToday ?? 0) > before
+            ? (await getPointsBalance()).balance
+            : null,
+        AD_SETTLE_TRIES,
+        AD_SETTLE_INTERVAL_MS,
+      );
+      return balance === null ? { status: "late" } : { status: "rewarded", balance };
     },
     getChargePacks: async () => {
       const { items, revenueCatAppUserId } = await getPointProducts();
@@ -262,19 +284,17 @@ export function createApiPointsGateway(): PointsGateway {
         return { status };
       }
       onPaid?.();
-      for (let attempt = 0; attempt < CHARGE_SETTLE_TRIES; attempt += 1) {
-        const { balance } = await getPointsBalance();
-        if (balance > before.balance) {
-          return {
-            status: "completed",
-            granted: product.points,
-            bonus: product.bonusPoints,
-            balance,
-          };
-        }
-        await wait(CHARGE_SETTLE_INTERVAL_MS);
-      }
-      return { status: "late" };
+      const balance = await pollUntil(
+        async () => {
+          const { balance: current } = await getPointsBalance();
+          return current > before.balance ? current : null;
+        },
+        CHARGE_SETTLE_TRIES,
+        CHARGE_SETTLE_INTERVAL_MS,
+      );
+      return balance === null
+        ? { status: "late" }
+        : { status: "completed", granted: product.points, bonus: product.bonusPoints, balance };
     },
   };
 }
