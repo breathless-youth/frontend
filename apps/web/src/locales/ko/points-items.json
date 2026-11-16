@@ -21,6 +21,7 @@
   "grid": {
     "label": "소품 고르기",
     "owned": "보유",
+    "wearing": "착용 중",
     "wearingLabel": "{{name}}, 착용 중",
     "ownedLabel": "{{name}}, 가지고 있어요",
     "rewardHours": "{{target}}시간",

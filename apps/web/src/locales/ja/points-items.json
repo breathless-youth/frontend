@@ -21,6 +21,7 @@
   "grid": {
     "label": "アイテムを選ぶ",
     "owned": "所持",
+    "wearing": "着用中",
     "wearingLabel": "{{name}}、着用中",
     "ownedLabel": "{{name}}、所持しています",
     "rewardHours": "{{target}}時間",

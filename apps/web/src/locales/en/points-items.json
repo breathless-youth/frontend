@@ -21,6 +21,7 @@
   "grid": {
     "label": "Choose an accessory",
     "owned": "Owned",
+    "wearing": "Wearing",
     "wearingLabel": "{{name}}, wearing",
     "ownedLabel": "{{name}}, owned",
     "rewardHours": "{{target}} hrs",
