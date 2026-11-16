@@ -145,7 +145,7 @@
     "startingStudy": "勉強を準備中",
     "startFailed": "勉強を始められませんでした。もう一度お試しください。",
     "reward": {
-      "title": "ごほうび{{points}}を受け取ってください",
+      "title": "ごほうび<accent>{{points}}</accent>を受け取ってください",
       "claim": "受け取る",
       "claiming": "受け取り中",
       "failed": "ごほうびを受け取れませんでした。もう一度押してください。"

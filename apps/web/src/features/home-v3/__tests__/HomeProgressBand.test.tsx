@@ -36,6 +36,15 @@ afterEach(() => {
 });
 
 describe("HomeProgressBand", () => {
+  it("보상 띠는 진행 고리 없이 받을 금액을 문장 안에 따로 보인다", () => {
+    render(band(REWARD, actions()));
+
+    const region = screen.getByRole("region", { name: "시작 미션 완료" });
+    expect(region).toHaveTextContent("보상 150P를 받아 주세요");
+    expect(screen.getByText("150P")).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).toBeNull();
+  });
+
   it("처음 그려진 띠의 버튼은 바로 눌린다", () => {
     const handlers = actions();
     render(band(GOAL_EMPTY, handlers));

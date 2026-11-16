@@ -1,7 +1,8 @@
 import { Check } from "lucide-react";
 import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from "react";
-import { useTranslation } from "react-i18next";
+import { Trans, useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { CoinIcon } from "@/features/points/components/shared/CoinIcon";
 import { cn } from "@/lib/utils";
 import { HomeDesignIcon } from "./HomeDesignIcon";
 import { homeClock, type HomeBand } from "./homeV3Model";
@@ -115,57 +116,79 @@ export function HomeProgressBand({
     : goal
       ? t("v3.goal.caption", { time: homeClock(goal.targetSeconds) })
       : t("v3.mission.finished");
-  const title = reward
-    ? t("v3.reward.title", { points: `${reward.points.toLocaleString()}P` })
-    : mission
-      ? t(mission.step === 1 ? "v3.mission.subject" : "v3.mission.focus")
-      : goal
-        ? goal.remainingSeconds === 0
-          ? t("v3.goal.achieved")
-          : t("v3.goal.remaining", { time: homeClock(goal.remainingSeconds) })
-        : t("v3.goal.prompt");
+  const title = reward ? (
+    <Trans
+      t={t}
+      i18nKey="v3.reward.title"
+      values={{ points: `${reward.points.toLocaleString()}P` }}
+      components={{ accent: <span className="text-primary" /> }}
+    />
+  ) : mission ? (
+    t(mission.step === 1 ? "v3.mission.subject" : "v3.mission.focus")
+  ) : goal ? (
+    goal.remainingSeconds === 0 ? (
+      t("v3.goal.achieved")
+    ) : (
+      t("v3.goal.remaining", { time: homeClock(goal.remainingSeconds) })
+    )
+  ) : (
+    t("v3.goal.prompt")
+  );
   return (
     <div>
       <section
-        className="flex min-h-19 items-center gap-3.5 rounded-xl bg-brand-subtle px-4 py-3"
+        className={cn(
+          "flex min-h-19 items-center rounded-xl bg-brand-subtle px-4 py-3",
+          reward ? "gap-3" : "gap-3.5",
+        )}
         aria-label={caption}
       >
-        <ProgressRing
-          progress={mission ? mission.progress : goal ? goal.percent / 100 : 1}
-          label={mission ? t("v3.mission.progress", { step: mission.step }) : t("v3.goal.progress")}
-        >
-          {mission ? (
-            `${mission.step}/2`
-          ) : goal ? (
-            `${goal.percent}%`
-          ) : (
-            <Check size={20} strokeWidth={2.4} />
-          )}
-        </ProgressRing>
+        {reward ? (
+          <CoinIcon size={44} />
+        ) : (
+          <ProgressRing
+            progress={mission ? mission.progress : goal ? goal.percent / 100 : 1}
+            label={
+              mission ? t("v3.mission.progress", { step: mission.step }) : t("v3.goal.progress")
+            }
+          >
+            {mission ? (
+              `${mission.step}/2`
+            ) : goal ? (
+              `${goal.percent}%`
+            ) : (
+              <Check size={14} strokeWidth={3} />
+            )}
+          </ProgressRing>
+        )}
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <p className="flex items-center gap-1.5 text-xs leading-4 text-brand-subtle-text tabular-nums">
             {caption}
             {mission?.rewardPoints !== undefined && (
               // 이번 단계를 끝내면 받는 포인트이며 금액은 서버가 정한다.
-              <span className="rounded-full bg-primary px-1.5 py-px text-[11px] leading-4 font-extrabold text-primary-foreground">
-                +{mission.rewardPoints.toLocaleString()}P
+              <span className="inline-flex items-center gap-0.5 rounded-full bg-muted py-px pr-1.75 pl-0.75 text-[11px] leading-3.25 font-extrabold text-primary normal-nums">
+                <CoinIcon size={12} />+{mission.rewardPoints.toLocaleString()}P
               </span>
             )}
           </p>
           <p
             className={cn(
               "break-keep text-foreground tabular-nums",
-              band.kind === "goal-empty" || reward
-                ? "text-sm leading-5 font-medium"
-                : "text-lg leading-6.5 font-bold",
+              reward
+                ? "text-base leading-6 font-extrabold"
+                : band.kind === "goal-empty"
+                  ? "text-sm leading-5 font-medium"
+                  : "text-lg leading-6.5 font-bold",
             )}
           >
             {title}
           </p>
         </div>
         {reward ? (
+          // 보이는 알약은 낮게 두고 누르는 범위만 위아래로 넓혀 44px을 맞춘다.
           <Button
-            className="min-h-11 min-w-18 shrink-0 rounded-full px-4 text-sm leading-5 font-medium shadow-sb-cta"
+            variant="unstyled"
+            className="relative h-8 shrink-0 rounded-full bg-primary/10 px-4 text-[13px] font-bold text-brand-subtle-text before:absolute before:inset-x-0 before:-inset-y-1.5"
             disabled={claiming}
             onClick={guarded(() => actions.claimMissionReward?.())}
           >
@@ -174,7 +197,7 @@ export function HomeProgressBand({
         ) : mission?.ready ? (
           <Button
             className={cn(
-              "min-h-11 min-w-18 shrink-0 gap-1.5 rounded-full px-4 text-sm leading-5 font-medium shadow-sb-cta",
+              "min-h-11 min-w-18 shrink-0 gap-1 rounded-full px-4 text-sm leading-5 font-semibold shadow-sb-cta",
               !completing && "motion-safe:animate-[home-mission-ready_2.4s_ease-out_infinite]",
             )}
             disabled={completing}
@@ -184,9 +207,10 @@ export function HomeProgressBand({
             {t(completing ? "v3.mission.completing" : "v3.mission.complete")}
           </Button>
         ) : (
+          // 글자 링크는 여백 없이 띠 안쪽 끝에 붙이고, 짧은 영어 문구도 누르기 쉽게 누르는 범위만 좌우로 넓힌다.
           <Button
             variant="unstyled"
-            className="min-h-11 shrink-0 gap-1 py-0 pr-1 pl-2 text-sm leading-5 font-medium text-brand-subtle-text"
+            className="relative min-h-11 shrink-0 gap-1 p-0 text-sm leading-5 font-medium text-brand-subtle-text before:absolute before:inset-y-0 before:-inset-x-2.5"
             disabled={starting && mission?.step === 2}
             onClick={guarded(
               mission
@@ -205,7 +229,7 @@ export function HomeProgressBand({
                   ? "v3.goal.change"
                   : "v3.goal.set",
             )}
-            <HomeDesignIcon name="chevron" className="text-primary" />
+            <HomeDesignIcon name="chevron" />
           </Button>
         )}
       </section>
