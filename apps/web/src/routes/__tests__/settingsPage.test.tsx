@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { __resetDevicePermissionsForTests } from "@/features/settings/useDevicePermissions";
 import type * as InterviewForm from "@/features/interview/interviewForm";
 import type * as Amplitude from "@/lib/amplitude";
 import type * as LazyRoutes from "@/routes/lazyRoutes";
@@ -112,6 +113,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  __resetDevicePermissionsForTests();
   resetViewTransitionStub();
   vi.unstubAllGlobals();
   vi.useRealTimers();
@@ -503,6 +505,20 @@ describe("마이크 권한 행", () => {
     pushPermissions({ granted: true, micGranted: false });
 
     pushPermissions({ granted: true, micGranted: true });
+
+    expect(
+      screen.getByRole("button", { name: "마이크 권한, 허용됨, 시스템 설정 열기" }),
+    ).toBeInTheDocument();
+  });
+
+  it("다른 화면에 다녀와 다시 열면 앱의 답을 기다리지 않고 마지막으로 받은 권한으로 바로 그린다", () => {
+    // 답을 기다리는 동안 이 줄이 빠지면 화면이 짧아져, 뒤로 돌아온 스크롤 위치가 짧아진 높이에 맞춰 잘린다.
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    const first = renderSettings("/settings?groupRooms=1");
+    pushPermissions({ granted: true, micGranted: true });
+    first.unmount();
+
+    renderSettings("/settings?groupRooms=1");
 
     expect(
       screen.getByRole("button", { name: "마이크 권한, 허용됨, 시스템 설정 열기" }),
