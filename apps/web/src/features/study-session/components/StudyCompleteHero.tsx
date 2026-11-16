@@ -119,6 +119,13 @@ export function StudyCompleteHero({
     peak: wearsSet ? expressions.joy : expressions.jump,
   };
   const tilt = tiltFrame(id, jumping);
+  // 낱개 발밑 소품은 바닥에 두고 마스코트만 뛰어오른다. 세트는 바닥 소품이 옷과 한 장이라 함께 뛴다.
+  const underfoot = wearsSet
+    ? []
+    : accessories.filter((accessory) => accessory.slot === "underfoot");
+  const worn = wearsSet
+    ? accessories
+    : accessories.filter((accessory) => accessory.slot !== "underfoot");
 
   useEffect(() => {
     if (!jumping) {
@@ -172,6 +179,21 @@ export function StudyCompleteHero({
                 jumping && "animate-[result-mascot-shadow_0.92s_both] motion-reduce:animate-none",
               )}
             />
+            {/* 발밑 소품은 바닥에 선 마스코트 자리(뛰는 상자의 바닥 자세)에 멈춰 있다.
+                몸은 그리지 않고 마스코트와 같이 나타나도록 투명도만 맞춘다. */}
+            {underfoot.length > 0 && (
+              <div
+                data-result-mascot-ground=""
+                className={cn(
+                  "pointer-events-none absolute bottom-0 left-0.75 h-23.5 w-18.5",
+                  jumping && "animate-[result-mascot-ground_0.92s_both] motion-reduce:animate-none",
+                )}
+              >
+                <div data-result-mascot-board="" className="absolute" style={boardStyle(id)}>
+                  <MascotFigure id={id} accessories={underfoot} body={false} className="w-full" />
+                </div>
+              </div>
+            )}
             {/* 움직임은 컨테이너가, 표정 교체는 각 그림이 맡는다.
                 네 장을 처음부터 그려 두어 첫 교체 전에 디코드가 끝난다.
                 bottom-9·left-0.75는 점프 표정 기준의 정점 자리다.
@@ -188,7 +210,7 @@ export function StudyCompleteHero({
                   <div data-result-mascot-tilt="" className={tilt.className} style={tilt.style}>
                     <MascotFigure
                       id={id}
-                      accessories={accessories}
+                      accessories={worn}
                       body={<ResultFaces faces={faces} jumping={jumping} />}
                       className="w-full"
                     />
@@ -196,7 +218,7 @@ export function StudyCompleteHero({
                 ) : (
                   <MascotFigure
                     id={id}
-                    accessories={accessories}
+                    accessories={worn}
                     body={<ResultFaces faces={faces} jumping={jumping} />}
                     layerFrame={tilt}
                     className="w-full"

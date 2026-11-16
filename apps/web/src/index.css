@@ -1009,6 +1009,20 @@ body {
   }
 }
 
+/* 바닥에 남는 발밑 소품
+   뛰는 마스코트와 같은 순간에 나타나고 움직이지 않는다. */
+@keyframes result-mascot-ground {
+  0% {
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.77, 0, 0.175, 1);
+  }
+
+  20%,
+  100% {
+    opacity: 1;
+  }
+}
+
 /* 정점 표정과 함께 소품을 기울이는 순간
    기본 자리가 기울인 자세라 웅크리는 동안만 기울기를 풀고 정점 표정으로 바뀌는 0.5s에 한 번에 기운다.
    기울기는 마스코트마다 달라 요소에 둔 --result-mascot-tilt를 읽는다. */

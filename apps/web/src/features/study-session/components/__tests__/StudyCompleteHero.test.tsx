@@ -96,7 +96,7 @@ describe("StudyCompleteHero", () => {
       id: "planner",
       accessories: [
         { slot: "head", imageUrl: "/beret.png" },
-        { slot: "underfoot", imageUrl: "/rug.png" },
+        { slot: "wings", imageUrl: "/wings.png" },
       ],
     });
 
@@ -176,5 +176,70 @@ describe("StudyCompleteHero", () => {
     expect(top("stopwatch")).toBe("-5.5px");
     expect(top("book")).toBe("5.29px");
     expect(top("camcorder")).toBe("7.38px");
+  });
+
+  describe("발밑 소품", () => {
+    const SKATEBOARD: MascotLook = {
+      id: "pencil",
+      accessories: [
+        { slot: "head", imageUrl: "/beret.png" },
+        { slot: "underfoot", imageUrl: "/board-front.png", backImageUrl: "/board-back.png" },
+      ],
+    };
+
+    function ground(container: HTMLElement) {
+      return container.querySelector<HTMLElement>("[data-result-mascot-ground]");
+    }
+
+    it("뛰는 상자 밖 바닥 자리에 앞뒤 조각을 모두 그리고 뛰는 상자에는 그리지 않는다", () => {
+      const { container } = renderHero(SKATEBOARD, "intro");
+
+      const floor = ground(container);
+      expect(floor?.closest("[data-result-mascot]")).toBeNull();
+      expect(floor?.querySelector("[data-slot='accessory-underfoot-back']")).toHaveAttribute(
+        "src",
+        "/board-back.png",
+      );
+      expect(floor?.querySelector("[data-slot='accessory-underfoot']")).toHaveAttribute(
+        "src",
+        "/board-front.png",
+      );
+      const jumper = container.querySelector("[data-result-mascot]");
+      expect(jumper?.querySelector("[data-slot^='accessory-underfoot']")).toBeNull();
+      expect(jumper?.querySelector("[data-slot='accessory-head']")).not.toBeNull();
+    });
+
+    it("바닥 자리의 발밑 소품은 몸을 그리지 않고 기울이지도 않는다", () => {
+      const { container } = renderHero(SKATEBOARD, "intro");
+
+      const floor = ground(container);
+      expect(floor?.querySelector("[data-slot='mascot-body'] img")).toBeNull();
+      expect(floor?.querySelector("[data-layer-frame], [data-result-mascot-tilt]")).toBeNull();
+      expect(floor?.className).not.toContain("result-mascot-jump");
+      expect(floor?.querySelector<HTMLElement>("[data-result-mascot-board]")?.style.top).toBe(
+        container.querySelector<HTMLElement>("[data-result-mascot] [data-result-mascot-board]")
+          ?.style.top,
+      );
+    });
+
+    it("모션 축소에서도 바닥에 남고 애니메이션을 걸지 않는다", () => {
+      const { container } = renderHero(SKATEBOARD, "static");
+
+      const floor = ground(container);
+      expect(floor?.querySelector("[data-slot='accessory-underfoot']")).not.toBeNull();
+      expect(floor?.className).not.toContain("animate-");
+    });
+
+    it("세트는 바닥 자리를 따로 두지 않고 몸과 함께 움직인다", () => {
+      const { container } = renderHero(SUPERHERO, "intro");
+
+      expect(ground(container)).toBeNull();
+    });
+
+    it("발밑 소품이 없으면 바닥 자리를 그리지 않는다", () => {
+      const { container } = renderHero({ id: "book", accessories: [] }, "intro");
+
+      expect(ground(container)).toBeNull();
+    });
   });
 });
