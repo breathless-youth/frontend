@@ -1,6 +1,11 @@
 import type { PointsAdStatus } from "@focusmakers/types";
 
-import { isNativeBridgeAvailable, postToNative, subscribeToNativeMessages } from "./bridge";
+import {
+  bridgeRequestId,
+  isNativeBridgeAvailable,
+  postToNative,
+  subscribeToNativeMessages,
+} from "./bridge";
 
 // 앱 안 이동은 URL에서 쿼리를 없애므로 처음 읽은 표시를 보관한다.
 function readPointsAdsFlag(): boolean {
@@ -25,11 +30,6 @@ export function __resetNativePointsAdsForTests(): void {
   flagCache = null;
 }
 
-// LAN 주소(http)로 연 개발 웹뷰는 비보안 문서라 randomUUID가 없다.
-function requestId(): string {
-  return typeof crypto.randomUUID === "function" ? crypto.randomUUID() : String(Math.random());
-}
-
 /**
  * 앱에 보상형 광고 보기 요청하기
  *
@@ -37,7 +37,7 @@ function requestId(): string {
  * `rewarded`는 광고 SDK가 보상 조건을 채웠다고 알렸다는 뜻이고 포인트는 서버가 광고 사업자의 확인을 받은 뒤에 들어온다.
  */
 export function requestNativePointsAd(): Promise<PointsAdStatus> {
-  const id = requestId();
+  const id = bridgeRequestId();
   return new Promise((resolve) => {
     const unsubscribe = subscribeToNativeMessages((message) => {
       if (message.type !== "points-ad-show-result" || message.id !== id) {

@@ -1,6 +1,11 @@
 import type { ReviewLoginFailureCode } from "@focusmakers/types";
 
-import { isNativeBridgeAvailable, postToNative, subscribeToNativeMessages } from "./bridge";
+import {
+  bridgeRequestId,
+  isNativeBridgeAvailable,
+  postToNative,
+  subscribeToNativeMessages,
+} from "./bridge";
 import { queryClient } from "./queryClient";
 
 export type NativeReviewLoginResult =
@@ -55,8 +60,7 @@ export function requestNativeReviewLogin(
   loginId: string,
   password: string,
 ): Promise<NativeReviewLoginResult> {
-  // LAN 주소(http)로 연 개발 웹뷰는 비보안 문서라 randomUUID가 없다.
-  const id = typeof crypto.randomUUID === "function" ? crypto.randomUUID() : String(Math.random());
+  const id = bridgeRequestId();
   return new Promise((resolve) => {
     const finish = (result: NativeReviewLoginResult) => {
       window.clearTimeout(timer);

@@ -108,6 +108,16 @@ export function postToNative(message: ToNativeMessage): boolean {
  */
 export const NATIVE_MESSAGE_ENTRY = "__focusonNativeMessage";
 
+/**
+ * 앱에 보내는 요청과 그 답을 짝짓는 id
+ *
+ * LAN 주소(http)로 연 개발 웹뷰는 비보안 문서라 randomUUID가 없다.
+ * 앱은 비지 않은 문자열이면 받으므로 그때는 난수 문자열로 대신한다.
+ */
+export function bridgeRequestId(): string {
+  return typeof crypto.randomUUID === "function" ? crypto.randomUUID() : String(Math.random());
+}
+
 type NativeMessageReceiver = (raw: string) => void;
 
 const handlers = new Set<(message: ToWebMessage) => void>();

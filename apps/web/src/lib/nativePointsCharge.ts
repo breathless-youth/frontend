@@ -6,7 +6,12 @@ import {
   type PointsChargeRestoreStatus,
 } from "@focusmakers/types";
 
-import { isNativeBridgeAvailable, postToNative, subscribeToNativeMessages } from "./bridge";
+import {
+  bridgeRequestId,
+  isNativeBridgeAvailable,
+  postToNative,
+  subscribeToNativeMessages,
+} from "./bridge";
 
 // 앱 안 이동은 URL에서 쿼리를 없애므로 처음 읽은 표시를 보관한다.
 function readPointsChargeFlag(): boolean {
@@ -48,11 +53,6 @@ export function __resetNativePointsChargeForTests(): void {
   restoreFlagCache = null;
 }
 
-// LAN 주소(http)로 연 개발 웹뷰는 비보안 문서라 randomUUID가 없다.
-function requestId(): string {
-  return typeof crypto.randomUUID === "function" ? crypto.randomUUID() : String(Math.random());
-}
-
 const PRICES_TIMEOUT_MS = 10_000;
 
 /**
@@ -68,7 +68,7 @@ export function requestNativePointsPrices(
   storeProductIds: string[],
   appUserId: string,
 ): Promise<PointsChargePrice[]> {
-  const id = requestId();
+  const id = bridgeRequestId();
   return new Promise((resolve) => {
     const finish = (prices: PointsChargePrice[]) => {
       window.clearTimeout(timer);
@@ -105,7 +105,7 @@ export function requestNativePointsPurchase(
   storeProductId: string,
   appUserId: string,
 ): Promise<PointsChargePurchaseStatus> {
-  const id = requestId();
+  const id = bridgeRequestId();
   return new Promise((resolve) => {
     const unsubscribe = subscribeToNativeMessages((message) => {
       if (message.type !== "points-charge-purchase-result" || message.id !== id) {
@@ -140,7 +140,7 @@ export function requestNativePointsRestore(
   storeProductIds: string[],
   appUserId: string,
 ): Promise<PointsChargeRestoreStatus> {
-  const id = requestId();
+  const id = bridgeRequestId();
   return new Promise((resolve) => {
     const unsubscribe = subscribeToNativeMessages((message) => {
       if (message.type !== "points-charge-restore-result" || message.id !== id) {
