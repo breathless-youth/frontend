@@ -64,7 +64,7 @@ describe("코드로 그리는 효과 CSS", () => {
     expect(compact).toMatch(/\.mascot-fx-starry-disc[^{]*\{[^}]*animation:\s*none/);
   });
 
-  it("작은 크기 기준은 그룹 책상 마스코트보다 크고 소품 미리 보기보다 작다", () => {
+  it("작은 크기 기준은 그룹 책상 자리 폭(104px)보다 크고 소품 미리 보기(144px)보다 작다", () => {
     const limit = Number(/@container mascot-fx \(max-width: (\d+)px\)/.exec(compact)?.[1]);
     // 기준 상자는 마스코트 판보다 1440 / 1024배 넓은 소품 판이다.
     const mascotSide = limit / (1440 / 1024);
