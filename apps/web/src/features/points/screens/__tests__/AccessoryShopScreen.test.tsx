@@ -140,6 +140,22 @@ describe("AccessoryShopScreen", () => {
     expect(await screen.findByRole("button", { name: "착용 중" })).toBeDisabled();
   });
 
+  it("구매 확인 창이 열린 채 뒤로 가기를 누르면 창만 닫히고 사지 않는다", async () => {
+    const gateway = createFakePointsGateway("default");
+    const purchase = vi.spyOn(gateway, "purchase");
+    renderScreen(gateway);
+    await userEvent.click(await screen.findByRole("button", { name: "600P로 구매" }));
+    expect(await screen.findByRole("button", { name: "구매하기" })).toBeInTheDocument();
+
+    window.history.back();
+
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "구매하기" })).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole("button", { name: "600P로 구매" })).toBeInTheDocument();
+    expect(purchase).not.toHaveBeenCalled();
+  });
+
   it("포인트가 모자라면 구매 확인 대신 모자람 창이 열린다", async () => {
     renderScreen(createFakePointsGateway("default", { balance: 100 }));
     await userEvent.click(await screen.findByRole("button", { name: "600P로 구매" }));

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
+import { useBackDismiss } from "@/lib/backDismiss";
 
 import { formatPoints } from "../../model/formatPoints";
 import type { ChargePack, EarnToday, ShopItem } from "../../types";
@@ -72,6 +73,7 @@ export function InsufficientPointsSheet({
     }
   };
 
+  useBackDismiss(open && item !== null, onClose);
   return (
     <Drawer open={open && item !== null} onOpenChange={(next) => !next && onClose()}>
       <DrawerContent className="theme-soft-blue">

@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
+import { useBackDismiss } from "@/lib/backDismiss";
 
 import type { ShopItem } from "../../types";
 import { PointAmount } from "./PointAmount";
@@ -29,6 +30,7 @@ export function PurchaseConfirmSheet({
 }) {
   const { t } = useTranslation("points");
   const price = item?.acquire.type === "price" ? item.acquire.price : 0;
+  useBackDismiss(open && item !== null, onClose);
   return (
     <Drawer open={open && item !== null} onOpenChange={(next) => !next && onClose()}>
       <DrawerContent className="theme-soft-blue">

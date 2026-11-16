@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
+import { useBackDismiss } from "@/lib/backDismiss";
 
 /** 결제가 실패하거나 취소됐을 때의 시트이며 포인트가 안 들어온 사람을 위해 문의 길을 둔다. */
 export function PaymentFailedSheet({
@@ -18,6 +19,7 @@ export function PaymentFailedSheet({
   missing?: string;
 }) {
   const { t } = useTranslation("points-earn");
+  useBackDismiss(open, onClose);
   return (
     <Drawer open={open} onOpenChange={(next) => !next && onClose()}>
       <DrawerContent className="theme-soft-blue">

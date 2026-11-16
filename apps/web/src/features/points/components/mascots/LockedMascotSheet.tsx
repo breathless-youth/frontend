@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { formatDuration } from "@/features/records/recordsFormat";
+import { useBackDismiss } from "@/lib/backDismiss";
 
 import { formatPoints } from "../../model/formatPoints";
 import type { Mascot } from "../../types";
@@ -33,6 +34,7 @@ export function LockedMascotSheet({
   const name = mascot === null ? "" : hidden ? t("hiddenName") : tPoints(`mascots.${mascot.id}`);
   const target = mascot?.unlockFocusSec ?? 0;
   const percent = target === 0 ? 100 : Math.min(Math.floor((totalFocusSec / target) * 100), 100);
+  useBackDismiss(mascot !== null, onClose);
   return (
     <Drawer open={mascot !== null} onOpenChange={(next) => !next && onClose()}>
       <DrawerContent className="theme-soft-blue">

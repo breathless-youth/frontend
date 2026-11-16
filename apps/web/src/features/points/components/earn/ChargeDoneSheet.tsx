@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
+import { useBackDismiss } from "@/lib/backDismiss";
 
 import { formatPoints, formatSignedPoints } from "../../model/formatPoints";
 
@@ -18,6 +19,7 @@ export function ChargeDoneSheet({
   onShop: () => void;
 }) {
   const { t } = useTranslation("points-earn");
+  useBackDismiss(done !== null, onClose);
   return (
     <Drawer open={done !== null} onOpenChange={(next) => !next && onClose()}>
       <DrawerContent className="theme-soft-blue">
