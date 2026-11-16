@@ -36,13 +36,28 @@ afterEach(() => {
 });
 
 describe("HomeProgressBand", () => {
-  it("보상 띠는 진행 고리 없이 받을 금액을 문장 안에 따로 보인다", () => {
+  it("보상 띠는 진행 고리 없이 누구에게 주는 보상인지와 금액을 보인다", () => {
     render(band(REWARD, actions()));
 
-    const region = screen.getByRole("region", { name: "시작 미션 완료" });
-    expect(region).toHaveTextContent("보상 150P를 받아 주세요");
+    const region = screen.getByRole("region", { name: "시작 미션 보상" });
+    expect(region).toHaveTextContent("시작 미션을 끝낸 분께 드려요");
+    expect(region).toHaveTextContent("시작 미션 보상 150P");
     expect(screen.getByText("150P")).toBeInTheDocument();
     expect(screen.queryByRole("progressbar")).toBeNull();
+  });
+
+  it("보상 띠의 금액은 서버가 정한 값을 그대로 쓴다", () => {
+    render(band({ kind: "mission-reward", points: 1200 }, actions()));
+
+    expect(screen.getByRole("region", { name: "시작 미션 보상" })).toHaveTextContent(
+      "시작 미션 보상 1,200P",
+    );
+  });
+
+  it("목표를 아직 정하지 않은 띠는 시작 미션 완료로 읽힌다", () => {
+    render(band(GOAL_EMPTY, actions()));
+
+    expect(screen.getByRole("region", { name: "시작 미션 완료" })).toBeInTheDocument();
   });
 
   it("처음 그려진 띠의 버튼은 바로 눌린다", () => {

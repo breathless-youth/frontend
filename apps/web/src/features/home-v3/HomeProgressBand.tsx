@@ -115,7 +115,9 @@ export function HomeProgressBand({
     ? t("v3.mission.caption")
     : goal
       ? t("v3.goal.caption", { time: homeClock(goal.targetSeconds) })
-      : t("v3.mission.finished");
+      : reward
+        ? t("v3.reward.caption")
+        : t("v3.mission.finished");
   const title = reward ? (
     <Trans
       t={t}
@@ -141,7 +143,7 @@ export function HomeProgressBand({
           "flex min-h-19 items-center rounded-xl bg-brand-subtle px-4 py-3",
           reward ? "gap-3" : "gap-3.5",
         )}
-        aria-label={caption}
+        aria-label={reward ? t("v3.reward.label") : caption}
       >
         {reward ? (
           <CoinIcon size={44} />

@@ -150,7 +150,9 @@
     "startingStudy": "Getting ready",
     "startFailed": "Could not start studying. Please try again.",
     "reward": {
-      "title": "Your <accent>{{points}}</accent> reward is waiting",
+      "label": "Start mission reward",
+      "caption": "For finishing the start missions",
+      "title": "Start mission reward <accent>{{points}}</accent>",
       "claim": "Claim",
       "claiming": "Claiming",
       "failed": "Couldn't claim the reward. Tap again."
