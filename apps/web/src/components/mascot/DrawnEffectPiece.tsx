@@ -160,6 +160,9 @@ const ORBIT_RING = {
   back: "19.0,65.0 19.3,64.2 20.1,63.3 21.4,62.3 23.2,61.3 25.4,60.3 28.1,59.3 31.1,58.3 34.5,57.3 38.1,56.4 42.0,55.5 46.0,54.7 50.0,54.0 54.0,53.4 58.0,52.9 61.9,52.5 65.5,52.3 68.9,52.2 71.9,52.2 74.6,52.4 76.8,52.7 78.6,53.1 79.9,53.6 80.7,54.3 81.0,55.0",
 } as const;
 
+// 한 바퀴(index.css의 mascot-fx-spiral-key, 4.2초)를 열쇠 세 개가 고르게 나눠 시작 시점을 이만큼씩 어긋나게 둔다.
+const ORBIT_GAP_SECONDS = 1.4;
+
 /**
  * 열쇠 고리: 열쇠마다 몸 둘레의 기운 타원을 돌며 앞으로 올 때는 크고 선명하게, 뒤로 갈 때는 작고 흐리게 보인다.
  *
@@ -187,7 +190,7 @@ function Spiral({ box, picture, index, side }: Part & { index: number; side: Orb
           "mascot-fx-spiral-key absolute inset-0",
           side === "front" ? "mascot-fx-spiral-front" : "mascot-fx-spiral-back",
         )}
-        style={{ animationDelay: `${-index}s` }}
+        style={{ animationDelay: `${-index * ORBIT_GAP_SECONDS}s` }}
       >
         <span
           className="absolute bg-no-repeat"

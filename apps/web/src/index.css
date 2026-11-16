@@ -1823,7 +1823,8 @@ body {
 .mascot-fx-spiral-key {
   /* 판 안에서 열쇠가 놓인 자리(가운데, 위에서 60%)를 축으로 돌고 줄어든다. */
   transform-origin: 50% 60%;
-  animation-duration: 3s;
+  /* 천천히 돌아야 열쇠가 또렷이 보여 한 바퀴를 4.2초로 두고, DrawnEffectPiece의 ORBIT_GAP_SECONDS가 그 1/3이다. */
+  animation-duration: 4.2s;
   animation-timing-function: linear;
   animation-iteration-count: infinite;
 }

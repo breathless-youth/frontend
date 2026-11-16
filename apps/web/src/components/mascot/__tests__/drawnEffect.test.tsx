@@ -157,7 +157,8 @@ describe("코드로 그리는 효과", () => {
         (path) => path.style.animationDelay,
       );
     expect(delays(front)).toEqual(delays(back));
-    expect(new Set(delays(back)).size).toBe(3);
+    // 한 바퀴 4.2초를 열쇠 세 개가 고르게 나눠 1.4초씩 어긋나 돈다.
+    expect(delays(back)).toEqual(["0s", "-1.4s", "-2.8s"]);
     // 고리도 뒤쪽 반은 몸 뒤에, 앞쪽 반은 몸 앞에 한 번씩만 그린다.
     expect(back.querySelectorAll("[data-orbit-ring='back']")).toHaveLength(1);
     expect(front.querySelectorAll("[data-orbit-ring='front']")).toHaveLength(1);
