@@ -57,7 +57,7 @@ installFirebaseAnalyticsSdk();
 installSocialLoginSdk();
 installPointsChargeSdk();
 installPointsAdsSdk();
-// 결제 SDK는 결제 메시지가 올 때 켜지만, 전에 켠 기기는 끊긴 결제를 이어서 넘기도록 바로 켠다.
+// 결제 SDK는 결제 메시지가 올 때 켜지만, 결제나 구매 복원을 시작했던 기기는 끊긴 결제를 이어서 넘기도록 바로 켠다.
 void resumePointsCharge();
 
 // 지난 프로세스가 남긴 방해 앱 잠금과 안전 해제 예약을 지운다.
