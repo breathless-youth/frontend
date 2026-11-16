@@ -393,6 +393,79 @@ describe("AccessoryGrid", () => {
     });
   });
 
+  describe("마스코트를 바꿀 때", () => {
+    const pressed = (name: RegExp | string) => screen.findByRole("button", { name, pressed: true });
+    const pickMascot = async (name: string) =>
+      userEvent.click(
+        within(await screen.findByRole("group", { name: "마스코트 고르기" })).getByRole("button", {
+          name,
+        }),
+      );
+
+    it("새 마스코트가 낀 칸과 소품을 처음 선택으로 보인다", async () => {
+      const gateway = createFakePointsGateway("default", { balance: 5000 });
+      await gateway.purchase("acc-planner-pen");
+      await gateway.equipAccessory("planner", "head", "acc-planner-pen");
+      const getShop = gateway.getShop.bind(gateway);
+      const glasses = {
+        id: "planner-glasses",
+        kind: "accessory" as const,
+        name: "플래니 안경",
+        imageUrl: null,
+        acquire: { type: "price" as const, price: 100 },
+        owned: true,
+        inUse: true,
+        mascotId: "planner" as const,
+        slot: "face" as const,
+      };
+      renderScreen({
+        ...gateway,
+        getShop: async () => {
+          const shop = await getShop();
+          // 머리 위 칸 만년필은 벗기고 얼굴 칸 안경만 낀 플래니
+          return {
+            ...shop,
+            items: [
+              ...shop.items.map((it) =>
+                it.id === "acc-planner-pen" ? { ...it, inUse: false } : it,
+              ),
+              glasses,
+            ],
+          };
+        },
+      });
+      expect(await pressed("머리 위")).toBeInTheDocument();
+
+      await pickMascot("플래니");
+
+      expect(await pressed("얼굴")).toBeInTheDocument();
+      expect(await pressed(/플래니 안경/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "착용 중" })).toBeDisabled();
+    });
+
+    it("다른 마스코트에서 소품을 벗고 돌아와도 원래 마스코트의 착용과 처음 선택이 그대로다", async () => {
+      const gateway = createFakePointsGateway("default", { balance: 5000 });
+      await gateway.equipAccessory("stopwatch", "body", "acc-stopwatch-ribbon");
+      await gateway.purchase("acc-planner-pen");
+      await gateway.equipAccessory("planner", "head", "acc-planner-pen");
+      renderScreen(gateway);
+      expect(await pressed(/단추 리본/)).toBeInTheDocument();
+      // 타이미에서 다른 소품을 골라 둔 채 마스코트를 바꾼다.
+      await userEvent.click(screen.getByRole("button", { name: "머리 위" }));
+      await userEvent.click(await screen.findByRole("button", { name: /왕관/ }));
+
+      await pickMascot("플래니");
+      expect(await pressed(/만년필/)).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "머리 위 소품 벗기" }));
+      await waitFor(() => expect(screen.queryByRole("button", { name: "착용 중" })).toBeNull());
+
+      await pickMascot("타이미");
+      expect(await pressed("몸 장식")).toBeInTheDocument();
+      expect(await pressed(/단추 리본/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "착용 중" })).toBeDisabled();
+    });
+  });
+
   it("누른 상품이 있으면 착용 중인 소품이 다른 칸에 있어도 누른 상품을 고른다", async () => {
     const gateway = createFakePointsGateway("default");
     await gateway.equipAccessory("stopwatch", "body", "acc-stopwatch-ribbon");

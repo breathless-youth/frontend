@@ -37,6 +37,8 @@ const NOTICE_MS = 3000;
  * 마스코트와 부위를 고르면 그 소품 격자가 나오고, 사고 입는 일은 맨 아래 버튼 하나가 맡는다.
  * 산 소품은 바로 입은 상태로 만든다. 조회와 변경은 라우트가 맡고 이 화면은 받은 값과 처리기만 쓴다.
  * 상점에서 누른 상품 없이 들어오면 착용 중인 소품이 있는 칸과 그 소품을 먼저 골라, 지금 모습에서 바꿔 보기 시작하게 한다.
+ * 마스코트를 바꿀 때도 그 마스코트가 착용 중인 칸과 소품을 먼저 고른다.
+ * 착용은 마스코트마다 따로 저장되어 한 마스코트에서 끼고 벗어도 다른 마스코트의 착용은 바뀌지 않는다.
  */
 export function AccessoryShopScreen({
   data,
@@ -67,21 +69,20 @@ export function AccessoryShopScreen({
     () => entry?.mascotId ?? (mascots.find((m) => m.selected) ?? mascots[0]).id,
   );
   // 착용 중인 소품이 여러 칸에 있으면 칩 순서에서 가장 앞 칸을 연다.
-  const [pickedSlot, setSlot] = useState<AccessorySlot>(
-    () =>
-      entry?.slot ??
-      SLOT_ORDER.find((candidate) =>
-        data.items.some(
-          (it) =>
-            it.kind === "accessory" &&
-            it.mascotId === mascotId &&
-            it.slot === candidate &&
-            it.inUse,
-        ),
-      ) ??
-      "head",
-  );
+  const wornSlotOf = (id: MascotId): AccessorySlot =>
+    SLOT_ORDER.find((candidate) =>
+      data.items.some(
+        (it) => it.kind === "accessory" && it.mascotId === id && it.slot === candidate && it.inUse,
+      ),
+    ) ?? "head";
+  const [pickedSlot, setSlot] = useState<AccessorySlot>(() => entry?.slot ?? wornSlotOf(mascotId));
   const [pickedId, setPickedId] = useState<string | undefined>(entry?.id);
+  // 마스코트를 바꾸면 앞 마스코트에서 고르던 칸과 소품을 버리고 새 마스코트의 지금 모습에서 시작한다.
+  const pickMascot = (id: MascotId) => {
+    setMascotId(id);
+    setSlot(wornSlotOf(id));
+    setPickedId(undefined);
+  };
 
   const mascot = mascots.find((m) => m.id === mascotId) ?? mascots[0];
   const mascotName = tPoints(`mascots.${mascot.id}`);
@@ -162,7 +163,7 @@ export function AccessoryShopScreen({
         mascots={mascots}
         worn={wornByMascot(data.items)}
         pickedId={mascot.id}
-        onPick={(id) => choose(() => setMascotId(id))}
+        onPick={(id) => choose(() => pickMascot(id))}
       />
       <AccessoryPreview
         mascotId={mascot.id}
