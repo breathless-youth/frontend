@@ -49,7 +49,8 @@
     "charge": "Top up now",
     "chargeAndBuy": "Top up {{points}} and buy",
     "pricePending": "Checking price",
-    "studyHint": "+7P for every 30 minutes you study",
+    "studyHint": "{{points}} for every {{duration}} you study",
+    "studyHintGeneral": "The more you study, the more points you earn",
     "ok": "OK"
   },
   "loadError": {
