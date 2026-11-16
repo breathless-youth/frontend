@@ -4,6 +4,7 @@ import { MascotPickerCard } from "../components/shop/MascotPickerCard";
 import { NextMascotCard } from "../components/shop/NextMascotCard";
 import { ShopSectionRow } from "../components/shop/ShopSectionRow";
 import { sortMascots } from "../model/mascotOrder";
+import { TIMER_BACKGROUNDS_ON_SALE } from "../model/onSale";
 import { wornByMascot } from "../model/wornAccessories";
 import type { MascotId, ShopData, ShopItem, ShopItemKind } from "../types";
 
@@ -12,7 +13,8 @@ const PREVIEW_COUNT = 3;
 /**
  * 꾸미기 상점 탭
  *
- * 다음 마스코트(다 모았으면 고르기 칸) 아래에 고른 마스코트의 소품과 타이머 배경을 세 개씩 미리 보인다.
+ * 다음 마스코트(다 모았으면 고르기 칸) 아래에 고른 마스코트의 소품을 세 개씩 미리 보인다.
+ * 타이머 배경 줄은 배경을 파는 출시에서만 그린다.
  * 받은 데이터만 그리고 불러오기 실패는 라우트가 그린다.
  */
 export function ShopTab({
@@ -60,12 +62,14 @@ export function ShopTab({
           onOpen={(itemId) => open("accessory", itemId)}
         />
       )}
-      <ShopSectionRow
-        title={t("points-shop:section.background")}
-        items={preview((item) => item.kind === "timerBackground")}
-        dark
-        onOpen={(itemId) => open("timerBackground", itemId)}
-      />
+      {TIMER_BACKGROUNDS_ON_SALE && (
+        <ShopSectionRow
+          title={t("points-shop:section.background")}
+          items={preview((item) => item.kind === "timerBackground")}
+          dark
+          onOpen={(itemId) => open("timerBackground", itemId)}
+        />
+      )}
     </div>
   );
 }

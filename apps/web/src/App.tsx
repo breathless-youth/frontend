@@ -67,6 +67,7 @@ import { RecordsPage } from "@/routes/RecordsPage";
 import { RoomPage } from "@/routes/RoomPage";
 import { SessionGuidePage } from "@/routes/SessionGuidePage";
 import { GroupLoginScreen } from "@/features/login/GroupLoginScreen";
+import { TimerBackgroundsSaleGate } from "@/features/points/TimerBackgroundsSaleGate";
 import { PointsLoginPage } from "@/routes/PointsLoginPage";
 import { SettingsPage } from "@/routes/SettingsPage";
 import { SocialTabRoute } from "@/routes/SocialTabRoute";
@@ -452,7 +453,14 @@ export function App() {
               <Route path="/points" element={<PointsPage />} />
               <Route path="/points/history" element={<PointsHistoryPage />} />
               <Route path="/points/accessories" element={<PointsAccessoriesPage />} />
-              <Route path="/points/backgrounds" element={<PointsBackgroundsPage />} />
+              <Route
+                path="/points/backgrounds"
+                element={
+                  <TimerBackgroundsSaleGate>
+                    <PointsBackgroundsPage />
+                  </TimerBackgroundsSaleGate>
+                }
+              />
               <Route path="/points/mascots" element={<PointsMascotsPage />} />
               <Route path="/points/login" element={<PointsLoginPage />} />
             </Routes>

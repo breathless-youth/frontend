@@ -85,17 +85,18 @@ describe("ShopTab", () => {
     expect(layers("타이미")).toEqual([]);
   });
 
-  it("상품 줄이 소품과 타이머 배경 두 종류로 세 개씩 나오고 전체 보기로 그 종류를 연다", async () => {
+  it("소품 줄이 세 개씩 나오고 전체 보기로 소품 화면을 연다", async () => {
     const { onOpen } = renderTab("default");
     const accessories = screen.getByRole("region", { name: "타이미 소품" });
-    const backgrounds = screen.getByRole("region", { name: "타이머 배경" });
     expect(within(accessories).getAllByRole("listitem")).toHaveLength(3);
-    expect(within(backgrounds).getAllByRole("listitem")).toHaveLength(3);
     expect(screen.queryByText("플래너 꾸미기")).not.toBeInTheDocument();
     await userEvent.click(within(accessories).getByRole("button", { name: /전체 보기/ }));
     expect(onOpen).toHaveBeenLastCalledWith("accessory");
-    await userEvent.click(within(backgrounds).getAllByRole("button", { name: /400P/ })[0]);
-    expect(onOpen).toHaveBeenLastCalledWith("timerBackground", expect.any(String));
+  });
+
+  it("타이머 배경은 이번 출시에 팔지 않아 배경 상품이 있어도 배경 줄을 그리지 않는다", () => {
+    renderTab("default");
+    expect(screen.queryByRole("region", { name: "타이머 배경" })).not.toBeInTheDocument();
   });
 
   it("앞 그림이 없는 상품은 뒤 그림을 칸에 보인다", () => {
