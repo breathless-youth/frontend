@@ -492,6 +492,17 @@ describe("포인트 충전", () => {
     );
   });
 
+  it("비회원이면 앱에 가격을 묻지 않고 포인트 수만 든 묶음을 준다", async () => {
+    const { gateway } = gatewayWith({});
+    fetchMock.mockResolvedValueOnce(respond(200, { ...PRODUCTS, revenueCatAppUserId: null }));
+
+    expect(await gateway.getChargePacks()).toEqual([
+      { productId: "points_1000", points: 1000, bonus: 100, priceLabel: null, popular: false },
+      { productId: "points_3000", points: 3000, bonus: 400, priceLabel: null, popular: false },
+    ]);
+    expect(native.requestNativePointsPrices).not.toHaveBeenCalled();
+  });
+
   it("결제가 끝나면 잔액이 늘 때까지 다시 읽어 그 값을 돌려준다", async () => {
     vi.useFakeTimers();
     const { gateway, requestNativePointsPurchase } = gatewayWith({});
@@ -866,12 +877,14 @@ describe("스토어 결제 상품", () => {
     );
   });
 
-  it("결제용 ID를 받지 못해도 가격은 로그인 없이 묻는다", async () => {
+  it("비회원이거나 결제용 ID를 받지 못하면 앱에 가격을 묻지 않는다", async () => {
     native.requestNativePointsPrices.mockResolvedValue([]);
-    fetchMock.mockResolvedValue(respond(500, { code: "INTERNAL" }));
-
+    routeStore([], { items: [], revenueCatAppUserId: null });
     expect(await createApiPointsGateway().getStorePrices(["set_book_bear"])).toEqual({});
-    expect(native.requestNativePointsPrices).toHaveBeenCalledWith(["set_book_bear"], null);
+
+    fetchMock.mockResolvedValue(respond(500, { code: "INTERNAL" }));
+    expect(await createApiPointsGateway().getStorePrices(["set_book_bear"])).toEqual({});
+    expect(native.requestNativePointsPrices).not.toHaveBeenCalled();
   });
 
   it("결제가 끝나면 서버가 보유로 바꿀 때까지 상점을 다시 읽는다", async () => {

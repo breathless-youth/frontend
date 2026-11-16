@@ -27,6 +27,8 @@ function setup(
     onWatchAd?: () => Promise<AdResult>;
     onCharge?: (id: string, onPaid?: () => void) => Promise<ChargeResult>;
     packs?: ChargePack[];
+    member?: boolean;
+    allowAction?: () => boolean;
   } = {},
 ) {
   const onClaim = over.onClaim ?? vi.fn(async () => ({ granted: true, points: 60, balance: 1300 }));
@@ -48,6 +50,8 @@ function setup(
         onClaim={onClaim}
         onWatchAd={over.inApp === false ? undefined : onWatchAd}
         onCharge={over.inApp === false ? undefined : onCharge}
+        {...(over.member === undefined ? {} : { member: over.member })}
+        {...(over.allowAction === undefined ? {} : { allowAction: over.allowAction })}
       />
     </MemoryRouter>,
   );
@@ -289,6 +293,22 @@ describe("EarnTab 광고와 충전", () => {
     await userEvent.click(await screen.findByRole("button", { name: "다시 시도" }));
     await screen.findByText("충전 완료");
     expect(onCharge).toHaveBeenNthCalledWith(2, "points_500", expect.any(Function));
+  });
+
+  it("비회원에게는 묶음마다 포인트 수와 로그인 안내를 보이고 누르면 결제 대신 로그인 화면으로 보낸다", async () => {
+    const allowAction = vi.fn(() => false);
+    const { onCharge } = setup({
+      member: false,
+      allowAction,
+      packs: fixture.packs.map((pack) => ({ ...pack, priceLabel: null })),
+    });
+    expect(screen.queryByText("가격 확인 중")).not.toBeInTheDocument();
+    expect(screen.getAllByText("로그인하기")).toHaveLength(3);
+    const pack = screen.getByRole("button", { name: "500P 충전, 로그인하기" });
+    expect(pack).toBeEnabled();
+    await userEvent.click(pack);
+    expect(allowAction).toHaveBeenCalledOnce();
+    expect(onCharge).not.toHaveBeenCalled();
   });
 
   it("스토어 가격을 받지 못한 묶음은 가격 확인 중을 보이고 눌러도 결제하지 않는다", async () => {

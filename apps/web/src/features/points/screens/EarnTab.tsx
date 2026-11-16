@@ -51,6 +51,7 @@ export function EarnTab({
   onCharge,
   chargeAvailable = true,
   adAvailable = true,
+  member = true,
   allowAction = () => true,
 }: {
   earn: EarnToday;
@@ -62,6 +63,8 @@ export function EarnTab({
   chargeAvailable?: boolean;
   /** 광고를 맡지 못하는 앱에서는 서버가 광고 상태를 줘도 광고 타일을 그리지 않는다. */
   adAvailable?: boolean;
+  /** 비회원이면 충전 묶음의 가격 자리에 로그인 안내를 그린다. */
+  member?: boolean;
   /** 받기·광고·충전을 해도 되는지이며 비회원이면 로그인 화면을 열고 false를 준다. */
   allowAction?: () => boolean;
 }) {
@@ -262,6 +265,7 @@ export function EarnTab({
           <ChargePackGrid
             packs={packs}
             pending={pending}
+            member={member}
             onCharge={(pack) => void charge(onCharge, pack.productId)}
           />
           {/* 글자는 작게 두고 누르는 범위만 위아래로 넓힌다. */}

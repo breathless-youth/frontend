@@ -99,18 +99,16 @@ describe("앱 포인트 충전 브리지", () => {
     expect(await pending).toEqual([{ storeProductId: "points_1000", priceLabel: "₩1,100" }]);
   });
 
-  it("가격 요청에 결제용 ID를 싣고 비회원이면 null로 싣는다", () => {
+  it("가격 요청에 결제용 ID를 싣는다", () => {
     enable();
     void requestNativePointsPrices(["points_1000"], APP_USER_ID);
     expect(lastRequest()).toMatchObject({ type: "points-charge-prices", appUserId: APP_USER_ID });
-    void requestNativePointsPrices(["points_1000"], null);
-    expect(lastRequest()).toMatchObject({ type: "points-charge-prices", appUserId: null });
   });
 
   it("앱이 가격에 답하지 않으면 빈 목록으로 끝낸다", async () => {
     vi.useFakeTimers();
     enable();
-    const pending = requestNativePointsPrices(["points_1000"], null);
+    const pending = requestNativePointsPrices(["points_1000"], APP_USER_ID);
     await vi.advanceTimersByTimeAsync(10_000);
     expect(await pending).toEqual([]);
   });

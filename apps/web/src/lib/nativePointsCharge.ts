@@ -58,12 +58,13 @@ const PRICES_TIMEOUT_MS = 10_000;
  * 스토어의 충전 상품 가격 묻기
  *
  * 가격과 통화는 스토어가 정해서 서버 상품 목록에는 없다.
- * 결제용 ID가 있으면 앱이 결제와 같은 값으로 결제 SDK에 로그인한 뒤 묻고, 비회원은 null이라 로그인 없이 묻는다.
+ * 앱은 결제와 같은 결제용 ID로 결제 SDK를 켜거나 로그인한 뒤 묻는다.
+ * 결제 SDK가 비회원의 기기 정보를 받지 않도록 결제용 ID가 없는 비회원은 이 메시지를 보내지 않는다.
  * 앱이 답하지 않으면 빈 목록으로 끝내서 상품 목록이 가격 없이라도 그려지게 한다.
  */
 export function requestNativePointsPrices(
   storeProductIds: string[],
-  appUserId: string | null,
+  appUserId: string,
 ): Promise<PointsChargePrice[]> {
   const id = requestId();
   return new Promise((resolve) => {

@@ -7,7 +7,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBackTo } from "@/features/group-room/useBackTo";
 import { PointsLoadState } from "@/features/points/components/shared/PointsLoadState";
 import { PointsScreenFrame } from "@/features/points/components/shared/PointsScreenFrame";
-import { usePointsGateway, usePointsUserId } from "@/features/points/gateway/PointsGatewayContext";
+import {
+  usePointsGateway,
+  usePointsMembership,
+  usePointsUserId,
+} from "@/features/points/gateway/PointsGatewayContext";
 import { hasClaimableReward } from "@/features/points/model/claimableReward";
 import { useShopActions } from "@/features/points/model/useShopActions";
 import { PointsRouteGate } from "@/features/points/PointsRouteGate";
@@ -170,6 +174,7 @@ function EarnPanel() {
   const gateway = usePointsGateway();
   const userId = usePointsUserId();
   const earn = useQuery(earnTodayQuery(gateway, userId));
+  const { member } = usePointsMembership();
   const { charge: canCharge, ads: canShowAds } = gateway.capabilities;
   const packs = useQuery({ ...chargePacksQuery(gateway, userId), enabled: canCharge });
   const actions = useShopActions();
@@ -192,6 +197,7 @@ function EarnPanel() {
       onCharge={actions.charge}
       chargeAvailable={!actions.inApp || canCharge}
       adAvailable={!actions.inApp || canShowAds}
+      member={member}
       allowAction={actions.allowMemberAction}
     />
   );

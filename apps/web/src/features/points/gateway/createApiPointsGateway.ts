@@ -144,11 +144,14 @@ export function createApiPointsGateway(): PointsGateway {
       if (productIds.length === 0) {
         return {};
       }
-      // 가격만 묻는 때는 돈이 오가지 않아 결제용 ID를 받지 못해도 로그인 없이 묻는다.
+      // 앱은 결제용 ID로 결제 SDK를 켜므로 비회원이거나 결제용 ID를 받지 못하면 앱에 묻지 않는다.
       const appUserId = await getPointProducts().then(
         (products) => products.revenueCatAppUserId ?? null,
         () => null,
       );
+      if (appUserId === null) {
+        return {};
+      }
       const prices = await requestNativePointsPrices(productIds, appUserId);
       return Object.fromEntries(prices.map((price) => [price.storeProductId, price.priceLabel]));
     },
@@ -232,10 +235,13 @@ export function createApiPointsGateway(): PointsGateway {
     },
     getChargePacks: async () => {
       const { items, revenueCatAppUserId } = await getPointProducts();
-      const prices = await requestNativePointsPrices(
-        items.map((item) => item.storeProductId),
-        revenueCatAppUserId ?? null,
-      );
+      // 비회원에게는 가격을 묻지 않아 앱이 결제 SDK를 켜지 않고, 화면은 가격 자리에 로그인 안내를 그린다.
+      const prices = revenueCatAppUserId
+        ? await requestNativePointsPrices(
+            items.map((item) => item.storeProductId),
+            revenueCatAppUserId,
+          )
+        : [];
       const priceById = new Map(prices.map((price) => [price.storeProductId, price.priceLabel]));
       return items.map((item) => ({
         productId: item.storeProductId,
