@@ -277,7 +277,7 @@ describe("포인트 기록", () => {
     expect(parseMedalLabel("TIME_SLOT:WEEKLY:MORNING/3")).toEqual({ period: "WEEKLY", rank: 3 });
     const [entry] = toHistoryPage({
       items: [history({ reason: "MEDAL", amount: 100, label: "FOCUS_RATE:MONTHLY/2" })],
-      nextCursor: "n",
+      nextCursor: 7,
     }).entries;
     expect(entry).toMatchObject({ reason: "medal", medal: { period: "MONTHLY", rank: 2 } });
   });

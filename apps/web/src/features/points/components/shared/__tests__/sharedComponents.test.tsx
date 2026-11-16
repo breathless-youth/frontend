@@ -27,6 +27,12 @@ describe("PointsBalancePill", () => {
     expect(onPress).toHaveBeenCalledOnce();
   });
 
+  it("환불로 잔액이 0 아래로 내려가면 안내 없이 음수 그대로 보인다", () => {
+    render(<PointsBalancePill size="screen" balance={-300} onPress={() => {}} />);
+    expect(screen.getByText("-300P")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "보유 포인트 -300P" })).toBeInTheDocument();
+  });
+
   it("잔액을 모르면 숫자 대신 줄표를 보인다", () => {
     render(<PointsBalancePill size="screen" balance={undefined} />);
     expect(screen.getByText("–P")).toBeInTheDocument();

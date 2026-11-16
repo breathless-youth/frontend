@@ -66,12 +66,12 @@ export type PointsHistoryType = "ALL" | "EARNED" | "SPENT";
 
 export function getPointsHistory(params: {
   type: PointsHistoryType;
-  cursor: string | null;
+  cursor: number | null;
   size: number;
 }): Promise<PointsHistoryResponse> {
   const query = new URLSearchParams({ type: params.type, size: String(params.size) });
   if (params.cursor !== null) {
-    query.set("cursor", params.cursor);
+    query.set("cursor", String(params.cursor));
   }
   return request(
     `/api/points/history?${query.toString()}`,

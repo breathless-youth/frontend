@@ -56,7 +56,7 @@ export function historyQuery(gateway: PointsGateway, userId: number, filter: His
   return infiniteQueryOptions({
     queryKey: pointsKeys.history(userId, filter),
     queryFn: ({ pageParam }) => gateway.getHistory(filter, pageParam),
-    initialPageParam: null as string | null,
+    initialPageParam: null as number | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     staleTime: 0,
   });

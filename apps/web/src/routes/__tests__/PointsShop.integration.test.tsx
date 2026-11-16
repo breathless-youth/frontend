@@ -161,6 +161,17 @@ describe("모자람 창의 충전", () => {
     expect(purchase).not.toHaveBeenCalled();
   });
 
+  it("잔액이 음수면 구매 확인 대신 모자람 창이 열리고 빚까지 더한 만큼 모자라다고 알린다", async () => {
+    const gateway = fakeGateway("default", -300);
+    const purchase = vi.spyOn(gateway, "purchase");
+    await openInsufficient(gateway);
+
+    expect(screen.getByText("왕관을 구매하려면 900P가 더 필요해요")).toBeInTheDocument();
+    expect(screen.getAllByText("-300P").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "구매하기" })).not.toBeInTheDocument();
+    expect(purchase).not.toHaveBeenCalled();
+  });
+
   it("앱 밖 브라우저에서는 광고와 충전 줄이 없다", async () => {
     vi.mocked(isNativeBridgeAvailable).mockReturnValue(false);
     await openInsufficient(fakeGateway("default", 100));

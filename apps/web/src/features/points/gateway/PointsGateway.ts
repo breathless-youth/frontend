@@ -78,7 +78,7 @@ export interface PointsGateway {
   markUnlocksSeen(): Promise<void>;
   getSessionReward(startedAt: string): Promise<SessionReward | null>;
   /** 최신순 한 쪽이며 첫 쪽은 cursor를 null로 묻는다. */
-  getHistory(filter: HistoryFilter, cursor: string | null): Promise<PointsHistoryPage>;
+  getHistory(filter: HistoryFilter, cursor: number | null): Promise<PointsHistoryPage>;
   getEarnToday(): Promise<EarnToday>;
   claim(kind: ClaimKind): Promise<ClaimResult>;
   watchAd(): Promise<AdResult>;

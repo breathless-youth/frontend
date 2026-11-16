@@ -163,11 +163,11 @@ export function createFakePointsGateway(
         const matched = state.history.filter((entry) =>
           filter === "all" ? true : filter === "earned" ? entry.amount > 0 : entry.amount < 0,
         );
-        const start = cursor === null ? 0 : Number(cursor);
+        const start = cursor ?? 0;
         const end = start + FAKE_HISTORY_PAGE;
         return {
           entries: matched.slice(start, end),
-          nextCursor: end < matched.length ? String(end) : null,
+          nextCursor: end < matched.length ? end : null,
         };
       }),
     getEarnToday: () => read(() => state.earn),

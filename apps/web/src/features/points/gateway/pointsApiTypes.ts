@@ -6,7 +6,12 @@
  * 열거 값은 서버가 값을 더해도 컴파일이 깨지지 않게 string으로 받고, 아는 값만 fromApi가 화면 값으로 바꾼다.
  */
 
-export type PointsBalanceResponse = { balance: number };
+export type PointsBalanceResponse = {
+  /** 무료와 결제 몫의 합이며 이미 쓴 충전 포인트가 환불되면 음수일 수 있다. */
+  balance: number;
+  /** 그 가운데 결제로 산 몫이며 잔액이 음수면 0이다. 이 필드가 생기기 전의 서버는 주지 않는다. */
+  paidBalance?: number;
+};
 
 export type PointProductResponse = {
   id: number;
@@ -112,7 +117,10 @@ export type PointsHistoryItemResponse = {
   id: number;
   amount: number;
   reason: string;
+  /** 결제로 산 포인트가 한 포인트라도 오갔으면 PAID, 아니면 FREE다. */
   fund: string;
+  /** 금액 가운데 결제로 산 몫이며 부호는 amount와 같다. 이 필드가 생기기 전의 서버는 주지 않는다. */
+  paidAmount?: number;
   /** 구매는 상품 이름, 마스코트 구매는 마스코트 코드, 메달은 `FOCUS_TIME:DAILY/1`처럼 판 키와 순위, 충전과 환불은 스토어 상품 ID이고 나머지 사유는 null이다. */
   label: string | null;
   statDate: string;
@@ -121,7 +129,8 @@ export type PointsHistoryItemResponse = {
 
 export type PointsHistoryResponse = {
   items: PointsHistoryItemResponse[];
-  nextCursor: string | null;
+  /** 다음 쪽을 부를 때 넘기는 기록 ID이며 더 없으면 null이다. */
+  nextCursor: number | null;
 };
 
 export type PointsEarnResponse = {

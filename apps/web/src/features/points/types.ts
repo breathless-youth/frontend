@@ -75,7 +75,7 @@ export type PointsHistoryEntry = {
 };
 
 /** 기록 한 쪽이며 `nextCursor`가 null이면 더 받을 쪽이 없다. */
-export type PointsHistoryPage = { entries: PointsHistoryEntry[]; nextCursor: string | null };
+export type PointsHistoryPage = { entries: PointsHistoryEntry[]; nextCursor: number | null };
 
 export type HistoryFilter = "all" | "earned" | "spent";
 

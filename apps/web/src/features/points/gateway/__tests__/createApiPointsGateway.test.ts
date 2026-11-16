@@ -108,7 +108,7 @@ describe("createApiPointsGateway", () => {
             createdAt: "2026-11-12T03:00:00Z",
           },
         ],
-        nextCursor: "abc",
+        nextCursor: 4,
       }),
     );
     const gateway = createApiPointsGateway();
@@ -122,12 +122,12 @@ describe("createApiPointsGateway", () => {
           itemName: "목도리",
         },
       ],
-      nextCursor: "abc",
+      nextCursor: 4,
     });
-    await gateway.getHistory("all", "abc");
+    await gateway.getHistory("all", 4);
     expect(call(0)).toMatchObject({ method: "GET", version: "1" });
     expect(call(0).url).toMatch(/\/api\/points\/history\?type=SPENT&size=30$/);
-    expect(call(1).url).toMatch(/\/api\/points\/history\?type=ALL&size=30&cursor=abc$/);
+    expect(call(1).url).toMatch(/\/api\/points\/history\?type=ALL&size=30&cursor=4$/);
   });
 
   it("상품과 기록은 화면 언어를 Accept-Language로 보내고 번체는 zh로 보낸다", async () => {
@@ -674,5 +674,131 @@ describe("구매 복원", () => {
 
     expect(await createApiPointsGateway().restorePurchases()).toBe("nothing");
     expect(native.requestNativePointsRestore).not.toHaveBeenCalled();
+  });
+});
+
+describe("포인트로 여는 마스코트 구매", () => {
+  it("서버 마스코트 코드로 POST하고 돌려받은 잔액을 넘긴다", async () => {
+    fetchMock.mockResolvedValue(respond(200, { code: "LOCK", balance: 240 }));
+
+    await expect(createApiPointsGateway().purchaseMascot("padlock")).resolves.toEqual({
+      ok: true,
+      balance: 240,
+    });
+    expect(call()).toMatchObject({ method: "POST", version: "1" });
+    expect(call().url).toMatch(/\/api\/mascots\/LOCK\/purchase$/);
+  });
+
+  it.each([
+    [409, "INSUFFICIENT_POINTS", "insufficient"],
+    [409, "MASCOT_ALREADY_OWNED", "owned"],
+    [409, "MASCOT_NOT_PURCHASABLE", "notPurchasable"],
+    [404, "MASCOT_NOT_FOUND", "notFound"],
+  ] as const)("구매가 %i %s면 %s 사유로 끝난다", async (status, code, reason) => {
+    fetchMock.mockResolvedValue(respond(status, { code, message: code }));
+    await expect(createApiPointsGateway().purchaseMascot("lamp")).resolves.toEqual({
+      ok: false,
+      reason,
+    });
+  });
+
+  it("모르는 거절은 그대로 던진다", async () => {
+    fetchMock.mockResolvedValue(respond(500, { code: "INTERNAL", message: "down" }));
+    await expect(createApiPointsGateway().purchaseMascot("lamp")).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+describe("스토어 결제 상품", () => {
+  const storeItem = (owned: boolean): ShopItemsResponse => ({
+    items: [
+      {
+        ...ITEMS.items[0]!,
+        id: 41,
+        code: "BOOK_SET_BEAR",
+        slot: "SET",
+        price: null,
+        storeProductId: "set_book_bear",
+        owned,
+      },
+    ],
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    native.requestNativePointsPrices.mockReset();
+    native.requestNativePointsPurchase.mockReset();
+  });
+
+  it("가격은 앱에 물어 스토어 상품 ID마다 문구로 돌려주고, 물을 상품이 없으면 앱에 묻지 않는다", async () => {
+    native.requestNativePointsPrices.mockResolvedValue([
+      { storeProductId: "set_book_bear", priceLabel: "₩3,300" },
+    ]);
+    const gateway = createApiPointsGateway();
+
+    expect(await gateway.getStorePrices([])).toEqual({});
+    expect(native.requestNativePointsPrices).not.toHaveBeenCalled();
+    expect(await gateway.getStorePrices(["set_book_bear", "set_book_rain"])).toEqual({
+      set_book_bear: "₩3,300",
+    });
+    expect(native.requestNativePointsPrices).toHaveBeenCalledWith([
+      "set_book_bear",
+      "set_book_rain",
+    ]);
+  });
+
+  it("결제가 끝나면 서버가 보유로 바꿀 때까지 상점을 다시 읽는다", async () => {
+    vi.useFakeTimers();
+    native.requestNativePointsPurchase.mockResolvedValue("completed");
+    fetchMock
+      .mockResolvedValueOnce(respond(200, storeItem(false)))
+      .mockResolvedValueOnce(respond(200, storeItem(false)))
+      .mockResolvedValueOnce(respond(200, storeItem(true)));
+    const onPaid = vi.fn();
+
+    const pending = createApiPointsGateway().purchaseStoreItem("41", onPaid);
+    await vi.advanceTimersByTimeAsync(2_000);
+
+    await expect(pending).resolves.toEqual({ status: "completed" });
+    expect(native.requestNativePointsPurchase).toHaveBeenCalledWith("set_book_bear");
+    expect(onPaid).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("결제는 끝났는데 1분을 기다려도 보유로 바뀌지 않으면 늦는 것으로 끝난다", async () => {
+    vi.useFakeTimers();
+    native.requestNativePointsPurchase.mockResolvedValue("completed");
+    fetchMock.mockImplementation(async () => respond(200, storeItem(false)));
+
+    const pending = createApiPointsGateway().purchaseStoreItem("41");
+    await vi.advanceTimersByTimeAsync(60_000);
+
+    await expect(pending).resolves.toEqual({ status: "late" });
+  });
+
+  it.each(["cancelled", "failed"] as const)(
+    "결제가 %s로 끝나면 기다리지 않고 그대로 돌려준다",
+    async (status) => {
+      native.requestNativePointsPurchase.mockResolvedValue(status);
+      fetchMock.mockResolvedValueOnce(respond(200, storeItem(false)));
+      const onPaid = vi.fn();
+
+      await expect(createApiPointsGateway().purchaseStoreItem("41", onPaid)).resolves.toEqual({
+        status,
+      });
+      expect(onPaid).not.toHaveBeenCalled();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("이미 가졌거나 스토어 결제 상품이 아니거나 없는 상품은 결제를 열지 않는다", async () => {
+    fetchMock.mockImplementation(async () =>
+      respond(200, { items: [...storeItem(true).items, ...ITEMS.items] }),
+    );
+    const gateway = createApiPointsGateway();
+
+    await expect(gateway.purchaseStoreItem("41")).resolves.toEqual({ status: "failed" });
+    await expect(gateway.purchaseStoreItem("31")).resolves.toEqual({ status: "failed" });
+    await expect(gateway.purchaseStoreItem("999")).resolves.toEqual({ status: "failed" });
+    expect(native.requestNativePointsPurchase).not.toHaveBeenCalled();
   });
 });

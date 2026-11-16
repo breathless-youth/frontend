@@ -36,7 +36,8 @@ import { ensurePushPermission } from "../pushBootstrap";
 import { openPushRoute } from "../pushRouteOpener";
 import { registerPushToken } from "../pushTokenRegistration";
 import { deleteAccountWithReauth, socialLogin } from "../socialLogin";
-import { restorePointsPurchases } from "../pointsCharge";
+import { showPointsAd } from "../pointsAds";
+import { pointsChargePrices, purchasePointsCharge, restorePointsPurchases } from "../pointsCharge";
 
 /**
  * 브리지 수신 공용 핸들러(BY-333) — `RemoteWebViewHost`를 쓰는 화면(탭 3개 + 세션) 전부가
@@ -122,6 +123,7 @@ jest.mock("../socialLogin", () => ({
   socialLogin: jest.fn(),
   deleteAccountWithReauth: jest.fn(),
 }));
+jest.mock("../pointsAds", () => ({ showPointsAd: jest.fn() }));
 jest.mock("../pointsCharge", () => ({
   pointsChargePrices: jest.fn(),
   purchasePointsCharge: jest.fn(),
@@ -1204,6 +1206,52 @@ describe("handleBridgeMessage: 앱 안 알림 누름", () => {
 });
 
 describe("포인트 결제 메시지", () => {
+  it("가격 조회 결과를 같은 id의 points-charge-prices-result로 답한다", async () => {
+    const prices = [{ storeProductId: "points_1000", priceLabel: "₩1,100" }];
+    (pointsChargePrices as jest.Mock).mockResolvedValue(prices);
+    const reply = jest.fn();
+
+    handleBridgeMessage(
+      { type: "points-charge-prices", id: "p1", storeProductIds: ["points_1000"], atMs: 1 },
+      reply,
+    );
+
+    await waitFor(() =>
+      expect(reply).toHaveBeenCalledWith({
+        type: "points-charge-prices-result",
+        id: "p1",
+        prices,
+        atMs: expect.any(Number),
+      }),
+    );
+    expect(pointsChargePrices).toHaveBeenCalledWith(["points_1000"]);
+    expect(reply).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["completed", "cancelled", "failed"] as const)(
+    "결제 결과 %s를 같은 id의 points-charge-purchase-result로 답한다",
+    async (status) => {
+      (purchasePointsCharge as jest.Mock).mockResolvedValue(status);
+      const reply = jest.fn();
+
+      handleBridgeMessage(
+        { type: "points-charge-purchase", id: "b1", storeProductId: "points_1000", atMs: 1 },
+        reply,
+      );
+
+      await waitFor(() =>
+        expect(reply).toHaveBeenCalledWith({
+          type: "points-charge-purchase-result",
+          id: "b1",
+          status,
+          atMs: expect.any(Number),
+        }),
+      );
+      expect(purchasePointsCharge).toHaveBeenCalledWith("points_1000");
+      expect(reply).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it.each(["restored", "nothing", "failed"] as const)(
     "구매 복원 결과 %s를 같은 id의 points-charge-restore-result로 답한다",
     async (status) => {
@@ -1224,6 +1272,29 @@ describe("포인트 결제 메시지", () => {
         }),
       );
       expect(restorePointsPurchases).toHaveBeenCalledWith(["set_book_bear"]);
+      expect(reply).toHaveBeenCalledTimes(1);
+    },
+  );
+});
+
+describe("포인트 광고 메시지", () => {
+  it.each(["rewarded", "cancelled", "unavailable"] as const)(
+    "광고 시청 결과 %s를 같은 id의 points-ad-show-result로 답한다",
+    async (status) => {
+      (showPointsAd as jest.Mock).mockResolvedValue(status);
+      const reply = jest.fn();
+
+      handleBridgeMessage({ type: "points-ad-show", id: "a1", atMs: 1 }, reply);
+
+      await waitFor(() =>
+        expect(reply).toHaveBeenCalledWith({
+          type: "points-ad-show-result",
+          id: "a1",
+          status,
+          atMs: expect.any(Number),
+        }),
+      );
+      expect(showPointsAd).toHaveBeenCalledTimes(1);
       expect(reply).toHaveBeenCalledTimes(1);
     },
   );
