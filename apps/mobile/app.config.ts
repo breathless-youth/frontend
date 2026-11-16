@@ -314,8 +314,8 @@ const ADMOB_REWARDED_UNIT_IDS: Partial<Record<AppVariant, { ios: string; android
 };
 
 // 광고 SDK는 앱 ID 없이 초기화하면 앱이 죽어서 플러그인과 광고 단위를 같은 조건으로 켠다.
-// 운영 빌드는 출시를 정할 때 이 목록에 더한다.
-const ADS_VARIANTS: readonly AppVariant[] = ["development"];
+// staging은 그 서버가 받는 광고 단위가 없어 뺀다.
+const ADS_VARIANTS: readonly AppVariant[] = ["development", "production"];
 
 function resolveAdmobRewardedUnitIds(variant: AppVariant): { ios: string; android: string } | null {
   return ADS_VARIANTS.includes(variant) ? (ADMOB_REWARDED_UNIT_IDS[variant] ?? null) : null;
