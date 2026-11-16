@@ -82,7 +82,7 @@ export function usePurchaseFlow(item: ShopItem | null, buy?: () => Promise<Purch
         }
       }
       void queryClient.invalidateQueries({ queryKey: pointsKeys.shop(userId) });
-      void queryClient.invalidateQueries({ queryKey: [...pointsKeys.user(userId), "history"] });
+      void queryClient.invalidateQueries({ queryKey: pointsKeys.histories(userId) });
     } catch (error) {
       if (memberOnly.redirected(error)) {
         setStep("idle");

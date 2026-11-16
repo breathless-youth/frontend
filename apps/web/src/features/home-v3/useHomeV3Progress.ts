@@ -123,7 +123,7 @@ export function useHomeV3Progress(
       client.setQueryData<HomeMission>(homeV3Keys.mission(owner), (previous) =>
         previous ? { ...previous, claimablePoints: 0 } : previous,
       );
-      void client.invalidateQueries({ queryKey: [...pointsKeys.user(owner), "history"] });
+      void client.invalidateQueries({ queryKey: pointsKeys.histories(owner) });
     },
     // 다른 기기에서 이미 받았을 수 있어 실패하면 서버 상태로 띠를 다시 그린다.
     onError: (_error, { owner }) =>

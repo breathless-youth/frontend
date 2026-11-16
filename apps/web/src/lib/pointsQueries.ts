@@ -9,6 +9,8 @@ export const pointsKeys = {
   balance: (userId: number) => ["points", userId, "balance"] as const,
   shop: (userId: number) => ["points", userId, "shop"] as const,
   look: (userId: number) => ["points", userId, "look"] as const,
+  /** 모든 기록 필터를 함께 다시 받을 때 쓰는 앞머리 */
+  histories: (userId: number) => ["points", userId, "history"] as const,
   history: (userId: number, filter: HistoryFilter) =>
     ["points", userId, "history", filter] as const,
   earnToday: (userId: number) => ["points", userId, "earnToday"] as const,

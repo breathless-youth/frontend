@@ -45,7 +45,7 @@ export function useShopActions() {
   const settle = (balance: number) => {
     queryClient.setQueryData(pointsKeys.balance(userId), balance);
     void queryClient.invalidateQueries({ queryKey: pointsKeys.earnToday(userId) });
-    void queryClient.invalidateQueries({ queryKey: [...pointsKeys.user(userId), "history"] });
+    void queryClient.invalidateQueries({ queryKey: pointsKeys.histories(userId) });
   };
   // 늦게 들어온 포인트가 화면에 보이도록 잔액과 오늘 받은 것을 몇 번 더 읽는다.
   const refetchLater = () => {
