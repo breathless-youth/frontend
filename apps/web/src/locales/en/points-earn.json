@@ -7,7 +7,8 @@
     "every": "Every {{duration}} you study",
     "today": "Today {{duration}}",
     "max": "Max {{duration}}",
-    "aria": "Studied {{done}} of {{max}} today"
+    "aria": "Studied {{done}} of {{max}} today",
+    "togetherHint": "Study together in a group room for <accent>+{{points}}P</accent> every {{duration}}"
   },
   "tile": {
     "attendance": "Check-in",

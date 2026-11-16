@@ -7,7 +7,8 @@
     "every": "{{duration}} 공부할 때마다",
     "today": "오늘 {{duration}}",
     "max": "최대 {{duration}}",
-    "aria": "오늘 {{max}} 중 {{done}} 공부했어요"
+    "aria": "오늘 {{max}} 중 {{done}} 공부했어요",
+    "togetherHint": "그룹 공부방에서 같이 하면 {{duration}}마다 <accent>+{{points}}P</accent>"
   },
   "tile": {
     "attendance": "출석",

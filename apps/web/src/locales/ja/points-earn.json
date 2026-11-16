@@ -7,7 +7,8 @@
     "every": "{{duration}}勉強するたびに",
     "today": "今日 {{duration}}",
     "max": "最大 {{duration}}",
-    "aria": "今日は{{max}}のうち{{done}}勉強しました"
+    "aria": "今日は{{max}}のうち{{done}}勉強しました",
+    "togetherHint": "グループ勉強部屋で一緒にすると{{duration}}ごとに<accent>+{{points}}P</accent>"
   },
   "tile": {
     "attendance": "出席",

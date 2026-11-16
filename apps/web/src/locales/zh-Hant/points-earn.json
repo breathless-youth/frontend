@@ -7,7 +7,8 @@
     "every": "每讀書 {{duration}}",
     "today": "今天 {{duration}}",
     "max": "上限 {{duration}}",
-    "aria": "今天已讀書 {{done}}(上限 {{max}})"
+    "aria": "今天已讀書 {{done}}(上限 {{max}})",
+    "togetherHint": "在群組讀書室一起讀書，每 {{duration}} <accent>+{{points}}P</accent>"
   },
   "tile": {
     "attendance": "簽到",
