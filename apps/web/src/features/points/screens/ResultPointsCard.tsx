@@ -81,7 +81,7 @@ function NextMascotRow({
     <div className={`flex items-center gap-3 ${bordered ? "border-t border-border pt-3" : ""}`}>
       <MascotImage id={next.id} locked size={36} />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <span className="text-[13px] font-bold text-foreground">
+        <span className="text-[13px] font-bold break-keep text-foreground">
           {t("nextMascot", { name, duration: formatDuration(next.remainingSec) })}
         </span>
         <ProgressBar ratio={next.progress} label={t("nextProgress", { name, percent })} />

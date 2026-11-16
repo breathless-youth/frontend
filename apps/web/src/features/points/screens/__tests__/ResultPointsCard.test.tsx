@@ -26,6 +26,11 @@ describe("ResultPointsCard", () => {
     expect(screen.getByRole("img", { name: "램피까지 91% 모았어요" })).toBeInTheDocument();
   });
 
+  it("다음 마스코트까지 남은 시간 문장이 낱말 중간에서 줄이 바뀌지 않는다", () => {
+    render(<ResultPointsCard reward={reward} onOpenShop={vi.fn()} />);
+    expect(screen.getByText("램피까지 순공 2시간 48분 남았어요")).toHaveClass("break-keep");
+  });
+
   it("상점 버튼이 상점을 연다", async () => {
     const onOpenShop = vi.fn();
     render(<ResultPointsCard reward={reward} onOpenShop={onOpenShop} />);
