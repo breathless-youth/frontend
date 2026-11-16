@@ -2,7 +2,6 @@
   "totalFocus": "累計專注時間",
   "remaining": "還需 {{time}}",
   "lockedLabel": "{{name}}未解鎖，{{remaining}}",
-  "selectedLabel": "已選擇{{name}}",
   "sheet": {
     "untilOpen": "再專注 {{time}} 就會解鎖。",
     "progress": "距離{{name}}已完成 {{percent}}%",

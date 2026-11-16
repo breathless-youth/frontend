@@ -1,7 +1,8 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { useEffect } from "react";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -43,12 +44,23 @@ function signIn(loginProvider: "KAKAO" | null) {
   vi.mocked(getProfile).mockResolvedValue({ ...PROFILE, loginProvider });
 }
 
+/** 지나간 주소를 차례로 모은다. */
+function PathLog({ into }: { into: string[] }) {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    into.push(pathname);
+  }, [pathname, into]);
+  return null;
+}
+
 /** 주소의 가짜 경계를 쓰는 포인트 화면들을 한 라우터에 올린다. */
 function renderAt(...entries: string[]) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const visited: string[] = [];
   render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={entries} initialIndex={entries.length - 1}>
+        <PathLog into={visited} />
         <Routes>
           <Route path="/points" element={<PointsPage />} />
           <Route path="/points/accessories" element={<PointsAccessoriesPage />} />
@@ -59,7 +71,7 @@ function renderAt(...entries: string[]) {
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  return { client };
+  return { client, visited };
 }
 
 const loginScreen = () => screen.findByText("로그인 화면 points");
@@ -210,9 +222,11 @@ describe("회원인데 서버가 회원 전용이라고 거절할 때", () => {
     vi.spyOn(appPointsGateway(), "purchase").mockRejectedValue(
       new ApiError("member only", 403, "MEMBER_ONLY"),
     );
-    renderAt("/points/accessories?userId=7");
+    const { visited } = renderAt("/points/accessories?userId=7");
     await userEvent.click(await screen.findByRole("button", { name: "600P로 구매" }));
     await userEvent.click(await screen.findByRole("button", { name: "구매하기" }));
-    expect(await loginScreen()).toBeInTheDocument();
+    // 로그인 화면은 이미 회원이면 그리자마자 보던 화면으로 돌아가서 화면 글자로는 잡히다 말다 한다.
+    // 그래서 로그인 주소로 갔는지만 본다.
+    await waitFor(() => expect(visited).toContain("/points/login"));
   });
 });

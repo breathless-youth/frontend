@@ -322,4 +322,32 @@ describe("InsufficientPointsSheet", () => {
     expect(screen.queryByText(/광고 보고/)).not.toBeInTheDocument();
     expect(screen.queryByText("바로 충전하기")).not.toBeInTheDocument();
   });
+
+  describe("받을 길이 없을 때의 공부 안내", () => {
+    it("받기 데이터가 있으면 서버의 시간 단위와 지금 혼자 값으로 적는다", async () => {
+      const study = { ...fixture.earn.study, unitSec: 3600, pointsPerUnit: 12 };
+      render(
+        <InsufficientPointsSheet
+          open
+          item={crown}
+          balance={480}
+          earn={{ ...fixture.earn, study }}
+          packs={[]}
+          onClose={() => {}}
+        />,
+      );
+
+      expect(await screen.findByText("1시간 공부할 때마다 +12P")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "확인" })).toBeInTheDocument();
+    });
+
+    it("받기 데이터를 아직 받지 못했으면 숫자 없이 안내한다", async () => {
+      render(
+        <InsufficientPointsSheet open item={crown} balance={480} packs={[]} onClose={() => {}} />,
+      );
+
+      expect(await screen.findByText("공부할수록 포인트가 쌓여요")).toBeInTheDocument();
+      expect(screen.queryByText(/\d+P$/)).not.toBeInTheDocument();
+    });
+  });
 });

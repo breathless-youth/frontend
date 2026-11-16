@@ -18,7 +18,6 @@
     "gained": "獲得 {{amount}} 點"
   },
   "status": {
-    "wearing": "穿戴中",
     "wear": "穿戴",
     "using": "使用中",
     "apply": "套用",
@@ -47,7 +46,8 @@
     "charge": "立即儲值",
     "chargeAndBuy": "儲值 {{points}} 並購買",
     "pricePending": "確認價格中",
-    "studyHint": "每讀書 30 分鐘 +7P",
+    "studyHint": "每讀書 {{duration}} {{points}}",
+    "studyHintGeneral": "讀書越久，累積的點數越多",
     "ok": "確認"
   },
   "loadError": {

@@ -48,7 +48,7 @@ export function AccessoryPreview({
         <MascotFigure id={mascotId} accessories={accessories} className="relative w-full" />
       </span>
       {item !== null && toWornAccessory(item) === null && (
-        <div className="absolute top-1.5 left-1/2 flex min-h-10 -translate-x-1/2 items-center justify-center rounded-[14px] border-2 border-dashed border-primary bg-white/70 px-2 text-xs font-semibold whitespace-nowrap text-primary">
+        <div className="absolute top-1.5 left-1/2 flex min-h-10 -translate-x-1/2 items-center justify-center rounded-[14px] border-2 border-dashed border-primary bg-muted/70 px-2 text-xs font-semibold whitespace-nowrap text-primary">
           {t("preview", { name: item.name })}
         </div>
       )}

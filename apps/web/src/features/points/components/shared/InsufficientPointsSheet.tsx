@@ -3,10 +3,11 @@ import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
+import { formatDuration } from "@/features/records/recordsFormat";
 import { cn } from "@/lib/utils";
 import { useBackDismiss } from "@/lib/backDismiss";
 
-import { formatPoints } from "../../model/formatPoints";
+import { formatPoints, formatSignedPoints } from "../../model/formatPoints";
 import type { ChargePack, EarnToday, ShopItem } from "../../types";
 
 /**
@@ -24,6 +25,7 @@ function suggestedPack(packs: ChargePack[], shortfall: number): ChargePack | und
  * 광고·미션·충전 세 가지 길을 보여 준다.
  * 앱 밖 브라우저처럼 광고나 충전을 못 하는 곳은 그 처리기를 넘기지 않아 줄을 숨긴다.
  * 포인트 받기 탭이 없으면 미션 줄도 숨기고, 세 길이 모두 없으면 공부로 모으는 안내와 확인 버튼만 둔다.
+ * 공부 안내의 시간 단위와 포인트는 받기 탭과 같은 서버 값이고, 받기 데이터가 없으면 숫자 없이 적는다.
  * 결제와 광고는 끝날 때까지 시간이 걸려서, 끝나기 전에는 두 버튼을 함께 막는다.
  * 비활성 표시는 다음 렌더에야 붙으므로 같은 순간의 두 번째 누름은 ref로 막는다.
  * 시트는 body로 나가므로 Soft Blue 테마를 시트에도 단다.
@@ -87,7 +89,12 @@ export function InsufficientPointsSheet({
           {noWays && (
             <>
               <p className="text-[15px] break-keep text-muted-foreground">
-                {t("insufficient.studyHint")}
+                {earn === undefined
+                  ? t("insufficient.studyHintGeneral")
+                  : t("insufficient.studyHint", {
+                      duration: formatDuration(earn.study.unitSec),
+                      points: formatSignedPoints(earn.study.pointsPerUnit),
+                    })}
               </p>
               <Button size="xl" className="w-full shadow-sb-cta" onClick={onClose}>
                 {t("insufficient.ok")}

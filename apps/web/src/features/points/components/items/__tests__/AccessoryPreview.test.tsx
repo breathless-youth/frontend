@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import type { ShopItem } from "../../../types";
@@ -45,5 +45,22 @@ describe("AccessoryPreview 바닥 그림자", () => {
       />,
     );
     expect(shadow(container)).toBeNull();
+  });
+});
+
+describe("AccessoryPreview 이름표", () => {
+  it("그릴 것이 없는 소품은 이름표를 두고, 배경은 다크에서도 맞는 테마 색이다", () => {
+    render(
+      <AccessoryPreview
+        mascotId="stopwatch"
+        item={accessory("head", { name: "왕관", imageUrl: null, owned: false, inUse: false })}
+        worn={[]}
+      />,
+    );
+
+    const label = screen.getByText("왕관 미리 보기");
+    // 흰색으로 고정하면 다크에서 회색 판처럼 떠 보인다.
+    expect(label.className).not.toMatch(/bg-white/);
+    expect(label).toHaveClass("bg-muted/70");
   });
 });

@@ -2,7 +2,6 @@
   "totalFocus": "累計の集中時間",
   "remaining": "あと{{time}}",
   "lockedLabel": "{{name}}は未解放、{{remaining}}",
-  "selectedLabel": "{{name}}を選択中",
   "sheet": {
     "untilOpen": "あと{{time}}集中すると解放されます。",
     "progress": "{{name}}まで{{percent}}%",
