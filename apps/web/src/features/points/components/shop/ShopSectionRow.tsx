@@ -4,10 +4,17 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 import { formatPoints } from "../../model/formatPoints";
-import { itemThumbnail } from "../../model/itemThumbnail";
+import { itemLayers, itemThumbnail } from "../../model/itemThumbnail";
 import type { ShopItem } from "../../types";
+import { ItemCutout } from "../items/ItemCutout";
 
-/** 상점 탭의 한 종류(소품·타이머 배경)의 제목과 미리보기 상품 줄 */
+/**
+ * 상점 탭의 한 종류(소품·타이머 배경)의 제목과 미리보기 상품 줄
+ *
+ * 소품은 소품 화면 격자처럼 투명한 판을 잘라 소품만 그림 칸 가운데에 크게 그린다.
+ * 그래서 칸도 격자와 같은 가로세로 비율로 둔다.
+ * 타이머 배경은 판이 그림으로 꽉 차 있어 그림 칸을 덮는 한 장으로 그린다.
+ */
 export function ShopSectionRow({
   title,
   items,
@@ -47,18 +54,29 @@ export function ShopSectionRow({
                 onClick={() => onOpen(item.id)}
                 className="flex min-h-11 w-full min-w-0 flex-col gap-0.75 rounded-xl bg-muted p-2 text-left shadow-sb-card"
               >
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "flex h-12.5 items-center justify-center overflow-hidden rounded-[10px]",
-                    thumbnail === null && "border border-dashed border-border",
-                    dark ? "bg-foreground/90" : "bg-bg-layer-2",
-                  )}
-                >
-                  {thumbnail !== null && (
-                    <img src={thumbnail} alt="" className="size-full object-cover" />
-                  )}
-                </span>
+                {item.kind === "accessory" ? (
+                  <ItemCutout
+                    item={item}
+                    aspect={6 / 5}
+                    className={cn(
+                      "aspect-6/5 w-full rounded-[10px] bg-bg-layer-2",
+                      itemLayers(item).length === 0 && "border border-dashed border-border",
+                    )}
+                  />
+                ) : (
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      "flex h-12.5 items-center justify-center overflow-hidden rounded-[10px]",
+                      thumbnail === null && "border border-dashed border-border",
+                      dark ? "bg-foreground/90" : "bg-bg-layer-2",
+                    )}
+                  >
+                    {thumbnail !== null && (
+                      <img src={thumbnail} alt="" className="size-full object-cover" />
+                    )}
+                  </span>
+                )}
                 {/* 영어 이름은 한 줄에 다 들어가지 않아서 소품 화면 격자처럼 두 줄까지 보인다. */}
                 <span className="line-clamp-2 text-xs font-semibold break-keep">{item.name}</span>
                 <span className="truncate text-xs font-bold text-primary">{caption(item, t)}</span>
