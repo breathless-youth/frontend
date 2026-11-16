@@ -222,6 +222,8 @@ describe("fromApi", () => {
       todayStudySec: me.todayFocusSec,
       lastStudiedAt: me.lastStudiedAt,
       accumulating: false,
+      // 견본 멤버는 모습이 없어 포인트를 연 이 파일에서는 기본 마스코트가 앉는다.
+      mascot: { id: "stopwatch", accessories: [] },
     });
     expect(toRoomDeskMember(me, 2).isMe).toBe(false);
   });
@@ -407,17 +409,20 @@ describe("그룹 구성원 마스코트", () => {
     expect(member.mascot).toEqual({ id: "book", accessories: [] });
   });
 
-  it("필드가 없거나 모르는 코드면 마스코트 없이 사람 그림으로 둔다", () => {
-    expect(toRoomDeskMember(desk, 1).mascot).toBeUndefined();
+  it("포인트를 연 곳에서 필드가 없거나 모르는 코드면 사람 그림 대신 소품 없는 타이미를 앉힌다", () => {
+    const timi = { id: "stopwatch", accessories: [] };
+    expect(toRoomDeskMember(desk, 1).mascot).toEqual(timi);
+    expect(toRoomDeskMember({ ...desk, mascot: null }, 1).mascot).toEqual(timi);
     expect(
       toRoomDeskMember({ ...desk, mascot: { mascotCode: "NEW", accessories: [] } }, 1).mascot,
-    ).toBeUndefined();
+    ).toEqual(timi);
   });
 
   it("포인트를 열지 않은 곳에서는 모습이 와도 책상과 멤버 관리 줄에 지금 기본 그림을 쓴다", () => {
     vi.mocked(isPointsEnabled).mockReturnValue(false);
     const mascot = { mascotCode: "BOOK", accessories: [] };
     expect(toRoomDeskMember({ ...desk, mascot }, 1)).not.toHaveProperty("mascot");
+    expect(toRoomDeskMember(desk, 1)).not.toHaveProperty("mascot");
     const member = seed.members[11]!.members[0]!;
     expect(toRoomMemberRow({ ...member, mascot }, 1)).not.toHaveProperty("look");
   });

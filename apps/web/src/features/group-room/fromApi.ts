@@ -15,7 +15,9 @@ import type {
   PublicGroupDetailResponse,
 } from "@focusmakers/types";
 
+import type { MascotLook } from "@/components/mascot/types";
 import { toOthersMascotLook } from "@/features/points/model/othersMascotLook";
+import { isPointsEnabled } from "@/lib/pointsCapability";
 import { studyCategoryLabel } from "@/lib/studyCategory";
 
 import type { RoomJoinPolicy } from "./model/joinPolicy";
@@ -128,14 +130,18 @@ export function toApplyState(detail: PublicGroupDetailResponse): ApplyState | nu
   }
 }
 
+/** 포인트를 연 곳에서 모습이 비어 온 멤버의 책상에 앉히는 마스코트 */
+const DEFAULT_DESK_LOOK: MascotLook = { id: "stopwatch", accessories: [] };
+
 /**
  * 책상에 앉힐 멤버
  *
  * 지금 보는 사람의 책상은 닉네임 대신 `나`로 그리도록 사용자 번호를 견줘 표시한다.
  * 오늘 순공은 이 그룹이 아니라 앱 전체에서 쌓은 값이다.
+ * 포인트를 연 곳에서는 모습이 비거나 모르는 마스코트여도 사람 그림이 섞이지 않게 타이미를 앉힌다.
  */
 export function toRoomDeskMember(desk: GroupMemberDesk, myUserId: number): RoomDeskMember {
-  const mascot = toOthersMascotLook(desk.mascot);
+  const mascot = toOthersMascotLook(desk.mascot) ?? (isPointsEnabled() ? DEFAULT_DESK_LOOK : null);
   return {
     userId: desk.userId,
     nickname: desk.nickname,
