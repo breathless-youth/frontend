@@ -8,11 +8,16 @@ let pointsFlagCache: boolean | null = readPointsFlag();
 /**
  * 포인트 상점을 여는지
  *
- * 서버 API와 결제가 붙기 전이라 주소에 `points=1`을 단 문서와 개발 서버에서만 연다.
+ * 포인트 브리지를 아는 앱이 웹뷰 주소에 `points=1`을 붙였을 때와 개발 서버에서만 연다(`apps/mobile/lib/remoteQueryParams.ts`).
+ * 원격 웹은 예전 앱과 브라우저에도 바로 배포되므로 표시가 없으면 포인트를 모르는 곳으로 보고 화면과 입구를 모두 숨긴다.
+ * `VITE_POINTS_DISABLED=1`로 빌드하면 표시가 있어도 꺼져서, 문제가 생기면 앱을 다시 내지 않고 웹 배포만으로 전체를 끈다.
  * `MODE`도 보는 것은 vitest에서도 `DEV`가 참이라 꺼진 경우를 테스트할 수 없어서다.
  * `DEV`도 보는 것은 `vite build --mode development`처럼 `MODE`만 development인 배포 빌드에서 모든 사용자에게 켜지지 않게 하려는 것이다.
  */
 export function isPointsEnabled(): boolean {
+  if (import.meta.env.VITE_POINTS_DISABLED === "1") {
+    return false;
+  }
   if (import.meta.env.DEV && import.meta.env.MODE === "development") {
     return true;
   }

@@ -146,6 +146,7 @@ describe("buildRemoteQueryParams", () => {
       alertHaptic: "1",
       pushPermission: "1",
       accountActions: "1",
+      points: "1",
       nativeTabBar: "1",
     });
   });
@@ -166,6 +167,7 @@ describe("buildRemoteQueryParams", () => {
       alertHaptic: "1",
       pushPermission: "1",
       accountActions: "1",
+      points: "1",
       nativeTabBar: "1",
     });
   });
@@ -186,6 +188,7 @@ describe("buildRemoteQueryParams", () => {
       alertHaptic: "1",
       pushPermission: "1",
       accountActions: "1",
+      points: "1",
       nativeTabBar: "1",
     });
   });
@@ -284,6 +287,14 @@ describe("buildRemoteQueryParams", () => {
     const params = await buildRemoteQueryParams();
 
     expect(params.socialLogin).toBe(expected);
+  });
+
+  it("결제와 광고 SDK가 없는 바이너리에도 포인트 화면을 여는 points=1을 붙인다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    const params = await buildRemoteQueryParams();
+    expect(params).toHaveProperty("points", "1");
+    expect(params).not.toHaveProperty("pointsCharge");
+    expect(params).not.toHaveProperty("pointsAds");
   });
 
   it("결제 SDK가 붙은 바이너리에만 충전과 구매 복원 표시를 붙인다", async () => {
@@ -447,6 +458,7 @@ describe("useRemoteQueryParams", () => {
         alertHaptic: "1",
         pushPermission: "1",
         accountActions: "1",
+        points: "1",
         nativeTabBar: "1",
       }),
     );
@@ -470,6 +482,7 @@ describe("useRemoteQueryParams", () => {
         alertHaptic: "1",
         pushPermission: "1",
         accountActions: "1",
+        points: "1",
         nativeTabBar: "1",
       }),
     );
@@ -491,6 +504,7 @@ describe("useRemoteQueryParams", () => {
       alertHaptic: "1",
       pushPermission: "1",
       accountActions: "1",
+      points: "1",
       nativeTabBar: "1",
     });
   });
@@ -540,6 +554,7 @@ describe("useRemoteQueryParams", () => {
         alertHaptic: "1",
         pushPermission: "1",
         accountActions: "1",
+        points: "1",
         nativeTabBar: "1",
       }),
     );
@@ -563,6 +578,7 @@ describe("useRemoteQueryParams", () => {
         alertHaptic: "1",
         pushPermission: "1",
         accountActions: "1",
+        points: "1",
         nativeTabBar: "1",
       }),
     );

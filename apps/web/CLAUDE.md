@@ -85,6 +85,13 @@ iOS 26 앱에서 시스템 Liquid Glass로 바꿔 그리는 경로이고, 근거
 - CSS 전환이 도는 동안에는 등록한 부품을 매 프레임 다시 재서, transform으로 미끄러지는 바를 앱 부품이 따라간다.
 - 시트·대화상자 안 컨트롤은 등록하지 않는다.
 
+## 포인트 기능 (`lib/pointsCapability.ts`)
+
+- 포인트 화면과 입구(홈 잔액 알약, 설정의 포인트 기록·구매 복원 줄, 결과 화면의 포인트 칸, 프로필의 마스코트 줄)는 `isPointsEnabled()`가 참일 때만 그린다.
+- 앱이 웹뷰 주소에 `points=1`을 붙였을 때와 개발 서버에서만 참이다. 예전 앱과 브라우저에는 포인트가 보이지 않는다.
+- 운영에서 문제가 생기면 저장소 변수 `PROD_VITE_POINTS_DISABLED`를 `1`로 넣고 웹을 다시 배포해 전체를 끈다. `deploy-web.yml`이 빌드 변수 `VITE_POINTS_DISABLED`로 넘기고, 기본은 빈 값이라 끄지 않는다.
+- 충전, 광고, 구매 복원은 앱이 따로 붙이는 `pointsCharge`, `pointsAds`, `pointsRestore` 표시가 있을 때만 앱에 맡긴다.
+
 ## 명령
 
 ```bash

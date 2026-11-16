@@ -115,6 +115,10 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   if (socialLoginProviders.length > 0) {
     params.socialLogin = socialLoginProviders.join(",");
   }
+  // `points=1`: 이 바이너리가 포인트 브리지(충전·광고·구매 복원 메시지)를 안다는 표시.
+  // 웹은 이 표시가 있을 때만 포인트 화면과 입구를 연다(`apps/web/src/lib/pointsCapability.ts`).
+  // 결제 SDK 키나 광고 단위가 없는 빌드에도 붙여서 포인트 화면은 보이고, 충전과 광고 칸만 아래 두 표시에 따라 빠진다.
+  params.points = "1";
   // `pointsCharge=1`: 이 바이너리가 `points-charge-*`로 포인트 충전 결제를 할 수 있다는 표시.
   // 웹은 이 표시가 있을 때만 충전 상품을 실제 결제로 연다(`apps/web/src/lib/nativePointsCharge.ts`).
   // 결제 SDK 키가 없는 빌드와 SDK 네이티브 모듈이 없는 이전 Dev Client에는 붙지 않는다.

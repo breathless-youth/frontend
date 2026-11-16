@@ -9,6 +9,12 @@ interface ImportMetaEnv {
   readonly VITE_AMPLITUDE_API_KEY?: string;
   /** 채널톡 플러그인 키. 미설정 시 상담 화면이 실패 화면을 보인다. */
   readonly VITE_CHANNEL_PLUGIN_KEY?: string;
+  /**
+   * 포인트 기능을 끄는 스위치.
+   * "1"이면 앱이 주소에 `points=1`을 붙여도 포인트 화면과 입구가 모두 숨는다.
+   * 비어 있으면 끄지 않는다.
+   */
+  readonly VITE_POINTS_DISABLED?: string;
   /** 측정용 전 빌드 전용. "off"면 홈에서 Vision 자원을 미리 받지 않는다. */
   readonly VITE_VISION_PREFETCH?: string;
   /** 측정용 전 빌드 전용. "off"면 Vision 추론을 워커 대신 메인 스레드에서 돌린다. */
