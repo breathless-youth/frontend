@@ -304,6 +304,28 @@ describe("fromApi", () => {
       lastStudiedAt: member.lastStudiedAt,
       imageUrl: PHOTO,
     });
+    // 고른 마스코트와 소품을 그 멤버의 모습으로 싣고, 예전 응답처럼 모습이 없으면 키를 싣지 않는다.
+    const appearance = {
+      mascotCode: "PENCIL",
+      accessories: [
+        {
+          mascotCode: "PENCIL",
+          slot: "HEAD",
+          item: { itemId: 3, code: "PENCIL_CAP", imageUrl: "/cap.png" },
+        },
+      ],
+    };
+    expect(toRoomMemberRow({ ...member, mascot: appearance }, 1).look).toEqual({
+      id: "pencil",
+      accessories: [{ slot: "head", code: "PENCIL_CAP", imageUrl: "/cap.png" }],
+    });
+    expect(
+      toRoomMemberRow({ ...member, mascot: { mascotCode: "BOOK", accessories: [] } }, 1).look,
+    ).toEqual({ id: "book", accessories: [] });
+    expect(toRoomMemberRow({ ...member, mascot: null }, 1)).not.toHaveProperty("look");
+    expect(
+      toRoomMemberRow({ ...member, mascot: { mascotCode: "ROBOT", accessories: [] } }, 1),
+    ).not.toHaveProperty("look");
     const application = seed.applications[10]!.applications[0]!;
     expect(toApplicationRequest({ ...application, profileImageUrl: PHOTO })).toEqual({
       applicationId: application.applicationId,

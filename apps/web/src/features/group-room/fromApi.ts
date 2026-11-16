@@ -281,7 +281,9 @@ export function toRoomHome(home: GroupHomeResponse, myUserId: number): RoomHome 
   };
 }
 
+/** 멤버 관리 줄이며 모습은 책상과 같은 규칙으로 읽는다. */
 export function toRoomMemberRow(item: GroupMemberItem, myUserId: number): RoomMemberRow {
+  const look = toDeskMascot(item.mascot);
   return {
     userId: item.userId,
     nickname: item.nickname,
@@ -289,6 +291,7 @@ export function toRoomMemberRow(item: GroupMemberItem, myUserId: number): RoomMe
     isMe: item.userId === myUserId,
     lastStudiedAt: item.lastStudiedAt,
     imageUrl: item.profileImageUrl,
+    ...(look === null ? {} : { look }),
   };
 }
 

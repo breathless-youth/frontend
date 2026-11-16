@@ -30,6 +30,28 @@ function renderMembers(overrides: Partial<ComponentProps<typeof MembersScreen>> 
 }
 
 describe("MembersScreen", () => {
+  it("사진이 없는 멤버는 고른 마스코트를 소품과 함께 그리고, 모습이 없으면 기본 그림을 그린다", () => {
+    const [first, second] = fixtures.members;
+    renderMembers({
+      members: [
+        {
+          ...first!,
+          imageUrl: null,
+          look: { id: "pencil", accessories: [{ slot: "head", imageUrl: "/cap.png" }] },
+        },
+        { ...second!, imageUrl: null },
+      ],
+    });
+    const rows = screen.getAllByRole("listitem");
+    expect(rows[0]!.querySelector("[data-slot='mascot-body']")).not.toBeNull();
+    expect(rows[0]!.querySelector("[data-slot='accessory-head']")).toHaveAttribute(
+      "src",
+      "/cap.png",
+    );
+    expect(rows[1]!.querySelector("[data-slot='mascot-body']")).toBeNull();
+    expect(rows[1]!.querySelector("[data-default-mascot]")).not.toBeNull();
+  });
+
   it("멤버 관리는 머리 아래 그룹 정보와 비공개 그룹 초대 카드를 둔다", () => {
     renderMembers();
     expect(screen.getByRole("heading", { level: 1, name: "멤버 관리" })).toBeInTheDocument();

@@ -1,4 +1,5 @@
 import type { MascotAppearance } from "@focusmakers/types";
+import type { MascotLook } from "@/components/mascot/types";
 
 import type { RoomJoinPolicy } from "./model/joinPolicy";
 import type { DeskMember } from "./model/desks";
@@ -140,6 +141,8 @@ export interface RoomMemberRow extends ProfilePhoto {
   isOwner: boolean;
   isMe: boolean;
   lastStudiedAt: string | null;
+  /** 사진이 없을 때 그릴 그 멤버의 마스코트와 소품이며, 서버가 주지 않았거나 모르는 마스코트면 없다. */
+  look?: MascotLook;
 }
 
 export interface BlockedUser extends ProfilePhoto {

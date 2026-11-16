@@ -242,6 +242,8 @@ export interface GroupMemberItem {
   owner: boolean;
   joinedAt: string;
   lastStudiedAt: string | null;
+  /** 책상의 mascot과 같은 값이다. 고른 적이 없으면 첫 마스코트에 소품이 없고, 이 필드가 생기기 전의 응답에는 없다. */
+  mascot?: MascotAppearance | null;
 }
 
 /** `GroupMembersResponse`: `GET /api/groups/{groupId}/members` */
