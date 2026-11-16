@@ -59,7 +59,8 @@ export function ShopSectionRow({
                     <img src={thumbnail} alt="" className="size-full object-cover" />
                   )}
                 </span>
-                <span className="truncate text-xs font-semibold">{item.name}</span>
+                {/* 영어 이름은 한 줄에 다 들어가지 않아서 소품 화면 격자처럼 두 줄까지 보인다. */}
+                <span className="line-clamp-2 text-xs font-semibold break-keep">{item.name}</span>
                 <span className="truncate text-xs font-bold text-primary">{caption(item, t)}</span>
               </button>
             </li>
