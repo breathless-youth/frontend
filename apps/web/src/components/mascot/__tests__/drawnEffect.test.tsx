@@ -25,7 +25,7 @@ function layerOrder(container: HTMLElement) {
 describe("코드로 그리는 효과", () => {
   it.each([
     ["glow", [".mascot-fx-glow-halo", ".mascot-fx-glow-bright", ".mascot-fx-glow-sheen"]],
-    ["ripple", [".mascot-fx-ripple-echo", ".mascot-fx-ripple-bright", ".mascot-fx-ripple-shine"]],
+    ["ripple", [".mascot-fx-ripple-ring", ".mascot-fx-ripple-halo", ".mascot-fx-ripple-bright"]],
     ["wipe", [".mascot-fx-wipe"]],
     ["starry", [".mascot-fx-starry-disc", ".mascot-fx-star", ".mascot-fx-meteor"]],
     ["flow", [".mascot-fx-flow-color", ".mascot-fx-flow-shine"]],
@@ -57,6 +57,32 @@ describe("코드로 그리는 효과", () => {
     const digits = container.querySelectorAll<HTMLElement>(".mascot-fx-countdown-digit");
     expect(Array.from(digits, (digit) => digit.textContent)).toEqual(["3", "2", "1"]);
     expect(Array.from(digits, (digit) => digit.style.animationDelay)).toEqual(["0s", "-2s", "-1s"]);
+  });
+
+  it("연보라 오라는 가운데에서 바깥으로 퍼지는 고리 세 겹이 차례로 시작하고 흔들리는 겹이 없다", () => {
+    const { container } = renderEffect({
+      backImageUrl: "/fx.png",
+      effectPieces: [{ ...WHOLE, motion: "ripple" }],
+    });
+
+    const rings = container.querySelectorAll<HTMLElement>(".mascot-fx-ripple-ring");
+    expect(Array.from(rings, (ring) => ring.style.animationDelay)).toEqual(["0s", "-1s", "-2s"]);
+    expect(container.querySelector("[class*='mascot-fx-ripple-wave']")).toBeNull();
+    expect(container.querySelector("[class*='mascot-fx-ripple-echo']")).toBeNull();
+  });
+
+  it("오라 속 반짝이는 판 가운데에서 먼 쪽으로 살짝 떠오른다", () => {
+    const { container } = renderEffect({
+      backImageUrl: "/fx.png",
+      effectPieces: [
+        { x: 0.2, y: 0.3, width: 0.05, height: 0.05, motion: "drift" },
+        { x: 0.75, y: 0.3, width: 0.04, height: 0.04, motion: "drift" },
+      ],
+    });
+
+    const [left, right] = piecesOf(container);
+    expect(left.getAttribute("data-drift-side")).toBe("left");
+    expect(right.getAttribute("data-drift-side")).toBe("right");
   });
 
   it("떠다니는 반짝이와 흩어지는 가루는 조각 자체가 움직이고 조각마다 시작 시점이 다르다", () => {
@@ -153,7 +179,7 @@ describe("코드로 그리는 효과", () => {
     it.each([
       ["starry", ".mascot-fx-star", 9, 4],
       ["glow", ".mascot-fx-glow-halo", 1, 0],
-      ["ripple", ".mascot-fx-ripple-echo", 1, 0],
+      ["ripple", ".mascot-fx-ripple-ring", 3, 1],
     ])("%s는 작은 크기에서 덜어 낼 부분을 표시한다", (motion, part, total, kept) => {
       const { container } = renderEffect({
         backImageUrl: "/fx.png",

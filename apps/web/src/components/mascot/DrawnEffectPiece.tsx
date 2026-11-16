@@ -60,35 +60,51 @@ function Glow({ box, picture }: Part) {
   );
 }
 
-/** 연보라 오라: 빛이 아래를 축으로 흐르듯 일렁이고, 가장자리가 물결치며, 밝아졌다 어두워진다. */
-function Ripple({ box, picture }: Part) {
+// 고리 한 겹이 퍼지는 시간을 겹 수로 나눠 시작을 어긋나게 두어, 앞 고리가 사라질 때 다음 고리가 가운데에서 시작한다.
+const RIPPLE_RINGS = [0, 1, 2];
+
+/**
+ * 연보라 오라: 몸 가운데에서 빛 고리가 바깥으로 천천히 퍼지며 옅어지고, 오라 빛은 제자리에서 숨 쉬듯 번진다.
+ *
+ * 고리는 같은 오라 그림을 몸 가운데를 축으로 키우며 흐리게 해서, 몸 밖으로 나온 가장자리만 고리처럼 보인다.
+ * 좌우로 흔들거나 돌리는 움직임은 어지러워서 두지 않는다.
+ */
+function Ripple({ box, picture, piece }: Part & { piece: EffectPiece }) {
+  // 판 가운데가 마스코트 몸 가운데라 조각 상자 안에서 그 자리를 축으로 삼는다.
+  const center = {
+    transformOrigin: `${pct(((0.5 - piece.x) / piece.width) * 100)} ${pct(((0.5 - piece.y) / piece.height) * 100)}`,
+  };
   return (
-    <span data-effect-piece="ripple" className="absolute" style={box}>
-      <span className="mascot-fx-ripple-wave absolute inset-0">
-        <span className="absolute inset-0 bg-no-repeat" style={picture} />
-        {/* 반쯤 비치는 같은 그림을 반 박자로 어긋나게 흔들어 가장자리가 물결처럼 번진다. */}
+    <span data-effect-piece="ripple" className="mascot-glow absolute" style={box}>
+      {RIPPLE_RINGS.map((ring) => (
         <span
-          data-fx-detail=""
-          className="mascot-fx-ripple-echo absolute inset-0 bg-no-repeat"
-          style={picture}
+          key={ring}
+          data-fx-detail={ring === 0 ? undefined : ""}
+          className="mascot-fx-ripple-ring absolute inset-0 bg-no-repeat"
+          style={{ ...picture, ...center, animationDelay: `${-ring}s` }}
         />
-        <span className="mascot-fx-ripple-bright absolute inset-0 bg-no-repeat" style={picture} />
-        <span className="absolute inset-0 overflow-hidden" style={shapeOf(picture)}>
-          <span className="mascot-fx-ripple-shine absolute inset-x-0 top-0 h-1/2" />
-        </span>
-      </span>
+      ))}
+      <span
+        data-fx-detail=""
+        className="mascot-fx-ripple-halo absolute inset-0 bg-no-repeat"
+        style={{ ...picture, ...center }}
+      />
+      <span className="absolute inset-0 bg-no-repeat" style={picture} />
+      <span className="mascot-fx-ripple-bright absolute inset-0 bg-no-repeat" style={picture} />
     </span>
   );
 }
 
-/** 오라 속 반짝이: 조각 그림 자체가 위로 떠오르며 둥글게 맴돌고 반짝인다. */
-function Drift({ box, picture, index }: Part & { index: number }) {
+/** 오라 속 반짝이: 조각 그림 자체가 제자리에서 반짝이며 판 가운데에서 먼 쪽으로 살짝 떠올랐다 돌아온다. */
+function Drift({ box, picture, piece, index }: Part & { piece: EffectPiece; index: number }) {
+  const side = piece.x + piece.width / 2 < 0.5 ? "left" : "right";
   return (
     <span
       data-effect-piece="drift"
+      data-drift-side={side}
       className={cn(
         "mascot-fx-drift absolute bg-no-repeat",
-        index % 2 === 0 ? "mascot-fx-drift-a" : "mascot-fx-drift-b",
+        side === "left" ? "mascot-fx-drift-l" : "mascot-fx-drift-r",
       )}
       style={{ ...box, ...picture, ...timing(3, -0.4 - 0.75 * index) }}
     />
@@ -306,9 +322,9 @@ export function DrawnEffectPiece({
     case "glow":
       return <Glow {...part} />;
     case "ripple":
-      return <Ripple {...part} />;
+      return <Ripple {...part} piece={piece} />;
     case "drift":
-      return <Drift {...part} index={index} />;
+      return <Drift {...part} piece={piece} index={index} />;
     case "spread":
       return <Spread {...part} piece={piece} index={index} />;
     case "wipe":

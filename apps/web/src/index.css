@@ -1391,35 +1391,44 @@ body {
   animation: mascot-fx-glow-sheen 3s linear infinite;
 }
 
-/* 연보라 오라 */
-@keyframes mascot-fx-ripple-wave {
+/* 연보라 오라
+   고리는 같은 오라 그림을 몸 가운데를 축으로 키우며 흐리게 해서 몸 밖으로 나온 가장자리만 고리로 보인다.
+   한 겹이 3초 동안 퍼지고 세 겹이 1초씩 어긋나 시작해서 앞 고리가 사라질 때 다음 고리가 가운데에서 나온다. */
+@keyframes mascot-fx-ripple-ring {
+  0% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  15% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.32);
+  }
+}
+
+.mascot-fx-ripple-ring {
+  opacity: 0;
+  /* easeOutCubic: 물결처럼 처음에 빨리 퍼지고 바깥에서 느려진다. */
+  animation: mascot-fx-ripple-ring 3s cubic-bezier(0.33, 1, 0.68, 1) infinite;
+}
+
+@keyframes mascot-fx-ripple-halo {
   0%,
   100% {
-    transform: skewX(-3deg);
+    opacity: 0.3;
+    transform: scale(1);
   }
   50% {
-    transform: skewX(3deg);
+    opacity: 0.75;
+    transform: scale(1.05);
   }
 }
 
-.mascot-fx-ripple-wave {
-  transform-origin: 50% 100%;
-  animation: mascot-fx-ripple-wave 3s ease-in-out infinite;
-}
-
-@keyframes mascot-fx-ripple-echo {
-  0%,
-  100% {
-    transform: translate(-3%, 1.5%);
-  }
-  50% {
-    transform: translate(3%, -2.5%);
-  }
-}
-
-.mascot-fx-ripple-echo {
-  opacity: 0.5;
-  animation: mascot-fx-ripple-echo 1.5s ease-in-out infinite;
+.mascot-fx-ripple-halo {
+  filter: blur(3cqi);
+  animation: mascot-fx-ripple-halo 3s ease-in-out infinite;
 }
 
 @keyframes mascot-fx-ripple-bright {
@@ -1428,7 +1437,7 @@ body {
     opacity: 0;
   }
   50% {
-    opacity: 0.8;
+    opacity: 0.6;
   }
 }
 
@@ -1438,63 +1447,28 @@ body {
   animation: mascot-fx-ripple-bright 3s ease-in-out infinite;
 }
 
-@keyframes mascot-fx-ripple-shine {
-  from {
-    transform: translateY(200%);
-  }
-  to {
-    transform: translateY(-100%);
-  }
-}
-
-.mascot-fx-ripple-shine {
-  background: linear-gradient(
-    to top,
-    rgb(255 255 255 / 0) 0%,
-    rgb(255 255 255 / 0.6) 50%,
-    rgb(255 255 255 / 0) 100%
-  );
-  animation: mascot-fx-ripple-shine 3s linear infinite;
-}
-
-/* 연보라 오라 속 반짝이 */
-@keyframes mascot-fx-drift-a {
+/* 연보라 오라 속 반짝이: 제자리에서 반짝이며 판 가운데에서 먼 쪽으로 살짝 떠오른다. */
+@keyframes mascot-fx-drift-l {
   0%,
   100% {
-    opacity: 0.45;
-    transform: translate(0, 0) scale(0.7) rotate(0deg);
-  }
-  25% {
-    opacity: 1;
-    transform: translate(45%, -55%) scale(1.05) rotate(25deg);
+    opacity: 0.5;
+    transform: translate(0, 0) scale(0.8);
   }
   50% {
-    opacity: 0.6;
-    transform: translate(10%, -110%) scale(0.8) rotate(45deg);
-  }
-  75% {
     opacity: 1;
-    transform: translate(-35%, -50%) scale(1.1) rotate(20deg);
+    transform: translate(-14%, -20%) scale(1.05);
   }
 }
 
-@keyframes mascot-fx-drift-b {
+@keyframes mascot-fx-drift-r {
   0%,
   100% {
-    opacity: 0.45;
-    transform: translate(0, 0) scale(0.7) rotate(0deg);
-  }
-  25% {
-    opacity: 1;
-    transform: translate(-45%, -55%) scale(1.05) rotate(-25deg);
+    opacity: 0.5;
+    transform: translate(0, 0) scale(0.8);
   }
   50% {
-    opacity: 0.6;
-    transform: translate(-10%, -110%) scale(0.8) rotate(-45deg);
-  }
-  75% {
     opacity: 1;
-    transform: translate(35%, -50%) scale(1.1) rotate(-20deg);
+    transform: translate(14%, -20%) scale(1.05);
   }
 }
 
@@ -1503,12 +1477,12 @@ body {
   animation-iteration-count: infinite;
 }
 
-.mascot-fx-drift-a {
-  animation-name: mascot-fx-drift-a;
+.mascot-fx-drift-l {
+  animation-name: mascot-fx-drift-l;
 }
 
-.mascot-fx-drift-b {
-  animation-name: mascot-fx-drift-b;
+.mascot-fx-drift-r {
+  animation-name: mascot-fx-drift-r;
 }
 
 /* 지우개 가루
@@ -2192,9 +2166,9 @@ body {
   .mascot-fx-glow-halo,
   .mascot-fx-glow-bright,
   .mascot-fx-glow-sheen,
-  .mascot-fx-ripple-echo,
+  .mascot-fx-ripple-ring,
+  .mascot-fx-ripple-halo,
   .mascot-fx-ripple-bright,
-  .mascot-fx-ripple-shine,
   .mascot-fx-star,
   .mascot-fx-meteor-path,
   .mascot-fx-flow-shine,
@@ -2205,8 +2179,8 @@ body {
 
   /* 반짝이와 가루 조각은 그림 조각 자체라 제자리에 멈춰 보인다. */
   .mascot-fx-drift,
-  .mascot-fx-drift-a,
-  .mascot-fx-drift-b,
+  .mascot-fx-drift-l,
+  .mascot-fx-drift-r,
   .mascot-fx-spread,
   .mascot-fx-spread-l1,
   .mascot-fx-spread-l2,
@@ -2219,7 +2193,6 @@ body {
   }
 
   .mascot-fx-glow-sway,
-  .mascot-fx-ripple-wave,
   .mascot-fx-wipe,
   .mascot-fx-starry-disc,
   .mascot-fx-flow-wave,
