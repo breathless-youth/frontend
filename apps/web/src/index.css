@@ -960,7 +960,7 @@ body {
 /* 마스코트 표정 전환
    겹쳐 둔 네 장 중 하나만 보이고 step-end로 순간 교체한다.
    점프와 같은 0.92s 타임라인이고 퍼센트는 기본 0.33s, 정색 0.38s, 눈 감음 0.45s, 정색 0.5s 경계다.
-   웃음은 기본 opacity가 1이라 애니메이션이 없는 모션 축소와 다시 본 결과에서는 웃음만 보인다. */
+   정점 표정은 기본 opacity가 1이라 애니메이션이 없는 모션 축소와 다시 본 결과에서는 정점 표정만 보인다. */
 @keyframes result-mascot-face-idle {
   0% {
     opacity: 1;
@@ -998,7 +998,7 @@ body {
   }
 }
 
-@keyframes result-mascot-face-smile {
+@keyframes result-mascot-face-peak {
   0% {
     opacity: 0;
   }
@@ -1006,6 +1006,20 @@ body {
   54.35%,
   100% {
     opacity: 1;
+  }
+}
+
+/* 정점 표정과 함께 소품을 기울이는 순간
+   기본 자리가 기울인 자세라 웅크리는 동안만 기울기를 풀고 정점 표정으로 바뀌는 0.5s에 한 번에 기운다.
+   기울기는 마스코트마다 달라 요소에 둔 --result-mascot-tilt를 읽는다. */
+@keyframes result-mascot-tilt {
+  0% {
+    transform: none;
+  }
+
+  54.35%,
+  100% {
+    transform: var(--result-mascot-tilt);
   }
 }
 
