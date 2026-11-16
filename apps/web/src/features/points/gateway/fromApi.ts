@@ -82,10 +82,10 @@ const BACKGROUND_CATEGORY_BY_TAG: ReadonlyMap<string, string> = new Map(
   }),
 );
 
-// 공부 포인트의 날짜 옮김(STUDY_ADJUST)은 서버가 기록 조회에 싣지 않아 표에 없다.
 const HISTORY_REASON_BY_CODE: ReadonlyMap<string, PointsReason> = new Map(
   Object.entries({
     STUDY: "study",
+    STUDY_ADJUST: "studyAdjust",
     PURCHASE: "purchase",
     MASCOT_PURCHASE: "mascotPurchase",
     MISSION: "mission",

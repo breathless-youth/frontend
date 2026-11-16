@@ -396,10 +396,40 @@ describe("새 기록 사유와 결제 상품", () => {
 
   it("서버가 주는 사유를 모두 화면 사유로 바꾼다", () => {
     expect(
-      ["DAILY_GOAL", "AD", "CHARGE", "REFUND", "MISSION", "MASCOT_PURCHASE", "GRANT"].map(
-        (reason) => entry(reason)?.reason,
-      ),
-    ).toEqual(["dailyGoal", "ad", "charge", "refund", "mission", "mascotPurchase", "grant"]);
+      [
+        "DAILY_GOAL",
+        "AD",
+        "CHARGE",
+        "REFUND",
+        "MISSION",
+        "MASCOT_PURCHASE",
+        "GRANT",
+        "STUDY_ADJUST",
+      ].map((reason) => entry(reason)?.reason),
+    ).toEqual([
+      "dailyGoal",
+      "ad",
+      "charge",
+      "refund",
+      "mission",
+      "mascotPurchase",
+      "grant",
+      "studyAdjust",
+    ]);
+  });
+
+  it("공부 포인트 조정은 버리지 않고 늘린 것과 줄인 것을 금액 그대로 싣는다", () => {
+    const page = toHistoryPage({
+      items: [
+        history({ id: 2, reason: "STUDY_ADJUST", amount: -20 }),
+        history({ id: 1, reason: "STUDY_ADJUST", amount: 30 }),
+      ],
+      nextCursor: null,
+    });
+    expect(page.entries.map((e) => [e.id, e.reason, e.amount])).toEqual([
+      ["2", "studyAdjust", -20],
+      ["1", "studyAdjust", 30],
+    ]);
   });
 
   it("모르는 사유의 기록은 그 줄만 빼고 나머지 쪽과 다음 커서는 그대로 넘긴다", () => {

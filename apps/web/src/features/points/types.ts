@@ -53,6 +53,8 @@ export type ShopData = { items: ShopItem[]; mascots: Mascot[]; totalFocusSec: nu
 
 export type PointsReason =
   | "study"
+  /** 이미 받은 공부 포인트를 서버가 다시 계산해 늘리거나 줄인 기록이며 금액의 부호가 방향이다. */
+  | "studyAdjust"
   | "attendance"
   | "dailyGoal"
   | "ad"
