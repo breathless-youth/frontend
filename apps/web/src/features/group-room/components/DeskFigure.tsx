@@ -1,8 +1,8 @@
 import { MascotFigure } from "@/components/mascot/MascotFigure";
-import type { MascotId } from "@/components/mascot/types";
+import type { MascotId, MascotLook } from "@/components/mascot/types";
 import { cn } from "@/lib/utils";
 
-import type { DeskMascot, DeskTone } from "../model/desks";
+import type { DeskTone } from "../model/desks";
 
 // `--feedback-success`는 `.theme-soft-blue` 안에서만 값이 있어 그 바탕 밖에 그리면 다른 곳에서 공부 중인 초록이 빠진다.
 const PERSON_STROKE = {
@@ -41,7 +41,7 @@ export function DeskFigure({
   size: keyof typeof SIZE;
   mascot?: MascotId;
   /** 마스코트가 낀 소품이다. */
-  accessories?: DeskMascot["accessories"];
+  accessories?: MascotLook["accessories"];
 }) {
   const look = SIZE[size];
   const empty = tone === "empty";

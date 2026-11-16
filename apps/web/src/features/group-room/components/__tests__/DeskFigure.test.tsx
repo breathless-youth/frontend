@@ -36,7 +36,7 @@ describe("DeskFigure", () => {
         tone="room"
         size="md"
         mascot="stopwatch"
-        accessories={[{ slot: "head", code: "STOPWATCH_HEAD_CROWN", imageUrl: "/crown.png" }]}
+        accessories={[{ slot: "head", imageUrl: "/crown.png" }]}
       />,
     );
     const accessory = container.querySelector('[data-slot="accessory-head"]');
@@ -51,8 +51,8 @@ describe("DeskFigure", () => {
         size="md"
         mascot="book"
         accessories={[
-          { slot: "head", code: "BOOK_HEAD_BERET", imageUrl: "/beret.png" },
-          { slot: "wings", code: "BOOK_WINGS_ANGEL", imageUrl: "/wings.png" },
+          { slot: "head", imageUrl: "/beret.png" },
+          { slot: "wings", imageUrl: "/wings.png" },
         ]}
       />,
     );

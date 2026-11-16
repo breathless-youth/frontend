@@ -15,12 +15,11 @@ import type {
   PublicGroupDetailResponse,
 } from "@focusmakers/types";
 
-import { toMascotLook } from "@/features/points/gateway/fromApi";
-import type { GroupMemberMascotResponse } from "@/features/points/gateway/pointsApiTypes";
+import { toOthersMascotLook } from "@/features/points/model/othersMascotLook";
 import { studyCategoryLabel } from "@/lib/studyCategory";
 
 import type { RoomJoinPolicy } from "./model/joinPolicy";
-import type { DeskMascot, MemberPresence } from "./model/desks";
+import type { MemberPresence } from "./model/desks";
 import type { ApplyBlockReason } from "./model/limits";
 import type { RoomRole, RoomVisibility } from "./model/roomMenu";
 import type {
@@ -130,23 +129,13 @@ export function toApplyState(detail: PublicGroupDetailResponse): ApplyState | nu
 }
 
 /**
- * 책상의 마스코트
- *
- * Swagger에 아직 없는 필드라 웹 쪽 잠정 타입으로 읽는다. 모르는 마스코트 코드면 사람 그림으로 둔다.
- * 그림 주소가 없는 소품은 앱 안에 소품 그림이 없어 그리지 않는다.
- */
-export function toDeskMascot(raw: GroupMemberMascotResponse | null | undefined): DeskMascot | null {
-  return toMascotLook(raw ?? null);
-}
-
-/**
  * 책상에 앉힐 멤버
  *
  * 지금 보는 사람의 책상은 닉네임 대신 `나`로 그리도록 사용자 번호를 견줘 표시한다.
  * 오늘 순공은 이 그룹이 아니라 앱 전체에서 쌓은 값이다.
  */
 export function toRoomDeskMember(desk: GroupMemberDesk, myUserId: number): RoomDeskMember {
-  const mascot = toDeskMascot(desk.mascot);
+  const mascot = toOthersMascotLook(desk.mascot);
   return {
     userId: desk.userId,
     nickname: desk.nickname,
@@ -283,7 +272,7 @@ export function toRoomHome(home: GroupHomeResponse, myUserId: number): RoomHome 
 
 /** 멤버 관리 줄이며 모습은 책상과 같은 규칙으로 읽는다. */
 export function toRoomMemberRow(item: GroupMemberItem, myUserId: number): RoomMemberRow {
-  const look = toDeskMascot(item.mascot);
+  const look = toOthersMascotLook(item.mascot);
   return {
     userId: item.userId,
     nickname: item.nickname,

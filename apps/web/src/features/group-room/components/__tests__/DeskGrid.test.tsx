@@ -63,7 +63,7 @@ describe("DeskGrid", () => {
         ...members[0]!,
         mascot: {
           id: "stopwatch",
-          accessories: [{ slot: "head", code: "STOPWATCH_HEAD_CROWN", imageUrl: "/crown.png" }],
+          accessories: [{ slot: "head", imageUrl: "/crown.png" }],
         },
       },
       members[1]!,

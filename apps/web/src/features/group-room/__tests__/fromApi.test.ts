@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { seedGroupData } from "@/lib/groupRoomMockData";
+import { isPointsEnabled } from "@/lib/pointsCapability";
 
 import {
   toApplicationRequest,
@@ -21,6 +22,12 @@ import {
   toRoomVisibility,
   weeklyRanks,
 } from "../fromApi";
+
+vi.mock("@/lib/pointsCapability", () => ({ isPointsEnabled: vi.fn(() => true) }));
+
+afterEach(() => {
+  vi.mocked(isPointsEnabled).mockReturnValue(true);
+});
 
 const NOW = Date.parse("2026-11-03T10:00:00+09:00");
 const seed = seedGroupData("default", NOW);
@@ -405,5 +412,13 @@ describe("그룹 구성원 마스코트", () => {
     expect(
       toRoomDeskMember({ ...desk, mascot: { mascotCode: "NEW", accessories: [] } }, 1).mascot,
     ).toBeUndefined();
+  });
+
+  it("포인트를 열지 않은 곳에서는 모습이 와도 책상과 멤버 관리 줄에 지금 기본 그림을 쓴다", () => {
+    vi.mocked(isPointsEnabled).mockReturnValue(false);
+    const mascot = { mascotCode: "BOOK", accessories: [] };
+    expect(toRoomDeskMember({ ...desk, mascot }, 1)).not.toHaveProperty("mascot");
+    const member = seed.members[11]!.members[0]!;
+    expect(toRoomMemberRow({ ...member, mascot }, 1)).not.toHaveProperty("look");
   });
 });
