@@ -8,7 +8,7 @@ const worn = (slot: Parameters<typeof splitAccessoryLayers>[0][number]["slot"]) 
 });
 
 describe("splitAccessoryLayers", () => {
-  it("효과·발밑·날개는 몸 뒤에, 나머지는 몸 앞에 정한 순서로 놓고 효과가 가장 뒤다", () => {
+  it("효과·날개·발밑은 몸 뒤에, 나머지는 몸 앞에 정한 순서로 놓고 효과가 가장 뒤, 발밑이 날개보다 앞이다", () => {
     const layers = splitAccessoryLayers([
       worn("effect"),
       worn("held"),
@@ -19,7 +19,7 @@ describe("splitAccessoryLayers", () => {
       worn("underfoot"),
     ]);
 
-    expect(layers.behind.map((layer) => layer.slot)).toEqual(["effect", "underfoot", "wings"]);
+    expect(layers.behind.map((layer) => layer.slot)).toEqual(["effect", "wings", "underfoot"]);
     expect(layers.front.map((layer) => layer.slot)).toEqual(["body", "face", "head", "held"]);
   });
 
@@ -42,7 +42,7 @@ describe("splitAccessoryLayers", () => {
     expect(layers.front.map((layer) => layer.imageUrl)).toEqual(["/scarf.png"]);
   });
 
-  it("날개와 발밑에 뒤 그림이 따로 오면 뒤 그림은 몸 뒤에, 앞 그림은 몸 앞에 둔다", () => {
+  it("날개와 발밑에 뒤 그림이 따로 오면 뒤 그림은 몸 뒤에, 앞 그림은 몸 앞에 두고 둘 다 발밑이 날개보다 앞이다", () => {
     const layers = splitAccessoryLayers([
       { slot: "head", imageUrl: "/cap.png" },
       { slot: "body", imageUrl: "/coat.png" },
@@ -50,8 +50,8 @@ describe("splitAccessoryLayers", () => {
       { slot: "underfoot", imageUrl: "/tube-front.png", backImageUrl: "/tube.png" },
     ]);
 
-    expect(layers.behind.map((layer) => layer.key)).toEqual(["underfoot-back", "wings-back"]);
-    expect(layers.behind.map((layer) => layer.imageUrl)).toEqual(["/tube.png", "/bag.png"]);
+    expect(layers.behind.map((layer) => layer.key)).toEqual(["wings-back", "underfoot-back"]);
+    expect(layers.behind.map((layer) => layer.imageUrl)).toEqual(["/bag.png", "/tube.png"]);
     expect(layers.front.map((layer) => layer.imageUrl)).toEqual([
       "/coat.png",
       "/bag-straps.png",
@@ -101,8 +101,8 @@ describe("splitAccessoryLayers", () => {
       expect(layers.behind).toEqual([
         { key: "effect-back", slot: "effect", imageUrl: "/sky.png" },
         { key: "effect", slot: "effect", imageUrl: "/stars.png", pieces },
-        { key: "underfoot", slot: "underfoot", imageUrl: "/mat.png" },
         { key: "wings", slot: "wings", imageUrl: "/wings.png" },
+        { key: "underfoot", slot: "underfoot", imageUrl: "/mat.png" },
       ]);
       expect(layers.front).toEqual([]);
     });
