@@ -7,6 +7,7 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 `src/` 없이 라우터(`app/`)와 유틸 디렉터리를 루트 바로 아래에 둔다. `app/(tabs)/`는 탭 네비게이션, `app/room/`·`app/social/`은 세션·소셜룸, `lib/`는 순수 유틸·API 연동 함수(테스트 대상)다.
 
 - `lib/auth.ts`(BY-527)가 access·refresh 토큰의 유일한 소유자다. SecureStore 키 `focuson.auth` 하나에 JSON으로 저장하고 읽기·쓰기·삭제 전부에 `keychainAccessible: AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`를 넘긴다. 이 옵션을 빼면 iCloud 키체인 동기화로 1회용 refresh 토큰이 다른 기기에 복사되고, 두 기기가 같은 토큰을 써 서버가 탈취로 판정해 전량 폐기한다. 등록(`ensureAuth`)과 갱신(`refreshAuth`)은 앱 전체 single-flight이고, 토큰 변경은 `subscribeAuth`로 마운트된 모든 웹뷰 호스트에 `auth-token`으로 전파된다(분석 이벤트의 단일 sink와 반대). 웹뷰 URL의 `guestAuth=1`은 이 바이너리가 `auth-ready`에 답할 수 있다는 표시다.
+- 심사용 로그인(`review-login`)도 `lib/auth.ts`의 `reviewLogin`이 토큰 없이 `POST /api/auth/review-login`을 부르고 받은 토큰을 저장한다. 서버는 출시된 버전보다 높은 앱 버전에서만 받아 주므로 웹이 아니라 이 바이너리의 버전을 싣고, 비밀번호는 로그와 브리지 결과에 싣지 않는다. 웹은 `reviewLogin=1` 표시가 있을 때만 이 메시지를 보낸다.
 - **경계 규칙**: UI 컴포넌트는 카메라/WebRTC SDK를 직접 import하지 않고 어댑터 계층을 통한다. 공부 상태 계산은 순수 TS로 두고 카메라/Vision/RTC 구현과 분리한다.
 
 ## 원격 웹뷰 화면
@@ -77,11 +78,29 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 - ID 토큰과 nonce는 로그와 브리지로 내보내지 않는다.
 - 로그아웃(`logout`)과 탈퇴(`delete-account`)도 셸이 처리하고, 웹뷰 주소의 `accountActions=1`이 이 바이너리라는 표시다. link·로그아웃·탈퇴는 `runAccountChange`로 차례를 지키고 `refreshAuth`는 진행 중인 것을 기다린다. 성공하면 저장을 지우고 새 비회원으로 가입한 뒤 결과를 답하고, 분석 sink를 모두 떼고 완료 이벤트(`logout_completed`·`account_deleted`)를 남긴 다음 `lib/accountReset.ts`로 모든 웹뷰를 탭 첫 화면으로 다시 띄우고 설정 탭에 남는다. sink를 먼저 떼야 이벤트가 사라질 문서가 아니라 새 문서로 간다. 애플 계정 탈퇴는 애플 로그인을 다시 띄워 받은 인가 코드를 보내며, 이 코드도 로그와 브리지로 내보내지 않는다. 설계는 [BY-1150 설계 문서](../../docs/superpowers/specs/2026-11-06-BY-1150-logout-delete-account-design.md).
 
+## 포인트 결제·광고 SDK (`lib/pointsCharge.ts` · `lib/pointsAds.ts`)
+
+`react-native-purchases`(RevenueCat)와 `react-native-google-mobile-ads`(AdMob). 웹이 브리지 `points-charge-prices`·`points-charge-purchase`·`points-charge-restore`·`points-ad-show`를 보내면 셸이 스토어 가격 조회, 결제 창, 구매 복원, 보상형 광고만 처리하고 같은 `id`의 `-result`로 답한다. 근거는 [ADR 0022](../../docs/adr/0022-points-iap-and-rewarded-ads-via-native-bridge.md).
+
+- **SDK는 `lib/pointsChargeSdk.ts`와 `lib/pointsAdsSdk.ts`만 불러온다.** 실행 중인 플랫폼의 결제 키나 광고 단위가 없는 빌드와 네이티브 모듈이 없는 옛 Dev Client에서는 불러오지 않고 그 기능을 끈다. 결제는 시작을 미뤄서 네이티브 모듈(`NativeModules.RNPurchases`)이 있는지를 앱을 켤 때 따로 확인한다. 다른 코드는 `lib/pointsCharge.ts`·`lib/pointsAds.ts`의 공개 함수만 본다.
+- **결제 키는 플랫폼마다 따로 받는다.** 운영 공개 키가 iOS(`appl_`)와 Android(`goog_`)로 다르고 EAS 환경 변수는 플랫폼별로 나뉘지 않아 env `REVENUECAT_IOS_API_KEY`·`REVENUECAT_ANDROID_API_KEY`를 `extra.revenueCatApiKeys`에 싣고, 셸은 `Platform.OS`로 골라 SDK를 시작한다. 두 값이 모두 없으면 두 플랫폼 공용 Test Store 키 `REVENUECAT_API_KEY`를 쓰고, 셋 다 없으면 충전이 꺼진다(`pointsChargeConfig.test.ts`).
+- **포인트는 서버가 준다.** 셸의 `completed`·`rewarded`는 결제와 시청이 끝났다는 뜻일 뿐이다. 결제·복원·가격 조회 전에 웹이 메시지에 실은 결제용 ID(`appUserId`, 서버의 `revenueCatAppUserId`)로 RevenueCat을 켜거나 로그인하고, 광고의 서버 확인 옵션에 사용자 ID를 싣는 것을 빼지 말 것. 빠지면 돈이 나가거나 광고를 봤는데 포인트가 들어오지 않는다. 결제용 ID가 없으면 회원번호로 대신 로그인하지 말고 `failed`로 답한다(서버는 회원번호로 로그인한 결제를 지급하지 않는다).
+- **RevenueCat은 앱을 켤 때 시작하지 않는다.** 시작하면 비회원을 포함한 모든 이용자의 익명 ID와 기기 정보가 RevenueCat으로 간다. `installPointsChargeSdk`는 어댑터만 붙이고, `lib/pointsCharge.ts`가 결제용 ID가 실린 첫 결제 메시지에서 그 ID로 `configure`한다(익명 사용자를 만들지 않는다). 결제용 ID가 없는 가격 조회에는 켜지 않고 빈 목록으로 답한다.
+- **결제나 구매 복원을 시작한 기기는 다음 시작부터 바로 켠다.** 그때의 결제용 ID를 SecureStore `focuson.pointsCharge`(이 기기 전용)에 남기고 `_layout`의 `resumePointsCharge()`가 그 값으로 켜서, 결제 창이 떠 있는 동안 앱이 끝나 남은 결제를 SDK가 이어서 넘긴다. 가격만 본 기기는 그때 켜기만 하고 기록은 남기지 않아 다음 시작에 켜지 않는다. 로그아웃·탈퇴(`restartAsNewAccount`)가 이 기록과 메모리의 로그인 상태를 삭제한다. 기록 쓰기와 삭제는 한 줄에서 차례로 돌고, 삭제 전에 시작한 로그인은 이전 계정의 결제용 ID를 다시 저장하지 않는다. 근거는 [ADR 0022](../../docs/adr/0022-points-iap-and-rewarded-ads-via-native-bridge.md)의 "결제 SDK를 켜는 때".
+- **웹뷰 주소 표시는 `lib/remoteQueryParams.ts`가 붙인다.** `points=1`은 이 바이너리가 포인트 브리지를 안다는 뜻이라 늘 붙이고, `pointsCharge=1`·`pointsRestore=1`은 결제 어댑터가 있을 때, `pointsAds=1`은 광고 어댑터가 있을 때만 붙인다. 웹은 표시가 있을 때만 그 메시지를 보낸다.
+- **광고 단위는 빌드 종류로 고른다**(`app.config.ts`의 `ADMOB_REWARDED_UNIT_IDS`·`ADS_VARIANTS`). 서버가 자기 환경의 광고 단위로 본 시청만 보상하므로 Google 테스트 단위로 대신하지 않는다. staging은 광고 단위가 없어 광고가 꺼져 있다.
+- **AdMob 앱 ID 플러그인은 모든 빌드 종류에 넣는다.** Android는 SDK가 링크된 앱의 매니페스트에 앱 ID가 없으면 시작할 때 죽는다(`pointsAdsConfig.test.ts`).
+- **광고 등급 상한(G)은 SDK를 시작하기 전에 건다**(`pointsAdsSdk.test.ts`). 맞춤 광고는 허용하고 아동 대상 표시는 넣지 않는다.
+- 결제·광고 SDK 오류는 결제용 ID나 사용자 ID가 실릴 수 있어 `lib/errorSummary.ts`로 코드나 이름만 로그에 남긴다. 오류 객체를 `console.warn`에 통째로 넘기지 않는다.
+- 운영 빌드에서는 `test_`로 시작하는 RevenueCat Test Store 키와 다른 플랫폼의 키(iOS 자리의 `goog_`, Android 자리의 `appl_`)를 `app.config.ts`가 접두어로 확인해 막는다.
+- EAS 빌더의 운영 빌드는 iOS 키가 `appl_`, Android 키가 `goog_`로 시작하지 않으면 멈춘다. 키가 비었거나 공용 키 `REVENUECAT_API_KEY`만 있는 경우도 멈추며, 로컬 설정 평가와 development·staging 빌드는 막지 않는다.
+- ⚠️ **릴리즈 게이트**: 개인정보 처리방침·App Store 개인정보 라벨·Play 데이터 보안에 광고 식별자와 구매 내역을 넣기 전에는 이 SDK가 든 빌드를 스토어에 내지 않는다.
+
 ## 에러 모니터링 (Sentry, `lib/sentry.ts`)
 
 - **프로젝트는 `focusmakers-app`이다**(웹 `focusmakers-web`과 분리). **웹 DSN을 복사해 오지 말 것** — `sentryConfig.test.ts`가 프로젝트 ID를 못 박는다. **DSN은 `app.json`의 `extra.sentryDsn`에 둔다**(전송 여부는 런타임 `enabled: !__DEV__`가 가른다). 소스맵용 `SENTRY_AUTH_TOKEN`은 비밀이라 EAS Secret에 넣는다(커밋 금지).
 - **Session Replay(`mobileReplayIntegration`)를 추가하지 말 것.** WebView 셸이라 마스킹된 사각형만 남고, 마스킹을 풀면 카메라 프리뷰가 녹화돼 개인정보 원칙과 충돌한다. `sendDefaultPii`는 `false`로 못 박았다. 성능 추적(`tracesSampleRate`)도 켜지 않는다(웹뷰 셸이라 잴 구간이 없고 화면 로딩은 웹이 본다).
-- **웹과 달리 스크러빙 콜백이 없다.** 네이티브에는 `?userId=N`이 새는 경로가 없기 때문이다(근거는 [ADR 0008](../../docs/adr/0008-observability-identifier-scrubbing.md)). 네이티브 `fetch`는 `lib/auth.ts`(`POST /api/users`, `POST /api/auth/refresh`, `POST /api/auth/link`, `POST /api/auth/logout`, `DELETE /api/users/me`), `lib/launchGoal.ts`(`GET /api/users/me/profile`), `lib/pushTokenRegistration.ts`(`PUT /api/push-tokens`) 세 곳뿐이다. 일곱 요청 모두 쿼리스트링이 없고, 토큰은 본문이나 `Authorization` 헤더에 실린다. **쿼리스트링 붙은 요청을 추가하거나 URL을 로그에 남기면 이 전제가 깨지므로 웹과 같은 정제를 여기에도 넣는다.**
+- **웹과 달리 스크러빙 콜백이 없다.** 네이티브에는 `?userId=N`이 새는 경로가 없기 때문이다(근거는 [ADR 0008](../../docs/adr/0008-observability-identifier-scrubbing.md)). 네이티브 `fetch`는 `lib/auth.ts`(`POST /api/users`, `POST /api/auth/refresh`, `POST /api/auth/link`, `POST /api/auth/logout`, `DELETE /api/users/me`, `POST /api/auth/review-login`), `lib/launchGoal.ts`(`GET /api/users/me/profile`), `lib/pushTokenRegistration.ts`(`PUT /api/push-tokens`) 세 곳뿐이다. 여덟 요청 모두 쿼리스트링이 없고, 토큰과 심사용 로그인의 아이디·비밀번호는 본문이나 `Authorization` 헤더에 실린다. **쿼리스트링 붙은 요청을 추가하거나 URL을 로그에 남기면 이 전제가 깨지므로 웹과 같은 정제를 여기에도 넣는다.**
 - **Android release는 R8로 난독화된다**(`expo-build-properties`의 `enableMinifyInReleaseBuilds`·`enableShrinkResourcesInReleaseBuilds`, Play 2027-02 최적화 요건). 매핑은 Sentry plugin의 `experimental_android.enableAndroidGradlePlugin`이 올린다 — **둘 중 하나만 끄지 말 것**(끄면 빌드는 성공하고 네이티브 스택만 `a.b.c`로 남는다). 옵션은 `experimental_android` 아래에 두어야 읽힌다. `sentryConfig.test.ts`가 짝을 잠근다.
 - **`metro.config.js`를 `getDefaultConfig`로 되돌리지 말 것.** `getSentryExpoConfig`가 번들·소스맵에 같은 debug ID를 심는다. 되돌리면 스택트레이스만 압축된 채 남는다. 동작 확인은 EAS staging/production 빌드로만 된다.
 

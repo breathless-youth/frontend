@@ -1,0 +1,101 @@
+{
+  "header": {
+    "title": "今日免費點數",
+    "today": "今天 {{earned}} / {{max}}"
+  },
+  "study": {
+    "every": "每讀書 {{duration}}",
+    "today": "今天 {{duration}}",
+    "max": "上限 {{duration}}",
+    "aria": "今天已讀書 {{done}}(上限 {{max}})",
+    "togetherHint": "在群組讀書室一起讀書，每 {{duration}} <accent>+{{points}}P</accent>"
+  },
+  "tile": {
+    "attendance": "簽到",
+    "dailyGoalTitle": "每日目標",
+    "noGoal": "設定目標後即可領取",
+    "goalTitle": "每日目標 {{duration}}",
+    "goalGuide": "每日目標點數說明",
+    "goalRule": "目標時間每 {{duration}} 可獲得 {{points}}。",
+    "ad": "觀看廣告",
+    "done": "完成",
+    "claim": "領取",
+    "watch": "觀看",
+    "openInApp": "在 App 開啟",
+    "left": "還剩 {{duration}}",
+    "goalAria": "每日目標已完成 {{percent}}%"
+  },
+  "medal": {
+    "title_other": "排行榜獎牌 {{count}} 枚",
+    "claim": "領取 {{points}}",
+    "none": "沒有新的排行榜獎牌",
+    "noneHint": "進入前 3 名,每枚獎牌都能獲得點數",
+    "ranking": "排行榜 ›",
+    "guide": "獎牌點數說明",
+    "period": {
+      "DAILY": "日榜",
+      "WEEKLY": "週榜",
+      "MONTHLY": "月榜"
+    },
+    "rank": "第 {{rank}} 名"
+  },
+  "charge": {
+    "title": "儲值點數",
+    "guide": "付款與退款說明",
+    "bonus": "多送 {{points}}",
+    "pricePending": "價格確認中",
+    "packLabel": "儲值 {{points}}"
+  },
+  "paymentGuide": {
+    "sections": {
+      "charged": "儲值的點數",
+      "sets": "套裝",
+      "storeAndMinors": "商店退款與未成年人"
+    },
+    "unusedPaid": "未使用的付費點數，可在儲值後 7 天內申請退款。",
+    "spent": "已使用的點數，以及用點數購買的小物、吉祥物無法退款。",
+    "setUnworn": "套裝在穿上前，可在付款後 7 天內申請退款。",
+    "setWorn": "穿過一次的套裝無法退款。",
+    "deleteAccount": "超過 7 天後，若刪除帳號，會扣除 10% 手續費後退還剩餘的付費點數。",
+    "storeRefund": "若商店（App Store・Google Play）退款，我們會收回相應的點數。",
+    "negative": "若已使用這些點數，餘額可能會低於 0。",
+    "minor": "未成年人未經法定代理人同意付款時，本人或法定代理人可以取消付款。",
+    "contactAction": "聯絡我們",
+    "seller": "販售者：FocusMakers",
+    "terms": "查看服務條款"
+  },
+  "openInApp": {
+    "title": "儲值與廣告獎勵請在 App 使用",
+    "body": "在網頁上只能用點數購買裝飾商品。",
+    "action": "在 App 開啟"
+  },
+  "done": {
+    "title": "儲值完成",
+    "points": "儲值點數",
+    "bonus": "贈點",
+    "balance": "持有點數",
+    "close": "確認",
+    "shop": "前往商店"
+  },
+  "charging": {
+    "title": "正在儲值點數"
+  },
+  "late": {
+    "title": "點數即將入帳",
+    "body": "付款已完成，請稍後確認餘額。",
+    "ok": "確定",
+    "missing": "點數一直沒有入帳嗎？"
+  },
+  "failed": {
+    "title": "付款未完成",
+    "body": "請確認付款方式後再試一次。",
+    "close": "關閉",
+    "retry": "再試一次",
+    "missing": "已付款但點數沒入帳?"
+  },
+  "adUnavailable": {
+    "title": "目前沒有可觀看的廣告",
+    "body": "請稍後再試。",
+    "ok": "確認"
+  }
+}

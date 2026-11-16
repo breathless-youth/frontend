@@ -1,9 +1,12 @@
+import Constants from "expo-constants";
 import { getLocales } from "expo-localization";
 import * as SecureStore from "expo-secure-store";
 
 import type {
   AuthRefreshResponse,
   DeleteAccountFailureCode,
+  ReviewLoginFailureCode,
+  ReviewLoginRequest,
   SocialLoginFailureCode,
   SocialLoginProvider,
   ToWebMessage,
@@ -422,6 +425,76 @@ async function linkOnce(
     return { status: "success", isNewUser };
   } catch (error) {
     console.warn("[auth] 소셜 계정 연결 실패", error);
+    return { status: "failed", code: "UNKNOWN" };
+  }
+}
+
+export type ReviewLoginResult =
+  { status: "success" } | { status: "failed"; code: ReviewLoginFailureCode };
+
+/**
+ * 심사용 로그인 실패 응답의 코드
+ *
+ * 403과 429는 게이트웨이가 본문 없이 줄 수도 있어 상태 코드로 정한다.
+ * 400은 아이디·비밀번호가 틀린 경우만 웹에 알리고 나머지는 앱 버그라 UNKNOWN이다.
+ * 빈칸이나 형식이 틀린 아이디·비밀번호는 서버가 VALIDATION_FAILED로 거절해서 틀린 경우와 같은 문구를 보이게 한다.
+ */
+async function reviewLoginFailureCode(res: Response): Promise<ReviewLoginFailureCode> {
+  switch (res.status) {
+    case 403:
+      return "REVIEW_LOGIN_DISABLED";
+    case 429:
+      return "TOO_MANY_REQUESTS";
+    case 400: {
+      const body = (await res.json().catch(() => null)) as { code?: unknown } | null;
+      return body?.code === "INVALID_REVIEW_CREDENTIALS" || body?.code === "VALIDATION_FAILED"
+        ? "INVALID_REVIEW_CREDENTIALS"
+        : "UNKNOWN";
+    }
+    default:
+      return "UNKNOWN";
+  }
+}
+
+/**
+ * `POST /api/auth/review-login`
+ * 앱 심사자가 소셜 계정 없이 심사 계정으로 로그인
+ *
+ * 서버는 출시된 버전보다 높은 앱 버전에서만 받아 주므로 웹이 보낸 값이 아니라 이 앱의 버전을 싣는다.
+ * 지금 계정의 토큰과 상관없는 요청이라 Authorization을 붙이지 않는다.
+ * 성공하면 소셜 로그인과 같이 응답 토큰으로 저장을 바꾸고 구독자(웹뷰·애널리틱스·푸시 등록)에 알린다.
+ * 실패하면 저장을 유지하고 코드만 돌려준다.
+ * 비밀번호는 로그와 브리지 결과에 싣지 않고, 실패해도 throw하지 않는다.
+ */
+export function reviewLogin(loginId: string, password: string): Promise<ReviewLoginResult> {
+  return runAccountChange(() => reviewLoginOnce(loginId, password));
+}
+
+async function reviewLoginOnce(loginId: string, password: string): Promise<ReviewLoginResult> {
+  const appVersion = Constants.expoConfig?.version;
+  if (!appVersion) {
+    return { status: "failed", code: "UNKNOWN" };
+  }
+  const request: ReviewLoginRequest = { loginId, password, appVersion };
+  try {
+    const res = await apiFetch(`${apiBaseUrl()}/api/auth/review-login`, {
+      endpoint: "reviewLogin",
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request),
+    });
+    if (!res.ok) {
+      return { status: "failed", code: await reviewLoginFailureCode(res) };
+    }
+    const { accessToken, refreshToken } = (await res.json()) as AuthRefreshResponse;
+    const userId = readUserIdFromAccessToken(accessToken);
+    if (userId === null) {
+      return { status: "failed", code: "UNKNOWN" };
+    }
+    await writeAuth({ userId, accessToken, refreshToken });
+    return { status: "success" };
+  } catch (error) {
+    console.warn("[auth] 심사용 로그인 실패", error instanceof Error ? error.name : "unknown");
     return { status: "failed", code: "UNKNOWN" };
   }
 }

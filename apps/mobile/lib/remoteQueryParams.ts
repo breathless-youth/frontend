@@ -10,6 +10,8 @@ import { profilePhotoPickerNative } from "../modules/profile-photo-picker";
 import { SUPPORTED_INLINE_KINDS, webGlassNative } from "../modules/web-glass";
 import { getRnda } from "./appLock/rnda";
 import { isNewUserThisLaunch } from "./auth";
+import { isPointsAdsSupported } from "./pointsAds";
+import { isPointsChargeSupported } from "./pointsCharge";
 import { supportedSocialLoginProviders } from "./socialLogin";
 import { ensureUserRegistered } from "./userApi";
 
@@ -112,6 +114,29 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   const socialLoginProviders = supportedSocialLoginProviders();
   if (socialLoginProviders.length > 0) {
     params.socialLogin = socialLoginProviders.join(",");
+  }
+  // `points=1`: 이 바이너리가 포인트 브리지(충전·광고·구매 복원 메시지)를 안다는 표시.
+  // 웹은 이 표시가 있을 때만 포인트 화면과 입구를 연다(`apps/web/src/lib/pointsCapability.ts`).
+  // 결제 SDK 키나 광고 단위가 없는 빌드에도 붙여서 포인트 화면은 보이고, 충전과 광고 칸만 아래 두 표시에 따라 빠진다.
+  params.points = "1";
+  // `reviewLogin=1`: 이 바이너리가 `review-login`으로 심사용 로그인을 할 수 있다는 표시.
+  // 웹은 이 표시가 있고 서버가 이 앱 버전에 심사용 로그인을 켰을 때만 로그인 화면에 입구를 그린다(`apps/web/src/lib/nativeReviewLogin.ts`).
+  // 표시 없는 구버전 앱은 이 메시지를 버리므로 입구를 누른 사람이 답을 받지 못한다.
+  params.reviewLogin = "1";
+  // `pointsCharge=1`: 이 바이너리가 `points-charge-*`로 포인트 충전 결제를 할 수 있다는 표시.
+  // 웹은 이 표시가 있을 때만 충전 상품을 실제 결제로 연다(`apps/web/src/lib/nativePointsCharge.ts`).
+  // 결제 SDK 키가 없는 빌드와 SDK 네이티브 모듈이 없는 이전 Dev Client에는 붙지 않는다.
+  if (isPointsChargeSupported()) {
+    params.pointsCharge = "1";
+    // `pointsRestore=1`: 이 바이너리가 `points-charge-restore`로 구매를 복원할 수 있다는 표시.
+    // 복원 메시지가 생기기 전의 앱에는 `pointsCharge`만 있어서 따로 붙이고, 웹은 이 표시가 있을 때만 구매 복원 줄을 보인다.
+    params.pointsRestore = "1";
+  }
+  // `pointsAds=1`: 이 바이너리가 `points-ad-show`로 보상형 광고를 띄울 수 있다는 표시.
+  // 웹은 이 표시가 있을 때만 광고 타일의 보기 버튼을 연다(`apps/web/src/lib/nativePointsAds.ts`).
+  // 광고 단위 ID가 없는 빌드와 광고 SDK 네이티브 모듈이 없는 이전 Dev Client에는 붙지 않는다.
+  if (isPointsAdsSupported()) {
+    params.pointsAds = "1";
   }
   // `glassChrome`: 이 바이너리가 위쪽 고정 영역을 네이티브 Liquid Glass로 그린다는 표시이고 값은 그릴 수 있는 크롬 모양의 버전이다.
   // `glassControls`: 이 바이너리의 Swift가 그리는 본문 부품 종류 목록이고, 버튼 모양을 그리면 `button-style`이 뒤에 붙는다.

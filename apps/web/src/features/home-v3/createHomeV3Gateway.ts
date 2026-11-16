@@ -1,4 +1,8 @@
-import { completeHomeMissionStep, getHomeMission } from "@/lib/homeMissionApi";
+import {
+  claimHomeMissionRewards,
+  completeHomeMissionStep,
+  getHomeMission,
+} from "@/lib/homeMissionApi";
 import { getPlannerDay, setPlannerDefaultGoal, setPlannerGoal } from "@/lib/plannerApi";
 import { assertCurrentUserId } from "@/lib/userId";
 
@@ -21,6 +25,12 @@ export function createHomeV3Gateway(
     acknowledgeMission: async (step) => {
       assertCurrentUserId(userId);
       const result = await completeHomeMissionStep(step);
+      assertCurrentUserId(userId);
+      return result;
+    },
+    claimMissionReward: async () => {
+      assertCurrentUserId(userId);
+      const result = await claimHomeMissionRewards();
       assertCurrentUserId(userId);
       return result;
     },

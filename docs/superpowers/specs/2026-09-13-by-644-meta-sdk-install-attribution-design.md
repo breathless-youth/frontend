@@ -44,7 +44,7 @@ SDK 설치·초기화·ATT·설치 이벤트는 네이티브가 맡고(한 번 �
 - env `META_APP_ID`·`META_CLIENT_TOKEN` → `react-native-fbsdk-next` plugin 옵션 + `expo-tracking-transparency` plugin + `extra.metaAppId`. 둘 다 없으면 plugin을 넣지 않고 `extra.metaAppId`는 빈 문자열이다(Metro·광고 없는 개발 빌드는 그대로 돌아간다). 하나만 있으면 어느 변형이든 throw, 앱 ID가 숫자가 아니면 throw.
 - **production만 EAS 빌더(`EAS_BUILD=true`)에서 누락을 끊는다** — 어트리뷰션 없는 운영 바이너리가 조용히 나가면 광고 집행 뒤에야 알게 된다. eas-cli의 로컬 평가는 통과시킨다(BY-620과 같은 이유).
 - plugin 옵션: `appID`, `clientToken`, `displayName`(변형 표시명), `scheme: fb<앱 ID>`(plugin 필수값 — 로그인은 쓰지 않는다), `isAutoInitEnabled: true`(네이티브 auto-init — JS 초기화 전 이벤트도 SDK가 받는다), `autoLogAppEventsEnabled: true`(설치·실행·세션 길이 자동 로깅 — 설치 어트리뷰션의 근거), `advertiserIDCollectionEnabled: true`(Android GAID. iOS는 ATT 응답으로 런타임이 다시 정한다).
-- `app.json` `ios.infoPlist.NSUserTrackingUsageDescription`에 한국어 ATT 문구를 둔다: "설치 경로와 광고 효과를 확인하는 데 사용해요. 카메라 영상과 얼굴 데이터는 광고에 쓰이지 않아요." 두 plugin 모두 옵션으로 덮어쓰지 않아 이 값이 그대로 실린다.
+- `app.json` `ios.infoPlist.NSUserTrackingUsageDescription`에 한국어 ATT 문구를 둔다: "설치 경로와 광고 효과를 확인하는 데 사용해요. 카메라 영상과 얼굴 데이터는 광고에 쓰이지 않아요." 2026-11-16 보상형 광고의 맞춤 광고를 허용하면서 "설치 경로와 광고 효과를 확인하고 관심사에 맞는 광고를 보여 주는 데 사용해요. 카메라 영상과 얼굴 데이터는 광고에 쓰이지 않아요."로 바꿨다. 두 plugin 모두 옵션으로 덮어쓰지 않아 이 값이 그대로 실린다.
 - `metaSdkConfig.test.ts`·`permissionCopy.test.ts`가 고정한다. `.env.local.example`에 두 env 항목을 추가했다.
 
 빌드 산출물에 생기는 변화(실기기 검증 때 확인할 것): iOS Info.plist에 `FacebookAppID`·`FacebookClientToken`·`SKAdNetworkItems`·URL 스킴 `fb<앱 ID>`·`LSApplicationQueriesSchemes`(fbapi 등), Android 매니페스트에 `com.facebook.sdk.*` meta-data, `com.facebook.FacebookActivity`·`CustomTabActivity`, **권한 `AD_ID` 추가**(BY-643의 권한 드리프트 점검 항목에 넣는다 — `permissionCopy.test.ts`의 app.json 열거와는 별개다).

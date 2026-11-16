@@ -1,0 +1,102 @@
+{
+  "header": {
+    "title": "Free points today",
+    "today": "Today {{earned}} / {{max}}"
+  },
+  "study": {
+    "every": "Every {{duration}} you study",
+    "today": "Today {{duration}}",
+    "max": "Max {{duration}}",
+    "aria": "Studied {{done}} of {{max}} today",
+    "togetherHint": "Study together in a group room for <accent>+{{points}}P</accent> every {{duration}}"
+  },
+  "tile": {
+    "attendance": "Check-in",
+    "dailyGoalTitle": "Daily goal",
+    "noGoal": "Set a goal to earn this",
+    "goalTitle": "Daily goal {{duration}}",
+    "goalGuide": "About daily goal points",
+    "goalRule": "You get {{points}} for every {{duration}} of your goal.",
+    "ad": "Watch an ad",
+    "done": "Done",
+    "claim": "Claim",
+    "watch": "Watch",
+    "openInApp": "Open in app",
+    "left": "{{duration}} left",
+    "goalAria": "Daily goal {{percent}}% done"
+  },
+  "medal": {
+    "title_one": "{{count}} ranking medal",
+    "title_other": "{{count}} ranking medals",
+    "claim": "Claim {{points}}",
+    "none": "No new ranking medals",
+    "noneHint": "Finish in the top 3 to earn points for each medal",
+    "ranking": "Ranking ›",
+    "guide": "Medal points info",
+    "period": {
+      "DAILY": "Daily",
+      "WEEKLY": "Weekly",
+      "MONTHLY": "Monthly"
+    },
+    "rank": "#{{rank}}"
+  },
+  "charge": {
+    "title": "Buy points",
+    "guide": "Payment and refunds",
+    "bonus": "{{points}} extra",
+    "pricePending": "Checking price",
+    "packLabel": "Buy {{points}}"
+  },
+  "paymentGuide": {
+    "sections": {
+      "charged": "Charged points",
+      "sets": "Sets",
+      "storeAndMinors": "Store refunds and minors"
+    },
+    "unusedPaid": "You can request a refund for unused paid points within 7 days of buying them.",
+    "spent": "Points you've used and accessories or mascots bought with points can't be refunded.",
+    "setUnworn": "You can request a refund for a set within 7 days of payment if you haven't worn it.",
+    "setWorn": "Once you wear a set, it can't be refunded.",
+    "deleteAccount": "After 7 days, if you delete your account, we refund your remaining paid points minus a 10% fee.",
+    "storeRefund": "If the store (App Store or Google Play) issues a refund, we take back the same amount of points.",
+    "negative": "If you've already used those points, your balance can go below 0.",
+    "minor": "If a minor paid without a legal guardian's consent, the minor or the guardian can cancel the payment.",
+    "contactAction": "Contact us",
+    "seller": "Seller: FocusMakers",
+    "terms": "View terms of service"
+  },
+  "openInApp": {
+    "title": "Buying points and ad rewards are available in the app",
+    "body": "On the web, you can only spend points on decorations.",
+    "action": "Open in app"
+  },
+  "done": {
+    "title": "Purchase complete",
+    "points": "Points bought",
+    "bonus": "Bonus",
+    "balance": "Your points",
+    "close": "OK",
+    "shop": "Go to shop"
+  },
+  "charging": {
+    "title": "Adding your points"
+  },
+  "late": {
+    "title": "Your points are on the way",
+    "body": "Your payment went through. Check your balance in a moment.",
+    "ok": "OK",
+    "missing": "Points still not showing up?"
+  },
+  "failed": {
+    "title": "We couldn't complete the payment",
+    "body": "Check your payment method and try again.",
+    "close": "Close",
+    "retry": "Try again",
+    "missing": "Paid but didn't get your points?"
+  },
+  "adUnavailable": {
+    "title": "No ads are available right now",
+    "body": "Please try again in a moment.",
+    "ok": "OK"
+  }
+}

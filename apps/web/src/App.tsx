@@ -45,6 +45,12 @@ import {
   loadGroupMembersPage,
   loadInterviewFormPage,
   loadLicensesPage,
+  loadPointsAccessoriesPage,
+  loadPointsBackgroundsPage,
+  loadPointsHistoryPage,
+  loadPointsMascotsPage,
+  loadPointsPage,
+  loadPointsPaymentGuidePage,
   loadPrivacyPage,
   loadProfilePage,
   loadPublicGroupPage,
@@ -62,6 +68,8 @@ import { RecordsPage } from "@/routes/RecordsPage";
 import { RoomPage } from "@/routes/RoomPage";
 import { SessionGuidePage } from "@/routes/SessionGuidePage";
 import { GroupLoginScreen } from "@/features/login/GroupLoginScreen";
+import { TimerBackgroundsSaleGate } from "@/features/points/TimerBackgroundsSaleGate";
+import { PointsLoginPage } from "@/routes/PointsLoginPage";
 import { SettingsPage } from "@/routes/SettingsPage";
 import { SocialTabRoute } from "@/routes/SocialTabRoute";
 
@@ -191,6 +199,35 @@ const BlockListPage = lazy(
     loadBlockListPage().then((module) => ({ default: module.BlockListPage })),
   ),
 );
+// 포인트 화면은 플래그를 켠 문서만 열어서 따로 받는다.
+const PointsPage = lazy(
+  reloadOnChunkError(() => loadPointsPage().then((module) => ({ default: module.PointsPage }))),
+);
+const PointsHistoryPage = lazy(
+  reloadOnChunkError(() =>
+    loadPointsHistoryPage().then((module) => ({ default: module.PointsHistoryPage })),
+  ),
+);
+const PointsAccessoriesPage = lazy(
+  reloadOnChunkError(() =>
+    loadPointsAccessoriesPage().then((module) => ({ default: module.PointsAccessoriesPage })),
+  ),
+);
+const PointsBackgroundsPage = lazy(
+  reloadOnChunkError(() =>
+    loadPointsBackgroundsPage().then((module) => ({ default: module.PointsBackgroundsPage })),
+  ),
+);
+const PointsMascotsPage = lazy(
+  reloadOnChunkError(() =>
+    loadPointsMascotsPage().then((module) => ({ default: module.PointsMascotsPage })),
+  ),
+);
+const PointsPaymentGuidePage = lazy(
+  reloadOnChunkError(() =>
+    loadPointsPaymentGuidePage().then((module) => ({ default: module.PointsPaymentGuidePage })),
+  ),
+);
 const WebrtcLoopbackPage = lazy(
   reloadOnChunkError(() =>
     import("@/routes/WebrtcLoopbackPage").then((module) => ({
@@ -209,6 +246,12 @@ const DevGroupRoomsPage = import.meta.env.DEV
       import("@/routes/DevGroupRoomsPage").then((module) => ({
         default: module.DevGroupRoomsPage,
       })),
+    )
+  : null;
+
+const DevPointsPage = import.meta.env.DEV
+  ? lazy(() =>
+      import("@/routes/DevPointsPage").then((module) => ({ default: module.DevPointsPage })),
     )
   : null;
 
@@ -391,6 +434,7 @@ export function App() {
                 <Route path="/dev/group-rooms" element={<DevGroupRoomsPage />} />
               )}
               {DevHomeV3Page !== null && <Route path="/dev/home-v3" element={<DevHomeV3Page />} />}
+              {DevPointsPage !== null && <Route path="/dev/points" element={<DevPointsPage />} />}
               {import.meta.env.VITE_PERF_PANEL === "1" && (
                 <Route path="/perf/worker-parity" element={<WorkerParityPage />} />
               )}
@@ -412,6 +456,20 @@ export function App() {
               <Route path="/app-lock-settings" element={<AppLockSettingsPage />} />
               <Route path="/blocks" element={<BlockListPage />} />
               <Route path="/timelapses" element={<TimelapsesPage />} />
+              <Route path="/points" element={<PointsPage />} />
+              <Route path="/points/history" element={<PointsHistoryPage />} />
+              <Route path="/points/accessories" element={<PointsAccessoriesPage />} />
+              <Route
+                path="/points/backgrounds"
+                element={
+                  <TimerBackgroundsSaleGate>
+                    <PointsBackgroundsPage />
+                  </TimerBackgroundsSaleGate>
+                }
+              />
+              <Route path="/points/mascots" element={<PointsMascotsPage />} />
+              <Route path="/points/payment-guide" element={<PointsPaymentGuidePage />} />
+              <Route path="/points/login" element={<PointsLoginPage />} />
             </Routes>
           </Suspense>
         )}

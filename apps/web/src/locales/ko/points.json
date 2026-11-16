@@ -1,0 +1,81 @@
+{
+  "title": "포인트 상점",
+  "tabs": {
+    "label": "포인트 상점 메뉴",
+    "shop": "꾸미기 상점",
+    "earn": "포인트 받기",
+    "earnClaimable": "받을 포인트가 있어요"
+  },
+  "titles": {
+    "history": "포인트 기록",
+    "accessories": "소품",
+    "backgrounds": "타이머 배경",
+    "mascots": "마스코트 모으기"
+  },
+  "balance": {
+    "label": "보유 포인트 {{amount}}",
+    "unknown": "보유 포인트를 불러오지 못했어요",
+    "gained": "{{amount}}포인트 받음"
+  },
+  "status": {
+    "wearing": "착용 중",
+    "wear": "착용하기",
+    "using": "사용 중",
+    "apply": "적용하기",
+    "selected": "선택 중",
+    "selectable": "선택 가능"
+  },
+  "buyFor": "{{price}}로 구매",
+  "purchase": {
+    "title": "{{name, objectParticle}} 구매할까요?",
+    "balanceAfter": "구매 후 포인트",
+    "noRefundAccessory": "포인트로 산 소품은 환불되지 않아요.",
+    "noRefundMascot": "포인트로 산 마스코트는 환불되지 않아요.",
+    "cancel": "취소",
+    "confirm": "구매하기"
+  },
+  "insufficient": {
+    "title": "{{name, objectParticle}} 구매하려면 {{shortfall}}가 더 필요해요",
+    "ad": "광고 보고 {{reward}} 받기",
+    "adLeft": "오늘 {{count}}번 더 받을 수 있어요",
+    "adDone": "오늘은 다 봤어요. 내일 다시 {{count}}번 볼 수 있어요",
+    "watch": "보기",
+    "tomorrow": "내일",
+    "missions": "일일 미션 클리어하기",
+    "missionsHint": "출석과 하루 목표로 포인트를 받아요",
+    "missionsAction": "미션 보기",
+    "charge": "바로 충전하기",
+    "chargeAndBuy": "{{points}} 충전하고 구매하기",
+    "pricePending": "가격 확인 중",
+    "studyHint": "30분 공부할 때마다 +10P",
+    "ok": "확인"
+  },
+  "loadError": {
+    "shop": "상점을 불러오지 못했어요",
+    "earn": "포인트 받기를 불러오지 못했어요",
+    "screen": "화면을 불러오지 못했어요"
+  },
+  "mascots": {
+    "book": "부기",
+    "planner": "플래니",
+    "pencil": "몽당이",
+    "stopwatch": "타이미",
+    "lamp": "램피",
+    "padlock": "락키",
+    "camcorder": "캠코미"
+  },
+  "mascotImage": {
+    "unlocked": "{{name}} 마스코트",
+    "locked": "잠긴 {{name}} 마스코트"
+  },
+  "storeItem": {
+    "buyFor": "{{price}}에 구매하기",
+    "buy": "구매하기",
+    "appOnly": "앱에서 살 수 있어요",
+    "buying": "구매한 상품을 넣고 있어요",
+    "lateTitle": "상품이 곧 들어와요",
+    "lateBody": "결제는 끝났어요. 잠시 뒤 다시 확인해 주세요.",
+    "lateMissing": "상품이 계속 안 들어오나요?",
+    "failedMissing": "결제됐는데 상품이 안 들어왔나요?"
+  }
+}

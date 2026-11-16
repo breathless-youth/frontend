@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { seedGroupData } from "@/lib/groupRoomMockData";
+import { isPointsEnabled } from "@/lib/pointsCapability";
 
 import {
   toApplicationRequest,
@@ -21,6 +22,12 @@ import {
   toRoomVisibility,
   weeklyRanks,
 } from "../fromApi";
+
+vi.mock("@/lib/pointsCapability", () => ({ isPointsEnabled: vi.fn(() => true) }));
+
+afterEach(() => {
+  vi.mocked(isPointsEnabled).mockReturnValue(true);
+});
 
 const NOW = Date.parse("2026-11-03T10:00:00+09:00");
 const seed = seedGroupData("default", NOW);
@@ -126,6 +133,14 @@ describe("fromApi", () => {
     ]);
   });
 
+  it("이번 주 순위 줄은 책상에 실려 온 마스코트를 그대로 싣고, 없으면 열쇠를 만들지 않는다", () => {
+    const mascot = { mascotCode: "LAMP", accessories: [] };
+    const rows = weeklyRanks([{ ...desk(1, 300), mascot }, desk(2, 100)], 1);
+
+    expect(rows[0]?.mascot).toEqual(mascot);
+    expect(rows[1]).not.toHaveProperty("mascot");
+  });
+
   it("번역이 없으면 번역 이름과 소개는 null이고 원문은 그대로 둔다", () => {
     const card = { ...seed.publicGroups[0]!, translation: null };
     const detail = { ...seed.publicDetails[13]!, translation: null };
@@ -207,6 +222,8 @@ describe("fromApi", () => {
       todayStudySec: me.todayFocusSec,
       lastStudiedAt: me.lastStudiedAt,
       accumulating: false,
+      // 견본 멤버는 모습이 없어 포인트를 연 이 파일에서는 기본 마스코트가 앉는다.
+      mascot: { id: "stopwatch", accessories: [] },
     });
     expect(toRoomDeskMember(me, 2).isMe).toBe(false);
   });
@@ -296,6 +313,28 @@ describe("fromApi", () => {
       lastStudiedAt: member.lastStudiedAt,
       imageUrl: PHOTO,
     });
+    // 고른 마스코트와 소품을 그 멤버의 모습으로 싣고, 예전 응답처럼 모습이 없으면 키를 싣지 않는다.
+    const appearance = {
+      mascotCode: "PENCIL",
+      accessories: [
+        {
+          mascotCode: "PENCIL",
+          slot: "HEAD",
+          item: { itemId: 3, code: "PENCIL_CAP", imageUrl: "/cap.png" },
+        },
+      ],
+    };
+    expect(toRoomMemberRow({ ...member, mascot: appearance }, 1).look).toEqual({
+      id: "pencil",
+      accessories: [{ slot: "head", code: "PENCIL_CAP", imageUrl: "/cap.png" }],
+    });
+    expect(
+      toRoomMemberRow({ ...member, mascot: { mascotCode: "BOOK", accessories: [] } }, 1).look,
+    ).toEqual({ id: "book", accessories: [] });
+    expect(toRoomMemberRow({ ...member, mascot: null }, 1)).not.toHaveProperty("look");
+    expect(
+      toRoomMemberRow({ ...member, mascot: { mascotCode: "ROBOT", accessories: [] } }, 1),
+    ).not.toHaveProperty("look");
     const application = seed.applications[10]!.applications[0]!;
     expect(toApplicationRequest({ ...application, profileImageUrl: PHOTO })).toEqual({
       applicationId: application.applicationId,
@@ -318,5 +357,73 @@ describe("fromApi", () => {
     expect(toRoomVisibility("PRIVATE")).toBe("private");
     expect(toGroupVisibility("public")).toBe("PUBLIC");
     expect(toGroupVisibility("private")).toBe("PRIVATE");
+  });
+});
+
+describe("그룹 구성원 마스코트", () => {
+  const desk = {
+    userId: 2,
+    nickname: "별",
+    profileImageUrl: null,
+    owner: false,
+    status: "IDLE",
+    accumulating: false,
+    todayFocusSec: 0,
+    weekFocusSec: 0,
+    lastStudiedAt: null,
+  } as const;
+
+  it("마스코트와 그림 주소가 있는 소품을 책상에 싣는다", () => {
+    const member = toRoomDeskMember(
+      {
+        ...desk,
+        mascot: {
+          mascotCode: "STOPWATCH",
+          accessories: [
+            {
+              mascotCode: "STOPWATCH",
+              slot: "HEAD",
+              item: { itemId: 12, code: "STOPWATCH_HEAD_CROWN", imageUrl: "/crown.png" },
+            },
+            {
+              mascotCode: "STOPWATCH",
+              slot: "FACE",
+              item: { itemId: 13, code: "STOPWATCH_FACE_GLASSES", imageUrl: null },
+            },
+          ],
+        },
+      },
+      1,
+    );
+    expect(member.mascot).toEqual({
+      id: "stopwatch",
+      accessories: [{ slot: "head", code: "STOPWATCH_HEAD_CROWN", imageUrl: "/crown.png" }],
+    });
+  });
+
+  it("마스코트를 안 고른 사람은 책 마스코트에 소품이 없다", () => {
+    const member = toRoomDeskMember(
+      { ...desk, mascot: { mascotCode: "BOOK", accessories: [] } },
+      1,
+    );
+    expect(member.mascot).toEqual({ id: "book", accessories: [] });
+  });
+
+  it("포인트를 연 곳에서 필드가 없거나 모르는 코드면 사람 그림 대신 소품 없는 타이미를 앉힌다", () => {
+    const timi = { id: "stopwatch", accessories: [] };
+    expect(toRoomDeskMember(desk, 1).mascot).toEqual(timi);
+    expect(toRoomDeskMember({ ...desk, mascot: null }, 1).mascot).toEqual(timi);
+    expect(
+      toRoomDeskMember({ ...desk, mascot: { mascotCode: "NEW", accessories: [] } }, 1).mascot,
+    ).toEqual(timi);
+  });
+
+  it("포인트를 열지 않은 곳에서는 모습이 와도 책상과 멤버 관리 줄에 지금 기본 그림을 쓴다", () => {
+    vi.mocked(isPointsEnabled).mockReturnValue(false);
+    const mascot = { mascotCode: "BOOK", accessories: [] };
+    expect(toRoomDeskMember({ ...desk, mascot }, 1)).not.toHaveProperty("mascot");
+    expect(toRoomDeskMember(desk, 1)).not.toHaveProperty("mascot");
+    const member = seed.members[11]!.members[0]!;
+    expect(toRoomMemberRow({ ...member, mascot }, 1)).not.toHaveProperty("look");
   });
 });

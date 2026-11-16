@@ -4,6 +4,7 @@ import type { ReactElement } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
+import { __resetDevicePermissionsForTests } from "@/features/settings/useDevicePermissions";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { __resetGroupRoomsForTests } from "@/lib/groupRoomCapability";
 import i18n from "@/lib/i18n";
@@ -32,6 +33,7 @@ function visibleText(container: HTMLElement): string {
 }
 
 afterEach(async () => {
+  __resetDevicePermissionsForTests();
   vi.unstubAllGlobals();
   await i18n.changeLanguage("ko");
 });

@@ -12,6 +12,12 @@ import { interviewStatusQuery } from "@/lib/interviewQueries";
 import { slideNavigate } from "@/lib/pageTransition";
 import { showToast } from "@/lib/toast";
 import { useUserId } from "@/lib/userId";
+import { RestorePurchasesRow } from "@/features/points/components/shop/RestorePurchasesRow";
+import { usePointsBalance } from "@/features/points/components/shop/usePointsBalance";
+import { appPointsGateway } from "@/features/points/gateway/appPointsGateway";
+import { formatPoints } from "@/features/points/model/formatPoints";
+import { pointsSearch } from "@/features/points/pointsSearch";
+import { isPointsEnabled } from "@/lib/pointsCapability";
 import { hasAppLockCapability } from "@/features/app-lock/appLockCapability";
 import { formatAppLockRowValue } from "@/features/app-lock/appLockSummary";
 import { useAppLockSettings } from "@/features/app-lock/useAppLockSettings";
@@ -58,6 +64,9 @@ export function SettingsPage() {
   const permissions = useDevicePermissions();
   const appLock = useAppLockSettings();
   const userId = useUserId();
+  // 기록을 지원하지 않는 경계에서는 줄과 잔액 조회를 함께 뺀다.
+  const pointsHistoryRow = isPointsEnabled() && appPointsGateway().capabilities.history;
+  const points = usePointsBalance(pointsHistoryRow ? userId : null);
   // 보상이 국내 기프티콘이라 영어 화면에서는 상태를 묻지 않아 행이 생기지 않는다.
   const interview = useQuery({
     ...interviewStatusQuery(userId ?? 0),
@@ -136,6 +145,27 @@ export function SettingsPage() {
               );
             }}
           />
+          {pointsHistoryRow && !points.memberOnly && (
+            <SettingsRow
+              label={t("settings.history", { ns: "points-shop" })}
+              trailing={
+                points.balance === undefined
+                  ? { kind: "chevron" }
+                  : { kind: "valueChevron", value: formatPoints(points.balance) }
+              }
+              onPress={() => {
+                trackSettingsRowPressed("points_history");
+                slideNavigate("forward", () =>
+                  navigate({ pathname: "/points/history", search: pointsSearch(location.search) }),
+                );
+              }}
+            />
+          )}
+          {/* 복원 메시지를 모르는 예전 앱과 브라우저에서는 맡길 곳이 없어 줄을 그리지 않는다. */}
+          {/* 서버가 포인트 조회를 회원 전용으로 거절한 사용자에게는 포인트 기록 줄과 함께 숨긴다. */}
+          {isPointsEnabled() && appPointsGateway().capabilities.restore && !points.memberOnly && (
+            <RestorePurchasesRow readable={points.balance !== undefined} />
+          )}
         </SettingsSection>
 
         <SettingsSection className="mt-5" label={t("sections.service")}>

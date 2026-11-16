@@ -2,7 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import type { ProfileResponse, ProfileUpdateRequest } from "@focusmakers/types";
 
@@ -15,6 +15,14 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { CtaToaster } from "@/components/ui/sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ProfileMascotRow } from "@/features/points/components/mascots/ProfileMascotRow";
+import { usePointsGateway, usePointsUserId } from "@/features/points/gateway/PointsGatewayContext";
+import { sortMascots } from "@/features/points/model/mascotOrder";
+import { useShopActions } from "@/features/points/model/useShopActions";
+import { wornByMascot } from "@/features/points/model/wornAccessories";
+import { PointsRouteGate } from "@/features/points/PointsRouteGate";
+import { pointsSearch } from "@/features/points/pointsSearch";
+import { isMemberProfile } from "@/features/points/usePointsAccess";
 import { categoryChips } from "@/features/profile/categoryChips";
 import { ProfilePhotoButton } from "@/features/profile/ProfilePhotoButton";
 import { markProfileSaved } from "@/features/profile/profileSavedNotice";
@@ -31,7 +39,10 @@ import { ApiError } from "@/lib/api";
 import { postToNative } from "@/lib/bridge";
 import { canSegmentGraphemes } from "@/lib/graphemes";
 import { slideBack } from "@/lib/pageTransition";
+import { showToast } from "@/lib/toast";
 import { updateProfile } from "@/lib/profileApi";
+import { isPointsEnabled } from "@/lib/pointsCapability";
+import { shopQuery } from "@/lib/pointsQueries";
 import { profileKeys, profileQuery } from "@/lib/profileQueries";
 import { useUserId } from "@/lib/userId";
 
@@ -104,6 +115,33 @@ function buildPatch(values: ProfileFormValues, profile: ProfileResponse): Profil
     patch.category = values.category;
   }
   return patch;
+}
+
+/**
+ * 내 마스코트 줄
+ *
+ * 폼의 저장 버튼과 따로 누르는 즉시 바꾸고, 아직 받지 못했으면 줄을 그리지 않는다.
+ */
+function ProfileMascots() {
+  const gateway = usePointsGateway();
+  const userId = usePointsUserId();
+  const { t } = useTranslation("common");
+  const location = useLocation();
+  const { selectMascot } = useShopActions();
+  const shop = useQuery(shopQuery(gateway, userId));
+  if (shop.data === undefined) {
+    return null;
+  }
+  return (
+    <ProfileMascotRow
+      mascots={sortMascots(shop.data.mascots)}
+      worn={wornByMascot(shop.data.items)}
+      decorateTo={`/points/accessories${pointsSearch(location.search)}`}
+      onSelect={(id) => {
+        selectMascot(id).catch(() => showToast(t("errors.retryLater")));
+      }}
+    />
+  );
 }
 
 // 서버 프로필이 도착하면 폼을 그 값으로 시작한다. 재조회로 참조가 바뀌어도 사용자가 편집 중인
@@ -319,6 +357,13 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
               )}
             />
           </div>
+
+          {/* 회원으로 확인되지 않으면 포인트를 쓰지 못하므로 로그인 화면이 대신 그려지지 않게 줄째 뺀다. */}
+          {isPointsEnabled() && isMemberProfile(profile) && (
+            <PointsRouteGate embedded>
+              <ProfileMascots />
+            </PointsRouteGate>
+          )}
 
           <FieldError errors={[formState.errors.root]} />
         </div>

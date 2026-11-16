@@ -1,3 +1,11 @@
+import type { MascotLook } from "@/components/mascot/types";
+
+import bookGradCap from "./fixture-images/book-grad-cap-head.webp";
+import lampNightcap from "./fixture-images/lamp-nightcap-head.webp";
+import plannerFlowerPatch from "./fixture-images/planner-flower-patch-underfoot.webp";
+import superheroSet from "./fixture-images/stopwatch-superhero-set.webp";
+import superheroSetBack from "./fixture-images/stopwatch-superhero-set-back.webp";
+import superheroSetEffect from "./fixture-images/stopwatch-superhero-set-effect.webp";
 import { GROUP_ROOM_LIMITS } from "./model/limits";
 import type {
   ApplicationRequest,
@@ -33,6 +41,44 @@ const CATEGORY_LABELS = [
 ];
 
 const ME = { userId: 1, nickname: "열공곰" } as const;
+
+/**
+ * 멤버마다 고른 마스코트와 소품
+ *
+ * 소품 그림은 서버에만 있어서 개발 화면에서 볼 몇 장만 작게 줄여 옆 폴더에 둔다.
+ * 한 그룹 안에서는 마스코트가 겹치지 않게 나눠 주고, 바닥 소품과 세트를 한 명씩 넣는다.
+ */
+export const FIXTURE_LOOKS = {
+  nightcapLamp: { id: "lamp", accessories: [{ slot: "head", imageUrl: lampNightcap }] },
+  superheroTimi: {
+    id: "stopwatch",
+    accessories: [
+      {
+        slot: "set",
+        imageUrl: superheroSet,
+        backImageUrl: superheroSetBack,
+        effectImageUrl: superheroSetEffect,
+        effectPieces: [
+          { x: 0.1797, y: 0.1875, width: 0.0918, height: 0.1279, motion: "pop" },
+          { x: 0.7559, y: 0.2266, width: 0.0908, height: 0.1289, motion: "pop" },
+          { x: 0.1855, y: 0.75, width: 0.0859, height: 0.1172, motion: "pop" },
+        ],
+      },
+    ],
+  },
+  flowerPlanner: {
+    id: "planner",
+    accessories: [{ slot: "underfoot", imageUrl: plannerFlowerPatch }],
+  },
+  gradCapBook: { id: "book", accessories: [{ slot: "head", imageUrl: bookGradCap }] },
+  pencil: { id: "pencil", accessories: [] },
+  padlock: { id: "padlock", accessories: [] },
+  camcorder: { id: "camcorder", accessories: [] },
+  timi: { id: "stopwatch", accessories: [] },
+  lamp: { id: "lamp", accessories: [] },
+  planner: { id: "planner", accessories: [] },
+  book: { id: "book", accessories: [] },
+} as const satisfies Record<string, MascotLook>;
 
 function desk(
   fields: Pick<RoomDeskMember, "userId" | "nickname" | "presence"> & Partial<RoomDeskMember>,
@@ -71,9 +117,11 @@ export function buildGroupRoomFixtures(now: Date) {
     presence: "away",
     todayStudySec: 4_350,
     lastStudiedAt: ago(2 * HOUR_MS + 10 * MINUTE_MS),
+    mascot: FIXTURE_LOOKS.gradCapBook,
   });
 
   // 그룹 홈 시안이 새 신청을 받는 그룹장의 화면이라 이 공개 그룹은 내가 그룹장이다.
+  // 공부방 둘, 다른 곳 하나, 쉬는 중 둘, 빈자리 하나라 책상 상태가 한 화면에 모두 나온다.
   const nightOwlDesks: RoomDeskMember[] = [
     desk({
       userId: 2,
@@ -81,6 +129,7 @@ export function buildGroupRoomFixtures(now: Date) {
       presence: "this_room",
       todayStudySec: 11_560,
       accumulating: true,
+      mascot: FIXTURE_LOOKS.nightcapLamp,
     }),
     desk({
       userId: 3,
@@ -88,6 +137,7 @@ export function buildGroupRoomFixtures(now: Date) {
       presence: "this_room",
       todayStudySec: 10_025,
       accumulating: true,
+      mascot: FIXTURE_LOOKS.superheroTimi,
     }),
     desk({
       userId: 4,
@@ -95,9 +145,16 @@ export function buildGroupRoomFixtures(now: Date) {
       presence: "studying_elsewhere",
       todayStudySec: 7_100,
       accumulating: true,
+      mascot: FIXTURE_LOOKS.flowerPlanner,
     }),
     { ...meDesk, isOwner: true },
-    desk({ userId: 5, nickname: "연필깎이", presence: "away", lastStudiedAt: ago(DAY_MS) }),
+    desk({
+      userId: 5,
+      nickname: "연필깎이",
+      presence: "away",
+      lastStudiedAt: ago(DAY_MS),
+      mascot: FIXTURE_LOOKS.pencil,
+    }),
   ];
 
   // 멤버 관리 시안이 비공개 그룹 그룹장의 화면이고 내 그룹 카드 시안에서 이 그룹은 아무도 공부하지 않아 모두 쉬는 멤버로 둔다.
@@ -111,10 +168,29 @@ export function buildGroupRoomFixtures(now: Date) {
       presence: "away",
       todayStudySec: 2_700,
       lastStudiedAt: ago(2 * HOUR_MS + 10 * MINUTE_MS),
+      mascot: FIXTURE_LOOKS.padlock,
     }),
-    desk({ userId: 7, nickname: "도윤", presence: "away", lastStudiedAt: ago(DAY_MS) }),
-    desk({ userId: 8, nickname: "하린", presence: "away", lastStudiedAt: ago(3 * DAY_MS) }),
-    desk({ userId: 9, nickname: "민준", presence: "away", lastStudiedAt: ago(16 * DAY_MS) }),
+    desk({
+      userId: 7,
+      nickname: "도윤",
+      presence: "away",
+      lastStudiedAt: ago(DAY_MS),
+      mascot: FIXTURE_LOOKS.camcorder,
+    }),
+    desk({
+      userId: 8,
+      nickname: "하린",
+      presence: "away",
+      lastStudiedAt: ago(3 * DAY_MS),
+      mascot: FIXTURE_LOOKS.timi,
+    }),
+    desk({
+      userId: 9,
+      nickname: "민준",
+      presence: "away",
+      lastStudiedAt: ago(16 * DAY_MS),
+      mascot: FIXTURE_LOOKS.lamp,
+    }),
   ];
   // 멤버 목록의 마지막으로 온 날은 그룹 홈 책상과 같은 값이라 같은 그룹 책상에서 만든다.
   const members: RoomMemberRow[] = eveningClassDesks.map(
@@ -135,12 +211,14 @@ export function buildGroupRoomFixtures(now: Date) {
     presence: "this_room",
     todayStudySec: 7_805,
     accumulating: true,
+    mascot: FIXTURE_LOOKS.camcorder,
   });
   const podong = desk({
     userId: 11,
     nickname: "포동s",
     presence: "away",
     lastStudiedAt: ago(DAY_MS),
+    mascot: FIXTURE_LOOKS.padlock,
   });
 
   // 옥수수라떼가 이 그룹 공부방에 있어서 새벽 5시 기상 공시반에서는 다른 곳에서 공부 중으로 보인다.
@@ -153,6 +231,7 @@ export function buildGroupRoomFixtures(now: Date) {
       nickname: "커피두잔",
       presence: "away",
       lastStudiedAt: ago(3 * HOUR_MS + 10 * MINUTE_MS),
+      mascot: FIXTURE_LOOKS.planner,
     }),
   ];
 
@@ -164,6 +243,7 @@ export function buildGroupRoomFixtures(now: Date) {
       presence: "this_room",
       todayStudySec: 6_330,
       accumulating: true,
+      mascot: FIXTURE_LOOKS.timi,
     }),
     desk({
       userId: 14,
@@ -171,6 +251,7 @@ export function buildGroupRoomFixtures(now: Date) {
       presence: "away",
       todayStudySec: 10_931,
       lastStudiedAt: ago(HOUR_MS + 20 * MINUTE_MS),
+      mascot: FIXTURE_LOOKS.book,
     }),
     podong,
   ];

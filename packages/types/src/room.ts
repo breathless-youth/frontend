@@ -1,3 +1,5 @@
+import type { MascotAppearance } from "./mascotAppearance";
+
 /**
  * 실시간 룸 STOMP 메시지 명세
  *
@@ -29,6 +31,8 @@ export interface RoomMember {
   // 휴식은 focusState에 값을 늘리지 않고 이 필드로 따로 온다.
   onBreak?: boolean;
   owner?: boolean;
+  // 고른 마스코트와 낀 소품이며 멤버 객체를 만든 시점의 값이라 방 안에서 바꿔도 다음 SNAPSHOT·MEMBER_JOINED부터 바뀐다.
+  mascot?: MascotAppearance;
 }
 
 export type RoomSignalKind = "OFFER" | "ANSWER" | "CANDIDATE";

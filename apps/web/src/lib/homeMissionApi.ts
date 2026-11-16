@@ -1,4 +1,4 @@
-import type { HomeMissionResponse } from "@focusmakers/types";
+import type { HomeMissionRewardClaimResponse, HomeMissionResponse } from "@focusmakers/types";
 
 import { API_BASE_URL, apiFetch, parseApiError } from "./api";
 
@@ -17,4 +17,14 @@ export async function completeHomeMissionStep(step: 1 | 2): Promise<HomeMissionR
   });
   if (!response.ok) throw await parseApiError(response, "home mission completion failed");
   return (await response.json()) as HomeMissionResponse;
+}
+
+/** 완료한 단계 가운데 아직 안 받은 미션 포인트를 한 번에 받는다. 비회원은 403(MEMBER_ONLY)이다. */
+export async function claimHomeMissionRewards(): Promise<HomeMissionRewardClaimResponse> {
+  const response = await apiFetch(`${MISSION_URL}/rewards/claim`, {
+    endpoint: "homeMission",
+    method: "POST",
+  });
+  if (!response.ok) throw await parseApiError(response, "home mission reward claim failed");
+  return (await response.json()) as HomeMissionRewardClaimResponse;
 }

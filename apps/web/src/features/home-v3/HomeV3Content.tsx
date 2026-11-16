@@ -24,6 +24,7 @@ export function HomeV3Content({
   subjects,
   selectedSubjectId,
   completingMission = false,
+  claimingReward = false,
   startingStudy = false,
   startError,
   missionError,
@@ -45,6 +46,7 @@ export function HomeV3Content({
         <HomeProgressBand
           band={band.value}
           completing={completingMission}
+          claiming={claimingReward}
           starting={startingStudy}
           error={missionError}
           actions={actions}

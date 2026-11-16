@@ -20,6 +20,7 @@ export interface HomeV3ContentProps {
   subjects: HomeLoadState<readonly HomeSubject[]>;
   selectedSubjectId: number | null;
   completingMission?: boolean;
+  claimingReward?: boolean;
   startingStudy?: boolean;
   startError?: string;
   missionError?: string;
@@ -33,6 +34,7 @@ export interface HomeV3ContentProps {
     startStudy: () => void;
     openPlanner: () => void;
     completeMission: (step: 1 | 2) => void;
+    claimMissionReward?: () => void;
     editGoal: () => void;
     openTimelapses: () => void;
     openTimelapseSettings: () => void;

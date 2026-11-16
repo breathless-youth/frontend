@@ -5,6 +5,7 @@ import {
   type LegalBlock,
   type LegalDocument,
 } from "@/features/settings/legalDocuments";
+import { useScrollTopOnEnter } from "@/lib/useScrollTopOnEnter";
 
 import { ScreenBackHeader } from "./ScreenBackHeader";
 
@@ -55,6 +56,8 @@ function BlockView({ block }: { block: LegalBlock }) {
 
 export function LegalDocumentScreen({ document }: { document: LegalDocument }) {
   const { t, i18n } = useTranslation("settings");
+  // 앞 화면에서 내린 위치로 열리면 시행일 줄이 보이지 않아 새로 들어올 때는 맨 위에서 연다.
+  useScrollTopOnEnter();
   return (
     <div className="page-column min-h-dvh bg-background">
       <ScreenBackHeader title={document.title} />

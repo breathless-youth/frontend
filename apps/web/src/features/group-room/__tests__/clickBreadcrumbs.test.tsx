@@ -113,7 +113,8 @@ describe("그룹 화면의 Sentry 클릭 기록", () => {
   it("멤버 책상은 어디를 눌러도 닉네임 대신 컴포넌트 이름이 남는다", () => {
     render(<DeskGrid members={fixtures.roomHome.members} visibility="public" elapsedSec={0} />);
     const desk = screen.getByRole("listitem", { name: /^새벽러,/ });
-    const figure = desk.querySelector("svg");
+    // 고정 데이터 멤버는 마스코트를 골라 두어 사람 그림 대신 마스코트 자리로 그려진다.
+    const figure = desk.querySelector('[data-slot="mascot-seat"]');
     if (figure === null) {
       throw new Error("책상 그림이 없다");
     }

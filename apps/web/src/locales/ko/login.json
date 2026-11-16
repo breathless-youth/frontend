@@ -8,5 +8,18 @@
   "consent": "로그인하면 만 14세 이상임을 확인하고,\n<terms>이용약관</terms>과 <privacy>개인정보 처리방침</privacy>에 동의하게 돼요",
   "errors": {
     "failed": "로그인하지 못했어요. 다시 시도해 주세요"
+  },
+  "reviewLogin": {
+    "entry": "심사용 로그인",
+    "title": "심사용 로그인",
+    "loginId": "아이디",
+    "password": "비밀번호",
+    "submit": "로그인",
+    "errors": {
+      "INVALID_REVIEW_CREDENTIALS": "아이디나 비밀번호가 맞지 않아요.",
+      "REVIEW_LOGIN_DISABLED": "지금은 심사용 로그인을 쓸 수 없어요.",
+      "TOO_MANY_REQUESTS": "여러 번 틀려서 잠시 뒤에 다시 시도해 주세요.",
+      "UNKNOWN": "로그인하지 못했으니 다시 시도해 주세요."
+    }
   }
 }

@@ -1,5 +1,5 @@
 import type { SocialLoginProvider } from "@focusmakers/types";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { LoaderCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
@@ -27,8 +27,11 @@ import {
 import type { LoginEntry } from "@/lib/amplitude";
 import { notifyLoginSuccess } from "@/lib/authSuccessToast";
 import i18n from "@/lib/i18n";
+import { lazyWithPreload } from "@/lib/lazyWithPreload";
+import { nativeReviewLoginAppVersion } from "@/lib/nativeReviewLogin";
 import { nativeSocialLoginProviders, requestNativeSocialLogin } from "@/lib/nativeSocialLogin";
 import { profileKeys } from "@/lib/profileQueries";
+import { getReviewLoginStatus } from "@/lib/reviewLoginApi";
 import { showToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
@@ -100,24 +103,55 @@ function MascotLayer({ mascots }: { mascots: Mascot[] }) {
   );
 }
 
+/** 심사용 로그인 창은 심사 기간에만 열려서 시트 부품과 함께 누를 때 받는다. */
+const { LazySheet: LazyReviewLoginSheet } = lazyWithPreload(() =>
+  import("./ReviewLoginSheet").then((module) => module.ReviewLoginSheet),
+);
+
 /**
- * 그룹 또는 설정에서 여는 비회원 로그인 화면
+ * 이 앱 버전에 심사용 로그인이 켜져 있는지
+ *
+ * 앱 버전을 모르는 브라우저와 심사용 로그인을 모르는 앱에서는 서버에 묻지 않는다.
+ * 묻지 못하면 입구를 그리지 않는다.
+ */
+function useReviewLoginEnabled(): boolean {
+  const appVersion = nativeReviewLoginAppVersion();
+  const status = useQuery({
+    queryKey: ["reviewLogin", "status", appVersion],
+    queryFn: () => getReviewLoginStatus(appVersion ?? ""),
+    enabled: appVersion !== null,
+    retry: false,
+  });
+  return status.data?.enabled === true;
+}
+
+/** 앞 화면 없이 바로 열렸을 때 뒤로 가기가 돌아갈 화면 */
+const BACK_FALLBACK: Partial<Record<LoginEntry, string>> = {
+  settings: "/settings",
+  points: "/home",
+};
+
+/**
+ * 그룹·설정·포인트 상점에서 여는 비회원 로그인 화면
  *
  * 앱이 알린 공급자 버튼만 보이고, 로그인은 앱에 맡긴 뒤 결과만 받아 처리한다.
  * 그룹 진입은 로그인 후 게이트가 그룹 화면을 그린다. 설정 진입은 설정 화면으로 돌아간다.
  * 새로 가입한 사람도 프로필 설정으로 보내지 않는다.
+ * 서버가 이 앱 버전에 심사용 로그인을 켰을 때만 약관 문구 아래에 입구를 그리고, 로그인한 뒤에는 소셜 로그인과 같이 처리한다.
  */
 export function GroupLoginScreen({ entry }: { entry: LoginEntry }) {
   const { t } = useTranslation("login");
   const location = useLocation();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const back = useBackTo(entry === "settings" ? "/settings" : "/social");
+  const back = useBackTo(BACK_FALLBACK[entry] ?? "/social");
   const [pending, setPending] = useState<SocialLoginProvider | null>(null);
   const viewedRef = useRef(false);
   // 버튼 비활성은 다음 렌더에 붙어서, 같은 순간의 두 번째 누름은 이 값으로 막는다.
   const inFlightRef = useRef(false);
   const mountedRef = useRef(true);
+  const reviewLoginEnabled = useReviewLoginEnabled();
+  const [reviewOpen, setReviewOpen] = useState(false);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -137,6 +171,25 @@ export function GroupLoginScreen({ entry }: { entry: LoginEntry }) {
   const available = nativeSocialLoginProviders();
   const isTabRoot = location.pathname === "/social";
   const search = baseSearch(location.search);
+
+  /** 앱이 새 토큰을 넘긴 뒤의 처리이며, 게이트가 회원으로 바꿔 이 화면을 내릴 때까지 프로필을 다시 받는다. */
+  async function settleLogin() {
+    if (entry === "settings") {
+      navigate("/settings", { replace: true });
+      return;
+    }
+    await queryClient.refetchQueries(
+      { queryKey: profileKeys.all, type: "active" },
+      { cancelRefetch: false },
+    );
+  }
+
+  async function finishReviewLogin() {
+    notifyLoginSuccess();
+    if (mountedRef.current) {
+      await settleLogin();
+    }
+  }
 
   async function login(provider: SocialLoginProvider) {
     if (inFlightRef.current) {
@@ -162,15 +215,8 @@ export function GroupLoginScreen({ entry }: { entry: LoginEntry }) {
     // 성공하면 게이트가 회원으로 바꿔 이 화면을 내릴 때까지 프로필을 다시 받는 동안에도 진행 중으로 둔다.
     // 다시 받지 못해 화면이 남으면 버튼을 다시 연다. 앱 응답 때 시작한 재조회를 기다리기만 하고 새로 보내지 않는다.
     if (result.status === "success") {
-      if (entry === "settings") {
-        navigate("/settings", { replace: true });
-        return;
-      }
-      await queryClient.refetchQueries(
-        { queryKey: profileKeys.all, type: "active" },
-        { cancelRefetch: false },
-      );
-      if (mountedRef.current) {
+      await settleLogin();
+      if (entry !== "settings" && mountedRef.current) {
         setPending(null);
       }
       return;
@@ -252,8 +298,27 @@ export function GroupLoginScreen({ entry }: { entry: LoginEntry }) {
               }}
             />
           </p>
+          {reviewLoginEnabled && (
+            <div className="relative z-10 flex justify-center">
+              <button
+                type="button"
+                className="inline-flex min-h-11 items-center px-2.5 text-xs text-text-tertiary underline underline-offset-2"
+                disabled={pending !== null}
+                onClick={() => setReviewOpen(true)}
+              >
+                {t("reviewLogin.entry")}
+              </button>
+            </div>
+          )}
         </div>
       </div>
+      {reviewLoginEnabled && (
+        <LazyReviewLoginSheet
+          open={reviewOpen}
+          onOpenChange={setReviewOpen}
+          onSuccess={finishReviewLogin}
+        />
+      )}
     </main>
   );
 }

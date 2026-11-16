@@ -18,7 +18,15 @@ export function ErrorState({
   onRetry: () => void;
   variant?: "planner";
   /** 계측용 화면 식별자(BY-616 확장) — `error_retry_pressed.screen`. */
-  screen: "home" | "records" | "planner" | "profile" | "live_room_entry" | "ranking" | "group_tab";
+  screen:
+    | "home"
+    | "records"
+    | "planner"
+    | "profile"
+    | "live_room_entry"
+    | "ranking"
+    | "group_tab"
+    | "points";
 }) {
   const { t } = useTranslation();
   return (

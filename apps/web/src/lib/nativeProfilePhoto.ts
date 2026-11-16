@@ -1,6 +1,11 @@
 import { UnusablePhotoError } from "@/features/profile/prepareProfilePhoto";
 
-import { isNativeBridgeAvailable, postToNative, subscribeToNativeMessages } from "./bridge";
+import {
+  bridgeRequestId,
+  isNativeBridgeAvailable,
+  postToNative,
+  subscribeToNativeMessages,
+} from "./bridge";
 
 // 앱 안 이동은 URL에서 쿼리를 없애므로 모듈을 읽는 시점에 한 번 판정해 보관한다.
 // 표시는 바이너리마다 고정이라 다시 읽을 이유가 없다.
@@ -51,9 +56,7 @@ function jpegFromBase64(data: string): Blob {
  * 구독을 먼저 걸고 보내야 빠른 응답을 놓치지 않는다.
  */
 export function pickNativeProfilePhoto(): Promise<Blob | null> {
-  // LAN 주소(http)로 연 개발 웹뷰는 비보안 문서라 randomUUID가 없다.
-  // 앱은 비지 않은 문자열이면 받으므로 그때는 난수 문자열로 대신한다.
-  const id = typeof crypto.randomUUID === "function" ? crypto.randomUUID() : String(Math.random());
+  const id = bridgeRequestId();
   return new Promise((resolve, reject) => {
     const unsubscribe = subscribeToNativeMessages((message) => {
       if (message.type !== "profile-photo-result" || message.id !== id) {
