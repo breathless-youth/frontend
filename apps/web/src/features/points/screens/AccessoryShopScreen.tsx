@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { trackPointsSetViewed } from "@/lib/amplitude";
 import { slideNavigate } from "@/lib/pageTransition";
 import { showToast } from "@/lib/toast";
+import { cn } from "@/lib/utils";
 
 import { AccessoryGrid } from "../components/items/AccessoryGrid";
 import { AccessoryPreview } from "../components/items/AccessoryPreview";
@@ -164,7 +165,12 @@ export function AccessoryShopScreen({
     );
 
   return (
-    <PointsScreenFrame title={t("title", { name: mascotName })} onBack={onBack} balance={balance}>
+    <PointsScreenFrame
+      title={t("title", { name: mascotName })}
+      onBack={onBack}
+      balance={balance}
+      fitScreen
+    >
       <MascotStrip
         mascots={mascots}
         worn={wornByMascot(data.items)}
@@ -176,45 +182,64 @@ export function AccessoryShopScreen({
         item={mascot.unlocked && item?.id !== takenOffId ? item : null}
         worn={mascotItems.filter((it) => it.inUse)}
       />
-      {/* 틀의 아래 여백만큼 시트를 내려 바탕이 화면 끝까지 이어지게 하고, 같은 여백을 안쪽에 둬 버튼은 안전 영역 위에 남긴다. */}
-      <div className="-mx-5 -mb-[calc(env(safe-area-inset-bottom)+24px)] flex flex-1 flex-col gap-3.5 rounded-t-3xl bg-muted px-5 pt-4 pb-[calc(env(safe-area-inset-bottom)+24px)] shadow-[0_-12px_40px_rgb(0_0_0/0.08)]">
+      {/* 시트는 화면 아래 끝까지 이어진다. 부위 칩은 위에 두고 칸 목록만 스크롤하며, 버튼 줄은 안전 영역 위 화면 아래에 둔다. */}
+      <div className="-mx-5 flex min-h-0 flex-1 flex-col rounded-t-3xl bg-muted shadow-[0_-12px_40px_rgb(0_0_0/0.08)]">
         {mascot.unlocked ? (
           <>
-            <SlotChips
-              slots={slots}
-              value={slot}
-              onChange={(next) => choose(() => setSlot(next))}
-            />
-            {slot === "set" && <p className="text-xs text-muted-foreground">{t("setNotice")}</p>}
-            {slotItems.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t("grid.empty")}</p>
-            ) : null}
-            <AccessoryGrid
-              items={slotItems}
-              pickedId={item?.id}
-              onPick={(id) => choose(() => setPickedId(id))}
-              onTakeOff={takeOff}
-            />
-            {item !== null && (
-              <ActionButton
-                item={item}
-                store={store}
-                onBuy={flow.open}
-                onWear={() => {
-                  setTakenOffId(undefined);
-                  void setInUse(item, true);
-                }}
-                onTakeOff={() => takeOff(item)}
+            <div className="flex shrink-0 flex-col gap-3.5 px-5 pt-4">
+              <SlotChips
+                slots={slots}
+                value={slot}
+                onChange={(next) => choose(() => setSlot(next))}
               />
+              {slot === "set" && <p className="text-xs text-muted-foreground">{t("setNotice")}</p>}
+            </div>
+            <div
+              data-slot="accessory-list"
+              className={cn(
+                "min-h-0 flex-1 px-5 pt-3.5 not-landscape-compact:overflow-y-auto not-landscape-compact:overscroll-contain",
+                // 버튼 줄이 없을 때는 마지막 줄이 안전 영역에 깔리지 않게 그만큼 띄운다.
+                item === null ? "pb-[calc(env(safe-area-inset-bottom)+24px)]" : "pb-4",
+              )}
+            >
+              {slotItems.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t("grid.empty")}</p>
+              ) : null}
+              <AccessoryGrid
+                items={slotItems}
+                pickedId={item?.id}
+                onPick={(id) => choose(() => setPickedId(id))}
+                onTakeOff={takeOff}
+              />
+            </div>
+            {item !== null && (
+              // 높이가 낮은 가로 화면은 화면 전체가 스크롤돼서 버튼 줄을 화면 아래에 붙여 둔다.
+              <div
+                data-slot="accessory-action"
+                className="shrink-0 border-t border-border bg-muted px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+16px)] landscape-compact:sticky landscape-compact:bottom-0"
+              >
+                <ActionButton
+                  item={item}
+                  store={store}
+                  onBuy={flow.open}
+                  onWear={() => {
+                    setTakenOffId(undefined);
+                    void setInUse(item, true);
+                  }}
+                  onTakeOff={() => takeOff(item)}
+                />
+              </div>
             )}
           </>
         ) : (
-          <LockedMascotPanel
-            mascot={mascot}
-            name={mascotName}
-            totalFocusSec={data.totalFocusSec}
-            onCollect={() => open("/points/mascots")}
-          />
+          <div className="min-h-0 flex-1 px-5 pt-4 pb-[calc(env(safe-area-inset-bottom)+24px)] not-landscape-compact:overflow-y-auto">
+            <LockedMascotPanel
+              mascot={mascot}
+              name={mascotName}
+              totalFocusSec={data.totalFocusSec}
+              onCollect={() => open("/points/mascots")}
+            />
+          </div>
         )}
       </div>
 
