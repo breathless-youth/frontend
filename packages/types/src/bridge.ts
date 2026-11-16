@@ -249,6 +249,12 @@ export const SOCIAL_LOGIN_FAILURE_CODES = [
 export type SocialLoginFailureCode = (typeof SOCIAL_LOGIN_FAILURE_CODES)[number];
 
 /** 심사용 로그인이 실패한 까닭이며 앞의 셋은 서버 오류 코드 그대로다. */
+/** 심사용 로그인 아이디의 최대 길이이며 서버가 64자까지 받아 웹 입력칸과 앱 검사가 같이 쓴다. */
+export const REVIEW_LOGIN_ID_MAX_LENGTH = 64;
+
+/** 심사용 로그인 비밀번호의 최대 길이이며 서버에는 상한이 없어 브리지로 넘길 만큼만 정했다. */
+export const REVIEW_LOGIN_PASSWORD_MAX_LENGTH = 256;
+
 export const REVIEW_LOGIN_FAILURE_CODES = [
   "REVIEW_LOGIN_DISABLED",
   "INVALID_REVIEW_CREDENTIALS",

@@ -1,3 +1,5 @@
+import { REVIEW_LOGIN_ID_MAX_LENGTH, REVIEW_LOGIN_PASSWORD_MAX_LENGTH } from "@focusmakers/types";
+
 import { injectMessageScript, parseToNativeMessage, serializeToWebMessage } from "../webBridge";
 
 describe("parseToNativeMessage", () => {
@@ -44,14 +46,21 @@ describe("parseToNativeMessage", () => {
   it("review-login은 요청 id와 아이디와 비밀번호를 파싱한다", () => {
     const message = { type: "review-login", id: "r1", loginId: "review", password: "pw", atMs: 5 };
     expect(parseToNativeMessage(JSON.stringify(message))).toEqual(message);
+    // 웹 입력칸과 같은 상한까지는 받는다.
+    const longest = {
+      ...message,
+      loginId: "a".repeat(REVIEW_LOGIN_ID_MAX_LENGTH),
+      password: "a".repeat(REVIEW_LOGIN_PASSWORD_MAX_LENGTH),
+    };
+    expect(parseToNativeMessage(JSON.stringify(longest))).toEqual(longest);
   });
 
   it.each([
     ["빈 id", { id: "" }],
     ["빈 아이디", { loginId: "" }],
-    ["긴 아이디", { loginId: "a".repeat(65) }],
+    ["긴 아이디", { loginId: "a".repeat(REVIEW_LOGIN_ID_MAX_LENGTH + 1) }],
     ["빈 비밀번호", { password: "" }],
-    ["긴 비밀번호", { password: "a".repeat(257) }],
+    ["긴 비밀번호", { password: "a".repeat(REVIEW_LOGIN_PASSWORD_MAX_LENGTH + 1) }],
     ["숫자 비밀번호", { password: 1234 }],
   ])("review-login은 %s이면 버린다", (_label, patch) => {
     const message = { type: "review-login", id: "r1", loginId: "review", password: "pw", atMs: 5 };

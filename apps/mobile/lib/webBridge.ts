@@ -35,6 +35,8 @@ import {
   NAVIGATE_TAB_TARGETS,
   POINTS_CHARGE_PRICES_MAX_PRODUCTS,
   POINTS_CHARGE_RESTORE_MAX_PRODUCTS,
+  REVIEW_LOGIN_ID_MAX_LENGTH,
+  REVIEW_LOGIN_PASSWORD_MAX_LENGTH,
   SOCIAL_LOGIN_PROVIDERS,
   VIDEO_SHARE_TARGETS,
 } from "@focusmakers/types";
@@ -60,10 +62,6 @@ function isStoreProductId(value: unknown): value is string {
 function toRevenueCatAppUserId(value: unknown): string | null {
   return typeof value === "string" && /^[A-Za-z0-9._-]{1,100}$/.test(value) ? value : null;
 }
-
-// 서버는 아이디를 64자까지 받는다. 비밀번호는 서버에 상한이 없어 브리지로 받을 만큼만 정한다.
-const MAX_REVIEW_LOGIN_ID = 64;
-const MAX_REVIEW_PASSWORD = 256;
 
 function isBoundedString(value: unknown, max: number): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= max;
@@ -219,8 +217,8 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       if (
         typeof record.id !== "string" ||
         record.id === "" ||
-        !isBoundedString(record.loginId, MAX_REVIEW_LOGIN_ID) ||
-        !isBoundedString(record.password, MAX_REVIEW_PASSWORD)
+        !isBoundedString(record.loginId, REVIEW_LOGIN_ID_MAX_LENGTH) ||
+        !isBoundedString(record.password, REVIEW_LOGIN_PASSWORD_MAX_LENGTH)
       ) {
         return null;
       }

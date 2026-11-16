@@ -85,6 +85,23 @@ describe("requestNativeReviewLogin", () => {
     await expect(second).resolves.toEqual({ status: "failed", code: "UNKNOWN" });
   });
 
+  it("앱이 답하지 않으면 30초 뒤 UNKNOWN 실패로 끝내 창이 진행 중으로 남지 않게 한다", async () => {
+    vi.useFakeTimers();
+    try {
+      open("?reviewLogin=1&appVersion=26.47.0");
+      const pending = requestNativeReviewLogin("review", "pw");
+      await vi.advanceTimersByTimeAsync(29_999);
+      let settled = false;
+      void pending.then(() => (settled = true));
+      await Promise.resolve();
+      expect(settled).toBe(false);
+      await vi.advanceTimersByTimeAsync(1);
+      await expect(pending).resolves.toEqual({ status: "failed", code: "UNKNOWN" });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("브리지가 없으면 UNKNOWN 실패로 끝난다", async () => {
     await expect(requestNativeReviewLogin("review", "pw")).resolves.toEqual({
       status: "failed",

@@ -1,4 +1,8 @@
-import type { ReviewLoginFailureCode } from "@focusmakers/types";
+import {
+  REVIEW_LOGIN_ID_MAX_LENGTH,
+  REVIEW_LOGIN_PASSWORD_MAX_LENGTH,
+  type ReviewLoginFailureCode,
+} from "@focusmakers/types";
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -90,7 +94,7 @@ export function ReviewLoginSheet({
               data-base-ui-swipe-ignore=""
               value={loginId}
               disabled={pending}
-              maxLength={64}
+              maxLength={REVIEW_LOGIN_ID_MAX_LENGTH}
               onChange={(event) => {
                 setLoginId(event.target.value);
                 setError(null);
@@ -111,6 +115,7 @@ export function ReviewLoginSheet({
               data-base-ui-swipe-ignore=""
               value={password}
               disabled={pending}
+              maxLength={REVIEW_LOGIN_PASSWORD_MAX_LENGTH}
               onChange={(event) => {
                 setPassword(event.target.value);
                 setError(null);

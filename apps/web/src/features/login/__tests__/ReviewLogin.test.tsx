@@ -1,3 +1,4 @@
+import { REVIEW_LOGIN_ID_MAX_LENGTH, REVIEW_LOGIN_PASSWORD_MAX_LENGTH } from "@focusmakers/types";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -112,6 +113,21 @@ describe("심사용 로그인 입구", () => {
       expect(input).toHaveAttribute("spellcheck", "false");
     }
     expect(screen.getByRole("button", { name: "로그인" })).toBeDisabled();
+  });
+
+  it("아이디와 비밀번호 칸은 앱이 받는 길이까지만 입력된다", async () => {
+    vi.mocked(getReviewLoginStatus).mockResolvedValue({ enabled: true });
+    renderScreen();
+    await openSheet();
+
+    expect(screen.getByLabelText("아이디")).toHaveAttribute(
+      "maxlength",
+      String(REVIEW_LOGIN_ID_MAX_LENGTH),
+    );
+    expect(screen.getByLabelText("비밀번호")).toHaveAttribute(
+      "maxlength",
+      String(REVIEW_LOGIN_PASSWORD_MAX_LENGTH),
+    );
   });
 });
 
