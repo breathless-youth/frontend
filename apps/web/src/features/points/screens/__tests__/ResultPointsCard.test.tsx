@@ -9,7 +9,7 @@ const HOUR = 3600;
 const reward: SessionReward = {
   earned: 20,
   todayFocusSec: 2 * HOUR + 600,
-  capSec: 12 * HOUR,
+  capSec: 10 * HOUR,
   nextMascot: { id: "lamp", remainingSec: 2 * HOUR + 48 * 60, progress: 0.907 },
 };
 
@@ -18,10 +18,10 @@ describe("ResultPointsCard", () => {
     render(<ResultPointsCard reward={reward} onOpenShop={vi.fn()} />);
     expect(screen.getByText("+20P 받았어요")).toBeInTheDocument();
     expect(
-      screen.getByRole("img", { name: "오늘 12시간 중 2시간 10분 공부했어요" }),
+      screen.getByRole("img", { name: "오늘 10시간 중 2시간 10분 공부했어요" }),
     ).toBeInTheDocument();
     expect(screen.getByText("오늘 2시간 10분")).toBeInTheDocument();
-    expect(screen.getByText("최대 12시간")).toBeInTheDocument();
+    expect(screen.getByText("최대 10시간")).toBeInTheDocument();
     expect(screen.getByText("램피까지 순공 2시간 48분 남았어요")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "램피까지 91% 모았어요" })).toBeInTheDocument();
   });
@@ -41,7 +41,7 @@ describe("ResultPointsCard", () => {
   it("받은 포인트가 0이면 마스코트 줄만 보인다", () => {
     render(<ResultPointsCard reward={{ ...reward, earned: 0 }} onOpenShop={vi.fn()} />);
     expect(screen.queryByText(/받았어요/)).not.toBeInTheDocument();
-    expect(screen.queryByText("최대 12시간")).not.toBeInTheDocument();
+    expect(screen.queryByText("최대 10시간")).not.toBeInTheDocument();
     expect(screen.getByText("램피까지 순공 2시간 48분 남았어요")).toBeInTheDocument();
   });
 

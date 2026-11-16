@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import { tierAt } from "../earnTier";
 
 const HOUR = 3600;
-// 백엔드가 알려 준 지금 값과 같은 모양이며 숫자는 서버 설정이라 바뀔 수 있다.
+// 지금 서버는 구간 하나만 보내지만 구간 고르기를 보려고 여러 구간을 뒤섞어 둔다.
 const STUDY = [
   { fromSec: 2 * HOUR, toSec: 6 * HOUR, soloPoints: 4, togetherPoints: 5 },
   { fromSec: 0, toSec: 2 * HOUR, soloPoints: 7, togetherPoints: 10 },
-  { fromSec: 6 * HOUR, toSec: 12 * HOUR, soloPoints: 1, togetherPoints: 2 },
+  { fromSec: 6 * HOUR, toSec: 10 * HOUR, soloPoints: 1, togetherPoints: 2 },
 ];
 
 describe("tierAt", () => {
@@ -20,9 +20,16 @@ describe("tierAt", () => {
   });
 
   it("상한에 닿았거나 넘었으면 마지막 구간, 첫 구간보다 앞이면 첫 구간이다", () => {
-    expect(tierAt(STUDY, 12 * HOUR)?.soloPoints).toBe(1);
+    expect(tierAt(STUDY, 10 * HOUR)?.soloPoints).toBe(1);
     expect(tierAt(STUDY, 20 * HOUR)?.soloPoints).toBe(1);
     expect(tierAt([{ fromSec: 600, toSec: 1200, points: 3 }], 0)?.points).toBe(3);
+  });
+
+  it("구간이 하나면 하루 상한 안팎 어디서나 그 구간이다", () => {
+    const fixed = [{ fromSec: 0, toSec: 10 * HOUR, soloPoints: 7, togetherPoints: 10 }];
+    for (const sec of [0, 5 * HOUR, 10 * HOUR, 11 * HOUR]) {
+      expect(tierAt(fixed, sec)).toEqual(fixed[0]);
+    }
   });
 
   it("구간이 없으면 null이다", () => {

@@ -47,7 +47,7 @@
     "charge": "今すぐチャージ",
     "chargeAndBuy": "{{points}}チャージして購入",
     "pricePending": "価格を確認中",
-    "studyHint": "30分勉強するたびに+10P",
+    "studyHint": "30分勉強するたびに+7P",
     "ok": "OK"
   },
   "loadError": {
