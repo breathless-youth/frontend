@@ -9,6 +9,7 @@ import { PointsBalancePill } from "./PointsBalancePill";
  *
  * 어느 화면에서든 산 뒤의 잔액이 보이도록 오른쪽 위에 잔액 알약을 둔다.
  * 받기 전이나 받지 못했을 때도 같은 틀 아래에 자리표시나 오류를 두어 데이터가 오면 내용만 바뀐다.
+ * 결제·환불 안내처럼 잔액과 상관없는 화면은 `balance`에 null을 넘겨 알약을 그리지 않는다.
  */
 export function PointsScreenFrame({
   title,
@@ -18,7 +19,7 @@ export function PointsScreenFrame({
 }: {
   title?: string;
   onBack: () => void;
-  balance: number | undefined;
+  balance: number | undefined | null;
   children: ReactNode;
 }) {
   return (
@@ -26,7 +27,9 @@ export function PointsScreenFrame({
       <ScreenBackHeader
         title={title}
         onBack={onBack}
-        trailing={<PointsBalancePill size="screen" balance={balance} />}
+        trailing={
+          balance === null ? undefined : <PointsBalancePill size="screen" balance={balance} />
+        }
       />
       <div className="flex flex-1 flex-col px-5 pb-[calc(env(safe-area-inset-bottom)+24px)]">
         {children}

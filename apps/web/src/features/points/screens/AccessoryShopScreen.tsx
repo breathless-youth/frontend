@@ -291,7 +291,7 @@ function ActionButton({
     // 스토어 결제는 결제 창이 스토어 것이라 환불 규칙을 이 버튼 바로 위 링크에서 연다.
     return (
       <div className="mt-auto flex flex-col gap-3">
-        {store.available && <PaymentGuideLink />}
+        {store.available && <PaymentGuideLink itemId={item.id} />}
         <StoreBuyButton item={item} flow={store} className="w-full shadow-sb-cta" />
       </div>
     );

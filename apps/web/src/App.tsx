@@ -50,6 +50,7 @@ import {
   loadPointsHistoryPage,
   loadPointsMascotsPage,
   loadPointsPage,
+  loadPointsPaymentGuidePage,
   loadPrivacyPage,
   loadProfilePage,
   loadPublicGroupPage,
@@ -220,6 +221,11 @@ const PointsBackgroundsPage = lazy(
 const PointsMascotsPage = lazy(
   reloadOnChunkError(() =>
     loadPointsMascotsPage().then((module) => ({ default: module.PointsMascotsPage })),
+  ),
+);
+const PointsPaymentGuidePage = lazy(
+  reloadOnChunkError(() =>
+    loadPointsPaymentGuidePage().then((module) => ({ default: module.PointsPaymentGuidePage })),
   ),
 );
 const WebrtcLoopbackPage = lazy(
@@ -462,6 +468,7 @@ export function App() {
                 }
               />
               <Route path="/points/mascots" element={<PointsMascotsPage />} />
+              <Route path="/points/payment-guide" element={<PointsPaymentGuidePage />} />
               <Route path="/points/login" element={<PointsLoginPage />} />
             </Routes>
           </Suspense>

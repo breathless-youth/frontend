@@ -46,6 +46,11 @@
     "packLabel": "{{points}} 충전"
   },
   "paymentGuide": {
+    "sections": {
+      "charged": "충전한 포인트",
+      "sets": "세트",
+      "storeAndMinors": "스토어 환불과 미성년자"
+    },
     "unusedPaid": "쓰지 않은 유료 포인트는 충전한 뒤 7일 안에 환불을 요청할 수 있어요.",
     "spent": "쓴 포인트와 포인트로 산 소품·마스코트는 환불되지 않아요.",
     "setUnworn": "세트는 입기 전이면 결제한 뒤 7일 안에 환불을 요청할 수 있어요.",
@@ -54,11 +59,9 @@
     "storeRefund": "스토어(App Store·Google Play)가 환불하면 그만큼 포인트를 회수해요.",
     "negative": "그 포인트를 이미 썼다면 잔액이 0 아래로 내려갈 수 있어요.",
     "minor": "미성년자가 법정대리인 동의 없이 결제했다면 본인이나 법정대리인이 결제를 취소할 수 있어요.",
-    "contact": "환불 요청과 문의는 설정의 문의하기에서 받아요.",
     "contactAction": "문의하기",
     "seller": "판매자: 포커스메이커스",
-    "terms": "이용약관 보기",
-    "close": "닫기"
+    "terms": "이용약관 보기"
   },
   "openInApp": {
     "title": "충전과 광고 보상은 앱에서 할 수 있어요",

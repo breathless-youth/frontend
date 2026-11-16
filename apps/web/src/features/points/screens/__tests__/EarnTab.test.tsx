@@ -324,31 +324,13 @@ describe("EarnTab 광고와 충전", () => {
 });
 
 describe("EarnTab 결제·환불 안내", () => {
-  it("충전 칸 아래 결제·환불 안내를 누르면 환불 규칙과 문의·약관 길을 담은 창이 열린다", async () => {
+  it("충전 칸 아래에 결제·환불 안내 화면으로 가는 링크가 있고 창은 열지 않는다", () => {
     setup();
-    await userEvent.click(screen.getByRole("button", { name: "결제·환불 안내" }));
-    const sheet = await screen.findByRole("dialog", { name: "결제·환불 안내" });
-    for (const line of [
-      "쓰지 않은 유료 포인트는 충전한 뒤 7일 안에 환불을 요청할 수 있어요.",
-      "쓴 포인트와 포인트로 산 소품·마스코트는 환불되지 않아요.",
-      "세트는 입기 전이면 결제한 뒤 7일 안에 환불을 요청할 수 있어요.",
-      "한 번 입은 세트는 환불되지 않아요.",
-      "7일이 지나도 계정을 삭제하면 남은 유료 포인트를 수수료 10%를 빼고 환불해요.",
-      "스토어(App Store·Google Play)가 환불하면 그만큼 포인트를 회수해요.",
-      "그 포인트를 이미 썼다면 잔액이 0 아래로 내려갈 수 있어요.",
-      "미성년자가 법정대리인 동의 없이 결제했다면 본인이나 법정대리인이 결제를 취소할 수 있어요.",
-      "판매자: 포커스메이커스",
-    ]) {
-      expect(within(sheet).getByText(line)).toBeInTheDocument();
-    }
-    expect(within(sheet).getByRole("link", { name: "문의하기" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "결제·환불 안내" })).toHaveAttribute(
       "href",
-      "/contact",
+      "/points/payment-guide",
     );
-    expect(within(sheet).getByRole("link", { name: "이용약관 보기" })).toHaveAttribute(
-      "href",
-      "/terms",
-    );
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
 
