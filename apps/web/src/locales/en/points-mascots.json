@@ -2,7 +2,6 @@
   "totalFocus": "Total focus",
   "remaining": "{{time}} left",
   "lockedLabel": "{{name}} locked, {{remaining}}",
-  "selectedLabel": "{{name}} selected",
   "sheet": {
     "untilOpen": "Focus {{time}} more to unlock.",
     "progress": "{{percent}}% of the way to {{name}}",

@@ -18,7 +18,6 @@
     "gained": "{{amount}}ポイント獲得"
   },
   "status": {
-    "wearing": "着用中",
     "wear": "着用する",
     "using": "使用中",
     "apply": "適用する",

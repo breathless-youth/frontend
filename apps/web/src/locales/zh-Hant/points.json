@@ -18,7 +18,6 @@
     "gained": "獲得 {{amount}} 點"
   },
   "status": {
-    "wearing": "穿戴中",
     "wear": "穿戴",
     "using": "使用中",
     "apply": "套用",

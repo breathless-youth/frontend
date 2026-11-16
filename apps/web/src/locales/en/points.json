@@ -19,7 +19,6 @@
     "gained_other": "Received {{amount}} points"
   },
   "status": {
-    "wearing": "Wearing",
     "wear": "Wear",
     "using": "In use",
     "apply": "Apply",

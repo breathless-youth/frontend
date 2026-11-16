@@ -2,7 +2,6 @@
   "totalFocus": "누적 순공",
   "remaining": "{{time}} 남음",
   "lockedLabel": "{{name}} 잠김, {{remaining}}",
-  "selectedLabel": "{{name}} 선택 중",
   "sheet": {
     "untilOpen": "순공 {{time}} 더 하면 열려요.",
     "progress": "{{name}}까지 {{percent}}% 모았어요",
