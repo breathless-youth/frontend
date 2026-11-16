@@ -1,3 +1,4 @@
+import { POINTS_CHARGE_PRICES_MAX_PRODUCTS } from "@focusmakers/types";
 import * as SecureStore from "expo-secure-store";
 
 import {
@@ -327,6 +328,14 @@ describe("충전 브리지 메시지 파싱", () => {
     };
     expect(parse(prices)).toEqual(prices);
     expect(parse({ ...prices, storeProductIds: ["p1", 2] })).toBeNull();
+    // 웹도 같은 상한으로 잘라 보내므로 상한까지는 받고 넘으면 버린다.
+    const ids = (count: number) => Array.from({ length: count }, (_, i) => `p${i}`);
+    expect(
+      parse({ ...prices, storeProductIds: ids(POINTS_CHARGE_PRICES_MAX_PRODUCTS) }),
+    ).not.toBeNull();
+    expect(
+      parse({ ...prices, storeProductIds: ids(POINTS_CHARGE_PRICES_MAX_PRODUCTS + 1) }),
+    ).toBeNull();
   });
 
   it.each(["points-charge-purchase", "points-charge-prices", "points-charge-restore"])(

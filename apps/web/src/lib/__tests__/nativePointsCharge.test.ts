@@ -1,3 +1,4 @@
+import { POINTS_CHARGE_PRICES_MAX_PRODUCTS } from "@focusmakers/types";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
@@ -97,6 +98,16 @@ describe("앱 포인트 충전 브리지", () => {
       atMs: 1,
     });
     expect(await pending).toEqual([{ storeProductId: "points_1000", priceLabel: "₩1,100" }]);
+  });
+
+  it("앱이 받는 수보다 많은 상품 ID는 그 수만큼만 보내 답 없이 버려지지 않게 한다", () => {
+    enable();
+    const ids = Array.from({ length: POINTS_CHARGE_PRICES_MAX_PRODUCTS + 5 }, (_, i) => `p${i}`);
+    void requestNativePointsPrices(ids, APP_USER_ID);
+    expect(lastRequest()).toMatchObject({
+      type: "points-charge-prices",
+      storeProductIds: ids.slice(0, POINTS_CHARGE_PRICES_MAX_PRODUCTS),
+    });
   });
 
   it("가격 요청에 결제용 ID를 싣는다", () => {

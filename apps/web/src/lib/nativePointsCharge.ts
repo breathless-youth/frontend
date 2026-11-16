@@ -1,4 +1,5 @@
 import {
+  POINTS_CHARGE_PRICES_MAX_PRODUCTS,
   POINTS_CHARGE_RESTORE_MAX_PRODUCTS,
   type PointsChargePrice,
   type PointsChargePurchaseStatus,
@@ -61,6 +62,7 @@ const PRICES_TIMEOUT_MS = 10_000;
  * 앱은 결제와 같은 결제용 ID로 결제 SDK를 켜거나 로그인한 뒤 묻는다.
  * 결제 SDK가 비회원의 기기 정보를 받지 않도록 결제용 ID가 없는 비회원은 이 메시지를 보내지 않는다.
  * 앱이 답하지 않으면 빈 목록으로 끝내서 상품 목록이 가격 없이라도 그려지게 한다.
+ * 앱은 정해진 수를 넘는 상품 ID가 오면 요청을 버리고 답하지 않으므로 그 수만큼만 보낸다.
  */
 export function requestNativePointsPrices(
   storeProductIds: string[],
@@ -82,7 +84,7 @@ export function requestNativePointsPrices(
     const sent = postToNative({
       type: "points-charge-prices",
       id,
-      storeProductIds,
+      storeProductIds: storeProductIds.slice(0, POINTS_CHARGE_PRICES_MAX_PRODUCTS),
       appUserId,
       atMs: Date.now(),
     });

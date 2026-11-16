@@ -33,6 +33,7 @@ import {
   NATIVE_SEGMENT_MIN_OPTIONS,
   NAVIGATE_TAB_SOURCES,
   NAVIGATE_TAB_TARGETS,
+  POINTS_CHARGE_PRICES_MAX_PRODUCTS,
   POINTS_CHARGE_RESTORE_MAX_PRODUCTS,
   SOCIAL_LOGIN_PROVIDERS,
   VIDEO_SHARE_TARGETS,
@@ -49,7 +50,6 @@ import { inviteCodeFrom } from "./sessionInvite";
 const NATIVE_MESSAGE_ENTRY = "__focusonNativeMessage";
 
 /** `unknown` 값이 계약 목록 안의 리터럴인지 좁힌다. */
-const MAX_CHARGE_PRODUCTS = 20;
 
 // 스토어 상품 ID는 영문·숫자·점·밑줄·하이픈만 쓴다. 그 밖의 문자열은 결제 SDK에 넘기지 않는다.
 function isStoreProductId(value: unknown): value is string {
@@ -236,7 +236,7 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         typeof record.id !== "string" ||
         record.id === "" ||
         !Array.isArray(record.storeProductIds) ||
-        record.storeProductIds.length > MAX_CHARGE_PRODUCTS ||
+        record.storeProductIds.length > POINTS_CHARGE_PRICES_MAX_PRODUCTS ||
         !record.storeProductIds.every(isStoreProductId)
       ) {
         return null;

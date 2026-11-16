@@ -307,6 +307,9 @@ export type PointsChargePurchaseResultMessage = {
   atMs: number;
 };
 
+/** 가격 조회 요청 한 번에 실을 수 있는 스토어 상품 ID 수이며 웹과 앱이 같은 값으로 자르고 검증한다. */
+export const POINTS_CHARGE_PRICES_MAX_PRODUCTS = 20;
+
 /** 구매 복원 요청 한 번에 실을 수 있는 스토어 상품 ID 수이며 웹과 앱이 같은 값으로 자르고 검증한다. */
 export const POINTS_CHARGE_RESTORE_MAX_PRODUCTS = 200;
 
