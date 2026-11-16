@@ -107,6 +107,17 @@ describe("보상형 광고 SDK 어댑터", () => {
     expect(mockCreateForAdRequest).toHaveBeenCalledTimes(2);
   });
 
+  it("SDK 시작이 한 번 실패해도 다음 광고에서 다시 시작한다", async () => {
+    const adapter = installedAdapter();
+    mockInitialize.mockRejectedValueOnce(new Error("network"));
+
+    await expect(adapter.show("1685")).rejects.toThrow("network");
+    await expect(adapter.show("1685")).resolves.toBe("rewarded");
+
+    expect(mockSetRequestConfiguration).toHaveBeenCalledTimes(2);
+    expect(mockInitialize).toHaveBeenCalledTimes(2);
+  });
+
   it("광고 요청에는 서버가 보상을 줄 계정을 알 사용자 ID를 싣는다", async () => {
     const adapter = installedAdapter();
 

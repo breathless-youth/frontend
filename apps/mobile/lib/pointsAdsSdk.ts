@@ -45,7 +45,11 @@ export function installPointsAdsSdk(): void {
       .then(() => ads.default().initialize());
   setPointsAdsAdapter({
     async show(userId) {
-      initialized ??= start();
+      // 실패한 시작을 붙잡아 두면 앱을 다시 켤 때까지 모든 광고가 실패하므로 다음 광고에서 다시 시작한다.
+      initialized ??= start().catch((error: unknown) => {
+        initialized = null;
+        throw error;
+      });
       await initialized;
       const rewarded = ads.RewardedAd.createForAdRequest(unitId, {
         serverSideVerificationOptions: { userId },
