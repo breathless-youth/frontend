@@ -86,4 +86,20 @@ describe("usePurchaseFlow", () => {
       expect(showToast).toHaveBeenCalledWith("잠시 후 다시 시도해 주세요");
     },
   );
+
+  it("충전하고 구매하기에서 결제를 스스로 취소하면 알리지 않고 사지도 않는다", async () => {
+    const { view, purchase } = await setup(100);
+    vi.mocked(showToast).mockClear();
+    await act(() => view.result.current.chargeAndBuy(async () => ({ status: "cancelled" })));
+    expect(showToast).not.toHaveBeenCalled();
+    expect(purchase).not.toHaveBeenCalled();
+  });
+
+  it("충전하고 구매하기에서 결제가 실패하면 실패를 알린다", async () => {
+    const { view, purchase } = await setup(100);
+    vi.mocked(showToast).mockClear();
+    await act(() => view.result.current.chargeAndBuy(async () => ({ status: "failed" })));
+    expect(showToast).toHaveBeenCalledOnce();
+    expect(purchase).not.toHaveBeenCalled();
+  });
 });

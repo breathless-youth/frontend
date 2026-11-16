@@ -119,7 +119,8 @@ export function EarnTab({
         });
       } else if (result.status === "late") {
         setLate(true);
-      } else {
+      } else if (result.status !== "cancelled") {
+        // 취소는 사용자가 고른 일이라 실패로 알리지 않는다.
         setFailedFor(productId);
       }
     });

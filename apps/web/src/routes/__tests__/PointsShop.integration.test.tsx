@@ -112,7 +112,7 @@ describe("모자람 창의 충전", () => {
     fireEvent.click(button);
     fireEvent.click(button);
     expect(charge).toHaveBeenCalledOnce();
-    finish({ status: "cancelled" });
+    finish({ status: "failed" });
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("결제를 완료하지 못했어요"));
   });
 

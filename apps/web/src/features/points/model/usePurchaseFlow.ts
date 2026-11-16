@@ -100,7 +100,8 @@ export function usePurchaseFlow(item: ShopItem | null, buy?: () => Promise<Purch
       await confirm();
     } else if (result.status === "late") {
       showToast(i18n.t("points-earn:late.title"));
-    } else {
+    } else if (result.status !== "cancelled") {
+      // 취소는 사용자가 고른 일이라 실패로 알리지 않는다.
       showToast(i18n.t("points-earn:failed.title"));
     }
   }

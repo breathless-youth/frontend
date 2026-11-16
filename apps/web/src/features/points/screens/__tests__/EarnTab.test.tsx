@@ -186,18 +186,28 @@ describe("EarnTab 광고와 충전", () => {
     expect(screen.getByRole("button", { name: "상점 가기" })).toBeInTheDocument();
   });
 
-  it.each(["failed", "cancelled"] as const)(
-    "충전이 %s면 실패 창과 문의 링크를 보인다",
-    async (status) => {
-      setup({ onCharge: async () => ({ status }) });
-      await userEvent.click(screen.getByRole("button", { name: /500P 충전/ }));
-      expect(await screen.findByText("결제를 완료하지 못했어요")).toBeInTheDocument();
-      expect(screen.getByText("결제 수단을 확인하고 다시 시도해 주세요.")).toBeInTheDocument();
-      expect(
-        screen.getByRole("link", { name: "결제됐는데 포인트가 안 들어왔나요?" }),
-      ).toHaveAttribute("href", "/contact");
-    },
-  );
+  it("충전이 실패하면 실패 창과 문의 링크를 보인다", async () => {
+    setup({ onCharge: async () => ({ status: "failed" }) });
+    await userEvent.click(screen.getByRole("button", { name: /500P 충전/ }));
+    expect(await screen.findByText("결제를 완료하지 못했어요")).toBeInTheDocument();
+    expect(screen.getByText("결제 수단을 확인하고 다시 시도해 주세요.")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "결제됐는데 포인트가 안 들어왔나요?" }),
+    ).toHaveAttribute("href", "/contact");
+  });
+
+  it("결제 창에서 스스로 취소하면 아무 창도 띄우지 않고 다시 충전할 수 있다", async () => {
+    const onCharge = vi.fn(async () => ({ status: "cancelled" as const }));
+    setup({ onCharge });
+    await userEvent.click(screen.getByRole("button", { name: /500P 충전/ }));
+    await waitFor(() => expect(onCharge).toHaveBeenCalledOnce());
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /500P 충전/ })).not.toBeDisabled(),
+    );
+    expect(screen.queryByText("결제를 완료하지 못했어요")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /500P 충전/ }));
+    expect(onCharge).toHaveBeenCalledTimes(2);
+  });
 
   it("보너스가 없는 묶음의 완료 창에는 보너스 줄이 없고 있는 묶음에는 있다", async () => {
     const onCharge = vi
