@@ -187,6 +187,7 @@ function Preview({ scenario }: { scenario: Scenario }) {
             <PointsBalancePill
               size="home"
               balance={balance}
+              gain={progress.gain}
               onPress={() => setMessage("DEV: open points")}
             />
           </span>

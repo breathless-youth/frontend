@@ -1068,6 +1068,48 @@ body {
   }
 }
 
+/* 받은 포인트 배지가 잔액 알약 위로 올라와 머물다 사라진다.
+   길이는 PointsBalancePill의 GAIN_SHOWN_MS와 같아야 배지가 사라진 뒤 지워진다.
+   모션 축소는 사용처의 motion-reduce:animate-none이 막는다. */
+@keyframes points-gain-badge {
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.85);
+  }
+
+  12% {
+    opacity: 1;
+    transform: translateY(0) scale(1.06);
+  }
+
+  20%,
+  80% {
+    opacity: 1;
+    transform: none;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+
+/* 받은 포인트 배지와 같은 시간 동안 잔액 알약 테두리를 켰다가 끈다. */
+@keyframes points-gain-ring {
+  0% {
+    opacity: 0;
+  }
+
+  12%,
+  80% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
 /* 히어로 뒤 은은한 글로우 호흡. */
 /* 마스코트 효과 칸 소품이 천천히 떠오르내리는 움직임 */
 @keyframes mascot-effect-float {

@@ -14,7 +14,8 @@
   },
   "balance": {
     "label": "보유 포인트 {{amount}}",
-    "unknown": "보유 포인트를 불러오지 못했어요"
+    "unknown": "보유 포인트를 불러오지 못했어요",
+    "gained": "{{amount}}포인트 받음"
   },
   "status": {
     "wearing": "착용 중",

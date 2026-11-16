@@ -1,13 +1,13 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildPointsFixture } from "../../../fixtures";
 import type { ShopItem } from "../../../types";
 import { InsufficientPointsSheet } from "../InsufficientPointsSheet";
 import { MascotImage } from "../MascotImage";
-import { PointsBalancePill } from "../PointsBalancePill";
+import { PointsBalancePill, type PointsGain } from "../PointsBalancePill";
 import { PointsScreenFrame } from "../PointsScreenFrame";
 import { PurchaseConfirmSheet } from "../PurchaseConfirmSheet";
 
@@ -36,6 +36,70 @@ describe("PointsBalancePill", () => {
   it("잔액을 모르면 숫자 대신 줄표를 보인다", () => {
     render(<PointsBalancePill size="screen" balance={undefined} />);
     expect(screen.getByText("–P")).toBeInTheDocument();
+  });
+
+  describe("받은 포인트 연출", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    function pill(gain: PointsGain | null, balance = 1390) {
+      return <PointsBalancePill size="home" balance={balance} onPress={() => {}} gain={gain} />;
+    }
+
+    it("받기 전에는 배지 없이 알림 자리만 비워 둔다", () => {
+      render(pill(null, 1240));
+      expect(screen.queryByText(/^\+/)).not.toBeInTheDocument();
+      expect(screen.getByRole("status")).toBeEmptyDOMElement();
+      expect(screen.getByRole("button", { name: "보유 포인트 1,240P" })).not.toHaveAttribute(
+        "data-gained",
+      );
+    });
+
+    it("받은 금액을 배지로 보이고 낭독기에는 받은 포인트로 한 번 알린다", () => {
+      const view = render(pill(null, 1240));
+      view.rerender(pill({ points: 150, id: 1 }));
+
+      expect(screen.getByText("+150P")).toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent(/^150포인트 받음$/);
+      expect(screen.getByRole("button", { name: "보유 포인트 1,390P" })).toHaveAttribute(
+        "data-gained",
+      );
+    });
+
+    it("배지와 테두리는 2초 동안 보였다가 사라진다", () => {
+      const view = render(pill(null, 1240));
+      view.rerender(pill({ points: 150, id: 1 }));
+
+      act(() => vi.advanceTimersByTime(1999));
+      expect(screen.getByText("+150P")).toBeInTheDocument();
+
+      act(() => vi.advanceTimersByTime(1));
+      expect(screen.queryByText("+150P")).not.toBeInTheDocument();
+      expect(screen.getByRole("status")).toBeEmptyDOMElement();
+      expect(screen.getByRole("button")).not.toHaveAttribute("data-gained");
+    });
+
+    it("다시 받으면 그때 받은 금액으로 처음부터 다시 보인다", () => {
+      const view = render(pill({ points: 50, id: 1 }, 50));
+      act(() => vi.advanceTimersByTime(1500));
+      view.rerender(pill({ points: 100, id: 2 }, 150));
+
+      expect(screen.queryByText("+50P")).not.toBeInTheDocument();
+      expect(screen.getByText("+100P")).toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(1500));
+      expect(screen.getByText("+100P")).toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(500));
+      expect(screen.queryByText("+100P")).not.toBeInTheDocument();
+    });
+
+    it("받은 포인트를 넘기지 않는 화면에는 알림 자리를 만들지 않는다", () => {
+      render(<PointsBalancePill size="screen" balance={640} />);
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    });
   });
 });
 

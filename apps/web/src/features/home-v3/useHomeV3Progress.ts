@@ -1,6 +1,6 @@
 import type { PlannerDayResponse } from "@focusmakers/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   trackHomeGoalSaved,
@@ -11,6 +11,7 @@ import { postToNative, subscribeToNativeMessages } from "@/lib/bridge";
 import { plannerKeys } from "@/lib/plannerQueries";
 import { pointsKeys } from "@/lib/pointsQueries";
 import { ApiError } from "@/lib/api";
+import type { PointsGain } from "@/features/points/components/shared/PointsBalancePill";
 import { isMemberOnlyError } from "@/features/points/gateway/memberOnly";
 import type { HomeDay, HomeGoal, HomeV3Gateway } from "./HomeV3Gateway";
 import type { HomeGoalSaveInput, HomeGoalSaveResult } from "./HomeGoalSheet";
@@ -66,6 +67,10 @@ export function useHomeV3Progress(
 ) {
   const client = useQueryClient();
   const completingRef = useRef(false);
+  const [gain, setGain] = useState<PointsGain | null>(null);
+  const gainCount = useRef(0);
+  // 같은 금액을 연달아 받아도 잔액 알약이 다시 알리도록 받을 때마다 새 번호를 붙인다.
+  const announceGain = (points: number) => setGain({ points, id: ++gainCount.current });
   const mission = useQuery({
     queryKey: homeV3Keys.mission(userId),
     queryFn: ({ signal }) => gateway.readMission(signal),
@@ -99,9 +104,10 @@ export function useHomeV3Progress(
     onSuccess: (result, { owner, step }) => {
       trackHomeMissionStepCompleted(step);
       client.setQueryData(homeV3Keys.mission(owner), result);
-      // 단계를 끝내며 받은 포인트는 알림 없이 잔액이 세어 올라가는 것으로만 보인다.
+      // 단계를 끝내며 받은 포인트는 알림 없이 잔액 알약의 연출로만 보인다.
       if ((result.rewardedPoints ?? 0) > 0) {
         trackPointsClaimed({ kind: "mission", points: result.rewardedPoints ?? 0 });
+        announceGain(result.rewardedPoints ?? 0);
         void client.invalidateQueries({ queryKey: pointsKeys.user(owner) });
       }
     },
@@ -118,6 +124,7 @@ export function useHomeV3Progress(
     onSuccess: (result, { owner }) => {
       if (result.granted) {
         trackPointsClaimed({ kind: "mission", points: result.points });
+        if (result.points > 0) announceGain(result.points);
       }
       client.setQueryData(pointsKeys.balance(owner), result.balance);
       client.setQueryData<HomeMission>(homeV3Keys.mission(owner), (previous) =>
@@ -226,6 +233,8 @@ export function useHomeV3Progress(
     missionError: acknowledgement.isError,
     completeMission,
     claimingReward: rewardClaim.isPending,
+    /** 미션으로 방금 받은 포인트이며 잔액 알약이 받은 금액을 잠깐 보인다. */
+    gain,
     // 서버의 회원 전용 거절은 로그인 화면으로 보내므로 실패 문구를 띄우지 않는다.
     rewardError: rewardClaim.isError && !isMemberOnlyError(rewardClaim.error),
     claimMissionReward: (onMemberOnly?: () => void) => {

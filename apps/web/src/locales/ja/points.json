@@ -14,7 +14,8 @@
   },
   "balance": {
     "label": "保有ポイント {{amount}}",
-    "unknown": "保有ポイントを読み込めませんでした"
+    "unknown": "保有ポイントを読み込めませんでした",
+    "gained": "{{amount}}ポイント獲得"
   },
   "status": {
     "wearing": "着用中",

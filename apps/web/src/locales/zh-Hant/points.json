@@ -14,7 +14,8 @@
   },
   "balance": {
     "label": "持有點數 {{amount}}",
-    "unknown": "無法載入持有點數"
+    "unknown": "無法載入持有點數",
+    "gained": "獲得 {{amount}} 點"
   },
   "status": {
     "wearing": "穿戴中",

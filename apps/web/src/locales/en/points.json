@@ -14,7 +14,9 @@
   },
   "balance": {
     "label": "{{amount}} available",
-    "unknown": "Couldn't load your points"
+    "unknown": "Couldn't load your points",
+    "gained_one": "Received {{amount}} point",
+    "gained_other": "Received {{amount}} points"
   },
   "status": {
     "wearing": "Wearing",

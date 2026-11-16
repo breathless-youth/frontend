@@ -235,6 +235,7 @@ export function HomeV3Entry({
             <PointsBalancePill
               size="home"
               balance={points.balance}
+              gain={progress.gain}
               onPress={() =>
                 slideNavigate("forward", () =>
                   navigate({ pathname: "/points", search: pointsSearch(location.search) }),

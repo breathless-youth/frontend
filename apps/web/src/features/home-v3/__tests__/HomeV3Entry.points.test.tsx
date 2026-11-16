@@ -158,4 +158,20 @@ describe("시작 미션 보상 받기", () => {
     expect(gateway.claimMissionReward).toHaveBeenCalledTimes(1);
     await expect(screen.findByRole("dialog", undefined, { timeout: 300 })).rejects.toThrow();
   });
+
+  it("보상을 받으면 알림 없이 머리말 잔액 알약 옆에 받은 금액을 보인다", async () => {
+    setFlag(true);
+    renderHome({
+      readMission: vi.fn().mockResolvedValue({ ...homeMission(2, 300), claimablePoints: 150 }),
+      claimMissionReward: vi.fn().mockResolvedValue({ granted: true, points: 150, balance: 1390 }),
+    });
+    await screen.findByRole("button", { name: "보유 포인트 1,240P" });
+    expect(screen.getByRole("status")).toBeEmptyDOMElement();
+
+    await userEvent.click(await screen.findByRole("button", { name: "받기" }));
+
+    expect(await screen.findByText("+150P")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("150포인트 받음");
+    expect(screen.getByRole("button", { name: "보유 포인트 1,390P" })).toBeInTheDocument();
+  });
 });
