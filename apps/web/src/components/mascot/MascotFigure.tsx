@@ -11,6 +11,7 @@ import {
   type GlowType,
 } from "./mascotLayers";
 import { MASCOT_SRC } from "./mascotSources";
+import { SpriteEffectPiece } from "./SpriteEffectPiece";
 import type { EffectPiece, MascotId, WornAccessory } from "./types";
 
 const LAYER = "absolute inset-0 size-full object-contain";
@@ -49,6 +50,7 @@ function backgroundOffset(start: number, size: number) {
  * 그림 한 장을 배경으로 깔고 조각 자리만 보이게 해서 조각마다 따로 움직인다.
  * 조각들이 같은 박자로 움직이면 기계처럼 보여서 시작 시점을 조각마다 어긋나게 둔다.
  * 커졌다 작아지는 것만으로는 그 효과처럼 보이지 않는 움직임은 빛과 입자를 코드로 더해 그린다(DrawnEffectPiece).
+ * 불꽃처럼 코드로 그리기 어려운 효과는 미리 그린 프레임 띠 그림을 넘기고, 띠 그림이 있으면 움직임 이름보다 앞선다.
  */
 function EffectPieceLayer({
   imageUrl,
@@ -72,6 +74,9 @@ function EffectPieceLayer({
     backgroundSize: `${percent(1 / piece.width)} ${percent(1 / piece.height)}`,
     backgroundPosition: `${backgroundOffset(piece.x, piece.width)} ${backgroundOffset(piece.y, piece.height)}`,
   };
+  if (piece.sprite !== undefined) {
+    return <SpriteEffectPiece sprite={piece.sprite} box={box} picture={picture} />;
+  }
   if (isDrawnMotion(piece.motion)) {
     return (
       <DrawnEffectPiece

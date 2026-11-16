@@ -15,6 +15,19 @@ export type MascotId =
 export type AccessorySlot =
   "face" | "head" | "body" | "wings" | "held" | "underfoot" | "effect" | "set";
 
+/**
+ * 효과 조각을 미리 그린 프레임 띠 그림
+ *
+ * 띠 한 장은 조각 자리와 같은 영역이고, 장을 가로로 이어 한 그림으로 만든다.
+ * 서버 응답에는 아직 이 값이 없어서 지금은 개발 미리 보기와 테스트만 넘긴다.
+ */
+export type EffectSprite = {
+  url: string;
+  frames: number;
+  /** 모든 장을 한 번 넘기는 데 걸리는 시간 */
+  durationMs: number;
+};
+
 /** 효과 그림의 조각 하나이며 위치와 크기는 그림 판에 대한 비율이다. */
 export type EffectPiece = {
   x: number;
@@ -23,6 +36,8 @@ export type EffectPiece = {
   height: number;
   /** 서버가 정한 움직임 이름이며 모르는 이름은 멈춘 그림으로 그린다. */
   motion: string;
+  /** 있으면 움직임 이름 대신 이 띠 그림을 넘긴다. */
+  sprite?: EffectSprite;
 };
 
 /** 끼고 있는 소품 한 점이며 그림은 마스코트 판보다 사방으로 넓은 투명 판이다. */

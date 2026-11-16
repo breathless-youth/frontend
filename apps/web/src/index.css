@@ -2151,6 +2151,23 @@ body {
   animation: mascot-fx-countdown-digit 3s step-end infinite;
 }
 
+/* 미리 그린 프레임 띠 그림(SpriteEffectPiece)
+   장 수와 한 바퀴 길이는 띠 그림마다 달라 쓰는 쪽이 animation-duration과 steps()를 준다.
+   이동 거리를 변수로 넘기면 합성 단계에서 돌지 못해, 띠를 얹은 상자를 자기 폭만큼 미는 키프레임 하나를 함께 쓴다. */
+@keyframes mascot-fx-sprite {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+.mascot-fx-sprite {
+  animation-name: mascot-fx-sprite;
+  animation-iteration-count: infinite;
+}
+
 /* 마스코트가 작게 여러 마리 보이는 화면(그룹 책상, 랭킹, 프로필)에서 효과를 덜어 낸다.
    그룹 책상은 가장 큰 자리도 폭 104px에 마스코트 68px이고, 내 그룹 카드의 작은 자리는 마스코트가 40px이 안 된다.
    한 화면에 여덟 마리가 넘게 함께 움직여도 느린 기기에서 밀리지 않게, 입자와 겹을 줄이고 원판 회전을 끈다.
@@ -2229,6 +2246,11 @@ body {
   }
 
   .mascot-fx-countdown-digit:not(:first-child) {
+    animation: none;
+  }
+
+  /* 띠 그림은 첫 장(지금 효과 그림과 같은 장)에 멈춘다. */
+  .mascot-fx-sprite {
     animation: none;
   }
 }
