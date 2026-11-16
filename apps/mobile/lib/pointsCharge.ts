@@ -36,10 +36,27 @@ function errorSummary(error: unknown): string {
 
 let adapter: PointsChargeAdapter | null = null;
 let inFlight = false;
-/** 결제 SDK에 로그인해 둔 결제용 ID이며 아직 켜지 않았으면 null이다. */
+/** 결제 SDK를 켰는지 여부이며 한 번 켠 결제 SDK는 앱이 끝날 때까지 다시 켜지 않는다. */
+let started = false;
+/** 결제 SDK에 로그인해 둔 결제용 ID이며 아직 켜지 않았거나 로그아웃한 뒤에는 null이다. */
 let signedIn: string | null = null;
 /** 앱 저장소에 남긴 결제용 ID이며 같은 값을 다시 쓰지 않으려고 기억한다. */
 let remembered: string | null = null;
+/** 로그아웃·탈퇴 때마다 오르는 번호이며 그 전에 시작한 로그인은 로그인 상태와 기록을 남기지 않는다. */
+let generation = 0;
+/** 기록 쓰기와 삭제를 부른 순서대로 하나씩 끝내는 줄이다. */
+let recordQueue: Promise<void> = Promise.resolve();
+
+/**
+ * 기록 줄에 작업 넣기
+ *
+ * 저장소의 쓰기와 삭제는 부른 순서대로 끝난다는 보장이 없어 앞의 작업이 끝난 뒤에 다음 작업을 시작한다.
+ */
+function inRecordQueue(task: () => Promise<void>): Promise<void> {
+  const run = recordQueue.then(task);
+  recordQueue = run.catch(() => undefined);
+  return run;
+}
 
 export function setPointsChargeAdapter(next: PointsChargeAdapter): void {
   adapter = next;
@@ -53,8 +70,11 @@ export function setPointsChargeAdapter(next: PointsChargeAdapter): void {
 export function __resetPointsChargeForTests(): void {
   adapter = null;
   inFlight = false;
+  started = false;
   signedIn = null;
   remembered = null;
+  generation = 0;
+  recordQueue = Promise.resolve();
 }
 
 /**
@@ -62,22 +82,32 @@ export function __resetPointsChargeForTests(): void {
  *
  * 앱을 켤 때가 아니라 결제용 ID가 실린 첫 결제 메시지에서 켜서, 결제하지 않는 사람과 비회원의 기기 정보가 RevenueCat으로 가지 않게 한다.
  * 켠 기기는 결제용 ID를 앱 저장소에 남겨 다음 시작에 바로 켜고, 끊긴 결제를 결제 SDK가 이어서 처리하게 한다.
+ * 로그인하는 사이 로그아웃했으면 이전 계정의 결제용 ID를 로그인 상태와 기록에 다시 남기지 않는다.
  * 기록을 남기지 못해도 이번 결제는 막지 않는다.
  */
 async function signIn(active: PointsChargeAdapter, appUserId: string): Promise<void> {
-  if (signedIn === null) {
+  const startedIn = generation;
+  if (!started) {
     active.start(appUserId);
+    started = true;
   } else if (signedIn !== appUserId) {
     await active.logIn(appUserId);
   }
+  if (startedIn !== generation) {
+    return;
+  }
   signedIn = appUserId;
-  if (remembered !== appUserId) {
+  await inRecordQueue(async () => {
+    // 줄에서 기다리는 사이 로그아웃한 삭제가 앞에 들어왔으면 쓰지 않는다.
+    if (startedIn !== generation || remembered === appUserId) {
+      return;
+    }
     remembered = appUserId;
     await SecureStore.setItemAsync(RECORD_KEY, appUserId, STORE_OPTIONS).catch((error: unknown) => {
       remembered = null;
       console.warn("[points-charge] 켠 기록 저장 실패", errorSummary(error));
     });
-  }
+  });
 }
 
 /**
@@ -85,19 +115,21 @@ async function signIn(active: PointsChargeAdapter, appUserId: string): Promise<v
  *
  * 결제 창이 떠 있는 동안 앱이 끝나면 스토어 결제가 결제 SDK에 넘어가지 못한 채 남는다.
  * 지난번에 켠 기록이 있는 기기만 그 결제용 ID로 바로 켜서 결제 SDK가 남은 결제를 서버에 넘기게 한다.
- * 기록을 읽는 동안 웹의 결제 메시지가 먼저 켰으면 다시 켜지 않는다.
+ * 기록을 읽는 동안 웹의 결제 메시지가 먼저 켰거나 로그아웃했으면 그 기록으로 켜지 않는다.
  */
 export async function resumePointsCharge(): Promise<void> {
   if (adapter === null) {
     return;
   }
+  const startedIn = generation;
   const stored = await SecureStore.getItemAsync(RECORD_KEY, STORE_OPTIONS).catch(() => null);
-  if (!stored || signedIn !== null) {
+  if (!stored || started || startedIn !== generation) {
     return;
   }
   remembered = stored;
   try {
     adapter.start(stored);
+    started = true;
     signedIn = stored;
   } catch (error) {
     console.warn("[points-charge] 시작할 때 결제 SDK를 켜지 못함", errorSummary(error));
@@ -105,17 +137,22 @@ export async function resumePointsCharge(): Promise<void> {
 }
 
 /**
- * 로그아웃·탈퇴 뒤 켠 기록 삭제
+ * 로그아웃·탈퇴 뒤 로그인 상태와 켠 기록 삭제
  *
  * 다음 시작에 이전 계정의 결제용 ID로 결제 SDK를 켜지 않게 한다.
- * 지금 켜져 있는 결제 SDK는 다음 결제 메시지가 새 결제용 ID로 로그인해 바꾼다.
+ * 켜져 있는 결제 SDK는 끄지 않고 로그인 상태만 비워, 다음 결제 메시지가 그 메시지의 결제용 ID로 다시 로그인하게 한다.
+ * 진행 중인 기록 쓰기가 끝난 뒤에 삭제해서 늦게 끝난 쓰기가 지운 기록을 되살리지 않게 한다.
  * 실패해도 throw 하지 않는다.
  */
 export async function forgetPointsChargeUser(): Promise<void> {
+  generation += 1;
+  signedIn = null;
   remembered = null;
-  await SecureStore.deleteItemAsync(RECORD_KEY, STORE_OPTIONS).catch((error: unknown) => {
-    console.warn("[points-charge] 켠 기록 삭제 실패", errorSummary(error));
-  });
+  await inRecordQueue(() =>
+    SecureStore.deleteItemAsync(RECORD_KEY, STORE_OPTIONS).catch((error: unknown) => {
+      console.warn("[points-charge] 켠 기록 삭제 실패", errorSummary(error));
+    }),
+  );
 }
 
 /** 이 바이너리가 포인트 충전 결제를 할 수 있는지 여부 */
@@ -141,7 +178,7 @@ export async function pointsChargePrices(
   await signIn(adapter, appUserId).catch((error: unknown) => {
     console.warn("[points-charge] 가격 조회 전 로그인 실패", errorSummary(error));
   });
-  if (signedIn === null) {
+  if (!started) {
     return [];
   }
   try {
