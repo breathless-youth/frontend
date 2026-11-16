@@ -136,6 +136,25 @@ describe("InsufficientPointsSheet", () => {
     expect(handlers.onCharge).toHaveBeenLastCalledWith("points_1200");
   });
 
+  it("고른 묶음의 스토어 가격을 받지 못했으면 가격 확인 중을 보이고 충전하고 구매하기를 막는다", async () => {
+    const onCharge = vi.fn();
+    render(
+      <InsufficientPointsSheet
+        open
+        item={crown}
+        balance={480}
+        packs={fixture.packs.map((pack) => ({ ...pack, priceLabel: null }))}
+        onCharge={onCharge}
+        onClose={vi.fn()}
+      />,
+    );
+    expect(await screen.findAllByText("가격 확인 중")).toHaveLength(3);
+    const charge = screen.getByRole("button", { name: "500P 충전하고 구매하기" });
+    expect(charge).toBeDisabled();
+    await userEvent.click(charge);
+    expect(onCharge).not.toHaveBeenCalled();
+  });
+
   it("광고를 다 본 날은 광고 줄을 막는다", async () => {
     renderSheet(3);
     expect(

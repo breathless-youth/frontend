@@ -7,7 +7,7 @@ import i18n from "@/lib/i18n";
 import { showToast } from "@/lib/toast";
 
 import { buildPointsFixture } from "../../fixtures";
-import type { AdResult, ChargeResult, ClaimResult, EarnToday } from "../../types";
+import type { AdResult, ChargePack, ChargeResult, ClaimResult, EarnToday } from "../../types";
 import { EarnTab } from "../EarnTab";
 
 vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
@@ -26,6 +26,7 @@ function setup(
     onClaim?: () => Promise<ClaimResult>;
     onWatchAd?: () => Promise<AdResult>;
     onCharge?: (id: string, onPaid?: () => void) => Promise<ChargeResult>;
+    packs?: ChargePack[];
   } = {},
 ) {
   const onClaim = over.onClaim ?? vi.fn(async () => ({ granted: true, points: 60, balance: 1300 }));
@@ -43,7 +44,7 @@ function setup(
     <MemoryRouter>
       <EarnTab
         earn={over.earn ?? fixture.earn}
-        packs={fixture.packs}
+        packs={over.packs ?? fixture.packs}
         onClaim={onClaim}
         onWatchAd={over.inApp === false ? undefined : onWatchAd}
         onCharge={over.inApp === false ? undefined : onCharge}
@@ -290,9 +291,15 @@ describe("EarnTab 광고와 충전", () => {
     expect(onCharge).toHaveBeenNthCalledWith(2, "points_500", expect.any(Function));
   });
 
-  it("가격 라벨이 없으면 자리 표시를 보인다", () => {
-    setup();
+  it("스토어 가격을 받지 못한 묶음은 가격 확인 중을 보이고 눌러도 결제하지 않는다", async () => {
+    const { onCharge } = setup({
+      packs: fixture.packs.map((pack) => ({ ...pack, priceLabel: null })),
+    });
     expect(screen.getAllByText("가격 확인 중")).toHaveLength(3);
+    const pack = screen.getByRole("button", { name: "500P 충전" });
+    expect(pack).toBeDisabled();
+    await userEvent.click(pack);
+    expect(onCharge).not.toHaveBeenCalled();
   });
 });
 

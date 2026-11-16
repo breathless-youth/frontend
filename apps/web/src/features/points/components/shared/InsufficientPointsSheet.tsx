@@ -148,7 +148,8 @@ export function InsufficientPointsSheet({
               <Button
                 size="xl"
                 className="w-full shadow-sb-cta"
-                disabled={busy}
+                // 스토어 가격을 받지 못한 묶음은 결제 창을 열어도 실패한다.
+                disabled={busy || picked.priceLabel === null}
                 onClick={() => void runOnce(() => onCharge(picked.productId))}
               >
                 {t("insufficient.chargeAndBuy", { points: formatPoints(picked.points) })}
