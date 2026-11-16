@@ -50,6 +50,23 @@ describe("보상형 광고 보기", () => {
     expect(await showPointsAd()).toBe("unavailable");
   });
 
+  it("광고 오류는 객체를 통째로 남기지 않고 코드나 이름만 남긴다", async () => {
+    setPointsAdsAdapter(adapter);
+    const warn = jest.mocked(console.warn);
+    adapter.show.mockRejectedValueOnce(
+      Object.assign(new Error("ad request for userId 1685 failed"), { code: "no-fill" }),
+    );
+    adapter.show.mockRejectedValueOnce(new TypeError("ad request for userId 1685 failed"));
+
+    await showPointsAd();
+    await showPointsAd();
+
+    expect(warn.mock.calls).toEqual([
+      ["[points-ads] 광고 실패", "code no-fill"],
+      ["[points-ads] 광고 실패", "TypeError"],
+    ]);
+  });
+
   it("광고가 떠 있는 동안 온 두 번째 요청은 취소로 답하고 광고를 또 띄우지 않는다", async () => {
     setPointsAdsAdapter(adapter);
     let close: (status: "rewarded") => void = () => {};

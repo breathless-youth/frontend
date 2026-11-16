@@ -5,6 +5,8 @@ import type {
 } from "@focusmakers/types";
 import * as SecureStore from "expo-secure-store";
 
+import { errorSummary } from "./errorSummary";
+
 /**
  * 결제 SDK 어댑터
  *
@@ -24,15 +26,6 @@ export type PointsChargeAdapter = {
 // 결제용 ID는 계정을 가리키는 값이라 iCloud 키체인으로 다른 기기에 복사되지 않게 이 기기에만 둔다.
 const RECORD_KEY = "focuson.pointsCharge";
 const STORE_OPTIONS = { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY };
-
-/** 결제 SDK 오류에는 결제용 ID나 스토어 계정 정보가 실릴 수 있어 로그에는 코드나 이름만 남긴다. */
-function errorSummary(error: unknown): string {
-  const code = (error as { code?: unknown } | null)?.code;
-  if (typeof code === "string" || typeof code === "number") {
-    return `code ${code}`;
-  }
-  return error instanceof Error ? error.name : "unknown";
-}
 
 let adapter: PointsChargeAdapter | null = null;
 let inFlight = false;

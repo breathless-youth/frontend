@@ -2,6 +2,7 @@ import Constants from "expo-constants";
 import { NativeModules, Platform } from "react-native";
 import type * as PurchasesSdk from "react-native-purchases";
 
+import { errorSummary } from "./errorSummary";
 import { setPointsChargeAdapter } from "./pointsCharge";
 
 type PurchasesModule = typeof PurchasesSdk;
@@ -37,10 +38,7 @@ export function installPointsChargeSdk(): void {
     sdk = loaded.default;
     category = loaded.PRODUCT_CATEGORY;
   } catch (error) {
-    console.warn(
-      "[points-charge] 결제 SDK를 불러오지 못해 충전을 끈다",
-      error instanceof Error ? error.name : "unknown",
-    );
+    console.warn("[points-charge] 결제 SDK를 불러오지 못해 충전을 끈다", errorSummary(error));
     return;
   }
   const load = (storeProductIds: string[]) =>

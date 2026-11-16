@@ -3,6 +3,7 @@ import Constants from "expo-constants";
 import { Platform } from "react-native";
 import type * as MobileAdsSdk from "react-native-google-mobile-ads";
 
+import { errorSummary } from "./errorSummary";
 import { setPointsAdsAdapter } from "./pointsAds";
 
 type MobileAdsModule = typeof MobileAdsSdk;
@@ -33,7 +34,7 @@ export function installPointsAdsSdk(): void {
     // 네이티브 모듈이 없으면 여기서 throw한다.
     ads.default();
   } catch (error) {
-    console.warn("[points-ads] 광고 SDK를 불러오지 못해 광고를 끈다", error);
+    console.warn("[points-ads] 광고 SDK를 불러오지 못해 광고를 끈다", errorSummary(error));
     return;
   }
   let initialized: Promise<unknown> | null = null;
@@ -65,7 +66,7 @@ export function installPointsAdsSdk(): void {
         rewarded.addAdEventListener(ads.RewardedAdEventType.LOADED, () => {
           clearTimeout(timer);
           void rewarded.show().catch((error: unknown) => {
-            console.warn("[points-ads] 광고 표시 실패", error);
+            console.warn("[points-ads] 광고 표시 실패", errorSummary(error));
             finish("unavailable");
           });
         });
@@ -76,7 +77,7 @@ export function installPointsAdsSdk(): void {
           finish(earned ? "rewarded" : "cancelled");
         });
         rewarded.addAdEventListener(ads.AdEventType.ERROR, (error) => {
-          console.warn("[points-ads] 광고 오류", error);
+          console.warn("[points-ads] 광고 오류", errorSummary(error));
           finish("unavailable");
         });
         rewarded.load();

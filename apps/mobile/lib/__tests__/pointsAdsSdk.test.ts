@@ -21,20 +21,32 @@ const mockCreateForAdRequest = jest.fn();
 
 type Listener = (payload?: unknown) => void;
 
-/** 불러오면 곧바로 로드되고, 띄우면 보상 신호 뒤에 닫히는 가짜 광고 */
-function fakeRewardedAd() {
+/**
+ * 불러오면 곧바로 로드되고, 띄우면 보상 신호 뒤에 닫히는 가짜 광고
+ *
+ * `loadError`를 주면 로드 대신 그 오류로 오류 신호를 보내고, `showError`를 주면 띄우기가 그 오류로 실패한다.
+ */
+function fakeRewardedAd(failure: { loadError?: unknown; showError?: unknown } = {}) {
   const listeners = new Map<string, Listener>();
-  const fire = (type: string) => listeners.get(type)?.();
+  const fire = (type: string, payload?: unknown) => listeners.get(type)?.(payload);
   return {
     addAdEventListener: (type: string, listener: Listener) => void listeners.set(type, listener),
     removeAllListeners: () => listeners.clear(),
-    load: () => fire("loaded"),
+    load: () => ("loadError" in failure ? fire("error", failure.loadError) : fire("loaded")),
     show: async () => {
+      if ("showError" in failure) {
+        throw failure.showError;
+      }
       fire("earned_reward");
       fire("closed");
     },
   };
 }
+
+// 광고 요청 오류에는 서버 확인 옵션의 사용자 ID가 실릴 수 있다.
+const AD_ERROR = Object.assign(new Error("ad request for userId 1685 failed"), {
+  code: "googleMobileAds/no-fill",
+});
 
 jest.mock("expo-constants", () => ({
   __esModule: true,
@@ -44,14 +56,20 @@ jest.mock("expo-constants", () => ({
     },
   },
 }));
+let mockNativeModuleError: unknown = null;
 jest.mock("react-native-google-mobile-ads", () => {
   mockSdkLoaded = true;
   return {
     __esModule: true,
-    default: () => ({
-      setRequestConfiguration: mockSetRequestConfiguration,
-      initialize: mockInitialize,
-    }),
+    default: () => {
+      if (mockNativeModuleError !== null) {
+        throw mockNativeModuleError;
+      }
+      return {
+        setRequestConfiguration: mockSetRequestConfiguration,
+        initialize: mockInitialize,
+      };
+    },
     MaxAdContentRating: { G: "G", PG: "PG", T: "T", MA: "MA" },
     RewardedAd: { createForAdRequest: mockCreateForAdRequest },
     RewardedAdEventType: { LOADED: "loaded", EARNED_REWARD: "earned_reward" },
@@ -76,6 +94,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockCalls.length = 0;
   mockUnitIds = { ios: "", android: "" };
+  mockNativeModuleError = null;
   mockCreateForAdRequest.mockImplementation(() => fakeRewardedAd());
 });
 
@@ -134,5 +153,47 @@ describe("보상형 광고 SDK 어댑터", () => {
 
     const [, options] = mockCreateForAdRequest.mock.calls[0] as [string, Record<string, unknown>];
     expect(options).not.toHaveProperty("requestNonPersonalizedAdsOnly");
+  });
+});
+
+describe("광고 SDK 오류 로그", () => {
+  let warn: jest.SpyInstance;
+  beforeEach(() => {
+    warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+  });
+  afterEach(() => {
+    warn.mockRestore();
+  });
+
+  it("광고를 불러오다 난 오류는 객체를 통째로 남기지 않고 코드만 남긴다", async () => {
+    const adapter = installedAdapter();
+    mockCreateForAdRequest.mockImplementationOnce(() => fakeRewardedAd({ loadError: AD_ERROR }));
+
+    await expect(adapter.show("1685")).resolves.toBe("unavailable");
+
+    expect(warn.mock.calls).toEqual([["[points-ads] 광고 오류", "code googleMobileAds/no-fill"]]);
+  });
+
+  it("광고를 띄우다 난 오류도 코드만 남긴다", async () => {
+    const adapter = installedAdapter();
+    mockCreateForAdRequest.mockImplementationOnce(() => fakeRewardedAd({ showError: AD_ERROR }));
+
+    await expect(adapter.show("1685")).resolves.toBe("unavailable");
+
+    expect(warn.mock.calls).toEqual([
+      ["[points-ads] 광고 표시 실패", "code googleMobileAds/no-fill"],
+    ]);
+  });
+
+  it("SDK를 불러오지 못한 오류는 이름만 남기고 광고를 끈다", () => {
+    mockNativeModuleError = new TypeError("native module missing");
+    mockUnitIds = { ios: "ca-app-pub-1/ios", android: "ca-app-pub-1/android" };
+
+    const setAdapter = install();
+
+    expect(setAdapter).not.toHaveBeenCalled();
+    expect(warn.mock.calls).toEqual([
+      ["[points-ads] 광고 SDK를 불러오지 못해 광고를 끈다", "TypeError"],
+    ]);
   });
 });

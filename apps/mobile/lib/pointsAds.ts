@@ -1,6 +1,7 @@
 import type { PointsAdStatus } from "@focusmakers/types";
 
 import { awaitAuth } from "./auth";
+import { errorSummary } from "./errorSummary";
 
 /**
  * 광고 SDK 어댑터
@@ -56,7 +57,7 @@ export async function showPointsAd(): Promise<PointsAdStatus> {
     }
     return await adapter.show(String(auth.userId));
   } catch (error) {
-    console.warn("[points-ads] 광고 실패", error);
+    console.warn("[points-ads] 광고 실패", errorSummary(error));
     return "unavailable";
   } finally {
     inFlight = false;
