@@ -1,10 +1,13 @@
+import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 
+import { usePointsGateway, usePointsUserId } from "@/features/points/gateway/PointsGatewayContext";
 import { useShopActions } from "@/features/points/model/useShopActions";
 import { PointsRouteGate } from "@/features/points/PointsRouteGate";
 import { PointsShopRoute } from "@/features/points/PointsShopRoute";
 import { MascotCollectionScreen } from "@/features/points/screens/MascotCollectionScreen";
 import type { Mascot, MascotId } from "@/features/points/types";
+import { chargePacksQuery, earnTodayQuery } from "@/lib/pointsQueries";
 import { showToast } from "@/lib/toast";
 
 export function PointsMascotsPage() {
@@ -28,15 +31,25 @@ function celebratedMascot(mascots: Mascot[]): MascotId | undefined {
 
 function MascotsContent() {
   const { t } = useTranslation(["points", "common"]);
-  const { selectMascot, markUnlocksSeen } = useShopActions();
+  const gateway = usePointsGateway();
+  const userId = usePointsUserId();
+  const { earn: canEarn, ads, charge } = gateway.capabilities;
+  // 모자람 창의 광고 줄과 충전 줄에만 쓰여서 그 기능이 없는 경계에는 묻지 않는다.
+  const earn = useQuery({ ...earnTodayQuery(gateway, userId), enabled: canEarn && ads });
+  const packs = useQuery({ ...chargePacksQuery(gateway, userId), enabled: charge });
+  const { selectMascot, markUnlocksSeen, watchAd, charge: chargePoints } = useShopActions();
   return (
     <PointsShopRoute title={t("points:titles.mascots")}>
       {({ data, balance, back }) => (
         <MascotCollectionScreen
           data={data}
           balance={balance}
+          earn={earn.data}
+          packs={packs.data ?? []}
           onSelect={(id) => selectMascot(id).catch(() => showToast(t("common:errors.retryLater")))}
           onBack={back}
+          onWatchAd={watchAd}
+          onCharge={chargePoints}
           newlyUnlocked={celebratedMascot(data.mascots)}
           // 본 것으로 적지 못하면 다음에 한 번 더 축하할 뿐이라 알리지 않는다.
           onCelebrated={() => void markUnlocksSeen().catch(() => {})}

@@ -155,6 +155,53 @@ describe("MascotCollectionScreen", () => {
       expect(await screen.findByText(/더 필요해요/)).toBeInTheDocument();
       expect(purchase).not.toHaveBeenCalled();
     });
+
+    /** 잔액이 모자란 채로 캠코더를 사려고 해서 모자람 창을 연다. */
+    async function openInsufficient(props: Parameters<typeof renderScreen>[0]) {
+      const gateway = createFakePointsGateway("default", { balance: 100 });
+      const purchase = vi
+        .spyOn(gateway, "purchaseMascot")
+        .mockResolvedValue({ ok: true, balance: 100 });
+      renderScreen({ data: priced, balance: 100, ...props }, gateway);
+      await userEvent.click(screen.getByRole("button", { name: "캠코더 잠김, 500P" }));
+      await userEvent.click(await screen.findByRole("button", { name: "500P로 열기" }));
+      await screen.findByText(/더 필요해요/);
+      return { purchase };
+    }
+
+    it("모자람 창에서 충전하면 이어서 마스코트를 산다", async () => {
+      const onCharge = vi.fn(async () => ({
+        status: "completed" as const,
+        granted: 500,
+        bonus: 0,
+        balance: 600,
+      }));
+      const { purchase } = await openInsufficient({ packs: fixture.packs, onCharge });
+
+      await userEvent.click(screen.getByRole("button", { name: "500P 충전하고 구매하기" }));
+
+      expect(onCharge).toHaveBeenCalledWith("points_500");
+      expect(purchase).toHaveBeenCalledWith("camcorder");
+      expect(await screen.findByText("새 마스코트")).toBeInTheDocument();
+    });
+
+    it("모자람 창에서 광고를 보면 잔액만 채우고 사지는 않는다", async () => {
+      const onWatchAd = vi.fn(async () => ({ status: "rewarded" as const, balance: 130 }));
+      const { purchase } = await openInsufficient({ earn: fixture.earn, onWatchAd });
+
+      await userEvent.click(screen.getByRole("button", { name: /광고 보고 30P 받기/ }));
+
+      expect(onWatchAd).toHaveBeenCalledOnce();
+      expect(purchase).not.toHaveBeenCalled();
+    });
+
+    it("충전과 광고를 맡을 수 없는 곳에서는 모자람 창에 두 줄이 없다", async () => {
+      await openInsufficient({ earn: fixture.earn, packs: fixture.packs });
+      const sheet = screen.getByRole("dialog");
+      expect(within(sheet).queryByText(/광고 보고/)).not.toBeInTheDocument();
+      expect(within(sheet).queryByText(/충전하고 구매하기/)).not.toBeInTheDocument();
+      expect(within(sheet).getByText("일일 미션 클리어하기")).toBeInTheDocument();
+    });
   });
 });
 

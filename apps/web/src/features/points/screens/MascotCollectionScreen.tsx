@@ -15,6 +15,7 @@ import { usePurchaseFlow } from "../model/usePurchaseFlow";
 import { pointsSearch } from "../pointsSearch";
 import type { Mascot, MascotId, ShopData, ShopItem } from "../types";
 import { usePointsScreenViewed } from "../model/usePointsScreenViewed";
+import type { ShopScreenProps } from "./shopScreenProps";
 
 /**
  * 마스코트 모으기 화면
@@ -24,12 +25,17 @@ import { usePointsScreenViewed } from "../model/usePointsScreenViewed";
  * 바꾸기나 나중에로 축하 화면을 닫으면 `onCelebrated`로 알려 서버가 본 것으로 기억하게 한다.
  * 포인트로 여는 마스코트는 잠금 시트에서 사고, 산 직후 같은 축하 화면을 한 번 보인다.
  * 산 마스코트는 서버가 새로 열린 것으로 치지 않아 본 것으로 알릴 일이 없다.
+ * 포인트가 모자라면 소품·배경 화면과 같은 모자람 창에서 광고를 보거나 충전해 이어서 산다.
  */
 export function MascotCollectionScreen({
   data,
   balance,
+  earn,
+  packs = [],
   onSelect,
   onBack,
+  onWatchAd,
+  onCharge,
   newlyUnlocked,
   onCelebrated,
 }: {
@@ -39,7 +45,7 @@ export function MascotCollectionScreen({
   onBack: () => void;
   newlyUnlocked?: MascotId;
   onCelebrated?: () => void;
-}) {
+} & Partial<Pick<ShopScreenProps, "earn" | "packs" | "onWatchAd" | "onCharge">>) {
   const { t } = useTranslation("points");
   const { t: tMascots } = useTranslation("points-mascots");
   usePointsScreenViewed("mascots");
@@ -157,7 +163,10 @@ export function MascotCollectionScreen({
         open={step === "insufficient"}
         item={buyingItem}
         balance={balance}
-        packs={[]}
+        earn={earn}
+        packs={packs}
+        onWatchAd={onWatchAd && (() => flow.watchAdForPoints(onWatchAd))}
+        onCharge={onCharge && ((productId) => flow.chargeAndBuy(() => onCharge(productId)))}
         onMissions={
           gateway.capabilities.earn
             ? () =>
