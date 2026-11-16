@@ -29,6 +29,14 @@ const FRONT: readonly AccessorySlot[] = [
  */
 export const ACCESSORY_BOARD_OUTSET = `${(-208 / 1024) * 100}%`;
 
+/**
+ * 소품 판 크기 상자 안에서 마스코트 판이 놓이는 안쪽 여백
+ *
+ * 작은 칸이 소품까지 칸 안에 담으려고 칸을 소품 판으로 보고 마스코트를 이만큼 안쪽에 둘 때 쓴다.
+ * 위 규격과 같은 숫자라 한쪽만 바꾸지 않는다.
+ */
+export const MASCOT_INSET_IN_BOARD = `${Number(((208 / 1440) * 100).toFixed(4))}%`;
+
 /** 세트 그림이 마스코트까지 그린 완성 그림으로 바뀌면 true로 바꿔 몸을 그리지 않는다. */
 export const HIDE_MASCOT_UNDER_SET = false;
 

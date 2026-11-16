@@ -4,23 +4,29 @@ import { useTranslation } from "react-i18next";
 import { formatDuration } from "@/features/records/recordsFormat";
 import { cn } from "@/lib/utils";
 
+import type { WornAccessory } from "@/components/mascot/types";
+
 import { formatPoints } from "../../model/formatPoints";
-import type { Mascot } from "../../types";
-import { MascotImage } from "../shared/MascotImage";
+import type { Mascot, MascotId } from "../../types";
+import { MascotThumb } from "../shared/MascotThumb";
 
 /**
  * 마스코트 3열 격자
  *
  * 연 마스코트는 눌러 고르고, 잠긴 마스코트는 눌러 남은 시간을 본다.
+ * 연 마스코트는 고르지 않았어도 그 마스코트에 꾸며 둔 소품을 입혀 그린다.
  * 가장 가까운 잠긴 것만 이름을 보이고 그 뒤의 잠긴 것은 `???`로 숨겨 다음 차례를 궁금하게 한다.
  */
 export function MascotGrid({
   mascots,
+  worn,
   totalFocusSec,
   onSelect,
   onLockedPress,
 }: {
   mascots: Mascot[];
+  /** 마스코트마다 끼고 있는 소품이며 없는 마스코트는 소품 없이 그린다. */
+  worn: ReadonlyMap<MascotId, readonly WornAccessory[]>;
   totalFocusSec: number;
   onSelect: (id: Mascot["id"]) => void;
   onLockedPress: (mascot: Mascot) => void;
@@ -63,16 +69,22 @@ export function MascotGrid({
                     : "border border-transparent",
               )}
             >
-              <span className="relative flex" aria-hidden="true">
-                <MascotImage id={mascot.id} locked={!mascot.unlocked} size={64} decorative />
-                {!mascot.unlocked && (
-                  <Lock
-                    size={18}
-                    strokeWidth={2}
-                    className="absolute -right-1 -bottom-1 rounded-full bg-muted p-0.75 text-muted-foreground"
-                  />
-                )}
-              </span>
+              {/* 판 한 변 90px이면 몸은 예전 그림과 같은 64px이고 좁은 폰에서는 칸 폭만큼 줄어든다. */}
+              <MascotThumb
+                id={mascot.id}
+                locked={!mascot.unlocked}
+                accessories={worn.get(mascot.id)}
+                className="w-full max-w-22.5"
+                badge={
+                  !mascot.unlocked && (
+                    <Lock
+                      size={18}
+                      strokeWidth={2}
+                      className="absolute -right-1 -bottom-1 rounded-full bg-muted p-0.75 text-muted-foreground"
+                    />
+                  )
+                }
+              />
               <span aria-hidden={!mascot.unlocked} className="text-sm font-bold">
                 {shownName}
               </span>

@@ -9,6 +9,7 @@ import { createFakePointsGateway } from "../../../gateway/createFakePointsGatewa
 import type { PointsGateway } from "../../../gateway/PointsGateway";
 import { PointsGatewayProvider } from "../../../gateway/PointsGatewayContext";
 import { MascotCollectionScreen } from "../../../screens/MascotCollectionScreen";
+import type { AccessorySlot, MascotId, ShopData, ShopItem } from "../../../types";
 import { ProfileMascotRow } from "../ProfileMascotRow";
 
 const fixture = buildPointsFixture("default");
@@ -17,6 +18,47 @@ const shop = {
   mascots: fixture.mascots,
   totalFocusSec: fixture.totalFocusSec,
 };
+
+/** 그림이 있는 소품이며 기본은 가지고 있고 끼고 있다. */
+function wornItem(
+  id: string,
+  mascotId: MascotId,
+  slot: AccessorySlot,
+  extra: Partial<ShopItem> = {},
+): ShopItem {
+  return {
+    id,
+    kind: "accessory",
+    name: id,
+    imageUrl: `/${id}.png`,
+    acquire: { type: "price", price: 100 },
+    owned: true,
+    inUse: true,
+    mascotId,
+    slot,
+    ...extra,
+  };
+}
+
+/** 타이미는 모자, 고르지 않은 플래니는 머그잔, 몽당이는 세트를 끼고 잠긴 부기도 목도리를 낀 상점 */
+const decorated: ShopData = {
+  ...shop,
+  items: [
+    ...shop.items,
+    wornItem("timi-cap", "stopwatch", "head"),
+    wornItem("planner-mug", "planner", "held"),
+    wornItem("pencil-bee", "pencil", "set", { backImageUrl: "/pencil-bee-back.png" }),
+    wornItem("pencil-cap", "pencil", "head", { inUse: false }),
+    wornItem("book-scarf-worn", "book", "body"),
+  ],
+};
+
+/** 버튼 안에 그린 소품 그림의 주소를 뒤에서 앞 순서로 */
+function accessoryLayers(button: HTMLElement) {
+  return [...button.querySelectorAll("img[data-slot^='accessory-']")].map((img) =>
+    img.getAttribute("src"),
+  );
+}
 
 function renderScreen(
   props: Partial<Parameters<typeof MascotCollectionScreen>[0]> = {},
@@ -111,6 +153,41 @@ describe("MascotCollectionScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "이 마스코트로 바꾸기" }));
     expect(onSelect).toHaveBeenCalledWith("lamp");
     expect(screen.queryByText("새 마스코트")).not.toBeInTheDocument();
+  });
+
+  describe("꾸민 모습", () => {
+    it("열린 마스코트 칸마다 그 마스코트가 낀 소품을 입혀 그리고 고르지 않은 마스코트도 꾸민 대로 보인다", () => {
+      renderScreen({ data: decorated });
+
+      expect(accessoryLayers(screen.getByRole("button", { name: "타이미 선택 중" }))).toEqual([
+        "/timi-cap.png",
+      ]);
+      expect(accessoryLayers(screen.getByRole("button", { name: "플래니 선택 가능" }))).toEqual([
+        "/planner-mug.png",
+      ]);
+      expect(accessoryLayers(screen.getByRole("button", { name: "몽당이 선택 가능" }))).toEqual([
+        "/pencil-bee-back.png",
+        "/pencil-bee.png",
+      ]);
+      expect(accessoryLayers(screen.getByRole("button", { name: "락키 선택 가능" }))).toEqual([]);
+    });
+
+    it("잠긴 마스코트는 낀 소품이 있어도 소품 없이 흐린 그림 그대로다", () => {
+      renderScreen({ data: decorated });
+
+      const locked = screen.getByRole("button", { name: "부기 잠김, 4시간 12분 남음" });
+      expect(locked.querySelectorAll("[data-slot^='accessory-']")).toHaveLength(0);
+      expect(locked.querySelector(".grayscale")).toBeInTheDocument();
+    });
+
+    it("소품 판이 칸을 넘지 않게 마스코트를 판 안쪽 자리에 줄여 둔다", () => {
+      renderScreen({ data: decorated });
+
+      const cell = screen.getByRole("button", { name: "타이미 선택 중" });
+      const body = cell.querySelector<HTMLElement>("[data-mascot-in-board]");
+      // 판 한 변 1440 가운데 마스코트 판 1024가 사방 208씩 안쪽에 놓인다.
+      expect(body?.style.inset).toBe("14.4444%");
+    });
   });
 
   describe("포인트로 여는 마스코트", () => {

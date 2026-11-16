@@ -1,7 +1,7 @@
 import type { MascotLook } from "@/components/mascot/types";
 
 import type { ShopData } from "../types";
-import { toWornAccessory } from "./toWornAccessory";
+import { wornByMascot } from "./wornAccessories";
 
 /**
  * 상점 데이터에서 내 마스코트 모습 읽기
@@ -15,14 +15,5 @@ export function toMyMascotLook(shop: ShopData): MascotLook | null {
   if (selected === undefined) {
     return null;
   }
-  return {
-    id: selected.id,
-    accessories: shop.items.flatMap((item) => {
-      const worn =
-        item.kind === "accessory" && item.inUse && item.mascotId === selected.id
-          ? toWornAccessory(item)
-          : null;
-      return worn === null ? [] : [worn];
-    }),
-  };
+  return { id: selected.id, accessories: wornByMascot(shop.items).get(selected.id) ?? [] };
 }

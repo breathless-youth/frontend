@@ -13,6 +13,7 @@ import { PurchaseConfirmSheet } from "../components/shared/PurchaseConfirmSheet"
 import { usePointsGateway } from "../gateway/PointsGatewayContext";
 import { sortMascots } from "../model/mascotOrder";
 import { usePurchaseFlow } from "../model/usePurchaseFlow";
+import { wornByMascot } from "../model/wornAccessories";
 import { pointsSearch } from "../pointsSearch";
 import type { Mascot, MascotId, ShopData, ShopItem } from "../types";
 import { usePointsScreenViewed } from "../model/usePointsScreenViewed";
@@ -130,6 +131,7 @@ export function MascotCollectionScreen({
         </section>
         <MascotGrid
           mascots={mascots}
+          worn={wornByMascot(data.items)}
           totalFocusSec={data.totalFocusSec}
           onSelect={(id) => void onSelect(id)}
           onLockedPress={setPressed}
