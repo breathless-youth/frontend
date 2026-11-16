@@ -105,14 +105,14 @@ describe.each(DOCUMENTS)("%s", (_name, document) => {
 });
 
 describe("문서 구성", () => {
-  it("이용약관은 제1조부터 제14조까지 번호가 이어진다", () => {
+  it("이용약관은 제1조부터 제20조까지 번호가 이어진다", () => {
     const numbers = TERMS_OF_SERVICE.sections.map((section) => {
       const matched = /^제(\d+)조 /.exec(section.heading);
       expect(matched).not.toBeNull();
       return Number((matched as RegExpExecArray)[1]);
     });
 
-    expect(numbers).toEqual(Array.from({ length: 14 }, (_, index) => index + 1));
+    expect(numbers).toEqual(Array.from({ length: 20 }, (_, index) => index + 1));
   });
 
   it("개인정보처리방침은 1.부터 15.까지 번호가 이어진다", () => {
