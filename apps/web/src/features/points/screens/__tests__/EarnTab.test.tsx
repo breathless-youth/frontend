@@ -61,9 +61,9 @@ function setup(
 describe("EarnTab 무료 포인트", () => {
   it("공부 줄과 세 타일을 보인다", () => {
     setup();
-    expect(screen.getByText(/30분 공부할 때마다/)).toHaveTextContent("30분 공부할 때마다 +10P");
+    expect(screen.getByText(/30분 공부할 때마다/)).toHaveTextContent("30분 공부할 때마다 +7P");
     expect(screen.getByText("오늘 1시간 24분")).toBeInTheDocument();
-    expect(screen.getByText("최대 12시간")).toBeInTheDocument();
+    expect(screen.getByText("최대 10시간")).toBeInTheDocument();
     expect(screen.getByText("0/3")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^보기/ })).toBeInTheDocument();
     expect(screen.getByText("완료")).toBeInTheDocument();

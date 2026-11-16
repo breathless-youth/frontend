@@ -207,7 +207,7 @@ describe("toSessionReward", () => {
     earnedPoints: 20,
     statDate: "2026-11-12",
     recognizedFocusSec: 7800,
-    dailyCapFocusSec: 43200,
+    dailyCapFocusSec: 36000,
   };
 
   it("다음 마스코트까지 찬 정도를 남은 순공으로 계산한다", () => {
@@ -219,7 +219,7 @@ describe("toSessionReward", () => {
     ).toEqual({
       earned: 20,
       todayFocusSec: 7800,
-      capSec: 43200,
+      capSec: 36000,
       nextMascot: { id: "lamp", remainingSec: 27000, progress: 0.75 },
     });
   });

@@ -93,7 +93,7 @@ describe("받기·기록·충전·광고가 없는 경계의 포인트 상점", 
     await userEvent.click(await screen.findByRole("button", { name: "600P로 구매" }));
     const sheet = await screen.findByRole("dialog");
     expect(within(sheet).getByText("왕관을 구매하려면 500P가 더 필요해요")).toBeInTheDocument();
-    expect(within(sheet).getByText("30분 공부할 때마다 +10P")).toBeInTheDocument();
+    expect(within(sheet).getByText("30분 공부할 때마다 +7P")).toBeInTheDocument();
     expect(within(sheet).queryByText("미션 보기")).not.toBeInTheDocument();
     expect(within(sheet).queryByText(/광고 보고/)).not.toBeInTheDocument();
     expect(within(sheet).queryByText("바로 충전하기")).not.toBeInTheDocument();
@@ -112,7 +112,7 @@ describe("받기·기록·충전·광고가 없는 경계의 포인트 상점", 
     await userEvent.click(await screen.findByRole("button", { name: "600P로 구매" }));
     const sheet = await screen.findByRole("dialog");
     expect(within(sheet).getByText("미션 보기")).toBeInTheDocument();
-    expect(within(sheet).queryByText("30분 공부할 때마다 +10P")).not.toBeInTheDocument();
+    expect(within(sheet).queryByText("30분 공부할 때마다 +7P")).not.toBeInTheDocument();
   });
 });
 

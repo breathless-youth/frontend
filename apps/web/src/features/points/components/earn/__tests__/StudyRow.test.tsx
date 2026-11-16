@@ -5,19 +5,18 @@ import type { EarnToday, StudyPointTier } from "../../../types";
 import { StudyRow } from "../StudyRow";
 
 const HOUR = 3600;
-const TIERS: StudyPointTier[] = [
-  { fromSec: 0, toSec: 2 * HOUR, soloPoints: 7, togetherPoints: 10 },
-  { fromSec: 2 * HOUR, toSec: 4 * HOUR, soloPoints: 4, togetherPoints: 5 },
-  { fromSec: 4 * HOUR, toSec: 12 * HOUR, soloPoints: 1, togetherPoints: 2 },
+// 공부 포인트는 시간 구간 없이 고정이라 서버가 구간 하나만 보낸다.
+const FIXED: StudyPointTier[] = [
+  { fromSec: 0, toSec: 10 * HOUR, soloPoints: 7, togetherPoints: 10 },
 ];
 
 function study(focusSec: number, extra: Partial<EarnToday["study"]> = {}): EarnToday["study"] {
   return {
     focusSec,
-    capSec: 12 * HOUR,
+    capSec: 10 * HOUR,
     unitSec: 30 * 60,
     pointsPerUnit: 7,
-    tiers: TIERS,
+    tiers: FIXED,
     ...extra,
   };
 }
@@ -47,24 +46,29 @@ describe("StudyRow", () => {
     );
   });
 
-  it.each([
-    [3 * HOUR, "+5P"],
-    [5 * HOUR, "+2P"],
-  ])("오늘 순공 %i초면 안내에 지금 구간의 같이 값을 쓴다", async (focusSec, points) => {
-    render(<StudyRow study={study(focusSec)} />);
-
-    expect(await openGuide()).toHaveTextContent(`30분마다 ${points}를 받아요.`);
-  });
-
-  it("구간이 하나뿐인 고정 값이어도 그 값으로 안내한다", async () => {
-    const fixed: StudyPointTier[] = [
-      { fromSec: 0, toSec: 12 * HOUR, soloPoints: 7, togetherPoints: 10 },
-    ];
-    render(<StudyRow study={study(5 * HOUR, { tiers: fixed })} />);
+  it("구간이 하나뿐인 고정 값이면 하루 상한 가까이 공부해도 같은 값으로 안내한다", async () => {
+    render(<StudyRow study={study(9 * HOUR + 30 * 60)} />);
 
     expect(screen.getByText("+7P")).toBeInTheDocument();
     expect(await openGuide()).toHaveTextContent("30분마다 +10P를 받아요.");
   });
+
+  it.each([
+    [3 * HOUR, "+5P"],
+    [5 * HOUR, "+2P"],
+  ])(
+    "구간이 여러 개인 서버에서 오늘 순공 %i초면 지금 구간의 같이 값을 쓴다",
+    async (focusSec, points) => {
+      const tiers: StudyPointTier[] = [
+        { fromSec: 0, toSec: 2 * HOUR, soloPoints: 7, togetherPoints: 10 },
+        { fromSec: 2 * HOUR, toSec: 4 * HOUR, soloPoints: 4, togetherPoints: 5 },
+        { fromSec: 4 * HOUR, toSec: 10 * HOUR, soloPoints: 1, togetherPoints: 2 },
+      ];
+      render(<StudyRow study={study(focusSec, { tiers })} />);
+
+      expect(await openGuide()).toHaveTextContent(`30분마다 ${points}를 받아요.`);
+    },
+  );
 
   it("안내는 Esc로 닫힌다", async () => {
     render(<StudyRow study={study(HOUR)} />);
@@ -98,7 +102,7 @@ describe("StudyRow", () => {
   });
 
   it("같이 값이 혼자 값보다 크지 않으면 안내 버튼이 없다", () => {
-    const flat = TIERS.map((tier) => ({ ...tier, togetherPoints: tier.soloPoints }));
+    const flat = FIXED.map((tier) => ({ ...tier, togetherPoints: tier.soloPoints }));
     render(<StudyRow study={study(HOUR, { tiers: flat })} />);
 
     expect(guide()).toBeNull();

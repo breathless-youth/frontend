@@ -272,7 +272,7 @@ describe("createApiPointsGateway", () => {
         earnedPoints: 0,
         statDate: "2026-11-12",
         recognizedFocusSec: 1200,
-        dailyCapFocusSec: 43200,
+        dailyCapFocusSec: 36000,
         nextMascot: null,
       }),
     );
@@ -280,7 +280,7 @@ describe("createApiPointsGateway", () => {
     await expect(createApiPointsGateway().getSessionReward(startedAt)).resolves.toEqual({
       earned: 0,
       todayFocusSec: 1200,
-      capSec: 43200,
+      capSec: 36000,
       nextMascot: null,
     });
     expect(call()).toMatchObject({ method: "GET", version: "1" });
@@ -296,11 +296,11 @@ const EARN = {
   dailyMax: 254,
   study: {
     recognizedFocusSec: 7800,
-    dailyCapFocusSec: 43200,
+    dailyCapFocusSec: 36000,
     unitSec: 1800,
-    pointsPerUnit: 10,
-    earnedPoints: 40,
-    maxPoints: 240,
+    pointsPerUnit: 7,
+    earnedPoints: 28,
+    maxPoints: 140,
   },
   attendance: { points: 10, claimed: false },
   dailyGoal: {
@@ -344,10 +344,11 @@ describe("포인트 받기 연결", () => {
   });
 
   it("30분마다 받는 포인트는 오늘 순공 시간이 속한 구간의 값이고, 구간과 같이 한 시간을 함께 넘긴다", async () => {
+    // 지금 서버는 공부 구간 하나만 보내지만 구간을 고르는지 보려고 여러 구간을 둔다.
     const studyTiers = [
       { fromSec: 0, toSec: 7200, soloPoints: 7, togetherPoints: 10 },
       { fromSec: 7200, toSec: 21600, soloPoints: 4, togetherPoints: 5 },
-      { fromSec: 21600, toSec: 43200, soloPoints: 1, togetherPoints: 2 },
+      { fromSec: 21600, toSec: 36000, soloPoints: 1, togetherPoints: 2 },
     ];
     const goalTiers = [
       { fromSec: 0, toSec: 7200, points: 20 },
@@ -379,6 +380,25 @@ describe("포인트 받기 연결", () => {
     expect(earn.dailyGoal).toMatchObject({ pointsPerUnit: 5, capSec: 28800, tiers: goalTiers });
   });
 
+  it("공부 구간이 하나뿐인 고정 값이면 하루 상한 가까이 공부해도 그 값을 그린다", async () => {
+    const studyTiers = [{ fromSec: 0, toSec: 36000, soloPoints: 7, togetherPoints: 10 }];
+    fetchMock.mockResolvedValue(
+      respond(200, {
+        ...EARN,
+        study: { ...EARN.study, recognizedFocusSec: 34200, tiers: studyTiers },
+      }),
+    );
+
+    const earn = await createApiPointsGateway().getEarnToday();
+
+    expect(earn.study).toMatchObject({
+      focusSec: 34200,
+      capSec: 36000,
+      pointsPerUnit: 7,
+      tiers: studyTiers,
+    });
+  });
+
   it("구간을 주지 않는 서버에서는 첫 구간 값인 pointsPerUnit을 그대로 그린다", async () => {
     fetchMock.mockResolvedValue(
       respond(200, { ...EARN, dailyGoal: { ...EARN.dailyGoal, unitSec: 1800, pointsPerUnit: 20 } }),
@@ -386,7 +406,7 @@ describe("포인트 받기 연결", () => {
 
     const earn = await createApiPointsGateway().getEarnToday();
 
-    expect(earn.study.pointsPerUnit).toBe(10);
+    expect(earn.study.pointsPerUnit).toBe(7);
     expect(earn.study).not.toHaveProperty("tiers");
     expect(earn.dailyGoal.pointsPerUnit).toBe(20);
   });

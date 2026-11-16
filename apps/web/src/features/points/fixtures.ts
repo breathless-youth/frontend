@@ -151,13 +151,18 @@ function buildMascots(
 function buildEarn(scene: PointsScene): EarnToday {
   const allDone = scene === "allDone";
   return {
-    earned: allDone ? 200 : 80,
-    dailyMax: 400,
+    // 다 받은 날은 공부 28(2시간 10분이라 30분 4번 × 7P) + 출석 10 + 하루 목표 60 + 광고 90이다.
+    earned: allDone ? 188 : 80,
+    // 공부 140(하루 상한 10시간이라 30분 20번 × 7P) + 출석 10 + 하루 목표 60 + 광고 90(30P × 3번)이다.
+    // 메달은 순위에 따라 달라 넣지 않는다.
+    dailyMax: 300,
     study: {
       focusSec: allDone ? 2 * HOUR + 10 * MINUTE : HOUR + 24 * MINUTE,
-      capSec: 12 * HOUR,
+      capSec: 10 * HOUR,
       unitSec: 30 * MINUTE,
-      pointsPerUnit: 10,
+      pointsPerUnit: 7,
+      // 공부 포인트는 시간 구간 없이 고정이라 서버가 구간 하나만 보낸다.
+      tiers: [{ fromSec: 0, toSec: 10 * HOUR, soloPoints: 7, togetherPoints: 10 }],
     },
     attendance: { reward: 10, claimed: true },
     dailyGoal: {
@@ -253,7 +258,7 @@ export function buildPointsFixture(scene: PointsScene, now: number = Date.now())
     sessionReward: {
       earned: 20,
       todayFocusSec: 2 * HOUR + 10 * MINUTE,
-      capSec: 12 * HOUR,
+      capSec: 10 * HOUR,
       nextMascot:
         scene === "allCollected"
           ? null
