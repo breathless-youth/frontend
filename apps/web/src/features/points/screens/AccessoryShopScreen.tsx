@@ -76,6 +76,8 @@ export function AccessoryShopScreen({
     ) ?? "head";
   const [pickedSlot, setSlot] = useState<AccessorySlot>(() => entry?.slot ?? wornSlotOf(mascotId));
   const [pickedId, setPickedId] = useState<string | undefined>(entry?.id);
+  // 방금 벗긴 소품은 칸에서 고른 채로 두어 다시 입기 쉽게 하되, 미리 보기에서는 빼서 벗은 모습을 보인다.
+  const [takenOffId, setTakenOffId] = useState<string | undefined>();
   // 마스코트를 바꾸면 앞 마스코트에서 고르던 칸과 소품을 버리고 새 마스코트의 지금 모습에서 시작한다.
   const pickMascot = (id: MascotId) => {
     setMascotId(id);
@@ -146,7 +148,14 @@ export function AccessoryShopScreen({
 
   const choose = (change: () => void) => {
     flow.close();
+    setTakenOffId(undefined);
     change();
+  };
+
+  const takeOff = (target: ShopItem) => {
+    setPickedId(target.id);
+    setTakenOffId(target.id);
+    void setInUse(target, false);
   };
 
   const open = (pathname: string, tab?: string) =>
@@ -164,7 +173,7 @@ export function AccessoryShopScreen({
       />
       <AccessoryPreview
         mascotId={mascot.id}
-        item={mascot.unlocked ? item : null}
+        item={mascot.unlocked && item?.id !== takenOffId ? item : null}
         worn={mascotItems.filter((it) => it.inUse)}
       />
       {/* 틀의 아래 여백만큼 시트를 내려 바탕이 화면 끝까지 이어지게 하고, 같은 여백을 안쪽에 둬 버튼은 안전 영역 위에 남긴다. */}
@@ -182,22 +191,20 @@ export function AccessoryShopScreen({
             ) : null}
             <AccessoryGrid
               items={slotItems}
-              slot={slot}
               pickedId={item?.id}
               onPick={(id) => choose(() => setPickedId(id))}
-              onTakeOff={() => {
-                const worn = slotItems.find((it) => it.inUse);
-                if (worn) {
-                  void setInUse(worn, false);
-                }
-              }}
+              onTakeOff={takeOff}
             />
             {item !== null && (
               <ActionButton
                 item={item}
                 store={store}
                 onBuy={flow.open}
-                onWear={() => void setInUse(item, true)}
+                onWear={() => {
+                  setTakenOffId(undefined);
+                  void setInUse(item, true);
+                }}
+                onTakeOff={() => takeOff(item)}
               />
             )}
           </>
@@ -241,18 +248,21 @@ function ActionButton({
   store,
   onBuy,
   onWear,
+  onTakeOff,
 }: {
   item: ShopItem;
   store: ReturnType<typeof useStorePurchase>;
   onBuy: () => void;
   onWear: () => void;
+  onTakeOff: () => void;
 }) {
   const { t } = useTranslation("points-items");
   const { t: tPoints } = useTranslation("points");
+  // 입은 소품은 벗기가 할 수 있는 일이라 회색 버튼으로 두고 누르면 벗는다.
   if (item.inUse) {
     return (
-      <Button size="xl" variant="secondary" className="mt-auto w-full" disabled>
-        {tPoints("status.wearing")}
+      <Button size="xl" variant="secondary" className="mt-auto w-full" onClick={onTakeOff}>
+        {t("grid.takeOff")}
       </Button>
     );
   }

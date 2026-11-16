@@ -121,7 +121,7 @@ describe("모자람 창의 충전", () => {
     const { client } = await openInsufficient(gateway);
     await userEvent.click(screen.getByRole("button", { name: "500P 충전하고 구매하기" }));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "착용 중" })).toBeDisabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "벗기" })).toBeEnabled());
     expect(screen.queryByText("왕관을 구매했어요!")).not.toBeInTheDocument();
     expect(await gateway.getBalance()).toBe(0);
     expect(client.getQueryData(pointsKeys.balance(USER))).toBe(0);

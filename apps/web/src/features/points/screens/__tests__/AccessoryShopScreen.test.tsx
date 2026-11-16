@@ -215,7 +215,7 @@ describe("AccessoryShopScreen", () => {
     await userEvent.click(screen.getByRole("button", { name: "몸 장식" }));
     await userEvent.click(screen.getByRole("button", { name: "단추 리본, 가지고 있어요" }));
     await userEvent.click(screen.getByRole("button", { name: "착용하기" }));
-    expect(await screen.findByRole("button", { name: "착용 중" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "벗기" })).toBeEnabled();
 
     await userEvent.click(screen.getByRole("button", { name: "머리 위" }));
     await userEvent.click(screen.getByRole("button", { name: "학사모, 순공 100시간 보상" }));
@@ -224,12 +224,26 @@ describe("AccessoryShopScreen", () => {
     expect(screen.getByRole("img", { name: "순공 100시간 중 25시간" })).toBeVisible();
   });
 
-  it("벗기 칸을 누르면 그 부위의 착용이 풀린다", async () => {
+  it("고른 입은 소품 칸을 한 번 더 누르면 벗고 그 칸은 고른 채 보유로 바뀐다", async () => {
     renderScreen(createFakePointsGateway("default"));
     await userEvent.click(await screen.findByRole("button", { name: "몸 장식" }));
     await userEvent.click(screen.getByRole("button", { name: "단추 리본, 가지고 있어요" }));
     await userEvent.click(screen.getByRole("button", { name: "착용하기" }));
-    await userEvent.click(await screen.findByRole("button", { name: "몸 장식 소품 벗기" }));
+    await userEvent.click(
+      await screen.findByRole("button", { name: "단추 리본, 착용 중. 한 번 더 누르면 벗어요" }),
+    );
+    expect(
+      await screen.findByRole("button", { name: "단추 리본, 가지고 있어요", pressed: true }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "착용하기" })).toBeEnabled();
+  });
+
+  it("입은 소품을 고르면 아래 버튼이 벗기가 되고 누르면 벗는다", async () => {
+    renderScreen(createFakePointsGateway("default"));
+    await userEvent.click(await screen.findByRole("button", { name: "몸 장식" }));
+    await userEvent.click(screen.getByRole("button", { name: "단추 리본, 가지고 있어요" }));
+    await userEvent.click(screen.getByRole("button", { name: "착용하기" }));
+    await userEvent.click(await screen.findByRole("button", { name: "벗기" }));
     expect(await screen.findByRole("button", { name: "착용하기" })).toBeEnabled();
   });
 
@@ -237,7 +251,7 @@ describe("AccessoryShopScreen", () => {
     renderScreen(createFakePointsGateway("default"));
     await userEvent.click(await screen.findByRole("button", { name: "600P로 구매" }));
     await userEvent.click(await screen.findByRole("button", { name: "구매하기" }));
-    expect(await screen.findByRole("button", { name: "착용 중" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "벗기" })).toBeEnabled();
     expect(screen.getByText("640P")).toBeVisible();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(screen.queryByText("왕관을 구매했어요!")).not.toBeInTheDocument();
@@ -291,7 +305,6 @@ describe("AccessoryGrid", () => {
           { ...first, imageUrl: "/crown.png" },
           { ...second, imageUrl: null },
         ]}
-        slot="head"
         pickedId={undefined}
         onPick={() => {}}
         onTakeOff={() => {}}
@@ -307,7 +320,6 @@ describe("AccessoryGrid", () => {
     const { container } = render(
       <AccessoryGrid
         items={[{ ...first, imageUrl: null, backImageUrl: "/aura.png" }]}
-        slot="effect"
         pickedId={undefined}
         onPick={() => {}}
         onTakeOff={() => {}}
@@ -359,7 +371,7 @@ describe("AccessoryGrid", () => {
       renderScreen(await wearing("ribbon"));
       expect(await pressed("몸 장식")).toBeInTheDocument();
       expect(await pressed(/단추 리본/)).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "착용 중" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "벗기" })).toBeEnabled();
     });
 
     it("착용 중인 소품이 여러 칸에 있으면 칩 순서에서 가장 앞 칸을 고른다", async () => {
@@ -442,7 +454,7 @@ describe("AccessoryGrid", () => {
 
       expect(await pressed("얼굴")).toBeInTheDocument();
       expect(await pressed(/플래니 안경/)).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "착용 중" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "벗기" })).toBeEnabled();
     });
 
     it("다른 마스코트에서 소품을 벗고 돌아와도 원래 마스코트의 착용과 처음 선택이 그대로다", async () => {
@@ -458,13 +470,13 @@ describe("AccessoryGrid", () => {
 
       await pickMascot("플래니");
       expect(await pressed(/만년필/)).toBeInTheDocument();
-      await userEvent.click(screen.getByRole("button", { name: "머리 위 소품 벗기" }));
-      await waitFor(() => expect(screen.queryByRole("button", { name: "착용 중" })).toBeNull());
+      await userEvent.click(screen.getByRole("button", { name: "벗기" }));
+      await waitFor(() => expect(screen.queryByRole("button", { name: "벗기" })).toBeNull());
 
       await pickMascot("타이미");
       expect(await pressed("몸 장식")).toBeInTheDocument();
       expect(await pressed(/단추 리본/)).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "착용 중" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "벗기" })).toBeEnabled();
     });
   });
 
