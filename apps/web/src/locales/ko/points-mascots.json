@@ -1,7 +1,6 @@
 {
   "totalFocus": "누적 순공",
   "remaining": "{{time}} 남음",
-  "hiddenName": "???",
   "lockedLabel": "{{name}} 잠김, {{remaining}}",
   "selectedLabel": "{{name}} 선택 중",
   "sheet": {

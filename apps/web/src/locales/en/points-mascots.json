@@ -1,7 +1,6 @@
 {
   "totalFocus": "Total focus",
   "remaining": "{{time}} left",
-  "hiddenName": "???",
   "lockedLabel": "{{name}} locked, {{remaining}}",
   "selectedLabel": "{{name}} selected",
   "sheet": {

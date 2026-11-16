@@ -64,7 +64,6 @@ export function MascotCollectionScreen({
   const [celebrated, setCelebrated] = useState(false);
   const [buying, setBuying] = useState<Mascot | null>(entry?.price === null ? null : entry);
   const mascots = sortMascots(data.mascots);
-  const nextId = mascots.find((mascot) => !mascot.unlocked && mascot.price === null)?.id;
   // 구매 확인 창과 모자람 창은 상점 상품의 모양을 받아서 마스코트를 그 모양으로 넘긴다.
   const buyingItem: ShopItem | null =
     buying === null || buying.price === null
@@ -145,7 +144,6 @@ export function MascotCollectionScreen({
       </div>
       <LockedMascotSheet
         mascot={pressed}
-        hidden={pressed !== null && pressed.id !== nextId}
         totalFocusSec={data.totalFocusSec}
         onBuy={(mascot) => {
           setPressed(null);

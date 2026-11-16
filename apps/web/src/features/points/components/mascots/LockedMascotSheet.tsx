@@ -14,24 +14,21 @@ import { MascotImage } from "../shared/MascotImage";
  *
  * 포인트로 여는 마스코트는 남은 시간 대신 가격과 사는 버튼을 보인다.
  * 시트는 body로 나가므로 Soft Blue 테마를 시트에도 단다.
- * 숨긴 이름은 시트에서도 그대로 숨긴다.
  */
 export function LockedMascotSheet({
   mascot,
-  hidden,
   totalFocusSec,
   onBuy,
   onClose,
 }: {
   mascot: Mascot | null;
-  hidden: boolean;
   totalFocusSec: number;
   onBuy: (mascot: Mascot) => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation("points-mascots");
   const { t: tPoints } = useTranslation("points");
-  const name = mascot === null ? "" : hidden ? t("hiddenName") : tPoints(`mascots.${mascot.id}`);
+  const name = mascot === null ? "" : tPoints(`mascots.${mascot.id}`);
   const target = mascot?.unlockFocusSec ?? 0;
   const percent = target === 0 ? 100 : Math.min(Math.floor((totalFocusSec / target) * 100), 100);
   useBackDismiss(mascot !== null, onClose);

@@ -15,7 +15,7 @@ import { MascotThumb } from "../shared/MascotThumb";
  *
  * 연 마스코트는 눌러 고르고, 잠긴 마스코트는 눌러 남은 시간을 본다.
  * 연 마스코트는 고르지 않았어도 그 마스코트에 꾸며 둔 소품을 입혀 그린다.
- * 가장 가까운 잠긴 것만 이름을 보이고 그 뒤의 잠긴 것은 `???`로 숨겨 다음 차례를 궁금하게 한다.
+ * 잠긴 마스코트도 이름을 보이고, 다음 차례인 칸만 점선 테두리로 구분한다.
  */
 export function MascotGrid({
   mascots,
@@ -38,9 +38,6 @@ export function MascotGrid({
     <ul className="grid grid-cols-3 gap-2.5">
       {mascots.map((mascot) => {
         const name = tPoints(`mascots.${mascot.id}`);
-        // 포인트로 사는 마스코트는 무엇을 사는지 알아야 해서 이름을 숨기지 않는다.
-        const hidden = !mascot.unlocked && mascot.price === null && mascot.id !== nextId;
-        const shownName = hidden ? t("hiddenName") : name;
         const remaining =
           mascot.price === null
             ? t("remaining", {
@@ -56,8 +53,8 @@ export function MascotGrid({
                 mascot.unlocked
                   ? undefined
                   : mascot.price === null
-                    ? t("lockedLabel", { name: shownName, remaining })
-                    : t("purchase.lockedPriceLabel", { name: shownName, price: remaining })
+                    ? t("lockedLabel", { name, remaining })
+                    : t("purchase.lockedPriceLabel", { name, price: remaining })
               }
               onClick={() => (mascot.unlocked ? onSelect(mascot.id) : onLockedPress(mascot))}
               className={cn(
@@ -86,7 +83,7 @@ export function MascotGrid({
                 }
               />
               <span aria-hidden={!mascot.unlocked} className="text-sm font-bold">
-                {shownName}
+                {name}
               </span>
               <span
                 aria-hidden={!mascot.unlocked}

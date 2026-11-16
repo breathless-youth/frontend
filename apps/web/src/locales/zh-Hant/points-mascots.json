@@ -1,7 +1,6 @@
 {
   "totalFocus": "累計專注時間",
   "remaining": "還需 {{time}}",
-  "hiddenName": "???",
   "lockedLabel": "{{name}}未解鎖，{{remaining}}",
   "selectedLabel": "已選擇{{name}}",
   "sheet": {

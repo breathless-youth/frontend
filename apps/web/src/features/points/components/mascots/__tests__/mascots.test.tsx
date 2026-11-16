@@ -106,11 +106,20 @@ describe("MascotCollectionScreen", () => {
     expect(screen.getByText("4시간 12분 남음")).toHaveClass("break-keep");
   });
 
-  it("다음 차례 뒤의 잠긴 마스코트는 이름을 ???로 숨긴다", () => {
+  it("잠긴 마스코트도 다음 차례와 상관없이 모두 이름을 보인다", () => {
     renderScreen();
     expect(screen.getByText("부기")).toBeInTheDocument();
-    expect(screen.getAllByText("???")).toHaveLength(1);
-    expect(screen.queryByText("램피")).not.toBeInTheDocument();
+    expect(screen.getByText("램피")).toBeInTheDocument();
+    expect(screen.getByText("캠코미")).toBeInTheDocument();
+    expect(screen.queryByText("???")).not.toBeInTheDocument();
+  });
+
+  it("다음 차례 뒤의 잠긴 마스코트를 눌러도 시트 제목에 이름을 보인다", async () => {
+    renderScreen();
+    await userEvent.click(screen.getByRole("button", { name: /^램피 잠김/ }));
+    const sheet = await screen.findByRole("dialog");
+    expect(within(sheet).getByRole("heading", { name: "램피" })).toBeInTheDocument();
+    expect(within(sheet).getByRole("img", { name: "램피까지 51% 모았어요" })).toBeInTheDocument();
   });
 
   it("잠긴 마스코트를 누르면 남은 시간과 진행을 알리는 시트가 뜬다", async () => {
@@ -135,7 +144,6 @@ describe("MascotCollectionScreen", () => {
     renderScreen({
       data: { items: done.items, mascots: done.mascots, totalFocusSec: done.totalFocusSec },
     });
-    expect(screen.queryByText("???")).not.toBeInTheDocument();
     expect(screen.getByText("락키")).toBeInTheDocument();
     expect(screen.getAllByText("선택 가능")).toHaveLength(6);
   });
@@ -215,6 +223,13 @@ describe("MascotCollectionScreen", () => {
     it("이름을 숨기지 않고 남은 시간 대신 가격을 보인다", () => {
       renderScreen({ data: priced });
       expect(screen.getByRole("button", { name: "캠코미 잠김, 500P" })).toBeVisible();
+    });
+
+    it("잠금 시트 제목에 캠코미 이름을 보인다", async () => {
+      renderScreen({ data: priced });
+      await userEvent.click(screen.getByRole("button", { name: "캠코미 잠김, 500P" }));
+      const sheet = await screen.findByRole("dialog");
+      expect(within(sheet).getByRole("heading", { name: "캠코미" })).toBeInTheDocument();
     });
 
     it("잠금 시트에서 사면 서버에 구매를 보내고 축하 화면에서 바로 바꿀 수 있다", async () => {
