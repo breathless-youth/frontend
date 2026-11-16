@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 import { formatPoints } from "../../model/formatPoints";
+import { itemThumbnail } from "../../model/itemThumbnail";
 import type { ShopItem } from "../../types";
 
 /** 상점 탭의 한 종류(소품·타이머 배경)의 제목과 미리보기 상품 줄 */
@@ -37,30 +38,33 @@ export function ShopSectionRow({
         </button>
       </div>
       <ul className="grid grid-cols-3 gap-2">
-        {items.map((item) => (
-          <li key={item.id} className="min-w-0">
-            <button
-              type="button"
-              onClick={() => onOpen(item.id)}
-              className="flex min-h-11 w-full min-w-0 flex-col gap-0.75 rounded-xl bg-muted p-2 text-left shadow-sb-card"
-            >
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "flex h-12.5 items-center justify-center overflow-hidden rounded-[10px]",
-                  item.imageUrl === null && "border border-dashed border-border",
-                  dark ? "bg-foreground/90" : "bg-bg-layer-2",
-                )}
+        {items.map((item) => {
+          const thumbnail = itemThumbnail(item);
+          return (
+            <li key={item.id} className="min-w-0">
+              <button
+                type="button"
+                onClick={() => onOpen(item.id)}
+                className="flex min-h-11 w-full min-w-0 flex-col gap-0.75 rounded-xl bg-muted p-2 text-left shadow-sb-card"
               >
-                {item.imageUrl !== null && (
-                  <img src={item.imageUrl} alt="" className="size-full object-cover" />
-                )}
-              </span>
-              <span className="truncate text-xs font-semibold">{item.name}</span>
-              <span className="truncate text-xs font-bold text-primary">{caption(item, t)}</span>
-            </button>
-          </li>
-        ))}
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "flex h-12.5 items-center justify-center overflow-hidden rounded-[10px]",
+                    thumbnail === null && "border border-dashed border-border",
+                    dark ? "bg-foreground/90" : "bg-bg-layer-2",
+                  )}
+                >
+                  {thumbnail !== null && (
+                    <img src={thumbnail} alt="" className="size-full object-cover" />
+                  )}
+                </span>
+                <span className="truncate text-xs font-semibold">{item.name}</span>
+                <span className="truncate text-xs font-bold text-primary">{caption(item, t)}</span>
+              </button>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

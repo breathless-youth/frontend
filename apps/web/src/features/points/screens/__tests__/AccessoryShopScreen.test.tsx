@@ -200,6 +200,19 @@ describe("AccessoryGrid", () => {
     expect(images[0]).toHaveAttribute("alt", "");
   });
 
+  it("앞 그림이 없고 뒤 그림만 있는 소품은 뒤 그림을 칸에 그린다", () => {
+    const { container } = render(
+      <AccessoryGrid
+        items={[{ ...first, imageUrl: null, backImageUrl: "/aura.png" }]}
+        slot="effect"
+        pickedId={undefined}
+        onPick={() => {}}
+        onTakeOff={() => {}}
+      />,
+    );
+    expect(container.querySelector("img")).toHaveAttribute("src", "/aura.png");
+  });
+
   it("상점에서 누른 소품이 있으면 그 소품의 칸과 소품이 골라진 채로 열린다", async () => {
     renderScreen(
       createFakePointsGateway("default"),

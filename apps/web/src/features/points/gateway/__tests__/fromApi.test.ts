@@ -353,6 +353,33 @@ describe("toMascotLook", () => {
       }),
     ).toEqual({ id: "lamp", accessories: [] });
   });
+
+  it("앞 그림 없이 뒤 그림만 있는 효과도 조각과 함께 남긴다", () => {
+    const pieces = [{ x: 0, y: 0, width: 1, height: 1, motion: "pulse" }];
+    expect(
+      toMascotLook({
+        mascotCode: "LAMP",
+        accessories: [
+          {
+            mascotCode: "LAMP",
+            slot: "EFFECT",
+            item: {
+              itemId: 9,
+              code: "AURA",
+              imageUrl: null,
+              backImageUrl: "/aura.png",
+              effectPieces: pieces,
+            },
+          },
+        ],
+      }),
+    ).toEqual({
+      id: "lamp",
+      accessories: [
+        { slot: "effect", code: "AURA", backImageUrl: "/aura.png", effectPieces: pieces },
+      ],
+    });
+  });
 });
 
 describe("새 기록 사유와 결제 상품", () => {

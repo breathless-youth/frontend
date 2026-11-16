@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 import { formatPoints } from "../../model/formatPoints";
+import { itemThumbnail } from "../../model/itemThumbnail";
 import type { AccessorySlot, ShopItem } from "../../types";
 
 /**
@@ -34,6 +35,7 @@ export function AccessoryGrid({
       {items.map((item) => {
         const picked = item.id === pickedId;
         const sub = subLabel(item, t);
+        const thumbnail = itemThumbnail(item);
         return (
           <button
             key={item.id}
@@ -43,9 +45,9 @@ export function AccessoryGrid({
             onClick={() => onPick(item.id)}
             className={cn(cell, picked ? "border-2 border-primary" : "border border-border")}
           >
-            {item.imageUrl !== null && (
+            {thumbnail !== null && (
               <img
-                src={item.imageUrl}
+                src={thumbnail}
                 alt=""
                 aria-hidden="true"
                 draggable={false}

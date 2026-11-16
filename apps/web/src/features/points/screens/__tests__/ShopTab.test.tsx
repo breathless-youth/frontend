@@ -48,6 +48,18 @@ describe("ShopTab", () => {
     expect(onOpen).toHaveBeenLastCalledWith("timerBackground", expect.any(String));
   });
 
+  it("앞 그림이 없는 상품은 뒤 그림을 칸에 보인다", () => {
+    const data = shopData("default");
+    const ribbon = data.items.find((item) => item.id === "acc-stopwatch-ribbon");
+    if (ribbon === undefined) throw new Error("고정 데이터에 단추 리본이 없다");
+    ribbon.imageUrl = null;
+    ribbon.backImageUrl = "/ribbon-back.png";
+    const { container } = render(
+      <ShopTab data={data} onOpen={vi.fn()} onOpenMascots={vi.fn()} onSelectMascot={vi.fn()} />,
+    );
+    expect(container.querySelector("img[src='/ribbon-back.png']")).not.toBeNull();
+  });
+
   it("상품을 누르면 그 상품을 골라서 열도록 상품 id를 함께 넘긴다", async () => {
     const { onOpen } = renderTab("default");
     const accessories = screen.getByRole("region", { name: "스톱워치 소품" });

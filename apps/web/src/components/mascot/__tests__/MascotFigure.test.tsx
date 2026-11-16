@@ -126,6 +126,78 @@ describe("MascotFigure", () => {
     expect(container.querySelector("img[src='/fx.png']")).toBeNull();
   });
 
+  it("뒤 그림이 따로 온 날개는 본체를 몸 뒤에, 앞 조각을 몸 앞에 그린다", () => {
+    const { container } = render(
+      <MascotFigure
+        id="book"
+        accessories={[{ slot: "wings", imageUrl: "/straps.png", backImageUrl: "/bag.png" }]}
+      />,
+    );
+
+    expect(layerOrder(container)).toEqual([
+      "accessory-wings-back",
+      "mascot-body",
+      "accessory-wings",
+    ]);
+    expect(container.querySelector("[data-slot='accessory-wings-back']")).toHaveAttribute(
+      "src",
+      "/bag.png",
+    );
+  });
+
+  it("뒤 그림만 있는 효과는 몸 뒤에서 조각마다 움직인다", () => {
+    const { container } = render(
+      <MascotFigure
+        id="book"
+        accessories={[
+          {
+            slot: "effect",
+            backImageUrl: "/aura.png",
+            effectPieces: [{ x: 0, y: 0, width: 0.5, height: 0.5, motion: "pulse" }],
+          },
+        ]}
+      />,
+    );
+
+    expect(layerOrder(container)).toEqual(["accessory-effect-back", "mascot-body"]);
+    const piece = container.querySelector<HTMLElement>("[data-effect-piece]");
+    expect(piece?.getAttribute("data-effect-piece")).toBe("pulse");
+    expect(piece?.style.backgroundImage).toContain("/aura.png");
+    expect(piece?.className).toContain("motion-reduce:animate-none");
+  });
+
+  it("뒤 그림만 있고 조각이 없는 효과는 통째로 떠오르내리고 모션 축소에서는 멈춘다", () => {
+    const { container } = render(
+      <MascotFigure id="book" accessories={[{ slot: "effect", backImageUrl: "/backdrop.png" }]} />,
+    );
+
+    const layer = container.querySelector<HTMLElement>("[data-slot='accessory-effect-back']");
+    expect(layer).toHaveAttribute("src", "/backdrop.png");
+    expect(layer?.className).toContain("mascot-effect-float");
+    expect(layer?.className).toContain("motion-reduce:animate-none");
+  });
+
+  it("앞뒤 그림이 다 있는 효과의 뒤 그림은 움직이지 않는다", () => {
+    const { container } = render(
+      <MascotFigure
+        id="book"
+        accessories={[{ slot: "effect", imageUrl: "/stars.png", backImageUrl: "/sky.png" }]}
+      />,
+    );
+
+    expect(layerOrder(container)).toEqual([
+      "accessory-effect-back",
+      "mascot-body",
+      "accessory-effect",
+    ]);
+    expect(container.querySelector("[data-slot='accessory-effect-back']")?.className).not.toContain(
+      "mascot-effect-float",
+    );
+    expect(container.querySelector("[data-slot='accessory-effect']")?.className).toContain(
+      "mascot-effect-float",
+    );
+  });
+
   it("코드로 그리는 빛 효과는 몸 뒤에 마스코트 윤곽을 따라 그린다", () => {
     const { container } = render(
       <MascotFigure id="book" accessories={[{ slot: "effect", effectType: "aurora" }]} />,

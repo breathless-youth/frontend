@@ -134,7 +134,7 @@ export function toSlotCode(slot: AccessorySlot): string {
  *
  * 내 꾸미기 조회와 그룹 구성원 응답이 같은 모양이라 함께 쓴다.
  * 꾸미기 조회에는 마스코트마다 낀 소품이 함께 오므로 고른 마스코트의 소품만 남긴다.
- * 고른 마스코트가 없거나 모르는 코드면 null이고, 그림 주소가 없거나 모르는 칸의 소품은 그릴 수 없어 뺀다.
+ * 고른 마스코트가 없거나 모르는 코드면 null이고, 그릴 것이 없거나 모르는 칸의 소품은 뺀다.
  */
 export function toMascotLook(
   raw: { mascotCode: string | null; accessories: DecorationsResponse["accessories"] } | null,
@@ -174,7 +174,8 @@ function toEffectPieces(raw: EffectPieceResponse[] | null | undefined): EffectPi
 /**
  * 상품의 그림 정보
  *
- * 그림도 없고 코드로 그리는 빛 효과도 아니면 그릴 것이 없어 null이다.
+ * 앞 그림도 뒤 그림도 없고 코드로 그리는 빛 효과도 아니면 그릴 것이 없어 null이다.
+ * 오라나 뒤 배경 같은 효과는 뒤 그림만 오므로 앞 그림이 없다고 버리지 않는다.
  * 없는 값은 열쇠째 빼서 받는 쪽이 있는 것만 보게 한다.
  */
 function toDrawing(item: {
@@ -184,7 +185,7 @@ function toDrawing(item: {
   effectPieces?: EffectPieceResponse[] | null;
   effectType?: string | null;
 }): Omit<WornAccessory, "slot"> | null {
-  if (item.imageUrl === null && !item.effectType) {
+  if (item.imageUrl === null && !item.backImageUrl && !item.effectType) {
     return null;
   }
   const effectPieces = toEffectPieces(item.effectPieces);
