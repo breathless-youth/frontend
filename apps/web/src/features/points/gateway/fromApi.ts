@@ -15,6 +15,7 @@ import type {
   ShopData,
   ShopItem,
 } from "../types";
+import { tierAt } from "../model/earnTier";
 import type {
   ClaimResponse,
   DecorationsResponse,
@@ -370,13 +371,30 @@ function toMedalRates(points: number[] | undefined) {
   return { gold: at(0), silver: at(1), bronze: at(2) };
 }
 
+/** 숫자가 아닌 칸이 있는 구간은 그릴 수 없어 그 구간만 버린다. */
+function validTiers<T extends { fromSec: number; toSec: number }>(
+  tiers: readonly T[] | undefined,
+  keys: readonly (keyof T)[],
+): T[] {
+  return (tiers ?? []).filter((tier) =>
+    [...keys, "fromSec", "toSec"].every((key) => Number.isFinite(tier[key as keyof T])),
+  );
+}
+
 /**
  * 오늘 받을 수 있는 포인트
  *
- * 광고는 1단계 서버에 없어 싣지 않는다. 하루 목표의 30분당 기준도 서버가 주지 않으므로 보상과 목표 시간으로 거꾸로 계산하지 않는다.
+ * 30분마다 받는 포인트는 오늘 순공이 속한 구간의 값이고, 하루 목표도 오늘 순공이 속한 구간의 값을 쓴다.
+ * 공부 구간은 혼자 값과 같이 값이 있지만 지금 화면은 혼자 값만 그린다.
+ * 구간을 주지 않는 서버에서는 첫 구간 값인 pointsPerUnit을 그대로 쓴다.
+ * 하루 목표의 30분당 기준을 서버가 주지 않으면 보상과 목표 시간으로 거꾸로 계산하지 않는다.
  * 모르는 기간이나 1~3위 밖 순위의 메달은 표에 그릴 자리가 없어 그 항목만 버린다.
  */
 export function toEarnToday(res: PointsEarnResponse): EarnToday {
+  const studyTiers = validTiers(res.study.tiers, ["soloPoints", "togetherPoints"]);
+  const goalTiers = validTiers(res.dailyGoal.tiers, ["points"]);
+  const goalPointsPerUnit =
+    tierAt(goalTiers, res.dailyGoal.focusSec)?.points ?? res.dailyGoal.pointsPerUnit;
   return {
     earned: res.todayEarned,
     dailyMax: res.dailyMax,
@@ -384,14 +402,21 @@ export function toEarnToday(res: PointsEarnResponse): EarnToday {
       focusSec: res.study.recognizedFocusSec,
       capSec: res.study.dailyCapFocusSec,
       unitSec: res.study.unitSec,
-      pointsPerUnit: res.study.pointsPerUnit,
+      pointsPerUnit:
+        tierAt(studyTiers, res.study.recognizedFocusSec)?.soloPoints ?? res.study.pointsPerUnit,
+      ...(res.study.togetherFocusSec === undefined
+        ? null
+        : { togetherFocusSec: res.study.togetherFocusSec }),
+      ...(studyTiers.length === 0 ? null : { tiers: studyTiers }),
     },
     attendance: { reward: res.attendance.points, claimed: res.attendance.claimed },
     dailyGoal: {
       goalSec: res.dailyGoal.goalSec,
-      ...(res.dailyGoal.unitSec === undefined || res.dailyGoal.pointsPerUnit === undefined
+      ...(res.dailyGoal.unitSec === undefined || goalPointsPerUnit === undefined
         ? null
-        : { unitSec: res.dailyGoal.unitSec, pointsPerUnit: res.dailyGoal.pointsPerUnit }),
+        : { unitSec: res.dailyGoal.unitSec, pointsPerUnit: goalPointsPerUnit }),
+      ...(res.dailyGoal.capSec === undefined ? null : { capSec: res.dailyGoal.capSec }),
+      ...(goalTiers.length === 0 ? null : { tiers: goalTiers }),
       reward: res.dailyGoal.points,
       achieved: res.dailyGoal.achieved,
       claimed: res.dailyGoal.claimed,

@@ -137,6 +137,17 @@ export type PointsHistoryResponse = {
   nextCursor: number | null;
 };
 
+/** 공부 포인트의 구간 하나이며 unitSec마다 혼자면 soloPoints, 같이면 togetherPoints를 준다. */
+export type StudyPointTierResponse = {
+  fromSec: number;
+  toSec: number;
+  soloPoints: number;
+  togetherPoints: number;
+};
+
+/** 하루 목표 포인트의 구간 하나이며 목표 시간의 unitSec마다 points를 준다. */
+export type GoalPointTierResponse = { fromSec: number; toSec: number; points: number };
+
 export type PointsEarnResponse = {
   date: string;
   todayEarned: number;
@@ -145,17 +156,26 @@ export type PointsEarnResponse = {
     recognizedFocusSec: number;
     dailyCapFocusSec: number;
     unitSec: number;
+    /** 첫 구간의 혼자 값이며 구간을 그리는 화면은 tiers를 쓴다. */
     pointsPerUnit: number;
     earnedPoints: number;
+    /** 상한까지 모두 같이 한 경우의 최대다. */
     maxPoints: number;
+    /** 오늘 순공 가운데 방에 나 말고 한 명 이상 있던 시간이며 아래 두 필드는 구간이 생기기 전의 서버가 주지 않는다. */
+    togetherFocusSec?: number;
+    tiers?: StudyPointTierResponse[];
   };
   attendance: { points: number; claimed: boolean };
   /** 목표가 없으면 goalSec와 remainingSec이 null이고 points는 0이다. */
   dailyGoal: {
     points: number;
-    /** 목표 시간의 이만큼마다 pointsPerUnit을 준다. 이 기준이 생기기 전의 서버는 주지 않는다. */
+    /** 목표 시간의 이만큼마다 구간 값을 준다. 이 기준이 생기기 전의 서버는 주지 않는다. */
     unitSec?: number;
+    /** 첫 구간의 값이며 구간을 그리는 화면은 tiers를 쓴다. */
     pointsPerUnit?: number;
+    /** 이보다 긴 목표 시간은 세지 않으며 아래 두 필드는 구간이 생기기 전의 서버가 주지 않는다. */
+    capSec?: number;
+    tiers?: GoalPointTierResponse[];
     goalSec: number | null;
     focusSec: number;
     remainingSec: number | null;

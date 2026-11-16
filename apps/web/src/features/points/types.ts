@@ -87,17 +87,39 @@ export type MedalReward = {
 
 export type MedalRates = { gold: number; silver: number; bronze: number };
 
+export type StudyPointTier = {
+  fromSec: number;
+  toSec: number;
+  soloPoints: number;
+  togetherPoints: number;
+};
+
+export type GoalPointTier = { fromSec: number; toSec: number; points: number };
+
 export type EarnToday = {
   earned: number;
   dailyMax: number;
-  study: { focusSec: number; capSec: number; unitSec: number; pointsPerUnit: number };
+  study: {
+    focusSec: number;
+    capSec: number;
+    unitSec: number;
+    /** 오늘 순공이 속한 구간의 혼자 값이고, 구간을 주지 않는 서버에서는 서버의 단일 값이다. */
+    pointsPerUnit: number;
+    /** 아래 두 값은 구간을 주는 서버에서만 있다. */
+    togetherFocusSec?: number;
+    tiers?: StudyPointTier[];
+  };
   attendance: { reward: number; claimed: boolean };
   dailyGoal: {
     /** 목표를 안 정했으면 null이다. */
     goalSec: number | null;
     /** 서버가 기준을 주지 않으면 없고, 그때 타일은 `30분당` 줄을 그리지 않는다. */
     unitSec?: number;
+    /** 오늘 순공이 속한 구간의 값이고, 구간을 주지 않는 서버에서는 서버의 단일 값이다. */
     pointsPerUnit?: number;
+    /** 아래 두 값은 구간을 주는 서버에서만 있다. */
+    capSec?: number;
+    tiers?: GoalPointTier[];
     reward: number;
     achieved: boolean;
     claimed: boolean;

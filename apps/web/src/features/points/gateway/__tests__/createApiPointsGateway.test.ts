@@ -343,6 +343,54 @@ describe("포인트 받기 연결", () => {
     expect(earn.dailyMax).toBe(254);
   });
 
+  it("30분마다 받는 포인트는 오늘 순공 시간이 속한 구간의 값이고, 구간과 같이 한 시간을 함께 넘긴다", async () => {
+    const studyTiers = [
+      { fromSec: 0, toSec: 7200, soloPoints: 7, togetherPoints: 10 },
+      { fromSec: 7200, toSec: 21600, soloPoints: 4, togetherPoints: 5 },
+      { fromSec: 21600, toSec: 43200, soloPoints: 1, togetherPoints: 2 },
+    ];
+    const goalTiers = [
+      { fromSec: 0, toSec: 7200, points: 20 },
+      { fromSec: 7200, toSec: 28800, points: 5 },
+    ];
+    fetchMock.mockResolvedValue(
+      respond(200, {
+        ...EARN,
+        study: { ...EARN.study, pointsPerUnit: 7, togetherFocusSec: 3600, tiers: studyTiers },
+        dailyGoal: {
+          ...EARN.dailyGoal,
+          unitSec: 1800,
+          pointsPerUnit: 20,
+          focusSec: 9000,
+          capSec: 28800,
+          tiers: goalTiers,
+        },
+      }),
+    );
+
+    const earn = await createApiPointsGateway().getEarnToday();
+
+    // 오늘 순공 2시간 10분은 두 번째 구간이고, 하루 목표는 오늘 순공 2시간 30분이 두 번째 구간이다.
+    expect(earn.study).toMatchObject({
+      pointsPerUnit: 4,
+      togetherFocusSec: 3600,
+      tiers: studyTiers,
+    });
+    expect(earn.dailyGoal).toMatchObject({ pointsPerUnit: 5, capSec: 28800, tiers: goalTiers });
+  });
+
+  it("구간을 주지 않는 서버에서는 첫 구간 값인 pointsPerUnit을 그대로 그린다", async () => {
+    fetchMock.mockResolvedValue(
+      respond(200, { ...EARN, dailyGoal: { ...EARN.dailyGoal, unitSec: 1800, pointsPerUnit: 20 } }),
+    );
+
+    const earn = await createApiPointsGateway().getEarnToday();
+
+    expect(earn.study.pointsPerUnit).toBe(10);
+    expect(earn.study).not.toHaveProperty("tiers");
+    expect(earn.dailyGoal.pointsPerUnit).toBe(20);
+  });
+
   it("목표가 없으면 goalSec와 remainingSec을 null로 두고 메달이 없어도 된다", async () => {
     fetchMock.mockResolvedValue(
       respond(200, {
