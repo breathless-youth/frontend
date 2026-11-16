@@ -8,7 +8,8 @@
     "today": "Today {{duration}}",
     "max": "Max {{duration}}",
     "aria": "Studied {{done}} of {{max}} today",
-    "togetherHint": "Study together in a group room for <accent>+{{points}}P</accent> every {{duration}}"
+    "togetherGuide": "Group study points info",
+    "togetherRule": "Study with 2 or more people in a group room to get {{points}} every {{duration}}."
   },
   "tile": {
     "attendance": "Check-in",

@@ -8,7 +8,8 @@
     "today": "今天 {{duration}}",
     "max": "上限 {{duration}}",
     "aria": "今天已讀書 {{done}}(上限 {{max}})",
-    "togetherHint": "在群組讀書室一起讀書，每 {{duration}} <accent>+{{points}}P</accent>"
+    "togetherGuide": "一起讀書點數說明",
+    "togetherRule": "在群組讀書室與 2 人以上一起讀書，每 {{duration}} 可得 {{points}}。"
   },
   "tile": {
     "attendance": "簽到",

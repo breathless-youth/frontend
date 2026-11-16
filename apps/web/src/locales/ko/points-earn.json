@@ -8,7 +8,8 @@
     "today": "오늘 {{duration}}",
     "max": "최대 {{duration}}",
     "aria": "오늘 {{max}} 중 {{done}} 공부했어요",
-    "togetherHint": "그룹 공부방에서 같이 하면 {{duration}}마다 <accent>+{{points}}P</accent>"
+    "togetherGuide": "같이 공부 포인트 안내",
+    "togetherRule": "그룹 공부방에서 2명 이상 함께 공부하면 {{duration}}마다 {{points}}를 받아요."
   },
   "tile": {
     "attendance": "출석",

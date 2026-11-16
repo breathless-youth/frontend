@@ -1,5 +1,6 @@
-import { Trans, useTranslation } from "react-i18next";
+import { useTranslation } from "react-i18next";
 
+import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { Progress } from "@/components/ui/progress";
 import { formatDuration } from "@/features/records/recordsFormat";
 
@@ -11,9 +12,9 @@ import { EarnIcon } from "./EarnIcon";
 /**
  * 공부 시간으로 받는 포인트의 규칙과 오늘 진행 막대
  *
- * 그룹 공부방에서 같이 하면 더 받는다는 것을 제목 아래 한 줄로 알린다.
+ * 그룹 공부방에서 같이 하면 더 받는다는 것은 제목 옆 안내 버튼을 눌러야 보인다.
  * 같이 값은 혼자 값과 같은 지금 구간의 값이라 하루 순공이 쌓여 구간이 바뀌면 함께 바뀐다.
- * 구간을 주지 않는 서버이거나 같이 값이 혼자 값보다 크지 않으면 그 줄을 그리지 않는다.
+ * 구간을 주지 않는 서버이거나 같이 값이 혼자 값보다 크지 않으면 안내 버튼을 두지 않는다.
  */
 export function StudyRow({ study }: { study: EarnToday["study"] }) {
   const { t } = useTranslation("points-earn");
@@ -27,20 +28,18 @@ export function StudyRow({ study }: { study: EarnToday["study"] }) {
     <div className="flex items-center gap-3 rounded-lg bg-bg-layer-2 p-3">
       <EarnIcon name="study" />
       <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-        <span className="flex flex-col gap-0.5">
-          <span className="text-sm font-bold break-keep">
+        <span className="flex items-center gap-1.5 text-sm font-bold break-keep">
+          <span>
             {t("study.every", { duration: formatDuration(study.unitSec) })}{" "}
             <span className="text-primary">{formatSignedPoints(study.pointsPerUnit)}</span>
           </span>
           {togetherPoints !== null && (
-            <span className="text-xs break-keep text-muted-foreground">
-              <Trans
-                t={t}
-                i18nKey="study.togetherHint"
-                values={{ duration: formatDuration(study.unitSec), points: togetherPoints }}
-                components={{ accent: <span className="font-bold text-primary tabular-nums" /> }}
-              />
-            </span>
+            <InfoTooltip label={t("study.togetherGuide")} iconSize={14}>
+              {t("study.togetherRule", {
+                duration: formatDuration(study.unitSec),
+                points: formatSignedPoints(togetherPoints),
+              })}
+            </InfoTooltip>
           )}
         </span>
         <Progress
