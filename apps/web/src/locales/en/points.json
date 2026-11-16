@@ -55,13 +55,13 @@
     "screen": "Couldn't load this screen"
   },
   "mascots": {
-    "book": "Book",
-    "planner": "Planner",
-    "pencil": "Pencil",
-    "stopwatch": "Stopwatch",
-    "lamp": "Lamp",
-    "padlock": "Padlock",
-    "camcorder": "Camcorder"
+    "book": "Booki",
+    "planner": "Planni",
+    "pencil": "Stubi",
+    "stopwatch": "Timi",
+    "lamp": "Lampi",
+    "padlock": "Locki",
+    "camcorder": "Cammi"
   },
   "mascotImage": {
     "unlocked": "{{name}} mascot",

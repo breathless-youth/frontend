@@ -53,13 +53,13 @@
     "screen": "画面を読み込めませんでした"
   },
   "mascots": {
-    "book": "本",
-    "planner": "プランナー",
-    "pencil": "えんぴつ",
-    "stopwatch": "ストップウォッチ",
-    "lamp": "ランプ",
-    "padlock": "南京錠",
-    "camcorder": "ビデオカメラ"
+    "book": "ブッキー",
+    "planner": "プラニー",
+    "pencil": "ちびペン",
+    "stopwatch": "ティミー",
+    "lamp": "ランピー",
+    "padlock": "ロッキー",
+    "camcorder": "キャミー"
   },
   "mascotImage": {
     "unlocked": "{{name}}のマスコット",

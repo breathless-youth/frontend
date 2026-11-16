@@ -53,13 +53,13 @@
     "screen": "無法載入畫面"
   },
   "mascots": {
-    "book": "書本",
-    "planner": "計畫本",
-    "pencil": "鉛筆",
-    "stopwatch": "碼錶",
-    "lamp": "檯燈",
-    "padlock": "鎖頭",
-    "camcorder": "攝影機"
+    "book": "書寶",
+    "planner": "本本",
+    "pencil": "短短",
+    "stopwatch": "滴答",
+    "lamp": "亮亮",
+    "padlock": "鎖鎖",
+    "camcorder": "拍拍"
   },
   "mascotImage": {
     "unlocked": "{{name}}吉祥物",

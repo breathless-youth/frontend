@@ -42,7 +42,7 @@ describe("PointsBalancePill", () => {
 describe("MascotImage", () => {
   it("잠긴 마스코트는 잠겼다고 읽힌다", () => {
     render(<MascotImage id="lamp" locked size={50} />);
-    expect(screen.getByRole("img", { name: "잠긴 램프 마스코트" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "잠긴 램피 마스코트" })).toBeInTheDocument();
   });
 });
 

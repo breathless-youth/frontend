@@ -93,11 +93,11 @@ describe("AccessoryShopScreen", () => {
 
   it("잠긴 마스코트는 자물쇠와 함께 보이고, 고르면 잠김 안내와 마스코트 모으기가 나온다", async () => {
     renderScreen(createFakePointsGateway("default"));
-    expect(await screen.findByRole("button", { name: "램프, 아직 잠겨 있어요" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "스톱워치, 고른 마스코트" })).toBeVisible();
+    expect(await screen.findByRole("button", { name: "램피, 아직 잠겨 있어요" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "타이미, 고른 마스코트" })).toBeVisible();
 
-    await userEvent.click(screen.getByRole("button", { name: "램프, 아직 잠겨 있어요" }));
-    expect(screen.getByText("램프는 아직 잠겨 있어요")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "램피, 아직 잠겨 있어요" }));
+    expect(screen.getByText("램피는 아직 잠겨 있어요")).toBeVisible();
     expect(screen.getByText("순공 4시간 12분 더 하면 열려요.")).toBeVisible();
     expect(screen.queryByRole("group", { name: "소품 고르기" })).not.toBeInTheDocument();
 

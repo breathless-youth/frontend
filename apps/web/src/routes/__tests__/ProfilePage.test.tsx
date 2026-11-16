@@ -924,8 +924,8 @@ describe("프로필 설정의 내 마스코트", () => {
       "href",
       "/points/accessories?userId=7&lang=ko",
     );
-    const selected = await screen.findByRole("button", { name: "스톱워치" });
-    await userEvent.click(await screen.findByRole("button", { name: "램프 잠김" }));
+    const selected = await screen.findByRole("button", { name: "타이미" });
+    await userEvent.click(await screen.findByRole("button", { name: "램피 잠김" }));
     expect(selected).toHaveAttribute("aria-pressed", "true");
     expect(mockedUpdateProfile).not.toHaveBeenCalled();
   });
@@ -935,9 +935,9 @@ describe("프로필 설정의 내 마스코트", () => {
     mockedGetProfile.mockResolvedValue(member);
     renderAt("/profile?userId=7");
 
-    await userEvent.click(await screen.findByRole("button", { name: "플래너" }));
+    await userEvent.click(await screen.findByRole("button", { name: "플래니" }));
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "플래너" })).toHaveAttribute(
+      expect(screen.getByRole("button", { name: "플래니" })).toHaveAttribute(
         "aria-pressed",
         "true",
       ),

@@ -41,13 +41,13 @@
   },
   "locked": {
     "title": {
-      "book": "書本尚未解鎖",
-      "planner": "手帳尚未解鎖",
-      "pencil": "鉛筆尚未解鎖",
-      "stopwatch": "碼錶尚未解鎖",
-      "lamp": "檯燈尚未解鎖",
-      "padlock": "掛鎖尚未解鎖",
-      "camcorder": "攝影機尚未解鎖"
+      "book": "書寶尚未解鎖",
+      "planner": "本本尚未解鎖",
+      "pencil": "短短尚未解鎖",
+      "stopwatch": "滴答尚未解鎖",
+      "lamp": "亮亮尚未解鎖",
+      "padlock": "鎖鎖尚未解鎖",
+      "camcorder": "拍拍尚未解鎖"
     },
     "hint": "再專注 {{remaining}} 就能解鎖。",
     "progress": "距離{{name}}已完成 {{percent}}%",

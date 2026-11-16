@@ -41,13 +41,13 @@
   },
   "locked": {
     "title": {
-      "book": "Book is still locked",
-      "planner": "Planner is still locked",
-      "pencil": "Pencil is still locked",
-      "stopwatch": "Stopwatch is still locked",
-      "lamp": "Lamp is still locked",
-      "padlock": "Padlock is still locked",
-      "camcorder": "Camcorder is still locked"
+      "book": "Booki is still locked",
+      "planner": "Planni is still locked",
+      "pencil": "Stubi is still locked",
+      "stopwatch": "Timi is still locked",
+      "lamp": "Lampi is still locked",
+      "padlock": "Locki is still locked",
+      "camcorder": "Cammi is still locked"
     },
     "hint": "Focus {{remaining}} more to unlock it.",
     "progress": "{{percent}}% of the way to {{name}}",

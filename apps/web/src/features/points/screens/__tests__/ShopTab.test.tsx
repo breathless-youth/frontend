@@ -21,8 +21,8 @@ describe("ShopTab", () => {
   it("다음 마스코트 카드가 남은 시간과 막대를 보이고 누르면 마스코트 모으기로 간다", async () => {
     const { onOpenMascots } = renderTab("default");
     expect(screen.getByText("순공 4시간 12분 더 하면 열려요")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "램프까지 86% 모았어요" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /다음 마스코트 램프/ }));
+    expect(screen.getByRole("img", { name: "램피까지 86% 모았어요" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /다음 마스코트 램피/ }));
     expect(onOpenMascots).toHaveBeenCalledOnce();
   });
 
@@ -31,13 +31,13 @@ describe("ShopTab", () => {
     const picker = screen.getByRole("region", { name: "오늘 함께할 마스코트" });
     expect(within(picker).getByText("오늘은 누구랑 공부할까요?")).toBeInTheDocument();
     expect(within(picker).getAllByRole("button")).toHaveLength(7);
-    await userEvent.click(within(picker).getByRole("button", { name: "램프" }));
+    await userEvent.click(within(picker).getByRole("button", { name: "램피" }));
     expect(onSelectMascot).toHaveBeenCalledWith("lamp");
   });
 
   it("상품 줄이 소품과 타이머 배경 두 종류로 세 개씩 나오고 전체 보기로 그 종류를 연다", async () => {
     const { onOpen } = renderTab("default");
-    const accessories = screen.getByRole("region", { name: "스톱워치 소품" });
+    const accessories = screen.getByRole("region", { name: "타이미 소품" });
     const backgrounds = screen.getByRole("region", { name: "타이머 배경" });
     expect(within(accessories).getAllByRole("listitem")).toHaveLength(3);
     expect(within(backgrounds).getAllByRole("listitem")).toHaveLength(3);
@@ -62,7 +62,7 @@ describe("ShopTab", () => {
 
   it("상품을 누르면 그 상품을 골라서 열도록 상품 id를 함께 넘긴다", async () => {
     const { onOpen } = renderTab("default");
-    const accessories = screen.getByRole("region", { name: "스톱워치 소품" });
+    const accessories = screen.getByRole("region", { name: "타이미 소품" });
     await userEvent.click(within(accessories).getByRole("button", { name: /단추 리본/ }));
     expect(onOpen).toHaveBeenLastCalledWith("accessory", "acc-stopwatch-ribbon");
   });

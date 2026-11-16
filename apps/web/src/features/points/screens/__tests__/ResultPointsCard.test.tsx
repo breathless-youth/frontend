@@ -22,8 +22,8 @@ describe("ResultPointsCard", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("오늘 2시간 10분")).toBeInTheDocument();
     expect(screen.getByText("최대 12시간")).toBeInTheDocument();
-    expect(screen.getByText("램프까지 순공 2시간 48분 남았어요")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "램프까지 91% 모았어요" })).toBeInTheDocument();
+    expect(screen.getByText("램피까지 순공 2시간 48분 남았어요")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "램피까지 91% 모았어요" })).toBeInTheDocument();
   });
 
   it("상점 버튼이 상점을 연다", async () => {
@@ -37,7 +37,7 @@ describe("ResultPointsCard", () => {
     render(<ResultPointsCard reward={{ ...reward, earned: 0 }} onOpenShop={vi.fn()} />);
     expect(screen.queryByText(/받았어요/)).not.toBeInTheDocument();
     expect(screen.queryByText("최대 12시간")).not.toBeInTheDocument();
-    expect(screen.getByText("램프까지 순공 2시간 48분 남았어요")).toBeInTheDocument();
+    expect(screen.getByText("램피까지 순공 2시간 48분 남았어요")).toBeInTheDocument();
   });
 
   it("reward가 null이면 카드가 없다", () => {

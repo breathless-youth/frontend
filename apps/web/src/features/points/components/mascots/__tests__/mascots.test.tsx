@@ -50,7 +50,7 @@ describe("MascotCollectionScreen", () => {
     expect(screen.getAllByText("선택 가능")).toHaveLength(2);
     expect(screen.getAllByText("선택 중")).toHaveLength(1);
     expect(screen.getByText("4시간 12분 남음")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "스톱워치 선택 중" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "타이미 선택 중" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
@@ -64,17 +64,17 @@ describe("MascotCollectionScreen", () => {
 
   it("다음 차례 뒤의 잠긴 마스코트는 이름을 ???로 숨긴다", () => {
     renderScreen();
-    expect(screen.getByText("램프")).toBeInTheDocument();
+    expect(screen.getByText("램피")).toBeInTheDocument();
     expect(screen.getAllByText("???")).toHaveLength(3);
-    expect(screen.queryByText("자물쇠")).not.toBeInTheDocument();
+    expect(screen.queryByText("락키")).not.toBeInTheDocument();
   });
 
   it("잠긴 마스코트를 누르면 남은 시간과 진행을 알리는 시트가 뜬다", async () => {
     renderScreen();
-    await userEvent.click(screen.getByRole("button", { name: "램프 잠김, 4시간 12분 남음" }));
+    await userEvent.click(screen.getByRole("button", { name: "램피 잠김, 4시간 12분 남음" }));
     const sheet = await screen.findByRole("dialog");
     expect(within(sheet).getByText("순공 4시간 12분 더 하면 열려요.")).toBeInTheDocument();
-    expect(within(sheet).getByRole("img", { name: "램프까지 86% 모았어요" })).toBeInTheDocument();
+    expect(within(sheet).getByRole("img", { name: "램피까지 86% 모았어요" })).toBeInTheDocument();
     expect(within(sheet).getByText("30시간")).toBeInTheDocument();
     await userEvent.click(within(sheet).getByRole("button", { name: "닫기" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -82,7 +82,7 @@ describe("MascotCollectionScreen", () => {
 
   it("연 마스코트를 누르면 선택을 부른다", async () => {
     const { onSelect } = renderScreen();
-    await userEvent.click(screen.getByRole("button", { name: "플래너 선택 가능" }));
+    await userEvent.click(screen.getByRole("button", { name: "플래니 선택 가능" }));
     expect(onSelect).toHaveBeenCalledWith("planner");
   });
 
@@ -92,14 +92,14 @@ describe("MascotCollectionScreen", () => {
       data: { items: done.items, mascots: done.mascots, totalFocusSec: done.totalFocusSec },
     });
     expect(screen.queryByText("???")).not.toBeInTheDocument();
-    expect(screen.getByText("자물쇠")).toBeInTheDocument();
+    expect(screen.getByText("락키")).toBeInTheDocument();
     expect(screen.getAllByText("선택 가능")).toHaveLength(6);
   });
 
   it("새로 열린 마스코트가 있으면 축하 화면을 한 번만 보인다", async () => {
     const { onSelect } = renderScreen({ newlyUnlocked: "lamp" });
     expect(screen.getByText("새 마스코트")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "램프" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "램피" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "나중에" }));
     expect(onSelect).not.toHaveBeenCalled();
     expect(screen.queryByText("새 마스코트")).not.toBeInTheDocument();
@@ -123,7 +123,7 @@ describe("MascotCollectionScreen", () => {
 
     it("이름을 숨기지 않고 남은 시간 대신 가격을 보인다", () => {
       renderScreen({ data: priced });
-      expect(screen.getByRole("button", { name: "캠코더 잠김, 500P" })).toBeVisible();
+      expect(screen.getByRole("button", { name: "캠코미 잠김, 500P" })).toBeVisible();
     });
 
     it("잠금 시트에서 사면 서버에 구매를 보내고 축하 화면에서 바로 바꿀 수 있다", async () => {
@@ -133,7 +133,7 @@ describe("MascotCollectionScreen", () => {
         .mockResolvedValue({ ok: true, balance: 740 });
       const { onSelect } = renderScreen({ data: priced }, gateway);
 
-      await userEvent.click(screen.getByRole("button", { name: "캠코더 잠김, 500P" }));
+      await userEvent.click(screen.getByRole("button", { name: "캠코미 잠김, 500P" }));
       await userEvent.click(await screen.findByRole("button", { name: "500P로 열기" }));
       await userEvent.click(await screen.findByRole("button", { name: "구매하기" }));
 
@@ -149,7 +149,7 @@ describe("MascotCollectionScreen", () => {
       const purchase = vi.spyOn(gateway, "purchaseMascot");
       renderScreen({ data: priced, balance: 100 }, gateway);
 
-      await userEvent.click(screen.getByRole("button", { name: "캠코더 잠김, 500P" }));
+      await userEvent.click(screen.getByRole("button", { name: "캠코미 잠김, 500P" }));
       await userEvent.click(await screen.findByRole("button", { name: "500P로 열기" }));
 
       expect(await screen.findByText(/더 필요해요/)).toBeInTheDocument();
@@ -163,7 +163,7 @@ describe("MascotCollectionScreen", () => {
         .spyOn(gateway, "purchaseMascot")
         .mockResolvedValue({ ok: true, balance: 100 });
       renderScreen({ data: priced, balance: 100, ...props }, gateway);
-      await userEvent.click(screen.getByRole("button", { name: "캠코더 잠김, 500P" }));
+      await userEvent.click(screen.getByRole("button", { name: "캠코미 잠김, 500P" }));
       await userEvent.click(await screen.findByRole("button", { name: "500P로 열기" }));
       await screen.findByText(/더 필요해요/);
       return { purchase };
@@ -227,18 +227,15 @@ describe("ProfileMascotRow", () => {
       "href",
       "/points/accessories",
     );
-    expect(screen.getByRole("button", { name: "스톱워치" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(screen.getByRole("button", { name: "타이미" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("연 마스코트를 누르면 바꾸고 잠긴 것은 눌러도 바뀌지 않는다", async () => {
     const { onSelect } = renderRow();
-    await userEvent.click(screen.getByRole("button", { name: "플래너" }));
+    await userEvent.click(screen.getByRole("button", { name: "플래니" }));
     expect(onSelect).toHaveBeenCalledWith("planner");
     onSelect.mockClear();
-    await userEvent.click(screen.getByRole("button", { name: "램프 잠김" }));
+    await userEvent.click(screen.getByRole("button", { name: "램피 잠김" }));
     expect(onSelect).not.toHaveBeenCalled();
   });
 });

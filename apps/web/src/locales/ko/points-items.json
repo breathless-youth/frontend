@@ -41,13 +41,13 @@
   },
   "locked": {
     "title": {
-      "book": "책은 아직 잠겨 있어요",
-      "planner": "플래너는 아직 잠겨 있어요",
-      "pencil": "연필은 아직 잠겨 있어요",
-      "stopwatch": "스톱워치는 아직 잠겨 있어요",
-      "lamp": "램프는 아직 잠겨 있어요",
-      "padlock": "자물쇠는 아직 잠겨 있어요",
-      "camcorder": "캠코더는 아직 잠겨 있어요"
+      "book": "부기는 아직 잠겨 있어요",
+      "planner": "플래니는 아직 잠겨 있어요",
+      "pencil": "몽당이는 아직 잠겨 있어요",
+      "stopwatch": "타이미는 아직 잠겨 있어요",
+      "lamp": "램피는 아직 잠겨 있어요",
+      "padlock": "락키는 아직 잠겨 있어요",
+      "camcorder": "캠코미는 아직 잠겨 있어요"
     },
     "hint": "순공 {{remaining}} 더 하면 열려요.",
     "progress": "{{name}}까지 {{percent}}% 모았어요",

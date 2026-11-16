@@ -53,13 +53,13 @@
     "screen": "화면을 불러오지 못했어요"
   },
   "mascots": {
-    "book": "책",
-    "planner": "플래너",
-    "pencil": "연필",
-    "stopwatch": "스톱워치",
-    "lamp": "램프",
-    "padlock": "자물쇠",
-    "camcorder": "캠코더"
+    "book": "부기",
+    "planner": "플래니",
+    "pencil": "몽당이",
+    "stopwatch": "타이미",
+    "lamp": "램피",
+    "padlock": "락키",
+    "camcorder": "캠코미"
   },
   "mascotImage": {
     "unlocked": "{{name}} 마스코트",

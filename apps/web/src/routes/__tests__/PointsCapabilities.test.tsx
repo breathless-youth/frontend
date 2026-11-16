@@ -121,7 +121,7 @@ describe("새 마스코트 축하", () => {
     const gateway = createFakePointsGateway("newMascot");
     const seen = vi.spyOn(gateway, "markUnlocksSeen");
     renderAt("/points/mascots", <PointsMascotsPage />, gateway);
-    expect(await screen.findByRole("img", { name: "스톱워치 마스코트" })).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: "타이미 마스코트" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "나중에" }));
     expect(seen).toHaveBeenCalledTimes(1);
     expect(await screen.findByText("누적 순공")).toBeInTheDocument();
