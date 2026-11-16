@@ -8,6 +8,7 @@ import appJson from "../../app.json";
  *
  * 운영 공개 키는 iOS와 Android가 다르고 EAS 환경 변수는 플랫폼별로 나뉘지 않아 env 이름을 플랫폼마다 따로 받는다.
  * 플랫폼 키가 하나도 없으면 두 플랫폼이 함께 쓰는 Test Store 키를 쓰고, 셋 다 없으면 충전이 꺼진다.
+ * EAS 빌더의 운영 빌드는 두 플랫폼 키가 모두 제 플랫폼의 접두어로 시작해야 한다.
  * 값은 접두어만 진짜와 같은 가짜이며 진짜 키를 넣지 않는다.
  */
 describe("RevenueCat 결제 키 설정", () => {
@@ -109,5 +110,70 @@ describe("RevenueCat 결제 키 설정", () => {
       REVENUECAT_ANDROID_API_KEY: STORE_KEY,
     });
     expect(cfg.extra?.revenueCatApiKeys).toEqual({ ios: STORE_KEY, android: STORE_KEY });
+  });
+
+  describe("EAS 빌더의 production 빌드", () => {
+    // EAS 빌더의 production 평가는 Meta·Airbridge env도 요구한다. 이 파일의 관심사가 아니라 채워 준다.
+    const EAS_PROD_ENV = {
+      ...PROD_ENV,
+      EAS_BUILD: "true",
+      META_APP_ID: "1234567890123456",
+      META_CLIENT_TOKEN: "0123456789abcdef0123456789abcdef",
+      AIRBRIDGE_APP_TOKEN: "test-token",
+    };
+
+    it.each([
+      ["키가 하나도 없으면", {}, /REVENUECAT_IOS_API_KEY/],
+      ["공용 키만 있으면", { REVENUECAT_API_KEY: IOS_KEY }, /REVENUECAT_IOS_API_KEY/],
+      [
+        "iOS 키가 비어 있으면",
+        { REVENUECAT_ANDROID_API_KEY: ANDROID_KEY },
+        /REVENUECAT_IOS_API_KEY/,
+      ],
+      [
+        "Android 키가 비어 있으면",
+        { REVENUECAT_IOS_API_KEY: IOS_KEY, REVENUECAT_API_KEY: ANDROID_KEY },
+        /REVENUECAT_ANDROID_API_KEY/,
+      ],
+      [
+        "iOS 키가 appl_로 시작하지 않으면",
+        { REVENUECAT_IOS_API_KEY: "sk_fakeSecretKey0000", REVENUECAT_ANDROID_API_KEY: ANDROID_KEY },
+        /REVENUECAT_IOS_API_KEY/,
+      ],
+      [
+        "Android 키가 goog_로 시작하지 않으면",
+        { REVENUECAT_IOS_API_KEY: IOS_KEY, REVENUECAT_ANDROID_API_KEY: "sk_fakeSecretKey0000" },
+        /REVENUECAT_ANDROID_API_KEY/,
+      ],
+      [
+        "Test Store 키(test_)가 오면",
+        { REVENUECAT_IOS_API_KEY: STORE_KEY, REVENUECAT_ANDROID_API_KEY: ANDROID_KEY },
+        /test_/,
+      ],
+    ])("%s 빌드를 멈춘다", (_, keys, message) => {
+      expect(() => resolveConfig({ ...EAS_PROD_ENV, ...keys })).toThrow(message);
+    });
+
+    it("iOS 키가 appl_, Android 키가 goog_로 시작하면 두 키를 싣는다", () => {
+      const cfg = resolveConfig({
+        ...EAS_PROD_ENV,
+        REVENUECAT_IOS_API_KEY: IOS_KEY,
+        REVENUECAT_ANDROID_API_KEY: ANDROID_KEY,
+      });
+      expect(cfg.extra?.revenueCatApiKeys).toEqual({ ios: IOS_KEY, android: ANDROID_KEY });
+    });
+
+    it("EAS 빌더 밖의 production 설정 평가는 키가 없어도 멈추지 않는다", () => {
+      const { EAS_BUILD: _builder, ...localEnv } = EAS_PROD_ENV;
+      expect(resolveConfig(localEnv).extra?.revenueCatApiKeys).toEqual({ ios: "", android: "" });
+    });
+
+    it.each(["development", "staging"])(
+      "EAS 빌더의 %s 빌드는 키가 없어도 멈추지 않는다",
+      (variant) => {
+        const cfg = resolveConfig({ APP_VARIANT: variant, EAS_BUILD: "true" });
+        expect(cfg.extra?.revenueCatApiKeys).toEqual({ ios: "", android: "" });
+      },
+    );
   });
 });

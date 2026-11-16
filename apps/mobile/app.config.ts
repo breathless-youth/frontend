@@ -290,7 +290,19 @@ function resolveAirbridgeToken(variant: AppVariant): string | null {
  * 바이너리에 실리는 공개 키지만 공개 저장소라 env로 받는다.
  * `test_`로 시작하는 Test Store 키는 실제 돈이 오가지 않는 가짜 결제라 운영 빌드에 실리면 여기서 끊는다.
  * 다른 플랫폼의 키가 들어가면 그 플랫폼에서 결제가 되지 않아 운영 빌드에서는 접두어로 확인해 끊는다.
+ * EAS 빌더의 운영 빌드는 iOS 키가 `appl_`, Android 키가 `goog_`로 시작해야 한다.
+ * 키가 비거나 공용 키만 있으면 충전이 꺼지거나 한 플랫폼의 결제가 되지 않는 채로 출시되고, 심사를 통과한 뒤에야 드러난다.
+ * 누락은 Meta·Airbridge와 같은 이유로 EAS 빌더에서만 끊는다.
  */
+function requireRevenueCatStoreKey(name: string, value: string, prefix: string): void {
+  if (!value.startsWith(prefix)) {
+    throw new Error(
+      `production 빌드의 ${name}이 ${prefix}로 시작하지 않습니다(비어 있으면 그 플랫폼의 충전이 꺼집니다). ` +
+        "EAS production environment에 플랫폼 키를 넣으세요. 공용 키 REVENUECAT_API_KEY는 production 빌드에서 쓰지 않습니다.",
+    );
+  }
+}
+
 function resolveRevenueCatApiKeys(variant: AppVariant): { ios: string; android: string } {
   const shared = process.env.REVENUECAT_API_KEY ?? "";
   const ios = process.env.REVENUECAT_IOS_API_KEY ?? "";
@@ -308,6 +320,10 @@ function resolveRevenueCatApiKeys(variant: AppVariant): { ios: string; android: 
       throw new Error(
         "production 빌드의 REVENUECAT_ANDROID_API_KEY에 iOS 키(appl_)가 들어 있습니다.",
       );
+    }
+    if (isEasBuilder()) {
+      requireRevenueCatStoreKey("REVENUECAT_IOS_API_KEY", ios, "appl_");
+      requireRevenueCatStoreKey("REVENUECAT_ANDROID_API_KEY", android, "goog_");
     }
   }
   return ios === "" && android === "" ? { ios: shared, android: shared } : { ios, android };

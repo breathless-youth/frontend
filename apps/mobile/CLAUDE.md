@@ -92,6 +92,7 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 - **AdMob 앱 ID 플러그인은 모든 빌드 종류에 넣는다.** Android는 SDK가 링크된 앱의 매니페스트에 앱 ID가 없으면 시작할 때 죽는다(`pointsAdsConfig.test.ts`).
 - **광고 등급 상한(G)은 SDK를 시작하기 전에 건다**(`pointsAdsSdk.test.ts`). 맞춤 광고는 허용하고 아동 대상 표시는 넣지 않는다.
 - 운영 빌드에서는 `test_`로 시작하는 RevenueCat Test Store 키와 다른 플랫폼의 키(iOS 자리의 `goog_`, Android 자리의 `appl_`)를 `app.config.ts`가 접두어로 확인해 막는다.
+- EAS 빌더의 운영 빌드는 iOS 키가 `appl_`, Android 키가 `goog_`로 시작하지 않으면 멈춘다. 키가 비었거나 공용 키 `REVENUECAT_API_KEY`만 있는 경우도 멈추며, 로컬 설정 평가와 development·staging 빌드는 막지 않는다.
 - ⚠️ **릴리즈 게이트**: 개인정보 처리방침·App Store 개인정보 라벨·Play 데이터 보안에 광고 식별자와 구매 내역을 넣기 전에는 이 SDK가 든 빌드를 스토어에 내지 않는다.
 
 ## 에러 모니터링 (Sentry, `lib/sentry.ts`)
