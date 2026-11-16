@@ -113,15 +113,23 @@ describe("createFakePointsGateway 받기", () => {
 describe("createFakePointsGateway 마스코트", () => {
   it("연 마스코트로 고른 것을 옮긴다", async () => {
     const gateway = createFakePointsGateway("default");
-    await gateway.selectMascot("book");
+    await gateway.selectMascot("padlock");
     const mascots = (await gateway.getShop()).mascots;
-    expect(mascots.filter((m) => m.selected).map((m) => m.id)).toEqual(["book"]);
+    expect(mascots.filter((m) => m.selected).map((m) => m.id)).toEqual(["padlock"]);
   });
 
   it("누적 순공과 해금 기준이 시안과 같다", async () => {
     const shop = await createFakePointsGateway("default").getShop();
     expect(shop.totalFocusSec).toBe(25 * 3600 + 48 * 60);
-    expect(shop.mascots.map((m) => m.unlockFocusSec / 3600)).toEqual([0, 5, 15, 30, 60, 100, 150]);
+    expect(shop.mascots.map((m) => [m.id, m.unlockFocusSec / 3600, m.price])).toEqual([
+      ["stopwatch", 0, null],
+      ["pencil", 2, null],
+      ["planner", 10, null],
+      ["padlock", 20, null],
+      ["book", 30, null],
+      ["lamp", 50, null],
+      ["camcorder", 0, 1000],
+    ]);
   });
 });
 
@@ -171,7 +179,7 @@ describe("createFakePointsGateway 꾸미기", () => {
   it("새로 열린 마스코트를 본 것으로 적는다", async () => {
     const gateway = createFakePointsGateway("newMascot");
     const before = (await gateway.getShop()).mascots.filter((m) => m.newlyUnlocked);
-    expect(before.map((m) => m.id)).toEqual(["planner", "stopwatch"]);
+    expect(before.map((m) => m.id)).toEqual(["planner", "padlock"]);
     await gateway.markUnlocksSeen();
     expect((await gateway.getShop()).mascots.some((m) => m.newlyUnlocked)).toBe(false);
   });
@@ -185,7 +193,7 @@ describe("createFakePointsGateway 내 모습", () => {
 
     expect((await gateway.getMyLook())?.id).toBe(selected.id);
 
-    await gateway.selectMascot("book");
-    expect((await gateway.getMyLook())?.id).toBe("book");
+    await gateway.selectMascot("planner");
+    expect((await gateway.getMyLook())?.id).toBe("planner");
   });
 });

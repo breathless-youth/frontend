@@ -51,14 +51,14 @@ function mascot(code: string, overrides: Partial<MascotResponse> = {}): MascotRe
 
 describe("마스코트 코드", () => {
   it("LOCK은 padlock으로, 나머지는 소문자로 맞추고 되돌릴 수 있다", () => {
-    const codes = ["BOOK", "PLANNER", "STOPWATCH", "LAMP", "PENCIL", "LOCK", "CAMCORDER"];
+    const codes = ["STOPWATCH", "PENCIL", "PLANNER", "LOCK", "BOOK", "LAMP", "CAMCORDER"];
     expect(codes.map(toMascotId)).toEqual([
-      "book",
-      "planner",
       "stopwatch",
-      "lamp",
       "pencil",
+      "planner",
       "padlock",
+      "book",
+      "lamp",
       "camcorder",
     ]);
     expect(codes.map((code) => toMascotCode(toMascotId(code)!))).toEqual(codes);
@@ -67,16 +67,16 @@ describe("마스코트 코드", () => {
   it("모르는 마스코트는 버리고 나머지를 넘긴다", () => {
     const mascots = toMascots({
       totalFocusSec: 0,
-      selectedMascotCode: "BOOK",
+      selectedMascotCode: "STOPWATCH",
       mascots: [
-        mascot("BOOK", { selected: true }),
+        mascot("STOPWATCH", { selected: true }),
         mascot("ROBOT"),
         mascot("LOCK", { newlyUnlocked: true }),
       ],
     });
     expect(mascots).toEqual([
       {
-        id: "book",
+        id: "stopwatch",
         price: null,
         unlockFocusSec: 0,
         unlocked: true,
@@ -97,17 +97,17 @@ describe("마스코트 코드", () => {
   it("포인트로 여는 마스코트는 가격을 싣고 공부 시간 마스코트는 가격이 없다", () => {
     const mascots = toMascots({
       totalFocusSec: 0,
-      selectedMascotCode: "BOOK",
+      selectedMascotCode: "STOPWATCH",
       mascots: [
-        mascot("BOOK", { selected: true }),
-        mascot("CAMCORDER", { unlockType: "POINTS", price: 3000, unlocked: false }),
+        mascot("STOPWATCH", { selected: true }),
         mascot("LAMP", { unlockType: "FOCUS_TIME", price: null, unlocked: false }),
+        mascot("CAMCORDER", { unlockType: "POINTS", price: 1000, unlocked: false }),
       ],
     });
     expect(mascots.map((entry) => [entry.id, entry.price])).toEqual([
-      ["book", null],
-      ["camcorder", 3000],
+      ["stopwatch", null],
       ["lamp", null],
+      ["camcorder", 1000],
     ]);
   });
 });

@@ -28,16 +28,18 @@ const MINUTE = 60;
 const HOUR = 60 * MINUTE;
 const DAY_MS = 24 * HOUR * 1000;
 
-/** 해금 순서와 기준 누적 순공(시간) */
+/** 해금 순서와 기준 누적 순공(시간)이며 서버처럼 처음 것은 처음부터 열려 있다. */
 const MASCOT_UNLOCK_HOURS: [MascotId, number][] = [
-  ["book", 0],
-  ["planner", 5],
-  ["stopwatch", 15],
-  ["lamp", 30],
-  ["pencil", 60],
-  ["padlock", 100],
-  ["camcorder", 150],
+  ["stopwatch", 0],
+  ["pencil", 2],
+  ["planner", 10],
+  ["padlock", 20],
+  ["book", 30],
+  ["lamp", 50],
 ];
+
+/** 포인트로 사서 여는 마스코트와 가격이며 서버처럼 여는 시간은 0이다. */
+const PRICED_MASCOTS: [MascotId, number][] = [["camcorder", 1000]];
 
 const price = (value: number): ItemAcquire => ({ type: "price", price: value });
 const streak = (current: number, target: number): ItemAcquire => ({
@@ -124,15 +126,26 @@ function buildMascots(
   totalFocusSec: number,
   selected: MascotId,
   newlyUnlocked: MascotId[],
+  ownsPriced: boolean,
 ): Mascot[] {
-  return MASCOT_UNLOCK_HOURS.map(([id, hours]) => ({
-    id,
-    price: null,
-    unlockFocusSec: hours * HOUR,
-    unlocked: totalFocusSec >= hours * HOUR,
-    selected: id === selected,
-    newlyUnlocked: newlyUnlocked.includes(id),
-  }));
+  return [
+    ...MASCOT_UNLOCK_HOURS.map(([id, hours]) => ({
+      id,
+      price: null,
+      unlockFocusSec: hours * HOUR,
+      unlocked: totalFocusSec >= hours * HOUR,
+      selected: id === selected,
+      newlyUnlocked: newlyUnlocked.includes(id),
+    })),
+    ...PRICED_MASCOTS.map(([id, price]) => ({
+      id,
+      price,
+      unlockFocusSec: 0,
+      unlocked: ownsPriced,
+      selected: id === selected,
+      newlyUnlocked: false,
+    })),
+  ];
 }
 
 function buildEarn(scene: PointsScene): EarnToday {
@@ -225,8 +238,9 @@ export function buildPointsFixture(scene: PointsScene, now: number = Date.now())
       : items,
     mascots: buildMascots(
       totalFocusSec,
-      scene === "firstDay" || scene === "newMascot" ? "book" : "stopwatch",
-      scene === "newMascot" ? ["planner", "stopwatch"] : [],
+      "stopwatch",
+      scene === "newMascot" ? ["planner", "padlock"] : [],
+      scene === "allCollected",
     ),
     totalFocusSec,
     history: fresh ? [] : buildHistory(now),
@@ -244,7 +258,7 @@ export function buildPointsFixture(scene: PointsScene, now: number = Date.now())
         scene === "allCollected"
           ? null
           : {
-              id: "lamp",
+              id: "book",
               remainingSec: 2 * HOUR + 48 * MINUTE,
               progress: (27 * HOUR + 12 * MINUTE) / (30 * HOUR),
             },

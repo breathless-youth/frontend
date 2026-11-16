@@ -51,10 +51,10 @@ function call(index = 0) {
 
 const MASCOTS: MascotsResponse = {
   totalFocusSec: 7200,
-  selectedMascotCode: "BOOK",
+  selectedMascotCode: "STOPWATCH",
   mascots: [
     {
-      code: "BOOK",
+      code: "STOPWATCH",
       unlockFocusSec: 0,
       unlocked: true,
       remainingFocusSec: 0,
@@ -68,9 +68,9 @@ const ITEMS: ShopItemsResponse = {
   items: [
     {
       id: 31,
-      code: "BOOK_SCARF",
+      code: "STOPWATCH_SCARF",
       category: "MASCOT_ACCESSORY",
-      mascotCode: "BOOK",
+      mascotCode: "STOPWATCH",
       slot: "BODY",
       tag: null,
       name: "목도리",
@@ -168,9 +168,9 @@ describe("createApiPointsGateway", () => {
     );
     const shop = await createApiPointsGateway().getShop();
     expect(shop.totalFocusSec).toBe(7200);
-    expect(shop.mascots.map((m) => m.id)).toEqual(["book"]);
+    expect(shop.mascots.map((m) => m.id)).toEqual(["stopwatch"]);
     expect(shop.items).toEqual([
-      expect.objectContaining({ id: "31", mascotId: "book", slot: "body" }),
+      expect.objectContaining({ id: "31", mascotId: "stopwatch", slot: "body" }),
     ]);
     expect(
       fetchMock.mock.calls.map(([input]) => String(input).replace(/^.*\/api/, "/api")).sort(),

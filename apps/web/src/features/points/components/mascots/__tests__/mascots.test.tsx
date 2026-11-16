@@ -47,7 +47,7 @@ describe("MascotCollectionScreen", () => {
     renderScreen();
     expect(screen.getByText("누적 순공")).toBeInTheDocument();
     expect(screen.getByText("25시간 48분")).toBeInTheDocument();
-    expect(screen.getAllByText("선택 가능")).toHaveLength(2);
+    expect(screen.getAllByText("선택 가능")).toHaveLength(3);
     expect(screen.getAllByText("선택 중")).toHaveLength(1);
     expect(screen.getByText("4시간 12분 남음")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "타이미 선택 중" })).toHaveAttribute(
@@ -64,17 +64,17 @@ describe("MascotCollectionScreen", () => {
 
   it("다음 차례 뒤의 잠긴 마스코트는 이름을 ???로 숨긴다", () => {
     renderScreen();
-    expect(screen.getByText("램피")).toBeInTheDocument();
-    expect(screen.getAllByText("???")).toHaveLength(3);
-    expect(screen.queryByText("락키")).not.toBeInTheDocument();
+    expect(screen.getByText("부기")).toBeInTheDocument();
+    expect(screen.getAllByText("???")).toHaveLength(1);
+    expect(screen.queryByText("램피")).not.toBeInTheDocument();
   });
 
   it("잠긴 마스코트를 누르면 남은 시간과 진행을 알리는 시트가 뜬다", async () => {
     renderScreen();
-    await userEvent.click(screen.getByRole("button", { name: "램피 잠김, 4시간 12분 남음" }));
+    await userEvent.click(screen.getByRole("button", { name: "부기 잠김, 4시간 12분 남음" }));
     const sheet = await screen.findByRole("dialog");
     expect(within(sheet).getByText("순공 4시간 12분 더 하면 열려요.")).toBeInTheDocument();
-    expect(within(sheet).getByRole("img", { name: "램피까지 86% 모았어요" })).toBeInTheDocument();
+    expect(within(sheet).getByRole("img", { name: "부기까지 86% 모았어요" })).toBeInTheDocument();
     expect(within(sheet).getByText("30시간")).toBeInTheDocument();
     await userEvent.click(within(sheet).getByRole("button", { name: "닫기" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

@@ -38,7 +38,7 @@ describe("useShopActions", () => {
   it("마스코트를 바꾸면 다른 화면이 읽는 내 모습도 다시 받게 한다", async () => {
     const { actions, lookIsStale } = setup();
 
-    await actions.selectMascot("book");
+    await actions.selectMascot("planner");
 
     expect(lookIsStale()).toBe(true);
   });
@@ -52,7 +52,7 @@ describe("useShopActions", () => {
   });
 
   it.each([
-    ["마스코트 고르기", (a: ReturnType<typeof setup>["actions"]) => a.selectMascot("book")],
+    ["마스코트 고르기", (a: ReturnType<typeof setup>["actions"]) => a.selectMascot("planner")],
     [
       "소품 착용",
       (a: ReturnType<typeof setup>["actions"]) => a.equipAccessory("stopwatch", "head", null),

@@ -121,7 +121,7 @@ describe("새 마스코트 축하", () => {
     const gateway = createFakePointsGateway("newMascot");
     const seen = vi.spyOn(gateway, "markUnlocksSeen");
     renderAt("/points/mascots", <PointsMascotsPage />, gateway);
-    expect(await screen.findByRole("img", { name: "타이미 마스코트" })).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: "락키 마스코트" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "나중에" }));
     expect(seen).toHaveBeenCalledTimes(1);
     expect(await screen.findByText("누적 순공")).toBeInTheDocument();
@@ -134,7 +134,7 @@ describe("새 마스코트 축하", () => {
     renderAt("/points/mascots", <PointsMascotsPage />, gateway);
     await userEvent.click(await screen.findByRole("button", { name: "이 마스코트로 바꾸기" }));
     expect(seen).toHaveBeenCalledTimes(1);
-    expect(select).toHaveBeenCalledWith("stopwatch");
+    expect(select).toHaveBeenCalledWith("padlock");
   });
 
   it("새로 열린 마스코트가 없으면 축하하지 않고 본 것으로 적지 않는다", async () => {
