@@ -47,13 +47,25 @@ beforeEach(() => {
 });
 
 describe("결제 SDK를 켜는 때", () => {
-  it("결제용 ID가 실린 첫 요청에서 그 ID로 결제 SDK를 켜고 켠 기록을 남긴다", async () => {
+  it("결제용 ID가 실린 가격 조회는 그 ID로 결제 SDK를 켜기만 하고 켠 기록은 남기지 않는다", async () => {
     setPointsChargeAdapter(adapter);
 
     await pointsChargePrices(["points_1000"], APP_USER_ID);
 
     expect(adapter.start).toHaveBeenCalledWith(APP_USER_ID);
     expect(adapter.logIn).not.toHaveBeenCalled();
+    // 결제를 시작한 적 없는 기기는 끊긴 결제가 없어 다음 시작에 켤 이유가 없다.
+    expect(SecureStore.setItemAsync).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["결제를 시작하면", () => purchasePointsCharge("points_1000", APP_USER_ID)],
+    ["구매 복원을 하면", () => restorePointsPurchases(["set_book_bear"], APP_USER_ID)],
+  ])("%s 켠 기록을 이 기기에만 남긴다", async (_, run) => {
+    setPointsChargeAdapter(adapter);
+
+    await run();
+
     expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
       RECORD_KEY,
       APP_USER_ID,
@@ -61,6 +73,17 @@ describe("결제 SDK를 켜는 때", () => {
         keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY,
       }),
     );
+  });
+
+  it("가격을 본 뒤 결제를 시작하면 그때 켠 기록을 남긴다", async () => {
+    setPointsChargeAdapter(adapter);
+
+    await pointsChargePrices(["points_1000"], APP_USER_ID);
+    expect(SecureStore.setItemAsync).not.toHaveBeenCalled();
+    await purchasePointsCharge("points_1000", APP_USER_ID);
+
+    expect(adapter.start).toHaveBeenCalledTimes(1);
+    expect(SecureStore.setItemAsync).toHaveBeenCalledTimes(1);
   });
 
   it("결제용 ID가 없는 가격 조회는 결제 SDK를 켜지 않고 빈 목록으로 답한다", async () => {
@@ -160,7 +183,7 @@ describe("로그아웃과 겹친 결제 SDK 로그인", () => {
   it("다른 결제용 ID로 로그인하는 사이 로그아웃하면 그 ID를 다시 저장하지 않는다", async () => {
     const store = fakeStore();
     setPointsChargeAdapter(adapter);
-    await pointsChargePrices(["points_1000"], APP_USER_ID);
+    await purchasePointsCharge("points_1000", APP_USER_ID);
     expect(store.values.get(RECORD_KEY)).toBe(APP_USER_ID);
     let finishLogIn: () => void = () => {};
     adapter.logIn.mockReturnValueOnce(new Promise<void>((resolve) => (finishLogIn = resolve)));
@@ -180,12 +203,12 @@ describe("로그아웃과 겹친 결제 SDK 로그인", () => {
     setPointsChargeAdapter(adapter);
     store.holdNextWrite();
 
-    const prices = pointsChargePrices(["points_1000"], APP_USER_ID);
+    const purchase = purchasePointsCharge("points_1000", APP_USER_ID);
     await flush();
     expect(SecureStore.setItemAsync).toHaveBeenCalledTimes(1);
     const forget = forgetPointsChargeUser();
     store.releaseWrite();
-    await Promise.all([prices, forget]);
+    await Promise.all([purchase, forget]);
 
     expect(store.values.has(RECORD_KEY)).toBe(false);
   });
@@ -193,10 +216,12 @@ describe("로그아웃과 겹친 결제 SDK 로그인", () => {
   it("로그아웃하면 로그인 상태도 비워 다음 요청은 결제 SDK를 다시 켜지 않고 그 결제용 ID로 로그인한다", async () => {
     const store = fakeStore();
     setPointsChargeAdapter(adapter);
-    await pointsChargePrices(["points_1000"], APP_USER_ID);
+    await purchasePointsCharge("points_1000", APP_USER_ID);
 
     await forgetPointsChargeUser();
     await pointsChargePrices(["points_1000"], APP_USER_ID);
+    expect(store.values.has(RECORD_KEY)).toBe(false);
+    await purchasePointsCharge("points_1000", APP_USER_ID);
 
     expect(adapter.start).toHaveBeenCalledTimes(1);
     expect(adapter.logIn).toHaveBeenCalledWith(APP_USER_ID);

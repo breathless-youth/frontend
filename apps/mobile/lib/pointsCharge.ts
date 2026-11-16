@@ -74,11 +74,16 @@ export function __resetPointsChargeForTests(): void {
  * 결제 SDK를 그 결제용 ID로 켜거나 사용자를 바꾸기
  *
  * 앱을 켤 때가 아니라 결제용 ID가 실린 첫 결제 메시지에서 켜서, 결제하지 않는 사람과 비회원의 기기 정보가 RevenueCat으로 가지 않게 한다.
- * 켠 기기는 결제용 ID를 앱 저장소에 남겨 다음 시작에 바로 켜고, 끊긴 결제를 결제 SDK가 이어서 처리하게 한다.
+ * 결제나 구매 복원을 시작할 때만(`remember`) 결제용 ID를 앱 저장소에 남겨 다음 시작에 바로 켜고, 끊긴 결제를 결제 SDK가 이어서 처리하게 한다.
+ * 가격만 본 기기는 끊긴 결제가 없어 기록을 남기지 않고 다음 시작에 켜지 않는다.
  * 로그인하는 사이 로그아웃했으면 이전 계정의 결제용 ID를 로그인 상태와 기록에 다시 남기지 않는다.
  * 기록을 남기지 못해도 이번 결제는 막지 않는다.
  */
-async function signIn(active: PointsChargeAdapter, appUserId: string): Promise<void> {
+async function signIn(
+  active: PointsChargeAdapter,
+  appUserId: string,
+  remember: boolean,
+): Promise<void> {
   const startedIn = generation;
   if (!started) {
     active.start(appUserId);
@@ -90,6 +95,9 @@ async function signIn(active: PointsChargeAdapter, appUserId: string): Promise<v
     return;
   }
   signedIn = appUserId;
+  if (!remember) {
+    return;
+  }
   await inRecordQueue(async () => {
     // 줄에서 기다리는 사이 로그아웃한 삭제가 앞에 들어왔으면 쓰지 않는다.
     if (startedIn !== generation || remembered === appUserId) {
@@ -158,6 +166,7 @@ export function isPointsChargeSupported(): boolean {
  *
  * 가격과 통화는 스토어가 정하므로 서버가 아니라 결제 SDK에서 읽는다.
  * 결제 SDK는 결제용 ID로 켜므로 결제용 ID가 없는 비회원의 조회에는 켜지 않고 빈 목록으로 답한다.
+ * 가격만 볼 때는 결제 SDK를 켜기만 하고 다음 시작에 켤 기록은 남기지 않는다.
  * 이미 켠 결제 SDK의 사용자를 바꾸지 못해도 가격은 돈이 오가지 않아 그대로 묻는다.
  * 실패하면 빈 목록을 돌려줘서 웹이 가격 없는 상품을 팔지 않게 한다.
  */
@@ -168,7 +177,7 @@ export async function pointsChargePrices(
   if (adapter === null || storeProductIds.length === 0 || appUserId === null) {
     return [];
   }
-  await signIn(adapter, appUserId).catch((error: unknown) => {
+  await signIn(adapter, appUserId, false).catch((error: unknown) => {
     console.warn("[points-charge] 가격 조회 전 로그인 실패", errorSummary(error));
   });
   if (!started) {
@@ -204,7 +213,7 @@ export async function purchasePointsCharge(
   }
   inFlight = true;
   try {
-    await signIn(adapter, appUserId);
+    await signIn(adapter, appUserId, true);
     return (await adapter.purchase(storeProductId)) ? "completed" : "cancelled";
   } catch (error) {
     console.warn("[points-charge] 결제 실패", errorSummary(error));
@@ -231,7 +240,7 @@ export async function restorePointsPurchases(
   }
   inFlight = true;
   try {
-    await signIn(adapter, appUserId);
+    await signIn(adapter, appUserId, true);
     const purchased = new Set(await adapter.restore());
     return storeProductIds.some((id) => purchased.has(id)) ? "restored" : "nothing";
   } catch (error) {
