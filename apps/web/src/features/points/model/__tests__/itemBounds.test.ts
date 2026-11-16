@@ -122,6 +122,42 @@ describe("measureImageBounds", () => {
     expect(first).toEqual(second);
     expect(decode).toHaveBeenCalledTimes(1);
   });
+
+  describe("읽는 주소", () => {
+    /** 측정하려고 받은 그림 주소를 모은다. */
+    function recordReads() {
+      const reads: string[] = [];
+      Object.defineProperty(HTMLImageElement.prototype, "decode", {
+        configurable: true,
+        value(this: HTMLImageElement) {
+          reads.push(this.src);
+          return Promise.resolve();
+        },
+      });
+      vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+      return reads;
+    }
+
+    it("다른 출처의 소품 그림은 웹과 같은 출처의 같은 경로로 읽는다", async () => {
+      const reads = recordReads();
+
+      await measureImageBounds("https://web-dev.focusmakers.app/avatars/shop/hat.png?v=2");
+
+      expect(reads).toEqual([`${window.location.origin}/avatars/shop/hat.png?v=2`]);
+    });
+
+    it("같은 출처 그림과 소품 경로가 아닌 다른 출처 그림은 받은 주소 그대로 읽는다", async () => {
+      const reads = recordReads();
+
+      await measureImageBounds("/avatars/shop/same.png");
+      await measureImageBounds("https://cdn.example.com/images/hat.png");
+
+      expect(reads).toEqual([
+        `${window.location.origin}/avatars/shop/same.png`,
+        "https://cdn.example.com/images/hat.png",
+      ]);
+    });
+  });
 });
 
 describe("unionBounds", () => {

@@ -47,11 +47,32 @@ function scan(image: HTMLImageElement): ItemBounds | null {
 }
 
 /**
+ * 캔버스로 읽을 그림 주소
+ *
+ * 다른 출처의 그림을 그린 캔버스는 막혀서 투명한 부분을 읽지 못한다.
+ * 로컬 개발 앱처럼 웹과 그림 서버의 출처가 다를 때를 위해 소품 그림(/avatars/)은 웹과 같은 출처의 같은 경로로 읽는다.
+ * 로컬 개발 서버는 이 경로를 그림 서버로 넘겨 주고, 운영과 web-dev 배포는 처음부터 같은 출처라 주소가 그대로다.
+ */
+function readableUrl(url: string): string {
+  const { origin } = window.location;
+  let parsed: URL;
+  try {
+    parsed = new URL(url, origin);
+  } catch {
+    return url;
+  }
+  if (parsed.origin === origin || !parsed.pathname.startsWith("/avatars/")) {
+    return url;
+  }
+  return `${origin}${parsed.pathname}${parsed.search}`;
+}
+
+/**
  * 소품 그림에서 그려진 자리 측정
  *
- * 그림이 웹과 같은 출처라 캔버스로 투명한 부분을 읽을 수 있다.
- * 다른 출처로 옮겨 캔버스가 막히거나 그림을 받지 못하면 null이고, 받는 쪽은 판 전체를 그린다.
- * 한 번 측정한 값은 앱을 끌 때까지 주소마다 기억한다.
+ * 그림을 웹과 같은 출처로 읽어 캔버스로 투명한 부분을 본다.
+ * 그래도 캔버스가 막히거나 그림을 받지 못하면 null이고, 받는 쪽은 판 전체를 그린다.
+ * 화면에 보이는 그림 주소는 바꾸지 않고, 한 번 측정한 값은 앱을 끌 때까지 받은 주소마다 기억한다.
  */
 export function measureImageBounds(url: string): Promise<ItemBounds | null> {
   const known = measured.get(url);
@@ -64,7 +85,7 @@ export function measureImageBounds(url: string): Promise<ItemBounds | null> {
   }
   const image = new Image();
   image.decoding = "async";
-  image.src = url;
+  image.src = readableUrl(url);
   // 테스트의 jsdom처럼 decode가 없는 환경에서도 throw하지 않고 null로 끝나게 한 번 감싼다.
   const job = Promise.resolve()
     .then(() => image.decode())
