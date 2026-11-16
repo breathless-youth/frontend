@@ -1,4 +1,4 @@
-import type { PointsEarnResponse } from "@focusmakers/types";
+import type { EffectPieceResponse, PointsEarnResponse } from "@focusmakers/types";
 
 import type { EffectPiece, WornAccessory } from "@/components/mascot/types";
 
@@ -21,7 +21,6 @@ import { tierAt } from "../model/earnTier";
 import type {
   ClaimResponse,
   DecorationsResponse,
-  EffectPieceResponse,
   MascotsResponse,
   PointsHistoryItemResponse,
   PointsHistoryResponse,

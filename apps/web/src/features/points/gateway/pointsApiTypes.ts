@@ -7,6 +7,12 @@
  * 열거 값은 서버가 값을 더해도 컴파일이 깨지지 않게 string으로 받고, 아는 값만 fromApi가 화면 값으로 바꾼다.
  */
 
+import type {
+  EffectPieceResponse,
+  EquippedItemResponse,
+  MascotAppearance,
+} from "@focusmakers/types";
+
 export type PointsBalanceResponse = {
   /** 무료와 결제 몫의 합이며 이미 쓴 충전 포인트가 환불되면 음수일 수 있다. */
   balance: number;
@@ -47,41 +53,16 @@ export type ShopItemResponse = {
   effectType?: string | null;
 };
 
-/** 효과 그림의 조각 하나이며 위치와 크기는 그림 판에 대한 비율(0~1)이다. */
-export type EffectPieceResponse = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  motion: string;
-};
-
 export type ShopItemsResponse = { items: ShopItemResponse[] };
 
 export type PurchaseResponse = { itemId: number; balance: number };
 
 export type MascotPurchaseResponse = { code: string; balance: number };
 
-export type EquippedItemResponse = {
-  itemId: number;
-  code: string;
-  imageUrl: string | null;
-  /** 뒤 조각이 생기기 전의 서버는 주지 않는다. */
-  backImageUrl?: string | null;
-  /** 세트의 움직이는 효과 그림이며 세트가 생기기 전의 서버는 주지 않는다. */
-  effectImageUrl?: string | null;
-  /** 효과 칸 소품은 imageUrl에, 세트는 effectImageUrl에 적용한다. */
-  effectPieces?: EffectPieceResponse[] | null;
-  effectType?: string | null;
-};
-
 export type DecorationsResponse = {
   selectedMascotCode: string | null;
-  accessories: {
-    mascotCode: string;
-    slot: string;
-    item: EquippedItemResponse;
-  }[];
+  /** 그룹 구성원에 실려 오는 모습과 같은 모양이며 마스코트마다 낀 소품이 모두 온다. */
+  accessories: MascotAppearance["accessories"];
   timerBackground: EquippedItemResponse | null;
 };
 
@@ -134,14 +115,4 @@ export type ClaimResponse = {
   claimedCount?: number;
   points?: number;
   balance?: number;
-};
-
-/** 그룹 구성원 응답에 더해 오는 마스코트와 착용 소품 */
-export type GroupMemberMascotResponse = {
-  mascotCode: string;
-  accessories: {
-    mascotCode: string;
-    slot: string;
-    item: EquippedItemResponse;
-  }[];
 };
