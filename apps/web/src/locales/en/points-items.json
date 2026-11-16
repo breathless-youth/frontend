@@ -1,5 +1,5 @@
 {
-  "title": "{{name}} accessories",
+  "title": "{{name}}'s accessories",
   "mascotStrip": {
     "label": "Choose a mascot",
     "selected": "{{name}}, selected mascot",
@@ -30,8 +30,8 @@
     "takeOff": "Remove",
     "takeOffLabel": "Remove {{slot}} accessory",
     "empty": "No accessories for this slot yet",
-    "store": "Paid",
-    "storeLabel": "{{name}}, paid item"
+    "store": "In-app",
+    "storeLabel": "{{name}}, in-app purchase"
   },
   "action": {
     "focusHours": "Focus total {{current}} / {{target}} hrs",

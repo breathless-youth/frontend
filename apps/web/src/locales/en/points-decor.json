@@ -15,7 +15,7 @@
     "owned": "Owned",
     "streakDays": "{{target}}-day streak",
     "focusHours": "{{target}} focus hours",
-    "store": "Paid"
+    "store": "In-app"
   },
   "button": {
     "streakDays": "Study streak {{current}} / {{target}} days",

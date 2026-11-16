@@ -100,7 +100,7 @@ describe("PurchaseConfirmSheet", () => {
     expect(notice.compareDocumentPosition(buy) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("캐릭터를 살 때는 캐릭터가 환불되지 않는다고 알린다", async () => {
+  it("마스코트를 살 때는 마스코트가 환불되지 않는다고 알린다", async () => {
     render(
       <PurchaseConfirmSheet
         open
@@ -111,7 +111,7 @@ describe("PurchaseConfirmSheet", () => {
         onClose={() => {}}
       />,
     );
-    expect(await screen.findByText("포인트로 산 캐릭터는 환불되지 않아요.")).toBeInTheDocument();
+    expect(await screen.findByText("포인트로 산 마스코트는 환불되지 않아요.")).toBeInTheDocument();
     expect(screen.queryByText("포인트로 산 소품은 환불되지 않아요.")).not.toBeInTheDocument();
   });
 

@@ -26,7 +26,7 @@ export function PurchaseConfirmSheet({
   open: boolean;
   pending?: boolean;
   item: ShopItem | null;
-  /** 사는 것이 소품인지 캐릭터인지이며 환불 안내 문구만 바뀐다. */
+  /** 사는 것이 소품인지 마스코트인지이며 환불 안내 문구만 바뀐다. */
   subject?: "accessory" | "mascot";
   balance: number;
   onConfirm: () => void;
