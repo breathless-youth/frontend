@@ -168,6 +168,7 @@ function ShopPanel() {
  * 결과를 그대로 돌려줘서 탭이 완료·실패 창을 고른다.
  * 앱 밖에서는 충전 칸과 광고 타일 자리에 앱에서 열기 안내를 그린다.
  * 앱 안에서는 그 기능을 맡을 수 있는 앱에서만 칸을 그려서, 예전 앱에 누를 수 없는 칸이 남지 않게 한다.
+ * 광고 입구를 숨기는 유럽 기기에는 앱 안팎 모두 광고 타일을 그리지 않는다.
  */
 function EarnPanel() {
   const { t } = useTranslation("points");
@@ -196,7 +197,7 @@ function EarnPanel() {
       onWatchAd={actions.watchAd}
       onCharge={actions.charge}
       chargeAvailable={!actions.inApp || canCharge}
-      adAvailable={!actions.inApp || canShowAds}
+      adAvailable={actions.adsShown && (!actions.inApp || canShowAds)}
       member={member}
       allowAction={actions.allowMemberAction}
     />
