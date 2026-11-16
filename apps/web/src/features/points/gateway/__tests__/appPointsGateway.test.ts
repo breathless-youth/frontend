@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { __resetAppPointsGatewayForTests, appPointsGateway } from "../appPointsGateway";
 
@@ -27,6 +27,15 @@ describe("appPointsGateway", () => {
     const gateway = appPointsGateway();
     expect(gateway.capabilities.earn).toBe(true);
     await expect(gateway.getBalance()).resolves.toBe(0);
+  });
+
+  it("가짜 경계의 충전도 결제가 끝난 때를 알려 충전 중 창이 뜬다", async () => {
+    openAt("?pointsMock=default");
+    const onPaid = vi.fn();
+    await expect(appPointsGateway().charge("points_500", onPaid)).resolves.toMatchObject({
+      status: "completed",
+    });
+    expect(onPaid).toHaveBeenCalledOnce();
   });
 
   it("모르는 장면 이름이면 실제 경계를 쓴다", () => {

@@ -201,11 +201,12 @@ export function createFakePointsGateway(
       return { status: "rewarded", balance: state.balance };
     },
     getChargePacks: () => read(() => state.packs),
-    charge: async (productId) => {
+    charge: async (productId, onPaid) => {
       const pack = state.packs.find((it) => it.productId === productId);
       if (scene === "payFail" || !pack) {
         return { status: "failed" };
       }
+      onPaid?.();
       state.balance += pack.points + pack.bonus;
       record(pack.points + pack.bonus, "charge");
       return {

@@ -42,7 +42,7 @@ function deferredFakeGateway(scene: PointsScene): PointsGateway {
     claim: async (kind) => (await load()).claim(kind),
     watchAd: async () => (await load()).watchAd(),
     getChargePacks: async () => (await load()).getChargePacks(),
-    charge: async (productId) => (await load()).charge(productId),
+    charge: async (productId, onPaid) => (await load()).charge(productId, onPaid),
   };
 }
 
