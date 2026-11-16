@@ -212,6 +212,7 @@ describe("MascotCollectionScreen", () => {
       renderScreen({ data: priced }, undefined, "/points/mascots?item=camcorder");
       const sheet = await screen.findByRole("dialog");
       expect(within(sheet).getByText("캠코미를 구매할까요?")).toBeInTheDocument();
+      expect(within(sheet).getByText("포인트로 산 캐릭터는 환불되지 않아요.")).toBeInTheDocument();
     });
 
     it("상점에서 잠긴 공부 시간 마스코트를 누르고 들어오면 남은 시간 시트를 연다", async () => {

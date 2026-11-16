@@ -11,12 +11,14 @@ import { PointAmount } from "./PointAmount";
  * 구매 확인 시트
  *
  * 구매 후 포인트는 확인을 돕는 미리 보기일 뿐이고, 산 뒤의 잔액은 경계가 돌려준 값을 쓴다.
+ * 포인트로 산 것은 환불되지 않아서 버튼 위에 그 한 줄을 둔다.
  * 시트는 body로 나가므로 Soft Blue 테마를 시트에도 단다.
  */
 export function PurchaseConfirmSheet({
   open,
   pending = false,
   item,
+  subject = "accessory",
   balance,
   onConfirm,
   onClose,
@@ -24,6 +26,8 @@ export function PurchaseConfirmSheet({
   open: boolean;
   pending?: boolean;
   item: ShopItem | null;
+  /** 사는 것이 소품인지 캐릭터인지이며 환불 안내 문구만 바뀐다. */
+  subject?: "accessory" | "mascot";
   balance: number;
   onConfirm: () => void;
   onClose: () => void;
@@ -40,6 +44,9 @@ export function PurchaseConfirmSheet({
           </DrawerTitle>
           <Row label={item?.name ?? ""} value={price} />
           <Row label={t("purchase.balanceAfter")} value={balance - price} />
+          <p className="px-1 text-xs break-keep text-muted-foreground">
+            {t(subject === "mascot" ? "purchase.noRefundMascot" : "purchase.noRefundAccessory")}
+          </p>
           <div className="mt-1.5 flex gap-2">
             <Button variant="secondary" size="xl" className="flex-1" onClick={onClose}>
               {t("purchase.cancel")}

@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { formatDuration } from "@/features/records/recordsFormat";
 import { showToast } from "@/lib/toast";
@@ -20,6 +20,7 @@ import { ChargingDialog } from "../components/earn/ChargingDialog";
 import { LatePointsDialog } from "../components/earn/LatePointsDialog";
 import { PaymentFailedSheet } from "../components/earn/PaymentFailedSheet";
 import { StudyRow } from "../components/earn/StudyRow";
+import { PaymentGuideLink } from "../components/shared/PaymentGuide";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { Progress } from "@/components/ui/progress";
 import { formatPoints, formatSignedPoints } from "../model/formatPoints";
@@ -268,13 +269,7 @@ export function EarnTab({
             member={member}
             onCharge={(pack) => void charge(onCharge, pack.productId)}
           />
-          {/* 글자는 작게 두고 누르는 범위만 위아래로 넓힌다. */}
-          <Link
-            to="/terms"
-            className="relative self-center text-[11px] font-medium text-muted-foreground/80 underline underline-offset-2 before:absolute before:-inset-x-3 before:-inset-y-4"
-          >
-            {t("charge.guide")}
-          </Link>
+          <PaymentGuideLink />
         </section>
       ) : (
         <OpenInAppCard />

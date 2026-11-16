@@ -45,6 +45,21 @@
     "pricePending": "價格確認中",
     "packLabel": "儲值 {{points}}"
   },
+  "paymentGuide": {
+    "unusedPaid": "未使用的付費點數，可在儲值後 7 天內申請退款。",
+    "spent": "已使用的點數，以及用點數購買的小物、吉祥物無法退款。",
+    "setUnworn": "套裝在穿上前，可在付款後 7 天內申請退款。",
+    "setWorn": "穿過一次的套裝無法退款。",
+    "deleteAccount": "超過 7 天後，若刪除帳號，會扣除 10% 手續費後退還剩餘的付費點數。",
+    "storeRefund": "若商店（App Store・Google Play）退款，我們會收回相應的點數。",
+    "negative": "若已使用這些點數，餘額可能會低於 0。",
+    "minor": "未成年人未經法定代理人同意付款時，本人或法定代理人可以取消付款。",
+    "contact": "退款申請與詢問，請透過設定中的「聯絡我們」。",
+    "contactAction": "聯絡我們",
+    "seller": "販售者：FocusMakers",
+    "terms": "查看服務條款",
+    "close": "關閉"
+  },
   "openInApp": {
     "title": "儲值與廣告獎勵請在 App 使用",
     "body": "在網頁上只能用點數購買裝飾商品。",

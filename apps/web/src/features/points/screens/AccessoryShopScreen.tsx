@@ -16,6 +16,7 @@ import { SlotChips } from "../components/items/SlotChips";
 import { InsufficientPointsSheet } from "../components/shared/InsufficientPointsSheet";
 import { PointsScreenFrame } from "../components/shared/PointsScreenFrame";
 import { PurchaseConfirmSheet } from "../components/shared/PurchaseConfirmSheet";
+import { PaymentGuideLink } from "../components/shared/PaymentGuide";
 import { StoreBuyButton } from "../components/shared/StoreBuyButton";
 import { StorePurchaseDialogs } from "../components/shared/StorePurchaseDialogs";
 import { formatPoints } from "../model/formatPoints";
@@ -286,7 +287,13 @@ function ActionButton({
     );
   }
   if (item.acquire.type === "store") {
-    return <StoreBuyButton item={item} flow={store} className="mt-auto w-full shadow-sb-cta" />;
+    // 스토어 결제는 결제 창이 스토어 것이라 환불 규칙을 이 버튼 바로 위 링크에서 연다.
+    return (
+      <div className="mt-auto flex flex-col gap-3">
+        {store.available && <PaymentGuideLink />}
+        <StoreBuyButton item={item} flow={store} className="w-full shadow-sb-cta" />
+      </div>
+    );
   }
   const { condition, current, target } = item.acquire;
   const hours = condition === "focusHours";

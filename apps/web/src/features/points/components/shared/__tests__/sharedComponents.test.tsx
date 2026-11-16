@@ -81,6 +81,40 @@ describe("PurchaseConfirmSheet", () => {
     expect(onConfirm).toHaveBeenCalledOnce();
   });
 
+  it("가격 줄 아래 버튼 위에 포인트로 산 소품은 환불되지 않는다는 한 줄을 보인다", async () => {
+    render(
+      <PurchaseConfirmSheet
+        open
+        item={crown}
+        balance={1240}
+        onConfirm={() => {}}
+        onClose={() => {}}
+      />,
+    );
+    const notice = await screen.findByText("포인트로 산 소품은 환불되지 않아요.");
+    const afterPrice = screen.getByText("구매 후 포인트");
+    const buy = screen.getByRole("button", { name: "구매하기" });
+    expect(
+      afterPrice.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(notice.compareDocumentPosition(buy) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("캐릭터를 살 때는 캐릭터가 환불되지 않는다고 알린다", async () => {
+    render(
+      <PurchaseConfirmSheet
+        open
+        item={crown}
+        subject="mascot"
+        balance={1240}
+        onConfirm={() => {}}
+        onClose={() => {}}
+      />,
+    );
+    expect(await screen.findByText("포인트로 산 캐릭터는 환불되지 않아요.")).toBeInTheDocument();
+    expect(screen.queryByText("포인트로 산 소품은 환불되지 않아요.")).not.toBeInTheDocument();
+  });
+
   it("사는 중에는 구매 버튼을 막는다", async () => {
     render(
       <PurchaseConfirmSheet

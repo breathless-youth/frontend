@@ -28,6 +28,8 @@
   "purchase": {
     "title": "Buy {{name}}?",
     "balanceAfter": "Points after purchase",
+    "noRefundAccessory": "Accessories bought with points can't be refunded.",
+    "noRefundMascot": "Mascots bought with points can't be refunded.",
     "cancel": "Cancel",
     "confirm": "Buy",
     "done": "You bought {{name}}!"

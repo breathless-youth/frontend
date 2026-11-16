@@ -155,6 +155,7 @@ export function MascotCollectionScreen({
         open={step === "confirm" || step === "pending"}
         pending={step === "pending"}
         item={buyingItem}
+        subject="mascot"
         balance={balance}
         onConfirm={() => void flow.confirm()}
         onClose={() => {

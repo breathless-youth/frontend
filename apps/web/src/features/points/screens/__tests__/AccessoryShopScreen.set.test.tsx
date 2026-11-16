@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -52,5 +52,21 @@ describe("AccessoryShopScreen의 세트 칸", () => {
       screen.getByRole("button", { name: /구매하기|앱에서 살 수 있어요/ }),
     ).toBeInTheDocument();
     expect(trackPointsSetViewed).toHaveBeenCalledWith("stopwatch");
+  });
+
+  it("결제 버튼 바로 위에 결제·환불 안내가 있고 충전 칸과 같은 안내를 연다", async () => {
+    renderScreen();
+    await userEvent.click(await screen.findByRole("button", { name: "세트" }));
+
+    const guide = screen.getByRole("button", { name: "결제·환불 안내" });
+    const buy = screen.getByRole("button", { name: /구매하기/ });
+    expect(guide.compareDocumentPosition(buy) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByText(/App Store|Google Play/)).not.toBeInTheDocument();
+
+    await userEvent.click(guide);
+    const sheet = await screen.findByRole("dialog", { name: "결제·환불 안내" });
+    expect(
+      within(sheet).getByText("세트는 입기 전이면 결제한 뒤 7일 안에 환불을 요청할 수 있어요."),
+    ).toBeInTheDocument();
   });
 });

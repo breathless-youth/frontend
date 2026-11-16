@@ -28,6 +28,8 @@
   "purchase": {
     "title": "{{name}}を購入しますか？",
     "balanceAfter": "購入後のポイント",
+    "noRefundAccessory": "ポイントで買った小物は返金できません。",
+    "noRefundMascot": "ポイントで買ったマスコットは返金できません。",
     "cancel": "キャンセル",
     "confirm": "購入する",
     "done": "{{name}}を購入しました！"
