@@ -3,6 +3,7 @@
     "label": "Next mascot: {{name}}",
     "remaining": "Study {{duration}} more to unlock",
     "open": "Next mascot {{name}}, open Collect Mascots",
+    "buy": "Next mascot {{name}}, unlock for {{price}}",
     "progress": "{{percent}}% of the way to {{name}}"
   },
   "picker": {

@@ -3,6 +3,7 @@
     "label": "다음 마스코트 {{name}}",
     "remaining": "순공 {{duration}} 더 하면 열려요",
     "open": "다음 마스코트 {{name}}, 마스코트 모으기 열기",
+    "buy": "다음 마스코트 {{name}}, {{price}}로 열기",
     "progress": "{{name}}까지 {{percent}}% 모았어요"
   },
   "picker": {

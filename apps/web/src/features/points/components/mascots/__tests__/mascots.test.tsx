@@ -64,13 +64,14 @@ function accessoryLayers(button: HTMLElement) {
 function renderScreen(
   props: Partial<Parameters<typeof MascotCollectionScreen>[0]> = {},
   gateway: PointsGateway = createFakePointsGateway("default"),
+  entry = "/points/mascots",
 ) {
   const onSelect = vi.fn().mockResolvedValue(undefined);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
       <PointsGatewayProvider gateway={gateway} userId={1}>
-        <MemoryRouter>
+        <MemoryRouter initialEntries={[entry]}>
           <MascotCollectionScreen
             data={shop}
             balance={1240}
@@ -198,6 +199,18 @@ describe("MascotCollectionScreen", () => {
         mascot.id === "camcorder" ? { ...mascot, price: 500, unlocked: false } : mascot,
       ),
     };
+
+    it("상점에서 캠코미를 사러 들어오면 바로 구매 확인 창을 연다", async () => {
+      renderScreen({ data: priced }, undefined, "/points/mascots?item=camcorder");
+      const sheet = await screen.findByRole("dialog");
+      expect(within(sheet).getByText("캠코미를 구매할까요?")).toBeInTheDocument();
+    });
+
+    it("상점에서 잠긴 공부 시간 마스코트를 누르고 들어오면 남은 시간 시트를 연다", async () => {
+      renderScreen({ data: priced }, undefined, "/points/mascots?item=book");
+      const sheet = await screen.findByRole("dialog");
+      expect(within(sheet).getByText("순공 4시간 12분 더 하면 열려요.")).toBeInTheDocument();
+    });
 
     it("이름을 숨기지 않고 남은 시간 대신 가격을 보인다", () => {
       renderScreen({ data: priced });

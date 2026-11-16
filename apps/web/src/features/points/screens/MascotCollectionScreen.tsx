@@ -14,7 +14,7 @@ import { usePointsGateway } from "../gateway/PointsGatewayContext";
 import { sortMascots } from "../model/mascotOrder";
 import { usePurchaseFlow } from "../model/usePurchaseFlow";
 import { wornByMascot } from "../model/wornAccessories";
-import { pointsSearch } from "../pointsSearch";
+import { pickedItemFrom, pointsSearch } from "../pointsSearch";
 import type { Mascot, MascotId, ShopData, ShopItem } from "../types";
 import { usePointsScreenViewed } from "../model/usePointsScreenViewed";
 import type { ShopScreenProps } from "./shopScreenProps";
@@ -26,6 +26,7 @@ import type { ShopScreenProps } from "./shopScreenProps";
  * 받은 값은 이 화면이 떠 있는 동안 한 번만 축하 화면으로 보인다.
  * 바꾸기나 나중에로 축하 화면을 닫으면 `onCelebrated`로 알려 서버가 본 것으로 기억하게 한다.
  * 포인트로 여는 마스코트는 잠금 시트에서 사고, 산 직후 같은 축하 화면을 한 번 보인다.
+ * 상점이 `item`으로 잠긴 마스코트를 넘기면 그 마스코트의 구매 확인이나 잠금 시트를 열고 들어온다.
  * 산 마스코트는 서버가 새로 열린 것으로 치지 않아 본 것으로 알릴 일이 없다.
  * 포인트가 모자라면 소품·배경 화면과 같은 모자람 창에서 광고를 보거나 충전해 이어서 산다.
  */
@@ -54,9 +55,14 @@ export function MascotCollectionScreen({
   const gateway = usePointsGateway();
   const navigate = useNavigate();
   const location = useLocation();
-  const [pressed, setPressed] = useState<Mascot | null>(null);
+  // 상점에서 잠긴 마스코트를 누르고 들어오면 포인트 마스코트는 구매 확인을, 공부 시간 마스코트는 잠금 시트를 바로 연다.
+  const [entry] = useState(() => {
+    const id = pickedItemFrom(location.search);
+    return data.mascots.find((mascot) => mascot.id === id && !mascot.unlocked) ?? null;
+  });
+  const [pressed, setPressed] = useState<Mascot | null>(entry?.price === null ? entry : null);
   const [celebrated, setCelebrated] = useState(false);
-  const [buying, setBuying] = useState<Mascot | null>(null);
+  const [buying, setBuying] = useState<Mascot | null>(entry?.price === null ? null : entry);
   const mascots = sortMascots(data.mascots);
   const nextId = mascots.find((mascot) => !mascot.unlocked && mascot.price === null)?.id;
   // 구매 확인 창과 모자람 창은 상점 상품의 모양을 받아서 마스코트를 그 모양으로 넘긴다.

@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import { MascotPickerCard } from "../../components/shop/MascotPickerCard";
 import { buildPointsFixture, type PointsScene } from "../../fixtures";
 import type { ShopData, ShopItem } from "../../types";
 import { ShopTab } from "../ShopTab";
@@ -33,6 +34,30 @@ describe("ShopTab", () => {
     expect(within(picker).getAllByRole("button")).toHaveLength(7);
     await userEvent.click(within(picker).getByRole("button", { name: "램피" }));
     expect(onSelectMascot).toHaveBeenCalledWith("lamp");
+  });
+
+  it("공부 시간 마스코트를 다 열었어도 캠코미를 사지 않았으면 고르기 칸 대신 캠코미 가격을 보이고 누르면 캠코미를 사러 간다", async () => {
+    const data = shopData("allCollected");
+    const onOpenMascots = vi.fn();
+    render(
+      <ShopTab
+        data={{
+          ...data,
+          mascots: data.mascots.map((mascot) =>
+            mascot.id === "camcorder" ? { ...mascot, unlocked: false } : mascot,
+          ),
+        }}
+        onOpen={vi.fn()}
+        onOpenMascots={onOpenMascots}
+        onSelectMascot={vi.fn()}
+      />,
+    );
+    expect(screen.queryByRole("region", { name: "오늘 함께할 마스코트" })).not.toBeInTheDocument();
+    expect(screen.getByText("1,000P로 열기")).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: "다음 마스코트 캠코미, 1,000P로 열기" }),
+    );
+    expect(onOpenMascots).toHaveBeenCalledWith("camcorder");
   });
 
   it("고르기 칸은 서버가 준 순서와 상관없이 여는 시간 순서로 놓고 포인트로 산 마스코트를 맨 뒤에 둔다", () => {
@@ -109,6 +134,28 @@ describe("ShopTab", () => {
       <ShopTab data={data} onOpen={vi.fn()} onOpenMascots={vi.fn()} onSelectMascot={vi.fn()} />,
     );
     expect(container.querySelector("img[src='/ribbon-back.png']")).not.toBeNull();
+  });
+
+  it("고르기 줄에 가지지 않은 마스코트가 있으면 흐리게 그리고 누르면 고르지 않고 사거나 열리는 길을 보러 간다", async () => {
+    const data = shopData("allCollected");
+    const onSelect = vi.fn();
+    const onLockedPress = vi.fn();
+    render(
+      <MascotPickerCard
+        mascots={data.mascots.map((mascot) =>
+          mascot.id === "camcorder" ? { ...mascot, unlocked: false } : mascot,
+        )}
+        worn={new Map()}
+        onSelect={onSelect}
+        onLockedPress={onLockedPress}
+      />,
+    );
+    const locked = screen.getByRole("button", { name: "캠코미 잠김" });
+    expect(locked).not.toHaveAttribute("aria-pressed");
+    expect(locked.querySelector(".grayscale")).not.toBeNull();
+    await userEvent.click(locked);
+    expect(onLockedPress).toHaveBeenCalledWith("camcorder");
+    expect(onSelect).not.toHaveBeenCalled();
   });
 
   it("상품을 누르면 그 상품을 골라서 열도록 상품 id를 함께 넘긴다", async () => {

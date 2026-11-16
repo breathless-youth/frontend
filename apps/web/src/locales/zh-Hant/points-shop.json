@@ -3,6 +3,7 @@
     "label": "下一個吉祥物 {{name}}",
     "remaining": "再專注 {{duration}} 就會解鎖",
     "open": "下一個吉祥物 {{name}}，開啟收集吉祥物",
+    "buy": "下一個吉祥物 {{name}}，以 {{price}} 解鎖",
     "progress": "距離 {{name}} 已完成 {{percent}}%"
   },
   "picker": {

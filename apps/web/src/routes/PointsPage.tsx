@@ -9,7 +9,7 @@ import { PointsScreenFrame } from "@/features/points/components/shared/PointsScr
 import { usePointsGateway, usePointsUserId } from "@/features/points/gateway/PointsGatewayContext";
 import { useShopActions } from "@/features/points/model/useShopActions";
 import { PointsRouteGate } from "@/features/points/PointsRouteGate";
-import { pointsItemSearch, pointsSearch } from "@/features/points/pointsSearch";
+import { pointsItemSearch } from "@/features/points/pointsSearch";
 import { EarnTab } from "@/features/points/screens/EarnTab";
 import { ShopTab } from "@/features/points/screens/ShopTab";
 import type { PointsTab, ShopItemKind } from "@/features/points/types";
@@ -109,9 +109,10 @@ function ShopPanel() {
   const location = useLocation();
   const shop = useQuery(shopQuery(gateway, userId));
   const { selectMascot } = useShopActions();
-  const open = (pathname: string, tab?: string) =>
+  // 고른 상품이나 마스코트를 `item`으로 넘겨 그 화면이 그것을 골라 둔 채로 열린다.
+  const open = (pathname: string, itemId?: string) =>
     slideNavigate("forward", () =>
-      navigate({ pathname, search: pointsSearch(location.search, tab) }),
+      navigate({ pathname, search: pointsItemSearch(location.search, itemId) }),
     );
 
   if (shop.data === undefined) {
@@ -126,15 +127,8 @@ function ShopPanel() {
   return (
     <ShopTab
       data={shop.data}
-      onOpen={(kind, itemId) =>
-        slideNavigate("forward", () =>
-          navigate({
-            pathname: KIND_PATH[kind],
-            search: pointsItemSearch(location.search, itemId),
-          }),
-        )
-      }
-      onOpenMascots={() => open("/points/mascots")}
+      onOpen={(kind, itemId) => open(KIND_PATH[kind], itemId)}
+      onOpenMascots={(id) => open("/points/mascots", id)}
       onSelectMascot={(id) => {
         selectMascot(id).catch(() => showToast(t("common:errors.retryLater")));
       }}

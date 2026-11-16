@@ -3,6 +3,7 @@
     "label": "次のマスコット {{name}}",
     "remaining": "あと{{duration}}勉強すると解放されます",
     "open": "次のマスコット {{name}}、マスコットあつめを開く",
+    "buy": "次のマスコット {{name}}、{{price}}で解放",
     "progress": "{{name}}まで{{percent}}%たまりました"
   },
   "picker": {
