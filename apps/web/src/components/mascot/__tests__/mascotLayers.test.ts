@@ -8,7 +8,7 @@ const worn = (slot: Parameters<typeof splitAccessoryLayers>[0][number]["slot"]) 
 });
 
 describe("splitAccessoryLayers", () => {
-  it("발밑과 날개는 몸 뒤에, 나머지는 몸 앞에 정한 순서로 놓는다", () => {
+  it("효과·발밑·날개는 몸 뒤에, 나머지는 몸 앞에 정한 순서로 놓고 효과가 가장 뒤다", () => {
     const layers = splitAccessoryLayers([
       worn("effect"),
       worn("held"),
@@ -19,14 +19,8 @@ describe("splitAccessoryLayers", () => {
       worn("underfoot"),
     ]);
 
-    expect(layers.behind.map((layer) => layer.slot)).toEqual(["underfoot", "wings"]);
-    expect(layers.front.map((layer) => layer.slot)).toEqual([
-      "body",
-      "face",
-      "head",
-      "held",
-      "effect",
-    ]);
+    expect(layers.behind.map((layer) => layer.slot)).toEqual(["effect", "underfoot", "wings"]);
+    expect(layers.front.map((layer) => layer.slot)).toEqual(["body", "face", "head", "held"]);
   });
 
   it("같은 칸이 두 번 오면 먼저 온 것만 그린다", () => {
@@ -97,23 +91,70 @@ describe("splitAccessoryLayers", () => {
       ]);
     });
 
-    it("앞뒤 그림이 다 오면 조각은 앞 그림에만 붙고 뒤 그림은 멈춰 있다", () => {
+    it("앞뒤 그림이 다 오면 둘 다 가장 뒤에 뒤 그림, 앞 그림 순서로 두고 조각은 앞 그림에만 붙는다", () => {
       const layers = splitAccessoryLayers([
+        { slot: "wings", imageUrl: "/wings.png" },
+        { slot: "underfoot", imageUrl: "/mat.png" },
         { slot: "effect", imageUrl: "/stars.png", backImageUrl: "/sky.png", effectPieces: pieces },
       ]);
 
-      expect(layers.behind).toEqual([{ key: "effect-back", slot: "effect", imageUrl: "/sky.png" }]);
-      expect(layers.front).toEqual([
+      expect(layers.behind).toEqual([
+        { key: "effect-back", slot: "effect", imageUrl: "/sky.png" },
         { key: "effect", slot: "effect", imageUrl: "/stars.png", pieces },
+        { key: "underfoot", slot: "underfoot", imageUrl: "/mat.png" },
+        { key: "wings", slot: "wings", imageUrl: "/wings.png" },
       ]);
+      expect(layers.front).toEqual([]);
     });
 
-    it("앞 그림에 조각이 없으면 앞 그림이 통째로 움직인다", () => {
-      const layers = splitAccessoryLayers([{ slot: "effect", imageUrl: "/stars.png" }]);
-
-      expect(layers.front).toEqual([
-        { key: "effect", slot: "effect", imageUrl: "/stars.png", floats: true },
+    it("앞 그림만 와도 몸 앞이 아니라 가장 뒤에 그리고 조각이 없으면 통째로 움직인다", () => {
+      const layers = splitAccessoryLayers([
+        { slot: "body", imageUrl: "/coat.png" },
+        { slot: "effect", imageUrl: "/stars.png" },
       ]);
+
+      expect(layers.behind[0]).toEqual({
+        key: "effect",
+        slot: "effect",
+        imageUrl: "/stars.png",
+        floats: true,
+      });
+      expect(layers.front.map((layer) => layer.slot)).toEqual(["body"]);
+    });
+  });
+
+  describe("세트", () => {
+    const pieces = [{ x: 0.1, y: 0.1, width: 0.2, height: 0.2, motion: "float" }];
+
+    it("효과 그림은 세트 뒤 조각보다 뒤에 그리고 몸 앞에는 옷만 둔다", () => {
+      const layers = splitAccessoryLayers([
+        { slot: "head", imageUrl: "/cap.png" },
+        {
+          slot: "set",
+          imageUrl: "/suit.png",
+          backImageUrl: "/cape.png",
+          effectImageUrl: "/sparks.png",
+          effectPieces: pieces,
+        },
+      ]);
+
+      expect(layers.wearsSet).toBe(true);
+      expect(layers.behind).toEqual([
+        { key: "set-effect", slot: "set", imageUrl: "/sparks.png", pieces },
+        { key: "set-back", slot: "set", imageUrl: "/cape.png" },
+      ]);
+      expect(layers.front).toEqual([{ key: "set", slot: "set", imageUrl: "/suit.png" }]);
+    });
+
+    it("효과 그림에 조각이 없으면 가장 뒤에서 통째로 움직인다", () => {
+      const layers = splitAccessoryLayers([
+        { slot: "set", imageUrl: "/suit.png", effectImageUrl: "/sparks.png" },
+      ]);
+
+      expect(layers.behind).toEqual([
+        { key: "set-effect", slot: "set", imageUrl: "/sparks.png", floats: true },
+      ]);
+      expect(layers.front).toEqual([{ key: "set", slot: "set", imageUrl: "/suit.png" }]);
     });
   });
 });

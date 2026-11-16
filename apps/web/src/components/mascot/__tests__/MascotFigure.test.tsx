@@ -74,7 +74,7 @@ describe("MascotFigure", () => {
     expect(container.querySelector<HTMLElement>("[data-slot='mascot-body']")?.style.inset).toBe("");
   });
 
-  it("세트를 입으면 낱개 소품은 그리지 않고 세트의 뒤, 몸, 앞, 효과 순서로 그린다", () => {
+  it("세트를 입으면 낱개 소품은 그리지 않고 세트의 효과, 뒤, 몸, 앞 순서로 그린다", () => {
     const { container } = render(
       <MascotFigure
         id="book"
@@ -91,10 +91,10 @@ describe("MascotFigure", () => {
     );
 
     expect(layerOrder(container)).toEqual([
+      "accessory-set-effect",
       "accessory-set-back",
       "mascot-body",
       "accessory-set",
-      "accessory-set-effect",
     ]);
   });
 
@@ -185,10 +185,11 @@ describe("MascotFigure", () => {
       />,
     );
 
+    // 효과는 몸을 가리지 않게 앞 그림까지 몸 뒤에 둔다.
     expect(layerOrder(container)).toEqual([
       "accessory-effect-back",
-      "mascot-body",
       "accessory-effect",
+      "mascot-body",
     ]);
     expect(container.querySelector("[data-slot='accessory-effect-back']")?.className).not.toContain(
       "mascot-effect-float",
