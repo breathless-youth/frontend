@@ -2,6 +2,8 @@ import type { CSSProperties, ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
+import { DrawnEffectPiece, type OrbitSide } from "./DrawnEffectPiece";
+import { isDrawnMotion } from "./drawnMotion";
 import {
   ACCESSORY_BOARD_OUTSET,
   splitAccessoryLayers,
@@ -46,31 +48,48 @@ function backgroundOffset(start: number, size: number) {
  *
  * 그림 한 장을 배경으로 깔고 조각 자리만 보이게 해서 조각마다 따로 움직인다.
  * 조각들이 같은 박자로 움직이면 기계처럼 보여서 시작 시점을 조각마다 어긋나게 둔다.
+ * 커졌다 작아지는 것만으로는 그 효과처럼 보이지 않는 움직임은 빛과 입자를 코드로 더해 그린다(DrawnEffectPiece).
  */
 function EffectPieceLayer({
   imageUrl,
   piece,
   index,
+  side,
 }: {
   imageUrl: string;
   piece: EffectPiece;
   index: number;
+  side: OrbitSide;
 }) {
+  const box: CSSProperties = {
+    left: percent(piece.x),
+    top: percent(piece.y),
+    width: percent(piece.width),
+    height: percent(piece.height),
+  };
+  const picture: CSSProperties = {
+    backgroundImage: `url(${imageUrl})`,
+    backgroundSize: `${percent(1 / piece.width)} ${percent(1 / piece.height)}`,
+    backgroundPosition: `${backgroundOffset(piece.x, piece.width)} ${backgroundOffset(piece.y, piece.height)}`,
+  };
+  if (isDrawnMotion(piece.motion)) {
+    return (
+      <DrawnEffectPiece
+        motion={piece.motion}
+        piece={piece}
+        index={index}
+        side={side}
+        box={box}
+        picture={picture}
+      />
+    );
+  }
   const motion = PIECE_MOTION.get(piece.motion);
   return (
     <span
       data-effect-piece={motion === undefined ? "still" : piece.motion}
       className={cn("absolute bg-no-repeat motion-reduce:animate-none", motion)}
-      style={{
-        left: percent(piece.x),
-        top: percent(piece.y),
-        width: percent(piece.width),
-        height: percent(piece.height),
-        backgroundImage: `url(${imageUrl})`,
-        backgroundSize: `${percent(1 / piece.width)} ${percent(1 / piece.height)}`,
-        backgroundPosition: `${backgroundOffset(piece.x, piece.width)} ${backgroundOffset(piece.y, piece.height)}`,
-        animationDelay: `${(-0.43 * index).toFixed(2)}s`,
-      }}
+      style={{ ...box, ...picture, animationDelay: `${(-0.43 * index).toFixed(2)}s` }}
     />
   );
 }
@@ -79,14 +98,21 @@ function EffectPieceLayer({
  * 소품 그림 한 겹
  *
  * 조각 정보가 있으면 조각마다 움직이고, 없는 효과 그림은 통째로 천천히 떠오르내린다.
+ * 조각을 담은 판은 index.css가 마스코트 크기를 알아보는 기준 상자라 작은 화면에서 효과를 덜어 낸다.
  * 모션 축소를 켠 기기에서는 멈춘 그림으로 보인다.
  */
 function AccessoryLayer({ layer }: { layer: AccessoryLayerImage }) {
   if (layer.pieces !== undefined) {
     return (
-      <span data-slot={`accessory-${layer.key}`} className="absolute" style={BOARD}>
+      <span data-slot={`accessory-${layer.key}`} className="mascot-fx-board absolute" style={BOARD}>
         {layer.pieces.map((piece, index) => (
-          <EffectPieceLayer key={index} imageUrl={layer.imageUrl} piece={piece} index={index} />
+          <EffectPieceLayer
+            key={index}
+            imageUrl={layer.imageUrl}
+            piece={piece}
+            index={index}
+            side={layer.orbitFront ? "front" : "back"}
+          />
         ))}
       </span>
     );

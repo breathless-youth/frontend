@@ -1,16 +1,18 @@
+import { BACK_LIGHT_MOTIONS, ORBIT_MOTION } from "./drawnMotion";
 import type { AccessorySlot, EffectPiece, WornAccessory } from "./types";
 
 /**
  * 소품이 겹치는 순서
  *
- * 뒤에서 앞으로 효과 뒤 그림, 효과 앞 그림, 날개, 발밑, 나머지 칸의 뒤 조각, 마스코트 몸, 몸 소품, 날개 앞 조각, 발밑 앞 조각, 얼굴, 머리, 물건 순서다.
+ * 뒤에서 앞으로 효과 뒤 그림, 효과 앞 그림, 날개, 발밑, 나머지 칸의 뒤 조각, 마스코트 몸, 몸 소품, 날개 앞 조각, 발밑 앞 조각, 얼굴, 머리, 물건, 효과 궤도의 앞쪽 반 순서다.
  * 효과는 몸과 등 뒤 소품을 가리지 않게 앞 그림까지 모두 가장 뒤에 그린다.
+ * 몸 둘레를 도는 궤도 조각만 예외로, 같은 조각을 가장 앞에 한 번 더 그려 궤도 앞쪽 반은 몸과 소품 앞을, 뒤쪽 반은 몸 뒤를 지나게 한다.
  * 발밑은 바닥에 놓인 소품이라 망토 자락이나 날개 끝이 덮지 않게 몸 뒤에서도 앞 조각에서도 날개보다 앞에 그린다.
  * 날개와 발밑은 본체가 몸 뒤에 있는 칸이라 그림이 한 장이면 그 그림을 몸 뒤에 그린다.
  * 이 두 칸에 뒤 그림이 따로 오면 뒤 그림이 본체이고, 앞 그림은 끈이나 앞발처럼 몸 앞으로 넘어오는 조각이다.
  * 나머지 칸은 앞 그림이 본체이고, 목도리처럼 몸을 감싸는 소품만 뒤로 돌아가는 조각을 따로 받아 몸 뒤에 그린다.
  * 효과 칸은 오라나 뒤 배경처럼 뒤 그림만 오기도 하며, 그때는 뒤 그림이 앞 그림과 같은 방식으로 움직인다.
- * 세트를 입었으면 낱개 소품은 그리지 않고 뒤에서 앞으로 세트의 효과, 뒤 조각, 몸, 옷만 그린다.
+ * 세트를 입었으면 낱개 소품은 그리지 않고 뒤에서 앞으로 세트의 효과, 뒤 조각, 몸, 옷, 효과 궤도의 앞쪽 반만 그린다.
  */
 const BEHIND: readonly AccessorySlot[] = ["wings", "underfoot"];
 const FRONT: readonly AccessorySlot[] = ["body", "wings", "underfoot", "face", "head", "held"];
@@ -43,6 +45,8 @@ export type AccessoryLayerImage = {
   pieces?: readonly EffectPiece[];
   /** 조각 정보가 없는 효과 그림이라 통째로 천천히 떠오르내린다. */
   floats?: true;
+  /** 몸 앞에 한 번 더 그린 궤도 조각이라 궤도 앞쪽 반에서만 보인다. */
+  orbitFront?: true;
 };
 
 function pick(accessories: readonly WornAccessory[], order: readonly AccessorySlot[]) {
@@ -76,17 +80,23 @@ function behindPieces(accessories: readonly WornAccessory[], order: readonly Acc
   });
 }
 
+const isBackLight = (piece: EffectPiece) => BACK_LIGHT_MOTIONS.includes(piece.motion);
+
 /**
  * 효과 칸의 그림
  *
  * 몸 뒤의 가장 뒤에 뒤 그림, 앞 그림 순서로 둔다.
- * 앞 그림이 없을 때만 뒤 그림이 움직이고, 앞 그림이 있으면 움직임은 앞 그림이 맡는다.
+ * 앞 그림이 없으면 조각이 모두 뒤 그림을 잘라 움직인다.
+ * 앞 그림이 있으면 조각은 앞 그림을 자르고, 몸을 감싼 빛을 움직이는 조각만 뒤 그림을 자른다.
+ * 그래서 연보라 오라처럼 반짝이(앞 그림)와 빛(뒤 그림)이 함께 오는 효과도 둘을 따로 움직인다.
  */
 function effectImages(effect: WornAccessory | undefined): AccessoryLayerImage[] {
   if (effect === undefined) {
     return [];
   }
   const { backImageUrl, imageUrl, effectPieces } = effect;
+  const backLight = effectPieces?.filter(isBackLight) ?? [];
+  const frontMotion = effectPieces?.filter((piece) => !isBackLight(piece));
   return [
     ...(backImageUrl === undefined
       ? []
@@ -95,13 +105,47 @@ function effectImages(effect: WornAccessory | undefined): AccessoryLayerImage[] 
             key: "effect-back",
             slot: "effect" as const,
             imageUrl: backImageUrl,
-            ...(imageUrl === undefined ? effectMotion(effectPieces) : null),
+            ...(imageUrl === undefined
+              ? effectMotion(effectPieces)
+              : backLight.length > 0
+                ? { pieces: backLight }
+                : null),
           },
         ]),
     ...(imageUrl === undefined
       ? []
-      : [{ key: "effect", slot: "effect" as const, imageUrl, ...effectMotion(effectPieces) }]),
+      : [
+          {
+            key: "effect",
+            slot: "effect" as const,
+            imageUrl,
+            ...effectMotion(frontMotion?.length ? frontMotion : undefined),
+          },
+        ]),
   ];
+}
+
+/**
+ * 몸 앞에 한 번 더 그릴 궤도 조각
+ *
+ * 몸 뒤 그림에서 궤도 조각만 골라 같은 그림을 몸 앞에도 둔다.
+ * 두 층의 조각은 같은 박자로 돌고, 몸 뒤 층은 궤도 뒤쪽 반에서만, 몸 앞 층은 앞쪽 반에서만 보인다.
+ */
+function orbitFront(layers: readonly AccessoryLayerImage[]): AccessoryLayerImage[] {
+  return layers.flatMap((layer): AccessoryLayerImage[] => {
+    const orbit = layer.pieces?.filter((piece) => piece.motion === ORBIT_MOTION) ?? [];
+    return orbit.length === 0
+      ? []
+      : [
+          {
+            key: `${layer.key}-front`,
+            slot: layer.slot,
+            imageUrl: layer.imageUrl,
+            pieces: orbit,
+            orbitFront: true,
+          },
+        ];
+  });
 }
 
 /** 몸 앞에 놓이는 그림이며 발밑과 날개의 앞 그림은 뒤 그림이 따로 온 소품의 앞 조각일 때만 여기에 놓인다. */
@@ -115,21 +159,20 @@ function frontPieces(accessories: readonly WornAccessory[], order: readonly Acce
 
 /** 세트의 효과 그림도 낱개 효과처럼 몸을 가리지 않게 세트 뒤 조각보다 뒤에 둔다. */
 function setLayers(set: WornAccessory) {
+  const effect: AccessoryLayerImage[] =
+    set.effectImageUrl === undefined
+      ? []
+      : [
+          {
+            key: "set-effect",
+            slot: "set",
+            imageUrl: set.effectImageUrl,
+            ...effectMotion(set.effectPieces),
+          },
+        ];
   return {
-    behind: [
-      ...(set.effectImageUrl === undefined
-        ? []
-        : [
-            {
-              key: "set-effect",
-              slot: "set" as const,
-              imageUrl: set.effectImageUrl,
-              ...effectMotion(set.effectPieces),
-            },
-          ]),
-      ...behindPieces([set], ["set"]),
-    ],
-    front: frontPieces([set], ["set"]),
+    behind: [...effect, ...behindPieces([set], ["set"])],
+    front: [...frontPieces([set], ["set"]), ...orbitFront(effect)],
   };
 }
 
@@ -145,12 +188,13 @@ export function splitAccessoryLayers(accessories: readonly WornAccessory[]): {
     return { ...setLayers(set), glow: null, wearsSet: true };
   }
   const effect = accessories.find((accessory) => accessory.slot === "effect");
+  const effectLayers = effectImages(effect);
   return {
     behind: [
-      ...effectImages(effect),
+      ...effectLayers,
       ...behindPieces(accessories, [...BEHIND, "body", "face", "head", "held"]),
     ],
-    front: frontPieces(accessories, FRONT),
+    front: [...frontPieces(accessories, FRONT), ...orbitFront(effectLayers)],
     glow: GLOW_TYPES.find((type) => type === effect?.effectType) ?? null,
     wearsSet: false,
   };
