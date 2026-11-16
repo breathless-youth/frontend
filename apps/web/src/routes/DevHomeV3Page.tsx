@@ -12,18 +12,83 @@ import { homeV3Keys, useHomeV3Progress } from "@/features/home-v3/useHomeV3Progr
 import { PointsBalancePill } from "@/features/points/components/shared/PointsBalancePill";
 import { isPointsEnabled } from "@/lib/pointsCapability";
 
-const scenarios = ["2a", "2b", "2c", "2d", "2e", "2f", "2g", "2h"] as const;
+const baseScenarios = ["2a", "2b", "2c", "2d", "2e", "2f", "2g", "2h"] as const;
+const rewardScenarios = ["reward-step1", "reward-step2", "reward-done", "reward-claim"] as const;
+const scenarios = [...baseScenarios, ...rewardScenarios] as const;
 type Scenario = (typeof scenarios)[number];
+type RewardScenario = (typeof rewardScenarios)[number];
 const day = { dateKey: "2026-11-05", timeZone: "Asia/Seoul" };
 const PREVIEW_USER = -1188;
+const STEP_POINTS = [50, 100];
 const stats = {
   status: "success" as const,
   value: { studySeconds: 15512, focusSeconds: 13337, focusRate: 86 },
 };
 
+/**
+ * 포인트를 주는 시작 미션의 미리보기 상태
+ *
+ * 2단계에서 완료를 누르면 미션을 끝낸 직후가, 보상을 받으면 받은 직후가 이어서 보인다.
+ */
+const rewardFixtures: Record<
+  RewardScenario,
+  Pick<HomeMission, "currentStep" | "eligible" | "completedSteps" | "claimablePoints"> & {
+    balance: number;
+  }
+> = {
+  "reward-step1": {
+    currentStep: 1,
+    eligible: false,
+    completedSteps: 0,
+    claimablePoints: 0,
+    balance: 0,
+  },
+  "reward-step2": {
+    currentStep: 2,
+    eligible: true,
+    completedSteps: 1,
+    claimablePoints: 0,
+    balance: 50,
+  },
+  "reward-done": {
+    currentStep: null,
+    eligible: false,
+    completedSteps: 2,
+    claimablePoints: 0,
+    balance: 150,
+  },
+  "reward-claim": {
+    currentStep: null,
+    eligible: false,
+    completedSteps: 2,
+    claimablePoints: 150,
+    balance: 1240,
+  },
+};
+
+function isRewardScenario(scenario: Scenario): scenario is RewardScenario {
+  return (rewardScenarios as readonly string[]).includes(scenario);
+}
+
+function initialMission(scenario: Scenario): HomeMission {
+  const base = { version: "home-v3", startsOn: "2026-11-07" };
+  if (isRewardScenario(scenario)) {
+    const { balance: _balance, ...fixture } = rewardFixtures[scenario];
+    return { ...base, ...fixture, measuredFocusSec: 300, stepPoints: STEP_POINTS };
+  }
+  return {
+    ...base,
+    currentStep: scenario <= "2b" ? 1 : scenario <= "2d" ? 2 : null,
+    eligible: scenario !== "2a" && scenario !== "2c" && scenario <= "2d",
+    completedSteps: scenario <= "2b" ? 0 : scenario <= "2d" ? 1 : 2,
+    measuredFocusSec: scenario === "2c" ? 100 : 300,
+  };
+}
+
 function Preview({ scenario }: { scenario: Scenario }) {
   const { t, i18n } = useTranslation("home");
   const client = useQueryClient();
+  const reward = isRewardScenario(scenario);
   const [subjectCount, setSubjectCount] = useState(scenario === "2a" ? 0 : 4);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [menuOpen, setMenuOpen] = useState(scenario === "2h");
@@ -33,31 +98,33 @@ function Preview({ scenario }: { scenario: Scenario }) {
     seconds: null as number | null,
   });
   const [message, setMessage] = useState("");
+  const [balance, setBalance] = useState(reward ? rewardFixtures[scenario].balance : 1240);
   // 개발 미리보기 전용 메모리 어댑터. production 모듈에서는 가져오지 않는다.
-  const mission = useRef<HomeMission>({
-    version: "home-v3",
-    startsOn: "2026-11-07",
-    currentStep: scenario <= "2b" ? 1 : scenario <= "2d" ? 2 : null,
-    eligible: scenario !== "2a" && scenario !== "2c" && scenario <= "2d",
-    completedSteps: scenario <= "2b" ? 0 : scenario <= "2d" ? 1 : 2,
-    measuredFocusSec: scenario === "2c" ? 100 : 300,
-  });
+  const mission = useRef<HomeMission>(initialMission(scenario));
   const goal = useRef<HomeGoal>({
-    seconds: scenario >= "2g" ? 28800 : null,
+    seconds: !reward && scenario >= "2g" ? 28800 : null,
     defaultSeconds: null,
     remainingTasks: 3,
   });
   const gateway: HomeV3Gateway = {
     readMission: async () => mission.current,
-    claimMissionReward: async () => ({ granted: false, points: 0, balance: 0 }),
+    claimMissionReward: async () => {
+      const points = mission.current.claimablePoints ?? 0;
+      const next = balance + points;
+      mission.current = { ...mission.current, claimablePoints: 0 };
+      setBalance(next);
+      return { granted: points > 0, points, balance: next };
+    },
     acknowledgeMission: async (step) => {
+      const rewardedPoints = mission.current.stepPoints?.[step - 1] ?? 0;
       mission.current = {
         ...mission.current,
         completedSteps: step,
         currentStep: step === 1 ? 2 : null,
         eligible: step === 1 && mission.current.measuredFocusSec >= 300,
       };
-      return mission.current;
+      if (rewardedPoints > 0) setBalance((previous) => previous + rewardedPoints);
+      return { ...mission.current, rewardedPoints };
     },
     readPlannerDay: async (editedDay) => ({
       date: editedDay.dateKey,
@@ -94,7 +161,7 @@ function Preview({ scenario }: { scenario: Scenario }) {
       setMessage(`DEV: startStudy(${selectedId ?? "null"}); measured focus = 300s`);
     },
   };
-  const progress = useHomeV3Progress(gateway, PREVIEW_USER, day, stats);
+  const progress = useHomeV3Progress(gateway, PREVIEW_USER, day, stats, isPointsEnabled());
   const subjects = [
     { id: 1, name: t("v3.preview.subjects.korean"), colorIndex: 0 },
     { id: 2, name: t("v3.preview.subjects.math"), colorIndex: 7 },
@@ -119,7 +186,7 @@ function Preview({ scenario }: { scenario: Scenario }) {
           <span className="pb-1.5">
             <PointsBalancePill
               size="home"
-              balance={1240}
+              balance={balance}
               onPress={() => setMessage("DEV: open points")}
             />
           </span>
@@ -135,7 +202,14 @@ function Preview({ scenario }: { scenario: Scenario }) {
         subjects={{ status: "success", value: subjects }}
         selectedSubjectId={selectedId}
         completingMission={progress.completingMission}
-        missionError={progress.missionError ? t("v3.mission.failed") : undefined}
+        claimingReward={progress.claimingReward}
+        missionError={
+          progress.missionError
+            ? t("v3.mission.failed")
+            : progress.rewardError
+              ? t("v3.reward.failed")
+              : undefined
+        }
         timelapseCount={2}
         plannerTaskCount={3}
         appLockLabel={t("v3.appLock.locked", { count: 4 })}
@@ -145,6 +219,7 @@ function Preview({ scenario }: { scenario: Scenario }) {
           selectSubject: setSelectedId,
           startStudy: () => gateway.startStudy(selectedId),
           completeMission: progress.completeMission,
+          claimMissionReward: () => progress.claimMissionReward(),
           openPlanner: () => {
             setSubjectCount(4);
             if (mission.current.currentStep === 1) {
