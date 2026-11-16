@@ -1117,11 +1117,12 @@ export const FOCUS_START_SOURCES = [
   "ranking_empty",
   "ranking_records",
   "planner",
+  "mascot_collection",
 ] as const;
 export type FocusStartSource = (typeof FOCUS_START_SOURCES)[number];
 
 /**
- * 홈·랭킹·플래너의 공부 시작 탭
+ * 홈·랭킹·플래너·마스코트 모으기의 공부 시작 탭
  *
  * F1 퍼널의 첫 행동이자 `camera_permission_gate_resolved`의 분모다.
  * 가이드를 처음 보는 계정은 가이드의 `순공 시작하기`를 누른 뒤에 보낸다.

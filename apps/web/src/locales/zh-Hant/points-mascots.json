@@ -6,7 +6,7 @@
   "sheet": {
     "untilOpen": "再專注 {{time}} 就會解鎖。",
     "progress": "距離{{name}}已完成 {{percent}}%",
-    "close": "關閉"
+    "startStudy": "開始讀書"
   },
   "unlocked": {
     "tag": "新吉祥物",

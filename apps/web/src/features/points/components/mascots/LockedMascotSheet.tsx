@@ -12,18 +12,23 @@ import { MascotImage } from "../shared/MascotImage";
 /**
  * 잠긴 마스코트를 눌렀을 때 남은 시간을 알리는 시트
  *
+ * 공부 시간으로 여는 마스코트는 남은 시간과 함께 바로 공부를 시작하는 버튼을 보인다.
  * 포인트로 여는 마스코트는 남은 시간 대신 가격과 사는 버튼을 보인다.
+ * 바깥 누르기, 아래로 밀기, 뒤로 가기로도 닫힌다.
  * 시트는 body로 나가므로 Soft Blue 테마를 시트에도 단다.
  */
 export function LockedMascotSheet({
   mascot,
   totalFocusSec,
   onBuy,
+  onStartStudy,
   onClose,
 }: {
   mascot: Mascot | null;
   totalFocusSec: number;
   onBuy: (mascot: Mascot) => void;
+  /** 창을 닫은 뒤 홈의 공부 시작과 같은 흐름으로 공부를 시작한다. */
+  onStartStudy: () => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation("points-mascots");
@@ -64,8 +69,15 @@ export function LockedMascotSheet({
                   <span>{formatDuration(totalFocusSec)}</span>
                   <span>{formatDuration(target)}</span>
                 </div>
-                <Button size="xl" className="mt-1 w-full" onClick={onClose}>
-                  {t("sheet.close")}
+                <Button
+                  size="xl"
+                  className="mt-1 w-full"
+                  onClick={() => {
+                    onClose();
+                    onStartStudy();
+                  }}
+                >
+                  {t("sheet.startStudy")}
                 </Button>
               </>
             )}

@@ -6,7 +6,7 @@
   "sheet": {
     "untilOpen": "순공 {{time}} 더 하면 열려요.",
     "progress": "{{name}}까지 {{percent}}% 모았어요",
-    "close": "닫기"
+    "startStudy": "공부 시작하기"
   },
   "unlocked": {
     "tag": "새 마스코트",

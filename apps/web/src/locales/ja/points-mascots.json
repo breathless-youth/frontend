@@ -6,7 +6,7 @@
   "sheet": {
     "untilOpen": "あと{{time}}集中すると解放されます。",
     "progress": "{{name}}まで{{percent}}%",
-    "close": "閉じる"
+    "startStudy": "勉強を始める"
   },
   "unlocked": {
     "tag": "新しいマスコット",

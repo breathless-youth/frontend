@@ -77,6 +77,7 @@ function renderScreen(
             balance={1240}
             onSelect={onSelect}
             onBack={() => {}}
+            onStartStudy={() => {}}
             {...props}
           />
         </MemoryRouter>
@@ -129,8 +130,40 @@ describe("MascotCollectionScreen", () => {
     expect(within(sheet).getByText("순공 4시간 12분 더 하면 열려요.")).toBeInTheDocument();
     expect(within(sheet).getByRole("img", { name: "부기까지 86% 모았어요" })).toBeInTheDocument();
     expect(within(sheet).getByText("30시간")).toBeInTheDocument();
-    await userEvent.click(within(sheet).getByRole("button", { name: "닫기" }));
+  });
+
+  it("공부 시간으로 여는 잠긴 마스코트 창의 공부 시작하기를 누르면 창을 닫고 공부를 시작한다", async () => {
+    const onStartStudy = vi.fn();
+    renderScreen({ onStartStudy });
+    await userEvent.click(screen.getByRole("button", { name: "부기 잠김, 4시간 12분 남음" }));
+    const sheet = await screen.findByRole("dialog");
+
+    expect(within(sheet).queryByRole("button", { name: "닫기" })).not.toBeInTheDocument();
+    await userEvent.click(within(sheet).getByRole("button", { name: "공부 시작하기" }));
+
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(onStartStudy).toHaveBeenCalledOnce();
+  });
+
+  it("잠긴 마스코트 창은 버튼 없이도 닫히고 그때는 공부를 시작하지 않는다", async () => {
+    const onStartStudy = vi.fn();
+    renderScreen({ onStartStudy });
+    await userEvent.click(screen.getByRole("button", { name: "부기 잠김, 4시간 12분 남음" }));
+    await screen.findByRole("dialog");
+
+    await userEvent.keyboard("{Escape}");
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(onStartStudy).not.toHaveBeenCalled();
+  });
+
+  it("포인트로 여는 마스코트 창은 공부 시작 대신 사는 버튼을 그대로 보인다", async () => {
+    renderScreen({ onStartStudy: vi.fn() });
+    await userEvent.click(screen.getByRole("button", { name: /^캠코미 잠김/ }));
+    const sheet = await screen.findByRole("dialog");
+
+    expect(within(sheet).getByRole("button", { name: "1,000P로 열기" })).toBeInTheDocument();
+    expect(within(sheet).queryByRole("button", { name: "공부 시작하기" })).not.toBeInTheDocument();
   });
 
   it("연 마스코트를 누르면 선택을 부른다", async () => {

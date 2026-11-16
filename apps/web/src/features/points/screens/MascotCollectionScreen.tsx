@@ -41,11 +41,14 @@ export function MascotCollectionScreen({
   onCharge,
   newlyUnlocked,
   onCelebrated,
+  onStartStudy,
 }: {
   data: ShopData;
   balance: number;
   onSelect: (id: MascotId) => Promise<void>;
   onBack: () => void;
+  /** 공부 시간으로 여는 잠긴 마스코트의 창에서 공부를 시작한다. */
+  onStartStudy: () => void;
   newlyUnlocked?: MascotId;
   onCelebrated?: () => void;
 } & Partial<Pick<ShopScreenProps, "earn" | "packs" | "onWatchAd" | "onCharge">>) {
@@ -149,6 +152,7 @@ export function MascotCollectionScreen({
           setPressed(null);
           setBuying(mascot);
         }}
+        onStartStudy={onStartStudy}
         onClose={() => setPressed(null)}
       />
       <PurchaseConfirmSheet
