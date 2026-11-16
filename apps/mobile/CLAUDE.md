@@ -77,6 +77,19 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 - ID 토큰과 nonce는 로그와 브리지로 내보내지 않는다.
 - 로그아웃(`logout`)과 탈퇴(`delete-account`)도 셸이 처리하고, 웹뷰 주소의 `accountActions=1`이 이 바이너리라는 표시다. link·로그아웃·탈퇴는 `runAccountChange`로 차례를 지키고 `refreshAuth`는 진행 중인 것을 기다린다. 성공하면 저장을 지우고 새 비회원으로 가입한 뒤 결과를 답하고, 분석 sink를 모두 떼고 완료 이벤트(`logout_completed`·`account_deleted`)를 남긴 다음 `lib/accountReset.ts`로 모든 웹뷰를 탭 첫 화면으로 다시 띄우고 설정 탭에 남는다. sink를 먼저 떼야 이벤트가 사라질 문서가 아니라 새 문서로 간다. 애플 계정 탈퇴는 애플 로그인을 다시 띄워 받은 인가 코드를 보내며, 이 코드도 로그와 브리지로 내보내지 않는다. 설계는 [BY-1150 설계 문서](../../docs/superpowers/specs/2026-11-06-BY-1150-logout-delete-account-design.md).
 
+## 포인트 결제·광고 SDK (`lib/pointsCharge.ts` · `lib/pointsAds.ts`)
+
+`react-native-purchases`(RevenueCat)와 `react-native-google-mobile-ads`(AdMob). 웹이 브리지 `points-charge-prices`·`points-charge-purchase`·`points-charge-restore`·`points-ad-show`를 보내면 셸이 스토어 가격 조회, 결제 창, 구매 복원, 보상형 광고만 처리하고 같은 `id`의 `-result`로 답한다. 근거는 [ADR 0022](../../docs/adr/0022-points-iap-and-rewarded-ads-via-native-bridge.md).
+
+- **SDK는 `lib/pointsChargeSdk.ts`와 `lib/pointsAdsSdk.ts`만 불러온다.** 결제 키(env `REVENUECAT_API_KEY`)나 광고 단위가 없는 빌드와 네이티브 모듈이 없는 옛 Dev Client에서는 불러오지 않고 그 기능을 끈다. 다른 코드는 `lib/pointsCharge.ts`·`lib/pointsAds.ts`의 공개 함수만 본다.
+- **포인트는 서버가 준다.** 셸의 `completed`·`rewarded`는 결제와 시청이 끝났다는 뜻일 뿐이다. 결제 전에 지금 사용자 ID로 RevenueCat에 로그인하고, 광고의 서버 확인 옵션에 사용자 ID를 싣는 것을 빼지 말 것. 빠지면 돈이 나가거나 광고를 봤는데 포인트가 들어오지 않는다.
+- **웹뷰 주소 표시는 `lib/remoteQueryParams.ts`가 붙인다.** `points=1`은 이 바이너리가 포인트 브리지를 안다는 뜻이라 늘 붙이고, `pointsCharge=1`·`pointsRestore=1`은 결제 어댑터가 있을 때, `pointsAds=1`은 광고 어댑터가 있을 때만 붙인다. 웹은 표시가 있을 때만 그 메시지를 보낸다.
+- **광고 단위는 빌드 종류로 고른다**(`app.config.ts`의 `ADMOB_REWARDED_UNIT_IDS`·`ADS_VARIANTS`). 서버가 자기 환경의 광고 단위로 본 시청만 보상하므로 Google 테스트 단위로 대신하지 않는다. staging은 광고 단위가 없어 광고가 꺼져 있다.
+- **AdMob 앱 ID 플러그인은 모든 빌드 종류에 넣는다.** Android는 SDK가 링크된 앱의 매니페스트에 앱 ID가 없으면 시작할 때 죽는다(`pointsAdsConfig.test.ts`).
+- **광고 등급 상한(G)은 SDK를 시작하기 전에 건다**(`pointsAdsSdk.test.ts`). 맞춤 광고는 허용하고 아동 대상 표시는 넣지 않는다.
+- `test_`로 시작하는 RevenueCat Test Store 키는 운영 빌드에서 `app.config.ts`가 막는다.
+- ⚠️ **릴리즈 게이트**: 개인정보 처리방침·App Store 개인정보 라벨·Play 데이터 보안에 광고 식별자와 구매 내역을 넣기 전에는 이 SDK가 든 빌드를 스토어에 내지 않는다.
+
 ## 에러 모니터링 (Sentry, `lib/sentry.ts`)
 
 - **프로젝트는 `focusmakers-app`이다**(웹 `focusmakers-web`과 분리). **웹 DSN을 복사해 오지 말 것** — `sentryConfig.test.ts`가 프로젝트 ID를 못 박는다. **DSN은 `app.json`의 `extra.sentryDsn`에 둔다**(전송 여부는 런타임 `enabled: !__DEV__`가 가른다). 소스맵용 `SENTRY_AUTH_TOKEN`은 비밀이라 EAS Secret에 넣는다(커밋 금지).
