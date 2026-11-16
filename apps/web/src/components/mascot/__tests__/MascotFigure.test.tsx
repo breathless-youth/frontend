@@ -209,6 +209,47 @@ describe("MascotFigure", () => {
     expect(glow?.querySelector<HTMLElement>("[data-glow-shape]")?.style.maskImage).toContain(book);
   });
 
+  it("소품 층 상자를 넘기면 몸 뒤 층과 몸 앞 층을 따로 감싸고 몸은 감싸지 않는다", () => {
+    const { container } = render(
+      <MascotFigure
+        id="book"
+        accessories={[
+          { slot: "head", imageUrl: "/head.png" },
+          { slot: "wings", imageUrl: "/wings.png" },
+          { slot: "effect", effectType: "glow" },
+        ]}
+        layerFrame={{ className: "tilt", style: { transform: "rotate(-6deg)" } }}
+      />,
+    );
+
+    const frames = container.querySelectorAll<HTMLElement>("[data-layer-frame]");
+    expect(Array.from(frames, (frame) => frame.getAttribute("data-layer-frame"))).toEqual([
+      "behind",
+      "front",
+    ]);
+    for (const frame of frames) {
+      expect(frame.className).toContain("tilt");
+      expect(frame.style.transform).toBe("rotate(-6deg)");
+    }
+    expect(layerOrder(frames[0])).toEqual(["mascot-glow", "accessory-wings"]);
+    expect(layerOrder(frames[1])).toEqual(["accessory-head"]);
+    expect(container.querySelector("[data-layer-frame] [data-slot='mascot-body']")).toBeNull();
+    expect(layerOrder(container)).toEqual([
+      "mascot-glow",
+      "accessory-wings",
+      "mascot-body",
+      "accessory-head",
+    ]);
+  });
+
+  it("소품 층 상자를 넘겨도 비어 있는 쪽은 상자를 만들지 않는다", () => {
+    const { container } = render(
+      <MascotFigure id="book" layerFrame={{ style: { transform: "rotate(-6deg)" } }} />,
+    );
+
+    expect(container.querySelector("[data-layer-frame]")).toBeNull();
+  });
+
   it("모르는 빛 효과는 그리지 않는다", () => {
     const { container } = render(
       <MascotFigure id="book" accessories={[{ slot: "effect", effectType: "sparkle-storm" }]} />,

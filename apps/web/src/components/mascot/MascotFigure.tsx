@@ -143,35 +143,58 @@ function GlowLayer({ type, id }: { type: GlowType; id: MascotId }) {
  * 상자는 마스코트 판 크기의 정사각형이고 크기와 자리는 쓰는 화면이 className으로 정한다.
  * 소품 그림은 마스코트 판보다 사방으로 넓은 판이라 상자 밖으로 조금 나가 그려지며, 그림 속 마스코트 자리는 몸과 정확히 겹친다.
  * 표정이 바뀌는 그림처럼 몸을 다르게 그리는 화면은 body로 몸 자리를 채운다.
+ * 몸과 소품을 따로 움직이는 화면은 layerFrame을 넘겨 몸 뒤 층과 몸 앞 층을 판 크기 상자로 하나씩 감싼다.
  * 이름이나 상태는 옆 글자가 알려 주므로 그림은 화면 낭독기에서 뺀다.
  */
 export function MascotFigure({
   id,
   accessories = [],
   body,
+  layerFrame,
   className,
 }: {
   id: MascotId;
   accessories?: readonly WornAccessory[];
   /** 기본 정지 그림 대신 몸 자리에 그릴 조각이며 상자를 꽉 채워야 소품이 맞는다. */
   body?: ReactNode;
+  /** 소품 층을 감싸는 상자에 줄 클래스와 스타일이며 몸은 이 상자 밖에 그린다. */
+  layerFrame?: { className?: string; style?: CSSProperties };
   className?: string;
 }) {
   const { behind, front, glow, wearsSet } = splitAccessoryLayers(accessories);
-  return (
-    <span aria-hidden="true" className={cn("relative block aspect-square shrink-0", className)}>
+  const behindLayers = (
+    <>
       {glow !== null && <GlowLayer type={glow} id={id} />}
       {behind.map((accessory) => (
         <AccessoryLayer key={accessory.key} layer={accessory} />
       ))}
+    </>
+  );
+  const frontLayers = front.map((accessory) => (
+    <AccessoryLayer key={accessory.key} layer={accessory} />
+  ));
+  // 소품 그림의 판 위치가 이 상자 크기의 비율이라 감싸는 상자도 같은 크기여야 한다.
+  const frame = (side: "behind" | "front", layers: ReactNode, empty: boolean) =>
+    layerFrame === undefined || empty ? (
+      layers
+    ) : (
+      <span
+        data-layer-frame={side}
+        className={cn("absolute inset-0", layerFrame.className)}
+        style={layerFrame.style}
+      >
+        {layers}
+      </span>
+    );
+  return (
+    <span aria-hidden="true" className={cn("relative block aspect-square shrink-0", className)}>
+      {frame("behind", behindLayers, glow === null && behind.length === 0)}
       {!(wearsSet && HIDE_MASCOT_UNDER_SET) && (
         <span data-slot="mascot-body" className="absolute inset-0">
           {body ?? <img src={MASCOT_SRC[id]} alt="" draggable={false} className={LAYER} />}
         </span>
       )}
-      {front.map((accessory) => (
-        <AccessoryLayer key={accessory.key} layer={accessory} />
-      ))}
+      {frame("front", frontLayers, front.length === 0)}
     </span>
   );
 }
