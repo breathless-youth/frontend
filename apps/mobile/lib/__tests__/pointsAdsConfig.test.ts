@@ -75,6 +75,12 @@ describe("보상형 광고 설정", () => {
     expect(cfg.extra?.admobRewardedUnitIds).toEqual({ ios: "", android: "" });
   });
 
+  // 광고 SDK는 광고를 쓰지 않는 빌드에도 링크되고, Android는 앱 ID가 없으면 앱이 시작할 때 죽는다.
+  it("광고 단위가 없는 staging 빌드에도 광고 앱 ID를 싣는다", () => {
+    const cfg = resolveConfig({ APP_VARIANT: "staging" });
+    expect(findPlugin(cfg)).toEqual(["react-native-google-mobile-ads", APP_IDS]);
+  });
+
   it("광고 SDK는 정확한 버전으로 고정한다", () => {
     expect(mobilePackageJson.dependencies["react-native-google-mobile-ads"]).toBe("17.4.0");
   });

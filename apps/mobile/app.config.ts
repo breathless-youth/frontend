@@ -313,9 +313,19 @@ const ADMOB_REWARDED_UNIT_IDS: Partial<Record<AppVariant, { ios: string; android
   },
 };
 
-// 광고 SDK는 앱 ID 없이 초기화하면 앱이 죽어서 플러그인과 광고 단위를 같은 조건으로 켠다.
-// staging은 그 서버가 받는 광고 단위가 없어 뺀다.
+// 광고를 띄우는 빌드 종류이며 staging은 그 서버가 받는 광고 단위가 없어 뺀다.
 const ADS_VARIANTS: readonly AppVariant[] = ["development", "production"];
+
+/**
+ * 광고 SDK 앱 ID
+ *
+ * 광고 SDK는 광고를 띄우지 않는 빌드에도 링크되고, Android는 앱 ID가 매니페스트에 없으면 앱이 시작할 때 죽는다.
+ * 그래서 앱 ID 플러그인은 모든 빌드 종류에 넣고, 광고를 띄울지는 광고 단위로만 정한다.
+ */
+const ADMOB_APP_IDS = {
+  iosAppId: "ca-app-pub-4724067415486202~4873548455",
+  androidAppId: "ca-app-pub-4724067415486202~1529713162",
+};
 
 function resolveAdmobRewardedUnitIds(variant: AppVariant): { ios: string; android: string } | null {
   return ADS_VARIANTS.includes(variant) ? (ADMOB_REWARDED_UNIT_IDS[variant] ?? null) : null;
@@ -525,17 +535,7 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
       ...metaSdkPlugins(metaSdk, appDisplayName),
       ...airbridgePlugins(airbridgeToken),
       ...socialLoginPlugins(kakaoNativeAppKey, googleIosClientId),
-      ...(admobRewardedUnitIds === null
-        ? []
-        : ([
-            [
-              "react-native-google-mobile-ads",
-              {
-                iosAppId: "ca-app-pub-4724067415486202~4873548455",
-                androidAppId: "ca-app-pub-4724067415486202~1529713162",
-              },
-            ],
-          ] as NonNullable<ExpoConfig["plugins"]>)),
+      ["react-native-google-mobile-ads", ADMOB_APP_IDS],
     ],
     ios: {
       ...config.ios,
