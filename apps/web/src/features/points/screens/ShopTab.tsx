@@ -20,7 +20,7 @@ export function ShopTab({
   onSelectMascot,
 }: {
   data: ShopData;
-  onOpen: (kind: ShopItemKind) => void;
+  onOpen: (kind: ShopItemKind, itemId?: string) => void;
   onOpenMascots: () => void;
   onSelectMascot: (id: MascotId) => void;
 }) {
@@ -30,6 +30,9 @@ export function ShopTab({
     .filter((mascot) => !mascot.unlocked && mascot.price === null)
     .sort((a, b) => a.unlockFocusSec - b.unlockFocusSec)[0];
   const selected = data.mascots.find((mascot) => mascot.selected);
+  // 전체 보기에서는 상품 자리를 비워 종류만 넘긴다.
+  const open = (kind: ShopItemKind, itemId?: string) =>
+    itemId === undefined ? onOpen(kind) : onOpen(kind, itemId);
   const preview = (matches: (item: ShopItem) => boolean) =>
     data.items.filter(matches).slice(0, PREVIEW_COUNT);
 
@@ -48,14 +51,14 @@ export function ShopTab({
         <ShopSectionRow
           title={t("points-shop:section.accessory", { name: t(`points:mascots.${selected.id}`) })}
           items={preview((item) => item.kind === "accessory" && item.mascotId === selected.id)}
-          onOpen={() => onOpen("accessory")}
+          onOpen={(itemId) => open("accessory", itemId)}
         />
       )}
       <ShopSectionRow
         title={t("points-shop:section.background")}
         items={preview((item) => item.kind === "timerBackground")}
         dark
-        onOpen={() => onOpen("timerBackground")}
+        onOpen={(itemId) => open("timerBackground", itemId)}
       />
     </div>
   );

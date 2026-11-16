@@ -15,7 +15,7 @@ import {
 } from "@/features/points/model/earnPreview";
 import { useShopActions } from "@/features/points/model/useShopActions";
 import { PointsRouteGate } from "@/features/points/PointsRouteGate";
-import { pointsSearch } from "@/features/points/pointsSearch";
+import { pointsItemSearch, pointsSearch } from "@/features/points/pointsSearch";
 import { EarnTab } from "@/features/points/screens/EarnTab";
 import { ShopTab } from "@/features/points/screens/ShopTab";
 import type { PointsTab, ShopItemKind } from "@/features/points/types";
@@ -132,7 +132,14 @@ function ShopPanel() {
   return (
     <ShopTab
       data={shop.data}
-      onOpen={(kind) => open(KIND_PATH[kind])}
+      onOpen={(kind, itemId) =>
+        slideNavigate("forward", () =>
+          navigate({
+            pathname: KIND_PATH[kind],
+            search: pointsItemSearch(location.search, itemId),
+          }),
+        )
+      }
       onOpenMascots={() => open("/points/mascots")}
       onSelectMascot={(id) => {
         selectMascot(id).catch(() => showToast(t("common:errors.retryLater")));

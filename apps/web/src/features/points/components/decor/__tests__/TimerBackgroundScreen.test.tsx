@@ -25,13 +25,17 @@ afterEach(() => {
   vi.mocked(isNativeBridgeAvailable).mockReturnValue(false);
 });
 
-async function setup(balance = 1240, wrap: (g: PointsGateway) => PointsGateway = (g) => g) {
+async function setup(
+  balance = 1240,
+  wrap: (g: PointsGateway) => PointsGateway = (g) => g,
+  entry = "/points/backgrounds",
+) {
   const gateway = wrap(createFakePointsGateway("default", { balance }));
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
       <PointsGatewayProvider gateway={gateway} userId={7}>
-        <MemoryRouter initialEntries={["/points/backgrounds"]}>
+        <MemoryRouter initialEntries={[entry]}>
           <PointsBackgroundsPage />
         </MemoryRouter>
       </PointsGatewayProvider>
@@ -44,6 +48,11 @@ async function setup(balance = 1240, wrap: (g: PointsGateway) => PointsGateway =
 const tile = (name: string) => screen.getByRole("button", { name: new RegExp(name) });
 
 describe("TimerBackgroundScreen", () => {
+  it("상점에서 누른 배경이 있으면 그 배경이 골라진 채로 열린다", async () => {
+    await setup(1240, (g) => g, "/points/backgrounds?item=bg-seaside");
+    expect(tile("바닷가")).toHaveAttribute("aria-pressed", "true");
+  });
+
   it("분류 칩을 누르면 그 분류의 배경만 보인다", async () => {
     await setup();
     expect(screen.getByText("바닷가")).toBeInTheDocument();

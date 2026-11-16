@@ -22,7 +22,7 @@ import { formatPoints } from "../model/formatPoints";
 import { SLOT_ORDER } from "../model/slotOrder";
 import { usePurchaseFlow } from "../model/usePurchaseFlow";
 import { useStorePurchase } from "../model/useStorePurchase";
-import { pointsSearch } from "../pointsSearch";
+import { pickedItemFrom, pointsSearch } from "../pointsSearch";
 import type { AccessorySlot, MascotId, ShopItem } from "../types";
 import type { ShopScreenProps } from "./shopScreenProps";
 import { usePointsScreenViewed } from "../model/usePointsScreenViewed";
@@ -54,11 +54,16 @@ export function AccessoryShopScreen({
   usePointsScreenViewed("accessories");
   const navigate = useNavigate();
   const location = useLocation();
+  // 상점에서 누르고 들어온 소품이 있으면 그 소품의 마스코트와 칸을 처음부터 골라 둔다.
+  const [entry] = useState(() => {
+    const id = pickedItemFrom(location.search);
+    return data.items.find((it) => it.kind === "accessory" && it.id === id);
+  });
   const [mascotId, setMascotId] = useState<MascotId>(
-    () => (data.mascots.find((m) => m.selected) ?? data.mascots[0]).id,
+    () => entry?.mascotId ?? (data.mascots.find((m) => m.selected) ?? data.mascots[0]).id,
   );
-  const [pickedSlot, setSlot] = useState<AccessorySlot>("head");
-  const [pickedId, setPickedId] = useState<string>();
+  const [pickedSlot, setSlot] = useState<AccessorySlot>(entry?.slot ?? "head");
+  const [pickedId, setPickedId] = useState<string | undefined>(entry?.id);
 
   const mascot = data.mascots.find((m) => m.id === mascotId) ?? data.mascots[0];
   const mascotName = tPoints(`mascots.${mascot.id}`);

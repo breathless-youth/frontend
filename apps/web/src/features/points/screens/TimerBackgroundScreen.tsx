@@ -16,7 +16,7 @@ import { StorePurchaseDialogs } from "../components/shared/StorePurchaseDialogs"
 import { formatPoints } from "../model/formatPoints";
 import { usePurchaseFlow } from "../model/usePurchaseFlow";
 import { useStorePurchase } from "../model/useStorePurchase";
-import { pointsSearch } from "../pointsSearch";
+import { pickedItemFrom, pointsSearch } from "../pointsSearch";
 import type { ShopItem } from "../types";
 import type { ShopScreenProps } from "./shopScreenProps";
 import { usePointsScreenViewed } from "../model/usePointsScreenViewed";
@@ -42,7 +42,8 @@ export function TimerBackgroundScreen({
   const navigate = useNavigate();
   const location = useLocation();
   const [category, setCategory] = useState<string | null>(null);
-  const [pickedId, setPickedId] = useState<string | null>(null);
+  // 상점에서 누르고 들어온 배경이 있으면 처음부터 골라 둔다.
+  const [pickedId, setPickedId] = useState<string | null>(() => pickedItemFrom(location.search));
 
   const all = data.items.filter((item) => item.kind === "timerBackground");
   const categories = [...new Set(all.flatMap((item) => (item.category ? [item.category] : [])))];

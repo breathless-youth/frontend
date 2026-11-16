@@ -19,12 +19,12 @@ afterEach(() => {
   vi.mocked(showToast).mockClear();
 });
 
-function renderScreen(gateway: PointsGateway) {
+function renderScreen(gateway: PointsGateway, entry = "/points/accessories") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
       <PointsGatewayProvider gateway={gateway} userId={1}>
-        <MemoryRouter initialEntries={["/points/accessories"]}>
+        <MemoryRouter initialEntries={[entry]}>
           <Routes>
             <Route path="/points/accessories" element={<PointsAccessoriesPage />} />
             <Route path="/points/mascots" element={<p>마스코트 화면</p>} />
@@ -182,5 +182,23 @@ describe("AccessoryGrid", () => {
     expect(images).toHaveLength(1);
     expect(images[0]).toHaveAttribute("src", "/crown.png");
     expect(images[0]).toHaveAttribute("alt", "");
+  });
+
+  it("상점에서 누른 소품이 있으면 그 소품의 칸과 소품이 골라진 채로 열린다", async () => {
+    renderScreen(
+      createFakePointsGateway("default"),
+      "/points/accessories?item=acc-stopwatch-ribbon",
+    );
+    expect(
+      await screen.findByRole("button", { name: /단추 리본/, pressed: true }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "몸 장식", pressed: true })).toBeInTheDocument();
+  });
+
+  it("없는 소품 id로 들어오면 첫 칸의 첫 소품을 보인다", async () => {
+    renderScreen(createFakePointsGateway("default"), "/points/accessories?item=nope");
+    expect(
+      await screen.findByRole("button", { name: "머리 위", pressed: true }),
+    ).toBeInTheDocument();
   });
 });

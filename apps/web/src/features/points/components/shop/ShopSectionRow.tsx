@@ -16,7 +16,8 @@ export function ShopSectionRow({
   title: string;
   items: ShopItem[];
   dark?: boolean;
-  onOpen: () => void;
+  /** 전체 보기는 상품 없이, 상품 칸은 그 상품의 id와 함께 부른다. */
+  onOpen: (itemId?: string) => void;
 }) {
   const { t } = useTranslation("points-shop");
   const headingId = useId();
@@ -28,7 +29,7 @@ export function ShopSectionRow({
         </h2>
         <button
           type="button"
-          onClick={onOpen}
+          onClick={() => onOpen()}
           aria-label={`${title}, ${t("section.all")}`}
           className="flex min-h-11 items-center text-[13px] font-semibold text-primary"
         >
@@ -40,7 +41,7 @@ export function ShopSectionRow({
           <li key={item.id} className="min-w-0">
             <button
               type="button"
-              onClick={onOpen}
+              onClick={() => onOpen(item.id)}
               className="flex min-h-11 w-full min-w-0 flex-col gap-0.75 rounded-xl bg-muted p-2 text-left shadow-sb-card"
             >
               <span
