@@ -70,10 +70,15 @@ export function TileButton({
   );
 }
 
-/** 이미 받은 줄 오른쪽의 완료 표시이며 버튼과 같은 크기의 알약이라 줄마다 오른쪽 끝이 맞는다. */
+/**
+ * 이미 받은 줄 오른쪽의 완료 표시
+ *
+ * 바탕 없이 초록 글자만 두어 누르는 버튼이 아니라 상태로 읽힌다.
+ * 높이와 좌우 여백은 버튼과 같게 두어 줄마다 오른쪽 끝과 줄 높이가 버튼 줄과 맞는다.
+ */
 export function TileDone({ label }: { label: string }) {
   return (
-    <span className="flex h-8 items-center justify-center gap-1 rounded-full bg-muted px-4 text-[13px] font-bold text-feedback-success">
+    <span className="flex h-8 items-center justify-center gap-1 px-4 text-[13px] font-bold text-feedback-success">
       <Check aria-hidden="true" size={14} strokeWidth={3} />
       {label}
     </span>
