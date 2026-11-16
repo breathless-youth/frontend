@@ -437,6 +437,7 @@ export type ReviewLoginResult =
  *
  * 403과 429는 게이트웨이가 본문 없이 줄 수도 있어 상태 코드로 정한다.
  * 400은 아이디·비밀번호가 틀린 경우만 웹에 알리고 나머지는 앱 버그라 UNKNOWN이다.
+ * 빈칸이나 형식이 틀린 아이디·비밀번호는 서버가 VALIDATION_FAILED로 거절해서 틀린 경우와 같은 문구를 보이게 한다.
  */
 async function reviewLoginFailureCode(res: Response): Promise<ReviewLoginFailureCode> {
   switch (res.status) {
@@ -446,7 +447,9 @@ async function reviewLoginFailureCode(res: Response): Promise<ReviewLoginFailure
       return "TOO_MANY_REQUESTS";
     case 400: {
       const body = (await res.json().catch(() => null)) as { code?: unknown } | null;
-      return body?.code === "INVALID_REVIEW_CREDENTIALS" ? "INVALID_REVIEW_CREDENTIALS" : "UNKNOWN";
+      return body?.code === "INVALID_REVIEW_CREDENTIALS" || body?.code === "VALIDATION_FAILED"
+        ? "INVALID_REVIEW_CREDENTIALS"
+        : "UNKNOWN";
     }
     default:
       return "UNKNOWN";

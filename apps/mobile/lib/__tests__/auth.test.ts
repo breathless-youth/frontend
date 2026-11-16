@@ -605,6 +605,8 @@ describe("reviewLogin", () => {
     [403, { code: "REVIEW_LOGIN_DISABLED" }, "REVIEW_LOGIN_DISABLED"],
     [403, null, "REVIEW_LOGIN_DISABLED"],
     [400, { code: "INVALID_REVIEW_CREDENTIALS" }, "INVALID_REVIEW_CREDENTIALS"],
+    // 빈칸이나 형식이 틀린 아이디·비밀번호는 서버가 요청 형식 오류로 거절한다.
+    [400, { code: "VALIDATION_FAILED" }, "INVALID_REVIEW_CREDENTIALS"],
     [400, { code: "INVALID_REQUEST" }, "UNKNOWN"],
     [429, null, "TOO_MANY_REQUESTS"],
     [500, null, "UNKNOWN"],
