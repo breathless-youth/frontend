@@ -1,5 +1,5 @@
 import { Check } from "lucide-react";
-import type { CSSProperties, ReactNode } from "react";
+import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -51,6 +51,45 @@ function ProgressRing({
   );
 }
 
+/** 띠가 바뀐 뒤 새 버튼이 탭을 받지 않는 시간 */
+const SWAP_GUARD_MS = 500;
+
+/**
+ * 띠의 버튼이 하는 일의 이름
+ *
+ * 같은 띠가 값만 바뀌어 다시 그려질 때와 버튼의 뜻이 바뀔 때를 구분하는 데 쓴다.
+ */
+function bandAction(band: HomeBand): string {
+  if (band.kind === "mission") {
+    return `mission-${band.step}-${band.ready ? "complete" : "go"}`;
+  }
+  return band.kind === "mission-reward" ? "reward" : "goal";
+}
+
+/**
+ * 띠가 바뀐 직후의 탭 막기
+ *
+ * 받기나 완료를 연달아 누르면 요청이 끝나 띠가 바뀐 뒤의 두 번째 탭이 같은 자리에 새로 나타난 버튼에 닿는다.
+ * 그 탭으로 목표 창이 열리거나 공부가 시작되지 않게, 버튼의 뜻이 바뀐 뒤 잠깐은 탭을 받지 않는다.
+ * 화면이 그려진 뒤 탭이 처리되기 전에 시각을 적어야 해서 레이아웃 단계에서 적는다.
+ */
+function useSwapGuard(action: string): (handler: () => void) => () => void {
+  const lastAction = useRef(action);
+  const swappedAt = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    if (lastAction.current !== action) {
+      lastAction.current = action;
+      swappedAt.current = Date.now();
+    }
+  }, [action]);
+  return (handler) => () => {
+    if (swappedAt.current !== null && Date.now() - swappedAt.current < SWAP_GUARD_MS) {
+      return;
+    }
+    handler();
+  };
+}
+
 export function HomeProgressBand({
   band,
   completing,
@@ -67,6 +106,7 @@ export function HomeProgressBand({
   actions: HomeV3ContentProps["actions"];
 }) {
   const { t } = useTranslation("home");
+  const guarded = useSwapGuard(bandAction(band));
   const mission = band.kind === "mission" ? band : null;
   const goal = band.kind === "goal" ? band : null;
   const reward = band.kind === "mission-reward" ? band : null;
@@ -127,7 +167,7 @@ export function HomeProgressBand({
           <Button
             className="min-h-11 min-w-18 shrink-0 rounded-full px-4 text-sm leading-5 font-medium shadow-sb-cta"
             disabled={claiming}
-            onClick={actions.claimMissionReward}
+            onClick={guarded(() => actions.claimMissionReward?.())}
           >
             {t(claiming ? "v3.reward.claiming" : "v3.reward.claim")}
           </Button>
@@ -138,7 +178,7 @@ export function HomeProgressBand({
               !completing && "motion-safe:animate-[home-mission-ready_2.4s_ease-out_infinite]",
             )}
             disabled={completing}
-            onClick={() => actions.completeMission(mission.step)}
+            onClick={guarded(() => actions.completeMission(mission.step))}
           >
             {!completing && <Check size={14} strokeWidth={2.4} aria-hidden="true" />}
             {t(completing ? "v3.mission.completing" : "v3.mission.complete")}
@@ -148,13 +188,13 @@ export function HomeProgressBand({
             variant="unstyled"
             className="min-h-11 shrink-0 gap-1 py-0 pr-1 pl-2 text-sm leading-5 font-medium text-brand-subtle-text"
             disabled={starting && mission?.step === 2}
-            onClick={
+            onClick={guarded(
               mission
                 ? mission.step === 1
                   ? actions.openPlanner
                   : actions.startStudy
-                : actions.editGoal
-            }
+                : actions.editGoal,
+            )}
           >
             {t(
               mission

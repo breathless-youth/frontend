@@ -48,7 +48,7 @@ function Where() {
   return <p data-testid="where">{useLocation().pathname}</p>;
 }
 
-function renderHome() {
+function renderHome(overrides: Partial<HomeV3Gateway> = {}) {
   const gateway: HomeV3Gateway = {
     readMission: vi.fn().mockResolvedValue(homeMission(0, 0)),
     acknowledgeMission: vi.fn(),
@@ -62,6 +62,7 @@ function renderHome() {
     saveDateGoal: vi.fn(),
     saveDefaultGoal: vi.fn(),
     startStudy: vi.fn(),
+    ...overrides,
   };
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
@@ -77,6 +78,7 @@ function renderHome() {
       </MemoryRouter>
     </QueryClientProvider>,
   );
+  return gateway;
 }
 
 function setFlag(on: boolean) {
@@ -126,5 +128,34 @@ describe("홈 머리말의 포인트 알약", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+describe("시작 미션 보상 받기", () => {
+  // 목표 창은 늦게 불러오는 부품이라, 창이 뜨는지를 시간 안에 볼 수 있게 미리 불러 둔다.
+  beforeEach(async () => {
+    await import("../HomeGoalSheet");
+  });
+
+  it("띠가 바뀌지 않은 평소에는 설정하기로 목표 창이 열린다", async () => {
+    setFlag(true);
+    renderHome({ readMission: vi.fn().mockResolvedValue(homeMission(2, 300)) });
+    await userEvent.click(await screen.findByRole("button", { name: "설정하기" }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("받기를 연달아 눌러도 보상은 한 번만 받고 그 자리에 나타난 목표 버튼으로 목표 창이 열리지 않는다", async () => {
+    setFlag(true);
+    const gateway = renderHome({
+      readMission: vi.fn().mockResolvedValue({ ...homeMission(2, 300), claimablePoints: 150 }),
+      claimMissionReward: vi.fn().mockResolvedValue({ granted: true, points: 150, balance: 1390 }),
+    });
+
+    await userEvent.click(await screen.findByRole("button", { name: "받기" }));
+    // 보상을 받으면 같은 자리에 목표 띠의 버튼이 나타나고, 연달아 누른 두 번째 탭이 여기에 닿는다.
+    await userEvent.click(await screen.findByRole("button", { name: "설정하기" }));
+
+    expect(gateway.claimMissionReward).toHaveBeenCalledTimes(1);
+    await expect(screen.findByRole("dialog", undefined, { timeout: 300 })).rejects.toThrow();
   });
 });

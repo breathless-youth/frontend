@@ -136,6 +136,8 @@ describe("home v3 entry adapters", () => {
     expect(
       await screen.findByText(i18n.t("home:v3.goal.remaining", { time: "4:17:43" })),
     ).toBeInTheDocument();
+    // 완료를 눌러 띠가 바뀐 직후의 탭은 연달아 누른 것으로 보고 받지 않으므로 그 시간을 넘겨 누른다.
+    await new Promise((resolve) => setTimeout(resolve, 550));
     await userEvent.click(screen.getByRole("button", { name: i18n.t("home:v3.goal.change") }));
     await userEvent.click(
       await screen.findByRole("button", { name: i18n.t("planner:goal.increase") }),
