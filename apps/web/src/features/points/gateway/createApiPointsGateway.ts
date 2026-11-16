@@ -232,12 +232,7 @@ export function createApiPointsGateway(): PointsGateway {
         await getPointsHistory({ type: HISTORY_TYPE[filter], cursor, size: HISTORY_PAGE_SIZE }),
       ),
     getEarnToday: async () => toEarnToday(await getPointsEarn()),
-    claim: async (kind) => {
-      const result = toClaimResult(await postRewardClaim(REWARD_PATH[kind]));
-      // 출석·하루 목표 받기는 응답 모양이 명세에 없어 잔액이 빠져 있으면 다시 읽는다.
-      const balance = result.balance ?? (await getPointsBalance()).balance;
-      return { ...result, balance };
-    },
+    claim: async (kind) => toClaimResult(await postRewardClaim(REWARD_PATH[kind])),
     watchAd: async () => {
       const before = (await getPointsEarn()).ad?.watchedToday ?? 0;
       const status = await requestNativePointsAd();

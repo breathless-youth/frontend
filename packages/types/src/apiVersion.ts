@@ -112,20 +112,20 @@ export const API_ENDPOINTS = {
   },
 
   /**
-   * `GET /api/points`, `GET /api/points/study-reward`, `GET /api/points/history`: 잔액, 공부 끝 보상, 포인트 기록.
-   * 포인트·상점·꾸미기·마스코트 네 키는 백엔드 Swagger 태그의 API-Version 1과 같다(2026-11-16 백엔드 코드에서 확인).
-   * 응답 필드는 아직 Swagger와 대조하지 않아 웹 쪽 타입(`pointsApiTypes.ts`)으로 읽는다.
+   * `GET /api/points`, `GET /api/points/products`, `GET /api/points/study-reward`, `GET /api/points/history`: 잔액, 충전 상품, 공부 끝 보상, 포인트 기록.
+   * 포인트·상점·꾸미기·마스코트 키는 모두 2026-11-16 개발 서버 Swagger의 `API-Version` 기본값 1과 같다.
+   * 응답은 같은 Swagger의 `PointBalanceResponse`, `PointProductsResponse`, `StudyRewardResponse`, `PointHistoryResponse`와 필드를 대조했다.
    */
   points: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },
   /** `GET /api/points/earn`: 오늘 받을 수 있는 포인트와 메달 포인트 표. 응답은 2026-11-16 개발 서버 Swagger의 `EarnOverviewResponse`와 필드를 대조했다. */
   pointsEarn: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },
-  /** `POST /api/points/rewards/{attendance,daily-goal,medals}/claim`: 출석·하루 목표·랭킹 메달 받기. */
+  /** `POST /api/points/rewards/{attendance,daily-goal,medals}/claim`: 출석·하루 목표·랭킹 메달 받기. 응답은 `ClaimResponse`와 메달의 `MedalClaimAllResponse`와 대조했다. */
   pointsRewards: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },
-  /** `GET /api/shop/items`, `POST /api/shop/items/{id}/purchase`: 꾸미기 상점 목록과 구매. */
+  /** `GET /api/shop/items`, `POST /api/shop/items/{id}/purchase`: 꾸미기 상점 목록과 구매. 응답은 `ShopItemListResponse`, `PurchaseResponse`와 대조했다. */
   shop: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },
-  /** `/api/decorations` 이하 전부: 소품 착용과 타이머 배경 적용. */
+  /** `/api/decorations` 이하 전부: 소품 착용과 타이머 배경 적용. 요청은 `AccessoryEquipRequest`·`DecorationItemRequest`, 응답은 `DecorationResponse`와 대조했다. */
   decorations: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },
-  /** `/api/mascots` 이하 전부: 마스코트 목록, 선택, 새로 열린 마스코트 확인. */
+  /** `/api/mascots` 이하 전부: 마스코트 목록, 선택, 구매, 새로 열린 마스코트 확인. 요청은 `MascotSelectRequest`, 응답은 `MascotListResponse`·`MascotPurchaseResponse`와 대조했다. */
   mascots: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },
 
   /** `POST /api/study-sessions` — 세션 제출 */

@@ -27,6 +27,7 @@ import type {
   ClaimResponse,
   DecorationsResponse,
   MascotsResponse,
+  MedalClaimAllResponse,
   PointsHistoryItemResponse,
   PointsHistoryResponse,
   ShopItemResponse,
@@ -430,15 +431,15 @@ export function toEarnToday(res: PointsEarnResponse): EarnToday {
   };
 }
 
-/** 받기 응답을 화면 결과로 바꾸며, 예전 서버가 잔액을 안 주면 비워 두어 경계가 채운다. */
-export function toClaimResult(res: ClaimResponse): {
+/** 받기 응답을 화면 결과로 바꾸며 메달 한 번에 받기는 받은 메달이 하나라도 있어야 받은 것이다. */
+export function toClaimResult(res: ClaimResponse | MedalClaimAllResponse): {
   granted: boolean;
   points: number;
-  balance: number | null;
+  balance: number;
 } {
   return {
-    granted: res.granted ?? (res.claimedCount === undefined ? true : res.claimedCount > 0),
-    points: res.points ?? 0,
-    balance: res.balance ?? null,
+    granted: "claimedCount" in res ? res.claimedCount > 0 : res.granted,
+    points: res.points,
+    balance: res.balance,
   };
 }

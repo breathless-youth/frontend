@@ -407,14 +407,22 @@ describe("포인트 받기 연결", () => {
   it.each([
     ["attendance", "attendance"],
     ["dailyGoal", "daily-goal"],
-  ] as const)("%s 받기는 잔액이 응답에 없으면 잔액을 다시 읽는다", async (kind, path) => {
-    fetchMock
-      .mockResolvedValueOnce(respond(200, { granted: true, points: 10 }))
-      .mockResolvedValueOnce(respond(200, { balance: 1250 }));
+  ] as const)("%s 받기는 응답의 잔액을 그대로 쓰고 잔액을 다시 읽지 않는다", async (kind, path) => {
+    fetchMock.mockResolvedValueOnce(respond(200, { granted: true, points: 10, balance: 1250 }));
     const result = await createApiPointsGateway().claim(kind);
     expect(call(0)).toMatchObject({ method: "POST", version: "1" });
     expect(call(0).url).toMatch(new RegExp(`/api/points/rewards/${path}/claim$`));
     expect(result).toEqual({ granted: true, points: 10, balance: 1250 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("이미 받은 보상은 granted가 거짓이고 받은 포인트가 0이다", async () => {
+    fetchMock.mockResolvedValueOnce(respond(200, { granted: false, points: 0, balance: 1250 }));
+    expect(await createApiPointsGateway().claim("attendance")).toEqual({
+      granted: false,
+      points: 0,
+      balance: 1250,
+    });
   });
 
   it("메달은 한 번에 받고 받은 개수가 0이면 granted가 거짓이다", async () => {
@@ -428,7 +436,7 @@ describe("포인트 받기 연결", () => {
 
   it.each([
     [409, "REWARD_NOT_AVAILABLE", "dailyGoal"],
-    [404, "MEDAL_NOT_FOUND", "medals"],
+    [403, "MEMBER_ONLY", "medals"],
   ] as const)("%s 응답은 서버 코드를 실은 오류로 던진다", async (status, code, kind) => {
     fetchMock.mockResolvedValue(respond(status, { code, message: "x" }));
     await expect(createApiPointsGateway().claim(kind)).rejects.toMatchObject({ status, code });
@@ -710,9 +718,9 @@ describe("createApiPointsGateway 내 모습", () => {
     });
   });
 
-  it("고른 마스코트가 없으면 null이다", async () => {
+  it("고른 마스코트가 웹이 모르는 코드면 null이다", async () => {
     fetchMock.mockResolvedValueOnce(
-      respond(200, { selectedMascotCode: null, accessories: [], timerBackground: null }),
+      respond(200, { selectedMascotCode: "NEW_MASCOT", accessories: [], timerBackground: null }),
     );
 
     expect(await createApiPointsGateway().getMyLook()).toBeNull();

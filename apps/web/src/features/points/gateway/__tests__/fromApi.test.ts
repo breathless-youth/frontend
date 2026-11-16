@@ -186,7 +186,7 @@ describe("toShopItem", () => {
   it("상점 데이터는 버린 항목만 빼고 나머지를 그린다", () => {
     const data = toShopData(
       { items: [item(), item({ id: 8, category: "PLANNER_STICKER" }), item({ id: 9 })] },
-      { totalFocusSec: 3600, selectedMascotCode: null, mascots: [mascot("BOOK")] },
+      { totalFocusSec: 3600, selectedMascotCode: "BOOK", mascots: [mascot("BOOK")] },
     );
     expect(data.items.map((it) => it.id)).toEqual(["7", "9"]);
     expect(data.totalFocusSec).toBe(3600);
