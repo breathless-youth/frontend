@@ -20,7 +20,14 @@ vi.mock("@/lib/bridge", async (importOriginal) => ({
 function gatewayWith(charge: boolean, ads: boolean): PointsGateway {
   return {
     ...createFakePointsGateway("default"),
-    capabilities: { earn: true, history: true, charge, ads, storeItems: charge },
+    capabilities: {
+      earn: true,
+      history: true,
+      charge,
+      ads,
+      storeItems: charge,
+      restore: charge,
+    },
   };
 }
 

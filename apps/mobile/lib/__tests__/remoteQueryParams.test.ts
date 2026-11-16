@@ -11,6 +11,7 @@ import { isNewUserThisLaunch } from "../auth";
 import { ensureUserRegistered } from "../userApi";
 import { getRnda } from "../appLock/rnda";
 import { __resetSocialLoginForTests, setSocialLoginAdapter } from "../socialLogin";
+import { __resetPointsChargeForTests, setPointsChargeAdapter } from "../pointsCharge";
 
 /**
  * 원격 웹뷰 쿼리 파라미터 조립(BY-333) — 탭 3개 + 세션이 공유하는 단일 조립처.
@@ -283,6 +284,26 @@ describe("buildRemoteQueryParams", () => {
     const params = await buildRemoteQueryParams();
 
     expect(params.socialLogin).toBe(expected);
+  });
+
+  it("결제 SDK가 붙은 바이너리에만 충전과 구매 복원 표시를 붙인다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    const off = await buildRemoteQueryParams();
+    expect(off).not.toHaveProperty("pointsCharge");
+    expect(off).not.toHaveProperty("pointsRestore");
+
+    setPointsChargeAdapter({
+      logIn: jest.fn(),
+      prices: jest.fn(),
+      purchase: jest.fn(),
+      restore: jest.fn(),
+    });
+    try {
+      const on = await buildRemoteQueryParams();
+      expect(on).toMatchObject({ pointsCharge: "1", pointsRestore: "1" });
+    } finally {
+      __resetPointsChargeForTests();
+    }
   });
 
   it("SDK가 붙지 않은 바이너리는 socialLogin을 붙이지 않는다", async () => {

@@ -109,6 +109,10 @@ export function createFakePointsGateway(
     },
     getStorePrices: async (productIds) =>
       Object.fromEntries(productIds.map((productId) => [productId, "₩1,100"])),
+    restorePurchases: async () =>
+      state.items.some((item) => item.acquire.type === "store" && item.owned)
+        ? "restored"
+        : "nothing",
     purchaseStoreItem: async (itemId, onPaid) => {
       const item = findItem(itemId);
       if (item.acquire.type !== "store" || item.owned) {

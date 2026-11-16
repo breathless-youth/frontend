@@ -36,6 +36,7 @@ import { ensurePushPermission } from "../pushBootstrap";
 import { openPushRoute } from "../pushRouteOpener";
 import { registerPushToken } from "../pushTokenRegistration";
 import { deleteAccountWithReauth, socialLogin } from "../socialLogin";
+import { restorePointsPurchases } from "../pointsCharge";
 
 /**
  * 브리지 수신 공용 핸들러(BY-333) — `RemoteWebViewHost`를 쓰는 화면(탭 3개 + 세션) 전부가
@@ -120,6 +121,11 @@ jest.mock("../pushRouteOpener", () => ({
 jest.mock("../socialLogin", () => ({
   socialLogin: jest.fn(),
   deleteAccountWithReauth: jest.fn(),
+}));
+jest.mock("../pointsCharge", () => ({
+  pointsChargePrices: jest.fn(),
+  purchasePointsCharge: jest.fn(),
+  restorePointsPurchases: jest.fn(),
 }));
 jest.mock("../installAttribution", () => ({
   acknowledgeInstallAttribution: jest.fn(async () => undefined),
@@ -1195,6 +1201,32 @@ describe("handleBridgeMessage: 앱 안 알림 누름", () => {
     expect(mockedOpenPushRoute).toHaveBeenCalledWith("/", expect.any(Function));
     expect(received[0]?.properties).toEqual({ route: "/", fallback: true, in_app: true });
   });
+});
+
+describe("포인트 결제 메시지", () => {
+  it.each(["restored", "nothing", "failed"] as const)(
+    "구매 복원 결과 %s를 같은 id의 points-charge-restore-result로 답한다",
+    async (status) => {
+      (restorePointsPurchases as jest.Mock).mockResolvedValue(status);
+      const reply = jest.fn();
+
+      handleBridgeMessage(
+        { type: "points-charge-restore", id: "r1", storeProductIds: ["set_book_bear"], atMs: 1 },
+        reply,
+      );
+
+      await waitFor(() =>
+        expect(reply).toHaveBeenCalledWith({
+          type: "points-charge-restore-result",
+          id: "r1",
+          status,
+          atMs: expect.any(Number),
+        }),
+      );
+      expect(restorePointsPurchases).toHaveBeenCalledWith(["set_book_bear"]);
+      expect(reply).toHaveBeenCalledTimes(1);
+    },
+  );
 });
 
 describe("social-login", () => {

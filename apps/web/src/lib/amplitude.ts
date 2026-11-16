@@ -2458,6 +2458,17 @@ export function trackPointsCharge(
 }
 
 /**
+ * 구매 복원 시도와 결과
+ *
+ * 설정의 구매 복원 줄을 누를 때 `attempted`, 앱이 답한 뒤 그 결과를 보낸다.
+ * `nothing`은 스토어 결제 기록에 되찾을 상품이 없는 것이다.
+ */
+export function trackPointsRestore(status: "attempted" | "restored" | "nothing" | "failed") {
+  if (!initialized) return;
+  track("points_restore", { status });
+}
+
+/**
  * 포인트 받기
  *
  * 출석, 하루 목표, 메달, 시작 미션으로 실제로 포인트가 들어왔을 때만 보낸다.

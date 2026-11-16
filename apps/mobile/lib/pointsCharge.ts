@@ -1,4 +1,8 @@
-import type { PointsChargePrice, PointsChargePurchaseStatus } from "@focusmakers/types";
+import type {
+  PointsChargePrice,
+  PointsChargePurchaseStatus,
+  PointsChargeRestoreStatus,
+} from "@focusmakers/types";
 
 import { awaitAuth } from "./auth";
 
@@ -6,11 +10,13 @@ import { awaitAuth } from "./auth";
  * 결제 SDK 어댑터
  *
  * `purchase`는 결제가 끝나면 true, 사용자가 결제 창을 닫았으면 false를 돌려주고 그 밖의 실패는 throw한다.
+ * `restore`는 스토어 결제 기록을 결제 SDK에 다시 맞춘 뒤 그 기록에 있는 스토어 상품 ID를 돌려준다.
  */
 export type PointsChargeAdapter = {
   logIn(appUserId: string): Promise<void>;
   prices(storeProductIds: string[]): Promise<PointsChargePrice[]>;
   purchase(storeProductId: string): Promise<boolean>;
+  restore(): Promise<string[]>;
 };
 
 let adapter: PointsChargeAdapter | null = null;
@@ -79,6 +85,37 @@ export async function purchasePointsCharge(
     return (await adapter.purchase(storeProductId)) ? "completed" : "cancelled";
   } catch (error) {
     console.warn("[points-charge] 결제 실패", error);
+    return "failed";
+  } finally {
+    inFlight = false;
+  }
+}
+
+/**
+ * 구매 복원
+ *
+ * 결제로 산 상품이 새 기기나 다시 설치한 앱에서 보이지 않을 때 스토어 결제 기록으로 되찾는다.
+ * 서버는 결제 알림에 실린 사용자 ID로 보유를 바꾸므로, 결제와 같이 지금 사용자 ID로 로그인한 뒤에 복원한다.
+ * 결제 기록에는 충전 묶음도 남아서, 웹이 넘긴 상품이 그 안에 있을 때만 되찾았다고 답한다.
+ * 결제나 다른 복원이 진행 중이면 실패로 답한다.
+ */
+export async function restorePointsPurchases(
+  storeProductIds: string[],
+): Promise<PointsChargeRestoreStatus> {
+  if (adapter === null || inFlight) {
+    return "failed";
+  }
+  inFlight = true;
+  try {
+    const auth = await awaitAuth();
+    if (auth === null) {
+      return "failed";
+    }
+    await adapter.logIn(String(auth.userId));
+    const purchased = new Set(await adapter.restore());
+    return storeProductIds.some((id) => purchased.has(id)) ? "restored" : "nothing";
+  } catch (error) {
+    console.warn("[points-charge] 구매 복원 실패", error);
     return "failed";
   } finally {
     inFlight = false;

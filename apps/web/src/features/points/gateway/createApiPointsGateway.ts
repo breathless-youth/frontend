@@ -20,8 +20,10 @@ import {
 import { isNativePointsAdsAvailable, requestNativePointsAd } from "@/lib/nativePointsAds";
 import {
   isNativePointsChargeAvailable,
+  isNativePointsRestoreAvailable,
   requestNativePointsPrices,
   requestNativePointsPurchase,
+  requestNativePointsRestore,
 } from "@/lib/nativePointsCharge";
 
 import {
@@ -83,6 +85,7 @@ export function createApiPointsGateway(): PointsGateway {
     charge: isNativePointsChargeAvailable(),
     ads: isNativePointsAdsAvailable(),
     storeItems: isNativePointsChargeAvailable(),
+    restore: isNativePointsRestoreAvailable(),
   };
   const rejected = (error: unknown) => {
     const reason = error instanceof ApiError ? toPurchaseFailure(error.code) : null;
@@ -145,6 +148,17 @@ export function createApiPointsGateway(): PointsGateway {
         await wait(CHARGE_SETTLE_INTERVAL_MS);
       }
       return { status: "late" };
+    },
+    restorePurchases: async () => {
+      // 충전 묶음은 써서 없어지는 상품이라 되찾을 것은 스토어 결제로 파는 상점 상품뿐이다.
+      const storeProductIds = [
+        ...new Set(
+          (await getShopItems()).items.flatMap((item) =>
+            item.storeProductId ? [item.storeProductId] : [],
+          ),
+        ),
+      ];
+      return storeProductIds.length === 0 ? "nothing" : requestNativePointsRestore(storeProductIds);
     },
     equipAccessory: async (mascotId, slot, itemId) => {
       await putMascotAccessory(toMascotCode(mascotId), toSlotCode(slot), toServerItemId(itemId));

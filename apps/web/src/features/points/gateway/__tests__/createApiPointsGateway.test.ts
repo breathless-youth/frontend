@@ -10,8 +10,10 @@ const fetchMock = vi.fn<typeof fetch>();
 
 const native = vi.hoisted(() => ({
   isNativePointsChargeAvailable: vi.fn(() => false),
+  isNativePointsRestoreAvailable: vi.fn(() => false),
   requestNativePointsPrices: vi.fn(),
   requestNativePointsPurchase: vi.fn(),
+  requestNativePointsRestore: vi.fn(),
 }));
 vi.mock("@/lib/nativePointsCharge", () => native);
 
@@ -88,6 +90,7 @@ describe("createApiPointsGateway", () => {
       charge: false,
       ads: false,
       storeItems: false,
+      restore: false,
     });
   });
 
@@ -615,5 +618,61 @@ describe("createApiPointsGateway 내 모습", () => {
     );
 
     expect(await createApiPointsGateway().getMyLook()).toBeNull();
+  });
+});
+
+describe("구매 복원", () => {
+  const STORE_ITEMS: ShopItemsResponse = {
+    items: [
+      ...ITEMS.items,
+      {
+        ...ITEMS.items[0]!,
+        id: 41,
+        code: "BOOK_SET_BEAR",
+        slot: "SET",
+        price: null,
+        storeProductId: "set_book_bear",
+      },
+      {
+        ...ITEMS.items[0]!,
+        id: 42,
+        code: "BOOK_SET_RAIN",
+        slot: "SET",
+        price: null,
+        storeProductId: "set_book_rain",
+      },
+    ],
+  };
+
+  afterEach(() => {
+    native.isNativePointsRestoreAvailable.mockReset().mockReturnValue(false);
+    native.requestNativePointsRestore.mockReset();
+  });
+
+  it("복원 메시지를 아는 앱에서만 복원을 켠다", () => {
+    expect(createApiPointsGateway().capabilities.restore).toBe(false);
+    native.isNativePointsRestoreAvailable.mockReturnValue(true);
+    expect(createApiPointsGateway().capabilities.restore).toBe(true);
+  });
+
+  it.each(["restored", "nothing", "failed"] as const)(
+    "스토어 결제로 파는 상품의 ID를 앱에 넘기고 앱의 답 %s를 그대로 돌려준다",
+    async (status) => {
+      native.requestNativePointsRestore.mockResolvedValue(status);
+      fetchMock.mockResolvedValueOnce(respond(200, STORE_ITEMS));
+
+      expect(await createApiPointsGateway().restorePurchases()).toBe(status);
+      expect(native.requestNativePointsRestore).toHaveBeenCalledWith([
+        "set_book_bear",
+        "set_book_rain",
+      ]);
+    },
+  );
+
+  it("스토어 결제로 파는 상품이 없으면 앱에 묻지 않고 복원할 것이 없다고 답한다", async () => {
+    fetchMock.mockResolvedValueOnce(respond(200, ITEMS));
+
+    expect(await createApiPointsGateway().restorePurchases()).toBe("nothing");
+    expect(native.requestNativePointsRestore).not.toHaveBeenCalled();
   });
 });

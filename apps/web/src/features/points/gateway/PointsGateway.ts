@@ -12,6 +12,7 @@ import type {
   MascotId,
   PointsHistoryPage,
   PurchaseResult,
+  RestoreResult,
   SessionReward,
   StorePurchaseResult,
   ShopData,
@@ -25,6 +26,8 @@ export type PointsCapabilities = {
   ads: boolean;
   /** 스토어 결제로 사는 상품을 살 수 있는지이며 결제를 맡을 앱 안에서만 참이다. */
   storeItems: boolean;
+  /** 구매 복원을 맡길 수 있는지이며 복원 메시지를 아는 앱 안에서만 참이다. */
+  restore: boolean;
 };
 
 export const FULL_POINTS_CAPABILITIES: PointsCapabilities = {
@@ -33,6 +36,7 @@ export const FULL_POINTS_CAPABILITIES: PointsCapabilities = {
   charge: true,
   ads: true,
   storeItems: true,
+  restore: true,
 };
 
 /**
@@ -60,6 +64,12 @@ export interface PointsGateway {
    * 기다려도 보유로 바뀌지 않으면 `late`로 끝난다. 돈은 이미 나갔으므로 실패와 구분한다.
    */
   purchaseStoreItem(itemId: string, onPaid?: () => void): Promise<StorePurchaseResult>;
+  /**
+   * 스토어 결제로 산 상품을 스토어 결제 기록으로 되찾는다.
+   *
+   * 보유는 서버가 결제 알림을 받은 뒤에 바뀌므로 부른 쪽이 상점을 다시 읽는다.
+   */
+  restorePurchases(): Promise<RestoreResult>;
   /** itemId가 null이면 그 자리의 소품을 벗긴다. */
   equipAccessory(mascotId: MascotId, slot: AccessorySlot, itemId: string | null): Promise<void>;
   /** itemId가 null이면 기본 배경으로 돌린다. */

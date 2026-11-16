@@ -33,6 +33,7 @@ import {
   NATIVE_SEGMENT_MIN_OPTIONS,
   NAVIGATE_TAB_SOURCES,
   NAVIGATE_TAB_TARGETS,
+  POINTS_CHARGE_RESTORE_MAX_PRODUCTS,
   SOCIAL_LOGIN_PROVIDERS,
   VIDEO_SHARE_TARGETS,
 } from "@focusmakers/types";
@@ -229,6 +230,22 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         type: "points-charge-purchase",
         id: record.id,
         storeProductId: record.storeProductId,
+        atMs: record.atMs,
+      };
+    case "points-charge-restore":
+      if (
+        typeof record.id !== "string" ||
+        record.id === "" ||
+        !Array.isArray(record.storeProductIds) ||
+        record.storeProductIds.length > POINTS_CHARGE_RESTORE_MAX_PRODUCTS ||
+        !record.storeProductIds.every(isStoreProductId)
+      ) {
+        return null;
+      }
+      return {
+        type: "points-charge-restore",
+        id: record.id,
+        storeProductIds: record.storeProductIds,
         atMs: record.atMs,
       };
     case "points-ad-show":

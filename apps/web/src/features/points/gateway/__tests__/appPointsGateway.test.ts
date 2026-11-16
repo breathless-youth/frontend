@@ -18,6 +18,7 @@ describe("appPointsGateway", () => {
       charge: false,
       ads: false,
       storeItems: false,
+      restore: false,
     });
   });
 

@@ -120,6 +120,9 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   // 결제 SDK 키가 없는 빌드와 SDK 네이티브 모듈이 없는 이전 Dev Client에는 붙지 않는다.
   if (isPointsChargeSupported()) {
     params.pointsCharge = "1";
+    // `pointsRestore=1`: 이 바이너리가 `points-charge-restore`로 구매를 복원할 수 있다는 표시.
+    // 복원 메시지가 생기기 전의 앱에는 `pointsCharge`만 있어서 따로 붙이고, 웹은 이 표시가 있을 때만 구매 복원 줄을 보인다.
+    params.pointsRestore = "1";
   }
   // `pointsAds=1`: 이 바이너리가 `points-ad-show`로 보상형 광고를 띄울 수 있다는 표시.
   // 웹은 이 표시가 있을 때만 광고 타일의 보기 버튼을 연다(`apps/web/src/lib/nativePointsAds.ts`).

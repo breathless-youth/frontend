@@ -60,5 +60,9 @@ export function installPointsChargeSdk(): void {
         throw error;
       }
     },
+    async restore() {
+      const info = await sdk.restorePurchases();
+      return info.nonSubscriptionTransactions.map((transaction) => transaction.productIdentifier);
+    },
   });
 }

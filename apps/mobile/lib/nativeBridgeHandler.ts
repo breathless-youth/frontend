@@ -35,7 +35,7 @@ import { detachAllNativeAnalyticsSinks, trackNativeEvent } from "./nativeAnalyti
 import { emitSessionClosed } from "./sessionClosed";
 import { runAfterNextSessionScreen } from "./sessionPresence";
 import { showPointsAd } from "./pointsAds";
-import { pointsChargePrices, purchasePointsCharge } from "./pointsCharge";
+import { pointsChargePrices, purchasePointsCharge, restorePointsPurchases } from "./pointsCharge";
 import { deleteAccountWithReauth, socialLogin } from "./socialLogin";
 import { setTabBarState } from "./tabBarVisibility";
 import { appendVideoChunk, saveVideo, shareVideo } from "./videoTransfer";
@@ -430,6 +430,11 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
     case "points-charge-purchase":
       void purchasePointsCharge(message.storeProductId).then((status) => {
         reply({ type: "points-charge-purchase-result", id: message.id, status, atMs: Date.now() });
+      });
+      break;
+    case "points-charge-restore":
+      void restorePointsPurchases(message.storeProductIds).then((status) => {
+        reply({ type: "points-charge-restore-result", id: message.id, status, atMs: Date.now() });
       });
       break;
     case "points-ad-show":

@@ -4,10 +4,15 @@ import userEvent from "@testing-library/user-event";
 import type * as amplitude from "@/lib/amplitude";
 import type * as userIdModule from "@/lib/userId";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { __resetAppPointsGatewayForTests } from "@/features/points/gateway/appPointsGateway";
+import {
+  __resetAppPointsGatewayForTests,
+  appPointsGateway,
+} from "@/features/points/gateway/appPointsGateway";
 import { __resetPointsForTests } from "@/lib/pointsCapability";
+import { getProfile } from "@/lib/profileApi";
+import { showToast } from "@/lib/toast";
 import { SettingsPage } from "@/routes/SettingsPage";
 
 vi.mock("@/features/app-lock/appLockCapability", () => ({ hasAppLockCapability: () => false }));
@@ -23,6 +28,8 @@ vi.mock("@/lib/userId", async (original) => ({
   ...(await original<typeof userIdModule>()),
   useUserId: () => 7,
 }));
+vi.mock("@/lib/profileApi", () => ({ getProfile: vi.fn() }));
+vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
 const track = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/amplitude", async (original) => ({
   ...(await original<typeof amplitude>()),
@@ -50,10 +57,28 @@ function renderSettings(flag: boolean, search = "/?points=1&pointsMock=default")
   );
 }
 
+function signIn(loginProvider: "KAKAO" | null) {
+  vi.mocked(getProfile).mockResolvedValue({
+    nickname: "열공곰",
+    goal: null,
+    category: null,
+    initial: "열",
+    colorIndex: 0,
+    profileImageUrl: null,
+    loginProvider,
+  });
+}
+
+beforeEach(() => {
+  signIn("KAKAO");
+});
+
 afterEach(() => {
   window.history.replaceState(null, "", "/");
   __resetPointsForTests();
   __resetAppPointsGatewayForTests();
+  vi.mocked(showToast).mockClear();
+  vi.mocked(getProfile).mockReset();
 });
 
 describe("설정의 포인트 기록 줄", () => {
@@ -84,5 +109,75 @@ describe("설정의 포인트 기록 줄", () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+describe("설정의 구매 복원 줄", () => {
+  const restoreRow = () => screen.findByRole("button", { name: "구매 복원" });
+
+  it("회원이고 복원을 맡을 수 있는 앱이면 포인트 기록 줄 바로 아래에 보인다", async () => {
+    renderSettings(true);
+    const row = await restoreRow();
+    const buttons = screen.getAllByRole("button");
+    const history = buttons.findIndex((button) => button.textContent?.includes("포인트 기록"));
+    expect(history).toBeGreaterThan(-1);
+    expect(buttons[history + 1]).toBe(row);
+  });
+
+  it.each([
+    ["restored", "구매한 상품을 다시 불러왔어요"],
+    ["nothing", "복원할 상품이 없어요"],
+    ["failed", "잠시 후 다시 시도해 주세요"],
+  ] as const)("앱의 복원 결과 %s를 한 번 알린다", async (status, message) => {
+    renderSettings(true);
+    const restore = vi.spyOn(appPointsGateway(), "restorePurchases").mockResolvedValue(status);
+
+    await userEvent.click(await restoreRow());
+
+    await vi.waitFor(() => expect(showToast).toHaveBeenCalledWith(message));
+    expect(showToast).toHaveBeenCalledTimes(1);
+    expect(restore).toHaveBeenCalledTimes(1);
+  });
+
+  it("복원이 끝나기 전에 다시 눌러도 요청은 한 번만 나간다", async () => {
+    renderSettings(true);
+    let finish: (status: "restored") => void = () => {};
+    const restore = vi
+      .spyOn(appPointsGateway(), "restorePurchases")
+      .mockImplementation(() => new Promise((resolve) => (finish = resolve)));
+    const row = await restoreRow();
+
+    await userEvent.click(row);
+    await userEvent.click(row);
+    finish("restored");
+
+    await vi.waitFor(() => expect(showToast).toHaveBeenCalledTimes(1));
+    expect(restore).toHaveBeenCalledTimes(1);
+  });
+
+  it("비회원이면 줄이 없다", async () => {
+    signIn(null);
+    renderSettings(true);
+    await screen.findByRole("button", { name: /포인트 기록/ });
+    expect(screen.queryByRole("button", { name: "구매 복원" })).not.toBeInTheDocument();
+  });
+
+  it("복원을 맡을 수 없는 곳에서는 줄이 없다", async () => {
+    const fetchMock = vi.fn<typeof fetch>(
+      async () => new Response(JSON.stringify({ balance: 300 }), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      renderSettings(true, "/?points=1");
+      await screen.findByRole("button", { name: /포인트 기록/ });
+      expect(screen.queryByRole("button", { name: "구매 복원" })).not.toBeInTheDocument();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("포인트가 꺼져 있으면 줄이 없다", () => {
+    renderSettings(false);
+    expect(screen.queryByRole("button", { name: "구매 복원" })).not.toBeInTheDocument();
   });
 });

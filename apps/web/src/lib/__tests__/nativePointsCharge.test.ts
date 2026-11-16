@@ -4,8 +4,10 @@ import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import {
   __resetNativePointsChargeForTests,
   isNativePointsChargeAvailable,
+  isNativePointsRestoreAvailable,
   requestNativePointsPrices,
   requestNativePointsPurchase,
+  requestNativePointsRestore,
 } from "@/lib/nativePointsCharge";
 
 const postMessage = vi.fn();
@@ -24,8 +26,12 @@ function enable(query = "?pointsCharge=1") {
   vi.stubGlobal("ReactNativeWebView", { postMessage });
 }
 
-function lastRequest(): { type: string; id: string } {
-  return JSON.parse(postMessage.mock.calls.at(-1)?.[0] as string) as { type: string; id: string };
+function lastRequest(): { type: string; id: string; storeProductIds?: string[] } {
+  return JSON.parse(postMessage.mock.calls.at(-1)?.[0] as string) as {
+    type: string;
+    id: string;
+    storeProductIds?: string[];
+  };
 }
 
 function fromNative(message: unknown) {
@@ -97,5 +103,56 @@ describe("앱 포인트 충전 브리지", () => {
     const pending = requestNativePointsPrices(["points_1000"]);
     await vi.advanceTimersByTimeAsync(10_000);
     expect(await pending).toEqual([]);
+  });
+});
+
+describe("앱 구매 복원 브리지", () => {
+  it("브리지와 pointsRestore=1 표시가 모두 있어야 쓸 수 있다", () => {
+    expect(isNativePointsRestoreAvailable()).toBe(false);
+    // 복원 메시지가 생기기 전의 앱은 충전 표시만 붙인다.
+    enable("?pointsCharge=1");
+    expect(isNativePointsRestoreAvailable()).toBe(false);
+    enable("?pointsCharge=1&pointsRestore=1");
+    expect(isNativePointsRestoreAvailable()).toBe(true);
+  });
+
+  it("되찾을 상품 ID를 실어 보내고 같은 id의 결과로 끝난다", async () => {
+    enable("?pointsRestore=1");
+    const pending = requestNativePointsRestore(["set_book_bear"]);
+    const request = lastRequest();
+    expect(request).toMatchObject({
+      type: "points-charge-restore",
+      storeProductIds: ["set_book_bear"],
+    });
+    fromNative({ type: "points-charge-restore-result", id: "other", status: "nothing", atMs: 1 });
+    fromNative({
+      type: "points-charge-restore-result",
+      id: request.id,
+      status: "restored",
+      atMs: 1,
+    });
+    expect(await pending).toBe("restored");
+  });
+
+  it("앱이 보낸 모르는 상태는 실패로 받는다", async () => {
+    enable("?pointsRestore=1");
+    const pending = requestNativePointsRestore(["set_book_bear"]);
+    fromNative({
+      type: "points-charge-restore-result",
+      id: lastRequest().id,
+      status: "transferred",
+      atMs: 1,
+    });
+    expect(await pending).toBe("failed");
+  });
+
+  it("앱이 받는 수보다 많은 상품 ID는 잘라서 보낸다", () => {
+    enable("?pointsRestore=1");
+    void requestNativePointsRestore(Array.from({ length: 250 }, (_, index) => `set_${index}`));
+    expect(lastRequest().storeProductIds).toHaveLength(200);
+  });
+
+  it("브리지가 없으면 실패로 끝난다", async () => {
+    expect(await requestNativePointsRestore(["set_book_bear"])).toBe("failed");
   });
 });

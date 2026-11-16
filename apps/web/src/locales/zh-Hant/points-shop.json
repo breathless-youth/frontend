@@ -54,6 +54,9 @@
     }
   },
   "settings": {
-    "history": "點數紀錄"
+    "history": "點數紀錄",
+    "restore": "恢復購買",
+    "restored": "已恢復你購買的商品",
+    "restoreNothing": "沒有可恢復的商品"
   }
 }

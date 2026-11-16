@@ -145,6 +145,7 @@ export type ToWebMessage =
   | SocialLoginResultMessage
   | PointsChargePricesResultMessage
   | PointsChargePurchaseResultMessage
+  | PointsChargeRestoreResultMessage
   | PointsAdShowResultMessage
   | LogoutResultMessage
   | DeleteAccountResultMessage
@@ -276,6 +277,27 @@ export type PointsChargePurchaseResultMessage = {
   type: "points-charge-purchase-result";
   id: string;
   status: PointsChargePurchaseStatus;
+  atMs: number;
+};
+
+/** 구매 복원 요청 한 번에 실을 수 있는 스토어 상품 ID 수이며 웹과 앱이 같은 값으로 자르고 검증한다. */
+export const POINTS_CHARGE_RESTORE_MAX_PRODUCTS = 200;
+
+export const POINTS_CHARGE_RESTORE_STATUSES = ["restored", "nothing", "failed"] as const;
+export type PointsChargeRestoreStatus = (typeof POINTS_CHARGE_RESTORE_STATUSES)[number];
+
+/**
+ * 구매 복원 결과
+ *
+ * `points-charge-restore`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+ * `restored`는 스토어 결제 기록에서 요청한 상품을 찾았다는 뜻이고 보유는 서버가 결제 알림을 받은 뒤에 바뀐다.
+ * `nothing`은 결제 기록에 요청한 상품이 없는 경우다.
+ * `failed`는 스토어나 결제 SDK가 답하지 못했거나 앞선 결제나 복원이 아직 진행 중인 경우다.
+ */
+export type PointsChargeRestoreResultMessage = {
+  type: "points-charge-restore-result";
+  id: string;
+  status: PointsChargeRestoreStatus;
   atMs: number;
 };
 
@@ -602,6 +624,14 @@ export type ToNativeMessage =
    * 앱은 결제 전에 결제 SDK에 지금 사용자 ID로 로그인해서 서버가 결제 알림의 주인을 알 수 있게 한다.
    */
   | { type: "points-charge-purchase"; id: string; storeProductId: string; atMs: number }
+  /**
+   * 구매 복원 요청
+   *
+   * 앱이 웹뷰 주소에 `pointsRestore=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `points-charge-restore-result`로 답한다.
+   * 상품 ID는 서버의 상점 목록에서 스토어 결제로 파는 상품의 스토어 상품 ID다.
+   * 충전 묶음은 써서 없어지는 상품이라 싣지 않고, 앱은 결제 기록에 이 목록의 상품이 있는지만 본다.
+   */
+  | { type: "points-charge-restore"; id: string; storeProductIds: string[]; atMs: number }
   /**
    * 보상형 광고 보기 요청
    *

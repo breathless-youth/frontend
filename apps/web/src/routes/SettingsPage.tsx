@@ -12,6 +12,7 @@ import { interviewStatusQuery } from "@/lib/interviewQueries";
 import { slideNavigate } from "@/lib/pageTransition";
 import { showToast } from "@/lib/toast";
 import { useUserId } from "@/lib/userId";
+import { RestorePurchasesRow } from "@/features/points/components/shop/RestorePurchasesRow";
 import { usePointsBalance } from "@/features/points/components/shop/usePointsBalance";
 import { appPointsGateway } from "@/features/points/gateway/appPointsGateway";
 import { formatPoints } from "@/features/points/model/formatPoints";
@@ -160,6 +161,8 @@ export function SettingsPage() {
               }}
             />
           )}
+          {/* 복원 메시지를 모르는 예전 앱과 브라우저에서는 맡길 곳이 없어 줄을 그리지 않는다. */}
+          {isPointsEnabled() && appPointsGateway().capabilities.restore && <RestorePurchasesRow />}
         </SettingsSection>
 
         <SettingsSection className="mt-5" label={t("sections.service")}>

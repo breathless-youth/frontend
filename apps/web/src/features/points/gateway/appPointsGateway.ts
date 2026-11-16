@@ -30,6 +30,7 @@ function deferredFakeGateway(scene: PointsScene): PointsGateway {
     purchaseMascot: async (id) => (await load()).purchaseMascot(id),
     getStorePrices: async (productIds) => (await load()).getStorePrices(productIds),
     purchaseStoreItem: async (itemId, onPaid) => (await load()).purchaseStoreItem(itemId, onPaid),
+    restorePurchases: async () => (await load()).restorePurchases(),
     equipAccessory: async (mascotId, slot, itemId) =>
       (await load()).equipAccessory(mascotId, slot, itemId),
     setTimerBackground: async (itemId) => (await load()).setTimerBackground(itemId),

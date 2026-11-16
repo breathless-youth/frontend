@@ -15,6 +15,7 @@ import {
   DELETE_ACCOUNT_FAILURE_CODES,
   POINTS_AD_STATUSES,
   POINTS_CHARGE_PURCHASE_STATUSES,
+  POINTS_CHARGE_RESTORE_STATUSES,
   SOCIAL_LOGIN_FAILURE_CODES,
   VIDEO_RESULT_STATUSES,
 } from "@focusmakers/types";
@@ -385,6 +386,17 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
       ? (record.status as (typeof POINTS_CHARGE_PURCHASE_STATUSES)[number])
       : "failed";
     return { type: "points-charge-purchase-result", id: record.id, status, atMs: record.atMs };
+  }
+  if (
+    record.type === "points-charge-restore-result" &&
+    typeof record.id === "string" &&
+    record.id !== ""
+  ) {
+    // 앱이 새 상태를 더해도 응답을 버리면 기다리는 쪽이 끝나지 않으므로 모르는 상태는 실패로 받는다.
+    const status = (POINTS_CHARGE_RESTORE_STATUSES as readonly unknown[]).includes(record.status)
+      ? (record.status as (typeof POINTS_CHARGE_RESTORE_STATUSES)[number])
+      : "failed";
+    return { type: "points-charge-restore-result", id: record.id, status, atMs: record.atMs };
   }
   if (
     record.type === "points-ad-show-result" &&

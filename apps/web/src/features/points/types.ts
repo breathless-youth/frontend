@@ -147,6 +147,9 @@ export type ChargeResult =
   | { status: "failed" }
   | { status: "cancelled" };
 
+/** 구매 복원 결과이며 `nothing`은 스토어 결제 기록에 되찾을 상품이 없는 것이다. */
+export type RestoreResult = "restored" | "nothing" | "failed";
+
 export type ClaimKind = "attendance" | "dailyGoal" | "medals";
 
 /** 같은 보상을 다시 받으면 서버가 오류 대신 `granted: false`와 지금 잔액을 준다. */

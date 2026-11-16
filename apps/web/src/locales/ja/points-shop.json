@@ -54,6 +54,9 @@
     }
   },
   "settings": {
-    "history": "ポイント履歴"
+    "history": "ポイント履歴",
+    "restore": "購入を復元",
+    "restored": "購入したアイテムを復元しました",
+    "restoreNothing": "復元できるアイテムがありません"
   }
 }

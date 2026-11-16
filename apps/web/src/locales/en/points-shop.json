@@ -54,6 +54,9 @@
     }
   },
   "settings": {
-    "history": "Point history"
+    "history": "Point history",
+    "restore": "Restore purchases",
+    "restored": "Your purchases are back",
+    "restoreNothing": "No purchases to restore"
   }
 }

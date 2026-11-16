@@ -21,6 +21,7 @@ const NOTHING_EXTRA = {
   charge: false,
   ads: false,
   storeItems: false,
+  restore: false,
 };
 
 /** 받기·기록·충전·광고를 모두 끈 가짜 경계 */
