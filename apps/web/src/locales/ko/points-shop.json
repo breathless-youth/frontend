@@ -41,6 +41,7 @@
       "mascotPurchase": "{{name}} 마스코트 구매",
       "mascotPurchaseUnknown": "마스코트 구매",
       "mission": "시작 미션 보상",
+      "grant": "운영팀 지급",
       "refund": "결제 환불로 차감"
     },
     "empty": {

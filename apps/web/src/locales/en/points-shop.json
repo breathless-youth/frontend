@@ -41,6 +41,7 @@
       "mascotPurchase": "Bought the {{name}} mascot",
       "mascotPurchaseUnknown": "Mascot purchase",
       "mission": "Starter mission reward",
+      "grant": "Granted by the FocusMakers team",
       "refund": "Deducted for a refund"
     },
     "empty": {

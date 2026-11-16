@@ -396,10 +396,32 @@ describe("새 기록 사유와 결제 상품", () => {
 
   it("서버가 주는 사유를 모두 화면 사유로 바꾼다", () => {
     expect(
-      ["DAILY_GOAL", "AD", "CHARGE", "REFUND", "MISSION", "MASCOT_PURCHASE"].map(
+      ["DAILY_GOAL", "AD", "CHARGE", "REFUND", "MISSION", "MASCOT_PURCHASE", "GRANT"].map(
         (reason) => entry(reason)?.reason,
       ),
-    ).toEqual(["dailyGoal", "ad", "charge", "refund", "mission", "mascotPurchase"]);
+    ).toEqual(["dailyGoal", "ad", "charge", "refund", "mission", "mascotPurchase", "grant"]);
+  });
+
+  it("모르는 사유의 기록은 그 줄만 빼고 나머지 쪽과 다음 커서는 그대로 넘긴다", () => {
+    const row = (id: number, reason: string) => ({
+      id,
+      amount: 10,
+      reason,
+      fund: "FREE",
+      label: null,
+      statDate: "2026-11-10",
+      createdAt: "2026-11-10T05:00:00Z",
+    });
+    expect(entry("BONUS_EVENT")).toBeNull();
+    const page = toHistoryPage({
+      items: [row(3, "GRANT"), row(2, "BONUS_EVENT"), row(1, "STUDY")],
+      nextCursor: 1,
+    });
+    expect(page.entries.map((e) => [e.id, e.reason])).toEqual([
+      ["3", "grant"],
+      ["1", "study"],
+    ]);
+    expect(page.nextCursor).toBe(1);
   });
 
   it("마스코트 구매는 문구의 코드로 어느 마스코트인지 싣고 모르는 코드면 뺀다", () => {
@@ -459,6 +481,34 @@ describe("세트와 효과", () => {
     expect(
       toShopItem(item({ slot: "EFFECT", imageUrl: null, effectType: "aurora" })),
     ).toMatchObject({ slot: "effect", imageUrl: null, effectType: "aurora" });
+  });
+
+  it("모르는 움직임과 빛 효과 종류는 버리지 않고 넘겨 그리는 쪽이 멈춘 그림이나 빈 효과로 둔다", () => {
+    const look = toMascotLook({
+      mascotCode: "BOOK",
+      accessories: [
+        {
+          mascotCode: "BOOK",
+          slot: "EFFECT",
+          item: {
+            itemId: 9,
+            code: "BOOK_FX",
+            imageUrl: "/fx.png",
+            effectPieces: [{ x: 0.1, y: 0.1, width: 0.2, height: 0.2, motion: "spiral" }],
+            effectType: "sparkle-storm",
+          },
+        },
+      ],
+    });
+    expect(look?.accessories).toEqual([
+      {
+        slot: "effect",
+        code: "BOOK_FX",
+        imageUrl: "/fx.png",
+        effectPieces: [{ x: 0.1, y: 0.1, width: 0.2, height: 0.2, motion: "spiral" }],
+        effectType: "sparkle-storm",
+      },
+    ]);
   });
 
   it("끼고 있는 세트는 옷, 뒤 조각, 효과 그림, 조각을 모두 담는다", () => {

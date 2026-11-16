@@ -41,6 +41,7 @@
       "mascotPurchase": "マスコット「{{name}}」を購入",
       "mascotPurchaseUnknown": "マスコットの購入",
       "mission": "スタートミッションのごほうび",
+      "grant": "運営チームからの付与",
       "refund": "返金による差し引き"
     },
     "empty": {

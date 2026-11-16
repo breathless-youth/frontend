@@ -41,6 +41,7 @@
       "mascotPurchase": "購買吉祥物{{name}}",
       "mascotPurchaseUnknown": "購買吉祥物",
       "mission": "新手任務獎勵",
+      "grant": "營運團隊發放",
       "refund": "因退款扣除"
     },
     "empty": {

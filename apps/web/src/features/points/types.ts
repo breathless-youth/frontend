@@ -61,6 +61,7 @@ export type PointsReason =
   | "purchase"
   | "mascotPurchase"
   | "mission"
+  | "grant"
   | "refund";
 
 export type PointsHistoryEntry = {

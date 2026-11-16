@@ -10,6 +10,7 @@ import { PointsHistoryPage } from "@/routes/PointsHistoryPage";
 import { createFakePointsGateway } from "../../gateway/createFakePointsGateway";
 import { PointsGatewayProvider } from "../../gateway/PointsGatewayContext";
 import type { PointsScene } from "../../fixtures";
+import { HistoryList } from "../../components/shop/HistoryList";
 import { PointsHistoryScreen } from "../PointsHistoryScreen";
 
 function renderPage(scene: PointsScene) {
@@ -29,6 +30,11 @@ function renderPage(scene: PointsScene) {
 }
 
 describe("포인트 기록", () => {
+  it("운영 지급 기록은 운영 지급 문구로 보인다", () => {
+    render(<HistoryList entries={[{ id: "1", atMs: Date.now(), amount: 500, reason: "grant" }]} />);
+    expect(screen.getByText("운영팀 지급")).toBeVisible();
+  });
+
   it("날짜별로 묶이고 사용을 고르면 음수 항목만 보인다", async () => {
     // 기록 시각은 지금에서 몇 분씩 거꾸로 세므로 자정 직후에 돌리면 오늘 묶음이 어제로 넘어간다.
     vi.useFakeTimers({ toFake: ["Date"] });

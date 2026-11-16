@@ -88,6 +88,7 @@ const HISTORY_REASON_BY_CODE: ReadonlyMap<string, PointsReason> = new Map(
     PURCHASE: "purchase",
     MASCOT_PURCHASE: "mascotPurchase",
     MISSION: "mission",
+    GRANT: "grant",
     ATTENDANCE: "attendance",
     DAILY_GOAL: "dailyGoal",
     MEDAL: "medal",
