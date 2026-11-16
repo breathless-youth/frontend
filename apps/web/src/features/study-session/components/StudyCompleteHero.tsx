@@ -171,7 +171,11 @@ export function StudyCompleteHero({
           }
         >
           {/* 기본 자리는 정점이라 모션 축소와 다시 본 결과는 애니메이션 없이 정점 자세를 바로 보인다. */}
-          <div className="relative mb-4.5 size-18">
+          {/* 바닥에 남은 발밑 소품은 아래 끝이 제목에 붙어 보여 그때만 8px 더 띄운다. */}
+          <div
+            data-result-mascot-slot=""
+            className={cn("relative size-18", underfoot.length > 0 ? "mb-6.5" : "mb-4.5")}
+          >
             <span
               aria-hidden="true"
               className={cn(

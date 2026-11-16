@@ -236,6 +236,18 @@ describe("StudyCompleteHero", () => {
       expect(ground(container)).toBeNull();
     });
 
+    it.each(["intro", "static", "revealed"] as const)(
+      "%s 단계에서 바닥 자리를 그리면 제목이 소품에 붙지 않게 슬롯 아래를 8px 더 띄운다",
+      (phase) => {
+        const slot = (look: MascotLook) =>
+          renderHero(look, phase).container.querySelector("[data-result-mascot-slot]")?.className;
+
+        expect(slot(SKATEBOARD)).toContain("mb-6.5");
+        expect(slot(SUPERHERO)).toContain("mb-4.5");
+        expect(slot({ id: "book", accessories: [] })).toContain("mb-4.5");
+      },
+    );
+
     it("발밑 소품이 없으면 바닥 자리를 그리지 않는다", () => {
       const { container } = renderHero({ id: "book", accessories: [] }, "intro");
 
