@@ -251,4 +251,73 @@ describe("AccessoryGrid", () => {
       await screen.findByRole("button", { name: "머리 위", pressed: true }),
     ).toBeInTheDocument();
   });
+
+  describe("누른 상품 없이 전체 보기로 들어왔을 때", () => {
+    /** 스톱워치가 주어진 소품들을 사서 착용한 가짜 경계 */
+    async function wearing(...keys: string[]) {
+      const gateway = createFakePointsGateway("default", { balance: 5000 });
+      const { items } = await gateway.getShop();
+      for (const key of keys) {
+        const item = items.find((it) => it.id === `acc-stopwatch-${key}`);
+        if (item?.slot === undefined) throw new Error(`고정 데이터에 ${key} 소품이 없다`);
+        if (!item.owned) await gateway.purchase(item.id);
+        await gateway.equipAccessory("stopwatch", item.slot, item.id);
+      }
+      return gateway;
+    }
+    const pressed = (name: RegExp | string) => screen.findByRole("button", { name, pressed: true });
+
+    it("착용 중인 소품이 없으면 지금처럼 머리 위 칸의 첫 소품을 고른다", async () => {
+      renderScreen(createFakePointsGateway("default"));
+      expect(await pressed("머리 위")).toBeInTheDocument();
+      expect(await pressed(/왕관/)).toBeInTheDocument();
+    });
+
+    it("착용 중인 소품이 있는 칸과 그 소품을 처음에 고른다", async () => {
+      renderScreen(await wearing("ribbon"));
+      expect(await pressed("몸 장식")).toBeInTheDocument();
+      expect(await pressed(/단추 리본/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "착용 중" })).toBeDisabled();
+    });
+
+    it("착용 중인 소품이 여러 칸에 있으면 칩 순서에서 가장 앞 칸을 고른다", async () => {
+      renderScreen(await wearing("ribbon", "glasses"));
+      expect(await pressed("얼굴")).toBeInTheDocument();
+      expect(await pressed(/동그란 안경/)).toBeInTheDocument();
+    });
+
+    it("그 칸의 첫 소품이 아니어도 착용 중인 소품을 고른다", async () => {
+      renderScreen(await wearing("raincoat"));
+      expect(await pressed("머리 위")).toBeInTheDocument();
+      expect(await pressed(/우비 모자/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /왕관/ })).toHaveAttribute("aria-pressed", "false");
+    });
+
+    it("칸을 바꾸면 그 칸에서 착용 중인 소품을 먼저 고른다", async () => {
+      renderScreen(await wearing("raincoat", "glasses"));
+      // 칩 순서에서 앞인 머리 위 칸이 먼저 열리고, 얼굴 칸으로 갔다가 돌아와도 착용 중인 소품이 골라져 있다.
+      await userEvent.click(await screen.findByRole("button", { name: "얼굴" }));
+      expect(await pressed(/동그란 안경/)).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "머리 위" }));
+      expect(await pressed(/우비 모자/)).toBeInTheDocument();
+    });
+
+    it("사용자가 직접 고른 뒤에는 착용 중인 소품으로 되돌리지 않는다", async () => {
+      renderScreen(await wearing("raincoat"));
+      await userEvent.click(await screen.findByRole("button", { name: /왕관/ }));
+      expect(await pressed(/왕관/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /우비 모자/ })).toHaveAttribute(
+        "aria-pressed",
+        "false",
+      );
+    });
+  });
+
+  it("누른 상품이 있으면 착용 중인 소품이 다른 칸에 있어도 누른 상품을 고른다", async () => {
+    const gateway = createFakePointsGateway("default");
+    await gateway.equipAccessory("stopwatch", "body", "acc-stopwatch-ribbon");
+    renderScreen(gateway, "/points/accessories?item=acc-stopwatch-crown");
+    expect(await screen.findByRole("button", { name: /왕관/, pressed: true })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "머리 위", pressed: true })).toBeInTheDocument();
+  });
 });
