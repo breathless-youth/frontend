@@ -28,16 +28,16 @@
   "medal": {
     "title_other": "ランキングメダル {{count}}個",
     "claim": "{{points}}を受け取る",
+    "heading": "ランキングメダル",
+    "rankCount": "{{rank}}位メダル {{count}}個",
     "none": "新しいランキングメダルはありません",
-    "noneHint": "3位以内に入るとメダルごとにポイントがもらえます",
     "ranking": "ランキング ›",
     "guide": "メダルごとのポイント案内",
     "period": {
       "DAILY": "日間",
       "WEEKLY": "週間",
       "MONTHLY": "月間"
-    },
-    "rank": "{{rank}}位"
+    }
   },
   "charge": {
     "title": "ポイントをチャージ",

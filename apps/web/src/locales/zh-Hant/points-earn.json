@@ -28,16 +28,16 @@
   "medal": {
     "title_other": "排行榜獎牌 {{count}} 枚",
     "claim": "領取 {{points}}",
+    "heading": "排行榜獎牌",
+    "rankCount": "第 {{rank}} 名獎牌 {{count}} 枚",
     "none": "沒有新的排行榜獎牌",
-    "noneHint": "進入前 3 名,每枚獎牌都能獲得點數",
     "ranking": "排行榜 ›",
     "guide": "獎牌點數說明",
     "period": {
       "DAILY": "日榜",
       "WEEKLY": "週榜",
       "MONTHLY": "月榜"
-    },
-    "rank": "第 {{rank}} 名"
+    }
   },
   "charge": {
     "title": "儲值點數",

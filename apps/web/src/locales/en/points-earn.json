@@ -29,16 +29,16 @@
     "title_one": "{{count}} ranking medal",
     "title_other": "{{count}} ranking medals",
     "claim": "Claim {{points}}",
+    "heading": "Ranking medals",
+    "rankCount": "#{{rank}} medals: {{count}}",
     "none": "No new ranking medals",
-    "noneHint": "Finish in the top 3 to earn points for each medal",
     "ranking": "Ranking ›",
     "guide": "Medal points info",
     "period": {
       "DAILY": "Daily",
       "WEEKLY": "Weekly",
       "MONTHLY": "Monthly"
-    },
-    "rank": "#{{rank}}"
+    }
   },
   "charge": {
     "title": "Buy points",
