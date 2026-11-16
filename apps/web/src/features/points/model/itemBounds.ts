@@ -8,8 +8,85 @@ const SAMPLE = 160;
 // 가장자리의 옅은 그림자까지 소품으로 치면 자리가 커져서 거의 투명한 점은 뺀다.
 const ALPHA_MIN = 16;
 
+// 측정 방식이 바뀌어 남은 값을 못 믿게 되면 키를 올린다.
+const STORAGE_KEY = "points.itemBounds.v1";
+// 지금 소품 그림이 약 420장이라 두 배 남짓 잡았다. 다 차도 저장소를 110KB 남짓 쓴다.
+const STORED_MAX = 1000;
+
 const measured = new Map<string, ItemBounds | null>();
 const pending = new Map<string, Promise<ItemBounds | null>>();
+// 앱을 켠 뒤 처음 쓸 때 저장소에서 한 번 읽고, 남긴 순서(오래된 것이 앞)를 지킨다.
+let stored: Map<string, ItemBounds> | null = null;
+
+function isRatio(value: unknown): value is number {
+  return typeof value === "number" && value >= 0 && value <= 1;
+}
+
+/** 저장 형태 한 줄을 자리로 되살리며, 판 밖이거나 크기가 없으면 null이다. */
+function parseStored(entry: unknown): [string, ItemBounds] | null {
+  if (!Array.isArray(entry) || entry.length !== 5) {
+    return null;
+  }
+  const [url, x, y, width, height] = entry as unknown[];
+  if (typeof url !== "string" || ![x, y, width, height].every(isRatio)) {
+    return null;
+  }
+  const bounds = { x, y, width, height } as ItemBounds;
+  const inside = bounds.x + bounds.width <= 1 && bounds.y + bounds.height <= 1;
+  return inside && bounds.width > 0 && bounds.height > 0 ? [url, bounds] : null;
+}
+
+function storedBounds(): Map<string, ItemBounds> {
+  if (stored !== null) {
+    return stored;
+  }
+  stored = new Map();
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const list: unknown = raw === null ? [] : JSON.parse(raw);
+    for (const entry of Array.isArray(list) ? list : []) {
+      const parsed = parseStored(entry);
+      if (parsed !== null) {
+        stored.set(...parsed);
+      }
+    }
+  } catch {
+    // 읽지 못하면 남은 값이 없는 것처럼 처음부터 잰다.
+  }
+  return stored;
+}
+
+/** 측정한 자리를 앱을 다시 켜도 쓰게 남기며, 상한을 넘으면 오래 전에 잰 것부터 버린다. */
+function remember(url: string, bounds: ItemBounds) {
+  const map = storedBounds();
+  map.delete(url);
+  map.set(url, bounds);
+  for (const oldest of map.keys()) {
+    if (map.size <= STORED_MAX) {
+      break;
+    }
+    map.delete(oldest);
+  }
+  const list = [...map].map(([key, b]) => [key, b.x, b.y, b.width, b.height]);
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  } catch {
+    // 저장소가 막혔거나 가득 차면 이번 실행 동안만 기억한다.
+  }
+}
+
+/** 이번 실행에서 잰 값, 없으면 저장소에 남은 값이며 둘 다 없으면 undefined다. */
+function knownBounds(url: string): ItemBounds | null | undefined {
+  const value = measured.get(url);
+  return value !== undefined ? value : storedBounds().get(url);
+}
+
+/** 앱을 다시 켠 것처럼 메모리의 측정값을 비운다. 저장소는 그대로다. */
+export function __resetItemBoundsForTests() {
+  measured.clear();
+  pending.clear();
+  stored = null;
+}
 
 function scan(image: HTMLImageElement): ItemBounds | null {
   const canvas = document.createElement("canvas");
@@ -72,10 +149,12 @@ function readableUrl(url: string): string {
  *
  * 그림을 웹과 같은 출처로 읽어 캔버스로 투명한 부분을 본다.
  * 그래도 캔버스가 막히거나 그림을 받지 못하면 null이고, 받는 쪽은 판 전체를 그린다.
- * 화면에 보이는 그림 주소는 바꾸지 않고, 한 번 측정한 값은 앱을 끌 때까지 받은 주소마다 기억한다.
+ * 화면에 보이는 그림 주소는 바꾸지 않고, 측정한 값은 받은 주소마다 기억한다.
+ * 잰 자리는 저장소에도 남겨 앱을 다시 켜도 그림을 다시 읽지 않는다. 그림이 바뀌면 주소가 바뀌어 새로 잰다.
+ * 측정하지 못한 null은 이번 실행 동안만 기억해 다음에 켜면 다시 잰다.
  */
 export function measureImageBounds(url: string): Promise<ItemBounds | null> {
-  const known = measured.get(url);
+  const known = knownBounds(url);
   if (known !== undefined) {
     return Promise.resolve(known);
   }
@@ -94,6 +173,9 @@ export function measureImageBounds(url: string): Promise<ItemBounds | null> {
     .then((bounds) => {
       measured.set(url, bounds);
       pending.delete(url);
+      if (bounds !== null) {
+        remember(url, bounds);
+      }
       return bounds;
     });
   pending.set(url, job);
@@ -114,7 +196,7 @@ export function unionBounds(list: readonly (ItemBounds | null)[]): ItemBounds | 
 }
 
 function knownUnion(urls: readonly string[]): ItemBounds | null | undefined {
-  const list = urls.map((url) => measured.get(url));
+  const list = urls.map(knownBounds);
   return list.some((bounds) => bounds === undefined)
     ? undefined
     : unionBounds(list as (ItemBounds | null)[]);
@@ -124,7 +206,7 @@ function knownUnion(urls: readonly string[]): ItemBounds | null | undefined {
  * 그림 여러 장을 겹친 자리
  *
  * 측정하는 동안은 undefined, 측정하지 못했으면 null이다.
- * 이미 측정한 그림은 첫 그리기부터 값이 있어 칸이 깜빡이지 않는다.
+ * 이미 측정했거나 저장소에 남은 그림은 첫 그리기부터 값이 있어 칸이 깜빡이지 않는다.
  */
 export function useItemBounds(urls: readonly string[]): ItemBounds | null | undefined {
   const key = urls.join("\n");

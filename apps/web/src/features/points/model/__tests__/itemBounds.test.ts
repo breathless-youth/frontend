@@ -2,6 +2,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  __resetItemBoundsForTests,
   cutoutFrame,
   measureImageBounds,
   unionBounds,
@@ -67,9 +68,23 @@ function stubCanvas(data: Uint8ClampedArray | null) {
   );
 }
 
+// 측정값을 남기는 저장소 키이며 itemBounds.ts의 값과 같다.
+const STORAGE_KEY = "points.itemBounds.v1";
+
+/** 저장소는 그대로 두고 앱을 다시 켠 것처럼 메모리의 측정값만 비운다. */
+const relaunch = __resetItemBoundsForTests;
+
+/** 저장소에 남은 그림 주소를 남긴 순서대로 */
+function storedUrls(): string[] {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  return raw === null ? [] : (JSON.parse(raw) as [string][]).map(([url]) => url);
+}
+
 afterEach(() => {
   vi.restoreAllMocks();
   Reflect.deleteProperty(HTMLImageElement.prototype, "decode");
+  localStorage.removeItem(STORAGE_KEY);
+  relaunch();
 });
 
 describe("measureImageBounds", () => {
@@ -157,6 +172,88 @@ describe("measureImageBounds", () => {
         "https://cdn.example.com/images/hat.png",
       ]);
     });
+  });
+});
+
+describe("측정값 기억하기", () => {
+  it("측정한 자리는 앱을 다시 켜도 그림을 다시 읽지 않고 첫 그리기부터 쓴다", async () => {
+    stubCanvas(alphaData({ x: 40, y: 16, width: 40, height: 16 }));
+    await measureImageBounds("/bounds/keep.png");
+    relaunch();
+    const decode = vi.spyOn(HTMLImageElement.prototype, "decode");
+
+    const { result } = renderHook(() => useItemBounds(["/bounds/keep.png"]));
+
+    expect(result.current).toEqual({ x: 0.25, y: 0.1, width: 0.25, height: 0.1 });
+    await expect(measureImageBounds("/bounds/keep.png")).resolves.toEqual(result.current);
+    expect(decode).not.toHaveBeenCalled();
+  });
+
+  it("측정하지 못한 그림은 남기지 않아 다음에 켜면 다시 잰다", async () => {
+    stubCanvas(null);
+    await expect(measureImageBounds("/bounds/retry.png")).resolves.toBeNull();
+    expect(storedUrls()).toEqual([]);
+    relaunch();
+    vi.restoreAllMocks();
+    stubCanvas(alphaData({ x: 0, y: 0, width: 16, height: 16 }));
+
+    await expect(measureImageBounds("/bounds/retry.png")).resolves.toEqual({
+      x: 0,
+      y: 0,
+      width: 0.1,
+      height: 0.1,
+    });
+  });
+
+  it("저장소를 읽거나 쓰지 못해도 지금처럼 잰다", async () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("quota");
+    });
+    stubCanvas(alphaData({ x: 0, y: 0, width: 16, height: 16 }));
+
+    await expect(measureImageBounds("/bounds/no-storage.png")).resolves.toEqual({
+      x: 0,
+      y: 0,
+      width: 0.1,
+      height: 0.1,
+    });
+  });
+
+  it.each([
+    ["JSON이 아닌 값", "{broken"],
+    ["목록이 아닌 값", JSON.stringify({ "/bounds/bad.png": [0, 0, 1, 1] })],
+    ["판 밖의 자리", JSON.stringify([["/bounds/bad.png", 0.5, 0, 0.8, 0.2]])],
+    ["크기가 0인 자리", JSON.stringify([["/bounds/bad.png", 0, 0, 0, 0.2]])],
+  ])("%s으로 남은 측정값은 버리고 다시 잰다", async (_, raw) => {
+    localStorage.setItem(STORAGE_KEY, raw);
+    relaunch();
+    stubCanvas(alphaData({ x: 0, y: 0, width: 16, height: 16 }));
+    const decode = vi.spyOn(HTMLImageElement.prototype, "decode");
+
+    await expect(measureImageBounds("/bounds/bad.png")).resolves.toEqual({
+      x: 0,
+      y: 0,
+      width: 0.1,
+      height: 0.1,
+    });
+    expect(decode).toHaveBeenCalledOnce();
+  });
+
+  it("1000개를 넘으면 오래 전에 잰 것부터 버린다", async () => {
+    const old = Array.from({ length: 1000 }, (_, i) => [`/bounds/old-${i}.png`, 0, 0, 0.5, 0.5]);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(old));
+    relaunch();
+    stubCanvas(alphaData({ x: 0, y: 0, width: 16, height: 16 }));
+
+    await measureImageBounds("/bounds/new.png");
+
+    const urls = storedUrls();
+    expect(urls).toHaveLength(1000);
+    expect(urls[0]).toBe("/bounds/old-1.png");
+    expect(urls.at(-1)).toBe("/bounds/new.png");
   });
 });
 
