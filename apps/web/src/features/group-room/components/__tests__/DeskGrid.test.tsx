@@ -57,7 +57,7 @@ describe("DeskGrid", () => {
     expect(items[5]).toHaveAccessibleName("빈자리");
   });
 
-  it("마스코트가 있는 멤버는 마스코트와 입은 소품을 그리고 없는 멤버는 사람 그림이다", () => {
+  it("마스코트가 있는 멤버는 마스코트와 입은 소품을 그린다", () => {
     const withMascot: RoomDeskMember[] = [
       {
         ...members[0]!,
@@ -76,6 +76,30 @@ describe("DeskGrid", () => {
     );
     expect(first!.querySelectorAll("img")).toHaveLength(2);
     expect(third!.querySelector("img")).toBeNull();
+  });
+
+  it("마스코트를 보이지 않는 그룹은 빈자리까지 지금처럼 사람 그림이다", () => {
+    render(<DeskGrid members={members} visibility="private" elapsedSec={0} />);
+    const items = desks();
+    expect(items[0]!.querySelector("circle")).not.toBeNull();
+    expect(items[5]!.querySelector("circle")).not.toBeNull();
+    expect(items[5]!.querySelector('[data-slot="vacant-mascot"]')).toBeNull();
+  });
+
+  it("마스코트를 보이는 그룹은 모습이 빈 멤버도 타이미이고 빈자리와 초대 자리는 타이미 윤곽이다", () => {
+    const withMascot: RoomDeskMember[] = [
+      { ...members[0]!, mascot: { id: "book", accessories: [] } },
+      members[1]!,
+    ];
+    render(
+      <DeskGrid members={withMascot} visibility="private" elapsedSec={0} onInvite={() => {}} />,
+    );
+    const items = desks();
+    expect(items[1]!.querySelector('[data-slot="mascot-body"] img')?.getAttribute("src")).toContain(
+      "stopwatch",
+    );
+    expect(items[2]!.querySelector('[data-slot="vacant-mascot"]')).not.toBeNull();
+    expect(screen.getByRole("list", { name: "멤버 책상" }).querySelector("circle")).toBeNull();
   });
 
   it("쉬는 멤버의 책상 아래에는 마지막으로 공부한 때를 보이지 않는다", () => {

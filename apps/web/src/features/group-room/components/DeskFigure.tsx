@@ -1,8 +1,8 @@
-import { MascotFigure } from "@/components/mascot/MascotFigure";
-import type { MascotId, MascotLook } from "@/components/mascot/types";
+import type { MascotLook } from "@/components/mascot/types";
 import { cn } from "@/lib/utils";
 
 import type { DeskTone } from "../model/desks";
+import { type DeskSize, MascotSeat } from "./MascotSeat";
 
 // `--feedback-success`는 `.theme-soft-blue` 안에서만 값이 있어 그 바탕 밖에 그리면 다른 곳에서 공부 중인 초록이 빠진다.
 const PERSON_STROKE = {
@@ -11,13 +11,6 @@ const PERSON_STROKE = {
   rest: "stroke-text-tertiary",
   empty: "stroke-text-tertiary",
 } as const;
-
-// 마스코트에는 선이 없어서 사람 그림의 선과 같은 색을 발밑 자리 조명에 입혀 공부 상태를 알린다.
-const SEAT_LIGHT = {
-  room: "bg-primary/30",
-  elsewhere: "bg-feedback-success/30",
-  rest: "bg-foreground/15",
-} as const satisfies Record<DeskTone, string>;
 
 /**
  * 크기마다 다른 모양
@@ -29,67 +22,33 @@ const SIZE = {
   lg: { box: "h-22.5 w-24", person: 2.8, dashed: 2.2, top: 3, legs: 2.4 },
   md: { box: "h-15 w-16", person: 2.8, dashed: 2.4, top: 3, legs: 2.4 },
   sm: { box: "h-8 w-8.5", person: 3.8, dashed: 3.3, top: 3.8, legs: 3 },
-} as const;
+} as const satisfies Record<DeskSize, unknown>;
 
 /**
- * 책상에 앉은 사람 그림
+ * 책상 자리 그림
  *
- * 나중에 커스텀 캐릭터로 갈아 끼우도록 사람과 책상을 이 부품 하나로 감싼다.
- * 마스코트를 주면 책상 없이 마스코트와 발밑 자리 조명만 그린다.
+ * 마스코트를 보이는 곳에서는 천장 전등 아래 마스코트 자리를, 아니면 책상에 앉은 사람 그림을 그린다.
+ * 마스코트를 보일지는 같은 줄의 모든 자리가 같아야 해서 빈자리와 모습이 빈 멤버도 `mascotSeat`으로 받는다.
  * 상태는 칸의 이름이나 옆 글자가 알려 주므로 그림은 화면 낭독기에서 뺀다.
  */
 export function DeskFigure({
   tone,
   size,
   mascot,
-  accessories = [],
+  mascotSeat = mascot !== undefined,
 }: {
   tone: DeskTone | "empty";
-  size: keyof typeof SIZE;
-  mascot?: MascotId;
-  /** 마스코트가 낀 소품이다. */
-  accessories?: MascotLook["accessories"];
+  size: DeskSize;
+  /** 멤버가 고른 마스코트와 끼고 있는 소품이다. */
+  mascot?: MascotLook;
+  /** 마스코트 자리로 그릴지이며 모습이 비어 있는 멤버에게는 기본 마스코트를 앉힌다. */
+  mascotSeat?: boolean;
 }) {
+  if (mascotSeat) {
+    return <MascotSeat tone={tone} size={size} look={mascot} />;
+  }
   const look = SIZE[size];
   const empty = tone === "empty";
-  // 작은 책상에서는 글자가 너무 작아 읽히지 않아 쉼 표시를 그리지 않는다.
-  const restMark = tone === "rest" && size !== "sm" && (
-    <g className="font-bold">
-      <text x="44" y="11.7" fontSize="9" className="fill-state-pause">
-        z
-      </text>
-      <text x="50.3" y="5.5" fontSize="6.8" className="fill-text-disabled">
-        z
-      </text>
-    </g>
-  );
-  if (mascot !== undefined && !empty) {
-    return (
-      <span aria-hidden="true" className={cn("relative block shrink-0", look.box)}>
-        <span
-          data-slot="mascot-shadow"
-          className={cn(
-            "absolute bottom-[3%] left-1/2 h-[14%] w-[62%] -translate-x-1/2 rounded-[50%]",
-            SEAT_LIGHT[tone],
-          )}
-        />
-        {/* 쉬는 중에는 사람 그림의 쉼 색처럼 소품까지 회색으로 가라앉힌다. */}
-        <MascotFigure
-          id={mascot}
-          accessories={accessories}
-          className={cn(
-            "absolute bottom-[8%] left-1/2 w-[86%] -translate-x-1/2",
-            tone === "rest" && "opacity-50 grayscale",
-          )}
-        />
-        {restMark && (
-          <svg viewBox="0 0 64 60" className="absolute inset-0 size-full">
-            {restMark}
-          </svg>
-        )}
-      </span>
-    );
-  }
   return (
     <svg viewBox="0 0 64 60" aria-hidden="true" className={cn("shrink-0", look.box)}>
       <g
@@ -107,7 +66,17 @@ export function DeskFigure({
         <path d="M6 46 H58" strokeWidth={look.top} />
         <path d="M11 47 V58 M53 47 V58" strokeWidth={look.legs} />
       </g>
-      {restMark}
+      {/* 작은 책상에서는 글자가 너무 작아 읽히지 않아 쉼 표시를 그리지 않는다. */}
+      {tone === "rest" && size !== "sm" && (
+        <g className="font-bold">
+          <text x="44" y="11.7" fontSize="9" className="fill-state-pause">
+            z
+          </text>
+          <text x="50.3" y="5.5" fontSize="6.8" className="fill-text-disabled">
+            z
+          </text>
+        </g>
+      )}
     </svg>
   );
 }

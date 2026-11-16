@@ -434,7 +434,7 @@ function DeskMascotsCase({ onBack }: CaseProps) {
       <ul className="grid grid-cols-3 gap-4">
         {(["room", "elsewhere", "rest"] as const).map((tone) => (
           <li key={tone} className="flex flex-col items-center gap-1 text-xs">
-            <DeskFigure tone={tone} size="md" mascot="lamp" />
+            <DeskFigure tone={tone} size="md" mascot={{ id: "lamp", accessories: [] }} />
             {tone}
           </li>
         ))}
