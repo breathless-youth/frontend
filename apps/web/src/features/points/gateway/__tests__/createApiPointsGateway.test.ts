@@ -206,7 +206,7 @@ describe("createApiPointsGateway", () => {
     await expect(createApiPointsGateway().purchase("31")).rejects.toMatchObject({ status: 500 });
   });
 
-  it("비회원 거절은 회원 전용 오류로 던진다", async () => {
+  it("비회원 거절은 회원 전용 오류를 throw한다", async () => {
     fetchMock.mockResolvedValue(respond(403, { code: "MEMBER_ONLY", message: "member only" }));
     const error = await createApiPointsGateway()
       .getBalance()
@@ -563,7 +563,7 @@ describe("포인트 충전", () => {
     expect(requestNativePointsPurchase).not.toHaveBeenCalled();
   });
 
-  it("비회원이라 결제용 ID가 null이면 결제를 열지 않고 회원 전용 오류로 던져 로그인 화면으로 보내게 한다", async () => {
+  it("비회원이라 결제용 ID가 null이면 결제를 열지 않고 회원 전용 오류를 throw해 로그인 화면으로 보내게 한다", async () => {
     const { gateway, requestNativePointsPurchase } = gatewayWith({});
     fetchMock.mockImplementation(async (input) =>
       String(input).includes("/products")
@@ -763,7 +763,7 @@ describe("구매 복원", () => {
     },
   );
 
-  it("결제용 ID가 null이면 앱에 묻지 않고 회원 전용 오류로 던진다", async () => {
+  it("결제용 ID가 null이면 앱에 묻지 않고 회원 전용 오류를 throw한다", async () => {
     routeRestore(null);
 
     const error = await createApiPointsGateway()
@@ -928,7 +928,7 @@ describe("스토어 결제 상품", () => {
     expect(native.requestNativePointsPurchase).not.toHaveBeenCalled();
   });
 
-  it("결제용 ID가 null이면 결제를 열지 않고 회원 전용 오류로 던진다", async () => {
+  it("결제용 ID가 null이면 결제를 열지 않고 회원 전용 오류를 throw한다", async () => {
     routeStore([storeItem(false)], { items: [], revenueCatAppUserId: null });
 
     const error = await createApiPointsGateway()

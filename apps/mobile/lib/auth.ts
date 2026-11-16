@@ -460,7 +460,7 @@ async function reviewLoginFailureCode(res: Response): Promise<ReviewLoginFailure
  * 서버는 출시된 버전보다 높은 앱 버전에서만 받아 주므로 웹이 보낸 값이 아니라 이 앱의 버전을 싣는다.
  * 지금 계정의 토큰과 상관없는 요청이라 Authorization을 붙이지 않는다.
  * 성공하면 소셜 로그인과 같이 응답 토큰으로 저장을 바꾸고 구독자(웹뷰·애널리틱스·푸시 등록)에 알린다.
- * 실패하면 저장을 그대로 두고 코드만 돌려준다.
+ * 실패하면 저장을 유지하고 코드만 돌려준다.
  * 비밀번호는 로그와 브리지 결과에 싣지 않고, 실패해도 throw하지 않는다.
  */
 export function reviewLogin(loginId: string, password: string): Promise<ReviewLoginResult> {
