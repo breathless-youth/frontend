@@ -172,7 +172,8 @@ export function AccessoryShopScreen({
         item={mascot.unlocked ? item : null}
         worn={mascotItems.filter((it) => it.inUse)}
       />
-      <div className="-mx-5 flex flex-1 flex-col gap-3.5 rounded-t-3xl bg-muted px-5 pt-4 shadow-[0_-12px_40px_rgb(0_0_0/0.08)]">
+      {/* 틀의 아래 여백만큼 시트를 내려 바탕이 화면 끝까지 이어지게 하고, 같은 여백을 안쪽에 둬 버튼은 안전 영역 위에 남긴다. */}
+      <div className="-mx-5 -mb-[calc(env(safe-area-inset-bottom)+24px)] flex flex-1 flex-col gap-3.5 rounded-t-3xl bg-muted px-5 pt-4 pb-[calc(env(safe-area-inset-bottom)+24px)] shadow-[0_-12px_40px_rgb(0_0_0/0.08)]">
         {mascot.unlocked ? (
           <>
             <SlotChips

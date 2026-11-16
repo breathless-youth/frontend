@@ -49,7 +49,7 @@ export function MascotStrip({
             <span
               className={cn(
                 "relative flex size-13 items-center justify-center rounded-2xl",
-                mascot.unlocked ? "border bg-muted" : "bg-muted",
+                mascot.unlocked ? "border border-border bg-muted" : "bg-muted",
                 picked && "border-2 border-primary",
               )}
             >
