@@ -1,4 +1,8 @@
-import type { EffectPieceResponse, PointsEarnResponse } from "@focusmakers/types";
+import type {
+  EffectPieceResponse,
+  EquippedItemResponse,
+  PointsEarnResponse,
+} from "@focusmakers/types";
 
 import type { EffectPiece, WornAccessory } from "@/components/mascot/types";
 
@@ -17,6 +21,7 @@ import type {
   ShopData,
   ShopItem,
 } from "../types";
+import { drawingExtras, hasDrawing } from "../model/drawing";
 import { tierAt } from "../model/earnTier";
 import type {
   ClaimResponse,
@@ -174,29 +179,17 @@ function toEffectPieces(raw: EffectPieceResponse[] | null | undefined): EffectPi
 }
 
 /**
- * 상품의 그림 정보
+ * 낀 소품의 그림 정보
  *
  * 앞 그림도 뒤 그림도 없고 코드로 그리는 빛 효과도 아니면 그릴 것이 없어 null이다.
- * 오라나 뒤 배경 같은 효과는 뒤 그림만 오므로 앞 그림이 없다고 버리지 않는다.
- * 없는 값은 열쇠째 빼서 받는 쪽이 있는 것만 보게 한다.
  */
-function toDrawing(item: {
-  imageUrl: string | null;
-  backImageUrl?: string | null;
-  effectImageUrl?: string | null;
-  effectPieces?: EffectPieceResponse[] | null;
-  effectType?: string | null;
-}): Omit<WornAccessory, "slot"> | null {
-  if (item.imageUrl === null && !item.backImageUrl && !item.effectType) {
+function toDrawing(item: EquippedItemResponse): Omit<WornAccessory, "slot"> | null {
+  if (!hasDrawing(item)) {
     return null;
   }
-  const effectPieces = toEffectPieces(item.effectPieces);
   return {
     ...(item.imageUrl === null ? null : { imageUrl: item.imageUrl }),
-    ...(item.backImageUrl ? { backImageUrl: item.backImageUrl } : null),
-    ...(item.effectImageUrl ? { effectImageUrl: item.effectImageUrl } : null),
-    ...(effectPieces ? { effectPieces } : null),
-    ...(item.effectType ? { effectType: item.effectType } : null),
+    ...drawingExtras({ ...item, effectPieces: toEffectPieces(item.effectPieces) }),
   };
 }
 
@@ -249,15 +242,11 @@ export function toShopItem(item: ShopItemResponse): ShopItem | null {
   if (acquire === null) {
     return null;
   }
-  const effectPieces = toEffectPieces(item.effectPieces);
   const base = {
     id: String(item.id),
     name: item.name,
     imageUrl: item.imageUrl,
-    ...(item.backImageUrl ? { backImageUrl: item.backImageUrl } : null),
-    ...(item.effectImageUrl ? { effectImageUrl: item.effectImageUrl } : null),
-    ...(effectPieces ? { effectPieces } : null),
-    ...(item.effectType ? { effectType: item.effectType } : null),
+    ...drawingExtras({ ...item, effectPieces: toEffectPieces(item.effectPieces) }),
     acquire,
     owned: item.owned,
     inUse: item.inUse,

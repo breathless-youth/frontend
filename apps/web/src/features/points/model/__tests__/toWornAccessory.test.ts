@@ -32,6 +32,15 @@ describe("toWornAccessory", () => {
   it("앞 그림도 뒤 그림도 빛 효과도 없으면 그릴 것이 없다", () => {
     expect(toWornAccessory(item({}))).toBeNull();
     expect(toWornAccessory(item({ backImageUrl: null }))).toBeNull();
+    // 서버 응답을 읽을 때와 같이 빈 빛 효과 종류는 없는 것으로 본다.
+    expect(toWornAccessory(item({ effectType: "" }))).toBeNull();
+  });
+
+  it("코드로 그리는 빛 효과만 있어도 그린다", () => {
+    expect(toWornAccessory(item({ effectType: "aurora" }))).toEqual({
+      slot: "effect",
+      effectType: "aurora",
+    });
   });
 });
 
