@@ -68,14 +68,17 @@ describe("DeskFigure 마스코트 자리", () => {
     );
   });
 
-  it("빈자리는 꺼진 전등 아래 타이미 모양 점선 윤곽만 그리고 속은 비운다", () => {
+  it("빈자리는 꺼진 전등 아래 타이미 모양 동그란 점선 윤곽만 그리고 속은 비운다", () => {
     const { container } = render(<DeskFigure tone="empty" size="md" mascotSeat />);
     expect(slot(container, "seat-lamp")).toHaveAttribute("data-lamp", "off");
     expect(slot(container, "seat-light")).toBeNull();
     expect(container.querySelector("img")).toBeNull();
     const outline = slot(container, "vacant-mascot")?.querySelector("path");
     expect(outline).toHaveAttribute("fill", "none");
-    expect(outline).toHaveAttribute("stroke-dasharray");
+    // 점 수를 경로 길이로 두고 한 칸마다 점 하나를 찍어 점이 둘레를 고르게 나눈다.
+    expect(outline).toHaveAttribute("stroke-dasharray", "0 1");
+    expect(outline).toHaveAttribute("stroke-linecap", "round");
+    expect(Number(outline?.getAttribute("pathLength"))).toBeGreaterThan(0);
   });
 
   it.each(["sm", "md", "lg"] as const)("빈자리 윤곽은 %s 크기에도 그린다", (size) => {

@@ -38,11 +38,12 @@ const BODY_WIDTH: Record<MascotId, number> = {
 /**
  * 타이미 그림의 바깥 윤곽
  *
- * 타이미 정지 그림의 실루엣에서 눈 구멍을 뺀 테두리이며 좌표는 실루엣 상자 기준이다.
- * 실루엣 상자는 마스코트 판에서 (55, 35)에 놓여 있어 그만큼 옮겨 그리면 타이미가 앉는 자리와 겹친다.
+ * 타이미 실루엣을 몸 원, 꼭지 캡슐, 옆 버튼 캡슐, 두 발 원으로 다시 짜고 눈 구멍은 뺐다.
+ * 모양끼리 만나는 오목한 이음매를 작은 원호로 둥글려서 선이 꺾이지 않고 이어진다.
+ * 좌표는 실루엣 상자 기준이고, 실루엣 상자는 마스코트 판에서 (55, 35)에 놓여 있어 그만큼 옮겨 그리면 타이미가 앉는 자리와 겹친다.
  */
 const TIMI_OUTLINE =
-  "M129 0C138.389 0 146 7.61116 146 17C146 25.5543 139.681 32.6305 131.457 33.8213C143.087 37.0763 153.89 42.3101 163.479 49.1396C161.581 44.4182 162.334 38.8267 165.901 34.7227C170.974 28.8874 179.817 28.2692 185.652 33.3418L196.218 42.5264C202.053 47.599 202.671 56.4419 197.599 62.2773C193.661 66.8063 187.454 68.1909 182.144 66.2129C197.639 84.3067 207 107.81 207 133.5C207 170.431 187.656 202.843 158.548 221.16C162.464 224.077 165 228.742 165 234C165 242.837 157.837 250 149 250C140.163 250 133 242.837 133 234C133 233.569 133.017 233.142 133.051 232.72C123.687 235.504 113.768 237 103.5 237C93.6036 237 84.0321 235.609 74.9688 233.016C74.9885 233.341 75 233.669 75 234C75 242.837 67.8366 250 59 250C50.1634 250 43 242.837 43 234C43 228.945 45.3437 224.438 49.0039 221.506C19.5888 203.252 0 170.664 0 133.5C0 85.5699 32.5805 45.2507 76.8027 33.4775C69.4438 31.6087 64 24.9403 64 17C64 7.61116 71.6112 0 81 0H129Z";
+  "M81 0H129A17 17 0 0 1 141.52 28.5A6 6 0 0 0 143.61 38.09A103.5 103.5 0 0 1 154.37 43.36A6 6 0 0 0 163.06 39.87A14 14 0 0 1 185.66 33.34L196.22 42.53A14 14 0 0 1 191.9 66.22A6 6 0 0 0 189.03 75.22A103.5 103.5 0 0 1 164.1 217.41A6 6 0 0 0 162.54 225.47A16 16 0 1 1 133.66 238.54A6 6 0 0 0 126.57 234.4A103.5 103.5 0 0 1 81.32 234.59A6 6 0 0 0 74.3 238.69A16 16 0 1 1 45.24 225.83A6 6 0 0 0 43.56 217.88A103.5 103.5 0 0 1 65.48 37.24A6 6 0 0 0 67.9 27.83A17 17 0 0 1 81 0Z";
 
 const SEAT_BOX: Record<DeskSize, string> = {
   lg: "w-26",
@@ -50,11 +51,16 @@ const SEAT_BOX: Record<DeskSize, string> = {
   sm: "w-full max-w-14",
 };
 
-// 윤곽 선은 화면 픽셀 기준이라 자리 크기가 달라도 같은 굵기로 보이며, 작은 자리만 가늘게 둔다.
-const OUTLINE_STROKE: Record<DeskSize, { width: number; dash: string }> = {
-  lg: { width: 2, dash: "4 3" },
-  md: { width: 2, dash: "4 3" },
-  sm: { width: 1.25, dash: "2.5 2" },
+/**
+ * 크기마다 윤곽 점의 수와 지름
+ *
+ * 경로 길이를 점 수로 나눠 점을 고르게 놓으므로 둘레 어디에도 간격이 어긋난 이음매가 생기지 않는다.
+ * 점 수는 둘레 길이에 맞췄고, 지름은 그림 좌표라 화면에서 큰 자리는 약 1.9px, 작은 자리는 약 1.6px이다.
+ */
+const OUTLINE_DOTS: Record<DeskSize, { count: number; width: number }> = {
+  lg: { count: 60, width: 9 },
+  md: { count: 60, width: 9 },
+  sm: { count: 30, width: 15.5 },
 };
 
 // 범례 점과 같은 색이고, 꺼진 전등은 쉬는 중이 빈자리보다 한 단계 진하다.
@@ -129,7 +135,7 @@ export function MascotSeat({
   const { behind, front } = splitAccessoryLayers(seated.accessories);
   const grounded = !empty && [...behind, ...front].some((layer) => layer.slot === "underfoot");
   const light = LIGHT[tone];
-  const stroke = OUTLINE_STROKE[size];
+  const dots = OUTLINE_DOTS[size];
   return (
     <span
       aria-hidden="true"
@@ -168,10 +174,12 @@ export function MascotSeat({
             d={TIMI_OUTLINE}
             transform="translate(55 35)"
             fill="none"
-            strokeWidth={stroke.width}
-            strokeDasharray={stroke.dash}
+            pathLength={dots.count}
+            strokeWidth={dots.width}
+            strokeDasharray="0 1"
+            // 닫힌 경로는 처음과 끝이 같은 자리라 반 칸 밀어 두어야 그 자리에 점이 겹쳐 찍히지 않는다.
+            strokeDashoffset={-0.5}
             strokeLinecap="round"
-            vectorEffect="non-scaling-stroke"
             className="stroke-text-tertiary"
           />
         </svg>
