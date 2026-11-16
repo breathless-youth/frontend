@@ -17,6 +17,7 @@ import { CtaToaster } from "@/components/ui/sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { ProfileMascotRow } from "@/features/points/components/mascots/ProfileMascotRow";
 import { usePointsGateway, usePointsUserId } from "@/features/points/gateway/PointsGatewayContext";
+import { sortMascots } from "@/features/points/model/mascotOrder";
 import { useShopActions } from "@/features/points/model/useShopActions";
 import { PointsRouteGate } from "@/features/points/PointsRouteGate";
 import { pointsSearch } from "@/features/points/pointsSearch";
@@ -130,10 +131,9 @@ function ProfileMascots() {
   if (shop.data === undefined) {
     return null;
   }
-  const mascots = [...shop.data.mascots].sort((a, b) => a.unlockFocusSec - b.unlockFocusSec);
   return (
     <ProfileMascotRow
-      mascots={mascots}
+      mascots={sortMascots(shop.data.mascots)}
       decorateTo={`/points/accessories${pointsSearch(location.search)}`}
       onSelect={(id) => {
         selectMascot(id).catch(() => showToast(t("errors.retryLater")));

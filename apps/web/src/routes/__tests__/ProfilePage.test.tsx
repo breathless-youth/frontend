@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fireEvent } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -928,6 +928,19 @@ describe("프로필 설정의 내 마스코트", () => {
     await userEvent.click(await screen.findByRole("button", { name: "램피 잠김" }));
     expect(selected).toHaveAttribute("aria-pressed", "true");
     expect(mockedUpdateProfile).not.toHaveBeenCalled();
+  });
+
+  it("마스코트는 여는 시간 순서로 놓이고 포인트로 사는 마스코트는 맨 뒤에 있다", async () => {
+    enablePoints();
+    mockedGetProfile.mockResolvedValue(member);
+    renderAt("/profile?userId=7");
+
+    const row = await screen.findByRole("list", { name: "내 마스코트 고르기" });
+    expect(
+      within(row)
+        .getAllByRole("listitem")
+        .map((entry) => entry.textContent),
+    ).toEqual(["타이미", "몽당이", "플래니", "락키", "부기", "램피", "캠코미"]);
   });
 
   it("연 마스코트를 누르면 폼 저장 없이 바로 바뀐다", async () => {

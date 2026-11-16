@@ -35,6 +35,24 @@ describe("ShopTab", () => {
     expect(onSelectMascot).toHaveBeenCalledWith("lamp");
   });
 
+  it("고르기 칸은 서버가 준 순서와 상관없이 여는 시간 순서로 놓고 포인트로 산 마스코트를 맨 뒤에 둔다", () => {
+    const data = shopData("allCollected");
+    render(
+      <ShopTab
+        data={{ ...data, mascots: data.mascots.toReversed() }}
+        onOpen={vi.fn()}
+        onOpenMascots={vi.fn()}
+        onSelectMascot={vi.fn()}
+      />,
+    );
+    const picker = screen.getByRole("region", { name: "오늘 함께할 마스코트" });
+    expect(
+      within(picker)
+        .getAllByRole("button")
+        .map((button) => button.getAttribute("aria-label")),
+    ).toEqual(["타이미", "몽당이", "플래니", "락키", "부기", "램피", "캠코미"]);
+  });
+
   it("상품 줄이 소품과 타이머 배경 두 종류로 세 개씩 나오고 전체 보기로 그 종류를 연다", async () => {
     const { onOpen } = renderTab("default");
     const accessories = screen.getByRole("region", { name: "타이미 소품" });

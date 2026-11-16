@@ -11,6 +11,7 @@ import { InsufficientPointsSheet } from "../components/shared/InsufficientPoints
 import { PointsScreenFrame } from "../components/shared/PointsScreenFrame";
 import { PurchaseConfirmSheet } from "../components/shared/PurchaseConfirmSheet";
 import { usePointsGateway } from "../gateway/PointsGatewayContext";
+import { sortMascots } from "../model/mascotOrder";
 import { usePurchaseFlow } from "../model/usePurchaseFlow";
 import { pointsSearch } from "../pointsSearch";
 import type { Mascot, MascotId, ShopData, ShopItem } from "../types";
@@ -55,11 +56,7 @@ export function MascotCollectionScreen({
   const [pressed, setPressed] = useState<Mascot | null>(null);
   const [celebrated, setCelebrated] = useState(false);
   const [buying, setBuying] = useState<Mascot | null>(null);
-  // 공부 시간으로 여는 마스코트를 기준 순서대로 두고 포인트로 사는 마스코트는 그 뒤에 둔다.
-  const mascots = [...data.mascots].sort(
-    (a, b) =>
-      Number(a.price !== null) - Number(b.price !== null) || a.unlockFocusSec - b.unlockFocusSec,
-  );
+  const mascots = sortMascots(data.mascots);
   const nextId = mascots.find((mascot) => !mascot.unlocked && mascot.price === null)?.id;
   // 구매 확인 창과 모자람 창은 상점 상품의 모양을 받아서 마스코트를 그 모양으로 넘긴다.
   const buyingItem: ShopItem | null =

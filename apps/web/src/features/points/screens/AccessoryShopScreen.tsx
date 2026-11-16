@@ -19,6 +19,7 @@ import { PurchaseConfirmSheet } from "../components/shared/PurchaseConfirmSheet"
 import { StoreBuyButton } from "../components/shared/StoreBuyButton";
 import { StorePurchaseDialogs } from "../components/shared/StorePurchaseDialogs";
 import { formatPoints } from "../model/formatPoints";
+import { sortMascots } from "../model/mascotOrder";
 import { SLOT_ORDER } from "../model/slotOrder";
 import { usePurchaseFlow } from "../model/usePurchaseFlow";
 import { useStorePurchase } from "../model/useStorePurchase";
@@ -55,13 +56,14 @@ export function AccessoryShopScreen({
   usePointsScreenViewed("accessories");
   const navigate = useNavigate();
   const location = useLocation();
+  const mascots = sortMascots(data.mascots);
   // 상점에서 누르고 들어온 소품이 있으면 그 소품의 마스코트와 칸을 처음부터 골라 둔다.
   const [entry] = useState(() => {
     const id = pickedItemFrom(location.search);
     return data.items.find((it) => it.kind === "accessory" && it.id === id);
   });
   const [mascotId, setMascotId] = useState<MascotId>(
-    () => entry?.mascotId ?? (data.mascots.find((m) => m.selected) ?? data.mascots[0]).id,
+    () => entry?.mascotId ?? (mascots.find((m) => m.selected) ?? mascots[0]).id,
   );
   // 착용 중인 소품이 여러 칸에 있으면 칩 순서에서 가장 앞 칸을 연다.
   const [pickedSlot, setSlot] = useState<AccessorySlot>(
@@ -80,7 +82,7 @@ export function AccessoryShopScreen({
   );
   const [pickedId, setPickedId] = useState<string | undefined>(entry?.id);
 
-  const mascot = data.mascots.find((m) => m.id === mascotId) ?? data.mascots[0];
+  const mascot = mascots.find((m) => m.id === mascotId) ?? mascots[0];
   const mascotName = tPoints(`mascots.${mascot.id}`);
   const mascotItems = data.items.filter(
     (it) => it.kind === "accessory" && it.mascotId === mascot.id,
@@ -156,7 +158,7 @@ export function AccessoryShopScreen({
   return (
     <PointsScreenFrame title={t("title", { name: mascotName })} onBack={onBack} balance={balance}>
       <MascotStrip
-        mascots={data.mascots}
+        mascots={mascots}
         pickedId={mascot.id}
         onPick={(id) => choose(() => setMascotId(id))}
       />

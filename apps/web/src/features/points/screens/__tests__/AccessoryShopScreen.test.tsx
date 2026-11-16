@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -136,6 +136,24 @@ describe("AccessoryShopScreen", () => {
 
       expect(await screen.findByText("상품이 곧 들어와요")).toBeVisible();
     });
+  });
+
+  it("마스코트 줄은 서버가 준 순서와 상관없이 여는 시간 순서로 놓고 포인트로 사는 마스코트를 맨 뒤에 둔다", async () => {
+    const gateway = createFakePointsGateway("default");
+    const getShop = gateway.getShop.bind(gateway);
+    renderScreen({
+      ...gateway,
+      getShop: async () => {
+        const shop = await getShop();
+        return { ...shop, mascots: shop.mascots.toReversed() };
+      },
+    });
+    const strip = await screen.findByRole("group", { name: "마스코트 고르기" });
+    expect(
+      within(strip)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(["타이미", "몽당이", "플래니", "락키", "부기", "램피", "캠코미"]);
   });
 
   it("잠긴 마스코트는 자물쇠와 함께 보이고, 고르면 잠김 안내와 마스코트 모으기가 나온다", async () => {

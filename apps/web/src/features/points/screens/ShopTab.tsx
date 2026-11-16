@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { MascotPickerCard } from "../components/shop/MascotPickerCard";
 import { NextMascotCard } from "../components/shop/NextMascotCard";
 import { ShopSectionRow } from "../components/shop/ShopSectionRow";
+import { sortMascots } from "../model/mascotOrder";
 import type { MascotId, ShopData, ShopItem, ShopItemKind } from "../types";
 
 const PREVIEW_COUNT = 3;
@@ -45,7 +46,7 @@ export function ShopTab({
           onOpen={onOpenMascots}
         />
       ) : (
-        <MascotPickerCard mascots={data.mascots} onSelect={onSelectMascot} />
+        <MascotPickerCard mascots={sortMascots(data.mascots)} onSelect={onSelectMascot} />
       )}
       {selected !== undefined && (
         <ShopSectionRow
