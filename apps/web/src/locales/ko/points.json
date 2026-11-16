@@ -3,7 +3,8 @@
   "tabs": {
     "label": "포인트 상점 메뉴",
     "shop": "꾸미기 상점",
-    "earn": "포인트 받기"
+    "earn": "포인트 받기",
+    "earnClaimable": "받을 포인트가 있어요"
   },
   "titles": {
     "history": "포인트 기록",

@@ -3,7 +3,8 @@
   "tabs": {
     "label": "點數商店選單",
     "shop": "裝扮商店",
-    "earn": "領取點數"
+    "earn": "領取點數",
+    "earnClaimable": "有可領取的點數"
   },
   "titles": {
     "history": "點數紀錄",

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
@@ -7,6 +8,7 @@ import { useBackTo } from "@/features/group-room/useBackTo";
 import { PointsLoadState } from "@/features/points/components/shared/PointsLoadState";
 import { PointsScreenFrame } from "@/features/points/components/shared/PointsScreenFrame";
 import { usePointsGateway, usePointsUserId } from "@/features/points/gateway/PointsGatewayContext";
+import { hasClaimableReward } from "@/features/points/model/claimableReward";
 import { useShopActions } from "@/features/points/model/useShopActions";
 import { PointsRouteGate } from "@/features/points/PointsRouteGate";
 import { pointsItemSearch } from "@/features/points/pointsSearch";
@@ -40,6 +42,7 @@ export function PointsPage() {
  *
  * 꾸미기 상점과 포인트 받기 두 탭이고 고른 탭은 `?tab=shop|earn`으로 주소에 남는다.
  * 탭을 바꾸는 것은 같은 화면 안의 일이라 기록을 쌓지 않는다.
+ * 받을 포인트가 남아 있으면 포인트 받기 탭에 점을 띄운다.
  * 경계가 포인트 받기를 지원하지 않으면 탭 줄 없이 꾸미기 상점만 그리고, `?tab=earn`으로 들어와도 상점을 보인다.
  * 앞 화면이 없으면 뒤로 가기는 홈으로 간다.
  */
@@ -63,6 +66,12 @@ function PointsContent() {
 
 function TabbedContent({ balance, back }: { balance: number | undefined; back: () => void }) {
   const { t } = useTranslation("points");
+  const gateway = usePointsGateway();
+  const userId = usePointsUserId();
+  const claimableId = useId();
+  // 받기 탭과 같은 조회라 탭을 열기 전에 받아 두어도 요청이 한 번만 나간다.
+  const earn = useQuery(earnTodayQuery(gateway, userId));
+  const claimable = earn.data !== undefined && hasClaimableReward(earn.data);
   const [params, setParams] = useSearchParams();
   const tab: PointsTab = params.get("tab") === "earn" ? "earn" : "shop";
   usePointsScreenViewed(tab);
@@ -86,10 +95,23 @@ function TabbedContent({ balance, back }: { balance: number | undefined; back: (
           <TabsTrigger value="shop" className={TAB_TRIGGER_CLASS}>
             {t("tabs.shop")}
           </TabsTrigger>
-          <TabsTrigger value="earn" className={TAB_TRIGGER_CLASS}>
+          <TabsTrigger
+            value="earn"
+            aria-describedby={claimable ? claimableId : undefined}
+            className={TAB_TRIGGER_CLASS}
+          >
             {t("tabs.earn")}
+            {claimable && (
+              <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-primary" />
+            )}
           </TabsTrigger>
         </TabsList>
+        {/* 탭 안에 두면 탭 이름에 섞여 읽혀서 설명 글은 탭 줄 밖에 둔다. */}
+        {claimable && (
+          <span id={claimableId} className="sr-only">
+            {t("tabs.earnClaimable")}
+          </span>
+        )}
         <TabsContent value="shop">
           <ShopPanel />
         </TabsContent>

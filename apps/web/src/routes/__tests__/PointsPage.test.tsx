@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactElement } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -110,6 +110,22 @@ describe("PointsPage", () => {
       "aria-selected",
       "true",
     );
+  });
+
+  it("받을 포인트가 남아 있으면 포인트 받기 탭에 점을 띄운다", async () => {
+    renderAt("/points?userId=7");
+    const tab = await screen.findByRole("tab", { name: "포인트 받기" });
+    await waitFor(() => expect(tab).toHaveAccessibleDescription("받을 포인트가 있어요"));
+  });
+
+  it("오늘 받을 것을 다 받았으면 포인트 받기 탭에 점이 없다", async () => {
+    renderAt("/points?tab=earn", (ui) => (
+      <PointsGatewayProvider gateway={createFakePointsGateway("allDone")} userId={7}>
+        {ui}
+      </PointsGatewayProvider>
+    ));
+    expect(await screen.findByText("출석")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "포인트 받기" })).not.toHaveAccessibleDescription();
   });
 
   it("상점을 받지 못하면 오류와 다시 시도를 보인다", async () => {

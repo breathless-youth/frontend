@@ -3,7 +3,8 @@
   "tabs": {
     "label": "Point Shop menu",
     "shop": "Decor Shop",
-    "earn": "Earn Points"
+    "earn": "Earn Points",
+    "earnClaimable": "Points ready to claim"
   },
   "titles": {
     "history": "Point History",
