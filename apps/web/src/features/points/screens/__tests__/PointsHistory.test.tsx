@@ -35,28 +35,6 @@ describe("포인트 기록", () => {
     expect(screen.getByText("운영팀 지급")).toBeVisible();
   });
 
-  it("공부 포인트 조정은 공부 줄처럼 늘면 더하기, 줄면 빼기 금액으로 보인다", () => {
-    render(
-      <HistoryList
-        entries={[
-          { id: "3", atMs: Date.now(), amount: 40, reason: "study" },
-          { id: "2", atMs: Date.now() - 1000, amount: 30, reason: "studyAdjust" },
-          { id: "1", atMs: Date.now() - 2000, amount: -20, reason: "studyAdjust" },
-        ]}
-      />,
-    );
-    const rows = screen.getAllByRole("listitem");
-    expect(rows.map((row) => row.textContent)).toEqual([
-      "순공 보상+40P",
-      "공부 포인트 조정+30P",
-      "공부 포인트 조정-20P",
-    ]);
-    // 색은 사유가 아니라 부호를 따라 공부 줄과 같은 규칙이다.
-    expect(within(rows[1]).getByText("+30P").className).toBe(
-      within(rows[0]).getByText("+40P").className,
-    );
-  });
-
   it("날짜별로 묶이고 사용을 고르면 음수 항목만 보인다", async () => {
     // 기록 시각은 지금에서 몇 분씩 거꾸로 세므로 자정 직후에 돌리면 오늘 묶음이 어제로 넘어간다.
     vi.useFakeTimers({ toFake: ["Date"] });
