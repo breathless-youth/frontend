@@ -29,7 +29,7 @@ export function LatePointsDialog({
         showCloseButton={false}
         onOpenAutoFocus={focusRestore.onOpenAutoFocus}
         onCloseAutoFocus={focusRestore.onCloseAutoFocus}
-        className="theme-soft-blue w-[calc(100%-64px)] max-w-[320px] gap-2 rounded-xl border-0 bg-muted px-5 pt-6 pb-3 text-center sm:rounded-xl"
+        className="theme-soft-blue w-[calc(100%-64px)] max-w-80 gap-2 rounded-xl border-0 bg-muted px-5 pt-6 pb-3 text-center sm:rounded-xl"
       >
         <Clock aria-hidden className="mx-auto mb-1 size-10 text-primary" />
         <DialogTitle className="text-[17px] font-bold break-keep">

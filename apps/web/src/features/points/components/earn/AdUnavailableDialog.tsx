@@ -15,7 +15,7 @@ export function AdUnavailableDialog({ open, onClose }: { open: boolean; onClose:
         showCloseButton={false}
         onOpenAutoFocus={focusRestore.onOpenAutoFocus}
         onCloseAutoFocus={focusRestore.onCloseAutoFocus}
-        className="theme-soft-blue w-[calc(100%-64px)] max-w-[320px] gap-2 rounded-xl border-0 bg-muted p-5 text-center sm:rounded-xl"
+        className="theme-soft-blue w-[calc(100%-64px)] max-w-80 gap-2 rounded-xl border-0 bg-muted p-5 text-center sm:rounded-xl"
       >
         <DialogTitle className="text-[17px] font-bold break-keep">
           {t("adUnavailable.title")}

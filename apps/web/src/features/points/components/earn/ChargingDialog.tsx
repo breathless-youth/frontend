@@ -20,7 +20,7 @@ export function ChargingDialog({ open, title }: { open: boolean; title?: string 
         onEscapeKeyDown={(event) => event.preventDefault()}
         onPointerDownOutside={(event) => event.preventDefault()}
         onInteractOutside={(event) => event.preventDefault()}
-        className="theme-soft-blue w-[calc(100%-64px)] max-w-[320px] items-center gap-4 rounded-xl border-0 bg-muted px-5 py-7 text-center sm:rounded-xl"
+        className="theme-soft-blue w-[calc(100%-64px)] max-w-80 items-center gap-4 rounded-xl border-0 bg-muted px-5 py-7 text-center sm:rounded-xl"
       >
         <LoaderCircle
           aria-hidden

@@ -39,9 +39,8 @@ export function FreeTile({
   );
 }
 
-// 줄 배경에 묻히지 않을 만큼만 진한 연한 파랑 바탕에, 작은 글자가 읽히게 한 단계 어두운 파랑 글자를 쓴다.
-const SOFT_CLASS =
-  "bg-primary/15 text-[color-mix(in_srgb,var(--primary)_80%,black)] dark:text-primary";
+// 줄 배경에 묻히지 않을 만큼만 진한 연한 파랑 바탕에, 작은 글자가 읽히는 연한 파랑 바탕용 글자색을 쓴다.
+const SOFT_CLASS = "bg-primary/15 text-brand-subtle-text";
 
 const ACTION_CLASS =
   "relative flex h-8 max-w-full items-center justify-center rounded-full px-5 text-[13px] font-bold break-keep before:absolute before:-inset-x-1 before:-inset-y-1.5 disabled:opacity-60";
