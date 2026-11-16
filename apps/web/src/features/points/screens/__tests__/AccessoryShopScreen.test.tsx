@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/lib/api";
 import { showToast } from "@/lib/toast";
 import { PointsAccessoriesPage } from "@/routes/PointsAccessoriesPage";
 
@@ -94,6 +95,31 @@ describe("AccessoryShopScreen", () => {
 
       expect(requestLogin).toHaveBeenCalledOnce();
       expect(purchase).not.toHaveBeenCalled();
+    });
+
+    it("회원으로 알았는데 서버가 결제용 ID를 주지 않으면 실패 창 대신 로그인 화면을 연다", async () => {
+      const gateway = withStoreItem(true);
+      vi.spyOn(gateway, "purchaseStoreItem").mockRejectedValue(
+        new ApiError("revenueCat app user id is null", 403, "MEMBER_ONLY"),
+      );
+      const requestLogin = vi.fn();
+      const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+      render(
+        <QueryClientProvider client={client}>
+          <PointsGatewayProvider gateway={gateway} userId={1} member requestLogin={requestLogin}>
+            <MemoryRouter initialEntries={["/points/accessories"]}>
+              <Routes>
+                <Route path="/points/accessories" element={<PointsAccessoriesPage />} />
+              </Routes>
+            </MemoryRouter>
+          </PointsGatewayProvider>
+        </QueryClientProvider>,
+      );
+
+      await userEvent.click(await screen.findByRole("button", { name: "₩1,100에 구매하기" }));
+
+      await waitFor(() => expect(requestLogin).toHaveBeenCalledOnce());
+      expect(screen.queryByText("결제를 완료하지 못했어요")).not.toBeInTheDocument();
     });
 
     it("결제를 맡을 수 없는 곳에서는 앱에서 살 수 있다고만 알린다", async () => {

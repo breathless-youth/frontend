@@ -1212,7 +1212,13 @@ describe("포인트 결제 메시지", () => {
     const reply = jest.fn();
 
     handleBridgeMessage(
-      { type: "points-charge-prices", id: "p1", storeProductIds: ["points_1000"], atMs: 1 },
+      {
+        type: "points-charge-prices",
+        id: "p1",
+        storeProductIds: ["points_1000"],
+        appUserId: "rc-user",
+        atMs: 1,
+      },
       reply,
     );
 
@@ -1224,7 +1230,7 @@ describe("포인트 결제 메시지", () => {
         atMs: expect.any(Number),
       }),
     );
-    expect(pointsChargePrices).toHaveBeenCalledWith(["points_1000"]);
+    expect(pointsChargePrices).toHaveBeenCalledWith(["points_1000"], "rc-user");
     expect(reply).toHaveBeenCalledTimes(1);
   });
 
@@ -1235,7 +1241,13 @@ describe("포인트 결제 메시지", () => {
       const reply = jest.fn();
 
       handleBridgeMessage(
-        { type: "points-charge-purchase", id: "b1", storeProductId: "points_1000", atMs: 1 },
+        {
+          type: "points-charge-purchase",
+          id: "b1",
+          storeProductId: "points_1000",
+          appUserId: "rc-user",
+          atMs: 1,
+        },
         reply,
       );
 
@@ -1247,7 +1259,7 @@ describe("포인트 결제 메시지", () => {
           atMs: expect.any(Number),
         }),
       );
-      expect(purchasePointsCharge).toHaveBeenCalledWith("points_1000");
+      expect(purchasePointsCharge).toHaveBeenCalledWith("points_1000", "rc-user");
       expect(reply).toHaveBeenCalledTimes(1);
     },
   );
@@ -1259,7 +1271,13 @@ describe("포인트 결제 메시지", () => {
       const reply = jest.fn();
 
       handleBridgeMessage(
-        { type: "points-charge-restore", id: "r1", storeProductIds: ["set_book_bear"], atMs: 1 },
+        {
+          type: "points-charge-restore",
+          id: "r1",
+          storeProductIds: ["set_book_bear"],
+          appUserId: "rc-user",
+          atMs: 1,
+        },
         reply,
       );
 
@@ -1271,7 +1289,7 @@ describe("포인트 결제 메시지", () => {
           atMs: expect.any(Number),
         }),
       );
-      expect(restorePointsPurchases).toHaveBeenCalledWith(["set_book_bear"]);
+      expect(restorePointsPurchases).toHaveBeenCalledWith(["set_book_bear"], "rc-user");
       expect(reply).toHaveBeenCalledTimes(1);
     },
   );

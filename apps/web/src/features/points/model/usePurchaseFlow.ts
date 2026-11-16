@@ -8,6 +8,7 @@ import { showToast } from "@/lib/toast";
 
 import { usePointsGateway, usePointsUserId } from "../gateway/PointsGatewayContext";
 import type { AdResult, ChargeResult, PurchaseResult, ShopItem } from "../types";
+import { isMemberOnlyError } from "../gateway/memberOnly";
 import { useMemberOnly } from "./useMemberOnly";
 
 /** 마스코트는 상점 상품의 모양을 빌려 오므로 id 앞머리로 종류를 가린다. */
@@ -102,8 +103,9 @@ export function usePurchaseFlow(item: ShopItem | null, buy?: () => Promise<Purch
     let result: ChargeResult;
     try {
       result = await charge();
-    } catch {
-      showToast(i18n.t("common:errors.retryLater"));
+    } catch (error) {
+      // 회원 전용 거절은 충전 처리기가 이미 로그인 화면으로 보냈다.
+      if (!isMemberOnlyError(error)) showToast(i18n.t("common:errors.retryLater"));
       return;
     }
     if (result.status === "completed") {

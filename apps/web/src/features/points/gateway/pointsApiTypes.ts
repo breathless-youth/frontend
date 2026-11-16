@@ -21,7 +21,11 @@ export type PointProductResponse = {
   totalPoints: number;
 };
 
-export type PointProductsResponse = { items: PointProductResponse[] };
+export type PointProductsResponse = {
+  items: PointProductResponse[];
+  /** 결제 SDK에 로그인할 때 쓰는 결제용 ID이며 회원번호와 다르다. 비회원은 null이고 이 필드가 생기기 전의 서버는 주지 않는다. */
+  revenueCatAppUserId?: string | null;
+};
 
 export type StudyRewardResponse = {
   earnedPoints: number;

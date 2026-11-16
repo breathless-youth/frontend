@@ -82,7 +82,7 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 `react-native-purchases`(RevenueCat)와 `react-native-google-mobile-ads`(AdMob). 웹이 브리지 `points-charge-prices`·`points-charge-purchase`·`points-charge-restore`·`points-ad-show`를 보내면 셸이 스토어 가격 조회, 결제 창, 구매 복원, 보상형 광고만 처리하고 같은 `id`의 `-result`로 답한다. 근거는 [ADR 0022](../../docs/adr/0022-points-iap-and-rewarded-ads-via-native-bridge.md).
 
 - **SDK는 `lib/pointsChargeSdk.ts`와 `lib/pointsAdsSdk.ts`만 불러온다.** 결제 키(env `REVENUECAT_API_KEY`)나 광고 단위가 없는 빌드와 네이티브 모듈이 없는 옛 Dev Client에서는 불러오지 않고 그 기능을 끈다. 다른 코드는 `lib/pointsCharge.ts`·`lib/pointsAds.ts`의 공개 함수만 본다.
-- **포인트는 서버가 준다.** 셸의 `completed`·`rewarded`는 결제와 시청이 끝났다는 뜻일 뿐이다. 결제 전에 지금 사용자 ID로 RevenueCat에 로그인하고, 광고의 서버 확인 옵션에 사용자 ID를 싣는 것을 빼지 말 것. 빠지면 돈이 나가거나 광고를 봤는데 포인트가 들어오지 않는다.
+- **포인트는 서버가 준다.** 셸의 `completed`·`rewarded`는 결제와 시청이 끝났다는 뜻일 뿐이다. 결제·복원·가격 조회 전에 웹이 메시지에 실은 결제용 ID(`appUserId`, 서버의 `revenueCatAppUserId`)로 RevenueCat에 로그인하고, 광고의 서버 확인 옵션에 사용자 ID를 싣는 것을 빼지 말 것. 빠지면 돈이 나가거나 광고를 봤는데 포인트가 들어오지 않는다. 결제용 ID가 없으면 회원번호로 대신 로그인하지 말고 `failed`로 답한다(서버는 회원번호로 로그인한 결제를 지급하지 않는다).
 - **웹뷰 주소 표시는 `lib/remoteQueryParams.ts`가 붙인다.** `points=1`은 이 바이너리가 포인트 브리지를 안다는 뜻이라 늘 붙이고, `pointsCharge=1`·`pointsRestore=1`은 결제 어댑터가 있을 때, `pointsAds=1`은 광고 어댑터가 있을 때만 붙인다. 웹은 표시가 있을 때만 그 메시지를 보낸다.
 - **광고 단위는 빌드 종류로 고른다**(`app.config.ts`의 `ADMOB_REWARDED_UNIT_IDS`·`ADS_VARIANTS`). 서버가 자기 환경의 광고 단위로 본 시청만 보상하므로 Google 테스트 단위로 대신하지 않는다. staging은 광고 단위가 없어 광고가 꺼져 있다.
 - **AdMob 앱 ID 플러그인은 모든 빌드 종류에 넣는다.** Android는 SDK가 링크된 앱의 매니페스트에 앱 ID가 없으면 시작할 때 죽는다(`pointsAdsConfig.test.ts`).

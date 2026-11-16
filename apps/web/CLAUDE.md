@@ -91,6 +91,7 @@ iOS 26 앱에서 시스템 Liquid Glass로 바꿔 그리는 경로이고, 근거
 - 앱이 웹뷰 주소에 `points=1`을 붙였을 때와 개발 서버에서만 참이다. 예전 앱과 브라우저에는 포인트가 보이지 않는다.
 - 운영에서 문제가 생기면 저장소 변수 `PROD_VITE_POINTS_DISABLED`를 `1`로 넣고 웹을 다시 배포해 전체를 끈다. `deploy-web.yml`이 빌드 변수 `VITE_POINTS_DISABLED`로 넘기고, 기본은 빈 값이라 끄지 않는다.
 - 충전, 광고, 구매 복원은 앱이 따로 붙이는 `pointsCharge`, `pointsAds`, `pointsRestore` 표시가 있을 때만 앱에 맡긴다. 포인트는 서버가 결제·광고 사업자의 알림을 받아 주므로 웹은 앱의 답으로 잔액을 바꾸지 않고 서버 값을 다시 읽는다([ADR 0022](../../docs/adr/0022-points-iap-and-rewarded-ads-via-native-bridge.md)).
+- 결제·구매 복원·가격 조회 메시지에는 `GET /api/points/products`의 `revenueCatAppUserId`를 `appUserId`로 싣는다. 앱은 이 값으로 RevenueCat에 로그인하고, 서버는 회원번호로 로그인한 결제를 지급하지 않으므로 회원번호로 대신하지 말 것. 값이 null이면 `createApiPointsGateway`가 회원 전용 거절로 던져 로그인 화면으로 보내고, 목록을 받지 못하면 결제 창을 열지 않는다.
 - 비회원은 서버가 조회를 열어 주면 포인트 화면을 구경하고 소품을 미리 입혀 볼 수 있다. 서버가 조회를 `403 MEMBER_ONLY`로 거절하면 그 주소에 로그인 화면을 그린다.
 - 보상 받기, 포인트로 사기, 충전, 결제 상품 구매, 꾸미기 저장, 구매 복원은 회원만 한다. 비회원이 누르면 요청을 보내지 않고 `/points/login`(설정에서는 `/settings/login`)의 기존 로그인 화면으로 보내고, 로그인하면 보던 화면으로 돌아온다. 새 동작을 더할 때는 `useMemberOnly`의 `allow`를 먼저 부른다.
 

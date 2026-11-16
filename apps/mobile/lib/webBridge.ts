@@ -56,6 +56,11 @@ function isStoreProductId(value: unknown): value is string {
   return typeof value === "string" && /^[A-Za-z0-9._-]{1,100}$/.test(value);
 }
 
+// 결제용 ID는 서버가 준 UUID라 영문·숫자·점·밑줄·하이픈만 받는다. 결제 SDK가 익명 사용자에 쓰는 `$` 앞머리 값도 이 규칙에서 걸린다.
+function toRevenueCatAppUserId(value: unknown): string | null {
+  return typeof value === "string" && /^[A-Za-z0-9._-]{1,100}$/.test(value) ? value : null;
+}
+
 function isOneOf<const T extends readonly string[]>(list: T, value: unknown): value is T[number] {
   return typeof value === "string" && (list as readonly string[]).includes(value);
 }
@@ -216,6 +221,7 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         type: "points-charge-prices",
         id: record.id,
         storeProductIds: record.storeProductIds,
+        appUserId: toRevenueCatAppUserId(record.appUserId),
         atMs: record.atMs,
       };
     case "points-charge-purchase":
@@ -230,6 +236,7 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         type: "points-charge-purchase",
         id: record.id,
         storeProductId: record.storeProductId,
+        appUserId: toRevenueCatAppUserId(record.appUserId),
         atMs: record.atMs,
       };
     case "points-charge-restore":
@@ -246,6 +253,7 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         type: "points-charge-restore",
         id: record.id,
         storeProductIds: record.storeProductIds,
+        appUserId: toRevenueCatAppUserId(record.appUserId),
         atMs: record.atMs,
       };
     case "points-ad-show":

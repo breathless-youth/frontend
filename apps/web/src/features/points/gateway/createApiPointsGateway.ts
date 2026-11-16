@@ -39,6 +39,7 @@ import {
 } from "./fromApi";
 import type { ClaimKind, HistoryFilter } from "../types";
 import type { PointsCapabilities, PointsGateway } from "./PointsGateway";
+import type { PointProductsResponse } from "./pointsApiTypes";
 
 /** 결제 알림이 서버에 닿기까지 보통 몇 초, 길면 1분쯤 걸려서 그동안 잔액을 다시 읽는다. */
 const CHARGE_SETTLE_INTERVAL_MS = 2_000;
@@ -63,6 +64,24 @@ const REWARD_PATH = {
 } as const satisfies Record<ClaimKind, string>;
 
 const HISTORY_PAGE_SIZE = 30;
+
+/**
+ * 결제와 복원 전에 결제 SDK에 로그인할 결제용 ID
+ *
+ * 서버는 이 값으로 로그인한 결제만 지급하므로 회원번호로 대신하지 않는다.
+ * 비회원이면 서버가 null을 주고, 이때는 회원 전용 거절과 같은 오류로 던져 부른 쪽이 로그인 화면으로 보내게 한다.
+ * 값이 빠졌거나 목록을 받지 못하면 일반 오류로 던져 결제를 열지 않고 다시 시도하게 한다.
+ */
+function requireAppUserId(products: PointProductsResponse): string {
+  const appUserId = products.revenueCatAppUserId;
+  if (appUserId === null) {
+    throw new ApiError("revenueCat app user id is null", 403, "MEMBER_ONLY");
+  }
+  if (!appUserId) {
+    throw new Error("revenueCat app user id missing");
+  }
+  return appUserId;
+}
 
 /** 화면의 상품 id는 서버 숫자 id를 문자열로 바꾼 것이라 보낼 때 되돌린다. */
 function toServerItemId(itemId: string | null): number | null {
@@ -125,7 +144,12 @@ export function createApiPointsGateway(): PointsGateway {
       if (productIds.length === 0) {
         return {};
       }
-      const prices = await requestNativePointsPrices(productIds);
+      // 가격만 묻는 때는 돈이 오가지 않아 결제용 ID를 받지 못해도 로그인 없이 묻는다.
+      const appUserId = await getPointProducts().then(
+        (products) => products.revenueCatAppUserId ?? null,
+        () => null,
+      );
+      const prices = await requestNativePointsPrices(productIds, appUserId);
       return Object.fromEntries(prices.map((price) => [price.storeProductId, price.priceLabel]));
     },
     purchaseStoreItem: async (itemId, onPaid) => {
@@ -135,7 +159,8 @@ export function createApiPointsGateway(): PointsGateway {
       if (item === undefined || !item.storeProductId || item.owned) {
         return { status: "failed" };
       }
-      const status = await requestNativePointsPurchase(item.storeProductId);
+      const appUserId = requireAppUserId(await getPointProducts());
+      const status = await requestNativePointsPurchase(item.storeProductId, appUserId);
       if (status !== "completed") {
         return { status };
       }
@@ -158,7 +183,13 @@ export function createApiPointsGateway(): PointsGateway {
           ),
         ),
       ];
-      return storeProductIds.length === 0 ? "nothing" : requestNativePointsRestore(storeProductIds);
+      if (storeProductIds.length === 0) {
+        return "nothing";
+      }
+      return requestNativePointsRestore(
+        storeProductIds,
+        requireAppUserId(await getPointProducts()),
+      );
     },
     equipAccessory: async (mascotId, slot, itemId) => {
       await putMascotAccessory(toMascotCode(mascotId), toSlotCode(slot), toServerItemId(itemId));
@@ -200,8 +231,11 @@ export function createApiPointsGateway(): PointsGateway {
       return { status: "late" };
     },
     getChargePacks: async () => {
-      const { items } = await getPointProducts();
-      const prices = await requestNativePointsPrices(items.map((item) => item.storeProductId));
+      const { items, revenueCatAppUserId } = await getPointProducts();
+      const prices = await requestNativePointsPrices(
+        items.map((item) => item.storeProductId),
+        revenueCatAppUserId ?? null,
+      );
       const priceById = new Map(prices.map((price) => [price.storeProductId, price.priceLabel]));
       return items.map((item) => ({
         productId: item.storeProductId,
@@ -212,12 +246,12 @@ export function createApiPointsGateway(): PointsGateway {
       }));
     },
     charge: async (productId, onPaid) => {
-      const [{ items }, before] = await Promise.all([getPointProducts(), getPointsBalance()]);
-      const product = items.find((item) => item.storeProductId === productId);
+      const [products, before] = await Promise.all([getPointProducts(), getPointsBalance()]);
+      const product = products.items.find((item) => item.storeProductId === productId);
       if (product === undefined) {
         return { status: "failed" };
       }
-      const status = await requestNativePointsPurchase(productId);
+      const status = await requestNativePointsPurchase(productId, requireAppUserId(products));
       if (status !== "completed") {
         return { status };
       }

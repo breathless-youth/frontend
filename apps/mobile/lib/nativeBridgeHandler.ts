@@ -423,17 +423,17 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       });
       break;
     case "points-charge-prices":
-      void pointsChargePrices(message.storeProductIds).then((prices) => {
+      void pointsChargePrices(message.storeProductIds, message.appUserId).then((prices) => {
         reply({ type: "points-charge-prices-result", id: message.id, prices, atMs: Date.now() });
       });
       break;
     case "points-charge-purchase":
-      void purchasePointsCharge(message.storeProductId).then((status) => {
+      void purchasePointsCharge(message.storeProductId, message.appUserId).then((status) => {
         reply({ type: "points-charge-purchase-result", id: message.id, status, atMs: Date.now() });
       });
       break;
     case "points-charge-restore":
-      void restorePointsPurchases(message.storeProductIds).then((status) => {
+      void restorePointsPurchases(message.storeProductIds, message.appUserId).then((status) => {
         reply({ type: "points-charge-restore-result", id: message.id, status, atMs: Date.now() });
       });
       break;

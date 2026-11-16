@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { trackPointsRestore } from "@/lib/amplitude";
+import { ApiError } from "@/lib/api";
 import type * as amplitude from "@/lib/amplitude";
 import { pointsKeys } from "@/lib/pointsQueries";
 import { showToast } from "@/lib/toast";
@@ -24,13 +25,13 @@ vi.mock("@/lib/amplitude", async (original) => ({
 
 const USER = 7;
 
-function setup() {
+function setup(onMemberOnly?: () => void) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const invalidate = vi.spyOn(client, "invalidateQueries");
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
-  const { result } = renderHook(() => useRestorePurchases(USER), { wrapper });
+  const { result } = renderHook(() => useRestorePurchases(USER, onMemberOnly), { wrapper });
   /** 상점과 내 모습을 다시 읽으라고 한 횟수 */
   const reads = () => ({
     shop: invalidate.mock.calls.filter(
@@ -88,6 +89,19 @@ describe("useRestorePurchases", () => {
     await act(() => result.current.restore());
     expect(reads()).toEqual({ shop: 0, look: 0 });
     expect(showToast).toHaveBeenCalledWith("잠시 후 다시 시도해 주세요");
+  });
+
+  it("서버가 결제용 ID를 주지 않아 회원 전용으로 거절되면 알림 없이 로그인 화면으로 보낸다", async () => {
+    restorePurchases.mockRejectedValue(
+      new ApiError("revenueCat app user id is null", 403, "MEMBER_ONLY"),
+    );
+    const onMemberOnly = vi.fn();
+    const { result, reads } = setup(onMemberOnly);
+
+    await act(() => result.current.restore());
+    expect(onMemberOnly).toHaveBeenCalledOnce();
+    expect(showToast).not.toHaveBeenCalled();
+    expect(reads()).toEqual({ shop: 0, look: 0 });
   });
 
   it("시도와 결과를 분석 이벤트로 남긴다", async () => {

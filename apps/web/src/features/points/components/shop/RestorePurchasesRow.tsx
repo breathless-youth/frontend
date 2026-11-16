@@ -20,7 +20,14 @@ export function RestorePurchasesRow({ readable }: { readable: boolean }) {
   const navigate = useNavigate();
   const location = useLocation();
   const access = usePointsAccess();
-  const { restore } = useRestorePurchases(access.status === "member" ? access.userId : null);
+  const openLogin = () =>
+    slideNavigate("forward", () =>
+      navigate({ pathname: "/settings/login", search: location.search }),
+    );
+  const { restore } = useRestorePurchases(
+    access.status === "member" ? access.userId : null,
+    openLogin,
+  );
   const member = access.status === "member";
   if (!member && !(access.status === "guest" && readable)) {
     return null;
@@ -33,9 +40,7 @@ export function RestorePurchasesRow({ readable }: { readable: boolean }) {
           void restore();
           return;
         }
-        slideNavigate("forward", () =>
-          navigate({ pathname: "/settings/login", search: location.search }),
-        );
+        openLogin();
       }}
     />
   );

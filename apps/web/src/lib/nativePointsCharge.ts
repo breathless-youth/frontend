@@ -58,9 +58,13 @@ const PRICES_TIMEOUT_MS = 10_000;
  * 스토어의 충전 상품 가격 묻기
  *
  * 가격과 통화는 스토어가 정해서 서버 상품 목록에는 없다.
+ * 결제용 ID가 있으면 앱이 결제와 같은 값으로 결제 SDK에 로그인한 뒤 묻고, 비회원은 null이라 로그인 없이 묻는다.
  * 앱이 답하지 않으면 빈 목록으로 끝내서 상품 목록이 가격 없이라도 그려지게 한다.
  */
-export function requestNativePointsPrices(storeProductIds: string[]): Promise<PointsChargePrice[]> {
+export function requestNativePointsPrices(
+  storeProductIds: string[],
+  appUserId: string | null,
+): Promise<PointsChargePrice[]> {
   const id = requestId();
   return new Promise((resolve) => {
     const finish = (prices: PointsChargePrice[]) => {
@@ -74,7 +78,14 @@ export function requestNativePointsPrices(storeProductIds: string[]): Promise<Po
       }
     });
     const timer = window.setTimeout(() => finish([]), PRICES_TIMEOUT_MS);
-    if (!postToNative({ type: "points-charge-prices", id, storeProductIds, atMs: Date.now() })) {
+    const sent = postToNative({
+      type: "points-charge-prices",
+      id,
+      storeProductIds,
+      appUserId,
+      atMs: Date.now(),
+    });
+    if (!sent) {
       finish([]);
     }
   });
@@ -83,11 +94,13 @@ export function requestNativePointsPrices(storeProductIds: string[]): Promise<Po
 /**
  * 앱에 포인트 충전 결제 요청하기
  *
+ * 앱은 `appUserId`로 결제 SDK에 로그인한 뒤 결제하고, 서버는 그 값으로 포인트를 줄 계정을 찾는다.
  * 사용자가 결제 창에 머무는 시간을 정할 수 없어 시간 제한 없이 기다린다.
  * `completed`는 스토어 결제가 끝났다는 뜻이고 포인트는 서버가 결제 알림을 받은 뒤에 들어온다.
  */
 export function requestNativePointsPurchase(
   storeProductId: string,
+  appUserId: string,
 ): Promise<PointsChargePurchaseStatus> {
   const id = requestId();
   return new Promise((resolve) => {
@@ -98,7 +111,14 @@ export function requestNativePointsPurchase(
       unsubscribe();
       resolve(message.status);
     });
-    if (!postToNative({ type: "points-charge-purchase", id, storeProductId, atMs: Date.now() })) {
+    const sent = postToNative({
+      type: "points-charge-purchase",
+      id,
+      storeProductId,
+      appUserId,
+      atMs: Date.now(),
+    });
+    if (!sent) {
       unsubscribe();
       resolve("failed");
     }
@@ -109,11 +129,13 @@ export function requestNativePointsPurchase(
  * 앱에 구매 복원 요청하기
  *
  * 스토어가 계정 확인 창을 띄울 수 있어 결제처럼 시간 제한 없이 기다린다.
+ * 앱은 결제와 같은 `appUserId`로 로그인한 뒤 복원한다.
  * 앱은 정해진 수를 넘는 상품 ID가 오면 요청을 버리고 답하지 않으므로 그 수만큼만 보낸다.
  * `restored`는 스토어 결제 기록에서 상품을 찾았다는 뜻이고 보유는 서버가 결제 알림을 받은 뒤에 바뀐다.
  */
 export function requestNativePointsRestore(
   storeProductIds: string[],
+  appUserId: string,
 ): Promise<PointsChargeRestoreStatus> {
   const id = requestId();
   return new Promise((resolve) => {
@@ -128,6 +150,7 @@ export function requestNativePointsRestore(
       type: "points-charge-restore",
       id,
       storeProductIds: storeProductIds.slice(0, POINTS_CHARGE_RESTORE_MAX_PRODUCTS),
+      appUserId,
       atMs: Date.now(),
     });
     if (!sent) {

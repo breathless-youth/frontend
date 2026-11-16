@@ -615,23 +615,45 @@ export type ToNativeMessage =
    *
    * 앱이 웹뷰 주소에 `pointsCharge=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `points-charge-prices-result`로 답한다.
    * 상품 ID는 서버의 충전 상품 목록이 준 스토어 상품 ID다.
+   * `appUserId`가 있으면 앱은 결제와 같은 값으로 결제 SDK에 로그인한 뒤 가격을 묻고, 비회원처럼 null이면 로그인 없이 묻는다.
    */
-  | { type: "points-charge-prices"; id: string; storeProductIds: string[]; atMs: number }
+  | {
+      type: "points-charge-prices";
+      id: string;
+      storeProductIds: string[];
+      appUserId: string | null;
+      atMs: number;
+    }
   /**
    * 포인트 충전 결제 요청
    *
    * `pointsCharge=1`일 때만 보내고, 앱은 같은 `id`의 `points-charge-purchase-result`로 답한다.
-   * 앱은 결제 전에 결제 SDK에 지금 사용자 ID로 로그인해서 서버가 결제 알림의 주인을 알 수 있게 한다.
+   * 앱은 결제 전에 `appUserId`로 결제 SDK에 로그인해서 서버가 결제 알림의 주인을 알 수 있게 한다.
+   * `appUserId`는 서버 충전 상품 목록의 `revenueCatAppUserId`이고 회원번호가 아니다.
+   * 앱은 이 값이 null이면 회원번호로 대신하지 않고 `failed`로 답한다.
    */
-  | { type: "points-charge-purchase"; id: string; storeProductId: string; atMs: number }
+  | {
+      type: "points-charge-purchase";
+      id: string;
+      storeProductId: string;
+      appUserId: string | null;
+      atMs: number;
+    }
   /**
    * 구매 복원 요청
    *
    * 앱이 웹뷰 주소에 `pointsRestore=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `points-charge-restore-result`로 답한다.
    * 상품 ID는 서버의 상점 목록에서 스토어 결제로 파는 상품의 스토어 상품 ID다.
    * 충전 묶음은 써서 없어지는 상품이라 싣지 않고, 앱은 결제 기록에 이 목록의 상품이 있는지만 본다.
+   * 앱은 결제와 같은 `appUserId`로 로그인한 뒤 복원하고, 이 값이 null이면 `failed`로 답한다.
    */
-  | { type: "points-charge-restore"; id: string; storeProductIds: string[]; atMs: number }
+  | {
+      type: "points-charge-restore";
+      id: string;
+      storeProductIds: string[];
+      appUserId: string | null;
+      atMs: number;
+    }
   /**
    * 보상형 광고 보기 요청
    *

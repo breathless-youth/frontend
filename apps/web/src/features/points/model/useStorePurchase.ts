@@ -18,6 +18,7 @@ export type StorePurchaseStep = "idle" | "paying" | "waiting" | "late" | "failed
  * 결제 창이 떠 있는 동안 버튼을 다시 눌러도 요청이 한 번만 나가게 ref로 막는다.
  * 취소는 사용자가 고른 일이라 알리지 않고 처음으로 돌아간다.
  * 결제는 회원만 하므로 비회원이 누르면 결제 창 대신 로그인 화면을 연다.
+ * 회원으로 알았는데 서버가 결제용 ID를 주지 않으면 결제 창을 열지 않고 같은 로그인 화면으로 보낸다.
  */
 export function useStorePurchase(items: readonly ShopItem[]) {
   const gateway = usePointsGateway();
@@ -56,9 +57,9 @@ export function useStorePurchase(items: readonly ShopItem[]) {
             ? "idle"
             : result.status,
       );
-    } catch {
+    } catch (error) {
       trackPointsStorePurchase("failed", kind);
-      setStep("failed");
+      setStep(memberOnly.redirected(error) ? "idle" : "failed");
     } finally {
       inFlightRef.current = false;
       void queryClient.invalidateQueries({ queryKey: pointsKeys.shop(userId) });
