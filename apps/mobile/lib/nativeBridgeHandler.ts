@@ -12,7 +12,7 @@ import { emitAccountReset } from "./accountReset";
 import { getActiveTab } from "./activeTab";
 import { trackAirbridgeAnalyticsEvent, trackAirbridgeConversion } from "./airbridge";
 import { handleAppLockMessage } from "./appLock/appLockRelay";
-import { authTokenMessage, awaitAuth, ensureAuth, logout, refreshAuth } from "./auth";
+import { authTokenMessage, awaitAuth, ensureAuth, logout, refreshAuth, reviewLogin } from "./auth";
 import {
   getCameraPermissionStatus,
   isMicrophonePermissionGranted,
@@ -420,6 +420,12 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       // 성공이면 새 토큰의 `auth-token`이 저장 구독으로 먼저 나간 뒤에 결과가 나간다.
       void socialLogin(message.provider).then((result) => {
         reply({ type: "social-login-result", id: message.id, ...result, atMs: Date.now() });
+      });
+      break;
+    case "review-login":
+      // 성공이면 새 토큰의 `auth-token`이 저장 구독으로 먼저 나간 뒤에 결과가 나간다.
+      void reviewLogin(message.loginId, message.password).then((result) => {
+        reply({ type: "review-login-result", id: message.id, ...result, atMs: Date.now() });
       });
       break;
     case "points-charge-prices":

@@ -119,6 +119,10 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   // 웹은 이 표시가 있을 때만 포인트 화면과 입구를 연다(`apps/web/src/lib/pointsCapability.ts`).
   // 결제 SDK 키나 광고 단위가 없는 빌드에도 붙여서 포인트 화면은 보이고, 충전과 광고 칸만 아래 두 표시에 따라 빠진다.
   params.points = "1";
+  // `reviewLogin=1`: 이 바이너리가 `review-login`으로 심사용 로그인을 할 수 있다는 표시.
+  // 웹은 이 표시가 있고 서버가 이 앱 버전에 심사용 로그인을 켰을 때만 로그인 화면에 입구를 그린다(`apps/web/src/lib/nativeReviewLogin.ts`).
+  // 표시 없는 구버전 앱은 이 메시지를 버리므로 입구를 누른 사람이 답을 받지 못한다.
+  params.reviewLogin = "1";
   // `pointsCharge=1`: 이 바이너리가 `points-charge-*`로 포인트 충전 결제를 할 수 있다는 표시.
   // 웹은 이 표시가 있을 때만 충전 상품을 실제 결제로 연다(`apps/web/src/lib/nativePointsCharge.ts`).
   // 결제 SDK 키가 없는 빌드와 SDK 네이티브 모듈이 없는 이전 Dev Client에는 붙지 않는다.

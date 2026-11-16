@@ -5,7 +5,7 @@ import { waitFor } from "@testing-library/react-native";
 import type { HandlerMessage } from "@focusmakers/types";
 
 import { __resetActiveTabForTests, setActiveTabRoute } from "../activeTab";
-import { awaitAuth, ensureAuth, logout, refreshAuth } from "../auth";
+import { awaitAuth, ensureAuth, logout, refreshAuth, reviewLogin } from "../auth";
 import { emitAccountReset } from "../accountReset";
 import type * as AuthModule from "../auth";
 import {
@@ -91,6 +91,7 @@ jest.mock("../auth", () => ({
   ensureAuth: jest.fn(),
   refreshAuth: jest.fn(),
   logout: jest.fn(),
+  reviewLogin: jest.fn(),
 }));
 jest.mock("../accountReset", () => ({ emitAccountReset: jest.fn() }));
 
@@ -1340,6 +1341,32 @@ describe("social-login", () => {
     expect(socialLogin).toHaveBeenCalledWith("KAKAO");
     expect(reply).toHaveBeenCalledTimes(1);
   });
+});
+
+describe("review-login", () => {
+  it.each([[{ status: "success" }], [{ status: "failed", code: "INVALID_REVIEW_CREDENTIALS" }]])(
+    "결과 %o를 같은 id의 review-login-result로 답한다",
+    async (result) => {
+      (reviewLogin as jest.Mock).mockResolvedValue(result);
+      const reply = jest.fn();
+
+      handleBridgeMessage(
+        { type: "review-login", id: "v1", loginId: "review", password: "pw", atMs: 1 },
+        reply,
+      );
+
+      await waitFor(() =>
+        expect(reply).toHaveBeenCalledWith({
+          type: "review-login-result",
+          id: "v1",
+          ...result,
+          atMs: expect.any(Number),
+        }),
+      );
+      expect(reviewLogin).toHaveBeenCalledWith("review", "pw");
+      expect(reply).toHaveBeenCalledTimes(1);
+    },
+  );
 });
 
 describe("logout", () => {

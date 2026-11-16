@@ -61,6 +61,14 @@ function toRevenueCatAppUserId(value: unknown): string | null {
   return typeof value === "string" && /^[A-Za-z0-9._-]{1,100}$/.test(value) ? value : null;
 }
 
+// 서버는 아이디를 64자까지 받는다. 비밀번호는 서버에 상한이 없어 브리지로 받을 만큼만 정한다.
+const MAX_REVIEW_LOGIN_ID = 64;
+const MAX_REVIEW_PASSWORD = 256;
+
+function isBoundedString(value: unknown, max: number): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= max;
+}
+
 function isOneOf<const T extends readonly string[]>(list: T, value: unknown): value is T[number] {
   return typeof value === "string" && (list as readonly string[]).includes(value);
 }
@@ -207,6 +215,22 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         return null;
       }
       return { type: "social-login", id: record.id, provider: record.provider, atMs: record.atMs };
+    case "review-login":
+      if (
+        typeof record.id !== "string" ||
+        record.id === "" ||
+        !isBoundedString(record.loginId, MAX_REVIEW_LOGIN_ID) ||
+        !isBoundedString(record.password, MAX_REVIEW_PASSWORD)
+      ) {
+        return null;
+      }
+      return {
+        type: "review-login",
+        id: record.id,
+        loginId: record.loginId,
+        password: record.password,
+        atMs: record.atMs,
+      };
     case "points-charge-prices":
       if (
         typeof record.id !== "string" ||

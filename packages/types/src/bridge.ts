@@ -143,6 +143,7 @@ export type ToWebMessage =
       atMs: number;
     }
   | SocialLoginResultMessage
+  | ReviewLoginResultMessage
   | PointsChargePricesResultMessage
   | PointsChargePurchaseResultMessage
   | PointsChargeRestoreResultMessage
@@ -246,6 +247,32 @@ export const SOCIAL_LOGIN_FAILURE_CODES = [
   "UNKNOWN",
 ] as const;
 export type SocialLoginFailureCode = (typeof SOCIAL_LOGIN_FAILURE_CODES)[number];
+
+/** 심사용 로그인이 실패한 까닭이며 앞의 셋은 서버 오류 코드 그대로다. */
+export const REVIEW_LOGIN_FAILURE_CODES = [
+  "REVIEW_LOGIN_DISABLED",
+  "INVALID_REVIEW_CREDENTIALS",
+  "TOO_MANY_REQUESTS",
+  "UNKNOWN",
+] as const;
+export type ReviewLoginFailureCode = (typeof REVIEW_LOGIN_FAILURE_CODES)[number];
+
+/**
+ * 심사용 로그인 결과
+ *
+ * `review-login`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+ * 성공이면 앱이 새 토큰의 `auth-token`을 먼저 보낸 뒤에 이 결과를 보낸다.
+ * 비밀번호와 토큰은 싣지 않는다.
+ */
+export type ReviewLoginResultMessage =
+  | { type: "review-login-result"; id: string; status: "success"; atMs: number }
+  | {
+      type: "review-login-result";
+      id: string;
+      status: "failed";
+      code: ReviewLoginFailureCode;
+      atMs: number;
+    };
 
 /** 스토어가 그 기기의 통화로 만든 충전 상품 가격 문구 */
 export type PointsChargePrice = { storeProductId: string; priceLabel: string };
@@ -596,6 +623,14 @@ export type ToNativeMessage =
    * 앱이 웹뷰 주소의 `socialLogin`에 넣은 공급자만 보내고, 앱은 같은 `id`의 `social-login-result`로 답한다.
    */
   | { type: "social-login"; id: string; provider: SocialLoginProvider; atMs: number }
+  /**
+   * 심사용 로그인 요청
+   *
+   * 앱이 웹뷰 주소에 `reviewLogin=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `review-login-result`로 답한다.
+   * 토큰은 앱만 가지므로 서버 요청과 토큰 저장은 앱이 하고, 앱 버전은 앱이 자기 값을 싣는다.
+   * 앱과 웹 모두 비밀번호를 로그와 분석 이벤트에 남기지 않는다.
+   */
+  | { type: "review-login"; id: string; loginId: string; password: string; atMs: number }
   /**
    * 이 기기 로그아웃 요청
    *

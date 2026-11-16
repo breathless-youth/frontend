@@ -16,6 +16,7 @@ import {
   POINTS_AD_STATUSES,
   POINTS_CHARGE_PURCHASE_STATUSES,
   POINTS_CHARGE_RESTORE_STATUSES,
+  REVIEW_LOGIN_FAILURE_CODES,
   SOCIAL_LOGIN_FAILURE_CODES,
   VIDEO_RESULT_STATUSES,
 } from "@focusmakers/types";
@@ -355,6 +356,24 @@ export function parseToWebMessage(raw: string): ToWebMessage | null {
         : "UNKNOWN";
       return {
         type: "social-login-result",
+        id: record.id,
+        status: "failed",
+        code,
+        atMs: record.atMs,
+      };
+    }
+  }
+  if (record.type === "review-login-result" && typeof record.id === "string" && record.id !== "") {
+    if (record.status === "success") {
+      return { type: "review-login-result", id: record.id, status: "success", atMs: record.atMs };
+    }
+    if (record.status === "failed") {
+      // 모르는 코드라고 응답을 버리면 기다리는 쪽이 끝나지 않으므로 UNKNOWN으로 받는다.
+      const code = (REVIEW_LOGIN_FAILURE_CODES as readonly unknown[]).includes(record.code)
+        ? (record.code as (typeof REVIEW_LOGIN_FAILURE_CODES)[number])
+        : "UNKNOWN";
+      return {
+        type: "review-login-result",
         id: record.id,
         status: "failed",
         code,

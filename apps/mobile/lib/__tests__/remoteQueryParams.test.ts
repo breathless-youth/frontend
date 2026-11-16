@@ -147,6 +147,7 @@ describe("buildRemoteQueryParams", () => {
       pushPermission: "1",
       accountActions: "1",
       points: "1",
+      reviewLogin: "1",
       nativeTabBar: "1",
     });
   });
@@ -168,6 +169,7 @@ describe("buildRemoteQueryParams", () => {
       pushPermission: "1",
       accountActions: "1",
       points: "1",
+      reviewLogin: "1",
       nativeTabBar: "1",
     });
   });
@@ -189,8 +191,15 @@ describe("buildRemoteQueryParams", () => {
       pushPermission: "1",
       accountActions: "1",
       points: "1",
+      reviewLogin: "1",
       nativeTabBar: "1",
     });
+  });
+
+  it("셸이 심사용 로그인을 처리할 수 있음을 reviewLogin으로 알린다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    expect((await buildRemoteQueryParams()).reviewLogin).toBe("1");
   });
 
   it("셸이 로그아웃과 계정 삭제를 처리할 수 있음을 accountActions로 알린다", async () => {
@@ -459,6 +468,7 @@ describe("useRemoteQueryParams", () => {
         pushPermission: "1",
         accountActions: "1",
         points: "1",
+        reviewLogin: "1",
         nativeTabBar: "1",
       }),
     );
@@ -483,6 +493,7 @@ describe("useRemoteQueryParams", () => {
         pushPermission: "1",
         accountActions: "1",
         points: "1",
+        reviewLogin: "1",
         nativeTabBar: "1",
       }),
     );
@@ -505,6 +516,7 @@ describe("useRemoteQueryParams", () => {
       pushPermission: "1",
       accountActions: "1",
       points: "1",
+      reviewLogin: "1",
       nativeTabBar: "1",
     });
   });
@@ -555,6 +567,7 @@ describe("useRemoteQueryParams", () => {
         pushPermission: "1",
         accountActions: "1",
         points: "1",
+        reviewLogin: "1",
         nativeTabBar: "1",
       }),
     );
@@ -579,6 +592,7 @@ describe("useRemoteQueryParams", () => {
         pushPermission: "1",
         accountActions: "1",
         points: "1",
+        reviewLogin: "1",
         nativeTabBar: "1",
       }),
     );

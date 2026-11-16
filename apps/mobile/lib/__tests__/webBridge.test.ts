@@ -41,6 +41,23 @@ describe("parseToNativeMessage", () => {
     },
   );
 
+  it("review-login은 요청 id와 아이디와 비밀번호를 파싱한다", () => {
+    const message = { type: "review-login", id: "r1", loginId: "review", password: "pw", atMs: 5 };
+    expect(parseToNativeMessage(JSON.stringify(message))).toEqual(message);
+  });
+
+  it.each([
+    ["빈 id", { id: "" }],
+    ["빈 아이디", { loginId: "" }],
+    ["긴 아이디", { loginId: "a".repeat(65) }],
+    ["빈 비밀번호", { password: "" }],
+    ["긴 비밀번호", { password: "a".repeat(257) }],
+    ["숫자 비밀번호", { password: 1234 }],
+  ])("review-login은 %s이면 버린다", (_label, patch) => {
+    const message = { type: "review-login", id: "r1", loginId: "review", password: "pw", atMs: 5 };
+    expect(parseToNativeMessage(JSON.stringify({ ...message, ...patch }))).toBeNull();
+  });
+
   it("social-login은 공급자와 요청 id를 함께 파싱한다", () => {
     for (const provider of ["GOOGLE", "KAKAO", "APPLE"]) {
       expect(

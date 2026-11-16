@@ -9,6 +9,7 @@ import {
   logout,
   refreshAuth,
   registerUser,
+  reviewLogin,
   subscribeAuth,
   isNewUserThisLaunch,
 } from "../auth";
@@ -24,7 +25,7 @@ jest.mock("expo-secure-store", () => ({
 }));
 jest.mock("expo-constants", () => ({
   __esModule: true,
-  default: { expoConfig: { extra: { apiBaseUrl: "http://api.test" } } },
+  default: { expoConfig: { version: "26.47.0", extra: { apiBaseUrl: "http://api.test" } } },
 }));
 jest.mock("../deviceId", () => ({
   getOrCreateDeviceId: jest.fn(async () => "0f8fad5b-d9cb-469f-a165-70867728950e"),
@@ -566,6 +567,69 @@ describe("linkSocial", () => {
       code: "UNKNOWN",
     });
     expect(saved()).toEqual(GUEST);
+  });
+});
+
+describe("reviewLogin", () => {
+  const GUEST = { userId: 7, accessToken: "a1", refreshToken: "r1" };
+
+  beforeEach(() => {
+    store.set("focuson.auth", JSON.stringify(GUEST));
+  });
+
+  it("토큰 없이 아이디와 비밀번호와 이 앱의 버전을 보내고, 받은 토큰의 sub로 저장을 바꿔 알린다", async () => {
+    mockedFetch.mockResolvedValue(
+      jsonResponse(200, { accessToken: accessTokenFor(900), refreshToken: "r-review" }),
+    );
+    const listener = jest.fn();
+    const unsubscribe = subscribeAuth(listener);
+
+    await expect(reviewLogin("review", "pw-1234")).resolves.toEqual({ status: "success" });
+
+    expect(mockedFetch).toHaveBeenCalledWith(
+      "http://api.test/api/auth/review-login",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ loginId: "review", password: "pw-1234", appVersion: "26.47.0" }),
+      }),
+    );
+    expect(headersOf(0).get("Authorization")).toBeNull();
+    expect(headersOf(0).get("API-Version")).toBe("1");
+    const signedIn = { userId: 900, accessToken: accessTokenFor(900), refreshToken: "r-review" };
+    expect(saved()).toEqual(signedIn);
+    expect(listener).toHaveBeenCalledWith(signedIn);
+    unsubscribe();
+  });
+
+  it.each([
+    [403, { code: "REVIEW_LOGIN_DISABLED" }, "REVIEW_LOGIN_DISABLED"],
+    [403, null, "REVIEW_LOGIN_DISABLED"],
+    [400, { code: "INVALID_REVIEW_CREDENTIALS" }, "INVALID_REVIEW_CREDENTIALS"],
+    [400, { code: "INVALID_REQUEST" }, "UNKNOWN"],
+    [429, null, "TOO_MANY_REQUESTS"],
+    [500, null, "UNKNOWN"],
+  ])("%s %o는 %s로 답하고 저장을 그대로 둔다", async (status, body, code) => {
+    mockedFetch.mockResolvedValue(jsonResponse(status, body));
+
+    await expect(reviewLogin("review", "pw-1234")).resolves.toEqual({ status: "failed", code });
+    expect(saved()).toEqual(GUEST);
+  });
+
+  it("네트워크 오류나 sub 없는 토큰이면 UNKNOWN이고, 경고에 비밀번호를 남기지 않는다", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    mockedFetch.mockRejectedValueOnce(new TypeError("Network request failed"));
+    await expect(reviewLogin("review", "pw-1234")).resolves.toEqual({
+      status: "failed",
+      code: "UNKNOWN",
+    });
+
+    mockedFetch.mockResolvedValueOnce(jsonResponse(200, { accessToken: "x", refreshToken: "r" }));
+    await expect(reviewLogin("review", "pw-1234")).resolves.toEqual({
+      status: "failed",
+      code: "UNKNOWN",
+    });
+    expect(saved()).toEqual(GUEST);
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("pw-1234");
   });
 });
 

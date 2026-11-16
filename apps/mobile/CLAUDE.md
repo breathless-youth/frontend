@@ -7,6 +7,7 @@ Expo RN 앱(네이티브 셸). 탭바·스택·권한 게이트·스플래시·�
 `src/` 없이 라우터(`app/`)와 유틸 디렉터리를 루트 바로 아래에 둔다. `app/(tabs)/`는 탭 네비게이션, `app/room/`·`app/social/`은 세션·소셜룸, `lib/`는 순수 유틸·API 연동 함수(테스트 대상)다.
 
 - `lib/auth.ts`(BY-527)가 access·refresh 토큰의 유일한 소유자다. SecureStore 키 `focuson.auth` 하나에 JSON으로 저장하고 읽기·쓰기·삭제 전부에 `keychainAccessible: AFTER_FIRST_UNLOCK_THIS_DEVICE_ONLY`를 넘긴다. 이 옵션을 빼면 iCloud 키체인 동기화로 1회용 refresh 토큰이 다른 기기에 복사되고, 두 기기가 같은 토큰을 써 서버가 탈취로 판정해 전량 폐기한다. 등록(`ensureAuth`)과 갱신(`refreshAuth`)은 앱 전체 single-flight이고, 토큰 변경은 `subscribeAuth`로 마운트된 모든 웹뷰 호스트에 `auth-token`으로 전파된다(분석 이벤트의 단일 sink와 반대). 웹뷰 URL의 `guestAuth=1`은 이 바이너리가 `auth-ready`에 답할 수 있다는 표시다.
+- 심사용 로그인(`review-login`)도 `lib/auth.ts`의 `reviewLogin`이 토큰 없이 `POST /api/auth/review-login`을 부르고 받은 토큰을 저장한다. 서버는 출시된 버전보다 높은 앱 버전에서만 받아 주므로 웹이 아니라 이 바이너리의 버전을 싣고, 비밀번호는 로그와 브리지 결과에 싣지 않는다. 웹은 `reviewLogin=1` 표시가 있을 때만 이 메시지를 보낸다.
 - **경계 규칙**: UI 컴포넌트는 카메라/WebRTC SDK를 직접 import하지 않고 어댑터 계층을 통한다. 공부 상태 계산은 순수 TS로 두고 카메라/Vision/RTC 구현과 분리한다.
 
 ## 원격 웹뷰 화면
