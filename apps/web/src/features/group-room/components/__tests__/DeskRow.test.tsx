@@ -48,6 +48,41 @@ describe("DeskRow", () => {
     ]);
   });
 
+  it("마스코트를 보이는 그룹은 멤버마다 고른 마스코트와 입은 소품을 그리고 빈자리는 타이미 윤곽이다", () => {
+    render(
+      <DeskRow
+        members={[
+          {
+            ...members[0]!,
+            mascot: { id: "lamp", accessories: [{ slot: "head", imageUrl: "/nightcap.png" }] },
+          },
+          { ...members[1]!, mascot: { id: "pencil", accessories: [] } },
+          members[2]!,
+        ]}
+      />,
+    );
+    const [lamp, elsewhere, rest, empty] = seats();
+    expect(lamp!.querySelector('[data-slot="accessory-head"]')).toHaveAttribute(
+      "src",
+      "/nightcap.png",
+    );
+    expect(rest!.querySelector('[data-slot="mascot-body"] img')?.getAttribute("src")).toContain(
+      "pencil",
+    );
+    // 모습이 빈 멤버도 같은 줄의 다른 자리처럼 기본 마스코트로 앉힌다.
+    expect(
+      elsewhere!.querySelector('[data-slot="mascot-body"] img')?.getAttribute("src"),
+    ).toContain("stopwatch");
+    expect(empty!.querySelector('[data-slot="vacant-mascot"]')).not.toBeNull();
+    expect(screen.getByTestId("desk-row").querySelector("circle")).toBeNull();
+  });
+
+  it("마스코트를 보이지 않는 그룹은 지금처럼 사람 그림이다", () => {
+    render(<DeskRow members={members} />);
+    expect(seats()[0]!.querySelector("circle")).not.toBeNull();
+    expect(seats()[5]!.querySelector('[data-slot="vacant-mascot"]')).toBeNull();
+  });
+
   it("내 책상도 닉네임으로 쓴다", () => {
     render(
       <DeskRow

@@ -23,6 +23,8 @@ export function DeskRow({ members }: { members: readonly RoomDeskMember[] }) {
   const { t } = useTranslation("group-room");
   // 판단 모듈이 순서를 정하며 멤버를 공통 모양으로 돌려주므로 내 자리는 아이디로 다시 찾는다.
   const myUserId = members.find((member) => member.isMe)?.userId;
+  // 포인트를 연 곳에서는 모든 멤버가 모습을 받으므로 한 명이라도 있으면 빈자리까지 마스코트 자리로 맞춘다.
+  const mascotSeats = members.some((member) => member.mascot !== undefined);
   return (
     <span aria-hidden="true" data-testid="desk-row" className="grid grid-cols-6 gap-0.5">
       {arrangeDesks(members).map((slot, index) => {
@@ -36,7 +38,12 @@ export function DeskRow({ members }: { members: readonly RoomDeskMember[] }) {
             data-me={isMe || undefined}
             className="flex min-w-0 flex-col items-center"
           >
-            <DeskFigure tone={tone} size="sm" />
+            <DeskFigure
+              tone={tone}
+              size="sm"
+              mascot={slot.kind === "empty" ? undefined : slot.member.mascot}
+              mascotSeat={mascotSeats}
+            />
             <span
               className={cn(
                 "block w-full truncate pt-0.5 text-center text-[10px] leading-3.5",
