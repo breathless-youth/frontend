@@ -43,12 +43,13 @@ export const MASCOT_EXPRESSION_SRC: Record<MascotId, Record<MascotExpression, st
  *
  * 판 한 변을 1024로 본 이동 거리와 반시계 방향 회전 각도이며 판 가운데가 회전축이다.
  * 점프 그림과 기본 정지 그림의 몸 윤곽을 맞춰 측정한 값이라 그림을 바꾸면 다시 측정한다.
+ * 타이미는 6°로 두면 점프 그림과 4px쯤 어긋나 몸에 붙는 소품 가장자리로 몸이 띠처럼 보여서, 점프 그림에 다시 맞춰 ±2px 안에 드는 값을 쓴다.
  */
 export const MASCOT_JUMP_TILT: Record<MascotId, { angle: number; x: number; y: number }> = {
   book: { angle: 6, x: 2, y: -52 },
   planner: { angle: 6.1, x: 20, y: -54 },
   pencil: { angle: 6, x: 4, y: -34 },
-  stopwatch: { angle: 6, x: 8, y: -52 },
+  stopwatch: { angle: 5.5, x: 4, y: -54 },
   lamp: { angle: 6, x: 4, y: -52 },
   padlock: { angle: 6, x: 0, y: -38 },
   camcorder: { angle: 6, x: 0, y: -38 },
