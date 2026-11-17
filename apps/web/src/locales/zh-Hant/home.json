@@ -143,6 +143,12 @@
       "exam": "考試"
     },
     "startingStudy": "準備讀書中",
+    "measureMode": {
+      "toggle": {
+        "camera": "切換測量方式，目前用相機測量",
+        "timer": "切換測量方式，目前不用相機讀書"
+      }
+    },
     "startFailed": "無法開始讀書，請再試一次。",
     "reward": {
       "label": "入門任務獎勵",

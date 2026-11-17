@@ -2,23 +2,34 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-import { trackHomeShortcutTapped, trackHomeSubjectSelected } from "@/lib/amplitude";
+import { writeMeasureMode } from "@/features/measure-mode/measureMode";
+import {
+  trackHomeShortcutTapped,
+  trackHomeSubjectSelected,
+  trackStudyMeasureModeChanged,
+} from "@/lib/amplitude";
 
 import { HomeContactFooter } from "../HomeContactFooter";
 import { HomePlannerShortcut, HomeUtilityShortcuts } from "../HomeShortcuts";
+import { HomeStartButtons } from "../HomeStartButtons";
 import { HomeSubjectSelect } from "../HomeSubjectSelect";
 
 vi.mock("@/lib/amplitude", () => ({
   trackHomeShortcutTapped: vi.fn(),
   trackHomeSubjectSelected: vi.fn(),
+  trackStudyMeasureModeChanged: vi.fn(),
 }));
 
 beforeEach(() => {
   vi.mocked(trackHomeShortcutTapped).mockReset();
   vi.mocked(trackHomeSubjectSelected).mockReset();
+  vi.mocked(trackStudyMeasureModeChanged).mockReset();
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  writeMeasureMode("camera");
+});
 
 it("플래너 바로가기를 누르면 플래너 대상으로 한 번 기록한다", async () => {
   const onOpen = vi.fn();
@@ -110,4 +121,18 @@ it("과목 추가를 누르면 과목 선택으로 기록하지 않는다", asyn
 
   expect(onAdd).toHaveBeenCalledTimes(1);
   expect(trackHomeSubjectSelected).not.toHaveBeenCalled();
+});
+
+it("측정 방식을 바꿀 때마다 바꾼 뒤의 방식을 홈에서 바꿨다고 기록한다", async () => {
+  const onStart = vi.fn();
+  render(<HomeStartButtons starting={false} onStart={onStart} />);
+
+  await userEvent.click(screen.getByRole("button", { name: /측정 방식 바꾸기/ }));
+  await userEvent.click(screen.getByRole("button", { name: /측정 방식 바꾸기/ }));
+
+  expect(vi.mocked(trackStudyMeasureModeChanged).mock.calls).toEqual([
+    ["timer", "home"],
+    ["camera", "home"],
+  ]);
+  expect(onStart).not.toHaveBeenCalled();
 });

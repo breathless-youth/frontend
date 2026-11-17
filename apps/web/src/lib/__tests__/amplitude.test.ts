@@ -2600,6 +2600,30 @@ describe("홈 바로가기·과목 선택", () => {
   });
 });
 
+describe("측정 방식 전환", () => {
+  it("바꾼 뒤의 방식과 바꾼 자리만 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackStudyMeasureModeChanged("timer", "home");
+    m.trackStudyMeasureModeChanged("camera", "home");
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["study_measure_mode_changed", { mode: "timer", from: "home" }],
+      ["study_measure_mode_changed", { mode: "camera", from: "home" }],
+    ]);
+  });
+
+  it("초기화 전에는 보내지 않는다", async () => {
+    const m = await loadModule();
+
+    m.trackStudyMeasureModeChanged("timer", "home");
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+});
+
 describe("세션 공간 이벤트", () => {
   it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
     const m = await loadModule();

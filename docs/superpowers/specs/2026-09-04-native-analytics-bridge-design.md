@@ -131,6 +131,12 @@ Amplitude 추적 계획에 새 이벤트와 속성을 등록했다. 실제 수�
 
 홈 목표 시트에서 날짜 목표가 저장되면 `home_goal_saved {goal_min, as_default}`를 보낸다. 기본 목표 저장만 실패하면 `as_default`를 false로 보내고, 기본 목표만 다시 저장할 때는 다시 보내지 않는다. 날짜 목표 저장이 실패하면 보내지 않는다.
 
+## 홈 측정 방식 전환 (2026-11-18)
+
+카메라 없이 공부하는 방식(BY-1321)을 고를 수 있게 홈 v3 시작 버튼 옆에 전환 버튼을 두었다. 전환 버튼을 누르면 `study_measure_mode_changed {mode, from}`을 보낸다. `mode`는 바뀐 뒤의 값으로 `camera`(카메라로 측정) 또는 `timer`(카메라 없이)이고, `from`은 누른 화면으로 지금은 `home`뿐이다. 고른 방식은 계정이 아니라 기기에 저장되므로, 같은 사람이 기기마다 다른 방식을 쓸 수 있다.
+
+전환 비율은 `study_measure_mode_changed`를 사용자 단위로 세어 본다. 배포 전 기준값은 입장 카메라 확인 창에서 `심플 모드로 시작`을 고른 비율(`study_session_camera_prompt_answered`의 `choice: simple`)로 잡는다. 실제로 카메라 없이 공부를 시작했는지는 세션 이벤트에 측정 방식 속성이 붙는 BY-1324 이후에 본다.
+
 ## 테스트
 
 - `apps/mobile/lib/__tests__/nativeAnalytics.test.ts`: 즉시 전달, 큐 보관·순서, 이중 전달 없음, 활성 sink 교대, 상한.
