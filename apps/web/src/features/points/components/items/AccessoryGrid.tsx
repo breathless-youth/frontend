@@ -1,11 +1,14 @@
 import type { TFunction } from "i18next";
 import { Check } from "lucide-react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
 
 import { formatPoints } from "../../model/formatPoints";
+import type { StorePrice } from "../../model/useStorePrices";
 import type { ShopItem } from "../../types";
+import { StorePriceText } from "../shared/StorePriceText";
 import { ItemCutout } from "./ItemCutout";
 
 /**
@@ -15,15 +18,18 @@ import { ItemCutout } from "./ItemCutout";
  * 소품은 투명한 판을 잘라 낸 소품 부분만 칸에 크게 그려서 휴대폰에서도 무엇인지 보인다.
  * 입은 소품을 고른 채로 그 칸을 한 번 더 누르면 벗으므로 벗기 칸을 따로 두지 않는다.
  * 그림이 없는 상품은 그림 자리를 비우고 이름과 가격만 두어 칸 높이는 그대로다.
+ * 결제 상품(세트)은 포인트 가격 자리에 스토어 가격을 보인다.
  */
 export function AccessoryGrid({
   items,
   pickedId,
+  storePrice,
   onPick,
   onTakeOff,
 }: {
   items: ShopItem[];
   pickedId: string | undefined;
+  storePrice: (item: ShopItem) => StorePrice;
   onPick: (id: string) => void;
   onTakeOff: (item: ShopItem) => void;
 }) {
@@ -34,12 +40,13 @@ export function AccessoryGrid({
     <div role="group" aria-label={t("grid.label")} className="grid grid-cols-3 gap-2.5">
       {items.map((item) => {
         const picked = item.id === pickedId;
-        const sub = subLabel(item, t);
+        const price = storePrice(item);
+        const sub = subLabel(item, price, t);
         return (
           <button
             key={item.id}
             type="button"
-            aria-label={cellLabel(item, picked, t)}
+            aria-label={cellLabel(item, picked, price, t)}
             aria-pressed={picked}
             onClick={() => (picked && item.inUse ? onTakeOff(item) : onPick(item.id))}
             className={cn(
@@ -70,7 +77,11 @@ export function AccessoryGrid({
 
 type T = TFunction<"points-items">;
 
-function subLabel(item: ShopItem, t: T): { text: string; tone: string; wearing?: true } {
+function subLabel(
+  item: ShopItem,
+  price: StorePrice,
+  t: T,
+): { text: ReactNode; tone: string; wearing?: true } {
   if (item.inUse) {
     return { text: t("grid.wearing"), tone: "text-feedback-success", wearing: true };
   }
@@ -81,7 +92,10 @@ function subLabel(item: ShopItem, t: T): { text: string; tone: string; wearing?:
     return { text: formatPoints(item.acquire.price), tone: "text-primary" };
   }
   if (item.acquire.type === "store") {
-    return { text: t("grid.store"), tone: "text-primary" };
+    return {
+      text: <StorePriceText price={price} fallback={t("grid.store")} />,
+      tone: "text-primary",
+    };
   }
   const { condition, target } = item.acquire;
   return {
@@ -90,7 +104,7 @@ function subLabel(item: ShopItem, t: T): { text: string; tone: string; wearing?:
   };
 }
 
-function cellLabel(item: ShopItem, picked: boolean, t: T): string {
+function cellLabel(item: ShopItem, picked: boolean, price: StorePrice, t: T): string {
   if (item.inUse) {
     // 고른 입은 칸은 누르면 벗으므로 그 동작을 이름 뒤에 함께 읽는다.
     return t(picked ? "grid.wearingPickedLabel" : "grid.wearingLabel", { name: item.name });
@@ -102,7 +116,10 @@ function cellLabel(item: ShopItem, picked: boolean, t: T): string {
     return `${item.name} ${formatPoints(item.acquire.price)}`;
   }
   if (item.acquire.type === "store") {
-    return t("grid.storeLabel", { name: item.name });
+    // 포인트 상품처럼 이름 뒤에 가격을 읽고, 가격을 모르면 결제 상품이라고 읽는다.
+    return price.status === "known"
+      ? `${item.name} ${price.label}`
+      : t("grid.storeLabel", { name: item.name });
   }
   const { condition, target } = item.acquire;
   return t(condition === "focusHours" ? "grid.rewardHoursLabel" : "grid.rewardDaysLabel", {

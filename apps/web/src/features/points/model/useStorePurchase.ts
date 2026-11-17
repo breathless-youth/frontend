@@ -1,12 +1,13 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 
 import { trackPointsStorePurchase } from "@/lib/amplitude";
-import { pointsKeys, storePricesQuery } from "@/lib/pointsQueries";
+import { pointsKeys } from "@/lib/pointsQueries";
 
 import { usePointsGateway, usePointsUserId } from "../gateway/PointsGatewayContext";
 import type { ShopItem } from "../types";
 import { useMemberOnly } from "./useMemberOnly";
+import { useStorePrices } from "./useStorePrices";
 
 export type StorePurchaseStep = "idle" | "paying" | "waiting" | "late" | "failed" | "done";
 
@@ -28,12 +29,7 @@ export function useStorePurchase(items: readonly ShopItem[]) {
   const [target, setTarget] = useState<ShopItem | null>(null);
   const inFlightRef = useRef(false);
   const memberOnly = useMemberOnly();
-  const productIds = [
-    ...new Set(
-      items.flatMap((item) => (item.acquire.type === "store" ? [item.acquire.productId] : [])),
-    ),
-  ].sort();
-  const prices = useQuery(storePricesQuery(gateway, userId, productIds)).data;
+  const price = useStorePrices(items);
 
   async function buy(item: ShopItem) {
     if (item.acquire.type !== "store" || item.owned || inFlightRef.current) {
@@ -70,8 +66,12 @@ export function useStorePurchase(items: readonly ShopItem[]) {
     available: gateway.capabilities.storeItems,
     step,
     target,
-    priceLabel: (item: ShopItem) =>
-      item.acquire.type === "store" ? (prices?.[item.acquire.productId] ?? null) : null,
+    /** 칸의 가격 자리에 쓰며 받는 중인지도 함께 알려 준다. */
+    price,
+    priceLabel: (item: ShopItem) => {
+      const known = price(item);
+      return known.status === "known" ? known.label : null;
+    },
     buy,
     retry: () => (target === null ? undefined : void buy(target)),
     close: () => setStep("idle"),
