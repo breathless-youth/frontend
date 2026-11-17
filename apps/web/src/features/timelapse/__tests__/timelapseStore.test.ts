@@ -7,6 +7,9 @@ import { DEFAULT_TIMELAPSE_SETTINGS } from "../timelapseSettings";
 import type { TimelapsePhoto, TimelapseStore } from "../timelapseStore";
 import { KEEP_COUNT, KEEP_MS, createIndexedDbTimelapseStore } from "../timelapseStore";
 
+/** 기본값은 녹화가 꺼져 있어 촬영을 보는 테스트는 켠 설정으로 시작한다. */
+const RECORDING = { ...DEFAULT_TIMELAPSE_SETTINGS, enabled: true };
+
 /**
  * fake-indexeddb 위에서 실제 저장 코드를 돌린다.
  * 테스트마다 새 IDBFactory를 깔아 앞 테스트의 DB가 남지 않게 한다.
@@ -50,7 +53,7 @@ beforeEach(() => {
 
 describe("begin", () => {
   it("설정 스냅샷과 10초 간격으로 촬영 중 기록을 만든다", async () => {
-    const settings = { ...DEFAULT_TIMELAPSE_SETTINGS, aspect: "16:9" as const };
+    const settings = { ...RECORDING, aspect: "16:9" as const };
 
     await expect(store.begin(T0, settings)).resolves.toEqual({
       startedAtMs: T0,
@@ -72,7 +75,7 @@ describe("begin", () => {
 
 describe("addPhoto", () => {
   it("순번을 올리며 바이트와 찍은 시각을 남긴다", async () => {
-    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(T0, RECORDING);
 
     await store.addPhoto(T0, bytes(7), T0 + 1_000);
     const record = await store.addPhoto(T0, bytes(8), T0 + 11_000);
@@ -86,7 +89,7 @@ describe("addPhoto", () => {
   });
 
   it("720장이 되면 한 장 걸러 지워 360장으로 줄이고 간격을 두 배로 늘린다", async () => {
-    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(T0, RECORDING);
 
     await addPhotos(store, T0, THIN_AT_COUNT - 1);
     const record = await store.addPhoto(T0, bytes(0), T0 + THIN_AT_COUNT * 10_000);
@@ -102,7 +105,7 @@ describe("addPhoto", () => {
   });
 
   it("두 번째로 720장이 차면 다시 360장으로 줄이고 간격을 40초로 늘리며 시간 순서는 고르게 남는다", async () => {
-    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(T0, RECORDING);
     await addPhotos(store, T0, THIN_AT_COUNT);
     // 첫 솎기 뒤의 20초 간격으로 다시 720장을 채운다.
     const resumedAtMs = T0 + THIN_AT_COUNT * 10_000;
@@ -126,18 +129,18 @@ describe("addPhoto", () => {
 
 describe("begin 이어 쓰기", () => {
   it("같은 시작 시각의 촬영 중 기록은 처음 스냅샷 그대로 이어 쓴다", async () => {
-    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(T0, RECORDING);
     await addPhotos(store, T0, 2);
 
     const resumed = await store.begin(T0, { ...DEFAULT_TIMELAPSE_SETTINGS, enabled: false });
 
-    expect(resumed).toMatchObject({ settings: DEFAULT_TIMELAPSE_SETTINGS, nextSeq: 2 });
+    expect(resumed).toMatchObject({ settings: RECORDING, nextSeq: 2 });
   });
 });
 
 describe("finalize", () => {
   it("고르게 360장만 남기고 요약과 함께 목록에 올린다", async () => {
-    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(T0, RECORDING);
     await addPhotos(store, T0, 540);
 
     await store.finalize(T0, SUMMARY);
@@ -155,7 +158,7 @@ describe("finalize", () => {
   });
 
   it("사진이 하나도 없으면 기록을 지운다", async () => {
-    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(T0, RECORDING);
 
     await store.finalize(T0, SUMMARY);
 
@@ -170,7 +173,7 @@ describe("addPhoto 끝난 기록", () => {
   it("기록이 없거나 끝난 타임랩스에는 붙이지 않는다", async () => {
     await expect(store.addPhoto(T0, bytes(1), T0)).resolves.toBeNull();
 
-    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(T0, RECORDING);
     await addPhotos(store, T0, 1);
     await store.finalize(T0, SUMMARY);
 
@@ -181,7 +184,7 @@ describe("addPhoto 끝난 기록", () => {
 
 describe("remove", () => {
   it("기록과 사진을 함께 지운다", async () => {
-    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(T0, RECORDING);
     await addPhotos(store, T0, 3);
 
     await store.remove(T0);
@@ -195,7 +198,7 @@ describe("remove", () => {
 
 describe("discard", () => {
   it("촬영 중 기록은 사진째 지운다", async () => {
-    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(T0, RECORDING);
     await addPhotos(store, T0, 2);
 
     await store.discard(T0);
@@ -204,7 +207,7 @@ describe("discard", () => {
   });
 
   it("목록에 올린 기록은 지우지 않는다", async () => {
-    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(T0, RECORDING);
     await addPhotos(store, T0, 2);
     await store.finalize(T0, SUMMARY);
 
@@ -217,7 +220,7 @@ describe("discard", () => {
 
 describe("sweep", () => {
   async function readyAt(startedAtMs: number) {
-    await store.begin(startedAtMs, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(startedAtMs, RECORDING);
     await addPhotos(store, startedAtMs, 1);
     await store.finalize(startedAtMs, SUMMARY);
   }
@@ -245,7 +248,7 @@ describe("sweep", () => {
   });
 
   it("촬영 중 고아 기록은 목록과 개수에 들지 않고 7일 뒤에만 지운다", async () => {
-    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(T0, RECORDING);
     await addPhotos(store, T0, 1);
     for (let index = 1; index <= 7; index += 1) {
       await readyAt(T0 + index);
@@ -262,7 +265,7 @@ describe("sweep", () => {
 
 describe("get", () => {
   it("저장한 기록을 주고 없는 키는 null을 준다", async () => {
-    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(T0, RECORDING);
 
     await expect(store.get(T0)).resolves.toMatchObject({ startedAtMs: T0, status: "recording" });
     await expect(store.get(T0 + 1)).resolves.toBeNull();
@@ -271,7 +274,7 @@ describe("get", () => {
 
 describe("annotate", () => {
   it("목록에 올린 기록에 D-Day와 연속 공부 일수를 더한다", async () => {
-    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(T0, RECORDING);
     await addPhotos(store, T0, 1);
     await store.finalize(T0, SUMMARY);
 
@@ -286,7 +289,7 @@ describe("annotate", () => {
   });
 
   it("촬영 중 기록과 없는 키는 그대로 둔다", async () => {
-    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(T0, RECORDING);
 
     await store.annotate(T0, { streakDays: 5 });
     await store.annotate(T0 + 1, { streakDays: 5 });
@@ -299,9 +302,9 @@ describe("annotate", () => {
 describe("photoSeqs", () => {
   it("사진 번호만 찍은 순서로 주고 다른 타임랩스의 사진은 넣지 않는다", async () => {
     const other = T0 + 3_600_000;
-    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(T0, RECORDING);
     await addPhotos(store, T0, 3);
-    await store.begin(other, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(other, RECORDING);
     await addPhotos(store, other, 2);
 
     await expect(store.photoSeqs(T0)).resolves.toEqual([0, 1, 2]);
@@ -314,7 +317,7 @@ describe("photoSeqs", () => {
 
 describe("readPhoto", () => {
   it("번호에 맞는 사진 한 장의 바이트를 준다", async () => {
-    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(T0, RECORDING);
     await addPhotos(store, T0, 3);
 
     const photo = await store.readPhoto(T0, 1);
@@ -323,7 +326,7 @@ describe("readPhoto", () => {
   });
 
   it("없는 사진은 null이다", async () => {
-    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(T0, RECORDING);
     await addPhotos(store, T0, 1);
 
     await expect(store.readPhoto(T0, 5)).resolves.toBeNull();
@@ -332,7 +335,7 @@ describe("readPhoto", () => {
 
 describe("middlePhoto", () => {
   it("찍은 사진 중 가운데 한 장을 준다", async () => {
-    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(T0, RECORDING);
     await addPhotos(store, T0, 5);
     await store.finalize(T0, SUMMARY);
 
@@ -348,7 +351,7 @@ describe("middlePhoto", () => {
 
 describe("videos", () => {
   async function readyWithPhoto(startedAtMs: number) {
-    await store.begin(startedAtMs, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(startedAtMs, RECORDING);
     await addPhotos(store, startedAtMs, 1);
     await store.finalize(startedAtMs, { ...SUMMARY, endedAtMs: startedAtMs + 3_600_000 });
   }
@@ -369,7 +372,7 @@ describe("videos", () => {
 
   it("목록에 올린 기록이 없으면 넣지 않는다", async () => {
     await store.putVideo({ startedAtMs: T0, bytes: bytes(1), mimeType: "video/mp4" });
-    await store.begin(T0 + 1, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(T0 + 1, RECORDING);
     await store.putVideo({ startedAtMs: T0 + 1, bytes: bytes(1), mimeType: "video/mp4" });
 
     await expect(store.getVideo(T0)).resolves.toBeNull();

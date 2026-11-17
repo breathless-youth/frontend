@@ -38,7 +38,8 @@ export interface TimelapseSettings {
 }
 
 export const DEFAULT_TIMELAPSE_SETTINGS: TimelapseSettings = {
-  enabled: true,
+  // 처음 들어온 사용자가 촬영된다는 부담 없이 시작하도록 꺼 둔다.
+  enabled: false,
   aspect: "9:16",
   faceMaskEmoji: FACE_MASK_EMOJIS[0]!.id,
   info: {

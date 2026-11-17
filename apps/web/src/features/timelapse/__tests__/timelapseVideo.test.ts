@@ -9,6 +9,9 @@ import { createIndexedDbTimelapseStore, type TimelapseStore } from "../timelapse
 import { buildTimelapseVideo, TimelapseVideoError, type VideoBuildDeps } from "../timelapseVideo";
 import type { VideoSink } from "../videoSinks";
 
+/** 기본값은 녹화가 꺼져 있어 촬영을 보는 테스트는 켠 설정으로 시작한다. */
+const RECORDING = { ...DEFAULT_TIMELAPSE_SETTINGS, enabled: true };
+
 vi.mock("../timelapseFrame", async (importOriginal) => ({
   ...(await importOriginal<typeof TimelapseFrame>()),
   drawTimelapseFrame: vi.fn(),
@@ -26,7 +29,7 @@ beforeEach(() => {
 });
 
 async function readyTimelapse(photoCount: number, aspect: "9:16" | "16:9" = "9:16") {
-  await store.begin(T0, { ...DEFAULT_TIMELAPSE_SETTINGS, aspect });
+  await store.begin(T0, { ...RECORDING, aspect });
   for (let index = 0; index < photoCount; index += 1) {
     await store.addPhoto(T0, new Uint8Array([index]).buffer, T0 + index * 10_000);
   }
