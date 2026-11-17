@@ -36,6 +36,7 @@ export function DeskFigure({
   size,
   mascot,
   mascotSeat = mascot !== undefined,
+  isMe = false,
 }: {
   tone: DeskTone | "empty";
   size: DeskSize;
@@ -43,9 +44,11 @@ export function DeskFigure({
   mascot?: MascotLook;
   /** 마스코트 자리로 그릴지이며 모습이 비어 있는 멤버에게는 기본 마스코트를 앉힌다. */
   mascotSeat?: boolean;
+  /** 지금 보는 사람의 자리인지이며 마스코트 자리에서만 쓰고 사람 그림은 그대로 둔다. */
+  isMe?: boolean;
 }) {
   if (mascotSeat) {
-    return <MascotSeat tone={tone} size={size} look={mascot} />;
+    return <MascotSeat tone={tone} size={size} look={mascot} isMe={isMe} />;
   }
   const look = SIZE[size];
   const empty = tone === "empty";
