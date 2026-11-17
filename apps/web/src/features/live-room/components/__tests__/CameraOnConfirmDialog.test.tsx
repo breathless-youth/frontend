@@ -262,6 +262,11 @@ describe("CameraOnConfirmDialog 얼굴 가리기", () => {
     expect(
       screen.getByText("오래 켜 두면 기기가 뜨거워질 수 있어요", { selector: "[data-state] > p" }),
     ).toBeInTheDocument();
+    // 세션 색 말풍선이라 꼬리도 같은 세션 색으로 칠해야 본문과 이어져 보인다.
+    const body = screen
+      .getByText("오래 켜 두면 기기가 뜨거워질 수 있어요", { selector: "[data-state] > p" })
+      .closest("[data-state]");
+    expect(body?.querySelector("svg")).toHaveClass("fill-(--session-dialog-cancel-bg)");
   });
 
   it("넘긴 안내 문구와 보조 문구로 바꿔 그린다", async () => {

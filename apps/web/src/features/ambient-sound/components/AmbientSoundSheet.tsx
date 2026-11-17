@@ -55,6 +55,8 @@ function hasCatalogLabel(id: SoundId): id is CataloguedSoundId {
 
 /** `InfoTooltip` 기본색은 전역 토큰이라 세션 툴팁 색으로 덮는다. */
 const SESSION_TOOLTIP_CLASS = "bg-(--session-dialog-cancel-bg) text-white";
+// 말풍선 꼬리도 본문과 같은 세션 색으로 칠한다.
+const SESSION_TOOLTIP_ARROW_CLASS = "fill-(--session-dialog-cancel-bg)";
 
 /** 소리 이름 줄. 아이콘과 글자를 나란히 놓고 그 칸 전체가 켜고 끄는 버튼이다. */
 function SoundRow({
@@ -107,6 +109,7 @@ function SoundRow({
             label={t("row.aria.tooltip", { label })}
             side="top"
             contentClassName={SESSION_TOOLTIP_CLASS}
+            arrowClassName={SESSION_TOOLTIP_ARROW_CLASS}
           >
             {note}
           </InfoTooltip>
@@ -215,6 +218,7 @@ export function AmbientSoundSheet({
           label={t("duck.aria.tooltip")}
           side="top"
           contentClassName={SESSION_TOOLTIP_CLASS}
+          arrowClassName={SESSION_TOOLTIP_ARROW_CLASS}
         >
           {t("duck.tooltip")}
         </InfoTooltip>
@@ -239,7 +243,11 @@ export function AmbientSoundSheet({
         // 글자와 ⓘ는 4px만 띄운다. ⓘ의 44px 터치 영역은 가상 요소라 간격을 밀지 않는다.
         // ⓘ와 스위치 사이는 두 터치 영역이 겹치지 않게 넓게 둔다.
         <div className="ml-1 flex items-center gap-5.5">
-          <InfoTooltip label={t("sheet.aria.tooltip")} contentClassName={SESSION_TOOLTIP_CLASS}>
+          <InfoTooltip
+            label={t("sheet.aria.tooltip")}
+            contentClassName={SESSION_TOOLTIP_CLASS}
+            arrowClassName={SESSION_TOOLTIP_ARROW_CLASS}
+          >
             {t("sheet.tooltip")}
           </InfoTooltip>
           <Switch

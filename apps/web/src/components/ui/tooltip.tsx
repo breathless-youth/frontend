@@ -7,6 +7,7 @@ const TooltipProvider = TooltipPrimitive.Provider;
 const Tooltip = TooltipPrimitive.Root;
 const TooltipTrigger = TooltipPrimitive.Trigger;
 const TooltipPortal = TooltipPrimitive.Portal;
+const TooltipArrow = TooltipPrimitive.Arrow;
 
 /**
  * shadcn `Tooltip`. 색만 서비스 토큰으로 바꿨다.
@@ -32,4 +33,4 @@ const TooltipContent = React.forwardRef<
 ));
 TooltipContent.displayName = TooltipPrimitive.Content.displayName;
 
-export { Tooltip, TooltipContent, TooltipPortal, TooltipProvider, TooltipTrigger };
+export { Tooltip, TooltipArrow, TooltipContent, TooltipPortal, TooltipProvider, TooltipTrigger };
