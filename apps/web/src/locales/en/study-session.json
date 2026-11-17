@@ -25,11 +25,15 @@
   "cameraPrompt": {
     "title": "Check your camera position",
     "description": "Make sure your face and desk are in view",
-    "notice": "Your camera video stays on your device",
+    "notice": "Your camera view isn't sent anywhere",
     "cancel": "Start in\nSimple Mode",
     "confirm": "Turn on camera",
     "faceMaskTooltip": "If you move quickly, your face may show for a moment",
     "faceMaskCaption": "Hide face for time-lapses is a separate setting"
+  },
+  "camera": {
+    "expand": "Enlarge my camera",
+    "shrink": "Make it smaller"
   },
   "cameraToast": {
     "flipped": "Camera switched",
@@ -85,6 +89,7 @@
   "moreMenu": {
     "trigger": "More",
     "flipCamera": "Switch camera",
+    "planner": "Planner",
     "help": "View guide",
     "shareInvite": "Share invite code"
   },
@@ -120,20 +125,22 @@
   },
   "help": {
     "dialog": "Session guide",
-    "nextOverlay": "Next tip",
     "prev": "Previous",
     "next": "Next",
-    "awayPill": "<hl>Away</hl> or <hl>dozing off</hl>?\nWe'll show it here",
-    "awayTimer": "Your <hl>focus time</hl> stops in the meantime",
-    "measuringPill": "Come back to <hl>measure again</hl>\nYour camera view stays\non <hl>your device</hl>, so rest easy😌",
-    "measuringTimer": "<hl>Focus time</hl>\nstarts counting again⏰",
-    "cameraTap": "Tap the screen to switch\nto the <hl>camera view</hl>",
-    "buttonsSide": "<hl>Ambient sound</hl>,\n<hl>subjects</hl>, and <hl>timers</hl>\nare right here",
-    "buttonsPause": "Taking a break?\nTap <hl>Pause</hl>",
+    "stepCount": "{{current}} / {{total}}",
+    "sampleSubject": "Math",
+    "welcomeTitle": "Welcome to FocusMakers.",
+    "welcomeBody": "Let's take a quick look at how it works.",
+    "awayTitle": "<hl>If you lose focus</hl>, we'll let you know here",
+    "awayBody": "Your focus time pauses in the meantime",
+    "measuringTitle": "Focus again to <hl>resume measuring</hl>",
+    "measuringBody": "Your focus time starts counting again",
+    "simpleTitle": "Tap the screen to switch to <hl>Simple Mode</hl>",
+    "finishTitle": "You're all set\nReady to <hl>focus</hl>?",
     "finishMore": "Find this guide anytime\nin the More menu",
-    "finishCenter": "You're all set\nReady to <hl>focus</hl>?",
+    "finishPip": "Your camera view isn't sent anywhere,\nso rest easy😌",
     "finishCta": "Start focusing",
-    "finishLater": "I'll start later"
+    "finishLater": "Maybe later"
   },
   "recovery": {
     "title": "Unsaved session recovered",
@@ -164,5 +171,40 @@
     "focus": "Focus",
     "distract": "Auto-paused",
     "pause": "Paused"
+  },
+  "space": {
+    "button": "Space",
+    "title": "Space",
+    "tabs": {
+      "video": "Video",
+      "image": "Image"
+    },
+    "search": "Search spaces",
+    "all": "All",
+    "sections": {
+      "watch": "Watchers",
+      "mine": "My photos"
+    },
+    "names": {
+      "proctor": "Study hall proctor",
+      "simple": "Simple",
+      "photo": "My photo {{number}}"
+    },
+    "photoCount": "{{current}}/{{max}}",
+    "upload": "Upload photo",
+    "preview": "Preview {{name}}",
+    "remove": "Delete {{name}}",
+    "empty": "No spaces found",
+    "back": "Back",
+    "apply": "Apply",
+    "applied": "In use",
+    "mute": "Mute space sound",
+    "unmute": "Unmute space sound",
+    "volume": "Space volume",
+    "applyFailed": "Couldn't change the space. Try again",
+    "photoLimit": "You can upload up to {{max}} photos",
+    "removed": "Photo deleted",
+    "removeFailed": "Couldn't delete the photo. Try again",
+    "photoLoadFailed": "Couldn't load photos"
   }
 }

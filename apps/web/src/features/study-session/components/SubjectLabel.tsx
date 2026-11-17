@@ -10,8 +10,12 @@ import { formatElapsed, toKoreanDuration } from "../formatDuration";
 export interface SubjectLabelProps {
   name: string;
   focusSec: number;
-  /** 세션이 일시정지라 이 과목의 시간도 멈춰 있는가. */
-  paused: boolean;
+  /**
+   * 세션이 일시정지라 이 과목의 시간도 멈춰 있는가.
+   * 넘기면 과목 색 점을 그려 멈춤을 점 모양으로 알린다.
+   * 싱글룸은 상태 줄이 같은 일을 해서 점을 그리지 않으려고 넘기지 않는다.
+   */
+  paused?: boolean;
   /** 넘기면 과목 페이지를 여는 버튼이고, 빼면 누를 수 없는 글자다. */
   onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
   expanded?: boolean;
@@ -38,16 +42,18 @@ export function SubjectLabel({
   const { t } = useTranslation("study-session");
   const content = (
     <>
-      <img
-        src={dotIcon}
-        alt=""
-        aria-hidden="true"
-        className={cn(
-          "size-1.5 shrink-0",
-          // 세션이 일시정지면 과목 시간도 멈춰 있다 — 깜빡임을 끄고 옅게 둔다.
-          paused ? "opacity-40" : "animate-pulse motion-reduce:animate-none",
-        )}
-      />
+      {paused !== undefined && (
+        <img
+          src={dotIcon}
+          alt=""
+          aria-hidden="true"
+          className={cn(
+            "size-1.5 shrink-0",
+            // 세션이 일시정지면 과목 시간도 멈춰 있다 — 깜빡임을 끄고 옅게 둔다.
+            paused ? "opacity-40" : "animate-pulse motion-reduce:animate-none",
+          )}
+        />
+      )}
       <span className="truncate text-white/85">{name}</span>
       <span className="font-bold text-white/92 tabular-nums">
         <span aria-hidden="true">{formatElapsed(focusSec)}</span>

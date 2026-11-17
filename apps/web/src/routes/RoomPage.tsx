@@ -1,4 +1,3 @@
-import { BookOpen } from "lucide-react";
 import {
   type RefObject,
   useCallback,
@@ -8,12 +7,12 @@ import {
   useRef,
   useState,
 } from "react";
+import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import type { StudySessionResponse, SubjectResponse } from "@focusmakers/types";
 
-import { Button } from "@/components/ui/button";
 import { CtaToaster } from "@/components/ui/sonner";
 import { createAmbientUsage } from "@/features/ambient-sound/ambientUsage";
 import { AmbientSoundButton } from "@/features/ambient-sound/components/AmbientSoundButton";
@@ -51,12 +50,10 @@ import { CameraPreviewSurface } from "@/features/study-session/components/Camera
 import { DevVisionFailureNotice } from "@/features/study-session/components/DevVisionFailureNotice";
 import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
 import {
-  controlButtonVariants,
-  SESSION_SYMBOL_SCALE,
-} from "@/features/study-session/components/controlButtonVariants";
-import {
+  ExpandGlyph,
   SessionExitButton,
   SessionPauseButton,
+  ShrinkGlyph,
 } from "@/features/study-session/components/SessionControlButtons";
 import { SessionHelpScreen } from "@/features/study-session/components/SessionHelpScreen";
 import {
@@ -68,16 +65,13 @@ import {
   SESSION_SIDE_POSITION,
   SessionSideActions,
 } from "@/features/study-session/components/SessionSideActions";
-import {
-  SESSION_PILL_SIZE,
-  SessionStatusPill,
-} from "@/features/study-session/components/SessionStatusPill";
-import type { SessionStatusPillState } from "@/features/study-session/components/SessionStatusPill";
+import { SessionStatusLine } from "@/features/study-session/components/SessionStatusLine";
 import {
   SessionPageHeaderTime,
   SessionPageTimer,
   SessionTimer,
 } from "@/features/study-session/components/SessionTimer";
+import type { SessionStatusPillState } from "@/features/study-session/components/SessionTimer";
 import { SimpleModeSurface } from "@/features/study-session/components/SimpleModeSurface";
 import { NoFocusEndNotice } from "@/features/study-session/components/NoFocusEndNotice";
 import { SessionSubjectPanel as SubjectPanel } from "@/features/study-session/components/SessionSubjectPanel";
@@ -95,7 +89,14 @@ import type {
   SessionState,
 } from "@/features/study-session/sessionState";
 import { SESSION_HELP_STEPS, markSessionGuideSeen } from "@/features/study-session/sessionGuide";
-import { SESSION_LAYER_INSET } from "@/features/study-session/sessionLayout";
+import { CAMERA_EXPAND_TIMING, cameraBoxFrames } from "@/features/study-session/cameraExpandMotion";
+import { createDisplayUsage, type CameraView } from "@/features/study-session/displayUsage";
+import {
+  PIP_ANCHOR,
+  PIP_RADIUS_PX,
+  PIP_SIZE,
+  SESSION_LAYER_INSET,
+} from "@/features/study-session/sessionLayout";
 import { MANUAL_END_REASON, statusLabelKey } from "@/features/study-session/sessionState";
 import {
   clearSessionInvite,
@@ -106,7 +107,7 @@ import { sessionGlowStyle, sessionSurfaceStyle } from "@/features/study-session/
 import { useRotationRepaintNudge } from "@/lib/rotationRepaint";
 import { showCtaToast } from "@/lib/toast";
 import { useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
-import { useNativeControl } from "@/lib/nativeControls";
+import { useNativePortraitLock } from "@/lib/nativeBackGesture";
 import { useModalOverlayOpen } from "@/lib/nativeModalOverlay";
 import { useIdentityPending, useUserId } from "@/lib/userId";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
@@ -129,11 +130,41 @@ import { useSessionOrientationAnalytics } from "@/features/study-session/useSess
 import { useTrackedVisionDetector } from "@/features/study-session/useVisionReadyTracking";
 import type { FaceSpot } from "@/features/study-session/vision/faceSpot";
 import { createTimelapseRecorder } from "@/features/timelapse/timelapseRecorder";
-import type { CameraPromptChoice } from "@/lib/amplitude";
+import { SessionSpacePage } from "@/features/timer-background/components/SessionSpacePage";
+import { SpaceButton } from "@/features/timer-background/components/SpaceButton";
+import {
+  readTimerBackground,
+  SIMPLE_BACKGROUND,
+  writeTimerBackground,
+  type TimerBackgroundSelection,
+} from "@/features/timer-background/timerBackground";
+import { TimerBackgroundLayer } from "@/features/timer-background/TimerBackgroundLayer";
+import {
+  timerBackgroundPhotoQuery,
+  type BackgroundPhotoView,
+} from "@/features/timer-background/timerBackgroundQueries";
+import { WallpaperScrim } from "@/features/timer-background/WallpaperScrim";
+import { useWatcherPresence } from "@/features/timer-background/watcher/useWatcherPresence";
+import { WatcherBackground } from "@/features/timer-background/watcher/WatcherBackground";
+import {
+  createWatcherSound,
+  readWatcherVolume,
+  writeWatcherVolume,
+} from "@/features/timer-background/watcher/watcherSound";
+import { DEFAULT_WATCHER_TRIGGER_MS } from "@/features/timer-background/watcher/watcherTrigger";
+import type { CameraPromptChoice, SessionDisplayEnd } from "@/lib/amplitude";
 import {
   stageStudyResultExit,
+  trackCameraPipExpanded,
+  trackCameraPipShrunk,
+  trackSessionMoreMenuItemSelected,
+  trackSessionMoreMenuOpened,
   trackSessionNoticeConfirmed,
+  trackSessionSideButtonPressed,
   trackSessionSimpleModeToggled,
+  trackSessionSpaceMuted,
+  trackSessionSpaceOpened,
+  trackSessionSpaceVolumeChanged,
   trackStudySessionCameraPromptAnswered,
   trackStudySessionCameraPromptShown,
   trackStudySessionExitCancelled,
@@ -148,6 +179,7 @@ import {
 } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
 import { haptic } from "@/lib/haptics";
+import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 import { cn } from "@/lib/utils";
 import { prefetchResultPage } from "@/routes/lazyRoutes";
 
@@ -169,11 +201,15 @@ const SESSION_LAYER_LAYOUT = [
 /**
  * 심플 모드에서 숨기는 버튼의 전환
  *
- * 심플 모드는 상태 필, 일시정지 버튼, 측정 중인 과목 시간만 남기고 숫자에 집중하게 하는 화면이다.
+ * 심플 모드는 일시정지 버튼, 측정 중인 과목 시간만 남기고 숫자에 집중하게 하는 화면이다.
+ * 상태 줄은 화면에서 빠지고 화면 읽기 알림으로만 남는다.
  * 사라지는 동안에도 눌리지 않게 호출부가 `inert`를 함께 단다.
  */
 const SIMPLE_MODE_FADE =
   "transition-[opacity,visibility] duration-200 motion-reduce:transition-none";
+
+/** 카메라를 줄일 때 확대 화면의 버튼·덮개가 사라지는 페이드. 줄이는 움직임보다 짧게 끝나 작은 창이 되기 전에 다 사라진다. */
+const CAMERA_CHROME_FADE = "transition-opacity duration-200 ease-out motion-reduce:transition-none";
 
 /**
  * 열린 페이지를 표시하는 history 항목의 키
@@ -291,7 +327,7 @@ function useRotationPhase(): RotationPhase {
  * 세션 화면
  *
  * - 세션 상태(`sessionState`: FOCUS / DISTRACTION / PAUSE)
- *   상태 필·타이머 색·하단 일시정지 버튼이 여기 반응한다.
+ *   상태 줄·타이머 색·하단 일시정지 버튼이 여기 반응한다.
  * - 표시 모드(`simpleMode`: 프리뷰 / 심플) — "어떻게 보여줄 것인가".
  *   카메라 프리뷰 유무, 일시정지 말고 나머지 버튼의 숨김, 타이머 발광·세로 배치가 여기 반응한다.
  *
@@ -360,6 +396,13 @@ function RoomSessionScreen({
   const [ambientUsage] = useState(() => createAmbientUsage(Date.now));
   // 배경음 그릇과 같은 까닭으로 여기서 만들어 세션 훅과 타이머 훅에 함께 넘긴다.
   const [multiTimerUsage] = useState(createMultiTimerUsage);
+  // 화면 표시 모드별 머문 시간. 세션은 심플 모드로 시작한다.
+  const [displayUsage] = useState(() => createDisplayUsage(Date.now));
+  // 종료 이벤트에 실을 공간과 얼굴 가림. 둘 다 세션 훅 아래에서 정해져 커밋마다 최신 값으로 덮는다.
+  const displayContextRef = useRef<Pick<SessionDisplayEnd, "spaceKind" | "faceMask">>({
+    spaceKind: "simple",
+    faceMask: false,
+  });
   const {
     startedAtMs,
     focusSec,
@@ -392,6 +435,7 @@ function RoomSessionScreen({
     ambientUsage: ambientUsage.snapshot,
     ambientSoundPlays: ambientUsage.soundSeconds,
     multiTimerUsage: multiTimerUsage.snapshot,
+    displayUsage: () => ({ ...displayUsage.snapshot(), ...displayContextRef.current }),
     onEnded: timelapse.finish,
     onCameraLost: () => showCtaToast(t("cameraToast.cameraOff")),
   });
@@ -405,8 +449,8 @@ function RoomSessionScreen({
     usage: ambientUsage,
     roomType: "single",
   });
-  /** 세션 위에 열린 전체 페이지. 둘은 동시에 열리지 않는다. */
-  const [page, setPage] = useState<"subject" | "ambient" | null>(null);
+  /** 세션 위에 열린 전체 페이지. 여럿이 동시에 열리지 않는다. */
+  const [page, setPage] = useState<"subject" | "ambient" | "space" | null>(null);
   const studying = phase.name === "studying";
   // 세션이 끝나면 페이지는 공부 화면과 함께 사라진다. 사용자가 닫은 것이 아니라 닫힘 계측은 남기지 않는다.
   if (!studying && page !== null) {
@@ -438,7 +482,7 @@ function RoomSessionScreen({
   const [sessionSurface, setSessionSurface] = useState<HTMLElement | null>(null);
   // 페이지를 닫은 뒤 포커스를 돌려줄 자리. Radix 는 Trigger 를 쓸 때만 스스로 되돌린다.
   const ambientButtonRef = useRef<HTMLButtonElement>(null);
-  const subjectButtonRef = useRef<HTMLButtonElement>(null);
+  const spaceButtonRef = useRef<HTMLButtonElement>(null);
   const timerButtonRef = useRef<HTMLButtonElement>(null);
   // 과목 페이지를 연 요소와 연 시각. 닫을 때 포커스를 돌려주고 열려 있던 시간을 계측한다.
   const subjectOpenerRef = useRef<HTMLElement | null>(null);
@@ -490,6 +534,99 @@ function RoomSessionScreen({
       document.removeEventListener("pointerdown", markPressStart, true);
     };
   }, [moreMenuOpen]);
+  // 공간은 세션 안에서 바꿀 수 있어서 처음 한 번 읽고 이후에는 이 값이 원본이다.
+  const [space, setSpace] = useState(readTimerBackground);
+  const spacePhotoId = space.kind === "photo" ? space.photoId : null;
+  // 읽은 사진과 그 id. 읽는 중에는 id가 달라 사진이 없어도 지운 사진으로 보지 않는다.
+  const [loadedPhoto, setLoadedPhoto] = useState<{
+    id: string;
+    view: BackgroundPhotoView | null;
+  } | null>(null);
+  useEffect(() => {
+    if (spacePhotoId === null) {
+      return;
+    }
+    let cancelled = false;
+    queryClient.fetchQuery(timerBackgroundPhotoQuery(spacePhotoId)).then(
+      (view) => {
+        if (!cancelled) setLoadedPhoto({ id: spacePhotoId, view });
+      },
+      () => {
+        if (!cancelled) setLoadedPhoto({ id: spacePhotoId, view: null });
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [spacePhotoId]);
+  const spacePhoto = loadedPhoto?.id === spacePhotoId ? loadedPhoto : null;
+  const backgroundPhoto = spacePhoto?.view ?? null;
+  // 지운 사진이나 읽지 못한 사진을 가리키면 그릴 것이 없어 심플과 같다.
+  const appliedSpace = spacePhoto !== null && spacePhoto.view === null ? SIMPLE_BACKGROUND : space;
+  const proctor = space.kind === "proctor";
+  const wallpaper = backgroundPhoto !== null || proctor;
+  function applySpace(next: TimerBackgroundSelection): boolean {
+    if (!writeTimerBackground(next)) {
+      return false;
+    }
+    setSpace(next);
+    return true;
+  }
+  const watcher = useWatcherPresence(
+    sessionState.kind === "DISTRACTION" ? sessionState.trigger : null,
+    DEFAULT_WATCHER_TRIGGER_MS,
+  );
+  // 세션 중에 감독관을 고를 수 있어 재생기는 늘 만든다. 소리 컨텍스트는 처음 깨울 때 생긴다.
+  const [watcherSound] = useState(createWatcherSound);
+  useEffect(() => {
+    if (!proctor) {
+      watcherSound.stopAll();
+      return;
+    }
+    watcherSound.prime();
+    // iOS는 사용자 누름 안에서 깨워야 이후 재생을 허락해서 누를 때마다 다시 깨운다.
+    const unlock = () => watcherSound.prime();
+    const silenceHidden = () => {
+      if (document.hidden) watcherSound.stopAll();
+    };
+    window.addEventListener("pointerdown", unlock);
+    document.addEventListener("visibilitychange", silenceHidden);
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      document.removeEventListener("visibilitychange", silenceHidden);
+    };
+  }, [proctor, watcherSound]);
+  useEffect(() => () => watcherSound.dispose(), [watcherSound]);
+  useEffect(() => {
+    if (!proctor) {
+      return;
+    }
+    if (watcher.approaching) {
+      watcherSound.play("approach");
+    } else if (!watcher.present) {
+      watcherSound.fadeApproach();
+    }
+  }, [proctor, watcher.approaching, watcher.present, watcherSound]);
+  const [storedWatcherVolume] = useState(readWatcherVolume);
+  const [watcherLevel, setWatcherLevel] = useState(storedWatcherVolume.level);
+  // 음소거를 풀 때 돌아갈 음량
+  const lastWatcherLevelRef = useRef(storedWatcherVolume.last);
+  useEffect(() => {
+    watcherSound.setVolume(watcherLevel / 100);
+  }, [watcherLevel, watcherSound]);
+  function commitWatcherLevel(level: number) {
+    if (level > 0) {
+      lastWatcherLevelRef.current = level;
+    }
+    writeWatcherVolume(level);
+    trackSessionSpaceVolumeChanged({ volume: level });
+  }
+  function toggleWatcherMute() {
+    const next = watcherLevel > 0 ? 0 : lastWatcherLevelRef.current;
+    setWatcherLevel(next);
+    writeWatcherVolume(next);
+    trackSessionSpaceMuted({ muted: next === 0 });
+  }
   // 종료 확인 다이얼로그. 열려 있는 동안에도 **세션은 계속 진행된다**(Figma에서 딤 뒤
   // 상태 필이 `순공시간 측정 중`이고 타이머가 살아 있음을 확인).
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
@@ -505,6 +642,7 @@ function RoomSessionScreen({
   // 떠 있는 동안 세션 본문은 inert로 막고 앱 glass 버튼은 faded로 감춘다. 덮개 위에 실제 glass 버튼이
   // 떠서 같은 자리의 가짜 버튼과 겹치지 않게 웹 가짜 요소만 보인다. 세션·타이머는 그대로 돈다.
   const helpVisible = phase.name === "studying" && helpOpen && !helpBlocked;
+  useNativePortraitLock(helpVisible, true);
   const endHelpExposure = useSessionHelpFunnel(helpVisible, helpStep, "menu");
   // 끝까지 본 계정만 기록한다. 처음 도움말을 Escape로 닫은 계정이 메뉴로 다시 봐도 여기서 남는다.
   function completeHelp() {
@@ -553,6 +691,9 @@ function RoomSessionScreen({
   const faceMask = faceMaskOn
     ? { spot: faceSpot, emojiUrl: faceMaskEmojiOf(faceMaskEmojiId).url }
     : null;
+  useLayoutEffect(() => {
+    displayContextRef.current = { spaceKind: appliedSpace.kind, faceMask: faceMaskOn };
+  });
   function changeFaceMaskOn(next: boolean) {
     trackStudySessionFaceMaskToggled({ on: next, roomType: "single" });
     writeFaceMaskOn("single", next);
@@ -615,6 +756,125 @@ function RoomSessionScreen({
    */
   const [flippingCamera, setFlippingCamera] = useState(false);
   const rotationPhase = useRotationPhase();
+  // 일반 모드의 내 카메라는 작은 창으로 시작하고 키우면 화면 전체를 채운다.
+  // 키운 상태는 기억하지 않아서 심플 모드를 거치면 작은 창으로 돌아온다.
+  const [cameraExpanded, setCameraExpanded] = useState(false);
+  const cameraHidden = simpleMode;
+  // 작은 창 자리. 보이지 않는 같은 크기의 칸을 둬서 화면을 돌린 뒤에도 그때의 자리를 잰다.
+  const pipSlotRef = useRef<HTMLDivElement>(null);
+  // 줄이는 중. 작게 보기 버튼과 어두운 덮개를 움직임과 함께 서서히 지운다.
+  const [cameraShrinking, setCameraShrinking] = useState(false);
+  // 키우는 중. 줄이는 중과 함께 움직이는 동안 공간 배경을 남겨 두는 데 쓴다.
+  const [cameraGrowing, setCameraGrowing] = useState(false);
+  const cameraMoving = cameraGrowing || cameraShrinking;
+  // 진행 중인 키우기·줄이기 움직임. 움직이는 동안 다시 누르면 무시한다.
+  const cameraMotionRef = useRef<Animation | null>(null);
+  // 움직임은 시작할 때 잰 자리로 가서 화면이 돌거나 크기가 바뀌면 끝 모양으로 바로 건너뛴다.
+  // 끝내기만 하면 키우기·줄이기의 마무리가 그대로 돌아 바뀐 화면의 실제 배치로 맞춰진다.
+  useEffect(() => {
+    const skipCameraMotion = () => cameraMotionRef.current?.finish();
+    window.addEventListener("resize", skipCameraMotion);
+    return () => window.removeEventListener("resize", skipCameraMotion);
+  }, []);
+  const cameraView: CameraView = cameraHidden ? "simple" : cameraExpanded ? "expanded" : "pip";
+  // 실제 전이만 센다. 같은 화면을 다시 그린 것은 switchTo가 null을 돌려준다.
+  // 키운 채 심플 모드로 가는 것은 줄이기가 아니라 보내지 않는다.
+  useEffect(() => {
+    const change = displayUsage.switchTo(cameraView);
+    if (change === null) return;
+    if (change.from === "pip" && cameraView === "expanded") trackCameraPipExpanded();
+    if (change.from === "expanded" && cameraView === "pip") {
+      trackCameraPipShrunk({ expandedSec: change.sec });
+    }
+  }, [cameraView, displayUsage]);
+  // 심플 모드는 감독관을 그리지 않고 키운 카메라는 감독관을 가려서 그동안 발소리를 끈다.
+  const watcherMuted = simpleMode || cameraExpanded;
+  useEffect(() => {
+    watcherSound.setMuted(watcherMuted);
+  }, [watcherMuted, watcherSound]);
+
+  /**
+   * 움직임을 그릴 카메라 화면과 키프레임
+   *
+   * 전체 화면일 때 재야 세션 화면 크기가 나온다.
+   * 동작 줄이기 설정이거나 움직임 API가 없거나 크기를 못 재면 null이라 바로 바뀐다.
+   */
+  function cameraMotion(): { surface: HTMLElement; frames: [Keyframe, Keyframe] } | null {
+    const surface = sessionSurface?.querySelector<HTMLElement>('[data-session-surface="camera"]');
+    const slot = pipSlotRef.current;
+    if (
+      !surface ||
+      slot === null ||
+      typeof surface.animate !== "function" ||
+      prefersReducedMotion()
+    ) {
+      return null;
+    }
+    const pip = slot.getBoundingClientRect();
+    const full = surface.getBoundingClientRect();
+    if (pip.width === 0 || full.width === 0) return null;
+    return { surface, frames: cameraBoxFrames(pip, full, PIP_RADIUS_PX) };
+  }
+
+  /**
+   * 내 카메라 키우기
+   *
+   * 작은 창 자리에서 화면 전체로 커진다.
+   * 전체 화면으로 바꾼 뒤 작은 창 모양에서 시작하는 움직임을 재생해 영상이 끊기지 않는다.
+   */
+  function expandCamera() {
+    if (cameraMotionRef.current !== null) return;
+    // 배경이 한 프레임도 빠지지 않게 키우는 중 표시를 전체 화면 전환과 함께 건다.
+    flushSync(() => {
+      setCameraExpanded(true);
+      setCameraGrowing(true);
+    });
+    const motion = cameraMotion();
+    if (motion === null) {
+      setCameraGrowing(false);
+      return;
+    }
+    const animation = motion.surface.animate(motion.frames, CAMERA_EXPAND_TIMING);
+    cameraMotionRef.current = animation;
+    void animation.finished
+      .catch(() => {})
+      .finally(() => {
+        cameraMotionRef.current = null;
+        setCameraGrowing(false);
+      });
+  }
+
+  /**
+   * 내 카메라 줄이기
+   *
+   * 전체 화면인 채로 작은 창 자리까지 움직인 뒤 작은 창으로 바꾼다.
+   * 끝 모양이 작은 창과 위치·크기가 같아 바꾸는 순간 아무것도 움직이지 않는다.
+   */
+  function shrinkCamera() {
+    if (cameraMotionRef.current !== null) return;
+    const motion = cameraMotion();
+    if (motion === null) {
+      setCameraExpanded(false);
+      return;
+    }
+    setCameraShrinking(true);
+    const animation = motion.surface.animate([...motion.frames].reverse(), {
+      ...CAMERA_EXPAND_TIMING,
+      fill: "forwards",
+    });
+    cameraMotionRef.current = animation;
+    void animation.finished
+      .then(() => {
+        // 마지막 모양을 붙든 채 작은 창으로 바꾼 뒤 움직임을 지워야 한 프레임도 전체 화면으로 튀지 않는다.
+        flushSync(() => setCameraExpanded(false));
+      })
+      .catch(() => {})
+      .finally(() => {
+        animation.cancel();
+        cameraMotionRef.current = null;
+        setCameraShrinking(false);
+      });
+  }
 
   const paused = sessionState.kind === "PAUSE";
   const statusLabel = t(statusLabelKey(sessionState));
@@ -780,7 +1040,7 @@ function RoomSessionScreen({
 
   // 리액트 컴파일러는 선언보다 먼저 참조한 함수가 있으면 이 컴포넌트를 통째로 건너뛴다.
   // 그래서 불리는 함수를 부르는 함수보다 위에 둔다.
-  function openPage(next: "subject" | "ambient") {
+  function openPage(next: "subject" | "ambient" | "space") {
     closingRef.current = null;
     // 앞으로 가기나 새로고침으로 이미 표시 항목에 와 있으면 그 항목을 다시 쓴다.
     // 하나 더 쌓으면 뒤로 가기를 두 번 해야 닫힌다.
@@ -790,7 +1050,7 @@ function RoomSessionScreen({
     setPage(next);
   }
 
-  function openSubjectPage(source: "button" | "label", opener: HTMLElement) {
+  function openSubjectPage(source: "menu" | "label", opener: HTMLElement) {
     trackSubjectSheetOpened(source, "single");
     subjectOpenedAtRef.current = Date.now();
     subjectOpenerRef.current = opener;
@@ -855,10 +1115,10 @@ function RoomSessionScreen({
     multiTimer.close();
   }
 
-  // 라벨로 열었는데 페이지에서 과목을 해제하면 라벨이 사라지므로 과목 버튼으로 돌아간다.
+  // 라벨로 열었는데 페이지에서 과목을 해제하면 라벨이 사라지므로 페이지를 여는 다른 길인 더보기로 돌아간다.
   function subjectReturnFocus() {
     const opener = subjectOpenerRef.current;
-    return opener?.isConnected ? opener : subjectButtonRef.current;
+    return opener?.isConnected ? opener : moreTrigger;
   }
 
   function handleSelectSubject(next: SubjectSelection | null) {
@@ -882,7 +1142,6 @@ function RoomSessionScreen({
       ? null
       : {
           name: selectedSubject?.name ?? t("subjectSheet.title"),
-          paused,
           focusSec:
             (selectedSubject?.focusSec ?? 0) +
             liveSubjectTime(liveSubjectTotals, subjectSelection).focusSec,
@@ -907,29 +1166,6 @@ function RoomSessionScreen({
     void endAndSubmit(MANUAL_END_REASON);
   }
 
-  const subjectButtonLabel =
-    subjectSelection === null ? t("subjectSheet.title") : t("controls.subjectSelected");
-  const subjectNative = useNativeControl<HTMLButtonElement>(
-    {
-      id: "session-subject",
-      kind: "button",
-      title: null,
-      systemImage: "book",
-      shape: "circle",
-      disabled: moreMenuOpen,
-      accessibilityLabel: subjectButtonLabel,
-      tone: subjectSelection === null ? "default" : "active",
-      faded: simpleMode || helpVisible,
-    },
-    () => {
-      // 앱 누름에는 누른 웹 요소가 없어서 숨겨 둔 웹 버튼을 연 요소로 둔다.
-      if (subjectButtonRef.current !== null) {
-        openSubjectPage("button", subjectButtonRef.current);
-      }
-    },
-    { measureIcon: true, iconScale: SESSION_SYMBOL_SCALE },
-  );
-
   // 종료 안내(1분 미만·자동 종료)는 세션이 끝난 뒤의 화면이라 결과 화면처럼 시스템 테마를 따른다.
   // 그 밖의 세션 화면은 항상 다크다.
   const endNoticeVisible =
@@ -940,6 +1176,7 @@ function RoomSessionScreen({
       ref={setSessionRoot}
       style={{ ...sessionSurfaceStyle, ...sessionGlowStyle(sessionState.kind) }}
       data-simple-mode={simpleMode}
+      data-camera-view={cameraHidden ? "hidden" : cameraExpanded ? "expanded" : "pip"}
       // 하단 버튼 아이콘과 타이머 텍스트가 마우스/터치 드래그로 끌리는 것을
       // 막는다 — `session-no-drag`(index.css)가 CSS를, onDragStart가 브라우저 네이티브
       // 드래그 이벤트 자체를 막는다(카메라 프리뷰가 있는 화면이라 드래그 고스트가 특히 튄다).
@@ -961,13 +1198,49 @@ function RoomSessionScreen({
       <SimpleModeSurface hidden={!simpleMode} glowKey={glowKey} />
       {/* 회전 오버스캔은 프리뷰에만 건다 — 심플 모드는 카메라를 걷어낸 화면이라 회전해도
           메울 빈 자리가 없고, 단색 배경을 확대해 봐야 보이는 변화가 없다. */}
+      {/* 공간은 일반 모드에서만 보인다.
+          상시 마운트해 심플 모드와 같은 300ms로 교차하고 감독관 영상이 끊기지 않는다. */}
+      {wallpaper && (
+        <div
+          aria-hidden="true"
+          data-testid="timer-background"
+          data-visible={!simpleMode}
+          className={cn(
+            "pointer-events-none absolute inset-0 transition-opacity duration-300 ease-out motion-reduce:transition-none",
+            simpleMode && "opacity-0",
+            // 키운 카메라가 다 덮은 동안은 그리지 않고, 움직이는 동안에는 카메라 상자 밖으로 이어 보이게 남긴다.
+            cameraExpanded && !cameraMoving && !cameraHidden && "invisible",
+          )}
+        >
+          {backgroundPhoto !== null && (
+            <TimerBackgroundLayer src={backgroundPhoto.src} fit={backgroundPhoto.fit} />
+          )}
+          {proctor && (
+            <WatcherBackground
+              present={watcher.present}
+              onClipPlaying={(clip, at) => {
+                if (clip === "enter" || clip === "exit") watcherSound.play(clip, at);
+              }}
+            />
+          )}
+          <WallpaperScrim simple={false} />
+        </div>
+      )}
+      <div
+        ref={pipSlotRef}
+        aria-hidden="true"
+        data-testid="camera-pip-slot"
+        className={cn(PIP_ANCHOR, PIP_SIZE, "pointer-events-none invisible")}
+      />
       <CameraPreviewSurface
         stream={cameraStream}
         facing={cameraFacing}
         videoRef={videoRef}
-        hidden={simpleMode}
-        rotating={!simpleMode && rotationPhase === "rotating"}
+        hidden={cameraHidden}
+        rotating={!cameraHidden && cameraExpanded && rotationPhase === "rotating"}
         faceMask={faceMask}
+        // 작은 창은 크기만 바뀌어서 영상과 추론, 얼굴 가림이 끊기지 않는다.
+        className={cameraExpanded ? undefined : cn("inset-auto rounded-lg", PIP_ANCHOR, PIP_SIZE)}
       />
 
       {phase.name === "studying" ? (
@@ -991,32 +1264,95 @@ function RoomSessionScreen({
                 pressStartedWithMenuOpenRef.current = false;
                 return;
               }
-              trackSessionSimpleModeToggled(!simpleMode);
+              if (simpleMode) {
+                trackSessionSimpleModeToggled(false);
+              } else {
+                trackSessionSimpleModeToggled(true, cameraExpanded ? "expanded" : "pip");
+                // 진행 중인 움직임이 남아 있으면 심플 모드에서 돌아올 때 그 자리에 굳는다.
+                cameraMotionRef.current?.cancel();
+                setCameraExpanded(false);
+              }
               setSimpleMode((prev) => !prev);
             }}
             className="absolute inset-0 cursor-default"
           />
 
-          <div inert={helpVisible} className={SESSION_LAYER_LAYOUT}>
-            <SessionStatusPill
-              state={pillState}
-              label={statusLabel}
+          {/* 카메라 확대 중에는 위아래 글자가 읽히게 화면 위·아래 끝을 어둡게 깐다. */}
+          {!cameraHidden && cameraExpanded && (
+            <div
+              aria-hidden="true"
               className={cn(
-                "landscape-compact:col-start-2 landscape-compact:row-start-1 landscape-compact:justify-self-center",
-                SESSION_PILL_SIZE,
+                "pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.5),rgba(0,0,0,0)_25%,rgba(0,0,0,0)_65%,rgba(0,0,0,0.6))]",
+                CAMERA_CHROME_FADE,
+                cameraShrinking && "opacity-0",
               )}
             />
+          )}
+
+          <div inert={helpVisible} className={SESSION_LAYER_LAYOUT}>
+            {/* 내 카메라 작은 창. 위 왼쪽이라 탭 순서도 맨 앞이다.
+                창 전체가 키우기 버튼이고, 확대 중에는 같은 구석의 버튼으로 다시 줄인다. */}
+            {!cameraHidden &&
+              (cameraExpanded ? (
+                <button
+                  type="button"
+                  inert={moreMenuOpen || cameraShrinking}
+                  aria-label={t("camera.shrink")}
+                  onClick={shrinkCamera}
+                  className={cn(
+                    PIP_ANCHOR,
+                    "pointer-events-auto flex size-11 items-center justify-center rounded-full bg-(--session-pill-bg) backdrop-blur-[10px]",
+                    CAMERA_CHROME_FADE,
+                    cameraShrinking && "opacity-0",
+                  )}
+                >
+                  <ShrinkGlyph aria-hidden="true" className="size-5" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  inert={moreMenuOpen}
+                  aria-label={t("camera.expand")}
+                  onClick={expandCamera}
+                  className={cn(
+                    PIP_ANCHOR,
+                    PIP_SIZE,
+                    "pointer-events-auto rounded-lg shadow-[inset_0_0_0_1px_rgba(255,255,255,0.22)]",
+                    // 줄이기가 끝나 작은 창이 되는 순간 테두리와 버튼이 한꺼번에 튀어나오지 않게 서서히 나타낸다.
+                    "animate-in duration-200 fade-in-0 motion-reduce:animate-none",
+                  )}
+                >
+                  {/* 키우기 표시는 왼쪽 위 구석에 두고 누름은 창 전체가 받는다. */}
+                  <span className="absolute top-0 left-0 flex size-11 items-center justify-center">
+                    <span className="flex size-7 items-center justify-center rounded-full bg-(--session-pill-bg) backdrop-blur-[10px]">
+                      <ExpandGlyph aria-hidden="true" className="size-4" />
+                    </span>
+                  </span>
+                </button>
+              ))}
 
             {/* 보이는 순서대로 오른쪽 열보다 앞에 둬서 탭 순서가 위에서 아래로 이어진다. */}
             <SessionMoreMenu
               container={sessionSurface}
               hidden={simpleMode || helpVisible}
-              onFlipCamera={() => void handleFlipCamera()}
+              onFlipCamera={() => {
+                trackSessionMoreMenuItemSelected({ item: "flip_camera" });
+                void handleFlipCamera();
+              }}
+              onOpenPlanner={() => {
+                trackSessionMoreMenuItemSelected({ item: "planner" });
+                // 메뉴 항목에는 남는 요소가 없어서 닫힌 뒤 초점을 받을 더보기 버튼을 연 요소로 둔다.
+                if (moreTrigger !== null) openSubjectPage("menu", moreTrigger);
+              }}
               onOpenHelp={() => {
+                trackSessionMoreMenuItemSelected({ item: "help" });
                 setHelpStep(0);
                 setHelpOpen(true);
               }}
-              onOpenChange={setMoreMenuOpen}
+              onOpenChange={(open) => {
+                setMoreMenuOpen(open);
+                if (open) trackSessionMoreMenuOpened();
+              }}
               className={SOLO_MORE_POSITION}
               triggerRef={setMoreTrigger}
               aboveSideColumn
@@ -1024,40 +1360,32 @@ function RoomSessionScreen({
 
             <SessionSideActions
               inert={simpleMode || moreMenuOpen}
+              space={
+                <SpaceButton
+                  ref={spaceButtonRef}
+                  expanded={page === "space"}
+                  onClick={() => {
+                    trackSessionSideButtonPressed({ button: "space" });
+                    trackSessionSpaceOpened();
+                    openPage("space");
+                  }}
+                  faded={simpleMode || helpVisible}
+                  inactive={moreMenuOpen}
+                />
+              }
               ambient={
                 /* 배경음 버튼 */
                 <AmbientSoundButton
                   ref={ambientButtonRef}
                   on={ambient.isOn}
                   expanded={page === "ambient"}
-                  onClick={() => openPage("ambient")}
+                  onClick={() => {
+                    trackSessionSideButtonPressed({ button: "ambient" });
+                    openPage("ambient");
+                  }}
                   faded={simpleMode || helpVisible}
                   inactive={moreMenuOpen}
                 />
-              }
-              subject={
-                <Button
-                  ref={(node) => {
-                    subjectButtonRef.current = node;
-                    subjectNative.ref(node);
-                  }}
-                  type="button"
-                  size="icon"
-                  variant="unstyled"
-                  // 배경음 버튼과 같은 규칙이다.
-                  // 이 버튼은 과목을 고르지 않고 페이지를 열어서, 고른 상태는 이름과 색으로 전한다.
-                  aria-label={subjectButtonLabel}
-                  aria-haspopup="dialog"
-                  aria-expanded={page === "subject"}
-                  data-on={subjectSelection !== null}
-                  onClick={(event) => openSubjectPage("button", event.currentTarget)}
-                  className={cn(controlButtonVariants(), "data-[on=true]:text-(--state-focus)")}
-                >
-                  <BookOpen
-                    aria-hidden="true"
-                    className="size-5.75 regular:size-6.75 short-side-lg:size-8.5"
-                  />
-                </Button>
               }
               // 페이지가 열려 있으면 페이지가 이 버튼들을 덮어서 따로 막지 않는다.
               modes={
@@ -1066,7 +1394,10 @@ function RoomSessionScreen({
                   expanded={modeOpen}
                   faded={simpleMode || helpVisible}
                   inactive={moreMenuOpen}
-                  onClick={() => multiTimer.open()}
+                  onClick={() => {
+                    trackSessionSideButtonPressed({ button: "timer" });
+                    multiTimer.open();
+                  }}
                 />
               }
               className={cn(
@@ -1076,8 +1407,15 @@ function RoomSessionScreen({
               )}
             />
 
+            {/* 예전 상태 필이 차지하던 높이(폰 36px, 폭 600 이상 39px, 큰 태블릿 48px)를 남긴다.
+                심플 모드 시계는 아래 두 스페이서가 이 아래 여백을 반씩 나눈 자리라 높이가 빠지면 그만큼 올라간다. */}
+            <div
+              aria-hidden="true"
+              className="h-9 shrink-0 regular:h-9.75 short-side-lg:h-12 landscape-compact:hidden"
+            />
+
             {/* 타이머 세로 위치는 이 스페이서 두 개의 flex-grow 비가 정한다 — 프리뷰는 위만
-                늘려(1:0) 하단 버튼 바로 위에, 심플 모드는 균등(1:1)하게 나눠 상태 필과 하단 버튼
+                늘려(1:0) 하단 버튼 바로 위에, 심플 모드는 균등(1:1)하게 나눠 위 빈 칸과 하단 버튼
                 사이 여백의 중앙에 놓는다. Figma는 ≈3:5로 중앙보다 위지만
                 실기기에서 너무 높다는 확인으로 균등 배분으로 낮췄다.
 
@@ -1105,11 +1443,22 @@ function RoomSessionScreen({
               {/* 페이지가 열린 동안은 페이지 푸터의 Toaster가 받는다.
                   둘이 함께 있으면 토스트가 두 번 뜬다. */}
               {page === null && <CtaToaster />}
+              {/* 간격은 글자 경계로 맞춘다.
+                  상태 줄 상자는 16px이고 과목 줄은 44px 누름 상자 안에 17px 글자가 있어 위아래로 13.5px가 빈다.
+                  상태 줄 글자와 과목 글자 사이 14px를 맞추려고 상태 줄을 -1.25만큼 당긴다.
+                  과목 글자와 큰 숫자 글자 사이 12px를 맞추려고 과목 줄을 -3.5만큼 당긴다.
+                  과목이 없으면 당기지 않아 상태 줄 글자와 숫자 글자 사이도 약 12px이다.
+                  심플 모드는 상태 줄이 화면에서 빠지고 과목 줄과 숫자 사이는 같은 값이다. */}
+              <div
+                data-clock-row=""
+                className={cn(!simpleMode && subjectLabel !== null && "-mb-1.25")}
+              >
+                <SessionStatusLine state={pillState} label={statusLabel} concealed={simpleMode} />
+              </div>
               {subjectLabel !== null && (
                 <SubjectLabel
                   name={subjectLabel.name}
                   focusSec={subjectLabel.focusSec}
-                  paused={subjectLabel.paused}
                   expanded={page === "subject"}
                   // 심플 모드는 화면 탭이 곧 모드 전환이라, 라벨이 눌리면 그 동작과 겹쳐 페이지가 잘못 열린다.
                   // 그래서 심플 모드에서는 누를 수 없는 글자로 둔다.
@@ -1118,10 +1467,7 @@ function RoomSessionScreen({
                       ? undefined
                       : (event) => openSubjectPage("label", event.currentTarget)
                   }
-                  className={cn(
-                    "mb-1 landscape-compact:mb-2",
-                    moreMenuOpen && "pointer-events-none",
-                  )}
+                  className={cn("-mb-3.5", moreMenuOpen && "pointer-events-none")}
                 />
               )}
               <SessionTimer
@@ -1201,7 +1547,7 @@ function RoomSessionScreen({
             }}
             container={sessionSurface}
             returnFocus={subjectReturnFocus}
-            title={t("subjectSheet.title")}
+            title={t("moreMenu.planner")}
             headerExtras={
               <SessionPageHeaderTime
                 focusSec={focusSec}
@@ -1247,6 +1593,22 @@ function RoomSessionScreen({
             onOpenChange={(open) => {
               if (!open) closePage("back");
             }}
+          />
+
+          <SessionSpacePage
+            open={page === "space"}
+            onOpenChange={(open) => {
+              if (!open) closePage("back");
+            }}
+            container={sessionSurface}
+            returnFocus={() => spaceButtonRef.current}
+            landscape={pageLandscape}
+            applied={appliedSpace}
+            onApply={applySpace}
+            volume={watcherLevel}
+            onVolumeChange={setWatcherLevel}
+            onVolumeCommit={commitWatcherLevel}
+            onToggleMute={toggleWatcherMute}
           />
 
           {/* 처음 열기 전에는 그릴 모드가 없다.

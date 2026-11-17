@@ -696,6 +696,46 @@ describe("공부 세션 이벤트", () => {
     });
   });
 
+  it("싱글룸 화면 표시 기록을 넘기면 화면별 초와 공간·얼굴 가림을 싣고, 안 넘기면 키가 없다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackStudySessionEnded } = await loadModule();
+    initAmplitude();
+    const base = {
+      roomType: "single",
+      studySec: 1200,
+      focusSec: 900,
+      pauseSec: 0,
+      distractionSec: 300,
+      endReason: "MANUAL",
+      pauseTrigger: null,
+      willSubmit: true,
+    } as const;
+
+    trackStudySessionEnded({
+      ...base,
+      display: {
+        pipSec: 600,
+        expandedSec: 120,
+        simpleSec: 480,
+        pipExpandCount: 2,
+        spaceKind: "proctor",
+        faceMask: true,
+      },
+    });
+    trackStudySessionEnded(base);
+
+    expect(mocks.track.mock.calls[0]?.[1]).toMatchObject({
+      pip_sec: 600,
+      expanded_sec: 120,
+      simple_sec: 480,
+      pip_expand_count: 2,
+      space_kind: "proctor",
+      face_mask: true,
+    });
+    expect(mocks.track.mock.calls[1]?.[1]).not.toHaveProperty("pip_sec");
+    expect(mocks.track.mock.calls[1]?.[1]).not.toHaveProperty("space_kind");
+  });
+
   it("0초 세션의 집중률은 0 — 0 나눗셈이 NaN으로 새어 나가면 안 된다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const { initAmplitude, trackStudySessionEnded } = await loadModule();
@@ -1362,11 +1402,13 @@ describe("최종 검토 추가 이벤트 (BY-616, 2026-09-05)", () => {
 
     m.trackSessionOrientationChanged({ orientation: "landscape", roomType: "social" });
     m.trackSessionSimpleModeToggled(false);
+    m.trackSessionSimpleModeToggled(true, "expanded");
     m.trackSocialRoomCreateFailed("NETWORK_OR_UNKNOWN");
 
     expect(mocks.track.mock.calls).toEqual([
       ["session_orientation_changed", { orientation: "landscape", room_type: "social" }],
       ["session_simple_mode_toggled", { on: false }],
+      ["session_simple_mode_toggled", { on: true, from: "expanded" }],
       ["social_room_create_failed", { reason: "NETWORK_OR_UNKNOWN" }],
     ]);
   });
@@ -1385,8 +1427,8 @@ describe("세션 도움말 이벤트", () => {
     });
     m.trackStudySessionHelpCompleted("menu", "single");
     m.trackStudySessionHelpDismissed({
-      step: 3,
-      stepId: "camera",
+      step: 4,
+      stepId: "simple",
       trigger: "menu",
       roomType: "single",
       reason: "escape",
@@ -1395,46 +1437,46 @@ describe("세션 도움말 이벤트", () => {
     expect(mocks.track).not.toHaveBeenCalled();
   });
 
-  it("노출·단계·완료·닫기를 단계 id와 도움말 판(2)을 담아 보낸다", async () => {
+  it("노출·단계·완료·닫기를 단계 id와 도움말 판(3)을 담아 보낸다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const m = await loadModule();
     m.initAmplitude();
 
     m.trackStudySessionHelpShown("auto", "single");
     m.trackStudySessionHelpStepViewed({
-      step: 2,
+      step: 3,
       stepId: "measuring",
       trigger: "menu",
       roomType: "single",
     });
     m.trackStudySessionHelpCompleted("menu", "single");
     m.trackStudySessionHelpDismissed({
-      step: 4,
-      stepId: "buttons",
+      step: 2,
+      stepId: "away",
       trigger: "auto",
       roomType: "single",
       reason: "escape",
     });
 
     expect(mocks.track.mock.calls).toEqual([
-      ["study_session_help_shown", { trigger: "auto", room_type: "single", help_version: 2 }],
+      ["study_session_help_shown", { trigger: "auto", room_type: "single", help_version: 3 }],
       [
         "study_session_help_step_viewed",
-        { step: 2, step_id: "measuring", trigger: "menu", room_type: "single", help_version: 2 },
+        { step: 3, step_id: "measuring", trigger: "menu", room_type: "single", help_version: 3 },
       ],
       [
         "study_session_help_completed",
-        { trigger: "menu", cta: "start", room_type: "single", help_version: 2 },
+        { trigger: "menu", cta: "start", room_type: "single", help_version: 3 },
       ],
       [
         "study_session_help_dismissed",
         {
-          step: 4,
-          step_id: "buttons",
+          step: 2,
+          step_id: "away",
           trigger: "auto",
           room_type: "single",
           reason: "escape",
-          help_version: 2,
+          help_version: 3,
         },
       ],
     ]);
@@ -2555,5 +2597,115 @@ describe("홈 바로가기·과목 선택", () => {
     m.trackHomeSubjectSelected(true);
 
     expect(mocks.track).not.toHaveBeenCalled();
+  });
+});
+
+describe("세션 공간 이벤트", () => {
+  it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackSessionSpaceOpened();
+    m.trackSessionSpaceTabSwitched({ tab: "image" });
+    m.trackSessionSpacePreviewOpened({ kind: "proctor" });
+    m.trackTimerBackgroundApplied({ kind: "photo", source: "tile" });
+    m.trackTimerBackgroundPhotoAdded({ count: 1 });
+    m.trackTimerBackgroundPhotoRemoved({ count: 0, wasSelected: true });
+    m.trackSessionSpacePhotoFailed({ reason: "unusable" });
+    m.trackSessionSpacePhotoLimitReached();
+    m.trackSessionSpaceVolumeChanged({ volume: 40 });
+    m.trackSessionSpaceMuted({ muted: true });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("정해진 이름과 토큰 속성으로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackSessionSpaceOpened();
+    m.trackSessionSpaceTabSwitched({ tab: "image" });
+    m.trackSessionSpacePreviewOpened({ kind: "proctor" });
+    m.trackTimerBackgroundApplied({
+      kind: "photo",
+      source: "preview",
+      tab: "image",
+      category: "mine",
+    });
+    m.trackTimerBackgroundPhotoAdded({ count: 2 });
+    m.trackTimerBackgroundPhotoRemoved({ count: 1, wasSelected: false });
+    m.trackSessionSpacePhotoFailed({ reason: "storage" });
+    m.trackSessionSpacePhotoLimitReached();
+    m.trackSessionSpaceVolumeChanged({ volume: 40 });
+    m.trackSessionSpaceMuted({ muted: false });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["session_space_opened"],
+      ["session_space_tab_switched", { tab: "image" }],
+      ["session_space_preview_opened", { kind: "proctor" }],
+      [
+        "timer_background_applied",
+        { kind: "photo", source: "preview", tab: "image", category: "mine" },
+      ],
+      ["timer_background_photo_added", { count: 2, source: "file" }],
+      ["timer_background_photo_removed", { count: 1, was_selected: false }],
+      ["session_space_photo_failed", { reason: "storage" }],
+      ["session_space_photo_limit_reached"],
+      ["session_space_volume_changed", { volume: 40 }],
+      ["session_space_muted", { muted: false }],
+    ]);
+  });
+});
+
+describe("작은 카메라 창 이벤트", () => {
+  it("초기화 전에는 보내지 않는다", async () => {
+    const m = await loadModule();
+
+    m.trackCameraPipExpanded();
+    m.trackCameraPipShrunk({ expandedSec: 3 });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("정해진 이름과 속성으로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackCameraPipExpanded();
+    m.trackCameraPipShrunk({ expandedSec: 3 });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["camera_pip_expanded"],
+      ["camera_pip_shrunk", { expanded_sec: 3 }],
+    ]);
+  });
+});
+
+describe("세션 더보기·세로 열 이벤트", () => {
+  it("초기화 전에는 보내지 않는다", async () => {
+    const m = await loadModule();
+
+    m.trackSessionMoreMenuOpened();
+    m.trackSessionMoreMenuItemSelected({ item: "planner" });
+    m.trackSessionSideButtonPressed({ button: "space" });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("정해진 이름과 토큰 속성으로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackSessionMoreMenuOpened();
+    m.trackSessionMoreMenuItemSelected({ item: "flip_camera" });
+    m.trackSessionSideButtonPressed({ button: "timer" });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["session_more_menu_opened"],
+      ["session_more_menu_item_selected", { item: "flip_camera" }],
+      ["session_side_button_pressed", { button: "timer" }],
+    ]);
   });
 });

@@ -133,18 +133,16 @@ describe("RoomPage — 가로(거치) 배치", () => {
     expect(layer.className).toContain("landscape-compact:pt-[calc(env(safe-area-inset-top)+18px)]");
   });
 
-  it("가로 프리뷰 — 상태 필은 상단 중앙, 타이머 묶음은 두 하단 버튼 사이 아래에 붙는다", () => {
+  it("가로 프리뷰에서 상태 줄은 시계 묶음 맨 위에 있고 묶음은 두 하단 버튼 사이 아래에 붙는다", () => {
     const { container } = renderRoom();
 
-    const pill = screen.getByRole("status");
-    expect(pill.className).toContain("landscape-compact:col-start-2");
-    expect(pill.className).toContain("landscape-compact:row-start-1");
-
-    const timer = container.querySelector(
+    const clock = container.querySelector(
       '[class*="landscape-compact:col-start-2"][class*="landscape-compact:row-start-3"]',
     )!;
-    expect(timer).toContainElement(screen.getByText("00:00:00"));
-    expect(timer.className).toContain("landscape-compact:self-end");
+    expect(clock).toContainElement(screen.getByRole("status"));
+    expect(clock).toContainElement(screen.getByText("00:00:00"));
+    expect(clock.className).toContain("landscape-compact:self-end");
+    expect(clock.querySelector("[data-clock-row]")).toContainElement(screen.getByRole("status"));
   });
 
   it("가로 심플 — 타이머가 아래 가운데에서 화면 가운데로 옮겨간다", async () => {
@@ -162,7 +160,7 @@ describe("RoomPage — 가로(거치) 배치", () => {
     expect(timer.className).toContain("landscape-compact:-translate-x-1/2");
   });
 
-  it("가로에서도 상태 필 문구가 남는다 — 좁다고 색 단독으로 상태를 전달하지 않는다", async () => {
+  it("가로에서도 상태 줄 문구가 남아 좁아도 색 단독으로 상태를 전달하지 않는다", async () => {
     renderRoom();
 
     await userEvent.click(screen.getByRole("button", { name: "일시정지" }));

@@ -5,7 +5,6 @@ import { cn } from "@/lib/utils";
 
 import { formatDuration } from "@/features/records/recordsFormat";
 import { formatElapsed, toKoreanDuration } from "../formatDuration";
-import type { SessionStatusPillState } from "./SessionStatusPill";
 
 /**
  * 순공 타이머 + 총 공부 병기
@@ -41,6 +40,9 @@ import type { SessionStatusPillState } from "./SessionStatusPill";
  * 화면 좌표(`left/top`)는 베끼지 않는다 — 이 컴포넌트는 타이포·정렬만 책임지고 배치(우상단 /
  * 중앙)는 호출부가 `className`으로 넘긴다.
  */
+/** 세션 상태의 화면 표시 갈래. 상태 줄 점 색과 심플 모드 숫자 색이 함께 쓴다. */
+export type SessionStatusPillState = "focus" | "distract" | "paused";
+
 /** 순공 숫자의 크기 */
 const TIMER_FOCUS_SIZE =
   "text-[52px] leading-15 font-bold tracking-[-0.5px] tabular-nums regular:text-8xl regular:leading-none regular:tracking-[-0.03em] short-side-lg:text-[7.5rem]";
