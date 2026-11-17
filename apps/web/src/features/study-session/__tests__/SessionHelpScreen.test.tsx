@@ -115,6 +115,13 @@ describe("SessionHelpScreen", () => {
     expect(document.querySelector("[data-dim]")).toBeNull();
   });
 
+  it("심플 화면에도 실제 세션처럼 일시정지와 종료 버튼이 함께 있다", () => {
+    renderHelp();
+    // 일반 화면 층과 심플 화면 층이 함께 그려져 있어 두 층의 종료 아이콘을 센다.
+    expect(helpScreen().querySelectorAll(".lucide-log-out")).toHaveLength(2);
+    expect(helpScreen().querySelectorAll(".lucide-pause")).toHaveLength(2);
+  });
+
   it("마지막 단계에서 이전으로 돌아오면 모션 없이 심플 화면이다", () => {
     vi.useFakeTimers();
     renderHelp();
