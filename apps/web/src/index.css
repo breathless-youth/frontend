@@ -671,6 +671,33 @@
   }
 }
 
+/* 도움말에서 심플 모드로 넘어가기 전에 화면을 누르는 손과 퍼지는 원을 한 번 보인다.
+   모션 축소면 사용처가 이 움직임 없이 바로 화면을 바꾼다. */
+@keyframes help-tap {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(1.05);
+  }
+
+  30% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  45% {
+    transform: scale(0.92);
+  }
+
+  60% {
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
 /* 초대코드 input-otp 활성 칸 캐럿 깜빡임. 모션 축소는 사용처의
    motion-reduce:animate-none이 막는다. */
 @keyframes caret-blink {
@@ -960,7 +987,7 @@ body {
 /* 마스코트 표정 전환
    겹쳐 둔 네 장 중 하나만 보이고 step-end로 순간 교체한다.
    점프와 같은 0.92s 타임라인이고 퍼센트는 기본 0.33s, 정색 0.38s, 눈 감음 0.45s, 정색 0.5s 경계다.
-   웃음은 기본 opacity가 1이라 애니메이션이 없는 모션 축소와 다시 본 결과에서는 웃음만 보인다. */
+   정점 표정은 기본 opacity가 1이라 애니메이션이 없는 모션 축소와 다시 본 결과에서는 정점 표정만 보인다. */
 @keyframes result-mascot-face-idle {
   0% {
     opacity: 1;
@@ -998,7 +1025,7 @@ body {
   }
 }
 
-@keyframes result-mascot-face-smile {
+@keyframes result-mascot-face-peak {
   0% {
     opacity: 0;
   }
@@ -1006,6 +1033,34 @@ body {
   54.35%,
   100% {
     opacity: 1;
+  }
+}
+
+/* 바닥에 남는 발밑 소품
+   뛰는 마스코트와 같은 순간에 나타나고 움직이지 않는다. */
+@keyframes result-mascot-ground {
+  0% {
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.77, 0, 0.175, 1);
+  }
+
+  20%,
+  100% {
+    opacity: 1;
+  }
+}
+
+/* 정점 표정과 함께 소품을 기울이는 순간
+   기본 자리가 기울인 자세라 웅크리는 동안만 기울기를 풀고 정점 표정으로 바뀌는 0.5s에 한 번에 기운다.
+   기울기는 마스코트마다 달라 요소에 둔 --result-mascot-tilt를 읽는다. */
+@keyframes result-mascot-tilt {
+  0% {
+    transform: none;
+  }
+
+  54.35%,
+  100% {
+    transform: var(--result-mascot-tilt);
   }
 }
 
@@ -1040,7 +1095,1228 @@ body {
   }
 }
 
+/* 받은 포인트 배지가 잔액 알약 위로 올라와 머물다 사라진다.
+   길이는 PointsBalancePill의 GAIN_SHOWN_MS와 같아야 배지가 사라진 뒤 지워진다.
+   모션 축소는 사용처의 motion-reduce:animate-none이 막는다. */
+@keyframes points-gain-badge {
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.85);
+  }
+
+  12% {
+    opacity: 1;
+    transform: translateY(0) scale(1.06);
+  }
+
+  20%,
+  80% {
+    opacity: 1;
+    transform: none;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+}
+
+/* 받은 포인트 배지와 같은 시간 동안 잔액 알약 테두리를 켰다가 끈다. */
+@keyframes points-gain-ring {
+  0% {
+    opacity: 0;
+  }
+
+  12%,
+  80% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
 /* 히어로 뒤 은은한 글로우 호흡. */
+/* 마스코트 효과 칸 소품이 천천히 떠오르내리는 움직임 */
+@keyframes mascot-effect-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3%);
+  }
+}
+
+/* 마스코트 효과 조각의 움직임이며 조각마다 하나씩 붙는다. */
+@keyframes mascot-fx-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14%);
+  }
+}
+
+@keyframes mascot-fx-fall {
+  0% {
+    opacity: 0;
+    transform: translateY(-30%);
+  }
+  20%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(70%);
+  }
+}
+
+@keyframes mascot-fx-rise {
+  0% {
+    opacity: 0;
+    transform: translate(0, 25%);
+  }
+  20%,
+  80% {
+    opacity: 1;
+  }
+  50% {
+    transform: translate(10%, -12%);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-6%, -55%);
+  }
+}
+
+@keyframes mascot-fx-twinkle {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.55) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1) rotate(18deg);
+  }
+}
+
+@keyframes mascot-fx-flutter {
+  0%,
+  100% {
+    transform: translate(0, 0) scaleX(1);
+  }
+  25% {
+    transform: translate(12%, -16%) scaleX(0.6);
+  }
+  50% {
+    transform: translate(24%, -4%) scaleX(1);
+  }
+  75% {
+    transform: translate(10%, 10%) scaleX(0.6);
+  }
+}
+
+@keyframes mascot-fx-pulse {
+  0%,
+  30%,
+  60%,
+  100% {
+    transform: scale(1);
+  }
+  15% {
+    transform: scale(1.22);
+  }
+  45% {
+    transform: scale(1.14);
+  }
+}
+
+@keyframes mascot-fx-sway {
+  0%,
+  100% {
+    transform: rotate(-10deg);
+  }
+  50% {
+    transform: rotate(10deg);
+  }
+}
+
+@keyframes mascot-fx-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  50% {
+    transform: translateY(-10%) rotate(3deg);
+  }
+}
+
+@keyframes mascot-fx-pop {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  15%,
+  70% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  85% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+}
+
+/* 마스코트 몸 뒤에 코드로 그리는 빛이며 안쪽 조각이 마스코트 윤곽 모양으로 잘려 있다. */
+@keyframes mascot-glow-aurora {
+  0%,
+  100% {
+    filter: blur(var(--mascot-glow-blur)) hue-rotate(0deg);
+    transform: scale(1.12) rotate(-2deg);
+  }
+  50% {
+    filter: blur(var(--mascot-glow-blur)) hue-rotate(70deg);
+    transform: scale(1.2) rotate(2deg);
+  }
+}
+
+@keyframes mascot-glow-breathe {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1.08);
+  }
+  50% {
+    opacity: 0.95;
+    transform: scale(1.18);
+  }
+}
+
+@keyframes mascot-glow-rainbow {
+  0% {
+    filter: blur(var(--mascot-glow-blur)) hue-rotate(0deg);
+  }
+  100% {
+    filter: blur(var(--mascot-glow-blur)) hue-rotate(360deg);
+  }
+}
+
+.mascot-glow {
+  /* 작은 아바타에서도 번짐이 몸 크기를 따라가도록 안쪽 조각이 이 상자 폭을 기준으로 삼는다. */
+  container-type: inline-size;
+}
+
+.mascot-glow-blur {
+  --mascot-glow-blur: 5cqi;
+  filter: blur(var(--mascot-glow-blur));
+  transform: scale(1.14);
+}
+
+.mascot-glow-aurora {
+  animation: mascot-glow-aurora 5s ease-in-out infinite;
+}
+
+.mascot-glow-aurora > [data-glow-shape] {
+  background: linear-gradient(120deg, #5eead4, #60a5fa 40%, #a78bfa 70%, #f0abfc);
+}
+
+.mascot-glow-glow {
+  animation: mascot-glow-breathe 2.8s ease-in-out infinite;
+}
+
+.mascot-glow-glow > [data-glow-shape] {
+  background: #ffd75e;
+}
+
+.mascot-glow-rainbow {
+  animation: mascot-glow-rainbow 6s linear infinite;
+}
+
+.mascot-glow-rainbow > [data-glow-shape] {
+  background: conic-gradient(#f87171, #fbbf24, #4ade80, #60a5fa, #c084fc, #f87171);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot-glow-blur {
+    animation: none;
+  }
+}
+
+/* 코드로 그리는 효과 움직임(DrawnEffectPiece)
+   더하는 빛과 입자의 색은 각 효과 그림에서 골랐다.
+   transform과 opacity만 움직여 합성 단계에서 돈다.
+   filter는 바꾸지 않는 값으로만 두고 그 겹의 opacity를 움직인다. */
+
+/* 보물 오라 */
+@keyframes mascot-fx-glow-halo {
+  0%,
+  100% {
+    opacity: 0.1;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.mascot-fx-glow-halo {
+  filter: blur(3cqi);
+  animation: mascot-fx-glow-halo 3s ease-in-out infinite;
+}
+
+@keyframes mascot-fx-glow-sway {
+  0%,
+  100% {
+    transform: rotate(-2deg);
+  }
+  50% {
+    transform: rotate(2deg);
+  }
+}
+
+.mascot-fx-glow-sway {
+  animation: mascot-fx-glow-sway 3s ease-in-out infinite;
+}
+
+@keyframes mascot-fx-glow-bright {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+/* 밝기를 움직이면 매 장 다시 칠해서 밝힌 그림을 한 겹 더 두고 그 겹의 투명도만 움직인다. */
+.mascot-fx-glow-bright {
+  filter: brightness(1.5) saturate(1.2);
+  opacity: 0;
+  animation: mascot-fx-glow-bright 3s ease-in-out infinite;
+}
+
+@keyframes mascot-fx-glow-sheen {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 가운데를 축으로 도는 좁은 빛줄기라 몸에 가리지 않는 햇살 끝에서는 가장자리를 따라 지나가는 금빛으로 보인다. */
+.mascot-fx-glow-sheen {
+  background: conic-gradient(
+    transparent 0deg 295deg,
+    rgb(255 244 190 / 0) 295deg,
+    rgb(255 255 242 / 0.95) 332deg,
+    rgb(255 244 190 / 0) 352deg,
+    transparent 360deg
+  );
+  animation: mascot-fx-glow-sheen 3s linear infinite;
+}
+
+/* 연보라 오라
+   고리는 같은 오라 그림을 몸 가운데를 축으로 키우며 흐리게 해서 몸 밖으로 나온 가장자리만 고리로 보인다.
+   한 겹이 3초 동안 퍼지고 세 겹이 1초씩 어긋나 시작해서 앞 고리가 사라질 때 다음 고리가 가운데에서 나온다. */
+@keyframes mascot-fx-ripple-ring {
+  0% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  15% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.32);
+  }
+}
+
+.mascot-fx-ripple-ring {
+  opacity: 0;
+  /* easeOutCubic: 물결처럼 처음에 빨리 퍼지고 바깥에서 느려진다. */
+  animation: mascot-fx-ripple-ring 3s cubic-bezier(0.33, 1, 0.68, 1) infinite;
+}
+
+@keyframes mascot-fx-ripple-halo {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.05);
+  }
+}
+
+.mascot-fx-ripple-halo {
+  filter: blur(3cqi);
+  animation: mascot-fx-ripple-halo 3s ease-in-out infinite;
+}
+
+@keyframes mascot-fx-ripple-bright {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.mascot-fx-ripple-bright {
+  filter: brightness(1.18) saturate(1.35);
+  opacity: 0;
+  animation: mascot-fx-ripple-bright 3s ease-in-out infinite;
+}
+
+/* 연보라 오라 속 반짝이: 제자리에서 반짝이며 판 가운데에서 먼 쪽으로 살짝 떠오른다. */
+@keyframes mascot-fx-drift-l {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: translate(0, 0) scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(-14%, -20%) scale(1.05);
+  }
+}
+
+@keyframes mascot-fx-drift-r {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: translate(0, 0) scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: translate(14%, -20%) scale(1.05);
+  }
+}
+
+.mascot-fx-drift {
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.mascot-fx-drift-l {
+  animation-name: mascot-fx-drift-l;
+}
+
+.mascot-fx-drift-r {
+  animation-name: mascot-fx-drift-r;
+}
+
+/* 지우개 가루
+   갈래 번호는 덩어리 순서로 정하고 r은 l을 좌우로 뒤집은 것이다.
+   덩어리는 한 바퀴의 40%부터 84%까지만 움직이고 나머지는 제자리에 머물러, 시작 시점이 엇갈리면 같은 순간에 흩어진 덩어리가 적다. */
+@keyframes mascot-fx-spread-l1 {
+  0%,
+  40%,
+  84%,
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  62% {
+    opacity: 0.8;
+    transform: translate(-26%, -22%) rotate(-7deg);
+  }
+}
+
+@keyframes mascot-fx-spread-l2 {
+  0%,
+  40%,
+  84%,
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  62% {
+    transform: translate(-14%, -24%) rotate(0deg);
+  }
+}
+
+@keyframes mascot-fx-spread-l3 {
+  0%,
+  40%,
+  84%,
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  62% {
+    transform: translate(-22%, -12%) rotate(5deg);
+  }
+}
+
+@keyframes mascot-fx-spread-r1 {
+  0%,
+  40%,
+  84%,
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  62% {
+    opacity: 0.8;
+    transform: translate(26%, -22%) rotate(7deg);
+  }
+}
+
+@keyframes mascot-fx-spread-r2 {
+  0%,
+  40%,
+  84%,
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  62% {
+    transform: translate(14%, -24%) rotate(0deg);
+  }
+}
+
+@keyframes mascot-fx-spread-r3 {
+  0%,
+  40%,
+  84%,
+  100% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg);
+  }
+  62% {
+    transform: translate(22%, -12%) rotate(-5deg);
+  }
+}
+
+@keyframes mascot-fx-spread-m {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10%);
+  }
+}
+
+.mascot-fx-spread {
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.mascot-fx-spread-l1 {
+  animation-name: mascot-fx-spread-l1;
+}
+
+.mascot-fx-spread-l2 {
+  animation-name: mascot-fx-spread-l2;
+}
+
+.mascot-fx-spread-l3 {
+  animation-name: mascot-fx-spread-l3;
+}
+
+.mascot-fx-spread-r1 {
+  animation-name: mascot-fx-spread-r1;
+}
+
+.mascot-fx-spread-r2 {
+  animation-name: mascot-fx-spread-r2;
+}
+
+.mascot-fx-spread-r3 {
+  animation-name: mascot-fx-spread-r3;
+}
+
+.mascot-fx-spread-m {
+  animation-name: mascot-fx-spread-m;
+}
+
+/* 원래 가루 그림을 옅게 깐 바탕이며 움직이지 않는다. */
+.mascot-fx-spread-base {
+  opacity: 0.55;
+}
+
+/* 덩어리에서 떨어져 바깥 위로 날리며 흐려지는 작은 알갱이 */
+@keyframes mascot-fx-grain-l {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(1);
+  }
+  15% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-190%, -150%) scale(0.5);
+  }
+}
+
+@keyframes mascot-fx-grain-r {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(1);
+  }
+  15% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(190%, -150%) scale(0.5);
+  }
+}
+
+.mascot-fx-grain {
+  opacity: 0;
+  animation-timing-function: ease-out;
+  animation-iteration-count: infinite;
+}
+
+.mascot-fx-grain-l {
+  animation-name: mascot-fx-grain-l;
+}
+
+.mascot-fx-grain-r {
+  animation-name: mascot-fx-grain-r;
+}
+
+/* 열쇠 고리
+   궤도는 x = 31%·cos, y = 6%·sin − 5%·cos이고, 앞(아래)으로 올수록 크고 선명하며 뒤(위)로 갈수록 작고 흐리다.
+   같은 열쇠를 그린 두 층 가운데 몸 앞 층(front)은 궤도 앞쪽 반에서, 몸 뒤 층(back)은 뒤쪽 반에서만 보인다.
+   열쇠 하나의 움직임을 판 크기 상자 하나의 키프레임 하나로 모아 마스코트가 여러 마리여도 움직이는 겹 수가 적다. */
+@keyframes mascot-fx-spiral-front {
+  0% {
+    transform: translate(31%, -5%) scale(0.875) rotate(-16deg);
+    opacity: 0.675;
+  }
+  4.167% {
+    transform: translate(29.944%, -3.277%) scale(0.946) rotate(-15.455deg);
+    opacity: 0.759;
+  }
+  8.333% {
+    transform: translate(26.847%, -1.33%) scale(1.012) rotate(-13.856deg);
+    opacity: 0.838;
+  }
+  12.5% {
+    transform: translate(21.92%, 0.707%) scale(1.069) rotate(-11.314deg);
+    opacity: 0.905;
+  }
+  16.667% {
+    transform: translate(15.5%, 2.696%) scale(1.113) rotate(-8deg);
+    opacity: 0.956;
+  }
+  20.833% {
+    transform: translate(8.023%, 4.501%) scale(1.141) rotate(-4.141deg);
+    opacity: 0.989;
+  }
+  25% {
+    transform: translate(0%, 6%) scale(1.15) rotate(0deg);
+    opacity: 1;
+  }
+  29.167% {
+    transform: translate(-8.023%, 7.09%) scale(1.141) rotate(4.141deg);
+    opacity: 0.989;
+  }
+  33.333% {
+    transform: translate(-15.5%, 7.696%) scale(1.113) rotate(8deg);
+    opacity: 0.956;
+  }
+  37.5% {
+    transform: translate(-21.92%, 7.778%) scale(1.069) rotate(11.314deg);
+    opacity: 0.905;
+  }
+  41.667% {
+    transform: translate(-26.847%, 7.33%) scale(1.012) rotate(13.856deg);
+    opacity: 0.838;
+  }
+  45.833% {
+    transform: translate(-29.944%, 6.383%) scale(0.946) rotate(15.455deg);
+    opacity: 0.759;
+  }
+  50% {
+    transform: translate(-31%, 5%) scale(0.875) rotate(16deg);
+    opacity: 0.675;
+  }
+  50.01% {
+    transform: translate(-31%, 4.996%) scale(0.875) rotate(16deg);
+    opacity: 0;
+  }
+  54.167% {
+    transform: translate(-29.944%, 3.277%) scale(0.804) rotate(15.455deg);
+    opacity: 0;
+  }
+  58.333% {
+    transform: translate(-26.847%, 1.33%) scale(0.737) rotate(13.856deg);
+    opacity: 0;
+  }
+  62.5% {
+    transform: translate(-21.92%, -0.707%) scale(0.681) rotate(11.314deg);
+    opacity: 0;
+  }
+  66.667% {
+    transform: translate(-15.5%, -2.696%) scale(0.637) rotate(8deg);
+    opacity: 0;
+  }
+  70.833% {
+    transform: translate(-8.023%, -4.501%) scale(0.609) rotate(4.141deg);
+    opacity: 0;
+  }
+  75% {
+    transform: translate(0%, -6%) scale(0.6) rotate(0deg);
+    opacity: 0;
+  }
+  79.167% {
+    transform: translate(8.023%, -7.09%) scale(0.609) rotate(-4.141deg);
+    opacity: 0;
+  }
+  83.333% {
+    transform: translate(15.5%, -7.696%) scale(0.637) rotate(-8deg);
+    opacity: 0;
+  }
+  87.5% {
+    transform: translate(21.92%, -7.778%) scale(0.681) rotate(-11.314deg);
+    opacity: 0;
+  }
+  91.667% {
+    transform: translate(26.847%, -7.33%) scale(0.737) rotate(-13.856deg);
+    opacity: 0;
+  }
+  95.833% {
+    transform: translate(29.944%, -6.383%) scale(0.804) rotate(-15.455deg);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(31%, -5%) scale(0.875) rotate(-16deg);
+    opacity: 0;
+  }
+}
+
+@keyframes mascot-fx-spiral-back {
+  0% {
+    transform: translate(31%, -5%) scale(0.875) rotate(-16deg);
+    opacity: 0;
+  }
+  4.167% {
+    transform: translate(29.944%, -3.277%) scale(0.946) rotate(-15.455deg);
+    opacity: 0;
+  }
+  8.333% {
+    transform: translate(26.847%, -1.33%) scale(1.012) rotate(-13.856deg);
+    opacity: 0;
+  }
+  12.5% {
+    transform: translate(21.92%, 0.707%) scale(1.069) rotate(-11.314deg);
+    opacity: 0;
+  }
+  16.667% {
+    transform: translate(15.5%, 2.696%) scale(1.113) rotate(-8deg);
+    opacity: 0;
+  }
+  20.833% {
+    transform: translate(8.023%, 4.501%) scale(1.141) rotate(-4.141deg);
+    opacity: 0;
+  }
+  25% {
+    transform: translate(0%, 6%) scale(1.15) rotate(0deg);
+    opacity: 0;
+  }
+  29.167% {
+    transform: translate(-8.023%, 7.09%) scale(1.141) rotate(4.141deg);
+    opacity: 0;
+  }
+  33.333% {
+    transform: translate(-15.5%, 7.696%) scale(1.113) rotate(8deg);
+    opacity: 0;
+  }
+  37.5% {
+    transform: translate(-21.92%, 7.778%) scale(1.069) rotate(11.314deg);
+    opacity: 0;
+  }
+  41.667% {
+    transform: translate(-26.847%, 7.33%) scale(1.012) rotate(13.856deg);
+    opacity: 0;
+  }
+  45.833% {
+    transform: translate(-29.944%, 6.383%) scale(0.946) rotate(15.455deg);
+    opacity: 0;
+  }
+  49.99% {
+    transform: translate(-31%, 5.004%) scale(0.875) rotate(16deg);
+    opacity: 0;
+  }
+  50% {
+    transform: translate(-31%, 5%) scale(0.875) rotate(16deg);
+    opacity: 0.675;
+  }
+  54.167% {
+    transform: translate(-29.944%, 3.277%) scale(0.804) rotate(15.455deg);
+    opacity: 0.591;
+  }
+  58.333% {
+    transform: translate(-26.847%, 1.33%) scale(0.737) rotate(13.856deg);
+    opacity: 0.512;
+  }
+  62.5% {
+    transform: translate(-21.92%, -0.707%) scale(0.681) rotate(11.314deg);
+    opacity: 0.445;
+  }
+  66.667% {
+    transform: translate(-15.5%, -2.696%) scale(0.637) rotate(8deg);
+    opacity: 0.394;
+  }
+  70.833% {
+    transform: translate(-8.023%, -4.501%) scale(0.609) rotate(4.141deg);
+    opacity: 0.361;
+  }
+  75% {
+    transform: translate(0%, -6%) scale(0.6) rotate(0deg);
+    opacity: 0.35;
+  }
+  79.167% {
+    transform: translate(8.023%, -7.09%) scale(0.609) rotate(-4.141deg);
+    opacity: 0.361;
+  }
+  83.333% {
+    transform: translate(15.5%, -7.696%) scale(0.637) rotate(-8deg);
+    opacity: 0.394;
+  }
+  87.5% {
+    transform: translate(21.92%, -7.778%) scale(0.681) rotate(-11.314deg);
+    opacity: 0.445;
+  }
+  91.667% {
+    transform: translate(26.847%, -7.33%) scale(0.737) rotate(-13.856deg);
+    opacity: 0.512;
+  }
+  95.833% {
+    transform: translate(29.944%, -6.383%) scale(0.804) rotate(-15.455deg);
+    opacity: 0.591;
+  }
+  100% {
+    transform: translate(31%, -5%) scale(0.875) rotate(-16deg);
+    opacity: 0.675;
+  }
+}
+
+.mascot-fx-spiral-key {
+  /* 판 안에서 열쇠가 놓인 자리(가운데, 위에서 60%)를 축으로 돌고 줄어든다. */
+  transform-origin: 50% 60%;
+  /* 천천히 돌아야 열쇠가 또렷이 보여 한 바퀴를 4.2초로 두고, DrawnEffectPiece의 ORBIT_GAP_SECONDS가 그 1/3이다. */
+  animation-duration: 4.2s;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.mascot-fx-spiral-front {
+  animation-name: mascot-fx-spiral-front;
+}
+
+.mascot-fx-spiral-back {
+  animation-name: mascot-fx-spiral-back;
+}
+
+.mascot-fx-spiral-ring,
+.mascot-fx-spiral-ring-glow {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.mascot-fx-spiral-ring {
+  stroke: #ffe58a;
+  stroke-width: 0.55;
+}
+
+.mascot-fx-spiral-ring-glow {
+  stroke: #ffc93c;
+  stroke-width: 1.6;
+  opacity: 0.45;
+}
+
+/* 고리도 뒤쪽 반은 흐리게 그려 앞뒤가 보이게 한다. */
+.mascot-fx-spiral-rings[data-orbit-ring="back"] {
+  opacity: 0.55;
+}
+
+/* 무지개
+   쓸어 가는 각도를 @property로 등록해야 키프레임 사이 각도가 이어진다.
+   iOS 16.4 미만 Safari는 @property를 몰라 각도가 키프레임마다 건너뛰어 띠가 쓸리지 않고 한 번에 나타났다 사라지며, 그 모습은 받아들인다.
+   등록한 속성의 움직임은 합성 단계가 아니라 메인 스레드에서 돈다. */
+@property --fx-sweep {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes mascot-fx-wipe {
+  0% {
+    --fx-sweep: 0deg;
+    opacity: 1;
+  }
+  45% {
+    --fx-sweep: 200deg;
+    opacity: 1;
+  }
+  75% {
+    --fx-sweep: 200deg;
+    opacity: 1;
+  }
+  95% {
+    --fx-sweep: 200deg;
+    opacity: 0;
+  }
+  100% {
+    --fx-sweep: 0deg;
+    opacity: 0;
+  }
+}
+
+.mascot-fx-wipe {
+  /* 아치 아래 가운데를 축으로 왼쪽(270°)에서 위를 지나 오른쪽까지 쓸며 드러낸다. */
+  mask-image: conic-gradient(
+    from 270deg at 50% 100%,
+    #000 0deg,
+    #000 var(--fx-sweep),
+    transparent calc(var(--fx-sweep) + 12deg)
+  );
+  -webkit-mask-image: conic-gradient(
+    from 270deg at 50% 100%,
+    #000 0deg,
+    #000 var(--fx-sweep),
+    transparent calc(var(--fx-sweep) + 12deg)
+  );
+  animation: mascot-fx-wipe 3s ease-in-out infinite;
+}
+
+/* 밤하늘 원판 */
+@keyframes mascot-fx-starry-disc {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.mascot-fx-starry-disc {
+  animation: mascot-fx-starry-disc 120s linear infinite;
+}
+
+@keyframes mascot-fx-star {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(0.5);
+  }
+  45% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 별 모양을 clip-path로 자르면 반짝일 때마다 가림막을 다시 계산해 여러 마리에서 무거워서, 같은 모양을 배경 그림으로 그린다. */
+.mascot-fx-star {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpolygon points='50,0 61,39 100,50 61,61 50,100 39,61 0,50 39,39' fill='%23fff3b5'/%3E%3C/svg%3E")
+    center / 100% 100% no-repeat;
+  animation-name: mascot-fx-star;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+@keyframes mascot-fx-meteor-path {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  4% {
+    opacity: 1;
+  }
+  22% {
+    opacity: 0;
+    transform: translate(-38%, 30%);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-38%, 30%);
+  }
+}
+
+.mascot-fx-meteor-path {
+  opacity: 0;
+  animation: mascot-fx-meteor-path 3s ease-in infinite;
+}
+
+.mascot-fx-meteor {
+  top: 20%;
+  left: 58%;
+  width: 20%;
+  height: 1.4%;
+  border-radius: 999px;
+  transform: rotate(-38deg);
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, #fffbe6, rgb(255 251 230 / 0));
+}
+
+/* 오로라 */
+@keyframes mascot-fx-flow-wave {
+  0%,
+  100% {
+    transform: skewX(-2deg);
+  }
+  50% {
+    transform: skewX(2deg);
+  }
+}
+
+.mascot-fx-flow-wave {
+  transform-origin: 50% 100%;
+  animation: mascot-fx-flow-wave 3s ease-in-out infinite;
+}
+
+@keyframes mascot-fx-flow-color {
+  0%,
+  100% {
+    filter: hue-rotate(-18deg);
+  }
+  50% {
+    filter: hue-rotate(22deg);
+  }
+}
+
+.mascot-fx-flow-color {
+  animation: mascot-fx-flow-color 3s ease-in-out infinite;
+}
+
+@keyframes mascot-fx-flow-shine {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+.mascot-fx-flow-shine {
+  background: linear-gradient(
+    100deg,
+    rgb(255 255 255 / 0) 0%,
+    rgb(255 255 255 / 0.55) 50%,
+    rgb(255 255 255 / 0) 100%
+  );
+  animation: mascot-fx-flow-shine 1.5s linear infinite;
+}
+
+/* 플래시 섬광 */
+@keyframes mascot-fx-flash-burst {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+    filter: none;
+  }
+  3% {
+    opacity: 1;
+    transform: scale(1.06);
+    filter: brightness(1.35);
+  }
+  10% {
+    opacity: 0.8;
+    transform: scale(1.02);
+    filter: none;
+  }
+  40% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+.mascot-fx-flash-burst {
+  animation: mascot-fx-flash-burst 3s ease-out infinite;
+}
+
+@keyframes mascot-fx-flash-light {
+  0% {
+    opacity: 0;
+  }
+  3% {
+    opacity: 0.95;
+  }
+  12% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.mascot-fx-flash-light {
+  background: radial-gradient(
+    closest-side,
+    #ffffff 0%,
+    rgb(255 255 255 / 0.6) 45%,
+    rgb(255 255 255 / 0) 100%
+  );
+  opacity: 0;
+  animation: mascot-fx-flash-light 3s ease-out infinite;
+}
+
+/* 필름 카운트다운 */
+@keyframes mascot-fx-countdown-sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.mascot-fx-countdown-sweep {
+  /* 시계 방향으로 도는 선 뒤로 어두운 꼬리가 따라오는 필름 리더 바늘이다.
+     각도는 회전으로만 바꿔 합성 단계에서 돈다. */
+  background: conic-gradient(
+    transparent 0deg 230deg,
+    rgb(46 42 38 / 0.38) 359deg,
+    transparent 360deg
+  );
+  animation: mascot-fx-countdown-sweep 1s linear infinite;
+}
+
+.mascot-fx-countdown-badge {
+  container-type: inline-size;
+  background: #f6efe2;
+  box-shadow: 0 0 0 2px #2e2a26;
+  color: #2e2a26;
+}
+
+@keyframes mascot-fx-countdown-digit {
+  0% {
+    opacity: 1;
+  }
+  33.333% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.mascot-fx-countdown-digit {
+  font-size: 64cqi;
+  font-weight: 800;
+  line-height: 1;
+  opacity: 0;
+  animation: mascot-fx-countdown-digit 3s step-end infinite;
+}
+
+/* 미리 그린 프레임 띠 그림(SpriteEffectPiece)
+   장 수와 한 바퀴 길이는 띠 그림마다 달라 쓰는 쪽이 animation-duration과 steps()를 준다.
+   이동 거리를 변수로 넘기면 합성 단계에서 돌지 못해, 띠를 얹은 상자를 자기 폭만큼 미는 키프레임 하나를 함께 쓴다. */
+@keyframes mascot-fx-sprite {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-100%);
+  }
+}
+
+.mascot-fx-sprite {
+  animation-name: mascot-fx-sprite;
+  animation-iteration-count: infinite;
+}
+
+/* 마스코트가 작게 여러 마리 보이는 화면(그룹 책상, 랭킹, 프로필)에서 효과를 덜어 낸다.
+   그룹 책상은 가장 큰 자리도 폭 104px에 마스코트 68px이고, 내 그룹 카드의 작은 자리는 마스코트가 40px이 안 된다.
+   한 화면에 여덟 마리가 넘게 함께 움직여도 느린 기기에서 밀리지 않게, 입자와 겹을 줄이고 원판 회전을 끈다.
+   기준 상자는 마스코트 판보다 1440 / 1024배 넓은 효과 판이라 160px은 마스코트 약 114px이고, 소품 미리 보기(144px)는 덜어 내지 않는다.
+   컨테이너 쿼리를 모르는 iOS 16 미만에서는 다 그린다. */
+.mascot-fx-board {
+  container: mascot-fx / inline-size;
+}
+
+@container mascot-fx (max-width: 160px) {
+  .mascot-fx-board [data-fx-detail] {
+    display: none;
+  }
+
+  .mascot-fx-starry-disc {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascot-fx-glow-halo,
+  .mascot-fx-glow-bright,
+  .mascot-fx-glow-sheen,
+  .mascot-fx-ripple-ring,
+  .mascot-fx-ripple-halo,
+  .mascot-fx-ripple-bright,
+  .mascot-fx-grain,
+  .mascot-fx-grain-l,
+  .mascot-fx-grain-r,
+  .mascot-fx-star,
+  .mascot-fx-meteor-path,
+  .mascot-fx-flow-shine,
+  .mascot-fx-flash-light,
+  .mascot-fx-countdown-sweep {
+    display: none;
+  }
+
+  /* 반짝이와 가루 조각은 그림 조각 자체라 제자리에 멈춰 보인다. */
+  .mascot-fx-drift,
+  .mascot-fx-drift-l,
+  .mascot-fx-drift-r,
+  .mascot-fx-spread,
+  .mascot-fx-spread-l1,
+  .mascot-fx-spread-l2,
+  .mascot-fx-spread-l3,
+  .mascot-fx-spread-r1,
+  .mascot-fx-spread-r2,
+  .mascot-fx-spread-r3,
+  .mascot-fx-spread-m {
+    animation: none;
+  }
+
+  .mascot-fx-glow-sway,
+  .mascot-fx-wipe,
+  .mascot-fx-starry-disc,
+  .mascot-fx-flow-wave,
+  .mascot-fx-flow-color,
+  .mascot-fx-flash-burst {
+    opacity: 1;
+    filter: none;
+    transform: none;
+    mask-image: none;
+    -webkit-mask-image: none;
+    animation: none;
+  }
+
+  /* 열쇠는 궤도 위 제자리에 멈춰 둔다.
+     시작 시점이 열쇠마다 달라 자리가 겹치지 않고, 앞뒤 층도 그 자리에 맞게 남는다. */
+  .mascot-fx-spiral-key,
+  .mascot-fx-spiral-front,
+  .mascot-fx-spiral-back {
+    animation-play-state: paused;
+  }
+
+  .mascot-fx-countdown-digit:first-child {
+    opacity: 1;
+    animation: none;
+  }
+
+  .mascot-fx-countdown-digit:not(:first-child) {
+    animation: none;
+  }
+
+  /* 띠 그림은 첫 장(지금 효과 그림과 같은 장)에 멈춘다. */
+  .mascot-fx-sprite {
+    animation: none;
+  }
+}
+
 @keyframes result-hero-glow {
   0%,
   100% {

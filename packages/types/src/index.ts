@@ -42,6 +42,25 @@ export interface AuthRefreshResponse {
 }
 
 /**
+ * 심사용 로그인 입구를 그릴지 (GET /api/auth/review-login/status?appVersion=), Swagger 기준.
+ * 토큰 없이 부르고, 서버에 적어 둔 출시 버전보다 높은 앱 버전에서만 enabled가 참이다.
+ */
+export interface ReviewLoginStatusResponse {
+  enabled: boolean;
+}
+
+/**
+ * 심사용 로그인 요청 (POST /api/auth/review-login), Swagger 기준.
+ * appVersion은 `26.47.0`처럼 점으로 나눈 숫자이고 응답은 `AuthRefreshResponse`와 같은 토큰 한 쌍이다.
+ * 실패는 403 REVIEW_LOGIN_DISABLED, 400 INVALID_REVIEW_CREDENTIALS, 429 TOO_MANY_REQUESTS로 온다.
+ */
+export interface ReviewLoginRequest {
+  loginId: string;
+  password: string;
+  appVersion: string;
+}
+
+/**
  * 기기 푸시 토큰 등록 API 계약 (PUT /api/push-tokens, 204) — Swagger 기준.
  * 같은 토큰이면 권한 상태와 갱신 시각만 바뀌고, 다른 사용자에게 붙어 있던 토큰이면 지금 사용자로 옮긴다.
  */
@@ -818,9 +837,19 @@ export type {
   AnalyticsEventParamValue,
   AnalyticsUserPropertiesMessage,
   NativeAnalyticsPropertyValue,
+  PointsAdShowResultMessage,
+  PointsAdStatus,
+  PointsChargePrice,
+  PointsChargePricesResultMessage,
+  PointsChargePurchaseResultMessage,
+  PointsChargePurchaseStatus,
+  PointsChargeRestoreResultMessage,
+  PointsChargeRestoreStatus,
   SocialLoginFailureCode,
   SocialLoginProvider,
   SocialLoginResultMessage,
+  ReviewLoginFailureCode,
+  ReviewLoginResultMessage,
   LogoutResultMessage,
   DeleteAccountFailureCode,
   DeleteAccountResultMessage,
@@ -878,10 +907,30 @@ export {
   NATIVE_SEGMENT_MIN_OPTIONS,
   NAVIGATE_TAB_SOURCES,
   NAVIGATE_TAB_TARGETS,
+  POINTS_AD_STATUSES,
+  POINTS_CHARGE_PRICES_MAX_PRODUCTS,
+  POINTS_CHARGE_PURCHASE_STATUSES,
+  POINTS_CHARGE_RESTORE_MAX_PRODUCTS,
+  POINTS_CHARGE_RESTORE_STATUSES,
   SOCIAL_LOGIN_FAILURE_CODES,
+  REVIEW_LOGIN_FAILURE_CODES,
+  REVIEW_LOGIN_ID_MAX_LENGTH,
+  REVIEW_LOGIN_PASSWORD_MAX_LENGTH,
   DELETE_ACCOUNT_FAILURE_CODES,
   SOCIAL_LOGIN_PROVIDERS,
   VIDEO_RESULT_STATUSES,
   VIDEO_SHARE_TARGETS,
 } from "./bridge";
-export type { HomeMissionResponse } from "./homeMission";
+export type { HomeMissionResponse, HomeMissionRewardClaimResponse } from "./homeMission";
+export type {
+  EffectPieceResponse,
+  EquippedItemResponse,
+  MascotAppearance,
+} from "./mascotAppearance";
+export type {
+  GoalPointTierResponse,
+  PointProductResponse,
+  PointProductsResponse,
+  PointsEarnResponse,
+  StudyPointTierResponse,
+} from "./points";

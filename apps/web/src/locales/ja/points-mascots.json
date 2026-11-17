@@ -1,0 +1,25 @@
+{
+  "totalFocus": "累計の集中時間",
+  "remaining": "あと{{time}}",
+  "lockedLabel": "{{name}}は未解放、{{remaining}}",
+  "sheet": {
+    "untilOpen": "あと{{time}}集中すると解放されます。",
+    "progress": "{{name}}まで{{percent}}%",
+    "startStudy": "勉強を始める"
+  },
+  "unlocked": {
+    "tag": "新しいマスコット",
+    "switch": "このマスコットにする",
+    "later": "あとで"
+  },
+  "profile": {
+    "title": "マイマスコット",
+    "decorate": "きせかえ",
+    "pick": "マイマスコットを選ぶ",
+    "locked": "{{name}}は未解放"
+  },
+  "purchase": {
+    "buyFor": "{{price}}で解放",
+    "lockedPriceLabel": "{{name}}は未解放、{{price}}"
+  }
+}

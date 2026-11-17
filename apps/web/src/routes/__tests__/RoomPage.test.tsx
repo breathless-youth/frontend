@@ -210,6 +210,25 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     expect(screen.getByRole("status")).toHaveTextContent("순공시간 측정 중");
   });
 
+  it("상태 줄은 시계 바로 위에 있고 점과 문구를 함께 그린다", () => {
+    const { container } = renderRoom("/room/7?userId=1");
+
+    const status = screen.getByRole("status");
+    expect(status).toContainElement(screen.getByTestId("status-dot"));
+    // 시계 묶음 안에서 상태 줄이 숫자보다 먼저 온다.
+    const clock = container.querySelector("[data-clock-row]")!.parentElement!;
+    expect(clock).toContainElement(screen.getByText("00:00:00"));
+  });
+
+  it("심플 모드에서 상태 줄은 보이지 않지만 상태 알림은 남는다", async () => {
+    renderRoom("/room/7?userId=1");
+
+    await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
+
+    expect(screen.getByRole("status")).toHaveTextContent("순공시간 측정 중");
+    expect(screen.queryByTestId("status-dot")).not.toBeInTheDocument();
+  });
+
   it("Figma V2에 없는 하단 캡션 문구가 화면에 없다", () => {
     renderRoom("/room/7?userId=1");
 
@@ -272,7 +291,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
     expect(screen.getByRole("button", { name: "다시 시작" })).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    await chooseMoreMenuItem("플래너");
     await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
 
     expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
@@ -284,7 +303,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
       { id: 3, name: "수학", colorIndex: 0, studySec: 0, focusSec: 0, tasks: [] },
     ]);
     renderRoom("/room/7?userId=1");
-    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    await chooseMoreMenuItem("플래너");
     await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
 
     act(() => {
@@ -376,7 +395,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
   it("더보기 메뉴가 열린 동안 오른쪽 열과 하단 버튼은 보인 채 누를 수 없다", async () => {
     renderRoom("/room/7?userId=1");
     const blocked = () =>
-      [/^배경음/, "과목", "타이머", "일시정지", "공부 종료"].map((name) => {
+      ["공간", /^배경음/, "타이머", "일시정지", "공부 종료"].map((name) => {
         const button = screen.getByRole("button", { name, hidden: true });
         expect(button).toBeEnabled();
         return button.closest("[inert]") !== null;
@@ -904,14 +923,14 @@ describe("RoomPage — S3-4 심플 모드", () => {
       { id: 3, name: "수학", colorIndex: 0, studySec: 0, focusSec: 0, tasks: [] },
     ]);
     renderRoom("/room/7?userId=1");
-    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    await chooseMoreMenuItem("플래너");
     await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
 
     await enterSimpleMode();
 
     expect(screen.getByRole("status")).toHaveTextContent("순공시간 측정 중");
     expect(unreachable(screen.getByRole("button", { name: "일시정지" }))).toBe(false);
-    for (const name of ["더보기", /^배경음/, /^과목/, "공부 종료"]) {
+    for (const name of ["더보기", "공간", /^배경음/, "공부 종료"]) {
       expect(unreachable(screen.getByRole("button", { name }))).toBe(true);
     }
   });
@@ -921,7 +940,7 @@ describe("RoomPage — S3-4 심플 모드", () => {
       { id: 3, name: "수학", colorIndex: 0, studySec: 0, focusSec: 0, tasks: [] },
     ]);
     renderRoom("/room/7?userId=1");
-    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    await chooseMoreMenuItem("플래너");
     await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
     expect(screen.getAllByText(/^총 /)).not.toHaveLength(0);
 
@@ -976,9 +995,11 @@ describe("RoomPage — S3-4 심플 모드", () => {
    * 회전 중에는 카메라 서피스가 잠깐 뷰포트보다 작게 잡혀 가장자리에 빈 공간이 보인다(BY-336).
    * 가리지 않고 **메우는** 방식이라 "언제 확대하고 언제 되돌리는지"를 고정한다.
    */
-  it("회전 중에는 프리뷰를 살짝 확대해 빈 자리를 메우고, 뷰포트가 확정되면 되돌린다", () => {
+  it("키운 카메라는 회전 중에 살짝 확대해 빈 자리를 메우고, 뷰포트가 확정되면 되돌린다", async () => {
     const { container } = renderRoom("/room/7?userId=1");
     const surfaceOf = () => container.querySelector('[data-session-surface="camera"]');
+    // 작은 창은 화면 가장자리에 닿지 않아 메울 빈 자리가 없어서 키운 화면에서만 확대한다.
+    await userEvent.click(screen.getByRole("button", { name: "내 화면 크게 보기" }));
 
     expect(surfaceOf()?.className).not.toContain("scale-");
 
@@ -1588,7 +1609,7 @@ async function openSheetWithTask(doneAt: string | null) {
     },
   ]);
   renderRoom("/room/7?userId=1");
-  await userEvent.click(screen.getByRole("button", { name: "과목" }));
+  await chooseMoreMenuItem("플래너");
   await screen.findByRole("checkbox", { name: "오답 정리" });
   haptic.mockClear();
 }
@@ -1631,7 +1652,7 @@ describe("RoomPage — 햅틱", () => {
     ]);
     renderRoom("/room/7?userId=1");
     await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
-    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    await chooseMoreMenuItem("플래너");
     const play = await screen.findByRole("button", { name: "수학 측정 시작" });
     haptic.mockClear();
 
@@ -1733,6 +1754,7 @@ describe("RoomPage — 앱 glass 버튼", () => {
 
     const controls = sessionControls(postMessage);
     expect(controls).not.toHaveProperty("session-flip");
+    expect(controls).not.toHaveProperty("session-subject");
     expect(controls).toMatchObject({
       "session-ambient": {
         systemImage: "music.note",
@@ -1741,9 +1763,9 @@ describe("RoomPage — 앱 glass 버튼", () => {
         faded: false,
         iconSize: expect.closeTo(23 * 0.82),
       },
-      "session-subject": {
-        systemImage: "book",
-        accessibilityLabel: "과목",
+      "session-space": {
+        systemImage: "photo",
+        accessibilityLabel: "공간",
         tone: "default",
         faded: false,
         iconSize: expect.closeTo(23 * 0.82),
@@ -1769,7 +1791,7 @@ describe("RoomPage — 앱 glass 버튼", () => {
     // 일시정지는 간단 모드에서도 남아서 도움말 화면이 떠 있을 때만 흐려진다.
     expect(controls["session-pause"]).toMatchObject({ faded: false });
     // 스스로 aria-hidden인 요소는 접근 이름이 비어 역할로 찾을 수 없어서 aria-label로 찾는다.
-    for (const name of ["배경음", "과목", "타이머", "일시정지", "공부 종료"]) {
+    for (const name of ["공간", "배경음", "타이머", "일시정지", "공부 종료"]) {
       expect(screen.getByLabelText(name).style.visibility).toBe("hidden");
     }
     // 더보기는 웹 메뉴라 앱 부품으로 맡기지 않는다.
@@ -1809,8 +1831,8 @@ describe("RoomPage — 앱 glass 버튼", () => {
     const postMessage = enterSessionGlass();
     renderRoom("/room/7?userId=1");
     const ids = [
+      "session-space",
       "session-ambient",
-      "session-subject",
       "session-timer",
       "session-pause",
       "session-exit",
@@ -1855,26 +1877,9 @@ describe("RoomPage — 앱 glass 버튼", () => {
     });
   });
 
-  it("과목을 고르면 과목 앱 버튼이 선택됨 이름의 active 색으로 바뀐다", async () => {
-    listSubjects.mockResolvedValueOnce([
-      { id: 3, name: "수학", colorIndex: 0, studySec: 0, focusSec: 0, tasks: [] },
-    ]);
-    const postMessage = enterSessionGlass();
-    renderRoom("/room/7?userId=1");
-
-    pressNative("session-subject", 0);
-    // 아이콘 svg의 계산 스타일을 폭만 돌려주게 바꿔 두어서 접근 이름 계산 없이 aria-label로 찾는다.
-    await userEvent.click(await screen.findByLabelText("수학 측정 시작"));
-
-    expect(sessionControls(postMessage)["session-subject"]).toMatchObject({
-      tone: "active",
-      accessibilityLabel: "과목 선택됨",
-    });
-  });
-
   it.each([
     ["session-ambient", "dialog", "배경음"],
-    ["session-subject", "dialog", "과목"],
+    ["session-space", "dialog", "공간"],
     ["session-exit", "alertdialog", undefined],
   ] as const)("%s 앱 누름이 웹 버튼과 같은 화면을 연다", async (id, role, name) => {
     enterSessionGlass();
@@ -1892,7 +1897,7 @@ describe("RoomPage — 앱 glass 버튼", () => {
     await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
 
     const controls = sessionControls(postMessage);
-    for (const id of ["session-ambient", "session-subject", "session-timer", "session-exit"]) {
+    for (const id of ["session-space", "session-ambient", "session-timer", "session-exit"]) {
       expect(controls[id]).toMatchObject({ faded: true });
     }
     expect(controls["session-pause"]).toMatchObject({ faded: false });

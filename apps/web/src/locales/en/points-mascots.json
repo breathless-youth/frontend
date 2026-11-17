@@ -1,0 +1,25 @@
+{
+  "totalFocus": "Total focus",
+  "remaining": "{{time}} left",
+  "lockedLabel": "{{name}} locked, {{remaining}}",
+  "sheet": {
+    "untilOpen": "Focus {{time}} more to unlock.",
+    "progress": "{{percent}}% of the way to {{name}}",
+    "startStudy": "Start studying"
+  },
+  "unlocked": {
+    "tag": "New mascot",
+    "switch": "Switch to this mascot",
+    "later": "Later"
+  },
+  "profile": {
+    "title": "My mascot",
+    "decorate": "Decorate",
+    "pick": "Choose my mascot",
+    "locked": "{{name}} locked"
+  },
+  "purchase": {
+    "buyFor": "Unlock for {{price}}",
+    "lockedPriceLabel": "{{name}} locked, {{price}}"
+  }
+}

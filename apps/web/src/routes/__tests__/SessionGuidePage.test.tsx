@@ -114,7 +114,7 @@ function sendNative(message: Record<string, unknown>) {
 }
 
 const startButton = () => screen.getByRole("button", { name: "순공 시작하기" });
-const laterButton = () => screen.getByRole("button", { name: "나중에 시작할게요" });
+const laterButton = () => screen.getByRole("button", { name: "나중에 하기" });
 
 afterEach(() => {
   identity.source = null;
@@ -154,7 +154,9 @@ describe("SessionGuidePage", () => {
     renderFromPlanner(3);
 
     expect(screen.getByRole("dialog", { name: "세션 도움말" })).toBeInTheDocument();
-    expect(postMessage).not.toHaveBeenCalled();
+    expect(postMessage.mock.calls.map(([raw]) => JSON.parse(String(raw)).type)).not.toContain(
+      "start-session",
+    );
     await goToLastStep();
     await userEvent.click(startButton());
 
@@ -213,12 +215,34 @@ describe("SessionGuidePage", () => {
     expect(analytics.trackStudySessionHelpShown).toHaveBeenCalledExactlyOnceWith("auto", "single");
     expect(analytics.trackStudySessionHelpStepViewed).toHaveBeenCalledExactlyOnceWith({
       step: 1,
-      stepId: "away",
+      stepId: "welcome",
       trigger: "auto",
       roomType: "single",
     });
     expect(requestSessionStart).not.toHaveBeenCalled();
     expect(analytics.trackFocusStartTapped).not.toHaveBeenCalled();
+  });
+
+  it("떠 있는 동안 앱에 세로 고정을 요청하고, 시작을 요청하면 더 붙들지 않으며 닫힐 때 회전을 풀지 않는다", async () => {
+    vi.mocked(requestSessionStart).mockResolvedValue("native");
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    const orientations = () =>
+      postMessage.mock.calls
+        .map(([raw]) => JSON.parse(String(raw)) as { type: string; unlocked?: boolean })
+        .filter((message) => message.type === "set-orientation");
+    renderFromRanking();
+
+    expect(orientations()).toEqual([expect.objectContaining({ unlocked: false })]);
+
+    await goToLastStep();
+    await userEvent.click(startButton());
+    await act(async () => {});
+    window.dispatchEvent(new Event("resize"));
+    coverTab();
+    await screen.findByTestId("ranking");
+
+    expect(orientations()).toEqual([expect.objectContaining({ unlocked: false })]);
   });
 
   it("순공 시작하기는 완료를 남기고 누른 자리와 함께 세션 시작을 요청한다", async () => {
@@ -382,7 +406,7 @@ describe("SessionGuidePage", () => {
     expect(analytics.trackFocusStartTapped).toHaveBeenCalledTimes(1);
   });
 
-  it("나중에 시작할게요는 세션 없이 이전 화면으로 가고 완료로 남긴다", async () => {
+  it("나중에 하기는 세션 없이 이전 화면으로 가고 완료로 남긴다", async () => {
     renderFromRanking();
     await goToLastStep();
 
@@ -409,7 +433,7 @@ describe("SessionGuidePage", () => {
     expect(sessionGuideState(7)).toBeNull();
     expect(analytics.trackStudySessionHelpDismissed).toHaveBeenCalledExactlyOnceWith({
       step: 2,
-      stepId: "measuring",
+      stepId: "away",
       trigger: "auto",
       roomType: "single",
       reason: "escape",
@@ -417,7 +441,7 @@ describe("SessionGuidePage", () => {
     expect(requestSessionStart).not.toHaveBeenCalled();
   });
 
-  it("시작 요청을 보내는 동안에는 나중에 시작할게요와 Escape가 듣지 않는다", async () => {
+  it("시작 요청을 보내는 동안에는 나중에 하기와 Escape가 듣지 않는다", async () => {
     vi.mocked(requestSessionStart).mockReturnValue(new Promise(() => {}));
     renderFromRanking();
     await goToLastStep();
@@ -430,7 +454,7 @@ describe("SessionGuidePage", () => {
     expect(analytics.trackStudySessionHelpDismissed).not.toHaveBeenCalled();
   });
 
-  it("시작 요청이 끝났는데 신호가 오지 않으면 나중에 시작할게요로 나갈 수 있고 완료는 한 번만 남는다", async () => {
+  it("시작 요청이 끝났는데 신호가 오지 않으면 나중에 하기로 나갈 수 있고 완료는 한 번만 남는다", async () => {
     vi.mocked(requestSessionStart).mockResolvedValue("native");
     renderFromRanking();
     await goToLastStep();

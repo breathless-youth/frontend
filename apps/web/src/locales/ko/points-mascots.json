@@ -1,0 +1,25 @@
+{
+  "totalFocus": "누적 순공",
+  "remaining": "{{time}} 남음",
+  "lockedLabel": "{{name}} 잠김, {{remaining}}",
+  "sheet": {
+    "untilOpen": "순공 {{time}} 더 하면 열려요.",
+    "progress": "{{name}}까지 {{percent}}% 모았어요",
+    "startStudy": "공부 시작하기"
+  },
+  "unlocked": {
+    "tag": "새 마스코트",
+    "switch": "이 마스코트로 바꾸기",
+    "later": "나중에"
+  },
+  "profile": {
+    "title": "내 마스코트",
+    "decorate": "꾸미기",
+    "pick": "내 마스코트 고르기",
+    "locked": "{{name}} 잠김"
+  },
+  "purchase": {
+    "buyFor": "{{price}}로 열기",
+    "lockedPriceLabel": "{{name}} 잠김, {{price}}"
+  }
+}

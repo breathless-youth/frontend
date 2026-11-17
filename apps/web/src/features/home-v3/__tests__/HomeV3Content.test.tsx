@@ -32,6 +32,22 @@ function props(): HomeV3ContentProps {
 }
 
 describe("HomeV3Content", () => {
+  it("미션 띠에 이번 단계의 포인트를 칩으로 보이고 값이 없으면 칩이 없다", () => {
+    const input = props();
+    const { rerender } = render(<HomeV3Content {...input} />);
+    expect(screen.queryByText("+50P")).toBeNull();
+    rerender(
+      <HomeV3Content
+        {...input}
+        band={{
+          status: "success",
+          value: { kind: "mission", step: 1, ready: true, progress: 0, rewardPoints: 50 },
+        }}
+      />,
+    );
+    expect(screen.getByText("+50P")).toBeInTheDocument();
+  });
+
   it("keeps the step until the server acknowledgement arrives", async () => {
     const input = props();
     const { rerender } = render(<HomeV3Content {...input} />);

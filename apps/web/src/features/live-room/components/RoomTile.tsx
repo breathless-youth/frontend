@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import type { RoomMember } from "@focusmakers/types";
 
+import { toOthersMascotLook } from "@/features/points/model/othersMascotLook";
 import { normalizeGoal } from "@/features/profile/profileValidation";
 import { cn } from "@/lib/utils";
 
@@ -180,7 +181,11 @@ export function RoomTile({
       {showMedia ? (
         <div className="absolute inset-0">{media}</div>
       ) : (
-        <RoomAvatarFallback imageUrl={member.profileImageUrl} scaleWithTile />
+        <RoomAvatarFallback
+          imageUrl={member.profileImageUrl}
+          look={toOthersMascotLook(member.mascot)}
+          scaleWithTile
+        />
       )}
       {showMedia && (
         <>

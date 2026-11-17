@@ -1,6 +1,7 @@
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
+import { toOthersMascotLook } from "@/features/points/model/othersMascotLook";
 import { RankAvatar } from "@/features/ranking/components/RankAvatar";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +14,7 @@ import type { WeeklyRankRow } from "../types";
  *
  * 순위는 다시 받을 때만 바뀌어서 순공을 올려 보여도 바로 위 줄을 넘지 않게 멈춘다.
  * 내 줄은 바탕을 칠해 바로 찾게 한다.
+ * 사진이 없는 줄은 그 사람이 고른 마스코트를 소품과 함께 그린다.
  * 공부 중인 줄의 점은 색만으로 알리지 않도록 화면 낭독기에 글로 읽힌다.
  */
 export function WeeklyRankCard({
@@ -57,7 +59,12 @@ export function WeeklyRankCard({
             >
               {row.rank}
             </span>
-            <RankAvatar me={row.isMe} size="xs" imageUrl={row.imageUrl} />
+            <RankAvatar
+              me={row.isMe}
+              size="xs"
+              imageUrl={row.imageUrl}
+              look={toOthersMascotLook(row.mascot)}
+            />
             <span
               className={cn(
                 "min-w-0 flex-1 truncate text-sm leading-4.5 text-foreground",

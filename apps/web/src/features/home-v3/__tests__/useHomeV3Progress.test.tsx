@@ -28,6 +28,7 @@ function setup(overrides: Partial<HomeV3Gateway> = {}) {
   const gateway: HomeV3Gateway = {
     readMission: vi.fn().mockResolvedValue(homeMission(0, 300)),
     acknowledgeMission: vi.fn().mockResolvedValue(homeMission(1, 300)),
+    claimMissionReward: vi.fn(),
     readPlannerDay: vi.fn().mockResolvedValue(
       plannerDay({
         date: "2026-11-07",
@@ -404,5 +405,170 @@ describe("home v3 server progress", () => {
       ).toBeDefined(),
     );
     expect(client.getQueryData(homeV3Keys.goal(8, day))).toBeUndefined();
+  });
+
+  describe("미션 포인트", () => {
+    it("포인트를 쓰는 사용자가 미션을 끝냈는데 안 받은 포인트가 있으면 받기 띠를 보인다", async () => {
+      const { gateway, wrapper } = setup({
+        readMission: vi.fn().mockResolvedValue({ ...homeMission(2, 300), claimablePoints: 150 }),
+      });
+      const { result } = renderHook(() => useHomeV3Progress(gateway, 1, day, stats, true), {
+        wrapper,
+      });
+      await waitFor(() =>
+        expect(result.current.band).toEqual({
+          status: "success",
+          value: { kind: "mission-reward", points: 150 },
+        }),
+      );
+    });
+
+    it("포인트를 쓰지 않는 사용자에게는 받기 띠를 보이지 않는다", async () => {
+      const { gateway, wrapper } = setup({
+        readMission: vi.fn().mockResolvedValue({ ...homeMission(2, 300), claimablePoints: 150 }),
+      });
+      const { result } = renderHook(() => useHomeV3Progress(gateway, 1, day, stats), { wrapper });
+      await waitFor(() => expect(result.current.band.status).toBe("success"));
+      expect(result.current.band).toMatchObject({ value: { kind: "goal" } });
+    });
+
+    it("받으면 잔액을 서버 값으로 덮고 목표 띠로 넘어간다", async () => {
+      const { gateway, client, wrapper } = setup({
+        readMission: vi.fn().mockResolvedValue({ ...homeMission(2, 300), claimablePoints: 150 }),
+        claimMissionReward: vi.fn().mockResolvedValue({ granted: true, points: 150, balance: 450 }),
+      });
+      const { result } = renderHook(() => useHomeV3Progress(gateway, 1, day, stats, true), {
+        wrapper,
+      });
+      await waitFor(() =>
+        expect(result.current.band).toMatchObject({ value: { kind: "mission-reward" } }),
+      );
+
+      act(() => result.current.claimMissionReward());
+
+      await waitFor(() => expect(result.current.band).toMatchObject({ value: { kind: "goal" } }));
+      expect(client.getQueryData(["points", 1, "balance"])).toBe(450);
+    });
+
+    it("서버가 받기를 회원 전용이라고 거절하면 실패 문구 대신 로그인 화면을 열게 한다", async () => {
+      const { gateway, wrapper } = setup({
+        readMission: vi.fn().mockResolvedValue({ ...homeMission(2, 300), claimablePoints: 150 }),
+        claimMissionReward: vi
+          .fn()
+          .mockRejectedValue(new ApiError("member only", 403, "MEMBER_ONLY")),
+      });
+      const { result } = renderHook(() => useHomeV3Progress(gateway, 1, day, stats, true), {
+        wrapper,
+      });
+      await waitFor(() =>
+        expect(result.current.band).toMatchObject({ value: { kind: "mission-reward" } }),
+      );
+      const onMemberOnly = vi.fn();
+
+      act(() => result.current.claimMissionReward(onMemberOnly));
+
+      await waitFor(() => expect(onMemberOnly).toHaveBeenCalledOnce());
+      expect(result.current.rewardError).toBe(false);
+    });
+
+    it("단계를 끝내며 포인트를 받으면 잔액을 다시 읽게 한다", async () => {
+      const { gateway, client, wrapper } = setup({
+        acknowledgeMission: vi
+          .fn()
+          .mockResolvedValue({ ...homeMission(1, 300), rewardedPoints: 50 }),
+      });
+      client.setQueryData(["points", 1, "balance"], 300);
+      const { result } = renderHook(() => useHomeV3Progress(gateway, 1, day, stats, true), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.band.status).toBe("success"));
+
+      act(() => result.current.completeMission(1));
+
+      await waitFor(() =>
+        expect(client.getQueryState(["points", 1, "balance"])?.isInvalidated).toBe(true),
+      );
+    });
+
+    it("보상을 받으면 실제로 받은 금액을 잔액 연출로 넘긴다", async () => {
+      const { gateway, wrapper } = setup({
+        readMission: vi.fn().mockResolvedValue({ ...homeMission(2, 300), claimablePoints: 150 }),
+        claimMissionReward: vi.fn().mockResolvedValue({ granted: true, points: 120, balance: 420 }),
+      });
+      const { result } = renderHook(() => useHomeV3Progress(gateway, 1, day, stats, true), {
+        wrapper,
+      });
+      await waitFor(() =>
+        expect(result.current.band).toMatchObject({ value: { kind: "mission-reward" } }),
+      );
+      expect(result.current.gain).toBeNull();
+
+      act(() => result.current.claimMissionReward());
+
+      await waitFor(() => expect(result.current.gain).toMatchObject({ points: 120 }));
+    });
+
+    it("다른 기기에서 이미 받은 보상이면 잔액 연출을 띄우지 않는다", async () => {
+      const { gateway, client, wrapper } = setup({
+        readMission: vi.fn().mockResolvedValue({ ...homeMission(2, 300), claimablePoints: 150 }),
+        claimMissionReward: vi
+          .fn()
+          .mockResolvedValue({ granted: false, points: 150, balance: 450 }),
+      });
+      const { result } = renderHook(() => useHomeV3Progress(gateway, 1, day, stats, true), {
+        wrapper,
+      });
+      await waitFor(() =>
+        expect(result.current.band).toMatchObject({ value: { kind: "mission-reward" } }),
+      );
+
+      act(() => result.current.claimMissionReward());
+
+      await waitFor(() => expect(client.getQueryData(["points", 1, "balance"])).toBe(450));
+      expect(result.current.gain).toBeNull();
+    });
+
+    it("단계를 끝내며 받은 포인트도 같은 잔액 연출로 넘기고 받을 때마다 새로 띄운다", async () => {
+      const { gateway, wrapper } = setup({
+        readMission: vi.fn().mockResolvedValue(homeMission(0, 0)),
+        acknowledgeMission: vi
+          .fn()
+          .mockResolvedValueOnce({ ...homeMission(1, 300), rewardedPoints: 50 })
+          .mockResolvedValueOnce({ ...homeMission(2, 300), rewardedPoints: 100 }),
+      });
+      const { result } = renderHook(() => useHomeV3Progress(gateway, 1, day, stats, true), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.band.status).toBe("success"));
+
+      act(() => result.current.completeMission(1));
+      await waitFor(() => expect(result.current.gain).toMatchObject({ points: 50 }));
+      const first = result.current.gain;
+
+      await waitFor(() =>
+        expect(result.current.band).toMatchObject({ value: { kind: "mission", step: 2 } }),
+      );
+      act(() => result.current.completeMission(2));
+      await waitFor(() => expect(result.current.gain).toMatchObject({ points: 100 }));
+      expect(result.current.gain?.id).not.toBe(first?.id);
+    });
+
+    it("포인트 없이 단계를 끝내면 잔액 연출을 띄우지 않는다", async () => {
+      const { gateway, wrapper } = setup({
+        acknowledgeMission: vi
+          .fn()
+          .mockResolvedValue({ ...homeMission(1, 300), rewardedPoints: 0 }),
+      });
+      const { result } = renderHook(() => useHomeV3Progress(gateway, 1, day, stats, true), {
+        wrapper,
+      });
+      await waitFor(() => expect(result.current.band.status).toBe("success"));
+
+      act(() => result.current.completeMission(1));
+
+      await waitFor(() => expect(gateway.acknowledgeMission).toHaveBeenCalledOnce());
+      await waitFor(() => expect(result.current.completingMission).toBe(false));
+      expect(result.current.gain).toBeNull();
+    });
   });
 });

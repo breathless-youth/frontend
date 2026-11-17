@@ -12,7 +12,12 @@ import { useHomeStudyStatusProperties } from "@/features/home/useHomeStudyStatus
 import { useOpenPlanner } from "@/features/planner/useOpenPlanner";
 import { recentTimelapsesQuery } from "@/features/timelapse/timelapseQueries";
 import { getTimelapseStore } from "@/features/timelapse/timelapseStore";
+import { PointsBalancePill } from "@/features/points/components/shared/PointsBalancePill";
+import { usePointsBalance } from "@/features/points/components/shop/usePointsBalance";
+import { pointsSearch } from "@/features/points/pointsSearch";
+import { usePointsLogin } from "@/features/points/usePointsLogin";
 import { setHasTimelapseUserProperty } from "@/lib/amplitude";
+import { isPointsEnabled } from "@/lib/pointsCapability";
 import { hardNavigate } from "@/lib/hardNavigation";
 import { hasTokenSource } from "@/lib/userId";
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
@@ -71,6 +76,8 @@ export function HomeV3Entry({
   const navigate = useNavigate();
   const location = useLocation();
   const openPlanner = useOpenPlanner("home");
+  const points = usePointsBalance(userId);
+  const openPointsLogin = usePointsLogin();
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState<{
     day: HomeDay;
@@ -137,7 +144,13 @@ export function HomeV3Entry({
           },
         }
       : { status: "pending" };
-  const progress = useHomeV3Progress(gateway, userId, day, stats);
+  const progress = useHomeV3Progress(
+    gateway,
+    userId,
+    day,
+    stats,
+    isPointsEnabled() && !points.memberOnly,
+  );
   useEffect(() => {
     if (stats.status !== "success" || prefetched.current) return;
     prefetched.current = true;
@@ -217,9 +230,24 @@ export function HomeV3Entry({
         ) : (
           <span className="text-2xl font-bold">FocusMakers</span>
         )}
-        <p className="shrink-0 pb-1.5 text-sm leading-4.5 font-medium text-muted-foreground">
-          {homeDateLabel(day.dateKey, i18n.language)}
-        </p>
+        {isPointsEnabled() && !points.memberOnly ? (
+          <div className="shrink-0">
+            <PointsBalancePill
+              size="home"
+              balance={points.balance}
+              gain={progress.gain}
+              onPress={() =>
+                slideNavigate("forward", () =>
+                  navigate({ pathname: "/points", search: pointsSearch(location.search) }),
+                )
+              }
+            />
+          </div>
+        ) : (
+          <p className="shrink-0 pb-1.5 text-sm leading-4.5 font-medium text-muted-foreground">
+            {homeDateLabel(day.dateKey, i18n.language)}
+          </p>
+        )}
       </header>
       <HomeV3Content
         band={progress.band}
@@ -239,7 +267,14 @@ export function HomeV3Entry({
         selectedSubjectId={subjectId}
         onMenuOpenChange={setMenuOpen}
         completingMission={progress.completingMission}
-        missionError={progress.missionError ? t("v3.mission.failed") : undefined}
+        claimingReward={progress.claimingReward}
+        missionError={
+          progress.missionError
+            ? t("v3.mission.failed")
+            : progress.rewardError
+              ? t("v3.reward.failed")
+              : undefined
+        }
         startingStudy={verifyingSubject}
         startError={
           startError === "verify"
@@ -263,6 +298,8 @@ export function HomeV3Entry({
           },
           openPlanner: () => openPlanner(day.dateKey),
           completeMission: progress.completeMission,
+          // 보상은 회원만 받으므로 서버가 회원 전용이라고 거절하면 로그인 화면을 연다.
+          claimMissionReward: () => progress.claimMissionReward(openPointsLogin),
           editGoal: () => {
             void preloadGoalSheet();
             setEditing({

@@ -143,6 +143,11 @@ export type ToWebMessage =
       atMs: number;
     }
   | SocialLoginResultMessage
+  | ReviewLoginResultMessage
+  | PointsChargePricesResultMessage
+  | PointsChargePurchaseResultMessage
+  | PointsChargeRestoreResultMessage
+  | PointsAdShowResultMessage
   | LogoutResultMessage
   | DeleteAccountResultMessage
   | CameraPermissionMessage
@@ -242,6 +247,113 @@ export const SOCIAL_LOGIN_FAILURE_CODES = [
   "UNKNOWN",
 ] as const;
 export type SocialLoginFailureCode = (typeof SOCIAL_LOGIN_FAILURE_CODES)[number];
+
+/** 심사용 로그인이 실패한 까닭이며 앞의 셋은 서버 오류 코드 그대로다. */
+/** 심사용 로그인 아이디의 최대 길이이며 서버가 64자까지 받아 웹 입력칸과 앱 검사가 같이 쓴다. */
+export const REVIEW_LOGIN_ID_MAX_LENGTH = 64;
+
+/** 심사용 로그인 비밀번호의 최대 길이이며 서버에는 상한이 없어 브리지로 넘길 만큼만 정했다. */
+export const REVIEW_LOGIN_PASSWORD_MAX_LENGTH = 256;
+
+export const REVIEW_LOGIN_FAILURE_CODES = [
+  "REVIEW_LOGIN_DISABLED",
+  "INVALID_REVIEW_CREDENTIALS",
+  "TOO_MANY_REQUESTS",
+  "UNKNOWN",
+] as const;
+export type ReviewLoginFailureCode = (typeof REVIEW_LOGIN_FAILURE_CODES)[number];
+
+/**
+ * 심사용 로그인 결과
+ *
+ * `review-login`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+ * 성공이면 앱이 새 토큰의 `auth-token`을 먼저 보낸 뒤에 이 결과를 보낸다.
+ * 비밀번호와 토큰은 싣지 않는다.
+ */
+export type ReviewLoginResultMessage =
+  | { type: "review-login-result"; id: string; status: "success"; atMs: number }
+  | {
+      type: "review-login-result";
+      id: string;
+      status: "failed";
+      code: ReviewLoginFailureCode;
+      atMs: number;
+    };
+
+/** 스토어가 그 기기의 통화로 만든 충전 상품 가격 문구 */
+export type PointsChargePrice = { storeProductId: string; priceLabel: string };
+
+/**
+ * 충전 상품 가격 조회 결과
+ *
+ * `points-charge-prices`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+ * 스토어가 모르는 상품은 목록에서 빠지고, 조회에 실패하면 빈 목록이다.
+ */
+export type PointsChargePricesResultMessage = {
+  type: "points-charge-prices-result";
+  id: string;
+  prices: PointsChargePrice[];
+  atMs: number;
+};
+
+export const POINTS_CHARGE_PURCHASE_STATUSES = ["completed", "cancelled", "failed"] as const;
+export type PointsChargePurchaseStatus = (typeof POINTS_CHARGE_PURCHASE_STATUSES)[number];
+
+/**
+ * 포인트 충전 결제 결과
+ *
+ * `points-charge-purchase`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+ * `completed`는 스토어 결제가 끝났다는 뜻이고 포인트는 서버가 결제 알림을 받은 뒤에 들어온다.
+ * `cancelled`는 사용자가 결제 창을 닫았거나 앞선 결제가 아직 진행 중인 경우다.
+ */
+export type PointsChargePurchaseResultMessage = {
+  type: "points-charge-purchase-result";
+  id: string;
+  status: PointsChargePurchaseStatus;
+  atMs: number;
+};
+
+/** 가격 조회 요청 한 번에 실을 수 있는 스토어 상품 ID 수이며 웹과 앱이 같은 값으로 자르고 검증한다. */
+export const POINTS_CHARGE_PRICES_MAX_PRODUCTS = 20;
+
+/** 구매 복원 요청 한 번에 실을 수 있는 스토어 상품 ID 수이며 웹과 앱이 같은 값으로 자르고 검증한다. */
+export const POINTS_CHARGE_RESTORE_MAX_PRODUCTS = 200;
+
+export const POINTS_CHARGE_RESTORE_STATUSES = ["restored", "nothing", "failed"] as const;
+export type PointsChargeRestoreStatus = (typeof POINTS_CHARGE_RESTORE_STATUSES)[number];
+
+/**
+ * 구매 복원 결과
+ *
+ * `points-charge-restore`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+ * `restored`는 스토어 결제 기록에서 요청한 상품을 찾았다는 뜻이고 보유는 서버가 결제 알림을 받은 뒤에 바뀐다.
+ * `nothing`은 결제 기록에 요청한 상품이 없는 경우다.
+ * `failed`는 스토어나 결제 SDK가 답하지 못했거나 앞선 결제나 복원이 아직 진행 중인 경우다.
+ */
+export type PointsChargeRestoreResultMessage = {
+  type: "points-charge-restore-result";
+  id: string;
+  status: PointsChargeRestoreStatus;
+  atMs: number;
+};
+
+export const POINTS_AD_STATUSES = ["rewarded", "cancelled", "unavailable"] as const;
+export type PointsAdStatus = (typeof POINTS_AD_STATUSES)[number];
+
+/**
+ * 보상형 광고 시청 결과
+ *
+ * `points-ad-show`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+ * `rewarded`는 광고 SDK가 보상 조건을 채웠다고 알렸다는 뜻이고 포인트는 서버가 광고 사업자의 확인을 받은 뒤에 들어온다.
+ * `cancelled`는 사용자가 광고를 끝까지 보지 않고 닫았거나 앞선 광고가 아직 떠 있는 경우다.
+ * `unavailable`은 띄울 광고가 없거나 불러오지 못한 경우다.
+ */
+export type PointsAdShowResultMessage = {
+  type: "points-ad-show-result";
+  id: string;
+  status: PointsAdStatus;
+  atMs: number;
+};
 
 /**
  * 소셜 로그인 결과
@@ -521,6 +633,14 @@ export type ToNativeMessage =
    */
   | { type: "social-login"; id: string; provider: SocialLoginProvider; atMs: number }
   /**
+   * 심사용 로그인 요청
+   *
+   * 앱이 웹뷰 주소에 `reviewLogin=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `review-login-result`로 답한다.
+   * 토큰은 앱만 가지므로 서버 요청과 토큰 저장은 앱이 하고, 앱 버전은 앱이 자기 값을 싣는다.
+   * 앱과 웹 모두 비밀번호를 로그와 분석 이벤트에 남기지 않는다.
+   */
+  | { type: "review-login"; id: string; loginId: string; password: string; atMs: number }
+  /**
    * 이 기기 로그아웃 요청
    *
    * 앱이 웹뷰 주소에 `accountActions=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `logout-result`로 답한다.
@@ -534,6 +654,58 @@ export type ToNativeMessage =
    * `provider`는 프로필의 로그인 공급자이고, 애플이면 앱이 애플 로그인을 다시 띄워 서버가 요구하는 인가 코드를 받는다.
    */
   | { type: "delete-account"; id: string; provider: SocialLoginProvider; atMs: number }
+  /**
+   * 충전 상품 가격 조회 요청
+   *
+   * 앱이 웹뷰 주소에 `pointsCharge=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `points-charge-prices-result`로 답한다.
+   * 상품 ID는 서버의 충전 상품 목록이 준 스토어 상품 ID다.
+   * 앱은 결제와 같은 `appUserId`로 결제 SDK를 켜거나 로그인한 뒤 가격을 묻는다.
+   * 웹은 결제용 ID가 없는 비회원에게는 이 메시지를 보내지 않고, 예전 웹이 null로 보내면 앱은 결제 SDK를 켜지 않고 빈 목록으로 답한다.
+   */
+  | {
+      type: "points-charge-prices";
+      id: string;
+      storeProductIds: string[];
+      appUserId: string | null;
+      atMs: number;
+    }
+  /**
+   * 포인트 충전 결제 요청
+   *
+   * `pointsCharge=1`일 때만 보내고, 앱은 같은 `id`의 `points-charge-purchase-result`로 답한다.
+   * 앱은 결제 전에 `appUserId`로 결제 SDK를 켜거나 로그인해서 서버가 결제 알림의 주인을 알 수 있게 한다.
+   * `appUserId`는 서버 충전 상품 목록의 `revenueCatAppUserId`이고 회원번호가 아니다.
+   * 앱은 이 값이 null이면 회원번호로 대신하지 않고 `failed`로 답한다.
+   */
+  | {
+      type: "points-charge-purchase";
+      id: string;
+      storeProductId: string;
+      appUserId: string | null;
+      atMs: number;
+    }
+  /**
+   * 구매 복원 요청
+   *
+   * 앱이 웹뷰 주소에 `pointsRestore=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `points-charge-restore-result`로 답한다.
+   * 상품 ID는 서버의 상점 목록에서 스토어 결제로 파는 상품의 스토어 상품 ID다.
+   * 충전 묶음은 써서 없어지는 상품이라 싣지 않고, 앱은 결제 기록에 이 목록의 상품이 있는지만 본다.
+   * 앱은 결제와 같은 `appUserId`로 결제 SDK를 켜거나 로그인한 뒤 복원하고, 이 값이 null이면 `failed`로 답한다.
+   */
+  | {
+      type: "points-charge-restore";
+      id: string;
+      storeProductIds: string[];
+      appUserId: string | null;
+      atMs: number;
+    }
+  /**
+   * 보상형 광고 보기 요청
+   *
+   * 앱이 웹뷰 주소에 `pointsAds=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `points-ad-show-result`로 답한다.
+   * 앱은 광고의 서버 확인 옵션에 지금 사용자 ID를 실어 서버가 보상을 줄 계정을 알 수 있게 한다.
+   */
+  | { type: "points-ad-show"; id: string; atMs: number }
   | SetTabBarMessage
   | SetBackGestureMessage
   | SetBackLockMessage

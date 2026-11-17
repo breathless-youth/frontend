@@ -3,7 +3,14 @@ import { type ComponentProps, type ReactElement, type ReactNode, useRef, useStat
 
 import { cn } from "@/lib/utils";
 
-import { Tooltip, TooltipContent, TooltipPortal, TooltipProvider, TooltipTrigger } from "./tooltip";
+import {
+  Tooltip,
+  TooltipArrow,
+  TooltipContent,
+  TooltipPortal,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./tooltip";
 
 type TapTooltipProps = {
   /** 탭으로 여닫는 트리거. 접근성 이름은 트리거가 직접 갖는다. */
@@ -17,8 +24,10 @@ type TapTooltipProps = {
   collisionBoundary?: Element | null;
   /** 조상의 overflow에 잘리는 자리에서 본문을 문서 맨 위 층에 그린다. */
   portal?: boolean;
-  /** 경계에서 띄울 거리. 생략하면 경계를 넘길 때만 12px을 둔다. */
+  /** 경계에서 띄울 거리. 생략하면 화면 가장자리에서 16px, 경계를 넘길 때 12px을 둔다. */
   collisionPadding?: number;
+  /** 주면 트리거를 가리키는 꼬리를 그린다. 본문 바탕색과 같은 fill 클래스를 준다. */
+  arrowClassName?: string;
 };
 
 type InfoTooltipProps = Omit<TapTooltipProps, "trigger"> & {
@@ -65,6 +74,7 @@ export function TapTooltip({
   collisionBoundary,
   portal = false,
   collisionPadding,
+  arrowClassName,
 }: TapTooltipProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -76,9 +86,12 @@ export function TapTooltip({
     <TooltipContent
       side={side}
       collisionBoundary={collisionBoundary}
-      collisionPadding={collisionPadding ?? (collisionBoundary == null ? 0 : 12)}
+      // 화면 가장자리에 붙지 않게 16px 안쪽으로 민다. 밀려도 꼬리는 트리거를 가리킨다.
+      collisionPadding={collisionPadding ?? (collisionBoundary == null ? 16 : 12)}
       align={align}
       className={contentClassName}
+      sideOffset={arrowClassName === undefined ? undefined : 8}
+      arrowPadding={12}
       onPointerDownOutside={(event) => {
         if (triggerRef.current?.contains(event.target as Node)) {
           event.preventDefault();
@@ -86,6 +99,9 @@ export function TapTooltip({
       }}
     >
       {children}
+      {arrowClassName !== undefined && (
+        <TooltipArrow width={12} height={6} className={arrowClassName} />
+      )}
     </TooltipContent>
   );
 
@@ -125,6 +141,7 @@ export function TapTooltip({
  * 마진으로 행 높이는 늘리지 않는다.
  *
  * 색은 전역 토큰으로 덮는다. `TooltipContent` 기본색은 세션 서브트리 변수라 홈·설정에는 없다.
+ * 본문 바탕색을 바꾸는 곳은 꼬리 색도 같은 값으로 준다.
  */
 export function InfoTooltip({
   label,
@@ -132,6 +149,7 @@ export function InfoTooltip({
   side = "bottom",
   align = "start",
   contentClassName,
+  arrowClassName = "fill-foreground",
   ...rest
 }: InfoTooltipProps) {
   return (
@@ -139,8 +157,12 @@ export function InfoTooltip({
       {...rest}
       side={side}
       align={align}
-      // 세션 툴팁보다 넓은 안내 툴팁 폭에 맞추고, 한글 단어 중간에서 줄이 갈리지 않게 한다.
-      contentClassName={cn("bg-foreground text-background max-w-65.5 break-keep", contentClassName)}
+      // 세션 툴팁보다 넓은 안내 툴팁 폭에 맞추되 화면 양옆 16px 안에 들어가게 하고, 한글 단어 중간에서 줄이 갈리지 않게 한다.
+      contentClassName={cn(
+        "bg-foreground text-background max-w-[min(16.375rem,calc(100vw-2rem))] break-keep",
+        contentClassName,
+      )}
+      arrowClassName={arrowClassName}
       trigger={
         <button
           type="button"

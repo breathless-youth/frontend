@@ -2,8 +2,9 @@ import { type ComponentType, useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { DeskFigure } from "@/features/group-room/components/DeskFigure";
 import { LazyPendingApplicationsSheet } from "@/features/group-room/components/lazyPendingApplicationsSheet";
-import { buildGroupRoomFixtures } from "@/features/group-room/fixtures";
+import { FIXTURE_LOOKS, buildGroupRoomFixtures } from "@/features/group-room/fixtures";
 import { joinPolicyText } from "@/features/group-room/model/joinPolicy";
 import type { RoomJoinPolicy } from "@/features/group-room/model/joinPolicy";
 import { joinBlockCopy, myRoomsTabCount } from "@/features/group-room/model/limits";
@@ -423,7 +424,57 @@ const soloOwnerHome: RoomHome = {
 
 const minjunId = fixtures.members.find((member) => member.nickname === KICKED_NICKNAME)?.userId;
 
+const DESK_TONES = ["room", "elsewhere", "rest", "empty"] as const;
+
+/** 크기마다 네 상태의 마스코트 자리와 바닥 소품·세트·사람 그림을 한 화면에 모아 본다. */
+function DeskMascotsCase({ onBack }: CaseProps) {
+  return (
+    <main className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col gap-4 px-5 pt-[calc(env(safe-area-inset-top)+24px)] pb-10 text-foreground">
+      <button type="button" onClick={onBack} className="min-h-11 self-start text-sm font-bold">
+        목록
+      </button>
+      <h1 className="text-lg font-bold">마스코트가 앉은 책상</h1>
+      {(["lg", "md", "sm"] as const).map((size) => (
+        <section key={size} className="rounded-lg bg-muted p-3">
+          <h2 className="mb-2 text-xs font-bold">{size}</h2>
+          <ul className="grid grid-cols-4 gap-2">
+            {DESK_TONES.map((tone) => (
+              <li key={tone} className="flex flex-col items-center gap-1 text-[10px]">
+                <DeskFigure
+                  tone={tone}
+                  size={size}
+                  mascot={tone === "empty" ? undefined : FIXTURE_LOOKS.lamp}
+                  mascotSeat
+                />
+                {tone}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+      <section className="rounded-lg bg-muted p-3">
+        <h2 className="mb-2 text-xs font-bold">소품과 사람 그림</h2>
+        <ul className="grid grid-cols-3 gap-2">
+          <li className="flex flex-col items-center gap-1 text-[10px]">
+            <DeskFigure tone="elsewhere" size="md" mascot={FIXTURE_LOOKS.flowerPlanner} />
+            바닥 소품
+          </li>
+          <li className="flex flex-col items-center gap-1 text-[10px]">
+            <DeskFigure tone="room" size="md" mascot={FIXTURE_LOOKS.superheroTimi} />
+            세트
+          </li>
+          <li className="flex flex-col items-center gap-1 text-[10px]">
+            <DeskFigure tone="room" size="md" />
+            마스코트 없음
+          </li>
+        </ul>
+      </section>
+    </main>
+  );
+}
+
 const CASES: { id: string; title: string; Screen: ComponentType<CaseProps> }[] = [
+  { id: "desk-mascots", title: "마스코트가 앉은 책상", Screen: DeskMascotsCase },
   {
     id: "open-detail",
     title: joinPolicyText("open"),

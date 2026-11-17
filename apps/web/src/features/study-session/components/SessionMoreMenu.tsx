@@ -32,8 +32,9 @@ function stopSurfaceToggle(event: ReactPointerEvent) {
 /**
  * 혼자 공부 세션의 더보기 버튼 자리
  *
- * 누르는 영역(44px)의 중심을 상태 필의 가로 중앙선과 사이드 열의 세로 중앙선이 만나는 점에 둔다.
- * 위: 세션 레이어 위 여백(세로 13px, 가로 18px) + 필 높이의 절반 - 22px. 필 높이는 폰 36px, 폭 600 이상 39px, 큰 태블릿 48px이다.
+ * 누르는 영역(44px)의 중심을 사이드 열의 세로 중앙선 위, 세션 레이어 위 여백에서 18px(폭 600 이상 19.5px, 큰 태블릿 24px) 아래에 둔다.
+ * 이 높이는 예전 상태 필의 가운데 줄이라 그 자리를 기준으로 맞춘 사이드 열과 메뉴 간격이 그대로 유지된다.
+ * 위: 세션 레이어 위 여백(세로 13px, 가로 18px) + 18, 19.5, 24px - 22px.
  * 오른쪽: 사이드 열 오른쪽 여백 16px + 버튼 지름의 절반 - 22px. 버튼 지름은 54px, 64px, 80px이다.
  * 사이드 열이 없는 함께 공부 화면은 기본 자리를 쓴다.
  */
@@ -43,11 +44,11 @@ export const SOLO_MORE_POSITION =
 /**
  * 혼자 공부 세션의 메뉴 자리
  *
- * 버튼 아래로 펼치되 메뉴 오른쪽 끝을 사이드 열 왼쪽 8px 앞에, 위 끝을 상태 필 아래 8px에 둔다.
+ * 버튼 아래로 펼치되 메뉴 오른쪽 끝을 사이드 열 왼쪽 8px 앞에, 위 끝을 버튼 중심 아래 26px(폭 600 이상 27.5px, 큰 태블릿 32px)에 둔다.
  * Radix의 sideOffset·alignOffset은 숫자 하나라 창 크기별로 바꿀 수 없어서 0으로 두고, 메뉴 자체의 여백으로 민다.
  * 여백도 떠 있는 상자 크기에 들어가서 Radix가 그만큼 감안해 놓는다.
  * 오른쪽: 사이드 열 오른쪽 여백 16px + 버튼 지름(54, 64, 80px) + 8px - 버튼 오른쪽 여백(21, 26, 34px) = 57, 62, 70px
- * 위: 필 높이의 절반(18, 19.5, 24px) + 8px - 누르는 영역 절반 22px = 4, 5.5, 10px. 버튼 중심이 필 중심과 같아서 성립한다.
+ * 위: 버튼 중심 아래 18, 19.5, 24px + 8px - 누르는 영역 절반 22px = 4, 5.5, 10px.
  * 계산값으로 두면 실측 간격이 9px로 1px 더 벌어져서(원인 미확인) 각각 1px 뺐다. 세로·가로·태블릿에서 8px로 쟀다.
  * 태블릿의 4.5px는 간격 스케일에 없고 임의 px는 쓰지 않아 4px로 둔다(0.5px 차이).
  */
@@ -61,6 +62,8 @@ type SessionMoreMenuProps = {
   onFlipCamera: () => void;
   /** 넘긴 방에서만 초대코드 공유 항목이 보인다. */
   onShareInvite?: () => void;
+  /** 넘긴 화면에서만 플래너 항목이 보인다. 싱글룸은 세로 열 대신 여기서 과목 페이지를 연다. */
+  onOpenPlanner?: () => void;
   /** 넘긴 화면에서만 도움말 보기 항목이 보인다. */
   onOpenHelp?: () => void;
   /** 조작 숨김. 숨은 버튼이 탭을 가로채면 화면 탭으로 조작을 다시 부를 수 없다. */
@@ -88,6 +91,7 @@ export function SessionMoreMenu({
   flipDisabled = false,
   onFlipCamera,
   onShareInvite,
+  onOpenPlanner,
   onOpenHelp,
   hidden = false,
   onOpenChange,
@@ -162,6 +166,16 @@ export function SessionMoreMenu({
         >
           {t("moreMenu.flipCamera")}
         </DropdownMenuItem>
+        {onOpenPlanner && (
+          <DropdownMenuItem
+            onPointerUp={blockOpeningPressRelease}
+            onClick={blockOpeningPressClick}
+            onSelect={onOpenPlanner}
+            className={MENU_ITEM_CLASS}
+          >
+            {t("moreMenu.planner")}
+          </DropdownMenuItem>
+        )}
         {onOpenHelp && (
           <DropdownMenuItem
             onPointerUp={blockOpeningPressRelease}

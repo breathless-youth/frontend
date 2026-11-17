@@ -10,6 +10,9 @@ import { DEFAULT_TIMELAPSE_SETTINGS } from "../timelapseSettings";
 import type { TimelapseStore } from "../timelapseStore";
 import { createIndexedDbTimelapseStore } from "../timelapseStore";
 
+/** 기본값은 녹화가 꺼져 있어 촬영을 보는 테스트는 켠 설정으로 시작한다. */
+const RECORDING = { ...DEFAULT_TIMELAPSE_SETTINGS, enabled: true };
+
 const reportHandled = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/sentry", () => ({ reportHandled }));
@@ -17,7 +20,7 @@ vi.mock("@/lib/sentry", () => ({ reportHandled }));
 const T0 = Date.UTC(2026, 9, 6, 1, 0, 0);
 const PHOTO = new Uint8Array([0xff, 0xd8]).buffer;
 const MASKED: TimelapseSettings = {
-  ...DEFAULT_TIMELAPSE_SETTINGS,
+  ...RECORDING,
   aspect: "16:9",
   info: { ...DEFAULT_TIMELAPSE_SETTINGS.info, faceMask: true },
 };
@@ -32,7 +35,7 @@ beforeEach(() => {
   reportHandled.mockReset();
 });
 
-function recorder(settings: TimelapseSettings = DEFAULT_TIMELAPSE_SETTINGS) {
+function recorder(settings: TimelapseSettings = RECORDING) {
   return createTimelapseRecorder({ store, loadSettings: async () => settings, now: () => nowMs });
 }
 
@@ -134,7 +137,7 @@ describe("createTimelapseRecorder", () => {
     };
     const rec = createTimelapseRecorder({
       store: doubling,
-      loadSettings: async () => DEFAULT_TIMELAPSE_SETTINGS,
+      loadSettings: async () => RECORDING,
       now: () => nowMs,
     });
     rec.begin(T0);
@@ -161,7 +164,7 @@ describe("createTimelapseRecorder 저장소 실패", () => {
           throw new Error("sweep 실패");
         },
       },
-      loadSettings: async () => DEFAULT_TIMELAPSE_SETTINGS,
+      loadSettings: async () => RECORDING,
       now: () => nowMs,
     });
     rec.begin(T0);
@@ -187,7 +190,7 @@ describe("createTimelapseRecorder 저장소 실패", () => {
           return await store.addPhoto(startedAtMs, bytes, atMs);
         },
       },
-      loadSettings: async () => DEFAULT_TIMELAPSE_SETTINGS,
+      loadSettings: async () => RECORDING,
       now: () => nowMs,
     });
     rec.begin(T0);
@@ -211,7 +214,7 @@ describe("createTimelapseRecorder 저장소 실패", () => {
           throw Object.assign(new Error("addPhoto 실패"), { bytes: PHOTO });
         },
       },
-      loadSettings: async () => DEFAULT_TIMELAPSE_SETTINGS,
+      loadSettings: async () => RECORDING,
       now: () => nowMs,
     });
     rec.begin(T0);
@@ -309,7 +312,7 @@ describe("settleRecoveredTimelapse", () => {
   };
 
   it("복구 응답의 시작 시각과 같은 촬영 중 기록을 요약과 함께 목록에 올린다", async () => {
-    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(T0, RECORDING);
     await store.addPhoto(T0, PHOTO, T0);
 
     await settleRecoveredTimelapse(RECOVERED, store);
@@ -323,7 +326,7 @@ describe("settleRecoveredTimelapse", () => {
   });
 
   it("복구한 세션의 순공이 1분 미만이면 지운다", async () => {
-    await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(T0, RECORDING);
     await store.addPhoto(T0, PHOTO, T0);
 
     await settleRecoveredTimelapse({ ...RECOVERED, focusSec: 30 }, store);

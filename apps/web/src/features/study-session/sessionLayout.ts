@@ -14,3 +14,21 @@ export const SESSION_LAYER_INSET = [
   "landscape-compact:pt-[calc(env(safe-area-inset-top)+18px)] landscape-compact:pb-[max(env(safe-area-inset-bottom),calc((env(safe-area-inset-bottom)+14px)/2))]",
   "landscape-compact:pl-[calc(env(safe-area-inset-left)+16px)] landscape-compact:pr-[calc(env(safe-area-inset-right)+16px)]",
 ].join(" ");
+
+/**
+ * 내 카메라 작은 창의 자리
+ *
+ * 위 끝은 세션 레이어 위 여백과 같아서 더보기 버튼 중앙보다 조금 위에 놓인다.
+ * 카메라 화면, 그 위의 키우기 버튼, 확대 중의 줄이기 버튼이 같은 자리를 쓴다.
+ */
+export const PIP_ANCHOR = [
+  "absolute top-[calc(env(safe-area-inset-top)+13px)] left-[calc(env(safe-area-inset-left)+16px)]",
+  "landscape-compact:top-[calc(env(safe-area-inset-top)+18px)]",
+].join(" ");
+
+/** 내 카메라 작은 창의 크기. 세로 108×144, 가로 160×108이고 폭 600 이상 창은 144×192다. */
+export const PIP_SIZE =
+  "h-36 w-27 regular:h-48 regular:w-36 landscape-compact:h-27 landscape-compact:w-40";
+
+/** 작은 창 모서리(`rounded-lg`). 키우기 움직임의 시작 모양과 같아야 바뀌는 순간 튀지 않는다. */
+export const PIP_RADIUS_PX = 16;

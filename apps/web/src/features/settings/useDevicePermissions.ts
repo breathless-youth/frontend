@@ -7,6 +7,18 @@ export type DevicePermissions = {
   microphone: boolean | null;
 };
 
+const UNKNOWN: DevicePermissions = { camera: null, microphone: null };
+
+// 화면을 다시 열 때 앱의 답을 기다리는 동안 마이크 줄이 빠져 화면이 짧아지면,
+// 뒤로 돌아온 스크롤 위치가 짧아진 높이에 맞춰 잘린다.
+// 그래서 마지막으로 받은 답을 기억해 두고 다시 열면 그 값으로 먼저 그린 뒤 새 답으로 바꾼다.
+let lastKnown: DevicePermissions = UNKNOWN;
+
+/** 테스트끼리 마지막 답이 새지 않게 비운다. */
+export function __resetDevicePermissionsForTests(): void {
+  lastKnown = UNKNOWN;
+}
+
 /**
  * OS 카메라와 마이크 권한 허용 여부 — 설정(S6)의 권한 행 토글이 쓴다.
  *
@@ -28,10 +40,7 @@ export type DevicePermissions = {
  * 웹 안에서 닫힌다(react-query의 `refetchOnWindowFocus`가 이미 같은 신호를 쓰고 있다).
  */
 export function useDevicePermissions(): DevicePermissions {
-  const [permissions, setPermissions] = useState<DevicePermissions>({
-    camera: null,
-    microphone: null,
-  });
+  const [permissions, setPermissions] = useState<DevicePermissions>(lastKnown);
 
   useEffect(() => {
     // 브라우저 단독 모드에서는 물어볼 상대가 없다 — 리스너도 달지 않고 `null`로 남긴다.
@@ -42,7 +51,8 @@ export function useDevicePermissions(): DevicePermissions {
     const unsubscribe = subscribeToNativeMessages((message) => {
       if (message.type === "camera-permission") {
         // 마이크 값을 싣지 않는 옛 앱은 답이 와도 모름으로 남겨 화면이 그 행을 숨기게 한다.
-        setPermissions({ camera: message.granted, microphone: message.micGranted ?? null });
+        lastKnown = { camera: message.granted, microphone: message.micGranted ?? null };
+        setPermissions(lastKnown);
       }
     });
 

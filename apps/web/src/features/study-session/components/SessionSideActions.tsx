@@ -6,8 +6,9 @@ import { cn } from "@/lib/utils";
 /**
  * 혼자 공부 세션의 사이드 열 자리
  *
- * 세로·가로 모두 상태 필 아래 23px에 놓는다.
- * 폭 600 이상 창은 상태 필이 커진 만큼 내려 필 아래 간격을 폰과 같게 둔다.
+ * 더보기 버튼 바로 아래 열이다.
+ * 위 끝은 세션 레이어 위 여백에서 59px 아래라 폰에서는 더보기 누르는 영역과 약 19px 떨어진다.
+ * 폭 600 이상 창은 버튼 지름이 커진 만큼 내려 간격을 폰과 비슷하게 둔다.
  * 도움말 화면의 가짜 사이드 열도 이 자리를 쓴다.
  */
 export const SESSION_SIDE_POSITION =
@@ -17,8 +18,9 @@ export const SESSION_SIDE_POSITION =
 export const SESSION_SIDE_GAP = "gap-3 regular:gap-3.5 short-side-lg:gap-4.5";
 
 export interface SessionSideActionsProps {
+  /** 맨 위 공간 버튼 */
+  space?: ReactNode;
   ambient: ReactNode;
-  subject: ReactNode;
   /** 타이머 진입 버튼 */
   modes?: ReactNode;
   /** 숨긴 동안 누르거나 포커스를 옮길 수 없게 한다. */
@@ -34,8 +36,8 @@ export interface SessionSideActionsProps {
  * 묶음 자체는 클릭을 받지 않아서 버튼 사이 틈을 눌러도 심플 모드 전환이 된다.
  */
 export function SessionSideActions({
+  space,
   ambient,
-  subject,
   modes,
   inert,
   className,
@@ -48,8 +50,8 @@ export function SessionSideActions({
       inert={inert}
       className={cn("flex flex-col", SESSION_SIDE_GAP, className)}
     >
+      {space}
       {ambient}
-      {subject}
       {modes}
     </div>
   );

@@ -40,8 +40,11 @@ async function findSaveSwitch() {
   return screen.findByRole("switch", { name: "타임랩스 저장" });
 }
 
+/** 기본값은 저장이 꺼져 있어 나머지 설정이 숨는다. 설정 줄을 보는 테스트는 켠 상태로 시작한다. */
+const RECORDING = { ...DEFAULT_TIMELAPSE_SETTINGS, enabled: true };
+
 beforeEach(() => {
-  store = createMemoryTimelapseSettingsStore();
+  store = createMemoryTimelapseSettingsStore(RECORDING);
   setTimelapseSettingsStore(store);
   vi.mocked(getDday).mockResolvedValue({ title: "2027 수능", targetDate: "2027-01-23" });
 });
@@ -54,7 +57,14 @@ afterEach(() => {
 });
 
 describe("설정 › 타임랩스", () => {
-  it("처음에는 저장이 켜져 있고 세로가 선택돼 있으며 정보 스위치는 모두 꺼져 있다", async () => {
+  it("처음 쓰는 사용자는 저장이 꺼져 있다", async () => {
+    setTimelapseSettingsStore(createMemoryTimelapseSettingsStore());
+    renderPage();
+
+    expect(await findSaveSwitch()).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("저장을 켜 두면 세로가 선택돼 있고 정보 스위치는 모두 꺼져 있다", async () => {
     renderPage();
 
     expect(await findSaveSwitch()).toHaveAttribute("aria-checked", "true");
@@ -200,7 +210,7 @@ describe("설정 › 타임랩스", () => {
   it("D-Day를 불러오는 동안 미리보기에는 숫자 없이 D-Day만 보여준다", async () => {
     setTimelapseSettingsStore(
       createMemoryTimelapseSettingsStore({
-        ...DEFAULT_TIMELAPSE_SETTINGS,
+        ...RECORDING,
         info: { ...DEFAULT_TIMELAPSE_SETTINGS.info, dday: true },
       }),
     );
@@ -233,7 +243,7 @@ describe("설정 › 타임랩스", () => {
   it("D-Day가 없으면 켜 둔 값이 남아 있어도 미리보기에 넣지 않는다", async () => {
     setTimelapseSettingsStore(
       createMemoryTimelapseSettingsStore({
-        ...DEFAULT_TIMELAPSE_SETTINGS,
+        ...RECORDING,
         info: { ...DEFAULT_TIMELAPSE_SETTINGS.info, dday: true },
       }),
     );
@@ -286,7 +296,7 @@ describe("설정 › 타임랩스", () => {
     );
     setTimelapseSettingsStore(
       createMemoryTimelapseSettingsStore({
-        ...DEFAULT_TIMELAPSE_SETTINGS,
+        ...RECORDING,
         info: { ...DEFAULT_TIMELAPSE_SETTINGS.info, dday: true },
       }),
     );

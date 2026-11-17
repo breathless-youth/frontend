@@ -56,6 +56,34 @@ describe("SessionMoreMenu", () => {
     expect(onOpenHelp).toHaveBeenCalledTimes(1);
   });
 
+  it("플래너를 넘긴 화면에서만 카메라 전환과 도움말 보기 사이에 플래너가 있다", async () => {
+    const onOpenPlanner = vi.fn();
+    render(
+      <SessionMoreMenu
+        container={document.body}
+        onFlipCamera={vi.fn()}
+        onOpenPlanner={onOpenPlanner}
+        onOpenHelp={vi.fn()}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
+      "카메라 전환",
+      "플래너",
+      "도움말 보기",
+    ]);
+    await userEvent.click(screen.getByRole("menuitem", { name: "플래너" }));
+    expect(onOpenPlanner).toHaveBeenCalledOnce();
+  });
+
+  it("플래너를 넘기지 않으면 항목이 없다", async () => {
+    renderMenu();
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+    expect(screen.queryByRole("menuitem", { name: "플래너" })).not.toBeInTheDocument();
+  });
+
   it("사이드 열 위 버튼이면 메뉴를 버튼 아래 끝 맞춤으로 펼친다", async () => {
     renderMenu({ aboveSideColumn: true });
 

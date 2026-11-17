@@ -25,6 +25,9 @@ import {
 import type * as TimelapseVideo from "../timelapseVideo";
 import { buildTimelapseVideo, TimelapseVideoError } from "../timelapseVideo";
 
+/** 기본값은 녹화가 꺼져 있어 촬영을 보는 테스트는 켠 설정으로 시작한다. */
+const RECORDING = { ...DEFAULT_TIMELAPSE_SETTINGS, enabled: true };
+
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof Amplitude>()),
   trackTimelapseShareTapped: vi.fn(),
@@ -205,7 +208,7 @@ async function readyButton(name: string) {
 beforeEach(async () => {
   globalThis.indexedDB = new IDBFactory();
   store = createIndexedDbTimelapseStore();
-  await store.begin(T0, DEFAULT_TIMELAPSE_SETTINGS);
+  await store.begin(T0, RECORDING);
   await store.addPhoto(T0, new Uint8Array([0]).buffer, T0);
   await store.addPhoto(T0, new Uint8Array([1]).buffer, T0 + 10_000);
   await store.finalize(T0, { endedAtMs: T0 + 3_600_000, studySec: 3_600, focusSec: 2_880 });
@@ -762,7 +765,7 @@ describe("닫힘 애니메이션 중 다시 열기", () => {
     const pending = deferred<"failed">();
     vi.mocked(saveVideoNatively).mockReturnValueOnce(pending.promise);
     const T1 = T0 + 86_400_000;
-    await store.begin(T1, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(T1, RECORDING);
     await store.addPhoto(T1, new Uint8Array([2]).buffer, T1);
     await store.finalize(T1, { endedAtMs: T1 + 3_600_000, studySec: 3_600, focusSec: 2_880 });
     const other = (await store.get(T1))!;

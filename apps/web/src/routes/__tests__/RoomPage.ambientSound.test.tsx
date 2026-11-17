@@ -70,20 +70,20 @@ describe("RoomPage — 배경음 버튼·페이지", () => {
     expect(await screen.findByRole("slider", { name: "백색소음 음량" })).toBeInTheDocument();
   });
 
-  it("배경음 버튼은 부가 기능 그룹에서 맨 앞, 과목 앞에 있다", () => {
+  it("배경음 버튼은 부가 기능 그룹에서 공간 다음, 타이머 앞에 있다", () => {
     renderRoom();
 
     const names = within(screen.getByRole("group", { name: "부가 기능" }))
       .getAllByRole("button")
       .map((button) => button.getAttribute("aria-label"));
-    expect(names).toEqual([expect.stringMatching(/^배경음/), "과목", "타이머"]);
+    expect(names).toEqual(["공간", expect.stringMatching(/^배경음/), "타이머"]);
   });
 
-  it("탭 순서가 더보기와 부가 기능(배경음, 과목, 타이머)에서 시작해 일시정지·공부 종료로 이어진다", async () => {
+  it("탭 순서가 더보기와 부가 기능(공간, 배경음, 타이머)에서 시작해 일시정지·공부 종료로 이어진다", async () => {
     renderRoom();
 
     const names: string[] = [];
-    for (let i = 0; i < 8; i += 1) {
+    for (let i = 0; i < 9; i += 1) {
       await userEvent.tab();
       names.push(document.activeElement?.getAttribute("aria-label") ?? "");
     }
@@ -92,8 +92,8 @@ describe("RoomPage — 배경음 버튼·페이지", () => {
     expect(more).toBeGreaterThanOrEqual(0);
     expect(names.slice(more, more + 6)).toEqual([
       "더보기",
+      "공간",
       expect.stringMatching(/^배경음/),
-      "과목",
       "타이머",
       "일시정지",
       "공부 종료",

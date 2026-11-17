@@ -148,12 +148,12 @@ describe("RoomPage 세션 도움말", () => {
     expect(sessionGuideState(1)).toBe("seen");
   });
 
-  it("세션 중에 메뉴로 다시 본 도움말에는 나중에 시작할게요가 없다", async () => {
+  it("세션 중에 메뉴로 다시 본 도움말에는 나중에 하기가 없다", async () => {
     await renderWithMenuHelp();
     await goToLastStep();
 
     expect(screen.getByRole("button", { name: "순공 시작하기" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "나중에 시작할게요" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "나중에 하기" })).not.toBeInTheDocument();
   });
 
   it("더보기의 도움말 보기로 언제든 다시 연다", async () => {
@@ -183,19 +183,19 @@ describe("RoomPage 세션 도움말", () => {
     expect(surface).not.toHaveAttribute("inert");
   });
 
-  it("메뉴로 연 도움말은 과목 페이지가 열려 있는 동안 숨기고 닫히면 같은 단계로 다시 보인다", async () => {
+  it("메뉴로 연 도움말은 배경음 페이지가 열려 있는 동안 숨기고 닫히면 같은 단계로 다시 보인다", async () => {
     await renderWithMenuHelp();
     expect(helpDialog()).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "다음" }));
-    expect(screen.getByText("2/5")).toBeInTheDocument();
+    expect(screen.getByText("2 / 5")).toBeInTheDocument();
 
     // jsdom은 inert를 지키지 않아 덮개 뒤 버튼을 직접 눌러 페이지를 연 상황을 만든다.
-    fireEvent.click(screen.getByRole("button", { name: "과목", hidden: true }));
+    fireEvent.click(screen.getByRole("button", { name: /^배경음/, hidden: true }));
     await waitFor(() => expect(helpDialog()).not.toBeInTheDocument());
 
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(helpDialog()).toBeInTheDocument());
-    expect(screen.getByText("2/5")).toBeInTheDocument();
+    expect(screen.getByText("2 / 5")).toBeInTheDocument();
   });
 
   it("신원이 없어도 메뉴로 열고 닫을 수 있고 기기에 아무것도 남기지 않는다", async () => {
@@ -264,8 +264,8 @@ describe("RoomPage 세션 도움말", () => {
     );
     await renderWithMenuHelp();
     const ids = [
+      "session-space",
       "session-ambient",
-      "session-subject",
       "session-timer",
       "session-pause",
       "session-exit",
@@ -303,6 +303,28 @@ describe("RoomPage 세션 도움말", () => {
     await waitFor(() => expect(helpDialog()).not.toBeInTheDocument());
   });
 
+  it("도움말이 떠 있는 동안 앱에 세로 고정을 요청하고 닫히면 회전 허용을 돌려준다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    const orientations = () =>
+      postMessage.mock.calls
+        .map(([raw]) => JSON.parse(String(raw)) as { type: string; unlocked?: boolean })
+        .filter((message) => message.type === "set-orientation")
+        .map((message) => message.unlocked);
+    localStorage.setItem(KEY, "seen");
+    renderRoom();
+    answerCameraPrompt("camera");
+    // 세션 화면은 열릴 때 회전 허용을 한 번 보내므로 도움말을 연 뒤부터 센다.
+    postMessage.mockClear();
+    await openHelpFromMenu();
+    expect(orientations()).toEqual([false]);
+
+    fireEvent.keyDown(screen.getByRole("dialog", { name: "세션 도움말" }), { key: "Escape" });
+
+    expect(orientations()).toEqual([false, true]);
+    vi.unstubAllGlobals();
+  });
+
   describe("분석 이벤트", () => {
     it("더보기의 도움말 보기로 열면 shown(menu)과 1단계 step_viewed를 보낸다", async () => {
       localStorage.setItem(KEY, "seen");
@@ -317,7 +339,7 @@ describe("RoomPage 세션 도움말", () => {
       );
       expect(amplitude.trackStudySessionHelpStepViewed).toHaveBeenCalledExactlyOnceWith({
         step: 1,
-        stepId: "away",
+        stepId: "welcome",
         trigger: "menu",
         roomType: "single",
       });
@@ -329,7 +351,7 @@ describe("RoomPage 세션 도움말", () => {
       await finishHelp();
 
       expect(viewedSteps()).toEqual([1, 2, 3, 4, 5]);
-      expect(viewedStepIds()).toEqual(["away", "measuring", "camera", "buttons", "finish"]);
+      expect(viewedStepIds()).toEqual(["welcome", "away", "measuring", "simple", "finish"]);
       expect(amplitude.trackStudySessionHelpCompleted).toHaveBeenCalledExactlyOnceWith(
         "menu",
         "single",
@@ -344,7 +366,7 @@ describe("RoomPage 세션 도움말", () => {
 
       expect(amplitude.trackStudySessionHelpDismissed).toHaveBeenCalledExactlyOnceWith({
         step: 2,
-        stepId: "measuring",
+        stepId: "away",
         trigger: "menu",
         roomType: "single",
         reason: "escape",
@@ -357,11 +379,11 @@ describe("RoomPage 세션 도움말", () => {
       await userEvent.click(screen.getByRole("button", { name: "다음" }));
 
       // jsdom은 inert를 지키지 않아 덮개 뒤 버튼을 직접 눌러 페이지를 연 상황을 만든다.
-      fireEvent.click(screen.getByRole("button", { name: "과목", hidden: true }));
+      fireEvent.click(screen.getByRole("button", { name: /^배경음/, hidden: true }));
       await waitFor(() => expect(helpDialog()).not.toBeInTheDocument());
       await userEvent.keyboard("{Escape}");
       await waitFor(() => expect(helpDialog()).toBeInTheDocument());
-      expect(screen.getByText("2/5")).toBeInTheDocument();
+      expect(screen.getByText("2 / 5")).toBeInTheDocument();
 
       expect(amplitude.trackStudySessionHelpShown).toHaveBeenCalledOnce();
       expect(viewedSteps()).toEqual([1, 2]);
