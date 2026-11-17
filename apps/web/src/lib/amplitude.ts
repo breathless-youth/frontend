@@ -26,6 +26,7 @@ import type {
 } from "@focusmakers/types";
 
 import type { RoomVisibility } from "@/features/group-room/model/roomMenu";
+import type { MeasureMode } from "@/features/measure-mode/measureMode";
 
 import { firebaseAnalyticsForwardPlugin } from "./firebaseAnalyticsBridge";
 import i18n from "./i18n";
@@ -1180,6 +1181,16 @@ export function trackHomeShortcutTapped(target: HomeShortcutTarget) {
 export function trackHomeSubjectSelected(hasSubject: boolean) {
   if (!initialized) return;
   track("home_subject_selected", { has_subject: hasSubject });
+}
+
+/**
+ * 측정 방식 전환
+ *
+ * 카메라 없이 공부하는 방식을 얼마나 고르는지 보려고 바꿀 때마다 바꾼 뒤의 값을 보낸다.
+ */
+export function trackStudyMeasureModeChanged(mode: MeasureMode, from: "home") {
+  if (!initialized) return;
+  track("study_measure_mode_changed", { mode, from });
 }
 
 /**
