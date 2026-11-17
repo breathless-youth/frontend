@@ -787,11 +787,6 @@ function RoomSessionScreen({
       trackCameraPipShrunk({ expandedSec: change.sec });
     }
   }, [cameraView, displayUsage]);
-  // 심플 모드는 감독관을 그리지 않고 키운 카메라는 감독관을 가려서 그동안 발소리를 끈다.
-  const watcherMuted = simpleMode || cameraExpanded;
-  useEffect(() => {
-    watcherSound.setMuted(watcherMuted);
-  }, [watcherMuted, watcherSound]);
 
   /**
    * 움직임을 그릴 카메라 화면과 키프레임

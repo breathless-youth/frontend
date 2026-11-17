@@ -119,26 +119,16 @@ describe("RoomPage 공간", () => {
     expect(localStorage.getItem("focusmakers.watcherSound.volume")).toBe("30");
   });
 
-  it("심플 모드에서는 감독관이 그려지지 않아 발소리를 끈다", async () => {
+  // 감독관이 다가오고 들어오는 동안 화면을 바꿔도 발소리를 건너뛰지 않아야 돌아왔을 때 소리 없이 서 있지 않는다.
+  it("심플 모드와 작은 창을 키운 동안에도 감독관 발소리를 끄지 않는다", async () => {
     localStorage.setItem("focusmakers.timerBackground", '{"kind":"proctor"}');
     renderRoom();
-    expect(sound.setMuted).toHaveBeenLastCalledWith(false);
-
-    await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
-
-    expect(sound.setMuted).toHaveBeenLastCalledWith(true);
-  });
-
-  it("작은 창을 키운 동안 감독관 발소리를 끄고 줄이면 다시 켠다", async () => {
-    localStorage.setItem("focusmakers.timerBackground", '{"kind":"proctor"}');
-    renderRoom();
-    expect(sound.setMuted).toHaveBeenLastCalledWith(false);
 
     await userEvent.click(screen.getByRole("button", { name: "내 화면 크게 보기" }));
-    expect(sound.setMuted).toHaveBeenLastCalledWith(true);
-
     await userEvent.click(screen.getByRole("button", { name: "작게 보기" }));
-    expect(sound.setMuted).toHaveBeenLastCalledWith(false);
+    await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
+
+    expect(sound.setMuted).not.toHaveBeenCalledWith(true);
   });
   it("고른 사진을 읽지 못하면 심플로 그리고 종료 이벤트에도 심플로 싣는다", async () => {
     localStorage.setItem("focusmakers.timerBackground", '{"kind":"photo","photoId":"p1"}');
