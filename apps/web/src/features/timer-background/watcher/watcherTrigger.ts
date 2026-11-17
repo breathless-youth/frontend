@@ -8,6 +8,8 @@ export const DEFAULT_WATCHER_TRIGGER_MS: WatcherTriggerMs = {
   PHONE: 9_000,
   DEVICE: 9_000,
   SLEEP: 9_000,
+  SCREEN: 9_000,
+  POSTURE: 9_000,
 };
 
 /** 감독관이 들어오기 이만큼 전부터 멀리서 다가오는 발소리만 낸다. 기본 기준이면 비집중 2초부터 9초까지다. */

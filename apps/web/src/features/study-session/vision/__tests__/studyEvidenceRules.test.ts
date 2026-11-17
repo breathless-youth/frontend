@@ -5,6 +5,7 @@ import { handPosesOf } from "../handLandmarker";
 import type { GazeReading, HandPose, NormalizedBox } from "../studyEvidenceRules";
 import {
   evaluateEvidence,
+  eyeGazeOf,
   gazeOnScreen,
   gazeOnTool,
   handsAtTool,
@@ -20,17 +21,75 @@ const FRAME = { width: 1000, height: 500 };
 const BOOK: NormalizedBox = { minX: 0.3, minY: 0.6, maxX: 0.7, maxY: 0.95 };
 const SIDE_LAPTOP: NormalizedBox = { minX: 0.8, minY: 0.4, maxX: 1, maxY: 0.8 };
 const FACE: NormalizedBox = { minX: 0.4, minY: 0.2, maxX: 0.6, maxY: 0.5 };
-const LOOKING_DOWN: GazeReading = { pitchDeg: 25, yawDeg: 9, eyeLookDown: 0.6, noseOffsetX: 0.05 };
-/** 아이폰 실측의 폰 화면 응시 — 좌우 18도, 숙임 6도, 눈은 아래로 흔들린다. */
+const LOOKING_DOWN: GazeReading = {
+  pitchDeg: 25,
+  yawDeg: 9,
+  eyeLookDown: 0.6,
+  noseOffsetX: 0.05,
+  toCameraH: -9,
+  toCameraV: 25,
+  eyeVertical: 0.6,
+  eyeHorizontal: 0,
+};
+/**
+ * 아이폰 실측의 폰 화면 응시. 책상에 세운 폰이 오른쪽 아래에 있어 카메라를 보려면 눈이 오른쪽으로 15도,
+ * 아래로 17도 가야 하고, 실제로 눈은 아래로 0.66만큼 내려가 있었다.
+ */
 const LOOKING_AT_SCREEN: GazeReading = {
   pitchDeg: 6,
   yawDeg: 18,
   eyeLookDown: 0.8,
   noseOffsetX: 0.12,
+  toCameraH: 14.7,
+  toCameraV: -17.3,
+  eyeVertical: 0.66,
+  eyeHorizontal: 0.1,
 };
 /** 오른쪽으로 고개를 크게 돌렸다(실측 노트북 응시 40~58도). */
-const TURNED_RIGHT: GazeReading = { pitchDeg: 2, yawDeg: 50, eyeLookDown: 0.2, noseOffsetX: 0.4 };
-const TURNED_LEFT: GazeReading = { pitchDeg: 2, yawDeg: -50, eyeLookDown: 0.2, noseOffsetX: -0.4 };
+const TURNED_RIGHT: GazeReading = {
+  pitchDeg: 2,
+  yawDeg: 50,
+  eyeLookDown: 0.2,
+  noseOffsetX: 0.4,
+  toCameraH: -50,
+  toCameraV: 0,
+  eyeVertical: 0.2,
+  eyeHorizontal: 0,
+};
+const TURNED_LEFT: GazeReading = {
+  pitchDeg: 2,
+  yawDeg: -50,
+  eyeLookDown: 0.2,
+  noseOffsetX: -0.4,
+  toCameraH: 50,
+  toCameraV: 0,
+  eyeVertical: 0.2,
+  eyeHorizontal: 0,
+};
+/** 실측: 렌즈를 똑바로 봤다. */
+const LOOKING_AT_LENS: GazeReading = {
+  ...LOOKING_AT_SCREEN,
+  toCameraH: 4.5,
+  toCameraV: -7.2,
+  eyeVertical: 0.33,
+  eyeHorizontal: 0.07,
+};
+/** 실측: 고개는 폰 옆 책 쪽으로 두고 눈만 돌려 화면을 봤다. */
+const EYES_ONLY_ON_SCREEN: GazeReading = {
+  ...LOOKING_AT_SCREEN,
+  toCameraH: -16.6,
+  toCameraV: 10.5,
+  eyeVertical: -0.1,
+  eyeHorizontal: -0.8,
+};
+/** 실측: 고개를 숙여 폰 옆 책을 봤다. 카메라는 시선보다 위에 있다. */
+const HEAD_DOWN_ON_BOOK: GazeReading = {
+  ...LOOKING_AT_SCREEN,
+  toCameraH: -12.9,
+  toCameraV: 7.5,
+  eyeVertical: 0.6,
+  eyeHorizontal: -0.01,
+};
 
 function hand(x: number, y: number): HandPose {
   return {
@@ -73,18 +132,54 @@ describe("시선", () => {
     expect(gazeOnTool(LOOKING_DOWN, null, [SIDE_LAPTOP])).toBe(true);
   });
 
-  it("정면이면 눈이 아래로 흔들려도 화면 응시다", () => {
+  it("고개와 눈을 합친 시선이 카메라 쪽이면 화면 응시다. 눈만 돌려 봐도 마찬가지다", () => {
+    expect(gazeOnScreen(LOOKING_AT_LENS)).toBe(true);
     expect(gazeOnScreen(LOOKING_AT_SCREEN)).toBe(true);
-    expect(gazeOnScreen({ ...LOOKING_AT_SCREEN, pitchDeg: -19 })).toBe(true);
+    expect(gazeOnScreen(EYES_ONLY_ON_SCREEN)).toBe(true);
   });
 
-  it("책상을 내려다보거나 옆으로 돌면 화면 응시가 아니다", () => {
+  it("고개가 카메라 쪽이어도 눈이 그보다 아래를 보면 화면 응시가 아니다", () => {
+    expect(gazeOnScreen(HEAD_DOWN_ON_BOOK)).toBe(false);
     expect(gazeOnScreen(LOOKING_DOWN)).toBe(false);
-    expect(gazeOnScreen(TURNED_RIGHT)).toBe(false);
   });
 
-  it("각도를 모르면 화면 응시로 몰지 않는다", () => {
-    expect(gazeOnScreen({ ...LOOKING_AT_SCREEN, yawDeg: null })).toBe(false);
+  it("옆으로 크게 돌면 화면 응시가 아니다", () => {
+    expect(gazeOnScreen(TURNED_RIGHT)).toBe(false);
+    expect(gazeOnScreen(TURNED_LEFT)).toBe(false);
+  });
+
+  it("시선 계산에 쓰는 눈 점수가 하나라도 빠지면 눈 방향을 모르는 것으로 본다", () => {
+    const all = {
+      eyeBlinkLeft: 0.1,
+      eyeBlinkRight: 0.1,
+      eyeLookDownLeft: 0.6,
+      eyeLookDownRight: 0.4,
+      eyeLookUpLeft: 0.1,
+      eyeLookUpRight: 0.1,
+      eyeLookInLeft: 0.3,
+      eyeLookOutRight: 0.3,
+      eyeLookOutLeft: 0.1,
+      eyeLookInRight: 0.1,
+    };
+    const gaze = eyeGazeOf(all);
+    expect(gaze?.vertical).toBeCloseTo(0.4, 5);
+    expect(gaze?.horizontal).toBeCloseTo(-0.2, 5);
+    for (const name of [
+      "eyeLookUpLeft",
+      "eyeLookInLeft",
+      "eyeLookOutRight",
+      "eyeLookDownRight",
+    ] as const) {
+      const { [name]: _missing, ...partial } = all;
+      expect(eyeGazeOf(partial)).toBeNull();
+    }
+    expect(eyeGazeOf(null)).toBeNull();
+  });
+
+  it("카메라 방향이나 눈 점수를 모르면 화면 응시로 몰지 않는다", () => {
+    expect(gazeOnScreen({ ...LOOKING_AT_SCREEN, toCameraV: null })).toBe(false);
+    expect(gazeOnScreen({ ...LOOKING_AT_SCREEN, eyeVertical: null })).toBe(false);
+    expect(gazeOnScreen({ ...LOOKING_AT_SCREEN, toCameraH: null })).toBe(false);
   });
 });
 
@@ -164,10 +259,12 @@ describe("evaluateEvidence", () => {
   });
 
   it("옆 도구가 보여도 정면을 보면 화면 응시다. 손이 도구 위여도 마찬가지다", () => {
-    const expected = { noEvidence: false, screenGaze: true, wantHands: false };
+    const expected = { noEvidence: false, screenGaze: true, wantHands: false, working: false };
     const side = { ...base, tools: [SIDE_LAPTOP], face: face(LOOKING_AT_SCREEN) };
     expect(evaluateEvidence(side)).toEqual(expected);
-    expect(evaluateEvidence({ ...side, hands: { atTool: true, moving: true } })).toEqual(expected);
+    expect(
+      evaluateEvidence({ ...side, hands: { visible: true, atTool: true, moving: true } }),
+    ).toEqual(expected);
   });
 
   it("앞쪽 책이 있을 때 고개는 정면이고 눈만 내리면 책을 읽는 것으로 본다", () => {
@@ -184,10 +281,12 @@ describe("evaluateEvidence", () => {
       noEvidence: true,
       screenGaze: false,
       wantHands: true,
+      working: false,
     });
-    expect(evaluateEvidence({ ...input, hands: { atTool: true, moving: false } }).noEvidence).toBe(
-      false,
-    );
+    expect(
+      evaluateEvidence({ ...input, hands: { visible: true, atTool: true, moving: false } })
+        .noEvidence,
+    ).toBe(false);
   });
 
   it("도구가 안 보이면 화면 응시만 본다", () => {
@@ -196,21 +295,49 @@ describe("evaluateEvidence", () => {
       noEvidence: false,
       screenGaze: true,
       wantHands: false,
+      working: false,
     });
     expect(evaluateEvidence({ ...base, tools, face: face(TURNED_LEFT) })).toEqual(
       NO_EVIDENCE_SIGNALS,
     );
   });
 
-  it("얼굴이 안 보이면 유예이고, 손이 도구 위에서 움직이면 공부로 본다", () => {
+  it("얼굴이 안 보이면 도구와 손이 함께 보여야 공부로 본다", () => {
     const hidden = { present: false, gaze: LOOKING_DOWN, bounds: null };
+    const handNearby = { visible: true, atTool: false, moving: false };
     expect(evaluateEvidence({ ...base, face: hidden }).noEvidence).toBe(true);
+    expect(evaluateEvidence({ ...base, face: hidden, hands: handNearby })).toMatchObject({
+      noEvidence: false,
+      working: false,
+    });
+    // 손만 보이고 도구가 없으면 공부로 보지 않는다.
     expect(
-      evaluateEvidence({ ...base, face: hidden, hands: { atTool: true, moving: false } })
-        .noEvidence,
+      evaluateEvidence({ ...base, tools: [], face: hidden, hands: handNearby }).noEvidence,
     ).toBe(true);
     expect(
-      evaluateEvidence({ ...base, face: hidden, hands: { atTool: true, moving: true } }).noEvidence,
+      evaluateEvidence({
+        ...base,
+        face: hidden,
+        hands: { visible: false, atTool: false, moving: false },
+      }).noEvidence,
+    ).toBe(true);
+  });
+
+  it("얼굴이 안 보일 때 도구 위에서 움직이는 손은 강한 증거다", () => {
+    const hidden = { present: false, gaze: LOOKING_DOWN, bounds: null };
+    expect(
+      evaluateEvidence({
+        ...base,
+        face: hidden,
+        hands: { visible: true, atTool: true, moving: true },
+      }),
+    ).toMatchObject({ noEvidence: false, working: true });
+    expect(
+      evaluateEvidence({
+        ...base,
+        face: hidden,
+        hands: { visible: true, atTool: true, moving: false },
+      }).working,
     ).toBe(false);
   });
 });

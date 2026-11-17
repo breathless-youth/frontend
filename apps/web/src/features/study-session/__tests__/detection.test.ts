@@ -71,10 +71,19 @@ describe("stepDetection — 유예에서 비집중으로", () => {
     expect(state.active).toBe("SLEEP");
   });
 
-  it("공부 증거 없음은 유예까지만 가고 비집중으로 확정하지 않는다", () => {
-    const state = hold(createDetectionState(T0), signals({ NO_EVIDENCE: true }), 0, 60_000);
+  it("공부 흔적 없음은 3초면 유예, 10초면 자세 이탈 비집중이다", () => {
+    let state = hold(createDetectionState(T0), signals({ NO_EVIDENCE: true }), 0, 9000);
     expect(state.grace).toBe(true);
     expect(state.active).toBeNull();
+    state = hold(state, signals({ NO_EVIDENCE: true }), 10_000, 10_000);
+    expect(state.active).toBe("POSTURE");
+  });
+
+  it("공부 흔적 없음이 잠깐 꺼져도 3초를 못 채우면 처음 켜진 때부터 10초에 확정한다", () => {
+    let state = hold(createDetectionState(T0), signals({ NO_EVIDENCE: true }), 0, 4000);
+    state = hold(state, signals({}), 5000, 6000);
+    state = hold(state, signals({ NO_EVIDENCE: true }), 7000, 10_000);
+    expect(state.active).toBe("POSTURE");
   });
 });
 
@@ -103,14 +112,14 @@ describe("stepDetection — 집중으로 복귀", () => {
   });
 
   it("풀린 뒤 다시 켜지면 확정 시간을 처음부터 잰다", () => {
-    let state = hold(createDetectionState(T0), signals({ PHONE: true }), 0, 4000);
+    let state = hold(createDetectionState(T0), signals({ AWAY: true }), 0, 4000);
     state = hold(state, signals({}), 5000, 10_000);
     expect(state.grace).toBe(false);
 
-    state = hold(state, signals({ PHONE: true }), 11_000, 20_000);
+    state = hold(state, signals({ AWAY: true }), 11_000, 20_000);
     expect(state.active).toBeNull();
-    state = hold(state, signals({ PHONE: true }), 21_000, 21_000);
-    expect(state.active).toBe("PHONE");
+    state = hold(state, signals({ AWAY: true }), 21_000, 21_000);
+    expect(state.active).toBe("AWAY");
   });
 });
 
@@ -121,10 +130,13 @@ describe("stepDetection — 화면 조작 출처", () => {
     expect(state.active).toBe("DEVICE");
   });
 
-  it("폰을 정면에 두고 공부해 화면 응시가 계속 켜져도 유예에서 멈춘다", () => {
-    const state = hold(createDetectionState(T0), signals({ SCREEN_GAZE: true }), 0, 120_000);
+  it("화면 응시는 3초면 유예, 10초면 화면 응시 비집중이다", () => {
+    let state = hold(createDetectionState(T0), signals({ SCREEN_GAZE: true }), 0, 9000);
     expect(state.grace).toBe(true);
     expect(state.active).toBeNull();
+
+    state = hold(state, signals({ SCREEN_GAZE: true }), 10_000, 10_000);
+    expect(state.active).toBe("SCREEN");
   });
 
   it("한 출처가 풀려도 같은 트리거의 다른 출처가 확정돼 있으면 유지한다", () => {
@@ -132,6 +144,18 @@ describe("stepDetection — 화면 조작 출처", () => {
     let state = hold(createDetectionState(T0), both, 0, 10_000);
     state = hold(state, signals({ SLEEP_DROWSY: true }), 11_000, 20_000);
     expect(state.active).toBe("SLEEP");
+  });
+});
+
+describe("stepDetection — 카메라 휴대폰", () => {
+  it("손에 쥔 휴대폰은 2초면 유예, 9초면 휴대폰 사용이다", () => {
+    let state = hold(createDetectionState(T0), signals({ PHONE: true }), 0, 1000);
+    expect(state.grace).toBe(false);
+    state = hold(state, signals({ PHONE: true }), 2000, 8000);
+    expect(state.grace).toBe(true);
+    expect(state.active).toBeNull();
+    state = hold(state, signals({ PHONE: true }), 9000, 9000);
+    expect(state.active).toBe("PHONE");
   });
 });
 
@@ -182,11 +206,18 @@ describe("stepDetection — 동시 다중 감지", () => {
     expect(state.active).toBe("AWAY");
   });
 
-  it("같은 시점에 확정되면 AWAY > DEVICE > SLEEP > PHONE 순으로 고른다", () => {
-    expect(TRIGGER_PRIORITY).toEqual(["AWAY", "DEVICE", "SLEEP", "PHONE"]);
+  it("같은 시점에 확정되면 AWAY > DEVICE > SLEEP > PHONE > SCREEN > POSTURE 순으로 고른다", () => {
+    expect(TRIGGER_PRIORITY).toEqual(["AWAY", "DEVICE", "SLEEP", "PHONE", "SCREEN", "POSTURE"]);
+    const phoneOverScreen = hold(
+      createDetectionState(T0),
+      signals({ PHONE: true, SCREEN_GAZE: true }),
+      0,
+      10_000,
+    );
+    expect(phoneOverScreen.active).toBe("PHONE");
     const state = hold(
       createDetectionState(T0),
-      signals({ TOUCH: true, PHONE: true, SLEEP_EYES: true }),
+      signals({ TOUCH: true, SLEEP_EYES: true }),
       0,
       10_000,
     );
@@ -198,6 +229,110 @@ describe("stepDetection — 동시 다중 감지", () => {
     state = hold(state, signals({ AWAY: true, NO_EVIDENCE: true }), 11_000, 15_000);
     expect(state.active).toBe("AWAY");
     expect(state.grace).toBe(false);
+  });
+});
+
+describe("stepDetection — 비집중이 풀린 뒤 정착 시간", () => {
+  /** 0~10초 자리 비움으로 확정한 뒤 11초에 돌아온다. 신호가 3초 꺼져 14초에 풀린다. */
+  function returnFromAway(back: TriggerSignals): DetectionState {
+    let state = hold(createDetectionState(T0), signals({ AWAY: true }), 0, 10_000);
+    state = hold(state, back, 11_000, 14_000);
+    expect(state.active).toBeNull();
+    return state;
+  }
+
+  it("풀린 뒤 10초 동안은 공부 흔적 없음이 유예를 만들지 않고, 그 뒤 3초가 지나야 유예다", () => {
+    const back = signals({ NO_EVIDENCE: true });
+    let state = returnFromAway(back);
+    expect(state.grace).toBe(false);
+
+    state = hold(state, back, 15_000, 26_000);
+    expect(state.grace).toBe(false);
+
+    state = hold(state, back, 27_000, 27_000);
+    expect(state.grace).toBe(true);
+  });
+
+  it("화면 응시도 정착 시간 동안은 유예를 만들지 않는다", () => {
+    const back = signals({ SCREEN_GAZE: true });
+    let state = returnFromAway(back);
+    state = hold(state, back, 15_000, 26_000);
+    expect(state.grace).toBe(false);
+  });
+
+  it("정착 시간 안에 공부 흔적이 생기면 유예 없이 집중이 이어진다", () => {
+    let state = returnFromAway(signals({ NO_EVIDENCE: true }));
+    state = hold(state, signals({ NO_EVIDENCE: true }), 15_000, 18_000);
+    state = hold(state, signals({}), 19_000, 40_000);
+    expect(state.grace).toBe(false);
+    expect(state.active).toBeNull();
+  });
+
+  it("정착 시간 동안에도 확정이 있는 출처는 지금 규칙대로 잡는다", () => {
+    let state = returnFromAway(signals({}));
+    state = hold(state, signals({ PHONE: true }), 15_000, 18_000);
+    expect(state.grace).toBe(true);
+
+    state = hold(state, signals({ PHONE: true }), 19_000, 25_000);
+    expect(state.active).toBe("PHONE");
+  });
+
+  it("돌아와 화면만 보면 정착 10초와 유예 3초 뒤 유예, 풀린 지 20초에 화면 응시 비집중이다", () => {
+    const back = signals({ SCREEN_GAZE: true });
+    let state = returnFromAway(back);
+    state = hold(state, back, 15_000, 26_000);
+    expect(state.grace).toBe(false);
+
+    state = hold(state, back, 27_000, 33_000);
+    expect(state.grace).toBe(true);
+    expect(state.active).toBeNull();
+
+    state = hold(state, back, 34_000, 34_000);
+    expect(state.active).toBe("SCREEN");
+  });
+
+  it("비집중을 거치지 않은 공부 흔적 없음은 지금처럼 3초 뒤 유예다", () => {
+    const state = hold(createDetectionState(T0), signals({ NO_EVIDENCE: true }), 0, 3000);
+    expect(state.grace).toBe(true);
+  });
+});
+
+describe("stepDetection — 강한 공부 증거", () => {
+  it("흔적 없음 유예 중에 강한 증거가 들어오면 그 순간 유예가 풀린다", () => {
+    let state = hold(createDetectionState(T0), signals({ NO_EVIDENCE: true }), 0, 5000);
+    expect(state.grace).toBe(true);
+
+    state = hold(state, signals({ WORKING: true }), 6000, 6000);
+    expect(state.grace).toBe(false);
+  });
+
+  it("이미 확정된 화면 응시 비집중은 강한 증거로 풀리지 않고 복귀 3초를 기다린다", () => {
+    let state = hold(createDetectionState(T0), signals({ SCREEN_GAZE: true }), 0, 10_000);
+    expect(state.active).toBe("SCREEN");
+
+    state = hold(state, signals({ WORKING: true }), 11_000, 13_000);
+    expect(state.active).toBe("SCREEN");
+    state = hold(state, signals({ WORKING: true }), 14_000, 14_000);
+    expect(state.active).toBeNull();
+  });
+
+  it("이미 확정된 자세 이탈은 강한 증거로 풀리지 않는다", () => {
+    let state = hold(createDetectionState(T0), signals({ NO_EVIDENCE: true }), 0, 10_000);
+    expect(state.active).toBe("POSTURE");
+    state = hold(state, signals({ WORKING: true }), 11_000, 13_000);
+    expect(state.active).toBe("POSTURE");
+  });
+
+  it("자리 비움 유예는 강한 증거로 풀리지 않는다", () => {
+    let state = hold(createDetectionState(T0), signals({ AWAY: true }), 0, 5000);
+    state = hold(state, signals({ AWAY: true, WORKING: true }), 6000, 6000);
+    expect(state.grace).toBe(true);
+  });
+
+  it("강한 증거 신호만으로는 유예도 비집중도 만들지 않는다", () => {
+    const state = hold(createDetectionState(T0), signals({ WORKING: true }), 0, 60_000);
+    expect(state.grace).toBe(false);
+    expect(state.active).toBeNull();
   });
 });
 
@@ -256,10 +391,10 @@ describe("소셜룸 감지 시간 — 유예 없이 예전 시간에 비집중",
     expect(state.active).toBeNull();
   });
 
-  it("공부 흔적 신호(화면 응시·흔적 없음·터치)는 소셜룸에서 아무것도 만들지 않는다", () => {
+  it("공부 흔적 신호(화면 응시·흔적 없음·터치·강한 증거)는 소셜룸에서 아무것도 만들지 않는다", () => {
     const quiet = holdSocial(
       createDetectionState(T0),
-      signals({ SCREEN_GAZE: true, NO_EVIDENCE: true, TOUCH: true }),
+      signals({ SCREEN_GAZE: true, NO_EVIDENCE: true, TOUCH: true, WORKING: true }),
       0,
       20_000,
     );

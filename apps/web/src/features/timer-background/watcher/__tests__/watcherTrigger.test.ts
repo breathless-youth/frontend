@@ -9,6 +9,8 @@ describe("감독관 등장 기준 시간", () => {
       PHONE: 9_000,
       DEVICE: 9_000,
       SLEEP: 9_000,
+      SCREEN: 9_000,
+      POSTURE: 9_000,
     });
   });
 });

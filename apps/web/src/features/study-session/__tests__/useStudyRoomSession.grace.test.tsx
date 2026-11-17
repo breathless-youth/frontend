@@ -47,9 +47,10 @@ describe("useStudyRoomSession 유예", () => {
     expect(result.current.grace).toBe(true);
     expect(result.current.sessionState).toEqual(FOCUS_STATE);
 
-    await advance(30_000);
+    // 확정(신호가 켜지고 10초) 전까지는 유예다.
+    await advance(5_000);
     expect(result.current.grace).toBe(true);
-    expect(result.current.focusSec).toBe(38);
+    expect(result.current.focusSec).toBe(13);
     expect(result.current.sessionEvents).toEqual([]);
   });
 

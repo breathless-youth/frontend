@@ -28,6 +28,16 @@ export interface TriggerHoldParams {
   readonly continuous?: boolean;
   /** 이 출처를 기록할 트리거. 없으면 `SOURCE_TRIGGER`를 따른다. 방마다 같은 출처를 다르게 기록할 때 쓴다. */
   readonly trigger?: DistractionTrigger;
+  /**
+   * 비집중이 풀린 직후 이 시간 동안은 이 출처가 유예를 만들지 않는다.
+   * 자리에 돌아와 책을 펴고 얼굴이 잡히기까지 걸리는 시간이다. 이 시간이 지난 뒤부터 `graceMs`를 잰다.
+   */
+  readonly settleMs?: number;
+  /**
+   * 참이면 강한 공부 증거(`WORKING`)가 켜지는 순간 이 출처의 유예를 바로 푼다. 확정된 비집중은 풀지 않는다.
+   * 공부 증거로 판정하는 출처만 쓴다.
+   */
+  readonly clearedByWork?: boolean;
 }
 
 /**
@@ -38,10 +48,12 @@ export interface TriggerHoldParams {
  *
  * - `DEVICE`: 가속도 센서가 폰을 들거나 흔든 동안 켜진다. 폰을 손에 든 것이라 휴대폰 사용으로 센다.
  * - `TOUCH`: 세션 화면을 계속 만지는 중이다.
- * - `SCREEN_GAZE`: 공부 도구를 보지 않고 시선이 화면에 고정돼 있다. 유예까지만 간다.
- *   폰을 공부 자리 정면에 세워 두면 공부하는 동안에도 얼굴이 카메라를 향해 이 신호가 계속 켜진다.
- *   그래서 기기 조작 비집중은 실제로 기기를 만지는 `TOUCH`·`DEVICE`로만 확정한다.
- * - `NO_EVIDENCE`: 공부 증거(도구 쪽 시선·손, 얼굴)가 없다. 유예까지만 간다.
+ * - `SCREEN_GAZE`: 고개와 눈을 합친 시선이 폰 카메라 쪽이다. 10초 이어지면 화면 응시(`SCREEN`) 비집중이다.
+ *   고개 방향만 보면 폰을 정면에 두고 공부하는 사람도 계속 켜져서, 눈 방향까지 더해 카메라 쪽인지 본다.
+ * - `NO_EVIDENCE`: 공부 증거(도구 쪽 시선·손, 얼굴)가 없다. 10초 이어지면 자세 이탈(`POSTURE`) 비집중이다.
+ *   얼굴이 보일 때와 안 보일 때를 같은 원인으로 기록한다.
+ * - `WORKING`: 얼굴이 안 보일 때 도구 위에서 손이 필기·타이핑하듯 움직인다. 유예를 만들지 않고,
+ *   켜지면 `clearedByWork` 출처의 유예를 3초 기다리지 않고 바로 푼다.
  */
 export const DETECTION_SOURCES = [
   "AWAY",
@@ -52,6 +64,7 @@ export const DETECTION_SOURCES = [
   "TOUCH",
   "SCREEN_GAZE",
   "NO_EVIDENCE",
+  "WORKING",
 ] as const;
 export type DetectionSource = (typeof DETECTION_SOURCES)[number];
 
@@ -66,8 +79,9 @@ export const SOURCE_TRIGGER = {
   SLEEP_EYES: "SLEEP",
   SLEEP_DROWSY: "SLEEP",
   TOUCH: "DEVICE",
-  SCREEN_GAZE: null,
-  NO_EVIDENCE: null,
+  SCREEN_GAZE: "SCREEN",
+  NO_EVIDENCE: "POSTURE",
+  WORKING: null,
 } as const satisfies Record<DetectionSource, DistractionTrigger | null>;
 
 /** 출처별 유지시간. */
@@ -83,9 +97,19 @@ export type DetectionParams = Record<DetectionSource, TriggerHoldParams>;
  */
 const STANDARD_HOLD: TriggerHoldParams = { graceMs: 3000, enterMs: 10_000, exitMs: 3000 };
 
+/** 비집중에서 돌아온 뒤 화면 응시·공부 흔적 없음으로 유예를 띄우지 않는 시간. */
+const SETTLE_AFTER_RELEASE_MS = 10_000;
+
+/** 쓰지 않는 출처. 원신호가 와도 유예도 비집중도 만들지 않는다. */
+const OFF_HOLD: TriggerHoldParams = { graceMs: Number.POSITIVE_INFINITY, enterMs: null, exitMs: 0 };
+
 export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
   AWAY: STANDARD_HOLD,
-  PHONE: STANDARD_HOLD,
+  /**
+   * 카메라 휴대폰은 손 결과 두 번으로 쥔 것을 확인해 원신호가 1초 늦게 켜진다. 그만큼 1초씩 줄여
+   * 휴대폰을 집은 순간부터 보면 다른 원인과 같은 3초 유예·10초 확정이 되게 한다.
+   */
+  PHONE: { ...STANDARD_HOLD, graceMs: 2000, enterMs: 9000 },
   /**
    * 조작이 1초 이어지면 유예, 4초 이어지면 휴대폰 사용이다. 중간에 끊기면 처음부터 다시 잰다.
    * 1초에 한 번 본다고 치면 2회 연속이 유예, 5회 연속이 확정인 것과 같다.
@@ -94,8 +118,13 @@ export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
   SLEEP_EYES: STANDARD_HOLD,
   SLEEP_DROWSY: STANDARD_HOLD,
   TOUCH: STANDARD_HOLD,
-  SCREEN_GAZE: { ...STANDARD_HOLD, enterMs: null },
-  NO_EVIDENCE: { ...STANDARD_HOLD, enterMs: null },
+  SCREEN_GAZE: { ...STANDARD_HOLD, settleMs: SETTLE_AFTER_RELEASE_MS, clearedByWork: true },
+  NO_EVIDENCE: {
+    ...STANDARD_HOLD,
+    settleMs: SETTLE_AFTER_RELEASE_MS,
+    clearedByWork: true,
+  },
+  WORKING: OFF_HOLD,
 };
 
 /**
@@ -105,9 +134,6 @@ export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
 export function usesStudyEvidence(roomType: StudyRoomType): boolean {
   return roomType === "single";
 }
-
-/** 쓰지 않는 출처. 원신호가 와도 유예도 비집중도 만들지 않는다. */
-const OFF_HOLD: TriggerHoldParams = { graceMs: Number.POSITIVE_INFINITY, enterMs: null, exitMs: 0 };
 
 /**
  * 소셜·그룹룸 유지시간
@@ -127,6 +153,7 @@ export const SOCIAL_DETECTION_PARAMS: DetectionParams = {
   TOUCH: OFF_HOLD,
   SCREEN_GAZE: OFF_HOLD,
   NO_EVIDENCE: OFF_HOLD,
+  WORKING: OFF_HOLD,
 };
 
 /**
@@ -143,7 +170,8 @@ export const SOCIAL_DETECTION_PARAMS: DetectionParams = {
  *
  * `SLEEP`이 `DEVICE`보다 뒤인 것은 졸음 판정이 둘 다 카메라에서 나오기 때문이다. `PHONE`보다
  * 앞인 것은 책상에 올려둔 휴대폰이 계속 검출되는 알려진 오탐이 있는데, 10초 이상 유지된
- * 졸음이 그보다 구체적인 판정이기 때문이다.
+ * 졸음이 그보다 구체적인 판정이기 때문이다. `SCREEN`(화면 응시)은 시선만으로 정하는 덜 구체적인
+ * 판정이고, `POSTURE`(자세 이탈)는 공부 흔적을 찾지 못했다는 판정이라 가장 뒤다.
  *
  * 값은 쓰지 않고 키 삽입 순서만 쓴다. `satisfies Record<DistractionTrigger, number>`가 새
  * 트리거의 누락을 컴파일 에러로 만든다. 여기서 빠진 트리거는 영원히 활성화되지 않은 채
@@ -154,6 +182,8 @@ const TRIGGER_PRIORITY_RANK = {
   DEVICE: 1,
   SLEEP: 2,
   PHONE: 3,
+  SCREEN: 4,
+  POSTURE: 5,
 } as const satisfies Record<DistractionTrigger, number>;
 
 export const TRIGGER_PRIORITY = Object.keys(TRIGGER_PRIORITY_RANK) as readonly DistractionTrigger[];
@@ -184,6 +214,8 @@ export interface DetectionState {
   readonly active: DistractionTrigger | null;
   /** 확정된 트리거는 없고 유예 중인 출처가 있다. 순공은 그대로 흐른다. */
   readonly grace: boolean;
+  /** 마지막으로 비집중이 풀린 시각. `settleMs`의 기준이다. */
+  readonly releasedAtMs: number | null;
 }
 
 export function createDetectionState(nowMs: number): DetectionState {
@@ -194,6 +226,7 @@ export function createDetectionState(nowMs: number): DetectionState {
     confirmed: { ...NO_TRIGGER_SIGNALS },
     active: null,
     grace: false,
+    releasedAtMs: null,
   };
 }
 
@@ -232,10 +265,25 @@ export function stepDetection(
     const heldMs = nowMs - nextSince[source];
     const hold = params[source];
     let episode = nextEpisode[source];
-    if (episode === null && raw && heldMs >= hold.graceMs) {
-      episode = nextSince[source];
+    // 비집중이 풀린 뒤 정착 시간이 끝나기 전에는 유예까지의 시간을 재지 않는다.
+    const settledAt =
+      hold.settleMs !== undefined && state.releasedAtMs !== null
+        ? Math.max(nextSince[source], state.releasedAtMs + hold.settleMs)
+        : nextSince[source];
+    if (episode === null && raw && nowMs - settledAt >= hold.graceMs) {
+      episode = settledAt;
     }
     if (episode !== null && !raw && heldMs >= hold.exitMs) {
+      episode = null;
+    }
+    // 강한 공부 증거가 켜지면 공부 증거로 판정하는 출처의 유예는 복귀 시간을 기다리지 않고 바로 푼다.
+    // 이미 확정된 비집중은 다른 원인처럼 복귀 시간을 기다린다.
+    if (
+      episode !== null &&
+      signals.WORKING &&
+      hold.clearedByWork === true &&
+      !nextConfirmed[source]
+    ) {
       episode = null;
     }
     nextEpisode[source] = episode;
@@ -257,11 +305,22 @@ export function stepDetection(
       ? state.active
       : (TRIGGER_PRIORITY.find((trigger) => isTriggerConfirmed(nextConfirmed, trigger, params)) ??
         null);
+  let releasedAtMs = state.releasedAtMs;
+  if (state.active !== null && active === null) {
+    // 비집중 동안 쌓인 정착 대상 출처의 유예는 지운다. 돌아온 뒤 정착 시간부터 다시 잰다.
+    releasedAtMs = nowMs;
+    for (const source of DETECTION_SOURCES) {
+      if (params[source].settleMs !== undefined) {
+        nextEpisode[source] = null;
+      }
+    }
+  }
   const grace = active === null && DETECTION_SOURCES.some((source) => nextEpisode[source] !== null);
 
   const unchanged =
     active === state.active &&
     grace === state.grace &&
+    releasedAtMs === state.releasedAtMs &&
     DETECTION_SOURCES.every(
       (source) =>
         nextSignals[source] === state.signals[source] &&
@@ -278,5 +337,6 @@ export function stepDetection(
         confirmed: nextConfirmed,
         active,
         grace,
+        releasedAtMs,
       };
 }

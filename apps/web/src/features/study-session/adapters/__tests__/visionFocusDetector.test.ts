@@ -247,7 +247,14 @@ function fakeFaceLandmarker(options: FakeFaceOptions = {}) {
       const result = {
         face: next,
         durationMs: 1,
-        metrics: { headPitchDeg: pitch, headYawDeg: yaw, noseOffsetX: null },
+        // 테스트 카메라는 얼굴 정면에 있다고 본다. 고개를 돌린 만큼 카메라가 반대쪽으로 비켜 보인다.
+        metrics: {
+          headPitchDeg: pitch,
+          headYawDeg: yaw,
+          noseOffsetX: null,
+          toCameraH: yaw === null ? null : -yaw,
+          toCameraV: pitch,
+        },
       };
       // 실제 런타임처럼 사진을 요청받았을 때만 사진을 붙인다.
       return photo === undefined || options.photoFails === true
@@ -310,9 +317,15 @@ describe("createVisionFocusDetector", () => {
     expect(signals.some((signal) => signal.source === "DEVICE")).toBe(false);
     expect(
       signals.every((signal) =>
-        ["AWAY", "PHONE", "SLEEP_EYES", "SLEEP_DROWSY", "SCREEN_GAZE", "NO_EVIDENCE"].includes(
-          signal.source,
-        ),
+        [
+          "AWAY",
+          "PHONE",
+          "SLEEP_EYES",
+          "SLEEP_DROWSY",
+          "SCREEN_GAZE",
+          "NO_EVIDENCE",
+          "WORKING",
+        ].includes(signal.source),
       ),
     ).toBe(true);
   });
@@ -949,7 +962,13 @@ describe("얼굴 틱", () => {
     resolveFace({
       face: seen(0.1),
       durationMs: 1,
-      metrics: { headPitchDeg: 0, headYawDeg: null, noseOffsetX: null },
+      metrics: {
+        headPitchDeg: 0,
+        headYawDeg: null,
+        noseOffsetX: null,
+        toCameraH: null,
+        toCameraV: null,
+      },
     });
     await vi.advanceTimersByTimeAsync(0);
 
@@ -1827,7 +1846,13 @@ describe("타임랩스 촬영 가림 켬", () => {
     faceDetect.mockImplementation(async (_video, _timestampMs, photo) => ({
       face: seen(0.1),
       durationMs: 1,
-      metrics: { headPitchDeg: null, headYawDeg: null, noseOffsetX: null },
+      metrics: {
+        headPitchDeg: null,
+        headYawDeg: null,
+        noseOffsetX: null,
+        toCameraH: null,
+        toCameraV: null,
+      },
       // 첫 얼굴 틱만 얼굴을 찾고 그 뒤로는 놓친다.
       bounds:
         faceDetect.mock.calls.length === 1 ? { minX: 0.5, minY: 0.2, maxX: 0.6, maxY: 0.35 } : null,
@@ -2277,7 +2302,7 @@ describe("공부 증거 배선", () => {
     expect(last(signals, "NO_EVIDENCE")).toBe(false);
   });
 
-  it("얼굴이 안 보이면 증거 없음이고, 책 위 손이 움직이면 풀린다", async () => {
+  it("얼굴이 안 보여도 책과 손이 보이면 증거 없음을 끄고, 책 위 손이 움직이면 강한 증거를 낸다", async () => {
     const noFace: FaceObservation = { facePresent: false, eye: null, eyeSkipReason: "no-face" };
     const still = setup({
       frames: [personWithBook],
@@ -2287,7 +2312,8 @@ describe("공부 증거 배선", () => {
     });
     still.vision.start();
     await vi.advanceTimersByTimeAsync(SETTLE_MS);
-    expect(last(still.signals, "NO_EVIDENCE")).toBe(true);
+    expect(last(still.signals, "NO_EVIDENCE")).toBe(false);
+    expect(last(still.signals, "WORKING")).toBe(false);
     still.vision.stop();
 
     const writing = setup({
@@ -2299,9 +2325,56 @@ describe("공부 증거 배선", () => {
     writing.vision.start();
     await vi.advanceTimersByTimeAsync(SETTLE_MS);
     expect(last(writing.signals, "NO_EVIDENCE")).toBe(false);
+    expect(last(writing.signals, "WORKING")).toBe(true);
   });
 
-  it("책 위 손은 가만히 있고 책 밖 손만 움직이면 필기로 보지 않는다", async () => {
+  it("얼굴이 안 보이고 손이 책 위에 있으면 책 검출이 한 프레임씩 빠져도 증거 없음을 켜지 않는다", async () => {
+    const noFace: FaceObservation = { facePresent: false, eye: null, eyeSkipReason: "no-face" };
+    const flicker = Array.from({ length: 40 }, (_, i) =>
+      i % 2 === 0 ? personWithBook : personFrame(),
+    );
+    const { vision, signals } = setup({
+      frames: flicker,
+      pitch: 0,
+      face: noFace,
+      hands: [[handOnBook(0.5)]],
+    });
+    vision.start();
+    // 손 결과가 처음 들어오기 전 준비 구간은 보지 않는다.
+    await vi.advanceTimersByTimeAsync(SETTLE_MS);
+    expect(last(signals, "NO_EVIDENCE")).toBe(false);
+    signals.length = 0;
+    await vi.advanceTimersByTimeAsync(12 * FRAME_INTERVAL_MS);
+    expect(signals).not.toContainEqual({ source: "NO_EVIDENCE", active: true });
+  });
+
+  it("책이 6초 넘게 안 보이면 손이 있어도 증거 없음을 켠다", async () => {
+    const noFace: FaceObservation = { facePresent: false, eye: null, eyeSkipReason: "no-face" };
+    const { vision, signals } = setup({
+      frames: [personWithBook, personFrame()],
+      pitch: 0,
+      face: noFace,
+      hands: [[handOnBook(0.5)]],
+    });
+    vision.start();
+    await vi.advanceTimersByTimeAsync(12 * FRAME_INTERVAL_MS);
+    expect(last(signals, "NO_EVIDENCE")).toBe(true);
+  });
+
+  it("얼굴이 안 보이고 책은 보여도 손이 없으면 증거 없음이다", async () => {
+    const noFace: FaceObservation = { facePresent: false, eye: null, eyeSkipReason: "no-face" };
+    const { vision, signals } = setup({
+      frames: [personWithBook],
+      pitch: 0,
+      face: noFace,
+      hands: [[]],
+    });
+    vision.start();
+    await vi.advanceTimersByTimeAsync(SETTLE_MS);
+    expect(last(signals, "NO_EVIDENCE")).toBe(true);
+  });
+
+  it("책 위 손은 가만히 있고 책 밖 손만 움직이면 강한 증거로 보지 않는다", async () => {
     const noFace: FaceObservation = { facePresent: false, eye: null, eyeSkipReason: "no-face" };
     const offBook = (x: number) => handAt(x, 0.2);
     const { vision, signals } = setup({
@@ -2317,13 +2390,29 @@ describe("공부 증거 배선", () => {
     });
     vision.start();
     await vi.advanceTimersByTimeAsync(SETTLE_MS);
-    expect(last(signals, "NO_EVIDENCE")).toBe(true);
+    expect(last(signals, "WORKING")).toBe(false);
   });
+
+  /** 위·좌우를 보지 않는 눈. 화면 응시 판정은 시선 점수가 모두 있어야 돈다. */
+  const EYES_LEVEL = {
+    eyeLookUpLeft: 0,
+    eyeLookUpRight: 0,
+    eyeLookInLeft: 0,
+    eyeLookInRight: 0,
+    eyeLookOutLeft: 0,
+    eyeLookOutRight: 0,
+  };
 
   it("책이 안 보이고 화면을 정면으로 보면 화면 응시를 올린다", async () => {
     const lookingAtScreen: FaceObservation = {
       facePresent: true,
-      eye: { eyeBlinkLeft: 0.1, eyeBlinkRight: 0.1, eyeLookDownLeft: 0.1, eyeLookDownRight: 0.1 },
+      eye: {
+        eyeBlinkLeft: 0.1,
+        eyeBlinkRight: 0.1,
+        eyeLookDownLeft: 0.1,
+        eyeLookDownRight: 0.1,
+        ...EYES_LEVEL,
+      },
       eyeSkipReason: null,
     };
     const { vision, signals } = setup({
@@ -2339,10 +2428,40 @@ describe("공부 증거 배선", () => {
     expect(last(signals, "NO_EVIDENCE")).toBe(false);
   });
 
+  it("고개는 카메라 쪽이어도 눈이 아래를 보면 화면 응시가 아니다", async () => {
+    const eyesDown: FaceObservation = {
+      facePresent: true,
+      eye: {
+        eyeBlinkLeft: 0.1,
+        eyeBlinkRight: 0.1,
+        eyeLookDownLeft: 0.8,
+        eyeLookDownRight: 0.8,
+        ...EYES_LEVEL,
+      },
+      eyeSkipReason: null,
+    };
+    const { vision, signals } = setup({
+      frames: [personFrame()],
+      pitch: 0,
+      yaw: 4,
+      face: eyesDown,
+    });
+    vision.start();
+    await vi.advanceTimersByTimeAsync(SETTLE_MS);
+
+    expect(last(signals, "SCREEN_GAZE")).toBe(false);
+  });
+
   it("책이 보여도 책을 안 보고 정면을 보면 화면 응시를 올린다", async () => {
     const lookingAtScreen: FaceObservation = {
       facePresent: true,
-      eye: { eyeBlinkLeft: 0.1, eyeBlinkRight: 0.1, eyeLookDownLeft: 0.1, eyeLookDownRight: 0.1 },
+      eye: {
+        eyeBlinkLeft: 0.1,
+        eyeBlinkRight: 0.1,
+        eyeLookDownLeft: 0.1,
+        eyeLookDownRight: 0.1,
+        ...EYES_LEVEL,
+      },
       eyeSkipReason: null,
     };
     const { vision, signals } = setup({
@@ -2416,6 +2535,35 @@ describe("공부 증거 배선", () => {
     vision.start();
     await vi.advanceTimersByTimeAsync(SETTLE_MS * 2);
     expect(last(signals, "NO_EVIDENCE")).toBe(false);
+  });
+
+  it("손이 휴대폰을 쥔 것으로 한 번만 잡히면 사용으로 보지 않는다", async () => {
+    const { vision, signals } = setup({
+      frames: [[...personFrame(), phone]],
+      pitch: 20,
+      hands: [[handAt(0.75, 0.5)], [handAt(0.2, 0.8)]],
+    });
+    vision.start();
+    await vi.advanceTimersByTimeAsync(SETTLE_MS);
+
+    expect(signals).not.toContainEqual({ source: "PHONE", active: true });
+  });
+
+  it("30초 넘게 쥐지 않던 휴대폰을 집으면 첫 확인 뒤 1초 주기로 돌아와 다음 손 결과로 사용을 확인한다", async () => {
+    // 손은 1~29초에 1초마다, 그 뒤 32·35·38·41·44초에 3초마다 돈다. 44초 결과(33번)부터 쥔다.
+    // 첫 확인 뒤 1초 주기로 돌아오면 45초에 두 번째 확인이 되고, 아니면 47초까지 기다려야 한다.
+    const hands = Array.from({ length: 60 }, (_, i) =>
+      i >= 33 ? [handAt(0.75, 0.5)] : [handAt(0.2, 0.8)],
+    );
+    const { vision, signals } = setup({
+      frames: [[...personFrame(), phone]],
+      pitch: 20,
+      hands,
+    });
+    vision.start();
+    await vi.advanceTimersByTimeAsync(45_500);
+
+    expect(last(signals, "PHONE")).toBe(true);
   });
 
   it("손에 쥔 휴대폰은 사용으로 본다", async () => {
