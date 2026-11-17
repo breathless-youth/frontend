@@ -44,7 +44,6 @@
   "charge": {
     "title": "Buy points",
     "guide": "Payment and refunds",
-    "bonus": "{{points}} extra",
     "pricePending": "Checking price",
     "packLabel": "Buy {{points}}"
   },
@@ -74,7 +73,6 @@
   "done": {
     "title": "Purchase complete",
     "points": "Points bought",
-    "bonus": "Bonus",
     "balance": "Your points",
     "close": "OK",
     "shop": "Go to shop"

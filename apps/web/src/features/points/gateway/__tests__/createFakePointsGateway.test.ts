@@ -88,19 +88,19 @@ describe("createFakePointsGateway 받기", () => {
     expect(await gateway.getBalance()).toBe(1240);
   });
 
-  it("충전하면 묶음 포인트와 보너스가 들어온다", async () => {
+  it("충전하면 묶음 포인트가 들어온다", async () => {
     const gateway = createFakePointsGateway("default");
-    expect(await gateway.charge("points_1200")).toEqual({
+    expect(await gateway.charge("points_2000")).toEqual({
       status: "completed",
-      granted: 1200,
-      bonus: 100,
-      balance: 2540,
+      granted: 2000,
+      bonus: 0,
+      balance: 3240,
     });
   });
 
   it("결제 실패 장면이면 충전하지 않는다", async () => {
     const gateway = createFakePointsGateway("payFail");
-    expect(await gateway.charge("points_1200")).toEqual({ status: "failed" });
+    expect(await gateway.charge("points_2000")).toEqual({ status: "failed" });
   });
 
   it("불러오기 실패 장면이면 조회가 실패한다", async () => {

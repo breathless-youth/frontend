@@ -43,7 +43,6 @@
   "charge": {
     "title": "포인트 충전",
     "guide": "결제·환불 안내",
-    "bonus": "{{points}} 더",
     "pricePending": "가격 확인 중",
     "packLabel": "{{points}} 충전"
   },
@@ -73,7 +72,6 @@
   "done": {
     "title": "충전 완료",
     "points": "충전 포인트",
-    "bonus": "보너스",
     "balance": "보유 포인트",
     "close": "확인",
     "shop": "상점 가기"
