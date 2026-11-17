@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
  * 잘렸는지는 크기가 바뀔 때마다 다시 측정한다.
  * 누르는 영역은 글자 줄 높이와 상관없이 44px로 둔다.
  * 시상대 카드가 overflow-hidden이라 말풍선은 문서 맨 위 층에 그리고, 화면 끝에서는 Radix가 뒤집거나 민다.
+ * 다른 말풍선처럼 화면 양옆 16px 안에 머물고, 밀려도 꼬리는 닉네임을 가리킨다.
  */
 export function Nickname({
   name,
@@ -61,10 +62,9 @@ export function Nickname({
       {truncated && (
         <TapTooltip
           portal
-          // 화면 끝에 붙지 않게 카드 바깥 여백만큼 띄운다.
-          collisionPadding={12}
           // 문서 맨 위 층은 화면의 soft-blue 변수를 못 읽어 같은 클래스로 이전 말풍선 색을 맞춘다.
           contentClassName="theme-soft-blue max-w-55 rounded-[10px] bg-foreground px-2.5 py-2 text-left text-[13px] leading-4 font-semibold break-all whitespace-normal text-background shadow-none"
+          arrowClassName="fill-foreground"
           trigger={
             <button
               type="button"

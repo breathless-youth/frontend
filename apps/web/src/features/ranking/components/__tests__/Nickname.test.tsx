@@ -98,6 +98,16 @@ describe("Nickname", () => {
     expect(trigger).toHaveAttribute("aria-describedby", screen.getByRole("tooltip").id);
   });
 
+  it("말풍선은 다른 안내 말풍선처럼 닉네임을 가리키는 꼬리를 본문 색으로 단다", async () => {
+    setWidths(300, 100);
+    render(<Nickname name={LONG} />);
+
+    tap(screen.getByRole("button", { name: SHOW_FULL }));
+
+    const content = await screen.findByText(LONG, { selector: "[data-state]" });
+    expect(content.querySelector("svg")).toHaveClass("fill-foreground");
+  });
+
   it("열린 채로 다시 탭하면 닫힌다", async () => {
     setWidths(300, 100);
     render(<Nickname name={LONG} />);
