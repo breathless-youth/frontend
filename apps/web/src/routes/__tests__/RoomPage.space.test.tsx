@@ -119,26 +119,34 @@ describe("RoomPage 공간", () => {
     expect(localStorage.getItem("focusmakers.watcherSound.volume")).toBe("30");
   });
 
-  it("심플 모드에서는 감독관이 그려지지 않아 발소리를 끈다", async () => {
+  // 감독관이 다가오고 들어오는 동안 화면을 바꿔도 발소리를 건너뛰지 않아야 돌아왔을 때 소리 없이 서 있지 않는다.
+  it("심플 모드와 작은 창을 키운 동안에도 감독관 발소리를 끄지 않는다", async () => {
     localStorage.setItem("focusmakers.timerBackground", '{"kind":"proctor"}');
     renderRoom();
-    expect(sound.setMuted).toHaveBeenLastCalledWith(false);
-
-    await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
-
-    expect(sound.setMuted).toHaveBeenLastCalledWith(true);
-  });
-
-  it("작은 창을 키운 동안 감독관 발소리를 끄고 줄이면 다시 켠다", async () => {
-    localStorage.setItem("focusmakers.timerBackground", '{"kind":"proctor"}');
-    renderRoom();
-    expect(sound.setMuted).toHaveBeenLastCalledWith(false);
 
     await userEvent.click(screen.getByRole("button", { name: "내 화면 크게 보기" }));
-    expect(sound.setMuted).toHaveBeenLastCalledWith(true);
-
     await userEvent.click(screen.getByRole("button", { name: "작게 보기" }));
-    expect(sound.setMuted).toHaveBeenLastCalledWith(false);
+    await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
+
+    expect(sound.prime).toHaveBeenCalled();
+    expect(sound.setMuted).not.toHaveBeenCalledWith(true);
+    expect(sound.stopAll).not.toHaveBeenCalled();
+  });
+
+  // 제출 실패나 종료 안내에 머물면 화면이 닫히지 않아, 공부가 끝나는 순간 무음 루프와 누름 구독을 따로 풀어야 한다.
+  it("공부를 끝내면 감독관 소리를 멈추고 화면을 눌러도 다시 깨우지 않는다", async () => {
+    localStorage.setItem("focusmakers.timerBackground", '{"kind":"proctor"}');
+    renderRoom();
+
+    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+    await userEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", { name: "공부 종료" }),
+    );
+
+    await waitFor(() => expect(sound.stopAll).toHaveBeenCalled());
+    const primes = sound.prime.mock.calls.length;
+    fireEvent.pointerDown(window);
+    expect(sound.prime).toHaveBeenCalledTimes(primes);
   });
   it("고른 사진을 읽지 못하면 심플로 그리고 종료 이벤트에도 심플로 싣는다", async () => {
     localStorage.setItem("focusmakers.timerBackground", '{"kind":"photo","photoId":"p1"}');

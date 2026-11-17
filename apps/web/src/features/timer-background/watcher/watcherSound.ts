@@ -1,3 +1,5 @@
+import { createSilentKeepAlive } from "@/features/ambient-sound/silentKeepAlive";
+
 import { readWatcherAsset } from "./watcherAssets";
 import { WATCHER_ASSET_DIR, type WatcherClip } from "./watcherClips";
 
@@ -17,7 +19,7 @@ const RETRY_MS = 1_000;
 const MAX_RETRIES = 3;
 
 export interface WatcherSound {
-  /** 소리를 미리 받아 두고 컨텍스트를 깨운다. iOS 브라우저는 사용자 누름 안에서 불러야 이후 재생을 허락한다. */
+  /** 소리를 미리 받아 두고 컨텍스트와 무음 루프를 깨운다. iOS 브라우저는 사용자 누름 안에서 불러야 이후 재생을 허락한다. */
   prime(): void;
   /**
    * `offsetSec`은 영상이 이미 지나간 시간이라 소리도 그만큼 건너뛰어 발걸음에 맞춘다.
@@ -54,12 +56,14 @@ async function loadSound(url: string): Promise<ArrayBuffer> {
  *
  * 영상은 계속 음소거로 두고 소리를 따로 낸다. 소리 있는 영상은 브라우저가 자동 재생을 막아 영상까지 멈출 수 있고,
  * iOS는 영상 볼륨을 바꿀 수 없어 다가오던 소리를 줄이며 끄지 못해서다.
- * 알림음처럼 무음 keep-alive를 두지 않아 iOS 무음 스위치를 따른다.
+ * 배경음과 같이 감독관이 켜져 있는 동안 무음 루프를 틀어 iOS 무음 스위치와 상관없이 기기 음량을 따른다.
+ * 발소리는 띄엄띄엄 나는데 iOS는 화면을 누를 때만 미디어 재생을 허락해서, 누를 때마다 부르는 `prime()`에서 무음 루프를 켜 두고 계속 돌린다.
  * 소리가 막혀도 감독관 영상은 그대로 돌아야 해서 어떤 예외도 밖으로 내보내지 않는다.
  */
 export function createWatcherSound(
   createContext: () => AudioContext = defaultCreateContext,
   load: (url: string) => Promise<ArrayBuffer> = loadSound,
+  keepAliveFactory: () => HTMLAudioElement | null = createSilentKeepAlive,
 ): WatcherSound {
   let context: AudioContext | null = null;
   const buffers = new Map<WatcherCue, Promise<AudioBuffer | null>>();
@@ -69,6 +73,32 @@ export function createWatcherSound(
   const voices = new Map<WatcherCue, { source: AudioBufferSourceNode; gain: GainNode }>();
   let muted = false;
   let volume = 1;
+  // prime으로 켜고 stopAll·dispose로 끈다. 감독관이 아닌 공간에서 음량만 바꿔도 무음 루프가 돌지 않게 한다.
+  // 심플 모드와 키운 카메라의 음소거는 잠깐이라 무음 루프를 그대로 둔다. 멈추면 돌아올 때 화면을 눌러야만 다시 틀 수 있다.
+  let active = false;
+  // undefined는 아직 안 만든 것, null은 이 엔진에서는 만들지 않는다는 뜻이다.
+  let keepAlive: HTMLAudioElement | null | undefined;
+  const syncKeepAlive = (): void => {
+    if (!active || volume === 0) {
+      if (keepAlive && !keepAlive.paused) keepAlive.pause();
+      return;
+    }
+    if (keepAlive === undefined) {
+      try {
+        keepAlive = keepAliveFactory();
+      } catch {
+        keepAlive = null;
+      }
+    }
+    if (!keepAlive || !keepAlive.paused) return;
+    // 재생이 거부되면 무음 스위치를 넘지 못할 뿐 발소리는 그대로 내고, 다음에 누를 때 다시 시도한다.
+    try {
+      const played: unknown = keepAlive.play();
+      if (played instanceof Promise) played.catch(() => undefined);
+    } catch {
+      // play가 동기로 실패한 경우도 위와 같이 무시한다.
+    }
+  };
 
   const ensureRunning = (): AudioContext | null => {
     try {
@@ -145,6 +175,8 @@ export function createWatcherSound(
 
   return {
     prime() {
+      active = true;
+      syncKeepAlive();
       const current = ensureRunning();
       if (current) loadAll(current);
     },
@@ -183,6 +215,7 @@ export function createWatcherSound(
     },
     setVolume(next) {
       volume = Math.min(1, Math.max(0, next));
+      syncKeepAlive();
       for (const voice of voices.values()) {
         try {
           voice.gain.gain.setValueAtTime(volume, context?.currentTime ?? 0);
@@ -193,9 +226,13 @@ export function createWatcherSound(
     },
     stopAll() {
       for (const cue of CUES) stop(cue);
+      active = false;
+      syncKeepAlive();
     },
     dispose() {
       for (const cue of CUES) stop(cue);
+      active = false;
+      syncKeepAlive();
       // 닫힌 컨텍스트에서 받다 실패한 기록이 남으면 다음 컨텍스트가 다시 받지 않는다.
       buffers.clear();
       ready.clear();

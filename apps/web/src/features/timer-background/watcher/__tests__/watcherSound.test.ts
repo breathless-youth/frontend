@@ -159,3 +159,104 @@ describe("createWatcherSound", () => {
     expect(starts[0].offset).toBeGreaterThanOrEqual(0.9);
   });
 });
+
+describe("createWatcherSound 무음 스위치", () => {
+  function fakeKeepAlive(play: () => unknown = () => Promise.resolve()) {
+    const element = {
+      paused: true,
+      play: vi.fn(() => {
+        const result = play();
+        element.paused = false;
+        return result;
+      }),
+      pause: vi.fn(() => {
+        element.paused = true;
+      }),
+    };
+    return element;
+  }
+
+  function setup(keepAlive: ReturnType<typeof fakeKeepAlive> | null = fakeKeepAlive()) {
+    const { context, starts } = fakeContext();
+    const sound = createWatcherSound(
+      () => context as unknown as AudioContext,
+      load,
+      () => keepAlive as unknown as HTMLAudioElement | null,
+    );
+    return { sound, keepAlive, starts };
+  }
+
+  it("깨우면 무음 루프를 틀어 iOS 무음 모드에서도 발소리가 나게 한다", () => {
+    const { sound, keepAlive } = setup();
+    sound.prime();
+    expect(keepAlive!.play).toHaveBeenCalledTimes(1);
+    sound.prime();
+    expect(keepAlive!.play).toHaveBeenCalledTimes(1);
+  });
+
+  it("음량이 0이거나 멈추면 무음 루프도 멈춘다", () => {
+    const { sound, keepAlive } = setup();
+    const stops: [string, () => void][] = [
+      ["음량 0", () => sound.setVolume(0)],
+      ["stopAll", () => sound.stopAll()],
+      ["dispose", () => sound.dispose()],
+    ];
+    for (const [name, stop] of stops) {
+      sound.setVolume(0.8);
+      sound.prime();
+      expect(keepAlive!.paused, `${name} 전`).toBe(false);
+      stop();
+      expect(keepAlive!.paused, `${name} 뒤`).toBe(true);
+    }
+  });
+
+  it("심플 모드처럼 잠시 소리를 끈 동안에는 무음 루프를 그대로 둬서 돌아올 때 화면을 누르지 않아도 된다", () => {
+    const { sound, keepAlive } = setup();
+    sound.prime();
+    sound.setMuted(true);
+    expect(keepAlive!.paused).toBe(false);
+    sound.setMuted(false);
+    expect(keepAlive!.play).toHaveBeenCalledTimes(1);
+  });
+
+  it("음량이 0인 동안 깨워도 무음 루프를 틀지 않고, 음량을 올린 뒤 깨우면 다시 튼다", () => {
+    const { sound, keepAlive } = setup();
+    sound.setVolume(0);
+    sound.prime();
+    expect(keepAlive!.play).not.toHaveBeenCalled();
+
+    sound.setVolume(0.8);
+    sound.prime();
+    expect(keepAlive!.play).toHaveBeenCalledTimes(1);
+  });
+
+  it("화면이 숨겨져 멈춘 뒤 다시 누르면 무음 루프를 다시 튼다", () => {
+    const { sound, keepAlive } = setup();
+    sound.prime();
+    sound.stopAll();
+    expect(keepAlive!.paused).toBe(true);
+
+    sound.prime();
+    expect(keepAlive!.paused).toBe(false);
+    expect(keepAlive!.play).toHaveBeenCalledTimes(2);
+  });
+
+  it("멈춘 뒤에는 음량을 바꿔도 무음 루프를 틀지 않는다", () => {
+    const { sound, keepAlive } = setup();
+    sound.prime();
+    expect(keepAlive!.paused).toBe(false);
+    sound.stopAll();
+    sound.setVolume(0.5);
+    expect(keepAlive!.paused).toBe(true);
+    expect(keepAlive!.play).toHaveBeenCalledTimes(1);
+  });
+
+  it("무음 루프가 없는 엔진이나 재생이 거부돼도 발소리는 그대로 난다", async () => {
+    for (const keepAlive of [null, fakeKeepAlive(() => Promise.reject(new Error("NotAllowed")))]) {
+      const { sound, starts } = setup(keepAlive);
+      expect(() => sound.prime()).not.toThrow();
+      sound.play("enter");
+      await vi.waitFor(() => expect(starts).toHaveLength(1));
+    }
+  });
+});

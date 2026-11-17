@@ -579,7 +579,8 @@ function RoomSessionScreen({
   // 세션 중에 감독관을 고를 수 있어 재생기는 늘 만든다. 소리 컨텍스트는 처음 깨울 때 생긴다.
   const [watcherSound] = useState(createWatcherSound);
   useEffect(() => {
-    if (!proctor) {
+    // 제출 실패나 종료 안내에서는 화면이 닫히지 않으므로 공부가 끝나는 순간 소리와 누름 구독을 푼다.
+    if (!proctor || !studying) {
       watcherSound.stopAll();
       return;
     }
@@ -595,7 +596,7 @@ function RoomSessionScreen({
       window.removeEventListener("pointerdown", unlock);
       document.removeEventListener("visibilitychange", silenceHidden);
     };
-  }, [proctor, watcherSound]);
+  }, [proctor, studying, watcherSound]);
   useEffect(() => () => watcherSound.dispose(), [watcherSound]);
   useEffect(() => {
     if (!proctor) {
@@ -787,11 +788,6 @@ function RoomSessionScreen({
       trackCameraPipShrunk({ expandedSec: change.sec });
     }
   }, [cameraView, displayUsage]);
-  // 심플 모드는 감독관을 그리지 않고 키운 카메라는 감독관을 가려서 그동안 발소리를 끈다.
-  const watcherMuted = simpleMode || cameraExpanded;
-  useEffect(() => {
-    watcherSound.setMuted(watcherMuted);
-  }, [watcherMuted, watcherSound]);
 
   /**
    * 움직임을 그릴 카메라 화면과 키프레임
@@ -1504,17 +1500,14 @@ function RoomSessionScreen({
                   }}
                 />
               </div>
+              {/* 심플 모드에서도 공부를 바로 끝낼 수 있게 종료 버튼은 남긴다. */}
               <div
-                inert={simpleMode || moreMenuOpen}
-                className={cn(
-                  "landscape-compact:col-start-3 landscape-compact:row-start-3 landscape-compact:self-end landscape-compact:justify-self-end",
-                  SIMPLE_MODE_FADE,
-                  simpleMode && "invisible opacity-0",
-                )}
+                inert={moreMenuOpen}
+                className="landscape-compact:col-start-3 landscape-compact:row-start-3 landscape-compact:self-end landscape-compact:justify-self-end"
               >
                 <SessionExitButton
                   onClick={handleRequestExit}
-                  faded={simpleMode || helpVisible}
+                  faded={helpVisible}
                   inactive={moreMenuOpen}
                 />
               </div>

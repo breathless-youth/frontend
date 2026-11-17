@@ -918,7 +918,7 @@ describe("RoomPage — S3-4 심플 모드", () => {
     return element.closest("[inert]") !== null;
   }
 
-  it("상태 필과 일시정지 버튼만 남기고 나머지 버튼은 숨긴다 — 색 단독으로 상태를 전달하지 않기 위함", async () => {
+  it("상태 필과 일시정지·종료 버튼만 남기고 나머지 버튼은 숨긴다 — 색 단독으로 상태를 전달하지 않기 위함", async () => {
     listSubjects.mockResolvedValueOnce([
       { id: 3, name: "수학", colorIndex: 0, studySec: 0, focusSec: 0, tasks: [] },
     ]);
@@ -930,7 +930,8 @@ describe("RoomPage — S3-4 심플 모드", () => {
 
     expect(screen.getByRole("status")).toHaveTextContent("순공시간 측정 중");
     expect(unreachable(screen.getByRole("button", { name: "일시정지" }))).toBe(false);
-    for (const name of ["더보기", "공간", /^배경음/, "공부 종료"]) {
+    expect(unreachable(screen.getByRole("button", { name: "공부 종료" }))).toBe(false);
+    for (const name of ["더보기", "공간", /^배경음/]) {
       expect(unreachable(screen.getByRole("button", { name }))).toBe(true);
     }
   });
@@ -963,13 +964,14 @@ describe("RoomPage — S3-4 심플 모드", () => {
     expect(screen.queryByText(/순공 /)).not.toBeInTheDocument();
   });
 
-  it("심플 모드를 나가야 공부 종료에 다시 닿는다", async () => {
+  it("심플 모드에서도 공부 종료 버튼이 보이고 누를 수 있다", async () => {
     renderRoom("/room/7?userId=1");
 
     await enterSimpleMode();
-    expect(unreachable(screen.getByRole("button", { name: "공부 종료" }))).toBe(true);
+    const exit = screen.getByRole("button", { name: "공부 종료" });
+    expect(unreachable(exit)).toBe(false);
+    expect(exit.closest(".invisible")).toBeNull();
 
-    // 프리뷰로 돌아오면 다시 풀린다 — 표시 모드에만 걸리는 조건이다.
     await enterSimpleMode();
     expect(unreachable(screen.getByRole("button", { name: "공부 종료" }))).toBe(false);
     expect(unreachable(screen.getByRole("button", { name: "더보기" }))).toBe(false);
@@ -1890,17 +1892,18 @@ describe("RoomPage — 앱 glass 버튼", () => {
     expect(await screen.findByRole(role, name ? { name } : {})).toBeInTheDocument();
   });
 
-  it("간단 모드에서는 일시정지를 뺀 버튼을 흐림으로 보낸다", async () => {
+  it("간단 모드에서는 일시정지와 종료를 뺀 버튼을 흐림으로 보낸다", async () => {
     const postMessage = enterSessionGlass();
     renderRoom("/room/7?userId=1");
 
     await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
 
     const controls = sessionControls(postMessage);
-    for (const id of ["session-space", "session-ambient", "session-timer", "session-exit"]) {
+    for (const id of ["session-space", "session-ambient", "session-timer"]) {
       expect(controls[id]).toMatchObject({ faded: true });
     }
     expect(controls["session-pause"]).toMatchObject({ faded: false });
+    expect(controls["session-exit"]).toMatchObject({ faded: false });
   });
 
   it("button-style을 알리지 않은 앱에서는 세션 버튼을 웹으로 그린다", () => {
