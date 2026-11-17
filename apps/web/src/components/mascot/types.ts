@@ -19,7 +19,7 @@ export type AccessorySlot =
  * 효과 조각을 미리 그린 프레임 띠 그림
  *
  * 띠 한 장은 조각 자리와 같은 영역이고, 장을 가로로 이어 한 그림으로 만든다.
- * 서버 응답에는 아직 이 값이 없어서 지금은 개발 미리 보기와 테스트만 넘긴다.
+ * 서버는 효과 조각의 spriteUrl·spriteFrames·spriteDurationMs로 보내고, 세 값이 모두 맞을 때만 이 값이 생긴다.
  */
 export type EffectSprite = {
   url: string;
