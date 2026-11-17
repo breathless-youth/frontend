@@ -155,9 +155,9 @@ describe("모자람 창의 충전", () => {
     const gateway = fakeGateway("default", 100);
     const purchase = vi.spyOn(gateway, "purchase");
     const { client } = await openInsufficient(gateway);
-    await userEvent.click(screen.getByRole("button", { name: /광고 보고 30P 받기/ }));
+    await userEvent.click(screen.getByRole("button", { name: /광고 보고 20P 받기/ }));
 
-    await waitFor(() => expect(client.getQueryData(pointsKeys.balance(USER))).toBe(130));
+    await waitFor(() => expect(client.getQueryData(pointsKeys.balance(USER))).toBe(120));
     expect(purchase).not.toHaveBeenCalled();
   });
 

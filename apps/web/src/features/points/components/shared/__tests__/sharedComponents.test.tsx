@@ -207,7 +207,7 @@ describe("InsufficientPointsSheet", () => {
         open
         item={crown}
         balance={480}
-        earn={{ ...fixture.earn, ad: { reward: 30, limit: 3, watched } }}
+        earn={{ ...fixture.earn, ad: { reward: 20, limit: 3, watched } }}
         packs={fixture.packs}
         {...handlers}
       />,
@@ -219,7 +219,7 @@ describe("InsufficientPointsSheet", () => {
     const handlers = renderSheet(1);
     expect(await screen.findByText("왕관을 구매하려면 120P가 더 필요해요")).toBeInTheDocument();
     expect(screen.getByText("오늘 2번 더 받을 수 있어요")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /광고 보고 30P 받기/ }));
+    await userEvent.click(screen.getByRole("button", { name: /광고 보고 20P 받기/ }));
     expect(handlers.onWatchAd).toHaveBeenCalledOnce();
     await userEvent.click(screen.getByRole("button", { name: /일일 미션 클리어하기/ }));
     expect(handlers.onMissions).toHaveBeenCalledOnce();
@@ -258,7 +258,7 @@ describe("InsufficientPointsSheet", () => {
     expect(
       await screen.findByText("오늘은 다 봤어요. 내일 다시 3번 볼 수 있어요"),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /광고 보고 30P 받기/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /광고 보고 20P 받기/ })).toBeDisabled();
   });
 
   it("광고와 충전은 끝나기 전에 다시 눌러도 한 번만 부르고 그동안 막는다", async () => {
@@ -289,7 +289,7 @@ describe("InsufficientPointsSheet", () => {
         onClose={() => {}}
       />,
     );
-    const ad = await screen.findByRole("button", { name: /광고 보고 30P 받기/ });
+    const ad = await screen.findByRole("button", { name: /광고 보고 20P 받기/ });
     const charge = screen.getByRole("button", { name: "500P 충전하고 구매하기" });
     fireEvent.click(ad);
     fireEvent.click(ad);
