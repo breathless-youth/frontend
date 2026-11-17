@@ -34,6 +34,7 @@ export function nextWatcherClip(ended: WatcherClip, present: boolean): WatcherCl
 /**
  * 감시자 소재 폴더. 폴더 이름은 소재 묶음 전체의 내용 해시라 소재를 바꾸면 주소도 바뀌어 1년 캐시를 걸 수 있다.
  * 해시는 폴더 안 파일별 sha256 목록의 sha256 앞 8자다: `find . -type f | sort | xargs shasum -a 256 | shasum -a 256`.
+ * 공간 소재는 모두 `public/spaces/` 아래에 두고, 배포가 이 폴더를 1년 캐시로 올리며 `publicAssetHashes` 테스트가 해시를 대조한다.
  *
  * 원본(v2)은 HEVC에 소리가 든 mov라 Android 일부 기기가 못 풀어서 H.264로 바꾸고 소리를 뺀다. 해상도는 원본 그대로다.
  * `ffmpeg -i <원본> -an -c:v libx264 -profile:v high -pix_fmt yuv420p -crf 23 -preset slow -movflags +faststart <클립>/<기기>_<방향>.mp4`
@@ -49,7 +50,7 @@ export function nextWatcherClip(ended: WatcherClip, present: boolean): WatcherCl
  * 이음매는 클립 끝과 다음 클립 첫 프레임의 PSNR이 모두 40dB 이상이고, 루프 B 중간과 퇴장 첫 프레임도 31~43dB라
  * 루프 B에서 바로 퇴장해도 튀지 않는다.
  */
-export const WATCHER_ASSET_DIR = "/watcher/9c8d9f19";
+export const WATCHER_ASSET_DIR = "/spaces/watcher/9c8d9f19";
 
 /** 태블릿 영상을 쓰는 짧은 변 기준. 휴대폰은 가로로 돌려도 짧은 변이 500을 넘지 않는다. */
 const TABLET_SHORT_SIDE_PX = 600;
