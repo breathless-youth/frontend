@@ -1,9 +1,13 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { EarnToday, MedalReward } from "../../../types";
 import { MedalCard } from "../MedalCard";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 const RATES: EarnToday["medalRates"] = {
   daily: { gold: 30, silver: 20, bronze: 10 },
@@ -15,14 +19,37 @@ function medal(rank: MedalReward["rank"], period: MedalReward["period"], reward:
   return { rank, period, reward };
 }
 
+function Probe() {
+  const { pathname, search } = useLocation();
+  return <p data-testid="location">{`${pathname}${search}`}</p>;
+}
+
 function renderCard(medals: MedalReward[], pending = false) {
   const onClaim = vi.fn();
+  const card = <MedalCard medals={medals} rates={RATES} pending={pending} onClaim={onClaim} />;
   render(
-    <MemoryRouter>
-      <MedalCard medals={medals} rates={RATES} pending={pending} onClaim={onClaim} />
+    <MemoryRouter initialEntries={["/points?tab=earn"]}>
+      <Routes>
+        <Route
+          path="/points"
+          element={
+            <>
+              {card}
+              <Probe />
+            </>
+          }
+        />
+        <Route path="/ranking" element={<Probe />} />
+      </Routes>
     </MemoryRouter>,
   );
   return { onClaim };
+}
+
+function sentToNative(postMessage: ReturnType<typeof vi.fn>) {
+  return postMessage.mock.calls.map(
+    ([raw]) => JSON.parse(raw as string) as Record<string, unknown>,
+  );
 }
 
 /** 금·은·동 칸마다 화면 낭독기가 읽는 개수 */
@@ -32,14 +59,38 @@ const counts = () =>
 const shown = () => screen.getAllByText(/^×/).map((node) => node.textContent);
 
 describe("MedalCard", () => {
-  it("받을 메달이 없으면 세 칸 모두 0개로 두고 받기 대신 랭킹으로 가는 링크를 둔다", () => {
+  it("받을 메달이 없으면 세 칸 모두 0개로 두고 받기 대신 랭킹으로 가는 버튼을 둔다", () => {
     renderCard([]);
 
     expect(screen.getByText("새 랭킹 메달이 없어요")).toBeInTheDocument();
     expect(shown()).toEqual(["×0", "×0", "×0"]);
     expect(counts()).toEqual(["1위 메달 0개", "2위 메달 0개", "3위 메달 0개"]);
-    expect(screen.getByRole("link", { name: "랭킹 ›" })).toHaveAttribute("href", "/ranking");
+    expect(screen.getByRole("button", { name: "랭킹 ›" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /받기/ })).not.toBeInTheDocument();
+  });
+
+  it("앱에서 랭킹을 누르면 셸에 랭킹 탭 전환을 맡기고 홈 탭 웹뷰의 주소는 그대로 둔다", () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderCard([]);
+
+    const ranking = screen.getByRole("button", { name: "랭킹 ›" });
+    fireEvent.click(ranking);
+    fireEvent.click(ranking);
+
+    // 26.47.0 셸이 아는 발신처 중 이 카드에 맞는 값이 없어 via는 싣지 않는다.
+    expect(sentToNative(postMessage)).toEqual([
+      { type: "navigate-tab", tab: "ranking", atMs: expect.any(Number) as number },
+    ]);
+    expect(screen.getByTestId("location")).toHaveTextContent("/points?tab=earn");
+  });
+
+  it("브라우저에서 랭킹을 누르면 웹 라우터로 랭킹 화면에 간다", () => {
+    renderCard([]);
+
+    fireEvent.click(screen.getByRole("button", { name: "랭킹 ›" }));
+
+    expect(screen.getByTestId("location")).toHaveTextContent(/^\/ranking$/);
   });
 
   it("메달이 하나면 그 순위만 1개로 세고 그 포인트를 받는 버튼을 둔다", () => {
@@ -47,7 +98,7 @@ describe("MedalCard", () => {
 
     expect(screen.getByText("랭킹 메달")).toBeInTheDocument();
     expect(shown()).toEqual(["×1", "×0", "×0"]);
-    expect(screen.queryByRole("link", { name: "랭킹 ›" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "랭킹 ›" })).not.toBeInTheDocument();
     screen.getByRole("button", { name: "+30P 받기" }).click();
     expect(onClaim).toHaveBeenCalledOnce();
   });
