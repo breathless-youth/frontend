@@ -230,6 +230,17 @@ describe("createWatcherSound 무음 스위치", () => {
     expect(keepAlive!.play).toHaveBeenCalledTimes(1);
   });
 
+  it("화면이 숨겨져 멈춘 뒤 다시 누르면 무음 루프를 다시 튼다", () => {
+    const { sound, keepAlive } = setup();
+    sound.prime();
+    sound.stopAll();
+    expect(keepAlive!.paused).toBe(true);
+
+    sound.prime();
+    expect(keepAlive!.paused).toBe(false);
+    expect(keepAlive!.play).toHaveBeenCalledTimes(2);
+  });
+
   it("멈춘 뒤에는 음량을 바꿔도 무음 루프를 틀지 않는다", () => {
     const { sound, keepAlive } = setup();
     sound.prime();

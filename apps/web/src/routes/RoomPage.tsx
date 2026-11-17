@@ -579,7 +579,8 @@ function RoomSessionScreen({
   // 세션 중에 감독관을 고를 수 있어 재생기는 늘 만든다. 소리 컨텍스트는 처음 깨울 때 생긴다.
   const [watcherSound] = useState(createWatcherSound);
   useEffect(() => {
-    if (!proctor) {
+    // 제출 실패나 종료 안내에서는 화면이 닫히지 않으므로 공부가 끝나는 순간 소리와 누름 구독을 푼다.
+    if (!proctor || !studying) {
       watcherSound.stopAll();
       return;
     }
@@ -595,7 +596,7 @@ function RoomSessionScreen({
       window.removeEventListener("pointerdown", unlock);
       document.removeEventListener("visibilitychange", silenceHidden);
     };
-  }, [proctor, watcherSound]);
+  }, [proctor, studying, watcherSound]);
   useEffect(() => () => watcherSound.dispose(), [watcherSound]);
   useEffect(() => {
     if (!proctor) {
