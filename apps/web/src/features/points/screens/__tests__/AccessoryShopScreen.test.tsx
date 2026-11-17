@@ -150,7 +150,7 @@ describe("AccessoryShopScreen", () => {
         return { ...shop, mascots: shop.mascots.toReversed() };
       },
     });
-    const strip = await screen.findByRole("group", { name: "마스코트 고르기" });
+    const strip = await screen.findByRole("group", { name: "캐릭터 고르기" });
     expect(
       within(strip)
         .getAllByRole("button")
@@ -182,7 +182,7 @@ describe("AccessoryShopScreen", () => {
         };
       },
     });
-    const strip = await screen.findByRole("group", { name: "마스코트 고르기" });
+    const strip = await screen.findByRole("group", { name: "캐릭터 고르기" });
     const layers = (name: string) =>
       [
         ...within(strip)
@@ -196,14 +196,14 @@ describe("AccessoryShopScreen", () => {
   it("잠긴 마스코트는 자물쇠와 함께 보이고, 고르면 잠김 안내와 마스코트 모으기가 나온다", async () => {
     renderScreen(createFakePointsGateway("default"));
     expect(await screen.findByRole("button", { name: "부기, 아직 잠겨 있어요" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "타이미, 고른 마스코트" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "타이미, 고른 캐릭터" })).toBeVisible();
 
     await userEvent.click(screen.getByRole("button", { name: "부기, 아직 잠겨 있어요" }));
     expect(screen.getByText("부기는 아직 잠겨 있어요")).toBeVisible();
     expect(screen.getByText("순공 4시간 12분 더 하면 열려요.")).toBeVisible();
     expect(screen.queryByRole("group", { name: "소품 고르기" })).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "마스코트 모으기" }));
+    await userEvent.click(screen.getByRole("button", { name: "캐릭터 모으기" }));
     expect(screen.getByText("마스코트 화면")).toBeVisible();
   });
 
@@ -411,7 +411,7 @@ describe("AccessoryGrid", () => {
     const pressed = (name: RegExp | string) => screen.findByRole("button", { name, pressed: true });
     const pickMascot = async (name: string) =>
       userEvent.click(
-        within(await screen.findByRole("group", { name: "마스코트 고르기" })).getByRole("button", {
+        within(await screen.findByRole("group", { name: "캐릭터 고르기" })).getByRole("button", {
           name,
         }),
       );

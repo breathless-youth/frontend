@@ -1,14 +1,14 @@
 {
   "nextMascot": {
-    "label": "다음 마스코트 {{name}}",
+    "label": "다음 캐릭터 {{name}}",
     "remaining": "순공 {{duration}} 더 하면 열려요",
-    "open": "다음 마스코트 {{name}}, 마스코트 모으기 열기",
-    "buy": "다음 마스코트 {{name}}, {{price}}로 열기",
+    "open": "다음 캐릭터 {{name}}, 캐릭터 모으기 열기",
+    "buy": "다음 캐릭터 {{name}}, {{price}}로 열기",
     "progress": "{{name}}까지 {{percent}}% 모았어요"
   },
   "picker": {
     "title": "오늘은 누구랑 공부할까요?",
-    "label": "오늘 함께할 마스코트"
+    "label": "오늘 함께할 캐릭터"
   },
   "section": {
     "accessory": "{{name}} 소품",
@@ -39,8 +39,8 @@
       "purchase": "{{name}} 구매",
       "purchaseUnknown": "꾸미기 구매",
       "medalRank": "{{period}} 랭킹 {{rank}}위 메달",
-      "mascotPurchase": "{{name}} 마스코트 구매",
-      "mascotPurchaseUnknown": "마스코트 구매",
+      "mascotPurchase": "{{name}} 캐릭터 구매",
+      "mascotPurchaseUnknown": "캐릭터 구매",
       "mission": "시작 미션 보상",
       "grant": "운영팀 지급",
       "refund": "결제 환불로 차감"

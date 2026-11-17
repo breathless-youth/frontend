@@ -8,14 +8,14 @@
     "startStudy": "공부 시작하기"
   },
   "unlocked": {
-    "tag": "새 마스코트",
-    "switch": "이 마스코트로 바꾸기",
+    "tag": "새 캐릭터",
+    "switch": "이 캐릭터로 바꾸기",
     "later": "나중에"
   },
   "profile": {
-    "title": "내 마스코트",
+    "title": "내 캐릭터",
     "decorate": "꾸미기",
-    "pick": "내 마스코트 고르기",
+    "pick": "내 캐릭터 고르기",
     "locked": "{{name}} 잠김"
   },
   "purchase": {

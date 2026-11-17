@@ -106,7 +106,7 @@ describe("PointsBalancePill", () => {
 describe("MascotImage", () => {
   it("잠긴 마스코트는 잠겼다고 읽힌다", () => {
     render(<MascotImage id="lamp" locked size={50} />);
-    expect(screen.getByRole("img", { name: "잠긴 램피 마스코트" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "잠긴 램피 캐릭터" })).toBeInTheDocument();
   });
 });
 
@@ -175,7 +175,7 @@ describe("PurchaseConfirmSheet", () => {
         onClose={() => {}}
       />,
     );
-    expect(await screen.findByText("포인트로 산 마스코트는 환불되지 않아요.")).toBeInTheDocument();
+    expect(await screen.findByText("포인트로 산 캐릭터는 환불되지 않아요.")).toBeInTheDocument();
     expect(screen.queryByText("포인트로 산 소품은 환불되지 않아요.")).not.toBeInTheDocument();
   });
 

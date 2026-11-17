@@ -10,7 +10,7 @@
     "history": "ポイント履歴",
     "accessories": "小物",
     "backgrounds": "タイマー背景",
-    "mascots": "マスコットあつめ"
+    "mascots": "キャラクターあつめ"
   },
   "balance": {
     "label": "保有ポイント {{amount}}",
@@ -29,7 +29,7 @@
     "title": "{{name}}を購入しますか？",
     "balanceAfter": "購入後のポイント",
     "noRefundAccessory": "ポイントで買った小物は返金できません。",
-    "noRefundMascot": "ポイントで買ったマスコットは返金できません。",
+    "noRefundMascot": "ポイントで買ったキャラクターは返金できません。",
     "cancel": "キャンセル",
     "confirm": "購入する"
   },
@@ -65,8 +65,8 @@
     "camcorder": "キャミー"
   },
   "mascotImage": {
-    "unlocked": "{{name}}のマスコット",
-    "locked": "まだ開いていない{{name}}のマスコット"
+    "unlocked": "{{name}}のキャラクター",
+    "locked": "まだ開いていない{{name}}のキャラクター"
   },
   "storeItem": {
     "buyFor": "{{price}}で購入",

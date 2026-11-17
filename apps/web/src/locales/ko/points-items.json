@@ -1,8 +1,8 @@
 {
   "title": "{{name}} 소품",
   "mascotStrip": {
-    "label": "마스코트 고르기",
-    "selected": "{{name}}, 고른 마스코트",
+    "label": "캐릭터 고르기",
+    "selected": "{{name}}, 고른 캐릭터",
     "locked": "{{name}}, 아직 잠겨 있어요"
   },
   "slots": {
@@ -52,6 +52,6 @@
     },
     "hint": "순공 {{remaining}} 더 하면 열려요.",
     "progress": "{{name}}까지 {{percent}}% 모았어요",
-    "collect": "마스코트 모으기"
+    "collect": "캐릭터 모으기"
   }
 }

@@ -1,8 +1,8 @@
 {
   "title": "{{name}}'s accessories",
   "mascotStrip": {
-    "label": "Choose a mascot",
-    "selected": "{{name}}, selected mascot",
+    "label": "Choose a character",
+    "selected": "{{name}}, selected character",
     "locked": "{{name}}, still locked"
   },
   "slots": {
@@ -52,6 +52,6 @@
     },
     "hint": "Focus {{remaining}} more to unlock it.",
     "progress": "{{percent}}% of the way to {{name}}",
-    "collect": "Collect mascots"
+    "collect": "Collect characters"
   }
 }

@@ -8,14 +8,14 @@
     "startStudy": "Start studying"
   },
   "unlocked": {
-    "tag": "New mascot",
-    "switch": "Switch to this mascot",
+    "tag": "New character",
+    "switch": "Switch to this character",
     "later": "Later"
   },
   "profile": {
-    "title": "My mascot",
+    "title": "My character",
     "decorate": "Decorate",
-    "pick": "Choose my mascot",
+    "pick": "Choose my character",
     "locked": "{{name}} locked"
   },
   "purchase": {

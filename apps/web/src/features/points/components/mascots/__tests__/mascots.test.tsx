@@ -183,19 +183,19 @@ describe("MascotCollectionScreen", () => {
 
   it("새로 열린 마스코트가 있으면 축하 화면을 한 번만 보인다", async () => {
     const { onSelect } = renderScreen({ newlyUnlocked: "lamp" });
-    expect(screen.getByText("새 마스코트")).toBeInTheDocument();
+    expect(screen.getByText("새 캐릭터")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "램피" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "나중에" }));
     expect(onSelect).not.toHaveBeenCalled();
-    expect(screen.queryByText("새 마스코트")).not.toBeInTheDocument();
+    expect(screen.queryByText("새 캐릭터")).not.toBeInTheDocument();
     expect(screen.getByText("누적 순공")).toBeInTheDocument();
   });
 
   it("축하 화면에서 바꾸기를 누르면 그 마스코트를 고른다", async () => {
     const { onSelect } = renderScreen({ newlyUnlocked: "lamp" });
-    await userEvent.click(screen.getByRole("button", { name: "이 마스코트로 바꾸기" }));
+    await userEvent.click(screen.getByRole("button", { name: "이 캐릭터로 바꾸기" }));
     expect(onSelect).toHaveBeenCalledWith("lamp");
-    expect(screen.queryByText("새 마스코트")).not.toBeInTheDocument();
+    expect(screen.queryByText("새 캐릭터")).not.toBeInTheDocument();
   });
 
   describe("꾸민 모습", () => {
@@ -245,9 +245,7 @@ describe("MascotCollectionScreen", () => {
       renderScreen({ data: priced }, undefined, "/points/mascots?item=camcorder");
       const sheet = await screen.findByRole("dialog");
       expect(within(sheet).getByText("캠코미를 구매할까요?")).toBeInTheDocument();
-      expect(
-        within(sheet).getByText("포인트로 산 마스코트는 환불되지 않아요."),
-      ).toBeInTheDocument();
+      expect(within(sheet).getByText("포인트로 산 캐릭터는 환불되지 않아요.")).toBeInTheDocument();
     });
 
     it("상점에서 잠긴 공부 시간 마스코트를 누르고 들어오면 남은 시간 시트를 연다", async () => {
@@ -280,8 +278,8 @@ describe("MascotCollectionScreen", () => {
       await userEvent.click(await screen.findByRole("button", { name: "구매하기" }));
 
       expect(purchase).toHaveBeenCalledWith("camcorder");
-      expect(await screen.findByText("새 마스코트")).toBeInTheDocument();
-      await userEvent.click(screen.getByRole("button", { name: "이 마스코트로 바꾸기" }));
+      expect(await screen.findByText("새 캐릭터")).toBeInTheDocument();
+      await userEvent.click(screen.getByRole("button", { name: "이 캐릭터로 바꾸기" }));
       expect(onSelect).toHaveBeenCalledWith("camcorder");
       expect(screen.getByText("누적 순공")).toBeInTheDocument();
     });
@@ -324,7 +322,7 @@ describe("MascotCollectionScreen", () => {
 
       expect(onCharge).toHaveBeenCalledWith("points_500");
       expect(purchase).toHaveBeenCalledWith("camcorder");
-      expect(await screen.findByText("새 마스코트")).toBeInTheDocument();
+      expect(await screen.findByText("새 캐릭터")).toBeInTheDocument();
     });
 
     it("모자람 창에서 광고를 보면 잔액만 채우고 사지는 않는다", async () => {
@@ -376,7 +374,7 @@ describe("ProfileMascotRow", () => {
 
   it("제목과 꾸미기 링크, 마스코트가 보인다", () => {
     renderRow();
-    expect(screen.getByText("내 마스코트")).toBeInTheDocument();
+    expect(screen.getByText("내 캐릭터")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /꾸미기/ })).toHaveAttribute(
       "href",
       "/points/accessories",
