@@ -69,21 +69,22 @@ describe("AccessoryShopScreen", () => {
       } satisfies PointsGateway;
     }
 
-    it("스토어 가격으로 사는 버튼을 보이고, 결제가 끝나면 알림 없이 바로 입힌다", async () => {
+    // 결제 상품은 처음 입기 전까지 7일 안에 철회할 수 있어서 결제가 끝나도 입히지 않는다.
+    it("스토어 가격으로 사는 버튼을 보이고, 결제가 끝나도 알림 없이 착용 요청을 보내지 않는다", async () => {
       const gateway = withStoreItem(true);
       const purchase = vi
         .spyOn(gateway, "purchaseStoreItem")
         .mockResolvedValue({ status: "completed" });
-      // 가짜 경계는 결제 알림을 받지 않아 보유로 바뀌지 않으므로 착용 요청은 성공으로 둔다.
-      const equip = vi.spyOn(gateway, "equipAccessory").mockResolvedValue();
+      const equip = vi.spyOn(gateway, "equipAccessory");
       renderScreen(gateway);
 
       await userEvent.click(await screen.findByRole("button", { name: "₩1,100에 구매하기" }));
 
-      expect(purchase).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(purchase).toHaveBeenCalledTimes(1));
       await waitFor(() =>
-        expect(equip).toHaveBeenCalledWith("stopwatch", "head", expect.any(String)),
+        expect(screen.getByRole("button", { name: "₩1,100에 구매하기" })).toBeEnabled(),
       );
+      expect(equip).not.toHaveBeenCalled();
       expect(showToast).not.toHaveBeenCalled();
     });
 
@@ -247,11 +248,14 @@ describe("AccessoryShopScreen", () => {
     expect(await screen.findByRole("button", { name: "착용하기" })).toBeEnabled();
   });
 
-  it("구매에 성공하면 알림 없이 잔액이 줄고 바로 착용 상태가 된다", async () => {
-    renderScreen(createFakePointsGateway("default"));
+  it("포인트로 사면 알림 없이 잔액이 줄고 바로 착용 요청을 보내 착용 상태가 된다", async () => {
+    const gateway = createFakePointsGateway("default");
+    const equip = vi.spyOn(gateway, "equipAccessory");
+    renderScreen(gateway);
     await userEvent.click(await screen.findByRole("button", { name: "600P로 구매" }));
     await userEvent.click(await screen.findByRole("button", { name: "구매하기" }));
     expect(await screen.findByRole("button", { name: "벗기" })).toBeEnabled();
+    expect(equip).toHaveBeenCalledWith("stopwatch", "head", "acc-stopwatch-crown");
     expect(screen.getByText("640P")).toBeVisible();
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(screen.queryByText("왕관을 구매했어요!")).not.toBeInTheDocument();
