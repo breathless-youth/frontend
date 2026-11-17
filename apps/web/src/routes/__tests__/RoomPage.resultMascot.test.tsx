@@ -134,6 +134,9 @@ async function endSessionAfterOneMinute(beforeConfirm?: () => void) {
 
 const APP_QUERY_DEFAULTS = queryClient.getDefaultOptions();
 
+/** 디코드한 그림과 HTTP 캐시만 데운 그림의 주소 */
+const images = { decoded: [] as string[], warmed: [] as string[] };
+
 beforeEach(() => {
   setPointsFlag(true);
   // 앱 캐시는 실패한 조회를 1초 뒤 한 번 더 받는다. 어느 누름이 다시 받았는지 보려고 여기서는 끈다.
@@ -144,11 +147,28 @@ beforeEach(() => {
   queryClient.clear();
   localStorage.clear();
   __resetMascotLookImagesForTests();
-  // jsdom은 그림을 받지 않아서 디코드가 바로 끝나는 것으로 본다.
+  // jsdom은 그림을 받지 않아서 디코드가 바로 끝나는 것으로 보고 어느 그림을 디코드했는지만 남긴다.
+  images.decoded = [];
+  images.warmed = [];
   Object.defineProperty(HTMLImageElement.prototype, "decode", {
     configurable: true,
-    value: () => Promise.resolve(),
+    value(this: HTMLImageElement) {
+      images.decoded.push(this.src);
+      return Promise.resolve();
+    },
   });
+  // 그림 파일만 받아 HTTP 캐시를 데우는 요청은 남기고 바로 끝낸다. 그 밖의 요청은 그대로 둔다.
+  const realFetch = globalThis.fetch;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.cache === "force-cache") {
+        images.warmed.push(String(input));
+        return Promise.resolve({ arrayBuffer: async () => new ArrayBuffer(0) });
+      }
+      return realFetch(input, init);
+    }),
+  );
   vi.mocked(getProfile).mockResolvedValue(MEMBER);
   vi.mocked(getDecorations).mockResolvedValue(PENCIL_WITH_BERET);
   vi.mocked(submitStudySession).mockResolvedValue([SESSION]);
@@ -160,6 +180,7 @@ afterEach(() => {
   queryClient.clear();
   localStorage.clear();
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
   delete (HTMLImageElement.prototype as { decode?: unknown }).decode;
 });
 
@@ -179,6 +200,24 @@ describe("싱글룸 세션 → 결과 화면 마스코트", () => {
     for (const timi of Object.values(MASCOT_EXPRESSION_SRC.stopwatch)) {
       expect(recorder.everSeen()).not.toContain(timi);
     }
+  });
+
+  it("세션을 열 때는 소품 그림을 디코드하지 않고 HTTP 캐시만 데우고, 종료 버튼을 누를 때 디코드한다", async () => {
+    renderRoomThenResult();
+    await waitFor(() => expect(images.warmed).toContain(BERET));
+    await act(async () => {});
+    expect(images.decoded).toEqual([]);
+
+    await endSessionAfterOneMinute(() => {
+      // 확인 창의 확정을 누르기 전, 종료 버튼만 누른 때다.
+      expect(images.decoded).toContain(BERET);
+      expect(images.decoded).toContain(
+        new URL(MASCOT_EXPRESSION_SRC.pencil.idle, window.location.href).href,
+      );
+    });
+
+    expect(await screen.findByText("오늘 공부 완료")).toBeInTheDocument();
+    expect(document.querySelector("[data-result-mascot]")).not.toBeNull();
   });
 
   it("세션 화면이 열릴 때 받아 두어 결과 화면에서 서버 답이 늦어도 기다리지 않고 몽당이로 뛴다", async () => {

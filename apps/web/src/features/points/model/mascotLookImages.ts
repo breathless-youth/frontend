@@ -44,6 +44,45 @@ export function preloadImages(urls: readonly string[]): Promise<void> {
   return Promise.all(urls.map(preloadImage)).then(() => undefined);
 }
 
+// HTTP 캐시에 받아 둔 그림이다. 디코드는 하지 않아 결과 화면의 준비 판정에는 쓰지 않는다.
+const warmed = new Set<string>();
+
+/**
+ * 그림 파일만 HTTP 캐시에 받아 두기
+ *
+ * 세션 웹뷰는 카메라와 감지 모델이 도는 중이라 1440 판 그림을 디코드하면 장마다 약 8MB를 더 든다.
+ * 그래서 세션 중에는 파일만 받아 캐시를 데운다. 본문은 캐시에 끝까지 들어가도록 다 읽은 뒤 버린다.
+ * 디코드는 종료 버튼을 누를 때 `preloadImages`가 한다.
+ * 소품 그림은 운영과 개발 모두 웹과 같은 출처의 `/avatars/` 주소라 그대로 받는다.
+ * 다른 출처 주소(로컬 개발 서버에서 여는 경우)는 CORS 허용이 없어도 받도록 응답을 읽지 않는 no-cors로 받는다.
+ * `<img>`와 같은 캐시 칸을 쓰도록 쿠키를 함께 보낸다.
+ * 같은 주소는 한 번만 받고, 실패해도 거부하지 않는다.
+ */
+export function warmImageCache(urls: readonly string[]): Promise<void> {
+  return Promise.all(urls.map(warmImage)).then(() => undefined);
+}
+
+function warmImage(url: string): Promise<void> {
+  if (settled.has(url) || warmed.has(url)) {
+    return Promise.resolve();
+  }
+  warmed.add(url);
+  const sameOrigin = new URL(url, window.location.href).origin === window.location.origin;
+  return fetch(url, {
+    cache: "force-cache",
+    credentials: "include",
+    ...(sameOrigin ? null : { mode: "no-cors" as const }),
+  })
+    .then((res) => res.arrayBuffer())
+    .then(
+      () => undefined,
+      () => {
+        // 받지 못했으면 다음에 다시 받게 기록을 지운다.
+        warmed.delete(url);
+      },
+    );
+}
+
 /** 이 그림들을 모두 받아 디코드했는지 */
 export function imagesPreloaded(urls: readonly string[]): boolean {
   return urls.every((url) => settled.has(url));
@@ -100,4 +139,5 @@ function decode(image: HTMLImageElement): Promise<void> {
 export function __resetMascotLookImagesForTests(): void {
   settled.clear();
   pending.clear();
+  warmed.clear();
 }

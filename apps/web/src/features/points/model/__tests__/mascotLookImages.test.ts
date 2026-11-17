@@ -7,6 +7,7 @@ import {
   imagesPreloaded,
   mascotLookImageUrls,
   preloadImages,
+  warmImageCache,
 } from "../mascotLookImages";
 
 const decode = vi.fn<() => Promise<void>>();
@@ -22,6 +23,7 @@ beforeEach(() => {
 
 afterEach(() => {
   delete (HTMLImageElement.prototype as { decode?: unknown }).decode;
+  vi.unstubAllGlobals();
 });
 
 describe("mascotLookImageUrls", () => {
@@ -93,5 +95,61 @@ describe("preloadImages", () => {
     await expect(preloadImages(["/broken.png"])).resolves.toBeUndefined();
 
     expect(imagesPreloaded(["/broken.png"])).toBe(true);
+  });
+});
+
+describe("warmImageCache", () => {
+  function stubFetch() {
+    const arrayBuffer = vi.fn(async () => new ArrayBuffer(0));
+    const fetchMock = vi.fn(async (_input: string, _init?: RequestInit) => ({ arrayBuffer }));
+    vi.stubGlobal("fetch", fetchMock);
+    return { fetchMock, arrayBuffer };
+  }
+
+  it("디코드하지 않고 파일만 HTTP 캐시에 받아 본문은 끝까지 읽고 버린다", async () => {
+    const { fetchMock, arrayBuffer } = stubFetch();
+
+    await warmImageCache(["/avatars/shop/pencil/head.png"]);
+
+    expect(fetchMock).toHaveBeenCalledWith("/avatars/shop/pencil/head.png", {
+      cache: "force-cache",
+      credentials: "include",
+    });
+    expect(arrayBuffer).toHaveBeenCalledOnce();
+    expect(decode).not.toHaveBeenCalled();
+    // 디코드 전이라 결과 화면이 기다릴 그림으로는 여전히 준비되지 않았다.
+    expect(imagesPreloaded(["/avatars/shop/pencil/head.png"])).toBe(false);
+  });
+
+  it("다른 출처 주소는 CORS 허용 없이도 받도록 no-cors로 받는다", async () => {
+    const { fetchMock } = stubFetch();
+
+    await warmImageCache(["https://web.focusmakers.app/avatars/shop/pencil/head.png"]);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://web.focusmakers.app/avatars/shop/pencil/head.png",
+      { cache: "force-cache", credentials: "include", mode: "no-cors" },
+    );
+  });
+
+  it("같은 주소는 한 번만 받고, 이미 디코드한 그림은 받지 않는다", async () => {
+    const { fetchMock } = stubFetch();
+    await preloadImages(["/done.png"]);
+
+    await warmImageCache(["/a.png", "/done.png"]);
+    await warmImageCache(["/a.png"]);
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledWith("/a.png", expect.anything());
+  });
+
+  it("받지 못해도 거부하지 않고 다음에 다시 받는다", async () => {
+    const { fetchMock } = stubFetch();
+    fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    await expect(warmImageCache(["/a.png"])).resolves.toBeUndefined();
+    await warmImageCache(["/a.png"]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
