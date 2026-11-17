@@ -42,6 +42,7 @@ import {
   type BackgroundPhotoTile,
   type BackgroundPhotoView,
 } from "../timerBackgroundQueries";
+import { VIDEO_SPACES_OPEN } from "../videoSpaces";
 import { WallpaperScrim } from "../WallpaperScrim";
 import { WatcherDemo } from "../watcher/WatcherBackground";
 import { clearWatcherAssets, saveWatcherAssets, watcherAssetUrls } from "../watcher/watcherAssets";
@@ -99,7 +100,7 @@ function SpaceContent({
   onToggleMute,
 }: SessionSpacePageProps) {
   const { t } = useTranslation(["study-session", "profile"]);
-  const [tab, setTab] = useState<SpaceTab>("video");
+  const [tab, setTab] = useState<SpaceTab>(VIDEO_SPACES_OPEN ? "video" : "image");
   const [category, setCategory] = useState<ChipCategory>("all");
   const [text, setText] = useState("");
   const [photos, setPhotos] = useState<BackgroundPhotoTile[] | null>(null);
@@ -194,12 +195,16 @@ function SpaceContent({
 
   const thumbs = new Map((photos ?? []).map((photo) => [photo.id, photo.thumb]));
   const items: SpaceItem[] = [
-    {
-      selection: PROCTOR_BACKGROUND,
-      name: t("space.names.proctor"),
-      tab: "video",
-      category: "watch",
-    },
+    ...(VIDEO_SPACES_OPEN
+      ? [
+          {
+            selection: PROCTOR_BACKGROUND,
+            name: t("space.names.proctor"),
+            tab: "video",
+            category: "watch",
+          } satisfies SpaceItem,
+        ]
+      : []),
     ...(photos ?? []).map((photo, index): SpaceItem => ({
       selection: { kind: "photo", photoId: photo.id },
       name: t("space.names.photo", { number: index + 1 }),
@@ -374,34 +379,36 @@ function SpaceContent({
       <p className="truncate text-[15px] leading-4.5 font-bold text-(--session-dialog-title)">
         {appliedName}
       </p>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          aria-label={muted ? t("space.unmute") : t("space.mute")}
-          disabled={!soundEnabled}
-          onClick={onToggleMute}
-          className="-ml-3 flex size-11 shrink-0 items-center justify-center text-(--session-dialog-title) focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none disabled:opacity-40"
-        >
-          {muted || !soundEnabled ? (
-            <VolumeX aria-hidden="true" className="size-5" />
-          ) : (
-            <Volume2 aria-hidden="true" className="size-5" />
-          )}
-        </button>
-        {/* 끄는 동안 이벤트가 쏟아지지 않게 저장과 기록은 손을 뗄 때 한 번만 한다. */}
-        <input
-          type="range"
-          min={0}
-          max={100}
-          value={volume}
-          aria-label={t("space.volume")}
-          disabled={!soundEnabled}
-          onChange={(event) => onVolumeChange(Number(event.target.value))}
-          onPointerUp={commit}
-          onKeyUp={commit}
-          className="relative min-h-11 min-w-0 flex-1 accent-white disabled:opacity-40"
-        />
-      </div>
+      {VIDEO_SPACES_OPEN && (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            aria-label={muted ? t("space.unmute") : t("space.mute")}
+            disabled={!soundEnabled}
+            onClick={onToggleMute}
+            className="-ml-3 flex size-11 shrink-0 items-center justify-center text-(--session-dialog-title) focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none disabled:opacity-40"
+          >
+            {muted || !soundEnabled ? (
+              <VolumeX aria-hidden="true" className="size-5" />
+            ) : (
+              <Volume2 aria-hidden="true" className="size-5" />
+            )}
+          </button>
+          {/* 끄는 동안 이벤트가 쏟아지지 않게 저장과 기록은 손을 뗄 때 한 번만 한다. */}
+          <input
+            type="range"
+            min={0}
+            max={100}
+            value={volume}
+            aria-label={t("space.volume")}
+            disabled={!soundEnabled}
+            onChange={(event) => onVolumeChange(Number(event.target.value))}
+            onPointerUp={commit}
+            onKeyUp={commit}
+            className="relative min-h-11 min-w-0 flex-1 accent-white disabled:opacity-40"
+          />
+        </div>
+      )}
     </div>
   );
 
@@ -433,50 +440,60 @@ function SpaceContent({
             ))}
           </TabsList>
 
-          <div className="relative shrink-0">
-            <Search
-              aria-hidden="true"
-              className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-(--session-dialog-body)"
-            />
-            <Input
-              type="search"
-              aria-label={t("space.search")}
-              placeholder={t("space.search")}
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-              className="h-11 rounded-lg border-(--session-sheet-line) bg-(--session-sheet-surface) pl-10 text-[14px] text-(--session-dialog-title) placeholder:text-(--session-dialog-body)"
-            />
-          </div>
+          {(VIDEO_SPACES_OPEN || tab === "image") && (
+            <div className="relative shrink-0">
+              <Search
+                aria-hidden="true"
+                className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-(--session-dialog-body)"
+              />
+              <Input
+                type="search"
+                aria-label={t("space.search")}
+                placeholder={t("space.search")}
+                value={text}
+                onChange={(event) => setText(event.target.value)}
+                className="h-11 rounded-lg border-(--session-sheet-line) bg-(--session-sheet-surface) pl-10 text-[14px] text-(--session-dialog-title) placeholder:text-(--session-dialog-body)"
+              />
+            </div>
+          )}
 
           <TabsContent
             value="video"
             // 스크롤 상자가 고른 타일 바깥 테두리를 자르지 않게 양옆에 여백을 둔다.
             className="-mx-1 mt-0 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-1 pb-4"
           >
-            <div className="flex shrink-0 gap-2">
-              {(["all", "watch"] as const).map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  aria-pressed={category === id}
-                  onClick={() => setCategory(id)}
-                  className="group flex min-h-11 items-center focus-visible:outline-none"
-                >
-                  <span
-                    className={cn(
-                      "rounded-full border px-3.5 py-1.5 text-[13px] leading-4.5 font-medium group-focus-visible:ring-2 group-focus-visible:ring-(--state-focus)",
-                      category === id
-                        ? "border-white bg-white text-black"
-                        : "border-white/20 text-(--session-dialog-title)",
-                    )}
-                  >
-                    {id === "all" ? t("space.all") : t("space.sections.watch")}
-                  </span>
-                </button>
-              ))}
-            </div>
-            {of("watch").length > 0 && section(t("space.sections.watch"), of("watch"))}
-            {empty}
+            {VIDEO_SPACES_OPEN ? (
+              <>
+                <div className="flex shrink-0 gap-2">
+                  {(["all", "watch"] as const).map((id) => (
+                    <button
+                      key={id}
+                      type="button"
+                      aria-pressed={category === id}
+                      onClick={() => setCategory(id)}
+                      className="group flex min-h-11 items-center focus-visible:outline-none"
+                    >
+                      <span
+                        className={cn(
+                          "rounded-full border px-3.5 py-1.5 text-[13px] leading-4.5 font-medium group-focus-visible:ring-2 group-focus-visible:ring-(--state-focus)",
+                          category === id
+                            ? "border-white bg-white text-black"
+                            : "border-white/20 text-(--session-dialog-title)",
+                        )}
+                      >
+                        {id === "all" ? t("space.all") : t("space.sections.watch")}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                {of("watch").length > 0 && section(t("space.sections.watch"), of("watch"))}
+                {empty}
+              </>
+            ) : (
+              <p className="py-10 text-center text-[14px] leading-5 text-(--session-dialog-body)">
+                {t("space.comingSoon")}
+              </p>
+            )}
           </TabsContent>
 
           <TabsContent

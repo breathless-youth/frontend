@@ -45,11 +45,12 @@ function byBaseKey(flat: Map<string, string>): Map<string, Set<string>> {
 
 /**
  * 화면마다 이름이 달랐던 기능을 스토어 표기 하나로 맞췄다(BY-1212).
+ * 마스코트는 캐릭터로 부르기로 했다(BY-1238).
  * 번역을 고칠 때 예전 표기가 다시 들어오지 않게 막는다.
  */
 const RETIRED_TERMS: Partial<Record<string, RegExp[]>> = {
-  en: [/timelapse/i, /\bapp lock/i],
-  ja: [/(?<!ブ)ロック/],
+  en: [/timelapse/i, /\bapp lock/i, /mascot/i],
+  ja: [/(?<!ブ)ロック/, /マスコット/],
   // 대만 번체는 한자와 라틴 문자 사이를 띄운다(App 封鎖, 在 App 中).
   "zh-Hant": [
     /應用程式/,
@@ -58,6 +59,7 @@ const RETIRED_TERMS: Partial<Record<string, RegExp[]>> = {
     /編輯記錄/,
     /新記錄/,
     /\p{Script=Han}App|App\p{Script=Han}/u,
+    /吉祥物/,
   ],
 };
 

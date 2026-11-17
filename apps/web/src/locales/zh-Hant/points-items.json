@@ -1,8 +1,8 @@
 {
   "title": "{{name}}的配件",
   "mascotStrip": {
-    "label": "選擇吉祥物",
-    "selected": "{{name}}，已選擇的吉祥物",
+    "label": "選擇角色",
+    "selected": "{{name}}，已選擇的角色",
     "locked": "{{name}}，尚未解鎖"
   },
   "slots": {
@@ -52,6 +52,6 @@
     },
     "hint": "再專注 {{remaining}} 就能解鎖。",
     "progress": "距離{{name}}已完成 {{percent}}%",
-    "collect": "收集吉祥物"
+    "collect": "收集角色"
   }
 }

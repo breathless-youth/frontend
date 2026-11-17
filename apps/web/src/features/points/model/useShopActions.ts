@@ -9,11 +9,12 @@ import {
   trackPointsMascotSelected,
 } from "@/lib/amplitude";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
-import { pointsKeys } from "@/lib/pointsQueries";
+import { lookQuery, pointsKeys } from "@/lib/pointsQueries";
 
 import { usePointsGateway, usePointsUserId } from "../gateway/PointsGatewayContext";
 import type { AccessorySlot, AdResult, ChargeResult, ClaimKind, MascotId } from "../types";
 import { isAdsHiddenHere } from "./adRegion";
+import { forgetMascotLook } from "./storedMascotLook";
 import { useMemberOnly } from "./useMemberOnly";
 
 const LATE_BALANCE_REFETCH_MS = [10_000, 30_000, 60_000, 180_000];
@@ -59,12 +60,21 @@ export function useShopActions() {
     }
   };
   const refetchShop = () => queryClient.invalidateQueries({ queryKey: pointsKeys.shop(userId) });
-  // 결과 화면과 프로필이 읽는 내 모습은 상점과 다른 조회라 마스코트나 소품이 바뀌면 함께 다시 받는다.
+  /**
+   * 결과 화면과 프로필이 읽는 내 모습은 상점과 다른 조회라 마스코트나 소품이 바뀌면 함께 다시 받는다.
+   * 이 문서에서 그 조회를 보는 화면이 없어도 바로 받아서, 기기에 남긴 모습도 새 모습으로 바꾼다.
+   * 세션은 새 웹뷰에서 열려 그 값을 처음 그림으로 쓴다.
+   * 받지 못하면 지난 모습이 다음 웹뷰에 그려지지 않게 남긴 값을 지우고 다음에 다시 받게 둔다.
+   */
   const refetchLook = async () => {
-    await Promise.all([
-      refetchShop(),
-      queryClient.invalidateQueries({ queryKey: pointsKeys.look(userId) }),
-    ]);
+    const fetchLook = queryClient.fetchQuery({ ...lookQuery(gateway, userId), staleTime: 0 }).then(
+      () => undefined,
+      () => {
+        forgetMascotLook();
+        return queryClient.invalidateQueries({ queryKey: pointsKeys.look(userId) });
+      },
+    );
+    await Promise.all([refetchShop(), fetchLook]);
   };
 
   const claim = async (kind: ClaimKind) => {

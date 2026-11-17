@@ -31,6 +31,9 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   trackStudySessionEnded: vi.fn(),
 }));
 
+// 종료 이벤트에 감독관 공간이 실리는지 보려고 영상 공간을 연 채로 본다.
+vi.mock("@/features/timer-background/videoSpaces", () => ({ VIDEO_SPACES_OPEN: true }));
+
 function renderRoom(choice: "camera" | "simple" = "camera") {
   const view = render(
     <MemoryRouter initialEntries={["/room/7?userId=1"]}>

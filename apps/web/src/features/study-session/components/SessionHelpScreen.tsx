@@ -94,18 +94,16 @@ function FakeFocusTimer({ step, glow }: { step: SessionHelpStep; glow: boolean }
   );
 }
 
-/** 하단 일시정지·나가기 자리의 가짜 버튼 */
-function FakeBottomButtons({ simple }: { simple: boolean }) {
+/** 하단 일시정지·나가기 자리의 가짜 버튼. 실제 세션처럼 심플 화면에서도 둘 다 보인다. */
+function FakeBottomButtons() {
   return (
     <div className="mt-2 flex w-full justify-between regular:mt-2.5 short-side-lg:mt-3">
       <span className={controlButtonVariants({ size: "primary" })}>
         <Pause fill="currentColor" className={CONTROL_ICON_SIZE} />
       </span>
-      {!simple && (
-        <span className={controlButtonVariants({ variant: "exit", size: "primary" })}>
-          <LogOut className={CONTROL_ICON_SIZE} />
-        </span>
-      )}
+      <span className={controlButtonVariants({ variant: "exit", size: "primary" })}>
+        <LogOut className={CONTROL_ICON_SIZE} />
+      </span>
     </div>
   );
 }
@@ -156,7 +154,7 @@ function FakeClockLayer({
         <FakeFocusTimer key={step.id} step={step} glow={simple} />
       </div>
       <div className={simple ? "grow" : "grow-0"} />
-      <FakeBottomButtons simple={simple} />
+      <FakeBottomButtons />
     </div>
   );
 }

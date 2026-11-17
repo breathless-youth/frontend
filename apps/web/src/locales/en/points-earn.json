@@ -54,7 +54,7 @@
       "storeAndMinors": "Store refunds and minors"
     },
     "unusedPaid": "You can request a refund for unused paid points within 7 days of buying them.",
-    "spent": "Points you've used and accessories or mascots bought with points can't be refunded.",
+    "spent": "Points you've used and accessories or characters bought with points can't be refunded.",
     "setUnworn": "You can request a refund for a set within 7 days of payment if you haven't worn it.",
     "setWorn": "Once you wear a set, it can't be refunded.",
     "deleteAccount": "After 7 days, if you delete your account, we refund your remaining paid points minus a 10% fee.",
@@ -97,5 +97,6 @@
     "title": "No ads are available right now",
     "body": "Please try again in a moment.",
     "ok": "OK"
-  }
+  },
+  "rewardNotOpen": "You can claim points after the official launch"
 }

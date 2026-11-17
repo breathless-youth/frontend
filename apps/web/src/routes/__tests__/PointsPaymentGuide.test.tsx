@@ -21,7 +21,7 @@ vi.mock("@/lib/bridge", async (importOriginal) => ({
 
 const GUIDE_LINES = [
   "쓰지 않은 유료 포인트는 충전한 뒤 7일 안에 환불을 요청할 수 있어요.",
-  "쓴 포인트와 포인트로 산 소품·마스코트는 환불되지 않아요.",
+  "쓴 포인트와 포인트로 산 소품·캐릭터는 환불되지 않아요.",
   "7일이 지나도 계정을 삭제하면 남은 유료 포인트를 수수료 10%를 빼고 환불해요.",
   "세트는 입기 전이면 결제한 뒤 7일 안에 환불을 요청할 수 있어요.",
   "한 번 입은 세트는 환불되지 않아요.",
@@ -155,7 +155,7 @@ describe("결제·환불 안내로 가는 링크와 돌아오기", () => {
       "aria-pressed",
       "true",
     );
-    expect(screen.getByRole("button", { name: "타이미, 고른 마스코트" })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: "타이미, 고른 캐릭터" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );

@@ -1,14 +1,14 @@
 {
   "nextMascot": {
-    "label": "下一個吉祥物 {{name}}",
+    "label": "下一個角色 {{name}}",
     "remaining": "再專注 {{duration}} 就會解鎖",
-    "open": "下一個吉祥物 {{name}}，開啟收集吉祥物",
-    "buy": "下一個吉祥物 {{name}}，以 {{price}} 解鎖",
+    "open": "下一個角色 {{name}}，開啟收集角色",
+    "buy": "下一個角色 {{name}}，以 {{price}} 解鎖",
     "progress": "距離 {{name}} 已完成 {{percent}}%"
   },
   "picker": {
     "title": "今天要跟誰一起讀書呢？",
-    "label": "今天一起讀書的吉祥物"
+    "label": "今天一起讀書的角色"
   },
   "section": {
     "accessory": "{{name}}的小物",
@@ -39,8 +39,8 @@
       "purchase": "購買{{name}}",
       "purchaseUnknown": "裝飾購買",
       "medalRank": "{{period}}排行第 {{rank}} 名獎牌",
-      "mascotPurchase": "購買吉祥物{{name}}",
-      "mascotPurchaseUnknown": "購買吉祥物",
+      "mascotPurchase": "購買角色{{name}}",
+      "mascotPurchaseUnknown": "購買角色",
       "mission": "新手任務獎勵",
       "grant": "營運團隊發放",
       "refund": "因退款扣除"

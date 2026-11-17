@@ -147,4 +147,29 @@ describe("usePurchaseFlow", () => {
     expect(showToast).toHaveBeenCalledOnce();
     expect(purchase).not.toHaveBeenCalled();
   });
+
+  it("모자람 창의 광고 보상이 409로 거절되면 출시 뒤에 받을 수 있다고 알리고 다음 광고는 띄우지 않는다", async () => {
+    const { view } = await setup(100);
+    const watchAd = vi.fn(() =>
+      Promise.reject(new ApiError("not yet", 409, "REWARD_NOT_AVAILABLE")),
+    );
+    vi.mocked(showToast).mockClear();
+    await act(() => view.result.current.watchAdForPoints(watchAd));
+    await act(() => view.result.current.watchAdForPoints(watchAd));
+    expect(watchAd).toHaveBeenCalledOnce();
+    expect(showToast).toHaveBeenCalledTimes(2);
+    expect(showToast).toHaveBeenNthCalledWith(1, "포인트는 정식 출시 후부터 받을 수 있어요");
+    expect(showToast).toHaveBeenNthCalledWith(2, "포인트는 정식 출시 후부터 받을 수 있어요");
+  });
+
+  it("모자람 창의 광고가 다른 이유로 실패하면 지금처럼 다시 시도하라고 알리고 다음 광고도 띄운다", async () => {
+    const { view } = await setup(100);
+    const watchAd = vi.fn(() => Promise.reject(new ApiError("x", 409, "ALREADY_CLAIMED")));
+    vi.mocked(showToast).mockClear();
+    await act(() => view.result.current.watchAdForPoints(watchAd));
+    await act(() => view.result.current.watchAdForPoints(watchAd));
+    expect(watchAd).toHaveBeenCalledTimes(2);
+    expect(showToast).toHaveBeenCalledWith("잠시 후 다시 시도해 주세요");
+    expect(showToast).not.toHaveBeenCalledWith("포인트는 정식 출시 후부터 받을 수 있어요");
+  });
 });

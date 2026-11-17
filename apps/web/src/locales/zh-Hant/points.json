@@ -10,7 +10,7 @@
     "history": "點數紀錄",
     "accessories": "配件",
     "backgrounds": "計時器背景",
-    "mascots": "收集吉祥物"
+    "mascots": "收集角色"
   },
   "balance": {
     "label": "持有點數 {{amount}}",
@@ -29,7 +29,7 @@
     "title": "要購買{{name}}嗎？",
     "balanceAfter": "購買後點數",
     "noRefundAccessory": "用點數購買的小物無法退款。",
-    "noRefundMascot": "用點數購買的吉祥物無法退款。",
+    "noRefundMascot": "用點數購買的角色無法退款。",
     "cancel": "取消",
     "confirm": "購買"
   },
@@ -65,8 +65,8 @@
     "camcorder": "拍拍"
   },
   "mascotImage": {
-    "unlocked": "{{name}}吉祥物",
-    "locked": "未解鎖的{{name}}吉祥物"
+    "unlocked": "{{name}}角色",
+    "locked": "未解鎖的{{name}}角色"
   },
   "storeItem": {
     "buyFor": "以 {{price}} 購買",

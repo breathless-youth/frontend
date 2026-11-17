@@ -1,10 +1,12 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import type { StorePrice } from "../../../model/useStorePrices";
 import type { ShopItem } from "../../../types";
 import { ShopSectionRow } from "../ShopSectionRow";
 
 const base = { acquire: { type: "price", price: 300 }, owned: false, inUse: false } as const;
+const noStorePrice = (): StorePrice => ({ status: "unknown" });
 
 function cardPictures(name: string) {
   const card = screen.getByRole("button", { name: new RegExp(name) });
@@ -25,7 +27,9 @@ describe("ShopSectionRow", () => {
         backImageUrl: "/shop-row/cape.png",
       },
     ];
-    render(<ShopSectionRow title="부기 소품" items={items} onOpen={vi.fn()} />);
+    render(
+      <ShopSectionRow title="부기 소품" items={items} storePrice={noStorePrice} onOpen={vi.fn()} />,
+    );
 
     const pictures = cardPictures("망토");
     // 뒤 그림이 본체인 소품도 무엇인지 보이게 소품 화면 격자처럼 뒤 그림부터 겹친다.
@@ -50,7 +54,15 @@ describe("ShopSectionRow", () => {
         imageUrl: "/shop-row/sea.png",
       },
     ];
-    render(<ShopSectionRow title="타이머 배경" items={items} dark onOpen={vi.fn()} />);
+    render(
+      <ShopSectionRow
+        title="타이머 배경"
+        items={items}
+        storePrice={noStorePrice}
+        dark
+        onOpen={vi.fn()}
+      />,
+    );
 
     const pictures = cardPictures("바닷가");
     expect(pictures).toHaveLength(1);

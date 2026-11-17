@@ -117,7 +117,13 @@ function MemberDesk({
       data-me={isMe || undefined}
       className="flex min-w-0 flex-col items-center"
     >
-      <DeskFigure tone={tone} size="md" mascot={member.mascot} mascotSeat={mascotSeat} />
+      <DeskFigure
+        tone={tone}
+        size="md"
+        mascot={member.mascot}
+        mascotSeat={mascotSeat}
+        isMe={isMe}
+      />
       <div
         aria-hidden="true"
         className="mt-1 flex w-full min-w-0 flex-col items-center gap-0.5 text-center"

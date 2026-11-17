@@ -1,8 +1,8 @@
 {
   "title": "{{name}}のアイテム",
   "mascotStrip": {
-    "label": "マスコットを選ぶ",
-    "selected": "{{name}}、選択中のマスコット",
+    "label": "キャラクターを選ぶ",
+    "selected": "{{name}}、選択中のキャラクター",
     "locked": "{{name}}、まだ使えません"
   },
   "slots": {
@@ -52,6 +52,6 @@
     },
     "hint": "あと集中{{remaining}}で使えるようになります。",
     "progress": "{{name}}まで{{percent}}%貯まりました",
-    "collect": "マスコットを集める"
+    "collect": "キャラクターを集める"
   }
 }

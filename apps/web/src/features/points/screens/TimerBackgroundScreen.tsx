@@ -81,7 +81,12 @@ export function TimerBackgroundScreen({
       <div className="flex flex-1 flex-col gap-4 pt-4">
         <TimerPreview item={selected} />
         <CategoryChips categories={categories} value={category} onChange={setCategory} />
-        <BackgroundGrid items={visible} selectedId={selected?.id} onSelect={setPickedId} />
+        <BackgroundGrid
+          items={visible}
+          selectedId={selected?.id}
+          storePrice={store.price}
+          onSelect={setPickedId}
+        />
         <div className="mt-auto pt-2">
           {selected && (
             <ActionButton

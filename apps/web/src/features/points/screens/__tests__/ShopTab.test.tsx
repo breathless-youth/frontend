@@ -1,9 +1,14 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { MascotPickerCard } from "../../components/shop/MascotPickerCard";
 import { buildPointsFixture, type PointsScene } from "../../fixtures";
+import { createFakePointsGateway } from "../../gateway/createFakePointsGateway";
+import type { PointsGateway } from "../../gateway/PointsGateway";
+import { PointsGatewayProvider } from "../../gateway/PointsGatewayContext";
 import type { ShopData, ShopItem } from "../../types";
 import { ShopTab } from "../ShopTab";
 
@@ -12,9 +17,23 @@ function shopData(scene: PointsScene): ShopData {
   return { items: f.items, mascots: f.mascots, totalFocusSec: f.totalFocusSec };
 }
 
+/** 상점 탭은 미리 보는 결제 상품의 가격을 경계에 묻는다. */
+function points(gateway: PointsGateway = createFakePointsGateway("default")) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return function Providers({ children }: { children: ReactNode }) {
+    return (
+      <QueryClientProvider client={client}>
+        <PointsGatewayProvider gateway={gateway} userId={1}>
+          {children}
+        </PointsGatewayProvider>
+      </QueryClientProvider>
+    );
+  };
+}
+
 function renderTab(scene: PointsScene) {
   const handlers = { onOpen: vi.fn(), onOpenMascots: vi.fn(), onSelectMascot: vi.fn() };
-  render(<ShopTab data={shopData(scene)} {...handlers} />);
+  render(<ShopTab data={shopData(scene)} {...handlers} />, { wrapper: points() });
   return handlers;
 }
 
@@ -23,13 +42,13 @@ describe("ShopTab", () => {
     const { onOpenMascots } = renderTab("default");
     expect(screen.getByText("순공 4시간 12분 더 하면 열려요")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "부기까지 86% 모았어요" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /다음 마스코트 부기/ }));
+    await userEvent.click(screen.getByRole("button", { name: /다음 캐릭터 부기/ }));
     expect(onOpenMascots).toHaveBeenCalledOnce();
   });
 
   it("다 모으면 마스코트 고르기 칸이 보이고 고른 마스코트를 저장한다", async () => {
     const { onSelectMascot } = renderTab("allCollected");
-    const picker = screen.getByRole("region", { name: "오늘 함께할 마스코트" });
+    const picker = screen.getByRole("region", { name: "오늘 함께할 캐릭터" });
     expect(within(picker).getByText("오늘은 누구랑 공부할까요?")).toBeInTheDocument();
     expect(within(picker).getAllByRole("button")).toHaveLength(7);
     await userEvent.click(within(picker).getByRole("button", { name: "램피" }));
@@ -51,11 +70,12 @@ describe("ShopTab", () => {
         onOpenMascots={onOpenMascots}
         onSelectMascot={vi.fn()}
       />,
+      { wrapper: points() },
     );
-    expect(screen.queryByRole("region", { name: "오늘 함께할 마스코트" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "오늘 함께할 캐릭터" })).not.toBeInTheDocument();
     expect(screen.getByText("1,000P로 열기")).toBeInTheDocument();
     await userEvent.click(
-      screen.getByRole("button", { name: "다음 마스코트 캠코미, 1,000P로 열기" }),
+      screen.getByRole("button", { name: "다음 캐릭터 캠코미, 1,000P로 열기" }),
     );
     expect(onOpenMascots).toHaveBeenCalledWith("camcorder");
   });
@@ -69,8 +89,9 @@ describe("ShopTab", () => {
         onOpenMascots={vi.fn()}
         onSelectMascot={vi.fn()}
       />,
+      { wrapper: points() },
     );
-    const picker = screen.getByRole("region", { name: "오늘 함께할 마스코트" });
+    const picker = screen.getByRole("region", { name: "오늘 함께할 캐릭터" });
     expect(
       within(picker)
         .getAllByRole("button")
@@ -98,8 +119,9 @@ describe("ShopTab", () => {
         onOpenMascots={vi.fn()}
         onSelectMascot={vi.fn()}
       />,
+      { wrapper: points() },
     );
-    const picker = screen.getByRole("region", { name: "오늘 함께할 마스코트" });
+    const picker = screen.getByRole("region", { name: "오늘 함께할 캐릭터" });
     const layers = (name: string) =>
       [
         ...within(picker)
@@ -132,6 +154,7 @@ describe("ShopTab", () => {
     ribbon.backImageUrl = "/ribbon-back.png";
     const { container } = render(
       <ShopTab data={data} onOpen={vi.fn()} onOpenMascots={vi.fn()} onSelectMascot={vi.fn()} />,
+      { wrapper: points() },
     );
     expect(container.querySelector("img[src='/ribbon-back.png']")).not.toBeNull();
   });
@@ -156,6 +179,32 @@ describe("ShopTab", () => {
     await userEvent.click(locked);
     expect(onLockedPress).toHaveBeenCalledWith("camcorder");
     expect(onSelect).not.toHaveBeenCalled();
+  });
+
+  it("미리 보는 소품에 결제 상품이 있으면 결제 대신 스토어 가격을 그대로 보인다", async () => {
+    const data = shopData("default");
+    const set = data.items.find((item) => item.id === "acc-stopwatch-rainset");
+    if (set === undefined) throw new Error("고정 데이터에 비 오는 날 세트가 없다");
+    const gateway = createFakePointsGateway("default");
+    // 서버가 세트를 앞에 주면 상점 탭 미리 보기 세 칸에 든다.
+    render(
+      <ShopTab
+        data={{ ...data, items: [set, ...data.items.filter((item) => item !== set)] }}
+        onOpen={vi.fn()}
+        onOpenMascots={vi.fn()}
+        onSelectMascot={vi.fn()}
+      />,
+      {
+        wrapper: points({
+          ...gateway,
+          getStorePrices: async () => ({ set_stopwatch_rain: "₩2,200" }),
+        }),
+      },
+    );
+    const accessories = screen.getByRole("region", { name: "타이미 소품" });
+    const tile = within(accessories).getByRole("button", { name: /비 오는 날 세트/ });
+    expect(await within(tile).findByText("₩2,200")).toBeVisible();
+    expect(within(tile).queryByText("결제")).not.toBeInTheDocument();
   });
 
   it("상품을 누르면 그 상품을 골라서 열도록 상품 id를 함께 넘긴다", async () => {

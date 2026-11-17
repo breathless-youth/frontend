@@ -38,6 +38,14 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   trackSessionSpacePhotoLimitReached: vi.fn(),
 }));
 
+const videoSpaces = vi.hoisted(() => ({ open: true }));
+
+vi.mock("../../videoSpaces", () => ({
+  get VIDEO_SPACES_OPEN() {
+    return videoSpaces.open;
+  },
+}));
+
 vi.mock("@/lib/toast", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   showCtaToast: vi.fn(),
@@ -76,6 +84,7 @@ function renderPage(over: Partial<SessionSpacePageProps> = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  videoSpaces.open = true;
   globalThis.indexedDB = new IDBFactory();
   __resetTimerBackgroundPhotoStoreForTests();
   queryClient.clear();
@@ -488,5 +497,67 @@ describe("SessionSpacePage", () => {
 
     expect(await screen.findByTestId("timer-background-layer")).toBeInTheDocument();
     expect(trackSessionSpacePreviewOpened).toHaveBeenCalledWith({ kind: "photo" });
+  });
+});
+
+describe("SessionSpacePage 영상 공간을 닫아 두면", () => {
+  beforeEach(() => {
+    videoSpaces.open = false;
+  });
+
+  it("이미지 탭에서 열리고 탭 순서는 영상, 이미지 그대로다", async () => {
+    renderPage();
+
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["영상", "이미지"]);
+    expect(screen.getByRole("tab", { name: "이미지", selected: true })).toBeInTheDocument();
+    expect(await screen.findByText("0/3")).toBeInTheDocument();
+  });
+
+  it("영상 탭에는 감독관과 검색, 분류 칩 없이 곧 나온다는 안내만 있다", async () => {
+    renderPage();
+
+    await userEvent.click(screen.getByRole("tab", { name: "영상" }));
+
+    expect(screen.getByText("영상 공간은 곧 만나볼 수 있어요")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "독서실 감독관" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("searchbox", { name: "공간 검색" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "전체" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "감시" })).not.toBeInTheDocument();
+    expect(screen.queryByText("찾는 공간이 없어요")).not.toBeInTheDocument();
+  });
+
+  it("이미지 탭 검색으로도 감독관이 나오지 않는다", async () => {
+    renderPage();
+
+    await userEvent.type(screen.getByRole("searchbox", { name: "공간 검색" }), "감독");
+
+    expect(screen.queryByRole("button", { name: "독서실 감독관" })).not.toBeInTheDocument();
+    expect(screen.getByText("찾는 공간이 없어요")).toBeInTheDocument();
+  });
+
+  it("푸터에는 적용한 공간 이름만 있고 음소거와 음량은 없다", async () => {
+    const saved = await timerBackgroundPhotoStore().add(PHOTO, 1);
+    renderPage({ applied: { kind: "photo", photoId: saved.id } });
+
+    const titles = await screen.findAllByText("내 사진 1");
+    expect(titles.filter((node) => node.getAttribute("aria-hidden") !== "true")).toHaveLength(1);
+    expect(screen.queryByRole("slider", { name: "공간 음량" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "공간 소리 끄기" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "공간 소리 켜기" })).not.toBeInTheDocument();
+  });
+
+  it("사진 올리기와 심플 타일은 그대로 쓴다", async () => {
+    vi.mocked(prepareBackgroundPhoto).mockResolvedValue(PHOTO);
+    const { onApply } = renderPage({ applied: { kind: "photo", photoId: "gone" } });
+    await screen.findByText("0/3");
+
+    await userEvent.upload(
+      screen.getByLabelText("사진 올리기"),
+      new File(["x"], "a.jpg", { type: "image/jpeg" }),
+    );
+    expect(await screen.findByRole("button", { name: "내 사진 1" })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "심플" }));
+    expect(onApply).toHaveBeenCalledWith({ kind: "simple" });
   });
 });

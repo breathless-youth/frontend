@@ -163,7 +163,7 @@ describe("비회원의 포인트 화면", () => {
     const seen = vi.spyOn(appPointsGateway(), "markUnlocksSeen");
     renderAt("/points/mascots?userId=7");
     expect(await screen.findByText("누적 순공")).toBeInTheDocument();
-    expect(screen.queryByText("새 마스코트")).not.toBeInTheDocument();
+    expect(screen.queryByText("새 캐릭터")).not.toBeInTheDocument();
     expect(seen).not.toHaveBeenCalled();
   });
 

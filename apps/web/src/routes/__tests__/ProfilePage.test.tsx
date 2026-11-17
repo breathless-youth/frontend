@@ -911,7 +911,7 @@ describe("프로필 설정의 내 마스코트", () => {
     renderAt("/profile?userId=7");
 
     await screen.findByLabelText("닉네임");
-    expect(screen.queryByText("내 마스코트")).not.toBeInTheDocument();
+    expect(screen.queryByText("내 캐릭터")).not.toBeInTheDocument();
   });
 
   it("포인트가 켜져 있으면 카테고리 아래에 줄이 보이고 잠긴 마스코트는 눌러도 바뀌지 않는다", async () => {
@@ -919,7 +919,7 @@ describe("프로필 설정의 내 마스코트", () => {
     mockedGetProfile.mockResolvedValue(member);
     renderAt("/profile?userId=7&lang=ko");
 
-    expect(await screen.findByText("내 마스코트")).toBeInTheDocument();
+    expect(await screen.findByText("내 캐릭터")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /꾸미기/ })).toHaveAttribute(
       "href",
       "/points/accessories?userId=7&lang=ko",
@@ -935,7 +935,7 @@ describe("프로필 설정의 내 마스코트", () => {
     mockedGetProfile.mockResolvedValue(member);
     renderAt("/profile?userId=7");
 
-    const row = await screen.findByRole("list", { name: "내 마스코트 고르기" });
+    const row = await screen.findByRole("list", { name: "내 캐릭터 고르기" });
     expect(
       within(row)
         .getAllByRole("listitem")
@@ -964,7 +964,7 @@ describe("프로필 설정의 내 마스코트", () => {
     renderAt("/profile?userId=7");
 
     await screen.findByLabelText("닉네임");
-    expect(screen.queryByText("내 마스코트")).not.toBeInTheDocument();
+    expect(screen.queryByText("내 캐릭터")).not.toBeInTheDocument();
   });
 
   it("비회원이면 줄이 없다", async () => {
@@ -973,6 +973,6 @@ describe("프로필 설정의 내 마스코트", () => {
     renderAt("/profile?userId=7");
 
     await screen.findByLabelText("닉네임");
-    expect(screen.queryByText("내 마스코트")).not.toBeInTheDocument();
+    expect(screen.queryByText("내 캐릭터")).not.toBeInTheDocument();
   });
 });

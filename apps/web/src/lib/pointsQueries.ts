@@ -1,7 +1,10 @@
 import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
 
 import type { PointsGateway } from "@/features/points/gateway/PointsGateway";
+import { recallMascotLook, rememberMascotLook } from "@/features/points/model/storedMascotLook";
 import type { HistoryFilter } from "@/features/points/types";
+
+import { isPointsEnabled } from "./pointsCapability";
 
 export const pointsKeys = {
   all: ["points"] as const,
@@ -43,13 +46,22 @@ export function shopQuery(gateway: PointsGateway, userId: number) {
 /**
  * 내 마스코트 모습 queryOptions
  *
- * 상점 밖 화면(결과, 프로필)이 읽고, 상점에서 마스코트나 소품을 바꾸면 무효화된다.
+ * 상점 밖 화면(결과, 프로필)이 읽고, 상점에서 마스코트나 소품을 바꾸면 다시 받는다.
+ * 받은 모습은 기기에 남기고, 새 웹뷰의 빈 캐시는 그 값으로 시작해 처음 그림부터 고른 마스코트가 나온다.
+ * 남긴 값은 언제 받았는지 모르는 값으로 보고(`initialDataUpdatedAt: 0`) 화면에 붙거나 미리 받을 때 서버에서 다시 받는다.
+ * 포인트가 꺼진 문서는 남긴 값을 읽지 않는다.
  */
 export function lookQuery(gateway: PointsGateway, userId: number) {
   return queryOptions({
     queryKey: pointsKeys.look(userId),
-    queryFn: () => gateway.getMyLook(),
+    queryFn: async () => {
+      const look = await gateway.getMyLook();
+      rememberMascotLook(userId, look);
+      return look;
+    },
     staleTime: 60_000,
+    initialData: () => (isPointsEnabled() ? recallMascotLook(userId) : undefined),
+    initialDataUpdatedAt: 0,
   });
 }
 
