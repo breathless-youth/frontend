@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
 
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
+import { useOpenRanking } from "@/features/ranking/exposure/navigation";
 import { IllustMedal } from "@/features/ranking/icons";
 import { cn } from "@/lib/utils";
 
@@ -17,7 +17,8 @@ const RANKS = [1, 2, 3] as const;
  *
  * 메달이 몇 개든 세 칸은 늘 그대로이고 개수 글자만 바뀌어 줄 높이가 바뀌지 않는다.
  * 없는 순위는 흐리게 두고, 메달별 포인트는 제목 옆 안내 버튼을 누르면 표로 본다.
- * 받을 메달이 있으면 합계를 받는 버튼을, 없으면 랭킹으로 가는 링크를 둔다.
+ * 받을 메달이 있으면 합계를 받는 버튼을, 없으면 랭킹으로 가는 버튼을 둔다.
+ * 포인트 화면은 홈 탭 웹뷰 안이라 랭킹은 웹 라우터가 아니라 셸의 랭킹 탭으로 간다(`useOpenRanking`).
  */
 export function MedalCard({
   medals,
@@ -31,6 +32,7 @@ export function MedalCard({
   onClaim: () => void;
 }) {
   const { t } = useTranslation("points-earn");
+  const { openBoard } = useOpenRanking();
   const total = medals.reduce((sum, medal) => sum + medal.reward, 0);
   const counts = medalsByRank(medals);
   const has = medals.length > 0;
@@ -69,12 +71,13 @@ export function MedalCard({
           </TileButton>
         </span>
       ) : (
-        <Link
-          to="/ranking"
+        <button
+          type="button"
+          onClick={openBoard}
           className="flex min-h-11 shrink-0 items-center text-[13px] font-bold text-primary"
         >
           {t("medal.ranking")}
-        </Link>
+        </button>
       )}
     </section>
   );

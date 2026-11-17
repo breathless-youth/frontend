@@ -148,44 +148,59 @@ function buildMascots(
   ];
 }
 
+/**
+ * 포인트 받기 고정 데이터
+ *
+ * 지급 숫자는 운영 서버 기본값(백엔드 `DailyRewardPolicy`·`StudyPointPolicy`·`AdRewardPolicy`)과 같다.
+ * 캡처에 그대로 나가므로 서버 값이 바뀌면 여기도 바꾼다.
+ */
 function buildEarn(scene: PointsScene): EarnToday {
   const allDone = scene === "allDone";
+  const focusSec = allDone ? 2 * HOUR + 10 * MINUTE : HOUR + 24 * MINUTE;
   return {
-    // 다 받은 날은 공부 28(2시간 10분이라 30분 4번 × 7P) + 출석 10 + 하루 목표 60 + 광고 90이다.
-    earned: allDone ? 188 : 80,
-    // 공부 140(하루 상한 10시간이라 30분 20번 × 7P) + 출석 10 + 하루 목표 60 + 광고 90(30P × 3번)이다.
+    // 다 받은 날은 공부 28(2시간 10분이라 30분 4번 × 7P) + 출석 15 + 하루 목표 90 + 광고 60이다.
+    // 아닌 날은 출석 15 + 공부 14(1시간 24분이라 30분 2번 × 7P)다.
+    earned: allDone ? 193 : 29,
+    // 공부 140(하루 상한 10시간이라 30분 20번 × 7P) + 출석 15 + 하루 목표 90 + 광고 60(20P × 3번)이다.
     // 메달은 순위에 따라 달라 넣지 않는다.
-    dailyMax: 300,
+    dailyMax: 305,
     study: {
-      focusSec: allDone ? 2 * HOUR + 10 * MINUTE : HOUR + 24 * MINUTE,
+      focusSec,
       capSec: 10 * HOUR,
       unitSec: 30 * MINUTE,
       pointsPerUnit: 7,
       // 공부 포인트는 시간 구간 없이 고정이라 서버가 구간 하나만 보낸다.
       tiers: [{ fromSec: 0, toSec: 10 * HOUR, soloPoints: 7, togetherPoints: 10 }],
     },
-    attendance: { reward: 10, claimed: true },
+    attendance: { reward: 15, claimed: true },
     dailyGoal: {
       goalSec: 3 * HOUR,
       unitSec: 30 * MINUTE,
-      pointsPerUnit: 10,
-      reward: 60,
+      // 경계(`toEarnToday`)처럼 오늘 순공이 속한 구간의 값이다.
+      pointsPerUnit: focusSec < 2 * HOUR ? 20 : 5,
+      capSec: 8 * HOUR,
+      tiers: [
+        { fromSec: 0, toSec: 2 * HOUR, points: 20 },
+        { fromSec: 2 * HOUR, toSec: 8 * HOUR, points: 5 },
+      ],
+      // 3시간이라 처음 2시간 30분 4번 × 20P + 그 뒤 30분 2번 × 5P다.
+      reward: 90,
       achieved: allDone,
       claimed: allDone,
       remainingSec: allDone ? 0 : 36 * MINUTE,
     },
-    ad: { reward: 30, watched: allDone ? 3 : 0, limit: 3 },
+    ad: { reward: 20, watched: allDone ? 3 : 0, limit: 3 },
     medals:
       allDone || scene === "noMedal"
         ? []
         : [
-            { rank: 1, period: "DAILY", reward: 30 },
-            { rank: 3, period: "WEEKLY", reward: 30 },
+            { rank: 1, period: "DAILY", reward: 5 },
+            { rank: 3, period: "WEEKLY", reward: 3 },
           ],
     medalRates: {
-      daily: { gold: 30, silver: 20, bronze: 10 },
-      weekly: { gold: 100, silver: 60, bronze: 30 },
-      monthly: { gold: 300, silver: 200, bronze: 100 },
+      daily: { gold: 5, silver: 3, bronze: 1 },
+      weekly: { gold: 10, silver: 5, bronze: 3 },
+      monthly: { gold: 50, silver: 30, bronze: 10 },
     },
   };
 }
@@ -206,12 +221,14 @@ function buildHistory(now: number): PointsHistoryEntry[] {
     ...(itemName === undefined ? {} : { itemName }),
   });
   return [
-    entry("h1", 0, 10, "attendance"),
+    entry("h1", 0, 15, "attendance"),
     entry("h2", 0, -200, "purchase", "단추 리본"),
-    entry("h3", 0, 1300, "charge"),
-    entry("h4", 2, 100, "medal"),
+    // 충전은 스토어 상품(500·2,000·4,000P) 중 하나, 메달은 주간 1위, 하루 목표는 1시간 30분 목표,
+    // 공부는 같이 2시간(30분 4번 × 10P)이다.
+    entry("h3", 0, 2000, "charge"),
+    entry("h4", 2, 10, "medal"),
     entry("h5", 2, 60, "dailyGoal"),
-    entry("h6", 2, 30, "ad"),
+    entry("h6", 2, 20, "ad"),
     entry("h7", 2, 40, "study"),
     entry("h8", 3, -350, "purchase", "숲속 아침"),
   ];
@@ -220,7 +237,7 @@ function buildHistory(now: number): PointsHistoryEntry[] {
 /**
  * 개발용 화면 모음과 테스트가 함께 쓰는 장면별 고정 데이터
  *
- * 숫자는 시안을 따른다.
+ * 숫자는 시안을 따르되 지급 포인트는 운영 서버 값을 따른다.
  * 기록 시각은 받은 지금에서 거꾸로 세어 날짜 묶음이 시안처럼 오늘과 지난날로 나뉜다.
  */
 export function buildPointsFixture(scene: PointsScene, now: number = Date.now()): PointsFixture {
