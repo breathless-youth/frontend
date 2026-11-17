@@ -2,17 +2,21 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
 
+import type { StorePrice } from "../../model/useStorePrices";
 import { PointAmount } from "../shared/PointAmount";
+import { StorePriceText } from "../shared/StorePriceText";
 import type { ShopItem } from "../../types";
 
 /** 배경 격자 3열. 칸 아래에는 가격이나 얻는 조건, 가진 상태를 보인다. */
 export function BackgroundGrid({
   items,
   selectedId,
+  storePrice,
   onSelect,
 }: {
   items: ShopItem[];
   selectedId: string | undefined;
+  storePrice: (item: ShopItem) => StorePrice;
   onSelect: (id: string) => void;
 }) {
   const { t } = useTranslation("points-decor");
@@ -46,7 +50,7 @@ export function BackgroundGrid({
                 )}
               </span>
               <span className="text-[13px] font-semibold break-keep">{item.name}</span>
-              <Status item={item} />
+              <Status item={item} price={storePrice(item)} />
             </button>
           </div>
         );
@@ -55,7 +59,7 @@ export function BackgroundGrid({
   );
 }
 
-function Status({ item }: { item: ShopItem }) {
+function Status({ item, price }: { item: ShopItem; price: StorePrice }) {
   const { t } = useTranslation(["points-decor", "points"]);
   if (item.inUse) {
     return <span className="text-xs font-bold text-primary">{t("points:status.using")}</span>;
@@ -71,7 +75,12 @@ function Status({ item }: { item: ShopItem }) {
     );
   }
   if (item.acquire.type === "store") {
-    return <span className="text-xs font-bold text-primary">{t("points-decor:grid.store")}</span>;
+    // 포인트 가격(PointAmount sm)과 같은 글자 크기와 숫자 폭으로 둔다.
+    return (
+      <span className="text-[13px] font-bold text-primary tabular-nums">
+        <StorePriceText price={price} fallback={t("points-decor:grid.store")} />
+      </span>
+    );
   }
   return (
     <span className="text-xs font-bold break-keep text-muted-foreground">

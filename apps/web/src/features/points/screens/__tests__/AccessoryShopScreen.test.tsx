@@ -306,6 +306,7 @@ describe("AccessoryGrid", () => {
           { ...second, imageUrl: null },
         ]}
         pickedId={undefined}
+        storePrice={() => ({ status: "unknown" })}
         onPick={() => {}}
         onTakeOff={() => {}}
       />,
@@ -321,6 +322,7 @@ describe("AccessoryGrid", () => {
       <AccessoryGrid
         items={[{ ...first, imageUrl: null, backImageUrl: "/aura.png" }]}
         pickedId={undefined}
+        storePrice={() => ({ status: "unknown" })}
         onPick={() => {}}
         onTakeOff={() => {}}
       />,

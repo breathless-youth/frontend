@@ -1,12 +1,14 @@
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
 
 import { formatPoints } from "../../model/formatPoints";
 import { itemLayers, itemThumbnail } from "../../model/itemThumbnail";
+import type { StorePrice } from "../../model/useStorePrices";
 import type { ShopItem } from "../../types";
 import { ItemCutout } from "../items/ItemCutout";
+import { StorePriceText } from "../shared/StorePriceText";
 
 /**
  * 상점 탭의 한 종류(소품·타이머 배경)의 제목과 미리보기 상품 줄
@@ -18,11 +20,13 @@ import { ItemCutout } from "../items/ItemCutout";
 export function ShopSectionRow({
   title,
   items,
+  storePrice,
   dark = false,
   onOpen,
 }: {
   title: string;
   items: ShopItem[];
+  storePrice: (item: ShopItem) => StorePrice;
   dark?: boolean;
   /** 전체 보기는 상품 없이, 상품 칸은 그 상품의 id와 함께 부른다. */
   onOpen: (itemId?: string) => void;
@@ -79,7 +83,9 @@ export function ShopSectionRow({
                 )}
                 {/* 영어 이름은 한 줄에 다 들어가지 않아서 소품 화면 격자처럼 두 줄까지 보인다. */}
                 <span className="line-clamp-2 text-xs font-semibold break-keep">{item.name}</span>
-                <span className="truncate text-xs font-bold text-primary">{caption(item, t)}</span>
+                <span className="truncate text-xs font-bold text-primary">
+                  {caption(item, storePrice(item), t)}
+                </span>
               </button>
             </li>
           );
@@ -89,10 +95,16 @@ export function ShopSectionRow({
   );
 }
 
-function caption(item: ShopItem, t: ReturnType<typeof useTranslation<"points-shop">>["t"]): string {
+function caption(
+  item: ShopItem,
+  price: StorePrice,
+  t: ReturnType<typeof useTranslation<"points-shop">>["t"],
+): ReactNode {
   if (item.owned) return t("tile.owned");
   if (item.acquire.type === "price") return formatPoints(item.acquire.price);
-  if (item.acquire.type === "store") return t("tile.store");
+  if (item.acquire.type === "store") {
+    return <StorePriceText price={price} fallback={t("tile.store")} />;
+  }
   const { condition, current, target } = item.acquire;
   return t(condition === "streakDays" ? "tile.streakDays" : "tile.focusHours", { current, target });
 }

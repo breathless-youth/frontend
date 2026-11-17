@@ -98,6 +98,26 @@ describe("TimerBackgroundScreen", () => {
     expect(await gateway.getBalance()).toBe(840);
   });
 
+  it("결제로 파는 배경은 칸에 결제 대신 스토어 가격을 그대로 보인다", async () => {
+    await setup(1240, (g) => ({
+      ...g,
+      getShop: async () => {
+        const shop = await g.getShop();
+        return {
+          ...shop,
+          items: shop.items.map((item) =>
+            item.id === "bg-seaside"
+              ? { ...item, acquire: { type: "store" as const, productId: "bg_seaside" } }
+              : item,
+          ),
+        };
+      },
+      getStorePrices: async () => ({ bg_seaside: "₩2,200" }),
+    }));
+    expect(await within(tile("바닷가")).findByText("₩2,200")).toBeVisible();
+    expect(within(tile("바닷가")).queryByText("결제")).not.toBeInTheDocument();
+  });
+
   it("포인트가 모자라면 모자람 창이 열린다", async () => {
     await setup(100);
     await userEvent.click(tile("비 오는 창가"));

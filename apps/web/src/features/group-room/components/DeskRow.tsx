@@ -43,6 +43,7 @@ export function DeskRow({ members }: { members: readonly RoomDeskMember[] }) {
               size="sm"
               mascot={slot.kind === "empty" ? undefined : slot.member.mascot}
               mascotSeat={mascotSeats}
+              isMe={isMe}
             />
             <span
               className={cn(

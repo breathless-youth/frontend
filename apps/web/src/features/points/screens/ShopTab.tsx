@@ -5,6 +5,7 @@ import { NextMascotCard } from "../components/shop/NextMascotCard";
 import { ShopSectionRow } from "../components/shop/ShopSectionRow";
 import { sortMascots } from "../model/mascotOrder";
 import { TIMER_BACKGROUNDS_ON_SALE } from "../model/onSale";
+import { useStorePrices } from "../model/useStorePrices";
 import { wornByMascot } from "../model/wornAccessories";
 import type { MascotId, ShopData, ShopItem, ShopItemKind } from "../types";
 
@@ -16,6 +17,7 @@ const PREVIEW_COUNT = 3;
  * 다음 마스코트(모두 가졌으면 고르기 칸) 아래에 고른 마스코트의 소품을 세 개씩 미리 보인다.
  * 타이머 배경 줄은 배경을 파는 출시에서만 그린다.
  * 받은 데이터만 그리고 불러오기 실패는 라우트가 그린다.
+ * 미리 보는 칸에 결제 상품이 있을 때만 그 상품의 스토어 가격을 묻는다.
  */
 export function ShopTab({
   data,
@@ -39,6 +41,14 @@ export function ShopTab({
     itemId === undefined ? onOpen(kind) : onOpen(kind, itemId);
   const preview = (matches: (item: ShopItem) => boolean) =>
     data.items.filter(matches).slice(0, PREVIEW_COUNT);
+  const accessories =
+    selected === undefined
+      ? []
+      : preview((item) => item.kind === "accessory" && item.mascotId === selected.id);
+  const backgrounds = TIMER_BACKGROUNDS_ON_SALE
+    ? preview((item) => item.kind === "timerBackground")
+    : [];
+  const storePrice = useStorePrices([...accessories, ...backgrounds]);
 
   return (
     <div className="flex flex-col gap-3.5 pb-6">
@@ -61,14 +71,16 @@ export function ShopTab({
       {selected !== undefined && (
         <ShopSectionRow
           title={t("points-shop:section.accessory", { name: t(`points:mascots.${selected.id}`) })}
-          items={preview((item) => item.kind === "accessory" && item.mascotId === selected.id)}
+          items={accessories}
+          storePrice={storePrice}
           onOpen={(itemId) => open("accessory", itemId)}
         />
       )}
       {TIMER_BACKGROUNDS_ON_SALE && (
         <ShopSectionRow
           title={t("points-shop:section.background")}
-          items={preview((item) => item.kind === "timerBackground")}
+          items={backgrounds}
+          storePrice={storePrice}
           dark
           onOpen={(itemId) => open("timerBackground", itemId)}
         />

@@ -117,6 +117,7 @@ function shadowBox(id: MascotId): CSSProperties {
  *
  * 공부 상태는 전등갓 색으로 알리고, 공부 중일 때만 전등을 켜서 빛줄기를 내린다.
  * 바닥 그림자는 상태와 상관없는 중립 색이고, 발밑 소품을 끼면 그 소품이 바닥이라 그림자를 그리지 않는다.
+ * 쉬는 멤버는 마스코트를 회색으로 그리고 쉼 표시를 붙이지만, 내 마스코트는 쉬어도 고른 색 그대로 두고 쉼 표시를 붙이지 않는다.
  * 빈자리는 꺼진 전등 아래 타이미 모양 점선 윤곽만 그리고 속은 비운다.
  * 상태는 칸의 이름이나 옆 글자가 알려 주므로 그림은 화면 낭독기에서 뺀다.
  */
@@ -124,13 +125,17 @@ export function MascotSeat({
   tone,
   size,
   look,
+  isMe = false,
 }: {
   tone: DeskTone | "empty";
   size: DeskSize;
   /** 비어 있으면 기본 마스코트를 앉히며 빈자리에서는 쓰지 않는다. */
   look?: MascotLook;
+  /** 지금 보는 사람의 자리인지이며 쉬는 중의 회색과 쉼 표시만 바꾼다. */
+  isMe?: boolean;
 }) {
   const empty = tone === "empty";
+  const dimmed = tone === "rest" && !isMe;
   const seated = look ?? DEFAULT_LOOK;
   const { behind, front } = splitAccessoryLayers(seated.accessories);
   const grounded = !empty && [...behind, ...front].some((layer) => layer.slot === "underfoot");
@@ -186,14 +191,14 @@ export function MascotSeat({
       ) : (
         <span
           data-resting={tone === "rest" || undefined}
-          className={cn("absolute", tone === "rest" && "brightness-115 grayscale")}
+          className={cn("absolute", dimmed && "brightness-115 grayscale")}
           style={place(BODY.left, BODY.top, BODY.size, BODY.size)}
         >
           <MascotFigure id={seated.id} accessories={seated.accessories} className="size-full" />
         </span>
       )}
       {/* 작은 자리에서는 글자가 너무 작아 읽히지 않아 쉼 표시를 그리지 않는다. */}
-      {tone === "rest" && size !== "sm" && (
+      {dimmed && size !== "sm" && (
         <svg
           viewBox={`0 0 ${SEAT_W} ${SEAT_H}`}
           className="absolute inset-0 size-full fill-muted-foreground font-bold"

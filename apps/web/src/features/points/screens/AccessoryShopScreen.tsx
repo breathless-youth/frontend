@@ -208,6 +208,7 @@ export function AccessoryShopScreen({
               <AccessoryGrid
                 items={slotItems}
                 pickedId={item?.id}
+                storePrice={store.price}
                 onPick={(id) => choose(() => setPickedId(id))}
                 onTakeOff={takeOff}
               />
