@@ -85,3 +85,23 @@ it("화면이 숨겨질 때는 세로 잠금을 다시 보내지 않는다", () 
 
   expect(postMessage).not.toHaveBeenCalled();
 });
+
+it("잠시 세로로 고정한 화면은 고정이 끝날 때 회전 허용을 돌려준다", () => {
+  const { rerender, unmount } = renderHook(({ active }) => useNativePortraitLock(active, true), {
+    initialProps: { active: false },
+  });
+  expect(postMessage).not.toHaveBeenCalled();
+
+  rerender({ active: true });
+  rerender({ active: false });
+
+  expect(postMessage.mock.calls.map(([raw]) => JSON.parse(raw as string))).toEqual([
+    expect.objectContaining({ type: "set-orientation", unlocked: false }),
+    expect.objectContaining({ type: "set-orientation", unlocked: true }),
+  ]);
+
+  postMessage.mockClear();
+  unmount();
+  window.dispatchEvent(new Event("resize"));
+  expect(postMessage).not.toHaveBeenCalled();
+});

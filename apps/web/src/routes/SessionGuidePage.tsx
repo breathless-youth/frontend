@@ -19,6 +19,7 @@ import {
 } from "@/lib/amplitude";
 import { subscribeToNativeMessages } from "@/lib/bridge";
 import { haptic } from "@/lib/haptics";
+import { useNativePortraitLock } from "@/lib/nativeBackGesture";
 import { hasRankingTab } from "@/lib/rankingCapability";
 import { requestSessionStart, SubjectStartUnavailableError } from "@/lib/sessionStart";
 import { showToast } from "@/lib/toast";
@@ -53,7 +54,7 @@ function plannerSubjectIdOf(state: unknown): number | undefined {
  * `tab-focus`는 `ranking=1`과 같은 바이너리(26.42.0)부터 온다.
  * 그 표시가 없는 구버전 앱은 세션이나 거부 안내를 열기 직전에 보내는 권한 결과(`camera_permission_gate_resolved`, 1.0.2(8)부터)로 판단한다.
  * 집중 시작 이벤트(`focus_start_tapped`)는 카메라 권한 결과의 분모라 실제로 시작할 때 누른 자리와 함께 보낸다.
- * 신호가 끝내 오지 않아도 갇히지 않게, 시작 요청을 보낸 뒤에는 `나중에 시작할게요`와 Escape로 나갈 수 있다.
+ * 신호가 끝내 오지 않아도 갇히지 않게, 시작 요청을 보낸 뒤에는 `나중에 하기`와 Escape로 나갈 수 있다.
  */
 export function SessionGuidePage() {
   // 신원은 브리지 왕복 뒤에 오므로 정해진 뒤에 판정한다. 그 전에 판정하면 안 본 계정도 홈으로 튕긴다.
@@ -80,7 +81,12 @@ function SessionGuide({ userId }: { userId: number | null }) {
   const requestPendingRef = useRef(false);
   const completedRef = useRef(false);
   const stopWaitingRef = useRef<() => void>(() => {});
+  const [startRequested, setStartRequested] = useState(false);
   useSessionHelpFunnel(guideNeeded, step, "auto");
+  // 도움말은 세로 배치만 있어 떠 있는 동안 세로로 고정한다.
+  // 시작을 요청하면 세션 화면이 회전을 열기 때문에 그 뒤로는 화면 복귀나 크기 변화에 세로 고정을 다시 보내지 않는다.
+  // 닫힐 때 회전을 풀지 않는 것은 이 화면이 늘 세로인 탭 위에 떠서 원래 값이 세로이기 때문이다.
+  useNativePortraitLock(guideNeeded && !startRequested);
   useEffect(() => () => stopWaitingRef.current(), []);
 
   // 돌아갈 화면과 누른 자리는 집중 시작으로 왔을 때만 있다. 주소로 직접 열면 홈으로 보낸다.
@@ -106,6 +112,7 @@ function SessionGuide({ userId }: { userId: number | null }) {
       return;
     }
     startingRef.current = true;
+    setStartRequested(true);
     haptic("medium");
     // 요청이 실패해 다시 누른 것은 새 시작이 아니라 분모에 다시 세지 않는다.
     if (!completedRef.current) {
@@ -144,6 +151,7 @@ function SessionGuide({ userId }: { userId: number | null }) {
         console.warn("[session-guide] failed to start session", error);
         stopWaiting();
         startingRef.current = false;
+        setStartRequested(false);
         if (error instanceof SubjectStartUnavailableError) {
           showToast(t("studyStart.updateApp"));
           leave();
