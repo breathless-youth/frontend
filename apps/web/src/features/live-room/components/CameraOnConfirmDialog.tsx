@@ -179,6 +179,7 @@ export function CameraOnConfirmDialog({
                   <InfoTooltip
                     label={t("cameraConfirm.aria.faceMaskInfo")}
                     contentClassName="bg-(--session-dialog-cancel-bg) text-white"
+                    arrowClassName="fill-(--session-dialog-cancel-bg)"
                     collisionBoundary={contentEl}
                   >
                     {(faceMask.tooltip ?? socialFaceMaskTooltip).map((line) => (
