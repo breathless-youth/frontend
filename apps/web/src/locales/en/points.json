@@ -10,7 +10,7 @@
     "history": "Points history",
     "accessories": "Accessories",
     "backgrounds": "Timer Backgrounds",
-    "mascots": "Mascot Collection"
+    "mascots": "Character Collection"
   },
   "balance": {
     "label": "{{amount}} available",
@@ -30,7 +30,7 @@
     "title": "Buy {{name}}?",
     "balanceAfter": "Points after purchase",
     "noRefundAccessory": "Accessories bought with points can't be refunded.",
-    "noRefundMascot": "Mascots bought with points can't be refunded.",
+    "noRefundMascot": "Characters bought with points can't be refunded.",
     "cancel": "Cancel",
     "confirm": "Buy"
   },
@@ -68,8 +68,8 @@
     "camcorder": "Cammi"
   },
   "mascotImage": {
-    "unlocked": "{{name}} mascot",
-    "locked": "Locked {{name}} mascot"
+    "unlocked": "{{name}} character",
+    "locked": "Locked {{name}} character"
   },
   "storeItem": {
     "buyFor": "Buy for {{price}}",

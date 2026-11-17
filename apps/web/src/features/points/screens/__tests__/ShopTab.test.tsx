@@ -23,13 +23,13 @@ describe("ShopTab", () => {
     const { onOpenMascots } = renderTab("default");
     expect(screen.getByText("순공 4시간 12분 더 하면 열려요")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "부기까지 86% 모았어요" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /다음 마스코트 부기/ }));
+    await userEvent.click(screen.getByRole("button", { name: /다음 캐릭터 부기/ }));
     expect(onOpenMascots).toHaveBeenCalledOnce();
   });
 
   it("다 모으면 마스코트 고르기 칸이 보이고 고른 마스코트를 저장한다", async () => {
     const { onSelectMascot } = renderTab("allCollected");
-    const picker = screen.getByRole("region", { name: "오늘 함께할 마스코트" });
+    const picker = screen.getByRole("region", { name: "오늘 함께할 캐릭터" });
     expect(within(picker).getByText("오늘은 누구랑 공부할까요?")).toBeInTheDocument();
     expect(within(picker).getAllByRole("button")).toHaveLength(7);
     await userEvent.click(within(picker).getByRole("button", { name: "램피" }));
@@ -52,10 +52,10 @@ describe("ShopTab", () => {
         onSelectMascot={vi.fn()}
       />,
     );
-    expect(screen.queryByRole("region", { name: "오늘 함께할 마스코트" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "오늘 함께할 캐릭터" })).not.toBeInTheDocument();
     expect(screen.getByText("1,000P로 열기")).toBeInTheDocument();
     await userEvent.click(
-      screen.getByRole("button", { name: "다음 마스코트 캠코미, 1,000P로 열기" }),
+      screen.getByRole("button", { name: "다음 캐릭터 캠코미, 1,000P로 열기" }),
     );
     expect(onOpenMascots).toHaveBeenCalledWith("camcorder");
   });
@@ -70,7 +70,7 @@ describe("ShopTab", () => {
         onSelectMascot={vi.fn()}
       />,
     );
-    const picker = screen.getByRole("region", { name: "오늘 함께할 마스코트" });
+    const picker = screen.getByRole("region", { name: "오늘 함께할 캐릭터" });
     expect(
       within(picker)
         .getAllByRole("button")
@@ -99,7 +99,7 @@ describe("ShopTab", () => {
         onSelectMascot={vi.fn()}
       />,
     );
-    const picker = screen.getByRole("region", { name: "오늘 함께할 마스코트" });
+    const picker = screen.getByRole("region", { name: "오늘 함께할 캐릭터" });
     const layers = (name: string) =>
       [
         ...within(picker)

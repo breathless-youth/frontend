@@ -8,14 +8,14 @@
     "startStudy": "開始讀書"
   },
   "unlocked": {
-    "tag": "新吉祥物",
-    "switch": "換成這個吉祥物",
+    "tag": "新角色",
+    "switch": "換成這個角色",
     "later": "稍後"
   },
   "profile": {
-    "title": "我的吉祥物",
+    "title": "我的角色",
     "decorate": "裝扮",
-    "pick": "選擇我的吉祥物",
+    "pick": "選擇我的角色",
     "locked": "{{name}}未解鎖"
   },
   "purchase": {

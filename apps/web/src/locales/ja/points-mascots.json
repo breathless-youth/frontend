@@ -8,14 +8,14 @@
     "startStudy": "勉強を始める"
   },
   "unlocked": {
-    "tag": "新しいマスコット",
-    "switch": "このマスコットにする",
+    "tag": "新しいキャラクター",
+    "switch": "このキャラクターにする",
     "later": "あとで"
   },
   "profile": {
-    "title": "マイマスコット",
+    "title": "マイキャラクター",
     "decorate": "きせかえ",
-    "pick": "マイマスコットを選ぶ",
+    "pick": "マイキャラクターを選ぶ",
     "locked": "{{name}}は未解放"
   },
   "purchase": {

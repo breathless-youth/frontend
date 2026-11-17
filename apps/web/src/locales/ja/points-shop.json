@@ -1,14 +1,14 @@
 {
   "nextMascot": {
-    "label": "次のマスコット {{name}}",
+    "label": "次のキャラクター {{name}}",
     "remaining": "あと{{duration}}勉強すると解放されます",
-    "open": "次のマスコット {{name}}、マスコットあつめを開く",
-    "buy": "次のマスコット {{name}}、{{price}}で解放",
+    "open": "次のキャラクター {{name}}、キャラクターあつめを開く",
+    "buy": "次のキャラクター {{name}}、{{price}}で解放",
     "progress": "{{name}}まで{{percent}}%たまりました"
   },
   "picker": {
     "title": "今日は誰と勉強しますか？",
-    "label": "今日いっしょにいるマスコット"
+    "label": "今日いっしょにいるキャラクター"
   },
   "section": {
     "accessory": "{{name}}の小物",
@@ -39,8 +39,8 @@
       "purchase": "{{name}}を購入",
       "purchaseUnknown": "きせかえの購入",
       "medalRank": "{{period}}ランキング{{rank}}位メダル",
-      "mascotPurchase": "マスコット「{{name}}」を購入",
-      "mascotPurchaseUnknown": "マスコットの購入",
+      "mascotPurchase": "キャラクター「{{name}}」を購入",
+      "mascotPurchaseUnknown": "キャラクターの購入",
       "mission": "スタートミッションのごほうび",
       "grant": "運営チームからの付与",
       "refund": "返金による差し引き"

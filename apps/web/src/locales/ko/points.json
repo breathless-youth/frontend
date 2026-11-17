@@ -10,7 +10,7 @@
     "history": "포인트 기록",
     "accessories": "소품",
     "backgrounds": "타이머 배경",
-    "mascots": "마스코트 모으기"
+    "mascots": "캐릭터 모으기"
   },
   "balance": {
     "label": "보유 포인트 {{amount}}",
@@ -29,7 +29,7 @@
     "title": "{{name, objectParticle}} 구매할까요?",
     "balanceAfter": "구매 후 포인트",
     "noRefundAccessory": "포인트로 산 소품은 환불되지 않아요.",
-    "noRefundMascot": "포인트로 산 마스코트는 환불되지 않아요.",
+    "noRefundMascot": "포인트로 산 캐릭터는 환불되지 않아요.",
     "cancel": "취소",
     "confirm": "구매하기"
   },
@@ -65,8 +65,8 @@
     "camcorder": "캠코미"
   },
   "mascotImage": {
-    "unlocked": "{{name}} 마스코트",
-    "locked": "잠긴 {{name}} 마스코트"
+    "unlocked": "{{name}} 캐릭터",
+    "locked": "잠긴 {{name}} 캐릭터"
   },
   "storeItem": {
     "buyFor": "{{price}}에 구매하기",
