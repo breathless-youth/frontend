@@ -292,6 +292,7 @@ const EVENT_CHIP_KEYS = {
   DEVICE: "records:eventChip.device",
   SLEEP: "records:eventChip.sleep",
   SCREEN: "records:eventChip.screen",
+  POSTURE: "records:eventChip.posture",
   PAUSE: "records:eventChip.pause",
 } as const satisfies Record<StudyEventStatus, string>;
 
@@ -309,7 +310,8 @@ const EVENT_CHIP_ORDER_INDEX = {
   DEVICE: 2,
   SLEEP: 3,
   SCREEN: 4,
-  PAUSE: 5,
+  POSTURE: 5,
+  PAUSE: 6,
 } as const satisfies Record<StudyEventStatus, number>;
 const EVENT_CHIP_ORDER = Object.keys(EVENT_CHIP_ORDER_INDEX) as StudyEventStatus[];
 

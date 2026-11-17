@@ -63,9 +63,10 @@ export interface PushTokenRegisterRequest {
 
 /**
  * 비공부 상태 이벤트 종류. PHONE=휴대폰 사용, DEVICE=다른 기기, AWAY=자리 비움,
- * SLEEP=졸음, SCREEN=화면 응시, PAUSE=일시정지(총공부 타이머까지 정지 — 나머지는 순공 타이머만 정지).
+ * SLEEP=졸음, SCREEN=화면 응시, POSTURE=자세 이탈, PAUSE=일시정지(총공부 타이머까지 정지 — 나머지는 순공 타이머만 정지).
  */
-export type StudyEventStatus = "PHONE" | "DEVICE" | "AWAY" | "SLEEP" | "SCREEN" | "PAUSE";
+export type StudyEventStatus =
+  "PHONE" | "DEVICE" | "AWAY" | "SLEEP" | "SCREEN" | "POSTURE" | "PAUSE";
 
 /** 비공부 상태 이벤트 1건. 시각은 UTC ISO-8601, 세션 구간 안·서로 겹침 불가·0초 불가. */
 export interface StatusEventPayload {

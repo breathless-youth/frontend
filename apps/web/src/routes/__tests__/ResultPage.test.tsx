@@ -42,7 +42,7 @@ const statsResponse = {
   totalFocusSec: 12960,
   longestFocusSec: 2528,
   focusRate: 86.4,
-  totalEventCounts: { PHONE: 0, DEVICE: 0, AWAY: 0, SLEEP: 0, SCREEN: 0, PAUSE: 0 },
+  totalEventCounts: { PHONE: 0, DEVICE: 0, AWAY: 0, SLEEP: 0, SCREEN: 0, POSTURE: 0, PAUSE: 0 },
   studiedDatesInMonth: [],
 };
 

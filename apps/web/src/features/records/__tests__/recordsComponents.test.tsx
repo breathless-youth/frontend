@@ -38,6 +38,7 @@ const EMPTY_EVENT_COUNTS: StudySessionEventCounts = {
   AWAY: 0,
   SLEEP: 0,
   SCREEN: 0,
+  POSTURE: 0,
   PAUSE: 0,
 };
 

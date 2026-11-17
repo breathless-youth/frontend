@@ -12,6 +12,7 @@ const TEN_SECONDS: WatcherTriggerMs = {
   DEVICE: 10_000,
   SLEEP: 10_000,
   SCREEN: 10_000,
+  POSTURE: 10_000,
 };
 const AWAY_LONG: WatcherTriggerMs = { ...TEN_SECONDS, PHONE: 5_000, AWAY: 60_000 };
 

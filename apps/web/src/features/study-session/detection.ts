@@ -50,7 +50,8 @@ export interface TriggerHoldParams {
  * - `TOUCH`: 세션 화면을 계속 만지는 중이다.
  * - `SCREEN_GAZE`: 고개와 눈을 합친 시선이 폰 카메라 쪽이다. 10초 이어지면 화면 응시(`SCREEN`) 비집중이다.
  *   고개 방향만 보면 폰을 정면에 두고 공부하는 사람도 계속 켜져서, 눈 방향까지 더해 카메라 쪽인지 본다.
- * - `NO_EVIDENCE`: 공부 증거(도구 쪽 시선·손, 얼굴)가 없다. 유예까지만 간다.
+ * - `NO_EVIDENCE`: 공부 증거(도구 쪽 시선·손, 얼굴)가 없다. 10초 이어지면 자세 이탈(`POSTURE`) 비집중이다.
+ *   얼굴이 보일 때와 안 보일 때를 같은 원인으로 기록한다.
  * - `WORKING`: 얼굴이 안 보일 때 도구 위에서 손이 필기·타이핑하듯 움직인다. 유예를 만들지 않고,
  *   켜지면 `clearedByWork` 출처의 유예를 3초 기다리지 않고 바로 푼다.
  */
@@ -79,7 +80,7 @@ export const SOURCE_TRIGGER = {
   SLEEP_DROWSY: "SLEEP",
   TOUCH: "DEVICE",
   SCREEN_GAZE: "SCREEN",
-  NO_EVIDENCE: null,
+  NO_EVIDENCE: "POSTURE",
   WORKING: null,
 } as const satisfies Record<DetectionSource, DistractionTrigger | null>;
 
@@ -120,7 +121,6 @@ export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
   SCREEN_GAZE: { ...STANDARD_HOLD, settleMs: SETTLE_AFTER_RELEASE_MS, clearedByWork: true },
   NO_EVIDENCE: {
     ...STANDARD_HOLD,
-    enterMs: null,
     settleMs: SETTLE_AFTER_RELEASE_MS,
     clearedByWork: true,
   },
@@ -170,8 +170,8 @@ export const SOCIAL_DETECTION_PARAMS: DetectionParams = {
  *
  * `SLEEP`이 `DEVICE`보다 뒤인 것은 졸음 판정이 둘 다 카메라에서 나오기 때문이다. `PHONE`보다
  * 앞인 것은 책상에 올려둔 휴대폰이 계속 검출되는 알려진 오탐이 있는데, 10초 이상 유지된
- * 졸음이 그보다 구체적인 판정이기 때문이다. `SCREEN`(화면 응시)은 시선만으로 정하는 가장 덜 구체적인
- * 판정이라 맨 뒤다.
+ * 졸음이 그보다 구체적인 판정이기 때문이다. `SCREEN`(화면 응시)은 시선만으로 정하는 덜 구체적인
+ * 판정이고, `POSTURE`(자세 이탈)는 공부 흔적을 찾지 못했다는 판정이라 가장 뒤다.
  *
  * 값은 쓰지 않고 키 삽입 순서만 쓴다. `satisfies Record<DistractionTrigger, number>`가 새
  * 트리거의 누락을 컴파일 에러로 만든다. 여기서 빠진 트리거는 영원히 활성화되지 않은 채
@@ -183,6 +183,7 @@ const TRIGGER_PRIORITY_RANK = {
   SLEEP: 2,
   PHONE: 3,
   SCREEN: 4,
+  POSTURE: 5,
 } as const satisfies Record<DistractionTrigger, number>;
 
 export const TRIGGER_PRIORITY = Object.keys(TRIGGER_PRIORITY_RANK) as readonly DistractionTrigger[];

@@ -343,8 +343,15 @@ describe("longestFocusStretch", () => {
 });
 
 describe("DISTRACTION_STATUSES", () => {
-  it("S4 행 순서는 AWAY, PHONE, DEVICE, SLEEP, SCREEN이다", () => {
-    expect([...DISTRACTION_STATUSES]).toEqual(["AWAY", "PHONE", "DEVICE", "SLEEP", "SCREEN"]);
+  it("S4 행 순서는 AWAY, PHONE, DEVICE, SLEEP, SCREEN, POSTURE이다", () => {
+    expect([...DISTRACTION_STATUSES]).toEqual([
+      "AWAY",
+      "PHONE",
+      "DEVICE",
+      "SLEEP",
+      "SCREEN",
+      "POSTURE",
+    ]);
   });
 
   it("화면 응시 행이 보이고 휴식 합계에 들어간다", () => {

@@ -24,6 +24,8 @@
     "sleep_other": "Dozed off {{count}} times",
     "screen_one": "Stared at screen once",
     "screen_other": "Stared at screen {{count}} times",
+    "posture_one": "Off posture once",
+    "posture_other": "Off posture {{count}} times",
     "pause_one": "Paused once",
     "pause_other": "Paused {{count}} times"
   },

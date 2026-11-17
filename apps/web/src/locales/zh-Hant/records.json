@@ -18,6 +18,7 @@
     "device": "操作裝置 {{count}} 次",
     "sleep": "打瞌睡 {{count}} 次",
     "screen": "盯著螢幕 {{count}} 次",
+    "posture": "姿勢偏離 {{count}} 次",
     "pause": "暫停 {{count}} 次"
   },
   "weekRange": {

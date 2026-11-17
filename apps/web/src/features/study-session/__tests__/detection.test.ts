@@ -71,10 +71,19 @@ describe("stepDetection — 유예에서 비집중으로", () => {
     expect(state.active).toBe("SLEEP");
   });
 
-  it("공부 증거 없음은 유예까지만 가고 비집중으로 확정하지 않는다", () => {
-    const state = hold(createDetectionState(T0), signals({ NO_EVIDENCE: true }), 0, 60_000);
+  it("공부 흔적 없음은 3초면 유예, 10초면 자세 이탈 비집중이다", () => {
+    let state = hold(createDetectionState(T0), signals({ NO_EVIDENCE: true }), 0, 9000);
     expect(state.grace).toBe(true);
     expect(state.active).toBeNull();
+    state = hold(state, signals({ NO_EVIDENCE: true }), 10_000, 10_000);
+    expect(state.active).toBe("POSTURE");
+  });
+
+  it("공부 흔적 없음이 잠깐 꺼져도 3초를 못 채우면 처음 켜진 때부터 10초에 확정한다", () => {
+    let state = hold(createDetectionState(T0), signals({ NO_EVIDENCE: true }), 0, 4000);
+    state = hold(state, signals({}), 5000, 6000);
+    state = hold(state, signals({ NO_EVIDENCE: true }), 7000, 10_000);
+    expect(state.active).toBe("POSTURE");
   });
 });
 
@@ -197,8 +206,8 @@ describe("stepDetection — 동시 다중 감지", () => {
     expect(state.active).toBe("AWAY");
   });
 
-  it("같은 시점에 확정되면 AWAY > DEVICE > SLEEP > PHONE > SCREEN 순으로 고른다", () => {
-    expect(TRIGGER_PRIORITY).toEqual(["AWAY", "DEVICE", "SLEEP", "PHONE", "SCREEN"]);
+  it("같은 시점에 확정되면 AWAY > DEVICE > SLEEP > PHONE > SCREEN > POSTURE 순으로 고른다", () => {
+    expect(TRIGGER_PRIORITY).toEqual(["AWAY", "DEVICE", "SLEEP", "PHONE", "SCREEN", "POSTURE"]);
     const phoneOverScreen = hold(
       createDetectionState(T0),
       signals({ PHONE: true, SCREEN_GAZE: true }),
@@ -305,6 +314,13 @@ describe("stepDetection — 강한 공부 증거", () => {
     expect(state.active).toBe("SCREEN");
     state = hold(state, signals({ WORKING: true }), 14_000, 14_000);
     expect(state.active).toBeNull();
+  });
+
+  it("이미 확정된 자세 이탈은 강한 증거로 풀리지 않는다", () => {
+    let state = hold(createDetectionState(T0), signals({ NO_EVIDENCE: true }), 0, 10_000);
+    expect(state.active).toBe("POSTURE");
+    state = hold(state, signals({ WORKING: true }), 11_000, 13_000);
+    expect(state.active).toBe("POSTURE");
   });
 
   it("자리 비움 유예는 강한 증거로 풀리지 않는다", () => {
