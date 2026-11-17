@@ -4,7 +4,7 @@ import type {
   PointsEarnResponse,
 } from "@focusmakers/types";
 
-import type { EffectPiece, WornAccessory } from "@/components/mascot/types";
+import type { EffectPiece, EffectSprite, WornAccessory } from "@/components/mascot/types";
 
 import type {
   AccessorySlot,
@@ -162,19 +162,46 @@ export function toMascotLook(
   };
 }
 
+/**
+ * 효과 조각의 띠 그림
+ *
+ * 주소가 있고 장이 두 장 이상이며 길이가 있어야 띠 그림으로 넘긴다.
+ * 하나라도 없거나 틀리면 null이라 그리는 쪽이 움직임 이름대로 그린다.
+ * 띠 그림은 배경 그림으로 그리기만 하고 캔버스로 읽지 않아서, 소품 그림 측정과 달리 다른 출처 주소도 그대로 쓴다.
+ */
+function toEffectSprite(piece: EffectPieceResponse): EffectSprite | null {
+  const { spriteUrl: url, spriteFrames: frames, spriteDurationMs: durationMs } = piece;
+  if (typeof url !== "string" || url.trim() === "") {
+    return null;
+  }
+  if (typeof frames !== "number" || !Number.isInteger(frames) || frames < 2) {
+    return null;
+  }
+  if (typeof durationMs !== "number" || !Number.isFinite(durationMs) || durationMs <= 0) {
+    return null;
+  }
+  return { url, frames, durationMs };
+}
+
 /** 그림 판에 대한 비율이 0과 1 사이인 조각만 남기며 하나도 없으면 조각 없이 통째로 그리게 한다. */
 function toEffectPieces(raw: EffectPieceResponse[] | null | undefined): EffectPiece[] | undefined {
   const ratio = (value: unknown) => typeof value === "number" && value >= 0 && value <= 1;
-  const pieces = (raw ?? []).filter(
-    (piece) =>
-      ratio(piece.x) &&
-      ratio(piece.y) &&
-      ratio(piece.width) &&
-      ratio(piece.height) &&
-      piece.width > 0 &&
-      piece.height > 0 &&
-      typeof piece.motion === "string",
-  );
+  const pieces = (raw ?? []).flatMap((piece): EffectPiece[] => {
+    const { x, y, width, height, motion } = piece;
+    const valid =
+      ratio(x) &&
+      ratio(y) &&
+      ratio(width) &&
+      ratio(height) &&
+      width > 0 &&
+      height > 0 &&
+      typeof motion === "string";
+    if (!valid) {
+      return [];
+    }
+    const sprite = toEffectSprite(piece);
+    return [{ x, y, width, height, motion, ...(sprite === null ? null : { sprite }) }];
+  });
   return pieces.length > 0 ? pieces : undefined;
 }
 

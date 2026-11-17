@@ -6,6 +6,16 @@ export interface EffectPieceResponse {
   height: number;
   /** float·fall·rise·twinkle·flutter·pulse 등. 앱이 모르는 값은 멈춘 그림으로 그린다. */
   motion: string;
+  /**
+   * 프레임을 가로로 이은 띠 그림 주소이며 한 장은 이 조각의 자리와 같은 영역이다.
+   * 아래 두 값과 모두 있으면 motion 대신 띠 그림을 넘겨 그린다.
+   * 띠 그림이 없는 조각은 null이고, 이 필드가 생기기 전의 응답에는 셋 다 없다.
+   */
+  spriteUrl?: string | null;
+  /** 띠 그림의 장 수 */
+  spriteFrames?: number | null;
+  /** 모든 장을 한 번 넘기는 데 걸리는 시간(ms) */
+  spriteDurationMs?: number | null;
 }
 
 /** 낀 소품 하나이며 백엔드 Swagger 스키마 `EquippedItem` 기준이다. */

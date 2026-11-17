@@ -43,7 +43,6 @@
   "charge": {
     "title": "ポイントをチャージ",
     "guide": "決済・返金のご案内",
-    "bonus": "{{points}}",
     "pricePending": "価格を確認中",
     "packLabel": "{{points}}をチャージ"
   },
@@ -73,7 +72,6 @@
   "done": {
     "title": "チャージ完了",
     "points": "チャージポイント",
-    "bonus": "ボーナス",
     "balance": "所持ポイント",
     "close": "OK",
     "shop": "ショップへ"

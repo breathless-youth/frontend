@@ -229,9 +229,9 @@ describe("InsufficientPointsSheet", () => {
     const handlers = renderSheet(0);
     await userEvent.click(await screen.findByRole("button", { name: "500P 충전하고 구매하기" }));
     expect(handlers.onCharge).toHaveBeenCalledWith("points_500");
-    await userEvent.click(screen.getByRole("button", { name: /1,200P/ }));
-    await userEvent.click(screen.getByRole("button", { name: "1,200P 충전하고 구매하기" }));
-    expect(handlers.onCharge).toHaveBeenLastCalledWith("points_1200");
+    await userEvent.click(screen.getByRole("button", { name: /2,000P/ }));
+    await userEvent.click(screen.getByRole("button", { name: "2,000P 충전하고 구매하기" }));
+    expect(handlers.onCharge).toHaveBeenLastCalledWith("points_2000");
   });
 
   it("고른 묶음의 스토어 가격을 받지 못했으면 가격 확인 중을 보이고 충전하고 구매하기를 막는다", async () => {

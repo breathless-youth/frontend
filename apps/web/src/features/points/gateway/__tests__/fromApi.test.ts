@@ -1,3 +1,4 @@
+import type { EffectPieceResponse } from "@focusmakers/types";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -582,5 +583,57 @@ describe("세트와 효과", () => {
     });
 
     expect(look?.accessories[0].effectPieces).toEqual(pieces);
+  });
+});
+
+describe("효과 조각의 띠 그림", () => {
+  const SPRITE_URL = "https://web.focusmakers.app/avatars/shop/stopwatch/effect/flame-sprite.webp";
+  const base = { x: 0.1, y: 0.2, width: 0.3, height: 0.4, motion: "glow" };
+  const full = { spriteUrl: SPRITE_URL, spriteFrames: 12, spriteDurationMs: 1200 };
+
+  /** 효과 칸 상품 하나의 조각을 상점 상품과 다른 사람 모습 두 길로 바꾼다. */
+  function mapped(piece: EffectPieceResponse) {
+    const shop = toShopItem(item({ slot: "EFFECT", effectPieces: [piece] }));
+    const look = toMascotLook({
+      mascotCode: "BOOK",
+      accessories: [
+        {
+          mascotCode: "BOOK",
+          slot: "EFFECT",
+          item: { itemId: 9, code: "BOOK_FX", imageUrl: "/fx.png", effectPieces: [piece] },
+        },
+      ],
+    });
+    return [shop?.effectPieces?.[0], look?.accessories[0].effectPieces?.[0]];
+  }
+
+  it("세 값이 모두 있으면 움직임 이름과 함께 띠 그림을 넘긴다", () => {
+    for (const piece of mapped({ ...base, ...full })) {
+      expect(piece).toEqual({
+        ...base,
+        sprite: { url: SPRITE_URL, frames: 12, durationMs: 1200 },
+      });
+    }
+  });
+
+  it.each([
+    ["주소가 null", { spriteUrl: null }],
+    ["주소가 빈 문자열", { spriteUrl: "" }],
+    ["장 수가 null", { spriteFrames: null }],
+    ["장 수가 1", { spriteFrames: 1 }],
+    ["장 수가 소수", { spriteFrames: 2.5 }],
+    ["길이가 null", { spriteDurationMs: null }],
+    ["길이가 0", { spriteDurationMs: 0 }],
+    ["길이가 음수", { spriteDurationMs: -100 }],
+  ])("%s이면 띠 그림 없이 움직임 이름으로 그린다", (_, broken) => {
+    for (const piece of mapped({ ...base, ...full, ...broken })) {
+      expect(piece).toEqual(base);
+    }
+  });
+
+  it("세 필드가 생기기 전의 서버 응답은 지금처럼 움직임 이름으로 그린다", () => {
+    for (const piece of mapped(base)) {
+      expect(piece).toEqual(base);
+    }
   });
 });

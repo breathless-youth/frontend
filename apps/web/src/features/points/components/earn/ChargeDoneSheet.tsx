@@ -8,7 +8,10 @@ import { formatPoints, formatSignedPoints } from "../../model/formatPoints";
 
 export type ChargeDone = { granted: number; bonus: number; balance: number; image: string };
 
-/** 충전이 끝난 뒤의 결과 시트이며 충전·보너스·보유 포인트를 표로 보이고 보너스가 없는 묶음은 보너스 줄을 뺀다. */
+/**
+ * 충전이 끝난 뒤의 결과 시트이며 충전 포인트와 보유 포인트를 표로 보인다.
+ * 화면에 보너스라는 말을 쓰지 않아서, 서버가 더 넣어 준 몫이 있으면 충전 포인트에 합쳐 보인다.
+ */
 export function ChargeDoneSheet({
   done,
   onClose,
@@ -39,10 +42,7 @@ export function ChargeDoneSheet({
               {formatSignedPoints(done.granted + done.bonus)}
             </p>
             <dl className="flex flex-col rounded-lg bg-bg-layer-2 px-3.5 py-2.5 text-sm">
-              <Line label={t("done.points")} value={formatPoints(done.granted)} />
-              {done.bonus > 0 ? (
-                <Line label={t("done.bonus")} value={formatSignedPoints(done.bonus)} />
-              ) : null}
+              <Line label={t("done.points")} value={formatPoints(done.granted + done.bonus)} />
               <div className="my-1.5 h-px bg-border" />
               <Line label={t("done.balance")} value={formatPoints(done.balance)} strong />
             </dl>

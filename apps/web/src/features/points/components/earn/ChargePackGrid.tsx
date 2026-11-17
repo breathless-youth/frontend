@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
 
-import { formatPoints, formatSignedPoints } from "../../model/formatPoints";
+import { formatPoints } from "../../model/formatPoints";
 import type { ChargePack } from "../../types";
 import { packImage } from "./packImage";
 
@@ -11,6 +11,7 @@ import { packImage } from "./packImage";
  *
  * 스토어에서 가격을 받지 못한 묶음은 결제 창을 열어도 실패하므로 가격 확인 중으로 두고 누를 수 없게 한다.
  * 비회원은 앱에 가격을 묻지 않아서 가격 자리에 로그인 안내를 두고, 누르면 받기 탭의 회원 문이 로그인 화면으로 보낸다.
+ * 화면에 보너스라는 말을 쓰지 않아서 묶음 포인트와 가격만 보인다.
  */
 export function ChargePackGrid({
   packs,
@@ -40,10 +41,6 @@ export function ChargePackGrid({
             <img src={packImage(index)} alt="" aria-hidden draggable={false} className="size-19" />
             <span className="text-base font-extrabold tabular-nums">
               {formatPoints(pack.points)}
-            </span>
-            <span className="h-4 text-xs font-semibold text-feedback-success">
-              {pack.bonus > 0 &&
-                t("points-earn:charge.bonus", { points: formatSignedPoints(pack.bonus) })}
             </span>
             <span
               className={cn(

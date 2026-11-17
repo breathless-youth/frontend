@@ -38,9 +38,9 @@ function setup(
     over.onCharge ??
     vi.fn(async (): Promise<ChargeResult> => ({
       status: "completed",
-      granted: 1200,
-      bonus: 100,
-      balance: 2540,
+      granted: 2000,
+      bonus: 0,
+      balance: 3240,
     }));
   render(
     <MemoryRouter>
@@ -180,13 +180,12 @@ describe("EarnTab 광고와 충전", () => {
 
   it("충전이 끝나면 결과 표를 보인다", async () => {
     setup();
-    await userEvent.click(screen.getByRole("button", { name: /1,200P 충전/ }));
+    await userEvent.click(screen.getByRole("button", { name: /2,000P 충전/ }));
     expect(await screen.findByText("충전 완료")).toBeInTheDocument();
-    expect(screen.getByText("+1,300P")).toBeInTheDocument();
+    expect(screen.getByText("+2,000P")).toBeInTheDocument();
     expect(screen.getByText("충전 포인트")).toBeInTheDocument();
-    expect(screen.getByText("1,200P", { selector: "dd" })).toBeInTheDocument();
-    expect(screen.getByText("+100P", { selector: "dd" })).toBeInTheDocument();
-    expect(screen.getByText("2,540P")).toBeInTheDocument();
+    expect(screen.getByText("2,000P", { selector: "dd" })).toBeInTheDocument();
+    expect(screen.getByText("3,240P")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "확인" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "상점 가기" })).toBeInTheDocument();
   });
@@ -214,20 +213,17 @@ describe("EarnTab 광고와 충전", () => {
     expect(onCharge).toHaveBeenCalledTimes(2);
   });
 
-  it("보너스가 없는 묶음의 완료 창에는 보너스 줄이 없고 있는 묶음에는 있다", async () => {
-    const onCharge = vi
-      .fn<(id: string) => Promise<ChargeResult>>()
-      .mockResolvedValueOnce({ status: "completed", granted: 500, bonus: 0, balance: 1740 })
-      .mockResolvedValueOnce({ status: "completed", granted: 500, bonus: 50, balance: 2290 });
-    setup({ onCharge });
+  it("서버가 더 넣어 준 포인트가 있어도 완료 창은 보너스 줄 없이 충전 포인트에 합계를 보인다", async () => {
+    setup({
+      onCharge: async () => ({ status: "completed", granted: 500, bonus: 50, balance: 1790 }),
+    });
     await userEvent.click(screen.getByRole("button", { name: /500P 충전/ }));
     await screen.findByText("충전 완료");
-    expect(screen.queryByText("보너스")).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "확인" }));
-    await userEvent.click(screen.getByRole("button", { name: /500P 충전/ }));
-    expect(await screen.findByText("보너스")).toBeInTheDocument();
-    expect(screen.getByText("+50P")).toBeInTheDocument();
+    expect(screen.getByText("+550P")).toBeInTheDocument();
+    expect(screen.getByText("550P", { selector: "dd" })).toBeInTheDocument();
+    expect(screen.getAllByRole("definition")).toHaveLength(2);
+    expect(screen.queryByText(/보너스|\+50P/)).not.toBeInTheDocument();
   });
 
   it("결제가 끝나면 충전 중 창을 띄우고 포인트가 들어오면 완료 창으로 바꾼다", async () => {
@@ -357,12 +353,19 @@ describe("EarnTab 실패", () => {
   });
 });
 
-describe("EarnTab 보너스 표기", () => {
-  it.each(["ko", "en", "ja", "zh-Hant"])("%s에서 보너스 부호가 한 번만 붙는다", async (lng) => {
-    await i18n.changeLanguage(lng);
-    setup();
-    const bonus = screen.getByText(/100P/, { selector: "span.text-feedback-success" });
-    expect(bonus.textContent).toContain("+100P");
-    expect(bonus.textContent).not.toContain("++");
-  });
+describe("EarnTab 충전 묶음", () => {
+  it.each(["ko", "en", "ja", "zh-Hant"])(
+    "%s에서 보너스가 있는 묶음도 칸에는 묶음 포인트와 가격만 보인다",
+    async (lng) => {
+      await i18n.changeLanguage(lng);
+      setup({
+        packs: [{ productId: "points_1200", points: 1200, bonus: 100, priceLabel: "₩2,500" }],
+      });
+
+      const pack = screen.getByRole("button", { name: /1,200P/ });
+      expect(pack).toHaveTextContent("1,200P");
+      expect(pack).toHaveTextContent("₩2,500");
+      expect(pack.textContent).not.toMatch(/100P|1,300P/);
+    },
+  );
 });
