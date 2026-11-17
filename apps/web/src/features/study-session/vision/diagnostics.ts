@@ -186,6 +186,7 @@ export function createVisionDiagnostics(sink: DiagnosticsSink): VisionDiagnostic
         if (face.headYawDeg !== undefined && face.headYawDeg !== null) {
           payload["face:headYawDeg"] = round2(face.headYawDeg);
         }
+        // 카메라 쪽 방향은 고개 각도와 같은 종류의 각도다. 얼굴 위치(이동값)는 싣지 않는다.
         if (face.toCameraH !== undefined && face.toCameraH !== null) {
           payload["face:toCamH"] = round2(face.toCameraH);
         }

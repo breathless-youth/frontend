@@ -54,9 +54,9 @@ export interface FaceMetrics {
    */
   readonly noseOffsetX: number | null;
   /** 이 고개 자세에서 카메라를 보려면 눈이 좌우로 돌아야 하는 각도(도). 얼굴 위치는 밖으로 나가지 않는다. */
-  readonly toCameraH?: number | null;
+  readonly toCameraH: number | null;
   /** 같은 기준의 위아래 각도(도). 카메라가 시선보다 위면 +다. */
-  readonly toCameraV?: number | null;
+  readonly toCameraV: number | null;
 }
 
 export interface FaceDetectionResult {
@@ -130,7 +130,13 @@ const BLENDSHAPES_MISSING: FaceObservation = {
   eye: null,
   eyeSkipReason: "blendshapes-missing",
 };
-const NO_METRICS: FaceMetrics = { headPitchDeg: null, headYawDeg: null, noseOffsetX: null };
+const NO_METRICS: FaceMetrics = {
+  headPitchDeg: null,
+  headYawDeg: null,
+  noseOffsetX: null,
+  toCameraH: null,
+  toCameraV: null,
+};
 
 const NOSE_TIP = 1;
 
@@ -179,7 +185,8 @@ export function headPitchDegOf(raw: MediapipeFaceResult): number | null {
 
 /**
  * 얼굴 기준 좌표계에서 본 카메라 방향(도). 화면 응시 판정이 쓴다. 열 우선 4x4로 보고 회전 열(오른쪽·위·정면)과
- * 이동 열을 쓴다. 이동값은 이 함수 안에서 각도로만 줄어들고 밖으로 나가지 않는다.
+ * 이동 열을 쓴다. 얼굴 위치(이동값)는 이 함수 안에서 각도 두 개로만 줄어들고 밖으로 나가지 않는다.
+ * 진단에는 이 각도가 고개 각도(`headPitchDeg`)와 같은 종류의 스칼라로 남고, 위치 자체는 남지 않는다.
  */
 export function toCameraDegOf(raw: MediapipeFaceResult): { h: number; v: number } | null {
   const d = raw.facialTransformationMatrixes?.[0]?.data;

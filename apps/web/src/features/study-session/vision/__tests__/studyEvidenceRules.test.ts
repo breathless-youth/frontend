@@ -179,7 +179,7 @@ describe("시선", () => {
   it("카메라 방향이나 눈 점수를 모르면 화면 응시로 몰지 않는다", () => {
     expect(gazeOnScreen({ ...LOOKING_AT_SCREEN, toCameraV: null })).toBe(false);
     expect(gazeOnScreen({ ...LOOKING_AT_SCREEN, eyeVertical: null })).toBe(false);
-    expect(gazeOnScreen({ ...LOOKING_AT_SCREEN, toCameraH: undefined })).toBe(false);
+    expect(gazeOnScreen({ ...LOOKING_AT_SCREEN, toCameraH: null })).toBe(false);
   });
 });
 

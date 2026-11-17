@@ -54,13 +54,13 @@ export interface GazeReading {
   /** 고개를 돌린 방향. 프레임 오른쪽이 +다. `faceLandmarker.ts`의 `FaceMetrics.noseOffsetX`. */
   readonly noseOffsetX: number | null;
   /** 이 고개 자세에서 카메라를 보려면 눈이 좌우로 돌아야 하는 각도(도). `faceLandmarker.ts`의 `toCameraDegOf`. */
-  readonly toCameraH?: number | null;
+  readonly toCameraH: number | null;
   /** 같은 기준의 위아래 각도(도). 카메라가 시선보다 위면 +다. */
-  readonly toCameraV?: number | null;
+  readonly toCameraV: number | null;
   /** 눈 아래 보기 − 위 보기 점수. 아래가 +다. */
-  readonly eyeVertical?: number | null;
+  readonly eyeVertical: number | null;
   /** 눈 좌우 점수 차. `toCameraH`와 같은 방향이 +다. */
-  readonly eyeHorizontal?: number | null;
+  readonly eyeHorizontal: number | null;
 }
 
 /**
@@ -168,7 +168,7 @@ export function gazeOnTool(
  */
 export function gazeOnScreen(gaze: GazeReading): boolean {
   const { toCameraH, toCameraV, eyeVertical, eyeHorizontal } = gaze;
-  if (toCameraH == null || toCameraV == null || eyeVertical == null || eyeHorizontal == null) {
+  if (toCameraH === null || toCameraV === null || eyeVertical === null || eyeHorizontal === null) {
     return false;
   }
   const { eyeDegPerScore, maxVerticalDeg, maxHorizontalDeg } = SCREEN_GAZE_ANGLES;

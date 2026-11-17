@@ -256,6 +256,20 @@ describe("stepDetection — 비집중이 풀린 뒤 정착 시간", () => {
     expect(state.active).toBe("PHONE");
   });
 
+  it("돌아와 화면만 보면 정착 10초와 유예 3초 뒤 유예, 풀린 지 20초에 화면 응시 비집중이다", () => {
+    const back = signals({ SCREEN_GAZE: true });
+    let state = returnFromAway(back);
+    state = hold(state, back, 15_000, 26_000);
+    expect(state.grace).toBe(false);
+
+    state = hold(state, back, 27_000, 33_000);
+    expect(state.grace).toBe(true);
+    expect(state.active).toBeNull();
+
+    state = hold(state, back, 34_000, 34_000);
+    expect(state.active).toBe("SCREEN");
+  });
+
   it("비집중을 거치지 않은 공부 흔적 없음은 지금처럼 3초 뒤 유예다", () => {
     const state = hold(createDetectionState(T0), signals({ NO_EVIDENCE: true }), 0, 3000);
     expect(state.grace).toBe(true);

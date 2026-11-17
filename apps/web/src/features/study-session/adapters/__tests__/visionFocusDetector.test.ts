@@ -956,7 +956,13 @@ describe("얼굴 틱", () => {
     resolveFace({
       face: seen(0.1),
       durationMs: 1,
-      metrics: { headPitchDeg: 0, headYawDeg: null, noseOffsetX: null },
+      metrics: {
+        headPitchDeg: 0,
+        headYawDeg: null,
+        noseOffsetX: null,
+        toCameraH: null,
+        toCameraV: null,
+      },
     });
     await vi.advanceTimersByTimeAsync(0);
 
@@ -1834,7 +1840,13 @@ describe("타임랩스 촬영 가림 켬", () => {
     faceDetect.mockImplementation(async (_video, _timestampMs, photo) => ({
       face: seen(0.1),
       durationMs: 1,
-      metrics: { headPitchDeg: null, headYawDeg: null, noseOffsetX: null },
+      metrics: {
+        headPitchDeg: null,
+        headYawDeg: null,
+        noseOffsetX: null,
+        toCameraH: null,
+        toCameraV: null,
+      },
       // 첫 얼굴 틱만 얼굴을 찾고 그 뒤로는 놓친다.
       bounds:
         faceDetect.mock.calls.length === 1 ? { minX: 0.5, minY: 0.2, maxX: 0.6, maxY: 0.35 } : null,

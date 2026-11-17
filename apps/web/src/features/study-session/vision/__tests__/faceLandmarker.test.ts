@@ -443,6 +443,8 @@ describe("얼굴 지표 — 고개 각도. 내려다봄 게이트가 읽는다",
       headPitchDeg: null,
       headYawDeg: null,
       noseOffsetX: null,
+      toCameraH: null,
+      toCameraV: null,
     });
   });
 
