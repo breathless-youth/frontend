@@ -13,6 +13,7 @@ import { pointsKeys } from "@/lib/pointsQueries";
 import { ApiError } from "@/lib/api";
 import type { PointsGain } from "@/features/points/components/shared/PointsBalancePill";
 import { isMemberOnlyError } from "@/features/points/gateway/memberOnly";
+import { isRewardNotOpenError } from "@/features/points/gateway/rewardNotOpen";
 import type { HomeDay, HomeGoal, HomeV3Gateway } from "./HomeV3Gateway";
 import type { HomeGoalSaveInput, HomeGoalSaveResult } from "./HomeGoalSheet";
 import type { HomeLoadState, HomeTodayStats } from "./HomeV3Content";
@@ -236,7 +237,12 @@ export function useHomeV3Progress(
     /** 미션으로 방금 받은 포인트이며 잔액 알약이 받은 금액을 잠깐 보인다. */
     gain,
     // 서버의 회원 전용 거절은 로그인 화면으로 보내므로 실패 문구를 띄우지 않는다.
-    rewardError: rewardClaim.isError && !isMemberOnlyError(rewardClaim.error),
+    rewardError:
+      rewardClaim.isError &&
+      !isMemberOnlyError(rewardClaim.error) &&
+      !isRewardNotOpenError(rewardClaim.error),
+    /** 서버가 아직 포인트를 쌓지 않는다고 거절했는지이며 이때는 실패 대신 출시 뒤에 받을 수 있다고 알린다. */
+    rewardNotOpen: rewardClaim.isError && isRewardNotOpenError(rewardClaim.error),
     claimMissionReward: (onMemberOnly?: () => void) => {
       if (rewardClaim.isPending) return;
       rewardClaim.mutate(

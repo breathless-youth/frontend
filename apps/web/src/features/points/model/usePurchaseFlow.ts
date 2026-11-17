@@ -9,6 +9,7 @@ import { showToast } from "@/lib/toast";
 import { usePointsGateway, usePointsUserId } from "../gateway/PointsGatewayContext";
 import type { AdResult, ChargeResult, PurchaseResult, ShopItem } from "../types";
 import { isMemberOnlyError } from "../gateway/memberOnly";
+import { isRewardNotOpenError } from "../gateway/rewardNotOpen";
 import { useMemberOnly } from "./useMemberOnly";
 
 /** 마스코트는 상점 상품의 모양을 빌려 오므로 id 앞머리로 종류를 가린다. */
@@ -27,6 +28,7 @@ export type PurchaseStep = "idle" | "confirm" | "insufficient" | "pending" | "do
  * 산 뒤의 잔액은 경계가 돌려준 값으로 덮고, 보유 상태와 기록은 다시 받는다.
  * 모자람 창에서 충전하면 이어서 같은 상품을 사서, 충전하고 다시 구매 버튼을 찾는 일을 없앤다.
  * 광고는 받는 양이 작아 다 채울지 알 수 없으므로 잔액만 채우고 창을 닫는다.
+ * 서버가 아직 포인트를 쌓지 않는다고 거절하면 출시 뒤에 받을 수 있다고 알리고, 그 뒤로는 이 화면에서 광고를 띄우지 않는다.
  * 마스코트처럼 상점 상품이 아닌 것을 살 때는 buy로 사는 요청을 바꿔 끼운다.
  * 사는 일은 회원만 하므로 비회원이 열면 확인 창 대신 로그인 화면을 열고, 서버가 회원 전용이라고 거절해도 같은 화면으로 보낸다.
  */
@@ -38,6 +40,7 @@ export function usePurchaseFlow(item: ShopItem | null, buy?: () => Promise<Purch
   const [step, setStep] = useState<PurchaseStep>("idle");
   const [paidBalance, setPaidBalance] = useState<number | null>(null);
   const inFlightRef = useRef(false);
+  const rewardNotOpenRef = useRef(false);
   const memberOnly = useMemberOnly();
 
   const price = item?.acquire.type === "price" ? item.acquire.price : null;
@@ -119,6 +122,10 @@ export function usePurchaseFlow(item: ShopItem | null, buy?: () => Promise<Purch
   }
 
   async function watchAdForPoints(watchAd: () => Promise<AdResult>) {
+    if (rewardNotOpenRef.current) {
+      showToast(i18n.t("points-earn:rewardNotOpen"));
+      return;
+    }
     try {
       const result = await watchAd();
       if (result.status === "rewarded") {
@@ -126,8 +133,13 @@ export function usePurchaseFlow(item: ShopItem | null, buy?: () => Promise<Purch
       } else if (result.status === "unavailable") {
         showToast(i18n.t("points-earn:adUnavailable.title"));
       }
-    } catch {
-      showToast(i18n.t("common:errors.retryLater"));
+    } catch (error) {
+      if (isRewardNotOpenError(error)) {
+        rewardNotOpenRef.current = true;
+        showToast(i18n.t("points-earn:rewardNotOpen"));
+      } else {
+        showToast(i18n.t("common:errors.retryLater"));
+      }
     }
   }
 

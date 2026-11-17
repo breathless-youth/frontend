@@ -6,6 +6,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { __resetAppPointsGatewayForTests } from "@/features/points/gateway/appPointsGateway";
+import { ApiError } from "@/lib/api";
 import { __resetPointsForTests } from "@/lib/pointsCapability";
 import { homeMission } from "@/test/homeMissionFixtures";
 import { plannerDay } from "@/test/plannerFixtures";
@@ -173,5 +174,37 @@ describe("시작 미션 보상 받기", () => {
     expect(await screen.findByText("+150P")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("150포인트 받음");
     expect(screen.getByRole("button", { name: "보유 포인트 1,390P" })).toBeInTheDocument();
+  });
+
+  it("서버가 아직 포인트를 받을 수 없다고 거절하면 출시 뒤에 받을 수 있다고 알린다", async () => {
+    setFlag(true);
+    renderHome({
+      readMission: vi.fn().mockResolvedValue({ ...homeMission(2, 300), claimablePoints: 150 }),
+      claimMissionReward: vi
+        .fn()
+        .mockRejectedValue(new ApiError("not yet", 409, "REWARD_NOT_AVAILABLE")),
+    });
+
+    await userEvent.click(await screen.findByRole("button", { name: "받기" }));
+
+    expect(await screen.findByText("포인트는 정식 출시 후부터 받을 수 있어요")).toBeInTheDocument();
+    expect(screen.queryByText("보상을 받지 못했어요. 다시 눌러 주세요.")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["다른 409", new ApiError("x", 409, "ALREADY_CLAIMED")],
+    ["서버 오류", new ApiError("x", 500, "INTERNAL_SERVER_ERROR")],
+    ["네트워크", new TypeError("offline")],
+  ])("%s 실패는 지금처럼 다시 누르라고 알린다", async (_, error) => {
+    setFlag(true);
+    renderHome({
+      readMission: vi.fn().mockResolvedValue({ ...homeMission(2, 300), claimablePoints: 150 }),
+      claimMissionReward: vi.fn().mockRejectedValue(error),
+    });
+
+    await userEvent.click(await screen.findByRole("button", { name: "받기" }));
+
+    expect(await screen.findByText("보상을 받지 못했어요. 다시 눌러 주세요.")).toBeInTheDocument();
+    expect(screen.queryByText("포인트는 정식 출시 후부터 받을 수 있어요")).not.toBeInTheDocument();
   });
 });

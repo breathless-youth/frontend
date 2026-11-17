@@ -174,6 +174,7 @@ export type RewardKind = "attendance" | "daily-goal" | "medals";
  *
  * 이미 받은 출석과 하루 목표는 200에 granted가 false고, 받을 메달이 없으면 claimedCount가 0이다.
  * 하루 목표를 아직 못 채웠으면 서버가 409(REWARD_NOT_AVAILABLE)를 준다.
+ * 서버가 포인트를 쌓기 시작한 날 전에도 출석과 하루 목표는 같은 409를 준다. 메달은 이날과 상관없이 받는다.
  */
 export function postRewardClaim(kind: RewardKind): Promise<ClaimResponse | MedalClaimAllResponse> {
   return request(
