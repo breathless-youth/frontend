@@ -671,6 +671,33 @@
   }
 }
 
+/* 도움말에서 심플 모드로 넘어가기 전에 화면을 누르는 손과 퍼지는 원을 한 번 보인다.
+   모션 축소면 사용처가 이 움직임 없이 바로 화면을 바꾼다. */
+@keyframes help-tap {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(1.05);
+  }
+
+  30% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  45% {
+    transform: scale(0.92);
+  }
+
+  60% {
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
 /* 초대코드 input-otp 활성 칸 캐럿 깜빡임. 모션 축소는 사용처의
    motion-reduce:animate-none이 막는다. */
 @keyframes caret-blink {

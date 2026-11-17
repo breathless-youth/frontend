@@ -148,8 +148,21 @@ async function leaveSimpleMode() {
   await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
 }
 
+/**
+ * 더보기 메뉴의 플래너로 과목 페이지를 연다.
+ * 더보기는 심플 모드에서 숨어 있어 먼저 촬영 화면으로 바꾼다.
+ */
+async function openPlanner(user: Pick<typeof userEvent, "click"> = userEvent) {
+  const toggle = screen.getByRole("button", { name: "심플 모드 전환" });
+  if (toggle.getAttribute("aria-pressed") === "true") {
+    await user.click(toggle);
+  }
+  await user.click(screen.getByRole("button", { name: "더보기" }));
+  await user.click(await screen.findByRole("menuitem", { name: "플래너" }));
+}
+
 async function selectMathFromPage() {
-  await userEvent.click(screen.getByRole("button", { name: "과목" }));
+  await openPlanner();
   await userEvent.click(await screen.findByRole("button", { name: "수학 측정 시작" }));
 }
 
@@ -173,14 +186,14 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
     expect(screen.getByRole("button", { name: "공부 종료" })).toBeInTheDocument();
   });
 
-  it("오른쪽 위 열은 배경음, 과목, 타이머 순서이고 심플 모드로 시작해 열 전체를 숨긴다", async () => {
+  it("오른쪽 위 열은 공간, 배경음, 타이머 순서이고 심플 모드로 시작해 열 전체를 숨긴다", async () => {
     renderRoom();
     const group = screen.getByRole("group", { name: "부가 기능" });
     const names = within(group)
       .getAllByRole("button")
       .map((button) => button.getAttribute("aria-label"));
 
-    expect(names).toEqual(["배경음", "과목", "타이머"]);
+    expect(names).toEqual(["공간", "배경음", "타이머"]);
     expect(group).toHaveAttribute("inert");
     await leaveSimpleMode();
     expect(group).not.toHaveAttribute("inert");
@@ -194,18 +207,19 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
     expect(screen.queryByRole("button", { name: /순공/ })).not.toBeInTheDocument();
   });
 
-  it("과목 버튼으로 열면 세션이 계속되고, 뒤로 닫으면 열린 초가 찍히고 포커스가 돌아온다", async () => {
+  it("더보기의 플래너로 열면 세션이 계속되고, 뒤로 닫으면 열린 초가 찍히고 더보기로 포커스가 돌아온다", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     renderRoom();
-    const subjectButton = screen.getByRole("button", { name: "과목" });
 
-    await user.click(subjectButton);
-    const dialog = screen.getByRole("dialog", { name: "과목" });
-    expect(amplitude.trackSubjectSheetOpened).toHaveBeenCalledWith("button", "single");
+    await openPlanner(user);
+    const dialog = screen.getByRole("dialog", { name: "플래너" });
+    expect(amplitude.trackSubjectSheetOpened).toHaveBeenCalledWith("menu", "single");
     expect(within(dialog).getByText("00:00:00")).toBeInTheDocument();
     expect(
-      within(screen.getByRole("heading", { name: "과목" }).parentElement!).getByText(/^순공시간 /),
+      within(screen.getByRole("heading", { name: "플래너" }).parentElement!).getByText(
+        /^순공시간 /,
+      ),
     ).toBeInTheDocument();
 
     act(() => {
@@ -222,7 +236,7 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
       closedBy: "back",
       roomType: "single",
     });
-    await waitFor(() => expect(subjectButton).toHaveFocus());
+    await waitFor(() => expect(screen.getByRole("button", { name: "더보기" })).toHaveFocus());
   });
 
   it("일시정지 중 재생 버튼은 세션을 다시 시작하고 페이지를 닫는다", async () => {
@@ -233,7 +247,7 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
     await selectMathFromPage();
 
     await waitFor(() =>
-      expect(screen.queryByRole("dialog", { name: "과목" })).not.toBeInTheDocument(),
+      expect(screen.queryByRole("dialog", { name: "플래너" })).not.toBeInTheDocument(),
     );
     expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
     expect(amplitude.trackSubjectSheetClosed).toHaveBeenCalledOnce();
@@ -256,7 +270,17 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
     await waitFor(() => expect(label).toHaveFocus());
   });
 
-  it("라벨로 열고 과목을 해제한 뒤 닫으면 과목 버튼으로 포커스가 간다", async () => {
+  it("과목 줄에는 과목 색 점이 없다", async () => {
+    listSubjects.mockResolvedValueOnce([MATH]);
+    const { container } = renderRoom();
+    await leaveSimpleMode();
+    await selectMathFromPage();
+
+    expect(await screen.findByRole("button", { name: /^수학.*순공/ })).toBeInTheDocument();
+    expect(container.querySelector('img[src*="sheet-dot"]')).toBeNull();
+  });
+
+  it("라벨로 열고 과목을 해제한 뒤 닫으면 더보기로 포커스가 간다", async () => {
     listSubjects.mockResolvedValueOnce([MATH]);
     renderRoom();
     await leaveSimpleMode();
@@ -264,23 +288,23 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: /^수학.*순공/ }));
     await userEvent.click(screen.getByRole("button", { name: "수학 측정 멈추기" }));
-    expect(screen.getByRole("dialog", { name: "과목" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "플래너" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "과목" })).toHaveFocus());
+    await waitFor(() => expect(screen.getByRole("button", { name: "더보기" })).toHaveFocus());
   });
 
   it("페이지가 열린 동안 세션 레이어가 접근성 트리에서 가려진다", async () => {
     renderRoom();
 
-    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    await openPlanner();
 
     expect(screen.queryByRole("button", { name: "공부 종료" })).not.toBeInTheDocument();
   });
 
   it("페이지가 열린 동안 초대가 오면 초대 확인 창이 페이지 위에 뜬다", async () => {
     renderRoom();
-    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    await openPlanner();
 
     receiveInvite("4680");
 
@@ -295,14 +319,14 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
     createTask.mockRejectedValueOnce(new Error("network"));
     renderRoom();
 
-    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    await openPlanner();
     await userEvent.click(await screen.findByRole("button", { name: /할 일 추가/ }));
     await userEvent.type(
       screen.getByRole("textbox", { name: "새 할 일 이름" }),
       "오답 정리{Enter}",
     );
 
-    const dialog = screen.getByRole("dialog", { name: "과목" });
+    const dialog = screen.getByRole("dialog", { name: "플래너" });
     expect(
       await within(dialog).findByText("저장하지 못했어요. 다시 시도해주세요"),
     ).toBeInTheDocument();
@@ -314,27 +338,29 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
   it("불투명한 페이지가 밀려 나가는 동안 뒤에 세션 화면이 그대로 보이고, 알림 영역은 하나뿐이다", async () => {
     simulatePageAnimations();
     renderRoom();
-    // 레이어는 상태 필의 부모다. 숨김이 클래스로만 드러나서 이 테스트에 한해 클래스를 본다.
-    const layer = screen.getByRole("status").parentElement!;
-    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    // 레이어는 부가 기능 묶음의 부모다. 숨김이 클래스로만 드러나서 이 테스트에 한해 클래스를 본다.
+    const layer = screen.getByRole("group", { name: "부가 기능" }).parentElement!;
+    await openPlanner();
     expect(layerToasters()).toHaveLength(0);
 
     await userEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
-    const closing = screen.getByRole("dialog", { name: "과목", hidden: true });
+    const closing = screen.getByRole("dialog", { name: "플래너", hidden: true });
     expect(layer).not.toHaveClass("invisible");
     expect(layerToasters()).toHaveLength(1);
     expect(screen.getAllByRole("region", { name: "화면 알림", hidden: true })).toHaveLength(1);
 
     finishExitAnimation(closing);
     await waitFor(() =>
-      expect(screen.queryByRole("dialog", { name: "과목", hidden: true })).not.toBeInTheDocument(),
+      expect(
+        screen.queryByRole("dialog", { name: "플래너", hidden: true }),
+      ).not.toBeInTheDocument(),
     );
     expect(layerToasters()).toHaveLength(1);
   });
 
   it("페이지가 열린 채 세션이 끝나 화면이 사라지면 닫힘 이벤트를 남기지 않는다", async () => {
     const { unmount } = renderRoom();
-    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    await openPlanner();
 
     // 초대 확인 창의 참여하기가 페이지를 연 채로 세션을 끝내는 실제 경로다.
     receiveInvite("4680");
@@ -342,7 +368,7 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
       within(await screen.findByRole("alertdialog")).getByRole("button", { name: "참여하기" }),
     );
     await waitFor(() =>
-      expect(screen.queryByRole("dialog", { name: "과목" })).not.toBeInTheDocument(),
+      expect(screen.queryByRole("dialog", { name: "플래너" })).not.toBeInTheDocument(),
     );
     // 페이지가 history를 거치지 않고 닫혀도 우리 항목은 걷어 내고, 그 뒤의 popstate에는 반응하지 않는다.
     await waitFor(() => expect(pageEntryOnTop()).toBe(false));
@@ -354,29 +380,12 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
     expect(amplitude.trackSubjectSheetClosed).not.toHaveBeenCalled();
   });
 
-  it("과목을 고른 동안 과목 버튼이 배경음 버튼처럼 켜진 모양이 되고, 해제하면 돌아온다", async () => {
-    listSubjects.mockResolvedValueOnce([MATH]);
-    renderRoom();
-    expect(screen.getByRole("button", { name: "과목" })).toHaveAttribute("data-on", "false");
-
-    await selectMathFromPage();
-    expect(await screen.findByRole("button", { name: "과목 선택됨" })).toHaveAttribute(
-      "data-on",
-      "true",
-    );
-
-    await userEvent.click(screen.getByRole("button", { name: "과목 선택됨" }));
-    await userEvent.click(screen.getByRole("button", { name: "수학 측정 멈추기" }));
-    await userEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
-    expect(screen.getByRole("button", { name: "과목" })).toHaveAttribute("data-on", "false");
-  });
-
   it("페이지를 열 때만 history 항목을 하나 쌓는다", async () => {
     const before = freshHistory();
     renderRoom();
     expect(window.history.length).toBe(before);
 
-    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    await openPlanner();
 
     expect(window.history.length).toBe(before + 1);
     expect(window.history.state).toMatchObject({ sessionPage: "subject" });
@@ -385,14 +394,14 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
   it("뒤로 가기(가장자리 스와이프·브라우저 뒤로)로 페이지가 닫히고 닫힘은 back으로 한 번 남는다", async () => {
     freshHistory();
     renderRoom();
-    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    await openPlanner();
 
     act(() => {
       window.history.back();
     });
 
     await waitFor(() =>
-      expect(screen.queryByRole("dialog", { name: "과목" })).not.toBeInTheDocument(),
+      expect(screen.queryByRole("dialog", { name: "플래너" })).not.toBeInTheDocument(),
     );
     expect(amplitude.trackSubjectSheetClosed).toHaveBeenCalledOnce();
     expect(amplitude.trackSubjectSheetClosed).toHaveBeenCalledWith(
@@ -405,16 +414,16 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
     const before = freshHistory();
     renderRoom();
 
-    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    await openPlanner();
     await userEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
     await waitFor(() =>
-      expect(screen.queryByRole("dialog", { name: "과목" })).not.toBeInTheDocument(),
+      expect(screen.queryByRole("dialog", { name: "플래너" })).not.toBeInTheDocument(),
     );
     expect(pageEntryOnTop()).toBe(false);
 
     await selectMathFromPage();
     await waitFor(() =>
-      expect(screen.queryByRole("dialog", { name: "과목" })).not.toBeInTheDocument(),
+      expect(screen.queryByRole("dialog", { name: "플래너" })).not.toBeInTheDocument(),
     );
     expect(pageEntryOnTop()).toBe(false);
     expect(window.history.length).toBe(before + 1);
@@ -442,7 +451,7 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
   it("popstate가 오기 전에 ‹를 한 번 더 눌러도 history는 한 칸만 되돌린다", async () => {
     freshHistory();
     renderRoom();
-    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    await openPlanner();
     const historyBack = vi.spyOn(window.history, "back");
 
     const back = screen.getByRole("button", { name: "뒤로 가기" });
@@ -450,7 +459,7 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
     fireEvent.click(back);
 
     await waitFor(() =>
-      expect(screen.queryByRole("dialog", { name: "과목" })).not.toBeInTheDocument(),
+      expect(screen.queryByRole("dialog", { name: "플래너" })).not.toBeInTheDocument(),
     );
     expect(historyBack).toHaveBeenCalledOnce();
     expect(amplitude.trackSubjectSheetClosed).toHaveBeenCalledOnce();
@@ -459,7 +468,7 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
   it("앞으로 가기로 표시 항목에 돌아와 다시 열면 항목을 새로 쌓지 않는다", async () => {
     const before = freshHistory();
     renderRoom();
-    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    await openPlanner();
     await userEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
     await waitFor(() => expect(pageEntryOnTop()).toBe(false));
 
@@ -467,7 +476,7 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
       window.history.forward();
     });
     await waitFor(() => expect(pageEntryOnTop()).toBe(true));
-    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    await openPlanner();
     await userEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
 
     await waitFor(() => expect(pageEntryOnTop()).toBe(false));
@@ -488,7 +497,7 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
   it("닫는 중에 화면이 사라져도 history는 한 번만 되돌린다", async () => {
     freshHistory();
     const { unmount } = renderRoom();
-    await userEvent.click(screen.getByRole("button", { name: "과목" }));
+    await openPlanner();
     const historyBack = vi.spyOn(window.history, "back");
 
     fireEvent.click(screen.getByRole("button", { name: "뒤로 가기" }));
@@ -505,20 +514,20 @@ describe("RoomPage 과목 페이지와 하단 버튼", () => {
 
     it("뒤로 가기로 닫고 다시 열 수 있고, 세션이 끝난 뒤의 popstate에는 반응하지 않으며 룸 경로에 머문다", async () => {
       renderRoomInBrowserRouter();
-      await userEvent.click(screen.getByRole("button", { name: "과목" }));
+      await openPlanner();
       expect(pageEntryOnTop()).toBe(true);
 
       act(() => {
         window.history.back();
       });
       await waitFor(() =>
-        expect(screen.queryByRole("dialog", { name: "과목" })).not.toBeInTheDocument(),
+        expect(screen.queryByRole("dialog", { name: "플래너" })).not.toBeInTheDocument(),
       );
       expect(routerPath()).toBe("/room/7");
       expect(amplitude.trackSubjectSheetClosed).toHaveBeenCalledOnce();
 
-      await userEvent.click(screen.getByRole("button", { name: "과목" }));
-      expect(await screen.findByRole("dialog", { name: "과목" })).toBeInTheDocument();
+      await openPlanner();
+      expect(await screen.findByRole("dialog", { name: "플래너" })).toBeInTheDocument();
       expect(pageEntryOnTop()).toBe(true);
 
       receiveInvite("4680");

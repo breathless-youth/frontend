@@ -15,6 +15,7 @@ import {
   trackStudySessionStarted,
   trackStudySessionSubmitted,
   type MultiTimerUse,
+  type SessionDisplayEnd,
   type StudyRoomType,
 } from "@/lib/amplitude";
 import { formatLockStartedToast } from "@/features/app-lock/appLockSummary";
@@ -165,6 +166,13 @@ export interface StudyRoomSessionOptions {
    */
   readonly multiTimerUsage?: () => MultiTimerUse;
   /**
+   * 계측용 싱글룸 화면 표시 기록 조회
+   *
+   * 종료 시점에 한 번 읽어 `study_session_ended`에 싣는다.
+   * 작은 카메라 창이 없는 소셜룸은 생략한다.
+   */
+  readonly displayUsage?: () => SessionDisplayEnd;
+  /**
    * 세션이 끝난 순간 한 번 부르는 알림
    *
    * 서버 제출 성패와 관계없이 기기가 잰 값을 준다.
@@ -229,10 +237,12 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const ambientUsageRef = useRef(options.ambientUsage);
   const ambientSoundPlaysRef = useRef(options.ambientSoundPlays);
   const multiTimerUsageRef = useRef(options.multiTimerUsage);
+  const displayUsageRef = useRef(options.displayUsage);
   useLayoutEffect(() => {
     ambientUsageRef.current = options.ambientUsage;
     ambientSoundPlaysRef.current = options.ambientSoundPlays;
     multiTimerUsageRef.current = options.multiTimerUsage;
+    displayUsageRef.current = options.displayUsage;
   });
   const onEndedRef = useRef(options.onEnded);
   useLayoutEffect(() => {
@@ -910,6 +920,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         // 계측도 최초 값을 따라야 한다. 이름을 달리해 두 값이 다를 수 있음을 드러낸다.
         const finalReason = endReasonRef.current;
         const ambient = ambientUsageRef.current?.();
+        const display = displayUsageRef.current?.();
         const { pauseSec, breakSec } = splitPauseSec(closed, endedAtMs);
         trackStudySessionEnded({
           startedAtMs: startedAtMsRef.current,
@@ -925,6 +936,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           ...(ambient && { ambientSoundUsed: ambient.used, ambientSoundSec: ambient.sec }),
           breakSec,
           multiTimer: multiTimerUsageRef.current?.() ?? "none",
+          ...(display && { display }),
         });
         for (const play of ambientSoundPlaysRef.current?.() ?? []) {
           if (play.sec <= 0) continue;

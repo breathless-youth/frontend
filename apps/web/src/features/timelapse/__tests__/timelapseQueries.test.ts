@@ -17,6 +17,9 @@ import type { TimelapseStore } from "../timelapseStore";
 import { createIndexedDbTimelapseStore } from "../timelapseStore";
 import { TimelapseVideoError, type BuiltVideo } from "../timelapseVideo";
 
+/** 기본값은 녹화가 꺼져 있어 촬영을 보는 테스트는 켠 설정으로 시작한다. */
+const RECORDING = { ...DEFAULT_TIMELAPSE_SETTINGS, enabled: true };
+
 vi.mock("@/lib/amplitude", () => ({
   trackTimelapseVideoCreated: vi.fn(),
   trackTimelapseVideoFailed: vi.fn(),
@@ -32,7 +35,7 @@ beforeEach(() => {
 describe("recentTimelapsesQuery", () => {
   it("기한 정리가 실패해도 목록은 읽는다", async () => {
     const startedAtMs = Date.now() - 3_600_000;
-    await store.begin(startedAtMs, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(startedAtMs, RECORDING);
     await store.addPhoto(startedAtMs, new Uint8Array([1]).buffer, startedAtMs);
     await store.finalize(startedAtMs, {
       endedAtMs: startedAtMs + 600_000,
@@ -61,7 +64,7 @@ describe("timelapseVideoQuery", () => {
   };
 
   async function ready() {
-    await store.begin(startedAtMs, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(startedAtMs, RECORDING);
     await store.addPhoto(startedAtMs, new Uint8Array([1]).buffer, startedAtMs);
     await store.finalize(startedAtMs, {
       endedAtMs: startedAtMs + 600_000,
@@ -268,7 +271,7 @@ describe("timelapsePhotosQuery", () => {
   const startedAtMs = Date.now() - 3_600_000;
 
   async function seedPhotos() {
-    await store.begin(startedAtMs, DEFAULT_TIMELAPSE_SETTINGS);
+    await store.begin(startedAtMs, RECORDING);
     await store.addPhoto(startedAtMs, new Uint8Array([1]).buffer, startedAtMs);
     await store.addPhoto(startedAtMs, new Uint8Array([2]).buffer, startedAtMs + 10_000);
   }

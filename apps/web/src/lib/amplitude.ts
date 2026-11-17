@@ -379,6 +379,22 @@ export interface StudySessionEndedInput {
   readonly breakSec?: number;
   /** 멀티 타이머가 없는 소셜룸은 생략하고, 생략은 none 으로 나간다. */
   readonly multiTimer?: MultiTimerUse;
+  /** 싱글룸 화면 표시 기록. 소셜룸은 생략하고 생략하면 키 자체를 싣지 않는다. */
+  readonly display?: SessionDisplayEnd;
+}
+
+/**
+ * 싱글룸 세션이 끝날 때의 화면 표시 기록
+ *
+ * 작은 창·키운 화면·심플 모드에 머문 초, 작은 창에서 키운 횟수, 끝날 때의 공간 종류와 얼굴 가림이다.
+ */
+export interface SessionDisplayEnd {
+  readonly pipSec: number;
+  readonly expandedSec: number;
+  readonly simpleSec: number;
+  readonly pipExpandCount: number;
+  readonly spaceKind: SpaceKind;
+  readonly faceMask: boolean;
 }
 
 /**
@@ -421,6 +437,14 @@ export function trackStudySessionEnded(input: StudySessionEndedInput) {
       ambient_sound_sec: Number(input.ambientSoundSec ?? 0),
       break_sec: Number(input.breakSec ?? 0),
       multi_timer: input.multiTimer ?? "none",
+      ...(input.display && {
+        pip_sec: input.display.pipSec,
+        expanded_sec: input.display.expandedSec,
+        simple_sec: input.display.simpleSec,
+        pip_expand_count: input.display.pipExpandCount,
+        space_kind: input.display.spaceKind,
+        face_mask: input.display.faceMask,
+      }),
     },
     { time: endedAt },
   );
@@ -1263,10 +1287,144 @@ export function trackSessionOrientationChanged(input: {
   });
 }
 
-/** 싱글룸 심플 모드(S3-4) 토글(2026-09-05) — 화면 탭 한 번으로 켜고 끈다. `on`은 전환 후 상태. */
-export function trackSessionSimpleModeToggled(on: boolean) {
+/**
+ * 싱글룸 심플 모드(S3-4) 토글(2026-09-05) — 화면 탭 한 번으로 켜고 끈다. `on`은 전환 후 상태.
+ *
+ * `from`은 심플 모드로 들어갈 때만 싣는 출발 화면이다(작은 카메라 창 pip, 키운 카메라 expanded).
+ * 나올 때는 출발점이 늘 심플 모드라 싣지 않는다.
+ */
+export function trackSessionSimpleModeToggled(on: boolean, from?: "pip" | "expanded") {
   if (!initialized) return;
-  track("session_simple_mode_toggled", { on });
+  track("session_simple_mode_toggled", from === undefined ? { on } : { on, from });
+}
+
+/** 싱글룸 세션 오른쪽 위 더보기 메뉴를 열었다. */
+export function trackSessionMoreMenuOpened() {
+  if (!initialized) return;
+  track("session_more_menu_opened");
+}
+
+/** 싱글룸 더보기 메뉴에서 항목을 골랐다. */
+export function trackSessionMoreMenuItemSelected(input: {
+  readonly item: "flip_camera" | "planner" | "help";
+}) {
+  if (!initialized) return;
+  track("session_more_menu_item_selected", { item: input.item });
+}
+
+/** 싱글룸 오른쪽 세로 열 버튼을 눌렀다. 앱 버튼 누름도 같은 이벤트다. */
+export function trackSessionSideButtonPressed(input: {
+  readonly button: "space" | "ambient" | "timer";
+}) {
+  if (!initialized) return;
+  track("session_side_button_pressed", { button: input.button });
+}
+
+/** 싱글룸 내 카메라 작은 창을 화면 전체로 키웠다. */
+export function trackCameraPipExpanded() {
+  if (!initialized) return;
+  track("camera_pip_expanded");
+}
+
+/** 키운 카메라를 작은 창으로 줄였다. 키운 채 머문 초를 싣는다. */
+export function trackCameraPipShrunk(input: { readonly expandedSec: number }) {
+  if (!initialized) return;
+  track("camera_pip_shrunk", { expanded_sec: input.expandedSec });
+}
+
+/** 싱글룸 공간 종류. 사진 내용과 이름은 보내지 않는다. */
+export type SpaceKind = "simple" | "proctor" | "photo";
+/** 공간 페이지 최상위 탭 */
+export type SpaceTab = "video" | "image";
+/** 공간 페이지 분류. 감시는 영상 탭, 내 사진과 심플은 이미지 탭에 있다. */
+export type SpaceCategory = "watch" | "mine" | "simple";
+
+/** 세로 열 공간 버튼으로 공간 페이지를 열었다. */
+export function trackSessionSpaceOpened() {
+  if (!initialized) return;
+  track("session_space_opened");
+}
+
+/** 공간 페이지에서 영상·이미지 탭을 바꿨다. */
+export function trackSessionSpaceTabSwitched(input: { readonly tab: SpaceTab }) {
+  if (!initialized) return;
+  track("session_space_tab_switched", { tab: input.tab });
+}
+
+/** 공간 타일의 미리보기 버튼을 눌렀다. */
+export function trackSessionSpacePreviewOpened(input: { readonly kind: SpaceKind }) {
+  if (!initialized) return;
+  track("session_space_preview_opened", { kind: input.kind });
+}
+
+/**
+ * 공간을 적용했다
+ *
+ * `kind`가 소스마다 다른 값이라 어떤 소스를 골랐는지 이것으로 구분하고, 내 사진은 몇 번째인지 나누지 않는다.
+ * `source`는 타일을 바로 눌렀는지(tile), 미리보기의 `적용하기`인지(preview)다.
+ */
+export function trackTimerBackgroundApplied(input: {
+  readonly kind: SpaceKind;
+  readonly source: "tile" | "preview";
+  readonly tab: SpaceTab;
+  readonly category: SpaceCategory;
+}) {
+  if (!initialized) return;
+  track("timer_background_applied", {
+    kind: input.kind,
+    source: input.source,
+    tab: input.tab,
+    category: input.category,
+  });
+}
+
+/**
+ * 공간에 내 사진을 담았다
+ *
+ * `count`는 담은 뒤의 사진 수다.
+ * 웹 파일 입력만 쓰므로 `source`는 file로 고정한다.
+ * 앱 사진 선택기를 붙이면 같은 이벤트에 native가 더해져서 값 이름을 그쪽과 맞춘다.
+ * 사진 내용과 크기는 보내지 않는다.
+ */
+export function trackTimerBackgroundPhotoAdded(input: { readonly count: number }) {
+  if (!initialized) return;
+  track("timer_background_photo_added", { count: input.count, source: "file" });
+}
+
+/** 내 사진을 삭제했다. `count`는 삭제한 뒤의 사진 수이고 `wasSelected`는 적용 중인 공간이었는지다. */
+export function trackTimerBackgroundPhotoRemoved(input: {
+  readonly count: number;
+  readonly wasSelected: boolean;
+}) {
+  if (!initialized) return;
+  track("timer_background_photo_removed", {
+    count: input.count,
+    was_selected: input.wasSelected,
+  });
+}
+
+/** 내 사진을 담거나 읽지 못했다. 읽을 수 없는 사진은 unusable, 기기 저장소 실패는 storage다. */
+export function trackSessionSpacePhotoFailed(input: { readonly reason: "unusable" | "storage" }) {
+  if (!initialized) return;
+  track("session_space_photo_failed", { reason: input.reason });
+}
+
+/** 사진이 다 찬 상태에서 사진 올리기를 눌렀다. */
+export function trackSessionSpacePhotoLimitReached() {
+  if (!initialized) return;
+  track("session_space_photo_limit_reached");
+}
+
+/** 공간 음량을 바꾸고 손을 뗐다. 끄는 동안 여러 번 보내지 않도록 손 뗄 때 한 번만 보낸다. */
+export function trackSessionSpaceVolumeChanged(input: { readonly volume: number }) {
+  if (!initialized) return;
+  track("session_space_volume_changed", { volume: input.volume });
+}
+
+/** 공간 소리 음소거 버튼을 눌렀다. `muted`는 누른 뒤 상태다. */
+export function trackSessionSpaceMuted(input: { readonly muted: boolean }) {
+  if (!initialized) return;
+  track("session_space_muted", { muted: input.muted });
 }
 
 /** 싱글룸 입장 카메라 확인 창의 답. `카메라 켜기`는 camera, `심플 모드로 시작`과 Escape는 simple이다. */
@@ -1327,15 +1485,16 @@ export function trackStudySessionFaceMaskEmojiSelected(input: {
 export type SessionHelpTrigger = "auto" | "menu";
 
 /** 세션 도움말 단계 id. 단계 번호와 달리 순서가 바뀌어도 뜻이 같다. */
-export type SessionHelpStepId = "away" | "measuring" | "camera" | "buttons" | "finish";
+export type SessionHelpStepId = "welcome" | "away" | "measuring" | "simple" | "finish";
 
 /**
  * 세션 도움말 판
  *
  * 2는 심플 모드로 시작하는 5단계 판이다.
+ * 3은 일반 모드 화면 위 말풍선 5단계 판이다.
  * 이 속성이 없는 6단계 판과 단계 번호의 뜻이 달라 콘솔 차트는 이 값으로 거른다.
  */
-const SESSION_HELP_VERSION = 2;
+const SESSION_HELP_VERSION = 3;
 
 /**
  * 세션 도움말 노출
@@ -1379,7 +1538,7 @@ export function trackStudySessionHelpStepViewed(input: {
  * 세션 도움말을 마지막 단계까지 본 것
  *
  * 앱 종료나 세션 이탈로 끝내지 못한 노출은 완료도 중단도 보내지 않아 다음 세션의 재노출로 센다.
- * `cta`는 마지막 단계에서 누른 버튼이다. `later`는 `나중에 시작할게요`라 세션이 시작되지 않는다.
+ * `cta`는 마지막 단계에서 누른 버튼이다. `later`는 `나중에 하기`라 세션이 시작되지 않는다.
  */
 export function trackStudySessionHelpCompleted(
   trigger: SessionHelpTrigger,
@@ -2082,8 +2241,15 @@ export function trackForceUpdatePrompted(input: {
  * 이벤트 이름의 sheet는 예전 과목 시트 때 정한 것이라 지표를 잇기 위해 유지한다.
  */
 
-/** 과목 페이지를 연 순간. `source`는 오른쪽 위 과목 버튼인지 타이머 위 라벨인지다. */
-export function trackSubjectSheetOpened(source: "button" | "label", roomType: StudyRoomType) {
+/**
+ * 과목 페이지를 연 순간
+ *
+ * `source`는 소셜룸 과목 버튼(button), 타이머 위 라벨(label), 싱글룸 더보기 메뉴의 플래너(menu) 중 하나다.
+ */
+export function trackSubjectSheetOpened(
+  source: "button" | "label" | "menu",
+  roomType: StudyRoomType,
+) {
   if (!initialized) return;
   track("subject_sheet_opened", { source, room_type: roomType });
 }

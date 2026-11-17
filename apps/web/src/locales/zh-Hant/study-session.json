@@ -25,11 +25,15 @@
   "cameraPrompt": {
     "title": "請確認相機位置",
     "description": "請調整位置，讓臉和書桌都入鏡",
-    "notice": "影像不會離開你的裝置",
+    "notice": "相機畫面不會傳送到任何地方",
     "cancel": "以極簡模式開始",
     "confirm": "開啟相機",
     "faceMaskTooltip": "快速移動時，臉部可能會短暫露出",
     "faceMaskCaption": "縮時攝影的「遮住臉部」需要另外設定"
+  },
+  "camera": {
+    "expand": "放大我的畫面",
+    "shrink": "縮小顯示"
   },
   "cameraToast": {
     "flipped": "已切換相機",
@@ -82,6 +86,7 @@
   "moreMenu": {
     "trigger": "更多",
     "flipCamera": "切換相機",
+    "planner": "讀書計畫",
     "help": "查看說明",
     "shareInvite": "分享邀請碼"
   },
@@ -116,20 +121,22 @@
   },
   "help": {
     "dialog": "讀書畫面說明",
-    "nextOverlay": "下一則說明",
     "prev": "上一步",
     "next": "下一步",
-    "awayPill": "<hl>離開座位</hl>或<hl>打瞌睡</hl>時\n會在這裡提醒你",
-    "awayTimer": "這段時間<hl>專注時間</hl>會暫停",
-    "measuringPill": "回到座位就會<hl>重新測量</hl>\n用於測量的影像不會離開<hl>你的裝置</hl>\n請放心😌",
-    "measuringTimer": "<hl>專注時間</hl>\n又開始計時了⏰",
-    "cameraTap": "點一下畫面\n就會切換成<hl>相機畫面</hl>",
-    "buttonsSide": "<hl>背景聲音</hl>、<hl>科目</hl>和<hl>計時器</hl>\n都在這裡開啟",
-    "buttonsPause": "想休息時\n請點<hl>暫停</hl>",
+    "stepCount": "{{current}} / {{total}}",
+    "sampleSubject": "數學",
+    "welcomeTitle": "歡迎來到 FocusMakers。",
+    "welcomeBody": "一起來看看怎麼使用吧？",
+    "awayTitle": "<hl>看起來沒在專注時</hl>，會在這裡提醒你",
+    "awayBody": "這段時間專注時間會暫停",
+    "measuringTitle": "重新專注就會<hl>再次測量</hl>",
+    "measuringBody": "專注時間又開始計時了",
+    "simpleTitle": "點一下畫面就會切換成<hl>極簡模式</hl>",
+    "finishTitle": "準備好了\n一起來<hl>專注</hl>吧！",
     "finishMore": "隨時可以在「更多」選單\n再次查看這份說明",
-    "finishCenter": "準備好了\n一起來<hl>專注</hl>吧！",
+    "finishPip": "相機畫面不會傳送到任何地方\n請放心😌",
     "finishCta": "開始專注",
-    "finishLater": "稍後再開始"
+    "finishLater": "稍後再說"
   },
   "recovery": {
     "title": "已復原未儲存的紀錄",
@@ -159,5 +166,40 @@
     "focus": "專注",
     "distract": "自動暫停",
     "pause": "暫停"
+  },
+  "space": {
+    "button": "空間",
+    "title": "空間",
+    "tabs": {
+      "video": "影片",
+      "image": "圖片"
+    },
+    "search": "搜尋空間",
+    "all": "全部",
+    "sections": {
+      "watch": "監督",
+      "mine": "我的照片"
+    },
+    "names": {
+      "proctor": "自習室監督",
+      "simple": "極簡",
+      "photo": "我的照片 {{number}}"
+    },
+    "photoCount": "{{current}}/{{max}}",
+    "upload": "上傳照片",
+    "preview": "預覽{{name}}",
+    "remove": "刪除{{name}}",
+    "empty": "找不到空間",
+    "back": "返回",
+    "apply": "套用",
+    "applied": "使用中",
+    "mute": "關閉空間聲音",
+    "unmute": "開啟空間聲音",
+    "volume": "空間音量",
+    "applyFailed": "無法變更空間，請再試一次",
+    "photoLimit": "最多可上傳 {{max}} 張照片",
+    "removed": "已刪除照片",
+    "removeFailed": "無法刪除照片，請再試一次",
+    "photoLoadFailed": "無法載入照片"
   }
 }

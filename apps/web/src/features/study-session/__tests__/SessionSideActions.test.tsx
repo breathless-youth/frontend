@@ -4,11 +4,11 @@ import { describe, expect, it } from "vitest";
 import { SessionSideActions } from "../components/SessionSideActions";
 
 describe("SessionSideActions", () => {
-  it("배경음, 과목 뒤에 타이머가 놓이고 카메라 전환은 없다", () => {
+  it("공간, 배경음, 타이머 순서이고 과목과 카메라 전환은 없다", () => {
     render(
       <SessionSideActions
+        space={<button type="button" aria-label="공간" />}
         ambient={<button type="button" aria-label="배경음" />}
-        subject={<button type="button" aria-label="과목" />}
         modes={<button type="button" aria-label="타이머" />}
       />,
     );
@@ -16,6 +16,6 @@ describe("SessionSideActions", () => {
     const names = within(screen.getByRole("group", { name: "부가 기능" }))
       .getAllByRole("button")
       .map((button) => button.getAttribute("aria-label"));
-    expect(names).toEqual(["배경음", "과목", "타이머"]);
+    expect(names).toEqual(["공간", "배경음", "타이머"]);
   });
 });

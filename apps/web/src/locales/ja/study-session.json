@@ -25,11 +25,15 @@
   "cameraPrompt": {
     "title": "カメラの位置を確認してください",
     "description": "顔と机が映るように位置を調整してください",
-    "notice": "映像がデバイスの外に出ることはありません",
+    "notice": "カメラの映像はどこにも送信されません",
     "cancel": "シンプルモードで始める",
     "confirm": "カメラをオン",
     "faceMaskTooltip": "すばやく動くと、顔が一瞬見えることがあります",
     "faceMaskCaption": "タイムラプスの「顔を隠す」は別に設定が必要です"
+  },
+  "camera": {
+    "expand": "自分の画面を大きく表示",
+    "shrink": "小さく表示"
   },
   "cameraToast": {
     "flipped": "カメラを切り替えました",
@@ -82,6 +86,7 @@
   "moreMenu": {
     "trigger": "その他",
     "flipCamera": "カメラを切り替え",
+    "planner": "プランナー",
     "help": "ヘルプを見る",
     "shareInvite": "招待コードを共有"
   },
@@ -116,20 +121,22 @@
   },
   "help": {
     "dialog": "勉強画面のヘルプ",
-    "nextOverlay": "次の案内",
     "prev": "前へ",
     "next": "次へ",
-    "awayPill": "<hl>席を離れたり</hl>、<hl>居眠りしたり</hl>すると\nここでお知らせします",
-    "awayTimer": "その間、<hl>集中時間</hl>は止まります",
-    "measuringPill": "席に戻ると<hl>測定を再開</hl>します\n映像は<hl>デバイスの外</hl>に\n出ないので安心してください😌",
-    "measuringTimer": "<hl>集中時間</hl>が\nまた進みはじめます⏰",
-    "cameraTap": "画面をタップすると\n<hl>カメラ画面</hl>に切り替わります",
-    "buttonsSide": "<hl>バックグラウンド\nサウンド</hl>、<hl>科目</hl>、\n<hl>タイマー</hl>は\nここからオンにします",
-    "buttonsPause": "休憩するときは\n<hl>一時停止</hl>を\nタップします",
-    "finishMore": "このヘルプは\n「その他」メニューから\nいつでも見られます",
-    "finishCenter": "準備ができました\nさあ、<hl>集中</hl>しましょう",
+    "stepCount": "{{current}} / {{total}}",
+    "sampleSubject": "数学",
+    "welcomeTitle": "FocusMakersへようこそ。",
+    "welcomeBody": "使い方を一緒に見てみましょう。",
+    "awayTitle": "<hl>集中していないようなら</hl>ここでお知らせします",
+    "awayBody": "その間、集中時間は止まります",
+    "measuringTitle": "集中すると<hl>測定を再開</hl>します",
+    "measuringBody": "集中時間がまた進みはじめます",
+    "simpleTitle": "画面をタップすると<hl>シンプルモード</hl>に切り替わります",
+    "finishTitle": "準備ができました\nさあ、<hl>集中</hl>しましょう",
+    "finishMore": "このヘルプは「その他」メニューから\nいつでも見られます",
+    "finishPip": "カメラの映像はどこにも送信されないので\n安心してください😌",
     "finishCta": "集中をはじめる",
-    "finishLater": "あとではじめる"
+    "finishLater": "あとで"
   },
   "recovery": {
     "title": "保存されていなかった記録を復元しました",
@@ -159,5 +166,40 @@
     "focus": "集中",
     "distract": "自動一時停止",
     "pause": "一時停止"
+  },
+  "space": {
+    "button": "空間",
+    "title": "空間",
+    "tabs": {
+      "video": "動画",
+      "image": "画像"
+    },
+    "search": "空間を検索",
+    "all": "すべて",
+    "sections": {
+      "watch": "見守り",
+      "mine": "マイ写真"
+    },
+    "names": {
+      "proctor": "自習室の監督",
+      "simple": "シンプル",
+      "photo": "マイ写真 {{number}}"
+    },
+    "photoCount": "{{current}}/{{max}}",
+    "upload": "写真をアップロード",
+    "preview": "{{name}}のプレビュー",
+    "remove": "{{name}}を削除",
+    "empty": "該当する空間がありません",
+    "back": "戻る",
+    "apply": "適用する",
+    "applied": "使用中",
+    "mute": "空間のサウンドをオフ",
+    "unmute": "空間のサウンドをオン",
+    "volume": "空間の音量",
+    "applyFailed": "空間を変更できませんでした。もう一度お試しください",
+    "photoLimit": "写真は{{max}}枚までアップロードできます",
+    "removed": "写真を削除しました",
+    "removeFailed": "写真を削除できませんでした。もう一度お試しください",
+    "photoLoadFailed": "写真を読み込めませんでした"
   }
 }

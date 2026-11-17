@@ -111,7 +111,7 @@ describe("RoomPage 심플 모드 시작과 입장 카메라 확인 창", () => {
     const dialog = prompt();
     expect(dialog).toBeInTheDocument();
     expect(dialog).toHaveAccessibleDescription("얼굴과 책상이 보이게 자리를 잡아 주세요");
-    expect(within(dialog!).getByText("영상은 기기 밖으로 나가지 않아요")).toBeInTheDocument();
+    expect(within(dialog!).getByText("카메라 화면은 어디로도 보내지 않아요")).toBeInTheDocument();
     expect(within(dialog!).getByRole("button", { name: "심플 모드로 시작" })).toHaveFocus();
     expect(surface()).toBe("simple");
     expect(amplitude.trackStudySessionCameraPromptShown).toHaveBeenCalledExactlyOnceWith("single");

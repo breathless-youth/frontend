@@ -15,6 +15,9 @@ import { queryClient as appQueryClient } from "@/lib/queryClient";
 import { showToast } from "@/lib/toast";
 import { TimelapsesPage } from "@/routes/TimelapsesPage";
 
+/** 기본값은 녹화가 꺼져 있어 촬영을 보는 테스트는 켠 설정으로 시작한다. */
+const RECORDING = { ...DEFAULT_TIMELAPSE_SETTINGS, enabled: true };
+
 vi.mock("@/lib/toast", () => ({ showToast: vi.fn(), dismissToast: vi.fn() }));
 vi.mock("@/features/timelapse/timelapseVideo", async (importOriginal) => ({
   ...(await importOriginal<typeof TimelapseVideo>()),
@@ -54,7 +57,7 @@ afterEach(() => {
 
 /** 사진 세 장으로 타임랩스 하나를 목록에 올린다. 공부는 한 시간이다. */
 async function seed(startedAtMs: number, focusSec = 8_040, studySec = 9_600) {
-  await store.begin(startedAtMs, DEFAULT_TIMELAPSE_SETTINGS);
+  await store.begin(startedAtMs, RECORDING);
   for (let index = 0; index < 3; index += 1) {
     await store.addPhoto(startedAtMs, new Uint8Array([index]).buffer, startedAtMs + index * 10_000);
   }

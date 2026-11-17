@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { markSessionGuideSeen, sessionGuideState } from "@/features/study-session/sessionGuide";
+import {
+  SESSION_HELP_STEPS,
+  markSessionGuideSeen,
+  sessionGuideState,
+} from "@/features/study-session/sessionGuide";
 
 describe("sessionGuide 저장", () => {
   afterEach(() => localStorage.clear());
@@ -48,5 +52,45 @@ describe("sessionGuide 저장 — 저장소를 쓸 수 없는 기기", () => {
 
     expect(sessionGuideState(99)).toBe("seen");
     expect(sessionGuideState(98)).toBeNull();
+  });
+});
+
+describe("SESSION_HELP_STEPS", () => {
+  it("환영, 자리 비움, 측정 중, 심플 모드, 마무리 다섯 단계다", () => {
+    expect(SESSION_HELP_STEPS.map((s) => s.id)).toEqual([
+      "welcome",
+      "away",
+      "measuring",
+      "simple",
+      "finish",
+    ]);
+  });
+
+  it("단계마다 강조 자리와 마스코트가 정해져 있고 덮개 진하기는 모두 같다", () => {
+    expect(SESSION_HELP_STEPS.map((s) => [s.spots, s.mascot])).toEqual([
+      [[], "joy"],
+      [["status"], "sleepy"],
+      [["clock"], "focus"],
+      [[], "joy"],
+      [["more", "pip"], "jump"],
+    ]);
+    expect(SESSION_HELP_STEPS.some((s) => "dim" in s)).toBe(false);
+  });
+
+  it("심플 모드 단계만 심플 화면이고 자리 비움 단계만 공부 안 함 상태다", () => {
+    expect(SESSION_HELP_STEPS.map((s) => s.screen)).toEqual([
+      "normal",
+      "normal",
+      "normal",
+      "simple",
+      "normal",
+    ]);
+    expect(SESSION_HELP_STEPS.map((s) => s.state)).toEqual([
+      "focus",
+      "distract",
+      "focus",
+      "focus",
+      "focus",
+    ]);
   });
 });
