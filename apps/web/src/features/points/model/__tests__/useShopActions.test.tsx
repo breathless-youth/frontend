@@ -1,13 +1,15 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { MascotLook } from "@/components/mascot/types";
 import { ApiError } from "@/lib/api";
 import { pointsKeys } from "@/lib/pointsQueries";
 
 import { createFakePointsGateway } from "../../gateway/createFakePointsGateway";
 import { PointsGatewayProvider } from "../../gateway/PointsGatewayContext";
+import { recallMascotLook, rememberMascotLook } from "../storedMascotLook";
 import { useShopActions } from "../useShopActions";
 
 const USER_ID = 7;
@@ -31,23 +33,43 @@ function setup(member = true) {
   );
   const { result } = renderHook(() => useShopActions(), { wrapper });
   const lookIsStale = () => client.getQueryState(pointsKeys.look(USER_ID))?.isInvalidated;
-  return { actions: result.current, lookIsStale, gateway, requestLogin };
+  const cachedLook = () => client.getQueryData<MascotLook | null>(pointsKeys.look(USER_ID));
+  return { actions: result.current, lookIsStale, cachedLook, gateway, requestLogin };
 }
 
+afterEach(() => {
+  localStorage.clear();
+});
+
 describe("useShopActions", () => {
-  it("마스코트를 바꾸면 다른 화면이 읽는 내 모습도 다시 받게 한다", async () => {
-    const { actions, lookIsStale } = setup();
+  it("마스코트를 바꾸면 다른 화면이 읽는 내 모습을 바로 다시 받고 기기에 남긴 모습도 바꾼다", async () => {
+    const { actions, cachedLook } = setup();
+    rememberMascotLook(USER_ID, { id: "stopwatch", accessories: [] });
 
     await actions.selectMascot("planner");
 
-    expect(lookIsStale()).toBe(true);
+    expect(cachedLook()?.id).toBe("planner");
+    expect(recallMascotLook(USER_ID)).toEqual(cachedLook());
   });
 
-  it("소품을 벗으면 내 모습도 다시 받게 한다", async () => {
-    const { actions, lookIsStale } = setup();
+  it("소품을 벗으면 내 모습을 다시 받아 기기에 남긴 모습도 바꾼다", async () => {
+    const { actions, cachedLook, gateway } = setup();
+    rememberMascotLook(USER_ID, { id: "stopwatch", accessories: [{ slot: "head" }] });
 
     await actions.equipAccessory("stopwatch", "head", null);
 
+    expect(recallMascotLook(USER_ID)).toEqual(await gateway.getMyLook());
+    expect(recallMascotLook(USER_ID)).toEqual(cachedLook());
+  });
+
+  it("바꾼 뒤 내 모습을 받지 못하면 지난 모습을 지우고 다음에 다시 받게 한다", async () => {
+    const { actions, gateway, lookIsStale } = setup();
+    rememberMascotLook(USER_ID, { id: "stopwatch", accessories: [] });
+    vi.spyOn(gateway, "getMyLook").mockRejectedValue(new Error("offline"));
+
+    await actions.selectMascot("planner");
+
+    expect(recallMascotLook(USER_ID)).toBeUndefined();
     expect(lookIsStale()).toBe(true);
   });
 

@@ -63,6 +63,7 @@ import { SessionMoreMenu } from "@/features/study-session/components/SessionMore
 import { SessionPage } from "@/features/study-session/components/SessionPage";
 import { SessionSubjectPanel as SubjectPanel } from "@/features/study-session/components/SessionSubjectPanel";
 import { plannerCompletedTaskIds } from "@/features/study-session/plannerCompletedTasks";
+import { useMascotLookPrefetch } from "@/features/points/model/prefetchMyMascotLook";
 import { hasTokenSource } from "@/lib/userId";
 import { queryClient as sessionQueryClient } from "@/lib/queryClient";
 import { completedTaskIdsSince } from "@/features/study-session/completedTasks";
@@ -622,6 +623,8 @@ export function LiveRoomSession({
       whenIdle(preloadRoomTimerSheet);
     }
   }, [room.kind]);
+  // 결과 화면은 이 문서에서 웹 라우터 이동으로 열려 같은 캐시를 쓴다. 그 화면이 그릴 내 마스코트 모습을 미리 받는다.
+  const prefetchMascotLook = useMascotLookPrefetch(queryClient, userId);
 
   // 서버에 알리는 카메라 상태 — 사용자 의도(cameraWanted)를 함께 본다. 끄고 입장의
   // 첫 렌더는 pause가 effect로 적용되기 전이라, paused만 보면 켜짐이 먼저 새 나간다.
@@ -1205,6 +1208,8 @@ export function LiveRoomSession({
             }}
             onExit={() => {
               trackStudySessionExitRequested("social");
+              // 결과 화면이 처음 그림부터 고른 마스코트를 그리도록 확인 창을 읽는 사이에 모습을 다시 받는다.
+              prefetchMascotLook();
               setExitDialogOpen(true);
             }}
           >
