@@ -1,10 +1,24 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { readTimerBackground, writeTimerBackground } from "../timerBackground";
 import { DEFAULT_FIT, panZoom } from "../photoFit";
+import { clearWatcherAssets } from "../watcher/watcherAssets";
+
+const videoSpaces = vi.hoisted(() => ({ open: true }));
+
+vi.mock("../videoSpaces", () => ({
+  get VIDEO_SPACES_OPEN() {
+    return videoSpaces.open;
+  },
+}));
+
+vi.mock("../watcher/watcherAssets", () => ({ clearWatcherAssets: vi.fn() }));
 
 afterEach(() => {
   localStorage.clear();
+  videoSpaces.open = true;
+  vi.clearAllMocks();
+  vi.restoreAllMocks();
 });
 
 describe("타이머 배경 선택 저장", () => {
@@ -22,6 +36,34 @@ describe("타이머 배경 선택 저장", () => {
     writeTimerBackground({ kind: "proctor" });
 
     expect(readTimerBackground()).toEqual({ kind: "proctor" });
+  });
+
+  it("영상 공간을 닫아 두면 저장된 감독관을 심플로 읽고 저장값도 심플로 바꾸며 받아 둔 소재를 지운다", () => {
+    videoSpaces.open = false;
+    localStorage.setItem("focusmakers.timerBackground", '{"kind":"proctor"}');
+
+    expect(readTimerBackground()).toEqual({ kind: "simple" });
+    expect(localStorage.getItem("focusmakers.timerBackground")).toBe('{"kind":"simple"}');
+    expect(clearWatcherAssets).toHaveBeenCalledOnce();
+  });
+
+  it("영상 공간을 닫아 두었는데 심플을 저장하지 못해도 심플로 읽는다", () => {
+    videoSpaces.open = false;
+    localStorage.setItem("focusmakers.timerBackground", '{"kind":"proctor"}');
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("blocked", "SecurityError");
+    });
+
+    expect(readTimerBackground()).toEqual({ kind: "simple" });
+    expect(clearWatcherAssets).toHaveBeenCalledOnce();
+  });
+
+  it("영상 공간을 닫아 두어도 감독관이 아닌 저장값은 건드리지 않는다", () => {
+    videoSpaces.open = false;
+    writeTimerBackground({ kind: "photo", photoId: "p1" });
+
+    expect(readTimerBackground()).toEqual({ kind: "photo", photoId: "p1" });
+    expect(clearWatcherAssets).not.toHaveBeenCalled();
   });
 
   it("깨진 값은 심플로 본다", () => {

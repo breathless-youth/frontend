@@ -190,6 +190,7 @@
     "preview": "{{name}}のプレビュー",
     "remove": "{{name}}を削除",
     "empty": "該当する空間がありません",
+    "comingSoon": "動画の空間は近日公開予定です",
     "back": "戻る",
     "apply": "適用する",
     "applied": "使用中",

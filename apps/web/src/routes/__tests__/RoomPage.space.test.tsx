@@ -28,6 +28,14 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   trackStudySessionEnded: vi.fn(),
 }));
 
+const videoSpaces = vi.hoisted(() => ({ open: true }));
+
+vi.mock("@/features/timer-background/videoSpaces", () => ({
+  get VIDEO_SPACES_OPEN() {
+    return videoSpaces.open;
+  },
+}));
+
 const sound = vi.hoisted(() => ({
   prime: vi.fn(),
   play: vi.fn(),
@@ -71,6 +79,7 @@ describe("RoomPage 공간", () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
     localStorage.clear();
+    videoSpaces.open = true;
   });
 
   it("세로 열 맨 위에 공간 버튼이 있고 누르면 공간 페이지가 열리며 이벤트를 보낸다", async () => {
@@ -148,6 +157,17 @@ describe("RoomPage 공간", () => {
     fireEvent.pointerDown(window);
     expect(sound.prime).toHaveBeenCalledTimes(primes);
   });
+  it("영상 공간을 닫아 두면 저장된 감독관을 그리지 않고 발소리도 깨우지 않는다", () => {
+    videoSpaces.open = false;
+    localStorage.setItem("focusmakers.timerBackground", '{"kind":"proctor"}');
+    renderRoom();
+
+    expect(screen.queryByTestId("watcher-background")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("timer-background")).not.toBeInTheDocument();
+    expect(sound.prime).not.toHaveBeenCalled();
+    expect(localStorage.getItem("focusmakers.timerBackground")).toBe('{"kind":"simple"}');
+  });
+
   it("고른 사진을 읽지 못하면 심플로 그리고 종료 이벤트에도 심플로 싣는다", async () => {
     localStorage.setItem("focusmakers.timerBackground", '{"kind":"photo","photoId":"p1"}');
     const get = vi
