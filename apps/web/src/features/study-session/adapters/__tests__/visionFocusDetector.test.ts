@@ -247,7 +247,14 @@ function fakeFaceLandmarker(options: FakeFaceOptions = {}) {
       const result = {
         face: next,
         durationMs: 1,
-        metrics: { headPitchDeg: pitch, headYawDeg: yaw, noseOffsetX: null },
+        // 테스트 카메라는 얼굴 정면에 있다고 본다. 고개를 돌린 만큼 카메라가 반대쪽으로 비켜 보인다.
+        metrics: {
+          headPitchDeg: pitch,
+          headYawDeg: yaw,
+          noseOffsetX: null,
+          toCameraH: yaw === null ? null : -yaw,
+          toCameraV: pitch,
+        },
       };
       // 실제 런타임처럼 사진을 요청받았을 때만 사진을 붙인다.
       return photo === undefined || options.photoFails === true
@@ -2320,10 +2327,26 @@ describe("공부 증거 배선", () => {
     expect(last(signals, "NO_EVIDENCE")).toBe(true);
   });
 
+  /** 위·좌우를 보지 않는 눈. 화면 응시 판정은 시선 점수가 모두 있어야 돈다. */
+  const EYES_LEVEL = {
+    eyeLookUpLeft: 0,
+    eyeLookUpRight: 0,
+    eyeLookInLeft: 0,
+    eyeLookInRight: 0,
+    eyeLookOutLeft: 0,
+    eyeLookOutRight: 0,
+  };
+
   it("책이 안 보이고 화면을 정면으로 보면 화면 응시를 올린다", async () => {
     const lookingAtScreen: FaceObservation = {
       facePresent: true,
-      eye: { eyeBlinkLeft: 0.1, eyeBlinkRight: 0.1, eyeLookDownLeft: 0.1, eyeLookDownRight: 0.1 },
+      eye: {
+        eyeBlinkLeft: 0.1,
+        eyeBlinkRight: 0.1,
+        eyeLookDownLeft: 0.1,
+        eyeLookDownRight: 0.1,
+        ...EYES_LEVEL,
+      },
       eyeSkipReason: null,
     };
     const { vision, signals } = setup({
@@ -2339,10 +2362,40 @@ describe("공부 증거 배선", () => {
     expect(last(signals, "NO_EVIDENCE")).toBe(false);
   });
 
+  it("고개는 카메라 쪽이어도 눈이 아래를 보면 화면 응시가 아니다", async () => {
+    const eyesDown: FaceObservation = {
+      facePresent: true,
+      eye: {
+        eyeBlinkLeft: 0.1,
+        eyeBlinkRight: 0.1,
+        eyeLookDownLeft: 0.8,
+        eyeLookDownRight: 0.8,
+        ...EYES_LEVEL,
+      },
+      eyeSkipReason: null,
+    };
+    const { vision, signals } = setup({
+      frames: [personFrame()],
+      pitch: 0,
+      yaw: 4,
+      face: eyesDown,
+    });
+    vision.start();
+    await vi.advanceTimersByTimeAsync(SETTLE_MS);
+
+    expect(last(signals, "SCREEN_GAZE")).toBe(false);
+  });
+
   it("책이 보여도 책을 안 보고 정면을 보면 화면 응시를 올린다", async () => {
     const lookingAtScreen: FaceObservation = {
       facePresent: true,
-      eye: { eyeBlinkLeft: 0.1, eyeBlinkRight: 0.1, eyeLookDownLeft: 0.1, eyeLookDownRight: 0.1 },
+      eye: {
+        eyeBlinkLeft: 0.1,
+        eyeBlinkRight: 0.1,
+        eyeLookDownLeft: 0.1,
+        eyeLookDownRight: 0.1,
+        ...EYES_LEVEL,
+      },
       eyeSkipReason: null,
     };
     const { vision, signals } = setup({

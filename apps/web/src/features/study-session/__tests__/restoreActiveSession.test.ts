@@ -152,20 +152,14 @@ describe("restoreActiveSession", () => {
     await expect(restoreActiveSession()).resolves.toBeNull();
   });
 
-  it("SLEEP 이벤트가 있어도 복원한다", async () => {
-    // 이 목록에서 SLEEP이 빠지면 이벤트 하나가 사라지는 것이 아니라 복원 자체를 포기한다.
-    stub200({
-      ...BODY,
-      events: [
-        { status: "SLEEP", startedAt: "2026-08-28T01:10:00Z", endedAt: "2026-08-28T01:20:00Z" },
-      ],
-    });
+  it.each(["SLEEP", "SCREEN"])("%s 이벤트가 있어도 복원한다", async (status) => {
+    // 이 목록에서 상태가 빠지면 이벤트 하나가 사라지는 것이 아니라 복원 자체를 포기한다.
+    const event = { status, startedAt: "2026-08-28T01:10:00Z", endedAt: "2026-08-28T01:20:00Z" };
+    stub200({ ...BODY, events: [event] });
 
     const restored = await restoreActiveSession();
 
-    expect(restored?.events).toEqual([
-      { status: "SLEEP", startedAt: "2026-08-28T01:10:00Z", endedAt: "2026-08-28T01:20:00Z" },
-    ]);
+    expect(restored?.events).toEqual([event]);
   });
 
   it("모르는 상태값이 있으면 복원을 포기한다", async () => {

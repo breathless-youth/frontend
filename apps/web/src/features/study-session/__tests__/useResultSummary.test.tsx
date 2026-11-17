@@ -47,7 +47,7 @@ describe("useResultSummary 푸시 타겟용 user property", () => {
       totalFocusSec: 0,
       longestFocusSec: 0,
       focusRate: 0,
-      totalEventCounts: { PHONE: 0, DEVICE: 0, AWAY: 0, SLEEP: 0, PAUSE: 0 },
+      totalEventCounts: { PHONE: 0, DEVICE: 0, AWAY: 0, SLEEP: 0, SCREEN: 0, PAUSE: 0 },
       studiedDatesInMonth: [],
     });
     vi.mocked(getStudyDays).mockRejectedValue(new Error("network"));

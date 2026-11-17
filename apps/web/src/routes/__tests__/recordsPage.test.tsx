@@ -100,7 +100,7 @@ function statsResponse(hasSession: boolean): StudySessionListResponse {
             studySec: 3600,
             focusSec: 1800,
             focusRate: 50,
-            eventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
+            eventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, SCREEN: 0, PAUSE: 0 },
           },
         ]
       : [],
@@ -109,7 +109,7 @@ function statsResponse(hasSession: boolean): StudySessionListResponse {
     totalFocusSec: hasSession ? 1800 : 0,
     longestFocusSec: hasSession ? 1800 : 0,
     focusRate: hasSession ? 50 : 0,
-    totalEventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
+    totalEventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, SCREEN: 0, PAUSE: 0 },
     studiedDatesInMonth: [],
   };
 }
@@ -559,7 +559,7 @@ describe("RecordsPage", () => {
         studySec: 3600,
         focusSec: 1800,
         focusRate: 50,
-        eventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
+        eventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, SCREEN: 0, PAUSE: 0 },
         ...overrides,
       };
     }
@@ -854,7 +854,7 @@ describe("RecordsPage", () => {
           studySec: 5400,
           focusSec: 5400,
           focusRate: 100,
-          eventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
+          eventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, SCREEN: 0, PAUSE: 0 },
           events: [],
           subjectSegments: [
             {

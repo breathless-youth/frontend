@@ -23,6 +23,7 @@ import type {
 import {
   NO_EVIDENCE_SIGNALS,
   evaluateEvidence,
+  eyeGazeOf,
   eyeLookDownOf,
   handsAtTool,
   handsHoldingPhone,
@@ -882,6 +883,10 @@ export function createVisionFocusDetector(
               yawDeg: faceRan.metrics.headYawDeg,
               eyeLookDown: eyeLookDownOf(faceRan.face.eye),
               noseOffsetX: faceRan.metrics.noseOffsetX,
+              toCameraH: faceRan.metrics.toCameraH ?? null,
+              toCameraV: faceRan.metrics.toCameraV ?? null,
+              eyeVertical: eyeGazeOf(faceRan.face.eye)?.vertical ?? null,
+              eyeHorizontal: eyeGazeOf(faceRan.face.eye)?.horizontal ?? null,
             },
             bounds: faceRan.bounds ?? null,
           };
@@ -985,12 +990,15 @@ export function createVisionFocusDetector(
           ? null
           : {
               present: faceObserved.facePresent,
-              eye: faceObserved.eye,
+              // 고개를 숙여 졸음 판정에서 뺀 눈 점수도 시선 원인을 볼 때 필요하다. 원래 값을 싣는다.
+              eye: faceRan.face.eye,
               skipReason: faceObserved.eyeSkipReason,
               durationMs: faceRan.durationMs,
               delegate: faceLandmarker.delegate,
               headPitchDeg: faceRan.metrics.headPitchDeg,
               headYawDeg: faceRan.metrics.headYawDeg,
+              toCameraH: faceRan.metrics.toCameraH ?? null,
+              toCameraV: faceRan.metrics.toCameraV ?? null,
             },
       evidence: {
         tool: tools.length > 0,

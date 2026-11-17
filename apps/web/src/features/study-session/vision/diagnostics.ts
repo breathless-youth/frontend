@@ -80,7 +80,8 @@ export interface FrameDiagnostics {
 export interface FaceFrameDiagnostics {
   readonly present: boolean;
   /**
-   * 눈 관련 점수. 품질 게이트를 통과했을 때만 있다.
+   * 눈 관련 점수. 얼굴 모델이 준 값이다. 고개를 숙여 졸음 판정에서 뺀 프레임도 시선 원인을 보려고
+   * 그대로 싣는다. 건너뛴 이유는 `skipReason`에 있다.
    *
    * 이름을 allowlist로 좁히는 것이 "스칼라만 받는다"와 같은 급의 구조적 보장이다. `string` 키면
    * 타입상 blendshape 52개를 전부 흘릴 수 있다.
@@ -93,6 +94,8 @@ export interface FaceFrameDiagnostics {
   /** 고개 숙임 각도(도). 자세 행렬이 없으면 null. 좌표가 아니라 각도 하나다. */
   readonly headPitchDeg?: number | null;
   readonly headYawDeg?: number | null;
+  readonly toCameraH?: number | null;
+  readonly toCameraV?: number | null;
 }
 
 /**
@@ -182,6 +185,12 @@ export function createVisionDiagnostics(sink: DiagnosticsSink): VisionDiagnostic
         }
         if (face.headYawDeg !== undefined && face.headYawDeg !== null) {
           payload["face:headYawDeg"] = round2(face.headYawDeg);
+        }
+        if (face.toCameraH !== undefined && face.toCameraH !== null) {
+          payload["face:toCamH"] = round2(face.toCameraH);
+        }
+        if (face.toCameraV !== undefined && face.toCameraV !== null) {
+          payload["face:toCamV"] = round2(face.toCameraV);
         }
       }
       const evidence = diagnostics.evidence;

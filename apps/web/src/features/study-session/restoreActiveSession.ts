@@ -17,6 +17,7 @@ const KNOWN_EVENT_STATUSES = {
   DEVICE: true,
   AWAY: true,
   SLEEP: true,
+  SCREEN: true,
   PAUSE: true,
 } as const satisfies Record<StudyEventStatus, true>;
 

@@ -58,7 +58,7 @@ function session(
     studySec: focusSec,
     focusSec,
     focusRate: 100,
-    eventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
+    eventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, SCREEN: 0, PAUSE: 0 },
     events: [],
     subjectSegments: [{ subjectId, startedAt, endedAt, studySec: focusSec, focusSec }],
     completedTasks: [],
@@ -78,7 +78,7 @@ function stats(
     totalFocusSec: 0,
     longestFocusSec: 0,
     focusRate: 0,
-    totalEventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
+    totalEventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, SCREEN: 0, PAUSE: 0 },
     studiedDatesInMonth: [],
     subjects,
   };

@@ -45,14 +45,14 @@ function sessions(count: number): StudySessionListResponse {
       studySec: 3600,
       focusSec: 1800,
       focusRate: 50,
-      eventCounts: { AWAY: 2, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
+      eventCounts: { AWAY: 2, PHONE: 0, DEVICE: 0, SLEEP: 0, SCREEN: 0, PAUSE: 0 },
     })),
     sessionCount: count,
     totalStudySec: 3600 * count,
     totalFocusSec: 1800 * count,
     longestFocusSec: 1800,
     focusRate: 50,
-    totalEventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
+    totalEventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, SCREEN: 0, PAUSE: 0 },
     studiedDatesInMonth: [],
   };
 }

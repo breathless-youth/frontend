@@ -17,6 +17,7 @@
     "phone": "휴대폰 {{count}}회",
     "device": "기기 조작 {{count}}회",
     "sleep": "졸음 {{count}}회",
+    "screen": "화면 응시 {{count}}회",
     "pause": "일시정지 {{count}}회"
   },
   "weekRange": {

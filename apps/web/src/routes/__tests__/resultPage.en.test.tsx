@@ -70,7 +70,7 @@ describe("공부 결과 영어 화면", () => {
       totalFocusSec: 5040,
       longestFocusSec: 1500,
       focusRate: 82.35,
-      totalEventCounts: { PHONE: 0, DEVICE: 0, AWAY: 1, SLEEP: 0, PAUSE: 1 },
+      totalEventCounts: { PHONE: 0, DEVICE: 0, AWAY: 1, SLEEP: 0, SCREEN: 0, PAUSE: 1 },
       studiedDatesInMonth: [],
     });
     vi.mocked(getStudyDays).mockResolvedValue({ totalDays: 23 });

@@ -121,10 +121,13 @@ describe("stepDetection — 화면 조작 출처", () => {
     expect(state.active).toBe("DEVICE");
   });
 
-  it("폰을 정면에 두고 공부해 화면 응시가 계속 켜져도 유예에서 멈춘다", () => {
-    const state = hold(createDetectionState(T0), signals({ SCREEN_GAZE: true }), 0, 120_000);
+  it("화면 응시는 3초면 유예, 10초면 화면 응시 비집중이다", () => {
+    let state = hold(createDetectionState(T0), signals({ SCREEN_GAZE: true }), 0, 9000);
     expect(state.grace).toBe(true);
     expect(state.active).toBeNull();
+
+    state = hold(state, signals({ SCREEN_GAZE: true }), 10_000, 10_000);
+    expect(state.active).toBe("SCREEN");
   });
 
   it("한 출처가 풀려도 같은 트리거의 다른 출처가 확정돼 있으면 유지한다", () => {
@@ -182,8 +185,15 @@ describe("stepDetection — 동시 다중 감지", () => {
     expect(state.active).toBe("AWAY");
   });
 
-  it("같은 시점에 확정되면 AWAY > DEVICE > SLEEP > PHONE 순으로 고른다", () => {
-    expect(TRIGGER_PRIORITY).toEqual(["AWAY", "DEVICE", "SLEEP", "PHONE"]);
+  it("같은 시점에 확정되면 AWAY > DEVICE > SLEEP > PHONE > SCREEN 순으로 고른다", () => {
+    expect(TRIGGER_PRIORITY).toEqual(["AWAY", "DEVICE", "SLEEP", "PHONE", "SCREEN"]);
+    const phoneOverScreen = hold(
+      createDetectionState(T0),
+      signals({ PHONE: true, SCREEN_GAZE: true }),
+      0,
+      10_000,
+    );
+    expect(phoneOverScreen.active).toBe("PHONE");
     const state = hold(
       createDetectionState(T0),
       signals({ TOUCH: true, PHONE: true, SLEEP_EYES: true }),

@@ -15,15 +15,16 @@ describe("design-tokens", () => {
    */
   it("이벤트 상태색 키가 StudyEventStatus 계약과 1:1로 일치한다", () => {
     expect(Object.keys(eventStatusColors).sort()).toEqual(
-      ["AWAY", "DEVICE", "PAUSE", "PHONE", "SLEEP"].sort(),
+      ["AWAY", "DEVICE", "PAUSE", "PHONE", "SCREEN", "SLEEP"].sort(),
     );
   });
 
-  it("휴식 4종은 같은 오렌지, 일시정지는 회색이다", () => {
+  it("휴식 5종은 같은 오렌지, 일시정지는 회색이다", () => {
     expect(eventStatusColors.PHONE).toEqual(sessionStateColors.DISTRACTION);
     expect(eventStatusColors.DEVICE).toEqual(sessionStateColors.DISTRACTION);
     expect(eventStatusColors.AWAY).toEqual(sessionStateColors.DISTRACTION);
     expect(eventStatusColors.SLEEP).toEqual(sessionStateColors.DISTRACTION);
+    expect(eventStatusColors.SCREEN).toEqual(sessionStateColors.DISTRACTION);
     expect(eventStatusColors.PAUSE).toEqual(sessionStateColors.PAUSE);
   });
 

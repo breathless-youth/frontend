@@ -8,7 +8,7 @@ import {
   HAND_TOOL_MARGIN,
   HEAD_PITCH_DOWN_DEG,
   SCORE_THRESHOLDS,
-  SCREEN_GAZE,
+  SCREEN_GAZE_ANGLES,
   TOOL_LABELS,
 } from "./visionConfig";
 
@@ -53,6 +53,35 @@ export interface GazeReading {
   readonly eyeLookDown: number | null;
   /** 고개를 돌린 방향. 프레임 오른쪽이 +다. `faceLandmarker.ts`의 `FaceMetrics.noseOffsetX`. */
   readonly noseOffsetX: number | null;
+  /** 이 고개 자세에서 카메라를 보려면 눈이 좌우로 돌아야 하는 각도(도). `faceLandmarker.ts`의 `toCameraDegOf`. */
+  readonly toCameraH?: number | null;
+  /** 같은 기준의 위아래 각도(도). 카메라가 시선보다 위면 +다. */
+  readonly toCameraV?: number | null;
+  /** 눈 아래 보기 − 위 보기 점수. 아래가 +다. */
+  readonly eyeVertical?: number | null;
+  /** 눈 좌우 점수 차. `toCameraH`와 같은 방향이 +다. */
+  readonly eyeHorizontal?: number | null;
+}
+
+/**
+ * 눈동자 점수를 위아래·좌우 하나씩으로 줄인다.
+ * 눈 판정을 못 했거나 계산에 쓰는 점수가 하나라도 없으면 null이다. 모르는 시선을 0으로 채워 판정하지 않는다.
+ */
+export function eyeGazeOf(
+  eye: EyeScores | null,
+): { readonly vertical: number; readonly horizontal: number } | null {
+  const down = eyeLookDownOf(eye);
+  const up = pairOf(eye?.eyeLookUpLeft, eye?.eyeLookUpRight);
+  const toward = pairOf(eye?.eyeLookOutLeft, eye?.eyeLookInRight);
+  const away = pairOf(eye?.eyeLookInLeft, eye?.eyeLookOutRight);
+  if (down === null || up === null || toward === null || away === null) {
+    return null;
+  }
+  return { vertical: down - up, horizontal: toward - away };
+}
+
+function pairOf(left: number | undefined, right: number | undefined): number | null {
+  return left === undefined || right === undefined ? null : (left + right) / 2;
 }
 
 export function eyeLookDownOf(eye: EyeScores | null): number | null {
@@ -134,18 +163,18 @@ export function gazeOnTool(
 }
 
 /**
- * 화면 응시 — 고개가 카메라 정면이다. 근거는 `SCREEN_GAZE` 주석.
- * 각도를 모르면 판단하지 않는다. 모르는 것을 비집중 쪽으로 몰지 않는다.
+ * 화면 응시 — 고개와 눈을 합친 시선이 카메라 쪽이다. 근거는 `SCREEN_GAZE_ANGLES` 주석.
+ * 카메라 방향이나 눈 점수를 모르면 판단하지 않는다. 모르는 것을 비집중 쪽으로 몰지 않는다.
  */
 export function gazeOnScreen(gaze: GazeReading): boolean {
-  if (gaze.pitchDeg === null || gaze.yawDeg === null) {
+  const { toCameraH, toCameraV, eyeVertical, eyeHorizontal } = gaze;
+  if (toCameraH == null || toCameraV == null || eyeVertical == null || eyeHorizontal == null) {
     return false;
   }
-  return (
-    Math.abs(gaze.yawDeg) <= SCREEN_GAZE.maxYawDeg &&
-    gaze.pitchDeg < SCREEN_GAZE.maxPitchDeg &&
-    gaze.pitchDeg >= SCREEN_GAZE.minPitchDeg
-  );
+  const { eyeDegPerScore, maxVerticalDeg, maxHorizontalDeg } = SCREEN_GAZE_ANGLES;
+  const verticalMiss = -eyeVertical * eyeDegPerScore - toCameraV;
+  const horizontalMiss = eyeHorizontal * eyeDegPerScore - toCameraH;
+  return Math.abs(verticalMiss) <= maxVerticalDeg && Math.abs(horizontalMiss) <= maxHorizontalDeg;
 }
 
 function inside(point: Point, box: NormalizedBox, margin = HAND_TOOL_MARGIN): boolean {

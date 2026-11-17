@@ -17,6 +17,7 @@
     "phone": "スマホ使用{{count}}回",
     "device": "端末操作{{count}}回",
     "sleep": "居眠り{{count}}回",
+    "screen": "画面注視{{count}}回",
     "pause": "一時停止{{count}}回"
   },
   "weekRange": {

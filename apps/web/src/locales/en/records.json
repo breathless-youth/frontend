@@ -22,6 +22,8 @@
     "device_other": "Device moved {{count}} times",
     "sleep_one": "Dozed off once",
     "sleep_other": "Dozed off {{count}} times",
+    "screen_one": "Stared at screen once",
+    "screen_other": "Stared at screen {{count}} times",
     "pause_one": "Paused once",
     "pause_other": "Paused {{count}} times"
   },

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type * as sentryLib from "@/lib/sentry";
 import { reportHandled } from "@/lib/sentry";
 
-import { createFaceLandmarker, noseOffsetXOf } from "../faceLandmarker";
+import { createFaceLandmarker, noseOffsetXOf, toCameraDegOf } from "../faceLandmarker";
 import type {
   FaceLandmarkerCreateOptions,
   MediapipeFaceLandmarkerHandle,
@@ -473,6 +473,50 @@ describe("얼굴 지표 — 고개 각도. 내려다봄 게이트가 읽는다",
     for (const key of ["data", "rows", "columns", 'x"', 'y"', "landmark"]) {
       expect(text).not.toContain(key);
     }
+  });
+});
+
+/**
+ * 고개를 `pitchDeg`만큼 숙이고(아래가 +) 카메라 기준 (x, y, z) 자리에 있는 얼굴의 자세 행렬(열 우선).
+ * MediaPipe처럼 카메라는 -z를 보고, 얼굴은 정면 방향 열(2번)이 카메라 쪽(+z)을 향한다.
+ */
+function placedMatrix(pitchDeg: number, x: number, y: number, z: number) {
+  const { data } = pitchMatrix(pitchDeg);
+  return { rows: 4, columns: 4, data: [...data.slice(0, 12), x, y, z, 1] };
+}
+
+describe("toCameraDegOf — 카메라를 보려면 눈이 돌아야 하는 각도", () => {
+  it("카메라 정면에서 카메라를 보면 0°다", () => {
+    const angles = toCameraDegOf({
+      ...NO_FACE,
+      facialTransformationMatrixes: [placedMatrix(0, 0, 0, -50)],
+    });
+    expect(angles?.h).toBeCloseTo(0, 1);
+    expect(angles?.v).toBeCloseTo(0, 1);
+  });
+
+  it("얼굴이 카메라보다 오른쪽·위에 있으면 카메라는 왼쪽·아래에 있다", () => {
+    const angles = toCameraDegOf({
+      ...NO_FACE,
+      facialTransformationMatrixes: [placedMatrix(0, 10, 10, -50)],
+    });
+    expect(angles?.h).toBeCloseTo(-11.3, 1);
+    expect(angles?.v).toBeCloseTo(-11.3, 1);
+  });
+
+  it("고개를 숙인 만큼 카메라가 시선보다 위에 있다", () => {
+    const angles = toCameraDegOf({
+      ...NO_FACE,
+      facialTransformationMatrixes: [placedMatrix(20, 0, 0, -50)],
+    });
+    expect(angles?.v).toBeCloseTo(20, 1);
+  });
+
+  it("행렬이 없거나 얼굴 위치를 모르면 null이다", () => {
+    expect(toCameraDegOf(NO_FACE)).toBeNull();
+    expect(
+      toCameraDegOf({ ...NO_FACE, facialTransformationMatrixes: [pitchMatrix(10)] }),
+    ).toBeNull();
   });
 });
 

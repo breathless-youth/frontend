@@ -293,7 +293,9 @@ export const FACE_BLENDSHAPE_ALLOWLIST = [
   "eyeBlinkRight",
   "eyeLookDownLeft",
   "eyeLookDownRight",
-  // 눈동자 좌우. 고개는 두고 눈만 돌려 보는 경우를 실기기에서 재려고 진단에만 싣는다. 판정에는 아직 쓰지 않는다.
+  // 눈동자 위·좌우. 고개 각도와 더해 화면 응시를 판정한다(`eyeGazeOf`).
+  "eyeLookUpLeft",
+  "eyeLookUpRight",
   "eyeLookInLeft",
   "eyeLookOutLeft",
   "eyeLookInRight",
@@ -303,10 +305,11 @@ export const FACE_BLENDSHAPE_ALLOWLIST = [
 export type EyeBlendshapeName = (typeof FACE_BLENDSHAPE_ALLOWLIST)[number];
 
 /**
- * 없으면 눈 판정을 포기하는 이름. 판정에 실제로 쓰는 둘뿐이다.
+ * 없으면 졸음 판정을 포기하는 이름. 졸음이 쓰는 둘뿐이다.
  *
- * `eyeLookDown*`은 내려다봄 거부권을 걷어낸 뒤로 판정에 쓰이지 않고 진단에만 실린다. 그것까지
- * 필수로 걸면 그 이름만 바뀌어도 `eyeBlink*`가 멀쩡한 채 졸음 감지가 세션 내내 침묵한다.
+ * 시선 점수(`eyeLookDown*`·`eyeLookUp*`·`eyeLookIn*`·`eyeLookOut*`)는 화면 응시와 도구 응시가 쓰지만,
+ * 없으면 그 판정만 쉰다(`eyeGazeOf`가 null). 그것까지 필수로 걸면 그 이름만 바뀌어도 `eyeBlink*`가
+ * 멀쩡한 채 졸음 감지가 세션 내내 침묵한다.
  */
 export const FACE_BLENDSHAPE_REQUIRED = ["eyeBlinkLeft", "eyeBlinkRight"] as const;
 
@@ -530,18 +533,17 @@ export const GAZE_TOOL = {
 /**
  * 화면 응시 — 공부 도구를 보지 않고 고개가 카메라 정면이다.
  *
- * 폰을 세워 둔 사용자가 화면을 보는 자세다. 유예까지만 가고 비집중으로 확정하지 않는다(`../detection.ts`).
- * 폰을 공부 자리 정면에 두면 공부하는 동안에도 이 자세가 되기 때문이다.
- * 사용자가 카메라 정중앙에 앉지 않으면 화면을 봐도 고개가 기울어 보여서 좌우는 25도까지 둔다(실측 14~19도).
- * 눈 아래 보기 점수는 화면을 보는 동안에도 0.3~0.9로 흔들려 쓰지 않는다.
+ * 폰을 세워 둔 사용자가 화면을 보는 자세다. 10초 이어지면 비집중이다(`../detection.ts`).
+ * 고개 방향만으로는 폰을 정면에 두고 책을 보는 자세와 가를 수 없다(아이폰 실측에서 책을 볼 때도 고개 기준으로는
+ * 화면 응시였다). 그래서 자세 행렬의 얼굴 위치로 "카메라를 보려면 눈이 몇 도 돌아야 하는지"를 구하고,
+ * 실제 눈 방향(눈동자 점수 × `eyeDegPerScore`)과의 차이가 위아래 `maxVerticalDeg`, 좌우 `maxHorizontalDeg` 안이면
+ * 화면 응시로 본다. 폰 기울기·높이·앉은 자리와 관계없는 상대 각도다.
+ * 아이폰 실측(책상 거치, 폰 오른쪽 책): 렌즈·화면 응시는 위아래 차이 ±1도, 고개 숙여 책 보기는 -10~-20도였다.
+ * 좌우 눈동자 점수는 작은 회전에 거의 반응하지 않아(15도 회전에 0.1) 좌우는 넓게 둔다.
+ * 폰 바로 옆 책을 눈만 돌려 보면 좌우 차이가 7도 안팎이라 화면 응시로 잡힐 수 있다.
  */
-export const SCREEN_GAZE = {
-  maxYawDeg: 25,
-  /** 이 각도 이상 숙이면 화면이 아니라 책상을 본다. 실측에서 화면은 5~8도, 책상은 25도 안팎이었다. */
-  maxPitchDeg: 12,
-  /**
-   * 폰은 보통 얼굴보다 낮게 놓여 카메라가 얼굴을 올려다본다. 그래서 화면을 볼 때 고개 각도가 음수로 나온다.
-   * 아이폰 실측에서 화면을 보는 동안 -12~-19도였다. 천장을 보는 정도만 빼도록 -30도까지 둔다.
-   */
-  minPitchDeg: -30,
+export const SCREEN_GAZE_ANGLES = {
+  eyeDegPerScore: 25,
+  maxVerticalDeg: 10,
+  maxHorizontalDeg: 15,
 } as const;
