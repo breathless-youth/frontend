@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button";
 import { CtaToaster } from "@/components/ui/sonner";
 import { InterviewCardHost } from "@/features/interview/InterviewCardHost";
 import { MeasurementFeedbackCardHost } from "@/features/measurement-feedback/MeasurementFeedbackCardHost";
-import { useMyMascotLook } from "@/features/points/model/useMyMascotLook";
 import { ResultPointsHost } from "@/features/points/components/result/ResultPointsHost";
 import { rewardStartedAt } from "@/features/points/model/rewardStartedAt";
+import { useReadyMascotLook } from "@/features/points/model/useReadyMascotLook";
 import { ConfettiBurst } from "@/features/study-session/components/ConfettiBurst";
 import { SessionSummaryCard } from "@/features/study-session/components/SessionSummaryCard";
 import {
@@ -66,6 +66,10 @@ const USER_SCROLL_EVENTS = ["pointerdown", "wheel", "keydown"] as const;
  * *
  * 모션 축소(`prefers-reduced-motion`)에서는 연출 없이 처음부터 전부 보여준다(`static`).
  * 인터뷰 폼에서 뒤로 돌아온 결과도 연출을 이미 봤으니 같은 `static`으로 시작한다.
+ *
+ * 포인트를 쓰는 회원은 내 마스코트 모습과 그 그림이 준비된 뒤에 1단계를 시작한다(`useReadyMascotLook`).
+ * 세션 화면이 미리 받아 두었거나 기기에 남긴 모습이 있으면 기다리지 않고, 없으면 최대 0.8초 기다린다.
+ * `static`은 글자와 카드를 바로 보이고 준비될 때까지 마스코트 자리만 비운다.
  * 시안의 명언 인트로와 연속 공부(스트릭) 화면은 이 티켓 범위 밖이라 없다.
  *
  * `submitting`(제출 중) · `error`(제출 실패) · `unsaved`(userId 없어 미저장) · "저장 실패"는
@@ -91,9 +95,12 @@ export function ResultPage() {
   // 튕기던 문제를 막는다.
   const home = resolveHome(location.pathname);
   const userId = useUserId();
-  const mascotLook = useMyMascotLook(userId);
+  const mascot = useReadyMascotLook(userId);
   // 마운트 시 한 번만 판정한다 — 연출 도중 설정이 바뀌어도 단계가 섞이지 않게.
   const [skipIntro] = useState(() => prefersReducedMotion() || readResultIntroSeen(location.state));
+  // 고른 모습을 모르는 채 기본 마스코트로 뛰었다가 바뀌지 않게, 모습과 그림이 준비될 때까지 연출을 통째로 미룬다.
+  // 마스코트가 정점에 닿는 순간에 맞춘 색종이·진동·공개 시점이 함께 밀린다.
+  const introHeld = !skipIntro && !mascot.ready;
   const [revealed, setRevealed] = useState(skipIntro);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [timelapseCard, setTimelapseCard] = useState<HTMLElement | null>(null);
@@ -186,12 +193,12 @@ export function ResultPage() {
 
   // 마스코트 연출 → 공개. 언마운트(연출 중 이탈)되면 타이머를 걷어 사라진 화면에 setState하지 않는다.
   useEffect(() => {
-    if (skipIntro || sessions === null) {
+    if (skipIntro || introHeld || sessions === null) {
       return;
     }
     const timer = window.setTimeout(() => setRevealed(true), RESULT_REVEAL_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [skipIntro, sessions]);
+  }, [skipIntro, introHeld, sessions]);
 
   if (sessions === null) {
     /* TODO(미정: 리더/사용자 확인) state 없는 진입(새로고침·딥링크)의 정확한 처리가 디자인에
@@ -282,7 +289,7 @@ export function ResultPage() {
   return (
     <main className="theme-soft-blue bg-soft-blue relative flex h-svh w-full flex-col text-foreground">
       {/* 색종이는 화면 전체를 덮는 장식 캔버스 — 터치를 막지 않는다. */}
-      <ConfettiBurst enabled={!skipIntro} fireAfterMs={CONFETTI_AT_MS} />
+      <ConfettiBurst enabled={!skipIntro && !introHeld} fireAfterMs={CONFETTI_AT_MS} />
 
       {/* 콘텐츠만 스크롤. 가로는 잠근다 — 히어로의 글로우(340px)가 좁은 화면 폭을 넘는다. */}
       {/* 열 여백을 main이 아니라 스크롤 영역에 두어야 태블릿에서 열 바깥을 끌어도 스크롤된다.
@@ -292,7 +299,15 @@ export function ResultPage() {
         className="page-column flex-1 overflow-x-hidden overflow-y-auto pt-[calc(env(safe-area-inset-top)+44px)] pb-4"
       >
         <div className="px-5">
-          <StudyCompleteHero view={view} phase={phase} look={mascotLook} />
+          {/* 연출 없이 보이는 결과는 글자를 먼저 보이고 마스코트 자리만 비워 둔다. */}
+          {!introHeld && (
+            <StudyCompleteHero
+              view={view}
+              phase={phase}
+              look={mascot.look}
+              mascotHidden={!mascot.ready}
+            />
+          )}
           {revealed && (
             <div className="mt-6 flex flex-col gap-3 animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
               <StudyTimelineCard view={view} />

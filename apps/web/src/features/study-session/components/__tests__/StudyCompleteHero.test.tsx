@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { MASCOT_EXPRESSION_SRC, jumpTiltTransform } from "@/components/mascot/mascotExpressions";
 import type { MascotId, MascotLook } from "@/components/mascot/types";
+import { haptic } from "@/lib/haptics";
 
 import type { SessionResultView } from "../../sessionResult";
 import { StudyCompleteHero, type CompleteHeroPhase } from "../StudyCompleteHero";
@@ -252,6 +253,40 @@ describe("StudyCompleteHero", () => {
       const { container } = renderHero({ id: "book", accessories: [] }, "intro");
 
       expect(ground(container)).toBeNull();
+    });
+  });
+
+  describe("마스코트 자리 비우기", () => {
+    it("모습을 기다리는 동안 자리는 두고 마스코트·그림자·발밑 소품을 그리지 않는다", () => {
+      const { container } = render(
+        <StudyCompleteHero
+          view={view}
+          phase="static"
+          look={{
+            id: "pencil",
+            accessories: [{ slot: "underfoot", imageUrl: "/board.png" }],
+          }}
+          mascotHidden
+        />,
+      );
+
+      const slot = container.querySelector("[data-result-mascot-slot]");
+      expect(slot).not.toBeNull();
+      expect(slot?.children).toHaveLength(0);
+      expect(container.querySelector("img")).toBeNull();
+      expect(container).toHaveTextContent("오늘 공부 완료");
+    });
+
+    it("비워 둔 동안에는 정점 진동을 울리지 않는다", async () => {
+      vi.useFakeTimers();
+      try {
+        render(<StudyCompleteHero view={view} phase="intro" look={null} mascotHidden />);
+        await vi.advanceTimersByTimeAsync(2000);
+
+        expect(haptic).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

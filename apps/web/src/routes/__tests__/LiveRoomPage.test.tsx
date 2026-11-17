@@ -50,6 +50,10 @@ import {
   pressNative,
   resetGlassChrome,
 } from "@/test/nativeControlStub";
+import { __resetAppPointsGatewayForTests } from "@/features/points/gateway/appPointsGateway";
+import { getDecorations } from "@/lib/pointsApi";
+import { __resetPointsForTests } from "@/lib/pointsCapability";
+import { pointsKeys } from "@/lib/pointsQueries";
 import { LiveRoomPage } from "../LiveRoomPage";
 
 /** 복원 게이트는 자기 테스트가 따로 있다 — 여기서는 통과시킨다. */
@@ -74,6 +78,11 @@ vi.mock("@/lib/profileApi", () => ({
 
 vi.mock("@/features/study-session/submitStudySession", () => ({
   submitStudySession: vi.fn(),
+}));
+
+vi.mock("@/lib/pointsApi", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  getDecorations: vi.fn(),
 }));
 
 const haptic = vi.hoisted(() => vi.fn());
@@ -272,7 +281,13 @@ function renderRoom({
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  return { channel, pcs, pcConfigs, getOnSnapshotUnrecovered: () => onSnapshotUnrecovered };
+  return {
+    channel,
+    pcs,
+    pcConfigs,
+    client: queryClient,
+    getOnSnapshotUnrecovered: () => onSnapshotUnrecovered,
+  };
 }
 
 /**
@@ -371,6 +386,58 @@ afterEach(() => {
   vi.clearAllMocks();
   vi.unstubAllGlobals();
   vi.useRealTimers();
+});
+
+describe("LiveRoomPage — 결과 화면 마스코트 미리 받기", () => {
+  it("포인트를 쓰는 회원은 들어오면 결과 화면과 같은 캐시에 내 모습을 받아 두고 나가기를 누르면 다시 받는다", async () => {
+    window.history.replaceState(null, "", "/?points=1");
+    __resetPointsForTests();
+    __resetAppPointsGatewayForTests();
+    const guestProfile = vi.mocked(getProfile).getMockImplementation();
+    vi.mocked(getProfile).mockResolvedValue({
+      nickname: "포메3721",
+      goal: null,
+      category: null,
+      initial: "포",
+      colorIndex: 0,
+      loginProvider: "KAKAO",
+    } as Awaited<ReturnType<typeof getProfile>>);
+    vi.mocked(getDecorations)
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce({
+        selectedMascotCode: "PENCIL",
+        accessories: [
+          {
+            mascotCode: "PENCIL",
+            slot: "HEAD",
+            item: { itemId: 31, code: "PENCIL_BERET", imageUrl: "/beret.png" },
+          },
+        ],
+        timerBackground: null,
+      });
+    try {
+      const { client } = renderRoom();
+      await enterRoom();
+      // 세션 화면이 열리면 한가할 때(이 환경은 1.5초 뒤) 받는다.
+      await waitFor(() => expect(getDecorations).toHaveBeenCalledOnce(), { timeout: 3000 });
+      expect(client.getQueryData(pointsKeys.look(7))).toBeUndefined();
+
+      await userEvent.click(screen.getByRole("button", { name: "나가기" }));
+
+      await waitFor(() =>
+        expect(client.getQueryData(pointsKeys.look(7))).toEqual({
+          id: "pencil",
+          accessories: [{ slot: "head", code: "PENCIL_BERET", imageUrl: "/beret.png" }],
+        }),
+      );
+    } finally {
+      vi.mocked(getProfile).mockImplementation(guestProfile!);
+      window.history.replaceState(null, "", "/");
+      __resetPointsForTests();
+      __resetAppPointsGatewayForTests();
+      localStorage.clear();
+    }
+  });
 });
 
 describe("LiveRoomPage — 입장", () => {

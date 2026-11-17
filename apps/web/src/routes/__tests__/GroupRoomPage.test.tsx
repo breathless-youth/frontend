@@ -56,6 +56,12 @@ import { queryClient as appQueryClient } from "@/lib/queryClient";
 import type * as UserId from "@/lib/userId";
 import { LocationProbe } from "@/test/LocationProbe";
 
+import { __resetAppPointsGatewayForTests } from "@/features/points/gateway/appPointsGateway";
+import { getDecorations } from "@/lib/pointsApi";
+import { __resetPointsForTests } from "@/lib/pointsCapability";
+import { pointsKeys } from "@/lib/pointsQueries";
+import { getProfile } from "@/lib/profileApi";
+
 import { GroupRoomPage } from "../GroupRoomPage";
 
 vi.mock("@/lib/groupRoomApi");
@@ -82,6 +88,10 @@ vi.mock("@/lib/profileApi", () => ({
 }));
 vi.mock("@/features/study-session/submitStudySession", () => ({
   submitStudySession: vi.fn(),
+}));
+vi.mock("@/lib/pointsApi", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  getDecorations: vi.fn(),
 }));
 vi.mock("@/lib/haptics", () => ({ haptic: vi.fn() }));
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
@@ -521,6 +531,45 @@ describe("GroupRoomPage 입장", () => {
     act(() => pcs[0]?.ontrack?.({ streams: [], track: voice }));
 
     expect(player.attach).toHaveBeenCalledWith(42, voice);
+  });
+});
+
+describe("GroupRoomPage 결과 화면 마스코트 미리 받기", () => {
+  it("포인트를 쓰는 회원은 들어오면 결과 화면과 같은 캐시에 내 모습을 받아 두고 나가기를 누르면 다시 받는다", async () => {
+    window.history.replaceState(null, "", "/?points=1");
+    __resetPointsForTests();
+    __resetAppPointsGatewayForTests();
+    const guestProfile = vi.mocked(getProfile).getMockImplementation();
+    vi.mocked(getProfile).mockResolvedValue({
+      nickname: "공부하는나",
+      goal: null,
+      category: null,
+      initial: "공",
+      colorIndex: 0,
+      loginProvider: "APPLE",
+    } as Awaited<ReturnType<typeof getProfile>>);
+    vi.mocked(getDecorations).mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce({
+      selectedMascotCode: "PENCIL",
+      accessories: [],
+      timerBackground: null,
+    });
+    try {
+      const { client } = await enterGroupRoom({ groupId: 10 });
+      // 세션 화면이 열리면 한가할 때(이 환경은 1.5초 뒤) 받는다.
+      await waitFor(() => expect(getDecorations).toHaveBeenCalledOnce(), { timeout: 3000 });
+      expect(client.getQueryData(pointsKeys.look(7))).toBeUndefined();
+
+      await userEvent.click(screen.getByRole("button", { name: "나가기" }));
+
+      await waitFor(() =>
+        expect(client.getQueryData(pointsKeys.look(7))).toEqual({ id: "pencil", accessories: [] }),
+      );
+    } finally {
+      vi.mocked(getProfile).mockImplementation(guestProfile!);
+      window.history.replaceState(null, "", "/");
+      __resetPointsForTests();
+      __resetAppPointsGatewayForTests();
+    }
   });
 });
 

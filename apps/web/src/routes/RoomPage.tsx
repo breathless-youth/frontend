@@ -118,6 +118,7 @@ import type { SubjectSelection } from "@/features/study-session/subjectSegments"
 import { deriveSubjectTotals, liveSubjectTime } from "@/features/study-session/subjectSegments";
 import { completedTaskIdsSince } from "@/features/study-session/completedTasks";
 import { plannerCompletedTaskIds } from "@/features/study-session/plannerCompletedTasks";
+import { useMascotLookPrefetch } from "@/features/points/model/prefetchMyMascotLook";
 import { hasTokenSource } from "@/lib/userId";
 import { queryClient } from "@/lib/queryClient";
 import { parseInitialSubject, useInitialSubject } from "@/features/study-session/useInitialSubject";
@@ -443,6 +444,8 @@ function RoomSessionScreen({
   useEffect(() => {
     timelapse.begin(startedAtMs);
   }, [startedAtMs, timelapse]);
+  // 결과 화면은 이 문서에서 웹 라우터 이동으로 열려 같은 캐시를 쓴다. 그 화면이 그릴 내 마스코트 모습을 미리 받는다.
+  const prefetchMascotLook = useMascotLookPrefetch(queryClient, userId);
   const ambient = useAmbientSound({
     sessionState,
     phase,
@@ -1150,6 +1153,8 @@ function RoomSessionScreen({
   /** 하단 종료 버튼 */
   function handleRequestExit() {
     trackStudySessionExitRequested("single");
+    // 결과 화면이 처음 그림부터 고른 마스코트를 그리도록 확인 창을 읽는 사이에 모습을 다시 받는다.
+    prefetchMascotLook();
     setExitDialogOpen(true);
   }
 
