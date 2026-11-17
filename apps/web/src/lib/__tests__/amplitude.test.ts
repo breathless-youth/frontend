@@ -2607,7 +2607,12 @@ describe("세션 공간 이벤트", () => {
     m.trackSessionSpaceOpened();
     m.trackSessionSpaceTabSwitched({ tab: "image" });
     m.trackSessionSpacePreviewOpened({ kind: "proctor" });
-    m.trackTimerBackgroundApplied({ kind: "photo", source: "tile" });
+    m.trackTimerBackgroundApplied({
+      kind: "photo",
+      source: "tile",
+      tab: "image",
+      category: "mine",
+    });
     m.trackTimerBackgroundPhotoAdded({ count: 1 });
     m.trackTimerBackgroundPhotoRemoved({ count: 0, wasSelected: true });
     m.trackSessionSpacePhotoFailed({ reason: "unusable" });
