@@ -273,7 +273,9 @@ export function HomeV3Entry({
             ? t("v3.mission.failed")
             : progress.rewardError
               ? t("v3.reward.failed")
-              : undefined
+              : progress.rewardNotOpen
+                ? t("rewardNotOpen", { ns: "points-earn" })
+                : undefined
         }
         startingStudy={verifyingSubject}
         startError={

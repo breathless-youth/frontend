@@ -97,5 +97,6 @@
     "title": "No ads are available right now",
     "body": "Please try again in a moment.",
     "ok": "OK"
-  }
+  },
+  "rewardNotOpen": "You can claim points after the official launch"
 }

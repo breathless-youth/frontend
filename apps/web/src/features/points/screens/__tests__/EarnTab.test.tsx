@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { ApiError } from "@/lib/api";
 import i18n from "@/lib/i18n";
 import { showToast } from "@/lib/toast";
 
@@ -13,6 +14,7 @@ import { EarnTab } from "../EarnTab";
 vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
 
 const fixture = buildPointsFixture("default");
+const NOT_OPEN = "포인트는 정식 출시 후부터 받을 수 있어요";
 
 afterEach(async () => {
   vi.mocked(showToast).mockClear();
@@ -350,6 +352,91 @@ describe("EarnTab 실패", () => {
     await userEvent.click(screen.getByRole("button", { name }));
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("잠시 후 다시 시도해 주세요"));
     expect(screen.getByRole("button", { name })).toBeEnabled();
+  });
+
+  it("다른 409 거절도 일반 안내를 띄우고 다음 광고는 그대로 띄운다", async () => {
+    const onWatchAd = vi
+      .fn<() => Promise<AdResult>>()
+      .mockRejectedValueOnce(new ApiError("x", 409, "ALREADY_CLAIMED"))
+      .mockResolvedValueOnce({ status: "rewarded", balance: 1270 });
+    setup({ onWatchAd });
+    await userEvent.click(screen.getByRole("button", { name: /^보기/ }));
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith("잠시 후 다시 시도해 주세요"));
+    await waitFor(() => expect(screen.getByRole("button", { name: /^보기/ })).toBeEnabled());
+    await userEvent.click(screen.getByRole("button", { name: /^보기/ }));
+    await waitFor(() => expect(screen.getByText("1/3")).toBeInTheDocument());
+    expect(onWatchAd).toHaveBeenCalledTimes(2);
+    expect(showToast).not.toHaveBeenCalledWith(NOT_OPEN);
+  });
+});
+
+describe("EarnTab 포인트 시작 전", () => {
+  const notOpen = () => Promise.reject(new ApiError("x", 409, "REWARD_NOT_AVAILABLE"));
+
+  it("출석 받기가 409로 거절되면 출시 뒤에 받을 수 있다고 알린다", async () => {
+    const { onClaim } = setup({
+      earn: { ...fixture.earn, attendance: { reward: 10, claimed: false } },
+      onClaim: vi.fn(notOpen),
+    });
+    await userEvent.click(screen.getByRole("button", { name: "받기" }));
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith(NOT_OPEN));
+    expect(onClaim).toHaveBeenCalledWith("attendance");
+    expect(showToast).not.toHaveBeenCalledWith("잠시 후 다시 시도해 주세요");
+    expect(screen.getByRole("button", { name: "받기" })).toBeEnabled();
+  });
+
+  it("하루 목표 받기가 409로 거절돼도 같은 안내를 띄운다", async () => {
+    const { onClaim } = setup({
+      earn: {
+        ...fixture.earn,
+        dailyGoal: { ...fixture.earn.dailyGoal, achieved: true, remainingSec: 0 },
+      },
+      onClaim: vi.fn(notOpen),
+    });
+    await userEvent.click(screen.getByRole("button", { name: "받기" }));
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith(NOT_OPEN));
+    expect(onClaim).toHaveBeenCalledWith("dailyGoal");
+  });
+
+  it("광고 보상이 409로 거절되면 같은 화면의 다음 광고는 띄우지 않고 같은 안내를 띄운다", async () => {
+    const onWatchAd = vi.fn<() => Promise<AdResult>>(notOpen);
+    setup({ onWatchAd });
+    await userEvent.click(screen.getByRole("button", { name: /^보기/ }));
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith(NOT_OPEN));
+    await waitFor(() => expect(screen.getByRole("button", { name: /^보기/ })).toBeEnabled());
+
+    await userEvent.click(screen.getByRole("button", { name: /^보기/ }));
+    await waitFor(() => expect(showToast).toHaveBeenCalledTimes(2));
+    expect(showToast).toHaveBeenNthCalledWith(2, NOT_OPEN);
+    expect(onWatchAd).toHaveBeenCalledOnce();
+  });
+
+  it("출석 받기에서 409를 받았으면 광고를 띄우지 않는다", async () => {
+    const { onWatchAd } = setup({
+      earn: { ...fixture.earn, attendance: { reward: 10, claimed: false } },
+      onClaim: vi.fn(notOpen),
+    });
+    await userEvent.click(screen.getByRole("button", { name: "받기" }));
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith(NOT_OPEN));
+    await waitFor(() => expect(screen.getByRole("button", { name: /^보기/ })).toBeEnabled());
+
+    await userEvent.click(screen.getByRole("button", { name: /^보기/ }));
+    await waitFor(() => expect(showToast).toHaveBeenCalledTimes(2));
+    expect(onWatchAd).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["en", "You can claim points after the official launch"],
+    ["ja", "ポイントは正式リリース後から受け取れます"],
+    ["zh-Hant", "點數將於正式上線後開放領取"],
+  ])("%s에서도 같은 뜻의 안내를 띄운다", async (lng, copy) => {
+    await i18n.changeLanguage(lng);
+    setup({
+      earn: { ...fixture.earn, attendance: { reward: 10, claimed: false } },
+      onClaim: vi.fn(notOpen),
+    });
+    await userEvent.click(screen.getByRole("button", { name: i18n.t("points-earn:tile.claim") }));
+    await waitFor(() => expect(showToast).toHaveBeenCalledWith(copy));
   });
 });
 

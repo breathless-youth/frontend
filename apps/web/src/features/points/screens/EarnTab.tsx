@@ -6,6 +6,7 @@ import { formatDuration } from "@/features/records/recordsFormat";
 import { showToast } from "@/lib/toast";
 
 import { isMemberOnlyError } from "../gateway/memberOnly";
+import { isRewardNotOpenError } from "../gateway/rewardNotOpen";
 
 import { AdUnavailableDialog } from "../components/earn/AdUnavailableDialog";
 import { ChargeDoneSheet, type ChargeDone } from "../components/earn/ChargeDoneSheet";
@@ -40,6 +41,8 @@ import type {
  * 받은 직후 칸이 바로 바뀌도록 받은 표시는 화면에 들고 있고, 다시 받아 온 값이 오면 그 값과 합친다.
  * 받기·광고·충전은 잔액을 고친 뒤의 결과를 돌려줘서 완료·실패 창을 여기서 고른다.
  * 요청이 아예 실패하면 알림만 띄우고 버튼을 다시 누를 수 있게 둔다.
+ * 서버가 아직 포인트를 쌓지 않는다고 거절하면 일반 실패 대신 출시 뒤에 받을 수 있다는 알림을 띄운다.
+ * 이 거절을 한 번 받은 뒤에는 광고를 다 봐도 포인트가 들어오지 않으므로, 이 화면에서는 광고를 띄우지 않고 같은 알림만 띄운다.
  * 광고와 충전 처리기는 앱 안에서만 넘어오고, 없으면 앱에서 열기 안내를 그린다.
  * 앱 안인데 그 기능을 맡지 못하는 예전 앱에서는 안내 대신 칸을 그리지 않는다.
  * 받기·광고·충전은 회원만 하므로 누르는 순간 `allowAction`에 묻고, 비회원이면 아무 요청도 보내지 않는다.
@@ -82,6 +85,8 @@ export function EarnTab({
   // 같은 요청이 두 번 나가지 않게 처리 중인 일을 ref로도 막는다(상태는 다음 렌더에야 바뀐다).
   const busy = useRef(false);
   const [pending, setPending] = useState(false);
+  // 버튼 모양은 그대로라 다시 그릴 필요가 없어 ref에 둔다.
+  const rewardNotOpen = useRef(false);
 
   const run = async (task: () => Promise<void>) => {
     if (busy.current || !allowAction()) return;
@@ -90,8 +95,13 @@ export function EarnTab({
     try {
       await task();
     } catch (error) {
-      // 서버의 회원 전용 거절은 로그인 화면으로 보내므로 다시 시도하라고 알리지 않는다.
-      if (!isMemberOnlyError(error)) showToast(t("common:errors.retryLater"));
+      if (isRewardNotOpenError(error)) {
+        rewardNotOpen.current = true;
+        showToast(t("rewardNotOpen"));
+      } else if (!isMemberOnlyError(error)) {
+        // 서버의 회원 전용 거절은 로그인 화면으로 보내므로 다시 시도하라고 알리지 않는다.
+        showToast(t("common:errors.retryLater"));
+      }
     } finally {
       busy.current = false;
       setPending(false);
@@ -106,6 +116,10 @@ export function EarnTab({
 
   const watchAd = (handler: () => Promise<AdResult>) =>
     run(async () => {
+      if (rewardNotOpen.current) {
+        showToast(t("rewardNotOpen"));
+        return;
+      }
       const result = await handler();
       // 확인이 늦으면 따로 알리지 않고, 뒤에서 다시 읽은 값으로 횟수와 잔액이 바뀐다.
       if (result.status === "rewarded") setWatchedAtLeast(watched + 1);
