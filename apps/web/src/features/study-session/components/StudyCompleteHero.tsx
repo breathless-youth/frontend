@@ -95,21 +95,25 @@ function tiltFrame(id: MascotId, jumping: boolean) {
  * 고른 마스코트가 소품을 낀 채로 뛰어오르고 몸 그림만 표정마다 바뀐다.
  * 점프 그림은 몸이 기울어 있어 소품도 같은 순간에 같은 만큼 기운다.
  * 세트는 발을 덮거나 발밑에 깔려 다리를 모은 점프 그림과 어긋나므로, 다리를 펴고 웃는 그림을 몸과 세트째 기울인다.
+ * 고른 모습을 아직 모르면 `mascotHidden`으로 마스코트 자리를 비워 두고, 기본 마스코트를 먼저 그렸다가 바꾸지 않는다.
  */
 export function StudyCompleteHero({
   view,
   phase,
   look,
+  mascotHidden = false,
 }: {
   view: SessionResultView;
   phase: CompleteHeroPhase;
   look?: MascotLook | null;
+  /** 참이면 마스코트와 그림자, 발밑 소품을 그리지 않고 자리만 둔다. */
+  mascotHidden?: boolean;
 }) {
   const { t } = useTranslation("study-session");
   const collapsed = phase === "revealed";
   const animated = phase !== "static";
   const focusSec = useCountUp(view.focusSec, animated);
-  const jumping = phase === "intro";
+  const jumping = phase === "intro" && !mascotHidden;
   const { id, accessories } = look ?? DEFAULT_LOOK;
   const { wearsSet } = splitAccessoryLayers(accessories);
   const expressions = MASCOT_EXPRESSION_SRC[id];
@@ -177,16 +181,18 @@ export function StudyCompleteHero({
             data-result-mascot-slot=""
             className={cn("relative size-18", underfoot.length > 0 ? "mb-8.5" : "mb-4.5")}
           >
-            <span
-              aria-hidden="true"
-              className={cn(
-                "absolute top-17.5 left-1/2 h-1.75 w-9 -translate-x-1/2 rounded-full bg-(--result-mascot-shadow) opacity-62 blur-xs",
-                jumping && "animate-[result-mascot-shadow_0.92s_both] motion-reduce:animate-none",
-              )}
-            />
+            {!mascotHidden && (
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "absolute top-17.5 left-1/2 h-1.75 w-9 -translate-x-1/2 rounded-full bg-(--result-mascot-shadow) opacity-62 blur-xs",
+                  jumping && "animate-[result-mascot-shadow_0.92s_both] motion-reduce:animate-none",
+                )}
+              />
+            )}
             {/* 발밑 소품은 바닥에 선 마스코트 자리(뛰는 상자의 바닥 자세)에 멈춰 있다.
                 몸은 그리지 않고 마스코트와 같이 나타나도록 투명도만 맞춘다. */}
-            {underfoot.length > 0 && (
+            {!mascotHidden && underfoot.length > 0 && (
               <div
                 data-result-mascot-ground=""
                 className={cn(
@@ -203,34 +209,36 @@ export function StudyCompleteHero({
                 네 장을 처음부터 그려 두어 첫 교체 전에 디코드가 끝난다.
                 bottom-9·left-0.75는 점프 표정 기준의 정점 자리다.
                 기본 표정은 몸통이 5.6px 아래에 그려져 있어 바닥(36px 아래)에서 발끝이 그림자에 닿는다. */}
-            <div
-              data-result-mascot=""
-              className={cn(
-                "pointer-events-none absolute bottom-9 left-0.75 h-23.5 w-18.5 origin-bottom",
-                jumping && "animate-[result-mascot-jump_0.92s_both] motion-reduce:animate-none",
-              )}
-            >
-              <div data-result-mascot-board="" className="absolute" style={boardStyle(id)}>
-                {wearsSet ? (
-                  <div data-result-mascot-tilt="" className={tilt.className} style={tilt.style}>
+            {!mascotHidden && (
+              <div
+                data-result-mascot=""
+                className={cn(
+                  "pointer-events-none absolute bottom-9 left-0.75 h-23.5 w-18.5 origin-bottom",
+                  jumping && "animate-[result-mascot-jump_0.92s_both] motion-reduce:animate-none",
+                )}
+              >
+                <div data-result-mascot-board="" className="absolute" style={boardStyle(id)}>
+                  {wearsSet ? (
+                    <div data-result-mascot-tilt="" className={tilt.className} style={tilt.style}>
+                      <MascotFigure
+                        id={id}
+                        accessories={worn}
+                        body={<ResultFaces faces={faces} jumping={jumping} />}
+                        className="w-full"
+                      />
+                    </div>
+                  ) : (
                     <MascotFigure
                       id={id}
                       accessories={worn}
                       body={<ResultFaces faces={faces} jumping={jumping} />}
+                      layerFrame={tilt}
                       className="w-full"
                     />
-                  </div>
-                ) : (
-                  <MascotFigure
-                    id={id}
-                    accessories={worn}
-                    body={<ResultFaces faces={faces} jumping={jumping} />}
-                    layerFrame={tilt}
-                    className="w-full"
-                  />
-                )}
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <h1 className="text-[20px] leading-6 font-extrabold tracking-[-0.4px] text-foreground animate-[result-fade-up_0.5s_ease-out_0.55s_both] motion-reduce:animate-none">
