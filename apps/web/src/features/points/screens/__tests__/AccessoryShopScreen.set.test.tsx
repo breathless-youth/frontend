@@ -67,6 +67,52 @@ describe("AccessoryShopScreen의 세트 칸", () => {
   });
 });
 
+describe("AccessoryShopScreen의 세트 결제", () => {
+  // 서버는 첫 착용 요청을 결제 상품의 첫 착용으로 기록하고, 그 뒤에는 7일 철회를 받지 않는다.
+  it("결제가 끝나면 착용 요청 없이 그 칸을 고른 채 보유로 바꾸고 버튼을 착용하기로 둔다", async () => {
+    const gateway = createFakePointsGateway("default");
+    const equip = vi.spyOn(gateway, "equipAccessory");
+    renderScreen(gateway);
+    await userEvent.click(await screen.findByRole("button", { name: "세트" }));
+
+    await userEvent.click(await screen.findByRole("button", { name: "₩1,100에 구매하기" }));
+
+    expect(await screen.findByRole("button", { name: "착용하기" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "비 오는 날 세트, 가지고 있어요", pressed: true }),
+    ).toBeInTheDocument();
+    expect(equip).not.toHaveBeenCalled();
+  });
+
+  it("결제 뒤 착용하기를 누르면 그때 착용 요청을 보내고 입은 상태가 된다", async () => {
+    const gateway = createFakePointsGateway("default");
+    const equip = vi.spyOn(gateway, "equipAccessory");
+    renderScreen(gateway);
+    await userEvent.click(await screen.findByRole("button", { name: "세트" }));
+    await userEvent.click(await screen.findByRole("button", { name: "₩1,100에 구매하기" }));
+
+    await userEvent.click(await screen.findByRole("button", { name: "착용하기" }));
+
+    expect(equip).toHaveBeenCalledOnce();
+    expect(equip).toHaveBeenCalledWith("stopwatch", "set", "acc-stopwatch-rainset");
+    expect(await screen.findByRole("button", { name: "벗기" })).toBeEnabled();
+  });
+
+  it("결제가 끝나고 상품을 받는 동안 소품을 구매하고 있다고 알린다", async () => {
+    const gateway = createFakePointsGateway("default");
+    vi.spyOn(gateway, "purchaseStoreItem").mockImplementation((_itemId, onPaid) => {
+      onPaid?.();
+      return new Promise(() => {});
+    });
+    renderScreen(gateway);
+    await userEvent.click(await screen.findByRole("button", { name: "세트" }));
+
+    await userEvent.click(await screen.findByRole("button", { name: "₩1,100에 구매하기" }));
+
+    expect(await screen.findByText("소품을 구매하고 있어요")).toBeVisible();
+  });
+});
+
 describe("AccessoryShopScreen의 세트 칸 가격 자리", () => {
   /** 세트 가격을 정해 둔 가짜 경계이며 storeItems가 false면 결제를 맡을 수 없는 곳(브라우저, 예전 앱)이다. */
   function withPrices(getStorePrices: PointsGateway["getStorePrices"], storeItems = true) {

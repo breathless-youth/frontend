@@ -34,7 +34,9 @@ import { usePointsScreenViewed } from "../model/usePointsScreenViewed";
  * 소품 사기
  *
  * 마스코트와 부위를 고르면 그 소품 격자가 나오고, 사고 입는 일은 맨 아래 버튼 하나가 맡는다.
- * 산 소품은 바로 입은 상태로 만든다.
+ * 포인트로 산 소품은 바로 입은 상태로 만든다.
+ * 결제로 산 상품(세트 등)은 처음 입기 전까지 7일 안에 철회할 수 있어서 바로 입히지 않는다.
+ * 서버가 착용 요청을 첫 착용으로 기록하므로, 고른 칸을 그대로 둔 채 보유로만 바꾸고 사용자가 착용하기를 누를 때 입힌다.
  * 조회와 변경은 라우트가 맡고 이 화면은 받은 값과 처리기만 쓴다.
  * 상점에서 누른 상품 없이 들어오면 착용 중인 소품이 있는 칸과 그 소품을 먼저 골라, 지금 모습에서 바꿔 보기 시작하게 한다.
  * 마스코트를 바꿀 때도 그 마스코트가 착용 중인 칸과 소품을 먼저 고른다.
@@ -125,7 +127,8 @@ export function AccessoryShopScreen({
     }
   };
 
-  // 산 직후 한 번 입힌다. 보유·착용 표시가 바뀌는 것으로 산 것을 알 수 있어 따로 알리지 않는다.
+  // 포인트로 산 직후 한 번 입힌다. 보유·착용 표시가 바뀌는 것으로 산 것을 알 수 있어 따로 알리지 않는다.
+  // 결제로 산 상품은 이 흐름을 타지 않고 `useStorePurchase`도 입히지 않아, 7일 철회가 가능한 채로 보유만 된다.
   const { step, close } = flow;
   useEffect(() => {
     if (step !== "done" || item === null) {
@@ -135,17 +138,6 @@ export function AccessoryShopScreen({
     close();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- step이 done이 될 때만 돌린다
   }, [step]);
-
-  // 결제로 산 소품도 바로 입힌다.
-  const storeStep = store.step;
-  useEffect(() => {
-    if (storeStep !== "done" || store.target === null) {
-      return;
-    }
-    void setInUse(store.target, true);
-    store.close();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 결제가 끝난 때만 돌린다
-  }, [storeStep]);
 
   const choose = (change: () => void) => {
     flow.close();
