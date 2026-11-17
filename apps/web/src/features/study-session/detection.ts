@@ -33,6 +33,11 @@ export interface TriggerHoldParams {
    * 자리에 돌아와 책을 펴고 얼굴이 잡히기까지 걸리는 시간이다. 이 시간이 지난 뒤부터 `graceMs`를 잰다.
    */
   readonly settleMs?: number;
+  /**
+   * 참이면 강한 공부 증거(`WORKING`)가 켜지는 순간 이 출처의 유예를 바로 푼다. 확정된 비집중은 풀지 않는다.
+   * 공부 증거로 판정하는 출처만 쓴다.
+   */
+  readonly clearedByWork?: boolean;
 }
 
 /**
@@ -46,6 +51,8 @@ export interface TriggerHoldParams {
  * - `SCREEN_GAZE`: 고개와 눈을 합친 시선이 폰 카메라 쪽이다. 10초 이어지면 화면 응시(`SCREEN`) 비집중이다.
  *   고개 방향만 보면 폰을 정면에 두고 공부하는 사람도 계속 켜져서, 눈 방향까지 더해 카메라 쪽인지 본다.
  * - `NO_EVIDENCE`: 공부 증거(도구 쪽 시선·손, 얼굴)가 없다. 유예까지만 간다.
+ * - `WORKING`: 얼굴이 안 보일 때 도구 위에서 손이 필기·타이핑하듯 움직인다. 유예를 만들지 않고,
+ *   켜지면 `clearedByWork` 출처의 유예를 3초 기다리지 않고 바로 푼다.
  */
 export const DETECTION_SOURCES = [
   "AWAY",
@@ -56,6 +63,7 @@ export const DETECTION_SOURCES = [
   "TOUCH",
   "SCREEN_GAZE",
   "NO_EVIDENCE",
+  "WORKING",
 ] as const;
 export type DetectionSource = (typeof DETECTION_SOURCES)[number];
 
@@ -72,6 +80,7 @@ export const SOURCE_TRIGGER = {
   TOUCH: "DEVICE",
   SCREEN_GAZE: "SCREEN",
   NO_EVIDENCE: null,
+  WORKING: null,
 } as const satisfies Record<DetectionSource, DistractionTrigger | null>;
 
 /** 출처별 유지시간. */
@@ -90,9 +99,16 @@ const STANDARD_HOLD: TriggerHoldParams = { graceMs: 3000, enterMs: 10_000, exitM
 /** 비집중에서 돌아온 뒤 화면 응시·공부 흔적 없음으로 유예를 띄우지 않는 시간. */
 const SETTLE_AFTER_RELEASE_MS = 10_000;
 
+/** 쓰지 않는 출처. 원신호가 와도 유예도 비집중도 만들지 않는다. */
+const OFF_HOLD: TriggerHoldParams = { graceMs: Number.POSITIVE_INFINITY, enterMs: null, exitMs: 0 };
+
 export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
   AWAY: STANDARD_HOLD,
-  PHONE: STANDARD_HOLD,
+  /**
+   * 카메라 휴대폰은 손 결과 두 번으로 쥔 것을 확인해 원신호가 1초 늦게 켜진다. 그만큼 1초씩 줄여
+   * 휴대폰을 집은 순간부터 보면 다른 원인과 같은 3초 유예·10초 확정이 되게 한다.
+   */
+  PHONE: { ...STANDARD_HOLD, graceMs: 2000, enterMs: 9000 },
   /**
    * 조작이 1초 이어지면 유예, 4초 이어지면 휴대폰 사용이다. 중간에 끊기면 처음부터 다시 잰다.
    * 1초에 한 번 본다고 치면 2회 연속이 유예, 5회 연속이 확정인 것과 같다.
@@ -101,8 +117,14 @@ export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
   SLEEP_EYES: STANDARD_HOLD,
   SLEEP_DROWSY: STANDARD_HOLD,
   TOUCH: STANDARD_HOLD,
-  SCREEN_GAZE: { ...STANDARD_HOLD, settleMs: SETTLE_AFTER_RELEASE_MS },
-  NO_EVIDENCE: { ...STANDARD_HOLD, enterMs: null, settleMs: SETTLE_AFTER_RELEASE_MS },
+  SCREEN_GAZE: { ...STANDARD_HOLD, settleMs: SETTLE_AFTER_RELEASE_MS, clearedByWork: true },
+  NO_EVIDENCE: {
+    ...STANDARD_HOLD,
+    enterMs: null,
+    settleMs: SETTLE_AFTER_RELEASE_MS,
+    clearedByWork: true,
+  },
+  WORKING: OFF_HOLD,
 };
 
 /**
@@ -112,9 +134,6 @@ export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
 export function usesStudyEvidence(roomType: StudyRoomType): boolean {
   return roomType === "single";
 }
-
-/** 쓰지 않는 출처. 원신호가 와도 유예도 비집중도 만들지 않는다. */
-const OFF_HOLD: TriggerHoldParams = { graceMs: Number.POSITIVE_INFINITY, enterMs: null, exitMs: 0 };
 
 /**
  * 소셜·그룹룸 유지시간
@@ -134,6 +153,7 @@ export const SOCIAL_DETECTION_PARAMS: DetectionParams = {
   TOUCH: OFF_HOLD,
   SCREEN_GAZE: OFF_HOLD,
   NO_EVIDENCE: OFF_HOLD,
+  WORKING: OFF_HOLD,
 };
 
 /**
@@ -253,6 +273,16 @@ export function stepDetection(
       episode = settledAt;
     }
     if (episode !== null && !raw && heldMs >= hold.exitMs) {
+      episode = null;
+    }
+    // 강한 공부 증거가 켜지면 공부 증거로 판정하는 출처의 유예는 복귀 시간을 기다리지 않고 바로 푼다.
+    // 이미 확정된 비집중은 다른 원인처럼 복귀 시간을 기다린다.
+    if (
+      episode !== null &&
+      signals.WORKING &&
+      hold.clearedByWork === true &&
+      !nextConfirmed[source]
+    ) {
       episode = null;
     }
     nextEpisode[source] = episode;

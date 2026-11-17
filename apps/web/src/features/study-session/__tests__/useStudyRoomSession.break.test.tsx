@@ -225,21 +225,21 @@ describe("useStudyRoomSession 휴식", () => {
     await advance(5_000);
 
     act(() => {
-      detector.emit({ source: "PHONE", active: true });
+      detector.emit({ source: "AWAY", active: true });
     });
     await advance(10_000); // 유예 3초를 지나 10초에 비집중 확정
-    expect(result.current.sessionState).toEqual(distractionState("PHONE"));
+    expect(result.current.sessionState).toEqual(distractionState("AWAY"));
     await advance(9_000);
     act(() => {
       result.current.startBreak();
     });
     await advance(5_000);
 
-    const distractions = result.current.sessionEvents.filter((event) => event.status === "PHONE");
+    const distractions = result.current.sessionEvents.filter((event) => event.status === "AWAY");
     expect(distractions).toHaveLength(1);
     expect(durationMs(distractions[0]!)).toBe(9_000);
     expect(mocks.distracted).toHaveBeenCalledExactlyOnceWith({
-      status: "PHONE",
+      status: "AWAY",
       durationSec: 9,
       roomType: "single",
     });

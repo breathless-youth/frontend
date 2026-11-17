@@ -248,7 +248,12 @@ export interface EvidenceInput {
   } | null;
   readonly tools: readonly NormalizedBox[];
   /** 최근 손 판정. null이면 손 모델이 안 돌았다. */
-  readonly hands: { readonly atTool: boolean; readonly moving: boolean } | null;
+  readonly hands: {
+    /** 손이 하나라도 보인다. */
+    readonly visible: boolean;
+    readonly atTool: boolean;
+    readonly moving: boolean;
+  } | null;
 }
 
 export interface EvidenceSignals {
@@ -258,12 +263,15 @@ export interface EvidenceSignals {
   readonly screenGaze: boolean;
   /** 손 판정이 있으면 결론이 바뀐다. 손 모델은 이때만 돈다. */
   readonly wantHands: boolean;
+  /** 얼굴이 안 보일 때 도구 위에서 손이 필기·타이핑하듯 움직인다. 강한 공부 증거다. */
+  readonly working: boolean;
 }
 
 export const NO_EVIDENCE_SIGNALS: EvidenceSignals = {
   noEvidence: false,
   screenGaze: false,
   wantHands: false,
+  working: false,
 };
 
 export function evaluateEvidence(input: EvidenceInput): EvidenceSignals {
@@ -272,9 +280,12 @@ export function evaluateEvidence(input: EvidenceInput): EvidenceSignals {
     return NO_EVIDENCE_SIGNALS;
   }
   if (!face.present) {
-    // 얼굴이 안 보이면 먼저 유예다. 손이 도구 위에서 움직이면 얼굴 없이도 공부로 본다.
-    const working = hands?.atTool === true && hands.moving;
-    return { noEvidence: !working, screenGaze: false, wantHands: tools.length > 0 };
+    // 얼굴이 안 보이면 도구와 손이 함께 보일 때만 공부로 본다. 손만 보이거나 손이 없으면 유예다.
+    // 도구 위에서 손이 필기·타이핑하듯 움직이면 강한 증거로 본다.
+    const toolInView = tools.length > 0;
+    const working = toolInView && hands?.atTool === true && hands.moving;
+    const handsWithTool = toolInView && hands?.visible === true;
+    return { noEvidence: !handsWithTool, screenGaze: false, wantHands: toolInView, working };
   }
   if (gazeOnTool(face.gaze, face.bounds, tools)) {
     return NO_EVIDENCE_SIGNALS;
@@ -282,7 +293,7 @@ export function evaluateEvidence(input: EvidenceInput): EvidenceSignals {
   const screenGaze = gazeOnScreen(face.gaze);
   if (tools.length === 0 || screenGaze) {
     // 도구가 없으면 화면 응시만 본다. 화면을 보고 있으면 손이 도구 위여도 화면 응시로 유예에 둔다.
-    return { noEvidence: false, screenGaze, wantHands: false };
+    return { noEvidence: false, screenGaze, wantHands: false, working: false };
   }
-  return { noEvidence: hands?.atTool !== true, screenGaze: false, wantHands: true };
+  return { noEvidence: hands?.atTool !== true, screenGaze: false, wantHands: true, working: false };
 }

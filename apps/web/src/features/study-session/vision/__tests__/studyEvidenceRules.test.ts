@@ -259,10 +259,12 @@ describe("evaluateEvidence", () => {
   });
 
   it("옆 도구가 보여도 정면을 보면 화면 응시다. 손이 도구 위여도 마찬가지다", () => {
-    const expected = { noEvidence: false, screenGaze: true, wantHands: false };
+    const expected = { noEvidence: false, screenGaze: true, wantHands: false, working: false };
     const side = { ...base, tools: [SIDE_LAPTOP], face: face(LOOKING_AT_SCREEN) };
     expect(evaluateEvidence(side)).toEqual(expected);
-    expect(evaluateEvidence({ ...side, hands: { atTool: true, moving: true } })).toEqual(expected);
+    expect(
+      evaluateEvidence({ ...side, hands: { visible: true, atTool: true, moving: true } }),
+    ).toEqual(expected);
   });
 
   it("앞쪽 책이 있을 때 고개는 정면이고 눈만 내리면 책을 읽는 것으로 본다", () => {
@@ -279,10 +281,12 @@ describe("evaluateEvidence", () => {
       noEvidence: true,
       screenGaze: false,
       wantHands: true,
+      working: false,
     });
-    expect(evaluateEvidence({ ...input, hands: { atTool: true, moving: false } }).noEvidence).toBe(
-      false,
-    );
+    expect(
+      evaluateEvidence({ ...input, hands: { visible: true, atTool: true, moving: false } })
+        .noEvidence,
+    ).toBe(false);
   });
 
   it("도구가 안 보이면 화면 응시만 본다", () => {
@@ -291,21 +295,49 @@ describe("evaluateEvidence", () => {
       noEvidence: false,
       screenGaze: true,
       wantHands: false,
+      working: false,
     });
     expect(evaluateEvidence({ ...base, tools, face: face(TURNED_LEFT) })).toEqual(
       NO_EVIDENCE_SIGNALS,
     );
   });
 
-  it("얼굴이 안 보이면 유예이고, 손이 도구 위에서 움직이면 공부로 본다", () => {
+  it("얼굴이 안 보이면 도구와 손이 함께 보여야 공부로 본다", () => {
     const hidden = { present: false, gaze: LOOKING_DOWN, bounds: null };
+    const handNearby = { visible: true, atTool: false, moving: false };
     expect(evaluateEvidence({ ...base, face: hidden }).noEvidence).toBe(true);
+    expect(evaluateEvidence({ ...base, face: hidden, hands: handNearby })).toMatchObject({
+      noEvidence: false,
+      working: false,
+    });
+    // 손만 보이고 도구가 없으면 공부로 보지 않는다.
     expect(
-      evaluateEvidence({ ...base, face: hidden, hands: { atTool: true, moving: false } })
-        .noEvidence,
+      evaluateEvidence({ ...base, tools: [], face: hidden, hands: handNearby }).noEvidence,
     ).toBe(true);
     expect(
-      evaluateEvidence({ ...base, face: hidden, hands: { atTool: true, moving: true } }).noEvidence,
+      evaluateEvidence({
+        ...base,
+        face: hidden,
+        hands: { visible: false, atTool: false, moving: false },
+      }).noEvidence,
+    ).toBe(true);
+  });
+
+  it("얼굴이 안 보일 때 도구 위에서 움직이는 손은 강한 증거다", () => {
+    const hidden = { present: false, gaze: LOOKING_DOWN, bounds: null };
+    expect(
+      evaluateEvidence({
+        ...base,
+        face: hidden,
+        hands: { visible: true, atTool: true, moving: true },
+      }),
+    ).toMatchObject({ noEvidence: false, working: true });
+    expect(
+      evaluateEvidence({
+        ...base,
+        face: hidden,
+        hands: { visible: true, atTool: true, moving: false },
+      }).working,
     ).toBe(false);
   });
 });

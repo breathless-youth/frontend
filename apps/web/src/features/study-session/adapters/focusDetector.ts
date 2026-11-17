@@ -53,7 +53,9 @@ import {
   HAND_FRAME_DIVISOR,
   HAND_PHONE_IDLE_MS,
   HAND_PHONE_MAX_AGE_MS,
+  PHONE_HOLD_CONFIRMATIONS,
   HAND_RESULT_MAX_AGE_MS,
+  TOOL_MEMORY_MS,
   SCORE_THRESHOLDS,
 } from "../vision/visionConfig";
 
@@ -194,6 +196,7 @@ const VISION_SOURCES = [
   "SLEEP_DROWSY",
   "SCREEN_GAZE",
   "NO_EVIDENCE",
+  "WORKING",
 ] as const satisfies readonly VisionSource[];
 
 /**
@@ -429,12 +432,17 @@ export function createVisionFocusDetector(
   let lastFace: { present: boolean; gaze: GazeReading; bounds: NormalizedBox | null } | null = null;
   let handLoadRequested = false;
   let lastHands: { hands: readonly HandPose[]; atMs: number } | null = null;
+  /** 마지막으로 검출한 공부 도구. 검출이 한두 프레임 빠져도 `TOOL_MEMORY_MS` 동안 쓴다. */
+  let lastTools: { boxes: readonly NormalizedBox[]; atMs: number } | null = null;
   /** 필기 움직임 비교용 최근 손 기록. 손을 1초마다 돌려도 3초 전 손과 비교하려고 몇 개 들고 있다. */
   let handHistory: { hands: readonly HandPose[]; atMs: number }[] = [];
   /** 휴대폰이 이어서 보이기 시작한 시각과 마지막으로 보인 시각, 마지막으로 쥔 것이 확인된 시각. */
   let phoneVisibleSinceMs: number | null = null;
   let phoneLastSeenAtMs = 0;
   let phoneHeldAtMs: number | null = null;
+  /** 손이 휴대폰을 쥔 것으로 잡힌 손 결과가 연속으로 몇 번인지와 마지막으로 센 손 결과의 시각. */
+  let phoneHoldStreak = 0;
+  let phoneHoldCountedAtMs: number | null = null;
 
   function setStatus(next: VisionDetectorStatus): void {
     if (next === status) {
@@ -487,9 +495,12 @@ export function createVisionFocusDetector(
   function dropEvidence(): void {
     lastFace = null;
     lastHands = null;
+    lastTools = null;
     handHistory = [];
     phoneVisibleSinceMs = null;
     phoneHeldAtMs = null;
+    phoneHoldStreak = 0;
+    phoneHoldCountedAtMs = null;
   }
 
   function resetFrameState(): void {
@@ -544,6 +555,7 @@ export function createVisionFocusDetector(
       SLEEP_DROWSY: sleep.eyesDrowsy,
       SCREEN_GAZE: evidence.screenGaze,
       NO_EVIDENCE: evidence.noEvidence,
+      WORKING: evidence.working,
     };
     const before = emitted;
     emitted = next;
@@ -925,7 +937,16 @@ export function createVisionFocusDetector(
         )
       : NO_SLEEP_SIGNALS;
 
-    const tools = toolBoxesOf(result.detections, frame.frameSize);
+    const seenTools = toolBoxesOf(result.detections, frame.frameSize);
+    if (seenTools.length > 0) {
+      lastTools = { boxes: seenTools, atMs };
+    }
+    const tools =
+      seenTools.length > 0
+        ? seenTools
+        : lastTools !== null && atMs - lastTools.atMs <= TOOL_MEMORY_MS
+          ? lastTools.boxes
+          : [];
     const evidenceInput = {
       personPresent: signals.personPresent,
       face: sleepEnabled && faceStatus === "ready" ? lastFace : null,
@@ -946,14 +967,28 @@ export function createVisionFocusDetector(
     }
     // 쥐었는지 확인할 수 없으면 휴대폰 사용으로 보지 않는다. 손 모델을 못 여는 기기는 휴대폰 감지가 빠진다.
     // 공부 흔적 판정을 끄면 손을 보지 않으므로 보이는 휴대폰을 그대로 사용으로 본다.
+    // 손 기준이 낮아 흐린 손이 한 번 스칠 수 있으므로, 쥔 것으로 잡힌 손 결과가 연속으로 나와야 쥔 것으로 본다.
+    const handsFresh =
+      phoneSeen &&
+      handLandmarker.state === "ready" &&
+      lastHands !== null &&
+      atMs - lastHands.atMs <= HAND_PHONE_MAX_AGE_MS;
+    if (!handsFresh) {
+      phoneHoldStreak = 0;
+    } else if (lastHands !== null && lastHands.atMs !== phoneHoldCountedAtMs) {
+      phoneHoldCountedAtMs = lastHands.atMs;
+      phoneHoldStreak = handsHoldingPhone(
+        lastHands.hands,
+        phoneBoxesOf(result.detections, frame.frameSize),
+      )
+        ? phoneHoldStreak + 1
+        : 0;
+    }
     const phoneHeld = !evidenceEnabled
       ? phoneSeen
-      : phoneSeen &&
-        handLandmarker.state === "ready" &&
-        lastHands !== null &&
-        atMs - lastHands.atMs <= HAND_PHONE_MAX_AGE_MS &&
-        handsHoldingPhone(lastHands.hands, phoneBoxesOf(result.detections, frame.frameSize));
-    if (phoneHeld) {
+      : handsFresh && phoneHoldStreak >= PHONE_HOLD_CONFIRMATIONS;
+    // 한 번이라도 쥔 것으로 잡히면 손을 다시 1초마다 돌려 두 번째 확인을 늦추지 않는다.
+    if (evidenceEnabled && handsFresh && phoneHoldStreak > 0) {
       phoneHeldAtMs = atMs;
     }
     const judged: FrameSignals = { ...signals, phoneInUse: phoneHeld };
@@ -963,6 +998,7 @@ export function createVisionFocusDetector(
       freshHands === null
         ? null
         : {
+            visible: freshHands.hands.length > 0,
             atTool: handsAtTool(freshHands.hands, tools),
             // 필기는 도구 위에 있는 손이 움직이는 것이다. 다른 손의 움직임은 세지 않는다.
             moving: handsMovingOnTool(handsForMovement(atMs), freshHands.hands, tools),
@@ -1004,6 +1040,7 @@ export function createVisionFocusDetector(
         tool: tools.length > 0,
         noEvidence: evidence.noEvidence,
         screenGaze: evidence.screenGaze,
+        working: evidence.working,
         eyeLookDown: lastFace?.gaze.eyeLookDown ?? null,
         gazeOnTool:
           lastFace?.present === true && evidence.noEvidence === false && !evidence.screenGaze,

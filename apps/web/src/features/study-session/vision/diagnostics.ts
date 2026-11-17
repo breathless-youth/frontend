@@ -59,6 +59,8 @@ export interface FrameDiagnostics {
     readonly tool: boolean;
     readonly noEvidence: boolean;
     readonly screenGaze: boolean;
+    /** 얼굴이 안 보일 때 도구 위에서 손이 필기·타이핑하듯 움직였다. 강한 공부 증거다. */
+    readonly working?: boolean;
     /** 판정에 쓴 양쪽 눈 아래 보기 평균. 고개 숙임 게이트 전 값이다. */
     readonly eyeLookDown: number | null;
     /** 얼굴이 보이고 증거 없음도 화면 응시도 아니다. 도구 응시나 손 증거로 공부로 본 프레임이다. */
@@ -199,6 +201,9 @@ export function createVisionDiagnostics(sink: DiagnosticsSink): VisionDiagnostic
         payload.tool = evidence.tool;
         payload.noEvidence = evidence.noEvidence;
         payload.screenGaze = evidence.screenGaze;
+        if (evidence.working !== undefined) {
+          payload.working = evidence.working;
+        }
         if (evidence.eyeLookDown !== null) {
           payload.eyeLookDown = round2(evidence.eyeLookDown);
         }

@@ -473,12 +473,25 @@ export const FACE_SMOOTHING_SAMPLES = 2;
  */
 export const HAND_MODEL_PATH = "/models/hand_landmarker-fbc2a300.task";
 
+/**
+ * 손 모델 기준. 0.3은 얼굴이 안 보일 때 책상 위 손을 놓치지 않으려고 낮춘 값이다.
+ * 아이폰 실측에서 0.5로는 노트북 옆에 둔 손을 자주 놓쳐 공부 흔적 없음이 켜졌다.
+ * 흐린 손을 잘못 잡아도 공부 인정 쪽은 순공이 쌓이는 방향이라 괜찮고, 휴대폰 쥠은
+ * `PHONE_HOLD_CONFIRMATIONS`로 따로 막는다.
+ */
 export const HAND_LANDMARKER_OPTIONS = {
   numHands: 2,
-  minHandDetectionConfidence: 0.5,
-  minHandPresenceConfidence: 0.5,
-  minTrackingConfidence: 0.5,
+  minHandDetectionConfidence: 0.3,
+  minHandPresenceConfidence: 0.3,
+  minTrackingConfidence: 0.3,
 } as const;
+
+/**
+ * 휴대폰을 쥐었다고 보려면 손이 휴대폰 박스 안에 있는 손 결과가 이만큼 연속으로 나와야 한다.
+ * 손 기준을 낮춰 흐린 손이 한 번 스치는 것만으로 휴대폰 사용(시간이 멈추는 판정)이 되지 않게 한다.
+ * 휴대폰이 보이면 손이 1초마다 돌아서 확인이 1초 늦어지고, 그만큼 휴대폰 유예·확정 시간을 줄였다.
+ */
+export const PHONE_HOLD_CONFIRMATIONS = 2;
 
 /**
  * 손 추론 간격 — 처리된 프레임 3개마다 한 번, 즉 3초.
@@ -490,6 +503,13 @@ export const HAND_FRAME_DIVISOR = 3;
 
 /** 이보다 오래된 손 판정은 버린다. 손 틱 두 번분이다. */
 export const HAND_RESULT_MAX_AGE_MS = 6000;
+
+/**
+ * 공부 도구(책·노트북)를 한 번 검출하면 이 시간 동안은 보이는 것으로 친다. 손 판정과 같은 길이다.
+ * 아이폰 실측에서 책상 위 노트북 점수가 기준(0.3) 근처를 오가며 프레임 절반에서만 검출돼,
+ * 손이 그대로 있어도 흔적 없음이 켜졌다.
+ */
+export const TOOL_MEMORY_MS = HAND_RESULT_MAX_AGE_MS;
 
 /**
  * 휴대폰을 쥐었다고 볼 때 휴대폰 박스를 폭·높이 대비 이만큼 넓혀 본다.
