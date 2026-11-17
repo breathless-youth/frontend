@@ -28,6 +28,11 @@ export interface TriggerHoldParams {
   readonly continuous?: boolean;
   /** 이 출처를 기록할 트리거. 없으면 `SOURCE_TRIGGER`를 따른다. 방마다 같은 출처를 다르게 기록할 때 쓴다. */
   readonly trigger?: DistractionTrigger;
+  /**
+   * 비집중이 풀린 직후 이 시간 동안은 이 출처가 유예를 만들지 않는다.
+   * 자리에 돌아와 책을 펴고 얼굴이 잡히기까지 걸리는 시간이다. 이 시간이 지난 뒤부터 `graceMs`를 잰다.
+   */
+  readonly settleMs?: number;
 }
 
 /**
@@ -83,6 +88,9 @@ export type DetectionParams = Record<DetectionSource, TriggerHoldParams>;
  */
 const STANDARD_HOLD: TriggerHoldParams = { graceMs: 3000, enterMs: 10_000, exitMs: 3000 };
 
+/** 비집중에서 돌아온 뒤 화면 응시·공부 흔적 없음으로 유예를 띄우지 않는 시간. */
+const SETTLE_AFTER_RELEASE_MS = 10_000;
+
 export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
   AWAY: STANDARD_HOLD,
   PHONE: STANDARD_HOLD,
@@ -94,8 +102,8 @@ export const DEFAULT_DETECTION_PARAMS: DetectionParams = {
   SLEEP_EYES: STANDARD_HOLD,
   SLEEP_DROWSY: STANDARD_HOLD,
   TOUCH: STANDARD_HOLD,
-  SCREEN_GAZE: { ...STANDARD_HOLD, enterMs: null },
-  NO_EVIDENCE: { ...STANDARD_HOLD, enterMs: null },
+  SCREEN_GAZE: { ...STANDARD_HOLD, enterMs: null, settleMs: SETTLE_AFTER_RELEASE_MS },
+  NO_EVIDENCE: { ...STANDARD_HOLD, enterMs: null, settleMs: SETTLE_AFTER_RELEASE_MS },
 };
 
 /**
@@ -184,6 +192,8 @@ export interface DetectionState {
   readonly active: DistractionTrigger | null;
   /** 확정된 트리거는 없고 유예 중인 출처가 있다. 순공은 그대로 흐른다. */
   readonly grace: boolean;
+  /** 마지막으로 비집중이 풀린 시각. `settleMs`의 기준이다. */
+  readonly releasedAtMs: number | null;
 }
 
 export function createDetectionState(nowMs: number): DetectionState {
@@ -194,6 +204,7 @@ export function createDetectionState(nowMs: number): DetectionState {
     confirmed: { ...NO_TRIGGER_SIGNALS },
     active: null,
     grace: false,
+    releasedAtMs: null,
   };
 }
 
@@ -232,8 +243,13 @@ export function stepDetection(
     const heldMs = nowMs - nextSince[source];
     const hold = params[source];
     let episode = nextEpisode[source];
-    if (episode === null && raw && heldMs >= hold.graceMs) {
-      episode = nextSince[source];
+    // 비집중이 풀린 뒤 정착 시간이 끝나기 전에는 유예까지의 시간을 재지 않는다.
+    const settledAt =
+      hold.settleMs !== undefined && state.releasedAtMs !== null
+        ? Math.max(nextSince[source], state.releasedAtMs + hold.settleMs)
+        : nextSince[source];
+    if (episode === null && raw && nowMs - settledAt >= hold.graceMs) {
+      episode = settledAt;
     }
     if (episode !== null && !raw && heldMs >= hold.exitMs) {
       episode = null;
@@ -257,11 +273,22 @@ export function stepDetection(
       ? state.active
       : (TRIGGER_PRIORITY.find((trigger) => isTriggerConfirmed(nextConfirmed, trigger, params)) ??
         null);
+  let releasedAtMs = state.releasedAtMs;
+  if (state.active !== null && active === null) {
+    // 비집중 동안 쌓인 정착 대상 출처의 유예는 지운다. 돌아온 뒤 정착 시간부터 다시 잰다.
+    releasedAtMs = nowMs;
+    for (const source of DETECTION_SOURCES) {
+      if (params[source].settleMs !== undefined) {
+        nextEpisode[source] = null;
+      }
+    }
+  }
   const grace = active === null && DETECTION_SOURCES.some((source) => nextEpisode[source] !== null);
 
   const unchanged =
     active === state.active &&
     grace === state.grace &&
+    releasedAtMs === state.releasedAtMs &&
     DETECTION_SOURCES.every(
       (source) =>
         nextSignals[source] === state.signals[source] &&
@@ -278,5 +305,6 @@ export function stepDetection(
         confirmed: nextConfirmed,
         active,
         grace,
+        releasedAtMs,
       };
 }

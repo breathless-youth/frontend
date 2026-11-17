@@ -201,6 +201,57 @@ describe("stepDetection — 동시 다중 감지", () => {
   });
 });
 
+describe("stepDetection — 비집중이 풀린 뒤 정착 시간", () => {
+  /** 0~10초 자리 비움으로 확정한 뒤 11초에 돌아온다. 신호가 3초 꺼져 14초에 풀린다. */
+  function returnFromAway(back: TriggerSignals): DetectionState {
+    let state = hold(createDetectionState(T0), signals({ AWAY: true }), 0, 10_000);
+    state = hold(state, back, 11_000, 14_000);
+    expect(state.active).toBeNull();
+    return state;
+  }
+
+  it("풀린 뒤 10초 동안은 공부 흔적 없음이 유예를 만들지 않고, 그 뒤 3초가 지나야 유예다", () => {
+    const back = signals({ NO_EVIDENCE: true });
+    let state = returnFromAway(back);
+    expect(state.grace).toBe(false);
+
+    state = hold(state, back, 15_000, 26_000);
+    expect(state.grace).toBe(false);
+
+    state = hold(state, back, 27_000, 27_000);
+    expect(state.grace).toBe(true);
+  });
+
+  it("화면 응시도 정착 시간 동안은 유예를 만들지 않는다", () => {
+    const back = signals({ SCREEN_GAZE: true });
+    let state = returnFromAway(back);
+    state = hold(state, back, 15_000, 26_000);
+    expect(state.grace).toBe(false);
+  });
+
+  it("정착 시간 안에 공부 흔적이 생기면 유예 없이 집중이 이어진다", () => {
+    let state = returnFromAway(signals({ NO_EVIDENCE: true }));
+    state = hold(state, signals({ NO_EVIDENCE: true }), 15_000, 18_000);
+    state = hold(state, signals({}), 19_000, 40_000);
+    expect(state.grace).toBe(false);
+    expect(state.active).toBeNull();
+  });
+
+  it("정착 시간 동안에도 확정이 있는 출처는 지금 규칙대로 잡는다", () => {
+    let state = returnFromAway(signals({}));
+    state = hold(state, signals({ PHONE: true }), 15_000, 18_000);
+    expect(state.grace).toBe(true);
+
+    state = hold(state, signals({ PHONE: true }), 19_000, 25_000);
+    expect(state.active).toBe("PHONE");
+  });
+
+  it("비집중을 거치지 않은 공부 흔적 없음은 지금처럼 3초 뒤 유예다", () => {
+    const state = hold(createDetectionState(T0), signals({ NO_EVIDENCE: true }), 0, 3000);
+    expect(state.grace).toBe(true);
+  });
+});
+
 describe("stepDetection — 참조 안정성", () => {
   it("변화가 없으면 같은 객체를 돌려준다(불필요한 리렌더 방지)", () => {
     const state = createDetectionState(T0);
