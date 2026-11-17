@@ -148,6 +148,12 @@
       "exam": "Exam"
     },
     "startingStudy": "Getting ready",
+    "measureMode": {
+      "toggle": {
+        "camera": "Change measuring mode, now measuring with camera",
+        "timer": "Change measuring mode, now studying without camera"
+      }
+    },
     "startFailed": "Could not start studying. Please try again.",
     "reward": {
       "label": "Start mission reward",

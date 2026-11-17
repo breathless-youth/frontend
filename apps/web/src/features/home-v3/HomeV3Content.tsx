@@ -1,10 +1,9 @@
 import { useTranslation } from "react-i18next";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { HomeContactFooter } from "./HomeContactFooter";
-import { HomeDesignIcon } from "./HomeDesignIcon";
 import { HomeInlineError } from "./HomeInlineError";
 import { HomeProgressBand } from "./HomeProgressBand";
+import { HomeStartButtons } from "./HomeStartButtons";
 import { HomeStudyCard } from "./HomeStudyCard";
 import { HomeSubjectSelect } from "./HomeSubjectSelect";
 import { HomePlannerShortcut, HomeUtilityShortcuts } from "./HomeShortcuts";
@@ -63,15 +62,7 @@ export function HomeV3Content({
           onAdd={actions.openPlanner}
         />
       </HomeStudyCard>
-      <Button
-        className="min-h-16 w-full gap-2.5 rounded-[22px] text-xl leading-6 font-bold tracking-[0.9px] shadow-sb-cta"
-        disabled={startingStudy}
-        aria-busy={startingStudy}
-        onClick={actions.startStudy}
-      >
-        <HomeDesignIcon name="play" />
-        {t(startingStudy ? "v3.startingStudy" : "v3.startStudy")}
-      </Button>
+      <HomeStartButtons starting={startingStudy} onStart={actions.startStudy} />
       {startError && (
         <p role="alert" className="px-1 text-sm text-feedback-danger">
           {startError}
