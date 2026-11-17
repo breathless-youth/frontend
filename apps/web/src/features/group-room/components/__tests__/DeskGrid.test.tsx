@@ -185,6 +185,58 @@ describe("DeskGrid", () => {
     });
   });
 
+  describe("쉬는 중인 마스코트 색", () => {
+    const look = { id: "pencil", accessories: [{ slot: "head", imageUrl: "/crown.png" }] } as const;
+    const deskOf = (name: RegExp) => screen.getByRole("listitem", { name });
+    const grayed = (desk: HTMLElement) =>
+      desk.querySelector('[data-slot="mascot-body"]')?.closest(".grayscale") != null;
+
+    it("쉬는 중인 내 마스코트는 원래 색이고 zz가 없으며 다른 멤버는 회색에 zz가 있다", () => {
+      render(
+        <DeskGrid
+          members={[
+            { ...base, userId: 1, nickname: "새벽러", presence: "away", mascot: look },
+            { ...base, userId: 9, nickname: "열공곰", presence: "away", isMe: true, mascot: look },
+          ]}
+          visibility="private"
+          elapsedSec={0}
+        />,
+      );
+      const myDesk = deskOf(/^열공곰,/);
+      const otherDesk = deskOf(/^새벽러,/);
+      expect(grayed(myDesk)).toBe(false);
+      expect(myDesk.querySelector("text")).toBeNull();
+      expect(myDesk.querySelector('[data-slot="seat-lamp"]')).toHaveAttribute("data-lamp", "off");
+      expect(grayed(otherDesk)).toBe(true);
+      expect(otherDesk.querySelectorAll("text")).toHaveLength(2);
+    });
+
+    it("공부 중인 나와 다른 멤버는 둘 다 원래 색이고 전등이 켜진다", () => {
+      render(
+        <DeskGrid
+          members={[
+            { ...base, userId: 1, nickname: "새벽러", presence: "this_room", mascot: look },
+            {
+              ...base,
+              userId: 9,
+              nickname: "열공곰",
+              presence: "studying_elsewhere",
+              isMe: true,
+              mascot: look,
+            },
+          ]}
+          visibility="private"
+          elapsedSec={0}
+        />,
+      );
+      for (const desk of [deskOf(/^열공곰,/), deskOf(/^새벽러,/)]) {
+        expect(grayed(desk)).toBe(false);
+        expect(desk.querySelector("text")).toBeNull();
+        expect(desk.querySelector('[data-slot="seat-lamp"]')).toHaveAttribute("data-lamp", "on");
+      }
+    });
+  });
+
   describe("빈자리 초대", () => {
     const four: RoomDeskMember[] = [
       ...members,

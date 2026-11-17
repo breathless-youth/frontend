@@ -111,4 +111,52 @@ describe("DeskRow", () => {
     expect(name).not.toHaveClass("text-muted-foreground");
     expect(screen.getByText("연필깎이")).toHaveClass("text-muted-foreground");
   });
+
+  describe("쉬는 중인 마스코트 색", () => {
+    const look = {
+      id: "lamp",
+      accessories: [{ slot: "head", imageUrl: "/nightcap.png" }],
+    } as const;
+    const seatOf = (name: string) => seats().find((seat) => seat.textContent === name)!;
+    const grayed = (seat: Element) =>
+      seat.querySelector('[data-slot="mascot-body"]')?.closest(".grayscale") != null;
+
+    it("쉬는 중인 내 마스코트는 원래 색이고 다른 멤버는 회색이며 작은 자리라 zz는 둘 다 없다", () => {
+      render(
+        <DeskRow
+          members={[
+            { ...base, userId: 2, nickname: "연필깎이", presence: "away", mascot: look },
+            { ...base, userId: 9, nickname: "열공곰", presence: "away", isMe: true, mascot: look },
+          ]}
+        />,
+      );
+      expect(grayed(seatOf("열공곰"))).toBe(false);
+      expect(seatOf("열공곰").querySelector('[data-slot="seat-lamp"]')).toHaveAttribute(
+        "data-lamp",
+        "off",
+      );
+      expect(grayed(seatOf("연필깎이"))).toBe(true);
+      expect(screen.getByTestId("desk-row").querySelector("text")).toBeNull();
+    });
+
+    it("공부 중인 나와 다른 멤버는 둘 다 원래 색이다", () => {
+      render(
+        <DeskRow
+          members={[
+            { ...base, userId: 1, nickname: "새벽러", presence: "this_room", mascot: look },
+            {
+              ...base,
+              userId: 9,
+              nickname: "열공곰",
+              presence: "studying_elsewhere",
+              isMe: true,
+              mascot: look,
+            },
+          ]}
+        />,
+      );
+      expect(grayed(seatOf("새벽러"))).toBe(false);
+      expect(grayed(seatOf("열공곰"))).toBe(false);
+    });
+  });
 });
