@@ -1499,17 +1499,14 @@ function RoomSessionScreen({
                   }}
                 />
               </div>
+              {/* 심플 모드에서도 공부를 바로 끝낼 수 있게 종료 버튼은 남긴다. */}
               <div
-                inert={simpleMode || moreMenuOpen}
-                className={cn(
-                  "landscape-compact:col-start-3 landscape-compact:row-start-3 landscape-compact:self-end landscape-compact:justify-self-end",
-                  SIMPLE_MODE_FADE,
-                  simpleMode && "invisible opacity-0",
-                )}
+                inert={moreMenuOpen}
+                className="landscape-compact:col-start-3 landscape-compact:row-start-3 landscape-compact:self-end landscape-compact:justify-self-end"
               >
                 <SessionExitButton
                   onClick={handleRequestExit}
-                  faded={simpleMode || helpVisible}
+                  faded={helpVisible}
                   inactive={moreMenuOpen}
                 />
               </div>
