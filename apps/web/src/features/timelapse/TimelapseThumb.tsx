@@ -1,21 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { jpegDataUrl, REPLAY_BLOCKED } from "@/lib/jpegDataUrl";
 import { cn } from "@/lib/utils";
 
 import type { TimelapseRecord, TimelapseStore } from "./timelapseStore";
-
-/** 썸네일 한 장은 수십 KB라 data URL로 들고 있어도 작고, Blob URL처럼 해제할 것이 없다. */
-function toDataUrl(bytes: ArrayBuffer): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error ?? new Error("failed to read thumbnail"));
-    reader.readAsDataURL(new Blob([bytes], { type: "image/jpeg" }));
-  });
-}
-
-// 타임랩스 사진은 분석 도구로 보내지 않는다(ADR 0013). 카메라 화면과 같은 세션 리플레이 차단 표식이다.
-const REPLAY_BLOCKED = "amp-block sentry-block";
 
 /**
  * 타임랩스 썸네일
@@ -36,7 +24,7 @@ export function TimelapseThumb({
     queryKey: ["timelapse", record.startedAtMs, "thumb"],
     queryFn: async () => {
       const bytes = await store.middlePhoto(record.startedAtMs);
-      return bytes === null ? null : await toDataUrl(bytes);
+      return bytes === null ? null : await jpegDataUrl(bytes);
     },
     // 목록에 올라간 타임랩스의 사진은 바뀌지 않는다.
     staleTime: Infinity,

@@ -56,7 +56,7 @@ describe("vercel.json 응답 헤더", () => {
 
   /**
    * 파일명에 해시나 버전이 있어 내용이 바뀌면 이름도 바뀌는 경로만 1년 immutable로 나간다.
-   * `/mediapipe`는 패키지 버전 폴더, `/models`와 `/sounds`는 파일명 해시가 그 조건을 지킨다.
+   * `/mediapipe`는 패키지 버전 폴더, `/models`와 `/sounds`는 파일명 해시, `/watcher`는 소재 묶음 해시 폴더가 그 조건을 지킨다.
    * `catalog.json`은 소리를 추가하면 바뀌어야 해서 뺀다.
    */
   const IMMUTABLE_SOURCES = [
@@ -64,9 +64,10 @@ describe("vercel.json 응답 헤더", () => {
     "/mediapipe/(.*)",
     "/models/(.*)",
     "/sounds/((?!catalog\\.json).*)",
+    "/watcher/(.*)",
   ];
 
-  it("해시·버전 경로 네 곳이 1년 immutable 캐시로 나간다", () => {
+  it("해시·버전 경로 다섯 곳이 1년 immutable 캐시로 나간다", () => {
     for (const source of IMMUTABLE_SOURCES) {
       const applied = rules
         .filter((rule) => rule.source === source)
@@ -97,7 +98,7 @@ describe("vercel.json 응답 헤더", () => {
   });
 
   // index.html까지 immutable로 잡히면 배포해도 앱이 옛 화면과 옛 자산 목록을 계속 쓴다.
-  it("immutable 캐시는 네 경로 밖으로 번지지 않는다", () => {
+  it("immutable 캐시는 다섯 경로 밖으로 번지지 않는다", () => {
     const immutableSources = rules
       .filter((rule) =>
         rule.headers.some(
