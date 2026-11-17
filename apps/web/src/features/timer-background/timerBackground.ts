@@ -1,3 +1,5 @@
+import { VIDEO_SPACES_OPEN } from "./videoSpaces";
+import { clearWatcherAssets } from "./watcher/watcherAssets";
 import { WATCHER_ASSET_DIR } from "./watcher/watcherClips";
 
 /** 고른 타이머 배경. 감시 배경은 독서실 감독관만 나와 있고, 나머지 감시·자연 배경은 아직 고를 수 없다. */
@@ -74,7 +76,14 @@ function parse(raw: string | null): TimerBackgroundSelection {
  */
 export function readTimerBackground(): TimerBackgroundSelection {
   try {
-    return parse(localStorage.getItem(KEY));
+    const selection = parse(localStorage.getItem(KEY));
+    if (selection.kind === "proctor" && !VIDEO_SPACES_OPEN) {
+      // 감독관을 고른 채 남은 사용자가 다음에도 영상을 받지 않게 저장값을 심플로 바꾸고 받아 둔 소재도 지운다.
+      writeTimerBackground(SIMPLE_BACKGROUND);
+      void clearWatcherAssets();
+      return SIMPLE_BACKGROUND;
+    }
+    return selection;
   } catch {
     return SIMPLE_BACKGROUND;
   }

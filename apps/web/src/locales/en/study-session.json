@@ -195,6 +195,7 @@
     "preview": "Preview {{name}}",
     "remove": "Delete {{name}}",
     "empty": "No spaces found",
+    "comingSoon": "Video spaces are coming soon",
     "back": "Back",
     "apply": "Apply",
     "applied": "In use",
