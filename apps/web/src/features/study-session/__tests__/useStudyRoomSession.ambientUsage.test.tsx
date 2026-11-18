@@ -83,6 +83,23 @@ describe("useStudyRoomSession — 배경음 사용 시간 계측", () => {
     expect(mocks.ended.mock.calls[1]?.[0]).toMatchObject({ mascotOn: false });
   });
 
+  it("종료 시점의 하품 횟수를 싣고, 옵션이 없는 소셜룸은 싣지 않는다", async () => {
+    const yawn = { type: "YAWN" as const, startedAt: new Date().toISOString() };
+    const single = renderHook(() =>
+      useStudyRoomSession(null, { getObservations: () => [yawn, yawn] }),
+    );
+    await act(async () => {
+      await single.result.current.endAndSubmit();
+    });
+    const social = renderHook(() => useStudyRoomSession(null, { roomType: "social" }));
+    await act(async () => {
+      await social.result.current.endAndSubmit();
+    });
+
+    expect(mocks.ended.mock.calls[0]?.[0]).toMatchObject({ yawnCount: 2 });
+    expect((mocks.ended.mock.calls[1]?.[0] as Record<string, unknown>).yawnCount).toBeUndefined();
+  });
+
   describe("소리별 재생 시간", () => {
     it("세션이 끝나면 재생 시간이 있는 소리마다 ambient_sound_played 를 한 번씩 보낸다", async () => {
       const ambientSoundPlays = () => [

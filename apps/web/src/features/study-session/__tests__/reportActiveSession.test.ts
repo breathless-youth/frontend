@@ -24,6 +24,25 @@ describe("buildActiveSnapshotRequest", () => {
     });
   });
 
+  it("관찰 기록은 reportedAt까지로 맞춰 싣고, 비면 필드를 싣지 않는다", () => {
+    expect(buildActiveSnapshotRequest({ ...INPUT, observations: [] })).not.toHaveProperty(
+      "observations",
+    );
+    const req = buildActiveSnapshotRequest({
+      ...INPUT,
+      observations: [
+        {
+          type: "YAWN",
+          startedAt: "2026-07-25T01:00:10.000Z",
+          endedAt: "2026-07-25T01:00:40.000Z",
+        },
+      ],
+    });
+    expect(req.observations).toEqual([
+      { type: "YAWN", startedAt: "2026-07-25T01:00:10.000Z", endedAt: "2026-07-25T01:00:30.000Z" },
+    ]);
+  });
+
   it("reportedAt을 경계로 studySec을 클램프한다", () => {
     const req = buildActiveSnapshotRequest({ ...INPUT, studySec: 99999, focusSec: 99999 });
     expect(req.studySec).toBe(30);

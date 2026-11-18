@@ -11,7 +11,7 @@ import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import type { StudySessionResponse, SubjectResponse } from "@focusmakers/types";
+import type { ObservationPayload, StudySessionResponse, SubjectResponse } from "@focusmakers/types";
 
 import { CtaToaster } from "@/components/ui/sonner";
 import { createAmbientUsage } from "@/features/ambient-sound/ambientUsage";
@@ -166,6 +166,7 @@ import {
   trackStudySessionExitRequested,
   trackStudySessionHelpCompleted,
   trackStudySessionHelpDismissed,
+  trackStudySessionYawned,
   trackSubjectItemSelected,
   trackSubjectSheetClosed,
   trackSubjectSheetOpened,
@@ -441,6 +442,26 @@ function RoomSessionBody({
   const [ambientUsage] = useState(() => createAmbientUsage(Date.now));
   // 배경음 그릇과 같은 까닭으로 여기서 만들어 세션 훅과 타이머 훅에 함께 넘긴다.
   const [multiTimerUsage] = useState(createMultiTimerUsage);
+  /**
+   * 세션 중 하품. 감지기가 하품 하나를 끝낼 때마다 모으고 계측을 보낸다. 세션 훅이 스냅샷·제출 때 읽는다.
+   * 이어받은 세션은 서버 복원 응답에 하품이 없어 이어받기 전의 하품을 잃는다.
+   */
+  const yawnsRef = useRef<ObservationPayload[]>([]);
+  useEffect(
+    () =>
+      visionDetector.subscribeYawn((yawn) => {
+        yawnsRef.current = [
+          ...yawnsRef.current,
+          {
+            type: "YAWN",
+            startedAt: new Date(yawn.startedAtMs).toISOString(),
+            endedAt: new Date(yawn.endedAtMs).toISOString(),
+          },
+        ];
+        trackStudySessionYawned(yawn);
+      }),
+    [visionDetector],
+  );
   const {
     startedAtMs,
     focusSec,
@@ -477,6 +498,7 @@ function RoomSessionBody({
     multiTimerUsage: multiTimerUsage.snapshot,
     // 켜고 끌 때 바로 저장하므로 끝낸 순간의 저장 값이 화면의 켜짐과 같다.
     mascotOn: readSessionMascotOn,
+    getObservations: () => yawnsRef.current,
     onEnded: timelapse.finish,
     onCameraLost: () => showCtaToast(t("cameraToast.cameraOff")),
   });

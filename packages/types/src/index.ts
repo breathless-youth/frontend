@@ -98,12 +98,26 @@ export interface StudySessionCreateRequest {
    * 세션 중 지운 할 일은 허용. 자정을 넘는 세션은 각 할 일이 완료 시각(doneAt)이 속한 조각 하나에만 붙는다.
    */
   completedTaskIds?: number[];
+  /** 관찰 기록(하품 등) — 선택 필드. 순공과 무관하다. 세션 구간 안, 최대 1000건, 서로 겹쳐도 된다. */
+  observations?: ObservationPayload[];
   /**
    * 기기 시간대(IANA, 예 `America/New_York`). 선택 필드.
    * 서버는 이 시간대의 자정으로 기록을 나누고 사용자 시간대로 저장한다.
    * 없거나 잘못된 값이면 400 없이 저장된 사용자 시간대(기본 Asia/Seoul)를 쓴다.
    */
   timeZone?: string;
+}
+
+/**
+ * 세션 관찰 기록 — 순공을 멈추지 않는 관찰. 상태 이벤트(`StatusEventPayload`)와 달리 서로 겹쳐도 된다.
+ * 자정을 넘는 세션은 시작 시각이 속한 조각에 붙는다.
+ */
+export interface ObservationPayload {
+  type: "YAWN";
+  /** 시작(UTC ISO-8601) — 세션 구간 안 */
+  startedAt: string;
+  /** 끝(UTC ISO-8601) — 선택. 시작과 같거나 이후, 세션 구간 안 */
+  endedAt?: string;
 }
 
 /** 진행중 세션 스냅샷 보고 요청 (PUT /api/study-sessions/active) */
@@ -122,6 +136,8 @@ export interface ActiveSessionSnapshotRequest {
   events: StatusEventPayload[];
   /** 지금까지의 과목 구간 전체 — 선택 필드. 진행 중인 구간은 reportedAt에서 닫아 보낸다. 서버는 통째로 덮어쓴다. */
   subjectSegments?: SubjectSegmentPayload[];
+  /** 지금까지의 관찰 기록 전체 — 선택 필드. 서버는 통째로 덮어쓰고, 자동 확정 때 세션으로 옮긴다. */
+  observations?: ObservationPayload[];
 }
 
 /** 진행중 세션 복구 조회 응답 (GET /api/study-sessions/active) */

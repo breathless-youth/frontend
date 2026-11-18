@@ -207,6 +207,7 @@ export function useTrackedVisionDetector(
       video: () => videoRef.current,
       photoTap,
       studyEvidence: usesStudyEvidence(roomType),
+      observeYawns: roomType === "single",
     }),
   );
   const visionReady = useVisionReadyTracking(visionDetector, roomType);
