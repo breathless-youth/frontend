@@ -160,7 +160,8 @@
     "studyDaysLabel": "讀書天數",
     "studyDays": "{{count}} 天",
     "ctaHome": "返回首頁",
-    "ctaRecords": "前往紀錄"
+    "ctaRecords": "前往紀錄",
+    "timerNotice": "不用相機讀書的時間\n不會計入連續讀書、排行榜和點數"
   },
   "legend": {
     "focus": "專注",
