@@ -12,6 +12,22 @@ describe("parseToNativeMessage", () => {
         parseToNativeMessage(JSON.stringify({ type: "start-session", atMs: 5, initialSubjectId })),
       ).toBeNull();
   });
+  it("공부 시작의 측정 방식은 timer만 받고 다른 값은 그 필드만 버린다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({
+          type: "start-session",
+          atMs: 5,
+          initialSubjectId: 3,
+          measureMode: "timer",
+        }),
+      ),
+    ).toEqual({ type: "start-session", atMs: 5, initialSubjectId: 3, measureMode: "timer" });
+    for (const measureMode of ["camera", 1])
+      expect(
+        parseToNativeMessage(JSON.stringify({ type: "start-session", atMs: 5, measureMode })),
+      ).toEqual({ type: "start-session", atMs: 5 });
+  });
   it.each([
     "home-ready",
     "analytics-ready",

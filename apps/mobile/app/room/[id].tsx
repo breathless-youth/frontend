@@ -29,9 +29,10 @@ import { markSessionOpen } from "../../lib/sessionPresence";
  *   — 기기 조작(`DEVICE`) 감지는 세션에서만 쓰므로 공용 핸들러가 아니라 이 화면이 센서 수명을 소유한다(아래 `motionSource` 주석).
  */
 export default function SessionRoomScreen() {
-  const { id, initialSubjectId } = useLocalSearchParams<{
+  const { id, initialSubjectId, measureMode } = useLocalSearchParams<{
     id: string;
     initialSubjectId?: string;
+    measureMode?: string;
   }>();
   const subject =
     typeof initialSubjectId === "string" &&
@@ -39,6 +40,11 @@ export default function SessionRoomScreen() {
     Number.isSafeInteger(Number(initialSubjectId))
       ? initialSubjectId
       : undefined;
+  // 웹은 주소의 timer를 저장된 방식보다 먼저 보므로 카메라 없이 연 세션만 이 값을 싣는다.
+  const extraQuery = {
+    ...(subject === undefined ? {} : { initialSubjectId: subject }),
+    ...(measureMode === "timer" ? { measureMode } : {}),
+  };
   /**
    * 기기 조작(`DEVICE`) 감지용 가속도 센서
    *
@@ -159,7 +165,7 @@ export default function SessionRoomScreen() {
       <RemoteScreen
         testID="session-webview"
         path={`/room/${id ?? "1"}`}
-        extraQuery={subject === undefined ? undefined : { initialSubjectId: subject }}
+        extraQuery={extraQuery}
         backgroundColor="#0B0F14"
         blockHardwareBack
         onBridgeMessage={handleMessage}

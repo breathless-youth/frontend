@@ -1,4 +1,4 @@
-import { router, useNavigation } from "expo-router";
+import { router, useLocalSearchParams, useNavigation } from "expo-router";
 import { useCallback, useEffect, useRef } from "react";
 import {
   AccessibilityInfo,
@@ -16,6 +16,7 @@ import { PrimaryCtaButton } from "../components/PrimaryCtaButton";
 import { getCameraPermissionStatus, openAppSettings } from "../lib/cameraPermission";
 import { t } from "../lib/i18n";
 import { trackNativeEvent } from "../lib/nativeAnalytics";
+import { openTimerSession } from "../lib/nativeBridgeHandler";
 
 /**
  * S2-3 · 권한 거부 안내 — Figma node `52:312`, 스펙 `frontend/docs/screens/SCR-S2-camera-permission.md`.
@@ -23,11 +24,9 @@ import { trackNativeEvent } from "../lib/nativeAnalytics";
  * 자동 측정에는 카메라가 필요하다는 사실을 안내조로 전달하고 설정으로 되돌릴 길을 준다.
  * 탭 바가 없는 전체 화면 스택 라우트라 `app/(tabs)/` 밖에 둔다.
  *
- * ⚠️ 이 화면은 지금 **막다른 안내**다. `policies.md` §3은 2026-07-26에 "권한 거부 시 수동
- * 타이머 모드 제공"으로 바뀌었고(2026-07-23 "카메라 필수" 결정을 대체),
- * `ai-wiki/product/app-review-checklist.md` 1-1이 이를 스토어 심사 최우선 액션 아이템으로
- * 표시한다. 수동 모드 진입 경로가 여기 붙어야 하지만 아직 구현 전이다 — 별도 티켓.
- * 그러니 "우회 경로를 만들지 않는다"를 근거로 이 화면을 그대로 굳히지 말 것.
+ * `policies.md` §3은 권한을 거부해도 카메라 없이 공부할 수 있게 한다.
+ * 그래서 싱글룸 시작에서 열린 화면(`from=single`)은 카메라 없이 시작하는 출구를 두고, 누르면 이 화면을 세션 화면으로 바꿔 세션을 닫았을 때 홈으로 돌아오게 한다.
+ * 소셜룸 입장에서 열린 화면은 출구를 두지 않는다.
  *
  * 문구는 `ai-wiki/product/voice-tone.md` §4에서 그대로 가져온 확정 카피다 — 의역·개행·문장부호 변경 금지.
  * 이 화면은 싱글룸 시작과 소셜룸 입장 게이트가 함께 쓰므로 프라이버시 캡션은 AI 분석 범위만 말한다.
@@ -38,8 +37,14 @@ export default function PermissionDeniedScreen() {
   const titleRef = useRef<Text>(null);
 
   const navigation = useNavigation();
+  const { from, initialSubjectId } = useLocalSearchParams<{
+    from?: string;
+    initialSubjectId?: string;
+  }>();
   /** 이탈 사유 — 버튼·자동 복귀가 채운다. 비어 있는 채로 빠지면 하드웨어 백·스와이프 백이다. */
-  const leaveReasonRef = useRef<"back_home" | "permission_granted" | null>(null);
+  const leaveReasonRef = useRef<"back_home" | "permission_granted" | "start_without_camera" | null>(
+    null,
+  );
 
   const goHome = useCallback((reason: "back_home" | "permission_granted") => {
     leaveReasonRef.current = reason;
@@ -102,8 +107,11 @@ export default function PermissionDeniedScreen() {
         시스템 폰트 확대 시 본문·캡션이 잘리거나 CTA가 밀려나지 않도록 내용 영역을 스크롤 가능하게 둔다.
         Figma는 마스코트부터 본문까지를 남는 영역의 정중앙에 둔다.
         시안에 없는 프라이버시 캡션이 그 아래에 붙으므로 캡션 높이만큼 위 패딩을 더 준다.
+        내용이 화면 안에 들어오면 끌어도 움직이지 않게 iOS 튕김과 Android 끝 효과를 끈다.
       */}
       <ScrollView
+        alwaysBounceVertical={false}
+        overScrollMode="never"
         contentContainerStyle={{
           flexGrow: 1,
           justifyContent: "center",
@@ -151,6 +159,24 @@ export default function PermissionDeniedScreen() {
             void openAppSettings();
           }}
         />
+        {from === "single" ? (
+          <Pressable
+            onPress={() => {
+              leaveReasonRef.current = "start_without_camera";
+              openTimerSession(
+                typeof initialSubjectId === "string" ? initialSubjectId : undefined,
+                "replace",
+              );
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={t("permissionDenied.startWithoutCamera")}
+            className="bg-bg-layer2 dark:bg-bg-layer2-dark mt-[12px] h-[52px] w-full items-center justify-center rounded-lg active:opacity-80"
+          >
+            <Text className="text-text-primary dark:text-text-primary-dark text-[16px] font-sans-bold leading-[19px]">
+              {t("permissionDenied.startWithoutCamera")}
+            </Text>
+          </Pressable>
+        ) : null}
         {/* 텍스트 높이는 16px뿐이라 상하 패딩 14px로 터치 영역을 44px까지 넓힌다(시각 위치는 Figma 유지) */}
         <Pressable
           onPress={() => goHome("back_home")}
