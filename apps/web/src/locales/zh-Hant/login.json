@@ -21,5 +21,11 @@
       "TOO_MANY_REQUESTS": "嘗試次數過多，請稍後再試。",
       "UNKNOWN": "無法登入，請再試一次。"
     }
+  },
+  "guestPoints": {
+    "card": {
+      "title": "你已累積 {{points}}",
+      "body": "新註冊會直接保留，用現有帳號登入則會消失"
+    }
   }
 }
