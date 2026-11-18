@@ -1,5 +1,6 @@
 import type { MascotLook } from "@/components/mascot/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
 
 import { DefaultProfileMascot } from "./DefaultProfileMascot";
 
@@ -17,14 +18,16 @@ export function ProfileAvatar({
   colorIndex,
   imageUrl,
   look,
+  className,
 }: {
   colorIndex: number;
   imageUrl?: string | null;
   look?: MascotLook | null;
+  className?: string;
 }) {
   const color = AVATAR_COLORS[colorIndex % AVATAR_COLORS.length];
   return (
-    <Avatar aria-hidden="true" className={`size-18 ${color}`}>
+    <Avatar aria-hidden="true" className={cn("size-18", color, className)}>
       {imageUrl ? <AvatarImage src={imageUrl} /> : null}
       <AvatarFallback>
         <DefaultProfileMascot look={look} />

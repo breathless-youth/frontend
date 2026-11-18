@@ -1,5 +1,3 @@
-import { SOCIAL_LOGIN_PROVIDERS } from "@focusmakers/types";
-import type { SocialLoginProvider } from "@focusmakers/types";
 import { useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -12,17 +10,13 @@ import {
   requestNativeDeleteAccount,
   requestNativeLogout,
 } from "@/lib/nativeAccount";
-import { nativeSocialLoginProviders } from "@/lib/nativeSocialLogin";
+import { isSocialLoginProvider, nativeSocialLoginProviders } from "@/lib/nativeSocialLogin";
 import { profileQuery } from "@/lib/profileQueries";
 import { showToast } from "@/lib/toast";
 import { useUserId } from "@/lib/userId";
 
 import { SettingsRow } from "./SettingsRow";
 import { SettingsSection } from "./SettingsSection";
-
-function isSocialLoginProvider(value: unknown): value is SocialLoginProvider {
-  return (SOCIAL_LOGIN_PROVIDERS as readonly unknown[]).includes(value);
-}
 
 /**
  * 설정 맨 아래 계정 섹션
