@@ -1,3 +1,4 @@
+import { readMeasureMode } from "@/features/measure-mode/measureMode";
 import { closeStaleSession } from "@/features/study-session/closeStaleSession";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 
@@ -15,6 +16,7 @@ export class SubjectStartUnavailableError extends Error {}
  *   브라우저가 `getUserMedia` 시점에 스스로 묻는다.
  *
  * 웹뷰에서는 네이티브가 이 메시지를 받아 카메라 권한 게이트를 거친 뒤 세션 모달을 연다(`nativeBridgeHandler.ts`).
+ * 카메라 없이 고른 기기면 `measureMode: "timer"`를 실어 네이티브가 게이트를 건너뛴다.
  *
  * **반환값은 호출부의 히스토리 조작 판단에 쓰인다**(재리뷰 반영). `"native"`일 때는
  * `navigateToSession`이 호출되지 않으므로 화면 전환이 전혀 일어나지 않는다 — 네이티브가 화면
@@ -48,6 +50,8 @@ export async function requestSessionStart(
       type: "start-session",
       atMs: Date.now(),
       ...(options.subjectId === undefined ? {} : { initialSubjectId: options.subjectId }),
+      // 카메라 없이 고른 사용자에게 앱이 카메라 권한을 묻지 않게 한다.
+      ...(readMeasureMode() === "timer" ? { measureMode: "timer" as const } : {}),
     });
     return "native";
   }

@@ -122,7 +122,7 @@ import type { SubjectSelection } from "@/features/study-session/subjectSegments"
 import { deriveSubjectTotals, liveSubjectTime } from "@/features/study-session/subjectSegments";
 import { completedTaskIdsSince } from "@/features/study-session/completedTasks";
 import { plannerCompletedTaskIds } from "@/features/study-session/plannerCompletedTasks";
-import { readMeasureMode } from "@/features/measure-mode/measureMode";
+import { readMeasureMode, writeMeasureMode } from "@/features/measure-mode/measureMode";
 import { useMascotLookPrefetch } from "@/features/points/model/prefetchMyMascotLook";
 import { hasTokenSource } from "@/lib/userId";
 import { queryClient } from "@/lib/queryClient";
@@ -359,11 +359,19 @@ function RoomSessionScreen({
    *
    * 마운트할 때 한 번 정하고 세션 동안 바꾸지 않는다.
    * 이어받은 세션은 처음 측정한 방식을 따르고 새 세션은 기기에 저장한 방식을 따른다.
+   * 앱의 권한 거부 화면에서 카메라 없이 연 세션은 주소의 `measureMode=timer`가 저장한 방식보다 먼저다.
    * 카메라 없는 모드면 아무것도 열지 않는 카메라와 신호를 내지 않는 감지기를 넘겨 타이머만 돈다.
    */
+  const timerFromUrl = searchParams.get("measureMode") === "timer";
   const [cameraOn] = useState(() =>
-    restored !== null ? restored.source !== "TIMER" : readMeasureMode() === "camera",
+    restored !== null
+      ? restored.source !== "TIMER"
+      : !timerFromUrl && readMeasureMode() === "camera",
   );
+  // 거부 화면에서 카메라 없이 고른 기기는 다음 시작도 권한을 묻지 않게 저장한 방식을 바꾼다.
+  useEffect(() => {
+    if (timerFromUrl) writeMeasureMode("timer");
+  }, [timerFromUrl]);
   const [camera] = useState(() =>
     cameraOn ? createMediaStreamCameraAdapter() : createMockCameraAdapter(),
   );
