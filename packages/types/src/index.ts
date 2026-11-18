@@ -128,7 +128,7 @@ export interface StudySessionCreateRequest {
    * 선택 필드이고 없으면 서버가 MEASURED로 저장한다.
    * 카메라 없이 타이머로만 측정한 세션은 TIMER다.
    */
-  source?: "MEASURED" | "TIMER";
+  source?: Exclude<StudySessionSource, "MANUAL">;
 }
 
 /** 진행중 세션 스냅샷 보고 요청 (PUT /api/study-sessions/active) */
@@ -148,7 +148,7 @@ export interface ActiveSessionSnapshotRequest {
   /** 지금까지의 과목 구간 전체 — 선택 필드. 진행 중인 구간은 reportedAt에서 닫아 보낸다. 서버는 통째로 덮어쓴다. */
   subjectSegments?: SubjectSegmentPayload[];
   /** 최종 제출과 같은 규칙의 측정 방식 */
-  source?: "MEASURED" | "TIMER";
+  source?: Exclude<StudySessionSource, "MANUAL">;
 }
 
 /** 진행중 세션 복구 조회 응답 (GET /api/study-sessions/active) */
@@ -180,11 +180,11 @@ export interface ActiveSessionSnapshotResponse {
   /** 마지막 스냅샷의 과목 구간 — 시작 오름차순. 마지막 원소의 과목이 죽기 직전 선택이다. null·누락일 수 있다 */
   subjectSegments?: SubjectSegmentPayload[] | null;
   /** 측정 방식이고 서버가 이 필드를 내려주기 전에는 누락이라 카메라 세션으로 본다 */
-  source?: "MEASURED" | "TIMER";
+  source?: Exclude<StudySessionSource, "MANUAL">;
 }
 
-/** 기록이 만들어진 방법. 카메라로 측정한 세션과 사용자가 시각을 직접 넣은 수동 기록이 있다. */
-export type StudySessionSource = "MEASURED" | "MANUAL";
+/** 기록이 만들어진 방법. 카메라로 측정한 세션, 카메라 없이 타이머로만 측정한 세션, 사용자가 시각을 직접 넣은 수동 기록이 있다. */
+export type StudySessionSource = "MEASURED" | "MANUAL" | "TIMER";
 
 /**
  * 수동 기록 저장·수정 요청 (`POST /api/study-sessions/manual`, `PATCH /api/study-sessions/manual/{id}`).

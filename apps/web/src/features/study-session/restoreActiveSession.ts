@@ -2,6 +2,7 @@ import type {
   ActiveSessionSnapshotResponse,
   StatusEventPayload,
   StudyEventStatus,
+  StudySessionSource,
   SubjectSegmentPayload,
 } from "@focusmakers/types";
 
@@ -54,7 +55,7 @@ export interface RestoredSession {
   /** 마지막 스냅샷의 과목 구간 — 시작 순, 마지막 원소가 지금 선택이다(`subjectSegments.ts`). 없으면 빈 배열. */
   subjectSegments?: SubjectSegmentPayload[];
   /** 측정 방식이고 없으면 카메라 세션이다. */
-  source?: "MEASURED" | "TIMER";
+  source?: Exclude<StudySessionSource, "MANUAL">;
 }
 
 function isNonNegativeInt(value: unknown): value is number {
