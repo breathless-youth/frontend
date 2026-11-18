@@ -13,7 +13,7 @@ import { createDevMockDetector } from "@/features/study-session/devMockDetector"
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import { trackSessionSimpleModeToggled, trackStudySessionEnded } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
-import { CAMERA_PROMPT_NAME } from "@/test/cameraPrompt";
+import { answerCameraPrompt, CAMERA_PROMPT_NAME } from "@/test/cameraPrompt";
 import { RoomPage } from "../RoomPage";
 
 /**
@@ -293,5 +293,70 @@ describe("RoomPage 카메라 없는 모드", () => {
     expect(vision.detector.start).toHaveBeenCalled();
     expect(motionSensorMessages()).not.toEqual([]);
     expect(recorder.begin).toHaveBeenCalled();
+  });
+});
+
+describe("RoomPage 하단 안심 문구", () => {
+  const CAPTION = "카메라 화면은 어디로도 보내지 않아요";
+  const UNREGISTERED = "이 기기가 아직 등록되지 않아 기록이 저장되지 않습니다";
+
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ version: 1, sounds: [] }), { status: 200 })),
+    );
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+  });
+
+  it.each(["camera", "simple"] as const)(
+    "카메라 세션은 확인 창에 %s로 답한 뒤에도 하단에 안심 문구를 보인다",
+    (choice) => {
+      stubWorkingCamera();
+      writeMeasureMode("camera");
+      renderRoom();
+
+      answerCameraPrompt(choice);
+
+      expect(cameraPrompt()).not.toBeInTheDocument();
+      expect(screen.getByText(CAPTION)).toBeInTheDocument();
+    },
+  );
+
+  it("안심 문구는 일시정지 버튼과 종료 버튼 사이에 두고 초점을 받지 않는다", () => {
+    stubWorkingCamera();
+    writeMeasureMode("camera");
+    renderRoom();
+
+    answerCameraPrompt();
+
+    const caption = screen.getByText(CAPTION);
+    const pause = screen.getByRole("button", { name: "일시정지" });
+    const exit = screen.getByRole("button", { name: "공부 종료" });
+    expect(pause.compareDocumentPosition(caption) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(caption.compareDocumentPosition(exit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(caption).not.toHaveAttribute("tabindex");
+  });
+
+  it("카메라 없는 세션에는 안심 문구가 없다", () => {
+    writeMeasureMode("timer");
+    renderRoom();
+
+    expect(screen.queryByText(CAPTION)).not.toBeInTheDocument();
+  });
+
+  it("비회원 안내가 뜨는 동안에는 비회원 안내만 보인다", () => {
+    stubWorkingCamera();
+    writeMeasureMode("camera");
+    renderRoom("/room/7");
+
+    answerCameraPrompt();
+
+    expect(screen.getByText(UNREGISTERED)).toBeInTheDocument();
+    expect(screen.queryByText(CAPTION)).not.toBeInTheDocument();
   });
 });
