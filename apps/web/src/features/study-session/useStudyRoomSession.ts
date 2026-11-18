@@ -18,6 +18,7 @@ import {
   type SessionDisplayEnd,
   type StudyRoomType,
 } from "@/lib/amplitude";
+import type { MeasureMode } from "@/features/measure-mode/measureMode";
 import { formatLockStartedToast } from "@/features/app-lock/appLockSummary";
 import {
   startAppLock,
@@ -187,6 +188,13 @@ export interface StudyRoomSessionOptions {
    * 소셜룸은 넘기지 않는다. 카메라 꺼짐이 타일과 컨트롤 바에 그대로 보인다.
    */
   readonly onCameraLost?: () => void;
+  /**
+   * 측정 방식
+   *
+   * 카메라 없이 타이머로만 측정하는 세션은 TIMER를 넘겨 진행 보고와 제출에 싣는다.
+   * 넘기지 않으면 카메라로 측정하는 세션이고 요청은 이 옵션이 없던 때와 같다.
+   */
+  readonly source?: "MEASURED" | "TIMER";
 }
 
 /**
@@ -233,6 +241,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const tickMs = options.tickMs ?? 200;
   // 계측 전용 — 마운트 후 바뀌지 않는다(옵션 전체가 마운트 1회 계약).
   const roomType: StudyRoomType = options.roomType ?? "single";
+  const source = options.source ?? "MEASURED";
+  const measureMode: MeasureMode = source === "TIMER" ? "timer" : "camera";
   // 계측 전용 — 호출부가 렌더마다 새 함수를 줄 수 있어 최신 것을 들고 있다가 종료 시점에 읽는다.
   const ambientUsageRef = useRef(options.ambientUsage);
   const ambientSoundPlaysRef = useRef(options.ambientSoundPlays);
@@ -495,10 +505,10 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    */
   useEffect(() => {
     // 복원 진입은 같은 세션의 두 번째 "시작"이다 — 완주율 분모가 부풀지 않게 표시해서 보낸다.
-    trackStudySessionStarted(roomType, initial.restored);
+    trackStudySessionStarted(roomType, initial.restored, measureMode);
     // Meta 광고 전환 — 복원 진입은 함수 안에서 걸러진다.
     trackMetaStudySessionStarted(roomType, initial.restored);
-  }, [roomType, initial.restored]);
+  }, [roomType, initial.restored, measureMode]);
 
   /**
    * 순공 1분 달성 이벤트
@@ -699,6 +709,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         focusSec: totals.focusSec,
         events,
         subjectSegments: materializeSubjectSegments(subjectTrackerRef.current, nowMs),
+        source,
       })
         .catch((error: unknown) => {
           // 네트워크 실패(ApiError 아님)는 조용히 다음 주기에 다시 보낸다.
@@ -731,7 +742,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       clearTimeout(clockRetry);
       clearInterval(timer);
     };
-  }, [allEvents, phase.name, userId, withBase]);
+  }, [allEvents, phase.name, source, userId, withBase]);
 
   /**
    * 수동 일시정지와 백그라운드 전환
@@ -937,6 +948,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           breakSec,
           multiTimer: multiTimerUsageRef.current?.() ?? "none",
           ...(display && { display }),
+          measureMode,
         });
         for (const play of ambientSoundPlaysRef.current?.() ?? []) {
           if (play.sec <= 0) continue;
@@ -981,6 +993,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
             subjectSegments: materializeSubjectSegments(subjectTrackerRef.current, endedAtMs),
             // 재시도도 같은 시작 시각으로 다시 파생한다 — 그 사이 체크한 할 일이 있으면 함께 실린다.
             completedTaskIds: await getCompletedTaskIdsRef.current?.(startedAtMsRef.current),
+            source,
           }),
         )
         .then((sessions) => {
@@ -1008,7 +1021,16 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           submitInFlightRef.current = false;
         });
     },
-    [allEvents, initial.serverSeenMs, initial.startedAtMs, roomType, userId, withBase],
+    [
+      allEvents,
+      initial.serverSeenMs,
+      initial.startedAtMs,
+      measureMode,
+      roomType,
+      source,
+      userId,
+      withBase,
+    ],
   );
 
   /**
