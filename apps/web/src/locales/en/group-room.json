@@ -210,7 +210,7 @@
   },
   "publicRoomDetailScreen": {
     "owner": "Owner",
-    "weeklyTotal": "Members' total focus time this week",
+    "weeklyTotal": "Members' total study time this week",
     "todayMembers": "Members today",
     "intro": "About this group",
     "showMore": "Show more",

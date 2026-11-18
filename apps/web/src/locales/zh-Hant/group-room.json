@@ -198,7 +198,7 @@
   },
   "publicRoomDetailScreen": {
     "owner": "管理員",
-    "weeklyTotal": "本週成員合計專注時間",
+    "weeklyTotal": "本週成員合計讀書時間",
     "todayMembers": "今天的成員",
     "intro": "群組介紹",
     "showMore": "顯示更多",
