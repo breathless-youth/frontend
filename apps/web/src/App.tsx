@@ -6,6 +6,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import * as Sentry from "@sentry/react";
 
 import { ErrorFallback } from "@/components/ErrorFallback";
+import { ShellLayout } from "@/desktop/ShellLayout";
 import { Toaster } from "@/components/ui/sonner";
 import { ForceUpdateDialog } from "@/features/force-update/components/ForceUpdateDialog";
 import { useForceUpdateGate } from "@/features/force-update/useForceUpdateGate";
@@ -396,37 +397,11 @@ export function App() {
                 element={import.meta.env.DEV ? <RoomPageProfiled /> : <RoomPage />}
               />
               <Route path="/room/:id/result" element={<ResultPage />} />
-              <Route path="/home" element={<HomeTabPage />} />
               <Route path="/onboarding" element={<OnboardingPage />} />
               <Route path="/session-guide" element={<SessionGuidePage />} />
-              <Route path="/records" element={<RecordsPage />} />
-              <Route path="/ranking" element={<RankingPage />} />
-              <Route path="/ranking/records" element={<RankingRecordsPage />} />
-              <Route path="/planner" element={<PlannerPage />} />
-              <Route path="/manual-record" element={<ManualRecordPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
               <Route path="/settings/login" element={<GroupLoginScreen entry="settings" />} />
-              <Route path="/social" element={<SocialTabRoute />} />
-              <Route path="/social/groups/new" element={<GroupFormPage mode="create" />} />
-              <Route path="/social/groups/:groupId" element={<GroupHomePage />} />
-              <Route
-                path="/social/groups/:groupId/settings"
-                element={<GroupFormPage mode="edit" />}
-              />
-              <Route path="/social/groups/:groupId/intro" element={<GroupIntroPage />} />
-              <Route path="/social/groups/:groupId/members" element={<GroupMembersPage />} />
               <Route path="/social/groups/:groupId/room" element={<GroupRoomPage />} />
               <Route path="/social/groups/:groupId/room/result" element={<ResultPage />} />
-              <Route
-                path="/social/groups/:groupId/applications"
-                element={<GroupApplicationsPage />}
-              />
-              <Route
-                path="/social/groups/:groupId/applications/:applicationId/report"
-                element={<ReportApplicationPage />}
-              />
-              <Route path="/social/public/:groupId" element={<PublicGroupPage />} />
-              <Route path="/social/public/:groupId/apply" element={<ApplyPage />} />
               {import.meta.env.DEV && (
                 <Route path="/dev/webrtc-loopback" element={<WebrtcLoopbackPage />} />
               )}
@@ -444,32 +419,64 @@ export function App() {
               <Route path="/download" element={<DownloadPage />} />
               <Route path="/social/room/:roomId" element={<LiveRoomPage />} />
               <Route path="/social/room/:roomId/result" element={<ResultPage />} />
-              <Route path="/profile" element={<ProfilePage />} />
               <Route path="/onboarding-guide" element={<OnboardingGuideRedirect />} />
-              <Route path="/contact" element={<ContactPage />} />
               <Route path="/contact/chat" element={<ContactChatPage />} />
-              <Route path="/interview" element={<InterviewFormPage />} />
-              <Route path="/terms" element={<TermsPage />} />
-              <Route path="/privacy" element={<PrivacyPage />} />
-              <Route path="/licenses" element={<LicensesPage />} />
-              <Route path="/timelapse-settings" element={<TimelapseSettingsPage />} />
-              <Route path="/app-lock-settings" element={<AppLockSettingsPage />} />
-              <Route path="/blocks" element={<BlockListPage />} />
-              <Route path="/timelapses" element={<TimelapsesPage />} />
-              <Route path="/points" element={<PointsPage />} />
-              <Route path="/points/history" element={<PointsHistoryPage />} />
-              <Route path="/points/accessories" element={<PointsAccessoriesPage />} />
-              <Route
-                path="/points/backgrounds"
-                element={
-                  <TimerBackgroundsSaleGate>
-                    <PointsBackgroundsPage />
-                  </TimerBackgroundsSaleGate>
-                }
-              />
-              <Route path="/points/mascots" element={<PointsMascotsPage />} />
-              <Route path="/points/payment-guide" element={<PointsPaymentGuidePage />} />
               <Route path="/points/login" element={<PointsLoginPage />} />
+              {/*
+                넓은 브라우저 창에서 상단 바와 둥근 페이지 상자 안에 그리는 화면이다.
+                세션·결과·로그인·온보딩·초대처럼 화면 전체를 쓰거나 혼자 여는 화면은 밖에 둔다.
+              */}
+              <Route element={<ShellLayout />}>
+                <Route path="/home" element={<HomeTabPage />} />
+                <Route path="/records" element={<RecordsPage />} />
+                <Route path="/ranking" element={<RankingPage />} />
+                <Route path="/ranking/records" element={<RankingRecordsPage />} />
+                <Route path="/planner" element={<PlannerPage />} />
+                <Route path="/manual-record" element={<ManualRecordPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/social" element={<SocialTabRoute />} />
+                <Route path="/social/groups/new" element={<GroupFormPage mode="create" />} />
+                <Route path="/social/groups/:groupId" element={<GroupHomePage />} />
+                <Route
+                  path="/social/groups/:groupId/settings"
+                  element={<GroupFormPage mode="edit" />}
+                />
+                <Route path="/social/groups/:groupId/intro" element={<GroupIntroPage />} />
+                <Route path="/social/groups/:groupId/members" element={<GroupMembersPage />} />
+                <Route
+                  path="/social/groups/:groupId/applications"
+                  element={<GroupApplicationsPage />}
+                />
+                <Route
+                  path="/social/groups/:groupId/applications/:applicationId/report"
+                  element={<ReportApplicationPage />}
+                />
+                <Route path="/social/public/:groupId" element={<PublicGroupPage />} />
+                <Route path="/social/public/:groupId/apply" element={<ApplyPage />} />
+                <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/contact" element={<ContactPage />} />
+                <Route path="/interview" element={<InterviewFormPage />} />
+                <Route path="/terms" element={<TermsPage />} />
+                <Route path="/privacy" element={<PrivacyPage />} />
+                <Route path="/licenses" element={<LicensesPage />} />
+                <Route path="/timelapse-settings" element={<TimelapseSettingsPage />} />
+                <Route path="/app-lock-settings" element={<AppLockSettingsPage />} />
+                <Route path="/blocks" element={<BlockListPage />} />
+                <Route path="/timelapses" element={<TimelapsesPage />} />
+                <Route path="/points" element={<PointsPage />} />
+                <Route path="/points/history" element={<PointsHistoryPage />} />
+                <Route path="/points/accessories" element={<PointsAccessoriesPage />} />
+                <Route
+                  path="/points/backgrounds"
+                  element={
+                    <TimerBackgroundsSaleGate>
+                      <PointsBackgroundsPage />
+                    </TimerBackgroundsSaleGate>
+                  }
+                />
+                <Route path="/points/mascots" element={<PointsMascotsPage />} />
+                <Route path="/points/payment-guide" element={<PointsPaymentGuidePage />} />
+              </Route>
             </Routes>
           </Suspense>
         )}
