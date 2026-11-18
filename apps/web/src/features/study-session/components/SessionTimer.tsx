@@ -62,6 +62,12 @@ export interface SessionTimerProps {
   state: SessionStatusPillState;
   /** 심플 모드(S3-4/S3-6) 발광. 켜면 숫자가 상태 컬러 + text-shadow가 된다. */
   glow?: boolean;
+  /**
+   * 카메라 없이 측정하는 세션
+   *
+   * 순공이 총 공부와 같아서 총 공부 줄을 빼고 숫자를 총 공부 시간으로 읽어 준다.
+   */
+  cameraFree?: boolean;
   className?: string;
 }
 
@@ -86,6 +92,7 @@ export function SessionTimer({
   studySec,
   state,
   glow = false,
+  cameraFree = false,
   className,
 }: SessionTimerProps) {
   const { t } = useTranslation("study-session");
@@ -105,11 +112,13 @@ export function SessionTimer({
       >
         <span aria-hidden="true">{formatElapsed(focusSec)}</span>
         <span className="sr-only">
-          {t("timer.srFocus", { duration: toKoreanDuration(focusSec) })}
+          {cameraFree
+            ? t("timer.srTotal", { duration: toKoreanDuration(studySec) })
+            : t("timer.srFocus", { duration: toKoreanDuration(focusSec) })}
         </span>
       </p>
       {/* 심플 모드는 순공 숫자 하나에 집중하게 총 공부 줄을 뺀다. */}
-      {!glow && (
+      {!glow && !cameraFree && (
         <p className={TIMER_TOTAL_TEXT}>
           <span aria-hidden="true">{t("timer.total", { elapsed: formatElapsed(studySec) })}</span>
           <span className="sr-only">

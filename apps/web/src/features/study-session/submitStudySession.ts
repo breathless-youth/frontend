@@ -25,6 +25,8 @@ export interface SessionInput {
   subjectSegments?: SubjectSegmentPayload[];
   /** 이 세션에서 완료한 할 일 id — `completedTasks.ts`가 파생한 값. 비어 있으면 필드를 싣지 않는다. */
   completedTaskIds?: number[];
+  /** TIMER일 때만 요청에 싣는 측정 방식 */
+  source?: StudySessionCreateRequest["source"];
 }
 
 /**
@@ -66,6 +68,9 @@ export function buildSessionRequest(input: SessionInput): StudySessionCreateRequ
   }
   if (input.completedTaskIds !== undefined && input.completedTaskIds.length > 0) {
     request.completedTaskIds = input.completedTaskIds;
+  }
+  if (input.source === "TIMER") {
+    request.source = "TIMER";
   }
   return request;
 }

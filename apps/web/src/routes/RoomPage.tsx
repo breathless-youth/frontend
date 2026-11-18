@@ -43,7 +43,11 @@ import type { ModeKind } from "@/features/multi-timer/multiTimerMachine";
 import { createMultiTimerUsage, useMultiTimer } from "@/features/multi-timer/useMultiTimer";
 import type { MultiTimerControls } from "@/features/multi-timer/useMultiTimer";
 import { createDeviceHandlingDetector } from "@/features/study-session/adapters/deviceHandlingDetector";
-import { combineFocusDetectors } from "@/features/study-session/adapters/focusDetector";
+import { createMockCameraAdapter } from "@/features/study-session/adapters/cameraAdapter";
+import {
+  combineFocusDetectors,
+  createMockFocusDetector,
+} from "@/features/study-session/adapters/focusDetector";
 import { createMediaStreamCameraAdapter } from "@/features/study-session/adapters/mediaStreamCamera";
 import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice";
 import { CameraPreviewSurface } from "@/features/study-session/components/CameraPreviewSurface";
@@ -118,6 +122,7 @@ import type { SubjectSelection } from "@/features/study-session/subjectSegments"
 import { deriveSubjectTotals, liveSubjectTime } from "@/features/study-session/subjectSegments";
 import { completedTaskIdsSince } from "@/features/study-session/completedTasks";
 import { plannerCompletedTaskIds } from "@/features/study-session/plannerCompletedTasks";
+import { readMeasureMode } from "@/features/measure-mode/measureMode";
 import { useMascotLookPrefetch } from "@/features/points/model/prefetchMyMascotLook";
 import { hasTokenSource } from "@/lib/userId";
 import { queryClient } from "@/lib/queryClient";
@@ -349,7 +354,19 @@ function RoomSessionScreen({
   const { t } = useTranslation(["study-session", "common"]);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [camera] = useState(createMediaStreamCameraAdapter);
+  /**
+   * 카메라로 측정하는 세션인가
+   *
+   * 마운트할 때 한 번 정하고 세션 동안 바꾸지 않는다.
+   * 이어받은 세션은 처음 측정한 방식을 따르고 새 세션은 기기에 저장한 방식을 따른다.
+   * 카메라 없는 모드면 아무것도 열지 않는 카메라와 신호를 내지 않는 감지기를 넘겨 타이머만 돈다.
+   */
+  const [cameraOn] = useState(() =>
+    restored !== null ? restored.source !== "TIMER" : readMeasureMode() === "camera",
+  );
+  const [camera] = useState(() =>
+    cameraOn ? createMediaStreamCameraAdapter() : createMockCameraAdapter(),
+  );
   // 저전력 모드에서 멈춘 카메라 프리뷰를 탭 제스처로 되살린다 — lib/videoPlayback.ts 주석 참고.
   useGestureVideoPlaybackKick();
   // iOS 회전 백지 방어 — 소셜룸 실기기에서 확인된 증상의 예방적 적용(같은 웹뷰 셸,
@@ -367,7 +384,9 @@ function RoomSessionScreen({
    * DEV에서 `?detector=mock`이면 콘솔 mock이 이긴다 — 실기기 없이 비집중 시나리오를 재현해야
    * 할 때가 계속 있다. 그 외에는(프로덕션 포함) 아래 Vision 감지기가 쓰인다.
    */
-  const [devDetector] = useState(() => resolveDevDetectorOverride(searchParams.get("detector")));
+  const [devDetector] = useState(() =>
+    cameraOn ? resolveDevDetectorOverride(searchParams.get("detector")) : undefined,
+  );
   /**
    * 타임랩스 촬영
    *
@@ -385,7 +404,9 @@ function RoomSessionScreen({
    * 센서 정지 시점은 "카메라 추론 정지와 동일한 시점"이다.
    */
   const [sensorDetector] = useState(() =>
-    combineFocusDetectors([visionDetector, createDeviceHandlingDetector()]),
+    cameraOn
+      ? combineFocusDetectors([visionDetector, createDeviceHandlingDetector()])
+      : createMockFocusDetector(),
   );
   const detector = devDetector ?? sensorDetector;
   // 제출 시점에 읽을 과목 목록 — 커밋마다 최신 값으로 덮는다(아래 useSubjects 뒤).
@@ -437,13 +458,14 @@ function RoomSessionScreen({
     ambientSoundPlays: ambientUsage.soundSeconds,
     multiTimerUsage: multiTimerUsage.snapshot,
     displayUsage: () => ({ ...displayUsage.snapshot(), ...displayContextRef.current }),
-    onEnded: timelapse.finish,
+    onEnded: cameraOn ? timelapse.finish : undefined,
     onCameraLost: () => showCtaToast(t("cameraToast.cameraOff")),
+    source: cameraOn ? "MEASURED" : "TIMER",
   });
   // 이어받은 세션은 같은 시작 시각이라 같은 타임랩스에 이어 찍는다.
   useEffect(() => {
-    timelapse.begin(startedAtMs);
-  }, [startedAtMs, timelapse]);
+    if (cameraOn) timelapse.begin(startedAtMs);
+  }, [cameraOn, startedAtMs, timelapse]);
   // 결과 화면은 이 문서에서 웹 라우터 이동으로 열려 같은 캐시를 쓴다. 그 화면이 그릴 내 마스코트 모습을 미리 받는다.
   const prefetchMascotLook = useMascotLookPrefetch(queryClient, userId);
   const ambient = useAmbientSound({
@@ -677,7 +699,7 @@ function RoomSessionScreen({
   // modalOverlayOpen은 조건에 넣지 않는다(뜨자마자 스스로를 닫는 순환이 된다).
   const [cameraPromptAnswered, setCameraPromptAnswered] = useState(false);
   // 내 화면에만 그리는 가림이라 소셜룸·타임랩스와 설정을 나누지 않는다.
-  const [faceMaskOn, setFaceMaskOn] = useState(() => readFaceMaskOn("single"));
+  const [faceMaskOn, setFaceMaskOn] = useState(() => cameraOn && readFaceMaskOn("single"));
   const [faceMaskEmojiId, setFaceMaskEmojiId] = useState(() => readFaceMaskEmojiId("single"));
   const [faceSpot, setFaceSpot] = useState<FaceSpot | null>(null);
   // 카메라가 바뀌면 이전 영상에서 구한 위치가 새 영상과 맞지 않아 렌더 중에 비운다.
@@ -712,6 +734,7 @@ function RoomSessionScreen({
     setFaceMaskEmojiId(id);
   }
   const cameraPromptOpen =
+    cameraOn &&
     phase.name === "studying" &&
     !cameraPromptAnswered &&
     !helpOpen &&
@@ -763,7 +786,7 @@ function RoomSessionScreen({
   // 일반 모드의 내 카메라는 작은 창으로 시작하고 키우면 화면 전체를 채운다.
   // 키운 상태는 기억하지 않아서 심플 모드를 거치면 작은 창으로 돌아온다.
   const [cameraExpanded, setCameraExpanded] = useState(false);
-  const cameraHidden = simpleMode;
+  const cameraHidden = simpleMode || !cameraOn;
   // 작은 창 자리. 보이지 않는 같은 크기의 칸을 둬서 화면을 돌린 뒤에도 그때의 자리를 잰다.
   const pipSlotRef = useRef<HTMLDivElement>(null);
   // 줄이는 중. 작게 보기 버튼과 어두운 덮개를 움직임과 함께 서서히 지운다.
@@ -1268,7 +1291,10 @@ function RoomSessionScreen({
               if (simpleMode) {
                 trackSessionSimpleModeToggled(false);
               } else {
-                trackSessionSimpleModeToggled(true, cameraExpanded ? "expanded" : "pip");
+                trackSessionSimpleModeToggled(
+                  true,
+                  cameraOn ? (cameraExpanded ? "expanded" : "pip") : undefined,
+                );
                 // 진행 중인 움직임이 남아 있으면 심플 모드에서 돌아올 때 그 자리에 굳는다.
                 cameraMotionRef.current?.cancel();
                 setCameraExpanded(false);
@@ -1336,20 +1362,29 @@ function RoomSessionScreen({
             <SessionMoreMenu
               container={sessionSurface}
               hidden={simpleMode || helpVisible}
-              onFlipCamera={() => {
-                trackSessionMoreMenuItemSelected({ item: "flip_camera" });
-                void handleFlipCamera();
-              }}
+              onFlipCamera={
+                cameraOn
+                  ? () => {
+                      trackSessionMoreMenuItemSelected({ item: "flip_camera" });
+                      void handleFlipCamera();
+                    }
+                  : undefined
+              }
               onOpenPlanner={() => {
                 trackSessionMoreMenuItemSelected({ item: "planner" });
                 // 메뉴 항목에는 남는 요소가 없어서 닫힌 뒤 초점을 받을 더보기 버튼을 연 요소로 둔다.
                 if (moreTrigger !== null) openSubjectPage("menu", moreTrigger);
               }}
-              onOpenHelp={() => {
-                trackSessionMoreMenuItemSelected({ item: "help" });
-                setHelpStep(0);
-                setHelpOpen(true);
-              }}
+              // 도움말은 집중 감지와 카메라 화면을 설명해서 카메라 없는 모드에서는 뺀다.
+              onOpenHelp={
+                cameraOn
+                  ? () => {
+                      trackSessionMoreMenuItemSelected({ item: "help" });
+                      setHelpStep(0);
+                      setHelpOpen(true);
+                    }
+                  : undefined
+              }
               onOpenChange={(open) => {
                 setMoreMenuOpen(open);
                 if (open) trackSessionMoreMenuOpened();
@@ -1450,12 +1485,15 @@ function RoomSessionScreen({
                   과목 글자와 큰 숫자 글자 사이 12px를 맞추려고 과목 줄을 -3.5만큼 당긴다.
                   과목이 없으면 당기지 않아 상태 줄 글자와 숫자 글자 사이도 약 12px이다.
                   심플 모드는 상태 줄이 화면에서 빠지고 과목 줄과 숫자 사이는 같은 값이다. */}
-              <div
-                data-clock-row=""
-                className={cn(!simpleMode && subjectLabel !== null && "-mb-1.25")}
-              >
-                <SessionStatusLine state={pillState} label={statusLabel} concealed={simpleMode} />
-              </div>
+              {/* 카메라 없는 모드는 알릴 감지 상태가 없어 상태 줄을 빼고, 간격은 상태 줄이 빠진 심플 모드와 같아진다. */}
+              {cameraOn && (
+                <div
+                  data-clock-row=""
+                  className={cn(!simpleMode && subjectLabel !== null && "-mb-1.25")}
+                >
+                  <SessionStatusLine state={pillState} label={statusLabel} concealed={simpleMode} />
+                </div>
+              )}
               {subjectLabel !== null && (
                 <SubjectLabel
                   name={subjectLabel.name}
@@ -1476,6 +1514,7 @@ function RoomSessionScreen({
                 studySec={studySec}
                 state={pillState}
                 glow={simpleMode}
+                cameraFree={!cameraOn}
               />
             </div>
 
