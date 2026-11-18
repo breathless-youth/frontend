@@ -42,11 +42,23 @@ describe("restoreActiveSession", () => {
       baseFocusSec: 1620,
       events: BODY.events,
       subjectSegments: [],
+      source: "MEASURED",
     });
 
     const [url, init] = vi.mocked(fetch).mock.calls[0]!;
     expect(String(url)).toMatch(/\/api\/study-sessions\/active$/);
     expect((init as RequestInit | undefined)?.method ?? "GET").toBe("GET");
+  });
+
+  it("측정 방식이 TIMER면 타이머 세션으로, 없거나 MEASURED면 카메라 세션으로 읽는다", async () => {
+    stub200({ ...BODY, source: "TIMER" });
+    expect((await restoreActiveSession())?.source).toBe("TIMER");
+
+    stub200({ ...BODY, source: "MEASURED" });
+    expect((await restoreActiveSession())?.source).toBe("MEASURED");
+
+    stub200(BODY);
+    expect((await restoreActiveSession())?.source).toBe("MEASURED");
   });
 
   it("404면 null을 돌려준다", async () => {

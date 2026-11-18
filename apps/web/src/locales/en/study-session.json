@@ -165,7 +165,8 @@
     "studyDays_one": "{{count}} day",
     "studyDays_other": "{{count}} days",
     "ctaHome": "Home",
-    "ctaRecords": "Go to Records"
+    "ctaRecords": "Go to Records",
+    "timerNotice": "Time studied without the camera\ndoesn't count toward streaks, rankings, or points"
   },
   "legend": {
     "focus": "Focus",

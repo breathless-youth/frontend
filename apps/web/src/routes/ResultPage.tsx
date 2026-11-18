@@ -7,6 +7,7 @@ import type { StudySessionResponse } from "@focusmakers/types";
 import { Button } from "@/components/ui/button";
 import { CtaToaster } from "@/components/ui/sonner";
 import { InterviewCardHost } from "@/features/interview/InterviewCardHost";
+import { isTimerSession } from "@/features/manual-record/manualRecord";
 import { MeasurementFeedbackCardHost } from "@/features/measurement-feedback/MeasurementFeedbackCardHost";
 import { ResultPointsHost } from "@/features/points/components/result/ResultPointsHost";
 import { rewardStartedAt } from "@/features/points/model/rewardStartedAt";
@@ -285,6 +286,8 @@ export function ResultPage() {
   // 타임랩스는 싱글룸에서만 찍는다.
   const showTimelapse = home === "/home";
   const phase: CompleteHeroPhase = skipIntro ? "static" : revealed ? "revealed" : "intro";
+  // 카메라 없이 공부한 세션은 순공시간과 집중 구간을 측정하지 않아 측정 결과를 보이는 카드를 그리지 않는다.
+  const timer = isTimerSession(sessions[0]);
 
   return (
     <main className="theme-soft-blue bg-soft-blue relative flex h-svh w-full flex-col text-foreground">
@@ -306,14 +309,23 @@ export function ResultPage() {
               phase={phase}
               look={mascot.look}
               mascotHidden={!mascot.ready}
+              timer={timer}
             />
           )}
           {revealed && (
             <div className="mt-6 flex flex-col gap-3 animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
-              <StudyTimelineCard view={view} />
-              <MeasurementFeedbackCardHost focusSec={totalFocusSec} roomType={roomType} />
-              {userId !== null && isPointsEnabled() && (
-                <ResultPointsHost startedAt={rewardStartedAt(sessions)} />
+              {timer ? (
+                <p className="text-center text-[13px] leading-5 whitespace-pre-line text-muted-foreground">
+                  {t("result.timerNotice")}
+                </p>
+              ) : (
+                <>
+                  <StudyTimelineCard view={view} />
+                  <MeasurementFeedbackCardHost focusSec={totalFocusSec} roomType={roomType} />
+                  {userId !== null && isPointsEnabled() && (
+                    <ResultPointsHost startedAt={rewardStartedAt(sessions)} />
+                  )}
+                </>
               )}
               {userId !== null && <SessionSummaryCard userId={userId} />}
               {userId !== null && <InterviewCardHost userId={userId} />}

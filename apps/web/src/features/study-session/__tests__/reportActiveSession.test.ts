@@ -24,6 +24,13 @@ describe("buildActiveSnapshotRequest", () => {
     });
   });
 
+  it("카메라 없는 세션이면 측정 방식을 TIMER로 싣고 카메라 세션이면 필드를 싣지 않는다", () => {
+    expect(buildActiveSnapshotRequest({ ...INPUT, source: "TIMER" }).source).toBe("TIMER");
+    expect(buildActiveSnapshotRequest({ ...INPUT, source: "MEASURED" })).not.toHaveProperty(
+      "source",
+    );
+  });
+
   it("reportedAt을 경계로 studySec을 클램프한다", () => {
     const req = buildActiveSnapshotRequest({ ...INPUT, studySec: 99999, focusSec: 99999 });
     expect(req.studySec).toBe(30);

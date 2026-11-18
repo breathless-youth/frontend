@@ -8,6 +8,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SubjectStartUnavailableError } from "@/lib/sessionStart";
 import { hardNavigate } from "@/lib/hardNavigation";
 
+import { writeMeasureMode } from "@/features/measure-mode/measureMode";
+import { prefetchVisionAssets } from "@/features/study-session/vision/prefetchVisionAssets";
+import { prefetchTimelapsesPage } from "@/routes/lazyRoutes";
 import { HomeV3Entry } from "../HomeV3Entry";
 import type { HomeV3Gateway } from "../HomeV3Gateway";
 import { readHomeSubject, writeHomeSubject } from "../subjectSelection";
@@ -104,6 +107,28 @@ beforeEach(() => {
 });
 
 describe("home v3 entry adapters", () => {
+  it("prefetches vision assets only in camera mode and the timelapse page in both modes", async () => {
+    setup();
+    await waitFor(() => expect(prefetchVisionAssets).toHaveBeenCalled());
+
+    vi.clearAllMocks();
+    writeMeasureMode("timer");
+    setup();
+    await waitFor(() => expect(prefetchTimelapsesPage).toHaveBeenCalled());
+    expect(prefetchVisionAssets).not.toHaveBeenCalled();
+  });
+
+  it("prefetches vision assets once when the same mounted home switches from timer to camera", async () => {
+    writeMeasureMode("timer");
+    setup();
+    await waitFor(() => expect(prefetchTimelapsesPage).toHaveBeenCalled());
+    expect(prefetchVisionAssets).not.toHaveBeenCalled();
+
+    act(() => writeMeasureMode("camera"));
+
+    await waitFor(() => expect(prefetchVisionAssets).toHaveBeenCalledOnce());
+  });
+
   it("uses the real default adapter for mission confirmation and HOME goal saves", async () => {
     let state = homeMission<0 | 1 | 2>(1);
     let goalSec = 28800;

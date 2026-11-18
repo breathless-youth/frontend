@@ -25,6 +25,7 @@ import { slideNavigate } from "@/lib/pageTransition";
 import { listSubjects } from "@/lib/subjectApi";
 import { useFocusStart } from "@/lib/useFocusStart";
 import { SubjectStartUnavailableError } from "@/lib/sessionStart";
+import { useMeasureMode } from "@/features/measure-mode/measureMode";
 import { prefetchVisionAssets } from "@/features/study-session/vision/prefetchVisionAssets";
 import { prefetchTimelapsesPage } from "@/routes/lazyRoutes";
 
@@ -154,9 +155,14 @@ export function HomeV3Entry({
   useEffect(() => {
     if (stats.status !== "success" || prefetched.current) return;
     prefetched.current = true;
-    prefetchVisionAssets();
     void prefetchTimelapsesPage();
   }, [stats.status]);
+  // 카메라 없는 모드에서는 세션이 AI 모델을 쓰지 않아 받지 않고, 홈에서 카메라로 바꾸면 그때 받는다.
+  // 같은 문서에서 두 번 받지 않는 것은 함수가 보장한다.
+  const [measureMode] = useMeasureMode();
+  useEffect(() => {
+    if (stats.status === "success" && measureMode === "camera") prefetchVisionAssets();
+  }, [stats.status, measureMode]);
 
   const timelapseData = timelapses.data;
   useEffect(() => {

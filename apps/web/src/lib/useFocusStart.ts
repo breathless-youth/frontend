@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
+import { readMeasureMode } from "@/features/measure-mode/measureMode";
 import { sessionGuideState } from "@/features/study-session/sessionGuide";
 import { trackFocusStartTapped, type FocusStartSource } from "@/lib/amplitude";
 import { haptic } from "@/lib/haptics";
@@ -27,7 +28,8 @@ export function useFocusStart(
     const subjectId = options.subjectId;
     if (subjectId !== undefined && (!Number.isSafeInteger(subjectId) || subjectId <= 0))
       return new RangeError("invalid initial subject");
-    if (userId !== null && sessionGuideState(userId) !== "seen") {
+    // 가이드는 카메라 감지를 설명해서 카메라 없는 모드에서는 띄우지 않고 봤다고 남기지도 않는다.
+    if (userId !== null && readMeasureMode() === "camera" && sessionGuideState(userId) !== "seen") {
       haptic("medium");
       void navigate(
         { pathname: "/session-guide", search: location.search },

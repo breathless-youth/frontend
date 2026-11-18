@@ -77,6 +77,15 @@ describe("SessionMoreMenu", () => {
     expect(onOpenPlanner).toHaveBeenCalledOnce();
   });
 
+  it("카메라 전환을 넘기지 않으면 그 항목이 없다", async () => {
+    render(<SessionMoreMenu container={null} onOpenPlanner={vi.fn()} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+
+    const items = screen.getAllByRole("menuitem");
+    expect(items.map((item) => item.textContent)).toEqual(["플래너"]);
+  });
+
   it("플래너를 넘기지 않으면 항목이 없다", async () => {
     renderMenu();
 

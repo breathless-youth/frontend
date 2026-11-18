@@ -166,6 +166,8 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         ...(record.initialSubjectId === undefined
           ? {}
           : { initialSubjectId: record.initialSubjectId as number }),
+        // 모르는 방식이면 그 필드만 버린다. 권한을 확인하는 지금 동작으로 돌아갈 뿐 시작은 막지 않는다.
+        ...(record.measureMode === "timer" ? { measureMode: "timer" as const } : {}),
       };
     case "navigate-home": {
       // 이어서 열 탭과 초대코드는 선택 필드다.

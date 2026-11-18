@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { markSessionGuideSeen } from "@/features/study-session/sessionGuide";
+import { writeMeasureMode } from "@/features/measure-mode/measureMode";
+import { markSessionGuideSeen, sessionGuideState } from "@/features/study-session/sessionGuide";
 import type * as Amplitude from "@/lib/amplitude";
 import { requestSessionStart } from "@/lib/sessionStart";
 import { useFocusStart } from "@/lib/useFocusStart";
@@ -113,6 +114,19 @@ describe("useFocusStart", () => {
     expect(guide).toHaveAttribute("data-state", JSON.stringify({ source: "ranking_card" }));
     expect(requestSessionStart).not.toHaveBeenCalled();
     expect(analytics.trackFocusStartTapped).not.toHaveBeenCalled();
+  });
+
+  it("카메라 없는 모드면 가이드를 안 본 계정도 가이드 없이 시작하고 봤음으로 남기지 않는다", async () => {
+    localStorage.clear();
+    writeMeasureMode("timer");
+    vi.mocked(requestSessionStart).mockResolvedValue("web");
+    renderStarter();
+
+    await userEvent.click(screen.getByRole("button", { name: "집중 시작" }));
+
+    expect(screen.queryByTestId("guide-probe")).not.toBeInTheDocument();
+    expect(requestSessionStart).toHaveBeenCalledWith(7, expect.any(Function));
+    expect(sessionGuideState(7)).toBeNull();
   });
 
   it("신원이 없으면 가이드 없이 바로 시작한다", async () => {
