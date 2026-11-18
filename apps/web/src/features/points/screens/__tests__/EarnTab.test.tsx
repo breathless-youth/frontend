@@ -33,7 +33,7 @@ function setup(
     allowAction?: () => boolean;
   } = {},
 ) {
-  const onClaim = over.onClaim ?? vi.fn(async () => ({ granted: true, points: 8, balance: 1248 }));
+  const onClaim = over.onClaim ?? vi.fn(async () => ({ granted: true, points: 20, balance: 1260 }));
   const onWatchAd =
     over.onWatchAd ?? vi.fn(async (): Promise<AdResult> => ({ status: "unavailable" }));
   const onCharge =
@@ -133,10 +133,10 @@ describe("EarnTab 무료 포인트", () => {
 describe("EarnTab 메달", () => {
   it("받으면 claim을 부르고 새 메달 없음으로 바뀐다", async () => {
     const { onClaim } = setup();
-    await userEvent.click(screen.getByRole("button", { name: "+8P 받기" }));
+    await userEvent.click(screen.getByRole("button", { name: "+20P 받기" }));
     expect(onClaim).toHaveBeenCalledWith("medals");
     expect(await screen.findByText("새 랭킹 메달이 없어요")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "+8P 받기" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "+20P 받기" })).not.toBeInTheDocument();
   });
 
   it("처음부터 메달이 없으면 안내를 보인다", () => {
@@ -153,7 +153,19 @@ describe("EarnTab 메달", () => {
     fireEvent.click(trigger);
     const table = await screen.findByText("월간", { selector: "[data-state] *" });
     const rows = table.closest("[data-state]") as HTMLElement;
-    for (const text of ["일간", "주간", "월간", "5P", "10P", "50P", "3P", "30P", "1P"]) {
+    for (const text of [
+      "일간",
+      "주간",
+      "월간",
+      "10P",
+      "5P",
+      "3P",
+      "30P",
+      "15P",
+      "150P",
+      "100P",
+      "50P",
+    ]) {
       expect(within(rows).getAllByText(new RegExp(text)).length).toBeGreaterThan(0);
     }
   });
@@ -330,6 +342,13 @@ describe("EarnTab 결제·환불 안내", () => {
     );
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
+
+  it("충전 칸의 링크는 소품 화면과 달리 기본 44px 상자 가운데에 글자를 둔다", () => {
+    setup();
+    const guide = screen.getByRole("link", { name: "결제·환불 안내" });
+    expect(guide).toHaveClass("min-h-11", "items-center");
+    expect(guide).not.toHaveClass("min-h-8", "items-end");
+  });
 });
 
 describe("EarnTab 앱 밖", () => {
@@ -344,7 +363,7 @@ describe("EarnTab 앱 밖", () => {
 
 describe("EarnTab 실패", () => {
   it.each([
-    ["받기", { onClaim: () => Promise.reject(new Error("down")) }, "+8P 받기"],
+    ["받기", { onClaim: () => Promise.reject(new Error("down")) }, "+20P 받기"],
     ["광고", { onWatchAd: () => Promise.reject(new Error("down")) }, /^보기/],
     ["충전", { onCharge: () => Promise.reject(new Error("down")) }, /500P 충전/],
   ] as const)("%s 요청이 실패하면 알리고 다시 누를 수 있다", async (_, over, name) => {

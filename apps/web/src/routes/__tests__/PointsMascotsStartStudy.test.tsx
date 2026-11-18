@@ -38,7 +38,7 @@ function renderMascots() {
 }
 
 async function pressStartStudy() {
-  await userEvent.click(await screen.findByRole("button", { name: "부기 잠김, 4시간 12분 남음" }));
+  await userEvent.click(await screen.findByRole("button", { name: "락키 잠김, 4시간 12분 남음" }));
   const sheet = await screen.findByRole("dialog");
   await userEvent.click(within(sheet).getByRole("button", { name: "공부 시작하기" }));
 }

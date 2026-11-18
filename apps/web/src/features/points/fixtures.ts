@@ -28,17 +28,17 @@ const MINUTE = 60;
 const HOUR = 60 * MINUTE;
 const DAY_MS = 24 * HOUR * 1000;
 
-/** 해금 순서와 기준 누적 순공(시간)이며 서버처럼 처음 것은 처음부터 열려 있다. */
+/** 해금 순서와 기준 누적 순공(시간)이며 운영 서버 값과 같다. 서버처럼 처음 것은 처음부터 열려 있다. */
 const MASCOT_UNLOCK_HOURS: [MascotId, number][] = [
   ["stopwatch", 0],
-  ["pencil", 2],
-  ["planner", 10],
-  ["padlock", 20],
-  ["book", 30],
-  ["lamp", 50],
+  ["pencil", 1],
+  ["book", 10],
+  ["padlock", 30],
+  ["planner", 50],
+  ["lamp", 100],
 ];
 
-/** 포인트로 사서 여는 마스코트와 가격이며 서버처럼 여는 시간은 0이다. */
+/** 포인트로 사서 여는 마스코트와 가격이며 운영 서버 값과 같다. 서버처럼 여는 시간은 0이다. */
 const PRICED_MASCOTS: [MascotId, number][] = [["camcorder", 1000]];
 
 const price = (value: number): ItemAcquire => ({ type: "price", price: value });
@@ -194,13 +194,13 @@ function buildEarn(scene: PointsScene): EarnToday {
       allDone || scene === "noMedal"
         ? []
         : [
-            { rank: 1, period: "DAILY", reward: 5 },
-            { rank: 3, period: "WEEKLY", reward: 3 },
+            { rank: 1, period: "DAILY", reward: 10 },
+            { rank: 3, period: "WEEKLY", reward: 10 },
           ],
     medalRates: {
-      daily: { gold: 5, silver: 3, bronze: 1 },
-      weekly: { gold: 10, silver: 5, bronze: 3 },
-      monthly: { gold: 50, silver: 30, bronze: 10 },
+      daily: { gold: 10, silver: 5, bronze: 3 },
+      weekly: { gold: 30, silver: 15, bronze: 10 },
+      monthly: { gold: 150, silver: 100, bronze: 50 },
     },
   };
 }
@@ -226,7 +226,7 @@ function buildHistory(now: number): PointsHistoryEntry[] {
     // 충전은 스토어 상품(500·2,000·4,000P) 중 하나, 메달은 주간 1위, 하루 목표는 1시간 30분 목표,
     // 공부는 같이 2시간(30분 4번 × 10P)이다.
     entry("h3", 0, 2000, "charge"),
-    entry("h4", 2, 10, "medal"),
+    entry("h4", 2, 30, "medal"),
     entry("h5", 2, 60, "dailyGoal"),
     entry("h6", 2, 20, "ad"),
     entry("h7", 2, 40, "study"),
@@ -261,7 +261,8 @@ export function buildPointsFixture(scene: PointsScene, now: number = Date.now())
     mascots: buildMascots(
       totalFocusSec,
       "stopwatch",
-      scene === "newMascot" ? ["planner", "padlock"] : [],
+      // 기본 누적 순공(25시간 48분)에서 가장 최근에 열린 두 마스코트다.
+      scene === "newMascot" ? ["pencil", "book"] : [],
       scene === "allCollected",
     ),
     totalFocusSec,
@@ -281,7 +282,7 @@ export function buildPointsFixture(scene: PointsScene, now: number = Date.now())
         scene === "allCollected"
           ? null
           : {
-              id: "book",
+              id: "padlock",
               remainingSec: 2 * HOUR + 48 * MINUTE,
               progress: (27 * HOUR + 12 * MINUTE) / (30 * HOUR),
             },

@@ -41,8 +41,8 @@ describe("ShopTab", () => {
   it("다음 마스코트 카드가 남은 시간과 막대를 보이고 누르면 마스코트 모으기로 간다", async () => {
     const { onOpenMascots } = renderTab("default");
     expect(screen.getByText("순공 4시간 12분 더 하면 열려요")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "부기까지 86% 모았어요" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /다음 캐릭터 부기/ }));
+    expect(screen.getByRole("img", { name: "락키까지 86% 모았어요" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /다음 캐릭터 락키/ }));
     expect(onOpenMascots).toHaveBeenCalledOnce();
   });
 
@@ -96,7 +96,7 @@ describe("ShopTab", () => {
       within(picker)
         .getAllByRole("button")
         .map((button) => button.getAttribute("aria-label")),
-    ).toEqual(["타이미", "몽당이", "플래니", "락키", "부기", "램피", "캠코미"]);
+    ).toEqual(["타이미", "몽당이", "부기", "락키", "플래니", "램피", "캠코미"]);
   });
 
   it("고르기 칸의 마스코트는 마스코트마다 꾸며 둔 모습으로 보인다", () => {
