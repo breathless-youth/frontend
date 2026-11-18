@@ -63,7 +63,7 @@ export function useHomeV3Progress(
   userId: number,
   day: HomeDay,
   stats: HomeLoadState<HomeTodayStats>,
-  /** 미션 포인트를 보일지이며 포인트 기능이 켜져 있고 회원일 때만 참이다. */
+  /** 미션 포인트를 보일지이며 포인트 기능이 켜져 있고 서버가 잔액 조회를 거절하지 않으면 비회원도 참이다. */
   rewards = false,
 ) {
   const client = useQueryClient();
