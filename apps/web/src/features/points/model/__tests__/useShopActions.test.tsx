@@ -94,7 +94,18 @@ describe("useShopActions", () => {
     for (const call of calls) expect(call).not.toHaveBeenCalled();
   });
 
-  it("비회원이 받기·광고·충전을 누르면 문이 로그인 화면을 열고 막는다", () => {
+  it("비회원의 받기는 로그인 화면을 열지 않고 서버에 보내 잔액을 바꾼다", async () => {
+    const { actions, gateway, requestLogin } = setup(false);
+    const claim = vi.spyOn(gateway, "claim");
+
+    const result = await actions.claim("medals");
+
+    expect(claim).toHaveBeenCalledWith("medals");
+    expect(result.granted).toBe(true);
+    expect(requestLogin).not.toHaveBeenCalled();
+  });
+
+  it("비회원이 충전을 누르면 문이 로그인 화면을 열고 막는다", () => {
     const guest = setup(false);
     expect(guest.actions.allowMemberAction()).toBe(false);
     expect(guest.requestLogin).toHaveBeenCalledOnce();

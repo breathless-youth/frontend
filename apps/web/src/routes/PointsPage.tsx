@@ -199,7 +199,7 @@ function EarnPanel() {
       chargeAvailable={!actions.inApp || canCharge}
       adAvailable={actions.adsShown && (!actions.inApp || canShowAds)}
       member={member}
-      allowAction={actions.allowMemberAction}
+      allowCharge={actions.allowMemberAction}
     />
   );
 }

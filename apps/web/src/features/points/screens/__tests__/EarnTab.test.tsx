@@ -30,7 +30,7 @@ function setup(
     onCharge?: (id: string, onPaid?: () => void) => Promise<ChargeResult>;
     packs?: ChargePack[];
     member?: boolean;
-    allowAction?: () => boolean;
+    allowCharge?: () => boolean;
   } = {},
 ) {
   const onClaim = over.onClaim ?? vi.fn(async () => ({ granted: true, points: 20, balance: 1260 }));
@@ -53,7 +53,7 @@ function setup(
         onWatchAd={over.inApp === false ? undefined : onWatchAd}
         onCharge={over.inApp === false ? undefined : onCharge}
         {...(over.member === undefined ? {} : { member: over.member })}
-        {...(over.allowAction === undefined ? {} : { allowAction: over.allowAction })}
+        {...(over.allowCharge === undefined ? {} : { allowCharge: over.allowCharge })}
       />
     </MemoryRouter>,
   );
@@ -306,10 +306,10 @@ describe("EarnTab 광고와 충전", () => {
   });
 
   it("비회원에게는 묶음마다 포인트 수와 로그인 안내를 보이고 누르면 결제 대신 로그인 화면으로 보낸다", async () => {
-    const allowAction = vi.fn(() => false);
+    const allowCharge = vi.fn(() => false);
     const { onCharge } = setup({
       member: false,
-      allowAction,
+      allowCharge,
       packs: fixture.packs.map((pack) => ({ ...pack, priceLabel: null })),
     });
     expect(screen.queryByText("가격 확인 중")).not.toBeInTheDocument();
@@ -317,7 +317,7 @@ describe("EarnTab 광고와 충전", () => {
     const pack = screen.getByRole("button", { name: "500P 충전, 로그인하기" });
     expect(pack).toBeEnabled();
     await userEvent.click(pack);
-    expect(allowAction).toHaveBeenCalledOnce();
+    expect(allowCharge).toHaveBeenCalledOnce();
     expect(onCharge).not.toHaveBeenCalled();
   });
 
@@ -330,6 +330,51 @@ describe("EarnTab 광고와 충전", () => {
     expect(pack).toBeDisabled();
     await userEvent.click(pack);
     expect(onCharge).not.toHaveBeenCalled();
+  });
+});
+
+describe("EarnTab 비회원", () => {
+  const guest = () => {
+    const allowCharge = vi.fn(() => false);
+    return { allowCharge, ...setup({ member: false, allowCharge, earn: openEarn() }) };
+  };
+  /** 출석과 하루 목표를 받을 수 있는 날이다. */
+  const openEarn = (): EarnToday => ({
+    ...fixture.earn,
+    attendance: { ...fixture.earn.attendance, claimed: false },
+    dailyGoal: { ...fixture.earn.dailyGoal, achieved: true, claimed: false, remainingSec: 0 },
+  });
+
+  it("출석·하루 목표·메달 받기는 회원 문을 거치지 않고 바로 받는다", async () => {
+    const { allowCharge, onClaim } = guest();
+    const [attendance, dailyGoal] = screen.getAllByRole("button", { name: "받기" });
+    await userEvent.click(attendance!);
+    await waitFor(() => expect(onClaim).toHaveBeenCalledWith("attendance"));
+    await userEvent.click(dailyGoal!);
+    await waitFor(() => expect(onClaim).toHaveBeenCalledWith("dailyGoal"));
+    await userEvent.click(screen.getByRole("button", { name: "+20P 받기" }));
+    await waitFor(() => expect(onClaim).toHaveBeenCalledWith("medals"));
+    expect(allowCharge).not.toHaveBeenCalled();
+  });
+
+  it("광고 보기도 회원 문을 거치지 않고 바로 띄운다", async () => {
+    const { allowCharge, onWatchAd } = guest();
+    await userEvent.click(screen.getByRole("button", { name: /^보기/ }));
+    await waitFor(() => expect(onWatchAd).toHaveBeenCalledOnce());
+    expect(allowCharge).not.toHaveBeenCalled();
+  });
+
+  it("서버가 받기를 회원 전용이라고 거절하면 다시 시도하라고 알리지 않는다", async () => {
+    setup({
+      member: false,
+      earn: openEarn(),
+      onClaim: vi.fn(async () => {
+        throw new ApiError("member only", 403, "MEMBER_ONLY");
+      }),
+    });
+    await userEvent.click(screen.getAllByRole("button", { name: "받기" })[0]!);
+    await waitFor(() => expect(screen.getAllByRole("button", { name: "받기" })[0]).toBeEnabled());
+    expect(showToast).not.toHaveBeenCalled();
   });
 });
 

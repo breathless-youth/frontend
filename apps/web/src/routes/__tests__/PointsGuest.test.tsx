@@ -5,10 +5,12 @@ import { useEffect } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { buildPointsFixture } from "@/features/points/fixtures";
 import {
   __resetAppPointsGatewayForTests,
   appPointsGateway,
 } from "@/features/points/gateway/appPointsGateway";
+import type { EarnToday } from "@/features/points/types";
 import { ApiError } from "@/lib/api";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import type * as Bridge from "@/lib/bridge";
@@ -75,6 +77,27 @@ function renderAt(...entries: string[]) {
 }
 
 const loginScreen = () => screen.findByText("로그인 화면 points");
+
+const MEMBER_ONLY = new ApiError("member only", 403, "MEMBER_ONLY");
+
+/** 오늘 받기 데이터를 바꿔 받을 수 있는 칸을 정한다. 받기 버튼이 하나만 보이게 쓴다. */
+function earnToday(change: (earn: EarnToday) => EarnToday) {
+  vi.spyOn(appPointsGateway(), "getEarnToday").mockResolvedValue(
+    change(buildPointsFixture("default").earn),
+  );
+}
+
+const attendanceOpen = (earn: EarnToday): EarnToday => ({
+  ...earn,
+  attendance: { ...earn.attendance, claimed: false },
+  medals: [],
+});
+
+const dailyGoalOpen = (earn: EarnToday): EarnToday => ({
+  ...earn,
+  dailyGoal: { ...earn.dailyGoal, achieved: true, claimed: false, remainingSec: 0 },
+  medals: [],
+});
 
 beforeEach(() => {
   window.history.replaceState(null, "", "/?points=1&pointsMock=default");
@@ -157,6 +180,30 @@ describe("비회원의 포인트 화면", () => {
     expect(select).not.toHaveBeenCalled();
   });
 
+  it("포인트로 파는 캐릭터를 사려고 하면 확인 창 대신 로그인 화면으로 간다", async () => {
+    const purchase = vi.spyOn(appPointsGateway(), "purchaseMascot");
+    renderAt("/points/mascots?userId=7&item=camcorder");
+    expect(await loginScreen()).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "구매하기" })).not.toBeInTheDocument();
+    expect(purchase).not.toHaveBeenCalled();
+  });
+
+  it("가진 타이머 배경을 적용하려고 하면 로그인 화면으로 간다", async () => {
+    const apply = vi.spyOn(appPointsGateway(), "setTimerBackground");
+    renderAt("/points/backgrounds?userId=7&item=bg-forest-morning");
+    await userEvent.click(await screen.findByRole("button", { name: "적용하기" }));
+    expect(await loginScreen()).toBeInTheDocument();
+    expect(apply).not.toHaveBeenCalled();
+  });
+
+  it("결제로 파는 세트를 사려고 하면 결제 창 대신 로그인 화면으로 간다", async () => {
+    const pay = vi.spyOn(appPointsGateway(), "purchaseStoreItem");
+    renderAt("/points/accessories?userId=7&item=acc-stopwatch-rainset");
+    await userEvent.click(await screen.findByRole("button", { name: "₩1,100에 구매하기" }));
+    expect(await loginScreen()).toBeInTheDocument();
+    expect(pay).not.toHaveBeenCalled();
+  });
+
   it("새로 열린 마스코트의 축하 화면은 로그인한 뒤에 보이도록 비회원에게는 띄우지 않는다", async () => {
     window.history.replaceState(null, "", "/?points=1&pointsMock=newMascot");
     __resetAppPointsGatewayForTests();
@@ -175,20 +222,52 @@ describe("비회원의 포인트 화면", () => {
       expect(screen.getByRole("heading", { name: "포인트 충전" })).toBeInTheDocument();
     });
 
-    it("메달 포인트 받기를 누르면 받지 않고 로그인 화면으로 간다", async () => {
+    it.each([
+      ["출석", attendanceOpen, "attendance"],
+      ["하루 목표", dailyGoalOpen, "dailyGoal"],
+    ] as const)("%s 받기를 누르면 로그인 없이 받는다", async (_, open, kind) => {
+      earnToday(open);
       const claim = vi.spyOn(appPointsGateway(), "claim");
-      renderAt("/points?userId=7&tab=earn");
-      await userEvent.click(await screen.findByRole("button", { name: /P 받기$/ }));
-      expect(await loginScreen()).toBeInTheDocument();
-      expect(claim).not.toHaveBeenCalled();
+      const { visited } = renderAt("/points?userId=7&tab=earn");
+      await userEvent.click(await screen.findByRole("button", { name: "받기" }));
+      await waitFor(() => expect(claim).toHaveBeenCalledWith(kind));
+      await waitFor(() =>
+        expect(screen.queryByRole("button", { name: "받기" })).not.toBeInTheDocument(),
+      );
+      expect(visited).not.toContain("/points/login");
     });
 
-    it("광고 보기를 누르면 광고를 띄우지 않고 로그인 화면으로 간다", async () => {
+    it("메달 포인트 받기를 누르면 로그인 없이 받는다", async () => {
+      const claim = vi.spyOn(appPointsGateway(), "claim");
+      const { visited } = renderAt("/points?userId=7&tab=earn");
+      await userEvent.click(await screen.findByRole("button", { name: /P 받기$/ }));
+      await waitFor(() => expect(claim).toHaveBeenCalledWith("medals"));
+      expect(await screen.findByText("새 랭킹 메달이 없어요")).toBeInTheDocument();
+      expect(visited).not.toContain("/points/login");
+    });
+
+    it("광고 보기를 누르면 로그인 없이 광고를 띄운다", async () => {
       const watchAd = vi.spyOn(appPointsGateway(), "watchAd");
+      const { visited } = renderAt("/points?userId=7&tab=earn");
+      await userEvent.click(await screen.findByRole("button", { name: /^보기/ }));
+      await waitFor(() => expect(watchAd).toHaveBeenCalledOnce());
+      expect(await screen.findByText("1/3")).toBeInTheDocument();
+      expect(visited).not.toContain("/points/login");
+    });
+
+    it("받기를 서버가 회원 전용이라고 거절하면 로그인 화면으로 간다", async () => {
+      earnToday(attendanceOpen);
+      vi.spyOn(appPointsGateway(), "claim").mockRejectedValue(MEMBER_ONLY);
+      renderAt("/points?userId=7&tab=earn");
+      await userEvent.click(await screen.findByRole("button", { name: "받기" }));
+      expect(await loginScreen()).toBeInTheDocument();
+    });
+
+    it("광고 보상을 서버가 회원 전용이라고 거절하면 로그인 화면으로 간다", async () => {
+      vi.spyOn(appPointsGateway(), "watchAd").mockRejectedValue(MEMBER_ONLY);
       renderAt("/points?userId=7&tab=earn");
       await userEvent.click(await screen.findByRole("button", { name: /^보기/ }));
       expect(await loginScreen()).toBeInTheDocument();
-      expect(watchAd).not.toHaveBeenCalled();
     });
 
     it("충전 묶음을 누르면 결제를 열지 않고 로그인 화면으로 간다", async () => {
@@ -217,16 +296,30 @@ describe("포인트 로그인 화면", () => {
 });
 
 describe("회원인데 서버가 회원 전용이라고 거절할 때", () => {
+  // 로그인 화면은 이미 회원이면 그리자마자 보던 화면으로 돌아가서 화면 글자로는 잡히다 말다 한다.
+  // 그래서 로그인 주소로 갔는지만 본다.
   it("구매 요청이 거절되면 로그인 화면으로 간다", async () => {
     signIn("KAKAO");
-    vi.spyOn(appPointsGateway(), "purchase").mockRejectedValue(
-      new ApiError("member only", 403, "MEMBER_ONLY"),
-    );
+    vi.spyOn(appPointsGateway(), "purchase").mockRejectedValue(MEMBER_ONLY);
     const { visited } = renderAt("/points/accessories?userId=7");
     await userEvent.click(await screen.findByRole("button", { name: "600P로 구매" }));
     await userEvent.click(await screen.findByRole("button", { name: "구매하기" }));
-    // 로그인 화면은 이미 회원이면 그리자마자 보던 화면으로 돌아가서 화면 글자로는 잡히다 말다 한다.
-    // 그래서 로그인 주소로 갔는지만 본다.
+    await waitFor(() => expect(visited).toContain("/points/login"));
+  });
+
+  it("충전 요청이 거절되면 로그인 화면으로 간다", async () => {
+    signIn("KAKAO");
+    vi.spyOn(appPointsGateway(), "charge").mockRejectedValue(MEMBER_ONLY);
+    const { visited } = renderAt("/points?userId=7&tab=earn");
+    await userEvent.click(await screen.findByRole("button", { name: /500P 충전/ }));
+    await waitFor(() => expect(visited).toContain("/points/login"));
+  });
+
+  it("착용 요청이 거절되면 로그인 화면으로 간다", async () => {
+    signIn("KAKAO");
+    vi.spyOn(appPointsGateway(), "equipAccessory").mockRejectedValue(MEMBER_ONLY);
+    const { visited } = renderAt("/points/accessories?userId=7&item=acc-stopwatch-ribbon");
+    await userEvent.click(await screen.findByRole("button", { name: "착용하기" }));
     await waitFor(() => expect(visited).toContain("/points/login"));
   });
 });
