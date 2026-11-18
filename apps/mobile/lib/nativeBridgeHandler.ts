@@ -109,6 +109,29 @@ function releaseStartSessionOnScreenClose(): void {
   }, 5_000);
 }
 
+/**
+ * 카메라 없이 공부하는 세션 화면 열기
+ *
+ * 집중 시작과 권한 거부 화면의 출구가 함께 불러 연타 잠금을 한 곳에서 건다.
+ * 거부 화면은 자기 자리를 세션 화면으로 바꿔야 세션을 닫았을 때 홈으로 돌아오므로 replace로 연다.
+ */
+export function openTimerSession(
+  initialSubjectId: string | undefined,
+  navigate: "push" | "replace" = "push",
+): void {
+  if (startSessionInFlight) return;
+  startSessionInFlight = true;
+  router[navigate]({
+    pathname: "/room/[id]",
+    params: {
+      id: "1",
+      measureMode: "timer",
+      ...(initialSubjectId === undefined ? {} : { initialSubjectId }),
+    },
+  });
+  releaseStartSessionOnScreenClose();
+}
+
 /** 테스트 전용: 처리 중 표시와 남은 타이머를 지운다. 프로덕션 코드에서는 호출하지 않는다. */
 export function __resetStartSessionInFlightForTests(): void {
   startSessionInFlight = false;
@@ -165,6 +188,12 @@ async function askPushPermission(): Promise<PushPermissionStatus> {
 export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply): void {
   switch (message.type) {
     case "start-session":
+      if (message.measureMode === "timer") {
+        openTimerSession(
+          message.initialSubjectId === undefined ? undefined : String(message.initialSubjectId),
+        );
+        break;
+      }
       // 웹은 메시지를 보내자마자 연타 잠금을 풀어서 두 번째 탭이 곧바로 들어올 수 있다.
       // 권한이 이미 있으면 게이트가 바로 끝나므로, 이 요청이 연 세션 화면이 닫힐 때까지 다음 요청을 무시한다.
       if (startSessionInFlight) break;
@@ -172,7 +201,16 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       void (async () => {
         const result = await runCameraPermissionGate("single");
         if (result === "show-denied-guide") {
-          router.push("/permission-denied");
+          // 거부 화면은 이 표시가 있을 때만 카메라 없이 시작하는 출구를 그리고, 과목은 그 출구가 연 세션으로 넘긴다.
+          router.push({
+            pathname: "/permission-denied",
+            params: {
+              from: "single",
+              ...(message.initialSubjectId === undefined
+                ? {}
+                : { initialSubjectId: String(message.initialSubjectId) }),
+            },
+          });
           startSessionInFlight = false;
           return;
         }
@@ -192,8 +230,8 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       break;
     case "request-camera-gate":
       // 소셜 룸 입장 미리보기의 권한 게이트 — start-session과 같은 분기를 태우되, 세션 화면
-      // push 대신 결과를 웹에 돌려준다(카메라를 여는 주체가 웹이라서다). 거부 안내 화면
-      // 연결은 start-session과 동일하다. 양 플랫폼 공통이다 — iOS도 거부 상태에서 안내 화면
+      // push 대신 결과를 웹에 돌려준다(카메라를 여는 주체가 웹이라서다). 거부 안내 화면은
+      // 싱글룸 표시 없이 열어 카메라 없이 시작하는 출구를 보이지 않는다. 양 플랫폼 공통이다 — iOS도 거부 상태에서 안내 화면
       // 없이 미리보기 실패에 머무는 공백이 같다.
       void (async () => {
         const result = await runCameraPermissionGate("social");

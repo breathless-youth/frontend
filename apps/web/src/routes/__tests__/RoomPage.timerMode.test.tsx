@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { writeFaceMaskOn } from "@/features/live-room/faceMaskSettings";
-import { writeMeasureMode } from "@/features/measure-mode/measureMode";
+import { readMeasureMode, writeMeasureMode } from "@/features/measure-mode/measureMode";
 import type {
   PhotoTap,
   VisionFocusDetector,
@@ -267,6 +267,30 @@ describe("RoomPage 카메라 없는 모드", () => {
       measureMode: "timer",
       display: { faceMask: false },
     });
+  });
+
+  it("앱 거부 화면에서 카메라 없이 열면 기기 설정이 카메라여도 카메라를 열지 않고 기기 설정을 타이머로 바꾼다", async () => {
+    const getUserMedia = stubWorkingCamera();
+    writeMeasureMode("camera");
+
+    renderRoom("/room/7?userId=1&measureMode=timer");
+
+    expect(cameraPrompt()).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(getUserMedia).not.toHaveBeenCalled();
+    expect(readMeasureMode()).toBe("timer");
+  });
+
+  it("카메라로 측정하던 세션을 이어받으면 주소에 timer가 있어도 카메라를 열고 기기 설정을 바꾸지 않는다", async () => {
+    const getUserMedia = stubWorkingCamera();
+    restore.restored = { ...RESTORED_BASE, source: "MEASURED" };
+
+    renderRoom("/room/7?userId=1&measureMode=timer");
+
+    expect(cameraPrompt()).toBeInTheDocument();
+    await waitFor(() => expect(getUserMedia).toHaveBeenCalled());
+    expect(readMeasureMode()).toBe("camera");
   });
 
   it("타이머로 측정하던 세션을 이어받으면 기기 설정이 카메라여도 카메라를 열지 않는다", async () => {
