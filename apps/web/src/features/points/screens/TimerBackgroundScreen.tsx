@@ -24,7 +24,9 @@ import { usePointsScreenViewed } from "../model/usePointsScreenViewed";
 /**
  * 타이머 배경 고르기
  *
- * 산 배경은 바로 쓰는 상태로 만든다. 조회와 변경은 라우트가 맡고 이 화면은 받은 값과 처리기만 쓴다.
+ * 포인트로 산 배경은 바로 쓰는 상태로 만든다. 조회와 변경은 라우트가 맡고 이 화면은 받은 값과 처리기만 쓴다.
+ * 결제로 산 배경은 처음 적용하기 전까지 7일 안에 철회할 수 있어서 바로 적용하지 않는다.
+ * 서버가 배경 적용도 첫 착용으로 기록하므로, 고른 칸을 그대로 둔 채 보유로만 바꾸고 사용자가 적용하기를 누를 때 적용한다.
  */
 export function TimerBackgroundScreen({
   data,
@@ -57,9 +59,9 @@ export function TimerBackgroundScreen({
   const flow = usePurchaseFlow(selected ?? null);
   const store = useStorePurchase(all);
   const { step, close } = flow;
-  // 포인트로 샀든 결제로 샀든 산 배경은 바로 쓰는 상태로 만들고, 사용 중 표시로 알 수 있어 따로 알리지 않는다.
-  const bought = step === "done" ? selected : store.step === "done" ? store.target : undefined;
-  const purchasedId = bought?.id;
+  // 포인트로 산 배경은 바로 쓰는 상태로 만들고, 사용 중 표시로 알 수 있어 따로 알리지 않는다.
+  // 결제로 산 배경은 `useStorePurchase`가 적용하지 않아 7일 철회가 가능한 채로 보유만 된다.
+  const purchasedId = step === "done" ? selected?.id : undefined;
 
   const apply = (itemId: string) => {
     onApply(itemId).catch(() => showToast(t("common:errors.retryLater")));
@@ -71,7 +73,6 @@ export function TimerBackgroundScreen({
       return;
     }
     close();
-    store.close();
     apply(purchasedId);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 산 배경이 정해질 때만 돌린다
   }, [purchasedId]);

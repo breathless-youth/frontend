@@ -9,12 +9,14 @@ import type { ShopItem } from "../types";
 import { useMemberOnly } from "./useMemberOnly";
 import { useStorePrices } from "./useStorePrices";
 
-export type StorePurchaseStep = "idle" | "paying" | "waiting" | "late" | "failed" | "done";
+export type StorePurchaseStep = "idle" | "paying" | "waiting" | "late" | "failed";
 
 /**
  * 스토어 결제로 상품을 사는 흐름
  *
  * 가격 문구는 스토어가 알려 주고, 산 상품은 서버가 결제 알림을 받은 뒤에 보유로 바뀐다.
+ * 결제가 끝나면 처음으로 돌아갈 뿐 입히거나 적용하지 않는다.
+ * 결제 상품은 처음 착용하기 전까지 7일 안에 철회할 수 있고, 서버는 소품 착용과 배경 적용을 첫 착용으로 기록하기 때문이다.
  * 결제를 맡을 수 없는 곳(브라우저, 예전 앱)에서는 available이 false라 화면이 살 길 대신 안내를 보인다.
  * 결제 창이 떠 있는 동안 버튼을 다시 눌러도 요청이 한 번만 나가게 ref로 막는다.
  * 취소는 사용자가 고른 일이라 알리지 않고 처음으로 돌아간다.
@@ -47,11 +49,7 @@ export function useStorePurchase(items: readonly ShopItem[]) {
       const result = await gateway.purchaseStoreItem(item.id, () => setStep("waiting"));
       trackPointsStorePurchase(result.status, kind);
       setStep(
-        result.status === "completed"
-          ? "done"
-          : result.status === "cancelled"
-            ? "idle"
-            : result.status,
+        result.status === "completed" || result.status === "cancelled" ? "idle" : result.status,
       );
     } catch (error) {
       trackPointsStorePurchase("failed", kind);

@@ -78,7 +78,7 @@ describe("createFakePointsGateway 받기", () => {
 
   it("메달 포인트를 받으면 잔액이 늘고 새 메달이 없어진다", async () => {
     const gateway = createFakePointsGateway("default");
-    expect(await gateway.claim("medals")).toEqual({ granted: true, points: 60, balance: 1300 });
+    expect(await gateway.claim("medals")).toEqual({ granted: true, points: 8, balance: 1248 });
     expect((await gateway.getEarnToday()).medals).toEqual([]);
   });
 

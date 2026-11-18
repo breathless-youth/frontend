@@ -326,10 +326,10 @@ describe("MascotCollectionScreen", () => {
     });
 
     it("모자람 창에서 광고를 보면 잔액만 채우고 사지는 않는다", async () => {
-      const onWatchAd = vi.fn(async () => ({ status: "rewarded" as const, balance: 130 }));
+      const onWatchAd = vi.fn(async () => ({ status: "rewarded" as const, balance: 120 }));
       const { purchase } = await openInsufficient({ earn: fixture.earn, onWatchAd });
 
-      await userEvent.click(screen.getByRole("button", { name: /광고 보고 30P 받기/ }));
+      await userEvent.click(screen.getByRole("button", { name: /광고 보고 20P 받기/ }));
 
       expect(onWatchAd).toHaveBeenCalledOnce();
       expect(purchase).not.toHaveBeenCalled();
