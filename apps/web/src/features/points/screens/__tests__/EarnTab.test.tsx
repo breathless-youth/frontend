@@ -330,6 +330,13 @@ describe("EarnTab 결제·환불 안내", () => {
     );
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
+
+  it("충전 칸의 링크는 소품 화면과 달리 기본 44px 상자 가운데에 글자를 둔다", () => {
+    setup();
+    const guide = screen.getByRole("link", { name: "결제·환불 안내" });
+    expect(guide).toHaveClass("min-h-11", "items-center");
+    expect(guide).not.toHaveClass("min-h-8", "items-end");
+  });
 });
 
 describe("EarnTab 앱 밖", () => {
