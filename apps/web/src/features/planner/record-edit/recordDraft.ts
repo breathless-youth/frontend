@@ -4,6 +4,7 @@ import type {
   PlannerRecordView,
   PlannerRecordRange,
   PlannerRecordPiece,
+  StudySessionSource,
 } from "@focusmakers/types";
 import { plannerDayWindow } from "../plannerDay";
 import { recordTimeOrder } from "../recordTime";
@@ -21,7 +22,7 @@ export interface RecordDraftState {
 export interface RecordDraftBlock {
   id: string;
   key: string | null;
-  source: "MANUAL" | "MEASURED";
+  source: StudySessionSource;
   startMs: number;
   endMs: number;
   subjectId: number | null;
@@ -127,9 +128,9 @@ export function createRecordDraft(day: PlannerDayResponse): RecordDraftState {
       Number.isFinite(Date.parse(fullEnd)) &&
       Date.parse(fullStart) <= Date.parse(record.startedAt) &&
       Date.parse(fullEnd) >= Date.parse(record.endedAt);
-    // 측정 기록은 날짜 창 밖의 과목 구간을 서버가 내려주지 않는다.
+    // 측정 기록과 카메라 없이 공부한 기록은 날짜 창 밖의 과목 구간을 서버가 내려주지 않는다.
     const unknownSubjects =
-      record.source === "MEASURED" &&
+      record.source !== "MANUAL" &&
       hasFull &&
       (Date.parse(fullStart) < Date.parse(record.startedAt) ||
         Date.parse(fullEnd) > Date.parse(record.endedAt));

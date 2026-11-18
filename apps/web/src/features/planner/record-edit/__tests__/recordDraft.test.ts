@@ -251,6 +251,21 @@ it.each([
   },
 );
 
+it("날짜 창 밖 과목 구간이 있는 카메라 없는 세션은 측정 세션처럼 과목 범위를 모름으로 판정한다", () => {
+  const start = "2026-11-05T20:00:00Z";
+  const end = "2026-11-05T21:00:00Z";
+  const record = plannerRecord({
+    source: "TIMER",
+    startedAt: start,
+    endedAt: end,
+    fullStartedAt: "2026-11-05T19:30:00Z",
+    fullEndedAt: end,
+    subjectSegments: [{ subjectId: 3, startedAt: start, endedAt: end, studySec: 1, focusSec: 1 }],
+  });
+  const draft = createRecordDraft(plannerDay({ date: "2026-11-06", records: [record] }));
+  expect(draft.blocks[0]).toMatchObject({ mixed: true, subjectScopeUnknown: true });
+});
+
 it("경계 밖 과목을 모르는 경우 보이는 구간에 과목이 없어도 명시적으로 선택해야 한다", () => {
   const record = plannerRecord({
     startedAt: "2026-11-05T20:00:00Z",
