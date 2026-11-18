@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useMeasureMode } from "@/features/measure-mode/measureMode";
 import { trackStudyMeasureModeChanged } from "@/lib/amplitude";
 import { haptic } from "@/lib/haptics";
+import { showToast } from "@/lib/toast";
 
 import { HomeDesignIcon } from "./HomeDesignIcon";
 
@@ -32,6 +33,7 @@ export function HomeStartButtons({
     haptic("light");
     setMode(next);
     trackStudyMeasureModeChanged(next, "home");
+    showToast(t(`v3.measureMode.toast.${next}`));
   }
 
   return (
