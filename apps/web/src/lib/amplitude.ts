@@ -1003,6 +1003,23 @@ export function trackNativeShellEvent(event: TrackEventMessage) {
   track(event.name, { ...event.properties, source: "native" }, { time: event.atMs });
 }
 
+export type PcTab = "home" | "social" | "record" | "ranking";
+
+/**
+ * PC 상단 바의 탭 이동
+ *
+ * 모바일 하단 탭 바가 앱에서 보내는 `tab_pressed`와 같은 이름과 속성을 써서 두 경로를 한 이벤트로 센다.
+ * `via`로 PC 상단 바를 구분하고, 탭이 아닌 화면에서 이동하면 `from_tab`을 비운다.
+ */
+export function trackTabPressed(input: {
+  readonly tab: PcTab;
+  readonly from_tab: PcTab | undefined;
+  readonly via: "pc_top_bar";
+}) {
+  if (!initialized) return;
+  track("tab_pressed", input);
+}
+
 /* ── 세션 내부·홈·설정·복구 이벤트 (BY-616 확장) ───────────────────────────
  *
  * 룸 안에서 일어나는 사용자 행동은 전부 웹이 안다 — 여기서 직접 찍는다. `room_type`은 소셜룸이

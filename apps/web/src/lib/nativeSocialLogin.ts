@@ -35,6 +35,10 @@ export function nativeSocialLoginProviders(): SocialLoginProvider[] {
   return isNativeBridgeAvailable() ? providersCache : [];
 }
 
+export function isSocialLoginProvider(value: unknown): value is SocialLoginProvider {
+  return (SOCIAL_LOGIN_PROVIDERS as readonly unknown[]).includes(value);
+}
+
 /** 테스트마다 URL을 다시 읽게 하는 캐시 초기화 */
 export function __resetNativeSocialLoginForTests(): void {
   providersCache = null;

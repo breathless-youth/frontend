@@ -1,0 +1,14 @@
+{
+  "nav": {
+    "label": "メインメニュー",
+    "home": "ホーム",
+    "social": "グループ",
+    "record": "記録",
+    "ranking": "ランキング"
+  },
+  "profileMenu": {
+    "open": "プロフィールメニュー",
+    "myAccount": "マイページ",
+    "login": "ログイン"
+  }
+}

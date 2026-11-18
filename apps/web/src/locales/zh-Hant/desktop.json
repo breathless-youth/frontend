@@ -1,0 +1,14 @@
+{
+  "nav": {
+    "label": "主選單",
+    "home": "首頁",
+    "social": "群組",
+    "record": "紀錄",
+    "ranking": "排行榜"
+  },
+  "profileMenu": {
+    "open": "個人資料選單",
+    "myAccount": "我的帳號",
+    "login": "登入"
+  }
+}
