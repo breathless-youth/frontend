@@ -152,7 +152,7 @@ describe("비회원의 포인트 화면", () => {
   it("마스코트를 고르려고 하면 로그인 화면으로 간다", async () => {
     const select = vi.spyOn(appPointsGateway(), "selectMascot");
     renderAt("/points/mascots?userId=7");
-    await userEvent.click(await screen.findByRole("button", { name: "플래니 선택 가능" }));
+    await userEvent.click(await screen.findByRole("button", { name: "부기 선택 가능" }));
     expect(await loginScreen()).toBeInTheDocument();
     expect(select).not.toHaveBeenCalled();
   });

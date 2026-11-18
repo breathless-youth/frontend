@@ -41,9 +41,15 @@ function wornItem(
   };
 }
 
-/** 타이미는 모자, 고르지 않은 플래니는 머그잔, 몽당이는 세트를 끼고 잠긴 부기도 목도리를 낀 상점 */
+/**
+ * 타이미는 모자, 고르지 않은 부기는 목도리, 몽당이는 세트를 끼고 잠긴 플래니도 머그잔을 낀 상점
+ * 락키는 열었지만 아무것도 끼지 않았다.
+ */
 const decorated: ShopData = {
   ...shop,
+  mascots: shop.mascots.map((mascot) =>
+    mascot.id === "padlock" ? { ...mascot, unlocked: true } : mascot,
+  ),
   items: [
     ...shop.items,
     wornItem("timi-cap", "stopwatch", "head"),
@@ -92,7 +98,7 @@ describe("MascotCollectionScreen", () => {
     renderScreen();
     expect(screen.getByText("누적 순공")).toBeInTheDocument();
     expect(screen.getByText("25시간 48분")).toBeInTheDocument();
-    expect(screen.getAllByText("선택 가능")).toHaveLength(3);
+    expect(screen.getAllByText("선택 가능")).toHaveLength(2);
     expect(screen.getAllByText("선택 중")).toHaveLength(1);
     expect(screen.getByText("4시간 12분 남음")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "타이미 선택 중" })).toHaveAttribute(
@@ -109,7 +115,7 @@ describe("MascotCollectionScreen", () => {
 
   it("잠긴 마스코트도 다음 차례와 상관없이 모두 이름을 보인다", () => {
     renderScreen();
-    expect(screen.getByText("부기")).toBeInTheDocument();
+    expect(screen.getByText("플래니")).toBeInTheDocument();
     expect(screen.getByText("램피")).toBeInTheDocument();
     expect(screen.getByText("캠코미")).toBeInTheDocument();
     expect(screen.queryByText("???")).not.toBeInTheDocument();
@@ -117,25 +123,25 @@ describe("MascotCollectionScreen", () => {
 
   it("다음 차례 뒤의 잠긴 마스코트를 눌러도 시트 제목에 이름을 보인다", async () => {
     renderScreen();
-    await userEvent.click(screen.getByRole("button", { name: /^램피 잠김/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^플래니 잠김/ }));
     const sheet = await screen.findByRole("dialog");
-    expect(within(sheet).getByRole("heading", { name: "램피" })).toBeInTheDocument();
-    expect(within(sheet).getByRole("img", { name: "램피까지 51% 모았어요" })).toBeInTheDocument();
+    expect(within(sheet).getByRole("heading", { name: "플래니" })).toBeInTheDocument();
+    expect(within(sheet).getByRole("img", { name: "플래니까지 51% 모았어요" })).toBeInTheDocument();
   });
 
   it("잠긴 마스코트를 누르면 남은 시간과 진행을 알리는 시트가 뜬다", async () => {
     renderScreen();
-    await userEvent.click(screen.getByRole("button", { name: "부기 잠김, 4시간 12분 남음" }));
+    await userEvent.click(screen.getByRole("button", { name: "락키 잠김, 4시간 12분 남음" }));
     const sheet = await screen.findByRole("dialog");
     expect(within(sheet).getByText("순공 4시간 12분 더 하면 열려요.")).toBeInTheDocument();
-    expect(within(sheet).getByRole("img", { name: "부기까지 86% 모았어요" })).toBeInTheDocument();
+    expect(within(sheet).getByRole("img", { name: "락키까지 86% 모았어요" })).toBeInTheDocument();
     expect(within(sheet).getByText("30시간")).toBeInTheDocument();
   });
 
   it("공부 시간으로 여는 잠긴 마스코트 창의 공부 시작하기를 누르면 창을 닫고 공부를 시작한다", async () => {
     const onStartStudy = vi.fn();
     renderScreen({ onStartStudy });
-    await userEvent.click(screen.getByRole("button", { name: "부기 잠김, 4시간 12분 남음" }));
+    await userEvent.click(screen.getByRole("button", { name: "락키 잠김, 4시간 12분 남음" }));
     const sheet = await screen.findByRole("dialog");
 
     expect(within(sheet).queryByRole("button", { name: "닫기" })).not.toBeInTheDocument();
@@ -148,7 +154,7 @@ describe("MascotCollectionScreen", () => {
   it("잠긴 마스코트 창은 버튼 없이도 닫히고 그때는 공부를 시작하지 않는다", async () => {
     const onStartStudy = vi.fn();
     renderScreen({ onStartStudy });
-    await userEvent.click(screen.getByRole("button", { name: "부기 잠김, 4시간 12분 남음" }));
+    await userEvent.click(screen.getByRole("button", { name: "락키 잠김, 4시간 12분 남음" }));
     await screen.findByRole("dialog");
 
     await userEvent.keyboard("{Escape}");
@@ -168,8 +174,8 @@ describe("MascotCollectionScreen", () => {
 
   it("연 마스코트를 누르면 선택을 부른다", async () => {
     const { onSelect } = renderScreen();
-    await userEvent.click(screen.getByRole("button", { name: "플래니 선택 가능" }));
-    expect(onSelect).toHaveBeenCalledWith("planner");
+    await userEvent.click(screen.getByRole("button", { name: "부기 선택 가능" }));
+    expect(onSelect).toHaveBeenCalledWith("book");
   });
 
   it("다 모아도 모두 이름과 선택 가능이 보인다", () => {
@@ -205,8 +211,8 @@ describe("MascotCollectionScreen", () => {
       expect(accessoryLayers(screen.getByRole("button", { name: "타이미 선택 중" }))).toEqual([
         "/timi-cap.png",
       ]);
-      expect(accessoryLayers(screen.getByRole("button", { name: "플래니 선택 가능" }))).toEqual([
-        "/planner-mug.png",
+      expect(accessoryLayers(screen.getByRole("button", { name: "부기 선택 가능" }))).toEqual([
+        "/book-scarf-worn.png",
       ]);
       expect(accessoryLayers(screen.getByRole("button", { name: "몽당이 선택 가능" }))).toEqual([
         "/pencil-bee-back.png",
@@ -218,7 +224,7 @@ describe("MascotCollectionScreen", () => {
     it("잠긴 마스코트는 낀 소품이 있어도 소품 없이 흐린 그림 그대로다", () => {
       renderScreen({ data: decorated });
 
-      const locked = screen.getByRole("button", { name: "부기 잠김, 4시간 12분 남음" });
+      const locked = screen.getByRole("button", { name: /^플래니 잠김/ });
       expect(locked.querySelectorAll("[data-slot^='accessory-']")).toHaveLength(0);
       expect(locked.querySelector(".grayscale")).toBeInTheDocument();
     });
@@ -249,7 +255,7 @@ describe("MascotCollectionScreen", () => {
     });
 
     it("상점에서 잠긴 공부 시간 마스코트를 누르고 들어오면 남은 시간 시트를 연다", async () => {
-      renderScreen({ data: priced }, undefined, "/points/mascots?item=book");
+      renderScreen({ data: priced }, undefined, "/points/mascots?item=padlock");
       const sheet = await screen.findByRole("dialog");
       expect(within(sheet).getByText("순공 4시간 12분 더 하면 열려요.")).toBeInTheDocument();
     });
@@ -366,10 +372,10 @@ describe("ProfileMascotRow", () => {
     expect(accessoryLayers(screen.getByRole("button", { name: "타이미" }))).toEqual([
       "/timi-cap.png",
     ]);
-    expect(accessoryLayers(screen.getByRole("button", { name: "플래니" }))).toEqual([
-      "/planner-mug.png",
+    expect(accessoryLayers(screen.getByRole("button", { name: "부기" }))).toEqual([
+      "/book-scarf-worn.png",
     ]);
-    expect(accessoryLayers(screen.getByRole("button", { name: "부기 잠김" }))).toEqual([]);
+    expect(accessoryLayers(screen.getByRole("button", { name: "플래니 잠김" }))).toEqual([]);
   });
 
   it("제목과 꾸미기 링크, 마스코트가 보인다", () => {
@@ -384,8 +390,8 @@ describe("ProfileMascotRow", () => {
 
   it("연 마스코트를 누르면 바꾸고 잠긴 것은 눌러도 바뀌지 않는다", async () => {
     const { onSelect } = renderRow();
-    await userEvent.click(screen.getByRole("button", { name: "플래니" }));
-    expect(onSelect).toHaveBeenCalledWith("planner");
+    await userEvent.click(screen.getByRole("button", { name: "부기" }));
+    expect(onSelect).toHaveBeenCalledWith("book");
     onSelect.mockClear();
     await userEvent.click(screen.getByRole("button", { name: "램피 잠김" }));
     expect(onSelect).not.toHaveBeenCalled();

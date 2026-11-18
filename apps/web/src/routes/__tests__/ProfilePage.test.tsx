@@ -940,7 +940,7 @@ describe("프로필 설정의 내 마스코트", () => {
       within(row)
         .getAllByRole("listitem")
         .map((entry) => entry.textContent),
-    ).toEqual(["타이미", "몽당이", "플래니", "락키", "부기", "램피", "캠코미"]);
+    ).toEqual(["타이미", "몽당이", "부기", "락키", "플래니", "램피", "캠코미"]);
   });
 
   it("연 마스코트를 누르면 폼 저장 없이 바로 바뀐다", async () => {
@@ -948,12 +948,9 @@ describe("프로필 설정의 내 마스코트", () => {
     mockedGetProfile.mockResolvedValue(member);
     renderAt("/profile?userId=7");
 
-    await userEvent.click(await screen.findByRole("button", { name: "플래니" }));
+    await userEvent.click(await screen.findByRole("button", { name: "부기" }));
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "플래니" })).toHaveAttribute(
-        "aria-pressed",
-        "true",
-      ),
+      expect(screen.getByRole("button", { name: "부기" })).toHaveAttribute("aria-pressed", "true"),
     );
     expect(mockedUpdateProfile).not.toHaveBeenCalled();
   });

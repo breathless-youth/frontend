@@ -19,11 +19,12 @@ const SECTIONS = [
 /**
  * 결제·환불 안내 화면으로 가는 링크
  *
- * 충전 칸과 세트 결제 버튼 위에 같은 모양으로 둔다.
+ * 충전 칸 아래와 세트 결제 버튼 위에 둔다.
  * 소품 화면은 고른 마스코트·부위·상품을 주소에 남기지 않아서, 보던 상품을 넘기면 지금 주소를 그 상품을 골라 여는 주소로 바꾼 뒤에 이동한다.
  * 그래서 뒤로 돌아오면 같은 상품을 골라 둔 채로 다시 열린다.
+ * 기본 상자는 44px이고, 결제 버튼 바로 위에 둘 때는 `className`으로 상자 높이와 글자 위치를 바꿔 글자를 버튼 가까이 붙인다.
  */
-export function PaymentGuideLink({ itemId }: { itemId?: string }) {
+export function PaymentGuideLink({ itemId, className }: { itemId?: string; className?: string }) {
   const { t } = useTranslation("points-earn");
   const navigate = useNavigate();
   const location = useLocation();
@@ -44,7 +45,10 @@ export function PaymentGuideLink({ itemId }: { itemId?: string }) {
           navigate(to);
         });
       }}
-      className="relative inline-flex min-h-11 items-center self-center px-3 text-[11px] font-medium text-muted-foreground/80 underline underline-offset-2"
+      className={cn(
+        "relative inline-flex min-h-11 items-center self-center px-3 text-[11px] font-medium text-muted-foreground/80 underline underline-offset-2",
+        className,
+      )}
     >
       {t("charge.guide")}
     </Link>

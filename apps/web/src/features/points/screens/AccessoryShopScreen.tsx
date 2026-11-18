@@ -300,9 +300,15 @@ function ActionButton({
   }
   if (item.acquire.type === "store") {
     // 스토어 결제는 결제 창이 스토어 것이라 환불 규칙을 이 버튼 바로 위 링크에서 연다.
+    // 링크 상자는 버튼에 바로 붙이고 글자를 상자 아래쪽에 두어, 글자가 버튼 위 6px에 보인다.
+    // 링크 상자 높이는 32px다. 기본 44px면 버튼 줄 위 선에서 글자까지 27px가 비어 위 목록이 덜 보여서, 15px로 줄이려고 낮췄다.
+    // 위로 키우면 누르는 범위가 위쪽 목록과 겹친다. 32px는 WCAG 2.2 AA 최소 24px를 넘고, 낮춘 만큼 가로를 넓혀 누르기 쉽게 한다.
+    // 링크 상자가 버튼 줄의 위 여백(pt-3)을 대신하므로, 링크가 있으면 그만큼 끌어올린다.
     return (
-      <div className="mt-auto flex flex-col gap-3">
-        {store.available && <PaymentGuideLink itemId={item.id} />}
+      <div className={cn("mt-auto flex flex-col", store.available && "-mt-3")}>
+        {store.available && (
+          <PaymentGuideLink itemId={item.id} className="min-h-8 items-end px-6 pb-1" />
+        )}
         <StoreBuyButton item={item} flow={store} className="w-full shadow-sb-cta" />
       </div>
     );

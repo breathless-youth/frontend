@@ -156,7 +156,7 @@ describe("AccessoryShopScreen", () => {
       within(strip)
         .getAllByRole("button")
         .map((button) => button.textContent),
-    ).toEqual(["타이미", "몽당이", "플래니", "락키", "부기", "램피", "캠코미"]);
+    ).toEqual(["타이미", "몽당이", "부기", "락키", "플래니", "램피", "캠코미"]);
   });
 
   it("마스코트 줄은 마스코트마다 꾸며 둔 모습이고 잠긴 마스코트는 소품 없이 보인다", async () => {
@@ -190,17 +190,17 @@ describe("AccessoryShopScreen", () => {
           .getByRole("button", { name })
           .querySelectorAll("img[data-slot^='accessory-']"),
       ].map((img) => img.getAttribute("src"));
-    expect(layers("플래니")).toEqual(["/planner-mug.png"]);
-    expect(layers("부기, 아직 잠겨 있어요")).toEqual([]);
+    expect(layers("부기")).toEqual(["/book-mug.png"]);
+    expect(layers("플래니, 아직 잠겨 있어요")).toEqual([]);
   });
 
   it("잠긴 마스코트는 자물쇠와 함께 보이고, 고르면 잠김 안내와 마스코트 모으기가 나온다", async () => {
     renderScreen(createFakePointsGateway("default"));
-    expect(await screen.findByRole("button", { name: "부기, 아직 잠겨 있어요" })).toBeVisible();
+    expect(await screen.findByRole("button", { name: "락키, 아직 잠겨 있어요" })).toBeVisible();
     expect(screen.getByRole("button", { name: "타이미, 고른 캐릭터" })).toBeVisible();
 
-    await userEvent.click(screen.getByRole("button", { name: "부기, 아직 잠겨 있어요" }));
-    expect(screen.getByText("부기는 아직 잠겨 있어요")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "락키, 아직 잠겨 있어요" }));
+    expect(screen.getByText("락키는 아직 잠겨 있어요")).toBeVisible();
     expect(screen.getByText("순공 4시간 12분 더 하면 열려요.")).toBeVisible();
     expect(screen.queryByRole("group", { name: "소품 고르기" })).not.toBeInTheDocument();
 
@@ -424,30 +424,30 @@ describe("AccessoryGrid", () => {
 
     it("새 마스코트가 낀 칸과 소품을 처음 선택으로 보인다", async () => {
       const gateway = createFakePointsGateway("default", { balance: 5000 });
-      await gateway.purchase("acc-planner-pen");
-      await gateway.equipAccessory("planner", "head", "acc-planner-pen");
+      await gateway.purchase("acc-book-bookmark");
+      await gateway.equipAccessory("book", "head", "acc-book-bookmark");
       const getShop = gateway.getShop.bind(gateway);
       const glasses = {
-        id: "planner-glasses",
+        id: "book-glasses",
         kind: "accessory" as const,
-        name: "플래니 안경",
+        name: "부기 안경",
         imageUrl: null,
         acquire: { type: "price" as const, price: 100 },
         owned: true,
         inUse: true,
-        mascotId: "planner" as const,
+        mascotId: "book" as const,
         slot: "face" as const,
       };
       renderScreen({
         ...gateway,
         getShop: async () => {
           const shop = await getShop();
-          // 머리 위 칸 만년필은 벗기고 얼굴 칸 안경만 낀 플래니
+          // 머리 위 칸 책갈피 핀은 벗기고 얼굴 칸 안경만 낀 부기
           return {
             ...shop,
             items: [
               ...shop.items.map((it) =>
-                it.id === "acc-planner-pen" ? { ...it, inUse: false } : it,
+                it.id === "acc-book-bookmark" ? { ...it, inUse: false } : it,
               ),
               glasses,
             ],
@@ -456,26 +456,26 @@ describe("AccessoryGrid", () => {
       });
       expect(await pressed("머리 위")).toBeInTheDocument();
 
-      await pickMascot("플래니");
+      await pickMascot("부기");
 
       expect(await pressed("얼굴")).toBeInTheDocument();
-      expect(await pressed(/플래니 안경/)).toBeInTheDocument();
+      expect(await pressed(/부기 안경/)).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "벗기" })).toBeEnabled();
     });
 
     it("다른 마스코트에서 소품을 벗고 돌아와도 원래 마스코트의 착용과 처음 선택이 그대로다", async () => {
       const gateway = createFakePointsGateway("default", { balance: 5000 });
       await gateway.equipAccessory("stopwatch", "body", "acc-stopwatch-ribbon");
-      await gateway.purchase("acc-planner-pen");
-      await gateway.equipAccessory("planner", "head", "acc-planner-pen");
+      await gateway.purchase("acc-book-bookmark");
+      await gateway.equipAccessory("book", "head", "acc-book-bookmark");
       renderScreen(gateway);
       expect(await pressed(/단추 리본/)).toBeInTheDocument();
       // 타이미에서 다른 소품을 골라 둔 채 마스코트를 바꾼다.
       await userEvent.click(screen.getByRole("button", { name: "머리 위" }));
       await userEvent.click(await screen.findByRole("button", { name: /왕관/ }));
 
-      await pickMascot("플래니");
-      expect(await pressed(/만년필/)).toBeInTheDocument();
+      await pickMascot("부기");
+      expect(await pressed(/책갈피 핀/)).toBeInTheDocument();
       await userEvent.click(screen.getByRole("button", { name: "벗기" }));
       await waitFor(() => expect(screen.queryByRole("button", { name: "벗기" })).toBeNull());
 

@@ -65,6 +65,17 @@ describe("AccessoryShopScreen의 세트 칸", () => {
     expect(guide).toHaveAttribute("href", "/points/payment-guide");
     expect(screen.queryByText(/App Store|Google Play/)).not.toBeInTheDocument();
   });
+
+  // 화면 배치는 jsdom이 계산하지 않아서, 글자를 버튼에 붙이는 클래스가 링크와 묶음에 붙었는지로 확인한다.
+  it("결제 버튼 위 링크는 32px 상자 아래쪽에 글자를 두고 버튼 줄 위 여백을 대신한다", async () => {
+    renderScreen();
+    await userEvent.click(await screen.findByRole("button", { name: "세트" }));
+
+    const guide = screen.getByRole("link", { name: "결제·환불 안내" });
+    expect(guide).toHaveClass("min-h-8", "items-end", "pb-1");
+    expect(guide).not.toHaveClass("min-h-11");
+    expect(guide.parentElement).toHaveClass("-mt-3");
+  });
 });
 
 describe("AccessoryShopScreen의 세트 결제", () => {

@@ -11,9 +11,9 @@ afterEach(() => {
 
 /** 운영 서버 기본값(백엔드 `DailyRewardPolicy`)과 같다. */
 const RATES: EarnToday["medalRates"] = {
-  daily: { gold: 5, silver: 3, bronze: 1 },
-  weekly: { gold: 10, silver: 5, bronze: 3 },
-  monthly: { gold: 50, silver: 30, bronze: 10 },
+  daily: { gold: 10, silver: 5, bronze: 3 },
+  weekly: { gold: 30, silver: 15, bronze: 10 },
+  monthly: { gold: 150, silver: 100, bronze: 50 },
 };
 
 function medal(rank: MedalReward["rank"], period: MedalReward["period"], reward: number) {
@@ -95,44 +95,44 @@ describe("MedalCard", () => {
   });
 
   it("메달이 하나면 그 순위만 1개로 세고 그 포인트를 받는 버튼을 둔다", () => {
-    const { onClaim } = renderCard([medal(1, "DAILY", 5)]);
+    const { onClaim } = renderCard([medal(1, "DAILY", 10)]);
 
     expect(screen.getByText("랭킹 메달")).toBeInTheDocument();
     expect(shown()).toEqual(["×1", "×0", "×0"]);
     expect(screen.queryByRole("button", { name: "랭킹 ›" })).not.toBeInTheDocument();
-    screen.getByRole("button", { name: "+5P 받기" }).click();
+    screen.getByRole("button", { name: "+10P 받기" }).click();
     expect(onClaim).toHaveBeenCalledOnce();
   });
 
   it("기간이 섞인 메달은 순위별로 세고 받기 버튼은 모두 더한 포인트다", () => {
     renderCard([
-      medal(1, "DAILY", 5),
-      medal(3, "WEEKLY", 3),
-      medal(1, "MONTHLY", 50),
-      medal(2, "DAILY", 3),
+      medal(1, "DAILY", 10),
+      medal(3, "WEEKLY", 10),
+      medal(1, "MONTHLY", 150),
+      medal(2, "DAILY", 5),
     ]);
 
     expect(shown()).toEqual(["×2", "×1", "×1"]);
     expect(counts()).toEqual(["1위 메달 2개", "2위 메달 1개", "3위 메달 1개"]);
-    expect(screen.getByRole("button", { name: "+61P 받기" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "+175P 받기" })).toBeInTheDocument();
   });
 
   it("99개를 넘으면 99+로 줄여 보이고 화면 낭독기에는 실제 개수를 읽는다", () => {
-    renderCard(Array.from({ length: 120 }, () => medal(1, "MONTHLY", 50)));
+    renderCard(Array.from({ length: 120 }, () => medal(1, "MONTHLY", 150)));
 
     expect(shown()).toEqual(["×99+", "×0", "×0"]);
     expect(counts()[0]).toBe("1위 메달 120개");
-    expect(screen.getByRole("button", { name: "+6,000P 받기" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "+18,000P 받기" })).toBeInTheDocument();
   });
 
   it("받는 중에는 받기 버튼을 누를 수 없다", () => {
-    renderCard([medal(2, "WEEKLY", 5)], true);
+    renderCard([medal(2, "WEEKLY", 15)], true);
 
-    expect(screen.getByRole("button", { name: "+5P 받기" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "+15P 받기" })).toBeDisabled();
   });
 
   it("메달별 포인트 표는 안내 버튼을 누를 때만 뜬다", async () => {
-    renderCard([medal(1, "DAILY", 5)]);
+    renderCard([medal(1, "DAILY", 10)]);
 
     expect(screen.queryByText("월간")).not.toBeInTheDocument();
     const trigger = screen.getByRole("button", { name: "메달별 포인트 안내" });
@@ -141,6 +141,6 @@ describe("MedalCard", () => {
 
     const month = await screen.findByText("월간", { selector: "[data-state] *" });
     const table = month.closest("[data-state]") as HTMLElement;
-    expect(within(table).getByText("50P")).toBeInTheDocument();
+    expect(within(table).getByText("150P")).toBeInTheDocument();
   });
 });
