@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, matchPath, Outlet, useLocation } from "react-router-dom";
 
-import mascotStopwatch from "@/assets/login/mascot-stopwatch.svg";
+import mascotStopwatch from "@/assets/mascot/stopwatch-upright.svg";
 import { plannerEntryOf } from "@/features/planner/useOpenPlanner";
 import { type PcTab, trackTabPressed } from "@/lib/amplitude";
 import { legacyQuery } from "@/lib/userId";
