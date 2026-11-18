@@ -7,9 +7,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Separator } from "@/components/ui/separator";
 import { ProfileAvatar } from "@/features/profile/ProfileAvatar";
 import { isSocialLoginProvider } from "@/lib/nativeSocialLogin";
 import { profileQuery } from "@/lib/profileQueries";
@@ -51,17 +52,15 @@ export function PcProfileMenu() {
       <DropdownMenuContent
         align="end"
         // 메뉴는 body로 나가서 상단 바의 Soft Blue 테마가 닿지 않으므로 메뉴에도 단다.
-        className="theme-soft-blue flex w-65 flex-col gap-0.5 rounded-md bg-background p-2"
+        className="theme-soft-blue flex w-65 flex-col gap-0.5 p-2"
       >
         {profile.data ? (
           <>
-            <div className="flex items-center gap-2.5 px-2.5 py-2">
+            <DropdownMenuLabel className="flex items-center gap-2.5 px-2.5 py-2 font-bold">
               {avatar("size-10 rounded-sm")}
-              <span className="min-w-0 truncate text-sm font-bold text-foreground">
-                {profile.data.nickname}
-              </span>
-            </div>
-            <Separator />
+              <span className="min-w-0 truncate">{profile.data.nickname}</span>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator className="m-0" />
           </>
         ) : null}
         <DropdownMenuItem className={ITEM_CLASS} onSelect={() => go("/settings")}>
