@@ -46,9 +46,9 @@ describe("useShopActions", () => {
     const { actions, cachedLook } = setup();
     rememberMascotLook(USER_ID, { id: "stopwatch", accessories: [] });
 
-    await actions.selectMascot("planner");
+    await actions.selectMascot("book");
 
-    expect(cachedLook()?.id).toBe("planner");
+    expect(cachedLook()?.id).toBe("book");
     expect(recallMascotLook(USER_ID)).toEqual(cachedLook());
   });
 
@@ -67,14 +67,14 @@ describe("useShopActions", () => {
     rememberMascotLook(USER_ID, { id: "stopwatch", accessories: [] });
     vi.spyOn(gateway, "getMyLook").mockRejectedValue(new Error("offline"));
 
-    await actions.selectMascot("planner");
+    await actions.selectMascot("book");
 
     expect(recallMascotLook(USER_ID)).toBeUndefined();
     expect(lookIsStale()).toBe(true);
   });
 
   it.each([
-    ["마스코트 고르기", (a: ReturnType<typeof setup>["actions"]) => a.selectMascot("planner")],
+    ["마스코트 고르기", (a: ReturnType<typeof setup>["actions"]) => a.selectMascot("book")],
     [
       "소품 착용",
       (a: ReturnType<typeof setup>["actions"]) => a.equipAccessory("stopwatch", "head", null),
