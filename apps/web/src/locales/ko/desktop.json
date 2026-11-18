@@ -1,0 +1,14 @@
+{
+  "nav": {
+    "label": "주 메뉴",
+    "home": "홈",
+    "social": "그룹",
+    "record": "기록",
+    "ranking": "랭킹"
+  },
+  "profileMenu": {
+    "open": "프로필 메뉴",
+    "myAccount": "내 정보",
+    "login": "로그인"
+  }
+}

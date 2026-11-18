@@ -1,0 +1,14 @@
+{
+  "nav": {
+    "label": "Main",
+    "home": "Home",
+    "social": "Groups",
+    "record": "Records",
+    "ranking": "Ranking"
+  },
+  "profileMenu": {
+    "open": "Profile menu",
+    "myAccount": "My account",
+    "login": "Log in"
+  }
+}

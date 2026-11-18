@@ -29,6 +29,7 @@ import type pointsItems from "./locales/ko/points-items.json";
 import type pointsDecor from "./locales/ko/points-decor.json";
 import type pointsMascots from "./locales/ko/points-mascots.json";
 import type pointsResult from "./locales/ko/points-result.json";
+import type desktop from "./locales/ko/desktop.json";
 
 /**
  * 카탈로그 키 타입
@@ -69,6 +70,7 @@ declare module "i18next" {
       "points-decor": typeof pointsDecor;
       "points-mascots": typeof pointsMascots;
       "points-result": typeof pointsResult;
+      desktop: typeof desktop;
     };
   }
 }
