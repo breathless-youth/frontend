@@ -282,7 +282,7 @@ describe("RoomPage 카메라 없는 모드", () => {
     expect(readMeasureMode()).toBe("timer");
   });
 
-  it("카메라로 측정하던 세션을 이어받으면 주소에 timer가 있어도 카메라를 연다", async () => {
+  it("카메라로 측정하던 세션을 이어받으면 주소에 timer가 있어도 카메라를 열고 기기 설정을 바꾸지 않는다", async () => {
     const getUserMedia = stubWorkingCamera();
     restore.restored = { ...RESTORED_BASE, source: "MEASURED" };
 
@@ -290,6 +290,7 @@ describe("RoomPage 카메라 없는 모드", () => {
 
     expect(cameraPrompt()).toBeInTheDocument();
     await waitFor(() => expect(getUserMedia).toHaveBeenCalled());
+    expect(readMeasureMode()).toBe("camera");
   });
 
   it("타이머로 측정하던 세션을 이어받으면 기기 설정이 카메라여도 카메라를 열지 않는다", async () => {

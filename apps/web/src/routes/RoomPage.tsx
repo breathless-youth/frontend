@@ -369,9 +369,10 @@ function RoomSessionScreen({
       : !timerFromUrl && readMeasureMode() === "camera",
   );
   // 거부 화면에서 카메라 없이 고른 기기는 다음 시작도 권한을 묻지 않게 저장한 방식을 바꾼다.
+  // 이어받은 카메라 세션은 주소에 timer가 남아 있어도 카메라로 열리므로 저장한 방식을 바꾸지 않는다.
   useEffect(() => {
-    if (timerFromUrl) writeMeasureMode("timer");
-  }, [timerFromUrl]);
+    if (timerFromUrl && !cameraOn) writeMeasureMode("timer");
+  }, [timerFromUrl, cameraOn]);
   const [camera] = useState(() =>
     cameraOn ? createMediaStreamCameraAdapter() : createMockCameraAdapter(),
   );
