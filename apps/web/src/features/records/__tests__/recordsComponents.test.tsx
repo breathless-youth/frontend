@@ -559,6 +559,49 @@ describe("SessionListItem, 수동 기록", () => {
   });
 });
 
+describe("SessionListItem, 카메라 없는 세션", () => {
+  // KST 07:30~08:16, 일시정지 6분을 뺀 공부 40분.
+  const timer = session({
+    studySec: 40 * 60,
+    focusSec: 40 * 60,
+    focusRate: 100,
+    events: [
+      { status: "PAUSE", startedAt: "2026-09-18T22:50:00Z", endedAt: "2026-09-18T22:56:00Z" },
+    ],
+    source: "TIMER",
+  });
+
+  it("접힌 행은 총 줄과 집중률 배지 없이 카메라 없이 배지와 공부 시간을 보여 주고 낭독 문장을 쓴다", () => {
+    render(sessionRow(timer));
+
+    const row = screen.getByRole("button", {
+      name: "카메라 없이 공부한 기록, 오전 7시 30분부터 8시 16분, 40분",
+    });
+    expect(row).toHaveTextContent("40분");
+    expect(row).not.toHaveTextContent("총");
+    expect(screen.getByText("카메라 없이")).toBeInTheDocument();
+    expect(screen.queryByText(/집중 \d+%/)).not.toBeInTheDocument();
+    expect(screen.getByText("07:30")).toBeInTheDocument();
+    expect(screen.getByText("08:16")).toBeInTheDocument();
+  });
+
+  it("바에 일시정지 구간을 그린다", () => {
+    const { container } = render(sessionRow(timer));
+
+    const segments = container.querySelectorAll<HTMLElement>("[aria-hidden] > [style]");
+    expect(segments).toHaveLength(1);
+    expect(segments[0].style.left).not.toBe("");
+  });
+
+  it("펼치면 시작·종료 시간만 보이고 최대 집중 시간은 없다", () => {
+    render(sessionRow(timer, { expanded: true }));
+
+    expect(screen.getByText("시작 시간")).toBeInTheDocument();
+    expect(screen.getByText("종료 시간")).toBeInTheDocument();
+    expect(screen.queryByText("최대 집중 시간")).not.toBeInTheDocument();
+  });
+});
+
 describe("SessionTimelineLegend", () => {
   it("타임라인 색의 뜻을 순공 · 자동 멈춤 · 일시정지 순서로 알려 준다", () => {
     render(<SessionTimelineLegend />);

@@ -27,7 +27,7 @@ const block = createRecordDraft(
     ],
   }),
 ).blocks[0]!;
-function mount({ blocked = false, hidden = false } = {}) {
+function mount({ blocked = false, hidden = false, target = block } = {}) {
   const done = vi.fn();
   const change = vi.fn(() => true);
   const view = render(
@@ -35,7 +35,7 @@ function mount({ blocked = false, hidden = false } = {}) {
       <div data-testid="outside">배경</div>
       <button data-record="other">다른 기록</button>
       <RecordBlockSheet
-        block={block}
+        block={target}
         dateKey="2026-11-04"
         timeZone="Asia/Seoul"
         label="과목 없음"
@@ -233,4 +233,19 @@ it("회색 막대를 잡은 채 창 포커스를 잃으면 복구하고 이후 �
   point(bar, "Up", 760);
   expect(done).not.toHaveBeenCalled();
   expect(screen.getByRole("region").style.transform).toBe("translateY(0px)");
+});
+it.each([
+  ["MEASURED", []],
+  ["MANUAL", ["· 직접 입력"]],
+  ["TIMER", ["· 카메라 없이"]],
+] as const)("%s 기록 시트의 제목 줄은 출처 표시 %j를 붙인다", (source, shown) => {
+  mount({ target: { ...block, source } });
+  const region = screen.getByRole("region");
+  for (const suffix of ["· 직접 입력", "· 카메라 없이"]) {
+    if ((shown as readonly string[]).includes(suffix)) {
+      expect(region).toHaveTextContent(suffix);
+    } else {
+      expect(region).not.toHaveTextContent(suffix);
+    }
+  }
 });

@@ -16,6 +16,7 @@ import {
   daysAgo,
   defaultSpan,
   endsNextDay,
+  isTimerSession,
   manualBundles,
   othersForOverlap,
   overlapNotice,
@@ -64,6 +65,15 @@ function manual(
     ...(keyMs === null ? {} : { submissionStartedAt: iso(keyMs) }),
   };
 }
+
+describe("isTimerSession", () => {
+  it("TIMER만 카메라 없는 세션이고 MEASURED, MANUAL, 값 없음은 아니다", () => {
+    expect(isTimerSession({ source: "TIMER" })).toBe(true);
+    expect(isTimerSession({ source: "MEASURED" })).toBe(false);
+    expect(isTimerSession({ source: "MANUAL" })).toBe(false);
+    expect(isTimerSession({})).toBe(false);
+  });
+});
 
 describe("defaultSpan", () => {
   it("오늘은 지금(분 단위 내림)에서 끝나고 1시간 전에 시작한다", () => {

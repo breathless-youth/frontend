@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import type { StatusEventPayload, StudySessionResponse } from "@focusmakers/types";
+import type {
+  StatusEventPayload,
+  StudySessionResponse,
+  StudySessionSource,
+} from "@focusmakers/types";
 
 import * as Sentry from "@sentry/react";
 
@@ -194,7 +198,7 @@ export interface StudyRoomSessionOptions {
    * 카메라 없이 타이머로만 측정하는 세션은 TIMER를 넘겨 진행 보고와 제출에 싣는다.
    * 넘기지 않으면 카메라로 측정하는 세션이고 요청은 이 옵션이 없던 때와 같다.
    */
-  readonly source?: "MEASURED" | "TIMER";
+  readonly source?: Exclude<StudySessionSource, "MANUAL">;
 }
 
 /**

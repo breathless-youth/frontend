@@ -99,6 +99,10 @@
     "subject": "科目",
     "edit": "編輯"
   },
+  "timerItem": {
+    "badge": "無相機",
+    "readAloud": "不用相機讀書的紀錄，{{start}}到{{end}}，{{length}}"
+  },
   "picker": {
     "today": "今天",
     "monthTitle": "選擇月份",

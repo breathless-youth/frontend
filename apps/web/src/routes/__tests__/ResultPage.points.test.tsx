@@ -122,6 +122,16 @@ describe("ResultPage 포인트 카드", () => {
     expect(spy).toHaveBeenCalledWith(earlier.startedAt);
   });
 
+  it("카메라 없는 세션은 포인트 칸 대신 안내를 보이고 경계도 부르지 않는다", async () => {
+    const gateway = createFakePointsGateway("default");
+    const spy = vi.spyOn(gateway, "getSessionReward");
+    renderAt(PATHS[0], "?userId=7", gateway, [{ ...session, source: "TIMER" }]);
+    expect(await screen.findByText("오늘 누적 순공시간")).toBeInTheDocument();
+    expect(screen.getByText(/카메라 없이 공부한 시간은/)).toBeInTheDocument();
+    expect(screen.queryByText(/받았어요/)).not.toBeInTheDocument();
+    expect(spy).not.toHaveBeenCalled();
+  });
+
   it("플래그가 꺼지면 카드가 없고 경계도 부르지 않는다", () => {
     setFlag(false);
     const gateway = createFakePointsGateway("default");

@@ -106,6 +106,10 @@
     "subject": "Subject",
     "edit": "Edit"
   },
+  "timerItem": {
+    "badge": "No camera",
+    "readAloud": "Studied without the camera, {{start}} to {{end}}, {{length}}"
+  },
   "picker": {
     "today": "Today",
     "monthTitle": "Choose a month",

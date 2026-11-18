@@ -1,3 +1,5 @@
+import type { StudySessionSource } from "./index";
+
 /** 개인 플래너 응답. 기존 통계의 측정 원본과 구분한다. */
 export interface PlannerDayResponse {
   date: string;
@@ -42,7 +44,7 @@ export interface PlannerGoalResponse {
 
 export interface PlannerRecordView {
   key: string;
-  source: "MEASURED" | "MANUAL";
+  source: StudySessionSource;
   /** 서버에 저장된 개인 수정본 여부. 보완 전 응답의 누락은 false로 처리한다. */
   edited?: boolean;
   startedAt: string;

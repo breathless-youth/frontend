@@ -99,6 +99,10 @@
     "subject": "科目",
     "edit": "編集"
   },
+  "timerItem": {
+    "badge": "カメラなし",
+    "readAloud": "カメラなしで勉強した記録、{{start}}から{{end}}、{{length}}"
+  },
   "picker": {
     "today": "今日",
     "monthTitle": "月を選択",

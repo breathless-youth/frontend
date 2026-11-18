@@ -198,7 +198,7 @@
   },
   "publicRoomDetailScreen": {
     "owner": "그룹장",
-    "weeklyTotal": "이번 주 멤버 순공 합계",
+    "weeklyTotal": "이번 주 멤버 공부 시간 합계",
     "todayMembers": "오늘 멤버",
     "intro": "그룹 소개",
     "showMore": "더 보기",

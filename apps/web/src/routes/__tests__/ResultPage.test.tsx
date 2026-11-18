@@ -655,6 +655,49 @@ describe("ResultPage — AI 측정 만족도 카드 (BY-1083)", () => {
   });
 });
 
+describe("ResultPage — 카메라 없는 세션", () => {
+  const NOTICE = "카메라 없이 공부한 시간은\n연속 공부·랭킹·포인트에 반영되지 않아요";
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("큰 숫자는 총 공부시간이고 총 공부 줄, 집중률 배지, 타임라인 카드, 측정 피드백 카드가 없고 안내가 있다", async () => {
+    renderResult({ sessions: [exampleSession({ source: "TIMER" })] });
+
+    expect(screen.getByText("총 공부시간")).toBeInTheDocument();
+    expect(screen.getByText("1시간 42분")).toBeInTheDocument();
+    expect(screen.queryByText("순공시간")).not.toBeInTheDocument();
+    expect(screen.queryByText("1시간 24분")).not.toBeInTheDocument();
+    expect(screen.queryByText(/% 집중$/)).not.toBeInTheDocument();
+    expect(screen.queryByText("공부 타임라인")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "이번 측정 결과 어땠나요?" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText((_, element) => element?.tagName === "P" && element.textContent === NOTICE),
+    ).toBeInTheDocument();
+    expect(await screen.findByText("오늘 누적 순공시간")).toBeInTheDocument();
+    expect(screen.getByText("누적 공부 일 수")).toBeInTheDocument();
+  });
+
+  it("포인트 기능이 꺼져 있어도 안내가 보인다", () => {
+    vi.stubEnv("VITE_POINTS_DISABLED", "1");
+    renderResult({ sessions: [exampleSession({ source: "TIMER" })] });
+
+    expect(screen.getByText(/카메라 없이 공부한 시간은/)).toBeInTheDocument();
+  });
+
+  it("카메라 세션 결과에는 안내가 없고 순공시간과 타임라인을 그린다", () => {
+    renderResult({ sessions: [exampleSession({ source: "MEASURED" })] });
+
+    expect(screen.getByText("순공시간")).toBeInTheDocument();
+    expect(screen.getByText("82% 집중")).toBeInTheDocument();
+    expect(screen.getByText("공부 타임라인")).toBeInTheDocument();
+    expect(screen.queryByText(/카메라 없이 공부한 시간은/)).not.toBeInTheDocument();
+  });
+});
+
 describe("ResultPage — 확정 표기 회귀", () => {
   it("'화면 꺼짐' 라벨을 어디에도 노출하지 않는다 — 2026-07-26에 일시정지로 통합됐다", () => {
     renderResult({ sessions: [exampleSession()] });

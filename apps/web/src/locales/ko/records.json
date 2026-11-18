@@ -99,6 +99,10 @@
     "subject": "과목",
     "edit": "수정"
   },
+  "timerItem": {
+    "badge": "카메라 없이",
+    "readAloud": "카메라 없이 공부한 기록, {{start}}부터 {{end}}, {{length}}"
+  },
   "picker": {
     "today": "오늘",
     "monthTitle": "달 선택",
