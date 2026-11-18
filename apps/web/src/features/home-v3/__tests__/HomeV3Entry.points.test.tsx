@@ -75,6 +75,7 @@ function renderHome(overrides: Partial<HomeV3Gateway> = {}) {
             element={<HomeV3Entry userId={7} gateway={gateway} onOverlayChange={vi.fn()} />}
           />
           <Route path="/points" element={<Where />} />
+          <Route path="/points/login" element={<Where />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -174,6 +175,34 @@ describe("시작 미션 보상 받기", () => {
     expect(await screen.findByText("+150P")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("150포인트 받음");
     expect(screen.getByRole("button", { name: "보유 포인트 1,390P" })).toBeInTheDocument();
+  });
+
+  it("회원인지 묻지 않고 받기 요청을 보내 비회원도 로그인 화면 없이 받는다", async () => {
+    setFlag(true);
+    const gateway = renderHome({
+      readMission: vi.fn().mockResolvedValue({ ...homeMission(2, 300), claimablePoints: 150 }),
+      claimMissionReward: vi.fn().mockResolvedValue({ granted: true, points: 150, balance: 1390 }),
+    });
+
+    await userEvent.click(await screen.findByRole("button", { name: "받기" }));
+
+    expect(await screen.findByRole("button", { name: "보유 포인트 1,390P" })).toBeInTheDocument();
+    expect(gateway.claimMissionReward).toHaveBeenCalledOnce();
+    expect(screen.queryByTestId("where")).not.toBeInTheDocument();
+  });
+
+  it("서버가 받기를 회원 전용이라고 거절하면 로그인 화면으로 간다", async () => {
+    setFlag(true);
+    renderHome({
+      readMission: vi.fn().mockResolvedValue({ ...homeMission(2, 300), claimablePoints: 150 }),
+      claimMissionReward: vi
+        .fn()
+        .mockRejectedValue(new ApiError("member only", 403, "MEMBER_ONLY")),
+    });
+
+    await userEvent.click(await screen.findByRole("button", { name: "받기" }));
+
+    expect(await screen.findByTestId("where")).toHaveTextContent("/points/login");
   });
 
   it("서버가 아직 포인트를 받을 수 없다고 거절하면 출시 뒤에 받을 수 있다고 알린다", async () => {

@@ -17,6 +17,8 @@ import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { Button } from "@/components/ui/button";
 import { baseSearch } from "@/features/group-room/groupTabSearch";
 import { useBackTo } from "@/features/group-room/useBackTo";
+import { CoinIcon } from "@/features/points/components/shared/CoinIcon";
+import { formatPoints } from "@/features/points/model/formatPoints";
 import {
   trackLoginScreenViewed,
   trackSocialLoginCancelled,
@@ -34,6 +36,8 @@ import { profileKeys } from "@/lib/profileQueries";
 import { getReviewLoginStatus } from "@/lib/reviewLoginApi";
 import { showToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
+
+import { useGuestPointsAtRisk } from "./useGuestPointsAtRisk";
 
 /**
  * 공급자 버튼의 모양
@@ -152,6 +156,7 @@ export function GroupLoginScreen({ entry }: { entry: LoginEntry }) {
   const mountedRef = useRef(true);
   const reviewLoginEnabled = useReviewLoginEnabled();
   const [reviewOpen, setReviewOpen] = useState(false);
+  const guestPoints = useGuestPointsAtRisk();
 
   useEffect(() => {
     mountedRef.current = true;
@@ -255,6 +260,19 @@ export function GroupLoginScreen({ entry }: { entry: LoginEntry }) {
         <div className="relative">
           <MascotLayer mascots={FOOT_MASCOTS} />
           <div className="relative z-10 flex flex-col gap-3">
+            {guestPoints !== null && (
+              <section className="mb-1 flex items-start gap-3 rounded-2xl bg-muted px-4 py-3.5">
+                <CoinIcon size={28} />
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <h2 className="text-[15px] leading-5.5 font-bold text-foreground">
+                    {t("guestPoints.card.title", { points: formatPoints(guestPoints) })}
+                  </h2>
+                  <p className="text-[13px] leading-4.5 break-keep text-muted-foreground">
+                    {t("guestPoints.card.body")}
+                  </p>
+                </div>
+              </section>
+            )}
             {PROVIDER_BUTTONS.filter(({ provider }) => available.includes(provider)).map(
               ({ provider, icon, className }) => (
                 <Button

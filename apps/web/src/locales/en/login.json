@@ -21,5 +21,11 @@
       "TOO_MANY_REQUESTS": "Too many failed attempts, so please try again later.",
       "UNKNOWN": "Couldn't sign in, so please try again."
     }
+  },
+  "guestPoints": {
+    "card": {
+      "title": "You've earned {{points}}",
+      "body": "They carry over when you sign up, but you'll lose them if you sign in to an existing account"
+    }
   }
 }

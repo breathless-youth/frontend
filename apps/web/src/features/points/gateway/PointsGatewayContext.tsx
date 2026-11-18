@@ -5,7 +5,7 @@ import type { PointsGateway } from "./PointsGateway";
 type PointsGatewayValue = {
   gateway: PointsGateway;
   userId: number;
-  /** 회원으로 확인된 사용자인지이며 비회원은 구경만 하고 받기와 사기는 로그인 뒤에 한다. */
+  /** 회원으로 확인된 사용자인지이며 비회원은 포인트를 받을 수 있고 사기와 꾸미기는 로그인 뒤에 한다. */
   member: boolean;
   /** 회원만 할 수 있는 일을 비회원이 하려고 할 때 로그인 화면을 여는 함수 */
   requestLogin: () => void;

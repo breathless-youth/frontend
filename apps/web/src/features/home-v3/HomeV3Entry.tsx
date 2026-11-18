@@ -300,7 +300,7 @@ export function HomeV3Entry({
           },
           openPlanner: () => openPlanner(day.dateKey),
           completeMission: progress.completeMission,
-          // 보상은 회원만 받으므로 서버가 회원 전용이라고 거절하면 로그인 화면을 연다.
+          // 비회원도 받지만 서버가 회원 전용이라고 거절하면 로그인 화면을 연다.
           claimMissionReward: () => progress.claimMissionReward(openPointsLogin),
           editGoal: () => {
             void preloadGoalSheet();
