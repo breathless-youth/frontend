@@ -29,6 +29,7 @@ import { WeekDot } from "@/features/records/StreakBanner";
 import { SessionRecoveryDialog } from "@/features/study-session/components/SessionRecoveryDialog";
 import { useLaunchSessionRecovery } from "@/features/study-session/useLaunchSessionRecovery";
 import { RecentTimelapses } from "@/features/timelapse/RecentTimelapses";
+import { readMeasureMode } from "@/features/measure-mode/measureMode";
 import { prefetchVisionAssets } from "@/features/study-session/vision/prefetchVisionAssets";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import { signalLaunchReady } from "@/lib/launchReady";
@@ -179,7 +180,8 @@ function HomeContent({ userId }: { userId: number }) {
   const summaryShown = summaryState.status === "success";
   useEffect(() => {
     if (summaryShown) {
-      prefetchVisionAssets();
+      // 카메라 없는 모드에서는 세션이 AI 모델을 쓰지 않아 받지 않는다.
+      if (readMeasureMode() === "camera") prefetchVisionAssets();
       // 맨 아래 최근 타임랩스의 `더보기`도 슬라이드 전환으로 전체 목록을 연다.
       prefetchTimelapsesPage();
     }

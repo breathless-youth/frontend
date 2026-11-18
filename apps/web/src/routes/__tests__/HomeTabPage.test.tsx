@@ -25,6 +25,7 @@ import {
   onboardingRecord,
 } from "@/features/onboarding/onboardingGate";
 import { todayLabel } from "@/features/home/homeFormat";
+import { writeMeasureMode } from "@/features/measure-mode/measureMode";
 import { markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import { LAUNCH_SIGNAL_WAIT_MS } from "@/features/study-session/useLaunchSessionRecovery";
 import { plannerDay, plannerTask } from "@/test/plannerFixtures";
@@ -421,6 +422,17 @@ describe("HomeTabPage", () => {
       resolveStats(statsResponse);
       await waitFor(() => expect(screen.getByText("77%")).toBeInTheDocument());
       await waitFor(() => expect(prefetchVisionAssets).toHaveBeenCalled());
+    });
+
+    it("카메라 없는 모드면 통계가 떠도 부르지 않는다", async () => {
+      writeMeasureMode("timer");
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+
+      renderHome();
+
+      await waitFor(() => expect(screen.getByText("77%")).toBeInTheDocument());
+      expect(prefetchVisionAssets).not.toHaveBeenCalled();
     });
 
     it("통계를 불러오지 못하면 부르지 않는다", async () => {
