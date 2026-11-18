@@ -48,6 +48,10 @@ export function isManualSession(session: Pick<StudySessionSummary, "source">): b
   return session.source === "MANUAL";
 }
 
+export function isTimerSession(session: Pick<StudySessionSummary, "source">): boolean {
+  return session.source === "TIMER";
+}
+
 /** epoch ms → 기기 시간대 `HH:MM`. 시각 입력칸의 값과 같은 꼴이다. */
 export function clockOf(ms: number): string {
   // 입력칸 값은 언어와 무관하게 24시간제 `HH:MM`이어야 해서 한국어 포맷을 고정해 쓴다.
@@ -360,15 +364,33 @@ function spokenClock(ms: number): { period: string; time: string } {
   };
 }
 
-/** 스크린리더 문장. 화면에서는 측정 기록과 같은 색이라 수동 기록이라는 말을 앞에 둔다. */
-export function readAloudLabel(input: { subjectName: string; span: ManualSpan }): string {
-  const start = spokenClock(input.span.startMs);
-  const end = spokenClock(input.span.endMs);
-  return i18n.t("manual-record:readAloud.label", {
-    subject: input.subjectName,
+function spokenSpan(span: ManualSpan): { start: string; end: string } {
+  const start = spokenClock(span.startMs);
+  const end = spokenClock(span.endMs);
+  return {
     start: i18n.t("manual-record:readAloud.withPeriod", start),
     end: end.period === start.period ? end.time : i18n.t("manual-record:readAloud.withPeriod", end),
+  };
+}
+
+/** 스크린리더 문장. 화면에서는 측정 기록과 같은 색이라 수동 기록이라는 말을 앞에 둔다. */
+export function readAloudLabel(input: { subjectName: string; span: ManualSpan }): string {
+  return i18n.t("manual-record:readAloud.label", {
+    subject: input.subjectName,
+    ...spokenSpan(input.span),
     length: formatDuration((input.span.endMs - input.span.startMs) / 1000),
+  });
+}
+
+/**
+ * 카메라 없이 공부한 기록의 스크린리더 문장
+ *
+ * 수동 기록 문장과 같은 형식이고 길이는 일시정지를 뺀 총 공부시간이다.
+ */
+export function timerReadAloudLabel(input: { span: ManualSpan; studySec: number }): string {
+  return i18n.t("records:timerItem.readAloud", {
+    ...spokenSpan(input.span),
+    length: formatDuration(input.studySec),
   });
 }
 
