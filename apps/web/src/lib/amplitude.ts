@@ -385,6 +385,8 @@ export interface StudySessionEndedInput {
    * 마스코트가 없는 소셜룸은 생략하고, 생략은 false 로 나간다.
    */
   readonly mascotOn?: boolean;
+  /** 세션 중 하품 횟수. 하품을 재지 않는 소셜룸은 생략하고, 생략은 0 으로 나간다. */
+  readonly yawnCount?: number;
 }
 
 /**
@@ -428,6 +430,7 @@ export function trackStudySessionEnded(input: StudySessionEndedInput) {
       break_sec: Number(input.breakSec ?? 0),
       multi_timer: input.multiTimer ?? "none",
       mascot_on: input.mascotOn ?? false,
+      yawn_count: Number(input.yawnCount ?? 0),
     },
     { time: endedAt },
   );
@@ -449,6 +452,22 @@ export function trackStudySessionEnded(input: StudySessionEndedInput) {
       );
     }
   }
+}
+
+/**
+ * 세션 중 하품 하나가 끝났다. 싱글룸만 보낸다.
+ * 길이만 싣는다. 입 벌림 점수 같은 얼굴에서 나온 수치는 싣지 않는다.
+ */
+export function trackStudySessionYawned(yawn: {
+  readonly startedAtMs: number;
+  readonly endedAtMs: number;
+}) {
+  if (!initialized) return;
+  track(
+    "study_session_yawned",
+    { duration_ms: Math.round(yawn.endedAtMs - yawn.startedAtMs) },
+    { time: yawn.endedAtMs },
+  );
 }
 
 /**
