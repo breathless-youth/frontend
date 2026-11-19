@@ -34,7 +34,7 @@ export function stepYawn(
       state: {
         startMs: state.startMs ?? nowMs,
         lastHighMs: nowMs,
-        peak: Math.max(state.startMs === null ? 0 : state.peak, jaw),
+        peak: Math.max(state.peak, jaw),
       },
       yawn: null,
     };
