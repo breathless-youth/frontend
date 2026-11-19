@@ -15,7 +15,7 @@ import {
 
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { subjectNameOf } from "@/features/manual-record/manualRecord";
+import { studySecByMode, subjectNameOf } from "@/features/manual-record/manualRecord";
 import { plannerDateKeyOf } from "@/features/planner/plannerDay";
 import { useOpenPlanner } from "@/features/planner/useOpenPlanner";
 import { PlannerPillButton } from "@/features/planner/PlannerPillButton";
@@ -127,6 +127,9 @@ function RecordsContent({
     ? [...daySessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt))
     : [];
 
+  // 기록이 없는 날은 나눌 시간이 없어 줄을 두지 않는다.
+  const modeSplit = sessions.length === 0 ? undefined : studySecByMode(sessions);
+
   // 수동 기록 API는 토큰이 있어야 해서 토큰 없는 문서에서는 입구를 모두 숨긴다.
   const canWrite = hasTokenSource();
   const openRecordEditor = useOpenPlanner("records");
@@ -177,6 +180,7 @@ function RecordsContent({
             ? { focusSec: day.stats.totalFocusSec, studySec: day.stats.totalStudySec }
             : day.status
         }
+        modeSplit={modeSplit}
       />
 
       <div className="mt-4.5">

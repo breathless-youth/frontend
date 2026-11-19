@@ -571,15 +571,15 @@ describe("SessionListItem, 카메라 없는 세션", () => {
     source: "TIMER",
   });
 
-  it("접힌 행은 총 줄과 집중률 배지 없이 카메라 없이 배지와 공부 시간을 보여 주고 낭독 문장을 쓴다", () => {
+  it("접힌 행은 총 줄과 집중률 배지 없이 자율 모드 배지와 공부 시간을 보여 주고 낭독 문장을 쓴다", () => {
     render(sessionRow(timer));
 
     const row = screen.getByRole("button", {
-      name: "카메라 없이 공부한 기록, 오전 7시 30분부터 8시 16분, 40분",
+      name: "자율 모드로 공부한 기록, 오전 7시 30분부터 8시 16분, 40분",
     });
     expect(row).toHaveTextContent("40분");
     expect(row).not.toHaveTextContent("총");
-    expect(screen.getByText("카메라 없이")).toBeInTheDocument();
+    expect(screen.getByText("자율 모드")).toBeInTheDocument();
     expect(screen.queryByText(/집중 \d+%/)).not.toBeInTheDocument();
     expect(screen.getByText("07:30")).toBeInTheDocument();
     expect(screen.getByText("08:16")).toBeInTheDocument();

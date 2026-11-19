@@ -161,7 +161,7 @@
     "studyDays": "{{count}}일",
     "ctaHome": "홈으로",
     "ctaRecords": "기록으로 가기",
-    "timerNotice": "카메라 없이 공부한 시간은\n연속 공부·랭킹·포인트에 반영되지 않아요"
+    "timerNotice": "자율 모드로 공부한 시간은\n연속 공부·랭킹·포인트에 반영되지 않아요"
   },
   "legend": {
     "focus": "순공",

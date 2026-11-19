@@ -24,7 +24,7 @@ describe("IneligibleCard", () => {
     expect(screen.queryByText("이번 주 순공", { exact: false })).toBeNull();
     expect(screen.queryByText("10시간")).toBeNull();
     expect(screen.getByText("현재 집중률이면 상위 15%예요")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "순공 시작" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "공부 시작" })).toBeInTheDocument();
   });
 
   it("예상 순위가 3위 밖이고 예상 상위 %가 아직 안 오면 그 줄을 뺀다", () => {
