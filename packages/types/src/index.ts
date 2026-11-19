@@ -168,6 +168,8 @@ export interface ActiveSessionSnapshotResponse {
   events: StatusEventPayload[];
   /** 마지막 스냅샷의 과목 구간 — 시작 오름차순. 마지막 원소의 과목이 죽기 직전 선택이다. null·누락일 수 있다 */
   subjectSegments?: SubjectSegmentPayload[] | null;
+  /** 마지막 스냅샷의 관찰 기록(하품 등) — 시작 오름차순. 이어받은 뒤 보고·제출에 다시 싣는다. 옛 서버는 누락 */
+  observations?: ObservationPayload[] | null;
 }
 
 /** 기록이 만들어진 방법. 카메라로 측정한 세션과 사용자가 시각을 직접 넣은 수동 기록이 있다. */

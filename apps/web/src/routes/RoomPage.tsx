@@ -444,9 +444,9 @@ function RoomSessionBody({
   const [multiTimerUsage] = useState(createMultiTimerUsage);
   /**
    * 세션 중 하품. 감지기가 하품 하나를 끝낼 때마다 모으고 계측을 보낸다. 세션 훅이 스냅샷·제출 때 읽는다.
-   * 이어받은 세션은 서버 복원 응답에 하품이 없어 이어받기 전의 하품을 잃는다.
+   * 이어받은 세션은 서버에 남은 하품부터 시작한다 — 스냅샷이 목록을 통째로 덮어써서 빈 목록으로 시작하면 지워진다.
    */
-  const yawnsRef = useRef<ObservationPayload[]>([]);
+  const yawnsRef = useRef<ObservationPayload[]>(restored?.observations ?? []);
   useEffect(
     () =>
       visionDetector.subscribeYawn((yawn) => {
