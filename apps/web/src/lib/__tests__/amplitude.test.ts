@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => {
     track: vi.fn(),
     identify: vi.fn(),
     setUserId: vi.fn(),
+    reset: vi.fn(),
     add: vi.fn(),
     sessionReplayPlugin: vi.fn((options: unknown) => ({ name: "session-replay", options })),
     engagementPlugin: vi.fn(() => ({ name: "engagement", type: "enrichment" })),
@@ -36,6 +37,7 @@ vi.mock("@amplitude/analytics-browser", () => ({
   track: mocks.track,
   identify: mocks.identify,
   setUserId: mocks.setUserId,
+  reset: mocks.reset,
   add: mocks.add,
   Identify: mocks.FakeIdentify,
 }));
@@ -445,6 +447,44 @@ describe("URL 정제 플러그인", () => {
     const event = { event_type: "study_session_started" };
 
     await expect(sanitizePlugin().execute(event)).resolves.toBe(event);
+  });
+});
+
+describe("resetAmplitudeUser", () => {
+  it("로그아웃하면 신원과 기기 식별자를 새로 하고 다음 신원을 다시 붙인다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, resetAmplitudeUser, setAmplitudeUserId } = await loadModule();
+    initAmplitude();
+    setAmplitudeUserId(7);
+
+    resetAmplitudeUser();
+    setAmplitudeUserId(8);
+
+    expect(mocks.reset).toHaveBeenCalledTimes(1);
+    expect(mocks.setUserId.mock.calls).toEqual([["7"], ["8"]]);
+    expect(mocks.setUserId.mock.invocationCallOrder[1]).toBeGreaterThan(
+      mocks.reset.mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it("로그아웃 뒤 같은 번호가 다시 오면 다시 붙인다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, resetAmplitudeUser, setAmplitudeUserId } = await loadModule();
+    initAmplitude();
+    setAmplitudeUserId(7);
+
+    resetAmplitudeUser();
+    setAmplitudeUserId(7);
+
+    expect(mocks.setUserId.mock.calls).toEqual([["7"], ["7"]]);
+  });
+
+  it("미초기화 상태에서는 아무것도 하지 않는다", async () => {
+    const { resetAmplitudeUser } = await loadModule();
+
+    resetAmplitudeUser();
+
+    expect(mocks.reset).not.toHaveBeenCalled();
   });
 });
 

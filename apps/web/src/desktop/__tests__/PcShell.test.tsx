@@ -4,8 +4,10 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { Toaster } from "@/components/ui/sonner";
 import { PcShell } from "@/desktop/PcShell";
 import type * as amplitude from "@/lib/amplitude";
+import type * as tokenSourceModule from "@/lib/auth/tokenSource";
 import i18n from "@/lib/i18n";
 import { getProfile } from "@/lib/profileApi";
 import type * as userIdModule from "@/lib/userId";
@@ -17,10 +19,18 @@ vi.mock("@/lib/userId", async (original) => ({
 }));
 vi.mock("@/lib/profileApi", () => ({ getProfile: vi.fn() }));
 
+const logoutBrowserGuest = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+vi.mock("@/lib/auth/tokenSource", async (original) => ({
+  ...(await original<typeof tokenSourceModule>()),
+  logoutBrowserGuest,
+}));
+
 const trackTabPressed = vi.hoisted(() => vi.fn());
+const resetAmplitudeUser = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/amplitude", async (original) => ({
   ...(await original<typeof amplitude>()),
   trackTabPressed,
+  resetAmplitudeUser,
 }));
 
 function Where() {
@@ -40,6 +50,7 @@ function renderShell(path = "/home") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
+      <Toaster />
       <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route element={<PcShell />}>
@@ -54,6 +65,7 @@ function renderShell(path = "/home") {
 afterEach(async () => {
   await i18n.changeLanguage("ko");
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
   identity.userId = null;
   window.history.replaceState(null, "", "/");
 });
@@ -69,6 +81,11 @@ function signIn(loginProvider: "KAKAO" | null) {
     profileImageUrl: null,
     loginProvider,
   });
+}
+
+/** 앱 웹뷰처럼 브리지를 둔다. 없으면 브라우저로 본다. */
+function inApp() {
+  vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
 }
 
 async function openProfileMenu() {
@@ -187,7 +204,8 @@ describe("PcShell 탭", () => {
 });
 
 describe("PcShell 프로필 메뉴", () => {
-  it("소셜 로그인한 사람에게는 닉네임을 보이고 로그인·로그아웃은 두지 않는다", async () => {
+  it("앱에서 소셜 로그인한 사람에게는 닉네임을 보이고 로그인·로그아웃은 두지 않는다", async () => {
+    inApp();
     signIn("KAKAO");
     renderShell();
 
@@ -199,7 +217,8 @@ describe("PcShell 프로필 메뉴", () => {
     expect(within(menu).queryByRole("menuitem", { name: "로그인" })).not.toBeInTheDocument();
   });
 
-  it("비회원에게는 로그인을 보인다", async () => {
+  it("앱에서 비회원에게는 로그인을 보인다", async () => {
+    inApp();
     signIn(null);
     renderShell();
 
@@ -209,7 +228,35 @@ describe("PcShell 프로필 메뉴", () => {
     expect(within(menu).getByRole("menuitem", { name: "로그인" })).toBeInTheDocument();
   });
 
-  it("신원이 없는 브라우저에서도 메뉴가 열리고 로그인을 보인다", async () => {
+  it("브라우저의 비회원에게는 로그인을 보이지 않는다", async () => {
+    signIn(null);
+    renderShell();
+
+    const menu = await openProfileMenu();
+
+    expect(await within(menu).findByText("열공곰")).toBeInTheDocument();
+    expect(within(menu).queryByRole("menuitem", { name: "로그인" })).not.toBeInTheDocument();
+    expect(within(menu).queryByRole("menuitem", { name: "로그아웃" })).not.toBeInTheDocument();
+  });
+
+  it("브라우저의 소셜 회원은 로그아웃을 눌러 새 비회원이 되고 안내를 본다", async () => {
+    signIn("KAKAO");
+    renderShell();
+
+    const menu = await openProfileMenu();
+    await within(menu).findByText("열공곰");
+    await userEvent.click(within(menu).getByRole("menuitem", { name: "로그아웃" }));
+
+    expect(logoutBrowserGuest).toHaveBeenCalledTimes(1);
+    expect(resetAmplitudeUser).toHaveBeenCalledTimes(1);
+    expect(resetAmplitudeUser.mock.invocationCallOrder[0]).toBeLessThan(
+      logoutBrowserGuest.mock.invocationCallOrder[0]!,
+    );
+    expect(await screen.findByText("로그아웃 되었어요")).toBeInTheDocument();
+  });
+
+  it("신원이 없는 앱 화면에서도 메뉴가 열리고 로그인을 보인다", async () => {
+    inApp();
     renderShell();
 
     const menu = await openProfileMenu();
@@ -227,7 +274,8 @@ describe("PcShell 프로필 메뉴", () => {
     expect(screen.getByTestId("where")).toHaveTextContent("/settings");
   });
 
-  it("로그인을 누르면 설정의 로그인 화면으로 간다", async () => {
+  it("앱에서 로그인을 누르면 설정의 로그인 화면으로 간다", async () => {
+    inApp();
     renderShell();
 
     const menu = await openProfileMenu();
@@ -236,7 +284,8 @@ describe("PcShell 프로필 메뉴", () => {
     expect(screen.getByTestId("where")).toHaveTextContent("/settings/login");
   });
 
-  it("프로필 요청이 실패해도 메뉴가 열리고 로그인을 보인다", async () => {
+  it("앱에서 프로필 요청이 실패해도 메뉴가 열리고 로그인을 보인다", async () => {
+    inApp();
     identity.userId = 7;
     vi.mocked(getProfile).mockRejectedValue(new Error("network"));
     renderShell();
@@ -248,6 +297,7 @@ describe("PcShell 프로필 메뉴", () => {
   });
 
   it("키보드로 메뉴를 열고 방향키로 항목을 옮긴다", async () => {
+    inApp();
     renderShell();
     screen.getByRole("button", { name: "프로필 메뉴" }).focus();
 
