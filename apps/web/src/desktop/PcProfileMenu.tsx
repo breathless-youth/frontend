@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ProfileAvatar } from "@/features/profile/ProfileAvatar";
-import { resetAmplitudeUser } from "@/lib/amplitude";
+import { resetAmplitudeUser, setAmplitudeUserId } from "@/lib/amplitude";
 import { logoutBrowserGuest } from "@/lib/auth/tokenSource";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import i18n from "@/lib/i18n";
@@ -44,8 +44,10 @@ export function PcProfileMenu() {
   // 새 비회원 번호가 오기 전의 이벤트에 이전 번호가 실리지 않도록 분석 신원부터 뗀다.
   const logout = async () => {
     resetAmplitudeUser();
-    await logoutBrowserGuest();
-    showToast(i18n.t("common:authSuccess.logout"));
+    const done = await logoutBrowserGuest();
+    // 실패하면 같은 회원으로 남는데 신원 번호가 그대로라 분석 신원을 다시 붙여 주는 곳이 없다.
+    if (!done) setAmplitudeUserId(userId);
+    showToast(i18n.t(done ? "common:authSuccess.logout" : "common:errors.retryLater"));
   };
 
   const avatar = (className: string) => (

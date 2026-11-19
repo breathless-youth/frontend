@@ -16,7 +16,7 @@ const T7 = jwt("7");
 const T7b = jwt("7") + "b";
 const T8 = jwt("8");
 
-type Reply = { status: number; body?: unknown } | "network" | "hang";
+type Reply = { status: number; body?: unknown } | "network" | "hang" | "hang-body";
 type Call = { path: string; init: RequestInit };
 
 /** 경로마다 차례로 답하는 가짜 fetch. 답을 다 쓰면 마지막 답을 되풀이한다. */
@@ -29,6 +29,19 @@ function fakeServer(replies: Record<string, Reply[]>) {
     const reply = queue.length > 1 ? queue.shift()! : queue[0]!;
     if (reply === "network") return Promise.reject(new TypeError("Failed to fetch"));
     if (reply === "hang") return new Promise<Response>(() => {});
+    if (reply === "hang-body") {
+      // 헤더는 왔지만 본문이 멈춘 응답. 요청이 중단될 때만 끝난다.
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          new Promise((_resolve, reject) =>
+            init.signal?.addEventListener("abort", () =>
+              reject(new DOMException("", "AbortError")),
+            ),
+          ),
+      } as Response);
+    }
     return Promise.resolve({
       ok: reply.status < 300,
       status: reply.status,
@@ -274,6 +287,23 @@ describe("createBrowserTokenSource 갱신", () => {
     },
   );
 
+  it("응답 본문이 멈춰도 요청 한도가 지나면 잠금을 풀고 다음 갱신을 보낸다", async () => {
+    vi.useFakeTimers();
+    const server = fakeServer({
+      "/api/auth/refresh": ["hang-body", { status: 200, body: { accessToken: T7 } }],
+    });
+    const source = create(server, { locks: sharedLocks() });
+
+    const first = source.refresh();
+    await vi.advanceTimersByTimeAsync(10_000);
+    await expect(first).resolves.toBeNull();
+
+    const second = source.refresh();
+    await vi.advanceTimersByTimeAsync(0);
+    await expect(second).resolves.toBe(T7);
+    expect(server.calls).toHaveLength(2);
+  });
+
   it("탭 안의 동시 refresh는 요청 하나로 묶인다", async () => {
     const server = fakeServer({
       "/api/auth/refresh": [
@@ -396,6 +426,85 @@ describe("createBrowserTokenSource 갱신", () => {
     await tabA.logout();
     deliver(1);
 
+    expect(tabB.getUserId()).toBe(8);
+  });
+
+  it("이 탭이 받기 전이라도 저장소에 더 최근 순번이 있으면 그보다 오래된 알림은 버린다", async () => {
+    const { channel, deliver, held } = heldBus();
+    const server = fakeServer({
+      "/api/auth/refresh": [{ status: 200, body: { accessToken: T7 } }],
+    });
+    const tab = create(server, { channel: channel() });
+    const sender = channel();
+    await tab.getAccessToken();
+    held.length = 0;
+    const mine = Number(localStorage.getItem("focusmakers:auth-epoch"));
+
+    // 다른 탭이 순번 mine+2로 로그아웃을 저장했고, 그보다 앞선 mine+1 알림이 먼저 도착한다.
+    localStorage.setItem("focusmakers:auth-epoch", String(mine + 2));
+    sender.postMessage({ accessToken: jwt("9"), epoch: mine + 1 });
+    sender.postMessage({ accessToken: T8, epoch: mine + 2 });
+    deliver(0);
+    expect(tab.getUserId()).toBe(7);
+    deliver(1);
+    expect(tab.getUserId()).toBe(8);
+  });
+
+  it("두 탭에서 같은 계정을 동시에 로그아웃해도 서버 로그아웃과 새 등록은 한 번씩만 나간다", async () => {
+    const locks = sharedLocks();
+    const bus = sharedBus();
+    const serverA = fakeServer({
+      "/api/auth/refresh": [{ status: 200, body: { accessToken: T7 } }],
+      "/api/auth/logout": [{ status: 204 }],
+      "/api/users": [{ status: 201, body: { isNew: true, accessToken: T8 } }],
+    });
+    const serverB = fakeServer({
+      "/api/auth/refresh": [{ status: 200, body: { accessToken: T7 } }],
+      "/api/auth/logout": [{ status: 204 }],
+      "/api/users": [{ status: 201, body: { isNew: true, accessToken: jwt("9") } }],
+    });
+    const tabA = create(serverA, { locks, channel: bus() });
+    const tabB = create(serverB, { locks, channel: bus() });
+    await tabA.getAccessToken();
+    await tabB.getAccessToken();
+
+    const results = await Promise.all([tabA.logout(), tabB.logout()]);
+
+    expect(results).toEqual([true, true]);
+    const paths = [...serverA.calls, ...serverB.calls].map((call) => call.path);
+    expect(paths.filter((path) => path === "/api/auth/logout")).toHaveLength(1);
+    expect(paths.filter((path) => path === "/api/users")).toHaveLength(1);
+    expect(tabB.getUserId()).toBe(8);
+  });
+
+  it("앞 탭의 로그아웃 방송이 늦어도 뒤 탭은 새 비회원을 다시 로그아웃하지 않고 바뀐 쿠키로 갱신한다", async () => {
+    const locks = sharedLocks();
+    const { channel } = heldBus();
+    const serverA = fakeServer({
+      "/api/auth/refresh": [{ status: 200, body: { accessToken: T7 } }],
+      "/api/auth/logout": [{ status: 204 }],
+      "/api/users": [{ status: 201, body: { isNew: true, accessToken: T8 } }],
+    });
+    const serverB = fakeServer({
+      "/api/auth/refresh": [
+        { status: 200, body: { accessToken: T7 } },
+        { status: 200, body: { accessToken: T8 } },
+      ],
+      "/api/auth/logout": [{ status: 204 }],
+      "/api/users": [{ status: 201, body: { isNew: true, accessToken: jwt("9") } }],
+    });
+    const tabA = create(serverA, { locks, channel: channel() });
+    const tabB = create(serverB, { locks, channel: channel() });
+    await tabA.getAccessToken();
+    await tabB.getAccessToken();
+
+    // 방송은 붙잡아 두어 B가 A의 로그아웃을 알림으로는 모르는 채 잠금을 얻는다.
+    const results = await Promise.all([tabA.logout(), tabB.logout()]);
+
+    expect(results).toEqual([true, true]);
+    const paths = [...serverA.calls, ...serverB.calls].map((call) => call.path);
+    expect(paths.filter((path) => path === "/api/auth/logout")).toHaveLength(1);
+    expect(paths.filter((path) => path === "/api/users")).toHaveLength(1);
     expect(tabB.getUserId()).toBe(8);
   });
 
@@ -527,6 +636,21 @@ describe("createBrowserTokenSource 로그아웃", () => {
       "/api/users",
     ]);
     expect(source.getUserId()).toBe(8);
+  });
+
+  it("서버 로그아웃과 새 등록이 모두 실패하면 이전 회원을 그대로 두고 실패를 알린다", async () => {
+    const server = fakeServer({
+      "/api/auth/refresh": [{ status: 200, body: { accessToken: T7 } }],
+      "/api/auth/logout": ["network"],
+      "/api/users": ["network"],
+    });
+    const source = create(server);
+    await source.getAccessToken();
+
+    await expect(source.logout()).resolves.toBe(false);
+
+    expect(source.getUserId()).toBe(7);
+    expect(source.getCurrentToken()).toBe(T7);
   });
 
   it("새 비회원 등록까지 실패하면 이전 신원을 남기지 않고 빈 신원이 된다", async () => {

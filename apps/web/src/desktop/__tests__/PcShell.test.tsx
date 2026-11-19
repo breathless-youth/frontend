@@ -19,7 +19,7 @@ vi.mock("@/lib/userId", async (original) => ({
 }));
 vi.mock("@/lib/profileApi", () => ({ getProfile: vi.fn() }));
 
-const logoutBrowserGuest = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+const logoutBrowserGuest = vi.hoisted(() => vi.fn(() => Promise.resolve(true)));
 vi.mock("@/lib/auth/tokenSource", async (original) => ({
   ...(await original<typeof tokenSourceModule>()),
   logoutBrowserGuest,
@@ -27,10 +27,12 @@ vi.mock("@/lib/auth/tokenSource", async (original) => ({
 
 const trackTabPressed = vi.hoisted(() => vi.fn());
 const resetAmplitudeUser = vi.hoisted(() => vi.fn());
+const setAmplitudeUserId = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/amplitude", async (original) => ({
   ...(await original<typeof amplitude>()),
   trackTabPressed,
   resetAmplitudeUser,
+  setAmplitudeUserId,
 }));
 
 function Where() {
@@ -253,6 +255,20 @@ describe("PcShell 프로필 메뉴", () => {
       logoutBrowserGuest.mock.invocationCallOrder[0]!,
     );
     expect(await screen.findByText("로그아웃 되었어요")).toBeInTheDocument();
+  });
+
+  it("로그아웃이 이전 회원을 남긴 채 실패하면 다시 시도하라고 안내한다", async () => {
+    logoutBrowserGuest.mockResolvedValueOnce(false);
+    signIn("KAKAO");
+    renderShell();
+
+    const menu = await openProfileMenu();
+    await within(menu).findByText("열공곰");
+    await userEvent.click(within(menu).getByRole("menuitem", { name: "로그아웃" }));
+
+    expect(await screen.findByText("잠시 후 다시 시도해 주세요")).toBeInTheDocument();
+    expect(screen.queryByText("로그아웃 되었어요")).not.toBeInTheDocument();
+    expect(setAmplitudeUserId).toHaveBeenCalledWith(expect.any(Number));
   });
 
   it("신원이 없는 앱 화면에서도 메뉴가 열리고 로그인을 보인다", async () => {

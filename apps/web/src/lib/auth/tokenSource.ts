@@ -158,8 +158,8 @@ export function initTokenSource(): void {
 }
 
 /** 브라우저 비회원 출처의 로그아웃. 앱 웹뷰에서는 앱이 로그아웃을 맡아 아무것도 하지 않는다. */
-export function logoutBrowserGuest(): Promise<void> {
-  return browserSource?.logout() ?? Promise.resolve();
+export function logoutBrowserGuest(): Promise<boolean> {
+  return browserSource?.logout() ?? Promise.resolve(true);
 }
 
 export function getTokenSource(): TokenSource | null {

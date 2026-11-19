@@ -5,7 +5,8 @@ import type { AuthSnapshot, TokenSource } from "./tokenSource";
 
 /** 브라우저 비회원 출처. 탭 사이 로그아웃이 있어서 브리지 출처보다 하나가 많다. */
 export interface BrowserTokenSource extends TokenSource {
-  logout(): Promise<void>;
+  /** 로그아웃해 새 비회원으로 바꾼다. 이전 회원이 남은 채 실패하면 false다. */
+  logout(): Promise<boolean>;
 }
 
 /** 탭 사이 잠금. navigator.locks와 같은 모양이고 테스트가 바꿔 끼운다. */
@@ -32,6 +33,8 @@ export interface BrowserTokenSourceDeps {
 const AUTH_CHANNEL = "focusmakers:auth";
 /** 탭 사이 신원 순번의 저장 키. 토큰이 아니라 숫자만 둔다. */
 const EPOCH_KEY = "focusmakers:auth-epoch";
+/** 탭 사이 로그아웃 세대의 저장 키. 성공한 로그아웃마다 1씩 늘어난다. */
+const LOGOUT_KEY = "focusmakers:auth-logout";
 /** 첫 신원 대기 한도. 브리지 출처와 같은 3초다. */
 const FIRST_TOKEN_TIMEOUT_MS = 3000;
 /** 한 요청의 한도. 잠금을 쥔 채 멈추면 다른 탭의 갱신까지 함께 멈춘다. */
@@ -96,17 +99,20 @@ function defaultChannel(): AuthChannel | null {
   return typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel(AUTH_CHANNEL);
 }
 
+/** 출처 요청의 결과. 본문은 요청 한도 안에서 미리 읽어 둔다. */
+type Reply = { ok: boolean; status: number; body: unknown };
+
 /**
  * 갱신 실패가 쿠키를 잃은 경우인지 판단
  *
  * 쿠키가 없으면 서버는 400 `VALIDATION_FAILED`를, 만료되거나 폐기됐으면 401을 준다.
  * `API-Version` 불일치나 읽을 수 없는 요청 같은 다른 400까지 받으면 배포 실수 하나로 모든 브라우저가 새로고침마다 새 비회원이 된다.
  */
-async function lostRefreshCookie(res: Response | null): Promise<boolean> {
+function lostRefreshCookie(res: Reply | null): boolean {
   if (res?.status === 401) return true;
-  if (res?.status !== 400) return false;
-  const body = (await res.json().catch(() => null)) as { code?: unknown } | null;
-  return body?.code === "VALIDATION_FAILED";
+  return (
+    res?.status === 400 && (res.body as { code?: unknown } | null)?.code === "VALIDATION_FAILED"
+  );
 }
 
 /**
@@ -114,9 +120,27 @@ async function lostRefreshCookie(res: Response | null): Promise<boolean> {
  *
  * `sub`를 못 읽으면 null이다.
  */
-async function snapshotFrom(res: Response): Promise<AuthSnapshot | null> {
-  const body = (await res.json().catch(() => null)) as { accessToken?: unknown } | null;
-  return typeof body?.accessToken === "string" ? snapshotOf(body.accessToken) : null;
+function snapshotFrom(res: Reply | null): AuthSnapshot | null {
+  if (!res?.ok) return null;
+  const token = (res.body as { accessToken?: unknown } | null)?.accessToken;
+  return typeof token === "string" ? snapshotOf(token) : null;
+}
+
+/** 저장소의 로그아웃 세대. 저장소를 못 쓰면 null이다. */
+function logoutGeneration(): number | null {
+  try {
+    return Number(localStorage.getItem(LOGOUT_KEY)) || 0;
+  } catch {
+    return null;
+  }
+}
+
+function bumpLogoutGeneration(): void {
+  try {
+    localStorage.setItem(LOGOUT_KEY, String((logoutGeneration() ?? 0) + 1));
+  } catch {
+    // 저장소를 막은 브라우저는 탭 안의 사용자 번호 비교로만 판단한다
+  }
 }
 
 function snapshotOf(accessToken: string): AuthSnapshot | null {
@@ -157,6 +181,15 @@ export function createBrowserTokenSource(deps: BrowserTokenSourceDeps = {}): Bro
   // 이 탭이 마지막으로 받아들인 신원의 순번
   let epoch = 0;
 
+  /** 저장소에 남은 가장 최근 순번. 저장소를 못 쓰면 0이다. */
+  function storedEpoch(): number {
+    try {
+      return Number(localStorage.getItem(EPOCH_KEY)) || 0;
+    } catch {
+      return 0;
+    }
+  }
+
   /**
    * 탭 사이에서 늘 커지는 다음 순번
    *
@@ -166,7 +199,7 @@ export function createBrowserTokenSource(deps: BrowserTokenSourceDeps = {}): Bro
    */
   function nextEpoch(): number | null {
     try {
-      const next = Math.max(Number(localStorage.getItem(EPOCH_KEY)) || 0, epoch) + 1;
+      const next = Math.max(storedEpoch(), epoch) + 1;
       localStorage.setItem(EPOCH_KEY, String(next));
       return next;
     } catch {
@@ -187,8 +220,9 @@ export function createBrowserTokenSource(deps: BrowserTokenSourceDeps = {}): Bro
     channel?.postMessage({ accessToken: next.accessToken, epoch: sent });
   }
 
-  // 이미 받아들인 순번 이하의 알림은 버린다.
+  // 이미 받아들인 순번 이하이거나 저장소의 최근 순번보다 오래된 알림은 버린다.
   // 다른 탭의 갱신 알림이 로그아웃보다 늦게 도착해 이전 계정으로 되돌아가는 것을 막는다.
+  // 이 탭이 로그아웃 알림을 아직 받지 못했어도 저장소에는 그 순번이 먼저 남는다.
   // ponytail: 저장소를 막은 브라우저는 순번이 없어 늦은 알림이 신원을 되돌릴 수 있다.
   // 그런 사용자가 실제로 있으면 잠금 안에서 알림 수신 확인을 기다리는 방식으로 바꾼다.
   channel?.addEventListener("message", (event) => {
@@ -197,7 +231,7 @@ export function createBrowserTokenSource(deps: BrowserTokenSourceDeps = {}): Bro
     const next = token === null ? EMPTY : typeof token === "string" ? snapshotOf(token) : null;
     if (next === null) return;
     if (typeof data?.epoch === "number") {
-      if (data.epoch <= epoch) return;
+      if (data.epoch <= epoch || data.epoch < storedEpoch()) return;
       epoch = data.epoch;
     }
     if (next.accessToken !== (snapshot?.accessToken ?? null)) publish(next);
@@ -218,12 +252,14 @@ export function createBrowserTokenSource(deps: BrowserTokenSourceDeps = {}): Bro
    * 출처 자신의 요청
    *
    * `apiFetch`를 쓰면 자기 `getAccessToken`을 기다리다 멈춘다.
+   * 응답 본문도 같은 한도 안에서 읽는다.
+   * 헤더만 오고 본문이 멈추면 잠금을 쥔 채 다른 탭의 갱신까지 멈추기 때문이다.
    */
   async function send(
     path: string,
     endpoint: ApiEndpoint,
     options: { token?: string; body?: unknown } = {},
-  ): Promise<Response | null> {
+  ): Promise<Reply | null> {
     const headers = new Headers({
       "API-Version": apiVersionFor(endpoint, false),
       "Refresh-Transport": "cookie",
@@ -233,13 +269,15 @@ export function createBrowserTokenSource(deps: BrowserTokenSourceDeps = {}): Bro
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
-      return await doFetch(`${baseUrl}${path}`, {
+      const res = await doFetch(`${baseUrl}${path}`, {
         method: "POST",
         credentials: "include",
         headers,
         body: options.body === undefined ? undefined : JSON.stringify(options.body),
         signal: controller.signal,
       });
+      const body: unknown = res.status === 204 ? null : await res.json().catch(() => null);
+      return { ok: res.ok, status: res.status, body };
     } catch {
       return null;
     } finally {
@@ -247,7 +285,7 @@ export function createBrowserTokenSource(deps: BrowserTokenSourceDeps = {}): Bro
     }
   }
 
-  function register(): Promise<Response | null> {
+  function register(): Promise<Reply | null> {
     const deviceId = makeDeviceId();
     return send("/api/users", "register", {
       body: language ? { deviceId, language } : { deviceId },
@@ -268,8 +306,8 @@ export function createBrowserTokenSource(deps: BrowserTokenSourceDeps = {}): Bro
       const current = snapshot?.accessToken ?? null;
       if (current !== null && current !== sent) return current;
       let res = await send("/api/auth/refresh", "refresh");
-      if (await lostRefreshCookie(res)) res = await register();
-      const next = res?.ok ? await snapshotFrom(res) : null;
+      if (lostRefreshCookie(res)) res = await register();
+      const next = snapshotFrom(res);
       if (next === null) return null;
       adopt(next);
       return next.accessToken;
@@ -298,7 +336,7 @@ export function createBrowserTokenSource(deps: BrowserTokenSourceDeps = {}): Bro
   void firstSettled.then(() => clearTimeout(firstTimer));
 
   // 로그아웃 중에 시작한 요청은 이전 계정의 토큰을 싣지 않도록 새 신원이 정해질 때까지 기다린다.
-  let switching: Promise<void> | null = null;
+  let switching: Promise<boolean> | null = null;
 
   const source: BrowserTokenSource = {
     getAccessToken: () =>
@@ -318,20 +356,34 @@ export function createBrowserTokenSource(deps: BrowserTokenSourceDeps = {}): Bro
     /**
      * 로그아웃 뒤 새 비회원 전환
      *
-     * 서버 응답과 상관없이 새 비회원이 된다.
      * 본문을 실으면 서버가 쿠키의 refresh를 폐기하지 않아 본문 없이 보낸다.
-     * 새 등록도 실패하면 이전 신원을 남기지 않고 빈 신원으로 두고, 다음 요청의 401 갱신이 다시 등록한다.
-     * 진행 중에 또 부르면 같은 로그아웃을 돌려줘 방금 만든 비회원을 다시 내보내지 않는다.
+     * 새 등록이 성공하면 그 응답이 refresh 쿠키를 덮어써 서버 로그아웃이 실패해도 이전 회원이 남지 않는다.
+     * 서버 로그아웃이 성공하면 서버가 쿠키를 만료시키므로 등록이 실패해도 빈 신원으로 둔다.
+     * 둘 다 실패하면 이전 회원의 쿠키가 남아 다음 갱신이 그 회원을 되살리므로, 신원을 바꾸지 않고 실패로 알린다.
+     * 잠금을 기다리는 사이 다른 탭이 이미 로그아웃했으면 그 새 비회원을 다시 내보내지 않는다.
+     * 그 탭의 방송은 늦게 올 수 있어 저장소의 로그아웃 세대로 먼저 알아채고, 바뀐 쿠키로 갱신해 새 비회원을 받는다.
+     * 진행 중에 또 부르면 같은 로그아웃을 돌려준다.
      */
-    logout: () =>
-      (switching ??= withLock(async () => {
+    logout: () => {
+      const target = snapshot?.userId ?? null;
+      const generation = logoutGeneration();
+      return (switching ??= withLock(async () => {
+        if ((snapshot?.userId ?? null) !== target) return true;
+        if (generation !== null && (logoutGeneration() ?? 0) > generation) {
+          adopt(snapshotFrom(await send("/api/auth/refresh", "refresh")) ?? EMPTY);
+          return true;
+        }
         const token = snapshot?.accessToken;
-        if (token) await send("/api/auth/logout", "logout", { token });
-        const res = await register();
-        adopt((res?.ok ? await snapshotFrom(res) : null) ?? EMPTY);
+        const out = token ? await send("/api/auth/logout", "logout", { token }) : null;
+        const next = snapshotFrom(await register());
+        if (next === null && token && !out?.ok) return false;
+        bumpLogoutGeneration();
+        adopt(next ?? EMPTY);
+        return true;
       }).finally(() => {
         switching = null;
-      })),
+      }));
+    },
   };
   browserSources.add(source);
   return source;
