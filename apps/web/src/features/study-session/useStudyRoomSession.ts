@@ -88,6 +88,7 @@ import {
   transition,
 } from "./sessionTimeline";
 import { reportActiveSession } from "./reportActiveSession";
+import { clampObservations } from "./sessionRequestClamp";
 import type { RestoredSession } from "./restoreActiveSession";
 import type { SessionTuningConfig } from "./sessionTuning";
 import type { SubjectSegmentTracker, SubjectSelection } from "./subjectSegments";
@@ -1006,7 +1007,12 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           breakSec,
           multiTimer: multiTimerUsageRef.current?.() ?? "none",
           mascotOn: mascotOnRef.current?.() ?? false,
-          yawnCount: getObservationsRef.current?.().length,
+          // 서버에 남는 수와 같도록 제출과 같은 규칙으로 자른 뒤 센다.
+          yawnCount:
+            getObservationsRef.current === undefined
+              ? undefined
+              : clampObservations(getObservationsRef.current(), startedAtMsRef.current, endedAtMs)
+                  .length,
         });
         for (const play of ambientSoundPlaysRef.current?.() ?? []) {
           if (play.sec <= 0) continue;

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { PhotoSpec } from "@/features/timelapse/photoFrame";
+import type * as Sentry from "@/lib/sentry";
 
 import type { DetectorSignal, PhotoTap } from "../focusDetector";
 import { createVisionFocusDetector } from "../focusDetector";
@@ -31,6 +32,13 @@ import {
   SCORE_THRESHOLDS,
   YAWN_FAST_INTERVAL_MS,
 } from "../../vision/visionConfig";
+
+const sentry = vi.hoisted(() => ({ reportHandled: vi.fn() }));
+
+vi.mock("@/lib/sentry", async (importOriginal) => ({
+  ...(await importOriginal<typeof Sentry>()),
+  reportHandled: sentry.reportHandled,
+}));
 
 /**
  * 추론 코어(`vision/*`)는 자기 테스트를 갖고 있다. 여기서 검증하는 것은 **배선**이다 —
@@ -2736,6 +2744,52 @@ describe("하품", () => {
     expect(faceCalls).toBeGreaterThan(0);
     expect(face.detect.mock.calls.length).toBe(faceCalls);
     gates.get(4)?.open();
+  });
+
+  it("늦게 끝난 따로 잰 표본이 더 나중 표본 뒤에 와도 하품으로 넣지 않는다", async () => {
+    const { vision, faceDetect, yawns } = yawnVision([mouth(0.05), mouth(0.5), mouth(0.05)]);
+    const original = faceDetect.getMockImplementation()!;
+    let open = () => {};
+    const gate = new Promise<void>((resolve) => {
+      open = resolve;
+    });
+    let calls = 0;
+    faceDetect.mockImplementation(async (...args) => {
+      calls += 1;
+      const result = await original(...args);
+      // 둘째 추론(첫 따로 잰 표본)만 결과가 늦게 돌아온다.
+      if (calls === 2) {
+        await gate;
+      }
+      return result;
+    });
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    // 표본이 멈춘 사이 본 프레임이 얼굴을 다시 잰다.
+    while (calls < 3) {
+      await vi.advanceTimersByTimeAsync(YAWN_FAST_INTERVAL_MS);
+    }
+    await vi.advanceTimersByTimeAsync(0);
+    open();
+    await vi.advanceTimersByTimeAsync(5000);
+
+    expect(yawns).toEqual([]);
+  });
+
+  it("따로 잰 표본을 처리하다 구독자가 던지면 오류로 남긴다", async () => {
+    // 첫 따로 잰 표본(0.5초)이 하품을 열고, 2초 넘게 지난 뒤의 따로 잰 표본이 끝낸다.
+    const { vision } = yawnVision([mouth(0.05), mouth(0.5), mouth(0.05)]);
+    const thrown = new Error("listener failed");
+    vision.subscribeYawn(() => {
+      throw thrown;
+    });
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(5000);
+
+    expect(sentry.reportHandled).toHaveBeenCalledWith(thrown, "vision-yawn-sample");
   });
 
   it("멈추면 따로 재던 것도 멈춘다", async () => {

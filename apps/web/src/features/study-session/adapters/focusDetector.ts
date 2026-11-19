@@ -1,4 +1,5 @@
 import type { PhotoSpec } from "@/features/timelapse/photoFrame";
+import { reportHandled } from "@/lib/sentry";
 
 import type { DetectionSource } from "../detection";
 import type {
@@ -404,6 +405,8 @@ export function createVisionFocusDetector(
   let framesInFlight = 0;
   const yawnListeners = new Set<(yawn: Yawn) => void>();
   let yawnState: YawnState = EMPTY_YAWN_STATE;
+  /** 하품 판정에 마지막으로 넣은 표본 시각. 따로 잰 표본이 본 프레임보다 늦게 돌아오면 이보다 이르다. */
+  let yawnLastAtMs = Number.NEGATIVE_INFINITY;
   /** 얼굴을 촘촘히 따로 재는 타이머. 창(`YAWN_FAST_WINDOW_MS`)이 끝나면 내린다. */
   let yawnTimer: ReturnType<typeof setInterval> | null = null;
   let yawnFastUntilMs = 0;
@@ -534,6 +537,7 @@ export function createVisionFocusDetector(
     // 멈춘 동안의 하품은 세지 않는다. 진행 중이던 하품도 버린다.
     stopYawnFast();
     yawnState = EMPTY_YAWN_STATE;
+    yawnLastAtMs = Number.NEGATIVE_INFINITY;
     // 재개 시점의 첫 프레임은 공백 이후의 프레임이다 — 그 앞 프레임과의 이동량은 의미가 없다.
     previousDetections = null;
     emitted = null;
@@ -799,6 +803,10 @@ export function createVisionFocusDetector(
 
   /** 입 벌림 표본 하나를 하품 판정에 넣고, 기준을 넘으면 촘촘히 재기를 시작한다. */
   function observeJaw(jaw: number | null, atMs: number): void {
+    if (atMs < yawnLastAtMs) {
+      return;
+    }
+    yawnLastAtMs = atMs;
     const step = stepYawn(yawnState, jaw, atMs);
     yawnState = step.state;
     if (step.yawn !== null) {
@@ -852,6 +860,10 @@ export function createVisionFocusDetector(
         if (ran !== null && sampleRunId === runId) {
           observeJaw(ran.face.eye?.jawOpen ?? null, atMs);
         }
+      })
+      .catch((error: unknown) => {
+        // 타이머에서 띄운 처리라 받아 줄 곳이 없다. 구독자 콜백의 예외도 여기로 온다.
+        reportHandled(error, "vision-yawn-sample");
       })
       .finally(() => {
         yawnSampleBusy = false;
