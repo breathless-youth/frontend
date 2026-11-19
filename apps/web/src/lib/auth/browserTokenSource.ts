@@ -97,6 +97,19 @@ function defaultChannel(): AuthChannel | null {
 }
 
 /**
+ * 갱신 실패가 쿠키를 잃은 경우인지 판단
+ *
+ * 쿠키가 없으면 서버는 400 `VALIDATION_FAILED`를, 만료되거나 폐기됐으면 401을 준다.
+ * `API-Version` 불일치나 읽을 수 없는 요청 같은 다른 400까지 받으면 배포 실수 하나로 모든 브라우저가 새로고침마다 새 비회원이 된다.
+ */
+async function lostRefreshCookie(res: Response | null): Promise<boolean> {
+  if (res?.status === 401) return true;
+  if (res?.status !== 400) return false;
+  const body = (await res.json().catch(() => null)) as { code?: unknown } | null;
+  return body?.code === "VALIDATION_FAILED";
+}
+
+/**
  * 응답의 access 토큰으로 만든 신원
  *
  * `sub`를 못 읽으면 null이다.
@@ -255,7 +268,7 @@ export function createBrowserTokenSource(deps: BrowserTokenSourceDeps = {}): Bro
       const current = snapshot?.accessToken ?? null;
       if (current !== null && current !== sent) return current;
       let res = await send("/api/auth/refresh", "refresh");
-      if (res?.status === 400 || res?.status === 401) res = await register();
+      if (await lostRefreshCookie(res)) res = await register();
       const next = res?.ok ? await snapshotFrom(res) : null;
       if (next === null) return null;
       adopt(next);

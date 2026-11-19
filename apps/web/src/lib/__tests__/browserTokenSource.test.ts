@@ -95,6 +95,9 @@ function heldBus() {
   return { channel, deliver, held };
 }
 
+/** 쿠키 없이 갱신했을 때 서버의 답 */
+const NO_COOKIE: Reply = { status: 400, body: { code: "VALIDATION_FAILED" } };
+
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 function create(server: ReturnType<typeof fakeServer>, extra: object = {}) {
@@ -152,9 +155,12 @@ describe("createBrowserTokenSource 첫 신원", () => {
     expect(header(refresh, "API-Version")).toBe("1");
   });
 
-  it.each([400, 401])("쿠키 갱신이 %i이면 새 비회원으로 등록한다", async (status) => {
+  it.each<[string, Reply]>([
+    ["쿠키 없음 400", NO_COOKIE],
+    ["만료·폐기 401", { status: 401, body: { code: "INVALID_REFRESH_TOKEN" } }],
+  ])("쿠키 갱신이 %s이면 새 비회원으로 등록한다", async (_label, reply) => {
     const server = fakeServer({
-      "/api/auth/refresh": [{ status }],
+      "/api/auth/refresh": [reply],
       "/api/users": [{ status: 201, body: { isNew: true, accessToken: T7 } }],
     });
     const source = create(server);
@@ -174,9 +180,26 @@ describe("createBrowserTokenSource 첫 신원", () => {
     expect(header(register, "Content-Type")).toBe("application/json");
   });
 
+  it.each<Reply>([
+    { status: 400, body: { code: "REQUEST_FAILED" } },
+    { status: 400, body: { code: "BAD_REQUEST" } },
+    { status: 400 },
+  ])("쿠키 없음이 아닌 400(%o)에는 등록하지 않고 신원을 비워 둔다", async (reply) => {
+    const server = fakeServer({
+      "/api/auth/refresh": [reply],
+      "/api/users": [{ status: 201, body: { isNew: true, accessToken: T7 } }],
+    });
+    const source = create(server);
+
+    await expect(source.refresh()).resolves.toBeNull();
+
+    expect(server.calls.map((call) => call.path)).toEqual(["/api/auth/refresh"]);
+    expect(source.getUserId()).toBeNull();
+  });
+
   it("언어를 모르면 등록 본문에서 뺀다", async () => {
     const server = fakeServer({
-      "/api/auth/refresh": [{ status: 400 }],
+      "/api/auth/refresh": [NO_COOKIE],
       "/api/users": [{ status: 201, body: { isNew: true, accessToken: T7 } }],
     });
     const source = create(server, { language: "" });
@@ -186,7 +209,7 @@ describe("createBrowserTokenSource 첫 신원", () => {
 
   it("기기 UUID와 access 토큰을 저장소와 쿠키 어디에도 남기지 않는다", async () => {
     const server = fakeServer({
-      "/api/auth/refresh": [{ status: 400 }],
+      "/api/auth/refresh": [NO_COOKIE],
       "/api/users": [{ status: 201, body: { isNew: true, accessToken: T7 } }],
     });
     const source = create(server, { newDeviceId: () => "uuid-secret" });
@@ -271,7 +294,7 @@ describe("createBrowserTokenSource 갱신", () => {
     const locks = sharedLocks();
     const bus = sharedBus();
     const serverA = fakeServer({
-      "/api/auth/refresh": [{ status: 400 }],
+      "/api/auth/refresh": [NO_COOKIE],
       "/api/users": [{ status: 201, body: { isNew: true, accessToken: T7 } }],
     });
     const serverB = fakeServer({ "/api/auth/refresh": [{ status: 200, body: {} }] });
