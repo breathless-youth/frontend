@@ -135,6 +135,10 @@ describe.each(Object.keys(MODE_NAMES))("%s 모드 이름", (lng) => {
     expect(records.get("headline.modeSplit")).toContain(camera);
     expect(records.get("headline.modeSplit")).toContain(timer);
   });
+
+  it("온보딩 1단계 안내가 자율 모드 공식 명칭을 쓴다", () => {
+    expect(flatten(resources[lng]?.onboarding).get("autoTimer.hint")).toContain(timer);
+  });
 });
 
 /**
