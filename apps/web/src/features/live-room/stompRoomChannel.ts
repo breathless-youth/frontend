@@ -310,7 +310,8 @@ export function createStompRoomChannel({
       client.connectHeaders = {};
       return;
     }
-    // 출처가 없으면(브라우저 단독, guestAuth 표시 없는 구버전 셸) 기다릴 토큰도 없다.
+    // 출처가 없으면(검색 로봇, guestAuth 표시 없는 구버전 셸) 기다릴 토큰도 없다.
+    // 브라우저 출처의 갱신은 탭 사이 잠금을 거쳐 같은 쿠키로 겹치지 않는다.
     const token =
       source === null ? null : ((await source.refresh()) ?? (await source.getAccessToken()));
     if (token === null) {

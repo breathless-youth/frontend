@@ -21,9 +21,8 @@ const USER_ID_PARAM = "userId";
 
 /**
  * React 밖에서 신원을 한 번 읽는 경로. 토큰 출처(`getTokenSource`)가 있으면 그 userId가
- * 우선이고, 없거나 null이면 `?userId=N`으로 폴백한다. 신 앱 셸은 이 값을 붙이지 않으므로
- * 폴백을 타는 문서는 구 앱 웹뷰와 브리지 없는 브라우저 단독 모드다. 그 문서들은
- * `legacyUserId`로 구 방식 요청을 낸다.
+ * 우선이고, 없거나 null이면 `?userId=N`으로 폴백한다. 신 앱 셸과 브라우저 출처는 이 값을
+ * 붙이지 않으므로 폴백을 타는 문서는 구 앱 웹뷰다. 그 문서는 `legacyUserId`로 구 방식 요청을 낸다.
  *
  * ⚠️ 구독이 없어 토큰 도착에 반응하지 않는다. 웹뷰에서는 브리지 왕복이 끝나기 전에
  * 부르면 null이 나오고 그 값이 그대로 남는다. 값이 늦게 와도 따라가야 하는 곳은 `useUserId`를 쓴다.
@@ -87,7 +86,7 @@ const getServerSnapshot = () => null;
 
 /**
  * 현재 라우트의 신원. 토큰 출처가 있으면 그 userId를 구독해 `auth-token` 도착·갱신 시
- * 다시 렌더되고, 없거나 null이면 URL 쿼리로 폴백한다(브라우저 단독 모드).
+ * 다시 렌더되고, 없거나 null이면 URL 쿼리로 폴백한다(구 앱 웹뷰).
  *
  * 신원이 늦게 도착해도 따라가야 하는 곳은 `readUserId`가 아니라 이쪽을 쓴다.
  */
@@ -110,7 +109,8 @@ export function useUserId(): number | null {
  * 안내를 띄우거나(홈·기록) 사용자를 방에서 쫓아낸다(`LiveRoomPage`). 그 판정은 이 훅이
  * false를 준 뒤에 한다.
  *
- * 브라우저 단독 모드에는 출처가 없어 기다릴 것도 없으므로 언제나 false다.
+ * 출처가 없는 문서(구 앱 웹뷰, 검색 로봇)는 기다릴 것도 없으므로 언제나 false다.
+ * 브라우저 출처는 쿠키 갱신이나 새 비회원 등록이 끝날 때까지 true다.
  */
 export function useIdentityPending(): boolean {
   const source = getTokenSource();

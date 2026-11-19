@@ -27,7 +27,7 @@ type ProfilePhotoProps = {
  * 프로필 사진 버튼
  *
  * 누르면 사진 메뉴 시트를 열고, 고른 사진은 저장하기를 기다리지 않고 바로 올린다.
- * 토큰이 없는 문서(구 앱, 브라우저 단독)는 사진 API가 401로 막혀 버튼 없이 아바타만 보인다.
+ * 토큰이 없는 문서(구 앱, 검색 로봇)는 사진 API가 401로 막혀 버튼 없이 아바타만 보인다.
  */
 export function ProfilePhotoButton(props: ProfilePhotoProps) {
   const look = useMyMascotLook(props.userId);

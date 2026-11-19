@@ -14,6 +14,7 @@ const EXPECTED: Record<ApiEndpoint, { current: string; legacy: string }> = {
   homeMission: { current: "1", legacy: "1" },
   register: { current: "2", legacy: "2" },
   refresh: { current: "1", legacy: "1" },
+  logout: { current: "1", legacy: "1" },
   reviewLogin: { current: "1", legacy: "1" },
   pushTokens: { current: "1", legacy: "1" },
   profile: { current: "2", legacy: "1" },

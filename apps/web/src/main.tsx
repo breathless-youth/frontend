@@ -7,7 +7,7 @@ import { AnalyticsRouteTracker } from "./components/AnalyticsRouteTracker";
 import { initGA4 } from "./lib/analytics";
 import { initAmplitude } from "./lib/amplitude";
 import { initAppLifecycleAnalytics } from "./lib/appLifecycleAnalytics";
-import { initBridgeTokenSource } from "./lib/auth/tokenSource";
+import { initTokenSource } from "./lib/auth/tokenSource";
 import { installFakeCamera } from "./lib/fakeCamera";
 import { initNativeTabFocus } from "./lib/nativeTabFocus";
 import { initNativeTheme } from "./lib/nativeTheme";
@@ -26,8 +26,8 @@ initAmplitude();
 initNativeTheme();
 initNativeTabFocus();
 initAppLifecycleAnalytics();
-// 라우트의 첫 react-query 요청이 App effect보다 먼저 돌므로 createRoot 전에 구독·auth-ready를 건다.
-initBridgeTokenSource();
+// 라우트의 첫 react-query 요청이 App effect보다 먼저 돌므로 createRoot 전에 출처를 만든다.
+initTokenSource();
 // 측정 빌드 전용 가짜 카메라 — 운영 빌드에서는 조건이 접혀 빠진다.
 if (import.meta.env.VITE_FAKE_CAMERA === "1") {
   installFakeCamera();

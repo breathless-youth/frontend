@@ -1,11 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { isBrowserTokenSource } from "@/lib/auth/browserTokenSource";
 import {
+  __resetTokenSourceForTests,
   createBridgeTokenSource,
   getTokenSource,
-  initBridgeTokenSource,
+  initTokenSource,
+  logoutBrowserGuest,
 } from "@/lib/auth/tokenSource";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
+import { queryClient } from "@/lib/queryClient";
 
 const postMessage = vi.fn();
 const nativeEntry = () =>
@@ -113,28 +117,107 @@ describe("createBridgeTokenSource", () => {
   });
 });
 
-describe("initBridgeTokenSource", () => {
+describe("initTokenSource", () => {
+  beforeEach(() => {
+    __resetTokenSourceForTests();
+    // 브라우저 출처가 만들어지면 곧바로 첫 신원을 받으러 가므로 네트워크를 막아 둔다.
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => {})),
+    );
+    vi.stubGlobal("BroadcastChannel", undefined);
+  });
+
+  afterEach(() => {
+    __resetTokenSourceForTests();
+  });
+
   it("guestAuth 표시가 없으면(구버전 셸) 출처를 만들지 않고 auth-ready도 보내지 않는다", () => {
     window.history.replaceState(null, "", "/home?userId=7");
-    initBridgeTokenSource();
+    initTokenSource();
     expect(getTokenSource()).toBeNull();
     expect(postMessage).not.toHaveBeenCalled();
   });
 
-  it("브리지가 없으면(브라우저 단독) 출처를 만들지 않는다", () => {
-    vi.unstubAllGlobals();
+  it("브리지가 있고 guestAuth=1이면 브리지 출처를 만들고 auth-ready를 보낸다. 두 번 불러도 한 번만 만든다", () => {
     window.history.replaceState(null, "", "/home?userId=7&guestAuth=1");
-    initBridgeTokenSource();
+    initTokenSource();
+    const first = getTokenSource();
+    initTokenSource();
+    expect(first).not.toBeNull();
+    expect(isBrowserTokenSource(first)).toBe(false);
+    expect(getTokenSource()).toBe(first);
+    expect(sentTypes()).toEqual(["auth-ready"]);
+  });
+
+  it("브리지가 없으면 브라우저 출처를 만들고 쿠키 갱신부터 보낸다", async () => {
+    vi.stubGlobal("ReactNativeWebView", undefined);
+    initTokenSource();
+    expect(isBrowserTokenSource(getTokenSource())).toBe(true);
+    // 잠금 대기열이 한 박자 뒤에 요청을 보낸다.
+    await Promise.resolve();
+    expect(vi.mocked(fetch).mock.calls[0]?.[0]).toMatch(/\/api\/auth\/refresh$/);
+  });
+
+  it("브라우저 로그아웃으로 신원이 바뀌면 모든 조회를 무효화한다", async () => {
+    vi.stubGlobal("ReactNativeWebView", undefined);
+    const token = (sub: string) => `h.${btoa(JSON.stringify({ sub })).replace(/=+$/, "")}.s`;
+    const reply = (status: number, body?: unknown) =>
+      Promise.resolve({ ok: status < 300, status, json: () => Promise.resolve(body) });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) =>
+        url.endsWith("/api/auth/refresh")
+          ? reply(200, { accessToken: token("7") })
+          : url.endsWith("/api/auth/logout")
+            ? reply(204)
+            : reply(201, { isNew: true, accessToken: token("8") }),
+      ),
+    );
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries").mockResolvedValue();
+    initTokenSource();
+    await getTokenSource()!.getAccessToken();
+    expect(invalidate).not.toHaveBeenCalled();
+
+    await logoutBrowserGuest();
+
+    expect(getTokenSource()!.getUserId()).toBe(8);
+    expect(invalidate).toHaveBeenCalledTimes(1);
+    invalidate.mockRestore();
+  });
+
+  it("자동화 브라우저(navigator.webdriver)에는 출처를 만들지 않는다", () => {
+    vi.stubGlobal("ReactNativeWebView", undefined);
+    // jsdom에는 이 속성이 없어 직접 만들고 지운다.
+    Object.defineProperty(navigator, "webdriver", { value: true, configurable: true });
+    try {
+      initTokenSource();
+      expect(getTokenSource()).toBeNull();
+      expect(fetch).not.toHaveBeenCalled();
+    } finally {
+      Reflect.deleteProperty(navigator, "webdriver");
+    }
+  });
+
+  it.each([
+    "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+    "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/120.0 Safari/537.36",
+    "AdsBot-Google (+http://www.google.com/adsbot.html)",
+    "Some crawler spider",
+  ])("검색 로봇(%s)에는 출처를 만들지 않는다", (userAgent) => {
+    vi.stubGlobal("ReactNativeWebView", undefined);
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(userAgent);
+    initTokenSource();
     expect(getTokenSource()).toBeNull();
   });
 
-  it("브리지가 있고 guestAuth=1이면 출처를 만들고 auth-ready를 보낸다. 두 번 불러도 한 번만 만든다", () => {
-    window.history.replaceState(null, "", "/home?userId=7&guestAuth=1");
-    initBridgeTokenSource();
-    const first = getTokenSource();
-    initBridgeTokenSource();
-    expect(first).not.toBeNull();
-    expect(getTokenSource()).toBe(first);
-    expect(sentTypes()).toEqual(["auth-ready"]);
+  it("이름에 bot이 든 휴대폰 기종(CUBOT)은 로봇으로 보지 않는다", () => {
+    vi.stubGlobal("ReactNativeWebView", undefined);
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(
+      "Mozilla/5.0 (Linux; Android 10; CUBOT X30) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36",
+    );
+    initTokenSource();
+    expect(isBrowserTokenSource(getTokenSource())).toBe(true);
   });
 });

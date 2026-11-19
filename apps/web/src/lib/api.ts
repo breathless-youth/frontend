@@ -8,6 +8,7 @@ export interface ApiFetchInit extends RequestInit {
   readonly endpoint: ApiEndpoint;
 }
 
+import { isBrowserTokenSource } from "./auth/browserTokenSource";
 import { getTokenSource } from "./auth/tokenSource";
 
 /**
@@ -86,7 +87,7 @@ function isApiOrigin(input: RequestInfo | URL): boolean {
  * `API-Version`은 **엔드포인트마다 다르다**(`API_ENDPOINTS`). 전역 기본값을 두면 어떤 요청에는 반드시
  * 틀린 값이 나가고 서버가 400을 준다 — 그래서 호출부가 자기 엔드포인트 키를 반드시 넘긴다.
  *
- * 값을 고르는 기준은 **이 문서가 어느 계약을 말하느냐**다. 토큰 출처가 없으면(구 앱 웹뷰·브라우저 단독)
+ * 값을 고르는 기준은 **이 문서가 어느 계약을 말하느냐**다. 토큰 출처가 없으면(구 앱 웹뷰·검색 로봇)
  * 구 계약을, 있으면 현재 계약을 쓴다. "지금 토큰을 들고 있느냐"가 아니다 — 부팅 직후나 갱신 중에는
  * 토큰이 잠깐 없지만 그 문서는 여전히 현재 계약을 말한다.
  */
@@ -106,16 +107,23 @@ export async function apiFetch(input: RequestInfo | URL, init: ApiFetchInit): Pr
   // ponytail: 본문 있는 Request 객체 입력은 재시도에서 본문이 이미 소비돼 실패한다. 호출부는 전부 문자열
   // URL + init이라 clone()을 두지 않았다. Request 입력을 쓰게 되면 그때 더한다.
   // 응답 시간은 토큰 대기를 빼고 서버 왕복만 잰다. 실패 응답은 속도가 아니라 오류라 넣지 않는다.
+  // 토큰 출처가 없으면(guestAuth 표시 없는 구버전 셸, 검색 로봇) 구 계약으로 말한다.
+  const source = getTokenSource();
+  headers.set("API-Version", apiVersionFor(endpoint, source === null));
+  // 브라우저 비회원은 refresh 토큰을 HttpOnly 쿠키로 들고 있어 우리 API에만 쿠키와 표시를 싣는다.
+  const cookieMode = isBrowserTokenSource(source) && isApiOrigin(input);
+  if (cookieMode) headers.set("Refresh-Transport", "cookie");
   const send = async () => {
     const finishLatency = beginApiLatency();
-    const res = await fetch(input, { ...requestInit, headers });
+    const res = await fetch(input, {
+      ...requestInit,
+      ...(cookieMode ? { credentials: "include" as const } : {}),
+      headers,
+    });
     if (res.ok && isApiOrigin(input)) finishLatency();
     return res;
   };
 
-  // 토큰 출처가 없으면(브라우저 단독, guestAuth 표시 없는 구버전 셸) 구 계약으로 말한다.
-  const source = getTokenSource();
-  headers.set("API-Version", apiVersionFor(endpoint, source === null));
   // 다른 origin에는 토큰을 싣지 않는다. 401이 와도 우리 토큰 문제가 아니라 갱신하지 않는다.
   if (source === null || !isApiOrigin(input)) {
     return send();

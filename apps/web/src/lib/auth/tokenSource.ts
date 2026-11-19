@@ -1,6 +1,8 @@
 import { isNativeBridgeAvailable, postToNative, subscribeToNativeMessages } from "../bridge";
+import { queryClient } from "../queryClient";
+import { type BrowserTokenSource, createBrowserTokenSource } from "./browserTokenSource";
 
-/** 문서가 아는 신원과 access 토큰. refresh 토큰은 네이티브가 갖고 웹에 오지 않는다. */
+/** 문서가 아는 신원과 access 토큰. refresh 토큰은 앱(네이티브)이나 브라우저의 HttpOnly 쿠키가 갖고 웹 코드에 오지 않는다. */
 export type AuthSnapshot = { userId: number | null; accessToken: string | null };
 
 export interface TokenSource {
@@ -104,26 +106,68 @@ export function createBridgeTokenSource(): TokenSource {
 }
 
 let source: TokenSource | null = null;
+let browserSource: BrowserTokenSource | null = null;
 
 /**
- * 모듈 초기화(`main.tsx`, `createRoot` 전)에서 부른다 — 라우트 자식 effect의 react-query 요청이 `App`의
- * effect보다 먼저 돌아 훅으로는 늦고, StrictMode 이중 실행으로 `auth-ready`가 두 번 나가는 것도 피한다.
- * 출처가 생기는 조건은 브리지가 있고 셸이 `guestAuth=1` 표시를 붙였을 때뿐이다
- * (`apps/mobile/lib/remoteQueryParams.ts`). 표시 없는 구버전 앱과 브라우저 단독은 출처가 없고
- * `apiFetch`는 기다리지 않고 오늘처럼 보낸다. 두 번 불러도 한 번만 만든다.
+ * 검색 로봇과 자동화 브라우저 판별
+ *
+ * 열 때마다 새 비회원이 서버에 쌓이지 않게 출처를 만들지 않는다.
  */
-export function initBridgeTokenSource(): void {
+// ponytail: 사용자 에이전트 문자열만 보는 단순 판별이라 이름을 숨긴 로봇은 걸리지 않는다.
+// 로봇 가입이 실제로 쌓이면 서버에서 등록 빈도를 제한한다.
+function isLikelyBot(): boolean {
+  return (
+    navigator.webdriver === true ||
+    /bot[-/;]|\bbot\b|crawler|spider|slurp|headless/i.test(navigator.userAgent)
+  );
+}
+
+/**
+ * 문서의 토큰 출처 결정
+ *
+ * 모듈 초기화(`main.tsx`, `createRoot` 전)에서 부른다.
+ * 라우트 자식 effect의 react-query 요청이 `App`의 effect보다 먼저 돌아 훅으로는 늦고,
+ * StrictMode 이중 실행으로 `auth-ready`나 등록이 두 번 나가는 것도 피한다.
+ * 앱 웹뷰는 셸이 `guestAuth=1`을 붙였을 때만 브리지 출처를 쓰고(`apps/mobile/lib/remoteQueryParams.ts`),
+ * 표시 없는 구버전 앱은 출처 없이 URL의 `userId`로 말한다.
+ * 브리지가 없는 브라우저는 쿠키 기반 비회원 출처를 쓴다.
+ * 두 번 불러도 한 번만 만든다.
+ */
+export function initTokenSource(): void {
   if (source !== null) {
     return;
   }
-  if (
-    isNativeBridgeAvailable() &&
-    new URLSearchParams(window.location.search).get("guestAuth") === "1"
-  ) {
-    source = createBridgeTokenSource();
+  if (isNativeBridgeAvailable()) {
+    if (new URLSearchParams(window.location.search).get("guestAuth") === "1") {
+      source = createBridgeTokenSource();
+    }
+    return;
   }
+  if (isLikelyBot()) {
+    return;
+  }
+  browserSource = createBrowserTokenSource();
+  source = browserSource;
+  // 로그아웃이나 다른 탭의 계정 전환 뒤 이전 계정의 화면 데이터를 다시 받는다.
+  // 사용자 번호를 키에 넣지 않은 조회도 있어 전부 무효화한다.
+  let lastUserId: number | null | undefined;
+  browserSource.subscribe(({ userId }) => {
+    if (lastUserId !== undefined && userId !== lastUserId) void queryClient.invalidateQueries();
+    lastUserId = userId;
+  });
+}
+
+/** 브라우저 비회원 출처의 로그아웃. 앱 웹뷰에서는 앱이 로그아웃을 맡아 아무것도 하지 않는다. */
+export function logoutBrowserGuest(): Promise<void> {
+  return browserSource?.logout() ?? Promise.resolve();
 }
 
 export function getTokenSource(): TokenSource | null {
   return source;
+}
+
+/** 테스트마다 출처를 다시 정하게 하는 초기화 */
+export function __resetTokenSourceForTests(): void {
+  source = null;
+  browserSource = null;
 }
