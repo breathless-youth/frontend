@@ -9,6 +9,7 @@
   "profileMenu": {
     "open": "個人資料選單",
     "myAccount": "我的帳號",
-    "login": "登入"
+    "login": "登入",
+    "logout": "登出"
   }
 }

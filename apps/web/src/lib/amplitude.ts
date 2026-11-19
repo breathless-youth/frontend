@@ -4,6 +4,7 @@ import {
   Identify,
   identify,
   init,
+  reset,
   setUserId,
   track,
 } from "@amplitude/analytics-browser";
@@ -216,10 +217,10 @@ export function initAmplitude() {
     remoteConfig: { fetchRemoteConfig: false },
   });
 
-  // 브라우저 단독 모드(수동 `?userId=N`)에서만 여기서 값이 잡힌다 — 웹뷰에서는 토큰 출처가
-  // 아직 없고(`initBridgeTokenSource`가 아래 줄에서 생긴다) 셸도 URL에 신원을 싣지 않으므로
-  // null이다. 웹뷰의 신원은 `AnalyticsRouteTracker`가 `useUserId` 구독으로 도착 시 붙인다.
-  // 그래도 이 호출을 남기는 이유는, 브라우저 단독 모드에서 첫 라우트 이펙트까지 기다리면
+  // 구 앱 웹뷰(`?userId=N`)에서만 여기서 값이 잡힌다. 신 앱 웹뷰와 브라우저는 토큰 출처가
+  // 아직 없고(`main.tsx`의 `initTokenSource`가 이 뒤에 생긴다) URL에도 신원이 없으므로
+  // null이다. 그 신원은 `AnalyticsRouteTracker`가 `useUserId` 구독으로 도착 시 붙인다.
+  // 그래도 이 호출을 남기는 이유는, 구 앱 웹뷰에서 첫 라우트 이펙트까지 기다리면
   // 그 사이에 나가는 이벤트가 익명 device_id로 남기 때문이다.
   setAmplitudeUserId(readUserId(window.location.search));
   whenIdle(() => void addReplayPlugin());
@@ -260,8 +261,8 @@ async function addReplayPlugin(): Promise<void> {
  * 1:1로 돌려주는 번호이고, 실명·이메일·전화번호와 연결되지 않는다. Amplitude가 자체 생성하는
  * device_id 대신 이걸 쓰는 이유는 **백엔드 집계와 같은 키로 묶기 위해서**다.
  *
- * `null`(브라우저 직접 접근처럼 셸 계약 밖)이면 익명 device_id 상태로 남긴다 — 이미 붙은
- * user_id를 지우지는 않는다. 같은 기기에서 사용자가 바뀌는 경로가 아직 없어서,
+ * `null`(신원이 아직 없거나 셸 계약 밖)이면 익명 device_id 상태로 남기고, 이미 붙은
+ * user_id를 지우지는 않는다. 같은 기기에서 사용자가 바뀌는 경로는 `resetAmplitudeUser`가 맡으므로,
  * 여기서 `setUserId(undefined)`를 부르면 정상 사용 중 신원만 끊길 위험이 더 크다.
  */
 export function setAmplitudeUserId(userId: number | null) {
@@ -270,6 +271,19 @@ export function setAmplitudeUserId(userId: number | null) {
   if (next === currentUserId) return;
   currentUserId = next;
   setUserId(next);
+}
+
+/**
+ * 로그아웃할 때 붙어 있던 신원 떼기
+ *
+ * 새 비회원 번호가 오기 전의 이벤트에 이전 번호가 실리지 않게 하고,
+ * device_id도 새로 만들어 이전 계정과 새 비회원이 한 기기로 묶이지 않게 한다.
+ * 새 번호는 AnalyticsRouteTracker가 평소처럼 setAmplitudeUserId로 붙인다.
+ */
+export function resetAmplitudeUser() {
+  if (!initialized) return;
+  currentUserId = null;
+  reset();
 }
 
 /** 현재 라우트의 페이지뷰를 전송한다. 경로는 정제를 거치며, 미초기화면 no-op. */

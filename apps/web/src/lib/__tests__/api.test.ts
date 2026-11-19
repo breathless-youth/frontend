@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, apiFetch, parseApiError, parseErrorMessage } from "@/lib/api";
 import type * as tokenSourceModule from "@/lib/auth/tokenSource";
 import type { TokenSource } from "@/lib/auth/tokenSource";
+import { createBrowserTokenSource } from "@/lib/auth/browserTokenSource";
 import { createBridgeTokenSource } from "@/lib/auth/tokenSource";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 
@@ -678,5 +679,89 @@ describe("apiFetch — 응답 시간 표본", () => {
     await apiFetch("/api/rooms", { endpoint: "roomCreate" });
     expect(mockedFetch).toHaveBeenCalledTimes(2);
     expect(mocks.finishApiLatency).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("apiFetch — 브라우저 쿠키 모드", () => {
+  const originalFetch = globalThis.fetch;
+  const status = (code: number) => ({ ok: code < 300, status: code, json: async () => ({}) });
+  const jwt = (sub: string) => `h.${btoa(JSON.stringify({ sub })).replace(/=+$/, "")}.s`;
+  let mockedFetch: ReturnType<typeof vi.fn>;
+  const initOf = (call: number) => (mockedFetch.mock.calls[call] as [string, RequestInit])[1];
+  const headerOf = (call: number, name: string) => new Headers(initOf(call).headers).get(name);
+
+  /** 출처 자신의 갱신 요청은 따로 답한다. 첫 신원은 a(7), 이후 갱신은 b(7). */
+  async function browserSource() {
+    const tokens = [jwt("7"), `${jwt("7")}b`];
+    const sourceFetch = vi.fn(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({ accessToken: tokens.shift() }),
+      } as Response),
+    );
+    const source = createBrowserTokenSource({
+      fetch: sourceFetch as unknown as typeof fetch,
+      locks: null,
+      channel: null,
+      baseUrl: "",
+    });
+    await source.getAccessToken();
+    return { source, sourceFetch };
+  }
+
+  beforeEach(() => {
+    mockedFetch = vi.fn();
+    globalThis.fetch = mockedFetch as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    mocks.source = null;
+    globalThis.fetch = originalFetch;
+  });
+
+  it("우리 API 요청에는 쿠키를 싣고 Refresh-Transport: cookie를 붙인다", async () => {
+    mocks.source = (await browserSource()).source;
+    mockedFetch.mockResolvedValue(status(200));
+    await apiFetch("/api/rooms", { endpoint: "roomCreate" });
+    expect(initOf(0).credentials).toBe("include");
+    expect(headerOf(0, "Refresh-Transport")).toBe("cookie");
+    expect(headerOf(0, "Authorization")).toBe(`Bearer ${jwt("7")}`);
+  });
+
+  it("다른 origin 요청에는 쿠키도 표시도 싣지 않는다", async () => {
+    mocks.source = (await browserSource()).source;
+    mockedFetch.mockResolvedValue(status(200));
+    await apiFetch("https://example.com/api/rooms", { endpoint: "roomCreate" });
+    expect(initOf(0).credentials).toBeUndefined();
+    expect(headerOf(0, "Refresh-Transport")).toBeNull();
+  });
+
+  it("앱 웹뷰(브리지 출처) 요청은 오늘처럼 보낸다", async () => {
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    try {
+      const source = createBridgeTokenSource();
+      (globalThis as unknown as Record<string, (raw: string) => void>)[NATIVE_MESSAGE_ENTRY](
+        JSON.stringify({ type: "auth-token", userId: 7, accessToken: "a1", atMs: 1 }),
+      );
+      mocks.source = source;
+      mockedFetch.mockResolvedValue(status(200));
+      await apiFetch("/api/rooms", { endpoint: "roomCreate" });
+      expect(initOf(0).credentials).toBeUndefined();
+      expect(headerOf(0, "Refresh-Transport")).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("401이면 쿠키로 갱신하고 새 토큰으로 한 번 다시 보낸다", async () => {
+    const { source, sourceFetch } = await browserSource();
+    mocks.source = source;
+    mockedFetch.mockResolvedValueOnce(status(401)).mockResolvedValueOnce(status(200));
+    const res = await apiFetch("/api/rooms", { endpoint: "roomCreate" });
+    expect(res.status).toBe(200);
+    expect(sourceFetch).toHaveBeenCalledTimes(2);
+    expect(headerOf(1, "Authorization")).toBe(`Bearer ${jwt("7")}b`);
+    expect(headerOf(1, "Refresh-Transport")).toBe("cookie");
   });
 });

@@ -9,6 +9,7 @@
   "profileMenu": {
     "open": "Profile menu",
     "myAccount": "My account",
-    "login": "Log in"
+    "login": "Log in",
+    "logout": "Log out"
   }
 }

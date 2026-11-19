@@ -12,8 +12,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ProfileAvatar } from "@/features/profile/ProfileAvatar";
+import { resetAmplitudeUser, setAmplitudeUserId } from "@/lib/amplitude";
+import { logoutBrowserGuest } from "@/lib/auth/tokenSource";
+import { isNativeBridgeAvailable } from "@/lib/bridge";
+import i18n from "@/lib/i18n";
 import { isSocialLoginProvider } from "@/lib/nativeSocialLogin";
 import { profileQuery } from "@/lib/profileQueries";
+import { showToast } from "@/lib/toast";
 import { legacyQuery, useUserId } from "@/lib/userId";
 
 const ITEM_CLASS = "min-h-11 gap-2.5 rounded-sm px-2.5 text-sm text-foreground";
@@ -22,8 +27,9 @@ const ITEM_CLASS = "min-h-11 gap-2.5 rounded-sm px-2.5 text-sm text-foreground";
  * 상단 바 오른쪽 아바타와 프로필 메뉴
  *
  * 회원 여부는 설정 화면의 계정 섹션처럼 프로필의 로그인 공급자로 구분한다.
- * 신원이 없거나 프로필을 받지 못하면 비회원으로 보고 기본 아바타와 로그인을 보인다.
- * 브라우저에는 아직 로그아웃 경로가 없어서 소셜 회원에게는 로그인과 로그아웃을 모두 두지 않는다.
+ * 신원이 없거나 프로필을 받지 못하면 비회원으로 보고 기본 아바타를 보인다.
+ * 앱에서는 비회원에게 로그인을 보이고, 회원의 로그아웃은 설정 화면에서 앱이 맡는다.
+ * 브라우저에는 아직 소셜 로그인이 없어 로그인을 숨기고, 회원에게는 쿠키 기반 로그아웃을 보인다.
  */
 export function PcProfileMenu() {
   const { t } = useTranslation("desktop");
@@ -32,6 +38,17 @@ export function PcProfileMenu() {
   const profile = useQuery({ ...profileQuery(userId ?? 0), enabled: userId !== null });
 
   const go = (pathname: string) => navigate({ pathname, search: legacyQuery("") });
+  const isMember = isSocialLoginProvider(profile.data?.loginProvider);
+  const inBrowser = !isNativeBridgeAvailable();
+
+  // 새 비회원 번호가 오기 전의 이벤트에 이전 번호가 실리지 않도록 분석 신원부터 뗀다.
+  const logout = async () => {
+    resetAmplitudeUser();
+    const done = await logoutBrowserGuest();
+    // 실패하면 같은 회원으로 남는데 신원 번호가 그대로라 분석 신원을 다시 붙여 주는 곳이 없다.
+    if (!done) setAmplitudeUserId(userId);
+    showToast(i18n.t(done ? "common:authSuccess.logout" : "common:errors.retryLater"));
+  };
 
   const avatar = (className: string) => (
     <ProfileAvatar
@@ -67,7 +84,12 @@ export function PcProfileMenu() {
           <span className="flex-1">{t("profileMenu.myAccount")}</span>
           <ChevronRight aria-hidden="true" className="size-4 text-text-tertiary" />
         </DropdownMenuItem>
-        {isSocialLoginProvider(profile.data?.loginProvider) ? null : (
+        {inBrowser && isMember ? (
+          <DropdownMenuItem className={ITEM_CLASS} onSelect={() => void logout()}>
+            {t("profileMenu.logout")}
+          </DropdownMenuItem>
+        ) : null}
+        {inBrowser || isMember ? null : (
           <DropdownMenuItem className={ITEM_CLASS} onSelect={() => go("/settings/login")}>
             {t("profileMenu.login")}
           </DropdownMenuItem>

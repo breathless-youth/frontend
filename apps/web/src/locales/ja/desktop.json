@@ -9,6 +9,7 @@
   "profileMenu": {
     "open": "プロフィールメニュー",
     "myAccount": "マイページ",
-    "login": "ログイン"
+    "login": "ログイン",
+    "logout": "ログアウト"
   }
 }
