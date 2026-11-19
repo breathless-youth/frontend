@@ -161,7 +161,7 @@
     "studyDays": "{{count}}日",
     "ctaHome": "ホームへ",
     "ctaRecords": "記録を見る",
-    "timerNotice": "カメラなしで勉強した時間は、\n連続記録・ランキング・ポイントには反映されません"
+    "timerNotice": "自主モードで勉強した時間は、\n連続記録・ランキング・ポイントには反映されません"
   },
   "legend": {
     "focus": "集中",

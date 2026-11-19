@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { Skeleton } from "@/components/ui/Skeleton";
 
 import { durationParts, formatDuration } from "./recordsFormat";
@@ -14,11 +15,19 @@ import { durationParts, formatDuration } from "./recordsFormat";
 export function PeriodHeadline({
   label,
   totals,
+  modeSplit,
 }: {
   /** `오늘 순공시간` · `M월 D일 순공시간` · `주간 순공시간`. */
   label: string;
   /** 그 기간의 순공·총 공부(초). 조회 중이면 `"pending"`, 실패면 `"error"`. */
   totals: { focusSec: number; studySec: number } | "pending" | "error";
+  /**
+   * 관리·자율 모드별 총 공부(초)
+   *
+   * 일간만 넘긴다.
+   * 주간 합계는 출처별로 나뉘어 오지 않는다.
+   */
+  modeSplit?: { cameraSec: number; timerSec: number };
 }) {
   const { t } = useTranslation("records");
   return (
@@ -52,6 +61,19 @@ export function PeriodHeadline({
               duration: totals === "error" ? "—" : formatDuration(totals.studySec),
             })}
           </p>
+          {modeSplit !== undefined && totals !== "error" && (
+            <div className="flex items-center gap-1 text-xs leading-4 text-text-tertiary tabular-nums">
+              <p>
+                {t("headline.modeSplit", {
+                  camera: formatDuration(modeSplit.cameraSec),
+                  timer: formatDuration(modeSplit.timerSec),
+                })}
+              </p>
+              <InfoTooltip label={t("headline.modeInfoLabel")} iconSize={12} align="center">
+                {t("headline.modeInfo")}
+              </InfoTooltip>
+            </div>
+          )}
         </>
       )}
     </div>

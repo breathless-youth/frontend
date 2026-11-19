@@ -108,3 +108,51 @@ describe.each(translated)("%s 카탈로그", (lng) => {
     });
   });
 });
+
+/**
+ * 관리·자율 모드 공식 명칭
+ *
+ * 모드 이름이 홈 전환 안내와 기록 탭 하루 요약에서 같아야 사용자가 같은 모드로 알아본다.
+ * 기록 행 배지만 자리가 좁아 영어를 줄여 쓴다.
+ */
+const MODE_NAMES: Record<string, [camera: string, timer: string]> = {
+  ko: ["관리 모드", "자율 모드"],
+  en: ["Camera Mode", "Self-guided Mode"],
+  ja: ["カメラモード", "自主モード"],
+  "zh-Hant": ["相機模式", "自主模式"],
+};
+
+describe.each(Object.keys(MODE_NAMES))("%s 모드 이름", (lng) => {
+  const [camera, timer] = MODE_NAMES[lng]!;
+  const home = flatten(resources[lng]?.home);
+  const records = flatten(resources[lng]?.records);
+
+  it("홈 전환 안내와 기록 탭 하루 요약이 공식 명칭을 쓴다", () => {
+    expect(home.get("v3.measureMode.toast.camera")).toContain(camera);
+    expect(home.get("v3.measureMode.toggle.camera")).toContain(camera);
+    expect(home.get("v3.measureMode.toast.timer")).toContain(timer);
+    expect(home.get("v3.measureMode.toggle.timer")).toContain(timer);
+    expect(records.get("headline.modeSplit")).toContain(camera);
+    expect(records.get("headline.modeSplit")).toContain(timer);
+  });
+
+  it("온보딩 1단계 안내가 자율 모드 공식 명칭을 쓴다", () => {
+    expect(flatten(resources[lng]?.onboarding).get("autoTimer.hint")).toContain(timer);
+  });
+});
+
+/**
+ * 공부 시작 버튼 이름
+ *
+ * 자율 모드 세션도 같은 버튼으로 시작하므로 집중·순공이 아니라 공부로 부른다.
+ */
+it.each(SUPPORTED_LOCALES)("%s 홈·옛 홈·랭킹의 시작 버튼 이름이 같다", (lng) => {
+  const home = flatten(resources[lng]?.home);
+  const label = home.get("v3.startStudy");
+  expect(home.get("startFocus")).toBe(label);
+  expect(flatten(resources[lng]?.ranking).get("focusStart.label")).toBe(label);
+});
+
+it("영어 기록 행 배지는 줄인 이름을 쓴다", () => {
+  expect(flatten(resources.en?.records).get("timerItem.badge")).toBe("Self-guided");
+});

@@ -237,11 +237,11 @@ it("회색 막대를 잡은 채 창 포커스를 잃으면 복구하고 이후 �
 it.each([
   ["MEASURED", []],
   ["MANUAL", ["· 직접 입력"]],
-  ["TIMER", ["· 카메라 없이"]],
+  ["TIMER", ["· 자율 모드"]],
 ] as const)("%s 기록 시트의 제목 줄은 출처 표시 %j를 붙인다", (source, shown) => {
   mount({ target: { ...block, source } });
   const region = screen.getByRole("region");
-  for (const suffix of ["· 직접 입력", "· 카메라 없이"]) {
+  for (const suffix of ["· 직접 입력", "· 자율 모드"]) {
     if ((shown as readonly string[]).includes(suffix)) {
       expect(region).toHaveTextContent(suffix);
     } else {

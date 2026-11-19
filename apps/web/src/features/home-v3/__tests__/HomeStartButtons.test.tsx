@@ -26,10 +26,10 @@ it("측정 방식을 바꾸면 바뀐 방식을 토스트로 알린다", async (
     </>,
   );
 
-  await userEvent.click(screen.getByRole("button", { name: /측정 방식 바꾸기/ }));
-  expect(await screen.findByText("카메라 없이 공부해요")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "모드 바꾸기, 지금 관리 모드" }));
+  expect(await screen.findByText("자율 모드: 카메라 없이 공부해요")).toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole("button", { name: /측정 방식 바꾸기/ }));
-  expect(await screen.findByText("카메라로 순공 시간을 측정해요")).toBeInTheDocument();
-  expect(screen.queryByText("카메라 없이 공부해요")).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "모드 바꾸기, 지금 자율 모드" }));
+  expect(await screen.findByText("관리 모드: 카메라로 순공 시간을 측정해요")).toBeInTheDocument();
+  expect(screen.queryByText("자율 모드: 카메라 없이 공부해요")).not.toBeInTheDocument();
 });

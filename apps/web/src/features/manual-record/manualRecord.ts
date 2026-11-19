@@ -52,6 +52,24 @@ export function isTimerSession(session: Pick<StudySessionSummary, "source">): bo
   return session.source === "TIMER";
 }
 
+/**
+ * 관리·자율 모드별 총 공부 시간(초)
+ *
+ * 출처가 없는 응답은 측정 세션이라 관리 모드에 넣는다.
+ * 직접 입력은 어느 모드에도 넣지 않아 두 값의 합이 총 공부시간과 다를 수 있다.
+ */
+export function studySecByMode(
+  sessions: readonly Pick<StudySessionSummary, "source" | "studySec">[],
+): { cameraSec: number; timerSec: number } {
+  let cameraSec = 0;
+  let timerSec = 0;
+  for (const session of sessions) {
+    if (isTimerSession(session)) timerSec += session.studySec;
+    else if (!isManualSession(session)) cameraSec += session.studySec;
+  }
+  return { cameraSec, timerSec };
+}
+
 /** epoch ms → 기기 시간대 `HH:MM`. 시각 입력칸의 값과 같은 꼴이다. */
 export function clockOf(ms: number): string {
   // 입력칸 값은 언어와 무관하게 24시간제 `HH:MM`이어야 해서 한국어 포맷을 고정해 쓴다.

@@ -59,7 +59,7 @@
     "longestFocus": "Longest focus",
     "loadFailed": "Couldn't load your records"
   },
-  "startFocus": "Start Focus",
+  "startFocus": "Start studying",
   "invite": {
     "title": "Hard to focus alone today? <br/>Study together with others",
     "cta": "Study with a group"
@@ -150,12 +150,12 @@
     "startingStudy": "Getting ready",
     "measureMode": {
       "toggle": {
-        "camera": "Change measuring mode, now measuring with camera",
-        "timer": "Change measuring mode, now studying without camera"
+        "camera": "Change mode, now Camera Mode",
+        "timer": "Change mode, now Self-guided Mode"
       },
       "toast": {
-        "camera": "Measuring focus time with camera",
-        "timer": "Studying without camera"
+        "camera": "Camera Mode: measuring focus time with the camera",
+        "timer": "Self-guided Mode: studying without the camera"
       }
     },
     "startFailed": "Could not start studying. Please try again.",

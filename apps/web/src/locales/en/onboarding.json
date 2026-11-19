@@ -2,6 +2,7 @@
   "autoTimer": {
     "titleTop": "Keep your camera on,",
     "titleBottom": "we'll measure focus time",
+    "hint": "There's also Self-guided Mode, no camera needed",
     "aria": {
       "mock": "The focus timer runs while the camera is on and stops when you're not focused"
     }
@@ -31,7 +32,7 @@
     "titleTop": "You're all set",
     "titleBottom": "Let's focus together",
     "aria": {
-      "mock": "Tapping Start Focus on the home screen"
+      "mock": "Tapping Start studying on the home screen"
     }
   },
   "cta": {

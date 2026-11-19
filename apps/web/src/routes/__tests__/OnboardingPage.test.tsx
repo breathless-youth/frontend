@@ -47,6 +47,8 @@ function renderOnboarding() {
   );
 }
 
+const SELF_GUIDED_HINT = "카메라 없이 공부하는 자율 모드도 있어요";
+
 function heading(): string {
   return screen.getByRole("heading", { level: 1 }).textContent ?? "";
 }
@@ -81,6 +83,38 @@ describe("OnboardingPage", () => {
     expect(heading()).toContain("순공 시간을 자동으로 측정해요");
     expect(screen.queryByRole("button", { name: "이전" })).not.toBeInTheDocument();
     expect(mocks.trackOnboardingStepViewed).toHaveBeenCalledWith("auto_timer");
+  });
+
+  it("1단계에서 카메라 없이 공부하는 자율 모드를 안내한다", () => {
+    renderOnboarding();
+
+    expect(screen.getByText(SELF_GUIDED_HINT)).not.toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("2단계로 가면 자율 모드 안내를 화면 읽기에서 숨긴다", async () => {
+    renderOnboarding();
+    await advanceTo(2);
+
+    expect(screen.getByText(SELF_GUIDED_HINT)).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("단계 변경 알림은 1단계에서만 자율 모드 안내까지 읽는다", async () => {
+    const { container } = renderOnboarding();
+    const announcement = () => container.querySelector('[aria-live="polite"]')?.textContent;
+
+    expect(announcement()).toContain(SELF_GUIDED_HINT);
+
+    await advanceTo(2);
+    expect(announcement()).not.toContain(SELF_GUIDED_HINT);
+  });
+
+  it("이전으로 1단계에 돌아오면 자율 모드 안내가 다시 보인다", async () => {
+    renderOnboarding();
+    const user = await advanceTo(2);
+
+    await user.click(screen.getByRole("button", { name: "이전" }));
+
+    expect(screen.getByText(SELF_GUIDED_HINT)).not.toHaveAttribute("aria-hidden", "true");
   });
 
   it("다음을 누르면 자동 기록, 그룹 스터디, 맞춤 알림 순서로 넘어가고 단계마다 노출을 보낸다", async () => {
