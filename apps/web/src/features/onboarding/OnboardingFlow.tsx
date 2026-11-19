@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronLeft } from "lucide-react";
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import iphoneFrame from "@/assets/onboarding/iphone-frame.webp";
@@ -528,23 +528,33 @@ export function OnboardingFlow({
         {([1, 2, 3, 4, 5] as const).map((s) => {
           const active = s === scene;
           const offset = active ? 0 : s < scene ? -10 : 10;
+          const motion: CSSProperties = {
+            opacity: active ? 1 : 0,
+            transform: `translateY(${offset}px)`,
+            filter: `blur(${active ? 0 : 6}px)`,
+            transitionDelay: active ? "0.12s" : "0s",
+          };
           return (
-            <h1
-              key={s}
-              aria-hidden={!active}
-              className="onboarding-title pointer-events-none absolute inset-x-5 text-center text-[22px] leading-7.5 font-bold tracking-[-0.2px]"
-              style={{
-                top: s >= 4 ? 122 : 622,
-                opacity: active ? 1 : 0,
-                transform: `translateY(${offset}px)`,
-                filter: `blur(${active ? 0 : 6}px)`,
-                transitionDelay: active ? "0.12s" : "0s",
-              }}
-            >
-              {t(`${COPY_KEY[s]}.titleTop`)}
-              <br />
-              {t(`${COPY_KEY[s]}.titleBottom`)}
-            </h1>
+            <Fragment key={s}>
+              <h1
+                aria-hidden={!active}
+                className="onboarding-title pointer-events-none absolute inset-x-5 text-center text-[22px] leading-7.5 font-bold tracking-[-0.2px]"
+                style={{ top: s >= 4 ? 122 : 622, ...motion }}
+              >
+                {t(`${COPY_KEY[s]}.titleTop`)}
+                <br />
+                {t(`${COPY_KEY[s]}.titleBottom`)}
+              </h1>
+              {s === 1 && (
+                <p
+                  aria-hidden={!active}
+                  className="onboarding-title pointer-events-none absolute inset-x-5 text-center text-sm leading-5 font-medium break-keep text-muted-foreground"
+                  style={{ top: 690, ...motion }}
+                >
+                  {t("autoTimer.hint")}
+                </p>
+              )}
+            </Fragment>
           );
         })}
 
@@ -566,6 +576,7 @@ export function OnboardingFlow({
       {/* 제목이 바뀐 것을 화면 읽기 프로그램에 알린다. */}
       <p className="sr-only" aria-live="polite">
         {`${t(`${COPY_KEY[scene]}.titleTop`)} ${t(`${COPY_KEY[scene]}.titleBottom`)}`}
+        {scene === 1 && ` ${t("autoTimer.hint")}`}
       </p>
     </div>
   );
