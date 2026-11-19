@@ -104,29 +104,29 @@ describe("S2-3 · 권한 거부 안내", () => {
     expect(mascot.props.className).toBe("size-24");
   });
 
-  it("싱글룸 시작에서 열리면 설정 열기 아래에 카메라 없이 시작을 둔다", () => {
+  it("싱글룸 시작에서 열리면 설정 열기 아래에 자율 모드로 시작을 둔다", () => {
     mockDeniedParams.from = "single";
     render(<PermissionDeniedScreen />);
 
-    const order = ["설정 열기", "카메라 없이 시작", "홈으로 돌아가기"].map((name) =>
+    const order = ["설정 열기", "자율 모드로 시작", "홈으로 돌아가기"].map((name) =>
       screen.getByRole("button", { name }),
     );
     expect(screen.getAllByRole("button")).toEqual(order);
   });
 
-  it("소셜룸 입장처럼 파라미터 없이 열리면 카메라 없이 시작을 보이지 않는다", () => {
+  it("소셜룸 입장처럼 파라미터 없이 열리면 자율 모드로 시작을 보이지 않는다", () => {
     render(<PermissionDeniedScreen />);
 
     expect(screen.getAllByRole("button")).toHaveLength(2);
-    expect(screen.queryByText("카메라 없이 시작")).toBeNull();
+    expect(screen.queryByText("자율 모드로 시작")).toBeNull();
   });
 
-  it("카메라 없이 시작을 누르면 이 화면을 카메라 없는 세션 화면으로 바꾸고 고르던 과목을 넘긴다", () => {
+  it("자율 모드로 시작을 누르면 이 화면을 카메라 없는 세션 화면으로 바꾸고 고르던 과목을 넘긴다", () => {
     mockDeniedParams.from = "single";
     mockDeniedParams.initialSubjectId = "3";
     render(<PermissionDeniedScreen />);
 
-    fireEvent.press(screen.getByRole("button", { name: "카메라 없이 시작" }));
+    fireEvent.press(screen.getByRole("button", { name: "자율 모드로 시작" }));
 
     expect(router.replace).toHaveBeenCalledWith({
       pathname: "/room/[id]",
@@ -172,11 +172,11 @@ describe("S2-3 · 이벤트", () => {
     expect(summary().at(-1)).toEqual(["permission_denied_left", { reason: "back_home" }]);
   });
 
-  it("카메라 없이 시작으로 빠지면 start_without_camera로 남긴다", () => {
+  it("자율 모드로 시작으로 빠지면 start_without_camera로 남긴다", () => {
     mockDeniedParams.from = "single";
     render(<PermissionDeniedScreen />);
 
-    fireEvent.press(screen.getByRole("button", { name: "카메라 없이 시작" }));
+    fireEvent.press(screen.getByRole("button", { name: "자율 모드로 시작" }));
     mockBeforeRemove.listener?.();
 
     expect(summary().at(-1)).toEqual([
