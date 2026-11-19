@@ -818,7 +818,12 @@ export function createVisionFocusDetector(
         peak: step.yawn.peak,
       };
       for (const listener of [...yawnListeners]) {
-        listener(yawn);
+        // 본 프레임 경로에서도 불린다. 구독자 오류가 그 프레임의 집중 판정을 끊지 않게 여기서 받는다.
+        try {
+          listener(yawn);
+        } catch (error: unknown) {
+          reportHandled(error, "vision-yawn-listener");
+        }
       }
     }
     if (jaw !== null && jaw >= YAWN_FAST_TRIGGER && yawnTimer === null) {

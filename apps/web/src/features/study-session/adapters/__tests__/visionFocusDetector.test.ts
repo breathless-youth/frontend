@@ -2777,19 +2777,29 @@ describe("하품", () => {
     expect(yawns).toEqual([]);
   });
 
-  it("따로 잰 표본을 처리하다 구독자가 던지면 오류로 남긴다", async () => {
-    // 첫 따로 잰 표본(0.5초)이 하품을 열고, 2초 넘게 지난 뒤의 따로 잰 표본이 끝낸다.
-    const { vision } = yawnVision([mouth(0.05), mouth(0.5), mouth(0.05)]);
+  it("구독자가 던져도 다른 구독자는 하품을 받고 오류는 따로 남긴다", async () => {
+    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
+    const face = fakeFaceLandmarker({ faces: [mouth(0.05), mouth(0.5), mouth(0.05)] });
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      faceLandmarker: face.landmarker,
+      nowMs: () => Date.now(),
+      observeYawns: true,
+    });
     const thrown = new Error("listener failed");
     vision.subscribeYawn(() => {
       throw thrown;
     });
+    const yawns: Yawn[] = [];
+    vision.subscribeYawn((yawn) => yawns.push(yawn));
 
     vision.start();
     await vi.advanceTimersByTimeAsync(0);
     await vi.advanceTimersByTimeAsync(5000);
 
-    expect(sentry.reportHandled).toHaveBeenCalledWith(thrown, "vision-yawn-sample");
+    expect(yawns).toHaveLength(1);
+    expect(sentry.reportHandled).toHaveBeenCalledWith(thrown, "vision-yawn-listener");
   });
 
   it("멈추면 따로 재던 것도 멈춘다", async () => {
