@@ -96,23 +96,27 @@ function tiltFrame(id: MascotId, jumping: boolean) {
  * 점프 그림은 몸이 기울어 있어 소품도 같은 순간에 같은 만큼 기운다.
  * 세트는 발을 덮거나 발밑에 깔려 다리를 모은 점프 그림과 어긋나므로, 다리를 펴고 웃는 그림을 몸과 세트째 기울인다.
  * 고른 모습을 아직 모르면 `mascotHidden`으로 마스코트 자리를 비워 두고, 기본 마스코트를 먼저 그렸다가 바꾸지 않는다.
+ * 카메라 없이 공부한 세션은 순공시간을 측정하지 않아 큰 숫자를 총 공부시간으로 바꾸고 총 공부 줄과 집중률 배지를 그리지 않는다.
  */
 export function StudyCompleteHero({
   view,
   phase,
   look,
   mascotHidden = false,
+  timer = false,
 }: {
   view: SessionResultView;
   phase: CompleteHeroPhase;
   look?: MascotLook | null;
   /** 참이면 마스코트와 그림자, 발밑 소품을 그리지 않고 자리만 둔다. */
   mascotHidden?: boolean;
+  /** 참이면 카메라 없이 공부한 세션이다. */
+  timer?: boolean;
 }) {
   const { t } = useTranslation("study-session");
   const collapsed = phase === "revealed";
   const animated = phase !== "static";
-  const focusSec = useCountUp(view.focusSec, animated);
+  const headlineSec = useCountUp(timer ? view.studySec : view.focusSec, animated);
   const jumping = phase === "intro" && !mascotHidden;
   const { id, accessories } = look ?? DEFAULT_LOOK;
   const { wearsSet } = splitAccessoryLayers(accessories);
@@ -254,22 +258,28 @@ export function StudyCompleteHero({
           style={{ marginTop: collapsed ? 4 : animated ? 34 : 22 }}
         >
           <p className="text-[12px] leading-3.75 font-bold text-muted-foreground">
-            {t("result.focusLabel")}
+            {t(timer ? "result.totalPrefix" : "result.focusLabel")}
           </p>
           <p className="text-[40px] leading-11.5 font-extrabold tracking-[-1.2px] text-foreground tabular-nums">
-            {toKoreanDurationLength(focusSec)}
+            {toKoreanDurationLength(headlineSec)}
           </p>
         </div>
 
-        {/* 총 공부 = 일시정지를 뺀 값이라 타임라인 축의 벽시계 범위와 다를 수 있다. */}
-        <p className="mt-2 text-[14px] leading-4.25 tabular-nums animate-[result-fade-up_0.5s_ease-out_0.9s_both] motion-reduce:animate-none">
-          <span className="text-muted-foreground">{`${t("result.totalPrefix")} `}</span>
-          <span className="font-bold text-foreground">{toKoreanDurationLength(view.studySec)}</span>
-        </p>
+        {!timer && (
+          <>
+            {/* 총 공부 = 일시정지를 뺀 값이라 타임라인 축의 벽시계 범위와 다를 수 있다. */}
+            <p className="mt-2 text-[14px] leading-4.25 tabular-nums animate-[result-fade-up_0.5s_ease-out_0.9s_both] motion-reduce:animate-none">
+              <span className="text-muted-foreground">{`${t("result.totalPrefix")} `}</span>
+              <span className="font-bold text-foreground">
+                {toKoreanDurationLength(view.studySec)}
+              </span>
+            </p>
 
-        <Badge className="mt-2.5 animate-[result-badge-pop_0.5s_cubic-bezier(0.34,1.56,0.64,1)_1s_both] motion-reduce:animate-none">
-          {t("result.focusRate", { percent: view.focusRatePercent })}
-        </Badge>
+            <Badge className="mt-2.5 animate-[result-badge-pop_0.5s_cubic-bezier(0.34,1.56,0.64,1)_1s_both] motion-reduce:animate-none">
+              {t("result.focusRate", { percent: view.focusRatePercent })}
+            </Badge>
+          </>
+        )}
       </div>
     </section>
   );

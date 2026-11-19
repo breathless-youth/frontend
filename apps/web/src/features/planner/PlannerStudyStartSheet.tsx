@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { enterGroupStudyRoom } from "@/features/group-room/enterGroupStudyRoom";
 import type { GroupRoomLocationState } from "@/features/live-room/liveRoomEntryState";
 import { subjectColorVar } from "@/features/records/recordsTimetable";
+import { readMeasureMode } from "@/features/measure-mode/measureMode";
 import { sessionGuideState } from "@/features/study-session/sessionGuide";
 import { verifySubjectBeforeSeat } from "@/features/study-session/useInitialSubject";
 import { trackFocusStartTapped } from "@/lib/amplitude";
@@ -61,7 +62,8 @@ export function PlannerStudyStartSheet({
     try {
       if (groupId === undefined) {
         haptic("medium");
-        if (sessionGuideState(userId) !== "seen") {
+        // 가이드는 카메라 감지를 설명해서 카메라 없는 모드에서는 띄우지 않는다.
+        if (readMeasureMode() === "camera" && sessionGuideState(userId) !== "seen") {
           navigate(
             { pathname: "/session-guide", search: search.toString() },
             { state: { source: "planner", initialSubjectId: task.subjectId } },

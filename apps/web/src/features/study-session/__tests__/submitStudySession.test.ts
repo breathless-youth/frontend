@@ -38,6 +38,11 @@ describe("buildSessionRequest", () => {
     expect(req).not.toHaveProperty("completedTaskIds");
   });
 
+  it("카메라 없는 세션이면 측정 방식을 TIMER로 싣고 카메라 세션이면 필드를 싣지 않는다", () => {
+    expect(buildSessionRequest({ ...BASE_INPUT, source: "TIMER" }).source).toBe("TIMER");
+    expect(buildSessionRequest({ ...BASE_INPUT, source: "MEASURED" })).not.toHaveProperty("source");
+  });
+
   it("완료 할 일이 있으면 그대로 싣는다", () => {
     const req = buildSessionRequest({ ...BASE_INPUT, completedTaskIds: [5, 9] });
     expect(req.completedTaskIds).toEqual([5, 9]);

@@ -4,9 +4,11 @@ import {
   render,
   screen,
 } from "@testing-library/react-native";
+import { router } from "expo-router";
 
 import PermissionDeniedScreen from "../app/permission-denied";
 import { setDeviceLanguages } from "../jest/deviceLanguages";
+import { __resetStartSessionInFlightForTests } from "../lib/nativeBridgeHandler";
 import {
   __resetNativeAnalyticsForTests,
   attachNativeAnalyticsSink,
@@ -22,8 +24,12 @@ import {
 /** 화면이 스택에서 빠질 때 불리는 beforeRemove 리스너 — 이탈 계측이 여기에 걸린다. */
 const mockBeforeRemove: { listener: (() => void) | null } = { listener: null };
 
+/** 거부 화면을 연 쪽이 넘긴 파라미터 — 싱글룸 시작이면 `from=single`과 과목이 온다. */
+const mockDeniedParams: { from?: string; initialSubjectId?: string } = {};
+
 jest.mock("expo-router", () => ({
   router: { canGoBack: jest.fn(() => true), back: jest.fn(), replace: jest.fn(), push: jest.fn() },
+  useLocalSearchParams: () => mockDeniedParams,
   useNavigation: () => ({
     addListener: (event: string, listener: () => void) => {
       if (event === "beforeRemove") {
@@ -38,6 +44,10 @@ jest.mock("expo-router", () => ({
 
 afterEach(() => {
   setDeviceLanguages(["ko-KR"]);
+  delete mockDeniedParams.from;
+  delete mockDeniedParams.initialSubjectId;
+  __resetStartSessionInFlightForTests();
+  jest.clearAllMocks();
 });
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -94,10 +104,35 @@ describe("S2-3 · 권한 거부 안내", () => {
     expect(mascot.props.className).toBe("size-24");
   });
 
-  it("카메라 없이 시작하는 우회 경로를 제공하지 않는다 (policies.md §3 카메라 필수)", () => {
+  it("싱글룸 시작에서 열리면 설정 열기 아래에 자율 모드로 시작을 둔다", () => {
+    mockDeniedParams.from = "single";
+    render(<PermissionDeniedScreen />);
+
+    const order = ["설정 열기", "자율 모드로 시작", "홈으로 돌아가기"].map((name) =>
+      screen.getByRole("button", { name }),
+    );
+    expect(screen.getAllByRole("button")).toEqual(order);
+  });
+
+  it("소셜룸 입장처럼 파라미터 없이 열리면 자율 모드로 시작을 보이지 않는다", () => {
     render(<PermissionDeniedScreen />);
 
     expect(screen.getAllByRole("button")).toHaveLength(2);
+    expect(screen.queryByText("자율 모드로 시작")).toBeNull();
+  });
+
+  it("자율 모드로 시작을 누르면 이 화면을 카메라 없는 세션 화면으로 바꾸고 고르던 과목을 넘긴다", () => {
+    mockDeniedParams.from = "single";
+    mockDeniedParams.initialSubjectId = "3";
+    render(<PermissionDeniedScreen />);
+
+    fireEvent.press(screen.getByRole("button", { name: "자율 모드로 시작" }));
+
+    expect(router.replace).toHaveBeenCalledWith({
+      pathname: "/room/[id]",
+      params: { id: "1", measureMode: "timer", initialSubjectId: "3" },
+    });
+    expect(router.push).not.toHaveBeenCalled();
   });
 });
 
@@ -135,6 +170,19 @@ describe("S2-3 · 이벤트", () => {
     mockBeforeRemove.listener?.();
 
     expect(summary().at(-1)).toEqual(["permission_denied_left", { reason: "back_home" }]);
+  });
+
+  it("자율 모드로 시작으로 빠지면 start_without_camera로 남긴다", () => {
+    mockDeniedParams.from = "single";
+    render(<PermissionDeniedScreen />);
+
+    fireEvent.press(screen.getByRole("button", { name: "자율 모드로 시작" }));
+    mockBeforeRemove.listener?.();
+
+    expect(summary().at(-1)).toEqual([
+      "permission_denied_left",
+      { reason: "start_without_camera" },
+    ]);
   });
 
   it("하드웨어 백·스와이프 백처럼 사유 없이 빠지면 back으로 남긴다", () => {

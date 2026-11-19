@@ -3,6 +3,7 @@ import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { isTimerSession } from "@/features/manual-record/manualRecord";
 import { toKoreanDuration } from "@/features/study-session/formatDuration";
 import { subjectColorVar } from "@/features/records/recordsTimetable";
 import { cn } from "@/lib/utils";
@@ -155,6 +156,7 @@ export function RecordBlockSheet({
                 <Pencil size={11} role="img" aria-label={t("record.edited")} className="shrink-0" />
               )}
               {block.source === "MANUAL" && <span>· {t("records:manualItem.badge")}</span>}
+              {isTimerSession(block) && <span>· {t("records:timerItem.badge")}</span>}
             </div>
             <div className="flex flex-wrap items-baseline gap-x-2 text-[22px] leading-7.5 font-extrabold tabular-nums">
               <Button

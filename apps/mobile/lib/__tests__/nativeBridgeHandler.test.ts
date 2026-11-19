@@ -210,6 +210,26 @@ describe("handleBridgeMessage", () => {
       params: { id: "1", initialSubjectId: "3" },
     });
   });
+  it("start-session → 카메라 없이 고른 시작은 권한을 묻지 않고 세션 화면을 연다", async () => {
+    handleBridgeMessage(
+      { type: "start-session", atMs: 1, initialSubjectId: 3, measureMode: "timer" },
+      noopReply,
+    );
+    await flush();
+
+    expect(mockedRunCameraPermissionGate).not.toHaveBeenCalled();
+    expect(mockedRouter.push).toHaveBeenCalledWith({
+      pathname: "/room/[id]",
+      params: { id: "1", measureMode: "timer", initialSubjectId: "3" },
+    });
+  });
+  it("start-session → 카메라 없이 고른 시작도 세션 화면이 뜨기 전에 다시 오면 한 번만 연다", async () => {
+    handleBridgeMessage({ type: "start-session", atMs: 1, measureMode: "timer" }, noopReply);
+    handleBridgeMessage({ type: "start-session", atMs: 2, measureMode: "timer" }, noopReply);
+    await flush();
+
+    expect(mockedRouter.push).toHaveBeenCalledTimes(1);
+  });
   it("start-session → 권한이 있으면 세션 화면으로 push한다", async () => {
     mockedRunCameraPermissionGate.mockResolvedValue("start-session");
 
@@ -221,14 +241,17 @@ describe("handleBridgeMessage", () => {
     expect(mockedRouter.push).toHaveBeenCalledWith("/room/1");
   });
 
-  it("start-session → 권한이 거부되면 권한 거부 안내로 보낸다", async () => {
+  it("start-session → 권한이 거부되면 출구를 쓸 수 있게 싱글룸 표시와 과목을 실어 권한 거부 안내로 보낸다", async () => {
     mockedRunCameraPermissionGate.mockResolvedValue("show-denied-guide");
 
-    handleBridgeMessage({ type: "start-session", atMs: 1 }, noopReply);
+    handleBridgeMessage({ type: "start-session", atMs: 1, initialSubjectId: 3 }, noopReply);
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(mockedRouter.push).toHaveBeenCalledWith("/permission-denied");
+    expect(mockedRouter.push).toHaveBeenCalledWith({
+      pathname: "/permission-denied",
+      params: { from: "single", initialSubjectId: "3" },
+    });
   });
 
   it("start-session → 처리 중에 다시 오면 게이트를 또 돌리지 않고 세션 화면도 한 번만 연다", async () => {

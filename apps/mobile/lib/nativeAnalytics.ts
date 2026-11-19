@@ -107,9 +107,11 @@ export type NativeAnalyticsEventMap = AssertNativeAnalyticsCatalog<{
   permission_denied_settings_opened: undefined;
   /**
    * S2-3을 떠남 — 화면이 스택에서 빠질 때 한 번(`beforeRemove`). "홈으로 돌아가기" 터치, 설정에서
-   * 허용하고 돌아와 자동 복귀, 그 외(하드웨어 백·스와이프 백)는 `back`.
+   * 허용하고 돌아와 자동 복귀, "카메라 없이 시작" 터치(`start_without_camera`), 그 외(하드웨어 백·스와이프 백)는 `back`.
    */
-  permission_denied_left: { reason: "back_home" | "permission_granted" | "back" };
+  permission_denied_left: {
+    reason: "back_home" | "permission_granted" | "start_without_camera" | "back";
+  };
   /**
    * 설치 후 첫 수집에서 구글 지연 딥링크를 읽은 결과(`lib/installAttribution.ts`). Android만 보낸다.
    * `invalid`는 값은 왔지만 `g_` 라벨 형식이 아닌 경우다. `has_gclid`는 플레이 설치 정보가 구글 광고 클릭이었는지다.

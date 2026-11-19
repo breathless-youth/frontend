@@ -22,7 +22,7 @@ import {
  * 덮는다.
  */
 
-const mockRoomParams: { id: string; initialSubjectId?: string } = { id: "1" };
+const mockRoomParams: { id: string; initialSubjectId?: string; measureMode?: string } = { id: "1" };
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => mockRoomParams,
   router: {
@@ -92,6 +92,27 @@ describe("SessionRoomScreen", () => {
       delete mockRoomParams.initialSubjectId;
     }
   });
+  it.each([
+    ["timer", "timer"],
+    ["camera", null],
+    ["TIMER", null],
+  ])(
+    "라우트의 측정 방식 %s는 timer일 때만 웹 세션 주소에 싣는다",
+    async (measureMode, expected) => {
+      mockRoomParams.measureMode = measureMode;
+      try {
+        render(<SessionRoomScreen />);
+        await screen.findByTestId("session-webview");
+        expect(
+          new URL(
+            screen.getByTestId("session-webview").props.source.uri as string,
+          ).searchParams.get("measureMode"),
+        ).toBe(expected);
+      } finally {
+        delete mockRoomParams.measureMode;
+      }
+    },
+  );
   it("세션 경로 + 탭과 동일한 쿼리(appVersion)로 조립한 URL을 WebView에 넘긴다", async () => {
     render(<SessionRoomScreen />);
 

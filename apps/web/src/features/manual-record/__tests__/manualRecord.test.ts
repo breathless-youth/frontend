@@ -16,12 +16,14 @@ import {
   daysAgo,
   defaultSpan,
   endsNextDay,
+  isTimerSession,
   manualBundles,
   othersForOverlap,
   overlapNotice,
   reachedNow,
   readAloudLabel,
   spanFromClocks,
+  studySecByMode,
   subjectNameOf,
   trimOverlaps,
   validateSpan,
@@ -64,6 +66,52 @@ function manual(
     ...(keyMs === null ? {} : { submissionStartedAt: iso(keyMs) }),
   };
 }
+
+describe("isTimerSession", () => {
+  it("TIMER만 카메라 없는 세션이고 MEASURED, MANUAL, 값 없음은 아니다", () => {
+    expect(isTimerSession({ source: "TIMER" })).toBe(true);
+    expect(isTimerSession({ source: "MEASURED" })).toBe(false);
+    expect(isTimerSession({ source: "MANUAL" })).toBe(false);
+    expect(isTimerSession({})).toBe(false);
+  });
+});
+
+describe("studySecByMode", () => {
+  it("출처가 없거나 MEASURED면 관리 모드, TIMER면 자율 모드에 더한다", () => {
+    expect(studySecByMode([{ studySec: 600 }])).toEqual({ cameraSec: 600, timerSec: 0 });
+    expect(studySecByMode([{ source: "MEASURED", studySec: 600 }])).toEqual({
+      cameraSec: 600,
+      timerSec: 0,
+    });
+    expect(studySecByMode([{ source: "TIMER", studySec: 600 }])).toEqual({
+      cameraSec: 0,
+      timerSec: 600,
+    });
+  });
+
+  it("직접 입력은 어느 모드에도 더하지 않는다", () => {
+    expect(studySecByMode([{ source: "MANUAL", studySec: 600 }])).toEqual({
+      cameraSec: 0,
+      timerSec: 0,
+    });
+  });
+
+  it("섞인 기록은 출처별로 합친다", () => {
+    expect(
+      studySecByMode([
+        { studySec: 3600 },
+        { source: "MEASURED", studySec: 1800 },
+        { source: "TIMER", studySec: 1200 },
+        { source: "TIMER", studySec: 300 },
+        { source: "MANUAL", studySec: 5400 },
+      ]),
+    ).toEqual({ cameraSec: 5400, timerSec: 1500 });
+  });
+
+  it("기록이 없으면 둘 다 0이다", () => {
+    expect(studySecByMode([])).toEqual({ cameraSec: 0, timerSec: 0 });
+  });
+});
 
 describe("defaultSpan", () => {
   it("오늘은 지금(분 단위 내림)에서 끝나고 1시간 전에 시작한다", () => {
