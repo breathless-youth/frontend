@@ -508,6 +508,30 @@ describe("createBrowserTokenSource 갱신", () => {
     expect(tabB.getUserId()).toBe(8);
   });
 
+  it("앞 탭이 로그아웃한 뒤 바뀐 쿠키마저 없으면 뒤 탭은 새 비회원으로 등록한다", async () => {
+    const locks = sharedLocks();
+    const { channel } = heldBus();
+    const serverA = fakeServer({
+      "/api/auth/refresh": [{ status: 200, body: { accessToken: T7 } }],
+      "/api/auth/logout": [{ status: 204 }],
+      "/api/users": [{ status: 201, body: { isNew: true, accessToken: T8 } }],
+    });
+    const serverB = fakeServer({
+      "/api/auth/refresh": [{ status: 200, body: { accessToken: T7 } }, NO_COOKIE],
+      "/api/users": [{ status: 201, body: { isNew: true, accessToken: jwt("9") } }],
+    });
+    const tabA = create(serverA, { locks, channel: channel() });
+    const tabB = create(serverB, { locks, channel: channel() });
+    await tabA.getAccessToken();
+    await tabB.getAccessToken();
+
+    const results = await Promise.all([tabA.logout(), tabB.logout()]);
+
+    expect(results).toEqual([true, true]);
+    expect(serverB.calls.map((call) => call.path)).not.toContain("/api/auth/logout");
+    expect(tabB.getUserId()).toBe(9);
+  });
+
   it("navigator.locks가 없으면 탭 안에서 차례로 실행한다", async () => {
     let finishRefresh: (value: Response) => void = () => {};
     const calls: string[] = [];

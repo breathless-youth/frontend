@@ -370,7 +370,9 @@ export function createBrowserTokenSource(deps: BrowserTokenSourceDeps = {}): Bro
       return (switching ??= withLock(async () => {
         if ((snapshot?.userId ?? null) !== target) return true;
         if (generation !== null && (logoutGeneration() ?? 0) > generation) {
-          adopt(snapshotFrom(await send("/api/auth/refresh", "refresh")) ?? EMPTY);
+          let res = await send("/api/auth/refresh", "refresh");
+          if (lostRefreshCookie(res)) res = await register();
+          adopt(snapshotFrom(res) ?? EMPTY);
           return true;
         }
         const token = snapshot?.accessToken;
