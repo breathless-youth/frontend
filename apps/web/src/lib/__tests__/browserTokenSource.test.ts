@@ -532,6 +532,30 @@ describe("createBrowserTokenSource 갱신", () => {
     expect(tabB.getUserId()).toBe(9);
   });
 
+  it("앞 탭이 로그아웃한 뒤 뒤 탭의 갱신이 장애로 실패해도 앞 탭의 새 비회원을 지우지 않는다", async () => {
+    const locks = sharedLocks();
+    const { channel, deliver, held } = heldBus();
+    const serverA = fakeServer({
+      "/api/auth/refresh": [{ status: 200, body: { accessToken: T7 } }],
+      "/api/auth/logout": [{ status: 204 }],
+      "/api/users": [{ status: 201, body: { isNew: true, accessToken: T8 } }],
+    });
+    const serverB = fakeServer({
+      "/api/auth/refresh": [{ status: 200, body: { accessToken: T7 } }, "network"],
+    });
+    const tabA = create(serverA, { locks, channel: channel() });
+    const tabB = create(serverB, { locks, channel: channel() });
+    await tabA.getAccessToken();
+    await tabB.getAccessToken();
+
+    await Promise.all([tabA.logout(), tabB.logout()]);
+    expect(tabB.getUserId()).toBeNull();
+    held.forEach((_, index) => deliver(index));
+
+    expect(tabA.getUserId()).toBe(8);
+    expect(tabB.getUserId()).toBe(8);
+  });
+
   it("navigator.locks가 없으면 탭 안에서 차례로 실행한다", async () => {
     let finishRefresh: (value: Response) => void = () => {};
     const calls: string[] = [];

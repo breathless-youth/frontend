@@ -372,7 +372,11 @@ export function createBrowserTokenSource(deps: BrowserTokenSourceDeps = {}): Bro
         if (generation !== null && (logoutGeneration() ?? 0) > generation) {
           let res = await send("/api/auth/refresh", "refresh");
           if (lostRefreshCookie(res)) res = await register();
-          adopt(snapshotFrom(res) ?? EMPTY);
+          const next = snapshotFrom(res);
+          // 실패한 빈 신원을 방송하면 순번이 앞 탭의 새 비회원보다 높아 모든 탭이 신원을 잃는다.
+          // 이 탭만 비워 두면 늦게 온 앞 탭의 알림이 이 탭에도 새 비회원을 채운다.
+          if (next) adopt(next);
+          else publish(EMPTY);
           return true;
         }
         const token = snapshot?.accessToken;
