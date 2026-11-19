@@ -53,7 +53,10 @@
     }
   },
   "headline": {
-    "total": "Total {{duration}}"
+    "total": "Total {{duration}}",
+    "modeSplit": "Camera Mode {{camera}} · Self-guided Mode {{timer}}",
+    "modeInfo": "Self-guided Mode time is studied without the camera, so it doesn't count toward streaks, rankings, or points",
+    "modeInfoLabel": "About Self-guided Mode"
   },
   "rhythm": {
     "title": "Your study rhythm",
@@ -107,8 +110,8 @@
     "edit": "Edit"
   },
   "timerItem": {
-    "badge": "No camera",
-    "readAloud": "Studied without the camera, {{start}} to {{end}}, {{length}}"
+    "badge": "Self-guided",
+    "readAloud": "Studied in Self-guided Mode, {{start}} to {{end}}, {{length}}"
   },
   "picker": {
     "today": "Today",
@@ -159,6 +162,6 @@
     "error": "Couldn't load your records",
     "manualEntry": "Add time manually",
     "empty": "No records on this day",
-    "emptyHint": "Start focusing and your sessions will show up here"
+    "emptyHint": "Start studying and your sessions will show up here"
   }
 }

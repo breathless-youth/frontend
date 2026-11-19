@@ -656,7 +656,7 @@ describe("ResultPage — AI 측정 만족도 카드 (BY-1083)", () => {
 });
 
 describe("ResultPage — 카메라 없는 세션", () => {
-  const NOTICE = "카메라 없이 공부한 시간은\n연속 공부·랭킹·포인트에 반영되지 않아요";
+  const NOTICE = "자율 모드로 공부한 시간은\n연속 공부·랭킹·포인트에 반영되지 않아요";
 
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -685,7 +685,7 @@ describe("ResultPage — 카메라 없는 세션", () => {
     vi.stubEnv("VITE_POINTS_DISABLED", "1");
     renderResult({ sessions: [exampleSession({ source: "TIMER" })] });
 
-    expect(screen.getByText(/카메라 없이 공부한 시간은/)).toBeInTheDocument();
+    expect(screen.getByText(/자율 모드로 공부한 시간은/)).toBeInTheDocument();
   });
 
   it("카메라 세션 결과에는 안내가 없고 순공시간과 타임라인을 그린다", () => {
@@ -694,7 +694,7 @@ describe("ResultPage — 카메라 없는 세션", () => {
     expect(screen.getByText("순공시간")).toBeInTheDocument();
     expect(screen.getByText("82% 집중")).toBeInTheDocument();
     expect(screen.getByText("공부 타임라인")).toBeInTheDocument();
-    expect(screen.queryByText(/카메라 없이 공부한 시간은/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/자율 모드로 공부한 시간은/)).not.toBeInTheDocument();
   });
 });
 

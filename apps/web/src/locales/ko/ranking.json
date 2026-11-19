@@ -144,7 +144,7 @@
     "untilTop": "상위 {{percent}}%까지"
   },
   "focusStart": {
-    "label": "순공 시작"
+    "label": "공부 시작"
   },
   "rankedCard": {
     "topPercent": "상위 {{percent}}%",

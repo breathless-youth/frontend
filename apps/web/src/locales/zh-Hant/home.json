@@ -57,7 +57,7 @@
     "longestFocus": "最長專注時間",
     "loadFailed": "無法載入紀錄"
   },
-  "startFocus": "開始專注",
+  "startFocus": "開始讀書",
   "invite": {
     "title": "今天很難一個人專心嗎？<br/>和大家一起讀書吧",
     "cta": "和群組一起讀書"
@@ -145,12 +145,12 @@
     "startingStudy": "準備讀書中",
     "measureMode": {
       "toggle": {
-        "camera": "切換測量方式，目前用相機測量",
-        "timer": "切換測量方式，目前不用相機讀書"
+        "camera": "切換模式，目前是相機模式",
+        "timer": "切換模式，目前是自主模式"
       },
       "toast": {
-        "camera": "用相機測量專注時間",
-        "timer": "不用相機讀書"
+        "camera": "相機模式：用相機測量專注時間",
+        "timer": "自主模式：不用相機讀書"
       }
     },
     "startFailed": "無法開始讀書，請再試一次。",

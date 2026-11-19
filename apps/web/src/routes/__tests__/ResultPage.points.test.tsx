@@ -127,7 +127,7 @@ describe("ResultPage 포인트 카드", () => {
     const spy = vi.spyOn(gateway, "getSessionReward");
     renderAt(PATHS[0], "?userId=7", gateway, [{ ...session, source: "TIMER" }]);
     expect(await screen.findByText("오늘 누적 순공시간")).toBeInTheDocument();
-    expect(screen.getByText(/카메라 없이 공부한 시간은/)).toBeInTheDocument();
+    expect(screen.getByText(/자율 모드로 공부한 시간은/)).toBeInTheDocument();
     expect(screen.queryByText(/받았어요/)).not.toBeInTheDocument();
     expect(spy).not.toHaveBeenCalled();
   });

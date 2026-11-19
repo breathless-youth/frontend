@@ -127,8 +127,8 @@ it("측정 방식을 바꿀 때마다 바꾼 뒤의 방식을 홈에서 바꿨�
   const onStart = vi.fn();
   render(<HomeStartButtons starting={false} onStart={onStart} />);
 
-  await userEvent.click(screen.getByRole("button", { name: /측정 방식 바꾸기/ }));
-  await userEvent.click(screen.getByRole("button", { name: /측정 방식 바꾸기/ }));
+  await userEvent.click(screen.getByRole("button", { name: /모드 바꾸기/ }));
+  await userEvent.click(screen.getByRole("button", { name: /모드 바꾸기/ }));
 
   expect(vi.mocked(trackStudyMeasureModeChanged).mock.calls).toEqual([
     ["timer", "home"],
