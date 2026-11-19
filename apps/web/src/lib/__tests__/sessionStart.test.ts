@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { writeMeasureMode } from "@/features/measure-mode/measureMode";
 import { requestSessionStart } from "../sessionStart";
 
 /** 웹뷰 안에서는 브리지로, 브라우저 단독 모드에서는 직접 이동으로 갈린다 (BY-334). */
@@ -71,6 +72,22 @@ describe("requestSessionStart", () => {
       );
     } finally {
       window.history.replaceState({}, "", "/");
+    }
+  });
+  it("기기에 카메라 없이 고른 방식이면 앱이 권한을 묻지 않게 timer를 싣고, 카메라면 싣지 않는다", async () => {
+    isNativeBridgeAvailable.mockReturnValue(true);
+    try {
+      writeMeasureMode("timer");
+      await requestSessionStart(7, vi.fn());
+      writeMeasureMode("camera");
+      await requestSessionStart(7, vi.fn());
+
+      expect(postToNative.mock.calls.map(([message]) => message)).toEqual([
+        { type: "start-session", atMs: expect.any(Number) as number, measureMode: "timer" },
+        { type: "start-session", atMs: expect.any(Number) as number },
+      ]);
+    } finally {
+      localStorage.clear();
     }
   });
 });

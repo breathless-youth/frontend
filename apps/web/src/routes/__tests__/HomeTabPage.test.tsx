@@ -25,6 +25,7 @@ import {
   onboardingRecord,
 } from "@/features/onboarding/onboardingGate";
 import { todayLabel } from "@/features/home/homeFormat";
+import { writeMeasureMode } from "@/features/measure-mode/measureMode";
 import { markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import { LAUNCH_SIGNAL_WAIT_MS } from "@/features/study-session/useLaunchSessionRecovery";
 import { plannerDay, plannerTask } from "@/test/plannerFixtures";
@@ -423,6 +424,17 @@ describe("HomeTabPage", () => {
       await waitFor(() => expect(prefetchVisionAssets).toHaveBeenCalled());
     });
 
+    it("카메라 없는 모드면 통계가 떠도 부르지 않는다", async () => {
+      writeMeasureMode("timer");
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+
+      renderHome();
+
+      await waitFor(() => expect(screen.getByText("77%")).toBeInTheDocument());
+      expect(prefetchVisionAssets).not.toHaveBeenCalled();
+    });
+
     it("통계를 불러오지 못하면 부르지 않는다", async () => {
       mockedStats.mockRejectedValue(new Error("network"));
       mockedStreak.mockRejectedValue(new Error("network"));
@@ -705,7 +717,7 @@ describe("HomeTabPage", () => {
     });
   });
 
-  describe("집중 시작 CTA", () => {
+  describe("공부 시작 CTA", () => {
     beforeEach(() => markSessionGuideSeen(7));
 
     it("쿼리를 승계해 세션 라우트로 바로 이동하고 출처를 남긴다", async () => {
@@ -715,7 +727,7 @@ describe("HomeTabPage", () => {
       renderHomeWithRoutes();
 
       await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
-      fireEvent.click(screen.getByRole("button", { name: "집중 시작" }));
+      fireEvent.click(screen.getByRole("button", { name: "공부 시작" }));
 
       const stub = await screen.findByTestId("room-stub");
       expect(stub.textContent).toBe("/room/1?userId=7");
@@ -729,7 +741,7 @@ describe("HomeTabPage", () => {
       renderHomeWithRoutes();
 
       await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
-      const cta = screen.getByRole("button", { name: "집중 시작" });
+      const cta = screen.getByRole("button", { name: "공부 시작" });
       fireEvent.click(cta);
       fireEvent.click(cta);
 
@@ -1103,7 +1115,7 @@ describe("HomeTabPage — 첫 실행 온보딩", () => {
 
     renderHome();
 
-    expect(await screen.findByRole("button", { name: "집중 시작" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "공부 시작" })).toBeInTheDocument();
     expect(launchSignals.signalLaunchReady).toHaveBeenCalled();
   });
 });

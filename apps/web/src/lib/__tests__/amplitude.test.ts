@@ -620,18 +620,46 @@ describe("공부 세션 이벤트", () => {
     expect(mocks.track).toHaveBeenCalledWith("study_session_started", {
       room_type: "social",
       restored: false,
+      measure_mode: "camera",
     });
     // 복원 진입(웹뷰 재로드·앱 재실행 뒤 이어받기)은 같은 세션의 두 번째 시작 — 분모에서 가른다.
     trackStudySessionStarted("single", true);
     expect(mocks.track).toHaveBeenCalledWith("study_session_started", {
       room_type: "single",
       restored: true,
+      measure_mode: "camera",
     });
     expect(mocks.track).toHaveBeenCalledWith("study_session_submitted", {
       ok: true,
       attempt: 1,
       room_type: "social",
     });
+  });
+
+  it("시작·종료 이벤트에 측정 방식을 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackStudySessionStarted, trackStudySessionEnded } = await loadModule();
+    initAmplitude();
+
+    trackStudySessionStarted("single", false, "timer");
+    trackStudySessionEnded({
+      roomType: "single",
+      studySec: 600,
+      focusSec: 600,
+      pauseSec: 0,
+      distractionSec: 0,
+      endReason: "MANUAL",
+      pauseTrigger: null,
+      willSubmit: true,
+      measureMode: "timer",
+    });
+
+    expect(mocks.track).toHaveBeenCalledWith("study_session_started", {
+      room_type: "single",
+      restored: false,
+      measure_mode: "timer",
+    });
+    expect(mocks.track.mock.calls[1]?.[1]).toMatchObject({ measure_mode: "timer" });
   });
 
   it("집중률을 studySec 기준 백분율로 계산해 담는다", async () => {
@@ -666,6 +694,7 @@ describe("공부 세션 이벤트", () => {
         ambient_sound_sec: 0,
         break_sec: 0,
         multi_timer: "none",
+        measure_mode: "camera",
       },
       { time: expect.any(Number) },
     );
@@ -2595,6 +2624,30 @@ describe("홈 바로가기·과목 선택", () => {
 
     m.trackHomeShortcutTapped("planner");
     m.trackHomeSubjectSelected(true);
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+});
+
+describe("측정 방식 전환", () => {
+  it("바꾼 뒤의 방식과 바꾼 자리만 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackStudyMeasureModeChanged("timer", "home");
+    m.trackStudyMeasureModeChanged("camera", "home");
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["study_measure_mode_changed", { mode: "timer", from: "home" }],
+      ["study_measure_mode_changed", { mode: "camera", from: "home" }],
+    ]);
+  });
+
+  it("초기화 전에는 보내지 않는다", async () => {
+    const m = await loadModule();
+
+    m.trackStudyMeasureModeChanged("timer", "home");
 
     expect(mocks.track).not.toHaveBeenCalled();
   });

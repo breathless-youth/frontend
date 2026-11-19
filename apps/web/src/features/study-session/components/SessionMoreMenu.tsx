@@ -59,7 +59,8 @@ type SessionMoreMenuProps = {
   /** 메뉴 포털 자리. 세션 화면 변수와 다크 테마를 받으려면 세션 루트를 넘긴다. */
   container: HTMLElement | null;
   flipDisabled?: boolean;
-  onFlipCamera: () => void;
+  /** 넘긴 화면에서만 카메라 전환 항목이 보인다. */
+  onFlipCamera?: () => void;
   /** 넘긴 방에서만 초대코드 공유 항목이 보인다. */
   onShareInvite?: () => void;
   /** 넘긴 화면에서만 플래너 항목이 보인다. 싱글룸은 세로 열 대신 여기서 과목 페이지를 연다. */
@@ -157,15 +158,17 @@ export function SessionMoreMenu({
           aboveSideColumn && SOLO_MORE_MENU_OFFSET,
         )}
       >
-        <DropdownMenuItem
-          disabled={flipDisabled}
-          onPointerUp={blockOpeningPressRelease}
-          onClick={blockOpeningPressClick}
-          onSelect={onFlipCamera}
-          className={MENU_ITEM_CLASS}
-        >
-          {t("moreMenu.flipCamera")}
-        </DropdownMenuItem>
+        {onFlipCamera && (
+          <DropdownMenuItem
+            disabled={flipDisabled}
+            onPointerUp={blockOpeningPressRelease}
+            onClick={blockOpeningPressClick}
+            onSelect={onFlipCamera}
+            className={MENU_ITEM_CLASS}
+          >
+            {t("moreMenu.flipCamera")}
+          </DropdownMenuItem>
+        )}
         {onOpenPlanner && (
           <DropdownMenuItem
             onPointerUp={blockOpeningPressRelease}

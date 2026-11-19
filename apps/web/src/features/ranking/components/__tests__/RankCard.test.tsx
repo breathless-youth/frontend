@@ -24,7 +24,7 @@ const AFTERNOON_NOW = Date.parse(FIXTURE_FOCUS_WEEKLY.asOf);
 const MORNING_NOW = Date.parse("2026-10-10T10:00:00+09:00");
 
 describe("RankedCard", () => {
-  it("순공 판은 이름 없이 다음 순위까지 남은 시간, 아랫줄, 작은 순공 시작 버튼을 두고 게이지는 없다", async () => {
+  it("순공 판은 이름 없이 다음 순위까지 남은 시간, 아랫줄, 작은 공부 시작 버튼을 두고 게이지는 없다", async () => {
     const onFocusStart = vi.fn();
     render(
       <RankedCard
@@ -43,7 +43,7 @@ describe("RankedCard", () => {
     expect(screen.queryByText("커피세잔", { exact: false })).toBeNull();
     expect(screen.queryByRole("progressbar")).toBeNull();
     expect(screen.getByText("한 번 더 공부하면 따라잡을 수 있어요")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "순공 시작" }));
+    await userEvent.click(screen.getByRole("button", { name: "공부 시작" }));
     expect(onFocusStart).toHaveBeenCalledTimes(1);
   });
 
@@ -65,7 +65,7 @@ describe("RankedCard", () => {
     expect(headline.parentElement?.nextElementSibling).toBe(screen.getByText("00시 마감"));
   });
 
-  it("집중률 판은 숫자 없이 따라잡을 수 있다고 말하고 그 옆에 작은 순공 시작을 둔다", async () => {
+  it("집중률 판은 숫자 없이 따라잡을 수 있다고 말하고 그 옆에 작은 공부 시작을 둔다", async () => {
     const onFocusStart = vi.fn();
     render(
       <RankedCard
@@ -83,11 +83,11 @@ describe("RankedCard", () => {
     const catchUp = paragraph("조금만 더 집중하면 따라잡아요");
     expect(catchUp.textContent).not.toMatch(/\d/);
     expect(catchUp.querySelector("strong")).toBeNull();
-    await userEvent.click(screen.getByRole("button", { name: "순공 시작" }));
+    await userEvent.click(screen.getByRole("button", { name: "공부 시작" }));
     expect(onFocusStart).toHaveBeenCalledTimes(1);
   });
 
-  it("집중률 판에서 따라잡을 순공이 null로 오면 그 줄은 비우고 순공 시작은 남긴다", () => {
+  it("집중률 판에서 따라잡을 순공이 null로 오면 그 줄은 비우고 공부 시작은 남긴다", () => {
     render(
       <RankedCard
         board={{
@@ -104,7 +104,7 @@ describe("RankedCard", () => {
 
     expect(paragraph("다음 순위까지 0.4%")).toBeInTheDocument();
     expect(screen.queryByText("집중하면 따라잡아요", { exact: false })).toBeNull();
-    expect(screen.getByRole("button", { name: "순공 시작" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "공부 시작" })).toBeInTheDocument();
   });
 
   it("누적 판은 상위 %와 다음 구간 상자를 둔다", () => {
@@ -160,7 +160,7 @@ describe("RankedCard", () => {
     expect(screen.queryByText("수능D-40", { exact: false })).toBeNull();
   });
 
-  it("바로 위가 집중 중이면 경고 문구와 작은 순공 시작을 같이 둔다", () => {
+  it("바로 위가 집중 중이면 경고 문구와 작은 공부 시작을 같이 둔다", () => {
     render(
       <RankedCard
         board={FIXTURE_FOCUS_WEEKLY}
@@ -173,10 +173,10 @@ describe("RankedCard", () => {
     );
 
     expect(screen.getByText("앞 순위와 차이가 벌어지고 있어요")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "순공 시작" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "공부 시작" })).toBeInTheDocument();
   });
 
-  it("지금 구간이 아닌 시간대 판에서 4위 이하면 순위 대신 구간 이름과 들어가는 시각을 말하고 작은 순공 시작을 두지 않는다", () => {
+  it("지금 구간이 아닌 시간대 판에서 4위 이하면 순위 대신 구간 이름과 들어가는 시각을 말하고 작은 공부 시작을 두지 않는다", () => {
     render(
       <RankedCard
         board={FIXTURE_SLOT_DAILY}
@@ -197,7 +197,7 @@ describe("RankedCard", () => {
     expect(screen.queryByText("다음 순위까지", { exact: false })).toBeNull();
     expect(screen.getByText("아침에 공부한 시간만 이 순위에 들어가요")).toBeInTheDocument();
     expect(screen.queryByText("끝나기 전에", { exact: false })).toBeNull();
-    expect(screen.queryByRole("button", { name: "순공 시작" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "공부 시작" })).toBeNull();
   });
 
   it("지금 구간이 아닌 시간대 판에서 3위 이내면 구간과 순위를 쓴다", () => {
@@ -216,7 +216,7 @@ describe("RankedCard", () => {
     expect(paragraph("아침 2위")).toBeInTheDocument();
   });
 
-  it("지금 구간인 시간대 판은 작은 순공 시작을 그대로 둔다", () => {
+  it("지금 구간인 시간대 판은 작은 공부 시작을 그대로 둔다", () => {
     render(
       <RankedCard
         board={{ ...FIXTURE_SLOT_DAILY, slot: "AFTERNOON" }}
@@ -229,12 +229,12 @@ describe("RankedCard", () => {
     );
 
     expect(screen.getByText("점심이 끝나기 전에 따라잡을 수 있어요")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "순공 시작" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "공부 시작" })).toBeInTheDocument();
   });
 });
 
 describe("FirstPlaceCard", () => {
-  it("1위 지키는 중과 아랫줄, 작은 순공 시작 버튼", async () => {
+  it("1위 지키는 중과 아랫줄, 작은 공부 시작 버튼", async () => {
     const onFocusStart = vi.fn();
     render(
       <FirstPlaceCard
@@ -249,11 +249,11 @@ describe("FirstPlaceCard", () => {
     const headline = paragraph("1위 지키는 중");
     expect(headline.querySelector(".text-primary")?.textContent).toBe("1위");
     expect(screen.getByText("뒤 순위와 차이가 줄어들고 있어요")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "순공 시작" }));
+    await userEvent.click(screen.getByRole("button", { name: "공부 시작" }));
     expect(onFocusStart).toHaveBeenCalledTimes(1);
   });
 
-  it("지금 구간이 아닌 시간대 판에서는 1위여도 순공 시작을 두지 않는다", () => {
+  it("지금 구간이 아닌 시간대 판에서는 1위여도 공부 시작을 두지 않는다", () => {
     render(
       <FirstPlaceCard
         board={FIXTURE_FIRST_PLACE}
@@ -266,6 +266,6 @@ describe("FirstPlaceCard", () => {
 
     expect(paragraph("1위 지키는 중")).toBeInTheDocument();
     expect(screen.getByText("아침 6–12시에 공부한 시간만 이 순위에 들어가요")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "순공 시작" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "공부 시작" })).toBeNull();
   });
 });

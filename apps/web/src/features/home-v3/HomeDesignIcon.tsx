@@ -4,6 +4,9 @@ import play from "@/assets/home-v3/play.svg";
 import video from "@/assets/home-v3/video.svg";
 import settings from "@/assets/home-v3/settings.svg";
 import lock from "@/assets/home-v3/lock.svg";
+import camera from "@/assets/home-v3/camera.svg";
+import cameraOff from "@/assets/home-v3/camera-off.svg";
+import swap from "@/assets/home-v3/swap.svg";
 import { cn } from "@/lib/utils";
 
 const icons = {
@@ -13,6 +16,9 @@ const icons = {
   video: { src: video, size: "size-5" },
   settings: { src: settings, size: "size-5" },
   lock: { src: lock, size: "size-5" },
+  camera: { src: camera, size: "size-6" },
+  cameraOff: { src: cameraOff, size: "size-6" },
+  swap: { src: swap, size: "size-6" },
 };
 
 /** Figma 원본 도형을 유지하고 색만 현재 테마 토큰을 따른다. */

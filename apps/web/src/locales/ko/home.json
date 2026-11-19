@@ -57,7 +57,7 @@
     "longestFocus": "최대 집중시간",
     "loadFailed": "기록을 불러오지 못했어요"
   },
-  "startFocus": "집중 시작",
+  "startFocus": "공부 시작",
   "invite": {
     "title": "오늘은 혼자 집중하기 힘든가요? <br/>사람들과 함께 공부해보세요",
     "cta": "그룹 스터디하러 이동"
@@ -143,6 +143,16 @@
       "exam": "수능"
     },
     "startingStudy": "공부 준비 중",
+    "measureMode": {
+      "toggle": {
+        "camera": "모드 바꾸기, 지금 관리 모드",
+        "timer": "모드 바꾸기, 지금 자율 모드"
+      },
+      "toast": {
+        "camera": "관리 모드: 카메라로 순공 시간을 측정해요",
+        "timer": "자율 모드: 카메라 없이 공부해요"
+      }
+    },
     "startFailed": "공부를 시작하지 못했어요. 다시 시도해 주세요.",
     "reward": {
       "label": "시작 미션 보상",

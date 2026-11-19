@@ -12,6 +12,7 @@ import {
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type {
+  PersonalRecordSummary,
   StudyPeriodStatsResponse,
   StudySessionListResponse,
   StudySessionSummary,
@@ -351,6 +352,197 @@ describe("RecordsPage", () => {
     expect(within(headline).getByText("총 1시간")).toBeInTheDocument();
   });
 
+  describe("하루 요약의 모드별 시간", () => {
+    /**
+     * 출처별 세션으로 만든 하루 응답
+     *
+     * 출처를 비우면 이 필드를 싣지 않는 서버의 측정 세션이다.
+     */
+    function dayWithSources(
+      sessions: { source?: StudySessionSummary["source"]; studySec: number }[],
+    ): StudySessionListResponse {
+      const base = statsResponse(true).sessions[0]!;
+      return {
+        ...statsResponse(true),
+        sessions: sessions.map(({ source, studySec }, index) => ({
+          ...base,
+          id: index + 1,
+          studySec,
+          ...(source === undefined ? {} : { source }),
+        })),
+        sessionCount: sessions.length,
+      };
+    }
+
+    it("관리·자율 기록이 섞인 날은 총 공부시간을 모드별로 나눠 보여 준다", async () => {
+      mockedStats.mockResolvedValue(
+        dayWithSources([
+          { studySec: 3600 },
+          { source: "MEASURED", studySec: 1800 },
+          { source: "TIMER", studySec: 1200 },
+        ]),
+      );
+
+      renderRecords();
+
+      const headline = (await screen.findByText("오늘 순공시간")).parentElement!;
+      expect(
+        await within(headline).findByText("관리 모드 1시간 30분 · 자율 모드 20분"),
+      ).toBeInTheDocument();
+    });
+
+    it("자율 모드 기록이 없는 날도 줄을 두고 자율 모드를 0분으로 적는다", async () => {
+      mockedStats.mockResolvedValue(dayWithSources([{ studySec: 3600 }]));
+
+      renderRecords();
+
+      const headline = (await screen.findByText("오늘 순공시간")).parentElement!;
+      expect(
+        await within(headline).findByText("관리 모드 1시간 · 자율 모드 0분"),
+      ).toBeInTheDocument();
+    });
+
+    it("하루 기록을 불러오는 동안에는 줄도 ⓘ도 두지 않는다", async () => {
+      mockedStats.mockImplementation(() => new Promise(() => {}));
+
+      renderRecords();
+
+      expect(await screen.findByText("오늘 순공시간")).toBeInTheDocument();
+      expect(screen.queryByText(/관리 모드/)).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "자율 모드 설명" })).not.toBeInTheDocument();
+    });
+
+    it("하루 기록을 불러오지 못하면 줄도 ⓘ도 두지 않는다", async () => {
+      mockedStats.mockRejectedValue(new Error("network"));
+
+      renderRecords();
+
+      expect(await screen.findByText("기록을 불러오지 못했어요")).toBeInTheDocument();
+      expect(screen.queryByText(/관리 모드/)).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "자율 모드 설명" })).not.toBeInTheDocument();
+    });
+
+    it("기록이 없는 날에는 줄도 ⓘ도 두지 않는다", async () => {
+      mockedStats.mockResolvedValue(statsResponse(false));
+
+      renderRecords();
+
+      await screen.findByText(dayTitleWithWeekday(localDateKey()));
+      expect(screen.queryByText(/관리 모드/)).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "자율 모드 설명" })).not.toBeInTheDocument();
+    });
+
+    it("직접 입력한 기록은 어느 모드에도 넣지 않는다", async () => {
+      mockedStats.mockResolvedValue(
+        dayWithSources([
+          { source: "MEASURED", studySec: 3600 },
+          { source: "TIMER", studySec: 600 },
+          { source: "MANUAL", studySec: 5400 },
+        ]),
+      );
+
+      renderRecords();
+
+      const headline = (await screen.findByText("오늘 순공시간")).parentElement!;
+      expect(
+        await within(headline).findByText("관리 모드 1시간 · 자율 모드 10분"),
+      ).toBeInTheDocument();
+    });
+
+    it("ⓘ는 이름으로 찾을 수 있고, 누르면 자율 모드 규칙을 툴팁으로 보여 준다", async () => {
+      mockedStats.mockResolvedValue(dayWithSources([{ source: "TIMER", studySec: 600 }]));
+
+      renderRecords();
+
+      const info = await screen.findByRole("button", { name: "자율 모드 설명" });
+      // userEvent는 포커스로 먼저 열고 클릭으로 다시 닫아서, 다른 툴팁 테스트처럼 클릭만 보낸다.
+      fireEvent.click(info);
+
+      // Radix는 화면 낭독용 사본도 그려서 보이는 본문(data-state)만 찾는다.
+      expect(
+        await screen.findByText(
+          "자율 모드는 카메라 없이 공부한 시간이라 연속 공부·랭킹·포인트에 반영되지 않아요",
+          { selector: "[data-state]" },
+        ),
+      ).toBeInTheDocument();
+    });
+
+    describe("토큰이 있는 문서는 개인 기록으로 나눈다", () => {
+      const TODAY = localDateKey();
+
+      beforeEach(() => {
+        tokenMock.has = true;
+        // 원본 조회는 다른 값을 돌려줘서, 줄이 개인 기록에서 왔는지 가린다.
+        mockedStats.mockResolvedValue(dayWithSources([{ source: "TIMER", studySec: 7200 }]));
+        vi.mocked(getPersonalRecordPeriod).mockResolvedValue(periodResponse());
+      });
+
+      function personalDay(
+        records: { source: PersonalRecordSummary["source"]; studySec: number }[],
+      ) {
+        vi.mocked(getPersonalRecordStats).mockImplementation(async (date) =>
+          date === TODAY
+            ? personalRecordStats({
+                sessions: records.map(({ source, studySec }, index) =>
+                  personalRecord({
+                    displayKey: `record:${String(index)}`,
+                    recordKey: `r:${String(index)}`,
+                    source,
+                    studySec,
+                    edited: true,
+                  }),
+                ),
+                sessionCount: records.length,
+                totalStudySec: records.reduce((sum, record) => sum + record.studySec, 0),
+              })
+            : personalRecordStats(),
+        );
+      }
+
+      it("고친 관리·자율 기록은 출처대로 나누고 직접 입력은 어느 쪽에도 넣지 않는다", async () => {
+        personalDay([
+          { source: "MEASURED", studySec: 3600 },
+          { source: "TIMER", studySec: 1200 },
+          { source: "MANUAL", studySec: 5400 },
+        ]);
+
+        renderRecords();
+
+        const headline = (await screen.findByText("오늘 순공시간")).parentElement!;
+        expect(
+          await within(headline).findByText("관리 모드 1시간 · 자율 모드 20분"),
+        ).toBeInTheDocument();
+        expect(mockedStats).not.toHaveBeenCalled();
+      });
+
+      it("직접 입력만 있는 날도 기록이 있으니 줄을 두고 두 모드를 0분으로 적는다", async () => {
+        personalDay([{ source: "MANUAL", studySec: 5400 }]);
+
+        renderRecords();
+
+        const headline = (await screen.findByText("오늘 순공시간")).parentElement!;
+        expect(
+          await within(headline).findByText("관리 모드 0분 · 자율 모드 0분"),
+        ).toBeInTheDocument();
+      });
+    });
+
+    it("주간 화면에는 모드별 줄이 없다", async () => {
+      mockedStats.mockResolvedValue(dayWithSources([{ source: "TIMER", studySec: 600 }]));
+      mockedPeriod.mockResolvedValue(
+        periodResponse([{ date: localDateKey(), studySec: 600, focusSec: 600 }]),
+      );
+
+      renderRecords();
+      await screen.findByText(/관리 모드/);
+      await userEvent.click(screen.getByRole("tab", { name: "주간" }));
+
+      expect(await screen.findByText("주간 순공시간")).toBeInTheDocument();
+      expect(screen.queryByText(/관리 모드/)).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "자율 모드 설명" })).not.toBeInTheDocument();
+    });
+  });
+
   it("다른 날을 고르면 머리 라벨이 그 날짜로 바뀌고, 달을 옮겨도 고른 날이 유지된다", async () => {
     mockedStats.mockResolvedValue(statsResponse(false));
 
@@ -477,7 +669,7 @@ describe("RecordsPage", () => {
     renderRecords();
 
     expect(await screen.findByText("이 날은 기록이 없어요")).toBeInTheDocument();
-    expect(await screen.findByText("집중을 시작하면 여기에 쌓여요")).toBeInTheDocument();
+    expect(await screen.findByText("공부를 시작하면 여기에 쌓여요")).toBeInTheDocument();
   });
 
   it("달에는 기록이 있고 고른 날만 없으면 빈 상태 한 줄만 보여준다", async () => {
@@ -491,7 +683,7 @@ describe("RecordsPage", () => {
     expect(await screen.findByText("이 날은 기록이 없어요")).toBeInTheDocument();
     const total = await screen.findByText(/월 총 시간$/);
     await waitFor(() => expect(total.nextElementSibling).toHaveTextContent(/^1시간$/));
-    expect(screen.queryByText("집중을 시작하면 여기에 쌓여요")).not.toBeInTheDocument();
+    expect(screen.queryByText("공부를 시작하면 여기에 쌓여요")).not.toBeInTheDocument();
   });
 
   it('헤더 이전/다음 달 버튼을 누르면 달이 바뀌고 계측이 { delta, method: "button" }로 나가지만, 선택일은 그대로 유지한다(2026-07-28 확정 정책 + 코덱스 리뷰 반영)', async () => {

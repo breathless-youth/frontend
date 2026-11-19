@@ -34,6 +34,7 @@ const ko = {
     "측정은 카메라로만 할 수 있어요.\n설정에서 허용하면 바로 시작할 수 있어요.",
   "permissionDenied.privacy": "AI 분석용 영상은 기기 밖으로 나가지 않아요",
   "permissionDenied.backHome": "홈으로 돌아가기",
+  "permissionDenied.startWithoutCamera": "자율 모드로 시작",
 
   "launchGoal.loading": "오늘 할 공부를 정리하고 있어요",
 
@@ -102,6 +103,7 @@ const en = {
     "Focus can only be measured with the camera.\nAllow camera access in Settings to start right away.",
   "permissionDenied.privacy": "Video used for AI analysis never leaves your device",
   "permissionDenied.backHome": "Back to home",
+  "permissionDenied.startWithoutCamera": "Start in Self-guided Mode",
 
   "launchGoal.loading": "Getting today's study ready",
 
@@ -170,6 +172,7 @@ const ja = {
     "集中の測定にはカメラが必要です。\n「設定」でカメラへのアクセスを許可すると、すぐに始められます。",
   "permissionDenied.privacy": "AI分析用の映像がデバイスの外に出ることはありません",
   "permissionDenied.backHome": "ホームに戻る",
+  "permissionDenied.startWithoutCamera": "自主モードで始める",
 
   "launchGoal.loading": "今日の勉強を準備しています",
 
@@ -239,6 +242,7 @@ const zhHant = {
   "permissionDenied.body": "專注狀態只能透過相機測量。\n在「設定」中允許取用相機，就能馬上開始。",
   "permissionDenied.privacy": "AI 分析用的影像不會離開你的裝置",
   "permissionDenied.backHome": "返回首頁",
+  "permissionDenied.startWithoutCamera": "以自主模式開始",
 
   "launchGoal.loading": "正在整理今天要讀的內容",
 

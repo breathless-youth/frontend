@@ -26,6 +26,7 @@ import type {
 } from "@focusmakers/types";
 
 import type { RoomVisibility } from "@/features/group-room/model/roomMenu";
+import type { MeasureMode } from "@/features/measure-mode/measureMode";
 
 import { firebaseAnalyticsForwardPlugin } from "./firebaseAnalyticsBridge";
 import i18n from "./i18n";
@@ -381,6 +382,12 @@ export interface StudySessionEndedInput {
   readonly multiTimer?: MultiTimerUse;
   /** 싱글룸 화면 표시 기록. 소셜룸은 생략하고 생략하면 키 자체를 싣지 않는다. */
   readonly display?: SessionDisplayEnd;
+  /**
+   * 측정 방식
+   *
+   * 생략은 camera 로 나간다.
+   */
+  readonly measureMode?: MeasureMode;
 }
 
 /**
@@ -403,9 +410,13 @@ export interface SessionDisplayEnd {
  * `restored`는 서버의 진행중 세션을 이어받은 진입(웹뷰 재로드·앱 재실행 뒤 복원)이다 — 같은 세션이
  * 두 번 "시작"으로 찍히므로 완주율 분모에서는 `restored = false`만 센다(2026-09-05 최종 검토).
  */
-export function trackStudySessionStarted(roomType: StudyRoomType, restored = false) {
+export function trackStudySessionStarted(
+  roomType: StudyRoomType,
+  restored = false,
+  measureMode: MeasureMode = "camera",
+) {
   if (!initialized) return;
-  track("study_session_started", { room_type: roomType, restored });
+  track("study_session_started", { room_type: roomType, restored, measure_mode: measureMode });
   // 룸 종류별 이용 이력. 서버 세션 기록에는 룸 종류가 없어 시작 순간에 남긴다.
   setFlagOnce(roomType === "social" ? "used_social" : "used_single");
 }
@@ -445,6 +456,7 @@ export function trackStudySessionEnded(input: StudySessionEndedInput) {
         space_kind: input.display.spaceKind,
         face_mask: input.display.faceMask,
       }),
+      measure_mode: input.measureMode ?? "camera",
     },
     { time: endedAt },
   );
@@ -1180,6 +1192,16 @@ export function trackHomeShortcutTapped(target: HomeShortcutTarget) {
 export function trackHomeSubjectSelected(hasSubject: boolean) {
   if (!initialized) return;
   track("home_subject_selected", { has_subject: hasSubject });
+}
+
+/**
+ * 측정 방식 전환
+ *
+ * 카메라 없이 공부하는 방식을 얼마나 고르는지 보려고 바꿀 때마다 바꾼 뒤의 값을 보낸다.
+ */
+export function trackStudyMeasureModeChanged(mode: MeasureMode, from: "home") {
+  if (!initialized) return;
+  track("study_measure_mode_changed", { mode, from });
 }
 
 /**

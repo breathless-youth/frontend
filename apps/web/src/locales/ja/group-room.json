@@ -198,7 +198,7 @@
   },
   "publicRoomDetailScreen": {
     "owner": "オーナー",
-    "weeklyTotal": "今週のメンバー合計集中時間",
+    "weeklyTotal": "今週のメンバー合計勉強時間",
     "todayMembers": "今日のメンバー",
     "intro": "グループ紹介",
     "showMore": "もっと見る",
