@@ -65,6 +65,63 @@ describe("AccessoryShopScreen의 세트 칸", () => {
     expect(guide).toHaveAttribute("href", "/points/payment-guide");
     expect(screen.queryByText(/App Store|Google Play/)).not.toBeInTheDocument();
   });
+
+  // 화면 배치는 jsdom이 계산하지 않아서, 글자를 버튼에 붙이는 클래스가 링크와 묶음에 붙었는지로 확인한다.
+  it("결제 버튼 위 링크는 32px 상자 아래쪽에 글자를 두고 버튼 줄 위 여백을 대신한다", async () => {
+    renderScreen();
+    await userEvent.click(await screen.findByRole("button", { name: "세트" }));
+
+    const guide = screen.getByRole("link", { name: "결제·환불 안내" });
+    expect(guide).toHaveClass("min-h-8", "items-end", "pb-1");
+    expect(guide).not.toHaveClass("min-h-11");
+    expect(guide.parentElement).toHaveClass("-mt-3");
+  });
+});
+
+describe("AccessoryShopScreen의 세트 결제", () => {
+  // 서버는 첫 착용 요청을 결제 상품의 첫 착용으로 기록하고, 그 뒤에는 7일 철회를 받지 않는다.
+  it("결제가 끝나면 착용 요청 없이 그 칸을 고른 채 보유로 바꾸고 버튼을 착용하기로 둔다", async () => {
+    const gateway = createFakePointsGateway("default");
+    const equip = vi.spyOn(gateway, "equipAccessory");
+    renderScreen(gateway);
+    await userEvent.click(await screen.findByRole("button", { name: "세트" }));
+
+    await userEvent.click(await screen.findByRole("button", { name: "₩1,100에 구매하기" }));
+
+    expect(await screen.findByRole("button", { name: "착용하기" })).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "비 오는 날 세트, 가지고 있어요", pressed: true }),
+    ).toBeInTheDocument();
+    expect(equip).not.toHaveBeenCalled();
+  });
+
+  it("결제 뒤 착용하기를 누르면 그때 착용 요청을 보내고 입은 상태가 된다", async () => {
+    const gateway = createFakePointsGateway("default");
+    const equip = vi.spyOn(gateway, "equipAccessory");
+    renderScreen(gateway);
+    await userEvent.click(await screen.findByRole("button", { name: "세트" }));
+    await userEvent.click(await screen.findByRole("button", { name: "₩1,100에 구매하기" }));
+
+    await userEvent.click(await screen.findByRole("button", { name: "착용하기" }));
+
+    expect(equip).toHaveBeenCalledOnce();
+    expect(equip).toHaveBeenCalledWith("stopwatch", "set", "acc-stopwatch-rainset");
+    expect(await screen.findByRole("button", { name: "벗기" })).toBeEnabled();
+  });
+
+  it("결제가 끝나고 상품을 받는 동안 소품을 구매하고 있다고 알린다", async () => {
+    const gateway = createFakePointsGateway("default");
+    vi.spyOn(gateway, "purchaseStoreItem").mockImplementation((_itemId, onPaid) => {
+      onPaid?.();
+      return new Promise(() => {});
+    });
+    renderScreen(gateway);
+    await userEvent.click(await screen.findByRole("button", { name: "세트" }));
+
+    await userEvent.click(await screen.findByRole("button", { name: "₩1,100에 구매하기" }));
+
+    expect(await screen.findByText("소품을 구매하고 있어요")).toBeVisible();
+  });
 });
 
 describe("AccessoryShopScreen의 세트 칸 가격 자리", () => {

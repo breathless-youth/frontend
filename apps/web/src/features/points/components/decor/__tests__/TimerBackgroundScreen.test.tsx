@@ -118,6 +118,49 @@ describe("TimerBackgroundScreen", () => {
     expect(within(tile("바닷가")).queryByText("결제")).not.toBeInTheDocument();
   });
 
+  // 서버는 배경 설정도 결제 상품의 첫 착용으로 기록해 7일 철회를 받지 않으므로 결제 뒤에 적용하지 않는다.
+  it("결제로 산 배경은 적용 요청 없이 고른 채 적용하기 버튼이 되고, 누르면 그때 적용한다", async () => {
+    // 가짜 경계의 바닷가는 포인트 상품이라 결제와 보유는 이 안에서 따로 흉내 낸다.
+    let paid = false;
+    const apply = vi.fn<PointsGateway["setTimerBackground"]>(async () => {});
+    await setup(1240, (g) => ({
+      ...g,
+      getShop: async () => {
+        const shop = await g.getShop();
+        return {
+          ...shop,
+          items: shop.items.map((item) =>
+            item.id === "bg-seaside"
+              ? {
+                  ...item,
+                  acquire: { type: "store" as const, productId: "bg_seaside" },
+                  owned: paid,
+                }
+              : item,
+          ),
+        };
+      },
+      getStorePrices: async () => ({ bg_seaside: "₩2,200" }),
+      purchaseStoreItem: async (_itemId, onPaid) => {
+        onPaid?.();
+        paid = true;
+        return { status: "completed" };
+      },
+      setTimerBackground: apply,
+    }));
+    await userEvent.click(tile("바닷가"));
+
+    await userEvent.click(await screen.findByRole("button", { name: "₩2,200에 구매하기" }));
+
+    const applyButton = await screen.findByRole("button", { name: "적용하기" });
+    expect(tile("바닷가")).toHaveAttribute("aria-pressed", "true");
+    expect(apply).not.toHaveBeenCalled();
+
+    await userEvent.click(applyButton);
+    expect(apply).toHaveBeenCalledOnce();
+    expect(apply).toHaveBeenCalledWith("bg-seaside");
+  });
+
   it("포인트가 모자라면 모자람 창이 열린다", async () => {
     await setup(100);
     await userEvent.click(tile("비 오는 창가"));

@@ -46,12 +46,8 @@ const session: StudySessionResponse = {
 
 const PATHS = ["/room/7/result", "/social/room/42/result", "/social/groups/10/room/result"];
 
-function renderAt(
-  path: string,
-  search: string,
-  gateway: PointsGateway,
-  sessions: StudySessionResponse[] = [session],
-) {
+/** 움직임 줄이기를 켜서 결과 화면의 등장 연출을 기다리지 않게 한다. */
+function reduceMotion() {
   Object.defineProperty(window, "matchMedia", {
     configurable: true,
     writable: true,
@@ -62,6 +58,15 @@ function renderAt(
       removeEventListener: () => undefined,
     }),
   });
+}
+
+function renderAt(
+  path: string,
+  search: string,
+  gateway: PointsGateway,
+  sessions: StudySessionResponse[] = [session],
+) {
+  reduceMotion();
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
@@ -75,6 +80,21 @@ function renderAt(
           </Routes>
         </MemoryRouter>
       </PointsGatewayProvider>
+    </QueryClientProvider>,
+  );
+}
+
+/** 경계를 넣지 않아 화면이 입구를 거쳐 앱의 포인트 경계(주소의 가짜 장면)를 쓰게 한다. */
+function renderWithoutGateway(path: string, search: string) {
+  reduceMotion();
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[{ pathname: path, search, state: { sessions: [session] } }]}>
+        <Routes>
+          <Route path="/room/:id/result" element={<ResultPage />} />
+        </Routes>
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -141,8 +161,22 @@ describe("ResultPage 포인트 카드", () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
+  it("비회원도 받은 포인트 카드를 본다", async () => {
+    vi.mocked(usePointsAccess).mockReturnValue({ status: "guest", userId: 7 });
+    renderAt(PATHS[0], "?userId=7", createFakePointsGateway("default"));
+    expect(await screen.findByText("+20P 받았어요")).toBeInTheDocument();
+    expect(screen.queryByText("로그인 화면")).not.toBeInTheDocument();
+  });
+
+  it("비회원도 앱의 포인트 경계로 받은 포인트 카드를 본다", async () => {
+    vi.mocked(usePointsAccess).mockReturnValue({ status: "guest", userId: 7 });
+    renderWithoutGateway(PATHS[0], "?userId=7");
+    expect(await screen.findByText("+20P 받았어요")).toBeInTheDocument();
+    expect(screen.queryByText("로그인 화면")).not.toBeInTheDocument();
+  });
+
   it.each([
-    ["비회원이거나 확인할 수 없으면", "denied"],
+    ["신원을 확인할 수 없으면", "denied"],
     ["확인하는 중이면", "pending"],
   ] as const)("%s 카드도 로그인 화면도 없다", (_, status) => {
     vi.mocked(usePointsAccess).mockReturnValue({ status });

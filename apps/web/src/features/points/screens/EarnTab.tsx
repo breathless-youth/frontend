@@ -45,7 +45,9 @@ import type {
  * 이 거절을 한 번 받은 뒤에는 광고를 다 봐도 포인트가 들어오지 않으므로, 이 화면에서는 광고를 띄우지 않고 같은 알림만 띄운다.
  * 광고와 충전 처리기는 앱 안에서만 넘어오고, 없으면 앱에서 열기 안내를 그린다.
  * 앱 안인데 그 기능을 맡지 못하는 예전 앱에서는 안내 대신 칸을 그리지 않는다.
- * 받기·광고·충전은 회원만 하므로 누르는 순간 `allowAction`에 묻고, 비회원이면 아무 요청도 보내지 않는다.
+ * 받기와 광고는 비회원도 하므로 바로 요청을 보낸다.
+ * 충전은 회원만 하므로 누르는 순간 `allowCharge`에 묻고, 비회원이면 결제 창을 열지 않는다.
+ * 서버가 회원 전용이라고 거절하면 부른 쪽이 로그인 화면으로 보내므로 여기서는 다시 시도하라고 알리지 않는다.
  */
 export function EarnTab({
   earn,
@@ -56,7 +58,7 @@ export function EarnTab({
   chargeAvailable = true,
   adAvailable = true,
   member = true,
-  allowAction = () => true,
+  allowCharge = () => true,
 }: {
   earn: EarnToday;
   packs: ChargePack[];
@@ -69,8 +71,8 @@ export function EarnTab({
   adAvailable?: boolean;
   /** 비회원이면 충전 묶음의 가격 자리에 로그인 안내를 그린다. */
   member?: boolean;
-  /** 받기·광고·충전을 해도 되는지이며 비회원이면 로그인 화면을 열고 false를 준다. */
-  allowAction?: () => boolean;
+  /** 충전해도 되는지이며 비회원이면 로그인 화면을 열고 false를 준다. */
+  allowCharge?: () => boolean;
 }) {
   const { t } = useTranslation(["points-earn", "common"]);
   const navigate = useNavigate();
@@ -89,7 +91,7 @@ export function EarnTab({
   const rewardNotOpen = useRef(false);
 
   const run = async (task: () => Promise<void>) => {
-    if (busy.current || !allowAction()) return;
+    if (busy.current) return;
     busy.current = true;
     setPending(true);
     try {
@@ -126,11 +128,12 @@ export function EarnTab({
       if (result.status === "unavailable") setAdUnavailable(true);
     });
 
-  const charge = (
+  const charge = async (
     handler: (productId: string, onPaid?: () => void) => Promise<ChargeResult>,
     productId: string,
-  ) =>
-    run(async () => {
+  ) => {
+    if (busy.current || !allowCharge()) return;
+    await run(async () => {
       let result: ChargeResult;
       try {
         result = await handler(productId, () => setCharging(true));
@@ -153,6 +156,7 @@ export function EarnTab({
         setFailedFor(productId);
       }
     });
+  };
 
   const ad = adAvailable ? earn.ad : undefined;
   const watched = Math.max(ad?.watched ?? 0, watchedAtLeast);

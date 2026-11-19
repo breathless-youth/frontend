@@ -45,7 +45,7 @@ describe("포인트 기록", () => {
     renderPage("default");
     const today = await screen.findByRole("region", { name: "오늘" });
     expect(within(today).getByText("출석하기")).toBeInTheDocument();
-    expect(within(today).getByText("+10P")).toBeInTheDocument();
+    expect(within(today).getByText("+15P")).toBeInTheDocument();
     expect(within(today).getByText("단추 리본 구매")).toBeInTheDocument();
     // 가짜 경계는 다섯 개씩 주므로 끝에 닿아야 사흘 전 기록이 온다.
     expect(screen.queryByText("숲속 아침 구매")).not.toBeInTheDocument();
@@ -55,7 +55,7 @@ describe("포인트 기록", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "사용" }));
     expect(await screen.findByText("-200P")).toBeInTheDocument();
-    expect(screen.queryByText("+10P")).not.toBeInTheDocument();
+    expect(screen.queryByText("+15P")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "사용" })).toHaveAttribute("aria-pressed", "true");
   });
 
