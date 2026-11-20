@@ -24,11 +24,12 @@ export class SubjectStartUnavailableError extends Error {}
  * 히스토리 조작을 정하는 호출부는 이 값이 `"native"`일 때만 스스로 조작해야 한다(그래야 조작이
  * 정확히 한 번으로 유지된다). `isNativeBridgeAvailable()`을 호출부에서 다시 검사하지 말 것 —
  * 판단이 두 곳으로 나뉜다.
+ * resume은 홈에서 꺼진 자율 모드 공부를 이어 갈 때 쓴다.
  */
 export async function requestSessionStart(
   userId: number | null,
   navigateToSession: () => void,
-  options: { subjectId?: number } = {},
+  options: { subjectId?: number; resume?: boolean } = {},
 ): Promise<SessionStartRoute> {
   if (
     options.subjectId !== undefined &&
@@ -44,15 +45,24 @@ export async function requestSessionStart(
   // 서버에 남은 옛 세션을 먼저 치운 뒤에 화면을 넘긴다. 순서가 뒤집히면 세션 화면의 복구
   // 조회가 옛 세션을 돌려줘, 사용자가 새로 시작하려던 자리에 지난 공부시간이 찍힌다.
   // 웹뷰에서는 네이티브가 start-session을 받고서야 세션 웹뷰를 만들므로 이 순서가 곧 요청 순서다.
-  await closeStaleSession(userId);
+  // 이어서 공부하기는 남은 진행 기록을 그대로 이어받아야 해서 확정하지 않는다.
+  if (options.resume !== true) {
+    await closeStaleSession(userId);
+  }
   if (isNativeBridgeAvailable()) {
-    postToNative({
+    const delivered = postToNative({
       type: "start-session",
       atMs: Date.now(),
       ...(options.subjectId === undefined ? {} : { initialSubjectId: options.subjectId }),
-      // 카메라 없이 고른 사용자에게 앱이 카메라 권한을 묻지 않게 한다.
-      ...(readMeasureMode() === "timer" ? { measureMode: "timer" as const } : {}),
+      // 카메라 없이 고른 사용자와 이어 가는 자율 모드 기록에는 앱이 카메라 권한을 묻지 않게 한다.
+      ...(options.resume === true || readMeasureMode() === "timer"
+        ? { measureMode: "timer" as const }
+        : {}),
     });
+    // 넘기지 못하면 앱이 화면을 열지 않아서 호출부가 버튼을 다시 열고 다시 시도하게 한다.
+    if (!delivered) {
+      throw new Error("start-session was not delivered");
+    }
     return "native";
   }
   navigateToSession();

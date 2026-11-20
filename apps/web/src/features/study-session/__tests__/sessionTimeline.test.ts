@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { BREAK_STATE, FOCUS_STATE, distractionState, pauseState } from "../sessionState";
 import {
   closeSessionTimeline,
+  cutSessionTimeline,
   computeSessionTotals,
   splitPauseSec,
   createSessionTimeline,
@@ -178,5 +179,47 @@ describe("toStatusEvents", () => {
     const events = toStatusEvents(timeline, sec(40));
     expect(events).toHaveLength(1);
     expect(events[0]!.endedAt).toBe(new Date(sec(40)).toISOString());
+  });
+});
+
+describe("cutSessionTimeline", () => {
+  it("종료 시각 뒤에 시작한 구간을 버리고 남은 마지막 구간을 종료 시각에 닫는다", () => {
+    const timeline = transition(createSessionTimeline(T0), BREAK_STATE, T0 + 130_000);
+
+    const cut = cutSessionTimeline(timeline, T0 + 120_000);
+
+    expect(cut.segments).toEqual([
+      { state: FOCUS_STATE, startedAtMs: T0, endedAtMs: T0 + 120_000 },
+    ]);
+    expect(computeSessionTotals(cut, T0 + 200_000).studySec).toBe(120);
+    expect(toStatusEvents(cut, T0 + 120_000)).toEqual([]);
+  });
+
+  it("종료 시각 앞에서 시작한 구간은 남기고 마지막 구간만 종료 시각에 닫는다", () => {
+    let timeline = createSessionTimeline(T0);
+    timeline = transition(timeline, pauseState("MANUAL"), T0 + 30_000);
+    timeline = transition(timeline, FOCUS_STATE, T0 + 60_000);
+
+    const cut = cutSessionTimeline(timeline, T0 + 90_000);
+
+    expect(cut.segments).toHaveLength(3);
+    expect(cut.segments[2]).toEqual({
+      state: FOCUS_STATE,
+      startedAtMs: T0 + 60_000,
+      endedAtMs: T0 + 90_000,
+    });
+    expect(toStatusEvents(cut, T0 + 90_000)).toEqual([
+      {
+        status: "PAUSE",
+        startedAt: new Date(T0 + 30_000).toISOString(),
+        endedAt: new Date(T0 + 60_000).toISOString(),
+      },
+    ]);
+  });
+
+  it("이미 닫힌 타임라인은 재시도라서 그대로 둔다", () => {
+    const closed = closeSessionTimeline(createSessionTimeline(T0), T0 + 60_000);
+
+    expect(cutSessionTimeline(closed, T0 + 30_000)).toBe(closed);
   });
 });

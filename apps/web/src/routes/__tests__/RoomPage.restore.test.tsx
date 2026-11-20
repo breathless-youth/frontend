@@ -1,7 +1,9 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, useLocation } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { AWAY_LIMIT_MS } from "@/features/study-session/sessionTuning";
 
 import { RoomPage } from "../RoomPage";
 
@@ -59,6 +61,33 @@ function renderRoom() {
   return render(
     <MemoryRouter initialEntries={["/room/1?userId=7"]}>
       <RoomPage />
+    </MemoryRouter>,
+  );
+}
+
+const closeStaleSession = vi.hoisted(() => vi.fn(async () => null));
+const postToNative = vi.hoisted(() => vi.fn());
+
+vi.mock("@/features/study-session/closeStaleSession", () => ({ closeStaleSession }));
+vi.mock("@/lib/bridge", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  postToNative,
+}));
+
+const TIMER_RESTORED = { ...RESTORED, source: "TIMER" as const };
+
+function HomeProbe() {
+  const location = useLocation();
+  return <p data-testid="home-probe">{location.pathname}</p>;
+}
+
+function renderRoomWithHome() {
+  return render(
+    <MemoryRouter initialEntries={["/room/1?userId=7"]}>
+      <Routes>
+        <Route path="/room/:id" element={<RoomPage />} />
+        <Route path="/home" element={<HomeProbe />} />
+      </Routes>
     </MemoryRouter>,
   );
 }
@@ -183,6 +212,119 @@ describe("RoomPage 복원 게이트", () => {
       expect(useStudyRoomSession).toHaveBeenCalledWith(
         7,
         expect.objectContaining({ restored: null }),
+      );
+    });
+  });
+});
+
+describe("RoomPage 이어 공부 확인", () => {
+  beforeEach(() => {
+    useActiveSessionRestore.mockReset();
+    useStudyRoomSession.mockReset();
+    listSubjects.mockReset();
+    listSubjects.mockResolvedValue([]);
+    closeStaleSession.mockClear();
+    postToNative.mockClear();
+    stubSession();
+    // 확인 창을 누른 순간 2시간 경계를 다시 재므로 마지막 보고 32분 뒤로 시계를 맞춘다.
+    vi.useFakeTimers({ toFake: ["Date"], now: TIMER_RESTORED.reportedAtMs + 32 * 60_000 });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("이어서 물을 기록이면 세션을 시작하지 않고 확인 창을 띄운다", () => {
+    useActiveSessionRestore.mockReturnValue({
+      settled: true,
+      restored: TIMER_RESTORED,
+      resume: { kind: "ask", awayMin: 32 },
+    });
+
+    renderRoom();
+
+    expect(screen.getByRole("dialog", { name: "공부를 이어 갈까요?" })).toBeInTheDocument();
+    expect(screen.getByText("앱 밖에 있던 32분도 공부 시간에 들어가요")).toBeInTheDocument();
+    expect(useStudyRoomSession).not.toHaveBeenCalled();
+  });
+
+  it("이어서 공부하기를 고르면 공백을 공부로 이어받게 세션 훅에 넘긴다", async () => {
+    useActiveSessionRestore.mockReturnValue({
+      settled: true,
+      restored: TIMER_RESTORED,
+      resume: { kind: "ask", awayMin: 32 },
+    });
+
+    renderRoom();
+    await userEvent.click(screen.getByRole("button", { name: "이어서 공부하기" }));
+
+    await waitFor(() => {
+      expect(useStudyRoomSession).toHaveBeenCalledWith(
+        7,
+        expect.objectContaining({ restored: TIMER_RESTORED, resumeAway: true }),
+      );
+    });
+  });
+
+  it("나간 시점에서 끝내기를 고르면 기록을 확정하고 홈으로 돌아간다", async () => {
+    useActiveSessionRestore.mockReturnValue({
+      settled: true,
+      restored: TIMER_RESTORED,
+      resume: { kind: "ask", awayMin: 32 },
+    });
+
+    renderRoomWithHome();
+    await userEvent.click(screen.getByRole("button", { name: "나간 시점에서 끝내기" }));
+
+    expect(await screen.findByTestId("home-probe")).toHaveTextContent("/home");
+    expect(closeStaleSession).toHaveBeenCalledWith(7);
+    expect(postToNative).toHaveBeenCalledWith(expect.objectContaining({ type: "navigate-home" }));
+    expect(useStudyRoomSession).not.toHaveBeenCalled();
+  });
+
+  it("창을 연 채 2시간이 지나 이어서 공부하기를 고르면 세션을 열지 않고 확정한 뒤 홈으로 돌아간다", async () => {
+    useActiveSessionRestore.mockReturnValue({
+      settled: true,
+      restored: TIMER_RESTORED,
+      resume: { kind: "ask", awayMin: 32 },
+    });
+
+    renderRoomWithHome();
+    vi.setSystemTime(TIMER_RESTORED.reportedAtMs + AWAY_LIMIT_MS + 60_000);
+    await userEvent.click(screen.getByRole("button", { name: "이어서 공부하기" }));
+
+    expect(await screen.findByTestId("home-probe")).toHaveTextContent("/home");
+    expect(closeStaleSession).toHaveBeenCalledWith(7);
+    expect(postToNative).toHaveBeenCalledWith(expect.objectContaining({ type: "navigate-home" }));
+    expect(useStudyRoomSession).not.toHaveBeenCalled();
+  });
+
+  it("홈에서 이미 이어서 공부하기를 고른 기록은 묻지 않고 공부로 이어받는다", async () => {
+    useActiveSessionRestore.mockReturnValue({
+      settled: true,
+      restored: TIMER_RESTORED,
+      resume: { kind: "confirmed" },
+    });
+
+    renderRoom();
+
+    expect(screen.queryByRole("dialog", { name: "공부를 이어 갈까요?" })).toBeNull();
+    await waitFor(() => {
+      expect(useStudyRoomSession).toHaveBeenCalledWith(
+        7,
+        expect.objectContaining({ resumeAway: true }),
+      );
+    });
+  });
+
+  it("묻지 않는 복원은 지금처럼 일시정지로 이어받는다", async () => {
+    useActiveSessionRestore.mockReturnValue({ settled: true, restored: RESTORED });
+
+    renderRoom();
+
+    await waitFor(() => {
+      expect(useStudyRoomSession).toHaveBeenCalledWith(
+        7,
+        expect.objectContaining({ restored: RESTORED, resumeAway: false }),
       );
     });
   });

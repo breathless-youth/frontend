@@ -1293,6 +1293,22 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
       ["session_recovery_confirmed"],
     ]);
   });
+
+  it("자율 모드 이어 공부 확인 창의 노출과 응답을 자리와 함께 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackStudySessionResumePrompted({ awayMin: 32, place: "home" });
+    m.trackStudySessionResumeAnswered({ choice: "resume", place: "home" });
+    m.trackStudySessionResumeAnswered({ choice: "end", place: "room" });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["study_session_resume_prompted", { away_min: 32, place: "home" }],
+      ["study_session_resume_answered", { choice: "resume", place: "home" }],
+      ["study_session_resume_answered", { choice: "end", place: "room" }],
+    ]);
+  });
 });
 
 describe("온보딩 이벤트", () => {

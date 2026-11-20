@@ -47,6 +47,7 @@
   "autoEnd": {
     "title": "여기까지 기록을 저장했어요",
     "backgroundBody": "화면이 꺼진 동안은 측정이 어려워서\n공부가 자동으로 종료됐어요",
+    "awayLimitBody": "앱 밖에 2시간 넘게 있어서 2시간까지 기록하고 공부를 마쳤어요",
     "focusLabel": "순공시간",
     "studyLabel": "총 공부",
     "cta": "결과 보기"
@@ -141,12 +142,19 @@
   "recovery": {
     "title": "저장되지 않은 기록을 복구했어요",
     "body": "앱이 예기치 않게 종료되었어요.\n공부 기록은 저장해 두었어요.",
+    "timerAwayBody": "앱 밖에 2시간 넘게 있어서 앱을 나간 시점까지 기록을 저장했어요",
     "date": "날짜",
     "time": "시작 · 종료",
     "timeRange": "{{start}} ~ {{end}}",
     "studyTime": "총 공부시간",
     "focusTime": "순공시간",
     "confirm": "확인"
+  },
+  "resume": {
+    "title": "공부를 이어 갈까요?",
+    "body": "앱 밖에 있던 {{minutes}}분도 공부 시간에 들어가요",
+    "continue": "이어서 공부하기",
+    "end": "나간 시점에서 끝내기"
   },
   "result": {
     "completeTitle": "오늘 공부 완료",

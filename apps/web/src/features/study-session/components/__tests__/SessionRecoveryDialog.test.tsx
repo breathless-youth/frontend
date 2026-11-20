@@ -19,6 +19,15 @@ function renderDialog(onConfirm = vi.fn()) {
 }
 
 describe("SessionRecoveryDialog", () => {
+  it("앱 밖 2시간 초과로 확정된 자율 모드 기록이면 그 사유를 본문으로 보여 준다", () => {
+    render(<SessionRecoveryDialog recovered={RECOVERED} awayLimit onConfirm={vi.fn()} />);
+
+    expect(
+      screen.getByText("앱 밖에 2시간 넘게 있어서 앱을 나간 시점까지 기록을 저장했어요"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/앱이 예기치 않게 종료되었어요/)).toBeNull();
+  });
+
   it("제목과 설명, 확인 버튼을 가진 다이얼로그다", () => {
     renderDialog();
 

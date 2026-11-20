@@ -21,7 +21,7 @@ export interface SystemPauseSource {
 }
 
 export interface SystemPauseHandlers {
-  /** 화면 꺼짐·백그라운드 전환 — 일시정지에 진입한다. */
+  /** 화면 꺼짐·백그라운드 전환. 관리 모드는 일시정지하고 자율 모드는 나간 시각만 적는다. */
   readonly onLeave: () => void;
   /**
    * 복귀 — 세션은 자동으로 재개하지 않고 훅이 카메라만 다시 확인한다.

@@ -11,6 +11,8 @@ import type {
 } from "@/features/study-session/adapters/focusDetector";
 import { createDevMockDetector } from "@/features/study-session/devMockDetector";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
+import { AWAY_LIMIT_MS } from "@/features/study-session/sessionTuning";
+import { submitStudySession } from "@/features/study-session/submitStudySession";
 import { trackSessionSimpleModeToggled, trackStudySessionEnded } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
 import { answerCameraPrompt, CAMERA_PROMPT_NAME } from "@/test/cameraPrompt";
@@ -317,6 +319,35 @@ describe("RoomPage 카메라 없는 모드", () => {
     expect(vision.detector.start).toHaveBeenCalled();
     expect(motionSensorMessages()).not.toEqual([]);
     expect(recorder.begin).toHaveBeenCalled();
+  });
+
+  it("앱 밖에 2시간 넘게 있다 돌아오면 나간 시각에서 2시간까지 기록하고 그 사유를 안내한다", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(submitStudySession).mockResolvedValue([]);
+      writeMeasureMode("timer");
+      renderRoom();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(60_000);
+      });
+
+      const leftAtMs = Date.now();
+      act(() => setVisibility("hidden"));
+      vi.setSystemTime(leftAtMs + AWAY_LIMIT_MS + 10 * 60_000);
+      act(() => setVisibility("visible"));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(vi.mocked(submitStudySession)).toHaveBeenCalledWith(
+        expect.objectContaining({ endedAtMs: leftAtMs + AWAY_LIMIT_MS }),
+      );
+      expect(
+        screen.getByText("앱 밖에 2시간 넘게 있어서 2시간까지 기록하고 공부를 마쳤어요"),
+      ).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
