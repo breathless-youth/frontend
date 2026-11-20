@@ -301,7 +301,10 @@ describe("SessionSpacePage", () => {
     expect(onApply).toHaveBeenCalledTimes(1);
     expect(onApply).toHaveBeenCalledWith({ kind: "simple" });
     expect(trackTimerBackgroundApplied).not.toHaveBeenCalled();
-    expect(screen.queryByRole("button", { name: "내 사진 1" })).not.toBeInTheDocument();
+    // 삭제 이벤트를 보낸 뒤 사진 목록을 다시 읽어 그리므로 타일이 사라질 때까지 기다린다.
+    await vi.waitFor(() =>
+      expect(screen.queryByRole("button", { name: "내 사진 1" })).not.toBeInTheDocument(),
+    );
   });
 
   it("적용 중인 사진을 지울 때 심플로 저장하지 못하면 지우지 않고 실패를 알린다", async () => {
