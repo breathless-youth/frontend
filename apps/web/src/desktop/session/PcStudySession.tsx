@@ -198,11 +198,13 @@ function PcSessionScreen({
   const [exitOpen, setExitOpen] = useState(false);
   const [dialogLayer, setDialogLayer] = useState<HTMLDivElement | null>(null);
   const exitRef = useRef<HTMLButtonElement>(null);
+  // 제출 중·제출 실패에도 표시를 남겨, 그 사이 새로고침하면 서버 진행 기록으로 다시 열어 종료를 다시 누를 수 있게 한다.
+  const keepMarker = studying || phase.name === "submitting" || phase.name === "error";
   useEffect(() => {
-    if (!studying || userId === null) return;
+    if (!keepMarker || userId === null) return;
     writePcSessionMarker(userId);
     return clearPcSessionMarker;
-  }, [studying, userId]);
+  }, [keepMarker, userId]);
   // 저장이 끝나면 서버 기록에 이번 세션이 들어가 다시 더하면 두 번 센다.
   const stats =
     phase.name === "done"

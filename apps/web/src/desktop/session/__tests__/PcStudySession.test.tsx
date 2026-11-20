@@ -493,6 +493,7 @@ describe("PcStudySession 종료", () => {
     });
 
     expect(screen.getByText("결과 1건")).toBeInTheDocument();
+    expect(readPcSessionMarker()).toBeNull();
   });
 
   it("순공이 기준보다 짧으면 상자 안 창으로 알리고 홈으로를 누르면 홈 상태로 돌아온다", async () => {
@@ -514,7 +515,7 @@ describe("PcStudySession 종료", () => {
     expect(onEnd).toHaveBeenCalledTimes(1);
   });
 
-  it("제출이 실패하면 상자 안 창에 다시 시도를 보이고 누르면 다시 보낸다", async () => {
+  it("제출이 실패하면 표시를 남긴 채 상자 안 창에 다시 시도를 보이고 누르면 다시 보낸다", async () => {
     vi.mocked(submitStudySession)
       .mockRejectedValueOnce(new Error("일시적 오류"))
       .mockResolvedValue([]);
@@ -525,6 +526,7 @@ describe("PcStudySession 종료", () => {
       screen.getByRole("button", { name: i18n.t("study-session:exitConfirm.confirm") }),
     );
     const dialog = await screen.findByRole("alertdialog");
+    expect(readPcSessionMarker()).toBe(7);
     await userEvent.click(
       within(dialog).getByRole("button", { name: i18n.t("common:actions.retry") }),
     );
