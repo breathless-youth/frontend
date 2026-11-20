@@ -25,14 +25,9 @@ describe("useStudyRoomSession 스냅샷 보고", () => {
     vi.restoreAllMocks();
   });
 
-  it("첫 보고는 t=30에 나가고 이후 30초마다 반복한다", async () => {
+  it("첫 보고는 과목 없이 시작해도 바로 나가고 이후 30초마다 반복한다", async () => {
     stubFetch({ ok: true });
     renderHook(() => useStudyRoomSession(1));
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(29_000);
-    });
-    expect(fetch).not.toHaveBeenCalled();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_000);
@@ -43,7 +38,12 @@ describe("useStudyRoomSession 스냅샷 보고", () => {
     );
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(30_000);
+      await vi.advanceTimersByTimeAsync(28_000);
+    });
+    expect(vi.mocked(fetch).mock.calls).toHaveLength(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
     });
     expect(vi.mocked(fetch).mock.calls).toHaveLength(2);
   });
@@ -108,10 +108,11 @@ describe("useStudyRoomSession 스냅샷 보고", () => {
     renderHook(() => useStudyRoomSession(1));
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(30_000);
+      await vi.advanceTimersByTimeAsync(1_000);
     });
+    expect(vi.mocked(fetch).mock.calls).toHaveLength(1);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(30_000);
+      await vi.advanceTimersByTimeAsync(29_000);
     });
     expect(vi.mocked(fetch).mock.calls).toHaveLength(2);
   });
@@ -121,10 +122,11 @@ describe("useStudyRoomSession 스냅샷 보고", () => {
     renderHook(() => useStudyRoomSession(1));
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(30_000);
+      await vi.advanceTimersByTimeAsync(1_000);
     });
+    expect(vi.mocked(fetch).mock.calls).toHaveLength(1);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(30_000);
+      await vi.advanceTimersByTimeAsync(29_000);
     });
     expect(vi.mocked(fetch).mock.calls).toHaveLength(2);
   });
@@ -144,7 +146,7 @@ describe("useStudyRoomSession 스냅샷 보고", () => {
     renderHook(() => useStudyRoomSession(1));
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(30_000);
+      await vi.advanceTimersByTimeAsync(1_000);
     });
     expect(vi.mocked(fetch).mock.calls).toHaveLength(1);
 
@@ -153,7 +155,7 @@ describe("useStudyRoomSession 스냅샷 보고", () => {
       await vi.advanceTimersByTimeAsync(20_000);
     });
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(10_000);
+      await vi.advanceTimersByTimeAsync(9_000);
     });
     expect(vi.mocked(fetch).mock.calls).toHaveLength(2);
   });
@@ -163,7 +165,7 @@ describe("useStudyRoomSession 스냅샷 보고", () => {
     const { unmount } = renderHook(() => useStudyRoomSession(1));
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(30_000);
+      await vi.advanceTimersByTimeAsync(1_000);
     });
     expect(vi.mocked(fetch).mock.calls).toHaveLength(1);
 

@@ -673,8 +673,9 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     return () => clearInterval(timer);
   }, [applyState, detectionParams, phase.name, refreshDisplay, tickMs]);
 
-  // studying 동안 30초마다, 과목을 선택하면 즉시 진행 스냅샷을 서버에 보고한다. 강제종료로 최종 제출이 안 와도
-  // 서버가 마지막 스냅샷으로 세션을 자동 확정한다.
+  // studying에 들어서면 바로, 그 뒤 30초마다, 과목을 선택하면 즉시 진행 스냅샷을 서버에 보고한다.
+  // 강제종료로 최종 제출이 안 와도 서버가 마지막 스냅샷으로 세션을 자동 확정한다.
+  // 첫 보고를 미루면 그 사이 새로고침·강제종료된 세션은 서버에 draft가 없어 이어 가지도 확정되지도 않는다.
   useEffect(() => {
     if (phase.name !== "studying" || userId === null) {
       return;
@@ -736,8 +737,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         });
     };
     requestSnapshotRef.current = send;
-    const initialReport =
-      subjectTrackerRef.current.current !== null ? setTimeout(send, 1) : undefined;
+    const initialReport = setTimeout(send, 1);
     const timer = setInterval(send, 30_000);
     return () => {
       disposed = true;
