@@ -163,4 +163,27 @@ describe("타이머 배경 선택 구독", () => {
     window.removeEventListener("timer-background-change", listener);
     expect(listener).not.toHaveBeenCalled();
   });
+
+  it("저장이 막혀 감독관이 남아도 구독 스냅샷은 심플이고 소재 정리는 한 번만 한다", async () => {
+    // 한 페이지에 한 번만 정리하는지 보려고 이 파일 앞 테스트가 남긴 모듈 상태 없이 새로 받는다.
+    vi.resetModules();
+    const fresh = await import("../timerBackground");
+    const assets = await import("../watcher/watcherAssets");
+    videoSpaces.open = false;
+    localStorage.setItem("focusmakers.timerBackground", JSON.stringify({ kind: "proctor" }));
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new DOMException("blocked", "SecurityError");
+    });
+
+    const { result, rerender } = renderHook(() => fresh.useTimerBackground());
+    rerender();
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key: "focusmakers.timerBackground" }));
+    });
+    rerender();
+
+    expect(result.current).toEqual({ kind: "simple" });
+    expect(assets.clearWatcherAssets).toHaveBeenCalledOnce();
+    expect(localStorage.getItem("focusmakers.timerBackground")).toBe('{"kind":"proctor"}');
+  });
 });

@@ -17,10 +17,12 @@ let panelHeight = 480;
 
 /** jsdom에는 ResizeObserver가 없어, 지켜보는 콜백을 모아 두고 테스트가 크기 변화를 알린다. */
 const resizeCallbacks = new Set<() => void>();
+let observersCreated = 0;
 class FakeResizeObserver {
   readonly #notify: () => void;
   constructor(callback: () => void) {
     this.#notify = callback;
+    observersCreated += 1;
   }
   observe() {
     resizeCallbacks.add(this.#notify);
@@ -74,6 +76,7 @@ beforeEach(() => {
   boxSize = { width: 1200, height: 800 };
   panelHeight = 480;
   resizeCallbacks.clear();
+  observersCreated = 0;
   vi.stubGlobal("PointerEvent", Pointer);
   vi.stubGlobal("ResizeObserver", FakeResizeObserver);
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
@@ -181,6 +184,34 @@ describe("useStudyPanel", () => {
     resizePanel(480);
     expect(position()).toEqual({ right: "24px", top: "300px" });
     expect(JSON.parse(localStorage.getItem(KEY)!)).toMatchObject({ right: 24, top: 300 });
+  });
+
+  it("포인터 붙잡기를 잃으면 끌기를 끝내고 그 자리를 저장한다", () => {
+    render(<Harness />);
+    const handle = screen.getByTestId("handle");
+
+    fireEvent.pointerDown(handle, { clientX: 900, clientY: 40, pointerId: 1, button: 0 });
+    fireEvent.pointerMove(handle, { clientX: 700, clientY: 140, pointerId: 1 });
+    fireEvent.lostPointerCapture(handle, { pointerId: 1 });
+    fireEvent.pointerMove(handle, { clientX: 600, clientY: 240, pointerId: 1 });
+
+    expect(position()).toEqual({ right: "224px", top: "124px" });
+    expect(JSON.parse(localStorage.getItem(KEY)!)).toMatchObject({ right: 224, top: 124 });
+  });
+
+  it("끄는 동안 크기 감시를 다시 만들지 않는다", () => {
+    render(<Harness />);
+    const created = observersCreated;
+    const handle = screen.getByTestId("handle");
+
+    fireEvent.pointerDown(handle, { clientX: 900, clientY: 40, pointerId: 1, button: 0 });
+    for (const x of [880, 860, 840, 820]) {
+      fireEvent.pointerMove(handle, { clientX: x, clientY: 40, pointerId: 1 });
+    }
+    fireEvent.pointerUp(handle, { clientX: 820, clientY: 40, pointerId: 1 });
+
+    expect(position()).toEqual({ right: "104px", top: "24px" });
+    expect(observersCreated).toBe(created);
   });
 
   it("당겨진 채 끌면 보이는 자리에서부터 따라온다", () => {

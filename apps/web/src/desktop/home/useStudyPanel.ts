@@ -1,4 +1,12 @@
-import { useLayoutEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type KeyboardEvent,
+  type PointerEvent,
+  type SetStateAction,
+} from "react";
 
 const STORAGE_KEY = "focusmakers.pc.studyPanel";
 
@@ -96,6 +104,23 @@ function keepInside(panel: HTMLElement | null, position: PanelPosition): PanelPo
 }
 
 /**
+ * 보이는 자리 맞추기
+ *
+ * 저장 자리를 지금 상자 안쪽으로 당겨 보이는 자리로 둔다.
+ * 같은 자리면 다시 그리지 않는다.
+ */
+function showInside(
+  panel: HTMLElement | null,
+  saved: PanelPosition,
+  setShown: Dispatch<SetStateAction<PanelPosition>>,
+) {
+  const next = keepInside(panel, saved);
+  setShown((current) =>
+    current.right === next.right && current.top === next.top ? current : next,
+  );
+}
+
+/**
  * 공부시간 패널의 자리·접힘·끌기
  *
  * 끌기는 머리줄에 포인터를 붙잡아 커서가 머리줄을 벗어나도 놓을 때까지 따라오게 한다.
@@ -112,6 +137,9 @@ export function useStudyPanel() {
     right: state.right,
     top: state.top,
   }));
+  // 크기 감시는 패널이 바뀔 때만 다시 걸고, 감시 콜백은 이 ref로 최신 저장 자리를 읽는다.
+  // 끄는 동안 저장 자리가 포인터가 움직일 때마다 바뀌어 effect가 감시를 매번 다시 만들지 않게 한다.
+  const savedRef = useRef(state);
   const dragStart = useRef<{
     pointerId: number;
     x: number;
@@ -120,14 +148,14 @@ export function useStudyPanel() {
     top: number;
   } | null>(null);
 
+  // 사용자가 옮기거나 접으면 그려진 뒤 보이는 자리를 다시 잰다.
   useLayoutEffect(() => {
-    const pullIn = () => {
-      const next = keepInside(panel, state);
-      setShown((current) =>
-        current.right === next.right && current.top === next.top ? current : next,
-      );
-    };
-    pullIn();
+    savedRef.current = state;
+    showInside(panel, state, setShown);
+  }, [panel, state]);
+
+  useLayoutEffect(() => {
+    const pullIn = () => showInside(panel, savedRef.current, setShown);
     window.addEventListener("resize", pullIn);
     const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(pullIn);
     if (panel) observer?.observe(panel);
@@ -135,7 +163,7 @@ export function useStudyPanel() {
       window.removeEventListener("resize", pullIn);
       observer?.disconnect();
     };
-  }, [panel, state]);
+  }, [panel]);
 
   function commit(next: StudyPanelState) {
     setState(next);
@@ -182,6 +210,8 @@ export function useStudyPanel() {
       },
       onPointerUp: endDrag,
       onPointerCancel: endDrag,
+      // 브라우저가 붙잡기를 거둬 가면 놓기 이벤트가 오지 않아 여기서도 끌기를 끝내고 저장한다.
+      onLostPointerCapture: endDrag,
       onKeyDown(event: KeyboardEvent<HTMLElement>) {
         const arrow = ARROWS[event.key];
         // 접기 버튼에 포커스가 있을 때의 방향키는 버튼 몫이라 머리줄 자체에서만 옮긴다.
