@@ -2,6 +2,7 @@
  * 포인트 1단계 API의 응답 타입
  *
  * 2026-11-16 개발 서버 Swagger와 필드 이름, null 가능 여부, 열거 값을 대조했고 타입마다 대조한 스키마 이름을 적는다.
+ * 공간 필드(assetKey·assetType·videoMode·tags)는 2026-11-20 백엔드 dev 코드와 대조했다.
  * 이름은 웹이 먼저 쓰던 이름을 유지한다.
  * 이 Swagger는 필수 필드를 표시하지 않아서 null 가능 여부는 필드 설명을 따른다.
  * 새로 생긴 필드는 그 필드가 생기기 전의 서버도 받을 수 있게 선택으로 둔다.
@@ -33,6 +34,9 @@ export type StudyRewardResponse = {
   nextMascot: { code: string; unlockFocusSec: number; remainingFocusSec: number } | null;
 };
 
+/** `ShopItemResponse.tags`의 `ShopTagResponse`이며 이름은 Accept-Language의 언어로 온다. */
+export type ShopTagResponse = { code: string; name: string };
+
 /** `GET /api/shop/items`의 `ShopItemResponse`와 `ShopItemUnlock` */
 export type ShopItemResponse = {
   id: number;
@@ -43,8 +47,6 @@ export type ShopItemResponse = {
   mascotCode: string | null;
   /** HEAD·FACE·BODY·WINGS·HELD·UNDERFOOT·EFFECT·SET이며 소품이 아니면 null이다. */
   slot: string | null;
-  /** 화면에서 거르는 분류 코드이며 Swagger는 열거 없이 NATURE만 예로 든다. 없으면 null이다. */
-  tag: string | null;
   name: string;
   imageUrl: string | null;
   /** 뒤 조각, 등급, 스토어 상품 ID는 이 필드들이 생기기 전의 서버가 주지 않는다. */
@@ -63,6 +65,12 @@ export type ShopItemResponse = {
   effectPieces?: EffectPieceResponse[] | null;
   /** 그림 없이 코드로 그리는 빛 효과의 종류이며 이때 imageUrl은 null이다. */
   effectType?: string | null;
+  /** 아래 네 필드는 공간 필드가 생기기 전의 서버가 주지 않는다. 뜻은 `EquippedItemResponse`와 같다. */
+  assetKey?: string | null;
+  assetType?: string | null;
+  videoMode?: string | null;
+  /** 서버가 정한 공간 분류이며 분류 순서대로 오고 없으면 빈 배열이다. */
+  tags?: ShopTagResponse[];
 };
 
 /** `GET /api/shop/items`의 `ShopItemListResponse` */

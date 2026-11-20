@@ -72,7 +72,6 @@ const ITEMS: ShopItemsResponse = {
       category: "MASCOT_ACCESSORY",
       mascotCode: "STOPWATCH",
       slot: "BODY",
-      tag: null,
       name: "목도리",
       imageUrl: null,
       price: 300,
