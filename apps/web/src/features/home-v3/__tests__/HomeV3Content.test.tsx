@@ -7,6 +7,9 @@ import { HomeGoalSheet } from "../HomeGoalSheet";
 import { readMeasureMode, writeMeasureMode } from "@/features/measure-mode/measureMode";
 import i18n from "@/lib/i18n";
 
+const pcShell = vi.hoisted(() => ({ value: false }));
+vi.mock("@/desktop/usePcShell", () => ({ usePcShell: () => pcShell.value }));
+
 function props(): HomeV3ContentProps {
   return {
     band: { status: "success", value: { kind: "mission", step: 1, ready: true, progress: 0 } },
@@ -302,5 +305,30 @@ describe("HomeGoalSheet", () => {
     fireEvent.click(screen.getByRole("button", { name: i18n.t("home:v3.goal.save") }));
     expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t("home:v3.goal.saveFailed"));
     expect(close).not.toHaveBeenCalled();
+  });
+
+  it("PC에서는 가운데 창으로 열고 날짜 뒤에 닫기를 두어 겹치지 않는다", () => {
+    pcShell.value = true;
+    try {
+      render(
+        <HomeGoalSheet
+          open
+          onOpenChange={vi.fn()}
+          initialSeconds={36000}
+          dateLabel="11월 20일 (금)"
+          onSave={vi.fn()}
+        />,
+      );
+
+      expect(
+        screen.getByRole("dialog", { name: i18n.t("planner:goal.title") }),
+      ).toHaveAccessibleDescription(i18n.t("home:v3.goal.description"));
+      expect(document.querySelector('[data-slot="drawer-handle"]')).toBeNull();
+      const close = screen.getByRole("button", { name: i18n.t("common:actions.close") });
+      const header = screen.getByText("11월 20일 (금)").parentElement!;
+      expect(Array.from(close.parentElement!.children)).toEqual([header, close]);
+    } finally {
+      pcShell.value = false;
+    }
   });
 });

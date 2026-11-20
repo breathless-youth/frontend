@@ -9,6 +9,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { InfoTooltip } from "@/components/ui/InfoTooltip";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/Skeleton";
+import { usePcShell } from "@/desktop/usePcShell";
 import { useAppLockRevokeCheck } from "@/features/app-lock/useAppLockRevokeCheck";
 import { DdaySection } from "@/features/home/DdaySection";
 import { todayLabel } from "@/features/home/homeFormat";
@@ -305,6 +306,8 @@ export function HomeTabPage({ homeV3Gateway }: { homeV3Gateway?: HomeV3Gateway }
   const { t } = useTranslation("home");
   const userId = useUserId();
   const useNewHome = homeV3Gateway !== undefined || (hasTokenSource() && userId !== null);
+  // PC 셸 안의 새 홈은 상자 전체를 쓰는 절대 배치라 폰 홈의 열과 여백을 만들지 않는다.
+  const pcHome = usePcShell() && useNewHome;
   const identityPending = useIdentityPending();
   const { recovered, settled: recoverySettled, dismiss } = useLaunchSessionRecovery(userId);
   useTimeZoneSync(userId, identityPending);
@@ -361,10 +364,15 @@ export function HomeTabPage({ homeV3Gateway }: { homeV3Gateway?: HomeV3Gateway }
   return (
     <main
       data-testid="home-tab-page"
-      className="theme-soft-blue bg-soft-blue page-column flex min-h-dvh flex-col pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+22px)] text-foreground"
+      className={cn(
+        "theme-soft-blue text-foreground",
+        pcHome
+          ? "relative h-full overflow-hidden"
+          : "bg-soft-blue page-column flex min-h-dvh flex-col pb-(--tab-bar-reserve) pt-[calc(env(safe-area-inset-top)+22px)]",
+      )}
     >
       {/* 새 홈의 문의 푸터가 화면 바닥에 붙도록 남는 높이를 이 열이 채운다. */}
-      <div className="flex flex-1 flex-col gap-3 px-5">
+      <div className={pcHome ? "contents" : "flex flex-1 flex-col gap-3 px-5"}>
         {!useNewHome && (
           <header className="flex items-end justify-between pb-2">
             <HomeHeaderLead userId={userId} identityPending={identityPending} />

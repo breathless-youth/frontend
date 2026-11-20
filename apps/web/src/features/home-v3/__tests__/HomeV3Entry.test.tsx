@@ -1,10 +1,10 @@
 import { plannerDay } from "@/test/plannerFixtures";
 import { homeMission } from "@/test/homeMissionFixtures";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { SubjectStartUnavailableError } from "@/lib/sessionStart";
 import { hardNavigate } from "@/lib/hardNavigation";
 
@@ -60,7 +60,12 @@ vi.mock("@/lib/hardNavigation", async (original) => ({
   ...(await original<typeof hardNavigation>()),
   hardNavigate: vi.fn(),
 }));
-afterEach(() => vi.unstubAllGlobals());
+const pcShell = vi.hoisted(() => ({ value: false }));
+vi.mock("@/desktop/usePcShell", () => ({ usePcShell: () => pcShell.value }));
+afterEach(() => {
+  vi.unstubAllGlobals();
+  pcShell.value = false;
+});
 
 function setup(overrides: Partial<HomeV3Gateway> = {}, real = false, path = "/") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -305,5 +310,52 @@ describe("home v3 entry adapters", () => {
     expect(screen.queryByText(i18n.t("home:v3.subject.verifyFailed"))).not.toBeInTheDocument();
     expect(readHomeSubject(7)).toBe(2);
     expect(gateway.startStudy).not.toHaveBeenCalled();
+  });
+});
+
+describe("home v3 entry PC 분기", () => {
+  beforeAll(async () => {
+    await import("@/desktop/home/PcHomeContent");
+  });
+  afterAll(() => {
+    pcShell.value = false;
+  });
+
+  it("PC면 머리줄 없이 공부시간 패널 안에 진행 띠·공부 카드·시작 버튼을 그린다", async () => {
+    pcShell.value = true;
+    setup();
+
+    const panel = await screen.findByRole("region", { name: i18n.t("desktop:home.panel.title") });
+    expect(
+      within(panel).getByRole("button", { name: i18n.t("home:v3.startStudy") }),
+    ).toBeInTheDocument();
+    expect(
+      within(panel).getByRole("region", { name: i18n.t("home:v3.stats.title") }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: i18n.t("home:header.title") }),
+    ).toBeInTheDocument();
+  });
+
+  it("PC 문의는 폰 홈과 같은 상담 주소를 새 탭 링크로 연다", async () => {
+    pcShell.value = true;
+    setup({}, false, "/home?userId=7&appVersion=26.46.0&guestAuth=1");
+
+    const link = await screen.findByRole("link", { name: /문의/ });
+    expect(link).toHaveAttribute("href", "/contact/chat?appVersion=26.46.0&guestAuth=1");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(hardNavigate).not.toHaveBeenCalled();
+  });
+
+  it("PC가 아니면 지금 홈을 그리고 공부시간 패널이 없다", async () => {
+    setup();
+
+    expect(
+      await screen.findByRole("button", { name: i18n.t("home:v3.startStudy") }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: i18n.t("desktop:home.panel.title") }),
+    ).not.toBeInTheDocument();
   });
 });

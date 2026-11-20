@@ -5,7 +5,7 @@ import type {
   PlannerDayResponse,
   SessionRecoveryResponse,
 } from "@focusmakers/types";
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type * as ReactRouterDom from "react-router-dom";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -119,6 +119,9 @@ vi.mock("@/lib/ddayApi", () => ({
   putDday: vi.fn(),
   deleteDday: vi.fn(),
 }));
+
+const pcShell = vi.hoisted(() => ({ value: false }));
+vi.mock("@/desktop/usePcShell", () => ({ usePcShell: () => pcShell.value }));
 
 /** 홈이 통계를 그린 뒤 부르는 Vision 자원 미리 받기. 받기 자체는 자기 테스트가 본다. */
 const prefetchVisionAssets = vi.hoisted(() => vi.fn());
@@ -243,6 +246,7 @@ describe("HomeTabPage", () => {
   // 첫 lazy 모듈 변환 시간은 화면 응답을 기다리는 시간에 포함하지 않는다.
   beforeAll(async () => {
     await import("@/features/home-v3/HomeV3Entry");
+    await import("@/desktop/home/PcHomeContent");
   });
   it("토큰 계약 홈은 별도 gateway 주입 없이 실제 새 홈을 표시한다", async () => {
     tokenSourceMock.source = {
@@ -270,6 +274,38 @@ describe("HomeTabPage", () => {
         ),
       );
     } finally {
+      tokenSourceMock.source = null;
+      vi.unstubAllGlobals();
+    }
+  });
+  it("PC 셸에서는 토큰 계약 홈을 공부시간 패널로 그린다", async () => {
+    pcShell.value = true;
+    tokenSourceMock.source = {
+      getUserId: () => 7,
+      getAccessToken: async () => "token",
+      getCurrentToken: () => "token",
+      hasSettled: () => true,
+      subscribe: () => () => {},
+      refresh: async () => "token",
+    };
+    mockedStats.mockResolvedValue(statsResponse);
+    mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+    carryoverApi.getPlannerDay.mockResolvedValue(plannerDay());
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: RequestInfo | URL) =>
+        Response.json(String(url).includes("/api/home/mission") ? homeMission(0, 0, false) : {}),
+      ),
+    );
+    try {
+      renderHome();
+
+      const panel = await screen.findByRole("region", { name: "공부시간" });
+      expect(within(panel).getByRole("button", { name: "공부 시작" })).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "D-Day 설정" })).toBeInTheDocument();
+      expect(screen.queryByText("목표 날짜를 설정하세요")).not.toBeInTheDocument();
+    } finally {
+      pcShell.value = false;
       tokenSourceMock.source = null;
       vi.unstubAllGlobals();
     }

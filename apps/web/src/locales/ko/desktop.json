@@ -11,5 +11,16 @@
     "myAccount": "내 정보",
     "login": "로그인",
     "logout": "로그아웃"
+  },
+  "home": {
+    "panel": {
+      "title": "공부시간",
+      "move": "공부시간 패널. 방향키로 옮기고 Shift를 함께 누르면 크게 옮겨요",
+      "minimize": "공부시간 패널 접기",
+      "expand": "공부시간 패널 펼치기"
+    },
+    "rail": "홈 도구",
+    "contact": "문의",
+    "newTab": "새 탭에서 열려요"
   }
 }
