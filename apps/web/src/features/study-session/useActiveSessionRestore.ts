@@ -15,6 +15,8 @@ export interface ActiveSessionRestoreState {
   settled: boolean;
   /** 이어받을 세션. 없으면 새 세션으로 시작한다. */
   restored: RestoredSession | null;
+  /** 다시 시도해도 조회하지 못해 기록이 없는지 모르는 채 결착했는가. `reportFailure`로 부른 쪽만 받는다. */
+  failed?: boolean;
 }
 
 const NOT_SETTLED: ActiveSessionRestoreState = { settled: false, restored: null };
@@ -42,7 +44,10 @@ function delay(ms: number): Promise<void> {
  * 걸려 버려진다. 그러면 `settled`가 영원히 false로 남아 룸 화면이 뜨지 않는다. 조회는 값을
  * 바꾸지 않는 GET이라 개발 환경에서 두 번 나가는 편이 안전하다.
  */
-export function useActiveSessionRestore(userId: number | null): ActiveSessionRestoreState {
+export function useActiveSessionRestore(
+  userId: number | null,
+  { reportFailure = false }: { reportFailure?: boolean } = {},
+): ActiveSessionRestoreState {
   const [state, setState] = useState<OwnedState>(() => ({
     userId,
     ...(userId === null ? NOTHING_TO_RESTORE : NOT_SETTLED),
@@ -92,7 +97,7 @@ export function useActiveSessionRestore(userId: number | null): ActiveSessionRes
         }
       }
       if (!cancelled) {
-        settle(NOTHING_TO_RESTORE);
+        settle({ ...NOTHING_TO_RESTORE, failed: true });
       }
     }
 
@@ -108,5 +113,8 @@ export function useActiveSessionRestore(userId: number | null): ActiveSessionRes
   if (state.userId !== userId) {
     return userId === null ? NOTHING_TO_RESTORE : NOT_SETTLED;
   }
-  return { settled: state.settled, restored: state.restored };
+  // 휴대폰 세션 화면은 실패해도 새 세션으로 시작해서 실패 여부를 받지 않는다.
+  return reportFailure
+    ? { settled: state.settled, restored: state.restored, failed: state.failed === true }
+    : { settled: state.settled, restored: state.restored };
 }
