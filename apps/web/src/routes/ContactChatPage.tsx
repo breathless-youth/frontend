@@ -11,6 +11,7 @@ import {
   toChannelAppearance,
   toChannelLanguage,
 } from "@/features/contact-chat/channelTalk";
+import { isContactPopup } from "@/features/contact-chat/contactPopup";
 import type { ChannelAttempt, ChannelLoadFailure } from "@/features/contact-chat/channelTalk";
 import { appVersionLabel } from "@/features/settings/settingsInfo";
 import { detectStorePlatform } from "@/features/social-room/storeLink";
@@ -32,9 +33,14 @@ const FALLBACK_PATH = "/home";
  * 상담 화면 나가기
  *
  * 문서 이동은 컴포넌트 정리를 기다리지 않으므로 상담을 먼저 끄고 이전 문서로 간다.
+ * PC 홈이 띄운 문의 창이면 홈이 뒤에 그대로 있어, 창 안에서 홈을 다시 열지 않고 창을 닫는다.
  */
 function leave(attempt: ChannelAttempt | null, search: string): void {
   attempt?.cancel();
+  if (isContactPopup(search)) {
+    window.close();
+    return;
+  }
   exitToPreviousDocument(FALLBACK_PATH, search);
 }
 
