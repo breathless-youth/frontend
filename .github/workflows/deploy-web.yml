@@ -121,7 +121,6 @@ jobs:
       # 해시 자산은 지우지 않는다(--delete 없음).
       # 배포 중에 열려 있던 화면이 옛 index.html로 옛 청크를 받으러 오기 때문이다.
       # Cache-Control 없이 올리면 CloudFront가 기본 TTL 24시간을 써서 index.html이 엣지에 하루 남는다.
-      # 공간 소재(spaces/)는 파일명이나 폴더명에 내용 해시가 있고 publicAssetHashes 테스트가 대조한다.
       - name: Upload to S3
         working-directory: apps/web
         run: |
@@ -133,7 +132,6 @@ jobs:
           aws s3 sync dist/ "s3://$BUCKET" --only-show-errors \
             --cache-control "$IMMUTABLE" \
             --exclude "*" --include "assets/*" --include "mediapipe/*" --include "sounds/*.mp3" \
-            --include "spaces/*" \
             --exclude "*.map" --exclude "mediapipe/*.wasm"
 
           # 미리 brotli로 압축한 wasm과 모델은 Content-Encoding을 붙여야 브라우저가 풀어 쓴다
@@ -148,6 +146,7 @@ jobs:
             --exclude "*.map"
 
           # 나머지는 매번 확인하는 파일이라 이전 것을 지워도 된다
+          # 공간 파일은 CloudFront가 공간 버킷에서 내보내고, 이 버킷에 남은 옛 사본은 지우지 않는다
           aws s3 sync dist/ "s3://$BUCKET" --delete --only-show-errors \
             --cache-control "$REVALIDATE" \
             --exclude "assets/*" --exclude "mediapipe/*" --exclude "sounds/*.mp3" --exclude "models/*" \
