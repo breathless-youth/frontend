@@ -47,6 +47,7 @@
   "autoEnd": {
     "title": "已儲存目前為止的紀錄",
     "backgroundBody": "螢幕關閉時無法測量，\n所以已自動結束讀書",
+    "awayLimitBody": "離開 App 超過 2 小時，已記錄到第 2 小時並結束讀書",
     "focusLabel": "專注時間",
     "studyLabel": "總讀書時間",
     "cta": "查看結果"
@@ -141,12 +142,19 @@
   "recovery": {
     "title": "已復原未儲存的紀錄",
     "body": "App 意外關閉了。\n已為你儲存讀書紀錄。",
+    "timerAwayBody": "離開 App 超過 2 小時，已將紀錄儲存到離開 App 的時間點",
     "date": "日期",
     "time": "開始 · 結束",
     "timeRange": "{{start}}～{{end}}",
     "studyTime": "總讀書時間",
     "focusTime": "專注時間",
     "confirm": "好"
+  },
+  "resume": {
+    "title": "要繼續讀書嗎？",
+    "body": "離開 App 的 {{minutes}} 分鐘也會算進讀書時間",
+    "continue": "繼續讀書",
+    "end": "在離開的時間點結束"
   },
   "result": {
     "completeTitle": "今天的讀書完成了",

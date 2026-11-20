@@ -41,3 +41,11 @@ export function autoEndAfterPauseMs(config: SessionTuningConfig): number | null 
   }
   return minutes * 60_000;
 }
+
+/**
+ * 자율 모드에서 앱 밖에 있어도 공부 시간으로 치는 상한
+ *
+ * 서버도 보고가 끊긴 자율 모드 기록을 이 시간 동안 확정하지 않는다.
+ * 두 값이 어긋나면 이어서 공부할지 묻는 동안 서버가 먼저 기록을 확정한다.
+ */
+export const AWAY_LIMIT_MS = 2 * 60 * 60_000;
