@@ -1,10 +1,10 @@
 import "fake-indexeddb/auto";
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { IDBFactory } from "fake-indexeddb";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { HomeV3ContentProps } from "@/features/home-v3/homeV3ContentTypes";
 import {
@@ -122,5 +122,75 @@ describe("PcHomeContent", () => {
     screen.getByRole("link", { name: /문의/ }).focus();
     await userEvent.tab();
     expect(document.body).toHaveFocus();
+  });
+});
+
+describe("PcHomeContent 공간 플라이아웃과 공부시간 패널", () => {
+  beforeEach(() => {
+    // jsdom에는 포인터 붙잡기가 없어 패널 끌기가 부르는 함수만 채운다.
+    HTMLElement.prototype.setPointerCapture = vi.fn();
+    HTMLElement.prototype.releasePointerCapture = vi.fn();
+  });
+
+  afterEach(() => {
+    Reflect.deleteProperty(HTMLElement.prototype, "setPointerCapture");
+    Reflect.deleteProperty(HTMLElement.prototype, "releasePointerCapture");
+  });
+
+  async function openFlyout() {
+    renderHome();
+    await userEvent.click(screen.getByRole("button", { name: "공간" }));
+    return screen.findByRole("dialog", { name: "공간" });
+  }
+
+  async function expectClosed() {
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  }
+
+  it("패널 머리줄을 끌어도 플라이아웃이 열려 있다", async () => {
+    const flyout = await openFlyout();
+    const handle = screen.getByRole("group", { name: /방향키/ });
+
+    await userEvent.pointer([
+      { keys: "[MouseLeft>]", target: handle, coords: { clientX: 900, clientY: 40 } },
+      { target: handle, coords: { clientX: 700, clientY: 140 } },
+      { keys: "[/MouseLeft]", target: handle, coords: { clientX: 700, clientY: 140 } },
+    ]);
+
+    expect(flyout).toBeInTheDocument();
+  });
+
+  it("패널의 접기 버튼을 눌러도 플라이아웃이 열려 있다", async () => {
+    const flyout = await openFlyout();
+
+    await userEvent.click(screen.getByRole("button", { name: "공부시간 패널 접기" }));
+
+    expect(flyout).toBeInTheDocument();
+  });
+
+  it("패널에서 과목 메뉴를 열고 골라도 플라이아웃이 열려 있다", async () => {
+    const flyout = await openFlyout();
+
+    await userEvent.click(screen.getByRole("button", { name: i18n.t("home:v3.subject.choose") }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Math" }));
+
+    expect(flyout).toBeInTheDocument();
+  });
+
+  it("월페이퍼를 누르면 플라이아웃이 닫힌다", async () => {
+    await openFlyout();
+    const home = screen.getByRole("region", { name: "공부시간" }).parentElement!;
+
+    await userEvent.click(home.firstElementChild!);
+
+    await expectClosed();
+  });
+
+  it("Esc를 누르면 플라이아웃이 닫힌다", async () => {
+    await openFlyout();
+
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+
+    await expectClosed();
   });
 });

@@ -5,6 +5,8 @@ import userEvent from "@testing-library/user-event";
 import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
+import spaceSource from "@/features/timer-background/components/SessionSpacePage.tsx?raw";
 import { readTimerBackground } from "@/features/timer-background/timerBackground";
 import {
   __resetTimerBackgroundPhotoStoreForTests,
@@ -113,5 +115,27 @@ describe("PcSpaceFlyout", () => {
 
     expect(readTimerBackground()).toEqual({ kind: "photo", photoId: photo.id });
     expect(screen.getByRole("button", { name: "내 사진 1", pressed: true })).toBeInTheDocument();
+  });
+
+  it("세션 색 대신 앱 테마를 따라 밝은 테마에서는 밝게 그린다", async () => {
+    const dialog = await openFlyout(renderRail());
+
+    expect(dialog).not.toHaveClass("theme-dark");
+    expect(dialog.closest(".theme-dark")).toBeNull();
+  });
+
+  it("공간 본문이 읽는 세션 변수를 모두 앱 테마 변수로 채우고, 세션 화면에도 같은 변수가 있다", async () => {
+    const dialog = await openFlyout(renderRail());
+    const used = new Set(spaceSource.match(/--session-[a-z0-9-]+/g));
+    const session = sessionSurfaceStyle as unknown as Record<string, string>;
+
+    expect(used.size).toBeGreaterThan(0);
+    for (const name of used) {
+      expect(session[name], name).toBeDefined();
+      const value = dialog.style.getPropertyValue(name);
+      // 심플 미리보기 바탕은 테마가 아니라 공간 자체의 색이라 그대로 둔다.
+      if (name === "--session-simple-base") expect(value, name).not.toBe("");
+      else expect(value, name).toMatch(/^var\(--[a-z0-9-]+\)$/);
+    }
   });
 });

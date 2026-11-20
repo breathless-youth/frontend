@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { homeClock } from "@/features/home-v3/homeV3Model";
 
+import { markStudyPanelEvent } from "./studyPanelEvents";
 import { useStudyPanel } from "./useStudyPanel";
 
 /**
@@ -28,6 +29,9 @@ export function PcStudyPanel({
     <section
       ref={ref}
       aria-labelledby={titleId}
+      // 패널을 끌거나 누르는 일이 열린 공간 플라이아웃을 닫지 않도록 패널에서 시작한 누름과 포커스를 표시한다.
+      onPointerDownCapture={(event) => markStudyPanelEvent(event.nativeEvent)}
+      onFocusCapture={(event) => markStudyPanelEvent(event.nativeEvent)}
       style={{ right, top }}
       className="pc-study-panel absolute z-10 flex max-h-[calc(100%-2rem)] w-100 flex-col rounded-xl bg-muted shadow-sb-card"
     >
