@@ -7,7 +7,11 @@ import type { DdayRequest, DdayResponse } from "@focusmakers/types";
 
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Drawer, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
+import {
+  ResponsiveSheet,
+  ResponsiveSheetHeader,
+  ResponsiveSheetTitle,
+} from "@/components/ui/responsive-sheet";
 import { IconChevronDown } from "@/features/records/icons";
 import { trackDdayDeleted, trackDdaySaved } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
@@ -26,9 +30,11 @@ const DDAY_TITLE_MAX_LENGTH = 15;
  * D-Day 설정 시트
  *
  * 홈 좌상단 블록이 연다. 홈이 `theme-soft-blue`를 서브트리에만 켜고 포털은 body로 나가므로 시트에도 같은 테마를 단다.
- * 닫을 때 포커스를 블록으로 돌려보내지 않는다. 스크립트 포커스라 WebKit이 블록에 링을 남긴다.
- * ponytail: 키보드로 Esc·저장을 눌러 닫아도 포커스가 body 로 떨어진다 — 외장 키보드
- * 사용을 챙길 일이 생기면 닫힌 경로별로 갈라 복귀시킨다.
+ * PC 셸에서는 가운데 창으로, 그 밖에서는 바닥 서랍으로 연다.
+ * 모바일 서랍은 닫을 때 포커스를 블록으로 돌려보내지 않는다. 스크립트 포커스라 WebKit이 블록에 링을 남긴다.
+ * PC 가운데 창은 키보드로 쓰는 일이 많아 연 블록으로 포커스를 돌려준다.
+ * ponytail: 모바일에서 외장 키보드로 Esc나 저장을 눌러 닫아도 포커스가 body로 떨어진다.
+ * 외장 키보드 사용을 챙길 일이 생기면 닫힌 경로별로 나눠 포커스를 돌려준다.
  */
 export function DdaySheet({
   open,
@@ -47,34 +53,36 @@ export function DdaySheet({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   return (
-    <Drawer
+    <ResponsiveSheet
       open={open}
+      className="theme-soft-blue"
       // 시트 안 확인 창은 Radix라 Base UI가 바깥으로 본다. 모달로 두면 시트의 포커스 가두기·바깥 비활성이
       // 확인 창과 다투고, 확인 창을 누르는 것이 시트 바깥 누름이 된다.
-      modal={!confirmingDelete}
-      disablePointerDismissal={confirmingDelete}
+      drawer={{
+        modal: !confirmingDelete,
+        disablePointerDismissal: confirmingDelete,
+        finalFocus: false,
+      }}
       onOpenChange={(next, details) => {
         // 확인 창의 Esc는 Radix와 Base UI가 둘 다 받아 시트까지 닫는다. 확인 창이 떠 있는 동안의 닫기는 버린다.
         if (!next && confirmingDelete) {
-          details.cancel();
+          details?.cancel();
           return;
         }
         onOpenChange(next);
       }}
     >
-      <DrawerContent className="theme-soft-blue" finalFocus={false}>
-        <DdayForm
-          key={formKey}
-          userId={userId}
-          dday={dday}
-          confirmingDelete={confirmingDelete}
-          onConfirmingDeleteChange={setConfirmingDelete}
-          onClose={() => {
-            onOpenChange(false);
-          }}
-        />
-      </DrawerContent>
-    </Drawer>
+      <DdayForm
+        key={formKey}
+        userId={userId}
+        dday={dday}
+        confirmingDelete={confirmingDelete}
+        onConfirmingDeleteChange={setConfirmingDelete}
+        onClose={() => {
+          onOpenChange(false);
+        }}
+      />
+    </ResponsiveSheet>
   );
 }
 
@@ -179,17 +187,17 @@ function DdayForm({
       noValidate
       className={cn("flex flex-col", titleFocused ? "gap-4 pt-4" : "gap-5 pt-5")}
     >
-      <div className="flex items-baseline justify-between">
-        <DrawerTitle className="text-[18px] leading-5.25 font-bold text-foreground">
+      <ResponsiveSheetHeader className="flex items-baseline justify-between">
+        <ResponsiveSheetTitle className="text-[18px] leading-5.25 font-bold text-foreground">
           {t("ddaySheet.title")}
-        </DrawerTitle>
+        </ResponsiveSheetTitle>
         <span
           data-testid="dday-sheet-days"
           className="text-[15px] leading-4.5 font-extrabold text-primary tabular-nums"
         >
           {selectedLabel}
         </span>
-      </div>
+      </ResponsiveSheetHeader>
 
       {/* 시트 안 버튼·입력은 끌기에서 뺀다. iOS에서 살짝 움직인 탭이 끌기로 잡혀 버려진다.
           제목줄과 빈 곳에서는 그대로 끌어 닫힌다. 달력은 가로 넘김 영역이라 `DdayCalendar`가 따로 표시한다. */}

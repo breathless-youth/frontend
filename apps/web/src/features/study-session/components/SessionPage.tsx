@@ -32,6 +32,15 @@ export interface SessionPageProps {
 const SessionPageOpenContext = createContext(false);
 
 /**
+ * 세션 위 페이지의 열림 표시 범위
+ *
+ * 같은 본문을 세션 밖 창에 담을 때도 푸터가 토스트 자리를 켜도록 감싼다.
+ */
+export function SessionPageOpenScope({ open, children }: { open: boolean; children: ReactNode }) {
+  return <SessionPageOpenContext value={open}>{children}</SessionPageOpenContext>;
+}
+
+/**
  * 세션 위에 겹치는 전체 페이지
  *
  * 라우트를 바꾸면 세션이 언마운트되어 카메라와 측정이 멈추므로 같은 화면 위의 모달로 연다.

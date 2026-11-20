@@ -1,3 +1,6 @@
+import { useSyncExternalStore } from "react";
+
+import { spaceKey } from "./spaceCatalog";
 import { VIDEO_SPACES_OPEN } from "./videoSpaces";
 import { clearWatcherAssets } from "./watcher/watcherAssets";
 import { WATCHER_ASSET_DIR } from "./watcher/watcherClips";
@@ -69,6 +72,17 @@ function parse(raw: string | null): TimerBackgroundSelection {
   return SIMPLE_BACKGROUND;
 }
 
+const CHANGE_EVENT = "timer-background-change";
+
+function store(selection: TimerBackgroundSelection): boolean {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(selection));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * 고른 타이머 배경 읽기
  *
@@ -79,7 +93,8 @@ export function readTimerBackground(): TimerBackgroundSelection {
     const selection = parse(localStorage.getItem(KEY));
     if (selection.kind === "proctor" && !VIDEO_SPACES_OPEN) {
       // 감독관을 고른 채 남은 사용자가 다음에도 영상을 받지 않게 저장값을 심플로 바꾸고 받아 둔 소재도 지운다.
-      writeTimerBackground(SIMPLE_BACKGROUND);
+      // 구독 스냅샷을 읽는 렌더 중에도 불리므로 여기서는 변경 알림을 보내지 않는다.
+      store(SIMPLE_BACKGROUND);
       void clearWatcherAssets();
       return SIMPLE_BACKGROUND;
     }
@@ -95,10 +110,36 @@ export function readTimerBackground(): TimerBackgroundSelection {
  * 저장소가 막혀 저장하지 못하면 false다. 호출부는 적용됐다고 알리지 않는다.
  */
 export function writeTimerBackground(selection: TimerBackgroundSelection): boolean {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(selection));
-    return true;
-  } catch {
-    return false;
-  }
+  if (!store(selection)) return false;
+  // 같은 탭은 storage 이벤트를 받지 못해 구독자에게 따로 알린다.
+  window.dispatchEvent(new Event(CHANGE_EVENT));
+  return true;
+}
+
+let snapshot: TimerBackgroundSelection = SIMPLE_BACKGROUND;
+
+// 읽을 때마다 새 객체라 같은 값이면 앞 객체를 돌려줘야 구독자가 끝없이 다시 그리지 않는다.
+function readSnapshot(): TimerBackgroundSelection {
+  const next = readTimerBackground();
+  if (spaceKey(next) !== spaceKey(snapshot)) snapshot = next;
+  return snapshot;
+}
+
+function subscribe(notify: () => void): () => void {
+  window.addEventListener("storage", notify);
+  window.addEventListener(CHANGE_EVENT, notify);
+  return () => {
+    window.removeEventListener("storage", notify);
+    window.removeEventListener(CHANGE_EVENT, notify);
+  };
+}
+
+/**
+ * 고른 타이머 배경 구독
+ *
+ * PC 홈은 월페이퍼와 공간 플라이아웃이 같은 값을 보며, 다른 탭에서 바꿔도 바로 따라간다.
+ * 세션 화면은 열 때 한 번 읽은 값을 원본으로 쓰므로 이 구독을 쓰지 않는다.
+ */
+export function useTimerBackground(): TimerBackgroundSelection {
+  return useSyncExternalStore(subscribe, readSnapshot, () => SIMPLE_BACKGROUND);
 }

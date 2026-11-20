@@ -1,6 +1,7 @@
+import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { readTimerBackground, writeTimerBackground } from "../timerBackground";
+import { readTimerBackground, useTimerBackground, writeTimerBackground } from "../timerBackground";
 import { DEFAULT_FIT, panZoom } from "../photoFit";
 import { clearWatcherAssets } from "../watcher/watcherAssets";
 
@@ -97,5 +98,69 @@ describe("사진 크기·위치 조정", () => {
     expect(panZoom(base, { cx: 200, cy: 400, dist: 200 }, frame, square).scale).toBe(2);
     expect(panZoom(base, { cx: 200, cy: 400, dist: 500 }, frame, square).scale).toBe(3);
     expect(panZoom(base, { cx: 200, cy: 400, dist: 50 }, frame, square).scale).toBe(1);
+  });
+});
+
+describe("타이머 배경 선택 구독", () => {
+  it("저장하면 같은 탭의 구독자가 바로 새 값을 받는다", () => {
+    const { result } = renderHook(() => useTimerBackground());
+    expect(result.current).toEqual({ kind: "simple" });
+
+    act(() => {
+      writeTimerBackground({ kind: "photo", photoId: "p1" });
+    });
+
+    expect(result.current).toEqual({ kind: "photo", photoId: "p1" });
+  });
+
+  it("다른 탭이 저장하면 storage 이벤트로 새 값을 받는다", () => {
+    const { result } = renderHook(() => useTimerBackground());
+
+    act(() => {
+      localStorage.setItem(
+        "focusmakers.timerBackground",
+        JSON.stringify({ kind: "photo", photoId: "p2" }),
+      );
+      window.dispatchEvent(new StorageEvent("storage", { key: "focusmakers.timerBackground" }));
+    });
+
+    expect(result.current).toEqual({ kind: "photo", photoId: "p2" });
+  });
+
+  it("값이 그대로면 같은 객체를 돌려줘 다시 그리지 않는다", () => {
+    writeTimerBackground({ kind: "photo", photoId: "p1" });
+    const { result } = renderHook(() => useTimerBackground());
+    const first = result.current;
+
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key: "other" }));
+    });
+
+    expect(result.current).toBe(first);
+  });
+
+  it("저장소가 막혀 저장하지 못하면 구독자에게 알리지 않는다", () => {
+    const { result } = renderHook(() => useTimerBackground());
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+
+    act(() => {
+      expect(writeTimerBackground({ kind: "photo", photoId: "p1" })).toBe(false);
+    });
+
+    expect(result.current).toEqual({ kind: "simple" });
+  });
+
+  it("감독관을 심플로 되돌리는 읽기는 변경 알림을 보내지 않는다", () => {
+    videoSpaces.open = false;
+    localStorage.setItem("focusmakers.timerBackground", JSON.stringify({ kind: "proctor" }));
+    const listener = vi.fn();
+    window.addEventListener("timer-background-change", listener);
+
+    expect(readTimerBackground()).toEqual({ kind: "simple" });
+
+    window.removeEventListener("timer-background-change", listener);
+    expect(listener).not.toHaveBeenCalled();
   });
 });

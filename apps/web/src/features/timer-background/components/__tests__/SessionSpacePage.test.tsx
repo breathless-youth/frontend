@@ -25,7 +25,12 @@ import {
   __resetTimerBackgroundPhotoStoreForTests,
   timerBackgroundPhotoStore,
 } from "../../timerBackgroundPhotos";
-import { SessionSpacePage, type SessionSpacePageProps } from "../SessionSpacePage";
+import {
+  SessionSpacePage,
+  SpaceContent,
+  type SessionSpacePageProps,
+  type SpaceContentProps,
+} from "../SessionSpacePage";
 
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -112,6 +117,7 @@ describe("SessionSpacePage", () => {
       source: "tile",
       tab: "video",
       category: "watch",
+      surface: "session",
     });
   });
 
@@ -127,6 +133,7 @@ describe("SessionSpacePage", () => {
       source: "tile",
       tab: "image",
       category: "mine",
+      surface: "session",
     });
 
     await userEvent.click(screen.getByRole("button", { name: "심플" }));
@@ -135,6 +142,7 @@ describe("SessionSpacePage", () => {
       source: "tile",
       tab: "image",
       category: "simple",
+      surface: "session",
     });
   });
 
@@ -465,6 +473,7 @@ describe("SessionSpacePage", () => {
       source: "preview",
       tab: "video",
       category: "watch",
+      surface: "session",
     });
     expect(screen.queryByTestId("space-preview")).not.toBeInTheDocument();
   });
@@ -559,5 +568,63 @@ describe("SessionSpacePage 영상 공간을 닫아 두면", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "심플" }));
     expect(onApply).toHaveBeenCalledWith({ kind: "simple" });
+  });
+});
+
+function renderBody(over: Partial<SpaceContentProps> = {}) {
+  const props: SpaceContentProps = {
+    landscape: false,
+    applied: { kind: "photo", photoId: "gone" },
+    onApply: vi.fn((_: TimerBackgroundSelection) => true),
+    volume: 0,
+    onVolumeChange: vi.fn(),
+    onVolumeCommit: vi.fn(),
+    onToggleMute: vi.fn(),
+    listOnly: true,
+    surface: "pc_home",
+    ...over,
+  };
+  render(<SpaceContent {...props} />);
+  return props;
+}
+
+describe("SpaceContent 목록만 보기", () => {
+  it("영상 공간이 닫혀 있으면 탭 줄과 검색창 없이 이미지 목록만 보인다", async () => {
+    videoSpaces.open = false;
+    renderBody();
+
+    expect(await screen.findByText(/^\d\/3$/)).toBeInTheDocument();
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "심플" })).toBeInTheDocument();
+  });
+
+  it("영상 공간이 열려 있으면 목록만 보기여도 탭 줄을 남긴다", () => {
+    videoSpaces.open = true;
+    renderBody();
+
+    expect(screen.getByRole("tablist")).toBeInTheDocument();
+  });
+
+  it("세션 공간 페이지는 영상 공간이 닫혀 있어도 지금처럼 탭 줄을 보인다", () => {
+    videoSpaces.open = false;
+    renderPage();
+
+    expect(screen.getByRole("tab", { name: "이미지", selected: true })).toBeInTheDocument();
+  });
+
+  it("적용 이벤트에 공간을 고른 화면을 싣는다", async () => {
+    videoSpaces.open = false;
+    renderBody();
+
+    await userEvent.click(screen.getByRole("button", { name: "심플" }));
+
+    expect(trackTimerBackgroundApplied).toHaveBeenCalledWith({
+      kind: "simple",
+      source: "tile",
+      tab: "image",
+      category: "simple",
+      surface: "pc_home",
+    });
   });
 });

@@ -2,7 +2,11 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
-import { Drawer, DrawerContent, DrawerDescription, DrawerTitle } from "@/components/ui/drawer";
+import {
+  ResponsiveSheet,
+  ResponsiveSheetHeader,
+  ResponsiveSheetTitle,
+} from "@/components/ui/responsive-sheet";
 import { Switch } from "@/components/ui/switch";
 import { GoalDurationInput } from "@/features/planner/GoalDurationInput";
 import { clampGoalSeconds } from "@/features/planner/goalDuration";
@@ -53,59 +57,59 @@ export function HomeGoalSheet({
   }
   const locked = saving || error === "default";
   return (
-    <Drawer
+    <ResponsiveSheet
       open={open}
+      className="theme-soft-blue"
+      drawer={{ variant: "goal" }}
+      description={t("v3.goal.description")}
       onOpenChange={(next) => {
         if (!savingRef.current) onOpenChange(next);
       }}
     >
-      <DrawerContent className="theme-soft-blue" variant="goal">
-        <div className="flex flex-col gap-5 pt-4.75" data-base-ui-swipe-ignore>
-          <div className="flex items-center justify-between gap-3">
-            <DrawerTitle className="text-[22px] leading-7.5 font-bold">
-              {t("planner:goal.title")}
-            </DrawerTitle>
-            <span className="text-sm leading-5 font-medium text-muted-foreground">{dateLabel}</span>
-          </div>
-          <DrawerDescription className="sr-only">{t("v3.goal.description")}</DrawerDescription>
-          <GoalDurationInput
-            seconds={seconds}
+      <div className="flex flex-col gap-5 pt-4.75" data-base-ui-swipe-ignore>
+        <ResponsiveSheetHeader className="flex items-center justify-between gap-3">
+          <ResponsiveSheetTitle className="text-[22px] leading-7.5 font-bold">
+            {t("planner:goal.title")}
+          </ResponsiveSheetTitle>
+          <span className="text-sm leading-5 font-medium text-muted-foreground">{dateLabel}</span>
+        </ResponsiveSheetHeader>
+        <GoalDurationInput
+          seconds={seconds}
+          disabled={locked}
+          onChange={(next) => {
+            setSeconds(next);
+            setError(null);
+          }}
+        />
+        <label className="flex min-h-11 items-center justify-between gap-3 text-base leading-6 font-medium">
+          <span>{t("planner:goal.asDefault")}</span>
+          <Switch
+            size="settings"
+            className="h-8 w-13 border-[3px] [&>span]:size-6.5"
+            checked={asDefault}
+            onCheckedChange={setAsDefault}
             disabled={locked}
-            onChange={(next) => {
-              setSeconds(next);
-              setError(null);
-            }}
           />
-          <label className="flex min-h-11 items-center justify-between gap-3 text-base leading-6 font-medium">
-            <span>{t("planner:goal.asDefault")}</span>
-            <Switch
-              size="settings"
-              className="h-8 w-13 border-[3px] [&>span]:size-6.5"
-              checked={asDefault}
-              onCheckedChange={setAsDefault}
-              disabled={locked}
-            />
-          </label>
-          {error && (
-            <p role="alert" className="text-sm text-feedback-danger">
-              {t(error === "default" ? "v3.goal.defaultFailed" : "v3.goal.saveFailed")}
-            </p>
+        </label>
+        {error && (
+          <p role="alert" className="text-sm text-feedback-danger">
+            {t(error === "default" ? "v3.goal.defaultFailed" : "v3.goal.saveFailed")}
+          </p>
+        )}
+        <Button
+          className="min-h-14 rounded-xl text-base leading-6 font-bold shadow-sb-cta"
+          disabled={saving}
+          onClick={() => void save()}
+        >
+          {t(
+            saving
+              ? "v3.goal.saving"
+              : error === "default"
+                ? "v3.goal.retryDefault"
+                : "v3.goal.save",
           )}
-          <Button
-            className="min-h-14 rounded-xl text-base leading-6 font-bold shadow-sb-cta"
-            disabled={saving}
-            onClick={() => void save()}
-          >
-            {t(
-              saving
-                ? "v3.goal.saving"
-                : error === "default"
-                  ? "v3.goal.retryDefault"
-                  : "v3.goal.save",
-            )}
-          </Button>
-        </div>
-      </DrawerContent>
-    </Drawer>
+        </Button>
+      </div>
+    </ResponsiveSheet>
   );
 }

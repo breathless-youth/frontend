@@ -16,6 +16,7 @@ import {
   trackTimerBackgroundApplied,
   trackTimerBackgroundPhotoAdded,
   trackTimerBackgroundPhotoRemoved,
+  type SpaceSurface,
   type SpaceTab,
 } from "@/lib/amplitude";
 import { REPLAY_BLOCKED } from "@/lib/jpegDataUrl";
@@ -65,6 +66,25 @@ export interface SessionSpacePageProps {
   onToggleMute: () => void;
 }
 
+export interface SpaceContentProps extends Pick<
+  SessionSpacePageProps,
+  | "landscape"
+  | "applied"
+  | "onApply"
+  | "volume"
+  | "onVolumeChange"
+  | "onVolumeCommit"
+  | "onToggleMute"
+> {
+  /**
+   * 영상 공간이 닫혀 있으면 탭 줄과 검색창 없이 목록만 보인다.
+   * 공간이 넷뿐인 PC 플라이아웃에서만 켜고, 모바일 시트는 다가올 영상 공간 안내를 위해 탭 줄을 남긴다.
+   */
+  listOnly?: boolean;
+  /** 적용 이벤트에 실을 화면 */
+  surface: SpaceSurface;
+}
+
 type ChipCategory = "all" | "watch";
 
 /**
@@ -85,12 +105,17 @@ export function SessionSpacePage(props: SessionSpacePageProps) {
       landscape={props.landscape}
     >
       {/* 닫힌 동안은 Sheet가 내용을 그리지 않아 사진 목록도 열 때마다 새로 읽는다. */}
-      <SpaceContent {...props} />
+      <SpaceContent {...props} surface="session" />
     </SessionPage>
   );
 }
 
-function SpaceContent({
+/**
+ * 공간 고르기 본문
+ *
+ * 세션 공간 페이지와 PC 홈 플라이아웃이 같은 목록과 적용 동작을 쓴다.
+ */
+export function SpaceContent({
   landscape,
   applied,
   onApply,
@@ -98,8 +123,11 @@ function SpaceContent({
   onVolumeChange,
   onVolumeCommit,
   onToggleMute,
-}: SessionSpacePageProps) {
+  listOnly = false,
+  surface,
+}: SpaceContentProps) {
   const { t } = useTranslation(["study-session", "profile"]);
+  const bare = listOnly && !VIDEO_SPACES_OPEN;
   const [tab, setTab] = useState<SpaceTab>(VIDEO_SPACES_OPEN ? "video" : "image");
   const [category, setCategory] = useState<ChipCategory>("all");
   const [text, setText] = useState("");
@@ -242,6 +270,7 @@ function SpaceContent({
       source,
       tab: item.tab,
       category: item.category,
+      surface,
     });
     return true;
   }
@@ -428,19 +457,21 @@ function SpaceContent({
           }}
           className={cn("flex min-h-0 flex-1 flex-col gap-4 pt-2", !landscape && "px-6")}
         >
-          <TabsList className="shrink-0">
-            {(["video", "image"] as const).map((id) => (
-              <TabsTrigger
-                key={id}
-                value={id}
-                className="flex-1 justify-center text-white/40 data-[state=active]:border-(--session-dialog-title) data-[state=active]:text-(--session-dialog-title)"
-              >
-                {t(`space.tabs.${id}`)}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+          {!bare && (
+            <TabsList className="shrink-0">
+              {(["video", "image"] as const).map((id) => (
+                <TabsTrigger
+                  key={id}
+                  value={id}
+                  className="flex-1 justify-center text-white/40 data-[state=active]:border-(--session-dialog-title) data-[state=active]:text-(--session-dialog-title)"
+                >
+                  {t(`space.tabs.${id}`)}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          )}
 
-          {(VIDEO_SPACES_OPEN || tab === "image") && (
+          {!bare && (VIDEO_SPACES_OPEN || tab === "image") && (
             <div className="relative shrink-0">
               <Search
                 aria-hidden="true"
