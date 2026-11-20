@@ -8,6 +8,10 @@ import { statsKeys } from "@/lib/statsQueries";
 
 import { closeStaleSession } from "./closeStaleSession";
 import { markRecoveryShownThisLaunch } from "./recoveryLaunchStore";
+import type { RestoredSession } from "./restoreActiveSession";
+import { restoreActiveSession } from "./restoreActiveSession";
+import { awayMinutes, resumeDecision } from "./sessionResume";
+import { AWAY_LIMIT_MS } from "./sessionTuning";
 
 /**
  * 앱 실행 신호를 기다리는 시간
@@ -17,9 +21,25 @@ import { markRecoveryShownThisLaunch } from "./recoveryLaunchStore";
  */
 export const LAUNCH_SIGNAL_WAIT_MS = 1500;
 
+/**
+ * 이어서 공부할지 물을 진행 기록
+ *
+ * 시작 시각은 방에 넘길 표시에, 분은 확인 창 본문에 쓴다.
+ * 마지막 보고 시각은 창을 연 채 2시간이 지났는지 고를 때 다시 잰다.
+ */
+export interface ResumableDraft {
+  readonly startedAtMs: number;
+  readonly reportedAtMs: number;
+  readonly awayMin: number;
+}
+
 interface RecoveryState {
   userId: number | null;
   result: SessionRecoveryResponse | null;
+  /** 확정한 기록이 앱 밖 2시간 상한으로 끝난 자율 모드 기록인지. 복구 창 본문을 고른다. */
+  awayLimit: boolean;
+  /** 확정하지 않고 이어서 공부할지 물을 기록 */
+  resumable: ResumableDraft | null;
   /**
    * 이 문서에서 복구 판단이 끝났는지
    *
@@ -34,7 +54,13 @@ interface RecoveryState {
  * 사용자나 셸이 없으면 기다릴 실행 신호가 없어 처음부터 끝난 것으로 둔다.
  */
 function initialState(userId: number | null): RecoveryState {
-  return { userId, result: null, settled: userId === null || !isNativeBridgeAvailable() };
+  return {
+    userId,
+    result: null,
+    awayLimit: false,
+    resumable: null,
+    settled: userId === null || !isNativeBridgeAvailable(),
+  };
 }
 
 /**
@@ -45,11 +71,17 @@ function initialState(userId: number | null): RecoveryState {
  * 신호는 네이티브만 보낼 수 있다.
  * 확정한 기록은 recovered로 내주고 홈이 안내 모달을 채운다.
  * 홈 랭킹 팝업이 복구 창과 겹치지 않도록 판단이 끝났는지를 settled로 함께 내준다.
+ * 2시간 안에 끊긴 자율 모드 기록이면 확정하지 않고 resumable로 내줘 홈이 이어서 공부할지 묻는다.
  */
 export function useLaunchSessionRecovery(userId: number | null): {
   recovered: SessionRecoveryResponse | null;
+  recoveredAwayLimit: boolean;
+  resumable: ResumableDraft | null;
   settled: boolean;
   dismiss: () => void;
+  endResumable: () => Promise<void>;
+  endIfResumeExpired: () => Promise<boolean>;
+  closeResumable: () => void;
 } {
   const queryClient = useQueryClient();
   // 어느 사용자의 마감 결과인지 함께 들고 있어야 렌더 시점에 남의 값을 걸러낼 수 있다.
@@ -72,11 +104,38 @@ export function useLaunchSessionRecovery(userId: number | null): {
         prev.userId !== userId || prev.settled ? prev : { ...prev, settled: true },
       );
     };
-    const unsubscribe = subscribeToNativeMessages((message) => {
-      if (message.type !== "app-launched") {
+    /**
+     * 진행 기록을 먼저 보고 이어서 물을지 확정할지 정하는 판단
+     *
+     * 확정한 기록은 이어서 공부할 수 없어서 물을 기록이면 확정하지 않는다.
+     * 조회가 실패하면 지금처럼 확정하고 복구 창은 기존 문구를 쓴다.
+     */
+    const decide = async () => {
+      let draft: RestoredSession | null = null;
+      let draftKnown = true;
+      try {
+        draft = await restoreActiveSession();
+      } catch {
+        draftKnown = false;
+      }
+      if (cancelled) {
         return;
       }
-      launched = true;
+      const nowMs = Date.now();
+      const decision = draft === null ? null : resumeDecision(draft, nowMs);
+      if (draft !== null && decision === "ask") {
+        const resumable = {
+          startedAtMs: draft.startedAtMs,
+          reportedAtMs: draft.reportedAtMs,
+          awayMin: awayMinutes(draft.reportedAtMs, nowMs),
+        };
+        // 판단이 끝났다고 알리기 전에 적어야 랭킹 팝업이 이 창 앞에 끼어들지 않는다.
+        markRecoveryShownThisLaunch();
+        setState((prev) => (prev.userId === userId ? { ...prev, resumable, settled: true } : prev));
+        return;
+      }
+      // 진행 기록이 없거나 2시간이 넘었으면 서버가 나간 시점으로 확정한 기록이다.
+      const awayExpired = draftKnown && (draft === null || decision === "expired");
       void closeStaleSession(userId).then(
         (result) => {
           if (cancelled) {
@@ -89,8 +148,11 @@ export function useLaunchSessionRecovery(userId: number | null): {
             trackSessionRecoveryPrompted(result.focusSec);
             // 판단이 끝났다고 알리기 전에 적어야 랭킹 팝업이 이 복구 창 앞에 끼어들지 않는다.
             markRecoveryShownThisLaunch();
+            const awayLimit = awayExpired && result.source === "TIMER";
             // 늦게 끝난 요청은 사용자 변경이 커밋된 뒤에 처리될 수 있어 state가 아직 같은 사용자 것일 때만 쓴다.
-            setState((prev) => (prev.userId === userId ? { userId, result, settled: true } : prev));
+            setState((prev) =>
+              prev.userId === userId ? { ...prev, result, awayLimit, settled: true } : prev,
+            );
             return;
           }
           markSettled();
@@ -100,6 +162,13 @@ export function useLaunchSessionRecovery(userId: number | null): {
           if (!cancelled) markSettled();
         },
       );
+    };
+    const unsubscribe = subscribeToNativeMessages((message) => {
+      if (message.type !== "app-launched") {
+        return;
+      }
+      launched = true;
+      void decide();
     });
     // 구독을 건 다음에 보낸다.
     // 네이티브는 이 신호를 받은 순간에만 응답하므로 순서가 바뀌면 응답을 놓친다.
@@ -125,11 +194,76 @@ export function useLaunchSessionRecovery(userId: number | null): {
     setState((prev) => ({ ...prev, result: null }));
   };
 
+  /**
+   * 확인 창을 확정 없이 닫기
+   *
+   * 이어서 공부하기로 세션을 연 뒤나 끝내기 요청이 끝난 뒤에 부른다.
+   * 요청이 끝나기 전에 사용자가 바뀌면 새 사용자의 창을 닫지 않게 누른 때의 사용자일 때만 닫는다.
+   */
+  const closeResumable = () => {
+    setState((prev) => (prev.userId === userId ? { ...prev, resumable: null } : prev));
+  };
+
+  /**
+   * 나간 시점에서 끝내기
+   *
+   * 확정이 실패해도 창은 닫는다.
+   * 서버가 2시간 뒤 같은 시점으로 확정한다.
+   */
+  const endResumable = async () => {
+    try {
+      await closeStaleSession(userId);
+    } catch {
+      // 계정이 바뀌어 취소된 경우라 새 계정의 판단이 이어받는다.
+    }
+    void queryClient.invalidateQueries({ queryKey: statsKeys.all });
+    closeResumable();
+  };
+
+  /**
+   * 이어서 공부하기를 고른 순간 2시간이 지났으면 끝내기
+   *
+   * 확인 창을 연 채 2시간이 지나면 서버가 확정해서 방이 이어받을 기록이 없다.
+   * 실행 직후 2시간이 넘은 기록과 같게 확정하고 그 사유로 복구 창을 띄운다.
+   * 끝냈으면 참이다.
+   */
+  const endIfResumeExpired = async () => {
+    const resumable = state.resumable;
+    if (resumable === null || Date.now() - resumable.reportedAtMs <= AWAY_LIMIT_MS) {
+      return false;
+    }
+    let result: SessionRecoveryResponse | null = null;
+    try {
+      result = await closeStaleSession(userId);
+    } catch {
+      // 계정이 바뀌어 취소된 경우라 새 계정의 판단이 이어받는다.
+    }
+    void queryClient.invalidateQueries({ queryKey: statsKeys.all });
+    const recovered = result !== null && result.focusSec >= 60 ? result : null;
+    if (recovered !== null) {
+      trackSessionRecoveryPrompted(recovered.focusSec);
+    }
+    setState((prev) => {
+      if (prev.userId !== userId) {
+        return prev;
+      }
+      return recovered === null
+        ? { ...prev, resumable: null }
+        : { ...prev, resumable: null, result: recovered, awayLimit: recovered.source === "TIMER" };
+    });
+    return true;
+  };
+
   // 되돌림을 예약한 이 렌더에서는 state가 아직 앞 사용자의 것이라 한 번 더 거른다.
   const current = state.userId === userId;
   return {
     recovered: current ? state.result : null,
+    recoveredAwayLimit: current && state.awayLimit,
+    resumable: current ? state.resumable : null,
     settled: current ? state.settled : initialState(userId).settled,
     dismiss,
+    endResumable,
+    endIfResumeExpired,
+    closeResumable,
   };
 }

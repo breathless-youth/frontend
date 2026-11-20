@@ -43,9 +43,12 @@ function InfoRow({ label, value, accent }: { label: string; value: string; accen
  */
 export function SessionRecoveryDialog({
   recovered,
+  awayLimit = false,
   onConfirm,
 }: {
   recovered: SessionRecoveryResponse;
+  /** 자율 모드 기록이 앱 밖 2시간 상한으로 확정됐는지. 본문을 그 사유로 바꾼다. */
+  awayLimit?: boolean;
   onConfirm: () => void;
 }) {
   const { t } = useTranslation("study-session");
@@ -67,7 +70,7 @@ export function SessionRecoveryDialog({
           {t("recovery.title")}
         </DialogTitle>
         <DialogDescription className="text-center text-[14px] leading-[1.45] font-medium text-muted-foreground">
-          {t("recovery.body")
+          {t(awayLimit ? "recovery.timerAwayBody" : "recovery.body")
             .split("\n")
             .map((line, index) => (
               <Fragment key={line}>

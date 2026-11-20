@@ -164,6 +164,8 @@ export interface SessionRecoveryResponse {
   studySec: number;
   /** 순공 시간(초) */
   focusSec: number;
+  /** 측정 방식. 이 필드를 내려주기 전 서버에서는 오지 않는다. */
+  source?: StudySessionSource;
 }
 
 export interface ActiveSessionSnapshotResponse {

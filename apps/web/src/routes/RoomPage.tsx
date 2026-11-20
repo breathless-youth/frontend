@@ -50,6 +50,7 @@ import {
 } from "@/features/study-session/adapters/focusDetector";
 import { createMediaStreamCameraAdapter } from "@/features/study-session/adapters/mediaStreamCamera";
 import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice";
+import { SessionResumeDialog } from "@/features/study-session/components/SessionResumeDialog";
 import { CameraPreviewSurface } from "@/features/study-session/components/CameraPreviewSurface";
 import { DevVisionFailureNotice } from "@/features/study-session/components/DevVisionFailureNotice";
 import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
@@ -88,7 +89,7 @@ import {
   formatElapsed,
 } from "@/features/study-session/formatDuration";
 import type {
-  PauseTrigger,
+  AutoEndTrigger,
   SessionEndReason,
   SessionState,
 } from "@/features/study-session/sessionState";
@@ -118,6 +119,7 @@ import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSessio
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import { useSessionHelpFunnel } from "@/features/study-session/useSessionHelpFunnel";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
+import { resumeDecision } from "@/features/study-session/sessionResume";
 import type { SubjectSelection } from "@/features/study-session/subjectSegments";
 import { deriveSubjectTotals, liveSubjectTime } from "@/features/study-session/subjectSegments";
 import { completedTaskIdsSince } from "@/features/study-session/completedTasks";
@@ -132,6 +134,7 @@ import { loadSessionSubjects } from "@/features/study-session/loadSessionSubject
 import { useLandscapeLayout } from "@/features/study-session/useLandscapeLayout";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
+import { closeStaleSession } from "@/features/study-session/closeStaleSession";
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
 import { useTrackedVisionDetector } from "@/features/study-session/useVisionReadyTracking";
 import type { FaceSpot } from "@/features/study-session/vision/faceSpot";
@@ -343,11 +346,14 @@ function useRotationPhase(): RotationPhase {
 function RoomSessionScreen({
   userId,
   restored,
+  resumeAway,
   invite,
   initialSubjectId,
 }: {
   userId: number | null;
   restored: RestoredSession | null;
+  /** 이어서 공부하기로 고른 복원이라 공백을 공부 구간으로 연다. */
+  resumeAway: boolean;
   invite: string | null;
   initialSubjectId?: number;
 }) {
@@ -457,6 +463,7 @@ function RoomSessionScreen({
     camera,
     detector,
     restored,
+    resumeAway,
     initialSubjectId,
     // 과목 목록은 아래 useSubjects가 들고 있어 훅 뒤에 온다 — 제출 시점에 ref로 읽는다(옵션 주석 참고).
     getCompletedTaskIds: (startedAtMs) =>
@@ -1845,7 +1852,7 @@ function RoomSessionScreen({
 function autoEndNoticeVisible(
   phase: StudyRoomPhase,
   endReason: SessionEndReason | null,
-): endReason is { kind: "AUTO"; trigger: PauseTrigger } {
+): endReason is { kind: "AUTO"; trigger: AutoEndTrigger } {
   return phase.name === "done" && endReason?.kind === "AUTO";
 }
 
@@ -1919,7 +1926,7 @@ export function RoomPage() {
   // 브라우저 단독 모드에는 기다릴 출처가 없어 언제나 false, 네이티브는 3초 한도가 있어 갇히지 않는다.
   const identityPending = useIdentityPending();
   const userId = useUserId();
-  const { settled, restored } = useActiveSessionRestore(userId);
+  const { settled, restored, resume } = useActiveSessionRestore(userId);
   const initialSubject = useInitialSubject(
     identityPending ? null : userId,
     candidate,
@@ -1939,13 +1946,32 @@ export function RoomPage() {
   }, [params, setParams, identityPending, settled, initialSubject.settled]);
   // 복원 확인 중에도 초대를 받아 두도록 게이트 바깥에서 구독한다.
   const invite = useSessionInvite();
+  /**
+   * 확인 창에서 이어서 공부하기를 고른 복원값
+   *
+   * 복원값과 함께 들고 있어 사용자가 바뀌어 복원값이 달라지면 다시 묻는다.
+   */
+  const [resumedFor, setResumedFor] = useState<RestoredSession | null>(null);
+  const resumeAway = resume?.kind === "confirmed" || (restored !== null && resumedFor === restored);
+  const askAwayMin = resume?.kind === "ask" && !resumeAway ? resume.awayMin : null;
+  const leaveToHome = () => {
+    const search = new URLSearchParams(params);
+    search.delete("initialSubjectId");
+    postToNative({ type: "navigate-home", atMs: Date.now() });
+    navigate({ pathname: "/home", search: search.toString() }, { replace: true });
+  };
+  const endAndLeave = async () => {
+    // 확정이 실패해도 서버가 2시간 뒤 같은 시점으로 확정해서 홈으로 돌아간다.
+    await closeStaleSession(userId).catch(() => null);
+    leaveToHome();
+  };
 
   // 공부를 끝낼 때 네트워크가 끊겨도 결과 화면이 열리게 세션 중에 결과 청크를 받아 둔다.
   useEffect(() => {
     prefetchResultPage();
   }, []);
 
-  if (identityPending || !settled || !initialSubject.settled) {
+  if (identityPending || !settled || !initialSubject.settled || askAwayMin !== null) {
     return (
       <main
         data-testid="room-restore-gate"
@@ -1953,14 +1979,21 @@ export function RoomPage() {
         style={sessionSurfaceStyle}
       >
         {!identityPending && settled && initialSubject.error && (
-          <InitialSubjectError
-            onRetry={initialSubject.retry}
-            onBack={() => {
-              const search = new URLSearchParams(params);
-              search.delete("initialSubjectId");
-              postToNative({ type: "navigate-home", atMs: Date.now() });
-              navigate({ pathname: "/home", search: search.toString() }, { replace: true });
+          <InitialSubjectError onRetry={initialSubject.retry} onBack={leaveToHome} />
+        )}
+        {!identityPending && askAwayMin !== null && (
+          <SessionResumeDialog
+            awayMin={askAwayMin}
+            place="room"
+            onResume={async () => {
+              // 창을 연 채 2시간이 지나면 서버가 확정해서 이어받을 기록이 없어 끝내기와 같게 처리한다.
+              if (restored !== null && resumeDecision(restored, Date.now()) === "expired") {
+                await endAndLeave();
+                return;
+              }
+              setResumedFor(restored);
             }}
+            onEnd={endAndLeave}
           />
         )}
       </main>
@@ -1973,6 +2006,7 @@ export function RoomPage() {
       key={userId}
       userId={userId}
       restored={restored}
+      resumeAway={resumeAway}
       invite={invite}
       initialSubjectId={initialSubject.subjectId}
     />
