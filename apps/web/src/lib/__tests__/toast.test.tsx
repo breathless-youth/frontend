@@ -7,7 +7,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { notifyLoginSuccess } from "@/lib/authSuccessToast";
 import { CtaToaster, Toaster } from "@/components/ui/sonner";
-import { dismissToast, showCtaToast, showIconToast, showToast, showTopToast } from "@/lib/toast";
+import {
+  dismissToast,
+  showActionToast,
+  showCtaToast,
+  showIconToast,
+  showToast,
+  showTopToast,
+} from "@/lib/toast";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -212,5 +219,34 @@ describe("성공 뒤 화면 이동", () => {
     act(() => dismissToast({ forNavigation: true }));
     await waitFor(() => expect(screen.queryByText("일반 안내")).not.toBeInTheDocument());
     expect(screen.queryByText("성공")).not.toBeInTheDocument();
+  });
+});
+
+describe("showActionToast", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("일반 토스트가 대체하면 버튼과 긴 표시 시간이 남지 않는다", async () => {
+    vi.useFakeTimers();
+    render(<Toaster />);
+
+    await act(async () => {
+      showActionToast("카메라", { label: "다른 방법", onClick: vi.fn() });
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    expect(screen.getByRole("button", { name: "다른 방법" })).toBeInTheDocument();
+    await act(async () => {
+      showToast("저장했어요");
+      await vi.advanceTimersByTimeAsync(100);
+    });
+
+    expect(screen.getByText("저장했어요")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "다른 방법" })).toBeNull();
+    // 기본 표시 시간이 지나면 닫혀야 한다. 버튼 토스트의 10초가 남으면 아직 떠 있다.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6_000);
+    });
+    expect(screen.queryByText("저장했어요")).toBeNull();
   });
 });

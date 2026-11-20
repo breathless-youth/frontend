@@ -18,7 +18,7 @@ vi.mock("@/lib/amplitude", async (original) => ({
  *
  * 쿼리의 `min-width`를 rem으로 읽어 지금 폭과 비교하므로, 기준 폭을 바꾸면 테스트가 깨진다.
  */
-function stubViewport(initialWidth: number) {
+function stubViewport(initialWidth: number, { touchOnly = false } = {}) {
   let width = initialWidth;
   const listeners = new Set<() => void>();
   vi.stubGlobal("matchMedia", (query: string) => {
@@ -27,6 +27,7 @@ function stubViewport(initialWidth: number) {
     return {
       media: query,
       get matches() {
+        if (query.includes("pointer: coarse")) return touchOnly;
         return width >= min;
       },
       addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
@@ -48,25 +49,76 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+const IPHONE =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1";
+const ANDROID_TABLET =
+  "Mozilla/5.0 (Linux; Android 14; SM-X710) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+const WINDOWS =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+const MAC =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15";
+
+/** 사용자 에이전트와 터치 지점 수를 바꾼다. afterEach가 지워 jsdom 기본값으로 돌린다. */
+function stubDevice(userAgent: string, maxTouchPoints = 0, mobile?: boolean) {
+  Object.defineProperty(navigator, "userAgent", { value: userAgent, configurable: true });
+  Object.defineProperty(navigator, "maxTouchPoints", { value: maxTouchPoints, configurable: true });
+  Object.defineProperty(navigator, "userAgentData", {
+    value: mobile === undefined ? undefined : { mobile },
+    configurable: true,
+  });
+}
+
+afterEach(() => {
+  for (const key of ["userAgent", "maxTouchPoints", "userAgentData"]) {
+    Reflect.deleteProperty(navigator, key);
+  }
+});
+
 describe("usePcShell", () => {
-  it("브라우저에서 창 폭이 1200이면 PC 셸이다", () => {
-    stubViewport(1200);
+  it("PC 기기는 창 폭이 900이어도 PC 셸이다", () => {
+    stubViewport(900);
+    stubDevice(MAC);
 
     const { result } = renderHook(() => usePcShell());
 
     expect(result.current).toBe(true);
   });
 
-  it("창 폭이 1199면 PC 셸이 아니다", () => {
-    stubViewport(1199);
+  it.each([
+    ["iPhone", IPHONE, 5, undefined],
+    ["Android 태블릿", ANDROID_TABLET, 10, undefined],
+    ["데스크톱 모드 iPadOS Safari", MAC, 5, undefined],
+    ["userAgentData가 휴대폰이라고 알려 준 브라우저", MAC, 0, true],
+  ] as const)("%s는 1440이어도 PC 셸이 아니다", (_name, userAgent, touchPoints, mobile) => {
+    stubViewport(1440);
+    stubDevice(userAgent, touchPoints, mobile);
 
     const { result } = renderHook(() => usePcShell());
 
     expect(result.current).toBe(false);
   });
 
-  it("앱 웹뷰(브리지 있음)에서는 1440이어도 PC 셸이 아니다", () => {
+  it("PC 사용자 에이전트를 보내도 주 입력이 손가락뿐인 태블릿은 PC 셸이 아니다", () => {
+    stubViewport(1440, { touchOnly: true });
+    stubDevice(MAC, 0, false);
+
+    const { result } = renderHook(() => usePcShell());
+
+    expect(result.current).toBe(false);
+  });
+
+  it("터치 화면이 있어도 주 입력이 트랙패드나 마우스인 PC는 PC 셸이다", () => {
     stubViewport(1440);
+    stubDevice(WINDOWS, 10, false);
+
+    const { result } = renderHook(() => usePcShell());
+
+    expect(result.current).toBe(true);
+  });
+
+  it("앱 웹뷰(브리지 있음)에서는 PC 기기여도 PC 셸이 아니다", () => {
+    stubViewport(1440);
+    stubDevice(MAC);
     vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
 
     const { result } = renderHook(() => usePcShell());
@@ -80,17 +132,6 @@ describe("usePcShell", () => {
     const { result } = renderHook(() => usePcShell());
 
     expect(result.current).toBe(false);
-  });
-
-  it("창 크기를 바꾸면 새로고침 없이 바로 바뀐다", () => {
-    const viewport = stubViewport(1440);
-    const { result } = renderHook(() => usePcShell());
-
-    viewport.resize(1000);
-    expect(result.current).toBe(false);
-
-    viewport.resize(1300);
-    expect(result.current).toBe(true);
   });
 });
 
@@ -119,8 +160,9 @@ describe("ShellLayout", () => {
     expect(screen.getAllByText("기록 페이지")).toHaveLength(1);
   });
 
-  it("PC가 아니면 상단 바 없이 지금 화면 그대로 그린다", () => {
-    stubViewport(1199);
+  it("휴대폰이면 상단 바 없이 지금 화면 그대로 그린다", () => {
+    stubViewport(1440);
+    stubDevice(IPHONE, 5);
 
     renderRecords();
 
@@ -130,20 +172,19 @@ describe("ShellLayout", () => {
 });
 
 describe("ShellLayout 사용자 속성", () => {
-  it("PC 셸을 그리면 pc_layout을 true로, 좁아지면 false로 남긴다", async () => {
+  it("PC 셸을 그리면 pc_layout을 true로 남기고 창을 좁혀도 바꾸지 않는다", async () => {
     const viewport = stubViewport(1440);
     renderRecords();
     await screen.findByRole("banner");
 
-    expect(setPcLayoutUserProperty).toHaveBeenLastCalledWith(true);
+    viewport.resize(900);
 
-    viewport.resize(1000);
-
-    expect(setPcLayoutUserProperty).toHaveBeenLastCalledWith(false);
+    expect(setPcLayoutUserProperty).toHaveBeenCalledExactlyOnceWith(true);
   });
 
-  it("좁은 창이면 처음부터 false로 남긴다", () => {
-    stubViewport(1199);
+  it("휴대폰이면 처음부터 false로 남긴다", () => {
+    stubViewport(1440);
+    stubDevice(IPHONE, 5);
 
     renderRecords();
 

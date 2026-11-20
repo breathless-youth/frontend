@@ -22,5 +22,36 @@
     "rail": "ホームツール",
     "contact": "お問い合わせ",
     "newWindow": "新しいウィンドウで開きます"
+  },
+  "shell": {
+    "narrow": "ウィンドウをもう少し広げてください"
+  },
+  "session": {
+    "cameraUnavailable": "カメラを使用できません",
+    "startTimer": "自主モードで始める",
+    "pause": "一時停止",
+    "resume": "再開",
+    "exit": "終了",
+    "showCamera": "カメラを表示",
+    "camera": {
+      "window": "カメラ画面。矢印キーで移動し、Shiftキーと一緒に押すと大きく移動します",
+      "hide": "非表示",
+      "expand": "拡大",
+      "shrink": "縮小",
+      "timelapse": "タイムラプス"
+    },
+    "help": "勉強のヘルプ",
+    "cameraNotice": "カメラで離席を確認します\n映像はどこにも送信されません",
+    "guide": {
+      "welcomeTitle": "FocusMakersへようこそ",
+      "welcomeBody": "使い方を一緒に見てみましょう。",
+      "focusTitle": "集中すると集中時間が進みます",
+      "focusBody": "集中していないようなら集中時間が止まります",
+      "cameraTitle": "カメラの映像はどこにも送信されません",
+      "cameraBody": "ドラッグで移動したり、非表示にしたり、拡大したりできます",
+      "readyTitle": "準備ができました。さあ、集中しましょう",
+      "readyBody": "このヘルプはパネルの？ボタンからいつでも見られます",
+      "continue": "続ける"
+    }
   }
 }

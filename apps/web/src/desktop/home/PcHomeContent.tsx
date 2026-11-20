@@ -1,19 +1,32 @@
-import { useState, type ReactNode } from "react";
+import { lazy, Suspense, useState, type ReactNode } from "react";
 
 import { HomeStudyBlocks } from "@/features/home-v3/HomeV3Content";
 import type { HomeV3ContentProps } from "@/features/home-v3/homeV3ContentTypes";
+import { reloadOnChunkError } from "@/lib/chunkReload";
 
+import { loadPcStudySession } from "../session/loadPcStudySession";
+import type { PcSessionRequest } from "../session/usePcSession";
 import { PcContactButton } from "./PcContactButton";
 import { PcHomeRail } from "./PcHomeRail";
 import { PcSpaceFlyout } from "./PcSpaceFlyout";
 import { PcStudyPanel } from "./PcStudyPanel";
 import { PcWallpaper } from "./PcWallpaper";
 
+// 공부를 시작한 사람만 세션 엔진과 비전 코드를 받는다.
+const LazyPcStudySession = lazy(
+  reloadOnChunkError(() =>
+    loadPcStudySession().then((module) => ({ default: module.PcStudySession })),
+  ),
+);
+
 export interface PcHomeContentProps extends HomeV3ContentProps {
   /** 레일 맨 위 D-Day 버튼. 토큰 출처가 없는 문서는 비운다. */
   dday: ReactNode;
   /** 문의 버튼이 작은 창으로 열 상담 화면 주소 */
   contactHref: string;
+  /** 홈 위에 연 공부 세션. 없으면 홈이다. */
+  session: PcSessionRequest | null;
+  onSessionEnd: () => void;
 }
 
 /**
@@ -24,9 +37,26 @@ export interface PcHomeContentProps extends HomeV3ContentProps {
  * 키보드가 레일 → 패널 → 문의 순서로 가도록 문서 순서를 두고, 겹침은 층 값으로 정한다.
  * 전체 선택이나 끌어 선택이 월페이퍼 사진까지 파랗게 칠하지 않게 홈 전체를 글자 선택과 그림 끌기에서 뺀다.
  * D-Day·목표 가운데 창은 body로 나가 이 범위 밖이라 입력은 그대로 된다.
+ * 공부 세션을 열면 같은 자리에 세션 패널을 그리고, 세션을 만들기 전까지는 홈 패널을 시작 중 모양으로 남긴다.
  */
-export function PcHomeContent({ dday, contactHref, ...content }: PcHomeContentProps) {
+export function PcHomeContent({
+  dday,
+  contactHref,
+  session,
+  onSessionEnd,
+  ...content
+}: PcHomeContentProps) {
   const [box, setBox] = useState<HTMLDivElement | null>(null);
+  const homePanel = (
+    <PcStudyPanel
+      studySeconds={content.stats.status === "success" ? content.stats.value.studySeconds : null}
+    >
+      <HomeStudyBlocks
+        {...content}
+        startingStudy={content.startingStudy === true || session !== null}
+      />
+    </PcStudyPanel>
+  );
   return (
     <div ref={setBox} className="session-no-drag absolute inset-0 overflow-hidden">
       <PcWallpaper />
@@ -34,12 +64,22 @@ export function PcHomeContent({ dday, contactHref, ...content }: PcHomeContentPr
         {dday}
         <PcSpaceFlyout container={box} />
       </PcHomeRail>
-      <PcStudyPanel
-        studySeconds={content.stats.status === "success" ? content.stats.value.studySeconds : null}
-      >
-        <HomeStudyBlocks {...content} />
-      </PcStudyPanel>
-      <PcContactButton href={contactHref} />
+      {session === null ? (
+        homePanel
+      ) : (
+        <Suspense fallback={homePanel}>
+          <LazyPcStudySession
+            key={session.key}
+            request={session}
+            content={content}
+            box={box}
+            pending={homePanel}
+            onEnd={onSessionEnd}
+          />
+        </Suspense>
+      )}
+      {/* 공부 중에 상담 창을 열면 공부와 겹쳐 공부하는 동안은 숨긴다. */}
+      {session === null && <PcContactButton href={contactHref} />}
     </div>
   );
 }

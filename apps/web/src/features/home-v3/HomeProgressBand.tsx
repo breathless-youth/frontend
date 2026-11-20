@@ -96,6 +96,7 @@ export function HomeProgressBand({
   completing,
   claiming = false,
   starting,
+  studying = false,
   error,
   actions,
 }: {
@@ -103,6 +104,8 @@ export function HomeProgressBand({
   completing: boolean;
   claiming?: boolean;
   starting: boolean;
+  /** 공부 중이면 미션의 가기와 시작을 그리지 않는다. */
+  studying?: boolean;
   error?: string;
   actions: HomeV3ContentProps["actions"];
 }) {
@@ -208,7 +211,7 @@ export function HomeProgressBand({
             {!completing && <Check size={14} strokeWidth={2.4} aria-hidden="true" />}
             {t(completing ? "v3.mission.completing" : "v3.mission.complete")}
           </Button>
-        ) : (
+        ) : studying && mission ? null : (
           // 글자 링크는 여백 없이 띠 안쪽 끝에 붙이고, 짧은 영어 문구도 누르기 쉽게 누르는 범위만 좌우로 넓힌다.
           <Button
             variant="unstyled"

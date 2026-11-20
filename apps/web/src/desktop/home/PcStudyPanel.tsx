@@ -16,9 +16,18 @@ import { useStudyPanel } from "./useStudyPanel";
  */
 export function PcStudyPanel({
   studySeconds,
+  headerActions,
+  layer,
+  onActivate,
   children,
 }: {
   studySeconds: number | null;
+  /** 머리줄 접기 버튼 왼쪽에 둘 버튼 */
+  headerActions?: ReactNode;
+  /** 겹친 창 사이의 층. 없으면 기본 층이다. */
+  layer?: number;
+  /** 누르거나 포커스가 들어오면 부른다. 겹친 카메라 창보다 위로 올릴 때 쓴다. */
+  onActivate?: () => void;
   children: ReactNode;
 }) {
   const { t } = useTranslation("desktop");
@@ -30,9 +39,15 @@ export function PcStudyPanel({
       ref={ref}
       aria-labelledby={titleId}
       // 패널을 끌거나 누르는 일이 열린 공간 플라이아웃을 닫지 않도록 패널에서 시작한 누름과 포커스를 표시한다.
-      onPointerDownCapture={(event) => markStudyPanelEvent(event.nativeEvent)}
-      onFocusCapture={(event) => markStudyPanelEvent(event.nativeEvent)}
-      style={{ right, top }}
+      onPointerDownCapture={(event) => {
+        markStudyPanelEvent(event.nativeEvent);
+        onActivate?.();
+      }}
+      onFocusCapture={(event) => {
+        markStudyPanelEvent(event.nativeEvent);
+        onActivate?.();
+      }}
+      style={{ right, top, zIndex: layer }}
       className="pc-study-panel absolute z-10 flex max-h-[calc(100%-2rem)] w-100 flex-col rounded-xl bg-muted shadow-sb-card"
     >
       <div
@@ -54,20 +69,23 @@ export function PcStudyPanel({
             </>
           )}
         </h2>
-        <button
-          type="button"
-          aria-expanded={!minimized}
-          aria-controls={bodyId}
-          aria-label={t(minimized ? "home.panel.expand" : "home.panel.minimize")}
-          onClick={toggleMinimized}
-          className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-bg-layer-2 focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none motion-reduce:transition-none"
-        >
-          {minimized ? (
-            <Plus aria-hidden="true" className="size-5" />
-          ) : (
-            <Minus aria-hidden="true" className="size-5" />
-          )}
-        </button>
+        <div className="flex shrink-0 items-center">
+          {headerActions}
+          <button
+            type="button"
+            aria-expanded={!minimized}
+            aria-controls={bodyId}
+            aria-label={t(minimized ? "home.panel.expand" : "home.panel.minimize")}
+            onClick={toggleMinimized}
+            className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-bg-layer-2 focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none motion-reduce:transition-none"
+          >
+            {minimized ? (
+              <Plus aria-hidden="true" className="size-5" />
+            ) : (
+              <Minus aria-hidden="true" className="size-5" />
+            )}
+          </button>
+        </div>
       </div>
       <div
         id={bodyId}

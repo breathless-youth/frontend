@@ -18,6 +18,43 @@ export type {
 } from "./homeV3ContentTypes";
 
 /**
+ * 진행 띠 자리
+ *
+ * 불러오는 중이면 뼈대, 실패하면 다시 시도를 보인다.
+ * 공부 중에는 미션의 가기와 시작을 숨긴다.
+ * 가기는 플래너로 홈을 떠나 세션이 끝나고, 시작은 세션 요청을 새로 보낸다.
+ */
+export function HomeBandBlock({
+  band,
+  completingMission = false,
+  claimingReward = false,
+  startingStudy = false,
+  studying = false,
+  missionError,
+  actions,
+}: Pick<
+  HomeV3ContentProps,
+  "band" | "completingMission" | "claimingReward" | "startingStudy" | "missionError" | "actions"
+> & { studying?: boolean }) {
+  const { t } = useTranslation("home");
+  if (band.status === "pending") return <Skeleton className="h-19 rounded-xl" />;
+  if (band.status === "error") {
+    return <HomeInlineError label={t("v3.progressFailed")} retry={band.retry} />;
+  }
+  return (
+    <HomeProgressBand
+      band={band.value}
+      completing={completingMission}
+      claiming={claimingReward}
+      starting={startingStudy}
+      studying={studying}
+      error={missionError}
+      actions={actions}
+    />
+  );
+}
+
+/**
  * 진행 띠·공부 카드·시작 버튼 묶음
  *
  * 폰 홈과 PC 공부시간 패널이 같은 부품을 같은 순서로 그려야 동작이 어긋나지 않아 한 곳에 둔다.
@@ -36,23 +73,16 @@ export function HomeStudyBlocks({
   onMenuOpenChange,
   actions,
 }: HomeV3ContentProps) {
-  const { t } = useTranslation("home");
   return (
     <>
-      {band.status === "pending" && <Skeleton className="h-19 rounded-xl" />}
-      {band.status === "error" && (
-        <HomeInlineError label={t("v3.progressFailed")} retry={band.retry} />
-      )}
-      {band.status === "success" && (
-        <HomeProgressBand
-          band={band.value}
-          completing={completingMission}
-          claiming={claimingReward}
-          starting={startingStudy}
-          error={missionError}
-          actions={actions}
-        />
-      )}
+      <HomeBandBlock
+        band={band}
+        completingMission={completingMission}
+        claimingReward={claimingReward}
+        startingStudy={startingStudy}
+        missionError={missionError}
+        actions={actions}
+      />
       <HomeStudyCard stats={stats}>
         <HomeSubjectSelect
           subjects={subjects}

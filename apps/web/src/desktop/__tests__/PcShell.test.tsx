@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -372,5 +372,57 @@ describe("PcShell 프로필 메뉴", () => {
     await userEvent.keyboard("{Escape}");
 
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+});
+
+/** 창 폭을 흉내 내는 matchMedia. 쿼리의 min-width를 rem으로 읽어 지금 폭과 비교한다. */
+function stubWidth(initialWidth: number) {
+  let width = initialWidth;
+  const listeners = new Set<() => void>();
+  vi.stubGlobal("matchMedia", (query: string) => {
+    const rem = /min-width:\s*([\d.]+)rem/.exec(query);
+    const min = rem ? Number(rem[1]) * 16 : Number.POSITIVE_INFINITY;
+    return {
+      media: query,
+      get matches() {
+        return width >= min;
+      },
+      addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
+      removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
+    };
+  });
+  return (next: number) => {
+    width = next;
+    act(() => {
+      for (const listener of listeners) listener();
+    });
+  };
+}
+
+describe("PcShell 좁은 창", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("960보다 좁으면 상자를 덮고 내용은 지우지 않은 채 막아 둔다", () => {
+    const resize = stubWidth(900);
+    renderShell("/home");
+    const page = screen.getByTestId("where");
+
+    expect(screen.getByRole("status")).toHaveTextContent(i18n.t("desktop:shell.narrow"));
+    expect(page.closest("[inert]")).not.toBeNull();
+
+    resize(1200);
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getByTestId("where")).toBe(page);
+    expect(page.closest("[inert]")).toBeNull();
+  });
+
+  it("960 이상이면 덮개가 없다", () => {
+    stubWidth(960);
+    renderShell("/home");
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 });

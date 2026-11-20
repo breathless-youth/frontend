@@ -36,7 +36,7 @@ export function HomeSubjectSelect({
   menuOpen?: boolean;
   onMenuOpenChange?: (open: boolean) => void;
   onSelect: (id: number | null) => void;
-  onAdd: () => void;
+  onAdd?: () => void;
 }) {
   const { t } = useTranslation("home");
   const items = subjects.status === "success" ? subjects.value : [];
@@ -70,7 +70,7 @@ export function HomeSubjectSelect({
         {/* 과목이 늘어도 아래 두 항목이 화면 밖으로 밀리지 않게 목록만 4개 반 높이에서 스크롤한다. */}
         <div
           data-testid="home-subject-list"
-          className="max-h-[198px] overflow-y-auto overscroll-contain"
+          className="max-h-49.5 overflow-y-auto overscroll-contain"
         >
           {subjects.status === "error" && (
             <DropdownMenuItem onSelect={subjects.retry} className="min-h-11 px-3">
@@ -106,13 +106,16 @@ export function HomeSubjectSelect({
           <SubjectDot />
           {t("v3.subject.none")}
         </DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={onAdd}
-          className="min-h-11 gap-1 px-3 text-sm leading-5 text-primary"
-        >
-          <Plus size={14} aria-hidden="true" />
-          {t("v3.subject.add")}
-        </DropdownMenuItem>
+        {/* 플래너로 가면 홈을 떠나 공부 중인 세션이 끝나서 공부 중 패널은 넘기지 않는다. */}
+        {onAdd !== undefined && (
+          <DropdownMenuItem
+            onSelect={onAdd}
+            className="min-h-11 gap-1 px-3 text-sm leading-5 text-primary"
+          >
+            <Plus size={14} aria-hidden="true" />
+            {t("v3.subject.add")}
+          </DropdownMenuItem>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );

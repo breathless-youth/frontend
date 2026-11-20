@@ -32,6 +32,15 @@ export interface StudyPanelState {
 
 export const DEFAULT_STUDY_PANEL: StudyPanelState = { right: 24, top: 24, minimized: false };
 
+/** 끌어 옮기는 창의 저장 키, 처음 자리, 누름과 끌기를 가르는 거리 */
+export interface FloatingBoxOptions {
+  readonly storageKey?: string;
+  readonly initial?: StudyPanelState;
+  /** 이 거리(px)까지 움직이고 놓으면 끌기가 아니라 누름이다. */
+  readonly tapSlop?: number;
+  readonly onTap?: () => void;
+}
+
 interface Size {
   width: number;
   height: number;
@@ -62,9 +71,9 @@ export function clampPanelPosition(
  *
  * 값이 깨졌거나 저장소를 못 쓰면 기본 자리로 연다.
  */
-function readStudyPanel(): StudyPanelState {
+function readStudyPanel(key: string, fallback: StudyPanelState): StudyPanelState {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(key);
     const value: unknown = raw === null ? null : JSON.parse(raw);
     if (typeof value === "object" && value !== null) {
       const { right, top, minimized } = value as Record<string, unknown>;
@@ -81,12 +90,12 @@ function readStudyPanel(): StudyPanelState {
   } catch {
     // 깨진 값과 막힌 저장소는 아래 기본 자리로 돌린다.
   }
-  return DEFAULT_STUDY_PANEL;
+  return fallback;
 }
 
-function writeStudyPanel(state: StudyPanelState) {
+function writeStudyPanel(key: string, state: StudyPanelState) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    localStorage.setItem(key, JSON.stringify(state));
   } catch {
     // 저장소가 막혀도 이번 화면에서는 옮긴 자리를 그대로 쓴다.
   }
@@ -128,11 +137,17 @@ function showInside(
  * 창 크기나 패널 높이가 바뀌면 보이는 자리만 사용자가 둔 자리에서 다시 계산해, 줄었다가 다시 늘면 원래 자리로 돌아간다.
  * 패널 높이는 오류 문구나 늦게 받은 내용으로도 바뀌어서 창 크기와 함께 패널 크기도 지켜본다.
  * 저장은 사용자가 옮기거나 접을 때만 한다.
+ * 카메라 작은 창도 같은 훅을 저장 키와 처음 자리만 바꿔 쓰고, 누름 거리 안에서 놓으면 끌기 대신 누름으로 알린다.
  */
-export function useStudyPanel() {
+export function useStudyPanel({
+  storageKey = STORAGE_KEY,
+  initial = DEFAULT_STUDY_PANEL,
+  tapSlop = 0,
+  onTap,
+}: FloatingBoxOptions = {}) {
   // 콜백 ref로 받은 요소를 상태로 들어, 그려진 뒤 크기를 재는 effect가 요소가 바뀔 때도 다시 돈다.
   const [panel, setPanel] = useState<HTMLElement | null>(null);
-  const [state, setState] = useState(readStudyPanel);
+  const [state, setState] = useState(() => readStudyPanel(storageKey, initial));
   const [shown, setShown] = useState<PanelPosition>(() => ({
     right: state.right,
     top: state.top,
@@ -147,6 +162,7 @@ export function useStudyPanel() {
     y: number;
     right: number;
     top: number;
+    moved: boolean;
   } | null>(null);
 
   // 사용자가 옮기거나 접으면 그려진 뒤 보이는 자리를 다시 잰다.
@@ -169,7 +185,7 @@ export function useStudyPanel() {
   function commit(next: StudyPanelState) {
     savedRef.current = next;
     setState(next);
-    writeStudyPanel(next);
+    writeStudyPanel(storageKey, next);
   }
 
   // 옮긴 자리는 지금 상자 안쪽으로 당긴 값을 사용자가 둔 자리로 삼는다.
@@ -177,11 +193,14 @@ export function useStudyPanel() {
     return { ...state, ...keepInside(panel, { right, top }) };
   }
 
-  function endDrag(event: PointerEvent<HTMLElement>) {
-    if (dragStart.current?.pointerId !== event.pointerId) return;
+  /** 끌기를 끝내고, 움직이지 않은 누름이었는지 돌려준다. */
+  function endDrag(event: PointerEvent<HTMLElement>): boolean {
+    const start = dragStart.current;
+    if (start?.pointerId !== event.pointerId) return false;
     dragStart.current = null;
     // 마지막 움직임이 아직 그려지지 않았을 수 있어 렌더 때 잡힌 상태가 아니라 방금 옮긴 자리를 저장한다.
-    writeStudyPanel(savedRef.current);
+    writeStudyPanel(storageKey, savedRef.current);
+    return !start.moved;
   }
 
   return {
@@ -202,19 +221,24 @@ export function useStudyPanel() {
           y: event.clientY,
           right: shown.right,
           top: shown.top,
+          moved: false,
         };
       },
       onPointerMove(event: PointerEvent<HTMLElement>) {
         const start = dragStart.current;
         if (start === null || start.pointerId !== event.pointerId) return;
-        const next = moveTo(
-          start.right - (event.clientX - start.x),
-          start.top + (event.clientY - start.y),
-        );
+        const dx = event.clientX - start.x;
+        const dy = event.clientY - start.y;
+        // 누름 거리 안에서는 자리를 바꾸지 않아 손이 살짝 떨려도 누름으로 남는다.
+        if (!start.moved && Math.hypot(dx, dy) <= tapSlop) return;
+        start.moved = true;
+        const next = moveTo(start.right - dx, start.top + dy);
         savedRef.current = next;
         setState(next);
       },
-      onPointerUp: endDrag,
+      onPointerUp(event: PointerEvent<HTMLElement>) {
+        if (endDrag(event)) onTap?.();
+      },
       onPointerCancel: endDrag,
       // 브라우저가 붙잡기를 거둬 가면 놓기 이벤트가 오지 않아 여기서도 끌기를 끝내고 저장한다.
       onLostPointerCapture: endDrag,

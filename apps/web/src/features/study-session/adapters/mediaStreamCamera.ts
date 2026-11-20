@@ -265,3 +265,17 @@ export function createMediaStreamCameraAdapter(): MediaStreamCameraAdapter {
     },
   };
 }
+
+/**
+ * 세션 전에 열어 본 카메라
+ *
+ * 열리면 그 어댑터를 세션에 그대로 넘겨 권한 창과 카메라 열기가 한 번으로 끝난다.
+ * 열지 못하면 닫고 null을 돌려주고, 사유는 열기가 이미 오류 보고로 종류만 남겼다.
+ */
+export async function openCameraForSession(): Promise<MediaStreamCameraAdapter | null> {
+  const camera = createMediaStreamCameraAdapter();
+  await camera.start();
+  if (camera.isRunning) return camera;
+  camera.stop();
+  return null;
+}
