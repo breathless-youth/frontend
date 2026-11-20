@@ -199,6 +199,25 @@ describe("useStudyPanel", () => {
     expect(JSON.parse(localStorage.getItem(KEY)!)).toMatchObject({ right: 224, top: 124 });
   });
 
+  it("마지막 움직임이 그려지기 전에 놓아도 마지막 자리를 저장한다", () => {
+    render(<Harness />);
+    const handle = screen.getByTestId("handle");
+    fireEvent.pointerDown(handle, { clientX: 900, clientY: 40, pointerId: 1, button: 0 });
+
+    // 한 act 안에서 보내 움직임과 놓기 사이에 다시 그리지 않는다.
+    act(() => {
+      handle.dispatchEvent(
+        new Pointer("pointermove", { bubbles: true, clientX: 700, clientY: 140, pointerId: 1 }),
+      );
+      handle.dispatchEvent(
+        new Pointer("pointerup", { bubbles: true, clientX: 700, clientY: 140, pointerId: 1 }),
+      );
+    });
+
+    expect(JSON.parse(localStorage.getItem(KEY)!)).toMatchObject({ right: 224, top: 124 });
+    expect(position()).toEqual({ right: "224px", top: "124px" });
+  });
+
   it("끄는 동안 크기 감시를 다시 만들지 않는다", () => {
     render(<Harness />);
     const created = observersCreated;

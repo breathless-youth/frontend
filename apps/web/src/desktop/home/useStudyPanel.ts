@@ -139,6 +139,7 @@ export function useStudyPanel() {
   }));
   // 크기 감시는 패널이 바뀔 때만 다시 걸고, 감시 콜백은 이 ref로 최신 저장 자리를 읽는다.
   // 끄는 동안 저장 자리가 포인터가 움직일 때마다 바뀌어 effect가 감시를 매번 다시 만들지 않게 한다.
+  // 옮기거나 접을 때는 그려지기 전에 바로 바꿔, 놓을 때 저장하는 값이 늘 마지막 자리다.
   const savedRef = useRef(state);
   const dragStart = useRef<{
     pointerId: number;
@@ -166,6 +167,7 @@ export function useStudyPanel() {
   }, [panel]);
 
   function commit(next: StudyPanelState) {
+    savedRef.current = next;
     setState(next);
     writeStudyPanel(next);
   }
@@ -178,7 +180,8 @@ export function useStudyPanel() {
   function endDrag(event: PointerEvent<HTMLElement>) {
     if (dragStart.current?.pointerId !== event.pointerId) return;
     dragStart.current = null;
-    writeStudyPanel(state);
+    // 마지막 움직임이 아직 그려지지 않았을 수 있어 렌더 때 잡힌 상태가 아니라 방금 옮긴 자리를 저장한다.
+    writeStudyPanel(savedRef.current);
   }
 
   return {
@@ -204,9 +207,12 @@ export function useStudyPanel() {
       onPointerMove(event: PointerEvent<HTMLElement>) {
         const start = dragStart.current;
         if (start === null || start.pointerId !== event.pointerId) return;
-        setState(
-          moveTo(start.right - (event.clientX - start.x), start.top + (event.clientY - start.y)),
+        const next = moveTo(
+          start.right - (event.clientX - start.x),
+          start.top + (event.clientY - start.y),
         );
+        savedRef.current = next;
+        setState(next);
       },
       onPointerUp: endDrag,
       onPointerCancel: endDrag,
