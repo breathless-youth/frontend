@@ -359,9 +359,9 @@ export interface StudySessionEndedInput {
    */
   readonly pauseSec: number;
   readonly distractionSec: number;
-  /** 수동 종료(S3-7)인지 일시정지 자동 종료(S3-8)인지. */
-  readonly endReason: "MANUAL" | "AUTO";
-  /** 자동 종료를 유발한 일시정지 트리거. 수동 종료면 `null`. */
+  /** 수동 종료인지, 일시정지 자동 종료인지, 자율 모드가 앱 밖 2시간 상한으로 끝났는지. */
+  readonly endReason: "MANUAL" | "AUTO" | "AWAY_LIMIT";
+  /** 자동 종료를 유발한 일시정지 트리거. 수동 종료와 AWAY_LIMIT은 null이다. */
   readonly pauseTrigger: "MANUAL" | "BACKGROUND" | null;
   /** 서버 제출을 시도하는가 — `userId`가 없으면 미제출(`unsaved`)로 끝난다. */
   readonly willSubmit: boolean;
@@ -1291,6 +1291,31 @@ export function trackSessionRecoveryPrompted(focusSec: number) {
 export function trackSessionRecoveryConfirmed() {
   if (!initialized) return;
   track("session_recovery_confirmed");
+}
+
+/** 이어 공부 확인 창을 띄운 자리 */
+export type ResumePromptPlace = "home" | "room";
+
+/**
+ * 자율 모드 이어 공부 확인 창 노출
+ *
+ * 앱 밖에 있던 분을 함께 실어 얼마나 떠나 있던 사용자가 이어 가는지 본다.
+ */
+export function trackStudySessionResumePrompted(input: {
+  readonly awayMin: number;
+  readonly place: ResumePromptPlace;
+}) {
+  if (!initialized) return;
+  track("study_session_resume_prompted", { away_min: Number(input.awayMin), place: input.place });
+}
+
+/** 위 확인 창에서 고른 답 */
+export function trackStudySessionResumeAnswered(input: {
+  readonly choice: "resume" | "end";
+  readonly place: ResumePromptPlace;
+}) {
+  if (!initialized) return;
+  track("study_session_resume_answered", { choice: input.choice, place: input.place });
 }
 
 /**

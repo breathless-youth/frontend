@@ -128,6 +128,28 @@ export function closeSessionTimeline(
   };
 }
 
+/**
+ * 정한 종료 시각에서 끊은 타임라인
+ *
+ * 앱 밖에서 시간 상한을 넘겨 끝낼 때는 종료 시각이 지금보다 앞선다.
+ * 그 뒤에 열린 구간은 사용자가 앱 밖에 있던 동안 모드가 연 구간이라 통째로 버리고, 남은 마지막 구간을 종료 시각에 닫는다.
+ * 첫 구간은 세션 시작이라 늘 남긴다.
+ * 이미 닫힌 타임라인은 제출 재시도라서 그대로 둔다.
+ */
+export function cutSessionTimeline(timeline: SessionTimeline, endedAtMs: number): SessionTimeline {
+  if (isClosed(timeline)) {
+    return timeline;
+  }
+  const kept = timeline.segments.filter(
+    (segment, index) => index === 0 || segment.startedAtMs < endedAtMs,
+  );
+  const last = lastSegment({ startedAtMs: timeline.startedAtMs, segments: kept });
+  return {
+    startedAtMs: timeline.startedAtMs,
+    segments: [...kept.slice(0, -1), { ...last, endedAtMs: Math.max(endedAtMs, last.startedAtMs) }],
+  };
+}
+
 function segmentDurationMs(segment: SessionSegment, nowMs: number): number {
   const endMs = segment.endedAtMs ?? nowMs;
   return Math.max(0, endMs - segment.startedAtMs);

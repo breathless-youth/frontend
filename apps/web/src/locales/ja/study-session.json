@@ -47,6 +47,7 @@
   "autoEnd": {
     "title": "ここまでの記録を保存しました",
     "backgroundBody": "画面がオフの間は測定できないため、\n勉強を自動で終了しました",
+    "awayLimitBody": "アプリを2時間以上離れていたため、2時間までを記録して勉強を終了しました",
     "focusLabel": "集中時間",
     "studyLabel": "総勉強時間",
     "cta": "結果を見る"
@@ -141,12 +142,19 @@
   "recovery": {
     "title": "保存されていなかった記録を復元しました",
     "body": "アプリが予期せず終了しました。\n勉強の記録は保存してあります。",
+    "timerAwayBody": "アプリを2時間以上離れていたため、アプリを離れた時点までの記録を保存しました",
     "date": "日付",
     "time": "開始 · 終了",
     "timeRange": "{{start}}〜{{end}}",
     "studyTime": "総勉強時間",
     "focusTime": "集中時間",
     "confirm": "OK"
+  },
+  "resume": {
+    "title": "勉強を続けますか？",
+    "body": "アプリを離れていた{{minutes}}分も勉強時間に含まれます",
+    "continue": "続けて勉強する",
+    "end": "離れた時点で終了する"
   },
   "result": {
     "completeTitle": "今日の勉強が終わりました",

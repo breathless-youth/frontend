@@ -7,7 +7,7 @@ import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
 
 import { toKoreanDurationLength } from "../formatDuration";
-import type { PauseTrigger } from "../sessionState";
+import type { AutoEndTrigger } from "../sessionState";
 import { autoEndBodyKey } from "../sessionState";
 import { CheckCircle } from "./CheckCircle";
 
@@ -21,7 +21,7 @@ export interface AutoEndNoticeProps {
    * ⚠️ 본문 문구 선택 전용. 자동 종료 임계값 판정에는 쓰이지 않는다
    * (판정은 `usePauseAutoEnd`가 트리거와 무관하게 `pausedSince` 하나로만 한다).
    */
-  trigger: PauseTrigger;
+  trigger: AutoEndTrigger;
   /** 순공 시간(초). */
   focusSec: number;
   /** 총 공부 시간(초) — 일시정지 구간 제외. */

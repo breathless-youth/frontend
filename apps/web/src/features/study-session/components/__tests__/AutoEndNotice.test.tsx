@@ -42,4 +42,15 @@ describe("AutoEndNotice", () => {
     expect(haptic).toHaveBeenCalledTimes(1);
     expect(haptic).toHaveBeenCalledWith("medium");
   });
+
+  it("앱 밖 2시간 초과로 끝나면 그 사유를 본문으로 보여 준다", () => {
+    render(
+      <AutoEndNotice trigger="AWAY_LIMIT" focusSec={7260} studySec={7260} onSeeResult={vi.fn()} />,
+    );
+
+    expect(screen.getByRole("heading", { name: "여기까지 기록을 저장했어요" })).toBeInTheDocument();
+    expect(
+      screen.getByText("앱 밖에 2시간 넘게 있어서 2시간까지 기록하고 공부를 마쳤어요"),
+    ).toBeInTheDocument();
+  });
 });
