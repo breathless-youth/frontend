@@ -112,45 +112,53 @@ describe("PcShell 브랜드", () => {
 });
 
 describe("PcShell 탭", () => {
-  it.each([
-    ["/home", "홈"],
-    ["/social/groups/123", "그룹"],
-    ["/records", "기록"],
-    ["/ranking/records", "랭킹"],
-    ["/planner?from=records&date=2026-11-17", "기록"],
-    ["/planner?from=home", "홈"],
-    ["/planner", "홈"],
-    ["/manual-record?from=records", "기록"],
-  ])("%s에서는 %s 탭만 현재 화면으로 표시한다", (path, label) => {
-    renderShell(path);
+  it("첫 출시 동안 상단 바에는 홈 탭 하나만 보인다", () => {
+    renderShell("/home");
 
     const nav = screen.getByRole("navigation", { name: "주 메뉴" });
-    expect(within(nav).getByRole("link", { name: label })).toHaveAttribute("aria-current", "page");
     expect(
       within(nav)
         .getAllByRole("link")
-        .filter((link) => link.hasAttribute("aria-current")),
-    ).toHaveLength(1);
+        .map((link) => link.textContent),
+    ).toEqual(["홈"]);
   });
 
-  it("탭을 누르면 그 탭으로 이동한다", async () => {
-    renderShell("/home");
+  it.each(["/home", "/planner?from=home", "/planner"])(
+    "%s에서는 홈 탭을 현재 화면으로 표시한다",
+    (path) => {
+      renderShell(path);
 
-    await userEvent.click(screen.getByRole("link", { name: "기록" }));
+      expect(screen.getByRole("link", { name: "홈" })).toHaveAttribute("aria-current", "page");
+    },
+  );
 
-    expect(screen.getByTestId("where")).toHaveTextContent("/records");
+  it.each([
+    "/records",
+    "/social/groups/123",
+    "/ranking/records",
+    "/planner?from=records&date=2026-11-17",
+  ])("숨긴 탭의 화면 %s에서는 홈 탭을 현재로 표시하지 않는다", (path) => {
+    renderShell(path);
+
+    expect(screen.getByRole("link", { name: "홈" })).not.toHaveAttribute("aria-current");
   });
 
-  it("키보드만으로 탭에 가서 Enter로 이동한다", async () => {
-    renderShell("/home");
+  it("홈 탭을 누르면 홈으로 이동한다", async () => {
+    renderShell("/records");
+
+    await userEvent.click(screen.getByRole("link", { name: "홈" }));
+
+    expect(screen.getByTestId("where")).toHaveTextContent("/home");
+  });
+
+  it("키보드만으로 홈 탭에 가서 Enter로 이동한다", async () => {
+    renderShell("/records");
 
     await userEvent.tab();
-    await userEvent.tab();
-    await userEvent.tab();
-    expect(screen.getByRole("link", { name: "기록" })).toHaveFocus();
+    expect(screen.getByRole("link", { name: "홈" })).toHaveFocus();
     await userEvent.keyboard("{Enter}");
 
-    expect(screen.getByTestId("where")).toHaveTextContent("/records");
+    expect(screen.getByTestId("where")).toHaveTextContent("/home");
   });
 
   it("구 앱 신원 쿼리는 다른 탭으로 들고 가고 화면 전용 쿼리는 버린다", async () => {
@@ -165,41 +173,41 @@ describe("PcShell 탭", () => {
   it("탭 이동을 모바일 탭 바와 같은 이벤트로 남기고 PC 상단 바 경로를 구분한다", async () => {
     renderShell("/social/groups/1");
 
-    await userEvent.click(screen.getByRole("link", { name: "기록" }));
+    await userEvent.click(screen.getByRole("link", { name: "홈" }));
 
     expect(trackTabPressed).toHaveBeenCalledExactlyOnceWith({
-      tab: "record",
+      tab: "home",
       from_tab: "social",
       via: "pc_top_bar",
     });
   });
 
   it("다른 화면으로 옮기면 페이지 상자 스크롤을 맨 위로 올린다", async () => {
-    renderShell("/home");
+    renderShell("/records");
     const scroller = screen.getByTestId("where").parentElement!;
     scroller.scrollTop = 200;
 
-    await userEvent.click(screen.getByRole("link", { name: "랭킹" }));
+    await userEvent.click(screen.getByRole("link", { name: "홈" }));
 
     expect(scroller.scrollTop).toBe(0);
   });
 
   it("뒤로 가기로 돌아와도 페이지 상자 스크롤을 맨 위로 올린다", async () => {
-    renderShell("/home");
-    await userEvent.click(screen.getByRole("link", { name: "랭킹" }));
+    renderShell("/records");
+    await userEvent.click(screen.getByRole("link", { name: "홈" }));
     const scroller = screen.getByTestId("where").parentElement!;
     scroller.scrollTop = 200;
 
     await userEvent.click(screen.getByRole("button", { name: "뒤로" }));
 
-    expect(screen.getByTestId("where")).toHaveTextContent("/home");
+    expect(screen.getByTestId("where")).toHaveTextContent("/records");
     expect(scroller.scrollTop).toBe(0);
   });
 
   it("지금 탭을 다시 누르면 탭 이동으로 세지 않는다", async () => {
-    renderShell("/social/groups/1");
+    renderShell("/home");
 
-    await userEvent.click(screen.getByRole("link", { name: "그룹" }));
+    await userEvent.click(screen.getByRole("link", { name: "홈" }));
 
     expect(trackTabPressed).not.toHaveBeenCalled();
   });

@@ -16,6 +16,10 @@ const TABS: readonly { tab: PcTab; to: string }[] = [
   { tab: "ranking", to: "/ranking" },
 ];
 
+// 첫 출시는 홈만 연다.
+// 나머지 탭은 경로와 현재 탭 판정에 남겨 두어 다시 열 때 이 목록만 바꾼다.
+const VISIBLE_TABS = TABS.filter(({ tab }) => tab === "home");
+
 /**
  * 지금 화면이 속한 탭
  *
@@ -59,7 +63,7 @@ export function PcShell() {
           </span>
         </div>
         <nav aria-label={t("nav.label")} className="flex gap-1">
-          {TABS.map(({ tab, to }) => (
+          {VISIBLE_TABS.map(({ tab, to }) => (
             <Link
               key={tab}
               aria-current={tab === currentTab ? "page" : undefined}
