@@ -5,6 +5,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ShellLayout } from "@/desktop/ShellLayout";
 import { usePcShell } from "@/desktop/usePcShell";
+import type * as amplitude from "@/lib/amplitude";
+
+const setPcLayoutUserProperty = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/amplitude", async (original) => ({
+  ...(await original<typeof amplitude>()),
+  setPcLayoutUserProperty,
+}));
 
 /**
  * 창 폭을 흉내 내는 matchMedia
@@ -38,6 +45,7 @@ function stubViewport(initialWidth: number) {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.clearAllMocks();
 });
 
 describe("usePcShell", () => {
@@ -118,5 +126,27 @@ describe("ShellLayout", () => {
 
     expect(screen.getAllByText("기록 페이지")).toHaveLength(1);
     expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+  });
+});
+
+describe("ShellLayout 사용자 속성", () => {
+  it("PC 셸을 그리면 pc_layout을 true로, 좁아지면 false로 남긴다", async () => {
+    const viewport = stubViewport(1440);
+    renderRecords();
+    await screen.findByRole("banner");
+
+    expect(setPcLayoutUserProperty).toHaveBeenLastCalledWith(true);
+
+    viewport.resize(1000);
+
+    expect(setPcLayoutUserProperty).toHaveBeenLastCalledWith(false);
+  });
+
+  it("좁은 창이면 처음부터 false로 남긴다", () => {
+    stubViewport(1199);
+
+    renderRecords();
+
+    expect(setPcLayoutUserProperty).toHaveBeenCalledExactlyOnceWith(false);
   });
 });

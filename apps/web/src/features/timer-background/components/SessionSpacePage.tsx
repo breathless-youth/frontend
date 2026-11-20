@@ -16,6 +16,7 @@ import {
   trackTimerBackgroundApplied,
   trackTimerBackgroundPhotoAdded,
   trackTimerBackgroundPhotoRemoved,
+  type SpaceSurface,
   type SpaceTab,
 } from "@/lib/amplitude";
 import { REPLAY_BLOCKED } from "@/lib/jpegDataUrl";
@@ -65,6 +66,25 @@ export interface SessionSpacePageProps {
   onToggleMute: () => void;
 }
 
+export interface SpaceContentProps extends Pick<
+  SessionSpacePageProps,
+  | "landscape"
+  | "applied"
+  | "onApply"
+  | "volume"
+  | "onVolumeChange"
+  | "onVolumeCommit"
+  | "onToggleMute"
+> {
+  /**
+   * 영상 공간이 닫혀 있으면 탭 줄과 검색창 없이 목록만 보인다.
+   * 공간이 넷뿐인 PC 플라이아웃에서만 켜고, 모바일 시트는 다가올 영상 공간 안내를 위해 탭 줄을 남긴다.
+   */
+  listOnly?: boolean;
+  /** 적용 이벤트에 실을 화면 */
+  surface: SpaceSurface;
+}
+
 type ChipCategory = "all" | "watch";
 
 /**
@@ -85,12 +105,17 @@ export function SessionSpacePage(props: SessionSpacePageProps) {
       landscape={props.landscape}
     >
       {/* 닫힌 동안은 Sheet가 내용을 그리지 않아 사진 목록도 열 때마다 새로 읽는다. */}
-      <SpaceContent {...props} />
+      <SpaceContent {...props} surface="session" />
     </SessionPage>
   );
 }
 
-function SpaceContent({
+/**
+ * 공간 고르기 본문
+ *
+ * 세션 공간 페이지와 PC 홈 플라이아웃이 같은 목록과 적용 동작을 쓴다.
+ */
+export function SpaceContent({
   landscape,
   applied,
   onApply,
@@ -98,8 +123,11 @@ function SpaceContent({
   onVolumeChange,
   onVolumeCommit,
   onToggleMute,
-}: SessionSpacePageProps) {
+  listOnly = false,
+  surface,
+}: SpaceContentProps) {
   const { t } = useTranslation(["study-session", "profile"]);
+  const bare = listOnly && !VIDEO_SPACES_OPEN;
   const [tab, setTab] = useState<SpaceTab>(VIDEO_SPACES_OPEN ? "video" : "image");
   const [category, setCategory] = useState<ChipCategory>("all");
   const [text, setText] = useState("");
@@ -242,6 +270,7 @@ function SpaceContent({
       source,
       tab: item.tab,
       category: item.category,
+      surface,
     });
     return true;
   }
@@ -280,7 +309,9 @@ function SpaceContent({
             }}
             className={cn(
               "absolute inset-0 overflow-hidden rounded-lg focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none",
-              selected ? "ring-2 ring-white" : "ring-1 ring-white/10",
+              selected
+                ? "ring-2 ring-(--session-space-selected)"
+                : "ring-1 ring-(--session-space-tile-line)",
             )}
           >
             {tileContent(selection)}
@@ -405,7 +436,7 @@ function SpaceContent({
             onChange={(event) => onVolumeChange(Number(event.target.value))}
             onPointerUp={commit}
             onKeyUp={commit}
-            className="relative min-h-11 min-w-0 flex-1 accent-white disabled:opacity-40"
+            className="relative min-h-11 min-w-0 flex-1 accent-(--session-space-selected) disabled:opacity-40"
           />
         </div>
       )}
@@ -428,19 +459,21 @@ function SpaceContent({
           }}
           className={cn("flex min-h-0 flex-1 flex-col gap-4 pt-2", !landscape && "px-6")}
         >
-          <TabsList className="shrink-0">
-            {(["video", "image"] as const).map((id) => (
-              <TabsTrigger
-                key={id}
-                value={id}
-                className="flex-1 justify-center text-white/40 data-[state=active]:border-(--session-dialog-title) data-[state=active]:text-(--session-dialog-title)"
-              >
-                {t(`space.tabs.${id}`)}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+          {!bare && (
+            <TabsList className="shrink-0">
+              {(["video", "image"] as const).map((id) => (
+                <TabsTrigger
+                  key={id}
+                  value={id}
+                  className="flex-1 justify-center text-(--session-space-tab-idle) data-[state=active]:border-(--session-dialog-title) data-[state=active]:text-(--session-dialog-title)"
+                >
+                  {t(`space.tabs.${id}`)}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          )}
 
-          {(VIDEO_SPACES_OPEN || tab === "image") && (
+          {!bare && (VIDEO_SPACES_OPEN || tab === "image") && (
             <div className="relative shrink-0">
               <Search
                 aria-hidden="true"
@@ -477,8 +510,8 @@ function SpaceContent({
                         className={cn(
                           "rounded-full border px-3.5 py-1.5 text-[13px] leading-4.5 font-medium group-focus-visible:ring-2 group-focus-visible:ring-(--state-focus)",
                           category === id
-                            ? "border-white bg-white text-black"
-                            : "border-white/20 text-(--session-dialog-title)",
+                            ? "border-(--session-space-selected) bg-(--session-space-selected) text-(--session-space-on-selected)"
+                            : "border-(--session-space-chip-line) text-(--session-dialog-title)",
                         )}
                       >
                         {id === "all" ? t("space.all") : t("space.sections.watch")}
@@ -516,7 +549,7 @@ function SpaceContent({
                       type="button"
                       aria-disabled={full}
                       onClick={() => (full ? noticeLimit() : fileRef.current?.click())}
-                      className="flex aspect-4/3 w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-white/25 text-[13px] leading-4.5 text-(--session-dialog-title) focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none aria-disabled:opacity-40"
+                      className="flex aspect-4/3 w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-(--session-space-upload-line) text-[13px] leading-4.5 text-(--session-dialog-title) focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none aria-disabled:opacity-40"
                     >
                       <ImagePlus aria-hidden="true" className="size-5" />
                       {t("space.upload")}
@@ -672,7 +705,7 @@ function SpacePreview({
           ref={backRef}
           variant="unstyled"
           onClick={onBack}
-          className="h-13 flex-1 rounded-[14px] bg-(--session-dialog-cancel-bg) text-[16px] font-semibold text-white motion-reduce:transition-none"
+          className="h-13 flex-1 rounded-[14px] bg-(--session-dialog-cancel-bg) text-[16px] font-semibold text-(--session-dialog-cancel-text) motion-reduce:transition-none"
         >
           {t("space.back")}
         </Button>

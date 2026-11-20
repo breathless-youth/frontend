@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { DdayResponse } from "@focusmakers/types";
 
 import { Skeleton } from "@/components/ui/Skeleton";
+import { RAIL_BUTTON_CLASS } from "@/desktop/home/railButtonClass";
 import { IconChevronDown } from "@/features/records/icons";
 import { setDdayUserProperties, trackDdaySheetOpened } from "@/lib/amplitude";
 import { ddayQuery } from "@/lib/ddayQueries";
@@ -29,6 +30,7 @@ const { LazySheet: LazyDdaySheet, preload: preloadDdaySheet } = lazyWithPreload(
  * 같은 두 줄 모양으로 위에 `D-Day`, 제목 자리에 `목표 날짜를 설정하세요`가 온다. 어느 쪽이든 탭하면
  * 시트 하나가 열린다(신규·편집 공용). 시트 모양은 Claude Design `D-Day Prototype`이 원본이다.
  * 지난 D-Day는 지우지 않고 `D+N`을 다른 색으로 보여 준다.
+ * PC 홈은 머리줄 대신 왼쪽 레일 맨 위에 두어, 같은 시트를 레일 버튼 모양(`pc-rail`)으로 연다.
  *
  * 조회 실패는 미설정처럼 그린다. 저장은 upsert라 그 상태에서 저장해도 서버 값이 덮이고, 응답으로
  * 캐시가 다시 채워져 스스로 복구된다. 홈 통계의 오류 상태와 달리 이 블록에는 재시도 버튼이 없다.
@@ -38,7 +40,7 @@ export function DdaySection({
   layout = "default",
 }: {
   userId: number;
-  layout?: "default" | "home-v3";
+  layout?: "default" | "home-v3" | "pc-rail";
 }) {
   const query = useQuery(ddayQuery(userId));
   const [open, setOpen] = useState(false);
@@ -72,17 +74,25 @@ export function DdaySection({
   }
 
   if (!loaded) {
-    return <Skeleton className="h-13.5 w-32 rounded-lg" />;
+    return (
+      <Skeleton
+        className={layout === "pc-rail" ? "h-14 w-full rounded-lg" : "h-13.5 w-32 rounded-lg"}
+      />
+    );
   }
 
   return (
     <>
-      <DdayBlock
-        dday={dday}
-        expanded={open}
-        onOpen={() => handleOpenChange(true)}
-        layout={layout}
-      />
+      {layout === "pc-rail" ? (
+        <DdayRailButton dday={dday} expanded={open} onOpen={() => handleOpenChange(true)} />
+      ) : (
+        <DdayBlock
+          dday={dday}
+          expanded={open}
+          onOpen={() => handleOpenChange(true)}
+          layout={layout}
+        />
+      )}
       <LazyDdaySheet
         open={open}
         onOpenChange={handleOpenChange}
@@ -166,6 +176,57 @@ function DdayBlock({
         {layout === "home-v3" && (
           <IconChevronDown size={12} color="var(--color-text-tertiary)" className="-rotate-90" />
         )}
+      </span>
+    </button>
+  );
+}
+
+/**
+ * PC 레일 맨 위 D-Day 버튼
+ *
+ * 레일 폭이 좁아 제목을 작게 위에, D-N을 아래에 두고, 미설정이면 안내 없이 D-Day만 보인다.
+ */
+function DdayRailButton({
+  dday,
+  expanded,
+  onOpen,
+}: {
+  dday: DdayResponse | null;
+  expanded: boolean;
+  onOpen: () => void;
+}) {
+  const { t } = useTranslation("home");
+  const daysLeft = dday === null ? null : daysUntil(dday.targetDate);
+  const label = daysLeft === null ? t("ddayBlock.placeholder") : formatDday(daysLeft);
+  return (
+    <button
+      type="button"
+      aria-label={
+        dday === null
+          ? t("ddayBlock.aria.set")
+          : t("ddayBlock.aria.edit", { label, title: dday.title })
+      }
+      aria-haspopup="dialog"
+      aria-expanded={expanded}
+      onClick={onOpen}
+      className={RAIL_BUTTON_CLASS}
+    >
+      {dday !== null && (
+        <span
+          data-testid="dday-caption"
+          className="max-w-full truncate text-xs leading-4 text-muted-foreground"
+        >
+          {dday.title}
+        </span>
+      )}
+      <span
+        data-testid="dday-label"
+        className={cn(
+          "max-w-full truncate text-base leading-5 font-bold tabular-nums",
+          daysLeft !== null && daysLeft < 0 && "text-muted-foreground",
+        )}
+      >
+        {label}
       </span>
     </button>
   );

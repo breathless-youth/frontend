@@ -11,5 +11,16 @@
     "myAccount": "我的帳號",
     "login": "登入",
     "logout": "登出"
+  },
+  "home": {
+    "panel": {
+      "title": "讀書時間",
+      "move": "讀書時間面板。使用方向鍵移動，同時按住 Shift 可移動更遠",
+      "minimize": "收合讀書時間面板",
+      "expand": "展開讀書時間面板"
+    },
+    "rail": "首頁工具",
+    "contact": "聯絡我們",
+    "newWindow": "在新視窗中開啟"
   }
 }

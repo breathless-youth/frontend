@@ -82,6 +82,26 @@
   }
 }
 
+/*
+ * PC 공부시간 패널은 폭이 폰 홈과 같아 넓은 창에서도 시계를 폰 크기로 둔다.
+ * 패널에서는 공부 카드의 아래 여백이 없어서, 그만큼 시계를 내려 발끝이 과목 버튼 윗변에 걸치는 자리를 지킨다.
+ */
+.pc-study-panel .home-v3-clock {
+  --home-clock-size: 11.875rem;
+  bottom: calc(2.75rem - 0.25rem - 0.1883 * var(--home-clock-size));
+}
+
+/*
+ * PC 공부시간 패널은 흰 판 자체가 카드라 판 안에 카드가 한 겹 더 보이지 않게 한다.
+ * 공부 카드의 바탕·그림자·둥근 모서리·바깥 여백만 걷고, 과목 선택의 바탕은 그대로 둔다.
+ */
+.pc-study-panel .home-v3-study-card {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 @media (max-width: 359px) {
   .home-v3-notebook {
     right: -44px;

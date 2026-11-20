@@ -45,9 +45,9 @@ vi.mock("@/lib/auth/tokenSource", async (importOriginal) => ({
 
 const SEARCH = "?userId=7&appVersion=26.46.0";
 
-function renderPage({ strict = false } = {}) {
+function renderPage({ strict = false, search = SEARCH } = {}) {
   const page = (
-    <MemoryRouter initialEntries={[`/contact/chat${SEARCH}`]}>
+    <MemoryRouter initialEntries={[`/contact/chat${search}`]}>
       <Routes>
         <Route path="/contact/chat" element={<ContactChatPage />} />
       </Routes>
@@ -343,5 +343,67 @@ describe("ContactChatPage", () => {
       expect(queued("shutdown")).toHaveLength(1);
       expect(queued("openChat")).toHaveLength(0);
     });
+  });
+});
+
+describe("ContactChatPage PC 홈 문의 창", () => {
+  const POPUP_SEARCH = `${SEARCH}&popup=1`;
+
+  /**
+   * 운영 문의 창의 브라우저 상태
+   *
+   * 홈과 상담 문서의 COOP가 달라 창이 다른 그룹으로 떨어지므로 창 이름은 비고 연 창도 없다.
+   */
+  function stubSeveredWindow({ name = "", opener = null as object | null } = {}) {
+    window.name = name;
+    vi.stubGlobal("opener", opener);
+    return vi.spyOn(window, "close").mockImplementation(() => {});
+  }
+
+  afterEach(() => {
+    window.name = "";
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("주소에 문의 창 표시가 있으면 연 창이 없어도 헤더 뒤로 가기가 시도를 놓은 뒤 창을 닫는다", async () => {
+    vi.stubEnv("VITE_CHANNEL_PLUGIN_KEY", "test-key");
+    const close = stubSeveredWindow();
+    const { cancel } = mockAttempt(never());
+    renderPage({ search: POPUP_SEARCH });
+
+    await waitFor(() => expect(startChannelTalk).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole("button", { name: "뒤로 가기" }));
+
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(exitToPreviousDocument).not.toHaveBeenCalled();
+    expect(cancel.mock.invocationCallOrder[0]!).toBeLessThan(close.mock.invocationCallOrder[0]!);
+  });
+
+  it("주소에 문의 창 표시가 있으면 상담창을 닫을 때 창을 닫는다", async () => {
+    vi.stubEnv("VITE_CHANNEL_PLUGIN_KEY", "test-key");
+    const close = stubSeveredWindow();
+    const { session, callbacks } = fakeSession();
+    mockAttempt(Promise.resolve(session));
+    renderPage({ search: POPUP_SEARCH });
+
+    await waitFor(() => expect(callbacks.hide).toBeDefined());
+    callbacks.hide?.();
+
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(exitToPreviousDocument).not.toHaveBeenCalled();
+  });
+
+  it("표시가 없으면 창 이름과 연 창이 있어도 지금처럼 이전 문서로 돌아간다", async () => {
+    vi.stubEnv("VITE_CHANNEL_PLUGIN_KEY", "test-key");
+    const close = stubSeveredWindow({ name: "focusmakers-contact", opener: {} });
+    mockAttempt(never());
+    renderPage();
+
+    await waitFor(() => expect(startChannelTalk).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole("button", { name: "뒤로 가기" }));
+
+    expect(exitToPreviousDocument).toHaveBeenCalledWith("/home", SEARCH);
+    expect(close).not.toHaveBeenCalled();
   });
 });

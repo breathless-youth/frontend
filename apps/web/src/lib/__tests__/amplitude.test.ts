@@ -2705,6 +2705,7 @@ describe("세션 공간 이벤트", () => {
       source: "tile",
       tab: "image",
       category: "mine",
+      surface: "session",
     });
     m.trackTimerBackgroundPhotoAdded({ count: 1 });
     m.trackTimerBackgroundPhotoRemoved({ count: 0, wasSelected: true });
@@ -2729,6 +2730,7 @@ describe("세션 공간 이벤트", () => {
       source: "preview",
       tab: "image",
       category: "mine",
+      surface: "session",
     });
     m.trackTimerBackgroundPhotoAdded({ count: 2 });
     m.trackTimerBackgroundPhotoRemoved({ count: 1, wasSelected: false });
@@ -2743,7 +2745,7 @@ describe("세션 공간 이벤트", () => {
       ["session_space_preview_opened", { kind: "proctor" }],
       [
         "timer_background_applied",
-        { kind: "photo", source: "preview", tab: "image", category: "mine" },
+        { kind: "photo", source: "preview", tab: "image", category: "mine", surface: "session" },
       ],
       ["timer_background_photo_added", { count: 2, source: "file" }],
       ["timer_background_photo_removed", { count: 1, was_selected: false }],
@@ -2805,5 +2807,29 @@ describe("세션 더보기·세로 열 이벤트", () => {
       ["session_more_menu_item_selected", { item: "flip_camera" }],
       ["session_side_button_pressed", { button: "timer" }],
     ]);
+  });
+});
+
+describe("PC 화면 사용자 속성", () => {
+  it("PC 셸로 그리는지를 pc_layout으로 남긴다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, setPcLayoutUserProperty } = await loadModule();
+    initAmplitude();
+
+    setPcLayoutUserProperty(true);
+    setPcLayoutUserProperty(false);
+
+    const [first] = mocks.identify.mock.calls[0] as [InstanceType<typeof mocks.FakeIdentify>];
+    const [second] = mocks.identify.mock.calls[1] as [InstanceType<typeof mocks.FakeIdentify>];
+    expect(first.sets).toEqual([["pc_layout", true]]);
+    expect(second.sets).toEqual([["pc_layout", false]]);
+  });
+
+  it("초기화 전에는 보내지 않는다", async () => {
+    const { setPcLayoutUserProperty } = await loadModule();
+
+    setPcLayoutUserProperty(true);
+
+    expect(mocks.identify).not.toHaveBeenCalled();
   });
 });

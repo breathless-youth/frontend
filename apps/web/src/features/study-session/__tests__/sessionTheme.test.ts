@@ -61,3 +61,17 @@ describe("종료 확인 다이얼로그 변수 — S3-7 (항상-다크 오버레
     expect(surface["--session-dialog-confirm-bg"]).toBe("#1b64da");
   });
 });
+
+describe("공간 본문 변수", () => {
+  const surface = sessionSurfaceStyle as unknown as Record<string, string>;
+
+  it("세션 공간 페이지는 변수로 바꾸기 전의 흰색·검정 값을 그대로 쓴다", () => {
+    expect(surface["--session-space-selected"]).toBe("#ffffff");
+    expect(surface["--session-space-on-selected"]).toBe("#000000");
+    expect(surface["--session-space-tile-line"]).toBe("rgba(255, 255, 255, 0.1)");
+    expect(surface["--session-space-chip-line"]).toBe("rgba(255, 255, 255, 0.2)");
+    expect(surface["--session-space-upload-line"]).toBe("rgba(255, 255, 255, 0.25)");
+    expect(surface["--session-space-tab-idle"]).toBe("rgba(255, 255, 255, 0.4)");
+    expect(surface["--session-dialog-cancel-text"]).toBe("#ffffff");
+  });
+});

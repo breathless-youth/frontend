@@ -16,6 +16,10 @@ const TABS: readonly { tab: PcTab; to: string }[] = [
   { tab: "ranking", to: "/ranking" },
 ];
 
+// 첫 출시는 홈만 연다.
+// 나머지 탭은 경로와 현재 탭 판정에 남겨 두어 다시 열 때 이 목록만 바꾼다.
+const VISIBLE_TABS = TABS.filter(({ tab }) => tab === "home");
+
 /**
  * 지금 화면이 속한 탭
  *
@@ -51,7 +55,8 @@ export function PcShell() {
 
   return (
     <div className="flex h-dvh flex-col bg-background px-3.5 pb-3.5">
-      <header className="theme-soft-blue flex h-14 shrink-0 items-center gap-6 px-2.5">
+      {/* 상단 바만 글자 선택에서 뺀다. 페이지 상자는 약관처럼 고를 수 있어야 하는 화면도 그린다. */}
+      <header className="session-no-drag theme-soft-blue flex h-14 shrink-0 items-center gap-6 px-2.5">
         <div className="flex shrink-0 items-center gap-2">
           <img src={mascotStopwatch} alt="" className="size-7" />
           <span className="text-[15px] font-bold text-foreground">
@@ -59,7 +64,7 @@ export function PcShell() {
           </span>
         </div>
         <nav aria-label={t("nav.label")} className="flex gap-1">
-          {TABS.map(({ tab, to }) => (
+          {VISIBLE_TABS.map(({ tab, to }) => (
             <Link
               key={tab}
               aria-current={tab === currentTab ? "page" : undefined}

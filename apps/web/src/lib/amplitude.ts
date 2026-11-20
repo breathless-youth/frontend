@@ -976,6 +976,16 @@ export function setThemeUserProperty(scheme: "light" | "dark") {
   identify(id);
 }
 
+/**
+ * PC 셸 여부 사용자 속성
+ *
+ * 넓은 브라우저에서 상단 바와 둥근 상자로 그리는지를 남겨 PC 화면 사용자를 나눠 본다.
+ * 창 폭이 바뀌면 다시 맞춘다.
+ */
+export function setPcLayoutUserProperty(pcLayout: boolean) {
+  setUserProperties({ pc_layout: pcLayout });
+}
+
 const FOCUS_MILESTONE_TRACKED_KEY = "focusmakers:focus-milestone-tracked";
 
 /**
@@ -1391,6 +1401,8 @@ export type SpaceKind = "simple" | "proctor" | "photo";
 export type SpaceTab = "video" | "image";
 /** 공간 페이지 분류. 감시는 영상 탭, 내 사진과 심플은 이미지 탭에 있다. */
 export type SpaceCategory = "watch" | "mine" | "simple";
+/** 공간을 고른 화면. 세션 공간 페이지와 PC 홈 플라이아웃이 같은 본문을 쓴다. */
+export type SpaceSurface = "pc_home" | "session";
 
 /** 세로 열 공간 버튼으로 공간 페이지를 열었다. */
 export function trackSessionSpaceOpened() {
@@ -1415,12 +1427,14 @@ export function trackSessionSpacePreviewOpened(input: { readonly kind: SpaceKind
  *
  * `kind`가 소스마다 다른 값이라 어떤 소스를 골랐는지 이것으로 구분하고, 내 사진은 몇 번째인지 나누지 않는다.
  * `source`는 타일을 바로 눌렀는지(tile), 미리보기의 `적용하기`인지(preview)다.
+ * `surface`는 세션 공간 페이지에서 골랐는지 PC 홈 플라이아웃에서 골랐는지다.
  */
 export function trackTimerBackgroundApplied(input: {
   readonly kind: SpaceKind;
   readonly source: "tile" | "preview";
   readonly tab: SpaceTab;
   readonly category: SpaceCategory;
+  readonly surface: SpaceSurface;
 }) {
   if (!initialized) return;
   track("timer_background_applied", {
@@ -1428,6 +1442,7 @@ export function trackTimerBackgroundApplied(input: {
     source: input.source,
     tab: input.tab,
     category: input.category,
+    surface: input.surface,
   });
 }
 

@@ -11,5 +11,16 @@
     "myAccount": "My account",
     "login": "Log in",
     "logout": "Log out"
+  },
+  "home": {
+    "panel": {
+      "title": "Study time",
+      "move": "Study time panel. Use the arrow keys to move it, or hold Shift to move it farther",
+      "minimize": "Collapse study time panel",
+      "expand": "Expand study time panel"
+    },
+    "rail": "Home tools",
+    "contact": "Contact us",
+    "newWindow": "Opens in a new window"
   }
 }

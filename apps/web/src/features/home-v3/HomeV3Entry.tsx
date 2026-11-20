@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 
+import { usePcShell } from "@/desktop/usePcShell";
 import { hasAppLockCapability } from "@/features/app-lock/appLockCapability";
 import { readAppLockEnabled } from "@/features/app-lock/appLockSettings";
 import { formatAppLockRowValue } from "@/features/app-lock/appLockSummary";
@@ -18,6 +19,7 @@ import { pointsSearch } from "@/features/points/pointsSearch";
 import { usePointsLogin } from "@/features/points/usePointsLogin";
 import { setHasTimelapseUserProperty } from "@/lib/amplitude";
 import { isPointsEnabled } from "@/lib/pointsCapability";
+import { reloadOnChunkError } from "@/lib/chunkReload";
 import { hardNavigate } from "@/lib/hardNavigation";
 import { hasTokenSource } from "@/lib/userId";
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
@@ -29,7 +31,12 @@ import { useMeasureMode } from "@/features/measure-mode/measureMode";
 import { prefetchVisionAssets } from "@/features/study-session/vision/prefetchVisionAssets";
 import { prefetchTimelapsesPage } from "@/routes/lazyRoutes";
 
-import { HomeV3Content, type HomeLoadState, type HomeTodayStats } from "./HomeV3Content";
+import {
+  HomeV3Content,
+  type HomeLoadState,
+  type HomeTodayStats,
+  type HomeV3ContentProps,
+} from "./HomeV3Content";
 import type { HomeDay, HomeV3Gateway } from "./HomeV3Gateway";
 import { readHomeSubject, reconcileHomeSubject, useHomeSubject } from "./subjectSelection";
 import { useHomeDay } from "./useHomeDay";
@@ -42,7 +49,13 @@ const { LazySheet: LazyGoalSheet, preload: preloadGoalSheet } = lazyWithPreload(
   import("./HomeGoalSheet").then((module) => module.HomeGoalSheet),
 );
 
-/** 실제 서버 어댑터를 연결한 뒤에만 HomeTabPage에서 선택하는 새 본문. */
+// 폰과 앱 웹뷰는 PC 홈을 쓰지 않아서 따로 받는다.
+const LazyPcHomeContent = lazy(
+  reloadOnChunkError(() =>
+    import("@/desktop/home/PcHomeContent").then((module) => ({ default: module.PcHomeContent })),
+  ),
+);
+
 /**
  * 상담 화면 주소
  *
@@ -56,6 +69,7 @@ function contactChatPath(search: string): string {
   return query === "" ? "/contact/chat" : `/contact/chat?${query}`;
 }
 
+/** 실제 서버 어댑터를 연결한 뒤에만 HomeTabPage에서 선택하는 새 본문. */
 export function HomeV3Entry({
   userId,
   gateway: suppliedGateway,
@@ -74,6 +88,7 @@ export function HomeV3Entry({
       if (failure) throw failure;
     });
   const day = useHomeDay();
+  const pc = usePcShell();
   const navigate = useNavigate();
   const location = useLocation();
   const openPlanner = useOpenPlanner("home");
@@ -227,103 +242,116 @@ export function HomeV3Entry({
           appLock.data.categoryCount,
         );
 
+  const content: HomeV3ContentProps = {
+    band: progress.band,
+    stats,
+    subjects:
+      subjects.data !== undefined
+        ? { status: "success", value: subjects.data }
+        : subjects.isError
+          ? {
+              status: "error",
+              retry: () => {
+                void subjects.refetch();
+              },
+            }
+          : { status: "pending" },
+    selectedSubjectId: subjectId,
+    onMenuOpenChange: setMenuOpen,
+    completingMission: progress.completingMission,
+    claimingReward: progress.claimingReward,
+    missionError: progress.missionError
+      ? t("v3.mission.failed")
+      : progress.rewardError
+        ? t("v3.reward.failed")
+        : progress.rewardNotOpen
+          ? t("rewardNotOpen", { ns: "points-earn" })
+          : undefined,
+    startingStudy: verifyingSubject,
+    startError:
+      startError === "verify"
+        ? t("v3.subject.verifyFailed")
+        : startError === "unsupported"
+          ? t("studyStart.updateApp", { ns: "planner" })
+          : startError === "start"
+            ? t("v3.startFailed")
+            : undefined,
+    timelapseCount: timelapses.data?.length,
+    plannerTaskCount: progress.goal?.remainingTasks,
+    appLockLabel: lockLabel,
+    actions: {
+      selectSubject: (id) => {
+        selectSubject(id);
+        setStartError(null);
+      },
+      startStudy: () => {
+        void startStudy();
+      },
+      openPlanner: () => openPlanner(day.dateKey),
+      completeMission: progress.completeMission,
+      // 비회원도 받지만 서버가 회원 전용이라고 거절하면 로그인 화면을 연다.
+      claimMissionReward: () => progress.claimMissionReward(openPointsLogin),
+      editGoal: () => {
+        void preloadGoalSheet();
+        setEditing({
+          day,
+          seconds: progress.goal?.seconds ?? null,
+          key: ++editorKey.current,
+          open: true,
+        });
+      },
+      openTimelapses: () => openPage("/timelapses"),
+      openTimelapseSettings: () => openPage("/timelapse-settings"),
+      openAppLock: () => openPage("/app-lock-settings"),
+      // 상담 화면은 COEP 예외 문서라 SPA 이동이 아니라 문서 이동으로 연다.
+      openContact: () => hardNavigate(contactChatPath(location.search)),
+    },
+  };
+
   return (
     <>
-      <header className="flex min-h-14.5 items-end justify-between gap-4 pb-1">
-        <h1 className="sr-only">{t("header.title")}</h1>
-        {hasTokenSource() ? (
-          <DdaySection userId={userId} layout="home-v3" />
-        ) : (
-          <span className="text-2xl font-bold">FocusMakers</span>
-        )}
-        {isPointsEnabled() && !points.memberOnly ? (
-          <div className="shrink-0">
-            <PointsBalancePill
-              size="home"
-              balance={points.balance}
-              gain={progress.gain}
-              onPress={() =>
-                slideNavigate("forward", () =>
-                  navigate({ pathname: "/points", search: pointsSearch(location.search) }),
-                )
-              }
+      {pc ? (
+        <>
+          <h1 className="sr-only">{t("header.title")}</h1>
+          <Suspense fallback={null}>
+            <LazyPcHomeContent
+              {...content}
+              dday={hasTokenSource() ? <DdaySection userId={userId} layout="pc-rail" /> : null}
+              contactHref={contactChatPath(location.search)}
             />
-          </div>
-        ) : (
-          <p className="shrink-0 pb-1.5 text-sm leading-4.5 font-medium text-muted-foreground">
-            {homeDateLabel(day.dateKey, i18n.language)}
-          </p>
-        )}
-      </header>
-      <HomeV3Content
-        band={progress.band}
-        stats={stats}
-        subjects={
-          subjects.data !== undefined
-            ? { status: "success", value: subjects.data }
-            : subjects.isError
-              ? {
-                  status: "error",
-                  retry: () => {
-                    void subjects.refetch();
-                  },
-                }
-              : { status: "pending" }
-        }
-        selectedSubjectId={subjectId}
-        onMenuOpenChange={setMenuOpen}
-        completingMission={progress.completingMission}
-        claimingReward={progress.claimingReward}
-        missionError={
-          progress.missionError
-            ? t("v3.mission.failed")
-            : progress.rewardError
-              ? t("v3.reward.failed")
-              : progress.rewardNotOpen
-                ? t("rewardNotOpen", { ns: "points-earn" })
-                : undefined
-        }
-        startingStudy={verifyingSubject}
-        startError={
-          startError === "verify"
-            ? t("v3.subject.verifyFailed")
-            : startError === "unsupported"
-              ? t("studyStart.updateApp", { ns: "planner" })
-              : startError === "start"
-                ? t("v3.startFailed")
-                : undefined
-        }
-        timelapseCount={timelapses.data?.length}
-        plannerTaskCount={progress.goal?.remainingTasks}
-        appLockLabel={lockLabel}
-        actions={{
-          selectSubject: (id) => {
-            selectSubject(id);
-            setStartError(null);
-          },
-          startStudy: () => {
-            void startStudy();
-          },
-          openPlanner: () => openPlanner(day.dateKey),
-          completeMission: progress.completeMission,
-          // 비회원도 받지만 서버가 회원 전용이라고 거절하면 로그인 화면을 연다.
-          claimMissionReward: () => progress.claimMissionReward(openPointsLogin),
-          editGoal: () => {
-            void preloadGoalSheet();
-            setEditing({
-              day,
-              seconds: progress.goal?.seconds ?? null,
-              key: ++editorKey.current,
-              open: true,
-            });
-          },
-          openTimelapses: () => openPage("/timelapses"),
-          openTimelapseSettings: () => openPage("/timelapse-settings"),
-          openAppLock: () => openPage("/app-lock-settings"),
-          // 상담 화면은 COEP 예외 문서라 SPA 이동이 아니라 문서 이동으로 연다.
-          openContact: () => hardNavigate(contactChatPath(location.search)),
-        }}
-      />
+          </Suspense>
+        </>
+      ) : (
+        <>
+          <header className="flex min-h-14.5 items-end justify-between gap-4 pb-1">
+            <h1 className="sr-only">{t("header.title")}</h1>
+            {hasTokenSource() ? (
+              <DdaySection userId={userId} layout="home-v3" />
+            ) : (
+              <span className="text-2xl font-bold">FocusMakers</span>
+            )}
+            {isPointsEnabled() && !points.memberOnly ? (
+              <div className="shrink-0">
+                <PointsBalancePill
+                  size="home"
+                  balance={points.balance}
+                  gain={progress.gain}
+                  onPress={() =>
+                    slideNavigate("forward", () =>
+                      navigate({ pathname: "/points", search: pointsSearch(location.search) }),
+                    )
+                  }
+                />
+              </div>
+            ) : (
+              <p className="shrink-0 pb-1.5 text-sm leading-4.5 font-medium text-muted-foreground">
+                {homeDateLabel(day.dateKey, i18n.language)}
+              </p>
+            )}
+          </header>
+          <HomeV3Content {...content} />
+        </>
+      )}
       {editing && (
         <LazyGoalSheet
           key={editing.key}

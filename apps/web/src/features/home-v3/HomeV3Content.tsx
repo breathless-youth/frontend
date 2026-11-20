@@ -17,7 +17,12 @@ export type {
   HomeV3ContentProps,
 } from "./homeV3ContentTypes";
 
-export function HomeV3Content({
+/**
+ * 진행 띠·공부 카드·시작 버튼 묶음
+ *
+ * 폰 홈과 PC 공부시간 패널이 같은 부품을 같은 순서로 그려야 동작이 어긋나지 않아 한 곳에 둔다.
+ */
+export function HomeStudyBlocks({
   band,
   stats,
   subjects,
@@ -27,16 +32,13 @@ export function HomeV3Content({
   startingStudy = false,
   startError,
   missionError,
-  timelapseCount,
-  plannerTaskCount,
-  appLockLabel,
   menuOpen,
   onMenuOpenChange,
   actions,
 }: HomeV3ContentProps) {
   const { t } = useTranslation("home");
   return (
-    <div className="home-v3-content flex flex-1 flex-col gap-3">
+    <>
       {band.status === "pending" && <Skeleton className="h-19 rounded-xl" />}
       {band.status === "error" && (
         <HomeInlineError label={t("v3.progressFailed")} retry={band.retry} />
@@ -68,6 +70,15 @@ export function HomeV3Content({
           {startError}
         </p>
       )}
+    </>
+  );
+}
+
+export function HomeV3Content(props: HomeV3ContentProps) {
+  const { timelapseCount, plannerTaskCount, appLockLabel, actions } = props;
+  return (
+    <div className="home-v3-content flex flex-1 flex-col gap-3">
+      <HomeStudyBlocks {...props} />
       <HomePlannerShortcut plannerTaskCount={plannerTaskCount} onOpen={actions.openPlanner} />
       <HomeUtilityShortcuts
         timelapseCount={timelapseCount}

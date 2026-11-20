@@ -33,6 +33,9 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...analytics,
 }));
 
+const pcShell = vi.hoisted(() => ({ value: false }));
+vi.mock("@/desktop/usePcShell", () => ({ usePcShell: () => pcShell.value }));
+
 const mockedGet = vi.mocked(getDday);
 const mockedPut = vi.mocked(putDday);
 const mockedDelete = vi.mocked(deleteDday);
@@ -57,11 +60,11 @@ function pickNextMonth15() {
   fireEvent.click(screen.getByRole("button", { name: PICK_LABEL }));
 }
 
-function renderSection() {
+function renderSection(layout?: "default" | "home-v3" | "pc-rail") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <DdaySection userId={7} />
+      <DdaySection userId={7} layout={layout} />
     </QueryClientProvider>,
   );
 }
@@ -73,6 +76,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  pcShell.value = false;
 });
 
 describe("DdaySection — 좌상단 블록", () => {
@@ -109,6 +113,25 @@ describe("DdaySection — 좌상단 블록", () => {
     renderSection();
 
     expect(await screen.findByRole("button", { name: "D-Day 설정" })).toBeInTheDocument();
+  });
+
+  it("PC 레일 모양은 제목 아래 D-N을, 미설정이면 D-Day만 보인다", async () => {
+    mockedGet.mockResolvedValue(SET);
+    const { unmount } = renderSection("pc-rail");
+
+    expect(await screen.findByTestId("dday-label")).toHaveTextContent(formatDday(SET_DAYS_LEFT));
+    expect(screen.getByTestId("dday-caption")).toHaveTextContent("2027 수능");
+    unmount();
+
+    mockedGet.mockResolvedValue(null);
+    renderSection("pc-rail");
+
+    expect(await screen.findByRole("button", { name: "D-Day 설정" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(screen.getByTestId("dday-label")).toHaveTextContent("D-Day");
+    expect(screen.queryByTestId("dday-caption")).not.toBeInTheDocument();
   });
 });
 
@@ -368,5 +391,33 @@ describe("DdaySection — 시트", () => {
     expect(screen.queryByRole("button", { name: "다음 달" })).not.toBeInTheDocument();
     act(() => titleInput.blur());
     expect(screen.getByRole("button", { name: "다음 달" })).toBeInTheDocument();
+  });
+
+  it("PC에서는 가운데 창으로 열고 Esc로 닫으면 블록으로 포커스가 돌아온다", async () => {
+    pcShell.value = true;
+    mockedGet.mockResolvedValue(null);
+    renderSection();
+    const block = await screen.findByRole("button", { name: "D-Day 설정" });
+
+    await userEvent.click(block);
+    await screen.findByRole("dialog", { name: "목표 날짜 설정" });
+    expect(document.querySelector('[data-slot="drawer-handle"]')).toBeNull();
+    await userEvent.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(block).toHaveFocus();
+  });
+
+  it("PC 가운데 창은 머리줄 오른쪽 D-N 뒤에 닫기를 두어 겹치지 않는다", async () => {
+    pcShell.value = true;
+    mockedGet.mockResolvedValue(SET);
+    renderSection();
+
+    await userEvent.click(await screen.findByRole("button", { name: /D-Day 수정/ }));
+    await screen.findByRole("dialog", { name: "목표 날짜 설정" });
+
+    const close = screen.getByRole("button", { name: "닫기" });
+    const header = screen.getByTestId("dday-sheet-days").parentElement!;
+    expect(Array.from(close.parentElement!.children)).toEqual([header, close]);
   });
 });

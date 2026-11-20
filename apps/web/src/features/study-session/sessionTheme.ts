@@ -105,6 +105,22 @@ const SESSION_SURFACE_VARS = {
   /** 측정 중 과목 강조로, blue/400(#4593FC)의 35%는 가로 줄 링이고 45%는 세로 카드 링이다. */
   "--session-sheet-selected-ring": withAlpha(sessionStateColors.FOCUS.dark, 0.35),
   "--session-sheet-selected-card-ring": withAlpha(sessionStateColors.FOCUS.dark, 0.45),
+
+  // ── 공간 페이지 ──────────────────────────────────────────────────────────
+  // 공간 본문은 PC 홈 플라이아웃에서 앱 테마 색으로도 그려서, 사진 위가 아닌 흰색·검정을 변수로 뺐다.
+  // 세션에서는 변수로 빼기 전 클래스와 같은 값이라 화면이 그대로다.
+  /** 고른 타일 테두리·고른 칩 바탕·음량 줄 색 */
+  "--session-space-selected": "#ffffff",
+  /** 고른 칩 글자 */
+  "--session-space-on-selected": "#000000",
+  "--session-space-tile-line": "rgba(255, 255, 255, 0.1)",
+  "--session-space-chip-line": "rgba(255, 255, 255, 0.2)",
+  /** 사진 올리기 점선 */
+  "--session-space-upload-line": "rgba(255, 255, 255, 0.25)",
+  /** 고르지 않은 영상·이미지 탭 글자 */
+  "--session-space-tab-idle": "rgba(255, 255, 255, 0.4)",
+  /** 미리보기 `뒤로` 버튼 글자 */
+  "--session-dialog-cancel-text": "#ffffff",
 } as const;
 
 export const sessionSurfaceStyle = SESSION_SURFACE_VARS as unknown as CSSProperties;

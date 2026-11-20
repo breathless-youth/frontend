@@ -1,3 +1,6 @@
+import { useSyncExternalStore } from "react";
+
+import { spaceKey } from "./spaceCatalog";
 import { VIDEO_SPACES_OPEN } from "./videoSpaces";
 import { clearWatcherAssets } from "./watcher/watcherAssets";
 import { WATCHER_ASSET_DIR } from "./watcher/watcherClips";
@@ -69,24 +72,61 @@ function parse(raw: string | null): TimerBackgroundSelection {
   return SIMPLE_BACKGROUND;
 }
 
+const CHANGE_EVENT = "timer-background-change";
+
+function store(selection: TimerBackgroundSelection): boolean {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(selection));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
- * 고른 타이머 배경 읽기
+ * 저장된 배경 값
  *
  * 프라이버시 모드처럼 저장소 접근이 막히거나 값이 깨졌으면 심플로 본다.
  */
-export function readTimerBackground(): TimerBackgroundSelection {
+function readStored(): TimerBackgroundSelection {
   try {
-    const selection = parse(localStorage.getItem(KEY));
-    if (selection.kind === "proctor" && !VIDEO_SPACES_OPEN) {
-      // 감독관을 고른 채 남은 사용자가 다음에도 영상을 받지 않게 저장값을 심플로 바꾸고 받아 둔 소재도 지운다.
-      writeTimerBackground(SIMPLE_BACKGROUND);
-      void clearWatcherAssets();
-      return SIMPLE_BACKGROUND;
-    }
-    return selection;
+    return parse(localStorage.getItem(KEY));
   } catch {
     return SIMPLE_BACKGROUND;
   }
+}
+
+// 영상 공간을 닫아 둔 동안 남아 있는 감독관은 고를 수 없는 값이다.
+function isStaleProctor(selection: TimerBackgroundSelection): boolean {
+  return selection.kind === "proctor" && !VIDEO_SPACES_OPEN;
+}
+
+// 저장이 막혀 감독관이 남은 페이지에서 읽을 때마다 소재를 다시 지우지 않도록 막힌 경우를 기억한다.
+let staleProctorRetryBlocked = false;
+
+/**
+ * 남은 감독관 정리
+ *
+ * 감독관을 고른 채 남은 사용자가 다음에도 영상을 받지 않게 저장값을 심플로 바꾸고 받아 둔 소재도 지운다.
+ * 저장에 성공하면 다음 읽기에는 감독관이 없어 다시 오지 않고, 저장이 막히면 이 페이지에서 한 번만 한다.
+ * 변경 알림은 보내지 않는다.
+ */
+function retireStaleProctor() {
+  if (staleProctorRetryBlocked) return;
+  staleProctorRetryBlocked = !store(SIMPLE_BACKGROUND);
+  void clearWatcherAssets();
+}
+
+/**
+ * 고른 타이머 배경 읽기
+ *
+ * 세션 화면이 처음 한 번 읽을 때 남은 감독관도 함께 정리한다.
+ */
+export function readTimerBackground(): TimerBackgroundSelection {
+  const selection = readStored();
+  if (!isStaleProctor(selection)) return selection;
+  retireStaleProctor();
+  return SIMPLE_BACKGROUND;
 }
 
 /**
@@ -95,10 +135,40 @@ export function readTimerBackground(): TimerBackgroundSelection {
  * 저장소가 막혀 저장하지 못하면 false다. 호출부는 적용됐다고 알리지 않는다.
  */
 export function writeTimerBackground(selection: TimerBackgroundSelection): boolean {
-  try {
-    localStorage.setItem(KEY, JSON.stringify(selection));
-    return true;
-  } catch {
-    return false;
-  }
+  if (!store(selection)) return false;
+  // 같은 탭은 storage 이벤트를 받지 못해 구독자에게 따로 알린다.
+  window.dispatchEvent(new Event(CHANGE_EVENT));
+  return true;
+}
+
+let snapshot: TimerBackgroundSelection = SIMPLE_BACKGROUND;
+
+// 읽을 때마다 새 객체라 같은 값이면 앞 객체를 돌려줘야 구독자가 끝없이 다시 그리지 않는다.
+// 렌더 중에 여러 번 불리므로 저장이나 소재 정리 없이 남은 감독관을 심플로 바꿔 읽기만 한다.
+function readSnapshot(): TimerBackgroundSelection {
+  const stored = readStored();
+  const next = isStaleProctor(stored) ? SIMPLE_BACKGROUND : stored;
+  if (spaceKey(next) !== spaceKey(snapshot)) snapshot = next;
+  return snapshot;
+}
+
+function subscribe(notify: () => void): () => void {
+  // 남은 감독관 정리는 렌더 밖인 구독 시점에 한다.
+  if (isStaleProctor(readStored())) retireStaleProctor();
+  window.addEventListener("storage", notify);
+  window.addEventListener(CHANGE_EVENT, notify);
+  return () => {
+    window.removeEventListener("storage", notify);
+    window.removeEventListener(CHANGE_EVENT, notify);
+  };
+}
+
+/**
+ * 고른 타이머 배경 구독
+ *
+ * PC 홈은 월페이퍼와 공간 플라이아웃이 같은 값을 보며, 다른 탭에서 바꿔도 바로 따라간다.
+ * 세션 화면은 열 때 한 번 읽은 값을 원본으로 쓰므로 이 구독을 쓰지 않는다.
+ */
+export function useTimerBackground(): TimerBackgroundSelection {
+  return useSyncExternalStore(subscribe, readSnapshot, () => SIMPLE_BACKGROUND);
 }
