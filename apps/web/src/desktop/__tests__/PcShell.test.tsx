@@ -111,6 +111,15 @@ describe("PcShell 브랜드", () => {
   });
 });
 
+describe("PcShell 상단 바", () => {
+  it("상단 바는 글자 선택과 그림 끌기에서 빼고 페이지 상자는 그대로 둔다", () => {
+    renderShell("/records");
+
+    expect(screen.getByRole("banner")).toHaveClass("session-no-drag");
+    expect(screen.getByTestId("where").closest(".session-no-drag")).toBeNull();
+  });
+});
+
 describe("PcShell 탭", () => {
   it("첫 출시 동안 상단 바에는 홈 탭 하나만 보인다", () => {
     renderShell("/home");

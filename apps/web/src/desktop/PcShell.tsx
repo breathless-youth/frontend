@@ -55,7 +55,8 @@ export function PcShell() {
 
   return (
     <div className="flex h-dvh flex-col bg-background px-3.5 pb-3.5">
-      <header className="theme-soft-blue flex h-14 shrink-0 items-center gap-6 px-2.5">
+      {/* 상단 바만 글자 선택에서 뺀다. 페이지 상자는 약관처럼 고를 수 있어야 하는 화면도 그린다. */}
+      <header className="session-no-drag theme-soft-blue flex h-14 shrink-0 items-center gap-6 px-2.5">
         <div className="flex shrink-0 items-center gap-2">
           <img src={mascotStopwatch} alt="" className="size-7" />
           <span className="text-[15px] font-bold text-foreground">

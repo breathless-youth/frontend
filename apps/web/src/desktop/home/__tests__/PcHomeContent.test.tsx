@@ -92,6 +92,14 @@ describe("PcHomeContent", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("홈 전체를 글자 선택과 그림 끌기에서 뺀다", () => {
+    renderHome();
+
+    // 전체 선택이나 끌어 선택이 월페이퍼 사진까지 파랗게 칠하지 않게 한다.
+    const home = screen.getByRole("region", { name: "공부시간" }).parentElement!;
+    expect(home).toHaveClass("session-no-drag");
+  });
+
   it("공간에서 사진을 고르면 월페이퍼가 바로 바뀐다", async () => {
     await timerBackgroundPhotoStore().add(PHOTO, 1);
     renderHome();
