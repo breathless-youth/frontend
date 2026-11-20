@@ -183,11 +183,10 @@
     "search": "Search spaces",
     "all": "All",
     "sections": {
-      "watch": "Watchers",
+      "watch": "Proctors",
       "mine": "My photos"
     },
     "names": {
-      "proctor": "Study hall proctor",
       "simple": "Simple",
       "photo": "My photo {{number}}"
     },
@@ -196,7 +195,6 @@
     "preview": "Preview {{name}}",
     "remove": "Delete {{name}}",
     "empty": "No spaces found",
-    "comingSoon": "Video spaces are coming soon",
     "back": "Back",
     "apply": "Apply",
     "applied": "In use",
@@ -207,6 +205,7 @@
     "photoLimit": "You can upload up to {{max}} photos",
     "removed": "Photo deleted",
     "removeFailed": "Couldn't delete the photo. Try again",
-    "photoLoadFailed": "Couldn't load photos"
+    "photoLoadFailed": "Couldn't load photos",
+    "previewFailed": "Couldn't load this space"
   }
 }

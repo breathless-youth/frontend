@@ -182,7 +182,6 @@
       "mine": "マイ写真"
     },
     "names": {
-      "proctor": "自習室の監督",
       "simple": "シンプル",
       "photo": "マイ写真 {{number}}"
     },
@@ -191,7 +190,6 @@
     "preview": "{{name}}のプレビュー",
     "remove": "{{name}}を削除",
     "empty": "該当する空間がありません",
-    "comingSoon": "動画の空間は近日公開予定です",
     "back": "戻る",
     "apply": "適用する",
     "applied": "使用中",
@@ -202,6 +200,7 @@
     "photoLimit": "写真は{{max}}枚までアップロードできます",
     "removed": "写真を削除しました",
     "removeFailed": "写真を削除できませんでした。もう一度お試しください",
-    "photoLoadFailed": "写真を読み込めませんでした"
+    "photoLoadFailed": "写真を読み込めませんでした",
+    "previewFailed": "空間を読み込めませんでした"
   }
 }

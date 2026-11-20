@@ -178,11 +178,10 @@
     "search": "공간 검색",
     "all": "전체",
     "sections": {
-      "watch": "감시",
+      "watch": "감독",
       "mine": "내 사진"
     },
     "names": {
-      "proctor": "독서실 감독관",
       "simple": "심플",
       "photo": "내 사진 {{number}}"
     },
@@ -191,7 +190,6 @@
     "preview": "{{name}} 미리보기",
     "remove": "{{name}} 삭제",
     "empty": "찾는 공간이 없어요",
-    "comingSoon": "영상 공간은 곧 만나볼 수 있어요",
     "back": "뒤로가기",
     "apply": "적용하기",
     "applied": "적용 중",
@@ -202,6 +200,7 @@
     "photoLimit": "사진은 {{max}}장까지 올릴 수 있어요",
     "removed": "사진을 삭제했어요",
     "removeFailed": "사진을 삭제하지 못했어요. 다시 시도해 주세요",
-    "photoLoadFailed": "사진을 불러오지 못했어요"
+    "photoLoadFailed": "사진을 불러오지 못했어요",
+    "previewFailed": "공간을 불러오지 못했어요"
   }
 }
