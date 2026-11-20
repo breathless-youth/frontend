@@ -4,6 +4,7 @@ import {
   useEffect,
   useEffectEvent,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -138,9 +139,15 @@ import type { FaceSpot } from "@/features/study-session/vision/faceSpot";
 import { createTimelapseRecorder } from "@/features/timelapse/timelapseRecorder";
 import { SessionSpacePage } from "@/features/timer-background/components/SessionSpacePage";
 import { SpaceButton } from "@/features/timer-background/components/SpaceButton";
+import { spaceKey } from "@/features/timer-background/spaceCatalog";
+import { fetchAppliedSpace, isMemberUser } from "@/features/timer-background/spaceCatalogQuery";
+import { ImageSpace, LoopVideoSpace } from "@/features/timer-background/SpaceLayers";
 import {
   readTimerBackground,
+  resolveSpace,
   SIMPLE_BACKGROUND,
+  type SpaceSelection,
+  spaceTrack,
   writeTimerBackground,
   type TimerBackgroundSelection,
 } from "@/features/timer-background/timerBackground";
@@ -152,6 +159,11 @@ import {
 import { WallpaperScrim } from "@/features/timer-background/WallpaperScrim";
 import { useWatcherPresence } from "@/features/timer-background/watcher/useWatcherPresence";
 import { WatcherBackground } from "@/features/timer-background/watcher/WatcherBackground";
+import {
+  clearWatcherAssets,
+  saveWatcherAssets,
+  watcherAssetUrls,
+} from "@/features/timer-background/watcher/watcherAssets";
 import {
   createWatcherSound,
   readWatcherVolume,
@@ -184,6 +196,7 @@ import {
   trackSubjectSheetOpened,
 } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
+import { putTimerBackground } from "@/lib/pointsApi";
 import { haptic } from "@/lib/haptics";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 import { cn } from "@/lib/utils";
@@ -430,10 +443,12 @@ function RoomSessionScreen({
   // 화면 표시 모드별 머문 시간. 세션은 심플 모드로 시작한다.
   const [displayUsage] = useState(() => createDisplayUsage(Date.now));
   // 종료 이벤트에 실을 공간과 얼굴 가림. 둘 다 세션 훅 아래에서 정해져 커밋마다 최신 값으로 덮는다.
-  const displayContextRef = useRef<Pick<SessionDisplayEnd, "spaceKind" | "faceMask">>({
-    spaceKind: "simple",
-    faceMask: false,
-  });
+  const displayContextRef = useRef<Pick<SessionDisplayEnd, "spaceKind" | "spaceItem" | "faceMask">>(
+    {
+      spaceKind: "simple",
+      faceMask: false,
+    },
+  );
   const {
     startedAtMs,
     focusSec,
@@ -597,25 +612,113 @@ function RoomSessionScreen({
   const backgroundPhoto = spacePhoto?.view ?? null;
   // 지운 사진이나 읽지 못한 사진을 가리키면 그릴 것이 없어 심플과 같다.
   const appliedSpace = spacePhoto !== null && spacePhoto.view === null ? SIMPLE_BACKGROUND : space;
-  const proctor = space.kind === "proctor";
-  const wallpaper = backgroundPhoto !== null || proctor;
-  function applySpace(next: TimerBackgroundSelection): boolean {
+  const watchKey = space.kind === "space" && space.videoMode === "WATCH" ? space.assetKey : null;
+  // 그리다가 실패한 공간이다.
+  // 선택 값은 그대로 두고 그 공간만 심플로 그린다.
+  const [failedSpaceKey, setFailedSpaceKey] = useState<string | null>(null);
+  const spaceFailed = failedSpaceKey === spaceKey(space);
+  const wallpaper = backgroundPhoto !== null || (space.kind === "space" && !spaceFailed);
+  // 사용자가 이 세션에서 고른 뒤에는 늦게 온 서버 값으로 덮지 않는다.
+  const userPickedRef = useRef(false);
+  // 앞서 고른 공간의 저장 실패가 뒤에 고른 공간을 되돌리지 않게 고를 때마다 올린다.
+  const pickSeqRef = useRef(0);
+  // 늦게 끝난 앞 저장이 서버를 옛 공간으로 되돌리지 않게 저장을 고른 차례대로 보낸다.
+  const putQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+  function commitSpace(next: TimerBackgroundSelection): boolean {
     if (!writeTimerBackground(next)) {
       return false;
     }
     setSpace(next);
+    setFailedSpaceKey(null);
+    // 감시 파일을 기기에 받아 두면 첫 등장이 늦지 않다.
+    // 받지 않아도 네트워크로 재생돼 기다리지 않는다.
+    if (next.kind === "space" && next.videoMode === "WATCH") {
+      const viewport = { width: innerWidth, height: innerHeight };
+      void saveWatcherAssets(next.assetKey, watcherAssetUrls(next.assetKey, viewport));
+    } else {
+      void clearWatcherAssets();
+    }
     return true;
   }
+  async function applySpace(
+    next: TimerBackgroundSelection,
+    options?: { localOnly?: boolean },
+  ): Promise<boolean> {
+    const previous = space;
+    if (!commitSpace(next)) {
+      return false;
+    }
+    userPickedRef.current = true;
+    if (options?.localOnly || !(await isMemberUser(userId))) {
+      return true;
+    }
+    const pick = ++pickSeqRef.current;
+    const saving = putQueueRef.current.then(async () => {
+      // 차례가 오기 전에 더 새로 고른 공간이 있으면 그 저장이 대신해 보내지 않는다.
+      if (pick !== pickSeqRef.current) {
+        return;
+      }
+      // 사진은 이 기기에만 있어 서버에는 기본 배경으로 저장한다.
+      await putTimerBackground(next.kind === "space" ? next.itemId : null);
+    });
+    putQueueRef.current = saving.catch(() => undefined);
+    try {
+      await saving;
+      return true;
+    } catch {
+      if (pick === pickSeqRef.current) {
+        commitSpace(previous);
+      }
+      return false;
+    }
+  }
+  const syncSpace = useEffectEvent((server: SpaceSelection | null, photoExists: boolean) => {
+    const local = readTimerBackground();
+    const next = resolveSpace(local, server, photoExists);
+    if (userPickedRef.current || JSON.stringify(next) === JSON.stringify(local)) {
+      return;
+    }
+    commitSpace(next);
+  });
+  // 회원이면 다른 기기에서 고른 공간을 서버에서 받아 한 번 맞춘다.
+  // 사용자가 고른 것이 아니라 적용 이벤트를 보내지 않는다.
+  useEffect(() => {
+    let cancelled = false;
+    void fetchAppliedSpace(userId).then(async (server) => {
+      if (server === undefined) {
+        return;
+      }
+      const local = readTimerBackground();
+      // 사진을 읽지 못하면 있는지 몰라 이번에는 맞추지 않는다.
+      // null로 답할 때만 지워진 사진이다.
+      const photoExists =
+        local.kind === "photo" &&
+        (await queryClient.fetchQuery(timerBackgroundPhotoQuery(local.photoId)).then(
+          (view) => view !== null,
+          () => undefined,
+        ));
+      if (!cancelled && photoExists !== undefined) {
+        syncSpace(server, photoExists);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
   const watcher = useWatcherPresence(
     sessionState.kind === "DISTRACTION" ? sessionState.trigger : null,
     DEFAULT_WATCHER_TRIGGER_MS,
   );
-  // 세션 중에 감독관을 고를 수 있어 재생기는 늘 만든다. 소리 컨텍스트는 처음 깨울 때 생긴다.
-  const [watcherSound] = useState(createWatcherSound);
+  // 감시 공간마다 소리가 달라 공간이 바뀌면 새로 만든다.
+  // 소리 컨텍스트는 처음 깨울 때 생긴다.
+  const watcherSound = useMemo(
+    () => (watchKey === null ? null : createWatcherSound(watchKey)),
+    [watchKey],
+  );
   useEffect(() => {
     // 제출 실패나 종료 안내에서는 화면이 닫히지 않으므로 공부가 끝나는 순간 소리와 누름 구독을 푼다.
-    if (!proctor || !studying) {
-      watcherSound.stopAll();
+    if (!watcherSound || !studying) {
+      watcherSound?.stopAll();
       return;
     }
     watcherSound.prime();
@@ -630,10 +733,10 @@ function RoomSessionScreen({
       window.removeEventListener("pointerdown", unlock);
       document.removeEventListener("visibilitychange", silenceHidden);
     };
-  }, [proctor, studying, watcherSound]);
-  useEffect(() => () => watcherSound.dispose(), [watcherSound]);
+  }, [watcherSound, studying]);
+  useEffect(() => () => watcherSound?.dispose(), [watcherSound]);
   useEffect(() => {
-    if (!proctor) {
+    if (!watcherSound) {
       return;
     }
     if (watcher.approaching) {
@@ -641,13 +744,13 @@ function RoomSessionScreen({
     } else if (!watcher.present) {
       watcherSound.fadeApproach();
     }
-  }, [proctor, watcher.approaching, watcher.present, watcherSound]);
+  }, [watcherSound, watcher.approaching, watcher.present]);
   const [storedWatcherVolume] = useState(readWatcherVolume);
   const [watcherLevel, setWatcherLevel] = useState(storedWatcherVolume.level);
   // 음소거를 풀 때 돌아갈 음량
   const lastWatcherLevelRef = useRef(storedWatcherVolume.last);
   useEffect(() => {
-    watcherSound.setVolume(watcherLevel / 100);
+    watcherSound?.setVolume(watcherLevel / 100);
   }, [watcherLevel, watcherSound]);
   function commitWatcherLevel(level: number) {
     if (level > 0) {
@@ -727,7 +830,12 @@ function RoomSessionScreen({
     ? { spot: faceSpot, emojiUrl: faceMaskEmojiOf(faceMaskEmojiId).url }
     : null;
   useLayoutEffect(() => {
-    displayContextRef.current = { spaceKind: appliedSpace.kind, faceMask: faceMaskOn };
+    const spaceInfo = spaceTrack(appliedSpace);
+    displayContextRef.current = {
+      spaceKind: spaceInfo.kind,
+      ...(spaceInfo.item && { spaceItem: spaceInfo.item }),
+      faceMask: faceMaskOn,
+    };
   });
   function changeFaceMaskOn(next: boolean) {
     trackStudySessionFaceMaskToggled({ on: next, roomType: "single" });
@@ -1232,7 +1340,7 @@ function RoomSessionScreen({
       {/* 회전 오버스캔은 프리뷰에만 건다 — 심플 모드는 카메라를 걷어낸 화면이라 회전해도
           메울 빈 자리가 없고, 단색 배경을 확대해 봐야 보이는 변화가 없다. */}
       {/* 공간은 일반 모드에서만 보인다.
-          상시 마운트해 심플 모드와 같은 300ms로 교차하고 감독관 영상이 끊기지 않는다. */}
+          상시 마운트해 심플 모드와 같은 300ms로 교차하고 감시 영상이 끊기지 않는다. */}
       {wallpaper && (
         <div
           aria-hidden="true"
@@ -1248,11 +1356,27 @@ function RoomSessionScreen({
           {backgroundPhoto !== null && (
             <TimerBackgroundLayer src={backgroundPhoto.src} fit={backgroundPhoto.fit} />
           )}
-          {proctor && (
+          {space.kind === "space" && !spaceFailed && space.assetType === "IMAGE" && (
+            <ImageSpace
+              key={space.assetKey}
+              assetKey={space.assetKey}
+              onUnavailable={() => setFailedSpaceKey(spaceKey(space))}
+            />
+          )}
+          {space.kind === "space" && !spaceFailed && space.videoMode === "LOOP" && (
+            <LoopVideoSpace
+              key={space.assetKey}
+              assetKey={space.assetKey}
+              onUnavailable={() => setFailedSpaceKey(spaceKey(space))}
+            />
+          )}
+          {watchKey !== null && (
             <WatcherBackground
+              key={watchKey}
+              assetKey={watchKey}
               present={watcher.present}
               onClipPlaying={(clip, at) => {
-                if (clip === "enter" || clip === "exit") watcherSound.play(clip, at);
+                if (clip === "enter" || clip === "exit") watcherSound?.play(clip, at);
               }}
             />
           )}
@@ -1666,6 +1790,7 @@ function RoomSessionScreen({
             returnFocus={() => spaceButtonRef.current}
             landscape={pageLandscape}
             applied={appliedSpace}
+            userId={userId}
             onApply={applySpace}
             volume={watcherLevel}
             onVolumeChange={setWatcherLevel}
