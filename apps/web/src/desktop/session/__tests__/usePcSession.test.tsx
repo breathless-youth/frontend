@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Toaster } from "@/components/ui/sonner";
 import { readMeasureMode, writeMeasureMode } from "@/features/measure-mode/measureMode";
 import { createMockCameraAdapter } from "@/features/study-session/adapters/cameraAdapter";
+import type * as Amplitude from "@/lib/amplitude";
 import i18n from "@/lib/i18n";
 import { requestSessionStart } from "@/lib/sessionStart";
 
@@ -23,6 +24,11 @@ vi.mock("@/features/study-session/adapters/mediaStreamCamera", () => ({
   openCameraForSession: camera.open,
 }));
 vi.mock("../loadPcStudySession", () => ({ loadPcStudySession: vi.fn(async () => ({})) }));
+const analytics = vi.hoisted(() => ({ tapped: vi.fn() }));
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof Amplitude>()),
+  trackFocusStartTapped: analytics.tapped,
+}));
 
 function setup(pc = true) {
   return renderHook(() => usePcSession(7, pc), {
@@ -77,6 +83,8 @@ describe("usePcSession 시작", () => {
     expect(result.current.request?.camera).toBeUndefined();
     expect(readMeasureMode()).toBe("timer");
     expect(camera.open).toHaveBeenCalledTimes(1);
+    // 사용자는 공부 시작을 한 번 눌렀으므로 토스트로 다시 시작해도 시작 계측은 한 번이다.
+    expect(analytics.tapped).toHaveBeenCalledTimes(1);
   });
 
   it("자율 모드는 카메라를 열어 보지 않고 바로 연다", async () => {

@@ -56,12 +56,13 @@ export function usePcSession(userId: number, pc: boolean) {
     return () => camera?.stop();
   }, [request]);
 
-  async function start(subjectId: number | null): Promise<void> {
+  async function start(subjectId: number | null, retry = false): Promise<void> {
     // 옛 세션 마감을 기다리는 동안 다시 눌러도 요청이 두 번 나가지 않게 한다.
     if (startingRef.current) return;
     startingRef.current = true;
     void loadPcStudySession();
-    trackFocusStartTapped("home");
+    // 카메라 실패 토스트에서 자율 모드로 다시 시작하는 것은 같은 누름의 이어짐이라 다시 세지 않는다.
+    if (!retry) trackFocusStartTapped("home");
     let camera: CameraAdapter | undefined;
     try {
       if (readMeasureMode() === "camera") {
@@ -78,7 +79,7 @@ export function usePcSession(userId: number, pc: boolean) {
             label: t("session.startTimer"),
             onClick: () => {
               writeMeasureMode("timer");
-              start(subjectId).catch(() => showToast(t("home:v3.startFailed")));
+              start(subjectId, true).catch(() => showToast(t("home:v3.startFailed")));
             },
           });
           return;
