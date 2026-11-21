@@ -106,6 +106,24 @@ describe("useWatcher", () => {
     expect(result.current.present).toBe(true);
   });
 
+  it("공부가 끝나면 늦게 오는 발소리와 나가기 소리를 내지 않는다", () => {
+    vi.useFakeTimers();
+    const { result, rerender } = renderWatcher({
+      watchKey: "watcher/a",
+      trigger: "AWAY",
+      studying: true,
+    });
+    act(() => vi.advanceTimersByTime(1_000));
+
+    rerender({ watchKey: "watcher/a", trigger: "AWAY", studying: false });
+    act(() => vi.advanceTimersByTime(9_000));
+    result.current.onClipPlaying("exit", 0);
+
+    expect(sound.stopAll).toHaveBeenCalled();
+    expect(sound.play).not.toHaveBeenCalled();
+    expect(result.current.present).toBe(false);
+  });
+
   it("들어오기와 나가기 영상이 재생되면 그 소리를 영상 시간에 맞춰 낸다", () => {
     const { result } = renderWatcher({ watchKey: "watcher/a", trigger: null, studying: true });
 

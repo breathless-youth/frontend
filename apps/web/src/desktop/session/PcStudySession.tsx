@@ -236,8 +236,8 @@ function PcSessionScreen({
   const watchTrigger = sessionState.kind === "DISTRACTION" ? sessionState.trigger : null;
   useEffect(() => {
     onWatchChange({ trigger: watchTrigger, studying });
-    return () => onWatchChange(null);
   }, [watchTrigger, studying, onWatchChange]);
+  useEffect(() => () => onWatchChange(null), [onWatchChange]);
   const tone: StudyTone | undefined = !studying
     ? undefined
     : paused

@@ -20,7 +20,8 @@ export function useWatcher(
   trigger: DistractionTrigger | null,
   studying: boolean,
 ) {
-  const watcher = useWatcherPresence(trigger, DEFAULT_WATCHER_TRIGGER_MS);
+  // 제출 중이나 제출 실패 안내처럼 공부가 끝난 뒤에는 감독관을 들이지 않고 소리도 내지 않는다.
+  const watcher = useWatcherPresence(studying ? trigger : null, DEFAULT_WATCHER_TRIGGER_MS);
   // 감시 공간마다 소리가 달라 공간이 바뀌면 새로 만든다.
   // 소리 컨텍스트는 처음 깨울 때 생긴다.
   const watcherSound = useMemo(
@@ -51,12 +52,12 @@ export function useWatcher(
     if (!watcherSound) {
       return;
     }
-    if (watcher.approaching) {
+    if (watcher.approaching && studying) {
       watcherSound.play("approach");
     } else if (!watcher.present) {
       watcherSound.fadeApproach();
     }
-  }, [watcherSound, watcher.approaching, watcher.present]);
+  }, [watcherSound, watcher.approaching, watcher.present, studying]);
   const [storedVolume] = useState(readWatcherVolume);
   const [level, setLevel] = useState(storedVolume.level);
   // 음소거를 풀 때 돌아갈 음량
@@ -78,7 +79,7 @@ export function useWatcher(
     trackSessionSpaceMuted({ muted: next === 0 });
   }
   function onClipPlaying(clip: WatcherClip, at: number) {
-    if (clip === "enter" || clip === "exit") watcherSound?.play(clip, at);
+    if (studying && (clip === "enter" || clip === "exit")) watcherSound?.play(clip, at);
   }
   return { present: watcher.present, onClipPlaying, level, setLevel, commitLevel, toggleMute };
 }

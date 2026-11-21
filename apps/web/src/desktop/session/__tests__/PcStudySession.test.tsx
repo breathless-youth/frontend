@@ -88,6 +88,8 @@ function ResultProbe() {
   return <p>{`결과 ${state?.sessions?.length ?? 0}건`}</p>;
 }
 
+const watchChanges = vi.fn();
+
 function SessionInBox({ request, onEnd }: { request: PcSessionRequest; onEnd: () => void }) {
   const [box, setBox] = useState<HTMLDivElement | null>(null);
   return (
@@ -98,7 +100,7 @@ function SessionInBox({ request, onEnd }: { request: PcSessionRequest; onEnd: ()
         box={box}
         pending={<p>홈 패널</p>}
         onEnd={onEnd}
-        onWatchChange={() => {}}
+        onWatchChange={watchChanges}
       />
     </div>
   );
@@ -534,6 +536,28 @@ describe("PcStudySession 종료", () => {
       spaceKind: "space",
       spaceItem: { itemCode: "SPACE_PROCTOR", videoMode: "WATCH" },
     });
+  });
+
+  it("감시 상태는 바뀔 때마다 알리고 닫을 때만 null을 보낸다", async () => {
+    // 앞 테스트의 세션이 정리되며 보낸 null을 세지 않는다.
+    watchChanges.mockClear();
+    vi.mocked(submitStudySession).mockReturnValue(new Promise(() => {}));
+    const { unmount } = renderSession();
+    await waitFor(() =>
+      expect(watchChanges).toHaveBeenLastCalledWith({ trigger: null, studying: true }),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: i18n.t("desktop:session.exit") }));
+    await userEvent.click(
+      screen.getByRole("button", { name: i18n.t("study-session:exitConfirm.confirm") }),
+    );
+    await waitFor(() =>
+      expect(watchChanges).toHaveBeenLastCalledWith({ trigger: null, studying: false }),
+    );
+    expect(watchChanges).not.toHaveBeenCalledWith(null);
+
+    unmount();
+    expect(watchChanges).toHaveBeenLastCalledWith(null);
   });
 
   it("순공이 기준보다 짧으면 상자 안 창으로 알리고 홈으로를 누르면 홈 상태로 돌아온다", async () => {
