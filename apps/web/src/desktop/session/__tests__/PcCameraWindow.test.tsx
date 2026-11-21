@@ -82,24 +82,28 @@ describe("PcCameraWindow", () => {
     expect(cameraWindow().style.top).toBe(`${800 - 162 - 16}px`);
   });
 
-  it("5px 이하로 움직이고 놓으면 크게 보고, 다시 누르면 작게 돌아온다", () => {
+  it("창을 누르기만 해서는 크기가 바뀌지 않고 크게·작게 버튼으로만 바뀐다", () => {
     render(<Harness />);
 
-    press([1000, 700], [1003, 703]);
+    press([1000, 700], [1000, 700]);
+    expect(
+      screen.getByRole("button", { name: i18n.t("desktop:session.camera.expand") }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: i18n.t("desktop:session.camera.expand") }));
+    fireEvent.pointerDown(cameraWindow(), { pointerId: 2, button: 0, clientX: 500, clientY: 400 });
+    fireEvent.pointerUp(cameraWindow(), { pointerId: 2, button: 0, clientX: 500, clientY: 400 });
     expect(
       screen.getByRole("button", { name: i18n.t("desktop:session.camera.shrink") }),
     ).toBeInTheDocument();
 
-    fireEvent.pointerUp(screen.getByRole("group", { name: windowName() }), {
-      pointerId: 2,
-      button: 0,
-    });
+    fireEvent.click(screen.getByRole("button", { name: i18n.t("desktop:session.camera.shrink") }));
     expect(
       screen.getByRole("button", { name: i18n.t("desktop:session.camera.expand") }),
     ).toBeInTheDocument();
   });
 
-  it("5px 넘게 움직이면 옮기기만 하고 자리를 기억한다", () => {
+  it("끌면 옮기고 자리를 기억한다", () => {
     render(<Harness />);
 
     press([1000, 700], [900, 600]);

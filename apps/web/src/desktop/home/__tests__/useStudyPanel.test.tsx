@@ -318,48 +318,6 @@ describe("useStudyPanel", () => {
   });
 });
 
-function TapHarness({ onTap }: { onTap: () => void }) {
-  const { ref, right, top, handleProps } = useStudyPanel({
-    storageKey: "focusmakers.test.window",
-    tapSlop: 5,
-    onTap,
-  });
-  return (
-    <div data-testid="box">
-      <section ref={ref} data-testid="panel" style={{ right, top }}>
-        <div data-testid="handle" tabIndex={0} {...handleProps} />
-      </section>
-    </div>
-  );
-}
-
-describe("useStudyPanel 누름과 끌기", () => {
-  it("누름 거리 안에서 놓으면 옮기지 않고 누름으로 본다", () => {
-    const onTap = vi.fn();
-    render(<TapHarness onTap={onTap} />);
-
-    drag([900, 40], [903, 44]);
-
-    expect(onTap).toHaveBeenCalledTimes(1);
-    expect(position()).toEqual({ right: "24px", top: "24px" });
-  });
-
-  it("누름 거리를 넘기면 끌기이고 누름으로 보지 않는다", () => {
-    const onTap = vi.fn();
-    render(<TapHarness onTap={onTap} />);
-
-    drag([900, 40], [890, 40]);
-
-    expect(onTap).not.toHaveBeenCalled();
-    expect(position()).toEqual({ right: "34px", top: "24px" });
-    expect(JSON.parse(localStorage.getItem("focusmakers.test.window") ?? "null")).toEqual({
-      right: 34,
-      top: 24,
-      minimized: false,
-    });
-  });
-});
-
 describe("clampPanelPosition", () => {
   it("상자 크기를 아직 모르면 받은 자리를 그대로 둔다", () => {
     expect(

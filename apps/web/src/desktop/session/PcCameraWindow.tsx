@@ -1,5 +1,5 @@
 import { EyeOff, Maximize, Minimize } from "lucide-react";
-import type { PointerEvent, Ref, RefObject } from "react";
+import type { Ref, RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
 import type { CameraFacing } from "@/features/study-session/adapters/cameraAdapter";
@@ -18,7 +18,6 @@ const DEFAULT_CAMERA_WINDOW: StudyPanelState = {
   top: Number.MAX_SAFE_INTEGER,
   minimized: false,
 };
-const TAP_SLOP_PX = 5;
 // 반투명 검은 바탕이라 밝은 영상 위에서도 아이콘이 보인다.
 const CAMERA_BUTTON =
   "flex size-7 items-center justify-center rounded-full bg-dim text-white focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none";
@@ -41,9 +40,9 @@ export interface PcCameraWindowProps {
 /**
  * 관리 모드 카메라 작은 창
  *
- * 공부시간 패널과 같은 끌기 훅을 저장 키와 처음 자리만 바꿔 쓰고, 조금만 움직이고 놓으면 크게 본다.
- * 크게 보는 동안은 상자 전체를 채우고 다시 누르면 작게 돌아온다.
- * 크게 볼 때의 누름은 놓을 때 받아서, 작은 창을 키운 같은 누름의 클릭이 바로 다시 줄이지 않는다.
+ * 공부시간 패널과 같은 끌기 훅을 저장 키와 처음 자리만 바꿔 쓴다.
+ * 크게 보기와 작게 보기는 버튼으로만 바꿔, 창을 끌려다 잘못 눌러도 화면 전체가 바뀌지 않는다.
+ * 크게 보는 동안은 상자 전체를 채우고 끌지 않는다.
  * 숨겨도 영상 요소를 지우지 않고 그 자리에서 투명하게만 둬서 감지와 타임랩스가 계속 프레임을 받는다.
  * 숨긴 창은 누름과 포커스와 화면 낭독기에서 모두 빠져 보이지 않는 창이 클릭을 가로채지 않는다.
  * 영상은 세션 화면과 같은 부품이 그려 녹화 도구 차단 표식과 거울 반전이 그대로 붙는다.
@@ -65,16 +64,7 @@ export function PcCameraWindow({
   const { ref, right, top, handleProps } = useStudyPanel({
     storageKey: CAMERA_WINDOW_KEY,
     initial: DEFAULT_CAMERA_WINDOW,
-    tapSlop: TAP_SLOP_PX,
-    onTap: () => onExpandedChange(true),
   });
-  const expandedProps = {
-    onPointerUp(event: PointerEvent<HTMLDivElement>) {
-      if (event.button !== 0) return;
-      if (event.target instanceof Element && event.target.closest("button")) return;
-      onExpandedChange(false);
-    },
-  };
   return (
     <div
       ref={ref}
@@ -92,7 +82,7 @@ export function PcCameraWindow({
         markStudyPanelEvent(event.nativeEvent);
         onActivate();
       }}
-      {...(expanded ? expandedProps : handleProps)}
+      {...(expanded ? {} : handleProps)}
       style={{
         ...sessionSurfaceStyle,
         ...(expanded ? {} : { right, top }),
