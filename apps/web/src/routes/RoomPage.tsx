@@ -4,7 +4,6 @@ import {
   useEffect,
   useEffectEvent,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -135,14 +134,8 @@ import {
 } from "@/features/timer-background/timerBackgroundQueries";
 import { commitTimerBackground, useSpaceApply } from "@/features/timer-background/useSpaceApply";
 import { WallpaperScrim } from "@/features/timer-background/WallpaperScrim";
-import { useWatcherPresence } from "@/features/timer-background/watcher/useWatcherPresence";
+import { useWatcher } from "@/features/timer-background/watcher/useWatcher";
 import { WatcherBackground } from "@/features/timer-background/watcher/WatcherBackground";
-import {
-  createWatcherSound,
-  readWatcherVolume,
-  writeWatcherVolume,
-} from "@/features/timer-background/watcher/watcherSound";
-import { DEFAULT_WATCHER_TRIGGER_MS } from "@/features/timer-background/watcher/watcherTrigger";
 import type { CameraPromptChoice } from "@/lib/amplitude";
 import {
   stageStudyResultExit,
@@ -153,9 +146,7 @@ import {
   trackSessionNoticeConfirmed,
   trackSessionSideButtonPressed,
   trackSessionSimpleModeToggled,
-  trackSessionSpaceMuted,
   trackSessionSpaceOpened,
-  trackSessionSpaceVolumeChanged,
   trackStudySessionCameraPromptAnswered,
   trackStudySessionCameraPromptShown,
   trackStudySessionExitCancelled,
@@ -549,66 +540,11 @@ function RoomSessionScreen({
     return true;
   }
   const applySpace = useSpaceApply(userId, space, commitSpace);
-  const watcher = useWatcherPresence(
+  const watcher = useWatcher(
+    watchKey,
     sessionState.kind === "DISTRACTION" ? sessionState.trigger : null,
-    DEFAULT_WATCHER_TRIGGER_MS,
+    studying,
   );
-  // 감시 공간마다 소리가 달라 공간이 바뀌면 새로 만든다.
-  // 소리 컨텍스트는 처음 깨울 때 생긴다.
-  const watcherSound = useMemo(
-    () => (watchKey === null ? null : createWatcherSound(watchKey)),
-    [watchKey],
-  );
-  useEffect(() => {
-    // 제출 실패나 종료 안내에서는 화면이 닫히지 않으므로 공부가 끝나는 순간 소리와 누름 구독을 푼다.
-    if (!watcherSound || !studying) {
-      watcherSound?.stopAll();
-      return;
-    }
-    watcherSound.prime();
-    // iOS는 사용자 누름 안에서 깨워야 이후 재생을 허락해서 누를 때마다 다시 깨운다.
-    const unlock = () => watcherSound.prime();
-    const silenceHidden = () => {
-      if (document.hidden) watcherSound.stopAll();
-    };
-    window.addEventListener("pointerdown", unlock);
-    document.addEventListener("visibilitychange", silenceHidden);
-    return () => {
-      window.removeEventListener("pointerdown", unlock);
-      document.removeEventListener("visibilitychange", silenceHidden);
-    };
-  }, [watcherSound, studying]);
-  useEffect(() => () => watcherSound?.dispose(), [watcherSound]);
-  useEffect(() => {
-    if (!watcherSound) {
-      return;
-    }
-    if (watcher.approaching) {
-      watcherSound.play("approach");
-    } else if (!watcher.present) {
-      watcherSound.fadeApproach();
-    }
-  }, [watcherSound, watcher.approaching, watcher.present]);
-  const [storedWatcherVolume] = useState(readWatcherVolume);
-  const [watcherLevel, setWatcherLevel] = useState(storedWatcherVolume.level);
-  // 음소거를 풀 때 돌아갈 음량
-  const lastWatcherLevelRef = useRef(storedWatcherVolume.last);
-  useEffect(() => {
-    watcherSound?.setVolume(watcherLevel / 100);
-  }, [watcherLevel, watcherSound]);
-  function commitWatcherLevel(level: number) {
-    if (level > 0) {
-      lastWatcherLevelRef.current = level;
-    }
-    writeWatcherVolume(level);
-    trackSessionSpaceVolumeChanged({ volume: level });
-  }
-  function toggleWatcherMute() {
-    const next = watcherLevel > 0 ? 0 : lastWatcherLevelRef.current;
-    setWatcherLevel(next);
-    writeWatcherVolume(next);
-    trackSessionSpaceMuted({ muted: next === 0 });
-  }
   // 종료 확인 다이얼로그. 열려 있는 동안에도 **세션은 계속 진행된다**(Figma에서 딤 뒤
   // 상태 필이 `순공시간 측정 중`이고 타이머가 살아 있음을 확인).
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
@@ -1098,9 +1034,7 @@ function RoomSessionScreen({
               key={watchKey}
               assetKey={watchKey}
               present={watcher.present}
-              onClipPlaying={(clip, at) => {
-                if (clip === "enter" || clip === "exit") watcherSound?.play(clip, at);
-              }}
+              onClipPlaying={watcher.onClipPlaying}
             />
           )}
           <WallpaperScrim simple={false} />
@@ -1515,10 +1449,10 @@ function RoomSessionScreen({
             applied={appliedSpace}
             userId={userId}
             onApply={applySpace}
-            volume={watcherLevel}
-            onVolumeChange={setWatcherLevel}
-            onVolumeCommit={commitWatcherLevel}
-            onToggleMute={toggleWatcherMute}
+            volume={watcher.level}
+            onVolumeChange={watcher.setLevel}
+            onVolumeCommit={watcher.commitLevel}
+            onToggleMute={watcher.toggleMute}
           />
 
           {/* 처음 열기 전에는 그릴 모드가 없다.
