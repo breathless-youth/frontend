@@ -9,6 +9,7 @@ import {
   trackStudySessionEnded,
 } from "@/lib/amplitude";
 import { answerCameraPrompt } from "@/test/cameraPrompt";
+import { PROCTOR_SPACE } from "@/test/spaceFixtures";
 import { RoomPage } from "../RoomPage";
 
 /**
@@ -30,9 +31,6 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   trackCameraPipShrunk: vi.fn(),
   trackStudySessionEnded: vi.fn(),
 }));
-
-// 종료 이벤트에 감독관 공간이 실리는지 보려고 영상 공간을 연 채로 본다.
-vi.mock("@/features/timer-background/videoSpaces", () => ({ VIDEO_SPACES_OPEN: true }));
 
 function renderRoom(choice: "camera" | "simple" = "camera") {
   const view = render(
@@ -218,7 +216,7 @@ describe("RoomPage 작은 카메라 창", () => {
   });
 
   it("세션이 끝나면 화면 표시 기록과 공간·얼굴 가림을 종료 이벤트에 싣는다", async () => {
-    localStorage.setItem("focusmakers.timerBackground", '{"kind":"proctor"}');
+    localStorage.setItem("focusmakers.timerBackground", JSON.stringify(PROCTOR_SPACE));
     renderRoom();
     await userEvent.click(expandButton()!);
 
@@ -233,7 +231,8 @@ describe("RoomPage 작은 카메라 창", () => {
       expandedSec: expect.any(Number),
       simpleSec: expect.any(Number),
       pipExpandCount: 1,
-      spaceKind: "proctor",
+      spaceKind: "space",
+      spaceItem: { itemCode: "SPACE_PROCTOR", videoMode: "WATCH" },
       faceMask: false,
     });
   });

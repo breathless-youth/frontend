@@ -3,6 +3,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { WatcherBackground, WatcherDemo } from "../WatcherBackground";
 
+const KEY = "watcher/9c8d9f19";
+const stored = vi.hoisted(() => ({ loopAMissing: false }));
+
+vi.mock("../watcherAssets", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  readWatcherAsset: vi.fn(async (url: string) =>
+    stored.loopAMissing && url.includes("/loop-a/") ? "missing" : null,
+  ),
+}));
+
 beforeEach(() => {
   vi.useFakeTimers();
   // jsdom은 영상을 재생하지 못해 play()가 재생 시작 신호만 내게 한다.
@@ -16,6 +26,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  stored.loopAMissing = false;
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
@@ -28,7 +39,7 @@ function settle() {
 }
 
 function setup() {
-  const view = render(<WatcherBackground present={false} />);
+  const view = render(<WatcherBackground assetKey={KEY} present={false} />);
   const videos = () => [...view.container.querySelectorAll("video")];
   const shown = () => videos().filter((video) => video.className.includes("opacity-100"));
   return { ...view, videos, shown };
@@ -45,7 +56,7 @@ describe("WatcherBackground", () => {
     });
     const { rerender, videos, shown } = setup();
 
-    rerender(<WatcherBackground present />);
+    rerender(<WatcherBackground assetKey={KEY} present />);
     act(() => {
       videos()[0]!.currentTime = 1.5;
     });
@@ -65,9 +76,11 @@ describe("WatcherBackground", () => {
     const succeed = play.getMockImplementation()!;
     play.mockImplementation(() => Promise.reject(new Error("blocked")));
     const onClipStart = vi.fn();
-    const view = render(<WatcherBackground present={false} onClipStart={onClipStart} />);
+    const view = render(
+      <WatcherBackground assetKey={KEY} present={false} onClipStart={onClipStart} />,
+    );
 
-    view.rerender(<WatcherBackground present onClipStart={onClipStart} />);
+    view.rerender(<WatcherBackground assetKey={KEY} present onClipStart={onClipStart} />);
     for (let i = 0; i < 4; i++) {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(1_000);
@@ -77,8 +90,8 @@ describe("WatcherBackground", () => {
     expect(onClipStart).toHaveBeenLastCalledWith(null);
 
     play.mockImplementation(succeed);
-    view.rerender(<WatcherBackground present={false} onClipStart={onClipStart} />);
-    view.rerender(<WatcherBackground present onClipStart={onClipStart} />);
+    view.rerender(<WatcherBackground assetKey={KEY} present={false} onClipStart={onClipStart} />);
+    view.rerender(<WatcherBackground assetKey={KEY} present onClipStart={onClipStart} />);
     expect(onClipStart).toHaveBeenLastCalledWith("enter");
   });
 
@@ -100,7 +113,7 @@ describe("WatcherBackground", () => {
   it("등장하면 enter를 재생하고, 끝나면 다른 영상 요소에서 루프를 이어 재생한다", () => {
     const { rerender, videos, shown } = setup();
 
-    rerender(<WatcherBackground present />);
+    rerender(<WatcherBackground assetKey={KEY} present />);
     settle();
     const [first, second] = videos();
     expect(first!.src).toContain("/spaces/watcher/9c8d9f19/enter/");
@@ -125,7 +138,7 @@ describe("WatcherBackground", () => {
 
   it("집중으로 돌아오면 지금 루프를 끝까지 재생한 뒤 퇴장하고, 퇴장이 끝나면 빈 방으로 돌아간다", () => {
     const { rerender, videos, shown } = setup();
-    rerender(<WatcherBackground present />);
+    rerender(<WatcherBackground assetKey={KEY} present />);
     settle();
     const [first, second] = videos();
     act(() => {
@@ -133,7 +146,7 @@ describe("WatcherBackground", () => {
     });
     settle();
 
-    rerender(<WatcherBackground present={false} />);
+    rerender(<WatcherBackground assetKey={KEY} present={false} />);
     settle();
     // 루프 중간에는 바꾸지 않는다.
     expect(shown()).toEqual([second]);
@@ -154,10 +167,10 @@ describe("WatcherBackground", () => {
 
   it("퇴장 중에 다시 비집중이면 퇴장이 끝나는 대로 다시 들어온다", () => {
     const { rerender, videos } = setup();
-    rerender(<WatcherBackground present />);
+    rerender(<WatcherBackground assetKey={KEY} present />);
     settle();
     const [first, second] = videos();
-    rerender(<WatcherBackground present={false} />);
+    rerender(<WatcherBackground assetKey={KEY} present={false} />);
     settle();
     act(() => {
       fireEvent.ended(first!);
@@ -165,7 +178,7 @@ describe("WatcherBackground", () => {
     settle();
     expect(second!.src).toContain("/spaces/watcher/9c8d9f19/exit/");
 
-    rerender(<WatcherBackground present />);
+    rerender(<WatcherBackground assetKey={KEY} present />);
     settle();
     act(() => {
       fireEvent.ended(second!);
@@ -174,12 +187,41 @@ describe("WatcherBackground", () => {
 
     expect(first!.src).toContain("/spaces/watcher/9c8d9f19/enter/");
   });
+
+  it("loop-a가 없는 공간은 들어온 뒤 loop-b만 이어 반복한다", async () => {
+    stored.loopAMissing = true;
+    const { rerender, videos } = setup();
+    // 받아 둔 기록을 읽어 loop-a가 없다는 것을 안다.
+    await act(async () => {});
+
+    rerender(<WatcherBackground assetKey={KEY} present />);
+    settle();
+    const [first, second] = videos();
+    expect(second!.src).toContain(`/spaces/${KEY}/loop-b/`);
+
+    act(() => {
+      fireEvent.ended(first!);
+    });
+    settle();
+    expect(first!.src).toContain(`/spaces/${KEY}/loop-b/`);
+  });
+
+  it("빈 방 포스터는 그 공간 폴더에서 고른다", () => {
+    const { container } = setup();
+
+    expect(container.querySelector("img")!.src).toContain(
+      `/spaces/${KEY}/poster/phone_portrait.jpg`,
+    );
+    expect(container.querySelector("source")!.getAttribute("srcset")).toBe(
+      `/spaces/${KEY}/poster/tablet_landscape.jpg`,
+    );
+  });
 });
 
 describe("WatcherBackground — 루프 B 중 퇴장", () => {
   it("가만히 서 있는 루프 B 중에 나가야 하면 끝까지 기다리지 않고 바로 퇴장한다", () => {
     const { rerender, videos, shown } = setup();
-    rerender(<WatcherBackground present />);
+    rerender(<WatcherBackground assetKey={KEY} present />);
     settle();
     const [first, second] = videos();
     act(() => {
@@ -193,7 +235,7 @@ describe("WatcherBackground — 루프 B 중 퇴장", () => {
     expect(first!.src).toContain("/loop-b/");
     expect(shown()).toEqual([first]);
 
-    rerender(<WatcherBackground present={false} />);
+    rerender(<WatcherBackground assetKey={KEY} present={false} />);
 
     expect(second!.src).toContain("/exit/");
     expect(shown()).toEqual([second]);
@@ -204,7 +246,7 @@ describe("WatcherBackground — 이음매", () => {
   it("다음 클립이 재생되기 전까지 앞 요소의 영상을 바꾸지 않는다", () => {
     vi.mocked(HTMLMediaElement.prototype.play).mockImplementation(() => Promise.resolve());
     const { rerender, videos, shown } = setup();
-    rerender(<WatcherBackground present />);
+    rerender(<WatcherBackground assetKey={KEY} present />);
     const [first, second] = videos();
     act(() => {
       fireEvent.playing(first!);
@@ -214,7 +256,7 @@ describe("WatcherBackground — 이음매", () => {
     act(() => {
       fireEvent.ended(first!);
     });
-    rerender(<WatcherBackground present={false} />);
+    rerender(<WatcherBackground assetKey={KEY} present={false} />);
     settle();
 
     // 다음 요소가 아직 재생을 시작하지 않아 앞 요소의 마지막 프레임이 그대로 보인다.
@@ -232,7 +274,7 @@ describe("WatcherBackground — 이음매", () => {
 
 describe("WatcherDemo", () => {
   it("들어와 시계를 한 번 보고 나간 뒤, 빈 방 2초 뒤에 다시 들어온다", () => {
-    const view = render(<WatcherDemo />);
+    const view = render(<WatcherDemo assetKey={KEY} />);
     const videos = () => [...view.container.querySelectorAll("video")];
     const shown = () => videos().filter((video) => video.className.includes("opacity-100"));
     settle();
@@ -266,5 +308,50 @@ describe("WatcherDemo", () => {
     settle();
     expect(shown()).toHaveLength(1);
     expect(shown()[0]!.src).toContain("/enter/");
+  });
+
+  it("loop-a가 없으면 loop-b에 들어서자마자 나간다", async () => {
+    stored.loopAMissing = true;
+    const view = render(<WatcherDemo assetKey={KEY} />);
+    await act(async () => {});
+    settle();
+    const videos = () => [...view.container.querySelectorAll("video")];
+
+    act(() => {
+      fireEvent.ended(videos().find((video) => video.src.includes("/enter/"))!);
+    });
+    settle();
+
+    expect(videos().some((video) => video.src.includes("/exit/"))).toBe(true);
+  });
+});
+
+describe("동작 줄이기", () => {
+  beforeEach(() => {
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: query.includes("reduce") }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("세션 배경은 동작 줄이기여도 비집중이면 캐릭터가 들어온다", () => {
+    const { rerender, videos, shown } = setup();
+
+    rerender(<WatcherBackground assetKey={KEY} present />);
+    settle();
+
+    expect(videos()[0]!.src).toContain(`/spaces/${KEY}/enter/`);
+    expect(shown()).toEqual([videos()[0]]);
+  });
+
+  it("견본은 동작 줄이기면 빈 방만 보인다", () => {
+    const view = render(<WatcherDemo assetKey={KEY} />);
+    settle();
+    const videos = [...view.container.querySelectorAll("video")];
+
+    expect(videos.filter((video) => video.className.includes("opacity-100"))).toHaveLength(0);
+    // 쉬는 영상 요소는 다음 등장을 위해 enter를 받아 두기만 하고 재생하지 않는다.
+    expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
   });
 });

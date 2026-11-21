@@ -1,42 +1,76 @@
 import { describe, expect, it } from "vitest";
 
-import { filterSpaces, spaceKey, type SpaceItem } from "../spaceCatalog";
+import { PROCTOR_SPACE, RAIN_SPACE } from "@/test/spaceFixtures";
 
-const ITEMS: SpaceItem[] = [
-  { selection: { kind: "proctor" }, name: "독서실 감독관", tab: "video", category: "watch" },
-  { selection: { kind: "photo", photoId: "a" }, name: "내 사진 1", tab: "image", category: "mine" },
-  { selection: { kind: "simple" }, name: "심플", tab: "image", category: "simple" },
-];
+import { collectTags, imageSections, spaceKey, videoSections } from "../spaceCatalog";
+import type { CatalogSpace } from "../spaceCatalogQuery";
 
-describe("filterSpaces", () => {
-  it("탭에 속한 공간만 남긴다", () => {
-    expect(
-      filterSpaces(ITEMS, { tab: "image", category: "all", text: "" }).map((i) => i.name),
-    ).toEqual(["내 사진 1", "심플"]);
-  });
+const NATURE = { code: "NATURE", name: "자연" };
+const RAIN = { code: "RAIN", name: "비" };
+const CAFE = { code: "CAFE", name: "카페" };
 
-  it("분류 칩이 전체가 아니면 그 분류만 남긴다", () => {
-    expect(filterSpaces(ITEMS, { tab: "video", category: "watch", text: "" })).toHaveLength(1);
-    expect(filterSpaces(ITEMS, { tab: "image", category: "mine", text: "" })).toHaveLength(1);
-  });
+const space = (
+  itemId: number,
+  over: Partial<CatalogSpace["selection"]>,
+  tags: CatalogSpace["tags"] = [],
+): CatalogSpace => ({
+  selection: { ...RAIN_SPACE, itemId, ...over },
+  name: `공간 ${itemId}`,
+  tags,
+});
 
-  it("검색어는 앞뒤 공백을 무시하고 대소문자 없이 이름에 포함되는지 본다", () => {
-    expect(filterSpaces(ITEMS, { tab: "video", category: "all", text: "  감독 " })).toHaveLength(1);
-    expect(filterSpaces(ITEMS, { tab: "video", category: "all", text: "심플" })).toHaveLength(0);
-    expect(
-      filterSpaces([{ ...ITEMS[0]!, name: "Study hall proctor" }], {
-        tab: "video",
-        category: "all",
-        text: "PROCTOR",
-      }),
-    ).toHaveLength(1);
+const watch = space(1, { videoMode: "WATCH" }, [NATURE]);
+const rain = space(2, {}, [NATURE, RAIN]);
+const plain = space(3, {});
+const desk = space(4, { assetType: "IMAGE", videoMode: null }, [CAFE]);
+const room = space(5, { assetType: "IMAGE", videoMode: null });
+
+describe("spaceKey", () => {
+  it("사진은 id, 서버 공간은 상품 id, 심플은 하나다", () => {
+    expect(spaceKey({ kind: "photo", photoId: "a" })).toBe("photo:a");
+    expect(spaceKey(PROCTOR_SPACE)).toBe("space:41");
+    expect(spaceKey({ kind: "simple" })).toBe("simple");
   });
 });
 
-describe("spaceKey", () => {
-  it("같은 공간은 같은 키를 주고 다른 사진은 다른 키를 준다", () => {
-    expect(spaceKey({ kind: "photo", photoId: "a" })).toBe("photo:a");
-    expect(spaceKey({ kind: "photo", photoId: "b" })).not.toBe("photo:a");
-    expect(spaceKey({ kind: "proctor" })).toBe("proctor");
+describe("videoSections", () => {
+  it("감독이 먼저이고 분류 섹션이 서버 순서로, 분류 없는 반복 영상이 맨 아래 제목 없이 온다", () => {
+    const sections = videoSections([plain, rain, watch, desk], "감독");
+
+    expect(sections.map((s) => [s.code, s.title])).toEqual([
+      ["watch", "감독"],
+      ["NATURE", "자연"],
+      ["RAIN", "비"],
+      ["", null],
+    ]);
+    expect(sections.flatMap((s) => s.spaces)).not.toContain(desk);
+  });
+
+  it("감시 공간에 분류가 붙어도 감독 섹션에만 들어간다", () => {
+    const nature = videoSections([watch, rain], "감독").find((s) => s.code === "NATURE");
+
+    expect(nature?.spaces).toEqual([rain]);
+  });
+
+  it("분류가 여러 개인 공간은 섹션마다 들어간다", () => {
+    const sections = videoSections([rain], "감독");
+
+    expect(sections.filter((s) => s.spaces.includes(rain)).map((s) => s.code)).toEqual([
+      "NATURE",
+      "RAIN",
+    ]);
+  });
+});
+
+describe("imageSections", () => {
+  it("그림 공간의 분류 섹션과 제목 없는 묶음이고 빈 섹션은 없다", () => {
+    expect(imageSections([desk, room, rain]).map((s) => s.code)).toEqual(["CAFE", ""]);
+    expect(imageSections([rain])).toEqual([]);
+  });
+});
+
+describe("collectTags", () => {
+  it("범위 안 공간의 분류를 처음 나온 순서대로 한 번씩 모은다", () => {
+    expect(collectTags([rain, watch, desk])).toEqual([NATURE, RAIN, CAFE]);
   });
 });

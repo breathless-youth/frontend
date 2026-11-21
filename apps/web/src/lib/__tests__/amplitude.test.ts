@@ -747,7 +747,8 @@ describe("공부 세션 이벤트", () => {
         expandedSec: 120,
         simpleSec: 480,
         pipExpandCount: 2,
-        spaceKind: "proctor",
+        spaceKind: "space",
+        spaceItem: { itemCode: "SPACE_PROCTOR", videoMode: "WATCH" },
         faceMask: true,
       },
     });
@@ -758,11 +759,14 @@ describe("공부 세션 이벤트", () => {
       expanded_sec: 120,
       simple_sec: 480,
       pip_expand_count: 2,
-      space_kind: "proctor",
+      space_kind: "space",
+      space_item_code: "SPACE_PROCTOR",
+      space_video_mode: "WATCH",
       face_mask: true,
     });
     expect(mocks.track.mock.calls[1]?.[1]).not.toHaveProperty("pip_sec");
     expect(mocks.track.mock.calls[1]?.[1]).not.toHaveProperty("space_kind");
+    expect(mocks.track.mock.calls[1]?.[1]).not.toHaveProperty("space_item_code");
   });
 
   it("0초 세션의 집중률은 0 — 0 나눗셈이 NaN으로 새어 나가면 안 된다", async () => {
@@ -2675,7 +2679,7 @@ describe("세션 공간 이벤트", () => {
 
     m.trackSessionSpaceOpened();
     m.trackSessionSpaceTabSwitched({ tab: "image" });
-    m.trackSessionSpacePreviewOpened({ kind: "proctor" });
+    m.trackSessionSpacePreviewOpened({ kind: "space" });
     m.trackTimerBackgroundApplied({
       kind: "photo",
       source: "tile",
@@ -2699,7 +2703,17 @@ describe("세션 공간 이벤트", () => {
 
     m.trackSessionSpaceOpened();
     m.trackSessionSpaceTabSwitched({ tab: "image" });
-    m.trackSessionSpacePreviewOpened({ kind: "proctor" });
+    m.trackSessionSpacePreviewOpened({
+      kind: "space",
+      item: { itemCode: "SPACE_PROCTOR", videoMode: "WATCH" },
+    });
+    m.trackTimerBackgroundApplied({
+      kind: "space",
+      source: "tile",
+      tab: "video",
+      category: "watch",
+      item: { itemCode: "SPACE_PROCTOR", videoMode: "WATCH" },
+    });
     m.trackTimerBackgroundApplied({
       kind: "photo",
       source: "preview",
@@ -2716,7 +2730,18 @@ describe("세션 공간 이벤트", () => {
     expect(mocks.track.mock.calls).toEqual([
       ["session_space_opened"],
       ["session_space_tab_switched", { tab: "image" }],
-      ["session_space_preview_opened", { kind: "proctor" }],
+      ["session_space_preview_opened", { kind: "space", item_code: "SPACE_PROCTOR" }],
+      [
+        "timer_background_applied",
+        {
+          kind: "space",
+          source: "tile",
+          tab: "video",
+          category: "watch",
+          item_code: "SPACE_PROCTOR",
+          video_mode: "WATCH",
+        },
+      ],
       [
         "timer_background_applied",
         { kind: "photo", source: "preview", tab: "image", category: "mine" },

@@ -42,9 +42,33 @@ const load = (url: string) =>
   Promise.resolve(new Uint8Array([ids[/(\w+)\.m4a$/.exec(url)![1]]]).buffer);
 
 describe("createWatcherSound", () => {
+  it("소리는 그 공간 폴더에서 받는다", async () => {
+    const { context } = fakeContext();
+    const urls: string[] = [];
+    const sound = createWatcherSound(
+      "watcher/abc",
+      () => context as unknown as AudioContext,
+      (url) => {
+        urls.push(url);
+        return load(url);
+      },
+    );
+
+    sound.prime();
+
+    await vi.waitFor(() => expect(urls).toHaveLength(3));
+    expect(urls).toEqual(
+      expect.arrayContaining([
+        "/spaces/watcher/abc/sound/approach.m4a",
+        "/spaces/watcher/abc/sound/enter.m4a",
+        "/spaces/watcher/abc/sound/exit.m4a",
+      ]),
+    );
+  });
+
   it("받는 중에 요청한 소리는 받는 대로 늦은 만큼 건너뛰어 울리고, 다가오던 소리는 줄여 끈다", async () => {
     const { context, starts, stops, ramps } = fakeContext();
-    const sound = createWatcherSound(() => context as unknown as AudioContext, load);
+    const sound = createWatcherSound("watcher/abc", () => context as unknown as AudioContext, load);
 
     sound.play("enter", 0.1);
     expect(starts).toEqual([]);
@@ -64,7 +88,7 @@ describe("createWatcherSound", () => {
 
   it("멈춘 컨텍스트에서 요청한 소리는 깨어난 뒤에 울리고, 그 전에 줄여 끄면 울리지 않는다", async () => {
     const { context, starts } = fakeContext();
-    const sound = createWatcherSound(() => context as unknown as AudioContext, load);
+    const sound = createWatcherSound("watcher/abc", () => context as unknown as AudioContext, load);
     sound.prime();
     await vi.waitFor(() => expect(context.decodeAudioData).toHaveBeenCalledTimes(3));
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -92,7 +116,7 @@ describe("createWatcherSound", () => {
 
   it("소리를 끄면 나던 소리를 줄여 끄고, 켜기 전까지 새 소리를 내지 않는다", async () => {
     const { context, starts, stops } = fakeContext();
-    const sound = createWatcherSound(() => context as unknown as AudioContext, load);
+    const sound = createWatcherSound("watcher/abc", () => context as unknown as AudioContext, load);
     sound.prime();
     await vi.waitFor(() => expect(context.decodeAudioData).toHaveBeenCalledTimes(3));
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -117,7 +141,7 @@ describe("createWatcherSound", () => {
       gains.push(node.gain);
       return node;
     };
-    const sound = createWatcherSound(() => context as unknown as AudioContext, load);
+    const sound = createWatcherSound("watcher/abc", () => context as unknown as AudioContext, load);
     sound.setVolume(0.4);
 
     sound.play("enter");
@@ -135,7 +159,7 @@ describe("createWatcherSound", () => {
 
   it("화면이 숨겨진 동안에는 새 소리를 내지 않는다", async () => {
     const { context, starts } = fakeContext();
-    const sound = createWatcherSound(() => context as unknown as AudioContext, load);
+    const sound = createWatcherSound("watcher/abc", () => context as unknown as AudioContext, load);
     const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
     try {
       sound.play("enter");
@@ -151,7 +175,11 @@ describe("createWatcherSound", () => {
     let failures = 1;
     const flaky = (url: string) =>
       url.endsWith("exit.m4a") && failures-- > 0 ? Promise.reject(new Error("offline")) : load(url);
-    const sound = createWatcherSound(() => context as unknown as AudioContext, flaky);
+    const sound = createWatcherSound(
+      "watcher/abc",
+      () => context as unknown as AudioContext,
+      flaky,
+    );
 
     sound.play("exit");
     await vi.waitFor(() => expect(starts).toHaveLength(1), { timeout: 3_000 });
@@ -179,6 +207,7 @@ describe("createWatcherSound 무음 스위치", () => {
   function setup(keepAlive: ReturnType<typeof fakeKeepAlive> | null = fakeKeepAlive()) {
     const { context, starts } = fakeContext();
     const sound = createWatcherSound(
+      "watcher/abc",
       () => context as unknown as AudioContext,
       load,
       () => keepAlive as unknown as HTMLAudioElement | null,

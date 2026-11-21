@@ -393,7 +393,7 @@ export interface StudySessionEndedInput {
 /**
  * 싱글룸 세션이 끝날 때의 화면 표시 기록
  *
- * 작은 창·키운 화면·심플 모드에 머문 초, 작은 창에서 키운 횟수, 끝날 때의 공간 종류와 얼굴 가림이다.
+ * 작은 창·키운 화면·심플 모드에 머문 초, 작은 창에서 키운 횟수, 끝날 때의 공간 종류와 서버 공간 정보, 얼굴 가림이다.
  */
 export interface SessionDisplayEnd {
   readonly pipSec: number;
@@ -401,6 +401,7 @@ export interface SessionDisplayEnd {
   readonly simpleSec: number;
   readonly pipExpandCount: number;
   readonly spaceKind: SpaceKind;
+  readonly spaceItem?: SpaceItemTrack;
   readonly faceMask: boolean;
 }
 
@@ -454,6 +455,10 @@ export function trackStudySessionEnded(input: StudySessionEndedInput) {
         simple_sec: input.display.simpleSec,
         pip_expand_count: input.display.pipExpandCount,
         space_kind: input.display.spaceKind,
+        ...(input.display.spaceItem && {
+          space_item_code: input.display.spaceItem.itemCode,
+          space_video_mode: input.display.spaceItem.videoMode,
+        }),
         face_mask: input.display.faceMask,
       }),
       measure_mode: input.measureMode ?? "camera",
@@ -1380,11 +1385,14 @@ export function trackCameraPipShrunk(input: { readonly expandedSec: number }) {
 }
 
 /** 싱글룸 공간 종류. 사진 내용과 이름은 보내지 않는다. */
-export type SpaceKind = "simple" | "proctor" | "photo";
+export type SpaceKind = "simple" | "photo" | "space";
 /** 공간 페이지 최상위 탭 */
 export type SpaceTab = "video" | "image";
-/** 공간 페이지 분류. 감시는 영상 탭, 내 사진과 심플은 이미지 탭에 있다. */
-export type SpaceCategory = "watch" | "mine" | "simple";
+/** 서버 공간을 골랐을 때만 싣는 상품 코드와 영상 방식. 그림 공간의 영상 방식은 null이다. */
+export interface SpaceItemTrack {
+  readonly itemCode: string;
+  readonly videoMode: string | null;
+}
 
 /** 세로 열 공간 버튼으로 공간 페이지를 열었다. */
 export function trackSessionSpaceOpened() {
@@ -1399,9 +1407,15 @@ export function trackSessionSpaceTabSwitched(input: { readonly tab: SpaceTab }) 
 }
 
 /** 공간 타일의 미리보기 버튼을 눌렀다. */
-export function trackSessionSpacePreviewOpened(input: { readonly kind: SpaceKind }) {
+export function trackSessionSpacePreviewOpened(input: {
+  readonly kind: SpaceKind;
+  readonly item?: SpaceItemTrack;
+}) {
   if (!initialized) return;
-  track("session_space_preview_opened", { kind: input.kind });
+  track("session_space_preview_opened", {
+    kind: input.kind,
+    ...(input.item && { item_code: input.item.itemCode }),
+  });
 }
 
 /**
@@ -1409,12 +1423,15 @@ export function trackSessionSpacePreviewOpened(input: { readonly kind: SpaceKind
  *
  * `kind`가 소스마다 다른 값이라 어떤 소스를 골랐는지 이것으로 구분하고, 내 사진은 몇 번째인지 나누지 않는다.
  * `source`는 타일을 바로 눌렀는지(tile), 미리보기의 `적용하기`인지(preview)다.
+ * `category`는 고른 칩 코드다. 전체는 all, 감독은 watch, 나머지는 서버 분류 코드다.
+ * 서버 공간이면 `item_code`로 묶어 많이 적용된 공간 순위를 본다.
  */
 export function trackTimerBackgroundApplied(input: {
   readonly kind: SpaceKind;
   readonly source: "tile" | "preview";
   readonly tab: SpaceTab;
-  readonly category: SpaceCategory;
+  readonly category: string;
+  readonly item?: SpaceItemTrack;
 }) {
   if (!initialized) return;
   track("timer_background_applied", {
@@ -1422,6 +1439,7 @@ export function trackTimerBackgroundApplied(input: {
     source: input.source,
     tab: input.tab,
     category: input.category,
+    ...(input.item && { item_code: input.item.itemCode, video_mode: input.item.videoMode }),
   });
 }
 

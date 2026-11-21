@@ -190,7 +190,6 @@
       "mine": "我的照片"
     },
     "names": {
-      "proctor": "自習室監督",
       "simple": "極簡",
       "photo": "我的照片 {{number}}"
     },
@@ -199,7 +198,6 @@
     "preview": "預覽{{name}}",
     "remove": "刪除{{name}}",
     "empty": "找不到空間",
-    "comingSoon": "影片空間即將推出",
     "back": "返回",
     "apply": "套用",
     "applied": "使用中",
@@ -210,6 +208,7 @@
     "photoLimit": "最多可上傳 {{max}} 張照片",
     "removed": "已刪除照片",
     "removeFailed": "無法刪除照片，請再試一次",
-    "photoLoadFailed": "無法載入照片"
+    "photoLoadFailed": "無法載入照片",
+    "previewFailed": "無法載入空間"
   }
 }
