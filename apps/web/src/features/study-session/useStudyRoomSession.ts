@@ -147,7 +147,7 @@ export interface StudyRoomSessionOptions {
    * 화면이 가려져도 관리 모드를 멈추지 않는 세션
    *
    * PC 브라우저는 다른 탭으로 옮겨도 카메라 프레임과 감지 타이머가 계속 돌아 측정이 이어진다.
-   * 그래서 일시정지하지 않고 그 순간의 진행을 한 번 보고만 하며, 카메라가 재고 있어 2시간 상한도 걸지 않는다.
+   * 그래서 일시정지하지 않고 그 순간의 진행을 한 번 보고만 하며, 카메라가 측정하고 있어 2시간 상한도 걸지 않는다.
    * 휴대폰 앱과 휴대폰 브라우저는 가려지면 카메라가 멈춰서 이 값을 넘기지 않는다.
    */
   readonly keepMeasuringWhenHidden?: boolean;
@@ -393,6 +393,13 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    * 일시정지 중에 나갔으면 일시정지 자동 종료가 맡아서 null로 둔다.
    */
   const awayFromMsRef = useRef<number | null>(null);
+  /**
+   * 가려져도 측정을 이어 가는 세션이 숨은 뒤 보고를 이미 보냈는지
+   *
+   * 숨김과 pagehide가 잇달아 와도 keepalive 보고는 한 번만 보낸다.
+   * 숨긴 동안에도 30초 보고는 이어 가야 해서 주기 보고를 멈추는 awayRef와 따로 둔다.
+   */
+  const hiddenReportedRef = useRef(false);
 
   /**
    * 과목 구간 — 전환 시각 기록은 `subjectSegments.ts`, 여기는 시각을 넘겨주는 연결만.
@@ -1092,7 +1099,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    * 화면 꺼짐·백그라운드 전환
    *
    * 관리 모드는 앱 밖에서 잴 수 없어 수동 일시정지와 같은 pause("BACKGROUND") 통로로 멈춘다.
-   * 가려져도 카메라가 계속 재는 PC 브라우저의 관리 모드는 멈추지 않고 그 순간의 진행만 보고한다.
+   * 가려져도 카메라가 계속 측정하는 PC 브라우저의 관리 모드는 멈추지 않고 그 순간의 진행만 보고한다.
    * 자율 모드는 카메라를 쓰지 않아 앱 밖 시간도 공부 시간이고, 나간 시각만 적어 2시간 상한을 잰다.
    * 자율 모드라도 직접 멈췄거나 휴식 중이면 관리 모드와 같게 멈추고 2시간 상한 대신 일시정지 자동 종료를 따른다.
    * 자율 모드는 멈춘 상태로 나가도 그 상태를 한 번 보고해서 다시 열 때 일시정지 중이던 기록으로 읽힌다.
@@ -1127,6 +1134,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       onLeave: () => {
         if (source !== "TIMER") {
           if (keepMeasuringWhenHidden) {
+            if (hiddenReportedRef.current) return;
+            hiddenReportedRef.current = true;
             requestSnapshotRef.current?.({ keepalive: true });
           } else {
             pause("BACKGROUND");
@@ -1147,6 +1156,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         requestSnapshotRef.current?.({ keepalive: true });
       },
       onReturn: () => {
+        hiddenReportedRef.current = false;
         clearTimeout(limitTimer);
         if (awayRef.current && !endIfAwayTooLong()) {
           awayRef.current = false;

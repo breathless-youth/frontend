@@ -10,6 +10,7 @@ import type { RestoredSession } from "@/features/study-session/restoreActiveSess
 import { AWAY_LIMIT_MS } from "@/features/study-session/sessionTuning";
 import type * as StudyRoomSession from "@/features/study-session/useStudyRoomSession";
 import { queryClient } from "@/lib/queryClient";
+import { statsKeys } from "@/lib/statsQueries";
 
 import { PcStudySession } from "../PcStudySession";
 import { readPcSessionMarker, writePcSessionMarker } from "../pcSessionMarker";
@@ -144,7 +145,8 @@ describe("PcStudySession 자율 모드 이어 공부", () => {
     );
   });
 
-  it("끝내기를 고르면 기록을 확정하고 표시를 지운 뒤 경로를 바꾸지 않고 홈 상태로 돌아온다", async () => {
+  it("끝내기를 고르면 기록을 확정하고 표시를 지운 뒤 오늘 통계를 다시 받고 경로를 바꾸지 않고 홈 상태로 돌아온다", async () => {
+    const invalidate = vi.spyOn(queryClient, "invalidateQueries");
     const { onEnd } = renderSession();
 
     await userEvent.click(screen.getByRole("button", { name: "나간 시점에서 끝내기" }));
@@ -152,6 +154,7 @@ describe("PcStudySession 자율 모드 이어 공부", () => {
     await waitFor(() => expect(onEnd).toHaveBeenCalled());
     expect(closeStaleSession).toHaveBeenCalledWith(7);
     expect(readPcSessionMarker()).toBeNull();
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: statsKeys.all });
     expect(sessionHook.spy).not.toHaveBeenCalled();
   });
 

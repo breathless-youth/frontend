@@ -36,7 +36,7 @@ export interface SoloSessionEngineOptions {
   /**
    * 화면이 가려져도 관리 모드를 멈추지 않는 세션
    *
-   * 가려져도 카메라가 계속 재는 PC 브라우저만 넘긴다.
+   * 가려져도 카메라가 계속 측정하는 PC 브라우저만 넘긴다.
    */
   readonly keepMeasuringWhenHidden?: boolean;
   readonly initialSubjectId?: number;
@@ -44,7 +44,7 @@ export interface SoloSessionEngineOptions {
   readonly forceTimer?: boolean;
   /** 개발 빌드에서 콘솔 감지기를 고르는 이름 */
   readonly devDetector?: string | null;
-  /** 시작 전에 열어 둔 카메라. 카메라로 재는 세션이면 새로 열지 않고 이것을 쓴다. */
+  /** 시작 전에 열어 둔 카메라. 카메라로 측정하는 세션이면 새로 열지 않고 이것을 쓴다. */
   readonly camera?: CameraAdapter;
   /** 세션 중에 받은 초대. 있으면 결과 화면으로 가지 않는다. */
   readonly invite?: string | null;

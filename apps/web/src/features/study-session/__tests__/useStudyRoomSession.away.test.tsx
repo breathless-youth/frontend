@@ -372,6 +372,40 @@ describe("useStudyRoomSession 관리 모드 화면 가려짐", () => {
     expect(result.current.sessionState).toEqual({ kind: "FOCUS" });
   });
 
+  it("가려져도 측정을 이어 가는 세션은 숨김과 pagehide가 잇달아 와도 keepalive 보고가 한 번이다", async () => {
+    setup({
+      source: "MEASURED",
+      keepMeasuringWhenHidden: true,
+      systemPause: createSystemPauseSource(document),
+    });
+    await advance(10_000);
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    try {
+      act(() => {
+        document.dispatchEvent(new Event("visibilitychange"));
+        window.dispatchEvent(new Event("pagehide"));
+      });
+      await advance(1);
+
+      expect(requests("PUT").filter(({ init }) => init.keepalive === true)).toHaveLength(1);
+    } finally {
+      visibility.mockRestore();
+    }
+  });
+
+  it("가려져도 측정을 이어 가는 세션은 숨긴 동안에도 30초 보고를 이어 간다", async () => {
+    const { systemPause } = setup({ source: "MEASURED", keepMeasuringWhenHidden: true });
+    await advance(10_000);
+    act(() => systemPause.leave());
+    await advance(1);
+    const before = requests("PUT").length;
+
+    await advance(30_000);
+
+    expect(requests("PUT")).toHaveLength(before + 1);
+    expect(requests("PUT").at(-1)!.init.keepalive).not.toBe(true);
+  });
+
   it("기본 관리 모드는 가려지면 BACKGROUND로 일시정지하고 나가는 보고를 보내지 않는다", async () => {
     const { result, systemPause } = setup({ source: "MEASURED" });
     await advance(10_000);
