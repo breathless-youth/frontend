@@ -17,17 +17,20 @@ import {
  * 고른 뒤에는 요청이 끝날 때까지 두 버튼을 막아 두 요청이 겹치지 않게 한다.
  * 창은 부르는 쪽이 요청을 마친 뒤에 닫는다.
  * 요청이 실패하면 다시 고를 수 있게 두 버튼을 연다.
+ * PC 홈은 세션이 홈 상자 안에서 열려서 창도 그 상자 안에 띄운다.
  */
 export function SessionResumeDialog({
   awayMin,
   place,
   onResume,
   onEnd,
+  container,
 }: {
   awayMin: number;
   place: ResumePromptPlace;
   onResume: () => void | Promise<void>;
   onEnd: () => void | Promise<void>;
+  container?: HTMLElement;
 }) {
   const { t } = useTranslation("study-session");
   const [busy, setBusy] = useState(false);
@@ -54,6 +57,7 @@ export function SessionResumeDialog({
     <Dialog open>
       <DialogContent
         role="dialog"
+        container={container}
         showCloseButton={false}
         onEscapeKeyDown={(event) => event.preventDefault()}
         onPointerDownOutside={(event) => event.preventDefault()}

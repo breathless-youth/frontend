@@ -11,10 +11,9 @@ import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import type { StudySessionResponse, SubjectResponse } from "@focusmakers/types";
+import type { StudySessionResponse } from "@focusmakers/types";
 
 import { CtaToaster } from "@/components/ui/sonner";
-import { createAmbientUsage } from "@/features/ambient-sound/ambientUsage";
 import { AmbientSoundButton } from "@/features/ambient-sound/components/AmbientSoundButton";
 import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSoundSheet";
 import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
@@ -40,15 +39,8 @@ import {
   useSessionRotationRestore,
 } from "@/features/multi-timer/modeScreenLocks";
 import type { ModeKind } from "@/features/multi-timer/multiTimerMachine";
-import { createMultiTimerUsage, useMultiTimer } from "@/features/multi-timer/useMultiTimer";
+import { useMultiTimer } from "@/features/multi-timer/useMultiTimer";
 import type { MultiTimerControls } from "@/features/multi-timer/useMultiTimer";
-import { createDeviceHandlingDetector } from "@/features/study-session/adapters/deviceHandlingDetector";
-import { createMockCameraAdapter } from "@/features/study-session/adapters/cameraAdapter";
-import {
-  combineFocusDetectors,
-  createMockFocusDetector,
-} from "@/features/study-session/adapters/focusDetector";
-import { createMediaStreamCameraAdapter } from "@/features/study-session/adapters/mediaStreamCamera";
 import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice";
 import { SessionResumeDialog } from "@/features/study-session/components/SessionResumeDialog";
 import { CameraPreviewSurface } from "@/features/study-session/components/CameraPreviewSurface";
@@ -82,20 +74,11 @@ import { NoFocusEndNotice } from "@/features/study-session/components/NoFocusEnd
 import { SessionSubjectPanel as SubjectPanel } from "@/features/study-session/components/SessionSubjectPanel";
 import { SubjectLabel } from "@/features/study-session/components/SubjectLabel";
 import { VisionPerfPanel } from "@/features/study-session/components/VisionPerfPanel";
-import { resolveDevDetectorOverride } from "@/features/study-session/devMockDetector";
-import {
-  MIN_RECORDED_FOCUS_SEC,
-  exitConfirmDescription,
-  formatElapsed,
-} from "@/features/study-session/formatDuration";
-import type {
-  AutoEndTrigger,
-  SessionEndReason,
-  SessionState,
-} from "@/features/study-session/sessionState";
+import { exitConfirmDescription, formatElapsed } from "@/features/study-session/formatDuration";
+import type { SessionState } from "@/features/study-session/sessionState";
 import { SESSION_HELP_STEPS, markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import { CAMERA_EXPAND_TIMING, cameraBoxFrames } from "@/features/study-session/cameraExpandMotion";
-import { createDisplayUsage, type CameraView } from "@/features/study-session/displayUsage";
+import type { CameraView } from "@/features/study-session/displayUsage";
 import {
   PIP_ANCHOR,
   PIP_RADIUS_PX,
@@ -114,31 +97,26 @@ import { showCtaToast } from "@/lib/toast";
 import { useGestureVideoPlaybackKick } from "@/lib/videoPlayback";
 import { useNativePortraitLock } from "@/lib/nativeBackGesture";
 import { useModalOverlayOpen } from "@/lib/nativeModalOverlay";
-import { useIdentityPending, useUserId } from "@/lib/userId";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
-import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
+import { useSessionGate } from "@/features/study-session/useSessionGate";
+import {
+  autoEndNoticeVisible,
+  useSoloSessionEngine,
+} from "@/features/study-session/useSoloSessionEngine";
 import { useSessionHelpFunnel } from "@/features/study-session/useSessionHelpFunnel";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
-import { resumeDecision } from "@/features/study-session/sessionResume";
 import type { SubjectSelection } from "@/features/study-session/subjectSegments";
 import { deriveSubjectTotals, liveSubjectTime } from "@/features/study-session/subjectSegments";
-import { completedTaskIdsSince } from "@/features/study-session/completedTasks";
-import { plannerCompletedTaskIds } from "@/features/study-session/plannerCompletedTasks";
-import { readMeasureMode, writeMeasureMode } from "@/features/measure-mode/measureMode";
-import { useMascotLookPrefetch } from "@/features/points/model/prefetchMyMascotLook";
+import { writeMeasureMode } from "@/features/measure-mode/measureMode";
 import { hasTokenSource } from "@/lib/userId";
 import { queryClient } from "@/lib/queryClient";
-import { parseInitialSubject, useInitialSubject } from "@/features/study-session/useInitialSubject";
+import { parseInitialSubject } from "@/features/study-session/useInitialSubject";
 import { InitialSubjectError } from "@/features/study-session/InitialSubjectError";
 import { loadSessionSubjects } from "@/features/study-session/loadSessionSubjects";
 import { useLandscapeLayout } from "@/features/study-session/useLandscapeLayout";
 import { useSubjects } from "@/features/study-session/useSubjects";
-import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
-import { closeStaleSession } from "@/features/study-session/closeStaleSession";
 import { useSessionOrientationAnalytics } from "@/features/study-session/useSessionOrientationAnalytics";
-import { useTrackedVisionDetector } from "@/features/study-session/useVisionReadyTracking";
 import type { FaceSpot } from "@/features/study-session/vision/faceSpot";
-import { createTimelapseRecorder } from "@/features/timelapse/timelapseRecorder";
 import { SessionSpacePage } from "@/features/timer-background/components/SessionSpacePage";
 import { SpaceButton } from "@/features/timer-background/components/SpaceButton";
 import {
@@ -161,7 +139,7 @@ import {
   writeWatcherVolume,
 } from "@/features/timer-background/watcher/watcherSound";
 import { DEFAULT_WATCHER_TRIGGER_MS } from "@/features/timer-background/watcher/watcherTrigger";
-import type { CameraPromptChoice, SessionDisplayEnd } from "@/lib/amplitude";
+import type { CameraPromptChoice } from "@/lib/amplitude";
 import {
   stageStudyResultExit,
   trackCameraPipExpanded,
@@ -361,86 +339,34 @@ function RoomSessionScreen({
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   /**
-   * 카메라로 측정하는 세션인가
+   * 공부 결과로 이동
    *
-   * 마운트할 때 한 번 정하고 세션 동안 바꾸지 않는다.
-   * 이어받은 세션은 처음 측정한 방식을 따르고 새 세션은 기기에 저장한 방식을 따른다.
-   * 앱의 권한 거부 화면에서 카메라 없이 연 세션은 주소의 `measureMode=timer`가 저장한 방식보다 먼저다.
-   * 카메라 없는 모드면 아무것도 열지 않는 카메라와 신호를 내지 않는 감지기를 넘겨 타이머만 돈다.
+   * 세션 단건 조회 API를 아직 쓰지 않으므로, 제출 응답을 라우터 state로 넘기는 것이 지금의 전달 수단이다.
+   *
+   * `replace: true`: 세션은 끝났다. 뒤로 가기로 이미 종료된 룸에 되돌아가면 타이머가 0부터
+   * 다시 도는 새 세션이 시작돼 사용자에게 거짓이 된다 — 히스토리에서 룸을 치운다.
    */
+  const openResult = (sessions: StudySessionResponse[], startedAtMs: number) => {
+    // 쿼리(`?userId=N`)를 함께 넘긴다 — 결과 화면의 `확인`이 홈으로 되돌릴 때 같은 식별자가 필요하고,
+    // 상대 이동은 검색 문자열을 자동으로 물려주지 않는다.
+    navigate(
+      { pathname: "result", search: searchParams.toString() },
+      // 결과 화면이 이 세션의 타임랩스를 기기 시작 시각으로 찾는다.
+      { state: { sessions, startedAtMs }, replace: true },
+    );
+  };
+  // 앱의 권한 거부 화면에서 카메라 없이 연 세션은 주소의 `measureMode=timer`로 온다.
   const timerFromUrl = searchParams.get("measureMode") === "timer";
-  const [cameraOn] = useState(() =>
-    restored !== null
-      ? restored.source !== "TIMER"
-      : !timerFromUrl && readMeasureMode() === "camera",
-  );
-  // 거부 화면에서 카메라 없이 고른 기기는 다음 시작도 권한을 묻지 않게 저장한 방식을 바꾼다.
-  // 이어받은 카메라 세션은 주소에 timer가 남아 있어도 카메라로 열리므로 저장한 방식을 바꾸지 않는다.
-  useEffect(() => {
-    if (timerFromUrl && !cameraOn) writeMeasureMode("timer");
-  }, [timerFromUrl, cameraOn]);
-  const [camera] = useState(() =>
-    cameraOn ? createMediaStreamCameraAdapter() : createMockCameraAdapter(),
-  );
-  // 저전력 모드에서 멈춘 카메라 프리뷰를 탭 제스처로 되살린다 — lib/videoPlayback.ts 주석 참고.
-  useGestureVideoPlaybackKick();
-  // iOS 회전 백지 방어 — 소셜룸 실기기에서 확인된 증상의 예방적 적용(같은 웹뷰 셸,
-  // 이 화면도 회전 대상). 사유는 lib/rotationRepaint.ts 주석.
-  useRotationRepaintNudge();
-  // 가로 거치 모드 사용 여부 — 회전은 클릭이 아니라 autocapture가 못 본다.
-  useSessionOrientationAnalytics("single");
-  /**
-   * 프리뷰
-   * — 이 화면이 소유하고 두 곳에 나눠준다.
-   * 표시는 `CameraPreviewSurface`가, 추론은 `createVisionFocusDetector`가 같은 엘리먼트를 본다.
-   */
-  const videoRef = useRef<HTMLVideoElement>(null);
-  /**
-   * DEV에서 `?detector=mock`이면 콘솔 mock이 이긴다 — 실기기 없이 비집중 시나리오를 재현해야
-   * 할 때가 계속 있다. 그 외에는(프로덕션 포함) 아래 Vision 감지기가 쓰인다.
-   */
-  const [devDetector] = useState(() =>
-    cameraOn ? resolveDevDetectorOverride(searchParams.get("detector")) : undefined,
-  );
-  /**
-   * 타임랩스 촬영
-   *
-   * 소셜룸은 이 화면을 쓰지 않으므로 찍지 않는다.
-   */
-  const [timelapse] = useState(() => createTimelapseRecorder());
-  const { visionDetector, visionReady } = useTrackedVisionDetector(
-    videoRef,
-    "single",
-    timelapse.photoTap,
-  );
-  /**
-   * 카메라(`AWAY`·`PHONE`)와 가속도 센서(`DEVICE`).
-   * 담당 트리거가 겹치지 않으므로 하나로 묶어 훅에 넘긴다.
-   * 센서 정지 시점은 "카메라 추론 정지와 동일한 시점"이다.
-   */
-  const [sensorDetector] = useState(() =>
-    cameraOn
-      ? combineFocusDetectors([visionDetector, createDeviceHandlingDetector()])
-      : createMockFocusDetector(),
-  );
-  const detector = devDetector ?? sensorDetector;
-  // 제출 시점에 읽을 과목 목록 — 커밋마다 최신 값으로 덮는다(아래 useSubjects 뒤).
-  const subjectsListRef = useRef<SubjectResponse[]>([]);
-  /**
-   * 배경음 재생 누적 시간 그릇 — 두 훅 사이에 순환이 생기지 않게 여기서 만들어 양쪽에
-   * 넘긴다. 세션 훅은 종료 시점에 `snapshot`만 읽고, 배경음 훅이 `start`/`stop`을 부른다.
-   */
-  const [ambientUsage] = useState(() => createAmbientUsage(Date.now));
-  // 배경음 그릇과 같은 까닭으로 여기서 만들어 세션 훅과 타이머 훅에 함께 넘긴다.
-  const [multiTimerUsage] = useState(createMultiTimerUsage);
-  // 화면 표시 모드별 머문 시간. 세션은 심플 모드로 시작한다.
-  const [displayUsage] = useState(() => createDisplayUsage(Date.now));
-  // 종료 이벤트에 실을 공간과 얼굴 가림. 둘 다 세션 훅 아래에서 정해져 커밋마다 최신 값으로 덮는다.
-  const displayContextRef = useRef<Pick<SessionDisplayEnd, "spaceKind" | "faceMask">>({
-    spaceKind: "simple",
-    faceMask: false,
-  });
   const {
+    cameraOn,
+    videoRef,
+    visionDetector,
+    visionReady,
+    ambientUsage,
+    multiTimerUsage,
+    displayUsage,
+    displayContextRef,
+    subjectsListRef,
     startedAtMs,
     focusSec,
     studySec,
@@ -459,31 +385,31 @@ function RoomSessionScreen({
     endBreak,
     flipCamera,
     endAndSubmit,
-  } = useStudyRoomSession(userId, {
-    camera,
-    detector,
+    endedWithoutFocus,
+    prefetchMascotLook,
+  } = useSoloSessionEngine({
+    userId,
     restored,
+    invite,
     resumeAway,
     initialSubjectId,
-    // 과목 목록은 아래 useSubjects가 들고 있어 훅 뒤에 온다 — 제출 시점에 ref로 읽는다(옵션 주석 참고).
-    getCompletedTaskIds: (startedAtMs) =>
-      hasTokenSource() && userId !== null
-        ? plannerCompletedTaskIds(queryClient, userId, startedAtMs)
-        : completedTaskIdsSince(subjectsListRef.current, startedAtMs),
-    ambientUsage: ambientUsage.snapshot,
-    ambientSoundPlays: ambientUsage.soundSeconds,
-    multiTimerUsage: multiTimerUsage.snapshot,
-    displayUsage: () => ({ ...displayUsage.snapshot(), ...displayContextRef.current }),
-    onEnded: cameraOn ? timelapse.finish : undefined,
-    onCameraLost: () => showCtaToast(t("cameraToast.cameraOff")),
-    source: cameraOn ? "MEASURED" : "TIMER",
+    forceTimer: timerFromUrl,
+    devDetector: searchParams.get("detector"),
+    notify: showCtaToast,
+    onResult: openResult,
   });
-  // 이어받은 세션은 같은 시작 시각이라 같은 타임랩스에 이어 찍는다.
+  // 거부 화면에서 카메라 없이 고른 기기는 다음 시작도 권한을 묻지 않게 저장한 방식을 바꾼다.
+  // 이어받은 카메라 세션은 주소에 timer가 남아 있어도 카메라로 열리므로 저장한 방식을 바꾸지 않는다.
   useEffect(() => {
-    if (cameraOn) timelapse.begin(startedAtMs);
-  }, [cameraOn, startedAtMs, timelapse]);
-  // 결과 화면은 이 문서에서 웹 라우터 이동으로 열려 같은 캐시를 쓴다. 그 화면이 그릴 내 마스코트 모습을 미리 받는다.
-  const prefetchMascotLook = useMascotLookPrefetch(queryClient, userId);
+    if (timerFromUrl && !cameraOn) writeMeasureMode("timer");
+  }, [timerFromUrl, cameraOn]);
+  // 저전력 모드에서 멈춘 카메라 프리뷰를 탭 제스처로 되살린다 — lib/videoPlayback.ts 주석 참고.
+  useGestureVideoPlaybackKick();
+  // iOS 회전 백지 방어 — 소셜룸 실기기에서 확인된 증상의 예방적 적용(같은 웹뷰 셸,
+  // 이 화면도 회전 대상). 사유는 lib/rotationRepaint.ts 주석.
+  useRotationRepaintNudge();
+  // 가로 거치 모드 사용 여부 — 회전은 클릭이 아니라 autocapture가 못 본다.
+  useSessionOrientationAnalytics("single");
   const ambient = useAmbientSound({
     sessionState,
     phase,
@@ -792,12 +718,6 @@ function RoomSessionScreen({
       setSimpleMode(false);
     }
   }
-  /**
-   * 카메라 전환이 진행 중인가 — **추론 정지 구간을 표시하는 값이지 화면 상태가 아니다.**
-   * 전환 중에는 기존 트랙이 멈추고 새 스트림이 `<video>`에 다시 붙는데, 그 사이의 프레임은
-   * 판정에 쓸 수 없다(설계 §3 "카메라 전환"). 전환 실패는 기존 `CameraFlipResult` 그대로다.
-   */
-  const [flippingCamera, setFlippingCamera] = useState(false);
   const rotationPhase = useRotationPhase();
   // 일반 모드의 내 카메라는 작은 창으로 시작하고 키우면 화면 전체를 채운다.
   // 키운 상태는 기억하지 않아서 심플 모드를 거치면 작은 창으로 돌아온다.
@@ -931,63 +851,6 @@ function RoomSessionScreen({
   }`;
 
   /**
-   * 추론 수명
-   *
-   * | 상황             | 카메라 | 추론 |
-   * | ---------------- | ------ | ---- |
-   * | 일시정지         | 유지   | 정지 |
-   * | 카메라 전환 중   | 재연결 | 정지 |
-   * | 세션 종료·제출   | 훅이 정리 | 정지 |
-   *
-   * 일시정지에서 스트림을 끄지 않는 이유는 셋이다 — Figma가 프리뷰를 그대로 보여주고,
-   * 배터리 주 소모원은 카메라 피드가 아니라 추론이며, 스트림을 끄면 재개 시 `getUserMedia`
-   * 재호출로 1~2초 공백이 생겨 그 구간이 측정되지 않는다.
-   *
-   * `start`/`stop`은 멱등이라 훅이 마운트 시 부르는 `detector.start()`와 겹쳐도 안전하다.
-   */
-  const detectionEnabled = phase.name === "studying" && !paused && !flippingCamera;
-  useEffect(() => {
-    if (detectionEnabled) {
-      detector.start();
-    } else {
-      detector.stop();
-    }
-  }, [detectionEnabled, detector]);
-
-  /**
-   * 세션 이탈 — 모델과 GPU 컨텍스트를 해제한다.
-   * `stop()`은 추론만 멈추고 모델을 들고 있으므로 이게 없으면 wasm 힙과 GPU 컨텍스트가 orphan이 된다
-   * (브라우저가 컨텍스트 개수를 제한한다).
-   * 로딩 중에 언마운트돼도 뒤늦게 도착한 detector를 닫는다(멱등).
-   */
-  useEffect(() => {
-    return () => {
-      visionDetector.close();
-    };
-  }, [visionDetector]);
-
-  /**
-   * 공부 결과로 이동
-   *
-   * 세션 단건 조회 API를 아직 쓰지 않으므로, 제출 응답을 라우터 state로 넘기는 것이 지금의 전달 수단이다.
-   *
-   * `replace: true`: 세션은 끝났다. 뒤로 가기로 이미 종료된 룸에 되돌아가면 타이머가 0부터
-   * 다시 도는 새 세션이 시작돼 사용자에게 거짓이 된다 — 히스토리에서 룸을 치운다.
-   */
-  const goToResult = useCallback(
-    (sessions: StudySessionResponse[]) => {
-      // 쿼리(`?userId=N`)를 함께 넘긴다 — 결과 화면의 `확인`이 홈으로 되돌릴 때 같은 식별자가 필요하고,
-      // 상대 이동은 검색 문자열을 자동으로 물려주지 않는다.
-      navigate(
-        { pathname: "result", search: searchParams.toString() },
-        // 결과 화면이 이 세션의 타임랩스를 기기 시작 시각으로 찾는다.
-        { state: { sessions, startedAtMs }, replace: true },
-      );
-    },
-    [navigate, searchParams, startedAtMs],
-  );
-
-  /**
    * 홈으로 이탈 — 미달 종료(순공 1분 미만)의 출구
    *
    * 네이티브 앱 안에서는 웹 라우터 이동만으로 부족하다. 이 화면이 WebView로 로드된
@@ -1001,36 +864,6 @@ function RoomSessionScreen({
     postToNative({ type: "navigate-home", atMs: Date.now() });
     navigate({ pathname: "/home", search: searchParams.toString() }, { replace: true });
   };
-
-  /**
-   * 순공 1분 미만으로 끝났는가
-   *
-   * 판정에 서버 응답(`phase.sessions`)이 아니라 클라이언트가 잰 `focusSec`을 쓴다.
-   * 자정을 넘는 세션은 서버가 날짜별로 쪼개서 내려주므로, 응답 한 건씩 보면 둘 다 순공이 짧은데
-   * 세션 전체로는 기준을 넘는 경우가 생긴다.
-   * 사용자가 한 번 공부한 것을 두 조각으로 판정하면 안 된다.
-   *
-   * `endAndSubmit`이 제출 전에 최종 집계를 `setTotals`로 반영하므로 이 값은 이미 확정값이다.
-   */
-  const endedWithoutFocus = focusSec < MIN_RECORDED_FOCUS_SEC;
-
-  /**
-   * `공부 종료` 경로
-   *
-   * - 자동 종료: 안내 화면을 먼저 보여주고 사용자가 `결과 보기`를 눌렀을 때 같은 `goToResult`를 탄다.
-   * - 순공 1분 미만: 미달 안내를 보여주고 홈으로 보낸다. 자동 종료와 수동 종료 양쪽 모두에 걸린다.
-   * 30초 공부하고 20분 방치해 자동 종료된 세션도 기록에 남지 않으므로 `여기까지 기록을 저장했어요`가 거짓이 된다.
-   */
-  useEffect(() => {
-    if (
-      phase.name === "done" &&
-      invite === null &&
-      !endedWithoutFocus &&
-      endReason?.kind !== "AUTO"
-    ) {
-      goToResult(phase.sessions);
-    }
-  }, [endReason, endedWithoutFocus, goToResult, invite, phase]);
 
   /**
    * 초대를 받은 채 끝난 세션의 이동
@@ -1047,34 +880,6 @@ function RoomSessionScreen({
       leaveSessionForInvite(invite);
     }
   }, [invite, phase]);
-
-  /**
-   * 전환 중에는 추론을 멈춘다(위 `detectionEnabled`). 전환이 끝나면 — 성공이든 실패든 —
-   * 다시 켠다. 실패했을 때 꺼 두면 "전환할 카메라가 없어요" 토스트 한 번에 세션이 통째로
-   * 측정 불가가 되는데, 어댑터는 실패 시 이전 카메라를 복원하므로 추론은 계속 가능하다.
-   * 복원까지 실패한 경우에만 카메라가 꺼지고, 그때는 훅이 실행 상태를 내려 화면이 따라간다.
-   *
-   * 새 스트림이 `<video>`에 붙어 첫 프레임을 그리기까지는 시간이 걸리지만, 그 구간은
-   * 감지기가 `readyState`를 보고 스스로 건너뛴다 — 여기서 기다릴 필요가 없다.
-   */
-  function handleFlipCamera() {
-    setFlippingCamera(true);
-    return flipCamera()
-      .then((result) => {
-        if (result.ok) {
-          showCtaToast(t("cameraToast.flipped"));
-          return;
-        }
-        showCtaToast(
-          result.reason === "camera-off"
-            ? t("cameraToast.cameraOff")
-            : t("cameraToast.noAlternative"),
-        );
-      })
-      .finally(() => {
-        setFlippingCamera(false);
-      });
-  }
 
   // 리액트 컴파일러는 선언보다 먼저 참조한 함수가 있으면 이 컴포넌트를 통째로 건너뛴다.
   // 그래서 불리는 함수를 부르는 함수보다 위에 둔다.
@@ -1382,7 +1187,7 @@ function RoomSessionScreen({
                 cameraOn
                   ? () => {
                       trackSessionMoreMenuItemSelected({ item: "flip_camera" });
-                      void handleFlipCamera();
+                      void flipCamera();
                     }
                   : undefined
               }
@@ -1750,7 +1555,7 @@ function RoomSessionScreen({
           studySec={studySec}
           onSeeResult={() => {
             trackSessionNoticeConfirmed({ notice: "auto_end", roomType: "single" });
-            goToResult(phase.sessions);
+            openResult(phase.sessions, startedAtMs);
           }}
         />
       ) : (
@@ -1843,19 +1648,6 @@ function RoomSessionScreen({
   );
 }
 
-/**
- * 타입 가드로 두는 이유는 `endReason.trigger` 접근이 좁혀진 타입에서만 안전하기 때문이다.
- *
- * `phase === "done"`을 요구하는 것이 핵심이다 — `submitting`(로딩)·`error`(재시도)·
- * `unsaved`(userId 없음)는 전부 "아직/영영 저장되지 않은" 상태이다.
- */
-function autoEndNoticeVisible(
-  phase: StudyRoomPhase,
-  endReason: SessionEndReason | null,
-): endReason is { kind: "AUTO"; trigger: AutoEndTrigger } {
-  return phase.name === "done" && endReason?.kind === "AUTO";
-}
-
 function toPillState(state: SessionState): SessionStatusPillState {
   switch (state.kind) {
     case "FOCUS":
@@ -1921,20 +1713,9 @@ export function RoomPage() {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const [candidate] = useState(() => parseInitialSubject(params.get("initialSubjectId")));
-  // 신원이 오기 전에 세션을 띄우면 아래 `key`가 null에서 실제 id로 바뀌며 통째로 다시 마운트된다.
-  // 마운트 1회 계측(`study_session_started`)이 두 번 나가고 세션 타이머도 처음부터 다시 선다.
-  // 브라우저 단독 모드에는 기다릴 출처가 없어 언제나 false, 네이티브는 3초 한도가 있어 갇히지 않는다.
-  const identityPending = useIdentityPending();
-  const userId = useUserId();
-  const { settled, restored, resume } = useActiveSessionRestore(userId);
-  const initialSubject = useInitialSubject(
-    identityPending ? null : userId,
-    candidate,
-    restored !== null,
-  );
+  const gate = useSessionGate(candidate);
   useEffect(() => {
-    if (!params.has("initialSubjectId") || identityPending || !settled || !initialSubject.settled)
-      return;
+    if (!params.has("initialSubjectId") || !gate.ready) return;
     setParams(
       (previous) => {
         const next = new URLSearchParams(previous);
@@ -1943,17 +1724,9 @@ export function RoomPage() {
       },
       { replace: true },
     );
-  }, [params, setParams, identityPending, settled, initialSubject.settled]);
+  }, [params, setParams, gate.ready]);
   // 복원 확인 중에도 초대를 받아 두도록 게이트 바깥에서 구독한다.
   const invite = useSessionInvite();
-  /**
-   * 확인 창에서 이어서 공부하기를 고른 복원값
-   *
-   * 복원값과 함께 들고 있어 사용자가 바뀌어 복원값이 달라지면 다시 묻는다.
-   */
-  const [resumedFor, setResumedFor] = useState<RestoredSession | null>(null);
-  const resumeAway = resume?.kind === "confirmed" || (restored !== null && resumedFor === restored);
-  const askAwayMin = resume?.kind === "ask" && !resumeAway ? resume.awayMin : null;
   const leaveToHome = () => {
     const search = new URLSearchParams(params);
     search.delete("initialSubjectId");
@@ -1961,8 +1734,7 @@ export function RoomPage() {
     navigate({ pathname: "/home", search: search.toString() }, { replace: true });
   };
   const endAndLeave = async () => {
-    // 확정이 실패해도 서버가 2시간 뒤 같은 시점으로 확정해서 홈으로 돌아간다.
-    await closeStaleSession(userId).catch(() => null);
+    await gate.endResumable();
     leaveToHome();
   };
 
@@ -1971,27 +1743,23 @@ export function RoomPage() {
     prefetchResultPage();
   }, []);
 
-  if (identityPending || !settled || !initialSubject.settled || askAwayMin !== null) {
+  if (!gate.ready || gate.askAwayMin !== null) {
     return (
       <main
         data-testid="room-restore-gate"
         className="theme-dark relative flex h-dvh flex-col bg-background"
         style={sessionSurfaceStyle}
       >
-        {!identityPending && settled && initialSubject.error && (
-          <InitialSubjectError onRetry={initialSubject.retry} onBack={leaveToHome} />
+        {gate.subjectError && (
+          <InitialSubjectError onRetry={gate.retrySubject} onBack={leaveToHome} />
         )}
-        {!identityPending && askAwayMin !== null && (
+        {gate.askAwayMin !== null && (
           <SessionResumeDialog
-            awayMin={askAwayMin}
+            awayMin={gate.askAwayMin}
             place="room"
             onResume={async () => {
               // 창을 연 채 2시간이 지나면 서버가 확정해서 이어받을 기록이 없어 끝내기와 같게 처리한다.
-              if (restored !== null && resumeDecision(restored, Date.now()) === "expired") {
-                await endAndLeave();
-                return;
-              }
-              setResumedFor(restored);
+              if (!gate.acceptResume()) await endAndLeave();
             }}
             onEnd={endAndLeave}
           />
@@ -2003,12 +1771,12 @@ export function RoomPage() {
   // 인스턴스를 유지하면 새 사용자가 앞 사용자의 세션을 그대로 이어받는다.
   return (
     <RoomSessionScreen
-      key={userId}
-      userId={userId}
-      restored={restored}
-      resumeAway={resumeAway}
+      key={gate.userId}
+      userId={gate.userId}
+      restored={gate.restored}
+      resumeAway={gate.resumeAway}
       invite={invite}
-      initialSubjectId={initialSubject.subjectId}
+      initialSubjectId={gate.initialSubjectId}
     />
   );
 }

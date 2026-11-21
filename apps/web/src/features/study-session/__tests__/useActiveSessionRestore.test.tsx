@@ -183,6 +183,45 @@ describe("useActiveSessionRestore", () => {
     expect(result.current).toEqual({ settled: true, restored: null });
   });
 
+  it("실패 여부를 물으면 다시 시도한 뒤에도 조회하지 못한 것을 알린다", async () => {
+    vi.useFakeTimers();
+    restoreActiveSession.mockRejectedValue(new Error("네트워크"));
+
+    const { result } = renderHook(() => useActiveSessionRestore(7, { reportFailure: true }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2_000);
+    });
+
+    expect(result.current).toEqual({ settled: true, restored: null, failed: true });
+  });
+
+  it("실패 여부를 물어도 404는 실패가 아니다", async () => {
+    restoreActiveSession.mockResolvedValue(null);
+
+    const { result } = renderHook(() => useActiveSessionRestore(7, { reportFailure: true }));
+
+    await waitFor(() => {
+      expect(result.current.settled).toBe(true);
+    });
+    expect(result.current.failed).toBe(false);
+  });
+
+  it.each([400, 409])(
+    "실패 여부를 물으면 다시 시도하지 않는 %i도 조회하지 못한 것으로 알린다",
+    async (status) => {
+      restoreActiveSession.mockRejectedValue(new ApiError("거절", status));
+
+      const { result } = renderHook(() => useActiveSessionRestore(7, { reportFailure: true }));
+
+      await waitFor(() => {
+        expect(result.current.settled).toBe(true);
+      });
+      expect(result.current).toEqual({ settled: true, restored: null, failed: true });
+      expect(restoreActiveSession).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it("400은 다시 시도하지 않고 결착하며 Sentry에 남긴다", async () => {
     restoreActiveSession.mockRejectedValue(new ApiError("검증 실패", 400));
 

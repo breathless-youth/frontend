@@ -16,6 +16,10 @@ import { queryClient } from "@/lib/queryClient";
 
 import { PcHomeContent } from "../PcHomeContent";
 
+vi.mock("../../session/PcStudySession", () => ({
+  PcStudySession: () => <p>공부 중</p>,
+}));
+
 const PHOTO = { bytes: new ArrayBuffer(1), width: 1, height: 1 };
 
 function props(): HomeV3ContentProps {
@@ -47,7 +51,13 @@ function renderHome() {
   render(
     <QueryClientProvider client={queryClient}>
       <div className="relative">
-        <PcHomeContent {...props()} dday={null} contactHref="/contact/chat" />
+        <PcHomeContent
+          {...props()}
+          dday={null}
+          contactHref="/contact/chat"
+          session={null}
+          onSessionEnd={vi.fn()}
+        />
       </div>
     </QueryClientProvider>,
   );
@@ -61,6 +71,25 @@ beforeEach(() => {
 });
 
 describe("PcHomeContent", () => {
+  it("공부 중에는 문의 버튼을 숨긴다", async () => {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <div className="relative">
+          <PcHomeContent
+            {...props()}
+            dday={null}
+            contactHref="/contact/chat"
+            session={{ key: 1, resume: false }}
+            onSessionEnd={vi.fn()}
+          />
+        </div>
+      </QueryClientProvider>,
+    );
+
+    expect(await screen.findByText("공부 중")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /문의/ })).not.toBeInTheDocument();
+  });
+
   it("공부시간 패널 안에 진행 띠·공부 카드·시작 버튼이 보인다", () => {
     renderHome();
 
@@ -81,12 +110,14 @@ describe("PcHomeContent", () => {
     expect(screen.queryByText(i18n.t("home:v3.contact.bubble"))).not.toBeInTheDocument();
   });
 
-  it("접으면 머리줄과 오늘 공부시간만 남는다", async () => {
+  it("접으면 머리줄에 오늘 공부시간과 집중률만 남는다", async () => {
     renderHome();
 
     await userEvent.click(screen.getByRole("button", { name: "공부시간 패널 접기" }));
 
-    expect(screen.getByRole("heading", { level: 2, name: "공부시간 4:18:32" })).toBeInTheDocument();
+    const header = within(screen.getByRole("group", { name: /방향키/ }));
+    expect(header.getByText("4:18:32")).toBeInTheDocument();
+    expect(header.getByText("86%")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: i18n.t("home:v3.startStudy") }),
     ).not.toBeInTheDocument();

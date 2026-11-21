@@ -2,12 +2,14 @@ import { useLayoutEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, matchPath, Outlet, useLocation } from "react-router-dom";
 
-import mascotStopwatch from "@/assets/mascot/stopwatch-upright.svg";
 import { plannerEntryOf } from "@/features/planner/useOpenPlanner";
 import { type PcTab, trackTabPressed } from "@/lib/amplitude";
 import { legacyQuery } from "@/lib/userId";
+import { cn } from "@/lib/utils";
 
 import { PcProfileMenu } from "./PcProfileMenu";
+import { useBlockPageZoom } from "./useBlockPageZoom";
+import { useNarrowPcWindow } from "./usePcShell";
 
 const TABS: readonly { tab: PcTab; to: string }[] = [
   { tab: "home", to: "/home" },
@@ -41,6 +43,8 @@ function currentTabOf(location: { pathname: string; search: string; state: unkno
  * 스크롤을 맡는 요소는 페이지가 바뀌어도 남아서 앞 화면의 위치가 다음 화면으로 넘어가므로, 경로가 바뀌면 뒤로 가기를 포함해 늘 맨 위로 올린다.
  * Soft Blue 테마를 상자까지 켜면 테마를 직접 달지 않은 약관 같은 페이지의 글자색이 바뀌므로, 페이지가 원래 모습을 유지하도록 상단 바에만 켠다.
  * 하단 탭 바는 앱만 그리고 여기서는 상단 바가 대신하므로 탭 바 몫으로 비워 두던 아래 여백을 줄인다.
+ * 창이 960px보다 좁으면 상자를 덮개로 가리고 안쪽은 지우지 않고 막기만 해서 공부 세션이 뒤에서 계속된다.
+ * 덮개는 상자 안 창들보다 위 층이라 공부 가이드와 종료 창도 함께 가린다.
  */
 export function PcShell() {
   const { t } = useTranslation("desktop");
@@ -48,6 +52,10 @@ export function PcShell() {
   const { pathname } = location;
   const scrollRef = useRef<HTMLDivElement>(null);
   const currentTab = currentTabOf(location);
+  const narrow = useNarrowPcWindow();
+  useBlockPageZoom();
+  // 홈은 월페이퍼가 상자를 꽉 채우는 한 장짜리 화면이라 상자 안에서 굴러가지 않게 막는다.
+  const fixedPage = pathname === "/home";
 
   useLayoutEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
@@ -57,12 +65,7 @@ export function PcShell() {
     <div className="flex h-dvh flex-col bg-background px-3.5 pb-3.5">
       {/* 상단 바만 글자 선택에서 뺀다. 페이지 상자는 약관처럼 고를 수 있어야 하는 화면도 그린다. */}
       <header className="session-no-drag theme-soft-blue flex h-14 shrink-0 items-center gap-6 px-2.5">
-        <div className="flex shrink-0 items-center gap-2">
-          <img src={mascotStopwatch} alt="" className="size-7" />
-          <span className="text-[15px] font-bold text-foreground">
-            {t("logo", { ns: "login" })}
-          </span>
-        </div>
+        <span className="shrink-0 text-[15px] font-bold text-foreground">{t("shell.brand")}</span>
         <nav aria-label={t("nav.label")} className="flex gap-1">
           {VISIBLE_TABS.map(({ tab, to }) => (
             <Link
@@ -85,9 +88,24 @@ export function PcShell() {
         </div>
       </header>
       <div className="relative min-h-0 flex-1 transform-gpu overflow-hidden rounded-xl border border-border bg-muted [--tab-bar-reserve:--spacing(2)]">
-        <div ref={scrollRef} className="h-full overflow-y-auto overscroll-contain">
+        <div
+          ref={scrollRef}
+          inert={narrow}
+          className={cn(
+            "h-full overscroll-contain",
+            fixedPage ? "overflow-hidden" : "overflow-y-auto",
+          )}
+        >
           <Outlet />
         </div>
+        {narrow && (
+          <p
+            role="status"
+            className="absolute inset-0 z-60 flex items-center justify-center bg-background px-6 text-center text-[17px] leading-6 font-bold text-foreground"
+          >
+            {t("shell.narrow")}
+          </p>
+        )}
       </div>
     </div>
   );

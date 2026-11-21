@@ -126,34 +126,38 @@ describe("useStudyRoomSession 자율 모드 앱 밖", () => {
 
     act(() => systemPause.leave());
     await advance(1);
-    expect(requests("PUT")).toHaveLength(1);
-    expect(requests("PUT")[0]!.init.keepalive).toBe(true);
+    // 첫 보고는 공부를 시작하자마자 나간다.
+    expect(requests("PUT")).toHaveLength(2);
+    expect(requests("PUT")[1]!.init.keepalive).toBe(true);
 
     await advance(90_000);
-    expect(requests("PUT")).toHaveLength(1);
+    expect(requests("PUT")).toHaveLength(2);
   });
 
   it("30초 보고가 끝나지 않았어도 나가는 보고를 keepalive로 바로 보낸다", async () => {
-    const finishFirst = holdFirstPut();
     const { systemPause } = setup();
-    await advance(30_000);
+    // 공부를 시작하자마자 나가는 첫 보고가 끝난 뒤부터 붙잡아야 30초 보고가 매달린다.
+    await advance(1);
     expect(requests("PUT")).toHaveLength(1);
+    const finishFirst = holdFirstPut();
+    await advance(30_000);
+    expect(requests("PUT")).toHaveLength(2);
 
     act(() => systemPause.leave());
     await advance(1);
     const puts = requests("PUT");
-    expect(puts).toHaveLength(2);
-    expect(puts[1]!.init.keepalive).toBe(true);
+    expect(puts).toHaveLength(3);
+    expect(puts[2]!.init.keepalive).toBe(true);
 
     finishFirst();
     await advance(90_000);
-    expect(requests("PUT")).toHaveLength(2);
+    expect(requests("PUT")).toHaveLength(3);
 
     act(() => systemPause.return());
     await advance(1);
-    expect(requests("PUT")).toHaveLength(3);
-    await advance(30_000);
     expect(requests("PUT")).toHaveLength(4);
+    await advance(30_000);
+    expect(requests("PUT")).toHaveLength(5);
   });
 
   it("숨김과 pagehide가 잇달아 와도 나가는 보고는 한 번이다", async () => {
@@ -191,10 +195,11 @@ describe("useStudyRoomSession 자율 모드 앱 밖", () => {
 
       act(() => systemPause.leave());
       await advance(1);
+      // 첫 보고는 공부를 시작하자마자 나간다.
       const puts = requests("PUT");
-      expect(puts).toHaveLength(1);
-      expect(puts[0]!.init.keepalive).toBe(true);
-      const body = puts[0]!.body as {
+      expect(puts).toHaveLength(2);
+      expect(puts[1]!.init.keepalive).toBe(true);
+      const body = puts[1]!.body as {
         startedAt: string;
         reportedAt: string;
         events: RestoredSession["events"];
@@ -212,14 +217,14 @@ describe("useStudyRoomSession 자율 모드 앱 밖", () => {
       expect(wasPausedAtReport(restored)).toBe(true);
 
       await advance(90_000);
-      expect(requests("PUT")).toHaveLength(1);
+      expect(requests("PUT")).toHaveLength(2);
 
       act(() => systemPause.return());
       await advance(1);
-      expect(requests("PUT")).toHaveLength(2);
-      expect(requests("PUT")[1]!.init.keepalive).toBe(false);
-      await advance(30_000);
       expect(requests("PUT")).toHaveLength(3);
+      expect(requests("PUT")[2]!.init.keepalive).toBe(false);
+      await advance(30_000);
+      expect(requests("PUT")).toHaveLength(4);
     },
   );
 
@@ -246,32 +251,36 @@ describe("useStudyRoomSession 자율 모드 앱 밖", () => {
     vi.setSystemTime(Date.now() + 30 * 60_000);
     act(() => systemPause.return());
     await advance(1);
+    // 첫 보고는 공부를 시작하자마자 나간다.
     const puts = requests("PUT");
-    expect(puts).toHaveLength(2);
-    expect(puts[1]!.init.keepalive).toBe(false);
+    expect(puts).toHaveLength(3);
+    expect(puts[2]!.init.keepalive).toBe(false);
 
     await advance(30_000);
-    expect(requests("PUT")).toHaveLength(3);
+    expect(requests("PUT")).toHaveLength(4);
   });
 
   it("나가는 보고가 끝나지 않았어도 돌아온 보고를 keepalive 없이 바로 보낸다", async () => {
-    const finishLeave = holdFirstPut();
     const { systemPause } = setup();
+    // 공부를 시작하자마자 나가는 첫 보고가 끝난 뒤부터 붙잡아야 나가는 보고가 매달린다.
+    await advance(1);
+    expect(requests("PUT")).toHaveLength(1);
+    const finishLeave = holdFirstPut();
     await advance(10_000);
     act(() => systemPause.leave());
     await advance(1);
-    expect(requests("PUT")).toHaveLength(1);
+    expect(requests("PUT")).toHaveLength(2);
 
     vi.setSystemTime(Date.now() + 30 * 60_000);
     act(() => systemPause.return());
     await advance(1);
     const puts = requests("PUT");
-    expect(puts).toHaveLength(2);
-    expect(puts[1]!.init.keepalive).toBe(false);
+    expect(puts).toHaveLength(3);
+    expect(puts[2]!.init.keepalive).toBe(false);
 
     finishLeave();
     await advance(30_000);
-    expect(requests("PUT")).toHaveLength(3);
+    expect(requests("PUT")).toHaveLength(4);
   });
 
   it("2시간이 넘어 돌아오면 나간 시각에서 2시간까지만 기록하고 AWAY_LIMIT으로 끝낸다", async () => {
@@ -324,5 +333,87 @@ describe("useStudyRoomSession 자율 모드 앱 밖", () => {
 
     const [submitted] = requests("POST");
     expect(submitted!.body).toMatchObject({ events: [], studySec: 60 + 7200 });
+  });
+});
+
+describe("useStudyRoomSession 관리 모드 화면 가려짐", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve([]) }),
+    );
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  it("가려져도 측정을 이어 가는 세션은 멈추지 않고 진행을 keepalive로 한 번 보고하며 2시간 상한도 걸지 않는다", async () => {
+    const { result, systemPause } = setup({ source: "MEASURED", keepMeasuringWhenHidden: true });
+    await advance(10_000);
+
+    act(() => systemPause.leave());
+    await advance(1);
+
+    expect(result.current.sessionState).toEqual({ kind: "FOCUS" });
+    const puts = requests("PUT");
+    expect(puts.filter(({ init }) => init.keepalive === true)).toHaveLength(1);
+    expect(puts.at(-1)!.init.keepalive).toBe(true);
+
+    vi.setSystemTime(Date.now() + AWAY_LIMIT_MS + 30 * 60_000);
+    act(() => systemPause.return());
+    await advance(0);
+
+    expect(requests("POST")).toHaveLength(0);
+    expect(result.current.phase).toEqual({ name: "studying" });
+    expect(result.current.sessionState).toEqual({ kind: "FOCUS" });
+  });
+
+  it("가려져도 측정을 이어 가는 세션은 숨김과 pagehide가 잇달아 와도 keepalive 보고가 한 번이다", async () => {
+    setup({
+      source: "MEASURED",
+      keepMeasuringWhenHidden: true,
+      systemPause: createSystemPauseSource(document),
+    });
+    await advance(10_000);
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    try {
+      act(() => {
+        document.dispatchEvent(new Event("visibilitychange"));
+        window.dispatchEvent(new Event("pagehide"));
+      });
+      await advance(1);
+
+      expect(requests("PUT").filter(({ init }) => init.keepalive === true)).toHaveLength(1);
+    } finally {
+      visibility.mockRestore();
+    }
+  });
+
+  it("가려져도 측정을 이어 가는 세션은 숨긴 동안에도 30초 보고를 이어 간다", async () => {
+    const { systemPause } = setup({ source: "MEASURED", keepMeasuringWhenHidden: true });
+    await advance(10_000);
+    act(() => systemPause.leave());
+    await advance(1);
+    const before = requests("PUT").length;
+
+    await advance(30_000);
+
+    expect(requests("PUT")).toHaveLength(before + 1);
+    expect(requests("PUT").at(-1)!.init.keepalive).not.toBe(true);
+  });
+
+  it("기본 관리 모드는 가려지면 BACKGROUND로 일시정지하고 나가는 보고를 보내지 않는다", async () => {
+    const { result, systemPause } = setup({ source: "MEASURED" });
+    await advance(10_000);
+
+    act(() => systemPause.leave());
+    await advance(1);
+
+    expect(result.current.sessionState).toEqual({ kind: "PAUSE", trigger: "BACKGROUND" });
+    expect(requests("PUT").filter(({ init }) => init.keepalive === true)).toHaveLength(0);
   });
 });

@@ -60,6 +60,17 @@ vi.mock("@/lib/hardNavigation", async (original) => ({
   ...(await original<typeof hardNavigation>()),
   hardNavigate: vi.fn(),
 }));
+vi.mock("@/desktop/session/PcStudySession", async () => {
+  const { useLocation } = await import("react-router-dom");
+  return {
+    PcStudySession: function PcStudySessionStub() {
+      return <p data-testid="pc-study-session">{useLocation().pathname}</p>;
+    },
+  };
+});
+vi.mock("@/features/study-session/closeStaleSession", () => ({
+  closeStaleSession: vi.fn(async () => null),
+}));
 const pcShell = vi.hoisted(() => ({ value: false }));
 vi.mock("@/desktop/usePcShell", () => ({ usePcShell: () => pcShell.value }));
 afterEach(() => {
@@ -346,6 +357,18 @@ describe("home v3 entry PC 분기", () => {
     expect(link).toHaveAttribute("href", "/contact/chat?appVersion=26.46.0&guestAuth=1");
     expect(link).toHaveAttribute("target", "_blank");
     expect(hardNavigate).not.toHaveBeenCalled();
+  });
+
+  it("PC에서 공부 시작을 누르면 경로를 바꾸지 않고 홈 위에 세션을 연다", async () => {
+    pcShell.value = true;
+    writeMeasureMode("timer");
+    setup({}, true, "/home?userId=7");
+
+    await userEvent.click(
+      await screen.findByRole("button", { name: i18n.t("home:v3.startStudy") }),
+    );
+
+    expect(await screen.findByTestId("pc-study-session")).toHaveTextContent("/home");
   });
 
   it("PC가 아니면 지금 홈을 그리고 공부시간 패널이 없다", async () => {

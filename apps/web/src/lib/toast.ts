@@ -16,11 +16,19 @@ const GLOBAL_TOAST_ID = "focusmakers-toast";
 
 let navigationHoldUntil = 0;
 
+/**
+ * 버튼 토스트가 남긴 옵션 지우기
+ *
+ * 같은 id로 다시 띄우면 Sonner가 이전 옵션에 새 옵션을 덮어 합쳐서, 넘기지 않은 버튼과 표시 시간과 모양이 그대로 남는다.
+ * 그래서 다른 전역 토스트는 이 값들을 비워서 넘긴다.
+ */
+const PLAIN_TOAST = { action: undefined, duration: undefined, classNames: undefined } as const;
+
 export function showToast(message: string, { persistOnNavigation = false } = {}) {
   // 인증 성공은 곧 홈이나 원래 목적지로 이동한다. 기존 5초 표시 동안만 경로 정리를 건너뛴다.
   navigationHoldUntil = persistOnNavigation ? Date.now() + 5000 : 0;
   // 같은 id로 갱신하면 Sonner가 이전 옵션에 덮어 합친다. 위치를 빼면 떠 있던 위쪽 토스트 자리를 물려받는다.
-  toast(message, { id: GLOBAL_TOAST_ID, position: "bottom-center" });
+  toast(message, { ...PLAIN_TOAST, id: GLOBAL_TOAST_ID, position: "bottom-center" });
 }
 
 /** Render the icon inside the message so subsequent string toasts replace it completely. */
@@ -33,14 +41,35 @@ export function showIconToast(message: string, icon: ReactNode) {
       icon,
       createElement("span", null, message),
     ),
-    { id: GLOBAL_TOAST_ID, position: "bottom-center" },
+    { ...PLAIN_TOAST, id: GLOBAL_TOAST_ID, position: "bottom-center" },
   );
+}
+
+/**
+ * 버튼 하나가 달린 토스트
+ *
+ * 버튼을 누를 시간을 주려고 보통 토스트보다 오래 띄운다.
+ * 다른 전역 토스트처럼 같은 id로 불러 새 토스트가 이전 것을 바꿔 쓴다.
+ */
+export function showActionToast(message: string, action: { label: string; onClick: () => void }) {
+  navigationHoldUntil = 0;
+  toast(message, {
+    id: GLOBAL_TOAST_ID,
+    position: "bottom-center",
+    duration: 10_000,
+    action,
+    classNames: {
+      toast: "flex! items-center gap-3",
+      actionButton:
+        "min-h-11 shrink-0 rounded-full px-3 font-semibold text-white underline underline-offset-2 focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none",
+    },
+  });
 }
 
 /** 세션 화면은 아래에 컨트롤 바가 떠 있어서, 위쪽 상태 필 바로 아래에 띄운다. */
 export function showTopToast(message: string) {
   navigationHoldUntil = 0;
-  toast(message, { id: GLOBAL_TOAST_ID, position: "top-center" });
+  toast(message, { ...PLAIN_TOAST, id: GLOBAL_TOAST_ID, position: "top-center" });
 }
 
 /** 전역 Toaster는 App.tsx에 상시 마운트라 화면이 바뀌어도 토스트가 그대로 남는다. 화면 전환 시점에 불러 지운다. */
@@ -82,6 +111,6 @@ export function showNotificationToast({
         dismissToast();
       },
     }),
-    { id: GLOBAL_TOAST_ID, position: "top-center" },
+    { ...PLAIN_TOAST, id: GLOBAL_TOAST_ID, position: "top-center" },
   );
 }

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -96,10 +96,10 @@ async function openProfileMenu() {
 }
 
 describe("PcShell 브랜드", () => {
-  it("한국어는 포커스 메이커스로 쓴다", () => {
+  it("한국어는 포커스메이커스로 붙여 쓴다", () => {
     renderShell();
 
-    expect(screen.getByText("포커스 메이커스")).toBeInTheDocument();
+    expect(screen.getByText("포커스메이커스")).toBeInTheDocument();
   });
 
   it("다른 언어는 FocusMakers로 쓴다", async () => {
@@ -189,6 +189,39 @@ describe("PcShell 탭", () => {
       from_tab: "social",
       via: "pc_top_bar",
     });
+  });
+
+  it("키보드 단축키와 핀치·Ctrl+휠로는 페이지를 확대·축소하지 않는다", () => {
+    renderShell();
+
+    for (const key of ["+", "=", "-", "0"]) {
+      expect(fireEvent.keyDown(window, { key, metaKey: true })).toBe(false);
+      expect(fireEvent.keyDown(window, { key, ctrlKey: true })).toBe(false);
+    }
+    // 트랙패드 핀치는 Chrome에서 ctrlKey가 켜진 휠로, Safari에서 gesturestart로 온다.
+    expect(fireEvent.wheel(window, { deltaY: 10, ctrlKey: true })).toBe(false);
+    expect(fireEvent(window, new Event("gesturestart", { cancelable: true }))).toBe(false);
+  });
+
+  it("확대·축소가 아닌 키와 보통 휠은 막지 않는다", () => {
+    renderShell();
+
+    expect(fireEvent.keyDown(window, { key: "+" })).toBe(true);
+    expect(fireEvent.keyDown(window, { key: "c", metaKey: true })).toBe(true);
+    expect(fireEvent.keyDown(window, { key: "-", metaKey: true, altKey: true })).toBe(true);
+    expect(fireEvent.wheel(window, { deltaY: 10 })).toBe(true);
+  });
+
+  it("홈에서는 페이지 상자가 스크롤되지 않는다", () => {
+    renderShell("/home");
+
+    expect(screen.getByTestId("where").parentElement).toHaveClass("overflow-hidden");
+  });
+
+  it("홈 밖의 화면에서는 페이지 상자가 스크롤된다", () => {
+    renderShell("/records");
+
+    expect(screen.getByTestId("where").parentElement).toHaveClass("overflow-y-auto");
   });
 
   it("다른 화면으로 옮기면 페이지 상자 스크롤을 맨 위로 올린다", async () => {
@@ -372,5 +405,57 @@ describe("PcShell 프로필 메뉴", () => {
     await userEvent.keyboard("{Escape}");
 
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+});
+
+/** 창 폭을 흉내 내는 matchMedia. 쿼리의 min-width를 rem으로 읽어 지금 폭과 비교한다. */
+function stubWidth(initialWidth: number) {
+  let width = initialWidth;
+  const listeners = new Set<() => void>();
+  vi.stubGlobal("matchMedia", (query: string) => {
+    const rem = /min-width:\s*([\d.]+)rem/.exec(query);
+    const min = rem ? Number(rem[1]) * 16 : Number.POSITIVE_INFINITY;
+    return {
+      media: query,
+      get matches() {
+        return width >= min;
+      },
+      addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
+      removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
+    };
+  });
+  return (next: number) => {
+    width = next;
+    act(() => {
+      for (const listener of listeners) listener();
+    });
+  };
+}
+
+describe("PcShell 좁은 창", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("960보다 좁으면 상자를 덮고 내용은 지우지 않은 채 막아 둔다", () => {
+    const resize = stubWidth(900);
+    renderShell("/home");
+    const page = screen.getByTestId("where");
+
+    expect(screen.getByRole("status")).toHaveTextContent(i18n.t("desktop:shell.narrow"));
+    expect(page.closest("[inert]")).not.toBeNull();
+
+    resize(1200);
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.getByTestId("where")).toBe(page);
+    expect(page.closest("[inert]")).toBeNull();
+  });
+
+  it("960 이상이면 덮개가 없다", () => {
+    stubWidth(960);
+    renderShell("/home");
+
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 });

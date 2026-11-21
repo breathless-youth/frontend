@@ -22,5 +22,35 @@
     "rail": "Home tools",
     "contact": "Contact us",
     "newWindow": "Opens in a new window"
+  },
+  "shell": {
+    "brand": "FocusMakers",
+    "narrow": "Please make the window a little wider"
+  },
+  "session": {
+    "cameraUnavailable": "Can't use the camera",
+    "startTimer": "Start in Self-guided Mode",
+    "pause": "Pause",
+    "resume": "Resume",
+    "exit": "End",
+    "showCamera": "Show camera",
+    "camera": {
+      "window": "Camera view. Use the arrow keys to move it, or hold Shift to move it farther",
+      "hide": "Hide",
+      "expand": "Enlarge",
+      "shrink": "Shrink"
+    },
+    "help": "Study guide",
+    "guide": {
+      "welcomeTitle": "Welcome to FocusMakers",
+      "welcomeBody": "Let's take a quick look at how it works.",
+      "focusTitle": "Your focus time counts up while you focus",
+      "focusBody": "If you seem to lose focus, your focus time pauses",
+      "cameraTitle": "Your camera view isn't sent anywhere",
+      "cameraBody": "You can drag it, hide it, or enlarge it",
+      "readyTitle": "You're all set. Ready to focus?",
+      "readyBody": "Open this guide again anytime with the ? button on the panel",
+      "continue": "Continue"
+    }
   }
 }

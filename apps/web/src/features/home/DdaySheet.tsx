@@ -13,6 +13,7 @@ import {
   ResponsiveSheetTitle,
 } from "@/components/ui/responsive-sheet";
 import { IconChevronDown } from "@/features/records/icons";
+import { usePcShell } from "@/desktop/usePcShell";
 import { trackDdayDeleted, trackDdaySaved } from "@/lib/amplitude";
 import { ApiError } from "@/lib/api";
 import { deleteDday, putDday } from "@/lib/ddayApi";
@@ -108,6 +109,8 @@ function DdayForm({
   onClose: () => void;
 }) {
   const { t } = useTranslation(["home", "common"]);
+  // PC 가운데 창은 창 자체 여백이 있어 서랍용 위쪽 여백을 더하면 머리줄이 떠 보인다.
+  const pc = usePcShell();
   const queryClient = useQueryClient();
   const titleId = useId();
   const titleCountId = useId();
@@ -185,7 +188,7 @@ function DdayForm({
     <form
       onSubmit={handleSubmit}
       noValidate
-      className={cn("flex flex-col", titleFocused ? "gap-4 pt-4" : "gap-5 pt-5")}
+      className={cn("flex flex-col", titleFocused ? "gap-4 pt-4" : "gap-5 pt-5", pc && "pt-0")}
     >
       <ResponsiveSheetHeader className="flex items-baseline justify-between">
         <ResponsiveSheetTitle className="text-[18px] leading-5.25 font-bold text-foreground">

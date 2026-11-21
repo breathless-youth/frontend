@@ -22,5 +22,35 @@
     "rail": "首頁工具",
     "contact": "聯絡我們",
     "newWindow": "在新視窗中開啟"
+  },
+  "shell": {
+    "brand": "FocusMakers",
+    "narrow": "請將視窗再拉寬一點"
+  },
+  "session": {
+    "cameraUnavailable": "無法使用相機",
+    "startTimer": "以自主模式開始",
+    "pause": "暫停",
+    "resume": "繼續",
+    "exit": "結束",
+    "showCamera": "顯示相機",
+    "camera": {
+      "window": "相機畫面。使用方向鍵移動，同時按住 Shift 可移動更遠",
+      "hide": "隱藏",
+      "expand": "放大",
+      "shrink": "縮小"
+    },
+    "help": "讀書說明",
+    "guide": {
+      "welcomeTitle": "歡迎來到 FocusMakers",
+      "welcomeBody": "一起來看看怎麼使用吧？",
+      "focusTitle": "專注時，專注時間會持續累計",
+      "focusBody": "看起來沒在專注時，專注時間會暫停",
+      "cameraTitle": "相機畫面不會傳送到任何地方",
+      "cameraBody": "可以拖曳移動、隱藏或放大",
+      "readyTitle": "準備好了，一起來專注吧！",
+      "readyBody": "隨時可以用面板上的 ? 按鈕再次查看說明",
+      "continue": "繼續"
+    }
   }
 }

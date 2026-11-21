@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLocation, useNavigate } from "react-router-dom";
 
+import { usePcSession } from "@/desktop/session/usePcSession";
 import { usePcShell } from "@/desktop/usePcShell";
 import { hasAppLockCapability } from "@/features/app-lock/appLockCapability";
 import { readAppLockEnabled } from "@/features/app-lock/appLockSettings";
@@ -81,14 +82,17 @@ export function HomeV3Entry({
 }) {
   const { t, i18n } = useTranslation(["home", "planner"]);
   const startFocus = useFocusStart(userId);
+  const pc = usePcShell();
+  const pcSession = usePcSession(userId, pc);
   const gateway =
     suppliedGateway ??
     createHomeV3Gateway(userId, async (subjectId) => {
+      // PC는 경로를 바꾸지 않고 홈 위에 세션을 연다.
+      if (pc) return pcSession.start(subjectId);
       const failure = await startFocus("home", subjectId === null ? undefined : { subjectId });
       if (failure) throw failure;
     });
   const day = useHomeDay();
-  const pc = usePcShell();
   const navigate = useNavigate();
   const location = useLocation();
   const openPlanner = useOpenPlanner("home");
@@ -318,6 +322,8 @@ export function HomeV3Entry({
               {...content}
               dday={hasTokenSource() ? <DdaySection userId={userId} layout="pc-rail" /> : null}
               contactHref={contactChatPath(location.search)}
+              session={pcSession.request}
+              onSessionEnd={pcSession.end}
             />
           </Suspense>
         </>
