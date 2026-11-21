@@ -1,10 +1,16 @@
+import "fake-indexeddb/auto";
+
 import type { ProfileResponse } from "@focusmakers/types";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { IDBFactory } from "fake-indexeddb";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { timerBackgroundPhotoStore } from "@/features/timer-background/timerBackgroundPhotos";
+import {
+  __resetTimerBackgroundPhotoStoreForTests,
+  timerBackgroundPhotoStore,
+} from "@/features/timer-background/timerBackgroundPhotos";
 import {
   trackSessionSpaceOpened,
   trackStudySessionEnded,
@@ -368,5 +374,34 @@ describe("RoomPage 공간", () => {
     await waitFor(() => expect(putTimerBackground).toHaveBeenLastCalledWith(43));
     expect(vi.mocked(putTimerBackground).mock.calls).toEqual([[41], [43]]);
     expect(JSON.parse(localStorage.getItem(KEY)!)).toMatchObject({ kind: "space", itemId: 43 });
+  });
+
+  it("회원이 고른 사진의 저장이 실패해도 그 사이 사진을 지워 심플로 돌렸으면 앞 공간으로 되돌리지 않는다", async () => {
+    signIn();
+    globalThis.indexedDB = new IDBFactory();
+    __resetTimerBackgroundPhotoStoreForTests();
+    await timerBackgroundPhotoStore().add({ bytes: new ArrayBuffer(1), width: 1, height: 1 }, 1);
+    let finishFirst!: () => void;
+    const saved = { selectedMascotCode: "BOOK", accessories: [], timerBackground: null };
+    vi.mocked(putTimerBackground)
+      .mockReturnValueOnce(new Promise((resolve) => (finishFirst = () => resolve(saved))))
+      .mockRejectedValueOnce(new Error("offline"));
+    renderRoom();
+    await userEvent.click(screen.getByRole("button", { name: "공간" }));
+
+    await userEvent.click(await screen.findByRole("button", { name: "독서실 감독관" }));
+    await waitFor(() => expect(putTimerBackground).toHaveBeenCalledWith(41));
+    await userEvent.click(screen.getByRole("tab", { name: "이미지" }));
+    await userEvent.click(await screen.findByRole("button", { name: "내 사진 1" }));
+    await userEvent.click(screen.getByRole("button", { name: "내 사진 1 삭제" }));
+    await waitFor(() => expect(localStorage.getItem(KEY)).toBe('{"kind":"simple"}'));
+    await act(async () => finishFirst());
+
+    await waitFor(() =>
+      expect(showCtaToast).toHaveBeenCalledWith("공간을 바꾸지 못했어요. 다시 시도해 주세요"),
+    );
+    expect(vi.mocked(putTimerBackground).mock.calls).toEqual([[41], [null]]);
+    expect(localStorage.getItem(KEY)).toBe('{"kind":"simple"}');
+    expect(screen.queryByTestId("watcher-background")).not.toBeInTheDocument();
   });
 });

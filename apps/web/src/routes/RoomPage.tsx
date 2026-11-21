@@ -673,7 +673,11 @@ function RoomSessionScreen({
       await saving;
       return true;
     } catch {
-      if (pick === pickSeqRef.current) {
+      // 그 사이 기기에서만 바꾼 선택이 있으면 그 선택이 더 새로워 되돌리지 않는다.
+      if (
+        pick === pickSeqRef.current &&
+        JSON.stringify(readTimerBackground()) === JSON.stringify(next)
+      ) {
         commitSpace(previous);
       }
       return false;
