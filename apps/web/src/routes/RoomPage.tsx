@@ -42,6 +42,7 @@ import type { ModeKind } from "@/features/multi-timer/multiTimerMachine";
 import { useMultiTimer } from "@/features/multi-timer/useMultiTimer";
 import type { MultiTimerControls } from "@/features/multi-timer/useMultiTimer";
 import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice";
+import { SessionResumeDialog } from "@/features/study-session/components/SessionResumeDialog";
 import { CameraPreviewSurface } from "@/features/study-session/components/CameraPreviewSurface";
 import { DevVisionFailureNotice } from "@/features/study-session/components/DevVisionFailureNotice";
 import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
@@ -323,11 +324,14 @@ function useRotationPhase(): RotationPhase {
 function RoomSessionScreen({
   userId,
   restored,
+  resumeAway,
   invite,
   initialSubjectId,
 }: {
   userId: number | null;
   restored: RestoredSession | null;
+  /** 이어서 공부하기로 고른 복원이라 공백을 공부 구간으로 연다. */
+  resumeAway: boolean;
   invite: string | null;
   initialSubjectId?: number;
 }) {
@@ -387,6 +391,7 @@ function RoomSessionScreen({
     userId,
     restored,
     invite,
+    resumeAway,
     initialSubjectId,
     forceTimer: timerFromUrl,
     devDetector: searchParams.get("detector"),
@@ -1722,13 +1727,23 @@ export function RoomPage() {
   }, [params, setParams, gate.ready]);
   // 복원 확인 중에도 초대를 받아 두도록 게이트 바깥에서 구독한다.
   const invite = useSessionInvite();
+  const leaveToHome = () => {
+    const search = new URLSearchParams(params);
+    search.delete("initialSubjectId");
+    postToNative({ type: "navigate-home", atMs: Date.now() });
+    navigate({ pathname: "/home", search: search.toString() }, { replace: true });
+  };
+  const endAndLeave = async () => {
+    await gate.endResumable();
+    leaveToHome();
+  };
 
   // 공부를 끝낼 때 네트워크가 끊겨도 결과 화면이 열리게 세션 중에 결과 청크를 받아 둔다.
   useEffect(() => {
     prefetchResultPage();
   }, []);
 
-  if (!gate.ready) {
+  if (!gate.ready || gate.askAwayMin !== null) {
     return (
       <main
         data-testid="room-restore-gate"
@@ -1736,14 +1751,17 @@ export function RoomPage() {
         style={sessionSurfaceStyle}
       >
         {gate.subjectError && (
-          <InitialSubjectError
-            onRetry={gate.retrySubject}
-            onBack={() => {
-              const search = new URLSearchParams(params);
-              search.delete("initialSubjectId");
-              postToNative({ type: "navigate-home", atMs: Date.now() });
-              navigate({ pathname: "/home", search: search.toString() }, { replace: true });
+          <InitialSubjectError onRetry={gate.retrySubject} onBack={leaveToHome} />
+        )}
+        {gate.askAwayMin !== null && (
+          <SessionResumeDialog
+            awayMin={gate.askAwayMin}
+            place="room"
+            onResume={async () => {
+              // 창을 연 채 2시간이 지나면 서버가 확정해서 이어받을 기록이 없어 끝내기와 같게 처리한다.
+              if (!gate.acceptResume()) await endAndLeave();
             }}
+            onEnd={endAndLeave}
           />
         )}
       </main>
@@ -1756,6 +1774,7 @@ export function RoomPage() {
       key={gate.userId}
       userId={gate.userId}
       restored={gate.restored}
+      resumeAway={gate.resumeAway}
       invite={invite}
       initialSubjectId={gate.initialSubjectId}
     />

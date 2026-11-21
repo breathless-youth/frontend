@@ -27,6 +27,8 @@ vi.mock("@/features/study-session/useSessionGate", () => ({
     initialSubjectId: undefined,
     subjectError: false,
     retrySubject: () => {},
+    resumeAway: false,
+    askAwayMin: null,
   }),
 }));
 vi.mock("@/features/study-session/useVisionReadyTracking", async () => {

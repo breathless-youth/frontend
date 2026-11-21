@@ -22,6 +22,7 @@ import type { HomeV3ContentProps } from "@/features/home-v3/homeV3ContentTypes";
 import type { CameraAdapter } from "@/features/study-session/adapters/cameraAdapter";
 import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice";
 import { NoFocusEndNotice } from "@/features/study-session/components/NoFocusEndNotice";
+import { SessionResumeDialog } from "@/features/study-session/components/SessionResumeDialog";
 import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
 import type { CameraView } from "@/features/study-session/displayUsage";
 import { exitConfirmDescription } from "@/features/study-session/formatDuration";
@@ -43,6 +44,8 @@ import {
   trackStudySessionExitRequested,
 } from "@/lib/amplitude";
 import { haptic } from "@/lib/haptics";
+import { queryClient } from "@/lib/queryClient";
+import { statsKeys } from "@/lib/statsQueries";
 import { showToast } from "@/lib/toast";
 
 import {
@@ -79,9 +82,17 @@ interface PcStudySessionProps {
  * 그 사이에는 홈 패널을 그대로 보여 시작 버튼이 눌린 모양으로 남는다.
  * 과목은 홈 목록에서 고른 값이라 다시 확인하지 않는다.
  * 가이드와 종료 안내 창이 상자를 기준으로 놓여 상자가 그려진 뒤에 세션을 만든다.
+ * 꺼진 자율 모드 기록은 휴대폰 세션 화면과 같은 확인 창을 상자 안에 띄우고, 끝내기를 고르면 경로를 바꾸지 않고 홈 상태로 돌아온다.
  */
 export function PcStudySession({ request, content, box, pending, onEnd }: PcStudySessionProps) {
   const gate = useSessionGate(request.subjectId, true);
+  const endResumable = async () => {
+    await gate.endResumable();
+    clearPcSessionMarker();
+    // 나간 시점으로 확정한 기록이 오늘 집계에 들어간다.
+    void queryClient.invalidateQueries({ queryKey: statsKeys.all });
+    onEnd();
+  };
   // 새로고침 뒤 이어 가려던 세션이 이미 확정돼 서버에 없으면 표시를 지우고 홈으로 둔다.
   // 조회가 실패했으면 기록이 남아 있을 수 있어 표시를 남긴 채 홈으로 두고, 다음 새로고침이 다시 이어 간다.
   const nothingToResume = request.resume && gate.ready && gate.restored === null;
@@ -92,12 +103,30 @@ export function PcStudySession({ request, content, box, pending, onEnd }: PcStud
     onEnd();
   }, [nothingToResume, restoreFailed, onEnd]);
   if (!gate.ready || nothingToResume || box === null) return pending;
+  if (gate.askAwayMin !== null) {
+    return (
+      <>
+        {pending}
+        <SessionResumeDialog
+          awayMin={gate.askAwayMin}
+          place="room"
+          container={box}
+          onResume={async () => {
+            // 창을 연 채 2시간이 지나면 서버가 확정해서 이어받을 기록이 없어 끝내기와 같게 처리한다.
+            if (!gate.acceptResume()) await endResumable();
+          }}
+          onEnd={endResumable}
+        />
+      </>
+    );
+  }
   // 사용자가 바뀌면 앞 사용자의 세션을 이어받지 않게 통째로 새로 만든다.
   return (
     <PcSessionScreen
       key={gate.userId}
       userId={gate.userId}
       restored={gate.restored}
+      resumeAway={gate.resumeAway}
       initialSubjectId={gate.initialSubjectId}
       camera={request.camera}
       content={content}
@@ -110,6 +139,7 @@ export function PcStudySession({ request, content, box, pending, onEnd }: PcStud
 interface PcSessionScreenProps {
   userId: number | null;
   restored: RestoredSession | null;
+  resumeAway: boolean;
   initialSubjectId: number | undefined;
   camera: CameraAdapter | undefined;
   content: HomeV3ContentProps;
@@ -133,6 +163,7 @@ interface PcSessionScreenProps {
 function PcSessionScreen({
   userId,
   restored,
+  resumeAway,
   initialSubjectId,
   camera,
   content,
@@ -171,6 +202,7 @@ function PcSessionScreen({
   } = useSoloSessionEngine({
     userId,
     restored,
+    resumeAway,
     initialSubjectId,
     camera,
     notify: showToast,

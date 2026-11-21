@@ -3,8 +3,12 @@ import { StrictMode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { StatusEventPayload } from "@focusmakers/types";
+
 import { ApiError } from "@/lib/api";
 
+import { consumeResumeMarker, writeResumeMarker } from "../sessionResume";
+import { AWAY_LIMIT_MS } from "../sessionTuning";
 import { useActiveSessionRestore } from "../useActiveSessionRestore";
 
 const restoreActiveSession = vi.hoisted(() => vi.fn());
@@ -12,6 +16,22 @@ const reportHandled = vi.hoisted(() => vi.fn());
 
 vi.mock("../restoreActiveSession", () => ({ restoreActiveSession }));
 vi.mock("@/lib/sentry", () => ({ reportHandled }));
+
+const closeStaleSession = vi.hoisted(() => vi.fn(async () => null));
+
+vi.mock("../closeStaleSession", () => ({ closeStaleSession }));
+
+function timerDraft(awayMs: number, events: StatusEventPayload[] = []) {
+  const reportedAtMs = Date.now() - awayMs;
+  return {
+    startedAtMs: reportedAtMs - 30 * 60_000,
+    reportedAtMs,
+    baseStudySec: 1800,
+    baseFocusSec: 1800,
+    events,
+    source: "TIMER" as const,
+  };
+}
 
 const RESTORED = {
   startedAtMs: Date.UTC(2026, 7, 28, 1, 0, 0),
@@ -25,9 +45,91 @@ describe("useActiveSessionRestore", () => {
   beforeEach(() => {
     restoreActiveSession.mockReset();
     reportHandled.mockReset();
+    closeStaleSession.mockClear();
+    localStorage.clear();
   });
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("2시간 안에 끊긴 자율 모드 기록이면 이어서 공부할지 묻는다", async () => {
+    restoreActiveSession.mockResolvedValue(timerDraft(32 * 60_000 + 5_000));
+
+    const { result } = renderHook(() => useActiveSessionRestore(7));
+
+    await waitFor(() => {
+      expect(result.current.settled).toBe(true);
+    });
+    expect(result.current.resume).toEqual({ kind: "ask", awayMin: 32 });
+    expect(closeStaleSession).not.toHaveBeenCalled();
+  });
+
+  it("홈에서 1분 안에 같은 기록을 이어 가기로 골랐으면 묻지 않고 표시를 비운다", async () => {
+    const draft = timerDraft(32 * 60_000);
+    restoreActiveSession.mockResolvedValue(draft);
+    writeResumeMarker(draft.startedAtMs);
+
+    const { result } = renderHook(() => useActiveSessionRestore(7));
+
+    await waitFor(() => {
+      expect(result.current.resume).toEqual({ kind: "confirmed" });
+    });
+    expect(consumeResumeMarker(draft.startedAtMs)).toBe(false);
+  });
+
+  it("일시정지 중에 끊긴 자율 모드 기록은 묻지 않는다", async () => {
+    const draft = timerDraft(10 * 60_000);
+    restoreActiveSession.mockResolvedValue({
+      ...draft,
+      events: [
+        {
+          status: "PAUSE",
+          startedAt: new Date(draft.reportedAtMs - 60_000).toISOString(),
+          endedAt: new Date(draft.reportedAtMs).toISOString(),
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useActiveSessionRestore(7));
+
+    await waitFor(() => {
+      expect(result.current.settled).toBe(true);
+    });
+    expect(result.current.resume).toBeUndefined();
+  });
+
+  it("관리 모드 기록은 묻지 않는다", async () => {
+    restoreActiveSession.mockResolvedValue({ ...timerDraft(10 * 60_000), source: "MEASURED" });
+
+    const { result } = renderHook(() => useActiveSessionRestore(7));
+
+    await waitFor(() => {
+      expect(result.current.settled).toBe(true);
+    });
+    expect(result.current.resume).toBeUndefined();
+  });
+
+  it("2시간이 넘은 자율 모드 기록은 나간 시점으로 확정한 뒤 복원값 없이 결착한다", async () => {
+    restoreActiveSession.mockResolvedValue(timerDraft(AWAY_LIMIT_MS + 60_000));
+    let release: () => void = () => {};
+    closeStaleSession.mockReturnValueOnce(
+      new Promise((resolve) => {
+        release = () => resolve(null);
+      }),
+    );
+
+    const { result } = renderHook(() => useActiveSessionRestore(7));
+
+    await waitFor(() => {
+      expect(closeStaleSession).toHaveBeenCalledWith(7);
+    });
+    expect(result.current.settled).toBe(false);
+    await act(async () => {
+      release();
+    });
+    await waitFor(() => {
+      expect(result.current).toEqual({ settled: true, restored: null });
+    });
   });
 
   it("userId가 없으면 조회 없이 즉시 결착한다", () => {

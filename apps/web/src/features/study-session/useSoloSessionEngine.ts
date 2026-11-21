@@ -23,7 +23,7 @@ import { createDisplayUsage } from "./displayUsage";
 import { MIN_RECORDED_FOCUS_SEC } from "./formatDuration";
 import { plannerCompletedTaskIds } from "./plannerCompletedTasks";
 import type { RestoredSession } from "./restoreActiveSession";
-import type { PauseTrigger, SessionEndReason } from "./sessionState";
+import type { AutoEndTrigger, SessionEndReason } from "./sessionState";
 import type { StudyRoomPhase } from "./useStudyRoomSession";
 import { useStudyRoomSession } from "./useStudyRoomSession";
 import { useTrackedVisionDetector } from "./useVisionReadyTracking";
@@ -31,6 +31,8 @@ import { useTrackedVisionDetector } from "./useVisionReadyTracking";
 export interface SoloSessionEngineOptions {
   readonly userId: number | null;
   readonly restored: RestoredSession | null;
+  /** 이어서 공부하기로 고른 복원이라 공백을 공부 구간으로 연다. */
+  readonly resumeAway?: boolean;
   readonly initialSubjectId?: number;
   /** 저장한 측정 방식과 상관없이 카메라 없이 여는 세션 */
   readonly forceTimer?: boolean;
@@ -135,6 +137,7 @@ export function useSoloSessionEngine(options: SoloSessionEngineOptions) {
     camera,
     detector,
     restored,
+    resumeAway: options.resumeAway,
     initialSubjectId: options.initialSubjectId,
     // 과목 목록은 쓰는 쪽이 들고 있어 제출 시점에 ref로 읽는다(옵션 주석 참고).
     getCompletedTaskIds: (startedAtMs) =>
@@ -290,6 +293,6 @@ export function useSoloSessionEngine(options: SoloSessionEngineOptions) {
 export function autoEndNoticeVisible(
   phase: StudyRoomPhase,
   endReason: SessionEndReason | null,
-): endReason is { kind: "AUTO"; trigger: PauseTrigger } {
+): endReason is { kind: "AUTO"; trigger: AutoEndTrigger } {
   return phase.name === "done" && endReason?.kind === "AUTO";
 }

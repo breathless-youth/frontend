@@ -34,6 +34,10 @@ vi.mock("@/features/study-session/useSessionGate", () => ({
     subjectError: false,
     retrySubject: () => {},
     restoreFailed: gate.restoreFailed,
+    resumeAway: false,
+    askAwayMin: null,
+    acceptResume: () => true,
+    endResumable: async () => {},
   }),
 }));
 vi.mock("@/features/study-session/useVisionReadyTracking", async () => {

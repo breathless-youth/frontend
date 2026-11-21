@@ -3,12 +3,22 @@ import { useEffect, useState } from "react";
 import { ApiError } from "@/lib/api";
 import { reportHandled } from "@/lib/sentry";
 
+import { closeStaleSession } from "./closeStaleSession";
 import type { RestoredSession } from "./restoreActiveSession";
 import { restoreActiveSession } from "./restoreActiveSession";
+import { awayMinutes, consumeResumeMarker, resumeDecision } from "./sessionResume";
 
 /** 일시 장애로 보고 다시 시도하는 횟수. 복원을 놓치면 사용자가 처음부터 다시 시작해야 한다. */
 const MAX_RETRY = 2;
 const RETRY_DELAY_MS = 1_000;
+
+/**
+ * 자율 모드 기록을 이어 공부할지
+ *
+ * ask면 진입 게이트가 묻고, confirmed면 홈에서 이미 골라 묻지 않는다.
+ */
+export type ResumePrompt =
+  { readonly kind: "ask"; readonly awayMin: number } | { readonly kind: "confirmed" };
 
 export interface ActiveSessionRestoreState {
   /** 조회가 끝났는가. false인 동안 룸 화면은 세션을 시작하지 않는다. */
@@ -17,6 +27,8 @@ export interface ActiveSessionRestoreState {
   restored: RestoredSession | null;
   /** 다시 시도해도 조회하지 못해 기록이 없는지 모르는 채 결착했는가. `reportFailure`로 부른 쪽만 받는다. */
   failed?: boolean;
+  /** 없으면 묻지 않고 지금처럼 일시정지로 이어받는다. */
+  resume?: ResumePrompt;
 }
 
 const NOT_SETTLED: ActiveSessionRestoreState = { settled: false, restored: null };
@@ -72,9 +84,31 @@ export function useActiveSessionRestore(
       for (let attempt = 0; attempt <= MAX_RETRY; attempt += 1) {
         try {
           const restored = await restoreActiveSession();
-          if (!cancelled) {
-            settle({ settled: true, restored });
+          if (cancelled) {
+            return;
           }
+          const nowMs = Date.now();
+          const decision = restored === null ? null : resumeDecision(restored, nowMs);
+          if (decision === "expired") {
+            // 서버 확정이 조금 늦은 기록이라 나간 시점으로 확정하고 새 세션으로 시작한다.
+            try {
+              await closeStaleSession(id);
+            } catch {
+              // 계정이 바뀌어 취소된 경우라 새 계정의 조회가 이어받는다.
+            }
+            if (!cancelled) {
+              settle(NOTHING_TO_RESTORE);
+            }
+            return;
+          }
+          let resume: ResumePrompt | undefined;
+          if (restored !== null && decision === "ask") {
+            // StrictMode의 앞선 실행은 위 취소 확인에서 멈춰서 표시는 한 번만 읽힌다.
+            resume = consumeResumeMarker(restored.startedAtMs, nowMs)
+              ? { kind: "confirmed" }
+              : { kind: "ask", awayMin: awayMinutes(restored.reportedAtMs, nowMs) };
+          }
+          settle({ settled: true, restored, resume });
           return;
         } catch (error: unknown) {
           if (cancelled) {
@@ -114,7 +148,8 @@ export function useActiveSessionRestore(
     return userId === null ? NOTHING_TO_RESTORE : NOT_SETTLED;
   }
   // 휴대폰 세션 화면은 실패해도 새 세션으로 시작해서 실패 여부를 받지 않는다.
+  const { settled, restored, resume } = state;
   return reportFailure
-    ? { settled: state.settled, restored: state.restored, failed: state.failed === true }
-    : { settled: state.settled, restored: state.restored };
+    ? { settled, restored, resume, failed: state.failed === true }
+    : { settled, restored, resume };
 }

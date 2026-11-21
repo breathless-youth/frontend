@@ -62,6 +62,19 @@ export function buildActiveSnapshotRequest(
  */
 const REPORT_TIMEOUT_MS = 20_000;
 
+/** 진행 보고 한 번의 옵션 */
+export interface ReportOptions {
+  /** 응답 없이 매달린 요청을 끊는 상한(ms) */
+  readonly timeoutMs?: number;
+  /**
+   * 페이지가 닫혀도 요청을 끝까지 보낼지
+   *
+   * 앱을 나가는 순간의 보고에만 건다.
+   * 브라우저가 keepalive 요청 본문 합계를 64KB로 제한해서 평소 보고에는 걸지 않는다.
+   */
+  readonly keepalive?: boolean;
+}
+
 /**
  * 진행 스냅샷을 서버에 보고한다. 웹뷰에서도 CORS가 열려 있어 직접 PUT을 보낸다
  * (`statsApi`·`roomApi`와 같은 방식). 응답이 204라 본문을 읽지 않는다.
@@ -70,7 +83,7 @@ const REPORT_TIMEOUT_MS = 20_000;
  */
 export async function reportActiveSession(
   input: ActiveSnapshotInput,
-  timeoutMs: number = REPORT_TIMEOUT_MS,
+  { timeoutMs = REPORT_TIMEOUT_MS, keepalive = false }: ReportOptions = {},
 ): Promise<void> {
   const controller = new AbortController();
   const timer = setTimeout(() => {
@@ -84,6 +97,7 @@ export async function reportActiveSession(
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(legacy === null ? request : { ...request, userId: legacy }),
+      keepalive,
       signal: controller.signal,
     });
     if (!res.ok) {
