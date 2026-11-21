@@ -29,14 +29,14 @@ import type { CameraView } from "@/features/study-session/displayUsage";
 import { exitConfirmDescription } from "@/features/study-session/formatDuration";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import { markSessionGuideSeen, sessionGuideState } from "@/features/study-session/sessionGuide";
-import { MANUAL_END_REASON } from "@/features/study-session/sessionState";
+import { type DistractionTrigger, MANUAL_END_REASON } from "@/features/study-session/sessionState";
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import { useSessionGate } from "@/features/study-session/useSessionGate";
 import {
   autoEndNoticeVisible,
   useSoloSessionEngine,
 } from "@/features/study-session/useSoloSessionEngine";
-import { useTimerBackground } from "@/features/timer-background/timerBackground";
+import { spaceTrack, useTimerBackground } from "@/features/timer-background/timerBackground";
 import {
   trackCameraPipExpanded,
   trackCameraPipShrunk,
@@ -65,6 +65,12 @@ import type { PcSessionRequest } from "./usePcSession";
 // 휴대폰 안내 부품은 화면 전체를 덮는 자리라, 창 안에서는 그 자리와 안전 영역 여백을 걷어 낸다.
 const NOTICE_IN_DIALOG = "relative inset-auto overflow-visible bg-transparent px-0 pt-0 pb-0";
 
+/** 월페이퍼 감독관이 볼 세션 상태. 비집중이 아니면 trigger가 null이다. */
+export interface PcWatchState {
+  trigger: DistractionTrigger | null;
+  studying: boolean;
+}
+
 interface PcStudySessionProps {
   request: PcSessionRequest;
   content: HomeV3ContentProps;
@@ -74,6 +80,8 @@ interface PcStudySessionProps {
   pending: ReactNode;
   /** 세션을 닫고 홈 상태로 돌아간다. */
   onEnd: () => void;
+  /** 감시 상태가 바뀔 때와 세션이 닫힐 때(null) 부른다. */
+  onWatchChange: (state: PcWatchState | null) => void;
 }
 
 /**
@@ -85,7 +93,14 @@ interface PcStudySessionProps {
  * 가이드와 종료 안내 창이 상자를 기준으로 놓여 상자가 그려진 뒤에 세션을 만든다.
  * 꺼진 자율 모드 기록은 휴대폰 세션 화면과 같은 확인 창을 상자 안에 띄우고, 끝내기를 고르면 경로를 바꾸지 않고 홈 상태로 돌아온다.
  */
-export function PcStudySession({ request, content, box, pending, onEnd }: PcStudySessionProps) {
+export function PcStudySession({
+  request,
+  content,
+  box,
+  pending,
+  onEnd,
+  onWatchChange,
+}: PcStudySessionProps) {
   const gate = useSessionGate(request.subjectId, true);
   const endResumable = async () => {
     await gate.endResumable();
@@ -133,6 +148,7 @@ export function PcStudySession({ request, content, box, pending, onEnd }: PcStud
       content={content}
       box={box}
       onEnd={onEnd}
+      onWatchChange={onWatchChange}
     />
   );
 }
@@ -146,6 +162,7 @@ interface PcSessionScreenProps {
   content: HomeV3ContentProps;
   box: HTMLElement;
   onEnd: () => void;
+  onWatchChange: (state: PcWatchState | null) => void;
 }
 
 /**
@@ -171,6 +188,7 @@ function PcSessionScreen({
   content,
   box,
   onEnd,
+  onWatchChange,
 }: PcSessionScreenProps) {
   const { t } = useTranslation(["study-session", "desktop", "common"]);
   const navigate = useNavigate();
@@ -214,6 +232,12 @@ function PcSessionScreen({
   const openResult = (sessions: StudySessionResponse[]) => goToResult(sessions, startedAtMs);
   const studying = phase.name === "studying";
   const paused = sessionState.kind === "PAUSE";
+  // 월페이퍼는 홈에 있어 감독관이 볼 상태를 홈에 알리고, 세션이 닫히면 거둔다.
+  const watchTrigger = sessionState.kind === "DISTRACTION" ? sessionState.trigger : null;
+  useEffect(() => {
+    onWatchChange({ trigger: watchTrigger, studying });
+  }, [watchTrigger, studying, onWatchChange]);
+  useEffect(() => () => onWatchChange(null), [onWatchChange]);
   const tone: StudyTone | undefined = !studying
     ? undefined
     : paused
@@ -239,7 +263,12 @@ function PcSessionScreen({
   }, [cameraView, displayUsage]);
   const space = useTimerBackground();
   useLayoutEffect(() => {
-    displayContextRef.current = { spaceKind: space.kind, faceMask: false };
+    const spaceInfo = spaceTrack(space);
+    displayContextRef.current = {
+      spaceKind: spaceInfo.kind,
+      ...(spaceInfo.item && { spaceItem: spaceInfo.item }),
+      faceMask: false,
+    };
   });
   const [exitOpen, setExitOpen] = useState(false);
   const [dialogLayer, setDialogLayer] = useState<HTMLDivElement | null>(null);

@@ -42,6 +42,11 @@ vi.mock("@/lib/pointsApi", async (importOriginal) => ({
   getDecorations: vi.fn(),
 }));
 vi.mock("@/lib/profileApi", () => ({ getProfile: vi.fn() }));
+// 세션 화면이 공간을 맞추려고 따로 묻는 프로필·꾸미기 조회가 마스코트 조회 횟수에 섞이지 않게 한다.
+vi.mock("@/features/timer-background/spaceCatalogQuery", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  fetchAppliedSpace: vi.fn(async () => undefined),
+}));
 // 결과 화면의 카드들은 연출이 끝난 뒤에 떠서 이 경로의 관심사가 아니다.
 vi.mock("@/lib/statsApi", () => ({
   listStudySessionStats: () => new Promise(() => undefined),
@@ -265,7 +270,7 @@ describe("싱글룸 세션 → 결과 화면 마스코트", () => {
     expect(getDecorations).not.toHaveBeenCalled();
   });
 
-  it("포인트가 꺼진 앱은 세션 중에 프로필도 모습도 받지 않는다", async () => {
+  it("포인트가 꺼진 앱은 세션 중에 마스코트 모습을 미리 받지 않는다", async () => {
     setPointsFlag(false);
     renderRoomThenResult();
 

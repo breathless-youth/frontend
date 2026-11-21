@@ -135,10 +135,12 @@ export function useSoloSessionEngine(options: SoloSessionEngineOptions) {
   // 화면 표시 모드별 머문 시간. 세션은 심플 모드로 시작한다.
   const [displayUsage] = useState(() => createDisplayUsage(Date.now));
   // 종료 이벤트에 실을 공간과 얼굴 가림. 둘 다 쓰는 쪽에서 정해져 커밋마다 최신 값으로 덮는다.
-  const displayContextRef = useRef<Pick<SessionDisplayEnd, "spaceKind" | "faceMask">>({
-    spaceKind: "simple",
-    faceMask: false,
-  });
+  const displayContextRef = useRef<Pick<SessionDisplayEnd, "spaceKind" | "spaceItem" | "faceMask">>(
+    {
+      spaceKind: "simple",
+      faceMask: false,
+    },
+  );
   const session = useStudyRoomSession(userId, {
     camera,
     detector,

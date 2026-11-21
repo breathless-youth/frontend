@@ -25,14 +25,16 @@ import { showCtaToast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 import { prepareBackgroundPhoto } from "../prepareBackgroundPhoto";
-import { filterSpaces, spaceKey, type SpaceItem } from "../spaceCatalog";
+import { imageSections, spaceKey, type SpaceItem, videoSections } from "../spaceCatalog";
+import { type CatalogSpace, spaceCatalogQuery } from "../spaceCatalogQuery";
+import { spaceTileUrl } from "../spaceFiles";
+import { ImageSpace, LoopVideoSpace } from "../SpaceLayers";
 import { TimerBackgroundLayer } from "../TimerBackgroundLayer";
 import {
   MAX_BACKGROUND_PHOTOS,
-  PROCTOR_BACKGROUND,
-  PROCTOR_TILE_URL,
   SIMPLE_BACKGROUND,
   SIMPLE_BACKGROUND_COLOR,
+  spaceTrack,
   type TimerBackgroundSelection,
 } from "../timerBackground";
 import { PhotoLimitError, timerBackgroundPhotoStore } from "../timerBackgroundPhotos";
@@ -43,10 +45,8 @@ import {
   type BackgroundPhotoTile,
   type BackgroundPhotoView,
 } from "../timerBackgroundQueries";
-import { VIDEO_SPACES_OPEN } from "../videoSpaces";
 import { WallpaperScrim } from "../WallpaperScrim";
 import { WatcherDemo } from "../watcher/WatcherBackground";
-import { clearWatcherAssets, saveWatcherAssets, watcherAssetUrls } from "../watcher/watcherAssets";
 
 export interface SessionSpacePageProps {
   open: boolean;
@@ -55,10 +55,16 @@ export interface SessionSpacePageProps {
   container: HTMLElement | null;
   returnFocus: () => HTMLElement | null;
   landscape: boolean;
+  /** 공간 목록을 읽을 사용자. 없으면 서버 공간 없이 내 사진과 심플만 보인다. */
+  userId: number | null;
   /** 지금 적용된 공간. 지운 사진을 가리키면 호출부가 심플로 넘긴다. */
   applied: TimerBackgroundSelection;
-  /** 저장하고 화면에 반영한다. 저장소가 막히면 false이고 이 페이지가 실패를 알린다. */
-  onApply: (next: TimerBackgroundSelection) => boolean;
+  /**
+   * 화면과 기기 값을 바로 바꾸고 회원이면 서버에도 저장한다.
+   * 저장소가 막히거나 서버 저장이 실패하면 false이고 이 페이지가 실패를 알린다.
+   * localOnly면 서버에 보내지 않는다.
+   */
+  onApply: (next: TimerBackgroundSelection, options?: { localOnly?: boolean }) => Promise<boolean>;
   /** 공간 소리 음량 0~100. 0이면 꺼짐이다. */
   volume: number;
   onVolumeChange: (volume: number) => void;
@@ -69,6 +75,7 @@ export interface SessionSpacePageProps {
 export interface SpaceContentProps extends Pick<
   SessionSpacePageProps,
   | "landscape"
+  | "userId"
   | "applied"
   | "onApply"
   | "volume"
@@ -76,22 +83,16 @@ export interface SpaceContentProps extends Pick<
   | "onVolumeCommit"
   | "onToggleMute"
 > {
-  /**
-   * 영상 공간이 닫혀 있으면 탭 줄과 검색창 없이 목록만 보인다.
-   * 공간이 넷뿐인 PC 플라이아웃에서만 켜고, 모바일 시트는 다가올 영상 공간 안내를 위해 탭 줄을 남긴다.
-   */
-  listOnly?: boolean;
   /** 적용 이벤트에 실을 화면 */
   surface: SpaceSurface;
 }
-
-type ChipCategory = "all" | "watch";
 
 /**
  * 세션 공간 페이지
  *
  * 배경음 페이지처럼 세션 위 오른쪽 페이지로 열어 카메라와 측정을 멈추지 않는다.
  * 타일을 누르면 미리보기 없이 바로 적용한다.
+ * 공간 목록은 서버 상품 목록에서 가진 공간만 읽는다.
  */
 export function SessionSpacePage(props: SessionSpacePageProps) {
   const { t } = useTranslation("study-session");
@@ -116,6 +117,7 @@ export function SessionSpacePage(props: SessionSpacePageProps) {
  * 세션 공간 페이지와 PC 홈 플라이아웃이 같은 목록과 적용 동작을 쓴다.
  */
 export function SpaceContent({
+  userId,
   landscape,
   applied,
   onApply,
@@ -123,16 +125,33 @@ export function SpaceContent({
   onVolumeChange,
   onVolumeCommit,
   onToggleMute,
-  listOnly = false,
   surface,
 }: SpaceContentProps) {
   const { t } = useTranslation(["study-session", "profile"]);
-  const bare = listOnly && !VIDEO_SPACES_OPEN;
-  const [tab, setTab] = useState<SpaceTab>(VIDEO_SPACES_OPEN ? "video" : "image");
-  const [category, setCategory] = useState<ChipCategory>("all");
+  const [tab, setTab] = useState<SpaceTab>("video");
+  const [chip, setChip] = useState("all");
   const [text, setText] = useState("");
   const [photos, setPhotos] = useState<BackgroundPhotoTile[] | null>(null);
+  const [spaces, setSpaces] = useState<readonly CatalogSpace[] | null>(null);
   const [previewing, setPreviewing] = useState<SpaceItem | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loading: Promise<readonly CatalogSpace[]> =
+      userId === null ? Promise.resolve([]) : queryClient.fetchQuery(spaceCatalogQuery(userId));
+    // 목록을 받지 못하면 서버 공간 없이 내 사진과 심플만 보인다.
+    loading.then(
+      (list) => {
+        if (!cancelled) setSpaces(list);
+      },
+      () => {
+        if (!cancelled) setSpaces([]);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -196,14 +215,16 @@ export function SpaceContent({
     const wasSelected = applied.kind === "photo" && applied.photoId === id;
     // 지운 사진을 가리킨 채 두면 다음 세션도 빈 배경이라 지우기 전에 심플로 돌린다.
     // 심플을 저장하지 못하면 지운 사진이 적용된 채 남아 지우지 않는다.
-    // 사용자가 고른 적용이 아니라 적용 이벤트는 보내지 않는다.
-    if (wasSelected && !onApply(SIMPLE_BACKGROUND)) {
+    // 사용자가 고른 적용이 아니라 서버에는 보내지 않고 적용 이벤트도 보내지 않는다.
+    if (wasSelected && !(await onApply(SIMPLE_BACKGROUND, { localOnly: true }))) {
       showCtaToast(t("space.removeFailed"));
       return;
     }
     try {
       await timerBackgroundPhotoStore().remove(id);
     } catch {
+      // 사진이 남았으니 심플로 돌린 선택도 그 사진으로 되돌린다.
+      if (wasSelected) await onApply(applied, { localOnly: true });
       showCtaToast(t("space.removeFailed"));
       return;
     }
@@ -222,62 +243,49 @@ export function SpaceContent({
   }
 
   const thumbs = new Map((photos ?? []).map((photo) => [photo.id, photo.thumb]));
-  const items: SpaceItem[] = [
-    ...(VIDEO_SPACES_OPEN
-      ? [
-          {
-            selection: PROCTOR_BACKGROUND,
-            name: t("space.names.proctor"),
-            tab: "video",
-            category: "watch",
-          } satisfies SpaceItem,
-        ]
-      : []),
-    ...(photos ?? []).map((photo, index): SpaceItem => ({
-      selection: { kind: "photo", photoId: photo.id },
-      name: t("space.names.photo", { number: index + 1 }),
-      tab: "image",
-      category: "mine",
-    })),
-    {
-      selection: SIMPLE_BACKGROUND,
-      name: t("space.names.simple"),
-      tab: "image",
-      category: "simple",
-    },
-  ];
-  const visible = filterSpaces(items, {
-    tab,
-    category: tab === "video" ? category : "all",
-    text,
-  });
+  const query = text.trim().toLocaleLowerCase();
+  // 검색은 화면에 보이는 이름에만 건다.
+  const matches = (item: SpaceItem) => item.name.toLocaleLowerCase().includes(query);
+  const photoItems = (photos ?? []).map((photo, index): SpaceItem => ({
+    selection: { kind: "photo", photoId: photo.id },
+    name: t("space.names.photo", { number: index + 1 }),
+  }));
+  const simpleItem: SpaceItem = { selection: SIMPLE_BACKGROUND, name: t("space.names.simple") };
+  const serverSections =
+    tab === "video"
+      ? videoSections(spaces ?? [], t("space.sections.watch"))
+      : imageSections(spaces ?? []);
+  const chips = serverSections.flatMap((section) =>
+    section.title === null ? [] : [{ code: section.code, title: section.title }],
+  );
+  // 고른 칩이 이 탭에 없으면 전체로 본다.
+  const activeChip = chips.some((each) => each.code === chip) ? chip : "all";
+  const visibleSections = serverSections
+    .filter((section) => activeChip === "all" || section.code === activeChip)
+    .map((section) => ({ ...section, items: section.spaces.filter(matches) }))
+    .filter((section) => section.items.length > 0);
+  const mine = photoItems.filter(matches);
+  const simpleVisible = matches(simpleItem);
+  const nothing =
+    tab === "video"
+      ? spaces !== null && visibleSections.length === 0
+      : visibleSections.length === 0 && mine.length === 0 && !simpleVisible;
   const appliedKey = spaceKey(applied);
 
-  function apply(item: SpaceItem, source: "tile" | "preview"): boolean {
-    const { selection } = item;
-    if (!onApply(selection)) {
+  async function apply(item: SpaceItem, source: "tile" | "preview") {
+    // 저장을 기다리는 동안 탭이나 칩을 바꿔도 누른 순간의 값으로 보낸다.
+    const at = { tab, category: activeChip };
+    if (!(await onApply(item.selection))) {
       showCtaToast(t("space.applyFailed"));
-      return false;
+      return;
     }
-    // 감독관 소재를 기기에 받아 두면 첫 등장이 늦지 않다. 받지 않아도 네트워크로 재생돼 기다리지 않는다.
-    if (selection.kind === "proctor") {
-      void saveWatcherAssets(watcherAssetUrls({ width: innerWidth, height: innerHeight }));
-    } else {
-      void clearWatcherAssets();
-    }
-    trackTimerBackgroundApplied({
-      kind: selection.kind,
-      source,
-      tab: item.tab,
-      category: item.category,
-      surface,
-    });
-    return true;
+    // 회원은 서버 저장이 끝난 뒤, 비회원은 기기에 저장한 뒤 보낸다.
+    trackTimerBackgroundApplied({ ...spaceTrack(item.selection), source, ...at, surface });
   }
 
   function tileContent(selection: TimerBackgroundSelection): ReactNode {
-    if (selection.kind === "proctor") {
-      return <img src={PROCTOR_TILE_URL} alt="" className="size-full object-cover" />;
+    if (selection.kind === "space") {
+      return <img src={spaceTileUrl(selection)} alt="" className="size-full object-cover" />;
     }
     if (selection.kind === "photo") {
       return (
@@ -305,7 +313,7 @@ export function SpaceContent({
             aria-label={item.name}
             aria-pressed={selected}
             onClick={() => {
-              if (!selected) apply(item, "tile");
+              if (!selected) void apply(item, "tile");
             }}
             className={cn(
               "absolute inset-0 overflow-hidden rounded-lg focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none",
@@ -328,7 +336,7 @@ export function SpaceContent({
           <OverlayButton
             label={t("space.preview", { name: item.name })}
             onClick={() => {
-              trackSessionSpacePreviewOpened({ kind: selection.kind });
+              trackSessionSpacePreviewOpened(spaceTrack(selection));
               setPreviewing(item);
             }}
             className="right-0 bottom-0"
@@ -352,19 +360,22 @@ export function SpaceContent({
   }
 
   function section(
-    title: string,
+    key: string,
+    title: string | null,
     list: readonly SpaceItem[],
     trailing?: ReactNode,
     extra?: ReactNode,
   ) {
     return (
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-[15px] leading-5.5 font-bold text-(--session-dialog-title)">
-            {title}
-          </h3>
-          {trailing}
-        </div>
+      <section key={key} className="flex flex-col gap-3">
+        {title !== null && (
+          <div className="flex items-center justify-between">
+            <h3 className="text-[15px] leading-5.5 font-bold text-(--session-dialog-title)">
+              {title}
+            </h3>
+            {trailing}
+          </div>
+        )}
         <ul className="grid grid-cols-2 gap-3 landscape-compact:grid-cols-4">
           {list.map(tile)}
           {extra}
@@ -373,26 +384,48 @@ export function SpaceContent({
     );
   }
 
-  const of = (category: SpaceItem["category"]) =>
-    visible.filter((item) => item.category === category);
-  const empty = visible.length === 0 && (
+  const chipRow = chips.length > 0 && (
+    <div className="flex shrink-0 gap-2 overflow-x-auto">
+      {[{ code: "all", title: t("space.all") }, ...chips].map(({ code, title }) => (
+        <button
+          key={code}
+          type="button"
+          aria-pressed={activeChip === code}
+          onClick={() => setChip(code)}
+          className="group flex min-h-11 shrink-0 items-center focus-visible:outline-none"
+        >
+          <span
+            className={cn(
+              "rounded-full border px-3.5 py-1.5 text-[13px] leading-4.5 font-medium group-focus-visible:ring-2 group-focus-visible:ring-(--state-focus)",
+              activeChip === code
+                ? "border-(--session-space-selected) bg-(--session-space-selected) text-(--session-space-on-selected)"
+                : "border-(--session-space-chip-line) text-(--session-dialog-title)",
+            )}
+          >
+            {title}
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+  const serverList = visibleSections.map((each) => section(each.code, each.title, each.items));
+  const empty = nothing && (
     <p className="py-10 text-center text-[14px] leading-5 text-(--session-dialog-body)">
       {t("space.empty")}
     </p>
   );
 
-  const appliedIndex =
-    applied.kind === "photo" ? (photos ?? []).findIndex((p) => p.id === applied.photoId) : -1;
-  const appliedName = {
-    proctor: t("space.names.proctor"),
-    photo:
-      appliedIndex >= 0
-        ? t("space.names.photo", { number: appliedIndex + 1 })
-        : t("space.sections.mine"),
-    simple: t("space.names.simple"),
-  }[applied.kind];
-  // 소리는 감독관만 내고, 이미지 탭에서는 영상 공간의 소리를 만지지 않게 막는다.
-  const soundEnabled = tab === "video" && applied.kind === "proctor";
+  function appliedName(): string {
+    if (applied.kind === "simple") return t("space.names.simple");
+    if (applied.kind === "photo") {
+      const index = (photos ?? []).findIndex((photo) => photo.id === applied.photoId);
+      return index >= 0 ? t("space.names.photo", { number: index + 1 }) : t("space.sections.mine");
+    }
+    // 목록에 없는 공간(판매를 멈췄거나 목록을 받지 못함)은 이름을 몰라 비워 둔다.
+    return spaces?.find((space) => space.selection.itemId === applied.itemId)?.name ?? "";
+  }
+  // 소리는 감시 공간만 내고, 이미지 탭에서는 영상 공간의 소리를 만지지 않게 막는다.
+  const soundEnabled = tab === "video" && applied.kind === "space" && applied.videoMode === "WATCH";
   const muted = volume === 0;
   const commit = (event: { currentTarget: HTMLInputElement }) =>
     onVolumeCommit(Number(event.currentTarget.value));
@@ -404,46 +437,40 @@ export function SpaceContent({
         landscape
           ? "flex-1"
           : // 아래 안전 영역은 푸터 틀이 이미 더한다.
-            // 소리 줄이 없으면 공간 이름이 바닥에 붙어 위와 같은 여백을 아래에도 둔다.
-            cn(
-              "border-t border-(--session-sheet-line) px-6 pt-3.5",
-              !VIDEO_SPACES_OPEN && "pb-3.5",
-            ),
+            "border-t border-(--session-sheet-line) px-6 pt-3.5",
       )}
     >
       <p className="truncate text-[15px] leading-4.5 font-bold text-(--session-dialog-title)">
-        {appliedName}
+        {appliedName()}
       </p>
-      {VIDEO_SPACES_OPEN && (
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            aria-label={muted ? t("space.unmute") : t("space.mute")}
-            disabled={!soundEnabled}
-            onClick={onToggleMute}
-            className="-ml-3 flex size-11 shrink-0 items-center justify-center text-(--session-dialog-title) focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none disabled:opacity-40"
-          >
-            {muted || !soundEnabled ? (
-              <VolumeX aria-hidden="true" className="size-5" />
-            ) : (
-              <Volume2 aria-hidden="true" className="size-5" />
-            )}
-          </button>
-          {/* 끄는 동안 이벤트가 쏟아지지 않게 저장과 기록은 손을 뗄 때 한 번만 한다. */}
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={volume}
-            aria-label={t("space.volume")}
-            disabled={!soundEnabled}
-            onChange={(event) => onVolumeChange(Number(event.target.value))}
-            onPointerUp={commit}
-            onKeyUp={commit}
-            className="relative min-h-11 min-w-0 flex-1 accent-(--session-space-selected) disabled:opacity-40"
-          />
-        </div>
-      )}
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          aria-label={muted ? t("space.unmute") : t("space.mute")}
+          disabled={!soundEnabled}
+          onClick={onToggleMute}
+          className="-ml-3 flex size-11 shrink-0 items-center justify-center text-(--session-dialog-title) focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none disabled:opacity-40"
+        >
+          {muted || !soundEnabled ? (
+            <VolumeX aria-hidden="true" className="size-5" />
+          ) : (
+            <Volume2 aria-hidden="true" className="size-5" />
+          )}
+        </button>
+        {/* 끄는 동안 이벤트가 쏟아지지 않게 저장과 기록은 손을 뗄 때 한 번만 한다. */}
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={volume}
+          aria-label={t("space.volume")}
+          disabled={!soundEnabled}
+          onChange={(event) => onVolumeChange(Number(event.target.value))}
+          onPointerUp={commit}
+          onKeyUp={commit}
+          className="relative min-h-11 min-w-0 flex-1 accent-(--session-space-selected) disabled:opacity-40"
+        />
+      </div>
     </div>
   );
 
@@ -463,84 +490,53 @@ export function SpaceContent({
           }}
           className={cn("flex min-h-0 flex-1 flex-col gap-4 pt-2", !landscape && "px-6")}
         >
-          {!bare && (
-            <TabsList className="shrink-0">
-              {(["video", "image"] as const).map((id) => (
-                <TabsTrigger
-                  key={id}
-                  value={id}
-                  className="flex-1 justify-center text-(--session-space-tab-idle) data-[state=active]:border-(--session-dialog-title) data-[state=active]:text-(--session-dialog-title)"
-                >
-                  {t(`space.tabs.${id}`)}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          )}
+          <TabsList className="shrink-0">
+            {(["video", "image"] as const).map((id) => (
+              <TabsTrigger
+                key={id}
+                value={id}
+                className="flex-1 justify-center text-(--session-space-tab-idle) data-[state=active]:border-(--session-dialog-title) data-[state=active]:text-(--session-dialog-title)"
+              >
+                {t(`space.tabs.${id}`)}
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
-          {!bare && (VIDEO_SPACES_OPEN || tab === "image") && (
-            <div className="relative shrink-0">
-              <Search
-                aria-hidden="true"
-                className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-(--session-dialog-body)"
-              />
-              <Input
-                type="search"
-                aria-label={t("space.search")}
-                placeholder={t("space.search")}
-                value={text}
-                onChange={(event) => setText(event.target.value)}
-                className="h-11 rounded-lg border-(--session-sheet-line) bg-(--session-sheet-surface) pl-10 text-[14px] text-(--session-dialog-title) placeholder:text-(--session-dialog-body)"
-              />
-            </div>
-          )}
+          <div className="relative shrink-0">
+            <Search
+              aria-hidden="true"
+              className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-(--session-dialog-body)"
+            />
+            <Input
+              type="search"
+              aria-label={t("space.search")}
+              placeholder={t("space.search")}
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              className="h-11 rounded-lg border-(--session-sheet-line) bg-(--session-sheet-surface) pl-10 text-[14px] text-(--session-dialog-title) placeholder:text-(--session-dialog-body)"
+            />
+          </div>
 
           <TabsContent
             value="video"
             // 스크롤 상자가 고른 타일 바깥 테두리를 자르지 않게 양옆에 여백을 둔다.
             className="-mx-1 mt-0 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-1 pb-4"
           >
-            {VIDEO_SPACES_OPEN ? (
-              <>
-                <div className="flex shrink-0 gap-2">
-                  {(["all", "watch"] as const).map((id) => (
-                    <button
-                      key={id}
-                      type="button"
-                      aria-pressed={category === id}
-                      onClick={() => setCategory(id)}
-                      className="group flex min-h-11 items-center focus-visible:outline-none"
-                    >
-                      <span
-                        className={cn(
-                          "rounded-full border px-3.5 py-1.5 text-[13px] leading-4.5 font-medium group-focus-visible:ring-2 group-focus-visible:ring-(--state-focus)",
-                          category === id
-                            ? "border-(--session-space-selected) bg-(--session-space-selected) text-(--session-space-on-selected)"
-                            : "border-(--session-space-chip-line) text-(--session-dialog-title)",
-                        )}
-                      >
-                        {id === "all" ? t("space.all") : t("space.sections.watch")}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                {of("watch").length > 0 && section(t("space.sections.watch"), of("watch"))}
-                {empty}
-              </>
-            ) : (
-              <p className="py-10 text-center text-[14px] leading-5 text-(--session-dialog-body)">
-                {t("space.comingSoon")}
-              </p>
-            )}
+            {chipRow}
+            {serverList}
+            {empty}
           </TabsContent>
 
           <TabsContent
             value="image"
             className="-mx-1 mt-0 flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain px-1 pb-4"
           >
-            {(text === "" || of("mine").length > 0) &&
+            {chipRow}
+            {(text === "" || mine.length > 0) &&
               section(
+                "mine",
                 t("space.sections.mine"),
-                of("mine"),
+                mine,
                 photos !== null && (
                   <span className="text-[13px] leading-4.5 text-(--session-dialog-body) tabular-nums">
                     {t("space.photoCount", { current: photos.length, max: MAX_BACKGROUND_PHOTOS })}
@@ -561,7 +557,8 @@ export function SpaceContent({
                   </li>
                 ),
               )}
-            {of("simple").length > 0 && section(t("space.names.simple"), of("simple"))}
+            {simpleVisible && section("simple", t("space.names.simple"), [simpleItem])}
+            {serverList}
             {empty}
           </TabsContent>
         </Tabs>
@@ -591,7 +588,8 @@ export function SpaceContent({
           applied={spaceKey(previewing.selection) === appliedKey}
           onBack={() => setPreviewing(null)}
           onApply={() => {
-            if (apply(previewing, "preview")) setPreviewing(null);
+            setPreviewing(null);
+            void apply(previewing, "preview");
           }}
         />
       )}
@@ -650,7 +648,7 @@ function OverlayButton({
  * 공간 미리보기
  *
  * 페이지 머리 아래부터 끝까지 덮어 실제 세션처럼 보인다.
- * 감독관 견본은 발소리를 내지 않는다.
+ * 감시 견본은 소리를 내지 않는다.
  */
 function SpacePreview({
   item,
@@ -669,6 +667,7 @@ function SpacePreview({
   const { selection } = item;
   const photoId = selection.kind === "photo" ? selection.photoId : null;
   const [photo, setPhoto] = useState<BackgroundPhotoView | null>(null);
+  const [failed, setFailed] = useState(false);
   const backRef = useRef<HTMLButtonElement>(null);
 
   // 덮개를 열면 뒤 목록이 inert라 포커스를 덮개 안으로 옮긴다.
@@ -701,9 +700,22 @@ function SpacePreview({
         landscape && "landscape-compact:top-[calc(60px+env(safe-area-inset-top))]",
       )}
     >
-      {selection.kind === "proctor" && <WatcherDemo className="absolute inset-0" />}
+      {selection.kind === "space" && selection.videoMode === "WATCH" && (
+        <WatcherDemo assetKey={selection.assetKey} className="absolute inset-0" />
+      )}
+      {selection.kind === "space" && selection.videoMode === "LOOP" && (
+        <LoopVideoSpace assetKey={selection.assetKey} onUnavailable={() => setFailed(true)} />
+      )}
+      {selection.kind === "space" && selection.assetType === "IMAGE" && (
+        <ImageSpace assetKey={selection.assetKey} onUnavailable={() => setFailed(true)} />
+      )}
       {photo && <TimerBackgroundLayer src={photo.src} fit={photo.fit} />}
       <WallpaperScrim simple={false} />
+      {failed && (
+        <p className="absolute inset-x-6 top-1/2 -translate-y-1/2 text-center text-[14px] leading-5 text-(--session-dialog-body)">
+          {t("space.previewFailed")}
+        </p>
+      )}
       <div className="absolute inset-x-0 bottom-0 flex gap-3 px-6 pt-3 pb-[calc(env(safe-area-inset-bottom)+12px)]">
         <Button
           ref={backRef}

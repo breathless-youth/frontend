@@ -1,9 +1,11 @@
 import "fake-indexeddb/auto";
 
 import { QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { IDBFactory } from "fake-indexeddb";
+import { useEffect } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { HomeV3ContentProps } from "@/features/home-v3/homeV3ContentTypes";
@@ -11,13 +13,53 @@ import {
   __resetTimerBackgroundPhotoStoreForTests,
   timerBackgroundPhotoStore,
 } from "@/features/timer-background/timerBackgroundPhotos";
+import { writeTimerBackground } from "@/features/timer-background/timerBackground";
+import { readWatcherVolume } from "@/features/timer-background/watcher/watcherSound";
 import i18n from "@/lib/i18n";
 import { queryClient } from "@/lib/queryClient";
+import { PROCTOR_SPACE } from "@/test/spaceFixtures";
 
 import { PcHomeContent } from "../PcHomeContent";
 
+// 세션이 홈에 알리는 감시 상태. 테스트마다 정한다.
+const watch = vi.hoisted(() => ({
+  state: { trigger: null as "AWAY" | null, studying: true },
+}));
+
 vi.mock("../../session/PcStudySession", () => ({
-  PcStudySession: () => <p>공부 중</p>,
+  PcStudySession: ({
+    onWatchChange,
+  }: {
+    onWatchChange: (state: { trigger: "AWAY" | null; studying: boolean } | null) => void;
+  }) => {
+    useEffect(() => {
+      onWatchChange(watch.state);
+      return () => onWatchChange(null);
+    }, [onWatchChange]);
+    return <p>공부 중</p>;
+  },
+}));
+
+const sound = vi.hoisted(() => ({
+  prime: vi.fn(),
+  play: vi.fn(),
+  fadeApproach: vi.fn(),
+  setMuted: vi.fn(),
+  setVolume: vi.fn(),
+  stopAll: vi.fn(),
+  dispose: vi.fn(),
+}));
+
+vi.mock("@/features/timer-background/watcher/watcherSound", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  createWatcherSound: () => sound,
+}));
+
+// 감독관이 들어왔는지만 본다. 영상 재생은 WatcherBackground 테스트가 본다.
+vi.mock("@/features/timer-background/watcher/WatcherBackground", () => ({
+  WatcherBackground: ({ present }: { present: boolean }) => (
+    <div data-testid="watcher-background" data-present={String(present)} />
+  ),
 }));
 
 const PHOTO = { bytes: new ArrayBuffer(1), width: 1, height: 1 };
@@ -47,23 +89,27 @@ function props(): HomeV3ContentProps {
   };
 }
 
-function renderHome() {
+function renderHome(session: { key: number; resume: boolean } | null = null) {
   render(
     <QueryClientProvider client={queryClient}>
-      <div className="relative">
-        <PcHomeContent
-          {...props()}
-          dday={null}
-          contactHref="/contact/chat"
-          session={null}
-          onSessionEnd={vi.fn()}
-        />
-      </div>
+      <MemoryRouter>
+        <div className="relative">
+          <PcHomeContent
+            {...props()}
+            dday={null}
+            contactHref="/contact/chat"
+            session={session}
+            onSessionEnd={vi.fn()}
+          />
+        </div>
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
 
 beforeEach(() => {
+  vi.clearAllMocks();
+  watch.state = { trigger: null, studying: true };
   localStorage.clear();
   globalThis.indexedDB = new IDBFactory();
   __resetTimerBackgroundPhotoStoreForTests();
@@ -74,15 +120,17 @@ describe("PcHomeContent", () => {
   it("공부 중에는 문의 버튼을 숨긴다", async () => {
     render(
       <QueryClientProvider client={queryClient}>
-        <div className="relative">
-          <PcHomeContent
-            {...props()}
-            dday={null}
-            contactHref="/contact/chat"
-            session={{ key: 1, resume: false }}
-            onSessionEnd={vi.fn()}
-          />
-        </div>
+        <MemoryRouter>
+          <div className="relative">
+            <PcHomeContent
+              {...props()}
+              dday={null}
+              contactHref="/contact/chat"
+              session={{ key: 1, resume: false }}
+              onSessionEnd={vi.fn()}
+            />
+          </div>
+        </MemoryRouter>
       </QueryClientProvider>,
     );
 
@@ -137,6 +185,7 @@ describe("PcHomeContent", () => {
     expect(screen.queryByTestId("timer-background-layer")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "공간" }));
+    await userEvent.click(await screen.findByRole("tab", { name: "이미지" }));
     await userEvent.click(await screen.findByRole("button", { name: "내 사진 1" }));
 
     expect(await screen.findByTestId("timer-background-layer")).toBeInTheDocument();
@@ -223,5 +272,53 @@ describe("PcHomeContent 공간 플라이아웃과 공부시간 패널", () => {
     fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
 
     await expectClosed();
+  });
+});
+
+describe("PcHomeContent 감시 공간", () => {
+  beforeEach(() => {
+    writeTimerBackground(PROCTOR_SPACE);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("공부 중 비집중이 이어지면 월페이퍼 감독관이 들어온다", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    watch.state = { trigger: "AWAY", studying: true };
+    renderHome({ key: 1, resume: false });
+    await screen.findByText("공부 중");
+    expect(screen.getByTestId("watcher-background")).toHaveAttribute("data-present", "false");
+
+    act(() => vi.advanceTimersByTime(2_000));
+    expect(sound.play).toHaveBeenCalledWith("approach");
+    act(() => vi.advanceTimersByTime(7_000));
+
+    expect(screen.getByTestId("watcher-background")).toHaveAttribute("data-present", "true");
+    expect(sound.prime).toHaveBeenCalled();
+  });
+
+  it("공부 중이 아니면 빈 방이고 감시 소리를 깨우지 않는다", () => {
+    renderHome();
+
+    window.dispatchEvent(new Event("pointerdown"));
+
+    expect(screen.getByTestId("watcher-background")).toHaveAttribute("data-present", "false");
+    expect(sound.prime).not.toHaveBeenCalled();
+  });
+
+  it("공간 창의 음량 줄과 소리 끄기가 저장된 음량을 바꾼다", async () => {
+    renderHome();
+    await userEvent.click(screen.getByRole("button", { name: "공간" }));
+
+    const slider = await screen.findByRole("slider", { name: "공간 음량" });
+    fireEvent.change(slider, { target: { value: "30" } });
+    fireEvent.pointerUp(slider);
+    expect(readWatcherVolume().level).toBe(30);
+    expect(sound.setVolume).toHaveBeenLastCalledWith(0.3);
+
+    await userEvent.click(screen.getByRole("button", { name: "공간 소리 끄기" }));
+    expect(readWatcherVolume().level).toBe(0);
   });
 });
