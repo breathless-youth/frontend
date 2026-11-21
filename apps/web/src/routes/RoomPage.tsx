@@ -121,15 +121,11 @@ import type { FaceSpot } from "@/features/study-session/vision/faceSpot";
 import { SessionSpacePage } from "@/features/timer-background/components/SessionSpacePage";
 import { SpaceButton } from "@/features/timer-background/components/SpaceButton";
 import { spaceKey } from "@/features/timer-background/spaceCatalog";
-import { fetchAppliedSpace, isMemberUser } from "@/features/timer-background/spaceCatalogQuery";
 import { ImageSpace, LoopVideoSpace } from "@/features/timer-background/SpaceLayers";
 import {
   readTimerBackground,
-  resolveSpace,
   SIMPLE_BACKGROUND,
-  type SpaceSelection,
   spaceTrack,
-  writeTimerBackground,
   type TimerBackgroundSelection,
 } from "@/features/timer-background/timerBackground";
 import { TimerBackgroundLayer } from "@/features/timer-background/TimerBackgroundLayer";
@@ -137,14 +133,10 @@ import {
   timerBackgroundPhotoQuery,
   type BackgroundPhotoView,
 } from "@/features/timer-background/timerBackgroundQueries";
+import { commitTimerBackground, useSpaceApply } from "@/features/timer-background/useSpaceApply";
 import { WallpaperScrim } from "@/features/timer-background/WallpaperScrim";
 import { useWatcherPresence } from "@/features/timer-background/watcher/useWatcherPresence";
 import { WatcherBackground } from "@/features/timer-background/watcher/WatcherBackground";
-import {
-  clearWatcherAssets,
-  saveWatcherAssets,
-  watcherAssetUrls,
-} from "@/features/timer-background/watcher/watcherAssets";
 import {
   createWatcherSound,
   readWatcherVolume,
@@ -177,7 +169,6 @@ import {
   trackSubjectSheetOpened,
 } from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
-import { putTimerBackground } from "@/lib/pointsApi";
 import { haptic } from "@/lib/haptics";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 import { cn } from "@/lib/utils";
@@ -549,97 +540,15 @@ function RoomSessionScreen({
   const [failedSpaceKey, setFailedSpaceKey] = useState<string | null>(null);
   const spaceFailed = failedSpaceKey === spaceKey(space);
   const wallpaper = backgroundPhoto !== null || (space.kind === "space" && !spaceFailed);
-  // 사용자가 이 세션에서 고른 뒤에는 늦게 온 서버 값으로 덮지 않는다.
-  const userPickedRef = useRef(false);
-  // 앞서 고른 공간의 저장 실패가 뒤에 고른 공간을 되돌리지 않게 고를 때마다 올린다.
-  const pickSeqRef = useRef(0);
-  // 늦게 끝난 앞 저장이 서버를 옛 공간으로 되돌리지 않게 저장을 고른 차례대로 보낸다.
-  const putQueueRef = useRef<Promise<unknown>>(Promise.resolve());
   function commitSpace(next: TimerBackgroundSelection): boolean {
-    if (!writeTimerBackground(next)) {
+    if (!commitTimerBackground(next)) {
       return false;
     }
     setSpace(next);
     setFailedSpaceKey(null);
-    // 감시 파일을 기기에 받아 두면 첫 등장이 늦지 않다.
-    // 받지 않아도 네트워크로 재생돼 기다리지 않는다.
-    if (next.kind === "space" && next.videoMode === "WATCH") {
-      const viewport = { width: innerWidth, height: innerHeight };
-      void saveWatcherAssets(next.assetKey, watcherAssetUrls(next.assetKey, viewport));
-    } else {
-      void clearWatcherAssets();
-    }
     return true;
   }
-  async function applySpace(
-    next: TimerBackgroundSelection,
-    options?: { localOnly?: boolean },
-  ): Promise<boolean> {
-    const previous = space;
-    if (!commitSpace(next)) {
-      return false;
-    }
-    userPickedRef.current = true;
-    if (options?.localOnly || !(await isMemberUser(userId))) {
-      return true;
-    }
-    const pick = ++pickSeqRef.current;
-    const saving = putQueueRef.current.then(async () => {
-      // 차례가 오기 전에 더 새로 고른 공간이 있으면 그 저장이 대신해 보내지 않는다.
-      if (pick !== pickSeqRef.current) {
-        return;
-      }
-      // 사진은 이 기기에만 있어 서버에는 기본 배경으로 저장한다.
-      await putTimerBackground(next.kind === "space" ? next.itemId : null);
-    });
-    putQueueRef.current = saving.catch(() => undefined);
-    try {
-      await saving;
-      return true;
-    } catch {
-      // 그 사이 기기에서만 바꾼 선택이 있으면 그 선택이 더 새로워 되돌리지 않는다.
-      if (
-        pick === pickSeqRef.current &&
-        JSON.stringify(readTimerBackground()) === JSON.stringify(next)
-      ) {
-        commitSpace(previous);
-      }
-      return false;
-    }
-  }
-  const syncSpace = useEffectEvent((server: SpaceSelection | null, photoExists: boolean) => {
-    const local = readTimerBackground();
-    const next = resolveSpace(local, server, photoExists);
-    if (userPickedRef.current || JSON.stringify(next) === JSON.stringify(local)) {
-      return;
-    }
-    commitSpace(next);
-  });
-  // 회원이면 다른 기기에서 고른 공간을 서버에서 받아 한 번 맞춘다.
-  // 사용자가 고른 것이 아니라 적용 이벤트를 보내지 않는다.
-  useEffect(() => {
-    let cancelled = false;
-    void fetchAppliedSpace(userId).then(async (server) => {
-      if (server === undefined) {
-        return;
-      }
-      const local = readTimerBackground();
-      // 사진을 읽지 못하면 있는지 몰라 이번에는 맞추지 않는다.
-      // null로 답할 때만 지워진 사진이다.
-      const photoExists =
-        local.kind === "photo" &&
-        (await queryClient.fetchQuery(timerBackgroundPhotoQuery(local.photoId)).then(
-          (view) => view !== null,
-          () => undefined,
-        ));
-      if (!cancelled && photoExists !== undefined) {
-        syncSpace(server, photoExists);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
+  const applySpace = useSpaceApply(userId, space, commitSpace);
   const watcher = useWatcherPresence(
     sessionState.kind === "DISTRACTION" ? sessionState.trigger : null,
     DEFAULT_WATCHER_TRIGGER_MS,

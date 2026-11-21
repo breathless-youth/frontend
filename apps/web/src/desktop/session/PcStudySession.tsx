@@ -36,7 +36,7 @@ import {
   autoEndNoticeVisible,
   useSoloSessionEngine,
 } from "@/features/study-session/useSoloSessionEngine";
-import { useTimerBackground } from "@/features/timer-background/timerBackground";
+import { spaceTrack, useTimerBackground } from "@/features/timer-background/timerBackground";
 import {
   trackCameraPipExpanded,
   trackCameraPipShrunk,
@@ -239,7 +239,12 @@ function PcSessionScreen({
   }, [cameraView, displayUsage]);
   const space = useTimerBackground();
   useLayoutEffect(() => {
-    displayContextRef.current = { spaceKind: space.kind, faceMask: false };
+    const spaceInfo = spaceTrack(space);
+    displayContextRef.current = {
+      spaceKind: spaceInfo.kind,
+      ...(spaceInfo.item && { spaceItem: spaceInfo.item }),
+      faceMask: false,
+    };
   });
   const [exitOpen, setExitOpen] = useState(false);
   const [dialogLayer, setDialogLayer] = useState<HTMLDivElement | null>(null);

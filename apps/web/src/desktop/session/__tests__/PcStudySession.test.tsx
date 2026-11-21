@@ -13,9 +13,12 @@ import { createMockCameraAdapter } from "@/features/study-session/adapters/camer
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import { markSessionGuideSeen, sessionGuideState } from "@/features/study-session/sessionGuide";
 import { submitStudySession } from "@/features/study-session/submitStudySession";
+import { writeTimerBackground } from "@/features/timer-background/timerBackground";
+import { trackStudySessionEnded } from "@/lib/amplitude";
 import i18n from "@/lib/i18n";
 import { queryClient } from "@/lib/queryClient";
 import { visionStub } from "@/test/soloSessionMocks";
+import { PROCTOR_SPACE } from "@/test/spaceFixtures";
 
 import { PcStudySession } from "../PcStudySession";
 import { readPcSessionMarker, writePcSessionMarker } from "../pcSessionMarker";
@@ -49,6 +52,10 @@ vi.mock("@/features/timelapse/timelapseRecorder", async () => {
   return { createTimelapseRecorder: () => recorderStub };
 });
 vi.mock("@/features/study-session/submitStudySession", () => ({ submitStudySession: vi.fn() }));
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  trackStudySessionEnded: vi.fn(),
+}));
 
 function content(): HomeV3ContentProps {
   return {
@@ -509,6 +516,23 @@ describe("PcStudySession 종료", () => {
 
     expect(screen.getByText("결과 1건")).toBeInTheDocument();
     expect(readPcSessionMarker()).toBeNull();
+  });
+
+  it("서버 공간을 고른 채 끝내면 종료 이벤트에 상품 코드와 영상 방식을 싣는다", async () => {
+    writeTimerBackground(PROCTOR_SPACE);
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    renderSession();
+
+    await userEvent.click(screen.getByRole("button", { name: i18n.t("desktop:session.exit") }));
+    await userEvent.click(
+      screen.getByRole("button", { name: i18n.t("study-session:exitConfirm.confirm") }),
+    );
+
+    await waitFor(() => expect(trackStudySessionEnded).toHaveBeenCalledOnce());
+    expect(vi.mocked(trackStudySessionEnded).mock.calls[0]?.[0].display).toMatchObject({
+      spaceKind: "space",
+      spaceItem: { itemCode: "SPACE_PROCTOR", videoMode: "WATCH" },
+    });
   });
 
   it("순공이 기준보다 짧으면 상자 안 창으로 알리고 홈으로를 누르면 홈 상태로 돌아온다", async () => {
