@@ -31,7 +31,7 @@ const PHOTO = { bytes: new ArrayBuffer(1), width: 1, height: 1 };
 function renderWallpaper() {
   return render(
     <QueryClientProvider client={queryClient}>
-      <PcWallpaper />
+      <PcWallpaper watcher={{ present: false, onClipPlaying: () => {} }} />
     </QueryClientProvider>,
   );
 }

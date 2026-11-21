@@ -98,6 +98,7 @@ function SessionInBox({ request, onEnd }: { request: PcSessionRequest; onEnd: ()
         box={box}
         pending={<p>홈 패널</p>}
         onEnd={onEnd}
+        onWatchChange={() => {}}
       />
     </div>
   );

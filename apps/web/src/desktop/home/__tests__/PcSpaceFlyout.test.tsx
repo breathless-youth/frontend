@@ -43,7 +43,10 @@ function renderRail(path = "/") {
     <MemoryRouter initialEntries={[path]}>
       <div data-testid="outside">바깥</div>
       <PcHomeRail>
-        <PcSpaceFlyout container={null} />
+        <PcSpaceFlyout
+          container={null}
+          watcher={{ level: 0, setLevel: vi.fn(), commitLevel: vi.fn(), toggleMute: vi.fn() }}
+        />
       </PcHomeRail>
     </MemoryRouter>,
   );

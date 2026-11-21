@@ -10,6 +10,7 @@ import {
   useTimerBackground,
 } from "@/features/timer-background/timerBackground";
 import { timerBackgroundPhotoQuery } from "@/features/timer-background/timerBackgroundQueries";
+import type { WatcherControls } from "@/features/timer-background/watcher/useWatcher";
 import { WatcherBackground } from "@/features/timer-background/watcher/WatcherBackground";
 
 /**
@@ -18,10 +19,14 @@ import { WatcherBackground } from "@/features/timer-background/watcher/WatcherBa
  * 공간을 고르면 같은 탭과 다른 탭 모두에서 바로 바뀐다.
  * 심플 단색을 늘 깔고 사진은 읽힌 뒤에만 덮어서, 지웠거나 읽지 못한 사진은 심플로 보인다.
  * 서버 공간은 세션 화면과 같은 부품으로 그리고, 받지 못한 반복 영상과 그림은 선택 값을 유지한 채 심플로 보인다.
- * 감시 공간은 PC 파일이 없어 창 크기와 상관없이 태블릿 가로 파일로 빈 방을 보인다.
+ * 감시 공간은 PC 파일이 없어 창 크기와 상관없이 태블릿 가로 파일을 쓰고, 감독관 등장과 소리는 홈이 넘긴 상태를 따른다.
  * 위의 레일·패널·문의가 모두 불투명해 어두운 막을 두지 않는다.
  */
-export function PcWallpaper() {
+export function PcWallpaper({
+  watcher,
+}: {
+  watcher: Pick<WatcherControls, "present" | "onClipPlaying">;
+}) {
   const selection = useTimerBackground();
   const photo = useQuery(
     timerBackgroundPhotoQuery(selection.kind === "photo" ? selection.photoId : null),
@@ -45,13 +50,12 @@ export function PcWallpaper() {
         <LoopVideoSpace key={space.assetKey} assetKey={space.assetKey} onUnavailable={fail} />
       )}
       {space?.videoMode === "WATCH" && (
-        // ponytail: PC 세션의 비집중을 이 층에 넘기지 않아 감독관은 들어오지 않고 빈 방만 보인다.
-        // PC 세션에서 감시를 쓰려면 세션 상태와 감시 소리를 여기로 넘긴다.
         <WatcherBackground
           key={space.assetKey}
           assetKey={space.assetKey}
           fixedViewport={PC_WATCH_VIEWPORT}
-          present={false}
+          present={watcher.present}
+          onClipPlaying={watcher.onClipPlaying}
         />
       )}
     </div>

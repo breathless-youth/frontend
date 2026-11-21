@@ -18,14 +18,11 @@ import {
 } from "@/features/timer-background/timerBackground";
 import { PC_WATCH_VIEWPORT } from "@/features/timer-background/spaceFiles";
 import { commitTimerBackground, useSpaceApply } from "@/features/timer-background/useSpaceApply";
+import type { WatcherControls } from "@/features/timer-background/watcher/useWatcher";
 import { useUserId } from "@/lib/userId";
 
 import { RAIL_BUTTON_CLASS } from "./railButtonClass";
 import { isStudyPanelEvent } from "./studyPanelEvents";
-
-// PC 홈은 감시 소리를 내지 않아 음량 값과 손잡이는 자리만 채운다.
-// ponytail: 감시 공간을 고르면 소리 줄이 켜져도 움직이지 않는다. PC에서 감시 소리를 낼 때 세션의 음량 상태를 이 창에 연결한다.
-const noop = () => {};
 
 // 공간 본문은 세션 변수로 칠해져서, 여기서는 그 변수를 홈 공부시간 패널과 같은 앱 테마 변수로 채운다.
 // 값이 앱 테마 변수를 가리키므로 라이트·다크를 바꾸면 창도 따라 바뀐다.
@@ -62,7 +59,14 @@ const commitPcSpace = (next: TimerBackgroundSelection) =>
  * 공부시간 패널에서 시작한 누름과 포커스는 바깥으로 보지 않아, 공간을 고르며 패널을 옮기거나 써도 창이 남는다.
  * ponytail: 플라이아웃이 하나라 열림 상태를 여기 두고, 둘 이상이 되면 레일로 올려 하나만 열리게 한다.
  */
-export function PcSpaceFlyout({ container }: { container: HTMLElement | null }) {
+export function PcSpaceFlyout({
+  container,
+  watcher,
+}: {
+  container: HTMLElement | null;
+  /** 월페이퍼 감시 소리와 같은 음량 */
+  watcher: Pick<WatcherControls, "level" | "setLevel" | "commitLevel" | "toggleMute">;
+}) {
   const { t } = useTranslation(["study-session", "common"]);
   const [open, setOpen] = useState(false);
   const applied = useTimerBackground();
@@ -106,10 +110,10 @@ export function PcSpaceFlyout({ container }: { container: HTMLElement | null }) 
             applied={applied}
             userId={userId}
             onApply={applySpace}
-            volume={0}
-            onVolumeChange={noop}
-            onVolumeCommit={noop}
-            onToggleMute={noop}
+            volume={watcher.level}
+            onVolumeChange={watcher.setLevel}
+            onVolumeCommit={watcher.commitLevel}
+            onToggleMute={watcher.toggleMute}
             surface="pc_home"
           />
         </SessionPageOpenScope>

@@ -72,6 +72,7 @@ function SessionInBox({ onEnd }: { onEnd: () => void }) {
         box={box}
         pending={<p>홈 패널</p>}
         onEnd={onEnd}
+        onWatchChange={() => {}}
       />
     </div>
   );
