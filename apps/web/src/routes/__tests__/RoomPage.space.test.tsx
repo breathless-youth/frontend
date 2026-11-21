@@ -340,4 +340,33 @@ describe("RoomPage 공간", () => {
     await waitFor(() => expect(putTimerBackground).toHaveBeenLastCalledWith(42));
     expect(JSON.parse(localStorage.getItem(KEY)!)).toEqual(RAIN_SPACE);
   });
+
+  it("회원이 앞 저장을 기다리는 동안 두 번 더 고르면 가운데 공간은 서버에 보내지 않는다", async () => {
+    signIn();
+    const plain = shopSpace({
+      id: 43,
+      code: "SPACE_PLAIN",
+      name: "그냥 영상",
+      assetKey: "loop/plain",
+      videoMode: "LOOP",
+    });
+    vi.mocked(getShopItems).mockResolvedValue({ items: [shopSpace(), RAIN_ITEM, plain] });
+    let finishFirst!: () => void;
+    const saved = { selectedMascotCode: "BOOK", accessories: [], timerBackground: null };
+    vi.mocked(putTimerBackground)
+      .mockReturnValueOnce(new Promise((resolve) => (finishFirst = () => resolve(saved))))
+      .mockResolvedValue(saved);
+    renderRoom();
+    await userEvent.click(screen.getByRole("button", { name: "공간" }));
+
+    await userEvent.click(await screen.findByRole("button", { name: "독서실 감독관" }));
+    await waitFor(() => expect(putTimerBackground).toHaveBeenCalledWith(41));
+    await userEvent.click(screen.getByRole("button", { name: "비 오는 창가" }));
+    await userEvent.click(screen.getByRole("button", { name: "그냥 영상" }));
+    await act(async () => finishFirst());
+
+    await waitFor(() => expect(putTimerBackground).toHaveBeenLastCalledWith(43));
+    expect(vi.mocked(putTimerBackground).mock.calls).toEqual([[41], [43]]);
+    expect(JSON.parse(localStorage.getItem(KEY)!)).toMatchObject({ kind: "space", itemId: 43 });
+  });
 });

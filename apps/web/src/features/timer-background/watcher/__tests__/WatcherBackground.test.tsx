@@ -325,3 +325,33 @@ describe("WatcherDemo", () => {
     expect(videos().some((video) => video.src.includes("/exit/"))).toBe(true);
   });
 });
+
+describe("동작 줄이기", () => {
+  beforeEach(() => {
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: query.includes("reduce") }));
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("세션 배경은 동작 줄이기여도 비집중이면 캐릭터가 들어온다", () => {
+    const { rerender, videos, shown } = setup();
+
+    rerender(<WatcherBackground assetKey={KEY} present />);
+    settle();
+
+    expect(videos()[0]!.src).toContain(`/spaces/${KEY}/enter/`);
+    expect(shown()).toEqual([videos()[0]]);
+  });
+
+  it("견본은 동작 줄이기면 빈 방만 보인다", () => {
+    const view = render(<WatcherDemo assetKey={KEY} />);
+    settle();
+    const videos = [...view.container.querySelectorAll("video")];
+
+    expect(videos.filter((video) => video.className.includes("opacity-100"))).toHaveLength(0);
+    // 쉬는 영상 요소는 다음 등장을 위해 enter를 받아 두기만 하고 재생하지 않는다.
+    expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+  });
+});
