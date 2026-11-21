@@ -241,7 +241,15 @@ describe("PcStudySession 공부 중 패널", () => {
     renderSession();
 
     await userEvent.click(screen.getByRole("button", { name: i18n.t("desktop:session.pause") }));
+    // 계속하기는 회색 일시정지 버튼과 헷갈리지 않게 파란 테두리 버튼으로 바뀐다.
+    expect(screen.getByRole("button", { name: i18n.t("desktop:session.resume") })).toHaveClass(
+      "bg-brand-subtle",
+    );
+    expect(screen.getByText("86%")).toHaveClass("text-state-pause");
     await userEvent.click(screen.getByRole("button", { name: i18n.t("desktop:session.resume") }));
+    expect(screen.getByRole("button", { name: i18n.t("desktop:session.pause") })).not.toHaveClass(
+      "bg-brand-subtle",
+    );
 
     expect(
       screen.getByRole("button", { name: i18n.t("desktop:session.pause") }),

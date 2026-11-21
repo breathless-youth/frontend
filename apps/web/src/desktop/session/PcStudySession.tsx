@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { HomeBandBlock } from "@/features/home-v3/HomeV3Content";
 import { HomeStudyCard } from "@/features/home-v3/HomeStudyCard";
 import { HomeSubjectSelect } from "@/features/home-v3/HomeSubjectSelect";
+import type { StudyTone } from "@/features/home-v3/studyTone";
 import type { HomeV3ContentProps } from "@/features/home-v3/homeV3ContentTypes";
 import type { CameraAdapter } from "@/features/study-session/adapters/cameraAdapter";
 import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice";
@@ -213,6 +214,13 @@ function PcSessionScreen({
   const openResult = (sessions: StudySessionResponse[]) => goToResult(sessions, startedAtMs);
   const studying = phase.name === "studying";
   const paused = sessionState.kind === "PAUSE";
+  const tone: StudyTone | undefined = !studying
+    ? undefined
+    : paused
+      ? "pause"
+      : sessionState.kind === "DISTRACTION"
+        ? "distract"
+        : "focus";
   const [cameraHidden, setCameraHidden] = useState(false);
   const [cameraExpanded, setCameraExpanded] = useState(false);
   const [front, setFront] = useState<"panel" | "camera">("panel");
@@ -318,6 +326,7 @@ function PcSessionScreen({
     <>
       <PcStudyPanel
         stats={stats}
+        tone={tone}
         layer={front === "panel" ? 12 : 10}
         onActivate={() => setFront("panel")}
         headerActions={
@@ -348,7 +357,7 @@ function PcSessionScreen({
       >
         <HomeBandBlock {...content} startingStudy studying />
         <div data-pc-guide="stats">
-          <HomeStudyCard stats={stats}>
+          <HomeStudyCard stats={stats} tone={tone}>
             <HomeSubjectSelect
               subjects={content.subjects}
               subjectId={subjectSelection}

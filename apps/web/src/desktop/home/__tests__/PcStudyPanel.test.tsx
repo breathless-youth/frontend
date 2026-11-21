@@ -9,9 +9,12 @@ const STATS = {
   value: { studySeconds: 15512, focusSeconds: 13337, focusRate: 85.9 },
 } as const;
 
-function renderPanel(stats: Parameters<typeof PcStudyPanel>[0]["stats"] = STATS) {
+function renderPanel(
+  stats: Parameters<typeof PcStudyPanel>[0]["stats"] = STATS,
+  tone?: Parameters<typeof PcStudyPanel>[0]["tone"],
+) {
   render(
-    <PcStudyPanel stats={stats}>
+    <PcStudyPanel stats={stats} tone={tone}>
       <button type="button">공부 시작</button>
     </PcStudyPanel>,
   );
@@ -54,6 +57,24 @@ describe("PcStudyPanel", () => {
       "aria-expanded",
       "false",
     );
+  });
+
+  it("접은 머리줄도 일시정지면 공부시간과 집중률을 회색으로, 비집중이면 집중률을 주황으로 칠한다", async () => {
+    renderPanel(STATS, "pause");
+    await userEvent.click(screen.getByRole("button", { name: "공부시간 패널 접기" }));
+    const header = within(screen.getByRole("group", { name: /방향키/ }));
+
+    expect(header.getByText("4:18:32")).toHaveClass("text-state-pause");
+    expect(header.getByText("86%")).toHaveClass("text-state-pause");
+  });
+
+  it("접은 머리줄도 비집중이면 집중률만 주황으로 칠한다", async () => {
+    renderPanel(STATS, "distract");
+    await userEvent.click(screen.getByRole("button", { name: "공부시간 패널 접기" }));
+    const header = within(screen.getByRole("group", { name: /방향키/ }));
+
+    expect(header.getByText("4:18:32")).not.toHaveClass("text-state-pause");
+    expect(header.getByText("86%")).toHaveClass("text-state-distract");
   });
 
   it("오늘 통계를 아직 모르면 접어도 시간과 집중률을 비워 둔다", async () => {

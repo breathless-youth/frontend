@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 
 import type { HomeV3ContentProps } from "@/features/home-v3/homeV3ContentTypes";
 import { homeClock } from "@/features/home-v3/homeV3Model";
+import { STUDY_RATE_CLASS, type StudyTone } from "@/features/home-v3/studyTone";
+import { cn } from "@/lib/utils";
 
 import { PANEL_HEADER_ICON_BUTTON_CLASS } from "./panelHeaderButtonClass";
 import { markStudyPanelEvent } from "./studyPanelEvents";
@@ -19,6 +21,7 @@ import { useStudyPanel } from "./useStudyPanel";
  */
 export function PcStudyPanel({
   stats,
+  tone,
   headerActions,
   layer,
   onActivate,
@@ -26,6 +29,8 @@ export function PcStudyPanel({
 }: {
   /** 공부 카드와 같은 오늘 통계. 접었을 때 머리줄에 보인다. */
   stats: HomeV3ContentProps["stats"];
+  /** 공부 중일 때만 넘긴다. 접은 머리줄 숫자도 공부 카드와 같은 색이다. */
+  tone?: StudyTone;
   /** 머리줄 접기 버튼 왼쪽에 둘 버튼 */
   headerActions?: ReactNode;
   /** 겹친 창 사이의 층. 없으면 기본 층이다. */
@@ -66,11 +71,11 @@ export function PcStudyPanel({
         </h2>
         {minimized && stats.status === "success" && (
           <p className="flex items-baseline gap-2.5 text-[15px] leading-5 font-extrabold text-foreground tabular-nums">
-            <span>
+            <span className={cn(tone === "pause" && "text-state-pause")}>
               <span className="sr-only">{t("home.panel.title")} </span>
               {homeClock(stats.value.studySeconds)}
             </span>
-            <span className="text-primary">
+            <span className={STUDY_RATE_CLASS[tone ?? "focus"]}>
               <span className="sr-only">{t("home:stats.focusRate")} </span>
               {Math.round(Math.min(100, Math.max(0, stats.value.focusRate)))}%
             </span>

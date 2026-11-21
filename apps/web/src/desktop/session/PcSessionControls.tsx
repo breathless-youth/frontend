@@ -2,6 +2,7 @@ import type { Ref } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 /**
  * 공부 중 패널 아래 버튼 줄
@@ -30,10 +31,14 @@ export function PcSessionControls({
     <div data-pc-guide="controls" className="flex gap-2">
       <Button
         ref={pauseRef}
-        variant="secondary"
+        // 계속하기는 회색 일시정지와 헷갈리지 않게 파란 테두리 버튼으로 바꾼다.
+        variant={paused ? "raised" : "secondary"}
         disabled={disabled}
         onClick={onTogglePause}
-        className="h-auto flex-1 border border-border py-3.5 text-base leading-6 font-bold"
+        className={cn(
+          "h-auto flex-1 py-3.5 text-base leading-6 font-bold",
+          !paused && "border border-border",
+        )}
       >
         {t(paused ? "session.resume" : "session.pause")}
       </Button>

@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { HomeInlineError } from "./HomeInlineError";
 import { homeClock } from "./homeV3Model";
 import type { HomeLoadState, HomeTodayStats } from "./homeV3ContentTypes";
+import { STUDY_RATE_CLASS, type StudyTone } from "./studyTone";
 
 function ClockValue({ seconds }: { seconds: number }) {
   const parts = homeClock(seconds).split(":");
@@ -44,11 +45,15 @@ function StudyMetric({
 
 export function HomeStudyCard({
   stats,
+  tone,
   children,
 }: {
   stats: HomeLoadState<HomeTodayStats>;
+  /** 공부 중일 때만 넘긴다. 없으면 집중과 같은 색이다. */
+  tone?: StudyTone;
   children: ReactNode;
 }) {
+  const paused = tone === "pause";
   const { t } = useTranslation("home");
   return (
     <Card
@@ -76,7 +81,10 @@ export function HomeStudyCard({
               {t("v3.stats.title")}
             </h2>
             <p
-              className="pt-2 pb-1.5 text-[44px] leading-13 font-bold tracking-[-0.5px] text-foreground tabular-nums"
+              className={cn(
+                "pt-2 pb-1.5 text-[44px] leading-13 font-bold tracking-[-0.5px] tabular-nums",
+                paused ? "text-state-pause" : "text-foreground",
+              )}
               aria-label={t("v3.stats.total", { time: homeClock(stats.value.studySeconds) })}
             >
               <span aria-hidden="true">
@@ -87,12 +95,13 @@ export function HomeStudyCard({
               <StudyMetric
                 label={t("v3.stats.focus")}
                 value={homeClock(stats.value.focusSeconds)}
+                className={paused ? "text-state-pause" : undefined}
               />
               <Separator className="h-9 w-px self-center" />
               <StudyMetric
                 label={t("stats.focusRate")}
                 value={`${Math.round(Math.min(100, Math.max(0, stats.value.focusRate)))}%`}
-                className="text-primary"
+                className={STUDY_RATE_CLASS[tone ?? "focus"]}
               />
             </dl>
           </div>
