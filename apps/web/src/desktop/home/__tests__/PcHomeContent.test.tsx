@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { IDBFactory } from "fake-indexeddb";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { HomeV3ContentProps } from "@/features/home-v3/homeV3ContentTypes";
@@ -50,15 +51,17 @@ function props(): HomeV3ContentProps {
 function renderHome() {
   render(
     <QueryClientProvider client={queryClient}>
-      <div className="relative">
-        <PcHomeContent
-          {...props()}
-          dday={null}
-          contactHref="/contact/chat"
-          session={null}
-          onSessionEnd={vi.fn()}
-        />
-      </div>
+      <MemoryRouter>
+        <div className="relative">
+          <PcHomeContent
+            {...props()}
+            dday={null}
+            contactHref="/contact/chat"
+            session={null}
+            onSessionEnd={vi.fn()}
+          />
+        </div>
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -74,15 +77,17 @@ describe("PcHomeContent", () => {
   it("공부 중에는 문의 버튼을 숨긴다", async () => {
     render(
       <QueryClientProvider client={queryClient}>
-        <div className="relative">
-          <PcHomeContent
-            {...props()}
-            dday={null}
-            contactHref="/contact/chat"
-            session={{ key: 1, resume: false }}
-            onSessionEnd={vi.fn()}
-          />
-        </div>
+        <MemoryRouter>
+          <div className="relative">
+            <PcHomeContent
+              {...props()}
+              dday={null}
+              contactHref="/contact/chat"
+              session={{ key: 1, resume: false }}
+              onSessionEnd={vi.fn()}
+            />
+          </div>
+        </MemoryRouter>
       </QueryClientProvider>,
     );
 
@@ -137,6 +142,7 @@ describe("PcHomeContent", () => {
     expect(screen.queryByTestId("timer-background-layer")).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: "공간" }));
+    await userEvent.click(await screen.findByRole("tab", { name: "이미지" }));
     await userEvent.click(await screen.findByRole("button", { name: "내 사진 1" }));
 
     expect(await screen.findByTestId("timer-background-layer")).toBeInTheDocument();

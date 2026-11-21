@@ -3,6 +3,7 @@ import "fake-indexeddb/auto";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { IDBFactory } from "fake-indexeddb";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
@@ -21,12 +22,12 @@ const PHOTO = { bytes: new ArrayBuffer(1), width: 1, height: 1 };
 
 function renderRail() {
   render(
-    <>
+    <MemoryRouter>
       <div data-testid="outside">바깥</div>
       <PcHomeRail>
         <PcSpaceFlyout container={null} />
       </PcHomeRail>
-    </>,
+    </MemoryRouter>,
   );
   return screen.getByRole("button", { name: "공간" });
 }
@@ -54,7 +55,7 @@ describe("PcSpaceFlyout", () => {
     expect(screen.getByRole("group", { name: "홈 도구" })).toBeInTheDocument();
   });
 
-  it("공간을 누르면 탭 줄 없이 이미지 목록을 열고 버튼에 열림을 표시한다", async () => {
+  it("공간을 누르면 세션 시트와 같은 탭 줄과 검색창으로 목록을 열고 버튼에 열림을 표시한다", async () => {
     const trigger = renderRail();
     expect(trigger).toHaveAttribute("aria-expanded", "false");
 
@@ -63,8 +64,9 @@ describe("PcSpaceFlyout", () => {
     expect(trigger).toHaveAttribute("aria-expanded", "true");
     // 홈을 막지 않는 창이라 보조 기술에 모달로 알리지 않는다.
     expect(dialog).not.toHaveAttribute("aria-modal", "true");
-    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
-    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+    expect(screen.getByRole("tablist")).toBeInTheDocument();
+    expect(screen.getByRole("searchbox")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: "이미지" }));
     expect(screen.getByRole("button", { name: "심플", pressed: true })).toBeInTheDocument();
   });
 
@@ -110,10 +112,13 @@ describe("PcSpaceFlyout", () => {
     const photo = await timerBackgroundPhotoStore().add(PHOTO, 1);
     const trigger = renderRail();
     await openFlyout(trigger);
+    await userEvent.click(screen.getByRole("tab", { name: "이미지" }));
 
     await userEvent.click(await screen.findByRole("button", { name: "내 사진 1" }));
 
-    expect(readTimerBackground()).toEqual({ kind: "photo", photoId: photo.id });
+    await waitFor(() =>
+      expect(readTimerBackground()).toEqual({ kind: "photo", photoId: photo.id }),
+    );
     expect(screen.getByRole("button", { name: "내 사진 1", pressed: true })).toBeInTheDocument();
   });
 

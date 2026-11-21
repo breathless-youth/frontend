@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canLeaveMidClip, nextWatcherClip, watcherClipUrl } from "../watcherClips";
+import { canLeaveMidClip, nextWatcherClip } from "../watcherClips";
 
 describe("canLeaveMidClip", () => {
   it("가만히 서 있는 루프 B만 중간에 퇴장으로 넘어갈 수 있다", () => {
@@ -28,18 +28,10 @@ describe("nextWatcherClip", () => {
     expect(nextWatcherClip("exit", true)).toBe("enter");
     expect(nextWatcherClip("exit", false)).toBeNull();
   });
-});
 
-describe("watcherClipUrl", () => {
-  it("짧은 변 600 미만은 휴대폰, 이상은 태블릿 영상을 화면 방향대로 고른다", () => {
-    expect(watcherClipUrl("enter", { width: 402, height: 874 })).toBe(
-      "/spaces/watcher/9c8d9f19/enter/phone_portrait.mp4",
-    );
-    expect(watcherClipUrl("loop-a", { width: 874, height: 402 })).toBe(
-      "/spaces/watcher/9c8d9f19/loop-a/phone_landscape.mp4",
-    );
-    expect(watcherClipUrl("exit", { width: 834, height: 1194 })).toBe(
-      "/spaces/watcher/9c8d9f19/exit/tablet_portrait.mp4",
-    );
+  it("loop-a가 없으면 들어온 뒤 loop-b만 반복한다", () => {
+    expect(nextWatcherClip("enter", true, false)).toBe("loop-b");
+    expect(nextWatcherClip("loop-b", true, false)).toBe("loop-b");
+    expect(nextWatcherClip("loop-b", false, false)).toBe("exit");
   });
 });

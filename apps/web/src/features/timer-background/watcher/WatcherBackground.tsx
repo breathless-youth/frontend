@@ -3,13 +3,8 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 import { cn } from "@/lib/utils";
 
-import {
-  canLeaveMidClip,
-  nextWatcherClip,
-  WATCHER_ASSET_DIR,
-  type WatcherClip,
-  watcherClipUrl,
-} from "./watcherClips";
+import { watchClipUrl, watchPosterUrl, watchScreen } from "../spaceFiles";
+import { canLeaveMidClip, nextWatcherClip, type WatcherClip } from "./watcherClips";
 import { readWatcherAsset, watcherAssetUrls } from "./watcherAssets";
 
 type Slot = 0 | 1;
@@ -32,20 +27,23 @@ function viewport() {
 }
 
 /**
- * 감시자 영상 배경
+ * 감시 캐릭터 영상 배경
  *
- * 평소엔 빈 방 사진을 보이고, `present`가 켜지면 감시자가 들어와 서 있다가 꺼지면 나간다.
+ * 평소엔 빈 방 사진을 보이고, `present`가 켜지면 감시 캐릭터가 들어와 서 있다가 꺼지면 나간다.
  * 영상 요소 두 개를 번갈아 써서, 쉬는 요소에 다음 클립을 미리 받아 두고 앞 클립이 끝나면 그 요소를 재생한다.
  * 새 요소가 실제로 재생되기 전까지는 앞 요소의 마지막 프레임을 그대로 보여 줘서 이음매에 빈 화면이 끼지 않는다.
  * 클립은 끝까지 재생하고 끝나는 순간의 `present`로만 다음을 고른다(`nextWatcherClip`).
  * 다만 가만히 서 있는 클립(`canLeaveMidClip`) 중에 나가야 하면 기다리지 않고 바로 퇴장으로 넘어간다.
  */
 export function WatcherBackground({
+  assetKey,
   present,
   className,
   onClipStart,
   onClipPlaying,
 }: {
+  /** 감시 공간 파일 폴더 */
+  assetKey: string;
   present: boolean;
   className?: string;
   /** 클립을 틀기 시작할 때와 빈 방으로 돌아갈 때(null) 부른다. */
@@ -59,7 +57,7 @@ export function WatcherBackground({
   const retryTimer = useRef<number | undefined>(undefined);
   const presentRef = useRef(present);
   const [visible, setVisible] = useState<Slot | null>(null);
-  const local = useStoredWatcherAssets();
+  const { local, loopA } = useStoredWatcherAssets(assetKey);
   // 적용할 때 받아 둔 파일이 있으면 그것을, 없으면 네트워크 주소를 쓴다.
   const resolve = (url: string) => local.get(url) ?? url;
 
@@ -69,9 +67,9 @@ export function WatcherBackground({
     const { slot, clip } = head.current;
     const target = other(slot);
     if (target === visible) return;
-    const upcoming = (clip && nextWatcherClip(clip, presentRef.current)) ?? "enter";
+    const upcoming = (clip && nextWatcherClip(clip, presentRef.current, loopA)) ?? "enter";
     const video = videos.current[target];
-    const url = resolve(watcherClipUrl(upcoming, viewport()));
+    const url = resolve(watchClipUrl(assetKey, upcoming, watchScreen(viewport())));
     if (video && !video.src.endsWith(url)) video.src = url;
   }
 
@@ -83,7 +81,7 @@ export function WatcherBackground({
     onClipStart?.(clip);
     const video = videos.current[slot];
     if (!video) return;
-    const url = resolve(watcherClipUrl(clip, viewport()));
+    const url = resolve(watchClipUrl(assetKey, clip, watchScreen(viewport())));
     if (!video.src.endsWith(url)) video.src = url;
     video.currentTime = 0;
     // 소리 없는 인라인 영상이지만 저전력 모드나 소재를 못 받은 오프라인에서는 막힐 수 있다.
@@ -120,7 +118,7 @@ export function WatcherBackground({
   function handleEnded(slot: Slot) {
     const { slot: current, clip } = head.current;
     if (slot !== current || !clip) return;
-    const next = nextWatcherClip(clip, presentRef.current);
+    const next = nextWatcherClip(clip, presentRef.current, loopA);
     if (next) {
       start(other(slot), next);
       return;
@@ -168,18 +166,18 @@ export function WatcherBackground({
       <picture>
         <source
           media="(orientation: landscape) and (min-height: 600px)"
-          srcSet={resolve(`${WATCHER_ASSET_DIR}/poster/tablet_landscape.jpg`)}
+          srcSet={resolve(watchPosterUrl(assetKey, "tablet_landscape"))}
         />
         <source
           media="(orientation: portrait) and (min-width: 600px)"
-          srcSet={resolve(`${WATCHER_ASSET_DIR}/poster/tablet_portrait.jpg`)}
+          srcSet={resolve(watchPosterUrl(assetKey, "tablet_portrait"))}
         />
         <source
           media="(orientation: landscape)"
-          srcSet={resolve(`${WATCHER_ASSET_DIR}/poster/phone_landscape.jpg`)}
+          srcSet={resolve(watchPosterUrl(assetKey, "phone_landscape"))}
         />
         <img
-          src={resolve(`${WATCHER_ASSET_DIR}/poster/phone_portrait.jpg`)}
+          src={resolve(watchPosterUrl(assetKey, "phone_portrait"))}
           alt=""
           draggable={false}
           className="absolute inset-0 size-full object-cover"
@@ -211,44 +209,60 @@ export function WatcherBackground({
   );
 }
 
-/** 받아 둔 영상·포스터를 화면이 쓸 수 있는 주소로 연다. 네트워크 주소 → blob 주소이고, 화면을 떠나면 닫는다. */
-function useStoredWatcherAssets(): ReadonlyMap<string, string> {
-  const [local, setLocal] = useState<ReadonlyMap<string, string>>(() => new Map());
+/**
+ * 받아 둔 감시 파일
+ *
+ * 받아 둔 영상·포스터를 화면이 쓸 수 있는 주소로 연다(네트워크 주소에서 blob 주소로).
+ * loop-a가 없다는 기록이 있으면 loopA가 false다.
+ * 화면을 떠나면 연 주소를 닫는다.
+ */
+function useStoredWatcherAssets(assetKey: string): {
+  local: ReadonlyMap<string, string>;
+  loopA: boolean;
+} {
+  const [stored, setStored] = useState<{ local: ReadonlyMap<string, string>; loopA: boolean }>(
+    () => ({ local: new Map(), loopA: true }),
+  );
   useEffect(() => {
     let cancelled = false;
     const opened: string[] = [];
-    const urls = watcherAssetUrls(viewport()).filter((url) => !url.includes("/sound/"));
-    void Promise.all(
-      urls.map(async (url) => {
-        const blob = await readWatcherAsset(url);
-        if (!blob || cancelled) return null;
-        const objectUrl = URL.createObjectURL(blob);
-        opened.push(objectUrl);
-        return [url, objectUrl] as const;
-      }),
-    ).then((entries) => {
-      if (cancelled) return;
-      const found = entries.filter((entry) => entry !== null);
-      if (found.length > 0) setLocal(new Map(found));
-    });
+    const urls = watcherAssetUrls(assetKey, viewport()).filter((url) => !url.includes("/sound/"));
+    void Promise.all(urls.map(async (url) => [url, await readWatcherAsset(url)] as const)).then(
+      (entries) => {
+        if (cancelled) return;
+        const local = new Map<string, string>();
+        let loopA = true;
+        for (const [url, asset] of entries) {
+          if (asset === "missing") {
+            loopA = false;
+          } else if (asset) {
+            const objectUrl = URL.createObjectURL(asset);
+            opened.push(objectUrl);
+            local.set(url, objectUrl);
+          }
+        }
+        if (local.size > 0 || !loopA) setStored({ local, loopA });
+      },
+    );
     return () => {
       cancelled = true;
       for (const objectUrl of opened) URL.revokeObjectURL(objectUrl);
     };
-  }, []);
-  return local;
+  }, [assetKey]);
+  return stored;
 }
 
 /** 견본에서 감독관이 나간 뒤 빈 방을 보여 주는 시간 */
 const DEMO_EMPTY_MS = 2_000;
 
 /**
- * 설정 화면 견본
+ * 공간 페이지 감시 견본
  *
- * 감독관이 들어와 시계를 한 번 보고(loop-a) 나간 뒤, 빈 방을 잠깐 보이고 다시 들어온다.
+ * 캐릭터가 들어와 한 번 머무른 뒤 나가고, 빈 방을 잠깐 보이고 다시 들어온다.
+ * loop-a가 없는 공간은 loop-b에 들어서면 바로 나간다.
  * 모션 축소를 켠 사용자에게는 빈 방만 보인다.
  */
-export function WatcherDemo({ className }: { className?: string }) {
+export function WatcherDemo({ assetKey, className }: { assetKey: string; className?: string }) {
   const [present, setPresent] = useState(() => !prefersReducedMotion());
   const [empty, setEmpty] = useState(false);
   useEffect(() => {
@@ -261,11 +275,12 @@ export function WatcherDemo({ className }: { className?: string }) {
   }, [empty]);
   return (
     <WatcherBackground
+      assetKey={assetKey}
       present={present}
       className={className}
       onClipStart={(clip) => {
-        // 시계를 보기 시작하면 나갈 차례로 돌려 두어, 그 클립이 끝나면 바로 퇴장한다.
-        if (clip === "loop-a") setPresent(false);
+        // 머무르기를 시작하면 나갈 차례로 돌려 두어, 그 클립이 끝나면 바로 퇴장한다.
+        if (clip === "loop-a" || clip === "loop-b") setPresent(false);
         if (clip === null) setEmpty(true);
       }}
     />

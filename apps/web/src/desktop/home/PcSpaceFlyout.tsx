@@ -16,13 +16,13 @@ import {
   useTimerBackground,
   writeTimerBackground,
 } from "@/features/timer-background/timerBackground";
+import { useUserId } from "@/lib/userId";
 
 import { RAIL_BUTTON_CLASS } from "./railButtonClass";
 import { isStudyPanelEvent } from "./studyPanelEvents";
 
-// 영상 공간이 닫혀 있어 본문이 소리 줄을 그리지 않으므로 음량 값과 손잡이는 자리만 채운다.
-// ponytail: 손잡이가 아무 일도 하지 않아 영상 공간이 열리면 플라이아웃의 소리 줄은 움직이지 않는다.
-// 지금은 소리 줄이 그려지지 않아 상관없고, 영상 공간을 열 때 세션의 음량 상태를 이 창으로 옮긴다.
+// PC 홈은 감시 소리를 내지 않아 음량 값과 손잡이는 자리만 채운다.
+// ponytail: 감시 공간을 고르면 소리 줄이 켜져도 움직이지 않는다. PC에서 감시 소리를 낼 때 세션의 음량 상태를 이 창에 연결한다.
 const noop = () => {};
 
 // 공간 본문은 세션 변수로 칠해져서, 여기서는 그 변수를 홈 공부시간 패널과 같은 앱 테마 변수로 채운다.
@@ -59,6 +59,7 @@ export function PcSpaceFlyout({ container }: { container: HTMLElement | null }) 
   const { t } = useTranslation(["study-session", "common"]);
   const [open, setOpen] = useState(false);
   const applied = useTimerBackground();
+  const userId = useUserId();
   return (
     <Dialog modal={false} open={open} onOpenChange={setOpen}>
       <DialogTrigger className={RAIL_BUTTON_CLASS}>
@@ -93,12 +94,12 @@ export function PcSpaceFlyout({ container }: { container: HTMLElement | null }) 
           <SpaceContent
             landscape={false}
             applied={applied}
-            onApply={writeTimerBackground}
+            userId={userId}
+            onApply={async (next) => writeTimerBackground(next)}
             volume={0}
             onVolumeChange={noop}
             onVolumeCommit={noop}
             onToggleMute={noop}
-            listOnly
             surface="pc_home"
           />
         </SessionPageOpenScope>
