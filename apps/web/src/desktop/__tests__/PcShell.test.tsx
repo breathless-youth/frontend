@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -189,6 +189,27 @@ describe("PcShell 탭", () => {
       from_tab: "social",
       via: "pc_top_bar",
     });
+  });
+
+  it("키보드 단축키와 핀치·Ctrl+휠로는 페이지를 확대·축소하지 않는다", () => {
+    renderShell();
+
+    for (const key of ["+", "=", "-", "0"]) {
+      expect(fireEvent.keyDown(window, { key, metaKey: true })).toBe(false);
+      expect(fireEvent.keyDown(window, { key, ctrlKey: true })).toBe(false);
+    }
+    // 트랙패드 핀치는 Chrome에서 ctrlKey가 켜진 휠로, Safari에서 gesturestart로 온다.
+    expect(fireEvent.wheel(window, { deltaY: 10, ctrlKey: true })).toBe(false);
+    expect(fireEvent(window, new Event("gesturestart", { cancelable: true }))).toBe(false);
+  });
+
+  it("확대·축소가 아닌 키와 보통 휠은 막지 않는다", () => {
+    renderShell();
+
+    expect(fireEvent.keyDown(window, { key: "+" })).toBe(true);
+    expect(fireEvent.keyDown(window, { key: "c", metaKey: true })).toBe(true);
+    expect(fireEvent.keyDown(window, { key: "-", metaKey: true, altKey: true })).toBe(true);
+    expect(fireEvent.wheel(window, { deltaY: 10 })).toBe(true);
   });
 
   it("홈에서는 페이지 상자가 스크롤되지 않는다", () => {

@@ -8,6 +8,7 @@ import { legacyQuery } from "@/lib/userId";
 import { cn } from "@/lib/utils";
 
 import { PcProfileMenu } from "./PcProfileMenu";
+import { useBlockPageZoom } from "./useBlockPageZoom";
 import { useNarrowPcWindow } from "./usePcShell";
 
 const TABS: readonly { tab: PcTab; to: string }[] = [
@@ -52,6 +53,7 @@ export function PcShell() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const currentTab = currentTabOf(location);
   const narrow = useNarrowPcWindow();
+  useBlockPageZoom();
   // 홈은 월페이퍼가 상자를 꽉 채우는 한 장짜리 화면이라 상자 안에서 굴러가지 않게 막는다.
   const fixedPage = pathname === "/home";
 
