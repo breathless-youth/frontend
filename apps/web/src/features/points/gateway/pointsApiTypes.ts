@@ -2,7 +2,7 @@
  * 포인트 1단계 API의 응답 타입
  *
  * 2026-11-16 개발 서버 Swagger와 필드 이름, null 가능 여부, 열거 값을 대조했고 타입마다 대조한 스키마 이름을 적는다.
- * 공간 필드(assetKey·assetType·videoMode·tags)는 2026-11-20 백엔드 dev 코드와 대조했다.
+ * 공간 필드(assetKey·assetType·videoMode·tags)는 2026-11-21 개발 서버 Swagger의 `ShopItemResponse`·`ShopTagResponse`·`EquippedItem` 스키마와 대조했다.
  * 이름은 웹이 먼저 쓰던 이름을 유지한다.
  * 이 Swagger는 필수 필드를 표시하지 않아서 null 가능 여부는 필드 설명을 따른다.
  * 새로 생긴 필드는 그 필드가 생기기 전의 서버도 받을 수 있게 선택으로 둔다.
