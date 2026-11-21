@@ -85,7 +85,7 @@ describe("reportActiveSession", () => {
       ),
     );
 
-    const caught = reportActiveSession(INPUT, 1_000).catch((e: unknown) => e);
+    const caught = reportActiveSession(INPUT, { timeoutMs: 1_000 }).catch((e: unknown) => e);
     await vi.advanceTimersByTimeAsync(1_000);
     const error = await caught;
 
@@ -116,5 +116,16 @@ describe("reportActiveSession", () => {
     } finally {
       window.history.replaceState(null, "", "/");
     }
+  });
+
+  it("keepalive를 주면 요청에 싣고 주지 않으면 끈다", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 204 }));
+
+    await reportActiveSession(INPUT, { keepalive: true });
+    await reportActiveSession(INPUT);
+
+    const [[, first], [, second]] = vi.mocked(fetch).mock.calls;
+    expect((first as RequestInit).keepalive).toBe(true);
+    expect((second as RequestInit).keepalive).toBe(false);
   });
 });

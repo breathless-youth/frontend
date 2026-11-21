@@ -279,4 +279,51 @@ describe("useStudyRoomSession 복원", () => {
     });
     expect(result.current.phase.name).not.toBe("studying");
   });
+
+  it("이어서 공부하기로 복원하면 앱 밖 공백을 공부 시간에 넣고 집중 상태로 시작한다", () => {
+    const { result } = renderHook(() =>
+      useStudyRoomSession(7, {
+        restored: { ...RESTORED, source: "TIMER" },
+        source: "TIMER",
+        resumeAway: true,
+      }),
+    );
+
+    expect(result.current.sessionState.kind).toBe("FOCUS");
+    expect(result.current.studySec).toBe(1850 + 120);
+  });
+
+  it("이어서 공부하기로 복원하면 30초를 기다리지 않고 바로 보고한다", async () => {
+    renderHook(() =>
+      useStudyRoomSession(7, {
+        restored: { ...RESTORED, source: "TIMER" },
+        source: "TIMER",
+        resumeAway: true,
+      }),
+    );
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+
+    expect(lastRequestBody().studySec).toBe(1850 + 120);
+  });
+
+  it("일시정지 중에 끊긴 기록은 이어서 공부하기를 넘겨도 일시정지로 이어받는다", () => {
+    const { result } = renderHook(() =>
+      useStudyRoomSession(7, {
+        restored: {
+          ...RESTORED,
+          source: "TIMER",
+          events: [
+            { status: "PAUSE", startedAt: iso(REPORTED_AT - 60_000), endedAt: iso(REPORTED_AT) },
+          ],
+        },
+        source: "TIMER",
+        resumeAway: true,
+      }),
+    );
+
+    expect(result.current.sessionState.kind).toBe("PAUSE");
+  });
 });
