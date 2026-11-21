@@ -305,6 +305,8 @@ function devApiProxy() {
     "/ws": { target: DEV_PROXY_TARGET, changeOrigin: true, ws: true, configure: stripOrigin },
     // 사진 주소는 웹과 같은 출처의 상대 경로(`/avatars/...`)라 로컬에서는 스테이징 웹의 CloudFront로 넘긴다.
     "/avatars": { target: "https://web-dev.focusmakers.app", changeOrigin: true },
+    // 공간 파일도 웹과 같은 출처의 상대 경로(`/spaces/...`)라 로컬에서는 스테이징 웹의 CloudFront로 넘긴다.
+    "/spaces": { target: "https://web-dev.focusmakers.app", changeOrigin: true },
   };
 }
 

@@ -77,16 +77,6 @@ const REWARD_CONDITION_BY_TYPE: ReadonlyMap<string, "streakDays" | "focusHours">
   Object.entries({ STREAK_DAYS: "streakDays", TOTAL_FOCUS_HOURS: "focusHours" } as const),
 );
 
-// 확정 전인 분류 코드라 모르는 코드는 분류 없이 두어 그 상품은 전체에서만 보인다.
-const BACKGROUND_CATEGORY_BY_TAG: ReadonlyMap<string, string> = new Map(
-  Object.entries({
-    NATURE: "nature",
-    STUDY_SPACE: "studySpace",
-    NIGHT_SKY: "nightSky",
-    SEASON: "season",
-  }),
-);
-
 // 공부 포인트의 날짜 옮김(STUDY_ADJUST)은 서버가 기록 조회에 싣지 않아 표에 없다.
 const HISTORY_REASON_BY_CODE: ReadonlyMap<string, PointsReason> = new Map(
   Object.entries({
@@ -244,7 +234,13 @@ export function toMascots(res: MascotsResponse): Mascot[] {
   });
 }
 
-/** 가격이 없으면 스토어 결제 상품이거나 보상 상품이고, 어느 쪽인지 모르면 얻는 길을 보일 수 없어 버린다. */
+/**
+ * 상품을 얻는 길
+ *
+ * 가격이 없으면 스토어 결제 상품이거나 보상 상품이다.
+ * 가격·스토어 상품 ID·보상 조건이 모두 없는 타이머 배경은 무료 공간이고 세션 공간 페이지에서만 고르므로 상점에 보이지 않게 null이다.
+ * 어느 쪽인지 모르는 상품도 얻는 길을 보일 수 없어 null이다.
+ */
 function toAcquire(item: ShopItemResponse): ItemAcquire | null {
   if (item.price !== null) {
     return { type: "price", price: item.price };
@@ -280,8 +276,7 @@ export function toShopItem(item: ShopItemResponse): ShopItem | null {
     inUse: item.inUse,
   };
   if (item.category === "TIMER_BACKGROUND") {
-    const category = item.tag === null ? undefined : BACKGROUND_CATEGORY_BY_TAG.get(item.tag);
-    return { ...base, kind: "timerBackground", ...(category === undefined ? {} : { category }) };
+    return { ...base, kind: "timerBackground" };
   }
   if (item.category !== "MASCOT_ACCESSORY") {
     return null;

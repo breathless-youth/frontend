@@ -1,7 +1,8 @@
 import { createSilentKeepAlive } from "@/features/ambient-sound/silentKeepAlive";
 
+import { watchSoundUrl } from "../spaceFiles";
 import { readWatcherAsset } from "./watcherAssets";
-import { WATCHER_ASSET_DIR, type WatcherClip } from "./watcherClips";
+import type { WatcherClip } from "./watcherClips";
 
 /** 감독관 발소리. 등장·퇴장은 그 클립 영상에 맞춘 소리이고, approach는 등장 직전 멀리서 다가오는 소리다. */
 export type WatcherCue = "approach" | Extract<WatcherClip, "enter" | "exit">;
@@ -47,13 +48,14 @@ function defaultCreateContext(): AudioContext {
 /** 적용할 때 받아 둔 소리가 있으면 그것을, 없으면 네트워크에서 받는다. */
 async function loadSound(url: string): Promise<ArrayBuffer> {
   const stored = await readWatcherAsset(url);
-  if (stored) return stored.arrayBuffer();
+  if (stored instanceof Blob) return stored.arrayBuffer();
   return (await fetch(url)).arrayBuffer();
 }
 
 /**
- * 감독관 발소리 재생기
+ * 감시 공간 소리 재생기
  *
+ * 소리는 감시 공간마다 따로 있어 공간 폴더에서 받는다.
  * 영상은 계속 음소거로 두고 소리를 따로 낸다. 소리 있는 영상은 브라우저가 자동 재생을 막아 영상까지 멈출 수 있고,
  * iOS는 영상 볼륨을 바꿀 수 없어 다가오던 소리를 줄이며 끄지 못해서다.
  * 배경음과 같이 감독관이 켜져 있는 동안 무음 루프를 틀어 iOS 무음 스위치와 상관없이 기기 음량을 따른다.
@@ -61,6 +63,7 @@ async function loadSound(url: string): Promise<ArrayBuffer> {
  * 소리가 막혀도 감독관 영상은 그대로 돌아야 해서 어떤 예외도 밖으로 내보내지 않는다.
  */
 export function createWatcherSound(
+  assetKey: string,
   createContext: () => AudioContext = defaultCreateContext,
   load: (url: string) => Promise<ArrayBuffer> = loadSound,
   keepAliveFactory: () => HTMLAudioElement | null = createSilentKeepAlive,
@@ -113,7 +116,7 @@ export function createWatcherSound(
   // 못 받으면 바로 1초 간격으로 다시 받고, 그래도 안 되면 기록을 비워 다음 재생 요청 때 다시 받는다.
   const loadCue = (current: AudioContext, cue: WatcherCue) => {
     const attempt = (retried: number): Promise<AudioBuffer | null> =>
-      load(`${WATCHER_ASSET_DIR}/sound/${cue}.m4a`)
+      load(watchSoundUrl(assetKey, cue))
         .then((data) => current.decodeAudioData(data))
         .then((buffer) => {
           ready.set(cue, buffer);
