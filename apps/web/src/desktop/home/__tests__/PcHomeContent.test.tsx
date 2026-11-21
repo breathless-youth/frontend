@@ -110,12 +110,14 @@ describe("PcHomeContent", () => {
     expect(screen.queryByText(i18n.t("home:v3.contact.bubble"))).not.toBeInTheDocument();
   });
 
-  it("접으면 머리줄과 오늘 공부시간만 남는다", async () => {
+  it("접으면 머리줄에 오늘 공부시간과 집중률만 남는다", async () => {
     renderHome();
 
     await userEvent.click(screen.getByRole("button", { name: "공부시간 패널 접기" }));
 
-    expect(screen.getByRole("heading", { level: 2, name: "공부시간 4:18:32" })).toBeInTheDocument();
+    const header = within(screen.getByRole("group", { name: /방향키/ }));
+    expect(header.getByText("4:18:32")).toBeInTheDocument();
+    expect(header.getByText("86%")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: i18n.t("home:v3.startStudy") }),
     ).not.toBeInTheDocument();

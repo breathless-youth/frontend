@@ -24,6 +24,7 @@
     "newWindow": "새 창에서 열려요"
   },
   "shell": {
+    "brand": "포커스메이커스",
     "narrow": "창을 조금 더 넓혀 주세요"
   },
   "session": {
@@ -37,11 +38,9 @@
       "window": "카메라 화면. 방향키로 옮기고 Shift를 함께 누르면 크게 옮겨요",
       "hide": "숨기기",
       "expand": "크게",
-      "shrink": "작게",
-      "timelapse": "타임랩스"
+      "shrink": "작게"
     },
     "help": "공부 도움말",
-    "cameraNotice": "카메라로 자리 비움을 확인해요\n영상은 어디로도 보내지 않아요",
     "guide": {
       "welcomeTitle": "포커스메이커스에 오신 걸 환영해요",
       "welcomeBody": "어떻게 사용하는지 같이 알아볼까요?",

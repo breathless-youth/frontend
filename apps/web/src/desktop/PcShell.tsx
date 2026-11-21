@@ -2,10 +2,10 @@ import { useLayoutEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, matchPath, Outlet, useLocation } from "react-router-dom";
 
-import mascotStopwatch from "@/assets/mascot/stopwatch-upright.svg";
 import { plannerEntryOf } from "@/features/planner/useOpenPlanner";
 import { type PcTab, trackTabPressed } from "@/lib/amplitude";
 import { legacyQuery } from "@/lib/userId";
+import { cn } from "@/lib/utils";
 
 import { PcProfileMenu } from "./PcProfileMenu";
 import { useNarrowPcWindow } from "./usePcShell";
@@ -52,6 +52,8 @@ export function PcShell() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const currentTab = currentTabOf(location);
   const narrow = useNarrowPcWindow();
+  // 홈은 월페이퍼가 상자를 꽉 채우는 한 장짜리 화면이라 상자 안에서 굴러가지 않게 막는다.
+  const fixedPage = pathname === "/home";
 
   useLayoutEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
@@ -61,12 +63,7 @@ export function PcShell() {
     <div className="flex h-dvh flex-col bg-background px-3.5 pb-3.5">
       {/* 상단 바만 글자 선택에서 뺀다. 페이지 상자는 약관처럼 고를 수 있어야 하는 화면도 그린다. */}
       <header className="session-no-drag theme-soft-blue flex h-14 shrink-0 items-center gap-6 px-2.5">
-        <div className="flex shrink-0 items-center gap-2">
-          <img src={mascotStopwatch} alt="" className="size-7" />
-          <span className="text-[15px] font-bold text-foreground">
-            {t("logo", { ns: "login" })}
-          </span>
-        </div>
+        <span className="shrink-0 text-[15px] font-bold text-foreground">{t("shell.brand")}</span>
         <nav aria-label={t("nav.label")} className="flex gap-1">
           {VISIBLE_TABS.map(({ tab, to }) => (
             <Link
@@ -89,7 +86,14 @@ export function PcShell() {
         </div>
       </header>
       <div className="relative min-h-0 flex-1 transform-gpu overflow-hidden rounded-xl border border-border bg-muted [--tab-bar-reserve:--spacing(2)]">
-        <div ref={scrollRef} inert={narrow} className="h-full overflow-y-auto overscroll-contain">
+        <div
+          ref={scrollRef}
+          inert={narrow}
+          className={cn(
+            "h-full overscroll-contain",
+            fixedPage ? "overflow-hidden" : "overflow-y-auto",
+          )}
+        >
           <Outlet />
         </div>
         {narrow && (

@@ -1,13 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import {
-  act,
-  fireEvent,
-  getDefaultNormalizer,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
@@ -276,19 +268,16 @@ describe("PcStudySession 공부 중 패널", () => {
     await waitFor(() => expect(submitStudySession).toHaveBeenCalledTimes(1));
   });
 
-  it("접으면 머리줄에 이번 세션 공부시간이 보인다", async () => {
+  it("접으면 머리줄에 이번 세션을 더한 오늘 공부시간과 집중률이 보인다", async () => {
     renderSession();
 
     await userEvent.click(
       screen.getByRole("button", { name: i18n.t("desktop:home.panel.minimize") }),
     );
 
-    expect(
-      screen.getByRole("heading", {
-        level: 2,
-        name: `${i18n.t("desktop:home.panel.title")} 0:00:00`,
-      }),
-    ).toBeInTheDocument();
+    const header = within(screen.getByRole("group", { name: /방향키/ }));
+    expect(header.getByText("4:18:32")).toBeInTheDocument();
+    expect(header.getByText("86%")).toBeInTheDocument();
   });
 });
 
@@ -296,20 +285,6 @@ describe("PcStudySession 카메라 창", () => {
   beforeEach(() => {
     writeMeasureMode("camera");
     markSessionGuideSeen(7);
-  });
-
-  it("접으면 관리 모드는 머리줄에 순공시간을 보인다", async () => {
-    // 공부시간 600초, 순공시간 500초인 카메라 세션을 이어 간다.
-    gate.restored = { ...RESTORED, source: undefined };
-    renderSession({ key: 0, resume: true, camera: createMockCameraAdapter() });
-
-    await userEvent.click(
-      await screen.findByRole("button", { name: i18n.t("desktop:home.panel.minimize") }),
-    );
-
-    const heading = screen.getByRole("heading", { level: 2 });
-    expect(heading).toHaveTextContent(/0:08:2\d/);
-    expect(heading).not.toHaveTextContent(/0:10:\d\d/);
   });
 
   it("카메라 창을 숨겨도 감지는 멈추지 않는다", async () => {
@@ -366,6 +341,7 @@ describe("PcStudySession 카메라 창", () => {
     expect(
       screen.queryByRole("group", { name: i18n.t("desktop:session.camera.window") }),
     ).toBeNull();
+    expect(screen.queryByText(i18n.t("study-session:cameraPrompt.notice"))).toBeNull();
   });
 });
 
@@ -389,7 +365,7 @@ describe("PcStudySession 가이드", () => {
     ).toBeInTheDocument();
   });
 
-  it("끝까지 보면 재개하고 관리 모드 토스트를 띄우며 다시 뜨지 않는다", async () => {
+  it("끝까지 보면 재개하고 다시 뜨지 않으며 카메라 안내 문구가 상자 아래에 남는다", async () => {
     renderSession(camera());
     await screen.findByRole("dialog", { name: welcome() });
 
@@ -406,12 +382,7 @@ describe("PcStudySession 가이드", () => {
     expect(
       screen.getByRole("button", { name: i18n.t("desktop:session.pause") }),
     ).toBeInTheDocument();
-    // 두 문장을 줄바꿈으로 나눈 문구라 줄바꿈을 공백으로 접지 않고 비교한다.
-    expect(
-      await screen.findByText(i18n.t("desktop:session.cameraNotice"), {
-        normalizer: getDefaultNormalizer({ collapseWhitespace: false }),
-      }),
-    ).toBeInTheDocument();
+    expect(screen.getByText(i18n.t("study-session:cameraPrompt.notice"))).toBeInTheDocument();
     expect(sessionGuideState(7)).toBe("seen");
   });
 

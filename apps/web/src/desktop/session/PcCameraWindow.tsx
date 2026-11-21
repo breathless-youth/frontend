@@ -1,3 +1,4 @@
+import { EyeOff, Maximize, Minimize } from "lucide-react";
 import type { PointerEvent, Ref, RefObject } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -18,9 +19,9 @@ const DEFAULT_CAMERA_WINDOW: StudyPanelState = {
   minimized: false,
 };
 const TAP_SLOP_PX = 5;
-// 휴대폰 세션 화면의 카메라 위 버튼과 같은 바탕이라 밝은 영상 위에서도 글자가 읽힌다.
+// 반투명 검은 바탕이라 밝은 영상 위에서도 아이콘이 보인다.
 const CAMERA_BUTTON =
-  "flex min-h-11 items-center rounded-full bg-(--session-pill-bg) backdrop-blur-[10px] px-3.5 text-xs leading-4 font-semibold text-white focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none";
+  "flex size-7 items-center justify-center rounded-full bg-dim text-white focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none";
 
 export interface PcCameraWindowProps {
   stream: MediaStream | null;
@@ -98,23 +99,35 @@ export function PcCameraWindow({
         zIndex: layer,
       }}
       className={cn(
-        "absolute overflow-hidden shadow-sb-card select-none focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none",
+        "absolute overflow-hidden select-none focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none",
         expanded
           ? "inset-0"
-          : "h-40.5 w-72 cursor-grab touch-none rounded-lg active:cursor-grabbing",
+          : "h-40.5 w-72 cursor-grab touch-none rounded-sm border border-border active:cursor-grabbing",
         hidden && "pointer-events-none opacity-0",
       )}
     >
       <CameraPreviewSurface stream={stream} facing={facing} videoRef={videoRef} />
-      <span className="pointer-events-none absolute top-2.5 left-2.5 rounded-full bg-(--session-pill-bg) backdrop-blur-[10px] px-2.5 py-1 text-xs leading-4 font-semibold text-white">
-        {t("session.camera.timelapse")}
-      </span>
-      <div className="absolute right-1.5 bottom-1.5 flex gap-1">
-        <button ref={hideButtonRef} type="button" onClick={onHide} className={CAMERA_BUTTON}>
-          {t("session.camera.hide")}
+      <div className="absolute top-2 right-2 flex gap-1">
+        <button
+          ref={hideButtonRef}
+          type="button"
+          aria-label={t("session.camera.hide")}
+          onClick={onHide}
+          className={CAMERA_BUTTON}
+        >
+          <EyeOff aria-hidden="true" className="size-3.5" />
         </button>
-        <button type="button" onClick={() => onExpandedChange(!expanded)} className={CAMERA_BUTTON}>
-          {t(expanded ? "session.camera.shrink" : "session.camera.expand")}
+        <button
+          type="button"
+          aria-label={t(expanded ? "session.camera.shrink" : "session.camera.expand")}
+          onClick={() => onExpandedChange(!expanded)}
+          className={CAMERA_BUTTON}
+        >
+          {expanded ? (
+            <Minimize aria-hidden="true" className="size-3.5" />
+          ) : (
+            <Maximize aria-hidden="true" className="size-3.5" />
+          )}
         </button>
       </div>
     </div>

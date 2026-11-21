@@ -48,9 +48,7 @@ export function PcHomeContent({
 }: PcHomeContentProps) {
   const [box, setBox] = useState<HTMLDivElement | null>(null);
   const homePanel = (
-    <PcStudyPanel
-      studySeconds={content.stats.status === "success" ? content.stats.value.studySeconds : null}
-    >
+    <PcStudyPanel stats={content.stats}>
       <HomeStudyBlocks
         {...content}
         startingStudy={content.startingStudy === true || session !== null}

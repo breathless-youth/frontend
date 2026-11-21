@@ -96,10 +96,10 @@ async function openProfileMenu() {
 }
 
 describe("PcShell 브랜드", () => {
-  it("한국어는 포커스 메이커스로 쓴다", () => {
+  it("한국어는 포커스메이커스로 붙여 쓴다", () => {
     renderShell();
 
-    expect(screen.getByText("포커스 메이커스")).toBeInTheDocument();
+    expect(screen.getByText("포커스메이커스")).toBeInTheDocument();
   });
 
   it("다른 언어는 FocusMakers로 쓴다", async () => {
@@ -189,6 +189,18 @@ describe("PcShell 탭", () => {
       from_tab: "social",
       via: "pc_top_bar",
     });
+  });
+
+  it("홈에서는 페이지 상자가 스크롤되지 않는다", () => {
+    renderShell("/home");
+
+    expect(screen.getByTestId("where").parentElement).toHaveClass("overflow-hidden");
+  });
+
+  it("홈 밖의 화면에서는 페이지 상자가 스크롤된다", () => {
+    renderShell("/records");
+
+    expect(screen.getByTestId("where").parentElement).toHaveClass("overflow-y-auto");
   });
 
   it("다른 화면으로 옮기면 페이지 상자 스크롤을 맨 위로 올린다", async () => {

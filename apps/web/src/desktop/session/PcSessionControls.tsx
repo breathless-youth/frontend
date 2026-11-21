@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 /**
  * 공부 중 패널 아래 버튼 줄
  *
- * 홈의 공부 시작 분할 버튼 자리에 같은 높이로 들어가 공부를 시작해도 패널 높이가 거의 그대로다.
  * 가이드가 이 줄을 비추도록 표식을 단다.
  */
 export function PcSessionControls({
@@ -28,13 +27,13 @@ export function PcSessionControls({
 }) {
   const { t } = useTranslation(["desktop", "study-session"]);
   return (
-    <div data-pc-guide="controls" className="flex gap-1">
+    <div data-pc-guide="controls" className="flex gap-2">
       <Button
         ref={pauseRef}
         variant="secondary"
         disabled={disabled}
         onClick={onTogglePause}
-        className="min-h-16 flex-1 rounded-[22px] rounded-r-xs text-xl leading-6 font-bold"
+        className="h-auto flex-1 border border-border py-3.5 text-base leading-6 font-bold"
       >
         {t(paused ? "session.resume" : "session.pause")}
       </Button>
@@ -43,7 +42,7 @@ export function PcSessionControls({
         disabled={disabled}
         aria-busy={saving}
         onClick={onExit}
-        className="min-h-16 flex-1 rounded-[22px] rounded-l-xs text-xl leading-6 font-bold shadow-sb-cta"
+        className="h-auto flex-1 py-3.5 text-base leading-6 font-bold"
       >
         {saving ? t("study-session:submit.saving") : t("session.exit")}
       </Button>

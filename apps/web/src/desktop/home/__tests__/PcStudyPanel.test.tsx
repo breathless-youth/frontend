@@ -1,12 +1,17 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { PcStudyPanel } from "../PcStudyPanel";
 
-function renderPanel(studySeconds: number | null = 15512) {
+const STATS = {
+  status: "success",
+  value: { studySeconds: 15512, focusSeconds: 13337, focusRate: 85.9 },
+} as const;
+
+function renderPanel(stats: Parameters<typeof PcStudyPanel>[0]["stats"] = STATS) {
   render(
-    <PcStudyPanel studySeconds={studySeconds}>
+    <PcStudyPanel stats={stats}>
       <button type="button">공부 시작</button>
     </PcStudyPanel>,
   );
@@ -29,12 +34,21 @@ describe("PcStudyPanel", () => {
     );
   });
 
-  it("접으면 머리줄과 오늘 공부시간만 남고 버튼이 펼치기로 바뀐다", async () => {
+  it("펼친 동안에는 제목을 화면에 보이지 않고 패널 이름으로만 읽는다", () => {
+    renderPanel();
+
+    expect(screen.getByRole("heading", { level: 2, name: "공부시간" })).toHaveClass("sr-only");
+    expect(within(screen.getByRole("group", { name: /방향키/ })).queryByText("4:18:32")).toBeNull();
+  });
+
+  it("접으면 머리줄에 오늘 공부시간과 집중률이 나란히 남고 버튼이 펼치기로 바뀐다", async () => {
     renderPanel();
 
     await userEvent.click(screen.getByRole("button", { name: "공부시간 패널 접기" }));
 
-    expect(screen.getByRole("heading", { level: 2, name: "공부시간 4:18:32" })).toBeInTheDocument();
+    const header = within(screen.getByRole("group", { name: /방향키/ }));
+    expect(header.getByText("4:18:32")).toBeInTheDocument();
+    expect(header.getByText("86%")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "공부 시작" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "공부시간 패널 펼치기" })).toHaveAttribute(
       "aria-expanded",
@@ -42,12 +56,13 @@ describe("PcStudyPanel", () => {
     );
   });
 
-  it("오늘 공부시간을 아직 모르면 접어도 제목만 보인다", async () => {
-    renderPanel(null);
+  it("오늘 통계를 아직 모르면 접어도 시간과 집중률을 비워 둔다", async () => {
+    renderPanel({ status: "pending" });
 
     await userEvent.click(screen.getByRole("button", { name: "공부시간 패널 접기" }));
 
-    expect(screen.getByRole("heading", { level: 2, name: "공부시간" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "공부시간" })).toBeInTheDocument();
+    expect(within(screen.getByRole("group", { name: /방향키/ })).queryByText(/%/)).toBeNull();
   });
 
   it("머리줄에서 방향키로 옮긴다", () => {

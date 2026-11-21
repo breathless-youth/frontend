@@ -24,6 +24,7 @@
     "newWindow": "Opens in a new window"
   },
   "shell": {
+    "brand": "FocusMakers",
     "narrow": "Please make the window a little wider"
   },
   "session": {
@@ -37,11 +38,9 @@
       "window": "Camera view. Use the arrow keys to move it, or hold Shift to move it farther",
       "hide": "Hide",
       "expand": "Enlarge",
-      "shrink": "Shrink",
-      "timelapse": "Time-lapse"
+      "shrink": "Shrink"
     },
     "help": "Study guide",
-    "cameraNotice": "The camera checks whether you're away\nYour video isn't sent anywhere",
     "guide": {
       "welcomeTitle": "Welcome to FocusMakers",
       "welcomeBody": "Let's take a quick look at how it works.",

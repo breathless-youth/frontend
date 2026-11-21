@@ -2,8 +2,10 @@ import { Minus, Plus } from "lucide-react";
 import { useId, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
+import type { HomeV3ContentProps } from "@/features/home-v3/homeV3ContentTypes";
 import { homeClock } from "@/features/home-v3/homeV3Model";
 
+import { PANEL_HEADER_ICON_BUTTON_CLASS } from "./panelHeaderButtonClass";
 import { markStudyPanelEvent } from "./studyPanelEvents";
 import { useStudyPanel } from "./useStudyPanel";
 
@@ -12,16 +14,18 @@ import { useStudyPanel } from "./useStudyPanel";
  *
  * 폰 홈 가운데 묶음을 받아 그리고, 머리줄을 끌거나 머리줄에서 방향키로 옮긴다.
  * 접어도 내용을 지우지 않고 숨겨서 펼치면 고르던 과목과 메뉴 상태가 그대로다.
+ * 제목은 화면에서 숨기고 패널 이름으로만 읽히며, 접으면 머리줄에 오늘 공부시간과 집중률이 나란히 남는다.
  * 바탕이 불투명해 어떤 월페이퍼 위에서도 글자 대비가 유지된다.
  */
 export function PcStudyPanel({
-  studySeconds,
+  stats,
   headerActions,
   layer,
   onActivate,
   children,
 }: {
-  studySeconds: number | null;
+  /** 공부 카드와 같은 오늘 통계. 접었을 때 머리줄에 보인다. */
+  stats: HomeV3ContentProps["stats"];
   /** 머리줄 접기 버튼 왼쪽에 둘 버튼 */
   headerActions?: ReactNode;
   /** 겹친 창 사이의 층. 없으면 기본 층이다. */
@@ -30,7 +34,7 @@ export function PcStudyPanel({
   onActivate?: () => void;
   children: ReactNode;
 }) {
-  const { t } = useTranslation("desktop");
+  const { t } = useTranslation(["desktop", "home"]);
   const titleId = useId();
   const bodyId = useId();
   const { ref, right, top, minimized, toggleMinimized, handleProps } = useStudyPanel();
@@ -55,21 +59,24 @@ export function PcStudyPanel({
         tabIndex={0}
         aria-label={t("home.panel.move")}
         {...handleProps}
-        className="flex min-h-14 shrink-0 cursor-grab touch-none items-center justify-between gap-2 rounded-xl pr-1.5 pl-5 select-none focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none active:cursor-grabbing"
+        className="flex min-h-11 shrink-0 cursor-grab touch-none items-center justify-between gap-2 rounded-xl py-2.5 pr-2.5 pl-5 select-none focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none active:cursor-grabbing"
       >
-        <h2
-          id={titleId}
-          className="flex items-baseline gap-2 text-[15px] leading-5 font-bold text-foreground"
-        >
+        <h2 id={titleId} className="sr-only">
           {t("home.panel.title")}
-          {minimized && studySeconds !== null && (
-            <>
-              {/* 화면 낭독기가 제목과 시간을 붙여 읽지 않게 띄운다. */}{" "}
-              <span className="font-extrabold tabular-nums">{homeClock(studySeconds)}</span>
-            </>
-          )}
         </h2>
-        <div className="flex shrink-0 items-center">
+        {minimized && stats.status === "success" && (
+          <p className="flex items-baseline gap-2.5 text-[15px] leading-5 font-extrabold text-foreground tabular-nums">
+            <span>
+              <span className="sr-only">{t("home.panel.title")} </span>
+              {homeClock(stats.value.studySeconds)}
+            </span>
+            <span className="text-primary">
+              <span className="sr-only">{t("home:stats.focusRate")} </span>
+              {Math.round(Math.min(100, Math.max(0, stats.value.focusRate)))}%
+            </span>
+          </p>
+        )}
+        <div className="ml-auto flex shrink-0 items-center gap-2.5">
           {headerActions}
           <button
             type="button"
@@ -77,7 +84,7 @@ export function PcStudyPanel({
             aria-controls={bodyId}
             aria-label={t(minimized ? "home.panel.expand" : "home.panel.minimize")}
             onClick={toggleMinimized}
-            className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-bg-layer-2 focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none motion-reduce:transition-none"
+            className={PANEL_HEADER_ICON_BUTTON_CLASS}
           >
             {minimized ? (
               <Plus aria-hidden="true" className="size-5" />

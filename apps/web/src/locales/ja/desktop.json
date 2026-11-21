@@ -24,6 +24,7 @@
     "newWindow": "新しいウィンドウで開きます"
   },
   "shell": {
+    "brand": "FocusMakers",
     "narrow": "ウィンドウをもう少し広げてください"
   },
   "session": {
@@ -37,11 +38,9 @@
       "window": "カメラ画面。矢印キーで移動し、Shiftキーと一緒に押すと大きく移動します",
       "hide": "非表示",
       "expand": "拡大",
-      "shrink": "縮小",
-      "timelapse": "タイムラプス"
+      "shrink": "縮小"
     },
     "help": "勉強のヘルプ",
-    "cameraNotice": "カメラで離席を確認します\n映像はどこにも送信されません",
     "guide": {
       "welcomeTitle": "FocusMakersへようこそ",
       "welcomeBody": "使い方を一緒に見てみましょう。",

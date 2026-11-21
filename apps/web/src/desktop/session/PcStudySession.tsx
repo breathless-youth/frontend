@@ -45,6 +45,10 @@ import {
 import { haptic } from "@/lib/haptics";
 import { showToast } from "@/lib/toast";
 
+import {
+  PANEL_HEADER_ICON_BUTTON_CLASS,
+  PANEL_HEADER_TEXT_BUTTON_CLASS,
+} from "../home/panelHeaderButtonClass";
 import { PcStudyPanel } from "../home/PcStudyPanel";
 import { addSessionToToday } from "./liveStats";
 import { PcCameraWindow } from "./PcCameraWindow";
@@ -227,7 +231,6 @@ function PcSessionScreen({
     // 휴대폰 가이드와 달리 어떻게 닫아도 본 것으로 남겨 다음 시작에 다시 뜨지 않는다.
     if (userId !== null) markSessionGuideSeen(userId);
     if (!pausedBeforeGuideRef.current) resume();
-    if (guide === "first") showToast(t("desktop:session.cameraNotice"));
     setGuide(null);
   }
   // 첫 가이드를 보는 동안 순공이 흐르지 않게 시작하자마자 멈춘다.
@@ -279,9 +282,8 @@ function PcSessionScreen({
 
   return (
     <>
-      {/* 자율 모드는 머리줄에 총 공부시간을, 관리 모드는 순공시간을 보인다. */}
       <PcStudyPanel
-        studySeconds={cameraOn ? focusSec : studySec}
+        stats={stats}
         layer={front === "panel" ? 12 : 10}
         onActivate={() => setFront("panel")}
         headerActions={
@@ -291,7 +293,7 @@ function PcSessionScreen({
                 ref={showCameraRef}
                 type="button"
                 onClick={showCamera}
-                className="flex min-h-11 items-center rounded-full px-3 text-sm leading-5 font-semibold text-primary transition-colors duration-150 hover:bg-bg-layer-2 focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none motion-reduce:transition-none"
+                className={PANEL_HEADER_TEXT_BUTTON_CLASS}
               >
                 {t("desktop:session.showCamera")}
               </button>
@@ -302,7 +304,7 @@ function PcSessionScreen({
                 aria-label={t("desktop:session.help")}
                 disabled={!studying}
                 onClick={() => openGuide("help")}
-                className="flex size-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-bg-layer-2 focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none disabled:opacity-40 motion-reduce:transition-none"
+                className={`${PANEL_HEADER_ICON_BUTTON_CLASS} disabled:opacity-40`}
               >
                 <CircleHelp aria-hidden="true" className="size-5" />
               </button>
@@ -335,6 +337,11 @@ function PcSessionScreen({
           exitRef={exitRef}
         />
       </PcStudyPanel>
+      {cameraOn && (
+        <p className="pointer-events-none absolute inset-x-0 bottom-1 text-center text-xs leading-4 text-white/55">
+          {t("cameraPrompt.notice")}
+        </p>
+      )}
       {cameraOn && (
         <PcCameraWindow
           stream={cameraStream}

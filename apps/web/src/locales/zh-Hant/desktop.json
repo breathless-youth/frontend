@@ -24,6 +24,7 @@
     "newWindow": "在新視窗中開啟"
   },
   "shell": {
+    "brand": "FocusMakers",
     "narrow": "請將視窗再拉寬一點"
   },
   "session": {
@@ -37,11 +38,9 @@
       "window": "相機畫面。使用方向鍵移動，同時按住 Shift 可移動更遠",
       "hide": "隱藏",
       "expand": "放大",
-      "shrink": "縮小",
-      "timelapse": "縮時攝影"
+      "shrink": "縮小"
     },
     "help": "讀書說明",
-    "cameraNotice": "用相機確認你是否離開座位\n影像不會傳送到任何地方",
     "guide": {
       "welcomeTitle": "歡迎來到 FocusMakers",
       "welcomeBody": "一起來看看怎麼使用吧？",
