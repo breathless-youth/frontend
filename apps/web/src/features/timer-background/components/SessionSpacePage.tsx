@@ -404,7 +404,11 @@ export function SpaceContent({
         landscape
           ? "flex-1"
           : // 아래 안전 영역은 푸터 틀이 이미 더한다.
-            "border-t border-(--session-sheet-line) px-6 pt-3.5",
+            // 소리 줄이 없으면 공간 이름이 바닥에 붙어 위와 같은 여백을 아래에도 둔다.
+            cn(
+              "border-t border-(--session-sheet-line) px-6 pt-3.5",
+              !VIDEO_SPACES_OPEN && "pb-3.5",
+            ),
       )}
     >
       <p className="truncate text-[15px] leading-4.5 font-bold text-(--session-dialog-title)">

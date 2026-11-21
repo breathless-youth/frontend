@@ -10,6 +10,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { GoalDurationInput } from "@/features/planner/GoalDurationInput";
 import { clampGoalSeconds } from "@/features/planner/goalDuration";
+import { cn } from "@/lib/utils";
+import { usePcShell } from "@/desktop/usePcShell";
 
 export interface HomeGoalSaveInput {
   seconds: number;
@@ -34,6 +36,8 @@ export function HomeGoalSheet({
   onSave: (input: HomeGoalSaveInput) => Promise<HomeGoalSaveResult>;
 }) {
   const { t } = useTranslation(["home", "planner"]);
+  // PC 가운데 창은 창 자체 여백이 있어 서랍용 위쪽 여백을 더하면 머리줄이 떠 보인다.
+  const pc = usePcShell();
   const [seconds, setSeconds] = useState(() => clampGoalSeconds(initialSeconds ?? 28800));
   const [asDefault, setAsDefault] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -66,7 +70,7 @@ export function HomeGoalSheet({
         if (!savingRef.current) onOpenChange(next);
       }}
     >
-      <div className="flex flex-col gap-5 pt-4.75" data-base-ui-swipe-ignore>
+      <div className={cn("flex flex-col gap-5", pc ? "pt-0" : "pt-4.75")} data-base-ui-swipe-ignore>
         <ResponsiveSheetHeader className="flex items-center justify-between gap-3">
           <ResponsiveSheetTitle className="text-[22px] leading-7.5 font-bold">
             {t("planner:goal.title")}
