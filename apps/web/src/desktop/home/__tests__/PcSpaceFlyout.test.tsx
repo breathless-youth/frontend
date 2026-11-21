@@ -1,10 +1,11 @@
 import "fake-indexeddb/auto";
 
+import type { ProfileResponse } from "@focusmakers/types";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { IDBFactory } from "fake-indexeddb";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import spaceSource from "@/features/timer-background/components/SessionSpacePage.tsx?raw";
@@ -13,16 +14,27 @@ import {
   __resetTimerBackgroundPhotoStoreForTests,
   timerBackgroundPhotoStore,
 } from "@/features/timer-background/timerBackgroundPhotos";
+import { getDecorations, getShopItems, putTimerBackground } from "@/lib/pointsApi";
+import { profileKeys } from "@/lib/profileQueries";
 import { queryClient } from "@/lib/queryClient";
+import { PROCTOR_SPACE, shopSpace } from "@/test/spaceFixtures";
 
 import { PcHomeRail } from "../PcHomeRail";
 import { PcSpaceFlyout } from "../PcSpaceFlyout";
 
-const PHOTO = { bytes: new ArrayBuffer(1), width: 1, height: 1 };
+vi.mock("@/lib/pointsApi", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  getShopItems: vi.fn(),
+  getDecorations: vi.fn(),
+  putTimerBackground: vi.fn(),
+}));
 
-function renderRail() {
+const PHOTO = { bytes: new ArrayBuffer(1), width: 1, height: 1 };
+const DECORATIONS = { selectedMascotCode: "BOOK", accessories: [], timerBackground: null };
+
+function renderRail(path = "/") {
   render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[path]}>
       <div data-testid="outside">바깥</div>
       <PcHomeRail>
         <PcSpaceFlyout container={null} />
@@ -46,6 +58,10 @@ beforeEach(() => {
   globalThis.indexedDB = new IDBFactory();
   __resetTimerBackgroundPhotoStoreForTests();
   queryClient.clear();
+  vi.clearAllMocks();
+  vi.mocked(getShopItems).mockResolvedValue({ items: [shopSpace()] });
+  vi.mocked(getDecorations).mockResolvedValue(DECORATIONS);
+  vi.mocked(putTimerBackground).mockResolvedValue(DECORATIONS);
 });
 
 describe("PcSpaceFlyout", () => {
@@ -142,5 +158,51 @@ describe("PcSpaceFlyout", () => {
       if (name === "--session-simple-base") expect(value, name).not.toBe("");
       else expect(value, name).toMatch(/^var\(--[a-z0-9-]+\)$/);
     }
+  });
+});
+
+describe("PcSpaceFlyout 서버 공간", () => {
+  function profile(loginProvider: string | null) {
+    queryClient.setQueryData(profileKeys.detail(1), { loginProvider } as ProfileResponse);
+  }
+
+  it("회원이 서버 공간을 고르면 기기와 서버에 함께 저장한다", async () => {
+    profile("KAKAO");
+    await openFlyout(renderRail("/?userId=1"));
+
+    await userEvent.click(await screen.findByRole("button", { name: "독서실 감독관" }));
+
+    await waitFor(() => expect(putTimerBackground).toHaveBeenCalledExactlyOnceWith(41));
+    expect(readTimerBackground()).toEqual(PROCTOR_SPACE);
+  });
+
+  it("비회원은 서버 공간을 기기에만 저장한다", async () => {
+    profile(null);
+    await openFlyout(renderRail("/?userId=1"));
+
+    await userEvent.click(await screen.findByRole("button", { name: "독서실 감독관" }));
+
+    await waitFor(() => expect(readTimerBackground()).toEqual(PROCTOR_SPACE));
+    expect(putTimerBackground).not.toHaveBeenCalled();
+    expect(getDecorations).not.toHaveBeenCalled();
+  });
+
+  it("회원이면 홈을 열 때 서버에 적용해 둔 공간으로 맞춘다", async () => {
+    profile("KAKAO");
+    vi.mocked(getDecorations).mockResolvedValue({
+      ...DECORATIONS,
+      timerBackground: { ...PROCTOR_SPACE, imageUrl: null } as never,
+    });
+
+    renderRail("/?userId=1");
+
+    await waitFor(() => expect(readTimerBackground()).toEqual(PROCTOR_SPACE));
+  });
+
+  it("신원이 없으면 서버 공간 없이 열린다", async () => {
+    await openFlyout(renderRail());
+
+    expect(await screen.findByText("찾는 공간이 없어요")).toBeInTheDocument();
+    expect(getShopItems).not.toHaveBeenCalled();
   });
 });

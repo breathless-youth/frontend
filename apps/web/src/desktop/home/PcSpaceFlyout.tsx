@@ -14,8 +14,8 @@ import { SpaceContent } from "@/features/timer-background/components/SessionSpac
 import {
   SIMPLE_BACKGROUND_COLOR,
   useTimerBackground,
-  writeTimerBackground,
 } from "@/features/timer-background/timerBackground";
+import { commitTimerBackground, useSpaceApply } from "@/features/timer-background/useSpaceApply";
 import { useUserId } from "@/lib/userId";
 
 import { RAIL_BUTTON_CLASS } from "./railButtonClass";
@@ -49,6 +49,7 @@ const PC_SPACE_SURFACE = {
  * 레일의 공간 버튼과 플라이아웃
  *
  * 세션 공간 페이지의 본문을 비모달 창에 담아 홈을 가리지 않고, 고른 공간을 바로 월페이퍼로 보인다.
+ * 회원은 세션 화면과 같은 규칙으로 서버에도 저장하고 비회원은 기기에만 저장한다.
  * 포털 자리를 홈 상자로 받아 상자 기준으로 놓이고 끌어 옮기는 패널보다 위 층에 그린다.
  * 본문이 읽는 세션 변수를 앱 테마 변수로 채워, 홈 패널처럼 라이트에서는 밝게 다크에서는 어둡게 그린다.
  * 바깥을 눌러 닫으면 누른 곳에 포커스를 두고, Esc·닫기·다시 누르기로 닫으면 공간 버튼으로 돌려준다.
@@ -60,6 +61,9 @@ export function PcSpaceFlyout({ container }: { container: HTMLElement | null }) 
   const [open, setOpen] = useState(false);
   const applied = useTimerBackground();
   const userId = useUserId();
+  // 홈에 늘 붙어 있어 회원이면 홈을 열 때 서버 공간으로 맞추고, 고르면 서버에도 저장한다.
+  // 그래서 세션이 서버의 옛 값으로 덮지 않는다.
+  const applySpace = useSpaceApply(userId, applied, commitTimerBackground);
   return (
     <Dialog modal={false} open={open} onOpenChange={setOpen}>
       <DialogTrigger className={RAIL_BUTTON_CLASS}>
@@ -95,7 +99,7 @@ export function PcSpaceFlyout({ container }: { container: HTMLElement | null }) 
             landscape={false}
             applied={applied}
             userId={userId}
-            onApply={async (next) => writeTimerBackground(next)}
+            onApply={applySpace}
             volume={0}
             onVolumeChange={noop}
             onVolumeCommit={noop}
