@@ -10,40 +10,40 @@
 
 ## 용어
 
-| 말 | 뜻 |
-|---|---|
-| 공간 | 세션 화면 뒤에 까는 배경. 서버 카탈로그의 타이머 배경 상품, `내 사진`, `심플`이 있다 |
-| 종류 (`assetType`) | `VIDEO` 또는 `IMAGE` |
-| 영상 방식 (`videoMode`) | 영상 공간만 가진다. `LOOP`은 반복 영상 하나를 계속 돌리고, `WATCH`(감시)는 비집중이 이어지면 캐릭터가 들어와 지켜보다 다시 집중하면 나간다 |
-| 감시 컨셉 | 감시 방식으로 그리는 공간 하나하나. 독서실 감독관이 첫 컨셉이다 |
-| 분류 (`tags`) | 서버가 내려주는 화면 분류(자연, 카페 등). 공간 페이지의 섹션과 칩을 만든다. 감시는 분류가 아니라 영상 방식이다 |
-| `전체` | 서버 분류가 아니라 앱이 만드는 보기. 거르지 않고 모든 섹션을 한꺼번에 보인다 |
-| `감독` | 화면에서 감시 공간을 부르는 이름. voice-tone·glossary가 사용자 문구에 `감시`를 금지해서, 칩과 섹션 제목은 `감독`으로 쓴다. 코드와 문서의 `WATCH`·감시 방식은 그대로 둔다 |
+| 말                      | 뜻                                                                                                                                                                       |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 공간                    | 세션 화면 뒤에 까는 배경. 서버 카탈로그의 타이머 배경 상품, `내 사진`, `심플`이 있다                                                                                     |
+| 종류 (`assetType`)      | `VIDEO` 또는 `IMAGE`                                                                                                                                                     |
+| 영상 방식 (`videoMode`) | 영상 공간만 가진다. `LOOP`은 반복 영상 하나를 계속 돌리고, `WATCH`(감시)는 비집중이 이어지면 캐릭터가 들어와 지켜보다 다시 집중하면 나간다                               |
+| 감시 컨셉               | 감시 방식으로 그리는 공간 하나하나. 독서실 감독관이 첫 컨셉이다                                                                                                          |
+| 분류 (`tags`)           | 서버가 내려주는 화면 분류(자연, 카페 등). 공간 페이지의 섹션과 칩을 만든다. 감시는 분류가 아니라 영상 방식이다                                                           |
+| `전체`                  | 서버 분류가 아니라 앱이 만드는 보기. 거르지 않고 모든 섹션을 한꺼번에 보인다                                                                                             |
+| `감독`                  | 화면에서 감시 공간을 부르는 이름. voice-tone·glossary가 사용자 문구에 `감시`를 금지해서, 칩과 섹션 제목은 `감독`으로 쓴다. 코드와 문서의 `WATCH`·감시 방식은 그대로 둔다 |
 
 ## 결정 사항
 
-| # | 질문 | 결정 |
-|---|---|---|
-| 1 | 세션은 공간 목록을 어떻게 받나 | 공간 기능에 작은 전용 조회를 둔다. HTTP 함수는 기존 `getShopItems`·`getDecorations`·`putTimerBackground`를 쓴다. 상점 기능 켜짐(`points=1`)과 상관없이 동작한다 |
-| 2 | 기기 값과 서버 값이 다르면 | `내 사진`만 기기 우선이고 나머지는 서버 우선이다. 기기 값으로 먼저 그리고, 회원이면 서버 답이 온 뒤 맞춘다 |
-| 3 | 감시를 무엇으로 알아보나 | 영상 공간의 `videoMode`(`LOOP`·`WATCH`)로 알아본다. 상품 코드나 분류는 보지 않는다 |
-| 4 | 그 서버 작업은 어디서 | BY-1331 아래 새 하위 작업에서 한다. 이 작업을 막는다 |
-| 5 | 반복 영상·그림 재생기 | 이번에 만든다 |
-| 6 | 파일을 받지 못하면 | 영상은 포스터, 그다음 심플이다. 그림은 심플이다. 고른 값은 지우지 않고 Sentry에만 남긴다. 미리보기에서는 안내 문구를 보인다 |
-| 7 | 무료 공간이 상점에 보이나 | 보이지 않는다. 공간 페이지에서만 고른다 |
-| 8 | 서버 저장이 실패하면 | 바로 바꾸고, 실패하면 이전 공간으로 되돌리고 기존 실패 문구를 보인다 |
-| 9 | 웹 배포물의 감독관 파일 | `public/spaces/`를 삭제하고 Vite 개발 서버에 `/spaces` 프록시를 둔다 |
-| 10 | 분석 이벤트 | `kind`는 `simple`·`photo`·`space`다. `item_code`·`video_mode` 속성을 더한다 |
-| 11 | 분류 | 서버 분류 테이블이 정한다. 앱에 분류 목록을 두지 않는다 |
-| 11-1 | `감독` 칩과 섹션 | 영상 방식(`videoMode = WATCH`)으로 만든다. 화면 이름은 `감독`이고 다른 언어 이름은 언어마다 업계 명칭을 확인해 정한다. 서버 분류에 `WATCH`를 두지 않는다. 감시 공간이 많아지면 감시 공간에도 서버 분류를 붙여 감시 안을 다시 나눈다 |
-| 11-2 | 이미지 탭의 `내 사진`·`심플` | 칩과 상관없이 늘 보인다. 서버 그림 공간이 생기면 분류 섹션이 뒤에 붙고, 그때부터 칩이 나타난다 |
-| 11-3 | 영상 탭의 다른 분류 | 두 탭 모두 같은 규칙이다. 분류가 붙은 반복 영상이 있으면 그 분류의 섹션과 칩이 생긴다 |
-| 12 | 기존 `tag` 칸과 앱 매핑표 | 처음부터 설계하는 것으로 보고 삭제한다. 응답은 `tags`만 쓴다. 서버는 `tag` 필드를 deprecated로 BY-1367(V88)까지 보내지만 앱 타입에서 빼서 읽지 않는다. 상점 타이머 배경 화면의 `category`도 더 이상 채우지 않는다. 지금 서버에 분류가 붙은 상품이 없고 판매도 꺼져 있어 상점 화면은 달라지지 않으며, 상점이 `tags`를 어떻게 보일지는 상점 배경 화면 설계에서 정한다 |
-| 13 | 안 가진 공간 | 공간 페이지에는 가진 공간만 보인다 |
-| 15 | 감시 장면 구성 | 들어오기(`enter`)·머무르기(`loop-b`)·나가기(`exit`)와 다가옴·들어옴·나감 소리는 반드시 있다. 머무르기 `loop-a`는 선택이다. 소리는 감시 대상이 사람만은 아니어서 공간마다 따로 둔다 |
-| 16 | 새 영상 방식 | 감시에 넣기 애매한 형식(예: 평소엔 그림, 집중·비집중을 감지하면 반복 영상)은 분류가 아니라 `videoMode`의 새 값으로 만든다. 새 방식은 폴더 규칙·재생기·스크립트를 함께 정의할 때만 추가하고, 앱 배포가 한 번 필요하다 |
-| 17 | 감시 장면 4벌 생성 | 이번에는 사람이 만든 기기·방향별 4벌을 그대로 올린다. 가로 한 벌로 스크립트가 4벌을 만드는 일은 다음 감시 컨셉을 만들 때 한다 |
-| 14 | 카드 썸네일 비율 | 4:3을 유지한다. 세로(9:16)와 가로(16:9)의 중간이라 두 방향 모습을 비슷하게 짐작하게 한다. Figma 시안을 4:3으로 고친다 |
+| #    | 질문                           | 결정                                                                                                                                                                                                                                                                                                                                                                |
+| ---- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1    | 세션은 공간 목록을 어떻게 받나 | 공간 기능에 작은 전용 조회를 둔다. HTTP 함수는 기존 `getShopItems`·`getDecorations`·`putTimerBackground`를 쓴다. 상점 기능 켜짐(`points=1`)과 상관없이 동작한다                                                                                                                                                                                                     |
+| 2    | 기기 값과 서버 값이 다르면     | `내 사진`만 기기 우선이고 나머지는 서버 우선이다. 기기 값으로 먼저 그리고, 회원이면 서버 답이 온 뒤 맞춘다                                                                                                                                                                                                                                                          |
+| 3    | 감시를 무엇으로 알아보나       | 영상 공간의 `videoMode`(`LOOP`·`WATCH`)로 알아본다. 상품 코드나 분류는 보지 않는다                                                                                                                                                                                                                                                                                  |
+| 4    | 그 서버 작업은 어디서          | BY-1331 아래 새 하위 작업에서 한다. 이 작업을 막는다                                                                                                                                                                                                                                                                                                                |
+| 5    | 반복 영상·그림 재생기          | 이번에 만든다                                                                                                                                                                                                                                                                                                                                                       |
+| 6    | 파일을 받지 못하면             | 영상은 포스터, 그다음 심플이다. 그림은 심플이다. 고른 값은 지우지 않고 Sentry에만 남긴다. 미리보기에서는 안내 문구를 보인다                                                                                                                                                                                                                                         |
+| 7    | 무료 공간이 상점에 보이나      | 보이지 않는다. 공간 페이지에서만 고른다                                                                                                                                                                                                                                                                                                                             |
+| 8    | 서버 저장이 실패하면           | 바로 바꾸고, 실패하면 이전 공간으로 되돌리고 기존 실패 문구를 보인다                                                                                                                                                                                                                                                                                                |
+| 9    | 웹 배포물의 감독관 파일        | `public/spaces/`를 삭제하고 Vite 개발 서버에 `/spaces` 프록시를 둔다                                                                                                                                                                                                                                                                                                |
+| 10   | 분석 이벤트                    | `kind`는 `simple`·`photo`·`space`다. `item_code`·`video_mode` 속성을 더한다                                                                                                                                                                                                                                                                                         |
+| 11   | 분류                           | 서버 분류 테이블이 정한다. 앱에 분류 목록을 두지 않는다                                                                                                                                                                                                                                                                                                             |
+| 11-1 | `감독` 칩과 섹션               | 영상 방식(`videoMode = WATCH`)으로 만든다. 화면 이름은 `감독`이고 다른 언어 이름은 언어마다 업계 명칭을 확인해 정한다. 서버 분류에 `WATCH`를 두지 않는다. 감시 공간이 많아지면 감시 공간에도 서버 분류를 붙여 감시 안을 다시 나눈다                                                                                                                                 |
+| 11-2 | 이미지 탭의 `내 사진`·`심플`   | 칩과 상관없이 늘 보인다. 서버 그림 공간이 생기면 분류 섹션이 뒤에 붙고, 그때부터 칩이 나타난다                                                                                                                                                                                                                                                                      |
+| 11-3 | 영상 탭의 다른 분류            | 두 탭 모두 같은 규칙이다. 분류가 붙은 반복 영상이 있으면 그 분류의 섹션과 칩이 생긴다                                                                                                                                                                                                                                                                               |
+| 12   | 기존 `tag` 칸과 앱 매핑표      | 처음부터 설계하는 것으로 보고 삭제한다. 응답은 `tags`만 쓴다. 서버는 `tag` 필드를 deprecated로 BY-1367(V88)까지 보내지만 앱 타입에서 빼서 읽지 않는다. 상점 타이머 배경 화면의 `category`도 더 이상 채우지 않는다. 지금 서버에 분류가 붙은 상품이 없고 판매도 꺼져 있어 상점 화면은 달라지지 않으며, 상점이 `tags`를 어떻게 보일지는 상점 배경 화면 설계에서 정한다 |
+| 13   | 안 가진 공간                   | 공간 페이지에는 가진 공간만 보인다                                                                                                                                                                                                                                                                                                                                  |
+| 15   | 감시 장면 구성                 | 들어오기(`enter`)·머무르기(`loop-b`)·나가기(`exit`)와 다가옴·들어옴·나감 소리는 반드시 있다. 머무르기 `loop-a`는 선택이다. 소리는 감시 대상이 사람만은 아니어서 공간마다 따로 둔다                                                                                                                                                                                  |
+| 16   | 새 영상 방식                   | 감시에 넣기 애매한 형식(예: 평소엔 그림, 집중·비집중을 감지하면 반복 영상)은 분류가 아니라 `videoMode`의 새 값으로 만든다. 새 방식은 폴더 규칙·재생기·스크립트를 함께 정의할 때만 추가하고, 앱 배포가 한 번 필요하다                                                                                                                                                |
+| 17   | 감시 장면 4벌 생성             | 이번에는 사람이 만든 기기·방향별 4벌을 그대로 올린다. 가로 한 벌로 스크립트가 4벌을 만드는 일은 다음 감시 컨셉을 만들 때 한다                                                                                                                                                                                                                                       |
+| 14   | 카드 썸네일 비율               | 4:3을 유지한다. 세로(9:16)와 가로(16:9)의 중간이라 두 방향 모습을 비슷하게 짐작하게 한다. Figma 시안을 4:3으로 고친다                                                                                                                                                                                                                                               |
 
 상점 배경 화면은 사용자가 따로 설계한다. 이번에는 응답 타입이 바뀌어 꼭 필요한 수정과 무료 상품 거르기만 하고, 그 화면의 UI와 분류 칩은 바꾸지 않는다.
 
@@ -52,11 +52,19 @@
 ```jsonc
 // GET /api/shop/items 의 공간 한 줄
 {
-  "id": 41, "code": "SPACE_PROCTOR", "category": "TIMER_BACKGROUND",
-  "name": "독서실 감독관", "owned": true, "inUse": false,
-  "price": null, "storeProductId": null, "unlock": null,
-  "assetKey": "watcher/9c8d9f19", "assetType": "VIDEO", "videoMode": "WATCH",
-  "tags": []                // 감시는 videoMode로 알아보므로 분류를 붙이지 않는다
+  "id": 41,
+  "code": "SPACE_PROCTOR",
+  "category": "TIMER_BACKGROUND",
+  "name": "독서실 감독관",
+  "owned": true,
+  "inUse": false,
+  "price": null,
+  "storeProductId": null,
+  "unlock": null,
+  "assetKey": "watcher/9c8d9f19",
+  "assetType": "VIDEO",
+  "videoMode": "WATCH",
+  "tags": [], // 감시는 videoMode로 알아보므로 분류를 붙이지 않는다
 }
 // 반복 영상 예: "videoMode": "LOOP", "tags": [{ "code": "NATURE", "name": "자연" }]
 // GET /api/decorations 의 timerBackground 에도 assetKey·assetType·videoMode 가 온다
@@ -67,17 +75,17 @@
 
 ## 앱 구조
 
-| 단위 | 위치 | 하는 일 |
-|---|---|---|
-| 상품 타입 | `features/points/gateway/pointsApiTypes.ts`, `packages/types/src/mascotAppearance.ts` | `assetKey`·`assetType`·`videoMode`·`tags`를 더하고 `tag`를 뺀다 |
-| 데이터 변환 | `features/points/gateway/fromApi.ts` | 얻는 방법이 없는 상품을 `{ type: "free" }`로 알아본다. 상점 목록에서는 무료를 거른다. `BACKGROUND_CATEGORY_BY_TAG`를 삭제한다 |
-| 공간 조회 | `features/timer-background/spaceCatalogQuery.ts` (새 파일) | 타이머 배경이고, 가졌고, `assetKey`가 있고, 앱이 그릴 수 있는 상품만 고른다 |
-| 파일 주소 | `features/timer-background/spaceFiles.ts` (새 파일) | `assetKey`와 화면 크기로 주소를 만든다 |
-| 선택 값 | `features/timer-background/timerBackground.ts` | 선택 값 모양, 기기 저장, 옛 값 처리, `resolveSpace` |
-| 그리기 | `features/timer-background/` 아래 `LoopVideoSpace`·`ImageSpace` (새 파일), `watcher/` | 반복 영상과 그림을 그린다. 감시 재생기는 `assetKey`를 받는다 |
-| 공간 페이지 | `features/timer-background/components/SessionSpacePage.tsx` | 서버 공간, 내 사진, 심플을 타일로 보인다. 칩, 고르기, 계측 |
-| 세션 화면 | `routes/RoomPage.tsx` | 처음 그릴 값, 서버 값 맞추기, 고를 때 저장과 되돌리기 |
-| 웹 배포물 | `apps/web/public/spaces/`, `vite.config.ts`, `.github/workflows/deploy-web.yml`, `lib/__tests__/publicAssetHashes.test.ts` | 감독관 사본을 삭제하고 `/spaces` 프록시를 둔다. 배포 규칙과 해시 검사의 공간 부분을 정리한다 |
+| 단위        | 위치                                                                                                                       | 하는 일                                                                                                                       |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 상품 타입   | `features/points/gateway/pointsApiTypes.ts`, `packages/types/src/mascotAppearance.ts`                                      | `assetKey`·`assetType`·`videoMode`·`tags`를 더하고 `tag`를 뺀다                                                               |
+| 데이터 변환 | `features/points/gateway/fromApi.ts`                                                                                       | 얻는 방법이 없는 상품을 `{ type: "free" }`로 알아본다. 상점 목록에서는 무료를 거른다. `BACKGROUND_CATEGORY_BY_TAG`를 삭제한다 |
+| 공간 조회   | `features/timer-background/spaceCatalogQuery.ts` (새 파일)                                                                 | 타이머 배경이고, 가졌고, `assetKey`가 있고, 앱이 그릴 수 있는 상품만 고른다                                                   |
+| 파일 주소   | `features/timer-background/spaceFiles.ts` (새 파일)                                                                        | `assetKey`와 화면 크기로 주소를 만든다                                                                                        |
+| 선택 값     | `features/timer-background/timerBackground.ts`                                                                             | 선택 값 모양, 기기 저장, 옛 값 처리, `resolveSpace`                                                                           |
+| 그리기      | `features/timer-background/` 아래 `LoopVideoSpace`·`ImageSpace` (새 파일), `watcher/`                                      | 반복 영상과 그림을 그린다. 감시 재생기는 `assetKey`를 받는다                                                                  |
+| 공간 페이지 | `features/timer-background/components/SessionSpacePage.tsx`                                                                | 서버 공간, 내 사진, 심플을 타일로 보인다. 칩, 고르기, 계측                                                                    |
+| 세션 화면   | `routes/RoomPage.tsx`                                                                                                      | 처음 그릴 값, 서버 값 맞추기, 고를 때 저장과 되돌리기                                                                         |
+| 웹 배포물   | `apps/web/public/spaces/`, `vite.config.ts`, `.github/workflows/deploy-web.yml`, `lib/__tests__/publicAssetHashes.test.ts` | 감독관 사본을 삭제하고 `/spaces` 프록시를 둔다. 배포 규칙과 해시 검사의 공간 부분을 정리한다                                  |
 
 ### 선택 값
 
@@ -88,7 +96,7 @@ type TimerBackgroundSelection =
   | {
       kind: "space";
       itemId: number;
-      code: string;                 // 계측용. 그리는 방법은 고르지 않는다
+      code: string; // 계측용. 그리는 방법은 고르지 않는다
       assetKey: string;
       assetType: "VIDEO" | "IMAGE";
       videoMode: "LOOP" | "WATCH" | null;
@@ -120,9 +128,11 @@ function resolveSpace(local, server /* undefined: 응답 전·실패·비회원 
 ```tsx
 function SpaceLayer({ space }) {
   if (space.assetType === "IMAGE") return <ImageSpace assetKey={space.assetKey} />;
-  return space.videoMode === "WATCH"
-    ? <WatchSpace assetKey={space.assetKey} />
-    : <LoopVideoSpace assetKey={space.assetKey} />;
+  return space.videoMode === "WATCH" ? (
+    <WatchSpace assetKey={space.assetKey} />
+  ) : (
+    <LoopVideoSpace assetKey={space.assetKey} />
+  );
 }
 ```
 
@@ -133,13 +143,13 @@ function SpaceLayer({ space }) {
 
 ### 파일 주소
 
-| 공간 | 주소 |
-|---|---|
-| 반복 영상 | `/spaces/<assetKey>/loop/<화면>.mp4`, 포스터 `/spaces/<assetKey>/poster/<화면>.webp` |
-| 그림 | `/spaces/<assetKey>/image/<화면>.webp` |
-| 반복 영상·그림 타일 | `/spaces/<assetKey>/thumb.webp` (4:3) |
-| 감시 | `/spaces/<assetKey>/{enter,exit,loop-a,loop-b}/<기기>_<방향>.mp4`, 포스터 `/spaces/<assetKey>/poster/<기기>_<방향>.jpg`, 소리 `/spaces/<assetKey>/sound/{approach,enter,exit}.m4a` |
-| 감시 타일 | `/spaces/<assetKey>/poster/phone_portrait.jpg` |
+| 공간                | 주소                                                                                                                                                                               |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 반복 영상           | `/spaces/<assetKey>/loop/<화면>.mp4`, 포스터 `/spaces/<assetKey>/poster/<화면>.webp`                                                                                               |
+| 그림                | `/spaces/<assetKey>/image/<화면>.webp`                                                                                                                                             |
+| 반복 영상·그림 타일 | `/spaces/<assetKey>/thumb.webp` (4:3)                                                                                                                                              |
+| 감시                | `/spaces/<assetKey>/{enter,exit,loop-a,loop-b}/<기기>_<방향>.mp4`, 포스터 `/spaces/<assetKey>/poster/<기기>_<방향>.jpg`, 소리 `/spaces/<assetKey>/sound/{approach,enter,exit}.m4a` |
+| 감시 타일           | `/spaces/<assetKey>/poster/phone_portrait.jpg`                                                                                                                                     |
 
 - `<기기>`는 화면의 짧은 변이 태블릿 기준(`TABLET_SHORT_SIDE_PX`) 이상이면 `tablet`, 아니면 `phone`이다. 방향은 가로가 길면 `landscape`, 아니면 `portrait`다.
 - 반복 영상과 그림은 PC 크기 화면(가로 1200px 이상이고 가로가 긴 화면)에서 `desktop`을 쓴다. 감시는 PC 파일이 없어 태블릿 가로를 쓴다.
@@ -165,10 +175,10 @@ function SpaceLayer({ space }) {
 
 ### 고를 때
 
-| 고른 것 | 회원 | 비회원 |
-|---|---|---|
-| 서버 공간 | 화면과 기기 값을 바로 바꾸고 `PUT {itemId}` | 화면과 기기 값만 바꾼다 |
-| `심플` | 화면과 기기 값을 바로 바꾸고 `PUT null` | 화면과 기기 값만 바꾼다 |
+| 고른 것   | 회원                                                          | 비회원                  |
+| --------- | ------------------------------------------------------------- | ----------------------- |
+| 서버 공간 | 화면과 기기 값을 바로 바꾸고 `PUT {itemId}`                   | 화면과 기기 값만 바꾼다 |
+| `심플`    | 화면과 기기 값을 바로 바꾸고 `PUT null`                       | 화면과 기기 값만 바꾼다 |
 | `내 사진` | 화면과 기기 값을 바로 바꾸고 `PUT null`. 사진은 보내지 않는다 | 화면과 기기 값만 바꾼다 |
 
 - 회원의 `PUT`이 실패하면 이전 공간으로 되돌리고 `space.applyFailed`를 토스트로 보인다.
@@ -184,17 +194,18 @@ function SpaceLayer({ space }) {
 
 ### 접근성과 기기 부담
 
-- 동작 줄이기 설정이면 반복 영상은 포스터만 보인다. 감시는 지금 동작(캐릭터가 들어오지 않는다)을 그대로 둔다.
+- 동작 줄이기 설정이면 반복 영상은 포스터만 보인다.
+- 감시는 동작 줄이기 설정이어도 세션 중에는 지금처럼 캐릭터가 들어온다. 비집중일 때 감독관이 오는 것이 감독 공간을 고른 이유라서다. 공간 페이지 미리보기의 감시 견본만 빈 방을 보인다.
 - 화면이 숨으면 반복 영상을 멈추고, 다시 보이면 이어서 재생한다.
 - 배경 영상은 소리가 없고 `aria-hidden`이다.
 
 ### 계측
 
-| 이벤트 | 바뀌는 것 |
-|---|---|
-| `timer_background_applied` | `kind`: `simple`·`photo`·`space`. `space`이면 `item_code`, `video_mode`를 더한다. `category`는 고른 칩 코드다 |
-| `session_space_preview_opened` | `kind`를 같은 값으로 바꾸고 `item_code`를 더한다 |
-| `study_session_ended` | `space_kind`를 같은 값으로 바꾸고 `space_item_code`, `space_video_mode`를 더한다 |
+| 이벤트                         | 바뀌는 것                                                                                                     |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `timer_background_applied`     | `kind`: `simple`·`photo`·`space`. `space`이면 `item_code`, `video_mode`를 더한다. `category`는 고른 칩 코드다 |
+| `session_space_preview_opened` | `kind`를 같은 값으로 바꾸고 `item_code`를 더한다                                                              |
+| `study_session_ended`          | `space_kind`를 같은 값으로 바꾸고 `space_item_code`, `space_video_mode`를 더한다                              |
 
 - `timer_background_applied`는 회원은 `PUT`이 성공한 뒤, 비회원은 기기에 저장한 뒤 보낸다.
 - 이미 적용 중인 공간을 다시 누르거나, 서버 값으로 맞출 때는 보내지 않는다.
