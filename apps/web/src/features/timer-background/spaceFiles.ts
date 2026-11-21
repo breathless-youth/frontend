@@ -21,6 +21,16 @@ export function watchScreen(viewport: Viewport): WatchScreen {
   return `${spaceDevice(viewport)}_${viewport.width > viewport.height ? "landscape" : "portrait"}`;
 }
 
+/**
+ * PC 창에서 감시 파일을 고를 창 크기
+ *
+ * 감시는 PC 파일이 없어 창이 낮아도 늘 태블릿 가로를 쓴다.
+ */
+export const PC_WATCH_VIEWPORT: Viewport = {
+  width: DESKTOP_MIN_WIDTH_PX,
+  height: TABLET_SHORT_SIDE_PX,
+};
+
 /** 반복 영상과 그림 파일의 화면 이름 */
 export type SpaceScreen = WatchScreen | "desktop";
 

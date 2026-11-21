@@ -14,6 +14,7 @@ import {
   __resetTimerBackgroundPhotoStoreForTests,
   timerBackgroundPhotoStore,
 } from "@/features/timer-background/timerBackgroundPhotos";
+import { saveWatcherAssets } from "@/features/timer-background/watcher/watcherAssets";
 import { getDecorations, getShopItems, putTimerBackground } from "@/lib/pointsApi";
 import { profileKeys } from "@/lib/profileQueries";
 import { queryClient } from "@/lib/queryClient";
@@ -21,6 +22,11 @@ import { PROCTOR_SPACE, shopSpace } from "@/test/spaceFixtures";
 
 import { PcHomeRail } from "../PcHomeRail";
 import { PcSpaceFlyout } from "../PcSpaceFlyout";
+
+vi.mock("@/features/timer-background/watcher/watcherAssets", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  saveWatcherAssets: vi.fn(async () => {}),
+}));
 
 vi.mock("@/lib/pointsApi", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -204,5 +210,21 @@ describe("PcSpaceFlyout 서버 공간", () => {
 
     expect(await screen.findByText("찾는 공간이 없어요")).toBeInTheDocument();
     expect(getShopItems).not.toHaveBeenCalled();
+  });
+
+  it("창이 낮아도 감시 공간 파일은 태블릿 것을 받아 둔다", async () => {
+    vi.stubGlobal("innerWidth", 1200);
+    vi.stubGlobal("innerHeight", 500);
+    profile(null);
+    await openFlyout(renderRail("/?userId=1"));
+
+    await userEvent.click(await screen.findByRole("button", { name: "독서실 감독관" }));
+
+    await waitFor(() => expect(saveWatcherAssets).toHaveBeenCalledOnce());
+    const [assetKey, urls] = vi.mocked(saveWatcherAssets).mock.calls[0]!;
+    expect(assetKey).toBe(PROCTOR_SPACE.assetKey);
+    expect(urls).toContain(`/spaces/${PROCTOR_SPACE.assetKey}/enter/tablet_landscape.mp4`);
+    expect(urls.some((url) => url.includes("phone_"))).toBe(false);
+    vi.unstubAllGlobals();
   });
 });

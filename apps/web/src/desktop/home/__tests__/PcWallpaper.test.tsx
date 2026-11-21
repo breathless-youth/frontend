@@ -11,7 +11,10 @@ import {
   timerBackgroundPhotoStore,
 } from "@/features/timer-background/timerBackgroundPhotos";
 import { TIMER_BACKGROUND_PHOTOS_KEY } from "@/features/timer-background/timerBackgroundQueries";
-import { clearWatcherAssets } from "@/features/timer-background/watcher/watcherAssets";
+import {
+  clearWatcherAssets,
+  readWatcherAsset,
+} from "@/features/timer-background/watcher/watcherAssets";
 import { queryClient } from "@/lib/queryClient";
 import { PROCTOR_SPACE, RAIN_SPACE } from "@/test/spaceFixtures";
 
@@ -20,6 +23,7 @@ import { PcWallpaper } from "../PcWallpaper";
 vi.mock("@/features/timer-background/watcher/watcherAssets", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   clearWatcherAssets: vi.fn(async () => {}),
+  readWatcherAsset: vi.fn(async () => undefined),
 }));
 
 const PHOTO = { bytes: new ArrayBuffer(1), width: 1, height: 1 };
@@ -41,6 +45,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("PcWallpaper", () => {
@@ -127,5 +132,42 @@ describe("PcWallpaper", () => {
     expect(screen.queryByTestId("watcher-background")).not.toBeInTheDocument();
     expect(localStorage.getItem("focusmakers.timerBackground")).toBe('{"kind":"simple"}');
     expect(clearWatcherAssets).toHaveBeenCalledOnce();
+  });
+
+  it("받지 못한 그림 공간도 다른 공간을 거쳐 다시 고르면 다시 그린다", () => {
+    const image = { ...RAIN_SPACE, assetType: "IMAGE", videoMode: null } as const;
+    writeTimerBackground(image);
+    const { container } = renderWallpaper();
+    fireEvent.error(container.querySelector("img")!);
+
+    act(() => {
+      writeTimerBackground({ kind: "simple" });
+    });
+    act(() => {
+      writeTimerBackground(image);
+    });
+
+    expect(container.querySelector("img")?.getAttribute("src")).toContain(
+      `/spaces/${image.assetKey}/image/`,
+    );
+  });
+
+  it("창이 낮아도 감시 포스터, 영상, 받아 둔 파일 주소는 태블릿 가로를 쓴다", async () => {
+    vi.stubGlobal("innerWidth", 1200);
+    vi.stubGlobal("innerHeight", 500);
+    writeTimerBackground(PROCTOR_SPACE);
+    renderWallpaper();
+    const watcher = screen.getByTestId("watcher-background");
+
+    expect(watcher.querySelector("source")).toBeNull();
+    expect(watcher.querySelector("img")?.getAttribute("src")).toBe(
+      `/spaces/${PROCTOR_SPACE.assetKey}/poster/tablet_landscape.jpg`,
+    );
+    const sources = [...watcher.querySelectorAll("video")].map((video) => video.src);
+    expect(sources.some((src) => src.endsWith("/enter/tablet_landscape.mp4"))).toBe(true);
+    await waitFor(() => expect(readWatcherAsset).toHaveBeenCalled());
+    const read = vi.mocked(readWatcherAsset).mock.calls.map(([url]) => url);
+    expect(read).toContain(`/spaces/${PROCTOR_SPACE.assetKey}/enter/tablet_landscape.mp4`);
+    expect(read.some((url) => url.includes("phone_"))).toBe(false);
   });
 });

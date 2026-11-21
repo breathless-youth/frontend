@@ -13,8 +13,10 @@ import { SessionPageOpenScope } from "@/features/study-session/components/Sessio
 import { SpaceContent } from "@/features/timer-background/components/SessionSpacePage";
 import {
   SIMPLE_BACKGROUND_COLOR,
+  type TimerBackgroundSelection,
   useTimerBackground,
 } from "@/features/timer-background/timerBackground";
+import { PC_WATCH_VIEWPORT } from "@/features/timer-background/spaceFiles";
 import { commitTimerBackground, useSpaceApply } from "@/features/timer-background/useSpaceApply";
 import { useUserId } from "@/lib/userId";
 
@@ -45,6 +47,10 @@ const PC_SPACE_SURFACE = {
   "--session-simple-base": SIMPLE_BACKGROUND_COLOR,
 } as unknown as CSSProperties;
 
+// 월페이퍼와 같은 창 크기로 감시 파일을 받아 둔다.
+const commitPcSpace = (next: TimerBackgroundSelection) =>
+  commitTimerBackground(next, PC_WATCH_VIEWPORT);
+
 /**
  * 레일의 공간 버튼과 플라이아웃
  *
@@ -63,7 +69,7 @@ export function PcSpaceFlyout({ container }: { container: HTMLElement | null }) 
   const userId = useUserId();
   // 홈에 늘 붙어 있어 회원이면 홈을 열 때 서버 공간으로 맞추고, 고르면 서버에도 저장한다.
   // 그래서 세션이 서버의 옛 값으로 덮지 않는다.
-  const applySpace = useSpaceApply(userId, applied, commitTimerBackground);
+  const applySpace = useSpaceApply(userId, applied, commitPcSpace);
   return (
     <Dialog modal={false} open={open} onOpenChange={setOpen}>
       <DialogTrigger className={RAIL_BUTTON_CLASS}>

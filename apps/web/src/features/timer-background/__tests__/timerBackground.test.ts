@@ -198,6 +198,19 @@ describe("타이머 배경 선택 구독", () => {
     expect(result.current).toBe(first);
   });
 
+  it("같은 상품이어도 파일 위치가 바뀌면 새 값을 받는다", () => {
+    writeTimerBackground(PROCTOR_SPACE);
+    const { result } = renderHook(() => useTimerBackground());
+    const first = result.current;
+
+    act(() => {
+      writeTimerBackground({ ...PROCTOR_SPACE, assetKey: "watcher/new" });
+    });
+
+    expect(result.current).not.toBe(first);
+    expect(result.current).toEqual({ ...PROCTOR_SPACE, assetKey: "watcher/new" });
+  });
+
   it("저장소가 막혀 저장하지 못하면 구독자에게 알리지 않는다", () => {
     const { result } = renderHook(() => useTimerBackground());
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {

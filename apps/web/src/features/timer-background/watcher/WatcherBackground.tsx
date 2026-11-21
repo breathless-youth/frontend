@@ -3,7 +3,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 import { cn } from "@/lib/utils";
 
-import { watchClipUrl, watchPosterUrl, watchScreen } from "../spaceFiles";
+import { type Viewport, watchClipUrl, watchPosterUrl, watchScreen } from "../spaceFiles";
 import { canLeaveMidClip, nextWatcherClip, type WatcherClip } from "./watcherClips";
 import { readWatcherAsset, watcherAssetUrls } from "./watcherAssets";
 
@@ -37,6 +37,7 @@ function viewport() {
  */
 export function WatcherBackground({
   assetKey,
+  fixedViewport,
   present,
   className,
   onClipStart,
@@ -44,6 +45,8 @@ export function WatcherBackground({
 }: {
   /** 감시 공간 파일 폴더 */
   assetKey: string;
+  /** 파일을 고를 창 크기. 없으면 지금 창 크기로 고른다. */
+  fixedViewport?: Viewport;
   present: boolean;
   className?: string;
   /** 클립을 틀기 시작할 때와 빈 방으로 돌아갈 때(null) 부른다. */
@@ -57,7 +60,8 @@ export function WatcherBackground({
   const retryTimer = useRef<number | undefined>(undefined);
   const presentRef = useRef(present);
   const [visible, setVisible] = useState<Slot | null>(null);
-  const { local, loopA } = useStoredWatcherAssets(assetKey);
+  const screenViewport = () => fixedViewport ?? viewport();
+  const { local, loopA } = useStoredWatcherAssets(assetKey, fixedViewport);
   // 적용할 때 받아 둔 파일이 있으면 그것을, 없으면 네트워크 주소를 쓴다.
   const resolve = (url: string) => local.get(url) ?? url;
 
@@ -69,7 +73,7 @@ export function WatcherBackground({
     if (target === visible) return;
     const upcoming = (clip && nextWatcherClip(clip, presentRef.current, loopA)) ?? "enter";
     const video = videos.current[target];
-    const url = resolve(watchClipUrl(assetKey, upcoming, watchScreen(viewport())));
+    const url = resolve(watchClipUrl(assetKey, upcoming, watchScreen(screenViewport())));
     if (video && !video.src.endsWith(url)) video.src = url;
   }
 
@@ -81,7 +85,7 @@ export function WatcherBackground({
     onClipStart?.(clip);
     const video = videos.current[slot];
     if (!video) return;
-    const url = resolve(watchClipUrl(assetKey, clip, watchScreen(viewport())));
+    const url = resolve(watchClipUrl(assetKey, clip, watchScreen(screenViewport())));
     if (!video.src.endsWith(url)) video.src = url;
     video.currentTime = 0;
     // 소리 없는 인라인 영상이지만 저전력 모드나 소재를 못 받은 오프라인에서는 막힐 수 있다.
@@ -163,21 +167,28 @@ export function WatcherBackground({
       className={cn("pointer-events-none absolute inset-0 overflow-hidden bg-black", className)}
     >
       {/* 빈 방. enter 첫 프레임이라 화면 크기·방향마다 영상과 같은 그림을 고른다. */}
+      {/* 창 크기를 고정하면 영상과 같은 화면 하나만 쓴다. */}
       <picture>
-        <source
-          media="(orientation: landscape) and (min-height: 600px)"
-          srcSet={resolve(watchPosterUrl(assetKey, "tablet_landscape"))}
-        />
-        <source
-          media="(orientation: portrait) and (min-width: 600px)"
-          srcSet={resolve(watchPosterUrl(assetKey, "tablet_portrait"))}
-        />
-        <source
-          media="(orientation: landscape)"
-          srcSet={resolve(watchPosterUrl(assetKey, "phone_landscape"))}
-        />
+        {!fixedViewport && (
+          <>
+            <source
+              media="(orientation: landscape) and (min-height: 600px)"
+              srcSet={resolve(watchPosterUrl(assetKey, "tablet_landscape"))}
+            />
+            <source
+              media="(orientation: portrait) and (min-width: 600px)"
+              srcSet={resolve(watchPosterUrl(assetKey, "tablet_portrait"))}
+            />
+            <source
+              media="(orientation: landscape)"
+              srcSet={resolve(watchPosterUrl(assetKey, "phone_landscape"))}
+            />
+          </>
+        )}
         <img
-          src={resolve(watchPosterUrl(assetKey, "phone_portrait"))}
+          src={resolve(
+            watchPosterUrl(assetKey, fixedViewport ? watchScreen(fixedViewport) : "phone_portrait"),
+          )}
           alt=""
           draggable={false}
           className="absolute inset-0 size-full object-cover"
@@ -216,7 +227,10 @@ export function WatcherBackground({
  * loop-a가 없다는 기록이 있으면 loopA가 false다.
  * 화면을 떠나면 연 주소를 닫는다.
  */
-function useStoredWatcherAssets(assetKey: string): {
+function useStoredWatcherAssets(
+  assetKey: string,
+  fixedViewport: Viewport | undefined,
+): {
   local: ReadonlyMap<string, string>;
   loopA: boolean;
 } {
@@ -226,7 +240,9 @@ function useStoredWatcherAssets(assetKey: string): {
   useEffect(() => {
     let cancelled = false;
     const opened: string[] = [];
-    const urls = watcherAssetUrls(assetKey, viewport()).filter((url) => !url.includes("/sound/"));
+    const urls = watcherAssetUrls(assetKey, fixedViewport ?? viewport()).filter(
+      (url) => !url.includes("/sound/"),
+    );
     void Promise.all(urls.map(async (url) => [url, await readWatcherAsset(url)] as const)).then(
       (entries) => {
         if (cancelled) return;
@@ -248,7 +264,7 @@ function useStoredWatcherAssets(assetKey: string): {
       cancelled = true;
       for (const objectUrl of opened) URL.revokeObjectURL(objectUrl);
     };
-  }, [assetKey]);
+  }, [assetKey, fixedViewport]);
   return stored;
 }
 

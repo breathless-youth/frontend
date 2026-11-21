@@ -4,6 +4,7 @@ import { putTimerBackground } from "@/lib/pointsApi";
 import { queryClient } from "@/lib/queryClient";
 
 import { fetchAppliedSpace, isMemberUser } from "./spaceCatalogQuery";
+import type { Viewport } from "./spaceFiles";
 import {
   readTimerBackground,
   resolveSpace,
@@ -18,13 +19,16 @@ import { clearWatcherAssets, saveWatcherAssets, watcherAssetUrls } from "./watch
  * 고른 공간을 기기에 저장하기
  *
  * 저장소가 막히면 false다.
+ * 감시 파일은 viewport 크기에 맞는 것을 받고, 없으면 지금 창 크기로 고른다.
  * 감시 파일을 기기에 받아 두면 첫 등장이 늦지 않다.
  * 받지 않아도 네트워크로 재생돼 기다리지 않는다.
  */
-export function commitTimerBackground(next: TimerBackgroundSelection): boolean {
+export function commitTimerBackground(
+  next: TimerBackgroundSelection,
+  viewport: Viewport = { width: innerWidth, height: innerHeight },
+): boolean {
   if (!writeTimerBackground(next)) return false;
   if (next.kind === "space" && next.videoMode === "WATCH") {
-    const viewport = { width: innerWidth, height: innerHeight };
     void saveWatcherAssets(next.assetKey, watcherAssetUrls(next.assetKey, viewport));
   } else {
     void clearWatcherAssets();
