@@ -335,3 +335,51 @@ describe("useStudyRoomSession 자율 모드 앱 밖", () => {
     expect(submitted!.body).toMatchObject({ events: [], studySec: 60 + 7200 });
   });
 });
+
+describe("useStudyRoomSession 관리 모드 화면 가려짐", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: true, status: 200, json: () => Promise.resolve([]) }),
+    );
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
+  it("가려져도 측정을 이어 가는 세션은 멈추지 않고 진행을 keepalive로 한 번 보고하며 2시간 상한도 걸지 않는다", async () => {
+    const { result, systemPause } = setup({ source: "MEASURED", keepMeasuringWhenHidden: true });
+    await advance(10_000);
+
+    act(() => systemPause.leave());
+    await advance(1);
+
+    expect(result.current.sessionState).toEqual({ kind: "FOCUS" });
+    const puts = requests("PUT");
+    expect(puts.filter(({ init }) => init.keepalive === true)).toHaveLength(1);
+    expect(puts.at(-1)!.init.keepalive).toBe(true);
+
+    vi.setSystemTime(Date.now() + AWAY_LIMIT_MS + 30 * 60_000);
+    act(() => systemPause.return());
+    await advance(0);
+
+    expect(requests("POST")).toHaveLength(0);
+    expect(result.current.phase).toEqual({ name: "studying" });
+    expect(result.current.sessionState).toEqual({ kind: "FOCUS" });
+  });
+
+  it("기본 관리 모드는 가려지면 BACKGROUND로 일시정지하고 나가는 보고를 보내지 않는다", async () => {
+    const { result, systemPause } = setup({ source: "MEASURED" });
+    await advance(10_000);
+
+    act(() => systemPause.leave());
+    await advance(1);
+
+    expect(result.current.sessionState).toEqual({ kind: "PAUSE", trigger: "BACKGROUND" });
+    expect(requests("PUT").filter(({ init }) => init.keepalive === true)).toHaveLength(0);
+  });
+});

@@ -144,6 +144,14 @@ export interface StudyRoomSessionOptions {
    */
   readonly resumeAway?: boolean;
   /**
+   * 화면이 가려져도 관리 모드를 멈추지 않는 세션
+   *
+   * PC 브라우저는 다른 탭으로 옮겨도 카메라 프레임과 감지 타이머가 계속 돌아 측정이 이어진다.
+   * 그래서 일시정지하지 않고 그 순간의 진행을 한 번 보고만 하며, 카메라가 재고 있어 2시간 상한도 걸지 않는다.
+   * 휴대폰 앱과 휴대폰 브라우저는 가려지면 카메라가 멈춰서 이 값을 넘기지 않는다.
+   */
+  readonly keepMeasuringWhenHidden?: boolean;
+  /**
    * 계측용 룸 종류(BY-472) — 소셜룸(`LiveRoomSession`)이 이 훅을 재사용하므로, 이 값
    * 없이는 `study_session_*` 이벤트에서 개인/그룹 세션이 구분되지 않아 F1 퍼널이 오염된다.
    * 세션 로직에는 관여하지 않는다.
@@ -268,6 +276,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   // 계측 전용 — 마운트 후 바뀌지 않는다(옵션 전체가 마운트 1회 계약).
   const roomType: StudyRoomType = options.roomType ?? "single";
   const source = options.source ?? "MEASURED";
+  const keepMeasuringWhenHidden = options.keepMeasuringWhenHidden === true;
   const measureMode: MeasureMode = source === "TIMER" ? "timer" : "camera";
   // 계측 전용 — 호출부가 렌더마다 새 함수를 줄 수 있어 최신 것을 들고 있다가 종료 시점에 읽는다.
   const ambientUsageRef = useRef(options.ambientUsage);
@@ -1083,6 +1092,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    * 화면 꺼짐·백그라운드 전환
    *
    * 관리 모드는 앱 밖에서 잴 수 없어 수동 일시정지와 같은 pause("BACKGROUND") 통로로 멈춘다.
+   * 가려져도 카메라가 계속 재는 PC 브라우저의 관리 모드는 멈추지 않고 그 순간의 진행만 보고한다.
    * 자율 모드는 카메라를 쓰지 않아 앱 밖 시간도 공부 시간이고, 나간 시각만 적어 2시간 상한을 잰다.
    * 자율 모드라도 직접 멈췄거나 휴식 중이면 관리 모드와 같게 멈추고 2시간 상한 대신 일시정지 자동 종료를 따른다.
    * 자율 모드는 멈춘 상태로 나가도 그 상태를 한 번 보고해서 다시 열 때 일시정지 중이던 기록으로 읽힌다.
@@ -1116,7 +1126,11 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     const unsubscribe = systemPause.subscribe({
       onLeave: () => {
         if (source !== "TIMER") {
-          pause("BACKGROUND");
+          if (keepMeasuringWhenHidden) {
+            requestSnapshotRef.current?.({ keepalive: true });
+          } else {
+            pause("BACKGROUND");
+          }
           return;
         }
         // visibilitychange와 pagehide가 함께 와도 처음 나간 시각을 지킨다.
@@ -1146,7 +1160,15 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       clearTimeout(limitTimer);
       unsubscribe();
     };
-  }, [endAndSubmit, onReturnFromBackground, pause, phase.name, source, systemPause]);
+  }, [
+    endAndSubmit,
+    keepMeasuringWhenHidden,
+    onReturnFromBackground,
+    pause,
+    phase.name,
+    source,
+    systemPause,
+  ]);
 
   /**
    * 일시정지 자동 종료 감시 — **감시자는 이것 하나뿐이다**(S3-8).

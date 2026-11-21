@@ -33,6 +33,12 @@ export interface SoloSessionEngineOptions {
   readonly restored: RestoredSession | null;
   /** 이어서 공부하기로 고른 복원이라 공백을 공부 구간으로 연다. */
   readonly resumeAway?: boolean;
+  /**
+   * 화면이 가려져도 관리 모드를 멈추지 않는 세션
+   *
+   * 가려져도 카메라가 계속 재는 PC 브라우저만 넘긴다.
+   */
+  readonly keepMeasuringWhenHidden?: boolean;
   readonly initialSubjectId?: number;
   /** 저장한 측정 방식과 상관없이 카메라 없이 여는 세션 */
   readonly forceTimer?: boolean;
@@ -138,6 +144,7 @@ export function useSoloSessionEngine(options: SoloSessionEngineOptions) {
     detector,
     restored,
     resumeAway: options.resumeAway,
+    keepMeasuringWhenHidden: options.keepMeasuringWhenHidden,
     initialSubjectId: options.initialSubjectId,
     // 과목 목록은 쓰는 쪽이 들고 있어 제출 시점에 ref로 읽는다(옵션 주석 참고).
     getCompletedTaskIds: (startedAtMs) =>

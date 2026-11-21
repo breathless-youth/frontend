@@ -157,6 +157,7 @@ interface PcSessionScreenProps {
  * 결과 화면이 홈 위 창으로 바뀌기 전까지는 지금 결과 화면을 창 전체로 연다.
  * 카메라 창과 패널은 마지막에 만진 쪽이 위이고, 크게 본 카메라는 패널과 레일 아래에 깔려 공부를 멈추거나 끝낼 수 있다.
  * 숨긴 카메라는 휴대폰의 심플 모드와 같은 표시 기록으로 센다.
+ * 다른 탭으로 옮겨도 카메라 프레임과 감지가 계속 돌아서 관리 모드도 멈추지 않는다.
  * 1분 미만·자동 종료·제출 실패는 휴대폰과 같은 안내를 상자 가운데 창으로 보이고, 미달 안내는 확인하면 홈 상태로 돌아온다.
  * ponytail: 기기 등록 전이라 저장하지 못한 세션은 PC 홈에 신원이 늘 있어 오지 않는다고 보고 따로 그리지 않는다.
  */
@@ -205,6 +206,7 @@ function PcSessionScreen({
     resumeAway,
     initialSubjectId,
     camera,
+    keepMeasuringWhenHidden: true,
     notify: showToast,
     onResult: goToResult,
   });

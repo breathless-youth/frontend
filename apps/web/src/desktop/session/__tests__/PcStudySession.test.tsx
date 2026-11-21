@@ -305,6 +305,38 @@ describe("PcStudySession 카메라 창", () => {
     stop.mockRestore();
   });
 
+  it("다른 탭으로 옮겨도 관리 모드를 멈추지 않고 진행을 keepalive로 보고한다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve([]),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    try {
+      renderSession({ key: 1, resume: false, camera: createMockCameraAdapter() });
+
+      act(() => {
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+
+      await waitFor(() =>
+        expect(
+          fetchMock.mock.calls.filter(
+            ([, init]) =>
+              (init as RequestInit).method === "PUT" && (init as RequestInit).keepalive === true,
+          ),
+        ).toHaveLength(1),
+      );
+      expect(
+        screen.getByRole("button", { name: i18n.t("desktop:session.pause") }),
+      ).toBeInTheDocument();
+    } finally {
+      visibility.mockRestore();
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("관리 모드면 카메라 창이 있고, 숨기면 머리줄에 카메라 보기가 생긴다", async () => {
     renderSession({ key: 1, resume: false, camera: createMockCameraAdapter() });
     const name = i18n.t("desktop:session.camera.window");
