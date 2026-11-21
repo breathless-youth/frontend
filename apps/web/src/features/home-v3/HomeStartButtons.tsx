@@ -39,7 +39,7 @@ export function HomeStartButtons({
   return (
     <div className="flex gap-1">
       <Button
-        className="min-h-16 flex-1 gap-2.5 rounded-[22px] rounded-r-xs text-xl leading-6 font-bold tracking-[0.9px] shadow-sb-cta"
+        className="min-h-16 flex-1 gap-4.5 rounded-[22px] rounded-r-xs text-xl leading-6 font-semibold tracking-[0.9px] shadow-sb-cta"
         disabled={starting}
         aria-busy={starting}
         onClick={onStart}
