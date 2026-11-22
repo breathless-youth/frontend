@@ -36,6 +36,14 @@ export function spaceFolder(assetKey: string): string {
   return `/spaces/${assetKey}/`;
 }
 
+export function manifestUrl(assetKey: string): string {
+  return `${spaceFolder(assetKey)}manifest.json`;
+}
+
+export function loopSoundUrl(assetKey: string): string {
+  return `${spaceFolder(assetKey)}sound/loop.m4a`;
+}
+
 export function loopVideoUrl(assetKey: string, screen: SpaceScreen): string {
   return `${spaceFolder(assetKey)}loop/${screen}.mp4`;
 }

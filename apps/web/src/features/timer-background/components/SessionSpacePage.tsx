@@ -75,6 +75,8 @@ export interface SessionSpacePageProps {
   onVolumeChange: (volume: number) => void;
   onVolumeCommit: (volume: number) => void;
   onToggleMute: () => void;
+  /** 적용한 반복 공간에 소리가 있는가. 매니페스트를 받기 전이나 반복 공간이 아니면 false다. */
+  loopSoundAvailable: boolean;
 }
 
 /**
@@ -111,6 +113,7 @@ function SpaceContent({
   onVolumeChange,
   onVolumeCommit,
   onToggleMute,
+  loopSoundAvailable,
 }: SessionSpacePageProps) {
   const { t } = useTranslation(["study-session", "profile"]);
   const [tab, setTab] = useState<SpaceTab>("video");
@@ -417,8 +420,11 @@ function SpaceContent({
     // 목록에 없는 공간(판매를 멈췄거나 목록을 받지 못함)은 이름을 몰라 비워 둔다.
     return spaces?.find((space) => space.selection.itemId === applied.itemId)?.name ?? "";
   }
-  // 소리는 감시 공간만 내고, 이미지 탭에서는 영상 공간의 소리를 만지지 않게 막는다.
-  const soundEnabled = tab === "video" && applied.kind === "space" && applied.videoMode === "WATCH";
+  // 소리는 감독 공간과 소리 있는 반복 공간만 내고, 이미지 탭에서는 영상 공간의 소리를 만지지 않게 막는다.
+  const soundEnabled =
+    tab === "video" &&
+    applied.kind === "space" &&
+    (applied.videoMode === "WATCH" || (applied.videoMode === "LOOP" && loopSoundAvailable));
   const muted = volume === 0;
   const commit = (event: { currentTarget: HTMLInputElement }) =>
     onVolumeCommit(Number(event.currentTarget.value));
