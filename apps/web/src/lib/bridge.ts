@@ -53,6 +53,7 @@ export function isNativeBridgeAvailable(): boolean {
  * 조각은 카메라로 찍은 타임랩스를 base64로 바꾼 512KB라 개인정보 원칙상 개발 로그에도 남기지 않는다.
  * 통째로 찍으면 인스펙터가 멈추고 실기기 전달 시간 측정도 로그 비용만큼 부풀려진다.
  * 목표 문구와 닉네임은 사용자가 쓴 글이라 앱이 토큰을 가리듯 값을 가린다.
+ * 잠금화면 공부 표시에 싣는 과목 이름도 사용자가 쓴 글이라 가린다.
  */
 function forLog(message: ToNativeMessage): ToNativeMessage {
   if (message.type === "video-chunk") {
@@ -64,6 +65,13 @@ function forLog(message: ToNativeMessage): ToNativeMessage {
       goal: message.goal === null ? null : "<masked>",
       nickname: "<masked>",
     };
+  }
+  if (
+    message.type === "live-activity" &&
+    message.session !== null &&
+    message.session.subject !== null
+  ) {
+    return { ...message, session: { ...message.session, subject: "<masked>" } };
   }
   return message;
 }
