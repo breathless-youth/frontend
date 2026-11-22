@@ -56,30 +56,24 @@ beforeEach(() => {
 
 afterEach(() => {
   resetFocusFeedbackStore();
+  timelapseCard.ready = true;
 });
 
 // 인터뷰 카드가 실제 서버를 부르지 않게 막는다. 카드 동작은 InterviewCardHost.test가 검증한다.
 // 이 파일의 mock 초기화에 응답이 지워지지 않도록 vi.fn 대신 일반 함수로 둔다.
 /** 타임랩스 카드는 따로 검증했다. 결과 화면이 넘기는 값과 스크롤만 본다. */
-const timelapseCard = vi.hoisted(() => ({ props: [] as { startedAtMs: number }[] }));
-vi.mock("@/features/timelapse/ResultTimelapseCard", async () => {
-  const { useEffect, useRef } = await import("react");
-  return {
-    ResultTimelapseCard: (props: {
-      startedAtMs: number;
-      onShown?: (element: HTMLElement) => void;
-    }) => {
-      timelapseCard.props.push(props);
-      const ref = useRef<HTMLDivElement>(null);
-      useEffect(() => {
-        if (ref.current !== null) props.onShown?.(ref.current);
-        // 처음 그려졌을 때 한 번만 알린다.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-      }, []);
-      return <div ref={ref} data-testid="timelapse-card" />;
-    },
-  };
-});
+const timelapseCard = vi.hoisted(() => ({ props: [] as { startedAtMs: number }[], ready: true }));
+vi.mock("@/features/timelapse/ResultTimelapseCard", () => ({
+  ResultTimelapseCard: (props: {
+    startedAtMs: number;
+    onShown?: (element: HTMLDivElement | null) => void;
+  }) => {
+    timelapseCard.props.push(props);
+    return timelapseCard.ready ? (
+      <div ref={props.onShown} tabIndex={-1} data-testid="timelapse-card" />
+    ) : null;
+  },
+}));
 
 vi.mock("@/lib/interviewApi", () => ({
   getInterviewStatus: () =>
@@ -604,7 +598,7 @@ describe("ResultPage — 누적 요약 카드 (BY-560)", () => {
 });
 
 describe("ResultPage — 집중 도움 설문", () => {
-  const QUESTION = "이번 공부에서 앱이 집중에 어떤 영향을 줬나요?";
+  const QUESTION = "공부하는 동안 앱이 집중에 어떤 영향을 줬나요?";
 
   it("솔로 웹뷰에서 응답 직후 나가도 전송을 시작한 뒤 네이티브 화면을 닫는다", async () => {
     const postMessage = vi.fn();
@@ -729,7 +723,7 @@ describe("ResultPage — 카메라 없는 세션", () => {
     expect(screen.queryByText(/% 집중$/)).not.toBeInTheDocument();
     expect(screen.queryByText("공부 타임라인")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("heading", { name: "이번 공부에서 앱이 집중에 어떤 영향을 줬나요?" }),
+      screen.getByRole("heading", { name: "공부하는 동안 앱이 집중에 어떤 영향을 줬나요?" }),
     ).toBeInTheDocument();
     expect(
       screen.getByText((_, element) => element?.tagName === "P" && element.textContent === NOTICE),
@@ -769,7 +763,8 @@ describe("ResultPage — 확정 표기 회귀", () => {
     expect(screen.queryByRole("button", { name: "다시 제출" })).not.toBeInTheDocument();
   });
 
-  it("V1.0 범위 밖 액션(공유·내보내기)을 만들지 않는다 — 액션은 CTA 둘뿐이다", () => {
+  it("찍힌 타임랩스가 없으면 홈과 기록 CTA만 보여 준다", () => {
+    timelapseCard.ready = false;
     // 집중 도움 설문의 응답 버튼은 화면을 떠나는 액션이 아니라서, 방금 보인 것으로 두어 이 검사에서 뺀다.
     setFocusFeedbackStore(createMemoryFocusFeedbackStore(Date.now()));
     renderResult({ sessions: [exampleSession()] });
@@ -1216,16 +1211,29 @@ describe("ResultPage — 타임랩스 카드 (BY-894)", () => {
     renderResultAtSocial({ sessions: [exampleSession()] });
 
     expect(screen.queryByTestId("timelapse-card")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "타임랩스" })).not.toBeInTheDocument();
+  });
+
+  it("바로가기를 누르면 카드로 포커스를 옮기고 움직임 줄이기 설정을 따른다", () => {
+    renderResult({ sessions: [exampleSession()] });
+    const card = screen.getByTestId("timelapse-card");
+    const scrollIntoView = vi.fn();
+    Object.defineProperty(card, "scrollIntoView", { value: scrollIntoView });
+
+    fireEvent.click(screen.getByRole("button", { name: "타임랩스" }));
+
+    expect(card).toHaveFocus();
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: "start", behavior: "instant" });
   });
 
   describe("자동 스크롤", () => {
     /** 스크롤 영역은 0~800, 카드는 900~1300에 있다고 가정한다. */
-    function renderAnimatedWithCard() {
+    function renderAnimatedWithCard(cardTop = 900) {
       vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
         this: Element,
       ) {
         const isCard = this.getAttribute("data-testid") === "timelapse-card";
-        const [top, bottom] = isCard ? [900, 1300] : [0, 800];
+        const [top, bottom] = isCard ? [cardTop, cardTop + 400] : [0, 800];
         return { top, bottom, left: 0, right: 360, width: 360, height: bottom - top } as DOMRect;
       });
       vi.useFakeTimers();
@@ -1248,11 +1256,41 @@ describe("ResultPage — 타임랩스 카드 (BY-894)", () => {
       if (vi.isMockFunction(rect)) rect.mockRestore();
     });
 
-    it("아래에 타임랩스 카드가 나타나도 결과 화면을 스크롤하지 않는다", () => {
+    it("타임랩스 카드가 멀어도 12px만 한 번 내려간다", () => {
       const scrollTo = renderAnimatedWithCard();
 
       act(() => vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS));
       expect(screen.getByTestId("timelapse-card")).toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(1_000));
+
+      expect(scrollTo.mock.calls).toEqual([[{ top: 12, behavior: "smooth" }]]);
+      expect(screen.getByRole("button", { name: "타임랩스" })).toBeInTheDocument();
+    });
+
+    it("카드 윗부분이 이미 충분히 보이면 움직이지 않는다", () => {
+      const scrollTo = renderAnimatedWithCard(760);
+
+      act(() => vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS));
+      act(() => vi.advanceTimersByTime(1_000));
+
+      expect(scrollTo).not.toHaveBeenCalled();
+    });
+
+    it("자동 이동 직전에 움직임 줄이기 설정을 켜면 움직이지 않는다", () => {
+      const scrollTo = renderAnimatedWithCard();
+
+      act(() => vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS));
+      stubReducedMotion(true);
+      act(() => vi.advanceTimersByTime(1_000));
+
+      expect(scrollTo).not.toHaveBeenCalled();
+    });
+
+    it("연출이 끝나기 전에 사용자가 화면을 스크롤하면 자동으로 움직이지 않는다", () => {
+      const scrollTo = renderAnimatedWithCard();
+
+      fireEvent.wheel(window);
+      act(() => vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS));
       act(() => vi.advanceTimersByTime(1_000));
 
       expect(scrollTo).not.toHaveBeenCalled();

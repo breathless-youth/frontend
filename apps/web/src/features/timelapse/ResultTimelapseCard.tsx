@@ -35,6 +35,8 @@ type ResultTimelapseCardProps = {
   startedAtMs: number;
   userId: number | null;
   store?: TimelapseStore;
+  /** 재생할 사진이 있어 카드가 마운트될 때 결과 화면에 전달한다. */
+  onShown?: (element: HTMLDivElement | null) => void;
 };
 
 /**
@@ -48,6 +50,7 @@ export function ResultTimelapseCard({
   startedAtMs,
   userId,
   store = getTimelapseStore(),
+  onShown,
 }: ResultTimelapseCardProps) {
   const { t } = useTranslation("timelapse");
   const record = useQuery({
@@ -202,7 +205,7 @@ export function ResultTimelapseCard({
   };
 
   return (
-    <Card className="shadow-sb-card pt-4 pb-4.5">
+    <Card ref={onShown} tabIndex={-1} className="shadow-sb-card pt-4 pb-4.5">
       <CardHeader className="justify-start gap-1.5">
         <CardTitle>{t("resultCard.title")}</CardTitle>
         <InfoTooltip label={t("resultCard.aria.info")}>{t("resultCard.info")}</InfoTooltip>

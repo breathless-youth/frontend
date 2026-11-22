@@ -1,3 +1,4 @@
+import { ChevronDown } from "lucide-react";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
@@ -44,6 +45,11 @@ export const RESULT_REVEAL_DELAY_MS = 3500;
 /** 색종이가 터지는 시점 — 마스코트가 정점에 닿는 순간(0.92s) 직전에 맞춘 값. */
 const CONFETTI_AT_MS = 900;
 const RESULT_FEEDBACK_FLUSH_WAIT_MS = 750;
+const TIMELAPSE_NUDGE_DELAY_MS = 700;
+const TIMELAPSE_PEEK_PX = 32;
+const TIMELAPSE_NUDGE_MAX_PX = 12;
+const TIMELAPSE_NUDGE_WATCH_MS = 1_500;
+const RESULT_SCROLL_INPUTS = ["pointerdown", "wheel", "keydown"] as const;
 
 async function flushResultFeedback() {
   // 응답 직후 모달이 닫히면 웹뷰에 남은 분석 이벤트가 사라진다.
@@ -98,7 +104,7 @@ async function flushResultFeedback() {
  * `?userId`가 없는 미저장 모드에서는 그리지 않는다.
  */
 export function ResultPage() {
-  const { t } = useTranslation("study-session");
+  const { t } = useTranslation(["study-session", "timelapse"]);
   const location = useLocation();
   const navigate = useNavigate();
   const sessions = readSessions(location.state);
@@ -114,6 +120,10 @@ export function ResultPage() {
   // 마스코트가 정점에 닿는 순간에 맞춘 색종이·진동·공개 시점이 함께 밀린다.
   const introHeld = !skipIntro && !mascot.ready;
   const [revealed, setRevealed] = useState(skipIntro);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [timelapseCard, setTimelapseCard] = useState<HTMLDivElement | null>(null);
+  const interactedRef = useRef(false);
+  const nudgedRef = useRef(false);
   const answeredFocusFeedbackRef = useRef(false);
   const leavingRef = useRef(false);
   const pendingInviteRef = useRef<string | null>(null);
@@ -170,6 +180,52 @@ export function ResultPage() {
     const timer = window.setTimeout(() => setRevealed(true), RESULT_REVEAL_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [skipIntro, introHeld, sessions]);
+
+  // 카드가 늦게 뜨더라도 결과를 읽고 있는 사용자의 화면을 움직이지 않는다.
+  useEffect(() => {
+    const viewport = scrollRef.current;
+    let nudgeTimer: number | undefined;
+    let watchTimer: number | undefined;
+    let nudging = false;
+
+    function cancelOnInput() {
+      interactedRef.current = true;
+      window.clearTimeout(nudgeTimer);
+      if (nudging && viewport !== null) {
+        viewport.scrollTo({ top: viewport.scrollTop, behavior: "instant" });
+        window.clearTimeout(watchTimer);
+        nudging = false;
+      }
+    }
+
+    for (const name of RESULT_SCROLL_INPUTS) {
+      window.addEventListener(name, cancelOnInput, { passive: true });
+    }
+    if (viewport !== null && timelapseCard !== null && !skipIntro && !interactedRef.current) {
+      nudgeTimer = window.setTimeout(() => {
+        if (nudgedRef.current || viewport.scrollTop > 0 || prefersReducedMotion()) return;
+        const top = timelapseCard.getBoundingClientRect().top;
+        const bottom = viewport.getBoundingClientRect().bottom;
+        const down = Math.min(TIMELAPSE_NUDGE_MAX_PX, top - bottom + TIMELAPSE_PEEK_PX);
+        if (down <= 0) return;
+
+        nudgedRef.current = true;
+        nudging = true;
+        viewport.scrollTo({ top: down, behavior: "smooth" });
+        watchTimer = window.setTimeout(() => {
+          nudging = false;
+        }, TIMELAPSE_NUDGE_WATCH_MS);
+      }, TIMELAPSE_NUDGE_DELAY_MS);
+    }
+
+    return () => {
+      window.clearTimeout(nudgeTimer);
+      window.clearTimeout(watchTimer);
+      for (const name of RESULT_SCROLL_INPUTS) {
+        window.removeEventListener(name, cancelOnInput);
+      }
+    };
+  }, [skipIntro, timelapseCard]);
 
   if (sessions === null) {
     /* TODO(미정: 리더/사용자 확인) state 없는 진입(새로고침·딥링크)의 정확한 처리가 디자인에
@@ -279,7 +335,10 @@ export function ResultPage() {
       {/* 콘텐츠만 스크롤. 가로는 잠근다 — 히어로의 글로우(340px)가 좁은 화면 폭을 넘는다. */}
       {/* 열 여백을 main이 아니라 스크롤 영역에 두어야 태블릿에서 열 바깥을 끌어도 스크롤된다.
           page-column과 px-5가 같은 좌우 padding이라 안쪽을 한 겹 감싼다. */}
-      <div className="page-column flex-1 overflow-x-hidden overflow-y-auto pt-[calc(env(safe-area-inset-top)+44px)] pb-4">
+      <div
+        ref={scrollRef}
+        className="page-column flex-1 overflow-x-hidden overflow-y-auto pt-[calc(env(safe-area-inset-top)+44px)] pb-4"
+      >
         <div className="px-5">
           {/* 연출 없이 보이는 결과는 글자를 먼저 보이고 마스코트 자리만 비워 둔다. */}
           {!introHeld && (
@@ -315,7 +374,11 @@ export function ResultPage() {
               {userId !== null && <SessionSummaryCard userId={userId} />}
               {userId !== null && <InterviewCardHost userId={userId} />}
               {showTimelapse && (
-                <ResultTimelapseCard startedAtMs={timelapseStartedAtMs} userId={userId} />
+                <ResultTimelapseCard
+                  startedAtMs={timelapseStartedAtMs}
+                  userId={userId}
+                  onShown={setTimelapseCard}
+                />
               )}
             </div>
           )}
@@ -325,31 +388,47 @@ export function ResultPage() {
       {/* CTA는 하단 고정. OS 크롬(홈 인디케이터)은 그리지 않되 safe-area는 지킨다.
           비율 1 : 1.5 — 주 동선(기록)이 더 넓다(시안). */}
       {revealed && (
-        <div className="relative flex shrink-0 gap-2.5 px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+24px)] page-width animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
-          {/* 저장 토스트 자리
-
-              하단 버튼을 덮지 않게 버튼 줄 윗변 위에 띄운다.
-              Sonner의 알림 영역은 빈 상태로도 자리에 남아 flex 간격을 하나 더 만들기 때문에 높이 0인 absolute 상자에 넣는다. */}
-          <div className="absolute inset-x-0 top-0">
-            <CtaToaster />
+        <div className="relative flex shrink-0 flex-col px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+24px)] page-width animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
+          {timelapseCard !== null && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mx-auto -mt-2 min-h-11 gap-1 text-muted-foreground"
+              onClick={() => {
+                timelapseCard.focus({ preventScroll: true });
+                timelapseCard.scrollIntoView({
+                  block: "start",
+                  behavior: prefersReducedMotion() ? "instant" : "smooth",
+                });
+              }}
+            >
+              {t("timelapse:resultCard.title")}
+              <ChevronDown size={16} aria-hidden="true" />
+            </Button>
+          )}
+          <div className="relative flex gap-2.5">
+            {/* 빈 토스트 영역이 자리나 간격을 차지하지 않도록 버튼 줄 위에 띄운다. */}
+            <div className="absolute inset-x-0 top-0">
+              <CtaToaster />
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="xl"
+              onClick={() => void leave("home")}
+              className="flex-1 active:scale-[0.99] motion-reduce:transition-none"
+            >
+              {t("result.ctaHome")}
+            </Button>
+            <Button
+              type="button"
+              size="xl"
+              onClick={() => void leave("records")}
+              className="shadow-sb-cta flex-[1.5] active:scale-[0.99] motion-reduce:transition-none"
+            >
+              {t("result.ctaRecords")}
+            </Button>
           </div>
-          <Button
-            type="button"
-            variant="secondary"
-            size="xl"
-            onClick={() => void leave("home")}
-            className="flex-1 active:scale-[0.99] motion-reduce:transition-none"
-          >
-            {t("result.ctaHome")}
-          </Button>
-          <Button
-            type="button"
-            size="xl"
-            onClick={() => void leave("records")}
-            className="shadow-sb-cta flex-[1.5] active:scale-[0.99] motion-reduce:transition-none"
-          >
-            {t("result.ctaRecords")}
-          </Button>
         </div>
       )}
     </main>
