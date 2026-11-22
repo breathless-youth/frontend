@@ -566,6 +566,14 @@ export default function buildConfig({ config }: ConfigContext): ExpoConfig {
         "react-native-device-activity",
         { appleTeamId: "9BCSD3ZRDQ", appGroup: `group.${bundleIdentifier}` },
       ],
+      // 잠금화면 공부 표시 확장. App Group은 스크린타임 확장과 같은 것을 쓴다.
+      [
+        "expo-widgets",
+        {
+          bundleIdentifier: `${bundleIdentifier}.ExpoWidgetsTarget`,
+          groupIdentifier: `group.${bundleIdentifier}`,
+        },
+      ],
       ...metaSdkPlugins(metaSdk, appDisplayName),
       ...airbridgePlugins(airbridgeToken),
       ...socialLoginPlugins(kakaoNativeAppKey, googleIosClientId),

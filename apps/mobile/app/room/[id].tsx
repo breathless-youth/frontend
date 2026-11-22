@@ -7,6 +7,7 @@ import type { HandlerMessage } from "@focusmakers/types";
 import { RemoteScreen } from "../../components/RemoteScreen";
 import { handleAppLockMessage } from "../../lib/appLock/appLockRelay";
 import { createDeviceMotionSource } from "../../lib/deviceMotionSource";
+import { applyLiveActivitySnapshot, endLiveActivity } from "../../lib/liveActivity";
 import { type BridgeReply, handleBridgeMessage } from "../../lib/nativeBridgeHandler";
 import { lockPortrait, unlockForSession } from "../../lib/orientation";
 import { setSessionInviteHandler } from "../../lib/sessionInvite";
@@ -75,6 +76,9 @@ export default function SessionRoomScreen() {
   // 세션 중에 업데이트 알림창이 끼어들지 않게 화면이 떠 있음을 알린다.
   useEffect(() => markSessionOpen("single"), []);
 
+  // 웹뷰가 끝내라는 상태를 보내기 전에 사라져도 잠금화면 표시가 남지 않게 화면이 닫힐 때 끝낸다.
+  useEffect(() => endLiveActivity, []);
+
   /**
    * 화면이 닫힐 때 방해 앱 잠금 해제
    *
@@ -96,11 +100,12 @@ export default function SessionRoomScreen() {
   /**
    * 세션 전용 브리지 확장
    *
-   * — `motion-sensor`만 여기서 받고 나머지는 전부 공용 `handleBridgeMessage`에 그대로 넘긴다.
+   * `motion-sensor`와 `live-activity`만 여기서 받고 나머지는 전부 공용 `handleBridgeMessage`에 그대로 넘긴다.
    * 공용 핸들러에 넣지 않는 이유:
    * 센서 구독은 이 화면의 수명에 묶여야 한다.
    * 웹이 보내는 `motion-sensor: false`는 일시정지·카메라 전환에만 오고, WebView가 통째로 사라지는 경로(모달 닫기)에서는 오지 않는다
    * — 그 정리는 아래 effect의 cleanup이 맡는다.
+   * 잠금화면 공부 표시도 싱글룸에서만 그리고 이 화면이 닫히면 끝나야 해서 같은 이유로 여기서 받는다.
    */
   const handleMessage = (message: HandlerMessage, reply: BridgeReply) => {
     replyRef.current = reply;
@@ -110,6 +115,10 @@ export default function SessionRoomScreen() {
       } else {
         motionSource.stop();
       }
+      return;
+    }
+    if (message.type === "live-activity") {
+      applyLiveActivitySnapshot(message.session, message.atMs);
       return;
     }
     handleBridgeMessage(message, reply);

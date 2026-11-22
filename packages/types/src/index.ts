@@ -833,6 +833,7 @@ export type {
   InlineControl,
   InstallAttributionMessage,
   NativeControlPressMessage,
+  LiveActivitySnapshot,
   NativeButtonTone,
   NavigateHomeMessage,
   ReportScreenMessage,

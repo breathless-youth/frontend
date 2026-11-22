@@ -19,6 +19,7 @@ import { t } from "../lib/i18n";
 import { startInstallAttribution } from "../lib/installAttribution";
 import { consumePendingInviteRoute } from "../lib/installReferrerInvite";
 import { type LaunchGoal, readLaunchGoal, refreshLaunchGoal } from "../lib/launchGoal";
+import { endLeftoverLiveActivities } from "../lib/liveActivity";
 import { markStartPromptsAllowed, waitForLaunchReady } from "../lib/launchReady";
 import { initMetaAds } from "../lib/metaAds";
 import { installMetaAdsSdk } from "../lib/metaAdsSdk";
@@ -63,6 +64,10 @@ void resumePointsCharge();
 // 지난 프로세스가 남긴 방해 앱 잠금과 안전 해제 예약을 지운다.
 // 새 프로세스에는 진행 중인 공부가 없고, 웹뷰가 잠금을 요청하기 전에 끝나야 해서 모듈 스코프에서 한 번만 부른다.
 void cleanupOnLaunch();
+
+// 앱이 꺼진 사이 남은 잠금화면 공부 표시는 이어 갈 세션이 없으므로 실행할 때 끝낸다.
+// 이어서 공부하기로 방이 다시 열리면 웹이 새 상태를 보내 다시 시작한다.
+endLeftoverLiveActivities();
 
 // Pretendard 로드가 끝날 때까지(아래 useFonts) 스플래시를 유지한다
 // — 안 그러면 시스템 폰트로 한 프레임 그렸다가 Pretendard로 바뀌는 깜빡임(FOUT)이 보인다.

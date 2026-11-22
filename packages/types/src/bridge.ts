@@ -4,6 +4,7 @@
  * 매초 갱신되는 타이머와 상태 전환은 이 통로를 건너지 않는다
  * — 상태기계와 화면이 같은 메모리(웹)에 있으므로 직접 읽는다.
  * 브리지에는 웹이 만들 수 없는 원시 신호(가속도·앱 생명주기)와 네이티브만 할 수 있는 동작(권한·네비게이션 등)만 오간다.
+ * 잠금화면 공부 표시(`live-activity`)는 예외로, OS가 앱 밖에서 시간을 세도록 상태가 바뀔 때만 스냅샷을 넘긴다.
  */
 
 /** 네이티브 → 웹. */
@@ -419,6 +420,19 @@ export type DeleteAccountResultMessage =
  */
 export type HapticStyle = "light" | "medium" | "heavy" | "alert";
 
+/**
+ * 잠금화면 공부 표시에 넘기는 세션 스냅샷
+ *
+ * elapsedSec은 atMs 시점에 화면 큰 숫자가 보이던 값이다.
+ * distracted는 관리 모드의 딴짓 상태라 세션은 이어지지만 화면 큰 숫자는 멈춰 있다.
+ */
+export type LiveActivitySnapshot = {
+  mode: "timer" | "camera";
+  subject: string | null;
+  state: "running" | "paused" | "break" | "distracted";
+  elapsedSec: number;
+};
+
 export type ToNativeMessage =
   /**
    * 홈 화면이 구독까지 걸고 신호를 받을 준비가 됐음을 알린다. 네이티브는 이걸 받은 순간에만
@@ -607,6 +621,13 @@ export type ToNativeMessage =
    * 응답은 없고, 이 메시지를 모르는 구버전 앱은 버린다.
    */
   | { type: "app-lock-battery-guide"; atMs: number }
+  /**
+   * 잠금화면 공부 표시 상태
+   *
+   * 상태가 바뀔 때만 오고 매초 오지 않는다.
+   * session이 null이면 표시를 끝낸다.
+   */
+  | { type: "live-activity"; session: LiveActivitySnapshot | null; atMs: number }
   /**
    * `install-attribution`을 기기에 보관했다는 답
    *

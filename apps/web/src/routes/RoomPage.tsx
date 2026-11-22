@@ -133,6 +133,7 @@ import { parseInitialSubject, useInitialSubject } from "@/features/study-session
 import { InitialSubjectError } from "@/features/study-session/InitialSubjectError";
 import { loadSessionSubjects } from "@/features/study-session/loadSessionSubjects";
 import { useLandscapeLayout } from "@/features/study-session/useLandscapeLayout";
+import { useLiveActivityBridge } from "@/features/study-session/useLiveActivityBridge";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { closeStaleSession } from "@/features/study-session/closeStaleSession";
@@ -1296,6 +1297,14 @@ function RoomSessionScreen({
             (selectedSubject?.focusSec ?? 0) +
             liveSubjectTime(liveSubjectTotals, subjectSelection).focusSec,
         };
+  // 과목을 고르지 않았을 때 라벨에 쓰는 대체 문구 대신 null을 넘겨 잠금화면이 상태 문구를 첫 줄로 쓰게 한다.
+  useLiveActivityBridge({
+    measureMode: cameraOn ? "camera" : "timer",
+    subject: selectedSubject?.name ?? null,
+    sessionState,
+    phaseName: phase.name,
+    focusSec,
+  });
 
   /** 하단 종료 버튼 */
   function handleRequestExit() {
