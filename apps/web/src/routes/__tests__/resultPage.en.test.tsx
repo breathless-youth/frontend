@@ -5,10 +5,10 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
-  createMemoryMeasurementFeedbackStore,
-  resetMeasurementFeedbackStore,
-  setMeasurementFeedbackStore,
-} from "@/features/measurement-feedback/measurementFeedbackStore";
+  createMemoryFocusFeedbackStore,
+  resetFocusFeedbackStore,
+  setFocusFeedbackStore,
+} from "@/features/focus-feedback/focusFeedbackStore";
 import i18n from "@/lib/i18n";
 import { getStudyDays, listStudySessionStats } from "@/lib/statsApi";
 import { ResultPage } from "@/routes/ResultPage";
@@ -56,7 +56,7 @@ function visibleText(container: HTMLElement): string {
 }
 
 afterEach(async () => {
-  resetMeasurementFeedbackStore();
+  resetFocusFeedbackStore();
   delete (window as { matchMedia?: unknown }).matchMedia;
   await i18n.changeLanguage("ko");
 });
@@ -74,7 +74,7 @@ describe("공부 결과 영어 화면", () => {
       studiedDatesInMonth: [],
     });
     vi.mocked(getStudyDays).mockResolvedValue({ totalDays: 23 });
-    setMeasurementFeedbackStore(createMemoryMeasurementFeedbackStore());
+    setFocusFeedbackStore(createMemoryFocusFeedbackStore());
     // 모션 줄이기로 연출 없이 처음부터 전부 그린다.
     Object.defineProperty(window, "matchMedia", {
       configurable: true,

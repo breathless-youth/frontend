@@ -20,6 +20,7 @@ import { createAmbientUsage } from "@/features/ambient-sound/ambientUsage";
 import { AmbientSoundButton } from "@/features/ambient-sound/components/AmbientSoundButton";
 import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSoundSheet";
 import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
+import { createFocusFeatureUsage } from "@/features/focus-feedback/focusFeatureUsage";
 import { toRoomVisibility } from "@/features/group-room/fromApi";
 import { groupErrorCode, groupErrorCopy } from "@/features/group-room/groupErrorCopy";
 import { pickGroupText, useShowOriginal } from "@/features/group-room/model/groupTranslation";
@@ -226,13 +227,15 @@ export function LiveRoomSession({
       }),
     [systemPause],
   );
-  const [ambientUsage] = useState(() => createAmbientUsage(Date.now));
+  const [focusFeatureUsage] = useState(createFocusFeatureUsage);
+  const [ambientUsage] = useState(() => createAmbientUsage(Date.now, focusFeatureUsage.markUsed));
   // 타이머 사용 기록은 세션 훅이 타이머 훅보다 먼저 생겨서 여기서 만들어 두 훅에 함께 넘긴다.
   const [multiTimerUsage] = useState(createMultiTimerUsage);
   // 제출 시점에 읽을 과목 목록이다.
   // 목록은 아래 useSubjects가 들고 있어 커밋마다 최신 값으로 덮는다.
   const subjectsListRef = useRef<SubjectResponse[]>([]);
   const {
+    startedAtMs,
     focusSec,
     studySec,
     sessionState,
@@ -269,6 +272,9 @@ export function LiveRoomSession({
     // 그룹 공부방은 일시정지 1시간에 나가고 초대코드 방은 싱글룸과 같은 20분이다.
     tuning: room.kind === "group" ? GROUP_ROOM_SESSION_TUNING : undefined,
   });
+  useLayoutEffect(() => {
+    focusFeatureUsage.bindSession(userId, startedAtMs);
+  }, [focusFeatureUsage, startedAtMs, userId]);
   const ambient = useAmbientSound({
     sessionState,
     phase,
@@ -818,7 +824,10 @@ export function LiveRoomSession({
         }
         navigate(
           { pathname: liveRoomResultPath(room, roomId), search: location.search },
-          { replace: true, state: { sessions: nav.sessions } },
+          {
+            replace: true,
+            state: { sessions: nav.sessions, focusFeaturesUsed: focusFeatureUsage.hasUsed() },
+          },
         );
         return;
       }
@@ -840,6 +849,7 @@ export function LiveRoomSession({
     endReason,
     enteredAtMs,
     exitVisibility,
+    focusFeatureUsage,
     focusSec,
     graceEndNotice,
     graceExpired,

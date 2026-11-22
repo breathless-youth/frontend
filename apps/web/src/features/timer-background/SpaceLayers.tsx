@@ -22,9 +22,11 @@ function viewport() {
 export function LoopVideoSpace({
   assetKey,
   onUnavailable,
+  onReady,
 }: {
   assetKey: string;
   onUnavailable: () => void;
+  onReady?: () => void;
 }) {
   const [screen] = useState(() => spaceScreen(viewport()));
   const [stage, setStage] = useState<"video" | "poster">(() =>
@@ -32,6 +34,17 @@ export function LoopVideoSpace({
   );
   const videoRef = useRef<HTMLVideoElement>(null);
   const poster = loopPosterUrl(assetKey, screen);
+
+  // video의 poster는 load 이벤트가 없어서 별도로 로드를 확인한다.
+  useEffect(() => {
+    if (stage !== "video" || !onReady) return;
+    const image = new Image();
+    image.onload = onReady;
+    image.src = poster;
+    return () => {
+      image.onload = null;
+    };
+  }, [onReady, poster, stage]);
 
   // 숨은 화면에서 영상을 돌리면 전지만 써서 멈췄다가 다시 보이면 잇는다.
   useEffect(() => {
@@ -73,6 +86,7 @@ export function LoopVideoSpace({
       preload="auto"
       disablePictureInPicture
       className={LAYER}
+      onLoadedData={onReady}
       onError={() => {
         reportHandled(new Error(`space video failed: ${assetKey}`), "space-file");
         setStage("poster");

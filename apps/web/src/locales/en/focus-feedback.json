@@ -1,0 +1,13 @@
+{
+  "title": "How did the app affect your focus during this study session?",
+  "impact": {
+    "helped": "It helped",
+    "hindered": "It got in the way"
+  },
+  "comment": {
+    "question": "When during your study session did you feel that way?",
+    "notice": "Your feedback helps us improve FocusMakers.",
+    "skip": "Skip",
+    "send": "Send"
+  }
+}

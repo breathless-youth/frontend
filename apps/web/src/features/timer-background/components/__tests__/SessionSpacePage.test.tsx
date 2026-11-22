@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { IDBFactory } from "fake-indexeddb";
 import { useState } from "react";
@@ -610,16 +610,16 @@ describe("SessionSpacePage", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "내 사진 1 삭제" }));
 
-    await vi.waitFor(() =>
+    await waitFor(() => {
       expect(trackTimerBackgroundPhotoRemoved).toHaveBeenCalledWith({
         count: 0,
         wasSelected: true,
-      }),
-    );
+      });
+      expect(screen.queryByRole("button", { name: "내 사진 1" })).not.toBeInTheDocument();
+    });
     expect(onApply).toHaveBeenCalledTimes(1);
     expect(onApply).toHaveBeenCalledWith({ kind: "simple" }, { localOnly: true });
     expect(trackTimerBackgroundApplied).not.toHaveBeenCalled();
-    expect(screen.queryByRole("button", { name: "내 사진 1" })).not.toBeInTheDocument();
   });
 
   it("적용 중인 사진을 지울 때 심플로 저장하지 못하면 지우지 않고 실패를 알린다", async () => {
