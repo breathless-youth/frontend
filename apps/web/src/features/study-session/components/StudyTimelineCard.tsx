@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 import { toKoreanDurationLength } from "../formatDuration";
 import type { SessionResultView } from "../sessionResult";
@@ -47,7 +48,13 @@ import { ResultBarSegment, ResultLegendItem } from "./ResultCardParts";
 /** 최대 집중 조각과 이웃 구간 사이의 배경색 간격(px, 좌우) — 3차 시안 이미지 실측에 가까운 값. */
 const LONGEST_GAP_PX = 3;
 
-export function StudyTimelineCard({ view }: { view: SessionResultView }) {
+export function StudyTimelineCard({
+  view,
+  className,
+}: {
+  view: SessionResultView;
+  className?: string;
+}) {
   const { t } = useTranslation("study-session");
   const hasDistraction = view.distractions.length > 0;
   const hasPause = view.pause !== null;
@@ -58,7 +65,7 @@ export function StudyTimelineCard({ view }: { view: SessionResultView }) {
       : Math.min(85, Math.max(15, (longest.startRatio + longest.widthRatio / 2) * 100));
 
   return (
-    <Card className="shadow-sb-card pt-4 pb-3.5">
+    <Card className={cn("shadow-sb-card pt-4 pb-3.5", className)}>
       <CardHeader className="flex-wrap gap-y-1">
         <CardTitle>{t("result.timelineTitle")}</CardTitle>
         <ul className="flex flex-wrap items-center gap-x-3 gap-y-1">

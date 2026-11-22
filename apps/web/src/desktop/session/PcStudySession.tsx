@@ -9,7 +9,6 @@ import {
 } from "react";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { useLocation, useNavigate } from "react-router-dom";
 
 import type { StudySessionResponse } from "@focusmakers/types";
 
@@ -80,6 +79,8 @@ interface PcStudySessionProps {
   pending: ReactNode;
   /** 세션을 닫고 홈 상태로 돌아간다. */
   onEnd: () => void;
+  /** 저장이 끝난 세션을 홈으로 올린다. */
+  onResult: (sessions: StudySessionResponse[], startedAtMs: number) => void;
   /** 감시 상태가 바뀔 때와 세션이 닫힐 때(null) 부른다. */
   onWatchChange: (state: PcWatchState | null) => void;
 }
@@ -99,6 +100,7 @@ export function PcStudySession({
   box,
   pending,
   onEnd,
+  onResult,
   onWatchChange,
 }: PcStudySessionProps) {
   const gate = useSessionGate(request.subjectId, true);
@@ -148,6 +150,7 @@ export function PcStudySession({
       content={content}
       box={box}
       onEnd={onEnd}
+      onResult={onResult}
       onWatchChange={onWatchChange}
     />
   );
@@ -162,6 +165,7 @@ interface PcSessionScreenProps {
   content: HomeV3ContentProps;
   box: HTMLElement;
   onEnd: () => void;
+  onResult: (sessions: StudySessionResponse[], startedAtMs: number) => void;
   onWatchChange: (state: PcWatchState | null) => void;
 }
 
@@ -172,7 +176,7 @@ interface PcSessionScreenProps {
  * 패널은 홈과 같은 진행 띠와 공부 카드를 그리고, 공부 카드 시간에는 이번 세션을 더한다.
  * 진행 띠의 시작 버튼은 막아 공부 중에 세션 요청이 새로 나가지 않게 한다.
  * 종료 확인 창은 휴대폰 세션 화면과 같은 다크 창이라 세션 색 변수를 단 자리에 띄운다.
- * 결과 화면이 홈 위 창으로 바뀌기 전까지는 지금 결과 화면을 창 전체로 연다.
+ * 결과는 주소를 바꾸지 않고 홈으로 올려 보내 홈 위 창으로 연다.
  * 카메라 창과 패널은 마지막에 만진 쪽이 위이고, 크게 본 카메라는 패널과 레일 아래에 깔려 공부를 멈추거나 끝낼 수 있다.
  * 숨긴 카메라는 휴대폰의 심플 모드와 같은 표시 기록으로 센다.
  * 다른 탭으로 옮겨도 카메라 프레임과 감지가 계속 돌아서 관리 모드도 멈추지 않는다.
@@ -188,17 +192,10 @@ function PcSessionScreen({
   content,
   box,
   onEnd,
+  onResult,
   onWatchChange,
 }: PcSessionScreenProps) {
   const { t } = useTranslation(["study-session", "desktop", "common"]);
-  const navigate = useNavigate();
-  const location = useLocation();
-  // 엔진 호출보다 위에 둬서 선언 전 참조가 생기지 않게 한다.
-  const goToResult = (sessions: StudySessionResponse[], startedAtMs: number) =>
-    navigate(
-      { pathname: "/room/1/result", search: location.search },
-      { state: { sessions, startedAtMs }, replace: true },
-    );
   const {
     phase,
     startedAtMs,
@@ -226,10 +223,12 @@ function PcSessionScreen({
     initialSubjectId,
     camera,
     keepMeasuringWhenHidden: true,
+    // PC 웹캠은 늘 가로라 저장한 세로 비율로 찍으면 위아래가 잘린다.
+    timelapseAspect: "16:9",
     notify: showToast,
-    onResult: goToResult,
+    onResult,
   });
-  const openResult = (sessions: StudySessionResponse[]) => goToResult(sessions, startedAtMs);
+  const openResult = (sessions: StudySessionResponse[]) => onResult(sessions, startedAtMs);
   const studying = phase.name === "studying";
   const paused = sessionState.kind === "PAUSE";
   // 월페이퍼는 홈에 있어 감독관이 볼 상태를 홈에 알리고, 세션이 닫히면 거둔다.
