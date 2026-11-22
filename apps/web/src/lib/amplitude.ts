@@ -2129,15 +2129,28 @@ export function trackProfileImageUploadFailed(reason: ProfileImageUploadFailure)
 }
 
 /**
+ * 결과를 보인 곳
+ *
+ * 값이 없으면 결과 화면이고, `pc_home`은 PC 홈 위에 띄운 결과 창이다.
+ */
+export type ResultSurface = "pc_home";
+
+/**
  * S4 결과 화면을 떠남 — 하단 CTA `홈으로`(`home`: 솔로는 앱 홈, 소셜은 소셜 홈) 또는
  * `기록으로 가기`(`records`: 기록 탭). BY-560 전에는 단일 `확인`(`cta`)과 우상단 X(`close`)였다.
+ * `surface`는 결과 화면이 아닌 곳에서 떠날 때만 넘겨 기존 이벤트 모양을 지킨다.
  */
 export function trackStudyResultConfirmed(input: {
   readonly roomType: StudyRoomType;
   readonly via: "home" | "records";
+  readonly surface?: ResultSurface;
 }) {
   if (!initialized) return;
-  track("study_result_confirmed", { room_type: input.roomType, via: input.via });
+  track("study_result_confirmed", {
+    room_type: input.roomType,
+    via: input.via,
+    ...(input.surface ? { surface: input.surface } : {}),
+  });
 }
 
 /* ── 결과 화면 이탈 핸드오프 ──────────────────────────────────────────────────
@@ -2190,6 +2203,7 @@ interface PendingResultExit {
   readonly roomType: StudyRoomType;
   readonly focusSec: number;
   readonly consumeAt: ResultExitPath;
+  readonly surface?: ResultSurface;
   readonly ts: number;
 }
 
@@ -2203,6 +2217,7 @@ function isPendingResultExit(value: unknown): value is PendingResultExit {
     Number.isFinite(record.focusSec) &&
     typeof record.consumeAt === "string" &&
     exitDestination(record.consumeAt) !== null &&
+    (record.surface === undefined || record.surface === "pc_home") &&
     typeof record.ts === "number" &&
     Number.isFinite(record.ts)
   );
@@ -2220,11 +2235,13 @@ function isPendingResultExit(value: unknown): value is PendingResultExit {
  * `localStorage.setItem`은 동기라 웹뷰가 곧바로 닫혀도 값은 남는다.
  * `focusSec`은 `study_session_ended`와 같은 세션 전체 순공시간(초) — 자정 분할 세션은 호출
  * 측이 합산해서 넘긴다. 초기화 여부와 무관하게 저장한다(도착 화면이 판단).
+ * `surface`는 예약에 함께 남겨 도착 화면이 보내는 이벤트에 그대로 싣는다.
  */
 export function stageStudyResultExit(input: {
   readonly roomType: StudyRoomType;
   readonly focusSec: number;
   readonly consumeAt: ResultExitPath;
+  readonly surface?: ResultSurface;
 }) {
   try {
     localStorage.setItem(PENDING_EXIT_KEY, JSON.stringify({ ...input, ts: Date.now() }));
@@ -2257,6 +2274,7 @@ export function consumeStudyResultExit(pathname: string) {
       room_type: pending.roomType,
       focus_sec: pending.focusSec,
       destination: exitDestination(pending.consumeAt) ?? "home",
+      ...(pending.surface ? { surface: pending.surface } : {}),
     });
   } catch {
     // 깨진 payload·localStorage 불가 — 설문 트리거만 잃는다.
