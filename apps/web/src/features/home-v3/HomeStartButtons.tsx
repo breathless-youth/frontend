@@ -43,6 +43,7 @@ export function HomeStartButtons({
         disabled={starting}
         aria-busy={starting}
         onClick={onStart}
+        data-home-start
       >
         {/* 두 아이콘을 겹쳐 두고 전환으로 바꿔야 연달아 눌러도 지금 상태에서 이어서 바뀐다. */}
         <span className="grid">

@@ -109,6 +109,11 @@ export function PcHomeContent({
           startedAtMs={result.startedAtMs}
           container={box}
           onClose={() => setResult(null)}
+          onCloseAutoFocus={(event) => {
+            // 창을 연 종료 확인 버튼은 이미 사라져 Radix가 포커스를 돌려줄 곳이 없다.
+            event.preventDefault();
+            box?.querySelector<HTMLElement>("[data-home-start]")?.focus();
+          }}
         />
       )}
     </div>

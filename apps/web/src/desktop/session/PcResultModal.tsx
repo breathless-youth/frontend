@@ -30,6 +30,8 @@ export interface PcResultModalProps {
   container: HTMLElement | null;
   /** 닫기, X, 바깥 누름, Esc로 홈 상태로 돌아간다. */
   onClose: () => void;
+  /** 창이 닫힌 뒤 포커스를 둘 곳을 홈이 정한다. */
+  onCloseAutoFocus?: (event: Event) => void;
 }
 
 /**
@@ -42,7 +44,13 @@ export interface PcResultModalProps {
  * 결과가 길면 제목 줄과 버튼 줄은 남기고 본문만 굴려 닫을 길이 늘 보이게 한다.
  * 본문 안에서는 카드 바탕색 변수를 옅은 바탕으로 바꿔, 카드 안 조각 간격과 말꼬리가 카드와 같은 색으로 이어진다.
  */
-export function PcResultModal({ sessions, startedAtMs, container, onClose }: PcResultModalProps) {
+export function PcResultModal({
+  sessions,
+  startedAtMs,
+  container,
+  onClose,
+  onCloseAutoFocus,
+}: PcResultModalProps) {
   const { t } = useTranslation(["study-session", "common"]);
   const navigate = useNavigate();
   const location = useLocation();
@@ -80,6 +88,7 @@ export function PcResultModal({ sessions, startedAtMs, container, onClose }: PcR
       <DialogContent
         container={container}
         showCloseButton={false}
+        onCloseAutoFocus={onCloseAutoFocus}
         aria-describedby={undefined}
         className="flex max-h-[calc(100%-5rem)] w-140 max-w-[calc(100%-2rem)] flex-col gap-5 rounded-xl bg-muted p-6 sm:rounded-xl"
       >

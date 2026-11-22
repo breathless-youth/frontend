@@ -351,6 +351,15 @@ describe("PcHomeContent 결과 창", () => {
     );
     expect(screen.getByRole("region", { name: "공부시간" })).toBeInTheDocument();
   });
+
+  it("결과 창을 닫으면 포커스가 홈의 공부 시작 버튼으로 돌아온다", async () => {
+    await finishSession();
+    await screen.findByRole("dialog", { name: "오늘 공부 완료" });
+
+    await userEvent.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "공부 시작" })).toHaveFocus());
+  });
 });
 
 describe("PcHomeContent 감시 공간", () => {
