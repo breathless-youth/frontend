@@ -10,6 +10,7 @@ import { daysUntil, formatDday } from "@/features/home/ddayFormat";
 import { ddayQuery } from "@/lib/ddayQueries";
 import { streakQuery } from "@/lib/statsQueries";
 import { showCtaToast } from "@/lib/toast";
+import { cn } from "@/lib/utils";
 
 import { flowSegmentsFor, overlayTextFor } from "./timelapseFrame";
 import { TimelapsePlayer } from "./TimelapsePlayer";
@@ -37,6 +38,14 @@ type ResultTimelapseCardProps = {
   store?: TimelapseStore;
   /** 카드가 처음 화면에 그려졌을 때 부른다. 결과 화면이 여기까지 스크롤한다. */
   onShown?: (element: HTMLElement) => void;
+  /**
+   * 공유하기를 누르면 할 일
+   *
+   * `dialog`는 공유 창을 열고, `direct`는 공유 창 없이 브라우저 공유를 바로 연다.
+   * 대상 앱을 고를 수 없는 PC 브라우저는 공유 창의 버튼이 모두 같은 공유를 열어 `direct`를 쓴다.
+   */
+  shareMode?: "dialog" | "direct";
+  className?: string;
 };
 
 /**
@@ -51,6 +60,8 @@ export function ResultTimelapseCard({
   userId,
   store = getTimelapseStore(),
   onShown,
+  shareMode = "dialog",
+  className,
 }: ResultTimelapseCardProps) {
   const { t } = useTranslation("timelapse");
   const record = useQuery({
@@ -94,6 +105,10 @@ export function ResultTimelapseCard({
   // 앱과 브라우저 기능은 이 화면에 있는 동안 바뀌지 않는다.
   const [routes] = useState(shareRoutes);
   const shareAvailable = routes.save !== null || routes.share !== null;
+  // 바로 공유는 공유 창이 없어 공유할 수 없는 환경이면 버튼을 숨긴다.
+  const directShare = shareMode === "direct" ? routes.share : null;
+  // 카드에서 영상을 바로 보내는 버튼이 있을 때만 영상을 구독한다.
+  const sendsVideo = routes.save !== null || directShare !== null;
   // 두 값을 남긴 뒤에만 공유 창을 연다.
   // 저장이나 공유를 할 수 있는 환경이면 영상 미리 받기도 이때 시작한다.
   const [shareable, setShareable] = useState(false);
@@ -145,16 +160,23 @@ export function ResultTimelapseCard({
   // 위에서 미리 받기 시작한 영상을 같은 키로 구독해 다운로드 버튼에 진행률을 보인다.
   const video = useQuery({
     ...timelapseVideoQuery(startedAtMs, store),
-    enabled: shareable && routes.save !== null,
+    enabled: shareable && sendsVideo,
   });
   const progress = useQuery(timelapseVideoProgressQuery(startedAtMs));
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<ShareNotice | null>(null);
   const building = video.isFetching;
-  const downloadLocked = !shareable || building || saving;
+  const sendLocked = !shareable || building || saving;
 
-  const download = async () => {
-    if (routes.save === null || downloadLocked) return;
+  /**
+   * 카드에서 바로 저장하거나 공유
+   *
+   * 바로 공유는 공유 창의 더 보기와 같은 보내기라 기록도 같은 버튼 값으로 남는다.
+   */
+  const send = async (button: "save" | "more") => {
+    const action = button === "save" ? "save" : "share";
+    const route = action === "save" ? routes.save : directShare;
+    if (route === null || sendLocked) return;
     // 만들다 실패한 영상은 다시 누를 때 다시 만든다.
     if (!video.isSuccess) {
       setNotice(null);
@@ -164,17 +186,17 @@ export function ResultTimelapseCard({
     setSaving(true);
     setNotice(null);
     const result = await sendTimelapse({
-      button: "save",
-      route: routes.save,
+      button,
+      route,
       video: video.data,
       startedAtMs,
       entry: "result",
     });
     // 보내기는 오류도 결과로 돌려주므로 여기서 잠금을 풀면 성공과 실패 모두 풀린다.
     setSaving(false);
-    const resultNotice = shareResultNotice("save", routes.save, result);
+    const resultNotice = shareResultNotice(action, route, result);
     // 앱 저장이 끝났다는 알림은 공유 창의 저장과 같이 토스트로 띄운다.
-    if (routes.save === "native" && result === "saved" && resultNotice !== null) {
+    if (action === "save" && route === "native" && result === "saved" && resultNotice !== null) {
       showCtaToast(resultNotice.text);
       return;
     }
@@ -182,7 +204,7 @@ export function ResultTimelapseCard({
   };
 
   const message: ReactNode =
-    routes.save !== null && video.isError && !building ? (
+    sendsVideo && video.isError && !building ? (
       <StatusText>{t("share.status.buildFailed")}</StatusText>
     ) : notice !== null ? (
       <>
@@ -213,7 +235,7 @@ export function ResultTimelapseCard({
   };
 
   return (
-    <Card ref={cardRef} className="shadow-sb-card pt-4 pb-4.5">
+    <Card ref={cardRef} className={cn("shadow-sb-card pt-4 pb-4.5", className)}>
       <CardHeader className="justify-start gap-1.5">
         <CardTitle>{t("resultCard.title")}</CardTitle>
         <InfoTooltip label={t("resultCard.aria.info")}>{t("resultCard.info")}</InfoTooltip>
@@ -233,8 +255,8 @@ export function ResultTimelapseCard({
           <Button
             variant="ghost"
             // disabled 속성을 쓰면 누른 버튼이 잠기는 순간 포커스가 문서 밖으로 빠진다.
-            aria-disabled={downloadLocked}
-            onClick={() => void download()}
+            aria-disabled={sendLocked}
+            onClick={() => void send("save")}
             className="bg-transparent text-primary border border-primary/40 h-11 gap-1.5 rounded-full px-5 tabular-nums aria-disabled:opacity-50"
           >
             <ArrowDownToLine size={18} aria-hidden="true" />
@@ -243,29 +265,46 @@ export function ResultTimelapseCard({
               : t("resultCard.download")}
           </Button>
         )}
-        <Button
-          variant="subtle"
-          aria-haspopup="dialog"
-          aria-label={t("resultCard.aria.share")}
-          disabled={!shareable}
-          onClick={() => setSharing(true)}
-          className="h-11 gap-1.5 rounded-full px-5"
-        >
-          <Share size={18} aria-hidden="true" />
-          {t("resultCard.share")}
-        </Button>
+        {shareMode === "dialog" ? (
+          <Button
+            variant="subtle"
+            aria-haspopup="dialog"
+            aria-label={t("resultCard.aria.share")}
+            disabled={!shareable}
+            onClick={() => setSharing(true)}
+            className="h-11 gap-1.5 rounded-full px-5"
+          >
+            <Share size={18} aria-hidden="true" />
+            {t("resultCard.share")}
+          </Button>
+        ) : (
+          directShare !== null && (
+            <Button
+              variant="subtle"
+              aria-label={t("resultCard.aria.share")}
+              aria-disabled={sendLocked}
+              onClick={() => void send("more")}
+              className="h-11 gap-1.5 rounded-full px-5 aria-disabled:opacity-50"
+            >
+              <Share size={18} aria-hidden="true" />
+              {t("resultCard.share")}
+            </Button>
+          )
+        )}
       </div>
       <div role="status" className="flex items-center justify-center gap-1 px-4 not-empty:mt-2">
         {message}
       </div>
-      <TimelapseShareDialog
-        open={sharing}
-        onOpenChange={setSharing}
-        record={ready}
-        overlay={overlay}
-        entry="result"
-        store={store}
-      />
+      {shareMode === "dialog" && (
+        <TimelapseShareDialog
+          open={sharing}
+          onOpenChange={setSharing}
+          record={ready}
+          overlay={overlay}
+          entry="result"
+          store={store}
+        />
+      )}
     </Card>
   );
 }

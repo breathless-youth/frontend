@@ -119,11 +119,11 @@ async function readyDownload() {
   return button;
 }
 
-function renderCard(userId: number | null = 7) {
+function renderCard(userId: number | null = 7, shareMode?: "dialog" | "direct") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <ResultTimelapseCard startedAtMs={T0} userId={userId} store={store} />
+      <ResultTimelapseCard startedAtMs={T0} userId={userId} store={store} shareMode={shareMode} />
     </QueryClientProvider>,
   );
 }
@@ -151,6 +151,7 @@ beforeEach(() => {
 
 afterEach(() => {
   Reflect.deleteProperty(navigator, "canShare");
+  Reflect.deleteProperty(navigator, "share");
   vi.useRealTimers();
   vi.clearAllMocks();
   vi.mocked(canUseNativeVideo).mockReturnValue(false);
@@ -409,6 +410,55 @@ describe("ResultTimelapseCard", () => {
 
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(open).toHaveFocus();
+  });
+
+  it("바로 공유는 공유 창 없이 브라우저 공유를 열고 결과를 기록한다", async () => {
+    stubCanShare(true);
+    const share = vi.fn<(data: ShareData) => Promise<void>>().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "share", { configurable: true, value: share });
+    await readyTimelapse();
+    renderCard(7, "direct");
+
+    const open = await screen.findByRole("button", { name: "타임랩스 공유하기" });
+    await waitFor(() => expect(open).toHaveAttribute("aria-disabled", "false"));
+    expect(open).not.toHaveAttribute("aria-haspopup");
+    fireEvent.click(open);
+
+    await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+    expect(share.mock.calls[0]?.[0].files?.[0]?.name).toBe("focusmakers-timelapse-20261005.mp4");
+    await waitFor(() =>
+      expect(trackTimelapseShareTapped).toHaveBeenCalledWith({
+        button: "more",
+        result: "shared",
+        entry: "result",
+      }),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("바로 공유는 브라우저 공유에 실패하면 카드에 안내한다", async () => {
+    stubCanShare(true);
+    Object.defineProperty(navigator, "share", {
+      configurable: true,
+      value: vi.fn().mockRejectedValue(new Error("boom")),
+    });
+    await readyTimelapse();
+    renderCard(7, "direct");
+
+    const open = await screen.findByRole("button", { name: "타임랩스 공유하기" });
+    await waitFor(() => expect(open).toHaveAttribute("aria-disabled", "false"));
+    fireEvent.click(open);
+
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("공유하지 못했어요"));
+  });
+
+  it("바로 공유는 브라우저가 파일 공유를 못 하면 공유하기 버튼을 그리지 않는다", async () => {
+    stubCanShare(false);
+    await readyTimelapse();
+    renderCard(7, "direct");
+
+    await readyDownload();
+    expect(screen.queryByRole("button", { name: "타임랩스 공유하기" })).toBeNull();
   });
 
   it("다운로드를 누르면 사진 앱에 저장하고 토스트로 알린다", async () => {

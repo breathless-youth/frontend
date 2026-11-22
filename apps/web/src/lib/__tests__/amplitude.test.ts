@@ -1991,6 +1991,65 @@ describe("결과 화면 이탈 핸드오프 (study_result_exited)", () => {
     ]);
   });
 
+  it("결과 확인에 surface를 넘기면 속성에 싣고, 없으면 지금처럼 넣지 않는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    mocks.track.mockClear();
+
+    m.trackStudyResultConfirmed({ roomType: "single", via: "home", surface: "pc_home" });
+    m.trackStudyResultConfirmed({ roomType: "single", via: "records" });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["study_result_confirmed", { room_type: "single", via: "home", surface: "pc_home" }],
+      ["study_result_confirmed", { room_type: "single", via: "records" }],
+    ]);
+  });
+
+  it("이탈 예약의 surface가 study_result_exited에 실린다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    m.stageStudyResultExit({
+      roomType: "single",
+      focusSec: 900,
+      consumeAt: "/home",
+      surface: "pc_home",
+    });
+    mocks.track.mockClear();
+
+    m.consumeStudyResultExit("/home");
+
+    expect(mocks.track.mock.calls).toEqual([
+      [
+        "study_result_exited",
+        { room_type: "single", focus_sec: 900, destination: "home", surface: "pc_home" },
+      ],
+    ]);
+  });
+
+  it("모르는 surface가 든 예약은 보내지 않고 버린다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+    mocks.track.mockClear();
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        roomType: "single",
+        focusSec: 900,
+        consumeAt: "/home",
+        surface: "tv",
+        ts: Date.now(),
+      }),
+    );
+
+    m.consumeStudyResultExit("/home");
+
+    expect(mocks.track).not.toHaveBeenCalled();
+    expect(localStorage.getItem(KEY)).toBeNull();
+  });
+
   it("그룹 공부방 결과의 예약은 그 그룹 홈만 보내고 홈 복귀로 센다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const m = await loadModule();

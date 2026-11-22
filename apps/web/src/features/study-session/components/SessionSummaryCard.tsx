@@ -20,55 +20,91 @@ import { useResultSummary } from "../useResultSummary";
  * `userId`가 없는 브라우저 단독(미저장) 모드에서는 호출부가 카드를 그리지 않는다 — 저장되지
  * 않은 세션의 "누적"은 성립하지 않는다.
  */
-export function SessionSummaryCard({ userId }: { userId: number }) {
+export function SessionSummaryCard({
+  userId,
+  layout = "list",
+  className,
+}: {
+  userId: number;
+  /** `split`은 두 값을 반반 카드 두 개에 이름 위·값 아래로 나눠 그린다. */
+  layout?: "list" | "split";
+  className?: string;
+}) {
   const { t } = useTranslation("study-session");
   const summary = useResultSummary(userId);
+  const items: SummaryItem[] = [
+    {
+      label: t("result.todayFocusLabel"),
+      state: summary.todayFocusSec,
+      format: toKoreanDurationLength,
+      accent: true,
+    },
+    {
+      label: t("result.studyDaysLabel"),
+      state: summary.studyDays,
+      format: (days) => t("result.studyDays", { count: days }),
+    },
+  ];
+
+  if (layout === "split") {
+    return (
+      <div className="grid grid-cols-2 gap-3">
+        {items.map((item) => (
+          <Card key={item.label} className={cn("shadow-sb-card", className)}>
+            <CardContent
+              className="flex flex-col gap-1.5 py-4"
+              aria-busy={item.state.status === "pending" || undefined}
+            >
+              <span className="text-[13px] leading-4.5 break-keep text-muted-foreground">
+                {item.label}
+              </span>
+              <SummaryValue {...item} />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
 
   return (
-    <Card className="shadow-sb-card">
+    <Card className={cn("shadow-sb-card", className)}>
       <CardContent>
-        <SummaryRow
-          label={t("result.todayFocusLabel")}
-          state={summary.todayFocusSec}
-          format={toKoreanDurationLength}
-          accent
-        />
+        <SummaryRow {...items[0]!} />
         <Separator />
-        <SummaryRow
-          label={t("result.studyDaysLabel")}
-          state={summary.studyDays}
-          format={(days) => t("result.studyDays", { count: days })}
-        />
+        <SummaryRow {...items[1]!} />
       </CardContent>
     </Card>
   );
 }
 
-function SummaryRow({
-  label,
-  state,
-  format,
-  accent = false,
-}: {
+interface SummaryItem {
   label: string;
   state: SummaryValueState;
   format: (value: number) => string;
   accent?: boolean;
-}) {
+}
+
+function SummaryRow(item: SummaryItem) {
   return (
     <div
       className="flex items-center justify-between gap-3 py-4.5"
-      aria-busy={state.status === "pending" || undefined}
+      aria-busy={item.state.status === "pending" || undefined}
     >
-      <span className="text-[15px] leading-4.5 break-keep text-muted-foreground">{label}</span>
-      <span
-        className={cn(
-          "shrink-0 text-[18px] leading-5.5 font-bold tabular-nums",
-          accent ? "text-primary" : "text-foreground",
-        )}
-      >
-        {state.status === "success" ? format(state.value) : "—"}
-      </span>
+      <span className="text-[15px] leading-4.5 break-keep text-muted-foreground">{item.label}</span>
+      <SummaryValue {...item} />
     </div>
+  );
+}
+
+function SummaryValue({ state, format, accent = false }: SummaryItem) {
+  return (
+    <span
+      className={cn(
+        "shrink-0 text-[18px] leading-5.5 font-bold tabular-nums",
+        accent ? "text-primary" : "text-foreground",
+      )}
+    >
+      {state.status === "success" ? format(state.value) : "—"}
+    </span>
   );
 }

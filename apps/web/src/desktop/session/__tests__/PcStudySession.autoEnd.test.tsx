@@ -1,7 +1,8 @@
+import type { StudySessionResponse } from "@focusmakers/types";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Toaster } from "@/components/ui/sonner";
@@ -65,14 +66,15 @@ function content(): HomeV3ContentProps {
   };
 }
 
-/** 결과 화면 자리. 넘겨받은 세션 수만 보인다. */
-function ResultProbe() {
-  const location = useLocation();
-  const state = location.state as { sessions?: unknown[] } | null;
-  return <p>{`결과 ${state?.sessions?.length ?? 0}건`}</p>;
-}
-
-function SessionInBox({ request, onEnd }: { request: PcSessionRequest; onEnd: () => void }) {
+function SessionInBox({
+  request,
+  onEnd,
+  onResult,
+}: {
+  request: PcSessionRequest;
+  onEnd: () => void;
+  onResult: (sessions: StudySessionResponse[], startedAtMs: number) => void;
+}) {
   const [box, setBox] = useState<HTMLDivElement | null>(null);
   return (
     <div ref={setBox} className="relative">
@@ -82,6 +84,7 @@ function SessionInBox({ request, onEnd }: { request: PcSessionRequest; onEnd: ()
         box={box}
         pending={<p>홈 패널</p>}
         onEnd={onEnd}
+        onResult={onResult}
         onWatchChange={() => {}}
       />
     </div>
@@ -90,18 +93,22 @@ function SessionInBox({ request, onEnd }: { request: PcSessionRequest; onEnd: ()
 
 function renderSession(request: PcSessionRequest = { key: 1, resume: false }) {
   const onEnd = vi.fn();
+  const onResult = vi.fn();
   const view = render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={["/home?userId=7"]}>
         <Routes>
-          <Route path="/home" element={<SessionInBox request={request} onEnd={onEnd} />} />
-          <Route path="/room/1/result" element={<ResultProbe />} />
+          <Route
+            path="/home"
+            element={<SessionInBox request={request} onEnd={onEnd} onResult={onResult} />}
+          />
+          <Route path="*" element={<p>다른 화면</p>} />
         </Routes>
       </MemoryRouter>
       <Toaster />
     </QueryClientProvider>,
   );
-  return { onEnd, ...view };
+  return { onEnd, onResult, ...view };
 }
 
 /** 0.05분 = 3초. 테스트 전용 값이다. */
@@ -135,8 +142,10 @@ describe("PcStudySession 자동 종료", () => {
     vi.clearAllMocks();
   });
 
-  it("오래 멈추면 저장하고 상자 안 창으로 알린 뒤 결과 보기로 결과 화면에 간다", async () => {
-    renderSession();
+  it("오래 멈추면 저장하고 상자 안 창으로 알린 뒤 결과 보기로 결과를 홈으로 올린다", async () => {
+    const startedAtMs = new Date(2026, 10, 22, 21, 3).getTime();
+    vi.setSystemTime(startedAtMs);
+    const { onResult } = renderSession();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(2_000);
     });
@@ -151,7 +160,11 @@ describe("PcStudySession 자동 종료", () => {
       within(dialog).getByRole("button", { name: i18n.t("study-session:autoEnd.cta") }),
     );
 
-    expect(screen.getByText("결과 1건")).toBeInTheDocument();
+    expect(onResult).toHaveBeenCalledExactlyOnceWith(
+      [expect.objectContaining({ id: 1 })],
+      startedAtMs,
+    );
+    expect(screen.queryByText("다른 화면")).toBeNull();
   });
 
   it("도움말 가이드를 연 채 오래 두면 자동 종료되고 가이드 대신 종료 안내가 남는다", async () => {

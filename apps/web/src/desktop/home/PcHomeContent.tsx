@@ -1,5 +1,7 @@
 import { lazy, Suspense, useState, type ReactNode } from "react";
 
+import type { StudySessionResponse } from "@focusmakers/types";
+
 import { HomeStudyBlocks } from "@/features/home-v3/HomeV3Content";
 import type { HomeV3ContentProps } from "@/features/home-v3/homeV3ContentTypes";
 import { useTimerBackground } from "@/features/timer-background/timerBackground";
@@ -7,6 +9,7 @@ import { useWatcher } from "@/features/timer-background/watcher/useWatcher";
 import { reloadOnChunkError } from "@/lib/chunkReload";
 
 import { loadPcStudySession } from "../session/loadPcStudySession";
+import { PcResultModal } from "../session/PcResultModal";
 import type { PcWatchState } from "../session/PcStudySession";
 import type { PcSessionRequest } from "../session/usePcSession";
 import { PcContactButton } from "./PcContactButton";
@@ -41,6 +44,8 @@ export interface PcHomeContentProps extends HomeV3ContentProps {
  * 전체 선택이나 끌어 선택이 월페이퍼 사진까지 파랗게 칠하지 않게 홈 전체를 글자 선택과 그림 끌기에서 뺀다.
  * D-Day·목표 가운데 창은 body로 나가 이 범위 밖이라 입력은 그대로 된다.
  * 공부 세션을 열면 같은 자리에 세션 패널을 그리고, 세션을 만들기 전까지는 홈 패널을 시작 중 모양으로 남긴다.
+ * 세션이 결과를 올리면 세션을 닫고 홈 위에 결과 창을 띄운다.
+ * 결과는 이 상태에만 두어 새로고침하면 창은 사라지고 기록은 서버에 남는다.
  */
 export function PcHomeContent({
   dday,
@@ -52,6 +57,10 @@ export function PcHomeContent({
   const [box, setBox] = useState<HTMLDivElement | null>(null);
   const space = useTimerBackground();
   const [watchState, setWatchState] = useState<PcWatchState | null>(null);
+  const [result, setResult] = useState<{
+    sessions: StudySessionResponse[];
+    startedAtMs: number;
+  } | null>(null);
   // 월페이퍼의 감독관과 소리, 공간 창의 음량 줄이 같은 상태를 쓰도록 홈에서 한 번만 만든다.
   const watcher = useWatcher(
     space.kind === "space" && space.videoMode === "WATCH" ? space.assetKey : null,
@@ -84,12 +93,29 @@ export function PcHomeContent({
             box={box}
             pending={homePanel}
             onEnd={onSessionEnd}
+            onResult={(sessions, startedAtMs) => {
+              setResult({ sessions, startedAtMs });
+              onSessionEnd();
+            }}
             onWatchChange={setWatchState}
           />
         </Suspense>
       )}
       {/* 공부 중에 상담 창을 열면 공부와 겹쳐 공부하는 동안은 숨긴다. */}
       {session === null && <PcContactButton href={contactHref} />}
+      {result !== null && (
+        <PcResultModal
+          sessions={result.sessions}
+          startedAtMs={result.startedAtMs}
+          container={box}
+          onClose={() => setResult(null)}
+          onCloseAutoFocus={(event) => {
+            // 창을 연 종료 확인 버튼은 이미 사라져 Radix가 포커스를 돌려줄 곳이 없다.
+            event.preventDefault();
+            box?.querySelector<HTMLElement>("[data-home-start]")?.focus();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,8 +1,9 @@
+import type { StudySessionResponse } from "@focusmakers/types";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -13,6 +14,7 @@ import { createMockCameraAdapter } from "@/features/study-session/adapters/camer
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import { markSessionGuideSeen, sessionGuideState } from "@/features/study-session/sessionGuide";
 import { submitStudySession } from "@/features/study-session/submitStudySession";
+import { createTimelapseRecorder } from "@/features/timelapse/timelapseRecorder";
 import { writeTimerBackground } from "@/features/timer-background/timerBackground";
 import { trackStudySessionEnded } from "@/lib/amplitude";
 import i18n from "@/lib/i18n";
@@ -49,7 +51,7 @@ vi.mock("@/features/study-session/useVisionReadyTracking", async () => {
 });
 vi.mock("@/features/timelapse/timelapseRecorder", async () => {
   const { recorderStub } = await import("@/test/soloSessionMocks");
-  return { createTimelapseRecorder: () => recorderStub };
+  return { createTimelapseRecorder: vi.fn(() => recorderStub) };
 });
 vi.mock("@/features/study-session/submitStudySession", () => ({ submitStudySession: vi.fn() }));
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
@@ -81,16 +83,17 @@ function content(): HomeV3ContentProps {
   };
 }
 
-/** 결과 화면 자리. 넘겨받은 세션 수만 보인다. */
-function ResultProbe() {
-  const location = useLocation();
-  const state = location.state as { sessions?: unknown[] } | null;
-  return <p>{`결과 ${state?.sessions?.length ?? 0}건`}</p>;
-}
-
 const watchChanges = vi.fn();
 
-function SessionInBox({ request, onEnd }: { request: PcSessionRequest; onEnd: () => void }) {
+function SessionInBox({
+  request,
+  onEnd,
+  onResult,
+}: {
+  request: PcSessionRequest;
+  onEnd: () => void;
+  onResult: (sessions: StudySessionResponse[], startedAtMs: number) => void;
+}) {
   const [box, setBox] = useState<HTMLDivElement | null>(null);
   return (
     <div ref={setBox} className="relative">
@@ -100,6 +103,7 @@ function SessionInBox({ request, onEnd }: { request: PcSessionRequest; onEnd: ()
         box={box}
         pending={<p>홈 패널</p>}
         onEnd={onEnd}
+        onResult={onResult}
         onWatchChange={watchChanges}
       />
     </div>
@@ -108,18 +112,22 @@ function SessionInBox({ request, onEnd }: { request: PcSessionRequest; onEnd: ()
 
 function renderSession(request: PcSessionRequest = { key: 1, resume: false }) {
   const onEnd = vi.fn();
+  const onResult = vi.fn();
   const view = render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={["/home?userId=7"]}>
         <Routes>
-          <Route path="/home" element={<SessionInBox request={request} onEnd={onEnd} />} />
-          <Route path="/room/1/result" element={<ResultProbe />} />
+          <Route
+            path="/home"
+            element={<SessionInBox request={request} onEnd={onEnd} onResult={onResult} />}
+          />
+          <Route path="*" element={<p>다른 화면</p>} />
         </Routes>
       </MemoryRouter>
       <Toaster />
     </QueryClientProvider>,
   );
-  return { onEnd, ...view };
+  return { onEnd, onResult, ...view };
 }
 
 const RESTORED: RestoredSession = {
@@ -501,10 +509,19 @@ describe("PcStudySession 종료", () => {
     events: [],
   };
 
-  it("저장이 끝나면 지금 결과 화면으로 결과를 넘겨 간다", async () => {
-    vi.useFakeTimers();
-    vi.mocked(submitStudySession).mockResolvedValue([SESSION]);
+  it("가로 웹캠이라 저장한 비율과 상관없이 타임랩스를 16:9로 찍는다", async () => {
     renderSession();
+
+    const deps = vi.mocked(createTimelapseRecorder).mock.calls.at(-1)?.[0];
+    await expect(deps?.loadSettings?.()).resolves.toMatchObject({ aspect: "16:9" });
+  });
+
+  it("저장이 끝나면 주소를 바꾸지 않고 결과와 시작 시각을 홈으로 올린다", async () => {
+    vi.useFakeTimers();
+    const startedAtMs = new Date(2026, 10, 22, 21, 3).getTime();
+    vi.setSystemTime(startedAtMs);
+    vi.mocked(submitStudySession).mockResolvedValue([SESSION]);
+    const { onResult } = renderSession();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3_000);
     });
@@ -517,7 +534,8 @@ describe("PcStudySession 종료", () => {
       await vi.advanceTimersByTimeAsync(0);
     });
 
-    expect(screen.getByText("결과 1건")).toBeInTheDocument();
+    expect(onResult).toHaveBeenCalledExactlyOnceWith([SESSION], startedAtMs);
+    expect(screen.queryByText("다른 화면")).toBeNull();
     expect(readPcSessionMarker()).toBeNull();
   });
 

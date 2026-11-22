@@ -8,6 +8,8 @@ import { readMeasureMode } from "@/features/measure-mode/measureMode";
 import { createMultiTimerUsage } from "@/features/multi-timer/useMultiTimer";
 import { useMascotLookPrefetch } from "@/features/points/model/prefetchMyMascotLook";
 import { createTimelapseRecorder } from "@/features/timelapse/timelapseRecorder";
+import type { TimelapseAspect } from "@/features/timelapse/timelapseSettings";
+import { loadTimelapseSettings } from "@/features/timelapse/timelapseSettings";
 import type { SessionDisplayEnd } from "@/lib/amplitude";
 import { queryClient } from "@/lib/queryClient";
 import { hasTokenSource } from "@/lib/userId";
@@ -40,6 +42,12 @@ export interface SoloSessionEngineOptions {
    */
   readonly keepMeasuringWhenHidden?: boolean;
   readonly initialSubjectId?: number;
+  /**
+   * 저장한 비율과 상관없이 타임랩스를 찍을 비율
+   *
+   * 웹캠이 늘 가로인 PC 세션만 넘긴다.
+   */
+  readonly timelapseAspect?: TimelapseAspect;
   /** 저장한 측정 방식과 상관없이 카메라 없이 여는 세션 */
   readonly forceTimer?: boolean;
   /** 개발 빌드에서 콘솔 감지기를 고르는 이름 */
@@ -106,7 +114,14 @@ export function useSoloSessionEngine(options: SoloSessionEngineOptions) {
    *
    * 소셜룸은 이 엔진을 쓰지 않으므로 찍지 않는다.
    */
-  const [timelapse] = useState(() => createTimelapseRecorder());
+  const [timelapse] = useState(() => {
+    const aspect = options.timelapseAspect;
+    return createTimelapseRecorder(
+      aspect === undefined
+        ? {}
+        : { loadSettings: async () => ({ ...(await loadTimelapseSettings()), aspect }) },
+    );
+  });
   const { visionDetector, visionReady } = useTrackedVisionDetector(
     videoRef,
     "single",

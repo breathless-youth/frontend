@@ -1,10 +1,11 @@
 import "fake-indexeddb/auto";
 
+import type { StudySessionResponse } from "@focusmakers/types";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { IDBFactory } from "fake-indexeddb";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -25,13 +26,20 @@ import { PcHomeContent } from "../PcHomeContent";
 const watch = vi.hoisted(() => ({
   state: { trigger: null as "AWAY" | null, studying: true },
 }));
+// 세션이 결과를 올릴 때 부르는 함수. 마지막으로 그린 세션의 것을 남긴다.
+const sessionResult = vi.hoisted(() => ({
+  onResult: null as ((sessions: StudySessionResponse[], startedAtMs: number) => void) | null,
+}));
 
 vi.mock("../../session/PcStudySession", () => ({
   PcStudySession: ({
     onWatchChange,
+    onResult,
   }: {
     onWatchChange: (state: { trigger: "AWAY" | null; studying: boolean } | null) => void;
+    onResult: (sessions: StudySessionResponse[], startedAtMs: number) => void;
   }) => {
+    sessionResult.onResult = onResult;
     useEffect(() => {
       onWatchChange(watch.state);
       return () => onWatchChange(null);
@@ -272,6 +280,85 @@ describe("PcHomeContent 공간 플라이아웃과 공부시간 패널", () => {
     fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
 
     await expectClosed();
+  });
+});
+
+describe("PcHomeContent 결과 창", () => {
+  const SESSION: StudySessionResponse = {
+    id: 1,
+    userId: 7,
+    statDate: "2026-11-22",
+    startedAt: "2026-11-22T01:00:00Z",
+    endedAt: "2026-11-22T02:00:00Z",
+    studySec: 3600,
+    focusSec: 3000,
+    focusRate: 83,
+    events: [],
+  };
+
+  /** 세션을 끝내면 홈이 세션을 비우는 실제 흐름을 흉내 낸다. */
+  function HomeWithSession() {
+    const [session, setSession] = useState<{ key: number; resume: boolean } | null>({
+      key: 1,
+      resume: false,
+    });
+    return (
+      <div className="relative">
+        <PcHomeContent
+          {...props()}
+          dday={null}
+          contactHref="/contact/chat"
+          session={session}
+          onSessionEnd={() => setSession(null)}
+        />
+      </div>
+    );
+  }
+
+  async function finishSession() {
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter initialEntries={["/home"]}>
+          <HomeWithSession />
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+    await screen.findByText("공부 중");
+    act(() => sessionResult.onResult?.([SESSION], Date.parse(SESSION.startedAt)));
+  }
+
+  beforeEach(() => {
+    sessionResult.onResult = null;
+  });
+
+  it("세션이 결과를 올리면 세션을 닫고 홈 패널 위에 결과 창을 띄운다", async () => {
+    await finishSession();
+
+    expect(await screen.findByRole("dialog", { name: "오늘 공부 완료" })).toBeInTheDocument();
+    expect(screen.queryByText("공부 중")).not.toBeInTheDocument();
+    // 창이 뒤를 화면 읽기에서 가려 숨은 요소까지 찾는다.
+    expect(screen.getByRole("group", { name: /방향키/, hidden: true })).toBeInTheDocument();
+  });
+
+  it("결과 창을 닫으면 홈 패널만 남는다", async () => {
+    await finishSession();
+    await screen.findByRole("dialog", { name: "오늘 공부 완료" });
+
+    await userEvent.keyboard("{Escape}");
+
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "오늘 공부 완료" })).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole("region", { name: "공부시간" })).toBeInTheDocument();
+  });
+
+  it("결과 창을 닫으면 포커스가 홈의 공부 시작 버튼으로 돌아온다", async () => {
+    await finishSession();
+    await screen.findByRole("dialog", { name: "오늘 공부 완료" });
+
+    await userEvent.keyboard("{Escape}");
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "공부 시작" })).toHaveFocus());
   });
 });
 
