@@ -1,7 +1,7 @@
 import type { HomeMissionResponse } from "@focusmakers/types";
 import { plannerDay, plannerSubject, plannerTask } from "@/test/plannerFixtures";
 import { homeMission } from "@/test/homeMissionFixtures";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -81,7 +81,7 @@ describe("home v3 server progress", () => {
     expect(client.getQueryData(homeV3Keys.mission(7))).toEqual(nextMission);
     await waitFor(() =>
       expect(result.current.band).toMatchObject({
-        value: { kind: "mission", step: 1, ready: false, progress: 0 },
+        value: { kind: "mission", step: 1, totalSteps: 2, ready: false, progress: 0 },
       }),
     );
   });
@@ -432,6 +432,116 @@ describe("home v3 server progress", () => {
       expect(result.current.band).toMatchObject({ value: { kind: "goal" } });
     });
 
+    it("예전 미션 포인트를 받은 뒤 소품 구매 미션을 진행할 수 있다", async () => {
+      const beforeClaim = {
+        ...homeMission(2, 300),
+        currentStep: 3 as const,
+        stepPoints: [50, 100, 300],
+        claimablePoints: 150,
+      };
+      const { gateway, wrapper } = setup({
+        readMission: vi.fn().mockResolvedValue(beforeClaim),
+        claimMissionReward: vi.fn().mockResolvedValue({ granted: true, points: 150, balance: 150 }),
+      });
+      const { result } = renderHook(() => useHomeV3Progress(gateway, 1, day, stats, true), {
+        wrapper,
+      });
+
+      await waitFor(() =>
+        expect(result.current.band).toMatchObject({
+          value: { kind: "mission-reward", points: 150 },
+        }),
+      );
+      act(() => result.current.claimMissionReward());
+      await waitFor(() =>
+        expect(result.current.band).toMatchObject({
+          value: { kind: "mission", step: 3, progress: 2 / 3 },
+        }),
+      );
+    });
+
+    it("3단계 보상이 캐시에 남아 있어도 서버가 예전 미션으로 돌아가면 반영한다", async () => {
+      const oldMission = homeMission(2, 300);
+      const { gateway, client, wrapper } = setup({
+        readMission: vi.fn().mockResolvedValue(oldMission),
+      });
+      client.setQueryData(homeV3Keys.mission(1), {
+        ...oldMission,
+        completedSteps: 3,
+        stepPoints: [50, 100, 300],
+        claimablePoints: 300,
+      });
+      const { result } = renderHook(() => useHomeV3Progress(gateway, 1, day, stats, true), {
+        wrapper,
+      });
+
+      await waitFor(() => expect(result.current.band).toMatchObject({ value: { kind: "goal" } }));
+      expect(client.getQueryData(homeV3Keys.mission(1))).toEqual(oldMission);
+    });
+
+    it("같은 렌더에서 두 번 받아도 한 번 청구하고 지급 중 시작한 조회가 결과를 덮지 않는다", async () => {
+      const claimable = { ...homeMission(2, 300), claimablePoints: 150 };
+      let finishClaim!: (value: { granted: boolean; points: number; balance: number }) => void;
+      let finishMissionRead!: (value: HomeMissionResponse) => void;
+      let finishBalanceRead!: (value: number) => void;
+      const { gateway, client, wrapper } = setup({
+        readMission: vi
+          .fn()
+          .mockResolvedValueOnce(claimable)
+          .mockImplementation(
+            () =>
+              new Promise((resolve) => {
+                finishMissionRead = resolve;
+              }),
+          ),
+        claimMissionReward: vi.fn().mockImplementation(
+          () =>
+            new Promise((resolve) => {
+              finishClaim = resolve;
+            }),
+        ),
+      });
+      const { result } = renderHook(() => useHomeV3Progress(gateway, 1, day, stats, true), {
+        wrapper,
+      });
+      await waitFor(() =>
+        expect(result.current.band).toMatchObject({ value: { kind: "mission-reward" } }),
+      );
+
+      act(() => {
+        result.current.claimMissionReward();
+        result.current.claimMissionReward();
+      });
+      await waitFor(() => expect(gateway.claimMissionReward).toHaveBeenCalledOnce());
+      let reads: Promise<unknown>[] = [];
+      act(() => {
+        reads = [
+          client.refetchQueries({ queryKey: homeV3Keys.mission(1) }),
+          client
+            .fetchQuery({
+              queryKey: ["points", 1, "balance"],
+              queryFn: () =>
+                new Promise<number>((resolve) => {
+                  finishBalanceRead = resolve;
+                }),
+            })
+            .catch(() => undefined),
+        ];
+      });
+      await act(async () => {
+        finishClaim({ granted: true, points: 150, balance: 450 });
+      });
+      await waitFor(() => expect(result.current.band).toMatchObject({ value: { kind: "goal" } }));
+      await act(async () => {
+        finishMissionRead(claimable);
+        finishBalanceRead(300);
+        await Promise.all(reads);
+      });
+
+      expect(client.getQueryData(["points", 1, "balance"])).toBe(450);
+      expect(client.getQueryData(homeV3Keys.mission(1))).toMatchObject({ claimablePoints: 0 });
+    });
+
     it("받으면 잔액을 서버 값으로 덮고 목표 띠로 넘어간다", async () => {
       const { gateway, client, wrapper } = setup({
         readMission: vi.fn().mockResolvedValue({ ...homeMission(2, 300), claimablePoints: 150 }),
@@ -448,6 +558,46 @@ describe("home v3 server progress", () => {
 
       await waitFor(() => expect(result.current.band).toMatchObject({ value: { kind: "goal" } }));
       expect(client.getQueryData(["points", 1, "balance"])).toBe(450);
+    });
+
+    it("지급 응답이 끊기면 취소한 잔액 조회를 다시 시작해 서버 값을 표시한다", async () => {
+      const { gateway, wrapper } = setup({
+        readMission: vi
+          .fn()
+          .mockResolvedValueOnce({ ...homeMission(2, 300), claimablePoints: 150 })
+          .mockResolvedValue(homeMission(2, 300)),
+        claimMissionReward: vi.fn().mockRejectedValue(new Error("offline")),
+      });
+      let finishOldBalance!: (value: number) => void;
+      const loadBalance = vi
+        .fn()
+        .mockImplementationOnce(
+          () =>
+            new Promise<number>((resolve) => {
+              finishOldBalance = resolve;
+            }),
+        )
+        .mockResolvedValue(450);
+      const { result } = renderHook(
+        () => ({
+          progress: useHomeV3Progress(gateway, 1, day, stats, true),
+          balance: useQuery({ queryKey: ["points", 1, "balance"], queryFn: loadBalance }).data,
+        }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.progress.band).toMatchObject({ value: { kind: "mission-reward" } }),
+      );
+      expect(result.current.balance).toBeUndefined();
+
+      act(() => result.current.progress.claimMissionReward());
+
+      await waitFor(() => expect(result.current.balance).toBe(450));
+      await act(async () => {
+        finishOldBalance(300);
+      });
+      expect(result.current.balance).toBe(450);
+      expect(loadBalance).toHaveBeenCalledTimes(2);
     });
 
     it("서버가 받기를 회원 전용이라고 거절하면 실패 문구 대신 로그인 화면을 열게 한다", async () => {

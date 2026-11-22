@@ -77,6 +77,8 @@
       "caption": "Getting started",
       "subject": "Create a subject in Planner",
       "focus": "Complete 5 minutes of focus",
+      "accessory": "Buy your first accessory",
+      "shop": "Browse accessories",
       "progress": "Getting started, step {{step}}",
       "go": "Go",
       "start": "Start",

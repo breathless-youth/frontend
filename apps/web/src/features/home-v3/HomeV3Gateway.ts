@@ -1,5 +1,6 @@
 import type { HomeMission } from "./homeV3Model";
 import type {
+  HomeMissionStep,
   PlannerDayResponse,
   PlannerGoalResponse,
   PlannerDefaultGoalResponse,
@@ -22,7 +23,7 @@ export interface HomeGoal {
  */
 export interface HomeV3Gateway {
   readMission: (signal: AbortSignal) => Promise<HomeMission>;
-  acknowledgeMission: (step: 1 | 2) => Promise<HomeMission>;
+  acknowledgeMission: (step: HomeMissionStep) => Promise<HomeMission>;
   /** 안 받은 미션 포인트를 받고 받은 뒤의 잔액을 돌려준다. */
   claimMissionReward: () => Promise<{ granted: boolean; points: number; balance: number }>;
   readPlannerDay: (day: HomeDay, signal: AbortSignal) => Promise<PlannerDayResponse>;

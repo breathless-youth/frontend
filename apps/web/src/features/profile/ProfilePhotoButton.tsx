@@ -21,6 +21,7 @@ type ProfilePhotoProps = {
   userId: number;
   colorIndex: number;
   imageUrl?: string | null;
+  previewLook?: MascotLook;
 };
 
 /**
@@ -30,7 +31,8 @@ type ProfilePhotoProps = {
  * 토큰이 없는 문서(구 앱, 브라우저 단독)는 사진 API가 401로 막혀 버튼 없이 아바타만 보인다.
  */
 export function ProfilePhotoButton(props: ProfilePhotoProps) {
-  const look = useMyMascotLook(props.userId);
+  const savedLook = useMyMascotLook(props.userId);
+  const look = props.previewLook ?? savedLook;
   if (!hasTokenSource()) {
     return <ProfileAvatar colorIndex={props.colorIndex} imageUrl={props.imageUrl} look={look} />;
   }

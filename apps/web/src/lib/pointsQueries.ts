@@ -12,6 +12,7 @@ export const pointsKeys = {
   balance: (userId: number) => ["points", userId, "balance"] as const,
   shop: (userId: number) => ["points", userId, "shop"] as const,
   look: (userId: number) => ["points", userId, "look"] as const,
+  wornAccessories: (userId: number) => ["points", userId, "wornAccessories"] as const,
   /** 모든 기록 필터를 함께 다시 받을 때 쓰는 앞머리 */
   histories: (userId: number) => ["points", userId, "history"] as const,
   history: (userId: number, filter: HistoryFilter) =>
@@ -39,6 +40,14 @@ export function shopQuery(gateway: PointsGateway, userId: number) {
   return queryOptions({
     queryKey: pointsKeys.shop(userId),
     queryFn: () => gateway.getShop(),
+    staleTime: 60_000,
+  });
+}
+
+export function wornAccessoriesQuery(gateway: PointsGateway, userId: number) {
+  return queryOptions({
+    queryKey: pointsKeys.wornAccessories(userId),
+    queryFn: () => gateway.getWornAccessories(),
     staleTime: 60_000,
   });
 }

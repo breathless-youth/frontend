@@ -75,6 +75,8 @@
       "caption": "入門任務",
       "subject": "在讀書計畫建立科目",
       "focus": "完成5分鐘專注",
+      "accessory": "購買第一件配件",
+      "shop": "挑選配件",
       "progress": "入門任務第{{step}}階段",
       "go": "前往",
       "start": "開始",

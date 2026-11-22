@@ -75,6 +75,8 @@
       "caption": "시작 미션",
       "subject": "플래너에서 과목 만들기",
       "focus": "공부 5분 완료하기",
+      "accessory": "첫 소품 구매하기",
+      "shop": "소품 고르기",
       "progress": "시작 미션 {{step}}단계",
       "go": "이동하기",
       "start": "시작하기",

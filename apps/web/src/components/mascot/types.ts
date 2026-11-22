@@ -55,5 +55,7 @@ export type WornAccessory = {
   effectType?: string;
 };
 
+export type WornAccessoriesByMascot = ReadonlyMap<MascotId, readonly WornAccessory[]>;
+
 /** 한 사람이 고른 마스코트와 끼고 있는 소품 */
 export type MascotLook = { id: MascotId; accessories: readonly WornAccessory[] };

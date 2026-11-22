@@ -142,14 +142,30 @@ export function toMascotLook(
   }
   return {
     id,
-    accessories: raw.accessories.flatMap((entry) => {
-      const slot = toAccessorySlot(entry.slot);
-      const drawing = toDrawing(entry.item);
-      return entry.mascotCode !== raw.mascotCode || slot === null || drawing === null
-        ? []
-        : [{ slot, code: entry.item.code, ...drawing }];
-    }),
+    accessories: raw.accessories
+      .filter((entry) => entry.mascotCode === raw.mascotCode)
+      .flatMap((entry) => toEquippedAccessory(entry) ?? []),
   };
+}
+
+function toEquippedAccessory(entry: DecorationsResponse["accessories"][number]) {
+  const slot = toAccessorySlot(entry.slot);
+  const drawing = toDrawing(entry.item);
+  return slot === null || drawing === null ? null : { slot, code: entry.item.code, ...drawing };
+}
+
+/** 홈의 고정 마스코트는 선택 여부와 상관없이 각자 끼고 있는 소품을 그린다. */
+export function toWornAccessoriesByMascot(entries: DecorationsResponse["accessories"]) {
+  const worn = new Map<MascotId, WornAccessory[]>();
+  for (const entry of entries) {
+    const id = toMascotId(entry.mascotCode);
+    const accessory = toEquippedAccessory(entry);
+    if (id === null || accessory === null) continue;
+    const accessories = worn.get(id);
+    if (accessories === undefined) worn.set(id, [accessory]);
+    else accessories.push(accessory);
+  }
+  return worn;
 }
 
 /**

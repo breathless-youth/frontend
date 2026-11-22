@@ -29,6 +29,7 @@ import {
 import {
   toMascotCode,
   toMascotLook,
+  toWornAccessoriesByMascot,
   toClaimResult,
   toEarnToday,
   toHistoryPage,
@@ -145,6 +146,7 @@ export function createApiPointsGateway(): PointsGateway {
       const res = await getDecorations();
       return toMascotLook({ mascotCode: res.selectedMascotCode, accessories: res.accessories });
     },
+    getWornAccessories: async () => toWornAccessoriesByMascot((await getDecorations()).accessories),
     purchase: async (itemId) => {
       try {
         const res = await purchaseShopItem(Number(itemId));

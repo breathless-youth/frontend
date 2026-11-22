@@ -11,17 +11,19 @@ import { MascotThumb } from "../shared/MascotThumb";
 /**
  * 프로필 수정의 내 마스코트 줄
  *
- * 폼의 저장 버튼과 상관없이 누르는 즉시 바뀐다.
+ * 저장 전에는 폼에서 고른 캐릭터가 선택된 모습으로 보인다.
  * 연 마스코트는 그 마스코트에 꾸며 둔 소품을 입혀 그린다.
  * 잠긴 마스코트는 흐리게 보이고 눌러도 아무 일도 없다.
  */
 export function ProfileMascotRow({
   mascots,
+  selectedId,
   worn,
   onSelect,
   decorateTo,
 }: {
   mascots: Mascot[];
+  selectedId?: MascotId;
   /** 마스코트마다 끼고 있는 소품이며 없는 마스코트는 소품 없이 그린다. */
   worn: ReadonlyMap<MascotId, readonly WornAccessory[]>;
   onSelect: (id: MascotId) => void;
@@ -46,11 +48,12 @@ export function ProfileMascotRow({
       >
         {mascots.map((mascot) => {
           const name = tPoints(`mascots.${mascot.id}`);
+          const selected = selectedId === undefined ? mascot.selected : selectedId === mascot.id;
           return (
             <li key={mascot.id} className="shrink-0">
               <button
                 type="button"
-                aria-pressed={mascot.unlocked ? mascot.selected : undefined}
+                aria-pressed={mascot.unlocked ? selected : undefined}
                 aria-disabled={mascot.unlocked ? undefined : true}
                 aria-label={mascot.unlocked ? undefined : t("profile.locked", { name })}
                 onClick={() => mascot.unlocked && onSelect(mascot.id)}
@@ -60,7 +63,7 @@ export function ProfileMascotRow({
                   aria-hidden="true"
                   className={cn(
                     "relative flex size-13 items-center justify-center rounded-lg border",
-                    mascot.selected
+                    selected
                       ? "border-2 border-primary bg-brand-subtle"
                       : mascot.unlocked
                         ? "border-border bg-muted"
@@ -85,7 +88,7 @@ export function ProfileMascotRow({
                   aria-hidden={!mascot.unlocked}
                   className={cn(
                     "text-[11px]",
-                    mascot.selected
+                    selected
                       ? "font-bold text-primary"
                       : mascot.unlocked
                         ? "font-medium text-muted-foreground"

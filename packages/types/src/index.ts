@@ -935,7 +935,11 @@ export {
   VIDEO_RESULT_STATUSES,
   VIDEO_SHARE_TARGETS,
 } from "./bridge";
-export type { HomeMissionResponse, HomeMissionRewardClaimResponse } from "./homeMission";
+export type {
+  HomeMissionResponse,
+  HomeMissionRewardClaimResponse,
+  HomeMissionStep,
+} from "./homeMission";
 export type {
   EffectPieceResponse,
   EquippedItemResponse,

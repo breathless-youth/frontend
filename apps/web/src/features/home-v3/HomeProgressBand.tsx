@@ -126,7 +126,13 @@ export function HomeProgressBand({
       components={{ accent: <span className="text-primary" /> }}
     />
   ) : mission ? (
-    t(mission.step === 1 ? "v3.mission.subject" : "v3.mission.focus")
+    t(
+      mission.step === 1
+        ? "v3.mission.subject"
+        : mission.step === 2
+          ? "v3.mission.focus"
+          : "v3.mission.accessory",
+    )
   ) : goal ? (
     goal.remainingSeconds === 0 ? (
       t("v3.goal.achieved")
@@ -155,7 +161,7 @@ export function HomeProgressBand({
             }
           >
             {mission ? (
-              `${mission.step}/2`
+              `${mission.step}/${mission.totalSteps}`
             ) : goal ? (
               `${goal.percent}%`
             ) : (
@@ -202,7 +208,7 @@ export function HomeProgressBand({
               "min-h-11 min-w-18 shrink-0 gap-1 rounded-full px-4 text-sm leading-5 font-semibold shadow-sb-cta",
               !completing && "motion-safe:animate-[home-mission-ready_2.4s_ease-out_infinite]",
             )}
-            disabled={completing}
+            disabled={completing || mission.progress === 1}
             onClick={guarded(() => actions.completeMission(mission.step))}
           >
             {!completing && <Check size={14} strokeWidth={2.4} aria-hidden="true" />}
@@ -218,7 +224,9 @@ export function HomeProgressBand({
               mission
                 ? mission.step === 1
                   ? actions.openPlanner
-                  : actions.startStudy
+                  : mission.step === 2
+                    ? actions.startStudy
+                    : () => actions.openAccessories?.()
                 : actions.editGoal,
             )}
           >
@@ -226,7 +234,9 @@ export function HomeProgressBand({
               mission
                 ? mission.step === 1
                   ? "v3.mission.go"
-                  : "v3.mission.start"
+                  : mission.step === 2
+                    ? "v3.mission.start"
+                    : "v3.mission.shop"
                 : goal
                   ? "v3.goal.change"
                   : "v3.goal.set",
