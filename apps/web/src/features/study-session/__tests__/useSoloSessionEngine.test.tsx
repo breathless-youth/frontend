@@ -7,6 +7,13 @@ import { writeMeasureMode } from "@/features/measure-mode/measureMode";
 import { createMockCameraAdapter } from "@/features/study-session/adapters/cameraAdapter";
 import { createMediaStreamCameraAdapter } from "@/features/study-session/adapters/mediaStreamCamera";
 import { submitStudySession } from "@/features/study-session/submitStudySession";
+import { createTimelapseRecorder } from "@/features/timelapse/timelapseRecorder";
+import {
+  createMemoryTimelapseSettingsStore,
+  DEFAULT_TIMELAPSE_SETTINGS,
+  resetTimelapseSettingsStore,
+  setTimelapseSettingsStore,
+} from "@/features/timelapse/timelapseSettings";
 import { visionStub } from "@/test/soloSessionMocks";
 
 import { useSoloSessionEngine } from "../useSoloSessionEngine";
@@ -17,7 +24,7 @@ vi.mock("@/features/study-session/useVisionReadyTracking", async () => {
 });
 vi.mock("@/features/timelapse/timelapseRecorder", async () => {
   const { recorderStub } = await import("@/test/soloSessionMocks");
-  return { createTimelapseRecorder: () => recorderStub };
+  return { createTimelapseRecorder: vi.fn(() => recorderStub) };
 });
 vi.mock("@/features/study-session/submitStudySession", () => ({ submitStudySession: vi.fn() }));
 vi.mock("@/features/study-session/adapters/mediaStreamCamera", async (original) => ({
@@ -41,12 +48,45 @@ beforeEach(() => {
   localStorage.clear();
 });
 afterEach(() => {
+  resetTimelapseSettingsStore();
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.clearAllMocks();
 });
 
 describe("useSoloSessionEngine", () => {
+  it("timelapseAspect를 넘기면 저장된 비율 대신 그 비율로 녹화하고 나머지 설정은 그대로 쓴다", async () => {
+    const saved = {
+      ...DEFAULT_TIMELAPSE_SETTINGS,
+      enabled: true,
+      aspect: "9:16",
+      info: { ...DEFAULT_TIMELAPSE_SETTINGS.info, flowBar: true },
+    } as const;
+    setTimelapseSettingsStore(createMemoryTimelapseSettingsStore(saved));
+
+    renderHook(() =>
+      useSoloSessionEngine({
+        userId: 7,
+        restored: null,
+        timelapseAspect: "16:9",
+        notify: vi.fn(),
+        onResult: vi.fn(),
+      }),
+    );
+
+    const deps = vi.mocked(createTimelapseRecorder).mock.calls[0]?.[0];
+    await expect(deps?.loadSettings?.()).resolves.toEqual({ ...saved, aspect: "16:9" });
+  });
+
+  it("timelapseAspect가 없으면 녹화기가 저장된 설정을 그대로 읽는다", () => {
+    renderHook(() =>
+      useSoloSessionEngine({ userId: 7, restored: null, notify: vi.fn(), onResult: vi.fn() }),
+    );
+
+    const deps = vi.mocked(createTimelapseRecorder).mock.calls[0]?.[0];
+    expect(deps?.loadSettings).toBeUndefined();
+  });
+
   it("시작 전에 열어 둔 카메라를 그대로 쓰고 새로 열지 않는다", async () => {
     writeMeasureMode("camera");
     const camera = createMockCameraAdapter();
