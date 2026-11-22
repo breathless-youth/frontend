@@ -1,13 +1,19 @@
-import { ImagePlus, Search, Trash2, Volume2, VolumeX } from "lucide-react";
+import { ChevronLeft, CircleX, ImagePlus, Search, Trash2, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SheetTitle } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UnusablePhotoError } from "@/features/profile/prepareProfilePhoto";
 import { ExpandGlyph } from "@/features/study-session/components/SessionControlButtons";
-import { SessionPage, SessionPageFooter } from "@/features/study-session/components/SessionPage";
+import {
+  SessionPage,
+  SessionPageFooter,
+  SessionPageHeader,
+} from "@/features/study-session/components/SessionPage";
 import {
   trackSessionSpacePhotoFailed,
   trackSessionSpacePhotoLimitReached,
@@ -88,6 +94,7 @@ export function SessionSpacePage(props: SessionSpacePageProps) {
       returnFocus={props.returnFocus}
       title={t("space.title")}
       landscape={props.landscape}
+      hideHeader
     >
       {/* 닫힌 동안은 Sheet가 내용을 그리지 않아 사진 목록도 열 때마다 새로 읽는다. */}
       <SpaceContent {...props} />
@@ -109,6 +116,9 @@ function SpaceContent({
   const [tab, setTab] = useState<SpaceTab>("video");
   const [chip, setChip] = useState("all");
   const [text, setText] = useState("");
+  const [searching, setSearching] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const searchButtonRef = useRef<HTMLButtonElement>(null);
   const [photos, setPhotos] = useState<BackgroundPhotoTile[] | null>(null);
   const [spaces, setSpaces] = useState<readonly CatalogSpace[] | null>(null);
   const [previewing, setPreviewing] = useState<SpaceItem | null>(null);
@@ -352,7 +362,7 @@ function SpaceContent({
             {trailing}
           </div>
         )}
-        <ul className="grid grid-cols-2 gap-3 landscape-compact:grid-cols-4">
+        <ul className="grid grid-cols-2 gap-3 @3xl:grid-cols-3 @5xl:grid-cols-4">
           {list.map(tile)}
           {extra}
         </ul>
@@ -384,7 +394,14 @@ function SpaceContent({
       ))}
     </div>
   );
-  const serverList = visibleSections.map((each) => section(each.code, each.title, each.items));
+  // 분류는 칩이 이미 보여 줘서 섹션 제목 없이 한 격자로 채운다.
+  // 분류가 여럿 붙은 공간은 여러 섹션에 들어 있어 처음 나온 자리에만 둔다.
+  const serverItems = [
+    ...new Map(
+      visibleSections.flatMap((each) => each.items).map((item) => [spaceKey(item.selection), item]),
+    ).values(),
+  ];
+  const grid = (items: readonly SpaceItem[]) => items.length > 0 && section("server", null, items);
   const empty = nothing && (
     <p className="py-10 text-center text-[14px] leading-5 text-(--session-dialog-body)">
       {t("space.empty")}
@@ -416,7 +433,7 @@ function SpaceContent({
             "border-t border-(--session-sheet-line) px-6 pt-3.5",
       )}
     >
-      <p className="truncate text-[15px] leading-4.5 font-bold text-(--session-dialog-title)">
+      <p className="truncate text-[15px] leading-4.5 font-semibold text-(--session-dialog-title)">
         {appliedName()}
       </p>
       <div className="flex items-center gap-2">
@@ -450,13 +467,98 @@ function SpaceContent({
     </div>
   );
 
+  // iOS는 누르는 동작 안에서 포커스를 줘야 키보드를 열어서, 입력창을 먼저 그린 뒤 같은 자리에서 포커스한다.
+  function openSearch() {
+    flushSync(() => setSearching(true));
+    searchRef.current?.focus();
+  }
+  // 포커스를 가진 입력창이 사라지므로 다시 나타난 검색 버튼으로 포커스를 돌려준다.
+  function closeSearch() {
+    flushSync(() => {
+      setText("");
+      setSearching(false);
+    });
+    searchButtonRef.current?.focus();
+  }
+  const header = searching ? (
+    <div
+      className={cn(
+        "flex h-[calc(52px+env(safe-area-inset-top))] shrink-0 items-center pt-[env(safe-area-inset-top)] pl-1",
+        !landscape && "pr-6",
+      )}
+    >
+      {/* 제목은 화면에서 감추되 대화상자 이름으로는 남긴다. */}
+      <SheetTitle className="sr-only">{t("space.title")}</SheetTitle>
+      <button
+        type="button"
+        aria-label={t("space.searchClose")}
+        onClick={closeSearch}
+        className="flex size-11 shrink-0 items-center justify-center text-(--session-dialog-title) focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
+      >
+        <ChevronLeft size={16} aria-hidden="true" />
+      </button>
+      <div className="relative min-w-0 flex-1">
+        <Search
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-(--session-dialog-body)"
+        />
+        <Input
+          ref={searchRef}
+          type="search"
+          enterKeyHint="search"
+          aria-label={t("space.search")}
+          placeholder={t("space.search")}
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") closeSearch();
+            // 목록은 입력하는 대로 걸러져서 검색 키는 키보드만 내린다.
+            if (event.key === "Enter") event.currentTarget.blur();
+          }}
+          // 안드로이드 웹뷰가 검색 입력창에 기본으로 그리는 삭제 단추를 감춰 아래 단추와 겹치지 않게 한다.
+          className="h-10 rounded-lg border-(--session-sheet-line) bg-(--session-sheet-surface) pr-10 pl-10 text-[14px] text-(--session-dialog-title) placeholder:text-(--session-dialog-body) [&::-webkit-search-cancel-button]:appearance-none"
+        />
+        {text !== "" && (
+          <button
+            type="button"
+            aria-label={t("space.searchClear")}
+            onClick={() => {
+              setText("");
+              searchRef.current?.focus();
+            }}
+            className="absolute top-1/2 right-0 flex size-11 -translate-y-1/2 items-center justify-center text-(--session-dialog-body) focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
+          >
+            <CircleX className="size-4" aria-hidden="true" />
+          </button>
+        )}
+      </div>
+    </div>
+  ) : (
+    <SessionPageHeader
+      title={t("space.title")}
+      extras={
+        <button
+          type="button"
+          ref={searchButtonRef}
+          aria-label={t("space.search")}
+          onClick={openSearch}
+          // 돋보기 오른쪽 끝을 아래 탭과 목록의 오른쪽 끝에 맞춘다.
+          className={cn(
+            "ml-auto flex size-11 shrink-0 items-center justify-center text-(--session-dialog-title) focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none",
+            landscape ? "-mr-3" : "mr-2",
+          )}
+        >
+          <Search className="size-5" aria-hidden="true" />
+        </button>
+      }
+    />
+  );
+
   return (
     <>
       {/* 미리보기가 덮은 동안 뒤 목록에 포커스가 가지 않게 한다. */}
-      <div
-        inert={previewing !== null}
-        className={cn("flex min-h-0 flex-1 flex-col", landscape && "gap-2")}
-      >
+      <div inert={previewing !== null} className="flex min-h-0 flex-1 flex-col">
+        {!landscape && header}
         <Tabs
           value={tab}
           onValueChange={(value) => {
@@ -464,50 +566,49 @@ function SpaceContent({
             setTab(next);
             trackSessionSpaceTabSwitched({ tab: next });
           }}
-          className={cn("flex min-h-0 flex-1 flex-col gap-4 pt-2", !landscape && "px-6")}
+          // 가로는 높이가 모자라 조작을 왼쪽 칸에 모으고 오른쪽은 목록만 화면 높이 전체를 쓴다.
+          // 낮은 가로 화면은 페이지가 위 여백을 이미 주고, 그보다 큰 가로 화면에는 같은 여백을 여기서 준다.
+          className={cn(
+            "flex min-h-0 flex-1",
+            landscape ? "gap-4 pt-2 landscape-compact:pt-0" : "flex-col gap-2 px-6",
+          )}
         >
-          <TabsList className="shrink-0">
-            {(["video", "image"] as const).map((id) => (
-              <TabsTrigger
-                key={id}
-                value={id}
-                className="flex-1 justify-center text-white/40 data-[state=active]:border-(--session-dialog-title) data-[state=active]:text-(--session-dialog-title)"
-              >
-                {t(`space.tabs.${id}`)}
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          <div className="relative shrink-0">
-            <Search
-              aria-hidden="true"
-              className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-(--session-dialog-body)"
-            />
-            <Input
-              type="search"
-              aria-label={t("space.search")}
-              placeholder={t("space.search")}
-              value={text}
-              onChange={(event) => setText(event.target.value)}
-              className="h-11 rounded-lg border-(--session-sheet-line) bg-(--session-sheet-surface) pl-10 text-[14px] text-(--session-dialog-title) placeholder:text-(--session-dialog-body)"
-            />
+          <div className={cn("flex flex-col", landscape ? "w-60 shrink-0" : "contents")}>
+            {landscape && header}
+            {/* 머리 아래 여백과 탭의 누르는 높이가 겹쳐 넓어 보여서, 뒤로 가기의 누르는 자리 바로 아래까지 올린다. */}
+            <TabsList className="-mt-1 shrink-0">
+              {(["video", "image"] as const).map((id) => (
+                <TabsTrigger
+                  key={id}
+                  value={id}
+                  className="flex-1 justify-center text-white/40 data-[state=active]:border-(--session-dialog-title) data-[state=active]:text-(--session-dialog-title)"
+                >
+                  {t(`space.tabs.${id}`)}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            {landscape && chipRow && <div className="mt-1.5">{chipRow}</div>}
+            {landscape && (
+              // 볼륨 막대의 누르는 높이가 이미 아래로 여유를 두어서 페이지 아래 여백만큼 내려 붙인다.
+              <div className="mt-auto -mb-2 flex min-h-11 items-end">{footer}</div>
+            )}
           </div>
 
           <TabsContent
             value="video"
-            // 스크롤 상자가 고른 타일 바깥 테두리를 자르지 않게 양옆에 여백을 둔다.
-            className="-mx-1 mt-0 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-1 pb-4"
+            // 스크롤 상자가 고른 타일 바깥 테두리를 자르지 않게 위와 양옆에 여백을 둔다.
+            className="@container -mx-1 -mt-1 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-1 pt-1 pb-4"
           >
-            {chipRow}
-            {serverList}
+            {!landscape && chipRow}
+            {grid(serverItems)}
             {empty}
           </TabsContent>
 
           <TabsContent
             value="image"
-            className="-mx-1 mt-0 flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain px-1 pb-4"
+            className="@container -mx-1 -mt-1 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-1 pt-1 pb-4"
           >
-            {chipRow}
+            {!landscape && chipRow}
             {(text === "" || mine.length > 0) &&
               section(
                 "mine",
@@ -533,8 +634,7 @@ function SpaceContent({
                   </li>
                 ),
               )}
-            {simpleVisible && section("simple", t("space.names.simple"), [simpleItem])}
-            {serverList}
+            {grid(simpleVisible ? [simpleItem, ...serverItems] : serverItems)}
             {empty}
           </TabsContent>
         </Tabs>
@@ -551,11 +651,8 @@ function SpaceContent({
             if (file) void addPhoto(file);
           }}
         />
-        {landscape ? (
-          <SessionPageFooter landscape leading={footer} />
-        ) : (
-          <SessionPageFooter landscape={false} actions={footer} />
-        )}
+        {/* 토스트는 화면 폭 기준으로 가운데에 떠야 해서 가로에서도 푸터 틀은 왼쪽 칸이 아니라 페이지 아래에 둔다. */}
+        <SessionPageFooter landscape={landscape} actions={landscape ? undefined : footer} />
       </div>
       {previewing && (
         <SpacePreview
@@ -670,10 +767,11 @@ function SpacePreview({
       role="group"
       aria-label={t("space.preview", { name: item.name })}
       data-testid="space-preview"
-      // 머리 높이는 SessionPage 머리 식과 같아야 제목과 뒤로 가기가 덮이지 않는다.
+      // 세로는 머리 높이가 SessionPage 머리 식과 같아야 제목과 뒤로 가기가 덮이지 않는다.
+      // 가로는 머리가 왼쪽 칸에 있어 위를 남기면 오른쪽 목록이 비쳐서 전체를 덮고, 덮개 안의 돌아가기 버튼을 쓴다.
       className={cn(
-        "absolute inset-x-0 top-[calc(52px+env(safe-area-inset-top))] bottom-0 z-10 overflow-hidden bg-(--session-simple-base)",
-        landscape && "landscape-compact:top-[calc(60px+env(safe-area-inset-top))]",
+        "absolute inset-x-0 bottom-0 z-10 overflow-hidden bg-(--session-simple-base)",
+        landscape ? "top-0" : "top-[calc(52px+env(safe-area-inset-top))]",
       )}
     >
       {selection.kind === "space" && selection.videoMode === "WATCH" && (

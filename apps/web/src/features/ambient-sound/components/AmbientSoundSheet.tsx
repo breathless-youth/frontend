@@ -262,7 +262,11 @@ export function AmbientSoundSheet({
       <Tabs
         value={activeTab}
         onValueChange={setTab}
-        className={cn("flex min-h-0 flex-1 flex-col gap-4 pt-2", !landscape && "px-6")}
+        className={cn(
+          // 머리 아래 여백과 탭의 누르는 높이가 겹쳐 넓어 보여서, 뒤로 가기의 누르는 자리 바로 아래까지 올린다.
+          "-mt-1 flex min-h-0 flex-1 flex-col gap-4",
+          landscape ? "-mt-3" : "px-6",
+        )}
       >
         <TabsList className="shrink-0">
           {groups.map((group) => (
