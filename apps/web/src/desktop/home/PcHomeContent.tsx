@@ -2,9 +2,12 @@ import { lazy, Suspense, useState, type ReactNode } from "react";
 
 import { HomeStudyBlocks } from "@/features/home-v3/HomeV3Content";
 import type { HomeV3ContentProps } from "@/features/home-v3/homeV3ContentTypes";
+import { useTimerBackground } from "@/features/timer-background/timerBackground";
+import { useWatcher } from "@/features/timer-background/watcher/useWatcher";
 import { reloadOnChunkError } from "@/lib/chunkReload";
 
 import { loadPcStudySession } from "../session/loadPcStudySession";
+import type { PcWatchState } from "../session/PcStudySession";
 import type { PcSessionRequest } from "../session/usePcSession";
 import { PcContactButton } from "./PcContactButton";
 import { PcHomeRail } from "./PcHomeRail";
@@ -47,6 +50,14 @@ export function PcHomeContent({
   ...content
 }: PcHomeContentProps) {
   const [box, setBox] = useState<HTMLDivElement | null>(null);
+  const space = useTimerBackground();
+  const [watchState, setWatchState] = useState<PcWatchState | null>(null);
+  // 월페이퍼의 감독관과 소리, 공간 창의 음량 줄이 같은 상태를 쓰도록 홈에서 한 번만 만든다.
+  const watcher = useWatcher(
+    space.kind === "space" && space.videoMode === "WATCH" ? space.assetKey : null,
+    watchState?.trigger ?? null,
+    watchState?.studying ?? false,
+  );
   const homePanel = (
     <PcStudyPanel stats={content.stats}>
       <HomeStudyBlocks
@@ -57,10 +68,10 @@ export function PcHomeContent({
   );
   return (
     <div ref={setBox} className="session-no-drag absolute inset-0 overflow-hidden">
-      <PcWallpaper />
+      <PcWallpaper watcher={watcher} />
       <PcHomeRail>
         {dday}
-        <PcSpaceFlyout container={box} />
+        <PcSpaceFlyout container={box} watcher={watcher} />
       </PcHomeRail>
       {session === null ? (
         homePanel
@@ -73,6 +84,7 @@ export function PcHomeContent({
             box={box}
             pending={homePanel}
             onEnd={onSessionEnd}
+            onWatchChange={setWatchState}
           />
         </Suspense>
       )}

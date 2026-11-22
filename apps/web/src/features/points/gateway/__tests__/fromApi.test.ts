@@ -27,7 +27,6 @@ function item(overrides: Partial<ShopItemResponse> = {}): ShopItemResponse {
     category: "MASCOT_ACCESSORY",
     mascotCode: "STOPWATCH",
     slot: "HEAD",
-    tag: null,
     name: "왕관",
     imageUrl: "https://cdn.example/crown.png",
     price: 600,
@@ -128,26 +127,42 @@ describe("toShopItem", () => {
     });
   });
 
-  it.each([
-    ["NATURE", "nature"],
-    ["STUDY_SPACE", "studySpace"],
-    ["NIGHT_SKY", "nightSky"],
-    ["SEASON", "season"],
-  ])("타이머 배경의 tag %s는 분류 %s다", (tag, category) => {
-    expect(
-      toShopItem(item({ category: "TIMER_BACKGROUND", mascotCode: null, slot: null, tag })),
-    ).toMatchObject({ kind: "timerBackground", category });
+  it("타이머 배경은 서버가 옛 tag를 보내도 분류를 채우지 않는다", () => {
+    const withOldTag = {
+      ...item({ category: "TIMER_BACKGROUND", mascotCode: null, slot: null }),
+      tag: "NATURE",
+    } as ShopItemResponse;
+
+    const mapped = toShopItem(withOldTag);
+
+    expect(mapped).toMatchObject({ kind: "timerBackground" });
+    expect(mapped).not.toHaveProperty("category");
   });
 
-  it("모르는 tag나 tag 없는 배경은 분류 없이 남는다", () => {
-    expect(
-      toShopItem(
-        item({ category: "TIMER_BACKGROUND", mascotCode: null, slot: null, tag: "SPACE" }),
-      ),
-    ).not.toHaveProperty("category");
-    expect(
-      toShopItem(item({ category: "TIMER_BACKGROUND", mascotCode: null, slot: null })),
-    ).not.toHaveProperty("category");
+  it("가격·스토어 상품 ID·보상 조건이 모두 없는 무료 타이머 배경은 상점 목록에서 빠진다", () => {
+    const background = { category: "TIMER_BACKGROUND", mascotCode: null, slot: null } as const;
+    const data = toShopData(
+      {
+        items: [
+          item({
+            ...background,
+            id: 41,
+            price: null,
+            unlock: null,
+            storeProductId: null,
+            owned: true,
+            assetKey: "watcher/9c8d9f19",
+            assetType: "VIDEO",
+            videoMode: "WATCH",
+            tags: [],
+          }),
+          item({ ...background, id: 42 }),
+        ],
+      },
+      { totalFocusSec: 0, selectedMascotCode: "BOOK", mascots: [mascot("BOOK")] },
+    );
+
+    expect(data.items.map((it) => it.id)).toEqual(["42"]);
   });
 
   it("가격이 null이면 조건을 채운 정도로 보이는 보상 상품이다", () => {

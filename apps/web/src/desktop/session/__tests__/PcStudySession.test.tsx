@@ -13,9 +13,12 @@ import { createMockCameraAdapter } from "@/features/study-session/adapters/camer
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import { markSessionGuideSeen, sessionGuideState } from "@/features/study-session/sessionGuide";
 import { submitStudySession } from "@/features/study-session/submitStudySession";
+import { writeTimerBackground } from "@/features/timer-background/timerBackground";
+import { trackStudySessionEnded } from "@/lib/amplitude";
 import i18n from "@/lib/i18n";
 import { queryClient } from "@/lib/queryClient";
 import { visionStub } from "@/test/soloSessionMocks";
+import { PROCTOR_SPACE } from "@/test/spaceFixtures";
 
 import { PcStudySession } from "../PcStudySession";
 import { readPcSessionMarker, writePcSessionMarker } from "../pcSessionMarker";
@@ -49,6 +52,10 @@ vi.mock("@/features/timelapse/timelapseRecorder", async () => {
   return { createTimelapseRecorder: () => recorderStub };
 });
 vi.mock("@/features/study-session/submitStudySession", () => ({ submitStudySession: vi.fn() }));
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  trackStudySessionEnded: vi.fn(),
+}));
 
 function content(): HomeV3ContentProps {
   return {
@@ -81,6 +88,8 @@ function ResultProbe() {
   return <p>{`결과 ${state?.sessions?.length ?? 0}건`}</p>;
 }
 
+const watchChanges = vi.fn();
+
 function SessionInBox({ request, onEnd }: { request: PcSessionRequest; onEnd: () => void }) {
   const [box, setBox] = useState<HTMLDivElement | null>(null);
   return (
@@ -91,6 +100,7 @@ function SessionInBox({ request, onEnd }: { request: PcSessionRequest; onEnd: ()
         box={box}
         pending={<p>홈 패널</p>}
         onEnd={onEnd}
+        onWatchChange={watchChanges}
       />
     </div>
   );
@@ -509,6 +519,45 @@ describe("PcStudySession 종료", () => {
 
     expect(screen.getByText("결과 1건")).toBeInTheDocument();
     expect(readPcSessionMarker()).toBeNull();
+  });
+
+  it("서버 공간을 고른 채 끝내면 종료 이벤트에 상품 코드와 영상 방식을 싣는다", async () => {
+    writeTimerBackground(PROCTOR_SPACE);
+    vi.mocked(submitStudySession).mockResolvedValue([]);
+    renderSession();
+
+    await userEvent.click(screen.getByRole("button", { name: i18n.t("desktop:session.exit") }));
+    await userEvent.click(
+      screen.getByRole("button", { name: i18n.t("study-session:exitConfirm.confirm") }),
+    );
+
+    await waitFor(() => expect(trackStudySessionEnded).toHaveBeenCalledOnce());
+    expect(vi.mocked(trackStudySessionEnded).mock.calls[0]?.[0].display).toMatchObject({
+      spaceKind: "space",
+      spaceItem: { itemCode: "SPACE_PROCTOR", videoMode: "WATCH" },
+    });
+  });
+
+  it("감시 상태는 바뀔 때마다 알리고 닫을 때만 null을 보낸다", async () => {
+    // 앞 테스트의 세션이 정리되며 보낸 null을 세지 않는다.
+    watchChanges.mockClear();
+    vi.mocked(submitStudySession).mockReturnValue(new Promise(() => {}));
+    const { unmount } = renderSession();
+    await waitFor(() =>
+      expect(watchChanges).toHaveBeenLastCalledWith({ trigger: null, studying: true }),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: i18n.t("desktop:session.exit") }));
+    await userEvent.click(
+      screen.getByRole("button", { name: i18n.t("study-session:exitConfirm.confirm") }),
+    );
+    await waitFor(() =>
+      expect(watchChanges).toHaveBeenLastCalledWith({ trigger: null, studying: false }),
+    );
+    expect(watchChanges).not.toHaveBeenCalledWith(null);
+
+    unmount();
+    expect(watchChanges).toHaveBeenLastCalledWith(null);
   });
 
   it("순공이 기준보다 짧으면 상자 안 창으로 알리고 홈으로를 누르면 홈 상태로 돌아온다", async () => {

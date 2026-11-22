@@ -32,6 +32,12 @@ export interface EquippedItemResponse {
   effectPieces?: EffectPieceResponse[] | null;
   /** 그림 없이 앱이 코드로 그리는 빛 효과의 종류(aurora·glow·rainbow 등). */
   effectType?: string | null;
+  /** 공간 파일 위치이며 앱이 종류와 함께 기기별 파일 주소를 만든다. 공간이 아니면 null이고 이 필드가 생기기 전의 응답에는 없다. */
+  assetKey?: string | null;
+  /** 공간 파일 종류 IMAGE·VIDEO이며 서버가 값을 더해도 컴파일이 깨지지 않게 string으로 받는다. */
+  assetType?: string | null;
+  /** 영상 공간의 재생 방식 LOOP·WATCH이며 영상 공간이 아니면 null이다. */
+  videoMode?: string | null;
 }
 
 /**
