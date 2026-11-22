@@ -3,6 +3,7 @@ import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
+import { usePcShell } from "@/desktop/usePcShell";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { daysUntil, formatDday } from "@/features/home/ddayFormat";
 import { FaceMaskEmojiPicker } from "@/features/live-room/components/FaceMaskEmojiPicker";
@@ -42,6 +43,8 @@ const ASPECTS = [
  *
  * 값은 이 기기의 localStorage에 저장되고 세션 웹뷰가 시작할 때 한 번 읽는다.
  * 저장을 끄면 나머지 설정은 쓰이지 않으므로 숨긴다.
+ * PC 세션은 웹캠이 가로라 늘 16:9로 찍으므로, PC에서는 고른 비율이 쓰이지 않아 비율 줄을 숨기고 미리보기를 가로로 보인다.
+ * 저장된 비율은 바꾸지 않는다.
  */
 export function TimelapseSettingsPage() {
   const { t } = useTranslation("timelapse");
@@ -58,6 +61,7 @@ export function TimelapseSettingsPage() {
       ? `${formatDday(daysUntil(dday.data.targetDate))} · ${dday.data.title}`
       : undefined;
   const aspectLabelId = useId();
+  const pc = usePcShell();
 
   const change = (
     next: TimelapseSettings,
@@ -109,39 +113,41 @@ export function TimelapseSettingsPage() {
 
           {settings.enabled && (
             <>
-              <div>
-                <p
-                  id={aspectLabelId}
-                  className="text-text-tertiary mb-1.5 px-1 text-[13px] leading-3.75 font-medium"
-                >
-                  {aspectLabel}
-                </p>
-                <ToggleGroup
-                  ref={aspectRef}
-                  type="single"
-                  aria-labelledby={aspectLabelId}
-                  value={settings.aspect}
-                  onValueChange={changeAspect}
-                  className="bg-bg-control-track flex-nowrap gap-0.5 rounded-[12px] p-1"
-                >
-                  {ASPECTS.map((aspect) => (
-                    <ToggleGroupItem
-                      key={aspect.value}
-                      value={aspect.value}
-                      className="text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground h-auto flex-1 justify-center rounded-[9px] border-0 bg-transparent px-0 py-2.25 text-sm leading-4.25 font-normal data-[state=on]:font-bold data-[state=on]:shadow-(--shadow-segment-thumb)"
-                    >
-                      {t(`settings.aspect.${aspect.labelKey}`)}
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-              </div>
+              {!pc && (
+                <div>
+                  <p
+                    id={aspectLabelId}
+                    className="text-text-tertiary mb-1.5 px-1 text-[13px] leading-3.75 font-medium"
+                  >
+                    {aspectLabel}
+                  </p>
+                  <ToggleGroup
+                    ref={aspectRef}
+                    type="single"
+                    aria-labelledby={aspectLabelId}
+                    value={settings.aspect}
+                    onValueChange={changeAspect}
+                    className="bg-bg-control-track flex-nowrap gap-0.5 rounded-[12px] p-1"
+                  >
+                    {ASPECTS.map((aspect) => (
+                      <ToggleGroupItem
+                        key={aspect.value}
+                        value={aspect.value}
+                        className="text-muted-foreground data-[state=on]:bg-muted data-[state=on]:text-foreground h-auto flex-1 justify-center rounded-[9px] border-0 bg-transparent px-0 py-2.25 text-sm leading-4.25 font-normal data-[state=on]:font-bold data-[state=on]:shadow-(--shadow-segment-thumb)"
+                      >
+                        {t(`settings.aspect.${aspect.labelKey}`)}
+                      </ToggleGroupItem>
+                    ))}
+                  </ToggleGroup>
+                </div>
+              )}
 
               <SettingsSection label={t("settings.preview")}>
                 <div className="flex justify-center py-4">
                   {/* WebKit은 고정 크기에서 aspect-ratio로 클래스만 바뀌면 높이를 0으로 남겨서 비율이 바뀔 때 새로 그린다. */}
                   <TimelapsePreview
                     key={settings.aspect}
-                    aspect={settings.aspect}
+                    aspect={pc ? "16:9" : settings.aspect}
                     // D-Day가 없으면 영상에도 들어가지 않으므로 켜 둔 값이 남아 있어도 그리지 않는다.
                     info={{ ...settings.info, dday: settings.info.dday && !ddayMissing }}
                     ddayLabel={ddayLabel}

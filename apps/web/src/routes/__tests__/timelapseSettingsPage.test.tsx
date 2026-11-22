@@ -2,9 +2,11 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type * as PcShell from "@/desktop/usePcShell";
 import type * as Amplitude from "@/lib/amplitude";
 
 import { App } from "@/App";
+import { usePcShell } from "@/desktop/usePcShell";
 import {
   DEFAULT_TIMELAPSE_SETTINGS,
   createMemoryTimelapseSettingsStore,
@@ -16,6 +18,10 @@ import { getDday } from "@/lib/ddayApi";
 import { queryClient } from "@/lib/queryClient";
 
 vi.mock("@/lib/ddayApi", () => ({ getDday: vi.fn() }));
+vi.mock("@/desktop/usePcShell", async (importOriginal) => ({
+  ...(await importOriginal<typeof PcShell>()),
+  usePcShell: vi.fn(() => false),
+}));
 
 const analytics = vi.hoisted(() => ({ trackTimelapseSettingChanged: vi.fn() }));
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
@@ -54,6 +60,7 @@ afterEach(() => {
   queryClient.clear();
   resetTimelapseSettingsStore();
   vi.clearAllMocks();
+  vi.mocked(usePcShell).mockReturnValue(false);
 });
 
 describe("설정 › 타임랩스", () => {
@@ -194,6 +201,18 @@ describe("설정 › 타임랩스", () => {
       setting: "aspect",
       value: "16:9",
     });
+  });
+
+  it("PC 셸에서는 비율 고르기 줄을 그리지 않고 미리보기를 가로로 보인다", async () => {
+    vi.mocked(usePcShell).mockReturnValue(true);
+    renderPage();
+    await findSaveSwitch();
+
+    expect(screen.queryByText("영상 비율")).toBeNull();
+    expect(screen.queryByRole("radio", { name: "세로 9:16" })).toBeNull();
+    expect(screen.getByTestId("timelapse-preview")).toHaveClass("aspect-video");
+    // 저장된 비율은 건드리지 않아 휴대폰 설정이 그대로 남는다.
+    expect((await store.load()).aspect).toBe("9:16");
   });
 
   it("비율을 바꾸면 미리보기를 새로 그린다", async () => {
