@@ -556,9 +556,10 @@ function SpaceContent({
 
   return (
     <>
+      {/* 세로 미리보기는 머리 아래만 덮어서 머리는 막지 않는다. */}
+      {!landscape && header}
       {/* 미리보기가 덮은 동안 뒤 목록에 포커스가 가지 않게 한다. */}
       <div inert={previewing !== null} className="flex min-h-0 flex-1 flex-col">
-        {!landscape && header}
         <Tabs
           value={tab}
           onValueChange={(value) => {

@@ -514,6 +514,15 @@ describe("SessionSpacePage", () => {
     expect(screen.queryByRole("button", { name: "독서실 감독관" })).not.toBeInTheDocument();
   });
 
+  it("세로에서 미리보기를 열어도 머리는 막히지 않고 뒤 목록만 막힌다", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "독서실 감독관 미리보기" }));
+
+    expect(screen.getByTestId("space-preview")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "공간 검색" }).closest("[inert]")).toBeNull();
+    expect(screen.getByRole("tab", { name: "영상" }).closest("[inert]")).not.toBeNull();
+  });
+
   describe("머리의 검색", () => {
     it("처음에는 검색 입력창 없이 머리에 검색 버튼만 있다", () => {
       renderPage();
