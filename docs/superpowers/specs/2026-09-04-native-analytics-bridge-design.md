@@ -72,10 +72,13 @@
 | 공통          | `error_retry_pressed {screen}` · `error_fallback_reloaded` · `screen_back_pressed {path}` · `force_update_prompted {source: web, app_version, min_version}` · `force_update_store_opened {source: web}`                                                                                                                            | `ErrorState`(`screen` prop 필수)·`ContactPage`·`ErrorFallback`·`ScreenBackHeader`·`useForceUpdateGate`(노출)·`App`(스토어 이동). 웹 강제 업데이트 모달은 구버전 바이너리(`nativeUpdateGate` 표시 없음) 전용이고, 라우트 트리를 대체해 뜨므로 페이지뷰가 노출을 대변하지 못해 노출 이벤트를 따로 둔다                                                                                                                                                                                                                                                                                                                                                                   |
 | user property | `camera_permission` · `has_dday` · `dday_days_left`(홈 로드·D-Day 저장·삭제 시 갱신) · 푸시 타겟용 속성 전체 목록은 `lib/firebaseAnalyticsBridge.ts`의 `FIREBASE_USER_PROPERTY_KEYS`다                                                                                                                                             | #97 `appLifecycleAnalytics` — 설정 화면의 `camera-permission` 응답(이벤트가 아니라 상태)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
-### 2026-10-31 추가 (BY-1082)
+### 공부 결과 설문
 
-- 결과(S4)의 AI 측정 만족도 카드가 `measurement_feedback_shown {room_type, focus_sec}`, `measurement_feedback_rated {room_type, focus_sec, rating}`, `measurement_feedback_reason_selected {room_type, focus_sec, rating, reason}`을 보낸다.
-- 발신은 `MeasurementFeedbackCardHost`이고, 카드는 순공 5분 이상인 세션에서 72시간에 한 번만 뜬다.
+- 결과(S4)의 집중 도움 설문이 `focus_feedback_shown {room_type, study_sec}`, `focus_feedback_answered {room_type, study_sec, impact}`, `focus_feedback_comment_submitted {room_type, study_sec, impact, comment}`를 보낸다.
+- `impact`는 `helped` 또는 `hindered`다. 총 공부 시간이 1시간 이상이고 `helped`를 고른 경우 자유 응답을 보여 준다. 자유 응답은 사용자가 제출할 때 Amplitude에만 기록한다.
+- 발신은 `FocusFeedbackCardHost`이고, 카드는 총 공부 시간 30분 이상인 공부에서 72시간에 한 번만 뜬다.
+- 그 공부에서 배경음이 실제로 재생됐거나 기본 배경 외의 타이머 배경을 띄우고 공부한 경우에 묻는다. 배경 파일이 화면에 표시되기 전이나 일시정지 중에는 사용으로 집계하지 않는다. 같은 기기에서 공부를 복원하면 계정과 시작 시각에 맞춰 기능 사용 기록을 이어받는다.
+- 솔로 앱에서 응답한 뒤 완료 화면을 닫을 때는 Amplitude 전송을 최대 750ms 기다린다. 전송 중 초대가 들어오면 마지막 초대를 열고 기존 결과 설문은 예약하지 않는다.
 - `study_result_exited`는 순공 1분 미만 안내(`RoomPage`)에서 홈으로 나갈 때도 예약된다.
 - 결과 화면에는 순공 1분 이상만 오므로 `focus_sec`이 60 미만이면 안내 화면에서 나간 것이다.
 - 첫 세션 종료 이유 설문은 제출 버튼의 `콜백 실행`(키 `show-thanks-toast`)으로 앱 토스트 `소중한 의견 감사합니다!`를 띄운다.

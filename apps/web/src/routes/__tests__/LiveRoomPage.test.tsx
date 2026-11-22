@@ -10,7 +10,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { sessionStateColors } from "@focusmakers/design-tokens";
@@ -163,6 +163,16 @@ vi.mock("@/features/ambient-sound/ambientPlayer", async (importOriginal) => {
   };
 });
 
+function SocialResultProbe() {
+  const { state } = useLocation();
+  return (
+    <div
+      data-testid="social-result-stub"
+      data-focus-features-used={String(state?.focusFeaturesUsed)}
+    />
+  );
+}
+
 const mockedRenewSeat = vi.mocked(renewLiveRoomSeat);
 const mockedLeaveRoom = vi.mocked(leaveRoom);
 const mockedRestore = vi.mocked(useActiveSessionRestore);
@@ -273,10 +283,7 @@ function renderRoom({
             }
           />
           <Route path="/social" element={<div data-testid="social-home-stub" />} />
-          <Route
-            path="/social/room/:roomId/result"
-            element={<div data-testid="social-result-stub" />}
-          />
+          <Route path="/social/room/:roomId/result" element={<SocialResultProbe />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -2460,36 +2467,79 @@ describe("LiveRoomPage — 배경음", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("소리를 켠 채 세션을 끝내면 배경음 사용을 study_session_ended에 싣는다", async () => {
-    vi.mocked(submitStudySession).mockResolvedValue([]);
-    renderRoom();
-    await enterRoom();
-    await userEvent.click(screen.getByRole("button", { name: "배경음" }));
-    fireEvent.change(await screen.findByRole("slider", { name: "백색소음 음량" }), {
-      target: { value: "60" },
+  it.each([
+    { name: "소리를 켠 채 종료", remount: false },
+    { name: "소리를 재생한 공부를 복원한 뒤 종료", remount: true },
+  ])("$name 시 결과 화면에서도 배경음 사용을 확인한다", async ({ remount }) => {
+    mockedRestore.mockReturnValue({
+      settled: true,
+      restored: {
+        startedAtMs: Date.now() - 600_000,
+        reportedAtMs: Date.now(),
+        baseStudySec: 600,
+        baseFocusSec: 600,
+        events: [],
+      },
     });
-    await userEvent.keyboard("{Escape}");
-    await turnCameraOn();
-    await waitFor(() => {
-      expect(ambientPlayers[0]?.getState()).toBe("playing");
-    });
+    vi.mocked(submitStudySession).mockResolvedValueOnce([
+      {
+        id: 1,
+        userId: 7,
+        statDate: "2026-11-22",
+        startedAt: "2026-11-22T01:00:00Z",
+        endedAt: "2026-11-22T01:10:00Z",
+        studySec: 600,
+        focusSec: 600,
+        focusRate: 100,
+        events: [],
+      },
+    ]);
+    try {
+      renderRoom();
+      await enterRoom();
+      await userEvent.click(screen.getByRole("button", { name: "배경음" }));
+      fireEvent.change(await screen.findByRole("slider", { name: "백색소음 음량" }), {
+        target: { value: "60" },
+      });
+      await userEvent.keyboard("{Escape}");
+      await turnCameraOn();
+      await waitFor(() => {
+        expect(ambientPlayers[0]?.getState()).toBe("playing");
+      });
 
-    await userEvent.click(screen.getByRole("button", { name: "나가기" }));
-    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+      if (remount) {
+        cleanup();
+        setAmbientSoundStore(createMemoryAmbientSoundStore(DEFAULT_AMBIENT_SETTINGS));
+        ambientPlayers.length = 0;
+        renderRoom();
+        await enterRoom();
+        await turnCameraOn();
+        await waitFor(() => expect(ambientPlayers[0]?.getState()).toBe("idle"));
+      }
 
-    await waitFor(() => {
-      expect(trackStudySessionEnded).toHaveBeenCalledTimes(1);
-    });
-    expect(trackStudySessionEnded.mock.calls[0]?.[0]).toMatchObject({
-      roomType: "social",
-      ambientSoundUsed: true,
-      ambientSoundSec: expect.any(Number),
-    });
-    // 소셜룸에는 멀티 타이머가 없어 none 으로 나간다.
-    expect(trackStudySessionEnded.mock.calls[0]?.[0]).toMatchObject({ multiTimer: "none" });
-    expect(trackAmbientSoundChanged).toHaveBeenCalledWith(
-      expect.objectContaining({ roomType: "social" }),
-    );
+      await userEvent.click(screen.getByRole("button", { name: "나가기" }));
+      await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+
+      await waitFor(() => {
+        expect(trackStudySessionEnded).toHaveBeenCalledTimes(1);
+      });
+      expect(trackStudySessionEnded.mock.calls[0]?.[0]).toMatchObject({
+        roomType: "social",
+        ambientSoundUsed: !remount,
+        ambientSoundSec: expect.any(Number),
+      });
+      expect(await screen.findByTestId("social-result-stub")).toHaveAttribute(
+        "data-focus-features-used",
+        "true",
+      );
+      // 소셜룸에는 멀티 타이머가 없어 none 으로 나간다.
+      expect(trackStudySessionEnded.mock.calls[0]?.[0]).toMatchObject({ multiTimer: "none" });
+      expect(trackAmbientSoundChanged).toHaveBeenCalledWith(
+        expect.objectContaining({ roomType: "social" }),
+      );
+    } finally {
+      mockedRestore.mockReturnValue({ settled: true, restored: null });
+    }
   });
 
   it("바의 배경음 앱 버튼은 누르면 페이지를 열고, 소리를 켜면 active 색으로 바뀐다", async () => {

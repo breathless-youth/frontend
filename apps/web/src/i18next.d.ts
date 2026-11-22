@@ -14,7 +14,7 @@ import type profile from "./locales/ko/profile.json";
 import type appLock from "./locales/ko/app-lock.json";
 import type ambientSound from "./locales/ko/ambient-sound.json";
 import type forceUpdate from "./locales/ko/force-update.json";
-import type measurementFeedback from "./locales/ko/measurement-feedback.json";
+import type focusFeedback from "./locales/ko/focus-feedback.json";
 import type onboarding from "./locales/ko/onboarding.json";
 import type home from "./locales/ko/home.json";
 import type liveRoom from "./locales/ko/live-room.json";
@@ -54,7 +54,7 @@ declare module "i18next" {
       "app-lock": typeof appLock;
       "ambient-sound": typeof ambientSound;
       "force-update": typeof forceUpdate;
-      "measurement-feedback": typeof measurementFeedback;
+      "focus-feedback": typeof focusFeedback;
       onboarding: typeof onboarding;
       home: typeof home;
       "live-room": typeof liveRoom;

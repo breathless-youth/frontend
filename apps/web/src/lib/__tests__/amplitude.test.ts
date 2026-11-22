@@ -2049,41 +2049,46 @@ describe("인터뷰 모집 이벤트", () => {
   });
 });
 
-describe("AI 측정 만족도 이벤트", () => {
+describe("집중 도움 설문 이벤트", () => {
   it("미초기화 상태에서는 보내지 않는다", async () => {
     const m = await loadModule();
-    m.trackMeasurementFeedbackShown({ roomType: "single", focusSec: 1200 });
-    m.trackMeasurementFeedbackRated({ roomType: "single", focusSec: 1200, rating: "good" });
-    m.trackMeasurementFeedbackReasonSelected({
+    m.trackFocusFeedbackShown({ roomType: "single", studySec: 1200 });
+    m.trackFocusFeedbackAnswered({ roomType: "single", studySec: 1200, impact: "helped" });
+    m.trackFocusFeedbackCommentSubmitted({
       roomType: "single",
-      focusSec: 1200,
-      rating: "bad",
-      reason: "under",
+      studySec: 1200,
+      impact: "hindered",
+      comment: "화면을 자주 보게 됐어요.",
     });
     expect(mocks.track).not.toHaveBeenCalled();
   });
 
-  it("노출·만족도·이유를 룸 종류·순공시간과 함께 보낸다", async () => {
+  it("노출·선택지·자유 응답을 새 이벤트로 보내고 총 공부 시간을 싣는다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const m = await loadModule();
     m.initAmplitude();
     mocks.track.mockClear();
 
-    m.trackMeasurementFeedbackShown({ roomType: "social", focusSec: 900 });
-    m.trackMeasurementFeedbackRated({ roomType: "social", focusSec: 900, rating: "meh" });
-    m.trackMeasurementFeedbackReasonSelected({
+    m.trackFocusFeedbackShown({ roomType: "social", studySec: 3600 });
+    m.trackFocusFeedbackAnswered({ roomType: "social", studySec: 3600, impact: "helped" });
+    m.trackFocusFeedbackCommentSubmitted({
       roomType: "social",
-      focusSec: 900,
-      rating: "meh",
-      reason: "missing_info",
+      studySec: 3600,
+      impact: "helped",
+      comment: "흐트러질 때 다시 집중할 수 있었어요.",
     });
 
     expect(mocks.track.mock.calls).toEqual([
-      ["measurement_feedback_shown", { room_type: "social", focus_sec: 900 }],
-      ["measurement_feedback_rated", { room_type: "social", focus_sec: 900, rating: "meh" }],
+      ["focus_feedback_shown", { room_type: "social", study_sec: 3600 }],
+      ["focus_feedback_answered", { room_type: "social", study_sec: 3600, impact: "helped" }],
       [
-        "measurement_feedback_reason_selected",
-        { room_type: "social", focus_sec: 900, rating: "meh", reason: "missing_info" },
+        "focus_feedback_comment_submitted",
+        {
+          room_type: "social",
+          study_sec: 3600,
+          impact: "helped",
+          comment: "흐트러질 때 다시 집중할 수 있었어요.",
+        },
       ],
     ]);
   });
