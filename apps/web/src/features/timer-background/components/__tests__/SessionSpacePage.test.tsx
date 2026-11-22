@@ -80,6 +80,7 @@ function renderPage(over: Partial<SessionSpacePageProps> = {}) {
     onVolumeChange: vi.fn(),
     onVolumeCommit: vi.fn(),
     onToggleMute: vi.fn(),
+    loopSoundAvailable: false,
     ...over,
   };
   render(<SessionSpacePage {...props} />);
@@ -672,6 +673,7 @@ describe("SessionSpacePage", () => {
           container={document.body}
           returnFocus={() => null}
           landscape={false}
+          loopSoundAvailable={false}
           userId={1}
           applied={PROCTOR_SPACE}
           onApply={async () => true}
@@ -692,6 +694,13 @@ describe("SessionSpacePage", () => {
     expect(slider).toHaveValue("40");
     fireEvent.pointerUp(slider);
     expect(onVolumeCommit).toHaveBeenCalledExactlyOnceWith(40);
+  });
+
+  it("소리 있는 반복 공간이 적용돼 있으면 음량과 음소거를 쓸 수 있다", () => {
+    renderPage({ applied: RAIN_SPACE, loopSoundAvailable: true });
+
+    expect(screen.getByRole("slider", { name: "공간 음량" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "공간 소리 끄기" })).toBeEnabled();
   });
 
   it("소리 없는 공간이면 음량과 음소거가 비활성이다", () => {
