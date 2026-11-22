@@ -1212,10 +1212,10 @@ export function trackStudyMeasureModeChanged(mode: MeasureMode, from: "home") {
 /**
  * 홈 시작 미션 단계 완료
  *
- * 1단계는 플래너에서 과목 만들기, 2단계는 공부 5분 완료다.
+ * 1단계는 플래너에서 과목 만들기, 2단계는 공부 5분 완료, 3단계는 첫 소품 구매다.
  * 서버가 완료를 저장한 뒤에만 보낸다.
  */
-export function trackHomeMissionStepCompleted(step: 1 | 2) {
+export function trackHomeMissionStepCompleted(step: 1 | 2 | 3) {
   if (!initialized) return;
   track("home_mission_step_completed", { step });
 }

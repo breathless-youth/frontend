@@ -112,7 +112,10 @@ export function useShopActions() {
       action: itemId === null ? "off" : "on",
       slot,
     });
-    await refetchLook();
+    await Promise.all([
+      refetchLook(),
+      queryClient.invalidateQueries({ queryKey: pointsKeys.wornAccessories(userId) }),
+    ]);
   };
   const setTimerBackground = async (itemId: string | null) => {
     if (!memberOnly.allow()) return;

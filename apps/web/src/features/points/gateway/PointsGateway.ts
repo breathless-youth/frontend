@@ -1,4 +1,4 @@
-import type { MascotLook } from "@/components/mascot/types";
+import type { MascotLook, WornAccessoriesByMascot } from "@/components/mascot/types";
 
 import type {
   AccessorySlot,
@@ -53,6 +53,7 @@ export interface PointsGateway {
   getShop(): Promise<ShopData>;
   /** 고른 마스코트와 그 마스코트가 끼고 있는 소품이며 고른 마스코트가 없으면 null이다. */
   getMyLook(): Promise<MascotLook | null>;
+  getWornAccessories(): Promise<WornAccessoriesByMascot>;
   purchase(itemId: string): Promise<PurchaseResult>;
   /** 포인트로 여는 마스코트 사기이며 고르는 일은 따로 한다. */
   purchaseMascot(id: MascotId): Promise<PurchaseResult>;

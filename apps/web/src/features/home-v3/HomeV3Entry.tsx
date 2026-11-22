@@ -14,10 +14,12 @@ import { recentTimelapsesQuery } from "@/features/timelapse/timelapseQueries";
 import { getTimelapseStore } from "@/features/timelapse/timelapseStore";
 import { PointsBalancePill } from "@/features/points/components/shared/PointsBalancePill";
 import { usePointsBalance } from "@/features/points/components/shop/usePointsBalance";
+import { appPointsGateway } from "@/features/points/gateway/appPointsGateway";
 import { pointsSearch } from "@/features/points/pointsSearch";
 import { usePointsLogin } from "@/features/points/usePointsLogin";
 import { setHasTimelapseUserProperty } from "@/lib/amplitude";
 import { isPointsEnabled } from "@/lib/pointsCapability";
+import { wornAccessoriesQuery } from "@/lib/pointsQueries";
 import { hardNavigate } from "@/lib/hardNavigation";
 import { hasTokenSource } from "@/lib/userId";
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
@@ -78,6 +80,11 @@ export function HomeV3Entry({
   const location = useLocation();
   const openPlanner = useOpenPlanner("home");
   const points = usePointsBalance(userId);
+  const showPoints = isPointsEnabled() && !points.memberOnly;
+  const wornAccessories = useQuery({
+    ...wornAccessoriesQuery(appPointsGateway(), userId),
+    enabled: showPoints,
+  });
   const openPointsLogin = usePointsLogin();
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState<{
@@ -236,7 +243,7 @@ export function HomeV3Entry({
         ) : (
           <span className="text-2xl font-bold">FocusMakers</span>
         )}
-        {isPointsEnabled() && !points.memberOnly ? (
+        {showPoints ? (
           <div className="shrink-0">
             <PointsBalancePill
               size="home"
@@ -256,6 +263,7 @@ export function HomeV3Entry({
         )}
       </header>
       <HomeV3Content
+        wornAccessories={showPoints ? wornAccessories.data : undefined}
         band={progress.band}
         stats={stats}
         subjects={
@@ -306,6 +314,10 @@ export function HomeV3Entry({
           },
           openPlanner: () => openPlanner(day.dateKey),
           completeMission: progress.completeMission,
+          openAccessories: () =>
+            slideNavigate("forward", () =>
+              navigate({ pathname: "/points/accessories", search: pointsSearch(location.search) }),
+            ),
           // 비회원도 받지만 서버가 회원 전용이라고 거절하면 로그인 화면을 연다.
           claimMissionReward: () => progress.claimMissionReward(openPointsLogin),
           editGoal: () => {

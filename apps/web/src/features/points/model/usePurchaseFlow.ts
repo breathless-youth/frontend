@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 
 import { trackPointsPurchase } from "@/lib/amplitude";
+import { homeMissionKey } from "@/features/home-v3/homeV3Queries";
 import i18n from "@/lib/i18n";
 import { balanceQuery, pointsKeys } from "@/lib/pointsQueries";
 import { showToast } from "@/lib/toast";
@@ -71,7 +72,13 @@ export function usePurchaseFlow(item: ShopItem | null, buy?: () => Promise<Purch
       if (result.ok) {
         queryClient.setQueryData(pointsKeys.balance(userId), result.balance);
         setPaidBalance(result.balance);
-        if (price !== null) trackPointsPurchase("succeeded", tracked(item, price));
+        if (price !== null) {
+          const purchase = tracked(item, price);
+          trackPointsPurchase("succeeded", purchase);
+          if (purchase.kind === "accessory") {
+            void queryClient.invalidateQueries({ queryKey: homeMissionKey(userId) });
+          }
+        }
         setStep("done");
       } else if (result.reason === "insufficient") {
         if (price !== null) trackPointsPurchase("insufficient", tracked(item, price));

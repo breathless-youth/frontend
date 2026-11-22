@@ -1,5 +1,6 @@
 import { buildPointsFixture, type PointsScene } from "../fixtures";
 import { toMyMascotLook } from "../model/myMascotLook";
+import { wornByMascot } from "../model/wornAccessories";
 import type { PointsReason, ShopItem } from "../types";
 import { FULL_POINTS_CAPABILITIES, type PointsGateway } from "./PointsGateway";
 
@@ -68,6 +69,7 @@ export function createFakePointsGateway(
         totalFocusSec: state.totalFocusSec,
       })),
     getMyLook: () => read(() => toMyMascotLook(state)),
+    getWornAccessories: () => read(() => wornByMascot(state.items)),
     purchase: async (itemId) => {
       const item = findItem(itemId);
       if (item.owned) {

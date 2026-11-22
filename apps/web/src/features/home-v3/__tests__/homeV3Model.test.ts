@@ -8,12 +8,14 @@ describe("home v3 server band", () => {
     expect(selectHomeBand(homeMission(0, 900, true), 500, 3600)).toEqual({
       kind: "mission",
       step: 1,
+      totalSteps: 2,
       ready: true,
       progress: 0,
     });
     expect(selectHomeBand(homeMission(0, 900, false), 500, 3600)).toEqual({
       kind: "mission",
       step: 1,
+      totalSteps: 2,
       ready: false,
       progress: 0,
     });
@@ -22,18 +24,21 @@ describe("home v3 server band", () => {
     expect(selectHomeBand(homeMission(1, 299, false), 5000, 3600)).toEqual({
       kind: "mission",
       step: 2,
+      totalSteps: 2,
       ready: false,
       progress: 0.5,
     });
     expect(selectHomeBand(homeMission(1, 300, true), 0, null)).toEqual({
       kind: "mission",
       step: 2,
+      totalSteps: 2,
       ready: true,
       progress: 0.5,
     });
     expect(selectHomeBand(homeMission(1, 900, false), 5000, 3600)).toEqual({
       kind: "mission",
       step: 2,
+      totalSteps: 2,
       ready: false,
       progress: 0.5,
     });
@@ -89,6 +94,7 @@ describe("미션 포인트 띠", () => {
     expect(selectHomeBand(mission, 0, null, true)).toEqual({
       kind: "mission",
       step: 2,
+      totalSteps: 2,
       ready: true,
       progress: 0.5,
       rewardPoints: 100,
