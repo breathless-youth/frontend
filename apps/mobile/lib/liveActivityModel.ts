@@ -15,6 +15,9 @@ export type StudySessionActivityProps = {
   // 시계가 멈춘 시각이다. null이면 OS가 계속 센다.
   pausedAtMs: number | null;
   statusText: string;
+  // 섬의 펼친 화면은 좁아 두 줄 문구가 잘리므로 첫 줄만 쓴다.
+  // 위젯 함수는 문자열로 바뀌면서 이스케이프가 풀리므로 자르기를 위젯 밖에서 한다.
+  islandStatusText: string;
   endedTitle: string;
   endedBody: string;
   iconUri: string | null;
@@ -108,6 +111,7 @@ export function deriveActivity({
       startedAtMs,
       pausedAtMs,
       statusText,
+      islandStatusText: statusText.split("\n")[0],
       endedTitle: texts.endedTitle,
       endedBody: keepsRunningAway ? texts.endedAway : texts.endedPause,
       iconUri,

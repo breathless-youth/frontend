@@ -32,8 +32,6 @@ function StudySessionActivityLayout(
   const pauseTime = props.pausedAtMs !== null ? new Date(props.pausedAtMs) : undefined;
   const secondary = foregroundStyle({ type: "hierarchical", style: "secondary" });
   const empty = <Text> </Text>;
-  // 섬의 펼친 화면은 좁아 두 줄 문구가 잘리므로 첫 줄만 쓴다.
-  const islandStatusText = props.statusText.split("\n")[0];
 
   const icon = (size: number) =>
     props.iconUri !== null ? (
@@ -118,7 +116,9 @@ function StudySessionActivityLayout(
     ) : (
       <VStack alignment="leading" spacing={2}>
         {timeRow}
-        <Text modifiers={[font({ textStyle: "footnote" }), secondary]}>{islandStatusText}</Text>
+        <Text modifiers={[font({ textStyle: "footnote" }), secondary]}>
+          {props.islandStatusText}
+        </Text>
       </VStack>
     ),
   };
