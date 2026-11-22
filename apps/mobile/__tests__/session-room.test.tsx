@@ -4,6 +4,7 @@ import { BackHandler, Platform } from "react-native";
 
 import SessionRoomScreen from "../app/room/[id]";
 import { getRnda, type RndaApi } from "../lib/appLock/rnda";
+import { applyLiveActivitySnapshot, endLiveActivity } from "../lib/liveActivity";
 import type * as OrientationModule from "../lib/orientation";
 import { offerRouteToSession } from "../lib/sessionInvite";
 import {
@@ -45,6 +46,11 @@ jest.mock("../lib/orientation", () => ({
 }));
 
 jest.mock("../lib/appLock/rnda", () => ({ getRnda: jest.fn(() => null) }));
+jest.mock("../lib/liveActivity", () => ({
+  applyLiveActivitySnapshot: jest.fn(),
+  endLiveActivity: jest.fn(),
+  isLiveActivitySupported: () => false,
+}));
 
 jest.mock("expo-constants", () => ({
   __esModule: true,
@@ -366,5 +372,34 @@ describe("SessionRoomScreen: 방해 앱 잠금", () => {
       "resetBlocks",
       "stopMonitoring",
     ]);
+  });
+});
+
+describe("SessionRoomScreen: 잠금화면 공부 표시", () => {
+  beforeEach(() => {
+    jest.mocked(applyLiveActivitySnapshot).mockClear();
+    jest.mocked(endLiveActivity).mockClear();
+  });
+
+  it("웹이 보낸 세션 상태를 잠금화면 표시에 넘긴다", async () => {
+    render(<SessionRoomScreen />);
+    const webview = await screen.findByTestId("session-webview");
+    const session = { mode: "timer", subject: null, state: "paused", elapsedSec: 42 };
+    act(() => {
+      (webview.props.onMessage as (event: unknown) => void)({
+        nativeEvent: { data: JSON.stringify({ type: "live-activity", session, atMs: 7 }) },
+      });
+    });
+
+    expect(applyLiveActivitySnapshot).toHaveBeenCalledWith(session, 7);
+  });
+
+  it("화면이 닫히면 웹이 끝내라고 보내지 못해도 표시를 끝낸다", () => {
+    const { unmount } = render(<SessionRoomScreen />);
+    expect(endLiveActivity).not.toHaveBeenCalled();
+
+    unmount();
+
+    expect(endLiveActivity).toHaveBeenCalledTimes(1);
   });
 });

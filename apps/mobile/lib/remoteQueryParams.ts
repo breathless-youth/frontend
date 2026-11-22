@@ -10,6 +10,7 @@ import { profilePhotoPickerNative } from "../modules/profile-photo-picker";
 import { SUPPORTED_INLINE_KINDS, webGlassNative } from "../modules/web-glass";
 import { getRnda } from "./appLock/rnda";
 import { isNewUserThisLaunch } from "./auth";
+import { isLiveActivitySupported } from "./liveActivity";
 import { isPointsAdsSupported } from "./pointsAds";
 import { isPointsChargeSupported } from "./pointsCharge";
 import { supportedSocialLoginProviders } from "./socialLogin";
@@ -157,6 +158,12 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
       ...SUPPORTED_INLINE_KINDS,
       ...(webGlassNative.setInlineColorScheme ? [GLASS_CONTROLS_BUTTON_STYLE] : []),
     ].join(",");
+  }
+  // `liveActivity=1`: 이 바이너리가 `live-activity`로 잠금화면 공부 표시를 그릴 수 있다는 표시.
+  // 웹은 이 표시가 있을 때만 싱글룸 상태를 보낸다(`apps/web/src/lib/liveActivityCapability.ts`).
+  // 위젯 모듈이 없는 옛 Dev Client와 Android에는 붙지 않는다.
+  if (isLiveActivitySupported()) {
+    params.liveActivity = "1";
   }
   // Android WebView는 시스템 다크를 prefers-color-scheme에 전달하지 않아 웹이 스스로 알 수
   // 없다 — 초기 테마를 쿼리로 넘긴다. 값은 이 조립 시점으로 고정된다(테마가 URL을 바꾸면

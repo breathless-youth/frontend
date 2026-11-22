@@ -5,6 +5,7 @@ import type {
   ControlFrame,
   GlassChromeTop,
   InlineControl,
+  LiveActivitySnapshot,
   MetaAppEventMessage,
   MetaAppEventParamValue,
   NativeButtonTone,
@@ -428,6 +429,17 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         return null;
       }
       return { type: "motion-sensor", enabled: record.enabled, atMs: record.atMs };
+    case "live-activity": {
+      // 시각으로 잠금화면 시계의 시작 시각을 거꾸로 세므로 유한한 0 이상 값만 받는다.
+      if (!Number.isFinite(record.atMs) || record.atMs < 0) {
+        return null;
+      }
+      const session = parseLiveActivitySession(record.session);
+      if (session === undefined) {
+        return null;
+      }
+      return { type: "live-activity", session, atMs: record.atMs };
+    }
     case "meta-app-event":
       return parseMetaAppEvent(record);
     case "analytics-event":
@@ -455,6 +467,37 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
     default:
       return null;
   }
+}
+
+/**
+ * 잠금화면 공부 표시 과목 이름의 길이 상한
+ *
+ * 웹 입력 한도(12자)보다 길게 둔다.
+ * 서버가 더 긴 이름을 받아 두었을 수 있고, 그 이름 때문에 표시가 아예 뜨지 않으면 안 된다.
+ */
+const LIVE_ACTIVITY_SUBJECT_MAX_LENGTH = 100;
+
+/**
+ * 잠금화면 공부 표시 스냅샷 검증
+ *
+ * null은 표시를 끝내라는 뜻이라 그대로 넘기고, 모양이 어긋나면 undefined로 메시지를 통째로 버린다.
+ */
+function parseLiveActivitySession(value: unknown): LiveActivitySnapshot | null | undefined {
+  if (value === null) return null;
+  if (!isRecord(value)) return undefined;
+  const { mode, subject, state, elapsedSec } = value;
+  if (
+    (mode !== "timer" && mode !== "camera") ||
+    (state !== "running" && state !== "paused" && state !== "break" && state !== "distracted") ||
+    typeof elapsedSec !== "number" ||
+    !Number.isFinite(elapsedSec) ||
+    elapsedSec < 0 ||
+    (subject !== null &&
+      (typeof subject !== "string" || subject.length > LIVE_ACTIVITY_SUBJECT_MAX_LENGTH))
+  ) {
+    return undefined;
+  }
+  return { mode, subject, state, elapsedSec };
 }
 
 /** 파라미터 객체에서 형식에 맞는 키·값만 `max`개까지 남긴다. 객체가 아니면 null. */

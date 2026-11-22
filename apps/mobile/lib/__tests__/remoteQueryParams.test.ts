@@ -54,6 +54,10 @@ jest.mock("../../modules/web-glass", () => ({
 jest.mock("expo-glass-effect", () => ({
   isLiquidGlassAvailable: () => mockGlass.available,
 }));
+const mockLiveActivity = { supported: false };
+jest.mock("../liveActivity", () => ({
+  isLiveActivitySupported: () => mockLiveActivity.supported,
+}));
 jest.mock("expo-constants", () => ({
   __esModule: true,
   default: { expoConfig: { version: "1.4.2" } },
@@ -73,6 +77,7 @@ beforeEach(() => {
   mockedConstants.expoConfig = { version: "1.4.2" };
   mockGlass.webGlassNative = null;
   mockGlass.available = false;
+  mockLiveActivity.supported = false;
   __resetRemoteQueryParamsCacheForTests();
   __resetSocialLoginForTests();
 });
@@ -433,6 +438,14 @@ describe("buildRemoteQueryParams", () => {
 
     expect(params).not.toHaveProperty("glassChrome");
     expect(params).not.toHaveProperty("glassControls");
+  });
+
+  it("잠금화면 공부 표시를 그릴 수 있는 바이너리에만 liveActivity=1을 붙인다", async () => {
+    await expect(buildRemoteQueryParams()).resolves.not.toHaveProperty("liveActivity");
+
+    mockLiveActivity.supported = true;
+    __resetRemoteQueryParamsCacheForTests();
+    await expect(buildRemoteQueryParams()).resolves.toHaveProperty("liveActivity", "1");
   });
 
   it("Android에는 glassChrome 표시가 없다", async () => {

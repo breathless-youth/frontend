@@ -52,6 +52,13 @@ const ko = {
   "appLock.shieldTitle": "지금은 공부에 집중하는 시간이에요",
   "appLock.shieldSubtitle": "포커스 메이커스 앱에서 공부를 끝내면 잠금이 풀려요",
 
+  "liveActivity.timerRunning": "자율 모드로 공부 중이에요",
+  "liveActivity.cameraRunning": "관리 모드로 공부 중이에요",
+  "liveActivity.paused": "잠시 휴식 중이에요\n돌아와서 이어서 공부해요",
+  "liveActivity.endedTitle": "여기까지 기록을 저장했어요",
+  "liveActivity.endedPause": "일시정지가 20분을 넘었어요",
+  "liveActivity.endedAway": "앱 밖에 2시간 넘게 있었어요",
+
   "appLockConsent.title": "방해 앱 잠금을 켜려면\n권한 두 가지가 필요해요",
   "appLockConsent.usageTitle": "사용정보 접근",
   "appLockConsent.usageBody": "지금 열린 앱이 잠긴 앱인지 확인할 때만 써요.",
@@ -120,6 +127,13 @@ const en = {
 
   "appLock.shieldTitle": "It's time to focus on studying",
   "appLock.shieldSubtitle": "Finish studying in the FocusMakers app to unblock this app",
+
+  "liveActivity.timerRunning": "Studying in Self-guided Mode",
+  "liveActivity.cameraRunning": "Studying in Camera Mode",
+  "liveActivity.paused": "Taking a short break\nCome back to keep studying",
+  "liveActivity.endedTitle": "Your progress so far is saved",
+  "liveActivity.endedPause": "Paused for over 20 minutes",
+  "liveActivity.endedAway": "You were away from the app for over 2 hours",
 
   "appLockConsent.title": "App blocking needs\ntwo permissions",
   "appLockConsent.usageTitle": "Usage access",
@@ -191,6 +205,13 @@ const ja = {
   "appLock.shieldTitle": "今は勉強に集中する時間です",
   "appLock.shieldSubtitle": "FocusMakersアプリで勉強を終えると、このアプリのブロックが解除されます",
 
+  "liveActivity.timerRunning": "自主モードで勉強中です",
+  "liveActivity.cameraRunning": "カメラモードで勉強中です",
+  "liveActivity.paused": "ひと休み中です\n戻って勉強を続けましょう",
+  "liveActivity.endedTitle": "ここまでの記録を保存しました",
+  "liveActivity.endedPause": "一時停止が20分を超えました",
+  "liveActivity.endedAway": "アプリを2時間以上離れていました",
+
   "appLockConsent.title": "アプリブロックをオンにするには\n2つの権限が必要です",
   "appLockConsent.usageTitle": "使用状況へのアクセス",
   "appLockConsent.usageBody": "開いたアプリがブロック対象かどうかの確認にだけ使います。",
@@ -258,6 +279,13 @@ const zhHant = {
 
   "appLock.shieldTitle": "現在是專心讀書的時間",
   "appLock.shieldSubtitle": "在 FocusMakers 完成讀書後，就會解除這個 App 的封鎖",
+
+  "liveActivity.timerRunning": "正在以自主模式讀書",
+  "liveActivity.cameraRunning": "正在以相機模式讀書",
+  "liveActivity.paused": "稍作休息中\n回來繼續讀書吧",
+  "liveActivity.endedTitle": "已儲存目前為止的紀錄",
+  "liveActivity.endedPause": "暫停超過 20 分鐘",
+  "liveActivity.endedAway": "離開 App 超過 2 小時",
 
   "appLockConsent.title": "若要開啟 App 封鎖，\n需要兩項權限",
   "appLockConsent.usageTitle": "使用情況存取權",
