@@ -184,6 +184,8 @@
       "image": "圖片"
     },
     "search": "搜尋空間",
+    "searchClose": "關閉搜尋",
+    "searchClear": "清除搜尋",
     "all": "全部",
     "sections": {
       "watch": "監督",

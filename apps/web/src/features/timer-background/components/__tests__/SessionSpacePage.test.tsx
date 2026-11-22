@@ -96,7 +96,7 @@ beforeEach(() => {
 });
 
 describe("SessionSpacePage", () => {
-  it("영상 탭으로 열리고 서버 목록의 감독 공간 타일과 전체·감독 칩, 감독 섹션 제목을 보인다", async () => {
+  it("영상 탭으로 열리고 서버 목록의 감독 공간 타일과 전체·감독 칩을 보이며 칩과 겹치는 섹션 제목은 없다", async () => {
     renderPage();
 
     expect(screen.getByRole("dialog", { name: "공간" })).toBeInTheDocument();
@@ -104,7 +104,19 @@ describe("SessionSpacePage", () => {
     expect(await screen.findByRole("button", { name: "독서실 감독관" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "전체", pressed: true })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "감독", pressed: false })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "감독" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "감독" })).not.toBeInTheDocument();
+  });
+
+  it("가로에서도 대화상자 이름과 제목이 하나씩이고 탭이 자기 목록을 가리키며 칩과 볼륨이 보인다", async () => {
+    renderPage({ landscape: true });
+
+    expect(screen.getByRole("dialog", { name: "공간" })).toBeInTheDocument();
+    expect(screen.getAllByText("공간", { exact: true })).toHaveLength(1);
+    const videoTab = screen.getByRole("tab", { name: "영상", selected: true });
+    const panelId = videoTab.getAttribute("aria-controls");
+    expect(panelId && document.getElementById(panelId)).toBe(screen.getByRole("tabpanel"));
+    expect(await screen.findByRole("button", { name: "전체", pressed: true })).toBeInTheDocument();
+    expect(screen.getByRole("slider", { name: "공간 음량" })).toBeInTheDocument();
   });
 
   it("이미지 탭으로 바꾸면 내 사진 개수와 심플이 보이고 탭 이벤트를 보낸다", async () => {
@@ -305,7 +317,7 @@ describe("SessionSpacePage", () => {
     ).toHaveAttribute("src", "/spaces/loop/1a2b3c4d/thumb.webp");
   });
 
-  it("영상 탭은 감독, 서버 분류, 분류 없는 반복 영상 순서이고 칩을 고르면 그 섹션만 남는다", async () => {
+  it("영상 탭은 섹션 제목 없이 감독, 서버 분류, 분류 없는 반복 영상 순서이고 칩을 고르면 그 분류만 남는다", async () => {
     shop.items = [
       shopSpace({
         id: 50,
@@ -324,17 +336,33 @@ describe("SessionSpacePage", () => {
         b.getAttribute("aria-label"),
       );
 
-    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
-      "감독",
-      "자연",
-    ]);
+    expect(screen.queryAllByRole("heading", { level: 3 })).toEqual([]);
     expect(tiles()).toEqual(["독서실 감독관", "비 오는 창가", "그냥 영상"]);
 
     await userEvent.click(screen.getByRole("button", { name: "자연" }));
     expect(tiles()).toEqual(["비 오는 창가"]);
   });
 
-  it("이미지 탭은 내 사진과 심플을 늘 보이고 서버 분류 섹션이 없으면 칩이 없다", async () => {
+  it("분류가 두 개 붙은 공간도 전체에서는 한 번만 나온다", async () => {
+    shop.items = [
+      shopSpace({
+        id: 70,
+        code: "SPACE_RAIN_CAFE",
+        name: "비 오는 카페",
+        assetKey: "loop/rain-cafe",
+        videoMode: "LOOP",
+        tags: [
+          { code: "NATURE", name: "자연" },
+          { code: "CAFE", name: "카페" },
+        ],
+      }),
+    ];
+    renderPage();
+
+    expect(await screen.findAllByRole("button", { name: "비 오는 카페" })).toHaveLength(1);
+  });
+
+  it("이미지 탭은 내 사진 제목만 두고 심플을 서버 그림 공간과 같은 격자 첫 칸에 두며 서버 분류가 없으면 칩이 없다", async () => {
     shop.items = [
       shopSpace(),
       shopSpace({
@@ -349,8 +377,17 @@ describe("SessionSpacePage", () => {
     renderPage();
     await openImageTab();
 
-    expect(await screen.findByRole("button", { name: "책상" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "심플" })).toBeInTheDocument();
+    const desk = await screen.findByRole("button", { name: "책상" });
+    const simple = screen.getByRole("button", { name: "심플" });
+    expect(screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent)).toEqual([
+      "내 사진",
+    ]);
+    expect(simple.closest("ul")).toBe(desk.closest("ul"));
+    expect(
+      [...(desk.closest("ul")?.querySelectorAll("button[aria-pressed]") ?? [])].map((b) =>
+        b.getAttribute("aria-label"),
+      ),
+    ).toEqual(["심플", "책상"]);
     expect(screen.queryByRole("button", { name: "전체" })).not.toBeInTheDocument();
   });
 
@@ -470,10 +507,100 @@ describe("SessionSpacePage", () => {
     renderPage();
     await screen.findByRole("button", { name: "독서실 감독관" });
 
+    await userEvent.click(screen.getByRole("button", { name: "공간 검색" }));
     await userEvent.type(screen.getByRole("searchbox", { name: "공간 검색" }), "산");
 
     expect(screen.getByText("찾는 공간이 없어요")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "독서실 감독관" })).not.toBeInTheDocument();
+  });
+
+  it("세로에서 미리보기를 열어도 머리는 막히지 않고 뒤 목록만 막힌다", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "독서실 감독관 미리보기" }));
+
+    expect(screen.getByTestId("space-preview")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "공간 검색" }).closest("[inert]")).toBeNull();
+    expect(screen.getByRole("tab", { name: "영상" }).closest("[inert]")).not.toBeNull();
+  });
+
+  describe("머리의 검색", () => {
+    it("처음에는 검색 입력창 없이 머리에 검색 버튼만 있다", () => {
+      renderPage();
+
+      expect(screen.getByRole("button", { name: "공간 검색" })).toBeInTheDocument();
+      expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+    });
+
+    it("검색 버튼을 누르면 입력창이 나타나고 포커스가 입력창에 간다", async () => {
+      renderPage();
+
+      await userEvent.click(screen.getByRole("button", { name: "공간 검색" }));
+
+      expect(screen.getByRole("searchbox", { name: "공간 검색" })).toHaveFocus();
+    });
+
+    it("검색 닫기를 누르면 입력창이 사라지고 걸렀던 목록이 돌아온다", async () => {
+      renderPage();
+      await screen.findByRole("button", { name: "독서실 감독관" });
+      await userEvent.click(screen.getByRole("button", { name: "공간 검색" }));
+      await userEvent.type(screen.getByRole("searchbox"), "산");
+
+      await userEvent.click(screen.getByRole("button", { name: "검색 닫기" }));
+
+      expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "독서실 감독관" })).toBeInTheDocument();
+    });
+
+    it("검색어 지우기는 입력창을 남기고 검색어만 비운다", async () => {
+      renderPage();
+      await screen.findByRole("button", { name: "독서실 감독관" });
+      await userEvent.click(screen.getByRole("button", { name: "공간 검색" }));
+      await userEvent.type(screen.getByRole("searchbox"), "산");
+
+      await userEvent.click(screen.getByRole("button", { name: "검색어 지우기" }));
+
+      expect(screen.getByRole("searchbox")).toHaveValue("");
+      expect(screen.getByRole("button", { name: "독서실 감독관" })).toBeInTheDocument();
+    });
+
+    it("검색 중에도 대화상자 이름은 공간이다", async () => {
+      renderPage();
+
+      await userEvent.click(screen.getByRole("button", { name: "공간 검색" }));
+
+      expect(screen.getByRole("dialog", { name: "공간" })).toBeInTheDocument();
+    });
+
+    it("입력창에서 Esc를 누르면 검색만 닫히고 페이지는 열려 있다", async () => {
+      const { onOpenChange } = renderPage();
+      await userEvent.click(screen.getByRole("button", { name: "공간 검색" }));
+
+      await userEvent.keyboard("{Escape}");
+
+      expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+      expect(onOpenChange).not.toHaveBeenCalled();
+    });
+
+    it("검색을 닫으면 포커스가 검색 버튼으로 돌아간다", async () => {
+      renderPage();
+      await userEvent.click(screen.getByRole("button", { name: "공간 검색" }));
+      await userEvent.keyboard("{Escape}");
+      expect(screen.getByRole("button", { name: "공간 검색" })).toHaveFocus();
+
+      await userEvent.click(screen.getByRole("button", { name: "공간 검색" }));
+      await userEvent.click(screen.getByRole("button", { name: "검색 닫기" }));
+      expect(screen.getByRole("button", { name: "공간 검색" })).toHaveFocus();
+    });
+
+    it("검색 키를 누르면 입력창은 남고 포커스만 빠진다", async () => {
+      renderPage();
+      await userEvent.click(screen.getByRole("button", { name: "공간 검색" }));
+
+      await userEvent.keyboard("비{Enter}");
+
+      expect(screen.getByRole("searchbox")).toHaveValue("비");
+      expect(screen.getByRole("searchbox")).not.toHaveFocus();
+    });
   });
 
   it("삭제 버튼은 적용으로 번지지 않고, 적용 중인 사진을 지우면 심플로 돌리되 서버에는 보내지 않는다", async () => {

@@ -189,6 +189,8 @@
       "image": "Image"
     },
     "search": "Search spaces",
+    "searchClose": "Close search",
+    "searchClear": "Clear search",
     "all": "All",
     "sections": {
       "watch": "Proctors",

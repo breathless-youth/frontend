@@ -20,6 +20,11 @@ export interface SessionPageProps {
   title: string;
   headerExtras?: ReactNode;
   landscape: boolean;
+  /**
+   * 두 칸 배치처럼 머리를 내용 안의 다른 자리에 둘 때 켠다.
+   * 이때 내용이 `SessionPageHeader`를 그려야 대화상자 이름이 생긴다.
+   */
+  hideHeader?: boolean;
   children: ReactNode;
 }
 
@@ -45,10 +50,10 @@ export function SessionPage({
   title,
   headerExtras,
   landscape,
+  hideHeader = false,
   children,
   variant = "default",
 }: SessionPageProps) {
-  const { t } = useTranslation("common");
   const [portalContainer, setPortalContainer] = useState<HTMLDivElement | null>(null);
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -76,35 +81,56 @@ export function SessionPage({
             : "page-column",
         )}
       >
-        <div
-          className={cn(
-            "flex shrink-0 items-center",
-            variant === "planner" && !landscape
-              ? "h-[calc(60px+env(safe-area-inset-top))] gap-0.5 pr-4 pl-2 pt-[calc(8px+env(safe-area-inset-top))]"
-              : "h-[calc(52px+env(safe-area-inset-top))] px-1 pt-[env(safe-area-inset-top)]",
-          )}
-        >
-          <SessionPageBackButton
-            label={t("actions.back")}
-            iconSize={variant === "planner" && !landscape ? 24 : 16}
+        {!hideHeader && (
+          <SessionPageHeader
+            title={title}
+            large={variant === "planner" && !landscape}
+            extras={headerExtras}
           />
-          <SheetTitle
-            className={cn(
-              "truncate font-bold tracking-normal text-(--session-dialog-title)",
-              variant === "planner" && !landscape
-                ? "text-lg leading-6.5"
-                : "text-[17px] leading-5.25",
-            )}
-          >
-            {title}
-          </SheetTitle>
-          {headerExtras}
-        </div>
+        )}
         <OverlayPortalContainerContext value={portalContainer}>
           <SessionPageOpenContext value={open}>{children}</SessionPageOpenContext>
         </OverlayPortalContainerContext>
       </SheetContent>
     </Sheet>
+  );
+}
+
+/**
+ * 세션 위 페이지의 머리
+ *
+ * 뒤로 가기와 제목이 있고, 제목이 페이지 대화상자의 이름이 된다.
+ */
+export function SessionPageHeader({
+  title,
+  large = false,
+  extras,
+}: {
+  title: string;
+  large?: boolean;
+  extras?: ReactNode;
+}) {
+  const { t } = useTranslation("common");
+  return (
+    <div
+      className={cn(
+        "flex shrink-0 items-center",
+        large
+          ? "h-[calc(60px+env(safe-area-inset-top))] gap-0.5 pr-4 pl-2 pt-[calc(8px+env(safe-area-inset-top))]"
+          : "h-[calc(52px+env(safe-area-inset-top))] px-1 pt-[env(safe-area-inset-top)]",
+      )}
+    >
+      <SessionPageBackButton label={t("actions.back")} iconSize={large ? 24 : 16} />
+      <SheetTitle
+        className={cn(
+          "truncate font-bold tracking-normal text-(--session-dialog-title)",
+          large ? "text-lg leading-6.5" : "text-[17px] leading-5.25",
+        )}
+      >
+        {title}
+      </SheetTitle>
+      {extras}
+    </div>
   );
 }
 
