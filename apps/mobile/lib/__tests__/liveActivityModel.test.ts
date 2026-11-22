@@ -33,8 +33,29 @@ describe("deriveActivity", () => {
       startedAtMs: AT - 100_000,
       pausedAtMs: null,
       statusText: "T",
+      islandStatusText: "T",
     });
     expect(r.staleDate).toBeUndefined();
+  });
+
+  it("섬 문구는 두 줄 문구의 첫 줄만 쓰고 한 줄 문구는 그대로 쓴다", () => {
+    const twoLine = { ...texts, timerRunning: "T1", paused: "P1\nP2" };
+    const paused = deriveActivity({
+      snapshot: snap({ state: "paused" }),
+      atMs: AT,
+      backgroundSinceMs: null,
+      texts: twoLine,
+      iconUri: null,
+    });
+    expect(paused.props).toMatchObject({ statusText: "P1\nP2", islandStatusText: "P1" });
+    const running = deriveActivity({
+      snapshot: snap(),
+      atMs: AT,
+      backgroundSinceMs: null,
+      texts: twoLine,
+      iconUri: null,
+    });
+    expect(running.props).toMatchObject({ statusText: "T1", islandStatusText: "T1" });
   });
 
   it("관리 모드 문구를 고른다", () => {
