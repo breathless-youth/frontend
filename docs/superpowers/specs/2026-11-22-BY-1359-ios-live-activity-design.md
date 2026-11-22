@@ -158,6 +158,7 @@ type StudySessionActivityProps = {
   startedAtMs: number;
   pausedAtMs: number | null;
   statusText: string; // 모드 문구나 일시정지 문구
+  islandStatusText: string; // statusText의 첫 줄, 펼친 섬용
   endedTitle: string; // 여기까지 기록을 저장했어요
   endedBody: string; // 끝난 사유
   iconUri: string | null;
@@ -166,6 +167,7 @@ type StudySessionActivityProps = {
 
 - 위젯은 `environment.isStale`이면 끝난 모양을, 아니면 `paused`로 흐름과 일시정지 모양을 고른다.
 - 끝난 사유는 `staleDate`가 있을 때만 의미가 있다. 앞에 있을 때도 사유 문구는 채워 두되 보이지 않는다.
+- 위젯 레이아웃 함수에는 역슬래시를 쓰지 않는다. `babel-preset-expo`가 이 함수를 템플릿 리터럴 문자열로 바꿀 때 역슬래시를 이스케이프하지 않아, `"\n"`이 실제 줄바꿈이 되면 위젯 확장이 해석하지 못한다. 문자열 가공은 `deriveActivity`에서 하고 결과를 props로 넘긴다.
 
 ### 문구와 언어
 
