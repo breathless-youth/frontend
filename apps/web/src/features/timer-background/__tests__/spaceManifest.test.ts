@@ -29,11 +29,18 @@ describe("loadSpaceScenes", () => {
     ["모르는 version", () => respond('{"version": 99, "sound": true}')],
     ["깨진 JSON", () => respond("{version")],
     ["sound가 참거짓이 아님", () => respond('{"version": 1, "sound": "yes"}')],
-    ["네트워크 실패", () => vi.fn(() => Promise.reject(new TypeError("offline")))],
-  ])("%s이면 소리 없는 공간으로 보고 오류를 내보내지 않는다", async (_, make) => {
+    ["버킷이 없는 파일을 막음(403)", () => respond("", 403)],
+  ])("%s이면 소리 없는 공간으로 본다", async (_, make) => {
     await expect(loadSpaceScenes(KEY, make())).resolves.toEqual({
       focus: { loopSound: false },
       distract: null,
     });
+  });
+
+  it.each([
+    ["네트워크 실패", () => vi.fn(() => Promise.reject(new TypeError("offline")))],
+    ["서버 오류", () => respond("", 503)],
+  ])("%s처럼 잠깐의 실패는 결과로 남기지 않게 실패로 돌려준다", async (_, make) => {
+    await expect(loadSpaceScenes(KEY, make())).rejects.toThrow();
   });
 });

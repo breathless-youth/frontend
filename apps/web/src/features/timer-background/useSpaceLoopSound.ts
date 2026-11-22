@@ -4,7 +4,7 @@ import { queryClient } from "@/lib/queryClient";
 
 import { createLoopSound, type LoopSound } from "./loopSound";
 import { loopSoundUrl } from "./spaceFiles";
-import { type SpaceScenes, spaceScenesQuery } from "./spaceManifest";
+import { SILENT_SCENES, type SpaceScenes, spaceScenesQuery } from "./spaceManifest";
 
 interface Options {
   loadScenes?: (assetKey: string) => Promise<SpaceScenes>;
@@ -44,9 +44,15 @@ export function useSpaceLoopSound(
   useEffect(() => {
     if (assetKey === null) return;
     let cancelled = false;
-    void loadScenes(assetKey).then((scenes) => {
-      if (!cancelled) setLoaded({ assetKey, scenes });
-    });
+    // 받지 못하면 이번에는 소리 없는 공간으로 두고, 다음에 공간을 적용할 때 다시 받는다.
+    void loadScenes(assetKey).then(
+      (scenes) => {
+        if (!cancelled) setLoaded({ assetKey, scenes });
+      },
+      () => {
+        if (!cancelled) setLoaded({ assetKey, scenes: SILENT_SCENES });
+      },
+    );
     return () => {
       cancelled = true;
     };

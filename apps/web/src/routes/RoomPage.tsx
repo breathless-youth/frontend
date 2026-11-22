@@ -1063,9 +1063,12 @@ function RoomSessionScreen({
 
   const paused = sessionState.kind === "PAUSE";
   // 반복 공간 소리는 감독관 소리와 같은 공간 음량을 쓰고, 공부 중이며 멈추지 않은 동안만 낸다.
-  // 공부가 끝나면 공간을 넘기지 않아 재생기를 정리한다. 종료 안내에서 화면을 눌러도 소리 장치가 다시 깨지 않는다.
+  // 공부가 끝나거나 공간 파일을 받지 못해 심플로 그리면 공간을 넘기지 않아 재생기를 정리한다.
+  // 종료 안내에서 화면을 눌러도 소리 장치가 다시 깨지 않고, 보이지 않는 공간의 소리도 나지 않는다.
   const loopSoundAvailable = useSpaceLoopSound(
-    studying && space.kind === "space" && space.videoMode === "LOOP" ? space.assetKey : null,
+    studying && !spaceFailed && space.kind === "space" && space.videoMode === "LOOP"
+      ? space.assetKey
+      : null,
     !paused,
     watcherLevel,
   );

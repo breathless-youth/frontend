@@ -218,6 +218,19 @@ describe("useSpaceLoopSound", () => {
     expect(sound.prime).not.toHaveBeenCalled();
   });
 
+  it("매니페스트를 받지 못하면 그 세션은 소리 없는 공간으로 본다", async () => {
+    const createSound = vi.fn(fakeSound);
+    const loadScenes = vi.fn(() => Promise.reject(new Error("offline")));
+    const { result } = renderHook(() =>
+      useSpaceLoopSound("rain/1", true, 80, { loadScenes, createSound }),
+    );
+
+    await waitFor(() => expect(loadScenes).toHaveBeenCalled());
+    await act(async () => {});
+    expect(result.current).toBe(false);
+    expect(createSound).not.toHaveBeenCalled();
+  });
+
   it("반복 공간이 아니면 아무것도 받지 않는다", async () => {
     const { result, loadScenes, createSound } = setup({}, { key: null, active: true });
     await act(async () => {});

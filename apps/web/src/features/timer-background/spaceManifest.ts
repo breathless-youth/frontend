@@ -28,14 +28,20 @@ export function parseSpaceManifest(value: unknown): SpaceScenes {
   return { focus: { loopSound: sound }, distract: null };
 }
 
-/** 받지 못해도 공간 배경은 그려야 해서 어떤 실패도 소리 없는 공간으로 돌려준다. */
+/**
+ * 매니페스트 받기
+ *
+ * 없는 파일(4xx)과 읽을 수 없는 내용은 소리 없는 공간으로 돌려준다.
+ * 네트워크 오류와 서버 오류(5xx)는 잠깐의 실패라 throw해서, 쿼리 캐시에 소리 없음으로 남지 않게 한다.
+ */
 export async function loadSpaceScenes(
   assetKey: string,
   fetcher: (url: string) => Promise<Response> = (url) => fetch(url),
 ): Promise<SpaceScenes> {
+  const response = await fetcher(manifestUrl(assetKey));
+  if (response.status >= 500) throw new Error(`space manifest ${response.status}`);
+  if (!response.ok) return SILENT_SCENES;
   try {
-    const response = await fetcher(manifestUrl(assetKey));
-    if (!response.ok) return SILENT_SCENES;
     return parseSpaceManifest(await response.json());
   } catch {
     return SILENT_SCENES;
