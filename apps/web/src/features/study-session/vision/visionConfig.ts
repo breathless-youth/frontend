@@ -577,6 +577,8 @@ export const SCREEN_GAZE_ANGLES = {
  *   `YAWN_FAST_INTERVAL_MS`마다 얼굴만 따로 잰다.
  * - `YAWN_EDGE` 이상에서 시작하고, `YAWN_END_HOLD_MS` 동안 계속 그 아래면 끝난다.
  * - 최고값이 `YAWN_MIN_PEAK` 이상일 때만 하품이다. 먹는 동작을 거르는 대신 작은 하품(최고 0.13~0.24)을 놓친다.
+ * - 시작부터 끝까지가 `YAWN_MIN_DURATION_MS` 이상일 때만 하품이다. 말하거나 웃으며 잠깐 벌린 입을 거르는 대신,
+ *   입 벌림이 짧은 하품은 놓친다. 끝 시각이 마지막으로 기준을 넘은 표본이라 실제보다 최대 0.5초 짧게 잰다.
  * - 입을 가린 하품은 절반쯤 놓친다. 말하다 입을 크게 벌리면 하품으로 잡힐 수 있다.
  */
 export const YAWN_FAST_TRIGGER = 0.03;
@@ -585,3 +587,4 @@ export const YAWN_FAST_WINDOW_MS = 10_000;
 export const YAWN_EDGE = 0.15;
 export const YAWN_END_HOLD_MS = 2000;
 export const YAWN_MIN_PEAK = 0.3;
+export const YAWN_MIN_DURATION_MS = 2000;

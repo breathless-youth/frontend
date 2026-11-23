@@ -24,12 +24,13 @@ describe("하품 판정", () => {
       [500, 0.2],
       [1000, 0.45],
       [1500, 0.3],
-      [2000, 0.1],
+      [2500, 0.2],
       [3000, 0.1],
       [4000, 0.1],
+      [5000, 0.1],
     ]);
 
-    expect(yawns).toEqual([{ startedAtMs: 500, endedAtMs: 1500, peak: 0.45 }]);
+    expect(yawns).toEqual([{ startedAtMs: 500, endedAtMs: 2500, peak: 0.45 }]);
   });
 
   it("2초가 차기 전에 다시 0.15를 넘으면 같은 하품이다", () => {
@@ -37,18 +38,21 @@ describe("하품 판정", () => {
       [0, 0.4],
       [1500, 0.05],
       [1900, 0.2],
-      [2500, 0.05],
-      [4500, 0.05],
+      [2400, 0.25],
+      [2900, 0.05],
+      [4900, 0.05],
     ]);
 
-    expect(yawns).toEqual([{ startedAtMs: 0, endedAtMs: 1900, peak: 0.4 }]);
+    expect(yawns).toEqual([{ startedAtMs: 0, endedAtMs: 2400, peak: 0.4 }]);
   });
 
   it("최고값이 0.3에 못 미치면 하품이 아니다", () => {
     expect(
       feed([
         [0, 0.29],
-        [2000, 0.05],
+        [1000, 0.29],
+        [2000, 0.29],
+        [4000, 0.05],
       ]),
     ).toEqual([]);
   });
@@ -57,42 +61,57 @@ describe("하품 판정", () => {
     expect(
       feed([
         [0, 0.3],
-        [2000, 0.05],
+        [1000, 0.2],
+        [2000, 0.2],
+        [4000, 0.05],
       ]),
     ).toHaveLength(1);
   });
 
-  it("높은 표본 하나만 잡히면 끝과 시작이 같은 하품이다", () => {
+  it("최고값을 넘어도 2초보다 짧으면 하품이 아니다", () => {
     expect(
       feed([
-        [1000, 0.5],
-        [1500, 0.05],
-        [3000, 0.05],
+        [0, 0.5],
+        [1900, 0.2],
+        [3900, 0.05],
       ]),
-    ).toEqual([{ startedAtMs: 1000, endedAtMs: 1000, peak: 0.5 }]);
+    ).toEqual([]);
+  });
+
+  it("길이가 정확히 2초면 하품이다", () => {
+    expect(
+      feed([
+        [0, 0.5],
+        [2000, 0.2],
+        [4000, 0.05],
+      ]),
+    ).toEqual([{ startedAtMs: 0, endedAtMs: 2000, peak: 0.5 }]);
   });
 
   it("얼굴이 안 보인 표본은 입을 다문 것으로 본다", () => {
     expect(
       feed([
         [0, 0.5],
-        [1000, null],
-        [2000, null],
+        [2000, 0.4],
+        [3000, null],
+        [4000, null],
       ]),
-    ).toEqual([{ startedAtMs: 0, endedAtMs: 0, peak: 0.5 }]);
+    ).toEqual([{ startedAtMs: 0, endedAtMs: 2000, peak: 0.5 }]);
   });
 
   it("하품이 끝나면 다음 하품을 따로 센다", () => {
     expect(
       feed([
         [0, 0.4],
-        [2000, 0.05],
-        [5000, 0.35],
-        [7000, 0.05],
+        [2000, 0.3],
+        [4000, 0.05],
+        [6000, 0.35],
+        [8000, 0.3],
+        [10000, 0.05],
       ]),
     ).toEqual([
-      { startedAtMs: 0, endedAtMs: 0, peak: 0.4 },
-      { startedAtMs: 5000, endedAtMs: 5000, peak: 0.35 },
+      { startedAtMs: 0, endedAtMs: 2000, peak: 0.4 },
+      { startedAtMs: 6000, endedAtMs: 8000, peak: 0.35 },
     ]);
   });
 });

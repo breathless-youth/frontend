@@ -2643,6 +2643,9 @@ describe("하품", () => {
     return { vision, faceDetect: face.detect, yawns };
   }
 
+  /** 0.5초 간격으로 따로 잴 때 하품 최소 길이(2초)를 넘기는 벌린 입 표본. */
+  const OPEN_MOUTH = Array.from({ length: 6 }, () => mouth(0.5));
+
   /** 얼굴 주기로만 돌 때 이 시간 동안의 얼굴 추론 횟수. */
   const FACE_TICKS_IN = (ms: number) =>
     Math.floor(ms / (FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR)) + 1;
@@ -2680,14 +2683,15 @@ describe("하품", () => {
 
   it("하품이 끝나면 벽시계 시각으로 알린다", async () => {
     vi.setSystemTime(1_800_000_000_000);
-    const { vision, faceDetect, yawns } = yawnVision([mouth(0.5), mouth(0.05)]);
+    const { vision, faceDetect, yawns } = yawnVision([...OPEN_MOUTH, mouth(0.05)]);
 
     vision.start();
     await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(5000);
+    await vi.advanceTimersByTimeAsync(8000);
 
     const firstFaceAt = faceDetect.mock.calls[0]?.[1];
-    expect(yawns).toEqual([{ startedAtMs: firstFaceAt, endedAtMs: firstFaceAt, peak: 0.5 }]);
+    const lastOpenAt = faceDetect.mock.calls[OPEN_MOUTH.length - 1]?.[1];
+    expect(yawns).toEqual([{ startedAtMs: firstFaceAt, endedAtMs: lastOpenAt, peak: 0.5 }]);
   });
 
   it("따로 잰 얼굴은 졸음 보정에 넣지 않는다", async () => {
@@ -2779,7 +2783,7 @@ describe("하품", () => {
 
   it("구독자가 던져도 다른 구독자는 하품을 받고 오류는 따로 남긴다", async () => {
     const { detector } = fakeObjectDetector({ frames: [personFrame()] });
-    const face = fakeFaceLandmarker({ faces: [mouth(0.05), mouth(0.5), mouth(0.05)] });
+    const face = fakeFaceLandmarker({ faces: [mouth(0.05), ...OPEN_MOUTH, mouth(0.05)] });
     const vision = createVisionFocusDetector({
       video: () => fakeVideo(),
       detector,
@@ -2796,7 +2800,7 @@ describe("하품", () => {
 
     vision.start();
     await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(5000);
+    await vi.advanceTimersByTimeAsync(8000);
 
     expect(yawns).toHaveLength(1);
     expect(sentry.reportHandled).toHaveBeenCalledWith(thrown, "vision-yawn-listener");

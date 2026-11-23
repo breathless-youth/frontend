@@ -1,10 +1,11 @@
-import { YAWN_EDGE, YAWN_END_HOLD_MS, YAWN_MIN_PEAK } from "./visionConfig";
+import { YAWN_EDGE, YAWN_END_HOLD_MS, YAWN_MIN_DURATION_MS, YAWN_MIN_PEAK } from "./visionConfig";
 
 /**
  * 하품 판정 — **순수 함수**다. 상태는 호출부가 든 `YawnState`뿐이다.
  *
  * 입 벌림이 `YAWN_EDGE` 이상이면 시작, `YAWN_END_HOLD_MS` 동안 계속 그 아래면 끝이다. 끝 시각은 마지막으로
- * 기준을 넘은 표본이다. 최고값이 `YAWN_MIN_PEAK`에 못 미치면 버린다. 근거는 `visionConfig.ts`의 하품 기준 주석.
+ * 기준을 넘은 표본이다. 최고값이 `YAWN_MIN_PEAK`에 못 미치거나 길이가 `YAWN_MIN_DURATION_MS`보다 짧으면 버린다.
+ * 근거는 `visionConfig.ts`의 하품 기준 주석.
  */
 
 export interface YawnState {
@@ -43,7 +44,7 @@ export function stepYawn(
     return { state, yawn: null };
   }
   const yawn =
-    state.peak >= YAWN_MIN_PEAK
+    state.peak >= YAWN_MIN_PEAK && state.lastHighMs - state.startMs >= YAWN_MIN_DURATION_MS
       ? { startedAtMs: state.startMs, endedAtMs: state.lastHighMs, peak: state.peak }
       : null;
   return { state: EMPTY_YAWN_STATE, yawn };
