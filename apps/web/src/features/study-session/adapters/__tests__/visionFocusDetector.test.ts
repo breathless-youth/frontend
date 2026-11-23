@@ -2412,7 +2412,7 @@ describe("공부 증거 배선", () => {
     expect(signals).not.toContainEqual({ source: "NO_EVIDENCE", active: true });
   });
 
-  it("책이 6초 넘게 안 보이면 손이 있어도 증거 없음을 켠다", async () => {
+  it("얼굴이 안 보이면 책이 사라져도 손이 보이는 동안은 증거 없음을 켜지 않는다", async () => {
     const noFace: FaceObservation = { facePresent: false, eye: null, eyeSkipReason: "no-face" };
     const { vision, signals } = setup({
       frames: [personWithBook, personFrame()],
@@ -2421,8 +2421,9 @@ describe("공부 증거 배선", () => {
       hands: [[handOnBook(0.5)]],
     });
     vision.start();
+    // 손 결과는 6초가 지나면 버리므로, 책이 사라진 뒤에도 손 모델이 계속 돌아야 꺼진 채로 남는다.
     await vi.advanceTimersByTimeAsync(12 * FRAME_INTERVAL_MS);
-    expect(last(signals, "NO_EVIDENCE")).toBe(true);
+    expect(last(signals, "NO_EVIDENCE")).toBe(false);
   });
 
   it("얼굴이 안 보이고 책은 보여도 손이 없으면 증거 없음이다", async () => {
@@ -2634,6 +2635,20 @@ describe("공부 증거 배선", () => {
     const { vision, signals } = setup({
       frames: [[...personFrame(), phone]],
       pitch: 20,
+      hands: [[handAt(0.75, 0.5)]],
+    });
+    vision.start();
+    await vi.advanceTimersByTimeAsync(SETTLE_MS);
+
+    expect(last(signals, "PHONE")).toBe(true);
+  });
+
+  it("얼굴이 안 보이고 공부 도구가 없어도 손에 쥔 휴대폰은 사용으로 본다", async () => {
+    const noFace: FaceObservation = { facePresent: false, eye: null, eyeSkipReason: "no-face" };
+    const { vision, signals } = setup({
+      frames: [[...personFrame(), phone]],
+      pitch: 0,
+      face: noFace,
       hands: [[handAt(0.75, 0.5)]],
     });
     vision.start();
