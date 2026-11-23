@@ -43,26 +43,23 @@ export function HomePlannerShortcut({
               : t("v3.planner.remaining", { count: plannerTaskCount })}
           </span>
         </span>
-        {accessories?.length ? (
-          <span className="pointer-events-none absolute inset-y-0 right-3 grid w-19 place-items-center select-none">
-            <MascotFigure id="planner" accessories={accessories} className="w-[71.111%]" />
-          </span>
-        ) : (
-          <span
-            aria-hidden="true"
-            className="home-v3-notebook pointer-events-none absolute -right-6 -bottom-11.5 size-40 scale-80 -rotate-12 select-none"
-          >
+        <MascotFigure
+          id="planner"
+          accessories={accessories}
+          className="home-v3-notebook pointer-events-none absolute -right-6 -bottom-11.5 size-40 scale-80 -rotate-12 select-none"
+          layerFrame={{ className: "home-v3-notebook-art" }}
+          body={
             <span className="relative block size-full overflow-hidden">
               <img
                 src={notebook}
                 alt=""
                 width={160}
                 height={160}
-                className="absolute -top-[5.65%] -left-[10.99%] size-[109.75%] max-w-none"
+                className="home-v3-notebook-art absolute max-w-none"
               />
             </span>
-          </span>
-        )}
+          }
+        />
       </Button>
     </Card>
   );
