@@ -17,6 +17,8 @@ let lastRequestedUserId: number | null = null;
  * 성공 기록 전이라 같은 요청이 두 번 나간다. 진행 중 요청을 공유하지 않는 이유는 그사이 바뀐 토큰을 놓치지 않기 위해서다.
  */
 let queue: Promise<void> = Promise.resolve();
+const SEOUL_OFFSET_MS = 9 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * 기기 FCM 토큰을 서버에 등록한다 (`PUT /api/push-tokens`). 서버가 사용자별 알림을 보낼 때 이 토큰으로 기기를 찾는다.
@@ -44,7 +46,11 @@ async function registerOnce(): Promise<void> {
     locale: getAppLocale(),
   };
   // Android는 앱별 언어를 바꿔도 JS 모듈이 남으므로, 언어도 키에 넣어야 다음 등록 때 서버에 새 언어가 간다.
-  const key = `${auth.userId}|${token}|${body.notificationsEnabled}|${body.locale}`;
+  // 포인트샵 리마인드는 한국 날짜 기준 접속을 쓰므로 앱을 켜 둔 채 자정을 지나도 새 날짜에 한 번 등록한다.
+  const visitDay = body.notificationsEnabled
+    ? Math.floor((Date.now() + SEOUL_OFFSET_MS) / DAY_MS)
+    : "";
+  const key = `${auth.userId}|${token}|${body.notificationsEnabled}|${body.locale}|${visitDay}`;
   if (key === lastRegistered) return;
   lastRequestedUserId = auth.userId;
   let res = await requestRegister(accessToken, body);

@@ -82,6 +82,14 @@
   }
 }
 
+/* 플래너의 본체 그림과 소품 판에 같은 크기와 오프셋을 적용한다. */
+.home-v3-notebook-art {
+  top: -5.65%;
+  left: -10.99%;
+  width: 109.75%;
+  height: 109.75%;
+}
+
 @media (max-width: 359px) {
   .home-v3-notebook {
     right: -44px;
