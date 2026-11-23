@@ -1,5 +1,6 @@
 {
   "countdown": {
+    "holdPosture": "正しい姿勢を保ってください",
     "srUntilStart": "勉強開始まで{{seconds}}秒"
   },
   "status": {

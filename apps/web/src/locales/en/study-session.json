@@ -1,5 +1,6 @@
 {
   "countdown": {
+    "holdPosture": "Please maintain good posture",
     "srUntilStart": "Starting in {{seconds}}"
   },
   "status": {

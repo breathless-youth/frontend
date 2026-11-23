@@ -1504,7 +1504,16 @@ function RoomSessionBody({
                   statusLabel={statusLabel}
                   simple={simpleMode}
                   corner={wallpaper}
-                  countdown={counting ? { left: countdownLeft, inClock: cameraHidden } : null}
+                  countdown={
+                    counting
+                      ? // 작은 카메라 창일 때는 숫자만, 화면을 크게 쓰는 모드에서는 바른 자세 안내도 함께 보인다.
+                        {
+                          left: countdownLeft,
+                          inClock: cameraHidden,
+                          hint: cameraHidden || cameraExpanded,
+                        }
+                      : null
+                  }
                 />
               </div>
             </div>

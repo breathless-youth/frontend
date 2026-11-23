@@ -644,6 +644,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
       expect(screen.getByRole("button", { name: "공부 종료" })).toBeInTheDocument();
       expect(screen.getByTestId("camera-countdown")).toHaveTextContent("3");
       expect(screen.getByText("공부 시작까지 3초")).toHaveClass("sr-only");
+      expect(screen.getByRole("status")).not.toHaveTextContent("바른 자세를 유지해 주세요");
       expect(screen.getByTestId("session-clock-number")).toHaveTextContent("00:00:00");
 
       await act(async () => {
@@ -685,6 +686,20 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     }
   });
 
+  it("카메라를 크게 본 상태의 카운트다운은 바른 자세 안내를 보인다", async () => {
+    setSessionCountdownSecondsForTest(3);
+    vi.useFakeTimers();
+    try {
+      renderRoom("/room/7?userId=1&detector=mock");
+      fireEvent.click(screen.getByRole("button", { name: "내 화면 크게 보기" }));
+
+      expect(screen.getByTestId("camera-countdown")).toHaveTextContent("3");
+      expect(screen.getByRole("status")).toHaveTextContent("바른 자세를 유지해 주세요");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("카운트다운 중에 공부 종료를 눌러도 종료 확인 창을 띄우지 않고 제출하지 않는다", async () => {
     setSessionCountdownSecondsForTest(3);
     vi.useFakeTimers();
@@ -711,6 +726,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
 
       expect(screen.queryByTestId("camera-countdown")).not.toBeInTheDocument();
       expect(screen.getByTestId("session-clock-number")).toHaveTextContent("3");
+      expect(screen.getByRole("status")).toHaveTextContent("바른 자세를 유지해 주세요");
     } finally {
       vi.useRealTimers();
     }
