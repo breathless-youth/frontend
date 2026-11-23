@@ -169,7 +169,7 @@ export function SessionClock({
           : "text-text-tertiary",
     state === "grace" && GRACE_NUMBER_PULSE,
   );
-  const sessionTime = countdown?.inClock ? (
+  const sessionTime = countingInClock ? (
     <span aria-hidden="true">{countdown.left}</span>
   ) : (
     <>
