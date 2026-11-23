@@ -615,9 +615,8 @@ function RoomSessionBody({
     subjectsListRef.current = subjects.subjects;
   });
   // 심플 모드는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
-  // 세션은 마지막으로 쓴 모드로 시작하고, 처음에는 기본 모드(내 카메라 작은 창)다. 카메라는 입장 확인 창 없이 바로 보인다.
-  // 카메라·감지·타이머는 표시 모드와 상관없이 입장 즉시 돈다.
-  // 마지막으로 쓴 모드로 연다. 바뀔 때마다 아래 효과가 기기에 저장한다.
+  // 세션은 마지막으로 쓴 모드로 시작하고, 처음에는 기본 모드(내 카메라 작은 창)다. 바뀔 때마다 아래 효과가 기기에 저장한다.
+  // 카메라는 입장 확인 창 없이 바로 보이고, 카메라·감지·타이머는 표시 모드와 상관없이 입장 즉시 돈다.
   const [simpleMode, setSimpleMode] = useState(readSessionSimpleMode);
   useEffect(() => {
     writeSessionSimpleMode(simpleMode);

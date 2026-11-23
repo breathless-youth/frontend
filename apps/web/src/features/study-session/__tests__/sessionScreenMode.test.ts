@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  clearSessionScreenMode,
   readSessionCameraExpanded,
   readSessionSimpleMode,
   writeSessionCameraExpanded,
@@ -26,6 +27,16 @@ describe("세션 화면 모드 기억", () => {
 
     writeSessionSimpleMode(false);
     writeSessionCameraExpanded(false);
+    expect(readSessionSimpleMode()).toBe(false);
+    expect(readSessionCameraExpanded()).toBe(false);
+  });
+
+  it("지우면 둘 다 꺼진 상태로 읽힌다", () => {
+    writeSessionSimpleMode(true);
+    writeSessionCameraExpanded(true);
+
+    clearSessionScreenMode();
+
     expect(readSessionSimpleMode()).toBe(false);
     expect(readSessionCameraExpanded()).toBe(false);
   });

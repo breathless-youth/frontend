@@ -38,3 +38,13 @@ export function readSessionCameraExpanded(): boolean {
 export function writeSessionCameraExpanded(on: boolean): void {
   writeFlag(CAMERA_EXPANDED_KEY, on);
 }
+
+/** 저장한 두 모드를 지운다. 다음 세션은 기본 모드로 열린다. */
+export function clearSessionScreenMode(): void {
+  try {
+    localStorage.removeItem(SIMPLE_MODE_KEY);
+    localStorage.removeItem(CAMERA_EXPANDED_KEY);
+  } catch {
+    // 지우지 못해도 다음 세션이 마지막 모드로 열릴 뿐이다.
+  }
+}
