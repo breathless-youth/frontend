@@ -118,3 +118,72 @@ describe("useStudyRoomSession 소셜룸은 유예 없이 예전 시간에 비집
     expect(result.current.sessionState).toEqual(FOCUS_STATE);
   });
 });
+
+describe("useStudyRoomSession 일시정지·휴식에서 돌아오면 처음부터 다시 판정", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("유예 중 일시정지했다가 재개해도 바로 비집중이 되지 않는다", async () => {
+    const { result, detector } = setup();
+    act(() => {
+      detector.emit({ source: "SCREEN_GAZE", active: true });
+    });
+    await advance(4_000);
+    expect(result.current.grace).toBe(true);
+
+    act(() => {
+      result.current.pause("MANUAL");
+    });
+    await advance(20_000);
+    act(() => {
+      result.current.resume();
+    });
+    await advance(1_000);
+
+    expect(result.current.sessionState).toEqual(FOCUS_STATE);
+    expect(result.current.grace).toBe(false);
+  });
+
+  it("재개 뒤에도 신호가 이어지면 유예부터 다시 거쳐 10초 뒤 비집중이 된다", async () => {
+    const { result, detector } = setup();
+    act(() => {
+      detector.emit({ source: "SCREEN_GAZE", active: true });
+    });
+    await advance(4_000);
+    act(() => {
+      result.current.pause("MANUAL");
+    });
+    await advance(20_000);
+    act(() => {
+      result.current.resume();
+    });
+
+    await advance(4_000);
+    expect(result.current.grace).toBe(true);
+    expect(result.current.sessionState).toEqual(FOCUS_STATE);
+    await advance(7_000);
+    expect(result.current.sessionState).toEqual(distractionState("SCREEN"));
+  });
+
+  it("휴식 중 자리를 비웠다가 휴식이 끝나도 바로 자리 이탈이 되지 않는다", async () => {
+    const { result, detector } = setup();
+    act(() => {
+      result.current.startBreak();
+    });
+    act(() => {
+      detector.emit({ source: "AWAY", active: true });
+    });
+    await advance(30_000);
+    act(() => {
+      result.current.endBreak();
+    });
+    await advance(1_000);
+
+    expect(result.current.sessionState).toEqual(FOCUS_STATE);
+  });
+});
