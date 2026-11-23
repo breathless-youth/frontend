@@ -12,8 +12,11 @@ import {
   __resetTimerBackgroundPhotoStoreForTests,
   timerBackgroundPhotoStore,
 } from "@/features/timer-background/timerBackgroundPhotos";
+import { createWatcherSound } from "@/features/timer-background/watcher/watcherSound";
 import {
   trackSessionSpaceOpened,
+  trackSpaceDistractSceneEntered,
+  trackSpaceDistractSceneLeft,
   trackStudySessionEnded,
   trackTimerBackgroundApplied,
 } from "@/lib/amplitude";
@@ -28,7 +31,7 @@ import { RoomPage } from "../RoomPage";
 
 /**
  * 공간 버튼·페이지·배경의 RoomPage 연결만 본다.
- * 페이지 안 조작은 `SessionSpacePage.test.tsx`, 감시 소리 재생기는 `watcherSound.test.ts`가 검증한다.
+ * 페이지 안 조작은 `SessionSpacePage.test.tsx`, 감독 소리 재생기는 `watcherSound.test.ts`가 검증한다.
  */
 vi.mock("@/features/study-session/useActiveSessionRestore", () => ({
   useActiveSessionRestore: () => ({ settled: true, restored: null }),
@@ -41,6 +44,8 @@ vi.mock("@/features/study-session/submitStudySession", () => ({
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   trackSessionSpaceOpened: vi.fn(),
+  trackSpaceDistractSceneEntered: vi.fn(),
+  trackSpaceDistractSceneLeft: vi.fn(),
   trackStudySessionEnded: vi.fn(),
   trackTimerBackgroundApplied: vi.fn(),
 }));
@@ -71,19 +76,22 @@ function signIn() {
   queryClient.setQueryData(profileKeys.detail(1), { loginProvider: "KAKAO" } as ProfileResponse);
 }
 
-const sound = vi.hoisted(() => ({
-  prime: vi.fn(),
-  play: vi.fn(),
-  fadeApproach: vi.fn(),
-  setMuted: vi.fn(),
-  setVolume: vi.fn(),
-  stopAll: vi.fn(),
-  dispose: vi.fn(),
-}));
+const { sound, makeSound } = vi.hoisted(() => {
+  const makeSound = () => ({
+    prime: vi.fn(),
+    play: vi.fn(),
+    fadeApproach: vi.fn(),
+    setMuted: vi.fn(),
+    setVolume: vi.fn(),
+    stopAll: vi.fn(),
+    dispose: vi.fn(),
+  });
+  return { sound: makeSound(), makeSound };
+});
 
 vi.mock("@/features/timer-background/watcher/watcherSound", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  createWatcherSound: () => sound,
+  createWatcherSound: vi.fn(() => sound),
 }));
 
 function FocusFeaturesResult() {
@@ -107,6 +115,7 @@ function renderRoom(entryMode: "camera" | "simple" = "camera") {
 describe("RoomPage 공간", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(createWatcherSound).mockImplementation(() => sound as never);
     queryClient.clear();
     // 배경음 목록을 받는다. jsdom은 상대 URL fetch가 던지므로 응답을 준다.
     vi.stubGlobal(
@@ -271,7 +280,7 @@ describe("RoomPage 공간", () => {
     },
   );
 
-  it("공간 음량을 바꾸면 감시 소리에 반영하고 손을 뗄 때 저장한다", async () => {
+  it("공간 음량을 바꾸면 감독 소리에 반영하고 손을 뗄 때 저장한다", async () => {
     localStorage.setItem(KEY, JSON.stringify(PROCTOR_SPACE));
     renderRoom();
     await userEvent.click(screen.getByRole("button", { name: "공간" }));
@@ -285,7 +294,7 @@ describe("RoomPage 공간", () => {
   });
 
   // 감독관이 다가오고 들어오는 동안 화면을 바꿔도 발소리를 건너뛰지 않아야 돌아왔을 때 소리 없이 서 있지 않는다.
-  it("심플 모드와 작은 창을 키운 동안에도 감시 소리를 끄지 않는다", async () => {
+  it("심플 모드와 작은 창을 키운 동안에도 감독 소리를 끄지 않는다", async () => {
     localStorage.setItem(KEY, JSON.stringify(PROCTOR_SPACE));
     renderRoom();
 
@@ -299,7 +308,7 @@ describe("RoomPage 공간", () => {
   });
 
   // 제출 실패나 종료 안내에 머물면 화면이 닫히지 않아, 공부가 끝나는 순간 무음 루프와 누름 구독을 따로 풀어야 한다.
-  it("공부를 끝내면 감시 소리를 멈추고 화면을 눌러도 다시 깨우지 않는다", async () => {
+  it("공부를 끝내면 감독 소리를 멈추고 화면을 눌러도 다시 깨우지 않는다", async () => {
     localStorage.setItem(KEY, JSON.stringify(PROCTOR_SPACE));
     renderRoom();
 
@@ -332,7 +341,7 @@ describe("RoomPage 공간", () => {
     expect(screen.queryByTestId("timer-background-layer")).not.toBeInTheDocument();
   });
 
-  it("서버 감시 공간을 적용하면 일반 모드에 배경이 깔리고 심플 모드에서는 걷힌다", async () => {
+  it("서버 감독 공간을 적용하면 일반 모드에 배경이 깔리고 심플 모드에서는 걷힌다", async () => {
     renderRoom();
     await userEvent.click(screen.getByRole("button", { name: "공간" }));
 
@@ -529,5 +538,137 @@ describe("RoomPage 공간", () => {
     expect(vi.mocked(putTimerBackground).mock.calls).toEqual([[41], [null]]);
     expect(localStorage.getItem(KEY)).toBe('{"kind":"simple"}');
     expect(screen.queryByTestId("watcher-background")).not.toBeInTheDocument();
+  });
+  it("감독 공간을 다른 감독 공간으로 바꾸면 앞 소리를 정리하고 새 소리를 깨우며, 정리한 소리는 다시 쓰지 않는다", async () => {
+    const created: ReturnType<typeof makeSound>[] = [];
+    vi.mocked(createWatcherSound).mockImplementation(() => {
+      const next = makeSound();
+      created.push(next);
+      return next as never;
+    });
+    vi.mocked(getShopItems).mockResolvedValue({
+      items: [
+        shopSpace(),
+        shopSpace({
+          id: 44,
+          code: "SPACE_LIBRARY",
+          name: "도서관 감독관",
+          assetKey: "watcher/5e6f7a8b",
+        }),
+      ],
+    });
+    localStorage.setItem(KEY, JSON.stringify(PROCTOR_SPACE));
+    renderRoom();
+    const first = created.at(-1)!;
+    expect(first.prime).toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "공간" }));
+    await userEvent.click(await screen.findByRole("button", { name: "도서관 감독관" }));
+
+    const second = created.at(-1)!;
+    expect(second).not.toBe(first);
+    expect(first.dispose).toHaveBeenCalled();
+    expect(second.prime).toHaveBeenCalled();
+    const firstCalls = Object.values(first).map((fn) => fn.mock.calls.length);
+    fireEvent.pointerDown(window);
+    expect(Object.values(first).map((fn) => fn.mock.calls.length)).toEqual(firstCalls);
+    expect(second.prime.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it("비집중 장면이 있는 반복 공간은 딴짓이 이어지면 비집중 장면을 드러내고, 그대로 공부를 끝내면 떠난 이벤트를 보낸다", async () => {
+    localStorage.setItem(KEY, JSON.stringify(RAIN_SPACE));
+    vi.mocked(fetch).mockImplementation(async (input) =>
+      String(input).endsWith("/spaces/loop/1a2b3c4d/manifest.json")
+        ? new Response(
+            JSON.stringify({
+              version: 2,
+              timing: { distractAfterSec: 3, returnAfterSec: 1 },
+              focus: { visual: "video", loop: false },
+              distract: { visual: "video", loop: "keep", cue: false, approach: false },
+            }),
+          )
+        : new Response(JSON.stringify({ version: 1, sounds: [] })),
+    );
+    vi.useFakeTimers();
+    try {
+      render(
+        <MemoryRouter initialEntries={["/room/7?userId=1&detector=mock"]}>
+          <Routes>
+            <Route path="/room/:id" element={<RoomPage />} />
+            <Route path="/room/:id/result" element={<FocusFeaturesResult />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+      answerCameraPrompt("camera");
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      await act(async () => {
+        window.__focusonMockDetector!.emit({ source: "PHONE", active: true });
+        await vi.advanceTimersByTimeAsync(1_200);
+      });
+      const layer = screen.getByTestId("distract-space");
+      expect(layer.getAttribute("src")).toContain("/spaces/loop/1a2b3c4d/distract/loop/");
+      expect(layer).toHaveClass("opacity-0");
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3_000);
+      });
+      expect(layer).toHaveClass("opacity-100");
+      expect(trackSpaceDistractSceneEntered).toHaveBeenCalledExactlyOnceWith({
+        itemCode: "SPACE_RAIN",
+        trigger: "PHONE",
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+      fireEvent.click(
+        within(screen.getByRole("alertdialog")).getByRole("button", { name: "공부 종료" }),
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(trackSpaceDistractSceneLeft).toHaveBeenCalledExactlyOnceWith({
+      itemCode: "SPACE_RAIN",
+      durationSec: expect.any(Number),
+    });
+  });
+
+  // 집중 반복 소리가 없는 공간도 비집중 장면에 소리가 있으면 음량을 미리 맞출 수 있어야 한다.
+  it.each([
+    {
+      name: "집중 소리 없이 비집중 소리만 있는 v2 공간",
+      manifest: {
+        version: 2,
+        timing: { distractAfterSec: 3, returnAfterSec: 1 },
+        focus: { visual: "video", loop: false },
+        distract: { visual: "video", loop: "own", cue: false, approach: false },
+      },
+      enabled: true,
+    },
+    { name: "소리 없는 v1 반복 공간", manifest: { version: 1, sound: false }, enabled: false },
+  ])("공간 음량 줄 켜짐 $enabled: $name", async ({ manifest, enabled }) => {
+    localStorage.setItem(KEY, JSON.stringify(RAIN_SPACE));
+    vi.mocked(fetch).mockImplementation(async (input) =>
+      String(input).endsWith("/spaces/loop/1a2b3c4d/manifest.json")
+        ? new Response(JSON.stringify(manifest))
+        : new Response(JSON.stringify({ version: 1, sounds: [] })),
+    );
+    renderRoom();
+    await userEvent.click(screen.getByRole("button", { name: "공간" }));
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining("/spaces/loop/1a2b3c4d/manifest.json"),
+      ),
+    );
+    await act(async () => {});
+
+    const slider = await screen.findByRole("slider", { name: "공간 음량" });
+    if (enabled) await waitFor(() => expect(slider).toBeEnabled());
+    else expect(slider).toBeDisabled();
   });
 });

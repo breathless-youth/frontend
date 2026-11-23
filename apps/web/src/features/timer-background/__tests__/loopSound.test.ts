@@ -267,4 +267,25 @@ describe("createLoopSound", () => {
     expect(sources[0].stopped).toBe(true);
     expect(raw.close).toHaveBeenCalledOnce();
   });
+
+  it("장면 크기는 음량에 곱해져 1초 동안 옮겨 가고, 처음 만들 때도 그 크기로 시작한다", () => {
+    const { context, gain } = fakeContext();
+    const sound = createLoopSound(
+      URL,
+      () => context,
+      load,
+      () => null,
+    );
+
+    sound.setVolume(0.5);
+    sound.fade(0);
+    sound.setActive(true);
+    expect(gain.value).toBe(0);
+
+    sound.fade(1);
+    expect(gain.setTargetAtTime).toHaveBeenLastCalledWith(0.5, 0, 1 / 3);
+
+    sound.setVolume(0.8);
+    expect(gain.setTargetAtTime).toHaveBeenLastCalledWith(0.8, 0, 0.05);
+  });
 });

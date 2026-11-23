@@ -2,7 +2,7 @@ import { act, fireEvent, render } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ImageSpace, LoopVideoSpace } from "../SpaceLayers";
+import { DistractSpace, ImageSpace, LoopVideoSpace } from "../SpaceLayers";
 
 const reportHandled = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/sentry", () => ({ reportHandled }));
@@ -184,5 +184,108 @@ describe("ImageSpace", () => {
 
     expect(reportHandled).toHaveBeenCalledOnce();
     expect(onUnavailable).toHaveBeenCalledOnce();
+  });
+});
+
+describe("DistractSpace", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("영상이면 화면에 맞는 비집중 영상을 멈춘 채 받아 두고 비집중 포스터를 먼저 건다", () => {
+    const { container } = render(<DistractSpace assetKey={KEY} visual="video" present={false} />);
+    const video = container.querySelector("video")!;
+
+    expect(video.src).toContain("/spaces/loop/1a2b3c4d/distract/loop/phone_portrait.mp4");
+    expect(video.poster).toContain("/spaces/loop/1a2b3c4d/distract/poster/phone_portrait.webp");
+    expect(video).toHaveAttribute("preload", "auto");
+    expect(video).toHaveAttribute("aria-hidden", "true");
+    expect(video.muted).toBe(true);
+    expect(video.loop).toBe(true);
+    expect(video).toHaveClass("opacity-0");
+    expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
+  });
+
+  it("보이게 되면 재생하며 0.6초 동안 드러내고, 돌아오면 감춘 뒤에 멈춘다", () => {
+    vi.useFakeTimers();
+    const { container, rerender } = render(
+      <DistractSpace assetKey={KEY} visual="video" present={false} />,
+    );
+    act(() => {
+      vi.advanceTimersByTime(600);
+    });
+    const pause = vi.mocked(HTMLMediaElement.prototype.pause);
+    pause.mockClear();
+
+    rerender(<DistractSpace assetKey={KEY} visual="video" present />);
+    const video = container.querySelector("video")!;
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledOnce();
+    expect(video).toHaveClass("opacity-100", "transition-opacity", "duration-600");
+
+    rerender(<DistractSpace assetKey={KEY} visual="video" present={false} />);
+    expect(video).toHaveClass("opacity-0");
+    act(() => {
+      vi.advanceTimersByTime(599);
+    });
+    expect(pause).not.toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(pause).toHaveBeenCalledOnce();
+  });
+
+  it("그림이면 비집중 그림을 같은 방식으로 겹친다", () => {
+    const { container, rerender } = render(
+      <DistractSpace assetKey={KEY} visual="image" present={false} />,
+    );
+    const img = container.querySelector("img")!;
+
+    expect(img.src).toContain("/spaces/loop/1a2b3c4d/distract/image/phone_portrait.webp");
+    expect(img).toHaveClass("opacity-0");
+
+    rerender(<DistractSpace assetKey={KEY} visual="image" present />);
+    expect(img).toHaveClass("opacity-100");
+  });
+
+  it("동작 줄이기면 비집중 포스터를 쓰고 겹치는 전환 없이 바로 바꾼다", () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: query.includes("reduce") }));
+    const { container } = render(<DistractSpace assetKey={KEY} visual="video" present />);
+    const img = container.querySelector("img")!;
+
+    expect(container.querySelector("video")).toBeNull();
+    expect(img.src).toContain("/distract/poster/phone_portrait.webp");
+    expect(img).toHaveClass("opacity-100");
+    expect(img).not.toHaveClass("transition-opacity");
+  });
+
+  it("보이는 동안 화면이 숨으면 멈추고 다시 보이면 잇는다", () => {
+    render(<DistractSpace assetKey={KEY} visual="video" present />);
+    const hidden = vi.spyOn(document, "hidden", "get");
+
+    hidden.mockReturnValue(true);
+    fireEvent(document, new Event("visibilitychange"));
+    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalledOnce();
+
+    vi.mocked(HTMLMediaElement.prototype.play).mockClear();
+    hidden.mockReturnValue(false);
+    fireEvent(document, new Event("visibilitychange"));
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledOnce();
+  });
+
+  it("돌리면 그 화면의 비집중 영상으로 바꾼다", () => {
+    const { container } = render(<DistractSpace assetKey={KEY} visual="video" present />);
+
+    act(() => rotate(844, 390));
+
+    expect(container.querySelector("video")!.src).toContain("/distract/loop/phone_landscape.mp4");
+  });
+
+  it("받지 못하면 Sentry에 남기고 그리지 않아 집중 장면이 그대로 보인다", () => {
+    const { container } = render(<DistractSpace assetKey={KEY} visual="video" present />);
+
+    fireEvent.error(container.querySelector("video")!);
+
+    expect(container).toBeEmptyDOMElement();
+    expect(reportHandled).toHaveBeenCalledExactlyOnceWith(expect.any(Error), "space-file");
   });
 });

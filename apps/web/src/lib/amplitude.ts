@@ -27,6 +27,7 @@ import type {
 
 import type { RoomVisibility } from "@/features/group-room/model/roomMenu";
 import type { MeasureMode } from "@/features/measure-mode/measureMode";
+import type { DistractionTrigger } from "@/features/study-session/sessionState";
 
 import { firebaseAnalyticsForwardPlugin } from "./firebaseAnalyticsBridge";
 import i18n from "./i18n";
@@ -1490,6 +1491,37 @@ export function trackSessionSpaceVolumeChanged(input: { readonly volume: number 
 export function trackSessionSpaceMuted(input: { readonly muted: boolean }) {
   if (!initialized) return;
   track("session_space_muted", { muted: input.muted });
+}
+
+/**
+ * 반복 영상 공간이 비집중 장면으로 바뀌었다
+ *
+ * 비집중 장면이 있는 공간에서 장면이 실제로 바뀔 때만 보낸다.
+ * `trigger`는 바뀌는 순간의 비집중 원인이다.
+ */
+export function trackSpaceDistractSceneEntered(input: {
+  readonly itemCode: string;
+  readonly trigger: DistractionTrigger;
+}) {
+  if (!initialized) return;
+  track("space_distract_scene_entered", { item_code: input.itemCode, trigger: input.trigger });
+}
+
+/**
+ * 비집중 장면에서 집중 장면으로 돌아왔다
+ *
+ * 비집중 장면인 채로 공부가 끝나도 보내서 들어간 횟수와 떠난 횟수가 맞는다.
+ * `duration_sec`은 비집중 장면에 머문 초다.
+ */
+export function trackSpaceDistractSceneLeft(input: {
+  readonly itemCode: string;
+  readonly durationSec: number;
+}) {
+  if (!initialized) return;
+  track("space_distract_scene_left", {
+    item_code: input.itemCode,
+    duration_sec: input.durationSec,
+  });
 }
 
 /** 싱글룸 입장 카메라 확인 창의 답. `카메라 켜기`는 camera, `심플 모드로 시작`과 Escape는 simple이다. */
