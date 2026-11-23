@@ -2568,6 +2568,20 @@ describe("공부 증거 배선", () => {
     expect(last(signals, "PHONE")).toBe(false);
   });
 
+  it("손 모델을 열지 못한 기기는 얼굴이 안 보이면 손 판정이 없어 증거 없음을 켠다", async () => {
+    const noFace: FaceObservation = { facePresent: false, eye: null, eyeSkipReason: "no-face" };
+    const { vision, signals } = setup({
+      frames: [personFrame()],
+      pitch: 0,
+      face: noFace,
+      handLoaded: "unavailable",
+    });
+    vision.start();
+    await vi.advanceTimersByTimeAsync(SETTLE_MS);
+
+    expect(last(signals, "NO_EVIDENCE")).toBe(true);
+  });
+
   it("휴대폰이 30초 넘게 보여도 쥐지 않으면 손 모델을 3초마다 돌린다", async () => {
     const { vision, handDetect } = setup({
       frames: [[...personFrame(), phone]],
