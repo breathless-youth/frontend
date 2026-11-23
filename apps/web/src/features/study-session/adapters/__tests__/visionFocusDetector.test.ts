@@ -2319,6 +2319,19 @@ describe("공부 증거 배선", () => {
     expect(handDetect).toHaveBeenCalled();
   });
 
+  it("작은 사람만 보이면 자리 이탈이 맡고 공부 흔적 판정은 쉰다", async () => {
+    const { vision, signals, handDetect } = setup({
+      frames: [[...smallPersonFrame(), book]],
+      pitch: 0,
+    });
+    vision.start();
+    await vi.advanceTimersByTimeAsync(SETTLE_MS);
+
+    expect(last(signals, "AWAY")).toBe(true);
+    expect(last(signals, "NO_EVIDENCE")).toBe(false);
+    expect(handDetect).not.toHaveBeenCalled();
+  });
+
   it("시선이 책에 없어도 손이 책 위에 있으면 공부로 본다", async () => {
     const { vision, signals } = setup({
       frames: [personWithBook],
