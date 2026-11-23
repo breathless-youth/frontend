@@ -14,6 +14,11 @@ function windowSize(width: number, height: number) {
   vi.stubGlobal("innerHeight", height);
 }
 
+/** 비집중 장면이 드러나고 감춰지는 바깥 층 */
+function layer(container: HTMLElement) {
+  return container.querySelector<HTMLElement>('[data-testid="distract-space"]')!;
+}
+
 function rotate(width: number, height: number) {
   windowSize(width, height);
   window.dispatchEvent(new Event("resize"));
@@ -199,39 +204,88 @@ describe("DistractSpace", () => {
     expect(video.src).toContain("/spaces/loop/1a2b3c4d/distract/loop/phone_portrait.mp4");
     expect(video.poster).toContain("/spaces/loop/1a2b3c4d/distract/poster/phone_portrait.webp");
     expect(video).toHaveAttribute("preload", "auto");
-    expect(video).toHaveAttribute("aria-hidden", "true");
+    expect(layer(container)).toHaveAttribute("aria-hidden", "true");
     expect(video.muted).toBe(true);
     expect(video.loop).toBe(true);
-    expect(video).toHaveClass("opacity-0");
+    expect(layer(container)).toHaveClass("opacity-0");
     expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled();
   });
 
-  it("보이게 되면 재생하며 0.6초 동안 드러내고, 돌아오면 감춘 뒤에 멈춘다", () => {
+  it("예고 없이 보이게 되면 재생하며 0.6초 동안 드러내고, 돌아오면 2초 동안 감춘 뒤에 멈춘다", () => {
     vi.useFakeTimers();
     const { container, rerender } = render(
       <DistractSpace assetKey={KEY} visual="video" present={false} />,
     );
     act(() => {
-      vi.advanceTimersByTime(600);
+      vi.advanceTimersByTime(2_000);
     });
     const pause = vi.mocked(HTMLMediaElement.prototype.pause);
     pause.mockClear();
 
     rerender(<DistractSpace assetKey={KEY} visual="video" present />);
-    const video = container.querySelector("video")!;
     expect(HTMLMediaElement.prototype.play).toHaveBeenCalledOnce();
-    expect(video).toHaveClass("opacity-100", "transition-opacity", "duration-600");
+    expect(layer(container)).toHaveClass("opacity-100", "transition-opacity");
+    expect(layer(container).style.transitionDuration).toBe("600ms");
 
     rerender(<DistractSpace assetKey={KEY} visual="video" present={false} />);
-    expect(video).toHaveClass("opacity-0");
+    expect(layer(container)).toHaveClass("opacity-0");
+    expect(layer(container).style.transitionDuration).toBe("2000ms");
     act(() => {
-      vi.advanceTimersByTime(599);
+      vi.advanceTimersByTime(1_999);
     });
     expect(pause).not.toHaveBeenCalled();
     act(() => {
       vi.advanceTimersByTime(1);
     });
     expect(pause).toHaveBeenCalledOnce();
+  });
+
+  it("예고하는 동안 재생하며 장면이 바뀔 때까지 남은 시간에 걸쳐 드러낸다", () => {
+    const { container, rerender } = render(
+      <DistractSpace assetKey={KEY} visual="video" present={false} approachMs={null} />,
+    );
+
+    rerender(<DistractSpace assetKey={KEY} visual="video" present={false} approachMs={7_000} />);
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledOnce();
+    expect(layer(container)).toHaveClass("opacity-100");
+    expect(layer(container).style.transitionDuration).toBe("7000ms");
+
+    rerender(<DistractSpace assetKey={KEY} visual="video" present approachMs={null} />);
+    expect(layer(container)).toHaveClass("opacity-100");
+    expect(HTMLMediaElement.prototype.pause).not.toHaveBeenCalled();
+  });
+
+  it("예고 도중 돌아오면 1초 동안 감춘 뒤에 멈춘다", () => {
+    vi.useFakeTimers();
+    const { container, rerender } = render(
+      <DistractSpace assetKey={KEY} visual="video" present={false} approachMs={7_000} />,
+    );
+    const pause = vi.mocked(HTMLMediaElement.prototype.pause);
+    pause.mockClear();
+
+    rerender(<DistractSpace assetKey={KEY} visual="video" present={false} approachMs={null} />);
+    expect(layer(container)).toHaveClass("opacity-0");
+    expect(layer(container).style.transitionDuration).toBe("1000ms");
+    act(() => {
+      vi.advanceTimersByTime(999);
+    });
+    expect(pause).not.toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(1);
+    });
+    expect(pause).toHaveBeenCalledOnce();
+  });
+
+  it("동작 줄이기면 예고하는 동안 드러내지 않고 바뀌는 순간에 바로 바꾼다", () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({ matches: query.includes("reduce") }));
+    const { container, rerender } = render(
+      <DistractSpace assetKey={KEY} visual="video" present={false} approachMs={7_000} />,
+    );
+    expect(layer(container)).toHaveClass("opacity-0");
+
+    rerender(<DistractSpace assetKey={KEY} visual="video" present approachMs={null} />);
+    expect(layer(container)).toHaveClass("opacity-100");
+    expect(layer(container).style.transitionDuration).toBe("");
   });
 
   it("그림이면 비집중 그림을 같은 방식으로 겹친다", () => {
@@ -241,10 +295,10 @@ describe("DistractSpace", () => {
     const img = container.querySelector("img")!;
 
     expect(img.src).toContain("/spaces/loop/1a2b3c4d/distract/image/phone_portrait.webp");
-    expect(img).toHaveClass("opacity-0");
+    expect(layer(container)).toHaveClass("opacity-0");
 
     rerender(<DistractSpace assetKey={KEY} visual="image" present />);
-    expect(img).toHaveClass("opacity-100");
+    expect(layer(container)).toHaveClass("opacity-100");
   });
 
   it("동작 줄이기면 비집중 포스터를 쓰고 겹치는 전환 없이 바로 바꾼다", () => {
@@ -254,8 +308,8 @@ describe("DistractSpace", () => {
 
     expect(container.querySelector("video")).toBeNull();
     expect(img.src).toContain("/distract/poster/phone_portrait.webp");
-    expect(img).toHaveClass("opacity-100");
-    expect(img).not.toHaveClass("transition-opacity");
+    expect(layer(container)).toHaveClass("opacity-100");
+    expect(layer(container)).not.toHaveClass("transition-opacity");
   });
 
   it("보이는 동안 화면이 숨으면 멈추고 다시 보이면 잇는다", () => {
@@ -270,6 +324,71 @@ describe("DistractSpace", () => {
     hidden.mockReturnValue(false);
     fireEvent(document, new Event("visibilitychange"));
     expect(HTMLMediaElement.prototype.play).toHaveBeenCalledOnce();
+  });
+
+  it("예고 도중 돌려도 드러나는 층은 그대로 두고 안의 영상만 바꿔, 서서히 드러나던 것을 잇는다", () => {
+    // 예고 길이를 늦게 알아 남은 시간이 짧아진 경우다.
+    const { getByTestId } = render(
+      <DistractSpace assetKey={KEY} visual="video" present={false} approachMs={500} />,
+    );
+    const layer = getByTestId("distract-space");
+
+    act(() => rotate(844, 390));
+
+    expect(getByTestId("distract-space")).toBe(layer);
+    expect(layer).toHaveClass("opacity-100");
+    expect(layer.style.transitionDuration).toBe("500ms");
+    expect(layer.querySelector("video")!.src).toContain("/distract/loop/phone_landscape.mp4");
+  });
+
+  it("예고 도중 화면이 숨으면 멈추고 다시 보이면 이으며, 드러나는 중은 그대로다", () => {
+    const { getByTestId } = render(
+      <DistractSpace assetKey={KEY} visual="video" present={false} approachMs={7_000} />,
+    );
+    const hidden = vi.spyOn(document, "hidden", "get");
+
+    hidden.mockReturnValue(true);
+    fireEvent(document, new Event("visibilitychange"));
+    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalledOnce();
+
+    vi.mocked(HTMLMediaElement.prototype.play).mockClear();
+    hidden.mockReturnValue(false);
+    fireEvent(document, new Event("visibilitychange"));
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledOnce();
+    expect(getByTestId("distract-space")).toHaveClass("opacity-100");
+    expect(getByTestId("distract-space").style.transitionDuration).toBe("7000ms");
+  });
+
+  it("예고하고 그만두기를 되풀이해도 드러내고 감추는 시간이 그때마다 맞다", () => {
+    const view = (present: boolean, approachMs: number | null) => (
+      <DistractSpace assetKey={KEY} visual="video" present={present} approachMs={approachMs} />
+    );
+    const { getByTestId, rerender } = render(view(false, 7_000));
+    const duration = () => getByTestId("distract-space").style.transitionDuration;
+    expect(duration()).toBe("7000ms");
+
+    rerender(view(false, null));
+    expect(duration()).toBe("1000ms");
+
+    vi.useFakeTimers();
+    rerender(view(false, 5_000));
+    expect(duration()).toBe("5000ms");
+    // 그만둘 때 건 1초 뒤 멈춤이 다시 예고하는 영상을 멈추지 않는다.
+    vi.mocked(HTMLMediaElement.prototype.pause).mockClear();
+    act(() => {
+      vi.advanceTimersByTime(1_500);
+    });
+    expect(HTMLMediaElement.prototype.pause).not.toHaveBeenCalled();
+
+    rerender(view(true, null));
+    expect(getByTestId("distract-space")).toHaveClass("opacity-100");
+
+    rerender(view(false, null));
+    expect(duration()).toBe("2000ms");
+
+    rerender(view(false, 7_000));
+    rerender(view(false, null));
+    expect(duration()).toBe("1000ms");
   });
 
   it("돌리면 그 화면의 비집중 영상으로 바꾼다", () => {

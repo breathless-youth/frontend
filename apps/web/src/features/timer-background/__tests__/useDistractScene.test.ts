@@ -193,6 +193,28 @@ describe("useDistractScene", () => {
     expect(cues[0].sound.fadeApproach).toHaveBeenCalled();
   });
 
+  it("예고하는 동안 장면이 바뀔 때까지 남은 시간을 알리고, 바뀌거나 돌아오면 지운다", async () => {
+    const { result, rerender } = setup({ ...SCENES, distract: { ...DISTRACT, approach: true } }, 2);
+    await settle();
+
+    rerender({ trigger: "PHONE" });
+    advance(999);
+    expect(result.current.approachMs).toBeNull();
+    advance(1);
+    expect(result.current.approachMs).toBe(2_000);
+    advance(2_000);
+    expect(result.current.present).toBe(true);
+    expect(result.current.approachMs).toBeNull();
+
+    rerender({ trigger: null });
+    advance(1_000);
+    rerender({ trigger: "PHONE" });
+    advance(1_000);
+    expect(result.current.approachMs).toBe(2_000);
+    rerender({ trigger: null });
+    expect(result.current.approachMs).toBeNull();
+  });
+
   it("예고 소리 길이를 늦게 알면 늦은 만큼 앞부분을 건너뛰어 튼다", async () => {
     let resolveDuration: (sec: number) => void = () => {};
     const duration = new Promise<number | null>((resolve) => {
@@ -213,6 +235,7 @@ describe("useDistractScene", () => {
     await settle();
     advance(0);
     expect(approachCalls(cues[0].sound)).toEqual([["approach", 2]]);
+    expect(result.current.approachMs).toBe(500);
 
     advance(500);
     expect(result.current.present).toBe(true);
@@ -226,7 +249,9 @@ describe("useDistractScene", () => {
     await settle();
 
     rerender({ trigger: "PHONE" });
-    advance(3_000);
+    advance(2_999);
+    expect(result.current.approachMs).toBeNull();
+    advance(1);
 
     expect(result.current.present).toBe(true);
     expect(approachCalls(cues[0].sound)).toEqual([]);
@@ -377,6 +402,7 @@ describe("useDistractScene", () => {
       scene: null,
       armed: false,
       present: false,
+      approachMs: null,
       focusLevel: 1,
       hasSound: false,
     });

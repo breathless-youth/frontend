@@ -184,35 +184,47 @@ export function ImageSpace({
   );
 }
 
-/**
- * 비집중 장면이 겹쳐 바뀌는 시간
- * 클래스 duration-600과 같아야 한다.
- */
+/** 예고 없이 비집중 장면이 드러나는 시간 */
 const DISTRACT_FADE_MS = 600;
+/** 예고 도중 집중으로 돌아왔을 때 감추는 시간 */
+const APPROACH_CANCEL_FADE_MS = 1_000;
+/** 비집중 장면이 끝나 집중 장면으로 돌아갈 때 감추는 시간 */
+const DISTRACT_LEAVE_FADE_MS = 2_000;
 
 /**
  * 비집중 장면
  *
- * 집중 장면 위에 겹쳐 두고 `present`일 때만 드러낸다.
- * 딴짓이 시작될 때 그려서 바뀌기 전에 파일을 받아 두고, 영상은 바뀌기 전까지 멈춰 둔다.
+ * 집중 장면 위에 겹쳐 두고 예고하는 동안과 `present`일 때 드러낸다.
+ * 예고가 있으면 장면이 바뀔 때까지 남은 시간(`approachMs`)에 걸쳐 서서히 드러내 바뀌는 순간에 다 드러나고, 없으면 바뀔 때 0.6초 동안 드러낸다.
+ * 예고 도중 돌아오면 1초, 장면이 끝나면 2초 동안 감춘다.
+ * 딴짓이 시작될 때 그려서 드러나기 전에 파일을 받아 두고, 영상은 드러나기 전까지 멈춰 둔다.
  * 영상을 아직 재생할 수 없으면 영상 요소의 poster가 비집중 포스터를 먼저 보인다.
- * 동작 줄이기 설정이면 포스터나 그림만 쓰고 겹치는 전환 없이 바로 바꾼다.
+ * 동작 줄이기 설정이면 포스터나 그림만 쓰고 예고와 상관없이 바뀌는 순간에 전환 없이 바로 바꾼다.
  * 파일을 받지 못하면 Sentry에 남기고 그리지 않아 집중 장면이 그대로 보인다.
  */
 export function DistractSpace({
   assetKey,
   visual,
   present,
+  approachMs = null,
 }: {
   assetKey: string;
   visual: "video" | "image";
   present: boolean;
+  approachMs?: number | null;
 }) {
   const screen = useSpaceScreen();
   const [reduced] = useState(prefersReducedMotion);
   const [failed, setFailed] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const position = useLoopPosition();
+  const approaching = !reduced && !present && approachMs !== null;
+  const shown = present || approaching;
+  // 감추는 시간은 무엇이 끝나서 감추는지로 정해서, 마지막으로 드러난 까닭을 기억해 둔다.
+  const [hideMs, setHideMs] = useState(DISTRACT_LEAVE_FADE_MS);
+  if (present && hideMs !== DISTRACT_LEAVE_FADE_MS) setHideMs(DISTRACT_LEAVE_FADE_MS);
+  if (approaching && hideMs !== APPROACH_CANCEL_FADE_MS) setHideMs(APPROACH_CANCEL_FADE_MS);
+  const fadeMs = !shown ? hideMs : approaching ? approachMs : DISTRACT_FADE_MS;
 
   useEffect(() => {
     const video = videoRef.current;
@@ -221,9 +233,9 @@ export function DistractSpace({
     const pauseDetached = () => {
       if (!video.isConnected) video.pause();
     };
-    if (!present) {
+    if (!shown) {
       // 감추는 동안에는 움직이다가 다 감춘 뒤에 멈춘다.
-      const timer = setTimeout(() => video.pause(), DISTRACT_FADE_MS);
+      const timer = setTimeout(() => video.pause(), hideMs);
       return () => {
         clearTimeout(timer);
         pauseDetached();
@@ -239,53 +251,55 @@ export function DistractSpace({
       document.removeEventListener("visibilitychange", follow);
       pauseDetached();
     };
-  }, [present, screen, failed]);
+  }, [shown, hideMs, screen, failed]);
 
   if (failed) return null;
-  const className = cn(
-    LAYER,
-    !reduced && "transition-opacity duration-600 ease-out",
-    present ? "opacity-100" : "opacity-0",
-  );
   const handleError = () => {
     reportHandled(new Error(`space distract file failed: ${assetKey}`), "space-file");
     setFailed(true);
   };
 
-  if (visual === "image" || reduced) {
-    return (
-      <img
-        src={
-          visual === "image"
-            ? distractImageUrl(assetKey, screen)
-            : distractPosterUrl(assetKey, screen)
-        }
-        alt=""
-        aria-hidden="true"
-        draggable={false}
-        data-testid="distract-space"
-        className={className}
-        onError={handleError}
-      />
-    );
-  }
+  // 돌리면 안의 영상 요소를 새로 만들어서, 드러나는 전환은 바깥 층에 걸어 진행 중이던 투명도를 잇는다.
   return (
-    <video
-      // 같은 요소에서 주소만 바꾸면 위치가 0으로 돌아가는 사이의 기록이 섞여서 파일마다 새 요소를 만든다.
-      key={screen}
-      ref={videoRef}
-      src={distractVideoUrl(assetKey, screen)}
-      poster={distractPosterUrl(assetKey, screen)}
+    <div
       aria-hidden="true"
       data-testid="distract-space"
-      loop
-      muted
-      playsInline
-      preload="auto"
-      disablePictureInPicture
-      className={className}
-      {...position}
-      onError={handleError}
-    />
+      className={cn(
+        LAYER,
+        !reduced && "transition-opacity ease-out",
+        shown ? "opacity-100" : "opacity-0",
+      )}
+      style={reduced ? undefined : { transitionDuration: `${fadeMs}ms` }}
+    >
+      {visual === "image" || reduced ? (
+        <img
+          src={
+            visual === "image"
+              ? distractImageUrl(assetKey, screen)
+              : distractPosterUrl(assetKey, screen)
+          }
+          alt=""
+          draggable={false}
+          className={LAYER}
+          onError={handleError}
+        />
+      ) : (
+        <video
+          // 같은 요소에서 주소만 바꾸면 위치가 0으로 돌아가는 사이의 기록이 섞여서 파일마다 새 요소를 만든다.
+          key={screen}
+          ref={videoRef}
+          src={distractVideoUrl(assetKey, screen)}
+          poster={distractPosterUrl(assetKey, screen)}
+          loop
+          muted
+          playsInline
+          preload="auto"
+          disablePictureInPicture
+          className={LAYER}
+          {...position}
+          onError={handleError}
+        />
+      )}
+    </div>
   );
 }

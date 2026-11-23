@@ -36,6 +36,11 @@ export interface DistractSceneState {
   readonly armed: boolean;
   /** 비집중 장면을 보이는 중인가 */
   readonly present: boolean;
+  /**
+   * 예고하는 동안 장면이 바뀔 때까지 남은 시간(ms)
+   * 화면을 이 시간에 걸쳐 서서히 드러낸다. 예고하지 않는 동안은 null이다.
+   */
+  readonly approachMs: number | null;
   /** 집중 반복 소리에 곱할 크기(0~1) */
   readonly focusLevel: number;
   /** 비집중 장면이 낼 소리가 있는가 */
@@ -179,6 +184,7 @@ export function useDistractScene(
     scene,
     armed,
     present: inScene,
+    approachMs: approaching ? Math.max(0, approachLeadMs - (approachLateMs ?? 0)) : null,
     focusLevel: inScene && scene.loop !== "keep" ? 0 : 1,
     hasSound: scene !== null && (scene.loop === "own" || scene.cue || scene.approach),
   };

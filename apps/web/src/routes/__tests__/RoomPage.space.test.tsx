@@ -609,7 +609,9 @@ describe("RoomPage 공간", () => {
         await vi.advanceTimersByTimeAsync(1_200);
       });
       const layer = screen.getByTestId("distract-space");
-      expect(layer.getAttribute("src")).toContain("/spaces/loop/1a2b3c4d/distract/loop/");
+      expect(layer.querySelector("video")!.getAttribute("src")).toContain(
+        "/spaces/loop/1a2b3c4d/distract/loop/",
+      );
       expect(layer).toHaveClass("opacity-0");
 
       await act(async () => {

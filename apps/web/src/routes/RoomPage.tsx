@@ -1466,6 +1466,7 @@ function RoomSessionScreen({
               assetKey={space.assetKey}
               visual={distract.scene.visual}
               present={distract.present}
+              approachMs={distract.approachMs}
             />
           )}
           {watchKey !== null && (
