@@ -5,8 +5,8 @@ import type * as Sentry from "@/lib/sentry";
 
 import type { DetectorSignal, PhotoTap } from "../focusDetector";
 import { createVisionFocusDetector } from "../focusDetector";
-import type { Detection, DetectionFrame } from "../../vision/detectionRules";
-import { PERSON_LABEL, PHONE_LABEL } from "../../vision/detectionRules";
+import type { Detection, DetectionFrame, PersonPresenceRule } from "../../vision/detectionRules";
+import { PERSON_LABEL, PHONE_LABEL, personPresenceRule } from "../../vision/detectionRules";
 import type { FaceDetectionResult, VisionFaceLandmarker } from "../../vision/faceLandmarker";
 import type { HandDetectionResult, VisionHandLandmarker } from "../../vision/handLandmarker";
 import type { HandPose } from "../../vision/studyEvidenceRules";
@@ -746,10 +746,15 @@ describe("createVisionFocusDetector", () => {
 });
 
 describe("작게 보이는 사람", () => {
-  async function awaySignals(studyEvidence: boolean) {
+  async function awaySignals(studyEvidence: boolean, presenceRule?: PersonPresenceRule) {
     const { detector } = fakeObjectDetector({ frames: [smallPersonFrame()] });
     const { signals, listener } = collect();
-    const vision = createVisionFocusDetector({ video: () => fakeVideo(), detector, studyEvidence });
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      studyEvidence,
+      presenceRule,
+    });
     vision.subscribe(listener);
     vision.start();
     await vi.advanceTimersByTimeAsync(0);
@@ -763,6 +768,13 @@ describe("작게 보이는 사람", () => {
 
   it("소셜룸(공부 흔적 판정 끔)은 작은 사람도 사람 있음으로 본다", async () => {
     expect(await awaySignals(false)).not.toContainEqual({ source: "AWAY", active: true });
+  });
+
+  it("사람 판정 규칙을 직접 넣으면 싱글룸이어도 그 규칙을 쓴다", async () => {
+    expect(await awaySignals(true, personPresenceRule)).not.toContainEqual({
+      source: "AWAY",
+      active: true,
+    });
   });
 });
 
