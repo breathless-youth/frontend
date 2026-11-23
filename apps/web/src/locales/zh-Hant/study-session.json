@@ -1,6 +1,7 @@
 {
   "countdown": {
-    "preparing": "正在準備學習偵測"
+    "holdPosture": "請保持端正的姿勢",
+    "srUntilStart": "距離開始學習還有 {{seconds}} 秒"
   },
   "status": {
     "focus": "正在測量專注時間",

@@ -1,6 +1,7 @@
 {
   "countdown": {
-    "preparing": "공부 감지를 준비하고 있어요"
+    "holdPosture": "바른 자세를 유지해 주세요",
+    "srUntilStart": "공부 시작까지 {{seconds}}초"
   },
   "status": {
     "focus": "순공시간 측정 중",

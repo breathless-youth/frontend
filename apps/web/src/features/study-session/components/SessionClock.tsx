@@ -34,6 +34,11 @@ export interface SessionClockProps {
   fake?: boolean;
   /** 월페이퍼 위 배치. 왼쪽 정렬이고 글자 그림자를 깐다. */
   corner?: boolean;
+  /**
+   * 공부 시작 카운트다운. 있으면 라벨 자리를 비워 두고, `hint`면 바른 자세 안내를 보인다.
+   * `inClock`이면 카메라 창이 안 보이는 화면이라 큰 숫자 자리에서 남은 초를 센다.
+   */
+  countdown?: { left: number; inClock: boolean; hint: boolean } | null;
 }
 
 /** 상태가 바뀔 때 색이 툭 바뀌지 않게 서서히 옮긴다. */
@@ -81,6 +86,7 @@ export function SessionClock({
   callouts,
   fake = false,
   corner = false,
+  countdown = null,
 }: SessionClockProps) {
   const { t } = useTranslation("study-session");
   const focusView = view === "focus";
@@ -89,20 +95,28 @@ export function SessionClock({
   const sessionSec = focusView ? focusSec : studySec;
   const todaySec = focusView ? todayFocusSec : todayStudySec;
   const label = focusView ? t("clock.currentFocus") : t("clock.currentStudy");
-  const shown: ShownLabel = {
-    key: state === "focus" ? `focus-${view}` : `${state}-${statusLabel}`,
-    text: state === "focus" ? label : statusLabel,
-    tone:
-      state === "focus"
-        ? corner
-          ? "text-white/80"
-          : "text-white/60"
-        : state === "grace"
-          ? "text-white/85"
-          : state === "distract" && stateColored
-            ? "text-(--state-distract)"
-            : "text-text-tertiary",
-  };
+  const shown: ShownLabel =
+    countdown !== null
+      ? {
+          key: "countdown",
+          // 비울 때도 0이 되어 라벨이 나타날 때 시계가 움직이지 않게 자리는 남긴다.
+          text: countdown.hint ? t("countdown.holdPosture") : "\u00a0",
+          tone: corner ? "text-white/80" : "text-white/60",
+        }
+      : {
+          key: state === "focus" ? `focus-${view}` : `${state}-${statusLabel}`,
+          text: state === "focus" ? label : statusLabel,
+          tone:
+            state === "focus"
+              ? corner
+                ? "text-white/80"
+                : "text-white/60"
+              : state === "grace"
+                ? "text-white/85"
+                : state === "distract" && stateColored
+                  ? "text-(--state-distract)"
+                  : "text-text-tertiary",
+        };
   // 문구가 바뀐 렌더에서 앞 문구를 붙잡아 두고, 사라지는 애니메이션이 끝나면 놓는다.
   const [current, setCurrent] = useState(shown);
   const [leaving, setLeaving] = useState<ShownLabel | null>(null);
@@ -143,15 +157,21 @@ export function SessionClock({
     </p>
   );
   // 유예에도 순공은 흐르므로 숫자는 흰색(심플 모드는 상태색)으로 두고, 멈춘 동안만 회색으로 둔다.
+  // 공부 시작 카운트다운 숫자는 아직 상태가 없으므로 상태색 없이 흰색으로 센다.
+  const countingInClock = countdown?.inClock === true;
   const numberColor = cn(
-    stateColored
-      ? "text-(--session-state-color)"
-      : state === "focus" || state === "grace"
-        ? "text-white"
-        : "text-text-tertiary",
+    countingInClock
+      ? "text-white"
+      : stateColored
+        ? "text-(--session-state-color)"
+        : state === "focus" || state === "grace"
+          ? "text-white"
+          : "text-text-tertiary",
     state === "grace" && GRACE_NUMBER_PULSE,
   );
-  const sessionTime = (
+  const sessionTime = countingInClock ? (
+    <span aria-hidden="true">{countdown.left}</span>
+  ) : (
     <>
       <span aria-hidden="true">{formatElapsed(sessionSec)}</span>
       <span className="sr-only">
@@ -224,7 +244,7 @@ export function SessionClock({
               : "landscape-compact:text-[44px] landscape-compact:leading-13",
             numberColor,
           )}
-          style={stateColored ? { textShadow: GLOW_TEXT_SHADOW } : undefined}
+          style={stateColored && !countingInClock ? { textShadow: GLOW_TEXT_SHADOW } : undefined}
         >
           {sessionTime}
         </p>
