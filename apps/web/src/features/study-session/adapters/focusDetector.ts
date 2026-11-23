@@ -8,7 +8,7 @@ import type {
   PersonPresenceRule,
   PhoneUsageRule,
 } from "../vision/detectionRules";
-import { evaluateFrame, topScoresByLabel } from "../vision/detectionRules";
+import { evaluateFrame, sizedPersonPresenceRule, topScoresByLabel } from "../vision/detectionRules";
 import type { VisionDiagnostics } from "../vision/diagnostics";
 import { visionDiagnostics } from "../vision/diagnostics";
 import type { FaceDetectionResult, VisionFaceLandmarker } from "../vision/faceLandmarker";
@@ -369,6 +369,8 @@ export function createVisionFocusDetector(
 
   const sleepEnabled = options.sleepDetection ?? true;
   const evidenceEnabled = options.studyEvidence ?? true;
+  // 작게 보이는 다른 사람을 거르는 규칙도 공부 흔적 판정과 같이 싱글룸에서만 켠다.
+  const presence = presenceRule ?? (evidenceEnabled ? sizedPersonPresenceRule : undefined);
 
   const listeners = new Set<(signal: DetectorSignal) => void>();
   const statusListeners = new Set<(status: VisionDetectorStatus) => void>();
@@ -832,7 +834,7 @@ export function createVisionFocusDetector(
     // 지금 규칙은 previous를 쓰지 않지만, 후속 폰 사용 규칙이 전부 이걸로 구현된다(설계 §4).
     previousDetections = result.detections;
 
-    const signals = evaluateFrame(frame, phoneRule, presenceRule);
+    const signals = evaluateFrame(frame, phoneRule, presence);
 
     frameIndex += 1;
     const topScores = topScoresByLabel(result.detections);
