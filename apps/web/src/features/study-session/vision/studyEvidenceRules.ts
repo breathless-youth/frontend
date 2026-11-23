@@ -19,7 +19,8 @@ import {
  * 도구를 보지 않을 때는 시선이 화면에 고정됐는지도 본다. 도구가 보여도 마찬가지다.
  * 전면 카메라에 잡히는 도구는 사용자 앞이나 옆 책상 위에 있어 그쪽을 볼 때 카메라 정면을 보지 않는다.
  * 도구를 오검출한 화면에서도 휴대폰 화면 응시를 놓치지 않으려는 것이다.
- * 얼굴이 안 보이면 손이 도구 위에서 움직이는지(필기·타이핑)로 본다. 몸통(사람 박스)까지 없으면 자리이탈이다.
+ * 얼굴이 안 보이면 손이 보이는지로 본다. 도구 위에서 필기·타이핑하듯 움직이면 강한 증거다.
+ * 몸통(사람 박스)까지 없으면 자리이탈이다.
  *
  * 여기서 나온 boolean 뒤의 유예·확정 시간은 `../detection.ts`가 잰다.
  */
@@ -280,12 +281,10 @@ export function evaluateEvidence(input: EvidenceInput): EvidenceSignals {
     return NO_EVIDENCE_SIGNALS;
   }
   if (!face.present) {
-    // 얼굴이 안 보이면 도구와 손이 함께 보일 때만 공부로 본다. 손만 보이거나 손이 없으면 유예다.
+    // 얼굴이 안 보이면 손이 보일 때 공부로 본다. 도구는 카메라 각도에 따라 인식이 자주 빠져 조건에 넣지 않는다.
     // 도구 위에서 손이 필기·타이핑하듯 움직이면 강한 증거로 본다.
-    const toolInView = tools.length > 0;
-    const working = toolInView && hands?.atTool === true && hands.moving;
-    const handsWithTool = toolInView && hands?.visible === true;
-    return { noEvidence: !handsWithTool, screenGaze: false, wantHands: toolInView, working };
+    const working = tools.length > 0 && hands?.atTool === true && hands.moving;
+    return { noEvidence: hands?.visible !== true, screenGaze: false, wantHands: true, working };
   }
   if (gazeOnTool(face.gaze, face.bounds, tools)) {
     return NO_EVIDENCE_SIGNALS;
