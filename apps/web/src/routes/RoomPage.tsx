@@ -140,6 +140,12 @@ import {
   readSessionClockView,
   writeSessionClockView,
 } from "@/features/study-session/sessionClockView";
+import {
+  readSessionCameraExpanded,
+  readSessionSimpleMode,
+  writeSessionCameraExpanded,
+  writeSessionSimpleMode,
+} from "@/features/study-session/sessionScreenMode";
 import { useLandscapeLayout } from "@/features/study-session/useLandscapeLayout";
 import { SessionMascot } from "@/features/study-session/mascot/SessionMascot";
 import {
@@ -609,9 +615,13 @@ function RoomSessionBody({
     subjectsListRef.current = subjects.subjects;
   });
   // 심플 모드는 상태가 아니라 프레젠테이션 토글이다 — SessionState에 넣지 않는다.
-  // 세션은 기본 모드로 시작한다. 내 카메라는 작은 창이라 입장 확인 창 없이 바로 보인다.
+  // 세션은 마지막으로 쓴 모드로 시작하고, 처음에는 기본 모드(내 카메라 작은 창)다. 카메라는 입장 확인 창 없이 바로 보인다.
   // 카메라·감지·타이머는 표시 모드와 상관없이 입장 즉시 돈다.
-  const [simpleMode, setSimpleMode] = useState(false);
+  // 마지막으로 쓴 모드로 연다. 바뀔 때마다 아래 효과가 기기에 저장한다.
+  const [simpleMode, setSimpleMode] = useState(readSessionSimpleMode);
+  useEffect(() => {
+    writeSessionSimpleMode(simpleMode);
+  }, [simpleMode]);
   /**
    * 심플 모드 전환 때 시간 묶음이 새 자리로 미끄러져 가게 한다
    *
@@ -641,8 +651,11 @@ function RoomSessionBody({
       { duration: 300, easing: "ease-out" },
     );
   }, [simpleMode]);
-  // 기본 모드의 내 카메라는 작은 창으로 시작하고, 키우면 화면 전체를 채운다.
-  const [cameraExpanded, setCameraExpanded] = useState(false);
+  // 기본 모드의 내 카메라는 작은 창으로 시작하고, 키우면 화면 전체를 채운다. 마지막으로 쓴 크기를 기억한다.
+  const [cameraExpanded, setCameraExpanded] = useState(readSessionCameraExpanded);
+  useEffect(() => {
+    writeSessionCameraExpanded(cameraExpanded);
+  }, [cameraExpanded]);
   // 작은 창 자리. 보이지 않는 같은 크기의 칸을 둬서 화면을 돌린 뒤에도 그때의 자리를 잰다.
   const pipSlotRef = useRef<HTMLDivElement>(null);
   // 줄이는 중. 작게 보기 버튼·타임랩스 필·어두운 덮개를 움직임과 함께 서서히 지운다.

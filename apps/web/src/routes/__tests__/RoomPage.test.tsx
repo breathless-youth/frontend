@@ -201,6 +201,32 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     });
   });
 
+  it("심플 모드로 바꾼 뒤 세션을 다시 열면 심플 모드로 시작한다", () => {
+    const first = renderRoom("/room/7?userId=1&detector=mock");
+    fireEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
+    first.unmount();
+
+    renderRoom("/room/7?userId=1&detector=mock");
+    expect(screen.getByRole("button", { name: "심플 모드 전환" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("카메라를 크게 본 뒤 세션을 다시 열면 크게 보기로 시작하고, 줄이면 다음엔 작은 창으로 시작한다", () => {
+    const first = renderRoom("/room/7?userId=1&detector=mock");
+    fireEvent.click(screen.getByRole("button", { name: "내 화면 크게 보기" }));
+    first.unmount();
+
+    const second = renderRoom("/room/7?userId=1&detector=mock");
+    expect(screen.getByRole("button", { name: "작게 보기" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "작게 보기" }));
+    second.unmount();
+
+    renderRoom("/room/7?userId=1&detector=mock");
+    expect(screen.getByRole("button", { name: "내 화면 크게 보기" })).toBeInTheDocument();
+  });
+
   it("순공·오늘 집중·하단 바를 렌더링한다", () => {
     renderRoom("/room/7?userId=1");
 
