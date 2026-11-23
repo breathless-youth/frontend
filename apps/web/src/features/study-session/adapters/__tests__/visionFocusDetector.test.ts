@@ -5,8 +5,8 @@ import type * as Sentry from "@/lib/sentry";
 
 import type { DetectorSignal, PhotoTap } from "../focusDetector";
 import { createVisionFocusDetector } from "../focusDetector";
-import type { Detection, DetectionFrame } from "../../vision/detectionRules";
-import { PERSON_LABEL, PHONE_LABEL } from "../../vision/detectionRules";
+import type { Detection, DetectionFrame, PersonPresenceRule } from "../../vision/detectionRules";
+import { PERSON_LABEL, PHONE_LABEL, personPresenceRule } from "../../vision/detectionRules";
 import type { FaceDetectionResult, VisionFaceLandmarker } from "../../vision/faceLandmarker";
 import type { HandDetectionResult, VisionHandLandmarker } from "../../vision/handLandmarker";
 import type { HandPose } from "../../vision/studyEvidenceRules";
@@ -57,7 +57,15 @@ function box(): Detection["box"] {
   return { originX: 0, originY: 0, width: 10, height: 10 };
 }
 
+/** 640×480 영상의 절반을 차지하는 사람. 책상 앞에 앉은 본인이다. */
 function personFrame(score = 0.9): Detection[] {
+  return [
+    { label: PERSON_LABEL, score, box: { originX: 160, originY: 0, width: 320, height: 480 } },
+  ];
+}
+
+/** 640×480 영상에서 아주 작게(10×10) 잡힌 사람. 뒤쪽이나 멀리 있는 다른 사람이다. */
+function smallPersonFrame(score = 0.9): Detection[] {
   return [{ label: PERSON_LABEL, score, box: box() }];
 }
 
@@ -734,6 +742,39 @@ describe("createVisionFocusDetector", () => {
     await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 3);
 
     expect(fallback).not.toHaveBeenCalled();
+  });
+});
+
+describe("작게 보이는 사람", () => {
+  async function awaySignals(studyEvidence: boolean, presenceRule?: PersonPresenceRule) {
+    const { detector } = fakeObjectDetector({ frames: [smallPersonFrame()] });
+    const { signals, listener } = collect();
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      studyEvidence,
+      presenceRule,
+    });
+    vision.subscribe(listener);
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS * 2);
+    return signals.filter((signal) => signal.source === "AWAY");
+  }
+
+  it("싱글룸(공부 흔적 판정 켬)은 작은 사람만 보이면 자리 이탈 원신호를 올린다", async () => {
+    expect(await awaySignals(true)).toContainEqual({ source: "AWAY", active: true });
+  });
+
+  it("소셜룸(공부 흔적 판정 끔)은 작은 사람도 사람 있음으로 본다", async () => {
+    expect(await awaySignals(false)).not.toContainEqual({ source: "AWAY", active: true });
+  });
+
+  it("사람 판정 규칙을 직접 넣으면 싱글룸이어도 그 규칙을 쓴다", async () => {
+    expect(await awaySignals(true, personPresenceRule)).not.toContainEqual({
+      source: "AWAY",
+      active: true,
+    });
   });
 });
 
@@ -2298,6 +2339,19 @@ describe("공부 증거 배선", () => {
 
     expect(last(signals, "NO_EVIDENCE")).toBe(true);
     expect(handDetect).toHaveBeenCalled();
+  });
+
+  it("작은 사람만 보이면 자리 이탈이 맡고 공부 흔적 판정은 쉰다", async () => {
+    const { vision, signals, handDetect } = setup({
+      frames: [[...smallPersonFrame(), book]],
+      pitch: 0,
+    });
+    vision.start();
+    await vi.advanceTimersByTimeAsync(SETTLE_MS);
+
+    expect(last(signals, "AWAY")).toBe(true);
+    expect(last(signals, "NO_EVIDENCE")).toBe(false);
+    expect(handDetect).not.toHaveBeenCalled();
   });
 
   it("시선이 책에 없어도 손이 책 위에 있으면 공부로 본다", async () => {

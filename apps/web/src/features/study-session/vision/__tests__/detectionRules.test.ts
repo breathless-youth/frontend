@@ -8,6 +8,7 @@ import {
   evaluateFrame,
   maxScoreFor,
   personPresenceRule,
+  sizedPersonPresenceRule,
   topScoresByLabel,
 } from "../detectionRules";
 import { SCORE_THRESHOLDS } from "../visionConfig";
@@ -72,6 +73,39 @@ describe("personPresenceRule", () => {
     );
     const justBelow = SCORE_THRESHOLDS.person - 0.0001;
     expect(personPresenceRule(frame([detection(PERSON_LABEL, justBelow)]))).toBe(false);
+  });
+});
+
+/** 320×320 영상에서 가로 전체, 세로는 `areaRatio`만큼 차지하는 사람. */
+function sizedPerson(areaRatio: number, score = 0.8): Detection {
+  return {
+    label: PERSON_LABEL,
+    score,
+    box: { originX: 0, originY: 0, width: 320, height: 320 * areaRatio },
+  };
+}
+
+describe("sizedPersonPresenceRule", () => {
+  it("화면의 10%인 사람만 있으면 사람 없음", () => {
+    expect(sizedPersonPresenceRule(frame([sizedPerson(0.1)]))).toBe(false);
+  });
+
+  it("정확히 15%인 사람은 사람 있음", () => {
+    expect(sizedPersonPresenceRule(frame([sizedPerson(0.15)]))).toBe(true);
+  });
+
+  it("작은 사람과 큰 사람이 같이 있으면 사람 있음", () => {
+    expect(sizedPersonPresenceRule(frame([sizedPerson(0.05), sizedPerson(0.4)]))).toBe(true);
+  });
+
+  it("크기가 커도 점수가 임계 미만이면 사람 없음", () => {
+    const justBelow = SCORE_THRESHOLDS.person - 0.0001;
+    expect(sizedPersonPresenceRule(frame([sizedPerson(0.5, justBelow)]))).toBe(false);
+  });
+
+  it("영상 크기를 모르면 크기를 보지 않고 판정한다", () => {
+    const unknownSize = { ...frame([sizedPerson(0.01)]), frameSize: { width: 0, height: 0 } };
+    expect(sizedPersonPresenceRule(unknownSize)).toBe(true);
   });
 });
 
