@@ -10,20 +10,20 @@
 
 ## 결정 사항
 
-| # | 항목 | 결정 |
-|---|---|---|
-| 접근 | 구조 | 지금 부품을 넓혀 쓴다. 매니페스트가 v2를 읽고, 감독관 시간 계산이 시간을 인자로 받고, `LoopVideoSpace` 위에 비집중 층을 겹치고, 감독관 소리 재생기를 소리 주소를 받게 일반화한다 |
-| H1 | 비집중 파일 받기 | 딴짓이 시작될 때 받기 시작한다. 바뀌는 순간까지 영상을 다 받지 못했으면 비집중 포스터를 먼저 보인다 |
-| H2 | 장면 전환 | 0.6초 동안 겹쳐 바꾼다 |
-| H3 | 반복 소리 교체(`own`) | 두 반복 소리를 1초 동안 겹쳐 바꾼다 |
-| H4 | 반복 소리 끄기(`none`) | 집중 반복 소리를 1초 동안 줄여 끄고, 돌아오면 다시 키운다 |
-| H5 | 예고 소리 | 장면이 바뀌는 순간에 끝나도록 시작한다. 그 전에 다시 집중하면 서서히 줄여 끈다. 아직 받지 못했으면 건너뛴다 |
-| H6 | 신호 소리 | 비집중 장면에 들어서는 순간 한 번 낸다. 돌아올 때는 내지 않는다 |
-| H7 | 시간 계산 | `useWatcherPresence`가 비집중까지 시간, 돌아오기 시간, 예고 길이를 인자로 받는다. 감독관은 지금 값(9초, 3초, 7초)을 넘긴다 |
-| H8 | 소리 재생기 | `watcherSound`를 소리 주소를 받게 일반화해 감독관과 비집중 장면이 함께 쓴다 |
-| H9 | 음량 | 비집중 장면 소리도 "공간 음량"을 따른다 |
-| H10 | 계측 | `space_distract_scene_entered`(`item_code`, `trigger`)와 `space_distract_scene_left`(`item_code`, `duration_sec`). 비집중 장면이 있는 공간에서만 보낸다 |
-| H11 | 동작 줄이기 | 비집중 장면도 포스터나 그림으로 보이고, 겹쳐 바꾸지 않고 바로 바꾼다 |
+| #    | 항목                   | 결정                                                                                                                                                                             |
+| ---- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 접근 | 구조                   | 지금 부품을 넓혀 쓴다. 매니페스트가 v2를 읽고, 감독관 시간 계산이 시간을 인자로 받고, `LoopVideoSpace` 위에 비집중 층을 겹치고, 감독관 소리 재생기를 소리 주소를 받게 일반화한다 |
+| H1   | 비집중 파일 받기       | 딴짓이 시작될 때 받기 시작한다. 바뀌는 순간까지 영상을 다 받지 못했으면 비집중 포스터를 먼저 보인다                                                                              |
+| H2   | 장면 전환              | 예고 소리가 있으면 예고 시작부터 바뀌는 순간까지 서서히 겹치고, 없으면 0.6초 동안 겹쳐 바꾼다(11-23 변경)                                                                        |
+| H3   | 반복 소리 교체(`own`)  | 두 반복 소리를 1초 동안 겹쳐 바꾼다                                                                                                                                              |
+| H4   | 반복 소리 끄기(`none`) | 집중 반복 소리를 1초 동안 줄여 끄고, 돌아오면 다시 키운다                                                                                                                        |
+| H5   | 예고 소리              | 장면이 바뀌는 순간에 끝나도록 시작한다. 그 전에 다시 집중하면 서서히 줄여 끈다. 아직 받지 못했으면 건너뛴다                                                                      |
+| H6   | 신호 소리              | 비집중 장면에 들어서는 순간 한 번 낸다. 돌아올 때는 내지 않는다                                                                                                                  |
+| H7   | 시간 계산              | `useWatcherPresence`가 비집중까지 시간, 돌아오기 시간, 예고 길이를 인자로 받는다. 감독관은 지금 값(9초, 3초, 7초)을 넘긴다                                                       |
+| H8   | 소리 재생기            | `watcherSound`를 소리 주소를 받게 일반화해 감독관과 비집중 장면이 함께 쓴다                                                                                                      |
+| H9   | 음량                   | 비집중 장면 소리도 "공간 음량"을 따른다                                                                                                                                          |
+| H10  | 계측                   | `space_distract_scene_entered`(`item_code`, `trigger`)와 `space_distract_scene_left`(`item_code`, `duration_sec`). 비집중 장면이 있는 공간에서만 보낸다                          |
+| H11  | 동작 줄이기            | 비집중 장면도 포스터나 그림으로 보이고, 겹쳐 바꾸지 않고 바로 바꾼다                                                                                                             |
 
 ## 매니페스트 읽기
 
@@ -45,7 +45,7 @@ interface DistractScene {
 
 - v1은 지금처럼 읽고, `timing`은 기본값(9초, 3초), `distract`는 `null`이다.
 - v2는 `timing`, `focus`, `distract`의 필드를 모두 확인한다. 하나라도 형식이 틀리면 소리 없는 집중 장면(`SILENT_SCENES`)으로 본다.
-- v2의 `distractAfterSec`은 3~60, `returnAfterSec`은 1~30 정수만 받는다. 스크립트와 같은 범위다.
+- v2의 `distractAfterSec`은 3~~60, `returnAfterSec`은 1~~30 정수만 받는다. 스크립트와 같은 범위다.
 - 모르는 필드는 무시한다. 3단계에서 필드가 늘어도 v2 웹이 깨지지 않는다.
 - 1, 2가 아닌 버전은 지금처럼 소리 없는 집중 장면으로 본다.
 - 받지 못했을 때의 규칙(5xx는 캐시하지 않고 실패, 4xx와 깨진 JSON은 소리 없음)은 바꾸지 않는다.
@@ -54,12 +54,12 @@ interface DistractScene {
 
 `spaceFiles.ts`에 비집중 주소를 더한다.
 
-| 함수 | 주소 |
-|---|---|
-| `distractVideoUrl(key, screen)` | `/spaces/<key>/distract/loop/<screen>.mp4` |
-| `distractPosterUrl(key, screen)` | `/spaces/<key>/distract/poster/<screen>.webp` |
-| `distractImageUrl(key, screen)` | `/spaces/<key>/distract/image/<screen>.webp` |
-| `distractSoundUrl(key, name)` | `/spaces/<key>/distract/sound/<name>.m4a` (`loop`, `cue`, `approach`) |
+| 함수                             | 주소                                                                  |
+| -------------------------------- | --------------------------------------------------------------------- |
+| `distractVideoUrl(key, screen)`  | `/spaces/<key>/distract/loop/<screen>.mp4`                            |
+| `distractPosterUrl(key, screen)` | `/spaces/<key>/distract/poster/<screen>.webp`                         |
+| `distractImageUrl(key, screen)`  | `/spaces/<key>/distract/image/<screen>.webp`                          |
+| `distractSoundUrl(key, name)`    | `/spaces/<key>/distract/sound/<name>.m4a` (`loop`, `cue`, `approach`) |
 
 ## 언제 바뀌는가
 
@@ -74,7 +74,11 @@ interface DistractScene {
 
 - `SpaceLayers.tsx`에 `DistractSpace`를 더하고, `RoomPage`가 `LoopVideoSpace` 위에 겹쳐 그린다.
 - 딴짓이 시작되면 `DistractSpace`를 그린다. 영상이면 `preload="auto"`로 받고 멈춰 둔다.
-- `present`가 되면 영상을 재생하고 0.6초 동안 불투명도를 0에서 1로 올린다. 돌아오면 0.6초 동안 내리고 끝나면 멈춘다.
+- 예고 소리가 있는 공간은 예고가 시작되면 영상을 재생하고, 장면이 바뀔 때까지 남은 시간(`approachMs`)에 걸쳐 불투명도를 0에서 1로 올린다. 바뀌는 순간에 다 드러난다.
+- 예고 소리가 없는 공간은 `present`가 되면 영상을 재생하고 0.6초 동안 불투명도를 올린다.
+- 예고 도중 돌아오면 1초, 비집중 장면이 끝나면 2초 동안 불투명도를 내리고, 다 내린 뒤에 영상을 멈춘다.
+- 동작 줄이기 설정이면 예고와 상관없이 바뀌는 순간에 바로 바꾼다.
+- 2026-11-23 변경: 기내 공간을 시험하며 예고 차임은 7초 울리는데 구름이 마지막 0.6초에만 바뀌어 전환 의도가 살지 않아서 바꿨다. 예고 소리가 있는 공간에만 적용해 매니페스트는 그대로 둔다.
 - 영상이 아직 재생할 수 없으면 비집중 포스터를 먼저 보이고, 영상이 준비되면 바꾼다.
 - 그림이면 `<img>`로 같은 방식으로 겹친다. `visual`이 `null`이면 화면은 바꾸지 않는다.
 - 회전은 `useSpaceScreen()`으로 집중 장면과 같은 화면 파일을 고른다. 영상 위치는 `LoopVideoSpace`처럼 이어 간다.
@@ -96,10 +100,10 @@ interface DistractScene {
 
 ## 계측
 
-| 이벤트 | 보낼 때 | 속성 |
-|---|---|---|
-| `space_distract_scene_entered` | `present`가 거짓에서 참이 될 때 | `item_code`, `trigger`(AWAY, PHONE, DEVICE, SLEEP) |
-| `space_distract_scene_left` | `present`가 참에서 거짓이 될 때, 또는 비집중 장면인 채로 세션이 끝날 때 | `item_code`, `duration_sec` |
+| 이벤트                         | 보낼 때                                                                 | 속성                                               |
+| ------------------------------ | ----------------------------------------------------------------------- | -------------------------------------------------- |
+| `space_distract_scene_entered` | `present`가 거짓에서 참이 될 때                                         | `item_code`, `trigger`(AWAY, PHONE, DEVICE, SLEEP) |
+| `space_distract_scene_left`    | `present`가 참에서 거짓이 될 때, 또는 비집중 장면인 채로 세션이 끝날 때 | `item_code`, `duration_sec`                        |
 
 - 실제로 장면이 바뀔 때만 보낸다.
 - 식별자나 자유 문자열은 싣지 않는다.
@@ -117,7 +121,7 @@ interface DistractScene {
 
 ## 함께 고칠 것
 
-- infra 런북 `space-generate.md` 10절의 "두 화면은 섞지 않고 바로 잘라 붙여 바뀐다"를 "0.6초 동안 겹쳐 바뀐다"로 고친다. 이 PR과 별도로 infra에 작은 문서 PR을 올린다.
+- infra 런북 `space-generate.md` 10절의 "두 화면은 섞지 않고 바로 잘라 붙여 바뀐다"를 "예고 소리가 있으면 예고 동안 서서히, 없으면 0.6초 동안 겹쳐 바뀐다"로 고친다. 이 PR과 별도로 infra에 작은 문서 PR을 올린다.
 
 ## 범위 밖
 
