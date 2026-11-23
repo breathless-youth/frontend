@@ -34,6 +34,7 @@ function blendshapes(closure: number) {
         { categoryName: "eyeLookDownLeft", score: 0.1 },
         { categoryName: "eyeLookDownRight", score: 0.1 },
         { categoryName: "jawOpen", score: 0.3 },
+        { categoryName: "mouthSmileLeft", score: 0.4 },
       ],
     },
   ];
@@ -295,6 +296,7 @@ describe("createFaceLandmarker — 정규화", () => {
       eyeBlinkRight: 0.55,
       eyeLookDownLeft: 0.1,
       eyeLookDownRight: 0.1,
+      jawOpen: 0.3,
     });
     expect(typeof result?.durationMs).toBe("number");
 

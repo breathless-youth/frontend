@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import type { StatusEventPayload, StudySessionResponse } from "@focusmakers/types";
+import type {
+  ObservationPayload,
+  StatusEventPayload,
+  StudySessionResponse,
+} from "@focusmakers/types";
 
 import * as Sentry from "@sentry/react";
 
@@ -50,6 +54,7 @@ import {
   NO_TRIGGER_SIGNALS,
   SOCIAL_DETECTION_PARAMS,
   createDetectionState,
+  restartDetection,
   stepDetection,
   usesStudyEvidence,
 } from "./detection";
@@ -84,6 +89,7 @@ import {
   transition,
 } from "./sessionTimeline";
 import { reportActiveSession } from "./reportActiveSession";
+import { clampObservations } from "./sessionRequestClamp";
 import type { RestoredSession } from "./restoreActiveSession";
 import type { SessionTuningConfig } from "./sessionTuning";
 import type { SubjectSegmentTracker, SubjectSelection } from "./subjectSegments";
@@ -147,6 +153,11 @@ export interface StudyRoomSessionOptions {
   readonly getCompletedTaskIds?: (
     startedAtMs: number,
   ) => number[] | undefined | Promise<number[] | undefined>;
+  /**
+   * 이 세션의 관찰 기록(하품 등)을 돌려준다. 스냅샷·제출 때 읽어 싣고, 종료 때 하품 횟수를 계측에 싣는다.
+   * 하품을 재지 않는 소셜룸은 넘기지 않는다.
+   */
+  readonly getObservations?: () => ObservationPayload[];
   /**
    * 계측용 배경음 사용 시간 조회 — 종료 시점에 한 번 읽어 `study_session_ended`에 싣는다.
    * 세션 로직에는 관여하지 않는다.
@@ -357,6 +368,10 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   useLayoutEffect(() => {
     getCompletedTaskIdsRef.current = options.getCompletedTaskIds;
   });
+  const getObservationsRef = useRef(options.getObservations);
+  useLayoutEffect(() => {
+    getObservationsRef.current = options.getObservations;
+  });
   const onCameraLostRef = useRef(options.onCameraLost);
   useLayoutEffect(() => {
     onCameraLostRef.current = options.onCameraLost;
@@ -364,6 +379,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
 
   const signalsRef = useRef<TriggerSignals>({ ...NO_TRIGGER_SIGNALS });
   const detectionRef = useRef<DetectionState>(createDetectionState(initial.startedAtMs));
+  /** 직전 tick이 일시정지·휴식이었는가. 공부로 돌아온 첫 tick에서 판정을 처음부터 다시 센다. */
+  const wasHeldRef = useRef(false);
 
   /** 서버에서 받아 온 누적값 위에 지금 타임라인이 잰 값을 얹는다. */
   const withBase = useCallback(
@@ -693,6 +710,11 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     }
     const timer = setInterval(() => {
       const nowMs = Date.now();
+      const held = currentState(timelineRef.current).kind === "PAUSE";
+      if (!held && wasHeldRef.current) {
+        detectionRef.current = restartDetection(signalsRef.current, nowMs);
+      }
+      wasHeldRef.current = held;
 
       detectionRef.current = stepDetection(
         detectionRef.current,
@@ -702,7 +724,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       );
 
       // 일시정지 중에는 감지가 상태를 덮어쓰지 않는다 — 재개 시점에 다시 반영된다.
-      if (currentState(timelineRef.current).kind !== "PAUSE") {
+      if (!held) {
         const active = detectionRef.current.active;
         applyState(active === null ? FOCUS_STATE : distractionState(active), nowMs);
         setGrace(detectionRef.current.grace);
@@ -755,6 +777,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         focusSec: totals.focusSec,
         events,
         subjectSegments: materializeSubjectSegments(subjectTrackerRef.current, nowMs),
+        observations: getObservationsRef.current?.(),
       })
         .catch((error: unknown) => {
           // 네트워크 실패(ApiError 아님)는 조용히 다음 주기에 다시 보낸다.
@@ -992,6 +1015,12 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           breakSec,
           multiTimer: multiTimerUsageRef.current?.() ?? "none",
           mascotOn: mascotOnRef.current?.() ?? false,
+          // 서버에 남는 수와 같도록 제출과 같은 규칙으로 자른 뒤 센다.
+          yawnCount:
+            getObservationsRef.current === undefined
+              ? undefined
+              : clampObservations(getObservationsRef.current(), startedAtMsRef.current, endedAtMs)
+                  .length,
         });
         for (const play of ambientSoundPlaysRef.current?.() ?? []) {
           if (play.sec <= 0) continue;
@@ -1036,6 +1065,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
             subjectSegments: materializeSubjectSegments(subjectTrackerRef.current, endedAtMs),
             // 재시도도 같은 시작 시각으로 다시 파생한다 — 그 사이 체크한 할 일이 있으면 함께 실린다.
             completedTaskIds: await getCompletedTaskIdsRef.current?.(startedAtMsRef.current),
+            observations: getObservationsRef.current?.(),
           }),
         )
         .then((sessions) => {

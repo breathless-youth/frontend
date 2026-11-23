@@ -9,6 +9,7 @@ import {
   SOURCE_TRIGGER,
   TRIGGER_PRIORITY,
   createDetectionState,
+  restartDetection,
   stepDetection,
 } from "../detection";
 
@@ -400,5 +401,22 @@ describe("소셜룸 감지 시간 — 유예 없이 예전 시간에 비집중",
     );
     expect(quiet.state.active).toBeNull();
     expect(quiet.everGrace).toBe(false);
+  });
+});
+
+describe("restartDetection — 멈췄다 돌아오면 처음부터", () => {
+  it("켜져 있던 신호도 방금 켜진 것으로 보고 3초 뒤 유예, 10초 뒤 확정한다", () => {
+    const away = signals({ AWAY: true });
+    const confirmed = hold(createDetectionState(T0), away, 0, 12_000);
+    expect(confirmed.active).toBe("AWAY");
+
+    const restarted = restartDetection(away, T0 + 30_000);
+    expect(restarted.active).toBeNull();
+    expect(restarted.grace).toBe(false);
+
+    expect(hold(restarted, away, 30_000, 32_000).grace).toBe(false);
+    expect(hold(restarted, away, 30_000, 33_000).grace).toBe(true);
+    expect(hold(restarted, away, 30_000, 39_000).active).toBeNull();
+    expect(hold(restarted, away, 30_000, 40_000).active).toBe("AWAY");
   });
 });

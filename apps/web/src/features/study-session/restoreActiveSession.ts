@@ -1,5 +1,6 @@
 import type {
   ActiveSessionSnapshotResponse,
+  ObservationPayload,
   StatusEventPayload,
   StudyEventStatus,
   SubjectSegmentPayload,
@@ -55,6 +56,8 @@ export interface RestoredSession {
   events: StatusEventPayload[];
   /** 마지막 스냅샷의 과목 구간 — 시작 순, 마지막 원소가 지금 선택이다(`subjectSegments.ts`). 없으면 빈 배열. */
   subjectSegments?: SubjectSegmentPayload[];
+  /** 마지막 스냅샷의 관찰 기록. 이어받은 뒤의 보고가 통째로 덮어쓰므로 여기서 이어 싣지 않으면 서버에서도 사라진다. */
+  observations?: ObservationPayload[];
 }
 
 function isNonNegativeInt(value: unknown): value is number {
@@ -79,6 +82,30 @@ function usableSubjectSegments(raw: unknown): SubjectSegmentPayload[] {
       return [];
     }
     return [{ subjectId: item.subjectId, startedAt: item.startedAt!, endedAt: item.endedAt! }];
+  });
+}
+
+/** 관찰 기록도 과목 구간처럼 읽을 수 있는 것만 남기고 세션 복원은 계속한다. */
+function usableObservations(raw: unknown): ObservationPayload[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+  return raw.flatMap((item: Partial<ObservationPayload> | null) => {
+    if (item === null || item.type !== "YAWN" || typeof item.startedAt !== "string") {
+      return [];
+    }
+    const startedAtMs = Date.parse(item.startedAt);
+    if (!Number.isFinite(startedAtMs)) {
+      return [];
+    }
+    if (item.endedAt === undefined) {
+      return [{ type: item.type, startedAt: item.startedAt }];
+    }
+    const endedAtMs = typeof item.endedAt === "string" ? Date.parse(item.endedAt) : NaN;
+    if (!Number.isFinite(endedAtMs) || endedAtMs < startedAtMs) {
+      return [];
+    }
+    return [{ type: item.type, startedAt: item.startedAt, endedAt: item.endedAt }];
   });
 }
 
@@ -129,6 +156,7 @@ export async function restoreActiveSession(
       baseFocusSec: body.focusSec,
       events: body.events,
       subjectSegments: usableSubjectSegments(body.subjectSegments),
+      observations: usableObservations(body.observations),
     };
   } finally {
     clearTimeout(timer);

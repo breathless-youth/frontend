@@ -42,11 +42,46 @@ describe("restoreActiveSession", () => {
       baseFocusSec: 1620,
       events: BODY.events,
       subjectSegments: [],
+      observations: [],
     });
 
     const [url, init] = vi.mocked(fetch).mock.calls[0]!;
     expect(String(url)).toMatch(/\/api\/study-sessions\/active$/);
     expect((init as RequestInit | undefined)?.method ?? "GET").toBe("GET");
+  });
+
+  it("관찰 기록을 싣고, 읽을 수 없는 항목만 빼고 세션은 복원한다", async () => {
+    const yawn = {
+      type: "YAWN",
+      startedAt: "2026-08-28T01:05:00.000Z",
+      endedAt: "2026-08-28T01:05:04.000Z",
+    };
+    const openYawn = { type: "YAWN", startedAt: "2026-08-28T01:20:00.000Z" };
+    stub200({
+      ...BODY,
+      observations: [
+        yawn,
+        openYawn,
+        { type: "SNEEZE", startedAt: "2026-08-28T01:06:00.000Z" },
+        { type: "YAWN", startedAt: "not-a-date" },
+        {
+          type: "YAWN",
+          startedAt: "2026-08-28T01:07:00.000Z",
+          endedAt: "2026-08-28T01:06:59.000Z",
+        },
+        null,
+      ],
+    });
+
+    const restored = await restoreActiveSession();
+
+    expect(restored?.observations).toEqual([yawn, openYawn]);
+  });
+
+  it("관찰 기록이 없는 응답(옛 서버)은 빈 목록으로 복원한다", async () => {
+    stub200({ ...BODY, observations: null });
+
+    expect((await restoreActiveSession())?.observations).toEqual([]);
   });
 
   it("404면 null을 돌려준다", async () => {

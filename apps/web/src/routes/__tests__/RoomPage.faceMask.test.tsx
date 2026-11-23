@@ -62,6 +62,7 @@ const vision = vi.hoisted(() => {
     subscribeStatus: () => () => {},
     subscribeRuntimeFallback: () => () => {},
     subscribeFaceStatus: () => () => {},
+    subscribeYawn: () => () => {},
     subscribeFaceSpot(listener) {
       spotListeners.add(listener);
       return () => {

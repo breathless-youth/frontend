@@ -230,6 +230,16 @@ export function createDetectionState(nowMs: number): DetectionState {
   };
 }
 
+/**
+ * 지금 켜진 원신호를 방금 켜진 것으로 보고 유예·확정을 처음부터 다시 센다.
+ *
+ * 일시정지·휴식 동안에도 유지시간은 흐르므로, 그대로 이어 가면 멈추기 전의 유예가 재개 직후 확정된다.
+ * 신호를 지우지 않는 것은 감지기가 값이 바뀔 때만 알려 주기 때문이다. 지우면 이어지는 상황을 놓친다.
+ */
+export function restartDetection(signals: TriggerSignals, nowMs: number): DetectionState {
+  return { ...createDetectionState(nowMs), signals: { ...signals } };
+}
+
 /** 트리거가 확정됐는가 = 그 트리거에 속한 출처 중 하나라도 확정. */
 function isTriggerConfirmed(
   confirmed: TriggerSignals,

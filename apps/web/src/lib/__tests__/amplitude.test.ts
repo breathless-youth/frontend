@@ -667,8 +667,43 @@ describe("공부 세션 이벤트", () => {
         break_sec: 0,
         multi_timer: "none",
         mascot_on: false,
+        yawn_count: 0,
       },
       { time: expect.any(Number) },
+    );
+  });
+
+  it("세션 중 하품 횟수를 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackStudySessionEnded } = await loadModule();
+    initAmplitude();
+
+    trackStudySessionEnded({
+      roomType: "single",
+      studySec: 600,
+      focusSec: 600,
+      pauseSec: 0,
+      distractionSec: 0,
+      endReason: "MANUAL",
+      pauseTrigger: null,
+      willSubmit: true,
+      yawnCount: 3,
+    });
+
+    expect(mocks.track.mock.calls[0]?.[1]).toMatchObject({ yawn_count: 3 });
+  });
+
+  it("하품 하나가 끝나면 길이만 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackStudySessionYawned } = await loadModule();
+    initAmplitude();
+
+    trackStudySessionYawned({ startedAtMs: 1000, endedAtMs: 3500 });
+
+    expect(mocks.track).toHaveBeenCalledWith(
+      "study_session_yawned",
+      { duration_ms: 2500 },
+      { time: 3500 },
     );
   });
 
