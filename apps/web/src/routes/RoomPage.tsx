@@ -1459,6 +1459,8 @@ function RoomSessionBody({
             {timelapseOn && !cameraHidden && cameraExpanded && (
               <div className="relative h-0 w-full shrink-0">
                 <div
+                  // 숨긴 동안에는 화면 읽기에서도 빼서 줄이기 버튼(inert)과 맞춘다.
+                  aria-hidden={cameraGrowing || cameraShrinking}
                   className={cn(
                     "absolute top-4 left-0 flex",
                     CAMERA_CHROME_FADE,
