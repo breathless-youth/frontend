@@ -1,4 +1,5 @@
 import type { PhotoSpec } from "@/features/timelapse/photoFrame";
+import { reportHandled } from "@/lib/sentry";
 
 import type { DetectionSource } from "../detection";
 import type {
@@ -43,6 +44,8 @@ import type { FaceObservation, SleepRule, SleepSignals } from "../vision/sleepRu
 import { evaluateSleep, eyeClosedRatio, NO_SLEEP_SIGNALS } from "../vision/sleepRules";
 import type { EyeCalibration } from "../vision/eyeCalibration";
 import { calibrateEye } from "../vision/eyeCalibration";
+import type { Yawn, YawnState } from "../vision/yawnTracker";
+import { EMPTY_YAWN_STATE, stepYawn } from "../vision/yawnTracker";
 import {
   EYE_AWAKE_CLEAR_SAMPLES,
   EYE_CALIBRATION_SAMPLES,
@@ -57,6 +60,9 @@ import {
   HAND_RESULT_MAX_AGE_MS,
   TOOL_MEMORY_MS,
   SCORE_THRESHOLDS,
+  YAWN_FAST_INTERVAL_MS,
+  YAWN_FAST_TRIGGER,
+  YAWN_FAST_WINDOW_MS,
 } from "../vision/visionConfig";
 
 /**
@@ -244,6 +250,8 @@ export interface VisionFocusDetector extends FocusDetector {
   preload(): void;
   /** 보정 결과. 아직이면 null. 측정 도구가 덩어리에 싣는다. */
   readonly eyeCalibration: EyeCalibration | null;
+  /** 끝난 하품을 받는다. 시각은 벽시계(ms)다. `observeYawns`가 꺼져 있으면 부르지 않는다. */
+  subscribeYawn(listener: (yawn: Yawn) => void): () => void;
   /**
    * 모델·GPU 컨텍스트를 놓는다. **effect cleanup에서 반드시 부른다** —
    * `stop()`은 추론만 멈추고(일시정지) 모델을 들고 있으므로, 세션 이탈에는 이쪽이 필요하다.
@@ -303,6 +311,12 @@ export interface VisionFocusDetectorOptions {
    * 소셜룸은 이 판정 없이 사람·휴대폰·졸음만 본다.
    */
   readonly studyEvidence?: boolean;
+  /**
+   * 하품을 잴지. 기본값은 거짓이다. 싱글룸만 켠다.
+   * 켜면 입 벌림이 `YAWN_FAST_TRIGGER` 이상일 때 얼굴만 촘촘히 따로 잰다. 그 표본은 하품 판정에만 쓰고
+   * 졸음 판정에는 넣지 않는다 — 졸음 기준은 얼굴 주기(2초) 표본으로 맞췄다.
+   */
+  readonly observeYawns?: boolean;
 }
 
 /** 필기 움직임 비교 간격. 손 틱 간격과 같고, 프레임 시각이 조금 밀려도 맞도록 반 프레임 여유를 둔다. */
@@ -369,6 +383,7 @@ export function createVisionFocusDetector(
 
   const sleepEnabled = options.sleepDetection ?? true;
   const evidenceEnabled = options.studyEvidence ?? true;
+  const yawnsEnabled = options.observeYawns ?? false;
 
   const listeners = new Set<(signal: DetectorSignal) => void>();
   const statusListeners = new Set<(status: VisionDetectorStatus) => void>();
@@ -382,6 +397,20 @@ export function createVisionFocusDetector(
   let faceSpot: FaceSpotState = EMPTY_FACE_SPOT;
   let previewOnly = false;
   let running = false;
+  /**
+   * 도는 중인 본 프레임 수. 따로 재는 얼굴 표본은 0이 아니면 쉰다 — 추론 시각이 거꾸로 가면 MediaPipe가 던진다.
+   * 참·거짓이 아니라 수인 까닭: 일시정지 직후 재개하면 멈추기 전 프레임과 새 프레임이 겹쳐 돌고, 옛 프레임이
+   * 먼저 끝나며 표시를 지우면 새 프레임이 도는 중에 표본이 끼어든다.
+   */
+  let framesInFlight = 0;
+  const yawnListeners = new Set<(yawn: Yawn) => void>();
+  let yawnState: YawnState = EMPTY_YAWN_STATE;
+  /** 하품 판정에 마지막으로 넣은 표본 시각. 따로 잰 표본이 본 프레임보다 늦게 돌아오면 이보다 이르다. */
+  let yawnLastAtMs = Number.NEGATIVE_INFINITY;
+  /** 얼굴을 촘촘히 따로 재는 타이머. 창(`YAWN_FAST_WINDOW_MS`)이 끝나면 내린다. */
+  let yawnTimer: ReturnType<typeof setInterval> | null = null;
+  let yawnFastUntilMs = 0;
+  let yawnSampleBusy = false;
   /**
    * 실행 세대.
    *
@@ -505,6 +534,10 @@ export function createVisionFocusDetector(
 
   function resetFrameState(): void {
     dropEvidence();
+    // 멈춘 동안의 하품은 세지 않는다. 진행 중이던 하품도 버린다.
+    stopYawnFast();
+    yawnState = EMPTY_YAWN_STATE;
+    yawnLastAtMs = Number.NEGATIVE_INFINITY;
     // 재개 시점의 첫 프레임은 공백 이후의 프레임이다 — 그 앞 프레임과의 이동량은 의미가 없다.
     previousDetections = null;
     emitted = null;
@@ -768,6 +801,80 @@ export function createVisionFocusDetector(
     }
   }
 
+  /** 입 벌림 표본 하나를 하품 판정에 넣고, 기준을 넘으면 촘촘히 재기를 시작한다. */
+  function observeJaw(jaw: number | null, atMs: number): void {
+    if (atMs < yawnLastAtMs) {
+      return;
+    }
+    yawnLastAtMs = atMs;
+    const step = stepYawn(yawnState, jaw, atMs);
+    yawnState = step.state;
+    if (step.yawn !== null) {
+      // 감지기 시계(`nowMs`)를 벽시계로 옮긴다. 서버는 세션과 같은 벽시계 시각을 받는다.
+      const offsetMs = Date.now() - nowMs();
+      const yawn: Yawn = {
+        startedAtMs: step.yawn.startedAtMs + offsetMs,
+        endedAtMs: step.yawn.endedAtMs + offsetMs,
+        peak: step.yawn.peak,
+      };
+      for (const listener of [...yawnListeners]) {
+        // 본 프레임 경로에서도 불린다. 구독자 오류가 그 프레임의 집중 판정을 끊지 않게 여기서 받는다.
+        try {
+          listener(yawn);
+        } catch (error: unknown) {
+          reportHandled(error, "vision-yawn-listener");
+        }
+      }
+    }
+    if (jaw !== null && jaw >= YAWN_FAST_TRIGGER && yawnTimer === null) {
+      yawnFastUntilMs = atMs + YAWN_FAST_WINDOW_MS;
+      yawnTimer = setInterval(sampleYawn, YAWN_FAST_INTERVAL_MS);
+    }
+  }
+
+  function stopYawnFast(): void {
+    if (yawnTimer !== null) {
+      clearInterval(yawnTimer);
+      yawnTimer = null;
+    }
+  }
+
+  /** 얼굴만 따로 잰다. 본 프레임이 돌거나 직전 표본이 아직이면 이번 차례를 건너뛴다. */
+  function sampleYawn(): void {
+    const atMs = nowMs();
+    if (!running || atMs >= yawnFastUntilMs) {
+      stopYawnFast();
+      return;
+    }
+    if (framesInFlight > 0 || yawnSampleBusy || previewOnly || faceStatus !== "ready") {
+      return;
+    }
+    const element = video();
+    if (
+      element === null ||
+      element.readyState < MIN_VIDEO_READY_STATE ||
+      element.videoWidth === 0
+    ) {
+      return;
+    }
+    const sampleRunId = runId;
+    yawnSampleBusy = true;
+    void faceLandmarker
+      .detect(element, atMs)
+      .then((ran) => {
+        if (ran !== null && sampleRunId === runId) {
+          observeJaw(ran.face.eye?.jawOpen ?? null, atMs);
+        }
+      })
+      .catch((error: unknown) => {
+        // 타이머에서 띄운 처리라 받아 줄 곳이 없다. 구독자 콜백의 예외도 여기로 온다.
+        reportHandled(error, "vision-yawn-sample");
+      })
+      .finally(() => {
+        yawnSampleBusy = false;
+      });
+  }
+
   async function processFrame(): Promise<void> {
     if (!running) {
       return;
@@ -903,6 +1010,9 @@ export function createVisionFocusDetector(
             bounds: faceRan.bounds ?? null,
           };
           faceObserved = gateHeadPitch(faceRan);
+          if (yawnsEnabled && !previewOnly) {
+            observeJaw(faceRan.face.eye?.jawOpen ?? null, atMs);
+          }
           faceSamples = [...faceSamples, faceObserved].slice(-FACE_SMOOTHING_SAMPLES);
           recordEyeReading(faceObserved);
         }
@@ -1106,7 +1216,16 @@ export function createVisionFocusDetector(
     }
   }
 
-  const loop = createFrameLoop({ onFrame: processFrame });
+  const loop = createFrameLoop({
+    onFrame: async () => {
+      framesInFlight += 1;
+      try {
+        await processFrame();
+      } finally {
+        framesInFlight -= 1;
+      }
+    },
+  });
 
   return {
     get status() {
@@ -1191,6 +1310,13 @@ export function createVisionFocusDetector(
 
     preload() {
       ensureLoaded();
+    },
+
+    subscribeYawn(listener) {
+      yawnListeners.add(listener);
+      return () => {
+        yawnListeners.delete(listener);
+      };
     },
 
     subscribeFaceSpot(listener) {

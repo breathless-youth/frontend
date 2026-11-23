@@ -16,6 +16,30 @@ const BASE_INPUT = {
 };
 
 describe("buildSessionRequest", () => {
+  it("관찰 기록은 세션 안으로 맞춰 싣고, 비면 필드를 싣지 않는다", () => {
+    expect(buildSessionRequest({ ...BASE_INPUT, observations: [] })).not.toHaveProperty(
+      "observations",
+    );
+    const req = buildSessionRequest({
+      ...BASE_INPUT,
+      observations: [
+        {
+          type: "YAWN",
+          startedAt: "2026-07-25T01:30:00.000Z",
+          endedAt: "2026-07-25T01:30:04.000Z",
+        },
+        {
+          type: "YAWN",
+          startedAt: "2026-07-25T00:59:00.000Z",
+          endedAt: "2026-07-25T00:59:04.000Z",
+        },
+      ],
+    });
+    expect(req.observations).toEqual([
+      { type: "YAWN", startedAt: "2026-07-25T01:30:00.000Z", endedAt: "2026-07-25T01:30:04.000Z" },
+    ]);
+  });
+
   it("epoch ms를 UTC ISO-8601로 변환하고 events 기본값은 빈 배열이다", () => {
     const req = buildSessionRequest(BASE_INPUT);
     expect(req).toEqual({

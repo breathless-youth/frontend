@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { PhotoSpec } from "@/features/timelapse/photoFrame";
+import type * as Sentry from "@/lib/sentry";
 
 import type { DetectorSignal, PhotoTap } from "../focusDetector";
 import { createVisionFocusDetector } from "../focusDetector";
@@ -17,6 +18,7 @@ import type {
   VisionRuntimeKind,
 } from "../../vision/objectDetector";
 import type { FaceObservation } from "../../vision/sleepRules";
+import type { Yawn } from "../../vision/yawnTracker";
 import {
   EYE_CALIBRATION_DELTA,
   HEAD_PITCH_DOWN_DEG,
@@ -28,7 +30,15 @@ import {
   HAND_FRAME_DIVISOR,
   HAND_PHONE_IDLE_MS,
   SCORE_THRESHOLDS,
+  YAWN_FAST_INTERVAL_MS,
 } from "../../vision/visionConfig";
+
+const sentry = vi.hoisted(() => ({ reportHandled: vi.fn() }));
+
+vi.mock("@/lib/sentry", async (importOriginal) => ({
+  ...(await importOriginal<typeof Sentry>()),
+  reportHandled: sentry.reportHandled,
+}));
 
 /**
  * 추론 코어(`vision/*`)는 자기 테스트를 갖고 있다. 여기서 검증하는 것은 **배선**이다 —
@@ -2605,5 +2615,207 @@ describe("공부 증거 배선", () => {
 
       expect(last(signals, "PHONE")).toBe(true);
     });
+  });
+});
+
+describe("하품", () => {
+  /** 눈은 뜨고 입은 `jaw`만큼 벌린 얼굴. */
+  function mouth(jaw: number): FaceObservation {
+    return {
+      facePresent: true,
+      eye: { eyeBlinkLeft: 0.1, eyeBlinkRight: 0.1, jawOpen: jaw },
+      eyeSkipReason: null,
+    };
+  }
+
+  function yawnVision(faces: readonly FaceObservation[], observeYawns = true) {
+    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
+    const face = fakeFaceLandmarker({ faces });
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      faceLandmarker: face.landmarker,
+      nowMs: () => Date.now(),
+      observeYawns,
+    });
+    const yawns: Yawn[] = [];
+    vision.subscribeYawn((yawn) => yawns.push(yawn));
+    return { vision, faceDetect: face.detect, yawns };
+  }
+
+  /** 0.5초 간격으로 따로 잴 때 하품 최소 길이(2초)를 넘기는 벌린 입 표본. */
+  const OPEN_MOUTH = Array.from({ length: 6 }, () => mouth(0.5));
+
+  /** 얼굴 주기로만 돌 때 이 시간 동안의 얼굴 추론 횟수. */
+  const FACE_TICKS_IN = (ms: number) =>
+    Math.floor(ms / (FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR)) + 1;
+
+  it("입 벌림이 0.03 이상이면 얼굴만 0.5초마다 따로 잰다", async () => {
+    const { vision, faceDetect } = yawnVision([mouth(0.05)]);
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(8000);
+
+    expect(faceDetect.mock.calls.length).toBeGreaterThan(FACE_TICKS_IN(8000) + 8);
+  });
+
+  it("입 벌림이 0.03 미만이면 얼굴 주기로만 잰다", async () => {
+    const { vision, faceDetect } = yawnVision([mouth(0.02)]);
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(8000);
+
+    expect(faceDetect.mock.calls.length).toBeLessThanOrEqual(FACE_TICKS_IN(8000));
+  });
+
+  it("꺼져 있으면 따로 재지 않고 알리지도 않는다", async () => {
+    const { vision, faceDetect, yawns } = yawnVision([mouth(0.5), mouth(0.05)], false);
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(8000);
+
+    expect(faceDetect.mock.calls.length).toBeLessThanOrEqual(FACE_TICKS_IN(8000));
+    expect(yawns).toEqual([]);
+  });
+
+  it("하품이 끝나면 벽시계 시각으로 알린다", async () => {
+    vi.setSystemTime(1_800_000_000_000);
+    const { vision, faceDetect, yawns } = yawnVision([...OPEN_MOUTH, mouth(0.05)]);
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(8000);
+
+    const firstFaceAt = faceDetect.mock.calls[0]?.[1];
+    const lastOpenAt = faceDetect.mock.calls[OPEN_MOUTH.length - 1]?.[1];
+    expect(yawns).toEqual([{ startedAtMs: firstFaceAt, endedAtMs: lastOpenAt, peak: 0.5 }]);
+  });
+
+  it("따로 잰 얼굴은 졸음 보정에 넣지 않는다", async () => {
+    const { vision, faceDetect } = yawnVision([mouth(0.05)]);
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    // 얼굴 주기로는 보정 창(15표본)이 덜 차는 시간이다.
+    await vi.advanceTimersByTimeAsync(CALIBRATION_MS - FRAME_INTERVAL_MS * FACE_FRAME_DIVISOR * 2);
+
+    expect(faceDetect.mock.calls.length).toBeGreaterThan(EYE_CALIBRATION_SAMPLES);
+    expect(vision.eyeCalibration).toBeNull();
+  });
+
+  it("멈추기 전 프레임이 늦게 끝나도 새 프레임이 도는 동안에는 따로 재지 않는다", async () => {
+    const { detector, detect } = fakeObjectDetector({ frames: [personFrame()] });
+    const original = detect.getMockImplementation()!;
+    const gates = new Map<number, { promise: Promise<void>; open: () => void }>();
+    for (const call of [1, 4]) {
+      let open = () => {};
+      const promise = new Promise<void>((resolve) => {
+        open = resolve;
+      });
+      gates.set(call, { promise, open });
+    }
+    let calls = 0;
+    detect.mockImplementation(async (element, atMs) => {
+      calls += 1;
+      await gates.get(calls)?.promise;
+      return original(element, atMs);
+    });
+    const face = fakeFaceLandmarker({ faces: [mouth(0.05)] });
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      faceLandmarker: face.landmarker,
+      nowMs: () => Date.now(),
+      observeYawns: true,
+    });
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    // 첫 프레임의 추론이 끝나기 전에 일시정지했다가 바로 재개한다.
+    vision.stop();
+    vision.start();
+    // 재개 뒤 둘째 프레임의 얼굴이 따로 재기를 열고, 넷째 추론(셋째 프레임)이 멈춰 있다.
+    while (calls < 4) {
+      await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS / 4);
+    }
+    const faceCalls = face.detect.mock.calls.length;
+    gates.get(1)?.open();
+    await vi.advanceTimersByTimeAsync(YAWN_FAST_INTERVAL_MS * 3);
+
+    expect(faceCalls).toBeGreaterThan(0);
+    expect(face.detect.mock.calls.length).toBe(faceCalls);
+    gates.get(4)?.open();
+  });
+
+  it("늦게 끝난 따로 잰 표본이 더 나중 표본 뒤에 와도 하품으로 넣지 않는다", async () => {
+    const { vision, faceDetect, yawns } = yawnVision([mouth(0.05), mouth(0.5), mouth(0.05)]);
+    const original = faceDetect.getMockImplementation()!;
+    let open = () => {};
+    const gate = new Promise<void>((resolve) => {
+      open = resolve;
+    });
+    let calls = 0;
+    faceDetect.mockImplementation(async (...args) => {
+      calls += 1;
+      const result = await original(...args);
+      // 둘째 추론(첫 따로 잰 표본)만 결과가 늦게 돌아온다.
+      if (calls === 2) {
+        await gate;
+      }
+      return result;
+    });
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    // 표본이 멈춘 사이 본 프레임이 얼굴을 다시 잰다.
+    while (calls < 3) {
+      await vi.advanceTimersByTimeAsync(YAWN_FAST_INTERVAL_MS);
+    }
+    await vi.advanceTimersByTimeAsync(0);
+    open();
+    await vi.advanceTimersByTimeAsync(5000);
+
+    expect(yawns).toEqual([]);
+  });
+
+  it("구독자가 던져도 다른 구독자는 하품을 받고 오류는 따로 남긴다", async () => {
+    const { detector } = fakeObjectDetector({ frames: [personFrame()] });
+    const face = fakeFaceLandmarker({ faces: [mouth(0.05), ...OPEN_MOUTH, mouth(0.05)] });
+    const vision = createVisionFocusDetector({
+      video: () => fakeVideo(),
+      detector,
+      faceLandmarker: face.landmarker,
+      nowMs: () => Date.now(),
+      observeYawns: true,
+    });
+    const thrown = new Error("listener failed");
+    vision.subscribeYawn(() => {
+      throw thrown;
+    });
+    const yawns: Yawn[] = [];
+    vision.subscribeYawn((yawn) => yawns.push(yawn));
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(8000);
+
+    expect(yawns).toHaveLength(1);
+    expect(sentry.reportHandled).toHaveBeenCalledWith(thrown, "vision-yawn-listener");
+  });
+
+  it("멈추면 따로 재던 것도 멈춘다", async () => {
+    const { vision, faceDetect } = yawnVision([mouth(0.05)]);
+
+    vision.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(FRAME_INTERVAL_MS);
+    vision.stop();
+    const calls = faceDetect.mock.calls.length;
+    await vi.advanceTimersByTimeAsync(YAWN_FAST_INTERVAL_MS * 6);
+
+    expect(faceDetect.mock.calls.length).toBe(calls);
   });
 });

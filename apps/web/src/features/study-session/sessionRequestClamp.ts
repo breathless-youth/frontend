@@ -1,4 +1,8 @@
-import type { StatusEventPayload, SubjectSegmentPayload } from "@focusmakers/types";
+import type {
+  ObservationPayload,
+  StatusEventPayload,
+  SubjectSegmentPayload,
+} from "@focusmakers/types";
 
 /**
  * 이벤트에 실린 PAUSE 구간의 합을 ms 그대로 돌려준다.
@@ -69,4 +73,36 @@ export function clampSubjectSegments(
     cursorMs = endMs;
   }
   return result;
+}
+
+/** 서버가 받는 관찰 기록 최대 건수. */
+const MAX_OBSERVATIONS = 1000;
+
+/**
+ * 관찰 기록의 서버 규칙을 미리 적용한다 — 시작이 세션 구간 밖이면 버리고, 끝이 경계를 넘으면 경계로 자르고,
+ * 최대 건수까지만 남긴다. 하나라도 어기면 서버가 세션 제출 전체를 400으로 거절해 기록이 사라진다.
+ * 최종 제출과 진행 스냅샷이 함께 쓴다.
+ */
+export function clampObservations(
+  items: readonly ObservationPayload[],
+  startedAtMs: number,
+  boundaryMs: number,
+): ObservationPayload[] {
+  const result: ObservationPayload[] = [];
+  for (const item of items) {
+    const startMs = Date.parse(item.startedAt);
+    if (!(startMs >= startedAtMs && startMs <= boundaryMs)) {
+      continue;
+    }
+    if (item.endedAt === undefined) {
+      result.push(item);
+      continue;
+    }
+    const endMs = Math.min(Date.parse(item.endedAt), boundaryMs);
+    if (!(endMs >= startMs)) {
+      continue;
+    }
+    result.push({ ...item, endedAt: new Date(endMs).toISOString() });
+  }
+  return result.slice(0, MAX_OBSERVATIONS);
 }
