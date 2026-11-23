@@ -1188,7 +1188,7 @@ describe("RoomPage — S3-4 심플 모드", () => {
     expect(surface().className).toContain("w-27");
   });
 
-  it("타임랩스를 켠 계정은 카메라를 키워도 타임랩스 필이 남는다", async () => {
+  it("타임랩스를 켠 계정은 카메라를 키우면 타임랩스 필이 과목 줄 아래로 올라간다", async () => {
     await saveTimelapseSettings({ ...DEFAULT_TIMELAPSE_SETTINGS, enabled: true });
     renderRoom("/room/7?userId=1");
     const expand = await screen.findByRole("button", { name: "내 화면 크게 보기" });
@@ -1196,8 +1196,11 @@ describe("RoomPage — S3-4 심플 모드", () => {
 
     await userEvent.click(expand);
 
-    expect(screen.getByText("타임랩스")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "작게 보기" })).toBeInTheDocument();
+    const pill = screen.getByText("타임랩스");
+    const shrink = screen.getByRole("button", { name: "작게 보기" });
+    // 작은 창에서는 왼쪽 아래지만, 키우면 줄이기 버튼 줄이 아니라 머리 줄 다음(왼쪽 위)에 놓인다.
+    expect(shrink.parentElement!.contains(pill)).toBe(false);
+    expect(pill.compareDocumentPosition(shrink) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     await saveTimelapseSettings(DEFAULT_TIMELAPSE_SETTINGS);
   });
 
