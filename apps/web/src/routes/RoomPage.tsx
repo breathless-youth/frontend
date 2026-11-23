@@ -1454,15 +1454,20 @@ function RoomSessionBody({
               </div>
             </div>
 
-            {wallpaper && timelapseOn && !cameraHidden && cameraExpanded && (
-              <div
-                className={cn(
-                  "mt-4 flex shrink-0 self-start",
-                  CAMERA_CHROME_FADE,
-                  cameraShrinking && "opacity-0",
-                )}
-              >
-                {expandedTimelapsePill}
+            {/* 카메라를 키우면 타임랩스 필은 머리 줄 아래 왼쪽에 띄운다. 높이 0인 자리에 띄워 아래 시계를 밀지 않는다.
+                작은 창에서는 창 안 왼쪽 아래 이름표가 대신한다. */}
+            {timelapseOn && !cameraHidden && cameraExpanded && (
+              <div className="relative h-0 w-full shrink-0">
+                <div
+                  className={cn(
+                    "absolute top-4 left-0 flex",
+                    CAMERA_CHROME_FADE,
+                    // 키우는 동안 숨겼다가 다 커진 뒤 서서히 나타낸다. 줄일 때는 먼저 사라진다.
+                    (cameraGrowing || cameraShrinking) && "opacity-0",
+                  )}
+                >
+                  {expandedTimelapsePill}
+                </div>
               </div>
             )}
 
@@ -1531,21 +1536,20 @@ function RoomSessionBody({
             </div>
             <div className="grow" />
 
-            {/* 내 카메라 작은 창. 누르면 화면 전체로 키우고, 확대 중에는 같은 자리의 버튼으로 다시 줄인다. */}
+            {/* 내 카메라 작은 창. 이름표는 왼쪽 아래, 키우기 아이콘은 오른쪽 아래다. 창 폭이 좁아 둘 다 작게 둬야 한 줄에서 겹치지 않는다.
+                누르면 화면 전체로 키우고, 확대 중에는 같은 자리의 버튼으로 다시 줄인다. */}
             {!cameraHidden &&
               (cameraExpanded ? (
-                // 확대 중에는 작은 창의 이름표가 사라지므로 타임랩스 필을 같은 줄 왼쪽 끝에 따로 띄운다(시안 21d).
-                // 월페이퍼 배치는 그 자리에 시간 묶음이 있어 필을 과목 줄 아래로 올린다.
+                // 확대 중 타임랩스 필은 머리 줄 아래에 따로 띄우고, 이 줄에는 줄이기 버튼만 둔다.
                 <div
                   inert={cameraShrinking}
                   className={cn(
                     PIP_ANCHOR,
-                    "left-[calc(env(safe-area-inset-left)+16px)] flex h-11 items-center justify-between landscape-compact:left-[max(env(safe-area-inset-left),16px)]",
+                    "flex h-11 items-center",
                     CAMERA_CHROME_FADE,
                     cameraShrinking && "opacity-0",
                   )}
                 >
-                  {timelapseOn && !wallpaper ? expandedTimelapsePill : <span />}
                   <button
                     type="button"
                     inert={moreMenuOpen}
@@ -1573,15 +1577,15 @@ function RoomSessionBody({
                 >
                   <span
                     className={cn(
-                      "m-2 inline-flex items-center gap-1.25 rounded-full bg-(--session-pill-bg) px-2 py-0.5 text-xs leading-4 whitespace-nowrap",
+                      "m-1.5 inline-flex items-center gap-1 rounded-full bg-(--session-pill-bg) px-1.5 py-px text-[11px] leading-3.25 whitespace-nowrap",
                       timelapseOn ? "font-semibold text-white" : "text-white/85",
                     )}
                   >
                     {timelapseOn && <span aria-hidden="true" className={TIMELAPSE_DOT} />}
                     {timelapseOn ? t("camera.timelapse") : t("camera.label")}
                   </span>
-                  <span className="absolute top-2 right-2 flex size-7 items-center justify-center rounded-full bg-(--session-pill-bg) backdrop-blur-[10px]">
-                    <ExpandGlyph aria-hidden="true" className="size-4" />
+                  <span className="absolute right-1.5 bottom-1.5 flex size-6 items-center justify-center rounded-full bg-(--session-pill-bg) backdrop-blur-[10px]">
+                    <ExpandGlyph aria-hidden="true" className="size-3.5" />
                   </span>
                 </button>
               ))}
