@@ -113,6 +113,23 @@ describe("SessionClock 심플 모드 상태색", () => {
     expect(number().style.textShadow).toContain("var(--session-glow-near)");
   });
 
+  it("공부 시작 카운트다운 숫자는 상태색·발광 없이 흰색으로 보인다", () => {
+    renderClock({ simple: true, countdown: { left: 3, inClock: true } });
+
+    expect(number()).toHaveTextContent("3");
+    expect(number()).toHaveClass("text-white");
+    expect(number()).not.toHaveClass("text-(--session-state-color)");
+    expect(number().style.textShadow).toBe("");
+  });
+
+  it("카운트다운 동안 라벨 자리에 기기 거치와 자세 유지 안내를 보인다", () => {
+    renderClock({ simple: true, countdown: { left: 3, inClock: true } });
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "기기를 세워 두고 바른 자세를 유지해 주세요",
+    );
+  });
+
   it("유예면 숫자가 상태색을 유지한 채 0.6까지 옅어졌다 돌아온다", () => {
     renderClock({ simple: true, state: "grace", statusLabel: "공부 상태를 확인 중이에요" });
 

@@ -99,7 +99,7 @@ export function SessionClock({
     countdown !== null
       ? {
           key: "countdown",
-          text: t("countdown.startingSoon"),
+          text: t("countdown.holdPosture"),
           tone: corner ? "text-white/80" : "text-white/60",
         }
       : {
@@ -156,12 +156,16 @@ export function SessionClock({
     </p>
   );
   // 유예에도 순공은 흐르므로 숫자는 흰색(심플 모드는 상태색)으로 두고, 멈춘 동안만 회색으로 둔다.
+  // 공부 시작 카운트다운 숫자는 아직 상태가 없으므로 상태색 없이 흰색으로 센다.
+  const countingInClock = countdown?.inClock === true;
   const numberColor = cn(
-    stateColored
-      ? "text-(--session-state-color)"
-      : state === "focus" || state === "grace"
-        ? "text-white"
-        : "text-text-tertiary",
+    countingInClock
+      ? "text-white"
+      : stateColored
+        ? "text-(--session-state-color)"
+        : state === "focus" || state === "grace"
+          ? "text-white"
+          : "text-text-tertiary",
     state === "grace" && GRACE_NUMBER_PULSE,
   );
   const sessionTime = countdown?.inClock ? (
@@ -239,7 +243,7 @@ export function SessionClock({
               : "landscape-compact:text-[44px] landscape-compact:leading-13",
             numberColor,
           )}
-          style={stateColored ? { textShadow: GLOW_TEXT_SHADOW } : undefined}
+          style={stateColored && !countingInClock ? { textShadow: GLOW_TEXT_SHADOW } : undefined}
         >
           {sessionTime}
         </p>

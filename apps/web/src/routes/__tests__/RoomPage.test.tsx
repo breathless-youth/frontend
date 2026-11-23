@@ -643,7 +643,9 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
       expect(screen.queryByTestId("session-countdown")).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "공부 종료" })).toBeInTheDocument();
       expect(screen.getByTestId("camera-countdown")).toHaveTextContent("3");
-      expect(screen.getByRole("status")).toHaveTextContent("곧 시작해요");
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "기기를 세워 두고 바른 자세를 유지해 주세요",
+      );
       expect(screen.getByTestId("session-clock-number")).toHaveTextContent("00:00:00");
 
       await act(async () => {

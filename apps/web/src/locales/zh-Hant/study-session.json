@@ -1,6 +1,6 @@
 {
   "countdown": {
-    "startingSoon": "即將開始"
+    "holdPosture": "請把裝置立好，並保持端正的姿勢"
   },
   "status": {
     "focus": "正在測量專注時間",

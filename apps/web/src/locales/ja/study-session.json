@@ -1,6 +1,6 @@
 {
   "countdown": {
-    "startingSoon": "まもなく始まります"
+    "holdPosture": "端末を立てて、正しい姿勢を保ってください"
   },
   "status": {
     "focus": "集中時間を測定中",
