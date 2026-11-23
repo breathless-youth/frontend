@@ -1332,7 +1332,7 @@ function RoomSessionBody({
       )}
       {counting && (
         <span className="sr-only" aria-live="polite">
-          {countdownLeft}
+          {t("countdown.srUntilStart", { seconds: countdownLeft })}
         </span>
       )}
 

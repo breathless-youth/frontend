@@ -1,6 +1,6 @@
 {
   "countdown": {
-    "holdPosture": "기기를 세워 두고 바른 자세를 유지해 주세요"
+    "srUntilStart": "공부 시작까지 {{seconds}}초"
   },
   "status": {
     "focus": "순공시간 측정 중",

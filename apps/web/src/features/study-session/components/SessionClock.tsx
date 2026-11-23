@@ -35,7 +35,7 @@ export interface SessionClockProps {
   /** 월페이퍼 위 배치. 왼쪽 정렬이고 글자 그림자를 깐다. */
   corner?: boolean;
   /**
-   * 공부 시작 카운트다운. 있으면 라벨 자리에 시작 안내를 띄운다.
+   * 공부 시작 카운트다운. 있으면 라벨 자리를 비워 둔다.
    * `inClock`이면 카메라 창이 안 보이는 화면이라 큰 숫자 자리에서 남은 초를 센다.
    */
   countdown?: { left: number; inClock: boolean } | null;
@@ -99,7 +99,8 @@ export function SessionClock({
     countdown !== null
       ? {
           key: "countdown",
-          text: t("countdown.holdPosture"),
+          // 카운트다운 동안은 숫자만 센다. 글은 비우되 0이 되어 라벨이 나타날 때 시계가 움직이지 않게 자리는 남긴다.
+          text: "\u00a0",
           tone: corner ? "text-white/80" : "text-white/60",
         }
       : {

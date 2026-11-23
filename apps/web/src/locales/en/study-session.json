@@ -1,6 +1,6 @@
 {
   "countdown": {
-    "holdPosture": "Set your device upright and maintain good posture"
+    "srUntilStart": "Starting in {{seconds}}"
   },
   "status": {
     "focus": "Measuring focus time",
