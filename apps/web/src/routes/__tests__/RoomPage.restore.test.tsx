@@ -189,14 +189,28 @@ describe("RoomPage 복원 게이트", () => {
     expect(useStudyRoomSession).toHaveBeenCalled();
   });
 
-  it("새 세션은 카운트다운 동안 세션을 시작하지 않는다", () => {
+  it("새 세션은 세션 훅을 카운트다운 단계로 연다", () => {
     setSessionCountdownSecondsForTest(3);
     useActiveSessionRestore.mockReturnValue({ settled: true, restored: null });
 
     renderRoom();
 
-    expect(screen.getByTestId("session-countdown")).toBeInTheDocument();
-    expect(useStudyRoomSession).not.toHaveBeenCalled();
+    expect(useStudyRoomSession).toHaveBeenCalledWith(
+      7,
+      expect.objectContaining({ countdown: true }),
+    );
+  });
+
+  it("이어받은 세션은 카운트다운 없이 연다", () => {
+    setSessionCountdownSecondsForTest(3);
+    useActiveSessionRestore.mockReturnValue({ settled: true, restored: RESTORED });
+
+    renderRoom();
+
+    expect(useStudyRoomSession).toHaveBeenCalledWith(
+      7,
+      expect.objectContaining({ countdown: false }),
+    );
   });
 
   it("카운트다운 중에 나가도 감지 모델을 닫는다", () => {
@@ -204,7 +218,6 @@ describe("RoomPage 복원 게이트", () => {
     useActiveSessionRestore.mockReturnValue({ settled: true, restored: null });
 
     const { unmount } = renderRoom();
-    expect(screen.getByTestId("session-countdown")).toBeInTheDocument();
     unmount();
 
     expect(visionCloses.at(-1)).toHaveBeenCalled();

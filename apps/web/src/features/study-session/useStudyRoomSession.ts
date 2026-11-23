@@ -109,6 +109,8 @@ const CAMERA_PREVIEW_FADE_MS = 300;
 
 /** 제출 라이프사이클. 세션 내부 상태(FOCUS/DISTRACTION/PAUSE)와는 **다른 축**이다. */
 export type StudyRoomPhase =
+  /** 공부 시작 카운트다운. 시계·판정·서버 보고가 돌지 않고 `startStudying()`을 기다린다. */
+  | { name: "counting" }
   | { name: "studying" }
   | { name: "submitting" }
   | { name: "done"; sessions: StudySessionResponse[] }
@@ -145,6 +147,11 @@ export interface StudyRoomSessionOptions {
    * `detectionParams`를 따로 주지 않으면 감지 시간도 이 값으로 고른다. 싱글룸만 유예를 쓴다.
    */
   readonly roomType?: StudyRoomType;
+  /**
+   * 새 세션을 공부 시작 카운트다운 단계로 연다. 그동안 카메라와 감지기는 켜지지만 시계·판정·서버 보고는 돌지 않고,
+   * `startStudying()`을 부른 순간이 세션 시작 시각이 된다. 이어받은 세션에는 적용하지 않는다.
+   */
+  readonly countdown?: boolean;
   /**
    * 제출 직전에 "이 세션에서 완료한 할 일 id"를 돌려준다. 과목 목록은 화면(`useSubjects`)이 들고 있어
    * 훅이 모른다. 다른 옵션과 달리 매 렌더 ref로 갱신해 제출 시점의 최신 함수를 부른다. 세션 시작 시각은
@@ -218,6 +225,25 @@ export interface EndedSession {
   readonly events: readonly StatusEventPayload[];
 }
 
+/** 새 세션의 초기 상태. 마운트할 때와 카운트다운이 끝나 실제로 시작할 때 같은 모양을 만든다. */
+function newSessionInitial(startedAtMs: number, initialSubjectId: number | undefined) {
+  return {
+    startedAtMs,
+    timeline: createSessionTimeline(startedAtMs),
+    baseStudySec: 0,
+    baseFocusSec: 0,
+    priorEvents: [] as StatusEventPayload[],
+    serverSeenMs: 0,
+    restored: false,
+    subjectTracker:
+      initialSubjectId !== undefined &&
+      Number.isSafeInteger(initialSubjectId) &&
+      initialSubjectId > 0
+        ? selectSubjectSegment(createSubjectSegmentTracker(), initialSubjectId, startedAtMs)
+        : createSubjectSegmentTracker(),
+  };
+}
+
 /** 서버가 준 이벤트 뒤에 타임라인이 만든 이벤트를 잇는다. 화면과 제출이 같은 규칙을 쓰게 한 곳에 둔다. */
 function buildEvents(
   priorEvents: readonly StatusEventPayload[],
@@ -279,29 +305,10 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    * 끝나는 일시정지다. 그대로 두고 공백을 이어 붙이면 일시정지가 2회로 세져, 사용자가 한 번
    * 누른 것이 결과 화면에 두 번으로 보인다. 그래서 그 이벤트를 빼고 그 시작 시각부터 연다.
    */
-  const [initial] = useState(() => {
+  const [initial, setInitial] = useState(() => {
     const restored = options.restored ?? null;
     if (restored === null) {
-      const startedAtMs = Date.now();
-      return {
-        startedAtMs,
-        timeline: createSessionTimeline(startedAtMs),
-        baseStudySec: 0,
-        baseFocusSec: 0,
-        priorEvents: [] as StatusEventPayload[],
-        serverSeenMs: 0,
-        restored: false,
-        subjectTracker:
-          options.initialSubjectId !== undefined &&
-          Number.isSafeInteger(options.initialSubjectId) &&
-          options.initialSubjectId > 0
-            ? selectSubjectSegment(
-                createSubjectSegmentTracker(),
-                options.initialSubjectId,
-                startedAtMs,
-              )
-            : createSubjectSegmentTracker(),
-      };
+      return newSessionInitial(Date.now(), options.initialSubjectId);
     }
     const priorEvents = [...restored.events];
     const last = priorEvents[priorEvents.length - 1];
@@ -469,7 +476,9 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    * 화면을 떠난 뒤 끝난 재획득이 실패 알림을 내지 않게 한다.
    */
   const cameraActiveRef = useRef(false);
-  const [phase, setPhase] = useState<StudyRoomPhase>({ name: "studying" });
+  const [phase, setPhase] = useState<StudyRoomPhase>(() =>
+    options.countdown === true && !initial.restored ? { name: "counting" } : { name: "studying" },
+  );
   const [endReason, setEndReason] = useState<SessionEndReason | null>(null);
   /**
    * 일시정지 시작 **벽시계** 시각 스냅샷 — 자동 종료 감시자(`usePauseAutoEnd`)의 유일한 입력.
@@ -521,17 +530,23 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   );
 
   /**
-   * 세션 시작 이벤트 — 스터디룸 진입이 곧 세션 시작이다(별도 시작 버튼이 없다).
+   * 세션 시작 이벤트 — 새 세션은 카운트다운이 끝나 공부를 시작하는 순간, 이어받은 세션은 진입하는 순간이다.
    * 세션 완주율(시작 대비 `study_session_ended`)의 분모가 된다.
    *
-   * 계측만 하고 세션 로직에는 관여하지 않으므로 의존성 없는 마운트 1회 이펙트로 둔다.
+   * 계측만 하고 세션 로직에는 관여하지 않는다. 처음 공부 중이 될 때 한 번만 보낸다.
    */
+  const startTrackedRef = useRef(false);
   useEffect(() => {
+    // 카운트다운이 끝나 실제로 공부를 시작한 순간에 한 번만 보낸다.
+    if (phase.name !== "studying" || startTrackedRef.current) {
+      return;
+    }
+    startTrackedRef.current = true;
     // 복원 진입은 같은 세션의 두 번째 "시작"이다 — 완주율 분모가 부풀지 않게 표시해서 보낸다.
     trackStudySessionStarted(roomType, initial.restored);
     // Meta 광고 전환 — 복원 진입은 함수 안에서 걸러진다.
     trackMetaStudySessionStarted(roomType, initial.restored);
-  }, [roomType, initial.restored]);
+  }, [phase.name, roomType, initial.restored]);
 
   /**
    * 순공 1분 달성 이벤트
@@ -647,6 +662,17 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
 
   useEffect(() => {
     cameraActiveRef.current = true;
+    return () => {
+      cameraActiveRef.current = false;
+    };
+  }, []);
+
+  // 감지는 공부를 시작한 뒤에만 켠다. 카운트다운 동안에는 카메라 미리보기만 보인다.
+  const counting = phase.name === "counting";
+  useEffect(() => {
+    if (counting) {
+      return;
+    }
     detector.start();
     const unsubscribe = detector.subscribe((signal) => {
       const next = { ...signalsRef.current, [signal.source]: signal.active };
@@ -656,11 +682,10 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       detectionRef.current = stepDetection(detectionRef.current, next, Date.now(), detectionParams);
     });
     return () => {
-      cameraActiveRef.current = false;
       unsubscribe();
       detector.stop();
     };
-  }, [detectionParams, detector]);
+  }, [counting, detectionParams, detector]);
 
   /**
    * 끊긴 카메라 다시 잡기
@@ -825,7 +850,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    */
   const pause = useCallback(
     (trigger: PauseTrigger = "MANUAL") => {
-      if (isSessionHeld(currentState(timelineRef.current))) {
+      if (counting || isSessionHeld(currentState(timelineRef.current))) {
         return;
       }
       applyState(pauseState(trigger));
@@ -834,7 +859,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         trackStudySessionPaused(trigger, roomType);
       }
     },
-    [applyState, roomType],
+    [applyState, counting, roomType],
   );
 
   /**
@@ -864,11 +889,39 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   };
 
   /**
+   * 카운트다운이 끝나 실제로 공부를 시작한다
+   *
+   * 지금 시각을 세션 시작 시각으로 다시 잡고 타임라인·과목 구간·화면 집계를 그 시각에서 새로 연다.
+   * 카운트다운 동안 감지기가 이미 켜져 있었으므로 그 사이 쌓인 유지시간은 버리고 판정을 처음부터 다시 센다.
+   */
+  const startStudying = () => {
+    if (phase.name !== "counting") {
+      return;
+    }
+    const nowMs = Date.now();
+    const next = newSessionInitial(nowMs, options.initialSubjectId);
+    startedAtMsRef.current = nowMs;
+    timelineRef.current = next.timeline;
+    setTimeline(next.timeline);
+    subjectTrackerRef.current = next.subjectTracker;
+    setSubjectTracker(next.subjectTracker);
+    detectionRef.current = restartDetection(signalsRef.current, nowMs);
+    setSessionState(currentState(next.timeline));
+    setGrace(false);
+    setDisplay({ totals: computeSessionTotals(next.timeline, nowMs), nowMs });
+    setInitial(next);
+    setPhase({ name: "studying" });
+  };
+
+  /**
    * 재개
    *
    * 집중으로 돌아가고, 감지가 아직 살아 있으면 다음 tick에서 비집중으로 다시 넘어간다.
    */
   const resume = () => {
+    if (counting) {
+      return;
+    }
     applyStateTrackingResume(FOCUS_STATE);
     // 일시정지 중에도 카메라를 켜 두는 소셜룸에서, 복귀 때 다시 잡지 못했으면 한 번 더 시도한다.
     // 재개는 기다리지 않는다. 카메라가 없어도 세션은 이어진다.
@@ -883,6 +936,9 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    * 집중이나 비집중에서 들어오는 휴식은 사용자가 멈춘 것이 아니라서 아무 계측도 남기지 않는다.
    */
   const startBreak = () => {
+    if (counting) {
+      return;
+    }
     if (isBreak(currentState(timelineRef.current))) {
       return;
     }
@@ -895,6 +951,9 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    * 휴식이 아닐 때 집중으로 돌리면 사용자가 건 일시정지가 풀리므로 휴식일 때만 움직인다.
    */
   const endBreak = () => {
+    if (counting) {
+      return;
+    }
     if (!isBreak(currentState(timelineRef.current))) {
       return;
     }
@@ -936,6 +995,9 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    * 제출이 endedAt에서 구간을 닫으므로 그 뒤의 전환은 보내지지 않는다 — 막지 않는다.
    */
   const selectSubject = (next: SubjectSelection | null) => {
+    if (counting) {
+      return;
+    }
     const nowMs = Date.now();
     subjectTrackerRef.current = selectSubjectSegment(subjectTrackerRef.current, next, nowMs);
     setSubjectTracker(subjectTrackerRef.current);
@@ -970,7 +1032,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    */
   const endAndSubmit = useCallback(
     async (reason: SessionEndReason = MANUAL_END_REASON) => {
-      if (submitInFlightRef.current) {
+      // 카운트다운 동안에는 아직 시작한 세션이 없다.
+      if (counting || submitInFlightRef.current) {
         return;
       }
       if (endReasonRef.current == null) endReasonRef.current = reason;
@@ -1093,7 +1156,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           submitInFlightRef.current = false;
         });
     },
-    [allEvents, initial.serverSeenMs, initial.startedAtMs, roomType, userId, withBase],
+    [allEvents, counting, initial.serverSeenMs, initial.startedAtMs, roomType, userId, withBase],
   );
 
   /**
@@ -1129,7 +1192,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
      * 세션 시작 시각
      *
      * 이어받은 세션은 서버가 준 시각이다.
-     * 마운트 뒤 바뀌지 않는다.
+     * 새 세션은 카운트다운이 끝나는 순간 한 번 다시 정해지고, 그 뒤로는 바뀌지 않는다.
      */
     startedAtMs: initial.startedAtMs,
     /** 순공 시간(초) — 비집중·일시정지에서 멈춘다. */
@@ -1185,6 +1248,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       display.nowMs,
     ),
     selectSubject,
+    startStudying,
     pause,
     resume,
     startBreak,

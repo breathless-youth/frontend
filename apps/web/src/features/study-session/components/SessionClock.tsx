@@ -34,6 +34,11 @@ export interface SessionClockProps {
   fake?: boolean;
   /** 월페이퍼 위 배치. 왼쪽 정렬이고 글자 그림자를 깐다. */
   corner?: boolean;
+  /**
+   * 공부 시작 카운트다운. 있으면 라벨 자리에 시작 안내를 띄운다.
+   * `inClock`이면 카메라 창이 안 보이는 화면이라 큰 숫자 자리에서 남은 초를 센다.
+   */
+  countdown?: { left: number; inClock: boolean } | null;
 }
 
 /** 상태가 바뀔 때 색이 툭 바뀌지 않게 서서히 옮긴다. */
@@ -81,6 +86,7 @@ export function SessionClock({
   callouts,
   fake = false,
   corner = false,
+  countdown = null,
 }: SessionClockProps) {
   const { t } = useTranslation("study-session");
   const focusView = view === "focus";
@@ -89,20 +95,27 @@ export function SessionClock({
   const sessionSec = focusView ? focusSec : studySec;
   const todaySec = focusView ? todayFocusSec : todayStudySec;
   const label = focusView ? t("clock.currentFocus") : t("clock.currentStudy");
-  const shown: ShownLabel = {
-    key: state === "focus" ? `focus-${view}` : `${state}-${statusLabel}`,
-    text: state === "focus" ? label : statusLabel,
-    tone:
-      state === "focus"
-        ? corner
-          ? "text-white/80"
-          : "text-white/60"
-        : state === "grace"
-          ? "text-white/85"
-          : state === "distract" && stateColored
-            ? "text-(--state-distract)"
-            : "text-text-tertiary",
-  };
+  const shown: ShownLabel =
+    countdown !== null
+      ? {
+          key: "countdown",
+          text: t("countdown.startingSoon"),
+          tone: corner ? "text-white/80" : "text-white/60",
+        }
+      : {
+          key: state === "focus" ? `focus-${view}` : `${state}-${statusLabel}`,
+          text: state === "focus" ? label : statusLabel,
+          tone:
+            state === "focus"
+              ? corner
+                ? "text-white/80"
+                : "text-white/60"
+              : state === "grace"
+                ? "text-white/85"
+                : state === "distract" && stateColored
+                  ? "text-(--state-distract)"
+                  : "text-text-tertiary",
+        };
   // 문구가 바뀐 렌더에서 앞 문구를 붙잡아 두고, 사라지는 애니메이션이 끝나면 놓는다.
   const [current, setCurrent] = useState(shown);
   const [leaving, setLeaving] = useState<ShownLabel | null>(null);
@@ -151,7 +164,9 @@ export function SessionClock({
         : "text-text-tertiary",
     state === "grace" && GRACE_NUMBER_PULSE,
   );
-  const sessionTime = (
+  const sessionTime = countdown?.inClock ? (
+    <span aria-hidden="true">{countdown.left}</span>
+  ) : (
     <>
       <span aria-hidden="true">{formatElapsed(sessionSec)}</span>
       <span className="sr-only">

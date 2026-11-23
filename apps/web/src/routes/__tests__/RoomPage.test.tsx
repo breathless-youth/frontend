@@ -635,26 +635,82 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     }
   });
 
-  it("새 세션은 3초 카운트다운이 끝난 뒤에 세션 화면을 띄운다", async () => {
+  it("새 세션은 세션 화면을 바로 띄우고 카메라 작은 창 안에서 3초를 센다", async () => {
     setSessionCountdownSecondsForTest(3);
     vi.useFakeTimers();
     try {
       renderRoom("/room/7?userId=1&detector=mock");
-      const countdown = screen.getByTestId("session-countdown");
-      expect(countdown).toHaveTextContent("3");
-      expect(countdown).toHaveTextContent("공부 감지를 준비하고 있어요");
-      expect(screen.queryByRole("button", { name: "공부 종료" })).not.toBeInTheDocument();
+      expect(screen.queryByTestId("session-countdown")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "공부 종료" })).toBeInTheDocument();
+      expect(screen.getByTestId("camera-countdown")).toHaveTextContent("3");
+      expect(screen.getByRole("status")).toHaveTextContent("곧 시작해요");
+      expect(screen.getByTestId("session-clock-number")).toHaveTextContent("00:00:00");
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(2000);
       });
-      expect(screen.getByTestId("session-countdown")).toHaveTextContent("1");
+      expect(screen.getByTestId("camera-countdown")).toHaveTextContent("1");
+      expect(screen.getByTestId("session-clock-number")).toHaveTextContent("00:00:00");
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(1000);
       });
-      expect(screen.queryByTestId("session-countdown")).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "공부 종료" })).toBeInTheDocument();
+      expect(screen.queryByTestId("camera-countdown")).not.toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent("현재 집중");
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+      expect(screen.getByTestId("session-clock-number")).toHaveTextContent("00:00:02");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("카운트다운 동안 일시정지·종료와 과목 선택은 누를 수 없다", async () => {
+    setSessionCountdownSecondsForTest(3);
+    vi.useFakeTimers();
+    try {
+      renderRoom("/room/7?userId=1&detector=mock");
+
+      expect(screen.getByRole("button", { name: "공부 종료" }).closest("[inert]")).not.toBeNull();
+      expect(screen.getByRole("button", { name: "더보기" }).closest("[inert]")).not.toBeNull();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3000);
+      });
+      expect(screen.getByRole("button", { name: "공부 종료" }).closest("[inert]")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("카운트다운 중에 공부 종료를 눌러도 종료 확인 창을 띄우지 않고 제출하지 않는다", async () => {
+    setSessionCountdownSecondsForTest(3);
+    vi.useFakeTimers();
+    try {
+      renderRoom("/room/7?userId=1&detector=mock");
+      fireEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      expect(submitStudySession).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("심플 모드에서는 카메라 창 대신 시계 숫자 자리에서 센다", async () => {
+    setSessionCountdownSecondsForTest(3);
+    vi.useFakeTimers();
+    try {
+      renderRoom("/room/7?userId=1&detector=mock");
+      fireEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
+
+      expect(screen.queryByTestId("camera-countdown")).not.toBeInTheDocument();
+      expect(screen.getByTestId("session-clock-number")).toHaveTextContent("3");
     } finally {
       vi.useRealTimers();
     }

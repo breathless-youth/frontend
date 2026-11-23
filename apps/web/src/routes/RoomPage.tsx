@@ -38,8 +38,8 @@ import { createDeviceHandlingDetector } from "@/features/study-session/adapters/
 import { combineFocusDetectors } from "@/features/study-session/adapters/focusDetector";
 import type { VisionFocusDetector } from "@/features/study-session/adapters/focusDetector";
 import { createTouchDetector } from "@/features/study-session/adapters/touchDetector";
-import { SessionCountdown } from "@/features/study-session/components/SessionCountdown";
 import { sessionCountdownSeconds } from "@/features/study-session/sessionCountdown";
+import { useSessionCountdown } from "@/features/study-session/useSessionCountdown";
 import { createMediaStreamCameraAdapter } from "@/features/study-session/adapters/mediaStreamCamera";
 import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice";
 import { CameraPreviewSurface } from "@/features/study-session/components/CameraPreviewSurface";
@@ -336,7 +336,7 @@ interface RoomSessionScreenProps {
  * 세션 준비
  *
  * 카메라·감지기·타임랩스를 먼저 만들고, 새 세션이면 카운트다운 동안 감지 모델을 미리 불러온다.
- * 세션 시각은 안쪽 화면이 마운트될 때 정해지므로 카운트다운 시간은 공부 시간에 들어가지 않는다.
+ * 카운트다운은 세션 화면 위에서 세고, 세션 시각은 카운트다운이 끝난 순간 정해지므로 공부 시간에 들어가지 않는다.
  */
 function RoomSessionScreen(props: RoomSessionScreenProps) {
   const [camera] = useState(createMediaStreamCameraAdapter);
@@ -358,13 +358,11 @@ function RoomSessionScreen(props: RoomSessionScreenProps) {
     timelapse.photoTap,
   );
   const [countdown] = useState(() => (props.restored === null ? sessionCountdownSeconds() : 0));
-  const [counting, setCounting] = useState(countdown > 0);
-  const finishCountdown = useCallback(() => setCounting(false), []);
   useEffect(() => {
-    if (counting) {
+    if (countdown > 0) {
       visionDetector.preload();
     }
-  }, [counting, visionDetector]);
+  }, [countdown, visionDetector]);
   /**
    * 세션 이탈 — 모델과 GPU 컨텍스트를 해제한다.
    * `stop()`은 추론만 멈추고 모델을 들고 있으므로 이게 없으면 wasm 힙과 GPU 컨텍스트가 orphan이 된다
@@ -377,12 +375,10 @@ function RoomSessionScreen(props: RoomSessionScreenProps) {
       visionDetector.close();
     };
   }, [visionDetector]);
-  if (counting) {
-    return <SessionCountdown seconds={countdown} onDone={finishCountdown} />;
-  }
   return (
     <RoomSessionBody
       {...props}
+      countdownSeconds={countdown}
       camera={camera}
       videoRef={videoRef}
       timelapse={timelapse}
@@ -402,7 +398,10 @@ function RoomSessionBody({
   timelapse,
   visionDetector,
   visionReady,
+  countdownSeconds,
 }: RoomSessionScreenProps & {
+  /** 공부 시작 카운트다운 길이(초). 0이면 바로 시작한다(이어받은 세션). */
+  countdownSeconds: number;
   camera: ReturnType<typeof createMediaStreamCameraAdapter>;
   videoRef: RefObject<HTMLVideoElement | null>;
   timelapse: ReturnType<typeof createTimelapseRecorder>;
@@ -477,6 +476,7 @@ function RoomSessionBody({
     subjectSegments,
     sessionEvents,
     selectSubject,
+    startStudying,
     pause,
     resume,
     startBreak,
@@ -487,6 +487,7 @@ function RoomSessionBody({
     camera,
     detector,
     restored,
+    countdown: countdownSeconds > 0,
     initialSubjectId,
     // 과목 목록은 아래 useSubjects가 들고 있어 훅 뒤에 온다 — 제출 시점에 ref로 읽는다(옵션 주석 참고).
     getCompletedTaskIds: (startedAtMs) =>
@@ -502,10 +503,16 @@ function RoomSessionBody({
     onEnded: timelapse.finish,
     onCameraLost: () => showCtaToast(t("cameraToast.cameraOff")),
   });
+  /** 공부 시작 카운트다운의 남은 초. 다 세면 세션이 시작된다. */
+  const countdownLeft = useSessionCountdown(countdownSeconds, startStudying);
+  const counting = phase.name === "counting";
   // 이어받은 세션은 같은 시작 시각이라 같은 타임랩스에 이어 찍는다.
+  // 카운트다운 동안의 시작 시각은 임시라서, 실제로 시작한 뒤에 연다.
   useEffect(() => {
-    timelapse.begin(startedAtMs);
-  }, [startedAtMs, timelapse]);
+    if (!counting) {
+      timelapse.begin(startedAtMs);
+    }
+  }, [counting, startedAtMs, timelapse]);
   const ambient = useAmbientSound({
     sessionState,
     phase,
@@ -1308,8 +1315,28 @@ function RoomSessionBody({
             : cn("inset-auto rounded-lg", PIP_ANCHOR, timerChipVisible && PIP_ABOVE_CHIP, PIP_SIZE)
         }
       />
+      {/* 공부 시작 카운트다운. 카메라 창이 보이면 그 창 안에서 세고, 안 보이면 시계 숫자 자리에서 센다(SessionClock). */}
+      {counting && !cameraHidden && (
+        <div
+          data-testid="camera-countdown"
+          aria-hidden="true"
+          className={cn(
+            "pointer-events-none grid place-items-center bg-black/35 text-5xl font-bold text-white tabular-nums [text-shadow:0_2px_12px_rgba(0,0,0,0.45)]",
+            cameraExpanded
+              ? "absolute inset-0"
+              : cn("rounded-lg", PIP_ANCHOR, timerChipVisible && PIP_ABOVE_CHIP, PIP_SIZE),
+          )}
+        >
+          {countdownLeft}
+        </div>
+      )}
+      {counting && (
+        <span className="sr-only" aria-live="polite">
+          {countdownLeft}
+        </span>
+      )}
 
-      {phase.name === "studying" ? (
+      {phase.name === "studying" || counting ? (
         <>
           {/* 화면 탭(하단 버튼 제외) → 심플 모드 전환. 버튼이 pointer-events-auto로 이 레이어를 가린다.
               대칭 복귀: 심플 모드에서 한 번 더 탭하면 프리뷰로 돌아온다(별도 닫기 버튼을 만들지 않는다).
@@ -1364,7 +1391,11 @@ function RoomSessionBody({
           <div inert={helpVisible} className={SESSION_LAYER_LAYOUT}>
             {/* 머리 줄: 왼쪽 과목·할 일, 오른쪽 배경음·더보기. 두 모드 모두 같은 자리에 둔다.
                 웹 버튼은 스스로 pointer-events-auto라 더보기 메뉴의 바깥 누름 차단이 닿지 않아서 메뉴가 열린 동안 inert로 막는다. */}
-            <div inert={resting} className="flex w-full items-start justify-between gap-3">
+            {/* 카운트다운 동안에는 과목 선택과 더보기를 누를 수 없다. */}
+            <div
+              inert={resting || counting}
+              className="flex w-full items-start justify-between gap-3"
+            >
               <div inert={moreMenuOpen} className="min-w-0">
                 <SessionSubjectHeader
                   subject={headerSubject}
@@ -1473,6 +1504,7 @@ function RoomSessionBody({
                   statusLabel={statusLabel}
                   simple={simpleMode}
                   corner={wallpaper}
+                  countdown={counting ? { left: countdownLeft, inClock: cameraHidden } : null}
                 />
               </div>
             </div>
@@ -1538,7 +1570,7 @@ function RoomSessionBody({
                 줄 상자는 레이어 폭을 다 쓰고 바를 가운데에 두어서 바 자리는 감싸기 전과 같다.
                 가로 폰에서 월페이퍼를 켜면 왼쪽 끝을 시간 묶음이 쓰므로 바를 감싼 상자를 기준으로 바 왼쪽 옆에 붙인다. */}
             {timerChipVisible && multiTimer.mode !== null && (
-              <div inert={resting} className="mb-5 flex w-full justify-center">
+              <div inert={resting || counting} className="mb-5 flex w-full justify-center">
                 <SessionTimerChip
                   mode={multiTimer.mode}
                   displayMs={multiTimer.remainingMs}
@@ -1563,7 +1595,7 @@ function RoomSessionBody({
                 <div
                   role="toolbar"
                   aria-label={t("controls.bar")}
-                  inert={moreMenuOpen}
+                  inert={moreMenuOpen || counting}
                   className={cn(
                     simpleMode ? SESSION_BAR_MUTED : SESSION_BAR,
                     "pointer-events-auto",
