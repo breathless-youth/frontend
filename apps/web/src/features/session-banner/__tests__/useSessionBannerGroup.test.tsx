@@ -26,10 +26,12 @@ const STUDIED = [
   { date: "2026-11-20", studySec: 600, focusSec: 600 },
 ];
 
-function stubApi({ stats }: { stats: Promise<Response> }) {
+function stubApi({ stats, guest = false }: { stats: Promise<Response>; guest?: boolean }) {
   const fetch = vi.fn(async (input: string) => {
     if (input.includes("/profile")) {
-      return Response.json({ nickname: "민준", loginProvider: "KAKAO" });
+      return Response.json(
+        guest ? { nickname: "민준" } : { nickname: "민준", loginProvider: "KAKAO" },
+      );
     }
     if (input.includes("/api/stats/period?")) return stats;
     return new Response(null, { status: 404 });
@@ -111,6 +113,17 @@ describe("useSessionBannerGroup 판정", () => {
     expect(loadSessionBannerGroup(USER_ID)).toBe(expected);
     expect(analytics.setSessionBannerGroupUserProperty).toHaveBeenCalledTimes(1);
     expect(analytics.setSessionBannerGroupUserProperty).toHaveBeenCalledWith(expected);
+  });
+
+  it("로그인하지 않은 앱 사용자도 공부 기록으로 판정한다", async () => {
+    const fetch = stubApi({ stats: Promise.resolve(periodResponse()), guest: true });
+    const { result } = renderHook(() => useSessionBannerGroup(USER_ID), { wrapper });
+
+    const expected = assignSessionBannerArm(USER_ID);
+    await waitFor(() => expect(result.current).toBe(expected));
+    expect(loadSessionBannerGroup(USER_ID)).toBe(expected);
+    // 회원인지 보지 않으므로 프로필을 부르지 않는다.
+    expect(fetch.mock.calls.some(([url]) => String(url).includes("/profile"))).toBe(false);
   });
 
   it("저장된 군이 있으면 통계를 부르지 않고 그 군을 쓴다", async () => {
