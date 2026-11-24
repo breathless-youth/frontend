@@ -52,14 +52,14 @@ const day = (date: string, focusSec: number): DailyStudyStat => ({
 });
 
 describe("isSessionBannerEligible", () => {
-  it("순공 60초 이상인 날이 3일이면 대상이고 2일이면 아니다", () => {
-    const two = [day("2026-11-10", 60), day("2026-11-11", 0), day("2026-11-12", 3600)];
-    expect(isSessionBannerEligible(two)).toBe(false);
-    expect(isSessionBannerEligible([...two, day("2026-11-13", 61)])).toBe(true);
+  it("순공 60초 이상인 날이 2일이면 대상이고 1일이면 아니다", () => {
+    const one = [day("2026-11-10", 60), day("2026-11-11", 0), day("2026-11-12", 59)];
+    expect(isSessionBannerEligible(one)).toBe(false);
+    expect(isSessionBannerEligible([...one, day("2026-11-13", 3600)])).toBe(true);
   });
 
   it("59초인 날은 세지 않는다", () => {
-    const days = [day("2026-11-10", 60), day("2026-11-11", 60), day("2026-11-12", 59)];
+    const days = [day("2026-11-10", 60), day("2026-11-11", 59), day("2026-11-12", 59)];
     expect(isSessionBannerEligible(days)).toBe(false);
   });
 });
@@ -89,6 +89,7 @@ describe("canShowSessionBanner", () => {
   });
 
   it("종료 시각이 지났거나 스위치가 꺼지면 보이지 않는다", () => {
+    expect(SESSION_BANNER_ENDS_AT_MS).toBe(Date.parse("2026-12-03T23:59:59+09:00"));
     expect(canShowSessionBanner({ ...base, nowMs: SESSION_BANNER_ENDS_AT_MS })).toBe(true);
     expect(canShowSessionBanner({ ...base, nowMs: SESSION_BANNER_ENDS_AT_MS + 1 })).toBe(false);
     expect(canShowSessionBanner({ ...base, enabled: false })).toBe(false);

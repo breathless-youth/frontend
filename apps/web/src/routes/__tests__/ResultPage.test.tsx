@@ -101,6 +101,12 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
 /** 마스코트가 정점에 닿는 순간의 햅틱 — 언제 몇 번 불리는지만 본다. */
 const haptic = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/haptics", () => ({ haptic }));
+// 사전 신청 카드는 자체 테스트가 있어, 여기서는 결과 화면이 넘기는 기준 시간만 본다.
+vi.mock("@/features/premium-fake-door/PremiumFakeDoorHost", () => ({
+  PremiumFakeDoorHost: ({ qualifyingSec }: { qualifyingSec: number }) => (
+    <div data-testid="premium-fake-door-host" data-qualifying-sec={qualifyingSec} />
+  ),
+}));
 
 /** 로컬 시각으로 픽스처를 만들어 CI 타임존과 무관하게 같은 표기를 검증한다. */
 const SESSION_START = new Date(2026, 6, 25, 21, 3, 0);
@@ -1277,5 +1283,25 @@ describe("ResultPage: 랭킹 변화 카드", () => {
     expect(screen.queryByRole("region", { name: "랭킹이 올랐어요" })).toBeNull();
     const urls = fetchSpy.mock.calls.map(([input]) => String(input));
     expect(urls.some((url) => url.includes("session-gains"))).toBe(false);
+  });
+});
+
+describe("ResultPage 사전 신청 카드 기준 시간", () => {
+  it("자율 모드 세션은 순공 대신 총 공부시간을 넘긴다", () => {
+    renderResult({ sessions: [exampleSession({ source: "TIMER", focusSec: 0, studySec: 600 })] });
+    expect(screen.getByTestId("premium-fake-door-host")).toHaveAttribute(
+      "data-qualifying-sec",
+      "600",
+    );
+  });
+
+  it("카메라 세션은 순공시간을 넘긴다", () => {
+    renderResult({
+      sessions: [exampleSession({ source: "MEASURED", focusSec: 599, studySec: 6120 })],
+    });
+    expect(screen.getByTestId("premium-fake-door-host")).toHaveAttribute(
+      "data-qualifying-sec",
+      "599",
+    );
   });
 });

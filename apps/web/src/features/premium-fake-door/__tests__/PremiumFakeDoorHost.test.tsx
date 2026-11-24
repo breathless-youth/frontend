@@ -31,13 +31,13 @@ vi.mock("@/lib/amplitude", async (o) => ({ ...(await o<typeof Amplitude>()), ...
 const USER_ID = 7;
 const PRICE = assignPremiumPrice(USER_ID);
 
-function renderHost() {
+function renderHost(qualifyingSec = 600) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <StrictMode>
       <QueryClientProvider client={client}>
         <MemoryRouter>
-          <PremiumFakeDoorHost userId={USER_ID} />
+          <PremiumFakeDoorHost userId={USER_ID} qualifyingSec={qualifyingSec} />
         </MemoryRouter>
       </QueryClientProvider>
     </StrictMode>,
@@ -305,16 +305,10 @@ describe("PremiumFakeDoorHost 노출", () => {
     expect(analytics.trackPremiumFakeDoor).not.toHaveBeenCalled();
   });
 
-  it("X로 닫으면 다시 그리지 않는다", async () => {
+  it("X로 닫으면 48시간 동안 그리지 않고, 48시간이 지나면 다시 그린다", async () => {
     const user = userEvent.setup();
     const first = renderHost();
     await user.click(screen.getByRole("button", { name: "스파르타 기능 안내 닫기" }));
-    expect(
-      screen.queryByRole("button", { name: "스파르타 기능 사전 신청 보기" }),
-    ).not.toBeInTheDocument();
-
-    first.unmount();
-    renderHost();
     expect(
       screen.queryByRole("button", { name: "스파르타 기능 사전 신청 보기" }),
     ).not.toBeInTheDocument();
@@ -322,6 +316,32 @@ describe("PremiumFakeDoorHost 노출", () => {
       price: PRICE,
       placement: "RESULT",
     });
+
+    first.unmount();
+    vi.setSystemTime(Date.now() + (48 * 60 - 1) * 60 * 1000);
+    const second = renderHost();
+    expect(
+      screen.queryByRole("button", { name: "스파르타 기능 사전 신청 보기" }),
+    ).not.toBeInTheDocument();
+
+    second.unmount();
+    vi.setSystemTime(Date.now() + 60 * 1000);
+    renderHost();
+    expect(
+      screen.getByRole("button", { name: "스파르타 기능 사전 신청 보기" }),
+    ).toBeInTheDocument();
+    // 노출(viewed)은 사용자당 한 번뿐이라 다시 보여도 또 보내지 않는다.
+    expect(
+      analytics.trackPremiumFakeDoor.mock.calls.filter(([action]) => action === "viewed"),
+    ).toHaveLength(1);
+  });
+
+  it("순공 10분이 안 되는 세션 결과에는 카드도 노출 이벤트도 없다", () => {
+    renderHost(599);
+    expect(
+      screen.queryByRole("button", { name: "스파르타 기능 사전 신청 보기" }),
+    ).not.toBeInTheDocument();
+    expect(analytics.trackPremiumFakeDoor).not.toHaveBeenCalled();
   });
 
   it("카드 노출(viewed)은 다시 그려도 사용자당 한 번만 보내고 가격을 사용자 속성으로 남긴다", () => {

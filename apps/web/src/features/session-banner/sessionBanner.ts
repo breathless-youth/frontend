@@ -13,8 +13,8 @@ import type { DateRange } from "@/lib/statsApi";
 /** 실험을 일찍 끄려면 이 값을 false로 바꿔 웹만 배포한다. */
 export const SESSION_BANNER_ENABLED = true;
 
-/** 이 시각이 지나면 배너가 저절로 사라진다. */
-export const SESSION_BANNER_ENDS_AT_MS = Date.parse("2026-11-30T23:59:59+09:00");
+/** 이 시각이 지나면 배너가 저절로 사라진다. 사전 신청 실험과 같이 2026-12-03 23:59:59 KST에 끝난다. */
+export const SESSION_BANNER_ENDS_AT_MS = Date.parse("2026-12-03T23:59:59+09:00");
 
 /** 배너가 보인 시간이 이만큼 쌓일 때마다 노출을 한 번 세고 다음 문구로 바꾼다. */
 export const SESSION_BANNER_ROTATE_MS = 5 * 60 * 1000;
@@ -35,7 +35,7 @@ export type SessionBannerGroup = "exposed" | "control" | "not_eligible";
 const LOOKBACK_DAYS = 14;
 /** 이 순공 시간을 넘긴 날만 공부한 날로 센다. */
 const STUDY_DAY_MIN_FOCUS_SEC = 60;
-const MIN_STUDY_DAYS = 3;
+const MIN_STUDY_DAYS = 2;
 
 /**
  * 사용자 번호로 배너를 볼지 정한다
@@ -72,7 +72,7 @@ export function sessionBannerStatsRange(todayKey: string): DateRange {
   };
 }
 
-/** 기간 안에 순공 1분 이상인 날이 3일 이상인가 */
+/** 기간 안에 순공 1분 이상인 날이 2일 이상인가 */
 export function isSessionBannerEligible(dailyList: readonly DailyStudyStat[]): boolean {
   return (
     dailyList.filter((day) => day.focusSec >= STUDY_DAY_MIN_FOCUS_SEC).length >= MIN_STUDY_DAYS

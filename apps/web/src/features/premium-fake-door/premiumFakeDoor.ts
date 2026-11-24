@@ -8,8 +8,14 @@
 /** 실험을 일찍 끄려면 이 값을 false로 바꿔 웹만 배포한다(설계 7절). */
 export const PREMIUM_FAKE_DOOR_ENABLED = true;
 
-/** 이 시각이 지나면 카드가 저절로 사라진다. 2026-11-30 23:59:59 KST. */
-export const PREMIUM_FAKE_DOOR_ENDS_AT_MS = Date.parse("2026-11-30T23:59:59+09:00");
+/** 이 시각이 지나면 카드가 저절로 사라진다. 2026-12-03 23:59:59 KST(실험 기간 11/24~12/3). */
+export const PREMIUM_FAKE_DOOR_ENDS_AT_MS = Date.parse("2026-12-03T23:59:59+09:00");
+
+/** 방금 끝낸 세션의 기준 시간(`premiumQualifyingSec`)이 이만큼(10분) 넘어야 결과 화면에 카드를 보인다. */
+export const PREMIUM_CARD_MIN_FOCUS_SEC = 600;
+
+/** X로 닫은 뒤 이만큼(48시간) 지나면 카드를 다시 보인다. */
+export const PREMIUM_CARD_SNOOZE_MS = 48 * 60 * 60 * 1000;
 
 export const PREMIUM_PRICES = [2900, 5900] as const;
 export type PremiumPrice = (typeof PREMIUM_PRICES)[number];
@@ -62,14 +68,21 @@ export function assignPremiumPrice(userId: number): PremiumPrice {
  * 결과 화면은 세션마다 새로 열리는 문서라 기기 저장소에 둔다.
  */
 export interface PremiumFakeDoorRecord {
-  dismissed: boolean;
+  /** 마지막으로 X로 닫은 시각(ms). 닫은 적이 없으면 null이다. */
+  dismissedAt: number | null;
+  /**
+   * 닫으면 영영 숨기던 예전 기록(`dismissed: true`, 시각 없음)을 아직 옮기지 못했다.
+   * 옮기기는 `migrateLegacyDismissal`이 한 번 한다. 옮기지 못한 동안은 예전처럼 숨긴다.
+   */
+  legacyDismissed: boolean;
   applied: boolean;
   /** `premium_fake_door_viewed`를 보냈다. 사용자당 한 번만 보낸다. */
   viewedSent: boolean;
 }
 
 export const EMPTY_PREMIUM_RECORD: PremiumFakeDoorRecord = {
-  dismissed: false,
+  dismissedAt: null,
+  legacyDismissed: false,
   applied: false,
   viewedSent: false,
 };
@@ -81,7 +94,27 @@ export interface PremiumCardContext {
   /** 가격이 원화라 한국어 화면에만 보인다. */
   korean: boolean;
   record: PremiumFakeDoorRecord;
+  /** 방금 끝낸 세션의 기준 시간(초). `premiumQualifyingSec`로 구한다. */
+  qualifyingSec: number;
   enabled?: boolean;
+}
+
+/**
+ * 카드 노출을 판정할 세션 시간(초)
+ *
+ * 결과 화면 머리가 보이는 첫 세션의 값을 쓴다. 카메라로 잰 세션은 순공시간이고,
+ * 자율 모드(타이머) 세션은 순공을 재지 않아 결과 화면처럼 총 공부시간을 쓴다.
+ */
+export function premiumQualifyingSec({
+  timer,
+  focusSec,
+  studySec,
+}: {
+  timer: boolean;
+  focusSec: number;
+  studySec: number;
+}): number {
+  return timer ? studySec : focusSec;
 }
 
 export function canShowPremiumCard({
@@ -89,11 +122,17 @@ export function canShowPremiumCard({
   hasTokenSource,
   korean,
   record,
+  qualifyingSec,
   enabled = PREMIUM_FAKE_DOOR_ENABLED,
 }: PremiumCardContext): boolean {
   if (!enabled || nowMs > PREMIUM_FAKE_DOOR_ENDS_AT_MS) return false;
   if (!hasTokenSource || !korean) return false;
-  return !record.dismissed && !record.applied;
+  if (qualifyingSec < PREMIUM_CARD_MIN_FOCUS_SEC) return false;
+  if (record.applied) return false;
+  if (record.dismissedAt === null) return !record.legacyDismissed;
+  // 기기 시계가 뒤로 가 닫은 시각이 미래가 되면, 그 뒤로 영영 숨기지 않도록 숨김 기간이 끝난 것으로 본다.
+  const elapsed = nowMs - record.dismissedAt;
+  return elapsed < 0 || elapsed >= PREMIUM_CARD_SNOOZE_MS;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
