@@ -243,9 +243,7 @@ function SpaceContent({
   }));
   const simpleItem: SpaceItem = { selection: SIMPLE_BACKGROUND, name: t("space.names.simple") };
   const serverSections =
-    tab === "video"
-      ? videoSections(spaces ?? [], t("space.sections.watch"))
-      : imageSections(spaces ?? []);
+    tab === "video" ? videoSections(spaces ?? []) : imageSections(spaces ?? []);
   const chips = serverSections.flatMap((section) =>
     section.title === null ? [] : [{ code: section.code, title: section.title }],
   );

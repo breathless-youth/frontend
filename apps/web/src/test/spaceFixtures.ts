@@ -1,7 +1,7 @@
 import type { ShopItemResponse } from "@/features/points/gateway/pointsApiTypes";
 import type { SpaceSelection } from "@/features/timer-background/timerBackground";
 
-/** 공간 테스트가 함께 쓰는 서버 상품 한 줄. 기본값은 가진 무료 독서실 감독관이다. */
+/** 공간 테스트가 함께 쓰는 서버 상품 한 줄. 기본값은 다이나믹 분류에 든 가진 무료 독서실 감독관이다. */
 export function shopSpace(overrides: Partial<ShopItemResponse> = {}): ShopItemResponse {
   return {
     id: 41,
@@ -19,7 +19,8 @@ export function shopSpace(overrides: Partial<ShopItemResponse> = {}): ShopItemRe
     assetKey: "watcher/9c8d9f19",
     assetType: "VIDEO",
     videoMode: "WATCH",
-    tags: [],
+    // 다른 상품을 만들 때 감독관의 분류가 따라가지 않게 한다
+    tags: overrides.code === undefined ? [{ code: "DYNAMIC", name: "다이나믹" }] : [],
     ...overrides,
   };
 }
