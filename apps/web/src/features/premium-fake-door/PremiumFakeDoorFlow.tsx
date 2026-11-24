@@ -346,7 +346,7 @@ export function PremiumFakeDoorFlow({
               if (checked) setErrors((prev) => ({ ...prev, consent: false }));
             }}
           >
-            {t("email.consent")}
+            <span className="break-keep">{t("email.consent")}</span>
           </SpartaCheckbox>
           <p className="mt-1.5 ml-8.5 text-[13px] leading-4.75 break-keep text-sparta-fg2">
             {t("email.consentLine")}
