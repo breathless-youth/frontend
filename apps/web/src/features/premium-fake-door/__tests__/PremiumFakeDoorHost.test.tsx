@@ -227,6 +227,22 @@ describe("PremiumFakeDoorHost 기대 기능", () => {
       screen.queryByRole("button", { name: "프리미엄 기능 사전 신청 보기" }),
     ).not.toBeInTheDocument();
   });
+
+  it("기능 저장이 실패하면 기능 선택 이벤트를 보내지 않는다", async () => {
+    renderHost();
+    const user = await goToEmailStep();
+    await user.type(screen.getByLabelText("이메일"), "minjun@example.com");
+    await user.click(screen.getByRole("checkbox", { name: "[필수] 개인정보 수집·이용 동의" }));
+    await user.click(screen.getByRole("button", { name: "사전 신청하기" }));
+    const radio = await screen.findByRole("radio", { name: "AI 집중 리포트" });
+    putPremiumWaitlist.mockRejectedValueOnce(new Error("network"));
+
+    await user.click(radio);
+
+    await waitFor(() => expect(putPremiumWaitlist).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(radio).toBeEnabled());
+    expect(analytics.trackPremiumFakeDoorFeatureSelected).not.toHaveBeenCalled();
+  });
 });
 
 describe("PremiumFakeDoorHost 노출", () => {

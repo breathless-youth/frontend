@@ -153,11 +153,12 @@ export function PremiumFakeDoorFlow({
   const pick = async (feature: PremiumFeature) => {
     if (applied === null || pickInFlight.current) return;
     setPicked(feature);
-    trackPremiumFakeDoorFeatureSelected(base, feature);
     pickInFlight.current = true;
     setPickState("saving");
     try {
       await putPremiumWaitlist({ ...applied, expectedFeature: feature });
+      // 저장이 된 선택만 센다. 실패 뒤 다시 누를 때마다 세면 기능 분포가 부푼다.
+      trackPremiumFakeDoorFeatureSelected(base, feature);
       setPickState("saved");
     } catch (error) {
       console.warn("[premium-fake-door] failed to save the expected feature", error);
