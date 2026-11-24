@@ -100,14 +100,21 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export interface EmailStepErrors {
   email: "required" | "format" | null;
+  /** 만 14세 이상 확인 칸을 체크하지 않았다. */
+  age: boolean;
   consent: boolean;
 }
 
 /** 이메일·동의 단계 검사. 서버도 형식을 다시 본다. 앞뒤 공백은 빼고 본다. */
-export function validateEmailStep(email: string, consent: boolean): EmailStepErrors {
+export function validateEmailStep(
+  email: string,
+  ageConfirmed: boolean,
+  consent: boolean,
+): EmailStepErrors {
   const trimmed = email.trim();
   return {
     email: trimmed === "" ? "required" : EMAIL_PATTERN.test(trimmed) ? null : "format",
+    age: !ageConfirmed,
     consent: !consent,
   };
 }

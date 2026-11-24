@@ -35,15 +35,15 @@ const { LazySheet: LazyFeatureSheet, preload: preloadFeatureSheet } = lazyWithPr
 
 type Step = "benefits" | "email" | "done";
 
-const NO_ERRORS: EmailStepErrors = { email: null, consent: false };
+const NO_ERRORS: EmailStepErrors = { email: null, age: false, consent: false };
 
 /**
  * 혜택 → 이메일·동의 → 완료로 이어지는 전체 화면(확정 시안 R2)
  *
  * 신청 흐름 전체는 시스템 테마와 무관하게 다크다(`theme-dark`, 세션 화면과 같은 방식). 결과 화면의 진입 카드는 사용자 테마를 따른다.
  * 혜택 화면은 스파르타 전용 색(`sparta-surface`)을 더 깐다. 만 14세 확인은 따로 묻지 않고 이메일 화면에서
- * 하나뿐인 필수 동의 체크 칸("만 14세 이상이며, 개인정보 수집·이용에 동의해요")이 만 14세 확인을 겸한다.
- * 이 칸을 체크해야만 보낼 수 있으므로 신청은 늘 `ageOver14: true`로 보낸다.
+ * 이메일 화면에서 "만 14세 이상이에요"와 "개인정보 수집·이용 동의"를 따로 체크받고, 둘 다 체크해야만 보낸다.
+ * 그래서 `ageOver14`는 만 14세 확인 칸의 상태(늘 true)를 그대로 싣는다.
  *
  * 라우트가 아니라 같은 문서 위의 겹 화면이다. 결과 화면을 떠났다 돌아오면 연출과 보상 요청이 다시 돌기 때문이다.
  * `aria-modal`과 `data-covers-tab-bar`로 앱 탭 바를 숨기고, 앱의 뒤로 가기는 `useBackDismiss`로 이 화면만 닫는다.
@@ -67,10 +67,12 @@ export function PremiumFakeDoorFlow({
   const emailId = useId();
   const errorId = useId();
   const consentErrorId = useId();
+  const ageErrorId = useId();
   const termsId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [step, setStep] = useState<Step>("benefits");
   const [email, setEmail] = useState("");
+  const [ageConfirmed, setAgeConfirmed] = useState(false);
   const [consent, setConsent] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [errors, setErrors] = useState<EmailStepErrors>(NO_ERRORS);
@@ -126,11 +128,11 @@ export function PremiumFakeDoorFlow({
   // 서버가 204로 저장한 뒤에만 완료로 넘어간다. 실패하면 같은 버튼으로 다시 보낸다.
   const submit = async () => {
     if (submitInFlight.current) return;
-    // 동의 체크 칸에서 만 14세 이상임을 확인받았으므로 true다. 체크하지 않으면 handlePrimary가 여기까지 오지 않는다.
+    // 만 14세 확인 칸의 상태를 싣는다. 체크하지 않으면 handlePrimary가 여기까지 오지 않으므로 실제로는 늘 true다.
     const body: PremiumWaitlistRequest = {
       price,
       placement,
-      ageOver14: true,
+      ageOver14: ageConfirmed,
       email: email.trim(),
       expectedFeature: null,
     };
@@ -148,7 +150,7 @@ export function PremiumFakeDoorFlow({
       submitInFlight.current = false;
       setSubmitting(false);
     }
-    trackPremiumFakeDoorApplied(base, "over14");
+    trackPremiumFakeDoorApplied(base, body.ageOver14 ? "over14" : "under14");
     onApplied();
     setApplied(body);
     setStep("done");
@@ -185,9 +187,9 @@ export function PremiumFakeDoorFlow({
     if (step === "benefits") {
       applyFrom("benefits");
     } else if (step === "email") {
-      const next = validateEmailStep(email, consent);
+      const next = validateEmailStep(email, ageConfirmed, consent);
       setErrors(next);
-      if (next.email === null && !next.consent) void submit();
+      if (next.email === null && !next.age && !next.consent) void submit();
     } else {
       onClose();
     }
@@ -259,7 +261,8 @@ export function PremiumFakeDoorFlow({
               />
             </span>
           </p>
-          <p className="mt-2.5 text-[11px] text-sparta-fg3">{t("stats.source")}</p>
+          {/* 실제 기록의 출처는 믿을 근거라 작은 글자라도 또렷하게 읽히는 fg2로 둔다. */}
+          <p className="mt-2.5 text-[11px] text-sparta-fg2">{t("stats.source")}</p>
         </div>
 
         <div className="mt-8.5 mb-3.5 text-center">
@@ -331,9 +334,37 @@ export function PremiumFakeDoorFlow({
             {emailError}
           </p>
         )}
+        {/* 만 14세 확인과 개인정보 수집·이용 동의는 항목별로 따로 받는다(PR #637 2차 리뷰). 둘 다 체크해야 보낸다. */}
         <div
           className={cn(
             "mt-3.5 rounded-lg border bg-sparta-card p-3.5",
+            errors.age ? "border-feedback-danger" : "border-sparta-line",
+          )}
+        >
+          <SpartaCheckbox
+            checked={ageConfirmed}
+            invalid={errors.age}
+            describedBy={errors.age ? ageErrorId : undefined}
+            onChange={(checked) => {
+              setAgeConfirmed(checked);
+              if (checked) setErrors((prev) => ({ ...prev, age: false }));
+            }}
+          >
+            <span className="break-keep">{t("email.age")}</span>
+          </SpartaCheckbox>
+          {errors.age && (
+            <p
+              id={ageErrorId}
+              role="alert"
+              className="mt-1.5 ml-8.5 text-[13px] text-feedback-danger"
+            >
+              {t("email.errors.age")}
+            </p>
+          )}
+        </div>
+        <div
+          className={cn(
+            "mt-2.5 rounded-lg border bg-sparta-card p-3.5",
             errors.consent ? "border-feedback-danger" : "border-sparta-line",
           )}
         >
@@ -413,9 +444,7 @@ export function PremiumFakeDoorFlow({
         >
           {t("done.title")}
         </h2>
-        <p className="mt-2 text-sm leading-5.25 break-all text-sparta-fg2">
-          {t("done.byEmail", { email: applied?.email ?? "" })}
-        </p>
+        <DoneAddressLine email={applied?.email ?? null} />
         <fieldset role="radiogroup" aria-labelledby={legendId} className="mt-6.5 text-left">
           <legend id={legendId} className="text-base font-extrabold">
             {t("done.question")}
@@ -494,7 +523,7 @@ export function PremiumFakeDoorFlow({
         className={cn(
           "page-width relative w-full shrink-0 px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+24px)]",
           // 아래 버튼 줄 위로 내용이 바탕색으로 흐려지며 사라진다.
-          "px-4 before:pointer-events-none before:absolute before:inset-x-0 before:-top-7 before:h-7 before:bg-linear-to-b before:from-transparent before:to-sparta-bg",
+          "before:pointer-events-none before:absolute before:inset-x-0 before:-top-7 before:h-7 before:bg-linear-to-b before:from-transparent before:to-sparta-bg",
         )}
       >
         {step === "benefits" && (
@@ -652,5 +681,18 @@ function FeatureRadio({
       <img src={FEATURE_ART[id]} alt="" className="mt-1.5 mb-1 size-12 object-contain" />
       {t(`features.${id}.name`)}
     </label>
+  );
+}
+
+/**
+ * 완료 화면의 알림 경로 안내. 신청한 이메일이 있을 때만 그린다(빈 주소로 된 문장을 보이지 않는다).
+ */
+export function DoneAddressLine({ email }: { email: string | null }) {
+  const { t } = useTranslation("premium-fake-door");
+  if (!email) return null;
+  return (
+    <p className="mt-2 text-sm leading-5.25 break-all text-sparta-fg2">
+      {t("done.byEmail", { email })}
+    </p>
   );
 }

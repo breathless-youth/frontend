@@ -100,7 +100,7 @@
     "title": "Where should we send the launch news?",
     "label": "Email",
     "placeholder": "example@email.com",
-    "consent": "[Required] I'm 14 or older and agree to the collection and use of personal information",
+    "consent": "[Required] Consent to collection and use of personal information",
     "consentLine": "We only use your email for the launch notice and delete it right after sending.",
     "details": "View details",
     "terms": {
@@ -117,16 +117,18 @@
     "errors": {
       "required": "Please enter your email.",
       "format": "Please check your email format.",
-      "consent": "You need to be 14 or older and agree to the collection and use of personal information to sign up."
+      "consent": "You need to agree to the collection and use of personal information to sign up.",
+      "age": "Only people 14 or older can sign up."
     },
     "headLine1": "One last step,",
-    "headLine2": "ready to light the fire?"
+    "headLine2": "ready to light the fire?",
+    "age": "[Required] I'm 14 or older"
   },
   "submitFailed": "We couldn't sign you up. Please try again.",
   "done": {
     "dialog": "Pre-registration complete",
     "title": "You'll be the first to know",
-    "byEmail": "We'll notify you at {{email}} and in the app.",
+    "byEmail": "We'll notify you in the app and at {{email}}.",
     "question": "Which feature are you most looking forward to?",
     "thanks": "Thank you for your answer!",
     "pickFailed": "We couldn't save your answer. Please choose again.",

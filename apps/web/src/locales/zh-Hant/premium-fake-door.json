@@ -88,7 +88,7 @@
     "title": "請留下接收上線消息的電子郵件",
     "label": "電子郵件",
     "placeholder": "example@email.com",
-    "consent": "[必填] 我已滿 14 歲，並同意蒐集與使用個人資料",
+    "consent": "[必填] 同意蒐集與使用個人資料",
     "consentLine": "電子郵件只用於上線通知，寄出通知後會立刻刪除。",
     "details": "查看詳情",
     "terms": {
@@ -105,16 +105,18 @@
     "errors": {
       "required": "請輸入電子郵件。",
       "format": "請確認電子郵件格式。",
-      "consent": "需年滿 14 歲並同意蒐集與使用個人資料才能登記。"
+      "consent": "需要同意蒐集與使用個人資料才能登記。",
+      "age": "只有滿 14 歲的人才能登記。"
     },
     "headLine1": "最後一步，",
-    "headLine2": "要點燃火焰嗎？"
+    "headLine2": "要點燃火焰嗎？",
+    "age": "[必填] 我已滿 14 歲"
   },
   "submitFailed": "無法完成登記，請再試一次。",
   "done": {
     "dialog": "登記完成",
     "title": "會第一時間通知你",
-    "byEmail": "通知會寄到 {{email}}，也會在 App 中通知你。",
+    "byEmail": "通知會透過 App 和 {{email}} 寄給你。",
     "question": "你最期待哪項功能？",
     "thanks": "謝謝你的回答！",
     "pickFailed": "無法儲存你的回答，請再選一次。",

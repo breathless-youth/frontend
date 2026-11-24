@@ -674,7 +674,8 @@
   --sparta-line: #273044;
   --sparta-fg: #f1f4fa;
   --sparta-fg2: #a3adc0;
-  --sparta-fg3: #6c778b;
+  /* 작은 보조 글자. 카드 #161b26 위 5.0:1, 카드2 #1d2432 위 4.5:1, 바탕 #0b0e14 위 5.6:1(WCAG 대비) */
+  --sparta-fg3: #808b9f;
   --sparta-hot: #ff6a2b;
   --sparta-hot2: #ffb23f;
   /* 골라 둔 기능 칸의 따뜻한 바탕 */
