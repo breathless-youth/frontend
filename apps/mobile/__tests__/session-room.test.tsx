@@ -1,6 +1,6 @@
 import { act, render, screen } from "@testing-library/react-native";
 import { router } from "expo-router";
-import { BackHandler, Platform } from "react-native";
+import { ActivityIndicator, BackHandler, Platform } from "react-native";
 
 import SessionRoomScreen from "../app/room/[id]";
 import { getRnda, type RndaApi } from "../lib/appLock/rnda";
@@ -101,14 +101,25 @@ describe("SessionRoomScreen", () => {
     });
   });
 
-  it("세션 화면은 항상 다크 배경이다", async () => {
+  it("세션 화면은 웹 세션 화면과 같은 어두운 배경이다", async () => {
     render(<SessionRoomScreen />);
 
     expect(await screen.findByTestId("session-webview")).toBeTruthy();
     expect(screen.getByTestId("session-webview").props.style).toEqual({
       flex: 1,
-      backgroundColor: "#0B0F14",
+      backgroundColor: "#1a2029",
     });
+  });
+
+  it("로드가 끝나도 웹이 세션 화면을 그렸다고 알릴 때까지 스피너 없는 덮개로 가린다", async () => {
+    render(<SessionRoomScreen />);
+    const webview = await screen.findByTestId("session-webview");
+
+    act(() => {
+      (webview.props.onLoadEnd as () => void)();
+    });
+    expect(screen.getByTestId("session-webview-splash")).toBeTruthy();
+    expect(screen.UNSAFE_queryByType(ActivityIndicator)).toBeNull();
   });
 
   /**
