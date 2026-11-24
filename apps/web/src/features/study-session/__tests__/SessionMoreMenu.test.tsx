@@ -87,8 +87,8 @@ describe("SessionMoreMenu", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "더보기" }));
 
-    expect(screen.queryByRole("menuitem", { name: "마스코트 숨기기" })).toBeNull();
-    expect(screen.queryByRole("menuitem", { name: "마스코트 보이기" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "캐릭터 숨기기" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "캐릭터 보이기" })).toBeNull();
   });
 
   it("마스코트가 보이면 타이머 다음 도움말 앞에 숨기기가 있고 누르면 토글한다", async () => {
@@ -106,11 +106,11 @@ describe("SessionMoreMenu", () => {
     expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
       "카메라 전환",
       "타이머",
-      "마스코트 숨기기",
+      "캐릭터 숨기기",
       "도움말 보기",
       "초대코드 공유",
     ]);
-    await userEvent.click(screen.getByRole("menuitem", { name: "마스코트 숨기기" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "캐릭터 숨기기" }));
     expect(onToggleMascot).toHaveBeenCalledTimes(1);
   });
 
@@ -120,8 +120,8 @@ describe("SessionMoreMenu", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "더보기" }));
 
-    expect(screen.queryByRole("menuitem", { name: "마스코트 숨기기" })).toBeNull();
-    await userEvent.click(screen.getByRole("menuitem", { name: "마스코트 보이기" }));
+    expect(screen.queryByRole("menuitem", { name: "캐릭터 숨기기" })).toBeNull();
+    await userEvent.click(screen.getByRole("menuitem", { name: "캐릭터 보이기" }));
     expect(onToggleMascot).toHaveBeenCalledTimes(1);
   });
 
