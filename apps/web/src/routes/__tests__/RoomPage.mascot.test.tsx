@@ -64,7 +64,7 @@ describe("RoomPage 마스코트", () => {
     expect(mascotSheet()).toBeNull();
 
     await openMoreMenu();
-    await userEvent.click(screen.getByRole("menuitem", { name: "마스코트 보이기" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "캐릭터 보이기" }));
 
     expect(mascotSheet()).not.toBeNull();
     expect(localStorage.getItem("focuson.sessionMascot.v1")).toBe("on");
@@ -117,7 +117,7 @@ describe("RoomPage 마스코트", () => {
     renderRoom();
 
     await openMoreMenu();
-    await userEvent.click(screen.getByRole("menuitem", { name: "마스코트 숨기기" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "캐릭터 숨기기" }));
 
     expect(mascotSheet()).toBeNull();
     expect(localStorage.getItem("focuson.sessionMascot.v1")).toBe("off");
@@ -145,7 +145,7 @@ describe("RoomPage 마스코트", () => {
     localStorage.setItem("focuson.sessionMascot.v1", "on");
     renderRoom();
     await openMoreMenu();
-    await userEvent.click(screen.getByRole("menuitem", { name: "마스코트 숨기기" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "캐릭터 숨기기" }));
 
     await endSession();
 

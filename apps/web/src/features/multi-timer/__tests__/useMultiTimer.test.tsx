@@ -825,11 +825,12 @@ describe("useMultiTimer 종류를 정해 열기", () => {
     expect(result.current.mode?.status).toBe("setup");
   });
 
-  it("스톱워치를 바로 시작하면 0부터 올라가고 종류를 마지막 모드로 저장하지 않는다", () => {
+  it("스톱워치를 열고 시작하면 0부터 올라가고 종류를 마지막 모드로 저장하지 않는다", () => {
     const { result, usage } = setup();
     store.set(LAST_KIND_KEY, "pomodoro");
 
-    act(() => result.current.open("stopwatch", { start: true }));
+    act(() => result.current.open("stopwatch"));
+    act(() => result.current.pressPrimary());
     expect(result.current.mode?.kind).toBe("stopwatch");
     expect(result.current.mode?.status).toBe("running");
     advance(3000);

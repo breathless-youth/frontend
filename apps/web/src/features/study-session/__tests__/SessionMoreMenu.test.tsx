@@ -69,13 +69,26 @@ describe("SessionMoreMenu", () => {
     expect(onOpenTimer).toHaveBeenCalledTimes(1);
   });
 
+  it("알약 버튼 메뉴는 세션 아이콘 결로 그린 카메라 전환·스톱워치·타이머 아이콘을 쓴다", async () => {
+    renderMenu({ variant: "pill", onOpenStopwatch: vi.fn(), onOpenTimer: vi.fn() });
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+
+    const icon = (name: string) => screen.getByRole("menuitem", { name }).querySelector("svg");
+    expect(icon("카메라 전환")).toHaveClass("lucide-camera-rotate");
+    expect(icon("스톱워치")).toHaveClass("lucide-stopwatch");
+    expect(icon("타이머")).toHaveClass("lucide-timer-open");
+    const menu = screen.getByRole("menu");
+    expect(menu.querySelector(".lucide-switch-camera, .lucide-timer, .lucide-clock")).toBeNull();
+  });
+
   it("마스코트 토글을 넘기지 않으면 마스코트 항목이 없다", async () => {
     renderMenu({ mascotVisible: true });
 
     await userEvent.click(screen.getByRole("button", { name: "더보기" }));
 
-    expect(screen.queryByRole("menuitem", { name: "마스코트 숨기기" })).toBeNull();
-    expect(screen.queryByRole("menuitem", { name: "마스코트 보이기" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "캐릭터 숨기기" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "캐릭터 보이기" })).toBeNull();
   });
 
   it("마스코트가 보이면 타이머 다음 도움말 앞에 숨기기가 있고 누르면 토글한다", async () => {
@@ -93,11 +106,11 @@ describe("SessionMoreMenu", () => {
     expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
       "카메라 전환",
       "타이머",
-      "마스코트 숨기기",
+      "캐릭터 숨기기",
       "도움말 보기",
       "초대코드 공유",
     ]);
-    await userEvent.click(screen.getByRole("menuitem", { name: "마스코트 숨기기" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "캐릭터 숨기기" }));
     expect(onToggleMascot).toHaveBeenCalledTimes(1);
   });
 
@@ -107,8 +120,8 @@ describe("SessionMoreMenu", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "더보기" }));
 
-    expect(screen.queryByRole("menuitem", { name: "마스코트 숨기기" })).toBeNull();
-    await userEvent.click(screen.getByRole("menuitem", { name: "마스코트 보이기" }));
+    expect(screen.queryByRole("menuitem", { name: "캐릭터 숨기기" })).toBeNull();
+    await userEvent.click(screen.getByRole("menuitem", { name: "캐릭터 보이기" }));
     expect(onToggleMascot).toHaveBeenCalledTimes(1);
   });
 

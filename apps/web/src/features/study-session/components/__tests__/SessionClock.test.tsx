@@ -101,6 +101,47 @@ describe("SessionClock 유예", () => {
     expect(screen.getByRole("status").className).not.toContain("session-grace");
     expect(number().className).not.toContain("session-grace");
   });
+
+  it.each(["distract", "paused"] as const)(
+    "%s에서는 오늘 줄의 글자와 숫자도 큰 숫자처럼 회색이다",
+    (state) => {
+      renderClock({ state, statusLabel: "멈춤" });
+
+      expect(screen.getByText("오늘 집중")).toHaveClass("text-text-tertiary");
+      expect(screen.getByText("03:48:20")).toHaveClass("text-text-tertiary");
+      expect(screen.getByText("03:48:20")).not.toHaveClass("text-white");
+    },
+  );
+
+  it.each(["focus", "grace"] as const)(
+    "%s에서는 오늘 줄의 글자와 숫자가 같은 흰색이다",
+    (state) => {
+      renderClock({ state, statusLabel: "공부 상태를 확인 중이에요" });
+
+      expect(screen.getByText("오늘 집중")).toHaveClass("text-white");
+      expect(screen.getByText("오늘 집중")).not.toHaveClass("text-text-tertiary");
+      expect(screen.getByText("03:48:20")).toHaveClass("text-white");
+      expect(screen.getByText("03:48:20")).not.toHaveClass("text-text-tertiary");
+    },
+  );
+
+  it("유예면 오늘 줄의 글자와 숫자도 큰 숫자와 같이 깜빡이고, 동작 줄이기에서는 멈춘다", () => {
+    renderClock({ state: "grace", statusLabel: "공부 상태를 확인 중이에요" });
+
+    for (const text of ["오늘 집중", "03:48:20"]) {
+      expect(screen.getByText(text).className).toContain(
+        "animate-[session-grace-number_2s_ease-in-out_infinite]",
+      );
+      expect(screen.getByText(text)).toHaveClass("motion-reduce:animate-none");
+    }
+  });
+
+  it.each(["focus", "distract"] as const)("%s에서는 오늘 줄이 깜빡이지 않는다", (state) => {
+    renderClock({ state, statusLabel: "자리를 확인해 주세요" });
+
+    expect(screen.getByText("오늘 집중").className).not.toContain("session-grace");
+    expect(screen.getByText("03:48:20").className).not.toContain("session-grace");
+  });
 });
 
 describe("SessionClock 심플 모드 상태색", () => {

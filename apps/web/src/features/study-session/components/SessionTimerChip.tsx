@@ -1,9 +1,11 @@
-import { Pause, Play, Timer, X } from "lucide-react";
+import { Pause, Play, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { formatPomodoroRemaining } from "@/features/multi-timer/multiTimerFormat";
 import type { ModeState } from "@/features/multi-timer/multiTimerMachine";
 import { cn } from "@/lib/utils";
+
+import { Stopwatch, TimerOpen } from "./sessionIcons";
 
 // 보이는 원은 작아도 누르는 자리는 44px이 되게 넓힌다.
 const CHIP_BUTTON =
@@ -14,7 +16,7 @@ const CHIP_BUTTON =
  *
  * 하단 바 위에 40px 높이로 떠서 지금 도는 타이머나 스톱워치를 보여 준다.
  * 타이머는 이름을 누르면 시간을 고르는 시트를 다시 열고, 남은 시간 옆에 전체 시간을 함께 쓴다.
- * 세션이 멈춘 동안에는 시간도 서 있어서 버튼은 계속이다.
+ * 세션이 멈춘 동안에는 시간도 서 있어서 버튼은 계속이다. 스톱워치는 시작 전에도 00:00으로 떠서 버튼은 시작이다.
  * 화면 탭은 심플 모드 전환이라 칩 누름이 거기까지 올라가지 않게 끊는다.
  */
 export function SessionTimerChip({
@@ -39,9 +41,10 @@ export function SessionTimerChip({
   const stopwatch = mode.kind === "stopwatch";
   const running = mode.status === "running" && !held;
   const name = stopwatch ? t("timerChip.stopwatch") : t("timerChip.timer");
+  const Icon = stopwatch ? Stopwatch : TimerOpen;
   const label = (
     <>
-      <Timer aria-hidden="true" className="size-4 shrink-0 text-white/70" />
+      <Icon aria-hidden="true" strokeWidth={1.5} className="size-4 shrink-0 text-white/70" />
       <span className="text-sm leading-5 font-medium whitespace-nowrap text-white/70">{name}</span>
     </>
   );
@@ -80,10 +83,18 @@ export function SessionTimerChip({
           })}
         </span>
       )}
-      <span className="flex items-center gap-0.5">
+      {/* 정지와 끄기가 붙어 있으면 무엇이 무엇인지 헷갈려서 세로선으로 나누고 끄기는 흐리게 둔다.
+          간격이 누르는 자리(사방 8px 확장)보다 넓어 두 버튼의 누르는 자리가 겹치지 않는다. */}
+      <span className="flex items-center gap-2">
         <button
           type="button"
-          aria-label={running ? t("timerChip.pause") : t("timerChip.resume")}
+          aria-label={
+            running
+              ? t("timerChip.pause")
+              : mode.status === "setup"
+                ? t("timerChip.start")
+                : t("timerChip.resume")
+          }
           onClick={onPrimary}
           className={cn(CHIP_BUTTON, "bg-white/10")}
         >
@@ -93,11 +104,12 @@ export function SessionTimerChip({
             <Play aria-hidden="true" fill="currentColor" strokeWidth={0} className="size-3.5" />
           )}
         </button>
+        <span aria-hidden="true" className="h-4.5 w-px shrink-0 bg-white/18" />
         <button
           type="button"
           aria-label={t("timerChip.off")}
           onClick={onOff}
-          className={CHIP_BUTTON}
+          className={cn(CHIP_BUTTON, "text-white/60")}
         >
           <X aria-hidden="true" strokeWidth={2.2} className="size-3.5" />
         </button>

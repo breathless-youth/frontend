@@ -544,9 +544,12 @@ function RoomSessionBody({
   // 타이머 시간을 고르는 시트. 시작하면 닫히고 타이머는 하단 칩으로 계속 돈다.
   const [timerSheetOpen, setTimerSheetOpen] = useState(false);
   const timerSheetLandscape = useLandscapeLayout(timerSheetOpen);
-  // 시작 전(시간 고르는 중)이거나 끝나서 시작 전으로 돌아간 모드는 칩으로 보이지 않는다.
+  // 시작 전(시간 고르는 중)이거나 끝나서 시작 전으로 돌아간 타이머는 칩으로 보이지 않는다.
+  // 스톱워치는 고를 시간이 없어 시작 전에도 칩으로 띄우고, 칩의 시작 버튼으로 흐르게 한다.
   const timerChipVisible =
-    multiTimer.mode !== null && multiTimer.mode.status !== "setup" && !timerSheetOpen;
+    multiTimer.mode !== null &&
+    (multiTimer.mode.status !== "setup" || multiTimer.mode.kind === "stopwatch") &&
+    !timerSheetOpen;
   /**
    * 타이머 시트 열기
    *
@@ -556,10 +559,13 @@ function RoomSessionBody({
     if (multiTimer.mode === null) multiTimer.open("timer");
     setTimerSheetOpen(true);
   };
-  /** 타이머와 스톱워치는 동시에 하나만 돈다. 스톱워치를 켜면 돌던 타이머를 끈다. */
+  /**
+   * 타이머와 스톱워치는 동시에 하나만 돈다. 스톱워치를 켜면 돌던 타이머를 끈다.
+   * 고르자마자 흐르지 않고 00:00 칩에서 시작을 눌러야 흐른다.
+   */
   const openStopwatch = () => {
     if (multiTimer.mode !== null) multiTimer.close();
-    multiTimer.open("stopwatch", { start: true });
+    multiTimer.open("stopwatch");
   };
   useSessionRotationRestore();
   // 배경음·과목 페이지의 포털 자리. `--session-*` 변수가 여기 주입돼 있어 body 로 나가면 색이 빠진다.

@@ -98,9 +98,9 @@ export interface MultiTimerControls {
   /**
    * 모드를 연다
    *
-   * 종류를 넘기지 않으면 마지막으로 고른 모드로 연다. `start`면 열자마자 시작한다(스톱워치).
+   * 종류를 넘기지 않으면 마지막으로 고른 모드로 연다. 열면 시작 전 상태이고 `pressPrimary`로 시작한다.
    */
-  open(kind?: ModeKind, options?: { readonly start?: boolean }): void;
+  open(kind?: ModeKind): void;
   close(): void;
   /** 설정 화면에서만 바꾸고 고른 모드를 다음 열기에 쓴다. */
   switchKind(kind: ModeKind): void;
@@ -284,16 +284,12 @@ export function useMultiTimer({
     commit(synced.status === current.status ? pressed(synced, atMs) : synced, atMs, alarms);
   };
 
-  const open = (
-    kind: ModeKind = loadLastModeKind(),
-    options: { readonly start?: boolean } = {},
-  ) => {
+  const open = (kind: ModeKind = loadLastModeKind()) => {
     const atMs = now();
     openedAtRef.current = atMs;
     startedRef.current = false;
     trackMultiTimerOpened(kind);
-    const created = createModeState(kind, loadMultiTimerSettings());
-    commit(options.start === true ? pressed(created, atMs) : created, atMs);
+    commit(createModeState(kind, loadMultiTimerSettings()), atMs);
   };
 
   const switchKind = (kind: ModeKind) => {

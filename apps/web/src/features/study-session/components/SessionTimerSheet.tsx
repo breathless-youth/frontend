@@ -27,7 +27,7 @@ export interface SessionTimerSheetProps {
  *
  * 휠로 고른 시간은 시작을 누를 때까지 시트 안에만 둔다.
  * 시작하면 돌던 타이머는 처음으로 돌려, 돌던 스톱워치는 끄고 고른 시간으로 시작한 뒤 시트를 닫는다.
- * 시작 전에 닫으면 타이머를 끄고, 이미 도는 타이머나 스톱워치는 그대로 두고 시트만 닫는다.
+ * 시작 전에 닫으면 타이머를 끄고, 이미 도는 타이머나 칩으로 떠 있는 스톱워치는 그대로 두고 시트만 닫는다.
  * 가로에서는 오른쪽 패널, 세로에서는 화면 절반 높이의 아래 시트로 연다.
  */
 export function SessionTimerSheet({
@@ -49,7 +49,8 @@ export function SessionTimerSheet({
   }
 
   const cancel = () => {
-    if (timer.mode?.status === "setup") timer.close();
+    // 이 시트가 열면서 만든 시작 전 타이머만 끈다. 시작 전 스톱워치는 칩으로 떠 있던 것이라 그대로 둔다.
+    if (timer.mode?.kind === "timer" && timer.mode.status === "setup") timer.close();
     onClose();
   };
   const start = () => {

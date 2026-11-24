@@ -80,8 +80,8 @@
     "help": "查看說明",
     "shareInvite": "分享邀請碼",
     "timer": "計時器",
-    "hideMascot": "隱藏吉祥物",
-    "showMascot": "顯示吉祥物",
+    "hideMascot": "隱藏角色",
+    "showMascot": "顯示角色",
     "viewStudy": "以讀書時間顯示",
     "viewFocus": "以專注時間顯示",
     "stopwatch": "碼錶"
@@ -187,6 +187,7 @@
     "timer": "計時器",
     "stopwatch": "碼錶",
     "open": "計時器設定",
+    "start": "開始",
     "total": "/ {{total}}",
     "pause": "暫停",
     "resume": "繼續",

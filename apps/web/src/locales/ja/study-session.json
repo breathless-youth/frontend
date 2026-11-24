@@ -80,8 +80,8 @@
     "help": "ヘルプを見る",
     "shareInvite": "招待コードを共有",
     "timer": "タイマー",
-    "hideMascot": "マスコットを非表示",
-    "showMascot": "マスコットを表示",
+    "hideMascot": "キャラクターを非表示",
+    "showMascot": "キャラクターを表示",
     "viewStudy": "勉強時間で表示",
     "viewFocus": "集中時間で表示",
     "stopwatch": "ストップウォッチ"
@@ -187,6 +187,7 @@
     "timer": "タイマー",
     "stopwatch": "ストップウォッチ",
     "open": "タイマー設定",
+    "start": "スタート",
     "total": "/ {{total}}",
     "pause": "一時停止",
     "resume": "再開",
