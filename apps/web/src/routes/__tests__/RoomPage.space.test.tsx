@@ -640,6 +640,60 @@ describe("RoomPage 공간", () => {
     });
   });
 
+  // 집중 영상이 쌓이면 iPhone에서 영상 디코더가 메모리를 다 써서 세션 화면이 멈춘다.
+  it("비집중 장면이 뜬 뒤 심플 모드를 여러 번 바꿔도 집중 영상과 비집중 영상은 하나씩이다", async () => {
+    localStorage.setItem(KEY, JSON.stringify(RAIN_SPACE));
+    vi.mocked(fetch).mockImplementation(async (input) =>
+      String(input).endsWith("/spaces/loop/1a2b3c4d/manifest.json")
+        ? new Response(
+            JSON.stringify({
+              version: 2,
+              timing: { distractAfterSec: 3, returnAfterSec: 1 },
+              focus: { visual: "video", loop: false },
+              distract: { visual: "video", loop: "keep", cue: false, approach: false },
+            }),
+          )
+        : new Response(JSON.stringify({ version: 1, sounds: [] })),
+    );
+    vi.useFakeTimers();
+    try {
+      render(
+        <MemoryRouter initialEntries={["/room/7?userId=1&detector=mock"]}>
+          <Routes>
+            <Route path="/room/:id" element={<RoomPage />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+      answerCameraPrompt("camera");
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      await act(async () => {
+        window.__focusonMockDetector!.emit({ source: "PHONE", active: true });
+        await vi.advanceTimersByTimeAsync(1_200);
+      });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3_000);
+      });
+      expect(screen.getByTestId("distract-space")).toHaveClass("opacity-100");
+
+      for (let i = 0; i < 4; i++) {
+        fireEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(400);
+        });
+      }
+
+      const sources = [...document.querySelectorAll("video[src]")].map((video) =>
+        video.getAttribute("src"),
+      );
+      expect(sources.filter((src) => src!.includes("/1a2b3c4d/loop/"))).toHaveLength(1);
+      expect(sources.filter((src) => src!.includes("/1a2b3c4d/distract/loop/"))).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   // 집중 반복 소리가 없는 공간도 비집중 장면에 소리가 있으면 음량을 미리 맞출 수 있어야 한다.
   it.each([
     {

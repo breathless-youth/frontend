@@ -1462,7 +1462,8 @@ function RoomSessionScreen({
           )}
           {space.kind === "space" && !spaceFailed && distract.armed && distract.scene?.visual && (
             <DistractSpace
-              key={space.assetKey}
+              // 같은 부모의 집중 영상과 key가 겹치면 다시 그릴 때마다 집중 영상이 쌓인다.
+              key={`distract:${space.assetKey}`}
               assetKey={space.assetKey}
               visual={distract.scene.visual}
               present={distract.present}
