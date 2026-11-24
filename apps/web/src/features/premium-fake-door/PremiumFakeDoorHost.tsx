@@ -5,27 +5,23 @@ import { useTranslation } from "react-i18next";
 import { setPremiumFakeDoorPriceUserProperty, trackPremiumFakeDoor } from "@/lib/amplitude";
 import { isKoreanLocale } from "@/lib/i18n";
 import { profileQuery } from "@/lib/profileQueries";
-import { showCtaToast, showToast } from "@/lib/toast";
+import { showCtaToast } from "@/lib/toast";
 import { hasTokenSource } from "@/lib/userId";
 
 import { PremiumEntryCard } from "./PremiumEntryCard";
 import { PremiumFakeDoorFlow } from "./PremiumFakeDoorFlow";
-import { assignPremiumPrice, canShowPremiumCard, type PremiumPlacement } from "./premiumFakeDoor";
+import { assignPremiumPrice, canShowPremiumCard, PREMIUM_PLACEMENT } from "./premiumFakeDoor";
 import { loadPremiumRecord, updatePremiumRecord } from "./premiumFakeDoorStore";
 
 /**
- * 프리미엄 사전 신청 카드와 신청 화면
+ * 결과 화면의 프리미엄 사전 신청 카드와 신청 화면
  *
+ * 홈에는 카드를 두지 않는다. 자리 값은 늘 `RESULT`다.
  * 노출 여부는 마운트할 때 한 번 정한다. 닫거나 신청하면 카드만 내리고, 열린 신청 화면은 완료까지 남는다.
- * 결과 화면은 아래 버튼 위에 토스트를 띄우는 `CtaToaster`가 있어 그쪽으로 보낸다.
+ * 닫았다는 토스트는 결과 화면 아래 버튼 위의 `CtaToaster`로 보낸다.
  */
-export function PremiumFakeDoorHost({
-  placement,
-  userId,
-}: {
-  placement: PremiumPlacement;
-  userId: number;
-}) {
+export function PremiumFakeDoorHost({ userId }: { userId: number }) {
+  const placement = PREMIUM_PLACEMENT;
   const { t } = useTranslation("premium-fake-door");
   const price = assignPremiumPrice(userId);
   const base = { price, placement };
@@ -34,7 +30,6 @@ export function PremiumFakeDoorHost({
     return (
       record !== null &&
       canShowPremiumCard({
-        placement,
         nowMs: Date.now(),
         hasTokenSource: hasTokenSource(),
         korean: isKoreanLocale(),
@@ -51,9 +46,6 @@ export function PremiumFakeDoorHost({
     if (!visible) return;
     const record = loadPremiumRecord(userId);
     if (record === null) return;
-    if (placement === "RESULT" && !record.shownOnResult) {
-      updatePremiumRecord(userId, { shownOnResult: true });
-    }
     if (!record.viewedSent) {
       updatePremiumRecord(userId, { viewedSent: true });
       trackPremiumFakeDoor("viewed", { price, placement });
@@ -77,7 +69,7 @@ export function PremiumFakeDoorHost({
             updatePremiumRecord(userId, { dismissed: true });
             trackPremiumFakeDoor("dismissed", base);
             setVisible(false);
-            (placement === "RESULT" ? showCtaToast : showToast)(t("card.dismissed"));
+            showCtaToast(t("card.dismissed"));
           }}
         />
       )}

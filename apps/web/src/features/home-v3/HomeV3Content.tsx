@@ -31,7 +31,6 @@ export function HomeV3Content({
   timelapseCount,
   plannerTaskCount,
   appLockLabel,
-  afterStart,
   menuOpen,
   onMenuOpenChange,
   actions,
@@ -70,7 +69,6 @@ export function HomeV3Content({
           {startError}
         </p>
       )}
-      {afterStart}
       <HomePlannerShortcut
         plannerTaskCount={plannerTaskCount}
         accessories={wornAccessories?.get("planner")}

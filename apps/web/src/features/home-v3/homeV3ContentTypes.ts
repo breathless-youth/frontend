@@ -1,5 +1,4 @@
 import type { HomeMissionStep } from "@focusmakers/types";
-import type { ReactNode } from "react";
 
 import type { WornAccessoriesByMascot } from "@/components/mascot/types";
 
@@ -33,8 +32,6 @@ export interface HomeV3ContentProps {
   timelapseCount?: number;
   plannerTaskCount?: number;
   appLockLabel: string;
-  /** "공부 시작" 버튼 바로 아래에 두는 카드. 프리미엄 사전 신청 실험(BY-1392)이 쓴다. */
-  afterStart?: ReactNode;
   menuOpen?: boolean;
   onMenuOpenChange?: (open: boolean) => void;
   actions: {

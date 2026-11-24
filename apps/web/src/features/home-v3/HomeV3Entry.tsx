@@ -29,7 +29,6 @@ import { useFocusStart } from "@/lib/useFocusStart";
 import { SubjectStartUnavailableError } from "@/lib/sessionStart";
 import { useMeasureMode } from "@/features/measure-mode/measureMode";
 import { prefetchVisionAssets } from "@/features/study-session/vision/prefetchVisionAssets";
-import { PremiumFakeDoorHost } from "@/features/premium-fake-door/PremiumFakeDoorHost";
 import { prefetchTimelapsesPage } from "@/routes/lazyRoutes";
 
 import { HomeV3Content, type HomeLoadState, type HomeTodayStats } from "./HomeV3Content";
@@ -305,7 +304,6 @@ export function HomeV3Entry({
         timelapseCount={timelapses.data?.length}
         plannerTaskCount={progress.goal?.remainingTasks}
         appLockLabel={lockLabel}
-        afterStart={<PremiumFakeDoorHost placement="HOME" userId={userId} />}
         actions={{
           selectSubject: (id) => {
             selectSubject(id);

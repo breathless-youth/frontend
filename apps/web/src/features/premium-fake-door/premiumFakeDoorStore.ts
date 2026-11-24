@@ -3,7 +3,7 @@ import { EMPTY_PREMIUM_RECORD, type PremiumFakeDoorRecord } from "./premiumFakeD
 /**
  * 사용자별 노출 기록 저장
  *
- * 홈 웹뷰와 결과 화면 웹뷰가 같은 기록을 보도록 localStorage에 둔다.
+ * 결과 화면 문서가 세션마다 새로 열려도 같은 기록을 보도록 localStorage에 둔다.
  * 지워지면 카드가 한 번 더 보일 뿐이라 네이티브 저장소를 쓰지 않는다.
  */
 const keyFor = (userId: number) => `focusmakers.premiumFakeDoor.v1.${userId}`;
@@ -16,7 +16,6 @@ export function loadPremiumRecord(userId: number): PremiumFakeDoorRecord | null 
     const parsed = JSON.parse(raw) as Partial<Record<keyof PremiumFakeDoorRecord, unknown>>;
     const flag = (key: keyof PremiumFakeDoorRecord) => parsed[key] === true;
     return {
-      shownOnResult: flag("shownOnResult"),
       dismissed: flag("dismissed"),
       applied: flag("applied"),
       viewedSent: flag("viewedSent"),
