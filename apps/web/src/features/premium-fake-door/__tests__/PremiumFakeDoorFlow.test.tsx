@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -41,6 +41,7 @@ beforeEach(() => {
 });
 afterEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("PremiumFakeDoorFlow 완료 버튼", () => {
@@ -57,5 +58,26 @@ describe("PremiumFakeDoorFlow 완료 버튼", () => {
     await finishApplying();
 
     expect(screen.getByRole("button", { name: "결과로 돌아가기" })).toBeInTheDocument();
+  });
+});
+
+describe("PremiumFakeDoorFlow 키보드", () => {
+  it("키보드가 올라오면 아래 버튼 줄을 키보드 위로 올린다", async () => {
+    const viewport = new EventTarget() as EventTarget & { height: number; offsetTop: number };
+    viewport.height = 800;
+    viewport.offsetTop = 0;
+    vi.stubGlobal("visualViewport", viewport);
+    vi.stubGlobal("innerHeight", 800);
+    renderFlow("SESSION");
+    await userEvent.click(screen.getByRole("button", { name: "사전 신청하기" }));
+    const footer = screen.getByRole("button", { name: "사전 신청하기" }).parentElement;
+    expect(footer?.style.paddingBottom).toBe("");
+
+    act(() => {
+      viewport.height = 458;
+      viewport.dispatchEvent(new Event("resize"));
+    });
+
+    expect(footer?.style.paddingBottom).toBe("354px");
   });
 });

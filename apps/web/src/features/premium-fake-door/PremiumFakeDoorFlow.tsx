@@ -14,6 +14,7 @@ import {
 import { useBackDismiss } from "@/lib/backDismiss";
 import { haptic } from "@/lib/haptics";
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
+import { useKeyboardInset } from "@/lib/useKeyboardInset";
 import { cn } from "@/lib/utils";
 
 import {
@@ -91,6 +92,8 @@ export function PremiumFakeDoorFlow({
   const base = { price, placement };
 
   useBackDismiss(true, onClose);
+  const keyboardInset = useKeyboardInset();
+  const keyboardOpen = keyboardInset > 0;
 
   useEffect(() => {
     headingRef.current?.focus({ preventScroll: true });
@@ -293,7 +296,8 @@ export function PremiumFakeDoorFlow({
     const emailError = errors.email === null ? null : t(`email.errors.${errors.email}`);
     body = (
       <>
-        <SpartaHero size={112} className="mb-1.5" />
+        {/* 키보드가 올라오면 남는 높이가 화면의 절반쯤이라 그림을 접어 입력 칸이 보이게 한다. */}
+        {!keyboardOpen && <SpartaHero size={112} className="mb-1.5" />}
         <h2
           id={headingId}
           ref={headingRef}
@@ -520,6 +524,8 @@ export function PremiumFakeDoorFlow({
         {body}
       </div>
       <div
+        // 키보드는 화면을 줄이지 않고 아래를 덮어서, 올라온 동안에는 안전 영역 대신 키보드 높이만큼 버튼 줄을 올린다.
+        style={keyboardOpen ? { paddingBottom: keyboardInset + 12 } : undefined}
         className={cn(
           "page-width relative w-full shrink-0 px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+24px)]",
           // 아래 버튼 줄 위로 내용이 바탕색으로 흐려지며 사라진다.
@@ -529,7 +535,7 @@ export function PremiumFakeDoorFlow({
         {step === "benefits" && (
           <p className="mb-2.5 text-center text-xs break-keep text-sparta-fg3">{t("billing")}</p>
         )}
-        {step === "email" && (
+        {step === "email" && !keyboardOpen && (
           <p className="mb-2.5 text-center text-xs leading-4.25 break-keep text-sparta-fg3">
             {t("billing")}
           </p>
