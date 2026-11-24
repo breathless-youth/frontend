@@ -8,7 +8,12 @@ import { hasTokenSource } from "@/lib/userId";
 
 import { PremiumEntryCard } from "./PremiumEntryCard";
 import { PremiumFakeDoorFlow } from "./PremiumFakeDoorFlow";
-import { assignPremiumPrice, canShowPremiumCard, PREMIUM_PLACEMENT } from "./premiumFakeDoor";
+import {
+  assignPremiumPrice,
+  canShowPremiumCard,
+  PREMIUM_PLACEMENT,
+  type PremiumPlacement,
+} from "./premiumFakeDoor";
 import { loadPremiumRecord, updatePremiumRecord } from "./premiumFakeDoorStore";
 
 /**
@@ -71,14 +76,10 @@ export function PremiumFakeDoorHost({ userId }: { userId: number }) {
         />
       )}
       {open && (
-        <PremiumFakeDoorFlow
-          price={price}
+        <PremiumFakeDoorUserFlow
+          userId={userId}
           placement={placement}
-          priceLabel={priceLabel}
-          onApplied={() => {
-            updatePremiumRecord(userId, { applied: true });
-            setVisible(false);
-          }}
+          onApplied={() => setVisible(false)}
           onClose={() => {
             setOpen(false);
             openRef.current?.focus();
@@ -86,5 +87,38 @@ export function PremiumFakeDoorHost({ userId }: { userId: number }) {
         />
       )}
     </>
+  );
+}
+
+/**
+ * 사용자 번호로 가격을 채운 신청 화면
+ *
+ * 결과 화면 카드와 세션 배너가 같은 가격, 같은 신청 기록을 쓰도록 둘 다 이것으로 연다.
+ * 신청을 마치면 기록에 남겨 두 입구 모두 다시 권하지 않는다.
+ */
+export function PremiumFakeDoorUserFlow({
+  userId,
+  placement,
+  onApplied,
+  onClose,
+}: {
+  userId: number;
+  placement: PremiumPlacement;
+  onApplied?: () => void;
+  onClose: () => void;
+}) {
+  const { t } = useTranslation("premium-fake-door");
+  const price = assignPremiumPrice(userId);
+  return (
+    <PremiumFakeDoorFlow
+      price={price}
+      placement={placement}
+      priceLabel={t("price", { amount: price })}
+      onApplied={() => {
+        updatePremiumRecord(userId, { applied: true });
+        onApplied?.();
+      }}
+      onClose={onClose}
+    />
   );
 }

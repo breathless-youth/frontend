@@ -132,7 +132,8 @@
     "thanks": "ご回答いただきありがとうございます！",
     "pickFailed": "回答を保存できませんでした。もう一度選んでください。",
     "backToResult": "結果に戻る",
-    "badge": "事前登録完了"
+    "badge": "事前登録完了",
+    "backToStudy": "勉強に戻る"
   },
   "sheet": {
     "close": "閉じる"

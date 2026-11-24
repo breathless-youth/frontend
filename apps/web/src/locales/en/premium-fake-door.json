@@ -132,7 +132,8 @@
     "thanks": "Thank you for your answer!",
     "pickFailed": "We couldn't save your answer. Please choose again.",
     "backToResult": "Back to results",
-    "badge": "Pre-registered"
+    "badge": "Pre-registered",
+    "backToStudy": "Back to studying"
   },
   "sheet": {
     "close": "Close"

@@ -129,7 +129,8 @@
     "thanks": "답변해 주셔서 감사합니다!",
     "pickFailed": "답변을 저장하지 못했어요. 다시 골라 주세요.",
     "backToResult": "결과로 돌아가기",
-    "badge": "사전 신청 완료"
+    "badge": "사전 신청 완료",
+    "backToStudy": "공부로 돌아가기"
   },
   "sheet": {
     "close": "닫기"

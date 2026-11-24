@@ -177,7 +177,7 @@ export function PremiumFakeDoorFlow({
   const ctaLabel = {
     benefits: t("benefits.cta"),
     email: t("email.submit"),
-    done: t("done.backToResult"),
+    done: placement === "SESSION" ? t("done.backToStudy") : t("done.backToResult"),
   }[step];
 
   function handlePrimary() {
