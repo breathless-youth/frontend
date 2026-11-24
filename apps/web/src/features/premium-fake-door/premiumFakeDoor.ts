@@ -15,9 +15,10 @@ export const PREMIUM_PRICES = [2900, 5900] as const;
 export type PremiumPrice = (typeof PREMIUM_PRICES)[number];
 
 /**
- * 카드 자리. 서버 계약은 `HOME`도 받지만 홈 카드는 뺐으므로 화면은 늘 `RESULT`를 보낸다.
+ * 신청 화면을 연 자리. 서버 계약은 `HOME`도 받지만 홈 카드는 뺐으므로 결과 화면 카드는 늘 `RESULT`를 보낸다.
+ * `SESSION`은 세션 화면 한 줄 배너로 들어온 경우다.
  */
-export type PremiumPlacement = "RESULT" | "HOME";
+export type PremiumPlacement = "RESULT" | "HOME" | "SESSION";
 export const PREMIUM_PLACEMENT: PremiumPlacement = "RESULT";
 
 /**

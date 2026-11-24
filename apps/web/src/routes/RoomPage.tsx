@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { flushSync } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -120,6 +121,9 @@ import { useIdentityPending, useUserId } from "@/lib/userId";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import { useSessionHelpFunnel } from "@/features/study-session/useSessionHelpFunnel";
+import { assignPremiumPrice } from "@/features/premium-fake-door/premiumFakeDoor";
+import { loadPremiumRecord } from "@/features/premium-fake-door/premiumFakeDoorStore";
+import { PremiumFakeDoorUserFlow } from "@/features/premium-fake-door/PremiumFakeDoorHost";
 import { canShowSessionBanner } from "@/features/session-banner/sessionBanner";
 import { SessionLineBanner } from "@/features/session-banner/SessionLineBanner";
 import { useBannerExposure } from "@/features/session-banner/useBannerExposure";
@@ -193,6 +197,8 @@ import {
   trackSessionSpaceMuted,
   trackSessionSpaceOpened,
   trackSessionSpaceVolumeChanged,
+  setPremiumFakeDoorPriceUserProperty,
+  trackPremiumFakeDoor,
   trackStudySessionCameraPromptAnswered,
   trackStudySessionCameraPromptShown,
   trackStudySessionExitCancelled,
@@ -1069,14 +1075,28 @@ function RoomSessionScreen({
   const bannerGroup = useSessionBannerGroup(userId);
   // 종료 시각은 세션에 들어올 때 한 번 본다.
   const [bannerCheckedAtMs] = useState(Date.now);
-  // 혜택 화면을 붙이기 전이라 신청 완료 여부는 false로 넘긴다.
+  const readPremiumApplied = () => userId !== null && loadPremiumRecord(userId)?.applied === true;
+  // 혜택 화면 안에서 신청을 마치고 닫으면 기록을 다시 읽어 배너를 내린다.
+  const [premiumApplied, setPremiumApplied] = useState(readPremiumApplied);
   const bannerVisible = canShowSessionBanner({
     group: bannerGroup,
     nowMs: bannerCheckedAtMs,
-    applied: false,
+    applied: premiumApplied,
   });
-  // 배너를 누르면 프리미엄 혜택 화면을 세션 위에 여는 자리이고, 화면 연결은 사전 신청 코드가 들어온 뒤 붙인다.
+  // 배너를 누르면 프리미엄 혜택 화면이 세션 위에 겹쳐 열리고, 세션과 타이머는 그대로 돈다.
   const [bannerTargetOpen, setBannerTargetOpen] = useState(false);
+  const openBannerTarget = () => {
+    if (userId === null) return;
+    const price = assignPremiumPrice(userId);
+    trackPremiumFakeDoor("opened", { price, placement: "SESSION" });
+    // 결과 화면 카드를 보지 않고 배너로만 들어온 사용자도 가격으로 나눠 볼 수 있게 남긴다.
+    setPremiumFakeDoorPriceUserProperty(price);
+    setBannerTargetOpen(true);
+  };
+  const closeBannerTarget = () => {
+    setBannerTargetOpen(false);
+    setPremiumApplied(readPremiumApplied());
+  };
   const bannerRef = useRef<HTMLDivElement>(null);
   // 일시정지나 세션을 덮는 화면이 떠 있는 동안은 배너가 보인 시간으로 세지 않는다.
   const bannerCopy = useBannerExposure({
@@ -1807,7 +1827,7 @@ function RoomSessionScreen({
                   inert={moreMenuOpen}
                   className="absolute inset-x-[68px] -bottom-4 h-11 regular:hidden landscape-compact:hidden"
                 >
-                  <SessionLineBanner copy={bannerCopy} onOpen={() => setBannerTargetOpen(true)} />
+                  <SessionLineBanner copy={bannerCopy} onOpen={openBannerTarget} />
                 </div>
               )}
               {/* 심플 모드에서도 공부를 바로 끝낼 수 있게 종료 버튼은 남긴다. */}
@@ -1838,6 +1858,17 @@ function RoomSessionScreen({
               step={helpStep}
               onStepChange={setHelpStep}
             />
+          )}
+
+          {/* 세션 화면은 Provider 없이도 렌더되므로 닉네임 요청에 공용 queryClient를 직접 건넨다. */}
+          {bannerTargetOpen && userId !== null && (
+            <QueryClientProvider client={queryClient}>
+              <PremiumFakeDoorUserFlow
+                userId={userId}
+                placement="SESSION"
+                onClose={closeBannerTarget}
+              />
+            </QueryClientProvider>
           )}
 
           {/* 두 페이지는 Radix 포털을 타므로 여기 위치가 화면 배치를 정하지는 않는다.

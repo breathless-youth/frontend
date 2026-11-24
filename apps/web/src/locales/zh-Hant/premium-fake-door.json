@@ -129,7 +129,8 @@
     "question": "你最期待哪項功能？",
     "thanks": "謝謝你的回答！",
     "pickFailed": "無法儲存你的回答，請再選一次。",
-    "backToResult": "回到結果"
+    "backToResult": "回到結果",
+    "backToStudy": "回去讀書"
   },
   "sheet": {
     "tag": "準備上線中",

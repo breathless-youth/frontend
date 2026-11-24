@@ -2712,7 +2712,7 @@ export function trackPointsClaimed(claim: {
 }
 
 /** 프리미엄 사전 신청 실험의 카드 자리. lib가 features를 참조하지 않도록 같은 리터럴을 여기 둔다. */
-export type PremiumFakeDoorPlacement = "RESULT" | "HOME";
+export type PremiumFakeDoorPlacement = "RESULT" | "HOME" | "SESSION";
 
 /**
  * 프리미엄 사전 신청 실험(BY-1392) 이벤트에 늘 싣는 속성

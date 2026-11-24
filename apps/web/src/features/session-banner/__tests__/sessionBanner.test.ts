@@ -93,4 +93,8 @@ describe("canShowSessionBanner", () => {
     expect(canShowSessionBanner({ ...base, nowMs: SESSION_BANNER_ENDS_AT_MS + 1 })).toBe(false);
     expect(canShowSessionBanner({ ...base, enabled: false })).toBe(false);
   });
+
+  it("사전 신청 실험이 꺼지면 누를 곳이 없어 보이지 않는다", () => {
+    expect(canShowSessionBanner({ ...base, premiumEnabled: false })).toBe(false);
+  });
 });

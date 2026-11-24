@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type * as Amplitude from "@/lib/amplitude";
 import i18n from "@/lib/i18n";
 import { queryClient } from "@/lib/queryClient";
+import type * as UserId from "@/lib/userId";
 
 import { assignSessionBannerArm } from "../sessionBanner";
 import { loadSessionBannerGroup, saveSessionBannerGroup } from "../sessionBannerStore";
@@ -12,6 +13,11 @@ import { useSessionBannerGroup } from "../useSessionBannerGroup";
 
 const analytics = vi.hoisted(() => ({ setSessionBannerGroupUserProperty: vi.fn() }));
 vi.mock("@/lib/amplitude", async (o) => ({ ...(await o<typeof Amplitude>()), ...analytics }));
+const tokenSource = vi.hoisted(() => ({ present: true }));
+vi.mock("@/lib/userId", async (o) => ({
+  ...(await o<typeof UserId>()),
+  hasTokenSource: () => tokenSource.present,
+}));
 
 const USER_ID = 7;
 const STUDIED = [
@@ -52,6 +58,7 @@ afterEach(async () => {
   vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.clearAllMocks();
+  tokenSource.present = true;
   queryClient.clear();
   localStorage.clear();
   await i18n.changeLanguage("ko");
@@ -68,6 +75,19 @@ describe("useSessionBannerGroup 판정 대상", () => {
 
     vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
     await i18n.changeLanguage("en");
+    expect(renderHook(() => useSessionBannerGroup(USER_ID), { wrapper }).result.current).toBeNull();
+
+    await Promise.resolve();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(loadSessionBannerGroup(USER_ID)).toBe("unset");
+  });
+});
+
+describe("useSessionBannerGroup 토큰 없는 구 앱", () => {
+  it("신청을 저장할 수 없는 구 앱은 판정하지 않는다", async () => {
+    const fetch = stubApi({ stats: Promise.resolve(periodResponse()) });
+    tokenSource.present = false;
+
     expect(renderHook(() => useSessionBannerGroup(USER_ID), { wrapper }).result.current).toBeNull();
 
     await Promise.resolve();

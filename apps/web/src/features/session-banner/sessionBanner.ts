@@ -1,6 +1,7 @@
 import type { DailyStudyStat } from "@focusmakers/types";
 
 import { addDaysToDateKey } from "@/features/records/recordsFormat";
+import { PREMIUM_FAKE_DOOR_ENABLED } from "@/features/premium-fake-door/premiumFakeDoor";
 import type { DateRange } from "@/lib/statsApi";
 
 /**
@@ -87,12 +88,17 @@ export function canShowSessionBanner({
   nowMs,
   applied,
   enabled = SESSION_BANNER_ENABLED,
+  premiumEnabled = PREMIUM_FAKE_DOOR_ENABLED,
 }: {
   group: SessionBannerGroup | null;
   nowMs: number;
   /** 사전 신청을 마친 사용자에게는 같은 신청을 다시 권하지 않는다. */
   applied: boolean;
   enabled?: boolean;
+  /** 배너를 눌러 여는 사전 신청 화면이 꺼져 있으면 눌러도 열릴 것이 없다. */
+  premiumEnabled?: boolean;
 }): boolean {
-  return isSessionBannerRunning(nowMs, enabled) && group === "exposed" && !applied;
+  return (
+    isSessionBannerRunning(nowMs, enabled) && premiumEnabled && group === "exposed" && !applied
+  );
 }
