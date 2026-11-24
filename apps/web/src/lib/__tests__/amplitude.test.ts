@@ -2716,7 +2716,7 @@ describe("세션 공간 이벤트", () => {
       kind: "space",
       source: "tile",
       tab: "video",
-      category: "watch",
+      category: "DYNAMIC",
       item: { itemCode: "SPACE_PROCTOR", videoMode: "WATCH" },
     });
     m.trackTimerBackgroundApplied({
@@ -2742,7 +2742,7 @@ describe("세션 공간 이벤트", () => {
           kind: "space",
           source: "tile",
           tab: "video",
-          category: "watch",
+          category: "DYNAMIC",
           item_code: "SPACE_PROCTOR",
           video_mode: "WATCH",
         },

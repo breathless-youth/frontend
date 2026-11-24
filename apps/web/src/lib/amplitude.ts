@@ -1423,7 +1423,7 @@ export function trackSessionSpacePreviewOpened(input: {
  *
  * `kind`가 소스마다 다른 값이라 어떤 소스를 골랐는지 이것으로 구분하고, 내 사진은 몇 번째인지 나누지 않는다.
  * `source`는 타일을 바로 눌렀는지(tile), 미리보기의 `적용하기`인지(preview)다.
- * `category`는 고른 칩 코드다. 전체는 all, 감독은 watch, 나머지는 서버 분류 코드다.
+ * `category`는 고른 칩 코드다. 전체는 all, 나머지는 서버 분류 코드다(2026-11-24 BY-1391 전에는 감독 칩이 watch였다).
  * 서버 공간이면 `item_code`로 묶어 많이 적용된 공간 순위를 본다.
  */
 export function trackTimerBackgroundApplied(input: {
