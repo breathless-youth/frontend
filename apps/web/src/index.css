@@ -682,6 +682,29 @@
   --muted: var(--sparta-card);
   /* 오류 색은 .theme-soft-blue에만 있어 이 화면(.theme-dark)에서도 쓰도록 다크 바탕에 맞춘 값을 둔다. */
   --feedback-danger: #ff6b77;
+  /* 하단 주 버튼(흰 버튼): 바탕, 글자, 누를 때, 보내는 중 */
+  --sparta-cta-bg: #f6f7f9;
+  --sparta-cta-fg: #0b0e14;
+  --sparta-cta-pressed: #dfe2e8;
+  --sparta-cta-disabled: #c9cdd4;
+}
+
+/* 신청 흐름의 하단 주 버튼. 다크 바탕 위 흰 버튼이고, 보내는 중에도 흐리게 하지 않고 회색 바탕으로 읽히게 둔다. */
+.sparta-cta {
+  background: var(--sparta-cta-bg);
+  color: var(--sparta-cta-fg);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+.sparta-cta:active {
+  background: var(--sparta-cta-pressed);
+}
+.sparta-cta:disabled {
+  background: var(--sparta-cta-disabled);
+  opacity: 1;
+}
+.sparta-cta:focus-visible {
+  outline: 2px solid var(--sparta-hot2);
+  outline-offset: 3px;
 }
 
 /* 혜택 화면 머리 배경: 아래에서 올라오는 불빛과 위쪽의 어두운 불씨 색 */

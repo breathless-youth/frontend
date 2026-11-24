@@ -90,7 +90,8 @@ export function PremiumFeatureSheet({
                 size="xl"
                 data-base-ui-swipe-ignore
                 onClick={onApply}
-                className="shadow-sb-cta h-13.5 w-full rounded-lg text-[17px] font-bold"
+                variant="unstyled"
+                className="sparta-cta h-13.5 w-full rounded-lg text-[17px] font-bold"
               >
                 {t("benefits.cta")}
               </Button>

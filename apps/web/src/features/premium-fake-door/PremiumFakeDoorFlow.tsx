@@ -511,7 +511,8 @@ export function PremiumFakeDoorFlow({
           disabled={submitting}
           aria-busy={submitting}
           onClick={handlePrimary}
-          className="shadow-sb-cta h-13.5 w-full rounded-lg text-[17px] font-bold"
+          variant="unstyled"
+          className="sparta-cta h-13.5 w-full rounded-lg text-[17px] font-bold"
         >
           {ctaLabel}
         </Button>
