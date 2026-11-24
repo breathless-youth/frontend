@@ -14,7 +14,11 @@ import {
   PREMIUM_PLACEMENT,
   type PremiumPlacement,
 } from "./premiumFakeDoor";
-import { loadPremiumRecord, updatePremiumRecord } from "./premiumFakeDoorStore";
+import {
+  loadPremiumRecord,
+  migrateLegacyDismissal,
+  updatePremiumRecord,
+} from "./premiumFakeDoorStore";
 
 /**
  * 결과 화면의 스파르타 기능 사전 신청 카드와 신청 화면(코드 이름은 실험 시작 때의 premium을 그대로 쓴다)
@@ -37,11 +41,14 @@ export function PremiumFakeDoorHost({
   const price = assignPremiumPrice(userId);
   const base = { price, placement };
   const [visible, setVisible] = useState(() => {
+    const nowMs = Date.now();
+    // 예전 닫은 기록은 여기서 한 번만 옮긴다. 읽기는 저장소를 바꾸지 않는다.
+    migrateLegacyDismissal(userId, nowMs);
     const record = loadPremiumRecord(userId);
     return (
       record !== null &&
       canShowPremiumCard({
-        nowMs: Date.now(),
+        nowMs,
         hasTokenSource: hasTokenSource(),
         korean: isKoreanLocale(),
         record,

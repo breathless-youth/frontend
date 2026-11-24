@@ -70,6 +70,11 @@ export function assignPremiumPrice(userId: number): PremiumPrice {
 export interface PremiumFakeDoorRecord {
   /** 마지막으로 X로 닫은 시각(ms). 닫은 적이 없으면 null이다. */
   dismissedAt: number | null;
+  /**
+   * 닫으면 영영 숨기던 예전 기록(`dismissed: true`, 시각 없음)을 아직 옮기지 못했다.
+   * 옮기기는 `migrateLegacyDismissal`이 한 번 한다. 옮기지 못한 동안은 예전처럼 숨긴다.
+   */
+  legacyDismissed: boolean;
   applied: boolean;
   /** `premium_fake_door_viewed`를 보냈다. 사용자당 한 번만 보낸다. */
   viewedSent: boolean;
@@ -77,6 +82,7 @@ export interface PremiumFakeDoorRecord {
 
 export const EMPTY_PREMIUM_RECORD: PremiumFakeDoorRecord = {
   dismissedAt: null,
+  legacyDismissed: false,
   applied: false,
   viewedSent: false,
 };
@@ -123,7 +129,10 @@ export function canShowPremiumCard({
   if (!hasTokenSource || !korean) return false;
   if (qualifyingSec < PREMIUM_CARD_MIN_FOCUS_SEC) return false;
   if (record.applied) return false;
-  return record.dismissedAt === null || nowMs - record.dismissedAt >= PREMIUM_CARD_SNOOZE_MS;
+  if (record.dismissedAt === null) return !record.legacyDismissed;
+  // 기기 시계가 뒤로 가 닫은 시각이 미래가 되면, 그 뒤로 영영 숨기지 않도록 숨김 기간이 끝난 것으로 본다.
+  const elapsed = nowMs - record.dismissedAt;
+  return elapsed < 0 || elapsed >= PREMIUM_CARD_SNOOZE_MS;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;

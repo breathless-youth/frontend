@@ -52,6 +52,16 @@ describe("canShowPremiumCard", () => {
     expect(canShowPremiumCard({ ...base, record, nowMs: hours(48) })).toBe(true);
   });
 
+  it("기기 시계가 뒤로 가 닫은 시각이 미래면 숨김 기간이 끝난 것으로 본다", () => {
+    const record = { ...EMPTY_PREMIUM_RECORD, dismissedAt: base.nowMs + 60 * 60 * 1000 };
+    expect(canShowPremiumCard({ ...base, record })).toBe(true);
+  });
+
+  it("시각 없이 닫은 예전 기록은 숨긴다", () => {
+    const record = { ...EMPTY_PREMIUM_RECORD, legacyDismissed: true };
+    expect(canShowPremiumCard({ ...base, record })).toBe(false);
+  });
+
   it("종료 시각(2026-12-03 23:59:59 KST)이 지나면 숨긴다", () => {
     expect(PREMIUM_FAKE_DOOR_ENDS_AT_MS).toBe(Date.parse("2026-12-03T23:59:59+09:00"));
     expect(canShowPremiumCard({ ...base, nowMs: PREMIUM_FAKE_DOOR_ENDS_AT_MS })).toBe(true);
