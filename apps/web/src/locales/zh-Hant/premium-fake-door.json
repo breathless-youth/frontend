@@ -88,7 +88,7 @@
     "title": "請留下接收上線消息的電子郵件",
     "label": "電子郵件",
     "placeholder": "example@email.com",
-    "consent": "[必填] 同意蒐集與使用個人資料",
+    "consent": "[必填] 我已滿 14 歲，並同意蒐集與使用個人資料",
     "consentLine": "電子郵件只用於上線通知，寄出通知後會立刻刪除。",
     "details": "查看詳情",
     "terms": {
@@ -105,9 +105,8 @@
     "errors": {
       "required": "請輸入電子郵件。",
       "format": "請確認電子郵件格式。",
-      "consent": "需要同意蒐集與使用個人資料才能登記。"
+      "consent": "需年滿 14 歲並同意蒐集與使用個人資料才能登記。"
     },
-    "ageNotice": "申請即表示確認你已滿 14 歲。",
     "headLine1": "最後一步，",
     "headLine2": "要點燃火焰嗎？"
   },

@@ -100,7 +100,7 @@
     "title": "Where should we send the launch news?",
     "label": "Email",
     "placeholder": "example@email.com",
-    "consent": "[Required] Consent to collection and use of personal information",
+    "consent": "[Required] I'm 14 or older and agree to the collection and use of personal information",
     "consentLine": "We only use your email for the launch notice and delete it right after sending.",
     "details": "View details",
     "terms": {
@@ -117,9 +117,8 @@
     "errors": {
       "required": "Please enter your email.",
       "format": "Please check your email format.",
-      "consent": "You need to agree to the collection and use of personal information to sign up."
+      "consent": "You need to be 14 or older and agree to the collection and use of personal information to sign up."
     },
-    "ageNotice": "By signing up, you confirm you're 14 or older.",
     "headLine1": "One last step,",
     "headLine2": "ready to light the fire?"
   },

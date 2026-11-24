@@ -42,7 +42,8 @@ const NO_ERRORS: EmailStepErrors = { email: null, consent: false };
  *
  * 신청 흐름 전체는 시스템 테마와 무관하게 다크다(`theme-dark`, 세션 화면과 같은 방식). 결과 화면의 진입 카드는 사용자 테마를 따른다.
  * 혜택 화면은 스파르타 전용 색(`sparta-surface`)을 더 깐다. 만 14세 확인은 따로 묻지 않고 이메일 화면에서
- * "신청하면 만 14세 이상으로 본다"고 알린다. 신청은 이메일 제출 하나뿐이라 늘 `ageOver14: true`로 보낸다.
+ * 하나뿐인 필수 동의 체크 칸("만 14세 이상이며, 개인정보 수집·이용에 동의해요")이 만 14세 확인을 겸한다.
+ * 이 칸을 체크해야만 보낼 수 있으므로 신청은 늘 `ageOver14: true`로 보낸다.
  *
  * 라우트가 아니라 같은 문서 위의 겹 화면이다. 결과 화면을 떠났다 돌아오면 연출과 보상 요청이 다시 돌기 때문이다.
  * `aria-modal`과 `data-covers-tab-bar`로 앱 탭 바를 숨기고, 앱의 뒤로 가기는 `useBackDismiss`로 이 화면만 닫는다.
@@ -125,7 +126,7 @@ export function PremiumFakeDoorFlow({
   // 서버가 204로 저장한 뒤에만 완료로 넘어간다. 실패하면 같은 버튼으로 다시 보낸다.
   const submit = async () => {
     if (submitInFlight.current) return;
-    // 서버 계약은 그대로라 만 14세 여부 필드는 남기고, 이메일로만 신청하므로 늘 true다.
+    // 동의 체크 칸에서 만 14세 이상임을 확인받았으므로 true다. 체크하지 않으면 handlePrimary가 여기까지 오지 않는다.
     const body: PremiumWaitlistRequest = {
       price,
       placement,
@@ -501,8 +502,7 @@ export function PremiumFakeDoorFlow({
         )}
         {step === "email" && (
           <p className="mb-2.5 text-center text-xs leading-4.25 break-keep text-sparta-fg3">
-            <span className="block">{t("email.ageNotice")}</span>
-            <span className="block">{t("billing")}</span>
+            {t("billing")}
           </p>
         )}
         <Button
