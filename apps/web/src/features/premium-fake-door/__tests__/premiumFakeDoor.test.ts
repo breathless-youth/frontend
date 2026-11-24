@@ -7,6 +7,7 @@ import {
   dailyPremiumPrice,
   canShowPremiumCard,
   EMPTY_PREMIUM_RECORD,
+  PREMIUM_FAKE_DOOR_ENDS_AT_MS,
   type PremiumCardContext,
 } from "../premiumFakeDoor";
 
@@ -24,28 +25,36 @@ describe("canShowPremiumCard", () => {
     hasTokenSource: true,
     korean: true,
     record: EMPTY_PREMIUM_RECORD,
+    focusSec: 600,
   };
 
   it("결과 화면에는 보인다", () => {
     expect(canShowPremiumCard(base)).toBe(true);
   });
 
-  it("닫았거나 신청했으면 숨긴다", () => {
-    expect(
-      canShowPremiumCard({ ...base, record: { ...EMPTY_PREMIUM_RECORD, dismissed: true } }),
-    ).toBe(false);
+  it("방금 끝낸 세션의 순공시간이 10분(600초) 이상일 때만 보인다", () => {
+    expect(canShowPremiumCard({ ...base, focusSec: 599 })).toBe(false);
+    expect(canShowPremiumCard({ ...base, focusSec: 600 })).toBe(true);
+  });
+
+  it("신청했으면 다시 보이지 않는다", () => {
     expect(
       canShowPremiumCard({ ...base, record: { ...EMPTY_PREMIUM_RECORD, applied: true } }),
     ).toBe(false);
   });
 
-  it("종료 시각(2026-11-30 23:59:59 KST)이 지나면 숨긴다", () => {
-    expect(canShowPremiumCard({ ...base, nowMs: Date.parse("2026-11-30T23:59:59+09:00") })).toBe(
-      true,
-    );
-    expect(canShowPremiumCard({ ...base, nowMs: Date.parse("2026-12-01T00:00:00+09:00") })).toBe(
-      false,
-    );
+  it("닫으면 48시간 동안 숨기고, 48시간이 지나면 다시 보인다", () => {
+    const dismissedAt = base.nowMs;
+    const record = { ...EMPTY_PREMIUM_RECORD, dismissedAt };
+    const hours = (h: number, m = 0) => dismissedAt + (h * 60 + m) * 60 * 1000;
+    expect(canShowPremiumCard({ ...base, record, nowMs: hours(47, 59) })).toBe(false);
+    expect(canShowPremiumCard({ ...base, record, nowMs: hours(48) })).toBe(true);
+  });
+
+  it("종료 시각(2026-12-03 23:59:59 KST)이 지나면 숨긴다", () => {
+    expect(PREMIUM_FAKE_DOOR_ENDS_AT_MS).toBe(Date.parse("2026-12-03T23:59:59+09:00"));
+    expect(canShowPremiumCard({ ...base, nowMs: PREMIUM_FAKE_DOOR_ENDS_AT_MS })).toBe(true);
+    expect(canShowPremiumCard({ ...base, nowMs: PREMIUM_FAKE_DOOR_ENDS_AT_MS + 1 })).toBe(false);
   });
 
   it("토큰 출처가 없거나 한국어가 아니거나 실험이 꺼지면 숨긴다", () => {

@@ -5,7 +5,7 @@
     "summary": "6 項功能 · {{price}}",
     "open": "查看斯巴達功能預先登記",
     "dismiss": "關閉斯巴達功能通知",
-    "dismissed": "這則通知不會再出現"
+    "dismissed": "兩天後再提醒你"
   },
   "features": {
     "AI_PLANNER": {

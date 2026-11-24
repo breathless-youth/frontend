@@ -301,7 +301,7 @@ export function ResultPage() {
               ) : (
                 <StudyTimelineCard view={view} />
               )}
-              {userId !== null && <PremiumFakeDoorHost userId={userId} />}
+              {userId !== null && <PremiumFakeDoorHost userId={userId} focusSec={view.focusSec} />}
               {focusFeaturesUsed && (
                 <FocusFeedbackCardHost
                   studySec={totalStudySec}

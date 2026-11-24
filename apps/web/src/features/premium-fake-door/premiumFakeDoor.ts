@@ -8,8 +8,14 @@
 /** 실험을 일찍 끄려면 이 값을 false로 바꿔 웹만 배포한다(설계 7절). */
 export const PREMIUM_FAKE_DOOR_ENABLED = true;
 
-/** 이 시각이 지나면 카드가 저절로 사라진다. 2026-11-30 23:59:59 KST. */
-export const PREMIUM_FAKE_DOOR_ENDS_AT_MS = Date.parse("2026-11-30T23:59:59+09:00");
+/** 이 시각이 지나면 카드가 저절로 사라진다. 2026-12-03 23:59:59 KST(실험 기간 11/24~12/3). */
+export const PREMIUM_FAKE_DOOR_ENDS_AT_MS = Date.parse("2026-12-03T23:59:59+09:00");
+
+/** 방금 끝낸 세션의 순공시간이 이만큼(10분) 넘어야 결과 화면에 카드를 보인다. */
+export const PREMIUM_CARD_MIN_FOCUS_SEC = 600;
+
+/** X로 닫은 뒤 이만큼(48시간) 지나면 카드를 다시 보인다. */
+export const PREMIUM_CARD_SNOOZE_MS = 48 * 60 * 60 * 1000;
 
 export const PREMIUM_PRICES = [2900, 5900] as const;
 export type PremiumPrice = (typeof PREMIUM_PRICES)[number];
@@ -62,14 +68,15 @@ export function assignPremiumPrice(userId: number): PremiumPrice {
  * 결과 화면은 세션마다 새로 열리는 문서라 기기 저장소에 둔다.
  */
 export interface PremiumFakeDoorRecord {
-  dismissed: boolean;
+  /** 마지막으로 X로 닫은 시각(ms). 닫은 적이 없으면 null이다. */
+  dismissedAt: number | null;
   applied: boolean;
   /** `premium_fake_door_viewed`를 보냈다. 사용자당 한 번만 보낸다. */
   viewedSent: boolean;
 }
 
 export const EMPTY_PREMIUM_RECORD: PremiumFakeDoorRecord = {
-  dismissed: false,
+  dismissedAt: null,
   applied: false,
   viewedSent: false,
 };
@@ -81,6 +88,8 @@ export interface PremiumCardContext {
   /** 가격이 원화라 한국어 화면에만 보인다. */
   korean: boolean;
   record: PremiumFakeDoorRecord;
+  /** 방금 끝낸 세션의 순공시간(초). 결과 화면 머리가 보이는 값과 같다. */
+  focusSec: number;
   enabled?: boolean;
 }
 
@@ -89,11 +98,14 @@ export function canShowPremiumCard({
   hasTokenSource,
   korean,
   record,
+  focusSec,
   enabled = PREMIUM_FAKE_DOOR_ENABLED,
 }: PremiumCardContext): boolean {
   if (!enabled || nowMs > PREMIUM_FAKE_DOOR_ENDS_AT_MS) return false;
   if (!hasTokenSource || !korean) return false;
-  return !record.dismissed && !record.applied;
+  if (focusSec < PREMIUM_CARD_MIN_FOCUS_SEC) return false;
+  if (record.applied) return false;
+  return record.dismissedAt === null || nowMs - record.dismissedAt >= PREMIUM_CARD_SNOOZE_MS;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;

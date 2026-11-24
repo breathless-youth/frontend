@@ -5,7 +5,7 @@
     "summary": "6つの機能 · {{price}}",
     "open": "スパルタ機能の事前登録を見る",
     "dismiss": "スパルタ機能のお知らせを閉じる",
-    "dismissed": "このお知らせはもう表示されません"
+    "dismissed": "2日後にまたお知らせします"
   },
   "features": {
     "AI_PLANNER": {

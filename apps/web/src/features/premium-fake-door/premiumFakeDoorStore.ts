@@ -13,13 +13,23 @@ export function loadPremiumRecord(userId: number): PremiumFakeDoorRecord | null 
   try {
     const raw = localStorage.getItem(keyFor(userId));
     if (raw === null) return EMPTY_PREMIUM_RECORD;
-    const parsed = JSON.parse(raw) as Partial<Record<keyof PremiumFakeDoorRecord, unknown>>;
-    const flag = (key: keyof PremiumFakeDoorRecord) => parsed[key] === true;
-    return {
-      dismissed: flag("dismissed"),
-      applied: flag("applied"),
-      viewedSent: flag("viewedSent"),
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const record: PremiumFakeDoorRecord = {
+      dismissedAt: typeof parsed.dismissedAt === "number" ? parsed.dismissedAt : null,
+      applied: parsed.applied === true,
+      viewedSent: parsed.viewedSent === true,
     };
+    // 닫으면 영영 숨기던 예전 기록(dismissed: true, 시각 없음)은 처음 읽은 때 닫은 것으로 보고 그 시각을 저장한다.
+    // 그래서 예전에 닫은 사람도 이 배포 뒤 48시간이 지나면 카드를 다시 본다.
+    if (record.dismissedAt === null && parsed.dismissed === true) {
+      record.dismissedAt = Date.now();
+      try {
+        localStorage.setItem(keyFor(userId), JSON.stringify(record));
+      } catch {
+        // 저장하지 못하면 다음에 읽을 때 다시 옮긴다.
+      }
+    }
+    return record;
   } catch (error) {
     console.warn("[premium-fake-door] failed to read record, not showing the card", error);
     return null;

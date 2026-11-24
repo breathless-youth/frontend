@@ -5,7 +5,7 @@
     "summary": "6가지 기능 · {{price}}",
     "open": "스파르타 기능 사전 신청 보기",
     "dismiss": "스파르타 기능 안내 닫기",
-    "dismissed": "이 안내는 다시 보이지 않아요"
+    "dismissed": "이틀 뒤에 다시 알려드릴게요"
   },
   "features": {
     "AI_PLANNER": {
