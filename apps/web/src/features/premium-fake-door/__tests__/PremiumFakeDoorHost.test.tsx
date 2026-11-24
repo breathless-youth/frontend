@@ -48,7 +48,7 @@ function renderHost() {
 
 async function openApplyFlow() {
   const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: "프리미엄 기능 사전 신청 보기" }));
+  await user.click(screen.getByRole("button", { name: "스파르타 기능 사전 신청 보기" }));
   await user.click(screen.getByRole("button", { name: "사전 신청하기" }));
   return user;
 }
@@ -200,34 +200,35 @@ describe("PremiumFakeDoorHost 기대 기능", () => {
     await user.click(screen.getByRole("checkbox", { name: "[필수] 개인정보 수집·이용 동의" }));
     await user.click(screen.getByRole("button", { name: "사전 신청하기" }));
 
-    expect(await screen.findByRole("radio", { name: "강력한 앱 잠금" })).toBeInTheDocument();
+    expect(await screen.findByRole("radio", { name: "전화 알림" })).toBeInTheDocument();
     expect(screen.queryByRole("radio", { name: "맞춤 알림" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("radio", { name: "강력한 앱 잠금" }));
+    expect(screen.queryByRole("radio", { name: "강력한 앱 잠금" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "전화 알림" }));
 
     expect(putPremiumWaitlist).toHaveBeenLastCalledWith({
       price: PRICE,
       placement: "RESULT",
       ageOver14: true,
       email: "minjun@example.com",
-      expectedFeature: "APP_LOCK",
+      expectedFeature: "PHONE_CALL",
     });
     expect(await screen.findByText("답변해 주셔서 감사합니다!")).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "강력한 앱 잠금" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "전화 알림" })).toBeChecked();
     expect(analytics.trackPremiumFakeDoorFeatureSelected).toHaveBeenCalledWith(
       { price: PRICE, placement: "RESULT" },
-      "APP_LOCK",
+      "PHONE_CALL",
     );
     expect(screen.queryByRole("button", { name: "홈으로 돌아가기" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "결과로 돌아가기" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: "프리미엄 기능 사전 신청 보기" }),
+      screen.queryByRole("button", { name: "스파르타 기능 사전 신청 보기" }),
     ).not.toBeInTheDocument();
 
     view.unmount();
     renderHost();
     expect(
-      screen.queryByRole("button", { name: "프리미엄 기능 사전 신청 보기" }),
+      screen.queryByRole("button", { name: "스파르타 기능 사전 신청 보기" }),
     ).not.toBeInTheDocument();
   });
 
@@ -260,7 +261,7 @@ describe("PremiumFakeDoorHost 노출", () => {
     tokenSource.present = false;
     renderHost();
     expect(
-      screen.queryByRole("button", { name: "프리미엄 기능 사전 신청 보기" }),
+      screen.queryByRole("button", { name: "스파르타 기능 사전 신청 보기" }),
     ).not.toBeInTheDocument();
     expect(analytics.trackPremiumFakeDoor).not.toHaveBeenCalled();
   });
@@ -268,15 +269,15 @@ describe("PremiumFakeDoorHost 노출", () => {
   it("X로 닫으면 다시 그리지 않는다", async () => {
     const user = userEvent.setup();
     const first = renderHost();
-    await user.click(screen.getByRole("button", { name: "프리미엄 기능 안내 닫기" }));
+    await user.click(screen.getByRole("button", { name: "스파르타 기능 안내 닫기" }));
     expect(
-      screen.queryByRole("button", { name: "프리미엄 기능 사전 신청 보기" }),
+      screen.queryByRole("button", { name: "스파르타 기능 사전 신청 보기" }),
     ).not.toBeInTheDocument();
 
     first.unmount();
     renderHost();
     expect(
-      screen.queryByRole("button", { name: "프리미엄 기능 사전 신청 보기" }),
+      screen.queryByRole("button", { name: "스파르타 기능 사전 신청 보기" }),
     ).not.toBeInTheDocument();
     expect(analytics.trackPremiumFakeDoor).toHaveBeenCalledWith("dismissed", {
       price: PRICE,
@@ -302,7 +303,7 @@ describe("PremiumFakeDoorHost 노출", () => {
     await user.type(screen.getByLabelText("이메일"), "secret.person@example.com");
     await user.click(screen.getByRole("checkbox", { name: "[필수] 개인정보 수집·이용 동의" }));
     await user.click(screen.getByRole("button", { name: "사전 신청하기" }));
-    await user.click(await screen.findByRole("radio", { name: "강력한 앱 잠금" }));
+    await user.click(await screen.findByRole("radio", { name: "전화 알림" }));
     await waitFor(() => expect(screen.getByText("답변해 주셔서 감사합니다!")).toBeInTheDocument());
 
     expect(analytics.trackPremiumFakeDoorApplied).toHaveBeenCalledWith(
@@ -322,7 +323,7 @@ describe("PremiumFakeDoorHost 노출", () => {
 describe("PremiumFakeDoorHost 기능 설명 시트", () => {
   async function openBenefits() {
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "프리미엄 기능 사전 신청 보기" }));
+    await user.click(screen.getByRole("button", { name: "스파르타 기능 사전 신청 보기" }));
     return user;
   }
 
@@ -369,10 +370,11 @@ describe("PremiumFakeDoorHost 기능 설명 시트", () => {
     await waitFor(() =>
       expect(screen.queryByRole("dialog", { name: "AI 플랜 비서" })).not.toBeInTheDocument(),
     );
-    expect(screen.getByRole("heading", { name: "프리미엄 기능" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "스파르타 기능" })).toBeInTheDocument();
 
-    // 맞춤 알림은 빠지고 그 자리에 강력한 앱 잠금이 들어왔다.
+    // 4번째 자리는 전화 알림이다. 맞춤 알림과 강력한 앱 잠금은 화면에 없다.
     expect(screen.queryByRole("button", { name: /맞춤 알림/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /강력한 앱 잠금/ })).not.toBeInTheDocument();
     const tiles = screen
       .getAllByRole("button")
       .filter((tile) => tile.getAttribute("aria-haspopup") === "dialog")
@@ -381,30 +383,30 @@ describe("PremiumFakeDoorHost 기능 설명 시트", () => {
       "AI 플랜 비서",
       "AI 집중 리포트",
       "그룹 공부 맞춤 매칭",
-      "강력한 앱 잠금",
+      "전화 알림",
       "프리미엄 타이머 배경",
       "캐릭터 소품 착용세트 상품 제외",
     ]);
-    await user.click(screen.getByRole("button", { name: /강력한 앱 잠금/ }));
-    const appLock = await screen.findByRole("dialog", { name: "강력한 앱 잠금" });
-    expect(within(appLock).getByText("잠금 풀기, 이제 쉽지 않아요")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /전화 알림/ }));
+    const phoneCall = await screen.findByRole("dialog", { name: "전화 알림" });
+    expect(within(phoneCall).getByText("미루는 순간, 전화가 울려요")).toBeInTheDocument();
     expect(
-      within(appLock)
+      within(phoneCall)
         .getAllByRole("listitem")
         .map((item) => item.textContent),
     ).toEqual([
-      "잠금을 풀려면 문제 풀기·사진 찍기 같은 미션을 끝내야 해요",
-      "정해 둔 공부 시간이 되면 잠금이 저절로 켜져요",
-      "공부가 끝날 때까지 잠금을 끌 수 없게 설정할 수 있어요",
+      "계획한 시작 시간에 전화가 와서 공부를 시작하게 해줘요",
+      "받지 않으면 몇 분 뒤 다시 걸어줘요",
+      "전화를 받으면 오늘 할 일을 바로 알려줘요",
     ]);
     await user.keyboard("{Escape}");
     await waitFor(() =>
-      expect(screen.queryByRole("dialog", { name: "강력한 앱 잠금" })).not.toBeInTheDocument(),
+      expect(screen.queryByRole("dialog", { name: "전화 알림" })).not.toBeInTheDocument(),
     );
-    expect(screen.getByRole("heading", { name: "프리미엄 기능" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "스파르타 기능" })).toBeInTheDocument();
     expect(analytics.trackPremiumFakeDoorFeatureViewed).toHaveBeenLastCalledWith(
       { price: PRICE, placement: "RESULT" },
-      "APP_LOCK",
+      "PHONE_CALL",
     );
   });
 
@@ -421,9 +423,9 @@ describe("PremiumFakeDoorHost 기능 설명 시트", () => {
       "잘 된 시간은 늘리고 끊긴 시간은 줄이는 다음 주 계획까지 함께 알려줘요.",
     ],
     [
-      "강력한 앱 잠금",
-      "공부하는 동안 방해 앱을 잠그고, 일찍 풀려면 미션을 끝내야 해요.",
-      "무심코 휴대폰을 집어도 다시 공부로 돌아오게 도와줘요.",
+      "전화 알림",
+      "계획한 공부 시간이 되면 알림 대신 전화로 불러줘요.",
+      "알림은 쉽게 넘기지만, 전화는 받게 되니까 바로 책상에 앉게 돼요.",
     ],
     [
       "그룹 공부 맞춤 매칭",

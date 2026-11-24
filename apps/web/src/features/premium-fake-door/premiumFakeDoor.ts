@@ -22,13 +22,13 @@ export const PREMIUM_PLACEMENT: PremiumPlacement = "RESULT";
 
 /**
  * 화면에 보이는 기능 id와 순서. 서버 계약의 `expectedFeature` 값과 같다.
- * 서버는 예전 값 `SMART_NOTIFICATION`도 받지만 화면에서는 뺐고 그 자리에 `APP_LOCK`이 들어왔다.
+ * 서버는 예전 값 `SMART_NOTIFICATION`, `APP_LOCK`도 받지만 화면에서는 뺐고 4번째 자리는 `PHONE_CALL`이다.
  */
 export const PREMIUM_FEATURES = [
   "AI_PLANNER",
   "AI_REPORT",
   "GROUP_MATCHING",
-  "APP_LOCK",
+  "PHONE_CALL",
   "TIMER_BACKGROUND",
   "CHARACTER_ITEMS",
 ] as const;

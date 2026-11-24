@@ -1,10 +1,10 @@
 {
   "price": "{{amount, number}} KRW/month",
   "card": {
-    "title": "Pre-register for premium features",
+    "title": "Pre-register for Sparta features",
     "summary": "6 features · {{price}}",
-    "open": "View premium feature pre-registration",
-    "dismiss": "Close premium features notice",
+    "open": "View Sparta feature pre-registration",
+    "dismiss": "Close Sparta features notice",
     "dismissed": "You won't see this notice again"
   },
   "features": {
@@ -47,17 +47,17 @@
         "No need to find or create a room. One tap and you're studying together"
       ]
     },
-    "APP_LOCK": {
-      "name": "Strong app blocking",
-      "hook": "Unblocking just got harder",
+    "PHONE_CALL": {
+      "name": "Phone call reminders",
+      "hook": "Put it off, and your phone rings",
       "description": [
-        "Block distracting apps while you study. To unblock early, you have to finish a mission.",
-        "Even if you pick up your phone without thinking, it helps you get back to studying."
+        "When your planned study time comes, it calls you instead of sending a notification.",
+        "Notifications are easy to swipe away, but you answer a call, so you sit right down."
       ],
       "bullets": [
-        "To unblock, finish a mission like solving a problem or taking a photo",
-        "Blocking turns on by itself at your set study time",
-        "You can set it so blocking can't be turned off until you finish studying"
+        "Calls you at your planned start time to get you studying",
+        "If you don't answer, it calls again a few minutes later",
+        "When you pick up, it tells you today's tasks right away"
       ]
     },
     "TIMER_BACKGROUND": {
@@ -88,8 +88,8 @@
   },
   "billing": "Pre-registering doesn't charge you.",
   "benefits": {
-    "dialog": "Premium features",
-    "title": "Premium features",
+    "dialog": "Sparta features",
+    "title": "Sparta features",
     "cta": "Pre-register",
     "tapHint": "Tap a feature to see more details."
   },
@@ -117,7 +117,7 @@
       "itemLabel": "Collected",
       "item": "Email",
       "purposeLabel": "Purpose",
-      "purpose": "Premium feature launch notice",
+      "purpose": "Sparta feature launch notice",
       "periodLabel": "Retention",
       "period": "Deleted right after the notice is sent. If we don't launch, deleted within 6 months after the experiment ends.",
       "refuseLabel": "Refusal",

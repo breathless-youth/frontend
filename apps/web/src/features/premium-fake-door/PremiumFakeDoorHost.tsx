@@ -14,7 +14,7 @@ import { assignPremiumPrice, canShowPremiumCard, PREMIUM_PLACEMENT } from "./pre
 import { loadPremiumRecord, updatePremiumRecord } from "./premiumFakeDoorStore";
 
 /**
- * 결과 화면의 프리미엄 사전 신청 카드와 신청 화면
+ * 결과 화면의 스파르타 기능 사전 신청 카드와 신청 화면(코드 이름은 실험 시작 때의 premium을 그대로 쓴다)
  *
  * 홈에는 카드를 두지 않는다. 자리 값은 늘 `RESULT`다.
  * 노출 여부는 마운트할 때 한 번 정한다. 닫거나 신청하면 카드만 내리고, 열린 신청 화면은 완료까지 남는다.

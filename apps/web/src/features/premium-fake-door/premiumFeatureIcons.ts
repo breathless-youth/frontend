@@ -2,8 +2,8 @@ import {
   ChartColumn,
   Image as ImageIcon,
   ListChecks,
-  Lock,
   type LucideIcon,
+  PhoneCall,
   Shirt,
   Users,
 } from "lucide-react";
@@ -15,7 +15,7 @@ export const FEATURE_ICONS: Record<PremiumFeature, LucideIcon> = {
   AI_PLANNER: ListChecks,
   AI_REPORT: ChartColumn,
   GROUP_MATCHING: Users,
-  APP_LOCK: Lock,
+  PHONE_CALL: PhoneCall,
   TIMER_BACKGROUND: ImageIcon,
   CHARACTER_ITEMS: Shirt,
 };

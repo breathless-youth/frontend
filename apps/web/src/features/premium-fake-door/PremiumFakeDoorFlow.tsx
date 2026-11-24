@@ -3,6 +3,7 @@ import { type ReactNode, type Ref, useEffect, useId, useRef, useState } from "re
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
+import timiSparta from "@/assets/mascot/timi-sparta.png";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -217,7 +218,16 @@ export function PremiumFakeDoorFlow({
   if (step === "benefits") {
     body = (
       <>
-        <div className="mt-3 flex items-center justify-between gap-2.5">
+        {/* 스파르타 티미. 꾸밈이라 alt를 비우고, 움직임은 넣지 않는다. */}
+        <img
+          src={timiSparta}
+          alt=""
+          width={128}
+          height={128}
+          draggable={false}
+          className="mx-auto block size-32 select-none"
+        />
+        <div className="mt-2 flex items-center justify-between gap-2.5">
           <h2
             id={headingId}
             ref={headingRef}
@@ -439,7 +449,12 @@ export function PremiumFakeDoorFlow({
           onClose();
         }
       }}
-      className="theme-soft-blue bg-soft-blue fixed inset-0 z-50 flex flex-col text-foreground animate-[result-fade-up_0.32s_cubic-bezier(0.22,1,0.36,1)_both] motion-reduce:animate-none"
+      className={cn(
+        "theme-soft-blue",
+        // 혜택 화면만 스파르타 노을 배경을 깔고, 신청 단계는 평소 배경으로 돌아온다.
+        step === "benefits" ? "bg-sparta-sunset" : "bg-soft-blue",
+        "fixed inset-0 z-50 flex flex-col text-foreground animate-[result-fade-up_0.32s_cubic-bezier(0.22,1,0.36,1)_both] motion-reduce:animate-none",
+      )}
     >
       <div className="page-width flex min-h-13 w-full shrink-0 items-center px-2 pt-[env(safe-area-inset-top)]">
         {step === "done" ? (
