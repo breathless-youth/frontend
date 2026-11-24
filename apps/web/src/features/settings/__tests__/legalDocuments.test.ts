@@ -3,8 +3,15 @@ import { describe, expect, it } from "vitest";
 import {
   effectiveDateLabel,
   type LegalDocument,
+  type LegalEdit,
   PRIVACY_POLICY,
+  PRIVACY_POLICY_20261224,
+  PRIVACY_POLICY_20261224_EDITS,
+  reviseLegalDocument,
+  selectLegalEdition,
   TERMS_OF_SERVICE,
+  TERMS_OF_SERVICE_20261224,
+  TERMS_OF_SERVICE_20261224_EDITS,
 } from "../legalDocuments";
 
 /**
@@ -12,12 +19,34 @@ import {
  *
  * 본문 문구를 여기에 다시 적어 비교하지 않는다 — 사본의 사본이 되어 원본이 바뀌면 두 곳을 고쳐야
  * 한다. 대신 **렌더러가 의존하는 불변식**(빈 블록 없음, 키로 쓰는 값의 유일성)을 검증한다.
+ * 개정 전 판이 바뀌지 않았는지 확인하는 개정 대상 문단 하나만 예외로 글자를 적는다.
  */
 
 const DOCUMENTS: [string, LegalDocument][] = [
   ["이용약관", TERMS_OF_SERVICE],
   ["개인정보처리방침", PRIVACY_POLICY],
+  ["2026년 12월 24일 이용약관", TERMS_OF_SERVICE_20261224],
+  ["2026년 12월 24일 개인정보처리방침", PRIVACY_POLICY_20261224],
 ];
+
+function documentTexts(document: LegalDocument): string[] {
+  return [
+    document.intro ?? "",
+    ...document.sections.flatMap((section) => [
+      section.heading,
+      ...section.blocks.flatMap((block) => {
+        switch (block.kind) {
+          case "paragraph":
+            return [block.text];
+          case "bullets":
+            return block.items;
+          case "fields":
+            return block.rows.flatMap((row) => [row.label, row.value]);
+        }
+      }),
+    ]),
+  ];
+}
 
 describe.each(DOCUMENTS)("%s", (_name, document) => {
   it("제목과 시행일이 비어 있지 않다", () => {
@@ -135,5 +164,75 @@ describe("effectiveDateLabel", () => {
   it("시행일 문구를 한 곳에서 만든다", () => {
     expect(effectiveDateLabel(TERMS_OF_SERVICE)).toBe(`시행일: ${TERMS_OF_SERVICE.effectiveDate}`);
     expect(effectiveDateLabel(PRIVACY_POLICY)).toBe(`시행일: ${PRIVACY_POLICY.effectiveDate}`);
+  });
+});
+
+describe("reviseLegalDocument", () => {
+  it("바뀌기 전 글자가 조항에 없으면 throw한다", () => {
+    expect(() =>
+      reviseLegalDocument(TERMS_OF_SERVICE, "2026년 12월 24일", [
+        { section: "제12조 (보상형 광고)", before: "약관에 없는 문장입니다.", after: "새 문장" },
+      ]),
+    ).toThrow(/제12조 \(보상형 광고\)/);
+  });
+});
+
+describe("2026년 12월 24일 판", () => {
+  const REVISIONS: [string, LegalDocument, readonly LegalEdit[]][] = [
+    ["이용약관", TERMS_OF_SERVICE_20261224, TERMS_OF_SERVICE_20261224_EDITS],
+    ["개인정보처리방침", PRIVACY_POLICY_20261224, PRIVACY_POLICY_20261224_EDITS],
+  ];
+
+  it("약관 제12조 제목이 광고로 바뀐다", () => {
+    expect(TERMS_OF_SERVICE_20261224.sections[11].heading).toBe("제12조 (광고)");
+  });
+
+  it("약관과 방침 어디에도 배너 광고를 게재하지 않는다는 옛 문장이 남지 않는다", () => {
+    for (const document of [TERMS_OF_SERVICE_20261224, PRIVACY_POLICY_20261224]) {
+      for (const text of documentTexts(document)) {
+        expect(text).not.toContain("배너 광고나 화면을 가리는 전면 광고는 게재하지");
+      }
+    }
+  });
+
+  it.each(REVISIONS)("%s에 바뀐 글자가 모두 들어 있다", (_name, document, edits) => {
+    const texts = documentTexts(document);
+    for (const edit of edits) {
+      expect(texts).toContain(edit.after);
+    }
+  });
+});
+
+describe("2026년 11월 23일 판", () => {
+  it("약관 제12조 첫 문단이 개정 전 글자 그대로다", () => {
+    const section = TERMS_OF_SERVICE.sections[11];
+    expect(section.heading).toBe("제12조 (보상형 광고)");
+    expect(section.blocks[0]).toEqual({
+      kind: "paragraph",
+      text: "서비스는 회원이 포인트를 받으려고 직접 광고 보기를 선택한 경우에만 광고를 보여 줍니다. 배너 광고나 화면을 가리는 전면 광고는 게재하지 않으며, 공부를 측정하는 화면에는 광고를 표시하지 않습니다.",
+    });
+  });
+});
+
+describe("selectLegalEdition", () => {
+  const BEFORE = new Date("2026-12-23T23:59:59.999+09:00");
+  const AT = new Date("2026-12-24T00:00:00+09:00");
+
+  it.each([
+    ["terms", TERMS_OF_SERVICE, TERMS_OF_SERVICE_20261224],
+    ["privacy", PRIVACY_POLICY, PRIVACY_POLICY_20261224],
+  ] as const)("%s는 한국 시간 12월 24일 0시부터 새 판을 고른다", (kind, current, revised) => {
+    expect(selectLegalEdition(kind, BEFORE).document).toBe(current);
+    expect(selectLegalEdition(kind, AT).document).toBe(revised);
+  });
+
+  it("시행 전에는 11월 23일 판과 다음 판을, 시행 후에는 12월 24일 판만 준다", () => {
+    const before = selectLegalEdition("terms", BEFORE);
+    expect(before.document.effectiveDate).toBe("2026년 11월 23일");
+    expect(before.upcoming).toBe(TERMS_OF_SERVICE_20261224);
+
+    const after = selectLegalEdition("terms", AT);
+    expect(after.document.effectiveDate).toBe("2026년 12월 24일");
+    expect(after.upcoming).toBeNull();
   });
 });

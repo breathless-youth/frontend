@@ -1,26 +1,14 @@
 /**
- * 앱 안에서 보여주는 법적 문서 본문 (이용약관 · 개인정보처리방침).
+ * 앱 안에서 보여 주는 이용약관과 개인정보처리방침 본문
  *
- * ## 왜 앱 안에 본문을 두는가
- *
- * BY-257에서 "외부 브라우저로 내보내지 말고 앱이 직접 표기한다"로 정했다. WebView를 띄우려면
- * `react-native-webview`가 필요한데 지금 `apps/mobile`에 없고, 저장소 규칙상 검증되지 않은
- * 네이티브 라이브러리를 추측으로 설치하지 않는다. 본문이 정적 텍스트뿐이라 RN 텍스트로 렌더하는
- * 편이 오프라인에서도 열리고 폰트 확대·다크 모드·스크린리더가 그대로 동작한다.
- *
- * ## 원본과의 관계 (중요)
- *
- * 아래 본문은 아래 웹 페이지에서 **원문 그대로** 옮긴 사본이다. 웹 문서가 법적 원본이고 이 파일은
- * 사본이므로, **원본이 바뀌면 이 파일도 함께 고쳐야 한다** — 그러지 않으면 앱이 옛 약관을 보여준다.
- *
- * - 이용약관: https://focusmakers.app/terms
- * - 개인정보처리방침: https://focusmakers.app/privacy
- *
- * 동기화 여부는 `effectiveDate`(시행일)로 판별한다 — 웹 문서의 시행일이 아래 값보다 늦으면 사본이
- * 낡은 것이다. 문구를 의역·요약·재배열하지 말 것: 법적 문서라 표현 하나가 의미를 바꾼다.
- *
- * TODO(SCR-S6-settings.md): 원본 변경을 사람이 기억해야 하는 구조다. 문서가 자주 바뀌기 시작하면
- *   빌드 시 원본을 받아 대조하는 방식으로 바꾼다.
+ * 외부 브라우저로 내보내지 않고 앱 안에서 보여 주기로 해서, 오프라인에서도 열리고 글자 크기·다크 모드·스크린리더 설정을 따른다.
+ * 법적 원본은 랜딩의 https://focusmakers.app/terms 와 https://focusmakers.app/privacy 이고 이 파일은 그 글자를 그대로 옮긴 사본이다.
+ * 랜딩은 판마다 `app/terms/_versions/<시행일>.tsx`, `app/privacy/_versions/<시행일>.tsx`를 두고 시행 시각이 되면 새 판으로 바꾼다.
+ * 이 파일은 지금 판의 전문과, 다음 판에서 바뀌는 글자 목록을 두고 `selectLegalEdition`이 랜딩과 같은 시각에 판을 바꾼다.
+ * 원본이 바뀌면 이 파일도 함께 고쳐야 하고, 그러지 않으면 앱이 옛 약관을 보여 준다.
+ * 사본이 낡았는지는 `effectiveDate`(시행일)로 판단하며 랜딩의 시행일이 더 늦으면 낡은 것이다.
+ * 법적 문서라 표현 하나가 의미를 바꾸므로 의역·요약·재배열하지 않는다.
+ * TODO(SCR-S6-settings.md): 원본 변경을 사람이 기억해야 하는 구조라, 문서가 자주 바뀌기 시작하면 빌드 때 원본을 받아 대조하는 방식으로 바꾼다.
  */
 
 /** 문서 본문을 이루는 블록. 마크다운을 런타임에 파싱하지 않고 구조를 그대로 데이터로 갖는다. */
@@ -1220,6 +1208,256 @@ export const PRIVACY_POLICY: LegalDocument = {
     },
   ],
 };
+
+/**
+ * 개정판에서 바뀌는 글자 하나
+ *
+ * `before`는 조항 제목, 문단, 목록 항목, 표의 값 가운데 하나와 글자 전체가 같아야 한다.
+ * `insertAfter`가 없으면 `before`를 `after`로 바꾸고, 있으면 `before` 바로 뒤에 같은 종류로 `after`를 더한다.
+ */
+export type LegalEdit = {
+  /** 개정 전 판의 조항 제목 */
+  section: string;
+  before: string;
+  after: string;
+  insertAfter?: true;
+};
+
+function sectionTexts(section: LegalSection): string[] {
+  return [
+    section.heading,
+    ...section.blocks.flatMap((block) => {
+      switch (block.kind) {
+        case "paragraph":
+          return [block.text];
+        case "bullets":
+          return block.items;
+        case "fields":
+          return block.rows.map((row) => row.value);
+      }
+    }),
+  ];
+}
+
+function reviseBlock(block: LegalBlock, edit: LegalEdit): LegalBlock[] {
+  const replace = (text: string) =>
+    text !== edit.before ? [text] : edit.insertAfter ? [text, edit.after] : [edit.after];
+  switch (block.kind) {
+    case "paragraph":
+      return replace(block.text).map((text) => ({ kind: "paragraph", text }));
+    case "bullets":
+      return [{ kind: "bullets", items: block.items.flatMap(replace) }];
+    case "fields":
+      return [
+        {
+          kind: "fields",
+          rows: block.rows.map((row) => {
+            if (row.value !== edit.before) return row;
+            // 표에 행을 더하려면 라벨도 있어야 하는데 이번 개정에는 그런 변경이 없다.
+            if (edit.insertAfter) throw new Error(`${edit.section}: 표에는 행을 더할 수 없다`);
+            return { ...row, value: edit.after };
+          }),
+        },
+      ];
+  }
+}
+
+/**
+ * 개정 전 판에 바뀌는 글자만 적용한 개정판
+ *
+ * 법적 문서라 원본에 없는 글자가 끼거나 엉뚱한 곳이 바뀌면 안 되어서, 바꿀 자리가 조항에서 정확히 한 번 나오지 않으면 throw한다.
+ * 조항은 개정 전 판의 제목으로 찾으므로 제목을 바꾸는 항목과 같은 조항의 다른 항목은 순서에 상관없이 적용된다.
+ */
+export function reviseLegalDocument(
+  base: LegalDocument,
+  effectiveDate: string,
+  edits: readonly LegalEdit[],
+): LegalDocument {
+  const sections = [...base.sections];
+  for (const edit of edits) {
+    const index = base.sections.findIndex((section) => section.heading === edit.section);
+    if (index === -1) throw new Error(`${edit.section}: 조항이 없다`);
+    const section = sections[index];
+    const hits = sectionTexts(section).filter((text) => text === edit.before).length;
+    if (hits !== 1) {
+      throw new Error(`${edit.section}: 바뀌기 전 글자가 ${hits}번 나온다 (${edit.before})`);
+    }
+    if (section.heading === edit.before) {
+      if (edit.insertAfter) throw new Error(`${edit.section}: 조항 제목 뒤에는 더할 수 없다`);
+      sections[index] = { ...section, heading: edit.after };
+    } else {
+      sections[index] = {
+        ...section,
+        blocks: section.blocks.flatMap((block) => reviseBlock(block, edit)),
+      };
+    }
+  }
+  return { ...base, effectiveDate, sections };
+}
+
+/** 2026년 12월 24일 시행 이용약관에서 바뀌는 글자. 원본은 랜딩의 `/terms/2026-12-24`다. */
+export const TERMS_OF_SERVICE_20261224_EDITS: readonly LegalEdit[] = [
+  {
+    section: "제12조 (보상형 광고)",
+    before: "제12조 (보상형 광고)",
+    after: "제12조 (광고)",
+  },
+  {
+    section: "제12조 (보상형 광고)",
+    before:
+      "서비스는 회원이 포인트를 받으려고 직접 광고 보기를 선택한 경우에만 광고를 보여 줍니다. 배너 광고나 화면을 가리는 전면 광고는 게재하지 않으며, 공부를 측정하는 화면에는 광고를 표시하지 않습니다.",
+    after:
+      "한 줄 광고는 광고 식별자나 이용 기록을 바탕으로 한 맞춤형 광고로 제공하지 않습니다. 한 줄 광고 가운데 광고 사업자가 제공하는 광고는 만 14세 이상임을 확인하고 로그인한 회원에게만 표시하며, 회원이 아닌 이용자에게는 팀의 서비스를 알리는 내용만 표시합니다.",
+    insertAfter: true,
+  },
+  {
+    section: "제12조 (보상형 광고)",
+    before:
+      "서비스는 회원이 포인트를 받으려고 직접 광고 보기를 선택한 경우에만 광고를 보여 줍니다. 배너 광고나 화면을 가리는 전면 광고는 게재하지 않으며, 공부를 측정하는 화면에는 광고를 표시하지 않습니다.",
+    after:
+      "서비스는 두 가지 광고를 보여 줍니다. 하나는 회원이 포인트를 받으려고 직접 광고 보기를 선택했을 때 보여 주는 보상형 광고이고, 다른 하나는 혼자 공부하는 화면의 아래쪽에 글자 한 줄로 표시하는 광고(이하 “한 줄 광고”)입니다. 한 줄 광고에는 광고임을 알리는 표시를 붙이며, 팀의 서비스를 알리는 내용이 표시될 수도 있습니다. 화면을 가리는 전면 광고와 이미지·영상 광고는 게재하지 않으며, 한 줄 광고 말고는 공부를 측정하는 화면에 광고를 표시하지 않습니다.",
+  },
+  {
+    section: "제12조 (보상형 광고)",
+    before:
+      "광고는 Google LLC의 광고 서비스(AdMob)를 통해 제공되며, 팀은 전체 이용가 등급의 광고만 요청합니다. 볼 수 있는 광고가 없으면 광고 시청을 제공하지 못할 수 있습니다. 부적절한 광고를 보면 제20조의 이메일로 알려 주시기 바랍니다.",
+    after:
+      "보상형 광고와, 한 줄 광고 가운데 광고 사업자가 제공하는 광고는 Google LLC의 광고 서비스(AdMob)를 통해 제공되며, 팀은 전체 이용가 등급의 광고만 요청합니다. 볼 수 있는 광고가 없으면 보상형 광고 시청을 제공하지 못하거나 한 줄 광고가 표시되지 않을 수 있습니다. 부적절한 광고를 보면 제20조의 이메일로 알려 주시기 바랍니다.",
+  },
+  {
+    section: "제12조 (보상형 광고)",
+    before:
+      "광고를 보지 않아도 서비스의 다른 기능은 그대로 이용할 수 있습니다. 광고와 관련해 수집하는 정보는 개인정보처리방침에서 안내합니다.",
+    after:
+      "보상형 광고를 보지 않아도 서비스의 다른 기능은 그대로 이용할 수 있으며, 한 줄 광고를 누르지 않아도 공부 측정에는 영향이 없습니다. 광고와 관련해 수집하는 정보는 개인정보처리방침에서 안내합니다.",
+  },
+];
+
+/** 2026년 12월 24일 시행 개인정보처리방침에서 바뀌는 글자. 원본은 랜딩의 `/privacy/2026-12-24`다. */
+export const PRIVACY_POLICY_20261224_EDITS: readonly LegalEdit[] = [
+  {
+    section: "1. 수집하는 정보와 수집 방법",
+    before:
+      "Android 광고 ID와 iOS 광고 식별자(IDFA). 앱에 포함된 Meta SDK와 Airbridge SDK, 그리고 회원이 보상형 광고를 볼 때 Google 모바일 광고(AdMob) SDK가 수집하며, iOS에서는 이용자가 앱 추적을 허용한 경우에만 수집합니다.",
+    after:
+      "Android 광고 ID와 iOS 광고 식별자(IDFA). 앱에 포함된 Meta SDK와 Airbridge SDK, 그리고 회원이 보상형 광고를 보거나 회원에게 한 줄 광고를 표시할 때 Google 모바일 광고(AdMob) SDK가 수집하며, iOS에서는 이용자가 앱 추적을 허용한 경우에만 수집합니다.",
+  },
+  {
+    section: "1. 수집하는 정보와 수집 방법",
+    before:
+      "서비스는 회원이 포인트를 받으려고 직접 광고 보기를 선택한 경우에만 Google AdMob의 보상형 광고를 보여 주며, 배너 광고나 화면을 가리는 전면 광고는 게재하지 않습니다. 공부를 측정하는 화면에는 광고를 표시하지 않습니다. 광고는 전체 이용가 등급으로 제한하며, 광고 식별자와 이용 기록을 바탕으로 한 맞춤형 광고가 표시될 수 있습니다. 또한 앱 설치 광고의 성과를 측정하기 위해 앱에 포함된 Meta SDK와 Airbridge SDK가 광고 식별자와 주요 이용 기록을 수집합니다. 자세한 내용과 거부 방법은 9번 항목에 적었습니다.",
+    after:
+      "서비스는 두 가지 광고를 보여 줍니다. 회원이 포인트를 받으려고 직접 광고 보기를 선택했을 때 보여 주는 Google AdMob의 보상형 광고와, 혼자 공부하는 화면의 아래쪽에 글자 한 줄로 표시하는 한 줄 광고입니다. 화면을 가리는 전면 광고와 이미지·영상 광고는 게재하지 않으며, 한 줄 광고 말고는 공부를 측정하는 화면에 광고를 표시하지 않습니다. 광고는 전체 이용가 등급으로 제한합니다. 보상형 광고에는 광고 식별자와 이용 기록을 바탕으로 한 맞춤형 광고가 표시될 수 있고, 한 줄 광고는 맞춤형 광고로 제공하지 않습니다. 한 줄 광고 가운데 Google AdMob이 제공하는 광고는 만 14세 이상임을 확인하고 로그인한 회원에게만 표시합니다. 또한 앱 설치 광고의 성과를 측정하기 위해 앱에 포함된 Meta SDK와 Airbridge SDK가 광고 식별자와 주요 이용 기록을 수집합니다. 자세한 내용과 거부 방법은 9번 항목에 적었습니다.",
+  },
+  {
+    section: "3. 수집한 정보의 이용 목적",
+    before: "보상형 광고 제공과 광고 시청에 따른 포인트 지급",
+    after: "한 줄 광고 제공",
+    insertAfter: true,
+  },
+  {
+    section: "6. 제3자 제공",
+    before:
+      "앱 설치 광고의 성과 측정을 위해 앱에 포함된 Meta SDK가 직접 수집하는 정보와, 보상형 광고를 위해 앱에 포함된 Google 모바일 광고(AdMob) SDK가 직접 수집하는 정보는 9번 항목에서 따로 안내합니다.",
+    after:
+      "앱 설치 광고의 성과 측정을 위해 앱에 포함된 Meta SDK가 직접 수집하는 정보와, 보상형 광고와 한 줄 광고를 위해 앱에 포함된 Google 모바일 광고(AdMob) SDK가 직접 수집하는 정보는 9번 항목에서 따로 안내합니다.",
+  },
+  {
+    section: "8. 개인정보의 국외 이전",
+    before:
+      "앱 설치 광고의 성과 측정을 위해 Meta Platforms, Inc.(미국)가, 보상형 광고를 위해 Google LLC(미국)가 앱에서 직접 수집하는 정보는 9번 항목에서 안내합니다. 팀은 보상형 광고의 시청을 확인하기 위해 서버가 기기 식별자에 붙인 번호를 Google에 전달하며, Google은 이 번호를 시청 확인 결과와 함께 팀의 서버로 돌려보내는 데에만 쓰고 저장하거나 다른 목적으로 쓰지 않는다고 밝히고 있습니다.",
+    after:
+      "앱 설치 광고의 성과 측정을 위해 Meta Platforms, Inc.(미국)가, 보상형 광고와 한 줄 광고를 위해 Google LLC(미국)가 앱에서 직접 수집하는 정보는 9번 항목에서 안내합니다. 팀은 보상형 광고의 시청을 확인하기 위해 서버가 기기 식별자에 붙인 번호를 Google에 전달하며, Google은 이 번호를 시청 확인 결과와 함께 팀의 서버로 돌려보내는 데에만 쓰고 저장하거나 다른 목적으로 쓰지 않는다고 밝히고 있습니다.",
+  },
+  {
+    section: "9. 행태정보의 수집·이용·제공 및 거부에 관한 사항",
+    before:
+      "서비스는 앱 설치 광고의 성과를 측정하기 위해 앱에 Meta Platforms, Inc.의 SDK와 Airbridge SDK를, 보상형 광고를 제공하기 위해 Google 모바일 광고(AdMob) SDK를 포함하고 있으며, 이 SDK들이 아래 행태정보를 수집합니다.",
+    after:
+      "서비스는 앱 설치 광고의 성과를 측정하기 위해 앱에 Meta Platforms, Inc.의 SDK와 Airbridge SDK를, 보상형 광고와 한 줄 광고를 제공하기 위해 Google 모바일 광고(AdMob) SDK를 포함하고 있으며, 이 SDK들이 아래 행태정보를 수집합니다.",
+  },
+  {
+    section: "9. 행태정보의 수집·이용·제공 및 거부에 관한 사항",
+    before:
+      "회원이 광고 보기를 누를 때 SDK가 시작되며, 광고를 불러오고 시청하는 동안 자동으로 생성되어 Google로 전송됩니다.",
+    after:
+      "회원이 광고 보기를 누르거나 혼자 공부하는 화면을 열 때 SDK가 시작되며, 광고를 불러오고 시청하는 동안 자동으로 생성되어 Google로 전송됩니다.",
+  },
+  {
+    section: "9. 행태정보의 수집·이용·제공 및 거부에 관한 사항",
+    before:
+      "보상형 광고 제공, 맞춤형 광고 표시, 광고 성과 측정과 분석, 광고 시청 확인과 부정 이용 방지",
+    after:
+      "보상형 광고와 한 줄 광고 제공, 보상형 광고의 맞춤형 광고 표시, 광고 성과 측정과 분석, 광고 시청 확인과 부정 이용 방지",
+  },
+  {
+    section: "9. 행태정보의 수집·이용·제공 및 거부에 관한 사항",
+    before:
+      "보상형 광고는 만 14세 이상임을 확인하고 로그인한 회원에게만 보여 주며, 서비스는 전체 이용가 등급의 광고만 요청합니다. 표시되는 광고는 광고 식별자와 이용 기록을 바탕으로 한 맞춤형 광고일 수 있습니다.",
+    after:
+      "보상형 광고는 만 14세 이상임을 확인하고 로그인한 회원에게만 보여 주며, 서비스는 전체 이용가 등급의 광고만 요청합니다. 표시되는 광고는 광고 식별자와 이용 기록을 바탕으로 한 맞춤형 광고일 수 있습니다. 한 줄 광고 가운데 Google이 제공하는 광고도 같은 회원에게만 보여 주며, 맞춤형이 아닌 광고로 요청합니다.",
+  },
+  {
+    section: "9. 행태정보의 수집·이용·제공 및 거부에 관한 사항",
+    before:
+      "광고 ID를 삭제하거나 앱 추적을 허용하지 않으면 광고 식별자는 Meta, Airbridge, Google로 전송되지 않습니다. 다만 위 표의 나머지 기록은 광고 식별자 없이 계속 전송되며, 보상형 광고는 맞춤형이 아닌 광고로 표시될 수 있습니다. 광고를 보지 않아도 서비스의 다른 기능은 그대로 이용할 수 있습니다. 카메라 영상과 얼굴 정보는 Meta, Airbridge, Google로 전송하지 않습니다.",
+    after:
+      "광고 ID를 삭제하거나 앱 추적을 허용하지 않으면 광고 식별자는 Meta, Airbridge, Google로 전송되지 않습니다. 다만 위 표의 나머지 기록은 광고 식별자 없이 계속 전송되며, 보상형 광고는 맞춤형이 아닌 광고로 표시될 수 있습니다. 보상형 광고를 보지 않아도 서비스의 다른 기능은 그대로 이용할 수 있습니다. 카메라 영상과 얼굴 정보는 Meta, Airbridge, Google로 전송하지 않습니다.",
+  },
+  {
+    section: "11. 만 14세 미만 아동의 개인정보",
+    before:
+      "포인트, 유료 포인트 충전, 세트 구매, 보상형 광고는 만 14세 이상임을 확인하고 로그인한 회원만 이용할 수 있습니다. 서비스는 맞춤형 광고를 만 14세 이상임을 확인한 회원에게만 제공하며, 만 14세 미만임을 알게 된 아동에게는 맞춤형 광고를 제공하지 않습니다.",
+    after:
+      "포인트, 유료 포인트 충전, 세트 구매, 보상형 광고는 만 14세 이상임을 확인하고 로그인한 회원만 이용할 수 있으며, 한 줄 광고 가운데 Google이 제공하는 광고도 같은 회원에게만 표시합니다. 서비스는 맞춤형 광고를 만 14세 이상임을 확인한 회원에게만 제공하며, 만 14세 미만임을 알게 된 아동에게는 맞춤형 광고를 제공하지 않습니다.",
+  },
+  {
+    section: "15. 방침의 변경",
+    before:
+      "변경을 알릴 때에는 변경 전 내용과 변경 후 내용을 비교하여 보여 줍니다. 이전 방침과 각 방침의 적용 기간은 이전 방침 페이지(https://focusmakers.app/privacy/2026-11-14)에서 확인할 수 있습니다.",
+    after:
+      "변경을 알릴 때에는 변경 전 내용과 변경 후 내용을 비교하여 보여 줍니다. 이전 방침과 각 방침의 적용 기간은 이전 방침 페이지(https://focusmakers.app/privacy/2026-11-23)에서 확인할 수 있습니다.",
+  },
+];
+
+export const TERMS_OF_SERVICE_20261224 = reviseLegalDocument(
+  TERMS_OF_SERVICE,
+  "2026년 12월 24일",
+  TERMS_OF_SERVICE_20261224_EDITS,
+);
+
+export const PRIVACY_POLICY_20261224 = reviseLegalDocument(
+  PRIVACY_POLICY,
+  "2026년 12월 24일",
+  PRIVACY_POLICY_20261224_EDITS,
+);
+
+// 시간대를 빼면 기기 시간대로 읽혀 해외 기기에서는 한국 시간과 다른 시각에 바뀐다.
+const REVISION_EFFECTIVE_AT = "2026-12-24T00:00:00+09:00";
+
+const EDITIONS = {
+  terms: { current: TERMS_OF_SERVICE, revised: TERMS_OF_SERVICE_20261224 },
+  privacy: { current: PRIVACY_POLICY, revised: PRIVACY_POLICY_20261224 },
+} as const;
+
+export type LegalDocumentKind = keyof typeof EDITIONS;
+
+/** 지금 판과, 시행 전이면 시행을 앞둔 다음 판 */
+export type LegalEdition = { document: LegalDocument; upcoming: LegalDocument | null };
+
+/**
+ * 지금 보여 줄 판
+ *
+ * 랜딩의 법적 원본과 같은 시각에 바뀌도록 개정판의 시행 시각을 기준으로 고른다.
+ * 시행 전에는 다음 판도 함께 줘서 화면이 바뀌는 내용을 미리 보여 줄 수 있게 한다.
+ */
+export function selectLegalEdition(kind: LegalDocumentKind, now = new Date()): LegalEdition {
+  const { current, revised } = EDITIONS[kind];
+  if (now.getTime() >= Date.parse(REVISION_EFFECTIVE_AT)) {
+    return { document: revised, upcoming: null };
+  }
+  return { document: current, upcoming: revised };
+}
 
 /** 화면 상단에 표기할 시행일 문구. 문서마다 따로 쓰지 않도록 한 곳에서 만든다. */
 export function effectiveDateLabel(document: LegalDocument): string {

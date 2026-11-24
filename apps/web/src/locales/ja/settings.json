@@ -64,7 +64,17 @@
     "manual": "ストアへ移動"
   },
   "legal": {
-    "koreanOnly": "この文書は現在、韓国語でのみ提供しています。"
+    "koreanOnly": "この文書は現在、韓国語でのみ提供しています。",
+    "revisionChanges": "{{date}}から変わります",
+    "revisionPending": "この版は{{date}}から適用されます",
+    "showUpcoming": {
+      "terms": "変更後の規約を見る",
+      "privacy": "変更後のポリシーを見る"
+    },
+    "showCurrent": {
+      "terms": "現在の規約を見る",
+      "privacy": "現在のポリシーを見る"
+    }
   },
   "account": {
     "logout": {
