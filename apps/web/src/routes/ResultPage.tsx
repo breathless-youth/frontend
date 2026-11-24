@@ -12,6 +12,7 @@ import { isTimerSession } from "@/features/manual-record/manualRecord";
 import { ResultPointsHost } from "@/features/points/components/result/ResultPointsHost";
 import { rewardStartedAt } from "@/features/points/model/rewardStartedAt";
 import { PremiumFakeDoorHost } from "@/features/premium-fake-door/PremiumFakeDoorHost";
+import { premiumQualifyingSec } from "@/features/premium-fake-door/premiumFakeDoor";
 import { useReadyMascotLook } from "@/features/points/model/useReadyMascotLook";
 import { ConfettiBurst } from "@/features/study-session/components/ConfettiBurst";
 import { SessionSummaryCard } from "@/features/study-session/components/SessionSummaryCard";
@@ -301,7 +302,16 @@ export function ResultPage() {
               ) : (
                 <StudyTimelineCard view={view} />
               )}
-              {userId !== null && <PremiumFakeDoorHost userId={userId} focusSec={view.focusSec} />}
+              {userId !== null && (
+                <PremiumFakeDoorHost
+                  userId={userId}
+                  qualifyingSec={premiumQualifyingSec({
+                    timer,
+                    focusSec: view.focusSec,
+                    studySec: view.studySec,
+                  })}
+                />
+              )}
               {focusFeaturesUsed && (
                 <FocusFeedbackCardHost
                   studySec={totalStudySec}

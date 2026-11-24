@@ -9,6 +9,7 @@ import {
   EMPTY_PREMIUM_RECORD,
   PREMIUM_FAKE_DOOR_ENDS_AT_MS,
   type PremiumCardContext,
+  premiumQualifyingSec,
 } from "../premiumFakeDoor";
 
 describe("assignPremiumPrice", () => {
@@ -25,16 +26,16 @@ describe("canShowPremiumCard", () => {
     hasTokenSource: true,
     korean: true,
     record: EMPTY_PREMIUM_RECORD,
-    focusSec: 600,
+    qualifyingSec: 600,
   };
 
   it("결과 화면에는 보인다", () => {
     expect(canShowPremiumCard(base)).toBe(true);
   });
 
-  it("방금 끝낸 세션의 순공시간이 10분(600초) 이상일 때만 보인다", () => {
-    expect(canShowPremiumCard({ ...base, focusSec: 599 })).toBe(false);
-    expect(canShowPremiumCard({ ...base, focusSec: 600 })).toBe(true);
+  it("방금 끝낸 세션의 기준 시간이 10분(600초) 이상일 때만 보인다", () => {
+    expect(canShowPremiumCard({ ...base, qualifyingSec: 599 })).toBe(false);
+    expect(canShowPremiumCard({ ...base, qualifyingSec: 600 })).toBe(true);
   });
 
   it("신청했으면 다시 보이지 않는다", () => {
@@ -74,5 +75,17 @@ describe("dailyPremiumPrice", () => {
     expect(i18n.t("premium-fake-door:priceCard.perDay", { amount: dailyPremiumPrice(5900) })).toBe(
       "하루 약 197원",
     );
+  });
+});
+
+describe("premiumQualifyingSec", () => {
+  it("카메라 세션은 순공시간으로 판정한다", () => {
+    expect(premiumQualifyingSec({ timer: false, focusSec: 600, studySec: 3000 })).toBe(600);
+    expect(premiumQualifyingSec({ timer: false, focusSec: 599, studySec: 3000 })).toBe(599);
+  });
+
+  it("자율 모드 세션은 순공 대신 총 공부시간으로 판정한다", () => {
+    expect(premiumQualifyingSec({ timer: true, focusSec: 0, studySec: 600 })).toBe(600);
+    expect(premiumQualifyingSec({ timer: true, focusSec: 0, studySec: 599 })).toBe(599);
   });
 });

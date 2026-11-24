@@ -11,7 +11,7 @@ export const PREMIUM_FAKE_DOOR_ENABLED = true;
 /** 이 시각이 지나면 카드가 저절로 사라진다. 2026-12-03 23:59:59 KST(실험 기간 11/24~12/3). */
 export const PREMIUM_FAKE_DOOR_ENDS_AT_MS = Date.parse("2026-12-03T23:59:59+09:00");
 
-/** 방금 끝낸 세션의 순공시간이 이만큼(10분) 넘어야 결과 화면에 카드를 보인다. */
+/** 방금 끝낸 세션의 기준 시간(`premiumQualifyingSec`)이 이만큼(10분) 넘어야 결과 화면에 카드를 보인다. */
 export const PREMIUM_CARD_MIN_FOCUS_SEC = 600;
 
 /** X로 닫은 뒤 이만큼(48시간) 지나면 카드를 다시 보인다. */
@@ -88,9 +88,27 @@ export interface PremiumCardContext {
   /** 가격이 원화라 한국어 화면에만 보인다. */
   korean: boolean;
   record: PremiumFakeDoorRecord;
-  /** 방금 끝낸 세션의 순공시간(초). 결과 화면 머리가 보이는 값과 같다. */
-  focusSec: number;
+  /** 방금 끝낸 세션의 기준 시간(초). `premiumQualifyingSec`로 구한다. */
+  qualifyingSec: number;
   enabled?: boolean;
+}
+
+/**
+ * 카드 노출을 판정할 세션 시간(초)
+ *
+ * 결과 화면 머리가 보이는 첫 세션의 값을 쓴다. 카메라로 잰 세션은 순공시간이고,
+ * 자율 모드(타이머) 세션은 순공을 재지 않아 결과 화면처럼 총 공부시간을 쓴다.
+ */
+export function premiumQualifyingSec({
+  timer,
+  focusSec,
+  studySec,
+}: {
+  timer: boolean;
+  focusSec: number;
+  studySec: number;
+}): number {
+  return timer ? studySec : focusSec;
 }
 
 export function canShowPremiumCard({
@@ -98,12 +116,12 @@ export function canShowPremiumCard({
   hasTokenSource,
   korean,
   record,
-  focusSec,
+  qualifyingSec,
   enabled = PREMIUM_FAKE_DOOR_ENABLED,
 }: PremiumCardContext): boolean {
   if (!enabled || nowMs > PREMIUM_FAKE_DOOR_ENDS_AT_MS) return false;
   if (!hasTokenSource || !korean) return false;
-  if (focusSec < PREMIUM_CARD_MIN_FOCUS_SEC) return false;
+  if (qualifyingSec < PREMIUM_CARD_MIN_FOCUS_SEC) return false;
   if (record.applied) return false;
   return record.dismissedAt === null || nowMs - record.dismissedAt >= PREMIUM_CARD_SNOOZE_MS;
 }

@@ -20,17 +20,17 @@ import { loadPremiumRecord, updatePremiumRecord } from "./premiumFakeDoorStore";
  * 결과 화면의 스파르타 기능 사전 신청 카드와 신청 화면(코드 이름은 실험 시작 때의 premium을 그대로 쓴다)
  *
  * 홈에는 카드를 두지 않는다. 자리 값은 늘 `RESULT`다.
- * 방금 끝낸 세션의 순공시간이 10분 이상일 때만 보인다. 노출 여부는 마운트할 때 한 번 정한다.
+ * 방금 끝낸 세션의 기준 시간(카메라 세션은 순공, 자율 모드는 총 공부시간)이 10분 이상일 때만 보인다. 노출 여부는 마운트할 때 한 번 정한다.
  * X로 닫으면 48시간 동안 숨기고, 신청하면 다시 보이지 않는다. 열린 신청 화면은 완료까지 남는다.
  * 닫았다는 토스트는 결과 화면 아래 버튼 위의 `CtaToaster`로 보낸다.
  */
 export function PremiumFakeDoorHost({
   userId,
-  focusSec,
+  qualifyingSec,
 }: {
   userId: number;
-  /** 방금 끝낸 세션의 순공시간(초). 10분이 안 되면 카드를 그리지 않는다. */
-  focusSec: number;
+  /** 방금 끝낸 세션의 기준 시간(초, `premiumQualifyingSec`). 10분이 안 되면 카드를 그리지 않는다. */
+  qualifyingSec: number;
 }) {
   const placement = PREMIUM_PLACEMENT;
   const { t } = useTranslation("premium-fake-door");
@@ -45,7 +45,7 @@ export function PremiumFakeDoorHost({
         hasTokenSource: hasTokenSource(),
         korean: isKoreanLocale(),
         record,
-        focusSec,
+        qualifyingSec,
       })
     );
   });

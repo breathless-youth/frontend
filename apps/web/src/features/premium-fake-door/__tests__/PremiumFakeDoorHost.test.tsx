@@ -31,13 +31,13 @@ vi.mock("@/lib/amplitude", async (o) => ({ ...(await o<typeof Amplitude>()), ...
 const USER_ID = 7;
 const PRICE = assignPremiumPrice(USER_ID);
 
-function renderHost(focusSec = 600) {
+function renderHost(qualifyingSec = 600) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <StrictMode>
       <QueryClientProvider client={client}>
         <MemoryRouter>
-          <PremiumFakeDoorHost userId={USER_ID} focusSec={focusSec} />
+          <PremiumFakeDoorHost userId={USER_ID} qualifyingSec={qualifyingSec} />
         </MemoryRouter>
       </QueryClientProvider>
     </StrictMode>,
