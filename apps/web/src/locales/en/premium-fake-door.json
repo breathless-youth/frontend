@@ -1,0 +1,150 @@
+{
+  "price": "{{amount, number}} KRW/month",
+  "card": {
+    "title": "Pre-register for Sparta features",
+    "summary": "6 features · {{price}}",
+    "open": "View Sparta feature pre-registration",
+    "dismiss": "Close Sparta features notice",
+    "dismissed": "You won't see this notice again"
+  },
+  "features": {
+    "AI_PLANNER": {
+      "name": "AI plan assistant",
+      "hook": "Set a goal and a deadline, and the assistant plans your pace",
+      "description": [
+        "Tell it your target exam, the time left and what to cover, and it recommends how far to go each day, with a progress rate and study range.",
+        "It keeps refining the plan to fit your goal and pace."
+      ],
+      "bullets": [
+        "Recommends a daily study range and progress rate for your goal and deadline",
+        "Miss a day and it reworks the plan around the days left",
+        "Reminds you right on time of your planned start and what's left to do"
+      ]
+    },
+    "AI_REPORT": {
+      "name": "AI focus report",
+      "hook": "When you sat for hours but nothing stuck",
+      "description": [
+        "Get a weekly report that looks back on your study.",
+        "It also suggests next week's plan to do more of what worked and less of what broke your focus."
+      ],
+      "bullets": [
+        "See at a glance which days and times you focus best",
+        "Points out the times and subjects where you often broke off",
+        "Suggests when to place hard subjects in next week's plan"
+      ]
+    },
+    "GROUP_MATCHING": {
+      "name": "Group study matching",
+      "hook": "When you keep slacking off alone",
+      "description": [
+        "It finds people who match your goal and study hours.",
+        "Study alongside people with the same goal and keep each other motivated."
+      ],
+      "bullets": [
+        "Pick a goal like TOEIC, civil service or college entrance and we'll match a room",
+        "Connects you with people who study at your usual time, like mornings or nights",
+        "No need to find or create a room. One tap and you're studying together"
+      ]
+    },
+    "PHONE_CALL": {
+      "name": "Phone call reminders",
+      "hook": "Put it off, and your phone rings",
+      "description": [
+        "When your planned study time comes, it calls you instead of sending a notification.",
+        "Notifications are easy to swipe away, but you answer a call, so you sit right down."
+      ],
+      "bullets": [
+        "Calls you at your planned start time to get you studying",
+        "If you don't answer, it calls again a few minutes later",
+        "When you pick up, it tells you today's tasks right away"
+      ]
+    },
+    "TIMER_BACKGROUND": {
+      "name": "Premium timer backgrounds",
+      "hook": "A screen you'll want to stay with",
+      "description": [
+        "Decorate your study timer with premium-only backgrounds.",
+        "Pick one that fits your mood and start studying."
+      ],
+      "bullets": [
+        "Choose backgrounds with different moods, like a café, a library or a late-night desk",
+        "Set a background for each subject and switch into study mode the moment you sit down"
+      ]
+    },
+    "CHARACTER_ITEMS": {
+      "name": "Wear character items",
+      "note": "Sets excluded",
+      "hook": "Dress your character your way",
+      "description": [
+        "Pick character items and dress up your character.",
+        "Change outfits whenever you like."
+      ],
+      "bullets": [
+        "Pick a hat, an outfit and an accessory and wear them all together",
+        "Make even the same character your own with your own combination"
+      ]
+    }
+  },
+  "billing": "Pre-registering doesn't charge you.",
+  "benefits": {
+    "dialog": "Sparta features",
+    "title": "Sparta features",
+    "cta": "Pre-register",
+    "tapHint": "Tap a feature to see more details."
+  },
+  "apply": {
+    "header": "Pre-register",
+    "step": "{{current}}/{{total}}"
+  },
+  "age": {
+    "dialog": "Age check",
+    "title": "Are you 14 or older?",
+    "sub": "If you're under 14, we'll notify you in the app without an email.",
+    "check": "I'm 14 or older",
+    "next": "Next",
+    "applyByApp": "Sign up for app notifications"
+  },
+  "email": {
+    "dialog": "Email",
+    "title": "Where should we send the launch news?",
+    "label": "Email",
+    "placeholder": "example@email.com",
+    "consent": "[Required] Consent to collection and use of personal information",
+    "consentLine": "We only use your email for the launch notice and delete it right after sending.",
+    "details": "View details",
+    "terms": {
+      "itemLabel": "Collected",
+      "item": "Email",
+      "purposeLabel": "Purpose",
+      "purpose": "Sparta feature launch notice",
+      "periodLabel": "Retention",
+      "period": "Deleted right after the notice is sent. If we don't launch, deleted within 6 months after the experiment ends.",
+      "refuseLabel": "Refusal",
+      "refuse": "You may refuse, but then you can't pre-register."
+    },
+    "submit": "Pre-register",
+    "errors": {
+      "required": "Please enter your email.",
+      "format": "Please check your email format.",
+      "consent": "You need to agree to the collection and use of personal information to sign up."
+    }
+  },
+  "submitFailed": "We couldn't sign you up. Please try again.",
+  "done": {
+    "dialog": "Pre-registration complete",
+    "title": "{{nickname}}, you're pre-registered",
+    "titleNoName": "You're pre-registered",
+    "sub": "You'll be the first to hear about the launch.",
+    "byEmail": "We'll send the notice to {{email}}.",
+    "byApp": "We'll let you know in the app when it launches.",
+    "question": "Which feature are you most looking forward to?",
+    "thanks": "Thank you for your answer!",
+    "pickFailed": "We couldn't save your answer. Please choose again.",
+    "backToResult": "Back to results"
+  },
+  "sheet": {
+    "tag": "Coming soon",
+    "close": "Close"
+  }
+}

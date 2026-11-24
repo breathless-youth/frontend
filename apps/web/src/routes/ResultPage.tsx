@@ -11,6 +11,7 @@ import { InterviewCardHost } from "@/features/interview/InterviewCardHost";
 import { isTimerSession } from "@/features/manual-record/manualRecord";
 import { ResultPointsHost } from "@/features/points/components/result/ResultPointsHost";
 import { rewardStartedAt } from "@/features/points/model/rewardStartedAt";
+import { PremiumFakeDoorHost } from "@/features/premium-fake-door/PremiumFakeDoorHost";
 import { useReadyMascotLook } from "@/features/points/model/useReadyMascotLook";
 import { ConfettiBurst } from "@/features/study-session/components/ConfettiBurst";
 import { SessionSummaryCard } from "@/features/study-session/components/SessionSummaryCard";
@@ -300,6 +301,7 @@ export function ResultPage() {
               ) : (
                 <StudyTimelineCard view={view} />
               )}
+              {userId !== null && <PremiumFakeDoorHost userId={userId} />}
               {focusFeaturesUsed && (
                 <FocusFeedbackCardHost
                   studySec={totalStudySec}

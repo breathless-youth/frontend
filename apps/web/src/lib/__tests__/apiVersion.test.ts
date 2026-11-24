@@ -52,6 +52,7 @@ const EXPECTED: Record<ApiEndpoint, { current: string; legacy: string }> = {
   roomLeave: { current: "2", legacy: "1" },
   groups: { current: "1", legacy: "1" },
   blocks: { current: "1", legacy: "1" },
+  premiumWaitlist: { current: "2", legacy: "2" },
   rtcStats: { current: "2", legacy: "1" },
 };
 

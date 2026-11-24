@@ -2710,3 +2710,94 @@ export function trackPointsClaimed(claim: {
   if (!initialized) return;
   track("points_claimed", { kind: claim.kind, points: claim.points });
 }
+
+/** 프리미엄 사전 신청 실험의 카드 자리. lib가 features를 참조하지 않도록 같은 리터럴을 여기 둔다. */
+export type PremiumFakeDoorPlacement = "RESULT" | "HOME";
+
+/**
+ * 프리미엄 사전 신청 실험(BY-1392) 이벤트에 늘 싣는 속성
+ *
+ * 이메일과 자유 문자열은 어떤 이벤트에도 싣지 않는다. 속성은 이 타입의 값뿐이다.
+ */
+export interface PremiumFakeDoorEventBase {
+  readonly price: 2900 | 5900;
+  readonly placement: PremiumFakeDoorPlacement;
+}
+
+/** 화면에 보이는 기능 id. 서버 계약의 `expectedFeature` 값과 같다(서버가 받는 `SMART_NOTIFICATION`, `APP_LOCK`은 화면에서 뺐다). */
+export type PremiumFakeDoorFeature =
+  | "AI_PLANNER"
+  | "AI_REPORT"
+  | "GROUP_MATCHING"
+  | "PHONE_CALL"
+  | "TIMER_BACKGROUND"
+  | "CHARACTER_ITEMS";
+
+/** 카드 노출(사용자당 한 번), X로 닫기, 혜택 화면 진입 */
+export function trackPremiumFakeDoor(
+  action: "viewed" | "dismissed" | "opened",
+  base: PremiumFakeDoorEventBase,
+) {
+  if (!initialized) return;
+  track(`premium_fake_door_${action}`, { price: base.price, placement: base.placement });
+}
+
+/** "사전 신청하기"를 누른 순간. `from`은 혜택 화면 아래 버튼인지 기능 설명 시트의 버튼인지다. */
+export function trackPremiumFakeDoorApplyClicked(
+  base: PremiumFakeDoorEventBase,
+  from: "benefits" | "sheet",
+) {
+  if (!initialized) return;
+  track("premium_fake_door_apply_clicked", {
+    price: base.price,
+    placement: base.placement,
+    from,
+  });
+}
+
+/** 혜택 화면에서 기능 타일을 눌러 설명 시트를 연 순간. 열 때마다 보낸다. */
+export function trackPremiumFakeDoorFeatureViewed(
+  base: PremiumFakeDoorEventBase,
+  feature: PremiumFakeDoorFeature,
+) {
+  if (!initialized) return;
+  track("premium_fake_door_feature_viewed", {
+    price: base.price,
+    placement: base.placement,
+    feature,
+  });
+}
+
+/** 서버가 신청을 저장한(204) 뒤에만 보낸다. */
+export function trackPremiumFakeDoorApplied(
+  base: PremiumFakeDoorEventBase,
+  ageGroup: "over14" | "under14",
+) {
+  if (!initialized) return;
+  track("premium_fake_door_applied", {
+    price: base.price,
+    placement: base.placement,
+    age_group: ageGroup,
+  });
+}
+
+/** 완료 화면에서 가장 기대되는 기능을 고른 순간. feature는 서버 계약의 기능 id다. */
+export function trackPremiumFakeDoorFeatureSelected(
+  base: PremiumFakeDoorEventBase,
+  feature: PremiumFakeDoorFeature,
+) {
+  if (!initialized) return;
+  track("premium_fake_door_feature_selected", {
+    price: base.price,
+    placement: base.placement,
+    feature,
+  });
+}
+
+/** 배정된 가격을 사용자 속성으로 한 번 남긴다. 가격은 사용자 번호로 고정이라 바뀌지 않는다. */
+export function setPremiumFakeDoorPriceUserProperty(price: 2900 | 5900) {
+  if (!initialized) return;
+  const id = new Identify();
+  id.setOnce("premium_fd_price", price);
+  identify(id);
+}

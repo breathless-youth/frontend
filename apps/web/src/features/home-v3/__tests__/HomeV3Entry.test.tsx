@@ -56,6 +56,10 @@ vi.mock("@/features/study-session/vision/prefetchVisionAssets", () => ({
   prefetchVisionAssets: vi.fn(),
 }));
 vi.mock("@/routes/lazyRoutes", () => ({ prefetchTimelapsesPage: vi.fn() }));
+// 홈에는 사전 신청 카드를 두지 않는다(BY-1393). 다시 붙으면 이 표시가 보여 아래 테스트가 깨진다.
+vi.mock("@/features/premium-fake-door/PremiumFakeDoorHost", () => ({
+  PremiumFakeDoorHost: () => <div data-testid="premium-fake-door-card" />,
+}));
 vi.mock("@/lib/hardNavigation", async (original) => ({
   ...(await original<typeof hardNavigation>()),
   hardNavigate: vi.fn(),
@@ -107,6 +111,12 @@ beforeEach(() => {
 });
 
 describe("home v3 entry adapters", () => {
+  it("홈에는 프리미엄 사전 신청 카드를 그리지 않는다", async () => {
+    setup();
+    await screen.findByRole("button", { name: /공부 시작/ });
+    expect(screen.queryByTestId("premium-fake-door-card")).not.toBeInTheDocument();
+  });
+
   it("prefetches vision assets only in camera mode and the timelapse page in both modes", async () => {
     setup();
     await waitFor(() => expect(prefetchVisionAssets).toHaveBeenCalled());
