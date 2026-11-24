@@ -1,10 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { setPremiumFakeDoorPriceUserProperty, trackPremiumFakeDoor } from "@/lib/amplitude";
 import { isKoreanLocale } from "@/lib/i18n";
-import { profileQuery } from "@/lib/profileQueries";
 import { showCtaToast } from "@/lib/toast";
 import { hasTokenSource } from "@/lib/userId";
 
@@ -93,7 +91,7 @@ export function PremiumFakeDoorHost({ userId }: { userId: number }) {
 }
 
 /**
- * 사용자 번호로 가격과 닉네임을 채운 신청 화면
+ * 사용자 번호로 가격을 채운 신청 화면
  *
  * 결과 화면 카드와 세션 배너가 같은 가격, 같은 신청 기록을 쓰도록 둘 다 이것으로 연다.
  * 신청을 마치면 기록에 남겨 두 입구 모두 다시 권하지 않는다.
@@ -111,13 +109,11 @@ export function PremiumFakeDoorUserFlow({
 }) {
   const { t } = useTranslation("premium-fake-door");
   const price = assignPremiumPrice(userId);
-  const profile = useQuery(profileQuery(userId));
   return (
     <PremiumFakeDoorFlow
       price={price}
       placement={placement}
       priceLabel={t("price", { amount: price })}
-      nickname={profile.data?.nickname ?? null}
       onApplied={() => {
         updatePremiumRecord(userId, { applied: true });
         onApplied?.();

@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import i18n from "@/lib/i18n";
+
 import {
   assignPremiumPrice,
+  dailyPremiumPrice,
   canShowPremiumCard,
   EMPTY_PREMIUM_RECORD,
   type PremiumCardContext,
@@ -49,5 +52,18 @@ describe("canShowPremiumCard", () => {
     expect(canShowPremiumCard({ ...base, hasTokenSource: false })).toBe(false);
     expect(canShowPremiumCard({ ...base, korean: false })).toBe(false);
     expect(canShowPremiumCard({ ...base, enabled: false })).toBe(false);
+  });
+});
+
+describe("dailyPremiumPrice", () => {
+  it("월 가격을 30일로 나눠 반올림하고, 카탈로그 문장으로 하루 약 97원·197원이 된다", () => {
+    expect(dailyPremiumPrice(2900)).toBe(97);
+    expect(dailyPremiumPrice(5900)).toBe(197);
+    expect(i18n.t("premium-fake-door:priceCard.perDay", { amount: dailyPremiumPrice(2900) })).toBe(
+      "하루 약 97원",
+    );
+    expect(i18n.t("premium-fake-door:priceCard.perDay", { amount: dailyPremiumPrice(5900) })).toBe(
+      "하루 약 197원",
+    );
   });
 });

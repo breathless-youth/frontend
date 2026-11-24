@@ -541,7 +541,11 @@ describe("RoomPage 세션 한 줄 배너", () => {
 
     await userEvent.click(screen.getByRole("button", { name: BANNER_NAME }));
     await userEvent.click(screen.getByRole("button", { name: "사전 신청하기" }));
-    await userEvent.click(screen.getByRole("button", { name: "앱 알림으로 신청하기" }));
+    // 리디자인 뒤 신청은 이메일 화면 하나다(만 14세 확인 단계 없음, BY-1393).
+    await userEvent.type(screen.getByLabelText("이메일"), "minjun@example.com");
+    await userEvent.click(screen.getByRole("checkbox", { name: "[필수] 만 14세 이상이에요" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "[필수] 개인정보 수집·이용 동의" }));
+    await userEvent.click(screen.getByRole("button", { name: "사전 신청하기" }));
     await userEvent.click(await screen.findByRole("button", { name: "공부로 돌아가기" }));
 
     expect(screen.queryByRole("dialog", { name: "신청 완료" })).not.toBeInTheDocument();

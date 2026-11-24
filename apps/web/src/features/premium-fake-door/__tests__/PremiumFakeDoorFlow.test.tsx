@@ -16,7 +16,6 @@ function renderFlow(placement: PremiumPlacement) {
         price={2900}
         placement={placement}
         priceLabel="월 2,900원"
-        nickname={null}
         onClose={() => {}}
         onApplied={() => {}}
       />
@@ -24,11 +23,15 @@ function renderFlow(placement: PremiumPlacement) {
   );
 }
 
+/** 리디자인 뒤 신청은 혜택 화면 → 이메일 화면 하나다(만 14세 확인 단계 없음). */
 async function finishApplying() {
   const user = userEvent.setup();
   await user.click(screen.getByRole("button", { name: "사전 신청하기" }));
-  await user.click(screen.getByRole("button", { name: "앱 알림으로 신청하기" }));
-  await screen.findByText("출시되면 앱에서 알려드릴게요.");
+  await user.type(screen.getByLabelText("이메일"), "minjun@example.com");
+  await user.click(screen.getByRole("checkbox", { name: "[필수] 만 14세 이상이에요" }));
+  await user.click(screen.getByRole("checkbox", { name: "[필수] 개인정보 수집·이용 동의" }));
+  await user.click(screen.getByRole("button", { name: "사전 신청하기" }));
+  await screen.findByText("가장 먼저 알려드릴게요");
 }
 
 beforeEach(() => {

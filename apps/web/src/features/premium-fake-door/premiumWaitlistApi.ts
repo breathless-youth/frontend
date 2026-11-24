@@ -12,7 +12,10 @@ export interface PremiumWaitlistRequest {
   price: PremiumPrice;
   placement: PremiumPlacement;
   ageOver14: boolean;
-  /** 만 14세 미만이면 null이다. */
+  /**
+   * 서버 계약은 null도 받지만(예전 만 14세 미만 앱 알림 신청), 지금 화면은 만 14세 확인과 개인정보 동의를
+   * 모두 체크해야만 보내므로 늘 이메일을 싣는다.
+   */
   email: string | null;
   expectedFeature: PremiumFeature | null;
 }
