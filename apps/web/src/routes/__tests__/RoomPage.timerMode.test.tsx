@@ -17,6 +17,7 @@ import { submitStudySession } from "@/features/study-session/submitStudySession"
 import { assignPremiumPrice } from "@/features/premium-fake-door/premiumFakeDoor";
 import {
   trackPremiumFakeDoor,
+  trackSessionBannerClicked,
   trackSessionSimpleModeToggled,
   trackStudySessionEnded,
   trackStudySessionPaused,
@@ -59,6 +60,7 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   trackSessionSimpleModeToggled: vi.fn(),
   trackStudySessionPaused: vi.fn(),
   trackPremiumFakeDoor: vi.fn(),
+  trackSessionBannerClicked: vi.fn(),
 }));
 
 // 움직임 센서는 브리지로 앱에 켜 달라고 보내서 그 메시지를 센다.
@@ -476,6 +478,43 @@ describe("RoomPage 세션 한 줄 배너", () => {
     expect(line).toHaveTextContent("AI가 오늘 할 일을 짜 드려요");
     expect(pause.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(line.compareDocumentPosition(exit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("배너를 보는 군은 안전 영역 크기와 관계없이 버튼 줄 아래에 배너 자리를 둔다", () => {
+    banner.group = "exposed";
+    stubWorkingCamera();
+    writeMeasureMode("camera");
+    renderRoom();
+
+    answerCameraPrompt();
+
+    const row = screen.getByRole("button", { name: "일시정지" }).parentElement?.parentElement;
+    expect(row).toHaveClass("mb-5");
+    expect(row?.className).not.toContain("safe-area-inset-bottom");
+  });
+
+  it("더보기 메뉴가 열린 채 배너 자리를 누르면 메뉴만 닫히고 혜택 화면은 열리지 않는다", async () => {
+    banner.group = "exposed";
+    stubWorkingCamera();
+    writeMeasureMode("camera");
+    renderRoom();
+    answerCameraPrompt();
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+    expect(screen.getAllByRole("menuitem").length).toBeGreaterThan(0);
+
+    // 실제 기기에서는 누름 시작이 메뉴를 닫고, 이어지는 클릭이 잠금이 풀린 배너에 닿는다.
+    const line = screen.getByRole("button", { name: BANNER_NAME, hidden: true });
+    fireEvent.pointerDown(document.body);
+    fireEvent.click(line);
+
+    expect(screen.queryByRole("dialog", { name: "스파르타 기능" })).not.toBeInTheDocument();
+    expect(vi.mocked(trackSessionBannerClicked)).not.toHaveBeenCalled();
+
+    // 메뉴가 닫힌 뒤의 다음 누름은 그대로 연다.
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    fireEvent.pointerDown(line);
+    fireEvent.click(line);
+    expect(await screen.findByRole("dialog", { name: "스파르타 기능" })).toBeInTheDocument();
   });
 
   it("배너를 보지 않는 군에는 배너가 없다", () => {

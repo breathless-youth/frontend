@@ -1773,14 +1773,12 @@ function RoomSessionScreen({
 
             {/* 가로에서는 줄을 풀어 두 버튼을 그리드 양 끝 칸에 놓는다.
                 `display: contents` 요소의 role은 Safari에서 사라진 적이 있어 이 줄에는 role을 달지 않는다. */}
-            {/* 세로 폰은 아래 여백이 8px에 안전 영역을 더한 값이라 안전 영역이 12px 미만이면 배너(16px)와 4px 틈이 들어가지 않는다.
-                그때만 배너를 보는 사용자에게 줄 아래 20px을 더한다.
-                --banner-fit은 안전 영역이 12px 이상이면 1px, 아니면 0이 되는 값이고 clamp로 JS 없이 둘 중 하나를 고른다. */}
+            {/* 세로 폰은 버튼 아래 여백이 8px뿐이라 배너(16px)와 4px 틈이 들어가도록 배너를 보는 사용자에게 줄 아래 20px을 더한다.
+                Android의 3버튼 내비게이션 바는 안전 영역 전체를 불투명하게 덮어서 안전 영역 안쪽은 배너 자리로 쓰지 않는다. */}
             <div
               className={cn(
                 "relative mt-2 flex w-full justify-between regular:mt-2.5 short-side-lg:mt-3 landscape-compact:contents",
-                bannerVisible &&
-                  "mb-[calc((1px-var(--banner-fit))*20)] [--banner-fit:clamp(0px,calc((env(safe-area-inset-bottom)-11px)*1000),1px)] regular:mb-0",
+                bannerVisible && "mb-5 regular:mb-0",
               )}
             >
               <div
@@ -1825,6 +1823,17 @@ function RoomSessionScreen({
                 <div
                   ref={bannerRef}
                   inert={moreMenuOpen}
+                  // 메뉴가 닫힌 뒤의 누름은 배너에서 시작하므로 여기서 기록을 되돌린다.
+                  onPointerDown={() => {
+                    pressStartedWithMenuOpenRef.current = moreMenuOpen;
+                  }}
+                  // 메뉴 바깥을 눌러 메뉴만 닫으려던 누름은 잠금이 풀린 배너에 클릭으로 닿아서 여기서 막는다.
+                  onClickCapture={(event) => {
+                    if (pressStartedWithMenuOpenRef.current || moreMenuOpen) {
+                      pressStartedWithMenuOpenRef.current = false;
+                      event.stopPropagation();
+                    }
+                  }}
                   className="absolute inset-x-[68px] -bottom-4 h-11 regular:hidden landscape-compact:hidden"
                 >
                   <SessionLineBanner copy={bannerCopy} onOpen={openBannerTarget} />
