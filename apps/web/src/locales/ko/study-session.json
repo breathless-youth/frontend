@@ -187,6 +187,7 @@
     "timer": "타이머",
     "stopwatch": "스톱워치",
     "open": "타이머 설정",
+    "start": "시작",
     "total": "/ {{total}}",
     "pause": "멈춤",
     "resume": "계속",

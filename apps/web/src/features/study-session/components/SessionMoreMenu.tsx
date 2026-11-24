@@ -59,7 +59,7 @@ type SessionMoreMenuProps = {
   onFlipCamera?: () => void;
   /** 넘긴 화면에서만 타이머 항목이 보인다. */
   onOpenTimer?: () => void;
-  /** 싱글룸만 넘긴다. 누르면 스톱워치가 바로 시작한다. */
+  /** 싱글룸만 넘긴다. 누르면 스톱워치 칩이 00:00으로 뜨고, 칩의 시작을 눌러야 흐른다. */
   onOpenStopwatch?: () => void;
   /**
    * 넘긴 화면에서만 마스코트 항목이 보인다.

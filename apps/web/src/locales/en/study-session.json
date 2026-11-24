@@ -192,6 +192,7 @@
     "timer": "Timer",
     "stopwatch": "Stopwatch",
     "open": "Timer settings",
+    "start": "Start",
     "total": "/ {{total}}",
     "pause": "Pause",
     "resume": "Resume",

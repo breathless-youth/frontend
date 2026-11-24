@@ -130,12 +130,16 @@ describe("RoomPage 추가 타이머·스톱워치 칩", () => {
     expect(within(chip()!).getByRole("button", { name: "멈춤" })).toBeInTheDocument();
   });
 
-  it("스톱워치는 메뉴에서 바로 칩으로 시작하고 세션을 멈추면 같이 멈춘다", async () => {
+  it("스톱워치는 메뉴에서 고르면 00:00 칩이 멈춘 채 뜨고, 시작을 누르면 흐르며 세션을 멈추면 같이 멈춘다", async () => {
     vi.useFakeTimers();
     renderRoom();
     chooseMenuNow("스톱워치");
 
     expect(within(chip()!).getByText("스톱워치")).toBeInTheDocument();
+    await advance(3000);
+    expect(within(chip()!).getByRole("timer")).toHaveTextContent("00:00");
+
+    fireEvent.click(within(chip()!).getByRole("button", { name: "시작" }));
     await advance(3000);
     expect(within(chip()!).getByRole("timer")).toHaveTextContent("00:03");
 
@@ -179,7 +183,7 @@ describe("RoomPage 추가 타이머·스톱워치 칩", () => {
     expect(within(chip()!).getByRole("button", { name: "멈춤" })).toBeInTheDocument();
   });
 
-  it("스톱워치가 도는 중 타이머 시트를 열고 취소하면 스톱워치가 계속 돌고, 시작하면 타이머로 바뀐다", async () => {
+  it("스톱워치 칩이 있을 때 타이머 시트를 열고 취소하면 스톱워치가 남고, 시작하면 타이머로 바뀐다", async () => {
     renderRoom();
     await chooseMenu("스톱워치");
 

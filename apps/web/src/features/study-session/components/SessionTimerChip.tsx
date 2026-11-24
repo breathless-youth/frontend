@@ -16,7 +16,7 @@ const CHIP_BUTTON =
  *
  * 하단 바 위에 40px 높이로 떠서 지금 도는 타이머나 스톱워치를 보여 준다.
  * 타이머는 이름을 누르면 시간을 고르는 시트를 다시 열고, 남은 시간 옆에 전체 시간을 함께 쓴다.
- * 세션이 멈춘 동안에는 시간도 서 있어서 버튼은 계속이다.
+ * 세션이 멈춘 동안에는 시간도 서 있어서 버튼은 계속이다. 스톱워치는 시작 전에도 00:00으로 떠서 버튼은 시작이다.
  * 화면 탭은 심플 모드 전환이라 칩 누름이 거기까지 올라가지 않게 끊는다.
  */
 export function SessionTimerChip({
@@ -88,7 +88,13 @@ export function SessionTimerChip({
       <span className="flex items-center gap-2">
         <button
           type="button"
-          aria-label={running ? t("timerChip.pause") : t("timerChip.resume")}
+          aria-label={
+            running
+              ? t("timerChip.pause")
+              : mode.status === "setup"
+                ? t("timerChip.start")
+                : t("timerChip.resume")
+          }
           onClick={onPrimary}
           className={cn(CHIP_BUTTON, "bg-white/10")}
         >
