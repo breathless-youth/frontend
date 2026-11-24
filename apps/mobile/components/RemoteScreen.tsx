@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, BackHandler, View } from "react-native";
+import { ActivityIndicator, BackHandler, StyleSheet, View } from "react-native";
+import Animated, { FadeOut, ReduceMotion } from "react-native-reanimated";
 
 import type { HandlerMessage, HostPassedMessage, SetTabBarMessage } from "@focusmakers/types";
 
@@ -55,10 +56,19 @@ export type RemoteScreenProps = {
   blockHardwareBack?: boolean;
   /**
    * 로드 동안 스플래시 자리에 그릴 페이지별 스켈레톤(`RemoteSplashSkeletons.tsx`).
-   * 생략하면 기존 `ActivityIndicator` 중앙 배치 — 세션 화면(`room/[id]`)처럼 미러링할
-   * 레이아웃이 없는 화면(카메라 전면 뷰)은 스켈레톤을 만들지 않고 이 폴백을 쓴다.
+   * 생략하면 기존 `ActivityIndicator` 중앙 배치다. `null`을 넘기면 배경만 덮고 아무것도 그리지 않는다.
    */
   splash?: ReactNode;
+  /**
+   * 문서 로드가 끝나도 웹이 `launch-ready`를 보낼 때까지 스플래시를 유지하고, 걷을 때 서서히 걷는다.
+   *
+   * 세션 화면 전용이다(`app/room/[id].tsx`). 로드가 끝난 순간의 웹은 아직 아무것도 그리지 않았거나
+   * 이어받을 세션을 확인하는 대기 화면이라, 그때 걷으면 배경색이 여러 번 바뀌어 반짝인다.
+   * 대기가 길어지거나 웹이 신호를 보내지 못해도 갇히지 않도록 상한이 지나면 걷는다.
+   * 이전 웹은 세션 화면을 그리기 전, 문서가 뜨자마자 신호를 보낸다. 그때는 로드가 끝나는 대로 걷혀
+   * 이 prop이 없던 때와 같게 동작한다.
+   */
+  waitForWebReady?: boolean;
   /**
    * 브리지 수신을 화면이 가로채야 할 때만 넘긴다 — 생략하면 공용 `handleBridgeMessage`다.
    * 세션 화면이 `motion-sensor`(BY-340)를 자기 수명에 묶기 위해 쓴다(`app/room/[id].tsx`).
@@ -76,6 +86,11 @@ export type RemoteScreenProps = {
   testID?: string;
 };
 
+/** `waitForWebReady` 화면이 문서 로드 뒤 웹의 첫 화면 신호를 기다리는 상한 */
+const WEB_READY_TIMEOUT_MS = 4000;
+/** `waitForWebReady` 화면의 덮개가 서서히 걷히는 시간 */
+const SPLASH_FADE_MS = 250;
+
 export function RemoteScreen({
   path,
   extraQuery,
@@ -84,6 +99,7 @@ export function RemoteScreen({
   backgroundColor,
   blockHardwareBack = false,
   splash,
+  waitForWebReady = false,
   onBridgeMessage = handleBridgeMessage,
   suppressTabBarMessages = false,
   testID,
@@ -113,6 +129,9 @@ export function RemoteScreen({
    * 어두운 룸 위에 소셜 홈 모양의 밝은 스켈레톤이 번쩍이면 흰 화면과 다를 게 없다.
    */
   const [darkScreen, setDarkScreen] = useState(false);
+  // `waitForWebReady` 화면에서 이 문서가 첫 화면을 그렸다고 알렸는지, 기다림 상한이 지났는지
+  const [webReady, setWebReady] = useState(false);
+  const [webReadyTimedOut, setWebReadyTimedOut] = useState(false);
   // 이 웹뷰가 마지막으로 보고한 탭 바 상태 — 탭이 전환될 때 새 활성 탭의 상태를 아무도
   // 다시 알려주지 않아 탭 바가 유실되므로, 포커스를 되찾는 쪽이 자기 상태를 재보고한다.
   // boolean이 아니라 메시지를 통째로 드는 이유는 차단 여부까지 같이 되돌려야 하기 때문이다.
@@ -124,6 +143,9 @@ export function RemoteScreen({
   const onRecoveryStart = () => {
     setLoaded(false);
     setLoadFailed(false);
+    // 새 문서는 아직 첫 화면을 그리지 않았다.
+    setWebReady(false);
+    setWebReadyTimedOut(false);
     // 문서 교체가 확정되는 시점이다 — 새 문서는 아직 아무 것도 보고하지 않았으니 여기서
     // 되돌려도 방금 보고된 상태를 덮지 않는다. onLoadEnd(성공)에는 이 되돌리기를 두지 않는다
     // — 새 문서의 set-tab-bar 신호가 onLoadEnd보다 먼저 도착할 수 있어, 거기서 되돌리면
@@ -184,6 +206,7 @@ export function RemoteScreen({
       return;
     }
     if (message.type === "launch-ready") {
+      setWebReady(true);
       // 탭 웹뷰는 동시에 마운트되므로 보이는 화면의 신호만 스플래시를 걷는다.
       if (!suppressTabBarMessages) {
         markLaunchReady();
@@ -218,7 +241,17 @@ export function RemoteScreen({
 
   // 파라미터가 준비되기 전엔 웹뷰를 아예 띄우지 않는다 — userId 없이 먼저 로드된 뒤 값이
   // 붙어 다시 로드되는 깜빡임·이중 로드(그리고 그 첫 로드의 "브라우저 단독 모드")를 막는다.
-  const showSplash = query === null || !loaded;
+  // 세션 화면은 자기 배경색과 덮개를 직접 넘기므로 어두운 화면 보고에 따른 복구 톤을 쓰지 않는다.
+  const darkTone = darkScreen && !waitForWebReady;
+  const waitingForWeb = waitForWebReady && !webReady && !webReadyTimedOut && !loadFailed;
+  const showSplash = query === null || !loaded || waitingForWeb;
+  useEffect(() => {
+    if (!loaded || !waitingForWeb) {
+      return;
+    }
+    const timer = setTimeout(() => setWebReadyTimedOut(true), WEB_READY_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [loaded, waitingForWeb]);
 
   // ⚠️ **지킬 세션이 실제로 있을 때만 막는다.** 로딩 중(스플래시)과 실패 폴백 화면에는 지킬
   // 세션이 없는데 거기서까지 막으면 사용자가 "다시 시도" 말고는 나갈 방법이 없는 상태에
@@ -230,8 +263,10 @@ export function RemoteScreen({
   // 웹 주도 잠금(backLocked)은 탭 웹뷰에서 오므로 포커스 조건이 필요하다 —
   // suppressTabBarMessages(=비포커스)가 그 신호다. 비포커스 탭의 잠금이 전역 뒤로가기를
   // 삼키면 안 된다.
+  // 웹 준비를 기다리며 덮개를 더 두는 동안에도 문서는 떠 있으므로, 덮개가 아니라 문서 로드로 판단한다.
+  const documentShown = query !== null && loaded;
   const shouldBlockBack =
-    (blockHardwareBack || (backLocked && !suppressTabBarMessages)) && !showSplash && !loadFailed;
+    (blockHardwareBack || (backLocked && !suppressTabBarMessages)) && documentShown && !loadFailed;
   useEffect(() => {
     if (!shouldBlockBack) {
       return;
@@ -260,37 +295,47 @@ export function RemoteScreen({
         />
       )}
       {showSplash && (
-        <View
-          testID={testID ? `${testID}-splash` : "remote-screen-splash"}
-          accessibilityLabel={t("webview.loading")}
-          // 스플래시는 가리기만 해야 한다 — pointerEvents 없이 뜨면 밑에 있는 웹뷰(또는 실패
-          // 폴백의 재시도 버튼)로 가는 모든 터치를 가로챈다(BY-333 실기기 확인: 탭 전환 중
-          // 뒤로가기조차 눌리지 않았다).
+        // 웹 준비를 기다리는 화면은 덮개를 서서히 걷어 웹 첫 화면이 떠오르게 한다. 동작 줄이기면 바로 걷는다.
+        <Animated.View
           pointerEvents="none"
-          className="bg-bg-base dark:bg-bg-base-dark absolute inset-0"
-          style={
-            darkScreen
-              ? { backgroundColor: "#0B0F14" }
-              : backgroundColor
-                ? { backgroundColor }
-                : undefined
+          style={StyleSheet.absoluteFill}
+          exiting={
+            waitForWebReady
+              ? FadeOut.duration(SPLASH_FADE_MS).reduceMotion(ReduceMotion.System)
+              : undefined
           }
         >
-          {/* 스켈레톤은 페이지 레이아웃을 그대로 그리므로 중앙 정렬 없이 전면에 편다. */}
-          {darkScreen ? (
-            // 어두운 화면(룸·세션) 복구 중 — 세션 서피스와 같은 배경만 유지한다
-            // (`app/room/[id].tsx`의 backgroundColor와 동일 값).
-            <View className="flex-1 items-center justify-center">
-              <ActivityIndicator color="#8B93A1" />
-            </View>
-          ) : (
-            (splash ?? (
+          <View
+            testID={testID ? `${testID}-splash` : "remote-screen-splash"}
+            accessibilityLabel={t("webview.loading")}
+            // 스플래시는 가리기만 해야 한다 — pointerEvents 없이 뜨면 밑에 있는 웹뷰(또는 실패
+            // 폴백의 재시도 버튼)로 가는 모든 터치를 가로챈다(BY-333 실기기 확인: 탭 전환 중
+            // 뒤로가기조차 눌리지 않았다).
+            pointerEvents="none"
+            className="bg-bg-base dark:bg-bg-base-dark absolute inset-0"
+            style={
+              darkTone
+                ? { backgroundColor: "#0B0F14" }
+                : backgroundColor
+                  ? { backgroundColor }
+                  : undefined
+            }
+          >
+            {/* 스켈레톤은 페이지 레이아웃을 그대로 그리므로 중앙 정렬 없이 전면에 편다. */}
+            {darkTone ? (
+              // 어두운 화면(룸) 복구 중 — 룸 서피스와 같은 배경만 유지한다.
+              <View className="flex-1 items-center justify-center">
+                <ActivityIndicator color="#8B93A1" />
+              </View>
+            ) : splash === undefined ? (
               <View className="flex-1 items-center justify-center">
                 <ActivityIndicator />
               </View>
-            ))
-          )}
-        </View>
+            ) : (
+              splash
+            )}
+          </View>
+        </Animated.View>
       )}
     </View>
   );

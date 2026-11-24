@@ -181,6 +181,7 @@ import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import { canRequestPushPermission, requestPushPermission } from "@/lib/nativePushPermission";
 import { hasRestNotification } from "@/lib/restNotificationCapability";
 import { haptic } from "@/lib/haptics";
+import { signalLaunchReady } from "@/lib/launchReady";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 import { cn } from "@/lib/utils";
 import { prefetchResultPage } from "@/routes/lazyRoutes";
@@ -568,6 +569,10 @@ function RoomSessionBody({
     multiTimer.open("stopwatch");
   };
   useSessionRotationRestore();
+  // 세션 화면이 처음 그려진 뒤에 앱이 덮개를 걷도록 알린다(`useLaunchReadyOutsideHome` 주석).
+  useEffect(() => {
+    signalLaunchReady();
+  }, []);
   // 배경음·과목 페이지의 포털 자리. `--session-*` 변수가 여기 주입돼 있어 body 로 나가면 색이 빠진다.
   const [sessionSurface, setSessionSurface] = useState<HTMLElement | null>(null);
   // 페이지를 닫은 뒤 포커스를 돌려줄 자리. Radix 는 Trigger 를 쓸 때만 스스로 되돌린다.
@@ -1233,6 +1238,11 @@ function RoomSessionBody({
 
   /** 하단 종료 버튼 */
   function handleRequestExit() {
+    // 카운트다운 중에는 아직 시작한 세션이 없어 남길 기록도 물을 것도 없다. 시작을 취소하고 바로 홈으로 간다.
+    if (counting) {
+      goHome();
+      return;
+    }
     trackStudySessionExitRequested("single");
     setExitDialogOpen(true);
   }
@@ -1409,12 +1419,10 @@ function RoomSessionBody({
           <div inert={helpVisible} className={SESSION_LAYER_LAYOUT}>
             {/* 머리 줄: 왼쪽 과목·할 일, 오른쪽 배경음·더보기. 두 모드 모두 같은 자리에 둔다.
                 웹 버튼은 스스로 pointer-events-auto라 더보기 메뉴의 바깥 누름 차단이 닿지 않아서 메뉴가 열린 동안 inert로 막는다. */}
-            {/* 카운트다운 동안에는 과목 선택과 더보기를 누를 수 없다. */}
-            <div
-              inert={resting || counting}
-              className="flex w-full items-start justify-between gap-3"
-            >
-              <div inert={moreMenuOpen} className="min-w-0">
+            {/* 카운트다운 동안에는 과목 선택과 더보기를 누를 수 없다. 시작하면서 과목 기록을 새로 열고,
+                더보기의 타이머·도움말은 시작 전에 열 일이 아니어서다. 배경음은 세션과 상관없어 미리 켤 수 있다. */}
+            <div inert={resting} className="flex w-full items-start justify-between gap-3">
+              <div inert={moreMenuOpen || counting} className="min-w-0">
                 <SessionSubjectHeader
                   subject={headerSubject}
                   expanded={page === "subject"}
@@ -1438,25 +1446,27 @@ function RoomSessionBody({
                     icon={<AmbientLinesIcon on={soundOn} />}
                   />
                 </div>
-                <SessionMoreMenu
-                  variant="pill"
-                  container={sessionSurface}
-                  hidden={helpVisible}
-                  // 심플 모드는 카메라 화면이 없어 전환 항목을 뺀다.
-                  onFlipCamera={simpleMode ? undefined : () => void handleFlipCamera()}
-                  onOpenStopwatch={openStopwatch}
-                  onOpenTimer={openTimer}
-                  mascotVisible={mascotOn}
-                  onToggleMascot={toggleMascot}
-                  clockView={clockView}
-                  onToggleClockView={toggleClockView}
-                  onOpenHelp={() => {
-                    setHelpStep(0);
-                    setHelpOpen(true);
-                  }}
-                  onOpenChange={setMoreMenuOpen}
-                  triggerRef={setMoreTrigger}
-                />
+                <div inert={counting} className="contents">
+                  <SessionMoreMenu
+                    variant="pill"
+                    container={sessionSurface}
+                    hidden={helpVisible}
+                    // 심플 모드는 카메라 화면이 없어 전환 항목을 뺀다.
+                    onFlipCamera={simpleMode ? undefined : () => void handleFlipCamera()}
+                    onOpenStopwatch={openStopwatch}
+                    onOpenTimer={openTimer}
+                    mascotVisible={mascotOn}
+                    onToggleMascot={toggleMascot}
+                    clockView={clockView}
+                    onToggleClockView={toggleClockView}
+                    onOpenHelp={() => {
+                      setHelpStep(0);
+                      setHelpOpen(true);
+                    }}
+                    onOpenChange={setMoreMenuOpen}
+                    triggerRef={setMoreTrigger}
+                  />
+                </div>
               </div>
             </div>
 
@@ -1628,27 +1638,30 @@ function RoomSessionBody({
                 <div
                   role="toolbar"
                   aria-label={t("controls.bar")}
-                  inert={moreMenuOpen || counting}
+                  inert={moreMenuOpen}
                   className={cn(
                     simpleMode ? SESSION_BAR_MUTED : SESSION_BAR,
                     "pointer-events-auto",
                   )}
                 >
-                  <SessionPauseButton
-                    paused={paused}
-                    muted={simpleMode}
-                    // 화면 꺼짐 일시정지와 과목 재생 버튼도 pause·resume을 거치므로 햅틱은 이 버튼에만 둔다.
-                    onClick={() => {
-                      // 두 햅틱 모두 일시정지 상태에서 울려서 진동이 기기 조작 감지 결과로 이어지지 않는다.
-                      if (paused) {
-                        haptic("medium");
-                        resume();
-                      } else {
-                        pause();
-                        haptic("light");
-                      }
-                    }}
-                  />
+                  {/* 카운트다운 중에는 멈출 세션이 없어 일시정지만 잠그고, 종료는 시작 취소로 열어 둔다. */}
+                  <div inert={counting} className="contents">
+                    <SessionPauseButton
+                      paused={paused}
+                      muted={simpleMode}
+                      // 화면 꺼짐 일시정지와 과목 재생 버튼도 pause·resume을 거치므로 햅틱은 이 버튼에만 둔다.
+                      onClick={() => {
+                        // 두 햅틱 모두 일시정지 상태에서 울려서 진동이 기기 조작 감지 결과로 이어지지 않는다.
+                        if (paused) {
+                          haptic("medium");
+                          resume();
+                        } else {
+                          pause();
+                          haptic("light");
+                        }
+                      }}
+                    />
+                  </div>
                   <SessionExitButton onClick={handleRequestExit} muted={simpleMode} />
                 </div>
               </div>

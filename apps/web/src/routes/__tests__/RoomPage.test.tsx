@@ -16,6 +16,7 @@ import {
 } from "@/features/timelapse/timelapseSettings";
 import { ApiError } from "@/lib/api";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
+import { __resetLaunchReadyForTests } from "@/lib/launchReady";
 import {
   enterGlassChrome,
   lastInlineControls,
@@ -694,19 +695,24 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     }
   });
 
-  it("카운트다운 동안 일시정지·종료와 과목 선택은 누를 수 없다", async () => {
+  it("카운트다운 동안 일시정지·과목·더보기는 누를 수 없고 공부 종료와 배경음은 누를 수 있다", async () => {
     setSessionCountdownSecondsForTest(3);
     vi.useFakeTimers();
     try {
       renderRoom("/room/7?userId=1&detector=mock");
 
-      expect(screen.getByRole("button", { name: "공부 종료" }).closest("[inert]")).not.toBeNull();
+      expect(screen.getByRole("button", { name: "일시정지" }).closest("[inert]")).not.toBeNull();
+      expect(screen.getByTestId("session-subject").closest("[inert]")).not.toBeNull();
       expect(screen.getByRole("button", { name: "더보기" }).closest("[inert]")).not.toBeNull();
+      expect(screen.getByRole("button", { name: "공부 종료" }).closest("[inert]")).toBeNull();
+      expect(screen.getByRole("button", { name: "배경음" }).closest("[inert]")).toBeNull();
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(3000);
       });
-      expect(screen.getByRole("button", { name: "공부 종료" }).closest("[inert]")).toBeNull();
+      expect(screen.getByRole("button", { name: "일시정지" }).closest("[inert]")).toBeNull();
+      expect(screen.getByTestId("session-subject").closest("[inert]")).toBeNull();
+      expect(screen.getByRole("button", { name: "더보기" }).closest("[inert]")).toBeNull();
     } finally {
       vi.useRealTimers();
     }
@@ -726,7 +732,26 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
     }
   });
 
-  it("카운트다운 중에 공부 종료를 눌러도 종료 확인 창을 띄우지 않고 제출하지 않는다", async () => {
+  it("세션 화면이 처음 그려지면 앱에 준비 신호를 보낸다", () => {
+    __resetLaunchReadyForTests();
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    setSessionCountdownSecondsForTest(3);
+    try {
+      renderRoom("/room/7?userId=1&detector=mock");
+
+      expect(screen.getByRole("button", { name: "공부 종료" })).toBeInTheDocument();
+      expect(
+        sentToNative(postMessage).filter((message) => message.type === "launch-ready"),
+      ).toHaveLength(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("카운트다운 중에 공부 종료를 누르면 확인 창 없이 홈으로 가고 제출하지 않는다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
     setSessionCountdownSecondsForTest(3);
     vi.useFakeTimers();
     try {
@@ -737,9 +762,14 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
       });
 
       expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+      expect(sentToNative(postMessage).some((message) => message.type === "navigate-home")).toBe(
+        true,
+      );
+      expect(screen.getByText(/^홈 라우트/)).toBeInTheDocument();
       expect(submitStudySession).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
+      vi.unstubAllGlobals();
     }
   });
 

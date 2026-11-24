@@ -160,7 +160,11 @@ export default function SessionRoomScreen() {
         testID="session-webview"
         path={`/room/${id ?? "1"}`}
         extraQuery={subject === undefined ? undefined : { initialSubjectId: subject }}
-        backgroundColor="#0B0F14"
+        // 웹 세션 화면의 기본 배경(카메라 자리 `--session-camera-base`)과 같은 색이라 덮개가 걷힐 때 색이 튀지 않는다.
+        backgroundColor="#1a2029"
+        // 웹이 세션 화면을 그렸다고 알릴 때까지 스피너 없이 배경만 덮었다가 서서히 걷는다.
+        splash={null}
+        waitForWebReady
         blockHardwareBack
         onBridgeMessage={handleMessage}
       />

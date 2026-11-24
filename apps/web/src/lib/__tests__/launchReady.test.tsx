@@ -51,13 +51,16 @@ describe("useLaunchReadyOutsideHome", () => {
     expect(sentTypes()).toEqual(["launch-ready"]);
   });
 
-  it.each(["/home", "/onboarding"])("%s로 시작하면 판정을 기다리도록 보내지 않는다", (path) => {
-    render(
-      <MemoryRouter initialEntries={[path]}>
-        <Probe />
-      </MemoryRouter>,
-    );
+  it.each(["/home", "/onboarding", "/room/7"])(
+    "%s로 시작하면 화면이 스스로 보내도록 여기서는 보내지 않는다",
+    (path) => {
+      render(
+        <MemoryRouter initialEntries={[path]}>
+          <Probe />
+        </MemoryRouter>,
+      );
 
-    expect(sentTypes()).toEqual([]);
-  });
+      expect(sentTypes()).toEqual([]);
+    },
+  );
 });

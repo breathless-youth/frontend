@@ -340,6 +340,8 @@ function RootLayout() {
           name="room/[id]"
           options={{
             presentation: "fullScreenModal",
+            // 아래에서 올라오는 모달 대신 제자리에서 서서히 나타난다. 카운트다운으로 바로 이어지는 진입이다.
+            animation: "fade",
             ...(Platform.OS === "android" ? { orientation: "default" as const } : null),
           }}
         />
