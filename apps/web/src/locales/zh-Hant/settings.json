@@ -64,7 +64,17 @@
     "manual": "前往商店"
   },
   "legal": {
-    "koreanOnly": "這份文件目前僅提供韓文版本。"
+    "koreanOnly": "這份文件目前僅提供韓文版本。",
+    "revisionChanges": "{{date}}起變更",
+    "revisionPending": "此版本自{{date}}起適用",
+    "showUpcoming": {
+      "terms": "查看變更後的條款",
+      "privacy": "查看變更後的政策"
+    },
+    "showCurrent": {
+      "terms": "查看目前的條款",
+      "privacy": "查看目前的政策"
+    }
   },
   "account": {
     "logout": {
