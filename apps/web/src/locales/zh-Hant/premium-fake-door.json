@@ -67,7 +67,7 @@
       ]
     },
     "CHARACTER_ITEMS": {
-      "name": "穿戴角色配件",
+      "name": "角色配件無限穿戴",
       "note": "不含套組商品",
       "hook": "隨心打扮我的角色",
       "description": ["挑選角色配件幫角色換裝。", "想換就換。"],
@@ -79,19 +79,9 @@
     "dialog": "斯巴達功能",
     "title": "斯巴達功能",
     "cta": "預先登記",
-    "tapHint": "點選功能即可查看詳細說明。"
-  },
-  "apply": {
-    "header": "預先登記",
-    "step": "{{current}}/{{total}}"
-  },
-  "age": {
-    "dialog": "年齡確認",
-    "title": "你已滿 14 歲嗎？",
-    "sub": "未滿 14 歲的話，不需要電子郵件，我們會在 App 中通知你。",
-    "check": "我已滿 14 歲",
-    "next": "下一步",
-    "applyByApp": "以 App 通知登記"
+    "kicker": "讓你把書讀到最後",
+    "sectionHint": "點一下看詳細",
+    "sectionTitle": "6 項斯巴達功能"
   },
   "email": {
     "dialog": "輸入電子郵件",
@@ -116,23 +106,42 @@
       "required": "請輸入電子郵件。",
       "format": "請確認電子郵件格式。",
       "consent": "需要同意蒐集與使用個人資料才能登記。"
-    }
+    },
+    "ageNotice": "申請即表示確認你已滿 14 歲。",
+    "headLine1": "最後一步，",
+    "headLine2": "要點燃火焰嗎？"
   },
   "submitFailed": "無法完成登記，請再試一次。",
   "done": {
     "dialog": "登記完成",
-    "title": "{{nickname}}，預先登記完成了",
-    "titleNoName": "預先登記完成了",
-    "sub": "我們會第一時間通知你上線消息。",
-    "byEmail": "通知會寄到 {{email}}。",
-    "byApp": "上線後我們會在 App 中通知你。",
+    "title": "會第一時間通知你",
+    "byEmail": "通知會寄到 {{email}}，也會在 App 中通知你。",
     "question": "你最期待哪項功能？",
     "thanks": "謝謝你的回答！",
     "pickFailed": "無法儲存你的回答，請再選一次。",
-    "backToResult": "回到結果"
+    "backToResult": "回到結果",
+    "badge": "預先登記完成"
   },
   "sheet": {
-    "tag": "準備上線中",
     "close": "關閉"
+  },
+  "stats": {
+    "kicker": "FocusMakers 實際紀錄",
+    "titleLine1": "光靠意志",
+    "titleLine2": "不夠的時刻",
+    "breaksLabel": "讀書節奏中斷的時刻",
+    "breaksValue": "71,000 次+",
+    "breaksSub": "坐著卻停下讀書的次數",
+    "pauseValue": "970 小時+",
+    "pauseSub": "「休息一下」就溜走的時間",
+    "distractValue": "280 小時+",
+    "distractSub": "讀書時分心的時間",
+    "punchLine1": "把這些時間變回讀書時間的",
+    "punchLine2": "就是<hot>斯巴達功能</hot>",
+    "source": "2026 年 8 月～11 月 FocusMakers App 紀錄"
+  },
+  "priceCard": {
+    "title": "6 項斯巴達功能全部",
+    "perDay": "每天約 {{amount, number}} 韓元"
   }
 }

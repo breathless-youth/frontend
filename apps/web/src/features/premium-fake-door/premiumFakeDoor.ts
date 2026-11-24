@@ -34,6 +34,11 @@ export const PREMIUM_FEATURES = [
 ] as const;
 export type PremiumFeature = (typeof PREMIUM_FEATURES)[number];
 
+/** 가격 카드의 "하루 약 N원". 월 가격을 30일로 나눠 반올림한다. */
+export function dailyPremiumPrice(price: PremiumPrice): number {
+  return Math.round(price / 30);
+}
+
 /**
  * 사용자 번호로 가격을 정한다
  *

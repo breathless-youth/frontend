@@ -13,10 +13,10 @@ import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
  * 꾸밈이라 읽는 사람에게 숨긴다. 모션 줄이기를 켠 기기에는 불 그림을 그대로 한 장만 그린다.
  * 불 그림이 읽힌 뒤에 시작하고, 문서가 숨으면 멈췄다 다시 보이면 이어 가며, 화면을 떠나면 멈춘다.
  */
-const SIZE = 176;
+/** 시안이 일렁임을 맞춘 기준 크기. 다른 크기에서는 가로 물결 간격을 이 비율로 늘여 같은 모양으로 일렁이게 한다. */
+const BASE_SIZE = 176;
 /** 늘어난 불끝이 잘리지 않도록 캔버스만 상자 위로 14% 더 높게 둔다. 아래 끝(불 뿌리)은 상자 아래 끝에 맞춘다. */
 const HEADROOM = 1.14;
-const CANVAS_HEIGHT = SIZE * HEADROOM;
 const MAX_DPR = 2;
 /** 불끝이 늘어나는 최대 비율(시안의 일렁임 "약"). */
 const LICK = 0.09;
@@ -27,12 +27,14 @@ function drawFire(
   ctx: CanvasRenderingContext2D,
   canvas: HTMLCanvasElement,
   fire: HTMLImageElement,
+  size: number,
   t: number | null,
 ) {
-  const w = SIZE;
+  const w = size;
   // 불이 늘어나는 기준 높이는 상자 높이이고, 그린 결과는 캔버스 아래 끝에 붙인다.
-  const boxH = SIZE;
-  const canvasH = CANVAS_HEIGHT;
+  const boxH = size;
+  const canvasH = size * HEADROOM;
+  const k = BASE_SIZE / w;
   ctx.clearRect(0, 0, w, canvasH);
   if (t === null) {
     // 움직이지 않는 한 장: 불 그림을 상자 자리에 그대로 그린다.
@@ -43,9 +45,9 @@ function drawFire(
   const ih = fire.naturalHeight;
   for (let x = 0; x < w; x += COLUMN) {
     const n =
-      0.5 * Math.sin(x * 0.085 + t * 0.0042) +
-      0.32 * Math.sin(x * 0.19 - t * 0.0068 + 1.3) +
-      0.18 * Math.sin(x * 0.37 + t * 0.0115 + 2.1);
+      0.5 * Math.sin(x * 0.085 * k + t * 0.0042) +
+      0.32 * Math.sin(x * 0.19 * k - t * 0.0068 + 1.3) +
+      0.18 * Math.sin(x * 0.37 * k + t * 0.0115 + 2.1);
     const dh = boxH * (1 + LICK * (0.5 + 0.5 * n));
     ctx.drawImage(fire, (x / w) * iw, 0, (COLUMN / w) * iw, ih, x, canvasH - dh, COLUMN + 0.6, dh);
   }
@@ -58,15 +60,15 @@ function drawFire(
   ctx.globalCompositeOperation = "source-over";
 }
 
-export function SpartaHero({ className }: { className?: string }) {
+export function SpartaHero({ className, size = BASE_SIZE }: { className?: string; size?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (canvas === null) return;
     const dpr = Math.min(MAX_DPR, window.devicePixelRatio || 1);
-    canvas.width = Math.round(SIZE * dpr);
-    canvas.height = Math.round(CANVAS_HEIGHT * dpr);
+    canvas.width = Math.round(size * dpr);
+    canvas.height = Math.round(size * HEADROOM * dpr);
     const ctx = canvas.getContext("2d");
     ctx?.setTransform(dpr, 0, 0, dpr, 0, 0);
     const reduced = prefersReducedMotion();
@@ -74,7 +76,7 @@ export function SpartaHero({ className }: { className?: string }) {
     let frameId: number | null = null;
     let disposed = false;
     const tick = (t: number) => {
-      if (ctx !== null) drawFire(ctx, canvas, fire, t);
+      if (ctx !== null) drawFire(ctx, canvas, fire, size, t);
       frameId = requestAnimationFrame(tick);
     };
     const start = () => {
@@ -91,7 +93,7 @@ export function SpartaHero({ className }: { className?: string }) {
     fire.onload = () => {
       if (disposed) return;
       if (reduced) {
-        if (ctx !== null) drawFire(ctx, canvas, fire, null);
+        if (ctx !== null) drawFire(ctx, canvas, fire, size, null);
         return;
       }
       start();
@@ -105,10 +107,10 @@ export function SpartaHero({ className }: { className?: string }) {
       document.removeEventListener("visibilitychange", onVisibility);
       stop();
     };
-  }, []);
+  }, [size]);
 
   return (
-    <div aria-hidden="true" className={className} style={{ width: SIZE, height: SIZE }}>
+    <div aria-hidden="true" className={className} style={{ width: size, height: size }}>
       <div className="relative size-full">
         {/* 캔버스만 상자 위로 넘쳐 그린다. 상자 크기는 그대로라 제목 자리는 움직이지 않는다. */}
         <canvas
@@ -119,8 +121,8 @@ export function SpartaHero({ className }: { className?: string }) {
         <img
           src={timiSpartaBody}
           alt=""
-          width={SIZE}
-          height={SIZE}
+          width={size}
+          height={size}
           draggable={false}
           className="absolute inset-0 size-full select-none"
         />

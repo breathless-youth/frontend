@@ -73,7 +73,7 @@
       ]
     },
     "CHARACTER_ITEMS": {
-      "name": "Wear character items",
+      "name": "Unlimited character items",
       "note": "Sets excluded",
       "hook": "Dress your character your way",
       "description": [
@@ -91,19 +91,9 @@
     "dialog": "Sparta features",
     "title": "Sparta features",
     "cta": "Pre-register",
-    "tapHint": "Tap a feature to see more details."
-  },
-  "apply": {
-    "header": "Pre-register",
-    "step": "{{current}}/{{total}}"
-  },
-  "age": {
-    "dialog": "Age check",
-    "title": "Are you 14 or older?",
-    "sub": "If you're under 14, we'll notify you in the app without an email.",
-    "check": "I'm 14 or older",
-    "next": "Next",
-    "applyByApp": "Sign up for app notifications"
+    "kicker": "Built to make you study to the end",
+    "sectionHint": "Tap for details",
+    "sectionTitle": "6 Sparta features"
   },
   "email": {
     "dialog": "Email",
@@ -128,23 +118,42 @@
       "required": "Please enter your email.",
       "format": "Please check your email format.",
       "consent": "You need to agree to the collection and use of personal information to sign up."
-    }
+    },
+    "ageNotice": "By signing up, you confirm you're 14 or older.",
+    "headLine1": "One last step,",
+    "headLine2": "ready to light the fire?"
   },
   "submitFailed": "We couldn't sign you up. Please try again.",
   "done": {
     "dialog": "Pre-registration complete",
-    "title": "{{nickname}}, you're pre-registered",
-    "titleNoName": "You're pre-registered",
-    "sub": "You'll be the first to hear about the launch.",
-    "byEmail": "We'll send the notice to {{email}}.",
-    "byApp": "We'll let you know in the app when it launches.",
+    "title": "You'll be the first to know",
+    "byEmail": "We'll notify you at {{email}} and in the app.",
     "question": "Which feature are you most looking forward to?",
     "thanks": "Thank you for your answer!",
     "pickFailed": "We couldn't save your answer. Please choose again.",
-    "backToResult": "Back to results"
+    "backToResult": "Back to results",
+    "badge": "Pre-registered"
   },
   "sheet": {
-    "tag": "Coming soon",
     "close": "Close"
+  },
+  "stats": {
+    "kicker": "Real FocusMakers records",
+    "titleLine1": "Moments when willpower",
+    "titleLine2": "wasn't enough",
+    "breaksLabel": "Times study flow broke",
+    "breaksValue": "71,000+",
+    "breaksSub": "Times studying stopped while still seated",
+    "pauseValue": "970+ hours",
+    "pauseSub": "Time lost to \"just a minute\" breaks",
+    "distractValue": "280+ hours",
+    "distractSub": "Time lost to distraction while studying",
+    "punchLine1": "Turning that time back into study",
+    "punchLine2": "is what <hot>Sparta features</hot> do",
+    "source": "FocusMakers app records, Aug–Nov 2026"
+  },
+  "priceCard": {
+    "title": "All 6 Sparta features",
+    "perDay": "About {{amount, number}} KRW a day"
   }
 }

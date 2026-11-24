@@ -1,10 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { setPremiumFakeDoorPriceUserProperty, trackPremiumFakeDoor } from "@/lib/amplitude";
 import { isKoreanLocale } from "@/lib/i18n";
-import { profileQuery } from "@/lib/profileQueries";
 import { showCtaToast } from "@/lib/toast";
 import { hasTokenSource } from "@/lib/userId";
 
@@ -39,7 +37,6 @@ export function PremiumFakeDoorHost({ userId }: { userId: number }) {
   });
   const [open, setOpen] = useState(false);
   const openRef = useRef<HTMLButtonElement>(null);
-  const profile = useQuery({ ...profileQuery(userId), enabled: open });
 
   // 노출은 사용자당 한 번만 보낸다. 기록을 먼저 쓰므로 StrictMode가 effect를 두 번 돌려도 한 번이다.
   useEffect(() => {
@@ -78,7 +75,6 @@ export function PremiumFakeDoorHost({ userId }: { userId: number }) {
           price={price}
           placement={placement}
           priceLabel={priceLabel}
-          nickname={profile.data?.nickname ?? null}
           onApplied={() => {
             updatePremiumRecord(userId, { applied: true });
             setVisible(false);

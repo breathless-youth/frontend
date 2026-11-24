@@ -73,7 +73,7 @@
       ]
     },
     "CHARACTER_ITEMS": {
-      "name": "캐릭터 소품 착용",
+      "name": "캐릭터 소품 무제한",
       "note": "세트 상품 제외",
       "hook": "내 캐릭터를 내 마음대로",
       "description": ["캐릭터 소품을 골라 캐릭터에 입혀요.", "원할 때마다 바꿔 입을 수 있어요."],
@@ -88,23 +88,13 @@
     "dialog": "스파르타 기능",
     "title": "스파르타 기능",
     "cta": "사전 신청하기",
-    "tapHint": "기능을 누르면 자세한 설명을 볼 수 있어요."
-  },
-  "apply": {
-    "header": "사전 신청",
-    "step": "{{current}}/{{total}}"
-  },
-  "age": {
-    "dialog": "나이 확인",
-    "title": "만 14세 이상인가요?",
-    "sub": "만 14세 미만이면 이메일 없이 앱으로 알려드려요.",
-    "check": "만 14세 이상이에요",
-    "next": "다음",
-    "applyByApp": "앱 알림으로 신청하기"
+    "kicker": "공부를 끝까지 하게 만드는",
+    "sectionHint": "눌러서 자세히 보기",
+    "sectionTitle": "스파르타 기능 6가지"
   },
   "email": {
     "dialog": "이메일 입력",
-    "title": "출시 소식을 받을 이메일을 알려주세요",
+    "title": "출시 소식을 받을 이메일을 알려주세요.",
     "label": "이메일",
     "placeholder": "example@email.com",
     "consent": "[필수] 개인정보 수집·이용 동의",
@@ -125,23 +115,42 @@
       "required": "이메일을 입력해 주세요.",
       "format": "이메일 형식을 확인해 주세요.",
       "consent": "개인정보 수집·이용에 동의해야 신청할 수 있어요."
-    }
+    },
+    "ageNotice": "신청하면 만 14세 이상임을 확인한 것으로 봐요.",
+    "headLine1": "마지막 한 단계,",
+    "headLine2": "불을 붙여 볼까요?"
   },
   "submitFailed": "신청하지 못했어요. 다시 시도해 주세요.",
   "done": {
     "dialog": "신청 완료",
-    "title": "{{nickname}}님, 사전 신청이 끝났어요",
-    "titleNoName": "사전 신청이 끝났어요",
-    "sub": "출시 소식을 가장 먼저 알려드려요.",
-    "byEmail": "알림은 {{email}}로 보내드려요.",
-    "byApp": "출시되면 앱에서 알려드릴게요.",
+    "title": "가장 먼저 알려드릴게요",
+    "byEmail": "알림은 {{email}}와 앱으로 보내드려요.",
     "question": "가장 기대되는 기능은 무엇인가요?",
     "thanks": "답변해 주셔서 감사합니다!",
     "pickFailed": "답변을 저장하지 못했어요. 다시 골라 주세요.",
-    "backToResult": "결과로 돌아가기"
+    "backToResult": "결과로 돌아가기",
+    "badge": "사전 신청 완료"
   },
   "sheet": {
-    "tag": "출시 준비 중",
     "close": "닫기"
+  },
+  "stats": {
+    "kicker": "포커스 메이커스 실제 기록",
+    "titleLine1": "의지만으로는",
+    "titleLine2": "부족했던 순간들",
+    "breaksLabel": "공부 흐름이 끊긴 순간",
+    "breaksValue": "71,000번+",
+    "breaksSub": "앉아 있었지만 공부가 멈춘 횟수",
+    "pauseValue": "970시간+",
+    "pauseSub": "'잠깐만' 쉬다 흘러간 시간",
+    "distractValue": "280시간+",
+    "distractSub": "공부 중 흐트러진 시간",
+    "punchLine1": "이 시간을 공부로 돌려놓는 게",
+    "punchLine2": "<hot>스파르타 기능</hot>이에요",
+    "source": "2026년 8월~11월 포커스 메이커스 앱 기록"
+  },
+  "priceCard": {
+    "title": "스파르타 기능 6가지 모두",
+    "perDay": "하루 약 {{amount, number}}원"
   }
 }

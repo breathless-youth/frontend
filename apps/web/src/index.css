@@ -63,6 +63,17 @@
   --color-rank-live: var(--rank-live);
   --color-rank-rise: var(--rank-rise);
   --color-rank-value: var(--rank-value);
+  /* 스파르타 기능 사전 신청 화면(BY-1393) 전용 색. 변수는 .sparta-surface 안에만 있다. */
+  --color-sparta-bg: var(--sparta-bg);
+  --color-sparta-card: var(--sparta-card);
+  --color-sparta-card2: var(--sparta-card2);
+  --color-sparta-line: var(--sparta-line);
+  --color-sparta-fg: var(--sparta-fg);
+  --color-sparta-fg2: var(--sparta-fg2);
+  --color-sparta-fg3: var(--sparta-fg3);
+  --color-sparta-hot: var(--sparta-hot);
+  --color-sparta-hot2: var(--sparta-hot2);
+  --color-sparta-warm: var(--sparta-warm);
   /*
     반경 스케일 — Figma Foundations "Spacing & Radius"(node 17:168)의 xs4·sm8·md12·lg16·xl20.
 
@@ -649,6 +660,49 @@
     #10151f 45%,
     var(--bg-soft-blue-end) 100%
   );
+}
+
+/* 스파르타 기능 사전 신청 화면(BY-1393, 확정 시안 R2)
+
+   신청 흐름은 시스템 테마와 무관하게 다크라 이 색들도 다크 한 벌뿐이다. 신청 흐름 루트(.theme-dark)
+   안에서 혜택 화면과 기능 설명 시트에만 붙인다. 값 출처는 premium-fake-door-prototype.html의
+   "sparta-redesign" 섹션이다. 시트 판은 공용 DrawerContent의 bg-muted를 쓰므로 --muted를 카드 색으로 덮는다. */
+.sparta-surface {
+  --sparta-bg: #0b0e14;
+  --sparta-card: #161b26;
+  --sparta-card2: #1d2432;
+  --sparta-line: #273044;
+  --sparta-fg: #f1f4fa;
+  --sparta-fg2: #a3adc0;
+  --sparta-fg3: #6c778b;
+  --sparta-hot: #ff6a2b;
+  --sparta-hot2: #ffb23f;
+  /* 골라 둔 기능 칸의 따뜻한 바탕 */
+  --sparta-warm: #2a1810;
+  --muted: var(--sparta-card);
+  /* 오류 색은 .theme-soft-blue에만 있어 이 화면(.theme-dark)에서도 쓰도록 다크 바탕에 맞춘 값을 둔다. */
+  --feedback-danger: #ff6b77;
+}
+
+/* 혜택 화면 머리 배경: 아래에서 올라오는 불빛과 위쪽의 어두운 불씨 색 */
+.sparta-hero-bg {
+  background:
+    radial-gradient(120% 70% at 50% 100%, #ff5a1f33 0%, transparent 60%),
+    linear-gradient(180deg, #1a0f0c 0%, var(--sparta-bg) 100%);
+}
+
+/* "스파르타 기능" 제목의 세로 불꽃 글자색 */
+.sparta-title-gradient {
+  background: linear-gradient(180deg, #ffd166 0%, #ff7a2b 55%, #e8412f 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* 실제 기록 카드: 위쪽이 살짝 달아오른 카드 */
+.sparta-stat-card {
+  background: linear-gradient(180deg, #1d1712, var(--sparta-card));
+  border: 1px solid #3a2a1c;
 }
 
 /* Soft Blue 카드·CTA 그림자 — Figma shadow/card-soft-blue, shadow/brand-cta */
