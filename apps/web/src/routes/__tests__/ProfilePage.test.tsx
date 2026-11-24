@@ -17,7 +17,10 @@ import type { TokenSource } from "@/lib/auth/tokenSource";
 import type * as Bridge from "@/lib/bridge";
 import { postToNative } from "@/lib/bridge";
 import { __resetGroupRoomsForTests } from "@/lib/groupRoomCapability";
-import { __resetAppPointsGatewayForTests } from "@/features/points/gateway/appPointsGateway";
+import {
+  appPointsGateway,
+  __resetAppPointsGatewayForTests,
+} from "@/features/points/gateway/appPointsGateway";
 import { __resetPointsForTests } from "@/lib/pointsCapability";
 import { canUseNativeProfilePhoto, pickNativeProfilePhoto } from "@/lib/nativeProfilePhoto";
 import {
@@ -896,7 +899,7 @@ describe("프로필 설정의 내 마스코트", () => {
   const member = { ...profile, loginProvider: "KAKAO" } as const;
 
   function enablePoints() {
-    window.history.replaceState(null, "", "/profile?points=1&pointsMock=default");
+    window.history.replaceState(null, "", "/profile?userId=7&points=1&pointsMock=default");
     __resetPointsForTests();
     __resetAppPointsGatewayForTests();
     onTestFinished(() => {
@@ -943,16 +946,102 @@ describe("프로필 설정의 내 마스코트", () => {
     ).toEqual(["타이미", "몽당이", "부기", "락키", "플래니", "램피", "캠코미"]);
   });
 
-  it("연 마스코트를 누르면 폼 저장 없이 바로 바뀐다", async () => {
+  it("캐릭터만 편집하면 저장이 켜지고 저장을 눌렀을 때 선택을 보낸다", async () => {
     enablePoints();
     mockedGetProfile.mockResolvedValue(member);
+    const selectMascot = vi.spyOn(appPointsGateway(), "selectMascot");
     renderAt("/profile?userId=7");
 
     await userEvent.click(await screen.findByRole("button", { name: "부기" }));
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "부기" })).toHaveAttribute("aria-pressed", "true"),
     );
+    const save = screen.getByRole("button", { name: "저장하기" });
+    expect(save).toBeEnabled();
+    expect(selectMascot).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "타이미" }));
+    expect(save).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "부기" }));
+
+    await userEvent.click(save);
+    await waitFor(() => expect(selectMascot).toHaveBeenCalledExactlyOnceWith("book"));
     expect(mockedUpdateProfile).not.toHaveBeenCalled();
+  });
+
+  it("캐릭터만 저장하다 실패하면 선택을 유지하고 다시 저장할 수 있다", async () => {
+    enablePoints();
+    mockedGetProfile.mockResolvedValue(member);
+    const selectMascot = vi
+      .spyOn(appPointsGateway(), "selectMascot")
+      .mockRejectedValueOnce(new Error("offline"));
+    renderAt("/profile?userId=7");
+
+    const mascot = await screen.findByRole("button", { name: "부기" });
+    await userEvent.click(mascot);
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+
+    expect(
+      await screen.findByText("캐릭터를 저장하지 못했어요. 다시 시도해 주세요"),
+    ).toBeInTheDocument();
+    expect(mascot).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "저장하기" })).toBeEnabled();
+    expect(selectMascot).toHaveBeenCalledExactlyOnceWith("book");
+    expect(mockedUpdateProfile).not.toHaveBeenCalled();
+  });
+
+  it("프로필 저장 후 캐릭터만 실패하면 저장된 항목을 알리고 캐릭터만 다시 보낸다", async () => {
+    enablePoints();
+    mockedGetProfile.mockResolvedValue(member);
+    let finishProfileSave!: (data: ProfileResponse) => void;
+    mockedUpdateProfile.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishProfileSave = resolve;
+        }),
+    );
+    let finishStaleRead!: (data: ProfileResponse) => void;
+    let rejectFirst!: (error: Error) => void;
+    const selectMascot = vi.spyOn(appPointsGateway(), "selectMascot").mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectFirst = reject;
+        }),
+    );
+    const { queryClient } = renderAt("/profile?userId=7");
+
+    const goal = await screen.findByLabelText("목표 문구");
+    await userEvent.type(goal, "매일 공부");
+    await userEvent.click(await screen.findByRole("button", { name: "부기" }));
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+    await waitFor(() => expect(mockedUpdateProfile).toHaveBeenCalledOnce());
+    mockedGetProfile.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishStaleRead = resolve;
+        }),
+    );
+    let staleRead: Promise<unknown> | undefined;
+    act(() => {
+      staleRead = queryClient.refetchQueries({ queryKey: ["profile", 7] });
+    });
+    await act(async () => {
+      finishProfileSave({ ...member, goal: "매일 공부" });
+    });
+    await waitFor(() => expect(selectMascot).toHaveBeenCalledOnce());
+    expect(goal).toBeDisabled();
+    await act(async () => {
+      finishStaleRead(member);
+      await staleRead;
+      rejectFirst(new Error("offline"));
+    });
+    expect(
+      await screen.findByText("프로필은 저장했어요. 캐릭터를 다시 저장해 주세요"),
+    ).toBeInTheDocument();
+    expect(goal).toBeEnabled();
+
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+    await waitFor(() => expect(selectMascot).toHaveBeenCalledTimes(2));
+    expect(mockedUpdateProfile).toHaveBeenCalledExactlyOnceWith({ goal: "매일 공부" });
   });
 
   it("로그인 공급자를 모르면 줄이 없다", async () => {

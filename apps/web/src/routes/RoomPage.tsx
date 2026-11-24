@@ -19,6 +19,7 @@ import { createAmbientUsage } from "@/features/ambient-sound/ambientUsage";
 import { AmbientSoundButton } from "@/features/ambient-sound/components/AmbientSoundButton";
 import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSoundSheet";
 import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
+import { createFocusFeatureUsage } from "@/features/focus-feedback/focusFeatureUsage";
 import { CameraOnConfirmDialog } from "@/features/live-room/components/CameraOnConfirmDialog";
 import { ClonedTrackPreview } from "@/features/live-room/components/ClonedTrackPreview";
 import { FaceMaskSearchingBadge } from "@/features/live-room/components/FaceMaskSearchingBadge";
@@ -133,6 +134,7 @@ import { parseInitialSubject, useInitialSubject } from "@/features/study-session
 import { InitialSubjectError } from "@/features/study-session/InitialSubjectError";
 import { loadSessionSubjects } from "@/features/study-session/loadSessionSubjects";
 import { useLandscapeLayout } from "@/features/study-session/useLandscapeLayout";
+import { useLiveActivityBridge } from "@/features/study-session/useLiveActivityBridge";
 import { useSubjects } from "@/features/study-session/useSubjects";
 import { useActiveSessionRestore } from "@/features/study-session/useActiveSessionRestore";
 import { closeStaleSession } from "@/features/study-session/closeStaleSession";
@@ -145,6 +147,7 @@ import { SpaceButton } from "@/features/timer-background/components/SpaceButton"
 import { spaceKey } from "@/features/timer-background/spaceCatalog";
 import { fetchAppliedSpace, isMemberUser } from "@/features/timer-background/spaceCatalogQuery";
 import { ImageSpace, LoopVideoSpace } from "@/features/timer-background/SpaceLayers";
+import { useSpaceLoopSound } from "@/features/timer-background/useSpaceLoopSound";
 import {
   readTimerBackground,
   resolveSpace,
@@ -443,7 +446,8 @@ function RoomSessionScreen({
    * 배경음 재생 누적 시간 그릇 — 두 훅 사이에 순환이 생기지 않게 여기서 만들어 양쪽에
    * 넘긴다. 세션 훅은 종료 시점에 `snapshot`만 읽고, 배경음 훅이 `start`/`stop`을 부른다.
    */
-  const [ambientUsage] = useState(() => createAmbientUsage(Date.now));
+  const [focusFeatureUsage] = useState(createFocusFeatureUsage);
+  const [ambientUsage] = useState(() => createAmbientUsage(Date.now, focusFeatureUsage.markUsed));
   // 배경음 그릇과 같은 까닭으로 여기서 만들어 세션 훅과 타이머 훅에 함께 넘긴다.
   const [multiTimerUsage] = useState(createMultiTimerUsage);
   // 화면 표시 모드별 머문 시간. 세션은 심플 모드로 시작한다.
@@ -493,6 +497,9 @@ function RoomSessionScreen({
     onCameraLost: () => showCtaToast(t("cameraToast.cameraOff")),
     source: cameraOn ? "MEASURED" : "TIMER",
   });
+  useLayoutEffect(() => {
+    focusFeatureUsage.bindSession(userId, startedAtMs);
+  }, [focusFeatureUsage, startedAtMs, userId]);
   // 이어받은 세션은 같은 시작 시각이라 같은 타임랩스에 이어 찍는다.
   useEffect(() => {
     if (cameraOn) timelapse.begin(startedAtMs);
@@ -623,8 +630,14 @@ function RoomSessionScreen({
   // 그리다가 실패한 공간이다.
   // 선택 값은 그대로 두고 그 공간만 심플로 그린다.
   const [failedSpaceKey, setFailedSpaceKey] = useState<string | null>(null);
-  const spaceFailed = failedSpaceKey === spaceKey(space);
+  const activeSpaceKey = spaceKey(space);
+  const spaceFailed = failedSpaceKey === activeSpaceKey;
   const wallpaper = backgroundPhoto !== null || (space.kind === "space" && !spaceFailed);
+  const [readyWallpaperKey, setReadyWallpaperKey] = useState<string | null>(null);
+  const markWallpaperReady = useCallback(
+    () => setReadyWallpaperKey(activeSpaceKey),
+    [activeSpaceKey],
+  );
   // 사용자가 이 세션에서 고른 뒤에는 늦게 온 서버 값으로 덮지 않는다.
   const userPickedRef = useRef(false);
   // 앞서 고른 공간의 저장 실패가 뒤에 고른 공간을 되돌리지 않게 고를 때마다 올린다.
@@ -637,6 +650,7 @@ function RoomSessionScreen({
     }
     setSpace(next);
     setFailedSpaceKey(null);
+    if (spaceKey(next) !== activeSpaceKey) setReadyWallpaperKey(null);
     // 감시 파일을 기기에 받아 두면 첫 등장이 늦지 않다.
     // 받지 않아도 네트워크로 재생돼 기다리지 않는다.
     if (next.kind === "space" && next.videoMode === "WATCH") {
@@ -922,6 +936,27 @@ function RoomSessionScreen({
   // 키우는 중. 줄이는 중과 함께 움직이는 동안 공간 배경을 남겨 두는 데 쓴다.
   const [cameraGrowing, setCameraGrowing] = useState(false);
   const cameraMoving = cameraGrowing || cameraShrinking;
+  const cameraCoversWallpaper = cameraExpanded && !cameraMoving && !cameraHidden;
+  const studyingWithTimerBackground =
+    studying &&
+    sessionState.kind !== "PAUSE" &&
+    wallpaper &&
+    readyWallpaperKey === activeSpaceKey &&
+    page === null &&
+    !modeOpen &&
+    !simpleMode &&
+    !cameraCoversWallpaper;
+  useLayoutEffect(() => {
+    if (!studyingWithTimerBackground || focusFeatureUsage.hasUsed()) return;
+
+    const backgroundStartedAt = Date.now();
+    // 공부 도중 배경을 보여 준 시점에 저장해 웹뷰가 사라져도 같은 공부에서 이어받는다.
+    const timer = window.setTimeout(focusFeatureUsage.markUsed, 1);
+    return () => {
+      window.clearTimeout(timer);
+      if (Date.now() > backgroundStartedAt) focusFeatureUsage.markUsed();
+    };
+  }, [focusFeatureUsage, studyingWithTimerBackground]);
   // 진행 중인 키우기·줄이기 움직임. 움직이는 동안 다시 누르면 무시한다.
   const cameraMotionRef = useRef<Animation | null>(null);
   // 움직임은 시작할 때 잰 자리로 가서 화면이 돌거나 크기가 바뀌면 끝 모양으로 바로 건너뛴다.
@@ -1027,6 +1062,16 @@ function RoomSessionScreen({
   }
 
   const paused = sessionState.kind === "PAUSE";
+  // 반복 공간 소리는 감독관 소리와 같은 공간 음량을 쓰고, 공부 중이며 멈추지 않은 동안만 낸다.
+  // 공부가 끝나거나 공간 파일을 받지 못해 심플로 그리면 공간을 넘기지 않아 재생기를 정리한다.
+  // 종료 안내에서 화면을 눌러도 소리 장치가 다시 깨지 않고, 보이지 않는 공간의 소리도 나지 않는다.
+  const loopSoundAvailable = useSpaceLoopSound(
+    studying && !spaceFailed && space.kind === "space" && space.videoMode === "LOOP"
+      ? space.assetKey
+      : null,
+    !paused,
+    watcherLevel,
+  );
   const statusLabel = t(statusLabelKey(sessionState));
   const pillState = toPillState(sessionState);
   /**
@@ -1093,10 +1138,13 @@ function RoomSessionScreen({
       navigate(
         { pathname: "result", search: searchParams.toString() },
         // 결과 화면이 이 세션의 타임랩스를 기기 시작 시각으로 찾는다.
-        { state: { sessions, startedAtMs }, replace: true },
+        {
+          state: { sessions, startedAtMs, focusFeaturesUsed: focusFeatureUsage.hasUsed() },
+          replace: true,
+        },
       );
     },
-    [navigate, searchParams, startedAtMs],
+    [focusFeatureUsage, navigate, searchParams, startedAtMs],
   );
 
   /**
@@ -1296,6 +1344,14 @@ function RoomSessionScreen({
             (selectedSubject?.focusSec ?? 0) +
             liveSubjectTime(liveSubjectTotals, subjectSelection).focusSec,
         };
+  // 과목을 고르지 않았을 때 라벨에 쓰는 대체 문구 대신 null을 넘겨 잠금화면이 상태 문구를 첫 줄로 쓰게 한다.
+  useLiveActivityBridge({
+    measureMode: cameraOn ? "camera" : "timer",
+    subject: selectedSubject?.name ?? null,
+    sessionState,
+    phaseName: phase.name,
+    focusSec,
+  });
 
   /** 하단 종료 버튼 */
   function handleRequestExit() {
@@ -1357,11 +1413,12 @@ function RoomSessionScreen({
           aria-hidden="true"
           data-testid="timer-background"
           data-visible={!simpleMode}
+          onLoadCapture={markWallpaperReady}
           className={cn(
             "pointer-events-none absolute inset-0 transition-opacity duration-300 ease-out motion-reduce:transition-none",
             simpleMode && "opacity-0",
             // 키운 카메라가 다 덮은 동안은 그리지 않고, 움직이는 동안에는 카메라 상자 밖으로 이어 보이게 남긴다.
-            cameraExpanded && !cameraMoving && !cameraHidden && "invisible",
+            cameraCoversWallpaper && "invisible",
           )}
         >
           {backgroundPhoto !== null && (
@@ -1371,14 +1428,15 @@ function RoomSessionScreen({
             <ImageSpace
               key={space.assetKey}
               assetKey={space.assetKey}
-              onUnavailable={() => setFailedSpaceKey(spaceKey(space))}
+              onUnavailable={() => setFailedSpaceKey(activeSpaceKey)}
             />
           )}
           {space.kind === "space" && !spaceFailed && space.videoMode === "LOOP" && (
             <LoopVideoSpace
               key={space.assetKey}
               assetKey={space.assetKey}
-              onUnavailable={() => setFailedSpaceKey(spaceKey(space))}
+              onUnavailable={() => setFailedSpaceKey(activeSpaceKey)}
+              onReady={markWallpaperReady}
             />
           )}
           {watchKey !== null && (
@@ -1387,6 +1445,7 @@ function RoomSessionScreen({
               assetKey={watchKey}
               present={watcher.present}
               onClipPlaying={(clip, at) => {
+                markWallpaperReady();
                 if (clip === "enter" || clip === "exit") watcherSound?.play(clip, at);
               }}
             />
@@ -1807,6 +1866,7 @@ function RoomSessionScreen({
             onVolumeChange={setWatcherLevel}
             onVolumeCommit={commitWatcherLevel}
             onToggleMute={toggleWatcherMute}
+            loopSoundAvailable={loopSoundAvailable}
           />
 
           {/* 처음 열기 전에는 그릴 모드가 없다.

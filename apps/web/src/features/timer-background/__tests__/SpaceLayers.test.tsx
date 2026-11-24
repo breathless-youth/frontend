@@ -1,4 +1,5 @@
-import { fireEvent, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ImageSpace, LoopVideoSpace } from "../SpaceLayers";
@@ -11,6 +12,11 @@ const KEY = "loop/1a2b3c4d";
 function windowSize(width: number, height: number) {
   vi.stubGlobal("innerWidth", width);
   vi.stubGlobal("innerHeight", height);
+}
+
+function rotate(width: number, height: number) {
+  windowSize(width, height);
+  window.dispatchEvent(new Event("resize"));
 }
 
 beforeEach(() => {
@@ -80,6 +86,68 @@ describe("LoopVideoSpace", () => {
     expect(HTMLMediaElement.prototype.play).toHaveBeenCalledOnce();
   });
 
+  it("세로에서 가로로 돌리면 가로용 영상으로 바꾸고 재생 위치를 이어 간다", () => {
+    const { container } = render(<LoopVideoSpace assetKey={KEY} onUnavailable={vi.fn()} />);
+    const video = container.querySelector("video")!;
+    Object.defineProperty(video, "currentTime", { configurable: true, writable: true, value: 5 });
+    Object.defineProperty(video, "readyState", { configurable: true, value: 4 });
+    fireEvent.timeUpdate(video);
+
+    act(() => rotate(844, 390));
+
+    const next = container.querySelector("video")!;
+    expect(next.src).toContain("/loop/phone_landscape.mp4");
+    expect(next.poster).toContain("/poster/phone_landscape.webp");
+    // 새 파일을 받는 동안 0으로 돌아가며 오는 timeupdate는 기억한 위치를 덮지 않는다.
+    Object.defineProperty(next, "currentTime", { configurable: true, writable: true, value: 0 });
+    fireEvent.timeUpdate(next);
+    Object.defineProperty(next, "duration", { configurable: true, value: 16 });
+    Object.defineProperty(next, "readyState", { configurable: true, value: 1 });
+    fireEvent.loadedMetadata(next);
+    expect(next.currentTime).toBe(5);
+  });
+
+  it("돌린 뒤 화면이 숨으면 새 영상을 멈추고, 앞 영상은 정리할 때 멈춘다", () => {
+    const { container } = render(<LoopVideoSpace assetKey={KEY} onUnavailable={vi.fn()} />);
+    const first = container.querySelector("video")!;
+    const pause = vi.mocked(HTMLMediaElement.prototype.pause);
+
+    act(() => rotate(844, 390));
+    const next = container.querySelector("video")!;
+    expect(pause.mock.contexts).toContain(first);
+
+    pause.mockClear();
+    vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+    fireEvent(document, new Event("visibilitychange"));
+
+    expect(pause.mock.contexts).toEqual([next]);
+  });
+
+  it("StrictMode로 효과가 한 번 더 돌아도 영상은 재생 상태로 남는다", () => {
+    render(
+      <StrictMode>
+        <LoopVideoSpace assetKey={KEY} onUnavailable={vi.fn()} />
+      </StrictMode>,
+    );
+    const play = vi.mocked(HTMLMediaElement.prototype.play);
+    const pause = vi.mocked(HTMLMediaElement.prototype.pause);
+
+    const lastPlay = Math.max(0, ...play.mock.invocationCallOrder);
+    const lastPause = Math.max(0, ...pause.mock.invocationCallOrder);
+    expect(lastPlay).toBeGreaterThan(lastPause);
+  });
+
+  it("맞는 파일이 같으면 크기가 조금 바뀌어도 영상을 다시 받지 않는다", () => {
+    const { container } = render(<LoopVideoSpace assetKey={KEY} onUnavailable={vi.fn()} />);
+    const video = container.querySelector("video")!;
+    const before = video.src;
+
+    act(() => rotate(393, 852));
+
+    expect(container.querySelector("video")).toBe(video);
+    expect(video.src).toBe(before);
+  });
+
   it("PC 크기 화면은 desktop 파일을 쓴다", () => {
     windowSize(1440, 900);
     const { container } = render(<LoopVideoSpace assetKey={KEY} onUnavailable={vi.fn()} />);
@@ -96,6 +164,14 @@ describe("ImageSpace", () => {
 
     expect(img.src).toContain("/spaces/image/desk/image/phone_landscape.webp");
     expect(img).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("세로에서 가로로 돌리면 가로용 그림으로 바꾼다", () => {
+    const { container } = render(<ImageSpace assetKey="image/desk" onUnavailable={vi.fn()} />);
+
+    act(() => rotate(844, 390));
+
+    expect(container.querySelector("img")!.src).toContain("/image/phone_landscape.webp");
   });
 
   it("그림을 받지 못하면 Sentry에 남기고 부른 쪽에 알린다", () => {

@@ -1212,10 +1212,10 @@ export function trackStudyMeasureModeChanged(mode: MeasureMode, from: "home") {
 /**
  * 홈 시작 미션 단계 완료
  *
- * 1단계는 플래너에서 과목 만들기, 2단계는 공부 5분 완료다.
+ * 1단계는 플래너에서 과목 만들기, 2단계는 공부 5분 완료, 3단계는 첫 소품 구매다.
  * 서버가 완료를 저장한 뒤에만 보낸다.
  */
-export function trackHomeMissionStepCompleted(step: 1 | 2) {
+export function trackHomeMissionStepCompleted(step: 1 | 2 | 3) {
   if (!initialized) return;
   track("home_mission_step_completed", { step });
 }
@@ -1994,49 +1994,47 @@ export function trackInterviewDismissed(params: {
   track("interview_dismissed", params);
 }
 
-/** 결과 화면 AI 측정 만족도 카드의 선택지. lib가 features를 참조하지 않도록 같은 리터럴을 여기 둔다. */
-export type MeasurementFeedbackRating = "good" | "meh" | "bad";
-export type MeasurementFeedbackReason = "under" | "over" | "unclear" | "missing_info";
+export type FocusFeedbackImpact = "helped" | "hindered";
 
-interface MeasurementFeedbackContext {
+interface FocusFeedbackContext {
   readonly roomType: StudyRoomType;
-  readonly focusSec: number;
+  readonly studySec: number;
 }
 
-/** AI 측정 만족도 카드가 결과 화면에 보인 순간. 응답률의 분모다. */
-export function trackMeasurementFeedbackShown(input: MeasurementFeedbackContext) {
+/** 집중 도움 설문이 결과 화면에 표시될 때 보낸다. */
+export function trackFocusFeedbackShown(input: FocusFeedbackContext) {
   if (!initialized) return;
-  track("measurement_feedback_shown", {
+  track("focus_feedback_shown", {
     room_type: input.roomType,
-    focus_sec: Number(input.focusSec),
+    study_sec: input.studySec,
   });
 }
 
-/** 만족도 선택. 다시 고르면 고를 때마다 보낸다. */
-export function trackMeasurementFeedbackRated(
-  input: MeasurementFeedbackContext & { readonly rating: MeasurementFeedbackRating },
+/** 사용자가 집중에 미친 영향을 선택하면 바로 기록한다. */
+export function trackFocusFeedbackAnswered(
+  input: FocusFeedbackContext & { readonly impact: FocusFeedbackImpact },
 ) {
   if (!initialized) return;
-  track("measurement_feedback_rated", {
+  track("focus_feedback_answered", {
     room_type: input.roomType,
-    focus_sec: Number(input.focusSec),
-    rating: input.rating,
+    study_sec: input.studySec,
+    impact: input.impact,
   });
 }
 
-/** 보통이에요·아쉬워요 뒤에 고른 이유 */
-export function trackMeasurementFeedbackReasonSelected(
-  input: MeasurementFeedbackContext & {
-    readonly rating: MeasurementFeedbackRating;
-    readonly reason: MeasurementFeedbackReason;
+/** 자유 응답을 직접 제출할 때만 보낸다. */
+export function trackFocusFeedbackCommentSubmitted(
+  input: FocusFeedbackContext & {
+    readonly impact: FocusFeedbackImpact;
+    readonly comment: string;
   },
 ) {
   if (!initialized) return;
-  track("measurement_feedback_reason_selected", {
+  track("focus_feedback_comment_submitted", {
     room_type: input.roomType,
-    focus_sec: Number(input.focusSec),
-    rating: input.rating,
-    reason: input.reason,
+    study_sec: input.studySec,
+    impact: input.impact,
+    comment: input.comment,
   });
 }
 

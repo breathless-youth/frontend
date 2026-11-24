@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import clock from "@/assets/home-v3/mascot-clock.png";
+import { MascotFigure } from "@/components/mascot/MascotFigure";
+import type { WornAccessory } from "@/components/mascot/types";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/Skeleton";
@@ -44,9 +46,11 @@ function StudyMetric({
 
 export function HomeStudyCard({
   stats,
+  accessories,
   children,
 }: {
   stats: HomeLoadState<HomeTodayStats>;
+  accessories?: readonly WornAccessory[];
   children: ReactNode;
 }) {
   const { t } = useTranslation("home");
@@ -56,12 +60,11 @@ export function HomeStudyCard({
       className="home-v3-study-card relative overflow-hidden rounded-xl border-0 bg-muted px-5.5 pt-5.5 pb-5 shadow-sb-card"
       aria-label={t("v3.stats.title")}
     >
-      <img
-        src={clock}
-        alt=""
-        width={190}
-        height={190}
+      <MascotFigure
+        id="stopwatch"
+        accessories={accessories}
         className="home-v3-clock pointer-events-none absolute -right-7 scale-80 select-none"
+        body={<img src={clock} alt="" width={190} height={190} className="size-full" />}
       />
       <div className="relative z-1 flex flex-col gap-3.5">
         {stats.status === "pending" ? (

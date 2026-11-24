@@ -97,11 +97,15 @@ describe("HomeProgressBand", () => {
 
   it("미션을 완료해 다음 단계로 바뀐 직후에도 새 버튼이 눌리지 않는다", () => {
     const handlers = actions();
-    const view = render(band({ kind: "mission", step: 1, ready: true, progress: 0.5 }, handlers));
+    const view = render(
+      band({ kind: "mission", step: 1, totalSteps: 2, ready: true, progress: 0.5 }, handlers),
+    );
     fireEvent.click(screen.getByRole("button", { name: "완료" }));
     expect(handlers.completeMission).toHaveBeenCalledWith(1);
 
-    view.rerender(band({ kind: "mission", step: 2, ready: false, progress: 0.5 }, handlers));
+    view.rerender(
+      band({ kind: "mission", step: 2, totalSteps: 2, ready: false, progress: 0.5 }, handlers),
+    );
     fireEvent.click(screen.getByRole("button", { name: "시작하기" }));
 
     expect(handlers.startStudy).not.toHaveBeenCalled();

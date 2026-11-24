@@ -21,7 +21,7 @@ export type AmbientUsage = {
  * 플레이어가 실제로 재생하는 동안만 센다.
  * 소리별 시간은 재생 구간을 그때 켜져 있던 소리마다 더해서, 일시정지 구간이 전체 시간과 똑같이 빠진다.
  */
-export function createAmbientUsage(now: () => number): AmbientUsage {
+export function createAmbientUsage(now: () => number, onFirstPlay?: () => void): AmbientUsage {
   let accumulatedMs = 0;
   let startedAt: number | null = null;
   let used = false;
@@ -49,7 +49,10 @@ export function createAmbientUsage(now: () => number): AmbientUsage {
       if (startedAt !== null) return;
       startedAt = now();
       segmentStartedAt = startedAt;
-      used = true;
+      if (!used) {
+        used = true;
+        onFirstPlay?.();
+      }
     },
     stop() {
       if (startedAt === null) return;

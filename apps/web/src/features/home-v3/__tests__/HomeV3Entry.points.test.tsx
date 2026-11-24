@@ -1,10 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type * as userIdModule from "@/lib/userId";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { DecorationsResponse } from "@/features/points/gateway/pointsApiTypes";
 import { __resetAppPointsGatewayForTests } from "@/features/points/gateway/appPointsGateway";
 import { ApiError } from "@/lib/api";
 import { __resetPointsForTests } from "@/lib/pointsCapability";
@@ -75,6 +76,7 @@ function renderHome(overrides: Partial<HomeV3Gateway> = {}) {
             element={<HomeV3Entry userId={7} gateway={gateway} onOverlayChange={vi.fn()} />}
           />
           <Route path="/points" element={<Where />} />
+          <Route path="/points/accessories" element={<Where />} />
           <Route path="/points/login" element={<Where />} />
         </Routes>
       </MemoryRouter>
@@ -133,7 +135,105 @@ describe("홈 머리말의 포인트 알약", () => {
   });
 });
 
+it("선택하지 않은 마스코트라도 홈에는 타이미와 플래니의 장착 소품을 각각 보여준다", async () => {
+  window.history.replaceState(null, "", "/?points=1");
+  __resetPointsForTests();
+  __resetAppPointsGatewayForTests();
+  const response: DecorationsResponse = {
+    selectedMascotCode: "BOOK",
+    timerBackground: null,
+    accessories: [
+      {
+        mascotCode: "BOOK",
+        slot: "HEAD",
+        item: { itemId: 1, code: "BOOK_HAT", imageUrl: "/hat.png" },
+      },
+      {
+        mascotCode: "STOPWATCH",
+        slot: "SET",
+        item: { itemId: 2, code: "HERO", imageUrl: "/hero.png", backImageUrl: "/cape.png" },
+      },
+      {
+        mascotCode: "PLANNER",
+        slot: "SET",
+        item: { itemId: 3, code: "CAT", imageUrl: "/cat.png" },
+      },
+    ],
+  };
+  const fetchMock = vi.fn<typeof fetch>(async (input) =>
+    Response.json(String(input).endsWith("/api/decorations") ? response : { balance: 1240 }),
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  try {
+    renderHome();
+    const study = await screen.findByRole("region", { name: "오늘 공부시간" });
+    const planner = await screen.findByRole("button", { name: /플래너/ });
+    await waitFor(() => {
+      expect(study.querySelector('img[src="/hero.png"]')).not.toBeNull();
+      expect(study.querySelector('img[src="/cape.png"]')).not.toBeNull();
+      expect(planner.querySelector('img[src="/cat.png"]')).not.toBeNull();
+    });
+    expect(study.querySelector('img[src="/cat.png"]')).toBeNull();
+    expect(planner.querySelector('img[src="/hat.png"]')).toBeNull();
+    expect(
+      fetchMock.mock.calls.filter(([input]) => String(input).endsWith("/api/decorations")),
+    ).toHaveLength(1);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
 describe("시작 미션 보상 받기", () => {
+  it("세 번째 미션은 게이지가 3분의 2이고 전체 소품 화면으로 간다", async () => {
+    setFlag(true);
+    renderHome({
+      readMission: vi.fn().mockResolvedValue({
+        ...homeMission(2, 300),
+        currentStep: 3,
+        eligible: false,
+        stepPoints: [50, 100, 300],
+      }),
+    });
+
+    const progress = await screen.findByRole("progressbar");
+    expect(progress).toHaveAttribute("aria-valuenow", "67");
+    expect(progress).toHaveTextContent("3/3");
+    expect(screen.getByText("+300P")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "소품 고르기" }));
+    expect(await screen.findByTestId("where")).toHaveTextContent("/points/accessories");
+  });
+
+  it("이전에 소품을 샀으면 완료를 누를 때만 300P를 받고 게이지가 찬다", async () => {
+    setFlag(true);
+    const purchased = {
+      ...homeMission(2, 300),
+      currentStep: 3,
+      eligible: true,
+      stepPoints: [50, 100, 300],
+    } as const;
+    const acknowledge = vi.fn().mockResolvedValue({
+      ...purchased,
+      completedSteps: 3,
+      currentStep: null,
+      eligible: false,
+      rewardedPoints: 300,
+    });
+    renderHome({
+      readMission: vi.fn().mockResolvedValue(purchased),
+      acknowledgeMission: acknowledge,
+    });
+
+    const finish = await screen.findByRole("button", { name: "완료" });
+    expect(acknowledge).not.toHaveBeenCalled();
+    await userEvent.click(finish);
+    expect(acknowledge).toHaveBeenCalledExactlyOnceWith(3);
+    await waitFor(() =>
+      expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "100"),
+    );
+    expect(screen.getByRole("button", { name: "완료" })).toBeDisabled();
+    expect(await screen.findByRole("button", { name: "설정하기" })).toBeEnabled();
+  });
+
   // 목표 창은 늦게 불러오는 부품이라, 창이 뜨는지를 시간 안에 볼 수 있게 미리 불러 둔다.
   beforeEach(async () => {
     await import("../HomeGoalSheet");

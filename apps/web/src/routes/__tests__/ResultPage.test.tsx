@@ -4,19 +4,19 @@ import type {
   StudySessionResponse,
 } from "@focusmakers/types";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  createMemoryMeasurementFeedbackStore,
-  resetMeasurementFeedbackStore,
-  setMeasurementFeedbackStore,
-} from "@/features/measurement-feedback/measurementFeedbackStore";
+  createMemoryFocusFeedbackStore,
+  resetFocusFeedbackStore,
+  setFocusFeedbackStore,
+} from "@/features/focus-feedback/focusFeedbackStore";
 import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import type * as Amplitude from "@/lib/amplitude";
-import { stageStudyResultExit } from "@/lib/amplitude";
+import { flushAmplitude, stageStudyResultExit } from "@/lib/amplitude";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { getStudyDays, listStudySessionStats } from "@/lib/statsApi";
 
@@ -50,12 +50,12 @@ beforeEach(() => {
   mockedStats.mockResolvedValue(statsResponse);
   // 누적 공부일 23일 — 시안 스크린샷 값.
   mockedStudyDays.mockResolvedValue({ totalDays: 23 });
-  // 만족도 카드의 3일 간격 기록이 테스트 사이에 이어지지 않게 한다.
-  setMeasurementFeedbackStore(createMemoryMeasurementFeedbackStore());
+  // 집중 도움 설문의 3일 간격 기록이 테스트 사이에 이어지지 않게 한다.
+  setFocusFeedbackStore(createMemoryFocusFeedbackStore());
 });
 
 afterEach(() => {
-  resetMeasurementFeedbackStore();
+  resetFocusFeedbackStore();
 });
 
 // 인터뷰 카드가 실제 서버를 부르지 않게 막는다. 카드 동작은 InterviewCardHost.test가 검증한다.
@@ -95,6 +95,7 @@ vi.mock("@/lib/interviewApi", () => ({
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof Amplitude>()),
   stageStudyResultExit: vi.fn(),
+  flushAmplitude: vi.fn(),
 }));
 
 /** 마스코트가 정점에 닿는 순간의 햅틱 — 언제 몇 번 불리는지만 본다. */
@@ -602,8 +603,42 @@ describe("ResultPage — 누적 요약 카드 (BY-560)", () => {
   });
 });
 
-describe("ResultPage — AI 측정 만족도 카드 (BY-1083)", () => {
-  const QUESTION = "이번 측정 결과 어땠나요?";
+describe("ResultPage — 집중 도움 설문", () => {
+  const QUESTION = "이번 공부에서 앱이 집중에 어떤 영향을 줬나요?";
+
+  it("솔로 웹뷰에서 응답 직후 나가도 전송을 시작한 뒤 네이티브 화면을 닫는다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    let complete = () => {};
+    vi.mocked(flushAmplitude).mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        complete = resolve;
+      }),
+    );
+    renderResult({ focusFeaturesUsed: true, sessions: [exampleSession()] });
+
+    fireEvent.click(screen.getByRole("button", { name: "도움이 됐어요" }));
+    fireEvent.click(screen.getByRole("button", { name: "홈으로" }));
+    expect(flushAmplitude).toHaveBeenCalledOnce();
+    expect(postMessage).not.toHaveBeenCalledWith(expect.stringContaining('"type":"navigate-home"'));
+
+    await act(async () => complete());
+    expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"type":"navigate-home"'));
+  });
+
+  it("솔로 웹뷰에서 분석 응답이 늦어도 기록 화면으로 갈 수 있다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    vi.useFakeTimers();
+    vi.mocked(flushAmplitude).mockReturnValueOnce(new Promise<void>(() => {}));
+    renderResult({ focusFeaturesUsed: true, sessions: [exampleSession()] });
+
+    fireEvent.click(screen.getByRole("button", { name: "도움이 됐어요" }));
+    fireEvent.click(screen.getByRole("button", { name: "기록으로 가기" }));
+    expect(postMessage).not.toHaveBeenCalledWith(expect.stringContaining('"type":"navigate-home"'));
+    await act(() => vi.advanceTimersByTimeAsync(1_000));
+    expect(postMessage).toHaveBeenCalledWith(expect.stringContaining('"tab":"records"'));
+  });
 
   function feedbackCard() {
     return screen
@@ -611,8 +646,11 @@ describe("ResultPage — AI 측정 만족도 카드 (BY-1083)", () => {
       .closest<HTMLElement>('[data-slot="card"]')!;
   }
 
-  it("순공 5분 이상이면 타임라인 카드와 누적 요약 카드 사이에 보인다", async () => {
-    renderResult({ sessions: [exampleSession()] });
+  it("총 공부 30분이면 순공시간이 짧아도 타임라인 카드와 누적 요약 카드 사이에 보인다", async () => {
+    renderResult({
+      focusFeaturesUsed: true,
+      sessions: [exampleSession({ studySec: 1800, focusSec: 120 })],
+    });
     const summary = (await screen.findByText("오늘 누적 순공시간")).closest('[data-slot="card"]')!;
 
     expect(
@@ -623,20 +661,37 @@ describe("ResultPage — AI 측정 만족도 카드 (BY-1083)", () => {
     ).toBeTruthy();
   });
 
-  it("자정을 넘겨 나뉜 세션은 합친 순공시간으로 판단한다", () => {
+  it("자정을 넘겨 나뉜 세션은 총 공부 시간을 합산한다", () => {
     renderResult({
-      sessions: [exampleSession({ focusSec: 200 }), exampleSession({ id: 11, focusSec: 200 })],
+      focusFeaturesUsed: true,
+      sessions: [
+        exampleSession({ studySec: 900, focusSec: 100 }),
+        exampleSession({ id: 11, studySec: 900, focusSec: 100 }),
+      ],
     });
 
     expect(screen.getByRole("heading", { name: QUESTION })).toBeInTheDocument();
   });
 
-  it("순공 5분 미만이면 보이지 않는다", () => {
-    renderResult({ sessions: [exampleSession({ focusSec: 299 })] });
+  it("총 공부 30분 미만이면 보이지 않는다", () => {
+    renderResult({
+      focusFeaturesUsed: true,
+      sessions: [exampleSession({ studySec: 1799, focusSec: 1799 })],
+    });
 
     expect(screen.getByText("공부 타임라인")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: QUESTION })).not.toBeInTheDocument();
   });
+
+  it.each([false, undefined])(
+    "기능 사용 값이 %s이면 30분 이상이어도 설문을 띄우지 않는다",
+    (focusFeaturesUsed) => {
+      renderResult({ focusFeaturesUsed, sessions: [exampleSession({ studySec: 1800 })] });
+
+      expect(screen.getByText("공부 타임라인")).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: QUESTION })).not.toBeInTheDocument();
+    },
+  );
 
   it("결과가 드러나기 전에는 보이지 않는다", () => {
     // 연출 경로의 rAF·캔버스는 "마스코트 연출 → 공개" 블록처럼 무동작으로 막고 타이머만 돌린다.
@@ -644,7 +699,9 @@ describe("ResultPage — AI 측정 만족도 카드 (BY-1083)", () => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(() => null);
     vi.stubGlobal("requestAnimationFrame", () => 0);
     vi.stubGlobal("cancelAnimationFrame", () => undefined);
-    renderResult({ sessions: [exampleSession()] }, "?userId=7", { reducedMotion: false });
+    renderResult({ focusFeaturesUsed: true, sessions: [exampleSession()] }, "?userId=7", {
+      reducedMotion: false,
+    });
 
     expect(screen.queryByRole("heading", { name: QUESTION })).not.toBeInTheDocument();
 
@@ -662,8 +719,8 @@ describe("ResultPage — 카메라 없는 세션", () => {
     vi.unstubAllEnvs();
   });
 
-  it("큰 숫자는 총 공부시간이고 총 공부 줄, 집중률 배지, 타임라인 카드, 측정 피드백 카드가 없고 안내가 있다", async () => {
-    renderResult({ sessions: [exampleSession({ source: "TIMER" })] });
+  it("큰 숫자는 총 공부시간이고 기능을 쓴 경우 안내와 집중 도움 설문을 그린다", async () => {
+    renderResult({ focusFeaturesUsed: true, sessions: [exampleSession({ source: "TIMER" })] });
 
     expect(screen.getByText("총 공부시간")).toBeInTheDocument();
     expect(screen.getByText("1시간 42분")).toBeInTheDocument();
@@ -672,8 +729,8 @@ describe("ResultPage — 카메라 없는 세션", () => {
     expect(screen.queryByText(/% 집중$/)).not.toBeInTheDocument();
     expect(screen.queryByText("공부 타임라인")).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("heading", { name: "이번 측정 결과 어땠나요?" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("heading", { name: "이번 공부에서 앱이 집중에 어떤 영향을 줬나요?" }),
+    ).toBeInTheDocument();
     expect(
       screen.getByText((_, element) => element?.tagName === "P" && element.textContent === NOTICE),
     ).toBeInTheDocument();
@@ -713,8 +770,8 @@ describe("ResultPage — 확정 표기 회귀", () => {
   });
 
   it("V1.0 범위 밖 액션(공유·내보내기)을 만들지 않는다 — 액션은 CTA 둘뿐이다", () => {
-    // 만족도 카드의 응답 버튼은 화면을 떠나는 액션이 아니라서, 방금 보인 것으로 두어 이 검사에서 뺀다.
-    setMeasurementFeedbackStore(createMemoryMeasurementFeedbackStore(Date.now()));
+    // 집중 도움 설문의 응답 버튼은 화면을 떠나는 액션이 아니라서, 방금 보인 것으로 두어 이 검사에서 뺀다.
+    setFocusFeedbackStore(createMemoryFocusFeedbackStore(Date.now()));
     renderResult({ sessions: [exampleSession()] });
 
     /**
@@ -1095,6 +1152,42 @@ describe("ResultPage: 세션 중 초대", () => {
     );
     expect(stageStudyResultExit).not.toHaveBeenCalled();
   });
+
+  it.each([false, true])(
+    "응답 후 홈 버튼 클릭이 %s여도 초대는 전송 대기 후 한 번만 연다",
+    async (goHome) => {
+      const postMessage = vi.fn();
+      vi.stubGlobal("ReactNativeWebView", { postMessage });
+      let flushed = () => {};
+      vi.mocked(flushAmplitude).mockReturnValueOnce(
+        new Promise<void>((resolve) => {
+          flushed = resolve;
+        }),
+      );
+      renderResult({ focusFeaturesUsed: true, sessions: [exampleSession()] });
+
+      fireEvent.click(screen.getByRole("button", { name: "도움이 됐어요" }));
+      if (goHome) fireEvent.click(screen.getByRole("button", { name: "홈으로" }));
+
+      const entry = (globalThis as unknown as Record<string, (raw: string) => void>)[
+        NATIVE_MESSAGE_ENTRY
+      ];
+      act(() => {
+        entry(JSON.stringify({ type: "session-invite", code: "4680", atMs: 1 }));
+      });
+      expect(flushAmplitude).toHaveBeenCalledOnce();
+      expect(postMessage).not.toHaveBeenCalledWith(
+        expect.stringContaining('"type":"navigate-home"'),
+      );
+
+      await act(async () => flushed());
+      const exits = postMessage.mock.calls.filter(
+        ([payload]) => JSON.parse(payload).type === "navigate-home",
+      );
+      expect(exits).toEqual([[expect.stringContaining('"inviteCode":"4680"')]]);
+      expect(stageStudyResultExit).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("ResultPage — 타임랩스 카드 (BY-894)", () => {
@@ -1126,13 +1219,13 @@ describe("ResultPage — 타임랩스 카드 (BY-894)", () => {
   });
 
   describe("자동 스크롤", () => {
-    /** 스크롤 영역은 0~800, 카드는 cardTop부터 400px 높이에 있다고 잰다. */
-    function renderAnimatedWithCard(cardTop = 900) {
+    /** 스크롤 영역은 0~800, 카드는 900~1300에 있다고 가정한다. */
+    function renderAnimatedWithCard() {
       vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
         this: Element,
       ) {
         const isCard = this.getAttribute("data-testid") === "timelapse-card";
-        const [top, bottom] = isCard ? [cardTop, cardTop + 400] : [0, 800];
+        const [top, bottom] = isCard ? [900, 1300] : [0, 800];
         return { top, bottom, left: 0, right: 360, width: 360, height: bottom - top } as DOMRect;
       });
       vi.useFakeTimers();
@@ -1155,88 +1248,13 @@ describe("ResultPage — 타임랩스 카드 (BY-894)", () => {
       if (vi.isMockFunction(rect)) rect.mockRestore();
     });
 
-    it("카드가 보이면 잠시 뒤 카드까지 부드럽게 스크롤한다", () => {
+    it("아래에 타임랩스 카드가 나타나도 결과 화면을 스크롤하지 않는다", () => {
       const scrollTo = renderAnimatedWithCard();
 
       act(() => vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS));
-      expect(scrollTo).not.toHaveBeenCalled();
-      act(() => vi.advanceTimersByTime(1_000));
-
-      expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ behavior: "smooth" }));
-    });
-
-    it("카드가 이미 다 보이면 스크롤하지 않는다", () => {
-      // 늦게 뜬 카드가 이미 화면 안에 있으면 위로 끌어올리지 않는다.
-      const scrollTo = renderAnimatedWithCard(300);
-
-      act(() => vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS));
-      act(() => vi.advanceTimersByTime(1_000));
-
-      expect(scrollTo).not.toHaveBeenCalled();
-    });
-
-    it("스크롤하기 전에 화면을 만지면 스크롤하지 않는다", () => {
-      const scrollTo = renderAnimatedWithCard();
-      act(() => vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS));
-
-      const container = screen
-        .getByTestId("timelapse-card")
-        .closest<HTMLElement>(".overflow-y-auto")!;
-      act(() => {
-        container.dispatchEvent(new Event("pointerdown", { bubbles: true }));
-      });
-      act(() => vi.advanceTimersByTime(1_000));
-
-      expect(scrollTo).not.toHaveBeenCalledWith(expect.objectContaining({ behavior: "smooth" }));
-    });
-
-    it("카드가 뜨기 전에 사용자가 이미 화면을 만졌으면 자동 스크롤하지 않는다", () => {
-      // 촬영 정리를 기다리느라 카드가 늦게 뜨면 사용자는 이미 결과를 읽으며 스크롤 중일 수 있다.
-      const scrollTo = renderAnimatedWithCard();
-      act(() => {
-        document.body.dispatchEvent(new Event("pointerdown", { bubbles: true }));
-      });
-
-      act(() => vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS));
-      act(() => vi.advanceTimersByTime(1_000));
-
       expect(screen.getByTestId("timelapse-card")).toBeInTheDocument();
-      expect(scrollTo).not.toHaveBeenCalledWith(expect.objectContaining({ behavior: "smooth" }));
-    });
+      act(() => vi.advanceTimersByTime(1_000));
 
-    it.each(["pointerdown", "wheel", "keydown"])(
-      "스크롤하는 중에 %s가 오면 그 자리에서 멈춘다",
-      (eventName) => {
-        const scrollTo = renderAnimatedWithCard();
-        act(() => vi.advanceTimersByTime(RESULT_REVEAL_DELAY_MS));
-        act(() => vi.advanceTimersByTime(1_000));
-        expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ behavior: "smooth" }));
-        const container = screen
-          .getByTestId("timelapse-card")
-          .closest<HTMLElement>(".overflow-y-auto")!;
-
-        // 스크롤 영역 밖(하단 버튼 줄 등)을 만져도 멈춘다.
-        act(() => {
-          document.body.dispatchEvent(new Event(eventName, { bubbles: true }));
-        });
-
-        expect(scrollTo).toHaveBeenLastCalledWith({ top: container.scrollTop });
-      },
-    );
-
-    it("움직임 줄이기 설정이면 자동 스크롤하지 않는다", () => {
-      vi.useFakeTimers();
-      const scrollTo = vi.fn();
-      Object.defineProperty(HTMLElement.prototype, "scrollTo", {
-        configurable: true,
-        writable: true,
-        value: scrollTo,
-      });
-      renderResult({ sessions: [exampleSession()] });
-
-      act(() => vi.advanceTimersByTime(2_000));
-
-      expect(screen.getByTestId("timelapse-card")).toBeInTheDocument();
       expect(scrollTo).not.toHaveBeenCalled();
     });
   });

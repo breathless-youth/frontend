@@ -7,6 +7,8 @@ import { assertCurrentUserId } from "@/lib/userId";
 
 import type { HomeDay } from "./HomeV3Gateway";
 
+export const homeMissionKey = (userId: number) => ["home-v3", userId, "mission"] as const;
+
 async function waitForTimeZone(userId: number, day: HomeDay, signal: AbortSignal) {
   signal.throwIfAborted();
   assertCurrentUserId(userId);

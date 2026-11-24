@@ -107,6 +107,18 @@ describe("registerPushToken", () => {
     expect(bodyOf(1)).toMatchObject({ notificationsEnabled: false });
   });
 
+  it("한국 날짜가 바뀌면 앱을 다시 켜지 않은 기기도 하루 한 번 등록한다", async () => {
+    const clock = jest.spyOn(Date, "now").mockReturnValue(Date.parse("2026-11-22T14:59:00Z"));
+    await registerPushToken();
+    await registerPushToken();
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+
+    clock.mockReturnValue(Date.parse("2026-11-22T15:00:00Z"));
+    await registerPushToken();
+    await registerPushToken();
+    expect(mockedFetch).toHaveBeenCalledTimes(2);
+  });
+
   it("일본어·번체 중국어 기기는 그 언어를 그대로 싣는다", async () => {
     setDeviceLanguages(["ja-JP"]);
     await registerPushToken();

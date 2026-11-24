@@ -410,6 +410,9 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       // 싱글룸은 전용 화면이 이 메시지를 가로채 화면 수명에 묶으므로 여기까지 오지 않는다(app/room/[id].tsx 주석 참고).
       getMotionSensorRelay().handle(message, reply);
       break;
+    case "live-activity":
+      // 싱글룸 화면이 가로채 화면 수명에 묶으므로 여기까지 오면 소셜룸 같은 범위 밖 경로라 무시한다.
+      break;
     case "meta-app-event":
       // 웹이 아는 광고 전환(첫 세션 시작·소셜룸 입장 등)을 네이티브 Meta SDK로 넘긴다. 이름·파라미터
       // 형식은 `parseToNativeMessage`가 이미 걸렀고, Meta env 없는 빌드에서는 `logMetaAppEvent`가 no-op이다.

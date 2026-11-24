@@ -184,6 +184,8 @@
       "image": "画像"
     },
     "search": "空間を検索",
+    "searchClose": "検索を閉じる",
+    "searchClear": "検索語を消去",
     "all": "すべて",
     "sections": {
       "watch": "見守り",

@@ -116,6 +116,8 @@ describe("pushTargetForRoute — 웹 경로를 담당 탭으로", () => {
     ["/manual-record", "/(tabs)/records"],
     ["/records?date=2026-10-01", "/(tabs)/records"],
     ["/timelapses", "/(tabs)"],
+    ["/home?from=points_shop_reminder", "/(tabs)"],
+    ["/points/accessories?item=42", "/(tabs)"],
     ["/profile", "/(tabs)/settings"],
     ["/timelapse-settings", "/(tabs)/settings"],
     ["/social/code", "/(tabs)/social"],

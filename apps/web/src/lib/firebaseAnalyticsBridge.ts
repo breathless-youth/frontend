@@ -19,9 +19,9 @@ import { postToNative } from "./bridge";
  * 보낸다 — FCM 콘솔의 오디언스·유저 속성 타겟팅은 Firebase Analytics 데이터만 보기 때문이다
  * (`docs/adr/0010-native-firebase-analytics-for-push-targeting.md`).
  *
- * **이벤트 이름은 Amplitude 카탈로그 전체가 그대로 흐른다** — 세그먼트에 어떤 이벤트가 필요할지 미리 알 수 없고,
- * 목록을 따로 두면 두 카탈로그가 갈라진다. 대신 **값**은 좁힌다. 규칙의 원천은 `packages/types`의 `ANALYTICS_*`
- * 상수이고 네이티브(`apps/mobile/lib/webBridge.ts`)가 같은 값으로 다시 거른다.
+ * **이벤트 이름은 기본적으로 Amplitude 카탈로그를 그대로 따른다.** 집중 도움 설문의 자유 응답은
+ * Amplitude에만 기록한다. 그 외 이벤트의 **값**은 `packages/types`의 `ANALYTICS_*` 상수에 따라
+ * 거르며, 네이티브(`apps/mobile/lib/webBridge.ts`)에서도 같은 규칙으로 거른다.
  *
  * - 이름·파라미터 키: `ANALYTICS_NAME_PATTERN` → `[Amplitude] …` autocapture 이벤트는 자연히 빠진다.
  * - 값: 문자열은 토큰만(`ANALYTICS_PARAM_VALUE_PATTERN` — enum·에러 코드·정제된 경로·버전), 수는 유한수.
@@ -64,7 +64,11 @@ export const FIREBASE_USER_PROPERTY_KEYS: readonly string[] = [
   "timelapse_shared",
 ];
 
-const AMPLITUDE_INTERNAL_EVENTS = new Set(["session_start", "session_end"]);
+const AMPLITUDE_ONLY_EVENTS = new Set([
+  "session_start",
+  "session_end",
+  "focus_feedback_comment_submitted",
+]);
 const IDENTIFY_EVENT = "$identify";
 
 function toParamValue(value: unknown): AnalyticsEventParamValue | null {
@@ -126,7 +130,7 @@ export function toFirebaseAnalyticsMessage(
   }
   if (
     !ANALYTICS_NAME_PATTERN.test(event.event_type) ||
-    AMPLITUDE_INTERNAL_EVENTS.has(event.event_type)
+    AMPLITUDE_ONLY_EVENTS.has(event.event_type)
   ) {
     return null;
   }

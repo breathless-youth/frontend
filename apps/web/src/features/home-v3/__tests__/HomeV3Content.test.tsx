@@ -9,7 +9,10 @@ import i18n from "@/lib/i18n";
 
 function props(): HomeV3ContentProps {
   return {
-    band: { status: "success", value: { kind: "mission", step: 1, ready: true, progress: 0 } },
+    band: {
+      status: "success",
+      value: { kind: "mission", step: 1, totalSteps: 2, ready: true, progress: 0 },
+    },
     stats: {
       status: "success",
       value: { studySeconds: 15512, focusSeconds: 13337, focusRate: 86 },
@@ -42,7 +45,14 @@ describe("HomeV3Content", () => {
         {...input}
         band={{
           status: "success",
-          value: { kind: "mission", step: 1, ready: true, progress: 0, rewardPoints: 50 },
+          value: {
+            kind: "mission",
+            step: 1,
+            totalSteps: 2,
+            ready: true,
+            progress: 0,
+            rewardPoints: 50,
+          },
         }}
       />,
     );

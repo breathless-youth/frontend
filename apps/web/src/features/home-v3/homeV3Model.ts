@@ -1,14 +1,29 @@
-import type { HomeMissionResponse } from "@focusmakers/types";
+import type { HomeMissionResponse, HomeMissionStep } from "@focusmakers/types";
 
 export type HomeMission = HomeMissionResponse;
 
 export type HomeBand =
   /** rewardPoints는 이번 단계를 끝내면 받는 포인트이며 포인트를 쓰는 곳에서 서버가 값을 줄 때만 있다. */
-  | { kind: "mission"; step: 1 | 2; ready: boolean; progress: number; rewardPoints?: number }
-  /** 미션은 끝났는데 아직 안 받은 미션 포인트가 있을 때이며 받으면 목표 띠로 넘어간다. */
+  | {
+      kind: "mission";
+      step: HomeMissionStep;
+      totalSteps: 2 | 3;
+      ready: boolean;
+      progress: number;
+      rewardPoints?: number;
+    }
+  /** 안 받은 포인트를 먼저 수령한 뒤 첫 소품 구매 미션 또는 목표로 넘어간다. */
   | { kind: "mission-reward"; points: number }
   | { kind: "goal-empty" }
   | { kind: "goal"; targetSeconds: number; remainingSeconds: number; percent: number };
+
+export function missionTotalSteps(mission: HomeMission): 2 | 3 {
+  return mission.stepPoints?.length === 3 ||
+    mission.currentStep === 3 ||
+    mission.completedSteps === 3
+    ? 3
+    : 2;
+}
 
 export function selectHomeBand(
   mission: HomeMission,
@@ -16,18 +31,25 @@ export function selectHomeBand(
   goalSeconds: number | null,
   rewards = false,
 ): HomeBand {
+  const claimablePoints = mission.claimablePoints ?? 0;
+  if (
+    rewards &&
+    claimablePoints > 0 &&
+    (mission.currentStep === 3 || mission.currentStep === null)
+  ) {
+    return { kind: "mission-reward", points: claimablePoints };
+  }
   if (mission.currentStep !== null) {
+    const totalSteps = missionTotalSteps(mission);
     const rewardPoints = rewards ? (mission.stepPoints?.[mission.currentStep - 1] ?? 0) : 0;
     return {
       kind: "mission",
       step: mission.currentStep,
+      totalSteps,
       ready: mission.eligible,
-      progress: mission.completedSteps / 2,
+      progress: mission.completedSteps / totalSteps,
       ...(rewardPoints > 0 ? { rewardPoints } : null),
     };
-  }
-  if (rewards && (mission.claimablePoints ?? 0) > 0) {
-    return { kind: "mission-reward", points: mission.claimablePoints ?? 0 };
   }
   if (goalSeconds === null || goalSeconds <= 0) return { kind: "goal-empty" };
   const focus = Math.max(0, todayFocusSeconds);
