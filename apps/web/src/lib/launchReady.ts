@@ -27,6 +27,8 @@ export function __resetLaunchReadyForTests(): void {
  *
  * 푸시 알림으로 다른 탭이 먼저 열려도 앱이 스플래시 상한까지 기다리지 않게 한다.
  * 홈과 온보딩은 판정이 끝난 뒤에 스스로 보낸다.
+ * 싱글룸 세션(`/room/:id`)은 세션 화면을 처음 그릴 때 보낸다. 앱은 이 신호까지 세션 화면의 덮개를 유지해
+ * 이어받을 세션을 확인하는 동안의 빈 화면이 비치지 않게 한다.
  * 첫 경로만 보므로 `App`에서 한 번만 마운트한다.
  */
 export function useLaunchReadyOutsideHome(): void {
@@ -34,7 +36,11 @@ export function useLaunchReadyOutsideHome(): void {
   const startPath = useRef(pathname);
   useEffect(() => {
     const path = startPath.current;
-    if (!path.startsWith("/home") && !path.startsWith("/onboarding")) {
+    if (
+      !path.startsWith("/home") &&
+      !path.startsWith("/onboarding") &&
+      !path.startsWith("/room/")
+    ) {
       signalLaunchReady();
     }
   }, []);
