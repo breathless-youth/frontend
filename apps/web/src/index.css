@@ -651,35 +651,6 @@
   );
 }
 
-/* 스파르타 노을 그라디언트 — 스파르타 기능 사전 신청(BY-1393) 혜택 화면 배경.
-   위쪽만 노을빛이고 58%부터는 .bg-soft-blue의 바닥 색과 같아 아래 타일·버튼 줄은 평소 바탕 위에 놓인다.
-   값 출처: 확정 시안(premium-fake-door-prototype.html 최종 섹션, 배경 A). 다크는 같은 클래스에 모드별로 재정의. */
-.bg-sparta-sunset {
-  --sparta-sunset-from: #ffd9bf;
-  --sparta-sunset-mid: #ffeedf;
-  --sparta-sunset-end: #ffffff;
-  background: linear-gradient(
-    180deg,
-    var(--sparta-sunset-from) 0%,
-    var(--sparta-sunset-mid) 30%,
-    var(--sparta-sunset-end) 58%
-  );
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .bg-sparta-sunset {
-    --sparta-sunset-from: #4a2316;
-    --sparta-sunset-mid: #2a1a1a;
-    --sparta-sunset-end: #0d1118;
-  }
-}
-
-:root[data-theme="dark"] .bg-sparta-sunset {
-  --sparta-sunset-from: #4a2316;
-  --sparta-sunset-mid: #2a1a1a;
-  --sparta-sunset-end: #0d1118;
-}
-
 /* Soft Blue 카드·CTA 그림자 — Figma shadow/card-soft-blue, shadow/brand-cta */
 .shadow-sb-card {
   box-shadow: 0 6px 22px 0 rgba(63, 120, 218, 0.08);

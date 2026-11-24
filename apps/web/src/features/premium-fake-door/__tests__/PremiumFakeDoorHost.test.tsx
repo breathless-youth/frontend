@@ -54,6 +54,8 @@ async function openApplyFlow() {
 }
 
 beforeEach(() => {
+  // 혜택 화면의 불꽃 캔버스가 그리기 판을 찾는다. jsdom에는 없어서 없는 것으로 둔다.
+  vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
   vi.useFakeTimers({ toFake: ["Date"], now: Date.parse("2026-11-25T12:00:00+09:00") });
   localStorage.clear();
   tokenSource.present = true;

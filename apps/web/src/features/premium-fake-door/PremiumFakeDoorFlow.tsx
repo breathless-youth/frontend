@@ -3,7 +3,6 @@ import { type ReactNode, type Ref, useEffect, useId, useRef, useState } from "re
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 
-import timiSparta from "@/assets/mascot/timi-sparta.png";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -27,6 +26,7 @@ import {
   validateEmailStep,
 } from "./premiumFakeDoor";
 import { FEATURE_ICONS } from "./premiumFeatureIcons";
+import { SpartaHero } from "./SpartaHero";
 import { type PremiumWaitlistRequest, putPremiumWaitlist } from "./premiumWaitlistApi";
 
 const { LazySheet: LazyFeatureSheet, preload: preloadFeatureSheet } = lazyWithPreload(() =>
@@ -218,16 +218,9 @@ export function PremiumFakeDoorFlow({
   if (step === "benefits") {
     body = (
       <>
-        {/* 스파르타 티미. 꾸밈이라 alt를 비우고, 움직임은 넣지 않는다. */}
-        <img
-          src={timiSparta}
-          alt=""
-          width={128}
-          height={128}
-          draggable={false}
-          className="mx-auto block size-32 select-none"
-        />
-        <div className="mt-2 flex items-center justify-between gap-2.5">
+        {/* 불꽃이 일렁이는 스파르타 티미. 위로는 뒤로 가기 줄, 아래로는 제목에 바짝 붙인다. */}
+        <SpartaHero className="mx-auto -mt-2 -mb-2.5" />
+        <div className="mt-1 flex items-center justify-between gap-2.5">
           <h2
             id={headingId}
             ref={headingRef}
@@ -449,14 +442,11 @@ export function PremiumFakeDoorFlow({
           onClose();
         }
       }}
-      className={cn(
-        "theme-soft-blue",
-        // 혜택 화면만 스파르타 노을 배경을 깔고, 신청 단계는 평소 배경으로 돌아온다.
-        step === "benefits" ? "bg-sparta-sunset" : "bg-soft-blue",
-        "fixed inset-0 z-50 flex flex-col text-foreground animate-[result-fade-up_0.32s_cubic-bezier(0.22,1,0.36,1)_both] motion-reduce:animate-none",
-      )}
+      className="theme-soft-blue bg-soft-blue fixed inset-0 z-50 flex flex-col text-foreground animate-[result-fade-up_0.32s_cubic-bezier(0.22,1,0.36,1)_both] motion-reduce:animate-none"
     >
-      <div className="page-width flex min-h-13 w-full shrink-0 items-center px-2 pt-[env(safe-area-inset-top)]">
+      {/* 위쪽 줄은 본문 위에 얹는다. 혜택 화면은 본문 스크롤 영역이 이 줄 밑에서 시작해서 머리 그림의 불끝이 스크롤 영역 위 가장자리에 잘리지 않는다.
+          줄의 빈 곳은 누름을 아래로 넘기고 버튼만 누름을 받는다. */}
+      <div className="pointer-events-none relative z-10 page-width flex min-h-13 w-full shrink-0 items-center px-2 pt-[env(safe-area-inset-top)] [&>button]:pointer-events-auto">
         {step === "done" ? (
           <span className="size-11" aria-hidden="true" />
         ) : (
@@ -476,7 +466,16 @@ export function PremiumFakeDoorFlow({
           {stepLabel}
         </span>
       </div>
-      <div className="page-width w-full flex-1 overflow-y-auto px-5 pb-6">{body}</div>
+      <div
+        className={cn(
+          "page-width w-full flex-1 overflow-y-auto px-5 pb-6",
+          // 위쪽 줄 높이만큼 끌어올리고 같은 만큼 안쪽 여백을 줘서 내용 자리는 그대로 둔다.
+          step === "benefits" &&
+            "-mt-[calc(env(safe-area-inset-top)+3.25rem)] pt-[calc(env(safe-area-inset-top)+3.25rem)]",
+        )}
+      >
+        {body}
+      </div>
       <div className="page-width w-full shrink-0 px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+24px)]">
         {step === "benefits" && (
           <p className="mb-3 text-center text-[13px] leading-4.75 break-keep text-muted-foreground">
