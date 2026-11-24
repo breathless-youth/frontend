@@ -5,7 +5,6 @@ import { setSessionBannerGroupUserProperty } from "@/lib/amplitude";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { localDateKey } from "@/lib/dateKey";
 import { isKoreanLocale } from "@/lib/i18n";
-import { profileQuery } from "@/lib/profileQueries";
 import { queryClient } from "@/lib/queryClient";
 import { periodStatsQuery } from "@/lib/statsQueries";
 import { hasTokenSource } from "@/lib/userId";
@@ -22,7 +21,7 @@ import { loadSessionBannerGroup, saveSessionBannerGroup } from "./sessionBannerS
 /**
  * 세션 배너 실험군
  *
- * 토큰을 주는 앱으로 들어온 한국어 화면의 회원만 판정하고, 처음 정한 군을 저장해 다시 판정하지 않는다.
+ * 토큰을 주는 앱으로 들어온 한국어 화면의 사용자를 회원 여부와 관계없이 판정하고, 처음 정한 군을 저장해 다시 판정하지 않는다.
  * 세션 화면은 Provider 없이도 렌더되므로 공용 queryClient를 직접 넘겨 홈·기록과 캐시를 함께 쓴다.
  * 판정하지 않거나 아직 못 정했으면 null이고, 화면은 배너를 그리지 않는다.
  */
@@ -41,22 +40,17 @@ export function useSessionBannerGroup(userId: number | null): SessionBannerGroup
   );
   const [range] = useState(() => sessionBannerStatsRange(localDateKey()));
   const needsJudging = stored === "unset";
-  const profile = useQuery({ ...profileQuery(userId ?? 0), enabled: needsJudging }, queryClient);
   const stats = useQuery(
     { ...periodStatsQuery(userId ?? 0, range), enabled: needsJudging },
     queryClient,
   );
 
   let judged: SessionBannerGroup | null = null;
-  if (needsJudging && userId !== null && profile.data !== undefined) {
-    // 응답에 로그인 정보가 없는 서버도 회원으로 확인할 수 없어 대상에서 뺀다.
-    if (typeof profile.data.loginProvider !== "string") {
-      judged = "not_eligible";
-    } else if (stats.data !== undefined) {
-      judged = isSessionBannerEligible(stats.data.dailyList)
-        ? assignSessionBannerArm(userId)
-        : "not_eligible";
-    }
+  // 로그인하지 않은 앱 사용자도 공부 기록과 신청 저장이 같은 번호로 남아서 회원인지는 보지 않는다.
+  if (needsJudging && userId !== null && stats.data !== undefined) {
+    judged = isSessionBannerEligible(stats.data.dailyList)
+      ? assignSessionBannerArm(userId)
+      : "not_eligible";
   }
   // 처음 정한 군을 바로 붙잡아, 세션 중 통계가 다시 와도 군이 바뀌지 않는다.
   if (judged !== null) {
