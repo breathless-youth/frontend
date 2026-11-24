@@ -159,14 +159,15 @@ export function SessionClock({
   // 유예에도 순공은 흐르므로 숫자는 흰색(심플 모드는 상태색)으로 두고, 멈춘 동안만 회색으로 둔다.
   // 공부 시작 카운트다운 숫자는 아직 상태가 없으므로 상태색 없이 흰색으로 센다.
   const countingInClock = countdown?.inClock === true;
+  const stopped = !countingInClock && state !== "focus" && state !== "grace";
   const numberColor = cn(
     countingInClock
       ? "text-white"
       : stateColored
         ? "text-(--session-state-color)"
-        : state === "focus" || state === "grace"
-          ? "text-white"
-          : "text-text-tertiary",
+        : stopped
+          ? "text-text-tertiary"
+          : "text-white",
     state === "grace" && GRACE_NUMBER_PULSE,
   );
   const sessionTime = countingInClock ? (
@@ -181,6 +182,13 @@ export function SessionClock({
       </span>
     </>
   );
+  // 오늘 줄은 글자와 숫자를 같은 색으로 둔다. 큰 숫자가 멈춰 회색이면 오늘 시간도 함께 서 있으므로 같은 회색이다.
+  // 유예 동안은 큰 숫자와 같은 주기로 함께 깜빡인다.
+  const todayColor = cn(
+    STATE_COLOR_EASE,
+    stopped ? "text-text-tertiary" : "text-white",
+    state === "grace" && GRACE_NUMBER_PULSE,
+  );
   const todayLine = !simple && (
     <p
       aria-hidden={fake || undefined}
@@ -190,11 +198,11 @@ export function SessionClock({
       )}
     >
       <span aria-hidden="true">
-        <span className="font-normal">
+        <span className={cn("font-normal", todayColor)}>
           {t(focusView ? "clock.todayFocus" : "clock.todayStudy")}
         </span>
         {"\u00a0 "}
-        <span className="text-white">{formatElapsed(todaySec)}</span>
+        <span className={todayColor}>{formatElapsed(todaySec)}</span>
       </span>
       <span className="sr-only">
         {t(focusView ? "clock.srTodayFocus" : "clock.srTodayStudy", {
