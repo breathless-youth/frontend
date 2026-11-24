@@ -2724,12 +2724,12 @@ export interface PremiumFakeDoorEventBase {
   readonly placement: PremiumFakeDoorPlacement;
 }
 
-/** 기능 id. 서버 계약의 `expectedFeature` 값과 같다. */
+/** 화면에 보이는 기능 id. 서버 계약의 `expectedFeature` 값과 같다(서버가 받는 `SMART_NOTIFICATION`은 화면에서 뺐다). */
 export type PremiumFakeDoorFeature =
   | "AI_PLANNER"
   | "AI_REPORT"
   | "GROUP_MATCHING"
-  | "SMART_NOTIFICATION"
+  | "APP_LOCK"
   | "TIMER_BACKGROUND"
   | "CHARACTER_ITEMS";
 

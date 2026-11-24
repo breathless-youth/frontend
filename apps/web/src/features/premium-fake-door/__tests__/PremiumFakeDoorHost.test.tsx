@@ -9,7 +9,7 @@ import type * as Amplitude from "@/lib/amplitude";
 import type * as UserId from "@/lib/userId";
 
 import { PremiumFakeDoorHost } from "../PremiumFakeDoorHost";
-import { assignPremiumPrice, type PremiumPlacement } from "../premiumFakeDoor";
+import { assignPremiumPrice } from "../premiumFakeDoor";
 
 const putPremiumWaitlist = vi.hoisted(() => vi.fn());
 vi.mock("../premiumWaitlistApi", () => ({ putPremiumWaitlist }));
@@ -33,13 +33,13 @@ vi.mock("@/lib/amplitude", async (o) => ({ ...(await o<typeof Amplitude>()), ...
 const USER_ID = 7;
 const PRICE = assignPremiumPrice(USER_ID);
 
-function renderHost(placement: PremiumPlacement = "RESULT") {
+function renderHost() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <StrictMode>
       <QueryClientProvider client={client}>
         <MemoryRouter>
-          <PremiumFakeDoorHost placement={placement} userId={USER_ID} />
+          <PremiumFakeDoorHost userId={USER_ID} />
         </MemoryRouter>
       </QueryClientProvider>
     </StrictMode>,
@@ -193,36 +193,39 @@ describe("PremiumFakeDoorHost 이메일 검사", () => {
 });
 
 describe("PremiumFakeDoorHost 기대 기능", () => {
-  it("기능을 고르면 같은 본문에 expectedFeature를 채워 한 번 더 보낸다", async () => {
-    const view = renderHost("HOME");
+  it("기능을 고르면 같은 본문에 expectedFeature를 채워 한 번 더 보내고, 결과로 돌아가면 카드를 다시 그리지 않는다", async () => {
+    const view = renderHost();
     const user = await goToEmailStep();
     await user.type(screen.getByLabelText("이메일"), "minjun@example.com");
     await user.click(screen.getByRole("checkbox", { name: "[필수] 개인정보 수집·이용 동의" }));
     await user.click(screen.getByRole("button", { name: "사전 신청하기" }));
 
-    await user.click(await screen.findByRole("radio", { name: "AI 집중 리포트" }));
+    expect(await screen.findByRole("radio", { name: "강력한 앱 잠금" })).toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "맞춤 알림" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "강력한 앱 잠금" }));
 
     expect(putPremiumWaitlist).toHaveBeenLastCalledWith({
       price: PRICE,
-      placement: "HOME",
+      placement: "RESULT",
       ageOver14: true,
       email: "minjun@example.com",
-      expectedFeature: "AI_REPORT",
+      expectedFeature: "APP_LOCK",
     });
     expect(await screen.findByText("답변해 주셔서 감사합니다!")).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "AI 집중 리포트" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "강력한 앱 잠금" })).toBeChecked();
     expect(analytics.trackPremiumFakeDoorFeatureSelected).toHaveBeenCalledWith(
-      { price: PRICE, placement: "HOME" },
-      "AI_REPORT",
+      { price: PRICE, placement: "RESULT" },
+      "APP_LOCK",
     );
-    await user.click(screen.getByRole("button", { name: "홈으로 돌아가기" }));
+    expect(screen.queryByRole("button", { name: "홈으로 돌아가기" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "결과로 돌아가기" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "프리미엄 기능 사전 신청 보기" }),
     ).not.toBeInTheDocument();
 
     view.unmount();
-    renderHost("RESULT");
+    renderHost();
     expect(
       screen.queryByRole("button", { name: "프리미엄 기능 사전 신청 보기" }),
     ).not.toBeInTheDocument();
@@ -262,14 +265,6 @@ describe("PremiumFakeDoorHost 노출", () => {
     expect(analytics.trackPremiumFakeDoor).not.toHaveBeenCalled();
   });
 
-  it("결과 화면에서 보였으면 홈에는 그리지 않는다", () => {
-    renderHost("RESULT").unmount();
-    renderHost("HOME");
-    expect(
-      screen.queryByRole("button", { name: "프리미엄 기능 사전 신청 보기" }),
-    ).not.toBeInTheDocument();
-  });
-
   it("X로 닫으면 다시 그리지 않는다", async () => {
     const user = userEvent.setup();
     const first = renderHost();
@@ -290,13 +285,13 @@ describe("PremiumFakeDoorHost 노출", () => {
   });
 
   it("카드 노출(viewed)은 다시 그려도 사용자당 한 번만 보내고 가격을 사용자 속성으로 남긴다", () => {
-    renderHost("HOME").unmount();
-    renderHost("RESULT");
+    renderHost().unmount();
+    renderHost();
 
     const viewed = analytics.trackPremiumFakeDoor.mock.calls.filter(
       ([action]) => action === "viewed",
     );
-    expect(viewed).toEqual([["viewed", { price: PRICE, placement: "HOME" }]]);
+    expect(viewed).toEqual([["viewed", { price: PRICE, placement: "RESULT" }]]);
     expect(analytics.setPremiumFakeDoorPriceUserProperty).toHaveBeenCalledTimes(1);
     expect(analytics.setPremiumFakeDoorPriceUserProperty).toHaveBeenCalledWith(PRICE);
   });
@@ -307,7 +302,7 @@ describe("PremiumFakeDoorHost 노출", () => {
     await user.type(screen.getByLabelText("이메일"), "secret.person@example.com");
     await user.click(screen.getByRole("checkbox", { name: "[필수] 개인정보 수집·이용 동의" }));
     await user.click(screen.getByRole("button", { name: "사전 신청하기" }));
-    await user.click(await screen.findByRole("radio", { name: "맞춤 알림" }));
+    await user.click(await screen.findByRole("radio", { name: "강력한 앱 잠금" }));
     await waitFor(() => expect(screen.getByText("답변해 주셔서 감사합니다!")).toBeInTheDocument());
 
     expect(analytics.trackPremiumFakeDoorApplied).toHaveBeenCalledWith(
@@ -356,6 +351,15 @@ describe("PremiumFakeDoorHost 기능 설명 시트", () => {
     expect(
       within(sheet).getByText("내 목표와 공부 속도에 맞춰 계획을 계속 다듬어줘요."),
     ).toBeInTheDocument();
+    expect(
+      within(sheet)
+        .getAllByRole("listitem")
+        .map((item) => item.textContent),
+    ).toEqual([
+      "목표와 기간에 맞춰 하루 학습 범위와 진도율을 추천해줘요",
+      "하루를 놓쳐도 남은 날에 맞춰 계획을 다시 짜줘요",
+      "계획한 시작 시간과 남은 할 일을 딱 맞춰 알려줘요",
+    ]);
     expect(analytics.trackPremiumFakeDoorFeatureViewed).toHaveBeenCalledWith(
       { price: PRICE, placement: "RESULT" },
       "AI_PLANNER",
@@ -367,25 +371,45 @@ describe("PremiumFakeDoorHost 기능 설명 시트", () => {
     );
     expect(screen.getByRole("heading", { name: "프리미엄 기능" })).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /맞춤 알림/ }));
-    await screen.findByRole("dialog", { name: "맞춤 알림" });
+    // 맞춤 알림은 빠지고 그 자리에 강력한 앱 잠금이 들어왔다.
+    expect(screen.queryByRole("button", { name: /맞춤 알림/ })).not.toBeInTheDocument();
+    const tiles = screen
+      .getAllByRole("button")
+      .filter((tile) => tile.getAttribute("aria-haspopup") === "dialog")
+      .map((tile) => tile.textContent);
+    expect(tiles).toEqual([
+      "AI 플랜 비서",
+      "AI 집중 리포트",
+      "그룹 공부 맞춤 매칭",
+      "강력한 앱 잠금",
+      "프리미엄 타이머 배경",
+      "캐릭터 소품 착용세트 상품 제외",
+    ]);
+    await user.click(screen.getByRole("button", { name: /강력한 앱 잠금/ }));
+    const appLock = await screen.findByRole("dialog", { name: "강력한 앱 잠금" });
+    expect(within(appLock).getByText("잠금 풀기, 이제 쉽지 않아요")).toBeInTheDocument();
+    expect(
+      within(appLock)
+        .getAllByRole("listitem")
+        .map((item) => item.textContent),
+    ).toEqual([
+      "잠금을 풀려면 문제 풀기·사진 찍기 같은 미션을 끝내야 해요",
+      "정해 둔 공부 시간이 되면 잠금이 저절로 켜져요",
+      "공부가 끝날 때까지 잠금을 끌 수 없게 설정할 수 있어요",
+    ]);
     await user.keyboard("{Escape}");
     await waitFor(() =>
-      expect(screen.queryByRole("dialog", { name: "맞춤 알림" })).not.toBeInTheDocument(),
+      expect(screen.queryByRole("dialog", { name: "강력한 앱 잠금" })).not.toBeInTheDocument(),
     );
     expect(screen.getByRole("heading", { name: "프리미엄 기능" })).toBeInTheDocument();
     expect(analytics.trackPremiumFakeDoorFeatureViewed).toHaveBeenLastCalledWith(
       { price: PRICE, placement: "RESULT" },
-      "SMART_NOTIFICATION",
+      "APP_LOCK",
     );
   });
 
   it.each([
-    [
-      "캐릭터 소품 자유롭게 착용",
-      "캐릭터 소품을 골라 캐릭터에 입혀요.",
-      "원할 때마다 바꿔 입을 수 있어요.",
-    ],
+    ["캐릭터 소품 착용", "캐릭터 소품을 골라 캐릭터에 입혀요.", "원할 때마다 바꿔 입을 수 있어요."],
     [
       "프리미엄 타이머 배경",
       "프리미엄 전용 배경으로 공부 타이머 화면을 꾸며요.",
@@ -397,12 +421,12 @@ describe("PremiumFakeDoorHost 기능 설명 시트", () => {
       "잘 된 시간은 늘리고 끊긴 시간은 줄이는 다음 주 계획까지 함께 알려줘요.",
     ],
     [
-      "맞춤 알림",
-      "내 계획과 공부 습관을 보고 필요한 때에만 알려줘요.",
-      "미루기 전에 다시 책상으로 돌아올 수 있어요.",
+      "강력한 앱 잠금",
+      "공부하는 동안 방해 앱을 잠그고, 일찍 풀려면 미션을 끝내야 해요.",
+      "무심코 휴대폰을 집어도 다시 공부로 돌아오게 도와줘요.",
     ],
     [
-      "실시간 그룹 공부 맞춤 매칭",
+      "그룹 공부 맞춤 매칭",
       "내 목표와 공부 시간대에 맞는 사람을 찾아줘요.",
       "같은 목표인 사람들과 자극 받으며 공부할 수 있어요.",
     ],
@@ -419,8 +443,8 @@ describe("PremiumFakeDoorHost 기능 설명 시트", () => {
   it("그룹 매칭 시트는 시간대 연결과 버튼 한 번 참여를 체크 항목으로 보인다", async () => {
     renderHost();
     const user = await openBenefits();
-    await user.click(screen.getByRole("button", { name: /실시간 그룹 공부 맞춤 매칭/ }));
-    const sheet = await screen.findByRole("dialog", { name: "실시간 그룹 공부 맞춤 매칭" });
+    await user.click(screen.getByRole("button", { name: /그룹 공부 맞춤 매칭/ }));
+    const sheet = await screen.findByRole("dialog", { name: "그룹 공부 맞춤 매칭" });
 
     const items = within(sheet)
       .getAllByRole("listitem")

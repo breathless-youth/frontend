@@ -14,14 +14,21 @@ export const PREMIUM_FAKE_DOOR_ENDS_AT_MS = Date.parse("2026-11-30T23:59:59+09:0
 export const PREMIUM_PRICES = [2900, 5900] as const;
 export type PremiumPrice = (typeof PREMIUM_PRICES)[number];
 
+/**
+ * 카드 자리. 서버 계약은 `HOME`도 받지만 홈 카드는 뺐으므로 화면은 늘 `RESULT`를 보낸다.
+ */
 export type PremiumPlacement = "RESULT" | "HOME";
+export const PREMIUM_PLACEMENT: PremiumPlacement = "RESULT";
 
-/** 기대 기능 id. 서버 계약의 `expectedFeature` 값과 같고 화면에 보이는 순서다. */
+/**
+ * 화면에 보이는 기능 id와 순서. 서버 계약의 `expectedFeature` 값과 같다.
+ * 서버는 예전 값 `SMART_NOTIFICATION`도 받지만 화면에서는 뺐고 그 자리에 `APP_LOCK`이 들어왔다.
+ */
 export const PREMIUM_FEATURES = [
   "AI_PLANNER",
   "AI_REPORT",
   "GROUP_MATCHING",
-  "SMART_NOTIFICATION",
+  "APP_LOCK",
   "TIMER_BACKGROUND",
   "CHARACTER_ITEMS",
 ] as const;
@@ -46,11 +53,9 @@ export function assignPremiumPrice(userId: number): PremiumPrice {
 /**
  * 사용자별 노출 기록
  *
- * 홈과 결과 화면은 다른 웹뷰 문서라 기기 저장소로 나눠 본다.
+ * 결과 화면은 세션마다 새로 열리는 문서라 기기 저장소에 둔다.
  */
 export interface PremiumFakeDoorRecord {
-  /** 결과 화면에서 카드를 한 번이라도 보였다. 그 뒤로 홈에는 보이지 않는다. */
-  shownOnResult: boolean;
   dismissed: boolean;
   applied: boolean;
   /** `premium_fake_door_viewed`를 보냈다. 사용자당 한 번만 보낸다. */
@@ -58,14 +63,12 @@ export interface PremiumFakeDoorRecord {
 }
 
 export const EMPTY_PREMIUM_RECORD: PremiumFakeDoorRecord = {
-  shownOnResult: false,
   dismissed: false,
   applied: false,
   viewedSent: false,
 };
 
 export interface PremiumCardContext {
-  placement: PremiumPlacement;
   nowMs: number;
   /** 토큰 출처가 없는 구 앱은 이 API를 부를 수 없어 보이지 않는다. */
   hasTokenSource: boolean;
@@ -76,7 +79,6 @@ export interface PremiumCardContext {
 }
 
 export function canShowPremiumCard({
-  placement,
   nowMs,
   hasTokenSource,
   korean,
@@ -85,8 +87,7 @@ export function canShowPremiumCard({
 }: PremiumCardContext): boolean {
   if (!enabled || nowMs > PREMIUM_FAKE_DOOR_ENDS_AT_MS) return false;
   if (!hasTokenSource || !korean) return false;
-  if (record.dismissed || record.applied) return false;
-  return placement === "RESULT" || !record.shownOnResult;
+  return !record.dismissed && !record.applied;
 }
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;

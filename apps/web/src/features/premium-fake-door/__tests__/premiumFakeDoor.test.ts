@@ -17,7 +17,6 @@ describe("assignPremiumPrice", () => {
 
 describe("canShowPremiumCard", () => {
   const base: PremiumCardContext = {
-    placement: "RESULT",
     nowMs: Date.parse("2026-11-25T12:00:00+09:00"),
     hasTokenSource: true,
     korean: true,
@@ -26,13 +25,6 @@ describe("canShowPremiumCard", () => {
 
   it("결과 화면에는 보인다", () => {
     expect(canShowPremiumCard(base)).toBe(true);
-  });
-
-  it("결과 화면 노출 이력이 있으면 홈에는 숨기고, 없으면 홈에도 보인다", () => {
-    expect(canShowPremiumCard({ ...base, placement: "HOME" })).toBe(true);
-    const shown = { ...EMPTY_PREMIUM_RECORD, shownOnResult: true };
-    expect(canShowPremiumCard({ ...base, placement: "HOME", record: shown })).toBe(false);
-    expect(canShowPremiumCard({ ...base, record: shown })).toBe(true);
   });
 
   it("닫았거나 신청했으면 숨긴다", () => {

@@ -1,8 +1,8 @@
 import {
-  Bell,
   ChartColumn,
   Image as ImageIcon,
   ListChecks,
+  Lock,
   type LucideIcon,
   Shirt,
   Users,
@@ -15,7 +15,7 @@ export const FEATURE_ICONS: Record<PremiumFeature, LucideIcon> = {
   AI_PLANNER: ListChecks,
   AI_REPORT: ChartColumn,
   GROUP_MATCHING: Users,
-  SMART_NOTIFICATION: Bell,
+  APP_LOCK: Lock,
   TIMER_BACKGROUND: ImageIcon,
   CHARACTER_ITEMS: Shirt,
 };
