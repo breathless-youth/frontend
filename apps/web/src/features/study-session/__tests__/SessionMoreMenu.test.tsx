@@ -69,6 +69,19 @@ describe("SessionMoreMenu", () => {
     expect(onOpenTimer).toHaveBeenCalledTimes(1);
   });
 
+  it("알약 버튼 메뉴는 세션 아이콘 결로 그린 카메라 전환·스톱워치·타이머 아이콘을 쓴다", async () => {
+    renderMenu({ variant: "pill", onOpenStopwatch: vi.fn(), onOpenTimer: vi.fn() });
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+
+    const icon = (name: string) => screen.getByRole("menuitem", { name }).querySelector("svg");
+    expect(icon("카메라 전환")).toHaveClass("lucide-camera-rotate");
+    expect(icon("스톱워치")).toHaveClass("lucide-stopwatch");
+    expect(icon("타이머")).toHaveClass("lucide-timer-open");
+    const menu = screen.getByRole("menu");
+    expect(menu.querySelector(".lucide-switch-camera, .lucide-timer, .lucide-clock")).toBeNull();
+  });
+
   it("마스코트 토글을 넘기지 않으면 마스코트 항목이 없다", async () => {
     renderMenu({ mascotVisible: true });
 

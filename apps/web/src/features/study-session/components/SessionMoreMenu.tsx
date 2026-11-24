@@ -1,13 +1,10 @@
 import {
   ArrowLeftRight,
   CircleHelp,
-  Clock,
   Ellipsis,
   Eye,
   EyeOff,
   Share2,
-  SwitchCamera,
-  Timer,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -26,6 +23,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
+
+import { CameraRotate, Stopwatch, TimerOpen } from "./sessionIcons";
 
 const MENU_ITEM_CLASS =
   "h-11 rounded-none px-6 py-0 text-[17px] leading-5.5 font-normal text-white focus:bg-white/10";
@@ -141,16 +140,16 @@ export function SessionMoreMenu({
   if (onFlipCamera) {
     items.push({
       label: t("moreMenu.flipCamera"),
-      icon: SwitchCamera,
+      icon: CameraRotate,
       onSelect: onFlipCamera,
       disabled: flipDisabled,
     });
   }
   if (onOpenStopwatch) {
-    items.push({ label: t("moreMenu.stopwatch"), icon: Timer, onSelect: onOpenStopwatch });
+    items.push({ label: t("moreMenu.stopwatch"), icon: Stopwatch, onSelect: onOpenStopwatch });
   }
   if (onOpenTimer) {
-    items.push({ label: t("moreMenu.timer"), icon: Clock, onSelect: onOpenTimer });
+    items.push({ label: t("moreMenu.timer"), icon: TimerOpen, onSelect: onOpenTimer });
   }
   if (onToggleClockView) {
     items.push({

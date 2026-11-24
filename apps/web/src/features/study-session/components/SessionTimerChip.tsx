@@ -1,9 +1,11 @@
-import { Pause, Play, Timer, X } from "lucide-react";
+import { Pause, Play, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { formatPomodoroRemaining } from "@/features/multi-timer/multiTimerFormat";
 import type { ModeState } from "@/features/multi-timer/multiTimerMachine";
 import { cn } from "@/lib/utils";
+
+import { Stopwatch, TimerOpen } from "./sessionIcons";
 
 // 보이는 원은 작아도 누르는 자리는 44px이 되게 넓힌다.
 const CHIP_BUTTON =
@@ -39,9 +41,10 @@ export function SessionTimerChip({
   const stopwatch = mode.kind === "stopwatch";
   const running = mode.status === "running" && !held;
   const name = stopwatch ? t("timerChip.stopwatch") : t("timerChip.timer");
+  const Icon = stopwatch ? Stopwatch : TimerOpen;
   const label = (
     <>
-      <Timer aria-hidden="true" className="size-4 shrink-0 text-white/70" />
+      <Icon aria-hidden="true" strokeWidth={1.5} className="size-4 shrink-0 text-white/70" />
       <span className="text-sm leading-5 font-medium whitespace-nowrap text-white/70">{name}</span>
     </>
   );
@@ -80,7 +83,9 @@ export function SessionTimerChip({
           })}
         </span>
       )}
-      <span className="flex items-center gap-0.5">
+      {/* 정지와 끄기가 붙어 있으면 무엇이 무엇인지 헷갈려서 세로선으로 나누고 끄기는 흐리게 둔다.
+          간격이 누르는 자리(사방 8px 확장)보다 넓어 두 버튼의 누르는 자리가 겹치지 않는다. */}
+      <span className="flex items-center gap-2">
         <button
           type="button"
           aria-label={running ? t("timerChip.pause") : t("timerChip.resume")}
@@ -93,11 +98,12 @@ export function SessionTimerChip({
             <Play aria-hidden="true" fill="currentColor" strokeWidth={0} className="size-3.5" />
           )}
         </button>
+        <span aria-hidden="true" className="h-4.5 w-px shrink-0 bg-white/18" />
         <button
           type="button"
           aria-label={t("timerChip.off")}
           onClick={onOff}
-          className={CHIP_BUTTON}
+          className={cn(CHIP_BUTTON, "text-white/60")}
         >
           <X aria-hidden="true" strokeWidth={2.2} className="size-3.5" />
         </button>

@@ -155,6 +155,18 @@ describe("RoomPage 추가 타이머·스톱워치 칩", () => {
     expect(within(chip()!).queryByText("타이머")).toBeNull();
   });
 
+  it("스톱워치 칩은 스톱워치 아이콘, 타이머 칩은 타이머 아이콘을 쓴다", async () => {
+    renderRoom();
+    await chooseMenu("스톱워치");
+    expect(chip()!.querySelector(".lucide-stopwatch")).not.toBeNull();
+    expect(chip()!.querySelector(".lucide-timer-open")).toBeNull();
+
+    await chooseMenu("타이머");
+    await userEvent.click(screen.getByRole("button", { name: "30분 시작" }));
+    expect(chip()!.querySelector(".lucide-timer-open")).not.toBeNull();
+    expect(chip()!.querySelector(".lucide-stopwatch")).toBeNull();
+  });
+
   it("돌던 타이머가 있을 때 메뉴로 시트를 열고 취소해도 타이머는 계속 돈다", async () => {
     renderRoom();
     await chooseMenu("타이머");
