@@ -70,9 +70,10 @@
 ## 결과 화면 연결
 
 - RoomPage `goToResult`가 넘기는 state에 `startedAtMs`를 더하고 `readSessions` 검증도 함께 고친다. state에 없으면 `Date.parse(sessions[0].startedAt)`로 찾는다.
-- 자동 스크롤은 카드 묶음이 다 떠오른 뒤 결과 화면의 스크롤 컨테이너(`overflow-y-auto` div)를 카드까지 `behavior: "smooth"`로 내린다.
-- 자동 스크롤 중 화면 어디서든(`window`) `pointerdown`·`wheel`·`keydown`이 오면 그 자리에서 멈춘다.
-- 움직임 줄이기 설정이거나 인트로를 이미 본 경우(`skipIntro`)에는 자동 스크롤하지 않는다.
+- BY-1375 실기기 검증 이후 타임랩스 카드가 준비되면 최대 12px까지 한 번 부드럽게 내린다. 카드 윗부분이 이미 충분히 보이면 건너뛴다.
+- 사용자가 먼저 화면을 조작했거나 움직임 줄이기 설정이 켜져 있거나 인트로를 이미 본 경우에는 자동으로 내리지 않는다.
+- 이동 중 `pointerdown`, `wheel`, `keydown` 입력이 오면 현재 위치에서 멈춘다.
+- 타임랩스가 있을 때 하단의 `타임랩스` 바로가기를 누르면 카드가 있는 위치로 이동한다.
 
 ## 테스트
 
