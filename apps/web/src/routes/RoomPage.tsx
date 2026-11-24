@@ -120,6 +120,10 @@ import { useIdentityPending, useUserId } from "@/lib/userId";
 import type { StudyRoomPhase } from "@/features/study-session/useStudyRoomSession";
 import { useStudyRoomSession } from "@/features/study-session/useStudyRoomSession";
 import { useSessionHelpFunnel } from "@/features/study-session/useSessionHelpFunnel";
+import { canShowSessionBanner } from "@/features/session-banner/sessionBanner";
+import { SessionLineBanner } from "@/features/session-banner/SessionLineBanner";
+import { useBannerExposure } from "@/features/session-banner/useBannerExposure";
+import { useSessionBannerGroup } from "@/features/session-banner/useSessionBannerGroup";
 import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import { resumeDecision } from "@/features/study-session/sessionResume";
 import type { SubjectSelection } from "@/features/study-session/subjectSegments";
@@ -1062,6 +1066,30 @@ function RoomSessionScreen({
   }
 
   const paused = sessionState.kind === "PAUSE";
+  const bannerGroup = useSessionBannerGroup(userId);
+  // 종료 시각은 세션에 들어올 때 한 번 본다.
+  const [bannerCheckedAtMs] = useState(Date.now);
+  // 혜택 화면을 붙이기 전이라 신청 완료 여부는 false로 넘긴다.
+  const bannerVisible = canShowSessionBanner({
+    group: bannerGroup,
+    nowMs: bannerCheckedAtMs,
+    applied: false,
+  });
+  // 배너를 누르면 프리미엄 혜택 화면을 세션 위에 여는 자리이고, 화면 연결은 사전 신청 코드가 들어온 뒤 붙인다.
+  const [bannerTargetOpen, setBannerTargetOpen] = useState(false);
+  const bannerRef = useRef<HTMLDivElement>(null);
+  // 일시정지나 세션을 덮는 화면이 떠 있는 동안은 배너가 보인 시간으로 세지 않는다.
+  const bannerCopy = useBannerExposure({
+    active:
+      bannerVisible &&
+      studying &&
+      !paused &&
+      !helpBlocked &&
+      !helpVisible &&
+      !cameraPromptOpen &&
+      !bannerTargetOpen,
+    target: bannerRef,
+  });
   // 반복 공간 소리는 감독관 소리와 같은 공간 음량을 쓰고, 공부 중이며 멈추지 않은 동안만 낸다.
   // 공부가 끝나거나 공간 파일을 받지 못해 심플로 그리면 공간을 넘기지 않아 재생기를 정리한다.
   // 종료 안내에서 화면을 눌러도 소리 장치가 다시 깨지 않고, 보이지 않는 공간의 소리도 나지 않는다.
@@ -1725,7 +1753,16 @@ function RoomSessionScreen({
 
             {/* 가로에서는 줄을 풀어 두 버튼을 그리드 양 끝 칸에 놓는다.
                 `display: contents` 요소의 role은 Safari에서 사라진 적이 있어 이 줄에는 role을 달지 않는다. */}
-            <div className="relative mt-2 flex w-full justify-between regular:mt-2.5 short-side-lg:mt-3 landscape-compact:contents">
+            {/* 세로 폰은 아래 여백이 8px에 안전 영역을 더한 값이라 안전 영역이 12px 미만이면 배너(16px)와 4px 틈이 들어가지 않는다.
+                그때만 배너를 보는 사용자에게 줄 아래 20px을 더한다.
+                --banner-fit은 안전 영역이 12px 이상이면 1px, 아니면 0이 되는 값이고 clamp로 JS 없이 둘 중 하나를 고른다. */}
+            <div
+              className={cn(
+                "relative mt-2 flex w-full justify-between regular:mt-2.5 short-side-lg:mt-3 landscape-compact:contents",
+                bannerVisible &&
+                  "mb-[calc((1px-var(--banner-fit))*20)] [--banner-fit:clamp(0px,calc((env(safe-area-inset-bottom)-11px)*1000),1px)] regular:mb-0",
+              )}
+            >
               <div
                 inert={moreMenuOpen}
                 className="landscape-compact:col-start-1 landscape-compact:row-start-3 landscape-compact:self-end landscape-compact:justify-self-start"
@@ -1748,20 +1785,30 @@ function RoomSessionScreen({
                 />
               </div>
               {/* 싱글룸 카메라 영상은 기기 밖으로 나가지 않아 세션 내내 같은 문구로 안심시킨다.
+                  세로 폰에서는 그 자리를 배너 실험이 쓰고, 배너를 보는 군에서만 빼면 지표 차이의 원인을 구분할 수 없어 모두에게서 뺀다.
                   줄 기준 절대 위치라 줄 높이와 버튼·시계 자리가 바뀌지 않는다.
-                  세로에서는 문구 위 끝을 버튼 아래 끝에 맞춰 레이어 아래 여백에 둔다.
-                  폰은 아래 여백이 8px에 안전 영역을 더한 값이라 안전 영역이 12px 미만이면 문구(16px)와 4px 틈이 들어가지 않는다.
-                  그때는 두 버튼 사이에 아래 끝을 일시정지 버튼에 맞춰 두고, 폭이 모자라면 위로 줄을 늘린다.
-                  --caption-drop은 안전 영역이 12px 이상이면 1px, 아니면 0이 되는 값이고 clamp로 JS 없이 둘 중 하나를 고른다.
                   태블릿은 아래 여백(24px, 27px)이 문구 줄 높이(20px, 24px)보다 늘 커서 버튼 아래에 고정한다.
                   가로에서는 화면 위 가운데에 두고 한 줄 중심을 더보기 버튼 중심보다 16px 위에 맞춘다.
                   위 끝 기준으로 두어 줄이 늘어도 아래로만 자라 안전 영역 위로 넘어가지 않는다.
                   가로의 좌우 184px은 작은 카메라 창 오른쪽 끝(16px + 160px)에서 8px 더 띄운 값이라 창과 더보기 버튼에 닿지 않는다.
                   비회원 안내가 뜨는 동안에는 그 안내만 보인다. */}
               {cameraOn && userId !== null && (
-                <p className="absolute inset-x-[calc(68px-var(--caption-drop)*68)] bottom-[calc(var(--caption-drop)*-16)] text-center text-[12px] leading-4 text-balance text-white/55 [--caption-drop:clamp(0px,calc((env(safe-area-inset-bottom)-11px)*1000),1px)] regular:inset-x-0 regular:-bottom-5 regular:text-[15px] regular:leading-5 short-side-lg:-bottom-6 short-side-lg:text-[18px] short-side-lg:leading-6 landscape-compact:inset-x-[calc(max(env(safe-area-inset-left),env(safe-area-inset-right))+184px)] landscape-compact:top-[calc(env(safe-area-inset-top)+12px)] landscape-compact:bottom-auto">
+                <p className="absolute hidden text-center text-[12px] leading-4 text-balance text-white/55 regular:inset-x-0 regular:-bottom-5 regular:block regular:text-[15px] regular:leading-5 short-side-lg:-bottom-6 short-side-lg:text-[18px] short-side-lg:leading-6 landscape-compact:inset-x-[calc(max(env(safe-area-inset-left),env(safe-area-inset-right))+184px)] landscape-compact:top-[calc(env(safe-area-inset-top)+12px)] landscape-compact:bottom-auto landscape-compact:block">
                   {t("cameraPrompt.notice")}
                 </p>
+              )}
+              {/* 배너 위 끝은 버튼 아래 끝에 맞춘다.
+                  누르는 영역은 44px이 되도록 위로 넓혀 두 버튼 사이를 쓰고, 좌우 68px은 버튼 지름 60px에서 8px 더 띄운 값이라 버튼과 겹치지 않는다.
+                  가로 화면과 태블릿에서는 CSS로 숨기고, 숨은 동안은 노출 시간에 넣지 않는다.
+                  버튼 줄의 원형 버튼과 달리 앱 부품으로 바꿔 그리지 않는 웹 요소다. */}
+              {bannerVisible && (
+                <div
+                  ref={bannerRef}
+                  inert={moreMenuOpen}
+                  className="absolute inset-x-[68px] -bottom-4 h-11 regular:hidden landscape-compact:hidden"
+                >
+                  <SessionLineBanner copy={bannerCopy} onOpen={() => setBannerTargetOpen(true)} />
+                </div>
               )}
               {/* 심플 모드에서도 공부를 바로 끝낼 수 있게 종료 버튼은 남긴다. */}
               <div

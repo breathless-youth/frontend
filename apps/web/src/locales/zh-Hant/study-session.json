@@ -211,5 +211,11 @@
     "removeFailed": "無法刪除照片，請再試一次",
     "photoLoadFailed": "無法載入照片",
     "previewFailed": "無法載入空間"
+  },
+  "banner": {
+    "ad": "AD",
+    "copy1": "讓 AI 幫你安排今天的待辦",
+    "copy2": "領取本週專注報告",
+    "copy3": "進階版預先登記開放中"
   }
 }

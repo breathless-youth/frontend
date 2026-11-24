@@ -216,5 +216,11 @@
     "removeFailed": "Couldn't delete the photo. Try again",
     "photoLoadFailed": "Couldn't load photos",
     "previewFailed": "Couldn't load this space"
+  },
+  "banner": {
+    "ad": "AD",
+    "copy1": "Let AI plan your day",
+    "copy2": "Get your weekly focus report",
+    "copy3": "Premium pre-registration is open"
   }
 }
