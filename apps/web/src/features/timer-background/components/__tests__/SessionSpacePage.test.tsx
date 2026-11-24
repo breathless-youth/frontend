@@ -97,15 +97,16 @@ beforeEach(() => {
 });
 
 describe("SessionSpacePage", () => {
-  it("영상 탭으로 열리고 서버 목록의 감독 공간 타일과 전체·감독 칩을 보이며 칩과 겹치는 섹션 제목은 없다", async () => {
+  it("영상 탭으로 열리고 서버 목록의 감독 공간 타일과 전체·다이나믹 칩을 보이며 감독 칩도, 칩과 겹치는 섹션 제목도 없다", async () => {
     renderPage();
 
     expect(screen.getByRole("dialog", { name: "공간" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "영상", selected: true })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "독서실 감독관" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "전체", pressed: true })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "감독", pressed: false })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "감독" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "다이나믹", pressed: false })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "감독" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "다이나믹" })).not.toBeInTheDocument();
   });
 
   it("가로에서도 대화상자 이름과 제목이 하나씩이고 탭이 자기 목록을 가리키며 칩과 볼륨이 보인다", async () => {
@@ -318,8 +319,9 @@ describe("SessionSpacePage", () => {
     ).toHaveAttribute("src", "/spaces/loop/1a2b3c4d/thumb.webp");
   });
 
-  it("영상 탭은 섹션 제목 없이 감독, 서버 분류, 분류 없는 반복 영상 순서이고 칩을 고르면 그 분류만 남는다", async () => {
+  it("영상 탭은 섹션 제목 없이 서버 분류 순서이고 분류 없는 반복 영상이 맨 뒤이며 칩을 고르면 그 분류만 남는다", async () => {
     shop.items = [
+      shopSpace(),
       shopSpace({
         id: 50,
         code: "SPACE_PLAIN",
@@ -328,7 +330,6 @@ describe("SessionSpacePage", () => {
         videoMode: "LOOP",
       }),
       RAIN_ITEM,
-      shopSpace(),
     ];
     renderPage();
     await screen.findByRole("button", { name: "독서실 감독관" });
@@ -464,12 +465,12 @@ describe("SessionSpacePage", () => {
   it("칩을 고른 채 적용하면 분류에 그 칩 코드를 싣는다", async () => {
     renderPage();
 
-    await userEvent.click(await screen.findByRole("button", { name: "감독" }));
+    await userEvent.click(await screen.findByRole("button", { name: "다이나믹" }));
     await userEvent.click(screen.getByRole("button", { name: "독서실 감독관" }));
 
     await vi.waitFor(() =>
       expect(trackTimerBackgroundApplied).toHaveBeenCalledWith(
-        expect.objectContaining({ category: "watch" }),
+        expect.objectContaining({ category: "DYNAMIC" }),
       ),
     );
   });

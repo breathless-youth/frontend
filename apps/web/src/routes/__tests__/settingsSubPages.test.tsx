@@ -41,6 +41,46 @@ afterEach(() => {
   Reflect.deleteProperty(window.history, "length");
 });
 
+describe("약관 개정 안내", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("시행 전에는 개정 안내와 바뀌는 약관 보기 버튼을 보이고 외부 링크는 없다", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-12-23T23:59:59.999+09:00"));
+    const { container } = renderAt("/terms");
+
+    expect(await screen.findByText("2026년 12월 24일부터 바뀌어요")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "바뀌는 약관 보기" })).toBeInTheDocument();
+    expect(container.querySelector('a[href*="focusmakers.app/notice"]')).toBeNull();
+  });
+
+  it("버튼을 누르면 12월 24일 판을 보이고 다시 누르면 지금 판으로 돌아온다", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-12-23T23:59:59.999+09:00"));
+    renderAt("/terms");
+
+    fireEvent.click(await screen.findByRole("button", { name: "바뀌는 약관 보기" }));
+    expect(screen.getByText("제12조 (광고)")).toBeInTheDocument();
+    expect(screen.getByText("시행일: 2026년 12월 24일")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "지금 약관 보기" }));
+    expect(screen.getByText("제12조 (보상형 광고)")).toBeInTheDocument();
+    expect(screen.getByText("시행일: 2026년 11월 23일")).toBeInTheDocument();
+  });
+
+  it("시행 후에는 개정 안내와 버튼을 보이지 않는다", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-12-24T00:00:00+09:00"));
+    renderAt("/terms");
+
+    expect(await screen.findByText("시행일: 2026년 12월 24일")).toBeInTheDocument();
+    expect(screen.queryByText("2026년 12월 24일부터 바뀌어요")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "바뀌는 약관 보기" })).not.toBeInTheDocument();
+  });
+});
+
 describe("설정 하위 라우트", () => {
   it("/terms 가 이용약관 본문을 렌더하고 제목은 상단 바의 h1 하나다", async () => {
     renderAt("/terms");

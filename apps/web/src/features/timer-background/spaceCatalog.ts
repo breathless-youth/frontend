@@ -16,9 +16,6 @@ export interface SpaceSection {
   readonly spaces: readonly CatalogSpace[];
 }
 
-/** 감독 칩과 섹션의 코드. 서버 분류가 아니라 영상 방식으로 만든다. */
-export const WATCH_CHIP = "watch";
-
 /** 사진은 사진마다, 서버 공간은 상품마다 다른 공간이라 id까지 묶어 비교한다. */
 export function spaceKey(selection: TimerBackgroundSelection): string {
   if (selection.kind === "photo") return `photo:${selection.photoId}`;
@@ -30,7 +27,6 @@ export function spaceKey(selection: TimerBackgroundSelection): string {
  * 범위 안 공간에 붙은 분류
  *
  * 처음 나온 순서대로 한 번씩 모은다.
- * 감시 안을 다시 나누는 칩 줄이 필요해지면 감시 공간에 이 함수를 한 번 더 쓴다.
  */
 // ponytail: 공간 사이 분류 순서는 처음 나온 순서가 이긴다. 서버가 분류 순서 값을 주면 그 값으로 정렬한다.
 export function collectTags(spaces: readonly CatalogSpace[]): ShopTagResponse[] {
@@ -55,19 +51,11 @@ function tagSections(spaces: readonly CatalogSpace[]): SpaceSection[] {
 /**
  * 영상 탭 섹션
  *
- * 감시 공간을 모은 감독 섹션이 먼저이고 반복 영상의 분류 섹션이 서버 순서로 뒤에 온다.
- * 감시 공간은 분류가 붙어도 감독 섹션에만 둔다.
+ * 감시 공간도 반복 영상과 같이 서버 분류로 묶는다.
+ * 감독관과 비집중 장면이 있는 공간은 서버가 다이나믹 분류로 함께 보낸다(BY-1390).
  */
-export function videoSections(spaces: readonly CatalogSpace[], watchTitle: string): SpaceSection[] {
-  const videos = spaces.filter((space) => space.selection.assetType === "VIDEO");
-  return [
-    {
-      code: WATCH_CHIP,
-      title: watchTitle,
-      spaces: videos.filter((space) => space.selection.videoMode === "WATCH"),
-    },
-    ...tagSections(videos.filter((space) => space.selection.videoMode !== "WATCH")),
-  ].filter((section) => section.spaces.length > 0);
+export function videoSections(spaces: readonly CatalogSpace[]): SpaceSection[] {
+  return tagSections(spaces.filter((space) => space.selection.assetType === "VIDEO"));
 }
 
 /** 이미지 탭의 서버 공간 섹션. 내 사진과 심플은 페이지가 따로 그린다. */

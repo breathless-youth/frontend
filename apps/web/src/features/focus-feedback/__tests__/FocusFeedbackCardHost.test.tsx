@@ -21,7 +21,7 @@ vi.mock("@/lib/amplitude", async (o) => ({ ...(await o<typeof Amplitude>()), ...
 
 const NOW = Date.UTC(2026, 9, 31, 3, 0, 0);
 const HOUR_MS = 60 * 60 * 1000;
-const QUESTION = "이번 공부에서 앱이 집중에 어떤 영향을 줬나요?";
+const QUESTION = "공부하는 동안 앱이 집중에 어떤 영향을 줬나요?";
 
 function renderHost({
   studySec = 1800,
@@ -109,7 +109,7 @@ describe("FocusFeedbackCardHost — 응답", () => {
     fireEvent.click(screen.getByRole("button", { name: "도움이 됐어요" }));
 
     const comment = screen.getByRole("textbox", {
-      name: "공부하는 동안 어떤 순간에 그렇게 느꼈나요?",
+      name: "어떤 순간에 그렇게 느꼈나요?",
     });
     expect(comment).toHaveClass("amp-block", "sentry-block");
     expect(comment).toHaveAccessibleDescription("의견을 남겨 주시면 서비스 개선에 도움이 돼요.");
@@ -156,7 +156,7 @@ describe("FocusFeedbackCardHost — 응답", () => {
     fireEvent.click(screen.getByRole("button", { name: "도움이 됐어요" }));
 
     const comment = screen.getByRole("textbox", {
-      name: "공부하는 동안 어떤 순간에 그렇게 느꼈나요?",
+      name: "어떤 순간에 그렇게 느꼈나요?",
     });
     const send = screen.getByRole("button", { name: "보내기" });
     fireEvent.change(comment, { target: { value: "  " } });

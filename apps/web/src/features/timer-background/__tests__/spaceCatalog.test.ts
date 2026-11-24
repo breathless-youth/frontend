@@ -34,11 +34,10 @@ describe("spaceKey", () => {
 });
 
 describe("videoSections", () => {
-  it("감독이 먼저이고 분류 섹션이 서버 순서로, 분류 없는 반복 영상이 맨 아래 제목 없이 온다", () => {
-    const sections = videoSections([plain, rain, watch, desk], "감독");
+  it("분류 섹션이 서버 순서로 오고 분류 없는 영상이 맨 아래 제목 없이 오며 감독 섹션은 따로 없다", () => {
+    const sections = videoSections([plain, rain, watch, desk]);
 
     expect(sections.map((s) => [s.code, s.title])).toEqual([
-      ["watch", "감독"],
       ["NATURE", "자연"],
       ["RAIN", "비"],
       ["", null],
@@ -46,14 +45,24 @@ describe("videoSections", () => {
     expect(sections.flatMap((s) => s.spaces)).not.toContain(desk);
   });
 
-  it("감시 공간에 분류가 붙어도 감독 섹션에만 들어간다", () => {
-    const nature = videoSections([watch, rain], "감독").find((s) => s.code === "NATURE");
+  it("감시 공간도 분류가 붙으면 반복 공간과 같은 분류 섹션에 들어간다", () => {
+    const nature = videoSections([watch, rain]).find((s) => s.code === "NATURE");
 
-    expect(nature?.spaces).toEqual([rain]);
+    expect(nature?.spaces).toEqual([watch, rain]);
+  });
+
+  it("분류가 없는 감시 공간은 맨 아래 제목 없는 묶음에 들어간다", () => {
+    const untagged = space(6, { videoMode: "WATCH" });
+
+    expect(videoSections([untagged, rain]).at(-1)).toEqual({
+      code: "",
+      title: null,
+      spaces: [untagged],
+    });
   });
 
   it("분류가 여러 개인 공간은 섹션마다 들어간다", () => {
-    const sections = videoSections([rain], "감독");
+    const sections = videoSections([rain]);
 
     expect(sections.filter((s) => s.spaces.includes(rain)).map((s) => s.code)).toEqual([
       "NATURE",

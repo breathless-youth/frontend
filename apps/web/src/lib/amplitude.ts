@@ -1423,7 +1423,7 @@ export function trackSessionSpacePreviewOpened(input: {
  *
  * `kind`가 소스마다 다른 값이라 어떤 소스를 골랐는지 이것으로 구분하고, 내 사진은 몇 번째인지 나누지 않는다.
  * `source`는 타일을 바로 눌렀는지(tile), 미리보기의 `적용하기`인지(preview)다.
- * `category`는 고른 칩 코드다. 전체는 all, 감독은 watch, 나머지는 서버 분류 코드다.
+ * `category`는 고른 칩 코드다. 전체는 all, 나머지는 서버 분류 코드다(2026-11-24 BY-1391 전에는 감독 칩이 watch였다).
  * 서버 공간이면 `item_code`로 묶어 많이 적용된 공간 순위를 본다.
  */
 export function trackTimerBackgroundApplied(input: {
@@ -2709,4 +2709,129 @@ export function trackPointsClaimed(claim: {
 }) {
   if (!initialized) return;
   track("points_claimed", { kind: claim.kind, points: claim.points });
+}
+
+/** 프리미엄 사전 신청 실험의 카드 자리. lib가 features를 참조하지 않도록 같은 리터럴을 여기 둔다. */
+export type PremiumFakeDoorPlacement = "RESULT" | "HOME" | "SESSION";
+
+/**
+ * 프리미엄 사전 신청 실험(BY-1392) 이벤트에 늘 싣는 속성
+ *
+ * 이메일과 자유 문자열은 어떤 이벤트에도 싣지 않는다. 속성은 이 타입의 값뿐이다.
+ */
+export interface PremiumFakeDoorEventBase {
+  readonly price: 2900 | 5900;
+  readonly placement: PremiumFakeDoorPlacement;
+}
+
+/** 화면에 보이는 기능 id. 서버 계약의 `expectedFeature` 값과 같다(서버가 받는 `SMART_NOTIFICATION`, `APP_LOCK`은 화면에서 뺐다). */
+export type PremiumFakeDoorFeature =
+  | "AI_PLANNER"
+  | "AI_REPORT"
+  | "GROUP_MATCHING"
+  | "PHONE_CALL"
+  | "TIMER_BACKGROUND"
+  | "CHARACTER_ITEMS";
+
+/** 카드 노출(사용자당 한 번), X로 닫기, 혜택 화면 진입 */
+export function trackPremiumFakeDoor(
+  action: "viewed" | "dismissed" | "opened",
+  base: PremiumFakeDoorEventBase,
+) {
+  if (!initialized) return;
+  track(`premium_fake_door_${action}`, { price: base.price, placement: base.placement });
+}
+
+/** "사전 신청하기"를 누른 순간. `from`은 혜택 화면 아래 버튼인지 기능 설명 시트의 버튼인지다. */
+export function trackPremiumFakeDoorApplyClicked(
+  base: PremiumFakeDoorEventBase,
+  from: "benefits" | "sheet",
+) {
+  if (!initialized) return;
+  track("premium_fake_door_apply_clicked", {
+    price: base.price,
+    placement: base.placement,
+    from,
+  });
+}
+
+/** 혜택 화면에서 기능 타일을 눌러 설명 시트를 연 순간. 열 때마다 보낸다. */
+export function trackPremiumFakeDoorFeatureViewed(
+  base: PremiumFakeDoorEventBase,
+  feature: PremiumFakeDoorFeature,
+) {
+  if (!initialized) return;
+  track("premium_fake_door_feature_viewed", {
+    price: base.price,
+    placement: base.placement,
+    feature,
+  });
+}
+
+/** 서버가 신청을 저장한(204) 뒤에만 보낸다. */
+export function trackPremiumFakeDoorApplied(
+  base: PremiumFakeDoorEventBase,
+  ageGroup: "over14" | "under14",
+) {
+  if (!initialized) return;
+  track("premium_fake_door_applied", {
+    price: base.price,
+    placement: base.placement,
+    age_group: ageGroup,
+  });
+}
+
+/** 완료 화면에서 가장 기대되는 기능을 고른 순간. feature는 서버 계약의 기능 id다. */
+export function trackPremiumFakeDoorFeatureSelected(
+  base: PremiumFakeDoorEventBase,
+  feature: PremiumFakeDoorFeature,
+) {
+  if (!initialized) return;
+  track("premium_fake_door_feature_selected", {
+    price: base.price,
+    placement: base.placement,
+    feature,
+  });
+}
+
+/** 배정된 가격을 사용자 속성으로 한 번 남긴다. 가격은 사용자 번호로 고정이라 바뀌지 않는다. */
+export function setPremiumFakeDoorPriceUserProperty(price: 2900 | 5900) {
+  if (!initialized) return;
+  const id = new Identify();
+  id.setOnce("premium_fd_price", price);
+  identify(id);
+}
+
+/** 세션 한 줄 배너 실험군. lib가 features를 참조하지 않도록 같은 리터럴을 여기 둔다. */
+export type SessionBannerGroupProperty = "exposed" | "control" | "not_eligible";
+
+/** 배너 문구 번호. 문구 글자는 싣지 않는다. */
+export type SessionBannerCopyId = 1 | 2 | 3;
+
+/** 처음 판정한 실험군을 사용자 속성으로 한 번 남긴다. 실험 기간 동안 다시 판정하지 않는다. */
+export function setSessionBannerGroupUserProperty(group: SessionBannerGroupProperty) {
+  if (!initialized) return;
+  const id = new Identify();
+  id.setOnce("session_banner_group", group);
+  identify(id);
+}
+
+/** 세션에서 배너가 처음 보였을 때 한 번 */
+export function trackSessionBannerShown(input: { copy: SessionBannerCopyId }) {
+  if (!initialized) return;
+  track("session_banner_shown", { copy: input.copy });
+}
+
+/** 배너가 보인 시간이 5분 쌓일 때마다. `sequence`는 그 세션에서 1부터 센다. */
+export function trackSessionBannerImpression(input: {
+  copy: SessionBannerCopyId;
+  sequence: number;
+}) {
+  if (!initialized) return;
+  track("session_banner_impression", { copy: input.copy, sequence: input.sequence });
+}
+
+export function trackSessionBannerClicked(input: { copy: SessionBannerCopyId }) {
+  if (!initialized) return;
+  track("session_banner_clicked", { copy: input.copy });
 }

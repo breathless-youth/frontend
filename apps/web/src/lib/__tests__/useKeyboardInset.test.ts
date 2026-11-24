@@ -72,4 +72,16 @@ describe("useKeyboardInset", () => {
     fakeViewport(538);
     expect(renderHook(() => useKeyboardInset()).result.current).toBe(336);
   });
+
+  it("문서가 함께 밀려 올라간 거리는 키보드 높이에서 빼지 않는다", () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(ANDROID_WEBVIEW_UA);
+    const viewport = fakeViewport(478, 145) as ReturnType<typeof fakeViewport> & {
+      pageTop: number;
+    };
+    viewport.pageTop = 145;
+    vi.stubGlobal("innerHeight", 729);
+    vi.stubGlobal("scrollY", 145);
+    const { result } = renderHook(() => useKeyboardInset());
+    expect(result.current).toBe(251);
+  });
 });

@@ -188,7 +188,6 @@
     "searchClear": "검색어 지우기",
     "all": "전체",
     "sections": {
-      "watch": "감독",
       "mine": "내 사진"
     },
     "names": {
@@ -212,5 +211,11 @@
     "removeFailed": "사진을 삭제하지 못했어요. 다시 시도해 주세요",
     "photoLoadFailed": "사진을 불러오지 못했어요",
     "previewFailed": "공간을 불러오지 못했어요"
+  },
+  "banner": {
+    "ad": "AD",
+    "copy1": "AI가 오늘 할 일을 짜 드려요",
+    "copy2": "이번 주 집중 리포트 받아 보기",
+    "copy3": "프리미엄 사전 신청 받는 중"
   }
 }
