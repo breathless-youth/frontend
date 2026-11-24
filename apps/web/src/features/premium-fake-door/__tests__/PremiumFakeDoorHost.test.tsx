@@ -242,6 +242,13 @@ describe("PremiumFakeDoorHost 기대 기능", () => {
     await waitFor(() => expect(putPremiumWaitlist).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(radio).toBeEnabled());
     expect(analytics.trackPremiumFakeDoorFeatureSelected).not.toHaveBeenCalled();
+
+    // 실패한 선택은 풀어 둬야 같은 기능을 다시 눌러 재시도할 수 있다.
+    expect(radio).not.toBeChecked();
+    await user.click(radio);
+    await waitFor(() => expect(putPremiumWaitlist).toHaveBeenCalledTimes(3));
+    expect(await screen.findByText("답변해 주셔서 감사합니다!")).toBeInTheDocument();
+    expect(analytics.trackPremiumFakeDoorFeatureSelected).toHaveBeenCalledTimes(1);
   });
 });
 

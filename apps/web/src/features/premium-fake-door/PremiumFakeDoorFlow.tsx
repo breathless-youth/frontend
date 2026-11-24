@@ -82,6 +82,7 @@ export function PremiumFakeDoorFlow({
   const sheetTileRef = useRef<HTMLElement | null>(null);
   const submitInFlight = useRef(false);
   const pickInFlight = useRef(false);
+  const savedPick = useRef<PremiumFeature | null>(null);
   const base = { price, placement };
 
   useBackDismiss(true, onClose);
@@ -159,9 +160,12 @@ export function PremiumFakeDoorFlow({
       await putPremiumWaitlist({ ...applied, expectedFeature: feature });
       // 저장이 된 선택만 센다. 실패 뒤 다시 누를 때마다 세면 기능 분포가 부푼다.
       trackPremiumFakeDoorFeatureSelected(base, feature);
+      savedPick.current = feature;
       setPickState("saved");
     } catch (error) {
       console.warn("[premium-fake-door] failed to save the expected feature", error);
+      // 화면 선택을 서버에 저장된 값으로 돌린다. 그래야 같은 기능을 다시 눌러 재시도할 수 있다.
+      setPicked(savedPick.current);
       setPickState("failed");
     } finally {
       pickInFlight.current = false;
