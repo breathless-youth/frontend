@@ -177,7 +177,7 @@ export function PremiumFakeDoorFlow({
     benefits: t("benefits.cta"),
     age: ageOver14 ? t("age.next") : t("age.applyByApp"),
     email: t("email.submit"),
-    done: t("done.backToResult"),
+    done: placement === "SESSION" ? t("done.backToStudy") : t("done.backToResult"),
   }[step];
 
   function handlePrimary() {

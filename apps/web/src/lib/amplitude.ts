@@ -2712,7 +2712,7 @@ export function trackPointsClaimed(claim: {
 }
 
 /** 프리미엄 사전 신청 실험의 카드 자리. lib가 features를 참조하지 않도록 같은 리터럴을 여기 둔다. */
-export type PremiumFakeDoorPlacement = "RESULT" | "HOME";
+export type PremiumFakeDoorPlacement = "RESULT" | "HOME" | "SESSION";
 
 /**
  * 프리미엄 사전 신청 실험(BY-1392) 이벤트에 늘 싣는 속성
@@ -2800,4 +2800,38 @@ export function setPremiumFakeDoorPriceUserProperty(price: 2900 | 5900) {
   const id = new Identify();
   id.setOnce("premium_fd_price", price);
   identify(id);
+}
+
+/** 세션 한 줄 배너 실험군. lib가 features를 참조하지 않도록 같은 리터럴을 여기 둔다. */
+export type SessionBannerGroupProperty = "exposed" | "control" | "not_eligible";
+
+/** 배너 문구 번호. 문구 글자는 싣지 않는다. */
+export type SessionBannerCopyId = 1 | 2 | 3;
+
+/** 처음 판정한 실험군을 사용자 속성으로 한 번 남긴다. 실험 기간 동안 다시 판정하지 않는다. */
+export function setSessionBannerGroupUserProperty(group: SessionBannerGroupProperty) {
+  if (!initialized) return;
+  const id = new Identify();
+  id.setOnce("session_banner_group", group);
+  identify(id);
+}
+
+/** 세션에서 배너가 처음 보였을 때 한 번 */
+export function trackSessionBannerShown(input: { copy: SessionBannerCopyId }) {
+  if (!initialized) return;
+  track("session_banner_shown", { copy: input.copy });
+}
+
+/** 배너가 보인 시간이 5분 쌓일 때마다. `sequence`는 그 세션에서 1부터 센다. */
+export function trackSessionBannerImpression(input: {
+  copy: SessionBannerCopyId;
+  sequence: number;
+}) {
+  if (!initialized) return;
+  track("session_banner_impression", { copy: input.copy, sequence: input.sequence });
+}
+
+export function trackSessionBannerClicked(input: { copy: SessionBannerCopyId }) {
+  if (!initialized) return;
+  track("session_banner_clicked", { copy: input.copy });
 }

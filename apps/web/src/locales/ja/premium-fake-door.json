@@ -141,7 +141,8 @@
     "question": "一番楽しみな機能はどれですか？",
     "thanks": "ご回答いただきありがとうございます！",
     "pickFailed": "回答を保存できませんでした。もう一度選んでください。",
-    "backToResult": "結果に戻る"
+    "backToResult": "結果に戻る",
+    "backToStudy": "勉強に戻る"
   },
   "sheet": {
     "tag": "リリース準備中",
