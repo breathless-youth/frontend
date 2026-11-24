@@ -1,0 +1,151 @@
+{
+  "price": "{{amount, number}} KRW/month",
+  "card": {
+    "title": "Pre-register for premium features",
+    "summary": "6 features · {{price}}",
+    "open": "View premium feature pre-registration",
+    "dismiss": "Close premium features notice",
+    "dismissed": "You won't see this notice again"
+  },
+  "features": {
+    "AI_PLANNER": {
+      "name": "AI plan assistant",
+      "hook": "Set a goal and a deadline, and the assistant plans your pace",
+      "description": [
+        "Tell it your target exam, the time left and what to cover, and it recommends how far to go each day, with a progress rate and study range.",
+        "It keeps refining the plan to fit your goal and pace."
+      ],
+      "bullets": [
+        "Recommends a daily study range and progress rate for your goal and deadline",
+        "Say \"3 math chapters left before finals\" and it splits them by day",
+        "Miss a day and it reworks the plan around the days left"
+      ]
+    },
+    "AI_REPORT": {
+      "name": "AI focus report",
+      "hook": "When you sat for hours but nothing stuck",
+      "description": [
+        "Get a weekly report that looks back on your study.",
+        "It also suggests next week's plan to do more of what worked and less of what broke your focus."
+      ],
+      "bullets": [
+        "See at a glance which days and times you focus best",
+        "Points out the times and subjects where you often broke off",
+        "Suggests when to place hard subjects in next week's plan"
+      ]
+    },
+    "GROUP_MATCHING": {
+      "name": "Live group study matching",
+      "hook": "When you keep slacking off alone",
+      "description": [
+        "It finds people who match your goal and study hours.",
+        "Study alongside people with the same goal and keep each other motivated."
+      ],
+      "bullets": [
+        "Pick a goal like TOEIC, civil service or college entrance and we'll match a room",
+        "Connects you with people who study at your usual time, like mornings or nights",
+        "No need to find or create a room. One tap and you're studying together"
+      ]
+    },
+    "SMART_NOTIFICATION": {
+      "name": "Smart reminders",
+      "hook": "Before a short break turns into an hour",
+      "description": [
+        "It looks at your plan and study habits and reminds you only when needed.",
+        "Get back to your desk before you put it off."
+      ],
+      "bullets": [
+        "Reminds you when your planned start time comes",
+        "Gently calls you back when a break runs long",
+        "Tells you what's left and how long it takes, like \"2 vocab sets left. 30 minutes to go\""
+      ]
+    },
+    "TIMER_BACKGROUND": {
+      "name": "Premium timer backgrounds",
+      "hook": "A screen you'll want to stay with",
+      "description": [
+        "Decorate your study timer with premium-only backgrounds.",
+        "Pick one that fits your mood and start studying."
+      ],
+      "bullets": [
+        "Choose backgrounds with different moods, like a café, a library or a late-night desk",
+        "Set a background for each subject and switch into study mode the moment you sit down"
+      ]
+    },
+    "CHARACTER_ITEMS": {
+      "name": "Wear any character item",
+      "note": "Sets excluded",
+      "hook": "Dress your character your way",
+      "description": [
+        "Pick character items and dress up your character.",
+        "Change outfits whenever you like."
+      ],
+      "bullets": [
+        "Pick a hat, an outfit and an accessory and wear them all together",
+        "Make even the same character your own with your own combination"
+      ]
+    }
+  },
+  "billing": "Pre-registering doesn't charge you.",
+  "benefits": {
+    "dialog": "Premium features",
+    "title": "Premium features",
+    "cta": "Pre-register",
+    "tapHint": "Tap a feature to see more details."
+  },
+  "apply": {
+    "header": "Pre-register",
+    "step": "{{current}}/{{total}}"
+  },
+  "age": {
+    "dialog": "Age check",
+    "title": "Are you 14 or older?",
+    "sub": "If you're under 14, we'll notify you in the app without an email.",
+    "check": "I'm 14 or older",
+    "next": "Next",
+    "applyByApp": "Sign up for app notifications"
+  },
+  "email": {
+    "dialog": "Email",
+    "title": "Where should we send the launch news?",
+    "label": "Email",
+    "placeholder": "example@email.com",
+    "consent": "[Required] Consent to collection and use of personal information",
+    "consentLine": "We only use your email for the launch notice and delete it right after sending.",
+    "details": "View details",
+    "terms": {
+      "itemLabel": "Collected",
+      "item": "Email",
+      "purposeLabel": "Purpose",
+      "purpose": "Premium feature launch notice",
+      "periodLabel": "Retention",
+      "period": "Deleted right after the notice is sent. If we don't launch, deleted within 6 months after the experiment ends.",
+      "refuseLabel": "Refusal",
+      "refuse": "You may refuse, but then you can't pre-register."
+    },
+    "submit": "Pre-register",
+    "errors": {
+      "required": "Please enter your email.",
+      "format": "Please check your email format.",
+      "consent": "You need to agree to the collection and use of personal information to sign up."
+    }
+  },
+  "submitFailed": "We couldn't sign you up. Please try again.",
+  "done": {
+    "dialog": "Pre-registration complete",
+    "title": "{{nickname}}, you're pre-registered",
+    "titleNoName": "You're pre-registered",
+    "sub": "You'll be the first to hear about the launch.",
+    "byEmail": "We'll send the notice to {{email}}.",
+    "byApp": "We'll let you know in the app when it launches.",
+    "question": "Which feature are you most looking forward to?",
+    "thanks": "Thank you for your answer!",
+    "pickFailed": "We couldn't save your answer. Please choose again.",
+    "backToResult": "Back to results",
+    "backToHome": "Back to home"
+  },
+  "sheet": {
+    "tag": "Coming soon",
+    "close": "Close"
+  }
+}

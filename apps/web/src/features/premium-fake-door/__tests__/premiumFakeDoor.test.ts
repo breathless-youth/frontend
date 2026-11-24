@@ -1,0 +1,61 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  assignPremiumPrice,
+  canShowPremiumCard,
+  EMPTY_PREMIUM_RECORD,
+  type PremiumCardContext,
+} from "../premiumFakeDoor";
+
+describe("assignPremiumPrice", () => {
+  it("같은 사용자는 늘 같은 가격이고, 여러 사용자에서 두 가격이 모두 나온다", () => {
+    expect(assignPremiumPrice(1234)).toBe(assignPremiumPrice(1234));
+    const prices = new Set(Array.from({ length: 50 }, (_, i) => assignPremiumPrice(i + 1)));
+    expect(prices).toEqual(new Set([2900, 5900]));
+  });
+});
+
+describe("canShowPremiumCard", () => {
+  const base: PremiumCardContext = {
+    placement: "RESULT",
+    nowMs: Date.parse("2026-11-25T12:00:00+09:00"),
+    hasTokenSource: true,
+    korean: true,
+    record: EMPTY_PREMIUM_RECORD,
+  };
+
+  it("결과 화면에는 보인다", () => {
+    expect(canShowPremiumCard(base)).toBe(true);
+  });
+
+  it("결과 화면 노출 이력이 있으면 홈에는 숨기고, 없으면 홈에도 보인다", () => {
+    expect(canShowPremiumCard({ ...base, placement: "HOME" })).toBe(true);
+    const shown = { ...EMPTY_PREMIUM_RECORD, shownOnResult: true };
+    expect(canShowPremiumCard({ ...base, placement: "HOME", record: shown })).toBe(false);
+    expect(canShowPremiumCard({ ...base, record: shown })).toBe(true);
+  });
+
+  it("닫았거나 신청했으면 숨긴다", () => {
+    expect(
+      canShowPremiumCard({ ...base, record: { ...EMPTY_PREMIUM_RECORD, dismissed: true } }),
+    ).toBe(false);
+    expect(
+      canShowPremiumCard({ ...base, record: { ...EMPTY_PREMIUM_RECORD, applied: true } }),
+    ).toBe(false);
+  });
+
+  it("종료 시각(2026-11-30 23:59:59 KST)이 지나면 숨긴다", () => {
+    expect(canShowPremiumCard({ ...base, nowMs: Date.parse("2026-11-30T23:59:59+09:00") })).toBe(
+      true,
+    );
+    expect(canShowPremiumCard({ ...base, nowMs: Date.parse("2026-12-01T00:00:00+09:00") })).toBe(
+      false,
+    );
+  });
+
+  it("토큰 출처가 없거나 한국어가 아니거나 실험이 꺼지면 숨긴다", () => {
+    expect(canShowPremiumCard({ ...base, hasTokenSource: false })).toBe(false);
+    expect(canShowPremiumCard({ ...base, korean: false })).toBe(false);
+    expect(canShowPremiumCard({ ...base, enabled: false })).toBe(false);
+  });
+});

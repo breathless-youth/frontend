@@ -55,7 +55,13 @@ export function useBackDismiss(open: boolean, onClose: () => void): void {
     let leftByBack = false;
     const handlePopState = () => {
       // 내 항목으로 돌아온 것은 위에 열렸던 다른 창이 닫힌 것이다.
-      if (currentId() === id) {
+      const landed = currentId();
+      if (landed === id) {
+        return;
+      }
+      // 내 위에 남은 주인 없는 항목(개발 모드 StrictMode가 effect를 두 번 돌려 생긴다)에 멈춘 것은 아직 내 창을 떠난 것이 아니다.
+      // 건너뛰기 처리가 한 칸 더 되돌려 내 항목으로 온다.
+      if (landed !== undefined && landed > id && !openIds.has(landed)) {
         return;
       }
       leftByBack = true;

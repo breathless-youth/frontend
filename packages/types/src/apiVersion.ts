@@ -173,6 +173,15 @@ export const API_ENDPOINTS = {
   /** `/api/blocks` 이하 전부: 차단 목록과 차단 해제. 새 경로라 구 앱 명세가 없다. */
   blocks: { version: "1", parsedBy: "apps/web/src/lib/groupRoomApi.ts" },
 
+  /**
+   * `PUT /api/premium-waitlist/me`: 프리미엄 기능 사전 신청(BY-1392 실험, 2026-11-30까지). 응답 본문 없이 204.
+   * 계약은 BE BY-1394와 맞춘 설계 문서 4절이 원본이다. 토큰 출처가 없는 구 앱에는 카드를 보이지 않아 구 계약이 없다.
+   */
+  premiumWaitlist: {
+    version: "2",
+    parsedBy: "apps/web/src/features/premium-fake-door/premiumWaitlistApi.ts",
+  },
+
   /** `POST /api/rtc-stats` — WebRTC 통계 보고 */
   rtcStats: { version: "2", legacy: "1", parsedBy: "apps/web/src/lib/rtcStatsApi.ts" },
 } as const satisfies Record<string, ApiEndpointSpec>;

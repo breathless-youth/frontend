@@ -1,4 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
+import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useBackDismiss } from "../backDismiss";
@@ -107,5 +108,25 @@ describe("useBackDismiss", () => {
 
     expect(closeUpper).toHaveBeenCalledOnce();
     expect(closeLower).not.toHaveBeenCalled();
+  });
+
+  it("개발 모드 StrictMode가 남긴 빈 항목이 사이에 있어도 위의 창을 닫을 때 아래 창을 닫지 않는다", async () => {
+    window.history.pushState({}, "", "/home");
+    const outerClose = vi.fn();
+    const innerClose = vi.fn();
+    renderHook(() => useBackDismiss(true, outerClose), { wrapper: StrictMode });
+    const inner = renderHook(({ open }) => useBackDismiss(open, innerClose), {
+      initialProps: { open: true },
+      wrapper: StrictMode,
+    });
+    await settle();
+
+    inner.rerender({ open: false });
+    await settle();
+    await settle();
+
+    expect(outerClose).not.toHaveBeenCalled();
+    expect(marker()).toBeDefined();
+    expect(window.location.pathname).toBe("/home");
   });
 });
