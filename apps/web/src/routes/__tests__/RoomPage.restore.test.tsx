@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as FocusDetectorModule from "@/features/study-session/adapters/focusDetector";
 import { setSessionCountdownSecondsForTest } from "@/features/study-session/sessionCountdown";
+import { __resetLaunchReadyForTests } from "@/lib/launchReady";
 
 import { RoomPage } from "../RoomPage";
 
@@ -116,6 +117,29 @@ describe("RoomPage 복원 게이트", () => {
         expect.objectContaining({ initialSubjectId: 3 }),
       ),
     );
+  });
+
+  it("과목을 불러오지 못해 오류 화면이 뜨면 앱 덮개가 걷히도록 준비 신호를 보낸다", async () => {
+    __resetLaunchReadyForTests();
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    try {
+      useActiveSessionRestore.mockReturnValue({ settled: true, restored: null });
+      listSubjects.mockRejectedValue(new Error("offline"));
+      render(
+        <MemoryRouter initialEntries={["/room/1?userId=7&initialSubjectId=3"]}>
+          <RoomPage />
+        </MemoryRouter>,
+      );
+      await screen.findByText("과목을 불러오지 못했어요");
+
+      const sent = postMessage.mock.calls.map(
+        ([raw]) => (JSON.parse(raw as string) as { type: string }).type,
+      );
+      expect(sent.filter((type) => type === "launch-ready")).toHaveLength(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("과목 조회가 실패하는 동안 새로고침해도 선택 과목이 남도록 URL을 유지한다", async () => {
