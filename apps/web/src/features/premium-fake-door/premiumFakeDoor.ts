@@ -91,8 +91,6 @@ export interface PremiumCardContext {
   nowMs: number;
   /** 토큰 출처가 없는 구 앱은 이 API를 부를 수 없어 보이지 않는다. */
   hasTokenSource: boolean;
-  /** 가격이 원화라 한국어 화면에만 보인다. */
-  korean: boolean;
   record: PremiumFakeDoorRecord;
   /** 방금 끝낸 세션의 기준 시간(초). `premiumQualifyingSec`로 구한다. */
   qualifyingSec: number;
@@ -120,13 +118,12 @@ export function premiumQualifyingSec({
 export function canShowPremiumCard({
   nowMs,
   hasTokenSource,
-  korean,
   record,
   qualifyingSec,
   enabled = PREMIUM_FAKE_DOOR_ENABLED,
 }: PremiumCardContext): boolean {
   if (!enabled || nowMs > PREMIUM_FAKE_DOOR_ENDS_AT_MS) return false;
-  if (!hasTokenSource || !korean) return false;
+  if (!hasTokenSource) return false;
   if (qualifyingSec < PREMIUM_CARD_MIN_FOCUS_SEC) return false;
   if (record.applied) return false;
   if (record.dismissedAt === null) return !record.legacyDismissed;
