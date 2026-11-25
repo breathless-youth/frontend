@@ -2,6 +2,8 @@ import { createSilentKeepAlive } from "@/features/ambient-sound/silentKeepAlive"
 
 /** 음량을 바꿀 때 딸깍 소리 없이 따라가는 시간 상수(초) */
 const VOLUME_SMOOTHING_SEC = 0.05;
+/** 장면이 바뀔 때 반복 소리를 옮겨 가는 시간(초) */
+const SCENE_FADE_SEC = 1;
 
 export interface LoopSound {
   /** 컨텍스트를 깨우고 소리를 받아 둔다. iOS는 사용자 누름 안에서 불러야 이후 재생을 허락한다. */
@@ -10,6 +12,8 @@ export interface LoopSound {
   setActive(active: boolean): void;
   /** 0~1 */
   setVolume(volume: number): void;
+  /** 장면에 따라 음량에 곱하는 크기(0~1)이고, 바뀌면 1초 동안 옮겨 간다. */
+  fade(level: number): void;
   dispose(): void;
 }
 
@@ -47,6 +51,7 @@ export function createLoopSound(
   let source: AudioBufferSourceNode | null = null;
   let active = false;
   let volume = 1;
+  let level = 1;
   // undefined는 아직 안 만든 것, null은 이 엔진에서는 만들지 않는다는 뜻이다.
   let keepAlive: HTMLAudioElement | null | undefined;
 
@@ -75,6 +80,16 @@ export function createLoopSound(
       if (played instanceof Promise) played.catch(() => undefined);
     } catch {
       // play가 동기로 실패한 경우도 위와 같이 무시한다.
+    }
+  };
+
+  const followGain = (timeConstant: number): void => {
+    try {
+      if (context && gain) {
+        gain.gain.setTargetAtTime(volume * level, context.currentTime, timeConstant);
+      }
+    } catch {
+      // 음량을 못 바꿔도 재생은 이어 간다.
     }
   };
 
@@ -111,7 +126,7 @@ export function createLoopSound(
       if (!context) {
         context = createContext();
         gain = context.createGain();
-        gain.gain.value = volume;
+        gain.gain.value = volume * level;
         gain.connect(context.destination);
       }
       if (context.state !== "running") void context.resume().catch(() => undefined);
@@ -156,14 +171,13 @@ export function createLoopSound(
     },
     setVolume(next) {
       volume = next;
-      try {
-        if (context && gain) {
-          gain.gain.setTargetAtTime(next, context.currentTime, VOLUME_SMOOTHING_SEC);
-        }
-      } catch {
-        // 음량을 못 바꿔도 재생은 이어 간다.
-      }
+      followGain(VOLUME_SMOOTHING_SEC);
       syncKeepAlive();
+    },
+    fade(next) {
+      level = next;
+      // setTargetAtTime은 시간 상수의 세 배에서 목표의 95%에 닿아서 1초에 맞추려고 3으로 나눈다.
+      followGain(SCENE_FADE_SEC / 3);
     },
     // 다시 켜면 컨텍스트를 새로 만들어 이어 쓸 수 있다.
     // 개발 모드의 StrictMode는 효과를 정리했다가 같은 재생기로 다시 설정한다.

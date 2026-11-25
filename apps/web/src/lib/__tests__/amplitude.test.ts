@@ -2761,6 +2761,36 @@ describe("세션 공간 이벤트", () => {
   });
 });
 
+describe("공간 비집중 장면 이벤트", () => {
+  it("초기화 전에는 보내지 않는다", async () => {
+    const m = await loadModule();
+
+    m.trackSpaceDistractSceneEntered({ itemCode: "SPACE_RAIN", trigger: "PHONE" });
+    m.trackSpaceDistractSceneLeft({ itemCode: "SPACE_RAIN", durationSec: 12 });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("상품 코드와 원인, 머문 초만 토큰 값으로 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackSpaceDistractSceneEntered({ itemCode: "SPACE_RAIN", trigger: "PHONE" });
+    m.trackSpaceDistractSceneLeft({ itemCode: "SPACE_RAIN", durationSec: 12 });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["space_distract_scene_entered", { item_code: "SPACE_RAIN", trigger: "PHONE" }],
+      ["space_distract_scene_left", { item_code: "SPACE_RAIN", duration_sec: 12 }],
+    ]);
+    for (const [, props] of mocks.track.mock.calls) {
+      for (const value of Object.values(props as Record<string, unknown>)) {
+        expect(String(value)).toMatch(ANALYTICS_PARAM_VALUE_PATTERN);
+      }
+    }
+  });
+});
+
 describe("작은 카메라 창 이벤트", () => {
   it("초기화 전에는 보내지 않는다", async () => {
     const m = await loadModule();

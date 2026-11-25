@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createWatcherSound } from "../watcherSound";
+import { createCueSound, createWatcherSound } from "../watcherSound";
 
 function fakeContext() {
   const starts: { cue: number; offset: number }[] = [];
@@ -287,5 +287,79 @@ describe("createWatcherSound 무음 스위치", () => {
       sound.play("enter");
       await vi.waitFor(() => expect(starts).toHaveLength(1));
     }
+  });
+});
+
+describe("createCueSound", () => {
+  const DISTRACT_URLS = {
+    approach: "/spaces/rain/1/distract/sound/approach.m4a",
+    cue: "/spaces/rain/1/distract/sound/cue.m4a",
+  };
+  const loadDistract = (url: string) =>
+    Promise.resolve(new Uint8Array([url.endsWith("cue.m4a") ? 4 : 1]).buffer);
+
+  it("넘긴 소리만 받고, 넘기지 않은 소리는 내지 않는다", async () => {
+    const { context, starts } = fakeContext();
+    const urls: string[] = [];
+    const sound = createCueSound(
+      DISTRACT_URLS,
+      () => context as unknown as AudioContext,
+      (url) => {
+        urls.push(url);
+        return loadDistract(url);
+      },
+    );
+
+    sound.prime();
+    await vi.waitFor(() => expect(context.decodeAudioData).toHaveBeenCalledTimes(2));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    sound.play("enter");
+    sound.play("cue");
+
+    expect(urls).toEqual(expect.arrayContaining(Object.values(DISTRACT_URLS)));
+    expect(starts).toEqual([{ cue: 4, offset: expect.any(Number) }]);
+  });
+
+  it("받은 소리의 길이를 알려 주고, 넘기지 않은 소리는 null이다", async () => {
+    const { context } = fakeContext();
+    const sound = createCueSound(
+      { approach: DISTRACT_URLS.approach },
+      () => context as unknown as AudioContext,
+      loadDistract,
+    );
+
+    await expect(sound.durationSec("approach")).resolves.toBe(5);
+    await expect(sound.durationSec("cue")).resolves.toBeNull();
+  });
+
+  it("정리한 뒤에는 깨우거나 틀거나 길이를 물어도 컨텍스트와 무음 루프를 다시 만들지 않는다", async () => {
+    const { context, starts } = fakeContext();
+    const createContext = vi.fn(() => context as unknown as AudioContext);
+    const keepAlive = { paused: true, play: vi.fn(), pause: vi.fn() };
+    const keepAliveFactory = vi.fn(() => keepAlive as unknown as HTMLAudioElement);
+    const sound = createCueSound(DISTRACT_URLS, createContext, loadDistract, keepAliveFactory);
+
+    sound.dispose();
+    sound.prime();
+    sound.play("cue");
+    sound.setVolume(0.5);
+
+    await expect(sound.durationSec("approach")).resolves.toBeNull();
+    expect(createContext).not.toHaveBeenCalled();
+    expect(keepAliveFactory).not.toHaveBeenCalled();
+    expect(keepAlive.play).not.toHaveBeenCalled();
+    expect(starts).toEqual([]);
+  });
+
+  it("컨텍스트를 만들 수 없으면 길이는 null이다", async () => {
+    const sound = createCueSound(
+      { approach: DISTRACT_URLS.approach },
+      () => {
+        throw new Error("AudioContext unsupported");
+      },
+      loadDistract,
+    );
+
+    await expect(sound.durationSec("approach")).resolves.toBeNull();
   });
 });

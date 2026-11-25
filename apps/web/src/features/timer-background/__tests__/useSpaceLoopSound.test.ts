@@ -3,17 +3,18 @@ import { createElement, type ReactNode, StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { LoopSound } from "../loopSound";
-import type { SpaceScenes } from "../spaceManifest";
+import { SILENT_SCENES, type SpaceScenes } from "../spaceManifest";
 import { useSpaceLoopSound } from "../useSpaceLoopSound";
 
-const WITH_SOUND: SpaceScenes = { focus: { loopSound: true }, distract: null };
-const SILENT: SpaceScenes = { focus: { loopSound: false }, distract: null };
+const WITH_SOUND: SpaceScenes = { ...SILENT_SCENES, focus: { loopSound: true } };
+const SILENT: SpaceScenes = SILENT_SCENES;
 
 function fakeSound() {
   return {
     prime: vi.fn(),
     setActive: vi.fn(),
     setVolume: vi.fn(),
+    fade: vi.fn(),
     dispose: vi.fn(),
   } satisfies LoopSound;
 }
@@ -38,9 +39,12 @@ function setup(
     return sound;
   });
   const loadScenes = vi.fn((key: string) => Promise.resolve(scenes[key]));
-  const view = renderHook(
-    ({ key, active, volume }) =>
-      useSpaceLoopSound(key, active, volume, { loadScenes, createSound }),
+  const view = renderHook<
+    boolean,
+    { key: string | null; active: boolean; volume: number; level?: number }
+  >(
+    ({ key, active, volume, level = 1 }) =>
+      useSpaceLoopSound(key, active, volume, level, { loadScenes, createSound }),
     { initialProps: { ...initial, volume: 80 } },
   );
   return { ...view, sounds, createSound, loadScenes };
@@ -122,7 +126,7 @@ describe("useSpaceLoopSound", () => {
       return fakeSound();
     });
     const { result, rerender } = renderHook(
-      ({ key }) => useSpaceLoopSound(key, true, 80, { loadScenes, createSound }),
+      ({ key }) => useSpaceLoopSound(key, true, 80, 1, { loadScenes, createSound }),
       { initialProps: { key: "rain/1" } },
     );
     rerender({ key: "fire/2" });
@@ -140,17 +144,18 @@ describe("useSpaceLoopSound", () => {
       prime: vi.fn(),
       setActive: vi.fn(() => order.push("active")),
       setVolume: vi.fn(() => order.push("volume")),
+      fade: vi.fn(() => order.push("fade")),
       dispose: vi.fn(),
     }));
     const { result } = renderHook(() =>
-      useSpaceLoopSound("rain/1", true, 0, {
+      useSpaceLoopSound("rain/1", true, 0, 1, {
         loadScenes: () => Promise.resolve(WITH_SOUND),
         createSound,
       }),
     );
 
     await waitFor(() => expect(result.current).toBe(true));
-    expect(order.slice(0, 2)).toEqual(["volume", "active"]);
+    expect(order.slice(0, 3)).toEqual(["volume", "fade", "active"]);
   });
 
   it("공부를 멈춘 동안에도 화면을 누르면 깨워 재개할 때 바로 소리가 나게 한다", async () => {
@@ -187,7 +192,7 @@ describe("useSpaceLoopSound", () => {
     });
     const { result } = renderHook(
       () =>
-        useSpaceLoopSound("rain/1", true, 80, {
+        useSpaceLoopSound("rain/1", true, 80, 1, {
           loadScenes: () => Promise.resolve(WITH_SOUND),
           createSound,
         }),
@@ -222,7 +227,7 @@ describe("useSpaceLoopSound", () => {
     const createSound = vi.fn(fakeSound);
     const loadScenes = vi.fn(() => Promise.reject(new Error("offline")));
     const { result } = renderHook(() =>
-      useSpaceLoopSound("rain/1", true, 80, { loadScenes, createSound }),
+      useSpaceLoopSound("rain/1", true, 80, 1, { loadScenes, createSound }),
     );
 
     await waitFor(() => expect(loadScenes).toHaveBeenCalled());
@@ -238,5 +243,18 @@ describe("useSpaceLoopSound", () => {
     expect(result.current).toBe(false);
     expect(loadScenes).not.toHaveBeenCalled();
     expect(createSound).not.toHaveBeenCalled();
+  });
+
+  it("장면 크기를 재생기에 넘기고, 바뀌면 다시 넘긴다", async () => {
+    const { result, sounds, rerender } = setup(
+      { "rain/1": WITH_SOUND },
+      { key: "rain/1", active: true },
+    );
+    await waitFor(() => expect(result.current).toBe(true));
+    expect(sounds[0].sound.fade).toHaveBeenLastCalledWith(1);
+
+    rerender({ key: "rain/1", active: true, volume: 80, level: 0 });
+
+    expect(sounds[0].sound.fade).toHaveBeenLastCalledWith(0);
   });
 });
