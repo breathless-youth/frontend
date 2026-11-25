@@ -379,12 +379,6 @@ export interface StudySessionEndedInput {
   readonly breakSec?: number;
   /** 멀티 타이머가 없는 소셜룸은 생략하고, 생략은 none 으로 나간다. */
   readonly multiTimer?: MultiTimerUse;
-  /**
-   * 끝낸 순간 공부 화면 마스코트가 켜져 있었는가
-   *
-   * 마스코트가 없는 소셜룸은 생략하고, 생략은 false 로 나간다.
-   */
-  readonly mascotOn?: boolean;
   /** 세션 중 하품 횟수. 하품을 재지 않는 소셜룸은 생략하고, 생략은 0 으로 나간다. */
   readonly yawnCount?: number;
 }
@@ -429,7 +423,6 @@ export function trackStudySessionEnded(input: StudySessionEndedInput) {
       ambient_sound_sec: Number(input.ambientSoundSec ?? 0),
       break_sec: Number(input.breakSec ?? 0),
       multi_timer: input.multiTimer ?? "none",
-      mascot_on: input.mascotOn ?? false,
       yawn_count: Number(input.yawnCount ?? 0),
     },
     { time: endedAt },
@@ -1348,19 +1341,20 @@ export function trackStudySessionFaceMaskEmojiSelected(input: {
   });
 }
 
-/** 세션 도움말을 연 경로. 세션 진입 때 저절로 뜬 것(auto)과 더보기의 도움말 보기(menu)다. */
+/** 세션 도움말을 연 경로. 처음 보는 계정의 새 세션 카운트다운 앞에 저절로 뜬 것(auto)과 더보기의 도움말 보기(menu)다. */
 export type SessionHelpTrigger = "auto" | "menu";
 
 /** 세션 도움말 단계 id. 단계 번호와 달리 순서가 바뀌어도 뜻이 같다. */
-export type SessionHelpStepId = "away" | "measuring" | "camera" | "buttons" | "finish";
+export type SessionHelpStepId = "welcome" | "grace" | "distract" | "simple" | "ready" | "start";
 
 /**
  * 세션 도움말 판
  *
- * 2는 심플 모드로 시작하는 5단계 판이다.
- * 이 속성이 없는 6단계 판과 단계 번호의 뜻이 달라 콘솔 차트는 이 값으로 거른다.
+ * 4는 카운트다운 앞 가짜 세션 화면 위 여섯 장 판이다(welcome → grace → distract → simple → ready → start).
+ * 2는 세션 앞 가이드 화면의 5단계 판, 3은 dev의 마스코트 코치마크 판이다.
+ * 판마다 단계 번호의 뜻이 달라 콘솔 차트는 이 값으로 거른다.
  */
-const SESSION_HELP_VERSION = 2;
+const SESSION_HELP_VERSION = 4;
 
 /**
  * 세션 도움말 노출
@@ -1404,17 +1398,23 @@ export function trackStudySessionHelpStepViewed(input: {
  * 세션 도움말을 마지막 단계까지 본 것
  *
  * 앱 종료나 세션 이탈로 끝내지 못한 노출은 완료도 중단도 보내지 않아 다음 세션의 재노출로 센다.
- * `cta`는 마지막 단계에서 누른 버튼이다. `later`는 `나중에 시작할게요`라 세션이 시작되지 않는다.
+ * `cta`는 마지막 장에서 누른 버튼이다. `start`는 `공부 시작하기`(카운트다운 시작),
+ * `close`는 메뉴로 다시 본 도움말의 `닫기`다. `timelapse_enabled`는 마지막 장의 타임랩스 스위치 값이다.
+ * 메뉴로 연 도움말에는 스위치가 없어 `timelapse_enabled`를 싣지 않는다.
  */
 export function trackStudySessionHelpCompleted(
   trigger: SessionHelpTrigger,
   roomType: StudyRoomType,
-  cta: "start" | "later" = "start",
+  result: {
+    readonly cta: "start" | "close";
+    readonly timelapseEnabled: boolean | null;
+  },
 ) {
   if (!initialized) return;
   track("study_session_help_completed", {
     trigger,
-    cta,
+    cta: result.cta,
+    ...(result.timelapseEnabled === null ? {} : { timelapse_enabled: result.timelapseEnabled }),
     room_type: roomType,
     help_version: SESSION_HELP_VERSION,
   });
@@ -1758,21 +1758,6 @@ export function trackSessionRestAlarmFired(input: { readonly channel: "in_app" |
 export function trackSessionClockViewChanged(input: { readonly view: "focus" | "study" }) {
   if (!initialized) return;
   track("session_clock_view_changed", { view: input.view });
-}
-
-/**
- * 공부 화면 마스코트 켜고 끄기 이벤트
- *
- * 더보기 메뉴에서 마스코트를 켜거나 끌 때 보낸다.
- * `visible`은 바꾼 뒤의 값이다.
- */
-export function trackSessionMascotToggled(visible: boolean) {
-  if (!initialized) return;
-  track("session_mascot_toggled", { visible });
-  // 켠 사용자와 안 켠 사용자의 집중률을 나눠 보려고 이벤트와 함께 상태로도 남긴다.
-  const id = new Identify();
-  id.set("session_mascot", visible);
-  identify(id);
 }
 
 /**

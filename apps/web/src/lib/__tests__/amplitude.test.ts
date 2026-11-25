@@ -666,7 +666,6 @@ describe("공부 세션 이벤트", () => {
         ambient_sound_sec: 0,
         break_sec: 0,
         multi_timer: "none",
-        mascot_on: false,
         yawn_count: 0,
       },
       { time: expect.any(Number) },
@@ -705,26 +704,6 @@ describe("공부 세션 이벤트", () => {
       { duration_ms: 2500 },
       { time: 3500 },
     );
-  });
-
-  it("끝낼 때 마스코트가 켜져 있었으면 mascot_on을 true로 싣는다", async () => {
-    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
-    const { initAmplitude, trackStudySessionEnded } = await loadModule();
-    initAmplitude();
-
-    trackStudySessionEnded({
-      roomType: "single",
-      studySec: 600,
-      focusSec: 600,
-      pauseSec: 0,
-      distractionSec: 0,
-      endReason: "MANUAL",
-      pauseTrigger: null,
-      willSubmit: true,
-      mascotOn: true,
-    });
-
-    expect(mocks.track.mock.calls[0]?.[1]).toMatchObject({ mascot_on: true });
   });
 
   it("휴식 길이와 시작한 멀티 타이머 종류를 싣는다", async () => {
@@ -1435,14 +1414,17 @@ describe("세션 도움말 이벤트", () => {
     m.trackStudySessionHelpShown("auto", "single");
     m.trackStudySessionHelpStepViewed({
       step: 1,
-      stepId: "away",
+      stepId: "grace",
       trigger: "auto",
       roomType: "single",
     });
-    m.trackStudySessionHelpCompleted("menu", "single");
+    m.trackStudySessionHelpCompleted("menu", "single", {
+      cta: "close",
+      timelapseEnabled: null,
+    });
     m.trackStudySessionHelpDismissed({
       step: 3,
-      stepId: "camera",
+      stepId: "ready",
       trigger: "menu",
       roomType: "single",
       reason: "escape",
@@ -1451,7 +1433,7 @@ describe("세션 도움말 이벤트", () => {
     expect(mocks.track).not.toHaveBeenCalled();
   });
 
-  it("노출·단계·완료·닫기를 단계 id와 도움말 판(2)을 담아 보낸다", async () => {
+  it("노출·단계·완료·닫기를 단계 id와 도움말 판(4)을 담아 보낸다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const m = await loadModule();
     m.initAmplitude();
@@ -1459,38 +1441,60 @@ describe("세션 도움말 이벤트", () => {
     m.trackStudySessionHelpShown("auto", "single");
     m.trackStudySessionHelpStepViewed({
       step: 2,
-      stepId: "measuring",
-      trigger: "menu",
+      stepId: "distract",
+      trigger: "auto",
       roomType: "single",
     });
-    m.trackStudySessionHelpCompleted("menu", "single");
+    m.trackStudySessionHelpCompleted("auto", "single", {
+      cta: "start",
+      timelapseEnabled: false,
+    });
+    m.trackStudySessionHelpCompleted("menu", "single", {
+      cta: "close",
+      timelapseEnabled: null,
+    });
     m.trackStudySessionHelpDismissed({
-      step: 4,
-      stepId: "buttons",
+      step: 3,
+      stepId: "ready",
       trigger: "auto",
       roomType: "single",
       reason: "escape",
     });
 
     expect(mocks.track.mock.calls).toEqual([
-      ["study_session_help_shown", { trigger: "auto", room_type: "single", help_version: 2 }],
+      ["study_session_help_shown", { trigger: "auto", room_type: "single", help_version: 4 }],
       [
         "study_session_help_step_viewed",
-        { step: 2, step_id: "measuring", trigger: "menu", room_type: "single", help_version: 2 },
+        { step: 2, step_id: "distract", trigger: "auto", room_type: "single", help_version: 4 },
       ],
       [
         "study_session_help_completed",
-        { trigger: "menu", cta: "start", room_type: "single", help_version: 2 },
+        {
+          trigger: "auto",
+          cta: "start",
+          timelapse_enabled: false,
+          room_type: "single",
+          help_version: 4,
+        },
+      ],
+      [
+        "study_session_help_completed",
+        {
+          trigger: "menu",
+          cta: "close",
+          room_type: "single",
+          help_version: 4,
+        },
       ],
       [
         "study_session_help_dismissed",
         {
-          step: 4,
-          step_id: "buttons",
+          step: 3,
+          step_id: "ready",
           trigger: "auto",
           room_type: "single",
           reason: "escape",
-          help_version: 2,
+          help_version: 4,
         },
       ],
     ]);
@@ -2599,45 +2603,6 @@ describe("타이머 배경 이벤트", () => {
     m.trackTimerBackgroundPhotoRemoved({ count: 0, wasSelected: false });
 
     expect(mocks.track).not.toHaveBeenCalled();
-  });
-});
-
-describe("공부 화면 마스코트 이벤트", () => {
-  it("켜고 끈 결과를 visible로 보낸다", async () => {
-    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
-    const m = await loadModule();
-    m.initAmplitude();
-    mocks.track.mockClear();
-
-    m.trackSessionMascotToggled(false);
-    m.trackSessionMascotToggled(true);
-
-    expect(mocks.track.mock.calls).toEqual([
-      ["session_mascot_toggled", { visible: false }],
-      ["session_mascot_toggled", { visible: true }],
-    ]);
-  });
-
-  it("켜고 끌 때마다 session_mascot 유저 속성을 바꾼 뒤의 값으로 남긴다", async () => {
-    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
-    const m = await loadModule();
-    m.initAmplitude();
-    mocks.identify.mockClear();
-
-    m.trackSessionMascotToggled(true);
-    m.trackSessionMascotToggled(false);
-
-    const sets = mocks.identify.mock.calls.map(
-      ([sent]) => (sent as InstanceType<typeof mocks.FakeIdentify>).sets,
-    );
-    expect(sets).toEqual([[["session_mascot", true]], [["session_mascot", false]]]);
-  });
-
-  it("초기화 전에는 보내지 않는다", async () => {
-    const m = await loadModule();
-    m.trackSessionMascotToggled(true);
-    expect(mocks.track).not.toHaveBeenCalled();
-    expect(mocks.identify).not.toHaveBeenCalled();
   });
 });
 

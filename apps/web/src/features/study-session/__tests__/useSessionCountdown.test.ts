@@ -34,6 +34,29 @@ describe("useSessionCountdown", () => {
     expect(onDone).toHaveBeenCalledTimes(1);
   });
 
+  it("멈춤을 받는 동안에는 세지 않고 풀린 뒤부터 처음 초를 센다", () => {
+    const onDone = vi.fn();
+    const { result, rerender } = renderHook(({ held }) => useSessionCountdown(3, onDone, held), {
+      initialProps: { held: true },
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    expect(result.current).toBe(3);
+    expect(onDone).not.toHaveBeenCalled();
+
+    rerender({ held: false });
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    expect(result.current).toBe(1);
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
   it("화면이 가려진 동안에는 세지 않는다", () => {
     const onDone = vi.fn();
     const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");

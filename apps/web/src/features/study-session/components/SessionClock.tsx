@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
@@ -28,8 +28,6 @@ export interface SessionClockProps {
   /** 집중 중이 아닐 때 라벨 자리에 대신 보이는 상태 문구 */
   statusLabel: string;
   simple: boolean;
-  /** 도움말 화면이 상태 문구와 큰 숫자에 겹쳐 그리는 테두리·설명 */
-  callouts?: { caption?: ReactNode; number?: ReactNode };
   /** 도움말 화면의 가짜 묶음. 라이브 리전 없이 모양만 그린다. */
   fake?: boolean;
   /** 월페이퍼 위 배치. 왼쪽 정렬이고 글자 그림자를 깐다. */
@@ -83,7 +81,6 @@ export function SessionClock({
   state,
   statusLabel,
   simple,
-  callouts,
   fake = false,
   corner = false,
   countdown = null,
@@ -227,7 +224,6 @@ export function SessionClock({
           >
             {sessionTime}
           </p>
-          {callouts?.number}
         </div>
         {todayLine}
       </div>
@@ -235,10 +231,7 @@ export function SessionClock({
   }
   return (
     <div className="relative flex flex-col items-center [text-shadow:0_1px_10px_rgba(0,0,0,0.45)]">
-      <div className="relative flex items-center">
-        {callouts?.caption}
-        {statusText}
-      </div>
+      <div className="relative flex items-center">{statusText}</div>
       <div className="relative mt-1 landscape-compact:mt-0.5">
         <p
           data-testid="session-clock-number"
@@ -256,7 +249,6 @@ export function SessionClock({
         >
           {sessionTime}
         </p>
-        {callouts?.number}
       </div>
       {todayLine}
     </div>

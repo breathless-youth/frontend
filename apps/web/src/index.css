@@ -671,6 +671,33 @@
   }
 }
 
+/* 세션 도움말에서 화면을 톡 누르는 손. 떠오르며 나타나 한 번 눌리고 사라진다.
+   모션 축소는 사용처의 motion-reduce:animate-none이 막는다. */
+@keyframes help-tap {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(1.05);
+  }
+
+  30% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  45% {
+    transform: scale(0.92);
+  }
+
+  60% {
+    transform: scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
 /* 일시정지 휴식 화면이 보던 공부 화면을 0부터 서서히 흐리고 어둡게 한다.
    끝 값은 요소의 배경과 backdrop-blur 클래스가 정한다. 모션 축소는 사용처가 막는다. */
 @keyframes session-rest-veil {
