@@ -433,7 +433,10 @@ function RoomSessionScreen(props: RoomSessionScreenProps) {
     "single",
     timelapse.photoTap,
   );
-  const [countdown] = useState(() => (props.restored === null ? sessionCountdownSeconds() : 0));
+  // 카운트다운은 감지 모델을 미리 불러오고 카메라 앞에 자리 잡을 시간이라 카메라 없는 세션은 바로 시작한다.
+  const [countdown] = useState(() =>
+    props.restored === null && cameraOn ? sessionCountdownSeconds() : 0,
+  );
   useEffect(() => {
     if (countdown > 0 && cameraOn) {
       visionDetector.preload();
