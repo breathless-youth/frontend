@@ -10,16 +10,19 @@ import { HelpMascot } from "@/features/study-session/components/HelpMascot";
 import { SessionClock } from "@/features/study-session/components/SessionClock";
 import { FakeBar, FakeSessionHeader } from "@/features/study-session/components/SessionFakeChrome";
 import { SimpleModeSurface } from "@/features/study-session/components/SimpleModeSurface";
+import { SpotlightDim } from "@/features/study-session/components/SpotlightDim";
 import { readSessionClockView } from "@/features/study-session/sessionClockView";
 import { SESSION_HELP_STEPS } from "@/features/study-session/sessionGuide";
 import { PIP_ANCHOR, PIP_SIZE, SESSION_LAYER_INSET } from "@/features/study-session/sessionLayout";
 import { sessionGlowStyle, sessionSurfaceStyle } from "@/features/study-session/sessionTheme";
 import { useSlideFromRect } from "@/features/study-session/useSlideFromRect";
+import { SIMPLE_BACKGROUND_COLOR } from "@/features/timer-background/timerBackground";
+import { WallpaperScrim } from "@/features/timer-background/WallpaperScrim";
 import { useTimelapseSettings } from "@/features/timelapse/useTimelapseSettings";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 import { cn } from "@/lib/utils";
 
-/** 가짜 순공(초)의 시작값. 확인 중·구도 장에서는 1초씩 흐르고, 멈춤 장에서는 흐른 값 그대로 멈춘다. */
+/** 가짜 순공(초)의 시작값. 확인 중·심플 모드·구도 장에서는 1초씩 흐르고, 멈춤 장에서는 흐른 값 그대로 멈춘다. */
 const DEMO_FOCUS_SEC = 1450;
 
 /**
@@ -27,6 +30,9 @@ const DEMO_FOCUS_SEC = 1450;
  * dev 도움말(700ms)보다 길게 둬서 누르는 모습을 본 뒤에 바뀐다.
  */
 const TAP_MS = 1400;
+
+/** 덮개 진하기. dev 도움말과 같다. */
+const HELP_DIM = 0.6;
 
 /** 말풍선 문구 키. 제목의 `<hl>` 핵심 단어는 파란 글자로 칠한다. */
 const BUBBLE_TEXT = {
@@ -53,6 +59,15 @@ const BUBBLE_ABOVE_PIP = [
   "bottom-[calc(env(safe-area-inset-bottom)+270px)]",
   "regular:bottom-[calc(env(safe-area-inset-bottom)+338px)] short-side-lg:bottom-[calc(env(safe-area-inset-bottom)+353px)]",
   "landscape-compact:top-[46%] landscape-compact:bottom-auto",
+].join(" ");
+/**
+ * 인사·확인 중·멈춤 장 말풍선 자리. 카메라 창 강조가 없는 장이라 창 바로 위보다 48px 더 올려 화면 가운데 쪽에 둔다.
+ * 가로는 같은 이유로 조금 더 위에 둔다.
+ */
+const BUBBLE_RAISED = [
+  "bottom-[calc(env(safe-area-inset-bottom)+318px)]",
+  "regular:bottom-[calc(env(safe-area-inset-bottom)+386px)] short-side-lg:bottom-[calc(env(safe-area-inset-bottom)+401px)]",
+  "landscape-compact:top-[40%] landscape-compact:bottom-auto",
 ].join(" ");
 /** 준비 장 말풍선 자리. 키운 창(`READY_PIP_SIZE`)과 그 위 영상 안내 한 줄(28px) 위 12px이다. 가로는 위쪽에 둔다. */
 const BUBBLE_ABOVE_READY_PIP = [
@@ -180,9 +195,9 @@ export function SessionHelpScreen({
   const simple = stepId === "simple" && !tapping;
   const [clockView] = useState(readSessionClockView);
   const [timelapse, setTimelapse] = useTimelapseSettings();
-  // 가짜 시계가 흐른 초. 확인 중 장(순공이 흐름)과 구도 장(공부하는 뒷배경)에서만 1초씩 흐르고 다른 장에서는 멈춰 있다.
+  // 가짜 시계가 흐른 초. 확인 중 장(순공이 흐름)·심플 모드 장·구도 장(공부하는 뒷배경)에서만 1초씩 흐르고 다른 장에서는 멈춰 있다.
   const [flowSec, setFlowSec] = useState(0);
-  const flowing = stepId === "grace" || stepId === "ready";
+  const flowing = stepId === "grace" || stepId === "simple" || stepId === "ready";
   useEffect(() => {
     if (!flowing || prefersReducedMotion()) return;
     const id = window.setInterval(() => setFlowSec((sec) => sec + 1), 1000);
@@ -246,7 +261,6 @@ export function SessionHelpScreen({
         ? t("status.distracted")
         : "";
   const focusSec = DEMO_FOCUS_SEC + flowSec;
-  const pipLit = held || stepId === "ready";
   const ready = stepId === "ready";
   const last = stepIndex === total - 1;
   const text = BUBBLE_TEXT[stepId];
@@ -345,6 +359,13 @@ export function SessionHelpScreen({
       className="theme-dark fixed inset-0 z-40 animate-[coach-fade-in_200ms_ease-out] overflow-hidden bg-(--session-camera-base) text-white outline-none motion-reduce:animate-none"
     >
       {/* 심플 모드 바탕. 실제 심플 모드처럼 과목 줄·버튼·하단 바는 그 위에 그대로 둔다. */}
+      {/* 일반 화면 바탕은 dev 도움말과 같은 어두운 단색에 위아래 어둠 띠다. 덮개 구멍으로 시계 뒤가 이 색으로 보인다. */}
+      <div
+        aria-hidden
+        className="absolute inset-0"
+        style={{ backgroundColor: SIMPLE_BACKGROUND_COLOR }}
+      />
+      <WallpaperScrim simple={false} />
       <SimpleModeSurface hidden={!simple} />
       {/* 가짜 세션 화면. 시계 묶음은 실제 세션처럼 기본은 과목 줄 아래, 심플 모드는 화면 정가운데에 둔다. */}
       <div
@@ -362,6 +383,14 @@ export function SessionHelpScreen({
             held && "z-20",
           )}
         >
+          {/* 덮개 구멍과 같은 자리·모서리의 옅은 판. 바탕이 거의 검정이라 판이 없으면 회색 시계(멈춤 장)의 강조 영역이 덮개와 구분되지 않는다. */}
+          {held && (
+            <span
+              aria-hidden
+              data-testid="help-clock-spot"
+              className="absolute -inset-x-4 -inset-y-3 -z-10 rounded-2xl bg-white/[0.07] ring-1 ring-white/15"
+            />
+          )}
           <SessionClock
             view={clockView}
             studySec={focusSec + 300}
@@ -384,7 +413,7 @@ export function SessionHelpScreen({
           PIP_ANCHOR,
           ready ? READY_PIP_SIZE : PIP_SIZE,
           "transition-[opacity,width,height] duration-300 ease-out motion-reduce:transition-none",
-          pipLit && "z-20",
+          ready && "z-20",
           simple && "opacity-0",
         )}
       >
@@ -421,7 +450,18 @@ export function SessionHelpScreen({
         </div>
       </div>
 
-      {!simple && <div aria-hidden className="absolute inset-0 z-10 bg-black/60" />}
+      {/* 확인 중·멈춤 장은 dev 도움말처럼 시계 묶음 자리에만 구멍을 뚫어 그 영역을 원래 밝기로 보이고, 카메라 창은 함께 덮는다. */}
+      {held ? (
+        <div aria-hidden className="absolute inset-0 z-10">
+          <SpotlightDim
+            key={stepId}
+            holes={[{ ref: clockRef, padX: 16, padY: 12, radius: 16 }]}
+            opacity={HELP_DIM}
+          />
+        </div>
+      ) : (
+        !simple && <div aria-hidden className="absolute inset-0 z-10 bg-black/60" />
+      )}
       {tapping && <TapMotion />}
 
       {/* 말풍선. 크기는 dev 마스코트 도움말과 같다: 마스코트 72px, 마스코트 포함 최대 폭 370px. */}
@@ -432,7 +472,9 @@ export function SessionHelpScreen({
             ? BUBBLE_BELOW_SIMPLE_CLOCK
             : ready
               ? BUBBLE_ABOVE_READY_PIP
-              : BUBBLE_ABOVE_PIP,
+              : stepId === "start"
+                ? BUBBLE_ABOVE_PIP
+                : BUBBLE_RAISED,
         )}
       >
         <HelpMascot pose={step.mascot} />

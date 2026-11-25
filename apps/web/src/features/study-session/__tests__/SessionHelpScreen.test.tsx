@@ -118,6 +118,18 @@ describe("SessionHelpScreen", () => {
     expect(number()).toBe(flowed);
   });
 
+  it("4장 심플 모드에서도 시계 숫자가 1초마다 흐른다", async () => {
+    vi.useFakeTimers();
+    renderHelp("first");
+    for (let index = 0; index < 3; index += 1) next();
+    await advance(1400);
+    const number = () => screen.getByTestId("session-clock-number").textContent;
+
+    const start = number();
+    await advance(3000);
+    expect(number()).not.toBe(start);
+  });
+
   it("5장 구도에서도 뒤 시계 숫자가 1초마다 흐른다", async () => {
     vi.useFakeTimers();
     renderHelp("first");
@@ -149,6 +161,22 @@ describe("SessionHelpScreen", () => {
             : src,
       ),
     ).toEqual(["ready", "phone", "phone", "ready", "ready", "ready"]);
+  });
+
+  it("확인 중·멈춤 장은 덮개에 시계 자리 구멍 하나만 뚫고 카메라 창은 덮으며, 다른 장은 구멍 없이 덮는다", () => {
+    const { container } = renderHelp("first");
+    const holes = () => container.querySelectorAll("[data-hole]").length;
+
+    expect(holes()).toBe(0);
+    expect(screen.queryByTestId("help-clock-spot")).not.toBeInTheDocument();
+    next();
+    expect(holes()).toBe(1);
+    expect(screen.getByTestId("help-clock-spot")).toBeInTheDocument();
+    expect(screen.getByTestId("help-demo-camera")).not.toHaveClass("z-20");
+    next();
+    expect(holes()).toBe(1);
+    next();
+    expect(holes()).toBe(0);
   });
 
   it("3장 멈춤: 확정 문구와 순공이 멈춘다는 말풍선이다", () => {
@@ -272,6 +300,7 @@ describe("SessionHelpScreen", () => {
       expect(screen.queryByRole("switch")).not.toBeInTheDocument();
       expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "공부 시작하기" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "나중에 할게요" })).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "닫기" }));
       expect(onComplete).toHaveBeenCalledExactlyOnceWith({
         cta: "close",
