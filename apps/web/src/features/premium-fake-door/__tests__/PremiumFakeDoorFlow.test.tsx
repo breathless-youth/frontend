@@ -80,6 +80,21 @@ describe("PremiumFakeDoorFlow 신청", () => {
     expect(screen.getByText("알림은 앱으로 보내드려요.")).toBeInTheDocument();
   });
 
+  it("혜택 화면을 내려 본 뒤 신청해도 완료 화면은 맨 위에서 시작한다", async () => {
+    renderFlow("RESULT");
+    const scroller = screen
+      .getByRole("heading", { name: "스파르타 기능" })
+      .closest<HTMLElement>(".overflow-y-auto");
+    if (scroller === null) throw new Error("혜택 화면의 스크롤 영역을 찾지 못했다");
+    scroller.scrollTop = 300;
+    await finishApplying();
+
+    const doneScroller = screen
+      .getByRole("heading", { name: "가장 먼저 알려드릴게요" })
+      .closest<HTMLElement>(".overflow-y-auto");
+    expect(doneScroller?.scrollTop).toBe(0);
+  });
+
   it("버튼 위에 결제 안내와 동의 안내를 두 줄로 쓴다", () => {
     renderFlow("RESULT");
 

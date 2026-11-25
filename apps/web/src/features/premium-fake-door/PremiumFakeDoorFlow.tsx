@@ -343,6 +343,8 @@ export function PremiumFakeDoorFlow({
         )}
       </div>
       <div
+        // 단계마다 새 스크롤 영역을 쓴다. 혜택 화면을 내려 본 위치가 완료 화면에 남아 머리 그림이 잘리지 않게 한다.
+        key={step}
         className={cn(
           "page-width w-full flex-1 overflow-y-auto px-5 pb-6",
           // 혜택 화면은 위쪽 줄 밑까지 끌어올려 머리 배경과 불끝이 화면 위 끝부터 보이게 한다. 위 여백은 머리가 준다.
