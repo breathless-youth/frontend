@@ -41,6 +41,34 @@ it("request-camera-gate를 보내고 camera-gate-result 응답을 그대로 돌�
   await expect(pending).resolves.toBe(false);
 });
 
+it("싱글 세션 화면에서 부르면 방 종류와 과목을 실어 보낸다", async () => {
+  vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+  const pending = requestCameraGate({ initialSubjectId: 3 });
+  expect(JSON.parse(postMessage.mock.calls[0][0] as string)).toMatchObject({
+    type: "request-camera-gate",
+    roomType: "single",
+    initialSubjectId: 3,
+  });
+
+  nativeEntry()(JSON.stringify({ type: "camera-gate-result", granted: true, atMs: 1 }));
+  await expect(pending).resolves.toBe(true);
+});
+
+it("싱글 세션 화면의 요청은 권한 창 답을 시간 제한 없이 기다린다", async () => {
+  withGateCapableShell();
+  vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+  let result: boolean | undefined;
+  void requestCameraGate({}).then((granted) => (result = granted));
+  await vi.advanceTimersByTimeAsync(10 * 60_000);
+  expect(result).toBeUndefined();
+
+  nativeEntry()(JSON.stringify({ type: "camera-gate-result", granted: true, atMs: 1 }));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(result).toBe(true);
+});
+
 it("표시 없는 구형 셸에서 응답이 없으면 타임아웃 후 true로 진행한다 — 오늘 동작 유지", async () => {
   vi.stubGlobal("ReactNativeWebView", { postMessage });
 

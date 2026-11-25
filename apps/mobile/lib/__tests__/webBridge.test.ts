@@ -28,6 +28,16 @@ describe("parseToNativeMessage", () => {
         parseToNativeMessage(JSON.stringify({ type: "start-session", atMs: 5, measureMode })),
       ).toEqual({ type: "start-session", atMs: 5 });
   });
+  it("start-session의 가이드 끝 권한 표시는 later만 받고 모르는 값은 버린다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({ type: "start-session", atMs: 5, cameraPermission: "later" }),
+      ),
+    ).toEqual({ type: "start-session", atMs: 5, cameraPermission: "later" });
+    expect(
+      parseToNativeMessage(JSON.stringify({ type: "start-session", atMs: 5, cameraPermission: 1 })),
+    ).toEqual({ type: "start-session", atMs: 5 });
+  });
   it.each([
     "home-ready",
     "analytics-ready",
@@ -430,6 +440,28 @@ describe("parseToNativeMessage", () => {
       type: "request-camera-gate",
       atMs: 1,
     });
+  });
+
+  it("싱글 세션 화면의 request-camera-gate는 방 종류와 과목을 싣고, 잘못된 과목만 버린다", () => {
+    expect(
+      parseToNativeMessage(
+        '{"type":"request-camera-gate","atMs":1,"roomType":"single","initialSubjectId":3}',
+      ),
+    ).toEqual({ type: "request-camera-gate", atMs: 1, roomType: "single", initialSubjectId: 3 });
+    for (const initialSubjectId of [0, -1, 1.5, "3"])
+      expect(
+        parseToNativeMessage(
+          JSON.stringify({
+            type: "request-camera-gate",
+            atMs: 1,
+            roomType: "single",
+            initialSubjectId,
+          }),
+        ),
+      ).toEqual({ type: "request-camera-gate", atMs: 1, roomType: "single" });
+    expect(
+      parseToNativeMessage('{"type":"request-camera-gate","atMs":1,"roomType":"social"}'),
+    ).toEqual({ type: "request-camera-gate", atMs: 1 });
   });
 
   it("request-push-permission을 파싱한다", () => {

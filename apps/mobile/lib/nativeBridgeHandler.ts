@@ -221,6 +221,25 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       if (startSessionInFlight) break;
       startSessionInFlight = true;
       void (async () => {
+        // 첫 세션 가이드를 볼 사용자는 아직 묻지 않은 기기면 가이드 끝에서 묻는다. 세션 화면이 `request-camera-gate`로 다시 부른다.
+        // 상태를 읽지 못하면 지금처럼 여기서 게이트를 돈다.
+        if (
+          message.cameraPermission === "later" &&
+          (await getCameraPermissionStatus().catch(() => null)) === "undetermined"
+        ) {
+          router.push({
+            pathname: "/room/[id]",
+            params: {
+              id: "1",
+              cameraPermission: "later",
+              ...(message.initialSubjectId === undefined
+                ? {}
+                : { initialSubjectId: String(message.initialSubjectId) }),
+            },
+          });
+          releaseStartSessionOnScreenClose();
+          return;
+        }
         const result = await runCameraPermissionGate("single");
         if (result === "show-denied-guide") {
           // 거부 화면은 이 표시가 있을 때만 카메라 없이 시작하는 출구를 그리고, 과목은 그 출구가 연 세션으로 넘긴다.
@@ -256,9 +275,24 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       // 싱글룸 표시 없이 열어 카메라 없이 시작하는 출구를 보이지 않는다. 양 플랫폼 공통이다 — iOS도 거부 상태에서 안내 화면
       // 없이 미리보기 실패에 머무는 공백이 같다.
       void (async () => {
-        const result = await runCameraPermissionGate("social");
+        const single = message.roomType === "single";
+        const result = await runCameraPermissionGate(single ? "single" : "social");
         if (result === "show-denied-guide") {
-          router.push("/permission-denied");
+          if (single) {
+            // 가이드 끝에서 거부하면 아직 카운트다운 전이라 세션 화면을 시작 때와 같은 거부 화면으로 바꾼다.
+            // 그 화면의 카메라 없이 시작 출구가 다시 replace로 세션을 열어 홈 위에 한 화면만 남는다.
+            router.replace({
+              pathname: "/permission-denied",
+              params: {
+                from: "single",
+                ...(message.initialSubjectId === undefined
+                  ? {}
+                  : { initialSubjectId: String(message.initialSubjectId) }),
+              },
+            });
+          } else {
+            router.push("/permission-denied");
+          }
           reply({ type: "camera-gate-result", granted: false, atMs: Date.now() });
           return;
         }

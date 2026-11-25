@@ -1,5 +1,6 @@
 import { readMeasureMode } from "@/features/measure-mode/measureMode";
 import { closeStaleSession } from "@/features/study-session/closeStaleSession";
+import { sessionGuideState } from "@/features/study-session/sessionGuide";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 
 /** `requestSessionStart`가 실제로 어느 경로를 탔는지 — 호출부가 후속 히스토리 조작을 정하는 데 쓴다. */
@@ -50,13 +51,20 @@ export async function requestSessionStart(
     await closeStaleSession(userId);
   }
   if (isNativeBridgeAvailable()) {
+    const timer = options.resume === true || readMeasureMode() === "timer";
     const delivered = postToNative({
       type: "start-session",
       atMs: Date.now(),
       ...(options.subjectId === undefined ? {} : { initialSubjectId: options.subjectId }),
       // 카메라 없이 고른 사용자와 이어 가는 자율 모드 기록에는 앱이 카메라 권한을 묻지 않게 한다.
-      ...(options.resume === true || readMeasureMode() === "timer"
-        ? { measureMode: "timer" as const }
+      ...(timer ? { measureMode: "timer" as const } : {}),
+      // 첫 세션 가이드를 볼 카메라 세션은 권한을 가이드 끝(`공부 시작하기`)에서 묻는다.
+      // 가이드는 세션 화면이 같은 기록(`sessionGuideState`)으로 띄운다. 이 표시를 모르는 구버전 앱에는 싣지 않는다.
+      ...(!timer &&
+      userId !== null &&
+      sessionGuideState(userId) !== "seen" &&
+      new URLSearchParams(window.location.search).get("cameraPermissionLater") === "1"
+        ? { cameraPermission: "later" as const }
         : {}),
     });
     // 넘기지 못하면 앱이 화면을 열지 않아서 호출부가 버튼을 다시 열고 다시 시도하게 한다.
