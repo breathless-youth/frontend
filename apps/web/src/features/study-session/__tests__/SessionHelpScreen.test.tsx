@@ -177,12 +177,12 @@ describe("SessionHelpScreen", () => {
     renderHelp("first");
     for (let index = 0; index < 4; index += 1) next();
 
-    expect(paragraph("얼굴과 손, 공부도구가 함께 보일 때 정확하게 감지해요")).toBeInTheDocument();
+    expect(paragraph("얼굴, 손, 공부도구가 함께 보이면 더 정확하게 감지해요")).toBeInTheDocument();
     const camera = screen.getByTestId("help-demo-camera");
     expect(camera).toHaveTextContent("얼굴");
     expect(camera).toHaveTextContent("공부도구");
     expect(camera).toHaveTextContent("손");
-    expect(camera).toHaveTextContent("영상은 서버에 보관하지 않아요");
+    expect(camera).toHaveTextContent("영상은 서버에 저장되지 않아요");
     expect(screen.queryByRole("switch")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "다음" })).toBeInTheDocument();
   });
@@ -193,7 +193,7 @@ describe("SessionHelpScreen", () => {
       goToLast();
 
       expect(paragraph("이제 집중해서 공부해볼까요?")).toBeInTheDocument();
-      expect(screen.queryByText("영상은 서버에 보관하지 않아요")).not.toBeInTheDocument();
+      expect(screen.queryByText("영상은 서버에 저장되지 않아요")).not.toBeInTheDocument();
       expect(await screen.findByRole("switch", { name: "타임랩스 녹화" })).toBeChecked();
       expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "나중에 할게요" })).not.toBeInTheDocument();

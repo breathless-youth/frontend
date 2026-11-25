@@ -132,7 +132,7 @@
     "stopBody": "Start studying again and it runs again",
     "simpleTitle": "Tap the screen to switch to <hl>simple mode</hl>",
     "simpleBody": "Only the camera view is hidden; measuring continues",
-    "readyTitle": "We detect most accurately when your <hl>face</hl>,\n<hl>hands</hl>, and <hl>study materials</hl> are all visible",
+    "readyTitle": "Detection is more accurate when your <hl>face</hl>,\n<hl>hands</hl>, and <hl>study materials</hl> are all visible",
     "markFace": "Face",
     "markHands": "Hands",
     "markTools": "Study materials",
