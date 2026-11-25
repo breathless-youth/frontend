@@ -35,13 +35,24 @@ import {
 import { SessionTimerChip } from "@/features/study-session/components/SessionTimerChip";
 import { SessionTimerSheet } from "@/features/study-session/components/SessionTimerSheet";
 import { createDeviceHandlingDetector } from "@/features/study-session/adapters/deviceHandlingDetector";
-import { combineFocusDetectors } from "@/features/study-session/adapters/focusDetector";
+import {
+  combineFocusDetectors,
+  createMockFocusDetector,
+} from "@/features/study-session/adapters/focusDetector";
 import type { VisionFocusDetector } from "@/features/study-session/adapters/focusDetector";
 import { createTouchDetector } from "@/features/study-session/adapters/touchDetector";
 import { sessionCountdownSeconds } from "@/features/study-session/sessionCountdown";
 import { useSessionCountdown } from "@/features/study-session/useSessionCountdown";
 import { useSlideFromRect } from "@/features/study-session/useSlideFromRect";
 import { createMediaStreamCameraAdapter } from "@/features/study-session/adapters/mediaStreamCamera";
+import {
+  type CameraAdapter,
+  createMockCameraAdapter,
+} from "@/features/study-session/adapters/cameraAdapter";
+import { SessionResumeDialog } from "@/features/study-session/components/SessionResumeDialog";
+import { closeStaleSession } from "@/features/study-session/closeStaleSession";
+import { resumeDecision } from "@/features/study-session/sessionResume";
+import { readMeasureMode, writeMeasureMode } from "@/features/measure-mode/measureMode";
 import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice";
 import { CameraPreviewSurface } from "@/features/study-session/components/CameraPreviewSurface";
 import { SessionConfirmDialog } from "@/features/study-session/components/SessionConfirmDialog";
@@ -337,6 +348,8 @@ function useRotationPhase(): RotationPhase {
 interface RoomSessionScreenProps {
   userId: number | null;
   restored: RestoredSession | null;
+  /** 이어서 공부하기로 고른 복원이라 공백을 공부 구간으로 연다. */
+  resumeAway: boolean;
   invite: string | null;
   initialSubjectId?: number;
 }
@@ -348,7 +361,29 @@ interface RoomSessionScreenProps {
  * 카운트다운은 세션 화면 위에서 세고, 세션 시각은 카운트다운이 끝난 순간 정해지므로 공부 시간에 들어가지 않는다.
  */
 function RoomSessionScreen(props: RoomSessionScreenProps) {
-  const [camera] = useState(createMediaStreamCameraAdapter);
+  const [searchParams] = useSearchParams();
+  /**
+   * 카메라로 측정하는 세션인가
+   *
+   * 마운트할 때 한 번 정하고 세션 동안 바꾸지 않는다.
+   * 이어받은 세션은 처음 측정한 방식을 따르고 새 세션은 기기에 저장한 방식(홈 시작 버튼에서 고름)을 따른다.
+   * 앱의 권한 거부 화면에서 카메라 없이 연 세션은 주소의 `measureMode=timer`가 저장한 방식보다 먼저다.
+   * 카메라 없는 모드면 아무것도 열지 않는 카메라와 신호를 내지 않는 감지기를 넘겨 타이머만 돈다.
+   */
+  const timerFromUrl = searchParams.get("measureMode") === "timer";
+  const [cameraOn] = useState(() =>
+    props.restored !== null
+      ? props.restored.source !== "TIMER"
+      : !timerFromUrl && readMeasureMode() === "camera",
+  );
+  // 거부 화면에서 카메라 없이 고른 기기는 다음 시작도 권한을 묻지 않게 저장한 방식을 바꾼다.
+  // 이어받은 카메라 세션은 주소에 timer가 남아 있어도 카메라로 열리므로 저장한 방식을 바꾸지 않는다.
+  useEffect(() => {
+    if (timerFromUrl && !cameraOn) writeMeasureMode("timer");
+  }, [timerFromUrl, cameraOn]);
+  const [camera] = useState<CameraAdapter>(() =>
+    cameraOn ? createMediaStreamCameraAdapter() : createMockCameraAdapter(),
+  );
   /**
    * 프리뷰
    * — 이 화면이 소유하고 두 곳에 나눠준다.
@@ -368,10 +403,10 @@ function RoomSessionScreen(props: RoomSessionScreenProps) {
   );
   const [countdown] = useState(() => (props.restored === null ? sessionCountdownSeconds() : 0));
   useEffect(() => {
-    if (countdown > 0) {
+    if (countdown > 0 && cameraOn) {
       visionDetector.preload();
     }
-  }, [countdown, visionDetector]);
+  }, [countdown, cameraOn, visionDetector]);
   /**
    * 세션 이탈 — 모델과 GPU 컨텍스트를 해제한다.
    * `stop()`은 추론만 멈추고 모델을 들고 있으므로 이게 없으면 wasm 힙과 GPU 컨텍스트가 orphan이 된다
@@ -388,6 +423,7 @@ function RoomSessionScreen(props: RoomSessionScreenProps) {
     <RoomSessionBody
       {...props}
       countdownSeconds={countdown}
+      cameraOn={cameraOn}
       camera={camera}
       videoRef={videoRef}
       timelapse={timelapse}
@@ -400,8 +436,10 @@ function RoomSessionScreen(props: RoomSessionScreenProps) {
 function RoomSessionBody({
   userId,
   restored,
+  resumeAway,
   invite,
   initialSubjectId,
+  cameraOn,
   camera,
   videoRef,
   timelapse,
@@ -411,7 +449,9 @@ function RoomSessionBody({
 }: RoomSessionScreenProps & {
   /** 공부 시작 카운트다운 길이(초). 0이면 바로 시작한다(이어받은 세션). */
   countdownSeconds: number;
-  camera: ReturnType<typeof createMediaStreamCameraAdapter>;
+  /** 카메라로 측정하는 세션인가. 아니면 카메라 없는 모드라 타이머만 돈다. */
+  cameraOn: boolean;
+  camera: CameraAdapter;
   videoRef: RefObject<HTMLVideoElement | null>;
   timelapse: ReturnType<typeof createTimelapseRecorder>;
   visionDetector: VisionFocusDetector;
@@ -431,14 +471,22 @@ function RoomSessionBody({
    * DEV에서 `?detector=mock`이면 콘솔 mock이 이긴다 — 실기기 없이 비집중 시나리오를 재현해야
    * 할 때가 계속 있다. 그 외에는(프로덕션 포함) 아래 Vision 감지기가 쓰인다.
    */
-  const [devDetector] = useState(() => resolveDevDetectorOverride(searchParams.get("detector")));
+  const [devDetector] = useState(() =>
+    cameraOn ? resolveDevDetectorOverride(searchParams.get("detector")) : undefined,
+  );
   /**
    * 카메라(`AWAY`·`PHONE`·졸음·공부 증거), 가속도 센서(`DEVICE`), 화면 터치(`TOUCH`).
    * 담당 출처가 겹치지 않으므로 하나로 묶어 훅에 넘긴다. 화면 터치는 소셜룸에 넣지 않는다. 채팅처럼 공부 중에도 화면을 자주 만진다.
    * 센서 정지 시점은 "카메라 추론 정지와 동일한 시점"이다.
    */
   const [sensorDetector] = useState(() =>
-    combineFocusDetectors([visionDetector, createDeviceHandlingDetector(), createTouchDetector()]),
+    cameraOn
+      ? combineFocusDetectors([
+          visionDetector,
+          createDeviceHandlingDetector(),
+          createTouchDetector(),
+        ])
+      : createMockFocusDetector(),
   );
   const detector = devDetector ?? sensorDetector;
   // 제출 시점에 읽을 과목 목록 — 커밋마다 최신 값으로 덮는다(아래 useSubjects 뒤).
@@ -496,6 +544,7 @@ function RoomSessionBody({
     camera,
     detector,
     restored,
+    resumeAway,
     countdown: countdownSeconds > 0,
     initialSubjectId,
     // 과목 목록은 아래 useSubjects가 들고 있어 훅 뒤에 온다 — 제출 시점에 ref로 읽는다(옵션 주석 참고).
@@ -507,13 +556,16 @@ function RoomSessionBody({
     ambientSoundPlays: ambientUsage.soundSeconds,
     multiTimerUsage: multiTimerUsage.snapshot,
     getObservations: () => yawnsRef.current,
-    onEnded: timelapse.finish,
+    onEnded: cameraOn ? timelapse.finish : undefined,
     onCameraLost: () => showCtaToast(t("cameraToast.cameraOff")),
+    source: cameraOn ? "MEASURED" : "TIMER",
   });
   // 처음 보는 계정의 새 세션은 카운트다운 앞에 도움말을 띄우고 닫을 때까지 세지 않는다.
   // 이어받은 세션은 카운트다운이 없어 띄우지 않는다. 신원이 없으면 본 기록을 남길 곳이 없어 띄우지 않는다.
+  // 가이드는 카메라 감지를 설명해서 카메라 없는 모드에서는 띄우지 않고 봤다고 남기지도 않는다.
   const [firstHelpOpen, setFirstHelpOpen] = useState(
-    () => countdownSeconds > 0 && userId !== null && sessionGuideState(userId) !== "seen",
+    () =>
+      cameraOn && countdownSeconds > 0 && userId !== null && sessionGuideState(userId) !== "seen",
   );
   /** 공부 시작 카운트다운의 남은 초. 다 세면 세션이 시작된다. */
   const countdownLeft = useSessionCountdown(countdownSeconds, startStudying, firstHelpOpen);
@@ -523,10 +575,10 @@ function RoomSessionBody({
   // 이어받은 세션은 같은 시작 시각이라 같은 타임랩스에 이어 찍는다.
   // 카운트다운 동안의 시작 시각은 임시라서, 실제로 시작한 뒤에 연다.
   useEffect(() => {
-    if (!counting) {
+    if (cameraOn && !counting) {
       timelapse.begin(startedAtMs);
     }
-  }, [counting, startedAtMs, timelapse]);
+  }, [cameraOn, counting, startedAtMs, timelapse]);
   const ambient = useAmbientSound({
     sessionState,
     phase,
@@ -749,7 +801,9 @@ function RoomSessionBody({
   }
 
   // 시계 보기 형식. 순공이 기본이고 더보기 메뉴에서 공부 시간으로 바꾼다.
-  const [clockView, setClockView] = useState(readSessionClockView);
+  // 카메라 없는 모드는 감지가 없어 순공과 공부 시간이 같으므로 공부 시간으로 보이고 바꾸는 항목을 숨긴다.
+  const [storedClockView, setClockView] = useState(readSessionClockView);
+  const clockView = cameraOn ? storedClockView : "study";
   const toggleClockView = () => {
     const next = clockView === "focus" ? "study" : "focus";
     setClockView(next);
@@ -935,7 +989,7 @@ function RoomSessionBody({
   }
   // 얼굴 가리기는 내 화면에만 그리는 가림이라 소셜룸·타임랩스와 설정을 나누지 않는다.
   // 싱글룸에는 바꾸는 화면이 없어 저장된 값만 읽는다.
-  const [faceMaskOn] = useState(() => readFaceMaskOn("single"));
+  const [faceMaskOn] = useState(() => cameraOn && readFaceMaskOn("single"));
   const [faceMaskEmojiId] = useState(() => readFaceMaskEmojiId("single"));
   const [faceSpot, setFaceSpot] = useState<FaceSpot | null>(null);
   // 카메라가 바뀌면 이전 영상에서 구한 위치가 새 영상과 맞지 않아 렌더 중에 비운다.
@@ -966,7 +1020,8 @@ function RoomSessionBody({
   const resting = pausedSinceMs !== null;
   /** 일시정지 동안 카메라가 꺼진다(`useStudyRoomSession`). 미리보기 창은 심플 모드처럼 스르륵 걷는다. */
   const cameraOff = isSessionHeld(sessionState);
-  const cameraHidden = simpleMode || cameraOff;
+  // 카메라 없는 모드는 작은 창이 없다.
+  const cameraHidden = simpleMode || cameraOff || !cameraOn;
   // 내 화면을 키우면 감독관이 가려지므로 발소리도 끈다. 다시 줄이면 다음 소리부터 난다.
   const watcherMuted = cameraExpanded && !cameraHidden;
   useEffect(() => {
@@ -1438,11 +1493,13 @@ function RoomSessionBody({
                     container={sessionSurface}
                     hidden={helpVisible}
                     // 심플 모드는 카메라 화면이 없어 전환 항목을 뺀다.
-                    onFlipCamera={simpleMode ? undefined : () => void handleFlipCamera()}
+                    onFlipCamera={
+                      simpleMode || !cameraOn ? undefined : () => void handleFlipCamera()
+                    }
                     onOpenStopwatch={openStopwatch}
                     onOpenTimer={openTimer}
                     clockView={clockView}
-                    onToggleClockView={toggleClockView}
+                    onToggleClockView={cameraOn ? toggleClockView : undefined}
                     onOpenHelp={() => {
                       setHelpStep(0);
                       setHelpOpen(true);
@@ -1892,7 +1949,7 @@ export function RoomPage() {
   // 브라우저 단독 모드에는 기다릴 출처가 없어 언제나 false, 네이티브는 3초 한도가 있어 갇히지 않는다.
   const identityPending = useIdentityPending();
   const userId = useUserId();
-  const { settled, restored } = useActiveSessionRestore(userId);
+  const { settled, restored, resume } = useActiveSessionRestore(userId);
   const initialSubject = useInitialSubject(
     identityPending ? null : userId,
     candidate,
@@ -1912,13 +1969,32 @@ export function RoomPage() {
   }, [params, setParams, identityPending, settled, initialSubject.settled]);
   // 복원 확인 중에도 초대를 받아 두도록 게이트 바깥에서 구독한다.
   const invite = useSessionInvite();
+  /**
+   * 확인 창에서 이어서 공부하기를 고른 복원값
+   *
+   * 복원값과 함께 들고 있어 사용자가 바뀌어 복원값이 달라지면 다시 묻는다.
+   */
+  const [resumedFor, setResumedFor] = useState<RestoredSession | null>(null);
+  const resumeAway = resume?.kind === "confirmed" || (restored !== null && resumedFor === restored);
+  const askAwayMin = resume?.kind === "ask" && !resumeAway ? resume.awayMin : null;
+  const leaveToHome = () => {
+    const search = new URLSearchParams(params);
+    search.delete("initialSubjectId");
+    postToNative({ type: "navigate-home", atMs: Date.now() });
+    navigate({ pathname: "/home", search: search.toString() }, { replace: true });
+  };
+  const endAndLeave = async () => {
+    // 확정이 실패해도 서버가 2시간 뒤 같은 시점으로 확정해서 홈으로 돌아간다.
+    await closeStaleSession(userId).catch(() => null);
+    leaveToHome();
+  };
 
   // 공부를 끝낼 때 네트워크가 끊겨도 결과 화면이 열리게 세션 중에 결과 청크를 받아 둔다.
   useEffect(() => {
     prefetchResultPage();
   }, []);
 
-  if (identityPending || !settled || !initialSubject.settled) {
+  if (identityPending || !settled || !initialSubject.settled || askAwayMin !== null) {
     return (
       <main
         data-testid="room-restore-gate"
@@ -1926,14 +2002,21 @@ export function RoomPage() {
         style={sessionSurfaceStyle}
       >
         {!identityPending && settled && initialSubject.error && (
-          <InitialSubjectError
-            onRetry={initialSubject.retry}
-            onBack={() => {
-              const search = new URLSearchParams(params);
-              search.delete("initialSubjectId");
-              postToNative({ type: "navigate-home", atMs: Date.now() });
-              navigate({ pathname: "/home", search: search.toString() }, { replace: true });
+          <InitialSubjectError onRetry={initialSubject.retry} onBack={leaveToHome} />
+        )}
+        {!identityPending && askAwayMin !== null && (
+          <SessionResumeDialog
+            awayMin={askAwayMin}
+            place="room"
+            onResume={async () => {
+              // 창을 연 채 2시간이 지나면 서버가 확정해서 이어받을 기록이 없어 끝내기와 같게 처리한다.
+              if (restored !== null && resumeDecision(restored, Date.now()) === "expired") {
+                await endAndLeave();
+                return;
+              }
+              setResumedFor(restored);
             }}
+            onEnd={endAndLeave}
           />
         )}
       </main>
@@ -1946,6 +2029,7 @@ export function RoomPage() {
       key={userId}
       userId={userId}
       restored={restored}
+      resumeAway={resumeAway}
       invite={invite}
       initialSubjectId={initialSubject.subjectId}
     />
