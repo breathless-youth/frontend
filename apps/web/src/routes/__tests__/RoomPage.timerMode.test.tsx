@@ -264,6 +264,24 @@ describe("RoomPage 카메라 없는 모드", () => {
     expect(localStorage.getItem("focusmakers:session-guide:1")).toBeNull();
   });
 
+  it("카메라 없는 새 세션은 3초를 세지 않고 바로 공부를 시작한다", () => {
+    setSessionCountdownSecondsForTest(3);
+    writeMeasureMode("timer");
+    renderRoom();
+
+    expect(screen.queryByTestId("camera-countdown")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "일시정지" })).not.toBeDisabled();
+  });
+
+  it("카메라 세션은 가이드를 본 계정이면 3초를 센다", () => {
+    stubWorkingCamera();
+    markSessionGuideSeen(1);
+    setSessionCountdownSecondsForTest(3);
+    renderRoom();
+
+    expect(screen.getByTestId("camera-countdown")).toHaveTextContent("3");
+  });
+
   it("카메라 세션이면 처음 보는 계정에게 첫 가이드를 띄운다", () => {
     stubWorkingCamera();
     setSessionCountdownSecondsForTest(3);

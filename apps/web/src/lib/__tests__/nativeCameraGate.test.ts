@@ -41,6 +41,67 @@ it("request-camera-gate를 보내고 camera-gate-result 응답을 그대로 돌�
   await expect(pending).resolves.toBe(false);
 });
 
+it("싱글 세션 화면에서 부르면 방 종류와 과목을 실어 보낸다", async () => {
+  vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+  const pending = requestCameraGate({ initialSubjectId: 3 });
+  expect(JSON.parse(postMessage.mock.calls[0][0] as string)).toMatchObject({
+    type: "request-camera-gate",
+    roomType: "single",
+    initialSubjectId: 3,
+  });
+
+  nativeEntry()(JSON.stringify({ type: "camera-gate-result", granted: true, atMs: 1 }));
+  await expect(pending).resolves.toBe(true);
+});
+
+it("싱글 세션 화면의 요청은 권한 창 답을 소셜 입장 한도보다 길게 기다린다", async () => {
+  withGateCapableShell();
+  vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+  let result: boolean | null | undefined;
+  void requestCameraGate({}).then((granted) => (result = granted));
+  await vi.advanceTimersByTimeAsync(9 * 60_000);
+  expect(result).toBeUndefined();
+
+  nativeEntry()(JSON.stringify({ type: "camera-gate-result", granted: true, atMs: 1 }));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(result).toBe(true);
+});
+
+it("싱글 세션 화면의 요청은 10분 안에 답이 없으면 답 없음(null)으로 끝나고, 다음 요청은 다시 보낸다", async () => {
+  withGateCapableShell();
+  vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+  let result: boolean | null | undefined;
+  void requestCameraGate({}).then((granted) => (result = granted));
+  await vi.advanceTimersByTimeAsync(10 * 60_000);
+  expect(result).toBeNull();
+
+  const next = requestCameraGate({});
+  expect(postMessage).toHaveBeenCalledTimes(2);
+  nativeEntry()(JSON.stringify({ type: "camera-gate-result", granted: true, atMs: 2 }));
+  await expect(next).resolves.toBe(true);
+});
+
+it("소셜 입장 요청이 진행 중일 때 온 싱글 요청은 그 결과를 나눠 갖지 않고 끝난 뒤 따로 묻는다", async () => {
+  withGateCapableShell();
+  vi.stubGlobal("ReactNativeWebView", { postMessage });
+
+  const social = requestCameraGate();
+  const single = requestCameraGate({});
+  expect(postMessage).toHaveBeenCalledTimes(1);
+
+  nativeEntry()(JSON.stringify({ type: "camera-gate-result", granted: false, atMs: 1 }));
+  await expect(social).resolves.toBe(false);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(postMessage).toHaveBeenCalledTimes(2);
+  expect(JSON.parse(postMessage.mock.calls[1][0] as string)).toMatchObject({ roomType: "single" });
+
+  nativeEntry()(JSON.stringify({ type: "camera-gate-result", granted: true, atMs: 2 }));
+  await expect(single).resolves.toBe(true);
+});
+
 it("표시 없는 구형 셸에서 응답이 없으면 타임아웃 후 true로 진행한다 — 오늘 동작 유지", async () => {
   vi.stubGlobal("ReactNativeWebView", { postMessage });
 
