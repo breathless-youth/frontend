@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Drawer, DrawerClose, DrawerContent, DrawerTitle } from "@/components/ui/drawer";
 import { useBackDismiss } from "@/lib/backDismiss";
 
+import { ApplyNotice } from "./ApplyNotice";
 import type { PremiumFeature } from "./premiumFakeDoor";
 import { FEATURE_ART } from "./premiumFeatureArt";
 
@@ -82,9 +83,7 @@ export function PremiumFeatureSheet({
               </ul>
             </div>
             <div className="shrink-0 pt-4">
-              <p className="mb-2.5 text-center text-xs break-keep text-sparta-fg3">
-                {t("billing")}
-              </p>
+              <ApplyNotice />
               <Button
                 type="button"
                 size="xl"

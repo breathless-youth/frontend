@@ -75,6 +75,7 @@
     }
   },
   "billing": "預先登記不會自動扣款。",
+  "consent": "登記即表示你已滿 14 歲，並同意使用個人資料。",
   "benefits": {
     "dialog": "斯巴達功能",
     "title": "斯巴達功能",
@@ -83,40 +84,11 @@
     "sectionHint": "點一下看詳細",
     "sectionTitle": "6 項斯巴達功能"
   },
-  "email": {
-    "dialog": "輸入電子郵件",
-    "title": "請留下接收上線消息的電子郵件",
-    "label": "電子郵件",
-    "placeholder": "example@email.com",
-    "consent": "[必填] 同意蒐集與使用個人資料",
-    "consentLine": "電子郵件只用於上線通知，寄出通知後會立刻刪除。",
-    "details": "查看詳情",
-    "terms": {
-      "itemLabel": "蒐集項目",
-      "item": "電子郵件",
-      "purposeLabel": "蒐集目的",
-      "purpose": "斯巴達功能上線通知",
-      "periodLabel": "保存期間",
-      "period": "寄出通知後立即銷毀。如果沒有上線，會在實驗結束後 6 個月內銷毀。",
-      "refuseLabel": "拒絕同意",
-      "refuse": "你可以不同意，但這樣就無法預先登記。"
-    },
-    "submit": "預先登記",
-    "errors": {
-      "required": "請輸入電子郵件。",
-      "format": "請確認電子郵件格式。",
-      "consent": "需要同意蒐集與使用個人資料才能登記。",
-      "age": "只有滿 14 歲的人才能登記。"
-    },
-    "headLine1": "最後一步，",
-    "headLine2": "要點燃火焰嗎？",
-    "age": "[必填] 我已滿 14 歲"
-  },
   "submitFailed": "無法完成登記，請再試一次。",
   "done": {
     "dialog": "登記完成",
     "title": "會第一時間通知你",
-    "byEmail": "通知會透過 App 和 {{email}} 寄給你。",
+    "byApp": "通知會透過 App 傳送給你。",
     "question": "你最期待哪項功能？",
     "thanks": "謝謝你的回答！",
     "pickFailed": "無法儲存你的回答，請再選一次。",

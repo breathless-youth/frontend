@@ -1,13 +1,20 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import type * as Amplitude from "@/lib/amplitude";
 
 import { PremiumFakeDoorFlow } from "../PremiumFakeDoorFlow";
 import type { PremiumPlacement } from "../premiumFakeDoor";
 
 const putPremiumWaitlist = vi.hoisted(() => vi.fn());
 vi.mock("../premiumWaitlistApi", () => ({ putPremiumWaitlist }));
+const trackApplyClicked = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/amplitude", async (importOriginal) => ({
+  ...(await importOriginal<typeof Amplitude>()),
+  trackPremiumFakeDoorApplyClicked: trackApplyClicked,
+}));
 
 function renderFlow(placement: PremiumPlacement) {
   return render(
@@ -23,14 +30,9 @@ function renderFlow(placement: PremiumPlacement) {
   );
 }
 
-/** 리디자인 뒤 신청은 혜택 화면 → 이메일 화면 하나다(만 14세 확인 단계 없음). */
+/** 신청은 혜택 화면의 버튼 한 번이다(이메일·동의 화면 없음). */
 async function finishApplying() {
-  const user = userEvent.setup();
-  await user.click(screen.getByRole("button", { name: "사전 신청하기" }));
-  await user.type(screen.getByLabelText("이메일"), "minjun@example.com");
-  await user.click(screen.getByRole("checkbox", { name: "[필수] 만 14세 이상이에요" }));
-  await user.click(screen.getByRole("checkbox", { name: "[필수] 개인정보 수집·이용 동의" }));
-  await user.click(screen.getByRole("button", { name: "사전 신청하기" }));
+  await userEvent.click(screen.getByRole("button", { name: "사전 신청하기" }));
   await screen.findByText("가장 먼저 알려드릴게요");
 }
 
@@ -61,26 +63,84 @@ describe("PremiumFakeDoorFlow 완료 버튼", () => {
   });
 });
 
-describe("PremiumFakeDoorFlow 키보드", () => {
-  it("키보드가 올라오면 아래 버튼 줄을 키보드 위로 올린다", async () => {
-    const viewport = new EventTarget() as EventTarget & { height: number; offsetTop: number };
-    viewport.height = 800;
-    viewport.offsetTop = 0;
-    vi.stubGlobal("visualViewport", viewport);
-    vi.stubGlobal("innerHeight", 800);
-    renderFlow("SESSION");
-    await userEvent.click(screen.getByRole("button", { name: "사전 신청하기" }));
-    const footer = screen.getByRole("button", { name: "사전 신청하기" }).parentElement;
-    expect(footer?.style.paddingBottom).toBe("");
-    expect(screen.getByText("사전 신청으로 자동 결제되지 않아요.")).toBeInTheDocument();
+describe("PremiumFakeDoorFlow 신청", () => {
+  it("버튼을 누르면 이메일 화면 없이 바로 저장하고 완료 화면을 보인다", async () => {
+    renderFlow("RESULT");
+    await finishApplying();
 
-    act(() => {
-      viewport.height = 458;
-      viewport.dispatchEvent(new Event("resize"));
+    expect(putPremiumWaitlist).toHaveBeenCalledExactlyOnceWith({
+      price: 2900,
+      placement: "RESULT",
+      ageOver14: true,
+      email: null,
+      expectedFeature: null,
     });
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    expect(screen.getByText("알림은 앱으로 보내드려요.")).toBeInTheDocument();
+  });
 
-    expect(footer?.style.paddingBottom).toBe("354px");
-    // 좁아진 화면에서 입력 칸이 보이도록 결제 안내 문구를 접는다.
-    expect(screen.queryByText("사전 신청으로 자동 결제되지 않아요.")).not.toBeInTheDocument();
+  it("버튼 위에 결제 안내와 동의 안내를 두 줄로 쓴다", () => {
+    renderFlow("RESULT");
+
+    expect(screen.getByText("사전 신청으로 자동 결제되지 않아요.")).toBeInTheDocument();
+    expect(
+      screen.getByText("신청하면 만 14세 이상이며 개인정보 이용에 동의한 걸로 처리돼요."),
+    ).toBeInTheDocument();
+  });
+
+  it("저장하지 못하면 혜택 화면에 남아 알리고 같은 버튼으로 다시 보낸다", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    putPremiumWaitlist.mockRejectedValueOnce(new Error("offline"));
+    renderFlow("RESULT");
+    await userEvent.click(screen.getByRole("button", { name: "사전 신청하기" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "신청하지 못했어요. 다시 시도해 주세요.",
+    );
+    await finishApplying();
+    expect(putPremiumWaitlist).toHaveBeenCalledTimes(2);
+  });
+
+  it("저장하는 동안 다시 눌러도 한 번만 보낸다", async () => {
+    let release = () => {};
+    putPremiumWaitlist.mockReturnValueOnce(new Promise<void>((resolve) => (release = resolve)));
+    renderFlow("RESULT");
+    const button = screen.getByRole("button", { name: "사전 신청하기" });
+    await userEvent.click(button);
+    await userEvent.click(button);
+
+    expect(putPremiumWaitlist).toHaveBeenCalledTimes(1);
+    expect(trackApplyClicked).toHaveBeenCalledTimes(1);
+    act(() => release());
+    await screen.findByText("가장 먼저 알려드릴게요");
+  });
+
+  it("설명 시트의 버튼으로도 바로 신청하고 안내 두 줄을 보인다", async () => {
+    renderFlow("RESULT");
+    await userEvent.click(screen.getByRole("button", { name: /AI 플랜 비서/ }));
+    const sheet = await screen.findByRole("dialog", { name: "AI 플랜 비서" });
+    expect(
+      within(sheet).getByText("신청하면 만 14세 이상이며 개인정보 이용에 동의한 걸로 처리돼요."),
+    ).toBeInTheDocument();
+    await userEvent.click(within(sheet).getByRole("button", { name: "사전 신청하기" }));
+
+    await screen.findByText("가장 먼저 알려드릴게요");
+    expect(putPremiumWaitlist).toHaveBeenCalledTimes(1);
+  });
+
+  it("기대 기능을 고르면 이메일 없이 같은 본문에 기능을 채워 다시 보낸다", async () => {
+    renderFlow("SESSION");
+    await finishApplying();
+    await userEvent.click(screen.getByRole("radio", { name: "전화 알림" }));
+
+    await screen.findByText("답변해 주셔서 감사합니다!");
+    expect(putPremiumWaitlist).toHaveBeenLastCalledWith({
+      price: 2900,
+      placement: "SESSION",
+      ageOver14: true,
+      email: null,
+      expectedFeature: "PHONE_CALL",
+    });
   });
 });
