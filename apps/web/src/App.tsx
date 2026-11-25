@@ -59,6 +59,7 @@ import {
   loadResultPage,
   loadTermsPage,
   loadTimelapseSettingsPage,
+  loadTimerBackgroundSettingsPage,
   loadTimelapsesPage,
 } from "@/routes/lazyRoutes";
 import { ManualRecordPage } from "@/routes/ManualRecordPage";
@@ -66,7 +67,6 @@ import { PlannerPage } from "@/routes/PlannerPage";
 import { RankingPage } from "@/routes/RankingPage";
 import { RecordsPage } from "@/routes/RecordsPage";
 import { RoomPage } from "@/routes/RoomPage";
-import { SessionGuidePage } from "@/routes/SessionGuidePage";
 import { GroupLoginScreen } from "@/features/login/GroupLoginScreen";
 import { TimerBackgroundsSaleGate } from "@/features/points/TimerBackgroundsSaleGate";
 import { PointsLoginPage } from "@/routes/PointsLoginPage";
@@ -134,6 +134,13 @@ const PrivacyPage = lazy(
 );
 const LicensesPage = lazy(
   reloadOnChunkError(() => loadLicensesPage().then((module) => ({ default: module.LicensesPage }))),
+);
+const TimerBackgroundSettingsPage = lazy(
+  reloadOnChunkError(() =>
+    loadTimerBackgroundSettingsPage().then((module) => ({
+      default: module.TimerBackgroundSettingsPage,
+    })),
+  ),
 );
 const TimelapseSettingsPage = lazy(
   reloadOnChunkError(() =>
@@ -398,7 +405,6 @@ export function App() {
               <Route path="/room/:id/result" element={<ResultPage />} />
               <Route path="/home" element={<HomeTabPage />} />
               <Route path="/onboarding" element={<OnboardingPage />} />
-              <Route path="/session-guide" element={<SessionGuidePage />} />
               <Route path="/records" element={<RecordsPage />} />
               <Route path="/ranking" element={<RankingPage />} />
               <Route path="/ranking/records" element={<RankingRecordsPage />} />
@@ -453,6 +459,7 @@ export function App() {
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/licenses" element={<LicensesPage />} />
               <Route path="/timelapse-settings" element={<TimelapseSettingsPage />} />
+              <Route path="/timer-background-settings" element={<TimerBackgroundSettingsPage />} />
               <Route path="/app-lock-settings" element={<AppLockSettingsPage />} />
               <Route path="/blocks" element={<BlockListPage />} />
               <Route path="/timelapses" element={<TimelapsesPage />} />

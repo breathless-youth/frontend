@@ -175,7 +175,11 @@ export default function SessionRoomScreen() {
         testID="session-webview"
         path={`/room/${id ?? "1"}`}
         extraQuery={extraQuery}
+        // 첫 세션 가이드와 공간 바탕(`SIMPLE_BACKGROUND_COLOR`)과 같은 색이다. 일반 세션은 걷히며 조금 밝아진다.
         backgroundColor="#0B0F14"
+        // 웹이 세션 화면을 그렸다고 알릴 때까지 스피너 없이 배경만 덮었다가 서서히 걷는다.
+        splash={null}
+        waitForWebReady
         blockHardwareBack
         onBridgeMessage={handleMessage}
       />

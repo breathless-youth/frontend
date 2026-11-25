@@ -37,7 +37,13 @@ export function collectTags(spaces: readonly CatalogSpace[]): ShopTagResponse[] 
   return [...seen.values()];
 }
 
-function tagSections(spaces: readonly CatalogSpace[]): SpaceSection[] {
+/**
+ * 서버 분류 섹션
+ *
+ * 분류마다 그 분류가 붙은 공간을 모으고, 분류 없는 공간은 제목 없는 맨 아래 묶음에 둔다.
+ * 설정의 타이머 배경 화면은 영상과 그림을 나누지 않고 이 묶음을 그대로 쓴다.
+ */
+export function tagSections(spaces: readonly CatalogSpace[]): SpaceSection[] {
   return [
     ...collectTags(spaces).map((tag) => ({
       code: tag.code,

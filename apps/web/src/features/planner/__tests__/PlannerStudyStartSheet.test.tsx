@@ -3,9 +3,6 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { writeMeasureMode } from "@/features/measure-mode/measureMode";
-import { markSessionGuideSeen, sessionGuideState } from "@/features/study-session/sessionGuide";
-import { SessionGuidePage } from "@/routes/SessionGuidePage";
 import type * as Amplitude from "@/lib/amplitude";
 import { plannerTask } from "@/test/plannerFixtures";
 import { requestSessionStart } from "@/lib/sessionStart";
@@ -32,7 +29,6 @@ vi.mock("@/lib/amplitude", async (original) => ({
   ...analytics,
 }));
 beforeEach(() => {
-  markSessionGuideSeen(7);
   vi.mocked(requestSessionStart).mockImplementation(async (_user, go) => {
     go();
     return "web";
@@ -72,7 +68,6 @@ function setup() {
               />
             }
           />
-          <Route path="/session-guide" element={<SessionGuidePage />} />
           <Route path="/room/1" element={<p>공부 세션</p>} />
         </Routes>
         <Location />
@@ -93,34 +88,8 @@ it("혼자 공부를 고르면 과목을 한 번 전달하고 날짜 쿼리를 �
   expect(analytics.trackFocusStartTapped).toHaveBeenCalledExactlyOnceWith("planner");
   client.clear();
 });
-it("처음 혼자 공부할 때는 과목을 들고 가이드로 가고 마지막 시작 뒤 웹 세션을 연다", async () => {
+it("처음 혼자 공부하는 계정도 가이드를 거치지 않고 바로 세션 시작을 요청한다", async () => {
   localStorage.clear();
-  const client = setup();
-  await userEvent.click(screen.getByRole("button", { name: "혼자 공부" }));
-
-  expect(await screen.findByRole("dialog", { name: "세션 도움말" })).toBeInTheDocument();
-  expect(requestSessionStart).not.toHaveBeenCalled();
-  expect(analytics.trackFocusStartTapped).not.toHaveBeenCalled();
-  expect(screen.getByRole("status", { hidden: true })).toHaveTextContent('"source":"planner"');
-  expect(screen.getByRole("status", { hidden: true })).toHaveTextContent('"initialSubjectId":3');
-  expect(screen.getByRole("status", { hidden: true })).not.toHaveTextContent("date=");
-  expect(screen.getByRole("status", { hidden: true })).not.toHaveTextContent("from=");
-  for (let step = 0; step < 4; step += 1) {
-    await userEvent.click(screen.getByRole("button", { name: "다음" }));
-  }
-  await userEvent.click(screen.getByRole("button", { name: "순공 시작하기" }));
-
-  expect(await screen.findByText("공부 세션")).toBeInTheDocument();
-  expect(screen.getByRole("status", { hidden: true })).toHaveTextContent("initialSubjectId=3");
-  expect(requestSessionStart).toHaveBeenCalledExactlyOnceWith(7, expect.any(Function), {
-    subjectId: 3,
-  });
-  expect(analytics.trackFocusStartTapped).toHaveBeenCalledExactlyOnceWith("planner");
-  client.clear();
-});
-it("카메라 없는 모드면 가이드를 안 본 계정도 가이드 없이 세션을 열고 봤음으로 남기지 않는다", async () => {
-  localStorage.clear();
-  writeMeasureMode("timer");
   const client = setup();
   await userEvent.click(screen.getByRole("button", { name: "혼자 공부" }));
 
@@ -129,7 +98,7 @@ it("카메라 없는 모드면 가이드를 안 본 계정도 가이드 없이 �
   expect(requestSessionStart).toHaveBeenCalledExactlyOnceWith(7, expect.any(Function), {
     subjectId: 3,
   });
-  expect(sessionGuideState(7)).toBeNull();
+  expect(analytics.trackFocusStartTapped).toHaveBeenCalledExactlyOnceWith("planner");
   client.clear();
 });
 it("그룹 목록에서 공부 중인 수를 보여 주고 선택 과목과 입장 결과를 넘긴다", async () => {

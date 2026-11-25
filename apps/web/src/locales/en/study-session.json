@@ -1,11 +1,17 @@
 {
+  "countdown": {
+    "holdPosture": "Please maintain good posture",
+    "srUntilStart": "Starting in {{seconds}}"
+  },
   "status": {
     "focus": "Measuring focus time",
+    "grace": "Please check your study posture",
     "away": "Looks like you're away",
     "phone": "Looks like you're on your phone",
     "device": "Looks like you're moving your device",
     "sleep": "Looks like you're dozing off",
-    "pause": "Measuring paused"
+    "pause": "Measuring paused",
+    "distracted": "Measuring resumes when we see you studying"
   },
   "exitConfirm": {
     "title": "End your session?",
@@ -21,19 +27,6 @@
     "title": "End your session and accept the invite?",
     "cancel": "Keep going",
     "confirm": "Join"
-  },
-  "cameraPrompt": {
-    "title": "Check your camera position",
-    "description": "Make sure your face and desk are in view",
-    "notice": "Your camera view isn't sent anywhere",
-    "cancel": "Start in\nSimple Mode",
-    "confirm": "Turn on camera",
-    "faceMaskTooltip": "If you move quickly, your face may show for a moment",
-    "faceMaskCaption": "Hide face for time-lapses is a separate setting"
-  },
-  "camera": {
-    "expand": "Enlarge my camera",
-    "shrink": "Make it smaller"
   },
   "cameraToast": {
     "flipped": "Camera switched",
@@ -74,9 +67,7 @@
     "srSeconds_other": "{{count}} seconds"
   },
   "timer": {
-    "total": "Total {{elapsed}}",
     "srFocus": "Focus time {{duration}}",
-    "srTotal": "Total study time {{duration}}",
     "srSubjectFocus": "Focus {{duration}}"
   },
   "controls": {
@@ -84,15 +75,19 @@
     "resume": "Resume",
     "exit": "End session",
     "simpleModeToggle": "Simple Mode",
-    "sideActions": "Session tools",
-    "subjectSelected": "Subject selected"
+    "subjectSelected": "Subject selected",
+    "bar": "Session controls"
   },
   "moreMenu": {
     "trigger": "More",
     "flipCamera": "Switch camera",
-    "planner": "Planner",
     "help": "View guide",
-    "shareInvite": "Share invite code"
+    "shareInvite": "Share invite code",
+    "timer": "Timer",
+    "viewStudy": "Show study time",
+    "viewFocus": "Show focus time",
+    "stopwatch": "Stopwatch",
+    "background": "Background"
   },
   "subjectSheet": {
     "title": "Subject",
@@ -126,22 +121,28 @@
   },
   "help": {
     "dialog": "Session guide",
+    "welcomeTitle": "Welcome to FocusMakers.",
+    "welcomeBody": "Let's take a quick look at how it works.",
     "prev": "Previous",
     "next": "Next",
     "stepCount": "{{current}} / {{total}}",
+    "graceTitle": "When your study posture slips,\nwe <hl>blink the time</hl> to let you know",
+    "graceBody": "Time keeps running while it blinks",
+    "stopTitle": "If we still can't detect you studying,\n<hl>your focus time stops</hl>",
+    "stopBody": "Time runs again once you start studying",
+    "simpleTitle": "Tap the screen to switch to <hl>simple mode</hl>",
+    "simpleBody": "Only the camera view is hidden; measuring continues",
+    "readyTitle": "Detection is more accurate when your <hl>face</hl>,\n<hl>hands</hl>, and <hl>study materials</hl> are all visible",
+    "markFace": "Face",
+    "markHands": "Hands",
+    "markTools": "Study materials",
+    "privacy": "Video is never stored on our servers",
+    "startTitle": "Ready to <hl>focus</hl> and study?",
+    "timelapse": "Time-lapse",
     "sampleSubject": "Math",
-    "welcomeTitle": "Welcome to FocusMakers.",
-    "welcomeBody": "Let's take a quick look at how it works.",
-    "awayTitle": "<hl>If you lose focus</hl>, we'll let you know here",
-    "awayBody": "Your focus time pauses in the meantime",
-    "measuringTitle": "Focus again to <hl>resume measuring</hl>",
-    "measuringBody": "Your focus time starts counting again",
-    "simpleTitle": "Tap the screen to switch to <hl>Simple Mode</hl>",
-    "finishTitle": "You're all set\nReady to <hl>focus</hl>?",
-    "finishMore": "Find this guide anytime\nin the More menu",
-    "finishPip": "Your camera view isn't sent anywhere,\nso rest easy😌",
-    "finishCta": "Start focusing",
-    "finishLater": "Maybe later"
+    "sampleTask": "Solve sequence problems",
+    "start": "Start studying",
+    "close": "Close"
   },
   "recovery": {
     "title": "Unsaved session recovered",
@@ -180,6 +181,55 @@
     "focus": "Focus",
     "distract": "Auto-paused",
     "pause": "Paused"
+  },
+  "clock": {
+    "currentFocus": "Focus this session",
+    "currentStudy": "This session",
+    "todayFocus": "Focus today",
+    "todayStudy": "Study today",
+    "srFocus": "Focus time this session {{duration}}",
+    "srStudy": "Study time this session {{duration}}",
+    "srTodayFocus": "Total focus time today {{duration}}",
+    "srTodayStudy": "Total study time today {{duration}}"
+  },
+  "header": {
+    "choose": "Choose a subject",
+    "noSubject": "Choose a subject",
+    "addTask": "Add a task…"
+  },
+  "camera": {
+    "label": "Camera",
+    "timelapse": "Time-lapse",
+    "expand": "Enlarge my camera",
+    "shrink": "Make it smaller"
+  },
+  "timerChip": {
+    "group": "Extra timer",
+    "timer": "Timer",
+    "stopwatch": "Stopwatch",
+    "open": "Timer settings",
+    "start": "Start",
+    "total": "/ {{total}}",
+    "pause": "Pause",
+    "resume": "Resume",
+    "off": "Turn off",
+    "elapsed": "Elapsed time",
+    "remaining": "Time left"
+  },
+  "timerSheet": {
+    "title": "Timer settings"
+  },
+  "rest": {
+    "label": "Taking a break",
+    "labelWithAlarm": "Taking a break · I'll remind you in {{minutes}} min",
+    "ended": "Break's over",
+    "alarmGroup": "Break reminder",
+    "alarm": "Remind me in {{minutes}} min",
+    "alarmNone": "No reminder",
+    "srElapsed": "Break time {{duration}}",
+    "srRemaining": "Break time left {{duration}}",
+    "notificationTitle": "Your {{minutes}}-min break is over",
+    "notificationBody": "Time to get back to studying"
   },
   "space": {
     "button": "Space",

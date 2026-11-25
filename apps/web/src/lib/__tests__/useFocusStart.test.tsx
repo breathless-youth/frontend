@@ -1,10 +1,8 @@
 import { act, render, renderHook, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { writeMeasureMode } from "@/features/measure-mode/measureMode";
-import { markSessionGuideSeen, sessionGuideState } from "@/features/study-session/sessionGuide";
 import type * as Amplitude from "@/lib/amplitude";
 import { requestSessionStart } from "@/lib/sessionStart";
 import { useFocusStart } from "@/lib/useFocusStart";
@@ -18,7 +16,6 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
 const haptic = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/haptics", () => ({ haptic }));
 
-beforeEach(() => markSessionGuideSeen(7));
 afterEach(() => {
   localStorage.clear();
   vi.clearAllMocks();
@@ -38,42 +35,19 @@ function RoomProbe() {
   return <div data-testid="room-probe">{location.pathname + location.search}</div>;
 }
 
-function GuideProbe() {
-  const location = useLocation();
-  return (
-    <div data-testid="guide-probe" data-state={JSON.stringify(location.state)}>
-      {location.pathname + location.search}
-    </div>
-  );
-}
-
 function renderStarter(userId: number | null = 7) {
   render(
     <MemoryRouter initialEntries={["/ranking?userId=7"]}>
       <Routes>
         <Route path="/ranking" element={<Starter userId={userId} />} />
         <Route path="/room/1" element={<RoomProbe />} />
-        <Route path="/session-guide" element={<GuideProbe />} />
       </Routes>
     </MemoryRouter>,
   );
 }
 
 describe("useFocusStart", () => {
-  it("홈에서 고른 과목을 첫 가이드 state에 전달한다", async () => {
-    localStorage.clear();
-    const { result } = renderHook(() => ({ start: useFocusStart(7), location: useLocation() }), {
-      wrapper: ({ children }) => (
-        <MemoryRouter initialEntries={["/home?guestAuth=1"]}>{children}</MemoryRouter>
-      ),
-    });
-    await act(async () => {
-      await result.current.start("home", { subjectId: 9 });
-    });
-    expect(result.current.location.pathname).toBe("/session-guide");
-    expect(result.current.location.state).toEqual({ source: "home", initialSubjectId: 9 });
-  });
-  it("가이드 확인 뒤에는 홈 과목을 세션 시작과 브라우저 URL로 전달한다", async () => {
+  it("홈 과목을 세션 시작과 브라우저 URL로 전달한다", async () => {
     vi.mocked(requestSessionStart).mockImplementationOnce(async (_id, navigate) => {
       navigate();
       return "web";
@@ -103,40 +77,22 @@ describe("useFocusStart", () => {
     });
     expect(failure).toBe(error);
   });
-  it("가이드를 안 본 계정은 세션을 시작하지 않고 누른 자리를 들고 가이드로 간다", async () => {
-    localStorage.clear();
-    renderStarter();
-
-    await userEvent.click(screen.getByRole("button", { name: "집중 시작" }));
-
-    const guide = await screen.findByTestId("guide-probe");
-    expect(guide).toHaveTextContent("/session-guide?userId=7");
-    expect(guide).toHaveAttribute("data-state", JSON.stringify({ source: "ranking_card" }));
-    expect(requestSessionStart).not.toHaveBeenCalled();
-    expect(analytics.trackFocusStartTapped).not.toHaveBeenCalled();
-  });
-
-  it("카메라 없는 모드면 가이드를 안 본 계정도 가이드 없이 시작하고 봤음으로 남기지 않는다", async () => {
-    localStorage.clear();
-    writeMeasureMode("timer");
+  it("처음 시작하는 계정도 가이드를 거치지 않고 바로 세션 시작을 요청한다", async () => {
     vi.mocked(requestSessionStart).mockResolvedValue("web");
     renderStarter();
 
     await userEvent.click(screen.getByRole("button", { name: "집중 시작" }));
 
-    expect(screen.queryByTestId("guide-probe")).not.toBeInTheDocument();
+    expect(analytics.trackFocusStartTapped).toHaveBeenCalledWith("ranking_card");
     expect(requestSessionStart).toHaveBeenCalledWith(7, expect.any(Function));
-    expect(sessionGuideState(7)).toBeNull();
   });
 
-  it("신원이 없으면 가이드 없이 바로 시작한다", async () => {
-    localStorage.clear();
+  it("신원이 없어도 바로 시작한다", async () => {
     vi.mocked(requestSessionStart).mockResolvedValue("web");
     renderStarter(null);
 
     await userEvent.click(screen.getByRole("button", { name: "집중 시작" }));
 
-    expect(screen.queryByTestId("guide-probe")).not.toBeInTheDocument();
     expect(requestSessionStart).toHaveBeenCalledWith(null, expect.any(Function));
   });
 

@@ -46,6 +46,17 @@ import { loadVisionRuntime } from "./visionRuntime";
 export interface FaceMetrics {
   /** 고개 숙임 각도(도). 아래를 볼 때 양수, 카메라 기준 상대각. 자세 행렬이 없으면 null. */
   readonly headPitchDeg: number | null;
+  /** 고개 좌우 각도(도). 부호는 판정에 쓰지 않고 크기만 본다. 자세 행렬이 없으면 null. */
+  readonly headYawDeg: number | null;
+  /**
+   * 코끝이 두 눈 바깥 꼬리의 가운데에서 프레임 x 방향으로 눈 사이 거리 대비 얼마나 비켜 있는가.
+   * 고개를 돌린 방향을 프레임 좌표로 알려 준다(오른쪽이 +). 좌표가 아니라 비율 하나다.
+   */
+  readonly noseOffsetX: number | null;
+  /** 이 고개 자세에서 카메라를 보려면 눈이 좌우로 돌아야 하는 각도(도). 얼굴 위치는 밖으로 나가지 않는다. */
+  readonly toCameraH: number | null;
+  /** 같은 기준의 위아래 각도(도). 카메라가 시선보다 위면 +다. */
+  readonly toCameraV: number | null;
 }
 
 export interface FaceDetectionResult {
@@ -119,7 +130,32 @@ const BLENDSHAPES_MISSING: FaceObservation = {
   eye: null,
   eyeSkipReason: "blendshapes-missing",
 };
-const NO_METRICS: FaceMetrics = { headPitchDeg: null };
+const NO_METRICS: FaceMetrics = {
+  headPitchDeg: null,
+  headYawDeg: null,
+  noseOffsetX: null,
+  toCameraH: null,
+  toCameraV: null,
+};
+
+const NOSE_TIP = 1;
+
+/** 코끝 치우침. 근거는 `FaceMetrics.noseOffsetX`. 점이 없거나 눈 사이가 0이면 null이다. */
+export function noseOffsetXOf(
+  landmarks: readonly { readonly x: number; readonly y: number }[],
+): number | null {
+  const nose = landmarks[NOSE_TIP];
+  const left = landmarks[EYE_OUTER_CORNER_LANDMARKS.left];
+  const right = landmarks[EYE_OUTER_CORNER_LANDMARKS.right];
+  if (nose === undefined || left === undefined || right === undefined) {
+    return null;
+  }
+  const interOcular = Math.hypot(left.x - right.x, left.y - right.y);
+  if (interOcular === 0) {
+    return null;
+  }
+  return round((nose.x - (left.x + right.x) / 2) / interOcular, 2);
+}
 
 function round(value: number, digits: number): number {
   const factor = 10 ** digits;
@@ -145,6 +181,46 @@ export function headPitchDegOf(raw: MediapipeFaceResult): number | null {
   }
   const clamped = Math.max(-1, Math.min(1, forwardY));
   return round((-Math.asin(clamped) * 180) / Math.PI, 1);
+}
+
+/**
+ * 얼굴 기준 좌표계에서 본 카메라 방향(도). 화면 응시 판정이 쓴다. 열 우선 4x4로 보고 회전 열(오른쪽·위·정면)과
+ * 이동 열을 쓴다. 얼굴 위치(이동값)는 이 함수 안에서 각도 두 개로만 줄어들고 밖으로 나가지 않는다.
+ * 진단에는 이 각도가 고개 각도(`headPitchDeg`)와 같은 종류의 스칼라로 남고, 위치 자체는 남지 않는다.
+ */
+export function toCameraDegOf(raw: MediapipeFaceResult): { h: number; v: number } | null {
+  const d = raw.facialTransformationMatrixes?.[0]?.data;
+  if (d === undefined || d.length < 16 || !d.every((value) => Number.isFinite(value))) {
+    return null;
+  }
+  const c = [-d[12], -d[13], -d[14]];
+  if (Math.hypot(c[0], c[1], c[2]) === 0) {
+    return null;
+  }
+  const along = (i: number) => {
+    const axis = [d[i], d[i + 1], d[i + 2]];
+    const length = Math.hypot(axis[0], axis[1], axis[2]) || 1;
+    return (c[0] * axis[0] + c[1] * axis[1] + c[2] * axis[2]) / length;
+  };
+  const x = along(0);
+  const y = along(4);
+  const z = along(8);
+  const deg = (value: number) => round((value * 180) / Math.PI, 1);
+  return { h: deg(Math.atan2(x, z)), v: deg(Math.atan2(y, z)) };
+}
+
+/** 고개 좌우 각도(도). 자세 행렬의 정면 방향 x 성분에서 구한다. 읽는 열은 `headPitchDegOf`와 같다. */
+export function headYawDegOf(raw: MediapipeFaceResult): number | null {
+  const matrix = raw.facialTransformationMatrixes?.[0];
+  if (matrix === undefined || matrix.rows !== 4 || matrix.columns !== 4) {
+    return null;
+  }
+  const forwardX = matrix.data[8];
+  if (forwardX === undefined || !Number.isFinite(forwardX)) {
+    return null;
+  }
+  const clamped = Math.max(-1, Math.min(1, forwardX));
+  return round((Math.asin(clamped) * 180) / Math.PI, 1);
 }
 
 interface OpenedLandmarker {
@@ -195,7 +271,14 @@ export function createFaceLandmarker(
     if (landmarks === undefined || landmarks.length === 0) {
       return NO_METRICS;
     }
-    return { headPitchDeg: headPitchDegOf(raw) };
+    const toCamera = toCameraDegOf(raw);
+    return {
+      headPitchDeg: headPitchDegOf(raw),
+      headYawDeg: headYawDegOf(raw),
+      noseOffsetX: noseOffsetXOf(landmarks),
+      toCameraH: toCamera?.h ?? null,
+      toCameraV: toCamera?.v ?? null,
+    };
   }
 
   function normalizeObservation(raw: MediapipeFaceResult): FaceObservation {

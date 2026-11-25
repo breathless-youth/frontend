@@ -82,7 +82,14 @@ export function useDistractScene(
 
   const afterMs = scenes?.timing.distractAfterMs ?? 0;
   const thresholds = useMemo<WatcherTriggerMs>(
-    () => ({ AWAY: afterMs, PHONE: afterMs, DEVICE: afterMs, SLEEP: afterMs }),
+    () => ({
+      AWAY: afterMs,
+      PHONE: afterMs,
+      DEVICE: afterMs,
+      SLEEP: afterMs,
+      SCREEN: afterMs,
+      POSTURE: afterMs,
+    }),
     [afterMs],
   );
 

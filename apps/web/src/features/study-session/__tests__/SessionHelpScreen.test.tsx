@@ -1,207 +1,382 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { SessionHelpScreen } from "../components/SessionHelpScreen";
-import { MASCOT_CELL } from "../mascot/mascotExpression";
+import { READY_PIP_SIZE, SessionHelpScreen } from "../components/SessionHelpScreen";
+import { SESSION_HELP_STEPS } from "../sessionGuide";
 
-/** 핵심 단어를 따로 감싸서 문구가 여러 노드로 나뉜다. 문단 전체 글자로 찾는다. */
-function queryParagraph(text: string) {
+const timelapse = vi.hoisted(() => ({
+  load: vi.fn(),
+  save: vi.fn(async () => {}),
+}));
+vi.mock("@/features/timelapse/timelapseSettings", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  loadTimelapseSettings: timelapse.load,
+  saveTimelapseSettings: timelapse.save,
+}));
+
+const motion = vi.hoisted(() => ({ reduced: false }));
+vi.mock("@/lib/prefersReducedMotion", () => ({ prefersReducedMotion: () => motion.reduced }));
+
+/** 핵심 단어를 따로 감싸서 문구가 여러 노드로 나뉜다. 고정 줄바꿈을 공백으로 보고 문단 전체 글자로 찾는다. */
+function paragraph(text: string) {
   return screen.queryByText(
-    (_, element) => element?.tagName === "P" && element.textContent === text,
+    (_, element) => element?.tagName === "P" && element.textContent?.replace(/\n/g, " ") === text,
   );
 }
 
 const next = () => fireEvent.click(screen.getByRole("button", { name: "다음" }));
-const helpScreen = () => screen.getByTestId("help-screen");
-const holes = () => document.querySelectorAll("[data-hole]");
-const mascotCell = () => screen.getByTestId("help-mascot").getAttribute("data-cell");
+const dialog = () => screen.getByRole("dialog", { name: "세션 도움말" });
 
-function renderHelp(props: { onLater?: () => void } = {}) {
+function renderHelp(mode: "first" | "menu") {
   const onComplete = vi.fn();
   const onDismiss = vi.fn();
   const view = render(
-    <SessionHelpScreen onComplete={onComplete} onDismiss={onDismiss} {...props} />,
+    <SessionHelpScreen mode={mode} onComplete={onComplete} onDismiss={onDismiss} />,
   );
   return { ...view, onComplete, onDismiss };
 }
 
-/** n단계(1부터 센다)까지 다음으로 넘긴다. */
-function goToStep(n: number) {
-  for (let index = 1; index < n; index += 1) next();
+async function advance(ms: number) {
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(ms);
+  });
 }
 
+/** 장면 시간을 흘리지 않아도 되는 테스트는 마지막 장까지 바로 넘긴다. */
+function goToLast() {
+  for (let index = 0; index < 5; index += 1) next();
+}
+
+beforeEach(() => {
+  timelapse.load.mockResolvedValue({ enabled: true });
+  motion.reduced = false;
+});
 afterEach(() => {
   vi.useRealTimers();
-  vi.unstubAllGlobals();
+  vi.clearAllMocks();
 });
 
 describe("SessionHelpScreen", () => {
+  it("단계는 인사, 확인 중, 멈춤, 심플 모드, 구도, 시작 여섯 장이다", () => {
+    expect(SESSION_HELP_STEPS.map((step) => step.id)).toEqual([
+      "welcome",
+      "grace",
+      "distract",
+      "simple",
+      "ready",
+      "start",
+    ]);
+  });
+
+  it("장마다 마스코트 표정이 다르다(인사 기쁨, 확인 중 집중, 멈춤 졸림, 심플 기쁨, 구도 집중, 시작 점프)", () => {
+    renderHelp("first");
+    const cells: (string | null)[] = [];
+    for (let index = 0; index < 6; index += 1) {
+      cells.push(screen.getByTestId("help-mascot").getAttribute("data-cell"));
+      if (index < 5) next();
+    }
+    expect(cells).toEqual(["2", "1", "4", "2", "1", "7"]);
+  });
+
+  it("첫 장은 인사 제목과 본문이다", () => {
+    renderHelp("first");
+
+    expect(paragraph("포커스메이커스에 오신 걸 환영해요.")).toBeInTheDocument();
+    expect(paragraph("어떻게 사용하는지 같이 알아볼까요?")).toBeInTheDocument();
+    expect(screen.getByText("1 / 6")).toBeInTheDocument();
+  });
+
   it("세션 도움말이라는 이름의 비모달 대화상자이고 뜨면 루트에 초점을 둔다", () => {
-    renderHelp();
-    const dialog = screen.getByRole("dialog", { name: "세션 도움말" });
-    expect(dialog).not.toHaveAttribute("aria-modal");
-    expect(document.activeElement).toBe(dialog);
+    renderHelp("first");
+    expect(dialog()).not.toHaveAttribute("aria-modal");
+    expect(document.activeElement).toBe(dialog());
   });
 
-  it("1 / 5 환영 단계는 이전을 막고 제목과 본문을 보이며 강조 자리가 없다", () => {
-    renderHelp();
-    expect(screen.getByText("1 / 5")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "이전" })).toBeDisabled();
-    expect(queryParagraph("포커스메이커스에 오신 걸 환영해요.")).toBeInTheDocument();
-    expect(queryParagraph("어떻게 사용하는지 같이 알아볼까요?")).toBeInTheDocument();
-    expect(holes()).toHaveLength(0);
-    expect(mascotCell()).toBe(String(MASCOT_CELL.joy));
-  });
-
-  it("자리 비움 단계는 상태 줄 하나를 강조하고 공부 안 함 문구와 졸린 마스코트를 보인다", () => {
-    renderHelp();
+  it("2장 확인 중: 공부하지 않는 카메라 창과 상태 문구, 깜빡이는 동안 시간은 흐른다는 말풍선이다", () => {
+    renderHelp("first");
     next();
-    expect(screen.getByText("2 / 5")).toBeInTheDocument();
-    expect(queryParagraph("집중하지 않는 것 같으면 여기에 알려줘요")).toBeInTheDocument();
-    expect(queryParagraph("그동안 순공시간은 멈춰요")).toBeInTheDocument();
-    expect(screen.getByText("자리를 비운 것 같아요")).toBeInTheDocument();
-    expect(holes()).toHaveLength(1);
-    expect(mascotCell()).toBe(String(MASCOT_CELL.sleepy));
+
+    expect(screen.getByTestId("help-demo-camera")).toHaveAttribute("data-demo", "away");
+    expect(screen.getByText("공부 자세를 확인해 주세요")).toBeInTheDocument();
+    expect(paragraph("공부 자세가 흐트러지면 시간을 깜빡여 알려줘요")).toBeInTheDocument();
+    expect(paragraph("깜빡이는 동안은 시간이 계속 흘러가요")).toBeInTheDocument();
   });
 
-  it("제목의 핵심 단어만 따로 감싸고 본문은 감싸지 않는다", () => {
-    renderHelp();
-    next();
-    expect(screen.getByText("집중하지 않는 것 같으면").tagName).toBe("SPAN");
-    expect(queryParagraph("그동안 순공시간은 멈춰요")?.children).toHaveLength(0);
-  });
-
-  it("측정 중 단계는 시계 묶음을 강조하고 집중 마스코트를 보인다", () => {
-    renderHelp();
-    goToStep(3);
-    expect(queryParagraph("집중하면 다시 측정해요")).toBeInTheDocument();
-    expect(screen.getByText("순공시간 측정 중")).toBeInTheDocument();
-    expect(holes()).toHaveLength(1);
-    expect(mascotCell()).toBe(String(MASCOT_CELL.focus));
-  });
-
-  it("측정 중에서 다음을 누르면 탭 모션 뒤 심플 화면으로 바뀐다", () => {
+  it("2장 확인 중에는 시계 숫자가 1초마다 흐르고, 3장 멈춤으로 넘어가면 그 값에서 멈춘다", async () => {
     vi.useFakeTimers();
-    renderHelp();
-    goToStep(3);
+    renderHelp("first");
     next();
-    expect(screen.getByText("4 / 5")).toBeInTheDocument();
-    expect(queryParagraph("화면을 탭하면 심플 모드로 바뀌어요")).toBeInTheDocument();
-    expect(screen.getByTestId("tap-hand")).toBeInTheDocument();
-    expect(helpScreen()).toHaveAttribute("data-screen", "normal");
-    // 누르는 동안은 아직 일반 화면이라 심플 시계 자리를 밝히지 않는다.
-    expect(holes()).toHaveLength(0);
+    const number = () => screen.getByTestId("session-clock-number").textContent;
 
-    act(() => {
-      vi.advanceTimersByTime(700);
+    const start = number();
+    await advance(3000);
+    const flowed = number();
+    expect(flowed).not.toBe(start);
+
+    next();
+    await advance(3000);
+    expect(number()).toBe(flowed);
+  });
+
+  it("4장 심플 모드에서도 시계 숫자가 1초마다 흐른다", async () => {
+    vi.useFakeTimers();
+    renderHelp("first");
+    for (let index = 0; index < 3; index += 1) next();
+    await advance(1400);
+    const number = () => screen.getByTestId("session-clock-number").textContent;
+
+    const start = number();
+    await advance(3000);
+    expect(number()).not.toBe(start);
+  });
+
+  it("5장 구도에서도 뒤 시계 숫자가 1초마다 흐른다", async () => {
+    vi.useFakeTimers();
+    renderHelp("first");
+    for (let index = 0; index < 4; index += 1) next();
+    await advance(1400);
+    const number = () => screen.getByTestId("session-clock-number").textContent;
+
+    const start = number();
+    await advance(3000);
+    expect(number()).not.toBe(start);
+  });
+
+  it("카메라 창 사진은 확인 중·멈춤 장만 휴대폰 보는 모습이고 나머지 장은 공부하는 모습이다", () => {
+    renderHelp("first");
+    const photo = () =>
+      screen.getByTestId("help-demo-camera").querySelector("img")!.getAttribute("src");
+    const photos: (string | null)[] = [];
+    for (let index = 0; index < 6; index += 1) {
+      photos.push(photo());
+      if (index < 5) next();
+    }
+
+    expect(
+      photos.map((src) =>
+        src?.includes("session-help-phone")
+          ? "phone"
+          : src?.includes("session-help-ready")
+            ? "ready"
+            : src,
+      ),
+    ).toEqual(["ready", "phone", "phone", "ready", "ready", "ready"]);
+  });
+
+  it("확인 중·멈춤 장은 덮개에 시계 자리 구멍 하나만 뚫고 카메라 창은 덮으며, 다른 장은 구멍 없이 덮는다", () => {
+    const { container } = renderHelp("first");
+    const holes = () => container.querySelectorAll("[data-hole]").length;
+
+    expect(holes()).toBe(0);
+    expect(screen.queryByTestId("help-clock-spot")).not.toBeInTheDocument();
+    next();
+    expect(holes()).toBe(1);
+    expect(screen.getByTestId("help-clock-spot")).toBeInTheDocument();
+    expect(screen.getByTestId("help-demo-camera")).not.toHaveClass("z-20");
+    next();
+    expect(holes()).toBe(1);
+    next();
+    expect(holes()).toBe(0);
+  });
+
+  it("3장 멈춤: 확정 문구와 순공이 멈춘다는 말풍선이다", () => {
+    renderHelp("first");
+    next();
+    next();
+
+    expect(screen.getByTestId("help-demo-camera")).toHaveAttribute("data-demo", "away");
+    expect(screen.getByText("공부가 감지되면 다시 측정돼요")).toBeInTheDocument();
+    expect(paragraph("계속 공부가 감지되지 않으면 순공시간이 멈춰요")).toBeInTheDocument();
+    expect(paragraph("다시 공부를 시작하면 시간이 흘러가요")).toBeInTheDocument();
+  });
+
+  it("멈춤 장에서 다음을 누르면 일반 화면에서 탭하는 손을 보인 뒤 심플 모드 화면으로 바뀐다", async () => {
+    vi.useFakeTimers();
+    const { container } = renderHelp("first");
+    next();
+    next();
+    next();
+
+    expect(paragraph("화면을 탭하면 심플 모드로 바뀌어요")).toBeInTheDocument();
+    expect(paragraph("카메라 화면만 숨기고 측정은 계속돼요")).toBeInTheDocument();
+    expect(screen.getByTestId("tap-hand")).toBeInTheDocument();
+    expect(container.querySelector('[data-session-surface="simple"]')).toBeNull();
+
+    // 손은 1.4초 동안 보이고 그 전에는 바뀌지 않는다.
+    await advance(1300);
+    expect(screen.getByTestId("tap-hand")).toBeInTheDocument();
+    await advance(100);
+    expect(screen.queryByTestId("tap-hand")).not.toBeInTheDocument();
+    expect(container.querySelector('[data-session-surface="simple"]')).not.toBeNull();
+  });
+
+  it("동작 줄이기를 켰으면 손 없이 바로 심플 모드 화면이다", () => {
+    motion.reduced = true;
+    const { container } = renderHelp("first");
+    next();
+    next();
+    next();
+
+    expect(screen.queryByTestId("tap-hand")).not.toBeInTheDocument();
+    expect(container.querySelector('[data-session-surface="simple"]')).not.toBeNull();
+  });
+
+  it("5장 구도: 키운 카메라 창에 얼굴·손·공부도구를 짚고 창 위에 영상 안내를 달며, 타임랩스는 아직 없다", () => {
+    renderHelp("first");
+    for (let index = 0; index < 4; index += 1) next();
+
+    expect(paragraph("얼굴, 손, 공부도구가 함께 보이면 더 정확하게 감지해요")).toBeInTheDocument();
+    const camera = screen.getByTestId("help-demo-camera");
+    expect(camera).toHaveTextContent("얼굴");
+    expect(camera).toHaveTextContent("공부도구");
+    expect(camera).toHaveTextContent("손");
+    expect(camera).toHaveTextContent("영상은 서버에 저장되지 않아요");
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "다음" })).toBeInTheDocument();
+  });
+
+  it("구도 장의 키운 카메라 창은 모든 화면에서 사진과 같은 3:4라 구도 표시가 어긋나지 않는다", () => {
+    // Tailwind 크기 단위(4px)로 적힌 높이·너비 쌍을 화면 구분별로 읽어 비율을 본다.
+    const sizes = new Map<string, { h?: number; w?: number }>();
+    for (const token of READY_PIP_SIZE.split(" ")) {
+      const match = /^(?:(.+):)?([hw])-(\d+)$/.exec(token);
+      if (!match) continue;
+      const screenKind = match[1] ?? "base";
+      const size = sizes.get(screenKind) ?? {};
+      size[match[2] as "h" | "w"] = Number(match[3]);
+      sizes.set(screenKind, size);
+    }
+
+    expect([...sizes.keys()]).toEqual(["base", "regular", "landscape-compact"]);
+    for (const { h, w } of sizes.values()) {
+      expect((w ?? 0) * 4).toBe((h ?? 0) * 3);
+    }
+  });
+
+  describe("6장 시작", () => {
+    it("시작 문구, 저장된 타임랩스 값이 있고 다시 보지 않기·나중에 할게요는 없다", async () => {
+      renderHelp("first");
+      goToLast();
+
+      expect(paragraph("이제 집중해서 공부해볼까요?")).toBeInTheDocument();
+      expect(screen.queryByText("영상은 서버에 저장되지 않아요")).not.toBeInTheDocument();
+      expect(await screen.findByRole("switch", { name: "타임랩스 녹화" })).toBeChecked();
+      expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "나중에 할게요" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "다음" })).not.toBeInTheDocument();
     });
 
-    expect(helpScreen()).toHaveAttribute("data-screen", "simple");
-    expect(screen.queryByTestId("tap-hand")).not.toBeInTheDocument();
-    // 심플 화면은 시계 말고 다른 것이 없어 덮개 상자 없이 글자만 밝힌다.
-    expect(document.querySelector("[data-dim]")).toBeNull();
-    // 과목 줄은 일반 화면과 심플 화면에 하나씩 있고 심플 쪽이 뒤에 그려진다.
-    const [normalLabel, simpleLabel] = screen.getAllByText("수학").map((el) => el.closest("p"));
-    expect(simpleLabel?.className).toContain("[&_span]:text-white");
-    expect(normalLabel?.className).not.toContain("[&_span]:text-white");
+    it("저장된 타임랩스가 꺼져 있으면 꺼진 채로 시작하고, 바꾸면 바로 저장한다", async () => {
+      timelapse.load.mockResolvedValue({ enabled: false });
+      renderHelp("first");
+      goToLast();
+
+      const toggle = await screen.findByRole("switch", { name: "타임랩스 녹화" });
+      expect(toggle).not.toBeChecked();
+      // 흰 말풍선 위에서 꺼짐이 보이도록 회색 트랙을 쓴다.
+      expect(toggle).toHaveClass("data-[state=unchecked]:bg-text-tertiary/60");
+      fireEvent.click(toggle);
+
+      expect(toggle).toBeChecked();
+      expect(timelapse.save).toHaveBeenCalledExactlyOnceWith({ enabled: true });
+    });
+
+    it("공부 시작하기는 타임랩스 값을 함께 알린다", async () => {
+      const { onComplete } = renderHelp("first");
+      goToLast();
+      fireEvent.click(await screen.findByRole("switch", { name: "타임랩스 녹화" }));
+
+      fireEvent.click(screen.getByRole("button", { name: "공부 시작하기" }));
+      expect(onComplete).toHaveBeenCalledExactlyOnceWith({
+        cta: "start",
+        timelapseEnabled: false,
+      });
+    });
+
+    it("메뉴로 연 도움말은 타임랩스 없이 닫기만 있다", () => {
+      const { onComplete } = renderHelp("menu");
+      goToLast();
+
+      expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+      expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "공부 시작하기" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "나중에 할게요" })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "닫기" }));
+      expect(onComplete).toHaveBeenCalledExactlyOnceWith({
+        cta: "close",
+        timelapseEnabled: null,
+      });
+    });
   });
 
-  it("움직임 줄이기면 탭 모션 없이 바로 심플 화면이다", () => {
-    vi.stubGlobal("matchMedia", (query: string) => ({ matches: query.includes("reduce") }));
-    renderHelp();
-    goToStep(4);
-    expect(screen.queryByTestId("tap-hand")).not.toBeInTheDocument();
-    expect(helpScreen()).toHaveAttribute("data-screen", "simple");
-    expect(document.querySelector("[data-dim]")).toBeNull();
-  });
+  it("이전은 첫 장에서 누를 수 없고, 다음 장에서는 앞 장으로 돌아간다. 마지막 장에도 있다", () => {
+    renderHelp("first");
+    expect(screen.getByRole("button", { name: "이전" })).toBeDisabled();
 
-  it("심플 화면에도 실제 세션처럼 일시정지와 종료 버튼이 함께 있다", () => {
-    renderHelp();
-    // 일반 화면 층과 심플 화면 층이 함께 그려져 있어 두 층의 종료 아이콘을 센다.
-    expect(helpScreen().querySelectorAll(".lucide-log-out")).toHaveLength(2);
-    expect(helpScreen().querySelectorAll(".lucide-pause")).toHaveLength(2);
-  });
-
-  it("마지막 단계에서 이전으로 돌아오면 모션 없이 심플 화면이다", () => {
-    vi.useFakeTimers();
-    renderHelp();
-    goToStep(5);
+    next();
+    expect(screen.getByText("2 / 6")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "이전" }));
-    expect(screen.queryByTestId("tap-hand")).not.toBeInTheDocument();
-    expect(helpScreen()).toHaveAttribute("data-screen", "simple");
+    expect(screen.getByText("1 / 6")).toBeInTheDocument();
+
+    goToLast();
+    fireEvent.click(screen.getByRole("button", { name: "이전" }));
+    expect(screen.getByText("5 / 6")).toBeInTheDocument();
   });
 
-  it("마지막 단계는 더보기와 작은 창을 강조하고 말풍선 밖 두 안내 글을 보인다", () => {
-    renderHelp();
-    goToStep(5);
-    expect(screen.getByText("5 / 5")).toBeInTheDocument();
-    expect(holes()).toHaveLength(2);
-    expect(
-      queryParagraph("이 도움말은 더보기 메뉴에서\n언제든 다시 볼 수 있어요"),
-    ).toBeInTheDocument();
-    expect(
-      queryParagraph("카메라 화면은 어디로도 보내지 않으니\n안심하세요😌"),
-    ).toBeInTheDocument();
-    expect(mascotCell()).toBe(String(MASCOT_CELL.jump));
+  it("덮개를 눌러도 장이 넘어가거나 닫히지 않는다", () => {
+    const { onComplete, onDismiss } = renderHelp("first");
+
+    fireEvent.click(dialog());
+
+    expect(screen.getByText("1 / 6")).toBeInTheDocument();
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(onDismiss).not.toHaveBeenCalled();
   });
 
-  it("마지막 단계는 다음 대신 순공 시작하기로 끝낸다", () => {
-    const { onComplete } = renderHelp();
-    goToStep(5);
-    expect(screen.queryByRole("button", { name: "다음" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "순공 시작하기" }));
-    expect(onComplete).toHaveBeenCalledOnce();
-  });
-
-  it("onLater를 넘기면 마지막 단계에만 나중에 하기가 있고, 넘기지 않으면 없다", () => {
-    const onLater = vi.fn();
-    const { unmount } = renderHelp({ onLater });
-    goToStep(4);
-    expect(screen.queryByRole("button", { name: "나중에 하기" })).not.toBeInTheDocument();
+  it("Escape는 어느 장에서든 바로 닫는다", () => {
+    const { onDismiss, onComplete } = renderHelp("first");
     next();
-    fireEvent.click(screen.getByRole("button", { name: "나중에 하기" }));
-    expect(onLater).toHaveBeenCalledOnce();
-    unmount();
 
-    renderHelp();
-    goToStep(5);
-    expect(screen.queryByRole("button", { name: "나중에 하기" })).not.toBeInTheDocument();
-  });
+    fireEvent.keyDown(dialog(), { key: "Escape" });
 
-  it("말풍선 바깥을 탭해도 넘어가지 않고 다음 버튼으로만 넘어간다", () => {
-    renderHelp();
-    expect(screen.queryByLabelText("다음 안내")).not.toBeInTheDocument();
-    fireEvent.click(helpScreen());
-    expect(screen.getByText("1 / 5")).toBeInTheDocument();
-    next();
-    expect(screen.getByText("2 / 5")).toBeInTheDocument();
-  });
-
-  it("단계를 넘겨도 초점은 루트에 있다", () => {
-    renderHelp();
-    next();
-    expect(document.activeElement).toBe(screen.getByRole("dialog", { name: "세션 도움말" }));
-  });
-
-  it("Escape로 닫으면 끝까지 본 것과 따로 알린다", () => {
-    const { onComplete, onDismiss } = renderHelp();
-    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(onDismiss).toHaveBeenCalledOnce();
     expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it("장을 넘기면 초점을 루트로 다시 둔다", () => {
+    renderHelp("first");
+    screen.getByRole("button", { name: "다음" }).focus();
+    next();
+
+    expect(document.activeElement).toBe(dialog());
+  });
+
+  it("단계를 호출부가 들면 그 단계부터 보이고 바뀐 단계를 알린다", () => {
+    const onStepChange = vi.fn();
+    render(
+      <SessionHelpScreen
+        mode="menu"
+        step={1}
+        onStepChange={onStepChange}
+        onComplete={vi.fn()}
+        onDismiss={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("2 / 6")).toBeInTheDocument();
+    next();
+    expect(onStepChange).toHaveBeenCalledExactlyOnceWith(2);
   });
 
   it("닫히면 열기 전 초점으로 돌려준다", () => {
     const opener = document.createElement("button");
     document.body.append(opener);
     opener.focus();
-    const { unmount } = renderHelp();
+
+    const { unmount } = renderHelp("menu");
     unmount();
+
     expect(document.activeElement).toBe(opener);
     opener.remove();
-  });
-
-  it("가짜 상태 줄은 라이브 리전이 아니다", () => {
-    renderHelp();
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
   });
 });

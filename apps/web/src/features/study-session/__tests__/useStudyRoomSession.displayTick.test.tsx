@@ -11,7 +11,10 @@ type Session = ReturnType<typeof useStudyRoomSession>;
 
 // 신호가 바로 상태가 되도록 유지시간을 0으로 둔다.
 // 상태는 신호 다음 틱에 바뀌므로 전환 시각은 200ms 단위로 떨어진다.
-const INSTANT_PHONE = { ...DEFAULT_DETECTION_PARAMS, PHONE: { enterMs: 0, exitMs: 0 } };
+const INSTANT_PHONE = {
+  ...DEFAULT_DETECTION_PARAMS,
+  PHONE: { graceMs: 0, enterMs: 0, exitMs: 0 },
+};
 
 function subjectTime(session: Session, subjectId: number) {
   return liveSubjectTime(

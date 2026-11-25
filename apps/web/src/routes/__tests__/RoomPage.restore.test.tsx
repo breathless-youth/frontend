@@ -3,13 +3,18 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type * as FocusDetectorModule from "@/features/study-session/adapters/focusDetector";
+import { setSessionCountdownSecondsForTest } from "@/features/study-session/sessionCountdown";
 import { AWAY_LIMIT_MS } from "@/features/study-session/sessionTuning";
+import type * as BridgeModule from "@/lib/bridge";
+import { __resetLaunchReadyForTests } from "@/lib/launchReady";
 
 import { RoomPage } from "../RoomPage";
 
 const useActiveSessionRestore = vi.hoisted(() => vi.fn());
 const useStudyRoomSession = vi.hoisted(() => vi.fn());
 const listSubjects = vi.hoisted(() => vi.fn());
+const visionCloses = vi.hoisted((): { close: () => void }[] => []);
 
 vi.mock("@/features/study-session/useActiveSessionRestore", () => ({ useActiveSessionRestore }));
 // useSubjects는 실제 훅이라 복원 세션이면 목록을 받는다 — jsdom엔 fetch가 없어 API 계층만 막는다.
@@ -26,6 +31,21 @@ vi.mock("@/lib/subjectApi", () => ({
 vi.mock("@/features/study-session/useStudyRoomSession", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
   return { ...actual, useStudyRoomSession };
+});
+
+// 감지 모델 해제를 확인하려고 실제 감지기의 `close`만 감싼다.
+vi.mock("@/features/study-session/adapters/focusDetector", async (importOriginal) => {
+  const actual = await importOriginal<typeof FocusDetectorModule>();
+  return {
+    ...actual,
+    createVisionFocusDetector: (
+      options: Parameters<typeof actual.createVisionFocusDetector>[0],
+    ) => {
+      const detector = actual.createVisionFocusDetector(options);
+      visionCloses.push(vi.spyOn(detector, "close") as unknown as { close: () => void });
+      return detector;
+    },
+  };
 });
 
 const RESTORED = {
@@ -69,10 +89,12 @@ const closeStaleSession = vi.hoisted(() => vi.fn(async () => null));
 const postToNative = vi.hoisted(() => vi.fn());
 
 vi.mock("@/features/study-session/closeStaleSession", () => ({ closeStaleSession }));
-vi.mock("@/lib/bridge", async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  postToNative,
-}));
+// 보낸 메시지를 세되 실제 브리지로도 넘겨, 앱 준비 신호를 보는 테스트가 그대로 돈다.
+vi.mock("@/lib/bridge", async (importOriginal) => {
+  const actual = await importOriginal<typeof BridgeModule>();
+  postToNative.mockImplementation(actual.postToNative);
+  return { ...actual, postToNative };
+});
 
 const TIMER_RESTORED = { ...RESTORED, source: "TIMER" as const };
 
@@ -126,6 +148,29 @@ describe("RoomPage 복원 게이트", () => {
         expect.objectContaining({ initialSubjectId: 3 }),
       ),
     );
+  });
+
+  it("과목을 불러오지 못해 오류 화면이 뜨면 앱 덮개가 걷히도록 준비 신호를 보낸다", async () => {
+    __resetLaunchReadyForTests();
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    try {
+      useActiveSessionRestore.mockReturnValue({ settled: true, restored: null });
+      listSubjects.mockRejectedValue(new Error("offline"));
+      render(
+        <MemoryRouter initialEntries={["/room/1?userId=7&initialSubjectId=3"]}>
+          <RoomPage />
+        </MemoryRouter>,
+      );
+      await screen.findByText("과목을 불러오지 못했어요");
+
+      const sent = postMessage.mock.calls.map(
+        ([raw]) => (JSON.parse(raw as string) as { type: string }).type,
+      );
+      expect(sent.filter((type) => type === "launch-ready")).toHaveLength(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("과목 조회가 실패하는 동안 새로고침해도 선택 과목이 남도록 URL을 유지한다", async () => {
@@ -187,6 +232,50 @@ describe("RoomPage 복원 게이트", () => {
     await waitFor(() => {
       expect(listSubjects).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("이어받은 세션은 카운트다운 없이 바로 세션을 띄운다", () => {
+    setSessionCountdownSecondsForTest(3);
+    useActiveSessionRestore.mockReturnValue({ settled: true, restored: RESTORED });
+
+    renderRoom();
+
+    expect(screen.queryByTestId("session-countdown")).not.toBeInTheDocument();
+    expect(useStudyRoomSession).toHaveBeenCalled();
+  });
+
+  it("새 세션은 세션 훅을 카운트다운 단계로 연다", () => {
+    setSessionCountdownSecondsForTest(3);
+    useActiveSessionRestore.mockReturnValue({ settled: true, restored: null });
+
+    renderRoom();
+
+    expect(useStudyRoomSession).toHaveBeenCalledWith(
+      7,
+      expect.objectContaining({ countdown: true }),
+    );
+  });
+
+  it("이어받은 세션은 카운트다운 없이 연다", () => {
+    setSessionCountdownSecondsForTest(3);
+    useActiveSessionRestore.mockReturnValue({ settled: true, restored: RESTORED });
+
+    renderRoom();
+
+    expect(useStudyRoomSession).toHaveBeenCalledWith(
+      7,
+      expect.objectContaining({ countdown: false }),
+    );
+  });
+
+  it("카운트다운 중에 나가도 감지 모델을 닫는다", () => {
+    setSessionCountdownSecondsForTest(3);
+    useActiveSessionRestore.mockReturnValue({ settled: true, restored: null });
+
+    const { unmount } = renderRoom();
+    unmount();
+
+    expect(visionCloses.at(-1)).toHaveBeenCalled();
   });
 
   it("결착하면 복원값을 세션 훅에 넘긴다", async () => {

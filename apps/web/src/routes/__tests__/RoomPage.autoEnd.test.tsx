@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type * as SessionTuningModule from "@/features/study-session/sessionTuning";
 import { submitStudySession } from "@/features/study-session/submitStudySession";
-import { answerCameraPrompt } from "@/test/cameraPrompt";
 import { RoomPage } from "../RoomPage";
 
 /**
@@ -60,7 +59,6 @@ function renderRoom(url: string) {
       </Routes>
     </MemoryRouter>,
   );
-  answerCameraPrompt("camera");
   return view;
 }
 
@@ -219,7 +217,6 @@ describe("RoomPage — S3-8 자동 종료 안내", () => {
 
   it("userId가 없어 저장되지 않은 세션은 안내 화면으로 가지 않는다", async () => {
     renderRoom("/room/7");
-    answerCameraPrompt();
     await focusPastMinute();
 
     fireEvent.click(screen.getByRole("button", { name: "일시정지" }));

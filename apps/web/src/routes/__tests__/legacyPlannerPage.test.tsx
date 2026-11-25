@@ -103,7 +103,7 @@ function stats(
     totalFocusSec: 0,
     longestFocusSec: 0,
     focusRate: 0,
-    totalEventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
+    totalEventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, SCREEN: 0, POSTURE: 0, PAUSE: 0 },
     studiedDatesInMonth: [],
     // `tasks`를 주면 과목에 그날의 할 일이 실려 온 응답이다. 안 주면 과목별 할 일을 싣지 않는 서버의 응답.
     subjects: [
@@ -128,7 +128,7 @@ function studiedYesterday(): StudySessionSummary {
     studySec: 7200,
     focusSec: 6600,
     focusRate: 92,
-    eventCounts: { AWAY: 0, PHONE: 1, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
+    eventCounts: { AWAY: 0, PHONE: 1, DEVICE: 0, SLEEP: 0, SCREEN: 0, POSTURE: 0, PAUSE: 0 },
     events: [{ status: "PHONE", startedAt: kst(YESTERDAY, 9, 20), endedAt: kst(YESTERDAY, 9, 30) }],
     subjectSegments: [
       {
@@ -155,7 +155,7 @@ function manualYesterday(): StudySessionSummary {
     studySec: 5400,
     focusSec: 5400,
     focusRate: 100,
-    eventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
+    eventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, SCREEN: 0, POSTURE: 0, PAUSE: 0 },
     events: [],
     subjectSegments: [
       {

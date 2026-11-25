@@ -100,8 +100,8 @@ afterEach(() => {
 });
 
 describe("isFullScreenPath", () => {
-  it("세션 가이드는 탭 바를 가린다", () => {
-    expect(isFullScreenPath("/session-guide")).toBe(true);
+  it("없앤 세션 가이드 경로는 더 이상 전체 화면으로 보지 않는다", () => {
+    expect(isFullScreenPath("/session-guide")).toBe(false);
   });
 
   it("탭 바 없는 전체 화면 라우트 3종을 가린다", () => {

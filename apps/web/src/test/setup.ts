@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { afterAll, beforeEach } from "vitest";
 
 import { resetShowOriginalForTest } from "@/features/group-room/model/groupTranslation";
+import { setSessionCountdownSecondsForTest } from "@/features/study-session/sessionCountdown";
+import { clearSessionScreenMode } from "@/features/study-session/sessionScreenMode";
 
 import i18n from "@/lib/i18n";
 import { LOCALE_STORAGE_KEY } from "@/lib/locale";
@@ -35,6 +37,16 @@ globalThis.ResizeObserver ??= class {
 // 그룹 글 원문 보기 설정은 모듈 메모리에 남아서 앞 테스트에서 누른 값이 다음 테스트로 넘어가지 않게 매번 번역 보기로 되돌린다.
 beforeEach(() => {
   resetShowOriginalForTest();
+});
+
+// 화면 테스트 대부분은 세션이 바로 뜨는 것을 전제로 한다. 카운트다운은 전용 테스트가 켠다.
+beforeEach(() => {
+  setSessionCountdownSecondsForTest(0);
+});
+
+// 세션 화면 모드(심플 모드·카메라 크게 보기)는 기기에 저장되므로, 앞 테스트에서 바꾼 모드가 다음 테스트의 시작 모드가 되지 않게 지운다.
+beforeEach(() => {
+  clearSessionScreenMode();
 });
 
 // sonner는 토스트를 닫을 때 200ms 뒤 목록에서 빼는 타이머를 걸고, 화면을 내려도 이 타이머를 지우지 않는다.

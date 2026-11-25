@@ -3,6 +3,11 @@ import { requireOptionalNativeModule } from "expo-modules-core";
 export interface ProfilePhotoPickerNative {
   /** 고른 사진을 512px 정사각형 JPEG base64로 돌려준다. 닫거나 이미 열려 있으면 null이고, 읽지 못하면 reject한다. */
   pick(): Promise<string | null>;
+  /**
+   * 타이머 배경 사진을 자르지 않고 긴 변 1920px JPEG base64와 그 크기로 돌려준다. 닫거나 이미 열려 있으면 null이고, 읽지 못하면 reject한다.
+   * 이 함수가 생기기 전 바이너리에는 없다.
+   */
+  pickBackground?(): Promise<{ data: string; width: number; height: number } | null>;
 }
 
 /**

@@ -11,6 +11,8 @@ const TEN_SECONDS: WatcherTriggerMs = {
   PHONE: 10_000,
   DEVICE: 10_000,
   SLEEP: 10_000,
+  SCREEN: 10_000,
+  POSTURE: 10_000,
 };
 const AWAY_LONG: WatcherTriggerMs = { ...TEN_SECONDS, PHONE: 5_000, AWAY: 60_000 };
 
@@ -137,6 +139,8 @@ const THREE_SECONDS: WatcherTriggerMs = {
   PHONE: 3_000,
   DEVICE: 3_000,
   SLEEP: 3_000,
+  SCREEN: 3_000,
+  POSTURE: 3_000,
 };
 
 describe("useWatcherPresence 시간 인자", () => {
@@ -184,7 +188,14 @@ describe("useWatcherPresence 시간 인자", () => {
   });
 
   it("예고 길이를 늦게 알면 바로 다가오고 늦은 만큼을 알려 준다", () => {
-    const nine: WatcherTriggerMs = { AWAY: 9_000, PHONE: 9_000, DEVICE: 9_000, SLEEP: 9_000 };
+    const nine: WatcherTriggerMs = {
+      AWAY: 9_000,
+      PHONE: 9_000,
+      DEVICE: 9_000,
+      SLEEP: 9_000,
+      SCREEN: 9_000,
+      POSTURE: 9_000,
+    };
     const { result, rerender } = renderHook(
       ({ approachLeadMs }) => useWatcherPresence("PHONE", nine, { approachLeadMs }),
       { initialProps: { approachLeadMs: 0 } },

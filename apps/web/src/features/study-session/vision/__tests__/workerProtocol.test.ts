@@ -73,6 +73,9 @@ function setup(
       }
       return landmarker;
     }),
+    createHandLandmarker: vi.fn(async () => {
+      throw new Error("이 테스트는 손 모델을 쓰지 않는다");
+    }),
     readAssetTimings: () => [TIMING],
     renderPhoto: render,
     post: (message, transfer) => {
@@ -220,6 +223,9 @@ describe("createWorkerMessageHandler", () => {
         new Promise<WorkerFaceLandmarker>((resolve) => {
           finish = resolve;
         }),
+      createHandLandmarker: async () => {
+        throw new Error("이 테스트는 손 모델을 쓰지 않는다");
+      },
       readAssetTimings: () => [],
       renderPhoto: async () => PHOTO,
       post: (message) => posted.push(message),

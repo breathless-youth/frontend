@@ -49,7 +49,7 @@ describe("눈 보정과 비율", () => {
 
   it("비율 창이 연속 판정 유지시간보다 길다 — 짧으면 둘이 같은 것을 잰다", () => {
     expect(EYE_RATIO_WINDOW_SAMPLES * FACE_FRAME_DIVISOR * FRAME_INTERVAL_MS).toBeGreaterThan(
-      DEFAULT_DETECTION_PARAMS.SLEEP_EYES.enterMs,
+      DEFAULT_DETECTION_PARAMS.SLEEP_EYES.enterMs ?? 0,
     );
   });
 

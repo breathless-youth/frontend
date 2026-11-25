@@ -24,6 +24,25 @@ describe("buildActiveSnapshotRequest", () => {
     });
   });
 
+  it("관찰 기록은 reportedAt까지로 맞춰 싣고, 비면 필드를 싣지 않는다", () => {
+    expect(buildActiveSnapshotRequest({ ...INPUT, observations: [] })).not.toHaveProperty(
+      "observations",
+    );
+    const req = buildActiveSnapshotRequest({
+      ...INPUT,
+      observations: [
+        {
+          type: "YAWN",
+          startedAt: "2026-07-25T01:00:10.000Z",
+          endedAt: "2026-07-25T01:00:40.000Z",
+        },
+      ],
+    });
+    expect(req.observations).toEqual([
+      { type: "YAWN", startedAt: "2026-07-25T01:00:10.000Z", endedAt: "2026-07-25T01:00:30.000Z" },
+    ]);
+  });
+
   it("카메라 없는 세션이면 측정 방식을 TIMER로 싣고 카메라 세션이면 필드를 싣지 않는다", () => {
     expect(buildActiveSnapshotRequest({ ...INPUT, source: "TIMER" }).source).toBe("TIMER");
     expect(buildActiveSnapshotRequest({ ...INPUT, source: "MEASURED" })).not.toHaveProperty(

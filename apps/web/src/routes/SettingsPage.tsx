@@ -11,6 +11,7 @@ import { isKoreanLocale } from "@/lib/i18n";
 import { interviewStatusQuery } from "@/lib/interviewQueries";
 import { slideNavigate } from "@/lib/pageTransition";
 import { showToast } from "@/lib/toast";
+import { useTimerBackgroundName } from "@/features/timer-background/useTimerBackgroundName";
 import { useUserId } from "@/lib/userId";
 import { RestorePurchasesRow } from "@/features/points/components/shop/RestorePurchasesRow";
 import { usePointsBalance } from "@/features/points/components/shop/usePointsBalance";
@@ -64,6 +65,7 @@ export function SettingsPage() {
   const permissions = useDevicePermissions();
   const appLock = useAppLockSettings();
   const userId = useUserId();
+  const timerBackgroundName = useTimerBackgroundName(userId);
   // 기록을 지원하지 않는 경계에서는 줄과 잔액 조회를 함께 뺀다.
   const pointsHistoryRow = isPointsEnabled() && appPointsGateway().capabilities.history;
   const points = usePointsBalance(pointsHistoryRow ? userId : null);
@@ -187,6 +189,16 @@ export function SettingsPage() {
               permission="mic"
             />
           )}
+          <SettingsRow
+            label={t("rows.timerBackground")}
+            trailing={{ kind: "valueChevron", value: timerBackgroundName }}
+            onPress={() => {
+              trackSettingsRowPressed("timer_background");
+              slideNavigate("forward", () =>
+                navigate({ pathname: "/timer-background-settings", search: location.search }),
+              );
+            }}
+          />
           <SettingsRow
             label={t("rows.timelapse")}
             trailing={{ kind: "chevron" }}

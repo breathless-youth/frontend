@@ -1,5 +1,5 @@
 import { act, render, screen } from "@testing-library/react-native";
-import { BackHandler, Text } from "react-native";
+import { ActivityIndicator, BackHandler, Text } from "react-native";
 
 import { RemoteScreen } from "../RemoteScreen";
 import { __resetFirstScreenLoadedForTests, onFirstScreenLoaded } from "../../lib/firstScreenLoaded";
@@ -124,7 +124,7 @@ describe("RemoteScreen", () => {
 
     expect(await screen.findByTestId("home-webview")).toBeTruthy();
     expect(screen.getByTestId("home-webview").props.source).toEqual({
-      uri: "https://web.test/home?subjectStart=1&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&pushPermission=1&accountActions=1&nativeTabBar=1&points=1&reviewLogin=1&lang=ko",
+      uri: "https://web.test/home?subjectStart=1&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&restNotify=1&pushPermission=1&accountActions=1&nativeTabBar=1&points=1&reviewLogin=1&lang=ko",
     });
   });
 
@@ -135,7 +135,7 @@ describe("RemoteScreen", () => {
 
     expect(await screen.findByTestId("home-webview")).toBeTruthy();
     expect(screen.getByTestId("home-webview").props.source).toEqual({
-      uri: "https://web.test/home?subjectStart=1&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&pushPermission=1&accountActions=1&nativeTabBar=1&points=1&reviewLogin=1&lang=ko",
+      uri: "https://web.test/home?subjectStart=1&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&restNotify=1&pushPermission=1&accountActions=1&nativeTabBar=1&points=1&reviewLogin=1&lang=ko",
     });
   });
 
@@ -715,6 +715,128 @@ describe("RemoteScreen", () => {
       { type: "navigate-home", atMs: 5 },
       expect.any(Function),
     );
+  });
+});
+
+/**
+ * 세션 화면처럼 웹이 첫 화면을 그린 뒤에 덮개를 걷어야 하는 화면. 문서 로드가 끝난 순간에는
+ * 웹이 아직 아무것도 그리지 않았거나 이어받을 세션을 확인하는 대기 화면이라, 그때 걷으면 색이 여러 번 바뀐다.
+ */
+describe("RemoteScreen — 웹 준비 신호까지 덮개 유지", () => {
+  const send = (webview: { props: Record<string, unknown> }, message: object) =>
+    act(() => {
+      (webview.props.onMessage as (e: unknown) => void)({
+        nativeEvent: { data: JSON.stringify(message) },
+      });
+    });
+
+  function renderSession() {
+    return render(
+      <RemoteScreen
+        testID="session-webview"
+        path="/room/1"
+        backgroundColor="#1a2029"
+        splash={null}
+        waitForWebReady
+      />,
+    );
+  }
+
+  it("로드가 끝나도 launch-ready 전까지 덮개를 유지하고, 신호가 오면 걷는다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    renderSession();
+    const webview = await screen.findByTestId("session-webview");
+
+    act(() => {
+      (webview.props.onLoadEnd as () => void)();
+    });
+    expect(screen.getByTestId("session-webview-splash")).toBeTruthy();
+
+    send(webview, { type: "launch-ready", atMs: 1 });
+    expect(screen.queryByTestId("session-webview-splash")).toBeNull();
+  });
+
+  it("신호가 4초 안에 오지 않으면 덮개를 걷는다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    renderSession();
+    const webview = await screen.findByTestId("session-webview");
+    jest.useFakeTimers();
+    try {
+      act(() => {
+        (webview.props.onLoadEnd as () => void)();
+      });
+      act(() => {
+        jest.advanceTimersByTime(3999);
+      });
+      expect(screen.getByTestId("session-webview-splash")).toBeTruthy();
+      act(() => {
+        jest.advanceTimersByTime(1);
+      });
+      expect(screen.queryByTestId("session-webview-splash")).toBeNull();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("사망 복구에 들어가면 다시 덮고, 새 문서가 신호를 보낼 때까지 유지한다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    renderSession();
+    const webview = await screen.findByTestId("session-webview");
+    act(() => {
+      (webview.props.onLoadEnd as () => void)();
+    });
+    send(webview, { type: "launch-ready", atMs: 1 });
+    expect(screen.queryByTestId("session-webview-splash")).toBeNull();
+
+    act(() => {
+      (webview.props.onContentProcessDidTerminate as () => void)();
+    });
+    act(() => {
+      (webview.props.onLoadEnd as () => void)();
+    });
+    expect(screen.getByTestId("session-webview-splash")).toBeTruthy();
+
+    send(webview, { type: "launch-ready", atMs: 2 });
+    expect(screen.queryByTestId("session-webview-splash")).toBeNull();
+  });
+
+  it("구버전 웹처럼 문서가 뜨자마자 신호를 보내면 로드가 끝나는 대로 걷는다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    renderSession();
+    const webview = await screen.findByTestId("session-webview");
+
+    send(webview, { type: "launch-ready", atMs: 1 });
+    expect(screen.getByTestId("session-webview-splash")).toBeTruthy();
+    act(() => {
+      (webview.props.onLoadEnd as () => void)();
+    });
+    expect(screen.queryByTestId("session-webview-splash")).toBeNull();
+  });
+
+  it("로드가 실패하면 신호 없이도 바로 걷는다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    renderSession();
+    const webview = await screen.findByTestId("session-webview");
+
+    act(() => {
+      (webview.props.onError as () => void)();
+    });
+    expect(screen.queryByTestId("session-webview-splash")).toBeNull();
+  });
+
+  it("어두운 화면 보고가 와도 넘겨받은 빈 덮개를 그대로 쓰고 스피너를 그리지 않는다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    renderSession();
+    const webview = await screen.findByTestId("session-webview");
+
+    act(() => {
+      (webview.props.onLoadEnd as () => void)();
+    });
+    send(webview, { type: "report-screen", path: "/room/1", dark: true, atMs: 1 });
+
+    const splash = screen.getByTestId("session-webview-splash");
+    expect(splash.props.style).toMatchObject({ backgroundColor: "#1a2029" });
+    expect(screen.UNSAFE_queryByType(ActivityIndicator)).toBeNull();
   });
 });
 

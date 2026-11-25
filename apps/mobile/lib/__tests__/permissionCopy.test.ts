@@ -120,7 +120,7 @@ describe("app.json 카메라 권한 문구 (S2-2)", () => {
    *
    * 권한이 늘어날 때 이 배열을 고치면서 정말 필요한지 한 번 되묻게 하려는 것이다.
    */
-  it("선언된 Android 권한은 카메라·센서·마이크 권한뿐이다", () => {
+  it("선언된 Android 권한은 카메라·센서·마이크·정확한 알람 권한뿐이다", () => {
     expect(appConfig.expo.android.permissions).toEqual([
       "CAMERA",
       // 가속도 20Hz 샘플링(설계 §5). Android 12+는 이게 없으면 센서 주기가 200ms로 묶여
@@ -132,6 +132,8 @@ describe("app.json 카메라 권한 문구 (S2-2)", () => {
       // 웹뷰 안 WebRTC가 오디오를 통화 모드로 바꿀 때 필요하다.
       // normal 권한이라 런타임 다이얼로그는 뜨지 않는다.
       "MODIFY_AUDIO_SETTINGS",
+      // 휴식 끝 로컬 알림이 절전 중에도 고른 시각에 울리게 한다. 사용자가 끌 수 없는 권한이라 다이얼로그는 없다.
+      "USE_EXACT_ALARM",
     ]);
   });
 

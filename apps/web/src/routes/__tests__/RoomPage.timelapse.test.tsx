@@ -7,7 +7,6 @@ import type {
   PhotoTap,
   VisionFocusDetector,
 } from "@/features/study-session/adapters/focusDetector";
-import { answerCameraPrompt } from "@/test/cameraPrompt";
 import { RoomPage } from "../RoomPage";
 
 /**
@@ -63,6 +62,7 @@ const vision = vi.hoisted(() => {
     subscribeRuntimeFallback: () => () => {},
     subscribeFaceStatus: () => () => {},
     subscribeFaceSpot: () => () => {},
+    subscribeYawn: () => () => {},
     setPreviewOnly: () => {},
     preload: () => {},
     start() {
@@ -101,7 +101,6 @@ function renderRoom() {
       </Routes>
     </MemoryRouter>,
   );
-  answerCameraPrompt("camera");
   return view;
 }
 

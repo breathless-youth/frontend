@@ -51,6 +51,8 @@ export function mascotCellFor(state: SessionState): MascotCell {
           return MASCOT_CELL.silhouette;
         case "PHONE":
         case "DEVICE":
+        case "SCREEN":
+        case "POSTURE":
           return MASCOT_CELL.blank;
       }
   }

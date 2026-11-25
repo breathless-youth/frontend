@@ -13,10 +13,11 @@ export type SoundGroup = {
 
 const ORDER: readonly SoundGroupId[] = ["music", "ambience", "noise"];
 
-export function soundGroups(catalog: readonly AmbientSound[]): SoundGroup[] {
+/** `keepAmbience`면 소리 목록을 못 받아도 `배경 소리` 탭을 남긴다. 감독관 발소리 줄이 그 탭에 있다. */
+export function soundGroups(catalog: readonly AmbientSound[], keepAmbience = false): SoundGroup[] {
   return ORDER.map((id) => ({
     id,
     label: i18n.t(`ambient-sound:groups.${id}`),
     sounds: catalog.filter((sound) => soundGroupOf(sound) === id),
-  })).filter((group) => group.sounds.length > 0);
+  })).filter((group) => group.sounds.length > 0 || (keepAmbience && group.id === "ambience"));
 }

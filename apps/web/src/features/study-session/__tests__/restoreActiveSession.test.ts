@@ -42,12 +42,47 @@ describe("restoreActiveSession", () => {
       baseFocusSec: 1620,
       events: BODY.events,
       subjectSegments: [],
+      observations: [],
       source: "MEASURED",
     });
 
     const [url, init] = vi.mocked(fetch).mock.calls[0]!;
     expect(String(url)).toMatch(/\/api\/study-sessions\/active$/);
     expect((init as RequestInit | undefined)?.method ?? "GET").toBe("GET");
+  });
+
+  it("관찰 기록을 싣고, 읽을 수 없는 항목만 빼고 세션은 복원한다", async () => {
+    const yawn = {
+      type: "YAWN",
+      startedAt: "2026-08-28T01:05:00.000Z",
+      endedAt: "2026-08-28T01:05:04.000Z",
+    };
+    const openYawn = { type: "YAWN", startedAt: "2026-08-28T01:20:00.000Z" };
+    stub200({
+      ...BODY,
+      observations: [
+        yawn,
+        openYawn,
+        { type: "SNEEZE", startedAt: "2026-08-28T01:06:00.000Z" },
+        { type: "YAWN", startedAt: "not-a-date" },
+        {
+          type: "YAWN",
+          startedAt: "2026-08-28T01:07:00.000Z",
+          endedAt: "2026-08-28T01:06:59.000Z",
+        },
+        null,
+      ],
+    });
+
+    const restored = await restoreActiveSession();
+
+    expect(restored?.observations).toEqual([yawn, openYawn]);
+  });
+
+  it("관찰 기록이 없는 응답(옛 서버)은 빈 목록으로 복원한다", async () => {
+    stub200({ ...BODY, observations: null });
+
+    expect((await restoreActiveSession())?.observations).toEqual([]);
   });
 
   it("측정 방식이 TIMER면 타이머 세션으로, 없거나 MEASURED면 카메라 세션으로 읽는다", async () => {
@@ -164,20 +199,14 @@ describe("restoreActiveSession", () => {
     await expect(restoreActiveSession()).resolves.toBeNull();
   });
 
-  it("SLEEP 이벤트가 있어도 복원한다", async () => {
-    // 이 목록에서 SLEEP이 빠지면 이벤트 하나가 사라지는 것이 아니라 복원 자체를 포기한다.
-    stub200({
-      ...BODY,
-      events: [
-        { status: "SLEEP", startedAt: "2026-08-28T01:10:00Z", endedAt: "2026-08-28T01:20:00Z" },
-      ],
-    });
+  it.each(["SLEEP", "SCREEN", "POSTURE"])("%s 이벤트가 있어도 복원한다", async (status) => {
+    // 이 목록에서 상태가 빠지면 이벤트 하나가 사라지는 것이 아니라 복원 자체를 포기한다.
+    const event = { status, startedAt: "2026-08-28T01:10:00Z", endedAt: "2026-08-28T01:20:00Z" };
+    stub200({ ...BODY, events: [event] });
 
     const restored = await restoreActiveSession();
 
-    expect(restored?.events).toEqual([
-      { status: "SLEEP", startedAt: "2026-08-28T01:10:00Z", endedAt: "2026-08-28T01:20:00Z" },
-    ]);
+    expect(restored?.events).toEqual([event]);
   });
 
   it("모르는 상태값이 있으면 복원을 포기한다", async () => {
