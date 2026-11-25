@@ -54,6 +54,11 @@ jest.mock("../../modules/web-glass", () => ({
 jest.mock("expo-glass-effect", () => ({
   isLiquidGlassAvailable: () => mockGlass.available,
 }));
+// 스토어 빌드처럼 알림 모듈이 있는 바이너리를 기본으로 둔다.
+const mockRestNotification = { supported: true };
+jest.mock("../restNotification", () => ({
+  isRestNotificationSupported: () => mockRestNotification.supported,
+}));
 const mockLiveActivity = { supported: false };
 jest.mock("../liveActivity", () => ({
   isLiveActivitySupported: () => mockLiveActivity.supported,
@@ -78,6 +83,7 @@ beforeEach(() => {
   mockGlass.webGlassNative = null;
   mockGlass.available = false;
   mockLiveActivity.supported = false;
+  mockRestNotification.supported = true;
   __resetRemoteQueryParamsCacheForTests();
   __resetSocialLoginForTests();
 });
@@ -467,6 +473,12 @@ describe("buildRemoteQueryParams", () => {
     mockLiveActivity.supported = true;
     __resetRemoteQueryParamsCacheForTests();
     await expect(buildRemoteQueryParams()).resolves.toHaveProperty("liveActivity", "1");
+  });
+
+  it("알림 모듈이 없는 바이너리(옛 Dev Client)에는 restNotify=1을 붙이지 않는다", async () => {
+    mockRestNotification.supported = false;
+
+    await expect(buildRemoteQueryParams()).resolves.not.toHaveProperty("restNotify");
   });
 
   it("Android에는 glassChrome 표시가 없다", async () => {
