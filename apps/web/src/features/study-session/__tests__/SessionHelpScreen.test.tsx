@@ -192,7 +192,7 @@ describe("SessionHelpScreen", () => {
       renderHelp("first");
       goToLast();
 
-      expect(paragraph("이제 집중해서 공부해볼까요?")).toBeInTheDocument();
+      expect(paragraph("이제 집중해서 공부 시작해볼까요?")).toBeInTheDocument();
       expect(screen.queryByText("영상은 서버에 저장되지 않아요")).not.toBeInTheDocument();
       expect(await screen.findByRole("switch", { name: "타임랩스 녹화" })).toBeChecked();
       expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
