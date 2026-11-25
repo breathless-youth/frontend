@@ -67,7 +67,7 @@ afterEach(async () => {
 });
 
 describe("useSessionBannerGroup 판정 대상", () => {
-  it("비회원, 브라우저, 한국어가 아닌 화면은 판정하지 않는다", async () => {
+  it("사용자 번호가 없거나 브라우저로 들어오면 판정하지 않는다", async () => {
     const fetch = stubApi({ stats: Promise.resolve(periodResponse()) });
 
     expect(renderHook(() => useSessionBannerGroup(null), { wrapper }).result.current).toBeNull();
@@ -75,13 +75,19 @@ describe("useSessionBannerGroup 판정 대상", () => {
     vi.stubGlobal("ReactNativeWebView", undefined);
     expect(renderHook(() => useSessionBannerGroup(USER_ID), { wrapper }).result.current).toBeNull();
 
-    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
-    await i18n.changeLanguage("en");
-    expect(renderHook(() => useSessionBannerGroup(USER_ID), { wrapper }).result.current).toBeNull();
-
     await Promise.resolve();
     expect(fetch).not.toHaveBeenCalled();
     expect(loadSessionBannerGroup(USER_ID)).toBe("unset");
+  });
+
+  it("한국어가 아닌 화면의 사용자도 판정한다", async () => {
+    stubApi({ stats: Promise.resolve(periodResponse()) });
+    await i18n.changeLanguage("en");
+    const { result } = renderHook(() => useSessionBannerGroup(USER_ID), { wrapper });
+
+    const expected = assignSessionBannerArm(USER_ID);
+    await waitFor(() => expect(result.current).toBe(expected));
+    expect(loadSessionBannerGroup(USER_ID)).toBe(expected);
   });
 });
 

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { setPremiumFakeDoorPriceUserProperty, trackPremiumFakeDoor } from "@/lib/amplitude";
-import { isKoreanLocale } from "@/lib/i18n";
 import { showCtaToast } from "@/lib/toast";
 import { hasTokenSource } from "@/lib/userId";
 
@@ -50,7 +49,6 @@ export function PremiumFakeDoorHost({
       canShowPremiumCard({
         nowMs,
         hasTokenSource: hasTokenSource(),
-        korean: isKoreanLocale(),
         record,
         qualifyingSec,
       })

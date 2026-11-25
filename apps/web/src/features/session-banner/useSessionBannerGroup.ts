@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { setSessionBannerGroupUserProperty } from "@/lib/amplitude";
 import { isNativeBridgeAvailable } from "@/lib/bridge";
 import { localDateKey } from "@/lib/dateKey";
-import { isKoreanLocale } from "@/lib/i18n";
 import { queryClient } from "@/lib/queryClient";
 import { periodStatsQuery } from "@/lib/statsQueries";
 import { hasTokenSource } from "@/lib/userId";
@@ -21,7 +20,7 @@ import { loadSessionBannerGroup, saveSessionBannerGroup } from "./sessionBannerS
 /**
  * 세션 배너 실험군
  *
- * 토큰을 주는 앱으로 들어온 한국어 화면의 사용자를 회원 여부와 관계없이 판정하고, 처음 정한 군을 저장해 다시 판정하지 않는다.
+ * 토큰을 주는 앱으로 들어온 사용자를 회원 여부와 화면 언어에 관계없이 판정하고, 처음 정한 군을 저장해 다시 판정하지 않는다.
  * 세션 화면은 Provider 없이도 렌더되므로 공용 queryClient를 직접 넘겨 홈·기록과 캐시를 함께 쓴다.
  * 판정하지 않거나 아직 못 정했으면 null이고, 화면은 배너를 그리지 않는다.
  */
@@ -32,7 +31,6 @@ export function useSessionBannerGroup(userId: number | null): SessionBannerGroup
       isNativeBridgeAvailable() &&
       // 토큰을 주지 않는 구 앱은 배너로 들어와도 신청을 저장할 수 없다.
       hasTokenSource() &&
-      isKoreanLocale() &&
       isSessionBannerRunning(Date.now()),
   );
   const [stored, setStored] = useState(() =>
