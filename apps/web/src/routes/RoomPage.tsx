@@ -223,6 +223,7 @@ import {
 } from "@/lib/amplitude";
 import type { SessionDisplayEnd } from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
+import { requestCameraGate } from "@/lib/nativeCameraGate";
 import { canRequestPushPermission, requestPushPermission } from "@/lib/nativePushPermission";
 import { hasRestNotification } from "@/lib/restNotificationCapability";
 import { haptic } from "@/lib/haptics";
@@ -417,6 +418,16 @@ function RoomSessionScreen(props: RoomSessionScreenProps) {
     cameraOn ? createMediaStreamCameraAdapter() : createMockCameraAdapter(),
   );
   /**
+   * 카메라 권한을 아직 묻지 않고 연 세션인가
+   *
+   * 첫 세션 가이드를 볼 사용자는 앱이 집중 시작에서 묻지 않고 `cameraPermission=later`로 연다.
+   * 가이드가 닫히면 그때 앱에 권한을 묻고, 허용될 때까지 카메라를 켜지 않고 카운트다운도 세지 않는다.
+   * 거부하면 앱이 이 화면을 권한 안내 화면으로 바꾼다.
+   */
+  const [cameraPermissionLater] = useState(
+    () => cameraOn && props.restored === null && searchParams.get("cameraPermission") === "later",
+  );
+  /**
    * 프리뷰
    * — 이 화면이 소유하고 두 곳에 나눠준다.
    * 표시는 `CameraPreviewSurface`가, 추론은 `createVisionFocusDetector`가 같은 엘리먼트를 본다.
@@ -456,6 +467,7 @@ function RoomSessionScreen(props: RoomSessionScreenProps) {
       {...props}
       countdownSeconds={countdown}
       cameraOn={cameraOn}
+      cameraPermissionLater={cameraPermissionLater}
       camera={camera}
       videoRef={videoRef}
       timelapse={timelapse}
@@ -472,6 +484,7 @@ function RoomSessionBody({
   invite,
   initialSubjectId,
   cameraOn,
+  cameraPermissionLater,
   camera,
   videoRef,
   timelapse,
@@ -483,6 +496,8 @@ function RoomSessionBody({
   countdownSeconds: number;
   /** 카메라로 측정하는 세션인가. 아니면 카메라 없는 모드라 타이머만 돈다. */
   cameraOn: boolean;
+  /** 앱이 카메라 권한을 묻지 않고 연 세션이라 가이드 끝에서 묻는다. */
+  cameraPermissionLater: boolean;
   camera: CameraAdapter;
   videoRef: RefObject<HTMLVideoElement | null>;
   timelapse: ReturnType<typeof createTimelapseRecorder>;
@@ -528,6 +543,8 @@ function RoomSessionBody({
    * 넘긴다. 세션 훅은 종료 시점에 `snapshot`만 읽고, 배경음 훅이 `start`/`stop`을 부른다.
    */
   // 결과 설문 대상 여부. 배경음을 틀었거나 공부 중 공간 영상을 보여 준 공부만 묻는다.
+  // 권한 답을 기다리는 동안 카메라를 켜지 않고 카운트다운도 세지 않는다.
+  const [cameraPermissionPending, setCameraPermissionPending] = useState(cameraPermissionLater);
   const [focusFeatureUsage] = useState(createFocusFeatureUsage);
   const [ambientUsage] = useState(() => createAmbientUsage(Date.now, focusFeatureUsage.markUsed));
   // 배경음 그릇과 같은 까닭으로 여기서 만들어 세션 훅과 타이머 훅에 함께 넘긴다.
@@ -582,6 +599,7 @@ function RoomSessionBody({
     endAndSubmit,
   } = useStudyRoomSession(userId, {
     camera,
+    holdCamera: cameraPermissionPending,
     detector,
     restored,
     resumeAway,
@@ -609,10 +627,28 @@ function RoomSessionBody({
       cameraOn && countdownSeconds > 0 && userId !== null && sessionGuideState(userId) !== "seen",
   );
   /** 공부 시작 카운트다운의 남은 초. 다 세면 세션이 시작된다. */
-  const countdownLeft = useSessionCountdown(countdownSeconds, startStudying, firstHelpOpen);
+  const countdownLeft = useSessionCountdown(
+    countdownSeconds,
+    startStudying,
+    firstHelpOpen || cameraPermissionPending,
+  );
   const counting = phase.name === "counting";
-  /** 카운트다운 숫자를 보이는가. 처음 도움말이 떠 있는 동안은 아직 세지 않아 숨긴다. */
-  const countdownShown = counting && !firstHelpOpen;
+  /** 카운트다운 숫자를 보이는가. 처음 도움말이 떠 있거나 권한 답을 기다리는 동안은 아직 세지 않아 숨긴다. */
+  const countdownShown = counting && !firstHelpOpen && !cameraPermissionPending;
+  // 가이드가 닫히면(`공부 시작하기`·Escape) 권한을 묻는다. 가이드 없이 열렸으면 바로 묻는다.
+  // 이미 허용한 기기는 창 없이 바로 답이 온다. 거부면 앱이 화면을 바꾸므로 여기서는 기다리기만 한다.
+  useEffect(() => {
+    if (!cameraPermissionPending || firstHelpOpen) return;
+    let cancelled = false;
+    void requestCameraGate(initialSubjectId === undefined ? {} : { initialSubjectId }).then(
+      (granted) => {
+        if (granted && !cancelled) setCameraPermissionPending(false);
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [cameraPermissionPending, firstHelpOpen, initialSubjectId]);
   useLayoutEffect(() => {
     focusFeatureUsage.bindSession(userId, startedAtMs);
   }, [focusFeatureUsage, startedAtMs, userId]);

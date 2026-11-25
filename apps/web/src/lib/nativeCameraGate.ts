@@ -57,7 +57,10 @@ let pendingGate: Promise<boolean> | null = null;
  * 브라우저 단독 모드는 브리지가 없어 즉시 `true`다 — 브라우저 자체 권한 프롬프트가 기존대로
  * 동작하고, OS 권한과 기준이 다르므로 차단 대상이 아니다.
  */
-export function requestCameraGate(): Promise<boolean> {
+export function requestCameraGate(
+  /** 싱글 세션 화면 안에서 묻는다. 거부하면 앱이 세션 화면을 권한 안내 화면으로 바꾼다. */
+  single?: { initialSubjectId?: number },
+): Promise<boolean> {
   if (!isNativeBridgeAvailable()) {
     return Promise.resolve(true);
   }
@@ -82,11 +85,20 @@ export function requestCameraGate(): Promise<boolean> {
       }
     });
     const handlesGate = shellHandlesGate();
-    const timer = setTimeout(
-      () => settle(!handlesGate),
-      handlesGate ? GATE_TIMEOUT_MS : LEGACY_SHELL_TIMEOUT_MS,
-    );
-    postToNative({ type: "request-camera-gate", atMs: Date.now() });
+    // 싱글 세션 화면은 OS 권한 창 앞에서 고민하는 시간을 끊지 않는다.
+    // 끊으면 늦게 누른 허용이 버려지고 세션 화면이 카운트다운 전에 멈춘 채 남는다. 답은 허용이든 거부든 앱이 반드시 보낸다.
+    const timer =
+      single !== undefined && handlesGate
+        ? undefined
+        : setTimeout(
+            () => settle(!handlesGate),
+            handlesGate ? GATE_TIMEOUT_MS : LEGACY_SHELL_TIMEOUT_MS,
+          );
+    postToNative({
+      type: "request-camera-gate",
+      atMs: Date.now(),
+      ...(single === undefined ? {} : { roomType: "single" as const, ...single }),
+    });
   });
   return pendingGate;
 }

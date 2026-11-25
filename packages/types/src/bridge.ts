@@ -480,7 +480,20 @@ export type ToNativeMessage =
    * `measureMode: "timer"`는 카메라 없이 공부하겠다는 뜻이라 네이티브가 권한 게이트를 건너뛰고 세션 화면을 연다.
    * 카메라 방식은 이 필드를 싣지 않으므로, 필드를 모르는 구버전 앱은 예전처럼 권한을 확인한다.
    */
-  | { type: "start-session"; atMs: number; initialSubjectId?: number; measureMode?: "timer" }
+  | {
+      type: "start-session";
+      atMs: number;
+      initialSubjectId?: number;
+      measureMode?: "timer";
+      /**
+       * 첫 세션 가이드를 볼 사용자라 카메라 권한을 가이드 끝(`공부 시작하기`)에서 묻는다는 표시
+       *
+       * 웹은 앱이 주소에 `cameraPermissionLater=1`을 붙였을 때만 싣는다.
+       * 앱은 아직 묻지 않은 기기면 묻지 않고 세션 화면을 열고, 세션 화면 주소에 `cameraPermission=later`를 싣는다.
+       * 이미 허용·거부한 기기는 지금처럼 게이트를 돈다.
+       */
+      cameraPermission?: "later";
+    }
   /**
    * 설정(S6) 카메라 권한 행에서 OS 설정 앱을 열어달라는 요청. 네이티브가 OS 설정 앱을 연다.
    */
@@ -569,7 +582,18 @@ export type ToNativeMessage =
    * 응답이 오지 않을 때의 판단은 웹이 셸 표시(`cameraGate=1` 쿼리)로 가른다 — 표시가 있으면
    * 차단, 없으면(이 메시지를 모르는 구버전 앱) 통과다. 상세는 `apps/web/src/lib/nativeCameraGate.ts`.
    */
-  | { type: "request-camera-gate"; atMs: number }
+  | {
+      type: "request-camera-gate";
+      atMs: number;
+      /**
+       * 싱글 세션 화면 안에서 묻는 게이트(`cameraPermission=later`로 연 세션)
+       *
+       * 거부하면 앱이 세션 화면을 카메라 없이 시작 출구가 있는 권한 안내 화면으로 바꾸고, 과목은 그 출구로 넘긴다.
+       * 없으면 소셜 룸 입장 게이트다.
+       */
+      roomType?: "single";
+      initialSubjectId?: number;
+    }
   /**
    * OS 알림 권한 요청
    *

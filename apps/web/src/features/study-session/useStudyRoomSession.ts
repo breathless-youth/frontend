@@ -165,6 +165,11 @@ export interface StudyRoomSessionOptions {
    */
   readonly countdown?: boolean;
   /**
+   * 카메라를 아직 켜지 않는다. 권한을 첫 세션 가이드 끝에서 묻는 세션이 답을 받을 때까지 쓴다.
+   * 풀면 바로 켠다.
+   */
+  readonly holdCamera?: boolean;
+  /**
    * 제출 직전에 "이 세션에서 완료한 할 일 id"를 돌려준다. 과목 목록은 화면(`useSubjects`)이 들고 있어
    * 훅이 모른다. 다른 옵션과 달리 매 렌더 ref로 갱신해 제출 시점의 최신 함수를 부른다. 세션 시작 시각은
    * 훅 안에만 있어 인자로 넘긴다. 없으면 필드를 싣지 않는다(소셜룸 등).
@@ -659,7 +664,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    * 판정을 건너뛴다. 휴식은 사용자가 멈춘 것이 아니라 켜 둔다.
    * 소셜룸은 같은 트랙을 참여자에게 보내므로 지금처럼 켜 둔다.
    */
-  const cameraHeld = roomType === "single" && isSessionHeld(sessionState);
+  const cameraHeld =
+    options.holdCamera === true || (roomType === "single" && isSessionHeld(sessionState));
   // 미리보기 창이 사라지는 동안은 움직이는 장면이 남도록, 페이드가 끝난 뒤에 끈다. 재개는 바로 켠다.
   const [cameraOff, setCameraOff] = useState(cameraHeld);
   if (!cameraHeld && cameraOff) {

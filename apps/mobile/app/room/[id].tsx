@@ -30,10 +30,11 @@ import { markSessionOpen } from "../../lib/sessionPresence";
  *   — 기기 조작(`DEVICE`) 감지는 세션에서만 쓰므로 공용 핸들러가 아니라 이 화면이 센서 수명을 소유한다(아래 `motionSource` 주석).
  */
 export default function SessionRoomScreen() {
-  const { id, initialSubjectId, measureMode } = useLocalSearchParams<{
+  const { id, initialSubjectId, measureMode, cameraPermission } = useLocalSearchParams<{
     id: string;
     initialSubjectId?: string;
     measureMode?: string;
+    cameraPermission?: string;
   }>();
   const subject =
     typeof initialSubjectId === "string" &&
@@ -45,6 +46,8 @@ export default function SessionRoomScreen() {
   const extraQuery = {
     ...(subject === undefined ? {} : { initialSubjectId: subject }),
     ...(measureMode === "timer" ? { measureMode } : {}),
+    // 권한을 묻지 않고 연 세션이라 웹이 가이드 끝에서 묻는다.
+    ...(cameraPermission === "later" ? { cameraPermission } : {}),
   };
   /**
    * 기기 조작(`DEVICE`) 감지용 가속도 센서

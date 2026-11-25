@@ -248,6 +248,48 @@ describe("handleBridgeMessage", () => {
     expect(mockedRouter.push).toHaveBeenCalledWith("/room/1");
   });
 
+  it("start-session → 가이드 끝에서 묻는 시작은 아직 묻지 않은 기기면 묻지 않고 표시를 실어 세션 화면을 연다", async () => {
+    mockedGetCameraPermissionStatus.mockResolvedValue("undetermined");
+
+    handleBridgeMessage(
+      { type: "start-session", atMs: 1, initialSubjectId: 3, cameraPermission: "later" },
+      noopReply,
+    );
+    await flush();
+
+    expect(mockedRunCameraPermissionGate).not.toHaveBeenCalled();
+    expect(mockedRouter.push).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.push).toHaveBeenCalledWith({
+      pathname: "/room/[id]",
+      params: { id: "1", cameraPermission: "later", initialSubjectId: "3" },
+    });
+  });
+  it.each(["granted", "denied"] as const)(
+    "start-session → 가이드 끝에서 묻는 시작이어도 이미 %s인 기기는 지금처럼 게이트를 돈다",
+    async (status) => {
+      mockedGetCameraPermissionStatus.mockResolvedValue(status);
+      mockedRunCameraPermissionGate.mockResolvedValue("start-session");
+
+      handleBridgeMessage({ type: "start-session", atMs: 1, cameraPermission: "later" }, noopReply);
+      await flush();
+
+      expect(mockedRunCameraPermissionGate).toHaveBeenCalledTimes(1);
+      expect(mockedRouter.push).toHaveBeenCalledTimes(1);
+      expect(mockedRouter.push).toHaveBeenCalledWith("/room/1");
+    },
+  );
+  it("start-session → 가이드 끝에서 묻는 시작인데 권한 상태를 읽지 못하면 지금처럼 게이트를 돈다", async () => {
+    mockedGetCameraPermissionStatus.mockRejectedValue(new Error("boom"));
+    mockedRunCameraPermissionGate.mockResolvedValue("start-session");
+
+    handleBridgeMessage({ type: "start-session", atMs: 1, cameraPermission: "later" }, noopReply);
+    await flush();
+
+    expect(mockedRunCameraPermissionGate).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.push).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.push).toHaveBeenCalledWith("/room/1");
+  });
+
   it("start-session → 권한이 거부되면 출구를 쓸 수 있게 싱글룸 표시와 과목을 실어 권한 거부 안내로 보낸다", async () => {
     mockedRunCameraPermissionGate.mockResolvedValue("show-denied-guide");
 
@@ -430,6 +472,38 @@ describe("handleBridgeMessage", () => {
     expect(reply).toHaveBeenCalledWith(
       expect.objectContaining({ type: "camera-gate-result", granted: false }),
     );
+  });
+
+  it("request-camera-gate(single) → 허용이면 granted true로 답하고 화면을 바꾸지 않는다", async () => {
+    mockedRunCameraPermissionGate.mockResolvedValue("start-session");
+    const reply = jest.fn();
+
+    handleBridgeMessage({ type: "request-camera-gate", atMs: 1, roomType: "single" }, reply);
+    await flush();
+
+    expect(mockedRunCameraPermissionGate).toHaveBeenCalledWith("single");
+    expect(reply).toHaveBeenCalledWith(expect.objectContaining({ granted: true }));
+    expect(mockedRouter.replace).not.toHaveBeenCalled();
+    expect(mockedRouter.push).not.toHaveBeenCalled();
+  });
+
+  it("request-camera-gate(single) → 거부면 세션 화면을 출구 있는 권한 거부 안내로 바꾸고 과목을 넘긴다", async () => {
+    mockedRunCameraPermissionGate.mockResolvedValue("show-denied-guide");
+    const reply = jest.fn();
+
+    handleBridgeMessage(
+      { type: "request-camera-gate", atMs: 1, roomType: "single", initialSubjectId: 3 },
+      reply,
+    );
+    await flush();
+
+    expect(mockedRouter.replace).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.replace).toHaveBeenCalledWith({
+      pathname: "/permission-denied",
+      params: { from: "single", initialSubjectId: "3" },
+    });
+    expect(mockedRouter.push).not.toHaveBeenCalled();
+    expect(reply).toHaveBeenCalledWith(expect.objectContaining({ granted: false }));
   });
 
   it("request-camera-gate → 게이트 실행이 실패하면 granted false로 답한다 — 확인 못 한 권한으로 입장시키지 않는다", async () => {
