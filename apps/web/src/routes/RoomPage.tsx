@@ -1127,9 +1127,11 @@ function RoomSessionScreen({
     studying && !spaceFailed && space.kind === "space" && space.videoMode === "LOOP"
       ? space.assetKey
       : null;
+  // 비집중 장면 파일을 받지 못한 공간은 화면만 집중 장면으로 남고 소리가 바뀌지 않게 비집중 장면 없이 돌린다.
+  const [failedDistractKey, setFailedDistractKey] = useState<string | null>(null);
   // 공부가 끝나면 공간을 넘기지 않아, 비집중 장면인 채로 끝난 경우에도 떠난 것으로 알린다.
   const distract = useDistractScene({
-    assetKey: loopSpaceKey,
+    assetKey: loopSpaceKey === failedDistractKey ? null : loopSpaceKey,
     itemCode: space.kind === "space" ? space.code : null,
     trigger: sessionState.kind === "DISTRACTION" ? sessionState.trigger : null,
     active: !paused,
@@ -1516,6 +1518,7 @@ function RoomSessionScreen({
               visual={distract.scene.visual}
               present={distract.present}
               approachMs={distract.approachMs}
+              onUnavailable={() => setFailedDistractKey(space.assetKey)}
             />
           )}
           {watchKey !== null && (

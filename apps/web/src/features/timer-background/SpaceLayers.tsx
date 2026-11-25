@@ -1,4 +1,11 @@
-import { type SyntheticEvent, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  type ComponentProps,
+  type SyntheticEvent,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 import { reportHandled } from "@/lib/sentry";
@@ -63,6 +70,45 @@ function useLoopPosition() {
 }
 
 /**
+ * 재생하는 동안에만 보이는 공간 영상
+ *
+ * iOS 저전력 모드는 탭 없이 건 재생을 막고, 막힌 영상은 가운데에 재생 버튼을 드러낸다.
+ * 그래서 영상은 재생될 때만 보이고 멈추면 다시 투명해져 아래 포스터가 보인다.
+ * 탭 재생 표시를 달면 화면을 탭할 때 멈춘 영상에 다시 재생을 건다.
+ */
+function PlayingVideo({
+  poster,
+  playOnTap,
+  onPosterLoad,
+  ...video
+}: ComponentProps<"video"> & {
+  poster: string;
+  playOnTap: boolean;
+  onPosterLoad?: () => void;
+}) {
+  const [playing, setPlaying] = useState(false);
+  return (
+    <>
+      <img
+        src={poster}
+        alt=""
+        aria-hidden="true"
+        draggable={false}
+        className={LAYER}
+        onLoad={onPosterLoad}
+      />
+      <video
+        {...video}
+        data-play-on-tap={playOnTap ? "" : undefined}
+        className={cn(LAYER, playing ? "opacity-100" : "opacity-0")}
+        onPlaying={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+      />
+    </>
+  );
+}
+
+/**
  * 반복 영상 공간
  *
  * 영상을 받지 못하면 포스터를, 포스터도 받지 못하면 부른 쪽에 알려 심플로 그리게 한다.
@@ -86,17 +132,6 @@ export function LoopVideoSpace({
   );
   const videoRef = useRef<HTMLVideoElement>(null);
   const poster = loopPosterUrl(assetKey, screen);
-
-  // video의 poster는 load 이벤트가 없어서 별도로 로드를 확인한다.
-  useEffect(() => {
-    if (stage !== "video" || !onReady) return;
-    const image = new Image();
-    image.onload = onReady;
-    image.src = poster;
-    return () => {
-      image.onload = null;
-    };
-  }, [onReady, poster, stage]);
 
   // 숨은 화면에서 영상을 돌리면 전지만 써서 멈췄다가 다시 보이면 잇는다.
   // 화면 파일이 바뀌면 영상 요소도 새로 생겨서 새 요소에 다시 걸고, 떼어 낸 앞 요소는 멈춘다.
@@ -132,12 +167,14 @@ export function LoopVideoSpace({
     );
   }
   return (
-    <video
+    <PlayingVideo
       // 같은 요소에서 주소만 바꾸면 위치가 0으로 돌아가는 사이의 기록이 섞여서 파일마다 새 요소를 만든다.
       key={screen}
       ref={videoRef}
-      src={loopVideoUrl(assetKey, screen)}
       poster={poster}
+      playOnTap
+      onPosterLoad={onReady}
+      src={loopVideoUrl(assetKey, screen)}
       aria-hidden="true"
       autoPlay
       loop
@@ -145,7 +182,6 @@ export function LoopVideoSpace({
       playsInline
       preload="auto"
       disablePictureInPicture
-      className={LAYER}
       {...position}
       onLoadedData={onReady}
       onError={() => {
@@ -198,20 +234,23 @@ const DISTRACT_LEAVE_FADE_MS = 2_000;
  * 예고가 있으면 장면이 바뀔 때까지 남은 시간(`approachMs`)에 걸쳐 서서히 드러내 바뀌는 순간에 다 드러나고, 없으면 바뀔 때 0.6초 동안 드러낸다.
  * 예고 도중 돌아오면 1초, 장면이 끝나면 2초 동안 감춘다.
  * 딴짓이 시작될 때 그려서 드러나기 전에 파일을 받아 두고, 영상은 드러나기 전까지 멈춰 둔다.
- * 영상을 아직 재생할 수 없으면 영상 요소의 poster가 비집중 포스터를 먼저 보인다.
+ * 영상은 재생되는 동안에만 보이고, 그 전이나 멈춘 동안에는 아래 비집중 포스터가 보인다.
  * 동작 줄이기 설정이면 포스터나 그림만 쓰고 예고와 상관없이 바뀌는 순간에 전환 없이 바로 바꾼다.
  * 파일을 받지 못하면 Sentry에 남기고 그리지 않아 집중 장면이 그대로 보인다.
+ * 그때 부른 쪽에도 알려 소리까지 집중 장면에 머물게 한다.
  */
 export function DistractSpace({
   assetKey,
   visual,
   present,
   approachMs = null,
+  onUnavailable,
 }: {
   assetKey: string;
   visual: "video" | "image";
   present: boolean;
   approachMs?: number | null;
+  onUnavailable?: () => void;
 }) {
   const screen = useSpaceScreen();
   const [reduced] = useState(prefersReducedMotion);
@@ -257,6 +296,7 @@ export function DistractSpace({
   const handleError = () => {
     reportHandled(new Error(`space distract file failed: ${assetKey}`), "space-file");
     setFailed(true);
+    onUnavailable?.();
   };
 
   // 돌리면 안의 영상 요소를 새로 만들어서, 드러나는 전환은 바깥 층에 걸어 진행 중이던 투명도를 잇는다.
@@ -284,18 +324,18 @@ export function DistractSpace({
           onError={handleError}
         />
       ) : (
-        <video
+        <PlayingVideo
           // 같은 요소에서 주소만 바꾸면 위치가 0으로 돌아가는 사이의 기록이 섞여서 파일마다 새 요소를 만든다.
           key={screen}
           ref={videoRef}
-          src={distractVideoUrl(assetKey, screen)}
           poster={distractPosterUrl(assetKey, screen)}
+          playOnTap={shown}
+          src={distractVideoUrl(assetKey, screen)}
           loop
           muted
           playsInline
           preload="auto"
           disablePictureInPicture
-          className={LAYER}
           {...position}
           onError={handleError}
         />

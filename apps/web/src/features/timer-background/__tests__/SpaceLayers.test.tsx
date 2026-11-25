@@ -42,7 +42,9 @@ describe("LoopVideoSpace", () => {
     const video = container.querySelector("video")!;
 
     expect(video.src).toContain("/spaces/loop/1a2b3c4d/loop/phone_portrait.mp4");
-    expect(video.poster).toContain("/spaces/loop/1a2b3c4d/poster/phone_portrait.webp");
+    expect(container.querySelector("img")!.src).toContain(
+      "/spaces/loop/1a2b3c4d/poster/phone_portrait.webp",
+    );
     expect(video.muted).toBe(true);
     expect(video.loop).toBe(true);
     expect(video).toHaveAttribute("aria-hidden", "true");
@@ -102,7 +104,7 @@ describe("LoopVideoSpace", () => {
 
     const next = container.querySelector("video")!;
     expect(next.src).toContain("/loop/phone_landscape.mp4");
-    expect(next.poster).toContain("/poster/phone_landscape.webp");
+    expect(container.querySelector("img")!.src).toContain("/poster/phone_landscape.webp");
     // 새 파일을 받는 동안 0으로 돌아가며 오는 timeupdate는 기억한 위치를 덮지 않는다.
     Object.defineProperty(next, "currentTime", { configurable: true, writable: true, value: 0 });
     fireEvent.timeUpdate(next);
@@ -159,6 +161,43 @@ describe("LoopVideoSpace", () => {
 
     expect(container.querySelector("video")!.src).toContain("/loop/desktop.mp4");
   });
+
+  it("재생 전에는 영상을 투명하게 두고 아래에 포스터를 보인다", () => {
+    const { container } = render(<LoopVideoSpace assetKey={KEY} onUnavailable={vi.fn()} />);
+
+    expect(container.querySelector("video")).toHaveClass("opacity-0");
+    expect(container.querySelector("img")!.src).toContain(
+      "/spaces/loop/1a2b3c4d/poster/phone_portrait.webp",
+    );
+  });
+
+  it("재생되면 영상을 보이고 멈추면 다시 투명하게 한다", () => {
+    const { container } = render(<LoopVideoSpace assetKey={KEY} onUnavailable={vi.fn()} />);
+    const video = container.querySelector("video")!;
+
+    fireEvent.playing(video);
+    expect(video).toHaveClass("opacity-100");
+
+    fireEvent.pause(video);
+    expect(video).toHaveClass("opacity-0");
+  });
+
+  it("탭하면 다시 재생되도록 영상에 표시를 단다", () => {
+    const { container } = render(<LoopVideoSpace assetKey={KEY} onUnavailable={vi.fn()} />);
+
+    expect(container.querySelector("video")).toHaveAttribute("data-play-on-tap");
+  });
+
+  it("아래 포스터를 받으면 준비됐다고 알린다", () => {
+    const onReady = vi.fn();
+    const { container } = render(
+      <LoopVideoSpace assetKey={KEY} onUnavailable={vi.fn()} onReady={onReady} />,
+    );
+
+    fireEvent.load(container.querySelector("img")!);
+
+    expect(onReady).toHaveBeenCalledOnce();
+  });
 });
 
 describe("ImageSpace", () => {
@@ -202,7 +241,9 @@ describe("DistractSpace", () => {
     const video = container.querySelector("video")!;
 
     expect(video.src).toContain("/spaces/loop/1a2b3c4d/distract/loop/phone_portrait.mp4");
-    expect(video.poster).toContain("/spaces/loop/1a2b3c4d/distract/poster/phone_portrait.webp");
+    expect(container.querySelector("img")!.src).toContain(
+      "/spaces/loop/1a2b3c4d/distract/poster/phone_portrait.webp",
+    );
     expect(video).toHaveAttribute("preload", "auto");
     expect(layer(container)).toHaveAttribute("aria-hidden", "true");
     expect(video.muted).toBe(true);
@@ -406,5 +447,42 @@ describe("DistractSpace", () => {
 
     expect(container).toBeEmptyDOMElement();
     expect(reportHandled).toHaveBeenCalledExactlyOnceWith(expect.any(Error), "space-file");
+  });
+
+  it("재생 전에는 영상을 투명하게 두고 아래에 비집중 포스터를 보이며, 재생 중에만 영상을 보인다", () => {
+    const { container } = render(<DistractSpace assetKey={KEY} visual="video" present />);
+    const video = container.querySelector("video")!;
+
+    expect(video).toHaveClass("opacity-0");
+    expect(container.querySelector("img")!.src).toContain(
+      "/spaces/loop/1a2b3c4d/distract/poster/phone_portrait.webp",
+    );
+
+    fireEvent.playing(video);
+    expect(video).toHaveClass("opacity-100");
+
+    fireEvent.pause(video);
+    expect(video).toHaveClass("opacity-0");
+  });
+
+  it("드러난 동안에만 탭하면 다시 재생되도록 영상에 표시를 단다", () => {
+    const { container, rerender } = render(
+      <DistractSpace assetKey={KEY} visual="video" present={false} approachMs={null} />,
+    );
+    expect(container.querySelector("video")).not.toHaveAttribute("data-play-on-tap");
+
+    rerender(<DistractSpace assetKey={KEY} visual="video" present approachMs={null} />);
+    expect(container.querySelector("video")).toHaveAttribute("data-play-on-tap");
+  });
+
+  it("영상을 받지 못하면 부른 쪽에 알린다", () => {
+    const onUnavailable = vi.fn();
+    const { container } = render(
+      <DistractSpace assetKey={KEY} visual="video" present onUnavailable={onUnavailable} />,
+    );
+
+    fireEvent.error(container.querySelector("video")!);
+
+    expect(onUnavailable).toHaveBeenCalledOnce();
   });
 });
