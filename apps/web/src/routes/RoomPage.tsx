@@ -81,22 +81,41 @@ import {
 } from "@/features/study-session/components/SessionTimer";
 import { SimpleModeSurface } from "@/features/study-session/components/SimpleModeSurface";
 import { CAMERA_EXPAND_TIMING, cameraBoxFrames } from "@/features/study-session/cameraExpandMotion";
-import { readTimerBackground } from "@/features/timer-background/timerBackground";
+import { SessionSpacePage } from "@/features/timer-background/components/SessionSpacePage";
+import { spaceKey } from "@/features/timer-background/spaceCatalog";
+import { fetchAppliedSpace, isMemberUser } from "@/features/timer-background/spaceCatalogQuery";
+import { DistractSpace, ImageSpace, LoopVideoSpace } from "@/features/timer-background/SpaceLayers";
+import { useDistractScene } from "@/features/timer-background/useDistractScene";
+import { useSpaceLoopSound } from "@/features/timer-background/useSpaceLoopSound";
+import {
+  readTimerBackground,
+  resolveSpace,
+  SIMPLE_BACKGROUND,
+  type SpaceSelection,
+  type TimerBackgroundSelection,
+  writeTimerBackground,
+} from "@/features/timer-background/timerBackground";
 import { TimerBackgroundLayer } from "@/features/timer-background/TimerBackgroundLayer";
 import { WallpaperScrim } from "@/features/timer-background/WallpaperScrim";
 import { useWatcherPresence } from "@/features/timer-background/watcher/useWatcherPresence";
 import { WatcherBackground } from "@/features/timer-background/watcher/WatcherBackground";
 import { DEFAULT_WATCHER_TRIGGER_MS } from "@/features/timer-background/watcher/watcherTrigger";
 import {
+  clearWatcherAssets,
+  saveWatcherAssets,
+  watcherAssetUrls,
+} from "@/features/timer-background/watcher/watcherAssets";
+import {
   createWatcherSound,
   readWatcherVolume,
+  type WatcherSound,
   writeWatcherVolume,
 } from "@/features/timer-background/watcher/watcherSound";
-import { timerBackgroundPhotoStore } from "@/features/timer-background/timerBackgroundPhotos";
 import {
-  toPhotoView,
+  timerBackgroundPhotoQuery,
   type BackgroundPhotoView,
 } from "@/features/timer-background/timerBackgroundQueries";
+import { putTimerBackground } from "@/lib/pointsApi";
 import { NoFocusEndNotice } from "@/features/study-session/components/NoFocusEndNotice";
 import { SessionSubjectPanel as SubjectPanel } from "@/features/study-session/components/SessionSubjectPanel";
 import { SessionSubjectHeader } from "@/features/study-session/components/SessionSubjectHeader";
@@ -181,6 +200,9 @@ import {
   trackSessionClockViewChanged,
   trackSessionNoticeConfirmed,
   trackSessionSimpleModeToggled,
+  trackSessionSpaceVolumeChanged,
+  trackSessionSpaceMuted,
+  trackSessionSpaceOpened,
   trackStudySessionExitCancelled,
   trackStudySessionExitRequested,
   trackStudySessionHelpCompleted,
@@ -586,7 +608,7 @@ function RoomSessionBody({
     roomType: "single",
   });
   /** 세션 위에 열린 전체 페이지. 둘은 동시에 열리지 않는다. */
-  const [page, setPage] = useState<"subject" | "ambient" | null>(null);
+  const [page, setPage] = useState<"subject" | "ambient" | "space" | null>(null);
   const studying = phase.name === "studying";
   // 세션이 끝나면 페이지는 공부 화면과 함께 사라진다. 사용자가 닫은 것이 아니라 닫힘 계측은 남기지 않는다.
   if (!studying && page !== null) {
@@ -839,31 +861,161 @@ function RoomSessionBody({
       .catch(() => {});
   };
   useEffect(readTimelapseOn, []);
-  // 타이머 배경. 설정 화면이 이 기기에 저장한 값을 세션을 열 때 한 번 읽는다.
-  // 고른 사진이 지워졌거나 읽지 못하면 배경 없이 그린다.
-  const [backgroundPhoto, setBackgroundPhoto] = useState<BackgroundPhotoView | null>(null);
+  // 공간(타이머 배경). 더보기의 배경 설정에서 세션 안에서 바꿀 수 있어서 처음 한 번 읽고 이후에는 이 값이 원본이다.
+  const [space, setSpace] = useState(readTimerBackground);
+  const spacePhotoId = space.kind === "photo" ? space.photoId : null;
+  // 읽은 사진과 그 id. 읽는 중에는 id가 달라 사진이 없어도 지운 사진으로 보지 않는다.
+  const [loadedPhoto, setLoadedPhoto] = useState<{
+    id: string;
+    view: BackgroundPhotoView | null;
+  } | null>(null);
+  useEffect(() => {
+    if (spacePhotoId === null) {
+      return;
+    }
+    let cancelled = false;
+    queryClient.fetchQuery(timerBackgroundPhotoQuery(spacePhotoId)).then(
+      (view) => {
+        if (!cancelled) setLoadedPhoto({ id: spacePhotoId, view });
+      },
+      () => {
+        if (!cancelled) setLoadedPhoto({ id: spacePhotoId, view: null });
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [spacePhotoId]);
+  const spacePhoto = loadedPhoto?.id === spacePhotoId ? loadedPhoto : null;
+  const backgroundPhoto = spacePhoto?.view ?? null;
+  // 지운 사진이나 읽지 못한 사진을 가리키면 그릴 것이 없어 심플과 같다.
+  const appliedSpace = spacePhoto !== null && spacePhoto.view === null ? SIMPLE_BACKGROUND : space;
   // 감독관은 서버 공간 중 감독 영상(WATCH) 공간이다. 그 공간의 파일 폴더로 영상과 발소리를 받는다.
-  const [watchSpace] = useState(() => {
-    const selection = readTimerBackground();
-    return selection.kind === "space" && selection.videoMode === "WATCH" ? selection : null;
-  });
-  const proctorBackground = watchSpace !== null;
-  // 월페이퍼가 보이는 기본 모드에서는 시간 묶음을 왼쪽 아래로 옮긴다. 심플 모드는 배경이 걷혀 가운데로 돌아간다.
+  const watchKey = space.kind === "space" && space.videoMode === "WATCH" ? space.assetKey : null;
+  // 그리다가 실패한 공간이다. 선택 값은 그대로 두고 그 공간만 심플로 그린다.
+  const [failedSpaceKey, setFailedSpaceKey] = useState<string | null>(null);
+  const activeSpaceKey = spaceKey(space);
+  const spaceFailed = failedSpaceKey === activeSpaceKey;
   // 월페이퍼가 있으면 시간 묶음을 왼쪽 아래로 옮기고(시안 28e·30a), 심플 모드도 어두운 화면 대신
   // 그림을 둔 채 카메라 창만 뺀다(시안 31a). 하단 버튼은 심플 모드면 배경과 상관없이 유리 원으로 낮춘다(시안 18i).
-  const wallpaper = backgroundPhoto !== null || proctorBackground;
+  const wallpaper = backgroundPhoto !== null || (space.kind === "space" && !spaceFailed);
+  // 사용자가 이 세션에서 고른 뒤에는 늦게 온 서버 값으로 덮지 않는다.
+  const userPickedRef = useRef(false);
+  // 앞서 고른 공간의 저장 실패가 뒤에 고른 공간을 되돌리지 않게 고를 때마다 올린다.
+  const pickSeqRef = useRef(0);
+  // 늦게 끝난 앞 저장이 서버를 옛 공간으로 되돌리지 않게 저장을 고른 차례대로 보낸다.
+  const putQueueRef = useRef<Promise<unknown>>(Promise.resolve());
+  function commitSpace(next: TimerBackgroundSelection): boolean {
+    if (!writeTimerBackground(next)) {
+      return false;
+    }
+    setSpace(next);
+    setFailedSpaceKey(null);
+    // 감독 파일을 기기에 받아 두면 첫 등장이 늦지 않다. 받지 않아도 네트워크로 재생돼 기다리지 않는다.
+    if (next.kind === "space" && next.videoMode === "WATCH") {
+      const viewport = { width: innerWidth, height: innerHeight };
+      void saveWatcherAssets(next.assetKey, watcherAssetUrls(next.assetKey, viewport));
+    } else {
+      void clearWatcherAssets();
+    }
+    return true;
+  }
+  async function applySpace(
+    next: TimerBackgroundSelection,
+    options?: { localOnly?: boolean },
+  ): Promise<boolean> {
+    const previous = space;
+    if (!commitSpace(next)) {
+      return false;
+    }
+    userPickedRef.current = true;
+    if (options?.localOnly || !(await isMemberUser(userId))) {
+      return true;
+    }
+    const pick = ++pickSeqRef.current;
+    const saving = putQueueRef.current.then(async () => {
+      // 차례가 오기 전에 더 새로 고른 공간이 있으면 그 저장이 대신해 보내지 않는다.
+      if (pick !== pickSeqRef.current) {
+        return;
+      }
+      // 사진은 이 기기에만 있어 서버에는 기본 배경으로 저장한다.
+      await putTimerBackground(next.kind === "space" ? next.itemId : null);
+    });
+    putQueueRef.current = saving.catch(() => undefined);
+    try {
+      await saving;
+      return true;
+    } catch {
+      // 그 사이 기기에서만 바꾼 선택이 있으면 그 선택이 더 새로워 되돌리지 않는다.
+      if (
+        pick === pickSeqRef.current &&
+        JSON.stringify(readTimerBackground()) === JSON.stringify(next)
+      ) {
+        commitSpace(previous);
+      }
+      return false;
+    }
+  }
+  const syncSpace = useEffectEvent((server: SpaceSelection | null, photoExists: boolean) => {
+    const local = readTimerBackground();
+    const next = resolveSpace(local, server, photoExists);
+    if (userPickedRef.current || JSON.stringify(next) === JSON.stringify(local)) {
+      return;
+    }
+    commitSpace(next);
+  });
+  // 회원이면 다른 기기에서 고른 공간을 서버에서 받아 한 번 맞춘다.
+  // 사용자가 고른 것이 아니라 적용 이벤트를 보내지 않는다.
+  useEffect(() => {
+    let cancelled = false;
+    void fetchAppliedSpace(userId).then(async (server) => {
+      if (server === undefined) {
+        return;
+      }
+      const local = readTimerBackground();
+      // 사진을 읽지 못하면 있는지 몰라 이번에는 맞추지 않는다. null로 답할 때만 지워진 사진이다.
+      const photoExists =
+        local.kind === "photo" &&
+        (await queryClient.fetchQuery(timerBackgroundPhotoQuery(local.photoId)).then(
+          (view) => view !== null,
+          () => undefined,
+        ));
+      if (!cancelled && photoExists !== undefined) {
+        syncSpace(server, photoExists);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
   // 감독관은 비집중이 끊기지 않고 이어질 때만 들어온다. 비집중 판정 자체가 이미 잠깐의 흔들림을 걸러 낸다.
   const watcher = useWatcherPresence(
     sessionState.kind === "DISTRACTION" ? sessionState.trigger : null,
     DEFAULT_WATCHER_TRIGGER_MS,
   );
-  // 감독관 배경이면 늘 발소리를 낸다. 화면을 떠나면 끊고, 다시 볼 때 이어 울리지 않는다.
-  const [watcherSound] = useState(() =>
-    watchSpace !== null ? createWatcherSound(watchSpace.assetKey) : null,
-  );
+  // 감독 공간마다 소리가 달라 공간이 바뀌면 새로 만든다. 소리 컨텍스트는 처음 깨울 때 생긴다.
+  // 정리한 재생기는 다시 깨어나지 않아서, StrictMode가 effect를 다시 돌려도 새 재생기를 쓰도록 만든 effect가 정리까지 맡는다.
+  const [watcherSound, setWatcherSound] = useState<WatcherSound | null>(null);
   useEffect(() => {
-    if (!watcherSound) return;
+    if (watchKey === null) {
+      return;
+    }
+    const sound = createWatcherSound(watchKey);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 재생기는 외부 자원이라 effect에서 만들고 정리한다
+    setWatcherSound(sound);
+    return () => {
+      sound.dispose();
+      setWatcherSound((current) => (current === sound ? null : current));
+    };
+  }, [watchKey]);
+  useEffect(() => {
+    // 제출 실패나 종료 안내에서는 화면이 닫히지 않으므로 공부가 끝나는 순간 소리와 누름 구독을 푼다.
+    if (!watcherSound || !studying) {
+      watcherSound?.stopAll();
+      return;
+    }
     watcherSound.prime();
+    // iOS는 사용자 누름 안에서 깨워야 이후 재생을 허락해서 누를 때마다 다시 깨운다.
     const unlock = () => watcherSound.prime();
     const silenceHidden = () => {
       if (document.hidden) watcherSound.stopAll();
@@ -873,54 +1025,41 @@ function RoomSessionBody({
     return () => {
       window.removeEventListener("pointerdown", unlock);
       document.removeEventListener("visibilitychange", silenceHidden);
-      watcherSound.dispose();
     };
-  }, [watcherSound]);
+  }, [watcherSound, studying]);
   useEffect(() => {
-    if (watcher.approaching) watcherSound?.play("approach");
-    // 들어오면 다가오던 소리가 등장 소리로 이어지니 그대로 두고, 들어오기 전에 집중하면 멀어지듯 줄인다.
-    else if (!watcher.present) watcherSound?.fadeApproach();
-  }, [watcher.approaching, watcher.present, watcherSound]);
-  // 배경음 페이지의 `감독관 발소리` 음량. 배경음 전체 스위치를 끄고 켤 때도 함께 따라간다.
-  const [storedFootsteps] = useState(readWatcherVolume);
-  const [footstepsLevel, setFootstepsLevelState] = useState(storedFootsteps.level);
-  // 끈 발소리를 다시 켤 때 돌아갈 음량
-  const lastFootstepsLevel = useRef(storedFootsteps.last);
-  const setFootstepsLevel = (level: number) => {
-    if (level > 0) lastFootstepsLevel.current = level;
-    setFootstepsLevelState(level);
-    writeWatcherVolume(level);
-  };
-  useEffect(() => {
-    watcherSound?.setVolume(footstepsLevel / 100);
-  }, [footstepsLevel, watcherSound]);
-  const footstepsOn = proctorBackground && footstepsLevel > 0;
-  const soundOn = ambient.isOn || footstepsOn;
-  const toggleAllSound = () => {
-    if (soundOn) {
-      if (ambient.isOn) ambient.toggleAll();
-      if (footstepsOn) setFootstepsLevel(0);
+    // 공부가 끝난 뒤 비집중 상태가 남아 있어도 다가오는 소리를 다시 내지 않는다.
+    if (!watcherSound || !studying) {
       return;
     }
-    if (ambient.canRestore) ambient.toggleAll();
-    if (proctorBackground) setFootstepsLevel(lastFootstepsLevel.current);
-  };
+    if (watcher.approaching) {
+      watcherSound.play("approach");
+    } else if (!watcher.present) {
+      // 들어오면 다가오던 소리가 등장 소리로 이어지니 그대로 두고, 들어오기 전에 집중하면 멀어지듯 줄인다.
+      watcherSound.fadeApproach();
+    }
+  }, [watcherSound, studying, watcher.approaching, watcher.present]);
+  // 공간 음량. 배경 설정 페이지에서 바꾸고 감독관 발소리·반복 공간 소리·비집중 장면 소리가 함께 쓴다.
+  const [storedWatcherVolume] = useState(readWatcherVolume);
+  const [watcherLevel, setWatcherLevel] = useState(storedWatcherVolume.level);
+  // 음소거를 풀 때 돌아갈 음량
+  const lastWatcherLevelRef = useRef(storedWatcherVolume.last);
   useEffect(() => {
-    const selection = readTimerBackground();
-    if (selection.kind !== "photo") return;
-    let cancelled = false;
-    timerBackgroundPhotoStore()
-      .get(selection.photoId)
-      .then(async (photo) => {
-        if (photo === null) return;
-        const view = await toPhotoView(photo);
-        if (!cancelled) setBackgroundPhoto(view);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    watcherSound?.setVolume(watcherLevel / 100);
+  }, [watcherLevel, watcherSound]);
+  function commitWatcherLevel(level: number) {
+    if (level > 0) {
+      lastWatcherLevelRef.current = level;
+    }
+    writeWatcherVolume(level);
+    trackSessionSpaceVolumeChanged({ volume: level });
+  }
+  function toggleWatcherMute() {
+    const next = watcherLevel > 0 ? 0 : lastWatcherLevelRef.current;
+    setWatcherLevel(next);
+    writeWatcherVolume(next);
+    trackSessionSpaceMuted({ muted: next === 0 });
+  }
   // 확인 창이 닫힌 뒤 초점을 돌려줄 자리. 심플 모드에서는 더보기 버튼이 inert라 초점을 받지 못한다.
   const simpleToggleRef = useRef<HTMLButtonElement>(null);
   // 더보기 메뉴는 열려도 앱 버튼을 숨기지 않아서 열린 동안 앱 버튼은 disabled로 누름을 막는다.
@@ -1024,6 +1163,28 @@ function RoomSessionBody({
   const cameraHidden = simpleMode || cameraOff || !cameraOn;
   // 내 화면을 키우면 감독관이 가려지므로 발소리도 끈다. 다시 줄이면 다음 소리부터 난다.
   const watcherMuted = cameraExpanded && !cameraHidden;
+  // 반복 공간 소리는 감독관 소리와 같은 공간 음량을 쓰고, 공부 중이며 멈추지 않은 동안만 낸다.
+  // 공부가 끝나거나 공간 파일을 받지 못해 심플로 그리면 공간을 넘기지 않아 재생기를 정리한다.
+  const loopSpaceKey =
+    studying && !spaceFailed && space.kind === "space" && space.videoMode === "LOOP"
+      ? space.assetKey
+      : null;
+  // 비집중 장면 파일을 받지 못한 공간은 화면만 집중 장면으로 남고 소리가 바뀌지 않게 비집중 장면 없이 돌린다.
+  const [failedDistractKey, setFailedDistractKey] = useState<string | null>(null);
+  // 공부가 끝나면 공간을 넘기지 않아, 비집중 장면인 채로 끝난 경우에도 떠난 것으로 알린다.
+  const distract = useDistractScene({
+    assetKey: loopSpaceKey === failedDistractKey ? null : loopSpaceKey,
+    itemCode: space.kind === "space" ? space.code : null,
+    trigger: sessionState.kind === "DISTRACTION" ? sessionState.trigger : null,
+    active: !paused,
+    volume: watcherLevel,
+  });
+  const loopSoundAvailable = useSpaceLoopSound(
+    loopSpaceKey,
+    !paused,
+    watcherLevel,
+    distract.focusLevel,
+  );
   useEffect(() => {
     watcherSound?.setMuted(watcherMuted);
   }, [watcherMuted, watcherSound]);
@@ -1177,7 +1338,7 @@ function RoomSessionBody({
 
   // 리액트 컴파일러는 선언보다 먼저 참조한 함수가 있으면 이 컴포넌트를 통째로 건너뛴다.
   // 그래서 불리는 함수를 부르는 함수보다 위에 둔다.
-  function openPage(next: "subject" | "ambient") {
+  function openPage(next: "subject" | "ambient" | "space") {
     closingRef.current = null;
     // 앞으로 가기나 새로고침으로 이미 표시 항목에 와 있으면 그 항목을 다시 쓴다.
     // 하나 더 쌓으면 뒤로 가기를 두 번 해야 닫힌다.
@@ -1335,7 +1496,7 @@ function RoomSessionBody({
           감독관 영상은 심플 모드나 카메라를 키운 동안에도 멈추지 않고 이어진다.
           카메라를 키운 화면은 카메라가 덮으므로 페이드 없이 바로 가린다. 키우기·줄이기 움직임 동안에는 남겨 둬야
           카메라 상자 밖으로 배경이 이어 보이고 끝에서 툭 나타나지 않는다. */}
-      {(backgroundPhoto !== null || proctorBackground) && (
+      {wallpaper && (
         <div
           aria-hidden="true"
           data-testid="timer-background"
@@ -1347,9 +1508,35 @@ function RoomSessionBody({
           {backgroundPhoto !== null && (
             <TimerBackgroundLayer src={backgroundPhoto.src} fit={backgroundPhoto.fit} />
           )}
-          {watchSpace !== null && (
+          {space.kind === "space" && !spaceFailed && space.assetType === "IMAGE" && (
+            <ImageSpace
+              key={space.assetKey}
+              assetKey={space.assetKey}
+              onUnavailable={() => setFailedSpaceKey(activeSpaceKey)}
+            />
+          )}
+          {space.kind === "space" && !spaceFailed && space.videoMode === "LOOP" && (
+            <LoopVideoSpace
+              key={space.assetKey}
+              assetKey={space.assetKey}
+              onUnavailable={() => setFailedSpaceKey(activeSpaceKey)}
+            />
+          )}
+          {space.kind === "space" && !spaceFailed && distract.armed && distract.scene?.visual && (
+            <DistractSpace
+              // 같은 부모의 집중 영상과 key가 겹치면 다시 그릴 때마다 집중 영상이 쌓인다.
+              key={`distract:${space.assetKey}`}
+              assetKey={space.assetKey}
+              visual={distract.scene.visual}
+              present={distract.present}
+              approachMs={distract.approachMs}
+              onUnavailable={() => setFailedDistractKey(space.assetKey)}
+            />
+          )}
+          {watchKey !== null && (
             <WatcherBackground
-              assetKey={watchSpace.assetKey}
+              key={watchKey}
+              assetKey={watchKey}
               present={watcher.present}
               onClipPlaying={(clip, at) => {
                 if (clip === "enter" || clip === "exit") watcherSound?.play(clip, at);
@@ -1480,11 +1667,11 @@ function RoomSessionBody({
                   <AmbientSoundButton
                     ref={ambientButtonRef}
                     nativeId={null}
-                    on={soundOn}
+                    on={ambient.isOn}
                     expanded={page === "ambient"}
                     onClick={() => openPage("ambient")}
                     className={SESSION_PILL_BUTTON}
-                    icon={<AmbientLinesIcon on={soundOn} />}
+                    icon={<AmbientLinesIcon on={ambient.isOn} />}
                   />
                 </div>
                 <div inert={counting} className="contents">
@@ -1500,6 +1687,10 @@ function RoomSessionBody({
                     onOpenTimer={openTimer}
                     clockView={clockView}
                     onToggleClockView={cameraOn ? toggleClockView : undefined}
+                    onOpenBackground={() => {
+                      trackSessionSpaceOpened();
+                      openPage("space");
+                    }}
                     onOpenHelp={() => {
                       setHelpStep(0);
                       setHelpOpen(true);
@@ -1756,24 +1947,33 @@ function RoomSessionBody({
             mix={ambient.mix}
             duckEnabled={ambient.duckEnabled}
             blocked={ambient.blocked}
-            canRestore={ambient.canRestore || proctorBackground}
+            canRestore={ambient.canRestore}
             onToggleSound={ambient.toggleSound}
             onChangeLevel={ambient.changeLevel}
             onSetDuckEnabled={ambient.setDuckEnabled}
-            onToggleAll={toggleAllSound}
-            footsteps={
-              proctorBackground
-                ? {
-                    level: footstepsLevel,
-                    onToggle: () =>
-                      setFootstepsLevel(footstepsLevel > 0 ? 0 : lastFootstepsLevel.current),
-                    onChangeLevel: setFootstepsLevel,
-                  }
-                : undefined
-            }
+            onToggleAll={ambient.toggleAll}
             onOpenChange={(open) => {
               if (!open) closePage("back");
             }}
+          />
+
+          <SessionSpacePage
+            open={page === "space"}
+            onOpenChange={(open) => {
+              if (!open) closePage("back");
+            }}
+            container={sessionSurface}
+            returnFocus={() => moreTrigger}
+            landscape={pageLandscape}
+            applied={appliedSpace}
+            userId={userId}
+            onApply={applySpace}
+            volume={watcherLevel}
+            onVolumeChange={setWatcherLevel}
+            onVolumeCommit={commitWatcherLevel}
+            onToggleMute={toggleWatcherMute}
+            // 집중 반복 소리가 없어도 비집중 장면에 소리가 있으면 음량을 맞출 수 있게 연다.
+            loopSoundAvailable={loopSoundAvailable || distract.hasSound}
           />
 
           <SessionTimerSheet

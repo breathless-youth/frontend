@@ -78,13 +78,13 @@
   "moreMenu": {
     "trigger": "その他",
     "flipCamera": "カメラを切り替え",
-    "planner": "プランナー",
     "help": "ヘルプを見る",
     "shareInvite": "招待コードを共有",
     "timer": "タイマー",
     "viewStudy": "勉強時間で表示",
     "viewFocus": "集中時間で表示",
-    "stopwatch": "ストップウォッチ"
+    "stopwatch": "ストップウォッチ",
+    "background": "背景設定"
   },
   "subjectSheet": {
     "title": "科目",

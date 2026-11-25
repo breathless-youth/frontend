@@ -81,13 +81,13 @@
   "moreMenu": {
     "trigger": "More",
     "flipCamera": "Switch camera",
-    "planner": "Planner",
     "help": "View guide",
     "shareInvite": "Share invite code",
     "timer": "Timer",
     "viewStudy": "Show study time",
     "viewFocus": "Show focus time",
-    "stopwatch": "Stopwatch"
+    "stopwatch": "Stopwatch",
+    "background": "Background"
   },
   "subjectSheet": {
     "title": "Subject",

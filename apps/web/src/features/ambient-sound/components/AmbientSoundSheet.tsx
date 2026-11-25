@@ -1,4 +1,3 @@
-import { Footprints } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
@@ -41,15 +40,6 @@ export interface AmbientSoundSheetProps {
   onSetDuckEnabled: (enabled: boolean) => void;
   onToggleAll: () => void;
   onOpenChange: (open: boolean) => void;
-  /** 감독관 배경일 때만 넘긴다. `배경 소리` 목록 맨 아래에 발소리 음량 줄을 두고 전체 스위치에도 함께 걸린다. */
-  footsteps?: FootstepsControl;
-}
-
-export interface FootstepsControl {
-  /** 0~100. 0이면 꺼진 것이다. */
-  level: number;
-  onToggle: () => void;
-  onChangeLevel: (level: number) => void;
 }
 
 type CataloguedSoundId = keyof typeof koAmbientSound.sounds;
@@ -70,8 +60,7 @@ const SESSION_TOOLTIP_ARROW_CLASS = "fill-(--session-dialog-cancel-bg)";
 
 /** 소리 이름 줄. 아이콘과 글자를 나란히 놓고 그 칸 전체가 켜고 끄는 버튼이다. */
 function SoundRow({
-  label,
-  note,
+  sound,
   icon,
   level,
   on,
@@ -79,8 +68,7 @@ function SoundRow({
   onToggle,
   onChangeLevel,
 }: {
-  label: string;
-  note?: ReactNode;
+  sound: AmbientSound;
   icon: ReactNode;
   level: number;
   on: boolean;
@@ -89,6 +77,8 @@ function SoundRow({
   onChangeLevel: (level: number) => void;
 }) {
   const { t } = useTranslation("ambient-sound");
+  const label = hasCatalogLabel(sound.id) ? t(`sounds.${sound.id}`) : sound.label;
+  const note = soundNote(sound.id);
   // 켜고 끄는 버튼은 글자 폭만 차지하고, 가상 요소로 이름 칸 전체를 눌리게 넓힌다.
   // 그래야 안내 ⓘ를 글자 바로 뒤에 붙여도 줄 전체가 버튼인 채로 남는다.
   const name = (
@@ -187,16 +177,14 @@ export function AmbientSoundSheet({
   onSetDuckEnabled,
   onToggleAll,
   onOpenChange,
-  footsteps,
 }: AmbientSoundSheetProps) {
   const { t } = useTranslation("ambient-sound");
-  const groups = soundGroups(catalog, footsteps !== undefined);
+  const groups = soundGroups(catalog);
   const [tab, setTab] = useState<string | undefined>(undefined);
   const activeTab = tab ?? groups[0]?.id;
-  const allOn = Object.keys(mix).length > 0 || (footsteps !== undefined && footsteps.level > 0);
-  const extraCount = (groupId: string) => (footsteps && groupId === "ambience" ? 1 : 0);
+  const allOn = Object.keys(mix).length > 0;
 
-  const rows = (sounds: readonly AmbientSound[], extra?: ReactNode) => (
+  const rows = (sounds: readonly AmbientSound[]) => (
     <ul
       className={
         landscape
@@ -209,8 +197,7 @@ export function AmbientSoundSheet({
         return (
           <SoundRow
             key={sound.id}
-            label={hasCatalogLabel(sound.id) ? t(`sounds.${sound.id}`) : sound.label}
-            note={soundNote(sound.id)}
+            sound={sound}
             icon={<Icon size={20} aria-hidden="true" className="shrink-0" />}
             level={mix[sound.id] ?? 0}
             on={sound.id in mix}
@@ -220,20 +207,7 @@ export function AmbientSoundSheet({
           />
         );
       })}
-      {extra}
     </ul>
-  );
-
-  const footstepsRow = footsteps && (
-    <SoundRow
-      label={t("watcher.footsteps")}
-      icon={<Footprints size={20} aria-hidden="true" className="shrink-0" />}
-      level={footsteps.level}
-      on={footsteps.level > 0}
-      landscape={landscape}
-      onToggle={footsteps.onToggle}
-      onChangeLevel={footsteps.onChangeLevel}
-    />
   );
 
   const duckRow = (
@@ -302,9 +276,7 @@ export function AmbientSoundSheet({
               className="flex-1 justify-center text-white/40 data-[state=active]:border-(--state-focus) data-[state=active]:text-(--session-dialog-title)"
             >
               {group.label}
-              <span className="text-[13px] tabular-nums opacity-60">
-                {group.sounds.length + extraCount(group.id)}
-              </span>
+              <span className="text-[13px] tabular-nums opacity-60">{group.sounds.length}</span>
             </TabsTrigger>
           ))}
         </TabsList>
@@ -315,7 +287,7 @@ export function AmbientSoundSheet({
             value={group.id}
             className="mt-0 min-h-0 flex-1 overflow-y-auto overscroll-contain pr-2"
           >
-            {rows(group.sounds, group.id === "ambience" ? footstepsRow : undefined)}
+            {rows(group.sounds)}
           </TabsContent>
         ))}
       </Tabs>

@@ -78,13 +78,13 @@
   "moreMenu": {
     "trigger": "더보기",
     "flipCamera": "카메라 전환",
-    "planner": "플래너",
     "help": "도움말 보기",
     "shareInvite": "초대코드 공유",
     "timer": "타이머",
     "viewStudy": "공부 시간으로 보기",
     "viewFocus": "순공으로 보기",
-    "stopwatch": "스톱워치"
+    "stopwatch": "스톱워치",
+    "background": "배경 설정"
   },
   "subjectSheet": {
     "title": "과목",

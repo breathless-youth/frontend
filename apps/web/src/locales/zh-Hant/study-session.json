@@ -78,13 +78,13 @@
   "moreMenu": {
     "trigger": "更多",
     "flipCamera": "切換相機",
-    "planner": "讀書計畫",
     "help": "查看說明",
     "shareInvite": "分享邀請碼",
     "timer": "計時器",
     "viewStudy": "以讀書時間顯示",
     "viewFocus": "以專注時間顯示",
-    "stopwatch": "碼錶"
+    "stopwatch": "碼錶",
+    "background": "背景設定"
   },
   "subjectSheet": {
     "title": "科目",

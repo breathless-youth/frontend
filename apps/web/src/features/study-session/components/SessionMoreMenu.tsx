@@ -1,4 +1,4 @@
-import { ArrowLeftRight, CircleHelp, Ellipsis, Share2, type LucideIcon } from "lucide-react";
+import { ArrowLeftRight, CircleHelp, Ellipsis, Image, Share2, type LucideIcon } from "lucide-react";
 import {
   useRef,
   type MouseEvent as ReactMouseEvent,
@@ -56,6 +56,8 @@ type SessionMoreMenuProps = {
   /** 지금 시계 보기 형식. 항목 이름이 바꿀 보기를 가리킨다. */
   clockView?: "focus" | "study";
   onToggleClockView?: () => void;
+  /** 넘긴 화면에서만 배경 설정 항목이 보인다. 누르면 공간(타이머 배경)을 고르는 페이지를 연다. */
+  onOpenBackground?: () => void;
   /** 넘긴 방에서만 초대코드 공유 항목이 보인다. */
   onShareInvite?: () => void;
   /** 넘긴 화면에서만 도움말 보기 항목이 보인다. */
@@ -89,6 +91,7 @@ export function SessionMoreMenu({
   onOpenStopwatch,
   clockView = "focus",
   onToggleClockView,
+  onOpenBackground,
   onShareInvite,
   onOpenHelp,
   hidden = false,
@@ -141,6 +144,9 @@ export function SessionMoreMenu({
       icon: ArrowLeftRight,
       onSelect: onToggleClockView,
     });
+  }
+  if (onOpenBackground) {
+    items.push({ label: t("moreMenu.background"), icon: Image, onSelect: onOpenBackground });
   }
   if (onOpenHelp) {
     items.push({ label: t("moreMenu.help"), icon: CircleHelp, onSelect: onOpenHelp });

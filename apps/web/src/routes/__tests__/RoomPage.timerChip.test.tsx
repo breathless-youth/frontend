@@ -60,7 +60,7 @@ describe("RoomPage 추가 타이머·스톱워치 칩", () => {
     localStorage.clear();
   });
 
-  it("더보기 메뉴는 카메라 전환, 스톱워치, 타이머, 보기 형식, 도움말 보기 순서다", async () => {
+  it("더보기 메뉴는 카메라 전환, 스톱워치, 타이머, 보기 형식, 배경 설정, 도움말 보기 순서다", async () => {
     renderRoom();
     await userEvent.click(screen.getByRole("button", { name: "더보기" }));
 
@@ -70,6 +70,7 @@ describe("RoomPage 추가 타이머·스톱워치 칩", () => {
       "스톱워치",
       "타이머",
       "공부 시간으로 보기",
+      "배경 설정",
       "도움말 보기",
     ]);
   });
