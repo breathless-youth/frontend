@@ -1,12 +1,4 @@
-import {
-  ArrowLeftRight,
-  CircleHelp,
-  Ellipsis,
-  Eye,
-  EyeOff,
-  Share2,
-  type LucideIcon,
-} from "lucide-react";
+import { ArrowLeftRight, CircleHelp, Ellipsis, Share2, type LucideIcon } from "lucide-react";
 import {
   useRef,
   type MouseEvent as ReactMouseEvent,
@@ -61,12 +53,6 @@ type SessionMoreMenuProps = {
   onOpenTimer?: () => void;
   /** 싱글룸만 넘긴다. 누르면 스톱워치 칩이 00:00으로 뜨고, 칩의 시작을 눌러야 흐른다. */
   onOpenStopwatch?: () => void;
-  /**
-   * 넘긴 화면에서만 마스코트 항목이 보인다.
-   * 지금 보이는지에 따라 문구가 바뀐다.
-   */
-  mascotVisible?: boolean;
-  onToggleMascot?: () => void;
   /** 지금 시계 보기 형식. 항목 이름이 바꿀 보기를 가리킨다. */
   clockView?: "focus" | "study";
   onToggleClockView?: () => void;
@@ -101,8 +87,6 @@ export function SessionMoreMenu({
   onFlipCamera,
   onOpenTimer,
   onOpenStopwatch,
-  mascotVisible = false,
-  onToggleMascot,
   clockView = "focus",
   onToggleClockView,
   onShareInvite,
@@ -157,13 +141,6 @@ export function SessionMoreMenu({
       icon: ArrowLeftRight,
       onSelect: onToggleClockView,
     });
-  }
-  if (onToggleMascot) {
-    items.push(
-      mascotVisible
-        ? { label: t("moreMenu.hideMascot"), icon: EyeOff, onSelect: onToggleMascot }
-        : { label: t("moreMenu.showMascot"), icon: Eye, onSelect: onToggleMascot },
-    );
   }
   if (onOpenHelp) {
     items.push({ label: t("moreMenu.help"), icon: CircleHelp, onSelect: onOpenHelp });

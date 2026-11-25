@@ -71,6 +71,12 @@ describe("SessionRestOverlay", () => {
     expect(option("알림 없음")).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("공부 화면에서 마스코트를 없앤 뒤에도 휴식 화면에는 마스코트가 보인다", () => {
+    setup();
+
+    expect(document.querySelector('img[src*="mascot-stopwatch-sprite"]')).not.toBeNull();
+  });
+
   it("알림을 고르면 고른 시점부터 남은 시간을 거꾸로 세고 예약을 알린다", () => {
     const { onAlarmChange, alarm } = setup();
 

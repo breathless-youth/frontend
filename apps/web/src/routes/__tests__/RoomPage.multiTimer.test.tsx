@@ -153,13 +153,7 @@ describe("RoomPage 타이머와 세션", () => {
     await userEvent.click(screen.getByRole("button", { name: "더보기" }));
 
     const names = screen.getAllByRole("menuitem").map((item) => item.textContent);
-    expect(names).toEqual([
-      "스톱워치",
-      "타이머",
-      "공부 시간으로 보기",
-      "캐릭터 보이기",
-      "도움말 보기",
-    ]);
+    expect(names).toEqual(["스톱워치", "타이머", "공부 시간으로 보기", "도움말 보기"]);
   });
 
   it("알림음을 끄면 타이머가 끝나도 소리 없이 진동만 하고 다시 켜면 소리를 낸다", async () => {
