@@ -582,6 +582,26 @@ describe("syncAppLocaleUserProperty", () => {
   });
 });
 
+describe("syncAppLocaleUserProperty 사용자 번호", () => {
+  it("사용자 번호가 붙으면 그 사용자 앞으로 app_locale을 한 번 더 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, setAmplitudeUserId, syncAppLocaleUserProperty } = await loadModule();
+    const { default: i18n } = await import("@/lib/i18n");
+    await i18n.changeLanguage("en");
+    initAmplitude();
+
+    const stop = syncAppLocaleUserProperty();
+    setAmplitudeUserId(7);
+    stop();
+    await i18n.changeLanguage("ko");
+
+    const sets = mocks.identify.mock.calls.map(
+      ([sent]) => (sent as InstanceType<typeof mocks.FakeIdentify>).sets,
+    );
+    expect(sets).toEqual([[["app_locale", "en"]], [["app_locale", "en"]]]);
+  });
+});
+
 describe("setInstallAttributionUserProperties", () => {
   it("미초기화 상태에서는 아무것도 보내지 않는다", async () => {
     const { setInstallAttributionUserProperties } = await loadModule();

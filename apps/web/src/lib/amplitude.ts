@@ -251,6 +251,9 @@ async function addReplayPlugin(): Promise<void> {
   );
 }
 
+/** 화면 언어 동기화가 켜져 있을 때만 값이 있다. */
+let resendAppLocale: (() => void) | null = null;
+
 /**
  * 서버 user_id를 Amplitude user_id로 연결한다(2026-08-08 결정). 값은 네이티브가 브리지로
  * 넘겨 주는 `auth-token`의 userId이며(BY-528 이전에는 셸이 붙이던 `?userId=N`), DB 값과
@@ -271,6 +274,8 @@ export function setAmplitudeUserId(userId: number | null) {
   if (next === currentUserId) return;
   currentUserId = next;
   setUserId(next);
+  // 번호가 붙기 전에 보낸 화면 언어는 익명 기기 앞으로 갔을 수 있어, 이 사용자 앞으로 한 번 더 보낸다.
+  resendAppLocale?.();
 }
 
 /** 현재 라우트의 페이지뷰를 전송한다. 경로는 정제를 거치며, 미초기화면 no-op. */
@@ -333,7 +338,11 @@ export function syncAppLocaleUserProperty(): () => void {
   const send = (locale: string) => setUserProperties({ app_locale: locale });
   send(i18n.language);
   i18n.on("languageChanged", send);
-  return () => i18n.off("languageChanged", send);
+  resendAppLocale = () => send(i18n.language);
+  return () => {
+    i18n.off("languageChanged", send);
+    resendAppLocale = null;
+  };
 }
 
 /** 한 번 켜지면 되돌리지 않는 이력 속성. 같은 문서 안에서는 한 번만 보내 identify와 브리지 왕복을 줄인다. */
