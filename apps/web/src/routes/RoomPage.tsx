@@ -787,17 +787,12 @@ function RoomSessionBody({
       {t("camera.timelapse")}
     </span>
   );
-  useEffect(() => {
-    let cancelled = false;
+  const readTimelapseOn = () => {
     loadTimelapseSettings()
-      .then((settings) => {
-        if (!cancelled) setTimelapseOn(settings.enabled);
-      })
+      .then((settings) => setTimelapseOn(settings.enabled))
       .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  };
+  useEffect(readTimelapseOn, []);
   // 타이머 배경. 설정 화면이 이 기기에 저장한 값을 세션을 열 때 한 번 읽는다.
   // 고른 사진이 지워졌거나 읽지 못하면 배경 없이 그린다.
   const [backgroundPhoto, setBackgroundPhoto] = useState<BackgroundPhotoView | null>(null);
@@ -910,8 +905,12 @@ function RoomSessionBody({
   const helpVisible =
     (firstHelpOpen ? counting : phase.name === "studying" && helpOpen) && !helpBlocked;
   const endHelpExposure = useSessionHelpFunnel(helpVisible, helpStep, helpTrigger);
-  /** 도움말을 닫는다. 처음 도움말이었으면 이때부터 카운트다운을 센다. */
+  /**
+   * 도움말을 닫는다. 처음 도움말이었으면 이때부터 카운트다운을 센다.
+   * 마지막 장에서 타임랩스를 바꿨을 수 있어 카메라 창 이름표용 값을 다시 읽는다.
+   */
   function closeHelp() {
+    readTimelapseOn();
     endHelpExposure();
     setFirstHelpOpen(false);
     setHelpOpen(false);

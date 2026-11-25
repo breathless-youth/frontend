@@ -6,6 +6,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { setSessionCountdownSecondsForTest } from "@/features/study-session/sessionCountdown";
 import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import { sessionGuideState } from "@/features/study-session/sessionGuide";
+import {
+  DEFAULT_TIMELAPSE_SETTINGS,
+  saveTimelapseSettings,
+} from "@/features/timelapse/timelapseSettings";
 import type * as tokenSourceModule from "@/lib/auth/tokenSource";
 import type { TokenSource } from "@/lib/auth/tokenSource";
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
@@ -190,6 +194,24 @@ describe("RoomPage 세션 도움말", () => {
       await advance(1000);
       expect(screen.queryByTestId("camera-countdown")).not.toBeInTheDocument();
       expect(amplitude.trackStudySessionStarted).toHaveBeenCalledOnce();
+    });
+
+    it("마지막 장에서 타임랩스를 끄고 시작하면 카메라 창 이름표에서 타임랩스 표시가 사라진다", async () => {
+      await saveTimelapseSettings({ ...DEFAULT_TIMELAPSE_SETTINGS, enabled: true });
+      renderNewSession();
+      await advance(0);
+      const cameraLabel = () =>
+        screen.getByRole("button", { name: "내 화면 크게 보기", hidden: true });
+      expect(cameraLabel()).toHaveTextContent("타임랩스");
+
+      goToLastStepSync();
+      await advance(0);
+      fireEvent.click(screen.getByRole("switch", { name: "타임랩스 녹화" }));
+      fireEvent.click(screen.getByRole("button", { name: "공부 시작하기" }));
+      await advance(0);
+
+      expect(cameraLabel()).not.toHaveTextContent("타임랩스");
+      expect(cameraLabel()).toHaveTextContent("카메라");
     });
 
     it("Escape로 닫으면 seen을 남기지 않고 카운트다운을 시작한다", async () => {
