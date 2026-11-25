@@ -12,6 +12,7 @@ import {
   __resetTimerBackgroundPhotoStoreForTests,
   timerBackgroundPhotoStore,
 } from "@/features/timer-background/timerBackgroundPhotos";
+import { createLoopSound } from "@/features/timer-background/loopSound";
 import { createWatcherSound } from "@/features/timer-background/watcher/watcherSound";
 import {
   trackSessionSpaceOpened,
@@ -93,6 +94,24 @@ vi.mock("@/features/timer-background/watcher/watcherSound", async (importOrigina
   ...(await importOriginal<Record<string, unknown>>()),
   createWatcherSound: vi.fn(() => sound),
 }));
+
+vi.mock("@/features/timer-background/loopSound", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  createLoopSound: vi.fn(() => ({
+    prime: vi.fn(),
+    setActive: vi.fn(),
+    setVolume: vi.fn(),
+    fade: vi.fn(),
+    dispose: vi.fn(),
+  })),
+}));
+
+function loopSoundFor(part: string) {
+  const index = vi.mocked(createLoopSound).mock.calls.findIndex(([url]) => url.includes(part));
+  return vi.mocked(createLoopSound).mock.results[index]!.value as ReturnType<
+    typeof createLoopSound
+  >;
+}
 
 function FocusFeaturesResult() {
   const { state } = useLocation();
@@ -689,6 +708,52 @@ describe("RoomPage 공간", () => {
       );
       expect(sources.filter((src) => src!.includes("/1a2b3c4d/loop/"))).toHaveLength(1);
       expect(sources.filter((src) => src!.includes("/1a2b3c4d/distract/loop/"))).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("비집중 영상을 받지 못하면 딴짓이 이어져도 화면과 소리 모두 집중 장면에 머문다", async () => {
+    localStorage.setItem(KEY, JSON.stringify(RAIN_SPACE));
+    vi.mocked(fetch).mockImplementation(async (input) =>
+      String(input).endsWith("/spaces/loop/1a2b3c4d/manifest.json")
+        ? new Response(
+            JSON.stringify({
+              version: 2,
+              timing: { distractAfterSec: 3, returnAfterSec: 1 },
+              focus: { visual: "video", loop: true },
+              distract: { visual: "video", loop: "own", cue: false, approach: false },
+            }),
+          )
+        : new Response(JSON.stringify({ version: 1, sounds: [] })),
+    );
+    vi.useFakeTimers();
+    try {
+      render(
+        <MemoryRouter initialEntries={["/room/7?userId=1&detector=mock"]}>
+          <Routes>
+            <Route path="/room/:id" element={<RoomPage />} />
+          </Routes>
+        </MemoryRouter>,
+      );
+      answerCameraPrompt("camera");
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      await act(async () => {
+        window.__focusonMockDetector!.emit({ source: "PHONE", active: true });
+        await vi.advanceTimersByTimeAsync(1_200);
+      });
+
+      fireEvent.error(screen.getByTestId("distract-space").querySelector("video")!);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(4_000);
+      });
+
+      expect(screen.queryByTestId("distract-space")).toBeNull();
+      expect(trackSpaceDistractSceneEntered).not.toHaveBeenCalled();
+      expect(loopSoundFor("/1a2b3c4d/sound/loop").fade).not.toHaveBeenCalledWith(0);
+      expect(loopSoundFor("/1a2b3c4d/distract/sound/loop").fade).not.toHaveBeenCalledWith(1);
     } finally {
       vi.useRealTimers();
     }
