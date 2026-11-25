@@ -42,6 +42,25 @@ export interface AuthRefreshResponse {
 }
 
 /**
+ * 심사용 로그인 입구를 그릴지 (GET /api/auth/review-login/status?appVersion=), Swagger 기준.
+ * 토큰 없이 부르고, 서버에 적어 둔 출시 버전보다 높은 앱 버전에서만 enabled가 참이다.
+ */
+export interface ReviewLoginStatusResponse {
+  enabled: boolean;
+}
+
+/**
+ * 심사용 로그인 요청 (POST /api/auth/review-login), Swagger 기준.
+ * appVersion은 `26.47.0`처럼 점으로 나눈 숫자이고 응답은 `AuthRefreshResponse`와 같은 토큰 한 쌍이다.
+ * 실패는 403 REVIEW_LOGIN_DISABLED, 400 INVALID_REVIEW_CREDENTIALS, 429 TOO_MANY_REQUESTS로 온다.
+ */
+export interface ReviewLoginRequest {
+  loginId: string;
+  password: string;
+  appVersion: string;
+}
+
+/**
  * 기기 푸시 토큰 등록 API 계약 (PUT /api/push-tokens, 204) — Swagger 기준.
  * 같은 토큰이면 권한 상태와 갱신 시각만 바뀌고, 다른 사용자에게 붙어 있던 토큰이면 지금 사용자로 옮긴다.
  */
@@ -106,6 +125,13 @@ export interface StudySessionCreateRequest {
    * 없거나 잘못된 값이면 400 없이 저장된 사용자 시간대(기본 Asia/Seoul)를 쓴다.
    */
   timeZone?: string;
+  /**
+   * 측정 방식
+   *
+   * 선택 필드이고 없으면 서버가 MEASURED로 저장한다.
+   * 카메라 없이 타이머로만 측정한 세션은 TIMER다.
+   */
+  source?: Exclude<StudySessionSource, "MANUAL">;
 }
 
 /**
@@ -138,6 +164,8 @@ export interface ActiveSessionSnapshotRequest {
   subjectSegments?: SubjectSegmentPayload[];
   /** 지금까지의 관찰 기록 전체 — 선택 필드. 서버는 통째로 덮어쓰고, 자동 확정 때 세션으로 옮긴다. */
   observations?: ObservationPayload[];
+  /** 최종 제출과 같은 규칙의 측정 방식 */
+  source?: Exclude<StudySessionSource, "MANUAL">;
 }
 
 /** 진행중 세션 복구 조회 응답 (GET /api/study-sessions/active) */
@@ -153,6 +181,8 @@ export interface SessionRecoveryResponse {
   studySec: number;
   /** 순공 시간(초) */
   focusSec: number;
+  /** 측정 방식. 이 필드를 내려주기 전 서버에서는 오지 않는다. */
+  source?: StudySessionSource;
 }
 
 export interface ActiveSessionSnapshotResponse {
@@ -170,10 +200,12 @@ export interface ActiveSessionSnapshotResponse {
   subjectSegments?: SubjectSegmentPayload[] | null;
   /** 마지막 스냅샷의 관찰 기록(하품 등) — 시작 오름차순. 이어받은 뒤 보고·제출에 다시 싣는다. 옛 서버는 누락 */
   observations?: ObservationPayload[] | null;
+  /** 측정 방식이고 서버가 이 필드를 내려주기 전에는 누락이라 카메라 세션으로 본다 */
+  source?: Exclude<StudySessionSource, "MANUAL">;
 }
 
-/** 기록이 만들어진 방법. 카메라로 측정한 세션과 사용자가 시각을 직접 넣은 수동 기록이 있다. */
-export type StudySessionSource = "MEASURED" | "MANUAL";
+/** 기록이 만들어진 방법. 카메라로 측정한 세션, 카메라 없이 타이머로만 측정한 세션, 사용자가 시각을 직접 넣은 수동 기록이 있다. */
+export type StudySessionSource = "MEASURED" | "MANUAL" | "TIMER";
 
 /**
  * 수동 기록 저장·수정 요청 (`POST /api/study-sessions/manual`, `PATCH /api/study-sessions/manual/{id}`).
@@ -820,6 +852,7 @@ export type {
   InlineControl,
   InstallAttributionMessage,
   NativeControlPressMessage,
+  LiveActivitySnapshot,
   NativeButtonTone,
   NavigateHomeMessage,
   ReportScreenMessage,
@@ -837,9 +870,19 @@ export type {
   AnalyticsEventParamValue,
   AnalyticsUserPropertiesMessage,
   NativeAnalyticsPropertyValue,
+  PointsAdShowResultMessage,
+  PointsAdStatus,
+  PointsChargePrice,
+  PointsChargePricesResultMessage,
+  PointsChargePurchaseResultMessage,
+  PointsChargePurchaseStatus,
+  PointsChargeRestoreResultMessage,
+  PointsChargeRestoreStatus,
   SocialLoginFailureCode,
   SocialLoginProvider,
   SocialLoginResultMessage,
+  ReviewLoginFailureCode,
+  ReviewLoginResultMessage,
   LogoutResultMessage,
   DeleteAccountFailureCode,
   DeleteAccountResultMessage,
@@ -897,10 +940,34 @@ export {
   NATIVE_SEGMENT_MIN_OPTIONS,
   NAVIGATE_TAB_SOURCES,
   NAVIGATE_TAB_TARGETS,
+  POINTS_AD_STATUSES,
+  POINTS_CHARGE_PRICES_MAX_PRODUCTS,
+  POINTS_CHARGE_PURCHASE_STATUSES,
+  POINTS_CHARGE_RESTORE_MAX_PRODUCTS,
+  POINTS_CHARGE_RESTORE_STATUSES,
   SOCIAL_LOGIN_FAILURE_CODES,
+  REVIEW_LOGIN_FAILURE_CODES,
+  REVIEW_LOGIN_ID_MAX_LENGTH,
+  REVIEW_LOGIN_PASSWORD_MAX_LENGTH,
   DELETE_ACCOUNT_FAILURE_CODES,
   SOCIAL_LOGIN_PROVIDERS,
   VIDEO_RESULT_STATUSES,
   VIDEO_SHARE_TARGETS,
 } from "./bridge";
-export type { HomeMissionResponse } from "./homeMission";
+export type {
+  HomeMissionResponse,
+  HomeMissionRewardClaimResponse,
+  HomeMissionStep,
+} from "./homeMission";
+export type {
+  EffectPieceResponse,
+  EquippedItemResponse,
+  MascotAppearance,
+} from "./mascotAppearance";
+export type {
+  GoalPointTierResponse,
+  PointProductResponse,
+  PointProductsResponse,
+  PointsEarnResponse,
+  StudyPointTierResponse,
+} from "./points";

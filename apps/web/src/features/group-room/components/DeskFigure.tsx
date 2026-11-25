@@ -1,6 +1,8 @@
+import type { MascotLook } from "@/components/mascot/types";
 import { cn } from "@/lib/utils";
 
 import type { DeskTone } from "../model/desks";
+import { type DeskSize, MascotSeat } from "./MascotSeat";
 
 // `--feedback-success`는 `.theme-soft-blue` 안에서만 값이 있어 그 바탕 밖에 그리면 다른 곳에서 공부 중인 초록이 빠진다.
 const PERSON_STROKE = {
@@ -20,15 +22,34 @@ const SIZE = {
   lg: { box: "h-22.5 w-24", person: 2.8, dashed: 2.2, top: 3, legs: 2.4 },
   md: { box: "h-15 w-16", person: 2.8, dashed: 2.4, top: 3, legs: 2.4 },
   sm: { box: "h-8 w-8.5", person: 3.8, dashed: 3.3, top: 3.8, legs: 3 },
-} as const;
+} as const satisfies Record<DeskSize, unknown>;
 
 /**
- * 책상에 앉은 사람 그림
+ * 책상 자리 그림
  *
- * 나중에 커스텀 캐릭터로 갈아 끼우도록 사람과 책상을 이 부품 하나로 감싼다.
+ * 마스코트를 보이는 곳에서는 천장 전등 아래 마스코트 자리를, 아니면 책상에 앉은 사람 그림을 그린다.
+ * 마스코트를 보일지는 같은 줄의 모든 자리가 같아야 해서 빈자리와 모습이 빈 멤버도 `mascotSeat`으로 받는다.
  * 상태는 칸의 이름이나 옆 글자가 알려 주므로 그림은 화면 낭독기에서 뺀다.
  */
-export function DeskFigure({ tone, size }: { tone: DeskTone | "empty"; size: keyof typeof SIZE }) {
+export function DeskFigure({
+  tone,
+  size,
+  mascot,
+  mascotSeat = mascot !== undefined,
+  isMe = false,
+}: {
+  tone: DeskTone | "empty";
+  size: DeskSize;
+  /** 멤버가 고른 마스코트와 끼고 있는 소품이다. */
+  mascot?: MascotLook;
+  /** 마스코트 자리로 그릴지이며 모습이 비어 있는 멤버에게는 기본 마스코트를 앉힌다. */
+  mascotSeat?: boolean;
+  /** 지금 보는 사람의 자리인지이며 마스코트 자리에서만 쓰고 사람 그림은 그대로 둔다. */
+  isMe?: boolean;
+}) {
+  if (mascotSeat) {
+    return <MascotSeat tone={tone} size={size} look={mascot} isMe={isMe} />;
+  }
   const look = SIZE[size];
   const empty = tone === "empty";
   return (

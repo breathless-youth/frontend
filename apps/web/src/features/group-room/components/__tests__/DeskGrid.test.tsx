@@ -57,6 +57,51 @@ describe("DeskGrid", () => {
     expect(items[5]).toHaveAccessibleName("빈자리");
   });
 
+  it("마스코트가 있는 멤버는 마스코트와 입은 소품을 그린다", () => {
+    const withMascot: RoomDeskMember[] = [
+      {
+        ...members[0]!,
+        mascot: {
+          id: "stopwatch",
+          accessories: [{ slot: "head", imageUrl: "/crown.png" }],
+        },
+      },
+      members[1]!,
+    ];
+    render(<DeskGrid members={withMascot} visibility="private" elapsedSec={0} />);
+    const [first, , third] = desks();
+    expect(first!.querySelector('[data-slot="accessory-head"]')).toHaveAttribute(
+      "src",
+      "/crown.png",
+    );
+    expect(first!.querySelectorAll("img")).toHaveLength(2);
+    expect(third!.querySelector("img")).toBeNull();
+  });
+
+  it("마스코트를 보이지 않는 그룹은 빈자리까지 지금처럼 사람 그림이다", () => {
+    render(<DeskGrid members={members} visibility="private" elapsedSec={0} />);
+    const items = desks();
+    expect(items[0]!.querySelector("circle")).not.toBeNull();
+    expect(items[5]!.querySelector("circle")).not.toBeNull();
+    expect(items[5]!.querySelector('[data-slot="vacant-mascot"]')).toBeNull();
+  });
+
+  it("마스코트를 보이는 그룹은 모습이 빈 멤버도 타이미이고 빈자리와 초대 자리는 타이미 윤곽이다", () => {
+    const withMascot: RoomDeskMember[] = [
+      { ...members[0]!, mascot: { id: "book", accessories: [] } },
+      members[1]!,
+    ];
+    render(
+      <DeskGrid members={withMascot} visibility="private" elapsedSec={0} onInvite={() => {}} />,
+    );
+    const items = desks();
+    expect(items[1]!.querySelector('[data-slot="mascot-body"] img')?.getAttribute("src")).toContain(
+      "stopwatch",
+    );
+    expect(items[2]!.querySelector('[data-slot="vacant-mascot"]')).not.toBeNull();
+    expect(screen.getByRole("list", { name: "멤버 책상" }).querySelector("circle")).toBeNull();
+  });
+
   it("쉬는 멤버의 책상 아래에는 마지막으로 공부한 때를 보이지 않는다", () => {
     render(<DeskGrid members={members} visibility="private" elapsedSec={0} />);
     const resting = screen.getByRole("listitem", { name: /^연필깎이,/ });
@@ -137,6 +182,58 @@ describe("DeskGrid", () => {
       render(<DeskGrid members={[mine]} visibility="private" elapsedSec={0} />);
       const myDesk = desks().find((desk) => desk.hasAttribute("data-me"));
       expect((myDesk as HTMLElement).querySelector("svg g")).toHaveClass("stroke-text-tertiary");
+    });
+  });
+
+  describe("쉬는 중인 마스코트 색", () => {
+    const look = { id: "pencil", accessories: [{ slot: "head", imageUrl: "/crown.png" }] } as const;
+    const deskOf = (name: RegExp) => screen.getByRole("listitem", { name });
+    const grayed = (desk: HTMLElement) =>
+      desk.querySelector('[data-slot="mascot-body"]')?.closest(".grayscale") != null;
+
+    it("쉬는 중인 내 마스코트는 원래 색이고 zz가 없으며 다른 멤버는 회색에 zz가 있다", () => {
+      render(
+        <DeskGrid
+          members={[
+            { ...base, userId: 1, nickname: "새벽러", presence: "away", mascot: look },
+            { ...base, userId: 9, nickname: "열공곰", presence: "away", isMe: true, mascot: look },
+          ]}
+          visibility="private"
+          elapsedSec={0}
+        />,
+      );
+      const myDesk = deskOf(/^열공곰,/);
+      const otherDesk = deskOf(/^새벽러,/);
+      expect(grayed(myDesk)).toBe(false);
+      expect(myDesk.querySelector("text")).toBeNull();
+      expect(myDesk.querySelector('[data-slot="seat-lamp"]')).toHaveAttribute("data-lamp", "off");
+      expect(grayed(otherDesk)).toBe(true);
+      expect(otherDesk.querySelectorAll("text")).toHaveLength(2);
+    });
+
+    it("공부 중인 나와 다른 멤버는 둘 다 원래 색이고 전등이 켜진다", () => {
+      render(
+        <DeskGrid
+          members={[
+            { ...base, userId: 1, nickname: "새벽러", presence: "this_room", mascot: look },
+            {
+              ...base,
+              userId: 9,
+              nickname: "열공곰",
+              presence: "studying_elsewhere",
+              isMe: true,
+              mascot: look,
+            },
+          ]}
+          visibility="private"
+          elapsedSec={0}
+        />,
+      );
+      for (const desk of [deskOf(/^열공곰,/), deskOf(/^새벽러,/)]) {
+        expect(grayed(desk)).toBe(false);
+        expect(desk.querySelector("text")).toBeNull();
+        expect(desk.querySelector('[data-slot="seat-lamp"]')).toHaveAttribute("data-lamp", "on");
+      }
     });
   });
 

@@ -1,4 +1,4 @@
-import type { MedalRank, RankingBoardResponse } from "@focusmakers/types";
+import type { MascotAppearance, MedalRank, RankingBoardResponse } from "@focusmakers/types";
 
 import { interpolateRows } from "./live";
 
@@ -6,6 +6,8 @@ import { interpolateRows } from "./live";
 export interface PodiumRow {
   nickname: string;
   profileImageUrl?: string | null;
+  /** 고른 마스코트와 낀 소품이며 서버가 주지 않는 응답에서는 없다. */
+  mascot?: MascotAppearance;
   me: boolean;
   focusing: boolean;
   /**
@@ -44,6 +46,7 @@ export function podiumStands(
       row: row && {
         nickname: row.nickname,
         profileImageUrl: row.profileImageUrl,
+        ...(row.mascot ? { mascot: row.mascot } : null),
         me: row.me,
         focusing: row.focusing,
         display: row.display,

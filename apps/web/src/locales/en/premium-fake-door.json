@@ -1,0 +1,133 @@
+{
+  "price": "{{amount, number}} KRW/month",
+  "card": {
+    "title": "Pre-register for Sparta features",
+    "summary": "6 features · {{price}}",
+    "open": "View Sparta feature pre-registration",
+    "dismiss": "Close Sparta features notice",
+    "dismissed": "We'll remind you again in two days"
+  },
+  "features": {
+    "AI_PLANNER": {
+      "name": "AI plan assistant",
+      "hook": "Set a goal and a deadline, and the assistant plans your pace",
+      "description": [
+        "Tell it your target exam, the time left and what to cover, and it recommends how far to go each day, with a progress rate and study range.",
+        "It keeps refining the plan to fit your goal and pace."
+      ],
+      "bullets": [
+        "Recommends a daily study range and progress rate for your goal and deadline",
+        "Miss a day and it reworks the plan around the days left",
+        "Reminds you right on time of your planned start and what's left to do"
+      ]
+    },
+    "AI_REPORT": {
+      "name": "AI focus report",
+      "hook": "When you sat for hours but nothing stuck",
+      "description": [
+        "Get a weekly report that looks back on your study.",
+        "It also suggests next week's plan to do more of what worked and less of what broke your focus."
+      ],
+      "bullets": [
+        "See at a glance which days and times you focus best",
+        "Points out the times and subjects where you often broke off",
+        "Suggests when to place hard subjects in next week's plan"
+      ]
+    },
+    "GROUP_MATCHING": {
+      "name": "Group study matching",
+      "hook": "When you keep slacking off alone",
+      "description": [
+        "It finds people who match your goal and study hours.",
+        "Study alongside people with the same goal and keep each other motivated."
+      ],
+      "bullets": [
+        "Pick a goal like TOEIC, civil service or college entrance and we'll match a room",
+        "Connects you with people who study at your usual time, like mornings or nights",
+        "No need to find or create a room. One tap and you're studying together"
+      ]
+    },
+    "PHONE_CALL": {
+      "name": "Phone call reminders",
+      "hook": "Put it off, and your phone rings",
+      "description": [
+        "When your planned study time comes, it calls you instead of sending a notification.",
+        "Notifications are easy to swipe away, but you answer a call, so you sit right down."
+      ],
+      "bullets": [
+        "Calls you at your planned start time to get you studying",
+        "If you don't answer, it calls again a few minutes later",
+        "When you pick up, it tells you today's tasks right away"
+      ]
+    },
+    "TIMER_BACKGROUND": {
+      "name": "Premium timer backgrounds",
+      "hook": "A screen you'll want to stay with",
+      "description": [
+        "Decorate your study timer with premium-only backgrounds.",
+        "Pick one that fits your mood and start studying."
+      ],
+      "bullets": [
+        "Choose backgrounds with different moods, like a café, a library or a late-night desk",
+        "Set a background for each subject and switch into study mode the moment you sit down"
+      ]
+    },
+    "CHARACTER_ITEMS": {
+      "name": "Unlimited character items",
+      "note": "Sets excluded",
+      "hook": "Dress your character your way",
+      "description": [
+        "Pick character items and dress up your character.",
+        "Change outfits whenever you like."
+      ],
+      "bullets": [
+        "Pick a hat, an outfit and an accessory and wear them all together",
+        "Make even the same character your own with your own combination"
+      ]
+    }
+  },
+  "billing": "Pre-registering doesn't charge you.",
+  "consent": "By pre-registering, you confirm you're 14 or older and agree to the use of your personal information.",
+  "benefits": {
+    "dialog": "Sparta features",
+    "title": "Sparta features",
+    "cta": "Pre-register",
+    "kicker": "Built to make you study to the end",
+    "sectionHint": "Tap for details",
+    "sectionTitle": "6 Sparta features"
+  },
+  "submitFailed": "We couldn't sign you up. Please try again.",
+  "done": {
+    "dialog": "Pre-registration complete",
+    "title": "You'll be the first to know",
+    "byApp": "We'll notify you in the app.",
+    "question": "Which feature are you most looking forward to?",
+    "thanks": "Thank you for your answer!",
+    "pickFailed": "We couldn't save your answer. Please choose again.",
+    "backToResult": "Back to results",
+    "badge": "Pre-registered",
+    "backToStudy": "Back to studying"
+  },
+  "sheet": {
+    "close": "Close"
+  },
+  "stats": {
+    "kicker": "Real FocusMakers records",
+    "titleLine1": "Moments when willpower",
+    "titleLine2": "wasn't enough",
+    "breaksLabel": "Times study flow broke",
+    "breaksValue": "71,000+",
+    "breaksSub": "Times studying stopped while still seated",
+    "pauseValue": "970+ hours",
+    "pauseSub": "Time lost to \"just a minute\" breaks",
+    "distractValue": "280+ hours",
+    "distractSub": "Time lost to distraction while studying",
+    "punchLine1": "Turning that time back into study",
+    "punchLine2": "is what <hot>Sparta features</hot> do",
+    "source": "FocusMakers app records, Aug–Nov 2026"
+  },
+  "priceCard": {
+    "title": "All 6 Sparta features",
+    "perDay": "About {{amount, number}} KRW a day"
+  }
+}

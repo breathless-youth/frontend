@@ -4,6 +4,7 @@
  * 매초 갱신되는 타이머와 상태 전환은 이 통로를 건너지 않는다
  * — 상태기계와 화면이 같은 메모리(웹)에 있으므로 직접 읽는다.
  * 브리지에는 웹이 만들 수 없는 원시 신호(가속도·앱 생명주기)와 네이티브만 할 수 있는 동작(권한·네비게이션 등)만 오간다.
+ * 잠금화면 공부 표시(`live-activity`)는 예외로, OS가 앱 밖에서 시간을 세도록 상태가 바뀔 때만 스냅샷을 넘긴다.
  */
 
 /** 네이티브 → 웹. */
@@ -160,6 +161,11 @@ export type ToWebMessage =
       atMs: number;
     }
   | SocialLoginResultMessage
+  | ReviewLoginResultMessage
+  | PointsChargePricesResultMessage
+  | PointsChargePurchaseResultMessage
+  | PointsChargeRestoreResultMessage
+  | PointsAdShowResultMessage
   | LogoutResultMessage
   | DeleteAccountResultMessage
   | CameraPermissionMessage
@@ -260,6 +266,113 @@ export const SOCIAL_LOGIN_FAILURE_CODES = [
 ] as const;
 export type SocialLoginFailureCode = (typeof SOCIAL_LOGIN_FAILURE_CODES)[number];
 
+/** 심사용 로그인이 실패한 까닭이며 앞의 셋은 서버 오류 코드 그대로다. */
+/** 심사용 로그인 아이디의 최대 길이이며 서버가 64자까지 받아 웹 입력칸과 앱 검사가 같이 쓴다. */
+export const REVIEW_LOGIN_ID_MAX_LENGTH = 64;
+
+/** 심사용 로그인 비밀번호의 최대 길이이며 서버에는 상한이 없어 브리지로 넘길 만큼만 정했다. */
+export const REVIEW_LOGIN_PASSWORD_MAX_LENGTH = 256;
+
+export const REVIEW_LOGIN_FAILURE_CODES = [
+  "REVIEW_LOGIN_DISABLED",
+  "INVALID_REVIEW_CREDENTIALS",
+  "TOO_MANY_REQUESTS",
+  "UNKNOWN",
+] as const;
+export type ReviewLoginFailureCode = (typeof REVIEW_LOGIN_FAILURE_CODES)[number];
+
+/**
+ * 심사용 로그인 결과
+ *
+ * `review-login`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+ * 성공이면 앱이 새 토큰의 `auth-token`을 먼저 보낸 뒤에 이 결과를 보낸다.
+ * 비밀번호와 토큰은 싣지 않는다.
+ */
+export type ReviewLoginResultMessage =
+  | { type: "review-login-result"; id: string; status: "success"; atMs: number }
+  | {
+      type: "review-login-result";
+      id: string;
+      status: "failed";
+      code: ReviewLoginFailureCode;
+      atMs: number;
+    };
+
+/** 스토어가 그 기기의 통화로 만든 충전 상품 가격 문구 */
+export type PointsChargePrice = { storeProductId: string; priceLabel: string };
+
+/**
+ * 충전 상품 가격 조회 결과
+ *
+ * `points-charge-prices`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+ * 스토어가 모르는 상품은 목록에서 빠지고, 조회에 실패하면 빈 목록이다.
+ */
+export type PointsChargePricesResultMessage = {
+  type: "points-charge-prices-result";
+  id: string;
+  prices: PointsChargePrice[];
+  atMs: number;
+};
+
+export const POINTS_CHARGE_PURCHASE_STATUSES = ["completed", "cancelled", "failed"] as const;
+export type PointsChargePurchaseStatus = (typeof POINTS_CHARGE_PURCHASE_STATUSES)[number];
+
+/**
+ * 포인트 충전 결제 결과
+ *
+ * `points-charge-purchase`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+ * `completed`는 스토어 결제가 끝났다는 뜻이고 포인트는 서버가 결제 알림을 받은 뒤에 들어온다.
+ * `cancelled`는 사용자가 결제 창을 닫았거나 앞선 결제가 아직 진행 중인 경우다.
+ */
+export type PointsChargePurchaseResultMessage = {
+  type: "points-charge-purchase-result";
+  id: string;
+  status: PointsChargePurchaseStatus;
+  atMs: number;
+};
+
+/** 가격 조회 요청 한 번에 실을 수 있는 스토어 상품 ID 수이며 웹과 앱이 같은 값으로 자르고 검증한다. */
+export const POINTS_CHARGE_PRICES_MAX_PRODUCTS = 20;
+
+/** 구매 복원 요청 한 번에 실을 수 있는 스토어 상품 ID 수이며 웹과 앱이 같은 값으로 자르고 검증한다. */
+export const POINTS_CHARGE_RESTORE_MAX_PRODUCTS = 200;
+
+export const POINTS_CHARGE_RESTORE_STATUSES = ["restored", "nothing", "failed"] as const;
+export type PointsChargeRestoreStatus = (typeof POINTS_CHARGE_RESTORE_STATUSES)[number];
+
+/**
+ * 구매 복원 결과
+ *
+ * `points-charge-restore`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+ * `restored`는 스토어 결제 기록에서 요청한 상품을 찾았다는 뜻이고 보유는 서버가 결제 알림을 받은 뒤에 바뀐다.
+ * `nothing`은 결제 기록에 요청한 상품이 없는 경우다.
+ * `failed`는 스토어나 결제 SDK가 답하지 못했거나 앞선 결제나 복원이 아직 진행 중인 경우다.
+ */
+export type PointsChargeRestoreResultMessage = {
+  type: "points-charge-restore-result";
+  id: string;
+  status: PointsChargeRestoreStatus;
+  atMs: number;
+};
+
+export const POINTS_AD_STATUSES = ["rewarded", "cancelled", "unavailable"] as const;
+export type PointsAdStatus = (typeof POINTS_AD_STATUSES)[number];
+
+/**
+ * 보상형 광고 시청 결과
+ *
+ * `points-ad-show`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+ * `rewarded`는 광고 SDK가 보상 조건을 채웠다고 알렸다는 뜻이고 포인트는 서버가 광고 사업자의 확인을 받은 뒤에 들어온다.
+ * `cancelled`는 사용자가 광고를 끝까지 보지 않고 닫았거나 앞선 광고가 아직 떠 있는 경우다.
+ * `unavailable`은 띄울 광고가 없거나 불러오지 못한 경우다.
+ */
+export type PointsAdShowResultMessage = {
+  type: "points-ad-show-result";
+  id: string;
+  status: PointsAdStatus;
+  atMs: number;
+};
+
 /**
  * 소셜 로그인 결과
  *
@@ -324,6 +437,19 @@ export type DeleteAccountResultMessage =
  */
 export type HapticStyle = "light" | "medium" | "heavy" | "alert";
 
+/**
+ * 잠금화면 공부 표시에 넘기는 세션 스냅샷
+ *
+ * elapsedSec은 atMs 시점에 화면 큰 숫자가 보이던 값이다.
+ * distracted는 관리 모드의 딴짓 상태라 세션은 이어지지만 화면 큰 숫자는 멈춰 있다.
+ */
+export type LiveActivitySnapshot = {
+  mode: "timer" | "camera";
+  subject: string | null;
+  state: "running" | "paused" | "break" | "distracted";
+  elapsedSec: number;
+};
+
 export type ToNativeMessage =
   /**
    * 홈 화면이 구독까지 걸고 신호를 받을 준비가 됐음을 알린다. 네이티브는 이걸 받은 순간에만
@@ -350,8 +476,11 @@ export type ToNativeMessage =
    *
    * **권한 요청과 화면 스택은 네이티브 소유**라 웹이 대신할 수 없다. 네이티브가 권한 게이트를
    * 거쳐 세션 모달을 열고, 브라우저 단독 모드에서는 애초에 발신되지 않는다.
+   *
+   * `measureMode: "timer"`는 카메라 없이 공부하겠다는 뜻이라 네이티브가 권한 게이트를 건너뛰고 세션 화면을 연다.
+   * 카메라 방식은 이 필드를 싣지 않으므로, 필드를 모르는 구버전 앱은 예전처럼 권한을 확인한다.
    */
-  | { type: "start-session"; atMs: number; initialSubjectId?: number }
+  | { type: "start-session"; atMs: number; initialSubjectId?: number; measureMode?: "timer" }
   /**
    * 설정(S6) 카메라 권한 행에서 OS 설정 앱을 열어달라는 요청. 네이티브가 OS 설정 앱을 연다.
    */
@@ -526,6 +655,13 @@ export type ToNativeMessage =
    */
   | { type: "app-lock-battery-guide"; atMs: number }
   /**
+   * 잠금화면 공부 표시 상태
+   *
+   * 상태가 바뀔 때만 오고 매초 오지 않는다.
+   * session이 null이면 표시를 끝낸다.
+   */
+  | { type: "live-activity"; session: LiveActivitySnapshot | null; atMs: number }
+  /**
    * `install-attribution`을 기기에 보관했다는 답
    *
    * 앱은 이 답을 받은 뒤에야 보관하던 유입 정보를 지운다.
@@ -561,6 +697,14 @@ export type ToNativeMessage =
    */
   | { type: "social-login"; id: string; provider: SocialLoginProvider; atMs: number }
   /**
+   * 심사용 로그인 요청
+   *
+   * 앱이 웹뷰 주소에 `reviewLogin=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `review-login-result`로 답한다.
+   * 토큰은 앱만 가지므로 서버 요청과 토큰 저장은 앱이 하고, 앱 버전은 앱이 자기 값을 싣는다.
+   * 앱과 웹 모두 비밀번호를 로그와 분석 이벤트에 남기지 않는다.
+   */
+  | { type: "review-login"; id: string; loginId: string; password: string; atMs: number }
+  /**
    * 이 기기 로그아웃 요청
    *
    * 앱이 웹뷰 주소에 `accountActions=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `logout-result`로 답한다.
@@ -574,6 +718,58 @@ export type ToNativeMessage =
    * `provider`는 프로필의 로그인 공급자이고, 애플이면 앱이 애플 로그인을 다시 띄워 서버가 요구하는 인가 코드를 받는다.
    */
   | { type: "delete-account"; id: string; provider: SocialLoginProvider; atMs: number }
+  /**
+   * 충전 상품 가격 조회 요청
+   *
+   * 앱이 웹뷰 주소에 `pointsCharge=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `points-charge-prices-result`로 답한다.
+   * 상품 ID는 서버의 충전 상품 목록이 준 스토어 상품 ID다.
+   * 앱은 결제와 같은 `appUserId`로 결제 SDK를 켜거나 로그인한 뒤 가격을 묻는다.
+   * 웹은 결제용 ID가 없는 비회원에게는 이 메시지를 보내지 않고, 예전 웹이 null로 보내면 앱은 결제 SDK를 켜지 않고 빈 목록으로 답한다.
+   */
+  | {
+      type: "points-charge-prices";
+      id: string;
+      storeProductIds: string[];
+      appUserId: string | null;
+      atMs: number;
+    }
+  /**
+   * 포인트 충전 결제 요청
+   *
+   * `pointsCharge=1`일 때만 보내고, 앱은 같은 `id`의 `points-charge-purchase-result`로 답한다.
+   * 앱은 결제 전에 `appUserId`로 결제 SDK를 켜거나 로그인해서 서버가 결제 알림의 주인을 알 수 있게 한다.
+   * `appUserId`는 서버 충전 상품 목록의 `revenueCatAppUserId`이고 회원번호가 아니다.
+   * 앱은 이 값이 null이면 회원번호로 대신하지 않고 `failed`로 답한다.
+   */
+  | {
+      type: "points-charge-purchase";
+      id: string;
+      storeProductId: string;
+      appUserId: string | null;
+      atMs: number;
+    }
+  /**
+   * 구매 복원 요청
+   *
+   * 앱이 웹뷰 주소에 `pointsRestore=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `points-charge-restore-result`로 답한다.
+   * 상품 ID는 서버의 상점 목록에서 스토어 결제로 파는 상품의 스토어 상품 ID다.
+   * 충전 묶음은 써서 없어지는 상품이라 싣지 않고, 앱은 결제 기록에 이 목록의 상품이 있는지만 본다.
+   * 앱은 결제와 같은 `appUserId`로 결제 SDK를 켜거나 로그인한 뒤 복원하고, 이 값이 null이면 `failed`로 답한다.
+   */
+  | {
+      type: "points-charge-restore";
+      id: string;
+      storeProductIds: string[];
+      appUserId: string | null;
+      atMs: number;
+    }
+  /**
+   * 보상형 광고 보기 요청
+   *
+   * 앱이 웹뷰 주소에 `pointsAds=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `points-ad-show-result`로 답한다.
+   * 앱은 광고의 서버 확인 옵션에 지금 사용자 ID를 실어 서버가 보상을 줄 계정을 알 수 있게 한다.
+   */
+  | { type: "points-ad-show"; id: string; atMs: number }
   | SetTabBarMessage
   | SetBackGestureMessage
   | SetBackLockMessage

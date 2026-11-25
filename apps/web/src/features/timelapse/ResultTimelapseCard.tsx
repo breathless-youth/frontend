@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowDownToLine, Share } from "lucide-react";
-import { type ReactNode, useEffect, useEffectEvent, useRef, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
@@ -35,8 +35,8 @@ type ResultTimelapseCardProps = {
   startedAtMs: number;
   userId: number | null;
   store?: TimelapseStore;
-  /** 카드가 처음 화면에 그려졌을 때 부른다. 결과 화면이 여기까지 스크롤한다. */
-  onShown?: (element: HTMLElement) => void;
+  /** 재생할 사진이 있어 카드가 마운트될 때 결과 화면에 전달한다. */
+  onShown?: (element: HTMLDivElement | null) => void;
 };
 
 /**
@@ -193,15 +193,7 @@ export function ResultTimelapseCard({
       </>
     ) : null;
 
-  const cardRef = useRef<HTMLDivElement>(null);
   const visible = ready !== null && photos.isSuccess && photos.data.length > 0;
-  const notifyShown = useEffectEvent((element: HTMLElement) => onShown?.(element));
-  useEffect(() => {
-    if (visible && cardRef.current !== null) {
-      notifyShown(cardRef.current);
-    }
-  }, [visible]);
-
   if (!visible) {
     return null;
   }
@@ -213,7 +205,7 @@ export function ResultTimelapseCard({
   };
 
   return (
-    <Card ref={cardRef} className="shadow-sb-card pt-4 pb-4.5">
+    <Card ref={onShown} tabIndex={-1} className="shadow-sb-card pt-4 pb-4.5">
       <CardHeader className="justify-start gap-1.5">
         <CardTitle>{t("resultCard.title")}</CardTitle>
         <InfoTooltip label={t("resultCard.aria.info")}>{t("resultCard.info")}</InfoTooltip>

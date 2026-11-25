@@ -12,7 +12,7 @@ import { emitAccountReset } from "./accountReset";
 import { getActiveTab } from "./activeTab";
 import { trackAirbridgeAnalyticsEvent, trackAirbridgeConversion } from "./airbridge";
 import { handleAppLockMessage } from "./appLock/appLockRelay";
-import { authTokenMessage, awaitAuth, ensureAuth, logout, refreshAuth } from "./auth";
+import { authTokenMessage, awaitAuth, ensureAuth, logout, refreshAuth, reviewLogin } from "./auth";
 import {
   getCameraPermissionStatus,
   isMicrophonePermissionGranted,
@@ -35,6 +35,13 @@ import { detachAllNativeAnalyticsSinks, trackNativeEvent } from "./nativeAnalyti
 import { cancelRestNotification, scheduleRestNotification } from "./restNotification";
 import { emitSessionClosed } from "./sessionClosed";
 import { runAfterNextSessionScreen } from "./sessionPresence";
+import { showPointsAd } from "./pointsAds";
+import {
+  forgetPointsChargeUser,
+  pointsChargePrices,
+  purchasePointsCharge,
+  restorePointsPurchases,
+} from "./pointsCharge";
 import { deleteAccountWithReauth, socialLogin } from "./socialLogin";
 import { setTabBarState } from "./tabBarVisibility";
 import { appendVideoChunk, saveVideo, shareVideo } from "./videoTransfer";
@@ -46,6 +53,7 @@ import { profilePhotoPickerNative } from "../modules/profile-photo-picker";
  * 탭 웹뷰마다 이전 계정의 조회 캐시가 남아 있어 모든 웹뷰를 탭 첫 화면으로 다시 띄우고 설정 탭에 머문다.
  * 완료 이벤트는 sink를 먼저 떼고 남겨, 사라질 문서가 아니라 새로 준비되는 문서가 받게 한다.
  * 다음 실행의 시작 오버레이도 이전 계정의 목표 문구를 보이지 않게 지운다.
+ * 다음 실행에 이전 계정의 결제용 ID로 결제 SDK를 켜지 않게 결제 SDK를 켠 기록도 삭제한다.
  * 다 지운 뒤에 다시 띄워야 새 계정의 첫 프로필 조회가 저장한 목표 문구를 늦게 끝난 지우기가 없애지 않는다.
  */
 async function restartAsNewAccount(
@@ -54,7 +62,7 @@ async function restartAsNewAccount(
 ): Promise<void> {
   detachAllNativeAnalyticsSinks();
   trackNativeEvent(event, { provider });
-  await clearLaunchGoal();
+  await Promise.all([clearLaunchGoal(), forgetPointsChargeUser()]);
   emitAccountReset();
   router.navigate("/settings");
 }
@@ -100,6 +108,29 @@ function releaseStartSessionOnScreenClose(): void {
   startSessionReleaseTimer = setTimeout(() => {
     if (cancel()) startSessionInFlight = false;
   }, 5_000);
+}
+
+/**
+ * 카메라 없이 공부하는 세션 화면 열기
+ *
+ * 집중 시작과 권한 거부 화면의 출구가 함께 불러 연타 잠금을 한 곳에서 건다.
+ * 거부 화면은 자기 자리를 세션 화면으로 바꿔야 세션을 닫았을 때 홈으로 돌아오므로 replace로 연다.
+ */
+export function openTimerSession(
+  initialSubjectId: string | undefined,
+  navigate: "push" | "replace" = "push",
+): void {
+  if (startSessionInFlight) return;
+  startSessionInFlight = true;
+  router[navigate]({
+    pathname: "/room/[id]",
+    params: {
+      id: "1",
+      measureMode: "timer",
+      ...(initialSubjectId === undefined ? {} : { initialSubjectId }),
+    },
+  });
+  releaseStartSessionOnScreenClose();
 }
 
 /** 테스트 전용: 처리 중 표시와 남은 타이머를 지운다. 프로덕션 코드에서는 호출하지 않는다. */
@@ -179,6 +210,12 @@ async function askPushPermission(): Promise<PushPermissionStatus> {
 export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply): void {
   switch (message.type) {
     case "start-session":
+      if (message.measureMode === "timer") {
+        openTimerSession(
+          message.initialSubjectId === undefined ? undefined : String(message.initialSubjectId),
+        );
+        break;
+      }
       // 웹은 메시지를 보내자마자 연타 잠금을 풀어서 두 번째 탭이 곧바로 들어올 수 있다.
       // 권한이 이미 있으면 게이트가 바로 끝나므로, 이 요청이 연 세션 화면이 닫힐 때까지 다음 요청을 무시한다.
       if (startSessionInFlight) break;
@@ -186,7 +223,16 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       void (async () => {
         const result = await runCameraPermissionGate("single");
         if (result === "show-denied-guide") {
-          router.push("/permission-denied");
+          // 거부 화면은 이 표시가 있을 때만 카메라 없이 시작하는 출구를 그리고, 과목은 그 출구가 연 세션으로 넘긴다.
+          router.push({
+            pathname: "/permission-denied",
+            params: {
+              from: "single",
+              ...(message.initialSubjectId === undefined
+                ? {}
+                : { initialSubjectId: String(message.initialSubjectId) }),
+            },
+          });
           startSessionInFlight = false;
           return;
         }
@@ -206,8 +252,8 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       break;
     case "request-camera-gate":
       // 소셜 룸 입장 미리보기의 권한 게이트 — start-session과 같은 분기를 태우되, 세션 화면
-      // push 대신 결과를 웹에 돌려준다(카메라를 여는 주체가 웹이라서다). 거부 안내 화면
-      // 연결은 start-session과 동일하다. 양 플랫폼 공통이다 — iOS도 거부 상태에서 안내 화면
+      // push 대신 결과를 웹에 돌려준다(카메라를 여는 주체가 웹이라서다). 거부 안내 화면은
+      // 싱글룸 표시 없이 열어 카메라 없이 시작하는 출구를 보이지 않는다. 양 플랫폼 공통이다 — iOS도 거부 상태에서 안내 화면
       // 없이 미리보기 실패에 머무는 공백이 같다.
       void (async () => {
         const result = await runCameraPermissionGate("social");
@@ -402,6 +448,9 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       // 싱글룸은 전용 화면이 이 메시지를 가로채 화면 수명에 묶으므로 여기까지 오지 않는다(app/room/[id].tsx 주석 참고).
       getMotionSensorRelay().handle(message, reply);
       break;
+    case "live-activity":
+      // 싱글룸 화면이 가로채 화면 수명에 묶으므로 여기까지 오면 소셜룸 같은 범위 밖 경로라 무시한다.
+      break;
     case "meta-app-event":
       // 웹이 아는 광고 전환(첫 세션 시작·소셜룸 입장 등)을 네이티브 Meta SDK로 넘긴다. 이름·파라미터
       // 형식은 `parseToNativeMessage`가 이미 걸렀고, Meta env 없는 빌드에서는 `logMetaAppEvent`가 no-op이다.
@@ -461,6 +510,32 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       // 성공이면 새 토큰의 `auth-token`이 저장 구독으로 먼저 나간 뒤에 결과가 나간다.
       void socialLogin(message.provider).then((result) => {
         reply({ type: "social-login-result", id: message.id, ...result, atMs: Date.now() });
+      });
+      break;
+    case "review-login":
+      // 성공이면 새 토큰의 `auth-token`이 저장 구독으로 먼저 나간 뒤에 결과가 나간다.
+      void reviewLogin(message.loginId, message.password).then((result) => {
+        reply({ type: "review-login-result", id: message.id, ...result, atMs: Date.now() });
+      });
+      break;
+    case "points-charge-prices":
+      void pointsChargePrices(message.storeProductIds, message.appUserId).then((prices) => {
+        reply({ type: "points-charge-prices-result", id: message.id, prices, atMs: Date.now() });
+      });
+      break;
+    case "points-charge-purchase":
+      void purchasePointsCharge(message.storeProductId, message.appUserId).then((status) => {
+        reply({ type: "points-charge-purchase-result", id: message.id, status, atMs: Date.now() });
+      });
+      break;
+    case "points-charge-restore":
+      void restorePointsPurchases(message.storeProductIds, message.appUserId).then((status) => {
+        reply({ type: "points-charge-restore-result", id: message.id, status, atMs: Date.now() });
+      });
+      break;
+    case "points-ad-show":
+      void showPointsAd().then((status) => {
+        reply({ type: "points-ad-show-result", id: message.id, status, atMs: Date.now() });
       });
       break;
     case "logout":

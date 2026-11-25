@@ -11,6 +11,7 @@ import { isNewUserThisLaunch } from "../auth";
 import { ensureUserRegistered } from "../userApi";
 import { getRnda } from "../appLock/rnda";
 import { __resetSocialLoginForTests, setSocialLoginAdapter } from "../socialLogin";
+import { __resetPointsChargeForTests, setPointsChargeAdapter } from "../pointsCharge";
 
 /**
  * 원격 웹뷰 쿼리 파라미터 조립(BY-333) — 탭 3개 + 세션이 공유하는 단일 조립처.
@@ -53,6 +54,10 @@ jest.mock("../../modules/web-glass", () => ({
 jest.mock("expo-glass-effect", () => ({
   isLiquidGlassAvailable: () => mockGlass.available,
 }));
+const mockLiveActivity = { supported: false };
+jest.mock("../liveActivity", () => ({
+  isLiveActivitySupported: () => mockLiveActivity.supported,
+}));
 jest.mock("expo-constants", () => ({
   __esModule: true,
   default: { expoConfig: { version: "1.4.2" } },
@@ -72,6 +77,7 @@ beforeEach(() => {
   mockedConstants.expoConfig = { version: "1.4.2" };
   mockGlass.webGlassNative = null;
   mockGlass.available = false;
+  mockLiveActivity.supported = false;
   __resetRemoteQueryParamsCacheForTests();
   __resetSocialLoginForTests();
 });
@@ -161,6 +167,8 @@ describe("buildRemoteQueryParams", () => {
       restNotify: "1",
       pushPermission: "1",
       accountActions: "1",
+      points: "1",
+      reviewLogin: "1",
       nativeTabBar: "1",
     });
   });
@@ -182,6 +190,8 @@ describe("buildRemoteQueryParams", () => {
       restNotify: "1",
       pushPermission: "1",
       accountActions: "1",
+      points: "1",
+      reviewLogin: "1",
       nativeTabBar: "1",
     });
   });
@@ -203,8 +213,16 @@ describe("buildRemoteQueryParams", () => {
       restNotify: "1",
       pushPermission: "1",
       accountActions: "1",
+      points: "1",
+      reviewLogin: "1",
       nativeTabBar: "1",
     });
+  });
+
+  it("셸이 심사용 로그인을 처리할 수 있음을 reviewLogin으로 알린다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+
+    expect((await buildRemoteQueryParams()).reviewLogin).toBe("1");
   });
 
   it("셸이 로그아웃과 계정 삭제를 처리할 수 있음을 accountActions로 알린다", async () => {
@@ -301,6 +319,35 @@ describe("buildRemoteQueryParams", () => {
     const params = await buildRemoteQueryParams();
 
     expect(params.socialLogin).toBe(expected);
+  });
+
+  it("결제와 광고 SDK가 없는 바이너리에도 포인트 화면을 여는 points=1을 붙인다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    const params = await buildRemoteQueryParams();
+    expect(params).toHaveProperty("points", "1");
+    expect(params).not.toHaveProperty("pointsCharge");
+    expect(params).not.toHaveProperty("pointsAds");
+  });
+
+  it("결제 SDK가 붙은 바이너리에만 충전과 구매 복원 표시를 붙인다", async () => {
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    const off = await buildRemoteQueryParams();
+    expect(off).not.toHaveProperty("pointsCharge");
+    expect(off).not.toHaveProperty("pointsRestore");
+
+    setPointsChargeAdapter({
+      start: jest.fn(),
+      logIn: jest.fn(),
+      prices: jest.fn(),
+      purchase: jest.fn(),
+      restore: jest.fn(),
+    });
+    try {
+      const on = await buildRemoteQueryParams();
+      expect(on).toMatchObject({ pointsCharge: "1", pointsRestore: "1" });
+    } finally {
+      __resetPointsChargeForTests();
+    }
   });
 
   it("SDK가 붙지 않은 바이너리는 socialLogin을 붙이지 않는다", async () => {
@@ -411,6 +458,14 @@ describe("buildRemoteQueryParams", () => {
     expect(params).not.toHaveProperty("glassControls");
   });
 
+  it("잠금화면 공부 표시를 그릴 수 있는 바이너리에만 liveActivity=1을 붙인다", async () => {
+    await expect(buildRemoteQueryParams()).resolves.not.toHaveProperty("liveActivity");
+
+    mockLiveActivity.supported = true;
+    __resetRemoteQueryParamsCacheForTests();
+    await expect(buildRemoteQueryParams()).resolves.toHaveProperty("liveActivity", "1");
+  });
+
   it("Android에는 glassChrome 표시가 없다", async () => {
     jest.replaceProperty(Platform, "OS", "android");
     mockGlass.webGlassNative = {};
@@ -445,6 +500,8 @@ describe("useRemoteQueryParams", () => {
         restNotify: "1",
         pushPermission: "1",
         accountActions: "1",
+        points: "1",
+        reviewLogin: "1",
         nativeTabBar: "1",
       }),
     );
@@ -469,6 +526,8 @@ describe("useRemoteQueryParams", () => {
         restNotify: "1",
         pushPermission: "1",
         accountActions: "1",
+        points: "1",
+        reviewLogin: "1",
         nativeTabBar: "1",
       }),
     );
@@ -491,6 +550,8 @@ describe("useRemoteQueryParams", () => {
       restNotify: "1",
       pushPermission: "1",
       accountActions: "1",
+      points: "1",
+      reviewLogin: "1",
       nativeTabBar: "1",
     });
   });
@@ -541,6 +602,8 @@ describe("useRemoteQueryParams", () => {
         restNotify: "1",
         pushPermission: "1",
         accountActions: "1",
+        points: "1",
+        reviewLogin: "1",
         nativeTabBar: "1",
       }),
     );
@@ -565,6 +628,8 @@ describe("useRemoteQueryParams", () => {
         restNotify: "1",
         pushPermission: "1",
         accountActions: "1",
+        points: "1",
+        reviewLogin: "1",
         nativeTabBar: "1",
       }),
     );

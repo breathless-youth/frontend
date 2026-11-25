@@ -70,6 +70,15 @@ describe("toFirebaseAnalyticsMessage — 이벤트", () => {
     });
   });
 
+  it("집중 도움 설문의 자유 응답은 Firebase로 보내지 않는다", () => {
+    expect(
+      toFirebaseAnalyticsMessage(
+        event("focus_feedback_comment_submitted", { event_properties: { comment: "nickname123" } }),
+        5,
+      ),
+    ).toBeNull();
+  });
+
   it("파라미터가 없으면 params 필드를 만들지 않는다", () => {
     expect(toFirebaseAnalyticsMessage(event("app_launched"), 5)).toEqual({
       type: "analytics-event",

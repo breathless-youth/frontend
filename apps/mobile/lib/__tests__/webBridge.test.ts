@@ -1,3 +1,5 @@
+import { REVIEW_LOGIN_ID_MAX_LENGTH, REVIEW_LOGIN_PASSWORD_MAX_LENGTH } from "@focusmakers/types";
+
 import { injectMessageScript, parseToNativeMessage, serializeToWebMessage } from "../webBridge";
 
 describe("parseToNativeMessage", () => {
@@ -9,6 +11,22 @@ describe("parseToNativeMessage", () => {
       expect(
         parseToNativeMessage(JSON.stringify({ type: "start-session", atMs: 5, initialSubjectId })),
       ).toBeNull();
+  });
+  it("공부 시작의 측정 방식은 timer만 받고 다른 값은 그 필드만 버린다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({
+          type: "start-session",
+          atMs: 5,
+          initialSubjectId: 3,
+          measureMode: "timer",
+        }),
+      ),
+    ).toEqual({ type: "start-session", atMs: 5, initialSubjectId: 3, measureMode: "timer" });
+    for (const measureMode of ["camera", 1])
+      expect(
+        parseToNativeMessage(JSON.stringify({ type: "start-session", atMs: 5, measureMode })),
+      ).toEqual({ type: "start-session", atMs: 5 });
   });
   it.each([
     "home-ready",
@@ -42,6 +60,30 @@ describe("parseToNativeMessage", () => {
     expect(parseToNativeMessage(`{"type":"${type}","id":"","atMs":5}`)).toBeNull();
     expect(parseToNativeMessage(`{"type":"${type}","id":1,"atMs":5}`)).toBeNull();
     expect(parseToNativeMessage(`{"type":"${type}","atMs":5}`)).toBeNull();
+  });
+
+  it("review-login은 요청 id와 아이디와 비밀번호를 파싱한다", () => {
+    const message = { type: "review-login", id: "r1", loginId: "review", password: "pw", atMs: 5 };
+    expect(parseToNativeMessage(JSON.stringify(message))).toEqual(message);
+    // 웹 입력칸과 같은 상한까지는 받는다.
+    const longest = {
+      ...message,
+      loginId: "a".repeat(REVIEW_LOGIN_ID_MAX_LENGTH),
+      password: "a".repeat(REVIEW_LOGIN_PASSWORD_MAX_LENGTH),
+    };
+    expect(parseToNativeMessage(JSON.stringify(longest))).toEqual(longest);
+  });
+
+  it.each([
+    ["빈 id", { id: "" }],
+    ["빈 아이디", { loginId: "" }],
+    ["긴 아이디", { loginId: "a".repeat(REVIEW_LOGIN_ID_MAX_LENGTH + 1) }],
+    ["빈 비밀번호", { password: "" }],
+    ["긴 비밀번호", { password: "a".repeat(REVIEW_LOGIN_PASSWORD_MAX_LENGTH + 1) }],
+    ["숫자 비밀번호", { password: 1234 }],
+  ])("review-login은 %s이면 버린다", (_label, patch) => {
+    const message = { type: "review-login", id: "r1", loginId: "review", password: "pw", atMs: 5 };
+    expect(parseToNativeMessage(JSON.stringify({ ...message, ...patch }))).toBeNull();
   });
 
   it("social-login은 공급자와 요청 id를 함께 파싱한다", () => {
@@ -1048,5 +1090,58 @@ describe("parseToNativeMessage: 앱 안 알림 누름", () => {
         }),
       ),
     ).toEqual({ type: "open-push-link", link: "/social", atMs: 1 });
+  });
+
+  describe("live-activity", () => {
+    const ok = {
+      type: "live-activity",
+      atMs: 1,
+      session: { mode: "timer", subject: "수학", state: "running", elapsedSec: 3 },
+    };
+    it("올바른 스냅샷을 받는다", () => {
+      expect(parseToNativeMessage(JSON.stringify(ok))).toEqual(ok);
+    });
+    it("session null을 받는다", () => {
+      expect(parseToNativeMessage(JSON.stringify({ ...ok, session: null }))).toEqual({
+        ...ok,
+        session: null,
+      });
+    });
+    it("과목 null을 받는다", () => {
+      const message = { ...ok, session: { ...ok.session, subject: null } };
+      expect(parseToNativeMessage(JSON.stringify(message))).toEqual(message);
+    });
+    it("딴짓 상태를 받는다", () => {
+      const message = { ...ok, session: { ...ok.session, mode: "camera", state: "distracted" } };
+      expect(parseToNativeMessage(JSON.stringify(message))).toEqual(message);
+    });
+    it("시각이 음수면 버린다", () => {
+      expect(parseToNativeMessage(JSON.stringify({ ...ok, atMs: -1 }))).toBeNull();
+    });
+    it("시각이 유한한 수가 아니면 버린다", () => {
+      // JSON에는 Infinity를 쓸 수 없어서 범위를 넘는 수로 Infinity를 만든다.
+      expect(
+        parseToNativeMessage(JSON.stringify(ok).replace('"atMs":1', '"atMs":1e999')),
+      ).toBeNull();
+    });
+    it("모르는 필드는 버리고 아는 필드만 넘긴다", () => {
+      const message = { ...ok, session: { ...ok.session, extra: 1 } };
+      expect(parseToNativeMessage(JSON.stringify(message))).toEqual(ok);
+    });
+    it.each([
+      ["모드", { mode: "video" }],
+      ["상태", { state: "ended" }],
+      ["시간 음수", { elapsedSec: -1 }],
+      ["시간 문자열", { elapsedSec: "3" }],
+      ["과목 숫자", { subject: 3 }],
+      ["과목 길이", { subject: "가".repeat(101) }],
+    ])("%s가 틀리면 버린다", (_, patch) => {
+      expect(
+        parseToNativeMessage(JSON.stringify({ ...ok, session: { ...ok.session, ...patch } })),
+      ).toBeNull();
+    });
+    it("session이 없으면 버린다", () => {
+      expect(parseToNativeMessage('{"type":"live-activity","atMs":1}')).toBeNull();
+    });
   });
 });

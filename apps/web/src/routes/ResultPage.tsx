@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 
@@ -6,8 +7,14 @@ import type { StudySessionResponse } from "@focusmakers/types";
 
 import { Button } from "@/components/ui/button";
 import { CtaToaster } from "@/components/ui/sonner";
+import { FocusFeedbackCardHost } from "@/features/focus-feedback/FocusFeedbackCardHost";
 import { InterviewCardHost } from "@/features/interview/InterviewCardHost";
-import { MeasurementFeedbackCardHost } from "@/features/measurement-feedback/MeasurementFeedbackCardHost";
+import { isTimerSession } from "@/features/manual-record/manualRecord";
+import { ResultPointsHost } from "@/features/points/components/result/ResultPointsHost";
+import { rewardStartedAt } from "@/features/points/model/rewardStartedAt";
+import { PremiumFakeDoorHost } from "@/features/premium-fake-door/PremiumFakeDoorHost";
+import { premiumQualifyingSec } from "@/features/premium-fake-door/premiumFakeDoor";
+import { useReadyMascotLook } from "@/features/points/model/useReadyMascotLook";
 import { ConfettiBurst } from "@/features/study-session/components/ConfettiBurst";
 import { SessionSummaryCard } from "@/features/study-session/components/SessionSummaryCard";
 import {
@@ -20,12 +27,14 @@ import { leaveSessionForInvite, useSessionInvite } from "@/features/study-sessio
 import { toSessionResultView } from "@/features/study-session/sessionResult";
 import { ResultTimelapseCard } from "@/features/timelapse/ResultTimelapseCard";
 import {
+  flushAmplitude,
   stageStudyResultExit,
   trackStudyResultConfirmed,
   type ResultExitPath,
   type StudyRoomType,
 } from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
+import { isPointsEnabled } from "@/lib/pointsCapability";
 import { useNativePortraitLock } from "@/lib/nativeBackGesture";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 import { useUserId } from "@/lib/userId";
@@ -37,12 +46,27 @@ export const RESULT_REVEAL_DELAY_MS = 3500;
 
 /** 색종이가 터지는 시점 — 마스코트가 정점에 닿는 순간(0.92s) 직전에 맞춘 값. */
 const CONFETTI_AT_MS = 900;
-/** 카드 묶음이 떠오르는 연출(0.12초 지연 + 0.5초)이 끝난 뒤에 스크롤한다. */
-const TIMELAPSE_SCROLL_DELAY_MS = 700;
-/** 부드러운 스크롤이 끝났다고 보고 사용자 입력 감시를 거두는 시간 */
-const TIMELAPSE_SCROLL_WATCH_MS = 1_500;
-/** 사용자가 직접 화면을 움직이려는 입력. 자동 스크롤을 하지 않거나 멈추는 기준이다. */
-const USER_SCROLL_EVENTS = ["pointerdown", "wheel", "keydown"] as const;
+const RESULT_FEEDBACK_FLUSH_WAIT_MS = 750;
+const TIMELAPSE_NUDGE_DELAY_MS = 700;
+const TIMELAPSE_PEEK_PX = 32;
+const TIMELAPSE_NUDGE_MAX_PX = 12;
+const TIMELAPSE_NUDGE_WATCH_MS = 1_500;
+const RESULT_SCROLL_INPUTS = ["pointerdown", "wheel", "keydown"] as const;
+
+async function flushResultFeedback() {
+  // 응답 직후 모달이 닫히면 웹뷰에 남은 분석 이벤트가 사라진다.
+  let timer: number | undefined;
+  const timeout = new Promise<void>((resolve) => {
+    timer = window.setTimeout(resolve, RESULT_FEEDBACK_FLUSH_WAIT_MS);
+  });
+  try {
+    await Promise.race([flushAmplitude(), timeout]);
+  } catch {
+    // 분석 전송에 실패해도 화면을 나갈 수 있어야 한다.
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
 
 /**
  * 공부 결과
@@ -62,6 +86,10 @@ const USER_SCROLL_EVENTS = ["pointerdown", "wheel", "keydown"] as const;
  * *
  * 모션 축소(`prefers-reduced-motion`)에서는 연출 없이 처음부터 전부 보여준다(`static`).
  * 인터뷰 폼에서 뒤로 돌아온 결과도 연출을 이미 봤으니 같은 `static`으로 시작한다.
+ *
+ * 포인트를 쓰는 회원은 내 마스코트 모습과 그 그림이 준비된 뒤에 1단계를 시작한다(`useReadyMascotLook`).
+ * 세션 화면이 미리 받아 두었거나 기기에 남긴 모습이 있으면 기다리지 않고, 없으면 최대 0.8초 기다린다.
+ * `static`은 글자와 카드를 바로 보이고 준비될 때까지 마스코트 자리만 비운다.
  * 시안의 명언 인트로와 연속 공부(스트릭) 화면은 이 티켓 범위 밖이라 없다.
  *
  * `submitting`(제출 중) · `error`(제출 실패) · `unsaved`(userId 없어 미저장) · "저장 실패"는
@@ -78,7 +106,7 @@ const USER_SCROLL_EVENTS = ["pointerdown", "wheel", "keydown"] as const;
  * `?userId`가 없는 미저장 모드에서는 그리지 않는다.
  */
 export function ResultPage() {
-  const { t } = useTranslation("study-session");
+  const { t } = useTranslation(["study-session", "timelapse"]);
   const location = useLocation();
   const navigate = useNavigate();
   const sessions = readSessions(location.state);
@@ -87,68 +115,27 @@ export function ResultPage() {
   // 튕기던 문제를 막는다.
   const home = resolveHome(location.pathname);
   const userId = useUserId();
+  const mascot = useReadyMascotLook(userId);
   // 마운트 시 한 번만 판정한다 — 연출 도중 설정이 바뀌어도 단계가 섞이지 않게.
   const [skipIntro] = useState(() => prefersReducedMotion() || readResultIntroSeen(location.state));
+  // 고른 모습을 모르는 채 기본 마스코트로 뛰었다가 바뀌지 않게, 모습과 그림이 준비될 때까지 연출을 통째로 미룬다.
+  // 마스코트가 정점에 닿는 순간에 맞춘 색종이·진동·공개 시점이 함께 밀린다.
+  const introHeld = !skipIntro && !mascot.ready;
   const [revealed, setRevealed] = useState(skipIntro);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [timelapseCard, setTimelapseCard] = useState<HTMLElement | null>(null);
-  // 카드가 뜨기 전에 사용자가 화면을 만졌는지. 촬영 정리를 기다리느라 카드가 늦게 뜨면
-  // 사용자는 이미 결과를 읽으며 스크롤하는 중일 수 있다.
-  const touchedRef = useRef(false);
+  const [timelapseCard, setTimelapseCard] = useState<HTMLDivElement | null>(null);
+  const interactedRef = useRef(false);
+  const nudgedRef = useRef(false);
+  const answeredFocusFeedbackRef = useRef(false);
+  const leavingRef = useRef(false);
+  const pendingInviteRef = useRef<string | null>(null);
+  const invite = useSessionInvite();
+  const flushFeedbackBeforeExit = () => {
+    if (home === "/home" && isNativeBridgeAvailable() && answeredFocusFeedbackRef.current) {
+      return flushResultFeedback();
+    }
+  };
   useNativePortraitLock();
-
-  useEffect(() => {
-    const mark = () => {
-      touchedRef.current = true;
-    };
-    for (const name of USER_SCROLL_EVENTS) window.addEventListener(name, mark, { passive: true });
-    return () => {
-      for (const name of USER_SCROLL_EVENTS) window.removeEventListener(name, mark);
-    };
-  }, []);
-
-  /**
-   * 타임랩스 카드까지 자동 스크롤
-   *
-   * 연출을 건너뛴 진입(움직임 줄이기, 인터뷰에서 돌아옴)에서는 하지 않는다.
-   * 카드가 뜨기 전에 이미 화면을 만졌으면 하지 않고, 스크롤 도중에 만지면 그 자리에서 멈춘다.
-   */
-  useEffect(() => {
-    const container = scrollRef.current;
-    if (timelapseCard === null || container === null || skipIntro || touchedRef.current) {
-      return;
-    }
-    let watchTimer: number | undefined;
-    const unwatch = () => {
-      window.clearTimeout(watchTimer);
-      for (const name of USER_SCROLL_EVENTS) window.removeEventListener(name, stop);
-    };
-    const scrollTimer = window.setTimeout(() => {
-      const box = container.getBoundingClientRect();
-      const card = timelapseCard.getBoundingClientRect();
-      // 카드 전체가 보이게 하되 카드가 화면보다 길면 위쪽을 맞춘다.
-      const down = Math.min(card.top - box.top - 16, card.bottom - box.bottom + 16);
-      // 카드가 이미 다 보이면 움직이지 않는다. 늦게 뜬 카드 때문에 위로 끌어올리지 않는다.
-      if (down <= 0) {
-        unwatch();
-        return;
-      }
-      container.scrollTo({ top: container.scrollTop + down, behavior: "smooth" });
-      watchTimer = window.setTimeout(unwatch, TIMELAPSE_SCROLL_WATCH_MS);
-    }, TIMELAPSE_SCROLL_DELAY_MS);
-    function stop() {
-      window.clearTimeout(scrollTimer);
-      unwatch();
-      // 진행 중인 부드러운 스크롤은 지금 위치로 다시 스크롤해야 멈춘다.
-      container?.scrollTo({ top: container.scrollTop });
-    }
-    // 스크롤 영역 밖(하단 버튼 줄)을 만져도 멈추도록 화면 전체에서 듣는다.
-    for (const name of USER_SCROLL_EVENTS) window.addEventListener(name, stop, { passive: true });
-    return () => {
-      window.clearTimeout(scrollTimer);
-      unwatch();
-    };
-  }, [timelapseCard, skipIntro]);
 
   /**
    * state 없는 진입(새로고침·딥링크·렌더러 사망 복원)에서도 네이티브에는 홈 복귀 신호를
@@ -160,10 +147,10 @@ export function ResultPage() {
   useEffect(() => {
     // navigate-home은 솔로 세션의 fullScreenModal을 닫는 신호다. 소셜 결과는 탭 웹뷰라
     // 모달이 없어 보내면 홈 탭으로 튕기므로, 앱 홈으로 되돌릴 때만 보낸다.
-    if (sessions === null && home === "/home") {
+    if (sessions === null && home === "/home" && invite === null) {
       postToNative({ type: "navigate-home", atMs: Date.now() });
     }
-  }, [sessions, home]);
+  }, [sessions, home, invite]);
 
   /**
    * 솔로 결과 화면에 있을 때 들어온 초대
@@ -172,21 +159,75 @@ export function ResultPage() {
    * 친구에게 합류하러 가는 길이라 결과 설문은 예약하지 않는다.
    * `navigate-home`은 세션 모달을 닫는 신호라 앱 홈 결과에서만 보낸다.
    */
-  const invite = useSessionInvite();
+  const leaveForInvite = useEffectEvent(async (code: string) => {
+    // 버튼으로 나가기 위해 전송을 기다리는 동안에도 마지막 초대를 연다.
+    pendingInviteRef.current = code;
+    if (leavingRef.current) return;
+    leavingRef.current = true;
+    const flush = flushFeedbackBeforeExit();
+    if (flush) await flush;
+    leaveSessionForInvite(pendingInviteRef.current ?? code);
+  });
   useEffect(() => {
     if (invite !== null && home === "/home") {
-      leaveSessionForInvite(invite);
+      void leaveForInvite(invite);
     }
   }, [invite, home]);
 
   // 마스코트 연출 → 공개. 언마운트(연출 중 이탈)되면 타이머를 걷어 사라진 화면에 setState하지 않는다.
   useEffect(() => {
-    if (skipIntro || sessions === null) {
+    if (skipIntro || introHeld || sessions === null) {
       return;
     }
     const timer = window.setTimeout(() => setRevealed(true), RESULT_REVEAL_DELAY_MS);
     return () => window.clearTimeout(timer);
-  }, [skipIntro, sessions]);
+  }, [skipIntro, introHeld, sessions]);
+
+  // 카드가 늦게 뜨더라도 결과를 읽고 있는 사용자의 화면을 움직이지 않는다.
+  useEffect(() => {
+    const viewport = scrollRef.current;
+    let nudgeTimer: number | undefined;
+    let watchTimer: number | undefined;
+    let nudging = false;
+
+    function cancelOnInput() {
+      interactedRef.current = true;
+      window.clearTimeout(nudgeTimer);
+      if (nudging && viewport !== null) {
+        viewport.scrollTo({ top: viewport.scrollTop, behavior: "instant" });
+        window.clearTimeout(watchTimer);
+        nudging = false;
+      }
+    }
+
+    for (const name of RESULT_SCROLL_INPUTS) {
+      window.addEventListener(name, cancelOnInput, { passive: true });
+    }
+    if (viewport !== null && timelapseCard !== null && !skipIntro && !interactedRef.current) {
+      nudgeTimer = window.setTimeout(() => {
+        if (nudgedRef.current || viewport.scrollTop > 0 || prefersReducedMotion()) return;
+        const top = timelapseCard.getBoundingClientRect().top;
+        const bottom = viewport.getBoundingClientRect().bottom;
+        const down = Math.min(TIMELAPSE_NUDGE_MAX_PX, top - bottom + TIMELAPSE_PEEK_PX);
+        if (down <= 0) return;
+
+        nudgedRef.current = true;
+        nudging = true;
+        viewport.scrollTo({ top: down, behavior: "smooth" });
+        watchTimer = window.setTimeout(() => {
+          nudging = false;
+        }, TIMELAPSE_NUDGE_WATCH_MS);
+      }, TIMELAPSE_NUDGE_DELAY_MS);
+    }
+
+    return () => {
+      window.clearTimeout(nudgeTimer);
+      window.clearTimeout(watchTimer);
+      for (const name of RESULT_SCROLL_INPUTS) {
+        window.removeEventListener(name, cancelOnInput);
+      }
+    };
+  }, [skipIntro, timelapseCard]);
 
   if (sessions === null) {
     /* TODO(미정: 리더/사용자 확인) state 없는 진입(새로고침·딥링크)의 정확한 처리가 디자인에
@@ -200,9 +241,11 @@ export function ResultPage() {
   const roomType: StudyRoomType = home === "/home" ? "single" : "social";
   // 자정 분할 세션은 배열로 오므로 합산해야 `study_session_ended`가 보낸 값과 같아진다.
   const totalFocusSec = sessions.reduce((sum, session) => sum + session.focusSec, 0);
+  const totalStudySec = sessions.reduce((sum, session) => sum + session.studySec, 0);
+  const focusFeaturesUsed = readFocusFeaturesUsed(location.state);
 
   /**
-   * 이탈 경로는 하단 CTA 둘(`홈으로`·`기록으로 가기`)뿐이다.
+   * 사용자가 직접 나갈 때는 하단 CTA(`홈으로`·`기록으로 가기`)를 쓴다.
    * 시안에서 우상단 X가 빠졌고, 둘 다 공개(`revealed`) 뒤에만 있다.
    *
    * **네이티브 앱 안에서는 웹 라우터 이동만으로 부족하다.** 이 화면이 WebView로 로드된
@@ -229,8 +272,18 @@ export function ResultPage() {
    * 어차피 홈으로 튕긴다. 히스토리에 죽은 항목을 남기지 않는다.
    */
   // 함수 선언은 호이스팅되어 위 null 가드로 `sessions`가 좁혀지지 않는다 — 화살표로 둔다.
-  const leave = (via: "home" | "records") => {
+  const leave = async (via: "home" | "records") => {
+    if (leavingRef.current) {
+      return;
+    }
+    leavingRef.current = true;
     trackStudyResultConfirmed({ roomType, via });
+    const flush = flushFeedbackBeforeExit();
+    if (flush) await flush;
+    if (pendingInviteRef.current !== null) {
+      leaveSessionForInvite(pendingInviteRef.current);
+      return;
+    }
     const exitPath: ResultExitPath = via === "records" ? "/records" : home;
     /**
      * 설문 트리거(`study_result_exited`)는 여기서 보내지 않고 **예약**만 한다 — 이 화면은 곧
@@ -273,11 +326,13 @@ export function ResultPage() {
   // 타임랩스는 싱글룸에서만 찍는다.
   const showTimelapse = home === "/home";
   const phase: CompleteHeroPhase = skipIntro ? "static" : revealed ? "revealed" : "intro";
+  // 카메라 없이 공부한 세션은 순공시간과 집중 구간을 측정하지 않아 측정 결과를 보이는 카드를 그리지 않는다.
+  const timer = isTimerSession(sessions[0]);
 
   return (
     <main className="theme-soft-blue bg-soft-blue relative flex h-svh w-full flex-col text-foreground">
       {/* 색종이는 화면 전체를 덮는 장식 캔버스 — 터치를 막지 않는다. */}
-      <ConfettiBurst enabled={!skipIntro} fireAfterMs={CONFETTI_AT_MS} />
+      <ConfettiBurst enabled={!skipIntro && !introHeld} fireAfterMs={CONFETTI_AT_MS} />
 
       {/* 콘텐츠만 스크롤. 가로는 잠근다 — 히어로의 글로우(340px)가 좁은 화면 폭을 넘는다. */}
       {/* 열 여백을 main이 아니라 스크롤 영역에 두어야 태블릿에서 열 바깥을 끌어도 스크롤된다.
@@ -287,11 +342,47 @@ export function ResultPage() {
         className="page-column flex-1 overflow-x-hidden overflow-y-auto pt-[calc(env(safe-area-inset-top)+44px)] pb-4"
       >
         <div className="px-5">
-          <StudyCompleteHero view={view} phase={phase} />
+          {/* 연출 없이 보이는 결과는 글자를 먼저 보이고 마스코트 자리만 비워 둔다. */}
+          {!introHeld && (
+            <StudyCompleteHero
+              view={view}
+              phase={phase}
+              look={mascot.look}
+              mascotHidden={!mascot.ready}
+              timer={timer}
+            />
+          )}
           {revealed && (
             <div className="mt-6 flex flex-col gap-3 animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
-              <StudyTimelineCard view={view} />
-              <MeasurementFeedbackCardHost focusSec={totalFocusSec} roomType={roomType} />
+              {timer ? (
+                <p className="text-center text-[13px] leading-5 whitespace-pre-line text-muted-foreground">
+                  {t("result.timerNotice")}
+                </p>
+              ) : (
+                <StudyTimelineCard view={view} />
+              )}
+              {userId !== null && (
+                <PremiumFakeDoorHost
+                  userId={userId}
+                  qualifyingSec={premiumQualifyingSec({
+                    timer,
+                    focusSec: view.focusSec,
+                    studySec: view.studySec,
+                  })}
+                />
+              )}
+              {focusFeaturesUsed && (
+                <FocusFeedbackCardHost
+                  studySec={totalStudySec}
+                  roomType={roomType}
+                  onAnswered={() => {
+                    answeredFocusFeedbackRef.current = true;
+                  }}
+                />
+              )}
+              {!timer && userId !== null && isPointsEnabled() && (
+                <ResultPointsHost startedAt={rewardStartedAt(sessions)} />
+              )}
               {userId !== null && <SessionSummaryCard userId={userId} />}
               {userId !== null && <InterviewCardHost userId={userId} />}
               {showTimelapse && (
@@ -309,31 +400,47 @@ export function ResultPage() {
       {/* CTA는 하단 고정. OS 크롬(홈 인디케이터)은 그리지 않되 safe-area는 지킨다.
           비율 1 : 1.5 — 주 동선(기록)이 더 넓다(시안). */}
       {revealed && (
-        <div className="relative flex shrink-0 gap-2.5 px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+24px)] page-width animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
-          {/* 저장 토스트 자리
-
-              하단 버튼을 덮지 않게 버튼 줄 윗변 위에 띄운다.
-              Sonner의 알림 영역은 빈 상태로도 자리에 남아 flex 간격을 하나 더 만들기 때문에 높이 0인 absolute 상자에 넣는다. */}
-          <div className="absolute inset-x-0 top-0">
-            <CtaToaster />
+        <div className="relative flex shrink-0 flex-col px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+24px)] page-width animate-[result-fade-up_0.5s_cubic-bezier(0.22,1,0.36,1)_0.12s_both] motion-reduce:animate-none">
+          {timelapseCard !== null && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mx-auto -mt-2 min-h-11 gap-1 text-muted-foreground"
+              onClick={() => {
+                timelapseCard.focus({ preventScroll: true });
+                timelapseCard.scrollIntoView({
+                  block: "start",
+                  behavior: prefersReducedMotion() ? "instant" : "smooth",
+                });
+              }}
+            >
+              {t("timelapse:resultCard.title")}
+              <ChevronDown size={16} aria-hidden="true" />
+            </Button>
+          )}
+          <div className="relative flex gap-2.5">
+            {/* 빈 토스트 영역이 자리나 간격을 차지하지 않도록 버튼 줄 위에 띄운다. */}
+            <div className="absolute inset-x-0 top-0">
+              <CtaToaster />
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="xl"
+              onClick={() => void leave("home")}
+              className="flex-1 active:scale-[0.99] motion-reduce:transition-none"
+            >
+              {t("result.ctaHome")}
+            </Button>
+            <Button
+              type="button"
+              size="xl"
+              onClick={() => void leave("records")}
+              className="shadow-sb-cta flex-[1.5] active:scale-[0.99] motion-reduce:transition-none"
+            >
+              {t("result.ctaRecords")}
+            </Button>
           </div>
-          <Button
-            type="button"
-            variant="secondary"
-            size="xl"
-            onClick={() => leave("home")}
-            className="flex-1 active:scale-[0.99] motion-reduce:transition-none"
-          >
-            {t("result.ctaHome")}
-          </Button>
-          <Button
-            type="button"
-            size="xl"
-            onClick={() => leave("records")}
-            className="shadow-sb-cta flex-[1.5] active:scale-[0.99] motion-reduce:transition-none"
-          >
-            {t("result.ctaRecords")}
-          </Button>
         </div>
       )}
     </main>
@@ -368,6 +475,15 @@ function readStartedAtMs(state: unknown): number | null {
   }
   const value = (state as Record<string, unknown>).startedAtMs;
   return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function readFocusFeaturesUsed(state: unknown): boolean {
+  return (
+    typeof state === "object" &&
+    state !== null &&
+    "focusFeaturesUsed" in state &&
+    state.focusFeaturesUsed === true
+  );
 }
 
 function isStudySession(value: unknown): value is StudySessionResponse {

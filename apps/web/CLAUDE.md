@@ -61,6 +61,7 @@ Amplitude만 수집 범위가 넓다(서버 `user_id` 연결, autocapture, UTM, 
 - 토큰 출처는 브리지가 있고 URL에 `guestAuth=1`이 있을 때만 `main.tsx`의 `initBridgeTokenSource()`가 만든다. 표시 없는 구버전 앱과 브라우저 단독은 출처가 없고 `apiFetch`는 헤더 없이 오늘처럼 보낸다. 라우트 안 훅으로 바꾸지 말 것. 자식 effect의 react-query 요청이 `App` effect보다 먼저 돌아 첫 요청이 토큰 없이 나간다.
 - `createBridgeTokenSource`는 구독을 건 뒤 `auth-ready`를 보낸다. `analytics-ready`와 같은 이유로 순서를 바꾸지 말 것. 첫 토큰 대기 3초, 갱신 대기 10초가 지나면 null로 진행한다.
 - `apiFetch`의 401 처리는 `res.status`만 읽는다. 기존 테스트가 fetch를 `{ok,status,json}` 객체로 mock하므로 `headers`·`clone()`을 읽지 말 것.
+- 심사용 로그인은 소셜 로그인처럼 앱에 맡긴다. 웹은 `review-login`으로 아이디와 비밀번호만 넘기고 토큰은 받지 않으며, 입구는 앱이 `reviewLogin=1`과 `appVersion`을 붙였고 `GET /api/auth/review-login/status`가 `enabled: true`일 때만 로그인 화면(`GroupLoginScreen`)에 그린다. 비밀번호를 로그·분석 이벤트·오류 보고에 넘기지 말 것.
 - `apiFetch`는 API origin(`API_BASE_URL`, 비어 있으면 현재 문서)으로 가는 요청에만 Bearer를 붙인다(BY-673). 다른 origin은 토큰 없이 한 번 보내고 갱신하지 않는다. 이 조건을 지우지 말 것.
 
 ## 네이티브 glass (`GlassChrome` · `useNativeControl`)
@@ -84,6 +85,19 @@ iOS 26 앱에서 시스템 Liquid Glass로 바꿔 그리는 경로이고, 근거
 - 라이브룸 하단 조작 바의 버튼 4개를 등록하고, 바가 숨으면 `faded`, 오른쪽 위 더보기 메뉴가 열린 동안은 `disabled`로 보낸다.
 - CSS 전환이 도는 동안에는 등록한 부품을 매 프레임 다시 재서, transform으로 미끄러지는 바를 앱 부품이 따라간다.
 - 시트·대화상자 안 컨트롤은 등록하지 않는다.
+
+## 포인트 기능 (`lib/pointsCapability.ts`)
+
+- 포인트 화면과 입구(홈 잔액 알약, 설정의 포인트 기록·구매 복원 줄, 결과 화면의 포인트 칸, 프로필의 마스코트 줄)는 `isPointsEnabled()`가 참일 때만 그린다.
+- 앱이 웹뷰 주소에 `points=1`을 붙였을 때와 개발 서버에서만 참이다. 예전 앱과 브라우저에는 포인트가 보이지 않는다.
+- 운영에서 문제가 생기면 저장소 변수 `PROD_VITE_POINTS_DISABLED`를 `1`로 넣고 웹을 다시 배포해 전체를 끈다. `deploy-web.yml`이 빌드 변수 `VITE_POINTS_DISABLED`로 넘기고, 기본은 빈 값이라 끄지 않는다.
+- 충전, 광고, 구매 복원은 앱이 따로 붙이는 `pointsCharge`, `pointsAds`, `pointsRestore` 표시가 있을 때만 앱에 맡긴다. 포인트는 서버가 결제·광고 사업자의 알림을 받아 주므로 웹은 앱의 답으로 잔액을 바꾸지 않고 서버 값을 다시 읽는다([ADR 0022](../../docs/adr/0022-points-iap-and-rewarded-ads-via-native-bridge.md)).
+- 결제·구매 복원·가격 조회 메시지에는 `GET /api/points/products`의 `revenueCatAppUserId`를 `appUserId`로 싣는다. 앱은 이 값으로 RevenueCat을 켜거나 로그인하고, 서버는 회원번호로 로그인한 결제를 지급하지 않으므로 회원번호로 대신하지 말 것. 값이 null이면 `createApiPointsGateway`가 회원 전용 거절을 throw해 로그인 화면으로 보내고, 목록을 받지 못하면 결제 창을 열지 않는다.
+- 앱은 이 메시지를 처음 받을 때 RevenueCat을 켜므로 결제용 ID가 없는 비회원에게는 가격 조회도 보내지 않는다. 충전 칸은 포인트 수만 보이고 가격 자리에 로그인 안내를 그린다.
+- 비회원은 서버가 조회를 열어 주면 포인트 화면을 보고 소품을 미리 입혀 볼 수 있다. 서버가 조회를 `403 MEMBER_ONLY`로 거절하면 그 주소에 로그인 화면을 그린다.
+- 출석, 하루 목표, 랭킹 메달, 시작 미션, 광고 보상은 비회원도 받는다(2026-11-18 서버 배포부터). 요청을 그대로 보내고, 서버가 회원 전용이라고 거절할 때만 로그인 화면으로 보낸다. 결과 화면의 포인트 칸과 홈 잔액 알약도 비회원에게 그린다.
+- 포인트로 사기, 충전, 결제 상품 구매, 꾸미기 저장(착용, 타이머 배경, 대표 캐릭터), 구매 복원은 회원만 한다. 비회원이 누르면 요청을 보내지 않고 `/points/login`(설정에서는 `/settings/login`)의 기존 로그인 화면으로 보내고, 로그인하면 보던 화면으로 돌아온다. 이런 동작을 더할 때는 `useMemberOnly`의 `allow`를 먼저 부른다.
+- 세션 공간 시트에서 고르는 타이머 배경은 예외다. 비회원도 고를 수 있고, 서버에 보내지 않고 기기에만 저장한다. 회원은 서버에도 저장한다.
 
 ## 명령
 

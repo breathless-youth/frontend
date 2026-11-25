@@ -15,7 +15,6 @@ export const loadContactPage = () => import("./ContactPage");
 export const loadContactChatPage = () => import("./ContactChatPage");
 export const loadInterviewFormPage = () => import("./InterviewFormPage");
 export const loadTimelapseSettingsPage = () => import("./TimelapseSettingsPage");
-export const loadTimerBackgroundSettingsPage = () => import("./TimerBackgroundSettingsPage");
 export const loadAppLockSettingsPage = () => import("./AppLockSettingsPage");
 export const loadTimelapsesPage = () => import("./TimelapsesPage");
 export const loadRankingRecordsPage = () => import("./RankingRecordsPage");
@@ -27,6 +26,12 @@ export const loadPublicGroupPage = () => import("./PublicGroupPage");
 export const loadApplyPage = () => import("./ApplyPage");
 export const loadGroupFormPage = () => import("./GroupFormPage");
 export const loadBlockListPage = () => import("./BlockListPage");
+export const loadPointsPage = () => import("./PointsPage");
+export const loadPointsHistoryPage = () => import("./PointsHistoryPage");
+export const loadPointsAccessoriesPage = () => import("./PointsAccessoriesPage");
+export const loadPointsBackgroundsPage = () => import("./PointsBackgroundsPage");
+export const loadPointsMascotsPage = () => import("./PointsMascotsPage");
+export const loadPointsPaymentGuidePage = () => import("./PointsPaymentGuidePage");
 
 /** 공부를 끝낼 때 네트워크가 끊겨도 결과 화면이 열리도록 세션 중에 미리 받는다. */
 export function prefetchResultPage(): void {
@@ -48,7 +53,6 @@ export function prefetchSettingsSubPages(): void {
       loadLicensesPage,
       loadContactPage,
       loadTimelapseSettingsPage,
-      loadTimerBackgroundSettingsPage,
       loadAppLockSettingsPage,
     ]) {
       void load().catch(() => {});

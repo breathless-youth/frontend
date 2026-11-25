@@ -133,3 +133,99 @@ describe("useWatcherPresence", () => {
     rerender({ trigger: null });
   });
 });
+
+const THREE_SECONDS: WatcherTriggerMs = {
+  AWAY: 3_000,
+  PHONE: 3_000,
+  DEVICE: 3_000,
+  SLEEP: 3_000,
+  SCREEN: 3_000,
+  POSTURE: 3_000,
+};
+
+describe("useWatcherPresence 시간 인자", () => {
+  it("돌아오기 시간과 예고 길이를 넘기면 그 시간으로 바뀐다", () => {
+    const { result, rerender } = renderHook(
+      ({ trigger }) =>
+        useWatcherPresence(trigger, THREE_SECONDS, { leaveMs: 1_000, approachLeadMs: 2_000 }),
+      { initialProps: { trigger: "PHONE" as DistractionTrigger | null } },
+    );
+
+    advance(999);
+    expect(result.current.approaching).toBe(false);
+    advance(1);
+    expect(result.current.approaching).toBe(true);
+
+    advance(2_000);
+    expect(result.current).toEqual({ present: true, approaching: false });
+
+    rerender({ trigger: null });
+    advance(999);
+    expect(result.current.present).toBe(true);
+    advance(1);
+    expect(result.current.present).toBe(false);
+  });
+
+  it("예고 길이가 0이면 다가오는 때 없이 바로 들어온다", () => {
+    const seen: boolean[] = [];
+    renderHook(() => {
+      const presence = useWatcherPresence("AWAY", THREE_SECONDS, { approachLeadMs: 0 });
+      seen.push(presence.approaching);
+      return presence;
+    });
+
+    advance(3_000);
+
+    expect(seen).not.toContain(true);
+  });
+
+  it("제때 다가오면 늦은 시간이 0이다", () => {
+    const { result } = renderPresence("PHONE");
+    advance(3_000);
+
+    expect(result.current.approaching).toBe(true);
+    expect(result.current.approachLateMs).toBe(0);
+  });
+
+  it("예고 길이를 늦게 알면 바로 다가오고 늦은 만큼을 알려 준다", () => {
+    const nine: WatcherTriggerMs = {
+      AWAY: 9_000,
+      PHONE: 9_000,
+      DEVICE: 9_000,
+      SLEEP: 9_000,
+      SCREEN: 9_000,
+      POSTURE: 9_000,
+    };
+    const { result, rerender } = renderHook(
+      ({ approachLeadMs }) => useWatcherPresence("PHONE", nine, { approachLeadMs }),
+      { initialProps: { approachLeadMs: 0 } },
+    );
+    advance(4_000);
+    expect(result.current.approaching).toBe(false);
+
+    rerender({ approachLeadMs: 7_000 });
+    advance(0);
+
+    expect(result.current.approaching).toBe(true);
+    expect(result.current.approachLateMs).toBe(2_000);
+  });
+
+  it("떠나는 시간이 0이면 집중하는 그 렌더에서 바로 나가, 다시 딴짓하면 처음부터 잰다", () => {
+    const { result, rerender } = renderHook(
+      ({ trigger, leaveMs }: { trigger: DistractionTrigger | null; leaveMs: number }) =>
+        useWatcherPresence(trigger, TEN_SECONDS, { leaveMs }),
+      { initialProps: { trigger: "PHONE" as DistractionTrigger | null, leaveMs: 3_000 } },
+    );
+    advance(10_000);
+    expect(result.current.present).toBe(true);
+
+    rerender({ trigger: null, leaveMs: 0 });
+    expect(result.current.present).toBe(false);
+
+    rerender({ trigger: "PHONE", leaveMs: 3_000 });
+    advance(9_999);
+    expect(result.current.present).toBe(false);
+    advance(1);
+    expect(result.current.present).toBe(true);
+  });
+});

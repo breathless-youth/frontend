@@ -788,7 +788,12 @@ function RoomSessionBody({
   // 타이머 배경. 설정 화면이 이 기기에 저장한 값을 세션을 열 때 한 번 읽는다.
   // 고른 사진이 지워졌거나 읽지 못하면 배경 없이 그린다.
   const [backgroundPhoto, setBackgroundPhoto] = useState<BackgroundPhotoView | null>(null);
-  const [proctorBackground] = useState(() => readTimerBackground().kind === "proctor");
+  // 감독관은 서버 공간 중 감독 영상(WATCH) 공간이다. 그 공간의 파일 폴더로 영상과 발소리를 받는다.
+  const [watchSpace] = useState(() => {
+    const selection = readTimerBackground();
+    return selection.kind === "space" && selection.videoMode === "WATCH" ? selection : null;
+  });
+  const proctorBackground = watchSpace !== null;
   // 월페이퍼가 보이는 기본 모드에서는 시간 묶음을 왼쪽 아래로 옮긴다. 심플 모드는 배경이 걷혀 가운데로 돌아간다.
   // 월페이퍼가 있으면 시간 묶음을 왼쪽 아래로 옮기고(시안 28e·30a), 심플 모드도 어두운 화면 대신
   // 그림을 둔 채 카메라 창만 뺀다(시안 31a). 하단 버튼은 심플 모드면 배경과 상관없이 유리 원으로 낮춘다(시안 18i).
@@ -799,7 +804,9 @@ function RoomSessionBody({
     DEFAULT_WATCHER_TRIGGER_MS,
   );
   // 감독관 배경이면 늘 발소리를 낸다. 화면을 떠나면 끊고, 다시 볼 때 이어 울리지 않는다.
-  const [watcherSound] = useState(() => (proctorBackground ? createWatcherSound() : null));
+  const [watcherSound] = useState(() =>
+    watchSpace !== null ? createWatcherSound(watchSpace.assetKey) : null,
+  );
   useEffect(() => {
     if (!watcherSound) return;
     watcherSound.prime();
@@ -1285,8 +1292,9 @@ function RoomSessionBody({
           {backgroundPhoto !== null && (
             <TimerBackgroundLayer src={backgroundPhoto.src} fit={backgroundPhoto.fit} />
           )}
-          {proctorBackground && (
+          {watchSpace !== null && (
             <WatcherBackground
+              assetKey={watchSpace.assetKey}
               present={watcher.present}
               onClipPlaying={(clip, at) => {
                 if (clip === "enter" || clip === "exit") watcherSound?.play(clip, at);

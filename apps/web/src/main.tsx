@@ -5,7 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import { App } from "./App";
 import { AnalyticsRouteTracker } from "./components/AnalyticsRouteTracker";
 import { initGA4 } from "./lib/analytics";
-import { initAmplitude } from "./lib/amplitude";
+import { initAmplitude, syncAppLocaleUserProperty } from "./lib/amplitude";
 import { initAppLifecycleAnalytics } from "./lib/appLifecycleAnalytics";
 import { initBridgeTokenSource } from "./lib/auth/tokenSource";
 import { installFakeCamera } from "./lib/fakeCamera";
@@ -21,6 +21,7 @@ import "./index.css";
 initSentry();
 initGA4();
 initAmplitude();
+syncAppLocaleUserProperty();
 // initAmplitude(user property no-op 방지) 뒤여야 한다. 초기 테마는 index.html 인라인
 // 스크립트가 첫 페인트 전에 data-theme에 이미 반영해 둔다.
 initNativeTheme();

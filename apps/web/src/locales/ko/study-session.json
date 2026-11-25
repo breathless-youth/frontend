@@ -40,6 +40,7 @@
   "autoEnd": {
     "title": "여기까지 기록을 저장했어요",
     "backgroundBody": "화면이 꺼진 동안은 측정이 어려워서\n공부가 자동으로 종료됐어요",
+    "awayLimitBody": "앱 밖에 2시간 넘게 있어서 2시간까지 기록하고 공부를 마쳤어요",
     "focusLabel": "순공시간",
     "studyLabel": "총 공부",
     "cta": "결과 보기"
@@ -77,6 +78,7 @@
   "moreMenu": {
     "trigger": "더보기",
     "flipCamera": "카메라 전환",
+    "planner": "플래너",
     "help": "도움말 보기",
     "shareInvite": "초대코드 공유",
     "timer": "타이머",
@@ -141,12 +143,19 @@
   "recovery": {
     "title": "저장되지 않은 기록을 복구했어요",
     "body": "앱이 예기치 않게 종료되었어요.\n공부 기록은 저장해 두었어요.",
+    "timerAwayBody": "앱 밖에 2시간 넘게 있어서 앱을 나간 시점까지 기록을 저장했어요",
     "date": "날짜",
     "time": "시작 · 종료",
     "timeRange": "{{start}} ~ {{end}}",
     "studyTime": "총 공부시간",
     "focusTime": "순공시간",
     "confirm": "확인"
+  },
+  "resume": {
+    "title": "공부를 이어 갈까요?",
+    "body": "앱 밖에 있던 {{minutes}}분도 공부 시간에 들어가요",
+    "continue": "이어서 공부하기",
+    "end": "나간 시점에서 끝내기"
   },
   "result": {
     "completeTitle": "오늘 공부 완료",
@@ -160,7 +169,8 @@
     "studyDaysLabel": "누적 공부 일 수",
     "studyDays": "{{count}}일",
     "ctaHome": "홈으로",
-    "ctaRecords": "기록으로 가기"
+    "ctaRecords": "기록으로 가기",
+    "timerNotice": "자율 모드로 공부한 시간은\n연속 공부·랭킹·포인트에 반영되지 않아요"
   },
   "legend": {
     "focus": "순공",
@@ -215,5 +225,47 @@
     "srRemaining": "남은 휴식 시간 {{duration}}",
     "notificationTitle": "{{minutes}}분 휴식이 끝났어요",
     "notificationBody": "다시 공부를 시작할 시간이에요"
+  },
+  "space": {
+    "button": "공간",
+    "title": "공간",
+    "tabs": {
+      "video": "영상",
+      "image": "이미지"
+    },
+    "search": "공간 검색",
+    "searchClose": "검색 닫기",
+    "searchClear": "검색어 지우기",
+    "all": "전체",
+    "sections": {
+      "mine": "내 사진"
+    },
+    "names": {
+      "simple": "심플",
+      "photo": "내 사진 {{number}}"
+    },
+    "photoCount": "{{current}}/{{max}}",
+    "upload": "사진 올리기",
+    "preview": "{{name}} 미리보기",
+    "remove": "{{name}} 삭제",
+    "empty": "찾는 공간이 없어요",
+    "back": "뒤로가기",
+    "apply": "적용하기",
+    "applied": "적용 중",
+    "mute": "공간 소리 끄기",
+    "unmute": "공간 소리 켜기",
+    "volume": "공간 음량",
+    "applyFailed": "공간을 바꾸지 못했어요. 다시 시도해 주세요",
+    "photoLimit": "사진은 {{max}}장까지 올릴 수 있어요",
+    "removed": "사진을 삭제했어요",
+    "removeFailed": "사진을 삭제하지 못했어요. 다시 시도해 주세요",
+    "photoLoadFailed": "사진을 불러오지 못했어요",
+    "previewFailed": "공간을 불러오지 못했어요"
+  },
+  "banner": {
+    "ad": "AD",
+    "copy1": "AI가 오늘 할 일을 짜 드려요",
+    "copy2": "이번 주 집중 리포트 받아 보기",
+    "copy3": "프리미엄 사전 신청 받는 중"
   }
 }

@@ -32,6 +32,14 @@ export type SessionState =
   | { kind: "PAUSE"; trigger: PauseReason };
 
 /**
+ * 자동 종료를 부른 까닭
+ *
+ * 일시정지 방치는 그 일시정지의 트리거를 그대로 쓴다.
+ * AWAY_LIMIT은 자율 모드에서 앱 밖에 2시간 넘게 있었던 경우다.
+ */
+export type AutoEndTrigger = PauseTrigger | "AWAY_LIMIT";
+
+/**
  * 세션이 **어떻게 끝났는가** — 순수 클라이언트 내부 타입이다.
  *
  * ⚠️ **서버 계약이 아니다.** 종료 사유를 받는 필드가 백엔드 Swagger에 없으므로
@@ -42,12 +50,13 @@ export type SessionState =
  * - `MANUAL`: S3-7 종료 확인 다이얼로그에서 `공부 종료`를 누른 경우.
  * - `AUTO`: 일시정지가 임계값을 넘겨 자동 종료된 경우(S3-8). `trigger`는 **문구 선택 전용**이며
  *   임계값 판정에는 쓰지 않는다 — 수동 일시정지와 화면 꺼짐은 같은 규칙·같은 감시자를 쓴다.
+ *   AWAY_LIMIT은 자율 모드가 앱 밖 2시간 상한을 넘겨 끝난 경우다.
  */
-export type SessionEndReason = { kind: "MANUAL" } | { kind: "AUTO"; trigger: PauseTrigger };
+export type SessionEndReason = { kind: "MANUAL" } | { kind: "AUTO"; trigger: AutoEndTrigger };
 
 export const MANUAL_END_REASON: SessionEndReason = { kind: "MANUAL" };
 
-export function autoEndReason(trigger: PauseTrigger): SessionEndReason {
+export function autoEndReason(trigger: AutoEndTrigger): SessionEndReason {
   return { kind: "AUTO", trigger };
 }
 
@@ -140,6 +149,13 @@ export function statusLabelKey(state: SessionState) {
  * 사용자에게 "화면이 꺼진 동안"이라고 안내하면 사실과 달라 화면 꺼짐 문구를 재사용하지 않는다.
  * 본문 안 `\n`은 Figma `63:591` 실측 줄바꿈이다.
  */
-export function autoEndBodyKey(trigger: PauseTrigger) {
-  return trigger === "BACKGROUND" ? "study-session:autoEnd.backgroundBody" : null;
+export function autoEndBodyKey(trigger: AutoEndTrigger) {
+  switch (trigger) {
+    case "BACKGROUND":
+      return "study-session:autoEnd.backgroundBody";
+    case "AWAY_LIMIT":
+      return "study-session:autoEnd.awayLimitBody";
+    case "MANUAL":
+      return null;
+  }
 }

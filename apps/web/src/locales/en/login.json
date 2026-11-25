@@ -8,5 +8,24 @@
   "consent": "By signing in, you confirm that you're 14 or older\nand agree to the <terms>Terms of Service</terms> and <privacy>Privacy Policy</privacy>.",
   "errors": {
     "failed": "Couldn't sign in. Please try again."
+  },
+  "reviewLogin": {
+    "entry": "App review sign-in",
+    "title": "App review sign-in",
+    "loginId": "Username",
+    "password": "Password",
+    "submit": "Sign in",
+    "errors": {
+      "INVALID_REVIEW_CREDENTIALS": "The username or password is incorrect.",
+      "REVIEW_LOGIN_DISABLED": "App review sign-in isn't available right now.",
+      "TOO_MANY_REQUESTS": "Too many failed attempts, so please try again later.",
+      "UNKNOWN": "Couldn't sign in, so please try again."
+    }
+  },
+  "guestPoints": {
+    "card": {
+      "title": "You've earned {{points}}",
+      "body": "They carry over when you sign up, but you'll lose them if you sign in to an existing account"
+    }
   }
 }

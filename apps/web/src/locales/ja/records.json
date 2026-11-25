@@ -48,7 +48,10 @@
     }
   },
   "headline": {
-    "total": "合計{{duration}}"
+    "total": "合計{{duration}}",
+    "modeSplit": "カメラモード {{camera}}・自主モード {{timer}}",
+    "modeInfo": "自主モードはカメラなしで勉強した時間のため、連続記録・ランキング・ポイントには反映されません",
+    "modeInfoLabel": "自主モードについて"
   },
   "rhythm": {
     "title": "勉強リズム",
@@ -101,6 +104,10 @@
     "subject": "科目",
     "edit": "編集"
   },
+  "timerItem": {
+    "badge": "自主モード",
+    "readAloud": "自主モードで勉強した記録、{{start}}から{{end}}、{{length}}"
+  },
   "picker": {
     "today": "今日",
     "monthTitle": "月を選択",
@@ -150,6 +157,6 @@
     "error": "記録を読み込めませんでした",
     "manualEntry": "手動で追加",
     "empty": "この日の記録はありません",
-    "emptyHint": "集中をはじめると、ここに記録されます"
+    "emptyHint": "勉強を始めると、ここに記録されます"
   }
 }

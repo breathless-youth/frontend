@@ -1,18 +1,20 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
   effectiveDateLabel,
   type LegalBlock,
   type LegalDocument,
+  type LegalDocumentKind,
 } from "@/features/settings/legalDocuments";
+import { useScrollTopOnEnter } from "@/lib/useScrollTopOnEnter";
 
 import { ScreenBackHeader } from "./ScreenBackHeader";
 
 /**
  * 법적 문서(이용약관 · 개인정보처리방침) 본문 화면.
  *
- * RN 원본(`apps/mobile/components/LegalDocumentScreen.tsx`)의 웹 이식. 두 문서의 구조가 같아서
- * 렌더러를 하나만 둔다 — 라우트(`TermsPage`·`PrivacyPage`)는 어떤 문서를 넘길지만 정한다. 본문은
+ * 두 문서의 구조가 같아서 렌더러를 하나만 둔다 — 라우트(`TermsPage`·`PrivacyPage`)는 어떤 문서를 넘길지만 정한다. 본문은
  * `features/settings/legalDocuments.ts`가 소유하며 이 컴포넌트는 문구를 알지 못한다.
  */
 
@@ -53,8 +55,20 @@ function BlockView({ block }: { block: LegalBlock }) {
   }
 }
 
-export function LegalDocumentScreen({ document }: { document: LegalDocument }) {
+export function LegalDocumentScreen({
+  kind,
+  document: current,
+  upcoming = null,
+}: {
+  kind: LegalDocumentKind;
+  document: LegalDocument;
+  upcoming?: LegalDocument | null;
+}) {
   const { t, i18n } = useTranslation("settings");
+  const [showUpcoming, setShowUpcoming] = useState(false);
+  const document = showUpcoming && upcoming !== null ? upcoming : current;
+  // 앞 화면에서 내린 위치로 열리면 시행일 줄이 보이지 않아 새로 들어올 때는 맨 위에서 연다.
+  useScrollTopOnEnter();
   return (
     <div className="page-column min-h-dvh bg-background">
       <ScreenBackHeader title={document.title} />
@@ -69,6 +83,26 @@ export function LegalDocumentScreen({ document }: { document: LegalDocument }) {
         <p className="text-[12px] leading-3.75 text-text-tertiary">
           {effectiveDateLabel(document)}
         </p>
+        {upcoming !== null && (
+          <p className="flex flex-wrap items-center gap-x-1 text-[12px] leading-3.75 text-text-tertiary">
+            <span>
+              {showUpcoming
+                ? t("legal.revisionPending", { date: upcoming.effectiveDate })
+                : t("legal.revisionChanges", { date: upcoming.effectiveDate })}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                // 판을 바꾸면 내려 둔 위치가 다른 조항을 가리키므로 처음부터 읽게 한다.
+                window.scrollTo(0, 0);
+                setShowUpcoming((shown) => !shown);
+              }}
+              className="inline-flex min-h-11 min-w-11 items-center justify-center px-1 font-semibold text-primary underline underline-offset-2"
+            >
+              {showUpcoming ? t(`legal.showCurrent.${kind}`) : t(`legal.showUpcoming.${kind}`)}
+            </button>
+          </p>
+        )}
 
         {document.intro !== undefined && (
           <p className="mt-4.5 text-[14px] leading-5.5 text-muted-foreground">{document.intro}</p>

@@ -562,6 +562,46 @@ describe("setAcquisitionChannel", () => {
   });
 });
 
+describe("syncAppLocaleUserProperty", () => {
+  it("지금 화면 언어를 app_locale로 보내고, 언어가 바뀌면 다시 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, syncAppLocaleUserProperty } = await loadModule();
+    const { default: i18n } = await import("@/lib/i18n");
+    await i18n.changeLanguage("ko");
+    initAmplitude();
+
+    const stop = syncAppLocaleUserProperty();
+    await i18n.changeLanguage("ja");
+    stop();
+    await i18n.changeLanguage("ko");
+
+    const sets = mocks.identify.mock.calls.map(
+      ([sent]) => (sent as InstanceType<typeof mocks.FakeIdentify>).sets,
+    );
+    expect(sets).toEqual([[["app_locale", "ko"]], [["app_locale", "ja"]]]);
+  });
+});
+
+describe("syncAppLocaleUserProperty 사용자 번호", () => {
+  it("사용자 번호가 붙으면 그 사용자 앞으로 app_locale을 한 번 더 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, setAmplitudeUserId, syncAppLocaleUserProperty } = await loadModule();
+    const { default: i18n } = await import("@/lib/i18n");
+    await i18n.changeLanguage("en");
+    initAmplitude();
+
+    const stop = syncAppLocaleUserProperty();
+    setAmplitudeUserId(7);
+    stop();
+    await i18n.changeLanguage("ko");
+
+    const sets = mocks.identify.mock.calls.map(
+      ([sent]) => (sent as InstanceType<typeof mocks.FakeIdentify>).sets,
+    );
+    expect(sets).toEqual([[["app_locale", "en"]], [["app_locale", "en"]]]);
+  });
+});
+
 describe("setInstallAttributionUserProperties", () => {
   it("미초기화 상태에서는 아무것도 보내지 않는다", async () => {
     const { setInstallAttributionUserProperties } = await loadModule();
@@ -620,18 +660,46 @@ describe("공부 세션 이벤트", () => {
     expect(mocks.track).toHaveBeenCalledWith("study_session_started", {
       room_type: "social",
       restored: false,
+      measure_mode: "camera",
     });
     // 복원 진입(웹뷰 재로드·앱 재실행 뒤 이어받기)은 같은 세션의 두 번째 시작 — 분모에서 가른다.
     trackStudySessionStarted("single", true);
     expect(mocks.track).toHaveBeenCalledWith("study_session_started", {
       room_type: "single",
       restored: true,
+      measure_mode: "camera",
     });
     expect(mocks.track).toHaveBeenCalledWith("study_session_submitted", {
       ok: true,
       attempt: 1,
       room_type: "social",
     });
+  });
+
+  it("시작·종료 이벤트에 측정 방식을 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackStudySessionStarted, trackStudySessionEnded } = await loadModule();
+    initAmplitude();
+
+    trackStudySessionStarted("single", false, "timer");
+    trackStudySessionEnded({
+      roomType: "single",
+      studySec: 600,
+      focusSec: 600,
+      pauseSec: 0,
+      distractionSec: 0,
+      endReason: "MANUAL",
+      pauseTrigger: null,
+      willSubmit: true,
+      measureMode: "timer",
+    });
+
+    expect(mocks.track).toHaveBeenCalledWith("study_session_started", {
+      room_type: "single",
+      restored: false,
+      measure_mode: "timer",
+    });
+    expect(mocks.track.mock.calls[1]?.[1]).toMatchObject({ measure_mode: "timer" });
   });
 
   it("집중률을 studySec 기준 백분율로 계산해 담는다", async () => {
@@ -667,6 +735,7 @@ describe("공부 세션 이벤트", () => {
         break_sec: 0,
         multi_timer: "none",
         yawn_count: 0,
+        measure_mode: "camera",
       },
       { time: expect.any(Number) },
     );
@@ -729,6 +798,50 @@ describe("공부 세션 이벤트", () => {
       break_sec: 300,
       multi_timer: "both",
     });
+  });
+
+  it("싱글룸 화면 표시 기록을 넘기면 화면별 초와 공간·얼굴 가림을 싣고, 안 넘기면 키가 없다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackStudySessionEnded } = await loadModule();
+    initAmplitude();
+    const base = {
+      roomType: "single",
+      studySec: 1200,
+      focusSec: 900,
+      pauseSec: 0,
+      distractionSec: 300,
+      endReason: "MANUAL",
+      pauseTrigger: null,
+      willSubmit: true,
+    } as const;
+
+    trackStudySessionEnded({
+      ...base,
+      display: {
+        pipSec: 600,
+        expandedSec: 120,
+        simpleSec: 480,
+        pipExpandCount: 2,
+        spaceKind: "space",
+        spaceItem: { itemCode: "SPACE_PROCTOR", videoMode: "WATCH" },
+        faceMask: true,
+      },
+    });
+    trackStudySessionEnded(base);
+
+    expect(mocks.track.mock.calls[0]?.[1]).toMatchObject({
+      pip_sec: 600,
+      expanded_sec: 120,
+      simple_sec: 480,
+      pip_expand_count: 2,
+      space_kind: "space",
+      space_item_code: "SPACE_PROCTOR",
+      space_video_mode: "WATCH",
+      face_mask: true,
+    });
+    expect(mocks.track.mock.calls[1]?.[1]).not.toHaveProperty("pip_sec");
+    expect(mocks.track.mock.calls[1]?.[1]).not.toHaveProperty("space_kind");
+    expect(mocks.track.mock.calls[1]?.[1]).not.toHaveProperty("space_item_code");
   });
 
   it("0초 세션의 집중률은 0 — 0 나눗셈이 NaN으로 새어 나가면 안 된다", async () => {
@@ -1255,6 +1368,22 @@ describe("세션 내부·홈·설정·복구 이벤트 (BY-616 확장)", () => {
       ["session_recovery_confirmed"],
     ]);
   });
+
+  it("자율 모드 이어 공부 확인 창의 노출과 응답을 자리와 함께 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackStudySessionResumePrompted({ awayMin: 32, place: "home" });
+    m.trackStudySessionResumeAnswered({ choice: "resume", place: "home" });
+    m.trackStudySessionResumeAnswered({ choice: "end", place: "room" });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["study_session_resume_prompted", { away_min: 32, place: "home" }],
+      ["study_session_resume_answered", { choice: "resume", place: "home" }],
+      ["study_session_resume_answered", { choice: "end", place: "room" }],
+    ]);
+  });
 });
 
 describe("온보딩 이벤트", () => {
@@ -1397,11 +1526,13 @@ describe("최종 검토 추가 이벤트 (BY-616, 2026-09-05)", () => {
 
     m.trackSessionOrientationChanged({ orientation: "landscape", roomType: "social" });
     m.trackSessionSimpleModeToggled(false);
+    m.trackSessionSimpleModeToggled(true, "expanded");
     m.trackSocialRoomCreateFailed("NETWORK_OR_UNKNOWN");
 
     expect(mocks.track.mock.calls).toEqual([
       ["session_orientation_changed", { orientation: "landscape", room_type: "social" }],
       ["session_simple_mode_toggled", { on: false }],
+      ["session_simple_mode_toggled", { on: true, from: "expanded" }],
       ["social_room_create_failed", { reason: "NETWORK_OR_UNKNOWN" }],
     ]);
   });
@@ -2018,41 +2149,46 @@ describe("인터뷰 모집 이벤트", () => {
   });
 });
 
-describe("AI 측정 만족도 이벤트", () => {
+describe("집중 도움 설문 이벤트", () => {
   it("미초기화 상태에서는 보내지 않는다", async () => {
     const m = await loadModule();
-    m.trackMeasurementFeedbackShown({ roomType: "single", focusSec: 1200 });
-    m.trackMeasurementFeedbackRated({ roomType: "single", focusSec: 1200, rating: "good" });
-    m.trackMeasurementFeedbackReasonSelected({
+    m.trackFocusFeedbackShown({ roomType: "single", studySec: 1200 });
+    m.trackFocusFeedbackAnswered({ roomType: "single", studySec: 1200, impact: "helped" });
+    m.trackFocusFeedbackCommentSubmitted({
       roomType: "single",
-      focusSec: 1200,
-      rating: "bad",
-      reason: "under",
+      studySec: 1200,
+      impact: "hindered",
+      comment: "화면을 자주 보게 됐어요.",
     });
     expect(mocks.track).not.toHaveBeenCalled();
   });
 
-  it("노출·만족도·이유를 룸 종류·순공시간과 함께 보낸다", async () => {
+  it("노출·선택지·자유 응답을 새 이벤트로 보내고 총 공부 시간을 싣는다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const m = await loadModule();
     m.initAmplitude();
     mocks.track.mockClear();
 
-    m.trackMeasurementFeedbackShown({ roomType: "social", focusSec: 900 });
-    m.trackMeasurementFeedbackRated({ roomType: "social", focusSec: 900, rating: "meh" });
-    m.trackMeasurementFeedbackReasonSelected({
+    m.trackFocusFeedbackShown({ roomType: "social", studySec: 3600 });
+    m.trackFocusFeedbackAnswered({ roomType: "social", studySec: 3600, impact: "helped" });
+    m.trackFocusFeedbackCommentSubmitted({
       roomType: "social",
-      focusSec: 900,
-      rating: "meh",
-      reason: "missing_info",
+      studySec: 3600,
+      impact: "helped",
+      comment: "흐트러질 때 다시 집중할 수 있었어요.",
     });
 
     expect(mocks.track.mock.calls).toEqual([
-      ["measurement_feedback_shown", { room_type: "social", focus_sec: 900 }],
-      ["measurement_feedback_rated", { room_type: "social", focus_sec: 900, rating: "meh" }],
+      ["focus_feedback_shown", { room_type: "social", study_sec: 3600 }],
+      ["focus_feedback_answered", { room_type: "social", study_sec: 3600, impact: "helped" }],
       [
-        "measurement_feedback_reason_selected",
-        { room_type: "social", focus_sec: 900, rating: "meh", reason: "missing_info" },
+        "focus_feedback_comment_submitted",
+        {
+          room_type: "social",
+          study_sec: 3600,
+          impact: "helped",
+          comment: "흐트러질 때 다시 집중할 수 있었어요.",
+        },
       ],
     ]);
   });
@@ -2575,37 +2711,6 @@ describe("순공 1분 달성 (focus_milestone_reached)", () => {
   });
 });
 
-describe("타이머 배경 이벤트", () => {
-  it("적용·사진 추가·삭제를 정해진 이름과 속성으로 보내고, 사진 내용은 싣지 않는다", async () => {
-    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
-    const m = await loadModule();
-    m.initAmplitude();
-    mocks.track.mockClear();
-
-    m.trackSettingsRowPressed("timer_background");
-    m.trackTimerBackgroundApplied({ kind: "photo" });
-    m.trackTimerBackgroundPhotoAdded({ count: 3, source: "native" });
-    m.trackTimerBackgroundPhotoRemoved({ count: 2, wasSelected: true });
-
-    expect(mocks.track.mock.calls).toEqual([
-      ["settings_row_pressed", { row: "timer_background" }],
-      ["timer_background_applied", { kind: "photo" }],
-      ["timer_background_photo_added", { count: 3, source: "native" }],
-      ["timer_background_photo_removed", { count: 2, was_selected: true }],
-    ]);
-  });
-
-  it("미초기화 상태에서는 보내지 않는다", async () => {
-    const m = await loadModule();
-
-    m.trackTimerBackgroundApplied({ kind: "simple" });
-    m.trackTimerBackgroundPhotoAdded({ count: 1, source: "file" });
-    m.trackTimerBackgroundPhotoRemoved({ count: 0, wasSelected: false });
-
-    expect(mocks.track).not.toHaveBeenCalled();
-  });
-});
-
 describe("홈 시작 미션·목표", () => {
   it("미션 단계와 목표 분·기본 목표 여부만 보낸다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
@@ -2665,5 +2770,195 @@ describe("홈 바로가기·과목 선택", () => {
     m.trackHomeSubjectSelected(true);
 
     expect(mocks.track).not.toHaveBeenCalled();
+  });
+});
+
+describe("측정 방식 전환", () => {
+  it("바꾼 뒤의 방식과 바꾼 자리만 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackStudyMeasureModeChanged("timer", "home");
+    m.trackStudyMeasureModeChanged("camera", "home");
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["study_measure_mode_changed", { mode: "timer", from: "home" }],
+      ["study_measure_mode_changed", { mode: "camera", from: "home" }],
+    ]);
+  });
+
+  it("초기화 전에는 보내지 않는다", async () => {
+    const m = await loadModule();
+
+    m.trackStudyMeasureModeChanged("timer", "home");
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+});
+
+describe("세션 공간 이벤트", () => {
+  it("미초기화 상태에서는 전부 조용히 무시한다", async () => {
+    const m = await loadModule();
+
+    m.trackSessionSpaceOpened();
+    m.trackSessionSpaceTabSwitched({ tab: "image" });
+    m.trackSessionSpacePreviewOpened({ kind: "space" });
+    m.trackTimerBackgroundApplied({
+      kind: "photo",
+      source: "tile",
+      tab: "image",
+      category: "mine",
+    });
+    m.trackTimerBackgroundPhotoAdded({ count: 1 });
+    m.trackTimerBackgroundPhotoRemoved({ count: 0, wasSelected: true });
+    m.trackSessionSpacePhotoFailed({ reason: "unusable" });
+    m.trackSessionSpacePhotoLimitReached();
+    m.trackSessionSpaceVolumeChanged({ volume: 40 });
+    m.trackSessionSpaceMuted({ muted: true });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("정해진 이름과 토큰 속성으로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackSessionSpaceOpened();
+    m.trackSessionSpaceTabSwitched({ tab: "image" });
+    m.trackSessionSpacePreviewOpened({
+      kind: "space",
+      item: { itemCode: "SPACE_PROCTOR", videoMode: "WATCH" },
+    });
+    m.trackTimerBackgroundApplied({
+      kind: "space",
+      source: "tile",
+      tab: "video",
+      category: "DYNAMIC",
+      item: { itemCode: "SPACE_PROCTOR", videoMode: "WATCH" },
+    });
+    m.trackTimerBackgroundApplied({
+      kind: "photo",
+      source: "preview",
+      tab: "image",
+      category: "mine",
+    });
+    m.trackTimerBackgroundPhotoAdded({ count: 2 });
+    m.trackTimerBackgroundPhotoRemoved({ count: 1, wasSelected: false });
+    m.trackSessionSpacePhotoFailed({ reason: "storage" });
+    m.trackSessionSpacePhotoLimitReached();
+    m.trackSessionSpaceVolumeChanged({ volume: 40 });
+    m.trackSessionSpaceMuted({ muted: false });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["session_space_opened"],
+      ["session_space_tab_switched", { tab: "image" }],
+      ["session_space_preview_opened", { kind: "space", item_code: "SPACE_PROCTOR" }],
+      [
+        "timer_background_applied",
+        {
+          kind: "space",
+          source: "tile",
+          tab: "video",
+          category: "DYNAMIC",
+          item_code: "SPACE_PROCTOR",
+          video_mode: "WATCH",
+        },
+      ],
+      [
+        "timer_background_applied",
+        { kind: "photo", source: "preview", tab: "image", category: "mine" },
+      ],
+      ["timer_background_photo_added", { count: 2, source: "file" }],
+      ["timer_background_photo_removed", { count: 1, was_selected: false }],
+      ["session_space_photo_failed", { reason: "storage" }],
+      ["session_space_photo_limit_reached"],
+      ["session_space_volume_changed", { volume: 40 }],
+      ["session_space_muted", { muted: false }],
+    ]);
+  });
+});
+
+describe("공간 비집중 장면 이벤트", () => {
+  it("초기화 전에는 보내지 않는다", async () => {
+    const m = await loadModule();
+
+    m.trackSpaceDistractSceneEntered({ itemCode: "SPACE_RAIN", trigger: "PHONE" });
+    m.trackSpaceDistractSceneLeft({ itemCode: "SPACE_RAIN", durationSec: 12 });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("상품 코드와 원인, 머문 초만 토큰 값으로 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackSpaceDistractSceneEntered({ itemCode: "SPACE_RAIN", trigger: "PHONE" });
+    m.trackSpaceDistractSceneLeft({ itemCode: "SPACE_RAIN", durationSec: 12 });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["space_distract_scene_entered", { item_code: "SPACE_RAIN", trigger: "PHONE" }],
+      ["space_distract_scene_left", { item_code: "SPACE_RAIN", duration_sec: 12 }],
+    ]);
+    for (const [, props] of mocks.track.mock.calls) {
+      for (const value of Object.values(props as Record<string, unknown>)) {
+        expect(String(value)).toMatch(ANALYTICS_PARAM_VALUE_PATTERN);
+      }
+    }
+  });
+});
+
+describe("작은 카메라 창 이벤트", () => {
+  it("초기화 전에는 보내지 않는다", async () => {
+    const m = await loadModule();
+
+    m.trackCameraPipExpanded();
+    m.trackCameraPipShrunk({ expandedSec: 3 });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("정해진 이름과 속성으로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackCameraPipExpanded();
+    m.trackCameraPipShrunk({ expandedSec: 3 });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["camera_pip_expanded"],
+      ["camera_pip_shrunk", { expanded_sec: 3 }],
+    ]);
+  });
+});
+
+describe("세션 더보기·세로 열 이벤트", () => {
+  it("초기화 전에는 보내지 않는다", async () => {
+    const m = await loadModule();
+
+    m.trackSessionMoreMenuOpened();
+    m.trackSessionMoreMenuItemSelected({ item: "planner" });
+    m.trackSessionSideButtonPressed({ button: "space" });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("정해진 이름과 토큰 속성으로 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackSessionMoreMenuOpened();
+    m.trackSessionMoreMenuItemSelected({ item: "flip_camera" });
+    m.trackSessionSideButtonPressed({ button: "timer" });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["session_more_menu_opened"],
+      ["session_more_menu_item_selected", { item: "flip_camera" }],
+      ["session_side_button_pressed", { button: "timer" }],
+    ]);
   });
 });

@@ -40,6 +40,7 @@
   "autoEnd": {
     "title": "ここまでの記録を保存しました",
     "backgroundBody": "画面がオフの間は測定できないため、\n勉強を自動で終了しました",
+    "awayLimitBody": "アプリを2時間以上離れていたため、2時間までを記録して勉強を終了しました",
     "focusLabel": "集中時間",
     "studyLabel": "総勉強時間",
     "cta": "結果を見る"
@@ -77,6 +78,7 @@
   "moreMenu": {
     "trigger": "その他",
     "flipCamera": "カメラを切り替え",
+    "planner": "プランナー",
     "help": "ヘルプを見る",
     "shareInvite": "招待コードを共有",
     "timer": "タイマー",
@@ -141,12 +143,19 @@
   "recovery": {
     "title": "保存されていなかった記録を復元しました",
     "body": "アプリが予期せず終了しました。\n勉強の記録は保存してあります。",
+    "timerAwayBody": "アプリを2時間以上離れていたため、アプリを離れた時点までの記録を保存しました",
     "date": "日付",
     "time": "開始 · 終了",
     "timeRange": "{{start}}〜{{end}}",
     "studyTime": "総勉強時間",
     "focusTime": "集中時間",
     "confirm": "OK"
+  },
+  "resume": {
+    "title": "勉強を続けますか？",
+    "body": "アプリを離れていた{{minutes}}分も勉強時間に含まれます",
+    "continue": "続けて勉強する",
+    "end": "離れた時点で終了する"
   },
   "result": {
     "completeTitle": "今日の勉強が終わりました",
@@ -160,7 +169,8 @@
     "studyDaysLabel": "勉強日数",
     "studyDays": "{{count}}日",
     "ctaHome": "ホームへ",
-    "ctaRecords": "記録を見る"
+    "ctaRecords": "記録を見る",
+    "timerNotice": "自主モードで勉強した時間は、\n連続記録・ランキング・ポイントには反映されません"
   },
   "legend": {
     "focus": "集中",
@@ -215,5 +225,47 @@
     "srRemaining": "残りの休憩時間{{duration}}",
     "notificationTitle": "{{minutes}}分の休憩が終わりました",
     "notificationBody": "勉強を再開する時間です"
+  },
+  "space": {
+    "button": "空間",
+    "title": "空間",
+    "tabs": {
+      "video": "動画",
+      "image": "画像"
+    },
+    "search": "空間を検索",
+    "searchClose": "検索を閉じる",
+    "searchClear": "検索語を消去",
+    "all": "すべて",
+    "sections": {
+      "mine": "マイ写真"
+    },
+    "names": {
+      "simple": "シンプル",
+      "photo": "マイ写真 {{number}}"
+    },
+    "photoCount": "{{current}}/{{max}}",
+    "upload": "写真をアップロード",
+    "preview": "{{name}}のプレビュー",
+    "remove": "{{name}}を削除",
+    "empty": "該当する空間がありません",
+    "back": "戻る",
+    "apply": "適用する",
+    "applied": "使用中",
+    "mute": "空間のサウンドをオフ",
+    "unmute": "空間のサウンドをオン",
+    "volume": "空間の音量",
+    "applyFailed": "空間を変更できませんでした。もう一度お試しください",
+    "photoLimit": "写真は{{max}}枚までアップロードできます",
+    "removed": "写真を削除しました",
+    "removeFailed": "写真を削除できませんでした。もう一度お試しください",
+    "photoLoadFailed": "写真を読み込めませんでした",
+    "previewFailed": "空間を読み込めませんでした"
+  },
+  "banner": {
+    "ad": "AD",
+    "copy1": "AIが今日のやることを組み立てます",
+    "copy2": "今週の集中レポートを受け取る",
+    "copy3": "プレミアムの事前登録を受付中"
   }
 }

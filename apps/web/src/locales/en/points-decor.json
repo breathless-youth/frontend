@@ -1,0 +1,24 @@
+{
+  "preview": {
+    "label": "Preview"
+  },
+  "categories": {
+    "label": "Background type",
+    "all": "All",
+    "studySpace": "Study spaces",
+    "nature": "Nature",
+    "nightSky": "Night sky",
+    "season": "Seasons"
+  },
+  "grid": {
+    "label": "Timer backgrounds",
+    "owned": "Owned",
+    "streakDays": "{{target}}-day streak",
+    "focusHours": "{{target}} focus hours",
+    "store": "In-app"
+  },
+  "button": {
+    "streakDays": "Study streak {{current}} / {{target}} days",
+    "focusHours": "Total focus {{current}} / {{target}} hours"
+  }
+}

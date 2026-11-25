@@ -26,6 +26,8 @@ import type {
 } from "@focusmakers/types";
 
 import type { RoomVisibility } from "@/features/group-room/model/roomMenu";
+import type { MeasureMode } from "@/features/measure-mode/measureMode";
+import type { DistractionTrigger } from "@/features/study-session/sessionState";
 
 import { firebaseAnalyticsForwardPlugin } from "./firebaseAnalyticsBridge";
 import i18n from "./i18n";
@@ -249,6 +251,9 @@ async function addReplayPlugin(): Promise<void> {
   );
 }
 
+/** 화면 언어 동기화가 켜져 있을 때만 값이 있다. */
+let resendAppLocale: (() => void) | null = null;
+
 /**
  * 서버 user_id를 Amplitude user_id로 연결한다(2026-08-08 결정). 값은 네이티브가 브리지로
  * 넘겨 주는 `auth-token`의 userId이며(BY-528 이전에는 셸이 붙이던 `?userId=N`), DB 값과
@@ -269,6 +274,8 @@ export function setAmplitudeUserId(userId: number | null) {
   if (next === currentUserId) return;
   currentUserId = next;
   setUserId(next);
+  // 번호가 붙기 전에 보낸 화면 언어는 익명 기기 앞으로 갔을 수 있어, 이 사용자 앞으로 한 번 더 보낸다.
+  resendAppLocale?.();
 }
 
 /** 현재 라우트의 페이지뷰를 전송한다. 경로는 정제를 거치며, 미초기화면 no-op. */
@@ -321,6 +328,23 @@ export function setDeviceLocaleUserProperties(locale: { timeZone?: string; regio
   if (Object.keys(properties).length > 0) setUserProperties(properties);
 }
 
+/**
+ * 화면 언어를 사용자 속성으로 남긴다
+ *
+ * Amplitude 기본 language는 기기 언어라, 설정에서 화면 언어를 바꾼 사람은 실제로 본 화면과 다르다.
+ * 언어별로 나눠 보는 실험은 이 값을 쓴다. 돌려주는 함수를 부르면 언어 변경을 더 따라가지 않는다.
+ */
+export function syncAppLocaleUserProperty(): () => void {
+  const send = (locale: string) => setUserProperties({ app_locale: locale });
+  send(i18n.language);
+  i18n.on("languageChanged", send);
+  resendAppLocale = () => send(i18n.language);
+  return () => {
+    i18n.off("languageChanged", send);
+    resendAppLocale = null;
+  };
+}
+
 /** 한 번 켜지면 되돌리지 않는 이력 속성. 같은 문서 안에서는 한 번만 보내 identify와 브리지 왕복을 줄인다. */
 const sentFlags = new Set<string>();
 function setFlagOnce(key: string) {
@@ -358,9 +382,9 @@ export interface StudySessionEndedInput {
    */
   readonly pauseSec: number;
   readonly distractionSec: number;
-  /** 수동 종료(S3-7)인지 일시정지 자동 종료(S3-8)인지. */
-  readonly endReason: "MANUAL" | "AUTO";
-  /** 자동 종료를 유발한 일시정지 트리거. 수동 종료면 `null`. */
+  /** 수동 종료인지, 일시정지 자동 종료인지, 자율 모드가 앱 밖 2시간 상한으로 끝났는지. */
+  readonly endReason: "MANUAL" | "AUTO" | "AWAY_LIMIT";
+  /** 자동 종료를 유발한 일시정지 트리거. 수동 종료와 AWAY_LIMIT은 null이다. */
   readonly pauseTrigger: "MANUAL" | "BACKGROUND" | null;
   /** 서버 제출을 시도하는가 — `userId`가 없으면 미제출(`unsaved`)로 끝난다. */
   readonly willSubmit: boolean;
@@ -381,6 +405,29 @@ export interface StudySessionEndedInput {
   readonly multiTimer?: MultiTimerUse;
   /** 세션 중 하품 횟수. 하품을 재지 않는 소셜룸은 생략하고, 생략은 0 으로 나간다. */
   readonly yawnCount?: number;
+  /** 싱글룸 화면 표시 기록. 소셜룸은 생략하고 생략하면 키 자체를 싣지 않는다. */
+  readonly display?: SessionDisplayEnd;
+  /**
+   * 측정 방식
+   *
+   * 생략은 camera 로 나간다.
+   */
+  readonly measureMode?: MeasureMode;
+}
+
+/**
+ * 싱글룸 세션이 끝날 때의 화면 표시 기록
+ *
+ * 작은 창·키운 화면·심플 모드에 머문 초, 작은 창에서 키운 횟수, 끝날 때의 공간 종류와 서버 공간 정보, 얼굴 가림이다.
+ */
+export interface SessionDisplayEnd {
+  readonly pipSec: number;
+  readonly expandedSec: number;
+  readonly simpleSec: number;
+  readonly pipExpandCount: number;
+  readonly spaceKind: SpaceKind;
+  readonly spaceItem?: SpaceItemTrack;
+  readonly faceMask: boolean;
 }
 
 /**
@@ -389,9 +436,13 @@ export interface StudySessionEndedInput {
  * `restored`는 서버의 진행중 세션을 이어받은 진입(웹뷰 재로드·앱 재실행 뒤 복원)이다 — 같은 세션이
  * 두 번 "시작"으로 찍히므로 완주율 분모에서는 `restored = false`만 센다(2026-09-05 최종 검토).
  */
-export function trackStudySessionStarted(roomType: StudyRoomType, restored = false) {
+export function trackStudySessionStarted(
+  roomType: StudyRoomType,
+  restored = false,
+  measureMode: MeasureMode = "camera",
+) {
   if (!initialized) return;
-  track("study_session_started", { room_type: roomType, restored });
+  track("study_session_started", { room_type: roomType, restored, measure_mode: measureMode });
   // 룸 종류별 이용 이력. 서버 세션 기록에는 룸 종류가 없어 시작 순간에 남긴다.
   setFlagOnce(roomType === "social" ? "used_social" : "used_single");
 }
@@ -424,6 +475,19 @@ export function trackStudySessionEnded(input: StudySessionEndedInput) {
       break_sec: Number(input.breakSec ?? 0),
       multi_timer: input.multiTimer ?? "none",
       yawn_count: Number(input.yawnCount ?? 0),
+      ...(input.display && {
+        pip_sec: input.display.pipSec,
+        expanded_sec: input.display.expandedSec,
+        simple_sec: input.display.simpleSec,
+        pip_expand_count: input.display.pipExpandCount,
+        space_kind: input.display.spaceKind,
+        ...(input.display.spaceItem && {
+          space_item_code: input.display.spaceItem.itemCode,
+          space_video_mode: input.display.spaceItem.videoMode,
+        }),
+        face_mask: input.display.faceMask,
+      }),
+      measure_mode: input.measureMode ?? "camera",
     },
     { time: endedAt },
   );
@@ -756,7 +820,7 @@ export function setGroupRoomCount(count: number) {
  * 사용자가 로그인 창을 닫은 취소는 실패가 아니라 취소 이벤트로 따로 남긴다.
  */
 
-export type LoginEntry = "tab" | "invite" | "group" | "settings";
+export type LoginEntry = "tab" | "invite" | "group" | "settings" | "points";
 
 export function trackLoginScreenViewed(entry: LoginEntry) {
   if (!initialized) return;
@@ -1136,11 +1200,12 @@ export const FOCUS_START_SOURCES = [
   "ranking_empty",
   "ranking_records",
   "planner",
+  "mascot_collection",
 ] as const;
 export type FocusStartSource = (typeof FOCUS_START_SOURCES)[number];
 
 /**
- * 홈·랭킹·플래너의 공부 시작 탭
+ * 홈·랭킹·플래너·마스코트 모으기의 공부 시작 탭
  *
  * F1 퍼널의 첫 행동이자 `camera_permission_gate_resolved`의 분모다.
  * 가이드를 처음 보는 계정은 가이드의 `순공 시작하기`를 누른 뒤에 보낸다.
@@ -1177,12 +1242,22 @@ export function trackHomeSubjectSelected(hasSubject: boolean) {
 }
 
 /**
+ * 측정 방식 전환
+ *
+ * 카메라 없이 공부하는 방식을 얼마나 고르는지 보려고 바꿀 때마다 바꾼 뒤의 값을 보낸다.
+ */
+export function trackStudyMeasureModeChanged(mode: MeasureMode, from: "home") {
+  if (!initialized) return;
+  track("study_measure_mode_changed", { mode, from });
+}
+
+/**
  * 홈 시작 미션 단계 완료
  *
- * 1단계는 플래너에서 과목 만들기, 2단계는 공부 5분 완료다.
+ * 1단계는 플래너에서 과목 만들기, 2단계는 공부 5분 완료, 3단계는 첫 소품 구매다.
  * 서버가 완료를 저장한 뒤에만 보낸다.
  */
-export function trackHomeMissionStepCompleted(step: 1 | 2) {
+export function trackHomeMissionStepCompleted(step: 1 | 2 | 3) {
   if (!initialized) return;
   track("home_mission_step_completed", { step });
 }
@@ -1265,6 +1340,31 @@ export function trackSessionRecoveryConfirmed() {
   track("session_recovery_confirmed");
 }
 
+/** 이어 공부 확인 창을 띄운 자리 */
+export type ResumePromptPlace = "home" | "room";
+
+/**
+ * 자율 모드 이어 공부 확인 창 노출
+ *
+ * 앱 밖에 있던 분을 함께 실어 얼마나 떠나 있던 사용자가 이어 가는지 본다.
+ */
+export function trackStudySessionResumePrompted(input: {
+  readonly awayMin: number;
+  readonly place: ResumePromptPlace;
+}) {
+  if (!initialized) return;
+  track("study_session_resume_prompted", { away_min: Number(input.awayMin), place: input.place });
+}
+
+/** 위 확인 창에서 고른 답 */
+export function trackStudySessionResumeAnswered(input: {
+  readonly choice: "resume" | "end";
+  readonly place: ResumePromptPlace;
+}) {
+  if (!initialized) return;
+  track("study_session_resume_answered", { choice: input.choice, place: input.place });
+}
+
 /**
  * 세션 화면의 회전(2026-09-05) — 가로 거치 모드(S3-5·S3-6, 소셜룸 가로 그리드)를 실제로 쓰는지는
  * 클릭이 아니라 기기 회전이라 autocapture에 전혀 없다. 마운트 시점의 방향은 찍지 않고 **바뀔 때만**
@@ -1281,10 +1381,188 @@ export function trackSessionOrientationChanged(input: {
   });
 }
 
-/** 싱글룸 심플 모드(S3-4) 토글(2026-09-05) — 화면 탭 한 번으로 켜고 끈다. `on`은 전환 후 상태. */
-export function trackSessionSimpleModeToggled(on: boolean) {
+/**
+ * 싱글룸 심플 모드(S3-4) 토글(2026-09-05) — 화면 탭 한 번으로 켜고 끈다. `on`은 전환 후 상태.
+ *
+ * `from`은 심플 모드로 들어갈 때만 싣는 출발 화면이다(작은 카메라 창 pip, 키운 카메라 expanded).
+ * 나올 때는 출발점이 늘 심플 모드라 싣지 않는다.
+ */
+export function trackSessionSimpleModeToggled(on: boolean, from?: "pip" | "expanded") {
   if (!initialized) return;
-  track("session_simple_mode_toggled", { on });
+  track("session_simple_mode_toggled", from === undefined ? { on } : { on, from });
+}
+
+/** 싱글룸 세션 오른쪽 위 더보기 메뉴를 열었다. */
+export function trackSessionMoreMenuOpened() {
+  if (!initialized) return;
+  track("session_more_menu_opened");
+}
+
+/** 싱글룸 더보기 메뉴에서 항목을 골랐다. */
+export function trackSessionMoreMenuItemSelected(input: {
+  readonly item: "flip_camera" | "planner" | "help";
+}) {
+  if (!initialized) return;
+  track("session_more_menu_item_selected", { item: input.item });
+}
+
+/** 싱글룸 오른쪽 세로 열 버튼을 눌렀다. 앱 버튼 누름도 같은 이벤트다. */
+export function trackSessionSideButtonPressed(input: {
+  readonly button: "space" | "ambient" | "timer";
+}) {
+  if (!initialized) return;
+  track("session_side_button_pressed", { button: input.button });
+}
+
+/** 싱글룸 내 카메라 작은 창을 화면 전체로 키웠다. */
+export function trackCameraPipExpanded() {
+  if (!initialized) return;
+  track("camera_pip_expanded");
+}
+
+/** 키운 카메라를 작은 창으로 줄였다. 키운 채 머문 초를 싣는다. */
+export function trackCameraPipShrunk(input: { readonly expandedSec: number }) {
+  if (!initialized) return;
+  track("camera_pip_shrunk", { expanded_sec: input.expandedSec });
+}
+
+/** 싱글룸 공간 종류. 사진 내용과 이름은 보내지 않는다. */
+export type SpaceKind = "simple" | "photo" | "space";
+/** 공간 페이지 최상위 탭 */
+export type SpaceTab = "video" | "image";
+/** 서버 공간을 골랐을 때만 싣는 상품 코드와 영상 방식. 그림 공간의 영상 방식은 null이다. */
+export interface SpaceItemTrack {
+  readonly itemCode: string;
+  readonly videoMode: string | null;
+}
+
+/** 세로 열 공간 버튼으로 공간 페이지를 열었다. */
+export function trackSessionSpaceOpened() {
+  if (!initialized) return;
+  track("session_space_opened");
+}
+
+/** 공간 페이지에서 영상·이미지 탭을 바꿨다. */
+export function trackSessionSpaceTabSwitched(input: { readonly tab: SpaceTab }) {
+  if (!initialized) return;
+  track("session_space_tab_switched", { tab: input.tab });
+}
+
+/** 공간 타일의 미리보기 버튼을 눌렀다. */
+export function trackSessionSpacePreviewOpened(input: {
+  readonly kind: SpaceKind;
+  readonly item?: SpaceItemTrack;
+}) {
+  if (!initialized) return;
+  track("session_space_preview_opened", {
+    kind: input.kind,
+    ...(input.item && { item_code: input.item.itemCode }),
+  });
+}
+
+/**
+ * 공간을 적용했다
+ *
+ * `kind`가 소스마다 다른 값이라 어떤 소스를 골랐는지 이것으로 구분하고, 내 사진은 몇 번째인지 나누지 않는다.
+ * `source`는 타일을 바로 눌렀는지(tile), 미리보기의 `적용하기`인지(preview)다.
+ * `category`는 고른 칩 코드다. 전체는 all, 나머지는 서버 분류 코드다(2026-11-24 BY-1391 전에는 감독 칩이 watch였다).
+ * 서버 공간이면 `item_code`로 묶어 많이 적용된 공간 순위를 본다.
+ */
+export function trackTimerBackgroundApplied(input: {
+  readonly kind: SpaceKind;
+  readonly source: "tile" | "preview";
+  readonly tab: SpaceTab;
+  readonly category: string;
+  readonly item?: SpaceItemTrack;
+}) {
+  if (!initialized) return;
+  track("timer_background_applied", {
+    kind: input.kind,
+    source: input.source,
+    tab: input.tab,
+    category: input.category,
+    ...(input.item && { item_code: input.item.itemCode, video_mode: input.item.videoMode }),
+  });
+}
+
+/**
+ * 공간에 내 사진을 담았다
+ *
+ * `count`는 담은 뒤의 사진 수다.
+ * 웹 파일 입력만 쓰므로 `source`는 file로 고정한다.
+ * 앱 사진 선택기를 붙이면 같은 이벤트에 native가 더해져서 값 이름을 그쪽과 맞춘다.
+ * 사진 내용과 크기는 보내지 않는다.
+ */
+export function trackTimerBackgroundPhotoAdded(input: { readonly count: number }) {
+  if (!initialized) return;
+  track("timer_background_photo_added", { count: input.count, source: "file" });
+}
+
+/** 내 사진을 삭제했다. `count`는 삭제한 뒤의 사진 수이고 `wasSelected`는 적용 중인 공간이었는지다. */
+export function trackTimerBackgroundPhotoRemoved(input: {
+  readonly count: number;
+  readonly wasSelected: boolean;
+}) {
+  if (!initialized) return;
+  track("timer_background_photo_removed", {
+    count: input.count,
+    was_selected: input.wasSelected,
+  });
+}
+
+/** 내 사진을 담거나 읽지 못했다. 읽을 수 없는 사진은 unusable, 기기 저장소 실패는 storage다. */
+export function trackSessionSpacePhotoFailed(input: { readonly reason: "unusable" | "storage" }) {
+  if (!initialized) return;
+  track("session_space_photo_failed", { reason: input.reason });
+}
+
+/** 사진이 다 찬 상태에서 사진 올리기를 눌렀다. */
+export function trackSessionSpacePhotoLimitReached() {
+  if (!initialized) return;
+  track("session_space_photo_limit_reached");
+}
+
+/** 공간 음량을 바꾸고 손을 뗐다. 끄는 동안 여러 번 보내지 않도록 손 뗄 때 한 번만 보낸다. */
+export function trackSessionSpaceVolumeChanged(input: { readonly volume: number }) {
+  if (!initialized) return;
+  track("session_space_volume_changed", { volume: input.volume });
+}
+
+/** 공간 소리 음소거 버튼을 눌렀다. `muted`는 누른 뒤 상태다. */
+export function trackSessionSpaceMuted(input: { readonly muted: boolean }) {
+  if (!initialized) return;
+  track("session_space_muted", { muted: input.muted });
+}
+
+/**
+ * 반복 영상 공간이 비집중 장면으로 바뀌었다
+ *
+ * 비집중 장면이 있는 공간에서 장면이 실제로 바뀔 때만 보낸다.
+ * `trigger`는 바뀌는 순간의 비집중 원인이다.
+ */
+export function trackSpaceDistractSceneEntered(input: {
+  readonly itemCode: string;
+  readonly trigger: DistractionTrigger;
+}) {
+  if (!initialized) return;
+  track("space_distract_scene_entered", { item_code: input.itemCode, trigger: input.trigger });
+}
+
+/**
+ * 비집중 장면에서 집중 장면으로 돌아왔다
+ *
+ * 비집중 장면인 채로 공부가 끝나도 보내서 들어간 횟수와 떠난 횟수가 맞는다.
+ * `duration_sec`은 비집중 장면에 머문 초다.
+ */
+export function trackSpaceDistractSceneLeft(input: {
+  readonly itemCode: string;
+  readonly durationSec: number;
+}) {
+  if (!initialized) return;
+  track("space_distract_scene_left", {
+    item_code: input.itemCode,
+    duration_sec: input.durationSec,
+  });
 }
 
 /** 싱글룸 입장 카메라 확인 창의 답. `카메라 켜기`는 camera, `심플 모드로 시작`과 Escape는 simple이다. */
@@ -1692,6 +1970,7 @@ export function trackSettingsRowPressed(
   row:
     | "profile"
     | "timer_background"
+    | "points_history"
     | "timelapse"
     | "app_lock"
     | "block_list"
@@ -1719,14 +1998,6 @@ export type TimelapseSettingEventKey =
   | "focus_rate"
   | "dday"
   | "streak";
-
-/** 설정 › 타이머 배경 미리보기에서 `적용하기`를 눌렀다. `kind`는 고른 배경 종류다. */
-export function trackTimerBackgroundApplied(input: {
-  readonly kind: "simple" | "proctor" | "photo";
-}) {
-  if (!initialized) return;
-  track("timer_background_applied", { kind: input.kind });
-}
 
 /**
  * 일시정지 휴식 알림 고르기 이벤트
@@ -1758,32 +2029,6 @@ export function trackSessionRestAlarmFired(input: { readonly channel: "in_app" |
 export function trackSessionClockViewChanged(input: { readonly view: "focus" | "study" }) {
   if (!initialized) return;
   track("session_clock_view_changed", { view: input.view });
-}
-
-/**
- * 타이머 배경에 사진을 담았다
- *
- * `count`는 담은 뒤의 사진 수이고 `source`는 앱 선택기(`native`)와 웹 파일 입력(`file`) 중 어느 길로 골랐는지다.
- * 사진 내용과 크기는 보내지 않는다.
- */
-export function trackTimerBackgroundPhotoAdded(input: {
-  readonly count: number;
-  readonly source: "native" | "file";
-}) {
-  if (!initialized) return;
-  track("timer_background_photo_added", { count: input.count, source: input.source });
-}
-
-/** 타이머 배경 사진을 삭제했다. `count`는 삭제한 뒤의 사진 수이고 `wasSelected`는 쓰던 배경이었는지다. */
-export function trackTimerBackgroundPhotoRemoved(input: {
-  readonly count: number;
-  readonly wasSelected: boolean;
-}) {
-  if (!initialized) return;
-  track("timer_background_photo_removed", {
-    count: input.count,
-    was_selected: input.wasSelected,
-  });
 }
 
 /** 설정 › 타임랩스에서 바꾼 항목과 바뀐 뒤의 값. 비율은 `9:16`·`16:9`, 가림 이모지는 이모지 id, 나머지는 켜짐 여부다. */
@@ -1861,49 +2106,47 @@ export function trackInterviewDismissed(params: {
   track("interview_dismissed", params);
 }
 
-/** 결과 화면 AI 측정 만족도 카드의 선택지. lib가 features를 참조하지 않도록 같은 리터럴을 여기 둔다. */
-export type MeasurementFeedbackRating = "good" | "meh" | "bad";
-export type MeasurementFeedbackReason = "under" | "over" | "unclear" | "missing_info";
+export type FocusFeedbackImpact = "helped" | "hindered";
 
-interface MeasurementFeedbackContext {
+interface FocusFeedbackContext {
   readonly roomType: StudyRoomType;
-  readonly focusSec: number;
+  readonly studySec: number;
 }
 
-/** AI 측정 만족도 카드가 결과 화면에 보인 순간. 응답률의 분모다. */
-export function trackMeasurementFeedbackShown(input: MeasurementFeedbackContext) {
+/** 집중 도움 설문이 결과 화면에 표시될 때 보낸다. */
+export function trackFocusFeedbackShown(input: FocusFeedbackContext) {
   if (!initialized) return;
-  track("measurement_feedback_shown", {
+  track("focus_feedback_shown", {
     room_type: input.roomType,
-    focus_sec: Number(input.focusSec),
+    study_sec: input.studySec,
   });
 }
 
-/** 만족도 선택. 다시 고르면 고를 때마다 보낸다. */
-export function trackMeasurementFeedbackRated(
-  input: MeasurementFeedbackContext & { readonly rating: MeasurementFeedbackRating },
+/** 사용자가 집중에 미친 영향을 선택하면 바로 기록한다. */
+export function trackFocusFeedbackAnswered(
+  input: FocusFeedbackContext & { readonly impact: FocusFeedbackImpact },
 ) {
   if (!initialized) return;
-  track("measurement_feedback_rated", {
+  track("focus_feedback_answered", {
     room_type: input.roomType,
-    focus_sec: Number(input.focusSec),
-    rating: input.rating,
+    study_sec: input.studySec,
+    impact: input.impact,
   });
 }
 
-/** 보통이에요·아쉬워요 뒤에 고른 이유 */
-export function trackMeasurementFeedbackReasonSelected(
-  input: MeasurementFeedbackContext & {
-    readonly rating: MeasurementFeedbackRating;
-    readonly reason: MeasurementFeedbackReason;
+/** 자유 응답을 직접 제출할 때만 보낸다. */
+export function trackFocusFeedbackCommentSubmitted(
+  input: FocusFeedbackContext & {
+    readonly impact: FocusFeedbackImpact;
+    readonly comment: string;
   },
 ) {
   if (!initialized) return;
-  track("measurement_feedback_reason_selected", {
+  track("focus_feedback_comment_submitted", {
     room_type: input.roomType,
-    focus_sec: Number(input.focusSec),
-    rating: input.rating,
-    reason: input.reason,
+    study_sec: input.studySec,
+    impact: input.impact,
+    comment: input.comment,
   });
 }
 
@@ -2105,6 +2348,7 @@ export function trackErrorRetryPressed(
     | "interview_form"
     | "ranking"
     | "group_tab"
+    | "points"
     | "contact_chat",
 ) {
   if (!initialized) return;
@@ -2172,8 +2416,15 @@ export function trackForceUpdatePrompted(input: {
  * 이벤트 이름의 sheet는 예전 과목 시트 때 정한 것이라 지표를 잇기 위해 유지한다.
  */
 
-/** 과목 페이지를 연 순간. `source`는 오른쪽 위 과목 버튼인지 타이머 위 라벨인지다. */
-export function trackSubjectSheetOpened(source: "button" | "label", roomType: StudyRoomType) {
+/**
+ * 과목 페이지를 연 순간
+ *
+ * `source`는 소셜룸 과목 버튼(button), 타이머 위 라벨(label), 싱글룸 더보기 메뉴의 플래너(menu) 중 하나다.
+ */
+export function trackSubjectSheetOpened(
+  source: "button" | "label" | "menu",
+  roomType: StudyRoomType,
+) {
   if (!initialized) return;
   track("subject_sheet_opened", { source, room_type: roomType });
 }
@@ -2444,4 +2695,259 @@ export function setHasTimelapseUserProperty(hasTimelapse: boolean) {
 /** 누적 공부일 user property. 세션 결과 화면이 서버 값을 받을 때 맞춘다. */
 export function setStudyDaysTotalUserProperty(totalDays: number) {
   setUserProperties({ study_days_total: totalDays });
+}
+
+/**
+ * 포인트 상점 화면 열람
+ *
+ * 상점 첫 화면, 소품, 타이머 배경, 마스코트 모으기, 기록 가운데 어느 화면을 열었는지 보낸다.
+ */
+export function trackPointsScreenViewed(
+  screen: "shop" | "earn" | "accessories" | "backgrounds" | "mascots" | "history",
+) {
+  if (!initialized) return;
+  track("points_screen_viewed", { screen });
+}
+
+/**
+ * 포인트로 사기 시도와 결과
+ *
+ * 구매 버튼을 눌러 창이 열릴 때 `attempted`, 서버가 답한 뒤 `succeeded`나 `insufficient`를 보낸다.
+ * 상품 이름은 언어마다 달라 보내지 않고 종류와 가격만 보낸다.
+ */
+export function trackPointsPurchase(
+  outcome: "attempted" | "succeeded" | "insufficient",
+  item: { kind: "accessory" | "timerBackground" | "mascot"; price: number },
+) {
+  if (!initialized) return;
+  track("points_purchase", { outcome, item_kind: item.kind, price: item.price });
+}
+
+/**
+ * 스토어 결제 상품 구매 결과
+ *
+ * `late`는 결제는 끝났는데 기다리는 동안 상품이 들어오지 않은 것이다.
+ */
+export function trackPointsStorePurchase(
+  outcome: "attempted" | "completed" | "late" | "failed" | "cancelled",
+  itemKind: "accessory" | "timerBackground" | "set",
+) {
+  if (!initialized) return;
+  track("points_store_purchase", { outcome, item_kind: itemKind });
+}
+
+/**
+ * 세트 칸 열람
+ *
+ * 소품 화면에서 세트 칸을 열 때마다 어느 마스코트의 세트를 봤는지 보낸다.
+ * 세트 구매는 `points_store_purchase`의 `item_kind: set`으로, 착용은 `points_decoration_changed`의 `slot: set`으로 본다.
+ */
+export function trackPointsSetViewed(mascot: string) {
+  if (!initialized) return;
+  track("points_set_viewed", { mascot });
+}
+
+/**
+ * 소품 착용과 벗기, 타이머 배경 적용
+ *
+ * 서버가 저장한 뒤에만 보낸다.
+ */
+export function trackPointsDecorationChanged(change: {
+  kind: "accessory" | "timerBackground";
+  action: "on" | "off";
+  slot?: string;
+}) {
+  if (!initialized) return;
+  track("points_decoration_changed", {
+    kind: change.kind,
+    action: change.action,
+    ...(change.slot === undefined ? {} : { slot: change.slot }),
+  });
+}
+
+/**
+ * 마스코트 고르기
+ *
+ * 서버가 저장한 뒤에만 보낸다.
+ */
+export function trackPointsMascotSelected(mascot: string) {
+  if (!initialized) return;
+  track("points_mascot_selected", { mascot });
+}
+
+/**
+ * 보상형 광고 시청 결과
+ *
+ * `late`는 광고는 끝까지 봤는데 기다리는 동안 서버가 시청을 확인하지 못한 것이다.
+ */
+export function trackPointsAdWatched(status: "rewarded" | "late" | "unavailable" | "cancelled") {
+  if (!initialized) return;
+  track("points_ad_watched", { status });
+}
+
+/**
+ * 포인트 충전 결과
+ *
+ * 스토어 상품 ID는 묶음을 가리키는 고정 이름이라 그대로 보낸다.
+ */
+export function trackPointsCharge(
+  status: "completed" | "late" | "failed" | "cancelled",
+  productId: string,
+) {
+  if (!initialized) return;
+  track("points_charge", { status, product_id: productId });
+}
+
+/**
+ * 구매 복원 시도와 결과
+ *
+ * 설정의 구매 복원 줄을 누를 때 `attempted`, 앱이 답한 뒤 그 결과를 보낸다.
+ * `nothing`은 스토어 결제 기록에 되찾을 상품이 없는 것이다.
+ */
+export function trackPointsRestore(status: "attempted" | "restored" | "nothing" | "failed") {
+  if (!initialized) return;
+  track("points_restore", { status });
+}
+
+/**
+ * 포인트 받기
+ *
+ * 출석, 하루 목표, 메달, 시작 미션으로 실제로 포인트가 들어왔을 때만 보낸다.
+ */
+export function trackPointsClaimed(claim: {
+  kind: "attendance" | "dailyGoal" | "medals" | "mission";
+  points: number;
+}) {
+  if (!initialized) return;
+  track("points_claimed", { kind: claim.kind, points: claim.points });
+}
+
+/** 프리미엄 사전 신청 실험의 카드 자리. lib가 features를 참조하지 않도록 같은 리터럴을 여기 둔다. */
+export type PremiumFakeDoorPlacement = "RESULT" | "HOME" | "SESSION";
+
+/**
+ * 프리미엄 사전 신청 실험(BY-1392) 이벤트에 늘 싣는 속성
+ *
+ * 이메일과 자유 문자열은 어떤 이벤트에도 싣지 않는다. 속성은 이 타입의 값뿐이다.
+ */
+export interface PremiumFakeDoorEventBase {
+  readonly price: 2900 | 5900;
+  readonly placement: PremiumFakeDoorPlacement;
+}
+
+/** 화면에 보이는 기능 id. 서버 계약의 `expectedFeature` 값과 같다(서버가 받는 `SMART_NOTIFICATION`, `APP_LOCK`은 화면에서 뺐다). */
+export type PremiumFakeDoorFeature =
+  | "AI_PLANNER"
+  | "AI_REPORT"
+  | "GROUP_MATCHING"
+  | "PHONE_CALL"
+  | "TIMER_BACKGROUND"
+  | "CHARACTER_ITEMS";
+
+/** 카드 노출(사용자당 한 번), X로 닫기, 혜택 화면 진입 */
+export function trackPremiumFakeDoor(
+  action: "viewed" | "dismissed" | "opened",
+  base: PremiumFakeDoorEventBase,
+) {
+  if (!initialized) return;
+  track(`premium_fake_door_${action}`, { price: base.price, placement: base.placement });
+}
+
+/** "사전 신청하기"를 누른 순간. `from`은 혜택 화면 아래 버튼인지 기능 설명 시트의 버튼인지다. */
+export function trackPremiumFakeDoorApplyClicked(
+  base: PremiumFakeDoorEventBase,
+  from: "benefits" | "sheet",
+) {
+  if (!initialized) return;
+  track("premium_fake_door_apply_clicked", {
+    price: base.price,
+    placement: base.placement,
+    from,
+  });
+}
+
+/** 혜택 화면에서 기능 타일을 눌러 설명 시트를 연 순간. 열 때마다 보낸다. */
+export function trackPremiumFakeDoorFeatureViewed(
+  base: PremiumFakeDoorEventBase,
+  feature: PremiumFakeDoorFeature,
+) {
+  if (!initialized) return;
+  track("premium_fake_door_feature_viewed", {
+    price: base.price,
+    placement: base.placement,
+    feature,
+  });
+}
+
+/**
+ * 서버가 신청을 저장한(204) 뒤에만 보낸다.
+ *
+ * `age_group`은 2026-11-25부터 확인받은 값이 아니라 버튼 위 안내로 갈음한 `over14`다.
+ * 그 전 기록과 모양을 맞추려고 남기며 연령 집계에는 쓰지 않는다.
+ */
+export function trackPremiumFakeDoorApplied(
+  base: PremiumFakeDoorEventBase,
+  ageGroup: "over14" | "under14",
+) {
+  if (!initialized) return;
+  track("premium_fake_door_applied", {
+    price: base.price,
+    placement: base.placement,
+    age_group: ageGroup,
+  });
+}
+
+/** 완료 화면에서 가장 기대되는 기능을 고른 순간. feature는 서버 계약의 기능 id다. */
+export function trackPremiumFakeDoorFeatureSelected(
+  base: PremiumFakeDoorEventBase,
+  feature: PremiumFakeDoorFeature,
+) {
+  if (!initialized) return;
+  track("premium_fake_door_feature_selected", {
+    price: base.price,
+    placement: base.placement,
+    feature,
+  });
+}
+
+/** 배정된 가격을 사용자 속성으로 한 번 남긴다. 가격은 사용자 번호로 고정이라 바뀌지 않는다. */
+export function setPremiumFakeDoorPriceUserProperty(price: 2900 | 5900) {
+  if (!initialized) return;
+  const id = new Identify();
+  id.setOnce("premium_fd_price", price);
+  identify(id);
+}
+
+/** 세션 한 줄 배너 실험군. lib가 features를 참조하지 않도록 같은 리터럴을 여기 둔다. */
+export type SessionBannerGroupProperty = "exposed" | "control" | "not_eligible";
+
+/** 배너 문구 번호. 문구 글자는 싣지 않는다. */
+export type SessionBannerCopyId = 1 | 2 | 3;
+
+/** 처음 판정한 실험군을 사용자 속성으로 한 번 남긴다. 실험 기간 동안 다시 판정하지 않는다. */
+export function setSessionBannerGroupUserProperty(group: SessionBannerGroupProperty) {
+  if (!initialized) return;
+  const id = new Identify();
+  id.setOnce("session_banner_group", group);
+  identify(id);
+}
+
+/** 세션에서 배너가 처음 보였을 때 한 번 */
+export function trackSessionBannerShown(input: { copy: SessionBannerCopyId }) {
+  if (!initialized) return;
+  track("session_banner_shown", { copy: input.copy });
+}
+
+/** 배너가 보인 시간이 5분 쌓일 때마다. `sequence`는 그 세션에서 1부터 센다. */
+export function trackSessionBannerImpression(input: {
+  copy: SessionBannerCopyId;
+  sequence: number;
+}) {
+  if (!initialized) return;
+  track("session_banner_impression", { copy: input.copy, sequence: input.sequence });
+}
+
+export function trackSessionBannerClicked(input: { copy: SessionBannerCopyId }) {
+  if (!initialized) return;
+  track("session_banner_clicked", { copy: input.copy });
 }

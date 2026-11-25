@@ -11,11 +11,13 @@ import { useEffect } from "react";
  * srcObject를 붙인 뒤 **매 렌더 호출해도 안전하다** — 이미 재생 중이면 무동작이고,
  * 정책 거부(저전력 모드 등)는 삼켜 다음 렌더에서 자연 재시도된다(세션 화면은 타이머
  * 틱으로 초 단위 재렌더가 있어 별도 재시도 타이머가 필요 없다).
+ *
+ * 스트림이 없어도 data-play-on-tap 표시를 단 공간 영상이면 같은 방식으로 재생을 다시 건다.
  */
 export function kickVideoPlayback(video: HTMLVideoElement): void {
   // falsy 검사인 이유: 실브라우저는 미할당 srcObject가 null이지만 jsdom은 srcObject를
   // 구현하지 않아 undefined다 — === null이면 스트림 없는 video를 테스트에서만 킥한다.
-  if (!video.srcObject || !video.paused) {
+  if ((!video.srcObject && !video.hasAttribute("data-play-on-tap")) || !video.paused) {
     return;
   }
   // jsdom은 play()가 Promise를 돌려주지 않으므로 Promise일 때만 실패를 잡는다.
@@ -34,6 +36,7 @@ export function kickVideoPlayback(video: HTMLVideoElement): void {
  * 남는다(그 완전한 해결은 저전력 모드 감지 + 안내 UI가 필요해 별도 결정).
  *
  * kickVideoPlayback이 재생 중이면 무동작이라 정상 상태에서 이 리스너는 사실상 공짜다.
+ * 저전력 모드에서 멈춘 공간 영상도 data-play-on-tap 표시가 있으면 이 탭으로 다시 재생된다.
  */
 export function useGestureVideoPlaybackKick(): void {
   useEffect(() => {

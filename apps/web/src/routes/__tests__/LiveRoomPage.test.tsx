@@ -10,7 +10,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { sessionStateColors } from "@focusmakers/design-tokens";
@@ -50,6 +50,10 @@ import {
   pressNative,
   resetGlassChrome,
 } from "@/test/nativeControlStub";
+import { __resetAppPointsGatewayForTests } from "@/features/points/gateway/appPointsGateway";
+import { getDecorations } from "@/lib/pointsApi";
+import { __resetPointsForTests } from "@/lib/pointsCapability";
+import { pointsKeys } from "@/lib/pointsQueries";
 import { LiveRoomPage } from "../LiveRoomPage";
 
 /** 복원 게이트는 자기 테스트가 따로 있다 — 여기서는 통과시킨다. */
@@ -74,6 +78,11 @@ vi.mock("@/lib/profileApi", () => ({
 
 vi.mock("@/features/study-session/submitStudySession", () => ({
   submitStudySession: vi.fn(),
+}));
+
+vi.mock("@/lib/pointsApi", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  getDecorations: vi.fn(),
 }));
 
 const haptic = vi.hoisted(() => vi.fn());
@@ -153,6 +162,16 @@ vi.mock("@/features/ambient-sound/ambientPlayer", async (importOriginal) => {
     },
   };
 });
+
+function SocialResultProbe() {
+  const { state } = useLocation();
+  return (
+    <div
+      data-testid="social-result-stub"
+      data-focus-features-used={String(state?.focusFeaturesUsed)}
+    />
+  );
+}
 
 const mockedRenewSeat = vi.mocked(renewLiveRoomSeat);
 const mockedLeaveRoom = vi.mocked(leaveRoom);
@@ -264,15 +283,18 @@ function renderRoom({
             }
           />
           <Route path="/social" element={<div data-testid="social-home-stub" />} />
-          <Route
-            path="/social/room/:roomId/result"
-            element={<div data-testid="social-result-stub" />}
-          />
+          <Route path="/social/room/:roomId/result" element={<SocialResultProbe />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  return { channel, pcs, pcConfigs, getOnSnapshotUnrecovered: () => onSnapshotUnrecovered };
+  return {
+    channel,
+    pcs,
+    pcConfigs,
+    client: queryClient,
+    getOnSnapshotUnrecovered: () => onSnapshotUnrecovered,
+  };
 }
 
 /**
@@ -371,6 +393,58 @@ afterEach(() => {
   vi.clearAllMocks();
   vi.unstubAllGlobals();
   vi.useRealTimers();
+});
+
+describe("LiveRoomPage — 결과 화면 마스코트 미리 받기", () => {
+  it("포인트를 쓰는 회원은 들어오면 결과 화면과 같은 캐시에 내 모습을 받아 두고 나가기를 누르면 다시 받는다", async () => {
+    window.history.replaceState(null, "", "/?points=1");
+    __resetPointsForTests();
+    __resetAppPointsGatewayForTests();
+    const guestProfile = vi.mocked(getProfile).getMockImplementation();
+    vi.mocked(getProfile).mockResolvedValue({
+      nickname: "포메3721",
+      goal: null,
+      category: null,
+      initial: "포",
+      colorIndex: 0,
+      loginProvider: "KAKAO",
+    } as Awaited<ReturnType<typeof getProfile>>);
+    vi.mocked(getDecorations)
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce({
+        selectedMascotCode: "PENCIL",
+        accessories: [
+          {
+            mascotCode: "PENCIL",
+            slot: "HEAD",
+            item: { itemId: 31, code: "PENCIL_BERET", imageUrl: "/beret.png" },
+          },
+        ],
+        timerBackground: null,
+      });
+    try {
+      const { client } = renderRoom();
+      await enterRoom();
+      // 세션 화면이 열리면 한가할 때(이 환경은 1.5초 뒤) 받는다.
+      await waitFor(() => expect(getDecorations).toHaveBeenCalledOnce(), { timeout: 3000 });
+      expect(client.getQueryData(pointsKeys.look(7))).toBeUndefined();
+
+      await userEvent.click(screen.getByRole("button", { name: "나가기" }));
+
+      await waitFor(() =>
+        expect(client.getQueryData(pointsKeys.look(7))).toEqual({
+          id: "pencil",
+          accessories: [{ slot: "head", code: "PENCIL_BERET", imageUrl: "/beret.png" }],
+        }),
+      );
+    } finally {
+      vi.mocked(getProfile).mockImplementation(guestProfile!);
+      window.history.replaceState(null, "", "/");
+      __resetPointsForTests();
+      __resetAppPointsGatewayForTests();
+      localStorage.clear();
+    }
+  });
 });
 
 describe("LiveRoomPage — 입장", () => {
@@ -2393,36 +2467,79 @@ describe("LiveRoomPage — 배경음", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("소리를 켠 채 세션을 끝내면 배경음 사용을 study_session_ended에 싣는다", async () => {
-    vi.mocked(submitStudySession).mockResolvedValue([]);
-    renderRoom();
-    await enterRoom();
-    await userEvent.click(screen.getByRole("button", { name: "배경음" }));
-    fireEvent.change(await screen.findByRole("slider", { name: "백색소음 음량" }), {
-      target: { value: "60" },
+  it.each([
+    { name: "소리를 켠 채 종료", remount: false },
+    { name: "소리를 재생한 공부를 복원한 뒤 종료", remount: true },
+  ])("$name 시 결과 화면에서도 배경음 사용을 확인한다", async ({ remount }) => {
+    mockedRestore.mockReturnValue({
+      settled: true,
+      restored: {
+        startedAtMs: Date.now() - 600_000,
+        reportedAtMs: Date.now(),
+        baseStudySec: 600,
+        baseFocusSec: 600,
+        events: [],
+      },
     });
-    await userEvent.keyboard("{Escape}");
-    await turnCameraOn();
-    await waitFor(() => {
-      expect(ambientPlayers[0]?.getState()).toBe("playing");
-    });
+    vi.mocked(submitStudySession).mockResolvedValueOnce([
+      {
+        id: 1,
+        userId: 7,
+        statDate: "2026-11-22",
+        startedAt: "2026-11-22T01:00:00Z",
+        endedAt: "2026-11-22T01:10:00Z",
+        studySec: 600,
+        focusSec: 600,
+        focusRate: 100,
+        events: [],
+      },
+    ]);
+    try {
+      renderRoom();
+      await enterRoom();
+      await userEvent.click(screen.getByRole("button", { name: "배경음" }));
+      fireEvent.change(await screen.findByRole("slider", { name: "백색소음 음량" }), {
+        target: { value: "60" },
+      });
+      await userEvent.keyboard("{Escape}");
+      await turnCameraOn();
+      await waitFor(() => {
+        expect(ambientPlayers[0]?.getState()).toBe("playing");
+      });
 
-    await userEvent.click(screen.getByRole("button", { name: "나가기" }));
-    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+      if (remount) {
+        cleanup();
+        setAmbientSoundStore(createMemoryAmbientSoundStore(DEFAULT_AMBIENT_SETTINGS));
+        ambientPlayers.length = 0;
+        renderRoom();
+        await enterRoom();
+        await turnCameraOn();
+        await waitFor(() => expect(ambientPlayers[0]?.getState()).toBe("idle"));
+      }
 
-    await waitFor(() => {
-      expect(trackStudySessionEnded).toHaveBeenCalledTimes(1);
-    });
-    expect(trackStudySessionEnded.mock.calls[0]?.[0]).toMatchObject({
-      roomType: "social",
-      ambientSoundUsed: true,
-      ambientSoundSec: expect.any(Number),
-    });
-    // 소셜룸에는 멀티 타이머가 없어 none 으로 나간다.
-    expect(trackStudySessionEnded.mock.calls[0]?.[0]).toMatchObject({ multiTimer: "none" });
-    expect(trackAmbientSoundChanged).toHaveBeenCalledWith(
-      expect.objectContaining({ roomType: "social" }),
-    );
+      await userEvent.click(screen.getByRole("button", { name: "나가기" }));
+      await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+
+      await waitFor(() => {
+        expect(trackStudySessionEnded).toHaveBeenCalledTimes(1);
+      });
+      expect(trackStudySessionEnded.mock.calls[0]?.[0]).toMatchObject({
+        roomType: "social",
+        ambientSoundUsed: !remount,
+        ambientSoundSec: expect.any(Number),
+      });
+      expect(await screen.findByTestId("social-result-stub")).toHaveAttribute(
+        "data-focus-features-used",
+        "true",
+      );
+      // 소셜룸에는 멀티 타이머가 없어 none 으로 나간다.
+      expect(trackStudySessionEnded.mock.calls[0]?.[0]).toMatchObject({ multiTimer: "none" });
+      expect(trackAmbientSoundChanged).toHaveBeenCalledWith(
+        expect.objectContaining({ roomType: "social" }),
+      );
+    } finally {
+      mockedRestore.mockReturnValue({ settled: true, restored: null });
+    }
   });
 
   it("바의 배경음 앱 버튼은 누르면 페이지를 열고, 소리를 켜면 active 색으로 바뀐다", async () => {

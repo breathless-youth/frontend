@@ -20,6 +20,7 @@ import { createAmbientUsage } from "@/features/ambient-sound/ambientUsage";
 import { AmbientSoundButton } from "@/features/ambient-sound/components/AmbientSoundButton";
 import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSoundSheet";
 import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
+import { createFocusFeatureUsage } from "@/features/focus-feedback/focusFeatureUsage";
 import { toRoomVisibility } from "@/features/group-room/fromApi";
 import { groupErrorCode, groupErrorCopy } from "@/features/group-room/groupErrorCopy";
 import { pickGroupText, useShowOriginal } from "@/features/group-room/model/groupTranslation";
@@ -63,6 +64,7 @@ import { SessionMoreMenu } from "@/features/study-session/components/SessionMore
 import { SessionPage } from "@/features/study-session/components/SessionPage";
 import { SessionSubjectPanel as SubjectPanel } from "@/features/study-session/components/SessionSubjectPanel";
 import { plannerCompletedTaskIds } from "@/features/study-session/plannerCompletedTasks";
+import { useMascotLookPrefetch } from "@/features/points/model/prefetchMyMascotLook";
 import { hasTokenSource } from "@/lib/userId";
 import { queryClient as sessionQueryClient } from "@/lib/queryClient";
 import { completedTaskIdsSince } from "@/features/study-session/completedTasks";
@@ -225,13 +227,15 @@ export function LiveRoomSession({
       }),
     [systemPause],
   );
-  const [ambientUsage] = useState(() => createAmbientUsage(Date.now));
+  const [focusFeatureUsage] = useState(createFocusFeatureUsage);
+  const [ambientUsage] = useState(() => createAmbientUsage(Date.now, focusFeatureUsage.markUsed));
   // 타이머 사용 기록은 세션 훅이 타이머 훅보다 먼저 생겨서 여기서 만들어 두 훅에 함께 넘긴다.
   const [multiTimerUsage] = useState(createMultiTimerUsage);
   // 제출 시점에 읽을 과목 목록이다.
   // 목록은 아래 useSubjects가 들고 있어 커밋마다 최신 값으로 덮는다.
   const subjectsListRef = useRef<SubjectResponse[]>([]);
   const {
+    startedAtMs,
     focusSec,
     studySec,
     sessionState,
@@ -268,6 +272,9 @@ export function LiveRoomSession({
     // 그룹 공부방은 일시정지 1시간에 나가고 초대코드 방은 싱글룸과 같은 20분이다.
     tuning: room.kind === "group" ? GROUP_ROOM_SESSION_TUNING : undefined,
   });
+  useLayoutEffect(() => {
+    focusFeatureUsage.bindSession(userId, startedAtMs);
+  }, [focusFeatureUsage, startedAtMs, userId]);
   const ambient = useAmbientSound({
     sessionState,
     phase,
@@ -622,6 +629,8 @@ export function LiveRoomSession({
       whenIdle(preloadRoomTimerSheet);
     }
   }, [room.kind]);
+  // 결과 화면은 이 문서에서 웹 라우터 이동으로 열려 같은 캐시를 쓴다. 그 화면이 그릴 내 마스코트 모습을 미리 받는다.
+  const prefetchMascotLook = useMascotLookPrefetch(queryClient, userId);
 
   // 서버에 알리는 카메라 상태 — 사용자 의도(cameraWanted)를 함께 본다. 끄고 입장의
   // 첫 렌더는 pause가 effect로 적용되기 전이라, paused만 보면 켜짐이 먼저 새 나간다.
@@ -815,7 +824,10 @@ export function LiveRoomSession({
         }
         navigate(
           { pathname: liveRoomResultPath(room, roomId), search: location.search },
-          { replace: true, state: { sessions: nav.sessions } },
+          {
+            replace: true,
+            state: { sessions: nav.sessions, focusFeaturesUsed: focusFeatureUsage.hasUsed() },
+          },
         );
         return;
       }
@@ -837,6 +849,7 @@ export function LiveRoomSession({
     endReason,
     enteredAtMs,
     exitVisibility,
+    focusFeatureUsage,
     focusSec,
     graceEndNotice,
     graceExpired,
@@ -1205,6 +1218,8 @@ export function LiveRoomSession({
             }}
             onExit={() => {
               trackStudySessionExitRequested("social");
+              // 결과 화면이 처음 그림부터 고른 마스코트를 그리도록 확인 창을 읽는 사이에 모습을 다시 받는다.
+              prefetchMascotLook();
               setExitDialogOpen(true);
             }}
           >

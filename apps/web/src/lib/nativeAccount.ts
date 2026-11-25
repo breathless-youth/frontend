@@ -1,6 +1,11 @@
 import type { DeleteAccountFailureCode, SocialLoginProvider } from "@focusmakers/types";
 
-import { isNativeBridgeAvailable, postToNative, subscribeToNativeMessages } from "./bridge";
+import {
+  bridgeRequestId,
+  isNativeBridgeAvailable,
+  postToNative,
+  subscribeToNativeMessages,
+} from "./bridge";
 
 export type NativeAccountResult =
   | { status: "success" }
@@ -41,8 +46,7 @@ function requestAccountAction(request: {
   type: "logout" | "delete-account";
   provider: SocialLoginProvider;
 }): Promise<NativeAccountResult> {
-  // LAN 주소(http)로 연 개발 웹뷰는 비보안 문서라 randomUUID가 없다.
-  const id = typeof crypto.randomUUID === "function" ? crypto.randomUUID() : String(Math.random());
+  const id = bridgeRequestId();
   return new Promise((resolve) => {
     const unsubscribe = subscribeToNativeMessages((message) => {
       if (message.type === "logout-result" && message.id === id) {

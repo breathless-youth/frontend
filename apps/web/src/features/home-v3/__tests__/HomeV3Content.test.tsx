@@ -1,14 +1,18 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { HomeV3Content, type HomeV3ContentProps } from "../HomeV3Content";
 import { HomeGoalSheet } from "../HomeGoalSheet";
+import { readMeasureMode, writeMeasureMode } from "@/features/measure-mode/measureMode";
 import i18n from "@/lib/i18n";
 
 function props(): HomeV3ContentProps {
   return {
-    band: { status: "success", value: { kind: "mission", step: 1, ready: true, progress: 0 } },
+    band: {
+      status: "success",
+      value: { kind: "mission", step: 1, totalSteps: 2, ready: true, progress: 0 },
+    },
     stats: {
       status: "success",
       value: { studySeconds: 15512, focusSeconds: 13337, focusRate: 86 },
@@ -32,6 +36,29 @@ function props(): HomeV3ContentProps {
 }
 
 describe("HomeV3Content", () => {
+  it("미션 띠에 이번 단계의 포인트를 칩으로 보이고 값이 없으면 칩이 없다", () => {
+    const input = props();
+    const { rerender } = render(<HomeV3Content {...input} />);
+    expect(screen.queryByText("+50P")).toBeNull();
+    rerender(
+      <HomeV3Content
+        {...input}
+        band={{
+          status: "success",
+          value: {
+            kind: "mission",
+            step: 1,
+            totalSteps: 2,
+            ready: true,
+            progress: 0,
+            rewardPoints: 50,
+          },
+        }}
+      />,
+    );
+    expect(screen.getByText("+50P")).toBeInTheDocument();
+  });
+
   it("keeps the step until the server acknowledgement arrives", async () => {
     const input = props();
     const { rerender } = render(<HomeV3Content {...input} />);
@@ -90,6 +117,37 @@ describe("HomeV3Content", () => {
     act(() => last.focus());
     await userEvent.keyboard("{ArrowDown}");
     expect(screen.getByRole("menuitem", { name: i18n.t("home:v3.subject.none") })).toHaveFocus();
+  });
+
+  describe("measure mode toggle", () => {
+    afterEach(() => writeMeasureMode("camera"));
+
+    const modeIcon = (start: HTMLElement) =>
+      start.querySelector("[data-state=on]")?.getAttribute("data-mode");
+
+    it("공부 시작 옆 전환 버튼으로 측정 방식을 바꾸고 기기에 기억한다", async () => {
+      render(<HomeV3Content {...props()} />);
+      const start = screen.getByRole("button", { name: i18n.t("home:v3.startStudy") });
+      expect(modeIcon(start)).toBe("camera");
+
+      await userEvent.click(
+        screen.getByRole("button", { name: i18n.t("home:v3.measureMode.toggle.camera") }),
+      );
+
+      expect(modeIcon(start)).toBe("timer");
+      expect(
+        screen.getByRole("button", { name: i18n.t("home:v3.measureMode.toggle.timer") }),
+      ).toBeInTheDocument();
+      expect(readMeasureMode()).toBe("timer");
+    });
+
+    it("공부 준비 중에는 시작과 전환 버튼을 모두 막는다", () => {
+      render(<HomeV3Content {...props()} startingStudy />);
+      expect(screen.getByRole("button", { name: i18n.t("home:v3.startingStudy") })).toBeDisabled();
+      expect(
+        screen.getByRole("button", { name: i18n.t("home:v3.measureMode.toggle.camera") }),
+      ).toBeDisabled();
+    });
   });
 
   it("keeps study start usable when stats and progress fail", async () => {

@@ -1,3 +1,4 @@
+import type { MascotLook } from "@/components/mascot/types";
 import i18n from "@/lib/i18n";
 
 import { GROUP_ROOM_LIMITS } from "./limits";
@@ -26,6 +27,8 @@ export interface DeskMember {
    * 공부방에 있거나 측정 중이어도 일시정지나 휴식 동안에는 순공이 쌓이지 않아 책상 색과 따로 받는다.
    */
   accumulating: boolean;
+  /** 포인트를 열지 않은 곳에서는 없고, 그때 책상은 사람 그림이다. */
+  mascot?: MascotLook;
 }
 
 export type DeskSlot = { kind: "member"; member: DeskMember; tone: DeskTone } | { kind: "empty" };

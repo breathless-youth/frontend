@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { fireEvent } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
@@ -17,6 +17,11 @@ import type { TokenSource } from "@/lib/auth/tokenSource";
 import type * as Bridge from "@/lib/bridge";
 import { postToNative } from "@/lib/bridge";
 import { __resetGroupRoomsForTests } from "@/lib/groupRoomCapability";
+import {
+  appPointsGateway,
+  __resetAppPointsGatewayForTests,
+} from "@/features/points/gateway/appPointsGateway";
+import { __resetPointsForTests } from "@/lib/pointsCapability";
 import { canUseNativeProfilePhoto, pickNativeProfilePhoto } from "@/lib/nativeProfilePhoto";
 import {
   deleteProfileImage,
@@ -887,5 +892,173 @@ describe("프로필 사진", () => {
     });
     expect(await screen.findByText("프로필 사진을 삭제했어요")).toBeInTheDocument();
     await waitFor(() => expect(button).toBeEnabled());
+  });
+});
+
+describe("프로필 설정의 내 마스코트", () => {
+  const member = { ...profile, loginProvider: "KAKAO" } as const;
+
+  function enablePoints() {
+    window.history.replaceState(null, "", "/profile?userId=7&points=1&pointsMock=default");
+    __resetPointsForTests();
+    __resetAppPointsGatewayForTests();
+    onTestFinished(() => {
+      window.history.replaceState(null, "", "/");
+      __resetPointsForTests();
+      __resetAppPointsGatewayForTests();
+    });
+  }
+
+  it("포인트가 꺼져 있으면 줄이 없다", async () => {
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    renderAt("/profile?userId=7");
+
+    await screen.findByLabelText("닉네임");
+    expect(screen.queryByText("내 캐릭터")).not.toBeInTheDocument();
+  });
+
+  it("포인트가 켜져 있으면 카테고리 아래에 줄이 보이고 잠긴 마스코트는 눌러도 바뀌지 않는다", async () => {
+    enablePoints();
+    mockedGetProfile.mockResolvedValue(member);
+    renderAt("/profile?userId=7&lang=ko");
+
+    expect(await screen.findByText("내 캐릭터")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /꾸미기/ })).toHaveAttribute(
+      "href",
+      "/points/accessories?userId=7&lang=ko",
+    );
+    const selected = await screen.findByRole("button", { name: "타이미" });
+    await userEvent.click(await screen.findByRole("button", { name: "램피 잠김" }));
+    expect(selected).toHaveAttribute("aria-pressed", "true");
+    expect(mockedUpdateProfile).not.toHaveBeenCalled();
+  });
+
+  it("마스코트는 여는 시간 순서로 놓이고 포인트로 사는 마스코트는 맨 뒤에 있다", async () => {
+    enablePoints();
+    mockedGetProfile.mockResolvedValue(member);
+    renderAt("/profile?userId=7");
+
+    const row = await screen.findByRole("list", { name: "내 캐릭터 고르기" });
+    expect(
+      within(row)
+        .getAllByRole("listitem")
+        .map((entry) => entry.textContent),
+    ).toEqual(["타이미", "몽당이", "부기", "락키", "플래니", "램피", "캠코미"]);
+  });
+
+  it("캐릭터만 편집하면 저장이 켜지고 저장을 눌렀을 때 선택을 보낸다", async () => {
+    enablePoints();
+    mockedGetProfile.mockResolvedValue(member);
+    const selectMascot = vi.spyOn(appPointsGateway(), "selectMascot");
+    renderAt("/profile?userId=7");
+
+    await userEvent.click(await screen.findByRole("button", { name: "부기" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "부기" })).toHaveAttribute("aria-pressed", "true"),
+    );
+    const save = screen.getByRole("button", { name: "저장하기" });
+    expect(save).toBeEnabled();
+    expect(selectMascot).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "타이미" }));
+    expect(save).toBeDisabled();
+    await userEvent.click(screen.getByRole("button", { name: "부기" }));
+
+    await userEvent.click(save);
+    await waitFor(() => expect(selectMascot).toHaveBeenCalledExactlyOnceWith("book"));
+    expect(mockedUpdateProfile).not.toHaveBeenCalled();
+  });
+
+  it("캐릭터만 저장하다 실패하면 선택을 유지하고 다시 저장할 수 있다", async () => {
+    enablePoints();
+    mockedGetProfile.mockResolvedValue(member);
+    const selectMascot = vi
+      .spyOn(appPointsGateway(), "selectMascot")
+      .mockRejectedValueOnce(new Error("offline"));
+    renderAt("/profile?userId=7");
+
+    const mascot = await screen.findByRole("button", { name: "부기" });
+    await userEvent.click(mascot);
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+
+    expect(
+      await screen.findByText("캐릭터를 저장하지 못했어요. 다시 시도해 주세요"),
+    ).toBeInTheDocument();
+    expect(mascot).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "저장하기" })).toBeEnabled();
+    expect(selectMascot).toHaveBeenCalledExactlyOnceWith("book");
+    expect(mockedUpdateProfile).not.toHaveBeenCalled();
+  });
+
+  it("프로필 저장 후 캐릭터만 실패하면 저장된 항목을 알리고 캐릭터만 다시 보낸다", async () => {
+    enablePoints();
+    mockedGetProfile.mockResolvedValue(member);
+    let finishProfileSave!: (data: ProfileResponse) => void;
+    mockedUpdateProfile.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishProfileSave = resolve;
+        }),
+    );
+    let finishStaleRead!: (data: ProfileResponse) => void;
+    let rejectFirst!: (error: Error) => void;
+    const selectMascot = vi.spyOn(appPointsGateway(), "selectMascot").mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectFirst = reject;
+        }),
+    );
+    const { queryClient } = renderAt("/profile?userId=7");
+
+    const goal = await screen.findByLabelText("목표 문구");
+    await userEvent.type(goal, "매일 공부");
+    await userEvent.click(await screen.findByRole("button", { name: "부기" }));
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+    await waitFor(() => expect(mockedUpdateProfile).toHaveBeenCalledOnce());
+    mockedGetProfile.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishStaleRead = resolve;
+        }),
+    );
+    let staleRead: Promise<unknown> | undefined;
+    act(() => {
+      staleRead = queryClient.refetchQueries({ queryKey: ["profile", 7] });
+    });
+    await act(async () => {
+      finishProfileSave({ ...member, goal: "매일 공부" });
+    });
+    await waitFor(() => expect(selectMascot).toHaveBeenCalledOnce());
+    expect(goal).toBeDisabled();
+    await act(async () => {
+      finishStaleRead(member);
+      await staleRead;
+      rejectFirst(new Error("offline"));
+    });
+    expect(
+      await screen.findByText("프로필은 저장했어요. 캐릭터를 다시 저장해 주세요"),
+    ).toBeInTheDocument();
+    expect(goal).toBeEnabled();
+
+    await userEvent.click(screen.getByRole("button", { name: "저장하기" }));
+    await waitFor(() => expect(selectMascot).toHaveBeenCalledTimes(2));
+    expect(mockedUpdateProfile).toHaveBeenCalledExactlyOnceWith({ goal: "매일 공부" });
+  });
+
+  it("로그인 공급자를 모르면 줄이 없다", async () => {
+    enablePoints();
+    mockedGetProfile.mockResolvedValue({ ...profile });
+    renderAt("/profile?userId=7");
+
+    await screen.findByLabelText("닉네임");
+    expect(screen.queryByText("내 캐릭터")).not.toBeInTheDocument();
+  });
+
+  it("비회원이면 줄이 없다", async () => {
+    enablePoints();
+    mockedGetProfile.mockResolvedValue({ ...profile, loginProvider: null });
+    renderAt("/profile?userId=7");
+
+    await screen.findByLabelText("닉네임");
+    expect(screen.queryByText("내 캐릭터")).not.toBeInTheDocument();
   });
 });

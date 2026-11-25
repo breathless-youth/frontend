@@ -1,10 +1,9 @@
 import { useTranslation } from "react-i18next";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { HomeContactFooter } from "./HomeContactFooter";
-import { HomeDesignIcon } from "./HomeDesignIcon";
 import { HomeInlineError } from "./HomeInlineError";
 import { HomeProgressBand } from "./HomeProgressBand";
+import { HomeStartButtons } from "./HomeStartButtons";
 import { HomeStudyCard } from "./HomeStudyCard";
 import { HomeSubjectSelect } from "./HomeSubjectSelect";
 import { HomePlannerShortcut, HomeUtilityShortcuts } from "./HomeShortcuts";
@@ -21,9 +20,11 @@ export type {
 export function HomeV3Content({
   band,
   stats,
+  wornAccessories,
   subjects,
   selectedSubjectId,
   completingMission = false,
+  claimingReward = false,
   startingStudy = false,
   startError,
   missionError,
@@ -45,12 +46,13 @@ export function HomeV3Content({
         <HomeProgressBand
           band={band.value}
           completing={completingMission}
+          claiming={claimingReward}
           starting={startingStudy}
           error={missionError}
           actions={actions}
         />
       )}
-      <HomeStudyCard stats={stats}>
+      <HomeStudyCard stats={stats} accessories={wornAccessories?.get("stopwatch")}>
         <HomeSubjectSelect
           subjects={subjects}
           subjectId={selectedSubjectId}
@@ -61,21 +63,17 @@ export function HomeV3Content({
           onAdd={actions.openPlanner}
         />
       </HomeStudyCard>
-      <Button
-        className="min-h-16 w-full gap-2.5 rounded-[22px] text-xl leading-6 font-bold tracking-[0.9px] shadow-sb-cta"
-        disabled={startingStudy}
-        aria-busy={startingStudy}
-        onClick={actions.startStudy}
-      >
-        <HomeDesignIcon name="play" />
-        {t(startingStudy ? "v3.startingStudy" : "v3.startStudy")}
-      </Button>
+      <HomeStartButtons starting={startingStudy} onStart={actions.startStudy} />
       {startError && (
         <p role="alert" className="px-1 text-sm text-feedback-danger">
           {startError}
         </p>
       )}
-      <HomePlannerShortcut plannerTaskCount={plannerTaskCount} onOpen={actions.openPlanner} />
+      <HomePlannerShortcut
+        plannerTaskCount={plannerTaskCount}
+        accessories={wornAccessories?.get("planner")}
+        onOpen={actions.openPlanner}
+      />
       <HomeUtilityShortcuts
         timelapseCount={timelapseCount}
         appLockLabel={appLockLabel}

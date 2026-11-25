@@ -9,6 +9,7 @@ import { DevGroupRoomsPage } from "../DevGroupRoomsPage";
 vi.mock("@/lib/toast", () => ({ showToast: vi.fn() }));
 
 const SCREEN_IDS = [
+  "desk-mascots",
   "open-detail",
   "open-home",
   "1-1",

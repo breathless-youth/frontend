@@ -40,6 +40,7 @@
   "autoEnd": {
     "title": "已儲存目前為止的紀錄",
     "backgroundBody": "螢幕關閉時無法測量，\n所以已自動結束讀書",
+    "awayLimitBody": "離開 App 超過 2 小時，已記錄到第 2 小時並結束讀書",
     "focusLabel": "專注時間",
     "studyLabel": "總讀書時間",
     "cta": "查看結果"
@@ -77,6 +78,7 @@
   "moreMenu": {
     "trigger": "更多",
     "flipCamera": "切換相機",
+    "planner": "讀書計畫",
     "help": "查看說明",
     "shareInvite": "分享邀請碼",
     "timer": "計時器",
@@ -141,12 +143,19 @@
   "recovery": {
     "title": "已復原未儲存的紀錄",
     "body": "App 意外關閉了。\n已為你儲存讀書紀錄。",
+    "timerAwayBody": "離開 App 超過 2 小時，已將紀錄儲存到離開 App 的時間點",
     "date": "日期",
     "time": "開始 · 結束",
     "timeRange": "{{start}}～{{end}}",
     "studyTime": "總讀書時間",
     "focusTime": "專注時間",
     "confirm": "好"
+  },
+  "resume": {
+    "title": "要繼續讀書嗎？",
+    "body": "離開 App 的 {{minutes}} 分鐘也會算進讀書時間",
+    "continue": "繼續讀書",
+    "end": "在離開的時間點結束"
   },
   "result": {
     "completeTitle": "今天的讀書完成了",
@@ -160,7 +169,8 @@
     "studyDaysLabel": "讀書天數",
     "studyDays": "{{count}} 天",
     "ctaHome": "返回首頁",
-    "ctaRecords": "前往紀錄"
+    "ctaRecords": "前往紀錄",
+    "timerNotice": "以自主模式讀書的時間\n不會計入連續讀書、排行榜和點數"
   },
   "legend": {
     "focus": "專注",
@@ -215,5 +225,47 @@
     "srRemaining": "剩餘休息時間 {{duration}}",
     "notificationTitle": "{{minutes}} 分鐘的休息結束了",
     "notificationBody": "該繼續讀書了"
+  },
+  "space": {
+    "button": "空間",
+    "title": "空間",
+    "tabs": {
+      "video": "影片",
+      "image": "圖片"
+    },
+    "search": "搜尋空間",
+    "searchClose": "關閉搜尋",
+    "searchClear": "清除搜尋",
+    "all": "全部",
+    "sections": {
+      "mine": "我的照片"
+    },
+    "names": {
+      "simple": "極簡",
+      "photo": "我的照片 {{number}}"
+    },
+    "photoCount": "{{current}}/{{max}}",
+    "upload": "上傳照片",
+    "preview": "預覽{{name}}",
+    "remove": "刪除{{name}}",
+    "empty": "找不到空間",
+    "back": "返回",
+    "apply": "套用",
+    "applied": "使用中",
+    "mute": "關閉空間聲音",
+    "unmute": "開啟空間聲音",
+    "volume": "空間音量",
+    "applyFailed": "無法變更空間，請再試一次",
+    "photoLimit": "最多可上傳 {{max}} 張照片",
+    "removed": "已刪除照片",
+    "removeFailed": "無法刪除照片，請再試一次",
+    "photoLoadFailed": "無法載入照片",
+    "previewFailed": "無法載入空間"
+  },
+  "banner": {
+    "ad": "AD",
+    "copy1": "讓 AI 幫你安排今天的待辦",
+    "copy2": "領取本週專注報告",
+    "copy3": "進階版預先登記開放中"
   }
 }

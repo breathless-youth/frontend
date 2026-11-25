@@ -199,7 +199,11 @@ describe("AmbientSoundSheet — 음량 조절", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "배경음 안내" }));
 
-    expect(await screen.findByText("일시정지 중에는 배경음이 들리지 않아요")).toBeInTheDocument();
+    const body = await screen.findByText("일시정지 중에는 배경음이 들리지 않아요", {
+      selector: "[data-state]",
+    });
+    // 세션 색 말풍선이라 꼬리도 같은 세션 색으로 칠해야 본문과 이어져 보인다.
+    expect(body.querySelector("svg")).toHaveClass("fill-(--session-dialog-cancel-bg)");
   });
 
   it("카탈로그가 비어 있으면 목록 대신 불러오지 못했다는 안내 한 줄을 띄운다", () => {

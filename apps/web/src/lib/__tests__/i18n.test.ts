@@ -3,7 +3,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import en from "../../locales/en/common.json";
 import ja from "../../locales/ja/common.json";
 import zhHant from "../../locales/zh-Hant/common.json";
-import i18n, { buildResources, decideInitialLocale, isKoreanLocale } from "../i18n";
+import i18n, {
+  buildResources,
+  decideInitialLocale,
+  isKoreanLocale,
+  withObjectParticle,
+} from "../i18n";
 import { LOCALE_STORAGE_KEY } from "../locale";
 
 afterEach(async () => {
@@ -157,5 +162,19 @@ describe("복수형", () => {
 
     expect(t("session", { ns, count: 1 })).toBe("1 session");
     expect(t("session", { ns, count: 2 })).toBe("2 sessions");
+  });
+});
+
+describe("withObjectParticle", () => {
+  it("받침이 있으면 을, 없으면 를을 붙인다", () => {
+    expect(withObjectParticle("왕관")).toBe("왕관을");
+    expect(withObjectParticle("헤드폰")).toBe("헤드폰을");
+    expect(withObjectParticle("단추 리본")).toBe("단추 리본을");
+    expect(withObjectParticle("하트 묶음")).toBe("하트 묶음을");
+    expect(withObjectParticle("라벤더")).toBe("라벤더를");
+  });
+
+  it("한글로 끝나지 않으면 둘 다 적는다", () => {
+    expect(withObjectParticle("D-day")).toBe("D-day을(를)");
   });
 });

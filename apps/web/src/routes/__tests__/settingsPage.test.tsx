@@ -5,6 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { __resetDevicePermissionsForTests } from "@/features/settings/useDevicePermissions";
 import type * as InterviewForm from "@/features/interview/interviewForm";
 import type * as Amplitude from "@/lib/amplitude";
 import type * as LazyRoutes from "@/routes/lazyRoutes";
@@ -112,6 +113,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  __resetDevicePermissionsForTests();
   resetViewTransitionStub();
   vi.unstubAllGlobals();
   vi.useRealTimers();
@@ -413,42 +415,6 @@ describe("타임랩스 행", () => {
   });
 });
 
-describe("타이머 배경 행", () => {
-  it("타임랩스 바로 위에 지금 배경 이름과 함께 보인다", () => {
-    renderAt("/settings");
-
-    const row = screen.getByRole("button", { name: "타이머 배경, 심플" });
-
-    expect(
-      row.compareDocumentPosition(screen.getByRole("button", { name: "타임랩스" })) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-  });
-
-  it("누르면 기존 쿼리를 이어받아 타이머 배경 화면으로 가고 행 터치를 남긴다", () => {
-    render(
-      withQueryClient(
-        <MemoryRouter initialEntries={["/settings?userId=7"]}>
-          <Routes>
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route
-              path="/timer-background-settings"
-              element={<LocationProbe testId="timer-background-stub" />}
-            />
-          </Routes>
-        </MemoryRouter>,
-      ),
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: "타이머 배경, 심플" }));
-
-    expect(analytics.trackSettingsRowPressed).toHaveBeenCalledWith("timer_background");
-    expect(screen.getByTestId("timer-background-stub").textContent).toBe(
-      "/timer-background-settings?userId=7",
-    );
-  });
-});
-
 describe("방해 앱 잠금 행", () => {
   afterEach(() => {
     hasAppLockCapability.mockReturnValue(false);
@@ -539,6 +505,20 @@ describe("마이크 권한 행", () => {
     pushPermissions({ granted: true, micGranted: false });
 
     pushPermissions({ granted: true, micGranted: true });
+
+    expect(
+      screen.getByRole("button", { name: "마이크 권한, 허용됨, 시스템 설정 열기" }),
+    ).toBeInTheDocument();
+  });
+
+  it("다른 화면에 다녀와 다시 열면 앱의 답을 기다리지 않고 마지막으로 받은 권한으로 바로 그린다", () => {
+    // 답을 기다리는 동안 이 줄이 빠지면 화면이 짧아져, 뒤로 돌아온 스크롤 위치가 짧아진 높이에 맞춰 잘린다.
+    vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
+    const first = renderSettings("/settings?groupRooms=1");
+    pushPermissions({ granted: true, micGranted: true });
+    first.unmount();
+
+    renderSettings("/settings?groupRooms=1");
 
     expect(
       screen.getByRole("button", { name: "마이크 권한, 허용됨, 시스템 설정 열기" }),

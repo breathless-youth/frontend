@@ -36,6 +36,8 @@ jobs:
       VITE_SENTRY_DSN: ${{ vars[format('{0}_VITE_SENTRY_DSN', github.ref_name == 'main' && 'PROD' || 'STAGING')] }}
       VITE_AMPLITUDE_API_KEY: ${{ vars[format('{0}_VITE_AMPLITUDE_API_KEY', github.ref_name == 'main' && 'PROD' || 'STAGING')] }}
       VITE_CHANNEL_PLUGIN_KEY: ${{ vars[format('{0}_VITE_CHANNEL_PLUGIN_KEY', github.ref_name == 'main' && 'PROD' || 'STAGING')] }}
+      # 포인트 기능을 끄는 스위치이며 비어 있으면 끄지 않으므로 아래 필수 변수 검사에 넣지 않는다.
+      VITE_POINTS_DISABLED: ${{ vars[format('{0}_VITE_POINTS_DISABLED', github.ref_name == 'main' && 'PROD' || 'STAGING')] }}
       # GA4는 운영에만 넣는다. Vercel 때부터 스테이징은 GA4를 끈 채였고, 운영 속성에 스테이징 방문이 섞이지 않게 한다.
       VITE_GA4_MEASUREMENT_ID: ${{ github.ref_name == 'main' && vars.PROD_VITE_GA4_MEASUREMENT_ID || '' }}
     steps:
@@ -144,9 +146,11 @@ jobs:
             --exclude "*.map"
 
           # 나머지는 매번 확인하는 파일이라 이전 것을 지워도 된다
+          # 공간 파일은 CloudFront가 공간 버킷에서 내보내고, 이 버킷에 남은 옛 사본은 지우지 않는다
           aws s3 sync dist/ "s3://$BUCKET" --delete --only-show-errors \
             --cache-control "$REVALIDATE" \
             --exclude "assets/*" --exclude "mediapipe/*" --exclude "sounds/*.mp3" --exclude "models/*" \
+            --exclude "spaces/*" \
             --exclude "$AASA" --exclude "index.html" --exclude "*.map"
 
           # iOS 유니버설 링크 파일 (확장자가 없어 유형을 못 맞히는 CLI는 수동으로 content-type을 지정)

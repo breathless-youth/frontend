@@ -32,6 +32,8 @@ export interface SessionInput {
   completedTaskIds?: number[];
   /** 관찰 기록(하품 등). 세션 구간 밖은 버리고, 비어 있으면 필드를 싣지 않는다. */
   observations?: ObservationPayload[];
+  /** TIMER일 때만 요청에 싣는 측정 방식 */
+  source?: StudySessionCreateRequest["source"];
 }
 
 /**
@@ -81,6 +83,9 @@ export function buildSessionRequest(input: SessionInput): StudySessionCreateRequ
   );
   if (observations.length > 0) {
     request.observations = observations;
+  }
+  if (input.source === "TIMER") {
+    request.source = "TIMER";
   }
   return request;
 }

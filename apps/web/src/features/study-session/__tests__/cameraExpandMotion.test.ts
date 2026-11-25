@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { cameraBoxFrames } from "../cameraExpandMotion";
 
 const FULL = { left: 0, top: 0, width: 402, height: 874 };
-// 세로 화면 오른쪽 아래 108×144 작은 창(시안 23a)
+// 세로 화면 오른쪽 아래 108×144 작은 창
 const PIP = { left: 278, top: 582, width: 108, height: 144 };
 
 describe("cameraBoxFrames", () => {

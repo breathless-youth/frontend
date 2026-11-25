@@ -55,6 +55,28 @@ describe("useStudyRoomSession — 배경음 사용 시간 계측", () => {
     expect(input.ambientSoundSec).toBeUndefined();
   });
 
+  it("종료 시점에 화면 표시 기록을 읽어 싣고, 옵션이 없으면 싣지 않는다", async () => {
+    const display = {
+      pipSec: 5,
+      expandedSec: 2,
+      simpleSec: 1,
+      pipExpandCount: 1,
+      spaceKind: "simple",
+      faceMask: false,
+    } as const;
+    const used = renderHook(() => useStudyRoomSession(null, { displayUsage: () => display }));
+    await act(async () => {
+      await used.result.current.endAndSubmit();
+    });
+    const social = renderHook(() => useStudyRoomSession(null, { roomType: "social" }));
+    await act(async () => {
+      await social.result.current.endAndSubmit();
+    });
+
+    expect(mocks.ended.mock.calls[0]?.[0]).toMatchObject({ display });
+    expect(mocks.ended.mock.calls[1]?.[0]).not.toHaveProperty("display");
+  });
+
   it("종료 시점에 멀티 타이머 사용 기록을 읽어 싣고, 옵션이 없으면 none 을 싣는다", async () => {
     const used = renderHook(() => useStudyRoomSession(null, { multiTimerUsage: () => "pomodoro" }));
     await act(async () => {

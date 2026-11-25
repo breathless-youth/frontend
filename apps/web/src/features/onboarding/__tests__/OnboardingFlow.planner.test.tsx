@@ -75,4 +75,5 @@ it("준비 완료 단계 폰 화면은 새 홈의 공부 시작 버튼을 누르
   });
   expect(screen.getByText("공부 시작")).toBeInTheDocument();
   expect(screen.queryByText("집중 시작")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("홈 화면에서 공부 시작을 누르는 모습")).toBeInTheDocument();
 });

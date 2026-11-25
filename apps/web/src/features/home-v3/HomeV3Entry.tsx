@@ -12,7 +12,14 @@ import { useHomeStudyStatusProperties } from "@/features/home/useHomeStudyStatus
 import { useOpenPlanner } from "@/features/planner/useOpenPlanner";
 import { recentTimelapsesQuery } from "@/features/timelapse/timelapseQueries";
 import { getTimelapseStore } from "@/features/timelapse/timelapseStore";
+import { PointsBalancePill } from "@/features/points/components/shared/PointsBalancePill";
+import { usePointsBalance } from "@/features/points/components/shop/usePointsBalance";
+import { appPointsGateway } from "@/features/points/gateway/appPointsGateway";
+import { pointsSearch } from "@/features/points/pointsSearch";
+import { usePointsLogin } from "@/features/points/usePointsLogin";
 import { setHasTimelapseUserProperty } from "@/lib/amplitude";
+import { isPointsEnabled } from "@/lib/pointsCapability";
+import { wornAccessoriesQuery } from "@/lib/pointsQueries";
 import { hardNavigate } from "@/lib/hardNavigation";
 import { hasTokenSource } from "@/lib/userId";
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
@@ -20,6 +27,7 @@ import { slideNavigate } from "@/lib/pageTransition";
 import { listSubjects } from "@/lib/subjectApi";
 import { useFocusStart } from "@/lib/useFocusStart";
 import { SubjectStartUnavailableError } from "@/lib/sessionStart";
+import { useMeasureMode } from "@/features/measure-mode/measureMode";
 import { prefetchVisionAssets } from "@/features/study-session/vision/prefetchVisionAssets";
 import { prefetchTimelapsesPage } from "@/routes/lazyRoutes";
 
@@ -71,6 +79,13 @@ export function HomeV3Entry({
   const navigate = useNavigate();
   const location = useLocation();
   const openPlanner = useOpenPlanner("home");
+  const points = usePointsBalance(userId);
+  const showPoints = isPointsEnabled() && !points.memberOnly;
+  const wornAccessories = useQuery({
+    ...wornAccessoriesQuery(appPointsGateway(), userId),
+    enabled: showPoints,
+  });
+  const openPointsLogin = usePointsLogin();
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState<{
     day: HomeDay;
@@ -137,13 +152,24 @@ export function HomeV3Entry({
           },
         }
       : { status: "pending" };
-  const progress = useHomeV3Progress(gateway, userId, day, stats);
+  const progress = useHomeV3Progress(
+    gateway,
+    userId,
+    day,
+    stats,
+    isPointsEnabled() && !points.memberOnly,
+  );
   useEffect(() => {
     if (stats.status !== "success" || prefetched.current) return;
     prefetched.current = true;
-    prefetchVisionAssets();
     void prefetchTimelapsesPage();
   }, [stats.status]);
+  // 카메라 없는 모드에서는 세션이 AI 모델을 쓰지 않아 받지 않고, 홈에서 카메라로 바꾸면 그때 받는다.
+  // 같은 문서에서 두 번 받지 않는 것은 함수가 보장한다.
+  const [measureMode] = useMeasureMode();
+  useEffect(() => {
+    if (stats.status === "success" && measureMode === "camera") prefetchVisionAssets();
+  }, [stats.status, measureMode]);
 
   const timelapseData = timelapses.data;
   useEffect(() => {
@@ -217,11 +243,27 @@ export function HomeV3Entry({
         ) : (
           <span className="text-2xl font-bold">FocusMakers</span>
         )}
-        <p className="shrink-0 pb-1.5 text-sm leading-4.5 font-medium text-muted-foreground">
-          {homeDateLabel(day.dateKey, i18n.language)}
-        </p>
+        {showPoints ? (
+          <div className="shrink-0">
+            <PointsBalancePill
+              size="home"
+              balance={points.balance}
+              gain={progress.gain}
+              onPress={() =>
+                slideNavigate("forward", () =>
+                  navigate({ pathname: "/points", search: pointsSearch(location.search) }),
+                )
+              }
+            />
+          </div>
+        ) : (
+          <p className="shrink-0 pb-1.5 text-sm leading-4.5 font-medium text-muted-foreground">
+            {homeDateLabel(day.dateKey, i18n.language)}
+          </p>
+        )}
       </header>
       <HomeV3Content
+        wornAccessories={showPoints ? wornAccessories.data : undefined}
         band={progress.band}
         stats={stats}
         subjects={
@@ -239,7 +281,16 @@ export function HomeV3Entry({
         selectedSubjectId={subjectId}
         onMenuOpenChange={setMenuOpen}
         completingMission={progress.completingMission}
-        missionError={progress.missionError ? t("v3.mission.failed") : undefined}
+        claimingReward={progress.claimingReward}
+        missionError={
+          progress.missionError
+            ? t("v3.mission.failed")
+            : progress.rewardError
+              ? t("v3.reward.failed")
+              : progress.rewardNotOpen
+                ? t("rewardNotOpen", { ns: "points-earn" })
+                : undefined
+        }
         startingStudy={verifyingSubject}
         startError={
           startError === "verify"
@@ -263,6 +314,12 @@ export function HomeV3Entry({
           },
           openPlanner: () => openPlanner(day.dateKey),
           completeMission: progress.completeMission,
+          openAccessories: () =>
+            slideNavigate("forward", () =>
+              navigate({ pathname: "/points/accessories", search: pointsSearch(location.search) }),
+            ),
+          // 비회원도 받지만 서버가 회원 전용이라고 거절하면 로그인 화면을 연다.
+          claimMissionReward: () => progress.claimMissionReward(openPointsLogin),
           editGoal: () => {
             void preloadGoalSheet();
             setEditing({

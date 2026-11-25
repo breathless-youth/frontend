@@ -1,0 +1,57 @@
+{
+  "title": "{{name}}のアイテム",
+  "mascotStrip": {
+    "label": "キャラクターを選ぶ",
+    "selected": "{{name}}、選択中のキャラクター",
+    "locked": "{{name}}、まだ使えません"
+  },
+  "slots": {
+    "label": "アイテムの部位",
+    "head": "頭の上",
+    "face": "顔",
+    "body": "体",
+    "wings": "羽",
+    "held": "持ち物",
+    "underfoot": "足もと",
+    "effect": "エフェクト",
+    "set": "セット"
+  },
+  "setNotice": "セットを着ると他のアイテムは外れます",
+  "preview": "{{name}}のプレビュー",
+  "grid": {
+    "label": "アイテムを選ぶ",
+    "owned": "所持",
+    "wearing": "着用中",
+    "wearingLabel": "{{name}}、着用中",
+    "wearingPickedLabel": "{{name}}、着用中。もう一度タップすると外せます",
+    "ownedLabel": "{{name}}、所持しています",
+    "rewardHours": "{{target}}時間",
+    "rewardDays": "{{target}}日",
+    "rewardHoursLabel": "{{name}}、集中{{target}}時間の報酬",
+    "rewardDaysLabel": "{{name}}、{{target}}日連続の報酬",
+    "takeOff": "外す",
+    "empty": "この部位のアイテムはまだありません",
+    "store": "有料",
+    "storeLabel": "{{name}}、有料アイテム"
+  },
+  "action": {
+    "focusHours": "累計集中 {{current}} / {{target}}時間",
+    "streakDays": "連続学習 {{current}} / {{target}}日",
+    "progressHours": "集中{{target}}時間中{{current}}時間",
+    "progressDays": "{{target}}日中{{current}}日"
+  },
+  "locked": {
+    "title": {
+      "book": "ブッキーはまだ使えません",
+      "planner": "プラニーはまだ使えません",
+      "pencil": "ちびペンはまだ使えません",
+      "stopwatch": "ティミーはまだ使えません",
+      "lamp": "ランピーはまだ使えません",
+      "padlock": "ロッキーはまだ使えません",
+      "camcorder": "キャミーはまだ使えません"
+    },
+    "hint": "あと集中{{remaining}}で使えるようになります。",
+    "progress": "{{name}}まで{{percent}}%貯まりました",
+    "collect": "キャラクターを集める"
+  }
+}

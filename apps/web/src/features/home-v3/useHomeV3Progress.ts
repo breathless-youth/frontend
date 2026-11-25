@@ -1,19 +1,28 @@
-import type { PlannerDayResponse } from "@focusmakers/types";
+import type { HomeMissionStep, PlannerDayResponse } from "@focusmakers/types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { trackHomeGoalSaved, trackHomeMissionStepCompleted } from "@/lib/amplitude";
+import {
+  trackHomeGoalSaved,
+  trackHomeMissionStepCompleted,
+  trackPointsClaimed,
+} from "@/lib/amplitude";
 import { postToNative, subscribeToNativeMessages } from "@/lib/bridge";
 import { plannerKeys } from "@/lib/plannerQueries";
+import { pointsKeys } from "@/lib/pointsQueries";
 import { ApiError } from "@/lib/api";
+import type { PointsGain } from "@/features/points/components/shared/PointsBalancePill";
+import { isMemberOnlyError } from "@/features/points/gateway/memberOnly";
+import { isRewardNotOpenError } from "@/features/points/gateway/rewardNotOpen";
 import type { HomeDay, HomeGoal, HomeV3Gateway } from "./HomeV3Gateway";
 import type { HomeGoalSaveInput, HomeGoalSaveResult } from "./HomeGoalSheet";
 import type { HomeLoadState, HomeTodayStats } from "./HomeV3Content";
-import { selectHomeBand, type HomeBand, type HomeMission } from "./homeV3Model";
+import { missionTotalSteps, selectHomeBand, type HomeBand, type HomeMission } from "./homeV3Model";
+import { homeMissionKey } from "./homeV3Queries";
 
 export const homeV3Keys = {
   account: (userId: number) => ["home-v3", userId] as const,
-  mission: (userId: number) => ["home-v3", userId, "mission"] as const,
+  mission: homeMissionKey,
   goals: plannerKeys.user,
   goal: (userId: number, day: HomeDay) => plannerKeys.day(userId, day.dateKey, day.timeZone),
 };
@@ -25,7 +34,10 @@ function isHomeMission(value: unknown): value is HomeMission {
     "version" in value &&
     typeof value.version === "string" &&
     "completedSteps" in value &&
-    (value.completedSteps === 0 || value.completedSteps === 1 || value.completedSteps === 2)
+    (value.completedSteps === 0 ||
+      value.completedSteps === 1 ||
+      value.completedSteps === 2 ||
+      value.completedSteps === 3)
   );
 }
 function preserveMissionProgress(current: unknown, incoming: unknown): unknown {
@@ -34,6 +46,7 @@ function preserveMissionProgress(current: unknown, incoming: unknown): unknown {
     isHomeMission(current) &&
     isHomeMission(incoming) &&
     current.version === incoming.version &&
+    missionTotalSteps(current) === missionTotalSteps(incoming) &&
     current.completedSteps > incoming.completedSteps
   )
     return current;
@@ -55,9 +68,25 @@ export function useHomeV3Progress(
   userId: number,
   day: HomeDay,
   stats: HomeLoadState<HomeTodayStats>,
+  /** 미션 포인트를 보일지이며 포인트 기능이 켜져 있고 서버가 잔액 조회를 거절하지 않으면 비회원도 참이다. */
+  rewards = false,
 ) {
   const client = useQueryClient();
   const completingRef = useRef(false);
+  const claimingRef = useRef(false);
+  const [finishedAccessoryFor, setFinishedAccessoryFor] = useState<number | null>(null);
+  const showingCompletedAccessory = finishedAccessoryFor === userId;
+  useEffect(() => {
+    if (!showingCompletedAccessory) return;
+    // 원형 게이지가 다 찬 뒤 목표 또는 미수령 보상 띠를 보여 준다.
+    const duration = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0 : 650;
+    const timer = window.setTimeout(() => setFinishedAccessoryFor(null), duration);
+    return () => window.clearTimeout(timer);
+  }, [showingCompletedAccessory]);
+  const [gain, setGain] = useState<PointsGain | null>(null);
+  const gainCount = useRef(0);
+  // 같은 금액을 연달아 받아도 잔액 알약이 다시 알리도록 받을 때마다 새 번호를 붙인다.
+  const announceGain = (points: number) => setGain({ points, id: ++gainCount.current });
   const mission = useQuery({
     queryKey: homeV3Keys.mission(userId),
     queryFn: ({ signal }) => gateway.readMission(signal),
@@ -83,18 +112,62 @@ export function useHomeV3Progress(
     [client, userId],
   );
   const acknowledgement = useMutation({
-    mutationFn: ({ adapter, step }: { adapter: HomeV3Gateway; owner: number; step: 1 | 2 }) =>
-      adapter.acknowledgeMission(step),
+    mutationFn: ({
+      adapter,
+      step,
+    }: {
+      adapter: HomeV3Gateway;
+      owner: number;
+      step: HomeMissionStep;
+    }) => adapter.acknowledgeMission(step),
     networkMode: "always",
     retry: false,
     onMutate: ({ owner }) => client.cancelQueries({ queryKey: homeV3Keys.mission(owner) }),
     onSuccess: (result, { owner, step }) => {
       trackHomeMissionStepCompleted(step);
+      if (step === 3 && result.completedSteps === 3) setFinishedAccessoryFor(owner);
       client.setQueryData(homeV3Keys.mission(owner), result);
+      // 단계를 끝내며 받은 포인트는 알림 없이 잔액 알약의 연출로만 보인다.
+      if ((result.rewardedPoints ?? 0) > 0) {
+        trackPointsClaimed({ kind: "mission", points: result.rewardedPoints ?? 0 });
+        announceGain(result.rewardedPoints ?? 0);
+        void client.invalidateQueries({ queryKey: pointsKeys.user(owner) });
+      }
     },
     onError: (error, { owner }) => {
       if (error instanceof ApiError && error.status === 400)
         void client.invalidateQueries({ queryKey: homeV3Keys.mission(owner) });
+    },
+  });
+  const cancelRewardReads = (owner: number) =>
+    Promise.all([
+      client.cancelQueries({ queryKey: homeV3Keys.mission(owner) }),
+      client.cancelQueries({ queryKey: pointsKeys.balance(owner) }),
+    ]);
+  const rewardClaim = useMutation({
+    mutationFn: ({ adapter }: { adapter: HomeV3Gateway; owner: number }) =>
+      adapter.claimMissionReward(),
+    networkMode: "always",
+    retry: false,
+    onMutate: ({ owner }) => cancelRewardReads(owner),
+    onSuccess: async (result, { owner }) => {
+      // 지급 도중 새로 시작한 조회도 지급 이전 잔액을 덮어쓰지 못하게 한다.
+      await cancelRewardReads(owner);
+      if (result.granted) {
+        trackPointsClaimed({ kind: "mission", points: result.points });
+        if (result.points > 0) announceGain(result.points);
+      }
+      client.setQueryData(pointsKeys.balance(owner), result.balance);
+      client.setQueryData<HomeMission>(homeV3Keys.mission(owner), (previous) =>
+        previous ? { ...previous, claimablePoints: 0 } : previous,
+      );
+      void client.invalidateQueries({ queryKey: pointsKeys.histories(owner) });
+    },
+    // 요청이 서버에 반영됐을 수 있으므로 실패해도 미션과 잔액을 다시 읽는다.
+    onError: async (_error, { owner }) => {
+      await cancelRewardReads(owner);
+      void client.invalidateQueries({ queryKey: homeV3Keys.mission(owner) });
+      void client.invalidateQueries({ queryKey: pointsKeys.balance(owner) });
     },
   });
   const goalSave = useMutation({
@@ -135,7 +208,13 @@ export function useHomeV3Progress(
     },
   });
   let band: HomeLoadState<HomeBand>;
-  if (mission.data === undefined)
+  if (showingCompletedAccessory && mission.data?.completedSteps === 3) {
+    const rewardPoints = mission.data.stepPoints?.[2];
+    band = {
+      status: "success",
+      value: { kind: "mission", step: 3, totalSteps: 3, ready: true, progress: 1, rewardPoints },
+    };
+  } else if (mission.data === undefined)
     band = mission.isError
       ? {
           status: "error",
@@ -144,8 +223,11 @@ export function useHomeV3Progress(
           },
         }
       : { status: "pending" };
-  else if (mission.data.currentStep !== null)
-    band = { status: "success", value: selectHomeBand(mission.data, 0, null) };
+  else if (
+    mission.data.currentStep !== null ||
+    (rewards && (mission.data.claimablePoints ?? 0) > 0)
+  )
+    band = { status: "success", value: selectHomeBand(mission.data, 0, null, rewards) };
   else if (goal.data === undefined)
     band = goal.isError
       ? {
@@ -163,12 +245,14 @@ export function useHomeV3Progress(
         mission.data,
         stats.status === "success" ? stats.value.focusSeconds : 0,
         goal.data.seconds,
+        rewards,
       ),
     };
 
-  function completeMission(step: 1 | 2) {
+  function completeMission(step: HomeMissionStep) {
     if (
       completingRef.current ||
+      showingCompletedAccessory ||
       band.status !== "success" ||
       band.value.kind !== "mission" ||
       !band.value.ready ||
@@ -189,6 +273,34 @@ export function useHomeV3Progress(
     completingMission: acknowledgement.isPending,
     missionError: acknowledgement.isError,
     completeMission,
+    claimingReward: rewardClaim.isPending,
+    /** 미션으로 방금 받은 포인트이며 잔액 알약이 받은 금액을 잠깐 보인다. */
+    gain,
+    // 서버의 회원 전용 거절은 로그인 화면으로 보내므로 실패 문구를 띄우지 않는다.
+    rewardError:
+      rewardClaim.isError &&
+      !isMemberOnlyError(rewardClaim.error) &&
+      !isRewardNotOpenError(rewardClaim.error),
+    /** 서버가 아직 포인트를 쌓지 않는다고 거절했는지이며 이때는 실패 대신 출시 뒤에 받을 수 있다고 알린다. */
+    rewardNotOpen: rewardClaim.isError && isRewardNotOpenError(rewardClaim.error),
+    claimMissionReward: (onMemberOnly?: () => void) => {
+      if (claimingRef.current || band.status !== "success" || band.value.kind !== "mission-reward")
+        return;
+      claimingRef.current = true;
+      void rewardClaim
+        .mutateAsync(
+          { adapter: gateway, owner: userId },
+          {
+            onError: (error) => {
+              if (isMemberOnlyError(error)) onMemberOnly?.();
+            },
+          },
+        )
+        .catch(() => undefined)
+        .finally(() => {
+          claimingRef.current = false;
+        });
+    },
     saveGoal: (editedDay: HomeDay, input: HomeGoalSaveInput) =>
       goalSave.mutateAsync({ adapter: gateway, owner: userId, day: editedDay, input }),
   };

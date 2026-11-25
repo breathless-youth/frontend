@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next";
 import notebook from "@/assets/home-v3/mascot-notebook.png";
+import { MascotFigure } from "@/components/mascot/MascotFigure";
+import type { WornAccessory } from "@/components/mascot/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -18,9 +20,11 @@ function ShortcutSummary({ title, detail }: { title: string; detail: string }) {
 
 export function HomePlannerShortcut({
   plannerTaskCount,
+  accessories,
   onOpen,
 }: {
   plannerTaskCount?: number;
+  accessories?: readonly WornAccessory[];
   onOpen: () => void;
 }) {
   const { t } = useTranslation("home");
@@ -39,20 +43,23 @@ export function HomePlannerShortcut({
               : t("v3.planner.remaining", { count: plannerTaskCount })}
           </span>
         </span>
-        <span
-          aria-hidden="true"
+        <MascotFigure
+          id="planner"
+          accessories={accessories}
           className="home-v3-notebook pointer-events-none absolute -right-6 -bottom-11.5 size-40 scale-80 -rotate-12 select-none"
-        >
-          <span className="relative block size-full overflow-hidden">
-            <img
-              src={notebook}
-              alt=""
-              width={160}
-              height={160}
-              className="absolute -top-[5.65%] -left-[10.99%] size-[109.75%] max-w-none"
-            />
-          </span>
-        </span>
+          layerFrame={{ className: "home-v3-notebook-art" }}
+          body={
+            <span className="relative block size-full overflow-hidden">
+              <img
+                src={notebook}
+                alt=""
+                width={160}
+                height={160}
+                className="home-v3-notebook-art absolute max-w-none"
+              />
+            </span>
+          }
+        />
       </Button>
     </Card>
   );

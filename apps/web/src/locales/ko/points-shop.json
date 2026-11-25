@@ -1,0 +1,64 @@
+{
+  "nextMascot": {
+    "label": "다음 캐릭터 {{name}}",
+    "remaining": "순공 {{duration}} 더 하면 열려요",
+    "open": "다음 캐릭터 {{name}}, 캐릭터 모으기 열기",
+    "buy": "다음 캐릭터 {{name}}, {{price}}로 열기",
+    "progress": "{{name}}까지 {{percent}}% 모았어요"
+  },
+  "picker": {
+    "title": "오늘은 누구랑 공부할까요?",
+    "label": "오늘 함께할 캐릭터"
+  },
+  "section": {
+    "accessory": "{{name}} 소품",
+    "background": "타이머 배경",
+    "all": "전체 보기"
+  },
+  "tile": {
+    "owned": "보유 중",
+    "streakDays": "연속 공부 {{current}} / {{target}}일",
+    "focusHours": "누적 순공 {{current}} / {{target}}시간",
+    "store": "결제"
+  },
+  "history": {
+    "filter": {
+      "label": "기록 종류",
+      "all": "전체",
+      "earned": "적립",
+      "spent": "사용"
+    },
+    "today": "오늘",
+    "reason": {
+      "study": "순공 보상",
+      "attendance": "출석하기",
+      "dailyGoal": "하루 목표 채우기",
+      "ad": "광고 보고 받기",
+      "medal": "랭킹 메달",
+      "charge": "포인트 충전",
+      "purchase": "{{name}} 구매",
+      "purchaseUnknown": "꾸미기 구매",
+      "medalRank": "{{period}} 랭킹 {{rank}}위 메달",
+      "mascotPurchase": "{{name}} 캐릭터 구매",
+      "mascotPurchaseUnknown": "캐릭터 구매",
+      "mission": "시작 미션 보상",
+      "grant": "운영팀 지급",
+      "refund": "결제 환불로 차감"
+    },
+    "empty": {
+      "title": "아직 포인트 기록이 없어요",
+      "action": "포인트 받으러 가기"
+    },
+    "medalPeriod": {
+      "DAILY": "일간",
+      "WEEKLY": "주간",
+      "MONTHLY": "월간"
+    }
+  },
+  "settings": {
+    "history": "포인트 기록",
+    "restore": "구매 복원",
+    "restored": "구매한 상품을 다시 불러왔어요",
+    "restoreNothing": "복원할 상품이 없어요"
+  }
+}

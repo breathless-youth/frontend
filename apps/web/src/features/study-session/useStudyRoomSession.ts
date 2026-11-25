@@ -4,6 +4,7 @@ import type {
   ObservationPayload,
   StatusEventPayload,
   StudySessionResponse,
+  StudySessionSource,
 } from "@focusmakers/types";
 
 import * as Sentry from "@sentry/react";
@@ -19,8 +20,10 @@ import {
   trackStudySessionStarted,
   trackStudySessionSubmitted,
   type MultiTimerUse,
+  type SessionDisplayEnd,
   type StudyRoomType,
 } from "@/lib/amplitude";
+import type { MeasureMode } from "@/features/measure-mode/measureMode";
 import { formatLockStartedToast } from "@/features/app-lock/appLockSummary";
 import {
   startAppLock,
@@ -79,6 +82,7 @@ import {
 import type { SessionTimeline, SessionTotals } from "./sessionTimeline";
 import {
   closeSessionTimeline,
+  cutSessionTimeline,
   splitPauseSec,
   computeSessionTotals,
   createSessionTimeline,
@@ -91,6 +95,7 @@ import {
 import { reportActiveSession } from "./reportActiveSession";
 import { clampObservations } from "./sessionRequestClamp";
 import type { RestoredSession } from "./restoreActiveSession";
+import { wasPausedAtReport } from "./sessionResume";
 import type { SessionTuningConfig } from "./sessionTuning";
 import type { SubjectSegmentTracker, SubjectSelection } from "./subjectSegments";
 import {
@@ -98,7 +103,7 @@ import {
   materializeSubjectSegments,
   selectSubjectSegment,
 } from "./subjectSegments";
-import { DEFAULT_SESSION_TUNING } from "./sessionTuning";
+import { AWAY_LIMIT_MS, DEFAULT_SESSION_TUNING } from "./sessionTuning";
 import { submitErrorMessage } from "./submitErrorMessage";
 import { submitStudySession } from "./submitStudySession";
 import type { PausedSnapshot } from "./usePauseAutoEnd";
@@ -141,6 +146,13 @@ export interface StudyRoomSessionOptions {
    * 마운트 시점에 한 번만 읽는다 — 세션이 도는 중에 바뀌면 타이머가 흔들린다.
    */
   readonly restored?: RestoredSession | null;
+  /**
+   * 이어서 공부하기로 고른 복원
+   *
+   * 자율 모드 기록의 공백을 일시정지가 아니라 공부 구간으로 열어 앱 밖 시간도 공부 시간에 넣는다.
+   * 마운트 시점에 한 번만 읽는다.
+   */
+  readonly resumeAway?: boolean;
   /**
    * 계측용 룸 종류(BY-472) — 소셜룸(`LiveRoomSession`)이 이 훅을 재사용하므로, 이 값
    * 없이는 `study_session_*` 이벤트에서 개인/그룹 세션이 구분되지 않아 F1 퍼널이 오염된다.
@@ -188,6 +200,13 @@ export interface StudyRoomSessionOptions {
    */
   readonly multiTimerUsage?: () => MultiTimerUse;
   /**
+   * 계측용 싱글룸 화면 표시 기록 조회
+   *
+   * 종료 시점에 한 번 읽어 `study_session_ended`에 싣는다.
+   * 작은 카메라 창이 없는 소셜룸은 생략한다.
+   */
+  readonly displayUsage?: () => SessionDisplayEnd;
+  /**
    * 세션이 끝난 순간 한 번 부르는 알림
    *
    * 서버 제출 성패와 관계없이 기기가 잰 값을 준다.
@@ -202,6 +221,13 @@ export interface StudyRoomSessionOptions {
    * 소셜룸은 넘기지 않는다. 카메라 꺼짐이 타일과 컨트롤 바에 그대로 보인다.
    */
   readonly onCameraLost?: () => void;
+  /**
+   * 측정 방식
+   *
+   * 카메라 없이 타이머로만 측정하는 세션은 TIMER를 넘겨 진행 보고와 제출에 싣는다.
+   * 넘기지 않으면 카메라로 측정하는 세션이고 요청은 이 옵션이 없던 때와 같다.
+   */
+  readonly source?: Exclude<StudySessionSource, "MANUAL">;
 }
 
 /**
@@ -228,6 +254,7 @@ function newSessionInitial(startedAtMs: number, initialSubjectId: number | undef
     priorEvents: [] as StatusEventPayload[],
     serverSeenMs: 0,
     restored: false,
+    resumedAway: false,
     subjectTracker:
       initialSubjectId !== undefined &&
       Number.isSafeInteger(initialSubjectId) &&
@@ -235,6 +262,19 @@ function newSessionInitial(startedAtMs: number, initialSubjectId: number | undef
         ? selectSubjectSegment(createSubjectSegmentTracker(), initialSubjectId, startedAtMs)
         : createSubjectSegmentTracker(),
   };
+}
+
+/** 진행 보고 한 번의 요청 옵션 */
+interface SnapshotRequest {
+  /** 앱을 나가는 순간의 보고라 페이지가 닫혀도 끝까지 보낸다. */
+  readonly keepalive?: boolean;
+  /**
+   * 앞 보고가 끝나기를 기다리지 않고 보낼지
+   *
+   * 앱에 돌아온 순간의 보고에 건다.
+   * 앱 밖에서 웹뷰 시계가 멈춰 나가는 보고가 매달려 있으면 그 뒤에 서는 동안 서버가 2시간으로 확정할 수 있다.
+   */
+  readonly immediate?: boolean;
 }
 
 /** 서버가 준 이벤트 뒤에 타임라인이 만든 이벤트를 잇는다. 화면과 제출이 같은 규칙을 쓰게 한 곳에 둔다. */
@@ -272,14 +312,18 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   const tickMs = options.tickMs ?? 200;
   // 계측과 감지 시간 선택에 쓴다. 마운트 후 바뀌지 않는다(옵션 전체가 마운트 1회 계약).
   const roomType: StudyRoomType = options.roomType ?? "single";
+  const source = options.source ?? "MEASURED";
+  const measureMode: MeasureMode = source === "TIMER" ? "timer" : "camera";
   // 계측 전용 — 호출부가 렌더마다 새 함수를 줄 수 있어 최신 것을 들고 있다가 종료 시점에 읽는다.
   const ambientUsageRef = useRef(options.ambientUsage);
   const ambientSoundPlaysRef = useRef(options.ambientSoundPlays);
   const multiTimerUsageRef = useRef(options.multiTimerUsage);
+  const displayUsageRef = useRef(options.displayUsage);
   useLayoutEffect(() => {
     ambientUsageRef.current = options.ambientUsage;
     ambientSoundPlaysRef.current = options.ambientSoundPlays;
     multiTimerUsageRef.current = options.multiTimerUsage;
+    displayUsageRef.current = options.displayUsage;
   });
   const onEndedRef = useRef(options.onEnded);
   useLayoutEffect(() => {
@@ -295,6 +339,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    * 크래시 시점에 이미 일시정지 중이었으면 서버가 준 마지막 이벤트가 마지막 보고 시각에서
    * 끝나는 일시정지다. 그대로 두고 공백을 이어 붙이면 일시정지가 2회로 세져, 사용자가 한 번
    * 누른 것이 결과 화면에 두 번으로 보인다. 그래서 그 이벤트를 빼고 그 시작 시각부터 연다.
+   * 이어서 공부하기를 고른 자율 모드 기록은 공백을 일시정지가 아니라 공부 구간으로 연다.
    */
   const [initial, setInitial] = useState(() => {
     const restored = options.restored ?? null;
@@ -302,23 +347,23 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       return newSessionInitial(Date.now(), options.initialSubjectId);
     }
     const priorEvents = [...restored.events];
-    const last = priorEvents[priorEvents.length - 1];
-    const mergeable =
-      last !== undefined &&
-      last.status === "PAUSE" &&
-      Date.parse(last.endedAt) === restored.reportedAtMs;
-    if (mergeable) {
-      priorEvents.pop();
-    }
-    const gapFromMs = mergeable ? Date.parse(last.startedAt) : restored.reportedAtMs;
+    const pausedAtReport = wasPausedAtReport(restored) ? priorEvents.pop() : undefined;
+    const gapFromMs =
+      pausedAtReport !== undefined ? Date.parse(pausedAtReport.startedAt) : restored.reportedAtMs;
+    // 일시정지 중에 끊긴 기록은 이어서 공부하기를 골랐어도 앱 밖 시간을 공부로 치지 않는다.
+    const resumedAway = options.resumeAway === true && pausedAtReport === undefined;
     return {
       startedAtMs: restored.startedAtMs,
-      timeline: createSessionTimeline(gapFromMs, pauseState("BACKGROUND")),
+      timeline: createSessionTimeline(
+        gapFromMs,
+        resumedAway ? FOCUS_STATE : pauseState("BACKGROUND"),
+      ),
       baseStudySec: restored.baseStudySec,
       baseFocusSec: restored.baseFocusSec,
       priorEvents,
       serverSeenMs: restored.reportedAtMs,
       restored: true,
+      resumedAway,
       // 마지막 구간의 과목이 마지막 보고 시각부터 다시 열린다 — 죽어 있던 동안은 위 타임라인이
       // 일시정지로 기록해 서버 계산에서 그 몫이 0이 된다.
       subjectTracker: createSubjectSegmentTracker(
@@ -347,10 +392,23 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   // 시도 계측(attempt)이 부풀고 타임라인 닫기가 중복 실행된다.
   const submitInFlightRef = useRef(false);
   // 진행 스냅샷 보고 가드 — 겹침·정지·중복보고를 각각 막는다.
-  const snapshotInFlightRef = useRef(false);
-  const requestSnapshotRef = useRef<(() => void) | null>(null);
+  const snapshotInFlightRef = useRef(0);
+  const requestSnapshotRef = useRef<((request?: SnapshotRequest) => void) | null>(null);
   const snapshotStoppedRef = useRef(false);
   const snapshotErrorReportedRef = useRef(false);
+  /**
+   * 자율 모드에서 앱 밖에 있는지
+   *
+   * 앱 밖에 있는 동안은 주기 보고를 멈춘다.
+   */
+  const awayRef = useRef(false);
+  /**
+   * 자율 모드에서 공부하던 채 앱을 나간 시각
+   *
+   * 2시간 상한을 재는 기준이다.
+   * 일시정지 중에 나갔으면 일시정지 자동 종료가 맡아서 null로 둔다.
+   */
+  const awayFromMsRef = useRef<number | null>(null);
 
   /**
    * 과목 구간 — 전환 시각 기록은 `subjectSegments.ts`, 여기는 시각을 넘겨주는 연결만.
@@ -534,10 +592,10 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
     }
     startTrackedRef.current = true;
     // 복원 진입은 같은 세션의 두 번째 "시작"이다 — 완주율 분모가 부풀지 않게 표시해서 보낸다.
-    trackStudySessionStarted(roomType, initial.restored);
+    trackStudySessionStarted(roomType, initial.restored, measureMode);
     // Meta 광고 전환 — 복원 진입은 함수 안에서 걸러진다.
     trackMetaStudySessionStarted(roomType, initial.restored);
-  }, [phase.name, roomType, initial.restored]);
+  }, [phase.name, roomType, initial.restored, measureMode]);
 
   /**
    * 순공 1분 달성 이벤트
@@ -755,20 +813,28 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
 
   // studying 동안 30초마다, 과목을 선택하면 즉시 진행 스냅샷을 서버에 보고한다. 강제종료로 최종 제출이 안 와도
   // 서버가 마지막 스냅샷으로 세션을 자동 확정한다.
+  // 자율 모드가 앱 밖에 있는 동안은 주기 보고를 보내지 않는다.
+  // 서버가 마지막 보고 시각을 나간 시각으로 기억해야 돌아오지 않은 세션이 그 시각으로 확정된다.
   useEffect(() => {
     if (phase.name !== "studying" || userId === null) {
       return;
     }
     let disposed = false;
-    let queued = false;
+    let queued: SnapshotRequest | null = null;
     let clockRetry: ReturnType<typeof setTimeout> | undefined;
-    const send = () => {
+    const send = (request: SnapshotRequest = {}) => {
       if (disposed || snapshotStoppedRef.current) return;
-      if (snapshotInFlightRef.current) {
-        queued = true;
+      // 앱을 나가는 순간의 보고는 앞 보고를 기다리면 페이지가 닫혀 못 나갈 수 있어 바로 보낸다.
+      // 서버는 늦게 도착한 옛 보고 시각을 무시해서 겹쳐 보내도 된다.
+      if (
+        snapshotInFlightRef.current > 0 &&
+        request.keepalive !== true &&
+        request.immediate !== true
+      ) {
+        queued = request;
         return;
       }
-      queued = false;
+      queued = null;
       const nowMs = Date.now();
       const tracker = subjectTrackerRef.current;
       const lastClosed = tracker.closed[tracker.closed.length - 1];
@@ -779,22 +845,26 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       // 선택 해제도 마지막 구간의 끝보다 보고 시각이 늦어야 복구 시 다시 선택되지 않는다.
       if (nowMs <= Math.max(startedAtMsRef.current, subjectBoundaryMs)) {
         clearTimeout(clockRetry);
-        clockRetry = setTimeout(send, 10);
+        clockRetry = setTimeout(() => send(request), 10);
         return;
       }
       clearTimeout(clockRetry);
       const totals = withBase(computeSessionTotals(timelineRef.current, nowMs));
       const events = allEvents(nowMs);
-      snapshotInFlightRef.current = true;
-      reportActiveSession({
-        startedAtMs: startedAtMsRef.current,
-        reportedAtMs: nowMs,
-        studySec: totals.studySec,
-        focusSec: totals.focusSec,
-        events,
-        subjectSegments: materializeSubjectSegments(subjectTrackerRef.current, nowMs),
-        observations: getObservationsRef.current?.(),
-      })
+      snapshotInFlightRef.current += 1;
+      reportActiveSession(
+        {
+          startedAtMs: startedAtMsRef.current,
+          reportedAtMs: nowMs,
+          studySec: totals.studySec,
+          focusSec: totals.focusSec,
+          events,
+          subjectSegments: materializeSubjectSegments(subjectTrackerRef.current, nowMs),
+          observations: getObservationsRef.current?.(),
+          source,
+        },
+        { keepalive: request.keepalive === true },
+      )
         .catch((error: unknown) => {
           // 네트워크 실패(ApiError 아님)는 조용히 다음 주기에 다시 보낸다.
           if (!(error instanceof ApiError)) {
@@ -811,14 +881,19 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           }
         })
         .finally(() => {
-          snapshotInFlightRef.current = false;
-          if (queued && !disposed) send();
+          snapshotInFlightRef.current -= 1;
+          if (snapshotInFlightRef.current === 0 && queued !== null && !disposed) send(queued);
         });
     };
     requestSnapshotRef.current = send;
+    // 이어받은 기록은 서버가 마지막 보고 2시간 뒤 확정하므로 30초를 기다리지 않고 바로 보고한다.
     const initialReport =
-      subjectTrackerRef.current.current !== null ? setTimeout(send, 1) : undefined;
-    const timer = setInterval(send, 30_000);
+      subjectTrackerRef.current.current !== null || initial.resumedAway
+        ? setTimeout(send, 1)
+        : undefined;
+    const timer = setInterval(() => {
+      if (!awayRef.current) send();
+    }, 30_000);
     return () => {
       disposed = true;
       requestSnapshotRef.current = null;
@@ -826,7 +901,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       clearTimeout(clockRetry);
       clearInterval(timer);
     };
-  }, [allEvents, phase.name, userId, withBase]);
+  }, [allEvents, initial.resumedAway, phase.name, source, userId, withBase]);
 
   /**
    * 수동 일시정지와 백그라운드 전환
@@ -963,25 +1038,6 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
   }, [reviveCamera]);
 
   /**
-   * 화면 꺼짐·백그라운드 → **수동 일시정지와 같은 `pause()` 통로**로 들어간다(2026-07-26 확정).
-   * 트리거만 `"BACKGROUND"`로 다르고 상태·화면·문구·시간 처리·서버 전송은 완전히 동일하다 —
-   * 별도 상태나 별도 화면을 만들지 않는다.
-   *
-   * 복귀는 위 `onReturnFromBackground`로 넘긴다(수동 재개 확정 — 자동으로 이어지지 않는다).
-   */
-  useEffect(() => {
-    if (phase.name !== "studying") {
-      return;
-    }
-    return systemPause.subscribe({
-      onLeave: () => {
-        pause("BACKGROUND");
-      },
-      onReturn: onReturnFromBackground,
-    });
-  }, [onReturnFromBackground, pause, phase.name, systemPause]);
-
-  /**
    * 과목 선택 전환 — 지금 시각으로 이전 구간을 닫고 새 구간을 연다. 종료 뒤(`phase !== "studying"`)에는
    * 제출이 endedAt에서 구간을 닫으므로 그 뒤의 전환은 보내지지 않는다 — 막지 않는다.
    */
@@ -1020,9 +1076,11 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
    * (SCR-S3-7·S3-8 Current Limitations). 어느 쪽이든 **이 한 줄만** 바꾸면 된다 —
    * 시각 계산을 다른 곳으로 흩뜨리지 않는다. 서버 검증
    * (`studySec ≤ (endedAt − startedAt) − PAUSE 합`)과 S4 헤더의 시각 범위가 여기에 달려 있다.
+   * atMs를 주면 그 시각을 종료 시각으로 쓰고 그 뒤에 열린 구간은 타임라인에서 잘라 낸다.
+   * 앱 밖 2시간 상한처럼 끝난 시각이 지금보다 앞선 종료가 쓴다.
    */
   const endAndSubmit = useCallback(
-    async (reason: SessionEndReason = MANUAL_END_REASON) => {
+    async (reason: SessionEndReason = MANUAL_END_REASON, atMs?: number) => {
       // 카운트다운 동안에는 아직 시작한 세션이 없다.
       if (counting || submitInFlightRef.current) {
         return;
@@ -1033,10 +1091,13 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
       // 종료 시각이 시작 시각에 붙어, 제출 클램프가 이어받은 누적값을 통째로 깎아 낸다.
       // 서버가 준 이벤트도 세션 구간 밖으로 밀려나 검증에 걸린다.
       if (endedAtMsRef.current == null) {
-        endedAtMsRef.current = Math.max(Date.now(), initial.serverSeenMs);
+        endedAtMsRef.current = Math.max(atMs ?? Date.now(), initial.serverSeenMs);
       }
       const endedAtMs = endedAtMsRef.current;
-      timelineRef.current = closeSessionTimeline(timelineRef.current, endedAtMs);
+      timelineRef.current =
+        atMs === undefined
+          ? closeSessionTimeline(timelineRef.current, endedAtMs)
+          : cutSessionTimeline(timelineRef.current, endedAtMs);
       setTimeline(timelineRef.current);
       const closed = timelineRef.current;
       const finalTotals = withBase(computeSessionTotals(closed, endedAtMs));
@@ -1053,6 +1114,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
         // 계측도 최초 값을 따라야 한다. 이름을 달리해 두 값이 다를 수 있음을 드러낸다.
         const finalReason = endReasonRef.current;
         const ambient = ambientUsageRef.current?.();
+        const display = displayUsageRef.current?.();
         const { pauseSec, breakSec } = splitPauseSec(closed, endedAtMs);
         trackStudySessionEnded({
           startedAtMs: startedAtMsRef.current,
@@ -1062,8 +1124,14 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           focusSec: finalTotals.focusSec,
           pauseSec,
           distractionSec: finalTotals.distractionSec,
-          endReason: finalReason?.kind ?? "MANUAL",
-          pauseTrigger: finalReason?.kind === "AUTO" ? finalReason.trigger : null,
+          endReason:
+            finalReason?.kind === "AUTO" && finalReason.trigger === "AWAY_LIMIT"
+              ? "AWAY_LIMIT"
+              : (finalReason?.kind ?? "MANUAL"),
+          pauseTrigger:
+            finalReason?.kind === "AUTO" && finalReason.trigger !== "AWAY_LIMIT"
+              ? finalReason.trigger
+              : null,
           willSubmit: userId !== null,
           ...(ambient && { ambientSoundUsed: ambient.used, ambientSoundSec: ambient.sec }),
           breakSec,
@@ -1074,6 +1142,8 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
               ? undefined
               : clampObservations(getObservationsRef.current(), startedAtMsRef.current, endedAtMs)
                   .length,
+          ...(display && { display }),
+          measureMode,
         });
         for (const play of ambientSoundPlaysRef.current?.() ?? []) {
           if (play.sec <= 0) continue;
@@ -1119,6 +1189,7 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
             // 재시도도 같은 시작 시각으로 다시 파생한다 — 그 사이 체크한 할 일이 있으면 함께 실린다.
             completedTaskIds: await getCompletedTaskIdsRef.current?.(startedAtMsRef.current),
             observations: getObservationsRef.current?.(),
+            source,
           }),
         )
         .then((sessions) => {
@@ -1146,8 +1217,87 @@ export function useStudyRoomSession(userId: number | null, options: StudyRoomSes
           submitInFlightRef.current = false;
         });
     },
-    [allEvents, counting, initial.serverSeenMs, initial.startedAtMs, roomType, userId, withBase],
+    [
+      allEvents,
+      counting,
+      initial.serverSeenMs,
+      initial.startedAtMs,
+      measureMode,
+      roomType,
+      source,
+      userId,
+      withBase,
+    ],
   );
+
+  /**
+   * 화면 꺼짐·백그라운드 전환
+   *
+   * 관리 모드는 앱 밖에서 잴 수 없어 수동 일시정지와 같은 pause("BACKGROUND") 통로로 멈춘다.
+   * 자율 모드는 카메라를 쓰지 않아 앱 밖 시간도 공부 시간이고, 나간 시각만 적어 2시간 상한을 잰다.
+   * 자율 모드라도 직접 멈췄거나 휴식 중이면 관리 모드와 같게 멈추고 2시간 상한 대신 일시정지 자동 종료를 따른다.
+   * 자율 모드는 멈춘 상태로 나가도 그 상태를 한 번 보고해서 다시 열 때 일시정지 중이던 기록으로 읽힌다.
+   * 숨은 탭의 타이머는 늦게 돌아서 상한 시각에 한 번 끝내 보고, 돌아왔을 때 다시 확인한다.
+   * 복귀하면 onReturnFromBackground가 카메라를 다시 잡는다.
+   */
+  useEffect(() => {
+    if (phase.name !== "studying") {
+      return;
+    }
+    let limitTimer: ReturnType<typeof setTimeout> | undefined;
+    // 상한을 넘겼으면 나간 시각에서 2시간 뒤를 종료 시각으로 끝내고 참을 돌려준다.
+    const endIfAwayTooLong = () => {
+      const awayFromMs = awayFromMsRef.current;
+      if (awayFromMs === null || Date.now() - awayFromMs <= AWAY_LIMIT_MS) {
+        return false;
+      }
+      void endAndSubmit(autoEndReason("AWAY_LIMIT"), awayFromMs + AWAY_LIMIT_MS);
+      return true;
+    };
+    const armLimitTimer = () => {
+      const awayFromMs = awayFromMsRef.current;
+      if (awayFromMs === null) {
+        return;
+      }
+      clearTimeout(limitTimer);
+      limitTimer = setTimeout(endIfAwayTooLong, awayFromMs + AWAY_LIMIT_MS + 1 - Date.now());
+    };
+    // 앱 밖에 있는 동안 다시 구독돼도 상한 시계를 잃지 않는다.
+    armLimitTimer();
+    const unsubscribe = systemPause.subscribe({
+      onLeave: () => {
+        if (source !== "TIMER") {
+          pause("BACKGROUND");
+          return;
+        }
+        // visibilitychange와 pagehide가 함께 와도 처음 나간 시각을 지킨다.
+        if (awayRef.current) {
+          return;
+        }
+        awayRef.current = true;
+        if (currentState(timelineRef.current).kind === "PAUSE") {
+          pause("BACKGROUND");
+        } else {
+          awayFromMsRef.current = Date.now();
+          armLimitTimer();
+        }
+        requestSnapshotRef.current?.({ keepalive: true });
+      },
+      onReturn: () => {
+        clearTimeout(limitTimer);
+        if (awayRef.current && !endIfAwayTooLong()) {
+          awayRef.current = false;
+          awayFromMsRef.current = null;
+          requestSnapshotRef.current?.({ immediate: true });
+        }
+        onReturnFromBackground();
+      },
+    });
+    return () => {
+      clearTimeout(limitTimer);
+      unsubscribe();
+    };
+  }, [endAndSubmit, onReturnFromBackground, pause, phase.name, source, systemPause]);
 
   /**
    * 일시정지 자동 종료 감시 — **감시자는 이것 하나뿐이다**(S3-8).

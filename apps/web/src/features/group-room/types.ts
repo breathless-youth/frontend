@@ -1,3 +1,6 @@
+import type { MascotAppearance } from "@focusmakers/types";
+import type { MascotLook } from "@/components/mascot/types";
+
 import type { RoomJoinPolicy } from "./model/joinPolicy";
 import type { DeskMember } from "./model/desks";
 import type { ApplyBlockReason } from "./model/limits";
@@ -108,6 +111,8 @@ export interface WeeklyRankRow extends ProfilePhoto {
   weeklyStudySec: number;
   accumulating: boolean;
   isMe: boolean;
+  /** 서버가 책상에 실어 준 모습 그대로이고, 그릴지는 화면이 포인트를 연 곳인지 보고 정한다. */
+  mascot?: MascotAppearance;
 }
 
 export interface RoomHome {
@@ -136,6 +141,8 @@ export interface RoomMemberRow extends ProfilePhoto {
   isOwner: boolean;
   isMe: boolean;
   lastStudiedAt: string | null;
+  /** 사진이 없을 때 그릴 그 멤버의 마스코트와 소품이며, 서버가 주지 않았거나 모르는 마스코트면 없다. */
+  look?: MascotLook;
 }
 
 export interface BlockedUser extends ProfilePhoto {

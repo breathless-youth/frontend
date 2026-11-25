@@ -39,6 +39,11 @@ export const API_ENDPOINTS = {
   register: { version: "2", parsedBy: "apps/mobile/lib/auth.ts registerUser" },
   /** `POST /api/auth/refresh` — 구 앱에 토큰이 없어 갱신을 부른 적이 없으니 새 경로다. */
   refresh: { version: "1", parsedBy: "apps/mobile/lib/auth.ts refreshOnce" },
+  /** `GET /api/auth/review-login/status`, `POST /api/auth/review-login`: 심사용 로그인. 새 경로다. */
+  reviewLogin: {
+    version: "1",
+    parsedBy: "apps/web/src/lib/reviewLoginApi.ts, apps/mobile/lib/auth.ts reviewLogin",
+  },
   /** `PUT /api/push-tokens` — 기기 푸시 토큰 등록. 새 경로다. 응답 본문 없이 204. */
   pushTokens: {
     version: "1",
@@ -106,6 +111,23 @@ export const API_ENDPOINTS = {
     parsedBy: "apps/web/src/lib/rankingApi.ts postRankingRecordsSeen",
   },
 
+  /**
+   * `GET /api/points`, `GET /api/points/products`, `GET /api/points/study-reward`, `GET /api/points/history`: 잔액, 충전 상품, 공부 끝 보상, 포인트 기록.
+   * 포인트·상점·꾸미기·마스코트 키는 모두 2026-11-16 개발 서버 Swagger의 `API-Version` 기본값 1과 같다.
+   * 응답은 같은 Swagger의 `PointBalanceResponse`, `PointProductsResponse`, `StudyRewardResponse`, `PointHistoryResponse`와 필드를 대조했다.
+   */
+  points: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },
+  /** `GET /api/points/earn`: 오늘 받을 수 있는 포인트와 메달 포인트 표. 응답은 2026-11-16 개발 서버 Swagger의 `EarnOverviewResponse`와 필드를 대조했다. */
+  pointsEarn: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },
+  /** `POST /api/points/rewards/{attendance,daily-goal,medals}/claim`: 출석·하루 목표·랭킹 메달 받기. 응답은 `ClaimResponse`와 메달의 `MedalClaimAllResponse`와 대조했다. */
+  pointsRewards: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },
+  /** `GET /api/shop/items`, `POST /api/shop/items/{id}/purchase`: 꾸미기 상점 목록과 구매. 응답은 `ShopItemListResponse`, `PurchaseResponse`와 대조했다. */
+  shop: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },
+  /** `/api/decorations` 이하 전부: 소품 착용과 타이머 배경 적용. 요청은 `AccessoryEquipRequest`·`DecorationItemRequest`, 응답은 `DecorationResponse`와 대조했다. */
+  decorations: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },
+  /** `/api/mascots` 이하 전부: 마스코트 목록, 선택, 구매, 새로 열린 마스코트 확인. 요청은 `MascotSelectRequest`, 응답은 `MascotListResponse`·`MascotPurchaseResponse`와 대조했다. */
+  mascots: { version: "1", parsedBy: "apps/web/src/lib/pointsApi.ts" },
+
   /** `POST /api/study-sessions` — 세션 제출 */
   studySessionSubmit: {
     version: "2",
@@ -150,6 +172,15 @@ export const API_ENDPOINTS = {
   groups: { version: "1", parsedBy: "apps/web/src/lib/groupRoomApi.ts" },
   /** `/api/blocks` 이하 전부: 차단 목록과 차단 해제. 새 경로라 구 앱 명세가 없다. */
   blocks: { version: "1", parsedBy: "apps/web/src/lib/groupRoomApi.ts" },
+
+  /**
+   * `PUT /api/premium-waitlist/me`: 프리미엄 기능 사전 신청(BY-1392 실험, 2026-11-30까지). 응답 본문 없이 204.
+   * 계약은 BE BY-1394와 맞춘 설계 문서 4절이 원본이다. 토큰 출처가 없는 구 앱에는 카드를 보이지 않아 구 계약이 없다.
+   */
+  premiumWaitlist: {
+    version: "2",
+    parsedBy: "apps/web/src/features/premium-fake-door/premiumWaitlistApi.ts",
+  },
 
   /** `POST /api/rtc-stats` — WebRTC 통계 보고 */
   rtcStats: { version: "2", legacy: "1", parsedBy: "apps/web/src/lib/rtcStatsApi.ts" },

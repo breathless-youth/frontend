@@ -4,6 +4,7 @@ import { ActivityIndicator, BackHandler, Platform } from "react-native";
 
 import SessionRoomScreen from "../app/room/[id]";
 import { getRnda, type RndaApi } from "../lib/appLock/rnda";
+import { applyLiveActivitySnapshot, endLiveActivity } from "../lib/liveActivity";
 import type * as OrientationModule from "../lib/orientation";
 import { offerRouteToSession } from "../lib/sessionInvite";
 import {
@@ -22,7 +23,7 @@ import {
  * 덮는다.
  */
 
-const mockRoomParams: { id: string; initialSubjectId?: string } = { id: "1" };
+const mockRoomParams: { id: string; initialSubjectId?: string; measureMode?: string } = { id: "1" };
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => mockRoomParams,
   router: {
@@ -45,6 +46,11 @@ jest.mock("../lib/orientation", () => ({
 }));
 
 jest.mock("../lib/appLock/rnda", () => ({ getRnda: jest.fn(() => null) }));
+jest.mock("../lib/liveActivity", () => ({
+  applyLiveActivitySnapshot: jest.fn(),
+  endLiveActivity: jest.fn(),
+  isLiveActivitySupported: () => false,
+}));
 
 jest.mock("expo-constants", () => ({
   __esModule: true,
@@ -92,12 +98,33 @@ describe("SessionRoomScreen", () => {
       delete mockRoomParams.initialSubjectId;
     }
   });
+  it.each([
+    ["timer", "timer"],
+    ["camera", null],
+    ["TIMER", null],
+  ])(
+    "라우트의 측정 방식 %s는 timer일 때만 웹 세션 주소에 싣는다",
+    async (measureMode, expected) => {
+      mockRoomParams.measureMode = measureMode;
+      try {
+        render(<SessionRoomScreen />);
+        await screen.findByTestId("session-webview");
+        expect(
+          new URL(
+            screen.getByTestId("session-webview").props.source.uri as string,
+          ).searchParams.get("measureMode"),
+        ).toBe(expected);
+      } finally {
+        delete mockRoomParams.measureMode;
+      }
+    },
+  );
   it("세션 경로 + 탭과 동일한 쿼리(appVersion)로 조립한 URL을 WebView에 넘긴다", async () => {
     render(<SessionRoomScreen />);
 
     expect(await screen.findByTestId("session-webview")).toBeTruthy();
     expect(screen.getByTestId("session-webview").props.source).toEqual({
-      uri: "https://web.test/room/1?subjectStart=1&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&restNotify=1&pushPermission=1&accountActions=1&nativeTabBar=1&lang=ko",
+      uri: "https://web.test/room/1?subjectStart=1&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&restNotify=1&pushPermission=1&accountActions=1&nativeTabBar=1&points=1&reviewLogin=1&lang=ko",
     });
   });
 
@@ -107,7 +134,7 @@ describe("SessionRoomScreen", () => {
     expect(await screen.findByTestId("session-webview")).toBeTruthy();
     expect(screen.getByTestId("session-webview").props.style).toEqual({
       flex: 1,
-      backgroundColor: "#1a2029",
+      backgroundColor: "#0B0F14",
     });
   });
 
@@ -356,5 +383,34 @@ describe("SessionRoomScreen: 방해 앱 잠금", () => {
       "resetBlocks",
       "stopMonitoring",
     ]);
+  });
+});
+
+describe("SessionRoomScreen: 잠금화면 공부 표시", () => {
+  beforeEach(() => {
+    jest.mocked(applyLiveActivitySnapshot).mockClear();
+    jest.mocked(endLiveActivity).mockClear();
+  });
+
+  it("웹이 보낸 세션 상태를 잠금화면 표시에 넘긴다", async () => {
+    render(<SessionRoomScreen />);
+    const webview = await screen.findByTestId("session-webview");
+    const session = { mode: "timer", subject: null, state: "paused", elapsedSec: 42 };
+    act(() => {
+      (webview.props.onMessage as (event: unknown) => void)({
+        nativeEvent: { data: JSON.stringify({ type: "live-activity", session, atMs: 7 }) },
+      });
+    });
+
+    expect(applyLiveActivitySnapshot).toHaveBeenCalledWith(session, 7);
+  });
+
+  it("화면이 닫히면 웹이 끝내라고 보내지 못해도 표시를 끝낸다", () => {
+    const { unmount } = render(<SessionRoomScreen />);
+    expect(endLiveActivity).not.toHaveBeenCalled();
+
+    unmount();
+
+    expect(endLiveActivity).toHaveBeenCalledTimes(1);
   });
 });

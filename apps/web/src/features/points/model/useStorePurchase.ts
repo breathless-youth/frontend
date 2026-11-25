@@ -1,0 +1,77 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { useRef, useState } from "react";
+
+import { trackPointsStorePurchase } from "@/lib/amplitude";
+import { pointsKeys } from "@/lib/pointsQueries";
+
+import { usePointsGateway, usePointsUserId } from "../gateway/PointsGatewayContext";
+import type { ShopItem } from "../types";
+import { useMemberOnly } from "./useMemberOnly";
+import { useStorePrices } from "./useStorePrices";
+
+export type StorePurchaseStep = "idle" | "paying" | "waiting" | "late" | "failed";
+
+/**
+ * 스토어 결제로 상품을 사는 흐름
+ *
+ * 가격 문구는 스토어가 알려 주고, 산 상품은 서버가 결제 알림을 받은 뒤에 보유로 바뀐다.
+ * 결제가 끝나면 처음으로 돌아갈 뿐 입히거나 적용하지 않는다.
+ * 결제 상품은 처음 착용하기 전까지 7일 안에 철회할 수 있고, 서버는 소품 착용과 배경 적용을 첫 착용으로 기록하기 때문이다.
+ * 결제를 맡을 수 없는 곳(브라우저, 예전 앱)에서는 available이 false라 화면이 살 길 대신 안내를 보인다.
+ * 결제 창이 떠 있는 동안 버튼을 다시 눌러도 요청이 한 번만 나가게 ref로 막는다.
+ * 취소는 사용자가 고른 일이라 알리지 않고 처음으로 돌아간다.
+ * 결제는 회원만 하므로 비회원이 누르면 결제 창 대신 로그인 화면을 연다.
+ * 회원으로 알았는데 서버가 결제용 ID를 주지 않으면 결제 창을 열지 않고 같은 로그인 화면으로 보낸다.
+ */
+export function useStorePurchase(items: readonly ShopItem[]) {
+  const gateway = usePointsGateway();
+  const userId = usePointsUserId();
+  const queryClient = useQueryClient();
+  const [step, setStep] = useState<StorePurchaseStep>("idle");
+  const [target, setTarget] = useState<ShopItem | null>(null);
+  const inFlightRef = useRef(false);
+  const memberOnly = useMemberOnly();
+  const price = useStorePrices(items);
+
+  async function buy(item: ShopItem) {
+    if (item.acquire.type !== "store" || item.owned || inFlightRef.current) {
+      return;
+    }
+    if (!memberOnly.allow()) {
+      return;
+    }
+    inFlightRef.current = true;
+    setTarget(item);
+    setStep("paying");
+    const kind = item.slot === "set" ? "set" : item.kind;
+    trackPointsStorePurchase("attempted", kind);
+    try {
+      const result = await gateway.purchaseStoreItem(item.id, () => setStep("waiting"));
+      trackPointsStorePurchase(result.status, kind);
+      setStep(
+        result.status === "completed" || result.status === "cancelled" ? "idle" : result.status,
+      );
+    } catch (error) {
+      trackPointsStorePurchase("failed", kind);
+      setStep(memberOnly.redirected(error) ? "idle" : "failed");
+    } finally {
+      inFlightRef.current = false;
+      void queryClient.invalidateQueries({ queryKey: pointsKeys.shop(userId) });
+    }
+  }
+
+  return {
+    available: gateway.capabilities.storeItems,
+    step,
+    target,
+    /** 칸의 가격 자리에 쓰며 받는 중인지도 함께 알려 준다. */
+    price,
+    priceLabel: (item: ShopItem) => {
+      const known = price(item);
+      return known.status === "known" ? known.label : null;
+    },
+    buy,
+    retry: () => (target === null ? undefined : void buy(target)),
+    close: () => setStep("idle"),
+  };
+}

@@ -38,15 +38,21 @@ export function DeskGrid({
   const { t } = useTranslation("group-room");
   // 판단 모듈이 순서를 정하며 멤버를 공통 모양으로 돌려주므로 내 자리는 아이디로 다시 찾는다.
   const myUserId = members.find((member) => member.isMe)?.userId;
+  // 포인트를 연 곳에서는 모든 멤버가 모습을 받으므로 한 명이라도 있으면 빈자리까지 마스코트 자리로 맞춘다.
+  const mascotSeats = members.some((member) => member.mascot !== undefined);
   return (
     <div>
       <ul aria-label={t("deskGrid.aria.list")} className="grid grid-cols-3 gap-x-1.5 gap-y-3 pt-1">
         {arrangeDesks(members).map((slot, index) =>
           slot.kind === "empty" ? (
             onInvite ? (
-              <InviteDesk key={`empty-${index}`} onInvite={onInvite} />
+              <InviteDesk key={`empty-${index}`} onInvite={onInvite} mascotSeat={mascotSeats} />
             ) : (
-              <EmptyDesk key={`empty-${index}`} open={visibility === "public"} />
+              <EmptyDesk
+                key={`empty-${index}`}
+                open={visibility === "public"}
+                mascotSeat={mascotSeats}
+              />
             )
           ) : (
             <MemberDesk
@@ -55,6 +61,7 @@ export function DeskGrid({
               tone={slot.tone}
               isMe={slot.member.userId === myUserId}
               elapsedSec={elapsedSec}
+              mascotSeat={mascotSeats}
             />
           ),
         )}
@@ -82,11 +89,13 @@ function MemberDesk({
   tone,
   isMe,
   elapsedSec,
+  mascotSeat,
 }: {
   member: DeskMember;
   tone: DeskTone;
   isMe: boolean;
   elapsedSec: number;
+  mascotSeat: boolean;
 }) {
   const { t } = useTranslation("group-room");
   const name = member.nickname;
@@ -108,7 +117,13 @@ function MemberDesk({
       data-me={isMe || undefined}
       className="flex min-w-0 flex-col items-center"
     >
-      <DeskFigure tone={tone} size="md" />
+      <DeskFigure
+        tone={tone}
+        size="md"
+        mascot={member.mascot}
+        mascotSeat={mascotSeat}
+        isMe={isMe}
+      />
       <div
         aria-hidden="true"
         className="mt-1 flex w-full min-w-0 flex-col items-center gap-0.5 text-center"
@@ -144,7 +159,7 @@ function MemberDesk({
   );
 }
 
-function EmptyDesk({ open }: { open: boolean }) {
+function EmptyDesk({ open, mascotSeat }: { open: boolean; mascotSeat: boolean }) {
   const { t } = useTranslation("group-room");
   const emptySeat = t("deskGrid.emptySeat");
   const openSeat = t("deskGrid.openSeat");
@@ -154,7 +169,7 @@ function EmptyDesk({ open }: { open: boolean }) {
       data-tone="empty"
       className="flex min-w-0 flex-col items-center"
     >
-      <DeskFigure tone="empty" size="md" />
+      <DeskFigure tone="empty" size="md" mascotSeat={mascotSeat} />
       <div
         aria-hidden="true"
         className="mt-1 flex flex-col items-center gap-0.5 text-center text-state-pause"
@@ -171,7 +186,7 @@ function EmptyDesk({ open }: { open: boolean }) {
  *
  * 빈 책상 그림은 그대로 두고 아래 글자만 초대로 바꿔서 멤버 책상 색과 다투지 않는다.
  */
-function InviteDesk({ onInvite }: { onInvite: () => void }) {
+function InviteDesk({ onInvite, mascotSeat }: { onInvite: () => void; mascotSeat: boolean }) {
   const { t } = useTranslation("group-room");
   return (
     <li data-tone="empty" className="flex min-w-0 flex-col items-center">
@@ -181,7 +196,7 @@ function InviteDesk({ onInvite }: { onInvite: () => void }) {
         onClick={onInvite}
         className="flex min-h-11 w-full flex-col items-center rounded-lg focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
       >
-        <DeskFigure tone="empty" size="md" />
+        <DeskFigure tone="empty" size="md" mascotSeat={mascotSeat} />
         <span
           aria-hidden="true"
           className="mt-1 inline-flex items-center gap-0.5 text-xs leading-4 font-bold text-primary"

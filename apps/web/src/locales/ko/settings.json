@@ -65,7 +65,17 @@
     "manual": "직접 이동하기"
   },
   "legal": {
-    "koreanOnly": "이 문서는 지금 한국어로만 제공돼요."
+    "koreanOnly": "이 문서는 지금 한국어로만 제공돼요.",
+    "revisionChanges": "{{date}}부터 바뀌어요",
+    "revisionPending": "이 판은 {{date}}부터 적용돼요",
+    "showUpcoming": {
+      "terms": "바뀌는 약관 보기",
+      "privacy": "바뀌는 방침 보기"
+    },
+    "showCurrent": {
+      "terms": "지금 약관 보기",
+      "privacy": "지금 방침 보기"
+    }
   },
   "account": {
     "logout": {

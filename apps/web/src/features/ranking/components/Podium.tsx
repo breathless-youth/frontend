@@ -2,6 +2,7 @@ import type { MedalRank, RankingBoardResponse, RankingType } from "@focusmakers/
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
+import { toOthersMascotLook } from "@/features/points/model/othersMascotLook";
 import pencil from "@/assets/mascot/silhouette-pencil.svg";
 import planner from "@/assets/mascot/silhouette-planner.svg";
 import stopwatch from "@/assets/mascot/silhouette-stopwatch.svg";
@@ -135,7 +136,12 @@ function PodiumSpot({
         </span>
       ) : (
         <span className="relative inline-flex">
-          <RankAvatar me={row.me} size={look.avatar} imageUrl={row.profileImageUrl} />
+          <RankAvatar
+            me={row.me}
+            size={look.avatar}
+            imageUrl={row.profileImageUrl}
+            look={toOthersMascotLook(row.mascot)}
+          />
           {!medalless && (
             <IllustMedalRing
               rank={spot}

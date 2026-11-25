@@ -1,0 +1,57 @@
+{
+  "title": "{{name}} 소품",
+  "mascotStrip": {
+    "label": "캐릭터 고르기",
+    "selected": "{{name}}, 고른 캐릭터",
+    "locked": "{{name}}, 아직 잠겨 있어요"
+  },
+  "slots": {
+    "label": "소품 부위",
+    "head": "머리 위",
+    "face": "얼굴",
+    "body": "몸 장식",
+    "wings": "날개",
+    "held": "물건",
+    "underfoot": "발밑",
+    "effect": "효과",
+    "set": "세트"
+  },
+  "setNotice": "세트를 입으면 다른 소품은 벗겨져요",
+  "preview": "{{name}} 미리 보기",
+  "grid": {
+    "label": "소품 고르기",
+    "owned": "보유",
+    "wearing": "착용 중",
+    "wearingLabel": "{{name}}, 착용 중",
+    "wearingPickedLabel": "{{name}}, 착용 중. 한 번 더 누르면 벗어요",
+    "ownedLabel": "{{name}}, 가지고 있어요",
+    "rewardHours": "{{target}}시간",
+    "rewardDays": "{{target}}일",
+    "rewardHoursLabel": "{{name}}, 순공 {{target}}시간 보상",
+    "rewardDaysLabel": "{{name}}, 연속 공부 {{target}}일 보상",
+    "takeOff": "벗기",
+    "empty": "이 부위에는 아직 소품이 없어요",
+    "store": "결제",
+    "storeLabel": "{{name}}, 결제 상품"
+  },
+  "action": {
+    "focusHours": "누적 순공 {{current}} / {{target}}시간",
+    "streakDays": "연속 공부 {{current}} / {{target}}일",
+    "progressHours": "순공 {{target}}시간 중 {{current}}시간",
+    "progressDays": "{{target}}일 중 {{current}}일"
+  },
+  "locked": {
+    "title": {
+      "book": "부기는 아직 잠겨 있어요",
+      "planner": "플래니는 아직 잠겨 있어요",
+      "pencil": "몽당이는 아직 잠겨 있어요",
+      "stopwatch": "타이미는 아직 잠겨 있어요",
+      "lamp": "램피는 아직 잠겨 있어요",
+      "padlock": "락키는 아직 잠겨 있어요",
+      "camcorder": "캠코미는 아직 잠겨 있어요"
+    },
+    "hint": "순공 {{remaining}} 더 하면 열려요.",
+    "progress": "{{name}}까지 {{percent}}% 모았어요",
+    "collect": "캐릭터 모으기"
+  }
+}

@@ -61,9 +61,17 @@ export function useNativeOrientationUnlock(): void {
  *
  * 공부 결과 화면이 쓴다: 싱글룸 네이티브 화면이 회전을 열어 두고, 결과는 같은 웹뷰 안 이동이라 그대로 두면 가로로 돈다.
  * 언마운트에서는 아무것도 보내지 않는다: 결과를 떠나면 다음 룸이나 앱 셸이 자기 방향을 정한다.
+ * 세션 도움말은 세로 배치만 있어 떠 있는 동안 세로로 고정하고, 세션 화면은 회전을 쓰므로 닫히면 `unlockOnRelease`로 되돌린다.
  */
-export function useNativePortraitLock(): void {
-  useEffect(() => holdOrientation(false), []);
+export function useNativePortraitLock(active = true, unlockOnRelease = false): void {
+  useEffect(() => {
+    if (!active) return;
+    const stop = holdOrientation(false);
+    return () => {
+      stop();
+      if (unlockOnRelease) postOrientation(true);
+    };
+  }, [active, unlockOnRelease]);
 }
 
 function postOrientation(unlocked: boolean): void {

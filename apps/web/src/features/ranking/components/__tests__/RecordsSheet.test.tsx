@@ -134,7 +134,7 @@ describe("RecordsSheet", () => {
     expect(screen.getByRole("radio", { name: "전체" })).not.toHaveFocus();
   });
 
-  it("기록이 없으면 안내, 가장 가까운 판, 순공 시작을 보이고 최고 순위는 보이지 않는다", async () => {
+  it("기록이 없으면 안내, 가장 가까운 판, 공부 시작을 보이고 최고 순위는 보이지 않는다", async () => {
     vi.mocked(getRankingRecordsSummary).mockResolvedValue(FIXTURE_SUMMARY_EMPTY);
     const onFocusStart = vi.fn();
     renderSheet({ onFocusStart });
@@ -148,16 +148,16 @@ describe("RecordsSheet", () => {
     expect(screen.queryByText("지금까지 최고 순위")).toBeNull();
     expect(screen.queryByText(/5위/)).toBeNull();
     expect(screen.getByText("아침 구간 12분 차")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "순공 시작" }));
+    await userEvent.click(screen.getByRole("button", { name: "공부 시작" }));
     expect(onFocusStart).toHaveBeenCalledTimes(1);
   });
 
   // iOS에서 살짝 움직인 탭이 끌기로 잡혀 버려지지 않게, 시트 안 버튼은 끌기 제외 영역 안에 둔다.
-  it("빈 상태의 순공 시작은 끌기에서 빼고 안내 제목은 그대로 끌린다", async () => {
+  it("빈 상태의 공부 시작은 끌기에서 빼고 안내 제목은 그대로 끌린다", async () => {
     vi.mocked(getRankingRecordsSummary).mockResolvedValue(FIXTURE_SUMMARY_EMPTY);
     renderSheet();
 
-    const focusStart = await screen.findByRole("button", { name: "순공 시작" });
+    const focusStart = await screen.findByRole("button", { name: "공부 시작" });
     expect(focusStart.closest("[data-base-ui-swipe-ignore]")).not.toBeNull();
     expect(
       screen

@@ -8,6 +8,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SubjectStartUnavailableError } from "@/lib/sessionStart";
 import { hardNavigate } from "@/lib/hardNavigation";
 
+import { writeMeasureMode } from "@/features/measure-mode/measureMode";
+import { prefetchVisionAssets } from "@/features/study-session/vision/prefetchVisionAssets";
+import { prefetchTimelapsesPage } from "@/routes/lazyRoutes";
 import { HomeV3Entry } from "../HomeV3Entry";
 import type { HomeV3Gateway } from "../HomeV3Gateway";
 import { readHomeSubject, writeHomeSubject } from "../subjectSelection";
@@ -53,6 +56,10 @@ vi.mock("@/features/study-session/vision/prefetchVisionAssets", () => ({
   prefetchVisionAssets: vi.fn(),
 }));
 vi.mock("@/routes/lazyRoutes", () => ({ prefetchTimelapsesPage: vi.fn() }));
+// 홈에는 사전 신청 카드를 두지 않는다(BY-1393). 다시 붙으면 이 표시가 보여 아래 테스트가 깨진다.
+vi.mock("@/features/premium-fake-door/PremiumFakeDoorHost", () => ({
+  PremiumFakeDoorHost: () => <div data-testid="premium-fake-door-card" />,
+}));
 vi.mock("@/lib/hardNavigation", async (original) => ({
   ...(await original<typeof hardNavigation>()),
   hardNavigate: vi.fn(),
@@ -64,6 +71,7 @@ function setup(overrides: Partial<HomeV3Gateway> = {}, real = false, path = "/")
   const gateway: HomeV3Gateway = {
     readMission: vi.fn().mockResolvedValue(homeMission(0, 0)),
     acknowledgeMission: vi.fn(),
+    claimMissionReward: vi.fn(),
     readPlannerDay: vi.fn().mockResolvedValue(
       plannerDay({
         date: "2026-11-07",
@@ -103,6 +111,34 @@ beforeEach(() => {
 });
 
 describe("home v3 entry adapters", () => {
+  it("홈에는 프리미엄 사전 신청 카드를 그리지 않는다", async () => {
+    setup();
+    await screen.findByRole("button", { name: /공부 시작/ });
+    expect(screen.queryByTestId("premium-fake-door-card")).not.toBeInTheDocument();
+  });
+
+  it("prefetches vision assets only in camera mode and the timelapse page in both modes", async () => {
+    setup();
+    await waitFor(() => expect(prefetchVisionAssets).toHaveBeenCalled());
+
+    vi.clearAllMocks();
+    writeMeasureMode("timer");
+    setup();
+    await waitFor(() => expect(prefetchTimelapsesPage).toHaveBeenCalled());
+    expect(prefetchVisionAssets).not.toHaveBeenCalled();
+  });
+
+  it("prefetches vision assets once when the same mounted home switches from timer to camera", async () => {
+    writeMeasureMode("timer");
+    setup();
+    await waitFor(() => expect(prefetchTimelapsesPage).toHaveBeenCalled());
+    expect(prefetchVisionAssets).not.toHaveBeenCalled();
+
+    act(() => writeMeasureMode("camera"));
+
+    await waitFor(() => expect(prefetchVisionAssets).toHaveBeenCalledOnce());
+  });
+
   it("uses the real default adapter for mission confirmation and HOME goal saves", async () => {
     let state = homeMission<0 | 1 | 2>(1);
     let goalSec = 28800;
@@ -135,6 +171,8 @@ describe("home v3 entry adapters", () => {
     expect(
       await screen.findByText(i18n.t("home:v3.goal.remaining", { time: "4:17:43" })),
     ).toBeInTheDocument();
+    // 완료를 눌러 띠가 바뀐 직후의 탭은 연달아 누른 것으로 보고 받지 않으므로 그 시간을 넘겨 누른다.
+    await new Promise((resolve) => setTimeout(resolve, 550));
     await userEvent.click(screen.getByRole("button", { name: i18n.t("home:v3.goal.change") }));
     await userEvent.click(
       await screen.findByRole("button", { name: i18n.t("planner:goal.increase") }),

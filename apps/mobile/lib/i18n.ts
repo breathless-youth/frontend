@@ -36,6 +36,7 @@ const ko = {
     "측정은 카메라로만 할 수 있어요.\n설정에서 허용하면 바로 시작할 수 있어요.",
   "permissionDenied.privacy": "AI 분석용 영상은 기기 밖으로 나가지 않아요",
   "permissionDenied.backHome": "홈으로 돌아가기",
+  "permissionDenied.startWithoutCamera": "자율 모드로 시작",
 
   "launchGoal.loading": "오늘 할 공부를 정리하고 있어요",
 
@@ -52,6 +53,13 @@ const ko = {
 
   "appLock.shieldTitle": "지금은 공부에 집중하는 시간이에요",
   "appLock.shieldSubtitle": "포커스 메이커스 앱에서 공부를 끝내면 잠금이 풀려요",
+
+  "liveActivity.timerRunning": "자율 모드로 공부 중이에요",
+  "liveActivity.cameraRunning": "관리 모드로 공부 중이에요",
+  "liveActivity.paused": "잠시 휴식 중이에요\n돌아와서 이어서 공부해요",
+  "liveActivity.endedTitle": "여기까지 기록을 저장했어요",
+  "liveActivity.endedPause": "일시정지가 20분을 넘었어요",
+  "liveActivity.endedAway": "앱 밖에 2시간 넘게 있었어요",
 
   "appLockConsent.title": "방해 앱 잠금을 켜려면\n권한 두 가지가 필요해요",
   "appLockConsent.usageTitle": "사용정보 접근",
@@ -106,6 +114,7 @@ const en = {
     "Focus can only be measured with the camera.\nAllow camera access in Settings to start right away.",
   "permissionDenied.privacy": "Video used for AI analysis never leaves your device",
   "permissionDenied.backHome": "Back to home",
+  "permissionDenied.startWithoutCamera": "Start in Self-guided Mode",
 
   "launchGoal.loading": "Getting today's study ready",
 
@@ -122,6 +131,13 @@ const en = {
 
   "appLock.shieldTitle": "It's time to focus on studying",
   "appLock.shieldSubtitle": "Finish studying in the FocusMakers app to unblock this app",
+
+  "liveActivity.timerRunning": "Studying in Self-guided Mode",
+  "liveActivity.cameraRunning": "Studying in Camera Mode",
+  "liveActivity.paused": "Taking a short break\nCome back to keep studying",
+  "liveActivity.endedTitle": "Your progress so far is saved",
+  "liveActivity.endedPause": "Paused for over 20 minutes",
+  "liveActivity.endedAway": "You were away from the app for over 2 hours",
 
   "appLockConsent.title": "App blocking needs\ntwo permissions",
   "appLockConsent.usageTitle": "Usage access",
@@ -176,6 +192,7 @@ const ja = {
     "集中の測定にはカメラが必要です。\n「設定」でカメラへのアクセスを許可すると、すぐに始められます。",
   "permissionDenied.privacy": "AI分析用の映像がデバイスの外に出ることはありません",
   "permissionDenied.backHome": "ホームに戻る",
+  "permissionDenied.startWithoutCamera": "自主モードで始める",
 
   "launchGoal.loading": "今日の勉強を準備しています",
 
@@ -193,6 +210,13 @@ const ja = {
 
   "appLock.shieldTitle": "今は勉強に集中する時間です",
   "appLock.shieldSubtitle": "FocusMakersアプリで勉強を終えると、このアプリのブロックが解除されます",
+
+  "liveActivity.timerRunning": "自主モードで勉強中です",
+  "liveActivity.cameraRunning": "カメラモードで勉強中です",
+  "liveActivity.paused": "ひと休み中です\n戻って勉強を続けましょう",
+  "liveActivity.endedTitle": "ここまでの記録を保存しました",
+  "liveActivity.endedPause": "一時停止が20分を超えました",
+  "liveActivity.endedAway": "アプリを2時間以上離れていました",
 
   "appLockConsent.title": "アプリブロックをオンにするには\n2つの権限が必要です",
   "appLockConsent.usageTitle": "使用状況へのアクセス",
@@ -247,6 +271,7 @@ const zhHant = {
   "permissionDenied.body": "專注狀態只能透過相機測量。\n在「設定」中允許取用相機，就能馬上開始。",
   "permissionDenied.privacy": "AI 分析用的影像不會離開你的裝置",
   "permissionDenied.backHome": "返回首頁",
+  "permissionDenied.startWithoutCamera": "以自主模式開始",
 
   "launchGoal.loading": "正在整理今天要讀的內容",
 
@@ -262,6 +287,13 @@ const zhHant = {
 
   "appLock.shieldTitle": "現在是專心讀書的時間",
   "appLock.shieldSubtitle": "在 FocusMakers 完成讀書後，就會解除這個 App 的封鎖",
+
+  "liveActivity.timerRunning": "正在以自主模式讀書",
+  "liveActivity.cameraRunning": "正在以相機模式讀書",
+  "liveActivity.paused": "稍作休息中\n回來繼續讀書吧",
+  "liveActivity.endedTitle": "已儲存目前為止的紀錄",
+  "liveActivity.endedPause": "暫停超過 20 分鐘",
+  "liveActivity.endedAway": "離開 App 超過 2 小時",
 
   "appLockConsent.title": "若要開啟 App 封鎖，\n需要兩項權限",
   "appLockConsent.usageTitle": "使用情況存取權",

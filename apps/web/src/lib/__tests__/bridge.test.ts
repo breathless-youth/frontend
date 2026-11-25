@@ -543,6 +543,35 @@ describe("개발 로그", () => {
     vi.unstubAllGlobals();
   });
 
+  it("live-activity는 앱에는 그대로 보내고 로그에서는 과목 이름을 가린다", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    const session = { mode: "timer", subject: "수학", state: "running", elapsedSec: 3 } as const;
+    const message = { type: "live-activity", session, atMs: 1 } as const;
+
+    postToNative(message);
+    postToNative({ ...message, session: { ...session, subject: null } });
+    postToNative({ ...message, session: null });
+
+    expect(postMessage).toHaveBeenNthCalledWith(1, JSON.stringify(message));
+    expect(warn).toHaveBeenNthCalledWith(1, expect.stringContaining("[webview-bridge]"), {
+      ...message,
+      session: { ...session, subject: "<masked>" },
+    });
+    expect(warn).toHaveBeenNthCalledWith(2, expect.stringContaining("[webview-bridge]"), {
+      ...message,
+      session: { ...session, subject: null },
+    });
+    expect(warn).toHaveBeenNthCalledWith(3, expect.stringContaining("[webview-bridge]"), {
+      ...message,
+      session: null,
+    });
+
+    warn.mockRestore();
+    vi.unstubAllGlobals();
+  });
+
   it("운영 빌드에서는 전역 수신 함수가 버린 원문을 찍지 않는다", () => {
     const original = import.meta.env.DEV;
     (import.meta.env as unknown as { DEV: boolean }).DEV = false;

@@ -3,6 +3,7 @@ import type {
   ObservationPayload,
   StatusEventPayload,
   StudyEventStatus,
+  StudySessionSource,
   SubjectSegmentPayload,
 } from "@focusmakers/types";
 
@@ -58,6 +59,8 @@ export interface RestoredSession {
   subjectSegments?: SubjectSegmentPayload[];
   /** 마지막 스냅샷의 관찰 기록. 이어받은 뒤의 보고가 통째로 덮어쓰므로 여기서 이어 싣지 않으면 서버에서도 사라진다. */
   observations?: ObservationPayload[];
+  /** 측정 방식이고 없으면 카메라 세션이다. */
+  source?: Exclude<StudySessionSource, "MANUAL">;
 }
 
 function isNonNegativeInt(value: unknown): value is number {
@@ -157,6 +160,8 @@ export async function restoreActiveSession(
       events: body.events,
       subjectSegments: usableSubjectSegments(body.subjectSegments),
       observations: usableObservations(body.observations),
+      // 서버가 이 필드를 내려주기 전에 남은 세션은 모두 카메라로 측정한 세션이다.
+      source: body.source === "TIMER" ? "TIMER" : "MEASURED",
     };
   } finally {
     clearTimeout(timer);

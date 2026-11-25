@@ -1,11 +1,13 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import type { ProfileResponse, ProfileUpdateRequest } from "@focusmakers/types";
 
+import type { MascotId } from "@/components/mascot/types";
 import { ScreenBackHeader } from "@/components/ScreenBackHeader";
 import { Button } from "@/components/ui/button";
 import { CharCount } from "@/components/ui/char-count";
@@ -15,6 +17,18 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { CtaToaster } from "@/components/ui/sonner";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { ProfileMascotRow } from "@/features/points/components/mascots/ProfileMascotRow";
+import { appPointsGateway } from "@/features/points/gateway/appPointsGateway";
+import {
+  PointsGatewayProvider,
+  usePointsGateway,
+} from "@/features/points/gateway/PointsGatewayContext";
+import { sortMascots } from "@/features/points/model/mascotOrder";
+import { useShopActions } from "@/features/points/model/useShopActions";
+import { wornByMascot } from "@/features/points/model/wornAccessories";
+import { pointsSearch } from "@/features/points/pointsSearch";
+import { isMemberProfile } from "@/features/points/usePointsAccess";
+import { usePointsLogin } from "@/features/points/usePointsLogin";
 import { categoryChips } from "@/features/profile/categoryChips";
 import { ProfilePhotoButton } from "@/features/profile/ProfilePhotoButton";
 import { markProfileSaved } from "@/features/profile/profileSavedNotice";
@@ -32,8 +46,10 @@ import { postToNative } from "@/lib/bridge";
 import { canSegmentGraphemes } from "@/lib/graphemes";
 import { slideBack } from "@/lib/pageTransition";
 import { updateProfile } from "@/lib/profileApi";
+import { isPointsEnabled } from "@/lib/pointsCapability";
+import { shopQuery } from "@/lib/pointsQueries";
 import { profileKeys, profileQuery } from "@/lib/profileQueries";
-import { useUserId } from "@/lib/userId";
+import { assertCurrentUserId, useUserId } from "@/lib/userId";
 
 const LABEL_CLASS = "text-[13px] font-medium text-muted-foreground";
 
@@ -45,6 +61,7 @@ const LABEL_CLASS = "text-[13px] font-medium text-muted-foreground";
 export function ProfilePage() {
   const { t } = useTranslation("profile");
   const userId = useUserId();
+  const requestLogin = usePointsLogin();
   const query = useQuery({ ...profileQuery(userId ?? 0), enabled: userId !== null });
 
   // 캐시가 있으면 백그라운드 재조회가 실패해도 폼을 그대로 둔다.
@@ -80,7 +97,16 @@ export function ProfilePage() {
     );
   }
 
-  return <ProfileForm profile={query.data} userId={userId} />;
+  return (
+    <PointsGatewayProvider
+      gateway={appPointsGateway()}
+      userId={userId}
+      member={isMemberProfile(query.data)}
+      requestLogin={requestLogin}
+    >
+      <ProfileForm key={userId} profile={query.data} userId={userId} />
+    </PointsGatewayProvider>
+  );
 }
 
 /**
@@ -106,12 +132,24 @@ function buildPatch(values: ProfileFormValues, profile: ProfileResponse): Profil
   return patch;
 }
 
+// 소품 선택 API가 실패해도 닉네임 오류와 구분해 저장을 다시 누를 수 있게 한다.
+class ProfileMascotSaveError extends Error {}
+
 // 서버 프로필이 도착하면 폼을 그 값으로 시작한다. 재조회로 참조가 바뀌어도 사용자가 편집 중인
 // 값을 덮지 않도록 최초 1회만 반영한다.
 function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: number }) {
   const { t } = useTranslation("profile");
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
+  const gateway = usePointsGateway();
+  const { selectMascot } = useShopActions();
+  const showMascots = isPointsEnabled() && isMemberProfile(profile);
+  const shop = useQuery({ ...shopQuery(gateway, userId), enabled: showMascots });
+  const [draftMascotId, setDraftMascotId] = useState<MascotId | null>(null);
+  const savedMascotId = shop.data?.mascots.find((mascot) => mascot.selected)?.id;
+  const mascotToSave = showMascots && draftMascotId !== savedMascotId ? draftMascotId : null;
+  const worn = shop.data === undefined ? undefined : wornByMascot(shop.data.items);
 
   const schema = makeProfileSchema(profile);
   const { control, handleSubmit, setError, trigger, formState } = useForm<ProfileFormValues>({
@@ -132,26 +170,50 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
   });
 
   const saveMutation = useMutation({
-    mutationFn: (patch: ProfileUpdateRequest) => updateProfile(patch),
-    onSuccess: (data) => {
-      // PATCH가 전체 프로필을 반환하므로 invalidate 대신 캐시를 바로 갱신한다(profileQueries 주석).
-      queryClient.setQueryData(profileKeys.detail(userId), data);
-      // 앱이 실행 직후 보여 줄 목표 문구를 네트워크 없이 바로 바꾸게 한다(`ToNativeMessage` 주석).
-      postToNative({
-        type: "profile-updated",
-        goal: data.goal,
-        nickname: data.nickname,
-        atMs: Date.now(),
-      });
-      trackProfileSaveResult({ ok: true });
+    mutationFn: async ({
+      patch,
+      mascotId,
+    }: {
+      patch: ProfileUpdateRequest;
+      mascotId: MascotId | null;
+    }) => {
+      if (Object.keys(patch).length > 0) {
+        const data = await updateProfile(patch);
+        // 프로필만 먼저 저장되더라도 캐시를 갱신해 재시도에서 같은 변경을 보내지 않는다.
+        await queryClient.cancelQueries({ queryKey: profileKeys.detail(userId) });
+        queryClient.setQueryData(profileKeys.detail(userId), data);
+        postToNative({
+          type: "profile-updated",
+          goal: data.goal,
+          nickname: data.nickname,
+          atMs: Date.now(),
+        });
+      }
+      if (mascotId !== null) {
+        try {
+          assertCurrentUserId(userId);
+          await selectMascot(mascotId);
+        } catch (error) {
+          throw new ProfileMascotSaveError(undefined, { cause: error });
+        }
+      }
     },
-    onError: (error, patch) => {
+    onSuccess: () => trackProfileSaveResult({ ok: true }),
+    onError: (error, { patch }) => {
+      const cause = error instanceof ProfileMascotSaveError ? error.cause : error;
       trackProfileSaveResult({
         ok: false,
         // 서버 코드 또는 HTTP 상태만 — 문구는 싣지 않는다(joinErrorReason과 같은 규칙).
         reason:
-          error instanceof ApiError ? (error.code ?? `HTTP_${error.status}`) : "NETWORK_OR_UNKNOWN",
+          cause instanceof ApiError ? (cause.code ?? `HTTP_${cause.status}`) : "NETWORK_OR_UNKNOWN",
       });
+      if (error instanceof ProfileMascotSaveError) {
+        setError("root", {
+          message:
+            Object.keys(patch).length > 0 ? t("errors.mascotSavePartial") : t("errors.mascotSave"),
+        });
+        return;
+      }
       // code가 아니라 HTTP 상태로 가른다 — 서버 공통 코드(CONFLICT·VALIDATION_FAILED)는 어느
       // 필드가 틀렸는지 알려주지 않는다. 프로필 저장의 400은 목표·카테고리를 저장 전에
       // 클라이언트가 이미 막으므로(validateGoal 등) 서버까지 도달하는 400은 닉네임뿐이다.
@@ -172,7 +234,9 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
     },
   });
 
-  const isDirty = Object.keys(buildPatch({ nickname, goal, category }, profile)).length > 0;
+  const isDirty =
+    mascotToSave !== null ||
+    Object.keys(buildPatch({ nickname, goal, category }, profile)).length > 0;
   // 스키마처럼 원래 값에서 바뀐 경우만 막는다.
   // 지금 규칙 이전의 긴 값을 둔 채 다른 필드만 저장하는 길은 열어 둔다.
   const nicknameLength = nicknameWidth(nickname);
@@ -185,6 +249,7 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
   const goalOver = goalLength > 20 && normalizeGoal(goal) !== normalizeGoal(profile.goal);
 
   const onValid = (values: ProfileFormValues) => {
+    if (!isDirty || saveMutation.isPending) return;
     const patch = buildPatch(values, profile);
     trackProfileSaveSubmitted({
       nickname: patch.nickname !== undefined,
@@ -193,13 +258,17 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
     });
     // 이동은 호출 단위 콜백에 둔다.
     // 옵션의 onSuccess는 응답 전에 뒤로 가기로 화면을 떠나도 실행돼, 이미 돌아간 설정 화면을 한 번 더 뒤로 보낸다.
-    saveMutation.mutate(patch, {
-      onSuccess: () => {
-        // 토스트는 돌아간 설정 화면이 띄운다. 이 화면의 토스트는 화면을 떠나며 함께 사라진다.
-        markProfileSaved();
-        slideBack(navigate);
+    saveMutation.mutate(
+      { patch, mascotId: mascotToSave },
+      {
+        onSuccess: () => {
+          // 토스트는 돌아간 설정 화면이 띄운다. 이 화면의 토스트는 화면을 떠나며 함께 사라진다.
+          setDraftMascotId(null);
+          markProfileSaved();
+          slideBack(navigate);
+        },
       },
-    });
+    );
   };
 
   return (
@@ -210,12 +279,20 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
       <ScreenBackHeader title={t("title")} />
 
       <form noValidate onSubmit={handleSubmit(onValid)} className="flex flex-1 flex-col">
-        <div className="flex flex-col gap-4.5 px-5 pt-2 pb-6">
+        <fieldset
+          className="flex min-w-0 flex-col gap-4.5 px-5 pt-2 pb-6"
+          disabled={saveMutation.isPending}
+        >
           <div className="flex justify-center py-1">
             <ProfilePhotoButton
               userId={userId}
               colorIndex={profile.colorIndex}
               imageUrl={profile.profileImageUrl}
+              previewLook={
+                mascotToSave === null
+                  ? undefined
+                  : { id: mascotToSave, accessories: worn?.get(mascotToSave) ?? [] }
+              }
             />
           </div>
 
@@ -320,8 +397,19 @@ function ProfileForm({ profile, userId }: { profile: ProfileResponse; userId: nu
             />
           </div>
 
+          {/* 회원으로 확인되지 않으면 포인트를 쓰지 못하므로 로그인 화면이 대신 그려지지 않게 줄째 뺀다. */}
+          {showMascots && shop.data !== undefined && worn !== undefined && (
+            <ProfileMascotRow
+              mascots={sortMascots(shop.data.mascots)}
+              selectedId={draftMascotId ?? savedMascotId}
+              worn={worn}
+              decorateTo={`/points/accessories${pointsSearch(location.search)}`}
+              onSelect={setDraftMascotId}
+            />
+          )}
+
           <FieldError errors={[formState.errors.root]} />
-        </div>
+        </fieldset>
 
         <div className="relative mt-auto px-5 pb-[calc(env(safe-area-inset-bottom)+24px)]">
           <CtaToaster />

@@ -39,6 +39,11 @@ describe("parseTimelapseSettings", () => {
     expect(parseTimelapseSettings({}).faceMaskEmoji).toBe("dog");
   });
 
+  it("처음 쓰는 사용자는 타임랩스 저장이 꺼져 있고, 켜 둔 저장값은 그대로 읽는다", () => {
+    expect(parseTimelapseSettings(null).enabled).toBe(false);
+    expect(parseTimelapseSettings({ enabled: true }).enabled).toBe(true);
+  });
+
   it("info가 없으면 정보 항목은 모두 꺼짐", () => {
     expect(parseTimelapseSettings({ enabled: false, aspect: "16:9" })).toEqual({
       ...DEFAULT_TIMELAPSE_SETTINGS,
@@ -55,9 +60,9 @@ afterEach(() => {
 });
 
 describe("loadTimelapseSettings", () => {
-  it("저장값이 없으면 저장 켬, 세로, 정보 항목 모두 꺼짐", async () => {
+  it("저장값이 없으면 저장 끔, 세로, 정보 항목 모두 꺼짐", async () => {
     await expect(loadTimelapseSettings()).resolves.toEqual({
-      enabled: true,
+      enabled: false,
       aspect: "9:16",
       faceMaskEmoji: "dog",
       info: {
@@ -109,9 +114,9 @@ describe("loadTimelapseSettings", () => {
 
   it("교체한 메모리 저장소를 쓰고 localStorage는 건드리지 않는다", async () => {
     setTimelapseSettingsStore(
-      createMemoryTimelapseSettingsStore({ ...DEFAULT_TIMELAPSE_SETTINGS, enabled: false }),
+      createMemoryTimelapseSettingsStore({ ...DEFAULT_TIMELAPSE_SETTINGS, enabled: true }),
     );
-    await expect(loadTimelapseSettings()).resolves.toMatchObject({ enabled: false });
+    await expect(loadTimelapseSettings()).resolves.toMatchObject({ enabled: true });
     expect(localStorage.getItem(KEY)).toBeNull();
   });
 });

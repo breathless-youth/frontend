@@ -22,11 +22,16 @@ afterEach(() => {
 });
 
 function Opener() {
-  const { openRecords } = useOpenRanking();
+  const { openBoard, openRecords } = useOpenRanking();
   return (
-    <button type="button" onClick={() => openRecords("top3_modal")}>
-      기록 열기
-    </button>
+    <>
+      <button type="button" onClick={() => openRecords("top3_modal")}>
+        기록 열기
+      </button>
+      <button type="button" onClick={openBoard}>
+        판 열기
+      </button>
+    </>
   );
 }
 
@@ -74,5 +79,18 @@ describe("useOpenRanking", () => {
       expect.objectContaining({ type: "navigate-tab", tab: "ranking", via: "top3_modal" }),
     ]);
     expect(takeRecordsPageRequest()).toBe(true);
+  });
+
+  it("앱에서 판 열기는 모두 보기 요청을 남기지 않아 랭킹 탭이 보던 판을 그대로 연다", async () => {
+    const postMessage = vi.fn();
+    vi.stubGlobal("ReactNativeWebView", { postMessage });
+    renderOpener();
+
+    await userEvent.click(screen.getByRole("button", { name: "판 열기" }));
+
+    expect(sent(postMessage)).toEqual([
+      expect.objectContaining({ type: "navigate-tab", tab: "ranking" }),
+    ]);
+    expect(takeRecordsPageRequest()).toBe(false);
   });
 });

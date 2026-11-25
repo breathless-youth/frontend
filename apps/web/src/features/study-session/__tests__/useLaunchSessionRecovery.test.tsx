@@ -3,17 +3,36 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { StatusEventPayload } from "@focusmakers/types";
+
 import type * as Amplitude from "@/lib/amplitude";
 
 import { NATIVE_MESSAGE_ENTRY } from "@/lib/bridge";
 import { statsKeys } from "@/lib/statsQueries";
 
 import { hasShownRecoveryThisLaunch } from "../recoveryLaunchStore";
+import { AWAY_LIMIT_MS } from "../sessionTuning";
 import { LAUNCH_SIGNAL_WAIT_MS, useLaunchSessionRecovery } from "../useLaunchSessionRecovery";
 
 const closeStaleSession = vi.hoisted(() => vi.fn());
 
 vi.mock("../closeStaleSession", () => ({ closeStaleSession }));
+
+const restoreActiveSession = vi.hoisted(() => vi.fn());
+
+vi.mock("../restoreActiveSession", () => ({ restoreActiveSession }));
+
+function timerDraft(awayMs: number, events: StatusEventPayload[] = []) {
+  const reportedAtMs = Date.now() - awayMs;
+  return {
+    startedAtMs: reportedAtMs - 30 * 60_000,
+    reportedAtMs,
+    baseStudySec: 1800,
+    baseFocusSec: 1800,
+    events,
+    source: "TIMER" as const,
+  };
+}
 
 const analytics = vi.hoisted(() => ({ prompted: vi.fn(), confirmed: vi.fn() }));
 
@@ -71,10 +90,191 @@ describe("useLaunchSessionRecovery", () => {
     postMessage.mockReset();
     vi.stubGlobal("ReactNativeWebView", { postMessage });
     sessionStorage.clear();
+    analytics.prompted.mockClear();
+    restoreActiveSession.mockReset();
+    restoreActiveSession.mockResolvedValue(null);
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it("2시간 안의 자율 모드 진행 기록이 있으면 확정하지 않고 이어서 물을 기록으로 내준다", async () => {
+    const draft = timerDraft(32 * 60_000 + 5_000);
+    restoreActiveSession.mockResolvedValue(draft);
+    const { result } = renderWithClient(7);
+
+    emit(LAUNCHED);
+
+    await waitFor(() => {
+      expect(result.current.resumable).toEqual({
+        startedAtMs: draft.startedAtMs,
+        reportedAtMs: draft.reportedAtMs,
+        awayMin: 32,
+      });
+    });
+    expect(result.current.settled).toBe(true);
+    expect(closeStaleSession).not.toHaveBeenCalled();
+    expect(hasShownRecoveryThisLaunch()).toBe(true);
+  });
+
+  it.each([
+    [
+      "일시정지 중이던 자율 모드 기록",
+      () => {
+        const draft = timerDraft(10 * 60_000);
+        return {
+          ...draft,
+          events: [
+            {
+              status: "PAUSE" as const,
+              startedAt: new Date(draft.reportedAtMs - 60_000).toISOString(),
+              endedAt: new Date(draft.reportedAtMs).toISOString(),
+            },
+          ],
+        };
+      },
+    ],
+    ["관리 모드 기록", () => ({ ...timerDraft(10 * 60_000), source: "MEASURED" as const })],
+  ])("%s은 묻지 않고 지금처럼 확정한다", async (_name, makeDraft) => {
+    restoreActiveSession.mockResolvedValue(makeDraft());
+    const { result } = renderWithClient(7);
+
+    emit(LAUNCHED);
+
+    await waitFor(() => {
+      expect(closeStaleSession).toHaveBeenCalledWith(7);
+    });
+    expect(result.current.resumable).toBeNull();
+  });
+
+  it("endResumable은 기록을 확정하고 통계를 다시 조회하게 한 뒤 복구 창 없이 창을 닫는다", async () => {
+    restoreActiveSession.mockResolvedValue(timerDraft(32 * 60_000));
+    closeStaleSession.mockResolvedValue(RECOVERED);
+    const { result, client } = renderWithClient(7);
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    emit(LAUNCHED);
+    await waitFor(() => {
+      expect(result.current.resumable).not.toBeNull();
+    });
+
+    await act(async () => {
+      await result.current.endResumable();
+    });
+
+    expect(closeStaleSession).toHaveBeenCalledWith(7);
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: statsKeys.all });
+    expect(result.current.resumable).toBeNull();
+    expect(result.current.recovered).toBeNull();
+  });
+
+  it.each([
+    ["endResumable", (hook: ReturnType<typeof useLaunchSessionRecovery>) => hook.endResumable()],
+    [
+      "endIfResumeExpired",
+      (hook: ReturnType<typeof useLaunchSessionRecovery>) => {
+        vi.setSystemTime(Date.now() + AWAY_LIMIT_MS);
+        return hook.endIfResumeExpired();
+      },
+    ],
+  ])("앞 사용자의 %s가 늦게 끝나도 새 사용자의 확인 창을 닫지 않는다", async (_name, end) => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      restoreActiveSession.mockResolvedValue(timerDraft(32 * 60_000));
+      let finishFirst: (() => void) | undefined;
+      closeStaleSession.mockReturnValueOnce(
+        new Promise<null>((resolve) => {
+          finishFirst = () => {
+            resolve(null);
+          };
+        }),
+      );
+      const { result, rerender } = renderSwitchable(7);
+      emit(LAUNCHED);
+      await waitFor(() => {
+        expect(result.current.resumable).not.toBeNull();
+      });
+      let ending: Promise<unknown> | undefined;
+      act(() => {
+        ending = end(result.current);
+      });
+      await waitFor(() => {
+        expect(closeStaleSession).toHaveBeenCalledWith(7);
+      });
+
+      restoreActiveSession.mockResolvedValue(timerDraft(10 * 60_000));
+      rerender({ id: 8 });
+      emit(LAUNCHED);
+      await waitFor(() => {
+        expect(result.current.resumable).not.toBeNull();
+      });
+      const next = result.current.resumable;
+      await act(async () => {
+        finishFirst?.();
+        await ending;
+      });
+
+      expect(result.current.resumable).toBe(next);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("closeResumable은 확정하지 않고 창만 닫는다", async () => {
+    restoreActiveSession.mockResolvedValue(timerDraft(32 * 60_000));
+    const { result } = renderWithClient(7);
+    emit(LAUNCHED);
+    await waitFor(() => {
+      expect(result.current.resumable).not.toBeNull();
+    });
+
+    act(() => {
+      result.current.closeResumable();
+    });
+
+    expect(result.current.resumable).toBeNull();
+    expect(closeStaleSession).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["진행 기록이 없을 때", () => null],
+    ["진행 기록이 2시간을 넘었을 때", () => timerDraft(AWAY_LIMIT_MS + 60_000)],
+  ])("%s 확정한 자율 모드 기록이면 2시간 초과 문구를 쓰게 알린다", async (_name, makeDraft) => {
+    restoreActiveSession.mockResolvedValue(makeDraft());
+    closeStaleSession.mockResolvedValue({ ...RECOVERED, source: "TIMER" });
+    const { result } = renderWithClient(7);
+
+    emit(LAUNCHED);
+
+    await waitFor(() => {
+      expect(result.current.recovered).not.toBeNull();
+    });
+    expect(result.current.recoveredAwayLimit).toBe(true);
+  });
+
+  it("관리 모드 확정 기록이면 기존 문구를 쓴다", async () => {
+    closeStaleSession.mockResolvedValue(RECOVERED);
+    const { result } = renderWithClient(7);
+
+    emit(LAUNCHED);
+
+    await waitFor(() => {
+      expect(result.current.recovered).not.toBeNull();
+    });
+    expect(result.current.recoveredAwayLimit).toBe(false);
+  });
+
+  it("진행 기록 조회가 실패하면 지금처럼 확정하고 기존 문구를 쓴다", async () => {
+    restoreActiveSession.mockRejectedValue(new Error("offline"));
+    closeStaleSession.mockResolvedValue({ ...RECOVERED, source: "TIMER" });
+    const { result } = renderWithClient(7);
+
+    emit(LAUNCHED);
+
+    await waitFor(() => {
+      expect(result.current.recovered).not.toBeNull();
+    });
+    expect(result.current.recoveredAwayLimit).toBe(false);
   });
 
   it("구독을 건 뒤 준비 신호를 네이티브에 보낸다", () => {
@@ -388,6 +588,8 @@ describe("useLaunchSessionRecovery", () => {
 describe("useLaunchSessionRecovery 계측 (BY-616 확장)", () => {
   beforeEach(() => {
     closeStaleSession.mockReset();
+    restoreActiveSession.mockReset();
+    restoreActiveSession.mockResolvedValue(null);
     analytics.prompted.mockClear();
     analytics.confirmed.mockClear();
     vi.stubGlobal("ReactNativeWebView", { postMessage: vi.fn() });
@@ -431,6 +633,8 @@ describe("useLaunchSessionRecovery 판단 끝남", () => {
     closeStaleSession.mockResolvedValue(null);
     postMessage.mockReset();
     sessionStorage.clear();
+    restoreActiveSession.mockReset();
+    restoreActiveSession.mockResolvedValue(null);
   });
 
   afterEach(() => {

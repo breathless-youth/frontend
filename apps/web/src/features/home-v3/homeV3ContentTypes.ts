@@ -1,3 +1,7 @@
+import type { HomeMissionStep } from "@focusmakers/types";
+
+import type { WornAccessoriesByMascot } from "@/components/mascot/types";
+
 import type { HomeBand } from "./homeV3Model";
 
 export type HomeLoadState<T> =
@@ -17,9 +21,11 @@ export interface HomeTodayStats {
 export interface HomeV3ContentProps {
   band: HomeLoadState<HomeBand>;
   stats: HomeLoadState<HomeTodayStats>;
+  wornAccessories?: WornAccessoriesByMascot;
   subjects: HomeLoadState<readonly HomeSubject[]>;
   selectedSubjectId: number | null;
   completingMission?: boolean;
+  claimingReward?: boolean;
   startingStudy?: boolean;
   startError?: string;
   missionError?: string;
@@ -32,7 +38,9 @@ export interface HomeV3ContentProps {
     selectSubject: (id: number | null) => void;
     startStudy: () => void;
     openPlanner: () => void;
-    completeMission: (step: 1 | 2) => void;
+    completeMission: (step: HomeMissionStep) => void;
+    openAccessories?: () => void;
+    claimMissionReward?: () => void;
     editGoal: () => void;
     openTimelapses: () => void;
     openTimelapseSettings: () => void;

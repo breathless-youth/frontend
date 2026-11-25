@@ -14,6 +14,7 @@ import { useStudyRoomSession } from "../useStudyRoomSession";
  */
 const mocks = vi.hoisted(() => ({
   started: vi.fn(),
+  ended: vi.fn(),
   paused: vi.fn(),
   resumed: vi.fn(),
   distracted: vi.fn(),
@@ -23,6 +24,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<typeof Amplitude>()),
   trackStudySessionStarted: mocks.started,
+  trackStudySessionEnded: mocks.ended,
   trackStudySessionPaused: mocks.paused,
   trackStudySessionResumed: mocks.resumed,
   trackStudySessionDistracted: mocks.distracted,
@@ -41,7 +43,7 @@ afterEach(() => {
 describe("useStudyRoomSession 계측 (BY-616 확장)", () => {
   it("세션 시작은 복원 진입 여부를 함께 남긴다 — 같은 세션의 두 번째 시작을 완주율 분모에서 가른다", () => {
     renderHook(() => useStudyRoomSession(7, { roomType: "single" }));
-    expect(mocks.started).toHaveBeenLastCalledWith("single", false);
+    expect(mocks.started).toHaveBeenLastCalledWith("single", false, "camera");
 
     const nowMs = Date.now();
     renderHook(() =>
@@ -56,7 +58,17 @@ describe("useStudyRoomSession 계측 (BY-616 확장)", () => {
         },
       }),
     );
-    expect(mocks.started).toHaveBeenLastCalledWith("social", true);
+    expect(mocks.started).toHaveBeenLastCalledWith("social", true, "camera");
+  });
+
+  it("타이머 세션은 시작·종료 이벤트에 측정 방식을 timer로 남긴다", async () => {
+    const hook = renderHook(() => useStudyRoomSession(null, { source: "TIMER" }));
+    expect(mocks.started).toHaveBeenLastCalledWith("single", false, "timer");
+
+    await act(async () => {
+      await hook.result.current.endAndSubmit();
+    });
+    expect(mocks.ended).toHaveBeenCalledWith(expect.objectContaining({ measureMode: "timer" }));
   });
 
   it("일시정지·재개를 트리거와 정지 시간으로 남긴다 — 이미 정지 중이면 다시 찍지 않는다", async () => {

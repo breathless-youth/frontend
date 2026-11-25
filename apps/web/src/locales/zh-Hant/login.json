@@ -8,5 +8,24 @@
   "consent": "登入即表示你確認自己已年滿 14 歲，\n並同意<terms>服務條款</terms>和<privacy>隱私權政策</privacy>",
   "errors": {
     "failed": "無法登入，請再試一次"
+  },
+  "reviewLogin": {
+    "entry": "審查用登入",
+    "title": "審查用登入",
+    "loginId": "帳號",
+    "password": "密碼",
+    "submit": "登入",
+    "errors": {
+      "INVALID_REVIEW_CREDENTIALS": "帳號或密碼不正確。",
+      "REVIEW_LOGIN_DISABLED": "目前無法使用審查用登入。",
+      "TOO_MANY_REQUESTS": "嘗試次數過多，請稍後再試。",
+      "UNKNOWN": "無法登入，請再試一次。"
+    }
+  },
+  "guestPoints": {
+    "card": {
+      "title": "你已累積 {{points}}",
+      "body": "新註冊會直接保留，用現有帳號登入則會消失"
+    }
   }
 }

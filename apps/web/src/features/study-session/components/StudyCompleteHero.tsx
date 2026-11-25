@@ -1,10 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 
-import timiClosed from "@/assets/mascot/timi-closed.png";
-import timiIdle from "@/assets/mascot/timi-idle.png";
-import timiSmile from "@/assets/mascot/timi-smile.png";
-import timiSquint from "@/assets/mascot/timi-squint.png";
+import { MascotFigure } from "@/components/mascot/MascotFigure";
+import {
+  MASCOT_EXPRESSION_SRC,
+  MASCOT_FOOT_Y,
+  jumpTiltTransform,
+} from "@/components/mascot/mascotExpressions";
+import { splitAccessoryLayers } from "@/components/mascot/mascotLayers";
+import type { MascotId, MascotLook } from "@/components/mascot/types";
 import { Badge } from "@/components/ui/badge";
 import { haptic } from "@/lib/haptics";
 import { cn } from "@/lib/utils";
@@ -38,32 +42,48 @@ const COUNT_UP_DELAY_MS = 950;
 const MASCOT_APEX_MS = 920;
 
 /**
- * 결과 화면 마스코트의 표정 묶음
+ * 마스코트 판의 크기와 자리
  *
- * 네 장은 같은 캔버스(1배 74×94)와 같은 원점이라 겹쳐 두면 몸통이 맞는다.
- * 웃음은 정점 자세라 몸통이 조금 위로 올라가고 기울어 있다.
+ * 74×94 상자 기준의 px이며 타이미가 예전 표정 그림과 같은 크기와 자리에 오도록 맞춘 값이다.
+ * 판은 디자인의 표정 그림을 1배 화면에서 한 변 111.36px로 그린 크기다.
+ * 위치는 타이미의 발끝 기준이고 발끝이 높은 마스코트는 판을 그만큼 내려 바닥에서 그림자에 닿게 한다.
  */
-export type ResultMascotFrames = {
-  idle: string;
-  squint: string;
-  closed: string;
-  smile: string;
-};
+const BOARD_PX = 111.36;
+const BOARD_LEFT_PX = -18.42;
+const TIMI_BOARD_TOP_PX = -5.5;
 
-const TIMI_FRAMES: ResultMascotFrames = {
-  idle: timiIdle,
-  squint: timiSquint,
-  closed: timiClosed,
-  smile: timiSmile,
-};
+function boardStyle(id: MascotId): CSSProperties {
+  const top = TIMI_BOARD_TOP_PX + (MASCOT_FOOT_Y.stopwatch - MASCOT_FOOT_Y[id]) * BOARD_PX;
+  return { left: `${BOARD_LEFT_PX}px`, top: `${Number(top.toFixed(2))}px`, width: `${BOARD_PX}px` };
+}
+
+// 고른 모습을 아직 모르면 소품 없는 타이미로 뛰어오른다.
+const DEFAULT_LOOK: MascotLook = { id: "stopwatch", accessories: [] };
 
 // 그리는 순서와 표정마다 거는 keyframes. Tailwind가 클래스를 찾도록 문자열을 통째로 둔다.
 const FACE_ANIMATIONS = [
   ["idle", "animate-[result-mascot-face-idle_0.92s_step-end_both]"],
   ["squint", "animate-[result-mascot-face-squint_0.92s_step-end_both]"],
   ["closed", "animate-[result-mascot-face-closed_0.92s_step-end_both]"],
-  ["smile", "animate-[result-mascot-face-smile_0.92s_step-end_both]"],
-] as const satisfies ReadonlyArray<readonly [keyof ResultMascotFrames, string]>;
+  ["peak", "animate-[result-mascot-face-peak_0.92s_step-end_both]"],
+] as const;
+
+const TILT_ANIMATION =
+  "animate-[result-mascot-tilt_0.92s_step-end_both] motion-reduce:animate-none";
+
+/**
+ * 정점에서 소품을 몸에 맞추는 기울기
+ *
+ * 기본 자리가 정점이라 기울인 transform을 유지하고, 연출 중에는 keyframes가 표정이 바뀌는 순간까지 기울기를 푼다.
+ * keyframes가 마스코트마다 다른 값을 읽도록 같은 값을 변수로도 둔다.
+ */
+function tiltFrame(id: MascotId, jumping: boolean) {
+  const transform = jumpTiltTransform(id);
+  return {
+    className: cn(jumping && TILT_ANIMATION),
+    style: { "--result-mascot-tilt": transform, transform } as CSSProperties,
+  };
+}
 
 /**
  * 공부 완료 히어로
@@ -72,22 +92,49 @@ const FACE_ANIMATIONS = [
  * 웅크리는 동안 표정이 기본, 정색, 눈 감음, 정색으로 바뀌고 뛰어오르는 순간 웃는다.
  * 타이틀(0.55s)·설명(0.66s)·순공시간(0.78s, 0.95s부터 1.3s 카운트업)·총 공부
  * (0.9s)·집중률 배지(1.0s)가 차례로 떠오른다.
- * 나중에 고른 마스코트로 바꿀 수 있게 표정 묶음을 받는다.
+ * 고른 마스코트가 소품을 낀 채로 뛰어오르고 몸 그림만 표정마다 바뀐다.
+ * 점프 그림은 몸이 기울어 있어 소품도 같은 순간에 같은 만큼 기운다.
+ * 세트는 발을 덮거나 발밑에 깔려 다리를 모은 점프 그림과 어긋나므로, 다리를 펴고 웃는 그림을 몸과 세트째 기울인다.
+ * 고른 모습을 아직 모르면 `mascotHidden`으로 마스코트 자리를 비워 두고, 기본 마스코트를 먼저 그렸다가 바꾸지 않는다.
+ * 카메라 없이 공부한 세션은 순공시간을 측정하지 않아 큰 숫자를 총 공부시간으로 바꾸고 총 공부 줄과 집중률 배지를 그리지 않는다.
  */
 export function StudyCompleteHero({
   view,
   phase,
-  mascot = TIMI_FRAMES,
+  look,
+  mascotHidden = false,
+  timer = false,
 }: {
   view: SessionResultView;
   phase: CompleteHeroPhase;
-  mascot?: ResultMascotFrames;
+  look?: MascotLook | null;
+  /** 참이면 마스코트와 그림자, 발밑 소품을 그리지 않고 자리만 둔다. */
+  mascotHidden?: boolean;
+  /** 참이면 카메라 없이 공부한 세션이다. */
+  timer?: boolean;
 }) {
   const { t } = useTranslation("study-session");
   const collapsed = phase === "revealed";
   const animated = phase !== "static";
-  const focusSec = useCountUp(view.focusSec, animated);
-  const jumping = phase === "intro";
+  const headlineSec = useCountUp(timer ? view.studySec : view.focusSec, animated);
+  const jumping = phase === "intro" && !mascotHidden;
+  const { id, accessories } = look ?? DEFAULT_LOOK;
+  const { wearsSet } = splitAccessoryLayers(accessories);
+  const expressions = MASCOT_EXPRESSION_SRC[id];
+  const faces = {
+    idle: expressions.idle,
+    squint: expressions.squint,
+    closed: expressions.closed,
+    peak: wearsSet ? expressions.joy : expressions.jump,
+  };
+  const tilt = tiltFrame(id, jumping);
+  // 낱개 발밑 소품은 바닥에 두고 마스코트만 뛰어오른다. 세트는 바닥 소품이 옷과 한 장이라 함께 뛴다.
+  const underfoot = wearsSet
+    ? []
+    : accessories.filter((accessory) => accessory.slot === "underfoot");
+  const worn = wearsSet
+    ? accessories
+    : accessories.filter((accessory) => accessory.slot !== "underfoot");
 
   useEffect(() => {
     if (!jumping) {
@@ -119,10 +166,11 @@ export function StudyCompleteHero({
       >
         {/* 인트로 블록: 마스코트 + 타이틀 + 설명. 접히면 높이 0·투명·위로 22px — DOM에는 남기되
             보이지 않는 텍스트를 스크린리더가 읽지 않게 aria-hidden을 함께 건다.
-            접힘에 필요한 overflow-hidden이 슬롯 위로 넘친 마스코트를 자르지 않게 위 여백을 늘리고 같은 만큼 끌어올린다. */}
+            접힘에 필요한 overflow-hidden이 슬롯 위로 넘친 마스코트를 자르지 않게 위 여백을 늘리고 같은 만큼 끌어올린다.
+            여백은 정점에서 기운 소품 판의 위 끝(슬롯 위 약 93px)까지 덮는다. */}
         <div
           aria-hidden={collapsed}
-          className="-mt-15 flex w-full flex-col items-center overflow-hidden pt-15 [transition:max-height_0.55s_cubic-bezier(0.22,1,0.36,1),opacity_0.4s_ease,transform_0.5s_ease] motion-reduce:transition-none"
+          className="-mt-24 flex w-full flex-col items-center overflow-hidden pt-24 [transition:max-height_0.55s_cubic-bezier(0.22,1,0.36,1),opacity_0.4s_ease,transform_0.5s_ease] motion-reduce:transition-none"
           style={
             collapsed
               ? { maxHeight: 0, opacity: 0, transform: "translateY(-22px)" }
@@ -132,39 +180,69 @@ export function StudyCompleteHero({
           }
         >
           {/* 기본 자리는 정점이라 모션 축소와 다시 본 결과는 애니메이션 없이 정점 자세를 바로 보인다. */}
-          <div className="relative mb-4.5 size-18">
-            <span
-              aria-hidden="true"
-              className={cn(
-                "absolute top-17.5 left-1/2 h-1.75 w-9 -translate-x-1/2 rounded-full bg-(--result-mascot-shadow) opacity-62 blur-xs",
-                jumping && "animate-[result-mascot-shadow_0.92s_both] motion-reduce:animate-none",
-              )}
-            />
+          {/* 바닥에 남은 발밑 소품은 아래 끝이 제목에 붙어 보여 그때만 16px 더 띄운다. */}
+          <div
+            data-result-mascot-slot=""
+            className={cn("relative size-18", underfoot.length > 0 ? "mb-8.5" : "mb-4.5")}
+          >
+            {!mascotHidden && (
+              <span
+                aria-hidden="true"
+                className={cn(
+                  "absolute top-17.5 left-1/2 h-1.75 w-9 -translate-x-1/2 rounded-full bg-(--result-mascot-shadow) opacity-62 blur-xs",
+                  jumping && "animate-[result-mascot-shadow_0.92s_both] motion-reduce:animate-none",
+                )}
+              />
+            )}
+            {/* 발밑 소품은 바닥에 선 마스코트 자리(뛰는 상자의 바닥 자세)에 멈춰 있다.
+                몸은 그리지 않고 마스코트와 같이 나타나도록 투명도만 맞춘다. */}
+            {!mascotHidden && underfoot.length > 0 && (
+              <div
+                data-result-mascot-ground=""
+                className={cn(
+                  "pointer-events-none absolute bottom-0 left-0.75 h-23.5 w-18.5",
+                  jumping && "animate-[result-mascot-ground_0.92s_both] motion-reduce:animate-none",
+                )}
+              >
+                <div data-result-mascot-board="" className="absolute" style={boardStyle(id)}>
+                  <MascotFigure id={id} accessories={underfoot} body={false} className="w-full" />
+                </div>
+              </div>
+            )}
             {/* 움직임은 컨테이너가, 표정 교체는 각 그림이 맡는다.
                 네 장을 처음부터 그려 두어 첫 교체 전에 디코드가 끝난다.
-                bottom-9·left-0.75는 웃는 표정 기준의 정점 자리다.
+                bottom-9·left-0.75는 점프 표정 기준의 정점 자리다.
                 기본 표정은 몸통이 5.6px 아래에 그려져 있어 바닥(36px 아래)에서 발끝이 그림자에 닿는다. */}
-            <div
-              data-result-mascot=""
-              className={cn(
-                "pointer-events-none absolute bottom-9 left-0.75 h-23.5 w-18.5 origin-bottom",
-                jumping && "animate-[result-mascot-jump_0.92s_both] motion-reduce:animate-none",
-              )}
-            >
-              {FACE_ANIMATIONS.map(([face, animation]) => (
-                <img
-                  key={face}
-                  src={mascot[face]}
-                  alt=""
-                  draggable={false}
-                  className={cn(
-                    "absolute inset-0 size-full",
-                    face !== "smile" && "opacity-0",
-                    jumping && [animation, "motion-reduce:animate-none"],
+            {!mascotHidden && (
+              <div
+                data-result-mascot=""
+                className={cn(
+                  "pointer-events-none absolute bottom-9 left-0.75 h-23.5 w-18.5 origin-bottom",
+                  jumping && "animate-[result-mascot-jump_0.92s_both] motion-reduce:animate-none",
+                )}
+              >
+                <div data-result-mascot-board="" className="absolute" style={boardStyle(id)}>
+                  {wearsSet ? (
+                    <div data-result-mascot-tilt="" className={tilt.className} style={tilt.style}>
+                      <MascotFigure
+                        id={id}
+                        accessories={worn}
+                        body={<ResultFaces faces={faces} jumping={jumping} />}
+                        className="w-full"
+                      />
+                    </div>
+                  ) : (
+                    <MascotFigure
+                      id={id}
+                      accessories={worn}
+                      body={<ResultFaces faces={faces} jumping={jumping} />}
+                      layerFrame={tilt}
+                      className="w-full"
+                    />
                   )}
-                />
-              ))}
-            </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <h1 className="text-[20px] leading-6 font-extrabold tracking-[-0.4px] text-foreground animate-[result-fade-up_0.5s_ease-out_0.55s_both] motion-reduce:animate-none">
@@ -180,25 +258,59 @@ export function StudyCompleteHero({
           style={{ marginTop: collapsed ? 4 : animated ? 34 : 22 }}
         >
           <p className="text-[12px] leading-3.75 font-bold text-muted-foreground">
-            {t("result.focusLabel")}
+            {t(timer ? "result.totalPrefix" : "result.focusLabel")}
           </p>
           <p className="text-[40px] leading-11.5 font-extrabold tracking-[-1.2px] text-foreground tabular-nums">
-            {toKoreanDurationLength(focusSec)}
+            {toKoreanDurationLength(headlineSec)}
           </p>
         </div>
 
-        {/* 총 공부 = 일시정지를 뺀 값이라 타임라인 축의 벽시계 범위와 다를 수 있다. */}
-        <p className="mt-2 text-[14px] leading-4.25 tabular-nums animate-[result-fade-up_0.5s_ease-out_0.9s_both] motion-reduce:animate-none">
-          <span className="text-muted-foreground">{`${t("result.totalPrefix")} `}</span>
-          <span className="font-bold text-foreground">{toKoreanDurationLength(view.studySec)}</span>
-        </p>
+        {!timer && (
+          <>
+            {/* 총 공부 = 일시정지를 뺀 값이라 타임라인 축의 벽시계 범위와 다를 수 있다. */}
+            <p className="mt-2 text-[14px] leading-4.25 tabular-nums animate-[result-fade-up_0.5s_ease-out_0.9s_both] motion-reduce:animate-none">
+              <span className="text-muted-foreground">{`${t("result.totalPrefix")} `}</span>
+              <span className="font-bold text-foreground">
+                {toKoreanDurationLength(view.studySec)}
+              </span>
+            </p>
 
-        <Badge className="mt-2.5 animate-[result-badge-pop_0.5s_cubic-bezier(0.34,1.56,0.64,1)_1s_both] motion-reduce:animate-none">
-          {t("result.focusRate", { percent: view.focusRatePercent })}
-        </Badge>
+            <Badge className="mt-2.5 animate-[result-badge-pop_0.5s_cubic-bezier(0.34,1.56,0.64,1)_1s_both] motion-reduce:animate-none">
+              {t("result.focusRate", { percent: view.focusRatePercent })}
+            </Badge>
+          </>
+        )}
       </div>
     </section>
   );
+}
+
+/**
+ * 겹쳐 둔 표정 그림
+ *
+ * 한 장만 보이고 step-end keyframes로 순간 교체한다.
+ * 정점 표정만 기본으로 보여 애니메이션이 없는 모션 축소와 다시 본 결과에서는 정점 표정만 남는다.
+ */
+function ResultFaces({
+  faces,
+  jumping,
+}: {
+  faces: Record<(typeof FACE_ANIMATIONS)[number][0], string>;
+  jumping: boolean;
+}) {
+  return FACE_ANIMATIONS.map(([face, animation]) => (
+    <img
+      key={face}
+      src={faces[face]}
+      alt=""
+      draggable={false}
+      className={cn(
+        "absolute inset-0 size-full",
+        face !== "peak" && "opacity-0",
+        jumping && [animation, "motion-reduce:animate-none"],
+      )}
+    />
+  ));
 }
 
 /**

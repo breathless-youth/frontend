@@ -1,3 +1,4 @@
+import type { MascotLook } from "@/components/mascot/types";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 import { DefaultProfileMascot } from "./DefaultProfileMascot";
@@ -6,6 +7,7 @@ import { DefaultProfileMascot } from "./DefaultProfileMascot";
  * 프로필 아바타
  *
  * 사진이 있으면 사진을, 없거나 불러오지 못하면 기본 마스코트를 자동 색(`colorIndex`) 위에 그린다.
+ * 고른 모습을 넘기면 기본 마스코트 자리에 그 마스코트를 소품과 함께 그린다.
  * ⚠️ colorIndex별 팔레트가 디자인에 아직 없다 — 배경을 brand로 통일하고, 팔레트가 확정되면
  * 아래 배열만 채운다(`colorIndex`는 서버가 고정 산출하므로 화면은 인덱싱만 한다).
  */
@@ -14,16 +16,18 @@ const AVATAR_COLORS = ["bg-primary"];
 export function ProfileAvatar({
   colorIndex,
   imageUrl,
+  look,
 }: {
   colorIndex: number;
   imageUrl?: string | null;
+  look?: MascotLook | null;
 }) {
   const color = AVATAR_COLORS[colorIndex % AVATAR_COLORS.length];
   return (
     <Avatar aria-hidden="true" className={`size-18 ${color}`}>
       {imageUrl ? <AvatarImage src={imageUrl} /> : null}
       <AvatarFallback>
-        <DefaultProfileMascot />
+        <DefaultProfileMascot look={look} />
       </AvatarFallback>
     </Avatar>
   );

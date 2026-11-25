@@ -46,12 +46,12 @@ const FULL_SCREEN_PATHS = [
   "/planner",
   "/manual-record",
   "/timelapse-settings",
-  "/timer-background-settings",
   "/app-lock-settings",
   "/timelapses",
   "/ranking/records",
   "/onboarding",
   "/blocks",
+  "/points",
   "/settings/login",
 ];
 
@@ -61,7 +61,12 @@ const FULL_SCREEN_PATHS = [
  * 그룹 하위 화면은 모두 감춘다.
  * 그룹 홈과 멤버 관리의 메뉴는 모달 표시가 없는 겹침이라, 탭 바가 남으면 메뉴가 열린 채로 탭을 바꿀 수 있다.
  */
-const FULL_SCREEN_PATH_PREFIXES = ["/social/room/", "/social/groups/", "/social/public/"];
+const FULL_SCREEN_PATH_PREFIXES = [
+  "/social/room/",
+  "/social/groups/",
+  "/social/public/",
+  "/points/",
+];
 
 export function isFullScreenPath(pathname: string): boolean {
   return (

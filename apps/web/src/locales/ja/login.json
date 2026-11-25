@@ -8,5 +8,24 @@
   "consent": "ログインすると、14歳以上であることを確認し、\n<terms>利用規約</terms>と<privacy>プライバシーポリシー</privacy>に同意したことになります",
   "errors": {
     "failed": "ログインできませんでした。もう一度お試しください"
+  },
+  "reviewLogin": {
+    "entry": "審査用ログイン",
+    "title": "審査用ログイン",
+    "loginId": "ID",
+    "password": "パスワード",
+    "submit": "ログイン",
+    "errors": {
+      "INVALID_REVIEW_CREDENTIALS": "IDまたはパスワードが正しくありません。",
+      "REVIEW_LOGIN_DISABLED": "現在、審査用ログインは使えません。",
+      "TOO_MANY_REQUESTS": "何度も間違えたため、しばらくしてからもう一度お試しください。",
+      "UNKNOWN": "ログインできなかったため、もう一度お試しください。"
+    }
+  },
+  "guestPoints": {
+    "card": {
+      "title": "{{points}}貯まりました",
+      "body": "新規登録するとそのまま引き継がれ、既存のアカウントでログインすると消えます"
+    }
   }
 }

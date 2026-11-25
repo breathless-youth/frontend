@@ -445,6 +445,20 @@ describe("그룹 공부방 메시지", () => {
     ]);
   });
 
+  it("초대코드 방 멤버에 mascot이나 모르는 키가 더 와도 멤버 메시지를 버리지 않는다", () => {
+    const { deliver, received } = connectChannel();
+    const mascot = { mascotCode: "BOOK", accessories: [] };
+    const member = { userId: 1, cameraOn: true, focusState: "FOCUS", mascot, futureField: 1 };
+
+    deliver({ type: "SNAPSHOT", members: [member] });
+    deliver({ type: "MEMBER_JOINED", member: { ...member, userId: 2, mascot: null } });
+
+    expect(received()).toStrictEqual([
+      { type: "SNAPSHOT", members: [member] },
+      { type: "MEMBER_JOINED", member: { ...member, userId: 2, mascot: null } },
+    ]);
+  });
+
   it("들어온 멤버의 null 필드는 빼고 값이 있는 필드는 그대로 받는다", () => {
     const { deliver, received } = connectChannel();
 

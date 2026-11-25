@@ -43,6 +43,13 @@ describe("buildActiveSnapshotRequest", () => {
     ]);
   });
 
+  it("카메라 없는 세션이면 측정 방식을 TIMER로 싣고 카메라 세션이면 필드를 싣지 않는다", () => {
+    expect(buildActiveSnapshotRequest({ ...INPUT, source: "TIMER" }).source).toBe("TIMER");
+    expect(buildActiveSnapshotRequest({ ...INPUT, source: "MEASURED" })).not.toHaveProperty(
+      "source",
+    );
+  });
+
   it("reportedAt을 경계로 studySec을 클램프한다", () => {
     const req = buildActiveSnapshotRequest({ ...INPUT, studySec: 99999, focusSec: 99999 });
     expect(req.studySec).toBe(30);
@@ -97,7 +104,7 @@ describe("reportActiveSession", () => {
       ),
     );
 
-    const caught = reportActiveSession(INPUT, 1_000).catch((e: unknown) => e);
+    const caught = reportActiveSession(INPUT, { timeoutMs: 1_000 }).catch((e: unknown) => e);
     await vi.advanceTimersByTimeAsync(1_000);
     const error = await caught;
 
@@ -128,5 +135,16 @@ describe("reportActiveSession", () => {
     } finally {
       window.history.replaceState(null, "", "/");
     }
+  });
+
+  it("keepalive를 주면 요청에 싣고 주지 않으면 끈다", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, status: 204 }));
+
+    await reportActiveSession(INPUT, { keepalive: true });
+    await reportActiveSession(INPUT);
+
+    const [[, first], [, second]] = vi.mocked(fetch).mock.calls;
+    expect((first as RequestInit).keepalive).toBe(true);
+    expect((second as RequestInit).keepalive).toBe(false);
   });
 });

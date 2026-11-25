@@ -27,12 +27,16 @@ import { IllustFlame } from "@/features/records/icons";
 import { formatDuration } from "@/features/records/recordsFormat";
 import { WeekDot } from "@/features/records/StreakBanner";
 import { SessionRecoveryDialog } from "@/features/study-session/components/SessionRecoveryDialog";
+import { SessionResumeDialog } from "@/features/study-session/components/SessionResumeDialog";
+import { consumeResumeMarker, writeResumeMarker } from "@/features/study-session/sessionResume";
 import { useLaunchSessionRecovery } from "@/features/study-session/useLaunchSessionRecovery";
 import { RecentTimelapses } from "@/features/timelapse/RecentTimelapses";
+import { readMeasureMode } from "@/features/measure-mode/measureMode";
 import { prefetchVisionAssets } from "@/features/study-session/vision/prefetchVisionAssets";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import { signalLaunchReady } from "@/lib/launchReady";
 import { requestPushPermissionOnHomeArrival } from "@/lib/nativePushPermission";
+import { requestSessionStart } from "@/lib/sessionStart";
 import { useFocusStart } from "@/lib/useFocusStart";
 import { hasTokenSource, useIdentityPending, useUserId } from "@/lib/userId";
 import { cn } from "@/lib/utils";
@@ -179,7 +183,8 @@ function HomeContent({ userId }: { userId: number }) {
   const summaryShown = summaryState.status === "success";
   useEffect(() => {
     if (summaryShown) {
-      prefetchVisionAssets();
+      // 카메라 없는 모드에서는 세션이 AI 모델을 쓰지 않아 받지 않는다.
+      if (readMeasureMode() === "camera") prefetchVisionAssets();
       // 맨 아래 최근 타임랩스의 `더보기`도 슬라이드 전환으로 전체 목록을 연다.
       prefetchTimelapsesPage();
     }
@@ -304,7 +309,18 @@ export function HomeTabPage({ homeV3Gateway }: { homeV3Gateway?: HomeV3Gateway }
   const userId = useUserId();
   const useNewHome = homeV3Gateway !== undefined || (hasTokenSource() && userId !== null);
   const identityPending = useIdentityPending();
-  const { recovered, settled: recoverySettled, dismiss } = useLaunchSessionRecovery(userId);
+  const {
+    recovered,
+    recoveredAwayLimit,
+    resumable,
+    settled: recoverySettled,
+    dismiss,
+    endResumable,
+    endIfResumeExpired,
+    closeResumable,
+  } = useLaunchSessionRecovery(userId);
+  // 복구 창과 이어 공부 확인 창은 같은 자리를 쓰고 공지·이월 창과 겹치지 않는다.
+  const launchDialogOpen = recovered !== null || resumable !== null;
   useTimeZoneSync(userId, identityPending);
   useAppLockRevokeCheck();
   // 공지가 복구 창보다 먼저다. 공지 판단이 끝나야 복구 창을 띄운다. 공지 호스트가 없으면 기다릴 것도 없다.
@@ -328,7 +344,7 @@ export function HomeTabPage({ homeV3Gateway }: { homeV3Gateway?: HomeV3Gateway }
       noticeSettled &&
       recoverySettled &&
       pushPermissionSettled,
-    blocked: homeEditorOpen || noticePopupOpen || recovered !== null,
+    blocked: homeEditorOpen || noticePopupOpen || launchDialogOpen,
   });
   useEffect(() => {
     if (onboarding === "onboarding") {
@@ -394,7 +410,7 @@ export function HomeTabPage({ homeV3Gateway }: { homeV3Gateway?: HomeV3Gateway }
       {userId !== null && (
         <NoticeModalHost
           userId={userId}
-          paused={(recovered !== null && recoveryReady) || noticeShownInDoc || carryover.open}
+          paused={(launchDialogOpen && recoveryReady) || noticeShownInDoc || carryover.open}
           onShown={() => {
             setNoticeShownInDoc(true);
           }}
@@ -404,7 +420,39 @@ export function HomeTabPage({ homeV3Gateway }: { homeV3Gateway?: HomeV3Gateway }
         />
       )}
       {recovered !== null && recoveryReady && !carryover.open && !homeEditorOpen && (
-        <SessionRecoveryDialog recovered={recovered} onConfirm={dismiss} />
+        <SessionRecoveryDialog
+          recovered={recovered}
+          awayLimit={recoveredAwayLimit}
+          onConfirm={dismiss}
+        />
+      )}
+      {resumable !== null && recoveryReady && !carryover.open && !homeEditorOpen && (
+        <SessionResumeDialog
+          awayMin={resumable.awayMin}
+          place="home"
+          onResume={async () => {
+            if (await endIfResumeExpired()) {
+              return;
+            }
+            // 방은 다른 웹뷰 문서라 고른 것을 저장소 표시로 넘겨 다시 묻지 않게 한다.
+            // 앱이 방을 열자마자 읽을 수 있어 보내기 전에 적는다.
+            writeResumeMarker(resumable.startedAtMs);
+            try {
+              await requestSessionStart(
+                userId,
+                () => void navigate({ pathname: "/room/1", search: location.search }),
+                { resume: true },
+              );
+            } catch (error: unknown) {
+              // 방이 열리지 않았으니 남은 표시가 다음 복원에서 묻는 단계를 건너뛰게 하지 않는다.
+              consumeResumeMarker(resumable.startedAtMs);
+              console.warn("[resume] could not start the resumed session", error);
+              throw error;
+            }
+            closeResumable();
+          }}
+          onEnd={endResumable}
+        />
       )}
       {carryover.tasks !== null && (
         <PlannerCarryoverDialog

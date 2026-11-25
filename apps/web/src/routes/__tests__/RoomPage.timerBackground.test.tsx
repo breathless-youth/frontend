@@ -46,6 +46,15 @@ async function choosePhoto(fit = { scale: 2, x: 10, y: 80 }) {
   writeTimerBackground({ kind: "photo", photoId: photo.id });
 }
 
+/** 감독 영상(WATCH) 서버 공간. 예전 `proctor` 배경과 같은 감독관이 나온다. */
+const WATCH_SPACE = {
+  kind: "space",
+  itemId: 1,
+  code: "proctor",
+  assetKey: "watcher/9c8d9f19",
+  assetType: "VIDEO",
+  videoMode: "WATCH",
+} as const;
 describe("RoomPage — 타이머 배경", () => {
   beforeEach(() => {
     globalThis.indexedDB = new IDBFactory();
@@ -68,7 +77,7 @@ describe("RoomPage — 타이머 배경", () => {
   });
 
   it("월페이퍼가 있으면 심플 모드에서도 그림을 둔 채 카메라 창만 빼고, 하단 버튼 톤을 낮춘다", async () => {
-    writeTimerBackground({ kind: "proctor" });
+    writeTimerBackground(WATCH_SPACE);
     renderRoom();
     const watcher = await screen.findByTestId("watcher-background");
     const background = screen.getByTestId("timer-background");
@@ -129,7 +138,7 @@ describe("RoomPage — 타이머 배경", () => {
   });
 
   it("월페이퍼 위에서는 시간 묶음이 라벨·큰 숫자·오늘 줄만 보인다", async () => {
-    writeTimerBackground({ kind: "proctor" });
+    writeTimerBackground(WATCH_SPACE);
     renderRoom();
     await screen.findByTestId("watcher-background");
 
@@ -141,7 +150,7 @@ describe("RoomPage — 타이머 배경", () => {
   it("월페이퍼에서 타임랩스를 켜고 카메라를 키우면 필이 과목 줄 아래로 올라간다", async () => {
     await saveTimelapseSettings({ ...DEFAULT_TIMELAPSE_SETTINGS, enabled: true });
     try {
-      writeTimerBackground({ kind: "proctor" });
+      writeTimerBackground(WATCH_SPACE);
       renderRoom();
       const expand = await screen.findByRole("button", { name: "내 화면 크게 보기" });
       await waitFor(() => expect(expand).toHaveTextContent("타임랩스"));
@@ -159,7 +168,7 @@ describe("RoomPage — 타이머 배경", () => {
   });
 
   it("감독관 배경이면 배경음의 배경 소리 탭 아래에 발소리 음량이 80으로 켜져 있고, 전체 스위치로 함께 꺼진다", async () => {
-    writeTimerBackground({ kind: "proctor" });
+    writeTimerBackground(WATCH_SPACE);
     renderRoom();
     await screen.findByTestId("watcher-background");
 
@@ -177,7 +186,7 @@ describe("RoomPage — 타이머 배경", () => {
   });
 
   it("전체 스위치로 끈 발소리는 다음 공부에서 다시 켜면 끄기 전 음량으로 돌아온다", async () => {
-    writeTimerBackground({ kind: "proctor" });
+    writeTimerBackground(WATCH_SPACE);
     const first = renderRoom();
     await screen.findByTestId("watcher-background");
     await userEvent.click(screen.getByRole("button", { name: /배경음/ }));
@@ -210,7 +219,7 @@ describe("RoomPage — 타이머 배경", () => {
   });
 
   it("월페이퍼 위 큰 숫자는 집중하지 않는 동안 회색으로 멈춘다", async () => {
-    writeTimerBackground({ kind: "proctor" });
+    writeTimerBackground(WATCH_SPACE);
     renderRoom();
     await screen.findByTestId("watcher-background");
     expect(screen.getByTestId("session-clock-number")).toHaveClass("text-white");
@@ -221,7 +230,7 @@ describe("RoomPage — 타이머 배경", () => {
   });
 
   it("배경이 있는 심플 모드는 위아래 어두운 띠를 옅게 한다", async () => {
-    writeTimerBackground({ kind: "proctor" });
+    writeTimerBackground(WATCH_SPACE);
     renderRoom();
     await screen.findByTestId("watcher-background");
     const simpleBands = () =>

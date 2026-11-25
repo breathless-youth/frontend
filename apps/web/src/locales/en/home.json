@@ -59,7 +59,7 @@
     "longestFocus": "Longest focus",
     "loadFailed": "Couldn't load your records"
   },
-  "startFocus": "Start Focus",
+  "startFocus": "Start studying",
   "invite": {
     "title": "Hard to focus alone today? <br/>Study together with others",
     "cta": "Study with a group"
@@ -77,6 +77,8 @@
       "caption": "Getting started",
       "subject": "Create a subject in Planner",
       "focus": "Complete 5 minutes of focus",
+      "accessory": "Buy your first accessory",
+      "shop": "Browse accessories",
       "progress": "Getting started, step {{step}}",
       "go": "Go",
       "start": "Start",
@@ -148,6 +150,24 @@
       "exam": "Exam"
     },
     "startingStudy": "Getting ready",
-    "startFailed": "Could not start studying. Please try again."
+    "measureMode": {
+      "toggle": {
+        "camera": "Change mode, now Camera Mode",
+        "timer": "Change mode, now Self-guided Mode"
+      },
+      "toast": {
+        "camera": "Camera Mode: measuring focus time with the camera",
+        "timer": "Self-guided Mode: studying without the camera"
+      }
+    },
+    "startFailed": "Could not start studying. Please try again.",
+    "reward": {
+      "label": "Start mission reward",
+      "caption": "For finishing the start missions",
+      "title": "Start mission reward <accent>{{points}}</accent>",
+      "claim": "Claim",
+      "claiming": "Claiming",
+      "failed": "Couldn't claim the reward. Tap again."
+    }
   }
 }

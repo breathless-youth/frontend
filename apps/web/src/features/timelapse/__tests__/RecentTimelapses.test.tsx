@@ -13,6 +13,9 @@ import { DEFAULT_TIMELAPSE_SETTINGS } from "../timelapseSettings";
 import type { TimelapseStore } from "../timelapseStore";
 import { createIndexedDbTimelapseStore } from "../timelapseStore";
 
+/** 기본값은 녹화가 꺼져 있어 촬영을 보는 테스트는 켠 설정으로 시작한다. */
+const RECORDING = { ...DEFAULT_TIMELAPSE_SETTINGS, enabled: true };
+
 /**
  * fake-indexeddb 위의 실제 저장소로 홈 목록을 그린다.
  * 테스트마다 새 IDBFactory를 깔아 앞 테스트의 DB가 남지 않게 한다.
@@ -39,7 +42,7 @@ afterEach(() => {
 
 /** 바이트 값이 0, 1, 2인 사진 세 장으로 타임랩스 하나를 목록에 올린다. */
 async function seed(startedAtMs: number, aspect: "9:16" | "16:9" = "9:16", focusSec = 8_040) {
-  await store.begin(startedAtMs, { ...DEFAULT_TIMELAPSE_SETTINGS, aspect });
+  await store.begin(startedAtMs, { ...RECORDING, aspect });
   for (let index = 0; index < 3; index += 1) {
     await store.addPhoto(startedAtMs, new Uint8Array([index]).buffer, startedAtMs + index * 10_000);
   }

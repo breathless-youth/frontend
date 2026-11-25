@@ -16,24 +16,29 @@ export function canLeaveMidClip(clip: WatcherClip): boolean {
  *
  * 재생 중인 클립은 끝까지 재생하고, 끝나는 순간의 비집중 여부로만 다음을 고른다.
  * 그래서 집중으로 돌아와도 클립 중간에 끊지 않고, 짧게 오가는 상태 변화에도 흔들리지 않는다.
+ * loop-a는 없어도 되는 장면이라 없으면 머무르기를 loop-b만으로 반복한다.
  * null이면 빈 방으로 멈춘다.
  */
-export function nextWatcherClip(ended: WatcherClip, present: boolean): WatcherClip | null {
+export function nextWatcherClip(
+  ended: WatcherClip,
+  present: boolean,
+  hasLoopA = true,
+): WatcherClip | null {
+  const stay: WatcherClip = hasLoopA ? "loop-a" : "loop-b";
   switch (ended) {
     case "enter":
-      return present ? "loop-a" : "exit";
+      return present ? stay : "exit";
     case "loop-a":
       return present ? "loop-b" : "exit";
     case "loop-b":
-      return present ? "loop-a" : "exit";
+      return present ? stay : "exit";
     case "exit":
       return present ? "enter" : null;
   }
 }
 
-/**
- * 감시자 소재 폴더. 폴더 이름은 소재 묶음 전체의 내용 해시라 소재를 바꾸면 주소도 바뀌어 1년 캐시를 걸 수 있다.
- * 해시는 폴더 안 파일별 sha256 목록의 sha256 앞 8자다: `find . -type f | sort | xargs shasum -a 256 | shasum -a 256`.
+/*
+ * 첫 감시 공간(독서실 감독관, watcher/9c8d9f19) 파일을 만든 방법이다.
  *
  * 원본(v2)은 HEVC에 소리가 든 mov라 Android 일부 기기가 못 풀어서 H.264로 바꾸고 소리를 뺀다. 해상도는 원본 그대로다.
  * `ffmpeg -i <원본> -an -c:v libx264 -profile:v high -pix_fmt yuv420p -crf 23 -preset slow -movflags +faststart <클립>/<기기>_<방향>.mp4`
@@ -49,20 +54,3 @@ export function nextWatcherClip(ended: WatcherClip, present: boolean): WatcherCl
  * 이음매는 클립 끝과 다음 클립 첫 프레임의 PSNR이 모두 40dB 이상이고, 루프 B 중간과 퇴장 첫 프레임도 31~43dB라
  * 루프 B에서 바로 퇴장해도 튀지 않는다.
  */
-export const WATCHER_ASSET_DIR = "/watcher/9c8d9f19";
-
-/** 태블릿 영상을 쓰는 짧은 변 기준. 휴대폰은 가로로 돌려도 짧은 변이 500을 넘지 않는다. */
-const TABLET_SHORT_SIDE_PX = 600;
-
-type Viewport = { width: number; height: number };
-
-/** 휴대폰·태블릿 구분. 돌려도 바뀌지 않는다. */
-export function watcherDevice(viewport: Viewport): "phone" | "tablet" {
-  return Math.min(viewport.width, viewport.height) >= TABLET_SHORT_SIDE_PX ? "tablet" : "phone";
-}
-
-/** 화면 크기에 맞는 클립 주소. 클립을 시작할 때마다 고르므로 회전하면 다음 클립부터 새 방향을 쓴다. */
-export function watcherClipUrl(clip: WatcherClip, viewport: Viewport): string {
-  const orientation = viewport.width > viewport.height ? "landscape" : "portrait";
-  return `${WATCHER_ASSET_DIR}/${clip}/${watcherDevice(viewport)}_${orientation}.mp4`;
-}

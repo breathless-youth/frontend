@@ -48,7 +48,10 @@
     }
   },
   "headline": {
-    "total": "總計 {{duration}}"
+    "total": "總計 {{duration}}",
+    "modeSplit": "相機模式 {{camera}}・自主模式 {{timer}}",
+    "modeInfo": "自主模式是不用相機讀書的時間，不會計入連續讀書、排行榜和點數",
+    "modeInfoLabel": "關於自主模式"
   },
   "rhythm": {
     "title": "讀書節奏",
@@ -101,6 +104,10 @@
     "subject": "科目",
     "edit": "編輯"
   },
+  "timerItem": {
+    "badge": "自主模式",
+    "readAloud": "以自主模式讀書的紀錄，{{start}}到{{end}}，{{length}}"
+  },
   "picker": {
     "today": "今天",
     "monthTitle": "選擇月份",
@@ -150,6 +157,6 @@
     "error": "無法載入紀錄",
     "manualEntry": "手動新增",
     "empty": "這天沒有紀錄",
-    "emptyHint": "開始專注後，紀錄會出現在這裡"
+    "emptyHint": "開始讀書後，紀錄會出現在這裡"
   }
 }

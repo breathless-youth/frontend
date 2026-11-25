@@ -2,6 +2,7 @@ import type { RankingType } from "@focusmakers/types";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { toOthersMascotLook } from "@/features/points/model/othersMascotLook";
 import { prefersReducedMotion } from "@/lib/prefersReducedMotion";
 import { cn } from "@/lib/utils";
 
@@ -199,7 +200,11 @@ function AroundRow({
             {shownChange?.text}
           </span>
         )}
-        <RankAvatar me={row.me} imageUrl={row.profileImageUrl} />
+        <RankAvatar
+          me={row.me}
+          imageUrl={row.profileImageUrl}
+          look={toOthersMascotLook(row.mascot)}
+        />
         <div className="min-w-0 flex-1">
           <Nickname
             name={row.nickname}

@@ -25,7 +25,10 @@ import {
   onboardingRecord,
 } from "@/features/onboarding/onboardingGate";
 import { todayLabel } from "@/features/home/homeFormat";
+import { writeMeasureMode } from "@/features/measure-mode/measureMode";
+import type { RestoredSession } from "@/features/study-session/restoreActiveSession";
 import { markSessionGuideSeen } from "@/features/study-session/sessionGuide";
+import { consumeResumeMarker } from "@/features/study-session/sessionResume";
 import { LAUNCH_SIGNAL_WAIT_MS } from "@/features/study-session/useLaunchSessionRecovery";
 import { plannerDay, plannerTask } from "@/test/plannerFixtures";
 import { homeMission } from "@/test/homeMissionFixtures";
@@ -38,6 +41,13 @@ const closeStaleSession = vi.hoisted(() =>
 );
 
 vi.mock("@/features/study-session/closeStaleSession", () => ({ closeStaleSession }));
+
+/** 진행 기록 조회도 자기 테스트가 따로 있다. 여기서는 결과만 조작한다. */
+const restoreActiveSession = vi.hoisted(() =>
+  vi.fn<() => Promise<RestoredSession | null>>(() => Promise.resolve(null)),
+);
+
+vi.mock("@/features/study-session/restoreActiveSession", () => ({ restoreActiveSession }));
 
 const analytics = vi.hoisted(() => ({
   trackFocusStartTapped: vi.fn(),
@@ -276,6 +286,7 @@ describe("HomeTabPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     closeStaleSession.mockResolvedValue(null);
+    restoreActiveSession.mockResolvedValue(null);
     getActiveNotices.mockImplementation(() => Promise.resolve([]));
     localStorage.clear();
     sessionStorage.clear();
@@ -421,6 +432,17 @@ describe("HomeTabPage", () => {
       resolveStats(statsResponse);
       await waitFor(() => expect(screen.getByText("77%")).toBeInTheDocument());
       await waitFor(() => expect(prefetchVisionAssets).toHaveBeenCalled());
+    });
+
+    it("카메라 없는 모드면 통계가 떠도 부르지 않는다", async () => {
+      writeMeasureMode("timer");
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+
+      renderHome();
+
+      await waitFor(() => expect(screen.getByText("77%")).toBeInTheDocument());
+      expect(prefetchVisionAssets).not.toHaveBeenCalled();
     });
 
     it("통계를 불러오지 못하면 부르지 않는다", async () => {
@@ -584,6 +606,151 @@ describe("HomeTabPage", () => {
     });
   });
 
+  describe("이어 공부 확인 창", () => {
+    function timerDraft(): RestoredSession {
+      const reportedAtMs = Date.now() - (32 * 60_000 + 5_000);
+      return {
+        startedAtMs: reportedAtMs - 30 * 60_000,
+        reportedAtMs,
+        baseStudySec: 1800,
+        baseFocusSec: 1800,
+        events: [],
+        source: "TIMER",
+      };
+    }
+
+    beforeEach(() => {
+      mockedStats.mockResolvedValue(statsResponse);
+      mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it("2시간 안에 꺼진 자율 모드 공부가 있으면 확정하지 않고 이어 갈지 묻는다", async () => {
+      restoreActiveSession.mockResolvedValue(timerDraft());
+
+      renderHome();
+      emitAppLaunched();
+
+      expect(
+        await screen.findByRole("dialog", { name: "공부를 이어 갈까요?" }),
+      ).toBeInTheDocument();
+      expect(screen.getByText("앱 밖에 있던 32분도 공부 시간에 들어가요")).toBeInTheDocument();
+      expect(closeStaleSession).not.toHaveBeenCalled();
+    });
+
+    it("이어서 공부하기를 고르면 표시를 남기고 확정 없이 카메라 없는 세션 시작을 보낸다", async () => {
+      const postMessage = vi.fn();
+      vi.stubGlobal("ReactNativeWebView", { postMessage });
+      const draft = timerDraft();
+      restoreActiveSession.mockResolvedValue(draft);
+
+      renderHome();
+      emitAppLaunched();
+      fireEvent.click(await screen.findByRole("button", { name: "이어서 공부하기" }));
+
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog")).toBeNull();
+      });
+      expect(closeStaleSession).not.toHaveBeenCalled();
+      const started = postMessage.mock.calls
+        .map(([raw]) => JSON.parse(String(raw)) as Record<string, unknown>)
+        .find((message) => message.type === "start-session");
+      expect(started).toMatchObject({ measureMode: "timer" });
+      expect(consumeResumeMarker(draft.startedAtMs)).toBe(true);
+    });
+
+    it("앱에 세션 시작을 넘기지 못하면 표시를 지우고 창을 연 채 다시 고를 수 있게 한다", async () => {
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const postMessage = vi.fn(() => {
+        throw new Error("bridge closed");
+      });
+      vi.stubGlobal("ReactNativeWebView", { postMessage });
+      const draft = timerDraft();
+      restoreActiveSession.mockResolvedValue(draft);
+
+      renderHome();
+      emitAppLaunched();
+      fireEvent.click(await screen.findByRole("button", { name: "이어서 공부하기" }));
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: "이어서 공부하기" })).toBeEnabled();
+      });
+      expect(screen.getByRole("dialog", { name: "공부를 이어 갈까요?" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "나간 시점에서 끝내기" })).toBeEnabled();
+      expect(postMessage).toHaveBeenCalled();
+      expect(consumeResumeMarker(draft.startedAtMs)).toBe(false);
+      vi.mocked(console.warn).mockRestore();
+    });
+
+    it.each([
+      ["확정한 기록이 있으면 2시간 사유로 복구 창을 띄운다", { ...RECOVERED, source: "TIMER" }],
+      ["확정할 기록이 없으면 창만 닫는다", null],
+    ] as const)(
+      "창을 연 채 2시간이 지나 이어서 공부하기를 누르면 세션을 열지 않고 끝낸다: %s",
+      async (_label, recovered) => {
+        const postMessage = vi.fn();
+        vi.stubGlobal("ReactNativeWebView", { postMessage });
+        restoreActiveSession.mockResolvedValue(timerDraft());
+        closeStaleSession.mockResolvedValue(recovered);
+
+        renderHome();
+        emitAppLaunched();
+        const resume = await screen.findByRole("button", { name: "이어서 공부하기" });
+        vi.useFakeTimers({ toFake: ["Date"] });
+        try {
+          vi.setSystemTime(Date.now() + 2 * 60 * 60_000);
+          fireEvent.click(resume);
+
+          await waitFor(() => {
+            expect(screen.queryByRole("dialog", { name: "공부를 이어 갈까요?" })).toBeNull();
+          });
+        } finally {
+          vi.useRealTimers();
+        }
+        expect(closeStaleSession).toHaveBeenCalledTimes(1);
+        const messages = postMessage.mock.calls.map(
+          ([raw]) => JSON.parse(String(raw)) as Record<string, unknown>,
+        );
+        expect(messages.some((message) => message.type === "start-session")).toBe(false);
+        const awayLimitText = "앱 밖에 2시간 넘게 있어서 앱을 나간 시점까지 기록을 저장했어요";
+        if (recovered === null) {
+          expect(screen.queryByText(awayLimitText)).toBeNull();
+        } else {
+          expect(await screen.findByText(awayLimitText)).toBeInTheDocument();
+        }
+      },
+    );
+
+    it("나간 시점에서 끝내기를 고르면 기록을 확정하고 복구 창 없이 창만 닫는다", async () => {
+      restoreActiveSession.mockResolvedValue(timerDraft());
+      closeStaleSession.mockResolvedValue(RECOVERED);
+
+      renderHome();
+      emitAppLaunched();
+      fireEvent.click(await screen.findByRole("button", { name: "나간 시점에서 끝내기" }));
+
+      await waitFor(() => {
+        expect(screen.queryByRole("dialog")).toBeNull();
+      });
+      expect(closeStaleSession).toHaveBeenCalledTimes(1);
+      expect(screen.queryByText(RECOVERY_TITLE)).toBeNull();
+    });
+
+    it("2시간이 지나 서버가 확정한 자율 모드 기록이면 복구 창이 그 사유를 보여 준다", async () => {
+      closeStaleSession.mockResolvedValue({ ...RECOVERED, source: "TIMER" });
+
+      renderHome();
+      emitAppLaunched();
+
+      expect(
+        await screen.findByText("앱 밖에 2시간 넘게 있어서 앱을 나간 시점까지 기록을 저장했어요"),
+      ).toBeInTheDocument();
+    });
+  });
+
   it("ⓘ를 누르면 연속 공부 기준 안내가 열린다 — 터치에서도 탭 한 번으로", async () => {
     mockedStats.mockResolvedValue(statsResponse);
     mockedStreak.mockResolvedValue({ streak: 3, maxStreak: 9, studiedDatesInRange: [] });
@@ -705,7 +872,7 @@ describe("HomeTabPage", () => {
     });
   });
 
-  describe("집중 시작 CTA", () => {
+  describe("공부 시작 CTA", () => {
     beforeEach(() => markSessionGuideSeen(7));
 
     it("쿼리를 승계해 세션 라우트로 바로 이동하고 출처를 남긴다", async () => {
@@ -715,7 +882,7 @@ describe("HomeTabPage", () => {
       renderHomeWithRoutes();
 
       await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
-      fireEvent.click(screen.getByRole("button", { name: "집중 시작" }));
+      fireEvent.click(screen.getByRole("button", { name: "공부 시작" }));
 
       const stub = await screen.findByTestId("room-stub");
       expect(stub.textContent).toBe("/room/1?userId=7");
@@ -729,7 +896,7 @@ describe("HomeTabPage", () => {
       renderHomeWithRoutes();
 
       await waitFor(() => expect(screen.getByText("오늘 순공시간")).toBeInTheDocument());
-      const cta = screen.getByRole("button", { name: "집중 시작" });
+      const cta = screen.getByRole("button", { name: "공부 시작" });
       fireEvent.click(cta);
       fireEvent.click(cta);
 
@@ -1103,7 +1270,7 @@ describe("HomeTabPage — 첫 실행 온보딩", () => {
 
     renderHome();
 
-    expect(await screen.findByRole("button", { name: "집중 시작" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "공부 시작" })).toBeInTheDocument();
     expect(launchSignals.signalLaunchReady).toHaveBeenCalled();
   });
 });

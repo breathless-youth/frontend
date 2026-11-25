@@ -48,7 +48,10 @@
     }
   },
   "headline": {
-    "total": "총 {{duration}}"
+    "total": "총 {{duration}}",
+    "modeSplit": "관리 모드 {{camera}} · 자율 모드 {{timer}}",
+    "modeInfo": "자율 모드는 카메라 없이 공부한 시간이라 연속 공부·랭킹·포인트에 반영되지 않아요",
+    "modeInfoLabel": "자율 모드 설명"
   },
   "rhythm": {
     "title": "나의 공부 리듬",
@@ -101,6 +104,10 @@
     "subject": "과목",
     "edit": "수정"
   },
+  "timerItem": {
+    "badge": "자율 모드",
+    "readAloud": "자율 모드로 공부한 기록, {{start}}부터 {{end}}, {{length}}"
+  },
   "picker": {
     "today": "오늘",
     "monthTitle": "달 선택",
@@ -150,6 +157,6 @@
     "error": "기록을 불러오지 못했어요",
     "manualEntry": "시간 직접 입력",
     "empty": "이 날은 기록이 없어요",
-    "emptyHint": "집중을 시작하면 여기에 쌓여요"
+    "emptyHint": "공부를 시작하면 여기에 쌓여요"
   }
 }

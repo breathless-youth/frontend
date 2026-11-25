@@ -5,6 +5,7 @@ import type {
   ControlFrame,
   GlassChromeTop,
   InlineControl,
+  LiveActivitySnapshot,
   MetaAppEventMessage,
   MetaAppEventParamValue,
   NativeButtonTone,
@@ -33,6 +34,10 @@ import {
   NATIVE_SEGMENT_MIN_OPTIONS,
   NAVIGATE_TAB_SOURCES,
   NAVIGATE_TAB_TARGETS,
+  POINTS_CHARGE_PRICES_MAX_PRODUCTS,
+  POINTS_CHARGE_RESTORE_MAX_PRODUCTS,
+  REVIEW_LOGIN_ID_MAX_LENGTH,
+  REVIEW_LOGIN_PASSWORD_MAX_LENGTH,
   SOCIAL_LOGIN_PROVIDERS,
   VIDEO_SHARE_TARGETS,
 } from "@focusmakers/types";
@@ -47,7 +52,23 @@ import { inviteCodeFrom } from "./sessionInvite";
  */
 const NATIVE_MESSAGE_ENTRY = "__focusonNativeMessage";
 
-/** `unknown` 값이 계약 목록 안의 리터럴인지 좁힌다. */
+// 스토어 상품 ID는 영문·숫자·점·밑줄·하이픈만 쓴다.
+// 그 밖의 문자열은 결제 SDK에 넘기지 않는다.
+function isStoreProductId(value: unknown): value is string {
+  return typeof value === "string" && /^[A-Za-z0-9._-]{1,100}$/.test(value);
+}
+
+// 결제용 ID는 서버가 준 UUID라 영문·숫자·점·밑줄·하이픈만 받는다.
+// 결제 SDK가 익명 사용자에 쓰는 `$` 앞머리 값도 이 규칙에서 걸린다.
+function toRevenueCatAppUserId(value: unknown): string | null {
+  return typeof value === "string" && /^[A-Za-z0-9._-]{1,100}$/.test(value) ? value : null;
+}
+
+function isBoundedString(value: unknown, max: number): value is string {
+  return typeof value === "string" && value.length > 0 && value.length <= max;
+}
+
+/** `unknown` 값이 명세 목록 안의 리터럴인지 좁힌다. */
 function isOneOf<const T extends readonly string[]>(list: T, value: unknown): value is T[number] {
   return typeof value === "string" && (list as readonly string[]).includes(value);
 }
@@ -146,6 +167,8 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         ...(record.initialSubjectId === undefined
           ? {}
           : { initialSubjectId: record.initialSubjectId as number }),
+        // 모르는 방식이면 그 필드만 버린다. 권한을 확인하는 지금 동작으로 돌아갈 뿐 시작은 막지 않는다.
+        ...(record.measureMode === "timer" ? { measureMode: "timer" as const } : {}),
       };
     case "navigate-home": {
       // 이어서 열 탭과 초대코드는 선택 필드다.
@@ -195,6 +218,76 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         return null;
       }
       return { type: "social-login", id: record.id, provider: record.provider, atMs: record.atMs };
+    case "review-login":
+      if (
+        typeof record.id !== "string" ||
+        record.id === "" ||
+        !isBoundedString(record.loginId, REVIEW_LOGIN_ID_MAX_LENGTH) ||
+        !isBoundedString(record.password, REVIEW_LOGIN_PASSWORD_MAX_LENGTH)
+      ) {
+        return null;
+      }
+      return {
+        type: "review-login",
+        id: record.id,
+        loginId: record.loginId,
+        password: record.password,
+        atMs: record.atMs,
+      };
+    case "points-charge-prices":
+      if (
+        typeof record.id !== "string" ||
+        record.id === "" ||
+        !Array.isArray(record.storeProductIds) ||
+        record.storeProductIds.length > POINTS_CHARGE_PRICES_MAX_PRODUCTS ||
+        !record.storeProductIds.every(isStoreProductId)
+      ) {
+        return null;
+      }
+      return {
+        type: "points-charge-prices",
+        id: record.id,
+        storeProductIds: record.storeProductIds,
+        appUserId: toRevenueCatAppUserId(record.appUserId),
+        atMs: record.atMs,
+      };
+    case "points-charge-purchase":
+      if (
+        typeof record.id !== "string" ||
+        record.id === "" ||
+        !isStoreProductId(record.storeProductId)
+      ) {
+        return null;
+      }
+      return {
+        type: "points-charge-purchase",
+        id: record.id,
+        storeProductId: record.storeProductId,
+        appUserId: toRevenueCatAppUserId(record.appUserId),
+        atMs: record.atMs,
+      };
+    case "points-charge-restore":
+      if (
+        typeof record.id !== "string" ||
+        record.id === "" ||
+        !Array.isArray(record.storeProductIds) ||
+        record.storeProductIds.length > POINTS_CHARGE_RESTORE_MAX_PRODUCTS ||
+        !record.storeProductIds.every(isStoreProductId)
+      ) {
+        return null;
+      }
+      return {
+        type: "points-charge-restore",
+        id: record.id,
+        storeProductIds: record.storeProductIds,
+        appUserId: toRevenueCatAppUserId(record.appUserId),
+        atMs: record.atMs,
+      };
+    case "points-ad-show":
+      if (typeof record.id !== "string" || record.id === "") {
+        return null;
+      }
+      return { type: "points-ad-show", id: record.id, atMs: record.atMs };
     case "logout":
     case "delete-account":
       if (
@@ -361,6 +454,17 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
         return null;
       }
       return { type: "motion-sensor", enabled: record.enabled, atMs: record.atMs };
+    case "live-activity": {
+      // 시각으로 잠금화면 시계의 시작 시각을 거꾸로 세므로 유한한 0 이상 값만 받는다.
+      if (!Number.isFinite(record.atMs) || record.atMs < 0) {
+        return null;
+      }
+      const session = parseLiveActivitySession(record.session);
+      if (session === undefined) {
+        return null;
+      }
+      return { type: "live-activity", session, atMs: record.atMs };
+    }
     case "meta-app-event":
       return parseMetaAppEvent(record);
     case "analytics-event":
@@ -388,6 +492,37 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
     default:
       return null;
   }
+}
+
+/**
+ * 잠금화면 공부 표시 과목 이름의 길이 상한
+ *
+ * 웹 입력 한도(12자)보다 길게 둔다.
+ * 서버가 더 긴 이름을 받아 두었을 수 있고, 그 이름 때문에 표시가 아예 뜨지 않으면 안 된다.
+ */
+const LIVE_ACTIVITY_SUBJECT_MAX_LENGTH = 100;
+
+/**
+ * 잠금화면 공부 표시 스냅샷 검증
+ *
+ * null은 표시를 끝내라는 뜻이라 그대로 넘기고, 모양이 어긋나면 undefined로 메시지를 통째로 버린다.
+ */
+function parseLiveActivitySession(value: unknown): LiveActivitySnapshot | null | undefined {
+  if (value === null) return null;
+  if (!isRecord(value)) return undefined;
+  const { mode, subject, state, elapsedSec } = value;
+  if (
+    (mode !== "timer" && mode !== "camera") ||
+    (state !== "running" && state !== "paused" && state !== "break" && state !== "distracted") ||
+    typeof elapsedSec !== "number" ||
+    !Number.isFinite(elapsedSec) ||
+    elapsedSec < 0 ||
+    (subject !== null &&
+      (typeof subject !== "string" || subject.length > LIVE_ACTIVITY_SUBJECT_MAX_LENGTH))
+  ) {
+    return undefined;
+  }
+  return { mode, subject, state, elapsedSec };
 }
 
 /** 파라미터 객체에서 형식에 맞는 키·값만 `max`개까지 남긴다. 객체가 아니면 null. */

@@ -65,7 +65,17 @@
     "manual": "Go to the store"
   },
   "legal": {
-    "koreanOnly": "This document is currently available in Korean only."
+    "koreanOnly": "This document is currently available in Korean only.",
+    "revisionChanges": "Changes take effect on {{date}}",
+    "revisionPending": "This version applies from {{date}}",
+    "showUpcoming": {
+      "terms": "View upcoming terms",
+      "privacy": "View upcoming policy"
+    },
+    "showCurrent": {
+      "terms": "View current terms",
+      "privacy": "View current policy"
+    }
   },
   "account": {
     "logout": {

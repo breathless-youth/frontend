@@ -2,6 +2,8 @@ import { Camera } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import type { MascotLook } from "@/components/mascot/types";
+import { useMyMascotLook } from "@/features/points/model/useMyMascotLook";
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
 import { canUseNativeProfilePhoto } from "@/lib/nativeProfilePhoto";
 import { hasTokenSource } from "@/lib/userId";
@@ -19,6 +21,7 @@ type ProfilePhotoProps = {
   userId: number;
   colorIndex: number;
   imageUrl?: string | null;
+  previewLook?: MascotLook;
 };
 
 /**
@@ -28,14 +31,21 @@ type ProfilePhotoProps = {
  * 토큰이 없는 문서(구 앱, 브라우저 단독)는 사진 API가 401로 막혀 버튼 없이 아바타만 보인다.
  */
 export function ProfilePhotoButton(props: ProfilePhotoProps) {
+  const savedLook = useMyMascotLook(props.userId);
+  const look = props.previewLook ?? savedLook;
   if (!hasTokenSource()) {
-    return <ProfileAvatar colorIndex={props.colorIndex} imageUrl={props.imageUrl} />;
+    return <ProfileAvatar colorIndex={props.colorIndex} imageUrl={props.imageUrl} look={look} />;
   }
-  return <EditablePhoto {...props} />;
+  return <EditablePhoto {...props} look={look} />;
 }
 
 /** 파일 입력은 시트가 닫힌 뒤에 선택 결과를 받으므로 시트 밖인 여기에 둔다. */
-function EditablePhoto({ userId, colorIndex, imageUrl }: ProfilePhotoProps) {
+function EditablePhoto({
+  userId,
+  colorIndex,
+  imageUrl,
+  look,
+}: ProfilePhotoProps & { look: MascotLook | null }) {
   const { t } = useTranslation("profile");
   const inputRef = useRef<HTMLInputElement>(null);
   const [open, setOpen] = useState(false);
@@ -55,7 +65,7 @@ function EditablePhoto({ userId, colorIndex, imageUrl }: ProfilePhotoProps) {
         onClick={() => setOpen(true)}
         className="relative flex rounded-full focus-visible:ring-2 focus-visible:ring-state-focus focus-visible:outline-none"
       >
-        <ProfileAvatar colorIndex={colorIndex} imageUrl={imageUrl} />
+        <ProfileAvatar colorIndex={colorIndex} imageUrl={imageUrl} look={look} />
         {busy ? (
           <span
             aria-hidden="true"

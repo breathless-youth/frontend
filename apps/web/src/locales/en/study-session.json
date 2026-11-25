@@ -40,6 +40,7 @@
   "autoEnd": {
     "title": "Your progress so far is saved",
     "backgroundBody": "We can't measure while the screen is off,\nso your session ended automatically",
+    "awayLimitBody": "You were away from the app for over 2 hours, so we recorded up to the 2-hour mark and ended your session",
     "focusLabel": "Focus time",
     "studyLabel": "Total",
     "cta": "View results"
@@ -80,6 +81,7 @@
   "moreMenu": {
     "trigger": "More",
     "flipCamera": "Switch camera",
+    "planner": "Planner",
     "help": "View guide",
     "shareInvite": "Share invite code",
     "timer": "Timer",
@@ -145,12 +147,19 @@
   "recovery": {
     "title": "Unsaved session recovered",
     "body": "The app closed unexpectedly.\nWe've saved your study record.",
+    "timerAwayBody": "You were away from the app for over 2 hours, so we saved your record up to when you left",
     "date": "Date",
     "time": "Start · End",
     "timeRange": "{{start}} – {{end}}",
     "studyTime": "Total study time",
     "focusTime": "Focus time",
     "confirm": "OK"
+  },
+  "resume": {
+    "title": "Continue studying?",
+    "body": "The {{minutes}} min you spent away from the app will count as study time",
+    "continue": "Keep studying",
+    "end": "End when I left"
   },
   "result": {
     "completeTitle": "Session complete",
@@ -165,7 +174,8 @@
     "studyDays_one": "{{count}} day",
     "studyDays_other": "{{count}} days",
     "ctaHome": "Home",
-    "ctaRecords": "Go to Records"
+    "ctaRecords": "Go to Records",
+    "timerNotice": "Time studied in Self-guided Mode\ndoesn't count toward streaks, rankings, or points"
   },
   "legend": {
     "focus": "Focus",
@@ -220,5 +230,47 @@
     "srRemaining": "Break time left {{duration}}",
     "notificationTitle": "Your {{minutes}}-min break is over",
     "notificationBody": "Time to get back to studying"
+  },
+  "space": {
+    "button": "Space",
+    "title": "Space",
+    "tabs": {
+      "video": "Video",
+      "image": "Image"
+    },
+    "search": "Search spaces",
+    "searchClose": "Close search",
+    "searchClear": "Clear search",
+    "all": "All",
+    "sections": {
+      "mine": "My photos"
+    },
+    "names": {
+      "simple": "Simple",
+      "photo": "My photo {{number}}"
+    },
+    "photoCount": "{{current}}/{{max}}",
+    "upload": "Upload photo",
+    "preview": "Preview {{name}}",
+    "remove": "Delete {{name}}",
+    "empty": "No spaces found",
+    "back": "Back",
+    "apply": "Apply",
+    "applied": "In use",
+    "mute": "Mute space sound",
+    "unmute": "Unmute space sound",
+    "volume": "Space volume",
+    "applyFailed": "Couldn't change the space. Try again",
+    "photoLimit": "You can upload up to {{max}} photos",
+    "removed": "Photo deleted",
+    "removeFailed": "Couldn't delete the photo. Try again",
+    "photoLoadFailed": "Couldn't load photos",
+    "previewFailed": "Couldn't load this space"
+  },
+  "banner": {
+    "ad": "AD",
+    "copy1": "Let AI plan your day",
+    "copy2": "Get your weekly focus report",
+    "copy3": "Premium pre-registration is open"
   }
 }

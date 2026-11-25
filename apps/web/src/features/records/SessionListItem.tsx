@@ -9,7 +9,13 @@ import { longestFocusStretch, timelineSegments } from "@/features/study-session/
 
 import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
-import { isManualSession, readAloudLabel, spanOf } from "@/features/manual-record/manualRecord";
+import {
+  isManualSession,
+  isTimerSession,
+  readAloudLabel,
+  spanOf,
+  timerReadAloudLabel,
+} from "@/features/manual-record/manualRecord";
 import { cn } from "@/lib/utils";
 
 import { IconChevronDown } from "./icons";
@@ -52,6 +58,9 @@ export function SessionListItem<T extends RecordsSession>({
         onEdit={onEdit}
       />
     );
+  }
+  if (isTimerSession(session)) {
+    return <TimerSessionListItem session={session} className={className} onEdit={onEdit} />;
   }
   const startClock = formatIsoClock(session.startedAt);
   const endClock = formatIsoClock(session.endedAt);
@@ -294,6 +303,85 @@ function ManualSessionListItem<T extends RecordsSession>({
             <ExpansionStat label={t("manualItem.start")} value={startClock} />
             <ExpansionStat label={t("manualItem.end")} value={endClock} />
             <ExpansionStat label={t("manualItem.subject")} value={subjectName} />
+          </dl>
+          <RecordEditButton session={session} onEdit={onEdit} />
+        </AccordionContent>
+      </li>
+    </AccordionItem>
+  );
+}
+
+/**
+ * 카메라 없이 공부한 기록 행
+ *
+ * 순공과 집중률을 측정하지 않아 수동 기록 행처럼 `총 N` 줄을 두지 않고 집중률 자리에 `카메라 없이` 배지를 둔다.
+ * 큰 숫자는 일시정지를 뺀 총 공부시간이다.
+ * 미니 타임라인은 순공색 바탕에 일시정지 구간만 그리고, 펼치면 시작·종료 시간만 보여 준다.
+ */
+function TimerSessionListItem<T extends RecordsSession>({
+  session,
+  className,
+  onEdit,
+}: {
+  session: T;
+  className?: string;
+  onEdit?: (session: T) => void;
+}) {
+  const { t } = useTranslation("records");
+  const startClock = formatIsoClock(session.startedAt);
+  const endClock = formatIsoClock(session.endedAt);
+  const pauses = timelineSegments({
+    startedAt: session.startedAt,
+    endedAt: session.endedAt,
+    events: session.events ?? [],
+  }).filter((segment) => segment.status === "PAUSE");
+
+  return (
+    <AccordionItem
+      value={recordDisplayKey(session)}
+      asChild
+      className={cn("border-b-0", className)}
+    >
+      <li>
+        <AccordionTrigger
+          hideChevron
+          aria-label={timerReadAloudLabel({ span: spanOf(session), studySec: session.studySec })}
+          className="group flex-col items-stretch gap-2.5 py-3.5 font-normal"
+        >
+          <span className="flex w-full items-start justify-between">
+            <FocusDuration focusSec={session.studySec} />
+            <span className="flex shrink-0 items-center gap-2 pt-0.5">
+              <RecordEditedIndicator session={session} />
+              <Badge variant="neutral" className="h-6 px-2.25 py-0 text-xs leading-4 font-semibold">
+                {t("timerItem.badge")}
+              </Badge>
+              <IconChevronDown size={10} className="group-data-[state=open]:rotate-180" />
+            </span>
+          </span>
+          <span className="flex w-full flex-col gap-1.25">
+            <span
+              aria-hidden
+              className="relative block h-2 w-full overflow-hidden rounded-full bg-primary"
+            >
+              {pauses.map((segment) => (
+                <ResultBarSegment
+                  key={String(segment.startRatio)}
+                  tone="pause"
+                  startRatio={segment.startRatio}
+                  widthRatio={segment.widthRatio}
+                />
+              ))}
+            </span>
+            <span className="flex w-full items-center justify-between text-[11px] leading-3.25 text-text-tertiary tabular-nums">
+              <span>{startClock}</span>
+              <span>{endClock}</span>
+            </span>
+          </span>
+        </AccordionTrigger>
+        <AccordionContent animated={false} className="pb-3.5">
+          <dl className="flex items-start gap-2 rounded-[14px] bg-bg-layer-2 px-3.5 py-3">
+            <ExpansionStat label={t("sessionItem.startTime")} value={startClock} />
+            <ExpansionStat label={t("sessionItem.endTime")} value={endClock} />
           </dl>
           <RecordEditButton session={session} onEdit={onEdit} />
         </AccordionContent>
