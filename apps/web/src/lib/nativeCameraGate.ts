@@ -15,6 +15,14 @@ const LEGACY_SHELL_TIMEOUT_MS = 3000;
 const GATE_TIMEOUT_MS = 120_000;
 
 /**
+ * 싱글 세션 화면 안 게이트의 응답 한도
+ *
+ * 사용자가 OS 권한 창 앞에서 고민하는 시간은 끊지 않도록 소셜 입장보다 훨씬 길게 잡는다.
+ * 그래도 응답이 유실되면 카메라가 꺼진 채 화면이 영영 멈추므로, 이 시간이 지나면 답 없음(`null`)으로 끝낸다.
+ */
+const SINGLE_GATE_TIMEOUT_MS = 10 * 60_000;
+
+/**
  * 셸이 `request-camera-gate`를 처리할 수 있는지 — 네이티브가 웹뷰 URL에 붙이는 표시다
  * (`apps/mobile/lib/remoteQueryParams.ts`의 `cameraGate=1`).
  *
@@ -44,7 +52,9 @@ function shellHandlesGate(): boolean {
  * 살아 있는데 발신만 삼켜진 좁은 경우뿐이라(네이티브 핸들러는 예외에도 반드시 답한다)
  * 자기 회복에 맡긴다.
  */
-let pendingGate: Promise<boolean> | null = null;
+let pendingGate: Promise<boolean | null> | null = null;
+/** 진행 중인 요청의 종류. 싱글과 소셜은 시간 한도와 거부 처리가 달라 결과를 서로 나눠 갖지 않는다. */
+let pendingSingle = false;
 
 /**
  * 네이티브 카메라 권한 게이트를 요청하고 입장 가능 여부를 돌려준다.
@@ -56,20 +66,28 @@ let pendingGate: Promise<boolean> | null = null;
  *
  * 브라우저 단독 모드는 브리지가 없어 즉시 `true`다 — 브라우저 자체 권한 프롬프트가 기존대로
  * 동작하고, OS 권한과 기준이 다르므로 차단 대상이 아니다.
+ *
+ * `null`은 싱글 세션 화면의 요청이 한도 안에 답을 받지 못한 것이다. 앱이 화면을 바꾸지 않았으므로
+ * 호출부가 스스로 빠져나가야 한다. 소셜 입장은 `null`을 받지 않는다.
  */
 export function requestCameraGate(
   /** 싱글 세션 화면 안에서 묻는다. 거부하면 앱이 세션 화면을 권한 안내 화면으로 바꾼다. */
   single?: { initialSubjectId?: number },
-): Promise<boolean> {
+): Promise<boolean | null> {
   if (!isNativeBridgeAvailable()) {
     return Promise.resolve(true);
   }
   if (pendingGate !== null) {
-    return pendingGate;
+    if (pendingSingle === (single !== undefined)) {
+      return pendingGate;
+    }
+    // 다른 종류가 진행 중이면 그 요청이 끝난 뒤 자기 요청을 따로 보낸다. 응답에는 종류가 없어 동시에 보내면 섞인다.
+    return pendingGate.then(() => requestCameraGate(single));
   }
+  pendingSingle = single !== undefined;
   pendingGate = new Promise((resolve) => {
     let settled = false;
-    const settle = (granted: boolean) => {
+    const settle = (granted: boolean | null) => {
       if (settled) {
         return;
       }
@@ -85,11 +103,10 @@ export function requestCameraGate(
       }
     });
     const handlesGate = shellHandlesGate();
-    // 싱글 세션 화면은 OS 권한 창 앞에서 고민하는 시간을 끊지 않는다.
-    // 끊으면 늦게 누른 허용이 버려지고 세션 화면이 카운트다운 전에 멈춘 채 남는다. 답은 허용이든 거부든 앱이 반드시 보낸다.
+    // 싱글 세션 화면은 OS 권한 창 앞의 고민 시간을 끊지 않게 길게 기다리고, 그래도 답이 없으면 답 없음으로 끝낸다.
     const timer =
       single !== undefined && handlesGate
-        ? undefined
+        ? setTimeout(() => settle(null), SINGLE_GATE_TIMEOUT_MS)
         : setTimeout(
             () => settle(!handlesGate),
             handlesGate ? GATE_TIMEOUT_MS : LEGACY_SHELL_TIMEOUT_MS,

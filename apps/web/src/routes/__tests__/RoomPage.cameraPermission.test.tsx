@@ -156,6 +156,35 @@ describe("RoomPage 가이드 끝 카메라 권한", () => {
     expect(amplitude.trackStudySessionStarted).not.toHaveBeenCalled();
   });
 
+  it("10분이 지나도 앱의 답이 없으면 멈춘 채 두지 않고 홈으로 나간다", async () => {
+    renderRoom("&cameraPermission=later");
+    await advance(0);
+
+    startFromLastStep();
+    await advance(10 * 60_000);
+
+    const sent = postMessage.mock.calls.map(
+      ([raw]) => JSON.parse(raw as string) as { type: string },
+    );
+    expect(sent).toContainEqual(expect.objectContaining({ type: "navigate-home" }));
+    expect(getUserMedia).not.toHaveBeenCalled();
+    expect(amplitude.trackStudySessionStarted).not.toHaveBeenCalled();
+  });
+
+  it("거부 답이면 홈으로 나가지 않는다(앱이 권한 안내 화면으로 바꾼다)", async () => {
+    renderRoom("&cameraPermission=later");
+    await advance(0);
+
+    startFromLastStep();
+    answerGate(false);
+    await advance(10 * 60_000);
+
+    const sent = postMessage.mock.calls.map(
+      ([raw]) => JSON.parse(raw as string) as { type: string },
+    );
+    expect(sent).not.toContainEqual(expect.objectContaining({ type: "navigate-home" }));
+  });
+
   it("Escape로 닫아도 그때 권한을 묻는다", async () => {
     renderRoom("&cameraPermission=later");
     await advance(0);

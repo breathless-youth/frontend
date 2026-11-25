@@ -638,20 +638,6 @@ function RoomSessionBody({
   const counting = phase.name === "counting";
   /** 카운트다운 숫자를 보이는가. 처음 도움말이 떠 있거나 권한 답을 기다리는 동안은 아직 세지 않아 숨긴다. */
   const countdownShown = counting && !firstHelpOpen && !cameraPermissionPending;
-  // 가이드가 닫히면(`공부 시작하기`·Escape) 권한을 묻는다. 가이드 없이 열렸으면 바로 묻는다.
-  // 이미 허용한 기기는 창 없이 바로 답이 온다. 거부면 앱이 화면을 바꾸므로 여기서는 기다리기만 한다.
-  useEffect(() => {
-    if (!cameraPermissionPending || firstHelpOpen) return;
-    let cancelled = false;
-    void requestCameraGate(initialSubjectId === undefined ? {} : { initialSubjectId }).then(
-      (granted) => {
-        if (granted && !cancelled) setCameraPermissionPending(false);
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [cameraPermissionPending, firstHelpOpen, initialSubjectId]);
   useLayoutEffect(() => {
     focusFeatureUsage.bindSession(userId, startedAtMs);
   }, [focusFeatureUsage, startedAtMs, userId]);
@@ -1335,6 +1321,25 @@ function RoomSessionBody({
     postToNative({ type: "navigate-home", atMs: Date.now() });
     navigate({ pathname: "/home", search: searchParams.toString() }, { replace: true });
   };
+  // 권한 답을 한도 안에 못 받으면 앱이 화면을 바꾸지 않은 것이라 스스로 홈으로 나간다.
+  const leaveUnansweredGate = useEffectEvent(goHome);
+  // 가이드가 닫히면(`공부 시작하기`·Escape) 권한을 묻는다. 가이드 없이 열렸으면 바로 묻는다.
+  // 이미 허용한 기기는 창 없이 바로 답이 온다. 거부면 앱이 화면을 바꾸므로 여기서는 기다리기만 한다.
+  useEffect(() => {
+    if (!cameraPermissionPending || firstHelpOpen) return;
+    let cancelled = false;
+    void requestCameraGate(initialSubjectId === undefined ? {} : { initialSubjectId }).then(
+      (granted) => {
+        if (cancelled) return;
+        if (granted === true) setCameraPermissionPending(false);
+        // 한도 안에 답이 없으면 앱이 화면을 바꾸지 않은 것이라 스스로 홈으로 나간다. 아직 시작 전이라 남길 기록이 없다.
+        else if (granted === null) leaveUnansweredGate();
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [cameraPermissionPending, firstHelpOpen, initialSubjectId]);
 
   /**
    * 순공 1분 미만으로 끝났는가
