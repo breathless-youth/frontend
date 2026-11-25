@@ -562,6 +562,26 @@ describe("setAcquisitionChannel", () => {
   });
 });
 
+describe("syncAppLocaleUserProperty", () => {
+  it("지금 화면 언어를 app_locale로 보내고, 언어가 바뀌면 다시 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, syncAppLocaleUserProperty } = await loadModule();
+    const { default: i18n } = await import("@/lib/i18n");
+    await i18n.changeLanguage("ko");
+    initAmplitude();
+
+    const stop = syncAppLocaleUserProperty();
+    await i18n.changeLanguage("ja");
+    stop();
+    await i18n.changeLanguage("ko");
+
+    const sets = mocks.identify.mock.calls.map(
+      ([sent]) => (sent as InstanceType<typeof mocks.FakeIdentify>).sets,
+    );
+    expect(sets).toEqual([[["app_locale", "ko"]], [["app_locale", "ja"]]]);
+  });
+});
+
 describe("setInstallAttributionUserProperties", () => {
   it("미초기화 상태에서는 아무것도 보내지 않는다", async () => {
     const { setInstallAttributionUserProperties } = await loadModule();
