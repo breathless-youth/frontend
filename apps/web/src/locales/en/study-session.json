@@ -11,7 +11,7 @@
     "device": "Looks like you're moving your device",
     "sleep": "Looks like you're dozing off",
     "pause": "Measuring paused",
-    "distracted": "Please check your study posture"
+    "distracted": "Measuring resumes when we see you studying"
   },
   "exitConfirm": {
     "title": "End your session?",
@@ -124,10 +124,10 @@
     "prev": "Previous",
     "next": "Next",
     "stepCount": "{{current}} / {{total}}",
-    "graceTitle": "When your study posture slips,\nwe <hl>blink</hl> to let you know",
+    "graceTitle": "When your study posture slips,\nwe <hl>blink the time</hl> to let you know",
     "graceBody": "Time keeps running while it blinks",
     "stopTitle": "If we still can't detect you studying,\n<hl>your focus time stops</hl>",
-    "stopBody": "Start studying again and it runs again",
+    "stopBody": "Time runs again once you start studying",
     "simpleTitle": "Tap the screen to switch to <hl>simple mode</hl>",
     "simpleBody": "Only the camera view is hidden; measuring continues",
     "readyTitle": "Detection is more accurate when your <hl>face</hl>,\n<hl>hands</hl>, and <hl>study materials</hl> are all visible",
@@ -135,7 +135,7 @@
     "markHands": "Hands",
     "markTools": "Study materials",
     "privacy": "Video is never stored on our servers",
-    "startTitle": "Ready to <hl>focus</hl> and start studying?",
+    "startTitle": "Ready to <hl>focus</hl> and study?",
     "timelapse": "Time-lapse",
     "sampleSubject": "Math",
     "sampleTask": "Solve sequence problems",

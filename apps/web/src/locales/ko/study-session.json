@@ -11,7 +11,7 @@
     "device": "기기를 조작 중인 것 같아요",
     "sleep": "졸고 있는 것 같아요",
     "pause": "측정을 일시정지했어요",
-    "distracted": "공부 자세를 확인해 주세요"
+    "distracted": "공부가 감지되면 다시 측정돼요"
   },
   "exitConfirm": {
     "title": "공부를 종료할까요?",
@@ -120,10 +120,10 @@
     "prev": "이전",
     "next": "다음",
     "stepCount": "{{current}} / {{total}}",
-    "graceTitle": "공부 자세가 흐트러지면\n<hl>깜빡이며</hl> 알려줘요",
+    "graceTitle": "공부 자세가 흐트러지면\n<hl>시간을 깜빡여</hl> 알려줘요",
     "graceBody": "깜빡이는 동안은 시간이 계속 흘러가요",
     "stopTitle": "계속 공부가 감지되지 않으면\n<hl>순공시간이 멈춰요</hl>",
-    "stopBody": "다시 공부하면 다시 흘러가요",
+    "stopBody": "다시 공부를 시작하면 시간이 흘러가요",
     "simpleTitle": "화면을 탭하면 <hl>심플 모드</hl>로 바뀌어요",
     "simpleBody": "카메라 화면만 숨기고 측정은 계속돼요",
     "readyTitle": "<hl>얼굴</hl>, <hl>손</hl>, <hl>공부도구</hl>가 함께 보이면\n더 정확하게 감지해요",
@@ -131,7 +131,7 @@
     "markHands": "손",
     "markTools": "공부도구",
     "privacy": "영상은 서버에 저장되지 않아요",
-    "startTitle": "이제 <hl>집중해서</hl> 공부 시작해볼까요?",
+    "startTitle": "이제 <hl>집중해서</hl> 공부해볼까요?",
     "timelapse": "타임랩스 녹화",
     "sampleSubject": "수학",
     "sampleTask": "수열 문제 풀기",

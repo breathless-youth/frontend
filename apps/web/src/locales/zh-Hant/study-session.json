@@ -11,7 +11,7 @@
     "device": "你好像在操作裝置",
     "sleep": "你好像在打瞌睡",
     "pause": "已暫停測量",
-    "distracted": "請確認你的讀書姿勢"
+    "distracted": "偵測到你在讀書時會重新測量"
   },
   "exitConfirm": {
     "title": "要結束讀書嗎？",
@@ -120,10 +120,10 @@
     "prev": "上一步",
     "next": "下一步",
     "stepCount": "{{current}} / {{total}}",
-    "graceTitle": "讀書姿勢跑掉時\n會<hl>閃爍</hl>提醒你",
+    "graceTitle": "讀書姿勢跑掉時\n會<hl>讓時間閃爍</hl>提醒你",
     "graceBody": "閃爍期間時間會繼續累積",
     "stopTitle": "一直偵測不到你在讀書的話\n<hl>專注時間會暫停</hl>",
-    "stopBody": "再次開始讀書就會繼續累積",
+    "stopBody": "重新開始讀書時間就會繼續累積",
     "simpleTitle": "點一下畫面可切換成<hl>極簡模式</hl>",
     "simpleBody": "只會隱藏相機畫面，測量仍會繼續",
     "readyTitle": "<hl>臉</hl>、<hl>手</hl>和<hl>讀書用品</hl>都入鏡時\n偵測會更準確",

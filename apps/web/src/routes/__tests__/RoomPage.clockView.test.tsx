@@ -95,7 +95,7 @@ describe("RoomPage 시계 보기 형식", () => {
         detector!.emit({ source: "PHONE", active: true });
         await vi.advanceTimersByTimeAsync(10_200);
       });
-      expect(screen.getByRole("status")).toHaveTextContent("공부 자세를 확인해 주세요");
+      expect(screen.getByRole("status")).toHaveTextContent("공부가 감지되면 다시 측정돼요");
     } finally {
       vi.useRealTimers();
     }

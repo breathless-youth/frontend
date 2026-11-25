@@ -3,7 +3,8 @@ import { type ReactElement, type ReactNode, useEffect, useId, useRef, useState }
 import { Trans, useTranslation } from "react-i18next";
 
 import handTap from "@/assets/guide/hand-tap.svg";
-import exampleUrl from "@/assets/guide/session-help-example.jpg";
+import phoneExampleUrl from "@/assets/guide/session-help-phone.jpg";
+import readyExampleUrl from "@/assets/guide/session-help-ready.jpg";
 import { Switch } from "@/components/ui/switch";
 import { HelpMascot } from "@/features/study-session/components/HelpMascot";
 import { SessionClock } from "@/features/study-session/components/SessionClock";
@@ -37,9 +38,12 @@ const BUBBLE_TEXT = {
   start: { title: "help.startTitle", body: null },
 } as const;
 
-/** 준비 장에서 구도를 짚으려고 키운 카메라 창. 자리(`PIP_ANCHOR`)는 그대로다. */
-const READY_PIP_SIZE =
-  "h-60 w-45 regular:h-72 regular:w-54 landscape-compact:h-36 landscape-compact:w-48";
+/**
+ * 준비 장에서 구도를 짚으려고 키운 카메라 창. 자리(`PIP_ANCHOR`)는 그대로다.
+ * 구도 표시가 사진 비율 기준 %라서 가로 화면에서도 사진과 같은 3:4로 둬 잘리지 않게 한다.
+ */
+export const READY_PIP_SIZE =
+  "h-60 w-45 regular:h-72 regular:w-54 landscape-compact:h-40 landscape-compact:w-30";
 
 /**
  * 말풍선 자리. 아래 끝을 오른쪽 아래 카메라 창 위 끝보다 12px 위에 둔다.
@@ -109,7 +113,7 @@ function TapMotion() {
   );
 }
 
-/** 카메라 창 위 구도 이름표. 자리는 창 크기 대비 %다. */
+/** 카메라 창 위 구도 이름표. 자리는 창 크기 대비 %이고 5장 예시 사진(`session-help-ready.jpg`, 3:4)에 맞췄다. */
 function PhotoMark({ label, className }: { label: string; className: string }) {
   return (
     <span
@@ -392,27 +396,25 @@ export function SessionHelpScreen({
           </p>
         )}
         <div aria-hidden className="relative size-full overflow-hidden rounded-lg bg-black">
+          {/* 확인 중·멈춤 장은 휴대폰을 보는 사진, 나머지 장은 공부하는 사진이다. 같은 사람·같은 방이라 장을 넘겨도 장면이 이어진다. */}
           <img
-            src={exampleUrl}
+            src={held ? phoneExampleUrl : readyExampleUrl}
             alt=""
-            className={cn(
-              "size-full object-cover transition-[filter] duration-500 motion-reduce:transition-none",
-              held && "blur-[1px] brightness-[.35] saturate-[.3]",
-            )}
+            className="size-full object-cover"
           />
           {ready && (
             <>
               <PhotoMark
                 label={t("help.markFace")}
-                className="top-[24%] left-[35%] h-[33%] w-[39%]"
+                className="top-[21%] left-[38%] h-[32%] w-[34%]"
               />
               <PhotoMark
                 label={t("help.markHands")}
-                className="top-[62%] left-[1%] h-[32%] w-[25%]"
+                className="top-[69%] left-[1%] h-[16%] w-[19%]"
               />
               <PhotoMark
                 label={t("help.markTools")}
-                className="top-[75%] left-[53%] h-[24%] w-[46%]"
+                className="top-[79%] left-[22%] h-[20%] w-[77%]"
               />
             </>
           )}

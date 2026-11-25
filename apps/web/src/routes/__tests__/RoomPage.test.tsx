@@ -629,7 +629,6 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
         await vi.advanceTimersByTimeAsync(3200); // 유예 3초 경과
       });
 
-      // 유예와 비집중은 같은 문구이고, 유예는 깜빡임으로 구분한다.
       expect(screen.getByRole("status")).toHaveTextContent("공부 자세를 확인해 주세요");
       // 유예는 순공이 흐르는 상태라 경고 색을 쓰지 않고 집중 파랑을 유지한다.
       expect(stateColor()).toBe(FOCUS_BLUE);
@@ -644,8 +643,8 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
         await vi.advanceTimersByTimeAsync(5000); // 처음 켜진 때부터 10초 경과
       });
 
-      // 비집중 문구는 원인과 상관없이 하나로 통일했다.
-      expect(screen.getByRole("status")).toHaveTextContent("공부 자세를 확인해 주세요");
+      // 비집중 문구는 원인과 상관없이 하나로 통일했고, 다시 공부하면 측정된다고 알린다.
+      expect(screen.getByRole("status")).toHaveTextContent("공부가 감지되면 다시 측정돼요");
       expect(stateColor()).toBe(DISTRACTION_ORANGE);
 
       await act(async () => {
@@ -653,7 +652,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
         await vi.advanceTimersByTimeAsync(2800); // 복귀 3초 직전
       });
 
-      expect(screen.getByRole("status")).toHaveTextContent("공부 자세를 확인해 주세요");
+      expect(screen.getByRole("status")).toHaveTextContent("공부가 감지되면 다시 측정돼요");
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(400); // 복귀 3초 경과
@@ -814,7 +813,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
         await vi.advanceTimersByTimeAsync(10_000);
       });
 
-      expect(screen.getByRole("status")).toHaveTextContent("공부 자세를 확인해 주세요");
+      expect(screen.getByRole("status")).toHaveTextContent("공부가 감지되면 다시 측정돼요");
     } finally {
       vi.useRealTimers();
     }
@@ -869,7 +868,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
         detector!.emit({ source: "AWAY", active: true });
         await vi.advanceTimersByTimeAsync(10_000);
       });
-      expect(screen.getByRole("status")).toHaveTextContent("공부 자세를 확인해 주세요");
+      expect(screen.getByRole("status")).toHaveTextContent("공부가 감지되면 다시 측정돼요");
 
       const times = () => screen.getAllByText(/^\d{2}:\d{2}:\d{2}$/).map((el) => el.textContent);
       const atDetect = times();

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { SessionHelpScreen } from "../components/SessionHelpScreen";
+import { READY_PIP_SIZE, SessionHelpScreen } from "../components/SessionHelpScreen";
 import { SESSION_HELP_STEPS } from "../sessionGuide";
 
 const timelapse = vi.hoisted(() => ({
@@ -98,7 +98,7 @@ describe("SessionHelpScreen", () => {
 
     expect(screen.getByTestId("help-demo-camera")).toHaveAttribute("data-demo", "away");
     expect(screen.getByText("공부 자세를 확인해 주세요")).toBeInTheDocument();
-    expect(paragraph("공부 자세가 흐트러지면 깜빡이며 알려줘요")).toBeInTheDocument();
+    expect(paragraph("공부 자세가 흐트러지면 시간을 깜빡여 알려줘요")).toBeInTheDocument();
     expect(paragraph("깜빡이는 동안은 시간이 계속 흘러가요")).toBeInTheDocument();
   });
 
@@ -130,16 +130,36 @@ describe("SessionHelpScreen", () => {
     expect(number()).not.toBe(start);
   });
 
+  it("카메라 창 사진은 확인 중·멈춤 장만 휴대폰 보는 모습이고 나머지 장은 공부하는 모습이다", () => {
+    renderHelp("first");
+    const photo = () =>
+      screen.getByTestId("help-demo-camera").querySelector("img")!.getAttribute("src");
+    const photos: (string | null)[] = [];
+    for (let index = 0; index < 6; index += 1) {
+      photos.push(photo());
+      if (index < 5) next();
+    }
+
+    expect(
+      photos.map((src) =>
+        src?.includes("session-help-phone")
+          ? "phone"
+          : src?.includes("session-help-ready")
+            ? "ready"
+            : src,
+      ),
+    ).toEqual(["ready", "phone", "phone", "ready", "ready", "ready"]);
+  });
+
   it("3장 멈춤: 확정 문구와 순공이 멈춘다는 말풍선이다", () => {
     renderHelp("first");
     next();
     next();
 
     expect(screen.getByTestId("help-demo-camera")).toHaveAttribute("data-demo", "away");
-    // 확인 중 문구와 같은 문구라 바뀌는 동안 겹쳐 있을 수 있다.
-    expect(screen.getAllByText("공부 자세를 확인해 주세요").length).toBeGreaterThan(0);
+    expect(screen.getByText("공부가 감지되면 다시 측정돼요")).toBeInTheDocument();
     expect(paragraph("계속 공부가 감지되지 않으면 순공시간이 멈춰요")).toBeInTheDocument();
-    expect(paragraph("다시 공부하면 다시 흘러가요")).toBeInTheDocument();
+    expect(paragraph("다시 공부를 시작하면 시간이 흘러가요")).toBeInTheDocument();
   });
 
   it("멈춤 장에서 다음을 누르면 일반 화면에서 탭하는 손을 보인 뒤 심플 모드 화면으로 바뀐다", async () => {
@@ -187,12 +207,30 @@ describe("SessionHelpScreen", () => {
     expect(screen.getByRole("button", { name: "다음" })).toBeInTheDocument();
   });
 
+  it("구도 장의 키운 카메라 창은 모든 화면에서 사진과 같은 3:4라 구도 표시가 어긋나지 않는다", () => {
+    // Tailwind 크기 단위(4px)로 적힌 높이·너비 쌍을 화면 구분별로 읽어 비율을 본다.
+    const sizes = new Map<string, { h?: number; w?: number }>();
+    for (const token of READY_PIP_SIZE.split(" ")) {
+      const match = /^(?:(.+):)?([hw])-(\d+)$/.exec(token);
+      if (!match) continue;
+      const screenKind = match[1] ?? "base";
+      const size = sizes.get(screenKind) ?? {};
+      size[match[2] as "h" | "w"] = Number(match[3]);
+      sizes.set(screenKind, size);
+    }
+
+    expect([...sizes.keys()]).toEqual(["base", "regular", "landscape-compact"]);
+    for (const { h, w } of sizes.values()) {
+      expect((w ?? 0) * 4).toBe((h ?? 0) * 3);
+    }
+  });
+
   describe("6장 시작", () => {
     it("시작 문구, 저장된 타임랩스 값이 있고 다시 보지 않기·나중에 할게요는 없다", async () => {
       renderHelp("first");
       goToLast();
 
-      expect(paragraph("이제 집중해서 공부 시작해볼까요?")).toBeInTheDocument();
+      expect(paragraph("이제 집중해서 공부해볼까요?")).toBeInTheDocument();
       expect(screen.queryByText("영상은 서버에 저장되지 않아요")).not.toBeInTheDocument();
       expect(await screen.findByRole("switch", { name: "타임랩스 녹화" })).toBeChecked();
       expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
