@@ -87,6 +87,7 @@
     }
   },
   "billing": "Pre-registering doesn't charge you.",
+  "consent": "By pre-registering, you confirm you're 14 or older and agree to the use of your personal information.",
   "benefits": {
     "dialog": "Sparta features",
     "title": "Sparta features",
@@ -95,40 +96,11 @@
     "sectionHint": "Tap for details",
     "sectionTitle": "6 Sparta features"
   },
-  "email": {
-    "dialog": "Email",
-    "title": "Where should we send the launch news?",
-    "label": "Email",
-    "placeholder": "example@email.com",
-    "consent": "[Required] Consent to collection and use of personal information",
-    "consentLine": "We only use your email for the launch notice and delete it right after sending.",
-    "details": "View details",
-    "terms": {
-      "itemLabel": "Collected",
-      "item": "Email",
-      "purposeLabel": "Purpose",
-      "purpose": "Sparta feature launch notice",
-      "periodLabel": "Retention",
-      "period": "Deleted right after the notice is sent. If we don't launch, deleted within 6 months after the experiment ends.",
-      "refuseLabel": "Refusal",
-      "refuse": "You may refuse, but then you can't pre-register."
-    },
-    "submit": "Pre-register",
-    "errors": {
-      "required": "Please enter your email.",
-      "format": "Please check your email format.",
-      "consent": "You need to agree to the collection and use of personal information to sign up.",
-      "age": "Only people 14 or older can sign up."
-    },
-    "headLine1": "One last step,",
-    "headLine2": "ready to light the fire?",
-    "age": "[Required] I'm 14 or older"
-  },
   "submitFailed": "We couldn't sign you up. Please try again.",
   "done": {
     "dialog": "Pre-registration complete",
     "title": "You'll be the first to know",
-    "byEmail": "We'll notify you in the app and at {{email}}.",
+    "byApp": "We'll notify you in the app.",
     "question": "Which feature are you most looking forward to?",
     "thanks": "Thank you for your answer!",
     "pickFailed": "We couldn't save your answer. Please choose again.",

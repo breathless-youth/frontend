@@ -1,10 +1,9 @@
-import { Check, ChevronDown, ChevronLeft, Flame } from "lucide-react";
+import { ChevronLeft, Flame } from "lucide-react";
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Trans, useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   trackPremiumFakeDoorApplied,
   trackPremiumFakeDoorApplyClicked,
@@ -14,17 +13,15 @@ import {
 import { useBackDismiss } from "@/lib/backDismiss";
 import { haptic } from "@/lib/haptics";
 import { lazyWithPreload } from "@/lib/lazyWithPreload";
-import { useKeyboardInset } from "@/lib/useKeyboardInset";
 import { cn } from "@/lib/utils";
 
+import { ApplyNotice } from "./ApplyNotice";
 import {
   dailyPremiumPrice,
-  type EmailStepErrors,
   PREMIUM_FEATURES,
   type PremiumFeature,
   type PremiumPlacement,
   type PremiumPrice,
-  validateEmailStep,
 } from "./premiumFakeDoor";
 import { FEATURE_ART } from "./premiumFeatureArt";
 import { SpartaHero } from "./SpartaHero";
@@ -34,17 +31,14 @@ const { LazySheet: LazyFeatureSheet, preload: preloadFeatureSheet } = lazyWithPr
   import("./PremiumFeatureSheet").then((module) => module.PremiumFeatureSheet),
 );
 
-type Step = "benefits" | "email" | "done";
-
-const NO_ERRORS: EmailStepErrors = { email: null, age: false, consent: false };
+type Step = "benefits" | "done";
 
 /**
- * 혜택 → 이메일·동의 → 완료로 이어지는 전체 화면(확정 시안 R2)
+ * 혜택 → 완료로 이어지는 전체 화면(확정 시안 R2·D1). "사전 신청하기" 한 번으로 저장한다
  *
  * 신청 흐름 전체는 시스템 테마와 무관하게 다크다(`theme-dark`, 세션 화면과 같은 방식). 결과 화면의 진입 카드는 사용자 테마를 따른다.
- * 혜택 화면은 스파르타 전용 색(`sparta-surface`)을 더 깐다. 만 14세 확인은 따로 묻지 않고 이메일 화면에서
- * 이메일 화면에서 "만 14세 이상이에요"와 "개인정보 수집·이용 동의"를 따로 체크받고, 둘 다 체크해야만 보낸다.
- * 그래서 `ageOver14`는 만 14세 확인 칸의 상태(늘 true)를 그대로 싣는다.
+ * 혜택 화면은 스파르타 전용 색(`sparta-surface`)을 더 깐다.
+ * 이메일은 받지 않는다. 만 14세 이상과 개인정보 이용 동의는 버튼 위 안내(`ApplyNotice`)로 갈음하고 `ageOver14`는 늘 true로 싣는다.
  *
  * 라우트가 아니라 같은 문서 위의 겹 화면이다. 결과 화면을 떠났다 돌아오면 연출과 보상 요청이 다시 돌기 때문이다.
  * `aria-modal`과 `data-covers-tab-bar`로 앱 탭 바를 숨기고, 앱의 뒤로 가기는 `useBackDismiss`로 이 화면만 닫는다.
@@ -65,18 +59,8 @@ export function PremiumFakeDoorFlow({
 }) {
   const { t } = useTranslation("premium-fake-door");
   const headingId = useId();
-  const emailId = useId();
-  const errorId = useId();
-  const consentErrorId = useId();
-  const ageErrorId = useId();
-  const termsId = useId();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [step, setStep] = useState<Step>("benefits");
-  const [email, setEmail] = useState("");
-  const [ageConfirmed, setAgeConfirmed] = useState(false);
-  const [consent, setConsent] = useState(false);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [errors, setErrors] = useState<EmailStepErrors>(NO_ERRORS);
   const [submitting, setSubmitting] = useState(false);
   const [submitFailed, setSubmitFailed] = useState(false);
   const [applied, setApplied] = useState<PremiumWaitlistRequest | null>(null);
@@ -92,8 +76,6 @@ export function PremiumFakeDoorFlow({
   const base = { price, placement };
 
   useBackDismiss(true, onClose);
-  const keyboardInset = useKeyboardInset();
-  const keyboardOpen = keyboardInset > 0;
 
   useEffect(() => {
     headingRef.current?.focus({ preventScroll: true });
@@ -111,32 +93,21 @@ export function PremiumFakeDoorFlow({
     trackPremiumFakeDoorFeatureViewed(base, feature);
   };
 
+  // 저장하는 동안의 되풀이 누름은 세지 않는다.
   const applyFrom = (from: "benefits" | "sheet") => {
+    if (submitInFlight.current) return;
     trackPremiumFakeDoorApplyClicked(base, from);
     setSheetOpen(false);
-    goTo("email");
-  };
-
-  const goTo = (next: Step) => {
-    setSubmitFailed(false);
-    setErrors(NO_ERRORS);
-    setStep(next);
-  };
-
-  const back = () => {
-    if (step === "benefits") onClose();
-    else if (step === "email") goTo("benefits");
+    void submit();
   };
 
   // 서버가 204로 저장한 뒤에만 완료로 넘어간다. 실패하면 같은 버튼으로 다시 보낸다.
   const submit = async () => {
-    if (submitInFlight.current) return;
-    // 만 14세 확인 칸의 상태를 싣는다. 체크하지 않으면 handlePrimary가 여기까지 오지 않으므로 실제로는 늘 true다.
     const body: PremiumWaitlistRequest = {
       price,
       placement,
-      ageOver14: ageConfirmed,
-      email: email.trim(),
+      ageOver14: true,
+      email: null,
       expectedFeature: null,
     };
     submitInFlight.current = true;
@@ -153,8 +124,10 @@ export function PremiumFakeDoorFlow({
       submitInFlight.current = false;
       setSubmitting(false);
     }
-    trackPremiumFakeDoorApplied(base, body.ageOver14 ? "over14" : "under14");
+    trackPremiumFakeDoorApplied(base, "over14");
     onApplied();
+    // 저장하는 동안 다시 연 설명 시트가 완료 화면을 덮지 않게 한다.
+    setSheetOpen(false);
     setApplied(body);
     setStep("done");
   };
@@ -182,17 +155,12 @@ export function PremiumFakeDoorFlow({
 
   const ctaLabel = {
     benefits: t("benefits.cta"),
-    email: t("email.submit"),
     done: placement === "SESSION" ? t("done.backToStudy") : t("done.backToResult"),
   }[step];
 
   function handlePrimary() {
     if (step === "benefits") {
       applyFrom("benefits");
-    } else if (step === "email") {
-      const next = validateEmailStep(email, ageConfirmed, consent);
-      setErrors(next);
-      if (next.email === null && !next.age && !next.consent) void submit();
     } else {
       onClose();
     }
@@ -200,12 +168,11 @@ export function PremiumFakeDoorFlow({
 
   const dialogLabel = {
     benefits: t("benefits.dialog"),
-    email: t("email.dialog"),
     done: t("done.dialog"),
   }[step];
 
   const failedLine = submitFailed && (
-    <p role="alert" className="mt-2 px-1 text-[13px] text-feedback-danger">
+    <p role="alert" className="mb-2.5 text-center text-[13px] text-feedback-danger">
       {t("submitFailed")}
     </p>
   );
@@ -292,145 +259,6 @@ export function PremiumFakeDoorFlow({
         </div>
       </>
     );
-  } else if (step === "email") {
-    const emailError = errors.email === null ? null : t(`email.errors.${errors.email}`);
-    body = (
-      <>
-        {/* 키보드가 올라오면 남는 높이가 화면의 절반쯤이라 그림을 접어 입력 칸이 보이게 한다. */}
-        {!keyboardOpen && <SpartaHero size={112} className="mb-1.5" />}
-        <h2
-          id={headingId}
-          ref={headingRef}
-          tabIndex={-1}
-          className="text-[26px] leading-8.5 font-black tracking-[-0.04em] break-keep outline-none"
-        >
-          <span className="block">{t("email.headLine1")}</span>
-          <span className="sparta-title-gradient block">{t("email.headLine2")}</span>
-        </h2>
-        <p className="mt-2 text-sm leading-5.25 break-keep text-sparta-fg2">{t("email.title")}</p>
-        <label
-          htmlFor={emailId}
-          className="mt-5.5 mb-2 block text-[13px] font-bold text-sparta-fg2"
-        >
-          {t("email.label")}
-        </label>
-        <Input
-          id={emailId}
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          placeholder={t("email.placeholder")}
-          value={email}
-          aria-invalid={emailError !== null}
-          // 포커스는 불꽃색 테두리와 옅은 링, 오류는 포커스 중에도 위험 색 테두리만 둔다.
-          className="h-13.5 rounded-lg border-[1.5px] border-sparta-line bg-sparta-card text-base text-sparta-fg placeholder:text-sparta-fg3 focus-visible:border-sparta-hot focus-visible:ring-4 focus-visible:ring-sparta-hot/15 aria-invalid:border-feedback-danger aria-invalid:focus-visible:ring-0"
-          aria-describedby={emailError !== null ? errorId : undefined}
-          onChange={(event) => {
-            setEmail(event.target.value);
-            if (errors.email !== null) setErrors((prev) => ({ ...prev, email: null }));
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") handlePrimary();
-          }}
-        />
-        {emailError !== null && (
-          <p id={errorId} role="alert" className="mt-1.5 ml-1 text-[13px] text-feedback-danger">
-            {emailError}
-          </p>
-        )}
-        {/* 만 14세 확인과 개인정보 수집·이용 동의는 항목별로 따로 받는다(PR #637 2차 리뷰). 둘 다 체크해야 보낸다. */}
-        <div
-          className={cn(
-            "mt-3.5 rounded-lg border bg-sparta-card p-3.5",
-            errors.age ? "border-feedback-danger" : "border-sparta-line",
-          )}
-        >
-          <SpartaCheckbox
-            checked={ageConfirmed}
-            invalid={errors.age}
-            describedBy={errors.age ? ageErrorId : undefined}
-            onChange={(checked) => {
-              setAgeConfirmed(checked);
-              if (checked) setErrors((prev) => ({ ...prev, age: false }));
-            }}
-          >
-            <span className="break-keep">{t("email.age")}</span>
-          </SpartaCheckbox>
-          {errors.age && (
-            <p
-              id={ageErrorId}
-              role="alert"
-              className="mt-1.5 ml-8.5 text-[13px] text-feedback-danger"
-            >
-              {t("email.errors.age")}
-            </p>
-          )}
-        </div>
-        <div
-          className={cn(
-            "mt-2.5 rounded-lg border bg-sparta-card p-3.5",
-            errors.consent ? "border-feedback-danger" : "border-sparta-line",
-          )}
-        >
-          <SpartaCheckbox
-            checked={consent}
-            invalid={errors.consent}
-            describedBy={errors.consent ? consentErrorId : undefined}
-            onChange={(checked) => {
-              setConsent(checked);
-              if (checked) setErrors((prev) => ({ ...prev, consent: false }));
-            }}
-          >
-            <span className="break-keep">{t("email.consent")}</span>
-          </SpartaCheckbox>
-          <p className="mt-1.5 ml-8.5 text-[13px] leading-4.75 break-keep text-sparta-fg2">
-            {t("email.consentLine")}
-          </p>
-          <button
-            type="button"
-            aria-expanded={detailsOpen}
-            aria-controls={termsId}
-            onClick={() => setDetailsOpen((open) => !open)}
-            className="ml-7 flex min-h-11 items-center gap-1 px-1.5 text-[13px] font-semibold text-sparta-fg2"
-          >
-            {t("email.details")}
-            <ChevronDown
-              size={16}
-              aria-hidden="true"
-              className={cn(
-                "transition-transform motion-reduce:transition-none",
-                detailsOpen && "rotate-180",
-              )}
-            />
-          </button>
-          {detailsOpen && (
-            <dl
-              id={termsId}
-              className="mt-1.5 ml-8.5 grid grid-cols-[auto_1fr] gap-x-2.5 gap-y-1.5 text-[12.5px] leading-4.5 break-keep text-sparta-fg2"
-            >
-              <dt className="whitespace-nowrap text-sparta-fg3">{t("email.terms.itemLabel")}</dt>
-              <dd>{t("email.terms.item")}</dd>
-              <dt className="whitespace-nowrap text-sparta-fg3">{t("email.terms.purposeLabel")}</dt>
-              <dd>{t("email.terms.purpose")}</dd>
-              <dt className="whitespace-nowrap text-sparta-fg3">{t("email.terms.periodLabel")}</dt>
-              <dd>{t("email.terms.period")}</dd>
-              <dt className="whitespace-nowrap text-sparta-fg3">{t("email.terms.refuseLabel")}</dt>
-              <dd>{t("email.terms.refuse")}</dd>
-            </dl>
-          )}
-          {errors.consent && (
-            <p
-              id={consentErrorId}
-              role="alert"
-              className="mt-1.5 ml-8.5 text-[13px] text-feedback-danger"
-            >
-              {t("email.errors.consent")}
-            </p>
-          )}
-        </div>
-        {failedLine}
-      </>
-    );
   } else {
     const legendId = `${headingId}-question`;
     body = (
@@ -448,7 +276,7 @@ export function PremiumFakeDoorFlow({
         >
           {t("done.title")}
         </h2>
-        <DoneAddressLine email={applied?.email ?? null} />
+        <p className="mt-2 text-sm leading-5.25 break-keep text-sparta-fg2">{t("done.byApp")}</p>
         <fieldset role="radiogroup" aria-labelledby={legendId} className="mt-6.5 text-left">
           <legend id={legendId} className="text-base font-extrabold">
             {t("done.question")}
@@ -507,7 +335,7 @@ export function PremiumFakeDoorFlow({
           <button
             type="button"
             aria-label={t("actions.back", { ns: "common" })}
-            onClick={back}
+            onClick={onClose}
             className="flex size-11 items-center justify-center rounded-full bg-white/7 text-sparta-fg"
           >
             <ChevronLeft size={20} aria-hidden="true" />
@@ -524,8 +352,6 @@ export function PremiumFakeDoorFlow({
         {body}
       </div>
       <div
-        // 키보드는 화면을 줄이지 않고 아래를 덮어서, 올라온 동안에는 안전 영역 대신 키보드 높이만큼 버튼 줄을 올린다.
-        style={keyboardOpen ? { paddingBottom: keyboardInset + 12 } : undefined}
         className={cn(
           "page-width relative w-full shrink-0 px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+24px)]",
           // 아래 버튼 줄 위로 내용이 바탕색으로 흐려지며 사라진다.
@@ -533,12 +359,10 @@ export function PremiumFakeDoorFlow({
         )}
       >
         {step === "benefits" && (
-          <p className="mb-2.5 text-center text-xs break-keep text-sparta-fg3">{t("billing")}</p>
-        )}
-        {step === "email" && !keyboardOpen && (
-          <p className="mb-2.5 text-center text-xs leading-4.25 break-keep text-sparta-fg3">
-            {t("billing")}
-          </p>
+          <>
+            {failedLine}
+            <ApplyNotice />
+          </>
         )}
         <Button
           type="button"
@@ -556,6 +380,7 @@ export function PremiumFakeDoorFlow({
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         feature={sheetFeature}
+        submitting={submitting}
         onApply={() => applyFrom("sheet")}
         returnFocus={sheetTileRef}
       />
@@ -612,48 +437,6 @@ function FeatureTile({
   );
 }
 
-/**
- * 동의 체크 칸(확정 시안 S1)
- *
- * 신청 흐름에서만 쓰는 24px 둥근 사각 칸이다. 체크하면 불꽃색으로 채운다. 줄 전체가 누르는 자리다(44px 이상).
- */
-function SpartaCheckbox({
-  checked,
-  invalid,
-  describedBy,
-  onChange,
-  children,
-}: {
-  checked: boolean;
-  invalid: boolean;
-  describedBy?: string;
-  onChange: (checked: boolean) => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      role="checkbox"
-      aria-checked={checked}
-      aria-invalid={invalid}
-      aria-describedby={describedBy}
-      onClick={() => onChange(!checked)}
-      className="flex min-h-11 w-full items-center gap-2.5 text-left text-[15px] font-bold text-sparta-fg focus-visible:ring-2 focus-visible:ring-(--state-focus) focus-visible:outline-none"
-    >
-      <span
-        aria-hidden="true"
-        className={cn(
-          "flex size-6 shrink-0 items-center justify-center rounded-sm border-2",
-          checked ? "border-sparta-hot bg-sparta-hot text-white" : "border-sparta-fg3",
-        )}
-      >
-        {checked && <Check size={14} strokeWidth={3} />}
-      </span>
-      {children}
-    </button>
-  );
-}
-
 function FeatureRadio({
   id,
   name,
@@ -687,18 +470,5 @@ function FeatureRadio({
       <img src={FEATURE_ART[id]} alt="" className="mt-1.5 mb-1 size-12 object-contain" />
       {t(`features.${id}.name`)}
     </label>
-  );
-}
-
-/**
- * 완료 화면의 알림 경로 안내. 신청한 이메일이 있을 때만 그린다(빈 주소로 된 문장을 보이지 않는다).
- */
-export function DoneAddressLine({ email }: { email: string | null }) {
-  const { t } = useTranslation("premium-fake-door");
-  if (!email) return null;
-  return (
-    <p className="mt-2 text-sm leading-5.25 break-all text-sparta-fg2">
-      {t("done.byEmail", { email })}
-    </p>
   );
 }

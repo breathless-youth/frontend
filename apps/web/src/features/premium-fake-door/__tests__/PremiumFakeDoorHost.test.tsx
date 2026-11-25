@@ -64,143 +64,34 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe("PremiumFakeDoorHost 14세 확인", () => {
-  it("사전 신청하기는 바로 이메일 화면으로 가고, 만 14세 확인은 필수 동의 체크 칸에 들어 있다", async () => {
+describe("PremiumFakeDoorHost 신청", () => {
+  it("사전 신청하기를 누르면 이메일 없이 바로 신청하고 완료 화면을 보인다", async () => {
     renderHost();
     await openApplyFlow();
 
-    expect(screen.getByText("출시 소식을 받을 이메일을 알려주세요.")).toBeInTheDocument();
-    expect(screen.queryByText("만 14세 이상인가요?")).not.toBeInTheDocument();
-    expect(screen.queryByRole("checkbox", { name: "만 14세 이상이에요" })).not.toBeInTheDocument();
-    expect(screen.queryByText("1/2")).not.toBeInTheDocument();
-    expect(screen.queryByText("2/2")).not.toBeInTheDocument();
-    // 만 14세 확인은 동의 체크 칸 하나에 합쳤다. 버튼 위 안내 줄은 없고 결제 안내만 남는다.
-    expect(screen.queryByText(/신청하면 만 14세 이상임을 확인/)).not.toBeInTheDocument();
-    expect(screen.getByText("사전 신청으로 자동 결제되지 않아요.")).toBeInTheDocument();
-    // 만 14세 확인과 개인정보 동의는 따로 받는다. 순서는 14세 확인이 먼저다.
-    const boxes = screen.getAllByRole("checkbox").map((box) => box.textContent);
-    expect(boxes).toEqual(["[필수] 만 14세 이상이에요", "[필수] 개인정보 수집·이용 동의"]);
-    for (const box of screen.getAllByRole("checkbox")) expect(box).not.toBeChecked();
-    // 만 14세 미만 따로 신청하는 길은 없다. 신청은 이메일 제출 하나뿐이다.
-    expect(screen.queryByRole("button", { name: /만 14세 미만/ })).not.toBeInTheDocument();
-    expect(screen.queryByText(/앱 알림으로 신청/)).not.toBeInTheDocument();
-  });
-});
-
-/** 이제 사전 신청하기를 누르면 바로 이메일 화면이다. */
-const goToEmailStep = openApplyFlow;
-
-describe("PremiumFakeDoorHost 이메일 검사", () => {
-  it("이메일 칸은 비어 있고, 빈 값이면 보내지 않고 입력칸 아래에 알린다", async () => {
-    renderHost();
-    const user = await goToEmailStep();
-
-    expect(screen.getByLabelText("이메일")).toHaveValue("");
-    await user.click(screen.getByRole("checkbox", { name: "[필수] 만 14세 이상이에요" }));
-    await user.click(screen.getByRole("checkbox", { name: "[필수] 개인정보 수집·이용 동의" }));
-    await user.click(screen.getByRole("button", { name: "사전 신청하기" }));
-
-    expect(screen.getByText("이메일을 입력해 주세요.")).toBeInTheDocument();
-    expect(screen.getByLabelText("이메일")).toHaveAttribute("aria-invalid", "true");
-    expect(putPremiumWaitlist).not.toHaveBeenCalled();
-  });
-
-  it("형식이 틀리면 보내지 않는다", async () => {
-    renderHost();
-    const user = await goToEmailStep();
-
-    await user.type(screen.getByLabelText("이메일"), "minjun@mail");
-    await user.click(screen.getByRole("checkbox", { name: "[필수] 만 14세 이상이에요" }));
-    await user.click(screen.getByRole("checkbox", { name: "[필수] 개인정보 수집·이용 동의" }));
-    await user.click(screen.getByRole("button", { name: "사전 신청하기" }));
-
-    expect(screen.getByText("이메일 형식을 확인해 주세요.")).toBeInTheDocument();
-    expect(putPremiumWaitlist).not.toHaveBeenCalled();
-  });
-
-  it("동의하지 않으면 보내지 않고, 동의하면 이메일과 함께 신청한다", async () => {
-    renderHost();
-    const user = await goToEmailStep();
-
-    await user.type(screen.getByLabelText("이메일"), " minjun@example.com ");
-    await user.click(screen.getByRole("button", { name: "사전 신청하기" }));
-    expect(screen.getByText("개인정보 수집·이용에 동의해야 신청할 수 있어요.")).toBeInTheDocument();
-    expect(putPremiumWaitlist).not.toHaveBeenCalled();
-
-    await user.click(screen.getByRole("checkbox", { name: "[필수] 만 14세 이상이에요" }));
-
-    await user.click(screen.getByRole("checkbox", { name: "[필수] 개인정보 수집·이용 동의" }));
-    await user.click(screen.getByRole("button", { name: "사전 신청하기" }));
-
-    expect(putPremiumWaitlist).toHaveBeenCalledWith({
+    expect(await screen.findByText("가장 먼저 알려드릴게요")).toBeInTheDocument();
+    expect(putPremiumWaitlist).toHaveBeenCalledExactlyOnceWith({
       price: PRICE,
       placement: "RESULT",
       ageOver14: true,
-      email: "minjun@example.com",
+      email: null,
       expectedFeature: null,
     });
-    expect(await screen.findByText("가장 먼저 알려드릴게요")).toBeInTheDocument();
-    expect(screen.getByText("알림은 앱과 minjun@example.com로 보내드려요.")).toBeInTheDocument();
+    expect(screen.getByText("알림은 앱으로 보내드려요.")).toBeInTheDocument();
     expect(screen.getByText("사전 신청 완료")).toBeInTheDocument();
-    // 닉네임은 더 보이지 않는다.
-    expect(screen.queryByText(/님,/)).not.toBeInTheDocument();
-    // 완료 화면에는 결제 안내를 두지 않는다.
+    // 완료 화면에는 결제·동의 안내를 두지 않는다.
     expect(screen.queryByText(/자동 결제되지 않아요/)).not.toBeInTheDocument();
-    expect(analytics.trackPremiumFakeDoorApplied).toHaveBeenCalledWith(
+    expect(screen.queryByText(/동의한 걸로 처리돼요/)).not.toBeInTheDocument();
+    expect(analytics.trackPremiumFakeDoorApplied).toHaveBeenCalledExactlyOnceWith(
       { price: PRICE, placement: "RESULT" },
       "over14",
     );
   });
 
-  it("만 14세 확인만 빠지면 보내지 않고 14세 칸 아래에 알린다", async () => {
-    renderHost();
-    const user = await goToEmailStep();
-    await user.type(screen.getByLabelText("이메일"), "minjun@example.com");
-    await user.click(screen.getByRole("checkbox", { name: "[필수] 개인정보 수집·이용 동의" }));
-
-    await user.click(screen.getByRole("button", { name: "사전 신청하기" }));
-
-    expect(screen.getByText("만 14세 이상만 신청할 수 있어요.")).toBeInTheDocument();
-    expect(
-      screen.queryByText("개인정보 수집·이용에 동의해야 신청할 수 있어요."),
-    ).not.toBeInTheDocument();
-    expect(putPremiumWaitlist).not.toHaveBeenCalled();
-  });
-
-  it("개인정보 동의만 빠지면 보내지 않고 동의 칸 아래에 알린다", async () => {
-    renderHost();
-    const user = await goToEmailStep();
-    await user.type(screen.getByLabelText("이메일"), "minjun@example.com");
-    await user.click(screen.getByRole("checkbox", { name: "[필수] 만 14세 이상이에요" }));
-
-    await user.click(screen.getByRole("button", { name: "사전 신청하기" }));
-
-    expect(screen.getByText("개인정보 수집·이용에 동의해야 신청할 수 있어요.")).toBeInTheDocument();
-    expect(screen.queryByText("만 14세 이상만 신청할 수 있어요.")).not.toBeInTheDocument();
-    expect(putPremiumWaitlist).not.toHaveBeenCalled();
-  });
-
-  it("둘 다 빠지면 두 오류를 함께 보인다", async () => {
-    renderHost();
-    const user = await goToEmailStep();
-    await user.type(screen.getByLabelText("이메일"), "minjun@example.com");
-
-    await user.click(screen.getByRole("button", { name: "사전 신청하기" }));
-
-    expect(screen.getByText("만 14세 이상만 신청할 수 있어요.")).toBeInTheDocument();
-    expect(screen.getByText("개인정보 수집·이용에 동의해야 신청할 수 있어요.")).toBeInTheDocument();
-    expect(putPremiumWaitlist).not.toHaveBeenCalled();
-  });
-
-  it("서버가 실패하면 입력칸 아래에 알리고, 다시 누르면 다시 보낸다", async () => {
+  it("서버가 실패하면 신청으로 세지 않고, 다시 누르면 다시 보낸다", async () => {
     putPremiumWaitlist.mockRejectedValueOnce(new Error("500"));
     renderHost();
-    const user = await goToEmailStep();
-    await user.type(screen.getByLabelText("이메일"), "minjun@example.com");
-    await user.click(screen.getByRole("checkbox", { name: "[필수] 만 14세 이상이에요" }));
-    await user.click(screen.getByRole("checkbox", { name: "[필수] 개인정보 수집·이용 동의" }));
-
-    await user.click(screen.getByRole("button", { name: "사전 신청하기" }));
+    const user = await openApplyFlow();
     expect(await screen.findByText("신청하지 못했어요. 다시 시도해 주세요.")).toBeInTheDocument();
     expect(analytics.trackPremiumFakeDoorApplied).not.toHaveBeenCalled();
 
@@ -209,34 +100,21 @@ describe("PremiumFakeDoorHost 이메일 검사", () => {
     expect(putPremiumWaitlist).toHaveBeenCalledTimes(2);
   });
 
-  it("응답을 기다리는 동안 다시 눌러도 한 번만 보낸다", async () => {
+  it("저장을 기다리는 동안에는 버튼을 막는다", async () => {
     let resolve: () => void = () => {};
     putPremiumWaitlist.mockImplementationOnce(() => new Promise<void>((r) => (resolve = r)));
     renderHost();
-    const user = await goToEmailStep();
-    await user.type(screen.getByLabelText("이메일"), "minjun@example.com");
-    await user.click(screen.getByRole("checkbox", { name: "[필수] 만 14세 이상이에요" }));
-    await user.click(screen.getByRole("checkbox", { name: "[필수] 개인정보 수집·이용 동의" }));
-    const button = screen.getByRole("button", { name: "사전 신청하기" });
-
-    await user.click(button);
-    await user.click(button);
-    expect(button).toBeDisabled();
+    await openApplyFlow();
+    expect(screen.getByRole("button", { name: "사전 신청하기" })).toBeDisabled();
     resolve();
-
     expect(await screen.findByText("가장 먼저 알려드릴게요")).toBeInTheDocument();
-    expect(putPremiumWaitlist).toHaveBeenCalledTimes(1);
   });
 });
 
 describe("PremiumFakeDoorHost 기대 기능", () => {
   it("기능을 고르면 같은 본문에 expectedFeature를 채워 한 번 더 보내고, 결과로 돌아가면 카드를 다시 그리지 않는다", async () => {
     const view = renderHost();
-    const user = await goToEmailStep();
-    await user.type(screen.getByLabelText("이메일"), "minjun@example.com");
-    await user.click(screen.getByRole("checkbox", { name: "[필수] 만 14세 이상이에요" }));
-    await user.click(screen.getByRole("checkbox", { name: "[필수] 개인정보 수집·이용 동의" }));
-    await user.click(screen.getByRole("button", { name: "사전 신청하기" }));
+    const user = await openApplyFlow();
 
     expect(await screen.findByRole("radio", { name: "전화 알림" })).toBeInTheDocument();
     expect(screen.queryByRole("radio", { name: "맞춤 알림" })).not.toBeInTheDocument();
@@ -247,7 +125,7 @@ describe("PremiumFakeDoorHost 기대 기능", () => {
       price: PRICE,
       placement: "RESULT",
       ageOver14: true,
-      email: "minjun@example.com",
+      email: null,
       expectedFeature: "PHONE_CALL",
     });
     expect(await screen.findByText("답변해 주셔서 감사합니다!")).toBeInTheDocument();
@@ -272,11 +150,7 @@ describe("PremiumFakeDoorHost 기대 기능", () => {
 
   it("기능 저장이 실패하면 기능 선택 이벤트를 보내지 않는다", async () => {
     renderHost();
-    const user = await goToEmailStep();
-    await user.type(screen.getByLabelText("이메일"), "minjun@example.com");
-    await user.click(screen.getByRole("checkbox", { name: "[필수] 만 14세 이상이에요" }));
-    await user.click(screen.getByRole("checkbox", { name: "[필수] 개인정보 수집·이용 동의" }));
-    await user.click(screen.getByRole("button", { name: "사전 신청하기" }));
+    const user = await openApplyFlow();
     const radio = await screen.findByRole("radio", { name: "AI 집중 리포트" });
     putPremiumWaitlist.mockRejectedValueOnce(new Error("network"));
 
@@ -356,13 +230,9 @@ describe("PremiumFakeDoorHost 노출", () => {
     expect(analytics.setPremiumFakeDoorPriceUserProperty).toHaveBeenCalledWith(PRICE);
   });
 
-  it("신청부터 기능 선택까지 어떤 분석 이벤트에도 이메일이 실리지 않는다", async () => {
+  it("신청부터 기능 선택까지 노출·열기·신청 이벤트를 한 번씩 보낸다", async () => {
     renderHost();
-    const user = await goToEmailStep();
-    await user.type(screen.getByLabelText("이메일"), "secret.person@example.com");
-    await user.click(screen.getByRole("checkbox", { name: "[필수] 만 14세 이상이에요" }));
-    await user.click(screen.getByRole("checkbox", { name: "[필수] 개인정보 수집·이용 동의" }));
-    await user.click(screen.getByRole("button", { name: "사전 신청하기" }));
+    const user = await openApplyFlow();
     await user.click(await screen.findByRole("radio", { name: "전화 알림" }));
     await waitFor(() => expect(screen.getByText("답변해 주셔서 감사합니다!")).toBeInTheDocument());
 
@@ -370,9 +240,6 @@ describe("PremiumFakeDoorHost 노출", () => {
       { price: PRICE, placement: "RESULT" },
       "over14",
     );
-    const sent = JSON.stringify(Object.values(analytics).map((fn) => fn.mock.calls));
-    expect(sent).not.toContain("secret.person");
-    expect(sent).not.toContain("example.com");
     expect(analytics.trackPremiumFakeDoor.mock.calls.map(([action]) => action)).toEqual([
       "viewed",
       "opened",
@@ -533,7 +400,7 @@ describe("PremiumFakeDoorHost 기능 설명 시트", () => {
     );
   });
 
-  it("설명 창의 사전 신청하기는 이메일 화면으로 가고 from=sheet를 보낸다", async () => {
+  it("설명 창의 사전 신청하기는 바로 신청하고 from=sheet를 보낸다", async () => {
     renderHost();
     const user = await openBenefits();
     await user.click(screen.getByRole("button", { name: /AI 집중 리포트/ }));
@@ -541,7 +408,7 @@ describe("PremiumFakeDoorHost 기능 설명 시트", () => {
 
     await user.click(within(sheet).getByRole("button", { name: "사전 신청하기" }));
 
-    expect(await screen.findByText("출시 소식을 받을 이메일을 알려주세요.")).toBeInTheDocument();
+    expect(await screen.findByText("가장 먼저 알려드릴게요")).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.queryByRole("dialog", { name: "AI 집중 리포트" })).not.toBeInTheDocument(),
     );
