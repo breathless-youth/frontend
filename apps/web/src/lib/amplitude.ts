@@ -2813,7 +2813,12 @@ export function trackPremiumFakeDoorFeatureViewed(
   });
 }
 
-/** 서버가 신청을 저장한(204) 뒤에만 보낸다. */
+/**
+ * 서버가 신청을 저장한(204) 뒤에만 보낸다.
+ *
+ * `age_group`은 2026-11-25부터 확인받은 값이 아니라 버튼 위 안내로 갈음한 `over14`다.
+ * 그 전 기록과 모양을 맞추려고 남기며 연령 집계에는 쓰지 않는다.
+ */
 export function trackPremiumFakeDoorApplied(
   base: PremiumFakeDoorEventBase,
   ageGroup: "over14" | "under14",

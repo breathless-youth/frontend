@@ -380,6 +380,7 @@ export function PremiumFakeDoorFlow({
         open={sheetOpen}
         onOpenChange={setSheetOpen}
         feature={sheetFeature}
+        submitting={submitting}
         onApply={() => applyFrom("sheet")}
         returnFocus={sheetTileRef}
       />

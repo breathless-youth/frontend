@@ -21,12 +21,15 @@ export function PremiumFeatureSheet({
   open,
   onOpenChange,
   feature,
+  submitting,
   onApply,
   returnFocus,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   feature: PremiumFeature | null;
+  /** 신청을 저장하는 중이면 시트의 신청 버튼도 막는다. */
+  submitting: boolean;
   onApply: () => void;
   returnFocus: RefObject<HTMLElement | null>;
 }) {
@@ -88,6 +91,8 @@ export function PremiumFeatureSheet({
                 type="button"
                 size="xl"
                 data-base-ui-swipe-ignore
+                disabled={submitting}
+                aria-busy={submitting}
                 onClick={onApply}
                 variant="unstyled"
                 className="sparta-cta h-13.5 w-full rounded-lg text-[17px] font-bold"

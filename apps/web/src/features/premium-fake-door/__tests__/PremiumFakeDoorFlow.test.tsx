@@ -1,4 +1,4 @@
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -114,6 +114,24 @@ describe("PremiumFakeDoorFlow 신청", () => {
     expect(trackApplyClicked).toHaveBeenCalledTimes(1);
     act(() => release());
     await screen.findByText("가장 먼저 알려드릴게요");
+  });
+
+  it("저장하는 동안 연 설명 시트의 신청 버튼도 막고, 저장이 끝나면 완료 화면만 보인다", async () => {
+    let release = () => {};
+    putPremiumWaitlist.mockReturnValueOnce(new Promise<void>((resolve) => (release = resolve)));
+    renderFlow("RESULT");
+    await userEvent.click(screen.getByRole("button", { name: "사전 신청하기" }));
+    await userEvent.click(screen.getByRole("button", { name: /AI 플랜 비서/ }));
+    const sheet = await screen.findByRole("dialog", { name: "AI 플랜 비서" });
+
+    expect(within(sheet).getByRole("button", { name: "사전 신청하기" })).toBeDisabled();
+
+    await act(async () => release());
+    await screen.findByText("가장 먼저 알려드릴게요");
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "AI 플랜 비서" })).not.toBeInTheDocument(),
+    );
+    expect(putPremiumWaitlist).toHaveBeenCalledTimes(1);
   });
 
   it("설명 시트의 버튼으로도 바로 신청하고 안내 두 줄을 보인다", async () => {
