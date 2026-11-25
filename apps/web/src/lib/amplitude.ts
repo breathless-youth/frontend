@@ -1398,9 +1398,14 @@ export function trackSessionMoreMenuOpened() {
   track("session_more_menu_opened");
 }
 
-/** 싱글룸 더보기 메뉴에서 항목을 골랐다. */
+/**
+ * 싱글룸 더보기 메뉴에서 항목을 골랐다.
+ *
+ * `planner`는 세로 열이 있던 세션 화면의 항목이고, `background`·`stopwatch`·`timer`·`clock_view`는 v3 세션 화면의 항목이다.
+ */
 export function trackSessionMoreMenuItemSelected(input: {
-  readonly item: "flip_camera" | "planner" | "help";
+  readonly item:
+    "flip_camera" | "planner" | "help" | "background" | "stopwatch" | "timer" | "clock_view";
 }) {
   if (!initialized) return;
   track("session_more_menu_item_selected", { item: input.item });

@@ -87,7 +87,12 @@ import { spaceKey } from "@/features/timer-background/spaceCatalog";
 import { DistractSpace, ImageSpace, LoopVideoSpace } from "@/features/timer-background/SpaceLayers";
 import { useDistractScene } from "@/features/timer-background/useDistractScene";
 import { useSpaceLoopSound } from "@/features/timer-background/useSpaceLoopSound";
-import { SIMPLE_BACKGROUND } from "@/features/timer-background/timerBackground";
+import { SIMPLE_BACKGROUND, spaceTrack } from "@/features/timer-background/timerBackground";
+import { createFocusFeatureUsage } from "@/features/focus-feedback/focusFeatureUsage";
+import { createDisplayUsage, type CameraView } from "@/features/study-session/displayUsage";
+import { useLiveActivityBridge } from "@/features/study-session/useLiveActivityBridge";
+import { useMascotLookPrefetch } from "@/features/points/model/prefetchMyMascotLook";
+import { useNativePortraitLock } from "@/lib/nativeBackGesture";
 import { useSpaceSelection } from "@/features/timer-background/useSpaceSelection";
 import { TimerBackgroundLayer } from "@/features/timer-background/TimerBackgroundLayer";
 import { WallpaperScrim } from "@/features/timer-background/WallpaperScrim";
@@ -203,6 +208,10 @@ import {
   setPremiumFakeDoorPriceUserProperty,
   trackPremiumFakeDoor,
   trackSessionSpaceOpened,
+  trackCameraPipExpanded,
+  trackCameraPipShrunk,
+  trackSessionMoreMenuItemSelected,
+  trackSessionMoreMenuOpened,
   trackStudySessionExitCancelled,
   trackStudySessionExitRequested,
   trackStudySessionHelpCompleted,
@@ -212,6 +221,7 @@ import {
   trackSubjectSheetClosed,
   trackSubjectSheetOpened,
 } from "@/lib/amplitude";
+import type { SessionDisplayEnd } from "@/lib/amplitude";
 import { isNativeBridgeAvailable, postToNative } from "@/lib/bridge";
 import { canRequestPushPermission, requestPushPermission } from "@/lib/nativePushPermission";
 import { hasRestNotification } from "@/lib/restNotificationCapability";
@@ -517,9 +527,17 @@ function RoomSessionBody({
    * 배경음 재생 누적 시간 그릇 — 두 훅 사이에 순환이 생기지 않게 여기서 만들어 양쪽에
    * 넘긴다. 세션 훅은 종료 시점에 `snapshot`만 읽고, 배경음 훅이 `start`/`stop`을 부른다.
    */
-  const [ambientUsage] = useState(() => createAmbientUsage(Date.now));
+  // 결과 설문 대상 여부. 배경음을 틀었거나 공부 중 공간 영상을 보여 준 공부만 묻는다.
+  const [focusFeatureUsage] = useState(createFocusFeatureUsage);
+  const [ambientUsage] = useState(() => createAmbientUsage(Date.now, focusFeatureUsage.markUsed));
   // 배경음 그릇과 같은 까닭으로 여기서 만들어 세션 훅과 타이머 훅에 함께 넘긴다.
   const [multiTimerUsage] = useState(createMultiTimerUsage);
+  // 화면 표시 모드별 머문 시간. 처음 화면은 아래 효과가 바로 알려 준다.
+  const [displayUsage] = useState(() => createDisplayUsage(Date.now));
+  // 종료 이벤트에 실을 공간과 얼굴 가림. 둘 다 세션 훅 아래에서 정해져 커밋마다 최신 값으로 덮는다.
+  const displayContextRef = useRef<Pick<SessionDisplayEnd, "spaceKind" | "spaceItem" | "faceMask">>(
+    { spaceKind: "simple", faceMask: false },
+  );
   /**
    * 세션 중 하품. 감지기가 하품 하나를 끝낼 때마다 모으고 계측을 보낸다. 세션 훅이 스냅샷·제출 때 읽는다.
    * 이어받은 세션은 서버에 남은 하품부터 시작한다 — 스냅샷이 목록을 통째로 덮어써서 빈 목록으로 시작하면 지워진다.
@@ -577,6 +595,7 @@ function RoomSessionBody({
     ambientUsage: ambientUsage.snapshot,
     ambientSoundPlays: ambientUsage.soundSeconds,
     multiTimerUsage: multiTimerUsage.snapshot,
+    displayUsage: () => ({ ...displayUsage.snapshot(), ...displayContextRef.current }),
     getObservations: () => yawnsRef.current,
     onEnded: cameraOn ? timelapse.finish : undefined,
     onCameraLost: () => showCtaToast(t("cameraToast.cameraOff")),
@@ -594,6 +613,11 @@ function RoomSessionBody({
   const counting = phase.name === "counting";
   /** 카운트다운 숫자를 보이는가. 처음 도움말이 떠 있는 동안은 아직 세지 않아 숨긴다. */
   const countdownShown = counting && !firstHelpOpen;
+  useLayoutEffect(() => {
+    focusFeatureUsage.bindSession(userId, startedAtMs);
+  }, [focusFeatureUsage, startedAtMs, userId]);
+  // 결과 화면은 이 문서에서 웹 라우터 이동으로 열려 같은 캐시를 쓴다. 그 화면이 그릴 내 마스코트 모습을 미리 받는다.
+  const prefetchMascotLook = useMascotLookPrefetch(queryClient, userId);
   // 이어받은 세션은 같은 시작 시각이라 같은 타임랩스에 이어 찍는다.
   // 카운트다운 동안의 시작 시각은 임시라서, 실제로 시작한 뒤에 연다.
   useEffect(() => {
@@ -863,8 +887,14 @@ function RoomSessionBody({
   useEffect(readTimelapseOn, []);
   // 공간(타이머 배경). 더보기의 배경 설정에서 세션 안에서 바꿀 수 있다. 고른 공간을 다시 고르면 그리기 실패 표시를 푼다.
   const [failedSpaceKey, setFailedSpaceKey] = useState<string | null>(null);
+  // 반복 영상 공간이 실제로 그려진 공간. 공부 중 보여 준 공간 영상만 결과 설문 대상으로 센다.
+  const [readyWallpaperKey, setReadyWallpaperKey] = useState<string | null>(null);
   const { space, applySpace } = useSpaceSelection(userId, {
-    onCommit: () => setFailedSpaceKey(null),
+    onCommit: (next) => {
+      setFailedSpaceKey(null);
+      // 다른 공간으로 바꾸면 새 영상이 그려질 때까지 기다린다. 같은 공간이면 영상을 다시 불러오지 않아 그대로 둔다.
+      if (spaceKey(next) !== spaceKey(space)) setReadyWallpaperKey(null);
+    },
   });
   const spacePhotoId = space.kind === "photo" ? space.photoId : null;
   // 읽은 사진과 그 id. 읽는 중에는 id가 달라 사진이 없어도 지운 사진으로 보지 않는다.
@@ -901,6 +931,10 @@ function RoomSessionBody({
   // 월페이퍼가 있으면 시간 묶음을 왼쪽 아래로 옮기고(시안 28e·30a), 심플 모드도 어두운 화면 대신
   // 그림을 둔 채 카메라 창만 뺀다(시안 31a). 하단 버튼은 심플 모드면 배경과 상관없이 유리 원으로 낮춘다(시안 18i).
   const wallpaper = backgroundPhoto !== null || (space.kind === "space" && !spaceFailed);
+  const markWallpaperReady = useCallback(
+    () => setReadyWallpaperKey(activeSpaceKey),
+    [activeSpaceKey],
+  );
   // 감독관은 비집중이 끊기지 않고 이어질 때만 들어온다. 비집중 판정 자체가 이미 잠깐의 흔들림을 걸러 낸다.
   const watcher = useWatcherPresence(
     sessionState.kind === "DISTRACTION" ? sessionState.trigger : null,
@@ -1009,6 +1043,8 @@ function RoomSessionBody({
   const helpTrigger = firstHelpOpen ? "auto" : "menu";
   const helpVisible =
     (firstHelpOpen ? counting : phase.name === "studying" && helpOpen) && !helpBlocked;
+  // 도움말은 세로 화면 기준으로 그려서 떠 있는 동안 앱 화면 돌림을 세로로 묶는다.
+  useNativePortraitLock(helpVisible, true);
   const endHelpExposure = useSessionHelpFunnel(helpVisible, helpStep, helpTrigger);
   // 세션 한 줄 배너(실험). 세로 폰에서만 하단 바 아래에 보이고, 보이는 동안은 하단 바와 작은 창을 20px 올린다.
   const bannerGroup = useSessionBannerGroup(userId);
@@ -1103,6 +1139,14 @@ function RoomSessionBody({
   const faceMask = faceMaskOn
     ? { spot: faceSpot, emojiUrl: faceMaskEmojiOf(faceMaskEmojiId).url }
     : null;
+  useLayoutEffect(() => {
+    const spaceInfo = spaceTrack(appliedSpace);
+    displayContextRef.current = {
+      spaceKind: spaceInfo.kind,
+      ...(spaceInfo.item && { spaceItem: spaceInfo.item }),
+      faceMask: faceMaskOn,
+    };
+  });
   /**
    * 카메라 전환이 진행 중인가 — **추론 정지 구간을 표시하는 값이지 화면 상태가 아니다.**
    * 전환 중에는 기존 트랙이 멈추고 새 스트림이 `<video>`에 다시 붙는데, 그 사이의 프레임은
@@ -1118,6 +1162,37 @@ function RoomSessionBody({
   const cameraOff = isSessionHeld(sessionState);
   // 카메라 없는 모드는 작은 창이 없다.
   const cameraHidden = simpleMode || cameraOff || !cameraOn;
+  // 표시 시간은 사용자가 고른 화면으로 센다. 일시정지로 잠깐 걷힌 작은 창은 그대로 작은 창이다.
+  const cameraView: CameraView =
+    simpleMode || !cameraOn ? "simple" : cameraExpanded ? "expanded" : "pip";
+  // 실제 전이만 센다. 같은 화면을 다시 그린 것은 switchTo가 null을 돌려준다.
+  // 키운 채 심플 모드로 가는 것은 줄이기가 아니라 보내지 않는다.
+  useEffect(() => {
+    const change = displayUsage.switchTo(cameraView);
+    if (change === null) return;
+    if (change.from === "pip" && cameraView === "expanded") trackCameraPipExpanded();
+    if (change.from === "expanded" && cameraView === "pip") {
+      trackCameraPipShrunk({ expandedSec: change.sec });
+    }
+  }, [cameraView, displayUsage]);
+  // 공부 중 공간 영상을 실제로 보여 준 공부만 결과 설문 대상이다. v3 심플 모드는 배경을 그대로 둬서 센다.
+  const studyingWithTimerBackground =
+    studying &&
+    !paused &&
+    wallpaper &&
+    readyWallpaperKey === activeSpaceKey &&
+    page === null &&
+    !(cameraExpanded && !cameraMoving && !cameraHidden);
+  useLayoutEffect(() => {
+    if (!studyingWithTimerBackground || focusFeatureUsage.hasUsed()) return;
+    const backgroundStartedAt = Date.now();
+    // 공부 도중 배경을 보여 준 시점에 저장해 웹뷰가 사라져도 같은 공부에서 이어받는다.
+    const timer = window.setTimeout(focusFeatureUsage.markUsed, 1);
+    return () => {
+      window.clearTimeout(timer);
+      if (Date.now() > backgroundStartedAt) focusFeatureUsage.markUsed();
+    };
+  }, [focusFeatureUsage, studyingWithTimerBackground]);
   // 내 화면을 키우면 감독관이 가려지므로 발소리도 끈다. 다시 줄이면 다음 소리부터 난다.
   const watcherMuted = cameraExpanded && !cameraHidden;
   // 반복 공간 소리는 감독관 소리와 같은 공간 음량을 쓰고, 공부 중이며 멈추지 않은 동안만 낸다.
@@ -1198,10 +1273,13 @@ function RoomSessionBody({
       navigate(
         { pathname: "result", search: searchParams.toString() },
         // 결과 화면이 이 세션의 타임랩스를 기기 시작 시각으로 찾는다.
-        { state: { sessions, startedAtMs }, replace: true },
+        {
+          state: { sessions, startedAtMs, focusFeaturesUsed: focusFeatureUsage.hasUsed() },
+          replace: true,
+        },
       );
     },
-    [navigate, searchParams, startedAtMs],
+    [focusFeatureUsage, navigate, searchParams, startedAtMs],
   );
 
   /**
@@ -1393,6 +1471,15 @@ function RoomSessionBody({
           colorIndex: selectedSubject?.colorIndex ?? 0,
           task: selectedSubject?.tasks.find((task) => task.doneAt === null)?.name ?? null,
         };
+  // 과목을 고르지 않았을 때 라벨에 쓰는 대체 문구 대신 null을 넘겨 잠금화면이 상태 문구를 첫 줄로 쓰게 한다.
+  // 카운트다운 중에는 아직 공부가 아니라 보내지 않는다(공부 중일 때만 표시).
+  useLiveActivityBridge({
+    measureMode: cameraOn ? "camera" : "timer",
+    subject: selectedSubject?.name ?? null,
+    sessionState,
+    phaseName: phase.name,
+    focusSec,
+  });
 
   /** 하단 종료 버튼 */
   function handleRequestExit() {
@@ -1402,6 +1489,8 @@ function RoomSessionBody({
       return;
     }
     trackStudySessionExitRequested("single");
+    // 결과 화면이 처음 그림부터 고른 마스코트를 그리도록 확인 창을 읽는 사이에 모습을 다시 받는다.
+    prefetchMascotLook();
     setExitDialogOpen(true);
   }
 
@@ -1457,6 +1546,8 @@ function RoomSessionBody({
         <div
           aria-hidden="true"
           data-testid="timer-background"
+          // 사진·이미지 공간은 그림을 불러온 순간을 보여 준 시점으로 센다.
+          onLoadCapture={markWallpaperReady}
           className={cn(
             "pointer-events-none absolute inset-0 transition-opacity duration-300 ease-out motion-reduce:transition-none",
             cameraExpanded && !cameraMoving && !cameraHidden && "invisible",
@@ -1477,6 +1568,7 @@ function RoomSessionBody({
               key={space.assetKey}
               assetKey={space.assetKey}
               onUnavailable={() => setFailedSpaceKey(activeSpaceKey)}
+              onReady={markWallpaperReady}
             />
           )}
           {space.kind === "space" && !spaceFailed && distract.armed && distract.scene?.visual && (
@@ -1496,6 +1588,7 @@ function RoomSessionBody({
               assetKey={watchKey}
               present={watcher.present}
               onClipPlaying={(clip, at) => {
+                markWallpaperReady();
                 if (clip === "enter" || clip === "exit") watcherSound?.play(clip, at);
               }}
             />
@@ -1563,7 +1656,15 @@ function RoomSessionBody({
                 pressStartedWithMenuOpenRef.current = false;
                 return;
               }
-              trackSessionSimpleModeToggled(!simpleMode);
+              // 심플 모드로 들어갈 때만 어느 화면에서 왔는지 싣는다.
+              if (simpleMode) {
+                trackSessionSimpleModeToggled(false);
+              } else {
+                trackSessionSimpleModeToggled(
+                  true,
+                  cameraOn ? (cameraExpanded ? "expanded" : "pip") : undefined,
+                );
+              }
               clockRectBeforeToggle.current = clockRef.current?.getBoundingClientRect() ?? null;
               setSimpleMode((prev) => !prev);
             }}
@@ -1629,21 +1730,44 @@ function RoomSessionBody({
                     hidden={helpVisible}
                     // 심플 모드는 카메라 화면이 없어 전환 항목을 뺀다.
                     onFlipCamera={
-                      simpleMode || !cameraOn ? undefined : () => void handleFlipCamera()
+                      simpleMode || !cameraOn
+                        ? undefined
+                        : () => {
+                            trackSessionMoreMenuItemSelected({ item: "flip_camera" });
+                            void handleFlipCamera();
+                          }
                     }
-                    onOpenStopwatch={openStopwatch}
-                    onOpenTimer={openTimer}
+                    onOpenStopwatch={() => {
+                      trackSessionMoreMenuItemSelected({ item: "stopwatch" });
+                      openStopwatch();
+                    }}
+                    onOpenTimer={() => {
+                      trackSessionMoreMenuItemSelected({ item: "timer" });
+                      openTimer();
+                    }}
                     clockView={clockView}
-                    onToggleClockView={cameraOn ? toggleClockView : undefined}
+                    onToggleClockView={
+                      cameraOn
+                        ? () => {
+                            trackSessionMoreMenuItemSelected({ item: "clock_view" });
+                            toggleClockView();
+                          }
+                        : undefined
+                    }
                     onOpenBackground={() => {
+                      trackSessionMoreMenuItemSelected({ item: "background" });
                       trackSessionSpaceOpened();
                       openPage("space");
                     }}
                     onOpenHelp={() => {
+                      trackSessionMoreMenuItemSelected({ item: "help" });
                       setHelpStep(0);
                       setHelpOpen(true);
                     }}
-                    onOpenChange={setMoreMenuOpen}
+                    onOpenChange={(open) => {
+                      setMoreMenuOpen(open);
+                      if (open) trackSessionMoreMenuOpened();
+                    }}
                     triggerRef={setMoreTrigger}
                   />
                 </div>
