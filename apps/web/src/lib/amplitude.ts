@@ -323,6 +323,19 @@ export function setDeviceLocaleUserProperties(locale: { timeZone?: string; regio
   if (Object.keys(properties).length > 0) setUserProperties(properties);
 }
 
+/**
+ * 화면 언어를 사용자 속성으로 남긴다
+ *
+ * Amplitude 기본 language는 기기 언어라, 설정에서 화면 언어를 바꾼 사람은 실제로 본 화면과 다르다.
+ * 언어별로 나눠 보는 실험은 이 값을 쓴다. 돌려주는 함수를 부르면 언어 변경을 더 따라가지 않는다.
+ */
+export function syncAppLocaleUserProperty(): () => void {
+  const send = (locale: string) => setUserProperties({ app_locale: locale });
+  send(i18n.language);
+  i18n.on("languageChanged", send);
+  return () => i18n.off("languageChanged", send);
+}
+
 /** 한 번 켜지면 되돌리지 않는 이력 속성. 같은 문서 안에서는 한 번만 보내 identify와 브리지 왕복을 줄인다. */
 const sentFlags = new Set<string>();
 function setFlagOnce(key: string) {
