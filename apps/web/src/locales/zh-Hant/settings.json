@@ -94,26 +94,15 @@
     "title": "計時器背景",
     "sections": {
       "mine": "我的照片",
-      "watch": "監督",
-      "nature": "自然",
+      "other": "其他",
       "simple": "簡約"
     },
-    "watchDescription": "監督者會依你的專注狀態出現。",
     "simpleDescription": "沒有背景，只在暗色畫面顯示計時器。",
     "addPhoto": "從相簿選擇",
     "photoCount": "{{count}}/{{max}}",
     "photoName": "我的照片 {{number}}",
     "simple": "簡約",
-    "names": {
-      "proctor": "自習室監督",
-      "libraryCapybara": "圖書館的水豚",
-      "peepholeDog": "門外的狗狗",
-      "grass": "草叢",
-      "mountain": "山",
-      "rain": "雨天"
-    },
     "inUse": "使用中",
-    "soon": "即將推出",
     "removePhoto": "刪除{{name}}",
     "apply": "套用",
     "footstepsNote": "會聽到腳步聲",

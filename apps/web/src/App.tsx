@@ -59,6 +59,7 @@ import {
   loadResultPage,
   loadTermsPage,
   loadTimelapseSettingsPage,
+  loadTimerBackgroundSettingsPage,
   loadTimelapsesPage,
 } from "@/routes/lazyRoutes";
 import { ManualRecordPage } from "@/routes/ManualRecordPage";
@@ -133,6 +134,13 @@ const PrivacyPage = lazy(
 );
 const LicensesPage = lazy(
   reloadOnChunkError(() => loadLicensesPage().then((module) => ({ default: module.LicensesPage }))),
+);
+const TimerBackgroundSettingsPage = lazy(
+  reloadOnChunkError(() =>
+    loadTimerBackgroundSettingsPage().then((module) => ({
+      default: module.TimerBackgroundSettingsPage,
+    })),
+  ),
 );
 const TimelapseSettingsPage = lazy(
   reloadOnChunkError(() =>
@@ -451,6 +459,7 @@ export function App() {
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/licenses" element={<LicensesPage />} />
               <Route path="/timelapse-settings" element={<TimelapseSettingsPage />} />
+              <Route path="/timer-background-settings" element={<TimerBackgroundSettingsPage />} />
               <Route path="/app-lock-settings" element={<AppLockSettingsPage />} />
               <Route path="/blocks" element={<BlockListPage />} />
               <Route path="/timelapses" element={<TimelapsesPage />} />

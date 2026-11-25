@@ -83,28 +83,16 @@ import { SimpleModeSurface } from "@/features/study-session/components/SimpleMod
 import { CAMERA_EXPAND_TIMING, cameraBoxFrames } from "@/features/study-session/cameraExpandMotion";
 import { SessionSpacePage } from "@/features/timer-background/components/SessionSpacePage";
 import { spaceKey } from "@/features/timer-background/spaceCatalog";
-import { fetchAppliedSpace, isMemberUser } from "@/features/timer-background/spaceCatalogQuery";
 import { DistractSpace, ImageSpace, LoopVideoSpace } from "@/features/timer-background/SpaceLayers";
 import { useDistractScene } from "@/features/timer-background/useDistractScene";
 import { useSpaceLoopSound } from "@/features/timer-background/useSpaceLoopSound";
-import {
-  readTimerBackground,
-  resolveSpace,
-  SIMPLE_BACKGROUND,
-  type SpaceSelection,
-  type TimerBackgroundSelection,
-  writeTimerBackground,
-} from "@/features/timer-background/timerBackground";
+import { SIMPLE_BACKGROUND } from "@/features/timer-background/timerBackground";
+import { useSpaceSelection } from "@/features/timer-background/useSpaceSelection";
 import { TimerBackgroundLayer } from "@/features/timer-background/TimerBackgroundLayer";
 import { WallpaperScrim } from "@/features/timer-background/WallpaperScrim";
 import { useWatcherPresence } from "@/features/timer-background/watcher/useWatcherPresence";
 import { WatcherBackground } from "@/features/timer-background/watcher/WatcherBackground";
 import { DEFAULT_WATCHER_TRIGGER_MS } from "@/features/timer-background/watcher/watcherTrigger";
-import {
-  clearWatcherAssets,
-  saveWatcherAssets,
-  watcherAssetUrls,
-} from "@/features/timer-background/watcher/watcherAssets";
 import {
   createWatcherSound,
   readWatcherVolume,
@@ -115,7 +103,6 @@ import {
   timerBackgroundPhotoQuery,
   type BackgroundPhotoView,
 } from "@/features/timer-background/timerBackgroundQueries";
-import { putTimerBackground } from "@/lib/pointsApi";
 import { NoFocusEndNotice } from "@/features/study-session/components/NoFocusEndNotice";
 import { SessionSubjectPanel as SubjectPanel } from "@/features/study-session/components/SessionSubjectPanel";
 import { SessionSubjectHeader } from "@/features/study-session/components/SessionSubjectHeader";
@@ -861,8 +848,11 @@ function RoomSessionBody({
       .catch(() => {});
   };
   useEffect(readTimelapseOn, []);
-  // 공간(타이머 배경). 더보기의 배경 설정에서 세션 안에서 바꿀 수 있어서 처음 한 번 읽고 이후에는 이 값이 원본이다.
-  const [space, setSpace] = useState(readTimerBackground);
+  // 공간(타이머 배경). 더보기의 배경 설정에서 세션 안에서 바꿀 수 있다. 고른 공간을 다시 고르면 그리기 실패 표시를 푼다.
+  const [failedSpaceKey, setFailedSpaceKey] = useState<string | null>(null);
+  const { space, applySpace } = useSpaceSelection(userId, {
+    onCommit: () => setFailedSpaceKey(null),
+  });
   const spacePhotoId = space.kind === "photo" ? space.photoId : null;
   // 읽은 사진과 그 id. 읽는 중에는 id가 달라 사진이 없어도 지운 사진으로 보지 않는다.
   const [loadedPhoto, setLoadedPhoto] = useState<{
@@ -892,102 +882,12 @@ function RoomSessionBody({
   const appliedSpace = spacePhoto !== null && spacePhoto.view === null ? SIMPLE_BACKGROUND : space;
   // 감독관은 서버 공간 중 감독 영상(WATCH) 공간이다. 그 공간의 파일 폴더로 영상과 발소리를 받는다.
   const watchKey = space.kind === "space" && space.videoMode === "WATCH" ? space.assetKey : null;
-  // 그리다가 실패한 공간이다. 선택 값은 그대로 두고 그 공간만 심플로 그린다.
-  const [failedSpaceKey, setFailedSpaceKey] = useState<string | null>(null);
+  // 그리다가 실패한 공간이면(`failedSpaceKey`) 선택 값은 그대로 두고 그 공간만 심플로 그린다.
   const activeSpaceKey = spaceKey(space);
   const spaceFailed = failedSpaceKey === activeSpaceKey;
   // 월페이퍼가 있으면 시간 묶음을 왼쪽 아래로 옮기고(시안 28e·30a), 심플 모드도 어두운 화면 대신
   // 그림을 둔 채 카메라 창만 뺀다(시안 31a). 하단 버튼은 심플 모드면 배경과 상관없이 유리 원으로 낮춘다(시안 18i).
   const wallpaper = backgroundPhoto !== null || (space.kind === "space" && !spaceFailed);
-  // 사용자가 이 세션에서 고른 뒤에는 늦게 온 서버 값으로 덮지 않는다.
-  const userPickedRef = useRef(false);
-  // 앞서 고른 공간의 저장 실패가 뒤에 고른 공간을 되돌리지 않게 고를 때마다 올린다.
-  const pickSeqRef = useRef(0);
-  // 늦게 끝난 앞 저장이 서버를 옛 공간으로 되돌리지 않게 저장을 고른 차례대로 보낸다.
-  const putQueueRef = useRef<Promise<unknown>>(Promise.resolve());
-  function commitSpace(next: TimerBackgroundSelection): boolean {
-    if (!writeTimerBackground(next)) {
-      return false;
-    }
-    setSpace(next);
-    setFailedSpaceKey(null);
-    // 감독 파일을 기기에 받아 두면 첫 등장이 늦지 않다. 받지 않아도 네트워크로 재생돼 기다리지 않는다.
-    if (next.kind === "space" && next.videoMode === "WATCH") {
-      const viewport = { width: innerWidth, height: innerHeight };
-      void saveWatcherAssets(next.assetKey, watcherAssetUrls(next.assetKey, viewport));
-    } else {
-      void clearWatcherAssets();
-    }
-    return true;
-  }
-  async function applySpace(
-    next: TimerBackgroundSelection,
-    options?: { localOnly?: boolean },
-  ): Promise<boolean> {
-    const previous = space;
-    if (!commitSpace(next)) {
-      return false;
-    }
-    userPickedRef.current = true;
-    if (options?.localOnly || !(await isMemberUser(userId))) {
-      return true;
-    }
-    const pick = ++pickSeqRef.current;
-    const saving = putQueueRef.current.then(async () => {
-      // 차례가 오기 전에 더 새로 고른 공간이 있으면 그 저장이 대신해 보내지 않는다.
-      if (pick !== pickSeqRef.current) {
-        return;
-      }
-      // 사진은 이 기기에만 있어 서버에는 기본 배경으로 저장한다.
-      await putTimerBackground(next.kind === "space" ? next.itemId : null);
-    });
-    putQueueRef.current = saving.catch(() => undefined);
-    try {
-      await saving;
-      return true;
-    } catch {
-      // 그 사이 기기에서만 바꾼 선택이 있으면 그 선택이 더 새로워 되돌리지 않는다.
-      if (
-        pick === pickSeqRef.current &&
-        JSON.stringify(readTimerBackground()) === JSON.stringify(next)
-      ) {
-        commitSpace(previous);
-      }
-      return false;
-    }
-  }
-  const syncSpace = useEffectEvent((server: SpaceSelection | null, photoExists: boolean) => {
-    const local = readTimerBackground();
-    const next = resolveSpace(local, server, photoExists);
-    if (userPickedRef.current || JSON.stringify(next) === JSON.stringify(local)) {
-      return;
-    }
-    commitSpace(next);
-  });
-  // 회원이면 다른 기기에서 고른 공간을 서버에서 받아 한 번 맞춘다.
-  // 사용자가 고른 것이 아니라 적용 이벤트를 보내지 않는다.
-  useEffect(() => {
-    let cancelled = false;
-    void fetchAppliedSpace(userId).then(async (server) => {
-      if (server === undefined) {
-        return;
-      }
-      const local = readTimerBackground();
-      // 사진을 읽지 못하면 있는지 몰라 이번에는 맞추지 않는다. null로 답할 때만 지워진 사진이다.
-      const photoExists =
-        local.kind === "photo" &&
-        (await queryClient.fetchQuery(timerBackgroundPhotoQuery(local.photoId)).then(
-          (view) => view !== null,
-          () => undefined,
-        ));
-      if (!cancelled && photoExists !== undefined) {
-        syncSpace(server, photoExists);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
   // 감독관은 비집중이 끊기지 않고 이어질 때만 들어온다. 비집중 판정 자체가 이미 잠깐의 흔들림을 걸러 낸다.
   const watcher = useWatcherPresence(
     sessionState.kind === "DISTRACTION" ? sessionState.trigger : null,

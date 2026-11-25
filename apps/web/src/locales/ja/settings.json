@@ -94,26 +94,15 @@
     "title": "タイマー背景",
     "sections": {
       "mine": "マイ写真",
-      "watch": "見守り",
-      "nature": "自然",
+      "other": "その他",
       "simple": "シンプル"
     },
-    "watchDescription": "集中の状態に合わせて見守り役がやってきます。",
     "simpleDescription": "背景なしで、暗い画面にタイマーだけを表示します。",
     "addPhoto": "アルバムから選択",
     "photoCount": "{{count}}/{{max}}",
     "photoName": "マイ写真 {{number}}",
     "simple": "シンプル",
-    "names": {
-      "proctor": "自習室の監督",
-      "libraryCapybara": "図書館のカピバラ",
-      "peepholeDog": "ドアの向こうの犬",
-      "grass": "草むら",
-      "mountain": "山",
-      "rain": "雨の日"
-    },
     "inUse": "使用中",
-    "soon": "近日公開",
     "removePhoto": "{{name}}を削除",
     "apply": "適用する",
     "footstepsNote": "足音が聞こえます",

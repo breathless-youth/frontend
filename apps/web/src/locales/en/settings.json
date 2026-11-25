@@ -94,26 +94,15 @@
     "title": "Timer background",
     "sections": {
       "mine": "My photos",
-      "watch": "Watchers",
-      "nature": "Nature",
+      "other": "Other",
       "simple": "Simple"
     },
-    "watchDescription": "A watcher shows up depending on how focused you are.",
     "simpleDescription": "Just the timer on a dark screen, no background.",
     "addPhoto": "Choose from album",
     "photoCount": "{{count}}/{{max}}",
     "photoName": "My photo {{number}}",
     "simple": "Simple",
-    "names": {
-      "proctor": "Study hall proctor",
-      "libraryCapybara": "Library capybara",
-      "peepholeDog": "Dog at the door",
-      "grass": "Grass",
-      "mountain": "Mountains",
-      "rain": "Rainy day"
-    },
     "inUse": "In use",
-    "soon": "Coming soon",
     "removePhoto": "Delete {{name}}",
     "apply": "Apply",
     "footstepsNote": "You'll hear footsteps",

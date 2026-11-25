@@ -1489,13 +1489,16 @@ export function trackTimerBackgroundApplied(input: {
  * 공간에 내 사진을 담았다
  *
  * `count`는 담은 뒤의 사진 수다.
- * 웹 파일 입력만 쓰므로 `source`는 file로 고정한다.
- * 앱 사진 선택기를 붙이면 같은 이벤트에 native가 더해져서 값 이름을 그쪽과 맞춘다.
+ * `source`는 웹 파일 입력(file)인지 앱 사진 선택기(native)인지이고, 세션 공간 페이지는 파일 입력만 써서 생략하면 file이다.
+ * 설정의 타이머 배경 화면은 앱 사진 선택기도 쓴다.
  * 사진 내용과 크기는 보내지 않는다.
  */
-export function trackTimerBackgroundPhotoAdded(input: { readonly count: number }) {
+export function trackTimerBackgroundPhotoAdded(input: {
+  readonly count: number;
+  readonly source?: "native" | "file";
+}) {
   if (!initialized) return;
-  track("timer_background_photo_added", { count: input.count, source: "file" });
+  track("timer_background_photo_added", { count: input.count, source: input.source ?? "file" });
 }
 
 /** 내 사진을 삭제했다. `count`는 삭제한 뒤의 사진 수이고 `wasSelected`는 적용 중인 공간이었는지다. */
