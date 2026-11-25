@@ -1,4 +1,4 @@
-import { AudioLines, ChevronRight } from "lucide-react";
+import { AudioLines } from "lucide-react";
 import { useRef, type PointerEvent, type WheelEvent } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { readSessionClockView } from "@/features/study-session/sessionClockView";
 import { SessionClock } from "@/features/study-session/components/SessionClock";
 import { ExpandGlyph } from "@/features/study-session/components/SessionControlButtons";
-import { FakeBar, FakePill } from "@/features/study-session/components/SessionHelpScreen";
+import { FakeBar, FakeSessionHeader } from "@/features/study-session/components/SessionFakeChrome";
 import {
   PIP_ANCHOR,
   PIP_SIZE,
@@ -138,24 +138,10 @@ export function TimerBackgroundPreview({
           aria-hidden="true"
           className={cn("relative flex h-full flex-col items-center", SESSION_LAYER_INSET)}
         >
-          <div className="flex w-full items-start justify-between">
-            <div className="flex min-h-11 flex-col items-start gap-1 py-1 [text-shadow:0_1px_8px_rgba(0,0,0,0.5)]">
-              <span className="flex items-center gap-2">
-                <span className="size-2.5 rounded-full bg-(--session-control-resume-bg)" />
-                <span className="text-lg leading-6.5 font-bold">
-                  {t("timerBackground.preview.subject")}
-                </span>
-                <ChevronRight className="size-4 text-white/60" strokeWidth={2} />
-              </span>
-              <span className="pl-4.5 text-[13px] leading-5 text-white/70">
-                {t("timerBackground.preview.task")}
-              </span>
-            </div>
-            <div className="flex gap-2">
-              <FakePill icon="ambient" />
-              <FakePill icon="more" />
-            </div>
-          </div>
+          <FakeSessionHeader
+            subject={t("timerBackground.preview.subject")}
+            task={t("timerBackground.preview.task")}
+          />
           <div className="h-7.5 shrink-0" />
           <div className={wallpaper ? WALLPAPER_CLOCK_ANCHOR : undefined}>
             <SessionClock

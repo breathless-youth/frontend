@@ -40,6 +40,7 @@ import type { VisionFocusDetector } from "@/features/study-session/adapters/focu
 import { createTouchDetector } from "@/features/study-session/adapters/touchDetector";
 import { sessionCountdownSeconds } from "@/features/study-session/sessionCountdown";
 import { useSessionCountdown } from "@/features/study-session/useSessionCountdown";
+import { useSlideFromRect } from "@/features/study-session/useSlideFromRect";
 import { createMediaStreamCameraAdapter } from "@/features/study-session/adapters/mediaStreamCamera";
 import { AutoEndNotice } from "@/features/study-session/components/AutoEndNotice";
 import { CameraPreviewSurface } from "@/features/study-session/components/CameraPreviewSurface";
@@ -53,7 +54,10 @@ import {
   SessionPauseButton,
   ShrinkGlyph,
 } from "@/features/study-session/components/SessionControlButtons";
-import { SessionHelpScreen } from "@/features/study-session/components/SessionHelpScreen";
+import {
+  SessionHelpScreen,
+  type SessionHelpResult,
+} from "@/features/study-session/components/SessionHelpScreen";
 import {
   SESSION_PILL_BUTTON,
   SessionMoreMenu,
@@ -97,7 +101,11 @@ import type {
   SessionEndReason,
   SessionState,
 } from "@/features/study-session/sessionState";
-import { SESSION_HELP_STEPS, markSessionGuideSeen } from "@/features/study-session/sessionGuide";
+import {
+  SESSION_HELP_STEPS,
+  markSessionGuideSeen,
+  sessionGuideState,
+} from "@/features/study-session/sessionGuide";
 import {
   PIP_ABOVE_CHIP,
   PIP_ANCHOR,
@@ -510,9 +518,16 @@ function RoomSessionBody({
     onEnded: timelapse.finish,
     onCameraLost: () => showCtaToast(t("cameraToast.cameraOff")),
   });
+  // 처음 보는 계정의 새 세션은 카운트다운 앞에 도움말을 띄우고 닫을 때까지 세지 않는다.
+  // 이어받은 세션은 카운트다운이 없어 띄우지 않는다. 신원이 없으면 본 기록을 남길 곳이 없어 띄우지 않는다.
+  const [firstHelpOpen, setFirstHelpOpen] = useState(
+    () => countdownSeconds > 0 && userId !== null && sessionGuideState(userId) !== "seen",
+  );
   /** 공부 시작 카운트다운의 남은 초. 다 세면 세션이 시작된다. */
-  const countdownLeft = useSessionCountdown(countdownSeconds, startStudying);
+  const countdownLeft = useSessionCountdown(countdownSeconds, startStudying, firstHelpOpen);
   const counting = phase.name === "counting";
+  /** 카운트다운 숫자를 보이는가. 처음 도움말이 떠 있는 동안은 아직 세지 않아 숨긴다. */
+  const countdownShown = counting && !firstHelpOpen;
   // 이어받은 세션은 같은 시작 시각이라 같은 타임랩스에 이어 찍는다.
   // 카운트다운 동안의 시작 시각은 임시라서, 실제로 시작한 뒤에 연다.
   useEffect(() => {
@@ -639,35 +654,10 @@ function RoomSessionBody({
   useEffect(() => {
     writeSessionSimpleMode(simpleMode);
   }, [simpleMode]);
-  /**
-   * 심플 모드 전환 때 시간 묶음이 새 자리로 미끄러져 가게 한다
-   *
-   * 묶음 자리는 레이아웃(flex 칸·위치 클래스)으로 바뀌어 CSS 전환이 걸리지 않는다.
-   * 그래서 누르기 직전 자리를 재 두고, 바뀐 자리에서 그 차이만큼 되돌린 모습부터 300ms 동안 풀어 준다.
-   * 카메라 창·심플 화면의 페이드와 같은 박자다.
-   */
+  /** 심플 모드 전환 때 시간 묶음이 새 자리로 미끄러져 가게 한다. 누르기 직전 자리를 재 둔다(`useSlideFromRect`). */
   const clockRef = useRef<HTMLDivElement>(null);
   const clockRectBeforeToggle = useRef<DOMRect | null>(null);
-  useLayoutEffect(() => {
-    const before = clockRectBeforeToggle.current;
-    clockRectBeforeToggle.current = null;
-    const element = clockRef.current;
-    if (before === null || element === null || typeof element.animate !== "function") return;
-    if (prefersReducedMotion()) return;
-    const after = element.getBoundingClientRect();
-    if (after.width === 0) return;
-    const scale = before.width / after.width;
-    const dx = before.left - after.left;
-    const dy = before.top - after.top;
-    if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(scale - 1) < 0.01) return;
-    element.animate(
-      [
-        { transformOrigin: "top left", transform: `translate(${dx}px, ${dy}px) scale(${scale})` },
-        { transformOrigin: "top left", transform: "none" },
-      ],
-      { duration: 300, easing: "ease-out" },
-    );
-  }, [simpleMode]);
+  useSlideFromRect(clockRef, clockRectBeforeToggle, simpleMode);
   // 기본 모드의 내 카메라는 작은 창으로 시작하고, 키우면 화면 전체를 채운다. 마지막으로 쓴 크기를 기억한다.
   const [cameraExpanded, setCameraExpanded] = useState(readSessionCameraExpanded);
   useEffect(() => {
@@ -905,7 +895,7 @@ function RoomSessionBody({
   // 종료 확인 다이얼로그. 열려 있는 동안에도 **세션은 계속 진행된다**(Figma에서 딤 뒤
   // 상태 필이 `순공시간 측정 중`이고 타이머가 살아 있음을 확인).
   const [exitDialogOpen, setExitDialogOpen] = useState(false);
-  // 더보기의 도움말 보기로 세션 중에 다시 여는 도움말. 처음 보는 가이드는 세션 앞의 `SessionGuidePage`가 띄운다.
+  // 더보기의 도움말 보기로 세션 중에 다시 여는 도움말. 처음 보는 계정의 도움말은 위 `firstHelpOpen`이 띄운다.
   const [helpOpen, setHelpOpen] = useState(false);
   // 과목 페이지 등에 가려 내렸다가 다시 띄울 때 같은 단계로 돌아오도록 단계를 여기서 든다.
   const [helpStep, setHelpStep] = useState(0);
@@ -916,29 +906,34 @@ function RoomSessionBody({
     page !== null || timerSheetOpen || exitDialogOpen || invite !== null || modalOverlayOpen;
   // 떠 있는 동안 세션 본문은 inert로 막고 앱 glass 버튼은 faded로 감춘다. 덮개 위에 실제 glass 버튼이
   // 떠서 같은 자리의 가짜 버튼과 겹치지 않게 웹 가짜 요소만 보인다. 세션·타이머는 그대로 돈다.
-  const helpVisible = phase.name === "studying" && helpOpen && !helpBlocked;
-  const endHelpExposure = useSessionHelpFunnel(helpVisible, helpStep, "menu");
-  // 끝까지 본 계정만 기록한다. 처음 도움말을 Escape로 닫은 계정이 메뉴로 다시 봐도 여기서 남는다.
-  function completeHelp() {
-    trackStudySessionHelpCompleted("menu", "single");
+  const helpTrigger = firstHelpOpen ? "auto" : "menu";
+  const helpVisible =
+    (firstHelpOpen ? counting : phase.name === "studying" && helpOpen) && !helpBlocked;
+  const endHelpExposure = useSessionHelpFunnel(helpVisible, helpStep, helpTrigger);
+  /** 도움말을 닫는다. 처음 도움말이었으면 이때부터 카운트다운을 센다. */
+  function closeHelp() {
     endHelpExposure();
-    if (userId !== null) {
-      markSessionGuideSeen(userId);
-    }
+    setFirstHelpOpen(false);
     setHelpOpen(false);
     setHelpStep(0);
+  }
+  // 처음 도움말을 끝까지 보고 `공부 시작하기`를 누른 계정만 기록한다. Escape로 닫으면 다음 새 세션에 다시 뜬다.
+  function completeHelp(result: SessionHelpResult) {
+    trackStudySessionHelpCompleted(helpTrigger, "single", result);
+    if (result.cta === "start" && userId !== null) {
+      markSessionGuideSeen(userId);
+    }
+    closeHelp();
   }
   function dismissHelp() {
     trackStudySessionHelpDismissed({
       step: helpStep + 1,
       stepId: SESSION_HELP_STEPS[helpStep].id,
-      trigger: "menu",
+      trigger: helpTrigger,
       roomType: "single",
       reason: "escape",
     });
-    endHelpExposure();
-    setHelpOpen(false);
-    setHelpStep(0);
+    closeHelp();
   }
   // 얼굴 가리기는 내 화면에만 그리는 가림이라 소셜룸·타임랩스와 설정을 나누지 않는다.
   // 싱글룸에는 바꾸는 화면이 없어 저장된 값만 읽는다.
@@ -1344,7 +1339,7 @@ function RoomSessionBody({
         }
       />
       {/* 공부 시작 카운트다운. 카메라 창이 보이면 그 창 안에서 세고, 안 보이면 시계 숫자 자리에서 센다(SessionClock). */}
-      {counting && !cameraHidden && (
+      {countdownShown && !cameraHidden && (
         <div
           data-testid="camera-countdown"
           aria-hidden="true"
@@ -1358,7 +1353,7 @@ function RoomSessionBody({
           {countdownLeft}
         </div>
       )}
-      {counting && (
+      {countdownShown && (
         <span className="sr-only" aria-live="polite">
           {t("countdown.srUntilStart", { seconds: countdownLeft })}
         </span>
@@ -1540,7 +1535,7 @@ function RoomSessionBody({
                   simple={simpleMode}
                   corner={wallpaper}
                   countdown={
-                    counting
+                    countdownShown
                       ? // 작은 카메라 창일 때는 숫자만, 화면을 크게 쓰는 모드에서는 바른 자세 안내도 함께 보인다.
                         {
                           left: countdownLeft,
@@ -1676,6 +1671,7 @@ function RoomSessionBody({
 
           {helpVisible && (
             <SessionHelpScreen
+              mode={firstHelpOpen ? "first" : "menu"}
               onComplete={completeHelp}
               onDismiss={dismissHelp}
               returnFocus={helpOpen ? moreTrigger : null}

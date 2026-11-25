@@ -38,9 +38,9 @@ describe("SessionClock 보기 형식", () => {
   });
 
   it("집중하지 않을 때는 라벨 자리에 상태 문구를 보인다", () => {
-    renderClock({ state: "distract", statusLabel: "자리를 확인해 주세요" });
+    renderClock({ state: "distract", statusLabel: "공부 자세를 확인해 주세요" });
 
-    expect(screen.getByRole("status")).toHaveTextContent("자리를 확인해 주세요");
+    expect(screen.getByRole("status")).toHaveTextContent("공부 자세를 확인해 주세요");
   });
 
   it("심플 모드는 오늘 줄을 보이지 않는다", () => {
@@ -66,15 +66,15 @@ describe("SessionClock 보기 형식", () => {
 });
 
 describe("SessionClock 유예", () => {
-  const GRACE = { state: "grace" as const, statusLabel: "공부 상태를 확인 중이에요" };
+  const GRACE = { state: "grace" as const, statusLabel: "공부하는 모습을 찾고 있어요" };
   const number = () => screen.getByTestId("session-clock-number");
 
   it("유예면 라벨 자리에 유예 문구를 흰색 85%로 보이고 2초 주기로 옅어진다", () => {
     renderClock(GRACE);
 
     const status = screen.getByRole("status");
-    expect(status).toHaveTextContent("공부 상태를 확인 중이에요");
-    expect(screen.getByText("공부 상태를 확인 중이에요")).toHaveClass("text-white/85");
+    expect(status).toHaveTextContent("공부하는 모습을 찾고 있어요");
+    expect(screen.getByText("공부하는 모습을 찾고 있어요")).toHaveClass("text-white/85");
     expect(status.className).toContain("animate-[session-grace-label_2s_ease-in-out_infinite]");
   });
 
@@ -94,9 +94,9 @@ describe("SessionClock 유예", () => {
   });
 
   it("비집중은 회색 문구와 회색 숫자로 멈춰 있고 깜빡이지 않는다", () => {
-    renderClock({ state: "distract", statusLabel: "자리를 확인해 주세요" });
+    renderClock({ state: "distract", statusLabel: "공부 자세를 확인해 주세요" });
 
-    expect(screen.getByText("자리를 확인해 주세요")).toHaveClass("text-text-tertiary");
+    expect(screen.getByText("공부 자세를 확인해 주세요")).toHaveClass("text-text-tertiary");
     expect(number()).toHaveClass("text-text-tertiary");
     expect(screen.getByRole("status").className).not.toContain("session-grace");
     expect(number().className).not.toContain("session-grace");
@@ -116,7 +116,7 @@ describe("SessionClock 유예", () => {
   it.each(["focus", "grace"] as const)(
     "%s에서는 오늘 줄의 글자와 숫자가 같은 흰색이다",
     (state) => {
-      renderClock({ state, statusLabel: "공부 상태를 확인 중이에요" });
+      renderClock({ state, statusLabel: "공부하는 모습을 찾고 있어요" });
 
       expect(screen.getByText("오늘 집중")).toHaveClass("text-white");
       expect(screen.getByText("오늘 집중")).not.toHaveClass("text-text-tertiary");
@@ -126,7 +126,7 @@ describe("SessionClock 유예", () => {
   );
 
   it("유예면 오늘 줄의 글자와 숫자도 큰 숫자와 같이 깜빡이고, 동작 줄이기에서는 멈춘다", () => {
-    renderClock({ state: "grace", statusLabel: "공부 상태를 확인 중이에요" });
+    renderClock({ state: "grace", statusLabel: "공부하는 모습을 찾고 있어요" });
 
     for (const text of ["오늘 집중", "03:48:20"]) {
       expect(screen.getByText(text).className).toContain(
@@ -137,7 +137,7 @@ describe("SessionClock 유예", () => {
   });
 
   it.each(["focus", "distract"] as const)("%s에서는 오늘 줄이 깜빡이지 않는다", (state) => {
-    renderClock({ state, statusLabel: "자리를 확인해 주세요" });
+    renderClock({ state, statusLabel: "공부 자세를 확인해 주세요" });
 
     expect(screen.getByText("오늘 집중").className).not.toContain("session-grace");
     expect(screen.getByText("03:48:20").className).not.toContain("session-grace");
@@ -178,7 +178,7 @@ describe("SessionClock 심플 모드 상태색", () => {
   });
 
   it("유예면 숫자가 상태색을 유지한 채 0.6까지 옅어졌다 돌아온다", () => {
-    renderClock({ simple: true, state: "grace", statusLabel: "공부 상태를 확인 중이에요" });
+    renderClock({ simple: true, state: "grace", statusLabel: "공부하는 모습을 찾고 있어요" });
 
     expect(number()).toHaveClass("text-(--session-state-color)");
     expect(number()).not.toHaveClass("text-white");
@@ -186,10 +186,10 @@ describe("SessionClock 심플 모드 상태색", () => {
   });
 
   it("비집중이면 라벨과 숫자를 상태색(주황)으로 보이고 멈춘다", () => {
-    renderClock({ simple: true, state: "distract", statusLabel: "자리를 확인해 주세요" });
+    renderClock({ simple: true, state: "distract", statusLabel: "공부 자세를 확인해 주세요" });
 
     // 문구는 바뀌는 순간 상태색 변수가 먼저 파랑으로 바뀌어도 물들지 않게 고정 주황으로 칠한다.
-    expect(screen.getByText("자리를 확인해 주세요")).toHaveClass("text-(--state-distract)");
+    expect(screen.getByText("공부 자세를 확인해 주세요")).toHaveClass("text-(--state-distract)");
     expect(number()).toHaveClass("text-(--session-state-color)");
     expect(number().className).not.toContain("session-grace");
   });
@@ -197,25 +197,28 @@ describe("SessionClock 심플 모드 상태색", () => {
 
 describe("SessionClock 상태 문구 전환", () => {
   it("문구가 바뀌면 앞 문구가 사라지는 동안 새 문구가 함께 떠오르고, 다 사라지면 빠진다", () => {
-    const { rerender } = renderClock({ state: "distract", statusLabel: "자리를 확인해 주세요" });
+    const { rerender } = renderClock({
+      state: "distract",
+      statusLabel: "공부 자세를 확인해 주세요",
+    });
 
     rerender(<SessionClock {...BASE} state="focus" statusLabel="" />);
 
-    const leaving = screen.getByText("자리를 확인해 주세요");
+    const leaving = screen.getByText("공부 자세를 확인해 주세요");
     expect(leaving).toHaveAttribute("aria-hidden", "true");
     expect(leaving.className).toContain("fade-out-0");
     expect(screen.getByText("현재 집중").className).toContain("fade-in-0");
 
     fireEvent.animationEnd(leaving);
-    expect(screen.queryByText("자리를 확인해 주세요")).not.toBeInTheDocument();
+    expect(screen.queryByText("공부 자세를 확인해 주세요")).not.toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("현재 집중");
   });
 
   it("상태가 바뀌어도 문구 굵기는 그대로다", () => {
     for (const over of [
       {},
-      { state: "grace" as const, statusLabel: "공부 상태를 확인 중이에요" },
-      { state: "distract" as const, statusLabel: "자리를 확인해 주세요" },
+      { state: "grace" as const, statusLabel: "공부하는 모습을 찾고 있어요" },
+      { state: "distract" as const, statusLabel: "공부 자세를 확인해 주세요" },
     ]) {
       const { unmount } = renderClock(over);
       expect(screen.getByRole("status").className).not.toContain("font-semibold");

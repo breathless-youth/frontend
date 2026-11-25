@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setSessionCountdownSecondsForTest } from "@/features/study-session/sessionCountdown";
+import { markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import { clearSessionInvite } from "@/features/study-session/sessionInvite";
 import { submitStudySession } from "@/features/study-session/submitStudySession";
 import {
@@ -24,6 +25,9 @@ import {
   resetGlassChrome,
 } from "@/test/nativeControlStub";
 import { RoomPage } from "../RoomPage";
+
+// 처음 보는 계정은 새 세션의 카운트다운 앞에 도움말이 뜬다(`RoomPage.help.test.tsx`). 여기서는 본 계정으로 둔다.
+beforeEach(() => markSessionGuideSeen(1));
 
 // 문구 상수가 카탈로그(study-session:exitDescription.noFocus)로 옮겨 갔다.
 const NO_FOCUS_EXIT_DESCRIPTION = "1분 미만 공부는 기록에 표시되지 않아요";
@@ -625,7 +629,8 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
         await vi.advanceTimersByTimeAsync(3200); // 유예 3초 경과
       });
 
-      expect(screen.getByRole("status")).toHaveTextContent("공부 상태를 확인 중이에요");
+      // 유예와 비집중은 같은 문구이고, 유예는 깜빡임으로 구분한다.
+      expect(screen.getByRole("status")).toHaveTextContent("공부 자세를 확인해 주세요");
       // 유예는 순공이 흐르는 상태라 경고 색을 쓰지 않고 집중 파랑을 유지한다.
       expect(stateColor()).toBe(FOCUS_BLUE);
       const focusInGrace = screen.getByTestId("session-clock-number").textContent;
@@ -640,7 +645,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
       });
 
       // 비집중 문구는 원인과 상관없이 하나로 통일했다.
-      expect(screen.getByRole("status")).toHaveTextContent("자리를 확인해 주세요");
+      expect(screen.getByRole("status")).toHaveTextContent("공부 자세를 확인해 주세요");
       expect(stateColor()).toBe(DISTRACTION_ORANGE);
 
       await act(async () => {
@@ -648,7 +653,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
         await vi.advanceTimersByTimeAsync(2800); // 복귀 3초 직전
       });
 
-      expect(screen.getByRole("status")).toHaveTextContent("자리를 확인해 주세요");
+      expect(screen.getByRole("status")).toHaveTextContent("공부 자세를 확인해 주세요");
 
       await act(async () => {
         await vi.advanceTimersByTimeAsync(400); // 복귀 3초 경과
@@ -809,7 +814,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
         await vi.advanceTimersByTimeAsync(10_000);
       });
 
-      expect(screen.getByRole("status")).toHaveTextContent("자리를 확인해 주세요");
+      expect(screen.getByRole("status")).toHaveTextContent("공부 자세를 확인해 주세요");
     } finally {
       vi.useRealTimers();
     }
@@ -864,7 +869,7 @@ describe("RoomPage — S3-1 프리뷰 / S3-2 비집중", () => {
         detector!.emit({ source: "AWAY", active: true });
         await vi.advanceTimersByTimeAsync(10_000);
       });
-      expect(screen.getByRole("status")).toHaveTextContent("자리를 확인해 주세요");
+      expect(screen.getByRole("status")).toHaveTextContent("공부 자세를 확인해 주세요");
 
       const times = () => screen.getAllByText(/^\d{2}:\d{2}:\d{2}$/).map((el) => el.textContent);
       const atDetect = times();

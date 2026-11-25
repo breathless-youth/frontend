@@ -10,7 +10,6 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { enterGroupStudyRoom } from "@/features/group-room/enterGroupStudyRoom";
 import type { GroupRoomLocationState } from "@/features/live-room/liveRoomEntryState";
 import { subjectColorVar } from "@/features/records/recordsTimetable";
-import { sessionGuideState } from "@/features/study-session/sessionGuide";
 import { verifySubjectBeforeSeat } from "@/features/study-session/useInitialSubject";
 import { trackFocusStartTapped } from "@/lib/amplitude";
 import { hasGroupRooms } from "@/lib/groupRoomCapability";
@@ -61,22 +60,15 @@ export function PlannerStudyStartSheet({
     try {
       if (groupId === undefined) {
         haptic("medium");
-        if (sessionGuideState(userId) !== "seen") {
-          navigate(
-            { pathname: "/session-guide", search: search.toString() },
-            { state: { source: "planner", initialSubjectId: task.subjectId } },
-          );
-        } else {
-          trackFocusStartTapped("planner");
-          await requestSessionStart(
-            userId,
-            () => {
-              search.set("initialSubjectId", String(task.subjectId));
-              navigate({ pathname: "/room/1", search: search.toString() });
-            },
-            { subjectId: task.subjectId },
-          );
-        }
+        trackFocusStartTapped("planner");
+        await requestSessionStart(
+          userId,
+          () => {
+            search.set("initialSubjectId", String(task.subjectId));
+            navigate({ pathname: "/room/1", search: search.toString() });
+          },
+          { subjectId: task.subjectId },
+        );
       } else {
         const source = getTokenSource();
         let changedAccount = false;

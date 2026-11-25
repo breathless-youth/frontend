@@ -41,7 +41,9 @@ describe("statusCopyFor — voice-tone.md §3 상태 문구", () => {
 
   it("비집중은 원인과 상관없이 같은 문구를 쓴다", () => {
     for (const trigger of ["AWAY", "PHONE", "DEVICE", "SLEEP"] as const) {
-      expect(statusCopyFor(distractionState(trigger))).toEqual({ label: "자리를 확인해 주세요" });
+      expect(statusCopyFor(distractionState(trigger))).toEqual({
+        label: "공부 자세를 확인해 주세요",
+      });
     }
   });
 

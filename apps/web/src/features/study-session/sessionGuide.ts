@@ -3,9 +3,9 @@ import type { SessionHelpStepId } from "@/lib/amplitude";
 /**
  * 세션 도움말의 기기 기록
  *
- * 처음 보는 계정이 집중 시작을 누르면 세션과 카메라 권한 요청보다 먼저 가이드 화면(`SessionGuidePage`)이 뜬다.
- * 마지막 단계의 `순공 시작하기`나 `나중에 시작할게요`까지 끝낸 계정은 다시 뜨지 않는다.
- * 앱을 끄거나 뒤로 가거나 Escape로 닫아 끝까지 보지 못한 계정은 다음 집중 시작에 다시 뜬다.
+ * 처음 보는 계정이 새 세션을 열면 카운트다운 앞에 도움말이 뜨고, 닫을 때까지 카운트다운을 세지 않는다(`RoomPage`).
+ * 마지막 장에서 `공부 시작하기`를 누른 계정은 다시 뜨지 않는다.
+ * 앱을 끄거나 Escape로 닫은 계정은 다음 새 세션에 다시 뜬다.
  * 기록은 기기 저장소에 계정별로 남기므로 기기를 바꾸면 다시 뜨고, 저장소를 쓸 수 없는 기기에서는 앱을 다시 켜면 다시 뜬다.
  */
 export type SessionGuideState = "seen" | null;
@@ -34,75 +34,29 @@ export function markSessionGuideSeen(userId: number): void {
   }
 }
 
+/** 도움말 마스코트 표정. 칸은 `HelpMascot`이 정한다. */
+export type SessionHelpMascotPose = "joy" | "sleepy" | "focus" | "jump";
+
 /**
- * 세션 도움말 다섯 단계
+ * 세션 도움말 여섯 장
  *
- * 1~3단계는 심플 모드 화면을 실제 요소로 그리고, 4~5단계는 공부하는 사람 사진 위에 버튼을 다시 그린다.
- * `callouts`에 문구 키가 있는 요소만 그 단계에서 테두리·화살표와 함께 설명한다.
- * 문구 안 `\n`은 고정 줄바꿈이고 `<hl>`로 감싼 핵심 단어는 primary 그라데이션 글자로 칠한다.
- * 탭 설명은 가로에서만 두 줄이라 세로에서는 화면이 줄바꿈을 공백으로 접는다.
+ * 실제 세션과 같은 배치로 그린 가짜 세션 화면 위에서 보인다(`SessionHelpScreen`).
+ * - `welcome`: 인사. 강조하는 자리 없이 말풍선만 띄운다.
+ * - `grace`: 공부 자세가 흐트러져 상태 문구가 깜빡이는 화면. 순공은 계속 흐른다.
+ * - `distract`: 계속 공부가 감지되지 않아 순공이 멈춘 화면.
+ * - `simple`: 화면을 탭하면 심플 모드로 바뀌는 것을 보여 준다.
+ * - `ready`: 카메라 창을 키워 얼굴·손·공부도구 구도를 짚는다.
+ * - `start`: 타임랩스를 고르고 공부를 시작한다.
+ * 마스코트 표정은 dev 도움말처럼 장마다 다르다.
  */
-export type SessionHelpElement = "pill" | "timer" | "tap" | "side" | "pause" | "more";
-
-/** 도움말 문구 키(`study-session:help.*`) */
-export type SessionHelpTextKey =
-  | "help.awayPill"
-  | "help.awayTimer"
-  | "help.measuringPill"
-  | "help.measuringTimer"
-  | "help.cameraTap"
-  | "help.buttonsSide"
-  | "help.buttonsPause"
-  | "help.finishMore"
-  | "help.finishCenter";
-
-export interface SessionHelpStep {
-  id: SessionHelpStepId;
-  /** simple: 심플 모드 화면, photo: 공부하는 사람 사진 */
-  background: "simple" | "photo";
-  /** 심플 모드 화면의 상태 색과 가짜 필. 심플 모드 단계만 쓴다. */
-  state?: "distract" | "focus";
-  /** 가짜 순공 숫자가 1초씩 올라가는가. 심플 모드 단계만 쓴다. */
-  ticking?: boolean;
-  callouts: Partial<Record<SessionHelpElement, SessionHelpTextKey>>;
-  /** 화면 정중앙 제목. 마지막 단계만 쓴다. */
-  center?: SessionHelpTextKey;
-  /** 정중앙 제목 아래 끝내기 버튼이 있는가. 글자는 `help.finishCta`다. */
-  cta?: boolean;
-}
-
-export const SESSION_HELP_STEPS: readonly SessionHelpStep[] = [
-  {
-    id: "away",
-    background: "simple",
-    state: "distract",
-    ticking: false,
-    callouts: { pill: "help.awayPill", timer: "help.awayTimer" },
-  },
-  {
-    id: "measuring",
-    background: "simple",
-    state: "focus",
-    ticking: true,
-    callouts: { pill: "help.measuringPill", timer: "help.measuringTimer" },
-  },
-  {
-    id: "camera",
-    background: "simple",
-    state: "focus",
-    ticking: true,
-    callouts: { tap: "help.cameraTap" },
-  },
-  {
-    id: "buttons",
-    background: "photo",
-    callouts: { side: "help.buttonsSide", pause: "help.buttonsPause" },
-  },
-  {
-    id: "finish",
-    background: "photo",
-    callouts: { more: "help.finishMore" },
-    center: "help.finishCenter",
-    cta: true,
-  },
+export const SESSION_HELP_STEPS: readonly {
+  readonly id: SessionHelpStepId;
+  readonly mascot: SessionHelpMascotPose;
+}[] = [
+  { id: "welcome", mascot: "joy" },
+  { id: "grace", mascot: "focus" },
+  { id: "distract", mascot: "sleepy" },
+  { id: "simple", mascot: "joy" },
+  { id: "ready", mascot: "focus" },
+  { id: "start", mascot: "jump" },
 ];

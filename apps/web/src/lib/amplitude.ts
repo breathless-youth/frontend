@@ -1348,19 +1348,20 @@ export function trackStudySessionFaceMaskEmojiSelected(input: {
   });
 }
 
-/** 세션 도움말을 연 경로. 세션 진입 때 저절로 뜬 것(auto)과 더보기의 도움말 보기(menu)다. */
+/** 세션 도움말을 연 경로. 처음 보는 계정의 새 세션 카운트다운 앞에 저절로 뜬 것(auto)과 더보기의 도움말 보기(menu)다. */
 export type SessionHelpTrigger = "auto" | "menu";
 
 /** 세션 도움말 단계 id. 단계 번호와 달리 순서가 바뀌어도 뜻이 같다. */
-export type SessionHelpStepId = "away" | "measuring" | "camera" | "buttons" | "finish";
+export type SessionHelpStepId = "welcome" | "grace" | "distract" | "simple" | "ready" | "start";
 
 /**
  * 세션 도움말 판
  *
- * 2는 심플 모드로 시작하는 5단계 판이다.
- * 이 속성이 없는 6단계 판과 단계 번호의 뜻이 달라 콘솔 차트는 이 값으로 거른다.
+ * 4는 카운트다운 앞 가짜 세션 화면 위 여섯 장 판이다(welcome → grace → distract → simple → ready → start).
+ * 2는 세션 앞 가이드 화면의 5단계 판, 3은 dev의 마스코트 코치마크 판이다.
+ * 판마다 단계 번호의 뜻이 달라 콘솔 차트는 이 값으로 거른다.
  */
-const SESSION_HELP_VERSION = 2;
+const SESSION_HELP_VERSION = 4;
 
 /**
  * 세션 도움말 노출
@@ -1404,17 +1405,23 @@ export function trackStudySessionHelpStepViewed(input: {
  * 세션 도움말을 마지막 단계까지 본 것
  *
  * 앱 종료나 세션 이탈로 끝내지 못한 노출은 완료도 중단도 보내지 않아 다음 세션의 재노출로 센다.
- * `cta`는 마지막 단계에서 누른 버튼이다. `later`는 `나중에 시작할게요`라 세션이 시작되지 않는다.
+ * `cta`는 마지막 장에서 누른 버튼이다. `start`는 `공부 시작하기`(카운트다운 시작),
+ * `close`는 메뉴로 다시 본 도움말의 `닫기`다. `timelapse_enabled`는 마지막 장의 타임랩스 스위치 값이다.
+ * 메뉴로 연 도움말에는 스위치가 없어 `timelapse_enabled`를 싣지 않는다.
  */
 export function trackStudySessionHelpCompleted(
   trigger: SessionHelpTrigger,
   roomType: StudyRoomType,
-  cta: "start" | "later" = "start",
+  result: {
+    readonly cta: "start" | "close";
+    readonly timelapseEnabled: boolean | null;
+  },
 ) {
   if (!initialized) return;
   track("study_session_help_completed", {
     trigger,
-    cta,
+    cta: result.cta,
+    ...(result.timelapseEnabled === null ? {} : { timelapse_enabled: result.timelapseEnabled }),
     room_type: roomType,
     help_version: SESSION_HELP_VERSION,
   });
