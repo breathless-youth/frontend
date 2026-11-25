@@ -15,7 +15,14 @@ import { markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import { setSessionCountdownSecondsForTest } from "@/features/study-session/sessionCountdown";
 import { AWAY_LIMIT_MS } from "@/features/study-session/sessionTuning";
 import { submitStudySession } from "@/features/study-session/submitStudySession";
-import { trackStudySessionEnded } from "@/lib/amplitude";
+import { assignPremiumPrice } from "@/features/premium-fake-door/premiumFakeDoor";
+import type { SessionBannerGroup } from "@/features/session-banner/sessionBanner";
+import {
+  trackPremiumFakeDoor,
+  trackSessionBannerClicked,
+  trackStudySessionEnded,
+  trackStudySessionPaused,
+} from "@/lib/amplitude";
 import { postToNative } from "@/lib/bridge";
 import { RoomPage } from "../RoomPage";
 
@@ -42,9 +49,18 @@ vi.mock("@/routes/lazyRoutes", () => ({ prefetchResultPage: vi.fn() }));
 
 vi.mock("@/lib/haptics", () => ({ haptic: vi.fn() }));
 
+// 실험군 판정은 훅 테스트가 따로 보고 여기서는 군에 따른 화면만 본다.
+const banner = vi.hoisted(() => ({ group: null as SessionBannerGroup | null }));
+vi.mock("@/features/session-banner/useSessionBannerGroup", () => ({
+  useSessionBannerGroup: () => banner.group,
+}));
+
 vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   trackStudySessionEnded: vi.fn(),
+  trackStudySessionPaused: vi.fn(),
+  trackPremiumFakeDoor: vi.fn(),
+  trackSessionBannerClicked: vi.fn(),
 }));
 
 // 움직임 센서는 브리지로 앱에 켜 달라고 보내서 그 메시지를 센다.
@@ -349,5 +365,152 @@ describe("RoomPage 카메라 없는 모드", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("RoomPage 세션 한 줄 배너", () => {
+  const BANNER_NAME = /^AD /;
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.parse("2026-11-25T12:00:00+09:00") });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ version: 1, sounds: [] }), { status: 200 })),
+    );
+    stubWorkingCamera();
+    writeMeasureMode("camera");
+    markSessionGuideSeen(1);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.clearAllMocks();
+    vi.unstubAllGlobals();
+    localStorage.clear();
+    banner.group = null;
+  });
+
+  it("배너를 보는 군은 하단 바 아래에 배너가 있다", () => {
+    banner.group = "exposed";
+    renderRoom();
+
+    const line = screen.getByRole("button", { name: BANNER_NAME });
+    expect(line).toHaveTextContent("AI가 오늘 할 일을 짜 드려요");
+    const bar = screen.getByRole("toolbar");
+    expect(bar.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // 배너는 하단 바 안이 아니라 바로 아래 줄에 둔다.
+    expect(bar).not.toContainElement(line);
+  });
+
+  it("배너를 보는 군은 세로 폰에서만 하단 바를 배너 줄만큼 올린다", () => {
+    banner.group = "exposed";
+    renderRoom();
+
+    const row = screen.getByRole("toolbar").parentElement;
+    expect(row).toHaveClass("mb-5", "regular:mb-0", "landscape-compact:mb-0");
+  });
+
+  it("배너를 보는 군은 작은 카메라 창을 세로 폰에서만 20px 올리고 태블릿·가로 자리는 그대로 둔다", () => {
+    banner.group = "exposed";
+    renderRoom();
+
+    const pip = screen.getByRole("button", { name: "내 화면 크게 보기" }).className;
+    expect(pip).toContain("bottom-[calc(env(safe-area-inset-bottom)+134px)]");
+    expect(pip).not.toContain(" bottom-[calc(env(safe-area-inset-bottom)+114px)]");
+    expect(pip).toContain("regular:bottom-[calc(env(safe-area-inset-bottom)+134px)]");
+    expect(pip).toContain("landscape-compact:bottom-[max(");
+  });
+
+  it("더보기 메뉴가 열린 채 배너 자리를 누르면 메뉴만 닫히고 혜택 화면은 열리지 않는다", async () => {
+    banner.group = "exposed";
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    renderRoom();
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+    expect(screen.getAllByRole("menuitem").length).toBeGreaterThan(0);
+
+    // 실제 기기에서는 누름 시작이 메뉴를 닫고, 이어지는 클릭이 잠금이 풀린 배너에 닿는다.
+    const line = screen.getByRole("button", { name: BANNER_NAME, hidden: true });
+    fireEvent.pointerDown(document.body);
+    fireEvent.click(line);
+
+    expect(screen.queryByRole("dialog", { name: "스파르타 기능" })).not.toBeInTheDocument();
+    expect(vi.mocked(trackSessionBannerClicked)).not.toHaveBeenCalled();
+
+    // 메뉴가 닫힌 뒤의 다음 누름은 그대로 연다.
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+    fireEvent.pointerDown(line);
+    fireEvent.click(line);
+    expect(await screen.findByRole("dialog", { name: "스파르타 기능" })).toBeInTheDocument();
+  });
+
+  it("배너를 보지 않는 군에는 배너도 하단 바 올림도 없다", () => {
+    banner.group = "control";
+    renderRoom();
+
+    expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: BANNER_NAME })).not.toBeInTheDocument();
+    expect(screen.getByRole("toolbar").parentElement).not.toHaveClass("mb-5");
+  });
+
+  it("배너를 누르면 타이머를 멈추지 않고 세션 자리 값으로 혜택 화면을 연다", async () => {
+    banner.group = "exposed";
+    // 혜택 화면의 불꽃 캔버스가 그리기 판을 찾는다. jsdom에는 없어서 없는 것으로 둔다.
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    renderRoom();
+
+    await userEvent.click(screen.getByRole("button", { name: BANNER_NAME }));
+
+    expect(screen.getByRole("dialog", { name: "스파르타 기능" })).toBeInTheDocument();
+    expect(vi.mocked(trackPremiumFakeDoor)).toHaveBeenCalledWith("opened", {
+      price: assignPremiumPrice(1),
+      placement: "SESSION",
+    });
+    expect(vi.mocked(trackStudySessionPaused)).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "다시 시작" })).not.toBeInTheDocument();
+  });
+
+  it("혜택 화면을 닫으면 세션 화면으로 돌아오고 배너가 다시 보인다", async () => {
+    banner.group = "exposed";
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    renderRoom();
+
+    await userEvent.click(screen.getByRole("button", { name: BANNER_NAME }));
+    await userEvent.click(
+      within(screen.getByRole("dialog", { name: "스파르타 기능" })).getByRole("button", {
+        name: "뒤로 가기",
+      }),
+    );
+
+    expect(screen.queryByRole("dialog", { name: "스파르타 기능" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: BANNER_NAME })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
+  });
+
+  it("혜택 화면에서 신청을 마치고 공부로 돌아오면 배너가 내려가고 하단 바도 제자리로 온다", async () => {
+    banner.group = "exposed";
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    renderRoom();
+
+    await userEvent.click(screen.getByRole("button", { name: BANNER_NAME }));
+    await userEvent.click(screen.getByRole("button", { name: "사전 신청하기" }));
+    await userEvent.click(await screen.findByRole("button", { name: "공부로 돌아가기" }));
+
+    expect(screen.queryByRole("dialog", { name: "신청 완료" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: BANNER_NAME })).not.toBeInTheDocument();
+    expect(screen.getByRole("toolbar").parentElement).not.toHaveClass("mb-5");
+  });
+
+  it("사전 신청을 마친 기록이 있으면 배너가 없다", () => {
+    banner.group = "exposed";
+    localStorage.setItem(
+      "focusmakers.premiumFakeDoor.v1.1",
+      JSON.stringify({ dismissed: false, applied: true, viewedSent: true }),
+    );
+    renderRoom();
+
+    expect(screen.getByRole("button", { name: "일시정지" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: BANNER_NAME })).not.toBeInTheDocument();
   });
 });

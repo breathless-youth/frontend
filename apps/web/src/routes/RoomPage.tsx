@@ -1,3 +1,4 @@
+import { QueryClientProvider } from "@tanstack/react-query";
 import {
   type RefObject,
   useCallback,
@@ -124,13 +125,23 @@ import {
   sessionGuideState,
 } from "@/features/study-session/sessionGuide";
 import {
+  PIP_ABOVE_BANNER,
   PIP_ABOVE_CHIP,
+  PIP_ABOVE_CHIP_AND_BANNER,
   PIP_ANCHOR,
   PIP_SIZE,
   SESSION_LAYER_INSET,
+  WALLPAPER_CLOCK_ABOVE_BANNER,
   WALLPAPER_CLOCK_ANCHOR,
   WALLPAPER_CLOCK_WIDE,
 } from "@/features/study-session/sessionLayout";
+import { assignPremiumPrice } from "@/features/premium-fake-door/premiumFakeDoor";
+import { loadPremiumRecord } from "@/features/premium-fake-door/premiumFakeDoorStore";
+import { PremiumFakeDoorUserFlow } from "@/features/premium-fake-door/PremiumFakeDoorHost";
+import { canShowSessionBanner } from "@/features/session-banner/sessionBanner";
+import { SessionLineBanner } from "@/features/session-banner/SessionLineBanner";
+import { useBannerExposure } from "@/features/session-banner/useBannerExposure";
+import { useSessionBannerGroup } from "@/features/session-banner/useSessionBannerGroup";
 import {
   MANUAL_END_REASON,
   isSessionHeld,
@@ -189,6 +200,8 @@ import {
   trackSessionSimpleModeToggled,
   trackSessionSpaceVolumeChanged,
   trackSessionSpaceMuted,
+  setPremiumFakeDoorPriceUserProperty,
+  trackPremiumFakeDoor,
   trackSessionSpaceOpened,
   trackStudySessionExitCancelled,
   trackStudySessionExitRequested,
@@ -997,6 +1010,50 @@ function RoomSessionBody({
   const helpVisible =
     (firstHelpOpen ? counting : phase.name === "studying" && helpOpen) && !helpBlocked;
   const endHelpExposure = useSessionHelpFunnel(helpVisible, helpStep, helpTrigger);
+  // 세션 한 줄 배너(실험). 세로 폰에서만 하단 바 아래에 보이고, 보이는 동안은 하단 바와 작은 창을 20px 올린다.
+  const bannerGroup = useSessionBannerGroup(userId);
+  // 종료 시각은 세션에 들어올 때 한 번 본다.
+  const [bannerCheckedAtMs] = useState(Date.now);
+  const readPremiumApplied = () => userId !== null && loadPremiumRecord(userId)?.applied === true;
+  // 혜택 화면 안에서 신청을 마치고 닫으면 기록을 다시 읽어 배너를 내린다.
+  const [premiumApplied, setPremiumApplied] = useState(readPremiumApplied);
+  const bannerVisible = canShowSessionBanner({
+    group: bannerGroup,
+    nowMs: bannerCheckedAtMs,
+    applied: premiumApplied,
+  });
+  // 배너를 누르면 프리미엄 혜택 화면이 세션 위에 겹쳐 열리고, 세션과 타이머는 그대로 돈다.
+  const [bannerTargetOpen, setBannerTargetOpen] = useState(false);
+  const openBannerTarget = () => {
+    if (userId === null) return;
+    const price = assignPremiumPrice(userId);
+    trackPremiumFakeDoor("opened", { price, placement: "SESSION" });
+    // 결과 화면 카드를 보지 않고 배너로만 들어온 사용자도 가격으로 나눠 볼 수 있게 남긴다.
+    setPremiumFakeDoorPriceUserProperty(price);
+    setBannerTargetOpen(true);
+  };
+  const closeBannerTarget = () => {
+    setBannerTargetOpen(false);
+    setPremiumApplied(readPremiumApplied());
+  };
+  const bannerRef = useRef<HTMLDivElement>(null);
+  // 일시정지나 세션을 덮는 화면이 떠 있는 동안은 배너가 보인 시간으로 세지 않는다.
+  // 태블릿·가로에서는 CSS로 숨겨 노출 훅이 보이지 않는 것으로 센다.
+  const bannerCopy = useBannerExposure({
+    active:
+      bannerVisible &&
+      studying &&
+      sessionState.kind !== "PAUSE" &&
+      !helpBlocked &&
+      !helpVisible &&
+      !bannerTargetOpen,
+    target: bannerRef,
+  });
+  // 작은 창은 하단 바 위 추가 타이머 칩과 세로 폰의 배너만큼 올라간다.
+  const pipLift = cn(
+    timerChipVisible && PIP_ABOVE_CHIP,
+    bannerVisible && (timerChipVisible ? PIP_ABOVE_CHIP_AND_BANNER : PIP_ABOVE_BANNER),
+  );
   /**
    * 도움말을 닫는다. 처음 도움말이었으면 이때부터 카운트다운을 센다.
    * 마지막 장에서 타임랩스를 바꿨을 수 있어 카메라 창 이름표용 값을 다시 읽는다.
@@ -1450,12 +1507,7 @@ function RoomSessionBody({
         ref={pipSlotRef}
         aria-hidden="true"
         data-testid="camera-pip-slot"
-        className={cn(
-          PIP_ANCHOR,
-          timerChipVisible && PIP_ABOVE_CHIP,
-          PIP_SIZE,
-          "pointer-events-none invisible",
-        )}
+        className={cn(PIP_ANCHOR, pipLift, PIP_SIZE, "pointer-events-none invisible")}
       />
       <CameraPreviewSurface
         stream={cameraStream}
@@ -1466,9 +1518,7 @@ function RoomSessionBody({
         faceMask={faceMask}
         // 기본 모드는 오른쪽 아래 작은 창이다. 크기만 바뀌어 영상과 추론은 끊기지 않는다.
         className={
-          cameraExpanded
-            ? undefined
-            : cn("inset-auto rounded-lg", PIP_ANCHOR, timerChipVisible && PIP_ABOVE_CHIP, PIP_SIZE)
+          cameraExpanded ? undefined : cn("inset-auto rounded-lg", PIP_ANCHOR, pipLift, PIP_SIZE)
         }
       />
       {/* 공부 시작 카운트다운. 카메라 창이 보이면 그 창 안에서 세고, 안 보이면 시계 숫자 자리에서 센다(SessionClock). */}
@@ -1478,9 +1528,7 @@ function RoomSessionBody({
           aria-hidden="true"
           className={cn(
             "pointer-events-none grid place-items-center bg-black/35 text-5xl font-bold text-white tabular-nums [text-shadow:0_2px_12px_rgba(0,0,0,0.45)]",
-            cameraExpanded
-              ? "absolute inset-0"
-              : cn("rounded-lg", PIP_ANCHOR, timerChipVisible && PIP_ABOVE_CHIP, PIP_SIZE),
+            cameraExpanded ? "absolute inset-0" : cn("rounded-lg", PIP_ANCHOR, pipLift, PIP_SIZE),
           )}
         >
           {countdownLeft}
@@ -1636,6 +1684,7 @@ function RoomSessionBody({
                 wallpaper
                   ? cn(
                       WALLPAPER_CLOCK_ANCHOR,
+                      bannerVisible && WALLPAPER_CLOCK_ABOVE_BANNER,
                       // 심플 모드는 카메라 창이 없어 오른쪽 끝까지 쓴다.
                       simpleMode && WALLPAPER_CLOCK_WIDE,
                       "flex flex-col items-start",
@@ -1695,6 +1744,7 @@ function RoomSessionBody({
                   inert={cameraShrinking}
                   className={cn(
                     PIP_ANCHOR,
+                    bannerVisible && PIP_ABOVE_BANNER,
                     "flex h-11 items-center",
                     CAMERA_CHROME_FADE,
                     cameraShrinking && "opacity-0",
@@ -1718,7 +1768,7 @@ function RoomSessionBody({
                   onClick={expandCamera}
                   className={cn(
                     PIP_ANCHOR,
-                    timerChipVisible && PIP_ABOVE_CHIP,
+                    pipLift,
                     PIP_SIZE,
                     "pointer-events-auto flex items-end justify-start rounded-lg shadow-[0_8px_24px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(255,255,255,0.12)]",
                     // 줄이기가 끝나 작은 창이 되는 순간 테두리·이름표·버튼이 한꺼번에 튀어나오지 않게 서서히 나타낸다.
@@ -1752,7 +1802,13 @@ function RoomSessionBody({
                 />
               </div>
             )}
-            <div className="relative z-20 flex w-full justify-center">
+            {/* 세로 폰에서 배너를 보는 사용자는 하단 바 아래에 배너 줄(글자 16px + 위 4px)이 들어오도록 바를 20px 올린다. */}
+            <div
+              className={cn(
+                "relative z-20 flex w-full justify-center",
+                bannerVisible && "mb-5 regular:mb-0 landscape-compact:mb-0",
+              )}
+            >
               <div
                 role="toolbar"
                 aria-label={t("controls.bar")}
@@ -1779,6 +1835,33 @@ function RoomSessionBody({
                 </div>
                 <SessionExitButton onClick={handleRequestExit} muted={simpleMode} />
               </div>
+              {/* 배너는 하단 바 바로 아래에서 시작한다. 하단 바는 가운데 알약이라 누르는 영역을 위로 넓히면 일시정지·종료를 덮어서,
+                  아래로 44px을 잡고 글자는 위쪽 4px 아래에 둔다. 태블릿과 가로에서는 숨긴다.
+                  버튼과 달리 앱 부품으로 바꿔 그리지 않는 웹 요소다. */}
+              {bannerVisible && (
+                <div
+                  ref={bannerRef}
+                  inert={moreMenuOpen}
+                  // 메뉴가 닫힌 뒤의 누름은 배너에서 시작하므로 여기서 기록을 되돌린다.
+                  onPointerDown={() => {
+                    pressStartedWithMenuOpenRef.current = moreMenuOpen;
+                  }}
+                  // 메뉴 바깥을 눌러 메뉴만 닫으려던 누름은 잠금이 풀린 배너에 클릭으로 닿아서 여기서 막는다.
+                  onClickCapture={(event) => {
+                    if (pressStartedWithMenuOpenRef.current || moreMenuOpen) {
+                      pressStartedWithMenuOpenRef.current = false;
+                      event.stopPropagation();
+                    }
+                  }}
+                  className="absolute inset-x-6 top-full h-11 regular:hidden landscape-compact:hidden"
+                >
+                  <SessionLineBanner
+                    copy={bannerCopy}
+                    onOpen={openBannerTarget}
+                    className="items-start pt-1"
+                  />
+                </div>
+              )}
             </div>
 
             {userId === null && (
@@ -1787,6 +1870,17 @@ function RoomSessionBody({
               </p>
             )}
           </div>
+
+          {/* 세션 화면은 Provider 없이도 렌더되므로 닉네임 요청에 공용 queryClient를 직접 건넨다. */}
+          {bannerTargetOpen && userId !== null && (
+            <QueryClientProvider client={queryClient}>
+              <PremiumFakeDoorUserFlow
+                userId={userId}
+                placement="SESSION"
+                onClose={closeBannerTarget}
+              />
+            </QueryClientProvider>
+          )}
 
           {helpVisible && (
             <SessionHelpScreen

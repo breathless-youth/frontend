@@ -41,6 +41,18 @@ export const PIP_ABOVE_CHIP = [
   "landscape-compact:bottom-[calc(max(env(safe-area-inset-bottom),calc((env(safe-area-inset-bottom)+14px)/2))+60px)]",
 ].join(" ");
 
+/**
+ * 세로 폰에서 세션 배너가 하단 바 아래에 들어와 하단 바를 20px 올릴 때의 자리
+ *
+ * 배너는 세로 폰에서만 보여서 폰 세로 값만 바꾼다. 태블릿·가로는 `PIP_ANCHOR`·`PIP_ABOVE_CHIP` 값을 그대로 쓴다.
+ * 함께 쓰면 뒤에 둔 이 값이 이긴다.
+ */
+export const PIP_ABOVE_BANNER = "bottom-[calc(env(safe-area-inset-bottom)+134px)]";
+/** 칩과 배너가 함께 있을 때의 작은 창 자리(폰 세로) */
+export const PIP_ABOVE_CHIP_AND_BANNER = "bottom-[calc(env(safe-area-inset-bottom)+194px)]";
+/** 배너가 있을 때 월페이퍼 위 시간 묶음 자리(폰 세로) */
+export const WALLPAPER_CLOCK_ABOVE_BANNER = "bottom-[calc(env(safe-area-inset-bottom)+116px)]";
+
 /** 내 카메라 작은 창의 크기. 세로 108×144, 가로 160×108이고 폭 600 이상 창은 144×192다. */
 export const PIP_SIZE =
   "h-36 w-27 regular:h-48 regular:w-36 landscape-compact:h-27 landscape-compact:w-40";
