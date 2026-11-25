@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  distractImageUrl,
+  distractPosterUrl,
+  distractSoundUrl,
+  distractVideoUrl,
   imageUrl,
   loopPosterUrl,
   loopVideoUrl,
@@ -42,7 +46,7 @@ describe("spaceFiles", () => {
     expect(spaceScreen(view(1200, 1600))).toBe("tablet_portrait");
   });
 
-  it("감시는 장면·포스터·소리 주소를 만들고 PC 크기에서도 태블릿 가로를 쓴다", () => {
+  it("감독은 장면·포스터·소리 주소를 만들고 PC 크기에서도 태블릿 가로를 쓴다", () => {
     const key = "watcher/9c8d9f19";
     const screen = watchScreen(view(1440, 900));
 
@@ -55,7 +59,7 @@ describe("spaceFiles", () => {
     expect(watchSoundUrl(key, "approach")).toBe("/spaces/watcher/9c8d9f19/sound/approach.m4a");
   });
 
-  it("타일 그림은 감시면 폰 세로 포스터, 아니면 thumb.webp다", () => {
+  it("타일 그림은 감독이면 폰 세로 포스터, 아니면 thumb.webp다", () => {
     expect(spaceTileUrl({ assetKey: "watcher/9c8d9f19", videoMode: "WATCH" })).toBe(
       "/spaces/watcher/9c8d9f19/poster/phone_portrait.jpg",
     );
@@ -64,6 +68,22 @@ describe("spaceFiles", () => {
     );
     expect(spaceTileUrl({ assetKey: "image/desk", videoMode: null })).toBe(
       "/spaces/image/desk/thumb.webp",
+    );
+  });
+  it("비집중 장면은 distract 폴더 아래에 집중 장면과 같은 화면 이름으로 있다", () => {
+    expect(distractVideoUrl(KEY, "desktop")).toBe(
+      "/spaces/loop/1a2b3c4d/distract/loop/desktop.mp4",
+    );
+    expect(distractPosterUrl(KEY, "phone_portrait")).toBe(
+      "/spaces/loop/1a2b3c4d/distract/poster/phone_portrait.webp",
+    );
+    expect(distractImageUrl(KEY, "tablet_landscape")).toBe(
+      "/spaces/loop/1a2b3c4d/distract/image/tablet_landscape.webp",
+    );
+    expect(distractSoundUrl(KEY, "loop")).toBe("/spaces/loop/1a2b3c4d/distract/sound/loop.m4a");
+    expect(distractSoundUrl(KEY, "cue")).toBe("/spaces/loop/1a2b3c4d/distract/sound/cue.m4a");
+    expect(distractSoundUrl(KEY, "approach")).toBe(
+      "/spaces/loop/1a2b3c4d/distract/sound/approach.m4a",
     );
   });
 });

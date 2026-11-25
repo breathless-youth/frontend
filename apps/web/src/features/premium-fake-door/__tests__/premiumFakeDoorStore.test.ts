@@ -16,7 +16,7 @@ function shows(nowMs: number) {
   const record = loadPremiumRecord(7);
   return (
     record !== null &&
-    canShowPremiumCard({ nowMs, hasTokenSource: true, korean: true, record, qualifyingSec: 600 })
+    canShowPremiumCard({ nowMs, hasTokenSource: true, record, qualifyingSec: 600 })
   );
 }
 

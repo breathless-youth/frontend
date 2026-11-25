@@ -27,6 +27,7 @@ import type {
 
 import type { RoomVisibility } from "@/features/group-room/model/roomMenu";
 import type { MeasureMode } from "@/features/measure-mode/measureMode";
+import type { DistractionTrigger } from "@/features/study-session/sessionState";
 
 import { firebaseAnalyticsForwardPlugin } from "./firebaseAnalyticsBridge";
 import i18n from "./i18n";
@@ -250,6 +251,9 @@ async function addReplayPlugin(): Promise<void> {
   );
 }
 
+/** 화면 언어 동기화가 켜져 있을 때만 값이 있다. */
+let resendAppLocale: (() => void) | null = null;
+
 /**
  * 서버 user_id를 Amplitude user_id로 연결한다(2026-08-08 결정). 값은 네이티브가 브리지로
  * 넘겨 주는 `auth-token`의 userId이며(BY-528 이전에는 셸이 붙이던 `?userId=N`), DB 값과
@@ -270,6 +274,8 @@ export function setAmplitudeUserId(userId: number | null) {
   if (next === currentUserId) return;
   currentUserId = next;
   setUserId(next);
+  // 번호가 붙기 전에 보낸 화면 언어는 익명 기기 앞으로 갔을 수 있어, 이 사용자 앞으로 한 번 더 보낸다.
+  resendAppLocale?.();
 }
 
 /** 현재 라우트의 페이지뷰를 전송한다. 경로는 정제를 거치며, 미초기화면 no-op. */
@@ -320,6 +326,23 @@ export function setDeviceLocaleUserProperties(locale: { timeZone?: string; regio
   if (locale.timeZone) properties.device_time_zone = locale.timeZone;
   if (locale.region) properties.device_region = locale.region;
   if (Object.keys(properties).length > 0) setUserProperties(properties);
+}
+
+/**
+ * 화면 언어를 사용자 속성으로 남긴다
+ *
+ * Amplitude 기본 language는 기기 언어라, 설정에서 화면 언어를 바꾼 사람은 실제로 본 화면과 다르다.
+ * 언어별로 나눠 보는 실험은 이 값을 쓴다. 돌려주는 함수를 부르면 언어 변경을 더 따라가지 않는다.
+ */
+export function syncAppLocaleUserProperty(): () => void {
+  const send = (locale: string) => setUserProperties({ app_locale: locale });
+  send(i18n.language);
+  i18n.on("languageChanged", send);
+  resendAppLocale = () => send(i18n.language);
+  return () => {
+    i18n.off("languageChanged", send);
+    resendAppLocale = null;
+  };
 }
 
 /** 한 번 켜지면 되돌리지 않는 이력 속성. 같은 문서 안에서는 한 번만 보내 identify와 브리지 왕복을 줄인다. */
@@ -1490,6 +1513,37 @@ export function trackSessionSpaceVolumeChanged(input: { readonly volume: number 
 export function trackSessionSpaceMuted(input: { readonly muted: boolean }) {
   if (!initialized) return;
   track("session_space_muted", { muted: input.muted });
+}
+
+/**
+ * 반복 영상 공간이 비집중 장면으로 바뀌었다
+ *
+ * 비집중 장면이 있는 공간에서 장면이 실제로 바뀔 때만 보낸다.
+ * `trigger`는 바뀌는 순간의 비집중 원인이다.
+ */
+export function trackSpaceDistractSceneEntered(input: {
+  readonly itemCode: string;
+  readonly trigger: DistractionTrigger;
+}) {
+  if (!initialized) return;
+  track("space_distract_scene_entered", { item_code: input.itemCode, trigger: input.trigger });
+}
+
+/**
+ * 비집중 장면에서 집중 장면으로 돌아왔다
+ *
+ * 비집중 장면인 채로 공부가 끝나도 보내서 들어간 횟수와 떠난 횟수가 맞는다.
+ * `duration_sec`은 비집중 장면에 머문 초다.
+ */
+export function trackSpaceDistractSceneLeft(input: {
+  readonly itemCode: string;
+  readonly durationSec: number;
+}) {
+  if (!initialized) return;
+  track("space_distract_scene_left", {
+    item_code: input.itemCode,
+    duration_sec: input.durationSec,
+  });
 }
 
 /** 싱글룸 입장 카메라 확인 창의 답. `카메라 켜기`는 camera, `심플 모드로 시작`과 Escape는 simple이다. */
@@ -2768,7 +2822,12 @@ export function trackPremiumFakeDoorFeatureViewed(
   });
 }
 
-/** 서버가 신청을 저장한(204) 뒤에만 보낸다. */
+/**
+ * 서버가 신청을 저장한(204) 뒤에만 보낸다.
+ *
+ * `age_group`은 2026-11-25부터 확인받은 값이 아니라 버튼 위 안내로 갈음한 `over14`다.
+ * 그 전 기록과 모양을 맞추려고 남기며 연령 집계에는 쓰지 않는다.
+ */
 export function trackPremiumFakeDoorApplied(
   base: PremiumFakeDoorEventBase,
   ageGroup: "over14" | "under14",

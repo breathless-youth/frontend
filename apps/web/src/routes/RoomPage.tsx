@@ -4,7 +4,6 @@ import {
   useEffect,
   useEffectEvent,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -154,7 +153,8 @@ import { SessionSpacePage } from "@/features/timer-background/components/Session
 import { SpaceButton } from "@/features/timer-background/components/SpaceButton";
 import { spaceKey } from "@/features/timer-background/spaceCatalog";
 import { fetchAppliedSpace, isMemberUser } from "@/features/timer-background/spaceCatalogQuery";
-import { ImageSpace, LoopVideoSpace } from "@/features/timer-background/SpaceLayers";
+import { DistractSpace, ImageSpace, LoopVideoSpace } from "@/features/timer-background/SpaceLayers";
+import { useDistractScene } from "@/features/timer-background/useDistractScene";
 import { useSpaceLoopSound } from "@/features/timer-background/useSpaceLoopSound";
 import {
   readTimerBackground,
@@ -181,6 +181,7 @@ import {
 import {
   createWatcherSound,
   readWatcherVolume,
+  type WatcherSound,
   writeWatcherVolume,
 } from "@/features/timer-background/watcher/watcherSound";
 import { DEFAULT_WATCHER_TRIGGER_MS } from "@/features/timer-background/watcher/watcherTrigger";
@@ -661,7 +662,7 @@ function RoomSessionScreen({
     setSpace(next);
     setFailedSpaceKey(null);
     if (spaceKey(next) !== activeSpaceKey) setReadyWallpaperKey(null);
-    // 감시 파일을 기기에 받아 두면 첫 등장이 늦지 않다.
+    // 감독 파일을 기기에 받아 두면 첫 등장이 늦지 않다.
     // 받지 않아도 네트워크로 재생돼 기다리지 않는다.
     if (next.kind === "space" && next.videoMode === "WATCH") {
       const viewport = { width: innerWidth, height: innerHeight };
@@ -744,12 +745,22 @@ function RoomSessionScreen({
     sessionState.kind === "DISTRACTION" ? sessionState.trigger : null,
     DEFAULT_WATCHER_TRIGGER_MS,
   );
-  // 감시 공간마다 소리가 달라 공간이 바뀌면 새로 만든다.
+  // 감독 공간마다 소리가 달라 공간이 바뀌면 새로 만든다.
   // 소리 컨텍스트는 처음 깨울 때 생긴다.
-  const watcherSound = useMemo(
-    () => (watchKey === null ? null : createWatcherSound(watchKey)),
-    [watchKey],
-  );
+  // 정리한 재생기는 다시 깨어나지 않아서, StrictMode가 effect를 다시 돌려도 새 재생기를 쓰도록 만든 effect가 정리까지 맡는다.
+  const [watcherSound, setWatcherSound] = useState<WatcherSound | null>(null);
+  useEffect(() => {
+    if (watchKey === null) {
+      return;
+    }
+    const sound = createWatcherSound(watchKey);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 재생기는 외부 자원이라 effect에서 만들고 정리한다
+    setWatcherSound(sound);
+    return () => {
+      sound.dispose();
+      setWatcherSound((current) => (current === sound ? null : current));
+    };
+  }, [watchKey]);
   useEffect(() => {
     // 제출 실패나 종료 안내에서는 화면이 닫히지 않으므로 공부가 끝나는 순간 소리와 누름 구독을 푼다.
     if (!watcherSound || !studying) {
@@ -769,7 +780,6 @@ function RoomSessionScreen({
       document.removeEventListener("visibilitychange", silenceHidden);
     };
   }, [watcherSound, studying]);
-  useEffect(() => () => watcherSound?.dispose(), [watcherSound]);
   useEffect(() => {
     if (!watcherSound) {
       return;
@@ -1113,12 +1123,25 @@ function RoomSessionScreen({
   // 반복 공간 소리는 감독관 소리와 같은 공간 음량을 쓰고, 공부 중이며 멈추지 않은 동안만 낸다.
   // 공부가 끝나거나 공간 파일을 받지 못해 심플로 그리면 공간을 넘기지 않아 재생기를 정리한다.
   // 종료 안내에서 화면을 눌러도 소리 장치가 다시 깨지 않고, 보이지 않는 공간의 소리도 나지 않는다.
-  const loopSoundAvailable = useSpaceLoopSound(
+  const loopSpaceKey =
     studying && !spaceFailed && space.kind === "space" && space.videoMode === "LOOP"
       ? space.assetKey
-      : null,
+      : null;
+  // 비집중 장면 파일을 받지 못한 공간은 화면만 집중 장면으로 남고 소리가 바뀌지 않게 비집중 장면 없이 돌린다.
+  const [failedDistractKey, setFailedDistractKey] = useState<string | null>(null);
+  // 공부가 끝나면 공간을 넘기지 않아, 비집중 장면인 채로 끝난 경우에도 떠난 것으로 알린다.
+  const distract = useDistractScene({
+    assetKey: loopSpaceKey === failedDistractKey ? null : loopSpaceKey,
+    itemCode: space.kind === "space" ? space.code : null,
+    trigger: sessionState.kind === "DISTRACTION" ? sessionState.trigger : null,
+    active: !paused,
+    volume: watcherLevel,
+  });
+  const loopSoundAvailable = useSpaceLoopSound(
+    loopSpaceKey,
     !paused,
     watcherLevel,
+    distract.focusLevel,
   );
   const statusLabel = t(statusLabelKey(sessionState));
   const pillState = toPillState(sessionState);
@@ -1455,7 +1478,7 @@ function RoomSessionScreen({
       {/* 회전 오버스캔은 프리뷰에만 건다 — 심플 모드는 카메라를 걷어낸 화면이라 회전해도
           메울 빈 자리가 없고, 단색 배경을 확대해 봐야 보이는 변화가 없다. */}
       {/* 공간은 일반 모드에서만 보인다.
-          상시 마운트해 심플 모드와 같은 300ms로 교차하고 감시 영상이 끊기지 않는다. */}
+          상시 마운트해 심플 모드와 같은 300ms로 교차하고 감독 영상이 끊기지 않는다. */}
       {wallpaper && (
         <div
           aria-hidden="true"
@@ -1485,6 +1508,17 @@ function RoomSessionScreen({
               assetKey={space.assetKey}
               onUnavailable={() => setFailedSpaceKey(activeSpaceKey)}
               onReady={markWallpaperReady}
+            />
+          )}
+          {space.kind === "space" && !spaceFailed && distract.armed && distract.scene?.visual && (
+            <DistractSpace
+              // 같은 부모의 집중 영상과 key가 겹치면 다시 그릴 때마다 집중 영상이 쌓인다.
+              key={`distract:${space.assetKey}`}
+              assetKey={space.assetKey}
+              visual={distract.scene.visual}
+              present={distract.present}
+              approachMs={distract.approachMs}
+              onUnavailable={() => setFailedDistractKey(space.assetKey)}
             />
           )}
           {watchKey !== null && (
@@ -1953,7 +1987,8 @@ function RoomSessionScreen({
             onVolumeChange={setWatcherLevel}
             onVolumeCommit={commitWatcherLevel}
             onToggleMute={toggleWatcherMute}
-            loopSoundAvailable={loopSoundAvailable}
+            // 집중 반복 소리가 없어도 비집중 장면에 소리가 있으면 음량을 맞출 수 있게 연다.
+            loopSoundAvailable={loopSoundAvailable || distract.hasSound}
           />
 
           {/* 처음 열기 전에는 그릴 모드가 없다.

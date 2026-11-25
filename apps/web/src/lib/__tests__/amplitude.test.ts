@@ -562,6 +562,46 @@ describe("setAcquisitionChannel", () => {
   });
 });
 
+describe("syncAppLocaleUserProperty", () => {
+  it("지금 화면 언어를 app_locale로 보내고, 언어가 바뀌면 다시 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, syncAppLocaleUserProperty } = await loadModule();
+    const { default: i18n } = await import("@/lib/i18n");
+    await i18n.changeLanguage("ko");
+    initAmplitude();
+
+    const stop = syncAppLocaleUserProperty();
+    await i18n.changeLanguage("ja");
+    stop();
+    await i18n.changeLanguage("ko");
+
+    const sets = mocks.identify.mock.calls.map(
+      ([sent]) => (sent as InstanceType<typeof mocks.FakeIdentify>).sets,
+    );
+    expect(sets).toEqual([[["app_locale", "ko"]], [["app_locale", "ja"]]]);
+  });
+});
+
+describe("syncAppLocaleUserProperty 사용자 번호", () => {
+  it("사용자 번호가 붙으면 그 사용자 앞으로 app_locale을 한 번 더 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, setAmplitudeUserId, syncAppLocaleUserProperty } = await loadModule();
+    const { default: i18n } = await import("@/lib/i18n");
+    await i18n.changeLanguage("en");
+    initAmplitude();
+
+    const stop = syncAppLocaleUserProperty();
+    setAmplitudeUserId(7);
+    stop();
+    await i18n.changeLanguage("ko");
+
+    const sets = mocks.identify.mock.calls.map(
+      ([sent]) => (sent as InstanceType<typeof mocks.FakeIdentify>).sets,
+    );
+    expect(sets).toEqual([[["app_locale", "en"]], [["app_locale", "en"]]]);
+  });
+});
+
 describe("setInstallAttributionUserProperties", () => {
   it("미초기화 상태에서는 아무것도 보내지 않는다", async () => {
     const { setInstallAttributionUserProperties } = await loadModule();
@@ -2758,6 +2798,36 @@ describe("세션 공간 이벤트", () => {
       ["session_space_volume_changed", { volume: 40 }],
       ["session_space_muted", { muted: false }],
     ]);
+  });
+});
+
+describe("공간 비집중 장면 이벤트", () => {
+  it("초기화 전에는 보내지 않는다", async () => {
+    const m = await loadModule();
+
+    m.trackSpaceDistractSceneEntered({ itemCode: "SPACE_RAIN", trigger: "PHONE" });
+    m.trackSpaceDistractSceneLeft({ itemCode: "SPACE_RAIN", durationSec: 12 });
+
+    expect(mocks.track).not.toHaveBeenCalled();
+  });
+
+  it("상품 코드와 원인, 머문 초만 토큰 값으로 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackSpaceDistractSceneEntered({ itemCode: "SPACE_RAIN", trigger: "PHONE" });
+    m.trackSpaceDistractSceneLeft({ itemCode: "SPACE_RAIN", durationSec: 12 });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["space_distract_scene_entered", { item_code: "SPACE_RAIN", trigger: "PHONE" }],
+      ["space_distract_scene_left", { item_code: "SPACE_RAIN", duration_sec: 12 }],
+    ]);
+    for (const [, props] of mocks.track.mock.calls) {
+      for (const value of Object.values(props as Record<string, unknown>)) {
+        expect(String(value)).toMatch(ANALYTICS_PARAM_VALUE_PATTERN);
+      }
+    }
   });
 });
 

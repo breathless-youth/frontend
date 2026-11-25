@@ -8,7 +8,7 @@ const DESKTOP_MIN_WIDTH_PX = 1200;
 
 export type Viewport = { width: number; height: number };
 
-/** 감시 파일의 화면 이름. 감시는 PC 파일이 없다. */
+/** 감독 파일의 화면 이름. 감독은 PC 파일이 없다. */
 export type WatchScreen = `${"phone" | "tablet"}_${"portrait" | "landscape"}`;
 
 /** 휴대폰·태블릿 구분. 돌려도 바뀌지 않는다. */
@@ -16,7 +16,7 @@ export function spaceDevice(viewport: Viewport): "phone" | "tablet" {
   return Math.min(viewport.width, viewport.height) >= TABLET_SHORT_SIDE_PX ? "tablet" : "phone";
 }
 
-/** 감시 파일의 화면 이름. PC 크기 창은 가로가 길고 짧은 변이 태블릿 기준을 넘어 태블릿 가로가 된다. */
+/** 감독 파일의 화면 이름. PC 크기 창은 가로가 길고 짧은 변이 태블릿 기준을 넘어 태블릿 가로가 된다. */
 export function watchScreen(viewport: Viewport): WatchScreen {
   return `${spaceDevice(viewport)}_${viewport.width > viewport.height ? "landscape" : "portrait"}`;
 }
@@ -56,6 +56,22 @@ export function imageUrl(assetKey: string, screen: SpaceScreen): string {
   return `${spaceFolder(assetKey)}image/${screen}.webp`;
 }
 
+export function distractVideoUrl(assetKey: string, screen: SpaceScreen): string {
+  return `${spaceFolder(assetKey)}distract/loop/${screen}.mp4`;
+}
+
+export function distractPosterUrl(assetKey: string, screen: SpaceScreen): string {
+  return `${spaceFolder(assetKey)}distract/poster/${screen}.webp`;
+}
+
+export function distractImageUrl(assetKey: string, screen: SpaceScreen): string {
+  return `${spaceFolder(assetKey)}distract/image/${screen}.webp`;
+}
+
+export function distractSoundUrl(assetKey: string, name: "loop" | "cue" | "approach"): string {
+  return `${spaceFolder(assetKey)}distract/sound/${name}.m4a`;
+}
+
 export function watchClipUrl(assetKey: string, clip: WatcherClip, screen: WatchScreen): string {
   return `${spaceFolder(assetKey)}${clip}/${screen}.mp4`;
 }
@@ -71,7 +87,7 @@ export function watchSoundUrl(assetKey: string, cue: "approach" | "enter" | "exi
 /**
  * 공간 카드 그림
  *
- * 감시 공간은 따로 만든 썸네일이 없어 캐릭터가 들어오기 전 빈 방인 폰 세로 포스터를 쓴다.
+ * 감독 공간은 따로 만든 썸네일이 없어 캐릭터가 들어오기 전 빈 방인 폰 세로 포스터를 쓴다.
  * 카드는 4:3이라 세로 포스터를 가운데 잘라 보인다.
  */
 export function spaceTileUrl(space: { assetKey: string; videoMode: string | null }): string {

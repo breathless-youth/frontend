@@ -91,8 +91,6 @@ export interface PremiumCardContext {
   nowMs: number;
   /** 토큰 출처가 없는 구 앱은 이 API를 부를 수 없어 보이지 않는다. */
   hasTokenSource: boolean;
-  /** 가격이 원화라 한국어 화면에만 보인다. */
-  korean: boolean;
   record: PremiumFakeDoorRecord;
   /** 방금 끝낸 세션의 기준 시간(초). `premiumQualifyingSec`로 구한다. */
   qualifyingSec: number;
@@ -120,40 +118,16 @@ export function premiumQualifyingSec({
 export function canShowPremiumCard({
   nowMs,
   hasTokenSource,
-  korean,
   record,
   qualifyingSec,
   enabled = PREMIUM_FAKE_DOOR_ENABLED,
 }: PremiumCardContext): boolean {
   if (!enabled || nowMs > PREMIUM_FAKE_DOOR_ENDS_AT_MS) return false;
-  if (!hasTokenSource || !korean) return false;
+  if (!hasTokenSource) return false;
   if (qualifyingSec < PREMIUM_CARD_MIN_FOCUS_SEC) return false;
   if (record.applied) return false;
   if (record.dismissedAt === null) return !record.legacyDismissed;
   // 기기 시계가 뒤로 가 닫은 시각이 미래가 되면, 그 뒤로 영영 숨기지 않도록 숨김 기간이 끝난 것으로 본다.
   const elapsed = nowMs - record.dismissedAt;
   return elapsed < 0 || elapsed >= PREMIUM_CARD_SNOOZE_MS;
-}
-
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-
-export interface EmailStepErrors {
-  email: "required" | "format" | null;
-  /** 만 14세 이상 확인 칸을 체크하지 않았다. */
-  age: boolean;
-  consent: boolean;
-}
-
-/** 이메일·동의 단계 검사. 서버도 형식을 다시 본다. 앞뒤 공백은 빼고 본다. */
-export function validateEmailStep(
-  email: string,
-  ageConfirmed: boolean,
-  consent: boolean,
-): EmailStepErrors {
-  const trimmed = email.trim();
-  return {
-    email: trimmed === "" ? "required" : EMAIL_PATTERN.test(trimmed) ? null : "format",
-    age: !ageConfirmed,
-    consent: !consent,
-  };
 }

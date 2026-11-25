@@ -24,7 +24,6 @@ describe("canShowPremiumCard", () => {
   const base: PremiumCardContext = {
     nowMs: Date.parse("2026-11-25T12:00:00+09:00"),
     hasTokenSource: true,
-    korean: true,
     record: EMPTY_PREMIUM_RECORD,
     qualifyingSec: 600,
   };
@@ -68,9 +67,8 @@ describe("canShowPremiumCard", () => {
     expect(canShowPremiumCard({ ...base, nowMs: PREMIUM_FAKE_DOOR_ENDS_AT_MS + 1 })).toBe(false);
   });
 
-  it("토큰 출처가 없거나 한국어가 아니거나 실험이 꺼지면 숨긴다", () => {
+  it("토큰 출처가 없거나 실험이 꺼지면 숨긴다", () => {
     expect(canShowPremiumCard({ ...base, hasTokenSource: false })).toBe(false);
-    expect(canShowPremiumCard({ ...base, korean: false })).toBe(false);
     expect(canShowPremiumCard({ ...base, enabled: false })).toBe(false);
   });
 });
