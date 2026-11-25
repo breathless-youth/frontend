@@ -1,3 +1,4 @@
+import { requireOptionalNativeModule } from "expo-modules-core";
 import { Platform } from "react-native";
 
 import type * as Notifications from "expo-notifications";
@@ -11,6 +12,17 @@ function loadNotifications(): typeof Notifications {
   // 앱 시작을 막지 않도록 메시지가 올 때만 불러온다.
   // eslint-disable-next-line @typescript-eslint/no-require-imports -- 지연 로드를 jest에서도 돌리려면 require뿐이다.
   return require("expo-notifications") as typeof Notifications;
+}
+
+/**
+ * 이 바이너리가 휴식 끝 로컬 알림을 예약할 수 있는지
+ *
+ * `expo-notifications` 네이티브 모듈 없이 만든 옛 Dev Client에서는 거짓이다.
+ * 웹뷰 주소의 `restNotify` 표시가 이 답을 따라, 울리지 않을 알림 말풍선을 웹이 보이지 않게 한다.
+ * 던지는 require 대신 `requireOptionalNativeModule`로 있는지만 본다.
+ */
+export function isRestNotificationSupported(): boolean {
+  return requireOptionalNativeModule("ExpoNotificationScheduler") !== null;
 }
 
 // 예약은 Android 채널을 만드느라 기다리는 동안 뒤에 온 취소가 먼저 끝날 수 있어, 모든 요청을 받은 순서대로 하나씩 처리한다.
