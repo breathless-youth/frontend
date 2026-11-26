@@ -22,11 +22,6 @@ import {
 } from "@/features/ambient-sound/components/AmbientSoundButton";
 import { AmbientSoundSheet } from "@/features/ambient-sound/components/AmbientSoundSheet";
 import { useAmbientSound } from "@/features/ambient-sound/useAmbientSound";
-import {
-  faceMaskEmojiOf,
-  readFaceMaskEmojiId,
-  readFaceMaskOn,
-} from "@/features/live-room/faceMaskSettings";
 import { useSessionRotationRestore } from "@/features/multi-timer/modeScreenLocks";
 import { createMultiTimerUsage, useMultiTimer } from "@/features/multi-timer/useMultiTimer";
 import {
@@ -195,7 +190,6 @@ import {
   useTrackedVisionDetector,
   type VisionReadyMeasurement,
 } from "@/features/study-session/useVisionReadyTracking";
-import type { FaceSpot } from "@/features/study-session/vision/faceSpot";
 import { createTimelapseRecorder } from "@/features/timelapse/timelapseRecorder";
 import { loadTimelapseSettings } from "@/features/timelapse/timelapseSettings";
 import {
@@ -1144,32 +1138,13 @@ function RoomSessionBody({
     });
     closeHelp();
   }
-  // 얼굴 가리기는 내 화면에만 그리는 가림이라 소셜룸·타임랩스와 설정을 나누지 않는다.
-  // 싱글룸에는 바꾸는 화면이 없어 저장된 값만 읽는다.
-  const [faceMaskOn] = useState(() => cameraOn && readFaceMaskOn("single"));
-  const [faceMaskEmojiId] = useState(() => readFaceMaskEmojiId("single"));
-  const [faceSpot, setFaceSpot] = useState<FaceSpot | null>(null);
-  // 카메라가 바뀌면 이전 영상에서 구한 위치가 새 영상과 맞지 않아 렌더 중에 비운다.
-  const [faceSpotStream, setFaceSpotStream] = useState(cameraStream);
-  if (faceSpotStream !== cameraStream) {
-    setFaceSpotStream(cameraStream);
-    setFaceSpot(null);
-  }
-  useEffect(() => {
-    if (!faceMaskOn) {
-      return;
-    }
-    return visionDetector.subscribeFaceSpot(setFaceSpot);
-  }, [faceMaskOn, visionDetector]);
-  const faceMask = faceMaskOn
-    ? { spot: faceSpot, emojiUrl: faceMaskEmojiOf(faceMaskEmojiId).url }
-    : null;
   useLayoutEffect(() => {
     const spaceInfo = spaceTrack(appliedSpace);
     displayContextRef.current = {
       spaceKind: spaceInfo.kind,
       ...(spaceInfo.item && { spaceItem: spaceInfo.item }),
-      faceMask: faceMaskOn,
+      // 싱글룸은 얼굴 가리기를 쓰지 않는다. 바꾸는 화면이 없어 예전에 켜 둔 값을 끌 수 없기 때문이다.
+      faceMask: false,
     };
   });
   /**
@@ -1652,7 +1627,6 @@ function RoomSessionBody({
         videoRef={videoRef}
         hidden={cameraHidden}
         rotating={!cameraHidden && cameraExpanded && rotationPhase === "rotating"}
-        faceMask={faceMask}
         // 기본 모드는 오른쪽 아래 작은 창이다. 크기만 바뀌어 영상과 추론은 끊기지 않는다.
         className={
           cameraExpanded ? undefined : cn("inset-auto rounded-lg", PIP_ANCHOR, pipLift, PIP_SIZE)

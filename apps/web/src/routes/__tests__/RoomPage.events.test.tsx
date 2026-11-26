@@ -145,7 +145,7 @@ describe("RoomPage dev 계측·앱 연결", () => {
     expect(trackCameraPipShrunk).toHaveBeenCalledOnce();
   });
 
-  it("세션이 끝나면 화면 표시 기록과 공간·얼굴 가림을 종료 이벤트에 싣는다", async () => {
+  it("세션이 끝나면 화면 표시 기록과 공간을 종료 이벤트에 싣고, 얼굴 가림은 켜 둔 값이 남아 있어도 끔으로 싣는다", async () => {
     localStorage.setItem("focusmakers.timerBackground", JSON.stringify(PROCTOR_SPACE));
     writeFaceMaskOn("single", true);
     renderRoom();
@@ -164,7 +164,7 @@ describe("RoomPage dev 계측·앱 연결", () => {
       pipExpandCount: 1,
       spaceKind: "space",
       spaceItem: { itemCode: "SPACE_PROCTOR", videoMode: "WATCH" },
-      faceMask: true,
+      faceMask: false,
     });
   });
 

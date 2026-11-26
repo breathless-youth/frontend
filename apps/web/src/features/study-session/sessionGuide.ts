@@ -10,7 +10,8 @@ import type { SessionHelpStepId } from "@/lib/amplitude";
  */
 export type SessionGuideState = "seen" | null;
 
-const keyOf = (userId: number) => `focusmakers:session-guide:${userId}`;
+// 가이드를 새로 바꾸면 이미 본 계정에게도 한 번 다시 보여 주려고 키에 판을 붙인다. v2는 마스코트 말풍선 6장 가이드다.
+const keyOf = (userId: number) => `focusmakers:session-guide-v2:${userId}`;
 
 /** 저장소에 남기지 못한 계정. 집중 시작을 누를 때마다 가이드가 또 뜨지 않게 이 문서가 살아 있는 동안 기억한다. */
 const seenWithoutStorage = new Set<number>();
