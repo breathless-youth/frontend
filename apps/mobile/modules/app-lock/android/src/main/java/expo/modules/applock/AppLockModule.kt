@@ -1,5 +1,6 @@
 package expo.modules.applock
 
+import android.app.AlarmManager
 import android.app.AppOpsManager
 import android.content.ActivityNotFoundException
 import android.content.Context
@@ -62,6 +63,28 @@ class AppLockModule : Module() {
         )
       } catch (e: ActivityNotFoundException) {
         openSettings(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+      }
+    }
+
+    // 휴식 끝 알림이 제시간에 울리는지. Android 12 미만은 권한 없이 정확한 알람을 쓴다.
+    // 14부터는 새로 깐 앱이 꺼진 채로 시작해 사용자가 `알람 및 리마인더`를 켜야 한다.
+    Function("canScheduleExactAlarms") {
+      Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+        context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
+    }
+
+    // 이 앱의 `알람 및 리마인더` 화면을 연다. 그 화면이 없는 기기는 앱 정보 화면을 연다.
+    Function("openExactAlarmSettings") {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        try {
+          openSettings(
+            Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}"))
+          )
+        } catch (e: ActivityNotFoundException) {
+          openSettings(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+          )
+        }
       }
     }
 

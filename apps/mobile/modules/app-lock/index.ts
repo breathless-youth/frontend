@@ -14,6 +14,10 @@ export interface AppLockNative {
   openOverlaySettings(): void;
   /** 이 앱의 앱 정보 화면을 열고, 없는 기기면 배터리 최적화 목록 화면을 연다. */
   openAppBatterySettings(): void;
+  /** 휴식 끝 알림을 정확한 시각에 예약할 수 있는지. Android 12 미만은 늘 참이다. */
+  canScheduleExactAlarms(): boolean;
+  /** 이 앱의 `알람 및 리마인더` 허용 화면을 연다. */
+  openExactAlarmSettings(): void;
   getLaunchableApps(): Promise<LaunchableApp[]>;
   getSelectedPackages(): string[];
   setSelectedPackages(packages: string[]): void;

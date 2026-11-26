@@ -73,9 +73,11 @@ describe("Firebase 설정 (BY-585)", () => {
       expect(pluginOptions("expo-notifications")?.icon).toBe(icon);
     });
 
-    // 휴식 끝 알림이 절전 중에도 고른 시각에 울리려면 정확한 알람 권한이 있어야 한다.
-    it("Android가 정확한 알람 권한을 선언한다", () => {
-      expect(appJson.expo.android.permissions).toContain("USE_EXACT_ALARM");
+    // Play는 핵심 기능이 알람·캘린더인 앱에만 USE_EXACT_ALARM을 허락한다. 휴식 끝 알림은 부가 기능이라
+    // 사용자가 허용하는 SCHEDULE_EXACT_ALARM을 쓴다.
+    it("Android가 사용자 허용 정확한 알람 권한만 선언한다", () => {
+      expect(appJson.expo.android.permissions).not.toContain("USE_EXACT_ALARM");
+      expect(appJson.expo.android.permissions).toContain("SCHEDULE_EXACT_ALARM");
     });
 
     /**

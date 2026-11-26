@@ -26,6 +26,10 @@ const ko = {
   "common.openSettings": "설정 열기",
 
   "notification.restChannel": "휴식 알림",
+  "notification.exactAlarmTitle": "제시간에 알려 드릴까요?",
+  "notification.exactAlarmBody":
+    "휴식이 끝나는 시각에 정확히 알리려면 '알람 및 리마인더'를 허용해 주세요. 허용하지 않으면 알림이 몇 분 늦을 수 있어요.",
+  "notification.exactAlarmLater": "나중에",
 
   "webview.loadFailedTitle": "화면을 불러오지 못했어요",
   "webview.loadFailedBody": "네트워크 상태를 확인하고 다시 시도해 주세요.",
@@ -104,6 +108,10 @@ const en = {
   "common.openSettings": "Open settings",
 
   "notification.restChannel": "Break reminders",
+  "notification.exactAlarmTitle": "Get notified right on time?",
+  "notification.exactAlarmBody":
+    'To be notified exactly when your break ends, allow "Alarms & reminders". Otherwise, the notification may arrive a few minutes late.',
+  "notification.exactAlarmLater": "Not now",
 
   "webview.loadFailedTitle": "Couldn't load this screen",
   "webview.loadFailedBody": "Check your connection and try again.",
@@ -182,6 +190,10 @@ const ja = {
   "common.openSettings": "設定を開く",
 
   "notification.restChannel": "休憩の通知",
+  "notification.exactAlarmTitle": "時間どおりに通知しますか？",
+  "notification.exactAlarmBody":
+    "休憩が終わる時刻に正確に通知するには「アラームとリマインダー」を許可してください。許可しないと、通知が数分遅れることがあります。",
+  "notification.exactAlarmLater": "あとで",
 
   "webview.loadFailedTitle": "画面を読み込めませんでした",
   "webview.loadFailedBody": "ネットワーク接続を確認して、もう一度お試しください。",
@@ -262,6 +274,10 @@ const zhHant = {
   "common.openSettings": "開啟設定",
 
   "notification.restChannel": "休息提醒",
+  "notification.exactAlarmTitle": "要準時提醒你嗎？",
+  "notification.exactAlarmBody":
+    "若要在休息結束時準時提醒，請允許「鬧鐘和提醒」。若不允許，通知可能會晚幾分鐘。",
+  "notification.exactAlarmLater": "稍後",
 
   "webview.loadFailedTitle": "無法載入畫面",
   "webview.loadFailedBody": "請檢查網路連線，然後再試一次。",

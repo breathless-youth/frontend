@@ -132,8 +132,8 @@ describe("app.json 카메라 권한 문구 (S2-2)", () => {
       // 웹뷰 안 WebRTC가 오디오를 통화 모드로 바꿀 때 필요하다.
       // normal 권한이라 런타임 다이얼로그는 뜨지 않는다.
       "MODIFY_AUDIO_SETTINGS",
-      // 휴식 끝 로컬 알림이 절전 중에도 고른 시각에 울리게 한다. 사용자가 끌 수 없는 권한이라 다이얼로그는 없다.
-      "USE_EXACT_ALARM",
+      // 휴식 끝 알림을 제시간에 울린다. Android 14부터는 사용자가 `알람 및 리마인더`에서 켜야 한다.
+      "SCHEDULE_EXACT_ALARM",
     ]);
   });
 
