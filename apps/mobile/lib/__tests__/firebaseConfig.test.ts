@@ -73,10 +73,11 @@ describe("Firebase 설정 (BY-585)", () => {
       expect(pluginOptions("expo-notifications")?.icon).toBe(icon);
     });
 
-    // Play는 알람 시계·캘린더 앱에만 정확한 알람 권한을 허락한다. 휴식 끝 알림은 근사치 예약으로 울린다.
-    it("Android가 정확한 알람 권한을 선언하지 않는다", () => {
+    // Play는 핵심 기능이 알람·캘린더인 앱에만 USE_EXACT_ALARM을 허락한다. 휴식 끝 알림은 부가 기능이라
+    // 사용자가 허용하는 SCHEDULE_EXACT_ALARM을 쓴다.
+    it("Android가 사용자 허용 정확한 알람 권한만 선언한다", () => {
       expect(appJson.expo.android.permissions).not.toContain("USE_EXACT_ALARM");
-      expect(appJson.expo.android.permissions).not.toContain("SCHEDULE_EXACT_ALARM");
+      expect(appJson.expo.android.permissions).toContain("SCHEDULE_EXACT_ALARM");
     });
 
     /**

@@ -46,7 +46,8 @@
         "CAMERA",
         "HIGH_SAMPLING_RATE_SENSORS",
         "RECORD_AUDIO",
-        "MODIFY_AUDIO_SETTINGS"
+        "MODIFY_AUDIO_SETTINGS",
+        "SCHEDULE_EXACT_ALARM"
       ],
       "blockedPermissions": [
         "android.permission.READ_EXTERNAL_STORAGE",

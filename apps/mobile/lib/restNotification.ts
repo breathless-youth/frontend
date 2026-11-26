@@ -1,8 +1,9 @@
 import { requireOptionalNativeModule } from "expo-modules-core";
-import { Platform } from "react-native";
+import { Alert, AppState, Platform } from "react-native";
 
 import type * as Notifications from "expo-notifications";
 
+import { appLockNative } from "../modules/app-lock";
 import { t } from "./i18n";
 
 const CHANNEL_ID = "rest";
@@ -35,23 +36,57 @@ function enqueue(task: () => Promise<void>): Promise<void> {
   return run;
 }
 
+type RestNotificationRequest = {
+  id: string;
+  fireAtMs: number;
+  title: string;
+  body: string;
+};
+
+// 설정에서 돌아왔을 때 다시 예약할 요청. 취소되거나 새 요청이 오면 바뀐다.
+let latestRequest: RestNotificationRequest | null = null;
+// `나중에`를 고른 사람에게 휴식마다 다시 묻지 않도록 앱을 켤 때마다 한 번만 묻는다.
+let askedExactAlarm = false;
+
+/**
+ * Android 14부터는 `알람 및 리마인더`가 꺼진 채로 시작해 휴식 끝 알림이 몇 분 늦게 울린다.
+ * 휴식 알림을 고른 그때 허용을 묻고, 허용하고 돌아오면 같은 알림을 정확한 시각으로 다시 예약한다.
+ * 근사치로 이미 잡힌 예약은 권한이 생겨도 그대로라 다시 예약해야 한다.
+ */
+function askExactAlarm(request: RestNotificationRequest): void {
+  const native = appLockNative;
+  if (Platform.OS !== "android" || native === null || askedExactAlarm) return;
+  if (native.canScheduleExactAlarms()) return;
+  askedExactAlarm = true;
+  Alert.alert(t("notification.exactAlarmTitle"), t("notification.exactAlarmBody"), [
+    { text: t("notification.exactAlarmLater"), style: "cancel" },
+    {
+      text: t("common.openSettings"),
+      onPress: () => {
+        const subscription = AppState.addEventListener("change", (state) => {
+          if (state !== "active") return;
+          subscription.remove();
+          if (latestRequest !== request || request.fireAtMs <= Date.now()) return;
+          if (!native.canScheduleExactAlarms()) return;
+          void scheduleRestNotification(request).catch((error: unknown) => {
+            console.warn("[rest] 정확한 시각으로 다시 예약하지 못함", error);
+          });
+        });
+        native.openExactAlarmSettings();
+      },
+    },
+  ]);
+}
+
 /**
  * 휴식 끝 로컬 알림 예약
  *
  * 같은 `id`의 이전 예약은 먼저 거둬서 휴식마다 알림이 하나만 남는다.
  * Android는 정확한 시각에 울리도록 휴식 채널을 높은 중요도로 만든다. 채널 생성은 같은 값이면 덮어써도 그대로다.
  */
-export function scheduleRestNotification({
-  id,
-  fireAtMs,
-  title,
-  body,
-}: {
-  id: string;
-  fireAtMs: number;
-  title: string;
-  body: string;
-}): Promise<void> {
+export function scheduleRestNotification(request: RestNotificationRequest): Promise<void> {
+  const { id, fireAtMs, title, body } = request;
+  latestRequest = request;
   return enqueue(async () => {
     const notifications = loadNotifications();
     if (Platform.OS === "android") {
@@ -70,10 +105,12 @@ export function scheduleRestNotification({
         channelId: CHANNEL_ID,
       },
     });
+    askExactAlarm(request);
   });
 }
 
 /** 휴식 끝 로컬 알림 예약 취소 */
 export function cancelRestNotification(id: string): Promise<void> {
+  if (latestRequest?.id === id) latestRequest = null;
   return enqueue(() => loadNotifications().cancelScheduledNotificationAsync(id));
 }
