@@ -58,7 +58,7 @@ vi.mock("@/lib/amplitude", async (importOriginal) => ({
   ...amplitude,
 }));
 
-const KEY = "focusmakers:session-guide:1";
+const KEY = "focusmakers:session-guide-v2:1";
 
 function renderRoom(url = "/room/7?userId=1") {
   return render(

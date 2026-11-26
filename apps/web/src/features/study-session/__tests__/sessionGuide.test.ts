@@ -12,7 +12,12 @@ describe("sessionGuide 저장", () => {
   });
 
   it("seen이 아닌 값은 기록 없음으로 읽는다", () => {
-    localStorage.setItem("focusmakers:session-guide:7", "pending");
+    localStorage.setItem("focusmakers:session-guide-v2:7", "pending");
+    expect(sessionGuideState(7)).toBeNull();
+  });
+
+  it("예전 가이드를 끝까지 본 기록은 읽지 않아 새 가이드가 한 번 다시 뜬다", () => {
+    localStorage.setItem("focusmakers:session-guide:7", "seen");
     expect(sessionGuideState(7)).toBeNull();
   });
 

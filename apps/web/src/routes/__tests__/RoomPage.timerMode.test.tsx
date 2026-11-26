@@ -260,7 +260,7 @@ describe("RoomPage 카메라 없는 모드", () => {
     renderRoom();
 
     expect(screen.queryByRole("dialog", { name: "세션 도움말" })).not.toBeInTheDocument();
-    expect(localStorage.getItem("focusmakers:session-guide:1")).toBeNull();
+    expect(localStorage.getItem("focusmakers:session-guide-v2:1")).toBeNull();
   });
 
   it("카메라 없는 새 세션은 3초를 세지 않고 바로 공부를 시작한다", () => {
