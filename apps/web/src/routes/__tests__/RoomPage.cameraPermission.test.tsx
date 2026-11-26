@@ -197,7 +197,7 @@ describe("RoomPage 가이드 끝 카메라 권한", () => {
   });
 
   it("가이드를 이미 본 계정으로 열렸으면 가이드 없이 바로 권한을 묻는다", async () => {
-    localStorage.setItem("focusmakers:session-guide:1", "seen");
+    localStorage.setItem("focusmakers:session-guide-v2:1", "seen");
     renderRoom("&cameraPermission=later");
     await advance(0);
 
