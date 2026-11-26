@@ -1,4 +1,9 @@
-import { FaceLandmarker, FilesetResolver, ObjectDetector } from "@mediapipe/tasks-vision";
+import {
+  FaceLandmarker,
+  FilesetResolver,
+  HandLandmarker,
+  ObjectDetector,
+} from "@mediapipe/tasks-vision";
 
 import type { RenderPhoto } from "@/features/timelapse/photoFrame";
 import {
@@ -10,8 +15,10 @@ import {
 import type {
   DetectorCreateOptions,
   FaceLandmarkerCreateOptions,
+  HandLandmarkerCreateOptions,
   MediapipeDetectorHandle,
   MediapipeFaceLandmarkerHandle,
+  MediapipeHandLandmarkerHandle,
   MediapipeVisionRuntime,
 } from "./mediapipePort";
 
@@ -115,6 +122,23 @@ export async function openFaceLandmarker(
   });
 }
 
+export async function openHandLandmarker(
+  options: HandLandmarkerCreateOptions,
+): Promise<HandLandmarker> {
+  const fileset = await resolveFileset(options.wasmPath);
+  return await HandLandmarker.createFromOptions(fileset, {
+    baseOptions: {
+      modelAssetPath: options.modelAssetPath,
+      delegate: options.delegate,
+    },
+    runningMode: "VIDEO",
+    numHands: options.numHands,
+    minHandDetectionConfidence: options.minHandDetectionConfidence,
+    minHandPresenceConfidence: options.minHandPresenceConfidence,
+    minTrackingConfidence: options.minTrackingConfidence,
+  });
+}
+
 function videoSize(video: HTMLVideoElement): { width: number; height: number } {
   return { width: video.videoWidth, height: video.videoHeight };
 }
@@ -163,6 +187,17 @@ export function createMediapipeRuntime(
           });
           return bytes === undefined ? result : { ...result, photo: bytes };
         },
+        close: () => landmarker.close(),
+      };
+    },
+
+    async createHandLandmarker(
+      options: HandLandmarkerCreateOptions,
+    ): Promise<MediapipeHandLandmarkerHandle> {
+      const landmarker = await openHandLandmarker(options);
+      return {
+        runtime: "main",
+        detect: async (video, timestampMs) => landmarker.detectForVideo(video, timestampMs),
         close: () => landmarker.close(),
       };
     },

@@ -32,6 +32,7 @@ import { openedEventProperties, resolvePushRoute } from "./pushNotificationRouti
 import { openPushRoute } from "./pushRouteOpener";
 import type * as PushTokenRegistration from "./pushTokenRegistration";
 import { detachAllNativeAnalyticsSinks, trackNativeEvent } from "./nativeAnalytics";
+import { cancelRestNotification, scheduleRestNotification } from "./restNotification";
 import { emitSessionClosed } from "./sessionClosed";
 import { runAfterNextSessionScreen } from "./sessionPresence";
 import { showPointsAd } from "./pointsAds";
@@ -159,6 +160,27 @@ async function pickProfilePhoto(): Promise<
 }
 
 /**
+ * 앱 사진 선택기로 고른 타이머 배경 사진
+ *
+ * 배경 함수가 없는 옛 모듈과 읽기 실패도 `failed`로 돌려줘 웹이 답을 못 받는 경우가 없게 한다.
+ */
+async function pickBackgroundPhoto(): Promise<
+  | { status: "picked"; data: string; width: number; height: number }
+  | { status: "cancelled" | "failed" }
+> {
+  if (typeof profilePhotoPickerNative?.pickBackground !== "function") {
+    return { status: "failed" };
+  }
+  try {
+    const photo = await profilePhotoPickerNative.pickBackground();
+    return photo === null ? { status: "cancelled" } : { status: "picked", ...photo };
+  } catch (error) {
+    console.warn("[bridge] 배경 사진 읽기 실패", error);
+    return { status: "failed" };
+  }
+}
+
+/**
  * 웹이 보낸 브리지 메시지(세션 상태 모델 스펙 §10)에 대한 네이티브 쪽 공통 반응.
  *
  * `RemoteWebViewHost`를 쓰는 화면(탭 5개와 세션) 전부가 같은 규칙으로 반응해야
@@ -199,6 +221,25 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       if (startSessionInFlight) break;
       startSessionInFlight = true;
       void (async () => {
+        // 첫 세션 가이드를 볼 사용자는 아직 묻지 않은 기기면 가이드 끝에서 묻는다. 세션 화면이 `request-camera-gate`로 다시 부른다.
+        // 상태를 읽지 못하면 지금처럼 여기서 게이트를 돈다.
+        if (
+          message.cameraPermission === "later" &&
+          (await getCameraPermissionStatus().catch(() => null)) === "undetermined"
+        ) {
+          router.push({
+            pathname: "/room/[id]",
+            params: {
+              id: "1",
+              cameraPermission: "later",
+              ...(message.initialSubjectId === undefined
+                ? {}
+                : { initialSubjectId: String(message.initialSubjectId) }),
+            },
+          });
+          releaseStartSessionOnScreenClose();
+          return;
+        }
         const result = await runCameraPermissionGate("single");
         if (result === "show-denied-guide") {
           // 거부 화면은 이 표시가 있을 때만 카메라 없이 시작하는 출구를 그리고, 과목은 그 출구가 연 세션으로 넘긴다.
@@ -234,9 +275,24 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
       // 싱글룸 표시 없이 열어 카메라 없이 시작하는 출구를 보이지 않는다. 양 플랫폼 공통이다 — iOS도 거부 상태에서 안내 화면
       // 없이 미리보기 실패에 머무는 공백이 같다.
       void (async () => {
-        const result = await runCameraPermissionGate("social");
+        const single = message.roomType === "single";
+        const result = await runCameraPermissionGate(single ? "single" : "social");
         if (result === "show-denied-guide") {
-          router.push("/permission-denied");
+          if (single) {
+            // 가이드 끝에서 거부하면 아직 카운트다운 전이라 세션 화면을 시작 때와 같은 거부 화면으로 바꾼다.
+            // 그 화면의 카메라 없이 시작 출구가 다시 replace로 세션을 열어 홈 위에 한 화면만 남는다.
+            router.replace({
+              pathname: "/permission-denied",
+              params: {
+                from: "single",
+                ...(message.initialSubjectId === undefined
+                  ? {}
+                  : { initialSubjectId: String(message.initialSubjectId) }),
+              },
+            });
+          } else {
+            router.push("/permission-denied");
+          }
           reply({ type: "camera-gate-result", granted: false, atMs: Date.now() });
           return;
         }
@@ -401,6 +457,22 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
         .then((state) => state ?? ensureAuth())
         .then((state) => reply(authTokenMessage(state)));
       break;
+    case "schedule-rest-notification":
+      void scheduleRestNotification({
+        id: message.id,
+        fireAtMs: message.fireAtMs,
+        title: message.title,
+        body: message.body,
+      }).catch((error: unknown) => {
+        // 앱 안 알림은 웹이 따로 울리므로 OS 알림만 빠진다.
+        console.warn("[bridge] 휴식 알림 예약 실패", error);
+      });
+      break;
+    case "cancel-rest-notification":
+      void cancelRestNotification(message.id).catch((error: unknown) => {
+        console.warn("[bridge] 휴식 알림 취소 실패", error);
+      });
+      break;
     case "haptic":
       // 웹뷰는 스스로 햅틱을 못 낸다(iOS는 API가 없고 Android는 강한 진동뿐) — 여기서 대신 낸다.
       triggerHaptic(message.style);
@@ -446,6 +518,11 @@ export function handleBridgeMessage(message: HandlerMessage, reply: BridgeReply)
     case "pick-profile-photo":
       void pickProfilePhoto().then((result) => {
         reply({ type: "profile-photo-result", id: message.id, ...result, atMs: Date.now() });
+      });
+      break;
+    case "pick-background-photo":
+      void pickBackgroundPhoto().then((result) => {
+        reply({ type: "background-photo-result", id: message.id, ...result, atMs: Date.now() });
       });
       break;
     case "open-push-link": {

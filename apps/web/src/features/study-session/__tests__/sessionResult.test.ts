@@ -343,8 +343,24 @@ describe("longestFocusStretch", () => {
 });
 
 describe("DISTRACTION_STATUSES", () => {
-  it("S4 행 순서는 AWAY, PHONE, DEVICE, SLEEP이다", () => {
-    expect([...DISTRACTION_STATUSES]).toEqual(["AWAY", "PHONE", "DEVICE", "SLEEP"]);
+  it("S4 행 순서는 AWAY, PHONE, DEVICE, SLEEP, SCREEN, POSTURE이다", () => {
+    expect([...DISTRACTION_STATUSES]).toEqual([
+      "AWAY",
+      "PHONE",
+      "DEVICE",
+      "SLEEP",
+      "SCREEN",
+      "POSTURE",
+    ]);
+  });
+
+  it("화면 응시 행이 보이고 휴식 합계에 들어간다", () => {
+    const view = toSessionResultView(
+      exampleSession({ events: [event("SCREEN", 600, 120), event("PAUSE", 2400, 180)] }),
+    );
+
+    expect(view.distractions.map((t) => t.status)).toEqual(["SCREEN"]);
+    expect(view.distractionSec).toBe(120);
   });
 
   it("졸음 행이 보이고 휴식 합계에 들어간다", () => {

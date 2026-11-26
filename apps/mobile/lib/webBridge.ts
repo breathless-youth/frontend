@@ -169,6 +169,8 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
           : { initialSubjectId: record.initialSubjectId as number }),
         // 모르는 방식이면 그 필드만 버린다. 권한을 확인하는 지금 동작으로 돌아갈 뿐 시작은 막지 않는다.
         ...(record.measureMode === "timer" ? { measureMode: "timer" as const } : {}),
+        // 모르는 값이면 버리고 지금처럼 시작에서 묻는다.
+        ...(record.cameraPermission === "later" ? { cameraPermission: "later" as const } : {}),
       };
     case "navigate-home": {
       // 이어서 열 탭과 초대코드는 선택 필드다.
@@ -204,6 +206,7 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
     case "app-lock-authorize":
     case "app-lock-pick":
     case "pick-profile-photo":
+    case "pick-background-photo":
       if (typeof record.id !== "string" || record.id === "") {
         return null;
       }
@@ -401,9 +404,44 @@ export function parseToNativeMessage(raw: string): ToNativeMessage | null {
       }
       return { type: "set-orientation", unlocked: record.unlocked, atMs: record.atMs };
     case "request-camera-gate":
-      return { type: "request-camera-gate", atMs: record.atMs };
+      return {
+        type: "request-camera-gate",
+        atMs: record.atMs,
+        ...(record.roomType === "single" ? { roomType: "single" as const } : {}),
+        // 잘못된 과목은 그 필드만 버린다. 거부 화면의 출구가 과목 없이 열릴 뿐이다.
+        ...(record.roomType === "single" &&
+        typeof record.initialSubjectId === "number" &&
+        Number.isSafeInteger(record.initialSubjectId) &&
+        record.initialSubjectId > 0
+          ? { initialSubjectId: record.initialSubjectId }
+          : {}),
+      };
     case "request-push-permission":
       return { type: "request-push-permission", atMs: record.atMs };
+    case "schedule-rest-notification":
+      if (
+        typeof record.id !== "string" ||
+        record.id === "" ||
+        typeof record.fireAtMs !== "number" ||
+        !Number.isFinite(record.fireAtMs) ||
+        typeof record.title !== "string" ||
+        typeof record.body !== "string"
+      ) {
+        return null;
+      }
+      return {
+        type: "schedule-rest-notification",
+        id: record.id,
+        fireAtMs: record.fireAtMs,
+        title: record.title,
+        body: record.body,
+        atMs: record.atMs,
+      };
+    case "cancel-rest-notification":
+      if (typeof record.id !== "string" || record.id === "") {
+        return null;
+      }
+      return { type: "cancel-rest-notification", id: record.id, atMs: record.atMs };
     case "launch-ready":
       return { type: "launch-ready", atMs: record.atMs };
     case "auth-ready":

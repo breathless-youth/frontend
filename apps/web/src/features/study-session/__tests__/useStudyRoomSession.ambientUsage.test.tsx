@@ -91,6 +91,41 @@ describe("useStudyRoomSession — 배경음 사용 시간 계측", () => {
     expect(mocks.ended.mock.calls[1]?.[0]).toMatchObject({ multiTimer: "none" });
   });
 
+  it("종료 시점의 하품 횟수를 싣고, 옵션이 없는 소셜룸은 싣지 않는다", async () => {
+    const observations: { type: "YAWN"; startedAt: string }[] = [];
+    const single = renderHook(() =>
+      useStudyRoomSession(null, { getObservations: () => observations }),
+    );
+    const yawn = { type: "YAWN" as const, startedAt: new Date().toISOString() };
+    observations.push(yawn, yawn);
+    await act(async () => {
+      await single.result.current.endAndSubmit();
+    });
+    const social = renderHook(() => useStudyRoomSession(null, { roomType: "social" }));
+    await act(async () => {
+      await social.result.current.endAndSubmit();
+    });
+
+    expect(mocks.ended.mock.calls[0]?.[0]).toMatchObject({ yawnCount: 2 });
+    expect((mocks.ended.mock.calls[1]?.[0] as Record<string, unknown>).yawnCount).toBeUndefined();
+  });
+
+  it("하품 횟수는 서버로 보내는 것과 같이 세션 구간 밖 하품을 빼고 센다", async () => {
+    const observations: { type: "YAWN"; startedAt: string }[] = [];
+    const hook = renderHook(() =>
+      useStudyRoomSession(null, { getObservations: () => observations }),
+    );
+    observations.push(
+      { type: "YAWN", startedAt: new Date(Date.now() - 60_000).toISOString() },
+      { type: "YAWN", startedAt: new Date().toISOString() },
+    );
+    await act(async () => {
+      await hook.result.current.endAndSubmit();
+    });
+
+    expect(mocks.ended.mock.calls[0]?.[0]).toMatchObject({ yawnCount: 1 });
+  });
+
   describe("소리별 재생 시간", () => {
     it("세션이 끝나면 재생 시간이 있는 소리마다 ambient_sound_played 를 한 번씩 보낸다", async () => {
       const ambientSoundPlays = () => [

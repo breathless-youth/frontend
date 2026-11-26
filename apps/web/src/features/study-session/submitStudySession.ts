@@ -1,4 +1,5 @@
 import type {
+  ObservationPayload,
   StatusEventPayload,
   StudySessionCreateRequest,
   StudySessionResponse,
@@ -9,7 +10,11 @@ import { API_BASE_URL, apiFetch, parseApiError } from "@/lib/api";
 import { deviceTimeZone } from "@/lib/dateKey";
 import { legacyUserId } from "@/lib/userId";
 
-import { clampSessionSeconds, clampSubjectSegments } from "./sessionRequestClamp";
+import {
+  clampObservations,
+  clampSessionSeconds,
+  clampSubjectSegments,
+} from "./sessionRequestClamp";
 
 /**
  * 세션 제출 입력. 이 모듈은 값을 계산하지 않고 받기만 한다 —
@@ -25,6 +30,8 @@ export interface SessionInput {
   subjectSegments?: SubjectSegmentPayload[];
   /** 이 세션에서 완료한 할 일 id — `completedTasks.ts`가 파생한 값. 비어 있으면 필드를 싣지 않는다. */
   completedTaskIds?: number[];
+  /** 관찰 기록(하품 등). 세션 구간 밖은 버리고, 비어 있으면 필드를 싣지 않는다. */
+  observations?: ObservationPayload[];
   /** TIMER일 때만 요청에 싣는 측정 방식 */
   source?: StudySessionCreateRequest["source"];
 }
@@ -68,6 +75,14 @@ export function buildSessionRequest(input: SessionInput): StudySessionCreateRequ
   }
   if (input.completedTaskIds !== undefined && input.completedTaskIds.length > 0) {
     request.completedTaskIds = input.completedTaskIds;
+  }
+  const observations = clampObservations(
+    input.observations ?? [],
+    input.startedAtMs,
+    input.endedAtMs,
+  );
+  if (observations.length > 0) {
+    request.observations = observations;
   }
   if (input.source === "TIMER") {
     request.source = "TIMER";

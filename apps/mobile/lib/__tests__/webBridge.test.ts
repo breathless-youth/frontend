@@ -28,6 +28,16 @@ describe("parseToNativeMessage", () => {
         parseToNativeMessage(JSON.stringify({ type: "start-session", atMs: 5, measureMode })),
       ).toEqual({ type: "start-session", atMs: 5 });
   });
+  it("start-session의 가이드 끝 권한 표시는 later만 받고 모르는 값은 버린다", () => {
+    expect(
+      parseToNativeMessage(
+        JSON.stringify({ type: "start-session", atMs: 5, cameraPermission: "later" }),
+      ),
+    ).toEqual({ type: "start-session", atMs: 5, cameraPermission: "later" });
+    expect(
+      parseToNativeMessage(JSON.stringify({ type: "start-session", atMs: 5, cameraPermission: 1 })),
+    ).toEqual({ type: "start-session", atMs: 5 });
+  });
   it.each([
     "home-ready",
     "analytics-ready",
@@ -45,19 +55,22 @@ describe("parseToNativeMessage", () => {
     expect(parseToNativeMessage(`{"type":"${type}","atMs":5}`)).toEqual({ type, atMs: 5 });
   });
 
-  it.each(["app-lock-query", "app-lock-authorize", "app-lock-pick", "pick-profile-photo"] as const)(
-    "%s는 요청 id와 함께 파싱하고 id가 비었거나 없으면 버린다",
-    (type) => {
-      expect(parseToNativeMessage(`{"type":"${type}","id":"r1","atMs":5}`)).toEqual({
-        type,
-        id: "r1",
-        atMs: 5,
-      });
-      expect(parseToNativeMessage(`{"type":"${type}","id":"","atMs":5}`)).toBeNull();
-      expect(parseToNativeMessage(`{"type":"${type}","id":1,"atMs":5}`)).toBeNull();
-      expect(parseToNativeMessage(`{"type":"${type}","atMs":5}`)).toBeNull();
-    },
-  );
+  it.each([
+    "app-lock-query",
+    "app-lock-authorize",
+    "app-lock-pick",
+    "pick-profile-photo",
+    "pick-background-photo",
+  ] as const)("%s는 요청 id와 함께 파싱하고 id가 비었거나 없으면 버린다", (type) => {
+    expect(parseToNativeMessage(`{"type":"${type}","id":"r1","atMs":5}`)).toEqual({
+      type,
+      id: "r1",
+      atMs: 5,
+    });
+    expect(parseToNativeMessage(`{"type":"${type}","id":"","atMs":5}`)).toBeNull();
+    expect(parseToNativeMessage(`{"type":"${type}","id":1,"atMs":5}`)).toBeNull();
+    expect(parseToNativeMessage(`{"type":"${type}","atMs":5}`)).toBeNull();
+  });
 
   it("review-login은 요청 id와 아이디와 비밀번호를 파싱한다", () => {
     const message = { type: "review-login", id: "r1", loginId: "review", password: "pw", atMs: 5 };
@@ -219,6 +232,30 @@ describe("parseToNativeMessage", () => {
       atMs: 3,
     });
     expect(parseToNativeMessage('{"type":"haptic","style":"boom","atMs":3}')).toBeNull();
+  });
+
+  it("휴식 알림 예약 메시지를 파싱하고 빠진 값이 있으면 버린다", () => {
+    expect(
+      parseToNativeMessage(
+        '{"type":"schedule-rest-notification","id":"rest","fireAtMs":1000,"title":"5분 휴식이 끝났어요","body":"다시","atMs":3}',
+      ),
+    ).toEqual({
+      type: "schedule-rest-notification",
+      id: "rest",
+      fireAtMs: 1000,
+      title: "5분 휴식이 끝났어요",
+      body: "다시",
+      atMs: 3,
+    });
+    expect(
+      parseToNativeMessage(
+        '{"type":"schedule-rest-notification","id":"rest","fireAtMs":"soon","title":"t","body":"b","atMs":3}',
+      ),
+    ).toBeNull();
+    expect(
+      parseToNativeMessage('{"type":"cancel-rest-notification","id":"rest","atMs":3}'),
+    ).toEqual({ type: "cancel-rest-notification", id: "rest", atMs: 3 });
+    expect(parseToNativeMessage('{"type":"cancel-rest-notification","atMs":3}')).toBeNull();
   });
 
   it("haptic 메시지의 alert 세기를 받는다", () => {
@@ -403,6 +440,28 @@ describe("parseToNativeMessage", () => {
       type: "request-camera-gate",
       atMs: 1,
     });
+  });
+
+  it("싱글 세션 화면의 request-camera-gate는 방 종류와 과목을 싣고, 잘못된 과목만 버린다", () => {
+    expect(
+      parseToNativeMessage(
+        '{"type":"request-camera-gate","atMs":1,"roomType":"single","initialSubjectId":3}',
+      ),
+    ).toEqual({ type: "request-camera-gate", atMs: 1, roomType: "single", initialSubjectId: 3 });
+    for (const initialSubjectId of [0, -1, 1.5, "3"])
+      expect(
+        parseToNativeMessage(
+          JSON.stringify({
+            type: "request-camera-gate",
+            atMs: 1,
+            roomType: "single",
+            initialSubjectId,
+          }),
+        ),
+      ).toEqual({ type: "request-camera-gate", atMs: 1, roomType: "single" });
+    expect(
+      parseToNativeMessage('{"type":"request-camera-gate","atMs":1,"roomType":"social"}'),
+    ).toEqual({ type: "request-camera-gate", atMs: 1 });
   });
 
   it("request-push-permission을 파싱한다", () => {

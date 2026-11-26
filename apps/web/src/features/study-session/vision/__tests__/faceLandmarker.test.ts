@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type * as sentryLib from "@/lib/sentry";
 import { reportHandled } from "@/lib/sentry";
 
-import { createFaceLandmarker } from "../faceLandmarker";
+import { createFaceLandmarker, noseOffsetXOf, toCameraDegOf } from "../faceLandmarker";
 import type {
   FaceLandmarkerCreateOptions,
   MediapipeFaceLandmarkerHandle,
@@ -34,6 +34,7 @@ function blendshapes(closure: number) {
         { categoryName: "eyeLookDownLeft", score: 0.1 },
         { categoryName: "eyeLookDownRight", score: 0.1 },
         { categoryName: "jawOpen", score: 0.3 },
+        { categoryName: "mouthSmileLeft", score: 0.4 },
       ],
     },
   ];
@@ -55,6 +56,14 @@ function pitchMatrix(pitchDeg: number) {
   const s = Math.sin(radians);
   // 열 우선: 열0=(1,0,0,0) 열1=(0,c,s,0) 열2=(0,-s,c,0) 열3=(0,0,0,1)
   return { rows: 4, columns: 4, data: [1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, 0, 0, 0, 1] };
+}
+
+/** 순수 yaw 회전의 자세 행렬(열 우선). 정면 방향 열의 x 성분 `data[8]`이 sin(각도)다. */
+function yawMatrix(yawDeg: number) {
+  const radians = (yawDeg * Math.PI) / 180;
+  const c = Math.cos(radians);
+  const s = Math.sin(radians);
+  return { rows: 4, columns: 4, data: [c, 0, -s, 0, 0, 1, 0, 0, s, 0, c, 0, 0, 0, 0, 1] };
 }
 
 /**
@@ -287,6 +296,7 @@ describe("createFaceLandmarker — 정규화", () => {
       eyeBlinkRight: 0.55,
       eyeLookDownLeft: 0.1,
       eyeLookDownRight: 0.1,
+      jawOpen: 0.3,
     });
     expect(typeof result?.durationMs).toBe("number");
 
@@ -431,7 +441,31 @@ describe("얼굴 지표 — 고개 각도. 내려다봄 게이트가 읽는다",
 
   it("얼굴이 없으면 지표도 없다", async () => {
     const { landmarker } = await ready(NO_FACE);
-    expect((await landmarker.detect(video, 0))?.metrics).toEqual({ headPitchDeg: null });
+    expect((await landmarker.detect(video, 0))?.metrics).toEqual({
+      headPitchDeg: null,
+      headYawDeg: null,
+      noseOffsetX: null,
+      toCameraH: null,
+      toCameraV: null,
+    });
+  });
+
+  it("코끝이 두 눈 꼬리 가운데에서 비켜 난 정도를 눈 사이 거리 대비로 뽑는다", () => {
+    const landmarks = Array.from({ length: 300 }, () => ({ x: 0.5, y: 0.5 }));
+    landmarks[33] = { x: 0.4, y: 0.4 };
+    landmarks[263] = { x: 0.6, y: 0.4 };
+    landmarks[1] = { x: 0.55, y: 0.5 };
+    expect(noseOffsetXOf(landmarks)).toBeCloseTo(0.25, 2);
+  });
+
+  it("자세 행렬에서 고개 좌우 각도를 뽑는다", async () => {
+    const { landmarker } = await ready({
+      ...faceResult(0.13, 0.9),
+      facialTransformationMatrixes: [yawMatrix(-25)],
+    });
+    const result = await landmarker.detect(video, 0);
+    expect(result?.metrics.headYawDeg).toBeCloseTo(-25, 0);
+    expect(result?.metrics.headPitchDeg).toBeCloseTo(0, 0);
   });
 
   it("행렬은 각도 하나로 줄고 반환값에 남지 않는다", async () => {
@@ -443,6 +477,50 @@ describe("얼굴 지표 — 고개 각도. 내려다봄 게이트가 읽는다",
     for (const key of ["data", "rows", "columns", 'x"', 'y"', "landmark"]) {
       expect(text).not.toContain(key);
     }
+  });
+});
+
+/**
+ * 고개를 `pitchDeg`만큼 숙이고(아래가 +) 카메라 기준 (x, y, z) 자리에 있는 얼굴의 자세 행렬(열 우선).
+ * MediaPipe처럼 카메라는 -z를 보고, 얼굴은 정면 방향 열(2번)이 카메라 쪽(+z)을 향한다.
+ */
+function placedMatrix(pitchDeg: number, x: number, y: number, z: number) {
+  const { data } = pitchMatrix(pitchDeg);
+  return { rows: 4, columns: 4, data: [...data.slice(0, 12), x, y, z, 1] };
+}
+
+describe("toCameraDegOf — 카메라를 보려면 눈이 돌아야 하는 각도", () => {
+  it("카메라 정면에서 카메라를 보면 0°다", () => {
+    const angles = toCameraDegOf({
+      ...NO_FACE,
+      facialTransformationMatrixes: [placedMatrix(0, 0, 0, -50)],
+    });
+    expect(angles?.h).toBeCloseTo(0, 1);
+    expect(angles?.v).toBeCloseTo(0, 1);
+  });
+
+  it("얼굴이 카메라보다 오른쪽·위에 있으면 카메라는 왼쪽·아래에 있다", () => {
+    const angles = toCameraDegOf({
+      ...NO_FACE,
+      facialTransformationMatrixes: [placedMatrix(0, 10, 10, -50)],
+    });
+    expect(angles?.h).toBeCloseTo(-11.3, 1);
+    expect(angles?.v).toBeCloseTo(-11.3, 1);
+  });
+
+  it("고개를 숙인 만큼 카메라가 시선보다 위에 있다", () => {
+    const angles = toCameraDegOf({
+      ...NO_FACE,
+      facialTransformationMatrixes: [placedMatrix(20, 0, 0, -50)],
+    });
+    expect(angles?.v).toBeCloseTo(20, 1);
+  });
+
+  it("행렬이 없거나 얼굴 위치를 모르면 null이다", () => {
+    expect(toCameraDegOf(NO_FACE)).toBeNull();
+    expect(
+      toCameraDegOf({ ...NO_FACE, facialTransformationMatrixes: [pitchMatrix(10)] }),
+    ).toBeNull();
   });
 });
 

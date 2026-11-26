@@ -362,8 +362,8 @@ function setFlagOnce(key: string) {
  */
 export type StudyRoomType = "single" | "social";
 
-/** 한 세션 동안 한 번이라도 시작한 멀티 타이머 종류. */
-export type MultiTimerUse = "none" | "timer" | "pomodoro" | "both";
+/** 한 세션 동안 한 번이라도 시작한 멀티 타이머 종류. 두 종류 이상이면 `both`다. */
+export type MultiTimerUse = "none" | "timer" | "pomodoro" | "stopwatch" | "both";
 
 /** 세션 종료 사유 — `features/study-session`의 `SessionEndReason`을 평평하게 편 값. */
 export interface StudySessionEndedInput {
@@ -403,6 +403,8 @@ export interface StudySessionEndedInput {
   readonly breakSec?: number;
   /** 멀티 타이머가 없는 소셜룸은 생략하고, 생략은 none 으로 나간다. */
   readonly multiTimer?: MultiTimerUse;
+  /** 세션 중 하품 횟수. 하품을 재지 않는 소셜룸은 생략하고, 생략은 0 으로 나간다. */
+  readonly yawnCount?: number;
   /** 싱글룸 화면 표시 기록. 소셜룸은 생략하고 생략하면 키 자체를 싣지 않는다. */
   readonly display?: SessionDisplayEnd;
   /**
@@ -472,6 +474,7 @@ export function trackStudySessionEnded(input: StudySessionEndedInput) {
       ambient_sound_sec: Number(input.ambientSoundSec ?? 0),
       break_sec: Number(input.breakSec ?? 0),
       multi_timer: input.multiTimer ?? "none",
+      yawn_count: Number(input.yawnCount ?? 0),
       ...(input.display && {
         pip_sec: input.display.pipSec,
         expanded_sec: input.display.expandedSec,
@@ -506,6 +509,22 @@ export function trackStudySessionEnded(input: StudySessionEndedInput) {
       );
     }
   }
+}
+
+/**
+ * 세션 중 하품 하나가 끝났다. 싱글룸만 보낸다.
+ * 길이만 싣는다. 입 벌림 점수 같은 얼굴에서 나온 수치는 싣지 않는다.
+ */
+export function trackStudySessionYawned(yawn: {
+  readonly startedAtMs: number;
+  readonly endedAtMs: number;
+}) {
+  if (!initialized) return;
+  track(
+    "study_session_yawned",
+    { duration_ms: Math.round(yawn.endedAtMs - yawn.startedAtMs) },
+    { time: yawn.endedAtMs },
+  );
 }
 
 /**
@@ -1379,9 +1398,14 @@ export function trackSessionMoreMenuOpened() {
   track("session_more_menu_opened");
 }
 
-/** 싱글룸 더보기 메뉴에서 항목을 골랐다. */
+/**
+ * 싱글룸 더보기 메뉴에서 항목을 골랐다.
+ *
+ * `planner`는 세로 열이 있던 세션 화면의 항목이고, `background`·`stopwatch`·`timer`·`clock_view`는 v3 세션 화면의 항목이다.
+ */
 export function trackSessionMoreMenuItemSelected(input: {
-  readonly item: "flip_camera" | "planner" | "help";
+  readonly item:
+    "flip_camera" | "planner" | "help" | "background" | "stopwatch" | "timer" | "clock_view";
 }) {
   if (!initialized) return;
   track("session_more_menu_item_selected", { item: input.item });
@@ -1470,13 +1494,16 @@ export function trackTimerBackgroundApplied(input: {
  * 공간에 내 사진을 담았다
  *
  * `count`는 담은 뒤의 사진 수다.
- * 웹 파일 입력만 쓰므로 `source`는 file로 고정한다.
- * 앱 사진 선택기를 붙이면 같은 이벤트에 native가 더해져서 값 이름을 그쪽과 맞춘다.
+ * `source`는 웹 파일 입력(file)인지 앱 사진 선택기(native)인지이고, 세션 공간 페이지는 파일 입력만 써서 생략하면 file이다.
+ * 설정의 타이머 배경 화면은 앱 사진 선택기도 쓴다.
  * 사진 내용과 크기는 보내지 않는다.
  */
-export function trackTimerBackgroundPhotoAdded(input: { readonly count: number }) {
+export function trackTimerBackgroundPhotoAdded(input: {
+  readonly count: number;
+  readonly source?: "native" | "file";
+}) {
   if (!initialized) return;
-  track("timer_background_photo_added", { count: input.count, source: "file" });
+  track("timer_background_photo_added", { count: input.count, source: input.source ?? "file" });
 }
 
 /** 내 사진을 삭제했다. `count`는 삭제한 뒤의 사진 수이고 `wasSelected`는 적용 중인 공간이었는지다. */
@@ -1600,20 +1627,20 @@ export function trackStudySessionFaceMaskEmojiSelected(input: {
   });
 }
 
-/** 세션 도움말을 연 경로. 세션 진입 때 저절로 뜬 것(auto)과 더보기의 도움말 보기(menu)다. */
+/** 세션 도움말을 연 경로. 처음 보는 계정의 새 세션 카운트다운 앞에 저절로 뜬 것(auto)과 더보기의 도움말 보기(menu)다. */
 export type SessionHelpTrigger = "auto" | "menu";
 
 /** 세션 도움말 단계 id. 단계 번호와 달리 순서가 바뀌어도 뜻이 같다. */
-export type SessionHelpStepId = "welcome" | "away" | "measuring" | "simple" | "finish";
+export type SessionHelpStepId = "welcome" | "grace" | "distract" | "simple" | "ready" | "start";
 
 /**
  * 세션 도움말 판
  *
- * 2는 심플 모드로 시작하는 5단계 판이다.
- * 3은 일반 모드 화면 위 말풍선 5단계 판이다.
- * 이 속성이 없는 6단계 판과 단계 번호의 뜻이 달라 콘솔 차트는 이 값으로 거른다.
+ * 4는 카운트다운 앞 가짜 세션 화면 위 여섯 장 판이다(welcome → grace → distract → simple → ready → start).
+ * 2는 세션 앞 가이드 화면의 5단계 판, 3은 dev의 마스코트 코치마크 판이다.
+ * 판마다 단계 번호의 뜻이 달라 콘솔 차트는 이 값으로 거른다.
  */
-const SESSION_HELP_VERSION = 3;
+const SESSION_HELP_VERSION = 4;
 
 /**
  * 세션 도움말 노출
@@ -1657,17 +1684,23 @@ export function trackStudySessionHelpStepViewed(input: {
  * 세션 도움말을 마지막 단계까지 본 것
  *
  * 앱 종료나 세션 이탈로 끝내지 못한 노출은 완료도 중단도 보내지 않아 다음 세션의 재노출로 센다.
- * `cta`는 마지막 단계에서 누른 버튼이다. `later`는 `나중에 하기`라 세션이 시작되지 않는다.
+ * `cta`는 마지막 장에서 누른 버튼이다. `start`는 `공부 시작하기`(카운트다운 시작),
+ * `close`는 메뉴로 다시 본 도움말의 `닫기`다. `timelapse_enabled`는 마지막 장의 타임랩스 스위치 값이다.
+ * 메뉴로 연 도움말에는 스위치가 없어 `timelapse_enabled`를 싣지 않는다.
  */
 export function trackStudySessionHelpCompleted(
   trigger: SessionHelpTrigger,
   roomType: StudyRoomType,
-  cta: "start" | "later" = "start",
+  result: {
+    readonly cta: "start" | "close";
+    readonly timelapseEnabled: boolean | null;
+  },
 ) {
   if (!initialized) return;
   track("study_session_help_completed", {
     trigger,
-    cta,
+    cta: result.cta,
+    ...(result.timelapseEnabled === null ? {} : { timelapse_enabled: result.timelapseEnabled }),
     room_type: roomType,
     help_version: SESSION_HELP_VERSION,
   });
@@ -1944,6 +1977,7 @@ export function trackRecordsSessionExpanded(input: { readonly expanded: boolean 
 export function trackSettingsRowPressed(
   row:
     | "profile"
+    | "timer_background"
     | "points_history"
     | "timelapse"
     | "app_lock"
@@ -1972,6 +2006,38 @@ export type TimelapseSettingEventKey =
   | "focus_rate"
   | "dday"
   | "streak";
+
+/**
+ * 일시정지 휴식 알림 고르기 이벤트
+ *
+ * 휴식 화면의 말풍선에서 알림 시간을 고를 때 보낸다. `알림 없음`은 `minutes: null`이다.
+ */
+export function trackSessionRestAlarmSet(input: { readonly minutes: number | null }) {
+  if (!initialized) return;
+  track("session_rest_alarm_set", { minutes: input.minutes });
+}
+
+/**
+ * 일시정지 휴식 알림이 울린 이벤트
+ *
+ * `in_app`은 앱이 앞에 있을 때 소리·진동으로 울린 경우다.
+ * 앱을 나가 있는 동안 지난 알림은 웹이 직접 알 수 없어 돌아왔을 때 `os`로 남긴다.
+ * `os`는 추정이다. 알림 권한과 화면 숨김으로 판단할 뿐, 알림 채널 차단 등으로 OS 알림이 실제로 떴는지는 모른다.
+ */
+export function trackSessionRestAlarmFired(input: { readonly channel: "in_app" | "os" }) {
+  if (!initialized) return;
+  track("session_rest_alarm_fired", { channel: input.channel });
+}
+
+/**
+ * 공부 화면 시계 보기 형식 바꾸기 이벤트
+ *
+ * 더보기 메뉴에서 순공 보기와 공부 시간 보기를 바꿀 때 보낸다. `view`는 바꾼 뒤의 값이다.
+ */
+export function trackSessionClockViewChanged(input: { readonly view: "focus" | "study" }) {
+  if (!initialized) return;
+  track("session_clock_view_changed", { view: input.view });
+}
 
 /** 설정 › 타임랩스에서 바꾼 항목과 바뀐 뒤의 값. 비율은 `9:16`·`16:9`, 가림 이모지는 이모지 id, 나머지는 켜짐 여부다. */
 export function trackTimelapseSettingChanged(input: {
@@ -2470,7 +2536,7 @@ export function trackAmbientSoundDuckToggled(enabled: boolean, roomType: StudyRo
  * 세션 단위 사용 여부는 `trackStudySessionEnded`의 `multi_timer`가 싣는다.
  */
 
-type MultiTimerKind = "timer" | "pomodoro";
+type MultiTimerKind = "timer" | "pomodoro" | "stopwatch";
 type PomodoroPhase = "focus" | "break";
 
 /**
@@ -2500,9 +2566,8 @@ export function trackMultiTimerStarted(input: {
   if (!initialized) return;
   track("multi_timer_started", {
     kind: input.kind,
-    ...(input.kind === "timer"
-      ? { timer_sec: input.timerSec }
-      : { focus_min: input.focusMin, break_min: input.breakMin }),
+    ...(input.kind === "timer" && { timer_sec: input.timerSec }),
+    ...(input.kind === "pomodoro" && { focus_min: input.focusMin, break_min: input.breakMin }),
     sound_on: input.soundOn,
     from_pause: input.fromPause,
   });

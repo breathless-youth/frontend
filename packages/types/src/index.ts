@@ -82,9 +82,10 @@ export interface PushTokenRegisterRequest {
 
 /**
  * 비공부 상태 이벤트 종류. PHONE=휴대폰 사용, DEVICE=다른 기기, AWAY=자리 비움,
- * SLEEP=졸음, PAUSE=일시정지(총공부 타이머까지 정지 — 나머지 넷은 순공 타이머만 정지).
+ * SLEEP=졸음, SCREEN=화면 응시, POSTURE=자세 이탈, PAUSE=일시정지(총공부 타이머까지 정지 — 나머지는 순공 타이머만 정지).
  */
-export type StudyEventStatus = "PHONE" | "DEVICE" | "AWAY" | "SLEEP" | "PAUSE";
+export type StudyEventStatus =
+  "PHONE" | "DEVICE" | "AWAY" | "SLEEP" | "SCREEN" | "POSTURE" | "PAUSE";
 
 /** 비공부 상태 이벤트 1건. 시각은 UTC ISO-8601, 세션 구간 안·서로 겹침 불가·0초 불가. */
 export interface StatusEventPayload {
@@ -116,6 +117,8 @@ export interface StudySessionCreateRequest {
    * 세션 중 지운 할 일은 허용. 자정을 넘는 세션은 각 할 일이 완료 시각(doneAt)이 속한 조각 하나에만 붙는다.
    */
   completedTaskIds?: number[];
+  /** 관찰 기록(하품 등) — 선택 필드. 순공과 무관하다. 세션 구간 안, 최대 1000건, 서로 겹쳐도 된다. */
+  observations?: ObservationPayload[];
   /**
    * 기기 시간대(IANA, 예 `America/New_York`). 선택 필드.
    * 서버는 이 시간대의 자정으로 기록을 나누고 사용자 시간대로 저장한다.
@@ -129,6 +132,18 @@ export interface StudySessionCreateRequest {
    * 카메라 없이 타이머로만 측정한 세션은 TIMER다.
    */
   source?: Exclude<StudySessionSource, "MANUAL">;
+}
+
+/**
+ * 세션 관찰 기록 — 순공을 멈추지 않는 관찰. 상태 이벤트(`StatusEventPayload`)와 달리 서로 겹쳐도 된다.
+ * 자정을 넘는 세션은 시작 시각이 속한 조각에 붙는다.
+ */
+export interface ObservationPayload {
+  type: "YAWN";
+  /** 시작(UTC ISO-8601) — 세션 구간 안 */
+  startedAt: string;
+  /** 끝(UTC ISO-8601) — 선택. 시작과 같거나 이후, 세션 구간 안 */
+  endedAt?: string;
 }
 
 /** 진행중 세션 스냅샷 보고 요청 (PUT /api/study-sessions/active) */
@@ -147,6 +162,8 @@ export interface ActiveSessionSnapshotRequest {
   events: StatusEventPayload[];
   /** 지금까지의 과목 구간 전체 — 선택 필드. 진행 중인 구간은 reportedAt에서 닫아 보낸다. 서버는 통째로 덮어쓴다. */
   subjectSegments?: SubjectSegmentPayload[];
+  /** 지금까지의 관찰 기록 전체 — 선택 필드. 서버는 통째로 덮어쓰고, 자동 확정 때 세션으로 옮긴다. */
+  observations?: ObservationPayload[];
   /** 최종 제출과 같은 규칙의 측정 방식 */
   source?: Exclude<StudySessionSource, "MANUAL">;
 }
@@ -181,6 +198,8 @@ export interface ActiveSessionSnapshotResponse {
   events: StatusEventPayload[];
   /** 마지막 스냅샷의 과목 구간 — 시작 오름차순. 마지막 원소의 과목이 죽기 직전 선택이다. null·누락일 수 있다 */
   subjectSegments?: SubjectSegmentPayload[] | null;
+  /** 마지막 스냅샷의 관찰 기록(하품 등) — 시작 오름차순. 이어받은 뒤 보고·제출에 다시 싣는다. 옛 서버는 누락 */
+  observations?: ObservationPayload[] | null;
   /** 측정 방식이고 서버가 이 필드를 내려주기 전에는 누락이라 카메라 세션으로 본다 */
   source?: Exclude<StudySessionSource, "MANUAL">;
 }

@@ -54,6 +54,11 @@ jest.mock("../../modules/web-glass", () => ({
 jest.mock("expo-glass-effect", () => ({
   isLiquidGlassAvailable: () => mockGlass.available,
 }));
+// 스토어 빌드처럼 알림 모듈이 있는 바이너리를 기본으로 둔다.
+const mockRestNotification = { supported: true };
+jest.mock("../restNotification", () => ({
+  isRestNotificationSupported: () => mockRestNotification.supported,
+}));
 const mockLiveActivity = { supported: false };
 jest.mock("../liveActivity", () => ({
   isLiveActivitySupported: () => mockLiveActivity.supported,
@@ -78,6 +83,7 @@ beforeEach(() => {
   mockGlass.webGlassNative = null;
   mockGlass.available = false;
   mockLiveActivity.supported = false;
+  mockRestNotification.supported = true;
   __resetRemoteQueryParamsCacheForTests();
   __resetSocialLoginForTests();
 });
@@ -104,6 +110,21 @@ describe("buildRemoteQueryParams", () => {
       await expect(buildRemoteQueryParams()).resolves.toHaveProperty("appLock", "1");
     } finally {
       mockAppLockModule.appLockNative = null;
+    }
+  });
+
+  it("배경 사진 함수가 든 Android 빌드에만 backgroundPhotoPicker=1을 붙인다", async () => {
+    jest.replaceProperty(Platform, "OS", "android");
+    mockedEnsureUserRegistered.mockResolvedValue(7);
+    // 프로필 선택기만 든 옛 바이너리는 배경 요청을 처리하지 못한다.
+    mockPickerModule.profilePhotoPickerNative = { pick: jest.fn() };
+    try {
+      await expect(buildRemoteQueryParams()).resolves.not.toHaveProperty("backgroundPhotoPicker");
+
+      mockPickerModule.profilePhotoPickerNative = { pick: jest.fn(), pickBackground: jest.fn() };
+      await expect(buildRemoteQueryParams()).resolves.toHaveProperty("backgroundPhotoPicker", "1");
+    } finally {
+      mockPickerModule.profilePhotoPickerNative = null;
     }
   });
 
@@ -143,12 +164,14 @@ describe("buildRemoteQueryParams", () => {
       share: "1",
       subjectStart: "1",
       cameraGate: "1",
+      cameraPermissionLater: "1",
       nativeUpdateGate: "1",
       guestAuth: "1",
       videoShare: "1",
       ranking: "1",
       groupRooms: "1",
       alertHaptic: "1",
+      restNotify: "1",
       pushPermission: "1",
       accountActions: "1",
       points: "1",
@@ -165,12 +188,14 @@ describe("buildRemoteQueryParams", () => {
       share: "1",
       subjectStart: "1",
       cameraGate: "1",
+      cameraPermissionLater: "1",
       nativeUpdateGate: "1",
       guestAuth: "1",
       videoShare: "1",
       ranking: "1",
       groupRooms: "1",
       alertHaptic: "1",
+      restNotify: "1",
       pushPermission: "1",
       accountActions: "1",
       points: "1",
@@ -187,12 +212,14 @@ describe("buildRemoteQueryParams", () => {
       share: "1",
       subjectStart: "1",
       cameraGate: "1",
+      cameraPermissionLater: "1",
       nativeUpdateGate: "1",
       guestAuth: "1",
       videoShare: "1",
       ranking: "1",
       groupRooms: "1",
       alertHaptic: "1",
+      restNotify: "1",
       pushPermission: "1",
       accountActions: "1",
       points: "1",
@@ -448,6 +475,12 @@ describe("buildRemoteQueryParams", () => {
     await expect(buildRemoteQueryParams()).resolves.toHaveProperty("liveActivity", "1");
   });
 
+  it("알림 모듈이 없는 바이너리(옛 Dev Client)에는 restNotify=1을 붙이지 않는다", async () => {
+    mockRestNotification.supported = false;
+
+    await expect(buildRemoteQueryParams()).resolves.not.toHaveProperty("restNotify");
+  });
+
   it("Android에는 glassChrome 표시가 없다", async () => {
     jest.replaceProperty(Platform, "OS", "android");
     mockGlass.webGlassNative = {};
@@ -473,12 +506,14 @@ describe("useRemoteQueryParams", () => {
         share: "1",
         subjectStart: "1",
         cameraGate: "1",
+        cameraPermissionLater: "1",
         nativeUpdateGate: "1",
         guestAuth: "1",
         videoShare: "1",
         ranking: "1",
         groupRooms: "1",
         alertHaptic: "1",
+        restNotify: "1",
         pushPermission: "1",
         accountActions: "1",
         points: "1",
@@ -498,12 +533,14 @@ describe("useRemoteQueryParams", () => {
         share: "1",
         subjectStart: "1",
         cameraGate: "1",
+        cameraPermissionLater: "1",
         nativeUpdateGate: "1",
         guestAuth: "1",
         videoShare: "1",
         ranking: "1",
         groupRooms: "1",
         alertHaptic: "1",
+        restNotify: "1",
         pushPermission: "1",
         accountActions: "1",
         points: "1",
@@ -521,12 +558,14 @@ describe("useRemoteQueryParams", () => {
       share: "1",
       subjectStart: "1",
       cameraGate: "1",
+      cameraPermissionLater: "1",
       nativeUpdateGate: "1",
       guestAuth: "1",
       videoShare: "1",
       ranking: "1",
       groupRooms: "1",
       alertHaptic: "1",
+      restNotify: "1",
       pushPermission: "1",
       accountActions: "1",
       points: "1",
@@ -572,12 +611,14 @@ describe("useRemoteQueryParams", () => {
         share: "1",
         subjectStart: "1",
         cameraGate: "1",
+        cameraPermissionLater: "1",
         nativeUpdateGate: "1",
         guestAuth: "1",
         videoShare: "1",
         ranking: "1",
         groupRooms: "1",
         alertHaptic: "1",
+        restNotify: "1",
         pushPermission: "1",
         accountActions: "1",
         points: "1",
@@ -597,12 +638,14 @@ describe("useRemoteQueryParams", () => {
         share: "1",
         subjectStart: "1",
         cameraGate: "1",
+        cameraPermissionLater: "1",
         nativeUpdateGate: "1",
         guestAuth: "1",
         videoShare: "1",
         ranking: "1",
         groupRooms: "1",
         alertHaptic: "1",
+        restNotify: "1",
         pushPermission: "1",
         accountActions: "1",
         points: "1",

@@ -3,9 +3,9 @@ import type { SessionHelpStepId } from "@/lib/amplitude";
 /**
  * 세션 도움말의 기기 기록
  *
- * 처음 보는 계정이 집중 시작을 누르면 세션과 카메라 권한 요청보다 먼저 가이드 화면(`SessionGuidePage`)이 뜬다.
- * 마지막 단계의 `순공 시작하기`나 `나중에 하기`까지 끝낸 계정은 다시 뜨지 않는다.
- * 앱을 끄거나 뒤로 가거나 Escape로 닫아 끝까지 보지 못한 계정은 다음 집중 시작에 다시 뜬다.
+ * 처음 보는 계정이 새 세션을 열면 카운트다운 앞에 도움말이 뜨고, 닫을 때까지 카운트다운을 세지 않는다(`RoomPage`).
+ * 마지막 장에서 `공부 시작하기`를 누른 계정은 다시 뜨지 않는다.
+ * 앱을 끄거나 Escape로 닫은 계정은 다음 새 세션에 다시 뜬다.
  * 기록은 기기 저장소에 계정별로 남기므로 기기를 바꾸면 다시 뜨고, 저장소를 쓸 수 없는 기기에서는 앱을 다시 켜면 다시 뜬다.
  */
 export type SessionGuideState = "seen" | null;
@@ -34,87 +34,29 @@ export function markSessionGuideSeen(userId: number): void {
   }
 }
 
-/** 강조할 자리. 덮개에 구멍을 뚫어 원래 밝기로 보인다. */
-export type SessionHelpSpot = "status" | "clock" | "more" | "pip";
-
+/** 도움말 마스코트 표정. 칸은 `HelpMascot`이 정한다. */
 export type SessionHelpMascotPose = "joy" | "sleepy" | "focus" | "jump";
 
-/** 도움말 문구 키(`study-session:help.*`) */
-export type SessionHelpTextKey =
-  | "help.welcomeTitle"
-  | "help.welcomeBody"
-  | "help.awayTitle"
-  | "help.awayBody"
-  | "help.measuringTitle"
-  | "help.measuringBody"
-  | "help.simpleTitle"
-  | "help.finishTitle";
-
 /**
- * 세션 도움말 다섯 단계
+ * 세션 도움말 여섯 장
  *
- * 일반 모드 세션 화면을 그대로 그리고 그 위에 덮개와 말풍선을 올린다.
- * 제목 안 `<hl>`로 감싼 핵심 단어는 파란 글자로 칠하고 본문은 강조색 없이 둔다.
+ * 실제 세션과 같은 배치로 그린 가짜 세션 화면 위에서 보인다(`SessionHelpScreen`).
+ * - `welcome`: 인사. 강조하는 자리 없이 말풍선만 띄운다.
+ * - `grace`: 공부 자세가 흐트러져 상태 문구가 깜빡이는 화면. 순공은 계속 흐른다.
+ * - `distract`: 계속 공부가 감지되지 않아 순공이 멈춘 화면.
+ * - `simple`: 화면을 탭하면 심플 모드로 바뀌는 것을 보여 준다.
+ * - `ready`: 카메라 창을 키워 얼굴·손·공부도구 구도를 짚는다.
+ * - `start`: 타임랩스를 고르고 공부를 시작한다.
+ * 마스코트 표정은 dev 도움말처럼 장마다 다르다.
  */
-export interface SessionHelpStep {
+export const SESSION_HELP_STEPS: readonly {
   readonly id: SessionHelpStepId;
-  readonly screen: "normal" | "simple";
-  readonly state: "focus" | "distract";
-  /** 가짜 순공 숫자가 1초씩 올라가는가 */
-  readonly ticking: boolean;
-  readonly spots: readonly SessionHelpSpot[];
-  readonly title: SessionHelpTextKey;
-  readonly body?: SessionHelpTextKey;
   readonly mascot: SessionHelpMascotPose;
-}
-
-export const SESSION_HELP_STEPS: readonly SessionHelpStep[] = [
-  {
-    id: "welcome",
-    screen: "normal",
-    state: "focus",
-    ticking: true,
-    spots: [],
-    title: "help.welcomeTitle",
-    body: "help.welcomeBody",
-    mascot: "joy",
-  },
-  {
-    id: "away",
-    screen: "normal",
-    state: "distract",
-    ticking: false,
-    spots: ["status"],
-    title: "help.awayTitle",
-    body: "help.awayBody",
-    mascot: "sleepy",
-  },
-  {
-    id: "measuring",
-    screen: "normal",
-    state: "focus",
-    ticking: true,
-    spots: ["clock"],
-    title: "help.measuringTitle",
-    body: "help.measuringBody",
-    mascot: "focus",
-  },
-  {
-    id: "simple",
-    screen: "simple",
-    state: "focus",
-    ticking: true,
-    spots: [],
-    title: "help.simpleTitle",
-    mascot: "joy",
-  },
-  {
-    id: "finish",
-    screen: "normal",
-    state: "focus",
-    ticking: true,
-    spots: ["more", "pip"],
-    title: "help.finishTitle",
-    mascot: "jump",
-  },
+}[] = [
+  { id: "welcome", mascot: "joy" },
+  { id: "grace", mascot: "focus" },
+  { id: "distract", mascot: "sleepy" },
+  { id: "simple", mascot: "joy" },
+  { id: "ready", mascot: "focus" },
+  { id: "start", mascot: "jump" },
 ];

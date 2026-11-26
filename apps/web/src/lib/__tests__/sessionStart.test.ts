@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { writeMeasureMode } from "@/features/measure-mode/measureMode";
+import { markSessionGuideSeen } from "@/features/study-session/sessionGuide";
 import { requestSessionStart } from "../sessionStart";
 
 /** 웹뷰 안에서는 브리지로, 브라우저 단독 모드에서는 직접 이동으로 갈린다 (BY-334). */
@@ -112,6 +113,44 @@ describe("requestSessionStart", () => {
         { type: "start-session", atMs: expect.any(Number) as number, measureMode: "timer" },
         { type: "start-session", atMs: expect.any(Number) as number },
       ]);
+    } finally {
+      localStorage.clear();
+    }
+  });
+  it("가이드 끝 권한 묻기를 아는 앱에서 가이드를 처음 볼 카메라 세션만 권한을 나중에 묻게 한다", async () => {
+    isNativeBridgeAvailable.mockReturnValue(true);
+    window.history.replaceState({}, "", "/?cameraPermissionLater=1");
+    try {
+      writeMeasureMode("camera");
+      await requestSessionStart(7, vi.fn());
+      // 카메라 없는 세션과 신원 없는 시작은 가이드가 없다.
+      writeMeasureMode("timer");
+      await requestSessionStart(7, vi.fn());
+      writeMeasureMode("camera");
+      await requestSessionStart(null, vi.fn());
+      // 가이드를 본 계정은 지금처럼 시작에서 묻는다.
+      markSessionGuideSeen(7);
+      await requestSessionStart(7, vi.fn());
+
+      expect(postToNative.mock.calls.map(([message]) => message)).toEqual([
+        { type: "start-session", atMs: expect.any(Number) as number, cameraPermission: "later" },
+        { type: "start-session", atMs: expect.any(Number) as number, measureMode: "timer" },
+        { type: "start-session", atMs: expect.any(Number) as number },
+        { type: "start-session", atMs: expect.any(Number) as number },
+      ]);
+    } finally {
+      localStorage.clear();
+      window.history.replaceState({}, "", "/");
+    }
+  });
+
+  it("가이드 끝 권한 묻기를 모르는 앱에는 표시를 싣지 않는다", async () => {
+    isNativeBridgeAvailable.mockReturnValue(true);
+    writeMeasureMode("camera");
+    try {
+      await requestSessionStart(7, vi.fn());
+
+      expect(postToNative.mock.calls[0]?.[0]).not.toHaveProperty("cameraPermission");
     } finally {
       localStorage.clear();
     }

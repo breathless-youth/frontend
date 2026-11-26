@@ -372,4 +372,29 @@ describe("useTrackedVisionDetector", () => {
     expect(result.current.visionReady).not.toBeNull();
     expect(mocks.ready).toHaveBeenCalledTimes(1);
   });
+
+  it("손 모델과 공부 흔적 판정은 싱글룸만 켜고 소셜룸은 끈다", () => {
+    mocks.createVisionFocusDetector.mockReturnValue({
+      subscribeStatus: () => () => {},
+      subscribeRuntimeFallback: () => () => {},
+      start: vi.fn(),
+      runtime: "main",
+      assetTimings: [],
+    } as Pick<
+      VisionFocusDetector,
+      "subscribeStatus" | "subscribeRuntimeFallback" | "start" | "runtime" | "assetTimings"
+    >);
+
+    renderHook(() => useTrackedVisionDetector({ current: null }, "single"));
+    renderHook(() => useTrackedVisionDetector({ current: null }, "social"));
+
+    expect(mocks.createVisionFocusDetector).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ studyEvidence: true }),
+    );
+    expect(mocks.createVisionFocusDetector).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ studyEvidence: false }),
+    );
+  });
 });

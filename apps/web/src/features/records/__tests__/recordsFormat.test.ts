@@ -101,20 +101,30 @@ describe("formatFocusRate / formatSessionCount", () => {
 
 describe("eventChipItems — S5 뱃지는 축약형 · 횟수만", () => {
   it("0인 상태는 칩을 만들지 않는다", () => {
-    expect(eventChipItems({ AWAY: 2, PHONE: 1, DEVICE: 0, SLEEP: 0, PAUSE: 0 })).toEqual([
+    expect(
+      eventChipItems({ AWAY: 2, PHONE: 1, DEVICE: 0, SLEEP: 0, SCREEN: 0, POSTURE: 0, PAUSE: 0 }),
+    ).toEqual([
       { status: "AWAY", label: "자리 이탈 2회" },
       { status: "PHONE", label: "휴대폰 1회" },
     ]);
   });
 
   it("전부 0이면 빈 배열", () => {
-    expect(eventChipItems({ AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 })).toEqual([]);
+    expect(
+      eventChipItems({ AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, SCREEN: 0, POSTURE: 0, PAUSE: 0 }),
+    ).toEqual([]);
   });
 
   it("S4의 'N회 · 시간' 표기를 쓰지 않는다(횟수만)", () => {
-    const labels = eventChipItems({ AWAY: 1, PHONE: 1, DEVICE: 1, SLEEP: 1, PAUSE: 1 }).map(
-      (chip) => chip.label,
-    );
+    const labels = eventChipItems({
+      AWAY: 1,
+      PHONE: 1,
+      DEVICE: 1,
+      SLEEP: 1,
+      SCREEN: 0,
+      POSTURE: 0,
+      PAUSE: 1,
+    }).map((chip) => chip.label);
 
     expect(labels).toEqual([
       "자리 이탈 1회",
@@ -129,21 +139,50 @@ describe("eventChipItems — S5 뱃지는 축약형 · 횟수만", () => {
   });
 
   it("삭제된 '화면 꺼짐' 라벨을 쓰지 않는다(2026-07-26 일시정지로 통합)", () => {
-    const labels = eventChipItems({ AWAY: 1, PHONE: 1, DEVICE: 1, SLEEP: 1, PAUSE: 1 }).map(
-      (chip) => chip.label,
-    );
+    const labels = eventChipItems({
+      AWAY: 1,
+      PHONE: 1,
+      DEVICE: 1,
+      SLEEP: 1,
+      SCREEN: 0,
+      POSTURE: 0,
+      PAUSE: 1,
+    }).map((chip) => chip.label);
 
     expect(labels.join(" ")).not.toContain("화면 꺼짐");
   });
 
   it("S4의 전체 라벨('휴대폰 사용')이 아니라 축약 라벨을 쓴다", () => {
-    expect(eventChipItems({ AWAY: 0, PHONE: 3, DEVICE: 0, SLEEP: 0, PAUSE: 0 })[0].label).toBe(
-      "휴대폰 3회",
-    );
+    expect(
+      eventChipItems({ AWAY: 0, PHONE: 3, DEVICE: 0, SLEEP: 0, SCREEN: 0, POSTURE: 0, PAUSE: 0 })[0]
+        .label,
+    ).toBe("휴대폰 3회");
+  });
+
+  it("자세 이탈 칩을 화면 응시 뒤, 일시정지 앞에 넣는다", () => {
+    expect(
+      eventChipItems({ AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, SCREEN: 1, POSTURE: 3, PAUSE: 1 }),
+    ).toEqual([
+      { status: "SCREEN", label: "화면 응시 1회" },
+      { status: "POSTURE", label: "자세 이탈 3회" },
+      { status: "PAUSE", label: "일시정지 1회" },
+    ]);
+  });
+
+  it("화면 응시 칩을 졸음 뒤, 일시정지 앞에 넣는다", () => {
+    expect(
+      eventChipItems({ AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 1, SCREEN: 2, POSTURE: 0, PAUSE: 1 }),
+    ).toEqual([
+      { status: "SLEEP", label: "졸음 1회" },
+      { status: "SCREEN", label: "화면 응시 2회" },
+      { status: "PAUSE", label: "일시정지 1회" },
+    ]);
   });
 
   it("졸음 칩을 기기 조작 뒤, 일시정지 앞에 넣는다", () => {
-    expect(eventChipItems({ AWAY: 1, PHONE: 0, DEVICE: 1, SLEEP: 2, PAUSE: 1 })).toEqual([
+    expect(
+      eventChipItems({ AWAY: 1, PHONE: 0, DEVICE: 1, SLEEP: 2, SCREEN: 0, POSTURE: 0, PAUSE: 1 }),
+    ).toEqual([
       { status: "AWAY", label: "자리 이탈 1회" },
       { status: "DEVICE", label: "기기 조작 1회" },
       { status: "SLEEP", label: "졸음 2회" },

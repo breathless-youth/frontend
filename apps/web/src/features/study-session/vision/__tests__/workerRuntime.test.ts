@@ -6,6 +6,7 @@ import type {
   MediapipeDetectionResult,
   MediapipeDetectorHandle,
   MediapipeFaceLandmarkerHandle,
+  MediapipeHandLandmarkerHandle,
   MediapipeFaceResult,
   MediapipeVisionRuntime,
 } from "../mediapipePort";
@@ -365,8 +366,15 @@ function runtimeOf(
 ) {
   const createDetector = vi.fn(create);
   const createFaceLandmarker = vi.fn(createFace);
+  const createHandLandmarker = vi.fn(async (): Promise<MediapipeHandLandmarkerHandle> => {
+    throw new Error("이 테스트는 손 모델을 쓰지 않는다");
+  });
   return {
-    runtime: { createDetector, createFaceLandmarker } satisfies MediapipeVisionRuntime,
+    runtime: {
+      createDetector,
+      createFaceLandmarker,
+      createHandLandmarker,
+    } satisfies MediapipeVisionRuntime,
     createDetector,
     createFaceLandmarker,
   };

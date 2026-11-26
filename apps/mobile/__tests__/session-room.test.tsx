@@ -1,6 +1,6 @@
 import { act, render, screen } from "@testing-library/react-native";
 import { router } from "expo-router";
-import { BackHandler, Platform } from "react-native";
+import { ActivityIndicator, BackHandler, Platform } from "react-native";
 
 import SessionRoomScreen from "../app/room/[id]";
 import { getRnda, type RndaApi } from "../lib/appLock/rnda";
@@ -23,7 +23,12 @@ import {
  * 덮는다.
  */
 
-const mockRoomParams: { id: string; initialSubjectId?: string; measureMode?: string } = { id: "1" };
+const mockRoomParams: {
+  id: string;
+  initialSubjectId?: string;
+  measureMode?: string;
+  cameraPermission?: string;
+} = { id: "1" };
 jest.mock("expo-router", () => ({
   useLocalSearchParams: () => mockRoomParams,
   router: {
@@ -119,16 +124,36 @@ describe("SessionRoomScreen", () => {
       }
     },
   );
+  it.each([
+    ["later", "later"],
+    ["now", null],
+  ])(
+    "라우트의 권한 묻기 시점 %s는 later일 때만 웹 세션 주소에 싣는다",
+    async (cameraPermission, expected) => {
+      mockRoomParams.cameraPermission = cameraPermission;
+      try {
+        render(<SessionRoomScreen />);
+        await screen.findByTestId("session-webview");
+        expect(
+          new URL(
+            screen.getByTestId("session-webview").props.source.uri as string,
+          ).searchParams.get("cameraPermission"),
+        ).toBe(expected);
+      } finally {
+        delete mockRoomParams.cameraPermission;
+      }
+    },
+  );
   it("세션 경로 + 탭과 동일한 쿼리(appVersion)로 조립한 URL을 WebView에 넘긴다", async () => {
     render(<SessionRoomScreen />);
 
     expect(await screen.findByTestId("session-webview")).toBeTruthy();
     expect(screen.getByTestId("session-webview").props.source).toEqual({
-      uri: "https://web.test/room/1?subjectStart=1&appVersion=1.4.2&share=1&cameraGate=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&pushPermission=1&accountActions=1&nativeTabBar=1&points=1&reviewLogin=1&lang=ko",
+      uri: "https://web.test/room/1?subjectStart=1&appVersion=1.4.2&share=1&cameraGate=1&cameraPermissionLater=1&nativeUpdateGate=1&guestAuth=1&videoShare=1&ranking=1&groupRooms=1&alertHaptic=1&restNotify=1&pushPermission=1&accountActions=1&nativeTabBar=1&points=1&reviewLogin=1&lang=ko",
     });
   });
 
-  it("세션 화면은 항상 다크 배경이다", async () => {
+  it("세션 화면은 웹 세션 화면과 같은 어두운 배경이다", async () => {
     render(<SessionRoomScreen />);
 
     expect(await screen.findByTestId("session-webview")).toBeTruthy();
@@ -136,6 +161,17 @@ describe("SessionRoomScreen", () => {
       flex: 1,
       backgroundColor: "#0B0F14",
     });
+  });
+
+  it("로드가 끝나도 웹이 세션 화면을 그렸다고 알릴 때까지 스피너 없는 덮개로 가린다", async () => {
+    render(<SessionRoomScreen />);
+    const webview = await screen.findByTestId("session-webview");
+
+    act(() => {
+      (webview.props.onLoadEnd as () => void)();
+    });
+    expect(screen.getByTestId("session-webview-splash")).toBeTruthy();
+    expect(screen.UNSAFE_queryByType(ActivityIndicator)).toBeNull();
   });
 
   /**

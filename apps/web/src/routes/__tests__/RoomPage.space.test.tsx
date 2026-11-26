@@ -7,11 +7,12 @@ import { IDBFactory } from "fake-indexeddb";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { submitStudySession } from "@/features/study-session/submitStudySession";
 import {
   __resetTimerBackgroundPhotoStoreForTests,
   timerBackgroundPhotoStore,
 } from "@/features/timer-background/timerBackgroundPhotos";
+import { writeSessionSimpleMode } from "@/features/study-session/sessionScreenMode";
+import { submitStudySession } from "@/features/study-session/submitStudySession";
 import { createLoopSound } from "@/features/timer-background/loopSound";
 import { createWatcherSound } from "@/features/timer-background/watcher/watcherSound";
 import {
@@ -27,7 +28,6 @@ import { queryClient } from "@/lib/queryClient";
 import { showCtaToast } from "@/lib/toast";
 import { PROCTOR_SPACE, RAIN_ITEM, RAIN_SPACE, shopSpace } from "@/test/spaceFixtures";
 
-import { answerCameraPrompt } from "@/test/cameraPrompt";
 import { RoomPage } from "../RoomPage";
 
 /**
@@ -118,7 +118,13 @@ function FocusFeaturesResult() {
   return <p>{`집중 기능 사용: ${String(state?.focusFeaturesUsed)}`}</p>;
 }
 
-function renderRoom(entryMode: "camera" | "simple" = "camera") {
+/** v3는 더보기의 배경 설정으로 공간 페이지를 연다. */
+async function openSpacePage() {
+  await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "배경 설정" }));
+}
+
+function renderRoom() {
   const view = render(
     <MemoryRouter initialEntries={["/room/7?userId=1"]}>
       <Routes>
@@ -127,7 +133,6 @@ function renderRoom(entryMode: "camera" | "simple" = "camera") {
       </Routes>
     </MemoryRouter>,
   );
-  answerCameraPrompt(entryMode);
   return view;
 }
 
@@ -160,14 +165,10 @@ describe("RoomPage 공간", () => {
     localStorage.clear();
   });
 
-  it("세로 열 맨 위에 공간 버튼이 있고 누르면 공간 페이지가 열리며 이벤트를 보낸다", async () => {
+  it("더보기의 배경 설정을 누르면 공간 페이지가 열리며 이벤트를 보낸다", async () => {
     renderRoom();
 
-    const names = within(screen.getByRole("group", { name: "부가 기능" }))
-      .getAllByRole("button")
-      .map((button) => button.getAttribute("aria-label"));
-    expect(names[0]).toBe("공간");
-    await userEvent.click(screen.getByRole("button", { name: "공간" }));
+    await openSpacePage();
 
     expect(await screen.findByRole("dialog", { name: "공간" })).toBeInTheDocument();
     expect(trackSessionSpaceOpened).toHaveBeenCalledOnce();
@@ -179,130 +180,10 @@ describe("RoomPage 공간", () => {
     expect(screen.queryByTestId("timer-background")).not.toBeInTheDocument();
   });
 
-  it.each([
-    {
-      name: "과목 없이 비 오는 창가를 쓰고 심플 배경으로 바꾼 뒤",
-      background: RAIN_SPACE,
-      nextSpace: "심플",
-      eligible: true,
-    },
-    { name: "과목 없이 감독관 배경을 쓴 뒤", background: PROCTOR_SPACE, eligible: true },
-    { name: "내 사진을 타이머 배경으로 쓴 뒤", usePhoto: true, eligible: true },
-    { name: "기본 배경으로만 공부한 뒤", eligible: false },
-    {
-      name: "선택한 영상과 포스터를 모두 불러오지 못한 뒤",
-      background: RAIN_SPACE,
-      backgroundFailed: true,
-      eligible: false,
-    },
-    {
-      name: "저장된 배경이 심플 모드에 가려진 채 공부한 뒤",
-      background: RAIN_SPACE,
-      entryMode: "simple" as const,
-      eligible: false,
-    },
-    {
-      name: "일시정지 중에만 타이머 배경을 켠 뒤",
-      nextSpace: "비 오는 창가",
-      pauseBeforeApplying: true,
-      eligible: false,
-    },
-    {
-      name: "공간 페이지를 닫기 전에 고른 배경을 심플로 되돌린 뒤",
-      nextSpace: "비 오는 창가",
-      revertBeforeClosing: true,
-      eligible: false,
-    },
-  ])(
-    "$name 끝내면 집중 기능 사용 여부는 $eligible이다",
-    async ({
-      background,
-      usePhoto,
-      entryMode,
-      nextSpace,
-      pauseBeforeApplying,
-      backgroundFailed,
-      revertBeforeClosing,
-      eligible,
-    }) => {
-      if (usePhoto) {
-        globalThis.indexedDB = new IDBFactory();
-        __resetTimerBackgroundPhotoStoreForTests();
-        const photo = await timerBackgroundPhotoStore().add(
-          { bytes: new ArrayBuffer(1), width: 1, height: 1 },
-          1,
-        );
-        localStorage.setItem(KEY, JSON.stringify({ kind: "photo", photoId: photo.id }));
-      } else if (background) {
-        localStorage.setItem(KEY, JSON.stringify(background));
-      }
-      vi.mocked(submitStudySession).mockResolvedValueOnce([
-        {
-          id: 1,
-          userId: 1,
-          statDate: "2026-11-22",
-          startedAt: "2026-11-22T01:00:00Z",
-          endedAt: "2026-11-22T01:30:00Z",
-          studySec: 1800,
-          focusSec: 1800,
-          focusRate: 100,
-          events: [],
-        },
-      ]);
-
-      renderRoom(entryMode);
-      if (usePhoto) {
-        expect(await screen.findByTestId("timer-background-layer")).toBeInTheDocument();
-      }
-      const wallpaper = screen.queryByTestId("timer-background");
-      if (wallpaper && !backgroundFailed) {
-        const image = wallpaper.querySelector("img");
-        if (image) fireEvent.load(image);
-        else fireEvent.loadedData(wallpaper.querySelector("video")!);
-      }
-
-      vi.useFakeTimers({ toFake: ["Date"] });
-      try {
-        vi.setSystemTime(Date.now() + 1_800_000);
-        if (backgroundFailed) {
-          fireEvent.error(wallpaper!.querySelector("video")!);
-          fireEvent.error(wallpaper!.querySelector("img")!);
-        }
-        if (nextSpace !== undefined) {
-          if (pauseBeforeApplying) {
-            await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
-          }
-          await userEvent.click(screen.getByRole("button", { name: "공간" }));
-          if (nextSpace === "심플") {
-            await userEvent.click(screen.getByRole("tab", { name: "이미지" }));
-          }
-          await userEvent.click(await screen.findByRole("button", { name: nextSpace }));
-          if (pauseBeforeApplying || revertBeforeClosing) {
-            fireEvent.loadedData(screen.getByTestId("timer-background").querySelector("video")!);
-          }
-          if (revertBeforeClosing) {
-            await userEvent.click(screen.getByRole("tab", { name: "이미지" }));
-            await userEvent.click(await screen.findByRole("button", { name: "심플" }));
-          }
-          await userEvent.keyboard("{Escape}");
-          vi.setSystemTime(Date.now() + 5_000);
-        }
-        await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
-        await userEvent.click(
-          within(screen.getByRole("alertdialog")).getByRole("button", { name: "공부 종료" }),
-        );
-
-        expect(await screen.findByText(`집중 기능 사용: ${eligible}`)).toBeInTheDocument();
-      } finally {
-        vi.useRealTimers();
-      }
-    },
-  );
-
   it("공간 음량을 바꾸면 감독 소리에 반영하고 손을 뗄 때 저장한다", async () => {
     localStorage.setItem(KEY, JSON.stringify(PROCTOR_SPACE));
     renderRoom();
-    await userEvent.click(screen.getByRole("button", { name: "공간" }));
+    await openSpacePage();
 
     const slider = await screen.findByRole("slider", { name: "공간 음량" });
     fireEvent.change(slider, { target: { value: "30" } });
@@ -313,16 +194,20 @@ describe("RoomPage 공간", () => {
   });
 
   // 감독관이 다가오고 들어오는 동안 화면을 바꿔도 발소리를 건너뛰지 않아야 돌아왔을 때 소리 없이 서 있지 않는다.
-  it("심플 모드와 작은 창을 키운 동안에도 감독 소리를 끄지 않는다", async () => {
+  // v3는 키운 카메라가 감독관을 덮어서 키운 동안만 발소리를 끈다. 심플 모드는 배경이 남아 끄지 않는다.
+  it("심플 모드에서는 감독 소리를 끄지 않고, 작은 창을 키운 동안만 끈다", async () => {
     localStorage.setItem(KEY, JSON.stringify(PROCTOR_SPACE));
     renderRoom();
 
-    await userEvent.click(screen.getByRole("button", { name: "내 화면 크게 보기" }));
-    await userEvent.click(screen.getByRole("button", { name: "작게 보기" }));
     await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
-
     expect(sound.prime).toHaveBeenCalled();
     expect(sound.setMuted).not.toHaveBeenCalledWith(true);
+    await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
+
+    await userEvent.click(screen.getByRole("button", { name: "내 화면 크게 보기" }));
+    expect(sound.setMuted).toHaveBeenLastCalledWith(true);
+    await userEvent.click(screen.getByRole("button", { name: "작게 보기" }));
+    expect(sound.setMuted).toHaveBeenLastCalledWith(false);
     expect(sound.stopAll).not.toHaveBeenCalled();
   });
 
@@ -341,42 +226,25 @@ describe("RoomPage 공간", () => {
     fireEvent.pointerDown(window);
     expect(sound.prime).toHaveBeenCalledTimes(primes);
   });
-  it("고른 사진을 읽지 못하면 심플로 그리고 종료 이벤트에도 심플로 싣는다", async () => {
-    localStorage.setItem("focusmakers.timerBackground", '{"kind":"photo","photoId":"p1"}');
-    const get = vi
-      .spyOn(timerBackgroundPhotoStore(), "get")
-      .mockRejectedValue(new DOMException("blocked", "UnknownError"));
+  // v3는 심플 모드에서도 월페이퍼를 둔 채 카메라 창만 뺀다(시안 31a).
+  it("서버 감독 공간을 적용하면 배경이 깔리고 심플 모드에서도 남는다", async () => {
     renderRoom();
-    // 한 번 다시 읽고서야 실패로 끝난다.
-    await waitFor(() => expect(get).toHaveBeenCalledTimes(2), { timeout: 3000 });
-
-    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
-    await userEvent.click(
-      within(screen.getByRole("alertdialog")).getByRole("button", { name: "공부 종료" }),
-    );
-
-    await waitFor(() => expect(trackStudySessionEnded).toHaveBeenCalledOnce());
-    expect(vi.mocked(trackStudySessionEnded).mock.calls[0]?.[0].display?.spaceKind).toBe("simple");
-    expect(screen.queryByTestId("timer-background-layer")).not.toBeInTheDocument();
-  });
-
-  it("서버 감독 공간을 적용하면 일반 모드에 배경이 깔리고 심플 모드에서는 걷힌다", async () => {
-    renderRoom();
-    await userEvent.click(screen.getByRole("button", { name: "공간" }));
+    await openSpacePage();
 
     await userEvent.click(await screen.findByRole("button", { name: "독서실 감독관" }));
 
     expect(JSON.parse(localStorage.getItem(KEY)!)).toEqual(PROCTOR_SPACE);
-    expect(screen.getByTestId("timer-background")).toHaveAttribute("data-visible", "true");
+    expect(screen.getByTestId("timer-background")).toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     await userEvent.click(screen.getByRole("button", { name: "심플 모드 전환" }));
-    expect(screen.getByTestId("timer-background")).toHaveAttribute("data-visible", "false");
+    expect(screen.getByTestId("timer-background")).not.toHaveClass("invisible");
+    expect(screen.getByTestId("watcher-background")).toBeInTheDocument();
   });
 
   it("비회원은 서버에 묻지도 저장하지도 않고 기기 값만 바꾼다", async () => {
     renderRoom();
-    await userEvent.click(screen.getByRole("button", { name: "공간" }));
+    await openSpacePage();
 
     await userEvent.click(await screen.findByRole("button", { name: "독서실 감독관" }));
 
@@ -388,7 +256,7 @@ describe("RoomPage 공간", () => {
   it("회원이 서버 공간을 고르면 서버에 저장하고 심플을 고르면 null을 저장한다", async () => {
     signIn();
     renderRoom();
-    await userEvent.click(screen.getByRole("button", { name: "공간" }));
+    await openSpacePage();
 
     await userEvent.click(await screen.findByRole("button", { name: "독서실 감독관" }));
     await waitFor(() => expect(putTimerBackground).toHaveBeenCalledWith(41));
@@ -402,7 +270,7 @@ describe("RoomPage 공간", () => {
     signIn();
     vi.mocked(putTimerBackground).mockRejectedValue(new Error("offline"));
     renderRoom();
-    await userEvent.click(screen.getByRole("button", { name: "공간" }));
+    await openSpacePage();
 
     await userEvent.click(await screen.findByRole("button", { name: "독서실 감독관" }));
 
@@ -488,7 +356,7 @@ describe("RoomPage 공간", () => {
       .mockReturnValueOnce(new Promise((resolve) => (finishFirst = () => resolve(saved))))
       .mockResolvedValue(saved);
     renderRoom();
-    await userEvent.click(screen.getByRole("button", { name: "공간" }));
+    await openSpacePage();
 
     await userEvent.click(await screen.findByRole("button", { name: "독서실 감독관" }));
     await waitFor(() => expect(putTimerBackground).toHaveBeenCalledWith(41));
@@ -517,7 +385,7 @@ describe("RoomPage 공간", () => {
       .mockReturnValueOnce(new Promise((resolve) => (finishFirst = () => resolve(saved))))
       .mockResolvedValue(saved);
     renderRoom();
-    await userEvent.click(screen.getByRole("button", { name: "공간" }));
+    await openSpacePage();
 
     await userEvent.click(await screen.findByRole("button", { name: "독서실 감독관" }));
     await waitFor(() => expect(putTimerBackground).toHaveBeenCalledWith(41));
@@ -541,7 +409,7 @@ describe("RoomPage 공간", () => {
       .mockReturnValueOnce(new Promise((resolve) => (finishFirst = () => resolve(saved))))
       .mockRejectedValueOnce(new Error("offline"));
     renderRoom();
-    await userEvent.click(screen.getByRole("button", { name: "공간" }));
+    await openSpacePage();
 
     await userEvent.click(await screen.findByRole("button", { name: "독서실 감독관" }));
     await waitFor(() => expect(putTimerBackground).toHaveBeenCalledWith(41));
@@ -581,7 +449,7 @@ describe("RoomPage 공간", () => {
     const first = created.at(-1)!;
     expect(first.prime).toHaveBeenCalled();
 
-    await userEvent.click(screen.getByRole("button", { name: "공간" }));
+    await openSpacePage();
     await userEvent.click(await screen.findByRole("button", { name: "도서관 감독관" }));
 
     const second = created.at(-1)!;
@@ -618,14 +486,14 @@ describe("RoomPage 공간", () => {
           </Routes>
         </MemoryRouter>,
       );
-      answerCameraPrompt("camera");
       await act(async () => {
         await vi.advanceTimersByTimeAsync(0);
       });
 
       await act(async () => {
         window.__focusonMockDetector!.emit({ source: "PHONE", active: true });
-        await vi.advanceTimersByTimeAsync(1_200);
+        // 싱글룸은 신호가 10초 이어져야 비집중으로 확정한다(유예 감지).
+        await vi.advanceTimersByTimeAsync(10_200);
       });
       const layer = screen.getByTestId("distract-space");
       expect(layer.querySelector("video")!.getAttribute("src")).toContain(
@@ -683,13 +551,13 @@ describe("RoomPage 공간", () => {
           </Routes>
         </MemoryRouter>,
       );
-      answerCameraPrompt("camera");
       await act(async () => {
         await vi.advanceTimersByTimeAsync(0);
       });
       await act(async () => {
         window.__focusonMockDetector!.emit({ source: "PHONE", active: true });
-        await vi.advanceTimersByTimeAsync(1_200);
+        // 싱글룸은 신호가 10초 이어져야 비집중으로 확정한다(유예 감지).
+        await vi.advanceTimersByTimeAsync(10_200);
       });
       await act(async () => {
         await vi.advanceTimersByTimeAsync(3_000);
@@ -736,13 +604,13 @@ describe("RoomPage 공간", () => {
           </Routes>
         </MemoryRouter>,
       );
-      answerCameraPrompt("camera");
       await act(async () => {
         await vi.advanceTimersByTimeAsync(0);
       });
       await act(async () => {
         window.__focusonMockDetector!.emit({ source: "PHONE", active: true });
-        await vi.advanceTimersByTimeAsync(1_200);
+        // 싱글룸은 신호가 10초 이어져야 비집중으로 확정한다(유예 감지).
+        await vi.advanceTimersByTimeAsync(10_200);
       });
 
       fireEvent.error(screen.getByTestId("distract-space").querySelector("video")!);
@@ -780,7 +648,7 @@ describe("RoomPage 공간", () => {
         : new Response(JSON.stringify({ version: 1, sounds: [] })),
     );
     renderRoom();
-    await userEvent.click(screen.getByRole("button", { name: "공간" }));
+    await openSpacePage();
     await waitFor(() =>
       expect(fetch).toHaveBeenCalledWith(
         expect.stringContaining("/spaces/loop/1a2b3c4d/manifest.json"),
@@ -791,5 +659,146 @@ describe("RoomPage 공간", () => {
     const slider = await screen.findByRole("slider", { name: "공간 음량" });
     if (enabled) await waitFor(() => expect(slider).toBeEnabled());
     else expect(slider).toBeDisabled();
+  });
+
+  it.each([
+    {
+      name: "과목 없이 비 오는 창가를 쓰고 심플 배경으로 바꾼 뒤",
+      background: RAIN_SPACE,
+      nextSpace: "심플",
+      eligible: true,
+    },
+    { name: "과목 없이 감독관 배경을 쓴 뒤", background: PROCTOR_SPACE, eligible: true },
+    { name: "내 사진을 타이머 배경으로 쓴 뒤", usePhoto: true, eligible: true },
+    { name: "기본 배경으로만 공부한 뒤", eligible: false },
+    {
+      name: "선택한 영상과 포스터를 모두 불러오지 못한 뒤",
+      background: RAIN_SPACE,
+      backgroundFailed: true,
+      eligible: false,
+    },
+    // v3 심플 모드는 카메라 창만 빼고 배경을 그대로 둔다.
+    {
+      name: "저장된 배경을 둔 채 심플 모드로 공부한 뒤",
+      background: RAIN_SPACE,
+      entryMode: "simple" as const,
+      eligible: true,
+    },
+    {
+      name: "일시정지 중에만 타이머 배경을 켠 뒤",
+      nextSpace: "비 오는 창가",
+      pauseBeforeApplying: true,
+      eligible: false,
+    },
+    {
+      name: "공간 페이지를 닫기 전에 고른 배경을 심플로 되돌린 뒤",
+      nextSpace: "비 오는 창가",
+      revertBeforeClosing: true,
+      eligible: false,
+    },
+  ])(
+    "$name 끝내면 집중 기능 사용 여부는 $eligible이다",
+    async ({
+      background,
+      usePhoto,
+      entryMode,
+      nextSpace,
+      pauseBeforeApplying,
+      backgroundFailed,
+      revertBeforeClosing,
+      eligible,
+    }) => {
+      if (usePhoto) {
+        globalThis.indexedDB = new IDBFactory();
+        __resetTimerBackgroundPhotoStoreForTests();
+        const photo = await timerBackgroundPhotoStore().add(
+          { bytes: new ArrayBuffer(1), width: 1, height: 1 },
+          1,
+        );
+        localStorage.setItem(KEY, JSON.stringify({ kind: "photo", photoId: photo.id }));
+      } else if (background) {
+        localStorage.setItem(KEY, JSON.stringify(background));
+      }
+      vi.mocked(submitStudySession).mockResolvedValueOnce([
+        {
+          id: 1,
+          userId: 1,
+          statDate: "2026-11-22",
+          startedAt: "2026-11-22T01:00:00Z",
+          endedAt: "2026-11-22T01:30:00Z",
+          studySec: 1800,
+          focusSec: 1800,
+          focusRate: 100,
+          events: [],
+        },
+      ]);
+
+      if (entryMode === "simple") writeSessionSimpleMode(true);
+      renderRoom();
+      if (usePhoto) {
+        expect(await screen.findByTestId("timer-background-layer")).toBeInTheDocument();
+      }
+      const wallpaper = screen.queryByTestId("timer-background");
+      if (wallpaper && !backgroundFailed) {
+        const image = wallpaper.querySelector("img");
+        if (image) fireEvent.load(image);
+        else fireEvent.loadedData(wallpaper.querySelector("video")!);
+      }
+
+      vi.useFakeTimers({ toFake: ["Date"] });
+      try {
+        vi.setSystemTime(Date.now() + 1_800_000);
+        if (backgroundFailed) {
+          fireEvent.error(wallpaper!.querySelector("video")!);
+          fireEvent.error(wallpaper!.querySelector("img")!);
+        }
+        if (nextSpace !== undefined) {
+          if (pauseBeforeApplying) {
+            await userEvent.click(screen.getByRole("button", { name: "일시정지" }));
+          }
+          await openSpacePage();
+          if (nextSpace === "심플") {
+            await userEvent.click(screen.getByRole("tab", { name: "이미지" }));
+          }
+          await userEvent.click(await screen.findByRole("button", { name: nextSpace }));
+          if (pauseBeforeApplying || revertBeforeClosing) {
+            fireEvent.loadedData(screen.getByTestId("timer-background").querySelector("video")!);
+          }
+          if (revertBeforeClosing) {
+            await userEvent.click(screen.getByRole("tab", { name: "이미지" }));
+            await userEvent.click(await screen.findByRole("button", { name: "심플" }));
+          }
+          await userEvent.keyboard("{Escape}");
+          vi.setSystemTime(Date.now() + 5_000);
+        }
+        await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+        await userEvent.click(
+          within(screen.getByRole("alertdialog")).getByRole("button", { name: "공부 종료" }),
+        );
+
+        expect(await screen.findByText(`집중 기능 사용: ${eligible}`)).toBeInTheDocument();
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
+
+  it("고른 사진을 읽지 못하면 심플로 그리고 종료 이벤트에도 심플로 싣는다", async () => {
+    localStorage.setItem("focusmakers.timerBackground", '{"kind":"photo","photoId":"p1"}');
+    const get = vi
+      .spyOn(timerBackgroundPhotoStore(), "get")
+      .mockRejectedValue(new DOMException("blocked", "UnknownError"));
+    renderRoom();
+    // 한 번 다시 읽고서야 실패로 끝난다.
+    await waitFor(() => expect(get).toHaveBeenCalledTimes(2), { timeout: 3000 });
+
+    await userEvent.click(screen.getByRole("button", { name: "공부 종료" }));
+    await userEvent.click(
+      within(screen.getByRole("alertdialog")).getByRole("button", { name: "공부 종료" }),
+    );
+
+    await waitFor(() => expect(trackStudySessionEnded).toHaveBeenCalledOnce());
+    expect(vi.mocked(trackStudySessionEnded).mock.calls[0]?.[0].display?.spaceKind).toBe("simple");
+    expect(screen.queryByTestId("timer-background-layer")).not.toBeInTheDocument();
   });
 });

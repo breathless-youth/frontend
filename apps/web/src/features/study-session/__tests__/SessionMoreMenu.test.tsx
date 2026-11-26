@@ -56,51 +56,43 @@ describe("SessionMoreMenu", () => {
     expect(onOpenHelp).toHaveBeenCalledTimes(1);
   });
 
-  it("플래너를 넘긴 화면에서만 카메라 전환과 도움말 보기 사이에 플래너가 있다", async () => {
-    const onOpenPlanner = vi.fn();
-    render(
-      <SessionMoreMenu
-        container={document.body}
-        onFlipCamera={vi.fn()}
-        onOpenPlanner={onOpenPlanner}
-        onOpenHelp={vi.fn()}
-      />,
-    );
-
-    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
-    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
-      "카메라 전환",
-      "플래너",
-      "도움말 보기",
-    ]);
-    await userEvent.click(screen.getByRole("menuitem", { name: "플래너" }));
-    expect(onOpenPlanner).toHaveBeenCalledOnce();
-  });
-
-  it("카메라 전환을 넘기지 않으면 그 항목이 없다", async () => {
-    render(<SessionMoreMenu container={null} onOpenPlanner={vi.fn()} />);
-
-    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
-
-    const items = screen.getAllByRole("menuitem");
-    expect(items.map((item) => item.textContent)).toEqual(["플래너"]);
-  });
-
-  it("플래너를 넘기지 않으면 항목이 없다", async () => {
-    renderMenu();
-
-    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
-    expect(screen.queryByRole("menuitem", { name: "플래너" })).not.toBeInTheDocument();
-  });
-
-  it("사이드 열 위 버튼이면 메뉴를 버튼 아래 끝 맞춤으로 펼친다", async () => {
-    renderMenu({ aboveSideColumn: true });
+  it("알약 버튼이면 메뉴를 버튼 아래 끝 맞춤으로 펼치고 타이머 항목을 넣을 수 있다", async () => {
+    const onOpenTimer = vi.fn();
+    renderMenu({ variant: "pill", onOpenTimer });
 
     await userEvent.click(screen.getByRole("button", { name: "더보기" }));
 
     const menu = screen.getByRole("menu");
     expect(menu).toHaveAttribute("data-side", "bottom");
     expect(menu).toHaveAttribute("data-align", "end");
+    await userEvent.click(screen.getByRole("menuitem", { name: "타이머" }));
+    expect(onOpenTimer).toHaveBeenCalledTimes(1);
+  });
+
+  it("알약 버튼 메뉴는 세션 아이콘 결로 그린 카메라 전환·스톱워치·타이머 아이콘을 쓴다", async () => {
+    renderMenu({ variant: "pill", onOpenStopwatch: vi.fn(), onOpenTimer: vi.fn() });
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+
+    const icon = (name: string) => screen.getByRole("menuitem", { name }).querySelector("svg");
+    expect(icon("카메라 전환")).toHaveClass("lucide-camera-rotate");
+    expect(icon("스톱워치")).toHaveClass("lucide-stopwatch");
+    expect(icon("타이머")).toHaveClass("lucide-timer-open");
+    const menu = screen.getByRole("menu");
+    expect(menu.querySelector(".lucide-switch-camera, .lucide-timer, .lucide-clock")).toBeNull();
+  });
+
+  it("캐릭터 숨기기·보이기 항목이 없다", async () => {
+    renderMenu({ variant: "pill", onOpenTimer: vi.fn(), onOpenHelp: vi.fn() });
+
+    await userEvent.click(screen.getByRole("button", { name: "더보기" }));
+
+    expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
+      "카메라 전환",
+      "타이머",
+      "도움말 보기",
+      "초대코드 공유",
+    ]);
   });
 
   it("메뉴 안 touchmove는 document까지 올라가지 않는다", async () => {

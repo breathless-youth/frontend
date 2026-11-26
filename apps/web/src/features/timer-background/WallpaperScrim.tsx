@@ -5,11 +5,11 @@ const LAYER =
   "absolute inset-0 transition-opacity duration-500 ease-out motion-reduce:transition-none";
 
 /**
- * 월페이퍼 위아래 어둠
+ * 월페이퍼 위아래 어둠(v3 시안 28e·30a)
  *
  * 머리 줄과 아래쪽 시간 묶음·하단 바가 읽히게 위아래만 어둡게 하고 가운데 그림은 그대로 둔다.
  * 심플 모드는 카메라 창과 하단 칩이 없어 배경이 더 밝게 보이도록 띠를 짧고 옅게 한다.
- * 시계 묶음이 아래쪽에 있어 아래 띠는 글자가 읽힐 만큼 남긴다.
+ * 시간 묶음이 왼쪽 아래에 있어 아래 띠는 글자가 읽힐 만큼 남긴다.
  */
 export function WallpaperScrim({ simple }: { simple: boolean }) {
   return (
@@ -20,8 +20,7 @@ export function WallpaperScrim({ simple }: { simple: boolean }) {
     >
       <div data-scrim="default" className={cn(LAYER, simple ? "opacity-0" : "opacity-100")}>
         <div className="absolute inset-x-0 top-0 h-35 bg-[linear-gradient(180deg,rgba(8,10,14,0.6),rgba(8,10,14,0))] landscape-compact:h-30" />
-        {/* 상태 줄 높이에서 절반 이상 어둡게 해 문구가 읽히게 한다. */}
-        <div className="absolute inset-x-0 bottom-0 h-100 bg-[linear-gradient(0deg,rgba(8,10,14,0.88)_0%,rgba(8,10,14,0.6)_50%,rgba(8,10,14,0)_100%)] regular:h-125 landscape-compact:h-68.75" />
+        <div className="absolute inset-x-0 bottom-0 h-80 bg-[linear-gradient(0deg,rgba(8,10,14,0.88)_0%,rgba(8,10,14,0.6)_50%,rgba(8,10,14,0)_100%)] regular:h-100 landscape-compact:h-55" />
       </div>
       <div data-scrim="simple" className={cn(LAYER, simple ? "opacity-100" : "opacity-0")}>
         <div className="absolute inset-x-0 top-0 h-24 bg-[linear-gradient(180deg,rgba(8,10,14,0.45),rgba(8,10,14,0))] landscape-compact:h-20" />

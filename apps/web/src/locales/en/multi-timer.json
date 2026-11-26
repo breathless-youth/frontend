@@ -1,19 +1,4 @@
 {
-  "entryButton": {
-    "aria": {
-      "open": "Timer"
-    }
-  },
-  "screen": {
-    "title": "Timer",
-    "close": "Turn off timer",
-    "kindLabel": "Timer type",
-    "kind": {
-      "timer": "Timer",
-      "pomodoro": "Pomodoro"
-    },
-    "restart": "Restart"
-  },
   "primary": {
     "start": "Start",
     "pause": "Pause",
@@ -28,24 +13,6 @@
     "minuteOption": "{{count}} min",
     "aria": {
       "minutes": "{{label}} length"
-    }
-  },
-  "pomodoro": {
-    "phase": {
-      "focus": "Focus",
-      "break": "Break"
-    }
-  },
-  "remaining": {
-    "aria": {
-      "label": "Time left"
-    }
-  },
-  "dial": {
-    "lap": "Round {{lap}}",
-    "aria": {
-      "minutes_one": "{{count}} minute",
-      "minutes_other": "{{count}} minutes"
     }
   },
   "wheel": {

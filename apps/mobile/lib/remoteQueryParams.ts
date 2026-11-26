@@ -13,6 +13,7 @@ import { isNewUserThisLaunch } from "./auth";
 import { isLiveActivitySupported } from "./liveActivity";
 import { isPointsAdsSupported } from "./pointsAds";
 import { isPointsChargeSupported } from "./pointsCharge";
+import { isRestNotificationSupported } from "./restNotification";
 import { supportedSocialLoginProviders } from "./socialLogin";
 import { ensureUserRegistered } from "./userApi";
 
@@ -53,6 +54,10 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   // 앱에서 소셜 룸 입장이 통째로 막히는 것을 피하기 위해서다. 원격 웹은 구버전 앱에도 즉시
   // 배포되므로 브리지 존재만으로는 처리 가능 여부를 판단할 수 없다(`share`와 같은 이유).
   params.cameraGate = "1";
+  // `cameraPermissionLater=1`: 이 바이너리가 `start-session`의 `cameraPermission: "later"`를 알아듣고
+  // 세션 화면 안의 `request-camera-gate`(싱글)로 권한을 물을 수 있다는 표시.
+  // 웹은 이 표시가 있을 때만 첫 세션 가이드 끝으로 권한 묻기를 미룬다(`apps/web/src/lib/sessionStart.ts`).
+  params.cameraPermissionLater = "1";
   // `nativeUpdateGate=1`: 이 바이너리가 강제 업데이트를 네이티브에서 판정한다는 표시(BY-586). 웹의
   // `useForceUpdateGate`는 이 표시가 있으면 판정하지 않는다 — 웹 게이트는 이 표시가 없는 구버전
   // 바이너리 전용으로 남는다(`share`·`cameraGate`와 같은 capability 표시 방식).
@@ -77,6 +82,13 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   // 웹은 이 표시가 있을 때만 타이머 끝 알림에 `alert`를 보낸다(`apps/web/src/lib/alertHapticCapability.ts`).
   // 구버전 앱의 파서는 모르는 세기를 통째로 버리므로 브리지가 있다는 것만으로는 보낼 수 없다.
   params.alertHaptic = "1";
+  // `restNotify=1`: 이 바이너리가 `schedule-rest-notification`으로 휴식 끝 로컬 알림을 띄울 수 있다는 표시.
+  // 웹은 이 표시가 있을 때만 휴식 알림 말풍선을 보인다(`apps/web/src/lib/restNotificationCapability.ts`).
+  // 구버전 앱은 앱을 나가 있는 동안 알릴 수 없어 말풍선 자체를 숨긴다.
+  // 알림 네이티브 모듈이 없는 옛 Dev Client에도 붙지 않는다.
+  if (isRestNotificationSupported()) {
+    params.restNotify = "1";
+  }
   // `pushPermission=1`: 이 바이너리는 실행할 때 알림 권한을 묻지 않고 `request-push-permission`을 기다린다는 표시.
   // 웹은 이 표시가 있을 때만 온보딩이나 홈 도착에서 권한을 요청한다(`apps/web/src/lib/nativePushPermission.ts`).
   // 표시 없는 구버전 앱은 실행할 때 이미 물었으므로 웹이 다시 요청하지 않는다.
@@ -108,6 +120,11 @@ export async function buildRemoteQueryParams(): Promise<RemoteQueryParams> {
   // Android 웹뷰의 파일 입력이 큰 카메라 사진을 읽지 못해 Android에만 붙이고, 모듈이 없는 옛 Dev Client에는 붙이지 않는다.
   if (Platform.OS === "android" && profilePhotoPickerNative !== null) {
     params.profilePhotoPicker = "1";
+  }
+  // `backgroundPhotoPicker=1`: 이 바이너리가 `pick-background-photo`를 처리할 수 있다는 표시.
+  // 프로필 선택기만 든 옛 바이너리에도 모듈은 있어서 배경 함수가 있는지로 판단한다(`apps/web/src/lib/nativeBackgroundPhoto.ts`).
+  if (Platform.OS === "android" && typeof profilePhotoPickerNative?.pickBackground === "function") {
+    params.backgroundPhotoPicker = "1";
   }
   // `socialLogin`: 이 바이너리가 `social-login`으로 로그인할 수 있는 공급자 목록이다.
   // 웹은 목록 안의 공급자 버튼만 보이고, 목록이 없는 구버전 앱에서는 로그인을 앱에 맡기지 않는다(`apps/web/src/lib/nativeSocialLogin.ts`).

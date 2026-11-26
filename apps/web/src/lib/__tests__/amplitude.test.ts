@@ -734,9 +734,44 @@ describe("공부 세션 이벤트", () => {
         ambient_sound_sec: 0,
         break_sec: 0,
         multi_timer: "none",
+        yawn_count: 0,
         measure_mode: "camera",
       },
       { time: expect.any(Number) },
+    );
+  });
+
+  it("세션 중 하품 횟수를 싣는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackStudySessionEnded } = await loadModule();
+    initAmplitude();
+
+    trackStudySessionEnded({
+      roomType: "single",
+      studySec: 600,
+      focusSec: 600,
+      pauseSec: 0,
+      distractionSec: 0,
+      endReason: "MANUAL",
+      pauseTrigger: null,
+      willSubmit: true,
+      yawnCount: 3,
+    });
+
+    expect(mocks.track.mock.calls[0]?.[1]).toMatchObject({ yawn_count: 3 });
+  });
+
+  it("하품 하나가 끝나면 길이만 보낸다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const { initAmplitude, trackStudySessionYawned } = await loadModule();
+    initAmplitude();
+
+    trackStudySessionYawned({ startedAtMs: 1000, endedAtMs: 3500 });
+
+    expect(mocks.track).toHaveBeenCalledWith(
+      "study_session_yawned",
+      { duration_ms: 2500 },
+      { time: 3500 },
     );
   });
 
@@ -1510,14 +1545,17 @@ describe("세션 도움말 이벤트", () => {
     m.trackStudySessionHelpShown("auto", "single");
     m.trackStudySessionHelpStepViewed({
       step: 1,
-      stepId: "away",
+      stepId: "grace",
       trigger: "auto",
       roomType: "single",
     });
-    m.trackStudySessionHelpCompleted("menu", "single");
+    m.trackStudySessionHelpCompleted("menu", "single", {
+      cta: "close",
+      timelapseEnabled: null,
+    });
     m.trackStudySessionHelpDismissed({
-      step: 4,
-      stepId: "simple",
+      step: 3,
+      stepId: "ready",
       trigger: "menu",
       roomType: "single",
       reason: "escape",
@@ -1526,46 +1564,68 @@ describe("세션 도움말 이벤트", () => {
     expect(mocks.track).not.toHaveBeenCalled();
   });
 
-  it("노출·단계·완료·닫기를 단계 id와 도움말 판(3)을 담아 보낸다", async () => {
+  it("노출·단계·완료·닫기를 단계 id와 도움말 판(4)을 담아 보낸다", async () => {
     vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
     const m = await loadModule();
     m.initAmplitude();
 
     m.trackStudySessionHelpShown("auto", "single");
     m.trackStudySessionHelpStepViewed({
-      step: 3,
-      stepId: "measuring",
-      trigger: "menu",
+      step: 2,
+      stepId: "distract",
+      trigger: "auto",
       roomType: "single",
     });
-    m.trackStudySessionHelpCompleted("menu", "single");
+    m.trackStudySessionHelpCompleted("auto", "single", {
+      cta: "start",
+      timelapseEnabled: false,
+    });
+    m.trackStudySessionHelpCompleted("menu", "single", {
+      cta: "close",
+      timelapseEnabled: null,
+    });
     m.trackStudySessionHelpDismissed({
-      step: 2,
-      stepId: "away",
+      step: 3,
+      stepId: "ready",
       trigger: "auto",
       roomType: "single",
       reason: "escape",
     });
 
     expect(mocks.track.mock.calls).toEqual([
-      ["study_session_help_shown", { trigger: "auto", room_type: "single", help_version: 3 }],
+      ["study_session_help_shown", { trigger: "auto", room_type: "single", help_version: 4 }],
       [
         "study_session_help_step_viewed",
-        { step: 3, step_id: "measuring", trigger: "menu", room_type: "single", help_version: 3 },
+        { step: 2, step_id: "distract", trigger: "auto", room_type: "single", help_version: 4 },
       ],
       [
         "study_session_help_completed",
-        { trigger: "menu", cta: "start", room_type: "single", help_version: 3 },
+        {
+          trigger: "auto",
+          cta: "start",
+          timelapse_enabled: false,
+          room_type: "single",
+          help_version: 4,
+        },
+      ],
+      [
+        "study_session_help_completed",
+        {
+          trigger: "menu",
+          cta: "close",
+          room_type: "single",
+          help_version: 4,
+        },
       ],
       [
         "study_session_help_dismissed",
         {
-          step: 2,
-          step_id: "away",
+          step: 3,
+          step_id: "ready",
           trigger: "auto",
           room_type: "single",
           reason: "escape",
-          help_version: 3,
+          help_version: 4,
         },
       ],
     ]);
@@ -2476,6 +2536,25 @@ describe("멀티 타이머 이벤트", () => {
       ],
       ["multi_timer_restarted", { kind: "timer" }],
       ["multi_timer_restarted", { kind: "pomodoro", phase: "break" }],
+    ]);
+  });
+
+  it("스톱워치 시작에는 시간 설정값을 싣지 않는다", async () => {
+    vi.stubEnv("VITE_AMPLITUDE_API_KEY", "test-key");
+    const m = await loadModule();
+    m.initAmplitude();
+
+    m.trackMultiTimerStarted({
+      kind: "stopwatch",
+      timerSec: 600,
+      focusMin: 25,
+      breakMin: 5,
+      soundOn: false,
+      fromPause: false,
+    });
+
+    expect(mocks.track.mock.calls).toEqual([
+      ["multi_timer_started", { kind: "stopwatch", sound_on: false, from_pause: false }],
     ]);
   });
 

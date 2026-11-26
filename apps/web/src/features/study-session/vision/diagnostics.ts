@@ -35,6 +35,7 @@ export interface FrameDiagnostics {
   readonly topScores: Readonly<Record<string, number>>;
   /** 최종 판정(원신호). 유지시간 디바운스 이전 값이다. */
   readonly awaySignal: boolean;
+  /** 휴대폰을 쥐고 있다는 원신호. 검출만 된 휴대폰은 `topScores`의 점수로 남는다. */
   readonly phoneSignal: boolean;
   /** 프레임 처리 소요시간(ms). */
   readonly durationMs: number;
@@ -53,6 +54,22 @@ export interface FrameDiagnostics {
   readonly eyeClosedRatio?: number | null;
   /** 이번 프레임의 얼굴 추론 결과. 얼굴 추론을 건너뛴 프레임에서는 null이다. */
   readonly face?: FaceFrameDiagnostics | null;
+  /** 공부 증거 원신호와 그 재료. 랜드마크 좌표는 남기지 않고 판정 결과, 눈 점수, 소요시간만 남긴다. */
+  readonly evidence?: {
+    readonly tool: boolean;
+    readonly noEvidence: boolean;
+    readonly screenGaze: boolean;
+    /** 얼굴이 안 보일 때 도구 위에서 손이 필기·타이핑하듯 움직였다. 강한 공부 증거다. */
+    readonly working?: boolean;
+    /** 판정에 쓴 양쪽 눈 아래 보기 평균. 고개 숙임 게이트 전 값이다. */
+    readonly eyeLookDown: number | null;
+    /** 얼굴이 보이고 증거 없음도 화면 응시도 아니다. 도구 응시나 손 증거로 공부로 본 프레임이다. */
+    readonly gazeOnTool: boolean;
+    readonly handsAtTool: boolean | null;
+    readonly handsMoving: boolean | null;
+    /** 손 추론이 이 프레임에 돌았으면 소요시간(ms). */
+    readonly handDurationMs: number | null;
+  };
 }
 
 /**
@@ -65,7 +82,8 @@ export interface FrameDiagnostics {
 export interface FaceFrameDiagnostics {
   readonly present: boolean;
   /**
-   * 눈 관련 점수. 품질 게이트를 통과했을 때만 있다.
+   * 눈 관련 점수. 얼굴 모델이 준 값이다. 고개를 숙여 졸음 판정에서 뺀 프레임도 시선 원인을 보려고
+   * 그대로 싣는다. 건너뛴 이유는 `skipReason`에 있다.
    *
    * 이름을 allowlist로 좁히는 것이 "스칼라만 받는다"와 같은 급의 구조적 보장이다. `string` 키면
    * 타입상 blendshape 52개를 전부 흘릴 수 있다.
@@ -77,6 +95,9 @@ export interface FaceFrameDiagnostics {
   readonly delegate: Delegate | null;
   /** 고개 숙임 각도(도). 자세 행렬이 없으면 null. 좌표가 아니라 각도 하나다. */
   readonly headPitchDeg?: number | null;
+  readonly headYawDeg?: number | null;
+  readonly toCameraH?: number | null;
+  readonly toCameraV?: number | null;
 }
 
 /**
@@ -163,6 +184,38 @@ export function createVisionDiagnostics(sink: DiagnosticsSink): VisionDiagnostic
         }
         if (face.headPitchDeg !== undefined && face.headPitchDeg !== null) {
           payload["face:headPitchDeg"] = round2(face.headPitchDeg);
+        }
+        if (face.headYawDeg !== undefined && face.headYawDeg !== null) {
+          payload["face:headYawDeg"] = round2(face.headYawDeg);
+        }
+        // 카메라 쪽 방향은 고개 각도와 같은 종류의 각도다. 얼굴 위치(이동값)는 싣지 않는다.
+        if (face.toCameraH !== undefined && face.toCameraH !== null) {
+          payload["face:toCamH"] = round2(face.toCameraH);
+        }
+        if (face.toCameraV !== undefined && face.toCameraV !== null) {
+          payload["face:toCamV"] = round2(face.toCameraV);
+        }
+      }
+      const evidence = diagnostics.evidence;
+      if (evidence !== undefined) {
+        payload.tool = evidence.tool;
+        payload.noEvidence = evidence.noEvidence;
+        payload.screenGaze = evidence.screenGaze;
+        if (evidence.working !== undefined) {
+          payload.working = evidence.working;
+        }
+        if (evidence.eyeLookDown !== null) {
+          payload.eyeLookDown = round2(evidence.eyeLookDown);
+        }
+        payload.studyEvidence = evidence.gazeOnTool;
+        if (evidence.handsAtTool !== null) {
+          payload.handsAtTool = evidence.handsAtTool;
+        }
+        if (evidence.handsMoving !== null) {
+          payload.handsMoving = evidence.handsMoving;
+        }
+        if (evidence.handDurationMs !== null) {
+          payload["hand:durationMs"] = round2(evidence.handDurationMs);
         }
       }
       sink.log("vision:frame", payload);

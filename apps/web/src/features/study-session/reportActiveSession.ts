@@ -1,5 +1,6 @@
 import type {
   ActiveSessionSnapshotRequest,
+  ObservationPayload,
   StatusEventPayload,
   SubjectSegmentPayload,
 } from "@focusmakers/types";
@@ -7,7 +8,11 @@ import type {
 import { API_BASE_URL, apiFetch, parseApiError } from "@/lib/api";
 import { legacyUserId } from "@/lib/userId";
 
-import { clampSessionSeconds, clampSubjectSegments } from "./sessionRequestClamp";
+import {
+  clampObservations,
+  clampSessionSeconds,
+  clampSubjectSegments,
+} from "./sessionRequestClamp";
 
 /**
  * 진행 스냅샷 입력. 계약 값은 계산하지 않고 받기만 한다 — studySec/focusSec/events는
@@ -21,6 +26,8 @@ export interface ActiveSnapshotInput {
   events: StatusEventPayload[];
   /** 과목 구간 — 진행 중 구간은 reportedAt에서 닫아 넘긴다. 클램프 뒤 비어 있으면 필드를 싣지 않는다(제출과 같은 규칙). */
   subjectSegments?: SubjectSegmentPayload[];
+  /** 관찰 기록(하품 등). reportedAt 밖은 버리고, 비어 있으면 필드를 싣지 않는다. */
+  observations?: ObservationPayload[];
   /** 제출과 같은 규칙으로 TIMER일 때만 싣는 측정 방식 */
   source?: ActiveSessionSnapshotRequest["source"];
 }
@@ -49,6 +56,14 @@ export function buildActiveSnapshotRequest(
   );
   if (subjectSegments.length > 0) {
     request.subjectSegments = subjectSegments;
+  }
+  const observations = clampObservations(
+    input.observations ?? [],
+    input.startedAtMs,
+    input.reportedAtMs,
+  );
+  if (observations.length > 0) {
+    request.observations = observations;
   }
   if (input.source === "TIMER") {
     request.source = "TIMER";

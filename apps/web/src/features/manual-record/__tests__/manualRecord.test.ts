@@ -48,7 +48,7 @@ function measured(id: number, startMs: number, endMs: number): StudySessionSumma
     studySec: sec,
     focusSec: sec,
     focusRate: 100,
-    eventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, PAUSE: 0 },
+    eventCounts: { AWAY: 0, PHONE: 0, DEVICE: 0, SLEEP: 0, SCREEN: 0, POSTURE: 0, PAUSE: 0 },
     events: [],
     subjectSegments: [],
   };

@@ -1,4 +1,4 @@
-import { SCORE_THRESHOLDS } from "./visionConfig";
+import { PERSON_MIN_AREA_RATIO, SCORE_THRESHOLDS } from "./visionConfig";
 
 /**
  * 검출 → 감지 신호(boolean) 판정 — **순수 함수만** 있다(설계 §4).
@@ -39,9 +39,8 @@ export interface FrameSize {
 /**
  * 규칙이 판정에 쓰는 한 프레임분 입력(설계 §4 스케치 그대로).
  *
- * `previous`와 `frameSize`는 **지금 규칙이 쓰지 않는다.** 그래도 인터페이스에 넣는 이유는
- * 설계 §4가 정리한 후속 규칙 후보가 **전부 이 둘로 구현되기 때문**이다 —
- * 박스 크기 임계는 `frameSize` 대비 면적을, 프레임 간 이동량은 `previous`를 쓴다.
+ * `previous`는 **지금 규칙이 쓰지 않는다.** `frameSize`는 사람 크기 규칙(`sizedPersonPresenceRule`)이 넓이 비율에 쓴다.
+ * 그래도 `previous`를 인터페이스에 넣는 이유는 설계 §4가 정리한 후속 규칙 후보(프레임 간 이동량)가 이것으로 구현되기 때문이다.
  * 나중에 넣으면 규칙 시그니처가 바뀌고, 그러면 호출부(프레임 루프·훅)까지 함께 고쳐야 한다.
  */
 export interface DetectionFrame {
@@ -104,6 +103,24 @@ export type PersonPresenceRule = (frame: DetectionFrame) => boolean;
  */
 export const personPresenceRule: PersonPresenceRule = (frame) =>
   maxScoreFor(frame.detections, PERSON_LABEL) >= SCORE_THRESHOLDS.person;
+
+/**
+ * 화면에 작게 보이는 사람은 세지 않는 자리 이탈 규칙. 근거와 한계는 `PERSON_MIN_AREA_RATIO` 주석.
+ *
+ * 영상 크기를 아직 모르면 넓이를 잴 수 없으므로 `personPresenceRule`과 같게 판정한다.
+ */
+export const sizedPersonPresenceRule: PersonPresenceRule = (frame) => {
+  const frameArea = frame.frameSize.width * frame.frameSize.height;
+  if (frameArea <= 0) {
+    return personPresenceRule(frame);
+  }
+  return frame.detections.some(
+    ({ label, score, box }) =>
+      label === PERSON_LABEL &&
+      score >= SCORE_THRESHOLDS.person &&
+      (box.width * box.height) / frameArea >= PERSON_MIN_AREA_RATIO,
+  );
+};
 
 /**
  * 폰 사용 판정 규칙 — **교체 지점**(설계 §4).

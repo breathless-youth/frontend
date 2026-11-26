@@ -11,17 +11,13 @@ const layer = (variant: "default" | "simple") => {
 };
 
 describe("WallpaperScrim", () => {
-  it("기본 모드는 위 140px·아래 400px 띠를 보이고 큰 화면·가로도 같은 비율로 늘린다", () => {
+  it("기본 모드는 위 140px·아래 320px 띠를 보이고 심플 띠는 숨긴다", () => {
     render(<WallpaperScrim simple={false} />);
 
     expect(layer("default").group).toHaveClass("opacity-100");
     expect(layer("simple").group).toHaveClass("opacity-0");
     expect(layer("default").top).toHaveClass("h-35");
-    expect(layer("default").bottom).toHaveClass(
-      "h-100",
-      "regular:h-125",
-      "landscape-compact:h-68.75",
-    );
+    expect(layer("default").bottom).toHaveClass("h-80");
   });
 
   it("심플 모드는 배경이 밝게 보이도록 더 짧고 옅은 띠를 보인다", () => {

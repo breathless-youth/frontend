@@ -12,7 +12,6 @@ import { getDecorations } from "@/lib/pointsApi";
 import { getProfile } from "@/lib/profileApi";
 import { __resetPointsForTests } from "@/lib/pointsCapability";
 import { queryClient } from "@/lib/queryClient";
-import { answerCameraPrompt } from "@/test/cameraPrompt";
 import { recordResultMascot } from "@/test/resultMascotRecorder";
 
 import { ResultPage } from "../ResultPage";
@@ -107,7 +106,6 @@ function renderRoomThenResult() {
       </MemoryRouter>
     </QueryClientProvider>,
   );
-  answerCameraPrompt("camera");
 }
 
 /**

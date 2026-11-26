@@ -115,3 +115,36 @@ describe("multiTimerMachine", () => {
     expect(syncMode(s, 1_000, false).state).toBe(s);
   });
 });
+
+describe("multiTimerMachine 스톱워치", () => {
+  const runningStopwatch = () => startMode(createModeState("stopwatch", S));
+
+  it("0부터 시작해 흐른 시간만큼 올라가고 끝 알림이 없다", () => {
+    let s = runningStopwatch();
+    expect(s.status).toBe("running");
+    expect(remainingMs(s, 0)).toBe(0);
+
+    s = syncMode(s, 1000, false).state;
+    const later = syncMode(s, 3_601_000, false);
+    expect(later.alarms).toEqual([]);
+    expect(remainingMs(later.state, 3_601_000)).toBe(3_600_000);
+  });
+
+  it("세션이 멈춘 동안에는 멈추고 다시 흐르면 이어서 센다", () => {
+    let s = syncMode(runningStopwatch(), 0, false).state;
+    s = syncMode(s, 5000, true).state;
+    expect(remainingMs(s, 60_000)).toBe(5000);
+
+    s = syncMode(s, 60_000, false).state;
+    expect(remainingMs(s, 62_000)).toBe(7000);
+  });
+
+  it("멈춤과 계속은 흐른 시간을 그대로 이어간다", () => {
+    let s = syncMode(runningStopwatch(), 0, false).state;
+    s = pauseMode(s, 4000);
+    expect(remainingMs(s, 10_000)).toBe(4000);
+
+    s = syncMode(resumeMode(s), 10_000, false).state;
+    expect(remainingMs(s, 11_000)).toBe(5000);
+  });
+});

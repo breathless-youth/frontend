@@ -5,8 +5,10 @@ import type {
   AssetTiming,
   DetectorCreateOptions,
   FaceLandmarkerCreateOptions,
+  HandLandmarkerCreateOptions,
   MediapipeDetectionResult,
   MediapipeFaceResult,
+  MediapipeHandResult,
 } from "./mediapipePort";
 
 /**
@@ -21,7 +23,7 @@ import type {
  * 메인이 `terminate()`하면 wasm 힙과 GL 컨텍스트가 함께 사라진다.
  */
 
-export type WorkerModelKind = "object" | "face";
+export type WorkerModelKind = "object" | "face" | "hand";
 
 export type MainToWorkerMessage =
   | {
@@ -35,6 +37,12 @@ export type MainToWorkerMessage =
       readonly id: number;
       readonly model: "face";
       readonly options: FaceLandmarkerCreateOptions;
+    }
+  | {
+      readonly type: "create";
+      readonly id: number;
+      readonly model: "hand";
+      readonly options: HandLandmarkerCreateOptions;
     }
   /**
    * `frame`은 transfer로 소유권째 넘어온다.
@@ -84,6 +92,12 @@ export type WorkerToMainMessage =
       readonly result: MediapipeFaceResult;
       readonly photo?: ArrayBuffer;
     }
+  | {
+      readonly type: "result";
+      readonly id: number;
+      readonly model: "hand";
+      readonly result: MediapipeHandResult;
+    }
   | { readonly type: "detectFailed"; readonly id: number; readonly reason: string }
   | { readonly type: "captured"; readonly id: number; readonly photo: ArrayBuffer }
   | { readonly type: "captureFailed"; readonly id: number; readonly reason: string };
@@ -100,9 +114,15 @@ export interface WorkerFaceLandmarker {
   close(): void;
 }
 
+export interface WorkerHandLandmarker {
+  detectForVideo(frame: ImageBitmap, timestampMs: number): MediapipeHandResult;
+  close(): void;
+}
+
 export interface WorkerHandlerDeps {
   createDetector(options: DetectorCreateOptions): Promise<WorkerDetector>;
   createFaceLandmarker(options: FaceLandmarkerCreateOptions): Promise<WorkerFaceLandmarker>;
+  createHandLandmarker(options: HandLandmarkerCreateOptions): Promise<WorkerHandLandmarker>;
   /** 워커가 지금까지 받은 자원의 Resource Timing. `startTime`은 epoch ms로 준다. */
   readAssetTimings(): readonly AssetTiming[];
   /** 타임랩스 사진 한 장을 OffscreenCanvas로 만든다. */
@@ -113,7 +133,8 @@ export interface WorkerHandlerDeps {
 
 type WorkerModel =
   | { readonly kind: "object"; readonly model: WorkerDetector }
-  | { readonly kind: "face"; readonly model: WorkerFaceLandmarker };
+  | { readonly kind: "face"; readonly model: WorkerFaceLandmarker }
+  | { readonly kind: "hand"; readonly model: WorkerHandLandmarker };
 
 export function reasonOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -136,10 +157,17 @@ export function createWorkerMessageHandler(
     creating.add(message.id);
     let opened: WorkerModel;
     try {
-      opened =
-        message.model === "object"
-          ? { kind: "object", model: await deps.createDetector(message.options) }
-          : { kind: "face", model: await deps.createFaceLandmarker(message.options) };
+      switch (message.model) {
+        case "object":
+          opened = { kind: "object", model: await deps.createDetector(message.options) };
+          break;
+        case "face":
+          opened = { kind: "face", model: await deps.createFaceLandmarker(message.options) };
+          break;
+        case "hand":
+          opened = { kind: "hand", model: await deps.createHandLandmarker(message.options) };
+          break;
+      }
     } catch (error: unknown) {
       deps.post({ type: "createFailed", id: message.id, reason: reasonOf(error) });
       return;
@@ -170,6 +198,17 @@ export function createWorkerMessageHandler(
           id: message.id,
           model: "object",
           result: entry.model.detectForVideo(message.frame, message.timestampMs),
+        });
+      } else if (entry.kind === "hand") {
+        const result = entry.model.detectForVideo(message.frame, message.timestampMs);
+        // 점마다 붙는 깊이·가시도와 양손 구분은 판정에 안 써서 옮기지 않는다.
+        deps.post({
+          type: "result",
+          id: message.id,
+          model: "hand",
+          result: {
+            landmarks: result.landmarks.map((hand) => hand.map(({ x, y }) => ({ x, y }))),
+          },
         });
       } else {
         const result = entry.model.detectForVideo(message.frame, message.timestampMs);

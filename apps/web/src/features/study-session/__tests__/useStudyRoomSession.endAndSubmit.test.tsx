@@ -115,6 +115,16 @@ describe("완료 할 일 전달 (BY-725)", () => {
     expect(vi.mocked(submitStudySession).mock.calls[0]![0].completedTaskIds).toEqual([2]);
   });
 
+  it("제출 시점의 관찰 기록을 싣는다", async () => {
+    vi.mocked(submitStudySession).mockResolvedValueOnce([]);
+    const yawn = { type: "YAWN" as const, startedAt: new Date().toISOString() };
+    const hook = renderHook(() => useStudyRoomSession(7, { getObservations: () => [yawn] }));
+    await act(async () => {
+      await hook.result.current.endAndSubmit();
+    });
+    expect(vi.mocked(submitStudySession).mock.calls[0]![0].observations).toEqual([yawn]);
+  });
+
   it("옵션이 없으면 completedTaskIds를 넘기지 않는다(소셜룸 등)", async () => {
     vi.mocked(submitStudySession).mockResolvedValueOnce([]);
     const hook = renderHook(() => useStudyRoomSession(7));

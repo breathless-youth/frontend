@@ -128,6 +128,23 @@ export type ToWebMessage =
   | { type: "profile-photo-result"; id: string; status: "picked"; data: string; atMs: number }
   | { type: "profile-photo-result"; id: string; status: "cancelled" | "failed"; atMs: number }
   /**
+   * 앱 배경 사진 선택기 결과
+   *
+   * `pick-background-photo`에 대한 응답이고 요청의 `id`를 그대로 싣는다.
+   * `picked`의 `data`는 앱이 자르지 않고 긴 변 1920px로 줄인 JPEG의 base64이고 `width`·`height`는 그 크기다.
+   * `cancelled`는 사용자가 고르지 않고 닫은 경우이고 `failed`는 앱이 사진을 읽지 못한 경우다.
+   */
+  | {
+      type: "background-photo-result";
+      id: string;
+      status: "picked";
+      data: string;
+      width: number;
+      height: number;
+      atMs: number;
+    }
+  | { type: "background-photo-result"; id: string; status: "cancelled" | "failed"; atMs: number }
+  /**
    * 앱을 쓰는 중에 온 그룹 알림
    *
    * 앱이 포그라운드에서 그룹 푸시를 받았고 세션 화면이 아닐 때 보이는 탭 웹뷰 하나에만 보낸다.
@@ -463,7 +480,20 @@ export type ToNativeMessage =
    * `measureMode: "timer"`는 카메라 없이 공부하겠다는 뜻이라 네이티브가 권한 게이트를 건너뛰고 세션 화면을 연다.
    * 카메라 방식은 이 필드를 싣지 않으므로, 필드를 모르는 구버전 앱은 예전처럼 권한을 확인한다.
    */
-  | { type: "start-session"; atMs: number; initialSubjectId?: number; measureMode?: "timer" }
+  | {
+      type: "start-session";
+      atMs: number;
+      initialSubjectId?: number;
+      measureMode?: "timer";
+      /**
+       * 첫 세션 가이드를 볼 사용자라 카메라 권한을 가이드 끝(`공부 시작하기`)에서 묻는다는 표시
+       *
+       * 웹은 앱이 주소에 `cameraPermissionLater=1`을 붙였을 때만 싣는다.
+       * 앱은 아직 묻지 않은 기기면 묻지 않고 세션 화면을 열고, 세션 화면 주소에 `cameraPermission=later`를 싣는다.
+       * 이미 허용·거부한 기기는 지금처럼 게이트를 돈다.
+       */
+      cameraPermission?: "later";
+    }
   /**
    * 설정(S6) 카메라 권한 행에서 OS 설정 앱을 열어달라는 요청. 네이티브가 OS 설정 앱을 연다.
    */
@@ -552,7 +582,18 @@ export type ToNativeMessage =
    * 응답이 오지 않을 때의 판단은 웹이 셸 표시(`cameraGate=1` 쿼리)로 가른다 — 표시가 있으면
    * 차단, 없으면(이 메시지를 모르는 구버전 앱) 통과다. 상세는 `apps/web/src/lib/nativeCameraGate.ts`.
    */
-  | { type: "request-camera-gate"; atMs: number }
+  | {
+      type: "request-camera-gate";
+      atMs: number;
+      /**
+       * 싱글 세션 화면 안에서 묻는 게이트(`cameraPermission=later`로 연 세션)
+       *
+       * 거부하면 앱이 세션 화면을 카메라 없이 시작 출구가 있는 권한 안내 화면으로 바꾸고, 과목은 그 출구로 넘긴다.
+       * 없으면 소셜 룸 입장 게이트다.
+       */
+      roomType?: "single";
+      initialSubjectId?: number;
+    }
   /**
    * OS 알림 권한 요청
    *
@@ -560,6 +601,22 @@ export type ToNativeMessage =
    * 이 표시가 있는 앱은 실행할 때 알림 권한을 묻지 않으므로 묻는 시점은 웹이 정한다.
    */
   | { type: "request-push-permission"; atMs: number }
+  /**
+   * 휴식 끝 OS 알림 예약
+   *
+   * 앱이 웹뷰 주소에 `restNotify=1`을 붙였을 때만 보낸다. 앱은 `fireAtMs`에 로컬 알림을 띄운다.
+   * 같은 `id`로 다시 보내면 앞의 예약을 바꾼다. 응답은 없다.
+   */
+  | {
+      type: "schedule-rest-notification";
+      id: string;
+      fireAtMs: number;
+      title: string;
+      body: string;
+      atMs: number;
+    }
+  /** 휴식 끝 OS 알림 예약 취소. 없는 `id`면 아무 일도 없다. */
+  | { type: "cancel-rest-notification"; id: string; atMs: number }
   /**
    * 첫 화면을 보여도 된다는 신호
    *
@@ -642,6 +699,13 @@ export type ToNativeMessage =
    * 앱이 웹뷰 주소에 `profilePhotoPicker=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `profile-photo-result`로 답한다.
    */
   | { type: "pick-profile-photo"; id: string; atMs: number }
+  /**
+   * 타이머 배경 사진 고르기 요청
+   *
+   * 프로필 사진과 같은 이유로 Android는 앱이 시스템 선택기로 고르고 줄여 보낸다.
+   * 앱이 웹뷰 주소에 `backgroundPhotoPicker=1`을 붙였을 때만 보내고, 앱은 같은 `id`의 `background-photo-result`로 답한다.
+   */
+  | { type: "pick-background-photo"; id: string; atMs: number }
   /**
    * 앱 안 알림 토스트를 눌렀다
    *

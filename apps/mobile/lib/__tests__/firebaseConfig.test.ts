@@ -64,12 +64,20 @@ describe("Firebase 설정 (BY-585)", () => {
       expect(names).toContain("@react-native-firebase/messaging");
     });
 
-    // 둘 중 하나가 빠지면 빌드는 되지만 Android 상태 표시줄 알림 아이콘이 앱 아이콘 네모로 돌아간다.
-    it("Android 알림 아이콘을 RNFB 플러그인이 가리키고 withNotificationIcon이 리소스로 복사한다", () => {
+    // expo-notifications 플러그인은 아이콘을 받지 못하면 RNFB가 넣은 FCM 아이콘 항목까지 지워서
+    // 빌드는 되지만 Android 상태 표시줄 알림 아이콘이 앱 아이콘 네모로 돌아간다.
+    it("Android 알림 아이콘을 RNFB와 expo-notifications 플러그인이 같은 그림으로 가리킨다", () => {
       const icon = pluginOptions("@react-native-firebase/messaging")?.android?.notificationIcon;
       expect(icon).toBe("./assets/notification-icon.png");
       expect(fs.existsSync(path.resolve(__dirname, "../..", icon as string))).toBe(true);
-      expect(plugins.map(pluginName)).toContain("./plugins/withNotificationIcon");
+      expect(pluginOptions("expo-notifications")?.icon).toBe(icon);
+    });
+
+    // Play는 핵심 기능이 알람·캘린더인 앱에만 USE_EXACT_ALARM을 허락한다. 휴식 끝 알림은 부가 기능이라
+    // 사용자가 허용하는 SCHEDULE_EXACT_ALARM을 쓴다.
+    it("Android가 사용자 허용 정확한 알람 권한만 선언한다", () => {
+      expect(appJson.expo.android.permissions).not.toContain("USE_EXACT_ALARM");
+      expect(appJson.expo.android.permissions).toContain("SCHEDULE_EXACT_ALARM");
     });
 
     /**

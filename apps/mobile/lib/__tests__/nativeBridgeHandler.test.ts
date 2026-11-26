@@ -22,6 +22,7 @@ import {
 } from "../cameraPermission";
 import { runCameraPermissionGate } from "../cameraPermissionGate";
 import { triggerHaptic } from "../haptics";
+import { cancelRestNotification, scheduleRestNotification } from "../restNotification";
 import { logAnalyticsEvent, setAnalyticsUserProperties } from "../firebaseAnalytics";
 import { initMetaAds, logMetaAppEvent } from "../metaAds";
 import { getMotionSensorRelay } from "../motionSensorRelay";
@@ -61,6 +62,10 @@ jest.mock("expo-router", () => ({
 }));
 
 jest.mock("../haptics", () => ({ triggerHaptic: jest.fn() }));
+jest.mock("../restNotification", () => ({
+  scheduleRestNotification: jest.fn(async () => undefined),
+  cancelRestNotification: jest.fn(async () => undefined),
+}));
 
 jest.mock("../cameraPermissionGate", () => ({
   runCameraPermissionGate: jest.fn(),
@@ -146,7 +151,9 @@ jest.mock("../videoTransfer", () => ({
   shareVideo: jest.fn(),
 }));
 
-const mockPicker: { native: { pick: jest.Mock } | null } = { native: null };
+const mockPicker: { native: { pick: jest.Mock; pickBackground?: jest.Mock } | null } = {
+  native: null,
+};
 jest.mock("../../modules/profile-photo-picker", () => ({
   get profilePhotoPickerNative() {
     return mockPicker.native;
@@ -238,6 +245,48 @@ describe("handleBridgeMessage", () => {
     await Promise.resolve();
 
     expect(mockedRunCameraPermissionGate).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.push).toHaveBeenCalledWith("/room/1");
+  });
+
+  it("start-session → 가이드 끝에서 묻는 시작은 아직 묻지 않은 기기면 묻지 않고 표시를 실어 세션 화면을 연다", async () => {
+    mockedGetCameraPermissionStatus.mockResolvedValue("undetermined");
+
+    handleBridgeMessage(
+      { type: "start-session", atMs: 1, initialSubjectId: 3, cameraPermission: "later" },
+      noopReply,
+    );
+    await flush();
+
+    expect(mockedRunCameraPermissionGate).not.toHaveBeenCalled();
+    expect(mockedRouter.push).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.push).toHaveBeenCalledWith({
+      pathname: "/room/[id]",
+      params: { id: "1", cameraPermission: "later", initialSubjectId: "3" },
+    });
+  });
+  it.each(["granted", "denied"] as const)(
+    "start-session → 가이드 끝에서 묻는 시작이어도 이미 %s인 기기는 지금처럼 게이트를 돈다",
+    async (status) => {
+      mockedGetCameraPermissionStatus.mockResolvedValue(status);
+      mockedRunCameraPermissionGate.mockResolvedValue("start-session");
+
+      handleBridgeMessage({ type: "start-session", atMs: 1, cameraPermission: "later" }, noopReply);
+      await flush();
+
+      expect(mockedRunCameraPermissionGate).toHaveBeenCalledTimes(1);
+      expect(mockedRouter.push).toHaveBeenCalledTimes(1);
+      expect(mockedRouter.push).toHaveBeenCalledWith("/room/1");
+    },
+  );
+  it("start-session → 가이드 끝에서 묻는 시작인데 권한 상태를 읽지 못하면 지금처럼 게이트를 돈다", async () => {
+    mockedGetCameraPermissionStatus.mockRejectedValue(new Error("boom"));
+    mockedRunCameraPermissionGate.mockResolvedValue("start-session");
+
+    handleBridgeMessage({ type: "start-session", atMs: 1, cameraPermission: "later" }, noopReply);
+    await flush();
+
+    expect(mockedRunCameraPermissionGate).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.push).toHaveBeenCalledTimes(1);
     expect(mockedRouter.push).toHaveBeenCalledWith("/room/1");
   });
 
@@ -423,6 +472,38 @@ describe("handleBridgeMessage", () => {
     expect(reply).toHaveBeenCalledWith(
       expect.objectContaining({ type: "camera-gate-result", granted: false }),
     );
+  });
+
+  it("request-camera-gate(single) → 허용이면 granted true로 답하고 화면을 바꾸지 않는다", async () => {
+    mockedRunCameraPermissionGate.mockResolvedValue("start-session");
+    const reply = jest.fn();
+
+    handleBridgeMessage({ type: "request-camera-gate", atMs: 1, roomType: "single" }, reply);
+    await flush();
+
+    expect(mockedRunCameraPermissionGate).toHaveBeenCalledWith("single");
+    expect(reply).toHaveBeenCalledWith(expect.objectContaining({ granted: true }));
+    expect(mockedRouter.replace).not.toHaveBeenCalled();
+    expect(mockedRouter.push).not.toHaveBeenCalled();
+  });
+
+  it("request-camera-gate(single) → 거부면 세션 화면을 출구 있는 권한 거부 안내로 바꾸고 과목을 넘긴다", async () => {
+    mockedRunCameraPermissionGate.mockResolvedValue("show-denied-guide");
+    const reply = jest.fn();
+
+    handleBridgeMessage(
+      { type: "request-camera-gate", atMs: 1, roomType: "single", initialSubjectId: 3 },
+      reply,
+    );
+    await flush();
+
+    expect(mockedRouter.replace).toHaveBeenCalledTimes(1);
+    expect(mockedRouter.replace).toHaveBeenCalledWith({
+      pathname: "/permission-denied",
+      params: { from: "single", initialSubjectId: "3" },
+    });
+    expect(mockedRouter.push).not.toHaveBeenCalled();
+    expect(reply).toHaveBeenCalledWith(expect.objectContaining({ granted: false }));
   });
 
   it("request-camera-gate → 게이트 실행이 실패하면 granted false로 답한다 — 확인 못 한 권한으로 입장시키지 않는다", async () => {
@@ -723,6 +804,29 @@ describe("handleBridgeMessage", () => {
       expect(mockedGetCameraPermissionStatus).toHaveBeenCalledTimes(1);
       expect(mockedRunCameraPermissionGate).not.toHaveBeenCalled();
     });
+  });
+
+  it("휴식 알림 예약·취소 메시지를 로컬 알림으로 넘긴다", () => {
+    handleBridgeMessage(
+      {
+        type: "schedule-rest-notification",
+        id: "rest",
+        fireAtMs: 5000,
+        title: "5분 휴식이 끝났어요",
+        body: "다시 공부를 시작할 시간이에요",
+        atMs: 1,
+      },
+      noopReply,
+    );
+    expect(scheduleRestNotification).toHaveBeenCalledWith({
+      id: "rest",
+      fireAtMs: 5000,
+      title: "5분 휴식이 끝났어요",
+      body: "다시 공부를 시작할 시간이에요",
+    });
+
+    handleBridgeMessage({ type: "cancel-rest-notification", id: "rest", atMs: 2 }, noopReply);
+    expect(cancelRestNotification).toHaveBeenCalledWith("rest");
   });
 
   it("haptic → 네이티브 햅틱을 낸다", () => {
@@ -1166,6 +1270,76 @@ describe("handleBridgeMessage: 프로필 사진 선택기", () => {
         expect.objectContaining({ type: "profile-photo-result", id: "r1", status: "failed" }),
       ),
     );
+  });
+});
+
+describe("handleBridgeMessage: 배경 사진 선택기", () => {
+  const request = { type: "pick-background-photo", id: "b1", atMs: 1 } as const;
+
+  afterEach(() => {
+    mockPicker.native = null;
+  });
+
+  it("고른 사진을 크기와 함께 같은 id의 picked로 답한다", async () => {
+    mockPicker.native = {
+      pick: jest.fn(),
+      pickBackground: jest.fn(async () => ({ data: "AAEC", width: 1080, height: 1920 })),
+    };
+    const reply = jest.fn();
+
+    handleBridgeMessage(request, reply);
+
+    await waitFor(() =>
+      expect(reply).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "background-photo-result",
+          id: "b1",
+          status: "picked",
+          data: "AAEC",
+          width: 1080,
+          height: 1920,
+        }),
+      ),
+    );
+  });
+
+  it("선택기를 닫으면 cancelled, 읽지 못하면 failed로 답한다", async () => {
+    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    mockPicker.native = { pick: jest.fn(), pickBackground: jest.fn(async () => null) };
+    const cancelReply = jest.fn();
+    handleBridgeMessage(request, cancelReply);
+    await waitFor(() =>
+      expect(cancelReply).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "background-photo-result", status: "cancelled" }),
+      ),
+    );
+
+    mockPicker.native = {
+      pick: jest.fn(),
+      pickBackground: jest.fn(async () => Promise.reject(new Error("decode"))),
+    };
+    const failReply = jest.fn();
+    handleBridgeMessage(request, failReply);
+    await waitFor(() =>
+      expect(failReply).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "background-photo-result", status: "failed" }),
+      ),
+    );
+    warn.mockRestore();
+  });
+
+  it("배경 함수가 없는 옛 모듈이면 선택기 없이 failed로 답한다", async () => {
+    mockPicker.native = { pick: jest.fn() };
+    const reply = jest.fn();
+
+    handleBridgeMessage(request, reply);
+
+    await waitFor(() =>
+      expect(reply).toHaveBeenCalledWith(
+        expect.objectContaining({ type: "background-photo-result", id: "b1", status: "failed" }),
+      ),
+    );
+    expect(mockPicker.native.pick).not.toHaveBeenCalled();
   });
 });
 

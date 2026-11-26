@@ -1,19 +1,4 @@
 {
-  "entryButton": {
-    "aria": {
-      "open": "타이머"
-    }
-  },
-  "screen": {
-    "title": "타이머",
-    "close": "타이머 끄기",
-    "kindLabel": "타이머 종류",
-    "kind": {
-      "timer": "기본",
-      "pomodoro": "뽀모도로"
-    },
-    "restart": "처음부터"
-  },
   "primary": {
     "start": "시작",
     "pause": "일시정지",
@@ -28,23 +13,6 @@
     "minuteOption": "{{count}}분",
     "aria": {
       "minutes": "{{label}} 시간"
-    }
-  },
-  "pomodoro": {
-    "phase": {
-      "focus": "집중 시간",
-      "break": "휴식 시간"
-    }
-  },
-  "remaining": {
-    "aria": {
-      "label": "남은 시간"
-    }
-  },
-  "dial": {
-    "lap": "{{lap}}바퀴째",
-    "aria": {
-      "minutes": "{{count}}분"
     }
   },
   "wheel": {
