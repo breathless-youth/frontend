@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { writeFaceMaskOn } from "@/features/live-room/faceMaskSettings";
 import { readMeasureMode, writeMeasureMode } from "@/features/measure-mode/measureMode";
 import type {
   PhotoTap,
@@ -292,7 +291,6 @@ describe("RoomPage 카메라 없는 모드", () => {
 
   it("끝내면 제출 요청에 측정 방식 TIMER를, 종료 이벤트에 timer를 싣는다", async () => {
     vi.mocked(submitStudySession).mockResolvedValue([]);
-    writeFaceMaskOn("single", true);
     writeMeasureMode("timer");
     markSessionGuideSeen(1);
     renderRoom();
